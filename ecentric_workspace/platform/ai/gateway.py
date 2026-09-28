@@ -20,13 +20,25 @@ do cac lan goi khac bo qua no. Loi do NOI DUNG (JSON hong, thieu khoa) KHONG dan
 la loi cua cau hoi do, khong phai model sap. Neu MOI model dung duoc deu dang bi danh dau
 thi van thu het (khong bao gio tu choi chi vi bo nho). `models=` truyen tay (probe, AI
 Content chi dung model chinh) thi bo qua bo nho: nguoi goi muon chinh model do.
+
+SUC KHOE (health.py, 28/09): ti le thanh cong 60 phut gan nhat cua tung model < 30% thi
+cung bi bo qua nhu model vua sap. Cung luat: `models=` truyen tay thi khong xet.
+
+CHE DO NHANH `fast=True` cho tro chuyen (eC Mate, gemini_chat) - do 28/09: Gemini goc treo
+toi 30s o 5/6 lan, luong OpenAI tat suy nghi tra loi 5-7s, Grok luon song nhung 12-25s:
+  * chuoi = config.fast_chain(): luong OpenAI truoc, bo Gemini goc khi da co ban OpenAI;
+  * GOI SONG SONG `race` model dau (mac dinh 2), lay ben nao tra loi DUNG truoc - khong ngoi
+    cho mot model treo het tran roi moi thu model ke;
+  * ca dot song song hong thi thu tiep tung model con lai voi tran rieng (TAIL_TIMEOUT)
+    vi Grok can 12-25s.
 """
+import concurrent.futures as cf
 import time
 
 import frappe
 import requests
 
-from ecentric_workspace.platform.ai import config, dialects
+from ecentric_workspace.platform.ai import config, dialects, health
 
 #: giay. Log AI dien ho 23-24/09: Kie 3.8 + 1 tep mat 15-30s; probe 28/09: Kie treo ~33s
 #: roi moi tra 500. Tran cu 30s cat ngang DUNG khoang do - goc cua 538 ReadTimeout 25-28/09.
@@ -36,6 +48,8 @@ DEFAULT_BUDGET = 100
 #: Con it hon chung nay thi khong bat dau lan thu moi - chac chan bi cat giua chung.
 MIN_ATTEMPT_SECONDS = 8
 CONNECT_TIMEOUT = 5
+#: giay. Tran cho cac model thu SAU dot song song cua che do nhanh (Grok can 12-25s).
+TAIL_TIMEOUT = 30
 #: giay. Du lau de khong dap vao Kie dang sap, du ngan de model song lai la dung ngay.
 DOWN_SECONDS = 300
 DOWN_KEY = "ec_ai_down::%s"
@@ -126,9 +140,40 @@ def _try_one(model, key, request, timeout):
     return text, data, usage, finish, ""
 
 
+def timed_try(model, key, request, timeout):
+    """_try_one + do thoi gian. KHONG cham frappe: chay duoc trong luong phu."""
+    t0 = time.time()
+    text, data, usage, finish, err = _try_one(model, key, request, timeout)
+    return {"model": model, "text": text, "data": data, "usage": usage, "finish": finish,
+            "error": err, "ms": int((time.time() - t0) * 1000)}
+
+
+def _race(models, key, request, timeout):
+    """Goi song song, tra (ket_qua_thang hoac None, [ket qua da xong], [model chua xong]).
+
+    Luong phu chi goi HTTP; ghi cache/log de luong chinh lam. Khong doi luong thua: no tu
+    het han theo tran thoi gian cua chinh no.
+    """
+    ex = cf.ThreadPoolExecutor(max_workers=len(models))
+    futs = {ex.submit(timed_try, m, key, request, timeout): m for m in models}
+    winner, done = None, []
+    try:
+        for f in cf.as_completed(futs, timeout=timeout + CONNECT_TIMEOUT + 1):
+            r = f.result()
+            done.append(r)
+            if not r["error"]:
+                winner = r
+                break
+    except cf.TimeoutError:
+        pass
+    ex.shutdown(wait=False)
+    finished = {r["model"] for r in done}
+    return winner, done, [m for m in models if m not in finished]
+
+
 def generate(prompt, system=None, schema=None, files=None, history=None, json_mode=False,
              purpose="", allow_fallback=True, models=None, attempt_timeout=None,
-             budget=None, opts=None):
+             budget=None, opts=None, fast=False, race=None):
     """-> dict:
         ok, text, data (dict khi co schema/json_mode), model, fell_back, error,
         attempts [{model, ok, error, ms}], latency_ms, files_in_request, usage, finish
@@ -153,10 +198,16 @@ def generate(prompt, system=None, schema=None, files=None, history=None, json_mo
 
     request = {"prompt": prompt, "system": system, "schema": schema, "files": files,
                "history": history, "json_mode": json_mode, "opts": opts}
-    chain = list(models) if models else config.chain(allow_fallback)
+    if models:
+        chain = list(models)
+    elif fast and allow_fallback:
+        chain = config.fast_chain()
+    else:
+        chain = config.chain(allow_fallback)
+    race = max(1, int(race if race is not None else (2 if fast else 1)))
     down = set()
     if not models:
-        down = {m for m in chain if _usable(m, files) and _is_down(m)}
+        down = {m for m in chain if _usable(m, files) and (_is_down(m) or health.unhealthy(m))}
         if not any(_usable(m, files) and m not in down for m in chain):
             # Ca Kie dang sap (probe 28/09 chieu: moi model deu hong). Thu DUNG MOT model
             # dung duoc dau tien de biet da song chua - khong bat nguoi dung cho ca chuoi
@@ -167,42 +218,78 @@ def generate(prompt, system=None, schema=None, files=None, history=None, json_mo
     per_try = float(attempt_timeout or DEFAULT_ATTEMPT_TIMEOUT)
     started = time.time()
 
-    for index, model in enumerate(chain):
+    attempts = {}
+    live = []
+    for model in chain:
         attempt = {"model": model, "ok": False, "error": "", "ms": 0}
         out["attempts"].append(attempt)
+        attempts[model] = attempt
         dialect = dialects.dialect_of(model)
         if not dialect:
             attempt["error"] = "ho model nay chua ho tro (chi gemini-*, gpt-*, grok-*)"
-            continue
-        if files and not dialects.ACCEPTS_FILES.get(dialect):
+        elif files and not dialects.ACCEPTS_FILES.get(dialect):
             attempt["error"] = "model khong nhan tep - bo qua, khong gui thieu tep"
-            continue
-        if model in down:
-            attempt["error"] = "vua sap (<%d phut) - bo qua, thu model ke" % (DOWN_SECONDS // 60)
-            continue
+        elif model in down:
+            attempt["error"] = ("vua sap (<%d phut) hoac ti le thanh cong 60 phut < %d%% - bo qua"
+                                % (DOWN_SECONDS // 60, int(health.THRESHOLD * 100)))
+        else:
+            live.append(model)
+
+    def settle(r):
+        a = attempts[r["model"]]
+        a["ms"] = r["ms"]
+        if r["error"]:
+            a["error"] = scrub(r["error"], key)[:600]
+            if is_outage(r["error"]):
+                _set_down(r["model"], True)
+                # Chi loi SAP moi tinh vao suc khoe; JSON hong la loi cua cau hoi nay.
+                health.record(r["model"], False, r["ms"])
+            return False
+        if _is_down(r["model"]):
+            _set_down(r["model"], False)  # song lai -> cac lan goi khac dung ngay
+        health.record(r["model"], True, r["ms"])
+        a["ok"] = True
+        out.update({"ok": True, "text": r["text"], "data": r["data"], "model": r["model"],
+                    "fell_back": chain.index(r["model"]) > 0, "usage": r["usage"],
+                    "finish": r["finish"], "files_in_request": len(files)})
+        return True
+
+    wave = live[:race] if race > 1 else []
+    if len(wave) > 1:
+        remaining = budget - (time.time() - started)
+        winner, done, pending = _race(wave, key, request, min(per_try, remaining))
+        for r in done:
+            if r is not winner:
+                settle(r)
+        for m in pending:
+            attempts[m]["error"] = "huy - model khac tra loi truoc" if winner else \
+                "qua %.0fs chua tra loi" % min(per_try, remaining)
+            if not winner:
+                health.record(m, False, int(min(per_try, remaining) * 1000))
+        if winner:
+            settle(winner)
+    else:
+        wave = []
+
+    for model in live[len(wave):]:
+        if out["ok"]:
+            break
         remaining = budget - (time.time() - started)
         if remaining < MIN_ATTEMPT_SECONDS:
-            attempt["error"] = "het ngan sach thoi gian (%.0fs)" % budget
+            attempts[model]["error"] = "het ngan sach thoi gian (%.0fs)" % budget
             break
-        t0 = time.time()
-        text, data, usage, finish, err = _try_one(model, key, request, min(per_try, remaining))
-        attempt["ms"] = int((time.time() - t0) * 1000)
-        if err:
-            attempt["error"] = scrub(err, key)[:600]
-            if is_outage(err):
-                _set_down(model, True)
-            continue
-        if _is_down(model):
-            _set_down(model, False)       # song lai -> cac lan goi khac dung ngay
-        attempt["ok"] = True
-        out.update({"ok": True, "text": text, "data": data, "model": model,
-                    "fell_back": index > 0, "usage": usage, "finish": finish,
-                    "files_in_request": len(files)})
-        break
+        cap = max(per_try, TAIL_TIMEOUT) if wave else per_try
+        settle(timed_try(model, key, request, min(cap, remaining)))
 
+    # Model khong duoc thu (da co ket qua / het ngan sach) khong nam trong vet - vet chi ke
+    # nhung gi da xay ra.
+    out["attempts"] = [a for a in out["attempts"] if a["ok"] or a["error"]]
     out["latency_ms"] = int((time.time() - started) * 1000)
     trail = " | ".join("%s: %s" % (a["model"], a["error"] or "ok") for a in out["attempts"])
-    if out["ok"] and out["fell_back"]:
+    # Dot song song: model dau chi CHAM hon (bi huy) khong phai su co -> khong ghi Error Log,
+    # neu khong moi cau chat deu de mot dong log.
+    real_fault = any(a["error"] and not a["error"].startswith("huy") for a in out["attempts"])
+    if out["ok"] and out["fell_back"] and real_fault:
         _log("ec_ai_fallback", "%s -> dung %s. %s" % (purpose or "?", out["model"], trail))
     if not out["ok"]:
         out["error"] = trail or "chuoi model rong"

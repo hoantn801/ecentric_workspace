@@ -81,7 +81,7 @@ def load(settings=None, roles=("EC AI Content",), replies=None, conf=None):
                         "requests": rq})
     for pkg in ("ecentric_workspace", "ecentric_workspace.platform", "ecentric_workspace.platform.ai"):
         sys.modules[pkg] = types.ModuleType(pkg)
-    for name in ("config", "dialects", "gateway"):
+    for name in ("config", "dialects", "health", "gateway"):
         full = "ecentric_workspace.platform.ai." + name
         m = types.ModuleType(full)
         sys.modules[full] = m

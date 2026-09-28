@@ -72,7 +72,7 @@ class Env(object):
         fk.log_error = lambda title=None, message=None, **k: env.logs.append((title, message))
         fk.whitelist = lambda *a, **k: (a[0] if a and callable(a[0]) else (lambda f: f))
         fk.session = types.SimpleNamespace(user="a@ecentric.vn")
-        self.cache = {}
+        self.cache, self.ttls = {}, {}
 
         class _Cache(object):
             def get_value(self, k):
@@ -80,7 +80,9 @@ class Env(object):
 
             def set_value(self, k, v, expires_in_sec=None):
                 env.cache[k] = v
-                env.ttl = expires_in_sec
+                env.ttls[k] = expires_in_sec
+                if k.startswith("ec_ai_down"):
+                    env.ttl = expires_in_sec
 
             def delete_value(self, k):
                 env.cache.pop(k, None)
@@ -100,7 +102,7 @@ class Env(object):
                     "ecentric_workspace.platform.ai"):
             sys.modules[pkg] = types.ModuleType(pkg)
         self.mod = {}
-        for name in ("config", "dialects", "gateway", "scope", "chat", "company_summary"):
+        for name in ("config", "dialects", "health", "gateway", "scope", "chat", "company_summary"):
             full = "ecentric_workspace.platform.ai." + name
             m = types.ModuleType(full)
             m.__file__ = os.path.join(AI, name + ".py")
@@ -127,6 +129,10 @@ class Env(object):
             raise reply
         status, body = reply if reply else (200, KIE_500)
         return types.SimpleNamespace(status_code=status, content=body.encode("utf-8"))
+
+
+def down(e):
+    return {k: v for k, v in e.cache.items() if k.startswith("ec_ai_down")}
 
 
 SCHEMA = {"type": "object", "properties": {"diem": {"type": "integer"}}, "required": ["diem"]}
@@ -416,7 +422,8 @@ class NhoModelSap(unittest.TestCase):
         e.replies["gemini"] = (200, sse('{"diem": 7, "ly_do": "'))
         e.replies["gpt"] = (200, gpt_body('{"diem": 6}'))
         e.gw.generate("cham", schema=SCHEMA)
-        self.assertEqual(e.cache, {}, "JSON hong la loi cua cau hoi nay, khong phai model sap")
+        self.assertEqual(down(e), {}, "JSON hong la loi cua cau hoi nay, khong phai model sap")
+        self.assertEqual(e.gw.health.stats("gemini-3-8-flash")[1], 0, "va khong tinh vao suc khoe")
 
     def test_moi_model_dung_duoc_deu_nghi_thi_van_thu(self):
         e = Env()
@@ -443,7 +450,7 @@ class NhoModelSap(unittest.TestCase):
         e.cache[e.gw.DOWN_KEY % "gemini-3-8-flash"] = 1
         e.replies["gemini"] = (200, sse("chao"))
         e.gw.generate("x", models=["gemini-3-8-flash"])
-        self.assertEqual(e.cache, {})
+        self.assertEqual(down(e), {})
 
     def test_models_truyen_tay_bo_qua_bo_nho(self):
         e = Env()
@@ -525,6 +532,124 @@ class TongHopCongTy(unittest.TestCase):
         self.assertFalse(cs.can_view({"scope": "dept", "depts": ["A"]}, ""))
         self.assertTrue(cs.can_view({"scope": "dept", "depts": ["A"]}, "A"))
         self.assertFalse(cs.can_view({"scope": "dept", "depts": ["A"]}, "B"))
+
+
+class SucKhoeVaCheDoNhanh(unittest.TestCase):
+    """Hoan 28/09: eC Mate cham + 'Kie co status 24h, duoi 30% thi doi model'."""
+
+    FAST = {"ec_llm_model_kie": "gemini-3-8-flash",
+            "ec_llm_model_kie_fallback": "gemini-3-8-flash-openai, gemini-3-6-flash-openai, grok-4-7"}
+
+    def test_ti_le_thuan(self):
+        h = Env().mod["health"]
+        now = 10000.0
+        s = [[now - 4000, 0, 0]] + [[now - i, i % 2, 100 * i] for i in range(1, 7)]
+        kept = h.trim(s, now)
+        self.assertEqual(len(kept), 6, "mau cu hon 60 phut bi bo")
+        rate, n, med = h.summarize(kept)
+        self.assertEqual((round(rate, 2), n), (0.5, 6))
+        self.assertEqual(h.summarize(kept[:3])[0], None, "it hon 4 mau thi chua ket luan")
+        self.assertTrue(h.is_unhealthy_rate(0.29))
+        self.assertFalse(h.is_unhealthy_rate(0.30))
+        self.assertFalse(h.is_unhealthy_rate(None), "chua du mau khong bi coi la hong")
+        self.assertEqual(len(h.trim([[now - i, 1, 1] for i in range(50)], now)), h.MAX_SAMPLES)
+
+    def test_duoi_30_phan_tram_thi_bo_qua(self):
+        e = Env()
+        for _ in range(5):
+            e.gw.health.record("gemini-3-8-flash", False, 30000)
+        e.gw.health.record("gemini-3-8-flash", True, 5000)
+        e.replies["gpt"] = (200, gpt_body("ok"))
+        r = e.gw.generate("chao")
+        self.assertTrue(r["ok"])
+        self.assertEqual(e.models_called, ["gpt-5-5"], "1/6 = 17% < 30%: khong goi nua")
+        self.assertIn("ti le thanh cong", r["attempts"][0]["error"])
+
+    def test_du_30_phan_tram_van_goi(self):
+        e = Env()
+        for ok in (1, 1, 0, 0, 0):
+            e.gw.health.record("gemini-3-8-flash", ok, 1000)
+        e.replies["gemini"] = (200, sse("chao"))
+        self.assertTrue(e.gw.generate("chao")["ok"])
+        self.assertEqual(e.models_called, ["gemini-3-8-flash"], "2/5 = 40%: van dung")
+
+    def test_ghi_suc_khoe_ca_thanh_cong_lan_sap(self):
+        e = Env()
+        e.replies["gemini"] = (200, KIE_500)
+        e.replies["gpt"] = (200, gpt_body("ok"))
+        e.gw.generate("chao")
+        self.assertEqual([x[1] for x in e.gw.health._get("gemini-3-8-flash")], [0])
+        self.assertEqual([x[1] for x in e.gw.health._get("gpt-5-5")], [1])
+
+    def test_chuoi_nhanh_luong_openai_truoc_bo_gemini_goc(self):
+        e = Env(settings=self.FAST)
+        self.assertEqual(e.mod["config"].fast_chain(),
+                         ["gemini-3-8-flash-openai", "gemini-3-6-flash-openai", "grok-4-7"])
+        e2 = Env(settings={"ec_llm_model_kie": "gemini-3-8-flash", "ec_llm_model_kie_fallback": "grok-4-7"})
+        self.assertEqual(e2.mod["config"].fast_chain(), ["gemini-3-8-flash", "grok-4-7"],
+                         "khong co ban OpenAI thi giu Gemini goc")
+
+    def test_song_song_lay_ben_xong_truoc(self):
+        import time as _t
+        e = Env(settings=self.FAST)
+
+        def cham():
+            _t.sleep(0.6)
+            return (200, chat_body("CHAM"))
+        e.replies["gemini-3-8-flash-openai"] = cham
+        e.replies["gemini-3-6-flash-openai"] = (200, chat_body("NHANH"))
+        t0 = _t.time()
+        r = e.gw.generate("chao", fast=True, attempt_timeout=5, opts={"effort": "none"})
+        self.assertLess(_t.time() - t0, 0.5, "khong cho model cham")
+        self.assertEqual((r["ok"], r["text"], r["model"]), (True, "NHANH", "gemini-3-6-flash-openai"))
+        self.assertIn("huy", r["attempts"][0]["error"])
+        self.assertNotIn("grok-4-7", e.models_called)
+        body = [c["body"] for c in e.calls if "3-6" in c["url"]][0]
+        self.assertEqual(body["reasoning_effort"], "none")
+        self.assertEqual(e.logs, [], "model dau chi cham hon, khong phai su co: khong ghi log")
+
+    def test_song_song_hong_ca_thi_thu_grok_voi_tran_rieng(self):
+        e = Env(settings=self.FAST)
+        e.replies["oai"] = (200, KIE_500)
+        e.replies["grok"] = (200, gpt_body("GROK"))
+        r = e.gw.generate("chao", fast=True, attempt_timeout=10, budget=60, opts={"effort": "none"})
+        self.assertEqual((r["ok"], r["text"], r["model"]), (True, "GROK", "grok-4-7"))
+        grok = [c for c in e.calls if "/grok/" in c["url"]][0]
+        self.assertEqual(grok["timeout"][1], e.gw.TAIL_TIMEOUT, "Grok can 12-25s, khong cat o 10s")
+        self.assertEqual(grok["body"]["reasoning"]["effort"], "low", "grok khong nhan 'none'")
+        self.assertEqual(sorted(e.models_called[:2]),
+                         ["gemini-3-6-flash-openai", "gemini-3-8-flash-openai"])
+
+    def test_gemini_goc_tat_suy_nghi_bang_budget_0(self):
+        d = Env().mod["dialects"]
+        body = d.build("gemini-3-8-flash", "x", opts={"effort": "none"})
+        self.assertEqual(body["generationConfig"]["thinkingConfig"], {"thinkingBudget": 0})
+        self.assertNotIn("thinkingConfig", d.build("gemini-3-8-flash", "x")["generationConfig"])
+        self.assertNotIn("reasoning_effort", d.build("gemini-3-8-flash-openai", "x"))
+
+    def test_ping_cron_ghi_suc_khoe_moi_model(self):
+        e = Env(settings=self.FAST)
+        e.replies["gemini"] = (200, KIE_500)
+        e.replies["oai"] = (200, chat_body("ok"))
+        e.replies["grok"] = (200, gpt_body("ok"))
+        out = e.mod["health"].ping_models()
+        self.assertEqual(sorted(out), ["gemini-3-6-flash-openai", "gemini-3-8-flash",
+                                       "gemini-3-8-flash-openai", "grok-4-7"])
+        self.assertEqual([x[1] for x in e.gw.health._get("gemini-3-8-flash")], [0])
+        self.assertEqual([x[1] for x in e.gw.health._get("grok-4-7")], [1])
+        self.assertTrue(all(c["body"].get("max_tokens", 16) == 16 for c in e.calls
+                            if "chat/completions" in c["url"]), "cau ping cuc ngan")
+        e2 = Env(conf={"ec_ai_disabled": 1})
+        self.assertEqual(e2.mod["health"].ping_models(), {}, "tat AI thi khong ping")
+        self.assertEqual(e2.calls, [])
+
+    def test_mac_dinh_khong_doi_hanh_vi_cu(self):
+        e = Env()
+        e.replies["gemini"] = (200, KIE_500)
+        e.replies["gpt"] = (200, gpt_body("ok"))
+        r = e.gw.generate("chao")
+        self.assertEqual(e.models_called, ["gemini-3-8-flash", "gpt-5-5"], "tuan tu nhu truoc")
+        self.assertTrue(r["ok"])
 
 
 if __name__ == "__main__":

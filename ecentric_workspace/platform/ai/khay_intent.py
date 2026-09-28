@@ -14,6 +14,7 @@ Khong import frappe: test chay khong can bench.
 """
 import datetime
 import json
+import re
 
 LEAVE = "leave"
 PAYMENT = "payment_request"
@@ -80,6 +81,32 @@ def calendar(today, days=CALENDAR_DAYS):
         tag = " - hôm nay" if i == 0 else (" - ngày mai" if i == 1 else "")
         out.append("%s (%s)%s" % (d.isoformat(), _THU[d.weekday()], tag))
     return out
+
+
+_GREET = re.compile(
+    r"^(xin\s+)?(chào|chao|hi|hello|helo|alo|hey)(\s+(bạn|ban|em|mate|ec mate|nhé|nha))*"
+    r"[\s!.,?~]*$", re.I)
+_THANKS = re.compile(
+    r"^(cảm ơn|cám ơn|cam on|thanks|thank you|thank|tks|ok|oke|okay|được rồi|duoc roi)"
+    r"(\s+(bạn|ban|nhé|nha|nhiều|nhieu|nhe))*[\s!.,~]*$", re.I)
+
+
+def quick_reply(message, name, has_files=False):
+    """PURE. Cau chao / cam on -> tra loi NGAY, khong goi AI (mat 5-25s cho mot cau 'chao').
+
+    Chi khop CA CAU (khong khop 'chao ban, cho minh nghi mai'). -> dict hanh dong hoac None.
+    """
+    text = str(message or "").strip()
+    if has_files or not text or len(text) > 40:
+        return None
+    if _GREET.match(text):
+        reply = ("Chào bạn! Mình là %s. Bạn cần xin nghỉ, tạo đề nghị thanh toán hay hỏi "
+                 "gì cứ nhắn nhé." % (name or "trợ lý"))
+    elif _THANKS.match(text):
+        reply = "Không có gì nè! Cần gì bạn cứ nhắn mình nhé."
+    else:
+        return None
+    return {"action": ANSWER, "reply": reply, "options": [], "needs_data": False}
 
 
 def build_prompt(message, today, leave_types, page="", file_names=()):
