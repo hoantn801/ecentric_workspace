@@ -319,7 +319,7 @@
     "@media (prefers-reduced-motion:reduce){.lid,.typing i{animation:none}}"
   ].join("");
 
-  function NAME() { return (S.boot && S.boot.name) || "eCentric AI"; }
+  function NAME() { return (S.boot && S.boot.name) || "eC Mate"; }
 
   function build(host) {
     var root = host.attachShadow({ mode: "open" });

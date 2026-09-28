@@ -26,7 +26,7 @@ PAYMENT_CODE = "PAYMENT_REQUEST"
 #: nghiem thu xong tren form nay. Them form = them vao day SAU khi form do chay AI dien ho.
 PAYMENT_ROUTE = "/approvals/payment-request"
 #: Ten hien tren giao dien va trong loi dan. Doi ten = doi DUNG dong nay.
-ASSISTANT_NAME = "eCentric AI"
+ASSISTANT_NAME = "eC Mate"   # Hoan chot ten 28/09
 #: Hoi thoai thi phai nhanh: moi lan thu toi da 15s (Kie lan 28/09 treo 60s moi bao loi),
 #: tong 45s. Model treo bi danh dau sap 5 phut nen lan sau di thang toi model con song.
 BUDGET = 45

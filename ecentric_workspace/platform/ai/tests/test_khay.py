@@ -205,7 +205,7 @@ class Endpoint(unittest.TestCase):
         e = Env(roles=("EC Khay Pilot", "EC AI Formfill Pilot"))
         b = e.k.boot()
         self.assertEqual((b["enabled"], b["name"], b["first_name"], b["can_leave"], b["can_payment"]),
-                         (True, "eCentric AI", "Hoan", True, True))
+                         (True, "eC Mate", "Hoan", True, True))
 
     def test_nghi_phep_di_qua_cong_voi_schema(self):
         e = Env(reply=(200, sse({"action": "leave", "reply": "Soạn xong", "leave_type": "Annual Leave",
@@ -218,7 +218,7 @@ class Endpoint(unittest.TestCase):
         self.assertEqual(body["generationConfig"]["temperature"], 0)
         self.assertIn("2026-09-29 (Thứ Ba) - ngày mai", body["contents"][-1]["parts"][-1]["text"])
         self.assertEqual(body["contents"][0]["parts"][0]["text"], "chao", "giu lich su")
-        self.assertIn("Ban la eCentric AI", body["systemInstruction"]["parts"][0]["text"])
+        self.assertIn("Ban la eC Mate", body["systemInstruction"]["parts"][0]["text"])
         self.assertLessEqual(e.calls[0]["timeout"][1], 15, "hoi thoai: moi lan thu toi da 15s")
 
     def test_khong_ho_so_nhan_vien_thi_bao(self):

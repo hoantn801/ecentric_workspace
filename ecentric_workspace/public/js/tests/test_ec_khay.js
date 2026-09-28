@@ -94,12 +94,12 @@ const shell='<aside data-ec-shell="1"></aside><main>trang</main>';
 
   // ---- ten tro ly + tro chuyen tra loi thang (khong goi tra cuu)
   const r5=Object.assign({},routes,{
-    "ecentric_workspace.platform.ai.khay.boot":()=>({status:200,j:{message:{enabled:true,name:"eCentric AI",first_name:"Hoàn",can_leave:true,can_payment:false}}}),
+    "ecentric_workspace.platform.ai.khay.boot":()=>({status:200,j:{message:{enabled:true,name:"eC Mate",first_name:"Hoàn",can_leave:true,can_payment:false}}}),
     "ecentric_workspace.platform.ai.khay.intent":()=>({status:200,j:{message:{action:"answer",needs_data:false,reply:"Chào bạn, mình đây!",options:[]}}}),
     "gemini_chat":()=>({status:200,j:{message:{success:true,reply:"TRA CUU"}}})});
   const e5=mk("https://x/viec-cua-toi",shell,r5); await tick(50);
   const R5=e5.w.document.getElementById("ec-khay-host").shadowRoot;
-  ok("ten hien tren dau khung", R5.querySelector(".hd b").textContent==="eCentric AI" && /eCentric AI/.test(R5.querySelector(".fab").getAttribute("aria-label")));
+  ok("ten hien tren dau khung", R5.querySelector(".hd b").textContent==="eC Mate" && /eC Mate/.test(R5.querySelector(".fab").getAttribute("aria-label")));
   ok("khong con chu Khay tren giao dien", !/Khay/.test(R5.innerHTML.replace(/<style>[\s\S]*?<\/style>/,"")));
   R5.querySelector(".fab").click(); await tick();
   R5.querySelector("textarea").value="alo";
