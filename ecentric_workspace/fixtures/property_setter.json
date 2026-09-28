@@ -1,0 +1,81 @@
+[
+ {
+  "doctype": "Property Setter",
+  "name": "Employee-date_of_issue-permlevel",
+  "doctype_or_field": "DocField",
+  "doc_type": "Employee",
+  "property": "permlevel",
+  "property_type": "Int",
+  "value": "1",
+  "field_name": "date_of_issue"
+ },
+ {
+  "doctype": "Property Setter",
+  "name": "Employee-place_of_issue-permlevel",
+  "doctype_or_field": "DocField",
+  "doc_type": "Employee",
+  "property": "permlevel",
+  "property_type": "Int",
+  "value": "1",
+  "field_name": "place_of_issue"
+ },
+ {
+  "doctype": "Property Setter",
+  "name": "Employee-passport_details_section-label",
+  "doctype_or_field": "DocField",
+  "doc_type": "Employee",
+  "property": "label",
+  "property_type": "Data",
+  "value": "CCCD / Hộ chiếu",
+  "field_name": "passport_details_section"
+ },
+ {
+  "doctype": "Property Setter",
+  "name": "Employee-passport_number-label",
+  "doctype_or_field": "DocField",
+  "doc_type": "Employee",
+  "property": "label",
+  "property_type": "Data",
+  "value": "CCCD / Hộ chiếu",
+  "field_name": "passport_number"
+ },
+ {
+  "doctype": "Property Setter",
+  "name": "Employee-date_of_issue-label",
+  "doctype_or_field": "DocField",
+  "doc_type": "Employee",
+  "property": "label",
+  "property_type": "Data",
+  "value": "Ngày cấp",
+  "field_name": "date_of_issue"
+ },
+ {
+  "doctype": "Property Setter",
+  "name": "Employee-place_of_issue-label",
+  "doctype_or_field": "DocField",
+  "doc_type": "Employee",
+  "property": "label",
+  "property_type": "Data",
+  "value": "Nơi cấp",
+  "field_name": "place_of_issue"
+ },
+ {
+  "doctype": "Property Setter",
+  "name": "Employee-health_insurance_no-label",
+  "doctype_or_field": "DocField",
+  "doc_type": "Employee",
+  "property": "label",
+  "property_type": "Data",
+  "value": "Mã số BHXH",
+  "field_name": "health_insurance_no"
+ },
+ {
+  "doctype": "Property Setter",
+  "name": "Employee-main-track_changes",
+  "doctype_or_field": "DocType",
+  "doc_type": "Employee",
+  "property": "track_changes",
+  "property_type": "Check",
+  "value": "1"
+ }
+]

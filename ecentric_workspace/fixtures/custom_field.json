@@ -674,5 +674,90 @@
   "label": "Kie Model",
   "allow_on_submit": 0,
   "reqd": 0
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Employee-ec_sub_department",
+  "dt": "Employee",
+  "fieldname": "ec_sub_department",
+  "label": "Sub-department",
+  "fieldtype": "Link",
+  "insert_after": "department",
+  "permlevel": 0,
+  "options": "EC Sub Department",
+  "in_standard_filter": 1
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Employee-ec_bien_so_xe",
+  "dt": "Employee",
+  "fieldname": "ec_bien_so_xe",
+  "label": "Biển số xe",
+  "fieldtype": "Data",
+  "insert_after": "permanent_address",
+  "permlevel": 1
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Employee-ec_ma_kcb",
+  "dt": "Employee",
+  "fieldname": "ec_ma_kcb",
+  "label": "Mã KCB ban đầu",
+  "fieldtype": "Data",
+  "insert_after": "health_insurance_no",
+  "permlevel": 1
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Employee-ec_noi_kcb",
+  "dt": "Employee",
+  "fieldname": "ec_noi_kcb",
+  "label": "Nơi KCB ban đầu",
+  "fieldtype": "Data",
+  "insert_after": "ec_ma_kcb",
+  "permlevel": 1
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Employee-ec_laptop",
+  "dt": "Employee",
+  "fieldname": "ec_laptop",
+  "label": "Laptop",
+  "fieldtype": "Select",
+  "insert_after": "grade",
+  "permlevel": 2,
+  "options": "\nCông ty\nCá nhân"
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Employee-ec_thang_tang_bhxh",
+  "dt": "Employee",
+  "fieldname": "ec_thang_tang_bhxh",
+  "label": "Tháng tăng BHXH",
+  "fieldtype": "Data",
+  "insert_after": "ec_noi_kcb",
+  "permlevel": 2,
+  "description": "MM/YYYY, hoặc X nếu đã tăng nhưng chưa ghi tháng"
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Employee-ec_hop_dong_section",
+  "dt": "Employee",
+  "fieldname": "ec_hop_dong_section",
+  "label": "Lịch sử hợp đồng (EC)",
+  "fieldtype": "Section Break",
+  "insert_after": "date_of_retirement",
+  "permlevel": 2
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Employee-ec_contracts",
+  "dt": "Employee",
+  "fieldname": "ec_contracts",
+  "label": "Hợp đồng",
+  "fieldtype": "Table",
+  "insert_after": "ec_hop_dong_section",
+  "permlevel": 2,
+  "options": "EC Employee Contract"
  }
 ]

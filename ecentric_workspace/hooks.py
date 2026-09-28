@@ -230,6 +230,10 @@ permission_query_conditions = {
     "EC SLA Obligation": "ecentric_workspace.sla.permissions.obligation_query_conditions",
     "Task": "ecentric_workspace.pm.permissions.task_query_conditions",
     "Project": "ecentric_workspace.pm.permissions.project_query_conditions",
+    # 28/09/2026 (VA_BAO_MAT muc 2): nguoi ngoai HR chi thay chinh minh trong list/report/
+    # search Employee - chan do so TK / CCCD bang filter tren field permlevel cao. Thay cho
+    # Server Script `ec_employee_list_scope` (disable script do sau khi deploy).
+    "Employee": "ecentric_workspace.hr.privacy.employee_scope.employee_query_conditions",
 }
 has_permission = {
     "Task": "ecentric_workspace.pm.permissions.task_has_permission",
@@ -239,6 +243,13 @@ has_permission = {
 # Override standard whitelisted methods
 # -------------------------------------
 # override_whitelisted_methods = {}
+# 28/09/2026 (VA_BAO_MAT muc 1): lich su thay doi (Version) tra ve form duoc LOC theo permlevel
+# cua nguoi xem. Ba ham goi ban goc cua Frappe y nguyen roi moi loc - xem hr/privacy/form_load.py.
+override_whitelisted_methods = {
+    "frappe.desk.form.load.getdoc": "ecentric_workspace.hr.privacy.form_load.getdoc",
+    "frappe.desk.form.load.get_docinfo": "ecentric_workspace.hr.privacy.form_load.get_docinfo",
+    "frappe.desk.form.save.savedocs": "ecentric_workspace.hr.privacy.form_load.savedocs",
+}
 
 # Fixtures
 # --------
@@ -335,6 +346,12 @@ fixtures = [
             "EC Payment Request-ec_brand_ten",
             "EC Payment Request-ec_ky_chi_phi",
             "EC Payment Request-ec_vat_pct",
+            # Ho so nhan su (28/09/2026, HO_SO_NHAN_SU_thiet_ke.md). L0: sub-department;
+            # L1 (HR Manager / EC CnB): bien so xe, ma/noi KCB; L2 (+ HR User): laptop,
+            # thang tang BHXH, bang hop dong. Quyen L1/L2 do patch hr p002 dam bao.
+            "Employee-ec_sub_department", "Employee-ec_bien_so_xe", "Employee-ec_ma_kcb",
+            "Employee-ec_noi_kcb", "Employee-ec_laptop", "Employee-ec_thang_tang_bhxh",
+            "Employee-ec_hop_dong_section", "Employee-ec_contracts",
 ]]],
     },
     # Ba DocType custom cua PnL dashboard (09-10/09/2026). Truoc day chi ton tai tren
@@ -354,7 +371,9 @@ fixtures = [
     {
         "dt": "DocType",
         "filters": [["name", "in", ["EC Loai Chi Phi", "EC Nhan Su Brand",
-                                    "EC NMV Ngay", "EC Phi Quan Ly Brand"]]],
+                                    "EC NMV Ngay", "EC Phi Quan Ly Brand",
+                                    # Ho so nhan su 28/09/2026 (module HR, giu nhu tren site)
+                                    "EC Employee Contract", "EC Sub Department"]]],
     },
     {
         "dt": "Role",
@@ -368,7 +387,25 @@ fixtures = [
     # logic sau nay nen sua trong repo roi migrate (hoac sua live xong export lai).
     {
         "dt": "Server Script",
-        "filters": [["name", "like", "ec_hr_%"]],
+        # or_filters (KHONG phai them mot muc Server Script thu hai): export-fixtures ghi moi
+        # muc ra fixtures/server_script.json, muc sau se GHI DE muc truoc.
+        # sso_update_employee / add_emp_additional_dept (28/09/2026, VA_BAO_MAT muc 4): hai API
+        # sua ho so nguoi khac, nay chi SM / HR Manager / HR User goi duoc - dua vao git de
+        # guard khong mat khi dung lai site.
+        "or_filters": [["name", "like", "ec_hr_%"],
+                       ["name", "in", ["sso_update_employee", "add_emp_additional_dept"]]],
+    },
+    # Nhan CCCD / BHXH va permlevel 1 cho ngay cap / noi cap (truoc day L0, ai cung doc duoc).
+    # Employee-main-track_changes = 1: BAT LAI lich su thay doi sau khi da loc theo permlevel;
+    # gia tri 1 chu khong xoa Property Setter.
+    {
+        "dt": "Property Setter",
+        "filters": [["name", "in", [
+            "Employee-date_of_issue-permlevel", "Employee-place_of_issue-permlevel",
+            "Employee-passport_details_section-label", "Employee-passport_number-label",
+            "Employee-date_of_issue-label", "Employee-place_of_issue-label",
+            "Employee-health_insurance_no-label", "Employee-main-track_changes",
+        ]]],
     },
     {
         "dt": "Web Page",
