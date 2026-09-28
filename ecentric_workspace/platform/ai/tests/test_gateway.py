@@ -347,6 +347,16 @@ class NhoModelSap(unittest.TestCase):
         self.assertTrue(r["ok"], "chi con gemini mang duoc tep - bo nho khong duoc chan het")
         self.assertEqual(e.models_called, ["gemini-3-8-flash"])
 
+    def test_ca_kie_sap_thi_chi_thu_mot_model(self):
+        # probe 28/09 chieu: 3 ban Gemini treo 34s roi 500, luna 500, gpt-5-5 treo 120s
+        e = Env(settings={"ec_llm_model_kie_fallback": ""})
+        for m in ("gemini-3-8-flash", "gemini-3-7-flash", "gemini-3-6-flash", "gpt-6-luna"):
+            e.cache[e.gw.DOWN_KEY % m] = 1
+        r = e.gw.generate("chao")
+        self.assertFalse(r["ok"])
+        self.assertEqual(e.models_called, ["gemini-3-8-flash"],
+                         "ca Kie sap: mot lan 34s, khong phai 34s x 4")
+
     def test_song_lai_thi_xoa_dau(self):
         e = Env()
         e.cache[e.gw.DOWN_KEY % "gemini-3-8-flash"] = 1

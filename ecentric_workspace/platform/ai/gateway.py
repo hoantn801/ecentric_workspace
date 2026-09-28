@@ -158,7 +158,11 @@ def generate(prompt, system=None, schema=None, files=None, history=None, json_mo
     if not models:
         down = {m for m in chain if _usable(m, files) and _is_down(m)}
         if not any(_usable(m, files) and m not in down for m in chain):
-            down = set()          # moi model dung duoc deu dang nghi -> van thu het
+            # Ca Kie dang sap (probe 28/09 chieu: moi model deu hong). Thu DUNG MOT model
+            # dung duoc dau tien de biet da song chua - khong bat nguoi dung cho ca chuoi
+            # 34s x N roi van nhan loi.
+            first = next((m for m in chain if _usable(m, files)), None)
+            down = {m for m in down if m != first}
     budget = float(budget or DEFAULT_BUDGET)
     per_try = float(attempt_timeout or DEFAULT_ATTEMPT_TIMEOUT)
     started = time.time()
