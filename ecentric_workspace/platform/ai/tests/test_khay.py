@@ -220,6 +220,7 @@ class Endpoint(unittest.TestCase):
         self.assertEqual(body["contents"][0]["parts"][0]["text"], "chao", "giu lich su")
         self.assertIn("Ban la eC Mate", body["systemInstruction"]["parts"][0]["text"])
         self.assertLessEqual(e.calls[0]["timeout"][1], 15, "hoi thoai: moi lan thu toi da 15s")
+        self.assertEqual(r["model"], "gemini-3-8-flash", "tra ten model de hien 'Tra loi boi'")
 
     def test_khong_ho_so_nhan_vien_thi_bao(self):
         e = Env(employee=False, reply=(200, sse({"action": "leave", "reply": "x",

@@ -108,7 +108,9 @@ def intent(message=None, history=None, page=None, files=None):
     if not res["ok"]:
         return {"action": "error", "reply": BUSY, "options": []}
     out = brain.normalize(res["data"], leave_types, today, has_files=bool(names))
-    return _enrich(out, user)
+    out = _enrich(out, user)
+    out["model"] = res["model"]      # dong "Tra loi boi ..." duoi cau tra loi (Hoan 28/09)
+    return out
 
 
 def _enrich(out, user):
