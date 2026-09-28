@@ -1015,14 +1015,21 @@
     }
   }
 
+  // Via the shared client (ec_api.js) when present: the homepage asks for the SAME
+  // summary at load, and both callers now share one request instead of two
+  // (measured 28/09: get_reminder_summary x2 on /, ~550-900 ms each).
+  var REMINDER_METHOD = 'ecentric_workspace.action_center.api.get_reminder_summary';
+  var REMINDER_SHARE_MS = 15000;
   function fetchReminder(cb) {
     if (R.loading) return;
     R.loading = true;
-    fetch(REMINDER_URL, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
-      .then(function (r) { return r.json(); })
-      .then(function (j) {
+    var req = window.ecApi
+      ? window.ecApi.get(REMINDER_METHOD, null, { shareMs: REMINDER_SHARE_MS })
+      : fetch(REMINDER_URL, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+          .then(function (r) { return r.json(); })
+          .then(function (j) { return j && j.message; });
+    req.then(function (m) {
         R.loading = false;
-        var m = j && j.message;
         R.data = (m && m.success) ? m : null;
         if (cb) cb();
       })

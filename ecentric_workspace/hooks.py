@@ -553,3 +553,10 @@ scheduler_events["cron"].setdefault("10 12 * * 1", []).append(
 # --------------------------------------------------------------------------- #
 update_website_context = ["ecentric_workspace.shell.server_nav.fill_shell_mount"]
 
+# --------------------------------------------------------------------------- #
+# 28/09/2026 (A65 / NHIEU_LOP giai doan 1.2 + 1.3) - ec_api.js: MOT client goi app method
+# cho moi trang web. GET giong nhau dang bay dung chung mot request (+ nho ngan khi nguoi
+# goi xin); POST xin CSRF tuoi, gap CSRFTokenError thi xin lai va thu DUNG mot lan.
+# KHONG boc window.fetch. Chi dinh nghia window.ecApi, khong tu chay gi.
+# --------------------------------------------------------------------------- #
+web_include_js.append("ec_api.bundle.js")
