@@ -62,6 +62,22 @@ HR_ITEMS = [
         "no_prerender": True,
     },
     {
+        # /ec-hr/performance (28/09, NHIEU_LOP): trang co tu truoc nhung chua dang ky nen
+        # shell roi ve ngu canh mac dinh va hien menu Phe duyet. sidebar_hidden: chi de
+        # trang nay nhan dung ngu canh Nhan su - KHONG them muc moi vao menu.
+        "key": "hr.performance",
+        "label": "Hiệu suất",
+        "route": "/ec-hr/performance",
+        "icon": "chart",
+        "group": "Nhân sự",
+        "order": 85,
+        "active_patterns": ["/ec-hr/performance"],
+        "visible_when": "internal",
+        "keywords": ["hieu suat", "performance"],
+        "owner": "hr",
+        "sidebar_hidden": True,
+    },
+    {
         "key": "hr.install_guide",
         "label": "Cài app lên điện thoại",
         "route": "/ec-hr/huong-dan-cai-app",
