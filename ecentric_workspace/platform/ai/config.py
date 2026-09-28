@@ -4,7 +4,7 @@
 Ba o tren System Settings, het:
     ec_kie_api_key            khoa Kie (Password)
     ec_llm_model_kie          model chinh, vd gemini-3-8-flash
-    ec_llm_model_kie_fallback model du phong, cach nhau dau phay, vd gemini-3-7-flash, grok-4-7
+    ec_llm_model_kie_fallback model du phong, cach nhau dau phay, vd gemini-3-8-flash-openai, grok-4-7
 
 Cong tac tat toan bo AI: site_config `ec_ai_disabled: 1` (khong can deploy).
 
@@ -20,17 +20,17 @@ FALLBACK_FIELD = "ec_llm_model_kie_fallback"
 DISABLED_FLAG = "ec_ai_disabled"
 
 DEFAULT_PRIMARY = "gemini-3-8-flash"
-#: Hoan chot 28/09:
-#:  * Gemini truoc: cung gia 3.8 (~$0.75/$3.75 moi trieu token, gia goc) va MANG DUOC TEP -
-#:    cham slide / AI dien ho kem PDF van roi duoc sang du phong.
-#:  * gpt-6-luna cuoi: probe 28/09 thay cac ban Gemini ben Kie SAP CUNG LUC, nen can mot ho
-#:    khac de viec van ban con chay. Luna ~$0.10/$0.50, re hon gpt-5-5 ($5/$30) ~50 lan.
-#:    gpt-* chi nhan van ban -> viec co tep tu bo qua Luna.
-#:  * BO gpt-5-5: dat. Muon dung lai thi go vao o "AI - model du phong", khong can deploy.
-#:  * grok-4-7 CUOI (probe 28/09 chieu): luc ca 3 ban Gemini, gpt-6-luna, gpt-5-5 deu 500,
-#:    grok-4-7 van tra loi JSON trong 7.1s -> duong du phong THAT duy nhat trong Kie.
-#:    PDF qua grok -> 500, nen grok chi nhan van ban. Gia goc $2/$6.
-DEFAULT_FALLBACKS = ("gemini-3-7-flash", "gemini-3-6-flash", "gpt-6-luna", "grok-4-7")
+#: Chuoi du phong - Hoan chot 28/09, theo 3 lan probe that (C:\dev\probe_kie_*.ps1):
+#:  * Gemini QUA CONG OPENAI cua Kie (gemini-*-openai) dung ngay sau model chinh: luc
+#:    /gemini/v1 sap (ca 3.8/3.7/3.6 treo 34s roi 500) cong nay van tra loi 8-14s VA DOC
+#:    DUOC PDF -> cham slide / AI dien ho kem tep co du phong that, cung model Gemini.
+#:  * BO gemini-3-7/3-6 qua /gemini/v1: ca 2 lan probe deu sap CUNG LUC voi 3.8, moi ban
+#:    ton 34s cho vo ich.
+#:  * gpt-6-luna: re (~$0.10/$0.50 gia goc), chi van ban. Chua tung thay no song.
+#:  * grok-4-7 CUOI: song khi moi thu khac sap (7.1s). Chi van ban (PDF -> 500). $2/$6.
+#:  * BO gpt-5-5: dat ($5/$30). Muon dung lai thi go vao o "AI - model du phong".
+DEFAULT_FALLBACKS = ("gemini-3-8-flash-openai", "gemini-3-6-flash-openai", "gpt-6-luna",
+                     "grok-4-7")
 
 
 def _single(fieldname):

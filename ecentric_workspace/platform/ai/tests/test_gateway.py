@@ -45,6 +45,14 @@ def gpt_body(text):
 KIE_500 = '{"code":500,"msg":"Server exception, please try again later"}'
 
 
+def chat_body(text):
+    """Than THAT cua cong OpenAI Gemini ben Kie (probe_kie_pdf_routes.ps1, 28/09 chieu)."""
+    return json.dumps({"choices": [{"finish_reason": "stop", "index": 0, "message": {
+        "content": text, "role": "assistant"}}], "created": 1790584125, "credits_consumed": 0.05,
+        "id": "chatcmpl-e95157a269114ab48c3236a0855bfa82", "object": "chat.completion",
+        "usage": {"completion_tokens": 21, "prompt_tokens": 530}})
+
+
 class Env(object):
     """Nap config/dialects/gateway/scope/chat/company_summary voi frappe gia."""
 
@@ -105,8 +113,12 @@ class Env(object):
 
     def _post(self, url, json=None, timeout=None, headers=None):
         self.calls.append({"url": url, "body": json, "timeout": timeout, "headers": headers})
-        key = "gpt" if "codex" in url else ("grok" if "/grok/" in url else "gemini")
-        model = json["model"] if key != "gemini" else url.split("/models/")[1].split(":")[0]
+        if "/v1/chat/completions" in url:
+            key, model = "oai", url.split("/")[3]
+        elif "codex" in url or "/grok/" in url:
+            key, model = ("gpt" if "codex" in url else "grok"), json["model"]
+        else:
+            key, model = "gemini", url.split("/models/")[1].split(":")[0]
         self.models_called.append(model)
         reply = self.replies.get(model, self.replies.get(key))
         if callable(reply):
@@ -262,6 +274,24 @@ class NganSachVaCongTac(unittest.TestCase):
         self.assertNotIn(KHOA, json.dumps(e.logs))
         self.assertEqual(e.calls[0]["headers"]["Authorization"], "Bearer " + KHOA)
 
+    def test_cong_openai_gemini_system_lich_su_van_ban(self):
+        e = Env(settings={"ec_llm_model_kie": "gemini-3-8-flash-openai"})
+        e.replies["oai"] = (200, chat_body("Chào anh chị."))
+        r = e.gw.generate("hoi tiep", system="SYS", history=[
+            {"role": "user", "text": "hoi 1"}, {"role": "model", "text": "dap 1"}],
+            opts={"max_tokens": 900})
+        self.assertEqual((r["text"], r["finish"]), ("Chào anh chị.", "stop"))
+        msgs = e.calls[0]["body"]["messages"]
+        self.assertEqual([m["role"] for m in msgs], ["system", "user", "assistant", "user"])
+        self.assertEqual(msgs[-1]["content"], "hoi tiep")
+        self.assertEqual(e.calls[0]["body"]["max_tokens"], 900)
+
+    def test_cong_openai_rong_la_loi(self):
+        e = Env(settings={"ec_llm_model_kie": "gemini-3-8-flash-openai"})
+        e.replies["oai"] = (200, chat_body(""))
+        r = e.gw.generate("x", allow_fallback=False)
+        self.assertIn("rong", r["attempts"][0]["error"])
+
     def test_grok_cung_dinh_dang_responses_cong_rieng(self):
         # docs.kie.ai/market/grok/grok-4-7: POST /grok/v1/responses, than giong gpt
         e = Env(settings={"ec_llm_model_kie_fallback": "grok-4-7"})
@@ -297,19 +327,20 @@ class CauHinh(unittest.TestCase):
 
     def test_mac_dinh(self):
         c = Env(settings={"ec_llm_model_kie": "", "ec_llm_model_kie_fallback": ""}).mod["config"]
-        self.assertEqual(c.chain(), ["gemini-3-8-flash", "gemini-3-7-flash", "gemini-3-6-flash",
-                                     "gpt-6-luna", "grok-4-7"])
+        self.assertEqual(c.chain(), ["gemini-3-8-flash", "gemini-3-8-flash-openai",
+                                     "gemini-3-6-flash-openai", "gpt-6-luna", "grok-4-7"])
         self.assertNotIn("gpt-5-5", c.chain(), "gpt-5-5 dat ~50 lan Luna - Hoan bo 28/09")
 
     def test_mac_dinh_co_tep_chi_roi_sang_gemini(self):
         e = Env(settings={"ec_llm_model_kie_fallback": ""})
-        e.replies["gemini-3-6-flash"] = (200, sse('{"diem": 4}'))
+        e.replies["gemini-3-6-flash-openai"] = (200, chat_body('{"diem": 4}'))
         r = e.gw.generate("cham", schema=SCHEMA,
                           files=[{"data": b"%PDF-1.4", "mime_type": "application/pdf"}])
         self.assertTrue(r["ok"])
-        self.assertEqual(e.models_called, ["gemini-3-8-flash", "gemini-3-7-flash",
-                                           "gemini-3-6-flash"])
-        self.assertEqual(r["model"], "gemini-3-6-flash")
+        self.assertEqual(e.models_called, ["gemini-3-8-flash", "gemini-3-8-flash-openai",
+                                           "gemini-3-6-flash-openai"],
+                         "luna/grok khong nhan tep -> khong duoc goi")
+        self.assertEqual(r["model"], "gemini-3-6-flash-openai")
 
     def test_mac_dinh_van_ban_toi_luna_khi_ca_ho_gemini_sap(self):
         e = Env(settings={"ec_llm_model_kie_fallback": ""})
@@ -319,9 +350,30 @@ class CauHinh(unittest.TestCase):
         self.assertEqual(e.calls[-1]["body"]["model"], "gpt-6-luna")
 
 
+    def test_probe_28_09_lan_3_slide_roi_sang_cong_openai(self):
+        # probe that: /gemini/v1 200+code 500 sau 34s; cong OpenAI doc PDF trong 8.3s
+        e = Env(settings={"ec_llm_model_kie_fallback": ""})
+        e.replies["oai"] = (200, chat_body('{"diem": 8}'))
+        pdf = {"data": b"%PDF-1.4 slide", "mime_type": "application/pdf"}
+        r = e.gw.generate("cham", schema=SCHEMA, files=[pdf])
+        self.assertEqual((r["ok"], r["model"], r["data"], r["files_in_request"]),
+                         (True, "gemini-3-8-flash-openai", {"diem": 8}, 1))
+        body = e.calls[-1]["body"]
+        self.assertEqual(e.calls[-1]["url"],
+                         "https://api.kie.ai/gemini-3-8-flash-openai/v1/chat/completions")
+        self.assertEqual(body["model"], "gemini-3-8-flash", "than gui ten KHONG co -openai")
+        parts = body["messages"][-1]["content"]
+        self.assertEqual(parts[1]["image_url"]["url"],
+                         "data:application/pdf;base64,JVBERi0xLjQgc2xpZGU=")
+        self.assertIn('"diem"', parts[0]["text"], "JSON ep bang loi dan")
+        e.models_called[:] = []
+        e.gw.generate("cham", schema=SCHEMA, files=[pdf])
+        self.assertEqual(e.models_called, ["gemini-3-8-flash-openai"])
+
     def test_mac_dinh_dung_probe_28_09_chieu_thi_grok_cuu(self):
         # probe that: 3 ban Gemini 200+code 500 sau 34s, luna HTTP 500, grok 200 trong 7.1s
         e = Env(settings={"ec_llm_model_kie_fallback": ""})
+        e.replies["oai"] = (500, '{"error":{"type":"server_error","message":"x"}}')
         e.replies["gpt"] = (500, '{"error":{"type":"server_error","message":"Server exception"}}')
         e.replies["grok"] = (200, gpt_body('{"diem": 5}'))
         r = e.gw.generate("cham", schema=SCHEMA)
@@ -378,8 +430,8 @@ class NhoModelSap(unittest.TestCase):
     def test_ca_kie_sap_thi_chi_thu_mot_model(self):
         # probe 28/09 chieu: 3 ban Gemini treo 34s roi 500, luna 500, gpt-5-5 treo 120s
         e = Env(settings={"ec_llm_model_kie_fallback": ""})
-        for m in ("gemini-3-8-flash", "gemini-3-7-flash", "gemini-3-6-flash", "gpt-6-luna",
-                  "grok-4-7"):
+        for m in ("gemini-3-8-flash", "gemini-3-8-flash-openai", "gemini-3-6-flash-openai",
+                  "gpt-6-luna", "grok-4-7"):
             e.cache[e.gw.DOWN_KEY % m] = 1
         r = e.gw.generate("chao")
         self.assertFalse(r["ok"])

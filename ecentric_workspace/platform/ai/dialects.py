@@ -10,6 +10,10 @@ Kie ban nhieu ho model, MOI HO MOT DINH DANG. Do that ngay 22/09 va 28/09:
     gpt-*     POST /codex/v1/responses  (dinh dang OpenAI Responses)
               - 28/09: van ban OK (13.6s). input_file PDF -> 500, text.format
                 json_schema -> 500. Nen: KHONG gui tep, JSON ep bang loi dan.
+    gemini-*-openai  POST /<model>/v1/chat/completions  (Gemini qua cong OpenAI cua Kie;
+              than gui model KHONG co hau to -openai). Probe 28/09 chieu: luc /gemini/v1
+              sap (34s roi 500) thi cong nay van tra loi trong 8-14s VA DOC DUOC PDF
+              (image_url + data URI). JSON ep bang loi dan (response_format chua do).
     grok-*    POST /grok/v1/responses   (CUNG dinh dang Responses nhu gpt-* -
               docs.kie.ai/market/grok/grok-4-7). Tai lieu noi nhan tep nhung CHUA DO
               -> tam coi nhu chi van ban, giong gpt-*.
@@ -22,17 +26,21 @@ import json
 
 KIE_BASE = "https://api.kie.ai"
 GEMINI = "gemini"
+GEMINI_OAI = "gemini_oai"
+OAI_SUFFIX = "-openai"
 GPT = "gpt"
 GROK = "grok"
 #: Ho dung dinh dang OpenAI Responses (than + phan hoi giong nhau, chi khac URL).
 RESPONSES = (GPT, GROK)
 
 #: Ho nao mang duoc tep. Them ho moi vao day CHI SAU KHI da do that ho do doc duoc tep.
-ACCEPTS_FILES = {GEMINI: True, GPT: False, GROK: False}
+ACCEPTS_FILES = {GEMINI: True, GEMINI_OAI: True, GPT: False, GROK: False}
 
 
 def dialect_of(model):
     m = str(model or "").strip().lower()
+    if m.startswith("gemini-") and m.endswith(OAI_SUFFIX):
+        return GEMINI_OAI
     if m.startswith("gemini-"):
         return GEMINI
     if m.startswith("gpt-"):
@@ -46,6 +54,8 @@ def url_for(model):
     d = dialect_of(model)
     if d == GEMINI:
         return "%s/gemini/v1/models/%s:streamGenerateContent" % (KIE_BASE, model)
+    if d == GEMINI_OAI:
+        return "%s/%s/v1/chat/completions" % (KIE_BASE, model)
     if d == GPT:
         return "%s/codex/v1/responses" % KIE_BASE
     if d == GROK:
@@ -76,6 +86,8 @@ def build(model, prompt, system=None, schema=None, files=None, history=None,
     """-> than request (dict). `files` = [{'data': bytes, 'mime_type': str}]."""
     opts = dict(opts or {})
     want_json = bool(schema) or bool(json_mode)
+    if dialect_of(model) == GEMINI_OAI:
+        return _build_chat(model, prompt, system, schema, files, history, want_json, opts)
     if dialect_of(model) in RESPONSES:
         return _build_gpt(model, prompt, system, schema, history, want_json, opts)
     return _build_gemini(prompt, system, schema, files, history, want_json, opts)
@@ -102,6 +114,30 @@ def _build_gemini(prompt, system, schema, files, history, want_json, opts):
     body = {"contents": contents, "generationConfig": cfg}
     if system:
         body["systemInstruction"] = {"parts": [{"text": system}]}
+    return body
+
+
+def _build_chat(model, prompt, system, schema, files, history, want_json, opts):
+    """OpenAI chat/completions. Tep = image_url + data URI (dang probe 28/09 doc duoc PDF)."""
+    messages = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    for role, text in _history_pairs(history):
+        messages.append({"role": "user" if role == "user" else "assistant", "content": text})
+    text = prompt + (json_instruction(schema) if want_json else "")
+    if files:
+        content = [{"type": "text", "text": text}]
+        for f in files:
+            content.append({"type": "image_url", "image_url": {"url": "data:%s;base64,%s" % (
+                f.get("mime_type") or "application/octet-stream",
+                base64.b64encode(f["data"]).decode("ascii"))}})
+    else:
+        content = text
+    messages.append({"role": "user", "content": content})
+    body = {"model": model[:-len(OAI_SUFFIX)], "stream": False, "messages": messages,
+            "temperature": opts.get("temperature", 0 if schema else 0.4)}
+    if opts.get("max_tokens"):
+        body["max_tokens"] = int(opts["max_tokens"])
     return body
 
 
@@ -187,6 +223,22 @@ def _gpt_parse(body):
     return "".join(texts), obj.get("usage") or {}, obj.get("status") or ""
 
 
+def _chat_parse(body):
+    try:
+        obj = json.loads(body or "")
+    except Exception:
+        return "", {}, ""
+    texts, finish = [], ""
+    for ch in obj.get("choices") or []:
+        finish = ch.get("finish_reason") or finish
+        content = (ch.get("message") or {}).get("content")
+        if isinstance(content, str):
+            texts.append(content)
+        elif isinstance(content, list):
+            texts.extend(c.get("text") or "" for c in content if isinstance(c, dict))
+    return "".join(texts), obj.get("usage") or {}, finish
+
+
 def parse(model, status, body):
     """-> (text, usage, finish, error). Khong nem."""
     why = kie_error(body)
@@ -194,7 +246,9 @@ def parse(model, status, body):
         return "", {}, "", "HTTP %s%s" % (status, (": " + why) if why else "")
     if why:
         return "", {}, "", why
-    if dialect_of(model) in RESPONSES:
+    if dialect_of(model) == GEMINI_OAI:
+        text, usage, finish = _chat_parse(body)
+    elif dialect_of(model) in RESPONSES:
         text, usage, finish = _gpt_parse(body)
     else:
         text, usage, finish = _gemini_parse(body)
