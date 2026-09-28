@@ -685,7 +685,7 @@
   "allow_in_quick_entry": 0,
   "doctype": "Custom Field",
   "in_list_view": 0,
-  "description": "Model Kie thu khi model chinh loi, cach nhau dau phay theo thu tu. De trong = gemini-3-7-flash, gemini-3-6-flash, gpt-6-luna. gpt-* chi nhan van ban - viec co tep (cham diem slide, AI dien ho kem tep) chi roi sang cac ban gemini. Model vua sap bi bo qua 5 phut. Doi o day co hieu luc ngay, khong can deploy.",
+  "description": "Model Kie thu khi model chinh loi, cach nhau dau phay theo thu tu. De trong = gemini-3-7-flash, gemini-3-6-flash, gpt-6-luna, grok-4-7. gpt-* va grok-* chi nhan van ban - viec co tep (cham diem slide, AI dien ho kem tep) chi roi sang cac ban gemini. Model vua sap bi bo qua 5 phut. Doi o day co hieu luc ngay, khong can deploy.",
   "unique": 0,
   "fieldname": "ec_llm_model_kie_fallback",
   "insert_after": "ec_llm_model_kie",

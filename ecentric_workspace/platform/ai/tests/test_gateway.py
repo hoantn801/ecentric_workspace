@@ -298,7 +298,7 @@ class CauHinh(unittest.TestCase):
     def test_mac_dinh(self):
         c = Env(settings={"ec_llm_model_kie": "", "ec_llm_model_kie_fallback": ""}).mod["config"]
         self.assertEqual(c.chain(), ["gemini-3-8-flash", "gemini-3-7-flash", "gemini-3-6-flash",
-                                     "gpt-6-luna"])
+                                     "gpt-6-luna", "grok-4-7"])
         self.assertNotIn("gpt-5-5", c.chain(), "gpt-5-5 dat ~50 lan Luna - Hoan bo 28/09")
 
     def test_mac_dinh_co_tep_chi_roi_sang_gemini(self):
@@ -317,6 +317,18 @@ class CauHinh(unittest.TestCase):
         r = e.gw.generate("chao")
         self.assertEqual(r["model"], "gpt-6-luna")
         self.assertEqual(e.calls[-1]["body"]["model"], "gpt-6-luna")
+
+
+    def test_mac_dinh_dung_probe_28_09_chieu_thi_grok_cuu(self):
+        # probe that: 3 ban Gemini 200+code 500 sau 34s, luna HTTP 500, grok 200 trong 7.1s
+        e = Env(settings={"ec_llm_model_kie_fallback": ""})
+        e.replies["gpt"] = (500, '{"error":{"type":"server_error","message":"Server exception"}}')
+        e.replies["grok"] = (200, gpt_body('{"diem": 5}'))
+        r = e.gw.generate("cham", schema=SCHEMA)
+        self.assertEqual((r["ok"], r["model"], r["data"]), (True, "grok-4-7", {"diem": 5}))
+        e.models_called[:] = []
+        r = e.gw.generate("cham", schema=SCHEMA)
+        self.assertEqual(e.models_called, ["grok-4-7"], "lan sau di thang toi model con song")
 
 
 class NhoModelSap(unittest.TestCase):
@@ -366,7 +378,8 @@ class NhoModelSap(unittest.TestCase):
     def test_ca_kie_sap_thi_chi_thu_mot_model(self):
         # probe 28/09 chieu: 3 ban Gemini treo 34s roi 500, luna 500, gpt-5-5 treo 120s
         e = Env(settings={"ec_llm_model_kie_fallback": ""})
-        for m in ("gemini-3-8-flash", "gemini-3-7-flash", "gemini-3-6-flash", "gpt-6-luna"):
+        for m in ("gemini-3-8-flash", "gemini-3-7-flash", "gemini-3-6-flash", "gpt-6-luna",
+                  "grok-4-7"):
             e.cache[e.gw.DOWN_KEY % m] = 1
         r = e.gw.generate("chao")
         self.assertFalse(r["ok"])
