@@ -259,6 +259,9 @@ has_permission = {
 jinja = {
     "methods": [
         "ecentric_workspace.weekly_report.permissions.can_view_weekly_record",
+        # 29/09/2026 (NHIEU_LOP GD2): trang chu ve san dong thoi gian dung trang thai cho nguoi
+        # CO quyen PM (dang tai lich) va KHONG co (khong bao gio co lich) - khong doan trong HTML.
+        "ecentric_workspace.pm.permissions.has_pm_module_access",
     ],
 }
 
