@@ -6,10 +6,19 @@ read=1, if_owner=0 va KHONG co `permission_query_conditions`. Nghia la moi nhan
 vien doc duoc moi bao cao tuan cua moi nguoi -- ca danh sach lan tung ban ghi.
 Bao cao cua nhom Management nam trong so do.
 
-Luat duoi day port nguyen tu Server Script tam `ec_wtu_list_scope`
-(Permission Query, dang disabled=1 luc chup 28/09). Port NGUYEN, khong "cai
-tien" nhan the: luat tam da duoc Hoan duyet, moi khac biet giua hai ban la mot
-cho co the ro ri ma khong ai nhin lai.
+Luat duoi day port tu Server Script tam `ec_wtu_list_scope` (Permission Query,
+disabled=1 luc chup 28/09), CONG chuoi quan ly.
+
+Ban dau port nguyen, khong them bot. Sau khi deploy moi thay `ec_wtu_list_scope`
+va `/team-pulse` von da KHAC nhau: `team_pulse_data` (PERMISSION-V2, 20/07/2026)
+cho nguoi thuong xem ban than + toan bo cap duoi theo `Employee.reports_to`, con
+`ec_wtu_list_scope` khong he biet den chuoi quan ly. Bat luat moi len la 4 quan
+ly nhin thay tom tat cua 10 cap duoi tren /team-pulse nhung bam vao thi
+/weekly-update?view= tra "khong co quyen".
+
+Nen o day lay HOP cua hai ban, de mot du lieu chi co mot luat. Chuoi quan ly
+KHONG bao gio di xuyen qua `Management - EC`: nhom do van kin, ke ca khi
+`reports_to` co tro vao trong do.
 
 MOT DIEU PHAI NHO: `frappe.db.get_value` va `frappe.db.sql` KHONG di qua lop
 quyen nao het -- khong qua `permission_query_conditions`, khong qua
@@ -80,33 +89,88 @@ def _in_management(emp):
         return False
 
 
-def compute_scope(user=None):
-    """-> {"full": bool, "employee": str|None, "departments": [str]}.
+#: Chan vong lap `reports_to` tro nguoc. `team_pulse_data` dung 15; giu bang de
+#: hai ben khong bao gio le nhau o mot cay sau bat thuong.
+CHAIN_MAX_DEPTH = 15
 
-    `full`  : xem duoc tat ca.
+
+def _subordinates(emp_name):
+    """Toan bo cap duoi cua mot nhan vien, de quy. -> [ma nhan vien].
+
+    Duyet theo tang (BFS) chu khong de quy: `reports_to` la du lieu nguoi nhap,
+    va mot vong tro nguoc se lam de quy chay den het stack. Bien dem chan them
+    mot lan nua.
+
+    `Management - EC` bi loai CA khoi ket qua LAN khoi duong duyet. Loai khoi
+    ket qua thoi la chua du: neu mot nguoi ngoai co ai do trong Management nam
+    duoi minh, duyet xuyen qua se keo ve ca nhung nguoi duoi nguoi do.
+    """
+    if not emp_name:
+        return []
+    try:
+        rows = frappe.get_all(
+            "Employee", filters={"status": "Active"},
+            fields=["name", "reports_to", "department"],
+            limit_page_length=0, ignore_permissions=True,
+        )
+    except Exception:
+        return []
+
+    kids = {}
+    for r in rows:
+        if r.get("department") == MANAGEMENT_DEPARTMENT:
+            continue                      # khong duyet xuyen qua Management
+        parent = r.get("reports_to")
+        if parent:
+            kids.setdefault(parent, []).append(r["name"])
+
+    out, frontier, depth = [], [emp_name], 0
+    while frontier and depth < CHAIN_MAX_DEPTH:
+        depth += 1
+        nxt = []
+        for p in frontier:
+            for c in kids.get(p, []):
+                if c not in out and c != emp_name:
+                    out.append(c)
+                    nxt.append(c)
+        frontier = nxt
+    return out
+
+
+def compute_scope(user=None):
+    """-> {"full", "employee", "departments", "subordinates"}.
+
+    `full`      : xem duoc tat ca.
     `employee`  : ma nhan vien, de khop cot `employee`.
     `departments`: phong ban duoc xem qua `EC Viewer Permission` scope=dept,
                    DA loai Management -- mot dong tro vao Management bi bo qua
                    co chu dinh, vi nhom do chi nguoi trong nhom moi duoc xem.
+    `subordinates`: cap duoi theo `reports_to`, de quy, KHONG xuyen Management.
+                   Co de khop voi /team-pulse; xem chu thich dau file.
     """
     user = user or frappe.session.user
+    full = {"full": True, "employee": None, "departments": [], "subordinates": []}
     if user == "Administrator" or "System Manager" in frappe.get_roles(user):
-        return {"full": True, "employee": None, "departments": []}
+        return full
 
     emp = _employee_of(user)
     rows = _viewer_rows(user)
+    emp_name = (emp or {}).get("name")
 
     if _in_management(emp):
-        return {"full": True, "employee": (emp or {}).get("name"), "departments": []}
+        full["employee"] = emp_name
+        return full
     for scope, _dept in rows:
         if scope == "all":
-            return {"full": True, "employee": (emp or {}).get("name"), "departments": []}
+            full["employee"] = emp_name
+            return full
 
     depts = []
     for scope, dept in rows:
         if scope == "dept" and dept and dept != MANAGEMENT_DEPARTMENT and dept not in depts:
             depts.append(dept)
-    return {"full": False, "employee": (emp or {}).get("name"), "departments": depts}
+    return {"full": False, "employee": emp_name, "departments": depts,
+            "subordinates": _subordinates(emp_name)}
 
 
 def _cached_scope(user):
@@ -139,6 +203,9 @@ def wtu_query_conditions(user=None):
     if scope["departments"]:
         joined = ", ".join(frappe.db.escape(d) for d in scope["departments"])
         parts.append("`tabWeekly Team Update`.`department` in (%s)" % joined)
+    if scope["subordinates"]:
+        joined = ", ".join(frappe.db.escape(e) for e in scope["subordinates"])
+        parts.append("`tabWeekly Team Update`.`employee` in (%s)" % joined)
     return "(" + " or ".join(parts) + ")"
 
 
@@ -165,6 +232,8 @@ def can_read(doc, user=None):
     if scope["employee"] and get("employee") == scope["employee"]:
         return True
     if get("department") and get("department") in scope["departments"]:
+        return True
+    if get("employee") and get("employee") in scope["subordinates"]:
         return True
     return False
 

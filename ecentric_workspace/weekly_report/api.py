@@ -154,6 +154,7 @@ def explain_wtu_scope(user=None):
         "full_access": bool(scope["full"]),
         "employee": scope["employee"],
         "departments": scope["departments"],
+        "subordinates": scope["subordinates"],
         "where_clause": permissions.wtu_query_conditions(user) or "(khong han che)",
     }
 
