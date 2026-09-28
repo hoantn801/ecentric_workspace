@@ -262,7 +262,10 @@ jinja = {
 # 28/09/2026 (VA_BAO_MAT muc 2, Hoan chot CHAN): tu choi list/count/search/export tren Employee
 # neu filters / order_by / group_by nhac toi field nguoi goi khong doc duoc (lech permlevel
 # hoac bi mask) - chan do so TK / CCCD bang `like '9%'`. Xem hr/privacy/filter_guard.py.
-before_request = ["ecentric_workspace.hr.privacy.filter_guard.guard_employee_filters"]
+# auth_hooks CHU KHONG PHAI before_request (loi 28/09 17:10): before_request chay TRUOC
+# validate_auth(), nen request dung API token luc do van la Guest -> moi filter bi chan (403).
+# auth_hooks chay trong validate_auth(), SAU khi da xac thuc token / bearer / cookie.
+auth_hooks = ["ecentric_workspace.hr.privacy.filter_guard.guard_employee_filters"]
 
 # Override standard whitelisted methods
 # -------------------------------------

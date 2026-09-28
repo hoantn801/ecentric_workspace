@@ -53,6 +53,7 @@ HOOK_KEYS_WITH_DOTTED_PATHS = (
     "on_session_creation",
     "on_logout",
     "before_request",
+    "auth_hooks",
     "after_request",
     "before_job",
     "after_job",
