@@ -6,9 +6,7 @@ HAI THU KHONG DUOC SAI AM THAM:
   1. `upload_bytes` duoc TACH RA tu than `upload_from_sp_url`, va duong SharePoint van phai
      goi vao no. Neu refactor lam hai duong tach doi thi mot cai sua o buoc tai len chi chay
      cho mot ben - va khong co exception nao bao dieu do.
-  2. `generate_json` phai gui phan `fileData` dung hinh dang. Gui sai khoa thi Gemini bo qua
-     tep VA VAN TRA VE JSON hop le tu mot minh doan van ban: form duoc dien, chi la tep chua
-     bao gio duoc doc. Do la loi te nhat cua ca G2 nen no phai co test rieng.
+  2. (28/09) Hinh dang tep trong request nay kiem o platform/ai/tests/test_gateway.py.
 """
 import io
 import os
@@ -211,85 +209,10 @@ class TestSharePointVanGoiVaoUploadBytes(unittest.TestCase):
         self.assertTrue(out["name"])
 
 
-class TestGenerateJsonFiles(unittest.TestCase):
-    OK = _Resp({"candidates": [{"content": {"parts": [{"text": '{"a": 1}'}]}}]})
-
-    def _goi(self, files):
-        m, calls = _load(settings={"ec_gemini_api_key": KHOA},
-                         post=lambda url, **kw: self.OK)
-        out = m.generate_json("PROMPT", {"type": "object"}, files=files)
-        return out, calls[0]["json"]["contents"][0]["parts"]
-
-    def test_fileData_dung_hinh_dang_va_dung_TRUOC_van_ban(self):
-        out, parts = self._goi([{"uri": "files/abc", "mime_type": "application/pdf"}])
-        self.assertTrue(out["ok"])
-        self.assertEqual(parts[0], {"fileData": {"fileUri": "files/abc",
-                                                 "mimeType": "application/pdf"}})
-        self.assertEqual(parts[-1], {"text": "PROMPT"})
-
-    def test_nhieu_tep_giu_dung_thu_tu(self):
-        _, parts = self._goi([{"uri": "f/1", "mime_type": "image/png"},
-                              {"uri": "f/2", "mime_type": "application/pdf"}])
-        self.assertEqual([p["fileData"]["fileUri"] for p in parts[:2]], ["f/1", "f/2"])
-        self.assertEqual(len(parts), 3)
-
-    def test_khong_co_tep_thi_than_request_giong_het_G1(self):
-        out, parts = self._goi(None)
-        self.assertEqual(parts, [{"text": "PROMPT"}])
-
-    def test_muc_thieu_uri_bi_bo_chu_khong_gui_khoa_rong(self):
-        # Gui {"fileUri": ""} len thi Gemini tra 400 cho CA luot - mot muc rac lam hong
-        # ca nhung tep tot di cung.
-        _, parts = self._goi([{"mime_type": "application/pdf"}, {"uri": "f/3"}])
-        self.assertEqual(len(parts), 2)
-        self.assertEqual(parts[0]["fileData"]["fileUri"], "f/3")
-
-
-class TestLoiPhaiTuNoiDuocNguyenNhan(unittest.TestCase):
-    """17/09: mot loi 400 that lam ca tinh nang chet, dong log chi noi duoc "400 Bad Request".
-
-    `HTTPError` chi mang ma so va URL; ly do nam trong THAN phan hoi. Vut than di la bien
-    mot su co 5 phut thanh mot cuoc do dam."""
-
-    def _boom(self, payload=None, text=""):
-        class _R(object):
-            def raise_for_status(self_):
-                raise RuntimeError("400 Client Error: Bad Request for url: https://x")
-            def json(self_):
-                if payload is None:
-                    raise ValueError("khong phai json")
-                return payload
-        r = _R()
-        r.text = text
-        return r
-
-    def test_ly_do_cua_gemini_di_vao_error(self):
-        r = self._boom({"error": {"message": "Invalid JSON payload received.",
-                                  "status": "INVALID_ARGUMENT"}})
-        m, _ = _load(settings={"ec_gemini_api_key": KHOA}, post=lambda url, **kw: r)
-        out = m.generate_json("P", {"type": "object"})
-        self.assertFalse(out["ok"])
-        self.assertIn("Invalid JSON payload received.", out["error"])
-        self.assertIn("INVALID_ARGUMENT", out["error"])
-
-    def test_than_khong_phai_json_thi_lay_text(self):
-        r = self._boom(payload=None, text="<html>502 upstream</html>")
-        m, _ = _load(settings={"ec_gemini_api_key": KHOA}, post=lambda url, **kw: r)
-        out = m.generate_json("P", {"type": "object"})
-        self.assertIn("502 upstream", out["error"])
-
-    def test_khoa_van_bi_xoa_khoi_than(self):
-        r = self._boom({"error": {"message": "key " + KHOA + " invalid"}})
-        m, _ = _load(settings={"ec_gemini_api_key": KHOA}, post=lambda url, **kw: r)
-        out = m.generate_json("P", {"type": "object"})
-        self.assertNotIn(KHOA, out["error"])
-
-    def test_khong_co_phan_hoi_thi_khong_no(self):
-        def boom(url, **kw):
-            raise RuntimeError("connection reset")
-        m, _ = _load(settings={"ec_gemini_api_key": KHOA}, post=boom)
-        out = m.generate_json("P", {"type": "object"})
-        self.assertIn("connection reset", out["error"])
+# 28/09: TestGenerateJsonFiles + TestLoiPhaiTuNoiDuocNguyenNhan da bo - chung kiem nhanh
+# Google cua generate_json, nhanh do khong con. Luat "tep dat TRUOC van ban", "khong gui
+# thieu tep", "ly do loi di vao error, khoa bi che" nay kiem o
+# platform/ai/tests/test_gateway.py tren cong AI chung.
 
 
 class TestKhoaDocTuDuongPassword(unittest.TestCase):
@@ -307,22 +230,8 @@ class TestKhoaDocTuDuongPassword(unittest.TestCase):
 
     OK = _Resp({"candidates": [{"content": {"parts": [{"text": '{"a": 1}'}]}}]})
 
-    def test_khoa_that_di_ra_tren_day_chu_khong_phai_mat_na(self):
-        m, calls = _load(settings={"ec_gemini_api_key": "*" * 39,
-                                   "__auth__ec_gemini_api_key": KHOA},
-                         post=lambda url, **kw: self.OK)
-        out = _run(m, lambda: m.generate_json("P", {"type": "object"}))
-        self.assertTrue(out["ok"])
-        self.assertEqual(calls[0]["headers"]["x-goog-api-key"], KHOA)
-
-    def test_chi_doc_ra_mat_na_thi_coi_nhu_KHONG_CO_khoa(self):
-        # Gui mat na di = doi lay mot loi 400 vo nghia. Noi thang "khong co khoa" thi sua
-        # duoc trong 5 phut.
-        m, calls = _load(settings={"ec_gemini_api_key": "*" * 39},
-                         post=lambda url, **kw: self.OK)
-        out = _run(m, lambda: m.generate_json("P", {"type": "object"}))
-        self.assertEqual(out["error"], "no_key")
-        self.assertEqual(calls, [])          # va KHONG duoc goi di
+    # 28/09: hai test generate_json doc khoa Google da bo - generate_json khong con dung
+    # khoa Google. Luat mat-na-coi-nhu-khong-co cho khoa Kie: test_gateway.py.
 
     def test_upload_cung_di_qua_duong_do(self):
         m, calls = _load(settings={"ec_gemini_api_key": "*" * 39,

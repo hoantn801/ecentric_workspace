@@ -49,16 +49,9 @@ def _load(rows=None, perm=True, content=None):
             return _content[self.name]
     fk.get_doc = lambda dt, name: _FileDoc(name)
 
-    # `ecentric_workspace.gemini_api` duoc import BEN TRONG `collect`; test luon truyen
-    # `uploader` nen duong that khong bao gio chay - nhung import van phai giai duoc.
-    pkg = types.ModuleType("ecentric_workspace")
-    pkg.__path__ = []
-    gem = types.ModuleType("ecentric_workspace.gemini_api")
-    gem.upload_file_bytes = lambda *a, **k: {"success": False, "error": "khong duoc goi"}
-    pkg.gemini_api = gem
-
-    mods = {"frappe": fk, "ecentric_workspace": pkg,
-            "ecentric_workspace.gemini_api": gem}
+    # 28/09: `collect` KHONG con tai len Google. Neu no con import gemini_api o dau do thi
+    # import nay se vo (khong co module gia) - do chinh la phep kiem.
+    mods = {"frappe": fk}
     saved = {k: sys.modules.get(k) for k in mods}
     sys.modules.update(mods)
     try:
@@ -92,16 +85,6 @@ def _row(url, name, owner=TOI, size=1000, dt=None, dn=None):
     return {"name": "FILE-" + name, "file_name": name, "file_url": url, "owner": owner,
             "file_size": size, "attached_to_doctype": dt, "attached_to_name": dn,
             "is_folder": 0}
-
-
-def _uploader(log=None, ok=True):
-    def up(data, filename, mime, **kw):
-        if log is not None:
-            log.append({"filename": filename, "mime": mime, "bytes": len(data)})
-        if not ok:
-            return {"success": False, "error": "gia lap hong"}
-        return {"success": True, "uri": "files/" + filename, "mime_type": mime}
-    return up
 
 
 def _reasons(rejected):
@@ -186,37 +169,35 @@ class TestCollect(unittest.TestCase):
         url = "/private/files/hoa-don.pdf"
         m, _ = _load(rows={url: [_row(url, "hoa-don.pdf")]},
                      content={"FILE-hoa-don.pdf": b"%PDF-1.7 noi dung"})
-        log = []
-        parts, bad = _run(m, lambda: m.collect([url], uploader=_uploader(log)))
+        parts, bad = _run(m, lambda: m.collect([url]))
         self.assertEqual(bad, [])
         self.assertEqual(len(parts), 1)
         self.assertEqual(parts[0]["mime_type"], "application/pdf")
         self.assertEqual(parts[0]["display_name"], "hoa-don.pdf")
-        self.assertEqual(log[0]["mime"], "application/pdf")
+        # Cong AI gui bytes inline sang Kie: phan tu PHAI mang du bytes, KHONG con URI.
+        self.assertEqual(parts[0]["data"], b"%PDF-1.7 noi dung")
+        self.assertNotIn("uri", parts[0])
 
     def test_tep_cua_nguoi_khac_bi_tu_choi(self):
         # Phep kiem dat nhat cua module. Xem docstring dau file.
         url = "/private/files/luong-sep.pdf"
         m, _ = _load(rows={url: [_row(url, "luong-sep.pdf", owner=NGUOI_KHAC)]},
                      content={"FILE-luong-sep.pdf": b"%PDF bi mat"}, perm=False)
-        log = []
-        parts, bad = _run(m, lambda: m.collect([url], uploader=_uploader(log)))
+        parts, bad = _run(m, lambda: m.collect([url]))
         self.assertEqual(parts, [])
         self.assertEqual(_reasons(bad), {"luong-sep.pdf": "no_permission"})
-        # Va khong duoc doc MOT BYTE nao len Gemini.
-        self.assertEqual(log, [])
 
     def test_khong_tim_thay_khac_voi_khong_co_quyen(self):
         m, _ = _load(rows={})
         parts, bad = _run(m, lambda: m.collect(["/private/files/khong-co.pdf"],
-                                               uploader=_uploader()))
+                                               ))
         self.assertEqual(_reasons(bad), {"khong-co.pdf": "not_found"})
         self.assertEqual(parts, [])
 
     def test_duong_dan_ngoai_kho_bi_chan(self):
         m, _ = _load(rows={})
         for url in ("../../etc/passwd", "https://vidu.com/a.pdf", "/app/file/x"):
-            parts, bad = _run(m, lambda u=url: m.collect([u], uploader=_uploader()))
+            parts, bad = _run(m, lambda u=url: m.collect([u]))
             self.assertEqual(parts, [], url)
             self.assertEqual(bad[0]["reason"], "not_found", url)
 
@@ -224,7 +205,7 @@ class TestCollect(unittest.TestCase):
         u1, u2 = "/private/files/hd.docx", "/private/files/hd.pdf"
         m, _ = _load(rows={u1: [_row(u1, "hd.docx")], u2: [_row(u2, "hd.pdf")]},
                      content={"FILE-hd.docx": b"PK...", "FILE-hd.pdf": b"%PDF"})
-        parts, bad = _run(m, lambda: m.collect([u1, u2], uploader=_uploader()))
+        parts, bad = _run(m, lambda: m.collect([u1, u2]))
         self.assertEqual(len(parts), 1)
         self.assertEqual(parts[0]["display_name"], "hd.pdf")
         self.assertEqual(_reasons(bad), {"hd.docx": "office"})
@@ -237,7 +218,7 @@ class TestCollect(unittest.TestCase):
             rows[u] = [_row(u, "t%d.pdf" % i)]
             cont["FILE-t%d.pdf" % i] = b"%PDF"
         m, _ = _load(rows=rows, content=cont)
-        parts, bad = _run(m, lambda: m.collect(urls, uploader=_uploader()))
+        parts, bad = _run(m, lambda: m.collect(urls))
         self.assertEqual(len(parts), m.MAX_FILES)
         self.assertEqual(len(bad), m_max - m.MAX_FILES)
         self.assertTrue(all(r["reason"] == "over_cap" for r in bad))
@@ -248,7 +229,7 @@ class TestCollect(unittest.TestCase):
         url = "/private/files/to.pdf"
         m, _ = _load(rows={url: [_row(url, "to.pdf", size=10)]},
                      content={"FILE-to.pdf": b"x" * (11 * 1024 * 1024)})
-        parts, bad = _run(m, lambda: m.collect([url], uploader=_uploader()))
+        parts, bad = _run(m, lambda: m.collect([url]))
         self.assertEqual(parts, [])
         self.assertEqual(_reasons(bad), {"to.pdf": "too_big"})
 
@@ -260,23 +241,23 @@ class TestCollect(unittest.TestCase):
             rows[u] = [_row(u, "b%d.pdf" % i)]
             cont["FILE-b%d.pdf" % i] = b"x" * (9 * 1024 * 1024)
         m, _ = _load(rows=rows, content=cont)
-        parts, bad = _run(m, lambda: m.collect(urls, uploader=_uploader()))
-        self.assertEqual(len(parts), 2)              # 9 + 9 = 18MB, them nua thi qua 25MB
-        self.assertTrue(all(r["reason"] == "total_too_big" for r in bad))
+        parts, bad = _run(m, lambda: m.collect(urls))
+        self.assertEqual(len(parts), 0)              # 9MB > tran 7MB moi tep (inline Kie)
+        self.assertTrue(all(r["reason"] == "too_big" for r in bad))
 
-    def test_tai_len_hong_khong_lam_hong_ca_luot(self):
-        u1, u2 = "/private/files/a.pdf", "/private/files/b.pdf"
-        m, _ = _load(rows={u1: [_row(u1, "a.pdf")], u2: [_row(u2, "b.pdf")]},
-                     content={"FILE-a.pdf": b"%PDF", "FILE-b.pdf": b"%PDF"})
-        lan = {"n": 0}
-        def up(data, filename, mime, **kw):
-            lan["n"] += 1
-            if lan["n"] == 1:
-                return {"success": False, "error": "gia lap hong"}
-            return {"success": True, "uri": "files/" + filename, "mime_type": mime}
-        parts, bad = _run(m, lambda: m.collect([u1, u2], uploader=up))
-        self.assertEqual(len(parts), 1)
-        self.assertEqual(_reasons(bad), {"a.pdf": "upload_failed"})
+    def test_tran_tong_theo_inline_cua_Kie(self):
+        # 28/09: Kie nhan tep inline trong than request (~10MB). Ba tep 3MB = 9MB phai bi
+        # chan o tep thu ba, khong phai o tran 25MB cu cua Google Files API.
+        rows, cont, urls = {}, {}, []
+        for i in range(3):
+            u = "/private/files/k%d.pdf" % i
+            urls.append(u)
+            rows[u] = [_row(u, "k%d.pdf" % i)]
+            cont["FILE-k%d.pdf" % i] = b"x" * (3 * 1024 * 1024)
+        m, _ = _load(rows=rows, content=cont)
+        parts, bad = _run(m, lambda: m.collect(urls))
+        self.assertEqual(len(parts), 2)
+        self.assertEqual(_reasons(bad), {"k2.pdf": "total_too_big"})
 
     def test_het_ngan_sach_thoi_gian_thi_dung_lai(self):
         rows, cont, urls = {}, {}, []
@@ -290,14 +271,14 @@ class TestCollect(unittest.TestCase):
         def now():
             dong_ho["t"] += 30.0        # moi lan hoi gio la tron 30 giay
             return dong_ho["t"]
-        parts, bad = _run(m, lambda: m.collect(urls, uploader=_uploader(), now=now))
+        parts, bad = _run(m, lambda: m.collect(urls, now=now))
         self.assertTrue(len(parts) < 3)
         self.assertTrue(any(r["reason"] == "budget" for r in bad))
 
     def test_tep_rong_bi_bo(self):
         url = "/private/files/rong.pdf"
         m, _ = _load(rows={url: [_row(url, "rong.pdf")]}, content={"FILE-rong.pdf": b""})
-        parts, bad = _run(m, lambda: m.collect([url], uploader=_uploader()))
+        parts, bad = _run(m, lambda: m.collect([url]))
         self.assertEqual(_reasons(bad), {"rong.pdf": "empty"})
 
     def test_noi_dung_str_duoc_doi_ve_bytes(self):
@@ -305,11 +286,11 @@ class TestCollect(unittest.TestCase):
         url = "/private/files/ghi-chu.txt"
         m, _ = _load(rows={url: [_row(url, "ghi-chu.txt")]},
                      content={"FILE-ghi-chu.txt": u"noi dung tieng Viet cho de"})
-        log = []
-        parts, bad = _run(m, lambda: m.collect([url], uploader=_uploader(log)))
+        parts, bad = _run(m, lambda: m.collect([url]))
         self.assertEqual(bad, [])
         self.assertEqual(len(parts), 1)
-        self.assertTrue(log[0]["bytes"] > 0)
+        self.assertIsInstance(parts[0]["data"], bytes)
+        self.assertTrue(len(parts[0]["data"]) > 0)
 
 
 class TestPromptBlock(unittest.TestCase):
