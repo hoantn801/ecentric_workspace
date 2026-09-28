@@ -1933,5 +1933,188 @@
   "index_web_pages_for_search": 1,
   "naming_rule": "Expression (old style)",
   "track_changes": 1
+ },
+ {
+  "name": "EC Sub Department",
+  "doctype": "DocType",
+  "module": "HR",
+  "custom": 1,
+  "naming_rule": "By fieldname",
+  "autoname": "field:sub_department_name",
+  "title_field": "sub_department_name",
+  "allow_rename": 1,
+  "track_changes": 1,
+  "sort_field": "department",
+  "sort_order": "ASC",
+  "editable_grid": 1,
+  "index_web_pages_for_search": 1,
+  "engine": "InnoDB",
+  "description": "Nhom nho ben trong mot phong (HO_SO_NHAN_SU_thiet_ke.md D1). Chi la co cau - KHONG BAO GIO mo quyen xem luong.",
+  "fields": [
+   {
+    "doctype": "DocField",
+    "idx": 1,
+    "fieldname": "sub_department_name",
+    "fieldtype": "Data",
+    "label": "Tên sub-department",
+    "reqd": 1,
+    "unique": 1,
+    "in_list_view": 1
+   },
+   {
+    "doctype": "DocField",
+    "idx": 2,
+    "fieldname": "department",
+    "fieldtype": "Link",
+    "options": "Department",
+    "label": "Thuộc phòng",
+    "reqd": 1,
+    "in_list_view": 1,
+    "in_standard_filter": 1
+   },
+   {
+    "doctype": "DocField",
+    "idx": 3,
+    "fieldname": "disabled",
+    "fieldtype": "Check",
+    "label": "Ngừng dùng",
+    "default": "0",
+    "in_list_view": 1
+   },
+   {
+    "doctype": "DocField",
+    "idx": 4,
+    "fieldname": "mo_ta",
+    "fieldtype": "Small Text",
+    "label": "Mô tả"
+   }
+  ],
+  "permissions": [
+   {
+    "doctype": "DocPerm",
+    "role": "System Manager",
+    "read": 1,
+    "write": 1,
+    "create": 1,
+    "delete": 1,
+    "report": 1,
+    "export": 1
+   },
+   {
+    "doctype": "DocPerm",
+    "role": "HR Manager",
+    "read": 1,
+    "write": 1,
+    "create": 1,
+    "delete": 1,
+    "report": 1,
+    "export": 1
+   },
+   {
+    "doctype": "DocPerm",
+    "role": "EC CnB",
+    "read": 1,
+    "write": 1,
+    "create": 1,
+    "report": 1,
+    "export": 1
+   },
+   {
+    "doctype": "DocPerm",
+    "role": "HR User",
+    "read": 1,
+    "write": 1,
+    "create": 1,
+    "report": 1,
+    "export": 1
+   },
+   {
+    "doctype": "DocPerm",
+    "role": "Employee",
+    "read": 1,
+    "report": 1,
+    "export": 1
+   }
+  ]
+ },
+ {
+  "name": "EC Employee Contract",
+  "doctype": "DocType",
+  "module": "HR",
+  "custom": 1,
+  "istable": 1,
+  "allow_rename": 1,
+  "sort_field": "creation",
+  "sort_order": "DESC",
+  "editable_grid": 1,
+  "index_web_pages_for_search": 1,
+  "engine": "InnoDB",
+  "description": "Bang con Employee.ec_contracts - moi lan ky la MOT dong moi, khong sua de dong cu.",
+  "fields": [
+   {
+    "doctype": "DocField",
+    "idx": 1,
+    "fieldname": "loai_hop_dong",
+    "fieldtype": "Select",
+    "label": "Loại hợp đồng",
+    "reqd": 1,
+    "in_list_view": 1,
+    "columns": 2,
+    "options": "Hợp đồng dịch vụ\nThực tập\nThử việc\nHĐLĐ lần 1\nHĐLĐ lần 2\nHĐLĐ lần 3\nHĐLĐ lần 4\nHĐLĐ lần 5\nKhác"
+   },
+   {
+    "doctype": "DocField",
+    "idx": 2,
+    "fieldname": "so_hop_dong",
+    "fieldtype": "Data",
+    "label": "Số hợp đồng",
+    "in_list_view": 1,
+    "columns": 2
+   },
+   {
+    "doctype": "DocField",
+    "idx": 3,
+    "fieldname": "tu_ngay",
+    "fieldtype": "Date",
+    "label": "Từ ngày",
+    "reqd": 1,
+    "in_list_view": 1,
+    "columns": 2
+   },
+   {
+    "doctype": "DocField",
+    "idx": 4,
+    "fieldname": "den_ngay",
+    "fieldtype": "Date",
+    "label": "Đến ngày",
+    "in_list_view": 1,
+    "columns": 2
+   },
+   {
+    "doctype": "DocField",
+    "idx": 5,
+    "fieldname": "khong_thoi_han",
+    "fieldtype": "Check",
+    "label": "Không xác định thời hạn",
+    "default": "0",
+    "in_list_view": 1,
+    "columns": 1
+   },
+   {
+    "doctype": "DocField",
+    "idx": 6,
+    "fieldname": "ghi_chu",
+    "fieldtype": "Small Text",
+    "label": "Ghi chú"
+   },
+   {
+    "doctype": "DocField",
+    "idx": 7,
+    "fieldname": "file_hop_dong",
+    "fieldtype": "Attach",
+    "label": "File hợp đồng"
+   }
+  ],
+  "permissions": []
  }
 ]
