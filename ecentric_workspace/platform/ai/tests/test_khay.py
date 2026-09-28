@@ -69,7 +69,7 @@ class Env(object):
         rq = types.ModuleType("requests")
 
         def post(url, json=None, timeout=None, headers=None):
-            env.calls.append({"url": url, "body": json})
+            env.calls.append({"url": url, "body": json, "timeout": timeout})
             status, body = env.reply if env.reply else (200, '{"code":500,"msg":"x"}')
             return types.SimpleNamespace(status_code=status, content=body.encode("utf-8"))
         rq.post = post
@@ -167,6 +167,20 @@ class KiemKetQua(unittest.TestCase):
                                                                           "d", "e"]}, TYPES, TODAY)
         self.assertEqual(r["options"], ["a", "b", "c", "d"])
 
+    def test_tro_chuyen_tra_loi_thang_khong_tra_cuu(self):
+        r = B.normalize({"action": "answer", "reply": "Chào bạn!", "needs_data": False}, TYPES, TODAY)
+        self.assertEqual((r["action"], r["needs_data"], r["reply"]), ("answer", False, "Chào bạn!"))
+
+    def test_can_so_lieu_hoac_reply_rong_thi_tra_cuu(self):
+        r = B.normalize({"action": "answer", "reply": "", "needs_data": False}, TYPES, TODAY)
+        self.assertTrue(r["needs_data"], "reply rong thi khong duoc hien mot cau rong")
+        r = B.normalize({"action": "answer", "reply": "x", "needs_data": True}, TYPES, TODAY)
+        self.assertTrue(r["needs_data"])
+
+    def test_ten_tro_ly_trong_loi_dan(self):
+        self.assertIn("Ban la eCentric AI,", B.system("eCentric AI"))
+        self.assertNotIn("{name}", B.system("eCentric AI"))
+
     def test_lich_su(self):
         h = B.parse_history(json.dumps([{"role": "user", "text": "hi"}, {"role": "x", "text": " "},
                                         {"role": "bot", "text": "chao"}]))
@@ -190,8 +204,8 @@ class Endpoint(unittest.TestCase):
     def test_boot(self):
         e = Env(roles=("EC Khay Pilot", "EC AI Formfill Pilot"))
         b = e.k.boot()
-        self.assertEqual((b["enabled"], b["first_name"], b["can_leave"], b["can_payment"]),
-                         (True, "Hoan", True, True))
+        self.assertEqual((b["enabled"], b["name"], b["first_name"], b["can_leave"], b["can_payment"]),
+                         (True, "eC Mate", "Hoan", True, True))
 
     def test_nghi_phep_di_qua_cong_voi_schema(self):
         e = Env(reply=(200, sse({"action": "leave", "reply": "Soạn xong", "leave_type": "Annual Leave",
@@ -204,6 +218,8 @@ class Endpoint(unittest.TestCase):
         self.assertEqual(body["generationConfig"]["temperature"], 0)
         self.assertIn("2026-09-29 (Thứ Ba) - ngày mai", body["contents"][-1]["parts"][-1]["text"])
         self.assertEqual(body["contents"][0]["parts"][0]["text"], "chao", "giu lich su")
+        self.assertIn("Ban la eC Mate", body["systemInstruction"]["parts"][0]["text"])
+        self.assertLessEqual(e.calls[0]["timeout"][1], 15, "hoi thoai: moi lan thu toi da 15s")
 
     def test_khong_ho_so_nhan_vien_thi_bao(self):
         e = Env(employee=False, reply=(200, sse({"action": "leave", "reply": "x",

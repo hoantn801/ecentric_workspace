@@ -41,12 +41,13 @@ SCHEMA = {
         "half_day": {"type": "boolean"},
         "half_day_part": {"type": "string", "enum": ["", "morning", "afternoon"]},
         "reason": {"type": "string"},
+        "needs_data": {"type": "boolean"},
     },
     "required": ["action", "reply"],
 }
 
 SYSTEM = (
-    "Ban la Khay, tro ly trong he thong ERP noi bo cua cong ty eCentric (Viet Nam). "
+    "Ban la {name}, tro ly trong he thong ERP noi bo cua cong ty eCentric (Viet Nam). "
     "Nhiem vu DUY NHAT cua ban o buoc nay: doc cau nguoi dung va chon MOT hanh dong.\n"
     "- leave: nguoi dung muon XIN NGHI (nghi phep, nghi om, nghi viec rieng, nghi bu...). "
     "Dien leave_type bang DUNG MOT ten trong danh sach loai nghi; from_date/to_date dang "
@@ -54,13 +55,21 @@ SYSTEM = (
     "half_day_part). Chua ro ngay hoac loai thi chon clarify, KHONG doan.\n"
     "- payment_request: nguoi dung muon tao DE NGHI THANH TOAN / thanh toan hoa don / chi tien "
     "cho nha cung cap, hoac tha hoa don/bao gia vao va muon tao phieu.\n"
-    "- answer: cau hoi, tro chuyen, hoi ve bao cao tuan, cong viec, so lieu.\n"
+    "- answer: cau hoi hoac tro chuyen. needs_data=true neu can SO LIEU cong ty (bao cao tuan, "
+    "diem so, cong viec cua team, tien do) - he thong se tra cuu roi tra loi, reply de trong. "
+    "needs_data=false neu chi la chao hoi, cam on, hoi ban la ai, hoi cach dung ERP: tra loi "
+    "LUON trong reply (toi da 3 cau, khong bia so lieu).\n"
     "- clarify: thieu thong tin de lam; reply la MOT cau hoi ngan, options la 2-4 cau tra loi "
     "ngan nguoi dung bam duoc.\n"
     "reply: tieng Viet co dau, than thien, toi da 2 cau, xung 'minh' goi 'ban'. KHONG bia so du "
     "phep, ten nguoi duyet hay so tien - he thong se tu dien.\n"
     "Ban KHONG gui don, KHONG tao phieu. Ban chi de xuat; nguoi dung bam nut moi gui."
 )
+
+
+def system(name):
+    """Loi dan he thong mang ten tro ly (doi ten = doi mot hang so o khay.py)."""
+    return SYSTEM.replace("{name}", str(name or "tro ly"))
 
 
 def calendar(today, days=CALENDAR_DAYS):
@@ -140,6 +149,10 @@ def normalize(raw, leave_types, today, has_files=False):
     elif action == PAYMENT and not reply:
         out["reply"] = ("Mình đọc tệp và điền sẵn phiếu cho bạn nhé." if has_files else
                         "Bạn thả hoá đơn hoặc báo giá vào đây, mình điền phiếu giúp.")
+    elif action == ANSWER:
+        # Chi tra loi thang khi model noi KHONG can so lieu VA da viet cau tra loi. Thieu mot
+        # trong hai -> di duong tra cuu (gemini_chat), khong de nguoi dung nhan mot cau rong.
+        out["needs_data"] = bool(raw.get("needs_data")) or not reply
     elif action == CLARIFY and not reply:
         out["reply"] = "Bạn nói rõ hơn giúp mình được không?"
     return out

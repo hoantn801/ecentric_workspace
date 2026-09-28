@@ -25,8 +25,13 @@ PAYMENT_CODE = "PAYMENT_REQUEST"
 #: Giai doan 1 chi mot form, trung voi ROUTES cua ec_aifill.bundle.js - AI dien ho moi
 #: nghiem thu xong tren form nay. Them form = them vao day SAU khi form do chay AI dien ho.
 PAYMENT_ROUTE = "/approvals/payment-request"
-BUDGET = 60
-BUSY = "Khay đang bận, bạn thử lại sau ít phút nhé."
+#: Ten hien tren giao dien va trong loi dan. Doi ten = doi DUNG dong nay.
+ASSISTANT_NAME = "eC Mate"   # Hoan chot ten 28/09
+#: Hoi thoai thi phai nhanh: moi lan thu toi da 15s (Kie lan 28/09 treo 60s moi bao loi),
+#: tong 45s. Model treo bi danh dau sap 5 phut nen lan sau di thang toi model con song.
+BUDGET = 45
+ATTEMPT_TIMEOUT = 15
+BUSY = "AI đang quá tải, bạn thử lại sau ít phút nhé."
 
 
 def _flag(name):
@@ -76,7 +81,7 @@ def boot():
         return {"enabled": False}
     emp = _employee(user) or {}
     name = (emp.get("employee_name") or frappe.db.get_value("User", user, "first_name") or "")
-    return {"enabled": True, "first_name": str(name).split(" ")[-1],
+    return {"enabled": True, "name": ASSISTANT_NAME, "first_name": str(name).split(" ")[-1],
             "can_leave": bool(emp), "can_payment": _can_payment(user),
             "payment_route": PAYMENT_ROUTE}
 
@@ -97,8 +102,9 @@ def intent(message=None, history=None, page=None, files=None):
     res = gateway.generate(
         brain.build_prompt(message or "(khong go gi, chi tha tep)", today, leave_types,
                            page=page or "", file_names=names),
-        system=brain.SYSTEM, schema=brain.SCHEMA, history=brain.parse_history(history),
-        purpose="khay", budget=BUDGET, opts={"temperature": 0})
+        system=brain.system(ASSISTANT_NAME), schema=brain.SCHEMA,
+        history=brain.parse_history(history), purpose="khay", budget=BUDGET,
+        attempt_timeout=ATTEMPT_TIMEOUT, opts={"temperature": 0})
     if not res["ok"]:
         return {"action": "error", "reply": BUSY, "options": []}
     out = brain.normalize(res["data"], leave_types, today, has_files=bool(names))
