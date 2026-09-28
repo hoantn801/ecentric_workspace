@@ -21,11 +21,23 @@ import frappe
 from frappe.utils import add_days, nowdate
 
 from ecentric_workspace.weekly_report import sharepoint
+from ecentric_workspace.weekly_report.permissions import MANAGEMENT_DEPARTMENT
 
 
 WTU = "Weekly Team Update"
 TERMINAL_STATES = ("Submitted", "Reviewed")
 RECENT_DAYS = 12
+
+# Phong ban KHONG duoc chia se deck ra toan to chuc (2026-09-28).
+#
+# Link organization-scope mo duoc bang BAT KY tai khoan nao trong tenant, khong
+# di qua quyen cua Frappe. Nen voi bao cao Management, chuyen deck sang link do
+# chinh la vuot mat luat vua dat o `permissions.py`: danh sach an ban ghi di,
+# nhung deck van mo duoc neu co URL.
+#
+# Lay hang so tu `permissions` chu khong go lai chuoi: hai noi dinh nghia roi
+# mot noi doi ten phong ban la lo ra ngay, va khong ai biet.
+PRIVATE_DEPARTMENTS = (MANAGEMENT_DEPARTMENT,)
 
 # Kept as a name for readability; the rule itself lives in sharepoint so that
 # the parser and the converter can never disagree about what a share link is.
@@ -40,7 +52,8 @@ def _candidates(weeks, limit):
     are never reached. That is precisely how 43 .pptx decks stayed unshared.
     An org link contains neither marker below, so this selects exactly the work.
     """
-    filters = {"status": ["in", TERMINAL_STATES], "slide_deck": ["!=", ""]}
+    filters = {"status": ["in", TERMINAL_STATES], "slide_deck": ["!=", ""],
+               "department": ["not in", list(PRIVATE_DEPARTMENTS)]}
     if weeks:
         filters["week_label"] = ["in", weeks]
     else:
@@ -67,6 +80,14 @@ def _display_name(rel_path):
 
 def _convert_row(row, token, stats):
     department = row.get("department")
+    # Chan LAN HAI, ngay tai cho ghi.
+    #
+    # `_candidates` da loc roi, nhung bo loc do o mot ham khac va nguoi sau co
+    # the goi `_convert_row` tu cho khac, hoac noi long bo loc de "chay lai cho
+    # du". Cho duy nhat khong the di vong la ngay truoc khi tao link.
+    if department in PRIVATE_DEPARTMENTS:
+        stats["skipped_private"] = stats.get("skipped_private", 0) + 1
+        return 0
     urls = [u.strip() for u in (row.get("slide_deck") or "").split("\n") if u.strip()]
     out = []
     changed = 0
@@ -99,7 +120,8 @@ def _convert_row(row, token, stats):
 
 
 def convert_pending(weeks=None, limit=25):
-    stats = {"scanned": 0, "converted": 0, "records": 0, "failed": 0, "errors": []}
+    stats = {"scanned": 0, "converted": 0, "records": 0, "failed": 0,
+             "skipped_private": 0, "errors": []}
     rows = _candidates(weeks, limit)
     stats["scanned"] = len(rows)
     if not rows:

@@ -36,6 +36,7 @@ from ecentric_workspace.weekly_report import (
     ai_retrigger,
     deck_sharing,
     due_backfill,
+    permissions,
     scoring,
     sharepoint,
     submit_service,
@@ -132,6 +133,29 @@ def convert_decks_to_org_links(weeks=None, limit=25):
     if isinstance(weeks, str):
         weeks = json.loads(weeks) if weeks.strip().startswith("[") else [weeks]
     return deck_sharing.convert_pending(weeks=weeks, limit=int(limit or 25))
+
+
+@frappe.whitelist(methods=["POST"])
+def explain_wtu_scope(user=None):
+    """Luat pham vi doc dang tinh ra gi cho MOT nguoi. Chi doc, khong ghi.
+
+    De kiem chung ban sua ma khong phai muon tai khoan hay mat khau cua ai:
+    System Manager hoi ho thay duoc gi, thay vi phai dang nhap thanh ho. Cung la
+    cho de tra loi "vi sao toi khong thay bao cao X" ma khong phai doan.
+
+    Tra ve cau WHERE that su duoc chen vao truy van, chu khong phai ban dien
+    giai cua no -- dien giai co the dung trong khi cau lenh sai.
+    """
+    frappe.only_for("System Manager")
+    user = user or frappe.session.user
+    scope = permissions.compute_scope(user)
+    return {
+        "user": user,
+        "full_access": bool(scope["full"]),
+        "employee": scope["employee"],
+        "departments": scope["departments"],
+        "where_clause": permissions.wtu_query_conditions(user) or "(khong han che)",
+    }
 
 
 @frappe.whitelist(methods=["POST"])

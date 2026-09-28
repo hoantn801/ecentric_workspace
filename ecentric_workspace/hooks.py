@@ -226,14 +226,33 @@ scheduler_events["cron"].setdefault("0 9 * * *", []).append(
 # so GBS / Approval / notification / reporting are unaffected; the condition functions return
 # "" (no restriction) for Administrator / System Manager / Management dept / PM Manager, so
 # leaders and Desk power users are untouched.
+#
+# Weekly Team Update (2026-09-28): Custom DocPerm cho role Employee la read=1,
+# if_owner=0 va khong co query condition -- moi nhan vien doc duoc moi bao cao
+# tuan, ke ca cua nhom Management. Hai hook duoi thay the Server Script tam
+# `ec_wtu_list_scope` bang code trong app (A57). Luat port nguyen tu script do.
 permission_query_conditions = {
     "EC SLA Obligation": "ecentric_workspace.sla.permissions.obligation_query_conditions",
     "Task": "ecentric_workspace.pm.permissions.task_query_conditions",
     "Project": "ecentric_workspace.pm.permissions.project_query_conditions",
+    "Weekly Team Update": "ecentric_workspace.weekly_report.permissions.wtu_query_conditions",
 }
 has_permission = {
     "Task": "ecentric_workspace.pm.permissions.task_has_permission",
     "Project": "ecentric_workspace.pm.permissions.project_has_permission",
+    "Weekly Team Update": "ecentric_workspace.weekly_report.permissions.wtu_has_permission",
+}
+
+# Ham cho Jinja trong Web Page
+# ---------------------------
+# Trang /weekly-update doc ban ghi bang `frappe.db.get_value` ngay trong
+# template, voi ten lay tu `?view=`. Duong do KHONG di qua has_permission, nen
+# phai tu kiem. Dua ham vao day de template goi duoc, thay vi chep luat vao HTML
+# -- chep la co ba ban luat, va ban trong HTML se la ban khong ai sua khi doi.
+jinja = {
+    "methods": [
+        "ecentric_workspace.weekly_report.permissions.can_view_weekly_record",
+    ],
 }
 
 # Override standard whitelisted methods
