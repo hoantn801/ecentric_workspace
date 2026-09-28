@@ -101,9 +101,23 @@
     return !!(doc.querySelector("[data-ec-shell]") || doc.querySelector(".ec-tabwrap"));
   }
 
+  /* Trang chủ còn khung chat cũ "AI Trợ lý" (#ec-chat-fab, nằm trong Web Page trang chủ,
+   * được áo linh vật bởi khối home v2). Hai con chồng ở cùng góc. Ai đã có eC Mate thì
+   * ẩn con cũ; ai chưa có eC Mate vẫn giữ con cũ, không ai mất chỗ chat. Hoàn chốt 28/09. */
+  var RETIRE_ID = "ec-khay-retire-old-chat";
+  function retireOldChat(doc) {
+    if (doc.getElementById(RETIRE_ID)) return false;
+    var st = doc.createElement("style");
+    st.id = RETIRE_ID;
+    st.textContent = "#ec-chat-fab,#ec-chat-panel{display:none!important}";
+    (doc.head || doc.documentElement).appendChild(st);
+    return true;
+  }
+
   var PURE = { viDate: viDate, leaveLabel: leaveLabel, leaveRange: leaveRange,
                fileRefuse: fileRefuse, fmtValue: fmtValue, serverError: serverError,
-               historyOf: historyOf, mdLite: mdLite, shouldRun: shouldRun, esc: esc };
+               historyOf: historyOf, mdLite: mdLite, shouldRun: shouldRun, esc: esc,
+               retireOldChat: retireOldChat };
   /* Cho test (jsdom) đọc các hàm PURE. KHÔNG dùng `module.exports`: esbuild thấy chữ
    * `module` sẽ gói file thành CommonJS, `module` có thật lúc chạy và widget tự thoát. */
   window.__ecKhayPure = PURE;
@@ -734,6 +748,7 @@
     get(API.boot).then(function (b) {
       if (!b || !b.enabled) return;
       S.boot = b;
+      retireOldChat(document);
       load();
       var host = document.createElement("div");
       host.id = "ec-khay-host";

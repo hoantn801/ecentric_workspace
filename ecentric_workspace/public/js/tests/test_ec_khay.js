@@ -48,6 +48,20 @@ const shell='<aside data-ec-shell="1"></aside><main>trang</main>';
   // ---- kill switch
   const e2=mk("https://x/viec-cua-toi",shell,{"ecentric_workspace.platform.ai.khay.boot":()=>({status:200,j:{message:{enabled:false}}})});
   await tick(); ok("enabled:false thi khong ve gi", !e2.w.document.getElementById("ec-khay-host"));
+  ok("enabled:false thi GIU chat cu", !e2.w.document.getElementById("ec-khay-retire-old-chat"));
+  {
+    const home=shell+'<button id="ec-chat-fab">cu</button><div id="ec-chat-panel"></div>';
+    const eo=mk("https://x/",home,{"ecentric_workspace.platform.ai.khay.boot":()=>({status:200,j:{message:{enabled:true,name:"eC Mate",can_leave:true}}})});
+    await tick(50);
+    const cs=(id)=>eo.w.getComputedStyle(eo.w.document.getElementById(id)).display;
+    ok("co eC Mate thi AN nut chat cu", cs("ec-chat-fab")==="none");
+    ok("co eC Mate thi AN khung chat cu", cs("ec-chat-panel")==="none");
+    ok("eC Mate van hien", !!eo.w.document.getElementById("ec-khay-host"));
+    ok("an cu chi chen 1 lan", eo.w.__ecKhayPure.retireOldChat(eo.w.document)===false && eo.w.document.querySelectorAll("#ec-khay-retire-old-chat").length===1);
+    const en=mk("https://x/",home,{"ecentric_workspace.platform.ai.khay.boot":()=>({status:200,j:{message:{enabled:false}}})});
+    await tick(50);
+    ok("khong co eC Mate thi chat cu van hien", en.w.getComputedStyle(en.w.document.getElementById("ec-chat-fab")).display!=="none");
+  }
 
   // ---- luong xin nghi
   let token=0;
