@@ -235,14 +235,11 @@ permission_query_conditions = {
     "EC SLA Obligation": "ecentric_workspace.sla.permissions.obligation_query_conditions",
     "Task": "ecentric_workspace.pm.permissions.task_query_conditions",
     "Project": "ecentric_workspace.pm.permissions.project_query_conditions",
-<<<<<<< HEAD
-    "Weekly Team Update": "ecentric_workspace.weekly_report.permissions.wtu_query_conditions",
-=======
     # 28/09/2026 (VA_BAO_MAT muc 2): nguoi ngoai HR chi thay chinh minh trong list/report/
     # search Employee - chan do so TK / CCCD bang filter tren field permlevel cao. Thay cho
     # Server Script `ec_employee_list_scope` (disable script do sau khi deploy).
     "Employee": "ecentric_workspace.hr.privacy.employee_scope.employee_query_conditions",
->>>>>>> github/main
+    "Weekly Team Update": "ecentric_workspace.weekly_report.permissions.wtu_query_conditions",
 }
 has_permission = {
     "Task": "ecentric_workspace.pm.permissions.task_has_permission",
