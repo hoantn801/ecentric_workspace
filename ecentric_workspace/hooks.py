@@ -22,7 +22,7 @@ app_license = "MIT"
 # must never do). The asset itself bails out on /app/* and on pages with no eCentric
 # bell, and is single-install guarded so the homepage (which also still carries the
 # legacy per-page loader) never double-installs.
-web_include_js = ["notification_center.bundle.js", "ec_shell.bundle.js", "ec_datepicker.bundle.js", "ec_formkit.bundle.js", "ec_webpush.bundle.js", "ec_alltab.bundle.js", "ec_aifill.bundle.js"]
+web_include_js = ["notification_center.bundle.js", "ec_shell.bundle.js", "ec_datepicker.bundle.js", "ec_formkit.bundle.js", "ec_webpush.bundle.js", "ec_alltab.bundle.js", "ec_aifill.bundle.js", "ec_khay.bundle.js"]
 
 # ERP Shell v1 (Phase 1B pilot). Both assets are loaded site-wide via the same
 # proven content-hashed-bundle mechanism as the Notification Center, but
@@ -411,7 +411,10 @@ fixtures = [
     },
     {
         "dt": "Role",
-        "filters": [["name", "in", ["PM Manager", "PM Member"]]],
+        # EC AI Formfill Pilot da nam trong role.json tu 16/09 nhung thieu o day -> export lai
+        # se lam roi mat. EC Khay Pilot (28/09): mo dan tro ly Khay o goc moi trang.
+        "filters": [["name", "in", ["PM Manager", "PM Member", "EC AI Formfill Pilot",
+                                    "EC Khay Pilot"]]],
     },
     # HR MVP (2026-09): cac Server Script `ec_hr_*` va cac trang `/ec-hr/*` truoc
     # day chi song trong DB, khong co ban trong git -- rebuild site la mat sach

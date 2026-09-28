@@ -25,5 +25,14 @@
   "disabled": 0,
   "two_factor_auth": 0,
   "restrict_to_domain": ""
+ },
+ {
+  "doctype": "Role",
+  "name": "EC Khay Pilot",
+  "role_name": "EC Khay Pilot",
+  "desk_access": 0,
+  "disabled": 0,
+  "two_factor_auth": 0,
+  "restrict_to_domain": ""
  }
 ]
