@@ -1,10 +1,13 @@
 # Copyright (c) 2026, eCentric and contributors
-"""Idempotent, System-Manager-only setup for HIRING_REQUEST-V1 (Draft):
-L1 Direct Manager Review (Requester Manager; no fallback - blocked at submit if unresolved),
-L2 HR Review, L3 CEO Review (each Any One). HR/CEO identities are config seed args (emails allowed
-here only); L1 is dynamic. Fulfillment (28/09/2026): process Fulfiller = Role EC Recruiter
-(buoc "HR tuyen dung", tao Offer tu phieu). No SLA. dry-run default; apply=1 required. Never
-overwrites an Active process (process dang chay duoc them Fulfiller bang patch p218)."""
+"""Idempotent, System-Manager-only setup for OFFER_REQUEST-V1 (Draft) - 28/09/2026.
+
+L1 Line Manager Review  (Reference User Field `line_manager` - chep tu Hiring, nguoi gui khong chon)
+L2 HR & CnB Review      (Role EC CnB)
+L3 HOF Review           (Role EC HOF)
+L4 CEO Review           (Role EC CEO)
+Moi cap Any One. Hoan chot 28/09: "LM -> HR/CnB -> HOF -> CEO" (Excel de xuat them Lead HR, CnB,
+HOF o giua de nam chi luong). Duyet xong: tu tao New Staff Preparation (handler, khong phai
+fulfillment). dry-run default; apply=1 required. Never overwrites an Active process."""
 import json
 
 import frappe
@@ -13,19 +16,18 @@ from frappe import _
 from ecentric_workspace.approval_center.shared.workflow.participants import (
     CNB_ROLE, check_approver_parts, participant_rows, role_ref, validate_seed_entries)
 
-PROCESS_CODE = "HIRING_REQUEST-V1"
-APPROVAL_TYPE = "HIRING_REQUEST"
-# Cap CnB/HR resolve theo ROLE (25/09/2026) - ai giu role `EC CnB` deu nhan phieu, Any One.
-# Truyen danh sach email vao setup thi van ep duoc nguoi cu the.
-DEFAULT_HR = [role_ref(CNB_ROLE)]
-DEFAULT_CEO = ["lam.nguyen@ecentric.vn"]
-#: Nguoi nhan buoc "HR tuyen dung" sau khi CEO duyet (28/09/2026).
-RECRUITER_ROLE = "EC Recruiter"
+PROCESS_CODE = "OFFER_REQUEST-V1"
+APPROVAL_TYPE = "OFFER_REQUEST"
+LM_FIELD = "line_manager"
+DEFAULT_CNB = [role_ref(CNB_ROLE)]
+DEFAULT_HOF = [role_ref("EC HOF")]
+DEFAULT_CEO = [role_ref("EC CEO")]
+LEVELS = ((1, "Line Manager Review"), (2, "HR & CnB Review"), (3, "HOF Review"), (4, "CEO Review"))
 
 
 def _require_sm():
     if "System Manager" not in frappe.get_roles(frappe.session.user):
-        frappe.throw(_("Only System Manager may run Hiring setup."), frappe.PermissionError)
+        frappe.throw(_("Only System Manager may run Offer Request setup."), frappe.PermissionError)
 
 
 def _parse(v, default):
@@ -36,37 +38,29 @@ def _parse(v, default):
     return list(dict.fromkeys(v or []))
 
 
-def _validate(label, users, rep):
-    validate_seed_entries(label, users, rep)
-
-
 @frappe.whitelist()
-def setup_hiring_request_v1(hr=None, ceo=None, dry_run=1, apply=0):
+def setup_offer_request_v1(cnb=None, hof=None, ceo=None, dry_run=1, apply=0):
     _require_sm()
     dry = int(apply or 0) != 1
     rep = {"mode": "dry_run" if dry else "apply", "planned": [], "errors": [], "warnings": [],
            "notes": [], "result": None}
-    hrs = _parse(hr, DEFAULT_HR)
-    ceos = _parse(ceo, DEFAULT_CEO)
-    _validate("HR", hrs, rep)
-    _validate("CEO", ceos, rep)
+    users = {2: _parse(cnb, DEFAULT_CNB), 3: _parse(hof, DEFAULT_HOF), 4: _parse(ceo, DEFAULT_CEO)}
+    validate_seed_entries("HR & CnB", users[2], rep)
+    validate_seed_entries("HOF", users[3], rep)
+    validate_seed_entries("CEO", users[4], rep)
     if not frappe.db.exists("EC Approval Type", APPROVAL_TYPE):
-        rep["errors"].append("EC Approval Type %s missing (run p002 seed first)." % APPROVAL_TYPE)
+        rep["errors"].append("EC Approval Type %s missing (seed first)." % APPROVAL_TYPE)
     if frappe.db.get_value("EC Approval Process", PROCESS_CODE, "status") == "Active":
         rep["notes"].append("ALREADY_ACTIVE %s (left unchanged)" % PROCESS_CODE)
         rep["result"] = "ALREADY_ACTIVE"
         rep["blockers"] = rep["errors"]
         return rep
-    active = frappe.get_all("EC Approval Process",
-                            filters={"approval_type": APPROVAL_TYPE, "status": "Active",
-                                     "name": ["!=", PROCESS_CODE]}, pluck="name")
-    if active:
-        rep["warnings"].append("Another Active process exists for %s: %s" % (APPROVAL_TYPE, active))
     rep["planned"] = [
         "process %s (Draft), no SLA (v1)" % PROCESS_CODE,
-        "L1 Direct Manager Review (Requester Manager, Any One, no fallback)",
-        "L2 HR Review (Any One)=%s" % hrs,
-        "L3 CEO Review (Any One)=%s" % ceos,
+        "L1 Line Manager Review (Reference User Field on %s, Any One)" % LM_FIELD,
+        "L2 HR & CnB Review (Any One)=%s" % users[2],
+        "L3 HOF Review (Any One)=%s" % users[3],
+        "L4 CEO Review (Any One)=%s" % users[4],
     ]
     rep["blockers"] = rep["errors"]
     if rep["errors"]:
@@ -75,26 +69,24 @@ def setup_hiring_request_v1(hr=None, ceo=None, dry_run=1, apply=0):
     if dry:
         rep["result"] = "DRY_RUN_OK (no writes)"
         return rep
-    _upsert(hrs, ceos)
+    _upsert(users)
     frappe.db.commit()
-    rep["result"] = "APPLIED (process Draft; card inactive)"
+    rep["result"] = "APPLIED (process Draft)"
     return rep
 
 
-def _upsert(hrs, ceos):
+def _upsert(users):
     proc = frappe.get_doc("EC Approval Process", PROCESS_CODE) if frappe.db.exists(
         "EC Approval Process", PROCESS_CODE) else frappe.new_doc("EC Approval Process")
     if not proc.process_code:
         proc.process_code = PROCESS_CODE
-    proc.title = "Hiring Request V1"
+    proc.title = "Offer Request V1"
     proc.approval_type = APPROVAL_TYPE
     proc.version_no = proc.version_no or 1
     proc.status = "Draft"
-    proc.set("participants", [{"participant_purpose": "Fulfiller", "source_type": "Role",
-                               "role": RECRUITER_ROLE, "sort_order": 0}])
+    proc.set("participants", [])
     proc.save(ignore_permissions=True)
-
-    def _upsert_level(no, name, kind, ulist):
+    for no, name in LEVELS:
         existing = frappe.get_all("EC Approval Level",
                                   filters={"approval_process": PROCESS_CODE, "level_no": no}, pluck="name")
         lvl = frappe.get_doc("EC Approval Level", existing[0]) if existing else frappe.new_doc("EC Approval Level")
@@ -103,26 +95,23 @@ def _upsert(hrs, ceos):
         lvl.level_name = name
         lvl.mandatory = 1
         lvl.approval_mode = "Any One"
-        lvl.minimum_approvals = 1
+        lvl.minimum_approvals = 0
         lvl.allows_amount_adjustment = 0
         lvl.sla_policy = None
         lvl.set("participants", [])
-        if kind == "manager":
+        if no == 1:
             lvl.append("participants", {"participant_purpose": "Approver",
-                                        "source_type": "Requester Manager", "sort_order": 0})
+                                        "source_type": "Reference User Field",
+                                        "reference_field": LM_FIELD, "sort_order": 0})
         else:
-            for i, row in enumerate(participant_rows(ulist)):
+            for i, row in enumerate(participant_rows(users[no])):
                 row.update({"participant_purpose": "Approver", "sort_order": i})
                 lvl.append("participants", row)
         lvl.save(ignore_permissions=True)
 
-    _upsert_level(1, "Direct Manager Review", "manager", None)
-    _upsert_level(2, "HR Review", "user", hrs)
-    _upsert_level(3, "CEO Review", "user", ceos)
-
 
 @frappe.whitelist()
-def validate_hiring_request_v1():
+def validate_offer_request_v1():
     proc = frappe.db.get_value("EC Approval Process", {"process_code": PROCESS_CODE},
                                ["name", "status"], as_dict=True)
     checks = []
@@ -135,24 +124,21 @@ def validate_hiring_request_v1():
         c(proc.status in ("Draft", "Active"), "status Draft/Active")
         levels = frappe.get_all("EC Approval Level", filters={"approval_process": proc.name},
                                 fields=["name", "level_no", "level_name"], order_by="level_no asc")
-        c([l.level_no for l in levels] == [1, 2, 3], "levels 1,2,3 present")
+        c([l.level_no for l in levels] == [1, 2, 3, 4], "levels 1..4 present")
         names = {l.level_no: l.level_name for l in levels}
-        for no, nm in [(1, "Direct Manager Review"), (2, "HR Review"), (3, "CEO Review")]:
+        for no, nm in LEVELS:
             c(names.get(no) == nm, "L%s is %s" % (no, nm))
         for l in levels:
             parts = frappe.get_all("EC Approval Participant",
                                    filters={"parent": l.name, "participant_purpose": "Approver"},
-                                   fields=["source_type", "user", "role"])
+                                   fields=["source_type", "reference_field", "user", "role"])
             if l.level_no == 1:
-                c(any(p.source_type == "Requester Manager" for p in parts), "L1 Requester Manager source")
+                c(any(p.source_type == "Reference User Field" and p.reference_field == LM_FIELD
+                      for p in parts), "L1 Reference User Field on %s" % LM_FIELD)
             else:
                 for ok, msg in check_approver_parts(parts, l.level_no):
                     c(ok, msg)
-        pdoc = frappe.get_doc("EC Approval Process", proc.name)
-        c(any(p.get("participant_purpose") == "Fulfiller" and p.get("role") == RECRUITER_ROLE
-              for p in (pdoc.get("participants") or [])), "Fulfiller = Role %s" % RECRUITER_ROLE)
         c(not frappe.get_all("EC Approval Process",
                              filters={"approval_type": APPROVAL_TYPE, "status": "Active",
                                       "process_code": ["!=", PROCESS_CODE]}), "no OTHER Active process")
     return {"ok": all(x["ok"] for x in checks), "checks": checks}
-

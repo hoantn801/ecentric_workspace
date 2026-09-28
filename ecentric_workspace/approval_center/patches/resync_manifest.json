@@ -65,8 +65,8 @@
   },
   "approval_center/features/hiring_request/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p203_resync_all_forms_alltab",
-    "sha256": "379061aaec7ddcd5548bb68753cc02c1a8619ee7844604b096f0753c7ed65f62"
+    "last_resync_patch": "p220_create_offer_nsp_pages",
+    "sha256": "1b60a0a02e0cad12fefe8561ed6c0d5fa74f8710c79b7e98ac65ee35f32158e7"
   },
   "approval_center/features/hr_activity/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -229,5 +229,15 @@
     "baseline": "2026-09-25",
     "last_resync_patch": "p217_brand_weight_formkit_copy",
     "sha256": "2b14bf8fe70cfb058b97870431e2021bbed55c41d536d444e017732f7c7cb4d0"
+  },
+  "approval_center/features/offer_request/ui/main_section.html": {
+    "baseline": "2026-09-28",
+    "last_resync_patch": "p220_create_offer_nsp_pages",
+    "sha256": "bde728605a45f92bbc7c7443a903f92fa53d665b8148fcc5e62eea1f778b2a47"
+  },
+  "approval_center/features/new_staff_preparation/ui/main_section.html": {
+    "baseline": "2026-09-28",
+    "last_resync_patch": "p220_create_offer_nsp_pages",
+    "sha256": "78e058a80de0472a5d2f7bb68283b198dbdad9a218259bb7c2ada4ef1648eaa4"
   }
 }

@@ -672,7 +672,8 @@ _FULFILLMENT_TERMINAL = ("Completed", "Cancelled")
 FULFILLMENT_DOCTYPES = ("EC AI Topup Request", "EC Asset Request", "EC Data Request",
                         "EC Document Request", "EC Resignation Request", "EC System Request",
                         "EC Payment Request",    # buoc 6 Finance xu ly UNC (07/09)
-                        "EC Booking Request")    # Booking xu ly yeu cau (11/09)
+                        "EC Booking Request",    # Booking xu ly yeu cau (11/09)
+                        "EC Hiring Request")     # HR tuyen dung sau CEO duyet (28/09)
 
 
 def _fulfillment_snapshot(business_doctype, name):
@@ -1788,6 +1789,13 @@ _FULFILLMENT_HANDLERS = {
     # 11/09: duyet xong thi giao Booking xu ly. Viec di DICH DANH toi ban Booking phu
     # trach brand (xem service.on_final_approval); Role EC Booking chi la luoi do.
     "EC Booking Request": "ecentric_workspace.approval_center.features.booking_request.application.service.on_final_approval",
+    # 28/09: Hiring duyet xong -> hang doi "HR tuyen dung" (Role EC Recruiter); tu phieu
+    # tao Offer Request cho tung ung vien.
+    "EC Hiring Request": "ecentric_workspace.approval_center.features.hiring_request.application.service.on_final_approval",
+    # 28/09: KHONG phai buoc xu ly - chi la viec sau duyet: Offer duyet xong -> tao New Staff
+    # Preparation o nen; New Staff Preparation xong -> bao line manager.
+    "EC Offer Request": "ecentric_workspace.approval_center.features.offer_request.application.service.on_final_approval",
+    "EC New Staff Preparation": "ecentric_workspace.approval_center.features.new_staff_preparation.application.service.on_final_approval",
 }
 
 
