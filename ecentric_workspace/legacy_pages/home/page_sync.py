@@ -39,7 +39,7 @@ NAME = "ecentric-workspace"
 TITLE = "eCentric Workspace"
 
 #: sha256 cua main_section.html commit nay ship (phep kiem `pagesync` cua CI doi chieu).
-BASELINE_SHA256 = "633e6dd057e87f240e8dcee5aa6e62b4c623745f5ba775248e8c566a12b90baf"
+BASELINE_SHA256 = "cfb286e5c4f0d5672e67d236ece09c1225ab4cd3fc7090d2d86fdcf7f31118f0"
 SUPERSEDES_SHA256 = (
     # 29/09/2026: live truoc giai doan 2 = bo cuc cu + khoi JS ec-home-v2 (deploy_home_v2.ps1,
     # ban 28/09 d40b72c) + vo shell/polish cua transform_home. Doi chieu bang trinh duyet.
@@ -50,6 +50,8 @@ SUPERSEDES_SHA256 = (
     "52d1d24463601e8c41cd75fb569dce3bde22c563ee4e22ca39aca2fe5d4b0faa",
     # 29/09 15:00 (p227): go nut chat cu; chua co popup "Hom nay o eCentric" (p228 them)
     "7bfda03ccb1e779f481347c7b8e54b9affc3a8072d45c42e1c14bea685d18aec",
+    # 29/09 16:15 (p228): popup "Hom nay o eCentric" + trang tri; chua co nut mo lai (p230 them)
+    "633e6dd057e87f240e8dcee5aa6e62b4c623745f5ba775248e8c566a12b90baf",
 )
 
 #: Dau vet cua Daily Cockpit (PO tu choi 21/07): nguon trang chu khong bao gio duoc chua lai.

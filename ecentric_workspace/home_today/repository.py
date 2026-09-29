@@ -18,7 +18,7 @@ _STRIP_RE = re.compile(r"<(style|link|script)\b[^>]*>.*?</\1\s*>|<(style|link|sc
 def active_employees():
     return frappe.get_all(
         "Employee", filters={"status": "Active"},
-        fields=["name", "employee_name", "user_id", "department", "designation",
+        fields=["name", "employee_name", "first_name", "user_id", "department", "designation",
                 "date_of_birth", "date_of_joining"],
         limit_page_length=0)
 

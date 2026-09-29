@@ -63,14 +63,16 @@
     "name": "Nguyễn Thu Hà",
     "role": "Account Executive · Account",
     "initials": "TH",
-    "color": 1
+    "color": 1,
+    "given": "Hà"
    },
    {
     "key": "bd:E2:2026",
     "name": "Trần Minh Khoa",
     "role": "Data Analyst · Data",
     "initials": "MK",
-    "color": 0
+    "color": 0,
+    "given": "Khoa"
    }
   ],
   "soon": [
@@ -118,7 +120,8 @@
    "initials": "NT",
    "color": 6,
    "years": 3,
-   "joined": "29/09/2023"
+   "joined": "29/09/2023",
+   "given": "Trâm"
   }
  ],
  "holidays": [

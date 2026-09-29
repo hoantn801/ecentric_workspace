@@ -98,8 +98,18 @@ class TestPopupInJsdom(unittest.TestCase):
         self.assertEqual(m["heartBefore"], ["false", "5"])
         self.assertEqual(m["heartAfter"][:2], ["true", "6"])
         self.assertTrue(m["heartAfter"][2].startswith("Bạn, Minh Anh"))
-        self.assertEqual(m["post"], [{"post": "ecentric_workspace.home_today.api.toggle_reaction",
-                                      "d": {"target": "bd:E1:2026", "kind": "heart"}}])
+        self.assertEqual(m["post"][0], {"post": "ecentric_workspace.home_today.api.toggle_reaction",
+                                         "d": {"target": "bd:E1:2026", "kind": "heart"}})
+
+    def test_teams_style_reactions(self):
+        """PO 29/09 16:27: chua ai tha thi KHONG hien o; nut mat cuoi o goc mo bang chon 4 icon."""
+        m = self.r["main"]
+        self.assertEqual(m["chipsBefore"], [["heart:5", "flower:2", "cake:7", "party:1"],
+                                            ["heart:3", "cake:4", "party:2"]])
+        self.assertEqual(m["pickers"], [4, 4])
+        self.assertTrue(m["pickOpen"])
+        self.assertEqual(m["afterPick"], ["heart:3", "flower:1", "cake:4", "party:2"])
+        self.assertTrue(m["pickClosed"])
 
     def test_keyboard_and_close(self):
         m = self.r["main"]
