@@ -593,3 +593,19 @@ website_redirects = list(globals().get("website_redirects") or []) + [
 # cho TUNG nguoi xem (ca cong ty Nhe / cung phong ban Vua / nguoi sinh nhat Ruc ro) va biet popup
 # co gi de hien khong - tu truoc lan ve dau (A65 §5), khong doan trong HTML. Xem home_today/.
 jinja["methods"].append("ecentric_workspace.home_today.jinja.home_today_celebration")
+
+# --------------------------------------------------------------------------- #
+# 29/09/2026 - Chot cong thang (Hoan chot, project doc claude/chot-cong-thang.md).
+# Nhan vien chot truoc 12:00, leader chot team truoc 15:00 NGAY 2 thang sau (doi qua
+# T7/CN/le). Ky dau: cong thang 9/2026 (han T6 02/10). Logic: hr/timesheet_close.
+#   00:05 hang ngay : sinh dong EC Timesheet Close khi cua so chot mo (ngay 1).
+#   08:35 hang ngay : nhac ngay 1 (ham tu loc ngay 1).
+#   09:00 hang ngay : nhac ngay chot, chi nguoi chua chot (ham tu loc ngay chot).
+# Tat nhac: site_config ec_timesheet_close_reminder_disabled.
+# --------------------------------------------------------------------------- #
+scheduler_events["cron"].setdefault("5 0 * * *", []).append(
+    "ecentric_workspace.hr.timesheet_close.service.ensure_current")
+scheduler_events["cron"].setdefault("35 8 * * *", []).append(
+    "ecentric_workspace.hr.timesheet_close.reminders.remind_day1")
+scheduler_events["cron"].setdefault("0 9 * * *", []).append(
+    "ecentric_workspace.hr.timesheet_close.reminders.remind_close_day")
