@@ -252,22 +252,27 @@
   },
   "alerts/site_pages/overview/main_section.html": {
     "baseline": "2026-09-29",
-    "sha256": "0a06538a47c70eca3bfcea6eae5ac2cdb9713ac2304b07f43834079e8706b6a0"
+    "last_resync_patch": "p223_resync_alert_center_nhieu_lop",
+    "sha256": "5732f0e6ffe17af27c63091e1252e1bcfff06825d58a3d710f0b0f6711483dd7"
   },
   "alerts/site_pages/policies/main_section.html": {
     "baseline": "2026-09-29",
-    "sha256": "9353c6bcca9a27b0b59170e765113cc825048ac7dddfe29ac5f425b621278ada"
+    "last_resync_patch": "p223_resync_alert_center_nhieu_lop",
+    "sha256": "7157c23133d16ffe0dc827c6ccdbb831af85c73b24d13cdb922c2d59142a120f"
   },
   "alerts/site_pages/rules/main_section.html": {
     "baseline": "2026-09-29",
-    "sha256": "2cb3d306356b62e9c77e2d1ae3af16eef31a7dd59f8a7d37b6f22ad11ae0907f"
+    "last_resync_patch": "p223_resync_alert_center_nhieu_lop",
+    "sha256": "b7435c068316f36336e5cea337a5e0a2e1b66e40faec27cd2d17b71ad3b8dee1"
   },
   "alerts/site_pages/locks/main_section.html": {
     "baseline": "2026-09-29",
-    "sha256": "04c93c168192613f02aa463795b7930e898fb7edc685636d082b5ce67a8d4166"
+    "last_resync_patch": "p223_resync_alert_center_nhieu_lop",
+    "sha256": "aab025b9225ce150cc4ad020e05ce6a91c55045665a7693d7f319f3df7a60b01"
   },
   "alerts/site_pages/integration_health/main_section.html": {
     "baseline": "2026-09-29",
-    "sha256": "92ef593391cb057c56f7a888d6ef3238f2a9ad2a2be94b0edcf26667f88c6834"
+    "last_resync_patch": "p223_resync_alert_center_nhieu_lop",
+    "sha256": "e8be1000a03aa65b14d56223d636ea9b0e3a7462024196ab89282c437c4df99c"
   }
 }

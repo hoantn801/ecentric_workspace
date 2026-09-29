@@ -1,0 +1,380 @@
+/* Copyright (c) 2026, eCentric and contributors
+   Alert Center - CSS chung cho 5 trang /alerts*. Asset cua app tu 29/09/2026; truoc do nam
+   inline trong tung Web Page (<style id="ec-alert-center-css">, 2 ban lech nhau - day la ban
+   cua /alerts/policies, ban moi hon: quy tac .al-msel chung da thay bang #f-status-cbs, ma
+   .al-msel chi co tren trang Policies). Sua file nay thi chay
+     python -m ecentric_workspace.alerts.site_pages.assets --stamp
+   roi bump BASELINE_SHA256 cua 5 trang + them patch resync. */
+.al-filters{display:flex;flex-wrap:wrap;gap:8px;padding:12px 16px;border-bottom:1px solid var(--gray-200);align-items:flex-end}
+.al-filters label{display:block;font-size:10.5px;font-weight:600;color:var(--gray-500);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+.al-filters select,.al-filters input{padding:7px 10px;border:1px solid var(--gray-200);border-radius:8px;font-size:13px;background:#fff;font-family:inherit;min-width:110px}
+.al-filters select:focus,.al-filters input:focus{outline:none;border-color:var(--navy)}
+.al-btn{padding:8px 14px;border-radius:8px;border:1px solid var(--gray-200);background:#fff;font-size:13px;font-weight:600;color:var(--gray-700);cursor:pointer;font-family:inherit}
+.al-btn:hover{background:var(--gray-50)}
+.al-btn.primary{background:var(--navy);border-color:var(--navy);color:#fff}
+.al-btn.danger{background:var(--pink);border-color:var(--pink);color:#fff}
+.al-btn:disabled{opacity:.5;cursor:not-allowed}
+.al-tbl-wrap{overflow-x:auto}
+.al-tbl{width:100%;border-collapse:collapse;font-size:13px}
+.al-tbl th{position:sticky;top:0;background:var(--gray-50);text-align:left;padding:9px 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--gray-500);border-bottom:1px solid var(--gray-200);white-space:nowrap}
+.al-tbl td{padding:9px 10px;border-bottom:1px solid var(--gray-100);color:var(--gray-800);white-space:nowrap}
+.al-tbl tbody tr{cursor:pointer}
+.al-tbl tbody tr:hover{background:var(--navy-50)}
+.al-badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:700}
+.al-b-critical{background:var(--pink-50);color:var(--pink)}
+.al-b-warning{background:var(--yellow-50);color:#8a6d00}
+.al-b-info{background:var(--gray-100);color:var(--gray-600)}
+.al-b-open{background:var(--navy-50);color:var(--navy)}
+.al-b-review{background:var(--yellow-50);color:#8a6d00}
+.al-b-resolved{background:#e7f6ee;color:var(--green)}
+.al-b-ignored{background:var(--gray-100);color:var(--gray-500)}
+.al-b-dryrun{background:var(--navy-50);color:var(--navy)}
+.al-b-pending{background:var(--yellow-50);color:#8a6d00}
+.al-b-skipped{background:var(--gray-100);color:var(--gray-500)}
+.al-b-draft{background:var(--gray-100);color:var(--gray-600)}
+.al-b-active{background:#e7f6ee;color:var(--green)}
+.al-b-paused{background:var(--yellow-50);color:#8a6d00}
+.al-b-expired{background:var(--gray-100);color:var(--gray-500)}
+.al-pager{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;font-size:12.5px;color:var(--gray-500)}
+.al-drawer{position:fixed;top:0;right:0;width:460px;max-width:94vw;height:100vh;background:#fff;border-left:1px solid var(--gray-200);box-shadow:-12px 0 36px rgba(15,23,42,.12);z-index:60;display:flex;flex-direction:column}
+.al-drawer-head{padding:14px 18px;border-bottom:1px solid var(--gray-200);display:flex;justify-content:space-between;align-items:center}
+.al-drawer-body{padding:14px 18px;overflow-y:auto;flex:1}
+.al-kv{display:grid;grid-template-columns:130px 1fr;gap:6px 10px;font-size:13px;margin-bottom:14px}
+.al-kv dt{color:var(--gray-500)}.al-kv dd{margin:0;color:var(--gray-900);font-weight:500;word-break:break-word;white-space:normal}
+.al-drawer-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px 18px;border-top:1px solid var(--gray-200)}
+.al-more{position:relative;margin-left:auto}
+.al-more-menu{position:absolute;right:0;bottom:calc(100% + 6px);background:#fff;border:1px solid var(--gray-200);border-radius:8px;box-shadow:0 10px 28px rgba(15,23,42,.16);padding:6px;min-width:150px;z-index:80}
+.al-more-menu .al-btn{width:100%;justify-content:flex-start}
+.al-overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:55}
+.al-modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:14px;box-shadow:0 24px 64px rgba(15,23,42,.25);z-index:70;width:460px;max-width:94vw;max-height:88vh;overflow-y:auto;padding:18px}
+.al-modal.wide{width:760px}
+.al-modal h3{margin:0 0 10px;font-size:15px;color:var(--gray-900)}
+.al-modal textarea,.al-modal input,.al-modal select{width:100%;padding:8px 10px;border:1px solid var(--gray-200);border-radius:8px;font-size:13px;font-family:inherit;margin-bottom:10px}
+.al-modal-foot{display:flex;justify-content:flex-end;gap:8px}
+.al-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--gray-900);color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;z-index:90;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.al-empty{padding:46px 16px;text-align:center;color:var(--gray-500);font-size:13.5px}
+.al-noaccess{max-width:480px;margin:80px auto;text-align:center;color:var(--gray-600)}
+.al-actrows{font-size:12.5px;border-top:1px dashed var(--gray-200);padding-top:10px;margin-top:6px}
+/* Phase F additions - tokens only, no new visual language */
+/* RC4-1: the horizontal sub-nav tab strip is removed (the sidebar is the sole
+   primary navigation). Its CSS + markup + active-highlight JS are all gone. */
+.al-dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;margin-bottom:14px}
+.al-bars{display:flex;flex-direction:column;gap:7px;padding:12px 16px}
+.al-bar-row{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--gray-700)}
+.al-bar-key{width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.al-bar-track{flex:1;background:var(--gray-100);border-radius:6px;height:14px;overflow:hidden}
+/* RC4-2 ROOT CAUSE: the fill is a <span> (inline by default) so width/height were
+   IGNORED and the bar stayed invisible regardless of the inline width. Block it. */
+.al-bar-fill{display:block;height:14px;border-radius:6px;background:var(--navy);transition:width .2s}
+.al-bar-fill.warn{background:#c9a200}.al-bar-fill.crit{background:var(--pink)}
+/* SLA aging: progressively stronger warning colours for older buckets */
+.al-bar-fill.age0{background:#5b9bd5}.al-bar-fill.age1{background:#e0a800}
+.al-bar-fill.age2{background:#e8590c}.al-bar-fill.age3{background:var(--pink)}
+.al-bar-n{width:40px;text-align:right;font-weight:700;color:var(--gray-900)}
+.al-csv-ok{color:var(--green);font-weight:700}.al-csv-err{color:var(--pink);font-weight:700}
+.al-rowlink{cursor:pointer}.al-rowlink:hover{background:var(--gray-50)}
+.al-rowlink:focus-visible{outline:2px solid var(--navy);outline-offset:-2px}
+.al-banner{margin:0 0 14px;padding:10px 14px;border:1px solid var(--yellow);background:var(--yellow-50);border-radius:10px;font-size:12.5px;color:#8a6d00;font-weight:600}
+.al-note{margin:0 0 12px;padding:8px 12px;border:1px solid var(--gray-200);background:var(--gray-50);border-radius:8px;font-size:12px;color:var(--gray-600);line-height:1.4;display:flex;gap:8px;align-items:flex-start}
+.al-note .al-note-ic{flex:0 0 auto;color:var(--gray-400);font-weight:700}
+/* G1.1 Drop 2: bulk actions + occurrence column + evidence breakdown */
+.al-bulkbar{display:flex;align-items:center;gap:8px;margin-left:auto;margin-right:12px;font-size:12.5px;color:var(--gray-700);background:var(--navy-50);padding:5px 10px;border-radius:8px}
+.al-bulkbar #al-bulk-n{font-weight:700;color:var(--navy)}
+.al-chk-col{width:30px;text-align:center}
+.al-tbl td.al-chk-col input,.al-tbl th.al-chk-col input{cursor:pointer}
+.al-occ-n{display:inline-block;min-width:20px;padding:1px 7px;border-radius:999px;background:var(--navy-50);color:var(--navy);font-weight:700;font-size:12px;text-align:center}
+/* UX polish 2026-06-10: occurrence count prominent; multi-order cases pop */
+.al-occ-n.multi{background:var(--pink);color:#fff;font-size:13px;min-width:24px}
+.al-case-pill{display:inline-block;margin-left:8px;padding:2px 10px;border-radius:999px;background:var(--pink);color:#fff;font-weight:700;font-size:12px;vertical-align:middle}
+.al-occ-wrap.hl{border:1px solid var(--pink);border-radius:10px;padding:8px 10px;background:#fff}
+.al-breakdown{margin:6px 0 14px;border:1px solid var(--gray-200);border-radius:10px;padding:10px 12px;font-size:12.5px;background:var(--gray-50)}
+.al-breakdown table{width:100%;border-collapse:collapse}
+.al-breakdown td{padding:2px 0}
+.al-breakdown td.r{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+.al-breakdown tr.eff td{border-top:1px solid var(--gray-300);padding-top:5px;color:var(--navy);font-weight:700}
+.al-breakdown td.minus{color:var(--pink)}
+.al-occ-wrap{margin-top:8px}
+.al-occ-wrap .al-fsec{margin:14px 0 6px}
+.al-occ-tbl{width:100%;border-collapse:collapse;font-size:11.5px}
+.al-occ-tbl th{position:sticky;top:0;background:var(--gray-50);text-align:left;padding:6px 7px;font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--gray-500);border-bottom:1px solid var(--gray-200);white-space:nowrap}
+.al-occ-tbl td{padding:6px 7px;border-bottom:1px solid var(--gray-100);white-space:nowrap}
+.al-occ-tbl td.r{text-align:right;font-variant-numeric:tabular-nums}
+/* B2: selectable evidence rows drive the calculation panel */
+.al-calc{position:sticky;top:0;background:#fff;z-index:3;padding-top:2px}
+.al-occ-row{cursor:pointer}
+.al-occ-tbl tbody tr.al-occ-row:hover{background:var(--gray-50)}
+.al-occ-tbl tbody tr.al-occ-sel{background:var(--navy-50);box-shadow:inset 3px 0 0 var(--navy)}
+.al-occ-row:focus-visible{outline:2px solid var(--navy);outline-offset:-2px}
+/* G1.1 Drop 2 polish: alert detail as a centered wide modal */
+.al-modal.al-modal-xl{width:1140px;max-width:96vw;max-height:85vh;padding:0;display:flex;flex-direction:column;overflow:hidden}
+.al-modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:14px 20px;border-bottom:1px solid var(--gray-200)}
+.al-modal-head strong{font-size:15px;color:var(--gray-900)}
+.al-d-sub{font-size:12.5px;color:var(--gray-500);margin-top:3px}
+.al-modal-body{padding:16px 20px;overflow-y:auto;flex:1}
+.al-modal-foot{display:flex;flex-wrap:wrap;gap:8px;padding:12px 20px;border-top:1px solid var(--gray-200)}
+.al-kv-wide{grid-template-columns:repeat(3, max-content 1fr);gap:7px 16px}
+@media (max-width:820px){.al-kv-wide{grid-template-columns:max-content 1fr}}
+.al-occ-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.al-occ-head .al-btn{padding:5px 10px;font-size:12px}
+/* hourly trend chart (top-right of /alerts) */
+.al-top-row{display:flex;gap:14px;align-items:stretch;flex-wrap:wrap;margin-bottom:14px}
+.al-top-row .stats-strip{flex:1 1 520px;margin-bottom:0}
+.al-hour-panel{flex:1 1 360px;min-width:300px;display:flex;flex-direction:column}
+.al-hour-chart{padding:8px 12px 4px;flex:1;display:flex;align-items:flex-end}
+.al-hour-chart svg{width:100%;height:140px}
+.al-hour-legend{display:flex;gap:14px;padding:0 12px 8px;font-size:11px;color:var(--gray-500)}
+/* Policy/rule drawer form (redesign) - sectioned 2-col grid, helper text */
+.al-drawer-wide{width:620px;max-width:96vw}
+.al-fsec{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--navy);border-bottom:1px solid var(--gray-200);padding:6px 0;margin:16px 0 10px}
+.al-fsec:first-child{margin-top:0}
+.al-fgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+.al-fld{display:flex;flex-direction:column;min-width:0}
+.al-fld.al-col2{grid-column:1 / -1}
+.al-fld label{font-size:11px;font-weight:600;color:var(--gray-600);margin-bottom:4px}
+.al-fld input,.al-fld select{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--gray-200);border-radius:8px;font-size:13px;font-family:inherit;background:#fff;height:38px}
+.al-fld input:focus,.al-fld select:focus{outline:none;border-color:var(--navy)}
+.al-help{font-size:11px;color:var(--gray-500);margin-top:4px;line-height:1.35}
+.al-req{color:var(--pink);font-weight:700}
+.al-opt{color:var(--gray-400);font-weight:400}
+.al-lockbox{margin-top:10px;padding:10px 12px;border:1px dashed var(--gray-300);border-radius:8px;background:var(--gray-50)}
+.al-check{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--gray-800)}
+.al-check input{width:auto;height:auto}
+.al-inline{display:flex;gap:8px}
+.al-inline input{flex:1}
+.al-inline .al-btn{white-space:nowrap}
+/* G1 Integration Health - status pills (tokens only) + blocker list + snippet */
+.al-st{display:inline-block;padding:2px 10px;border-radius:999px;font-size:11.5px;font-weight:700;white-space:nowrap}
+.al-st-ready{background:#e7f6ee;color:var(--green)}
+.al-st-blocked{background:var(--pink-50);color:var(--pink)}
+.al-st-warning{background:var(--yellow-50);color:#8a6d00}
+.al-st-running{background:var(--navy-50);color:var(--navy)}
+.al-st-sched{background:#e7f6ee;color:var(--green);border:1px solid var(--green)}
+.al-st-manual{background:var(--yellow-50);color:#8a6d00;border:1px dashed #c9a200}
+.al-run-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--navy);margin-left:6px;vertical-align:middle;animation:al-pulse 1.2s infinite}
+@keyframes al-pulse{0%,100%{opacity:.3}50%{opacity:1}}
+.al-blk{list-style:none;padding:0;margin:8px 0}
+.al-blk li{padding:7px 10px;border-radius:8px;margin-bottom:6px;font-size:12.5px;border:1px solid var(--gray-200)}
+.al-blk li.blocker{background:var(--pink-50);border-color:var(--pink-50);color:var(--pink)}
+.al-blk li.warning{background:var(--yellow-50);border-color:var(--yellow-50);color:#8a6d00}
+.al-action-box{margin:10px 0;padding:10px 12px;border-radius:8px;background:var(--navy-50);color:var(--navy);font-size:13px;font-weight:600}
+.al-tech{margin-top:14px;border-top:1px solid var(--gray-200);padding-top:4px}
+.al-tech>summary{list-style:none;color:var(--gray-500);outline:none}
+.al-tech>summary::-webkit-details-marker{display:none}
+.al-tech[open]>summary{color:var(--navy)}
+.al-snippet{background:var(--gray-900);color:#e6edf3;border-radius:8px;padding:10px 12px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;white-space:pre-wrap;word-break:break-all;margin:6px 0}
+.al-cap{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--gray-600)}
+.al-cap-track{flex:1;max-width:260px;background:var(--gray-100);border-radius:6px;height:12px;overflow:hidden}
+.al-cap-fill{height:12px;background:var(--navy);border-radius:6px;min-width:2px}
+.al-cap-fill.warn{background:#c9a200}
+@media (max-width:560px){.al-fgrid{grid-template-columns:1fr}}
+/* ===========================================================================
+   AC-POLISH-2026-06-14 - shared Alert Center visual layer.
+   Maps 1:1 to ERP Homepage tokens (navy/gray/yellow/pink; radius 8/12px;
+   Inter). Additive refinements only: no new palette, no gradients, no
+   external libs, no behaviour change. Improves button/control consistency,
+   toolbar alignment, table density, chips, KPI rhythm, focus/hover states.
+   =========================================================================== */
+/* Buttons: one control height + clear interactive states */
+.ecentric-app .al-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;padding:0 14px;line-height:1;white-space:nowrap;transition:background .15s,border-color .15s,color .15s,box-shadow .15s}
+.ecentric-app .al-btn:hover{border-color:var(--gray-300)}
+.ecentric-app .al-btn.primary:hover{background:var(--navy-700);border-color:var(--navy-700)}
+.ecentric-app .al-btn.danger:hover{filter:brightness(.96)}
+.ecentric-app .al-btn:active{transform:translateY(1px)}
+.ecentric-app .al-btn:disabled{opacity:.45;cursor:not-allowed}
+.ecentric-app .al-btn:focus-visible,.ecentric-app .al-filters input:focus-visible,.ecentric-app .al-filters select:focus-visible,.ecentric-app .al-fld input:focus-visible,.ecentric-app .al-fld select:focus-visible,.ecentric-app .al-chip:focus-visible,.ecentric-app .al-tbl tbody tr:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
+/* Quiet icon/close buttons in drawer + modal headers */
+.ecentric-app .al-drawer-head .al-btn,.ecentric-app .al-modal-head .al-btn{height:30px;padding:0 9px;color:var(--gray-500)}
+.ecentric-app .al-drawer-head .al-btn:hover,.ecentric-app .al-modal-head .al-btn:hover{background:var(--gray-100);color:var(--gray-900);border-color:var(--gray-200)}
+/* Toolbar action group inside a panel header (consistent gap + alignment) */
+.ecentric-app .al-hdr-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ecentric-app .panel-header{min-height:52px;gap:12px}
+/* RC6 visual polish: calm spacing INSIDE the Price Setup coverage card only (scoped
+   to #pl-missing-panel - no other panel/page is affected). .panel has no padding and
+   .panel-header is inset 20px; mirror that 20px on the body so the KPI cards + brand
+   chips never sit against the outer border or the divider lines. */
+.ecentric-app #pl-missing-panel #pl-cov-kpis{display:flex;flex-wrap:wrap;gap:14px;padding:16px 20px;margin:0}
+.ecentric-app #pl-missing-panel #pl-cov-kpis .stat-card{flex:1 1 180px;margin:0}
+.ecentric-app #pl-missing-panel #pl-cov-bybrand{margin:0;padding:14px 20px 18px}
+.ecentric-app #pl-missing-panel #pl-cov-bybrand>summary{padding:2px 0 4px}
+.ecentric-app #pl-missing-panel #pl-missing-rows{gap:12px;padding:12px 0 6px}
+/* RC7-C Gift Exemptions lifecycle tabs row */
+.ecentric-app .al-subtabs{display:flex;gap:6px;flex-wrap:wrap;padding:12px 16px 0}
+.ecentric-app .al-subtabs .gx-tab{font-size:12.5px;padding:5px 11px}
+/* Fixed read-only field value (e.g. the permanent Gift / Freebie reason) */
+.ecentric-app .al-fld-ro{padding:7px 0;color:#374151;font-weight:600;font-size:13px}
+/* Compact checkbox multi-select (Price Setup status filter) */
+.ecentric-app .al-msel-wrap{display:flex;flex-direction:column}
+/* Price Setup status multi-select: ALL rules scoped under #f-status-cbs so the boxes
+   cannot inherit the global checkbox/switch styling (the "black shape" bug) and never
+   affect the policy-row or Gift Exemption toggles (those use .al-switch, untouched). */
+.ecentric-app #f-status-cbs{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;min-height:34px;padding:2px 0}
+.ecentric-app #f-status-cbs label{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;margin:0;font-size:12.5px;font-weight:500;line-height:1;color:var(--gray-700);background:#f8fafc;border:1px solid var(--gray-200);border-radius:8px;cursor:pointer;white-space:nowrap}
+.ecentric-app #f-status-cbs label:hover{background:#fff;border-color:var(--gray-300)}
+.ecentric-app #f-status-cbs .f-status-cb{-webkit-appearance:checkbox;-moz-appearance:checkbox;appearance:auto;width:15px;height:15px;min-width:15px;margin:0;padding:0;background:none;box-shadow:none;border-radius:3px;position:static;opacity:1;flex:0 0 auto;accent-color:var(--green)}
+/* Filters: every control on one baseline height, tidy spacing */
+.ecentric-app .al-filters{gap:10px 12px;padding:14px 16px;align-items:end}
+.ecentric-app .al-filters select,.ecentric-app .al-filters input{height:34px;box-sizing:border-box}
+.ecentric-app .al-filters .al-btn{align-self:end}
+/* Brand / coverage chips: clearly clickable, count pill inside */
+.ecentric-app .al-chip{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 6px 0 12px;border:1px solid var(--gray-200);border-radius:999px;background:#fff;font-size:12.5px;font-weight:600;color:var(--gray-700);cursor:pointer;font-family:inherit;transition:border-color .15s,background .15s,color .15s}
+.ecentric-app .al-chip:hover{border-color:var(--navy);color:var(--navy);background:var(--navy-50)}
+.ecentric-app .al-chip .al-chip-n{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:20px;padding:0 6px;border-radius:999px;background:var(--gray-100);color:var(--gray-600);font-size:11.5px;font-weight:700}
+.ecentric-app .al-chip.warn{border-color:var(--yellow)}
+.ecentric-app .al-chip.warn .al-chip-n{background:var(--yellow-50);color:#8a6d00}
+.ecentric-app .al-chip.ok{color:var(--green)}
+.ecentric-app .al-chip.ok .al-chip-n{background:#e7f6ee;color:var(--green)}
+/* Tables: quality scrollbar, sticky-header rule, subtle zebra, mid-align */
+.ecentric-app .al-tbl-wrap{scrollbar-width:thin;scrollbar-color:var(--gray-300) transparent}
+.ecentric-app .al-tbl-wrap::-webkit-scrollbar{height:9px;width:9px}
+.ecentric-app .al-tbl-wrap::-webkit-scrollbar-thumb{background:var(--gray-300);border-radius:6px}
+.ecentric-app .al-tbl-wrap::-webkit-scrollbar-thumb:hover{background:var(--gray-400)}
+.ecentric-app .al-tbl th{box-shadow:inset 0 -1px 0 var(--gray-200);z-index:1}
+.ecentric-app .al-tbl td,.ecentric-app .al-tbl th{vertical-align:middle}
+.ecentric-app .al-tbl tbody tr:nth-child(even){background:var(--gray-50)}
+.ecentric-app .al-tbl tbody tr:hover{background:var(--navy-50)}
+/* Status badges: even vertical rhythm */
+.ecentric-app .al-badge{line-height:1.5;letter-spacing:.2px;vertical-align:middle}
+/* KPI strip on the dashboard (6 cards): even, equal-height grid */
+.ecentric-app .al-top-row .stats-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.ecentric-app .stat-value{font-variant-numeric:tabular-nums}
+@media (max-width:1100px){.ecentric-app .al-top-row .stats-strip{grid-template-columns:repeat(2,1fr)}}
+/* Pager controls: compact + equal */
+.ecentric-app .al-pager .al-btn{height:30px;min-width:34px;padding:0 10px}
+/* Notes / banners: vertical centering for one-line messages */
+.ecentric-app .al-note{align-items:center}
+/* Drawer + modal titles to homepage scale */
+.ecentric-app .al-drawer-head strong,.ecentric-app .al-modal-head strong{font-size:15px;font-weight:700;color:var(--gray-900)}
+/* Pre-E2E 2026-06-14: interactive KPI cards + advanced filter zone + chips */
+/* RC4-1: compact the Overview KPI strip (override the master 18px/20px padding;
+   keep a strong number hierarchy). Scoped to #al-kpis so other cards are unchanged. */
+.ecentric-app #al-kpis{gap:10px}
+.ecentric-app #al-kpis .stat-card{padding:9px 13px}
+.ecentric-app #al-kpis .stat-value{font-size:23px;line-height:1.1;margin:1px 0}
+.ecentric-app #al-kpis .stat-label{font-size:11px}
+.ecentric-app #al-kpis .stat-meta{font-size:10.5px;margin-top:0;color:var(--gray-500)}
+.ecentric-app #al-kpis .stat-card.kpi-sec .stat-value{font-size:20px}
+.ecentric-app .stat-card.kpi{cursor:pointer;user-select:none;transition:border-color .15s,box-shadow .15s}
+.ecentric-app .stat-card.kpi:hover{border-color:var(--gray-300);box-shadow:0 4px 12px rgba(0,0,0,.06)}
+.ecentric-app .stat-card.kpi:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
+.ecentric-app .stat-card.kpi.kpi-active{border-color:var(--navy);box-shadow:0 0 0 1px var(--navy) inset}
+.ecentric-app .stat-card.s-gray::before{background:var(--gray-400)}
+.ecentric-app .al-adv{display:flex;flex-wrap:wrap;gap:10px 12px;padding:14px 16px;margin:6px 12px 12px;align-items:end;background:var(--gray-50);border:1px solid var(--gray-100);border-radius:10px}
+.ecentric-app .al-adv[hidden]{display:none}
+.ecentric-app .al-adv label{display:block;font-size:10.5px;font-weight:600;color:var(--gray-500);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+.ecentric-app .al-adv select,.ecentric-app .al-adv input{height:34px;box-sizing:border-box;padding:7px 10px;border:1px solid var(--gray-200);border-radius:8px;font-size:13px;background:#fff;font-family:inherit;min-width:110px}
+.ecentric-app .al-adv select:focus,.ecentric-app .al-adv input:focus{outline:none;border-color:var(--navy)}
+.ecentric-app .al-fchips{display:flex;flex-wrap:wrap;gap:6px;padding:10px 16px;align-items:center}
+.ecentric-app .al-fchip{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 4px 0 10px;border:1px solid var(--gray-200);border-radius:999px;background:var(--gray-50);font-size:12px;color:var(--gray-600)}
+.ecentric-app .al-fchip b{font-weight:700;color:var(--gray-900)}
+.ecentric-app .al-fchip button{border:none;background:transparent;cursor:pointer;color:var(--gray-400);font-size:15px;line-height:1;padding:0 3px;height:auto}
+.ecentric-app .al-fchip button:hover{color:var(--pink)}
+.ecentric-app .al-fchip-clear{height:26px;padding:0 10px;font-size:12px}
+/* UI/UX consolidation 2026-06-15: Overview Alert Distribution card + secondary KPI */
+/* ECharts 2026-06-15: Alert Distribution (3 mini donuts) + trend combo */
+.ecentric-app .al-charts3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:8px 12px 12px}
+.ecentric-app .al-chartbox{border:1px solid var(--gray-100);border-radius:10px;padding:6px 6px 2px}
+.ecentric-app .al-chart-h{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gray-500);text-align:center;padding:4px 0 0}
+.ecentric-app .al-chart{width:100%;height:200px}
+.ecentric-app .al-chart-trend{height:240px;padding:0 8px}
+.ecentric-app .al-chart-fb{padding:6px 10px 10px}
+.ecentric-app .al-chart-fbt{width:100%;font-size:12px}
+.ecentric-app .al-chart-fbt td,.ecentric-app .al-chart-fbt th{padding:4px 8px;border-bottom:1px solid var(--gray-100)}
+.ecentric-app .al-chart-fbt .r{text-align:right}
+.ecentric-app .al-chart-days{font-size:12px;color:var(--gray-500);display:inline-flex;align-items:center;gap:6px}
+.ecentric-app .al-chart-days select{height:28px;border:1px solid var(--gray-200);border-radius:6px;font-family:inherit;font-size:12px;padding:0 6px}
+@media (max-width:1100px){.ecentric-app .al-charts3{grid-template-columns:1fr}}
+.ecentric-app .al-help-i{display:inline-flex;align-items:center;justify-content:center;cursor:help;color:var(--gray-400);font-size:12px;margin-left:7px;vertical-align:middle;line-height:1;transition:color .15s}
+.ecentric-app .al-help-i:hover{color:var(--navy)}
+.ecentric-app .al-help-i:focus-visible{outline:2px solid var(--navy);outline-offset:2px;border-radius:3px;color:var(--navy)}
+.ecentric-app .al-tierleg{display:inline-flex;align-items:center;gap:2px;cursor:help;font-size:12.5px;color:var(--gray-600)}
+.ecentric-app .al-tierleg:hover{color:var(--navy)}
+.ecentric-app .al-tierleg:focus-visible{outline:2px solid var(--navy);outline-offset:2px;border-radius:4px}
+.ecentric-app .ru-brand{margin-bottom:14px;border:1px solid var(--gray-200);border-radius:10px;overflow:hidden}
+.ecentric-app .ru-brand-h{font-size:13px;font-weight:700;color:var(--gray-900);padding:8px 14px;background:var(--gray-50);border-bottom:1px solid var(--gray-200)}
+/* RC5-5 brand-card behaviour editor: FULL-WIDTH grid (no empty right gutter). */
+.ecentric-app .ru-brand-body{padding:6px 14px 10px}
+.ecentric-app .ru-beh{padding:10px 0;border-bottom:1px solid var(--gray-100)}
+.ecentric-app .ru-beh:last-child{border-bottom:0}
+/* behaviour header row: name | All-platforms cell, stretched across the card. */
+.ecentric-app .ru-beh-head{display:grid;grid-template-columns:minmax(150px,1fr) minmax(260px,2.4fr);gap:10px 18px;align-items:center;width:100%}
+.ecentric-app .ru-beh-h{font-weight:700;font-size:13px;color:var(--gray-900)}
+.ecentric-app .ru-beh-all{display:flex;align-items:center;gap:8px;font-size:13px;flex-wrap:wrap}
+.ecentric-app .ru-pf{font-size:12px;color:var(--gray-500)}
+.ecentric-app .ru-pf-all{font-weight:600;color:var(--gray-700)}
+.ecentric-app .ru-ovrows{width:100%}
+/* platform override row: Platform | value/input | actions - full width, aligned. */
+.ecentric-app .ru-ovrow{display:grid;grid-template-columns:92px minmax(150px,1fr) auto;gap:10px;align-items:center;padding:4px 0 4px 8px;font-size:12.5px;width:100%}
+.ecentric-app .ru-mid{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ecentric-app .ru-acts{display:flex;gap:6px;justify-self:end}
+.ecentric-app .ru-mini{padding:3px 9px;font-size:12px}
+/* RC7-B small destructive icon (remove customization) - secondary to the Save action */
+.ecentric-app .ru-icon{padding:3px 7px;font-size:12px;line-height:1;color:var(--gray-500)}
+.ecentric-app .ru-icon.ru-danger:hover{color:#fff;background:var(--pink);border-color:var(--pink)}
+.ecentric-app .ru-inh{color:var(--gray-400);font-style:italic}
+.ecentric-app .ru-inh-val{color:var(--gray-500);font-style:italic}
+/* RC4-6 inline rule editor: compact numeric inputs sit inside the brand card. */
+.ecentric-app .ru-i-all,.ecentric-app .ru-i-pf{width:84px;padding:4px 6px;border:1px solid var(--gray-300);border-radius:6px;font-size:12.5px;text-align:right}
+.ecentric-app .ru-i-all:focus,.ecentric-app .ru-i-pf:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 2px rgba(20,40,80,.12)}
+.ecentric-app .ru-unit{font-size:12px;color:var(--gray-500);margin-left:-4px}
+/* RC5-2 Price Setup status switch (table). ON == Active. */
+.ecentric-app .al-switch{position:relative;display:inline-block;width:34px;height:18px;vertical-align:middle}
+.ecentric-app .al-switch input{opacity:0;width:0;height:0;position:absolute}
+.ecentric-app .al-switch .al-switch-sl{position:absolute;inset:0;background:var(--gray-300);border-radius:999px;transition:background .15s;cursor:pointer}
+.ecentric-app .al-switch .al-switch-sl:before{content:"";position:absolute;height:14px;width:14px;left:2px;top:2px;background:#fff;border-radius:50%;transition:transform .15s;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+.ecentric-app .al-switch input:checked + .al-switch-sl{background:var(--green)}
+.ecentric-app .al-switch input:checked + .al-switch-sl:before{transform:translateX(16px)}
+.ecentric-app .al-switch input:disabled + .al-switch-sl{cursor:not-allowed;opacity:.5}
+.ecentric-app .al-switch-tx{font-size:12px;color:var(--gray-600);margin-left:6px;vertical-align:middle}
+.ecentric-app .al-legacy-ro{padding:6px 8px;background:var(--gray-50);border:1px dashed var(--gray-300);border-radius:6px;font-size:12.5px;color:var(--gray-600)}
+/* RC7-A low-emphasis destructive action (safe delete; backend-gated). */
+.ecentric-app .al-btn.al-danger{color:var(--pink);border-color:var(--pink)}
+.ecentric-app .al-btn.al-danger:hover{background:var(--pink);color:#fff}
+.ecentric-app .al-btn.al-danger:disabled{opacity:.5;cursor:not-allowed}
+.ecentric-app .ru-cust{margin:4px 0 0 8px;border-top:0;padding-top:0}
+.ecentric-app .ru-cust .al-btn{height:26px;font-size:12px;padding:0 8px}
+.ecentric-app .al-adv-sec{margin-top:14px;border-top:1px solid var(--gray-200);padding-top:6px}
+.ecentric-app .al-adv-sec>summary{cursor:pointer;color:var(--navy)}
+.ecentric-app .al-modesw{display:inline-flex;margin-left:10px;vertical-align:middle}
+.ecentric-app .al-modesw .al-btn{height:26px;font-size:12px;border-radius:0;padding:0 12px}
+.ecentric-app .al-modesw .al-btn:first-child{border-radius:6px 0 0 6px}
+.ecentric-app .al-modesw .al-btn:last-child{border-radius:0 6px 6px 0;border-left:0}
+.ecentric-app .stat-card.kpi-sec{opacity:.85}
+.ecentric-app .stat-card.kpi-sec .stat-value{font-size:21px}
+[hidden]{display:none !important}
+@media (max-width:760px){.al-drawer{width:100vw}.al-kv{grid-template-columns:110px 1fr}.al-dash-grid{grid-template-columns:1fr}}
+/* ===== NHIEU_LOP 29/09/2026 (brief NHIEU_LOP/brief_alert_center.md) =========================
+   HTML server phai ve DUNG vi tri cuoi: khong khoi nao nhay khi JS/du lieu ve. Khong che roi
+   hien (khong opacity/visibility cho doi). Moi quy tac duoi day giu cho TRUOC, bang CSS.   */
+/* Thanh cuon doc xuat hien khi bang day du lieu -> moi khoi canh phai lech 15px (Windows).
+   Giu san rang thanh cuon tu dau. */
+html{scrollbar-gutter:stable}
+/* Dong pham vi (#al-scope-line / #ih-scope-line): JS dien chu SAU khi goi my_scope; the <p>
+   rong cao 0 nen ca trang bi day xuong 28px (4px margin + 24px chu). Giu san 1 dong 24px,
+   chu dai qua thi cat "..." (day du trong title, xem AL.scopeLine). */
+.ecentric-app .greeting p[id$="-scope-line"]{min-height:24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Luoi 3 donut /alerts: o luoi duoc co nho hon canvas ECharts (min-width:auto mac dinh cua
+   grid item = be rong canvas -> cot dau phinh 406 -> 1.591px khi tat skin dang nhap). Truoc
+   day luoi "dung" chi nho quy tac #ec-brand{position:fixed} cua ec-login-skin vo tinh trung
+   id donut brand (donut troi o dau trang). Id donut gio la al-ch-*, luoi tu khai min-width:0. */
+.ecentric-app .al-charts3>*{min-width:0}
+.ecentric-app .al-chart{min-width:0;max-width:100%}
+.ecentric-app .al-chart canvas{max-width:100%}
+/* Bang co du lieu dai (Price Setup, Integration Health): auto-layout no rong theo du lieu ->
+   tieu de cot bi day ra ngoai man hinh khi hang ve. table-layout:fixed + <colgroup> trong
+   markup: vi tri cot khong phu thuoc du lieu. O dai xuong dong; vai cot (SKU, san pham, email)
+   cat "..." tren mot dong - chu day du trong title cua o (JS) va trong drawer. */
+.ecentric-app .al-tbl.al-tbl-fixed{table-layout:fixed}
+.ecentric-app .al-tbl.al-tbl-fixed th{white-space:normal;overflow-wrap:normal}
+.ecentric-app .al-tbl.al-tbl-fixed td{white-space:normal;overflow-wrap:anywhere}
+.ecentric-app .al-tbl.al-tbl-pl{min-width:1180px}
+.ecentric-app .al-tbl.al-tbl-pl td:nth-child(4),.ecentric-app .al-tbl.al-tbl-pl td:nth-child(5),.ecentric-app .al-tbl.al-tbl-pl td:nth-child(9){white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ecentric-app .al-tbl.al-tbl-ih{min-width:1600px}
+.ecentric-app .al-tbl.al-tbl-ih td:nth-child(4){white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Vung phu thuoc so luong du lieu: giu cho >= phan con lai cua man hinh dau, de khoi nam
+   duoi (phan trang Price Setup, Gift Exemptions, Advanced Exceptions) KHONG hien trong
+   khung dau roi bi day ra khi hang ve. */
+.ecentric-app .al-tbl-wrap.al-hold,.ecentric-app #ru-defaults{min-height:60vh}
+/* Select duoc JS doi nhan (rule_code -> ten nghiep vu) / do option brand: co dinh be rong,
+   de cac o loc dung sau khong truot ngang. */
+.ecentric-app .al-filters select#f-rule_code{width:210px}
+.ecentric-app .al-filters select#f-brand,.ecentric-app .al-filters select#gx-f-brand{width:160px}

@@ -22,9 +22,11 @@ def _html():
 
 
 # sha256 cua dung khoi HTML commit nay ship (UTF-8, LF).
-BASELINE_SHA256 = "04c93c168192613f02aa463795b7930e898fb7edc685636d082b5ce67a8d4166"
-#: Cac ban live duoc phep ghi de. Rong: anh chup nay CHINH LA ban live 29/09/2026.
-SUPERSEDES_SHA256 = ()
+BASELINE_SHA256 = "aab025b9225ce150cc4ad020e05ce6a91c55045665a7693d7f319f3df7a60b01"
+#: Cac ban live duoc phep ghi de (moi nhat o dau).
+SUPERSEDES_SHA256 = (
+    "04c93c168192613f02aa463795b7930e898fb7edc685636d082b5ce67a8d4166",   # ban live 29/09/2026 (truoc NHIEU_LOP: khoi inline, csrf-fetch-patch)
+)
 
 
 def sync(html=None, force=0):
