@@ -32,13 +32,8 @@ def list_for_alert(alert):
                           limit_page_length=50)
 
 
-@frappe.whitelist()
-def list_actions(filters=None, start=0, page_len=50):
-    """Phase F locks page: scoped action list (beyond per-alert)."""
-    import json as _json
-    from frappe.utils import cint
-    allowed = perms.require_alert_center_access()
-    f = _json.loads(filters) if isinstance(filters, str) else (filters or {})
+def _lock_filters(allowed, f):
+    """Scoped EC Alert Action filter list of the locks page; None = empty scope."""
     flt = [["action_type", "=", "Stock Safety Lock"]]
     for k in ("status", "review_status", "platform", "shop"):
         if f.get(k):
@@ -51,12 +46,52 @@ def list_actions(filters=None, start=0, page_len=50):
     else:
         scope = [b for b in allowed if not f.get("brand") or b == f["brand"]]
         if not scope:
-            return {"rows": [], "total": 0}
+            return None
         flt.append(["brand", "in", scope])
+    return flt
+
+
+@frappe.whitelist()
+def list_actions(filters=None, start=0, page_len=50):
+    """Phase F locks page: scoped action list (beyond per-alert)."""
+    import json as _json
+    from frappe.utils import cint
+    allowed = perms.require_alert_center_access()
+    f = _json.loads(filters) if isinstance(filters, str) else (filters or {})
+    flt = _lock_filters(allowed, f)
+    if flt is None:
+        return {"rows": [], "total": 0}
     rows = frappe.get_all("EC Alert Action", filters=flt, fields=FIELDS,
                           order_by="creation desc", start=cint(start),
                           page_length=min(cint(page_len) or 50, 100))
     return {"rows": rows, "total": frappe.db.count("EC Alert Action", filters=flt)}
+
+
+#: 4 the KPI cua /alerts/locks = dung 4 bo loc trang tung goi list_actions(page_len=1).total:
+#: chi pham vi brand cua nguoi xem, KHONG theo bo loc dang chon cua bang.
+LOCK_COUNTS = (
+    ("Pending Review", {"review_status": "Pending Review"}),
+    ("Approved", {"review_status": "Approved"}),
+    ("Rejected", {"review_status": "Rejected"}),
+    ("Skipped", {"status": "Skipped"}),
+)
+
+
+@frappe.whitelist()
+def lock_queue(filters=None, start=0, page_len=50):
+    """Trang /alerts/locks trong MOT loi goi: hang doi (y het list_actions) + 4 so dem KPI.
+
+    29/09/2026 (NHIEU_LOP): truoc day trang goi list_actions 5 lan moi lan tai (1 bang + 4
+    the), va luc mo trang tai 3 lot -> 14 lan tren live. So dem bang frappe.db.count voi
+    CUNG bo loc pham vi, nen so tren the khong doi so voi truoc."""
+    out = list_actions(filters=filters, start=start, page_len=page_len)
+    allowed = perms.require_alert_center_access()
+    counts = {}
+    for key, f in LOCK_COUNTS:
+        flt = _lock_filters(allowed, f)
+        counts[key] = 0 if flt is None else frappe.db.count("EC Alert Action", filters=flt)
+    out["counts"] = counts
+    return out
 
 
 @frappe.whitelist(methods=["POST"])

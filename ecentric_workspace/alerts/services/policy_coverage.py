@@ -169,6 +169,45 @@ def _total_order_skus(brand, days=None, platform=None):
     return int(row[0].n) if row else 0
 
 
+def order_sku_totals(brands, days=None):
+    """{brand: distinct ordered seller_sku count} for MANY brands in ONE query.
+
+    Same attribution (resolved brand) + window as `_total_order_skus`, GROUPED by the
+    resolved brand instead of filtered to one - so every value equals what
+    `_total_order_skus(brand, days)` returns for that brand. Brands with no order in the
+    window are absent (callers default to 0)."""
+    brands = [b for b in (brands or []) if b]
+    if not brands:
+        return {}
+    since = str(add_days(nowdate(), -window_days(days))) + " 00:00:00"
+    query = (
+        "SELECT " + _RESOLVED_BRAND + " AS brand, COUNT(DISTINCT oi.seller_sku) AS n "
+        "FROM `tabEC Marketplace Order Item` oi "
+        "JOIN `tabEC Marketplace Order Log` ol ON oi.parent = ol.name "
+        + _SHOP_JOIN + " "
+        "WHERE " + _RESOLVED_BRAND + " IN %(brands)s AND ol.order_datetime >= %(since)s "
+        "AND oi.seller_sku IS NOT NULL AND oi.seller_sku != '' "
+        "GROUP BY " + _RESOLVED_BRAND)
+    rows = frappe.db.sql(query, {"brands": tuple(brands), "since": since}, as_dict=True)
+    return {r["brand"]: int(r["n"] or 0) for r in rows}
+
+
+def coverage_summary(brands, days=None):
+    """{brand: {"checked": n, "missing": m}} for MANY brands in TWO queries.
+
+    29/09/2026 (NHIEU_LOP): the Price Setup KPI cards used to call coverage_report once
+    PER BRAND from the browser (21 requests on live). These are exactly the two numbers
+    coverage_report(brand) returns as `checked` / `missing_count` (platform=None): the
+    same missing_rows definition (grouped per brand) and the same order-SKU denominator
+    (order_sku_totals) - one source, no number drift, no N round trips."""
+    brands = list(dict.fromkeys(b for b in (brands or []) if b))
+    if not brands:
+        return {}
+    missing = missing_counts(brands, days=days)
+    totals = order_sku_totals(brands, days=days)
+    return {b: {"checked": totals.get(b, 0), "missing": missing.get(b, 0)} for b in brands}
+
+
 def coverage_report(brand, days=None, platform=None, limit=200):
     """For the coverage modal: full missing_count + a (capped) missing list +
     total order SKUs + coverage_pct. missing_count is the FULL distinct count so
