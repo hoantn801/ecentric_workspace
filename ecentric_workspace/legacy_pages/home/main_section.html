@@ -510,7 +510,9 @@
   .ecentric-app .ec2-band .checkin-card::before,.ecentric-app .ec2-band .checkin-card::after{display:none}
   .ecentric-app .ec2-ckrow{display:flex;align-items:center;gap:14px}
   .ecentric-app .ec2-band .checkin-time{font-size:25px;font-weight:800;margin:0;line-height:1;letter-spacing:.01em}
-  .ecentric-app .ec2-band .btn-checkin{margin:0;padding:11px 20px;font-size:13.5px;border-radius:11px;width:auto;min-width:194px;box-shadow:0 6px 16px rgba(255,192,0,.3)}
+  /* nowrap: nhan dai nhat "Da cham cong hom nay" rong hon min-width 0,2px o nac hep - khong nowrap thi
+     nut xuong 2 dong, dai navy cao them 17px sau khi du lieu ve (do tren live 29/09 10:20, man 14"). */
+  .ecentric-app .ec2-band .btn-checkin{margin:0;padding:11px 20px;font-size:13.5px;border-radius:11px;width:auto;min-width:194px;white-space:nowrap;box-shadow:0 6px 16px rgba(255,192,0,.3)}
   .ecentric-app .ec2-ckmeta{display:flex;align-items:center;gap:10px;justify-content:flex-end;flex-wrap:nowrap;white-space:nowrap;min-width:0;max-width:100%}
   .ecentric-app .ec2-band .checkin-status{margin:0;font-size:10.5px;background:rgba(255,255,255,.10);border-radius:999px;padding:3px 11px;width:fit-content;min-width:0;overflow:hidden}
   .ecentric-app .ec2-band .checkin-status span + span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -637,7 +639,7 @@
   }
   @container ec2band (max-width:1219px){
     .ecentric-app .ec2-home .ec2-bandrow{gap:7px;padding:8px 11px}
-    .ecentric-app .ec2-home .ec2-band .checkin-card{width:257px}
+    .ecentric-app .ec2-home .ec2-band .checkin-card{width:262px}
     .ecentric-app .ec2-home .ec2-band .checkin-time{font-size:16px}
     .ecentric-app .ec2-home .ec2-band .btn-checkin{padding:6px 10px;font-size:11px;min-width:145px}
     /* Bo dong "Da check-in luc ..." sau cung: no la thong tin nhac lai, con nut va dong ho. */
