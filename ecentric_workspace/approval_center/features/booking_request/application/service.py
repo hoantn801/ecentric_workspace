@@ -208,7 +208,6 @@ def _chot_brand_va_nguoi_phu_trach(doc, user):
     doc.brand_display_name = ten_go or doc.brand
 
 
-@frappe.whitelist(methods=["POST"])
 def resubmit(name, actor=None):
     doc = frappe.get_doc(BUSINESS_DT, name)
     if not doc.approval_request:
@@ -236,7 +235,6 @@ def _duoc_nhan_viec(name, user):
     return "System Manager" in frappe.get_roles(user)
 
 
-@frappe.whitelist(methods=["POST"])
 def claim_fulfillment(name, user=None, expected_date=None):
     """Booking NHAN xu ly, kem NGAY DU KIEN XONG - bat buoc.
 
@@ -279,7 +277,6 @@ def han_xu_ly(expected_date):
     return "%s 17:00:00" % getdate(expected_date)
 
 
-@frappe.whitelist(methods=["POST"])
 def complete_fulfillment(name, user=None, payload=None):
     from ecentric_workspace.approval_center.shared.requests.command_service import attach_extra_files
     user = user or frappe.session.user
