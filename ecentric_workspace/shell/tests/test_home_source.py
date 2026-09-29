@@ -241,7 +241,6 @@ class TestStaticLayout(unittest.TestCase):
                    '<div class="panel" data-ec2-hidden="1">', '<div class="panel" data-ec2-cal-off="1">',
                    '<div class="panel-title">Lịch hôm nay</div>', '<div class="panel-title">Truy cập nhanh</div>',
                    'Tin nội bộ', 'Chính sách &amp; Quy định'.replace("&amp;", "&"),
-                   '<button class="ec-chat-fab ec2-mascot" id="ec-chat-fab"',
                    'class="ec2-qn" hidden', '<div class="ec2-qempty">Đang tải…</div>'):
             self.assertIn(mk, s, mk)
         # panel "Viec can lam" (an) van la noi widget Action Center tim de do so CHO DUYET
@@ -256,7 +255,7 @@ class TestStaticLayout(unittest.TestCase):
                    'src="/assets/ecentric_workspace/js/pm_home_calendar.js" defer',
                    'src="/assets/ecentric_workspace/js/sla_home_card.js" defer',
                    '"ec_hr_attendance_data"', '"/api/method/ec_hr_leave_data"',
-                   '<script id="ec-chatbot-js">', '<script id="ec-csrf-fetch-patch">',
+                   '<script id="ec-csrf-fetch-patch">',
                    "<!-- CP_REDIRECT_GUARD_START -->",
                    "<script src=\"{{ bundled_asset('ec_home_v2.bundle.js') }}\" defer></script>"):
             self.assertIn(mk, s, mk)
@@ -288,7 +287,7 @@ class TestStaticLayout(unittest.TestCase):
         # dung tap khoi da co tren live truoc 29/09, TRU hai khoi da gop vao nguon
         # (ec-home-polish, ec-home-v2). Them khoi moi = vi pham A65.
         self.assertEqual(ids, {"ec-csrf-fetch-patch", "ec-action-center-widget", "ec-lich-hom-nay-loader",
-                               "ec-sla-home-card-loader", "ec-chatbot-style", "ec-chatbot-js"})
+                               "ec-sla-home-card-loader"})
 
     def test_cascade_order_kept(self):
         """Mot stylesheet: @import dau tien, CSS trang -> polish -> v2 (thu tu cua live)."""
@@ -323,10 +322,14 @@ class TestStaticLayout(unittest.TestCase):
         self.assertRegex(s, r"\.ecentric-app \.ec2-band \.btn-checkin\{[^}]*white-space:nowrap")
         self.assertIn(".ecentric-app .ec2-home .ec2-band .checkin-card{width:262px}", s)
 
-    def test_mascot_is_static(self):
+    def test_old_chat_removed(self):
+        """PO 29/09: go nut chat cu "AI Tro ly" - eC Mate (ec_khay) la cho chat duy nhat."""
         s = _src()
-        self.assertIn('#ec-chat-fab.ec2-mascot{background-image:url("data:image/svg+xml,', s)
-        self.assertNotIn("__MASCOT", s)
+        for mk in ("ec-chat-fab", "ec-chat-panel", "ec-chatbot", "gemini_chat", "ec_chat_history_v1", "ec2-mascot"):
+            self.assertNotIn(mk, s, mk)
+        # nhanh else cua Chinh sach van con loi nhac them chinh sach
+        self.assertIn('Chưa có chính sách. <a href="/app/company-policy/new"', s)
+
 
 
 class TestHydrateJs(unittest.TestCase):

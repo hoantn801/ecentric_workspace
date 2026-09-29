@@ -246,8 +246,10 @@
     '<ellipse cx="32" cy="60" rx="21" ry="2.6" fill="#1E2A5A" opacity=".08"/>' +
     '<circle cx="32" cy="31" r="17" fill="#F7C948"/>' +
     '<path d="M30.5 14.5c.5-4 3.5-5.5 6-4.5" stroke="#1E2A5A" stroke-width="2.2" fill="none" stroke-linecap="round"/>' +
+    '<g class="look">' +
     '<g class="lid"><circle cx="26" cy="29.5" r="3.1" fill="#1E2A5A"/><circle cx="27.05" cy="28.38" r=".93" fill="#fff" opacity=".9"/></g>' +
     '<g class="lid"><circle cx="38" cy="29.5" r="3.1" fill="#1E2A5A"/><circle cx="39.05" cy="28.38" r=".93" fill="#fff" opacity=".9"/></g>' +
+    '</g>' +
     '<path d="M6 37h52l-4.6 18.3A3.2 3.2 0 0 1 50.3 58H13.7a3.2 3.2 0 0 1-3.1-2.7z" fill="#1E2A5A"/>' +
     '<rect x="5" y="35.4" width="54" height="3.6" rx="1.8" fill="#34427A"/>' +
     '<ellipse cx="17" cy="36.4" rx="3.6" ry="2.6" fill="#F7C948"/><ellipse cx="47" cy="36.4" rx="3.6" ry="2.6" fill="#F7C948"/>' +
@@ -714,7 +716,37 @@
     host.style.setProperty("--kb", h + "px");
   }
 
+  /* Mat linh vat nhin theo chuot - giong linh vat o /viec-cua-toi (mc-look). Chi dich nhom
+   * .look trong moi svg theo huong con tro, toi da EYE_MAX don vi viewBox; gom bang rAF.
+   * Nguoi dat "giam chuyen dong" thi dung yen. */
+  var EYE_MAX = 2.2;
+  function trackEyes() {
+    var still = false;
+    try { still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { /* noop */ }
+    if (still || !R.root) return;
+    var px = 0, py = 0, queued = false;
+    function frame() {
+      queued = false;
+      var svgs = R.root.querySelectorAll("svg");
+      for (var i = 0; i < svgs.length; i++) {
+        var g = svgs[i].querySelector(".look");
+        if (!g) continue;
+        var r = svgs[i].getBoundingClientRect();
+        if (!r.width) continue;
+        var dx = px - (r.left + r.width / 2), dy = py - (r.top + r.height / 2);
+        var d = Math.sqrt(dx * dx + dy * dy) || 1;
+        var k = Math.min(d / (r.width * 1.6), 1) * EYE_MAX;
+        g.setAttribute("transform", "translate(" + (dx / d * k).toFixed(2) + " " + (dy / d * k * 0.8).toFixed(2) + ")");
+      }
+    }
+    document.addEventListener("pointermove", function (ev) {
+      px = ev.clientX; py = ev.clientY;
+      if (!queued) { queued = true; (window.requestAnimationFrame || setTimeout)(frame); }
+    }, { passive: true });
+  }
+
   function wire(host) {
+    trackEyes();
     R.fab.addEventListener("click", function () { if (S.open) closePanel(); else openPanel(false); });
     R.root.querySelector(".close").addEventListener("click", closePanel);
     R.wideBtn.addEventListener("click", function () { S.wide = !S.wide; paint(); save(); });

@@ -107,7 +107,8 @@ class TestHomeSync(unittest.TestCase):
         # ban live truoc giai doan 2, roi ban p224 (nut cham cong xuong dong) - theo thu tu
         self.assertEqual(self.ps.SUPERSEDES_SHA256, (
             "2a4c6826a8f091a203a960e44be652dea97486f5ad75fef09188294e5c9bcf76",
-            "0a77f921665a2a619232041647cfaa3158216cf070fa6905b1a03020a81fdb5d"))
+            "0a77f921665a2a619232041647cfaa3158216cf070fa6905b1a03020a81fdb5d",
+            "52d1d24463601e8c41cd75fb569dce3bde22c563ee4e22ca39aca2fe5d4b0faa"))
 
     def test_sync_writes_the_file_under_the_drift_lock_after_a_render_check(self):
         res = self.ps.sync()

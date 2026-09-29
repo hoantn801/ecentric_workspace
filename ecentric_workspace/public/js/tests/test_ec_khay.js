@@ -163,6 +163,17 @@ const shell='<aside data-ec-shell="1"></aside><main>trang</main>';
   ok("form bat ky: AI khong dien duoc o nao thi noi ro, khong co nut tao nhap rong",
      /chưa điền được ô nào/.test(R8.querySelector(".card").textContent) && !R8.querySelector('[data-act="pay-draft"]'));
 
+  // mat linh vat nhin theo chuot (29/09): nhom .look trong svg cua nut dich ve phia con tro
+  const fsvg=R8.querySelector(".fab svg"), look=fsvg && fsvg.querySelector(".look");
+  ok("mat linh vat: co nhom .look boc hai mat", !!look && look.querySelectorAll(".lid").length===2);
+  fsvg.getBoundingClientRect=()=>({left:1000,top:500,width:80,height:80,right:1080,bottom:580});
+  e8.w.document.dispatchEvent(new e8.w.MouseEvent("pointermove",{clientX:0,clientY:540,bubbles:true})); await tick(40);
+  const tr=(look&&look.getAttribute("transform"))||"", mt=/translate\((-?[\d.]+) (-?[\d.]+)\)/.exec(tr);
+  ok("mat linh vat: nhin sang trai khi chuot o ben trai", !!mt && parseFloat(mt[1])<-1.5 && Math.abs(parseFloat(mt[2]))<0.5);
+  e8.w.document.dispatchEvent(new e8.w.MouseEvent("pointermove",{clientX:1040,clientY:2000,bubbles:true})); await tick(40);
+  const mt2=/translate\((-?[\d.]+) (-?[\d.]+)\)/.exec(look.getAttribute("transform")||"");
+  ok("mat linh vat: nhin xuong, khong qua 2.2", !!mt2 && parseFloat(mt2[2])>1 && parseFloat(mt2[2])<=2.2);
+
   let all=true; Object.keys(c).forEach(k=>{console.log((c[k]?"PASS":"FAIL")+" - "+k); if(!c[k]) all=false;});
   console.log(all?"ALL_PASS":"SOME_FAIL"); process.exit(all?0:1);
 })();
