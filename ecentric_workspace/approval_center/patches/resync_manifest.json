@@ -185,6 +185,11 @@
     "last_resync_patch": null,
     "sha256": "f32af94a6b26ad1a62f9f49c1110b6bb79591eb73f118f70af0b947a8fa60044"
   },
+  "legacy_pages/ec_fee_review/main_section.html": {
+    "baseline": "2026-09-29",
+    "last_resync_patch": null,
+    "sha256": "5986e90892652f1719c8f007a6c0b1ac86502dcdfce4b524b43bcf1b7b607241"
+  },
   "legacy_pages/gbs_po_form_v2/main_section.html": {
     "baseline": "2026-08-31",
     "last_resync_patch": "p185_resync_csrf_wrapper_v2",
