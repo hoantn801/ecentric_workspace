@@ -513,8 +513,31 @@ def _why(resp):
 # Cac ham duoi day giu TEN cu de khong ai goi hong; ruot da doi.
 
 KIE_PROVIDER = "kie"
-#: base64 phong ~33% so voi bytes; tru hao con lai cho prompt. Kie khuyen ~10MB.
-KIE_INLINE_MAX_BYTES = 7 * 1024 * 1024
+
+#: Tran tep gui inline cho Kie.
+#:
+#: 25/09 dat 7MB bang UOC LUONG ("Kie khuyen ~10MB, base64 phong 33%"), chua do
+#: bao gio. 29/09 Kie tu noi ra so that trong mot loi 400:
+#:
+#:   "The image URL<data:application/pdf;base64,...(truncated,len=5078436)>
+#:    Inline data URL is too large. Upload the file and pass an HTTP(S) URL
+#:    instead."
+#:
+#: len=5078436 la do dai BASE64, tuc PDF goc ~3.63 MiB -- tran cu cao GAP DOI
+#: gioi han that, nen code cho qua nhung tep ma Kie chac chan tu choi: ban ghi
+#: khong co diem, va ly do that thi nam o tan loi 400 cua Kie.
+#:
+#: TAM dat 3.5 MiB (duoi so quan sat duoc mot chut). Con so DUNG phai do bang
+#: `probe_inline_limit()` roi cap nhat o day kem ngay do -- dung suy tiep tu mot
+#: quan sat duy nhat, va gioi han co the khac nhau giua cac dialect.
+#: [TEMP-WORKAROUND 2026-09-29: so uoc luong tu mot loi 400. Go sau khi do that.]
+KIE_INLINE_MAX_BYTES = 3584 * 1024        # 3.5 MiB
+
+#: Nen ma khong an gi thi dung som. Deck toan anh chup thi ha do phan giai an
+#: ngay; deck la PDF xuat tu Office (anh da nen san, chu la vector) thi khong an
+#: gi het -- 29/09 co ban 10.010.963 byte nen xong con 10.010.868, giam 95 byte,
+#: sau khi ngon 25 giay cua worker. Bo cong suc vao mot don bay khong ton tai.
+SHRINK_MIN_GAIN = 0.05                    # duoi 5% coi nhu khong an
 
 
 def provider():
@@ -598,6 +621,17 @@ def shrink_pdf_for_inline(data, max_bytes=KIE_INLINE_MAX_BYTES):
         if last_size <= max_bytes:
             return shrunk, "da nen %d -> %d byte (ty le %.2f, chat luong %d)" % (
                 len(data), last_size, scale, quality)
+
+        # Buoc dau da khong an gi thi cac buoc sau cung the: ha do phan giai chi
+        # an tren ANH BITMAP. PDF xuat tu Office co anh da nen san va chu la
+        # vector -- khong co gi de ha. Dung ngay, dung ngon them 25 giay cua
+        # worker de doi tu 10.010.963 xuong 10.010.868 byte (that, 29/09).
+        gain = 1.0 - (float(last_size) / len(data))
+        if gain < SHRINK_MIN_GAIN:
+            return None, ("nen khong an: %d -> %d byte (giam %.1f%%, duoi nguong"
+                          " %.0f%%). PDF nay khong phai anh bitmap nen ha do phan"
+                          " giai vo ich -- can nguoi nop xuat lai file nhe hon."
+                          % (len(data), last_size, gain * 100, SHRINK_MIN_GAIN * 100))
         # Buoc sau nen lai tu BAN GOC voi ty le manh hon, khong chong len ban vua
         # nen: nen hai lan sinh nhieu (artefact) ma khong nho hon bao nhieu.
 
@@ -625,6 +659,103 @@ def probe_llm_health():
                                purpose="probe_llm_health", budget=60, attempt_timeout=55)
         out["models"][model] = {"ok": res["ok"], "ms": res["latency_ms"],
                                 "error": res["error"][:400] if not res["ok"] else ""}
+    return out
+
+
+def _synthetic_pdf(target_bytes):
+    """Mot PDF hop le, kich thuoc xap xi `target_bytes`. -> bytes|None.
+
+    Dung anh NHIEU NGAU NHIEN: anh co quy luat se bi JPEG nen lai, va kich thuoc
+    thu duoc se khong con dinh -- do bang thuoc co dan thi khong phai do.
+
+    KHONG dung deck that de do: do la du lieu bao cao cua nguoi that, va phep do
+    nay gui thang len Kie.
+    """
+    try:
+        import io as _io
+        import os as _os
+        from PIL import Image
+    except Exception:
+        return None
+    # JPEG chat luong 95 tren nhieu ngau nhien: ~1 byte moi pixel, du de uoc
+    # luong. Do lai roi chinh mot lan cho sat.
+    side = max(64, int((target_bytes) ** 0.5))
+    for _ in range(4):
+        img = Image.frombytes("RGB", (side, side), _os.urandom(side * side * 3))
+        buf = _io.BytesIO()
+        img.save(buf, format="PDF", quality=95)
+        data = buf.getvalue()
+        if abs(len(data) - target_bytes) <= target_bytes * 0.12:
+            return data
+        ratio = float(target_bytes) / max(1, len(data))
+        side = max(64, int(side * (ratio ** 0.5)))
+    return data
+
+
+@frappe.whitelist(methods=["POST"])
+def probe_inline_limit(sizes_mb=None, models=None):
+    """Kie that su nhan tep inline toi bao nhieu? Do, khong doan.
+
+    Vi sao ton tai: `KIE_INLINE_MAX_BYTES` tung duoc dat 7MB bang uoc luong tu
+    tai lieu, va sai gap doi -- Kie tu choi o base64 len=5078436 (~3.63 MiB).
+    Mot con so doan trung thi may; doan truot thi ban ghi khong co diem va ly do
+    nam tan trong loi 400 cua Kie, khong ai thay.
+    Gioi han co the KHAC nhau giua cac dialect (native vs openai), nen do TUNG
+    model trong chuoi chu khong do mot lan roi suy ra.
+
+    Thang gia dan, DUNG NGAY o lan dau that bai cua moi model -- de khong day
+    hang chuc MB len Kie mot cach vo ich.
+
+    KHONG in khoa. KHONG dung du lieu that.
+    """
+    frappe.only_for("System Manager")
+    from ecentric_workspace.platform.ai import config, dialects, gateway
+
+    ladder = sizes_mb or [2, 3, 3.5, 4, 5, 6, 8]
+    if isinstance(ladder, str):
+        ladder = [float(x) for x in ladder.replace(",", " ").split()]
+    if isinstance(models, str):
+        models = [x.strip() for x in models.split(",") if x.strip()]
+    if models:
+        chain = models
+    else:
+        # Chi do model NHAN duoc tep. `gpt-6-luna` va `grok-4-7` khong nhan, do
+        # chung la day vai MB len roi nhan ve dung mot cau "model khong nhan tep".
+        chain = [m for m in config.chain()
+                 if dialects.ACCEPTS_FILES.get(dialects.dialect_of(m))]
+
+    schema = {"type": "object", "properties": {"ok": {"type": "string"}},
+              "required": ["ok"]}
+    out = {"tran_dang_dat_bytes": KIE_INLINE_MAX_BYTES, "models": {}}
+    for model in chain:
+        rec = {"lon_nhat_nhan_duoc_bytes": 0, "nho_nhat_bi_tu_choi_bytes": None,
+               "buoc": []}
+        for mb in ladder:
+            n = int(mb * 1024 * 1024)
+            pdf = _synthetic_pdf(n)
+            if not pdf:
+                rec["buoc"].append({"mb": mb, "ket_qua": "khong tao duoc PDF thu"})
+                break
+            res = gateway.generate(
+                'Tra ve dung {"ok": "yes"}', schema=schema, models=[model],
+                files=[{"data": pdf, "mime_type": "application/pdf"}],
+                purpose="probe_inline_limit", budget=120, attempt_timeout=110)
+            step = {"mb": mb, "bytes_that": len(pdf), "ok": bool(res["ok"])}
+            if not res["ok"]:
+                step["loi"] = (res["error"] or "")[:200]
+            rec["buoc"].append(step)
+            if res["ok"]:
+                rec["lon_nhat_nhan_duoc_bytes"] = len(pdf)
+            else:
+                rec["nho_nhat_bi_tu_choi_bytes"] = len(pdf)
+                break        # thang gia dan: hong roi thi to hon cung hong
+        out["models"][model] = rec
+
+    oks = [r["lon_nhat_nhan_duoc_bytes"] for r in out["models"].values()
+           if r["lon_nhat_nhan_duoc_bytes"]]
+    out["nen_dat_tran_bytes"] = min(oks) if oks else 0
+    out["ghi_chu"] = ("Lay MIN qua cac model, khong lay MAX: mot tep phai lot"
+                      " duoc qua model du phong thi chuoi moi con y nghia.")
     return out
 
 

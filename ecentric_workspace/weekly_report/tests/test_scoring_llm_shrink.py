@@ -140,6 +140,81 @@ class BytesForKieShrinkTest(unittest.TestCase):
 
 
 
+def _pdf_without_bitmaps(pages, ops=20000):
+    """PDF to ma KHONG co anh bitmap nao: ruot la content stream vector.
+
+    Day la hinh dang cua deck xuat tu Office -- chu va hinh khoi la vector, anh
+    (neu co) da nen san. Ha do phan giai khong an gi. Dung cai lam mot ban ghi
+    ngon 25 giay cua worker de giam 95 byte tren 10MB, 29/09.
+
+    Ban dau fixture nay nhoi bang `add_metadata`, va SAI: pypdf vut metadata khi
+    ghi lai, nen ham nen "thanh cong" bang cach xoa phan nhoi -- 400.567 xuong
+    551 byte. Content stream thi pypdf giu nguyen tung byte (da do: 852.132 ->
+    852.132), tuc dung 0% loi -- moi la thu can thu.
+    """
+    import io as _io
+    from pypdf import PdfWriter
+    from pypdf.generic import DecodedStreamObject, NameObject
+    w = PdfWriter()
+    for _ in range(pages):
+        pg = w.add_blank_page(width=595, height=842)
+        body = "\n".join("%d %d m %d %d l S" % (i % 500, i % 800, (i * 7) % 500,
+                                                (i * 3) % 800)
+                         for i in range(ops))
+        st = DecodedStreamObject()
+        st.set_data(body.encode("ascii"))
+        pg[NameObject("/Contents")] = w._add_object(st)
+    buf = _io.BytesIO()
+    w.write(buf)
+    return buf.getvalue()
+
+
+class ShrinkGivesUpEarlyTest(unittest.TestCase):
+    """Nen khong an thi phai dung NGAY, khong chay het cac buoc.
+
+    Khong stub `shrink_pdf_for_inline` o day: chinh no la thu can thu. Stub no
+    thi chi dang thu cai stub cua minh.
+    """
+
+    def test_no_bitmaps_means_give_up_at_the_first_step(self):
+        data = _pdf_without_bitmaps(3)
+        self.assertGreater(len(data), 100000, "PDF thu phai du to de vuot tran")
+        out, note = gemini_api.shrink_pdf_for_inline(data, max_bytes=len(data) // 4)
+        self.assertIsNone(out, "khong nen duoc thi phai tu choi, khong gui bua")
+        self.assertIn("nen khong an", note)
+        self.assertNotIn("het cac buoc", note,
+                         "phai dung o buoc DAU, khong chay het ba buoc")
+
+    def test_the_message_tells_a_human_what_to_do(self):
+        """Ly do hong di thang vao Error Log. `van vuot tran sau khi nen het cac
+        buoc` khong cho ai biet phai lam gi; 'can nguoi nop xuat lai file nhe
+        hon' thi co."""
+        data = _pdf_without_bitmaps(2)
+        _out, note = gemini_api.shrink_pdf_for_inline(data, max_bytes=len(data) // 4)
+        self.assertIn("xuat lai file nhe hon", note)
+
+    def test_threshold_is_a_stated_decision_not_a_magic_number(self):
+        self.assertEqual(gemini_api.SHRINK_MIN_GAIN, 0.05)
+
+    def test_small_enough_file_is_returned_untouched(self):
+        """Canh doi: dung som KHONG duoc lam hong duong di binh thuong."""
+        data = _pdf_without_bitmaps(1)
+        out, note = gemini_api.shrink_pdf_for_inline(data, max_bytes=len(data) * 2)
+        self.assertIs(out, data)
+        self.assertEqual(note, "")
+
+
+class InlineCeilingTest(unittest.TestCase):
+    def test_ceiling_is_below_the_size_kie_actually_refused(self):
+        """29/09 Kie tu choi o base64 len=5078436, tuc PDF goc ~3.63 MiB.
+
+        Tran phai nam DUOI con so do. Tran cu la 7MB -- cao gap doi gioi han
+        that, nen code cho qua nhung tep Kie chac chan tu choi.
+        """
+        refused_raw = int(5078436 * 3 / 4)     # base64 -> bytes goc
+        self.assertLess(gemini_api.KIE_INLINE_MAX_BYTES, refused_raw)
+
+
 class ShrinkGuardTest(unittest.TestCase):
     def test_returns_input_untouched_when_already_small(self):
         data = b"%PDF" + b"a" * 100
