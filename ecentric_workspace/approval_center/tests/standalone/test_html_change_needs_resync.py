@@ -138,9 +138,8 @@ def _candidate_dirs(mod_rel):
 #: Tham chieu .html khong co file thuc trong repo. Moi muc phai co ly do, khong phai cho de
 #: nem thu minh chua giai duoc vao.
 _KNOWN_MISSING = {
-    ("legacy_pages/home/page_sync.py", "main_section.html"):
-        "Trang chu KHONG co baseline trong repo (BASELINE_SHA256 = None) - sua trang chu la "
-        "ghi thang len production. Xem chu thich dau legacy_pages/home/page_sync.py.",
+    # (trong) 29/09/2026: trang chu da co nguon trong repo (legacy_pages/home/main_section.html,
+    # p224) nen khong con la ngoai le. Them muc moi o day PHAI kem ly do.
 }
 
 
@@ -234,10 +233,9 @@ class TestManifestCoversEveryInjectedTemplate(unittest.TestCase):
     def test_tham_chieu_khong_giai_duoc_phai_co_ly_do(self):
         """Mot .html khong tim thay file KHONG duoc bien mat im lang.
 
-        `legacy_pages/home` la ngoai le that: trang chu khong co baseline trong repo. Nhung
-        neu mai mot module khac cung roi vao trang thai do vi mot ly do khac han - doi ten
-        thu muc, doi quy uoc - thi phai co nguoi nhin thay va viet ra, khong phai de no lang
-        le tuot khoi tam kiem.
+        Truoc 29/09/2026 `legacy_pages/home` la ngoai le (trang chu chua co nguon trong repo).
+        Neu mai mot module nao roi vao trang thai do - doi ten thu muc, doi quy uoc - thi
+        phai co nguoi nhin thay va viet ra, khong phai de no lang le tuot khoi tam kiem.
         """
         unexplained = sorted(m for m in self.missing if m not in _KNOWN_MISSING)
         self.assertEqual(unexplained, [],

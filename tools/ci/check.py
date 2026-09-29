@@ -53,6 +53,7 @@ HOOK_KEYS_WITH_DOTTED_PATHS = (
     "on_session_creation",
     "on_logout",
     "before_request",
+    "auth_hooks",
     "after_request",
     "before_job",
     "after_job",
@@ -60,6 +61,7 @@ HOOK_KEYS_WITH_DOTTED_PATHS = (
     "website_route_rules",
     "boot_session",
     "notification_config",
+    "update_website_context",
 )
 
 #: Key trong hooks.py trỏ tới asset. Giá trị có hai dạng: tên bundle
@@ -292,6 +294,10 @@ def check_bundles():
     problems, count = [], 0
 
     values = _hook_literals(tree, tuple(HOOK_KEYS_WITH_ASSETS))
+    # Bundle them SAU khi gan (`web_include_js.append("x.bundle.js")` o cuoi hooks.py,
+    # theo luat chi-noi-them) cung phai co that -- doc giong check_hooks.
+    for key, strings in _hook_mutations(tree, tuple(HOOK_KEYS_WITH_ASSETS)).items():
+        values[key] = list(_collect_strings(values.get(key, []))) + strings
     asset_prefix = "/assets/%s/" % APP
     for key, value in sorted(values.items()):
         subdir = HOOK_KEYS_WITH_ASSETS[key]
@@ -374,8 +380,9 @@ def check_pagesync():
     băm bằng CHÍNH `page_sync_util.content_sha256` -- không chép lại công thức băm, để
     không bao giờ có chuyện phép kiểm băm một kiểu còn lúc chạy thật băm kiểu khác.
 
-    `BASELINE_SHA256 = None` (legacy_pages/home) là cố ý: module đó tự khoá mình thành
-    no-op cho tới khi có baseline được duyệt. Bỏ qua, không báo lỗi.
+    `BASELINE_SHA256 = None` nghĩa là module tự khoá mình thành no-op cho tới khi có baseline
+    được duyệt: bỏ qua, không báo lỗi. (legacy_pages/home từng như vậy tới 29/09/2026; nay
+    trang chủ đã có nguồn trong repo và được kiểm như mọi trang khác.)
     """
     import importlib
 

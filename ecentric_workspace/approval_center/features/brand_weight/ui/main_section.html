@@ -51,6 +51,11 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
 .bw-card-pad{padding:18px}
 .bw-section{display:flex;flex-direction:column;gap:14px}
 .bw-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.bw-row .ec-cb{flex:0 1 340px;min-width:240px}
+.bw-row .ec-cb-display{padding-top:8px;padding-bottom:8px}
+.bw-copy--empty{background:var(--gray-50);border-style:dashed;border-color:var(--gray-200)}
+.bw-copy--empty .t{color:var(--gray-700)}
+.bw-empty-note{padding:12px 14px;border-radius:10px;border:1px dashed var(--gray-200);background:var(--gray-50);color:var(--gray-600);font-size:13.5px}
 .bw-spread{justify-content:space-between}
 .bw-h2{font-size:16px;font-weight:700;color:var(--gray-900);margin:0}
 .bw-muted{color:var(--gray-500);font-size:13px;margin:0}
@@ -176,7 +181,7 @@ table.bw-matrix{border-collapse:collapse;width:100%;font-size:13.5px}
 <div class="ec-hr-bw-wrap">
   <aside class="ec-shell-mount" data-ec-shell="1" aria-label="Điều hướng eCentric"><div class="ec-shell-head"><a class="ec-shell-brand" href="/"><img class="ec-shell-logoimg" src="/files/eCentric%20logo%20-%20mini.png" alt="eCentric"><span class="ec-shell-logo" hidden>eC</span><span class="ec-shell-brandname">eCentric</span></a></div><div class="ec-shell-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input class="ec-shell-search-in" type="text" placeholder="Tìm chức năng…" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-label="Tìm chức năng" autocomplete="off" spellcheck="false"><button type="button" class="ec-shell-search-clear" data-ec-shell-search-clear="1" hidden aria-label="Xóa tìm kiếm">&times;</button></div><div class="ec-shell-search-results" role="listbox" hidden></div><nav class="ec-shell-nav ec-shell-fallback" aria-label="Điều hướng chính"><a class="ec-shell-item" href="/home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg><span>Trang chủ</span></a><div class="ec-shell-grouplabel">Nhân sự</div><a class="ec-shell-item" href="/ec-hr/attendance"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Chấm công</span></a><a class="ec-shell-item" href="/ec-hr/leave"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg><span>Nghỉ phép</span></a><a class="ec-shell-item ec-shell-active" href="/ec-hr/phan-bo-cong-viec" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg><span>Phân bổ công việc</span></a><a class="ec-shell-item" href="/ec-hr/salary"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>Phiếu lương</span></a><a class="ec-shell-item" href="/sla"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/></svg><span>Điểm SLA</span></a><a class="ec-shell-item" href="/ec-hr/huong-dan-cai-app"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19a2 2 0 0 1 2-2h14V3H6a2 2 0 0 0-2 2z"/><path d="M4 19a2 2 0 0 0 2 2h14v-4"/></svg><span>Cài app lên điện thoại</span></a></nav><div class="ec-shell-foot"><a class="ec-shell-usercard" href="/app/user"><span class="ec-shell-avatar">•</span><span class="ec-shell-username">Tài khoản</span></a></div></aside>
 <main class="ec-hr-bw-main"><div class="ec-shell-topbar" data-ec-shell-topbar="1"><div class="ec-shell-crumbs" data-ec-shell-crumbs="1"><span class="ec-shell-crumb-group">Nhân sự</span><span class="sep ec-shell-crumb-sep">/</span><strong class="ec-shell-crumb-current">Phân bổ công việc</strong></div><div class="ec-shell-tbright" data-ec-shell-header-right="1"><button type="button" class="ec-shell-iconbtn ec-shell-reminder" data-ec-shell-action-slot="1" aria-label="Việc của tôi" title="Việc của tôi" aria-haspopup="dialog" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h4l2 3h4l2-3h4"/><path d="M4 13V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7"/><path d="M4 13v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></svg><span class="ec-shell-reminder-badge" data-ec-shell-reminder-badge="1" hidden></span></button><button type="button" class="ec-shell-iconbtn ec-shell-slot-disabled" data-ec-shell-settings-slot="1" disabled aria-disabled="true" title="Cài đặt (sắp ra mắt)" aria-label="Cài đặt (sắp ra mắt)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg></button></div></div>
-<div id="ec-bw-root">
+<div id="ec-bw-root" data-ec-formkit="1">
   <div class="bw-wrap">
     <header>
       <div class="bw-eyebrow">Nhân sự › Phân bổ công việc</div>
@@ -189,7 +194,7 @@ table.bw-matrix{border-collapse:collapse;width:100%;font-size:13.5px}
         <button id="tab-mine" data-tab="mine" role="tab" aria-pressed="true">Phiếu của tôi</button>
         <button id="tab-team" data-tab="team" role="tab" aria-pressed="false">Duyệt<span class="bw-tab-count" id="bw-team-count" hidden></span></button>
       </div>
-      <label class="bw-period-pick" for="bw-period">Kỳ <select id="bw-period" class="bw-field" data-model="period"></select></label>
+      <label class="bw-period-pick" for="bw-period">Kỳ <select id="bw-period" class="bw-field" data-model="period" data-ec-no-formkit="1"></select></label>
     </div>
 
     <div id="bw-view" aria-live="polite">
@@ -314,9 +319,12 @@ table.bw-matrix{border-collapse:collapse;width:100%;font-size:13.5px}
     const names = ["Nhân viên nộp", "Lead duyệt", "Trưởng phòng chốt"];
     return '<div class="bw-steps">' + names.map((x, i) => (i ? '<span class="sep">›</span>' : "") + '<span class="st ' + (i < cur ? "done" : i === cur ? "cur" : "") + '">' + (i < cur ? "✓ " : "") + x + "</span>").join("") + "</div>";
   };
-  const copyBanner = (last, text, act, disabled) => {
+  const copyBanner = (last, text, act, disabled, emptyText) => {
     const keys = Object.keys(last || {});
-    if (!keys.length) return "";
+    if (!keys.length) {
+      if (!emptyText) return "";
+      return '<div class="bw-copy bw-copy--empty"><div><div class="t">Chép từ tháng trước</div><div class="d">' + esc(emptyText) + '</div></div><button type="button" class="bw-btn" disabled>Chép sang tháng này</button></div>';
+    }
     return '<div class="bw-copy"><div><div class="t">' + esc(text) + '</div><div class="d">' +
       keys.map((b) => '<span><i class="bw-sw" style="background:' + color(b) + '"></i>' + esc(labelOf(b)) + " " + fmt(last[b]) + "%</span>").join("") +
       '</div></div><button type="button" class="bw-btn" data-act="' + act + '"' + (disabled ? " disabled" : "") + ">" + (disabled ? "Đang giống tháng trước" : "Chép sang tháng này") + "</button></div>";
@@ -365,7 +373,8 @@ table.bw-matrix{border-collapse:collapse;width:100%;font-size:13.5px}
   const cancelBox = () => (UI.cancelling
     ? '<div class="bw-return"><span class="bw-hint">Rút phiếu thì lead không còn thấy phiếu này. Số của bạn được giữ lại để sửa và nộp lại.</span><div class="bw-row"><button type="button" class="bw-btn bw-btn--primary" data-act="cancel-send" data-busy-label="Đang rút…">Rút phiếu</button><button type="button" class="bw-btn bw-btn--ghost" data-act="cancel-no">Giữ nguyên</button></div></div>'
     : '<div class="bw-row"><button type="button" class="bw-btn" data-act="cancel-ask">Rút phiếu để sửa</button><span class="bw-hint">Chỉ rút được khi lead chưa xem.</span></div>');
-  const mineCopy = () => copyBanner(UI.me.last, "Tháng " + label(prevOf(UI.period)) + (UI.me.last_status === "final" ? " bạn đã được chốt" : " bạn đã nộp"), "copy-mine", same(UI.me.last, UI.draft));
+  const mineCopy = () => copyBanner(UI.me.last, "Tháng " + label(prevOf(UI.period)) + (UI.me.last_status === "final" ? " bạn đã được chốt" : " bạn đã nộp"), "copy-mine", same(UI.me.last, UI.draft),
+    "Tháng " + label(prevOf(UI.period)) + " bạn chưa có phiếu nào để chép. Từ kỳ sau, bấm một lần là có lại số của tháng trước.");
   const mineSummary = () => '<div class="bw-section" style="gap:12px">' + remaining(UI.draft) + stackBar(UI.draft, "Phân bổ của bạn") + "</div>";
   const submitBtn = (ok, again, selfFinal) => '<button type="button" class="bw-btn bw-btn--primary" data-act="submit" data-busy-label="Đang nộp…"' + (ok ? "" : " disabled") + ">" + (selfFinal ? "Nộp và chốt" : again ? "Nộp lại" : "Nộp cho lead") + "</button>";
 
@@ -390,6 +399,10 @@ table.bw-matrix{border-collapse:collapse;width:100%;font-size:13.5px}
     const ready = team.filter((m) => m.actionable);
     const allOk = ready.length > 0 && ready.every((m) => totalState(sum(adjOf(m))).k === "ok");
     const kpi = (n, t) => '<span class="bw-kpi"><b>' + n + "</b>" + t + "</span>";
+    const stepNow = ready.some((m) => m.stage === "head") ? 2 : (ready.length || counted.length) ? 1 : 0;
+    const copyable = ready.filter((m) => hasAny(m.last));
+    const copyTeam = '<button type="button" class="bw-btn" data-act="copy-team"' + (copyable.length ? "" : " disabled") + ' title="' +
+      esc(copyable.length ? "Điền số tháng " + label(prevOf(UI.period)) + " vào " + copyable.length + " phiếu đang chờ bạn" : "Chưa có phiếu nào đang chờ bạn có số tháng " + label(prevOf(UI.period))) + '">Chép tháng ' + label(prevOf(UI.period)) + (copyable.length ? " cho " + copyable.length + " phiếu" : "") + "</button>";
     const head = '<tr><th scope="col">Nhân viên</th>' + cols.map((b) => '<th scope="col"><span class="mh"><i class="bw-sw" style="background:' + color(b) + '"></i>' + esc(labelOf(b)) + "</span></th>").join("") + '<th scope="col">Tổng</th><th scope="col" class="l">Trạng thái</th></tr>';
     const rows = team.map((m) => {
       const s = shown(m), counts = LOCKED.includes(m.status) || m.actionable;
@@ -403,13 +416,14 @@ table.bw-matrix{border-collapse:collapse;width:100%;font-size:13.5px}
     const avgLabel = (depts.length === 1 ? "Tỷ trọng cả phòng" : "Tỷ trọng chung của nhóm") + ", tính trên " + counted.length + " phiếu đã nộp";
     return '<section class="bw-card bw-card-pad bw-section" aria-labelledby="team-h">' +
       '<div><h2 class="bw-h2" id="team-h">' + title + " · kỳ " + label(UI.period) + '</h2><p class="bw-muted">Chọn một dòng để xem và chỉnh phiếu của người đó. Ô tô vàng là số bạn đã chỉnh.' + (depts.length > 1 ? " Gồm: " + depts.map(esc).join(", ") + "." : "") + "</p></div>" +
+      steps(stepNow) +
       '<div class="bw-kpis">' + kpi(ready.length, "chờ bạn") + kpi(team.filter((m) => ["none", "draft", "rejected"].includes(m.status)).length, "chưa nộp") + kpi(team.filter((m) => m.status === "returned").length, "đã trả lại") + kpi(team.filter((m) => m.status === "final").length, "đã chốt") + "</div>" +
-      (cols.length ? stackBar(avg, avgLabel) : "") +
+      (cols.length ? stackBar(avg, avgLabel) : '<div class="bw-empty-note">Chưa có phiếu nào được nộp kỳ ' + label(UI.period) + '. Khi nhân viên nộp, mỗi brand thành một cột, dòng cuối là tỷ trọng cả ' + (depts.length === 1 ? "phòng" : "nhóm") + ', và phiếu nào đang chờ bạn sẽ hiện nút duyệt ngay trên bảng.</div>') +
       '<div class="bw-scroll" style="border:1px solid var(--gray-200);border-radius:12px"><table class="bw-matrix"><thead>' + head + "</thead><tbody>" + rows +
       (counted.length ? '<tr class="dept"><td>' + (depts.length === 1 ? "Cả phòng" : "Cả nhóm") + " · " + counted.length + " phiếu</td>" + cols.map((b) => "<td>" + fmt(avg[b]) + "%</td>").join("") + "<td>" + fmt(Object.values(tot).reduce((x, v) => x + v, 0) / k) + "%</td><td></td></tr>" : "") +
       "</tbody></table></div>" +
       '<div class="bw-row bw-spread"><span class="bw-hint">' + (ready.length ? (allOk ? "Tất cả phiếu đang chờ bạn đều đủ 100%." : "Còn phiếu chưa đủ 100%, chưa duyệt hàng loạt được.") : "Không còn phiếu nào chờ bạn.") + "</span>" +
-      '<button type="button" class="bw-btn" data-act="approve-all" data-busy-label="Đang duyệt…"' + (allOk ? "" : " disabled") + ">Duyệt tất cả " + ready.length + " phiếu</button></div></section>";
+      '<div class="bw-row">' + copyTeam + '<button type="button" class="bw-btn" data-act="approve-all" data-busy-label="Đang duyệt…"' + (allOk ? "" : " disabled") + ">Duyệt tất cả " + ready.length + " phiếu</button></div></div></section>";
   };
 
   const adjustPanel = () => {
@@ -428,7 +442,8 @@ table.bw-matrix{border-collapse:collapse;width:100%;font-size:13.5px}
       '<div class="bw-row">' + addSelect(a, "adj-add", "+ Thêm brand bạn ấy quên…") + '<span id="reset-box">' + resetBtn(m) + "</span></div>" +
       '<div id="decide-box">' + decideBox(m, ok) + "</div></section>";
   };
-  const memberCopy = (m) => copyBanner(m.last, "Tháng " + label(prevOf(UI.period)) + " của " + m.name, "copy-member", same(m.last, adjOf(m)));
+  const memberCopy = (m) => copyBanner(m.last, "Tháng " + label(prevOf(UI.period)) + " của " + m.name, "copy-member", same(m.last, adjOf(m)),
+    "Tháng " + label(prevOf(UI.period)) + " " + m.name + " chưa có phiếu nào để chép.");
   const resetBtn = (m) => '<button type="button" class="bw-btn bw-btn--ghost" data-act="reset-member"' + (same(adjOf(m), baseOf(m)) ? " disabled" : "") + ">Bỏ chỉnh, về " + (m.stage === "head" ? "số lead đã duyệt" : "số nhân viên đề xuất") + "</button>";
   const adjSummary = (m) => {
     const a = adjOf(m), t = totalState(sum(a));
@@ -524,6 +539,13 @@ table.bw-matrix{border-collapse:collapse;width:100%;font-size:13.5px}
     const m = selected();
 
     if (act === "copy-mine") { UI.draft = clone(UI.me.last); render(); toast("Đã chép số tháng " + label(prevOf(UI.period)) + ". Chỉnh lại nếu tháng này khác."); return; }
+    if (act === "copy-team") {
+      let n = 0;
+      UI.team.forEach((x) => { if (x.actionable && hasAny(x.last)) { UI.adj[x.id] = clone(x.last); n += 1; } });
+      render();
+      toast(n ? "Đã chép số tháng " + label(prevOf(UI.period)) + " vào " + n + " phiếu. Xem lại từng người rồi duyệt." : "Không có số tháng trước để chép.");
+      return;
+    }
     if (act === "copy-member" && m) { UI.adj[m.id] = clone(m.last); render(); toast("Đã chép số tháng " + label(prevOf(UI.period)) + " của " + m.name + "."); return; }
     if (act === "reset-member" && m) { UI.adj[m.id] = clone(baseOf(m)); render(); return; }
     if (act === "even") {

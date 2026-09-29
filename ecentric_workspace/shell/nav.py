@@ -85,9 +85,13 @@ HOME_PORTAL_ITEMS = [
      "group": "Workspace", "order": 10, "active_patterns": ["/", "/home"],
      "visible_when": "internal", "owner": "home_portal", "alias": True,
      "keywords": ["trang chu", "home"]},
-    {"key": "home.portal.overview", "label": "Tổng quan", "route": "/coming-soon?tool=tong-quan",
-     "icon": "grid", "group": "Workspace", "order": 20, "active_patterns": ["/coming-soon?tool=tong-quan"],
-     "visible_when": "internal", "owner": "home_portal", "discoverable": False, "soon": True},
+    # 28/09/2026 (Hoan): Tong quan thanh trang that /tong-quan - luoi the theo mang, the dau
+    # tien la Nhan su (chi HR / CnB thay the; trang van mo cho moi nguoi noi bo, xem
+    # hr/overview). Truoc do la /coming-soon?tool=tong-quan.
+    {"key": "home.portal.overview", "label": "Tổng quan", "route": "/tong-quan",
+     "icon": "grid", "group": "Workspace", "order": 20, "active_patterns": ["/tong-quan"],
+     "visible_when": "internal", "owner": "home_portal",
+     "keywords": ["tong quan", "overview", "nhan su", "ho so nhan su", "hop dong", "so do phong ban"]},
     # "Việc của tôi": the SAME session-scoped action feed the header inbox
     # drawer shows, as a full page. Canonically owned here (not an alias) so
     # resolve_context() puts it in the portal context. Rows are links only --

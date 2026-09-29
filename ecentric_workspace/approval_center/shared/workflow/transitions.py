@@ -13,6 +13,11 @@ from frappe.utils import now_datetime, add_to_date, getdate
 
 OPEN_STATUSES = ("Pending", "Information Required")
 TERMINAL = ("Approved", "Rejected", "Cancelled")
+#: Che do cap "moi nhom mot nguoi" (28/09/2026, New Staff Preparation): moi dong Approver
+#: cua cap la MOT nhom (vd Lead HR / HOF / CnB / Operation). Cac nhom lam SONG SONG; cap
+#: xong khi MOI nhom co mot nguoi xac nhan; nguoi cung nhom tu Skipped. Cap nay la cap
+#: XAC NHAN DA LAM, khong phai cap quyet dinh - nen KHONG co Tu choi (xem reject()).
+EACH_GROUP = "Each Group"
 
 
 class _SlaOff:
@@ -97,9 +102,16 @@ def _sla_attempt(request_name):
 # statuses: list of runtime approver statuses for the active level.
 # Returns (decision, skip_remaining): decision in {"approved","rejected","pending"}.
 # --------------------------------------------------------------------------- #
-def decide_level(mode, minimum_approvals, statuses):
+def decide_level(mode, minimum_approvals, statuses, groups=None):
+    """`groups` chi dung cho EACH_GROUP: groups[i] la nhom cua statuses[i]."""
     if "Rejected" in statuses:
         return ("rejected", False)
+    if mode == EACH_GROUP:
+        tat_ca = set(groups or ())
+        xong = {g for s, g in zip(statuses, groups or ()) if s == "Approved"}
+        if tat_ca and tat_ca <= xong:
+            return ("approved", True)
+        return ("pending", False)
     approved = sum(1 for s in statuses if s == "Approved")
     total = len(statuses)
     if mode == "Any One":
@@ -660,7 +672,8 @@ _FULFILLMENT_TERMINAL = ("Completed", "Cancelled")
 FULFILLMENT_DOCTYPES = ("EC AI Topup Request", "EC Asset Request", "EC Data Request",
                         "EC Document Request", "EC Resignation Request", "EC System Request",
                         "EC Payment Request",    # buoc 6 Finance xu ly UNC (07/09)
-                        "EC Booking Request")    # Booking xu ly yeu cau (11/09)
+                        "EC Booking Request",    # Booking xu ly yeu cau (11/09)
+                        "EC Hiring Request")     # HR tuyen dung sau CEO duyet (28/09)
 
 
 def _fulfillment_snapshot(business_doctype, name):
@@ -1053,20 +1066,50 @@ def build_snapshot(req, process, levels, requester):
             "source_process_level": lvl.name, "sla_policy": lvl.sla_policy,
             "allows_amount_adjustment": lvl.allows_amount_adjustment, "level_status": "Pending",
         }).insert(ignore_permissions=True)
-        approvers = resolve_participants(
-            [p for p in lvl.participants if p.participant_purpose == "Approver"], requester,
-            context={"reference_doctype": req.reference_doctype, "reference_name": req.reference_name})
-        approvers = drop_own_seat(approvers, seats.get(lvl.level_no, set()))
-        if not approvers:
-            frappe.throw(_no_approver_message(lvl, requester))
-        for user, label in approvers:
+        ctx = {"reference_doctype": req.reference_doctype, "reference_name": req.reference_name}
+        if lvl.approval_mode == EACH_GROUP:
+            rows = [(u, lab, g) for g, members in _resolve_groups(lvl, requester, ctx)
+                    for u, lab in members]
+        else:
+            approvers = resolve_participants(
+                [p for p in lvl.participants if p.participant_purpose == "Approver"], requester,
+                context=ctx)
+            approvers = drop_own_seat(approvers, seats.get(lvl.level_no, set()))
+            if not approvers:
+                frappe.throw(_no_approver_message(lvl, requester))
+            rows = [(u, lab, None) for u, lab in approvers]
+        for user, label, group in rows:
             frappe.get_doc({
                 "doctype": "EC Approval Request Approver", "approval_request": req.name,
                 "request_level": rl.name, "level_no": lvl.level_no, "approver": user,
-                "source": label, "status": "Pending",
+                "source": label, "participant_group": group, "status": "Pending",
             }).insert(ignore_permissions=True)
     _skip_earlier_duplicate_levels(req)
     grant_read_to_snapshot_approvers(req)
+
+
+def _resolve_groups(lvl, requester, context):
+    """EACH_GROUP: moi dong Approver giai RIENG thanh mot nhom. -> [(ten_nhom, [(user, label)])].
+
+    Giai tung dong mot (khong gop) vi `resolve_participants` bo trung nguoi TRONG mot lan goi:
+    gop ca cap lai thi mot nguoi thuoc hai nhom chi con o nhom dau, va nhom sau co the RONG
+    - cap se xong ma nhom do chua ai xac nhan. Nhom nao khong co ai thi CHAN gui (fail-closed):
+    mot cap song song thieu mot nhom la mot viec chuan bi khong ai lam."""
+    out, dung = [], set()
+    parts = sorted([p for p in (lvl.participants or []) if p.participant_purpose == "Approver"],
+                   key=lambda r: (r.sort_order or 0))
+    for i, p in enumerate(parts):
+        ten = (p.get("group_label") or "").strip() or ("Nhóm %d" % (i + 1))
+        if ten in dung:
+            ten = "%s (%d)" % (ten, i + 1)
+        dung.add(ten)
+        members = resolve_participants([p], requester, context=context)
+        if not members:
+            frappe.throw(_("Nhóm \"{0}\" của bước \"{1}\" chưa có ai (role/người được cấu hình "
+                           "không còn hoạt động). Liên hệ quản trị viên cập nhật cấu hình trước khi gửi.")
+                         .format(ten, lvl.level_name))
+        out.append((ten, members))
+    return out
 
 
 def grant_read_to_snapshot_approvers(req):
@@ -1413,6 +1456,15 @@ def approve(request_name, actor=None, comment=None):
     _signature_guard(req, req.current_level, actor)
     frappe.db.set_value("EC Approval Request Approver", row,
                         {"status": "Approved", "decided_at": now_datetime(), "comment": comment})
+    # EACH_GROUP: mot nguoi co the dai dien HAI nhom (vd vua Lead HR vua CnB). Ho bam mot lan
+    # la xac nhan cho ca hai - bat ho bam hai lan cho cung mot viec chuan bi la vo nghia.
+    if _level_mode(request_name, req.current_level) == EACH_GROUP:
+        while True:
+            them = _actor_pending_row(request_name, req.current_level, actor)
+            if not them:
+                break
+            frappe.db.set_value("EC Approval Request Approver", them,
+                                {"status": "Approved", "decided_at": now_datetime(), "comment": comment})
     log_action(request_name, "Approved", actor, req.current_level, comment=comment)
     # SLA: dong dong ho cua CHINH nguoi vua bam, ngay tai moc nay. Khong doi cap
     # dong: o cap dong thuan, nguoi duyet dau tien bam luc 9h va nguoi thu ba bam
@@ -1448,6 +1500,11 @@ def reject(request_name, actor=None, comment=None):
     row = _actor_pending_row(request_name, req.current_level, actor)
     if not row:
         frappe.throw(_("You are not a pending approver for the current level."))
+    if _level_mode(request_name, req.current_level) == EACH_GROUP:
+        # Cap xac nhan "da chuan bi" khong co nghia tu choi: mot ben tu choi thi ca ho so
+        # dong lai va nhung ben khac mat viec. Thieu thong tin thi "Yeu cau bo sung".
+        frappe.throw(_("Bước này là xác nhận đã chuẩn bị, không có Từ chối. Nếu thiếu thông tin, "
+                       "dùng \"Yêu cầu bổ sung\" để trả lại người gửi."))
     frappe.db.set_value("EC Approval Request Approver", row,
                         {"status": "Rejected", "decided_at": now_datetime(), "comment": comment})
     log_action(request_name, "Rejected", actor, req.current_level, comment=comment,
@@ -1624,10 +1681,20 @@ def cancel(request_name, actor=None, reason=None):
 
 
 def _evaluate(req, level_no, actor=None):
-    statuses = frappe.get_all("EC Approval Request Approver",
-                              filters={"approval_request": req.name, "level_no": level_no}, pluck="status")
     rl = _rl_for(req.name, level_no)
-    decision, skip_remaining = decide_level(rl.approval_mode, rl.minimum_approvals, statuses)
+    if rl.approval_mode == EACH_GROUP:
+        _settle_groups(req, level_no)
+        rows = frappe.get_all("EC Approval Request Approver",
+                              filters={"approval_request": req.name, "level_no": level_no},
+                              fields=["status", "participant_group"])
+        decision, skip_remaining = decide_level(
+            rl.approval_mode, rl.minimum_approvals, [r.status for r in rows],
+            [r.participant_group for r in rows])
+    else:
+        statuses = frappe.get_all("EC Approval Request Approver",
+                                  filters={"approval_request": req.name, "level_no": level_no},
+                                  pluck="status")
+        decision, skip_remaining = decide_level(rl.approval_mode, rl.minimum_approvals, statuses)
     if decision == "rejected":
         return  # reject() already handled the terminal transition
     if decision != "approved":
@@ -1656,6 +1723,56 @@ def _evaluate(req, level_no, actor=None):
         complete_approval(frappe.get_doc("EC Approval Request", req.name))
 
 
+def _level_mode(request_name, level_no):
+    if not level_no:
+        return None
+    return frappe.db.get_value("EC Approval Request Level",
+                               {"approval_request": request_name, "level_no": level_no},
+                               "approval_mode")
+
+
+def _settle_groups(req, level_no):
+    """EACH_GROUP: don cap sau moi lan co nguoi xac nhan.
+
+    * Nhom nao da co nguoi xac nhan -> nhung nguoi CON LAI cua nhom chuyen Skipped (ho khong
+      con viec), dong ToDo va LOAI dau viec SLA cua ho.
+    * Nguoi vua xac nhan xong phan cua minh -> ToDo cua ho DONG (Closed) ngay. Cap song song
+      chua xong khi con nhom khac, nen neu doi toi luc ca cap xong moi dong thi viec da lam
+      van nam trong hop "Can xu ly" cua ho may ngay.
+    Ai con dai dien mot nhom CHUA xong thi khong dung toi - ho van con viec."""
+    rows = frappe.get_all("EC Approval Request Approver",
+                          filters={"approval_request": req.name, "level_no": level_no},
+                          fields=["name", "status", "approver", "participant_group"])
+    xong = {r.participant_group for r in rows if r.status == "Approved"}
+    bo = [r for r in rows if r.status == "Pending" and r.participant_group in xong]
+    for r in bo:
+        ly_do = _("Nhóm {0} đã có người xác nhận").format(r.participant_group)
+        frappe.db.set_value("EC Approval Request Approver", r.name,
+                            {"status": "Skipped", "decided_at": now_datetime(), "comment": ly_do})
+        log_action(req.name, "Skipped", "Administrator", level_no, comment=ly_do,
+                   related_user=r.approver, new_status="Skipped")
+        r.status = "Skipped"
+    con_viec = {r.approver for r in rows if r.status == "Pending"}
+    da_xac_nhan = {r.approver for r in rows if r.status == "Approved"} - con_viec
+    bi_bo = {r.approver for r in bo} - con_viec - da_xac_nhan
+    for user in sorted(da_xac_nhan):
+        _close_user_todos(req.reference_doctype, req.reference_name, user, status="Closed")
+    for user in sorted(bi_bo):
+        _close_user_todos(req.reference_doctype, req.reference_name, user, status="Cancelled")
+        _sla().on_approver_removed(
+            request_doctype=req.reference_doctype, request_name=req.reference_name,
+            level_no=level_no, user=user,
+            reason=_("Nhóm đã có người xác nhận"))
+
+
+def _close_user_todos(doctype, name, user, status="Cancelled"):
+    for td in frappe.get_all("ToDo", filters={"reference_type": doctype, "reference_name": name,
+                                              "allocated_to": user, "status": "Open"},
+                             pluck="name"):
+        frappe.db.set_value("ToDo", td, "status", status, update_modified=False)
+    _engine_maintain_assign(doctype, name, user, add=False)
+
+
 # Generic post-final-approval fulfillment dispatch. Keyed by business DocType ->
 # dotted "module.service.on_final_approval" (a handler path in config, NOT approver
 # identities). Additive: forms opt in by adding an entry; engine flow is unchanged
@@ -1672,6 +1789,13 @@ _FULFILLMENT_HANDLERS = {
     # 11/09: duyet xong thi giao Booking xu ly. Viec di DICH DANH toi ban Booking phu
     # trach brand (xem service.on_final_approval); Role EC Booking chi la luoi do.
     "EC Booking Request": "ecentric_workspace.approval_center.features.booking_request.application.service.on_final_approval",
+    # 28/09: Hiring duyet xong -> hang doi "HR tuyen dung" (Role EC Recruiter); tu phieu
+    # tao Offer Request cho tung ung vien.
+    "EC Hiring Request": "ecentric_workspace.approval_center.features.hiring_request.application.service.on_final_approval",
+    # 28/09: KHONG phai buoc xu ly - chi la viec sau duyet: Offer duyet xong -> tao New Staff
+    # Preparation o nen; New Staff Preparation xong -> bao line manager.
+    "EC Offer Request": "ecentric_workspace.approval_center.features.offer_request.application.service.on_final_approval",
+    "EC New Staff Preparation": "ecentric_workspace.approval_center.features.new_staff_preparation.application.service.on_final_approval",
 }
 
 

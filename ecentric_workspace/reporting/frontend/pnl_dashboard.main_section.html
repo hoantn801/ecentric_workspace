@@ -86,6 +86,23 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
 #ec-pnl-root select, #ec-pnl-root input[type=date]{
   font:inherit; font-size:13px; padding:7px 9px; border:1px solid var(--line);
   border-radius:8px; background:#fff; color:var(--ink); min-width:130px; }
+/* 28/09/2026 (brief NHIEU_LOP): HTML server phai ve DUNG kich thuoc cuoi, JS khong
+   duoc lam khoi nao doi cho. Truoc day o ngay native cao 37,5px roi ec_datepicker thay
+   bang o 40px; select Brand/Phong ban no rong khi do option dai -> Phong ban rot xuong
+   dong 2, the bo loc cao 140 -> 215px, ca trang tut 75px. Co dinh rong/cao o day. */
+#ec-pnl-root .pnl-f-date{ width:140px; }
+#ec-pnl-root .pnl-f-date input[type=date]:not(.ec-dp-native){ width:100%; min-width:0;
+  min-height:40px; box-sizing:border-box; }
+#ec-pnl-root #pnl-brand{ width:180px; min-width:0; }
+#ec-pnl-root #pnl-team{ width:240px; min-width:0; }
+#ec-pnl-root #pnl-scope, #ec-pnl-root #cp-scope{ width:170px; justify-content:center;
+  white-space:nowrap; overflow:hidden; box-sizing:border-box; }
+#ec-pnl-root .pnl-kpi-s{ min-height:36px; }
+/* tab chua xem: an ngay tu markup (the .pnl-kpis/.pnl-card co display rieng se de len [hidden]) */
+#ec-pnl-root [data-tab][hidden]{ display:none !important; }
+/* giu cho phan du lieu ve sau: luon co it nhat 1 dong canh bao; chu thich cuoi trang ~20 dong */
+#ec-pnl-root #tq-alerts{ min-height:73px; }
+#ec-pnl-root #pnl-foot{ min-height:400px; }
 #ec-pnl-root .pnl-seg{ display:inline-flex; border:1px solid var(--line);
   border-radius:8px; overflow:hidden; background:#fff; }
 #ec-pnl-root .pnl-seg button{ font:inherit; font-size:13px; padding:7px 13px;
@@ -252,11 +269,11 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
 
   <section class="pnl-card" id="pnl-filter-card">
     <div class="pnl-filters">
-      <div class="pnl-f">
+      <div class="pnl-f pnl-f-date">
         <label for="pnl-from">Từ ngày</label>
         <input type="date" id="pnl-from">
       </div>
-      <div class="pnl-f">
+      <div class="pnl-f pnl-f-date">
         <label for="pnl-to">Đến ngày</label>
         <input type="date" id="pnl-to">
       </div>
@@ -341,7 +358,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     <div class="pnl-card-h">
       <div>
         <h2 class="pnl-card-t">Từ doanh thu tới lợi nhuận</h2>
-        <p class="pnl-card-n" id="tq-wf-n">Cộng dồn từ trái sang phải. Cột phí quản lý là số tính từ NMV, chưa có chứng từ.</p>
+        <p class="pnl-card-n" id="tq-wf-n">Chưa gộp được phí quản lý vì phần phí đang đọc kỳ khác với phần doanh thu.</p>
       </div>
     </div>
     <div class="pnl-chart" id="ch-tq-wf"></div>
@@ -358,7 +375,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     <div id="tq-alerts"></div>
   </section>
 
-  <section class="pnl-card" data-tab="brand">
+  <section class="pnl-card" data-tab="brand" hidden>
     <div class="pnl-card-h">
       <div>
         <h2 class="pnl-card-t">Lãi lỗ theo brand</h2>
@@ -376,7 +393,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     <p class="pnl-card-n" id="tq-brand-note" style="margin-top:10px"></p>
   </section>
 
-  <section class="pnl-card" data-tab="doanh-thu">
+  <section class="pnl-card" data-tab="doanh-thu" hidden>
     <div class="pnl-card-h">
       <div>
         <h2 class="pnl-card-t">Cơ cấu nguồn thu</h2>
@@ -387,7 +404,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     <div class="pnl-fb pnl-hidden" id="fb-ct-dt"></div>
   </section>
 
-  <section class="pnl-card" data-tab="chi-phi">
+  <section class="pnl-card" data-tab="chi-phi" hidden>
     <div class="pnl-card-h">
       <div>
         <h2 class="pnl-card-t">Cơ cấu chi phí</h2>
@@ -398,7 +415,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     <div class="pnl-fb pnl-hidden" id="fb-ct-cp"></div>
   </section>
 
-  <section class="pnl-card" data-tab="opex">
+  <section class="pnl-card" data-tab="opex" hidden>
     <div class="pnl-card-h">
       <div>
         <h2 class="pnl-card-t">OPEX theo tháng</h2>
@@ -411,7 +428,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
 
   <div class="pnl-msg info pnl-hidden" id="pnl-rev-denied"></div>
   <div id="pnl-rev-wrap">
-  <section data-tab="doanh-thu" class="pnl-kpis">
+  <section data-tab="doanh-thu" class="pnl-kpis" hidden>
     <div class="pnl-kpi k-total">
       <div class="pnl-kpi-l">Tổng doanh thu</div>
       <div class="pnl-kpi-v" id="k-total">—</div>
@@ -438,7 +455,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     </div>
   </section>
 
-  <section data-tab="doanh-thu" class="pnl-card">
+  <section data-tab="doanh-thu" class="pnl-card" hidden>
     <div class="pnl-card-h">
       <div>
         <h2 class="pnl-card-t">Doanh thu theo thời gian</h2>
@@ -450,7 +467,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
   </section>
 
   <div class="pnl-grid2">
-    <section data-tab="brand" class="pnl-card">
+    <section data-tab="brand" class="pnl-card" hidden>
       <div class="pnl-card-h">
         <div>
           <h2 class="pnl-card-t">Theo brand</h2>
@@ -461,7 +478,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
       <div class="pnl-fb pnl-hidden" id="fb-brand"></div>
     </section>
 
-    <section data-tab="doanh-thu" class="pnl-card">
+    <section data-tab="doanh-thu" class="pnl-card" hidden>
       <div class="pnl-card-h">
         <div>
           <h2 class="pnl-card-t">Theo phòng ban</h2>
@@ -473,7 +490,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     </section>
   </div>
 
-  <section data-tab="doanh-thu" class="pnl-card">
+  <section data-tab="doanh-thu" class="pnl-card" hidden>
     <div class="pnl-card-h">
       <div>
         <h2 class="pnl-card-t">Theo dịch vụ</h2>
@@ -495,7 +512,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     </div>
   </section>
 
-  <section data-tab="doanh-thu" class="pnl-card">
+  <section data-tab="doanh-thu" class="pnl-card" hidden>
     <div class="pnl-card-h">
       <div>
         <h2 class="pnl-card-t">Bảng số liệu</h2>
@@ -517,11 +534,11 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
 
   </div><!-- /pnl-rev-wrap -->
 
-  <div data-tab="doanh-thu brand" class="pnl-sep"><h2>Phí quản lý gian hàng (tính từ NMV)</h2><div class="pnl-sep-l"></div></div>
+  <div data-tab="doanh-thu brand" class="pnl-sep" hidden><h2>Phí quản lý gian hàng (tính từ NMV)</h2><div class="pnl-sep-l"></div></div>
   <div class="pnl-msg info pnl-hidden" id="ql-denied"></div>
   <div id="ql-wrap" class="pnl-hidden">
 
-  <div class="pnl-msg err" data-tab="doanh-thu brand" id="ql-warn">
+  <div class="pnl-msg err" data-tab="doanh-thu brand" id="ql-warn" hidden>
     <b>Đây là số tính ra, không phải doanh thu có chứng từ.</b>
     Kế toán xác nhận khoản phí quản lý gian hàng hiện <b>chưa được ghi ở bất kỳ Sales Order nào</b> —
     mã <b>REV_QL_TT</b> là phí quản lý cộng trên từng gói dịch vụ (booking 10%, affiliate 9%,
@@ -529,7 +546,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     trong <b>EC Phi Quan Ly Brand</b>. Đừng cộng nó vào phần doanh thu ở trên.
   </div>
 
-  <section data-tab="doanh-thu" class="pnl-kpis">
+  <section data-tab="doanh-thu" class="pnl-kpis" hidden>
     <div class="pnl-kpi k-cost">
       <div class="pnl-kpi-l">Phí từ NMV thực tế</div>
       <div class="pnl-kpi-v" id="ql-k-thuc">—</div>
@@ -556,7 +573,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     </div>
   </section>
 
-  <section data-tab="brand" class="pnl-card">
+  <section data-tab="brand" class="pnl-card" hidden>
     <div class="pnl-card-h">
       <div>
         <h2 class="pnl-card-t">Theo brand</h2>
@@ -576,11 +593,11 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
 
   </div><!-- /ql-wrap -->
 
-  <div data-tab="chi-phi" class="pnl-sep"><h2>Chi phí &amp; lợi nhuận (ước tính)</h2><div class="pnl-sep-l"></div></div>
+  <div data-tab="chi-phi" class="pnl-sep" hidden><h2>Chi phí &amp; lợi nhuận (ước tính)</h2><div class="pnl-sep-l"></div></div>
   <div class="pnl-msg info pnl-hidden" id="cp-denied"></div>
-  <div id="cp-wrap" class="pnl-hidden">
+  <div id="cp-wrap">
 
-  <section data-tab="chi-phi opex" class="pnl-card">
+  <section data-tab="chi-phi opex" class="pnl-card" hidden>
     <div class="pnl-filters">
       <div class="pnl-f">
         <label for="cp-dept">Phạm vi chi phí</label>
@@ -600,7 +617,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     <p class="pnl-card-n" id="cp-sub" style="margin-top:10px">—</p>
   </section>
 
-  <section data-tab="chi-phi" class="pnl-kpis">
+  <section data-tab="chi-phi" class="pnl-kpis" hidden>
     <div class="pnl-kpi k-cost">
       <div class="pnl-kpi-l">Quỹ lương ước tính</div>
       <div class="pnl-kpi-v" id="cp-k-pay">—</div>
@@ -631,7 +648,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     <div class="pnl-card-h">
       <div>
         <h2 class="pnl-card-t">Doanh thu và chi phí theo tháng</h2>
-        <p class="pnl-card-n" id="cp-time-n">Cột: doanh thu (cùng mốc thời gian với phần trên), quỹ lương ước tính, chi phí khác đã duyệt. Đường: lợi nhuận ước tính. Tháng dự phóng tô nhạt.</p>
+        <p class="pnl-card-n" id="cp-time-n">Cột: doanh thu (cùng mốc ngày chứng từ và bộ lọc như phần trên), quỹ lương ước tính, chi phí khác đã duyệt. Đường: lợi nhuận ước tính, chỉ vẽ cho tháng đã khép — tháng đang chạy có đủ lương cả tháng nhưng doanh thu mới ghi tới hôm nay. Tháng dự phóng tô nhạt.</p>
       </div>
     </div>
     <div class="pnl-chart tall" id="ch-cp-time"></div>
@@ -639,7 +656,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
   </section>
 
   <div class="pnl-grid2">
-    <section data-tab="chi-phi" class="pnl-card">
+    <section data-tab="chi-phi" class="pnl-card" hidden>
       <div class="pnl-card-h">
         <div>
           <h2 class="pnl-card-t" id="cp-dept-t">Quỹ lương theo phòng ban</h2>
@@ -649,7 +666,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
       <div class="pnl-chart" id="ch-cp-dept"></div>
       <div class="pnl-fb pnl-hidden" id="fb-cp-dept"></div>
     </section>
-    <section data-tab="chi-phi" class="pnl-card">
+    <section data-tab="chi-phi" class="pnl-card" hidden>
       <div class="pnl-card-h">
         <div>
           <h2 class="pnl-card-t">Tăng / giảm quỹ lương</h2>
@@ -663,7 +680,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     </section>
   </div>
 
-  <section data-tab="chi-phi" class="pnl-card">
+  <section data-tab="chi-phi" class="pnl-card" hidden>
     <div class="pnl-card-h">
       <div>
         <h2 class="pnl-card-t">Nhân sự theo phòng ban</h2>
@@ -677,7 +694,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     <div class="pnl-warnbox pnl-hidden" id="cp-hc-warn"></div>
   </section>
 
-  <section data-tab="chi-phi" class="pnl-card">
+  <section data-tab="chi-phi" class="pnl-card" hidden>
     <div class="pnl-card-h">
       <div>
         <h2 class="pnl-card-t">Kế hoạch tuyển dụng &amp; biến động sắp tới</h2>
@@ -691,7 +708,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     <p class="pnl-note" id="cp-hire-note" style="margin-top:10px"></p>
   </section>
 
-  <section data-tab="opex" class="pnl-card">
+  <section data-tab="opex" class="pnl-card" hidden>
     <div class="pnl-card-h">
       <div>
         <h2 class="pnl-card-t">Chi phí khác từ Approval Center</h2>
@@ -711,7 +728,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     </table></div>
   </section>
 
-  <section data-tab="brand" class="pnl-card">
+  <section data-tab="brand" class="pnl-card" hidden>
     <div class="pnl-card-h">
       <div>
         <h2 class="pnl-card-t">Kịch bản: nếu ngừng brand…</h2>
@@ -2107,6 +2124,8 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
       var hien = false, j;
       for (j = 0; j < ds.length; j++) { if (ds[j] === TAB) hien = true; }
       els[i].style.display = hien ? "" : "none";
+      // markup gui xuong da an san cac tab khac bang `hidden` (khong ve roi moi an)
+      els[i].hidden = !hien;
     }
     var bs = document.querySelectorAll("#pnl-tabbar button");
     for (i = 0; i < bs.length; i++) {

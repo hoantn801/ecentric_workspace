@@ -68,10 +68,11 @@ def _read(*parts):
 # covered by the Jinja-free scan, the static-serving wiring census and the
 # drift-lock guards below like every other repo-owned legacy page.
 
-# The only legacy_pages folders that ship a repo snapshot + page_sync.
-# home is separate: it is guarded/zero-write and has no main_section.html.
+# The only legacy_pages folders that ship a STATIC repo snapshot + page_sync.
+# home is separate: since 29/09/2026 it ships main_section.html too, but it is a
+# Jinja page (dynamic_template=1, rendered per user) -- see test_home_source.py.
 LIVE_PAGES = ("all_ticket", "approval_page", "docs_architecture", "docs_gbsflow",
-              "gbs_po_form_v2", "gbs_so_form_v2", "mso_plan_form")
+              "ec_fee_review", "gbs_po_form_v2", "gbs_so_form_v2", "mso_plan_form")
 
 
 class TestEndpointCensus(unittest.TestCase):
@@ -192,6 +193,11 @@ class TestStaticServingSafety(unittest.TestCase):
             f = os.path.join(LP, slug, "main_section.html")
             if not os.path.isfile(f):
                 continue
+            if slug == "home":
+                # the homepage is the ONE legacy page that is Jinja BY DESIGN (per-user
+                # greeting, news/policy loops) and is therefore never statically served
+                # (next test). Its own contracts live in test_home_source.py.
+                continue
             src = _read(LP, slug, "main_section.html")
             self.assertNotIn("{{", src, slug)
             self.assertNotIn("{%", src, slug)
@@ -203,8 +209,8 @@ class TestStaticServingSafety(unittest.TestCase):
             if not os.path.isfile(ps):
                 continue
             if slug == "home":
-                # Homepage Sync Safety Hotfix: home is GUARDED (zero-write) and
-                # EXEMPT from static serving -- the live page carries Jinja.
+                # home carries Jinja (dynamic_template=1, per-user render) so it is
+                # EXEMPT from static serving -- see test_home_source.py.
                 self.assertNotIn("ensure_static_serving", _read(LP, slug, "page_sync.py"))
                 continue
             self.assertIn("ensure_static_serving", _read(LP, slug, "page_sync.py"), slug)
@@ -212,7 +218,7 @@ class TestStaticServingSafety(unittest.TestCase):
         # #138: was 13; 9 dead folders deleted 2026-08-03, leaving 4.
         # #61: +3 (mso_plan_form, gbs_so_form_v2, gbs_po_form_v2) imported from
         # live the same day, so the census is back to len(LIVE_PAGES) = 7.
-        self.assertEqual(n, len(LIVE_PAGES))  # home exempt, guarded
+        self.assertEqual(n, len(LIVE_PAGES))  # home exempt: Jinja page
 
     def test_serving_module_fail_open(self):
         src = _read(os.path.dirname(LP), "legacy_pages", "serving.py")

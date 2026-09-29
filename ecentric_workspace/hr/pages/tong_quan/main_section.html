@@ -1,0 +1,434 @@
+<style id="ec-tongquan-css">
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* Frappe's default website chrome is replaced by the shared ERP shell. */
+body > header, body > footer, body > nav.navbar, header.navbar,
+.web-page-header, #navbarSupportedContent, .navbar-collapse { display:none; }
+body { padding:0; margin:0; }
+body main { padding-top:0; }
+body .main-section, body main.container, body main.fluid { margin:0; padding:0; max-width:100%; }
+.ec-tq-shellwrap { display:flex; min-height:100vh; max-width:none; width:100%; }
+.ec-tq-shellwrap > main.ec-tq-shellmain { flex:1; min-width:0; padding:0; overflow-x:hidden; }
+
+.ecq{
+  --ink:#141A2E; --ink-2:#4C5372; --ink-3:#7E859E; --navy:#2C3DA6; --navy-50:#EEF0FB; --navy-100:#D9DEEF;
+  --pink:#EF7CAF; --line:#E4E7F0; --line-2:#EEF0F7; --card:#FFFFFF; --bg:#F5F6FA;
+  --red:#B42318; --red-bg:#FDEEF0; --amber:#B54708; --amber-bg:#FFF6E0; --green:#067647;
+  background:var(--bg); color:var(--ink); min-height:100vh;
+  font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; font-size:14px; line-height:1.5;
+}
+.ecq *{box-sizing:border-box}
+.ecq .wrap{max-width:1240px; margin:0 auto; padding:22px 20px 96px}
+.ecq h1{margin:0 0 4px; font-size:clamp(20px,4.6vw,26px); font-weight:780; letter-spacing:-.03em}
+.ecq .lead{color:var(--ink-3); margin:0 0 18px}
+.ecq .back{display:inline-flex; gap:6px; align-items:center; color:var(--ink-3); text-decoration:none; font-size:13px; margin-bottom:6px}
+.ecq .back:hover{color:var(--navy)}
+.ecq .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px}
+.ecq .muted{color:var(--ink-3)}
+.ecq .btn{display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); background:#fff; color:var(--ink-2);
+  border-radius:9px; padding:7px 12px; font:inherit; font-size:13px; font-weight:600; cursor:pointer; text-decoration:none; white-space:nowrap}
+.ecq .btn:hover{border-color:var(--navy-100); color:var(--navy)}
+.ecq .btn.pri{background:var(--navy); color:#fff; border-color:var(--navy)}
+.ecq .btn:disabled{opacity:.55; cursor:default}
+.ecq .pill{display:inline-block; font-size:11.5px; font-weight:650; border-radius:999px; padding:2px 9px; white-space:nowrap}
+.ecq .p-red{background:var(--red-bg); color:var(--red)} .ecq .p-amb{background:var(--amber-bg); color:var(--amber)}
+.ecq .p-blue{background:var(--navy-50); color:var(--navy)} .ecq .p-gray{background:var(--line-2); color:var(--ink-2)}
+.ecq .p-pink{background:#FDE7F1; color:#A8326A}
+
+/* hub */
+.ecq .hub{display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:14px}
+.ecq .hcard{display:flex; flex-direction:column; gap:8px; min-height:132px; text-decoration:none; color:inherit; transition:border-color .15s, box-shadow .15s}
+.ecq a.hcard:hover{border-color:var(--navy); box-shadow:0 4px 18px rgba(44,61,166,.10)}
+.ecq .hcard .ic{width:40px; height:40px; border-radius:12px; background:var(--navy-50); display:flex; align-items:center; justify-content:center; color:var(--navy)}
+.ecq .hcard .ic svg{width:21px; height:21px; fill:none; stroke:currentColor; stroke-width:1.8}
+.ecq .hcard b{font-size:16px}
+.ecq .hcard.off{opacity:.6}
+
+/* tabs */
+.ecq .tabs{display:flex; gap:2px; border-bottom:1px solid var(--line); margin:4px 0 18px; overflow-x:auto}
+.ecq .tabs a{padding:10px 14px; color:var(--ink-3); text-decoration:none; font-weight:600; border-bottom:2px solid transparent; white-space:nowrap}
+.ecq .tabs a.on{color:var(--navy); border-color:var(--navy)}
+
+/* A: dashboard */
+.ecq .kpis{display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:16px}
+.ecq .kpi .l{font-size:12px; color:var(--ink-3)} .ecq .kpi .n{font-size:26px; font-weight:750; margin-top:2px; font-variant-numeric:tabular-nums}
+.ecq .kpi .s{font-size:12px; color:var(--ink-3)}
+.ecq .kpi.warn{background:#FFFBEB; border-color:#FDE68A} .ecq .kpi.warn .n{color:var(--amber)}
+.ecq .kpi.bad{background:#FEF3F2; border-color:#FECDCA} .ecq .kpi.bad .n{color:var(--red)}
+.ecq a.kpi{text-decoration:none; color:inherit} .ecq a.kpi:hover{border-color:var(--navy)}
+.ecq .cols{display:grid; grid-template-columns:1.25fr 1fr; gap:16px; margin-bottom:16px}
+.ecq .ct{display:flex; justify-content:space-between; align-items:center; font-weight:700; margin:0 0 10px}
+.ecq .ct a{font-size:12.5px; font-weight:600; color:var(--navy); text-decoration:none}
+.ecq .todo{display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--line-2)}
+.ecq .todo:first-of-type{border-top:0}
+.ecq .todo .t{flex:1; min-width:0} .ecq .todo .t div:last-child{font-size:12.5px; color:var(--ink-3)}
+.ecq .bar{display:grid; grid-template-columns:minmax(90px,150px) 1fr 30px; gap:10px; align-items:center; margin:8px 0; font-size:13px}
+.ecq .track{height:10px; border-radius:6px; background:var(--line-2); overflow:hidden; display:flex}
+.ecq .seg{height:100%} .ecq .seg.o{background:var(--navy)} .ecq .seg.t{background:var(--pink)}
+.ecq .legend{display:flex; gap:14px; font-size:12px; color:var(--ink-3); margin-top:8px}
+.ecq .legend i{display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px}
+.ecq .links{display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:12px}
+.ecq .lnk{display:flex; gap:10px; text-decoration:none; color:inherit; padding:10px; border-radius:10px}
+.ecq .lnk:hover{background:var(--navy-50)}
+.ecq .lnk .ic{width:34px; height:34px; border-radius:10px; background:var(--navy-50); flex-shrink:0; display:flex; align-items:center; justify-content:center; color:var(--navy); font-weight:800}
+.ecq .lnk b{display:block} .ecq .lnk span{font-size:12px; color:var(--ink-3)}
+
+/* B: list */
+.ecq .toolbar{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px}
+.ecq .inp{border:1px solid var(--line); border-radius:9px; padding:8px 10px; font:inherit; background:#fff; color:var(--ink); min-width:0}
+.ecq .inp:focus{outline:2px solid var(--navy-100); border-color:var(--navy)}
+.ecq .chips{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px}
+.ecq .chip{border:1px solid var(--line); border-radius:999px; padding:5px 11px; font:inherit; font-size:12.5px; font-weight:600; background:#fff; color:var(--ink-2); cursor:pointer}
+.ecq .chip.on{background:var(--navy); border-color:var(--navy); color:#fff}
+.ecq .split{display:grid; grid-template-columns:minmax(0,1fr) 360px; gap:16px; align-items:start}
+.ecq .tablewrap{overflow:auto; max-height:calc(100vh - 290px); min-height:280px; border:1px solid var(--line); border-radius:12px; background:#fff}
+.ecq table{width:100%; border-collapse:collapse; font-size:13px}
+.ecq th{position:sticky; top:0; background:#FAFBFD; text-align:left; font-size:12px; color:var(--ink-3); font-weight:650; padding:9px 10px; border-bottom:1px solid var(--line); white-space:nowrap}
+.ecq td{padding:9px 10px; border-bottom:1px solid var(--line-2); white-space:nowrap}
+.ecq tbody tr{cursor:pointer} .ecq tbody tr:hover td{background:#FAFBFF} .ecq tbody tr.sel td{background:var(--navy-50)}
+.ecq .av{display:inline-flex; width:28px; height:28px; border-radius:50%; background:var(--navy-100); color:var(--navy); font-size:11px; font-weight:750; align-items:center; justify-content:center; margin-right:8px; vertical-align:middle}
+.ecq .panel{position:sticky; top:12px}
+.ecq .panel h3{margin:0; font-size:17px} .ecq .panel .sub{color:var(--ink-3); font-size:12.5px; margin:2px 0 12px}
+.ecq .ptabs{display:flex; gap:4px; flex-wrap:wrap; margin-bottom:12px}
+.ecq .ptabs button{border:0; background:var(--line-2); color:var(--ink-2); border-radius:8px; padding:5px 11px; font:inherit; font-size:12.5px; font-weight:600; cursor:pointer}
+.ecq .ptabs button.on{background:var(--navy); color:#fff}
+.ecq dl{display:grid; grid-template-columns:118px 1fr; gap:7px 10px; margin:0; font-size:13px}
+.ecq dt{color:var(--ink-3)} .ecq dd{margin:0; word-break:break-word}
+.ecq .tl{border-left:2px solid var(--navy-100); margin:4px 0 0 6px; padding-left:14px}
+.ecq .tl div{position:relative; margin-bottom:10px; font-size:12.5px}
+.ecq .tl div::before{content:""; position:absolute; left:-20px; top:4px; width:10px; height:10px; border-radius:50%; background:var(--navy)}
+.ecq .note{font-size:12px; color:var(--ink-3); margin-top:10px}
+
+/* C: org */
+.ecq .org{display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:14px}
+.ecq .dept .hd{display:flex; justify-content:space-between; gap:8px}
+.ecq .dept h4{margin:0; font-size:15px} .ecq .dept .head{font-size:12.5px; color:var(--ink-3); margin-top:2px}
+.ecq .dept .cnt{font-size:22px; font-weight:780; color:var(--navy)}
+.ecq .subs{display:flex; flex-direction:column; gap:6px; margin-top:10px}
+.ecq .subr{display:flex; justify-content:space-between; border:0; background:var(--line-2); border-radius:8px; padding:7px 9px; font:inherit; font-size:13px; color:var(--ink); cursor:pointer; text-align:left}
+.ecq .subr:hover, .ecq .subr.on{background:var(--navy-50); color:var(--navy)}
+.ecq .subr span:last-child{color:var(--ink-3)}
+.ecq .flags{display:flex; gap:6px; flex-wrap:wrap; margin-top:10px}
+.ecq .members{display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:10px}
+.ecq .mem{display:flex; align-items:center; gap:8px; padding:10px; border:1px solid var(--line); border-radius:10px; background:#fff; cursor:pointer; text-align:left; font:inherit; color:inherit}
+.ecq .mem:hover{border-color:var(--navy)}
+.ecq .mem b{display:block; font-size:13px} .ecq .mem span{font-size:12px; color:var(--ink-3)}
+
+/* states */
+.ecq .sk{display:grid; gap:10px} .ecq .sk i{display:block; height:62px; border-radius:12px; background:linear-gradient(90deg,#EEF0F7,#F7F8FC,#EEF0F7); background-size:200% 100%; animation:ecqsk 1.2s infinite}
+@keyframes ecqsk{to{background-position:-200% 0}}
+.ecq .err{padding:18px; border-radius:12px; background:var(--red-bg); color:var(--red); display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap}
+.ecq .empty{padding:28px; text-align:center; color:var(--ink-3)}
+.ecq [hidden]{display:none !important}
+
+@media (max-width:1024px){
+  .ecq .kpis{grid-template-columns:repeat(3,1fr)}
+  .ecq .cols, .ecq .split{grid-template-columns:1fr}
+  .ecq .panel{position:static}
+}
+@media (max-width:640px){
+  .ecq .wrap{padding:16px 14px 96px}
+  .ecq .kpis{grid-template-columns:repeat(2,1fr)}
+  .ecq .toolbar .inp{flex:1 1 45%}
+  .ecq .bar{grid-template-columns:90px 1fr 26px}
+}
+</style>
+<div class="ec-tq-shellwrap">
+  <aside class="ec-shell-mount" data-ec-shell="1" aria-label="Điều hướng eCentric"><div class="ec-shell-head"><a class="ec-shell-brand" href="/"><img class="ec-shell-logoimg" src="/files/eCentric%20logo%20-%20mini.png" alt="eCentric"><span class="ec-shell-logo" hidden>eC</span><span class="ec-shell-brandname">eCentric</span></a></div><div class="ec-shell-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input class="ec-shell-search-in" type="text" placeholder="Tìm chức năng…" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-label="Tìm chức năng" autocomplete="off" spellcheck="false"><button type="button" class="ec-shell-search-clear" data-ec-shell-search-clear="1" hidden aria-label="Xóa tìm kiếm">&times;</button></div><div class="ec-shell-search-results" role="listbox" hidden></div><nav class="ec-shell-nav ec-shell-fallback" aria-label="Điều hướng chính"><div class="ec-shell-grouplabel">Workspace</div><a class="ec-shell-item" href="/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg><span>Trang chủ</span></a><a class="ec-shell-item ec-shell-active" href="/tong-quan" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Tổng quan</span></a><a class="ec-shell-item" href="/approvals"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Phê duyệt</span></a><a class="ec-shell-item" href="/pm"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><span>Công việc</span></a><a class="ec-shell-item" href="/hall"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 8h2M13 8h2M9 12h2M13 12h2M9 16h2M13 16h2"/></svg><span>eCentric Hall</span></a><div class="ec-shell-grouplabel">Nhân sự</div><a class="ec-shell-item" href="/ec-hr/attendance"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg><span>Chấm công</span></a><a class="ec-shell-item" href="/ec-hr/leave"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg><span>Nghỉ phép</span></a><a class="ec-shell-item" href="/ec-hr/salary"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M8 15h2"/></svg><span>Phiếu lương</span></a><a class="ec-shell-item" href="/sla"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/></svg><span>Điểm SLA</span></a><a class="ec-shell-item ec-shell-item-soon" href="/coming-soon?tool=kpi"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/></svg><span>Mục tiêu KPI</span></a><div class="ec-shell-grouplabel">Báo cáo &amp; Phân tích</div><a class="ec-shell-item" href="/reports"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Trung tâm Báo cáo</span></a><a class="ec-shell-item" href="/weekly-update"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg><span>Báo cáo tuần</span></a><a class="ec-shell-item" href="/team-pulse"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg><span>Team Pulse</span></a><a class="ec-shell-item" href="/alerts"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span>Alert Center</span></a><div class="ec-shell-grouplabel">Tài nguyên</div><a class="ec-shell-item" href="/ai-tool"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg><span>AI Tool</span></a><a class="ec-shell-item ec-shell-item-soon" href="/coming-soon?tool=intranet"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg><span>Intranet</span></a><a class="ec-shell-item ec-shell-item-soon" href="/coming-soon?tool=dao-tao"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19a2 2 0 0 1 2-2h14V3H6a2 2 0 0 0-2 2z"/><path d="M4 19a2 2 0 0 0 2 2h14v-4"/></svg><span>Đào tạo</span></a><a class="ec-shell-item" href="/ec-app/hr/recruitment"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="4"/><path d="M3 21v-1a6 6 0 0 1 12 0v1M19 8v6M16 11h6"/></svg><span>Tuyển dụng</span></a><a class="ec-shell-item ec-shell-item-soon" href="/coming-soon?tool=gop-y"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>Góp ý BGD</span></a></nav><div class="ec-shell-foot"><a class="ec-shell-usercard" href="/app/user"><span class="ec-shell-avatar">•</span><span class="ec-shell-username">Tài khoản</span></a></div></aside>
+<main class="ec-tq-shellmain"><div class="ec-shell-topbar" data-ec-shell-topbar="1"><div class="ec-shell-crumbs" data-ec-shell-crumbs="1"><span class="ec-shell-crumb-group">Workspace</span><span class="sep ec-shell-crumb-sep">/</span><strong class="ec-shell-crumb-current">Tổng quan</strong></div><div class="ec-shell-tbright" data-ec-shell-header-right="1"><button type="button" class="ec-shell-iconbtn ec-shell-reminder" data-ec-shell-action-slot="1" aria-label="Việc của tôi" title="Việc của tôi" aria-haspopup="dialog" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h4l2 3h4l2-3h4"/><path d="M4 13V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7"/><path d="M4 13v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></svg><span class="ec-shell-reminder-badge" data-ec-shell-reminder-badge="1" hidden></span></button><button type="button" class="ec-shell-iconbtn ec-shell-slot-disabled" data-ec-shell-settings-slot="1" disabled aria-disabled="true" title="Cài đặt (sắp ra mắt)" aria-label="Cài đặt (sắp ra mắt)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg></button></div></div>
+<div class="ecq" id="ec-tq-root">
+  <div class="wrap" id="tq-view" aria-live="polite">
+    <div class="sk" aria-hidden="true"><i></i><i></i><i></i></div>
+  </div>
+</div>
+
+<script id="ec-tongquan-js">
+/* Tổng quan (/tong-quan) -- hub các thẻ theo phòng ban; thẻ đầu tiên là Nhân sự.
+ *
+ * KHÔNG CÓ LOGIC NGHIỆP VỤ Ở ĐÂY: số liệu, cảnh báo (HĐ sắp hết hạn, thử việc sắp
+ * kết thúc, hồ sơ thiếu) và việc trường nào được trả về đều do server quyết định
+ * theo permlevel của Employee (ecentric_workspace.hr.overview). Trang chỉ vẽ.
+ * KHÔNG CÓ SỐ LƯƠNG: lối tắt lương chỉ là link vào ERP, ERP tự kiểm quyền.
+ * Sửa dữ liệu: nút "Mở trong ERP" -> form Employee trong Desk (giữ nguyên phân quyền).
+ */
+(function () {
+  "use strict";
+
+  var API = "/api/method/ecentric_workspace.hr.overview.api.";
+  var REPORT_PROFILE = "/app/employee/view/report/" + encodeURIComponent("Hồ sơ nhân sự");
+  var REPORT_CONTRACT = "/app/employee/view/report/" + encodeURIComponent("Hợp đồng nhân sự");
+  var TABS = [["bang-dieu-khien", "Bảng điều khiển"], ["danh-sach", "Danh sách"], ["so-do", "Sơ đồ phòng ban"]];
+  var ICON_USERS = '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.5 14.2c2.3.2 4 1.8 4.5 4.3"/></svg>';
+  var ICON_SOON = '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 12h8M12 8v8"/></svg>';
+
+  var root = document.getElementById("tq-view");
+  var S = { hr: null, filter: { q: "", dept: "", sub: "", chip: "all" }, sel: null, profile: null, ptab: "org", orgPick: null };
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function initials(n) {
+    var p = String(n || "").trim().split(/\s+/);
+    return ((p[0] || "")[0] || "").toUpperCase() + ((p.length > 1 ? p[p.length - 1][0] : "") || "").toUpperCase();
+  }
+  function fmt(d) { if (!d) return "—"; var p = String(d).split("-"); return p.length === 3 ? p[2] + "/" + p[1] + "/" + p[0] : d; }
+
+  async function call(method, params) {
+    var url = API + method + (params ? "?" + new URLSearchParams(params).toString() : "");
+    var res = await fetch(url, { credentials: "same-origin", headers: { Accept: "application/json" } });
+    if (res.status === 401) { location.replace("/login?redirect-to=" + encodeURIComponent(location.pathname)); throw new Error("login"); }
+    var body = await res.json().catch(function () { return {}; });
+    var env = body.message || {};
+    if (!res.ok || !env.success) throw new Error(env.message || "Không tải được dữ liệu. Thử lại sau ít phút.");
+    return env.data;
+  }
+
+  function skeleton() { root.innerHTML = '<div class="sk" aria-hidden="true"><i></i><i></i><i></i></div>'; }
+  function showError(msg, retry) {
+    root.innerHTML = '<div class="err"><span>' + esc(msg) + '</span><button type="button" class="btn" id="tq-retry">Thử lại</button></div>';
+    document.getElementById("tq-retry").onclick = retry;
+  }
+
+  /* ---------------- router ---------------- */
+  function route() {
+    var h = (location.hash || "").replace(/^#/, "").split("?")[0].split("/");
+    if (h[0] === "nhan-su") return renderHr(h[1] || "bang-dieu-khien");
+    return renderHub();
+  }
+  window.addEventListener("hashchange", route);
+
+  /* ---------------- hub ---------------- */
+  async function renderHub() {
+    document.title = "Tổng quan";
+    skeleton();
+    try {
+      var data = await call("get_cards");
+      var html = '<h1>Tổng quan</h1><p class="lead">Chọn một mảng để xem.</p><div class="hub">';
+      (data.cards || []).forEach(function (c) {
+        if (c.enabled) {
+          html += '<a class="card hcard" href="#' + esc(c.key) + '"><span class="ic">' + ICON_USERS + '</span><b>' + esc(c.label)
+            + '</b><span class="muted">Hồ sơ, hợp đồng, cơ cấu phòng ban.</span><span class="pill p-blue" style="align-self:flex-start">HR · CnB</span></a>';
+        } else {
+          html += '<div class="card hcard off"><span class="ic">' + ICON_USERS + '</span><b>' + esc(c.label)
+            + '</b><span class="muted">Chỉ HR và CnB xem được.</span></div>';
+        }
+      });
+      html += '<div class="card hcard off"><span class="ic">' + ICON_SOON + '</span><b>Các phòng ban khác</b><span class="muted">Sắp có.</span></div></div>';
+      root.innerHTML = html;
+    } catch (e) { if (e.message !== "login") showError(e.message, renderHub); }
+  }
+
+  /* ---------------- Nhân sự ---------------- */
+  async function renderHr(tab) {
+    document.title = "Tổng quan · Nhân sự";
+    if (!S.hr) {
+      skeleton();
+      try { S.hr = await call("get_hr_overview"); }
+      catch (e) { if (e.message !== "login") showError(e.message, function () { renderHr(tab); }); return; }
+    }
+    var html = '<a class="back" href="#">← Tổng quan</a><h1>Nhân sự</h1>'
+      + '<p class="lead">' + S.hr.stats.active + ' người đang làm việc · dữ liệu lấy trực tiếp từ hồ sơ trên ERP.</p><nav class="tabs" role="tablist">';
+    TABS.forEach(function (t) {
+      html += '<a role="tab" href="#nhan-su/' + t[0] + '" class="' + (t[0] === tab ? "on" : "") + '" aria-selected="' + (t[0] === tab) + '">' + t[1] + '</a>';
+    });
+    html += '</nav><div id="tq-tab"></div>';
+    root.innerHTML = html;
+    var box = document.getElementById("tq-tab");
+    if (tab === "danh-sach") renderList(box);
+    else if (tab === "so-do") renderOrg(box);
+    else renderDashboard(box);
+  }
+
+  function rowOf(name) { return (S.hr.directory || []).filter(function (r) { return r.name === name; })[0]; }
+  function openPerson(name) { S.sel = name; S.filter.chip = "all"; location.hash = "#nhan-su/danh-sach"; loadProfile(name); }
+
+  /* ---- A: Bảng điều khiển ---- */
+  function renderDashboard(box) {
+    var st = S.hr.stats, bt = st.by_type || {};
+    var trial = (bt.Probation || 0) + " · " + (bt.Intern || 0);
+    var html = '<div class="kpis">'
+      + kpi("", "Đang làm việc", st.active, "Full-time " + (bt["Full-time"] || 0), "all")
+      + kpi("", "Thử việc · Thực tập", trial, "theo loại hình trên hồ sơ", "trial")
+      + (S.hr.has_contracts ? kpi(st.contract_warn ? "warn" : "", "HĐ hết hạn ≤ 30 ngày", st.contract_warn, "chưa gồm thử việc", "contract") : "")
+      + (S.hr.has_contracts ? kpi(st.probation_warn ? "warn" : "", "Thử việc kết thúc ≤ 14 ngày", st.probation_warn, "cần đánh giá", "probation") : "")
+      + kpi(st.missing ? "bad" : "", "Hồ sơ thiếu dữ liệu", st.missing, S.hr.checks_personal ? "gồm CCCD, STK, BHXH…" : "quản lý, tài khoản, chức danh", "missing")
+      + '</div><div class="cols"><div class="card"><div class="ct">Cần xử lý <a href="#nhan-su/danh-sach">Mở danh sách →</a></div>';
+    var todo = (S.hr.todo || []).slice(0, 8);
+    if (!todo.length) html += '<div class="empty">Không có việc nào cần xử lý.</div>';
+    todo.forEach(function (t) {
+      var r = rowOf(t.row) || {};
+      var pill = t.kind === "contract" ? '<span class="pill p-red">HĐ hết hạn</span>'
+        : t.kind === "probation" ? '<span class="pill p-amb">Thử việc</span>' : '<span class="pill p-gray">Thiếu dữ liệu</span>';
+      html += '<div class="todo">' + pill + '<div class="t"><div>' + esc(r.employee_name) + (r.sub || r.dept ? ' · ' + esc(r.sub || r.dept) : "")
+        + '</div><div>' + esc(t.text) + '</div></div><button type="button" class="btn" data-open="' + esc(t.row) + '">Mở hồ sơ</button></div>';
+    });
+    if ((S.hr.todo || []).length > todo.length) html += '<div class="note">Còn ' + (S.hr.todo.length - todo.length) + ' việc khác trong tab Danh sách.</div>';
+    html += '</div><div class="card"><div class="ct">Nhân sự theo phòng</div>';
+    var max = Math.max.apply(null, (S.hr.by_dept || []).map(function (d) { return d.total; }).concat([1]));
+    (S.hr.by_dept || []).forEach(function (d) {
+      html += '<div class="bar"><span>' + esc(d.label) + '</span><div class="track"><div class="seg o" style="width:' + (d.official / max * 100) + '%"></div><div class="seg t" style="width:'
+        + (d.trial / max * 100) + '%"></div></div><b>' + d.total + '</b></div>';
+    });
+    html += '<div class="legend"><span><i style="background:var(--navy)"></i>Chính thức</span><span><i style="background:var(--pink)"></i>Thử việc · Thực tập</span></div></div></div>';
+    html += '<div class="card"><div class="ct">Lối tắt trong ERP</div><div class="links">'
+      + lnk(REPORT_PROFILE, "HS", "Hồ sơ nhân sự", "Bảng đủ cột như file Excel, sửa trên ô, xuất Excel")
+      + (S.hr.has_contracts ? lnk(REPORT_CONTRACT, "HĐ", "Hợp đồng nhân sự", "Mỗi dòng một hợp đồng, lọc sắp hết hạn") : "")
+      + (S.hr.links.salary ? lnk("/app/salary-structure-assignment", "₫", "Lương cơ bản (SSA)", "Đổi lương = tạo bản mới có ngày áp dụng") : "")
+      + (S.hr.links.slips ? lnk("/app/salary-slip", "PL", "Phiếu lương", "Salary Slip theo kỳ") : "")
+      + lnk("/app/ec-sub-department", "SD", "Sub-department", "Danh mục nhóm trong từng phòng")
+      + '</div><div class="note">Trang này không hiển thị con số lương nào. Lối tắt lương chỉ hiện với người có quyền trong ERP.</div></div>';
+    box.innerHTML = html;
+    box.onclick = function (ev) {
+      var b = ev.target.closest("[data-open]"); if (b) return openPerson(b.getAttribute("data-open"));
+      var k = ev.target.closest("[data-chip]"); if (k) { ev.preventDefault(); S.filter.chip = k.getAttribute("data-chip"); location.hash = "#nhan-su/danh-sach"; }
+    };
+  }
+  function kpi(cls, label, n, sub, chip) {
+    return '<a href="#nhan-su/danh-sach" data-chip="' + chip + '" class="card kpi ' + cls + '"><div class="l">' + esc(label) + '</div><div class="n">' + esc(n) + '</div><div class="s">' + esc(sub) + '</div></a>';
+  }
+  function lnk(href, ic, t, s) {
+    return '<a class="lnk" href="' + esc(href) + '" target="_blank" rel="noopener"><span class="ic">' + esc(ic) + '</span><span><b>' + esc(t) + '</b><span>' + esc(s) + '</span></span></a>';
+  }
+
+  /* ---- B: Danh sách ---- */
+  var CHIPS = [["all", "Tất cả"], ["contract", "HĐ sắp hết hạn"], ["probation", "Thử việc sắp kết thúc"], ["missing", "Thiếu dữ liệu"], ["trial", "Thử việc · Thực tập"]];
+  function match(r) {
+    var f = S.filter, q = f.q.trim().toLowerCase();
+    if (q && (r.employee_name + " " + r.employee_number + " " + r.name + " " + r.user_id + " " + r.designation).toLowerCase().indexOf(q) < 0) return false;
+    if (f.dept && r.department !== f.dept) return false;
+    if (f.sub && r.sub !== f.sub) return false;
+    if (f.chip === "contract") return r.contract_warn && !r.probation_warn;
+    if (f.chip === "probation") return r.probation_warn;
+    if (f.chip === "missing") return r.missing.length > 0;
+    if (f.chip === "trial") return r.trial;
+    return true;
+  }
+  function renderList(box) {
+    var rows = S.hr.directory || [];
+    var depts = {}, subs = {};
+    rows.forEach(function (r) { depts[r.department] = r.dept; if (r.sub) subs[r.sub] = 1; });
+    var html = '<div class="toolbar"><input class="inp" id="tq-q" style="flex:2 1 220px" placeholder="Tìm tên, mã NV, email, chức danh…" aria-label="Tìm nhân viên" value="' + esc(S.filter.q) + '">'
+      + '<select class="inp" id="tq-dept" aria-label="Phòng"><option value="">Tất cả phòng</option>'
+      + Object.keys(depts).sort().map(function (d) { return '<option value="' + esc(d) + '"' + (d === S.filter.dept ? " selected" : "") + '>' + esc(depts[d]) + '</option>'; }).join("")
+      + '</select><select class="inp" id="tq-sub" aria-label="Sub-department"><option value="">Tất cả sub</option>'
+      + Object.keys(subs).sort().map(function (s) { return '<option' + (s === S.filter.sub ? " selected" : "") + '>' + esc(s) + '</option>'; }).join("")
+      + '</select><a class="btn" href="' + REPORT_PROFILE + '" target="_blank" rel="noopener">Xuất Excel (ERP)</a></div><div class="chips" id="tq-chips">';
+    CHIPS.forEach(function (c) {
+      if ((c[0] === "contract" || c[0] === "probation") && !S.hr.has_contracts) return;
+      var n = rows.filter(function (r) { var o = S.filter.chip; S.filter.chip = c[0]; var m = match(r); S.filter.chip = o; return m; }).length;
+      html += '<button type="button" class="chip' + (S.filter.chip === c[0] ? " on" : "") + '" data-chip="' + c[0] + '">' + c[1] + ' ' + n + '</button>';
+    });
+    html += '</div><div class="split"><div class="tablewrap"><table><thead><tr><th>Nhân viên</th><th>Phòng</th><th>Sub</th><th>Chức vụ</th><th>Loại hình</th>'
+      + (S.hr.has_contracts ? '<th>HĐ hiện tại</th><th>Hết hạn</th>' : "") + '<th>Quản lý</th><th>Hồ sơ</th></tr></thead><tbody id="tq-body"></tbody></table></div>'
+      + '<div class="card panel" id="tq-panel"></div></div>';
+    box.innerHTML = html;
+    drawRows(); drawPanel();
+    document.getElementById("tq-q").oninput = function (e) { S.filter.q = e.target.value; drawRows(); };
+    document.getElementById("tq-dept").onchange = function (e) { S.filter.dept = e.target.value; drawRows(); };
+    document.getElementById("tq-sub").onchange = function (e) { S.filter.sub = e.target.value; drawRows(); };
+    document.getElementById("tq-chips").onclick = function (e) {
+      var b = e.target.closest("[data-chip]"); if (!b) return;
+      S.filter.chip = b.getAttribute("data-chip");
+      Array.prototype.forEach.call(this.children, function (x) { x.classList.toggle("on", x === b); });
+      drawRows();
+    };
+    document.getElementById("tq-body").onclick = function (e) {
+      var tr = e.target.closest("tr[data-name]"); if (tr) loadProfile(tr.getAttribute("data-name"));
+    };
+    if (S.sel && S.profile === null) loadProfile(S.sel);
+  }
+  function drawRows() {
+    var body = document.getElementById("tq-body"); if (!body) return;
+    var rows = (S.hr.directory || []).filter(match);
+    if (!rows.length) { body.innerHTML = '<tr><td colspan="9" class="empty">Không có ai khớp bộ lọc.</td></tr>'; return; }
+    body.innerHTML = rows.map(function (r) {
+      var end = r.no_term ? "KXĐ" : fmt(r.contract_end);
+      var endCell = r.contract_warn ? '<span class="pill ' + (r.probation_warn ? "p-amb" : "p-red") + '">' + esc(end) + '</span>' : esc(end);
+      var miss = r.missing.length ? '<span class="pill p-amb" title="' + esc(r.missing.join(", ")) + '">thiếu ' + r.missing.length + '</span>' : '<span class="pill p-gray">đủ</span>';
+      return '<tr data-name="' + esc(r.name) + '"' + (r.name === S.sel ? ' class="sel"' : "") + '><td><span class="av">' + esc(initials(r.employee_name)) + '</span>' + esc(r.employee_name)
+        + '</td><td>' + esc(r.dept) + '</td><td>' + esc(r.sub || "—") + '</td><td>' + esc(r.grade || "—") + '</td><td>' + esc(r.employment_type || "—") + '</td>'
+        + (S.hr.has_contracts ? '<td>' + esc(r.contract_type || "—") + '</td><td>' + endCell + '</td>' : "")
+        + '<td>' + esc(r.manager || "—") + '</td><td>' + miss + '</td></tr>';
+    }).join("");
+  }
+  async function loadProfile(name) {
+    S.sel = name; S.profile = "loading"; S.ptab = "org";
+    Array.prototype.forEach.call(document.querySelectorAll("#tq-body tr"), function (tr) { tr.classList.toggle("sel", tr.getAttribute("data-name") === name); });
+    drawPanel();
+    try { S.profile = await call("get_hr_profile", { employee: name }); }
+    catch (e) { S.profile = { error: e.message }; }
+    if (S.sel === name) drawPanel();
+  }
+  function drawPanel() {
+    var p = document.getElementById("tq-panel"); if (!p) return;
+    var d = S.profile;
+    if (!S.sel || !d) { p.innerHTML = '<div class="empty">Chọn một người trong bảng để xem hồ sơ.</div>'; return; }
+    if (d === "loading") { p.innerHTML = '<div class="sk"><i></i><i></i></div>'; return; }
+    if (d.error) { p.innerHTML = '<div class="err"><span>' + esc(d.error) + '</span><button type="button" class="btn" id="tq-pretry">Thử lại</button></div>'; document.getElementById("tq-pretry").onclick = function () { loadProfile(S.sel); }; return; }
+    var tabs = [["org", "Tổ chức"]];
+    if (d.contracts) tabs.push(["contracts", "Hợp đồng"]);
+    if (d.personal) tabs.push(["personal", "Cá nhân"]);
+    var html = '<h3>' + esc(d.employee_name) + '</h3><div class="sub">' + esc(d.name) + (d.headline ? " · " + esc(d.headline) : "") + '</div><div class="ptabs" id="tq-ptabs">'
+      + tabs.map(function (t) { return '<button type="button" data-p="' + t[0] + '" class="' + (S.ptab === t[0] ? "on" : "") + '">' + t[1] + '</button>'; }).join("") + '</div>';
+    if (S.ptab === "contracts") {
+      html += d.contracts.length ? '<div class="tl">' + d.contracts.map(function (c) {
+        return '<div><b>' + esc(c.type) + '</b>' + (c.no ? ' · ' + esc(c.no) : "") + '<br>' + fmt(c.from) + ' → ' + (c.no_term ? "không xác định" : fmt(c.to)) + '</div>';
+      }).join("") + '</div>' : '<div class="empty">Chưa có hợp đồng nào trên hồ sơ.</div>';
+      if (d.hr) html += '<dl style="margin-top:10px">' + pairs(d.hr) + '</dl>';
+    } else if (S.ptab === "personal") {
+      html += '<dl>' + pairs(d.personal) + '</dl><div class="note">Số CCCD và số tài khoản chỉ hiện 4 số cuối. Xem đầy đủ trong ERP.</div>';
+    } else {
+      html += '<dl>' + pairs(d.org) + '</dl>';
+      if (d.missing && d.missing.length) html += '<div class="note"><span class="pill p-amb">Thiếu</span> ' + esc(d.missing.join(", ")) + '</div>';
+    }
+    html += '<div style="display:flex; gap:8px; margin-top:14px; flex-wrap:wrap"><a class="btn pri" href="' + esc(d.erp_url) + '" target="_blank" rel="noopener">Mở trong ERP</a></div>';
+    p.innerHTML = html;
+    document.getElementById("tq-ptabs").onclick = function (e) { var b = e.target.closest("[data-p]"); if (b) { S.ptab = b.getAttribute("data-p"); drawPanel(); } };
+  }
+  function pairs(list) {
+    return (list || []).map(function (x) { return '<dt>' + esc(x.label) + '</dt><dd>' + esc(/^\d{4}-\d{2}-\d{2}$/.test(x.value) ? fmt(x.value) : (x.value || "—")) + '</dd>'; }).join("");
+  }
+
+  /* ---- C: Sơ đồ phòng ban ---- */
+  function renderOrg(box) {
+    var org = S.hr.org || [];
+    if (!org.length) { box.innerHTML = '<div class="empty">Chưa có dữ liệu phòng ban.</div>'; return; }
+    var html = '<div class="org">';
+    org.forEach(function (d) {
+      var head = d.is_management ? (d.total + " quản lý · phụ trách phòng") : (d.head_ok && d.head ? "Trưởng phòng: " + esc(d.head) : '<span class="pill p-pink">Chưa có trưởng phòng</span>');
+      html += '<div class="card dept"><div class="hd"><div><h4>' + esc(d.label) + '</h4><div class="head">' + head + '</div></div><div class="cnt">' + d.total + '</div></div><div class="subs">';
+      d.subs.forEach(function (s) {
+        var on = S.orgPick && S.orgPick[0] === d.department && S.orgPick[1] === s.name;
+        html += '<button type="button" class="subr' + (on ? " on" : "") + '" data-d="' + esc(d.department) + '" data-s="' + esc(s.name) + '"><span>' + esc(s.name || (d.subs.length > 1 ? "Chưa gắn sub" : "Cả phòng")) + '</span><span>' + s.count + '</span></button>';
+      });
+      html += '</div><div class="flags">'
+        + (d.flags.contract ? '<span class="pill p-red">' + d.flags.contract + ' HĐ sắp hết</span>' : "")
+        + (d.flags.probation ? '<span class="pill p-amb">' + d.flags.probation + ' thử việc sắp hết</span>' : "")
+        + (d.flags.missing ? '<span class="pill p-gray">' + d.flags.missing + ' thiếu hồ sơ</span>' : "") + '</div></div>';
+    });
+    html += '</div><div class="card" id="tq-members" style="margin-top:16px"' + (S.orgPick ? "" : " hidden") + '></div>';
+    box.innerHTML = html;
+    drawMembers();
+    box.onclick = function (e) {
+      var b = e.target.closest(".subr"); if (b) { S.orgPick = [b.getAttribute("data-d"), b.getAttribute("data-s")]; renderOrg(box); return; }
+      var m = e.target.closest("[data-open]"); if (m) openPerson(m.getAttribute("data-open"));
+    };
+  }
+  function drawMembers() {
+    var el = document.getElementById("tq-members"); if (!el || !S.orgPick) return;
+    var dep = S.orgPick[0], sub = S.orgPick[1];
+    var rows = (S.hr.directory || []).filter(function (r) { return r.department === dep && (r.sub || "") === sub; });
+    var label = ((rows[0] || {}).dept || dep) + (sub ? " › " + sub : "");
+    el.innerHTML = '<div class="ct">' + esc(label) + ' · ' + rows.length + ' người</div><div class="members">'
+      + rows.map(function (r) {
+        var sub2 = (r.grade || r.employment_type || "") + (r.contract_end ? " · HĐ đến " + fmt(r.contract_end) : r.no_term ? " · KXĐ" : "");
+        return '<button type="button" class="mem" data-open="' + esc(r.name) + '"><span class="av">' + esc(initials(r.employee_name)) + '</span><span><b>' + esc(r.employee_name) + '</b><span>' + esc(sub2) + '</span></span></button>';
+      }).join("") + '</div>';
+  }
+
+  route();
+})();
+</script>
+</main></div>

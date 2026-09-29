@@ -1,0 +1,528 @@
+<!-- ec-alert-policies : built by build_alert_pages.py (Phase F) from the production
+     home shell snapshot. DO NOT hand-edit shell sections. -->
+
+<style>
+  /* Hide Frappe default navbar + footer to give full-screen workspace */
+  body > header,
+  body > footer,
+  body > nav.navbar,
+  header.navbar,
+  .navbar.navbar-light,
+  .web-page-header,
+  #navbarSupportedContent,
+  .navbar-collapse {
+    display: none !important;
+  }
+  body { padding: 0 !important; margin: 0 !important; }
+  body main { padding-top: 0 !important; }
+  body .main-section, body main.container, body main.fluid {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+  /* If Frappe wraps page content in a container, expand it */
+  body .page_content { padding: 0 !important; }
+</style>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+  :root {
+    --navy: #2C3DA6;
+    --navy-50: #eef0fb;
+    --navy-100: #d9deef;
+    --navy-700: #1f2d80;
+    --yellow: #FFC000;
+    --yellow-50: #fff8e1;
+    --pink: #EF7CAF;
+    --pink-50: #fdeef5;
+    --green: #10b981;
+    --gray-50: #fafbfc;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --gray-400: #9ca3af;
+    --gray-500: #6b7280;
+    --gray-600: #4b5563;
+    --gray-700: #374151;
+    --gray-800: #1f2937;
+    --gray-900: #111827;
+    --bg: #f7f8fb;
+  }
+
+  /* Reset Frappe defaults thoroughly */
+  body { background: var(--bg) !important; padding: 0 !important; margin: 0 !important; }
+  body header.navbar, .web-footer, footer.web-footer { display: none !important; }
+  .page-content, .common-page-style, .container, main, .web-page-content, .page_content {
+    padding: 0 !important; margin: 0 !important; max-width: none !important;
+  }
+
+  .ecentric-app, .ecentric-app * { box-sizing: border-box; }
+  .ecentric-app {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--gray-800);
+    font-size: 14px;
+    line-height: 1.5;
+    display: grid;
+    grid-template-columns: 248px 1fr;
+    min-height: 100vh;
+  }
+  .ecentric-app .icon { width: 18px; height: 18px; flex-shrink: 0; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+  .ecentric-app .icon-sm { width: 16px; height: 16px; }
+  .ecentric-app .icon-xs { width: 14px; height: 14px; }
+
+  .ec-sidebar { background: white; border-right: 1px solid var(--gray-200); display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; }
+  .ec-sidebar .sidebar-header { padding: 16px 16px 10px; display: flex; align-items: center; justify-content: flex-start; }
+  .ec-sidebar .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+  .ec-sidebar .brand img { width: 40px; height: 40px; object-fit: contain; display: block; }
+  .ec-sidebar .brand-name { font-size: 15px; font-weight: 700; color: var(--gray-900); letter-spacing: -0.3px; line-height: 1.2; }
+  .ec-sidebar .sidebar-search { margin: 6px 16px 12px; position: relative; }
+  .ec-sidebar .sidebar-search input { width: 100%; padding: 8px 12px 8px 34px; border: 1px solid var(--gray-200); border-radius: 8px; font-size: 13px; background: var(--gray-50); font-family: inherit; }
+  .ec-sidebar .sidebar-search input:focus { outline: none; border-color: var(--navy); background: white; }
+  .ec-sidebar .search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--gray-400); }
+  .ec-sidebar .kbd { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 10px; color: var(--gray-400); background: white; border: 1px solid var(--gray-200); padding: 1px 5px; border-radius: 4px; }
+  .ec-sidebar .nav-section { padding: 4px 8px 10px; flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: transparent transparent; }
+  .ec-sidebar .nav-section:hover { scrollbar-color: var(--gray-300) transparent; }
+  .ec-sidebar .nav-section::-webkit-scrollbar { width: 6px; }
+  .ec-sidebar .nav-section::-webkit-scrollbar-track { background: transparent; }
+  .ec-sidebar .nav-section::-webkit-scrollbar-thumb { background: transparent; border-radius: 3px; transition: background 0.2s; }
+  .ec-sidebar .nav-section:hover::-webkit-scrollbar-thumb { background: var(--gray-300); }
+  .ec-sidebar .nav-section::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
+  .ec-sidebar .nav-label { font-size: 10.5px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.6px; padding: 8px 12px 2px; }
+  /* === Sidebar nav-item &#8212; d&#249;ng CSS Grid (c&#7913;ng, ch&#7889;ng Frappe/Bootstrap &#273;&#232;) === */
+  .ecentric-app .ec-sidebar nav.nav-section a.nav-item {
+    display: grid !important;
+    grid-template-columns: 16px 1fr auto !important;
+    column-gap: 10px !important;
+    align-items: center !important;
+    justify-items: start !important;
+    padding: 6px 12px !important;
+    border-radius: 6px !important;
+    color: var(--gray-600) !important;
+    text-decoration: none !important;
+    font-size: 12.5px !important;
+    font-weight: 500 !important;
+    transition: background 0.15s, color 0.15s !important;
+    margin-bottom: 1px !important;
+    text-align: left !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    line-height: 1.3 !important;
+  }
+  .ecentric-app .ec-sidebar nav.nav-section a.nav-item > svg.icon {
+    width: 16px !important; height: 16px !important;
+    grid-column: 1 !important;
+    margin: 0 !important;
+  }
+  .ecentric-app .ec-sidebar nav.nav-section a.nav-item > span:not(.badge) {
+    grid-column: 2 !important;
+    margin: 0 !important;
+    text-align: left !important;
+    justify-self: start !important;
+  }
+  .ecentric-app .ec-sidebar nav.nav-section a.nav-item > span.badge {
+    grid-column: 3 !important;
+    margin: 0 !important;
+    background: var(--gray-200);
+    color: var(--gray-700);
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 10px;
+    min-width: 20px;
+    text-align: center;
+  }
+  .ecentric-app .ec-sidebar nav.nav-section a.nav-item:hover { background: var(--gray-100) !important; color: var(--gray-900) !important; text-decoration: none !important; }
+  .ecentric-app .ec-sidebar nav.nav-section a.nav-item.active { background: var(--navy-50) !important; color: var(--navy) !important; font-weight: 600 !important; }
+  .ecentric-app .ec-sidebar nav.nav-section a.nav-item.active svg.icon { stroke-width: 2 !important; }
+  .ecentric-app .ec-sidebar nav.nav-section a.nav-item.active span.badge { background: var(--navy) !important; color: white !important; }
+  .ec-sidebar .nav-item.active .badge { background: var(--navy); color: white; }
+  .ec-sidebar .badge.b-soon { background: var(--gray-200) !important; color: var(--gray-600) !important; font-size: 10px !important; padding: 2px 6px !important; border-radius: 4px !important; font-weight: 600 !important; letter-spacing: 0.2px !important; }
+  .ec-sidebar .sidebar-footer { padding: 12px; border-top: 1px solid var(--gray-100); display: flex; align-items: center; gap: 8px; }
+  .ec-sidebar .user-card { flex: 1; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; transition: background 0.15s; text-decoration: none; color: inherit; min-width: 0; }
+  .ec-sidebar .logout-btn { width: 36px; height: 36px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: transparent; border: none; color: var(--gray-500); cursor: pointer; transition: background 0.15s, color 0.15s; }
+  .ec-sidebar .logout-btn:hover { background: #fee2e2; color: #dc2626; }
+  .ec-sidebar .logout-btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+  .ec-sidebar .user-card:hover { background: var(--gray-100); text-decoration: none; }
+  .ec-sidebar .avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, var(--navy), var(--pink)); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; }
+  .ec-sidebar .user-info { flex: 1; min-width: 0; }
+  .ec-sidebar .user-name { font-size: 13px; font-weight: 600; color: var(--gray-900); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ec-sidebar .user-role { font-size: 11px; color: var(--gray-500); }
+
+  .ec-main { min-width: 0; display: flex; flex-direction: column; }
+  .ec-main .topbar { background: white; border-bottom: 1px solid var(--gray-200); padding: 12px 32px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
+  .ec-main .breadcrumb { font-size: 13px; color: var(--gray-500); padding: 0; margin: 0; background: none; }
+  .ec-main .breadcrumb strong { color: var(--gray-900); font-weight: 600; }
+  .ec-main .topbar-actions { display: flex; align-items: center; gap: 6px; }
+  .ec-main .icon-btn { width: 34px; height: 34px; border-radius: 8px; border: none; background: transparent; display: flex; align-items: center; justify-content: center; color: var(--gray-500); position: relative; transition: all 0.15s; text-decoration: none; }
+  .ec-main .icon-btn:hover { background: var(--gray-100); color: var(--gray-900); }
+  .ec-main .icon-btn .dot { position: absolute; top: 8px; right: 9px; width: 6px; height: 6px; background: var(--pink); border-radius: 50%; border: 2px solid white; }
+  .ec-main .content { padding: 28px 32px 40px; max-width: 1400px; width: 100%; }
+
+  .ecentric-app .greeting { margin-bottom: 24px; }
+  .ecentric-app .greeting h1 { font-size: 26px; font-weight: 700; color: var(--gray-900); letter-spacing: -0.5px; margin-bottom: 4px; margin-top: 0; }
+  .ecentric-app .greeting p { color: var(--gray-500); font-size: 14px; margin: 0; }
+
+  .ecentric-app .stats-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 22px; }
+  .ecentric-app .stat-card { background: white; border: 1px solid var(--gray-200); border-radius: 12px; padding: 18px 20px; transition: all 0.15s; position: relative; overflow: hidden; }
+  .ecentric-app .stat-card::before { content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%; }
+  .ecentric-app .stat-card.s-navy::before { background: var(--navy); }
+  .ecentric-app .stat-card.s-yellow::before { background: var(--yellow); }
+  .ecentric-app .stat-card.s-pink::before { background: var(--pink); }
+  .ecentric-app .stat-card.s-green::before { background: var(--green); }
+  .ecentric-app .stat-card:hover { border-color: var(--gray-300); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+  .ecentric-app .stat-label { font-size: 12px; font-weight: 500; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 8px; }
+  .ecentric-app .stat-value { font-size: 26px; font-weight: 700; color: var(--gray-900); line-height: 1.1; letter-spacing: -0.5px; }
+  .ecentric-app .stat-value .unit { font-size: 14px; color: var(--gray-500); font-weight: 500; margin-left: 2px; }
+  .ecentric-app .stat-meta { font-size: 12px; color: var(--gray-500); margin-top: 6px; }
+  .ecentric-app .stat-meta .up { color: var(--green); font-weight: 600; }
+
+  .ecentric-app .bento { display: grid; grid-template-columns: 2fr 1fr; gap: 18px; margin-bottom: 22px; }
+  .ecentric-app .col-left, .ecentric-app .col-right { display: flex; flex-direction: column; gap: 18px; }
+  .ecentric-app .panel { background: white; border: 1px solid var(--gray-200); border-radius: 12px; overflow: hidden; }
+  .ecentric-app .panel-header { padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--gray-100); }
+  .ecentric-app .panel-title { font-size: 14px; font-weight: 600; color: var(--gray-900); display: flex; align-items: center; gap: 8px; }
+  .ecentric-app .panel-title .badge { background: var(--navy-50); color: var(--navy); font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 10px; }
+  .ecentric-app .panel-title .badge.b-pink { background: var(--pink); color: white; }
+  .ecentric-app .panel-action { font-size: 12.5px; color: var(--navy); text-decoration: none; font-weight: 500; }
+
+  .ecentric-app .quick-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 14px; }
+  .ecentric-app .quick-item { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 16px 8px; border-radius: 10px; text-decoration: none; color: var(--gray-700); transition: all 0.15s; border: 1px solid transparent; }
+  .ecentric-app .quick-item:hover { background: var(--gray-50); border-color: var(--gray-200); color: var(--navy); text-decoration: none; }
+  .ecentric-app .quick-icon { width: 38px; height: 38px; border-radius: 10px; background: var(--gray-50); color: var(--navy); display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .ecentric-app .quick-item:hover .quick-icon { background: var(--navy-50); }
+  .ecentric-app .quick-label { font-size: 12.5px; font-weight: 500; text-align: center; line-height: 1.3; }
+
+  .ecentric-app .checkin-card { background: linear-gradient(135deg, var(--navy) 0%, #3d52cc 100%); color: white; border-radius: 12px; padding: 22px; position: relative; overflow: hidden; }
+  .ecentric-app .checkin-card::after { content: ''; position: absolute; bottom: -50px; right: -50px; width: 180px; height: 180px; background: radial-gradient(circle, rgba(255,192,0,0.18) 0%, transparent 65%); border-radius: 50%; }
+  .ecentric-app .checkin-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; opacity: 0.85; font-weight: 600; position: relative; }
+  .ecentric-app .checkin-time { font-size: 36px; font-weight: 700; letter-spacing: -1px; margin: 4px 0 2px; font-variant-numeric: tabular-nums; position: relative; }
+  .ecentric-app .checkin-date { font-size: 13px; opacity: 0.85; position: relative; }
+  .ecentric-app .checkin-status { background: rgba(255,255,255,0.15); border-radius: 8px; padding: 10px 12px; margin: 16px 0 14px; display: flex; align-items: center; gap: 8px; font-size: 13px; position: relative; }
+  .ecentric-app .status-dot-w { width: 8px; height: 8px; border-radius: 50%; background: var(--yellow); box-shadow: 0 0 0 3px rgba(255,192,0,0.3); }
+  .ecentric-app .btn-checkin { width: 100%; background: var(--yellow); color: var(--gray-900); border: none; padding: 12px; border-radius: 8px; font-weight: 700; font-size: 14px; cursor: pointer; position: relative; font-family: inherit; }
+  .ecentric-app .btn-checkin:hover { background: #e6ac00; }
+
+  .ecentric-app .approval-list { padding: 6px 8px 8px; }
+  .ecentric-app .approval-item { padding: 12px; border-radius: 8px; transition: background 0.15s; display: flex; gap: 12px; align-items: center; position: relative; }
+  .ecentric-app .approval-item::before { content: ''; width: 3px; align-self: stretch; border-radius: 2px; background: var(--yellow); flex-shrink: 0; }
+  .ecentric-app .approval-item.type-leave::before { background: var(--pink); }
+  .ecentric-app .approval-item:hover { background: var(--gray-50); }
+  .ecentric-app .approval-content { flex: 1; min-width: 0; }
+  .ecentric-app .approval-title { font-size: 13px; font-weight: 600; color: var(--gray-900); margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ecentric-app .approval-meta { font-size: 11.5px; color: var(--gray-500); }
+  .ecentric-app .approval-type { font-size: 10px; font-weight: 700; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
+
+  .ecentric-app .news-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; padding: 14px; }
+  .ecentric-app .news-card { background: white; border: 1px solid var(--gray-200); border-radius: 10px; overflow: hidden; transition: all 0.15s; text-decoration: none; color: inherit; display: block; }
+  .ecentric-app .news-card:hover { border-color: var(--gray-300); box-shadow: 0 4px 12px rgba(0,0,0,0.05); transform: translateY(-2px); text-decoration: none; }
+  .ecentric-app .news-image { height: 120px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 14px; text-align: center; padding: 16px; letter-spacing: 0.3px; background-size: cover; background-position: center; }
+  .ecentric-app .news-image.gradient-1 { background: linear-gradient(135deg, var(--navy), #3d52cc); }
+  .ecentric-app .news-image.gradient-2 { background: linear-gradient(135deg, var(--yellow), var(--pink)); }
+  .ecentric-app .news-image.gradient-3 { background: linear-gradient(135deg, var(--gray-800), var(--navy)); }
+  .ecentric-app .news-body { padding: 12px 14px 14px; }
+  .ecentric-app .news-tag { display: inline-block; background: var(--yellow-50); color: #b88600; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; letter-spacing: 0.4px; margin-bottom: 8px; }
+  .ecentric-app .news-tag.t-pink { background: var(--pink-50); color: #c2185b; }
+  .ecentric-app .news-tag.t-navy { background: var(--navy-50); color: var(--navy); }
+  .ecentric-app .news-title { font-size: 13.5px; font-weight: 600; color: var(--gray-900); line-height: 1.4; margin-bottom: 6px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .ecentric-app .news-date { font-size: 11.5px; color: var(--gray-500); }
+
+  .ecentric-app .policy-list { padding: 4px 8px 8px; }
+  .ecentric-app .policy-item { padding: 11px 12px; border-radius: 8px; display: flex; align-items: center; gap: 12px; transition: background 0.15s; text-decoration: none; color: inherit; }
+  .ecentric-app .policy-item:hover { background: var(--gray-50); text-decoration: none; }
+  .ecentric-app .policy-bullet { width: 6px; height: 6px; border-radius: 50%; background: var(--yellow); flex-shrink: 0; }
+  .ecentric-app .policy-text { font-size: 12.5px; color: var(--gray-700); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ecentric-app .policy-arrow { color: var(--gray-300); }
+
+  @media (max-width: 1100px) {
+    .ecentric-app { grid-template-columns: 64px 1fr; }
+    .ec-sidebar .sidebar-search, .ec-sidebar .nav-label, .ec-sidebar .nav-item span:not(.badge), .ec-sidebar .brand-name, .ec-sidebar .user-info { display: none; }
+    .ec-sidebar .nav-item, .ec-sidebar .brand, .ec-sidebar .user-card { justify-content: center; padding: 8px; }
+    .ecentric-app .stats-strip { grid-template-columns: repeat(2, 1fr); }
+    .ecentric-app .bento { grid-template-columns: 1fr; }
+    .ecentric-app .news-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 640px) {
+    .ecentric-app .stats-strip { grid-template-columns: 1fr 1fr; }
+    .ecentric-app .quick-grid { grid-template-columns: repeat(3, 1fr); }
+    .ecentric-app .news-grid { grid-template-columns: 1fr; }
+    .ec-main .content { padding: 20px 16px; }
+    .ec-main .topbar { padding: 12px 16px; }
+  }
+</style>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></symbol>
+    <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M20 12V8H6a2 2 0 0 1-2-2V6c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></symbol>
+    <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></symbol>
+    <symbol id="i-grad" viewBox="0 0 24 24"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></symbol>
+    <symbol id="i-mega" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></symbol>
+    <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3v1h6v-1c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2Z"/></symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></symbol>
+    <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></symbol>
+  </defs>
+</svg>
+<script>
+(function() {
+  function setActive() {
+    var path = window.location.pathname.replace(/\/+$/, '') || '/';
+    var links = document.querySelectorAll('.ec-sb-link');
+    links.forEach(function(a) {
+      var href = (a.getAttribute('href') || '').replace(/\/+$/, '') || '/';
+      a.classList.remove('active');
+      // Strict exact match
+      if (href === path) {
+        a.classList.add('active');
+      }
+      // Special case: '/home' page should also activate links with href='/'
+      else if ((path === '/home' || path === '/') && (href === '/' || href === '/home')) {
+        a.classList.add('active');
+      }
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setActive);
+  } else {
+    setActive();
+  }
+})();
+</script>
+
+<link rel="stylesheet" href="/assets/ecentric_workspace/alerts/ec_alert_center.css?v=15faa2c0d9">
+
+<div class="ecentric-app">
+<aside class="ec-shell-mount" data-ec-shell="1" aria-label="Điều hướng eCentric"><div class="ec-shell-head"><a class="ec-shell-brand" href="/"><img class="ec-shell-logoimg" src="/files/eCentric%20logo%20-%20mini.png" alt="eCentric"><span class="ec-shell-logo" hidden>eC</span><span class="ec-shell-brandname">eCentric</span></a></div><div class="ec-shell-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input class="ec-shell-search-in" type="text" placeholder="Tìm chức năng…" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-label="Tìm chức năng" autocomplete="off" spellcheck="false"><button type="button" class="ec-shell-search-clear" data-ec-shell-search-clear="1" hidden aria-label="Xóa tìm kiếm">&times;</button></div><div class="ec-shell-search-results" role="listbox" hidden></div><nav class="ec-shell-nav ec-shell-fallback" aria-label="Điều hướng chính"><a class="ec-shell-item" href="/home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg><span>Trang chủ</span></a><div class="ec-shell-grouplabel">Alert Center</div><a class="ec-shell-item" href="/alerts"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span>Dashboard</span></a><a class="ec-shell-item ec-shell-active" href="/alerts/policies" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>Policies</span></a><a class="ec-shell-item" href="/alerts/rules"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/></svg><span>Rules</span></a><a class="ec-shell-item" href="/alerts/locks"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg><span>Locks</span></a><a class="ec-shell-item" href="/alerts/integration-health"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg><span>Integration Health</span></a></nav><div class="ec-shell-foot"><a class="ec-shell-usercard" href="/app/user"><span class="ec-shell-avatar">•</span><span class="ec-shell-username">Tài khoản</span></a></div></aside>
+
+  <div class="ec-main">
+    
+    <div class="ec-shell-topbar" data-ec-shell-topbar="1"><div class="ec-shell-crumbs" data-ec-shell-crumbs="1"><span class="ec-shell-crumb-group">Alert Center</span><span class="sep ec-shell-crumb-sep">/</span><strong class="ec-shell-crumb-current">Policies</strong></div><div class="ec-shell-tbright" data-ec-shell-header-right="1"><button type="button" class="ec-shell-iconbtn ec-shell-reminder" data-ec-shell-action-slot="1" aria-label="Nhắc việc" title="Nhắc việc" aria-haspopup="dialog" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg><span class="ec-shell-reminder-badge" data-ec-shell-reminder-badge="1" hidden></span></button><a class="ec-shell-iconbtn" href="/app/notification-log" data-ec-notification-bell="1" aria-label="Thông báo" title="Thông báo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></a><button type="button" class="ec-shell-iconbtn ec-shell-slot-disabled" data-ec-shell-settings-slot="1" disabled aria-disabled="true" title="Cài đặt (sắp ra mắt)" aria-label="Cài đặt (sắp ra mắt)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg></button></div></div>
+    
+    <div class="content">
+      <div class="greeting"><h1>Price Setup</h1><p id="al-scope-line"></p></div>
+      <div class="panel" id="pl-missing-panel">
+        <div class="panel-header"><div class="panel-title">&#272;&#7897; ph&#7911; Price Policy<span class="al-help-i" data-help="price_setup.coverage" title="Covered = SKU &#273;&#227; c&#243; Price Policy active in-effect. Missing = SKU ch&#432;a c&#243;. Coverage % = Covered / t&#7893;ng SKU distinct c&#243; &#273;&#417;n trong 30 ng&#224;y g&#7847;n nh&#7845;t. C&#417; s&#7903; t&#237;nh theo t&#7915;ng (brand, seller_sku) trong ph&#7841;m vi c&#7911;a b&#7841;n; KH&#212;NG b&#7883;a m&#7851;u s&#7889; - n&#7871;u kh&#244;ng c&#243; &#273;&#417;n n&#224;o th&#236; hi&#7875;n th&#7883; n/a." tabindex="0" role="img" aria-label="Covered = SKU &#273;&#227; c&#243; Price Policy active in-effect. Missing = SKU ch&#432;a c&#243;. Coverage % = Covered / t&#7893;ng SKU distinct c&#243; &#273;&#417;n trong 30 ng&#224;y g&#7847;n nh&#7845;t. C&#417; s&#7903; t&#237;nh theo t&#7915;ng (brand, seller_sku) trong ph&#7841;m vi c&#7911;a b&#7841;n; KH&#212;NG b&#7883;a m&#7851;u s&#7889; - n&#7871;u kh&#244;ng c&#243; &#273;&#417;n n&#224;o th&#236; hi&#7875;n th&#7883; n/a.">&#9432;</span></div>
+          <span style="font-size:12px;color:var(--gray-500)">C&#417; s&#7903;: SKU distinct c&#243; &#273;&#417;n trong 30 ng&#224;y g&#7847;n nh&#7845;t</span></div>
+        <div class="stats-strip" id="pl-cov-kpis">
+          <div class="stat-card s-green"><div class="stat-label">Covered SKUs</div><div class="stat-value" id="pl-cov-covered">-</div><div class="stat-meta">&#273;&#227; c&#243; Price Policy active</div></div>
+          <div class="stat-card s-yellow kpi" id="pl-cov-missing-card" data-cov="missing" role="button" tabindex="0" title="M&#7903; danh s&#225;ch SKU thi&#7871;u Price Policy (theo brand)"><div class="stat-label">Missing SKUs</div><div class="stat-value" id="pl-cov-missing">-</div><div class="stat-meta">b&#7845;m &#273;&#7875; xem SKU thi&#7871;u policy</div></div>
+          <div class="stat-card s-navy"><div class="stat-label">Coverage %</div><div class="stat-value" id="pl-cov-pct">-</div><div class="stat-meta">C&#417; s&#7903;: SKU distinct c&#243; &#273;&#417;n trong 30 ng&#224;y g&#7847;n nh&#7845;t</div></div>
+        </div>
+        <details class="al-adv-sec" id="pl-cov-bybrand">
+          <summary class="al-fsec" style="cursor:pointer">Chi ti&#7871;t thi&#7871;u policy theo brand</summary>
+          <div id="pl-missing-rows" class="al-inline" style="flex-wrap:wrap"><span class="al-empty">-</span></div>
+        </details>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">Price Setup</div>
+          <span class="al-hdr-actions">
+            <button class="al-btn" id="pl-template">T&#7843;i CSV Template</button>
+            <button class="al-btn" id="pl-upload">Upload CSV</button>
+            <button class="al-btn primary" id="pl-new">+ Policy</button>
+          </span></div>
+        <div class="al-filters">
+          <div><label>Brand</label><select id="f-brand"><option value="">T&#7845;t c&#7843;</option></select></div>
+          <div><label>Platform</label><select id="f-platform"><option value="">T&#7845;t c&#7843;</option><option>All</option><option>Shopee</option><option>Lazada</option><option>TikTok</option></select></div>
+          <div><label>SKU</label><input id="f-sku" type="text"></div>
+          <!-- Status is a compact checkbox MULTI-select (OR semantics); persisted in the URL. -->
+          <div class="al-msel-wrap"><label>Tr&#7841;ng th&#225;i</label>
+            <div class="al-msel" id="f-status-cbs">
+              <label><input type="checkbox" class="f-status-cb" value="Draft"> Nh&#225;p</label>
+              <label><input type="checkbox" class="f-status-cb" value="Active"> &#272;ang b&#7853;t</label>
+              <label><input type="checkbox" class="f-status-cb" value="Paused"> T&#7841;m d&#7915;ng</label>
+              <label><input type="checkbox" class="f-status-cb" value="Expired"> H&#7871;t h&#7841;n</label>
+              <label><input type="checkbox" class="f-status-cb" value="Inactive"> &#272;&#227; t&#7855;t</label>
+            </div>
+          </div>
+          <div><label>Owner</label><input id="f-owner" type="text" placeholder="user@email"></div>
+          <button class="al-btn primary" id="pl-apply">L&#7885;c</button>
+          <button class="al-btn" id="pl-clear">Xo&#225; l&#7885;c</button>
+        </div>
+        <div class="al-tbl-wrap al-hold">
+          <table class="al-tbl al-tbl-fixed al-tbl-pl">
+            <!-- RC6 UI cleanup: the Shop column is removed (Shop is no longer part of
+                 the canonical identity or the standard editing workflow). The backend
+                 `shop` field + legacy values are untouched.
+                 NHIEU_LOP 29/09: cot CO DINH (table-layout:fixed) - truoc day auto-layout no
+                 ra 1.946px theo ten san pham, day 5 tieu de cot ra ngoai man hinh khi hang ve.
+                 Khung bang giu cho 60vh: phan trang + Gift Exemptions nam duoi man hinh dau. -->
+            <colgroup><col style="width:80px"><col style="width:125px"><col style="width:92px"><col style="width:170px"><col><col style="width:85px"><col style="width:100px"><col style="width:60px"><col style="width:150px"><col style="width:100px"></colgroup>
+            <thead><tr><th>Brand</th><th>Tr&#7841;ng th&#225;i</th><th>Platform</th><th>SKU</th><th>S&#7843;n ph&#7849;m</th><th>Min</th><th>Target/RSP</th><th>Ref</th><th>Owner</th><th>Hi&#7879;u l&#7921;c</th></tr></thead>
+            <tbody id="pl-rows"></tbody>
+          </table>
+        </div>
+        <div class="al-pager"><span id="pl-count">-</span><span><button class="al-btn" id="pl-prev">&#8249;</button> <button class="al-btn" id="pl-next">&#8250;</button></span></div>
+      </div>
+      <!-- RC7-C: Gift Exemptions management (compact, separate from the policy table)
+           with lifecycle tabs + counts, filters, server-side pagination + chips. -->
+      <div class="panel" id="pl-exempt-panel" style="margin-top:14px">
+        <div class="panel-header"><div class="panel-title">Gift Exemptions<span class="al-help-i" title="Mi&#7877;n tr&#7915; Price Guard cho Seller SKU qu&#224; t&#7863;ng/freebie chuy&#234;n d&#7909;ng (brand + platform + seller_sku). V1 kh&#244;ng h&#7895; tr&#7907; SKU d&#249;ng l&#7851;n (v&#7915;a b&#225;n v&#7915;a t&#7863;ng)." tabindex="0" role="img" aria-label="Mi&#7877;n tr&#7915; Price Guard cho Seller SKU qu&#224; t&#7863;ng/freebie chuy&#234;n d&#7909;ng (brand + platform + seller_sku). V1 kh&#244;ng h&#7895; tr&#7907; SKU d&#249;ng l&#7851;n (v&#7915;a b&#225;n v&#7915;a t&#7863;ng).">&#9432;</span></div>
+          <button class="al-btn primary" id="gx-new">+ Th&#234;m exemption</button></div>
+        <!-- Permanent gift model: status-based tabs only (Active / Inactive / All). -->
+        <div class="al-subtabs" id="gx-tabs">
+          <button class="al-btn gx-tab primary" data-gxs="active">&#272;ang b&#7853;t <span class="al-chip-n" id="gx-c-active">0</span></button>
+          <button class="al-btn gx-tab" data-gxs="inactive">&#272;&#227; t&#7855;t <span class="al-chip-n" id="gx-c-inactive">0</span></button>
+          <button class="al-btn gx-tab" data-gxs="all">T&#7845;t c&#7843; <span class="al-chip-n" id="gx-c-all">0</span></button>
+        </div>
+        <div class="al-filters">
+          <div><label>Brand</label><select id="gx-f-brand"><option value="">T&#7845;t c&#7843;</option></select></div>
+          <div><label>Platform</label><select id="gx-f-platform"><option value="">T&#7845;t c&#7843;</option><option>All</option><option>Shopee</option><option>Lazada</option><option>TikTok</option></select></div>
+          <div><label>Seller SKU</label><input id="gx-f-sku" type="text"></div>
+          <button class="al-btn primary" id="gx-f-apply">L&#7885;c</button>
+          <button class="al-btn" id="gx-f-clear">Xo&#225; l&#7885;c</button>
+        </div>
+        <div class="al-tbl-wrap"><table class="al-tbl">
+          <thead><tr><th>Brand</th><th>Platform</th><th>Seller SKU</th><th>L&#253; do</th><th>Hi&#7879;u l&#7921;c</th><th>Tr&#7841;ng th&#225;i</th><th>B&#7853;t</th></tr></thead>
+          <tbody id="gx-rows"><tr><td colspan="7" class="al-empty">&#8230;</td></tr></tbody>
+        </table></div>
+        <div class="al-pager"><span id="gx-count">-</span><span><button class="al-btn" id="gx-prev">&#8249;</button> <button class="al-btn" id="gx-next">&#8250;</button></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="al-modal" id="gx-modal" hidden>
+  <h3 id="gx-m-title">+ Th&#234;m exemption</h3>
+  <div class="al-fgrid">
+    <div class="al-fld"><label>Brand <span class="al-req">*</span></label><select id="gx-brand"></select></div>
+    <div class="al-fld"><label>Platform</label><select id="gx-platform"><option>All</option><option>Shopee</option><option>Lazada</option><option>TikTok</option></select></div>
+    <div class="al-fld al-col2"><label>Seller SKU <span class="al-req">*</span></label><input id="gx-seller_sku" type="text"></div>
+    <!-- V1: the only reason is Gift / Freebie, shown as fixed read-only text (no dropdown). -->
+    <div class="al-fld"><label>L&#253; do</label><div class="al-fld-ro" id="gx-reason-ro">Gift / Freebie</div></div>
+    <div class="al-fld"><label>Tr&#7841;ng th&#225;i</label><select id="gx-status"><option>Active</option><option>Inactive</option></select></div>
+    <!-- RC7: V1 manual modal has NO effective-date fields. An Active exemption with
+         empty dates is permanently effective until set Inactive. (DB date columns
+         remain for back-compat but are not exposed/required here.) -->
+    <div class="al-fld al-col2"><label>Notes</label><input id="gx-notes" type="text"></div>
+  </div>
+  <div class="al-modal-foot"><button class="al-btn primary" id="gx-save">L&#432;u</button><button class="al-btn" id="gx-cancel">Hu&#7927;</button></div>
+</div>
+<div class="al-overlay" id="al-overlay" hidden></div>
+<div class="al-drawer al-drawer-wide" id="pl-drawer" hidden>
+  <div class="al-drawer-head"><strong id="pl-d-title">Policy</strong> <span id="pl-d-status"></span><button class="al-btn" id="pl-d-close">&#10005;</button></div>
+  <div class="al-drawer-body">
+    <div class="al-fsec">1. Ph&#7841;m vi &#225;p d&#7909;ng</div>
+    <div class="al-fgrid">
+      <div class="al-fld"><label>Brand <span class="al-req">*</span></label><select id="e-brand"></select></div>
+      <div class="al-fld"><label>Platform <span class="al-req">*</span></label><select id="e-platform"><option>All</option><option>Shopee</option><option>Lazada</option><option>TikTok</option></select></div>
+      <!-- RC5-3: Shop is removed from the normal KAM flow (scope = Brand / Platform /
+           Seller SKU). The stored value is PRESERVED (kept in a hidden input + never
+           re-submitted, so a legacy shop-specific policy is not silently cleared) and
+           surfaced read-only below only when the edited policy actually has one. -->
+      <input id="e-shop" type="hidden">
+      <div class="al-fld al-col2" id="e-shop-legacy" hidden><label>Shop (d&#7919; li&#7879;u c&#361; &#8212; ch&#7881; &#273;&#7885;c)</label><div class="al-legacy-ro" id="e-shop-legacy-val">-</div></div>
+      <div class="al-fld al-col2"><label>Seller SKU <span class="al-req">*</span><span class="al-help-i" data-help="price_setup.seller_sku" title="T&#7841;m th&#7901;i nh&#7853;p tay. S&#7855;p c&#243;: t&#236;m/ch&#7885;n SKU t&#7915; Omisell sau khi ch&#7885;n Brand + Platform + Shop, t&#7921; &#273;i&#7873;n t&#234;n s&#7843;n ph&#7849;m & gi&#225; ni&#234;m y&#7871;t n&#7871;u c&#243;." tabindex="0" role="img" aria-label="T&#7841;m th&#7901;i nh&#7853;p tay. S&#7855;p c&#243;: t&#236;m/ch&#7885;n SKU t&#7915; Omisell sau khi ch&#7885;n Brand + Platform + Shop, t&#7921; &#273;i&#7873;n t&#234;n s&#7843;n ph&#7849;m & gi&#225; ni&#234;m y&#7871;t n&#7871;u c&#243;.">&#9432;</span></label>
+        <div class="al-inline"><input id="e-seller_sku" type="text"><button type="button" class="al-btn" id="e-sku-search">T&#236;m SKU t&#7915; Omisell</button></div></div>
+      <!-- C1: ERP Item is hidden from the normal KAM workflow. Seller SKU is the
+           business input; ERP Item auto-maps in the background (the value carries
+           through on edit) and is not required in the UI. -->
+      <input id="e-item" type="hidden">
+    </div>
+    <div class="al-note" id="e-scope-preview"><span class="al-note-ic">&#9432;</span><span class="al-sp-text">Brand Default &#8212; &#225;p d&#7909;ng cho t&#7845;t c&#7843; s&#7843;n ph&#7849;m c&#7911;a brand</span></div>
+    <div class="al-help">&#431;u ti&#234;n &#225;p d&#7909;ng: SKU > Shop > Platform > Brand</div>
+
+    <div class="al-fsec">2. Th&#244;ng tin s&#7843;n ph&#7849;m</div>
+    <div class="al-fgrid">
+      <div class="al-fld al-col2"><label>S&#7843;n ph&#7849;m<span class="al-help-i" data-help="price_setup.product_name" title="S&#7869; t&#7921; &#273;i&#7873;n t&#7915; Omisell/SKU catalog khi c&#243; d&#7919; li&#7879;u; c&#243; th&#7875; ch&#7881;nh tay n&#7871;u c&#7847;n." tabindex="0" role="img" aria-label="S&#7869; t&#7921; &#273;i&#7873;n t&#7915; Omisell/SKU catalog khi c&#243; d&#7919; li&#7879;u; c&#243; th&#7875; ch&#7881;nh tay n&#7871;u c&#7847;n.">&#9432;</span></label><input id="e-product_name" type="text"></div>
+    </div>
+
+    <div class="al-fsec">3. Gi&#225; (Ch&#237;nh s&#225;ch gi&#225;)</div>
+    <div class="al-fgrid">
+      <div class="al-fld"><label>Min price <span class="al-req">*</span><span class="al-help-i" data-help="price_setup.minimum_price" title="Gi&#225; b&#225;n th&#7845;p nh&#7845;t &#273;&#432;&#7907;c ph&#233;p sau voucher/gi&#7843;m gi&#225;." tabindex="0" role="img" aria-label="Gi&#225; b&#225;n th&#7845;p nh&#7845;t &#273;&#432;&#7907;c ph&#233;p sau voucher/gi&#7843;m gi&#225;.">&#9432;</span></label><input id="e-min_price" type="number"></div>
+      <div class="al-fld"><label>Reference / Benchmark price<span class="al-help-i" data-help="price_setup.reference_price" title="Gi&#225; tham chi&#7871;u &#273;&#7875; so s&#225;nh, c&#243; th&#7875; l&#224; gi&#225; b&#225;n trung b&#236;nh g&#7847;n &#273;&#226;y ho&#7863;c benchmark th&#7883; tr&#432;&#7901;ng." tabindex="0" role="img" aria-label="Gi&#225; tham chi&#7871;u &#273;&#7875; so s&#225;nh, c&#243; th&#7875; l&#224; gi&#225; b&#225;n trung b&#236;nh g&#7847;n &#273;&#226;y ho&#7863;c benchmark th&#7883; tr&#432;&#7901;ng.">&#9432;</span></label><input id="e-reference_price" type="number"></div>
+      <div class="al-fld al-col2"><label>Listed price / RSP<span class="al-help-i" data-help="price_setup.rsp" title="Gi&#225; ni&#234;m y&#7871;t/gi&#225; g&#7841;ch tr&#234;n s&#224;n, d&#249;ng &#273;&#7875; t&#237;nh % gi&#7843;m gi&#225; v&#224; hi&#7875;n th&#7883;/report. (T&#432;&#417;ng lai: t&#7921; sync t&#7915; Omisell n&#7871;u c&#243;.)" tabindex="0" role="img" aria-label="Gi&#225; ni&#234;m y&#7871;t/gi&#225; g&#7841;ch tr&#234;n s&#224;n, d&#249;ng &#273;&#7875; t&#237;nh % gi&#7843;m gi&#225; v&#224; hi&#7875;n th&#7883;/report. (T&#432;&#417;ng lai: t&#7921; sync t&#7915; Omisell n&#7871;u c&#243;.)">&#9432;</span></label><input id="e-target_price" type="number"></div>
+    </div>
+
+    <!-- RC4-5: The alert-threshold fields (high_alert_percent / severe_drop_percent,
+         owned by Rules) and the effective-period fields (effective_from / effective_to)
+         are no longer present in this form AND are no longer submitted by save(), so a
+         blank/0 value can never overwrite a legacy record nor trip range validation.
+         ERP Item stays hidden for the scope preview only (never submitted). The owner
+         is preserved via a hidden input. The "Advanced Settings" section is removed
+         entirely (no business field remained). Policy status shows in the head badge. -->
+    <input id="e-owner_user" type="hidden">
+  </div>
+  <!-- RC5-2: lifecycle (Activate/Pause) is no longer here - it lives as a Status
+       switch in the Price Setup table. The drawer only edits fields + Save/Cancel. -->
+  <div class="al-drawer-actions">
+    <button class="al-btn primary" id="pl-save">L&#432;u</button>
+    <button class="al-btn" id="pl-cancel">Hu&#7927;</button>
+    <!-- RC7-A: safe delete (contract enforced by the backend api_policies.delete_policy:
+         Draft -> delete if no open dependents; Active -> never; retired -> admin only).
+         Shown only when allowed; pushed to the right as a low-emphasis destructive action. -->
+    <button class="al-btn al-danger" id="pl-delete" hidden style="margin-left:auto">Xo&#225; v&#297;nh vi&#7877;n</button>
+  </div>
+</div>
+<div class="al-modal wide" id="pl-csv-modal" hidden>
+  <h3>Nh&#7853;p h&#224;ng lo&#7841;t (CSV / Paste)</h3>
+  <p style="font-size:12.5px;color:var(--gray-500)">T&#7843;i template, &#273;i&#7873;n d&#7919; li&#7879;u (Excel: Save As CSV UTF-8), t&#7889;i &#273;a 500 d&#242;ng. C&#7897;t: brand, platform, seller_sku, product_name, min_price, target_price, reference_price, status, is_gift. D&#242;ng th&#432;&#7901;ng: min_price b&#7855;t bu&#7897;c (target/reference tu&#7923; ch&#7885;n). IS_GIFT=YES &#8594; Gift/Freebie (b&#7887; qua gi&#225;, c&#7847;n Seller SKU). Brand + Platform + Seller SKU l&#224; &#273;&#7883;nh danh. File c&#361; c&#243; c&#7897;t Shop/Item/ng&#224;y... v&#7851;n &#273;&#7885;c &#273;&#432;&#7907;c nh&#432;ng c&#225;c c&#7897;t &#273;&#243; b&#7883; b&#7887; qua k&#232;m c&#7843;nh b&#225;o.</p>
+  <div class="al-inline" style="gap:16px;margin-bottom:8px">
+    <label class="al-check"><input type="radio" name="imp-src" id="imp-src-file" value="file" checked> T&#7843;i file CSV</label>
+    <label class="al-check"><input type="radio" name="imp-src" id="imp-src-paste" value="paste"> D&#225;n b&#7843;ng (TSV/CSV)</label>
+  </div>
+  <input type="file" id="csv-file" accept=".csv,text/csv">
+  <textarea id="csv-paste" rows="6" placeholder="D&#225;n t&#7915; Excel/Sheets (c&#243; header). C&#7897;t: brand, platform, seller_sku, product_name, min_price, target_price, reference_price, status, is_gift" style="display:none;width:100%;font-family:monospace;font-size:12px;box-sizing:border-box"></textarea>
+  <div class="al-modal-foot" style="justify-content:flex-start">
+    <button class="al-btn primary" id="csv-preview">Ki&#7875;m tra (preview)</button>
+    <span id="csv-stats" style="font-size:13px;align-self:center"></span>
+  </div>
+  <div class="al-tbl-wrap" style="max-height:300px;overflow-y:auto">
+    <table class="al-tbl"><thead><tr><th><input type="checkbox" id="csv-all" title="Ch&#7885;n/b&#7887; t&#7845;t c&#7843; d&#242;ng h&#7907;p l&#7879;"></th><th>#</th><th>H&#224;nh &#273;&#7897;ng</th><th>Brand</th><th>Platform</th><th>IS_GIFT</th><th>SKU/Item</th><th>Status</th><th class="r">Min</th><th>L&#7895;i</th></tr></thead>
+    <tbody id="csv-rows"></tbody></table>
+  </div>
+  <textarea id="csv-errbox" rows="2" readonly placeholder="L&#7895;i s&#7869; hi&#7879;n &#7903; &#273;&#226;y &#273;&#7875; copy..." style="margin-top:10px"></textarea>
+  <div class="al-modal-foot">
+    <span id="csv-summary" style="font-size:13px;align-self:center;flex:1"></span>
+    <button class="al-btn" id="csv-copy">Copy l&#7895;i</button>
+    <button class="al-btn" id="csv-cancel">Hu&#7927;</button>
+    <button class="al-btn primary" id="csv-import" disabled>Import d&#242;ng &#273;&#227; ch&#7885;n</button>
+  </div>
+  <div id="csv-result" style="margin-top:8px;font-size:13px"></div>
+</div>
+<div class="al-modal wide" id="pl-sku-modal" hidden>
+  <h3>T&#236;m SKU t&#7915; Omisell</h3>
+  <p style="font-size:12.5px;color:var(--gray-500)" id="pl-sku-scope"></p>
+  <div class="al-inline"><input id="pl-sku-kw" type="text" placeholder="G&#245; SKU ho&#7863;c t&#234;n s&#7843;n ph&#7849;m..."><button class="al-btn primary" id="pl-sku-go">T&#236;m</button></div>
+  <div class="al-tbl-wrap" style="max-height:340px;overflow-y:auto;margin-top:10px">
+    <table class="al-tbl"><thead><tr><th>Seller SKU</th><th>S&#7843;n ph&#7849;m</th><th class="r">RSP</th><th>Platform</th><th>Shop</th></tr></thead>
+    <tbody id="pl-sku-rows"></tbody></table>
+  </div>
+  <div class="al-modal-foot"><button class="al-btn" id="pl-sku-cancel">Hu&#7927;</button></div>
+</div>
+<div class="al-modal wide" id="pl-cov-modal" hidden>
+  <h3>SKU c&#243; &#273;&#417;n g&#7847;n &#273;&#226;y nh&#432;ng thi&#7871;u Active policy</h3>
+  <div class="al-inline"><select id="pl-cov-brand"></select><button class="al-btn primary" id="pl-cov-go">T&#236;m</button><button class="al-btn" id="pl-cov-export">Export CSV template</button></div>
+  <div id="pl-cov-summary" style="margin:8px 0;font-size:13px"></div>
+  <div class="al-tbl-wrap" style="max-height:320px;overflow-y:auto">
+    <table class="al-tbl"><thead><tr><th><input type="checkbox" id="cov-all" title="Ch&#7885;n/b&#7887; t&#7845;t c&#7843; d&#242;ng h&#7907;p l&#7879;"></th><th>Seller SKU</th><th>S&#7843;n ph&#7849;m</th><th class="r">RSP</th><th class="r">D&#242;ng &#273;&#417;n</th><th>&#272;&#417;n g&#7847;n nh&#7845;t</th></tr></thead>
+    <tbody id="pl-cov-rows"></tbody></table>
+  </div>
+  <!-- RC7-C: bulk Gift/Freebie exemption for the SKUs selected in the missing list. -->
+  <div class="al-modal-foot"><button class="al-btn primary" id="cov-bulk">Gift/Freebie h&#224;ng lo&#7841;t</button><button class="al-btn" id="pl-cov-cancel">Hu&#7927;</button></div>
+</div>
+<div class="al-modal" id="cov-bulk-modal" hidden>
+  <h3>Gift/Freebie h&#224;ng lo&#7841;t</h3>
+  <div id="cov-bulk-info" style="font-size:12.5px;color:var(--gray-600);margin-bottom:8px"></div>
+  <!-- Permanent Gift / Freebie only: fixed read-only reason, no effective dates. -->
+  <div class="al-fgrid">
+    <div class="al-fld"><label>Platform</label><select id="cb-platform"><option>All</option><option>Shopee</option><option>Lazada</option><option>TikTok</option></select></div>
+    <div class="al-fld"><label>L&#253; do</label><div class="al-fld-ro" id="cb-reason-ro">Gift / Freebie</div></div>
+  </div>
+  <div class="al-modal-foot"><button class="al-btn primary" id="cb-save">L&#432;u</button><button class="al-btn" id="cb-cancel">Hu&#7927;</button></div>
+</div>
+<div class="al-toast" id="al-toast" hidden></div>
+
+
+<script src="/assets/ecentric_workspace/alerts/ec_alert_shared.js?v=8d8c10cf60"></script>
+
+
+<script src="/assets/ecentric_workspace/alerts/ec_alert_policies.js?v=9091cac6a8"></script>

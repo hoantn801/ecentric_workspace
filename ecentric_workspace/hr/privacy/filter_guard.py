@@ -1,5 +1,5 @@
 # Copyright (c) 2026, eCentric and contributors
-"""before_request: TU CHOI moi list / count / search / export tren Employee (va bang con cua no)
+"""auth_hooks: TU CHOI moi list / count / search / export tren Employee (va bang con cua no)
 ma filters / or_filters / fields / order_by / group_by... nhac toi field nguoi goi KHONG doc duoc.
 
 VI SAO (VA_BAO_MAT_2026-09-25.md, "rui ro con lai" cua muc 2 - Hoan chot 28/09: CHAN)
@@ -7,6 +7,13 @@ VI SAO (VA_BAO_MAT_2026-09-25.md, "rui ro con lai" cua muc 2 - Hoan chot 28/09: 
     duoc thi do duoc: `bank_ac_no like '9%'` tra ve dong nao -> biet ky tu dau, lap lai la ra ca
     so. `employee_scope` da khoa nhan vien thuong vao dung dong cua ho; con HR User (khong co L1)
     thi van thay het danh sach -> van do duoc. Hook nay dong cho do cho MOI nguoi thieu quyen.
+
+VI SAO LA auth_hooks (sua 28/09 sau loi luc 17:10)
+    Ban dau dang ky `before_request`. Frappe goi before_request trong init_request, TRUOC
+    validate_auth(): request dung header `Authorization: token ...` luc do van la Guest, nen moi
+    field deu bi coi la khong doc duoc va MOI filter Employee (ca status, department) bi 403 -
+    ke ca token cua Administrator. `auth_hooks` duoc goi o cuoi validate_auth(), SAU khi token /
+    bearer / cookie da xac thuc xong, nen frappe.session.user o day la nguoi goi that.
 
 "KHONG DOC DUOC" = khong co trong permlevels.readable_fields: lech permlevel, hoac bi mask.
 Nguoi doc duoc het (HR Manager, EC CnB, Administrator) -> thoat ngay, khong ton gi.
@@ -40,13 +47,19 @@ RESOURCE_PREFIXES = ("/api/resource/", "/api/v2/document/", "/api/v2/doctype/")
 
 
 def guard_employee_filters():
-    """Hook `before_request`. Khong lam gi voi request khong lien quan Employee."""
+    """Hook `auth_hooks`. Khong lam gi voi request khong lien quan Employee."""
     try:
         doctype = _target_doctype()
     except Exception:
         # Hook nay chay cho MOI request: khong nhan dien duoc thi de yen, dung lam sap ca site.
         return
     if not doctype or frappe.session.user == "Administrator":
+        return
+    if frappe.session.user in ("", "Guest"):
+        # O auth_hooks moi cach xac thuc da chay xong: con Guest nghia la THAT SU chua dang nhap
+        # (token sai thi validate_auth se nem AuthenticationError ngay sau hook nay). Guest khong
+        # co quyen doc Employee, Frappe tu chan - de yen cho loi 401 / 403 goc cua Frappe.
+        # (KHONG an toan neu hook nay bi chuyen ve before_request - xem docstring.)
         return
     base = _base_doctype(doctype)
     if not base:

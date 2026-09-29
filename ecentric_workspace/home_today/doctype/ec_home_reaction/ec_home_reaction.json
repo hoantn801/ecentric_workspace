@@ -1,0 +1,88 @@
+{
+ "doctype": "DocType",
+ "name": "EC Home Reaction",
+ "module": "Home Today",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "allow_rename": 0,
+ "autoname": "hash",
+ "naming_rule": "Random",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "title_field": "target",
+ "description": "Tha cam xuc (tim / hoa / banh / phao) tren popup Hom nay o eCentric. Ghi qua home_today.api.toggle_reaction (nguoi dung tu phien); khong nhap tay.",
+ "field_order": [
+  "target",
+  "kind",
+  "column_break_1",
+  "user",
+  "reaction_date",
+  "dedupe_key"
+ ],
+ "fields": [
+  {
+   "fieldname": "target",
+   "fieldtype": "Data",
+   "label": "Target",
+   "reqd": 1,
+   "search_index": 1,
+   "in_list_view": 1,
+   "read_only": 1,
+   "description": "bd:<employee>:<nam> / ann:<employee>:<nam> / new:<New Staff Preparation>"
+  },
+  {
+   "fieldname": "kind",
+   "fieldtype": "Select",
+   "label": "Kind",
+   "reqd": 1,
+   "options": "heart\nflower\ncake\nparty",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "User",
+   "options": "User",
+   "reqd": 1,
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "reaction_date",
+   "fieldtype": "Date",
+   "label": "Reaction Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "dedupe_key",
+   "fieldtype": "Data",
+   "label": "Dedupe Key",
+   "unique": 1,
+   "read_only": 1,
+   "hidden": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}

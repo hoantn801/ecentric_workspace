@@ -146,6 +146,26 @@ def by_dimension(dim, filters=None):
 
 
 @frappe.whitelist()
+def by_dimensions(dims=None, filters=None):
+    """Nhieu chieu phan bo trong MOT loi goi: {"dims": {dim: rows}}.
+
+    29/09/2026 (NHIEU_LOP): 3 donut cua /alerts (brand / platform / rule_code) truoc goi
+    by_dimension 3 lan voi CUNG bo loc. Moi chieu o day = by_dimension(dim, filters): cung
+    _flt (pham vi + bo loc), cung _group_count."""
+    if isinstance(dims, str):
+        dims = json.loads(dims) if dims.strip().startswith("[") else dims.split(",")
+    pairs = []
+    for d in (dims or []):
+        d = str(d).strip()
+        field = DIMENSIONS.get(d)
+        if not field:
+            frappe.throw("invalid dimension")
+        pairs.append((d, field))
+    flt = _flt(filters)
+    return {"dims": {d: ([] if flt is None else _group_count(flt, field)) for d, field in pairs}}
+
+
+@frappe.whitelist()
 def top_skus(filters=None, limit=10):
     flt = _flt(filters)
     if flt is None:

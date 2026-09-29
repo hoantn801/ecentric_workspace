@@ -22,7 +22,7 @@ app_license = "MIT"
 # must never do). The asset itself bails out on /app/* and on pages with no eCentric
 # bell, and is single-install guarded so the homepage (which also still carries the
 # legacy per-page loader) never double-installs.
-web_include_js = ["notification_center.bundle.js", "ec_shell.bundle.js", "ec_datepicker.bundle.js", "ec_formkit.bundle.js", "ec_webpush.bundle.js", "ec_alltab.bundle.js", "ec_aifill.bundle.js"]
+web_include_js = ["notification_center.bundle.js", "ec_shell.bundle.js", "ec_datepicker.bundle.js", "ec_formkit.bundle.js", "ec_webpush.bundle.js", "ec_alltab.bundle.js", "ec_aifill.bundle.js", "ec_khay.bundle.js"]
 
 # ERP Shell v1 (Phase 1B pilot). Both assets are loaded site-wide via the same
 # proven content-hashed-bundle mechanism as the Notification Center, but
@@ -128,6 +128,9 @@ scheduler_events = {
             # cron/dispatcher (no item stuck Processing while only queued).
             # Same kill switch ec_alerts_scheduler_disabled / ec_alerts_pull_disabled.
             "ecentric_workspace.alerts.tasks.dispatch_order_retries",
+            # Cong AI (28/09): ping moi model Kie mot cau ngan -> ti le thanh cong 60 phut.
+            # Duoi 30% thi cong AI bo qua model do (Kie co status 24h nhung doi dang nhap web).
+            "ecentric_workspace.platform.ai.health.ping_models",
         ],
         # Narrow Omisell pull scheduler (approved 2026-06-10): quadruple-gated
         # in tasks.scheduled_omisell_pull - runs nothing until site_config
@@ -256,13 +259,19 @@ has_permission = {
 jinja = {
     "methods": [
         "ecentric_workspace.weekly_report.permissions.can_view_weekly_record",
+        # 29/09/2026 (NHIEU_LOP GD2): trang chu ve san dong thoi gian dung trang thai cho nguoi
+        # CO quyen PM (dang tai lich) va KHONG co (khong bao gio co lich) - khong doan trong HTML.
+        "ecentric_workspace.pm.permissions.has_pm_module_access",
     ],
 }
 
 # 28/09/2026 (VA_BAO_MAT muc 2, Hoan chot CHAN): tu choi list/count/search/export tren Employee
 # neu filters / order_by / group_by nhac toi field nguoi goi khong doc duoc (lech permlevel
 # hoac bi mask) - chan do so TK / CCCD bang `like '9%'`. Xem hr/privacy/filter_guard.py.
-before_request = ["ecentric_workspace.hr.privacy.filter_guard.guard_employee_filters"]
+# auth_hooks CHU KHONG PHAI before_request (loi 28/09 17:10): before_request chay TRUOC
+# validate_auth(), nen request dung API token luc do van la Guest -> moi filter bi chan (403).
+# auth_hooks chay trong validate_auth(), SAU khi da xac thuc token / bearer / cookie.
+auth_hooks = ["ecentric_workspace.hr.privacy.filter_guard.guard_employee_filters"]
 
 # Override standard whitelisted methods
 # -------------------------------------
@@ -408,7 +417,10 @@ fixtures = [
     },
     {
         "dt": "Role",
-        "filters": [["name", "in", ["PM Manager", "PM Member"]]],
+        # EC AI Formfill Pilot da nam trong role.json tu 16/09 nhung thieu o day -> export lai
+        # se lam roi mat. EC Khay Pilot (28/09): mo dan tro ly Khay o goc moi trang.
+        "filters": [["name", "in", ["PM Manager", "PM Member", "EC AI Formfill Pilot",
+                                    "EC Khay Pilot"]]],
     },
     # HR MVP (2026-09): cac Server Script `ec_hr_*` va cac trang `/ec-hr/*` truoc
     # day chi song trong DB, khong co ban trong git -- rebuild site la mat sach
@@ -536,3 +548,48 @@ elif _ROLE_POOL_HOOK not in _rp_prev:
 # --------------------------------------------------------------------------- #
 scheduler_events["cron"].setdefault("10 12 * * 1", []).append(
     "ecentric_workspace.platform.ai.company_summary.weekly_job")
+
+# --------------------------------------------------------------------------- #
+# 28/09/2026 (A65 / NHIEU_LOP giai doan 1.1) - Menu chung do SERVER dung luc render.
+# Truoc day menu du phong "nuong" vao HTML tung trang luc sync nen lech moi khi registry
+# doi (do 28/09: 7 kieu lech tren 59 trang). Hook nay dung lai DUNG vung .ec-shell-mount
+# tu registry hien hanh; khong sua file trang, khong can sync. Menu khong theo nguoi nen
+# cache trang giu nguyen. Kill switch: site_config `ec_shell_server_nav_disabled: 1`.
+# Xem shell/server_nav.py.
+# --------------------------------------------------------------------------- #
+update_website_context = ["ecentric_workspace.shell.server_nav.fill_shell_mount"]
+
+# --------------------------------------------------------------------------- #
+# 28/09/2026 (A65 / NHIEU_LOP giai doan 1.2 + 1.3) - ec_api.js: MOT client goi app method
+# cho moi trang web. GET giong nhau dang bay dung chung mot request (+ nho ngan khi nguoi
+# goi xin); POST xin CSRF tuoi, gap CSRFTokenError thi xin lai va thu DUNG mot lan.
+# KHONG boc window.fetch. Chi dinh nghia window.ecApi, khong tu chay gi.
+# --------------------------------------------------------------------------- #
+web_include_js.append("ec_api.bundle.js")
+
+# --------------------------------------------------------------------------- #
+# 28/09/2026 - Thiep "Chao mung thanh vien moi" len Teams luc 10:00 ngay onboard (Hoan chot
+# gio). Doc New Staff Preparation co onboard_date = hom nay; gui qua Workflow webhook
+# (site_config ec_onboard_welcome_webhook_url - webhook tao trong group chat NHOM CHUNG cua cong
+# ty, KHONG phai kenh thong bao approval); moi phieu mot lan. Chay lai 10:15/10:30/10:45
+# chi de gui bu phieu lan truoc loi (job idempotent). Popup trang chu (tu 08:30) khong can job;
+# no cho khe widget trang chu (A65 muc 6). Tat: site_config ec_onboard_welcome_disabled.
+# --------------------------------------------------------------------------- #
+scheduler_events["cron"].setdefault("*/15 10 * * *", []).append(
+    "ecentric_workspace.approval_center.features.new_staff_preparation.application.welcome.send_welcome_teams")
+
+# --------------------------------------------------------------------------- #
+# 29/09/2026 - Cho nghi /attendance-database (Web Page "attendance", tao 05/2026): ban tien than
+# cua /ec-hr/attendance, khong menu, khong trang nao link toi, nguon chi nam trong DB va co khoi
+# boc window.fetch (NHIEU_LOP brief_hr buoc 6). Hoan chot 29/09: cho nghi -> chuyen sang
+# /ec-hr/attendance. 302 (khong 301) de trinh duyet khong nho vinh vien, muon mo lai chi can go
+# dong nay. KHONG xoa / unpublish Web Page tren production.
+# --------------------------------------------------------------------------- #
+website_redirects = list(globals().get("website_redirects") or []) + [
+    {"source": "/attendance-database", "target": "/ec-hr/attendance", "redirect_http_status": 302},
+]
+
+# 29/09/2026 (popup "Hom nay o eCentric", PO Hoan chot): trang chu ve san muc trang tri sinh nhat
+# cho TUNG nguoi xem (ca cong ty Nhe / cung phong ban Vua / nguoi sinh nhat Ruc ro) va biet popup
+# co gi de hien khong - tu truoc lan ve dau (A65 §5), khong doan trong HTML. Xem home_today/.
+jinja["methods"].append("ecentric_workspace.home_today.jinja.home_today_celebration")

@@ -71,7 +71,7 @@ class _Meta(object):
 
 
 def _load(disabled=False, roles=("System Manager",), saved=None,
-          log_row=None, doc_readable=True):
+          log_row=None, doc_readable=True, catalog=None):
     """saved: dict gia lap ban ghi sau khi luu (mo phong new_doc lap Select bat buoc).
     log_row: dong `EC AI Formfill Log` gia; None = khong tim thay dong nao."""
     fk = types.ModuleType("frappe")
@@ -170,7 +170,14 @@ def _load(disabled=False, roles=("System Manager",), saved=None,
     cs = types.ModuleType("...command_service")
     cs.save_draft = _save_draft
 
+    cat = types.ModuleType("...catalog_api")
+    cat.list_catalog = lambda: {"types": catalog if catalog is not None else [
+        {"approval_code": "PAYMENT_REQUEST", "card_status": "Active",
+         "route": "/approvals/payment-request"}]}
+    shared.catalog_api = cat
+
     mods = {"frappe": fk, "ecentric_workspace": pkg,
+            "ecentric_workspace.approval_center.shared.catalog_api": cat,
             "ecentric_workspace.gemini_api": gem,
             "ecentric_workspace.approval_center": ac,
             "ecentric_workspace.approval_center.shared": shared,
@@ -315,6 +322,37 @@ class TestDongDauLog(unittest.TestCase):
         m = _load(log_row=None)
         ra = m.create_draft("PAYMENT_REQUEST", {"payee_full_name": "A"})
         self.assertEqual(ra["name"], "EC-PAYR-2026-00232")
+
+
+class TestChiFormNguoiDoDuocTao(unittest.TestCase):
+    """29/09 Hoan: AI chi lam trong quyen han cua nguoi do. URL form mo duoc ca khi the an."""
+
+    def test_the_an_voi_nguoi_nay_thi_tu_choi_va_khong_luu(self):
+        m = _load(catalog=[])
+        with self.assertRaises(Exception) as cm:
+            m.create_draft("PAYMENT_REQUEST", {"payee_full_name": "A"})
+        self.assertIn("không tạo được", str(cm.exception))
+        self.assertEqual(m._da_luu, {}, "tu choi TRUOC khi luu")
+
+    def test_the_chua_active_thi_tu_choi(self):
+        for st, route in (("Coming Soon", "/approvals/payment-request"), ("Active", None),
+                          ("Disabled", "/approvals/payment-request")):
+            m = _load(catalog=[{"approval_code": "PAYMENT_REQUEST", "card_status": st,
+                                "route": route}])
+            with self.assertRaises(Exception):
+                m.create_draft("PAYMENT_REQUEST", {"payee_full_name": "A"})
+
+    def test_goi_y_cung_tu_choi_truoc_khi_goi_AI(self):
+        m = _load(catalog=[{"approval_code": "PURCHASE_REQUEST", "card_status": "Active",
+                            "route": "/approvals/purchase-request"}])
+        with self.assertRaises(Exception) as cm:
+            m.suggest("PAYMENT_REQUEST", note="thanh toan 5 trieu cho ABC")
+        self.assertIn("không tạo được", str(cm.exception))
+
+    def test_the_mo_thi_tao_duoc(self):
+        m = _load()
+        self.assertEqual(m.create_draft("PAYMENT_REQUEST", {"payee_full_name": "A"})["name"],
+                         "EC-PAYR-2026-00232")
 
 
 class TestMarks(unittest.TestCase):

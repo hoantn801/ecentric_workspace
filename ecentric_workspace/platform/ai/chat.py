@@ -23,6 +23,8 @@ MAX_MESSAGE = 4000
 MAX_HISTORY_TURNS = 10
 MAX_TURN_CHARS = 2000
 BUDGET = 90
+#: Che do nhanh: 2 model song song toi da 20s (ngu canh bao cao dai hon eC Mate), roi du phong.
+ATTEMPT_TIMEOUT = 20
 FIELDS = ("name, full_name, department, overall_status, mood, ai_tools_used, what_done, "
           "blockers_help, plan_next_week, ai_use_case, ai_summary, overall_ai_score, "
           "structure_score, week_label")
@@ -118,7 +120,8 @@ def gemini_chat(message=None, history=None, **kwargs):
         summary = frappe.db.get_value("Company Weekly Summary", cur_week, "executive_summary") or ""
     res = gateway.generate(message[:MAX_MESSAGE],
                            system=build_context(view, user, cur_week, recs, summary),
-                           history=clean_history(history), purpose="chat", budget=BUDGET)
+                           history=clean_history(history), purpose="chat", budget=BUDGET,
+                           fast=True, attempt_timeout=ATTEMPT_TIMEOUT, opts={"effort": "none"})
     if not res["ok"]:
         return {"success": False, "error": "AI đang bận, thử lại sau ít phút.",
                 "viewer_scope": view["scope"]}

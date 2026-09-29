@@ -58,6 +58,11 @@
 #   debug_as_user      : chi System Manager, de xem thu goc nhin cua nguoi khac
 
 MGMT_DEPT = "Management - EC"
+# 27/09/2026 (Hoan duyet): cac thang <= HIST_END lay them so tu so Payment status 2026.xlsx
+# (DocType EC PnL Lich Su, chi dong loai = Doanh thu, bo dong BRAND_ALLOC). SO cua cac thang do
+# luon xep theo NGAY GIAO de khop cach tinh "phan thieu" luc nap - khong dem hai lan.
+HIST_END = "2026-08-31"
+HIST_DT = "EC PnL Lich Su"
 DEPT_SUFFIX = " - EC"
 DEPT_ALIAS = {"Operation & Data & System": "Operation, Data & System"}
 CONFIDENCE = {"approved": 90, "pending": 50, "draft": 30}
@@ -134,6 +139,7 @@ else:
     # danh sach trang, KHONG ghep chuoi tu input nguoi dung vao SQL
     dcol = "so.delivery_date" if basis == "delivery" else "so.transaction_date"
     dfield = "delivery_date" if basis == "delivery" else "transaction_date"
+    ecol = "(CASE WHEN so.transaction_date <= '2026-08-31' OR so.delivery_date <= '2026-08-31' THEN ifnull(so.delivery_date, so.transaction_date) ELSE " + dcol + " END)"
     channel = (fd.get("channel") or "all").strip()
     f_brand = (fd.get("brand") or "").strip()
     f_team = (fd.get("team") or "").strip()
@@ -144,6 +150,11 @@ else:
         WHERE docstatus < 2 AND ifnull(workflow_state, '') <> 'Rejected'
     """, as_dict=True)
     dmin = str(bound[0].get("dmin") or "2026-01-01") if bound else "2026-01-01"
+    has_hist = True if frappe.db.exists("DocType", HIST_DT) else False
+    if has_hist:
+        hb = frappe.db.sql("SELECT MIN(thang) FROM `tabEC PnL Lich Su`")
+        if hb and hb[0][0] and str(hb[0][0]) < dmin:
+            dmin = str(hb[0][0])
     dmax = str(bound[0].get("dmax") or frappe.utils.today()) if bound else frappe.utils.today()
     date_from = (fd.get("date_from") or "").strip() or dmin
     date_to = (fd.get("date_to") or "").strip() or dmax
@@ -166,12 +177,12 @@ else:
                so.workflow_state, so.docstatus,
                so.ec_channel, so.ec_brand, so.ec_team, so.customer,
                so.net_total, so.total_taxes_and_charges, so.grand_total,
-               so.ec_gbs_so_ref, so.ec_in_out_budget
+               so.ec_gbs_so_ref, so.ec_in_out_budget, """ + ecol + """ AS eff_date
         FROM `tabSales Order` so
         WHERE so.docstatus < 2
-          AND """ + dcol + """ >= %(df)s AND """ + dcol + """ <= %(dt)s
+          AND """ + ecol + """ >= %(df)s AND """ + ecol + """ <= %(dt)s
     """ + where_extra + """
-        ORDER BY """ + dcol + """ ASC
+        ORDER BY """ + ecol + """ ASC
     """, args, as_dict=True)
 
     item_rows = frappe.db.sql("""
@@ -181,7 +192,7 @@ else:
         INNER JOIN `tabSales Order` so ON so.name = soi.parent
         LEFT JOIN `tabItem` it ON it.name = soi.item_code
         WHERE so.docstatus < 2
-          AND """ + dcol + """ >= %(df)s AND """ + dcol + """ <= %(dt)s
+          AND """ + ecol + """ >= %(df)s AND """ + ecol + """ <= %(dt)s
     """ + where_extra, args, as_dict=True)
 
     # ------------------------------------------------------------ classify
@@ -211,6 +222,70 @@ else:
                          + str(other_states)]
 
     live_rows = [r for r in so_rows if layer_of.get(r.get("name")) in ("approved", "pending", "draft")]
+
+    # ------------------------------------------------------------ so lich su (<= HIST_END)
+    hist_n = 0
+    hist_amt = 0.0
+    if has_hist and f_team:
+        notes = notes + ["Dang loc theo phong ban nen KHONG gom so lich su (so khong co phong ban)."]
+    if has_hist and not f_team and str(date_from)[0:7] <= HIST_END[0:7]:
+        hargs = {"dfm": str(date_from)[0:7] + "-01", "dt": date_to, "he": HIST_END}
+        hw = ""
+        if channel in ("Direct", "GBS"):
+            hw = hw + " AND ifnull(h.kenh, '') = %(ch)s "
+            hargs["ch"] = channel
+        if f_brand:
+            hw = hw + " AND ifnull(h.brand, '') = %(br)s "
+            hargs["br"] = f_brand
+        hrows = frappe.db.sql("""
+            SELECT h.name, h.thang, h.kenh, h.brand, h.so_tien, h.ma_erp, h.dich_vu, h.nguon
+            FROM `tabEC PnL Lich Su` h
+            WHERE h.loai = 'Doanh thu' AND ifnull(h.ma_erp, '') <> 'BRAND_ALLOC'
+              AND h.thang >= %(dfm)s AND h.thang <= %(dt)s AND h.thang <= %(he)s
+        """ + hw, hargs, as_dict=True)
+        icodes = {}
+        for h in hrows:
+            if h.get("ma_erp"):
+                icodes[h.get("ma_erp")] = 1
+        imeta = {}
+        if icodes:
+            for it in frappe.db.sql("""
+                SELECT name, item_group, item_name FROM `tabItem` WHERE name IN %(c)s
+            """, {"c": list(icodes.keys())}, as_dict=True):
+                imeta[it.get("name")] = it
+        for h in hrows:
+            nm = "LS:" + h.get("name")
+            code = h.get("ma_erp") or ""
+            im = imeta.get(code)
+            if im:
+                grp = im.get("item_group") or "(chua phan nhom)"
+                iname = im.get("item_name") or code
+            elif code == "PHI_GIAN_HANG":
+                grp = "Phi van hanh gian hang (so)"
+                iname = "Phi van hanh gian hang (so)"
+            elif code == "ADJ":
+                grp = "Dieu chinh ve so P&L"
+                iname = "ERP cao hon so - dieu chinh"
+            else:
+                grp = "So lich su - khac"
+                iname = h.get("dich_vu") or "So lich su"
+                code = code or "SO_LICH_SU"
+            amt = frappe.utils.flt(h.get("so_tien"))
+            live_rows = live_rows + [{
+                "name": nm, "transaction_date": h.get("thang"), "delivery_date": h.get("thang"),
+                "eff_date": h.get("thang"), "workflow_state": "Approved", "docstatus": 1,
+                "ec_channel": h.get("kenh") or "(so lich su)", "ec_brand": h.get("brand") or "(so - khong brand)",
+                "ec_team": "(so lich su)", "customer": "", "net_total": amt,
+                "total_taxes_and_charges": 0, "grand_total": amt, "ec_gbs_so_ref": "",
+                "ec_in_out_budget": "", "is_hist": 1}]
+            layer_of[nm] = "approved"
+            item_rows = item_rows + [{"parent": nm, "item_code": code, "amount": amt,
+                                      "master_group": grp, "master_name": iname}]
+            hist_n = hist_n + 1
+            hist_amt = hist_amt + amt
+        if hist_n:
+            notes = notes + ["Thang <= 08/2026 gom " + str(hist_n) + " dong tu so P&L (EC PnL Lich Su), cong "
+                             + str(round(hist_amt)) + " d. SO cua cac thang do xep theo ngay giao."]
 
     def blank():
         return {"approved": 0.0, "pending": 0.0, "draft": 0.0,
@@ -252,7 +327,7 @@ else:
     # ------------------------------------------------------------ time series
     ser = {}
     for r in live_rows:
-        b = bucket_of(r.get(dfield), granularity)
+        b = bucket_of(r.get("eff_date") or r.get(dfield), granularity)
         if b not in ser:
             ser[b] = blank()
         ser[b] = bump(ser[b], layer_of.get(r.get("name")), r.get("net_total"))
@@ -337,7 +412,7 @@ else:
 
     # ------------------------------------------------------------ table view
     top_so = []
-    ranked = sorted(live_rows, key=lambda x: (x.get("net_total") or 0), reverse=True)
+    ranked = sorted([r for r in live_rows if not r.get("is_hist")], key=lambda x: (x.get("net_total") or 0), reverse=True)
     for r in ranked[:25]:
         top_so = top_so + [{
             "name": r.get("name"),
@@ -370,7 +445,7 @@ else:
             "item_name": (r.get("master_name") or r.get("item_code") or ""),
             "group": (r.get("master_group") or "(chua phan nhom)"),
             "amount": r.get("amount") or 0,
-            "date": str(h.get(dfield) or ""),
+            "date": str(h.get("eff_date") or h.get(dfield) or ""),
             "txn_date": str(h.get("transaction_date") or ""),
             "delivery_date": str(h.get("delivery_date") or ""),
             "brand": h.get("ec_brand") or "",

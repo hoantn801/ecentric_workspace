@@ -144,6 +144,26 @@ def sync_sku_catalog_confirm(brand, days=90, limit=5000):
 
 
 @frappe.whitelist()
+def policy_coverage_summary(brands=None, days=30):
+    """Covered / Missing / Coverage % cho NHIEU brand trong MOT loi goi (the KPI Price Setup).
+
+    29/09/2026 (NHIEU_LOP): thay vong lap phia trinh duyet goi policy_missing_skus(limit=1)
+    cho TUNG brand (21 lan luc mo /alerts/policies). So lieu giu nguyen dinh nghia
+    (services.policy_coverage.coverage_summary == checked / missing_count cua coverage_report).
+    Brand ngoai pham vi cua nguoi goi bi bo qua = 0/0, giong .catch cu phia trinh duyet."""
+    allowed = perms.require_alert_center_access()
+    lst = json.loads(brands) if isinstance(brands, str) else (brands or [])
+    lst = [str(b) for b in lst if b]
+    if allowed != perms.ALL_BRANDS:
+        lst = [b for b in lst if b in allowed]
+    per = policy_coverage.coverage_summary(lst, days=int(days or 30))
+    return {"brands": per,
+            "checked": sum(v["checked"] for v in per.values()),
+            "missing": sum(v["missing"] for v in per.values()),
+            "days": policy_coverage.window_days(int(days or 30))}
+
+
+@frappe.whitelist()
 def policy_missing_skus(brand, platform=None, days=30, limit=200):
     """SKUs in recent orders with NO active in-effect EC Price Policy. Feeds the
     coverage modal. Read-only, brand-scoped. Uses the CANONICAL order-derived

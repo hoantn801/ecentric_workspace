@@ -194,5 +194,46 @@ class Guard(unittest.TestCase):
                   HR_USER_RESTRICTED, user="Administrator")
 
 
+
+class AfterAuthentication(unittest.TestCase):
+    """Loi 28/09 17:10: hook dang ky o before_request chay TRUOC validate_auth(), nen request dung
+    API token bi coi la Guest va moi filter Employee bi 403. Nay hook o auth_hooks: luc chay,
+    frappe.session.user da la chu token. Cac test duoi gia lap dung trang thai do."""
+
+    def test_registered_in_auth_hooks_not_before_request(self):
+        hooks = open(os.path.join(HERE, "..", "..", "hooks.py"), encoding="utf-8").read()
+        path = '"ecentric_workspace.hr.privacy.filter_guard.guard_employee_filters"'
+        self.assertIn("auth_hooks = [" + path + "]", hooks)
+        before = [l for l in hooks.splitlines() if l.startswith("before_request")]
+        self.assertFalse(any("filter_guard" in l for l in before), before)
+
+    def test_hr_manager_token_filter_status_allowed(self):
+        stub, guard = _frappe_stub("/api/resource/Employee",
+                                   {"filters": '[["status","=","Active"]]'},
+                                   NOTHING_RESTRICTED, user="hr.manager@x")
+        guard.guard_employee_filters()
+
+    def test_hr_user_token_filter_bank_account_rejected(self):
+        stub, guard = _frappe_stub("/api/resource/Employee",
+                                   {"filters": '[["bank_ac_no","like","9%"]]'},
+                                   HR_USER_RESTRICTED, user="tran.bui@x")
+        with self.assertRaises(stub.PermissionError):
+            guard.guard_employee_filters()
+
+    def test_hr_user_token_filter_status_allowed(self):
+        stub, guard = _frappe_stub("/api/resource/Employee",
+                                   {"filters": '[["status","=","Active"]]'},
+                                   HR_USER_RESTRICTED, user="tran.bui@x")
+        guard.guard_employee_filters()
+
+    def test_guest_left_to_frappe(self):
+        # Guest o auth_hooks = chua dang nhap that: Frappe tu tra 401/403, hook khong chen vao.
+        everything = {EMP: {"status", "bank_ac_no"}, CHILD: set()}
+        stub, guard = _frappe_stub("/api/resource/Employee",
+                                   {"filters": '[["status","=","Active"]]'},
+                                   everything, user="Guest")
+        guard.guard_employee_filters()
+
+
 if __name__ == "__main__":
     unittest.main()

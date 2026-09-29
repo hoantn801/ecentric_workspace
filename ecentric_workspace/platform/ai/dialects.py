@@ -107,6 +107,9 @@ def _build_gemini(prompt, system, schema, files, history, want_json, opts):
         cfg["maxOutputTokens"] = int(opts["max_tokens"])
     if opts.get("thinking") is not None:
         cfg["thinkingConfig"] = {"thinkingBudget": int(opts["thinking"])}
+    elif opts.get("effort") == "none":
+        # thinkingLevel "minimal" bi Kie tra 500 (probe 28/09); budget 0 thi nhan.
+        cfg["thinkingConfig"] = {"thinkingBudget": 0}
     if want_json:
         cfg["responseMimeType"] = "application/json"
     if schema:
@@ -138,6 +141,9 @@ def _build_chat(model, prompt, system, schema, files, history, want_json, opts):
             "temperature": opts.get("temperature", 0 if schema else 0.4)}
     if opts.get("max_tokens"):
         body["max_tokens"] = int(opts["max_tokens"])
+    if opts.get("effort") in ("none", "low", "medium", "high"):
+        # "none" = tat suy nghi: 5-7s thay vi toi 25s (probe 28/09). "minimal" bi Kie tra 524.
+        body["reasoning_effort"] = opts["effort"]
     return body
 
 
@@ -153,7 +159,8 @@ def _build_gpt(model, prompt, system, schema, history, want_json, opts):
     text = prompt + (json_instruction(schema) if want_json else "")
     items.append({"role": "user", "content": [{"type": "input_text", "text": text}]})
     body = {"model": model, "stream": False, "input": items,
-            "reasoning": {"effort": opts.get("effort") or "low"}}
+            "reasoning": {"effort": opts.get("effort") if opts.get("effort") in
+                          ("low", "medium", "high") else "low"}}
     return body
 
 
