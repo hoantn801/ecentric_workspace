@@ -28,13 +28,20 @@ def _html():
 # upsert_web_page REFUSES to write when live no longer hashes to this, so a repo
 # snapshot can never silently revert a live edit. Deliberate update = re-snapshot
 # live into main_section.html, then bump this constant in the same commit.
-BASELINE_SHA256 = "f32af94a6b26ad1a62f9f49c1110b6bb79591eb73f118f70af0b947a8fa60044"
+# 29/09/2026 (p224, NHIEU_LOP/brief_gbs.md muc 5): 3 so do mermaid thanh SVG ve san trong
+# HTML - trang khong con nap mermaid tu CDN va ve de len <pre class="mermaid"> luc tai.
+# Nguon so do + cach ve lai: diagrams.md cung thu muc.
+BASELINE_SHA256 = "11ff86f46230eec5501363d0b5ab57c5c0ebeb4fd321bdad86257eed48d96ccf"
 SUPERSEDES_SHA256 = (
     # 16/09: BASELINE dang khai da lech san tren main tu truoc dot tab (HTML doi o
     # d84734be ma khong bump). Bump de page_sync THOI TU CHOI GHI; gia tri cu giu lai
     # vi live rat co the van dang mang dung bytes do.
     "f11e517ed18406e589454137842ccbbf8f93a47a62669ae3618a909922fbbedf",
+    # 29/09: live (do qua API) van dung bytes nay - modified 2026-08-02; chi khac ban
+    # repo o vung menu/topbar cua Shell (dong 105-106).
     "0efc501dc5b74dc7fe41f52dae34fe610175501c2dfff1850a6950706c536a01",
+    # 29/09: BASELINE cu (ban repo sau d84734be, chua tung len live).
+    "f32af94a6b26ad1a62f9f49c1110b6bb79591eb73f118f70af0b947a8fa60044",
 )
 
 

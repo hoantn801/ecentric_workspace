@@ -7,13 +7,19 @@
     <button id="ecfr-reload" style="padding:8px 14px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer;font-weight:600">Tải lại</button>
   </div>
 
+  <div id="ecfr-actions" style="margin-top:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <button id="ecfr-create" style="padding:10px 18px;border:0;border-radius:8px;background:#111827;color:#fff;cursor:pointer;font-weight:700">Tạo Item EC cho mã đã chọn</button>
+    <span style="color:#6b7280;font-size:13px">Mã tạo xong sẽ biến khỏi danh sách. Item phí EC nhớ vào bảng phân bổ điền % cho brand.</span>
+  </div>
+
   <div id="ecfr-msg" style="margin:14px 0;display:none;padding:10px 14px;border-radius:8px;font-size:14px"></div>
 
   <div style="overflow:auto;border:1px solid #e5e7eb;border-radius:10px;margin-top:14px">
-    <table style="width:100%;border-collapse:collapse;font-size:14px">
+    <table style="width:100%;min-width:960px;table-layout:fixed;border-collapse:collapse;font-size:14px;overflow-wrap:anywhere">
+      <colgroup><col style="width:44px"><col style="width:24%"><col><col style="width:72px"><col style="width:220px"><col style="width:170px"><col style="width:104px"></colgroup>
       <thead>
         <tr style="background:#f9fafb;text-align:left">
-          <th style="padding:10px 12px;width:44px"><input type="checkbox" id="ecfr-all" title="Chọn tất cả"></th>
+          <th style="padding:10px 12px"><input type="checkbox" id="ecfr-all" title="Chọn tất cả"></th>
           <th style="padding:10px 12px">Mã (item code)</th>
           <th style="padding:10px 12px">Tên</th>
           <th style="padding:10px 12px;text-align:right">Số lần</th>
@@ -24,11 +30,6 @@
       </thead>
       <tbody id="ecfr-body"><tr><td colspan="7" style="padding:18px;text-align:center;color:#6b7280">Đang tải…</td></tr></tbody>
     </table>
-  </div>
-
-  <div style="margin-top:16px;display:flex;align-items:center;gap:12px">
-    <button id="ecfr-create" style="padding:10px 18px;border:0;border-radius:8px;background:#111827;color:#fff;cursor:pointer;font-weight:700">Tạo Item EC cho mã đã chọn</button>
-    <span style="color:#6b7280;font-size:13px">Mã tạo xong sẽ biến khỏi danh sách. Item phí EC nhớ vào bảng phân bổ điền % cho brand.</span>
   </div>
 </div>
 

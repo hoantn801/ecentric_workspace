@@ -182,23 +182,23 @@
   },
   "legacy_pages/docs_gbsflow/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "f32af94a6b26ad1a62f9f49c1110b6bb79591eb73f118f70af0b947a8fa60044"
+    "last_resync_patch": "p224_resync_docs_gbsflow_svg",
+    "sha256": "11ff86f46230eec5501363d0b5ab57c5c0ebeb4fd321bdad86257eed48d96ccf"
   },
   "legacy_pages/ec_fee_review/main_section.html": {
     "baseline": "2026-09-29",
-    "last_resync_patch": null,
-    "sha256": "5986e90892652f1719c8f007a6c0b1ac86502dcdfce4b524b43bcf1b7b607241"
+    "last_resync_patch": "p225_resync_ec_fee_review",
+    "sha256": "b9212c8a8d104fa4c4a0eae91abcf63b6caf2bb85ca011c0039bb2fc63a77927"
   },
   "legacy_pages/gbs_po_form_v2/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p185_resync_csrf_wrapper_v2",
-    "sha256": "00aa084115c667ff42b47ed8057ed45c74e97523bc4d1226638b4833775677c5"
+    "last_resync_patch": "p223_resync_gbs_form_nhieu_lop",
+    "sha256": "7423514b149877254cc01b9687b42b19b17995df67fbdad25e402208b06a40b1"
   },
   "legacy_pages/gbs_so_form_v2/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p185_resync_csrf_wrapper_v2",
-    "sha256": "39c6d299eafd181bf41094381a4147feba1001deab70d5462f152d281f447be6"
+    "last_resync_patch": "p223_resync_gbs_form_nhieu_lop",
+    "sha256": "06e4d72b16e6356f130593d0d95b260a42957e97b62a0c6132b5a92740bb3d8d"
   },
   "legacy_pages/mso_plan_form/main_section.html": {
     "baseline": "2026-08-31",
