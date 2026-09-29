@@ -250,6 +250,8 @@
     '<g class="lid"><circle cx="26" cy="29.5" r="3.1" fill="#1E2A5A"/><circle cx="27.05" cy="28.38" r=".93" fill="#fff" opacity=".9"/></g>' +
     '<g class="lid"><circle cx="38" cy="29.5" r="3.1" fill="#1E2A5A"/><circle cx="39.05" cy="28.38" r=".93" fill="#fff" opacity=".9"/></g>' +
     '</g>' +
+    '<g class="dz" fill="none" stroke="#1E2A5A" stroke-width="1.1" stroke-linecap="round">' +
+    '<path d="M26 29.5a.7 .7 0 0 1 1.4 0a1.4 1.4 0 0 1-2.8 0a2.1 2.1 0 0 1 4.2 0a2.8 2.8 0 0 1-5.6 0"/><path d="M38 29.5a.7 .7 0 0 1 1.4 0a1.4 1.4 0 0 1-2.8 0a2.1 2.1 0 0 1 4.2 0a2.8 2.8 0 0 1-5.6 0"/></g>' +
     '<path d="M6 37h52l-4.6 18.3A3.2 3.2 0 0 1 50.3 58H13.7a3.2 3.2 0 0 1-3.1-2.7z" fill="#1E2A5A"/>' +
     '<rect x="5" y="35.4" width="54" height="3.6" rx="1.8" fill="#34427A"/>' +
     '<ellipse cx="17" cy="36.4" rx="3.6" ry="2.6" fill="#F7C948"/><ellipse cx="47" cy="36.4" rx="3.6" ry="2.6" fill="#F7C948"/>' +
@@ -284,6 +286,16 @@
     "width:80px;height:80px;background:transparent;border:0;display:grid;place-items:center;z-index:1045;padding:0;",
     "transition:transform .18s ease;touch-action:none}",
     ".fab.drag{transition:none;cursor:grabbing}",
+    /* bi keo: chong mat - lac lu, mat xoay @@, keu "Oopss..." (PO 29/09) */
+    ".dz{display:none}.fab.dizzy .look{display:none}.fab.dizzy .dz{display:inline}",
+    ".fab.dizzy svg{animation:wob .45s ease-in-out infinite alternate}",
+    "@keyframes wob{from{transform:rotate(-14deg)}to{transform:rotate(14deg)}}",
+    ".dz path{animation:spin .6s linear infinite;transform-box:fill-box;transform-origin:center}",
+    "@keyframes spin{to{transform:rotate(360deg)}}",
+    ".oops{position:absolute;bottom:80px;right:4px;background:#fff;color:var(--ink);font-size:12.5px;font-weight:700;",
+    "padding:6px 11px;border-radius:12px;box-shadow:0 6px 16px rgba(30,42,90,.18);white-space:nowrap;opacity:0;",
+    "transform:translateY(4px) scale(.9);transition:opacity .15s,transform .15s;pointer-events:none}",
+    ".fab.dizzy .oops{opacity:1;transform:none}.fab.flip .oops{bottom:auto;top:84px}",
     ".fab svg{width:80px;height:80px;filter:drop-shadow(0 6px 10px rgba(30,42,90,.28))}",
     ".fab:hover{transform:translateY(-3px)}.fab[aria-expanded=true] svg{filter:drop-shadow(0 6px 14px rgba(44,61,166,.45))}",
     ".lid{animation:blink 5.5s infinite;transform-box:fill-box;transform-origin:center}",
@@ -352,7 +364,7 @@
     ".drop span{font-size:12.5px;color:var(--g600)}.drop.on{background:var(--navy-50);box-shadow:0 0 0 6px rgba(44,61,166,.12)}",
     "[hidden]{display:none!important}",
     "@media (max-width:640px){.pan,.pan.wide{inset:0;width:auto;height:auto;border-radius:0;border:0}.drop{left:16px;right:16px;width:auto}}",
-    "@media (prefers-reduced-motion:reduce){.lid,.typing i{animation:none}}"
+    "@media (prefers-reduced-motion:reduce){.lid,.typing i,.fab.dizzy svg,.dz path{animation:none}}"
   ].join("");
 
   function NAME() { return (S.boot && S.boot.name) || "eC Mate"; }
@@ -362,7 +374,7 @@
     var nm = esc(NAME());
     root.innerHTML = "<style>" + CSS + "</style>" +
       '<div class="w">' +
-      '<button class="fab" type="button" aria-label="Mở ' + nm + '" aria-expanded="false">' + FACE + "</button>" +
+      '<button class="fab" type="button" aria-label="Mở ' + nm + '" aria-expanded="false">' + FACE + '<span class="oops" aria-hidden="true">Oopss...</span></button>' +
       '<section class="pan" role="dialog" aria-label="' + nm + '" hidden>' +
       '<header class="hd"><span class="av">' + FACE + '</span>' +
       '<div class="t"><b>' + nm + '</b><span>Trợ lý của bạn trên ERP</span></div>' +
@@ -749,7 +761,7 @@
   /* Keo nut sang cho khac (29/09, PO: nut che nut "Gui" o khung comment GBS). Nhan giu va keo
    * > 6px la keo, khong thi van la bam mo khung. Vi tri nho trong localStorage (khoang cach toi
    * mep phai/duoi) va luon kep trong khung nhin khi doi co cua so. */
-  var POS_KEY = "ec_khay_fab_pos", dragged = false;
+  var POS_KEY = "ec_khay_fab_pos", dragged = false, dizzyT = null;
   function clampPos(right, bottom) {
     var w = R.fab.offsetWidth || 80, h = R.fab.offsetHeight || 80;
     return { right: Math.max(4, Math.min(right, window.innerWidth - w - 4)),
@@ -778,18 +790,22 @@
       if (!start) return;
       var dx = e.clientX - start.x, dy = e.clientY - start.y;
       if (!start.on && Math.abs(dx) + Math.abs(dy) < 6) return;
-      if (!start.on) { start.on = true; R.fab.classList.add("drag"); try { R.fab.setPointerCapture(e.pointerId); } catch (x) { /* noop */ } }
+      if (!start.on) { start.on = true; clearTimeout(dizzyT); R.fab.classList.add("drag", "dizzy"); try { R.fab.setPointerCapture(e.pointerId); } catch (x) { /* noop */ } }
       applyPos({ right: start.right - dx, bottom: start.bottom - dy });
+      R.fab.classList.toggle("flip", R.fab.getBoundingClientRect().top < 48);   // sat mep tren: bong bong xuong duoi
     });
-    window.addEventListener("pointerup", function () {
+    function drop() {
       if (!start) return;
       if (start.on) {
         dragged = true;
         R.fab.classList.remove("drag");
+        dizzyT = setTimeout(function () { R.fab.classList.remove("dizzy"); }, 900);   // hoan hon roi moi tinh
         try { localStorage.setItem(POS_KEY, JSON.stringify({ right: parseFloat(R.fab.style.right), bottom: parseFloat(R.fab.style.bottom) })); } catch (e) { /* noop */ }
       }
       start = null;
-    });
+    }
+    window.addEventListener("pointerup", drop);
+    window.addEventListener("pointercancel", drop);   // cam ung bi huy: khong de linh vat chong mat mai
     window.addEventListener("resize", function () { applyPos(savedPos()); });
   }
 
