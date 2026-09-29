@@ -133,6 +133,36 @@ const shell='<aside data-ec-shell="1"></aside><main>trang</main>';
   R6.querySelector("form").dispatchEvent(new e6.w.Event("submit",{cancelable:true})); await tick(120);
   ok("can so lieu: goi gemini_chat va hien ket qua", e6.log.some(x=>x.m==="gemini_chat") && /TRA CUU/.test(R6.querySelector(".ms").textContent));
 
+  // ---- moi form Approval Center (29/09): khong tep -> AI dien tu cau chat, dung form server chon
+  const r7=Object.assign({},r5,{
+    "ecentric_workspace.platform.ai.khay.intent":()=>({status:200,j:{message:{action:"approval",approval_code:"PURCHASE_REQUEST",
+      approval_title:"Purchase Request",route:"/approvals/purchase-request",labels:{item:"Mặt hàng"},reply:"",model:"grok-4-7"}}}),
+    "ecentric_workspace.approval_center.api.ai_formfill.suggest":()=>({status:200,j:{message:{fields:{item:"2 màn hình Dell"},sources:{},model:"gemini-3-8-flash-openai"}}}),
+    "ecentric_workspace.approval_center.api.ai_formfill.create_draft":()=>({status:200,j:{message:{name:"EC-PUR-2026-00001",missing:[]}}})});
+  const e7=mk("https://x/viec-cua-toi",shell,r7); await tick(50);
+  const R7=e7.w.document.getElementById("ec-khay-host").shadowRoot;
+  R7.querySelector(".fab").click(); await tick();
+  R7.querySelector("textarea").value="minh can mua 2 man hinh Dell";
+  R7.querySelector("form").dispatchEvent(new e7.w.Event("submit",{cancelable:true})); await tick(120);
+  const sg=e7.log.find(x=>/ai_formfill.suggest/.test(x.m));
+  ok("form bat ky: goi suggest dung ma form server chon", sg && sg.body.approval_code==="PURCHASE_REQUEST");
+  ok("form bat ky: khong tep thi dien tu cau chat", sg && sg.body.note==="minh can mua 2 man hinh Dell" && sg.body.files==="[]");
+  ok("form bat ky: the mang ten form", /Purchase Request/.test(R7.querySelector(".card .ch").textContent));
+  ok("form bat ky: hien o AI dien", /2 màn hình Dell/.test(R7.querySelector(".card").textContent));
+  ok("form bat ky: Tu dien tro dung trang form", R7.querySelector(".card .btn.s").getAttribute("href")==="/approvals/purchase-request");
+  ok("form bat ky: Dien boi model", /Điền bởi Gemini 3\.8 Flash/.test(R7.querySelector(".ms").textContent));
+  R7.querySelector('[data-act="pay-draft"]').click(); await tick(60);
+  const cd=e7.log.find(x=>/create_draft/.test(x.m));
+  ok("form bat ky: tao nhap dung ma form", cd && cd.body.approval_code==="PURCHASE_REQUEST" && JSON.parse(cd.body.fields).item==="2 màn hình Dell");
+  const r8=Object.assign({},r7,{"ecentric_workspace.approval_center.api.ai_formfill.suggest":()=>({status:200,j:{message:{fields:{},sources:{}}}})});
+  const e8=mk("https://x/viec-cua-toi",shell,r8); await tick(50);
+  const R8=e8.w.document.getElementById("ec-khay-host").shadowRoot;
+  R8.querySelector(".fab").click(); await tick();
+  R8.querySelector("textarea").value="tao phieu";
+  R8.querySelector("form").dispatchEvent(new e8.w.Event("submit",{cancelable:true})); await tick(120);
+  ok("form bat ky: AI khong dien duoc o nao thi noi ro, khong co nut tao nhap rong",
+     /chưa điền được ô nào/.test(R8.querySelector(".card").textContent) && !R8.querySelector('[data-act="pay-draft"]'));
+
   let all=true; Object.keys(c).forEach(k=>{console.log((c[k]?"PASS":"FAIL")+" - "+k); if(!c[k]) all=false;});
   console.log(all?"ALL_PASS":"SOME_FAIL"); process.exit(all?0:1);
 })();

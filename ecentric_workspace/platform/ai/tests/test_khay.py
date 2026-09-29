@@ -25,6 +25,26 @@ def sse(obj):
     return "data: " + json.dumps({"candidates": [cand]}, ensure_ascii=False) + "\n\n"
 
 
+CATALOG = [
+    {"approval_code": "PAYMENT_REQUEST", "approval_title": "Payment Request", "card_status": "Active",
+     "route": "/approvals/payment-request", "description": "Đề nghị thanh toán cho nhà cung cấp"},
+    {"approval_code": "PURCHASE_REQUEST", "approval_title": "Purchase Request", "card_status": "Active",
+     "route": "approvals/purchase-request", "description": "Đề nghị mua hàng"},
+    # Form nghi cua Approval Center KHONG dung - xin nghi di Leave Application goc.
+    {"approval_code": "LEAVE_REQUEST", "approval_title": "Leave", "card_status": "Active",
+     "route": "/approvals/leave", "description": ""},
+    # Chua mo (Coming Soon): the co trong danh sach nhung khong co route.
+    {"approval_code": "OFFER_REQUEST", "approval_title": "Offer Request", "card_status": "Coming Soon",
+     "route": None, "description": ""},
+    # Coming Soon nhung CO route (dung nhu NEW_STAFF_PREPARATION tren site 29/09).
+    {"approval_code": "NEW_STAFF_PREPARATION", "approval_title": "New Staff Preparation",
+     "card_status": "Coming Soon", "route": "/approvals/new-staff-preparation", "description": ""},
+    # Khong co trong registry -> may AI dien ho khong chay duoc.
+    {"approval_code": "ANNUAL_BUDGET", "approval_title": "Annual Budget", "card_status": "Active",
+     "route": "/approvals/annual", "description": ""},
+]
+
+
 def as_chat(sse_text):
     """SSE Gemini -> than THAT cua luong OpenAI ben Kie (probe 28/09)."""
     first = json.loads(sse_text.split("data: ", 1)[1].split("\n", 1)[0])
@@ -35,7 +55,8 @@ def as_chat(sse_text):
 
 
 class Env(object):
-    def __init__(self, roles=("EC Khay Pilot",), conf=None, employee=True, reply=None):
+    def __init__(self, roles=("EC Khay Pilot",), conf=None, employee=True, reply=None,
+                 catalog=None):
         self.calls, self.logs = [], []
         self.reply = reply
         env = self
@@ -92,8 +113,16 @@ class Env(object):
             sys.modules[pkg] = types.ModuleType(pkg)
         reg = types.ModuleType("ecentric_workspace.approval_center.shared.registry")
         reg.get_definition = lambda code: types.SimpleNamespace(
-            business_doctype="EC Payment Request", editable_fields=("payee", "payment_amount"))
+            business_doctype="EC " + code, editable_fields=("payee", "payment_amount"))
+        reg.APPROVAL_DEFINITIONS = {c: 1 for c in (
+            "PAYMENT_REQUEST", "PURCHASE_REQUEST", "LEAVE_REQUEST", "OFFER_REQUEST", "RESIGNATION",
+            "NEW_STAFF_PREPARATION")}
         sys.modules["ecentric_workspace.approval_center.shared.registry"] = reg
+        cat = types.ModuleType("ecentric_workspace.approval_center.shared.catalog_api")
+        env.catalog = CATALOG if catalog is None else catalog
+        cat.list_catalog = lambda: {"types": env.catalog}
+        sys.modules["ecentric_workspace.approval_center.shared.catalog_api"] = cat
+        sys.modules["ecentric_workspace.approval_center.shared"].catalog_api = cat
         self.mod = {}
         for name in ("config", "dialects", "health", "gateway", "khay_intent", "khay"):
             full = "ecentric_workspace.platform.ai." + name
@@ -258,15 +287,63 @@ class Endpoint(unittest.TestCase):
         self.assertIn("hồ sơ nhân viên", r["reply"])
 
     def test_thanh_toan_can_quyen_ai_dien_ho(self):
-        rep = (200, sse({"action": "payment_request", "reply": ""}))
+        rep = (200, sse({"action": "payment_request", "reply": ""}))     # ten cu van hieu
         e = Env(reply=rep)
         self.assertEqual(e.k.intent(message="tao de nghi TT", files='["hd.pdf"]')["action"], "notice")
         e = Env(roles=("EC Khay Pilot", "EC AI Formfill Pilot"), reply=rep)
         r = e.k.intent(message="tao de nghi TT", files='["hd.pdf"]')
-        self.assertEqual((r["action"], r["approval_code"], r["route"]),
-                         ("payment_request", "PAYMENT_REQUEST", "/approvals/payment-request"))
+        self.assertEqual((r["action"], r["approval_code"], r["route"], r["approval_title"]),
+                         ("approval", "PAYMENT_REQUEST", "/approvals/payment-request",
+                          "Payment Request"))
         self.assertEqual(r["labels"]["payee"], "Nhãn payee")
         self.assertIn("đọc tệp", r["reply"])
+
+    def test_moi_form_nguoi_do_tao_duoc(self):
+        e = Env(roles=("EC Khay Pilot", "EC AI Formfill Pilot"),
+                reply=(200, sse({"action": "approval", "approval_code": "purchase_request",
+                                 "reply": ""})))
+        r = e.k.intent(message="minh can mua 2 man hinh")
+        self.assertEqual((r["action"], r["approval_code"], r["route"]),
+                         ("approval", "PURCHASE_REQUEST", "/approvals/purchase-request"),
+                         "route thieu '/' dau tren site (booking, contract) duoc sua")
+        prompt = e.calls[0]["body"]["messages"][-1]["content"]
+        self.assertIn("PURCHASE_REQUEST | Purchase Request | Đề nghị mua hàng", prompt)
+        for an in ("LEAVE_REQUEST", "OFFER_REQUEST", "ANNUAL_BUDGET", "NEW_STAFF_PREPARATION"):
+            self.assertNotIn(an, prompt, "%s khong duoc dua cho AI" % an)
+
+    def test_form_khong_duoc_tao_thi_hoi_lai_khong_doan(self):
+        for code in ("OFFER_REQUEST", "ANNUAL_BUDGET", "LEAVE_REQUEST", "BIA_RA", ""):
+            e = Env(roles=("EC Khay Pilot", "EC AI Formfill Pilot"),
+                    reply=(200, sse({"action": "approval", "approval_code": code, "reply": "ok"})))
+            r = e.k.intent(message="tao phieu")
+            self.assertEqual(r["action"], "clarify", code)
+            self.assertNotIn("approval_code", r, code)
+            self.assertEqual(r["options"], ["Payment Request", "Purchase Request"], code)
+
+    def test_the_bi_an_voi_nguoi_nay_thi_khong_co_trong_danh_sach(self):
+        # Visibility theo vai tro/phong ban do list_catalog quyet (chay duoi quyen nguoi goi):
+        # form nguoi nay khong thay -> khong nam trong prompt, AI chon cung bi tu choi.
+        e = Env(roles=("EC Khay Pilot", "EC AI Formfill Pilot"), catalog=CATALOG[:1],
+                reply=(200, sse({"action": "approval", "approval_code": "PURCHASE_REQUEST",
+                                 "reply": "ok"})))
+        r = e.k.intent(message="mua man hinh")
+        self.assertEqual(r["action"], "clarify")
+        self.assertNotIn("PURCHASE_REQUEST", e.calls[0]["body"]["messages"][-1]["content"])
+
+    def test_lop_cuoi_server_tu_choi_ma_ngoai_danh_sach(self):
+        e = Env(roles=("EC Khay Pilot", "EC AI Formfill Pilot"))
+        r = e.k._enrich({"action": "approval", "approval_code": "RESIGNATION", "reply": "x",
+                         "options": []}, "nv@ecentric.vn", forms=[])
+        self.assertEqual(r["action"], "notice")
+        self.assertNotIn("route", r)
+
+    def test_khong_co_form_nao_thi_noi_ro(self):
+        e = Env(roles=("EC Khay Pilot", "EC AI Formfill Pilot"), catalog=[],
+                reply=(200, sse({"action": "approval", "approval_code": "PAYMENT_REQUEST",
+                                 "reply": "ok"})))
+        r = e.k.intent(message="tao phieu")
+        self.assertEqual(r["action"], "clarify")
+        self.assertIn("chưa có loại phiếu", r["reply"])
 
     def test_ai_hong_thi_bao_ban_khong_nem(self):
         e = Env()

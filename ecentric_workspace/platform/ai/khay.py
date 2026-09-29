@@ -22,9 +22,10 @@ ROLE = "EC Khay Pilot"
 DISABLED_FLAG = "ec_khay_disabled"
 FORMFILL_ROLE = "EC AI Formfill Pilot"
 PAYMENT_CODE = "PAYMENT_REQUEST"
-#: Giai doan 1 chi mot form, trung voi ROUTES cua ec_aifill.bundle.js - AI dien ho moi
-#: nghiem thu xong tren form nay. Them form = them vao day SAU khi form do chay AI dien ho.
 PAYMENT_ROUTE = "/approvals/payment-request"
+#: Form xin nghi cua Approval Center khong dung (0 phieu/30 ngay) - xin nghi di Leave
+#: Application goc qua ec_hr_leave_apply.
+SKIP_CODES = ("LEAVE_REQUEST",)
 #: Ten hien tren giao dien va trong loi dan. Doi ten = doi DUNG dong nay.
 ASSISTANT_NAME = "eC Mate"   # Hoan chot ten 28/09
 #: Hoi thoai thi phai nhanh: moi lan thu toi da 15s (Kie lan 28/09 treo 60s moi bao loi),
@@ -60,10 +61,39 @@ def _employee(user):
                                ["name", "employee_name"], as_dict=True)
 
 
-def _can_payment(user):
+def _can_formfill(user):
     roles = _roles(user)
     return ((FORMFILL_ROLE in roles or "System Manager" in roles)
             and not _flag("ec_ai_formfill_disabled"))
+
+
+def _route(r):
+    r = str(r or "").strip()
+    return ("/" + r.lstrip("/")) if r else ""
+
+
+def forms_for(user):
+    """Form Approval Center NGUOI NAY duoc tao, dung danh sach trang Phe duyet cua ho.
+
+    Lay tu catalog_api.list_catalog (chay DUOI QUYEN nguoi dang goi): the phai Active, co
+    route, nguoi do thay duoc theo visibility (vai tro / phong ban). Chi giu ma co trong
+    registry (co may AI dien ho chay duoc). Loi -> [] (eC Mate khong tao phieu, van chat).
+    """
+    try:
+        from ecentric_workspace.approval_center.shared import catalog_api
+        from ecentric_workspace.approval_center.shared.registry import APPROVAL_DEFINITIONS
+        cards = catalog_api.list_catalog().get("types") or []
+    except Exception:
+        frappe.log_error(title="ec_khay forms_for")
+        return []
+    out = []
+    for c in cards:
+        code = c.get("approval_code")
+        if (c.get("card_status") == "Active" and c.get("route") and code in APPROVAL_DEFINITIONS
+                and code not in SKIP_CODES):
+            out.append({"code": code, "title": c.get("approval_title") or code,
+                        "description": c.get("description") or "", "route": _route(c["route"])})
+    return out
 
 
 def _labels(doctype, fields):
@@ -84,7 +114,7 @@ def boot():
     emp = _employee(user) or {}
     name = (emp.get("employee_name") or frappe.db.get_value("User", user, "first_name") or "")
     return {"enabled": True, "name": ASSISTANT_NAME, "first_name": str(name).split(" ")[-1],
-            "can_leave": bool(emp), "can_payment": _can_payment(user),
+            "can_leave": bool(emp), "can_payment": _can_formfill(user),
             "payment_route": PAYMENT_ROUTE}
 
 
@@ -105,34 +135,36 @@ def intent(message=None, history=None, page=None, files=None):
         return quick
 
     leave_types = [r.name for r in frappe.get_all("Leave Type", fields=["name"], order_by="name")]
+    forms = forms_for(user)
     today = frappe.utils.getdate(frappe.utils.nowdate())
     res = gateway.generate(
         brain.build_prompt(message or "(khong go gi, chi tha tep)", today, leave_types,
-                           page=page or "", file_names=names),
+                           page=page or "", file_names=names, forms=forms),
         system=brain.system(ASSISTANT_NAME), schema=brain.SCHEMA,
         history=brain.parse_history(history), purpose="khay", budget=BUDGET,
         attempt_timeout=ATTEMPT_TIMEOUT, fast=True, opts={"temperature": 0, "effort": "none"})
     if not res["ok"]:
         return {"action": "error", "reply": BUSY, "options": []}
-    out = brain.normalize(res["data"], leave_types, today, has_files=bool(names))
-    out = _enrich(out, user)
+    out = brain.normalize(res["data"], leave_types, today, has_files=bool(names), forms=forms)
+    out = _enrich(out, user, forms)
     out["model"] = res["model"]      # dong "Tra loi boi ..." duoi cau tra loi (Hoan 28/09)
     return out
 
 
-def _enrich(out, user):
+def _enrich(out, user, forms=()):
     """Them nhung thu CHI server biet (quyen, nhan truong, duong dan). Model khong duoc dien."""
     if out["action"] == brain.LEAVE and not _employee(user):
         return {"action": "notice",
                 "reply": "Tài khoản của bạn chưa gắn hồ sơ nhân viên nên chưa xin nghỉ được. "
                          "Bạn báo Nhân sự giúp mình nhé.", "options": []}
-    if out["action"] == brain.PAYMENT:
-        if not _can_payment(user):
+    if out["action"] == brain.APPROVAL:
+        form = next((f for f in forms if f["code"] == out.get("approval_code")), None)
+        if not _can_formfill(user) or not form:
             return {"action": "notice", "options": [],
-                    "reply": "Bạn chưa được bật AI điền hộ cho đề nghị thanh toán. "
+                    "reply": "Bạn chưa được bật AI điền hộ phiếu phê duyệt. "
                              "Bạn vẫn tạo phiếu thủ công ở trang Phê duyệt được nhé."}
         from ecentric_workspace.approval_center.shared.registry import get_definition
-        d = get_definition(PAYMENT_CODE)
-        out.update({"approval_code": PAYMENT_CODE, "route": PAYMENT_ROUTE,
+        d = get_definition(form["code"])
+        out.update({"approval_title": form["title"], "route": form["route"],
                     "labels": _labels(d.business_doctype, d.editable_fields)})
     return out
