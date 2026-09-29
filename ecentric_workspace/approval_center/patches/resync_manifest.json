@@ -109,8 +109,8 @@
   },
   "approval_center/features/promotion/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p203_resync_all_forms_alltab",
-    "sha256": "a2542c4209f39ffdebb4c1bd51f5a38b7d85e9f1d90cd6110dc04bfa57460052"
+    "last_resync_patch": "p234_promotion_chon_nhan_su",
+    "sha256": "5d1410c9a6dc1653e88feb0e47fc9730804e8d787ac2be0069e5ac98aa0265fb"
   },
   "approval_center/features/purchase_request/ui/main_section.html": {
     "baseline": "2026-08-31",

@@ -1,6 +1,10 @@
 # Copyright (c) 2026, eCentric and contributors
 """Promotion orchestration over the shared engine. Direct Manager -> CnB -> HOF -> CEO
-(User participants from process config; no fulfillment). Governance: because a promotion
+(User participants from process config; no fulfillment).
+
+29/09/2026 (Hoan chot): chon THANG nhan su (chi nguoi minh xem duoc luong - employee_snapshot.py);
+thong tin hien tai (vi tri, luong) lay tu ho so / SSA o SERVER, khong tin client; duyet xong tu
+ghi chuc danh + tao SSA luong moi (apply_to_employee, nen sau commit). Governance: because a promotion
 carries salary data, the Direct Manager approver is NEVER requester-chosen - it resolves
 from Employee.reports_to. If it cannot be resolved, submit is blocked with a friendly
 Vietnamese message (no silent bypass). No hardcoded runtime approvers."""
@@ -12,11 +16,12 @@ from frappe import _
 from frappe.utils import now_datetime
 
 from ecentric_workspace.approval_center.shared.workflow import transitions as engine
+from ecentric_workspace.approval_center.features.promotion.application import employee_snapshot as snap
 
 BUSINESS_DT = "EC Promotion Request"
 APPROVAL_TYPE = "PROMOTION_REQUEST"
 
-MATERIAL_FIELDS = ["full_name", "department", "current_position", "proposed_position",
+MATERIAL_FIELDS = ["promoted_employee", "full_name", "department", "current_position", "proposed_position",
                    "justification", "current_salary", "proposed_salary", "incentives",
                    "effective_date_of_promotion"]
 REQUIRED_AT_SUBMIT = ["request_title", "full_name", "department", "current_position",
@@ -58,6 +63,7 @@ def submit(name):
     if emp:
         doc.employee = emp.name
         doc.company = doc.company or emp.company
+    _fill_from_employee(doc)
     missing = [f for f in REQUIRED_AT_SUBMIT if not doc.get(f)]
     if doc.current_salary is None:
         missing.append("current_salary")
@@ -85,10 +91,85 @@ def submit(name):
     return req_name
 
 
+def _fill_from_employee(doc):
+    """Nhan su chon tu danh sach -> ghi de ho ten / phong ban / vi tri / luong HIEN TAI bang du
+    lieu server (quyen xem luong kiem lai o day). Phieu cu (khong chon nhan su) giu nhu truoc."""
+    if not doc.get("promoted_employee"):
+        if frappe.db.get_value(BUSINESS_DT, doc.name, "approval_request"):
+            return
+        frappe.throw(_("Vui lòng chọn nhân sự được đề xuất."))
+    s = snap.snapshot(doc.promoted_employee)
+    doc.full_name = s["full_name"]
+    doc.department = s["department"]
+    doc.current_position = s["current_position"] or doc.current_position
+    doc.current_salary = s["current_salary"] if s["current_salary"] is not None else doc.current_salary
+
+
+def form_options():
+    from ecentric_workspace.approval_center.shared.definition_support import DepartmentOptions
+    out = DepartmentOptions()()
+    out["designations"] = snap.designations()
+    return out
+
+
+def on_final_approval(name):
+    frappe.enqueue("ecentric_workspace.approval_center.features.promotion.application.service."
+                   "apply_to_employee", queue="short", enqueue_after_commit=True, name=name)
+
+
+def apply_to_employee(name):
+    """Idempotent. Moi thay doi trong MOT giao dich: loi giua chung thi rollback het."""
+    doc = frappe.get_doc(BUSINESS_DT, name)
+    if doc.get("applied_at") or not doc.get("promoted_employee"):
+        return {"skipped": True}
+    try:
+        ok, notes = snap.apply_promotion(doc)
+        msg = "; ".join(notes)
+        frappe.db.set_value(BUSINESS_DT, name, {"applied_at": frappe.utils.now_datetime(),
+                                                "apply_result": msg[:500]}, update_modified=False)
+        engine.log_action(doc.approval_request, "Commented", "Administrator", comment=msg)
+        frappe.db.commit()
+        if not ok:
+            _notify_manual(doc, msg)
+        return {"applied": True, "ok": ok}
+    except Exception:
+        frappe.db.rollback()
+        frappe.log_error(title="Promotion: khong cap nhat duoc ho so %s" % name, message=frappe.get_traceback())
+        frappe.db.set_value(BUSINESS_DT, name, "apply_result",
+                            _("LỖI khi cập nhật hồ sơ / lương - C&B cập nhật tay (xem Error Log)."),
+                            update_modified=False)
+        frappe.db.commit()
+        _notify_manual(doc, _("lỗi hệ thống"))
+        return {"applied": False}
+
+
+def _notify_manual(doc, why):
+    try:
+        who = frappe.get_all("EC Approval Request Approver",
+                             filters={"approval_request": doc.approval_request, "status": "Approved"},
+                             pluck="approver")
+        engine.notify(sorted(set(who + [doc.requested_by])),
+                      _("Promotion {0}: cần C&B cập nhật tay ({1}).").format(doc.name, why),
+                      BUSINESS_DT, doc.name)
+        frappe.db.commit()
+    except Exception:
+        pass
+
+
+def promotion_block(business, request):
+    return {"applied_at": business.get("applied_at"), "apply_result": business.get("apply_result"),
+            "auto_apply": bool(business.get("promoted_employee"))}
+
+
 def resubmit(name, actor=None):
     doc = frappe.get_doc(BUSINESS_DT, name)
     if not doc.approval_request:
         frappe.throw(_("Yeu cau chua duoc gui."))
+    if doc.get("promoted_employee"):
+        _fill_from_employee(doc)
+        frappe.db.set_value(BUSINESS_DT, doc.name, {"full_name": doc.full_name, "department": doc.department,
+                                                    "current_position": doc.current_position,
+                                                    "current_salary": doc.current_salary})
     new_sig = _signature(doc)
     material_changed = new_sig != (doc.material_signature or "")
     engine.resubmit(doc.approval_request, actor=actor or frappe.session.user, restart=material_changed)

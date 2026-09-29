@@ -289,3 +289,26 @@ def test_khong_tao_clearance_bang_tay(env):
     fr, off, job, clr, res = env()
     with pytest.raises(Throw):
         clr.prepare_draft(Doc(doctype="EC Clearance Request", name=None))
+
+
+# --------------------------- p235 ghi bu ---------------------------
+def test_p235_ghi_bu_chi_don_that_da_duyet_khong_ghi_de(env):
+    fr, off, job, clr, res = env()
+    p235 = load("approval_center/patches/p235_ghi_bu_ngay_nghi_viec.py", "p235_rieng")
+    for n, email, day, st in (("EC-RESN-2026-00001", "hoan@x", "2029-01-01", "Approved"),
+                              ("EC-RESN-2026-00002", "a@x", "2026-09-22", "Approved"),
+                              ("EC-RESN-2026-00003", "c@x", "2026-09-18", "Approved"),
+                              ("EC-RESN-2026-00004", "d@x", "2026-10-09", "Pending")):
+        W.tables["EC Approval Request"]["APR-" + n] = Obj(name="APR-" + n, approval_status=st)
+        W.tables["EC Resignation Request"][n] = Obj(name=n, approval_request="APR-" + n, employee_email=email,
+                                                    last_working_day=day, submitted_at="2026-09-01", creation="2026-09-01")
+    emp("E0", "hoan@x")
+    emp("E1", "a@x")
+    emp("E3", "c@x", relieving="2026-09-30")                  # HR da sua tay -> giu
+    emp("E4", "d@x")
+    p235.execute()
+    assert str(W.tables["Employee"]["E1"]["relieving_date"]) == "2026-09-22"
+    assert W.tables["Employee"]["E0"]["relieving_date"] is None      # phieu test
+    assert W.tables["Employee"]["E3"]["relieving_date"] == "2026-09-30"
+    assert W.tables["Employee"]["E4"]["relieving_date"] is None      # chua duyet
+    assert all(e["status"] == "Active" for e in W.tables["Employee"].values())

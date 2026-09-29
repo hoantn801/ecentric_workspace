@@ -34,6 +34,10 @@ def _employee_of(email):
     return None
 
 
+#: Cong khai cho patch ghi bu / module khac.
+employee_of = _employee_of
+
+
 def mark_resignation(employee_email, letter_date=None, relieving_date=None, source=None):
     """Ghi hai ngay nghi viec vao ho so. Idempotent. -> chuoi ket qua ngan (cho nhat ky)."""
     emp_name = _employee_of(employee_email)
