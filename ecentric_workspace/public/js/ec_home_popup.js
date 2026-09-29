@@ -410,7 +410,7 @@
     injectCss();
     const root = document.createElement('div');
     root.id = ROOT;
-    const st = { data, slides, root, i: 0, paused: false, manual: false, hide: false, open: {}, prevFocus: document.activeElement };
+    const st = { data, slides, root, i: 0, paused: false, manual: false, hide: !shouldShow(data), open: {}, prevFocus: document.activeElement };
     const close = () => {
       root.remove();
       document.removeEventListener('keydown', onKey, true);
