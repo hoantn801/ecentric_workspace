@@ -117,10 +117,14 @@ class TestSourceFile(unittest.TestCase):
         self.assertTrue(os.path.isfile(patch))
         src = io.open(patch, encoding="utf-8").read()
         self.assertIn("page_sync.sync()", src)
-        self.assertIn("home-v2", src)
         self.assertIn("except Exception", src, "patch nem loi = chan ca dot deploy")
         listed = io.open(os.path.join(APP, "patches.txt"), encoding="utf-8").read()
         self.assertIn("approval_center.patches." + rec["last_resync_patch"], listed)
+        # p224 (ban dau) la patch go /home-v2 - van phai con va duoc khai
+        p224 = io.open(os.path.join(APP, "approval_center", "patches", "p224_resync_home_v2_nguon.py"),
+                       encoding="utf-8").read()
+        self.assertIn('{"route": "home-v2"}', p224)
+        self.assertIn("approval_center.patches.p224_resync_home_v2_nguon", listed)
 
 
 class TestJinjaRender(unittest.TestCase):
@@ -311,6 +315,13 @@ class TestStaticLayout(unittest.TestCase):
             self.assertNotIn(decl, z)
         for m in re.finditer(r"font-size:(\d+(?:\.\d+)?)px", z):
             self.assertGreaterEqual(float(m.group(1)), 11.0, m.group(0))
+
+    def test_checkin_button_never_wraps(self):
+        """29/09 10:20 tren live (man 14"): nhan "Da cham cong hom nay" rong 147,23 px > min-width
+        147 px -> nut xuong 2 dong, dai navy cao them 17 px sau khi du lieu ve (p225 sua)."""
+        s = _src()
+        self.assertRegex(s, r"\.ecentric-app \.ec2-band \.btn-checkin\{[^}]*white-space:nowrap")
+        self.assertIn(".ecentric-app .ec2-home .ec2-band .checkin-card{width:262px}", s)
 
     def test_mascot_is_static(self):
         s = _src()
