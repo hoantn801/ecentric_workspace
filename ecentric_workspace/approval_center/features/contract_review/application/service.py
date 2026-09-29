@@ -182,7 +182,6 @@ def _process_level_users(doc, level_no):
     return []
 
 
-@frappe.whitelist(methods=["POST"])
 def resubmit(name, actor=None):
     doc = frappe.get_doc(BUSINESS_DT, name)
     if not doc.approval_request:
