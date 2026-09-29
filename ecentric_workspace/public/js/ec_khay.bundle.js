@@ -282,7 +282,8 @@
     ":focus-visible{outline:2px solid var(--navy);outline-offset:2px}",
     ".fab{position:fixed;right:14px;bottom:calc(var(--kb,14px) + env(safe-area-inset-bottom,0px));",
     "width:80px;height:80px;background:transparent;border:0;display:grid;place-items:center;z-index:1045;padding:0;",
-    "transition:transform .18s ease}",
+    "transition:transform .18s ease;touch-action:none}",
+    ".fab.drag{transition:none;cursor:grabbing}",
     ".fab svg{width:80px;height:80px;filter:drop-shadow(0 6px 10px rgba(30,42,90,.28))}",
     ".fab:hover{transform:translateY(-3px)}.fab[aria-expanded=true] svg{filter:drop-shadow(0 6px 14px rgba(44,61,166,.45))}",
     ".lid{animation:blink 5.5s infinite;transform-box:fill-box;transform-origin:center}",
@@ -745,9 +746,60 @@
     }, { passive: true });
   }
 
+  /* Keo nut sang cho khac (29/09, PO: nut che nut "Gui" o khung comment GBS). Nhan giu va keo
+   * > 6px la keo, khong thi van la bam mo khung. Vi tri nho trong localStorage (khoang cach toi
+   * mep phai/duoi) va luon kep trong khung nhin khi doi co cua so. */
+  var POS_KEY = "ec_khay_fab_pos", dragged = false;
+  function clampPos(right, bottom) {
+    var w = R.fab.offsetWidth || 80, h = R.fab.offsetHeight || 80;
+    return { right: Math.max(4, Math.min(right, window.innerWidth - w - 4)),
+             bottom: Math.max(4, Math.min(bottom, window.innerHeight - h - 4)) };
+  }
+  function applyPos(p) {
+    if (!p) return;
+    var c = clampPos(p.right, p.bottom);
+    R.fab.style.right = c.right + "px";
+    R.fab.style.bottom = c.bottom + "px";
+  }
+  function savedPos() {
+    try { var p = JSON.parse(localStorage.getItem(POS_KEY) || "null");
+      return (p && isFinite(p.right) && isFinite(p.bottom)) ? p : null; } catch (e) { return null; }
+  }
+  function makeDraggable() {
+    applyPos(savedPos());
+    var start = null;
+    R.fab.addEventListener("pointerdown", function (e) {
+      if (e.button !== 0) return;
+      var r = R.fab.getBoundingClientRect();
+      start = { x: e.clientX, y: e.clientY, right: window.innerWidth - r.right, bottom: window.innerHeight - r.bottom, on: false };
+      dragged = false;
+    });
+    window.addEventListener("pointermove", function (e) {
+      if (!start) return;
+      var dx = e.clientX - start.x, dy = e.clientY - start.y;
+      if (!start.on && Math.abs(dx) + Math.abs(dy) < 6) return;
+      if (!start.on) { start.on = true; R.fab.classList.add("drag"); try { R.fab.setPointerCapture(e.pointerId); } catch (x) { /* noop */ } }
+      applyPos({ right: start.right - dx, bottom: start.bottom - dy });
+    });
+    window.addEventListener("pointerup", function () {
+      if (!start) return;
+      if (start.on) {
+        dragged = true;
+        R.fab.classList.remove("drag");
+        try { localStorage.setItem(POS_KEY, JSON.stringify({ right: parseFloat(R.fab.style.right), bottom: parseFloat(R.fab.style.bottom) })); } catch (e) { /* noop */ }
+      }
+      start = null;
+    });
+    window.addEventListener("resize", function () { applyPos(savedPos()); });
+  }
+
   function wire(host) {
     trackEyes();
-    R.fab.addEventListener("click", function () { if (S.open) closePanel(); else openPanel(false); });
+    makeDraggable();
+    R.fab.addEventListener("click", function () {
+      if (dragged) { dragged = false; return; }      // vua keo xong - khong mo khung
+      if (S.open) closePanel(); else openPanel(false);
+    });
     R.root.querySelector(".close").addEventListener("click", closePanel);
     R.wideBtn.addEventListener("click", function () { S.wide = !S.wide; paint(); save(); });
     R.form.addEventListener("submit", function (e) {
