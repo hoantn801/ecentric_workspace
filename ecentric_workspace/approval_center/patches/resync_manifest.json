@@ -247,8 +247,8 @@
   },
   "legacy_pages/home/main_section.html": {
     "baseline": "2026-09-29",
-    "last_resync_patch": "p228_resync_home_popup_hom_nay",
-    "sha256": "633e6dd057e87f240e8dcee5aa6e62b4c623745f5ba775248e8c566a12b90baf"
+    "last_resync_patch": "p230_resync_home_mo_lai_popup",
+    "sha256": "cfb286e5c4f0d5672e67d236ece09c1225ab4cd3fc7090d2d86fdcf7f31118f0"
   },
   "alerts/site_pages/overview/main_section.html": {
     "baseline": "2026-09-29",

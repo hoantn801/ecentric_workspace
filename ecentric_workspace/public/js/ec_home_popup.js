@@ -36,7 +36,8 @@
 
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const given = (nm) => { const w = String(nm || '').trim().split(/\s+/); return w[w.length - 1] || ''; };
+  // TEN goi do server tinh (Employee.first_name - ho so ERP ghi Ten Dem Ho); khong co thi chu dau.
+  const given = (p) => (p && p.given) || String((p && p.name) || '').trim().split(/\s+/)[0] || '';
   const warn = (e) => { if (window.console && console.warn) console.warn('ec_home_popup:', e); };
 
   // ------------------------------------------------------------ nhớ "không hiện hôm nay" --
@@ -295,7 +296,7 @@
     if (bd.today.length || bd.soon.length) {
       const n = bd.today.length;
       const sub = [n ? n + ' hôm nay' : '', bd.soon.length ? bd.soon.length + ' tuần này' : ''].filter(Boolean).join(' · ');
-      const names = bd.today.map((p) => given(p.name));
+      const names = bd.today.map((p) => given(p));
       const h = n ? 'Chúc mừng sinh nhật ' + (names.length > 1 ? names.slice(0, -1).join(', ') + ' và ' + names[names.length - 1] : names[0]) + '!' : 'Sinh nhật 7 ngày tới';
       out.push({ k: 'bd', t: 'Sinh nhật', s: sub, ct: n || null, hs: 'Sinh nhật', h, cnt: n ? n + ' hôm nay' : bd.soon.length + ' sắp tới',
         body: (st) => (n ? '<div class="eyebrow">Hôm nay · ' + esc(d.date_label.split(', ')[1] ? d.date_label.split(', ')[1].slice(0, 5) : '') + '</div><div class="ppl">' + bd.today.map((p) => person(st, p)).join('') + '</div>' : '')
@@ -304,7 +305,7 @@
     if (nw.length) {
       const one = nw.length === 1;
       out.push({ k: 'new', t: 'Bạn mới', s: one ? [nw[0].name, nw[0].role.split(' · ').pop()].filter(Boolean).join(' · ') : nw.length + ' bạn mới', ct: nw.length,
-        hs: 'Chào bạn mới', h: one ? 'Hôm nay là ngày đầu tiên của ' + given(nw[0].name) : 'Chào ' + nw.length + ' bạn mới hôm nay', cnt: nw.length + ' bạn mới',
+        hs: 'Chào bạn mới', h: one ? 'Hôm nay là ngày đầu tiên của ' + nw[0].name : 'Chào ' + nw.length + ' bạn mới hôm nay', cnt: nw.length + ' bạn mới',
         body: (st) => nw.map((p) => '<div class="pc" style="align-items:center">' + rxAdd(st, p.key) + ava(p, 'lg ring') + '<div class="who"><span class="nm" style="font-size:17px">' + esc(p.name) + '</span><span class="rl">' + esc(p.role) + '</span>'
           + (p.intro ? '<p class="intro">' + esc(p.intro) + '</p>' : '') + rxHTML(st, p.key) + '</div></div>').join('')
           + '<p class="note">Cả nhà cùng say hi và giúp bạn ấy làm quen nhé.</p>' });
@@ -322,7 +323,7 @@
     if (ann.length) {
       const one = ann.length === 1;
       out.push({ k: 'ann', t: 'Kỷ niệm gắn bó', s: one ? ann[0].name + ' · ' + ann[0].years + ' năm' : ann.length + ' người', ct: ann.length, hs: 'Kỷ niệm gắn bó',
-        h: one ? given(ann[0].name) + ' tròn ' + ann[0].years + ' năm cùng eCentric' : ann.length + ' người tròn năm gắn bó hôm nay', cnt: ann.length + ' người',
+        h: one ? given(ann[0]) + ' tròn ' + ann[0].years + ' năm cùng eCentric' : ann.length + ' người tròn năm gắn bó hôm nay', cnt: ann.length + ' người',
         body: (st) => ann.map((p) => person(st, p, 'vào công ty ' + p.joined + ' · ' + p.years + ' năm')).join('') });
     }
     return out;
@@ -447,13 +448,13 @@
     return st;
   };
 
-  const load = () => {
+  const load = (force) => {
     const req = window.ecApi && window.ecApi.get
       ? window.ecApi.get(API_GET)
       : fetch('/api/method/' + API_GET, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
         .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))).then((j) => j && j.message);
     return req.then((data) => {
-      if (!data || !data.has_content || !shouldShow(data)) return null;
+      if (!data || !data.has_content || (!force && !shouldShow(data))) return null;
       return show(data);
     }, (e) => { warn(e); return null; });
   };
@@ -465,7 +466,16 @@
     return load();
   };
 
-  window.EcHomePopup = { run, show, buildSlides, shouldShow, HIDE_KEY };
+  // Nut "🎉 Hom nay" tren dai navy (server ve san khi co noi dung): mo lai popup bat cu luc nao,
+  // ke ca da tich "Khong hien lai hom nay" (PO 29/09 16:32).
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('[data-ec-today-open]');
+    if (!b || document.getElementById(ROOT)) return;
+    e.preventDefault();
+    load(true);
+  });
+
+  window.EcHomePopup = { run, show, load, buildSlides, shouldShow, HIDE_KEY };
   // Chỉ hiện sau khi trang đã vẽ xong và ổn định (không tranh lần vẽ đầu).
   const start = () => setTimeout(run, 400);
   if (document.readyState === 'complete') start();

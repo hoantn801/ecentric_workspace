@@ -448,7 +448,7 @@ class TestHomeTodayCelebration(unittest.TestCase):
         self.assertIn('<section class="ec2-band" aria-label="Hôm nay" data-ec-cel="1">', one)
         self.assertIn('class="ec-cel-flags"', body)
         self.assertNotIn("ec-cel-bal", body)
-        self.assertIn('<p id="today-text">Thứ Ba, 29 tháng 9<span class="ec-cel-tag">🎂 Hôm nay có 2 sinh nhật</span></p>', one)
+        self.assertIn('<p id="today-text">Thứ Ba, 29 tháng 9<button type="button" class="ec-cel-tag" data-ec-today-open="1" title="Mở Hôm nay ở eCentric">🎂 Hôm nay có 2 sinh nhật</button></p>', one)
         two = render(_src(), cel=self.cel(2, "Phòng Data có sinh nhật Khoa")).split('<div class="ecentric-app">', 1)[1]
         self.assertIn('class="ec-cel-bal r"', two)
         self.assertIn('class="ec-cel-spark', two)
@@ -456,11 +456,18 @@ class TestHomeTodayCelebration(unittest.TestCase):
         me = render(_src(), cel=self.cel(3, "Chúc mừng sinh nhật bạn!"))
         body = me.split('<div class="ecentric-app">', 1)[1]
         self.assertIn('<h1 id="greeting">Chào buổi chiều, Hoàn 🎂</h1>', me)
-        self.assertIn('<span class="ec-cel-tag">🎉 Chúc mừng sinh nhật bạn!</span>', me)
+        self.assertIn('data-ec-today-open="1" title="Mở Hôm nay ở eCentric">🎉 Chúc mừng sinh nhật bạn!</button>', me)
         self.assertIn('class="ec-cel-bal l"', body)
         self.assertEqual(body.count('<div class="ec-cel-rain" aria-hidden="true">'), 1)
         self.assertEqual(body.count("ec-cel-streamer"), 1)
         self.assertIn('data-ec2-tl-loading="1" data-ec-cel="3">', me)
+
+    def test_reopen_button_when_there_is_content(self):
+        """PO 29/09 16:32: da tich "Khong hien lai hom nay" van mo lai duoc - nut nam san trong markup."""
+        out = render(_src(), cel=self.cel(0, has=True))
+        self.assertIn('<p id="today-text">Thứ Ba, 29 tháng 9<button type="button" class="ec-today-pill" data-ec-today-open="1" '
+                      'title="Mở Hôm nay ở eCentric">🎉 Hôm nay ở eCentric</button></p>', out)
+        self.assertNotIn('data-ec-today-open', render(_src(), cel=self.cel(0, has=False)).split('<div class="ecentric-app">', 1)[1])
 
     def test_greeting_prefix_still_fixable_by_clock_js(self):
         """JS dong ho chi thay tien to truoc ', ' cua #greeting - trang tri khong duoc doi dang do."""
@@ -493,7 +500,8 @@ class TestHomeTodayCelebration(unittest.TestCase):
         a = render(_src(), cel=self.cel(0))
         b = strip(render(_src(), cel=self.cel(2, "x")))
         band = lambda h: h[h.index('<section class="ec2-band"'):h.index("</section>", h.index('<section class="ec2-band"'))]
-        self.assertEqual(re.sub(r'<span class="ec-cel-tag">.*?</span>|\s*data-ec-cel="\d"', "", band(b)).strip(),
+        a = re.sub(r'<button type="button" class="ec-today-pill".*?</button>', "", a)
+        self.assertEqual(re.sub(r'<button type="button" class="ec-(?:cel-tag|today-pill)".*?</button>|\s*data-ec-cel="\d"', "", band(b)).strip(),
                          band(a).strip())
 
     def test_popup_asset_loaded_once_after_home_v2(self):
