@@ -169,6 +169,109 @@ def _pdf_without_bitmaps(pages, ops=20000):
     return buf.getvalue()
 
 
+def _pdf_with_bitmaps(pages, w=900, h=600):
+    """PDF ma ruot LA anh bitmap -- hinh dang cua deck bao cao tuan that.
+
+    Anh nhieu ngau nhien de JPEG khong nen qua de, giong anh chup slide.
+    """
+    import io as _io
+    import random
+    from PIL import Image
+    from pypdf import PdfReader, PdfWriter
+    wr = PdfWriter()
+    for i in range(pages):
+        random.seed(i)
+        img = Image.new("RGB", (w, h), (248, 249, 251))
+        px = img.load()
+        for _ in range(w * h // 8):
+            px[random.randrange(w), random.randrange(h)] = (
+                random.randrange(256), random.randrange(256), random.randrange(256))
+        b = _io.BytesIO()
+        img.save(b, format="PDF", quality=95)
+        wr.add_page(PdfReader(_io.BytesIO(b.getvalue())).pages[0])
+    out = _io.BytesIO()
+    wr.write(out)
+    return out.getvalue()
+
+
+class ShrinkActuallyShrinksTest(unittest.TestCase):
+    """Ham nen co THAT SU nen khong.
+
+    Bo test nay dang le phai co tu 25/09 va da khong co. Moi test truoc do deu
+    STUB `shrink_pdf_for_inline`, nen chung kiem ky ky luat cua NGUOI GOI
+    (tat-ca-hoac-khong-gi) ma khong lan nao chay ham that. Mot test khac co
+    chay that, nhung voi PDF VECTOR -- tuc chi di qua nhanh BO CUOC.
+
+    Ket qua: tu 25/09 den 29/09 ham khong nen duoc mot byte nao ma van xanh het.
+    `img.replace()` nem "Cannot update an image not belonging to a PdfWriter" o
+    MOI anh vi vong lap duyet trang cua READER; `except Exception: continue`
+    nuot sach. Nhin tu ngoai giong het "deck nay nen khong an".
+    """
+
+    def test_an_image_heavy_pdf_really_gets_smaller(self):
+        data = _pdf_with_bitmaps(3)
+        cap = len(data) // 3
+        out, note = gemini_api.shrink_pdf_for_inline(data, max_bytes=cap)
+        self.assertIsNotNone(out, "phai nen duoc: " + str(note))
+        self.assertTrue(out.startswith(b"%PDF"), "ket qua phai la PDF hop le")
+        self.assertLessEqual(len(out), cap, "phai lot tran da yeu cau")
+        self.assertLess(len(out), len(data) * 0.5,
+                        "giam duoi mot nua moi goi la nen; ban hong chi giam ~0%")
+
+    def test_the_note_reports_the_real_numbers(self):
+        data = _pdf_with_bitmaps(2)
+        out, note = gemini_api.shrink_pdf_for_inline(data, max_bytes=len(data) // 3)
+        self.assertIn("da nen", note)
+        self.assertIn(str(len(out)), note, "ghi chu phai mang kich thuoc THAT")
+
+    def test_a_deck_of_the_size_users_actually_submit_fits(self):
+        """29/09 Hoan: deck 15-20MB phai cham duoc. Do that: 17.8MB -> 1.6MB.
+
+        Bo test giu ban nho hon cho nhanh, nhung ty le giam la thu duoc ghim.
+        """
+        data = _pdf_with_bitmaps(4)
+        out, _note = gemini_api.shrink_pdf_for_inline(
+            data, max_bytes=gemini_api.KIE_INLINE_MAX_BYTES)
+        if len(data) > gemini_api.KIE_INLINE_MAX_BYTES:
+            self.assertIsNotNone(out)
+            self.assertLessEqual(len(out), gemini_api.KIE_INLINE_MAX_BYTES)
+
+    def test_images_found_but_unreplaceable_is_reported_as_such(self):
+        """CO anh ma thay khong duoc -- phai noi ra, kem so luong va loi that.
+
+        Day dung la hinh dang cua bug 25/09: `page.images` tim thay anh, nhung
+        moi lan `replace()` deu nem loi va bi `except: continue` nuot. Nhin tu
+        ngoai khong phan biet duoc voi "PDF nay khong co anh". Bon ngay khong ai
+        thay. Neu ai do bo phan DEM loi di, test nay phai do.
+        """
+        from PIL import Image
+        data = _pdf_with_bitmaps(2)
+        # Chan o `resize`, KHONG o `Image.open`: `page.images` cua pypdf cung
+        # goi `Image.open` ben trong, nen chan cho do lam ngoai le thoat ra
+        # vong ngoai va bai thu thanh vo nghia (da dinh khi viet test nay).
+        # `resize` chi duoc goi trong than try cua ham -- dung cho can thu.
+        orig = Image.Image.resize
+
+        def boom(*a, **k):
+            raise RuntimeError("gia bo hong")
+        Image.Image.resize = boom
+        try:
+            out, note = gemini_api.shrink_pdf_for_inline(data, max_bytes=len(data) // 3)
+        finally:
+            Image.Image.resize = orig
+        self.assertIsNone(out)
+        self.assertIn("KHONG thay duoc anh nao", note)
+        self.assertIn("gia bo hong", note, "phai mang loi THAT, khong phai cau chung chung")
+
+    def test_zero_images_says_so_instead_of_blaming_compression(self):
+        """Khong co anh nao va 'co anh ma thay khong duoc' la HAI chuyen.
+        Gop chung vao mot cau chinh la cach loi cu an minh bon ngay."""
+        data = _pdf_without_bitmaps(2)
+        out, note = gemini_api.shrink_pdf_for_inline(data, max_bytes=len(data) // 4)
+        self.assertIsNone(out)
+        self.assertIn("khong co anh bitmap nao", note)
+
+
 class ShrinkGivesUpEarlyTest(unittest.TestCase):
     """Nen khong an thi phai dung NGAY, khong chay het cac buoc.
 
@@ -177,11 +280,18 @@ class ShrinkGivesUpEarlyTest(unittest.TestCase):
     """
 
     def test_no_bitmaps_means_give_up_at_the_first_step(self):
+        """29/09: thong diep doi tu 'nen khong an' sang 'khong co anh bitmap nao'.
+
+        Khong phai doi chu cho dep. Truoc do hai nguyen nhan rat khac nhau --
+        KHONG CO anh de nen, va CO anh ma thay khong duoc -- deu ra cung mot
+        cau, va chinh cho do giau mot loi that suot bon ngay. Y dinh cua test
+        khong doi: phai dung o buoc DAU, khong chay het ba buoc.
+        """
         data = _pdf_without_bitmaps(3)
         self.assertGreater(len(data), 100000, "PDF thu phai du to de vuot tran")
         out, note = gemini_api.shrink_pdf_for_inline(data, max_bytes=len(data) // 4)
         self.assertIsNone(out, "khong nen duoc thi phai tu choi, khong gui bua")
-        self.assertIn("nen khong an", note)
+        self.assertIn("khong nen duoc", note)
         self.assertNotIn("het cac buoc", note,
                          "phai dung o buoc DAU, khong chay het ba buoc")
 

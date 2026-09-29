@@ -608,10 +608,23 @@ def shrink_pdf_for_inline(data, max_bytes=KIE_INLINE_MAX_BYTES):
             break
         if time.time() - started > SHRINK_MAX_SECONDS:
             return None, "het ngan sach thoi gian khi nen (da thu toi %.2f)" % scale
+        replaced = failed = 0
+        first_err = ""
         try:
             reader = PdfReader(_io.BytesIO(data))
             writer = PdfWriter()
             for page in reader.pages:
+                writer.add_page(page)
+            # Sua anh tren trang cua WRITER, khong phai trang cua READER.
+            #
+            # Ban 25/09 duyet `reader.pages` roi goi `img.replace(...)`, va pypdf
+            # nem "Cannot update an image not belonging to a PdfWriter" o MOI anh.
+            # Vong lap bat `except Exception: continue` voi y "mot anh hong khong
+            # lam hong ca tep", nen no nuot sach: khong anh nao duoc thay, ham tra
+            # ve PDF ghi-lai-y-nguyen, va bao cao la "nen khong an". Ham nen chua
+            # bao gio nen duoc gi tu luc viet ra. Dinh that: ban 10.010.963 byte
+            # "giam 95 byte" -- do la chenh lech khi ghi lai, khong phai nen.
+            for page in writer.pages:
                 for img in list(getattr(page, "images", []) or []):
                     try:
                         pil = Image.open(_io.BytesIO(img.data))
@@ -619,10 +632,13 @@ def shrink_pdf_for_inline(data, max_bytes=KIE_INLINE_MAX_BYTES):
                         h = max(1, int(pil.height * scale))
                         pil = pil.convert("RGB").resize((w, h))
                         img.replace(pil, quality=quality)
-                    except Exception:
-                        # Mot anh hong khong duoc lam hong ca tep.
-                        continue
-                writer.add_page(page)
+                        replaced += 1
+                    except Exception as exc:
+                        # Van bo qua anh hong -- nhung DEM lai. Nuot im lang la
+                        # thu da giau loi tren suot bon ngay.
+                        failed += 1
+                        if not first_err:
+                            first_err = str(exc)[:120]
             out = _io.BytesIO()
             writer.write(out)
             shrunk = out.getvalue()
@@ -631,6 +647,15 @@ def shrink_pdf_for_inline(data, max_bytes=KIE_INLINE_MAX_BYTES):
 
         if not (shrunk and shrunk.startswith(b"%PDF")):
             return None, "ket qua nen khong phai PDF hop le"
+
+        # Khong thay duoc anh NAO la mot chuyen khac han voi "nen chua du".
+        # Gop hai cai vao mot thong bao chinh la cach loi tren an minh.
+        if replaced == 0:
+            why = "PDF khong co anh bitmap nao de ha do phan giai"
+            if failed:
+                why = "co %d anh nhung KHONG thay duoc anh nao (%s)" % (failed, first_err)
+            return None, ("khong nen duoc: %s. Can nguoi nop xuat lai file nhe hon."
+                          % why)
         last_size = len(shrunk)
         if last_size <= max_bytes:
             return shrunk, "da nen %d -> %d byte (ty le %.2f, chat luong %d)" % (
