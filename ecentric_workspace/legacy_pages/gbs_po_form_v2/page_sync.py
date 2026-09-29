@@ -42,8 +42,15 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "00aa084115c667ff42b47ed8057ed45c74e97523bc4d1226638b4833775677c5"
+BASELINE_SHA256 = "7423514b149877254cc01b9687b42b19b17995df67fbdad25e402208b06a40b1"
 SUPERSEDES_SHA256 = (
+    # 29/09/2026 (A65 / NHIEU_LOP, brief_gbs): form ve DUNG trang thai cuoi ngay tu HTML. Thanh
+    # che do, o Muc uu tien, khung combobox, khung MSO, o Store + 2 o ngay, cot UOM/VAT, khung chain
+    # nam san trong markup; che do dat len <html data-ec-*-mode> truoc khi ve; CSS tung chen luc chay
+    # gom ve 1 <style> dau trang; API trung (get_csrf x3, lookups x2, web_lookup brand x2) con 1;
+    # bo 4 block chet (sidebar cu). Nguon lay tu LIVE (repo dang tre hon live) - 2 gia tri duoi day.
+    "1747188cd0a2f92af3d1bf2020cc898f63ec93f4fb3daf001cc36366a09bd333",  # live 28/09 16:33 (doi Media -> Digital Marketing, sua thang tren site)
+    "00aa084115c667ff42b47ed8057ed45c74e97523bc4d1226638b4833775677c5",  # BASELINE cu (15/09, wrapper CSRF v2)
     # 2026-09-15: wrapper CSRF v2 - bo fallback gui chuoi literal token (gay
     # CSRFTokenError khi chua co token that). Va TAI CHO, giu nguyen vo shell.
     "4279755dd7cb69d82e4fb35d792c1de91c3fc16778b5ba77858fb9c750218a12",  # truoc wrapper v2

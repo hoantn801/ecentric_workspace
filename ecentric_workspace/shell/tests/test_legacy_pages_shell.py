@@ -72,7 +72,7 @@ def _read(*parts):
 # home is separate: since 29/09/2026 it ships main_section.html too, but it is a
 # Jinja page (dynamic_template=1, rendered per user) -- see test_home_source.py.
 LIVE_PAGES = ("all_ticket", "approval_page", "docs_architecture", "docs_gbsflow",
-              "gbs_po_form_v2", "gbs_so_form_v2", "mso_plan_form")
+              "ec_fee_review", "gbs_po_form_v2", "gbs_so_form_v2", "mso_plan_form")
 
 
 class TestEndpointCensus(unittest.TestCase):
