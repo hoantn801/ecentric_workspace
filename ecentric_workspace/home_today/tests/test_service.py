@@ -52,8 +52,7 @@ class FakeRepo:
 
     def holiday_list_for(self, viewer): return "HL"
     def holidays(self, hl, today, days): return [{"holiday_date": dt.date(2027, 1, 1), "description": "Tết Dương lịch"}]
-    def news_rows(self, today): return []
-    def policy_rows(self, today): return []
+    def announcement_rows(self, today): return []
 
     def onboard_rows(self):
         self.calls["onboard"] += 1

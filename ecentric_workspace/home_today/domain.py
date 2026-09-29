@@ -172,37 +172,39 @@ def holidays(rows, today, limit=C.HOLIDAY_MAX):
 
 
 # ------------------------------------------------------------------ thong bao ---
-def _news_tag(category):
-    return C.NEWS_TAGS.get((category or "").strip().upper(), C.NEWS_TAG_DEFAULT)
+def _safe_link(v):
+    """Chi nhan duong dan trong site (/...) hoac http(s) - khong 'javascript:'."""
+    v = (v or "").strip()
+    if v.startswith("/") and not v.startswith("//"):
+        return v
+    if v.lower().startswith(("https://", "http://")):
+        return v
+    return ""
 
 
-def news_items(news_rows, policy_rows, today, limit=C.NEWS_MAX):
-    """Tin noi bo da tich "Dua len popup" con han + chinh sach moi co hieu luc <= 7 ngay."""
+def announcements(rows, today, limit=C.NEWS_MAX):
+    """Thong bao trang chu dang trong han (ngay bat dau <= hom nay <= ngay ket thuc; trong =
+    7 ngay). "Chi anh" -> poster (o rieng, anh full); con lai gop vao o Thong bao."""
     out = []
-    for r in news_rows:
-        pub = as_date(r.get("published_on"))
-        until = as_date(r.get("ec_popup_until")) or (pub and pub + datetime.timedelta(days=C.NEWS_DEFAULT_DAYS - 1))
-        if not pub or pub > today or (until and until < today):
+    for r in rows:
+        if not r.get("published"):
             continue
-        tag, label = _news_tag(r.get("category"))
+        start = as_date(r.get("start_date"))
+        end = as_date(r.get("end_date")) or (start and start + datetime.timedelta(days=C.NEWS_DEFAULT_DAYS - 1))
+        if not start or start > today or (end and end < today):
+            continue
+        tag, label = C.NEWS_TAGS.get((r.get("category") or "").strip(), C.NEWS_TAG_DEFAULT)
         img = r.get("image") or ""
-        out.append({"key": "news:%s" % r.get("name"), "tag": tag, "tag_label": label,
-                    "title": (r.get("title") or "").strip(), "date_label": dm(pub) + "/%d" % pub.year,
+        img = img if img.startswith("/files/") else ""
+        poster = bool(img) and (r.get("display") or "") == C.DISPLAY_POSTER
+        out.append({"key": "ann:%s" % r.get("name"), "tag": tag, "tag_label": label,
+                    "title": (r.get("title") or "").strip(),
+                    "date_label": "%s/%d" % (dm(start), start.year),
                     "excerpt": plain_text(r.get("summary") or r.get("content"), 220),
                     "content_html": r.get("content_html") or "",
-                    "image": img if img.startswith("/files/") else "",
-                    "url": "", "_sort": pub})
-    for r in policy_rows:
-        eff = as_date(r.get("effective_date"))
-        if not eff or eff > today or (today - eff).days >= C.POLICY_DAYS:
-            continue
-        tag, label = C.POLICY_TAG
-        doc = r.get("document") or ""
-        out.append({"key": "pol:%s" % r.get("name"), "tag": tag, "tag_label": label,
-                    "title": (r.get("title") or "").strip(),
-                    "date_label": "Hiệu lực " + dm(eff) + "/%d" % eff.year,
-                    "excerpt": plain_text(r.get("content"), 220), "content_html": "",
-                    "image": "", "url": doc if doc.startswith("/files/") else "", "_sort": eff})
+                    "image": img, "poster": poster,
+                    "url": _safe_link(r.get("link")), "link_label": (r.get("link_label") or "").strip(),
+                    "_sort": (start, r.get("name") or "")})
     out.sort(key=lambda x: x["_sort"], reverse=True)
     for x in out:
         x.pop("_sort", None)

@@ -37,7 +37,7 @@ def _shared(repo, today):
     bd_today, bd_soon = D.birthdays(emps, today, depts)
     data = {"depts": depts, "bd_today": bd_today, "bd_soon": bd_soon,
             "anniv": D.anniversaries(emps, today, depts),
-            "news": D.news_items(repo.news_rows(today), repo.policy_rows(today), today)}
+            "news": D.announcements(repo.announcement_rows(today), today)}
     repo.cache_set(key, data, C.CACHE_TTL)
     return data
 

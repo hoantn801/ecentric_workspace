@@ -57,49 +57,27 @@ def holidays(holiday_list, today, days_ahead):
                  "holiday_date": ["between", [today, today + datetime.timedelta(days=days_ahead)]]})
 
 
-def news_rows(today):
-    """Tin noi bo da tich "Dua len popup". DocType/field chua co tren site -> [] (khong 500)."""
-    if not frappe.db.exists("DocType", C.NEWS_DT):
-        return []
-    meta = frappe.get_meta(C.NEWS_DT)
-    if not meta.has_field("ec_show_in_popup"):
-        return []
-    # DocType cua site: chi doc cot CO THAT (thieu mot cot = ca popup chet, xem service._shared)
-    fields = ["name"] + [f for f in ("title", "category", "image", "summary", "published_on",
-                                     "content", "ec_popup_until") if meta.has_field(f)]
-    if "published_on" not in fields:
-        return []
+def announcement_rows(today):
+    """Thong bao trang chu (DocType cua app). Cac cot deu co san - doc thang."""
     rows = frappe.get_all(
-        C.NEWS_DT, fields=fields, order_by="published_on desc", limit=20,
-        filters={"published": 1, "ec_show_in_popup": 1})
-    for r in rows:
-        r["content_html"] = safe_html(r.get("content"))
+        C.ANNOUNCEMENT_DT, filters={"published": 1, "start_date": ["<=", today]},
+        fields=["name", "title", "category", "display", "image", "summary", "content", "link",
+                "link_label", "published", "start_date", "end_date"],
+        order_by="start_date desc, creation desc", limit=30)
+    for x in rows:
+        x["content_html"] = safe_html(x.get("content"))
     return rows
 
 
 def safe_html(html, limit=20000):
-    """HTML tin noi bo -> an toan de gan innerHTML tren trang chu cua MOI nguoi.
+    """HTML thong bao -> an toan de gan innerHTML tren trang chu cua MOI nguoi.
     always_sanitize: sanitize_html mac dinh tra NGUYEN chuoi neu no parse duoc thanh JSON hoac
     khong co the. Cat TRUOC khi lam sach (cat sau co the de lai the mo do). Bo <style>/<link>:
-    allowlist cua Frappe giu <style> -> mot tin co the doi mau ca trang chu."""
+    allowlist cua Frappe giu <style> -> mot thong bao co the doi mau ca trang chu."""
     from frappe.utils.html_utils import sanitize_html
     raw = (html or "")[:limit]
     clean = sanitize_html(raw, always_sanitize=True) or ""
     return _STRIP_RE.sub("", clean)
-
-
-def policy_rows(today):
-    if not frappe.db.exists("DocType", C.POLICY_DT):
-        return []
-    meta = frappe.get_meta(C.POLICY_DT)
-    if not (meta.has_field("effective_date") and meta.has_field("is_active")):
-        return []
-    fields = ["name"] + [f for f in ("title", "effective_date", "document", "content") if meta.has_field(f)]
-    return frappe.get_all(
-        C.POLICY_DT, fields=fields,
-        filters={"is_active": 1,
-                 "effective_date": ["between", [today - datetime.timedelta(days=C.POLICY_DAYS - 1), today]]},
-        order_by="effective_date desc", limit=10)
 
 
 def onboard_rows():
@@ -166,6 +144,11 @@ def cache_get(key):
 
 def cache_set(key, value, ttl):
     frappe.cache().set_value(key, value, expires_in_sec=ttl)
+
+
+def cache_clear_today():
+    """Luu / xoa thong bao -> popup thay ngay, khong doi het CACHE_TTL."""
+    frappe.cache().delete_value(C.CACHE_KEY + now().date().isoformat())
 
 
 def log_error(title):

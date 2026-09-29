@@ -77,7 +77,7 @@
     P + ' .th .img{position:absolute;inset:0;width:100%;height:100%;border-radius:12px;overflow:hidden;display:block}',
     P + ' .th .img svg,' + P + ' .th .img img{width:100%;height:100%;display:block;object-fit:cover}',
     P + ' .th .tx{position:relative;z-index:1;min-width:0;display:flex;flex-direction:column;padding:0 34px 0 12px;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.35)}',
-    P + ' .th .tt{font-weight:700;font-size:13px;line-height:1.3}',
+    P + ' .th .tt{font-weight:700;font-size:13px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     P + ' .th .ts{font-size:11.5px;color:rgba(255,255,255,.9);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     P + ' .th .ct{position:absolute;z-index:2;top:6px;right:8px;background:var(--pink);color:#fff;font-size:10.5px;font-weight:800;border-radius:999px;padding:0 6px;line-height:16px}',
     P + ' .th .ct.soon{background:var(--yellow-50);color:#8a6400}',
@@ -140,11 +140,22 @@
     P + ' .nw .meta{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--g500)}',
     P + ' .nw .tg{font-size:10.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;padding:2px 8px;border-radius:999px}',
     P + ' .tg.pol{background:var(--navy-50);color:var(--navy)}' + P + ' .tg.mod{background:var(--green-50);color:#047857}' + P + ' .tg.inf{background:var(--yellow-50);color:#8a6400}',
+    '@media (max-width:760px){' + P + ' .poster{min-height:min(46vh,340px)}' + P + ' .pbar{padding:10px 16px;flex-wrap:wrap}}',
     P + ' .nw .tt{font-weight:800;font-size:15px;line-height:1.35}',
     P + ' .nw.first .tt{font-size:16.5px}',
     P + ' .nw .ex{font-size:12.5px;color:var(--g600);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}',
     P + ' .nw .body{font-size:13px;color:var(--g700);overflow-wrap:anywhere}',
     P + ' .nw .body img{max-width:100%;height:auto}',
+    P + ' .nw .acts{display:flex;gap:16px;flex-wrap:wrap}',
+    P + ' .poster{position:relative;flex:1 1 auto;min-height:320px;background:#0f1535;overflow:hidden}',
+    P + ' .poster .bg{position:absolute;inset:-24px;width:calc(100% + 48px);height:calc(100% + 48px);object-fit:cover;filter:blur(22px) brightness(.6);transform:scale(1.05)}',
+    P + ' .poster .pimg{position:absolute;inset:0;display:grid;place-items:center;cursor:zoom-in}',
+    P + ' .poster .pimg img{max-width:100%;max-height:100%;object-fit:contain;display:block;box-shadow:0 10px 30px rgba(0,0,0,.35)}',
+    P + ' .pbar{display:flex;align-items:center;gap:10px;padding:12px 22px;border-top:1px solid var(--line);min-width:0}',
+    P + ' .pbar b{flex:1;min-width:0;font-size:14.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    P + ' .pbar .tg{font-size:10.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;padding:2px 8px;border-radius:999px;white-space:nowrap}',
+    P + ' .pbar a{all:unset;cursor:pointer;flex:none;background:var(--navy);color:#fff;font-weight:700;font-size:12.5px;padding:7px 14px;border-radius:9px}',
+    P + ' .pbar a:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}',
     P + ' .nw a,' + P + ' .nw .more{all:unset;cursor:pointer;align-self:flex-start;font-weight:700;font-size:12.5px;color:var(--navy);text-decoration:none}',
     P + ' .nw a:hover,' + P + ' .nw .more:hover{text-decoration:underline}',
     P + ' .nw a:focus-visible,' + P + ' .nw .more:focus-visible{outline:3px solid var(--yellow);outline-offset:2px;border-radius:4px}',
@@ -220,11 +231,13 @@
   const person = (st, p, sub) => '<div class="pc">' + ava(p, 'ring') + '<div class="who"><span class="nm">' + esc(p.name) + '</span>'
     + '<span class="rl">' + esc([p.role, sub].filter(Boolean).join(' · ')) + '</span>' + (p.key ? rxHTML(st, p.key) : '') + '</div></div>';
 
-  const newsHTML = (st) => st.data.news.map((n, i) => {
+  const linkHTML = (n) => '<a href="' + esc(n.url) + '"' + (/^https?:/i.test(n.url) ? ' target="_blank" rel="noopener"' : '') + '>' + esc(n.link_label || 'Mở →') + '</a>';
+  const newsHTML = (st, list) => list.map((n, i) => {
     const open = st.open[n.key];
     let act = '';
-    if (n.url) act = '<a href="' + esc(n.url) + '" target="_blank" rel="noopener">Xem văn bản →</a>';
-    else if (n.content_html) act = '<button type="button" class="more" data-more="' + esc(n.key) + '">' + (open ? 'Thu gọn ↑' : 'Xem chi tiết →') + '</button>';
+    if (n.content_html) act += '<button type="button" class="more" data-more="' + esc(n.key) + '">' + (open ? 'Thu gọn ↑' : 'Xem chi tiết →') + '</button>';
+    if (n.url) act += linkHTML(n);
+    if (act) act = '<div class="acts">' + act + '</div>';
     return '<div class="nw' + (i ? '' : ' first') + '"><div class="meta"><span class="tg ' + esc(n.tag) + '">' + esc(n.tag_label) + '</span>' + esc(n.date_label) + '</div>'
       + '<div class="tt">' + esc(n.title) + '</div>'
       + (open && n.content_html ? '<div class="body">' + n.content_html + '</div>' : (n.excerpt ? '<div class="ex">' + esc(n.excerpt) + '</div>' : ''))
@@ -239,10 +252,16 @@
     const nw = d.onboard || [];
     const hol = d.holidays || [];
     const ann = d.anniversaries || [];
-    if (news.length) {
-      const tags = [...new Set(news.map((n) => n.tag_label))];
-      out.push({ k: 'news', t: 'Thông báo', s: tags.join(' · '), ct: news.length, hs: 'Thông báo công ty',
-        h: news[0].title, cnt: news.length + ' thông báo', image: news[0].image, body: newsHTML });
+    // "Chi anh (hien full)": moi poster MOT o, anh phu kin khung ben phai.
+    news.filter((n) => n.poster).forEach((n) => {
+      out.push({ k: 'news', t: n.title || n.tag_label, s: n.tag_label + ' · ' + n.date_label, ct: null, image: n.image,
+        poster: n, hs: n.tag_label, h: n.title, cnt: '' });
+    });
+    const texts = news.filter((n) => !n.poster);
+    if (texts.length) {
+      const tags = [...new Set(texts.map((n) => n.tag_label))];
+      out.push({ k: 'news', t: 'Thông báo', s: tags.join(' · '), ct: texts.length, hs: 'Thông báo công ty',
+        h: texts[0].title, cnt: texts.length + ' thông báo', image: texts[0].image, body: (st) => newsHTML(st, texts) });
     }
     if (bd.today.length || bd.soon.length) {
       const n = bd.today.length;
@@ -287,15 +306,25 @@
     + (sl.ct === 'soon' ? '<span class="ct soon">Mới</span>' : (sl.ct ? '<span class="ct">' + sl.ct + '</span>' : ''))
     + '<span class="prog"><i></i></span></button>';
 
+  const stageHTML = (st, sl) => {
+    if (sl.poster) {
+      const n = sl.poster;
+      return '<div class="poster"><img class="bg" src="' + esc(n.image) + '" alt="" aria-hidden="true"><a class="pimg" href="' + esc(n.image) + '" target="_blank" rel="noopener" title="Mở ảnh gốc"><img src="' + esc(n.image) + '" alt="' + esc(n.title) + '"></a></div>'
+        + '<div class="pbar"><span class="tg ' + esc(n.tag) + '">' + esc(n.tag_label) + '</span><b>' + esc(n.title) + '</b>'
+        + (n.url ? linkHTML(n) : '') + '</div>';
+    }
+    return '<div class="hero' + (sl.image ? ' photo' : '') + '">' + cover(sl, true) + (sl.cnt ? '<span class="cnt">' + esc(sl.cnt) + '</span>' : '')
+      + '<div class="cap"><small>' + esc(sl.hs) + '</small><h3>' + esc(sl.h) + '</h3></div></div>'
+      + '<div class="content">' + sl.body(st) + '</div>';
+  };
+
   const render = (st, focus) => {
     const sl = st.slides[st.i];
     const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     st.root.innerHTML = '<div class="dlg' + (st.paused || st.manual || reduce ? ' paused' : '') + '" role="dialog" aria-modal="true" aria-labelledby="' + ROOT + '-title" tabindex="-1">'
       + '<div class="dh"><div class="t"><h2 id="' + ROOT + '-title">Hôm nay ở eCentric</h2><p>' + esc(st.data.date_label) + '</p></div><button type="button" class="x" data-close aria-label="Đóng">×</button></div>'
       + '<div class="dbody"><div class="thumbs" role="tablist" aria-label="Chủ đề">' + st.slides.map((s, n) => thumbHTML(st, s, n)).join('') + '</div>'
-      + '<div class="stage" role="tabpanel"><div class="hero' + (sl.image ? ' photo' : '') + '">' + cover(sl, true) + '<span class="cnt">' + esc(sl.cnt) + '</span>'
-      + '<div class="cap"><small>' + esc(sl.hs) + '</small><h3>' + esc(sl.h) + '</h3></div></div>'
-      + '<div class="content">' + sl.body(st) + '</div></div></div>'
+      + '<div class="stage" role="tabpanel">' + stageHTML(st, sl) + '</div></div>'
       + '<div class="df"><label><input type="checkbox" data-hide ' + (st.hide ? 'checked' : '') + '> Không hiện lại hôm nay</label>'
       + '<button type="button" class="nav" data-step="-1" aria-label="Mục trước">‹</button><span class="pg">' + (st.i + 1) + ' / ' + st.slides.length + '</span><button type="button" class="nav" data-step="1" aria-label="Mục sau">›</button>'
       + '<button type="button" class="ok" data-close>Đóng</button></div></div>';

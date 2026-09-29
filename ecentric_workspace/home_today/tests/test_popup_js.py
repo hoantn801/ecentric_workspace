@@ -68,20 +68,30 @@ class TestPopupInJsdom(unittest.TestCase):
 
     def test_tiles_in_po_order(self):
         m = self.r["main"]
-        self.assertEqual(m["tiles"], ["Thông báo", "Sinh nhật", "Bạn mới", "Sự kiện công ty",
-                                      "Nghỉ lễ sắp tới", "Kỷ niệm gắn bó"])
-        self.assertEqual(m["badges"], ["3", "2", "1", "Mới", None, "1"])
-        self.assertEqual(m["sub"][1], "2 hôm nay · 3 tuần này")
-        self.assertEqual(m["sub"][4], "Tết Dương lịch · còn 94 ngày")
-        self.assertEqual(m["hero"], "Chấm công và xin nghỉ ngay trên điện thoại")
+        self.assertEqual(m["tiles"], ["Đêm hội Trung thu eCentric 2026", "Thông báo", "Sinh nhật", "Bạn mới",
+                                      "Sự kiện công ty", "Nghỉ lễ sắp tới", "Kỷ niệm gắn bó"])
+        self.assertEqual(m["badges"], [None, "3", "2", "1", "Mới", None, "1"])
+        self.assertEqual(m["sub"][0], "Sự kiện · 29/09/2026")
+        self.assertEqual(m["sub"][2], "2 hôm nay · 3 tuần này")
+        self.assertEqual(m["sub"][5], "Tết Dương lịch · còn 94 ngày")
+        self.assertEqual(m["textHero"], "Chấm công và xin nghỉ ngay trên điện thoại")
         self.assertEqual(m["date"], "Thứ Ba, 29/09/2026")
         self.assertEqual(m["bdHero"], "Chúc mừng sinh nhật Hà và Khoa!")
         self.assertEqual(m["soon"][0], "01/10QHPhạm Quốc Huy · Operation · Thứ Năm")
 
-    def test_news_detail(self):
+    def test_poster_full_picture(self):
+        p = self.r["main"]["poster"]
+        self.assertEqual(p["img"], "/files/poster-trung-thu.jpg")
+        self.assertEqual(p["thumb"], "/files/poster-trung-thu.jpg")
+        self.assertTrue(p["heroless"], "poster: anh phu kin, khong co khung chu hero")
+        self.assertEqual(p["open"], "_blank")
+        self.assertEqual(p["bar"], "Sự kiệnĐêm hội Trung thu eCentric 2026")
+
+    def test_news_detail_and_links(self):
         m = self.r["main"]
         self.assertTrue(m["expanded"].startswith("Từ hôm nay mọi người có thể chấm công"))
-        self.assertEqual(m["policyLink"], "/files/cong-tac-phi-2026.pdf")
+        self.assertEqual(m["links"], [["/ec-hr/attendance", "Dùng thử ngay", None],
+                                      ["/files/cong-tac-phi-2026.pdf", "Xem văn bản", None]])
 
     def test_reaction_toggle(self):
         m = self.r["main"]
@@ -96,17 +106,17 @@ class TestPopupInJsdom(unittest.TestCase):
         self.assertEqual(m["afterArrow"], "Bạn mới")
         self.assertTrue(m["closedByEsc"])
         self.assertEqual(m["stored"]["d"], "2026-09-29")
-        self.assertEqual(len(m["stored"]["k"]), 7)
+        self.assertEqual(len(m["stored"]["k"]), 8)
 
     def test_auto_rotate_pauses_on_hover(self):
         a = self.r["auto"]
-        self.assertEqual(a["now"], "Sinh nhật")
-        self.assertEqual(a["pausedStays"], "Sinh nhật")
+        self.assertEqual(a["now"], "Thông báo")
+        self.assertEqual(a["pausedStays"], "Thông báo")
         self.assertTrue(a["closedByBackdrop"])
         self.assertTrue(a["escInMateKeepsOpen"], "Esc khi dang go trong eC Mate khong duoc dong popup")
 
     def test_keyboard_user_stops_auto_rotate(self):
-        self.assertEqual(self.r["focusPause"], {"stays": "Thông báo", "focusKept": True})
+        self.assertEqual(self.r["focusPause"], {"stays": "Đêm hội Trung thu eCentric 2026", "focusKept": True})
 
     def test_hide_today_and_new_items(self):
         self.assertEqual(self.r["hidden"], {"same": False, "newItem": True, "otherDay": True, "junk": True})

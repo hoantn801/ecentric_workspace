@@ -60,16 +60,23 @@ const txt = (el) => (el ? el.textContent.replace(/\s+/g, ' ').trim() : null);
     m.tiles = [...pop.querySelectorAll('.th .tt')].map(txt);
     m.sub = [...pop.querySelectorAll('.th .ts')].map(txt);
     m.badges = [...pop.querySelectorAll('.th')].map((t) => txt(t.querySelector('.ct')));
-    m.hero = txt(pop.querySelector('.hero h3'));
-    m.date = txt(pop.querySelector('.dh p'));
     m.focusInDialog = b.d.activeElement === pop.querySelector('.dlg');
+    m.hero = txt(pop.querySelector('.hero h3'));
+    // o dau: poster "chi anh" - anh phu kin khung, khong co khung chu hero
+    m.poster = { img: pop.querySelector('.poster img') && pop.querySelector('.poster img').getAttribute('src'),
+      bar: txt(pop.querySelector('.pbar')), open: pop.querySelector('.poster a') && pop.querySelector('.poster a').getAttribute('target'),
+      heroless: !pop.querySelector('.stage .hero'),
+      thumb: pop.querySelector('.th[data-i="0"] img') && pop.querySelector('.th[data-i="0"] img').getAttribute('src') };
+    pop.querySelector('[data-i="1"]').click();
+    m.textHero = txt(pop.querySelector('.hero h3'));
+    m.date = txt(pop.querySelector('.dh p'));
     m.role = pop.querySelector('.dlg').getAttribute('role') + '/' + pop.querySelector('.dlg').getAttribute('aria-modal');
     // chi tiet tin: mo rong tai cho
     pop.querySelector('[data-more]').click();
     m.expanded = txt(pop.querySelector('.nw .body'));
-    m.policyLink = pop.querySelector('.nw a') && pop.querySelector('.nw a').getAttribute('href');
+    m.links = [...pop.querySelectorAll('.nw a')].map((a) => [a.getAttribute('href'), txt(a), a.getAttribute('target')]);
     // sang o Sinh nhat, tha tim
-    pop.querySelector('[data-i="1"]').click();
+    pop.querySelector('[data-i="2"]').click();
     m.bdHero = txt(pop.querySelector('.hero h3'));
     m.soon = [...pop.querySelectorAll('.sl')].map(txt);
     const heart = pop.querySelector('[data-rx="bd:E1:2026|heart"]');
@@ -80,8 +87,8 @@ const txt = (el) => (el ? el.textContent.replace(/\s+/g, ' ').trim() : null);
     m.heartAfter = [heart2.getAttribute('aria-pressed'), txt(heart2.querySelector('.c')), txt(heart2.querySelector('.tip'))];
     m.post = b.calls.filter((c) => c.post);
     // phim mui ten tren cot o
-    pop.querySelector('[data-i="1"]').focus();
-    pop.querySelector('[data-i="1"]').dispatchEvent(new b.w.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    pop.querySelector('[data-i="2"]').focus();
+    pop.querySelector('[data-i="2"]').dispatchEvent(new b.w.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
     m.afterArrow = txt(pop.querySelector('.th[aria-selected="true"] .tt'));
     // tich "khong hien lai hom nay" roi Esc
     const cb = pop.querySelector('[data-hide]');

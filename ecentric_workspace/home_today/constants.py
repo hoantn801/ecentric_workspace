@@ -2,22 +2,19 @@
 """Hang so cua popup "Hom nay o eCentric" (PO Hoan chot 29/09/2026)."""
 
 REACTION_DT = "EC Home Reaction"
-NEWS_DT = "News Post"
-POLICY_DT = "Company Policy"
+ANNOUNCEMENT_DT = "EC Home Announcement"
 
 #: 4 nut tha cam xuc - thu tu = thu tu hien. Doi o day thi doi ca Select trong DocType.
 REACTION_KINDS = ("heart", "flower", "cake", "party")
 
 #: Sinh nhat: hom nay + 7 ngay toi (PO chot).
 BIRTHDAY_DAYS_AHEAD = 7
-#: Tin noi bo tich "Dua len popup" ma khong dat ngay het: hien 7 ngay tu ngay dang.
+#: Thong bao khong dat ngay ket thuc: hien 7 ngay ke tu ngay bat dau.
 NEWS_DEFAULT_DAYS = 7
-#: Chinh sach tu len popup 7 ngay ke tu ngay hieu luc (PO chot, khong can tich).
-POLICY_DAYS = 7
 #: Nghi le: toi da 3 ngay le trong 200 ngay toi (Tet Nguyen dan thuong cach ~4 thang).
 HOLIDAY_DAYS_AHEAD = 200
 HOLIDAY_MAX = 3
-NEWS_MAX = 5
+NEWS_MAX = 8
 
 #: Trang tri trang chu (PO chot 29/09): ca cong ty Nhe, cung phong ban Vua, nguoi sinh nhat Ruc ro.
 LEVEL_NONE, LEVEL_LIGHT, LEVEL_DEPT, LEVEL_ME = 0, 1, 2, 3
@@ -30,12 +27,16 @@ ONBOARD_TTL = 60
 #: celebration() loi -> nho 10 phut: khong ghi Error Log / khong truy van lai MOI lan mo trang chu.
 FAIL_TTL = 600
 
-#: Nhan the tin. News Post.category (site) -> nhan hien tren popup.
+#: Loai thong bao (Select trong EC Home Announcement) -> (lop mau, nhan) tren popup.
 NEWS_TAGS = {
-    "MODULE MỚI": ("mod", "Module mới"),
-    "CHÍNH SÁCH": ("pol", "Chính sách"),
+    "Tính năng mới": ("mod", "Tính năng mới"),
+    "Module mới": ("mod", "Module mới"),
+    "Chính sách": ("pol", "Chính sách"),
+    "Sự kiện": ("inf", "Sự kiện"),
+    "Thông báo": ("inf", "Thông báo"),
 }
 NEWS_TAG_DEFAULT = ("inf", "Thông báo")
-POLICY_TAG = ("pol", "Chính sách")
+#: Kieu hien "chi anh": moi thong bao thanh MOT o rieng, anh hien full khung ben phai.
+DISPLAY_POSTER = "Chỉ ảnh (hiện full)"
 
 WEEKDAYS = ("Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật")

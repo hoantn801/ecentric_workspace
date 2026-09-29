@@ -79,25 +79,43 @@ class TestHolidays(unittest.TestCase):
         self.assertEqual((out[0]["day"], out[0]["month"]), ("01", "TH 1"))
 
 
-class TestNews(unittest.TestCase):
-    def test_window_tags_and_order(self):
-        news = [{"name": "N1", "title": "Chấm công trên điện thoại", "category": "MODULE MỚI",
-                 "published_on": dt.datetime(2026, 9, 29, 9), "summary": "Tóm tắt", "image": "/files/a.png"},
-                {"name": "N2", "title": "Hết hạn", "category": "THÔNG BÁO", "published_on": dt.date(2026, 9, 1)},
-                {"name": "N3", "title": "Có hạn riêng", "category": "SỰ KIỆN", "published_on": dt.date(2026, 9, 1),
-                 "ec_popup_until": dt.date(2026, 10, 3), "content": "<p>Nội <b>dung</b></p>",
-                 "image": "/private/files/x.png"},
-                {"name": "N4", "title": "Đăng hẹn giờ mai", "published_on": dt.date(2026, 9, 30)}]
-        pols = [{"name": "P1", "title": "Công tác phí", "effective_date": dt.date(2026, 9, 25), "document": "/files/p.pdf"},
-                {"name": "P2", "title": "Cũ", "effective_date": dt.date(2026, 9, 22)},     # 7 ngay truoc: het
-                {"name": "P3", "title": "Chưa hiệu lực", "effective_date": dt.date(2026, 10, 1)}]
-        out = D.news_items(news, pols, T)
-        self.assertEqual([(n["key"], n["tag"]) for n in out],
-                         [("news:N1", "mod"), ("pol:P1", "pol"), ("news:N3", "inf")])
-        self.assertEqual(out[1]["url"], "/files/p.pdf")
-        self.assertEqual(out[1]["date_label"], "Hiệu lực 25/09/2026")
-        self.assertEqual(out[2]["excerpt"], "Nội dung")
-        self.assertEqual(out[2]["image"], "", "anh private khong dua len (nguoi khac khong mo duoc)")
+class TestAnnouncements(unittest.TestCase):
+    def test_window_tags_poster_links_and_order(self):
+        rows = [
+            {"name": "A1", "title": "Chấm công trên điện thoại", "category": "Tính năng mới", "published": 1,
+             "start_date": dt.date(2026, 9, 29), "summary": "Tóm tắt", "image": "/files/a.png",
+             "link": "/ec-hr/attendance", "link_label": "Dùng thử"},
+            {"name": "A2", "title": "Hết hạn mặc định", "category": "Thông báo", "published": 1,
+             "start_date": dt.date(2026, 9, 1)},                                   # 7 ngay -> het
+            {"name": "A3", "title": "Có hạn riêng", "category": "Sự kiện", "published": 1,
+             "start_date": dt.date(2026, 9, 1), "end_date": dt.date(2026, 10, 3),
+             "content": "<p>Nội <b>dung</b></p>", "image": "/private/files/x.png", "link": "javascript:alert(1)"},
+            {"name": "A4", "title": "Hẹn giờ mai", "published": 1, "start_date": dt.date(2026, 9, 30)},
+            {"name": "A5", "title": "Nháp", "published": 0, "start_date": dt.date(2026, 9, 29)},
+            {"name": "A6", "title": "Poster Trung thu", "category": "Sự kiện", "published": 1,
+             "display": "Chỉ ảnh (hiện full)", "start_date": dt.date(2026, 9, 28), "image": "/files/tt.jpg"},
+            {"name": "A7", "title": "Chỉ ảnh mà không có ảnh", "published": 1,
+             "display": "Chỉ ảnh (hiện full)", "start_date": dt.date(2026, 9, 27)},
+            {"name": "A8", "title": "Chính sách", "category": "Chính sách", "published": 1,
+             "start_date": dt.date(2026, 9, 23)},                                   # ngay thu 7 -> con
+        ]
+        out = D.announcements(rows, T)
+        self.assertEqual([(n["key"], n["tag"], n["poster"]) for n in out],
+                         [("ann:A1", "mod", False), ("ann:A6", "inf", True), ("ann:A7", "inf", False),
+                          ("ann:A8", "pol", False), ("ann:A3", "inf", False)])
+        a1 = out[0]
+        self.assertEqual((a1["url"], a1["link_label"], a1["tag_label"], a1["date_label"]),
+                         ("/ec-hr/attendance", "Dùng thử", "Tính năng mới", "29/09/2026"))
+        a3 = out[-1]
+        self.assertEqual((a3["excerpt"], a3["image"], a3["url"]), ("Nội dung", "", ""),
+                         "anh private khong dua len; link javascript: bi bo")
+        self.assertEqual(out[1]["image"], "/files/tt.jpg")
+
+    def test_link_whitelist(self):
+        for bad in ("javascript:alert(1)", "//evil.com/x", "data:text/html,x", " "):
+            self.assertEqual(D._safe_link(bad), "", bad)
+        for ok in ("/pm", "https://team.ecentric.vn/x", "http://a.b"):
+            self.assertEqual(D._safe_link(ok), ok)
 
 
 class TestCelebration(unittest.TestCase):
