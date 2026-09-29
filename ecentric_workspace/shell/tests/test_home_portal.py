@@ -118,7 +118,7 @@ class TestHomeShellZones(unittest.TestCase):
     def test_canonical_chrome_only(self):
         new = self._src()
         for keep in ('{{ first_name|e }}', 'ecentricCheckin()', '{% for n in news_list %}',
-                     'ec-action-center-widget', 'ec-csrf-fetch-patch', 'ec-chatbot-js'):
+                     'ec-action-center-widget', 'ec-csrf-fetch-patch'):
             self.assertIn(keep, new, keep)
         self.assertNotIn('class="ec-sidebar"', new)
         self.assertNotIn('<div class="topbar">', new)
