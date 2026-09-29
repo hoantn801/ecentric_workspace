@@ -205,14 +205,27 @@ class ShrinkGivesUpEarlyTest(unittest.TestCase):
 
 
 class InlineCeilingTest(unittest.TestCase):
-    def test_ceiling_is_below_the_size_kie_actually_refused(self):
-        """29/09 Kie tu choi o base64 len=5078436, tuc PDF goc ~3.63 MiB.
+    """Tran inline la con so DO DUOC, khong phai con so chon.
 
-        Tran phai nam DUOI con so do. Tran cu la 7MB -- cao gap doi gioi han
-        that, nen code cho qua nhung tep Kie chac chan tu choi.
-        """
-        refused_raw = int(5078436 * 3 / 4)     # base64 -> bytes goc
-        self.assertLess(gemini_api.KIE_INLINE_MAX_BYTES, refused_raw)
+    Ghim lai de lan sau ai muon doi thi phai doi bang mot phep do moi, khong
+    phai bang cam giac. Ba moc duoi deu tu snapshot kie_inline_20260929_133355.
+    """
+
+    def test_ceiling_is_at_most_what_the_primary_model_accepted(self):
+        """gemini-3-8-flash nhan 3.152.375 byte. Tran khong duoc vuot moc do."""
+        self.assertLessEqual(gemini_api.KIE_INLINE_MAX_BYTES, 3152375)
+
+    def test_ceiling_is_below_the_size_kie_actually_refused(self):
+        """Loi 400 dau tien: base64 len=5078436 -> PDF goc ~3.63 MiB."""
+        self.assertLess(gemini_api.KIE_INLINE_MAX_BYTES, int(5078436 * 3 / 4))
+
+    def test_ceiling_was_not_dragged_down_to_the_openai_dialect(self):
+        """Nhanh `-openai` tu choi o ~2.1 MiB. Neu ai do "sua cho an toan" bang
+        cach ha tran xuong duoi muc do, deck binh thuong se het cham duoc --
+        trong khi cach dung la BO QUA nhanh do khi tep lon, nhu da bo qua
+        gpt-6-luna. Test nay chan dung huong sua sai do."""
+        oai_refused_raw = int(2800916 * 3 / 4)     # ~2.1 MiB
+        self.assertGreater(gemini_api.KIE_INLINE_MAX_BYTES, oai_refused_raw)
 
 
 class ShrinkGuardTest(unittest.TestCase):

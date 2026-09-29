@@ -527,11 +527,25 @@ KIE_PROVIDER = "kie"
 #: gioi han that, nen code cho qua nhung tep ma Kie chac chan tu choi: ban ghi
 #: khong co diem, va ly do that thi nam o tan loi 400 cua Kie.
 #:
-#: TAM dat 3.5 MiB (duoi so quan sat duoc mot chut). Con so DUNG phai do bang
-#: `probe_inline_limit()` roi cap nhat o day kem ngay do -- dung suy tiep tu mot
-#: quan sat duy nhat, va gioi han co the khac nhau giua cac dialect.
-#: [TEMP-WORKAROUND 2026-09-29: so uoc luong tu mot loi 400. Go sau khi do that.]
-KIE_INLINE_MAX_BYTES = 3584 * 1024        # 3.5 MiB
+#: DA DO, 29/09/2026, bang `probe_inline_limit()` (snapshot kie_inline_20260929_133355):
+#:
+#:   gemini-3-8-flash         (dialect gemini, inlineData) : 2MB OK, 3MB OK,
+#:                                                            3.5MB khi lot khi 502
+#:   gemini-3-8-flash-openai  (dialect gemini_oai, data: URL): TU CHOI ngay o 2MB
+#:   gemini-3-6-flash-openai  (dialect gemini_oai)           : TU CHOI ngay o 2MB
+#:
+#: Hai nhanh lech nhau rat xa. Lay 3 MiB = muc nhanh CHINH nhan chac chan.
+#:
+#: KHONG lay MIN qua ca chuoi. Phep do ban dau khuyen lay min voi ly le "mot tep
+#: phai lot qua ca model du phong thi chuoi moi co nghia" -- nghe hop ly, nhung
+#: so lieu cho thay no dan toi tran < 2MB, bop chet ca deck binh thuong. Nhanh
+#: `-openai` khong bao gio nhan noi tep co nay, nen voi duong CHAM DIEM no khong
+#: phai du phong: phai bo qua no nhu da bo qua gpt-6-luna, chu khong keo tran
+#: xuong theo no. (Viec bo qua nam o gateway `_usable` - xem ghi chu duoi.)
+#:
+#: 3.5MB bi loai vi 502: do la proxy NHA MINH het gio, khong phai Kie tu choi --
+#: nhung vung 3-3.5MB da chung to la khong on dinh, khong nen o sat mep.
+KIE_INLINE_MAX_BYTES = 3 * 1024 * 1024    # 3 MiB, do that 29/09
 
 #: Nen ma khong an gi thi dung som. Deck toan anh chup thi ha do phan giai an
 #: ngay; deck la PDF xuat tu Office (anh da nen san, chu la vector) thi khong an
