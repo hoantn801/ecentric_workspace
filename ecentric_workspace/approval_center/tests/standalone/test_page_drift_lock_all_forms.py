@@ -113,7 +113,8 @@ class TestKhoaChongTroiMoiForm(unittest.TestCase):
     # luc do day BASELINE hien tai xuong SUPERSEDES va GO ten khoi tap nay.
     TRANG_MOI_CHUA_CO_LIVE = {"brand_weight",           # 25/09/2026, p211_create_brand_weight_page
                               "offer_request",          # 28/09/2026, p220_create_offer_nsp_pages
-                              "new_staff_preparation"}  # 28/09/2026, p220_create_offer_nsp_pages
+                              "new_staff_preparation",  # 28/09/2026, p220_create_offer_nsp_pages
+                              "clearance_request"}      # 29/09/2026, p233_clearance_request
 
     def test_sha_cu_van_nam_trong_supersedes(self):
         """Luc deploy, live con giu bytes CU -> phai con trong danh sach chap nhan."""

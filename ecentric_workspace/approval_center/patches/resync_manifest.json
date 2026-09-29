@@ -55,8 +55,8 @@
   },
   "approval_center/features/employee_info_update/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p203_resync_all_forms_alltab",
-    "sha256": "418f666796600c68538e839ed03c9483f1c87bce71d0b375102e148f24c31658"
+    "last_resync_patch": "p232_eiu_ho_so_nhan_vien",
+    "sha256": "a67f245bf2504bb63ab9cc806f609fdfe92e2053828bc0eb50bdd88491adbf44"
   },
   "approval_center/features/employee_referral/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -109,8 +109,8 @@
   },
   "approval_center/features/promotion/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p203_resync_all_forms_alltab",
-    "sha256": "a2542c4209f39ffdebb4c1bd51f5a38b7d85e9f1d90cd6110dc04bfa57460052"
+    "last_resync_patch": "p234_promotion_chon_nhan_su",
+    "sha256": "5d1410c9a6dc1653e88feb0e47fc9730804e8d787ac2be0069e5ac98aa0265fb"
   },
   "approval_center/features/purchase_request/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -274,5 +274,10 @@
     "baseline": "2026-09-29",
     "last_resync_patch": "p223_resync_alert_center_nhieu_lop",
     "sha256": "e8be1000a03aa65b14d56223d636ea9b0e3a7462024196ab89282c437c4df99c"
+  },
+  "approval_center/features/clearance_request/ui/main_section.html": {
+    "baseline": "2026-09-29",
+    "last_resync_patch": "p233_clearance_request",
+    "sha256": "730ad1ba443632ab1e513ebcf798552de80602d8040862223335c21522accb85"
   }
 }

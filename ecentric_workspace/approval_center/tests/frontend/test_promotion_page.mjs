@@ -36,6 +36,8 @@ function boot(over) {
       tabs: { create: true, my_requests: true, my_approvals: true },
       context: { user: "u@x", employee_name: "U", employee: "EMP-1", department: "Engineering", company: "C" },
       is_system_manager: false, form_options: FO } });
+    if (m.endsWith("promotion_candidates")) return Promise.resolve({ message: { rows: [{ name: "HR-EMP-9", employee_name: "Nguyen Van A", department: "Engineering" }] } });
+    if (m.endsWith("promotion_employee")) return Promise.resolve({ message: { employee: "HR-EMP-9", full_name: "Nguyen Van A", department: "Engineering", current_position: "Engineer", current_salary: 20000000, salary_from: "2026-01-01" } });
     if (m.endsWith("save_draft")) return Promise.resolve({ message: { name: "EC-PROM-2026-00001", capabilities: {} } });
     if (m.endsWith("submit_request")) return Promise.resolve({ message: { approval_request: "AR-1", submitted: true, detail: detail() } });
     if (m.endsWith("list_my_requests")) return Promise.resolve({ message: { rows: [
@@ -60,11 +62,16 @@ async function run() {
   ok(!!w.Promotion, "Promotion exposed");
   ok(w.document.querySelectorAll(".tab").length === 3, "three tabs rendered (no fulfillment)");
   const cb = () => w.document.getElementById("prom-body").innerHTML;
-  ["request_title", "full_name", "department", "current_position", "proposed_position", "current_salary", "proposed_salary", "incentives", "justification", "effective_date_of_promotion"].forEach(function (f) {
+  ["request_title", "promoted_employee", "proposed_position", "proposed_salary", "incentives", "justification", "effective_date_of_promotion"].forEach(function (f) {
     ok(!!w.document.querySelector('[data-model="' + f + '"]'), f + " field renders"); });
-  ok(!!w.document.querySelector('select[data-model="department"]') && !w.document.querySelector('input[data-model="department"]'), "Department is a select (not free-text input)");
-  { const dsel = w.document.querySelector('select[data-model="department"]'); const html = dsel ? dsel.innerHTML : "";
-    ok(/Engineering/.test(html) && /Service/.test(html), "Department options loaded/rendered from master"); }
+  // 29/09: ho ten / phong ban / vi tri & luong hien tai do SERVER dien tu nhan su da chon - o chi doc.
+  ["full_name", "department", "current_position", "current_salary"].forEach(function (f) {
+    ok(!!w.document.querySelector('input.ro[data-ro="' + f + '"]') && !w.document.querySelector('[data-model="' + f + '"]'), f + " chi doc, khong nhap tay"); });
+  { const sel = w.document.querySelector('select[data-model="promoted_employee"]');
+    ok(!!sel && /Nguyen Van A/.test(sel.innerHTML), "chon nhan su tu danh sach (theo quyen xem luong)");
+    sel.value = "HR-EMP-9"; sel.dispatchEvent(new w.Event("input", { bubbles: true })); await flush(); await flush();
+    ok(calls.promotion_employee && calls.promotion_employee.employee === "HR-EMP-9", "chon -> hoi thong tin nhan su");
+    ok(w.document.querySelector('[data-ro="current_salary"]').value === "20000000" && w.document.querySelector('[data-ro="current_position"]').value === "Engineer", "dien san vi tri + luong hien tai"); }
   ok(!!w.document.getElementById("prom-process-preview"), "process preview renders");
   { const pv = w.document.getElementById("prom-process-preview");
     ok(pv.querySelectorAll(".step").length === 5, "preview has 5 steps");
@@ -74,16 +81,17 @@ async function run() {
   { const html = cb(); ok(html.indexOf('id="prom-process-preview"') >= 0 && html.indexOf('id="prom-process-preview"') < html.indexOf('data-model="request_title"'), "process preview before request_title"); }
   w.Promotion.state.draft = {};
   { const e = w.Promotion.validateSubmit() || {};
-    ok(e.request_title && e.full_name && e.department && e.current_position && e.proposed_position && e.justification && e.current_salary && e.proposed_salary && e.effective_date_of_promotion, "validateSubmit requires key fields"); }
+    ok(e.request_title && e.promoted_employee && e.proposed_position && e.justification && e.proposed_salary && e.effective_date_of_promotion, "validateSubmit requires key fields"); }
   // negative salary blocked
-  w.Promotion.state.draft = { request_title: "T", full_name: "A", department: "Engineering", current_position: "E", proposed_position: "SE", justification: "j", current_salary: 100, proposed_salary: -5, effective_date_of_promotion: "2026-09-01" };
+  w.Promotion.state.draft = { request_title: "T", promoted_employee: "HR-EMP-9", full_name: "A", department: "Engineering", current_position: "E", proposed_position: "SE", justification: "j", current_salary: 100, proposed_salary: -5, effective_date_of_promotion: "2026-09-01" };
   ok((w.Promotion.validateSubmit() || {}).proposed_salary, "negative salary blocked");
-  w.Promotion.state.draft = { request_title: "T", full_name: "A", department: "TESTING", current_position: "E", proposed_position: "SE", justification: "j", current_salary: 100, proposed_salary: 200, effective_date_of_promotion: "2026-09-01" };
-  ok((w.Promotion.validateSubmit() || {}).department, "invalid department (not in master) blocked");
-  w.Promotion.state.draft = { request_title: "T", full_name: "A", current_position: "E", proposed_position: "SE", justification: "j", current_salary: 100, proposed_salary: 200, effective_date_of_promotion: "2026-09-01" };
-  ok((w.Promotion.validateSubmit() || {}).department, "missing department blocked");
+  w.Promotion.state.draft = { request_title: "T", promoted_employee: "HR-EMP-9", full_name: "A", department: "TESTING", current_position: "E", proposed_position: "SE", justification: "j", current_salary: 100, proposed_salary: 200, effective_date_of_promotion: "2026-09-01" };
+  ok(!(w.Promotion.validateSubmit() || {}).department, "phong ban khong con kiem o client (server lay tu ho so)");
+  w.Promotion.state.draft = { request_title: "T", promoted_employee: "HR-EMP-9", full_name: "A", current_position: "E", proposed_position: "SE", justification: "j", current_salary: 100, proposed_salary: 200, effective_date_of_promotion: "2026-09-01" };
+  delete w.Promotion.state.draft.promoted_employee;
+  ok((w.Promotion.validateSubmit() || {}).promoted_employee, "thieu nhan su -> chan");
   // non-numeric salary blocked (start from a full valid draft incl. department)
-  w.Promotion.state.draft = { request_title: "T", full_name: "A", department: "Engineering", current_position: "E", proposed_position: "SE", justification: "j", current_salary: 100, proposed_salary: "abc", effective_date_of_promotion: "2026-09-01" };
+  w.Promotion.state.draft = { request_title: "T", promoted_employee: "HR-EMP-9", full_name: "A", department: "Engineering", current_position: "E", proposed_position: "SE", justification: "j", current_salary: 100, proposed_salary: "abc", effective_date_of_promotion: "2026-09-01" };
   ok((w.Promotion.validateSubmit() || {}).proposed_salary, "non-numeric salary blocked");
   // valid full draft passes
   w.Promotion.state.draft.proposed_salary = 28000000;
@@ -93,7 +101,7 @@ async function run() {
   ok(calls.save_draft && /"department":"Engineering"/.test(calls.save_draft.payload), "save_draft payload carries exact Department name");
   // submit path calls submit_request with draft name
   w = boot(); await flush(); await flush();
-  w.Promotion.state.draft = { request_title: "T", full_name: "A", department: "Engineering", current_position: "E", proposed_position: "SE", justification: "j", current_salary: 100, proposed_salary: 200, effective_date_of_promotion: "2026-09-01" };
+  w.Promotion.state.draft = { request_title: "T", promoted_employee: "HR-EMP-9", full_name: "A", department: "Engineering", current_position: "E", proposed_position: "SE", justification: "j", current_salary: 100, proposed_salary: 200, effective_date_of_promotion: "2026-09-01" };
   w.document.getElementById("prom-submit").click(); await flush(); await flush(); await flush();
   ok(calls.submit_request && calls.submit_request.name === "EC-PROM-2026-00001", "submit_request called with draft name");
   // My Requests + approvals (current status)
