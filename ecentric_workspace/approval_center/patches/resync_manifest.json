@@ -274,5 +274,10 @@
     "baseline": "2026-09-29",
     "last_resync_patch": "p223_resync_alert_center_nhieu_lop",
     "sha256": "e8be1000a03aa65b14d56223d636ea9b0e3a7462024196ab89282c437c4df99c"
+  },
+  "approval_center/features/clearance_request/ui/main_section.html": {
+    "baseline": "2026-09-29",
+    "last_resync_patch": "p233_clearance_request",
+    "sha256": "730ad1ba443632ab1e513ebcf798552de80602d8040862223335c21522accb85"
   }
 }

@@ -609,3 +609,12 @@ scheduler_events["cron"].setdefault("35 8 * * *", []).append(
     "ecentric_workspace.hr.timesheet_close.reminders.remind_day1")
 scheduler_events["cron"].setdefault("0 9 * * *", []).append(
     "ecentric_workspace.hr.timesheet_close.reminders.remind_close_day")
+
+# --------------------------------------------------------------------------- #
+# 29/09/2026 - Nghi viec: 00:30 hang ngay, nhan vien Active da qua ngay lam viec cuoi
+# (Employee.relieving_date - Don nghi viec ghi luc duyet xong) -> status Left + khoa tai khoan
+# (khong go role, khong xoa User Permission; ai giu System Manager thi chi bao, khong khoa).
+# Tat khan cap: site_config ec_offboarding_lock_disabled. Xem hr/offboarding/.
+# --------------------------------------------------------------------------- #
+scheduler_events["cron"].setdefault("30 0 * * *", []).append(
+    "ecentric_workspace.hr.offboarding.lock_left_employees_job.run")

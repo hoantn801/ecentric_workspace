@@ -1798,6 +1798,8 @@ _FULFILLMENT_HANDLERS = {
     "EC New Staff Preparation": "ecentric_workspace.approval_center.features.new_staff_preparation.application.service.on_final_approval",
     # 29/09: duyet xong -> ghi gia tri moi vao ho so Employee (o nen, sau commit).
     "EC Employee Information Update Request": "ecentric_workspace.approval_center.features.employee_info_update.application.service.on_final_approval",
+    # 29/09: Clearance du cac nhom ban giao -> bao line manager.
+    "EC Clearance Request": "ecentric_workspace.approval_center.features.clearance_request.application.service.on_final_approval",
 }
 
 
