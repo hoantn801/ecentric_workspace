@@ -66,5 +66,32 @@ class KhoaTrongServerScript(unittest.TestCase):
             self.assertIn("'Member Closed','Closed'", src, n)
             compile(src, n, "exec")
 
+
+class ServerScriptKhongDungTenGachDuoi(unittest.TestCase):
+    """Server Script chay trong RestrictedPython: ten bien bat dau bang '_' bi TU CHOI luc
+    chay ('"_pm" is an invalid variable name'). 30/09 bien `_pm` trong ec_hr_leave_apply
+    lam hong MOI don nghi phep - compile() Python thuong khong bat duoc, nen kiem o day."""
+
+    def test_moi_server_script(self):
+        import ast
+        import json
+        p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "fixtures", "server_script.json")
+        for r in json.load(open(p, encoding="utf-8")):
+            t = ast.parse(r["script"])
+            bad = {n.id for n in ast.walk(t) if isinstance(n, ast.Name) and n.id.startswith("_")}
+            bad |= {n.attr for n in ast.walk(t) if isinstance(n, ast.Attribute) and n.attr.startswith("_")}
+            bad |= {a.arg for n in ast.walk(t) if isinstance(n, (ast.FunctionDef, ast.Lambda)) for a in n.args.args if a.arg.startswith("_")}
+            self.assertEqual(bad, set(), r["name"])
+
+    def test_compile_restricted_neu_co_thu_vien(self):
+        try:
+            from RestrictedPython import compile_restricted
+        except ImportError:
+            self.skipTest("RestrictedPython chua cai (pip install RestrictedPython)")
+        import json
+        p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "fixtures", "server_script.json")
+        for r in json.load(open(p, encoding="utf-8")):
+            compile_restricted(r["script"], r["name"], "exec")
+
 if __name__ == "__main__":
     unittest.main()
