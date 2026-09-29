@@ -1,0 +1,203 @@
+{
+ "doctype": "DocType",
+ "name": "EC Timesheet Close",
+ "module": "Ecentric Workspace",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "title_field": "employee_name",
+ "description": "Chốt công tháng: nhân viên chốt trước 12h, leader chốt team trước 15h ngày 2 tháng sau (dời qua T7/CN/lễ). Ghi bởi ecentric_workspace.hr.timesheet_close - không sửa tay.",
+ "field_order": [
+  "employee",
+  "employee_name",
+  "user",
+  "department",
+  "cb_head",
+  "period_month",
+  "status",
+  "lead_user",
+  "sec_due",
+  "member_deadline",
+  "cb_due",
+  "lead_deadline",
+  "sec_close",
+  "member_closed_at",
+  "member_closed_by",
+  "close_mode",
+  "cb_close",
+  "team_closed_at",
+  "team_closed_by",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "label": "Nhân viên",
+   "options": "Employee",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "employee_name",
+   "fieldtype": "Data",
+   "label": "Họ tên",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "Tài khoản",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "label": "Phòng ban",
+   "options": "Department",
+   "read_only": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "cb_head",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "period_month",
+   "fieldtype": "Data",
+   "label": "Kỳ công (YYYY-MM)",
+   "reqd": 1,
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Trạng thái",
+   "options": "Open\nMember Closed\nClosed",
+   "default": "Open",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "lead_user",
+   "fieldtype": "Link",
+   "label": "Leader chốt team",
+   "options": "User",
+   "read_only": 1,
+   "description": "Quản lý trực tiếp (reports_to). Trống = CnB / HR chốt thay."
+  },
+  {
+   "fieldname": "sec_due",
+   "fieldtype": "Section Break",
+   "label": "Hạn"
+  },
+  {
+   "fieldname": "member_deadline",
+   "fieldtype": "Datetime",
+   "label": "Hạn nhân viên",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb_due",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "lead_deadline",
+   "fieldtype": "Datetime",
+   "label": "Hạn leader",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sec_close",
+   "fieldtype": "Section Break",
+   "label": "Chốt"
+  },
+  {
+   "fieldname": "member_closed_at",
+   "fieldtype": "Datetime",
+   "label": "Nhân viên chốt lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "member_closed_by",
+   "fieldtype": "Link",
+   "label": "Người chốt phần nhân viên",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "close_mode",
+   "fieldtype": "Select",
+   "label": "Cách chốt",
+   "options": "\nTu chot\nLeader chot thay\nHR chot thay",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb_close",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "team_closed_at",
+   "fieldtype": "Datetime",
+   "label": "Leader chốt lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "team_closed_by",
+   "fieldtype": "Link",
+   "label": "Người chốt team",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú",
+   "read_only": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  },
+  {
+   "role": "HR Manager",
+   "read": 1,
+   "export": 1,
+   "report": 1
+  },
+  {
+   "role": "EC CnB",
+   "read": 1,
+   "export": 1,
+   "report": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}
