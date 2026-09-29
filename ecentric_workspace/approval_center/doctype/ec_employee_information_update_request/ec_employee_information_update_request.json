@@ -24,7 +24,10 @@
   "field_to_update_other",
   "current_value",
   "new_value",
-  "request_attachment"
+  "request_attachment",
+  "target_employee",
+  "applied_at",
+  "apply_result"
  ],
  "fields": [
   {
@@ -111,11 +114,11 @@
   },
   {
    "fieldname": "field_to_update",
-   "fieldtype": "Select",
+   "fieldtype": "Data",
    "label": "Field to update",
    "reqd": 1,
    "in_list_view": 1,
-   "options": "Personal email\nBank account\nHospital code\nMobile phone\nBirthplace\nCitizen ID number\nCitizen ID issue date\nCitizen ID issue place\nPermanent address\nTemporary address\nPosition (C&B use only)\nOther"
+   "description": "Nhãn trường hồ sơ (profile_fields.py) hoặc Other"
   },
   {
    "fieldname": "field_to_update_other",
@@ -138,11 +141,30 @@
    "fieldname": "request_attachment",
    "fieldtype": "Attach",
    "label": "Attachment"
+  },
+  {
+   "fieldname": "target_employee",
+   "fieldtype": "Link",
+   "label": "Target Employee",
+   "options": "Employee",
+   "read_only": 1
+  },
+  {
+   "fieldname": "applied_at",
+   "fieldtype": "Datetime",
+   "label": "Applied to Employee At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "apply_result",
+   "fieldtype": "Small Text",
+   "label": "Apply Result",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-09-28 12:00:00.000000",
+ "modified": "2026-09-29 20:00:00.000000",
  "module": "Approval Center",
  "name": "EC Employee Information Update Request",
  "naming_rule": "Expression",

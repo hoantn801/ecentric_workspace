@@ -55,8 +55,8 @@
   },
   "approval_center/features/employee_info_update/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p203_resync_all_forms_alltab",
-    "sha256": "418f666796600c68538e839ed03c9483f1c87bce71d0b375102e148f24c31658"
+    "last_resync_patch": "p232_eiu_ho_so_nhan_vien",
+    "sha256": "a67f245bf2504bb63ab9cc806f609fdfe92e2053828bc0eb50bdd88491adbf44"
   },
   "approval_center/features/employee_referral/ui/main_section.html": {
     "baseline": "2026-08-31",

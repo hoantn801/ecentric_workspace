@@ -80,7 +80,9 @@ async function run() {
   // validateSubmit
   w.EmployeeInfoUpdate.state.draft = {};
   { const e = w.EmployeeInfoUpdate.validateSubmit() || {};
-    ok(e.employee_email && e.field_to_update && e.current_value && e.new_value, "validateSubmit requires the required set"); }
+    ok(e.employee_email && e.field_to_update && e.new_value, "validateSubmit requires the required set");
+    // 29/09: Current value dien san tu ho so (hoac de trong) - khong bat buoc nua.
+    ok(!e.current_value, "current value khong bat buoc"); }
   w.EmployeeInfoUpdate.state.draft = { employee_email: "not-an-email", field_to_update: "Bank account", current_value: "111", new_value: "222" };
   ok((w.EmployeeInfoUpdate.validateSubmit() || {}).employee_email, "validateSubmit rejects bad email format");
   w.EmployeeInfoUpdate.state.draft = { employee_email: "u@x.com", field_to_update: "Other", current_value: "111", new_value: "222" };
