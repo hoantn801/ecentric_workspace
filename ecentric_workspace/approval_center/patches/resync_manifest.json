@@ -249,5 +249,25 @@
     "baseline": "2026-09-29",
     "last_resync_patch": "p224_resync_home_v2_nguon",
     "sha256": "0a77f921665a2a619232041647cfaa3158216cf070fa6905b1a03020a81fdb5d"
+  },
+  "alerts/site_pages/overview/main_section.html": {
+    "baseline": "2026-09-29",
+    "sha256": "0a06538a47c70eca3bfcea6eae5ac2cdb9713ac2304b07f43834079e8706b6a0"
+  },
+  "alerts/site_pages/policies/main_section.html": {
+    "baseline": "2026-09-29",
+    "sha256": "9353c6bcca9a27b0b59170e765113cc825048ac7dddfe29ac5f425b621278ada"
+  },
+  "alerts/site_pages/rules/main_section.html": {
+    "baseline": "2026-09-29",
+    "sha256": "2cb3d306356b62e9c77e2d1ae3af16eef31a7dd59f8a7d37b6f22ad11ae0907f"
+  },
+  "alerts/site_pages/locks/main_section.html": {
+    "baseline": "2026-09-29",
+    "sha256": "04c93c168192613f02aa463795b7930e898fb7edc685636d082b5ce67a8d4166"
+  },
+  "alerts/site_pages/integration_health/main_section.html": {
+    "baseline": "2026-09-29",
+    "sha256": "92ef593391cb057c56f7a888d6ef3238f2a9ad2a2be94b0edcf26667f88c6834"
   }
 }

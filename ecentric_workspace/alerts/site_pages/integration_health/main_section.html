@@ -1,0 +1,959 @@
+<!-- ec-alert-health : built by build_alert_pages.py (Phase F) from the production
+     home shell snapshot. DO NOT hand-edit shell sections. -->
+<script id="ec-csrf-fetch-patch">
+(function(){
+  // ec_csrf_nofallback_marker 2026-09-14: ban cu ket thuc chuoi fallback bang chuoi literal
+  // "token" -> khi chua co token that, no GUI DI chuoi rac do va server tra
+  // CSRFTokenError. Goc sau xa: nang cap python3.14 go frappe.generate_hash khoi
+  // sandbox -> get_csrf tung tra token RONG (da chua o app method 14/09).
+  // v2: khong bao gio gui chuoi rac; chua co token thi XIN roi moi gui.
+  if (window.ecFetchPatched) return;
+  window.ecFetchPatched = true;
+  var origFetch = window.fetch;
+  function getCsrf() {
+    return (window.frappe && window.frappe.csrf_token) ||
+           (window.CTX && window.CTX.csrfToken) ||
+           window.csrf_token ||
+           (document.cookie.match(/csrf_token=([^;]+)/) || [])[1] ||
+           '';
+  }
+  function ensureCsrf(force) {
+    if (!force && window._ecCsrfReady) return window._ecCsrfReady;
+    window._ecCsrfReady = origFetch.call(window, '/api/method/get_csrf', { credentials: 'include' })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        var m = (j && j.message) || {};
+        if (m.csrf_token && !m.is_guest) {
+          window.frappe = window.frappe || {};
+          window.frappe.csrf_token = m.csrf_token;
+        }
+        return m.csrf_token || '';
+      })
+      .catch(function(e){ console.error('[ec-csrf] xin token that bai:', e); return ''; });
+    return window._ecCsrfReady;
+  }
+  window.ecEnsureCsrfToken = ensureCsrf;
+  window.fetch = function(url, opts) {
+    opts = opts || {};
+    var u = (typeof url === 'string') ? url : (url && url.url) || '';
+    var method = (opts.method || 'GET').toUpperCase();
+    var isApi = u.indexOf('/api/method/') >= 0 || u.indexOf('/api/resource/') >= 0;
+    if (!(isApi && method !== 'GET' && method !== 'HEAD')) {
+      return origFetch.call(window, url, opts);
+    }
+    if (opts.credentials === undefined) opts.credentials = 'include';
+    // Header co san nhung RONG thi coi nhu CHUA co -> wrapper dien token that.
+    function headerVal() {
+      var h = opts.headers;
+      if (!h) return '';
+      if (h.get && typeof h.get === 'function') return h.get('X-Frappe-CSRF-Token') || '';
+      for (var k in h) {
+        if (k.toLowerCase() === 'x-frappe-csrf-token') return h[k] || '';
+      }
+      return '';
+    }
+    function send(tok) {
+      opts.headers = opts.headers || {};
+      if (tok) {
+        if (opts.headers.set && typeof opts.headers.set === 'function') {
+          opts.headers.set('X-Frappe-CSRF-Token', tok);
+        } else {
+          var done = false;
+          for (var k in opts.headers) {
+            if (k.toLowerCase() === 'x-frappe-csrf-token') { opts.headers[k] = tok; done = true; break; }
+          }
+          if (!done) opts.headers['X-Frappe-CSRF-Token'] = tok;
+        }
+      }
+      return origFetch.call(window, url, opts);
+    }
+    if (headerVal()) return origFetch.call(window, url, opts);
+    var t = getCsrf();
+    if (t) return send(t);
+    return ensureCsrf(false).then(function(tok){ return send(tok); });
+  };
+  console.log('[ec-csrf] fetch wrapper v2 installed');
+})();
+</script>
+<style>
+  /* Hide Frappe default navbar + footer to give full-screen workspace */
+  body > header,
+  body > footer,
+  body > nav.navbar,
+  header.navbar,
+  .navbar.navbar-light,
+  .web-page-header,
+  #navbarSupportedContent,
+  .navbar-collapse {
+    display: none !important;
+  }
+  body { padding: 0 !important; margin: 0 !important; }
+  body main { padding-top: 0 !important; }
+  body .main-section, body main.container, body main.fluid {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+  /* If Frappe wraps page content in a container, expand it */
+  body .page_content { padding: 0 !important; }
+</style>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+  :root {
+    --navy: #2C3DA6;
+    --navy-50: #eef0fb;
+    --navy-100: #d9deef;
+    --navy-700: #1f2d80;
+    --yellow: #FFC000;
+    --yellow-50: #fff8e1;
+    --pink: #EF7CAF;
+    --pink-50: #fdeef5;
+    --green: #10b981;
+    --gray-50: #fafbfc;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --gray-400: #9ca3af;
+    --gray-500: #6b7280;
+    --gray-600: #4b5563;
+    --gray-700: #374151;
+    --gray-800: #1f2937;
+    --gray-900: #111827;
+    --bg: #f7f8fb;
+  }
+
+  /* Reset Frappe defaults thoroughly */
+  body { background: var(--bg) !important; padding: 0 !important; margin: 0 !important; }
+  body header.navbar, .web-footer, footer.web-footer { display: none !important; }
+  .page-content, .common-page-style, .container, main, .web-page-content, .page_content {
+    padding: 0 !important; margin: 0 !important; max-width: none !important;
+  }
+
+  .ecentric-app, .ecentric-app * { box-sizing: border-box; }
+  .ecentric-app {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--gray-800);
+    font-size: 14px;
+    line-height: 1.5;
+    display: grid;
+    grid-template-columns: 248px 1fr;
+    min-height: 100vh;
+  }
+  .ecentric-app .icon { width: 18px; height: 18px; flex-shrink: 0; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+  .ecentric-app .icon-sm { width: 16px; height: 16px; }
+  .ecentric-app .icon-xs { width: 14px; height: 14px; }
+
+  .ec-sidebar { background: white; border-right: 1px solid var(--gray-200); display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; }
+  .ec-sidebar .sidebar-header { padding: 16px 16px 10px; display: flex; align-items: center; justify-content: flex-start; }
+  .ec-sidebar .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+  .ec-sidebar .brand img { width: 40px; height: 40px; object-fit: contain; display: block; }
+  .ec-sidebar .brand-name { font-size: 15px; font-weight: 700; color: var(--gray-900); letter-spacing: -0.3px; line-height: 1.2; }
+  .ec-sidebar .sidebar-search { margin: 6px 16px 12px; position: relative; }
+  .ec-sidebar .sidebar-search input { width: 100%; padding: 8px 12px 8px 34px; border: 1px solid var(--gray-200); border-radius: 8px; font-size: 13px; background: var(--gray-50); font-family: inherit; }
+  .ec-sidebar .sidebar-search input:focus { outline: none; border-color: var(--navy); background: white; }
+  .ec-sidebar .search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--gray-400); }
+  .ec-sidebar .kbd { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 10px; color: var(--gray-400); background: white; border: 1px solid var(--gray-200); padding: 1px 5px; border-radius: 4px; }
+  .ec-sidebar .nav-section { padding: 4px 8px 10px; flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: transparent transparent; }
+  .ec-sidebar .nav-section:hover { scrollbar-color: var(--gray-300) transparent; }
+  .ec-sidebar .nav-section::-webkit-scrollbar { width: 6px; }
+  .ec-sidebar .nav-section::-webkit-scrollbar-track { background: transparent; }
+  .ec-sidebar .nav-section::-webkit-scrollbar-thumb { background: transparent; border-radius: 3px; transition: background 0.2s; }
+  .ec-sidebar .nav-section:hover::-webkit-scrollbar-thumb { background: var(--gray-300); }
+  .ec-sidebar .nav-section::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
+  .ec-sidebar .nav-label { font-size: 10.5px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.6px; padding: 8px 12px 2px; }
+  /* === Sidebar nav-item &#8212; d&#249;ng CSS Grid (c&#7913;ng, ch&#7889;ng Frappe/Bootstrap &#273;&#232;) === */
+  .ecentric-app .ec-sidebar nav.nav-section a.nav-item {
+    display: grid !important;
+    grid-template-columns: 16px 1fr auto !important;
+    column-gap: 10px !important;
+    align-items: center !important;
+    justify-items: start !important;
+    padding: 6px 12px !important;
+    border-radius: 6px !important;
+    color: var(--gray-600) !important;
+    text-decoration: none !important;
+    font-size: 12.5px !important;
+    font-weight: 500 !important;
+    transition: background 0.15s, color 0.15s !important;
+    margin-bottom: 1px !important;
+    text-align: left !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    line-height: 1.3 !important;
+  }
+  .ecentric-app .ec-sidebar nav.nav-section a.nav-item > svg.icon {
+    width: 16px !important; height: 16px !important;
+    grid-column: 1 !important;
+    margin: 0 !important;
+  }
+  .ecentric-app .ec-sidebar nav.nav-section a.nav-item > span:not(.badge) {
+    grid-column: 2 !important;
+    margin: 0 !important;
+    text-align: left !important;
+    justify-self: start !important;
+  }
+  .ecentric-app .ec-sidebar nav.nav-section a.nav-item > span.badge {
+    grid-column: 3 !important;
+    margin: 0 !important;
+    background: var(--gray-200);
+    color: var(--gray-700);
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 10px;
+    min-width: 20px;
+    text-align: center;
+  }
+  .ecentric-app .ec-sidebar nav.nav-section a.nav-item:hover { background: var(--gray-100) !important; color: var(--gray-900) !important; text-decoration: none !important; }
+  .ecentric-app .ec-sidebar nav.nav-section a.nav-item.active { background: var(--navy-50) !important; color: var(--navy) !important; font-weight: 600 !important; }
+  .ecentric-app .ec-sidebar nav.nav-section a.nav-item.active svg.icon { stroke-width: 2 !important; }
+  .ecentric-app .ec-sidebar nav.nav-section a.nav-item.active span.badge { background: var(--navy) !important; color: white !important; }
+  .ec-sidebar .nav-item.active .badge { background: var(--navy); color: white; }
+  .ec-sidebar .badge.b-soon { background: var(--gray-200) !important; color: var(--gray-600) !important; font-size: 10px !important; padding: 2px 6px !important; border-radius: 4px !important; font-weight: 600 !important; letter-spacing: 0.2px !important; }
+  .ec-sidebar .sidebar-footer { padding: 12px; border-top: 1px solid var(--gray-100); display: flex; align-items: center; gap: 8px; }
+  .ec-sidebar .user-card { flex: 1; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; transition: background 0.15s; text-decoration: none; color: inherit; min-width: 0; }
+  .ec-sidebar .logout-btn { width: 36px; height: 36px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: transparent; border: none; color: var(--gray-500); cursor: pointer; transition: background 0.15s, color 0.15s; }
+  .ec-sidebar .logout-btn:hover { background: #fee2e2; color: #dc2626; }
+  .ec-sidebar .logout-btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+  .ec-sidebar .user-card:hover { background: var(--gray-100); text-decoration: none; }
+  .ec-sidebar .avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, var(--navy), var(--pink)); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; }
+  .ec-sidebar .user-info { flex: 1; min-width: 0; }
+  .ec-sidebar .user-name { font-size: 13px; font-weight: 600; color: var(--gray-900); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ec-sidebar .user-role { font-size: 11px; color: var(--gray-500); }
+
+  .ec-main { min-width: 0; display: flex; flex-direction: column; }
+  .ec-main .topbar { background: white; border-bottom: 1px solid var(--gray-200); padding: 12px 32px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
+  .ec-main .breadcrumb { font-size: 13px; color: var(--gray-500); padding: 0; margin: 0; background: none; }
+  .ec-main .breadcrumb strong { color: var(--gray-900); font-weight: 600; }
+  .ec-main .topbar-actions { display: flex; align-items: center; gap: 6px; }
+  .ec-main .icon-btn { width: 34px; height: 34px; border-radius: 8px; border: none; background: transparent; display: flex; align-items: center; justify-content: center; color: var(--gray-500); position: relative; transition: all 0.15s; text-decoration: none; }
+  .ec-main .icon-btn:hover { background: var(--gray-100); color: var(--gray-900); }
+  .ec-main .icon-btn .dot { position: absolute; top: 8px; right: 9px; width: 6px; height: 6px; background: var(--pink); border-radius: 50%; border: 2px solid white; }
+  .ec-main .content { padding: 28px 32px 40px; max-width: 1400px; width: 100%; }
+
+  .ecentric-app .greeting { margin-bottom: 24px; }
+  .ecentric-app .greeting h1 { font-size: 26px; font-weight: 700; color: var(--gray-900); letter-spacing: -0.5px; margin-bottom: 4px; margin-top: 0; }
+  .ecentric-app .greeting p { color: var(--gray-500); font-size: 14px; margin: 0; }
+
+  .ecentric-app .stats-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 22px; }
+  .ecentric-app .stat-card { background: white; border: 1px solid var(--gray-200); border-radius: 12px; padding: 18px 20px; transition: all 0.15s; position: relative; overflow: hidden; }
+  .ecentric-app .stat-card::before { content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%; }
+  .ecentric-app .stat-card.s-navy::before { background: var(--navy); }
+  .ecentric-app .stat-card.s-yellow::before { background: var(--yellow); }
+  .ecentric-app .stat-card.s-pink::before { background: var(--pink); }
+  .ecentric-app .stat-card.s-green::before { background: var(--green); }
+  .ecentric-app .stat-card:hover { border-color: var(--gray-300); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+  .ecentric-app .stat-label { font-size: 12px; font-weight: 500; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 8px; }
+  .ecentric-app .stat-value { font-size: 26px; font-weight: 700; color: var(--gray-900); line-height: 1.1; letter-spacing: -0.5px; }
+  .ecentric-app .stat-value .unit { font-size: 14px; color: var(--gray-500); font-weight: 500; margin-left: 2px; }
+  .ecentric-app .stat-meta { font-size: 12px; color: var(--gray-500); margin-top: 6px; }
+  .ecentric-app .stat-meta .up { color: var(--green); font-weight: 600; }
+
+  .ecentric-app .bento { display: grid; grid-template-columns: 2fr 1fr; gap: 18px; margin-bottom: 22px; }
+  .ecentric-app .col-left, .ecentric-app .col-right { display: flex; flex-direction: column; gap: 18px; }
+  .ecentric-app .panel { background: white; border: 1px solid var(--gray-200); border-radius: 12px; overflow: hidden; }
+  .ecentric-app .panel-header { padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--gray-100); }
+  .ecentric-app .panel-title { font-size: 14px; font-weight: 600; color: var(--gray-900); display: flex; align-items: center; gap: 8px; }
+  .ecentric-app .panel-title .badge { background: var(--navy-50); color: var(--navy); font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 10px; }
+  .ecentric-app .panel-title .badge.b-pink { background: var(--pink); color: white; }
+  .ecentric-app .panel-action { font-size: 12.5px; color: var(--navy); text-decoration: none; font-weight: 500; }
+
+  .ecentric-app .quick-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 14px; }
+  .ecentric-app .quick-item { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 16px 8px; border-radius: 10px; text-decoration: none; color: var(--gray-700); transition: all 0.15s; border: 1px solid transparent; }
+  .ecentric-app .quick-item:hover { background: var(--gray-50); border-color: var(--gray-200); color: var(--navy); text-decoration: none; }
+  .ecentric-app .quick-icon { width: 38px; height: 38px; border-radius: 10px; background: var(--gray-50); color: var(--navy); display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .ecentric-app .quick-item:hover .quick-icon { background: var(--navy-50); }
+  .ecentric-app .quick-label { font-size: 12.5px; font-weight: 500; text-align: center; line-height: 1.3; }
+
+  .ecentric-app .checkin-card { background: linear-gradient(135deg, var(--navy) 0%, #3d52cc 100%); color: white; border-radius: 12px; padding: 22px; position: relative; overflow: hidden; }
+  .ecentric-app .checkin-card::after { content: ''; position: absolute; bottom: -50px; right: -50px; width: 180px; height: 180px; background: radial-gradient(circle, rgba(255,192,0,0.18) 0%, transparent 65%); border-radius: 50%; }
+  .ecentric-app .checkin-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; opacity: 0.85; font-weight: 600; position: relative; }
+  .ecentric-app .checkin-time { font-size: 36px; font-weight: 700; letter-spacing: -1px; margin: 4px 0 2px; font-variant-numeric: tabular-nums; position: relative; }
+  .ecentric-app .checkin-date { font-size: 13px; opacity: 0.85; position: relative; }
+  .ecentric-app .checkin-status { background: rgba(255,255,255,0.15); border-radius: 8px; padding: 10px 12px; margin: 16px 0 14px; display: flex; align-items: center; gap: 8px; font-size: 13px; position: relative; }
+  .ecentric-app .status-dot-w { width: 8px; height: 8px; border-radius: 50%; background: var(--yellow); box-shadow: 0 0 0 3px rgba(255,192,0,0.3); }
+  .ecentric-app .btn-checkin { width: 100%; background: var(--yellow); color: var(--gray-900); border: none; padding: 12px; border-radius: 8px; font-weight: 700; font-size: 14px; cursor: pointer; position: relative; font-family: inherit; }
+  .ecentric-app .btn-checkin:hover { background: #e6ac00; }
+
+  .ecentric-app .approval-list { padding: 6px 8px 8px; }
+  .ecentric-app .approval-item { padding: 12px; border-radius: 8px; transition: background 0.15s; display: flex; gap: 12px; align-items: center; position: relative; }
+  .ecentric-app .approval-item::before { content: ''; width: 3px; align-self: stretch; border-radius: 2px; background: var(--yellow); flex-shrink: 0; }
+  .ecentric-app .approval-item.type-leave::before { background: var(--pink); }
+  .ecentric-app .approval-item:hover { background: var(--gray-50); }
+  .ecentric-app .approval-content { flex: 1; min-width: 0; }
+  .ecentric-app .approval-title { font-size: 13px; font-weight: 600; color: var(--gray-900); margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ecentric-app .approval-meta { font-size: 11.5px; color: var(--gray-500); }
+  .ecentric-app .approval-type { font-size: 10px; font-weight: 700; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
+
+  .ecentric-app .news-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; padding: 14px; }
+  .ecentric-app .news-card { background: white; border: 1px solid var(--gray-200); border-radius: 10px; overflow: hidden; transition: all 0.15s; text-decoration: none; color: inherit; display: block; }
+  .ecentric-app .news-card:hover { border-color: var(--gray-300); box-shadow: 0 4px 12px rgba(0,0,0,0.05); transform: translateY(-2px); text-decoration: none; }
+  .ecentric-app .news-image { height: 120px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 14px; text-align: center; padding: 16px; letter-spacing: 0.3px; background-size: cover; background-position: center; }
+  .ecentric-app .news-image.gradient-1 { background: linear-gradient(135deg, var(--navy), #3d52cc); }
+  .ecentric-app .news-image.gradient-2 { background: linear-gradient(135deg, var(--yellow), var(--pink)); }
+  .ecentric-app .news-image.gradient-3 { background: linear-gradient(135deg, var(--gray-800), var(--navy)); }
+  .ecentric-app .news-body { padding: 12px 14px 14px; }
+  .ecentric-app .news-tag { display: inline-block; background: var(--yellow-50); color: #b88600; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; letter-spacing: 0.4px; margin-bottom: 8px; }
+  .ecentric-app .news-tag.t-pink { background: var(--pink-50); color: #c2185b; }
+  .ecentric-app .news-tag.t-navy { background: var(--navy-50); color: var(--navy); }
+  .ecentric-app .news-title { font-size: 13.5px; font-weight: 600; color: var(--gray-900); line-height: 1.4; margin-bottom: 6px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .ecentric-app .news-date { font-size: 11.5px; color: var(--gray-500); }
+
+  .ecentric-app .policy-list { padding: 4px 8px 8px; }
+  .ecentric-app .policy-item { padding: 11px 12px; border-radius: 8px; display: flex; align-items: center; gap: 12px; transition: background 0.15s; text-decoration: none; color: inherit; }
+  .ecentric-app .policy-item:hover { background: var(--gray-50); text-decoration: none; }
+  .ecentric-app .policy-bullet { width: 6px; height: 6px; border-radius: 50%; background: var(--yellow); flex-shrink: 0; }
+  .ecentric-app .policy-text { font-size: 12.5px; color: var(--gray-700); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ecentric-app .policy-arrow { color: var(--gray-300); }
+
+  @media (max-width: 1100px) {
+    .ecentric-app { grid-template-columns: 64px 1fr; }
+    .ec-sidebar .sidebar-search, .ec-sidebar .nav-label, .ec-sidebar .nav-item span:not(.badge), .ec-sidebar .brand-name, .ec-sidebar .user-info { display: none; }
+    .ec-sidebar .nav-item, .ec-sidebar .brand, .ec-sidebar .user-card { justify-content: center; padding: 8px; }
+    .ecentric-app .stats-strip { grid-template-columns: repeat(2, 1fr); }
+    .ecentric-app .bento { grid-template-columns: 1fr; }
+    .ecentric-app .news-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 640px) {
+    .ecentric-app .stats-strip { grid-template-columns: 1fr 1fr; }
+    .ecentric-app .quick-grid { grid-template-columns: repeat(3, 1fr); }
+    .ecentric-app .news-grid { grid-template-columns: 1fr; }
+    .ec-main .content { padding: 20px 16px; }
+    .ec-main .topbar { padding: 12px 16px; }
+  }
+</style>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></symbol>
+    <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M20 12V8H6a2 2 0 0 1-2-2V6c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></symbol>
+    <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></symbol>
+    <symbol id="i-grad" viewBox="0 0 24 24"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></symbol>
+    <symbol id="i-mega" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></symbol>
+    <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3v1h6v-1c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2Z"/></symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></symbol>
+    <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></symbol>
+  </defs>
+</svg>
+<script>
+(function() {
+  function setActive() {
+    var path = window.location.pathname.replace(/\/+$/, '') || '/';
+    var links = document.querySelectorAll('.ec-sb-link');
+    links.forEach(function(a) {
+      var href = (a.getAttribute('href') || '').replace(/\/+$/, '') || '/';
+      a.classList.remove('active');
+      // Strict exact match
+      if (href === path) {
+        a.classList.add('active');
+      }
+      // Special case: '/home' page should also activate links with href='/'
+      else if ((path === '/home' || path === '/') && (href === '/' || href === '/home')) {
+        a.classList.add('active');
+      }
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setActive);
+  } else {
+    setActive();
+  }
+})();
+</script>
+
+<style id="ec-alert-center-css">
+.al-filters{display:flex;flex-wrap:wrap;gap:8px;padding:12px 16px;border-bottom:1px solid var(--gray-200);align-items:flex-end}
+.al-filters label{display:block;font-size:10.5px;font-weight:600;color:var(--gray-500);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+.al-filters select,.al-filters input{padding:7px 10px;border:1px solid var(--gray-200);border-radius:8px;font-size:13px;background:#fff;font-family:inherit;min-width:110px}
+.al-filters select:focus,.al-filters input:focus{outline:none;border-color:var(--navy)}
+.al-btn{padding:8px 14px;border-radius:8px;border:1px solid var(--gray-200);background:#fff;font-size:13px;font-weight:600;color:var(--gray-700);cursor:pointer;font-family:inherit}
+.al-btn:hover{background:var(--gray-50)}
+.al-btn.primary{background:var(--navy);border-color:var(--navy);color:#fff}
+.al-btn.danger{background:var(--pink);border-color:var(--pink);color:#fff}
+.al-btn:disabled{opacity:.5;cursor:not-allowed}
+.al-tbl-wrap{overflow-x:auto}
+.al-tbl{width:100%;border-collapse:collapse;font-size:13px}
+.al-tbl th{position:sticky;top:0;background:var(--gray-50);text-align:left;padding:9px 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--gray-500);border-bottom:1px solid var(--gray-200);white-space:nowrap}
+.al-tbl td{padding:9px 10px;border-bottom:1px solid var(--gray-100);color:var(--gray-800);white-space:nowrap}
+.al-tbl tbody tr{cursor:pointer}
+.al-tbl tbody tr:hover{background:var(--navy-50)}
+.al-badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:700}
+.al-b-critical{background:var(--pink-50);color:var(--pink)}
+.al-b-warning{background:var(--yellow-50);color:#8a6d00}
+.al-b-info{background:var(--gray-100);color:var(--gray-600)}
+.al-b-open{background:var(--navy-50);color:var(--navy)}
+.al-b-review{background:var(--yellow-50);color:#8a6d00}
+.al-b-resolved{background:#e7f6ee;color:var(--green)}
+.al-b-ignored{background:var(--gray-100);color:var(--gray-500)}
+.al-b-dryrun{background:var(--navy-50);color:var(--navy)}
+.al-b-pending{background:var(--yellow-50);color:#8a6d00}
+.al-b-skipped{background:var(--gray-100);color:var(--gray-500)}
+.al-b-draft{background:var(--gray-100);color:var(--gray-600)}
+.al-b-active{background:#e7f6ee;color:var(--green)}
+.al-b-paused{background:var(--yellow-50);color:#8a6d00}
+.al-b-expired{background:var(--gray-100);color:var(--gray-500)}
+.al-pager{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;font-size:12.5px;color:var(--gray-500)}
+.al-drawer{position:fixed;top:0;right:0;width:460px;max-width:94vw;height:100vh;background:#fff;border-left:1px solid var(--gray-200);box-shadow:-12px 0 36px rgba(15,23,42,.12);z-index:60;display:flex;flex-direction:column}
+.al-drawer-head{padding:14px 18px;border-bottom:1px solid var(--gray-200);display:flex;justify-content:space-between;align-items:center}
+.al-drawer-body{padding:14px 18px;overflow-y:auto;flex:1}
+.al-kv{display:grid;grid-template-columns:130px 1fr;gap:6px 10px;font-size:13px;margin-bottom:14px}
+.al-kv dt{color:var(--gray-500)}.al-kv dd{margin:0;color:var(--gray-900);font-weight:500;word-break:break-word;white-space:normal}
+.al-drawer-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px 18px;border-top:1px solid var(--gray-200)}
+.al-more{position:relative;margin-left:auto}
+.al-more-menu{position:absolute;right:0;bottom:calc(100% + 6px);background:#fff;border:1px solid var(--gray-200);border-radius:8px;box-shadow:0 10px 28px rgba(15,23,42,.16);padding:6px;min-width:150px;z-index:80}
+.al-more-menu .al-btn{width:100%;justify-content:flex-start}
+.al-overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:55}
+.al-modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:14px;box-shadow:0 24px 64px rgba(15,23,42,.25);z-index:70;width:460px;max-width:94vw;max-height:88vh;overflow-y:auto;padding:18px}
+.al-modal.wide{width:760px}
+.al-modal h3{margin:0 0 10px;font-size:15px;color:var(--gray-900)}
+.al-modal textarea,.al-modal input,.al-modal select{width:100%;padding:8px 10px;border:1px solid var(--gray-200);border-radius:8px;font-size:13px;font-family:inherit;margin-bottom:10px}
+.al-modal-foot{display:flex;justify-content:flex-end;gap:8px}
+.al-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--gray-900);color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;z-index:90;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.al-empty{padding:46px 16px;text-align:center;color:var(--gray-500);font-size:13.5px}
+.al-noaccess{max-width:480px;margin:80px auto;text-align:center;color:var(--gray-600)}
+.al-actrows{font-size:12.5px;border-top:1px dashed var(--gray-200);padding-top:10px;margin-top:6px}
+/* Phase F additions - tokens only, no new visual language */
+/* RC4-1: the horizontal sub-nav tab strip is removed (the sidebar is the sole
+   primary navigation). Its CSS + markup + active-highlight JS are all gone. */
+.al-dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;margin-bottom:14px}
+.al-bars{display:flex;flex-direction:column;gap:7px;padding:12px 16px}
+.al-bar-row{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--gray-700)}
+.al-bar-key{width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.al-bar-track{flex:1;background:var(--gray-100);border-radius:6px;height:14px;overflow:hidden}
+/* RC4-2 ROOT CAUSE: the fill is a <span> (inline by default) so width/height were
+   IGNORED and the bar stayed invisible regardless of the inline width. Block it. */
+.al-bar-fill{display:block;height:14px;border-radius:6px;background:var(--navy);transition:width .2s}
+.al-bar-fill.warn{background:#c9a200}.al-bar-fill.crit{background:var(--pink)}
+/* SLA aging: progressively stronger warning colours for older buckets */
+.al-bar-fill.age0{background:#5b9bd5}.al-bar-fill.age1{background:#e0a800}
+.al-bar-fill.age2{background:#e8590c}.al-bar-fill.age3{background:var(--pink)}
+.al-bar-n{width:40px;text-align:right;font-weight:700;color:var(--gray-900)}
+.al-csv-ok{color:var(--green);font-weight:700}.al-csv-err{color:var(--pink);font-weight:700}
+.al-rowlink{cursor:pointer}.al-rowlink:hover{background:var(--gray-50)}
+.al-rowlink:focus-visible{outline:2px solid var(--navy);outline-offset:-2px}
+.al-banner{margin:0 0 14px;padding:10px 14px;border:1px solid var(--yellow);background:var(--yellow-50);border-radius:10px;font-size:12.5px;color:#8a6d00;font-weight:600}
+.al-note{margin:0 0 12px;padding:8px 12px;border:1px solid var(--gray-200);background:var(--gray-50);border-radius:8px;font-size:12px;color:var(--gray-600);line-height:1.4;display:flex;gap:8px;align-items:flex-start}
+.al-note .al-note-ic{flex:0 0 auto;color:var(--gray-400);font-weight:700}
+/* G1.1 Drop 2: bulk actions + occurrence column + evidence breakdown */
+.al-bulkbar{display:flex;align-items:center;gap:8px;margin-left:auto;margin-right:12px;font-size:12.5px;color:var(--gray-700);background:var(--navy-50);padding:5px 10px;border-radius:8px}
+.al-bulkbar #al-bulk-n{font-weight:700;color:var(--navy)}
+.al-chk-col{width:30px;text-align:center}
+.al-tbl td.al-chk-col input,.al-tbl th.al-chk-col input{cursor:pointer}
+.al-occ-n{display:inline-block;min-width:20px;padding:1px 7px;border-radius:999px;background:var(--navy-50);color:var(--navy);font-weight:700;font-size:12px;text-align:center}
+/* UX polish 2026-06-10: occurrence count prominent; multi-order cases pop */
+.al-occ-n.multi{background:var(--pink);color:#fff;font-size:13px;min-width:24px}
+.al-case-pill{display:inline-block;margin-left:8px;padding:2px 10px;border-radius:999px;background:var(--pink);color:#fff;font-weight:700;font-size:12px;vertical-align:middle}
+.al-occ-wrap.hl{border:1px solid var(--pink);border-radius:10px;padding:8px 10px;background:#fff}
+.al-breakdown{margin:6px 0 14px;border:1px solid var(--gray-200);border-radius:10px;padding:10px 12px;font-size:12.5px;background:var(--gray-50)}
+.al-breakdown table{width:100%;border-collapse:collapse}
+.al-breakdown td{padding:2px 0}
+.al-breakdown td.r{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+.al-breakdown tr.eff td{border-top:1px solid var(--gray-300);padding-top:5px;color:var(--navy);font-weight:700}
+.al-breakdown td.minus{color:var(--pink)}
+.al-occ-wrap{margin-top:8px}
+.al-occ-wrap .al-fsec{margin:14px 0 6px}
+.al-occ-tbl{width:100%;border-collapse:collapse;font-size:11.5px}
+.al-occ-tbl th{position:sticky;top:0;background:var(--gray-50);text-align:left;padding:6px 7px;font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--gray-500);border-bottom:1px solid var(--gray-200);white-space:nowrap}
+.al-occ-tbl td{padding:6px 7px;border-bottom:1px solid var(--gray-100);white-space:nowrap}
+.al-occ-tbl td.r{text-align:right;font-variant-numeric:tabular-nums}
+/* B2: selectable evidence rows drive the calculation panel */
+.al-calc{position:sticky;top:0;background:#fff;z-index:3;padding-top:2px}
+.al-occ-row{cursor:pointer}
+.al-occ-tbl tbody tr.al-occ-row:hover{background:var(--gray-50)}
+.al-occ-tbl tbody tr.al-occ-sel{background:var(--navy-50);box-shadow:inset 3px 0 0 var(--navy)}
+.al-occ-row:focus-visible{outline:2px solid var(--navy);outline-offset:-2px}
+/* G1.1 Drop 2 polish: alert detail as a centered wide modal */
+.al-modal.al-modal-xl{width:1140px;max-width:96vw;max-height:85vh;padding:0;display:flex;flex-direction:column;overflow:hidden}
+.al-modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:14px 20px;border-bottom:1px solid var(--gray-200)}
+.al-modal-head strong{font-size:15px;color:var(--gray-900)}
+.al-d-sub{font-size:12.5px;color:var(--gray-500);margin-top:3px}
+.al-modal-body{padding:16px 20px;overflow-y:auto;flex:1}
+.al-modal-foot{display:flex;flex-wrap:wrap;gap:8px;padding:12px 20px;border-top:1px solid var(--gray-200)}
+.al-kv-wide{grid-template-columns:repeat(3, max-content 1fr);gap:7px 16px}
+@media (max-width:820px){.al-kv-wide{grid-template-columns:max-content 1fr}}
+.al-occ-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.al-occ-head .al-btn{padding:5px 10px;font-size:12px}
+/* hourly trend chart (top-right of /alerts) */
+.al-top-row{display:flex;gap:14px;align-items:stretch;flex-wrap:wrap;margin-bottom:14px}
+.al-top-row .stats-strip{flex:1 1 520px;margin-bottom:0}
+.al-hour-panel{flex:1 1 360px;min-width:300px;display:flex;flex-direction:column}
+.al-hour-chart{padding:8px 12px 4px;flex:1;display:flex;align-items:flex-end}
+.al-hour-chart svg{width:100%;height:140px}
+.al-hour-legend{display:flex;gap:14px;padding:0 12px 8px;font-size:11px;color:var(--gray-500)}
+/* Policy/rule drawer form (redesign) - sectioned 2-col grid, helper text */
+.al-drawer-wide{width:620px;max-width:96vw}
+.al-fsec{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--navy);border-bottom:1px solid var(--gray-200);padding:6px 0;margin:16px 0 10px}
+.al-fsec:first-child{margin-top:0}
+.al-fgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+.al-fld{display:flex;flex-direction:column;min-width:0}
+.al-fld.al-col2{grid-column:1 / -1}
+.al-fld label{font-size:11px;font-weight:600;color:var(--gray-600);margin-bottom:4px}
+.al-fld input,.al-fld select{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--gray-200);border-radius:8px;font-size:13px;font-family:inherit;background:#fff;height:38px}
+.al-fld input:focus,.al-fld select:focus{outline:none;border-color:var(--navy)}
+.al-help{font-size:11px;color:var(--gray-500);margin-top:4px;line-height:1.35}
+.al-req{color:var(--pink);font-weight:700}
+.al-opt{color:var(--gray-400);font-weight:400}
+.al-lockbox{margin-top:10px;padding:10px 12px;border:1px dashed var(--gray-300);border-radius:8px;background:var(--gray-50)}
+.al-check{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--gray-800)}
+.al-check input{width:auto;height:auto}
+.al-inline{display:flex;gap:8px}
+.al-inline input{flex:1}
+.al-inline .al-btn{white-space:nowrap}
+/* G1 Integration Health - status pills (tokens only) + blocker list + snippet */
+.al-st{display:inline-block;padding:2px 10px;border-radius:999px;font-size:11.5px;font-weight:700;white-space:nowrap}
+.al-st-ready{background:#e7f6ee;color:var(--green)}
+.al-st-blocked{background:var(--pink-50);color:var(--pink)}
+.al-st-warning{background:var(--yellow-50);color:#8a6d00}
+.al-st-running{background:var(--navy-50);color:var(--navy)}
+.al-st-sched{background:#e7f6ee;color:var(--green);border:1px solid var(--green)}
+.al-st-manual{background:var(--yellow-50);color:#8a6d00;border:1px dashed #c9a200}
+.al-run-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--navy);margin-left:6px;vertical-align:middle;animation:al-pulse 1.2s infinite}
+@keyframes al-pulse{0%,100%{opacity:.3}50%{opacity:1}}
+.al-blk{list-style:none;padding:0;margin:8px 0}
+.al-blk li{padding:7px 10px;border-radius:8px;margin-bottom:6px;font-size:12.5px;border:1px solid var(--gray-200)}
+.al-blk li.blocker{background:var(--pink-50);border-color:var(--pink-50);color:var(--pink)}
+.al-blk li.warning{background:var(--yellow-50);border-color:var(--yellow-50);color:#8a6d00}
+.al-action-box{margin:10px 0;padding:10px 12px;border-radius:8px;background:var(--navy-50);color:var(--navy);font-size:13px;font-weight:600}
+.al-tech{margin-top:14px;border-top:1px solid var(--gray-200);padding-top:4px}
+.al-tech>summary{list-style:none;color:var(--gray-500);outline:none}
+.al-tech>summary::-webkit-details-marker{display:none}
+.al-tech[open]>summary{color:var(--navy)}
+.al-snippet{background:var(--gray-900);color:#e6edf3;border-radius:8px;padding:10px 12px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;white-space:pre-wrap;word-break:break-all;margin:6px 0}
+.al-cap{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--gray-600)}
+.al-cap-track{flex:1;max-width:260px;background:var(--gray-100);border-radius:6px;height:12px;overflow:hidden}
+.al-cap-fill{height:12px;background:var(--navy);border-radius:6px;min-width:2px}
+.al-cap-fill.warn{background:#c9a200}
+@media (max-width:560px){.al-fgrid{grid-template-columns:1fr}}
+/* ===========================================================================
+   AC-POLISH-2026-06-14 - shared Alert Center visual layer.
+   Maps 1:1 to ERP Homepage tokens (navy/gray/yellow/pink; radius 8/12px;
+   Inter). Additive refinements only: no new palette, no gradients, no
+   external libs, no behaviour change. Improves button/control consistency,
+   toolbar alignment, table density, chips, KPI rhythm, focus/hover states.
+   =========================================================================== */
+/* Buttons: one control height + clear interactive states */
+.ecentric-app .al-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;padding:0 14px;line-height:1;white-space:nowrap;transition:background .15s,border-color .15s,color .15s,box-shadow .15s}
+.ecentric-app .al-btn:hover{border-color:var(--gray-300)}
+.ecentric-app .al-btn.primary:hover{background:var(--navy-700);border-color:var(--navy-700)}
+.ecentric-app .al-btn.danger:hover{filter:brightness(.96)}
+.ecentric-app .al-btn:active{transform:translateY(1px)}
+.ecentric-app .al-btn:disabled{opacity:.45;cursor:not-allowed}
+.ecentric-app .al-btn:focus-visible,.ecentric-app .al-filters input:focus-visible,.ecentric-app .al-filters select:focus-visible,.ecentric-app .al-fld input:focus-visible,.ecentric-app .al-fld select:focus-visible,.ecentric-app .al-chip:focus-visible,.ecentric-app .al-tbl tbody tr:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
+/* Quiet icon/close buttons in drawer + modal headers */
+.ecentric-app .al-drawer-head .al-btn,.ecentric-app .al-modal-head .al-btn{height:30px;padding:0 9px;color:var(--gray-500)}
+.ecentric-app .al-drawer-head .al-btn:hover,.ecentric-app .al-modal-head .al-btn:hover{background:var(--gray-100);color:var(--gray-900);border-color:var(--gray-200)}
+/* Toolbar action group inside a panel header (consistent gap + alignment) */
+.ecentric-app .al-hdr-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ecentric-app .panel-header{min-height:52px;gap:12px}
+/* RC6 visual polish: calm spacing INSIDE the Price Setup coverage card only (scoped
+   to #pl-missing-panel - no other panel/page is affected). .panel has no padding and
+   .panel-header is inset 20px; mirror that 20px on the body so the KPI cards + brand
+   chips never sit against the outer border or the divider lines. */
+.ecentric-app #pl-missing-panel #pl-cov-kpis{display:flex;flex-wrap:wrap;gap:14px;padding:16px 20px;margin:0}
+.ecentric-app #pl-missing-panel #pl-cov-kpis .stat-card{flex:1 1 180px;margin:0}
+.ecentric-app #pl-missing-panel #pl-cov-bybrand{margin:0;padding:14px 20px 18px}
+.ecentric-app #pl-missing-panel #pl-cov-bybrand>summary{padding:2px 0 4px}
+.ecentric-app #pl-missing-panel #pl-missing-rows{gap:12px;padding:12px 0 6px}
+/* RC7-C Gift Exemptions lifecycle tabs row */
+.ecentric-app .al-subtabs{display:flex;gap:6px;flex-wrap:wrap;padding:12px 16px 0}
+.ecentric-app .al-subtabs .gx-tab{font-size:12.5px;padding:5px 11px}
+/* Fixed read-only field value (e.g. the permanent Gift / Freebie reason) */
+.ecentric-app .al-fld-ro{padding:7px 0;color:#374151;font-weight:600;font-size:13px}
+/* Compact checkbox multi-select (Price Setup status filter) */
+.ecentric-app .al-msel-wrap{display:flex;flex-direction:column}
+.ecentric-app .al-msel{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;min-height:32px;padding:4px 0}
+.ecentric-app .al-msel label{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;font-weight:500;color:var(--gray-700);cursor:pointer;margin:0}
+.ecentric-app .al-msel input{margin:0}
+/* Filters: every control on one baseline height, tidy spacing */
+.ecentric-app .al-filters{gap:10px 12px;padding:14px 16px;align-items:end}
+.ecentric-app .al-filters select,.ecentric-app .al-filters input{height:34px;box-sizing:border-box}
+.ecentric-app .al-filters .al-btn{align-self:end}
+/* Brand / coverage chips: clearly clickable, count pill inside */
+.ecentric-app .al-chip{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 6px 0 12px;border:1px solid var(--gray-200);border-radius:999px;background:#fff;font-size:12.5px;font-weight:600;color:var(--gray-700);cursor:pointer;font-family:inherit;transition:border-color .15s,background .15s,color .15s}
+.ecentric-app .al-chip:hover{border-color:var(--navy);color:var(--navy);background:var(--navy-50)}
+.ecentric-app .al-chip .al-chip-n{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:20px;padding:0 6px;border-radius:999px;background:var(--gray-100);color:var(--gray-600);font-size:11.5px;font-weight:700}
+.ecentric-app .al-chip.warn{border-color:var(--yellow)}
+.ecentric-app .al-chip.warn .al-chip-n{background:var(--yellow-50);color:#8a6d00}
+.ecentric-app .al-chip.ok{color:var(--green)}
+.ecentric-app .al-chip.ok .al-chip-n{background:#e7f6ee;color:var(--green)}
+/* Tables: quality scrollbar, sticky-header rule, subtle zebra, mid-align */
+.ecentric-app .al-tbl-wrap{scrollbar-width:thin;scrollbar-color:var(--gray-300) transparent}
+.ecentric-app .al-tbl-wrap::-webkit-scrollbar{height:9px;width:9px}
+.ecentric-app .al-tbl-wrap::-webkit-scrollbar-thumb{background:var(--gray-300);border-radius:6px}
+.ecentric-app .al-tbl-wrap::-webkit-scrollbar-thumb:hover{background:var(--gray-400)}
+.ecentric-app .al-tbl th{box-shadow:inset 0 -1px 0 var(--gray-200);z-index:1}
+.ecentric-app .al-tbl td,.ecentric-app .al-tbl th{vertical-align:middle}
+.ecentric-app .al-tbl tbody tr:nth-child(even){background:var(--gray-50)}
+.ecentric-app .al-tbl tbody tr:hover{background:var(--navy-50)}
+/* Status badges: even vertical rhythm */
+.ecentric-app .al-badge{line-height:1.5;letter-spacing:.2px;vertical-align:middle}
+/* KPI strip on the dashboard (6 cards): even, equal-height grid */
+.ecentric-app .al-top-row .stats-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.ecentric-app .stat-value{font-variant-numeric:tabular-nums}
+@media (max-width:1100px){.ecentric-app .al-top-row .stats-strip{grid-template-columns:repeat(2,1fr)}}
+/* Pager controls: compact + equal */
+.ecentric-app .al-pager .al-btn{height:30px;min-width:34px;padding:0 10px}
+/* Notes / banners: vertical centering for one-line messages */
+.ecentric-app .al-note{align-items:center}
+/* Drawer + modal titles to homepage scale */
+.ecentric-app .al-drawer-head strong,.ecentric-app .al-modal-head strong{font-size:15px;font-weight:700;color:var(--gray-900)}
+/* Pre-E2E 2026-06-14: interactive KPI cards + advanced filter zone + chips */
+/* RC4-1: compact the Overview KPI strip (override the master 18px/20px padding;
+   keep a strong number hierarchy). Scoped to #al-kpis so other cards are unchanged. */
+.ecentric-app #al-kpis{gap:10px}
+.ecentric-app #al-kpis .stat-card{padding:9px 13px}
+.ecentric-app #al-kpis .stat-value{font-size:23px;line-height:1.1;margin:1px 0}
+.ecentric-app #al-kpis .stat-label{font-size:11px}
+.ecentric-app #al-kpis .stat-meta{font-size:10.5px;margin-top:0;color:var(--gray-500)}
+.ecentric-app #al-kpis .stat-card.kpi-sec .stat-value{font-size:20px}
+.ecentric-app .stat-card.kpi{cursor:pointer;user-select:none;transition:border-color .15s,box-shadow .15s}
+.ecentric-app .stat-card.kpi:hover{border-color:var(--gray-300);box-shadow:0 4px 12px rgba(0,0,0,.06)}
+.ecentric-app .stat-card.kpi:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
+.ecentric-app .stat-card.kpi.kpi-active{border-color:var(--navy);box-shadow:0 0 0 1px var(--navy) inset}
+.ecentric-app .stat-card.s-gray::before{background:var(--gray-400)}
+.ecentric-app .al-adv{display:flex;flex-wrap:wrap;gap:10px 12px;padding:14px 16px;margin:6px 12px 12px;align-items:end;background:var(--gray-50);border:1px solid var(--gray-100);border-radius:10px}
+.ecentric-app .al-adv[hidden]{display:none}
+.ecentric-app .al-adv label{display:block;font-size:10.5px;font-weight:600;color:var(--gray-500);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+.ecentric-app .al-adv select,.ecentric-app .al-adv input{height:34px;box-sizing:border-box;padding:7px 10px;border:1px solid var(--gray-200);border-radius:8px;font-size:13px;background:#fff;font-family:inherit;min-width:110px}
+.ecentric-app .al-adv select:focus,.ecentric-app .al-adv input:focus{outline:none;border-color:var(--navy)}
+.ecentric-app .al-fchips{display:flex;flex-wrap:wrap;gap:6px;padding:10px 16px;align-items:center}
+.ecentric-app .al-fchip{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 4px 0 10px;border:1px solid var(--gray-200);border-radius:999px;background:var(--gray-50);font-size:12px;color:var(--gray-600)}
+.ecentric-app .al-fchip b{font-weight:700;color:var(--gray-900)}
+.ecentric-app .al-fchip button{border:none;background:transparent;cursor:pointer;color:var(--gray-400);font-size:15px;line-height:1;padding:0 3px;height:auto}
+.ecentric-app .al-fchip button:hover{color:var(--pink)}
+.ecentric-app .al-fchip-clear{height:26px;padding:0 10px;font-size:12px}
+/* UI/UX consolidation 2026-06-15: Overview Alert Distribution card + secondary KPI */
+/* ECharts 2026-06-15: Alert Distribution (3 mini donuts) + trend combo */
+.ecentric-app .al-charts3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:8px 12px 12px}
+.ecentric-app .al-chartbox{border:1px solid var(--gray-100);border-radius:10px;padding:6px 6px 2px}
+.ecentric-app .al-chart-h{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gray-500);text-align:center;padding:4px 0 0}
+.ecentric-app .al-chart{width:100%;height:200px}
+.ecentric-app .al-chart-trend{height:240px;padding:0 8px}
+.ecentric-app .al-chart-fb{padding:6px 10px 10px}
+.ecentric-app .al-chart-fbt{width:100%;font-size:12px}
+.ecentric-app .al-chart-fbt td,.ecentric-app .al-chart-fbt th{padding:4px 8px;border-bottom:1px solid var(--gray-100)}
+.ecentric-app .al-chart-fbt .r{text-align:right}
+.ecentric-app .al-chart-days{font-size:12px;color:var(--gray-500);display:inline-flex;align-items:center;gap:6px}
+.ecentric-app .al-chart-days select{height:28px;border:1px solid var(--gray-200);border-radius:6px;font-family:inherit;font-size:12px;padding:0 6px}
+@media (max-width:1100px){.ecentric-app .al-charts3{grid-template-columns:1fr}}
+.ecentric-app .al-help-i{display:inline-flex;align-items:center;justify-content:center;cursor:help;color:var(--gray-400);font-size:12px;margin-left:7px;vertical-align:middle;line-height:1;transition:color .15s}
+.ecentric-app .al-help-i:hover{color:var(--navy)}
+.ecentric-app .al-help-i:focus-visible{outline:2px solid var(--navy);outline-offset:2px;border-radius:3px;color:var(--navy)}
+.ecentric-app .al-tierleg{display:inline-flex;align-items:center;gap:2px;cursor:help;font-size:12.5px;color:var(--gray-600)}
+.ecentric-app .al-tierleg:hover{color:var(--navy)}
+.ecentric-app .al-tierleg:focus-visible{outline:2px solid var(--navy);outline-offset:2px;border-radius:4px}
+.ecentric-app .ru-brand{margin-bottom:14px;border:1px solid var(--gray-200);border-radius:10px;overflow:hidden}
+.ecentric-app .ru-brand-h{font-size:13px;font-weight:700;color:var(--gray-900);padding:8px 14px;background:var(--gray-50);border-bottom:1px solid var(--gray-200)}
+/* RC5-5 brand-card behaviour editor: FULL-WIDTH grid (no empty right gutter). */
+.ecentric-app .ru-brand-body{padding:6px 14px 10px}
+.ecentric-app .ru-beh{padding:10px 0;border-bottom:1px solid var(--gray-100)}
+.ecentric-app .ru-beh:last-child{border-bottom:0}
+/* behaviour header row: name | All-platforms cell, stretched across the card. */
+.ecentric-app .ru-beh-head{display:grid;grid-template-columns:minmax(150px,1fr) minmax(260px,2.4fr);gap:10px 18px;align-items:center;width:100%}
+.ecentric-app .ru-beh-h{font-weight:700;font-size:13px;color:var(--gray-900)}
+.ecentric-app .ru-beh-all{display:flex;align-items:center;gap:8px;font-size:13px;flex-wrap:wrap}
+.ecentric-app .ru-pf{font-size:12px;color:var(--gray-500)}
+.ecentric-app .ru-pf-all{font-weight:600;color:var(--gray-700)}
+.ecentric-app .ru-ovrows{width:100%}
+/* platform override row: Platform | value/input | actions - full width, aligned. */
+.ecentric-app .ru-ovrow{display:grid;grid-template-columns:92px minmax(150px,1fr) auto;gap:10px;align-items:center;padding:4px 0 4px 8px;font-size:12.5px;width:100%}
+.ecentric-app .ru-mid{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ecentric-app .ru-acts{display:flex;gap:6px;justify-self:end}
+.ecentric-app .ru-mini{padding:3px 9px;font-size:12px}
+/* RC7-B small destructive icon (remove customization) - secondary to the Save action */
+.ecentric-app .ru-icon{padding:3px 7px;font-size:12px;line-height:1;color:var(--gray-500)}
+.ecentric-app .ru-icon.ru-danger:hover{color:#fff;background:var(--pink);border-color:var(--pink)}
+.ecentric-app .ru-inh{color:var(--gray-400);font-style:italic}
+.ecentric-app .ru-inh-val{color:var(--gray-500);font-style:italic}
+/* RC4-6 inline rule editor: compact numeric inputs sit inside the brand card. */
+.ecentric-app .ru-i-all,.ecentric-app .ru-i-pf{width:84px;padding:4px 6px;border:1px solid var(--gray-300);border-radius:6px;font-size:12.5px;text-align:right}
+.ecentric-app .ru-i-all:focus,.ecentric-app .ru-i-pf:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 2px rgba(20,40,80,.12)}
+.ecentric-app .ru-unit{font-size:12px;color:var(--gray-500);margin-left:-4px}
+/* RC5-2 Price Setup status switch (table). ON == Active. */
+.ecentric-app .al-switch{position:relative;display:inline-block;width:34px;height:18px;vertical-align:middle}
+.ecentric-app .al-switch input{opacity:0;width:0;height:0;position:absolute}
+.ecentric-app .al-switch .al-switch-sl{position:absolute;inset:0;background:var(--gray-300);border-radius:999px;transition:background .15s;cursor:pointer}
+.ecentric-app .al-switch .al-switch-sl:before{content:"";position:absolute;height:14px;width:14px;left:2px;top:2px;background:#fff;border-radius:50%;transition:transform .15s;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+.ecentric-app .al-switch input:checked + .al-switch-sl{background:var(--green)}
+.ecentric-app .al-switch input:checked + .al-switch-sl:before{transform:translateX(16px)}
+.ecentric-app .al-switch input:disabled + .al-switch-sl{cursor:not-allowed;opacity:.5}
+.ecentric-app .al-switch-tx{font-size:12px;color:var(--gray-600);margin-left:6px;vertical-align:middle}
+.ecentric-app .al-legacy-ro{padding:6px 8px;background:var(--gray-50);border:1px dashed var(--gray-300);border-radius:6px;font-size:12.5px;color:var(--gray-600)}
+/* RC7-A low-emphasis destructive action (safe delete; backend-gated). */
+.ecentric-app .al-btn.al-danger{color:var(--pink);border-color:var(--pink)}
+.ecentric-app .al-btn.al-danger:hover{background:var(--pink);color:#fff}
+.ecentric-app .al-btn.al-danger:disabled{opacity:.5;cursor:not-allowed}
+.ecentric-app .ru-cust{margin:4px 0 0 8px;border-top:0;padding-top:0}
+.ecentric-app .ru-cust .al-btn{height:26px;font-size:12px;padding:0 8px}
+.ecentric-app .al-adv-sec{margin-top:14px;border-top:1px solid var(--gray-200);padding-top:6px}
+.ecentric-app .al-adv-sec>summary{cursor:pointer;color:var(--navy)}
+.ecentric-app .al-modesw{display:inline-flex;margin-left:10px;vertical-align:middle}
+.ecentric-app .al-modesw .al-btn{height:26px;font-size:12px;border-radius:0;padding:0 12px}
+.ecentric-app .al-modesw .al-btn:first-child{border-radius:6px 0 0 6px}
+.ecentric-app .al-modesw .al-btn:last-child{border-radius:0 6px 6px 0;border-left:0}
+.ecentric-app .stat-card.kpi-sec{opacity:.85}
+.ecentric-app .stat-card.kpi-sec .stat-value{font-size:21px}
+[hidden]{display:none !important}
+@media (max-width:760px){.al-drawer{width:100vw}.al-kv{grid-template-columns:110px 1fr}.al-dash-grid{grid-template-columns:1fr}}
+</style>
+
+<div class="ecentric-app">
+<aside class="ec-shell-mount" data-ec-shell="1" aria-label="Điều hướng eCentric"><div class="ec-shell-head"><a class="ec-shell-brand" href="/"><img class="ec-shell-logoimg" src="/files/eCentric%20logo%20-%20mini.png" alt="eCentric"><span class="ec-shell-logo" hidden>eC</span><span class="ec-shell-brandname">eCentric</span></a></div><div class="ec-shell-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input class="ec-shell-search-in" type="text" placeholder="Tìm chức năng…" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-label="Tìm chức năng" autocomplete="off" spellcheck="false"><button type="button" class="ec-shell-search-clear" data-ec-shell-search-clear="1" hidden aria-label="Xóa tìm kiếm">&times;</button></div><div class="ec-shell-search-results" role="listbox" hidden></div><nav class="ec-shell-nav ec-shell-fallback" aria-label="Điều hướng chính"><a class="ec-shell-item" href="/home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg><span>Trang chủ</span></a><div class="ec-shell-grouplabel">Alert Center</div><a class="ec-shell-item" href="/alerts"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span>Dashboard</span></a><a class="ec-shell-item" href="/alerts/policies"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>Policies</span></a><a class="ec-shell-item" href="/alerts/rules"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/></svg><span>Rules</span></a><a class="ec-shell-item" href="/alerts/locks"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg><span>Locks</span></a><a class="ec-shell-item ec-shell-active" href="/alerts/integration-health" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg><span>Integration Health</span></a></nav><div class="ec-shell-foot"><a class="ec-shell-usercard" href="/app/user"><span class="ec-shell-avatar">•</span><span class="ec-shell-username">Tài khoản</span></a></div></aside>
+
+  <div class="ec-main">
+    
+    <div class="ec-shell-topbar" data-ec-shell-topbar="1"><div class="ec-shell-crumbs" data-ec-shell-crumbs="1"><span class="ec-shell-crumb-group">Alert Center</span><span class="sep ec-shell-crumb-sep">/</span><strong class="ec-shell-crumb-current">Integration Health</strong></div><div class="ec-shell-tbright" data-ec-shell-header-right="1"><button type="button" class="ec-shell-iconbtn ec-shell-reminder" data-ec-shell-action-slot="1" aria-label="Nhắc việc" title="Nhắc việc" aria-haspopup="dialog" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg><span class="ec-shell-reminder-badge" data-ec-shell-reminder-badge="1" hidden></span></button><a class="ec-shell-iconbtn" href="/app/notification-log" data-ec-notification-bell="1" aria-label="Thông báo" title="Thông báo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></a><button type="button" class="ec-shell-iconbtn ec-shell-slot-disabled" data-ec-shell-settings-slot="1" disabled aria-disabled="true" title="Cài đặt (sắp ra mắt)" aria-label="Cài đặt (sắp ra mắt)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg></button></div></div>
+    
+    <div class="content">
+      <div class="greeting"><h1>Integration Health</h1><p id="ih-scope-line"></p></div>
+      <div class="al-note"><span class="al-note-ic">&#9432;</span><span>Trang ch&#7881; &#272;&#7884;C: ch&#7849;n &#273;o&#225;n m&#7913;c s&#7861;n s&#224;ng c&#7911;a brand. Kh&#244;ng s&#7917;a site_config, kh&#244;ng ghi Omisell/stock, DS1 v&#7851;n kho&#225;.</span></div>
+      <div class="stats-strip">
+        <div class="stat-card s-green"><div class="stat-label">S&#7861;n s&#224;ng</div><div class="stat-value" id="ih-c-ready">-</div><div class="stat-meta">Ready / Scheduler Enabled</div></div>
+        <div class="stat-card s-pink"><div class="stat-label">Blocked</div><div class="stat-value" id="ih-c-blocked">-</div><div class="stat-meta">c&#7847;n kh&#7855;c ph&#7909;c</div></div>
+        <div class="stat-card s-yellow"><div class="stat-label">Warning</div><div class="stat-value" id="ih-c-warning">-</div><div class="stat-meta">c&#7847;n ch&#250; &#253;</div></div>
+        <div class="stat-card s-navy"><div class="stat-label">Ch&#432;a c&#7845;u h&#236;nh</div><div class="stat-value" id="ih-c-manual">-</div><div class="stat-meta">preview r&#7891;i pull</div></div>
+      </div>
+      <div class="panel" id="ih-cap-panel" hidden style="margin-bottom:14px">
+        <div class="panel-header"><div class="panel-title">Dung l&#432;&#7907;ng d&#7919; li&#7879;u (Log + Item) vs ng&#432;&#7905;ng review 2M</div></div>
+        <div style="padding:12px 16px">
+          <div class="al-cap"><span id="ih-cap-text">-</span><div class="al-cap-track"><div class="al-cap-fill" id="ih-cap-fill" style="width:0%"></div></div><span id="ih-cap-pct">-</span></div>
+          <div class="al-help" id="ih-cap-help"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">M&#7913;c s&#7861;n s&#224;ng theo brand</div><button class="al-btn" id="ih-refresh">L&#224;m m&#7899;i</button></div>
+        <div class="al-tbl-wrap"><table class="al-tbl">
+          <thead><tr><th>Brand</th><th>Tr&#7841;ng th&#225;i</th><th>Vi&#7879;c k&#7871; ti&#7871;p</th><th>KAM</th><th title="Brand">Brand Setup</th><th title="Brand Integration Settings (BIS)">Integration</th><th title="Credential">Credential</th><th title="BIS enabled">Pull Enabled</th><th title="DS1 dry-run gate">Stock Safety</th><th>Sync g&#7847;n nh&#7845;t</th><th>Breaker</th><th title="In scheduler allowlist">Scheduler</th><th>L&#7847;n ch&#7841;y</th><th>Alerts</th><th>Orders</th><th>Items</th><th>Cov%</th></tr></thead>
+          <tbody id="ih-rows"></tbody>
+        </table></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="al-overlay" id="al-overlay" hidden></div>
+<div class="al-drawer al-drawer-wide" id="ih-drawer" hidden>
+  <div class="al-drawer-head"><strong id="ih-d-title">Brand</strong><button class="al-btn" id="ih-d-close">&#10005;</button></div>
+  <div class="al-drawer-body" id="ih-d-body"></div>
+</div>
+<div class="al-toast" id="al-toast" hidden></div>
+
+
+<script id="ec-alert-shared">
+window.AL=(function(){
+"use strict";
+var API="/api/method/ecentric_workspace.alerts.";
+function call(m,args){return fetch(API+m,{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify(args||{})}).then(function(r){return r.json().catch(function(){return {};}).then(function(j){if(!r.ok){var msg="HTTP "+r.status;try{if(j._server_messages){var arr=JSON.parse(j._server_messages);msg=arr.map(function(s){return JSON.parse(s).message;}).join("; ");}else if(j.exception){msg=j.exception.split(":").pop();}}catch(e){}var err=new Error(msg);err.status=r.status;throw err;}return j.message;});});}
+function $(id){return document.getElementById(id);}
+function esc(s){var d=document.createElement("div");d.textContent=(s==null?"":String(s));return d.innerHTML;}
+var fmtN=new Intl.NumberFormat("vi-VN");
+function money(v){return (v==null||v==="")?"-":fmtN.format(Math.round(v));}
+function dt(v){if(!v)return "-";return String(v).slice(5,16);}
+function toast(m){var t=$("al-toast");t.textContent=m;t.hidden=false;setTimeout(function(){t.hidden=true;},2800);}
+function badge(v,map,fb){if(!v)return "-";return '<span class="al-badge '+(map[v]||fb||"al-b-info")+'">'+esc(v)+'</span>';}
+function sevBadge(v){return badge(v,{Critical:"al-b-critical",Warning:"al-b-warning",Info:"al-b-info"});}
+function stBadge(v){return badge(v,{"Open":"al-b-open","In Review":"al-b-review","Resolved":"al-b-resolved","Ignored":"al-b-ignored"});}
+function actBadge(v){return badge(v,{"Dry Run":"al-b-dryrun","Pending":"al-b-pending","Skipped":"al-b-skipped","Success":"al-b-resolved","Failed":"al-b-critical","Cancelled":"al-b-ignored","Processing":"al-b-pending"});}
+function polBadge(v){return badge(v,{"Draft":"al-b-draft","Active":"al-b-active","Paused":"al-b-paused","Expired":"al-b-expired","Inactive":"al-b-ignored"});}
+function fillUser(route){fetch("/api/method/frappe.auth.get_logged_user",{credentials:"include"}).then(function(r){return r.json();}).then(function(j){var u=j.message||"";if(u==="Guest"){window.location.href="/login?redirect-to="+route;return;}var card=$("al-user-card");if(card){var nm=card.querySelector(".user-name"),av=card.querySelector(".avatar");if(nm)nm.textContent=u.split("@")[0];if(av)av.textContent=(u[0]||"?").toUpperCase();}}).catch(function(){});}
+function noAccess(){document.querySelector(".content").innerHTML='<div class="al-noaccess"><h2>Alert Center</h2><p>T\u00e0i kho\u1ea3n c\u1ee7a b\u1ea1n ch\u01b0a \u0111\u01b0\u1ee3c g\u00e1n brand n\u00e0o trong Brand. Li\u00ean h\u1ec7 System Manager.</p></div>';}
+function initScope(route,cb){fillUser(route);loadFieldHelp();call("api_alerts.my_scope").then(function(scope){cb(scope);}).catch(function(e){if(e.status===403){noAccess();}else{toast("L\u1ed7i: "+e.message);}});}
+function dateStr(d){function p(n){return (n<10?"0":"")+n;}return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate());}
+function stHealth(s){var m={"Ready":"al-st-ready","Blocked":"al-st-blocked","Warning":"al-st-warning","Delayed":"al-st-warning","Running":"al-st-running","Scheduler Enabled":"al-st-sched","Manual Pull Required":"al-st-manual","Not Configured":"al-st-manual"};return '<span class="al-st '+(m[s]||"al-st-warning")+'">'+esc(s)+'</span>';}
+function daysAgo(n){var d=new Date();d.setDate(d.getDate()-n);return dateStr(d);}
+function fillBrandSelect(sel,scope,opts){opts=opts||{};if(!sel)return;sel.innerHTML="";
+  if(opts.allOption){var a=document.createElement("option");a.value="";a.textContent=opts.allOption;sel.appendChild(a);}
+  var brands=Object.keys((scope&&scope.brands)||{});
+  if(opts.extra&&brands.indexOf(opts.extra)<0)brands.push(opts.extra);
+  brands.forEach(function(b){var o=document.createElement("option");o.value=b;o.textContent=b;sel.appendChild(o);});
+  if(!brands.length&&!opts.allOption){var d=document.createElement("option");d.value="";d.textContent=opts.emptyText||"Kh\u00f4ng c\u00f3 brand trong scope";d.disabled=true;sel.appendChild(d);}
+  if(opts.value)sel.value=opts.value;}
+var RULE_LABELS={"below_min":"Th\u1ea5p h\u01a1n gi\u00e1 t\u1ed1i thi\u1ec3u","above_high":"Cao h\u01a1n ng\u01b0\u1ee1ng c\u1ea3nh b\u00e1o","severe_price_drop":"Gi\u1ea3m gi\u00e1 nghi\u00eam tr\u1ecdng","possible_missing_zero":"Nghi thi\u1ebfu s\u1ed1 0","missing_brand_mapping":"Thi\u1ebfu c\u1ea5u h\u00ecnh brand","missing_policy":"Thi\u1ebfu Price Policy","ingestion_api_failed":"L\u1ed7i \u0111\u1ed3ng b\u1ed9 d\u1eef li\u1ec7u","missing_integration_credential":"Thi\u1ebfu th\u00f4ng tin k\u1ebft n\u1ed1i","stock_lock_api_failed":"L\u1ed7i x\u1eed l\u00fd Stock Safety"};
+// EC Field Description adapter: ONE cached, defensive read of the custom DocType
+// (DB-only; not in app source). Records keyed "alert.rule.<code>" with a label /
+// description OVERRIDE the built-in fallback labels; if the DocType, fields, or
+// permission are unavailable the read fails silently and the fallback is used.
+var FIELD_HELP={};
+function fieldHelp(key){return FIELD_HELP[key]||null;}
+function loadFieldHelp(){return fetch("/api/method/frappe.client.get_list?doctype=EC%20Field%20Description&fields=[%22name%22,%22label%22,%22description%22]&limit_page_length=0",{credentials:"include",headers:{Accept:"application/json"}}).then(function(r){return r.ok?r.json():null;}).then(function(j){var rows=(j&&j.message)||[];rows.forEach(function(x){if(x&&x.name)FIELD_HELP[x.name]={label:x.label||"",help:x.description||""};});}).catch(function(){});}
+function ruleLabel(c){var h=FIELD_HELP["alert.rule."+c];return (h&&h.label)||RULE_LABELS[c]||c||"-";}
+function ruleCell(c){if(!c)return "-";var l=ruleLabel(c);if(l===c)return esc(c);return '<span title="'+esc(c)+'">'+esc(l)+'</span>';}
+// Relabel a <select> of raw rule_code options to business labels in place. The
+// option VALUE stays the raw code (backend filter unchanged); only the visible
+// text becomes the business label, with the raw code kept in a title tooltip.
+// E1 FIX: an <option> with no value attribute returns its TEXT as .value, so
+// relabelling the text used to make the select submit the localized label as the
+// rule_code ("Rule Code cannot be ..."). Pin the raw code onto o.value FIRST so
+// the canonical code is always what gets sent, then change only the display text.
+function relabelRuleOptions(sel){if(!sel)return;Array.prototype.forEach.call(sel.options,function(o){var raw=o.value;if(!raw)return;o.value=raw;var l=ruleLabel(raw);if(l&&l!==raw){o.textContent=l;o.title=raw;}});}
+return {call:call,$:$,esc:esc,money:money,dt:dt,toast:toast,sevBadge:sevBadge,stBadge:stBadge,actBadge:actBadge,polBadge:polBadge,initScope:initScope,daysAgo:daysAgo,dateStr:dateStr,fillBrandSelect:fillBrandSelect,stHealth:stHealth,ruleLabel:ruleLabel,ruleCell:ruleCell,relabelRuleOptions:relabelRuleOptions,fieldHelp:fieldHelp,loadFieldHelp:loadFieldHelp};
+})();
+</script>
+
+
+<script id="ec-alert-health">
+(function(){
+"use strict";
+var A=window.AL,$=A.$;
+var S={sm:false,rows:[],th:{}};
+
+function yn(v){return v?'<span class="al-st al-st-ready">yes</span>':'<span class="al-st al-st-blocked">no</span>';}
+function cred(v){if(v==="Active")return '<span class="al-badge al-b-active">Active</span>';return '<span class="al-badge al-b-warning">'+A.esc(v||"-")+'</span>';}
+
+function init(){
+  A.initScope("/alerts/integration-health",function(scope){
+    S.sm=!!scope.supervisor;
+    $("ih-scope-line").textContent=S.sm?"System Manager - xem t\u1ea5t c\u1ea3 brand.":"Hi\u1ec3n th\u1ecb c\u00e1c brand trong ph\u1ea1m vi c\u1ee7a b\u1ea1n.";
+    load();
+  });
+  $("ih-refresh").onclick=load;
+  $("ih-d-close").onclick=close;
+  $("al-overlay").onclick=close;
+}
+
+function load(){
+  $("ih-rows").innerHTML='<tr><td colspan="17"><div class="al-empty">\u0110ang t\u1ea3i...</div></td></tr>';
+  A.call("api_brands.list_brand_readiness").then(render).catch(function(e){A.toast("L\u1ed7i: "+e.message);});
+}
+
+// Frontend readiness classification (truthful, from the existing payload):
+// a brand with NO integration settings reads "Not Configured" rather than the
+// backend's "Blocked" (which is meant for a configured-but-failing brand).
+function ihStatus(r){if(!r.bis_exists&&(r.status==="Blocked"||!r.status))return "Not Configured";return r.status;}
+function render(d){
+  S.rows=d.brands||[]; S.th=d.thresholds||{};
+  var c={ready:0,blocked:0,warning:0,manual:0};
+  S.rows.forEach(function(r){var s=ihStatus(r);
+    if(s==="Not Configured")c.manual++; else if(s==="Blocked")c.blocked++;
+    else if(s==="Warning"||s==="Delayed"||s==="Manual Pull Required")c.warning++; else c.ready++;});
+  $("ih-c-ready").textContent=c.ready;$("ih-c-blocked").textContent=c.blocked;
+  $("ih-c-warning").textContent=c.warning;$("ih-c-manual").textContent=c.manual;
+  if(d.capacity){var cap=d.capacity;$("ih-cap-panel").hidden=false;
+    var pct=Math.min(100,Math.round(cap.log_plus_item/cap.archive_review_trigger*100));
+    $("ih-cap-text").textContent="Log+Item: "+A.money(cap.log_plus_item)+" / "+A.money(cap.archive_review_trigger);
+    $("ih-cap-pct").textContent=pct+"%";
+    var fill=$("ih-cap-fill");fill.style.width=pct+"%";
+    fill.className=cap.archive_review_due?"al-cap-fill warn":"al-cap-fill";
+    $("ih-cap-help").textContent=cap.archive_review_due?"\u0110\u00e3 ch\u1ea1m ng\u01b0\u1ee1ng review 2M - l\u00ean k\u1ebf ho\u1ea1ch archive (v\u1eabn ch\u1ec9 \u0111o, ch\u01b0a xo\u00e1).":"Ch\u1ec9 \u0111o l\u01b0\u1eddng; ch\u01b0a c\u00f3 code archive/xo\u00e1.";
+  }
+  var html=S.rows.map(function(r,i){
+    var run=r.running?'<span class="al-run-dot" title="running"></span>':"";
+    return '<tr data-i="'+i+'">'+
+      '<td><strong>'+A.esc(r.brand)+'</strong></td>'+
+      '<td>'+A.stHealth(ihStatus(r))+run+'</td>'+
+      '<td>'+A.esc((r.action&&r.action.label)||"-")+'</td>'+
+      '<td>'+A.esc(r.kam_owner||"-")+'</td>'+
+      '<td>'+A.esc(r.ba_status||"-")+'</td>'+
+      '<td>'+yn(r.bis_exists)+'</td>'+
+      '<td>'+cred(r.credential_status)+'</td>'+
+      '<td>'+yn(A.money(r.enabled)!=="-"&&Number(r.enabled)===1)+'</td>'+
+      '<td>'+yn(Number(r.dry_run_stock_lock)===1)+'</td>'+
+      '<td>'+A.dt(r.last_sync_at)+'</td>'+
+      '<td>'+(r.consecutive_failures||0)+'</td>'+
+      '<td>'+yn(r.in_allowlist)+'</td>'+
+      '<td>'+A.esc(r.last_run_state||"-")+'</td>'+
+      '<td>'+((r.counts&&r.counts.alerts_open)||0)+'</td>'+
+      '<td>'+A.money((r.counts&&r.counts.order_log)||0)+'</td>'+
+      '<td>'+A.money((r.counts&&r.counts.order_item)||0)+'</td>'+
+      '<td>'+(r.counts&&r.counts.policies_active!=null?r.counts.policies_active:0)+'</td>'+
+    '</tr>';
+  }).join("");
+  $("ih-rows").innerHTML=html||'<tr><td colspan="17"><div class="al-empty">Kh\u00f4ng c\u00f3 d\u1eef li\u1ec7u kh\u1edbp b\u1ed9 l\u1ecdc.</div></td></tr>';
+  $("ih-rows").querySelectorAll("tr[data-i]").forEach(function(tr){
+    tr.onclick=function(){openDrawer(S.rows[+tr.getAttribute("data-i")].brand);};});
+}
+
+function openDrawer(brand){
+  $("ih-d-title").textContent=brand;
+  $("ih-d-body").innerHTML='<div class="al-empty">\u0110ang t\u1ea3i...</div>';
+  $("ih-drawer").hidden=false;$("al-overlay").hidden=false;
+  A.call("api_brands.brand_readiness",{brand:brand}).then(function(r){renderDrawer(brand,r);})
+   .catch(function(e){$("ih-d-body").innerHTML='<div class="al-empty">'+A.esc(e.message)+'</div>';});
+}
+
+function blockerList(bl){
+  if(!bl||!bl.length)return '<div class="al-help">Kh\u00f4ng c\u00f3 blocker.</div>';
+  return '<ul class="al-blk">'+bl.map(function(b){
+    return '<li class="'+(b.severity==="blocker"?"blocker":"warning")+'">'+A.esc(b.label)+'</li>';}).join("")+'</ul>';
+}
+
+function kv(label,val){return '<dt>'+A.esc(label)+'</dt><dd>'+A.esc(val==null||val===""?"-":val)+'</dd>';}
+
+function renderDrawer(brand,r){
+  var bis=r.bis||{}; var cov=r.coverage||{}; var cnt=r.counts||{}; var ba=r.brand_approver||{};
+  var run=r.running?'<span class="al-run-dot"></span>':"";
+  var parts=[];
+  parts.push('<div style="margin-bottom:8px">'+A.stHealth(r.status)+run+'</div>');
+  parts.push('<div class="al-action-box">&#8594; '+A.esc((r.action&&r.action.label)||"-")+'</div>');
+  parts.push('<div class="al-fsec">Blockers / c\u1ea3nh b\u00e1o</div>'+blockerList(r.blockers));
+  parts.push('<div class="al-fsec">Scope (Brand)</div><dl class="al-kv">'+
+    kv("Brand",ba.status)+kv("KAM owner",ba.kam_owner)+
+    kv("Manager",ba.manager_email)+kv("Leader",ba.leader_email)+'</dl>');
+  parts.push('<div class="al-fsec">T\u00edch h\u1ee3p Omisell (BIS - kh\u00f4ng l\u1ed9 key)</div><dl class="al-kv">'+
+    kv("BIS",r.bis_exists?"yes":"no")+kv("enabled",bis.enabled)+
+    kv("credential_status",bis.credential_status)+kv("dry_run_stock_lock",bis.dry_run_stock_lock)+
+    kv("base_url",bis.base_url)+kv("last_sync_at",bis.last_sync_at)+
+    kv("consecutive_failures",bis.consecutive_failures)+
+    kv("scheduler allowlist",r.in_allowlist?"yes":"no")+kv("last run",r.last_run_state)+'</dl>');
+  parts.push('<div class="al-fsec">D\u1eef li\u1ec7u & coverage</div><dl class="al-kv">'+
+    kv("Order Log",A.money(cnt.order_log||0))+kv("Order Item",A.money(cnt.order_item||0))+
+    kv("Alerts (open)",cnt.alerts_open||0)+kv("Alerts (total)",cnt.alerts_total||0)+
+    kv("Active policies",cnt.policies_active||0)+
+    kv("Policy coverage",cov.pct==null?"n/a":(cov.pct+"% ("+cov.covered+"/"+cov.distinct_skus+", "+cov.days+"d)"))+'</dl>');
+  // links (everyone)
+  parts.push('<div class="al-fsec">Li\u00ean k\u1ebft</div><div class="al-drawer-actions" style="border:0;padding:0">'+
+    '<a class="al-btn" href="/alerts/policies?brand='+encodeURIComponent(brand)+'">Xem policies</a>'+
+    '<a class="al-btn" href="/alerts#al-alert-list">Xem alerts</a>'+
+    (S.sm?'<a class="al-btn" href="/app/ec-brand-integration-settings/new?brand='+encodeURIComponent(brand)+'">T\u1ea1o/s\u1eeda BIS</a>':'')+
+    '</div>');
+  // diagnostic actions (SM only, read-only)
+  if(S.sm){
+    parts.push('<div class="al-fsec">Ch\u1ea9n \u0111o\u00e1n (read-only, SM)</div><div class="al-drawer-actions" style="border:0;padding:0">'+
+      '<button class="al-btn" id="ih-prev"'+((r.bis_exists&&bis.base_url)?"":" disabled")+' title="'+((r.bis_exists&&bis.base_url)?"":"C\u1ea7n base_url trong BIS tr\u01b0\u1edbc khi preview/pull")+'">Ch\u1ea1y preview</button>'+
+      '<button class="al-btn" id="ih-pstat">Xem pull_status</button></div>'+
+      '<div class="al-help" id="ih-diag-out"></div>');
+    // gated (no auto-write) snippets
+    parts.push('<div class="al-fsec">H\u00e0nh \u0111\u1ed9ng c\u1ea7n thao t\u00e1c th\u1ee7 c\u00f4ng (gated)</div>'+
+      '<div class="al-help">Manual pull ch\u1ea1y qua runbook (kh\u00f4ng trigger t\u1eeb trang n\u00e0y):</div>'+
+      '<div class="al-snippet">.\\onboard_lof_pull.ps1 -Brand '+A.esc(brand)+' -Confirm</div>'+
+      '<div class="al-help">Th\u00eam v\u00e0o scheduler = s\u1eeda site_config tr\u00ean FC dashboard (gated, G4 s\u1ebd t\u1ef1 \u0111\u1ed9ng):</div>'+
+      '<div class="al-snippet">ec_alerts_scheduled_pull_brands: [..., "'+A.esc(brand)+'"]</div>');
+  }
+  $("ih-d-body").innerHTML=parts.join("");
+  if(S.sm){
+    var pv=$("ih-prev"); if(pv)pv.onclick=function(){runPreview(brand);};
+    var ps=$("ih-pstat"); if(ps)ps.onclick=function(){runStatus(brand);};
+  }
+}
+
+function runPreview(brand){
+  $("ih-diag-out").textContent="\u0110ang ch\u1ea1y...";
+  A.call("api_omisell.pull_preview",{brand:brand,hours:1}).then(function(p){
+    $("ih-diag-out").textContent="would_list = "+(p.would_list==null?"?":p.would_list)+" ["+(p.window?p.window.join(" -> "):"")+"]";
+  }).catch(function(e){$("ih-diag-out").textContent="L\u1ed7i: "+e.message;});
+}
+function runStatus(brand){
+  $("ih-diag-out").textContent="\u0110ang ch\u1ea1y...";
+  A.call("api_omisell.pull_status",{brand:brand}).then(function(s){
+    var lr=s.last_run||{};
+    $("ih-diag-out").textContent="state="+(lr.state||"none")+" running="+(s.running_since?"yes":"no")+
+      " breaker="+(s.consecutive_failures||0)+" last_sync="+(s.last_sync_at||"-");
+  }).catch(function(e){$("ih-diag-out").textContent="L\u1ed7i: "+e.message;});
+}
+
+function close(){$("ih-drawer").hidden=true;$("al-overlay").hidden=true;}
+
+if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",init);}else{init();}
+})();
+</script>
