@@ -437,6 +437,12 @@ def page_route_map(repo):
             m = re.search(r'ROUTE = "([^"]+)"', io.open(ps, encoding="utf-8").read())
             if m:
                 out[ms] = "/" + m.group(1)
+    # Trang chu (legacy_pages/home, route "home") duoc phuc vu o "/" (Website Settings
+    # home_page); "/home" chi la bi danh. Vo shell phai dung cho "/": breadcrumb la muc
+    # HIEN TAI (<strong>), khong phai mot link tro ve chinh no.
+    home = os.path.join(lp, "home", "main_section.html")
+    if out.get(home) == "/home":
+        out[home] = "/"
     return out
 
 

@@ -1,0 +1,1555 @@
+
+<script id="ec-csrf-fetch-patch">
+(function(){
+  // ec_csrf_nofallback_marker 2026-09-14: ban cu ket thuc chuoi fallback bang chuoi literal
+  // "token" -> khi chua co token that, no GUI DI chuoi rac do va server tra
+  // CSRFTokenError. Goc sau xa: nang cap python3.14 go frappe.generate_hash khoi
+  // sandbox -> get_csrf tung tra token RONG (da chua o app method 14/09).
+  // v2: khong bao gio gui chuoi rac; chua co token thi XIN roi moi gui.
+  if (window.ecFetchPatched) return;
+  window.ecFetchPatched = true;
+  var origFetch = window.fetch;
+  function getCsrf() {
+    return (window.frappe && window.frappe.csrf_token) ||
+           (window.CTX && window.CTX.csrfToken) ||
+           window.csrf_token ||
+           (document.cookie.match(/csrf_token=([^;]+)/) || [])[1] ||
+           '';
+  }
+  function ensureCsrf(force) {
+    if (!force && window._ecCsrfReady) return window._ecCsrfReady;
+    window._ecCsrfReady = origFetch.call(window, '/api/method/get_csrf', { credentials: 'include' })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        var m = (j && j.message) || {};
+        if (m.csrf_token && !m.is_guest) {
+          window.frappe = window.frappe || {};
+          window.frappe.csrf_token = m.csrf_token;
+        }
+        return m.csrf_token || '';
+      })
+      .catch(function(e){ console.error('[ec-csrf] xin token that bai:', e); return ''; });
+    return window._ecCsrfReady;
+  }
+  window.ecEnsureCsrfToken = ensureCsrf;
+  window.fetch = function(url, opts) {
+    opts = opts || {};
+    var u = (typeof url === 'string') ? url : (url && url.url) || '';
+    var method = (opts.method || 'GET').toUpperCase();
+    var isApi = u.indexOf('/api/method/') >= 0 || u.indexOf('/api/resource/') >= 0;
+    if (!(isApi && method !== 'GET' && method !== 'HEAD')) {
+      return origFetch.call(window, url, opts);
+    }
+    if (opts.credentials === undefined) opts.credentials = 'include';
+    // Header co san nhung RONG thi coi nhu CHUA co -> wrapper dien token that.
+    function headerVal() {
+      var h = opts.headers;
+      if (!h) return '';
+      if (h.get && typeof h.get === 'function') return h.get('X-Frappe-CSRF-Token') || '';
+      for (var k in h) {
+        if (k.toLowerCase() === 'x-frappe-csrf-token') return h[k] || '';
+      }
+      return '';
+    }
+    function send(tok) {
+      opts.headers = opts.headers || {};
+      if (tok) {
+        if (opts.headers.set && typeof opts.headers.set === 'function') {
+          opts.headers.set('X-Frappe-CSRF-Token', tok);
+        } else {
+          var done = false;
+          for (var k in opts.headers) {
+            if (k.toLowerCase() === 'x-frappe-csrf-token') { opts.headers[k] = tok; done = true; break; }
+          }
+          if (!done) opts.headers['X-Frappe-CSRF-Token'] = tok;
+        }
+      }
+      return origFetch.call(window, url, opts);
+    }
+    if (headerVal()) return origFetch.call(window, url, opts);
+    var t = getCsrf();
+    if (t) return send(t);
+    return ensureCsrf(false).then(function(tok){ return send(tok); });
+  };
+  console.log('[ec-csrf] fetch wrapper v2 installed');
+})();
+</script>
+
+<!-- CP_REDIRECT_GUARD_START -->
+<script>
+(function(){
+    "use strict";
+    console.log("[home-guard] running");
+    fetch("/api/method/sso_get_profile", {
+        method: "GET",
+        credentials: "include",
+        headers: {"Accept": "application/json"}
+    })
+    .then(function(r) {
+        console.log("[home-guard] response status", r.status);
+        return r.json();
+    })
+    .then(function(data) {
+        var msg = (data && data.message) || {};
+        console.log("[home-guard] sso_get_profile result", msg);
+        if (msg.logged_in === false) {
+            console.log("[home-guard] not logged in, stay on /home");
+            return;
+        }
+        if (msg.is_complete) {
+            console.log("[home-guard] profile complete, stay on /home");
+            return;
+        }
+        // Logged in + profile NOT complete -> redirect
+        console.log("[home-guard] redirecting to /complete-profile (logged_in=" + msg.logged_in + ", is_complete=" + msg.is_complete + ")");
+        window.location.replace("/complete-profile");
+    })
+    .catch(function(err) {
+        console.error("[home-guard] fetch error", err);
+    });
+})();
+</script>
+<!-- CP_REDIRECT_GUARD_END -->
+
+
+<!-- HIDE-NAVBAR-V1 -->
+<style>
+  /* Hide Frappe default navbar + footer to give full-screen workspace */
+  body > header,
+  body > footer,
+  body > nav.navbar,
+  header.navbar,
+  .navbar.navbar-light,
+  .web-page-header,
+  #navbarSupportedContent,
+  .navbar-collapse {
+    display: none !important;
+  }
+  body { padding: 0 !important; margin: 0 !important; }
+  body main { padding-top: 0 !important; }
+  body .main-section, body main.container, body main.fluid {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+  /* If Frappe wraps page content in a container, expand it */
+  body .page_content { padding: 0 !important; }
+</style>
+
+{# ==============================================================
+   eCentric Workspace - trang chu (Web Page `ecentric-workspace`, route /home = "/").
+   NGUON THAT: ecentric_workspace/legacy_pages/home/main_section.html (repo app).
+   KHONG sua tren Desk/REST: page_sync khoa bang BASELINE_SHA256 va se TU CHOI ghi
+   de len ban da bi sua tay. Sua trang = sua file nay + bump BASELINE_SHA256 + patch
+   resync + resync_manifest.json, cung mot commit (CLAUDE.md, A65).
+   Trang dung Jinja (dynamic_template = 1): render theo tung nguoi, khong cache.
+   ============================================================== #}
+
+{% set user_email = frappe.session.user %}
+{% if user_email == 'Guest' %}
+  <script>window.location.href = '/login?redirect-to=/';</script>
+{% endif %}
+
+{# ====== LẤY DATA CÁ NHÂN HÓA ====== #}
+{% set user_doc = frappe.db.get_value('User', user_email, ['name', 'full_name', 'user_image', 'email', 'first_name', 'last_name'], as_dict=True) if user_email != 'Guest' else None %}
+{% set full_name = (user_doc.full_name if user_doc and user_doc.full_name else user_email.split('@')[0]) %}
+{% set name_parts = full_name.split() %}
+{% set first_name = name_parts[0] if name_parts else 'Bạn' %}
+
+{# ====== LẤY DATA TỪ DOCTYPES (graceful fallback nếu chưa tạo) ====== #}
+{% set has_news = frappe.db.exists('DocType', 'News Post') %}
+{% set has_policy = frappe.db.exists('DocType', 'Company Policy') %}
+
+{% set news_list = frappe.get_all('News Post',
+    filters={'published': 1},
+    fields=['name', 'title', 'category', 'image', 'published_on'],
+    order_by='published_on desc',
+    limit=3) if has_news else [] %}
+
+{% set policies = frappe.get_all('Company Policy',
+    filters={'is_active': 1},
+    fields=['name', 'title', 'category'],
+    order_by='effective_date desc',
+    limit=5) if has_policy else [] %}
+
+{# Ba bien nay chi con de khoi Jinja cua panel "Viec can lam" (an) khong vo; so that do
+   widget Action Center do vao (neutralize 24/07, khong con dem toan cuc). #}
+{% set leave_count = 0 %}
+{% set so_count = 0 %}
+{% set approvals_count = 0 %}
+
+{# Loi chao / ngay / dong ho / ghim "bay gio": ve SAN tu gio server (Asia/Ho_Chi_Minh) de
+   lan ve dau da dung chu. JS chi sua lai neu dong ho may khach khac. #}
+{% set ec_now = frappe.utils.now_datetime() %}
+{% set ec_greet = 'Chào buổi sáng' if ec_now.hour < 12 else ('Chào buổi chiều' if ec_now.hour < 18 else 'Chào buổi tối') %}
+{% set ec_today = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật'][ec_now.weekday()] ~ ', ' ~ ec_now.strftime('%d') ~ ' tháng ' ~ ec_now.month %}
+{% set ec_pin = (ec_now.hour + ec_now.minute / 60 - 8) / 10 * 100 %}
+{% set ec_pin = 0 if ec_pin < 0 else (100 if ec_pin > 100 else ec_pin) %}
+{# Dong thoi gian: nguoi CO quyen PM thi lich dang tai (giu nguyen chieu cao, khong nhay
+   khi su kien ve); nguoi KHONG co quyen PM khong bao gio co lich -> the phang ngay tu dau. #}
+{#   'is defined': ban code cu (chua co ham Jinja nay) van render duoc trang, khong 500. #}
+{% set ec_pm = has_pm_module_access() if has_pm_module_access is defined else false %}
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+  :root {
+    --navy: #2C3DA6;
+    --navy-50: #eef0fb;
+    --navy-100: #d9deef;
+    --navy-700: #1f2d80;
+    --yellow: #FFC000;
+    --yellow-50: #fff8e1;
+    --pink: #EF7CAF;
+    --pink-50: #fdeef5;
+    --green: #10b981;
+    --gray-50: #fafbfc;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --gray-400: #9ca3af;
+    --gray-500: #6b7280;
+    --gray-600: #4b5563;
+    --gray-700: #374151;
+    --gray-800: #1f2937;
+    --gray-900: #111827;
+    --bg: #f7f8fb;
+  }
+
+  /* Reset Frappe defaults thoroughly */
+  body { background: var(--bg) !important; padding: 0 !important; margin: 0 !important; }
+  body header.navbar, .web-footer, footer.web-footer { display: none !important; }
+  .page-content, .common-page-style, .container, main, .web-page-content, .page_content {
+    padding: 0 !important; margin: 0 !important; max-width: none !important;
+  }
+
+  .ecentric-app, .ecentric-app * { box-sizing: border-box; }
+  .ecentric-app {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--gray-800);
+    font-size: 14px;
+    line-height: 1.5;
+    display: grid;
+    grid-template-columns: 248px 1fr;
+    min-height: 100vh;
+  }
+  .ecentric-app .icon { width: 18px; height: 18px; flex-shrink: 0; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+  .ecentric-app .icon-sm { width: 16px; height: 16px; }
+  .ecentric-app .icon-xs { width: 14px; height: 14px; }
+
+  .ec-sidebar { background: white; border-right: 1px solid var(--gray-200); display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; }
+  .ec-sidebar .sidebar-header { padding: 16px 16px 10px; display: flex; align-items: center; justify-content: flex-start; }
+  .ec-sidebar .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+  .ec-sidebar .brand img { width: 40px; height: 40px; object-fit: contain; display: block; }
+  .ec-sidebar .brand-name { font-size: 15px; font-weight: 700; color: var(--gray-900); letter-spacing: -0.3px; line-height: 1.2; }
+  .ec-sidebar .sidebar-search { margin: 6px 16px 12px; position: relative; }
+  .ec-sidebar .sidebar-search input { width: 100%; padding: 8px 12px 8px 34px; border: 1px solid var(--gray-200); border-radius: 8px; font-size: 13px; background: var(--gray-50); font-family: inherit; }
+  .ec-sidebar .sidebar-search input:focus { outline: none; border-color: var(--navy); background: white; }
+  .ec-sidebar .search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--gray-400); }
+  .ec-sidebar .kbd { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 10px; color: var(--gray-400); background: white; border: 1px solid var(--gray-200); padding: 1px 5px; border-radius: 4px; }
+  .ec-sidebar .nav-section { padding: 4px 8px 10px; flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: transparent transparent; }
+  .ec-sidebar .nav-section:hover { scrollbar-color: var(--gray-300) transparent; }
+  .ec-sidebar .nav-section::-webkit-scrollbar { width: 6px; }
+  .ec-sidebar .nav-section::-webkit-scrollbar-track { background: transparent; }
+  .ec-sidebar .nav-section::-webkit-scrollbar-thumb { background: transparent; border-radius: 3px; transition: background 0.2s; }
+  .ec-sidebar .nav-section:hover::-webkit-scrollbar-thumb { background: var(--gray-300); }
+  .ec-sidebar .nav-section::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
+  .ec-sidebar .nav-label { font-size: 10.5px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.6px; padding: 8px 12px 2px; }
+  /* === Sidebar nav-item — dùng CSS Grid (cứng, chống Frappe/Bootstrap đè) === */
+  .ecentric-app .ec-sidebar nav.nav-section a.nav-item {
+    display: grid !important;
+    grid-template-columns: 16px 1fr auto !important;
+    column-gap: 10px !important;
+    align-items: center !important;
+    justify-items: start !important;
+    padding: 6px 12px !important;
+    border-radius: 6px !important;
+    color: var(--gray-600) !important;
+    text-decoration: none !important;
+    font-size: 12.5px !important;
+    font-weight: 500 !important;
+    transition: background 0.15s, color 0.15s !important;
+    margin-bottom: 1px !important;
+    text-align: left !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    line-height: 1.3 !important;
+  }
+  .ecentric-app .ec-sidebar nav.nav-section a.nav-item > svg.icon {
+    width: 16px !important; height: 16px !important;
+    grid-column: 1 !important;
+    margin: 0 !important;
+  }
+  .ecentric-app .ec-sidebar nav.nav-section a.nav-item > span:not(.badge) {
+    grid-column: 2 !important;
+    margin: 0 !important;
+    text-align: left !important;
+    justify-self: start !important;
+  }
+  .ecentric-app .ec-sidebar nav.nav-section a.nav-item > span.badge {
+    grid-column: 3 !important;
+    margin: 0 !important;
+    background: var(--gray-200);
+    color: var(--gray-700);
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 10px;
+    min-width: 20px;
+    text-align: center;
+  }
+  .ecentric-app .ec-sidebar nav.nav-section a.nav-item:hover { background: var(--gray-100) !important; color: var(--gray-900) !important; text-decoration: none !important; }
+  .ecentric-app .ec-sidebar nav.nav-section a.nav-item.active { background: var(--navy-50) !important; color: var(--navy) !important; font-weight: 600 !important; }
+  .ecentric-app .ec-sidebar nav.nav-section a.nav-item.active svg.icon { stroke-width: 2 !important; }
+  .ecentric-app .ec-sidebar nav.nav-section a.nav-item.active span.badge { background: var(--navy) !important; color: white !important; }
+  .ec-sidebar .nav-item.active .badge { background: var(--navy); color: white; }
+  .ec-sidebar .badge.b-soon { background: var(--gray-200) !important; color: var(--gray-600) !important; font-size: 10px !important; padding: 2px 6px !important; border-radius: 4px !important; font-weight: 600 !important; letter-spacing: 0.2px !important; }
+  .ec-sidebar .sidebar-footer { padding: 12px; border-top: 1px solid var(--gray-100); display: flex; align-items: center; gap: 8px; }
+  .ec-sidebar .user-card { flex: 1; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; transition: background 0.15s; text-decoration: none; color: inherit; min-width: 0; }
+  .ec-sidebar .logout-btn { width: 36px; height: 36px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: transparent; border: none; color: var(--gray-500); cursor: pointer; transition: background 0.15s, color 0.15s; }
+  .ec-sidebar .logout-btn:hover { background: #fee2e2; color: #dc2626; }
+  .ec-sidebar .logout-btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+  .ec-sidebar .user-card:hover { background: var(--gray-100); text-decoration: none; }
+  .ec-sidebar .avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, var(--navy), var(--pink)); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; }
+  .ec-sidebar .user-info { flex: 1; min-width: 0; }
+  .ec-sidebar .user-name { font-size: 13px; font-weight: 600; color: var(--gray-900); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ec-sidebar .user-role { font-size: 11px; color: var(--gray-500); }
+
+  .ec-main { min-width: 0; display: flex; flex-direction: column; }
+  .ec-main .topbar { background: white; border-bottom: 1px solid var(--gray-200); padding: 12px 32px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
+  .ec-main .breadcrumb { font-size: 13px; color: var(--gray-500); padding: 0; margin: 0; background: none; }
+  .ec-main .breadcrumb strong { color: var(--gray-900); font-weight: 600; }
+  .ec-main .topbar-actions { display: flex; align-items: center; gap: 6px; }
+  .ec-main .icon-btn { width: 34px; height: 34px; border-radius: 8px; border: none; background: transparent; display: flex; align-items: center; justify-content: center; color: var(--gray-500); position: relative; transition: all 0.15s; text-decoration: none; }
+  .ec-main .icon-btn:hover { background: var(--gray-100); color: var(--gray-900); }
+  .ec-main .icon-btn .dot { position: absolute; top: 8px; right: 9px; width: 6px; height: 6px; background: var(--pink); border-radius: 50%; border: 2px solid white; }
+  .ec-main .content { padding: 28px 32px 40px; max-width: 1400px; width: 100%; }
+
+  .ecentric-app .greeting { margin-bottom: 24px; }
+  .ecentric-app .greeting h1 { font-size: 26px; font-weight: 700; color: var(--gray-900); letter-spacing: -0.5px; margin-bottom: 4px; margin-top: 0; }
+  .ecentric-app .greeting p { color: var(--gray-500); font-size: 14px; margin: 0; }
+
+  .ecentric-app .stats-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 22px; }
+  .ecentric-app .stat-card { background: white; border: 1px solid var(--gray-200); border-radius: 12px; padding: 18px 20px; transition: all 0.15s; position: relative; overflow: hidden; }
+  .ecentric-app .stat-card::before { content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%; }
+  .ecentric-app .stat-card.s-navy::before { background: var(--navy); }
+  .ecentric-app .stat-card.s-yellow::before { background: var(--yellow); }
+  .ecentric-app .stat-card.s-pink::before { background: var(--pink); }
+  .ecentric-app .stat-card.s-green::before { background: var(--green); }
+  .ecentric-app .stat-card:hover { border-color: var(--gray-300); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+  .ecentric-app .stat-label { font-size: 12px; font-weight: 500; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 8px; }
+  .ecentric-app .stat-value { font-size: 26px; font-weight: 700; color: var(--gray-900); line-height: 1.1; letter-spacing: -0.5px; }
+  .ecentric-app .stat-value .unit { font-size: 14px; color: var(--gray-500); font-weight: 500; margin-left: 2px; }
+  .ecentric-app .stat-meta { font-size: 12px; color: var(--gray-500); margin-top: 6px; }
+  .ecentric-app .stat-meta .up { color: var(--green); font-weight: 600; }
+
+  .ecentric-app .bento { display: grid; grid-template-columns: 2fr 1fr; gap: 18px; margin-bottom: 22px; }
+  .ecentric-app .col-left, .ecentric-app .col-right { display: flex; flex-direction: column; gap: 18px; }
+  .ecentric-app .panel { background: white; border: 1px solid var(--gray-200); border-radius: 12px; overflow: hidden; }
+  .ecentric-app .panel-header { padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--gray-100); }
+  .ecentric-app .panel-title { font-size: 14px; font-weight: 600; color: var(--gray-900); display: flex; align-items: center; gap: 8px; }
+  .ecentric-app .panel-title .badge { background: var(--navy-50); color: var(--navy); font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 10px; }
+  .ecentric-app .panel-title .badge.b-pink { background: var(--pink); color: white; }
+  .ecentric-app .panel-action { font-size: 12.5px; color: var(--navy); text-decoration: none; font-weight: 500; }
+
+  .ecentric-app .quick-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 14px; }
+  .ecentric-app .quick-item { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 16px 8px; border-radius: 10px; text-decoration: none; color: var(--gray-700); transition: all 0.15s; border: 1px solid transparent; }
+  .ecentric-app .quick-item:hover { background: var(--gray-50); border-color: var(--gray-200); color: var(--navy); text-decoration: none; }
+  .ecentric-app .quick-icon { width: 38px; height: 38px; border-radius: 10px; background: var(--gray-50); color: var(--navy); display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .ecentric-app .quick-item:hover .quick-icon { background: var(--navy-50); }
+  .ecentric-app .quick-label { font-size: 12.5px; font-weight: 500; text-align: center; line-height: 1.3; }
+
+  .ecentric-app .checkin-card { background: linear-gradient(135deg, var(--navy) 0%, #3d52cc 100%); color: white; border-radius: 12px; padding: 22px; position: relative; overflow: hidden; }
+  .ecentric-app .checkin-card::after { content: ''; position: absolute; bottom: -50px; right: -50px; width: 180px; height: 180px; background: radial-gradient(circle, rgba(255,192,0,0.18) 0%, transparent 65%); border-radius: 50%; }
+  .ecentric-app .checkin-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; opacity: 0.85; font-weight: 600; position: relative; }
+  /* ec-att-link-v1: second door to the attendance page, from the check-in card */
+  .ecentric-app .checkin-label.ec-att-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .ecentric-app .ec-att-link { display: inline-flex; align-items: center; gap: 4px; text-transform: none; letter-spacing: 0.2px; font-size: 11.5px; font-weight: 600; color: #fff; text-decoration: none; background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.24); padding: 4px 10px; border-radius: 999px; transition: background 0.15s, border-color 0.15s; white-space: nowrap; }
+  .ecentric-app .ec-att-link:hover { background: rgba(255,255,255,0.30); border-color: rgba(255,255,255,0.45); color: #fff; text-decoration: none; }
+  .ecentric-app .ec-att-link svg { width: 12px; height: 12px; flex: none; }
+
+  .ecentric-app .checkin-time { font-size: 36px; font-weight: 700; letter-spacing: -1px; margin: 4px 0 2px; font-variant-numeric: tabular-nums; position: relative; }
+  .ecentric-app .checkin-date { font-size: 13px; opacity: 0.85; position: relative; }
+  .ecentric-app .checkin-status { background: rgba(255,255,255,0.15); border-radius: 8px; padding: 10px 12px; margin: 16px 0 14px; display: flex; align-items: center; gap: 8px; font-size: 13px; position: relative; }
+  .ecentric-app .status-dot-w { width: 8px; height: 8px; border-radius: 50%; background: var(--yellow); box-shadow: 0 0 0 3px rgba(255,192,0,0.3); }
+  .ecentric-app .btn-checkin { width: 100%; background: var(--yellow); color: var(--gray-900); border: none; padding: 12px; border-radius: 8px; font-weight: 700; font-size: 14px; cursor: pointer; position: relative; font-family: inherit; }
+  .ecentric-app .btn-checkin:hover { background: #e6ac00; }
+
+  .ecentric-app .approval-list { padding: 6px 8px 8px; }
+  .ecentric-app .approval-item { padding: 12px; border-radius: 8px; transition: background 0.15s; display: flex; gap: 12px; align-items: center; position: relative; }
+  .ecentric-app .approval-item::before { content: ''; width: 3px; align-self: stretch; border-radius: 2px; background: var(--yellow); flex-shrink: 0; }
+  .ecentric-app .approval-item.type-leave::before { background: var(--pink); }
+  .ecentric-app .approval-item:hover { background: var(--gray-50); }
+  .ecentric-app .approval-content { flex: 1; min-width: 0; }
+  .ecentric-app .approval-title { font-size: 13px; font-weight: 600; color: var(--gray-900); margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ecentric-app .approval-meta { font-size: 11.5px; color: var(--gray-500); }
+  .ecentric-app .approval-type { font-size: 10px; font-weight: 700; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
+
+  .ecentric-app .news-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; padding: 14px; }
+  .ecentric-app .news-card { background: white; border: 1px solid var(--gray-200); border-radius: 10px; overflow: hidden; transition: all 0.15s; text-decoration: none; color: inherit; display: block; }
+  .ecentric-app .news-card:hover { border-color: var(--gray-300); box-shadow: 0 4px 12px rgba(0,0,0,0.05); transform: translateY(-2px); text-decoration: none; }
+  .ecentric-app .news-image { height: 120px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 14px; text-align: center; padding: 16px; letter-spacing: 0.3px; background-size: cover; background-position: center; }
+  .ecentric-app .news-image.gradient-1 { background: linear-gradient(135deg, var(--navy), #3d52cc); }
+  .ecentric-app .news-image.gradient-2 { background: linear-gradient(135deg, var(--yellow), var(--pink)); }
+  .ecentric-app .news-image.gradient-3 { background: linear-gradient(135deg, var(--gray-800), var(--navy)); }
+  .ecentric-app .news-body { padding: 12px 14px 14px; }
+  .ecentric-app .news-tag { display: inline-block; background: var(--yellow-50); color: #b88600; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; letter-spacing: 0.4px; margin-bottom: 8px; }
+  .ecentric-app .news-tag.t-pink { background: var(--pink-50); color: #c2185b; }
+  .ecentric-app .news-tag.t-navy { background: var(--navy-50); color: var(--navy); }
+  .ecentric-app .news-title { font-size: 13.5px; font-weight: 600; color: var(--gray-900); line-height: 1.4; margin-bottom: 6px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .ecentric-app .news-date { font-size: 11.5px; color: var(--gray-500); }
+
+  .ecentric-app .policy-list { padding: 4px 8px 8px; }
+  .ecentric-app .policy-item { padding: 11px 12px; border-radius: 8px; display: flex; align-items: center; gap: 12px; transition: background 0.15s; text-decoration: none; color: inherit; }
+  .ecentric-app .policy-item:hover { background: var(--gray-50); text-decoration: none; }
+  .ecentric-app .policy-bullet { width: 6px; height: 6px; border-radius: 50%; background: var(--yellow); flex-shrink: 0; }
+  .ecentric-app .policy-text { font-size: 12.5px; color: var(--gray-700); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ecentric-app .policy-arrow { color: var(--gray-300); }
+
+  @media (max-width: 1100px) {
+    .ecentric-app { grid-template-columns: 64px 1fr; }
+    .ec-sidebar .sidebar-search, .ec-sidebar .nav-label, .ec-sidebar .nav-item span:not(.badge), .ec-sidebar .brand-name, .ec-sidebar .user-info { display: none; }
+    .ec-sidebar .nav-item, .ec-sidebar .brand, .ec-sidebar .user-card { justify-content: center; padding: 8px; }
+    .ecentric-app .stats-strip { grid-template-columns: repeat(2, 1fr); }
+    .ecentric-app .bento { grid-template-columns: 1fr; }
+    .ecentric-app .news-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 640px) {
+    .ecentric-app .stats-strip { grid-template-columns: 1fr 1fr; }
+    .ecentric-app .quick-grid { grid-template-columns: repeat(3, 1fr); }
+    .ecentric-app .news-grid { grid-template-columns: 1fr; }
+    .ec-main .content { padding: 20px 16px; }
+    .ec-main .topbar { padding: 12px 16px; }
+  }
+  /* ==== TRANG CHU v2 - bo cuc nam SAN trong nguon (NHIEU_LOP giai doan 2, 29/09/2026) ====
+     Truoc day: HTML server ve bo cuc cu (greeting / stats-strip / bento), roi JS
+     `ec-home-v2` (deploy_home_v2.ps1) dung lai DOM luc DOMContentLoaded va chen CSS nay
+     vao cuoi <body>; hai ham fitBand/fitPage do trang roi gan lop ec2-bw1/bw2/ec2-fit1/fit2.
+     Nguoi dung thay bo cuc cu nhay sang bo cuc moi. Gio: markup la bo cuc v2, CSS nam o day,
+     cac nac gon la @container (be ngang dai navy) va @media max-height (chieu cao man),
+     trinh duyet quyet dinh TRUOC lan ve dau. JS (ec_home_v2.bundle.js) chi do du lieu.
+     Thu tu cascade giu nguyen ban live: CSS trang -> polish -> v2. */
+
+  /* ---- polish (truoc day: khoi style ec-home-polish do page_sync.transform_home chen sau topbar).
+     Cac quy tac !important o day THANG moi quy tac v2 ben duoi cho: .stat-card padding,
+     .stat-value/.stat-label co chu, .panel padding, .greeting h1 co chu, .checkin-card padding,
+     .quick-* - vi vay v2 khong khai lai cac thuoc tinh do. ---- */
+  /* portal sidebar (chi trang chu) */
+  .ecentric-app .ec-shell-head{padding:10px 12px 6px !important;}
+  .ecentric-app .ec-shell-search{margin:2px 12px 6px !important;}
+  .ecentric-app .ec-shell-nav{padding:4px 10px !important;gap:1px !important;}
+  .ecentric-app .ec-shell-grouplabel{padding:7px 12px 3px !important;}
+  .ecentric-app .ec-shell-item{padding:6px 12px !important;gap:9px !important;font-size:13px !important;}
+  .ecentric-app .ec-shell-item svg{width:16px !important;height:16px !important;}
+  .ecentric-app .ec-shell-foot{padding:7px 10px !important;}
+  /* mat do than trang */
+  .content{padding:14px 20px 20px !important;}
+  .greeting{margin-bottom:8px !important;}
+  .greeting h1{font-size:20px !important;margin-bottom:2px !important;}
+  .stats-strip{gap:8px !important;margin-bottom:10px !important;}
+  .stat-card{padding:10px 12px !important;border-radius:10px !important;}
+  .stat-value{font-size:20px !important;line-height:1.15 !important;}
+  .stat-label{font-size:11.5px !important;}
+  .stat-meta{font-size:11px !important;}
+  .bento{gap:12px !important;}
+  .col-left,.col-right{gap:12px !important;}
+  .panel{padding:11px 14px !important;border-radius:10px !important;min-height:0 !important;}
+  .panel-header{margin-bottom:6px !important;}
+  .panel-title{font-size:13.5px !important;}
+  .quick-grid{gap:7px !important;}
+  .quick-item{padding:7px 6px !important;border-radius:9px !important;}
+  .quick-icon{width:24px !important;height:24px !important;}
+  .quick-label{font-size:11.5px !important;}
+  .checkin-card{padding:11px 14px !important;}
+  .news-grid{gap:8px !important;}
+  .approval-item{padding:7px 0 !important;}
+
+  /* ---- v2: dai navy (chao | vong tien do | 4 o so | cham cong) ---- */
+  /* Giu cho thanh cuon doc ngay tu dau: HTML server ngan hon khung nhin (hang doi dang tai),
+     du lieu ve thi trang dai ra, thanh cuon xuat hien va CA trang hep lai 15px (do 29/09). */
+  html{scrollbar-gutter:stable}
+  .ecentric-app .ec-main .content{max-width:1760px;margin-inline:auto}
+  /* Dai navy la CONTAINER: cac nac gon ben duoi hoi be ngang cua chinh no, khong hoi khung
+     nhin - thanh ben thu gon hay mo rong thi van dung. */
+  .ecentric-app .ec2-band{container:ec2band/inline-size;background:radial-gradient(560px 300px at 88% -60%,rgba(255,192,0,.16),transparent 60%),radial-gradient(420px 260px at 62% 130%,rgba(239,124,175,.13),transparent 55%),linear-gradient(108deg,#131b4e 0%,#1f2d80 56%,#2e40b4 100%);border-radius:18px;color:#fff;box-shadow:0 14px 34px rgba(19,27,78,.18);margin-bottom:14px}
+  /* KHONG xuong dong: truoc day flex-wrap:wrap + checkin min-width 280px lam cham cong rot
+     xuong hang hai o man 14 inch (PO bao 24/09). Nac gon lo phan be ngang. */
+  .ecentric-app .ec2-bandrow{display:flex;align-items:center;gap:22px;flex-wrap:nowrap;padding:16px 22px}
+  .ecentric-app .ec2-who{flex:1 1 220px;min-width:0;max-width:560px}
+  .ecentric-app .ec2-who .greeting{margin:0}
+  .ecentric-app .ec2-who .greeting h1{color:#fff;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ecentric-app .ec2-who .greeting p{color:#b9c1ee;font-size:11.5px;margin:3px 0 0;white-space:normal;line-height:1.45}
+  .ecentric-app .ec2-hot{color:#FFC000;font-weight:700}
+  .ecentric-app .ec2-ring{display:flex;flex:none;align-items:center;gap:11px;padding-left:22px;border-left:1px solid rgba(255,255,255,.12)}
+  .ecentric-app .ec2-ringbox{position:relative;width:44px;height:44px;display:inline-block}
+  .ecentric-app .ec2-ringbox svg{width:44px;height:44px;transform:rotate(-90deg);display:block}
+  .ecentric-app .ec2-ringbox em{position:absolute;inset:0;display:grid;place-items:center;font-style:normal;font-size:10px;font-weight:750;color:#FFC000}
+  /* be ngang co dinh: "— ngay cong" luc tai va "12 / 22 ngay cong" luc co so rong nhu nhau */
+  .ecentric-app .ec2-ringtx{min-width:114px}
+  .ecentric-app .ec2-ringtx b{display:block;font-size:12px;font-weight:700;color:#fff;white-space:nowrap}
+  .ecentric-app .ec2-ringtx span{font-size:10px;color:#b9c1ee}
+  .ecentric-app .ec2-chips{display:flex;flex:none;gap:8px;flex-wrap:nowrap}
+  /* be ngang toi thieu: so ve sau ("12.5 ngay", "SLA THANG NAY" luc widget SLA dang tai)
+     khong lam o nong ra va day cac o ben canh. */
+  .ecentric-app .ec2-chips .stat-card{min-width:100px;background:linear-gradient(180deg,rgba(255,255,255,.11),rgba(255,255,255,.06));border:1px solid rgba(255,255,255,.14);border-radius:11px;box-shadow:none;transition:.12s}
+  .ecentric-app .ec2-chips .stat-card.s-yellow{min-width:104px}
+  .ecentric-app .ec2-chips .stat-card[data-ec-sla-card]{min-width:127px}
+  .ecentric-app .ec2-chips .stat-card:hover{border-color:rgba(255,255,255,.3)}
+  .ecentric-app .ec2-chips .stat-card::before{display:none}
+  .ecentric-app .ec2-chips .stat-label{color:#b9c1ee;letter-spacing:.05em;margin:0;white-space:nowrap;text-transform:uppercase}
+  .ecentric-app .ec2-chips .stat-value{color:#fff;font-weight:750;margin:1px 0 0;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .ecentric-app .ec2-chips .stat-value .unit{color:#b9c1ee;font-size:10px}
+  .ecentric-app .ec2-chips .stat-meta{display:none}
+  .ecentric-app .ec2-chips .stat-card.s-pink{background:linear-gradient(180deg,rgba(255,192,0,.2),rgba(255,192,0,.09));border-color:rgba(255,192,0,.45)}
+  .ecentric-app .ec2-chips .stat-card.s-pink .stat-value{color:#FFC000}
+  /* O cham cong: be ngang CO DINH theo nac, nen doi trang thai ("Dang tai…" -> "Da check-in
+     luc 08:12") khong day vong tien do / 4 o so sang ngang. Nut giu be ngang cua nhan dai
+     nhat ("Da cham cong hom nay"), dong trang thai qua dai thi cat "…". */
+  .ecentric-app .ec2-band .checkin-card{flex:0 0 auto;width:373px;margin:0 0 0 auto;background:transparent;border:none;border-left:1px solid rgba(255,255,255,.14);border-radius:0;box-shadow:none;display:flex;flex-direction:column;gap:7px;align-items:flex-end}
+  .ecentric-app .ec2-band .checkin-card::before,.ecentric-app .ec2-band .checkin-card::after{display:none}
+  .ecentric-app .ec2-ckrow{display:flex;align-items:center;gap:14px}
+  .ecentric-app .ec2-band .checkin-time{font-size:25px;font-weight:800;margin:0;line-height:1;letter-spacing:.01em}
+  .ecentric-app .ec2-band .btn-checkin{margin:0;padding:11px 20px;font-size:13.5px;border-radius:11px;width:auto;min-width:194px;box-shadow:0 6px 16px rgba(255,192,0,.3)}
+  .ecentric-app .ec2-ckmeta{display:flex;align-items:center;gap:10px;justify-content:flex-end;flex-wrap:nowrap;white-space:nowrap;min-width:0;max-width:100%}
+  .ecentric-app .ec2-band .checkin-status{margin:0;font-size:10.5px;background:rgba(255,255,255,.10);border-radius:999px;padding:3px 11px;width:fit-content;min-width:0;overflow:hidden}
+  .ecentric-app .ec2-band .checkin-status span + span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ecentric-app .ec2-band .ec-att-link{flex:none;font-size:10.5px;color:#b9c1ee;font-weight:600;text-transform:none}
+  .ecentric-app .ec2-band .ec-att-link:hover{color:#fff}
+
+  /* ---- v2: dong thoi gian hom nay ---- */
+  /* Hang so cua khung su kien la BIEN CSS: JS chi ghi --ec2-lanes (so lan) va --ec2-l (lan
+     cua tung su kien). Truoc day JS doc window.innerWidth roi ghi chieu cao/top bang px. */
+  .ecentric-app .ec2-home{--ec2-lane:34px;--ec2-tlminh:56px;--ec2-evmin:120px}
+  .ecentric-app .ec2-tl{margin:0 0 12px}
+  .ecentric-app .ec2-tl .panel-header,.ecentric-app .ec2-queue .panel-header,.ecentric-app .ec2-col>.panel .panel-header{padding:0 0 8px;margin:0;border-bottom:0}
+  .ecentric-app .ec2-tlwrap{position:relative;margin-top:20px}
+  .ecentric-app .ec2-tlbody{position:relative;height:56px;border-radius:6px;background:repeating-linear-gradient(90deg,transparent 0,transparent calc(10% - 1px),#eef0f6 calc(10% - 1px),#eef0f6 10%);display:grid;place-items:center}
+  .ecentric-app .ec2-tlempty{color:#9ca3af;font-size:12.5px;background:#fff;padding:2px 12px;border-radius:8px}
+  .ecentric-app .ec2-tlaxis{display:flex;justify-content:space-between;font-size:10px;color:#c1c6d2;margin-top:5px}
+  .ecentric-app .ec2-tlbody.ec2-hasev .ec2-tlempty{display:none}
+  .ecentric-app .ec2-tlnote{display:none;font-size:11.5px;color:#8a90a0;padding:2px 0 0}
+  .ecentric-app .ec2-ev{position:absolute;top:calc(4px + var(--ec2-l,0) * var(--ec2-lane));min-width:var(--ec2-evmin);height:30px;line-height:24px;background:#eef0fb;color:#1f2d80;border:1px solid #d8def6;border-left:3.5px solid #2C3DA6;border-radius:9px;font-size:11.5px;font-weight:650;padding:3px 11px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;z-index:1;box-shadow:0 1px 2px rgba(16,21,39,.05);transition:.13s;cursor:pointer}
+  .ecentric-app .ec2-ev:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(20,28,82,.09)}
+  .ecentric-app .ec2-ev-b{background:#f4f5f9;color:#3c4353;border-color:#e7e9f0;border-left-color:#9aa1b4}
+  .ecentric-app .ec2-nowpin{position:absolute;top:-4px;bottom:24px;width:2px;background:#EF7CAF;z-index:2;border-radius:2px}
+  .ecentric-app .ec2-nowpin::before{content:'';position:absolute;top:-3px;left:50%;transform:translateX(-50%);width:8px;height:8px;border-radius:50%;background:#EF7CAF;box-shadow:0 0 0 3px #fdeef5}
+  .ecentric-app .ec2-nowpin i{position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-style:normal;font-size:9.5px;color:#b8256e;font-weight:700;background:#fdeef5;border-radius:6px;padding:1px 7px;white-space:nowrap}
+
+  /* ---- v2: luoi hai cot (hang doi + tin | truy cap nhanh + chinh sach) ---- */
+  .ecentric-app .ec2-grid{display:grid;grid-template-columns:1.55fr 1fr;gap:12px;align-items:start}
+  .ecentric-app .ec2-col{display:flex;flex-direction:column;gap:12px;min-width:0}
+  .ecentric-app .ec2-col>.panel{margin:0}
+  .ecentric-app .ec2-col>.panel .quick-grid{padding:0}
+  .ecentric-app .ec2-col>.panel .policy-list{padding:0}
+  .ecentric-app .ec2-col>.panel .approval-list{padding:0}
+  .ecentric-app .ec2-col>.panel .news-list,.ecentric-app .ec2-col>.panel ul{padding-left:0;padding-right:0}
+  .ecentric-app .ec2-col .quick-grid{grid-template-columns:repeat(4,1fr)}
+  .ecentric-app .ec2-qn{display:inline-block;font-size:11px;font-weight:700;background:#eef0fb;color:#1f2d80;border-radius:8px;padding:1px 8px;margin-left:6px;vertical-align:1px}
+  .ecentric-app .ec2-qn[hidden]{display:none}
+  .ecentric-app .ec2-qg{font-size:9.5px;letter-spacing:.1em;font-weight:750;margin:10px 4px 3px;display:flex;align-items:center;gap:8px}
+  .ecentric-app .ec2-queue .ec2-qg{margin-top:7px}
+  .ecentric-app .ec2-qg::after{content:'';flex:1;border-top:1px dashed #edeff5}
+  .ecentric-app .ec2-qg-hot{color:#d92d20}
+  .ecentric-app .ec2-qg-now{color:#b54708}
+  .ecentric-app .ec2-qg-ok{color:#8a90a0}
+  .ecentric-app .ec2-qi{display:flex;gap:12px;align-items:center;padding:11px 12px;border-radius:12px;border:1px solid transparent;text-decoration:none;color:inherit;transition:.13s}
+  .ecentric-app .ec2-qi:hover{background:#fafbfe;border-color:#e7e9f0}
+  .ecentric-app .ec2-qtile{width:37px;height:37px;border-radius:11px;display:grid;place-items:center;flex:none}
+  .ecentric-app .ec2-qtile svg{width:18px;height:18px;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  .ecentric-app .ec2-qtile-hot{background:#FEF3F2}
+  .ecentric-app .ec2-qtile-hot svg{stroke:#d92d20}
+  .ecentric-app .ec2-qtile-now{background:#FFFAEB}
+  .ecentric-app .ec2-qtile-now svg{stroke:#b54708}
+  .ecentric-app .ec2-qtile-ok{background:#eef0fb}
+  .ecentric-app .ec2-qtile-ok svg{stroke:#2C3DA6}
+  .ecentric-app .ec2-qtx{min-width:0}
+  .ecentric-app .ec2-qtx b{display:block;font-weight:600;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ecentric-app .ec2-qtx span{display:block;font-size:11.5px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ecentric-app .ec2-qi .ec2-qp{margin-left:auto;font-style:normal;font-size:10px;font-weight:700;padding:2.5px 9px;border-radius:999px;flex:none}
+  .ecentric-app .ec2-qp-hot{background:#FEF3F2;color:#b42318}
+  .ecentric-app .ec2-qp-now{background:#FFFAEB;color:#b54708}
+  .ecentric-app .ec2-qp-ok{background:#eef0fb;color:#1f2d80}
+  .ecentric-app .ec2-qch{font-style:normal;color:#c4c9d4;flex:none;transition:.13s;font-size:15px;margin-left:6px}
+  .ecentric-app .ec2-qi:hover .ec2-qch{color:#2C3DA6;transform:translateX(2px)}
+  .ecentric-app .ec2-qempty{padding:20px 10px;text-align:center;color:#9ca3af;font-size:12.5px}
+  /* panel "Viec can lam" chi con de widget Action Center tim thay va do so CHO DUYET vao
+     o so (xem action_center_widget.js findPanel) - khong hien. Giai doan 4 se bo. */
+  .ecentric-app [data-ec2-hidden]{display:none!important}
+
+  /* ---- v2: panel Lich that nam ngoai man, mo thanh popover khi bam mot su kien ---- */
+  /* Khong display:none: widget lich can panel "that" de ve nut Tham gia / RSVP. */
+  [data-ec2-cal-off] .ec-lhn-btn:hover,[data-ec2-cal-off] .ec-lhn-btn-join:hover{text-decoration:none!important}
+  [data-ec2-cal-off]{position:absolute!important;left:-9999px!important;top:0!important;width:640px!important;opacity:0!important;pointer-events:none!important}
+  [data-ec2-cal-off][data-ec2-cal-pop]{position:fixed!important;left:auto!important;right:26px!important;top:84px!important;width:430px!important;max-height:72vh!important;overflow:auto!important;opacity:1!important;pointer-events:auto!important;z-index:9999!important;background:#fff!important;border:1px solid #e5e7eb!important;border-radius:16px!important;box-shadow:0 24px 60px rgba(16,21,39,.28)!important;padding:16px 18px!important}
+
+  /* ---- linh vat eCentric thay icon nut chat (PO 24/08). Anh la SVG cua trang cham cong
+     (fixtures/web_page.json, ec-hr/attendance) - truoc day deploy script trich ra roi JS gan
+     inline sau 800 ms; gio nam san o day nen nut hien dung ngay lan ve dau. ---- */
+  .ecentric-app .ec2-mascot,#ec-chat-fab.ec2-mascot{background-size:100%;background-repeat:no-repeat;background-position:center;background-color:transparent;box-shadow:none;border:none;filter:drop-shadow(0 6px 16px rgba(20,28,82,.3))}
+  #ec-chat-fab.ec2-mascot{background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Ccircle%20cx%3D%2232%22%20cy%3D%2231%22%20r%3D%2217%22%20fill%3D%22%23F7C948%22%3E%3C%2Fcircle%3E%3Cpath%20d%3D%22M30.5%2014.5c.5-4%203.5-5.5%206-4.5%22%20stroke%3D%22%231E2A5A%22%20stroke-width%3D%222.2%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%3E%3C%2Fpath%3E%3Ccircle%20cx%3D%2226%22%20cy%3D%2229.5%22%20r%3D%223.1%22%20fill%3D%22%231E2A5A%22%3E%3C%2Fcircle%3E%3Ccircle%20cx%3D%2227.05%22%20cy%3D%2228.38%22%20r%3D%22.93%22%20fill%3D%22%23fff%22%20opacity%3D%22.9%22%3E%3C%2Fcircle%3E%3Ccircle%20cx%3D%2238%22%20cy%3D%2229.5%22%20r%3D%223.1%22%20fill%3D%22%231E2A5A%22%3E%3C%2Fcircle%3E%3Ccircle%20cx%3D%2239.05%22%20cy%3D%2228.38%22%20r%3D%22.93%22%20fill%3D%22%23fff%22%20opacity%3D%22.9%22%3E%3C%2Fcircle%3E%3Cpath%20d%3D%22M6%2037h52l-4.6%2018.3A3.2%203.2%200%200%201%2050.3%2058H13.7a3.2%203.2%200%200%201-3.1-2.7z%22%20fill%3D%22%231E2A5A%22%3E%3C%2Fpath%3E%3Crect%20x%3D%225%22%20y%3D%2235.4%22%20width%3D%2254%22%20height%3D%223.6%22%20rx%3D%221.8%22%20fill%3D%22%2334427A%22%3E%3C%2Frect%3E%3Cellipse%20cx%3D%2217%22%20cy%3D%2236.4%22%20rx%3D%223.6%22%20ry%3D%222.6%22%20fill%3D%22%23F7C948%22%3E%3C%2Fellipse%3E%3Cellipse%20cx%3D%2247%22%20cy%3D%2236.4%22%20rx%3D%223.6%22%20ry%3D%222.6%22%20fill%3D%22%23F7C948%22%3E%3C%2Fellipse%3E%3Crect%20x%3D%2225.5%22%20y%3D%2245%22%20width%3D%2213%22%20height%3D%225.5%22%20rx%3D%221.6%22%20fill%3D%22%23FFF6DA%22%3E%3C%2Frect%3E%3C%2Fsvg%3E")}
+  #ec-chat-fab.ec2-mascot>*{opacity:0}
+
+  /* ---- be ngang: man <= 1640px ---- */
+  @media (max-width:1640px){
+    .ecentric-app .ec2-bandrow{gap:14px;padding:13px 18px}
+    .ecentric-app .ec2-who .greeting p{font-size:10.5px}
+    .ecentric-app .ec2-ring{padding:0 10px;gap:8px}
+    .ecentric-app .ec2-ringbox,.ecentric-app .ec2-ringbox svg{width:36px;height:36px}
+    .ecentric-app .ec2-ringbox em{font-size:8.5px}
+    .ecentric-app .ec2-ringtx{min-width:100px}
+    .ecentric-app .ec2-ringtx b{font-size:10.5px}
+    .ecentric-app .ec2-ringtx span{font-size:9px}
+    .ecentric-app .ec2-chips{gap:6px}
+    .ecentric-app .ec2-chips .stat-label{letter-spacing:.04em}
+    .ecentric-app .ec2-band .checkin-card{width:351px;gap:5px}
+    .ecentric-app .ec2-band .checkin-time{font-size:21px}
+    .ecentric-app .ec2-band .btn-checkin{padding:9px 14px;font-size:12px;min-width:165px}
+    .ecentric-app .ec2-band .checkin-status{font-size:9.5px;padding:2px 9px}
+  }
+  /* man <= 1366px: khung su kien gon hon (PO 17/09: trang chu "to qua" o man 14 inch) */
+  @media (max-width:1366px){
+    .ecentric-app .ec2-home{--ec2-lane:28px;--ec2-tlminh:44px;--ec2-evmin:104px}
+  }
+
+  /* ---- CAC NAC GON THEO BE NGANG DAI NAVY (thay fitBand + ec2-bw1/bw2) ----
+     Nguong tinh tu be ngang DO tren trang that 29/09 (NHIEU_LOP/00_KIEM_KE_TUNG_TRANG.md
+     muc Giai doan 2): dai phai chua vong tien do + 4 o so + o cham cong + ~250px cho loi
+     chao ("Chao buoi chieu, <ten> ..." dai nhat ~255px o 20px). Tinh o nac gon chieu cao
+     (padding 14, gap 10) - man cao hiem hon va con du cho. Selector ".ecentric-app .ec2-home X"
+     co CUNG do uu tien voi selector cu (lop ec2-bwN gan len .ecentric-app), nen thang/thua
+     giua cac quy tac giu nguyen nhu ban live.
+       >= 1274px  : du het (man ~1560px tro len)
+       nac 1      : o cham cong 300px, dong trang thai dai thi cat "…" (man ~1500-1560px)
+       nac 2      : bo dong trang thai (man ~1455-1500px)
+       < 1177px   : bo vong tien do (man ~1465px tro xuong, gom 1440 va 1366)
+       < 1010px   : loi chao 17px (man 14 inch ~1266-1300px) */
+  @container ec2band (max-width:1273px){
+    .ecentric-app .ec2-home .ec2-bandrow{gap:10px;padding:10px 14px}
+    .ecentric-app .ec2-home .ec2-who .greeting p{font-size:10px}
+    .ecentric-app .ec2-home .ec2-chips{gap:5px}
+    .ecentric-app .ec2-home .ec2-ckrow{gap:9px}
+    .ecentric-app .ec2-home .ec2-ckmeta{gap:7px}
+    .ecentric-app .ec2-home .ec2-band .checkin-card{width:300px}
+    .ecentric-app .ec2-home .ec2-band .checkin-time{font-size:19px}
+    .ecentric-app .ec2-home .ec2-band .btn-checkin{padding:8px 13px;font-size:12px;min-width:163px}
+    .ecentric-app .ec2-home .ec2-band .checkin-status{font-size:9.5px;padding:2px 8px}
+  }
+  @container ec2band (max-width:1219px){
+    .ecentric-app .ec2-home .ec2-bandrow{gap:7px;padding:8px 11px}
+    .ecentric-app .ec2-home .ec2-band .checkin-card{width:257px}
+    .ecentric-app .ec2-home .ec2-band .checkin-time{font-size:16px}
+    .ecentric-app .ec2-home .ec2-band .btn-checkin{padding:6px 10px;font-size:11px;min-width:145px}
+    /* Bo dong "Da check-in luc ..." sau cung: no la thong tin nhac lai, con nut va dong ho. */
+    .ecentric-app .ec2-home .ec2-band .checkin-status{display:none}
+  }
+  /* Hep hon nua: bo vong tien do - no nhac lai o NGAY CONG. Truoc day chi an o <=1280px nen
+     man 1366 bi rot o cham cong xuong hang hai (do 29/09: dai cao 169px). */
+  @container ec2band (max-width:1176px){
+    .ecentric-app .ec2-home .ec2-ring{display:none}
+  }
+  /* Man 14 inch: loi chao nho lai. !important vi quy tac polish (.greeting h1 20px !important)
+     o tren - v2 cu cung muon nho o day (13.5-15px) nhung bi polish de mat, chu tran sang o so. */
+  @container ec2band (max-width:1009px){
+    .ecentric-app .ec2-home .ec2-who .greeting h1{font-size:17px !important}
+    /* o day cau "— N viec gap dang cho" (ve sau) lam dong ngay xuong 2 dong: giu san 2 dong */
+    .ecentric-app .ec2-home .ec2-who .greeting p{min-height:2.9em}
+  }
+
+  /* ---- HAI NAC GON THEO CHIEU CAO MAN (thay fitPage + ec2-fit1/fit2) ----
+     Truoc day JS do chieu cao TRANG so voi khung nhin roi moi gan lop, sau lan ve dau.
+     Gio theo chieu cao KHUNG NHIN, quyet dinh truoc lan ve dau. Nguong chon de moi man
+     pho bien trong cong ty ra DUNG cai PO dang thay (PO chot 29/09: giu gon nhu cu):
+     laptop 14-15 inch (~600-760px) va man 1080p (~930-960px) gon het; chi man rat cao
+     (1440p tro len) moi rong ra. */
+  @media (max-height:1080px){
+    .ecentric-app .ec2-home .ec2-bandrow{padding:10px 16px;gap:12px}
+    .ecentric-app .ec2-home .ec2-band{margin-bottom:10px}
+    .ecentric-app .ec2-home .ec2-band .checkin-time{font-size:18px}
+    .ecentric-app .ec2-home .ec2-band .btn-checkin{padding:7px 12px;font-size:11.5px;min-width:155px}
+    .ecentric-app .ec2-home .ec2-tl .panel-header,.ecentric-app .ec2-home .ec2-queue .panel-header,.ecentric-app .ec2-home .ec2-col>.panel .panel-header{padding:0 0 6px}
+    .ecentric-app .ec2-home .ec2-tlwrap{margin-top:16px}
+    .ecentric-app .ec2-home .ec2-tlbody{height:44px}
+    .ecentric-app .ec2-home .ec2-ev{height:26px;line-height:20px;font-size:11px;padding:3px 9px}
+    .ecentric-app .ec2-home .ec2-tlaxis{font-size:9px;margin-top:4px}
+    .ecentric-app .ec2-home .ec2-grid{gap:10px}
+    .ecentric-app .ec2-home .ec2-qi{padding:8px 10px;gap:10px}
+    .ecentric-app .ec2-home .ec2-qtile{width:32px;height:32px;border-radius:9px}
+    .ecentric-app .ec2-home .ec2-qtile svg{width:16px;height:16px}
+    .ecentric-app .ec2-home .ec2-qtx b{font-size:12.5px}
+    .ecentric-app .ec2-home .ec2-qtx span{font-size:10.5px}
+    .ecentric-app .ec2-home .ec2-qg{margin:7px 4px 2px}
+    /* Dong thoi gian RONG: thu ca dai gio con mot dong chu (PO 22/09: 148px -> 78px). */
+    .ecentric-app .ec2-home .ec2-tl.ec2-tlflat .ec2-tlwrap{display:none}
+    .ecentric-app .ec2-home .ec2-tl.ec2-tlflat .ec2-tlnote{display:block}
+  }
+  @media (max-height:1000px){
+    .ecentric-app .ec2-home .ec2-bandrow{padding:7px 14px;gap:10px}
+    .ecentric-app .ec2-home .ec2-band{margin-bottom:8px}
+    .ecentric-app .ec2-home .ec2-who .greeting p{font-size:10px}
+    .ecentric-app .ec2-home .ec2-band .checkin-time{font-size:16px}
+    .ecentric-app .ec2-home .ec2-band .btn-checkin{padding:6px 11px;font-size:11px;min-width:147px}
+    .ecentric-app .ec2-home .ec2-grid{gap:8px}
+    .ecentric-app .ec2-home .ec2-qi{padding:6px 9px;gap:9px}
+    .ecentric-app .ec2-home .ec2-qtile{width:28px;height:28px;border-radius:8px}
+    .ecentric-app .ec2-home .ec2-qtile svg{width:14px;height:14px}
+    .ecentric-app .ec2-home .ec2-qtx b{font-size:12px}
+    .ecentric-app .ec2-home .ec2-qtx span{font-size:10px}
+    .ecentric-app .ec2-home .ec2-qg{margin:5px 4px 1px}
+  }
+  /* Co su kien: chieu cao khung = so lan x khoang cach lan (dat SAU cac nac gon, giong style
+     inline cua ban cu thang quy tac 44px o nac 1). */
+  .ecentric-app .ec2-home .ec2-tlbody.ec2-hasev{height:max(var(--ec2-tlminh),calc(var(--ec2-lanes,1) * var(--ec2-lane) + 12px))}
+  /* Dang tai lich (nguoi co quyen PM): khung cao bang MOT lan su kien - truong hop pho bien -
+     nen luc su kien ve khong co gi nhay. */
+  .ecentric-app .ec2-home .ec2-tl[data-ec2-tl-loading] .ec2-tlbody{height:var(--ec2-tlminh)}
+
+  /* ---- xep chong (<=1240px) va dien thoai ---- */
+  @media (max-width:1240px){
+    .ecentric-app .ec2-grid{grid-template-columns:1fr}
+    .ecentric-app .ec2-home .ec2-bandrow{flex-wrap:wrap}
+    .ecentric-app .ec2-home .ec2-band .checkin-card{border-left:none;align-items:flex-start;width:100%}
+  }
+  @media (max-width:760px){
+    .ecentric-app .ec2-col .quick-grid{grid-template-columns:repeat(2,1fr)}
+  }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></symbol>
+    <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M20 12V8H6a2 2 0 0 1-2-2V6c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></symbol>
+    <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></symbol>
+    <symbol id="i-grad" viewBox="0 0 24 24"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></symbol>
+    <symbol id="i-mega" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></symbol>
+    <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3v1h6v-1c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2Z"/></symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></symbol>
+    <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></symbol>
+  </defs>
+</svg>
+
+<div class="ecentric-app">
+  <aside class="ec-shell-mount" data-ec-shell="1" aria-label="Điều hướng eCentric"><div class="ec-shell-head"><a class="ec-shell-brand" href="/"><img class="ec-shell-logoimg" src="/files/eCentric%20logo%20-%20mini.png" alt="eCentric"><span class="ec-shell-logo" hidden>eC</span><span class="ec-shell-brandname">eCentric</span></a></div><div class="ec-shell-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input class="ec-shell-search-in" type="text" placeholder="Tìm chức năng…" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-label="Tìm chức năng" autocomplete="off" spellcheck="false"><button type="button" class="ec-shell-search-clear" data-ec-shell-search-clear="1" hidden aria-label="Xóa tìm kiếm">&times;</button></div><div class="ec-shell-search-results" role="listbox" hidden></div><nav class="ec-shell-nav ec-shell-fallback" aria-label="Điều hướng chính"><div class="ec-shell-grouplabel">Workspace</div><a class="ec-shell-item ec-shell-active" href="/" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg><span>Trang chủ</span></a><a class="ec-shell-item" href="/tong-quan"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Tổng quan</span></a><a class="ec-shell-item" href="/approvals"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Phê duyệt</span></a><a class="ec-shell-item" href="/pm"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><span>Công việc</span></a><a class="ec-shell-item" href="/hall"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 8h2M13 8h2M9 12h2M13 12h2M9 16h2M13 16h2"/></svg><span>eCentric Hall</span></a><div class="ec-shell-grouplabel">Nhân sự</div><a class="ec-shell-item" href="/ec-hr/attendance"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg><span>Chấm công</span></a><a class="ec-shell-item" href="/ec-hr/leave"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg><span>Nghỉ phép</span></a><a class="ec-shell-item" href="/ec-hr/salary"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M8 15h2"/></svg><span>Phiếu lương</span></a><a class="ec-shell-item" href="/sla"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/></svg><span>Điểm SLA</span></a><a class="ec-shell-item ec-shell-item-soon" href="/coming-soon?tool=kpi"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/></svg><span>Mục tiêu KPI</span></a><div class="ec-shell-grouplabel">Báo cáo &amp; Phân tích</div><a class="ec-shell-item" href="/reports"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Trung tâm Báo cáo</span></a><a class="ec-shell-item" href="/weekly-update"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg><span>Báo cáo tuần</span></a><a class="ec-shell-item" href="/team-pulse"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg><span>Team Pulse</span></a><a class="ec-shell-item" href="/alerts"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span>Alert Center</span></a><div class="ec-shell-grouplabel">Tài nguyên</div><a class="ec-shell-item" href="/ai-tool"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg><span>AI Tool</span></a><a class="ec-shell-item ec-shell-item-soon" href="/coming-soon?tool=intranet"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg><span>Intranet</span></a><a class="ec-shell-item ec-shell-item-soon" href="/coming-soon?tool=dao-tao"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19a2 2 0 0 1 2-2h14V3H6a2 2 0 0 0-2 2z"/><path d="M4 19a2 2 0 0 0 2 2h14v-4"/></svg><span>Đào tạo</span></a><a class="ec-shell-item" href="/ec-app/hr/recruitment"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="4"/><path d="M3 21v-1a6 6 0 0 1 12 0v1M19 8v6M16 11h6"/></svg><span>Tuyển dụng</span></a><a class="ec-shell-item ec-shell-item-soon" href="/coming-soon?tool=gop-y"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>Góp ý BGD</span></a></nav><div class="ec-shell-foot"><a class="ec-shell-usercard" href="/app/user"><span class="ec-shell-avatar">•</span><span class="ec-shell-username">Tài khoản</span></a></div></aside>
+
+  <div class="ec-main">
+    <div class="ec-shell-topbar" data-ec-shell-topbar="1"><div class="ec-shell-crumbs" data-ec-shell-crumbs="1"><span class="ec-shell-crumb-group">Workspace</span><span class="sep ec-shell-crumb-sep">/</span><strong class="ec-shell-crumb-current">Trang chủ</strong></div><div class="ec-shell-tbright" data-ec-shell-header-right="1"><button type="button" class="ec-shell-iconbtn ec-shell-reminder" data-ec-shell-action-slot="1" aria-label="Việc của tôi" title="Việc của tôi" aria-haspopup="dialog" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h4l2 3h4l2-3h4"/><path d="M4 13V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7"/><path d="M4 13v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></svg><span class="ec-shell-reminder-badge" data-ec-shell-reminder-badge="1" hidden></span></button><button type="button" class="ec-shell-iconbtn ec-shell-slot-disabled" data-ec-shell-settings-slot="1" disabled aria-disabled="true" title="Cài đặt (sắp ra mắt)" aria-label="Cài đặt (sắp ra mắt)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg></button></div></div>
+
+    <div class="content ec2-home" data-ec2-home="1">
+      <section class="ec2-band" aria-label="Hôm nay">
+        <div class="ec2-bandrow">
+          <div class="ec2-who">
+            <div class="greeting">
+              <h1 id="greeting">{{ ec_greet }}, {{ first_name|e }} 👋</h1>
+              <p id="today-text">{{ ec_today }}</p>
+            </div>
+          </div>
+          <div class="ec2-ring" data-ec2-ring="1">
+            <span class="ec2-ringbox"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="16" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="4.5"></circle><circle class="ec2-ringarc" cx="20" cy="20" r="16" fill="none" stroke="#FFC000" stroke-width="4.5" stroke-linecap="round" stroke-dasharray="0 100.5"></circle></svg><em>—</em></span>
+            <span class="ec2-ringtx"><b>— ngày công</b><span>tiến độ tháng này</span></span>
+          </div>
+          <div class="ec2-chips">
+            <div class="stat-card s-navy">
+              <div class="stat-label" data-ec-att-hours="1">Ngày công</div>
+              <div class="stat-value">—</div>
+              <div class="stat-meta"></div>
+            </div>
+            <div class="stat-card s-yellow">
+              <div class="stat-label" data-ec-leave-bal="1">Phép còn</div>
+              <div class="stat-value">—</div>
+              <div class="stat-meta"></div>
+            </div>
+            <div class="stat-card s-pink">
+              <div class="stat-label">Chờ duyệt</div>
+              <div class="stat-value" data-ec-ac-kpi="approval">—</div>
+              <div class="stat-meta" data-ec-ac-kpi-meta="1"></div>
+            </div>
+            <div class="stat-card s-green" data-ec-sla-card="slot">
+              <div class="stat-label">SLA tháng này</div>
+              <div class="stat-value">—</div>
+              <div class="stat-meta"></div>
+            </div>
+          </div>
+          <div class="checkin-card">
+            <div class="ec2-ckrow">
+              <div class="checkin-time" id="clock">{{ ec_now.strftime('%H:%M:%S') }}</div>
+              <button class="btn-checkin" onclick="ecentricCheckin()" disabled>Đang tải…</button>
+            </div>
+            <div class="ec2-ckmeta">
+              <div class="checkin-status">
+                <span class="status-dot-w"></span>
+                <span>Đang tải…</span>
+              </div>
+              <a class="ec-att-link" href="/ec-hr/attendance" title="Xem bảng công của tôi">Bảng công<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="panel ec2-tl{% if not ec_pm %} ec2-tlflat{% endif %}"{% if ec_pm %} data-ec2-tl-loading="1"{% endif %}>
+        <div class="panel-header">
+          <div class="panel-title">Dòng thời gian hôm nay</div>
+          <a class="panel-action" href="/pm#schedule">Mở lịch</a>
+        </div>
+        <div class="ec2-tlwrap">
+          <div class="ec2-nowpin" style="left:{{ ec_pin|round(1) }}%"><i>bây giờ</i></div>
+          <div class="ec2-tlbody"><span class="ec2-tlempty">{% if ec_pm %}Đang tải lịch hôm nay…{% else %}Hôm nay chưa có họp hay việc đã xếp giờ — sự kiện sẽ hiện ở đây.{% endif %}</span></div>
+          <div class="ec2-tlaxis"><span>08:00</span><span>10:00</span><span>12:00</span><span>14:00</span><span>16:00</span><span>18:00</span></div>
+        </div>
+        <div class="ec2-tlnote">Hôm nay chưa có họp hay việc đã xếp giờ.</div>
+      </div>
+
+      <div class="ec2-grid">
+        <div class="ec2-col">
+          <div class="panel ec2-queue">
+            <div class="panel-header">
+              <div class="panel-title">Hàng đợi của bạn <span class="ec2-qn" hidden></span></div>
+              <a class="panel-action" href="/viec-cua-toi">Tất cả</a>
+            </div>
+            <div class="ec2-qbody"><div class="ec2-qempty">Đang tải…</div></div>
+          </div>
+
+          <div class="panel" data-ec2-cal-off="1">
+            <div class="panel-header">
+              <div class="panel-title">Lịch hôm nay</div>
+              <a class="panel-action" href="/app/event">Xem lịch</a>
+            </div>
+            <div style="padding:24px;text-align:center;color:#6b7280;font-size:13px;">
+              Sẽ tích hợp Outlook sau
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">Tin nội bộ <span class="badge">Mới</span></div>
+              <a class="panel-action" href="/app/news-post">Xem tất cả</a>
+            </div>
+            <div class="news-grid">
+              {% if news_list %}
+                {% for n in news_list %}
+                <a href="/app/news-post/{{ n.name }}" class="news-card">
+                  {% if n.image %}
+                  <div class="news-image" style="background-image:url('{{ n.image }}');"></div>
+                  {% else %}
+                  <div class="news-image gradient-{{ loop.index }}">{{ n.title[:40] }}</div>
+                  {% endif %}
+                  <div class="news-body">
+                    <span class="news-tag {% if n.category == 'SỰ KIỆN' %}t-pink{% elif n.category == 'TIN TỨC' %}t-navy{% endif %}">{{ n.category or 'TIN' }}</span>
+                    <div class="news-title">{{ n.title }}</div>
+                    <div class="news-date">{{ n.published_on.strftime('%d/%m/%Y') if n.published_on else '' }}</div>
+                  </div>
+                </a>
+                {% endfor %}
+              {% else %}
+                <div style="grid-column: 1/-1; padding: 30px; text-align:center; color:#6b7280; font-size:13px;">
+                  Chưa có tin nào. <a href="/app/news-post/new" style="color:#2C3DA6;">Đăng tin đầu tiên</a>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <div class="ec2-col">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">Truy cập nhanh</div>
+              <a class="panel-action" href="/app/user-settings">Tùy chỉnh</a>
+            </div>
+            <div class="quick-grid">
+              <a href="/weekly-update" class="quick-item"><div class="quick-icon"><svg class="icon"><use href="#i-doc"/></svg></div><span class="quick-label">Báo cáo tuần</span></a>
+              <a href="/coming-soon?tool=tong-quan" class="quick-item"><div class="quick-icon"><svg class="icon"><use href="#i-grid"/></svg></div><span class="quick-label">Tổng quan</span></a>
+              <a href="/ec-hr/salary" class="quick-item"><div class="quick-icon"><svg class="icon"><use href="#i-wallet"/></svg></div><span class="quick-label">Phiếu lương</span></a>
+              <a href="/ec-hr/leave" class="quick-item"><div class="quick-icon"><svg class="icon"><use href="#i-calendar"/></svg></div><span class="quick-label">Xin nghỉ phép</span></a>
+              <a href="/coming-soon?tool=lms" class="quick-item"><div class="quick-icon"><svg class="icon"><use href="#i-grad"/></svg></div><span class="quick-label">Học tập LMS</span></a>
+              <a href="/coming-soon?tool=intranet" class="quick-item"><div class="quick-icon"><svg class="icon"><use href="#i-book"/></svg></div><span class="quick-label">Intranet</span></a>
+              <a href="/coming-soon?tool=kpi" class="quick-item"><div class="quick-icon"><svg class="icon"><use href="#i-target"/></svg></div><span class="quick-label">Mục tiêu KPI</span></a>
+              <a href="/coming-soon?tool=gop-y" class="quick-item"><div class="quick-icon"><svg class="icon"><use href="#i-bulb"/></svg></div><span class="quick-label">Góp ý BGD</span></a>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">Chính sách & Quy định</div>
+              <a class="panel-action" href="/app/company-policy">Xem tất cả</a>
+            </div>
+            <div class="policy-list">
+              {% if policies %}
+                {% for p in policies %}
+                <a href="/app/company-policy/{{ p.name }}" class="policy-item">
+                  <div class="policy-bullet" {% if p.category == 'pink' %}style="background:#EF7CAF;"{% elif p.category == 'navy' %}style="background:#2C3DA6;"{% endif %}></div>
+                  <div class="policy-text">{{ p.title }}</div>
+                  <svg class="icon icon-xs policy-arrow"><use href="#i-arrow-right"/></svg>
+                </a>
+                {% endfor %}
+              {% else %}
+                <div style="padding:24px;text-align:center;color:#6b7280;font-size:13px;">
+                  Chưa có chính sách. <a href="/app/company-policy/new" style="color:#2C3DA6;">Thêm chính sách</a>
+                </div>
+              
+<style id="ec-chatbot-style">
+.ec-chat-fab{
+  position:fixed;
+  bottom:24px;
+  right:24px;
+  width:56px;
+  height:56px;
+  border-radius:50%;
+  background:linear-gradient(135deg,#2C3DA6 0%,#EF7CAF 100%);
+  color:white;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  border:none;
+  box-shadow:0 6px 20px rgba(44,61,166,0.35);
+  z-index:9999;
+  transition:transform 0.15s;
+}
+.ec-chat-fab:hover{transform:scale(1.05)}
+.ec-chat-fab svg{width:24px;height:24px;stroke:white;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ec-chat-fab.is-open{background:#374151}
+.ec-chat-fab .ec-chat-badge{
+  position:absolute;top:-2px;right:-2px;
+  background:#ef4444;color:white;
+  width:18px;height:18px;border-radius:50%;
+  display:none;align-items:center;justify-content:center;
+  font-size:10px;font-weight:700;border:2px solid white;
+}
+
+.ec-chat-panel{
+  position:fixed;
+  bottom:92px;
+  right:24px;
+  width:380px;
+  height:560px;
+  max-height:80vh;
+  background:white;
+  border:1px solid #e5e7eb;
+  border-radius:16px;
+  box-shadow:0 12px 40px rgba(0,0,0,0.15);
+  display:none;
+  flex-direction:column;
+  z-index:9998;
+  overflow:hidden;
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+}
+.ec-chat-panel.is-open{display:flex}
+.ec-chat-header{
+  padding:14px 16px;
+  background:linear-gradient(135deg,#2C3DA6,#1f2d80);
+  color:white;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-shrink:0;
+}
+.ec-chat-title{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+.ec-chat-title svg{width:18px;height:18px}
+.ec-chat-sub{font-size:11px;opacity:0.85;font-weight:400;margin-top:1px}
+.ec-chat-close{background:none;border:none;color:white;cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;border-radius:6px}
+.ec-chat-close:hover{background:rgba(255,255,255,0.15)}
+.ec-chat-close svg{width:16px;height:16px;stroke:white;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+.ec-chat-messages{
+  flex:1;
+  overflow-y:auto;
+  padding:14px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  background:#fafbfc;
+}
+.ec-chat-msg{
+  max-width:85%;
+  padding:9px 13px;
+  border-radius:12px;
+  font-size:13.5px;
+  line-height:1.5;
+  white-space:pre-wrap;
+  word-wrap:break-word;
+}
+.ec-chat-msg.user{align-self:flex-end;background:#2C3DA6;color:white;border-bottom-right-radius:4px}
+.ec-chat-msg.bot{align-self:flex-start;background:white;border:1px solid #e5e7eb;color:#1f2937;border-bottom-left-radius:4px}
+.ec-chat-msg.loading{align-self:flex-start;background:white;border:1px solid #e5e7eb;color:#6b7280;font-style:italic;font-size:12.5px}
+.ec-chat-msg.loading::after{content:'';display:inline-block;width:10px;animation:ec-chat-dot 1.4s infinite}
+@keyframes ec-chat-dot{0%{content:'.'}33%{content:'..'}66%{content:'...'}}
+
+.ec-chat-suggest{
+  padding:0 14px 8px;
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+  flex-shrink:0;
+  background:#fafbfc;
+}
+.ec-chat-chip{
+  background:white;
+  border:1px solid #e5e7eb;
+  color:#374151;
+  font-size:11.5px;
+  padding:5px 10px;
+  border-radius:14px;
+  cursor:pointer;
+  transition:all 0.15s;
+  font-family:inherit;
+}
+.ec-chat-chip:hover{border-color:#2C3DA6;color:#2C3DA6;background:#eef0fb}
+
+.ec-chat-input-wrap{
+  padding:10px 14px 14px;
+  border-top:1px solid #e5e7eb;
+  display:flex;
+  gap:8px;
+  align-items:flex-end;
+  background:white;
+  flex-shrink:0;
+}
+.ec-chat-input{
+  flex:1;
+  border:1px solid #e5e7eb;
+  border-radius:10px;
+  padding:8px 12px;
+  font-size:13.5px;
+  font-family:inherit;
+  resize:none;
+  outline:none;
+  max-height:100px;
+  min-height:36px;
+  transition:border-color 0.15s;
+}
+.ec-chat-input:focus{border-color:#2C3DA6}
+.ec-chat-send{
+  width:36px;height:36px;
+  background:#2C3DA6;
+  border:none;
+  border-radius:10px;
+  color:white;
+  cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.ec-chat-send:hover{background:#1f2d80}
+.ec-chat-send:disabled{background:#9ca3af;cursor:not-allowed}
+.ec-chat-send svg{width:16px;height:16px;stroke:white;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+.ec-chat-empty{
+  text-align:center;
+  padding:30px 16px;
+  color:#9ca3af;
+  font-size:13px;
+}
+.ec-chat-empty .ec-emoji{font-size:32px;margin-bottom:10px}
+.ec-chat-empty .ec-title{font-weight:600;color:#374151;margin-bottom:4px}
+</style>
+
+<button class="ec-chat-fab ec2-mascot" id="ec-chat-fab" aria-label="AI Trợ lý">
+  <svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+  <span class="ec-chat-badge" id="ec-chat-badge">!</span>
+</button>
+
+<div class="ec-chat-panel" id="ec-chat-panel">
+  <div class="ec-chat-header">
+    <div>
+      <div class="ec-chat-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>
+        AI Trợ lý
+      </div>
+      <div class="ec-chat-sub">Hỏi gì về báo cáo của bạn</div>
+    </div>
+    <button class="ec-chat-close" id="ec-chat-close" aria-label="Đóng">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+
+  <div class="ec-chat-messages" id="ec-chat-messages"></div>
+
+  <div class="ec-chat-suggest" id="ec-chat-suggest">
+    <button class="ec-chat-chip" data-msg="Tuần này tôi có gì nổi bật?">Highlights tuần này</button>
+    <button class="ec-chat-chip" data-msg="Gợi ý plan tuần sau dựa trên báo cáo gần đây">Gợi ý plan</button>
+    <button class="ec-chat-chip" data-msg="Báo cáo tôi cần cải thiện gì?">Cải thiện gì?</button>
+  </div>
+
+  <div class="ec-chat-input-wrap">
+    <textarea class="ec-chat-input" id="ec-chat-input" placeholder="Hỏi AI..." rows="1"></textarea>
+    <button class="ec-chat-send" id="ec-chat-send" aria-label="Gửi">
+      <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+    </button>
+  </div>
+</div>
+
+<script id="ec-chatbot-js">
+(function(){
+  var STORAGE_KEY = 'ec_chat_history_v1';
+  var fab = document.getElementById('ec-chat-fab');
+  var panel = document.getElementById('ec-chat-panel');
+  var closeBtn = document.getElementById('ec-chat-close');
+  var msgsEl = document.getElementById('ec-chat-messages');
+  var input = document.getElementById('ec-chat-input');
+  var sendBtn = document.getElementById('ec-chat-send');
+  var suggestEl = document.getElementById('ec-chat-suggest');
+
+  if (!fab || !panel) return;
+
+  // History (persisted to localStorage)
+  var history = [];
+  try {
+    var raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) history = JSON.parse(raw) || [];
+  } catch(e){ history = []; }
+
+  function saveHistory(){
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(history.slice(-30))); } catch(e){}
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function renderEmpty(){
+    msgsEl.innerHTML =
+      '<div class="ec-chat-empty">' +
+        '<div class="ec-emoji">✨</div>' +
+        '<div class="ec-title">Xin chào!</div>' +
+        '<div>Tôi giúp bạn với báo cáo tuần, gợi ý plan, phân tích AI score.</div>' +
+      '</div>';
+  }
+
+  function renderHistory(){
+    if (!history.length) { renderEmpty(); return; }
+    msgsEl.innerHTML = '';
+    history.forEach(function(m){
+      var div = document.createElement('div');
+      div.className = 'ec-chat-msg ' + (m.role === 'user' ? 'user' : 'bot');
+      if (m.role === 'bot' && typeof mdToHtml === 'function') { div.innerHTML = mdToHtml(m.text); } else { div.textContent = m.text; }
+      msgsEl.appendChild(div);
+    });
+    msgsEl.scrollTop = msgsEl.scrollHeight;
+  }
+
+  function addMsg(role, text){
+    history.push({role: role, text: text});
+    saveHistory();
+    var div = document.createElement('div');
+    div.className = 'ec-chat-msg ' + (role === 'user' ? 'user' : 'bot');
+    if (role === 'bot' && typeof mdToHtml === 'function') { div.innerHTML = mdToHtml(text); } else { div.textContent = text; }
+    msgsEl.appendChild(div);
+    msgsEl.scrollTop = msgsEl.scrollHeight;
+    return div;
+  }
+
+  function showLoading(){
+    var div = document.createElement('div');
+    div.className = 'ec-chat-msg loading';
+    div.id = 'ec-chat-loading';
+    div.textContent = 'AI đang nghĩ';
+    msgsEl.appendChild(div);
+    msgsEl.scrollTop = msgsEl.scrollHeight;
+  }
+  function hideLoading(){
+    var l = document.getElementById('ec-chat-loading');
+    if (l) l.remove();
+  }
+
+  
+  function cleanAiError(err) {
+    var s = String(err || '');
+    s = s.replace(/AIza[A-Za-z0-9_\-]{20,}/g, 'AIza***REDACTED***');
+    s = s.replace(/([?&]key=)[^&\s'")\]\}]+/g, '$1***REDACTED***');
+    s = s.replace(/https:\/\/generativelanguage\.googleapis\.com\/[^\s'")\]\}]+/g, '[Gemini API URL redacted]');
+    if (/503|Service Unavailable|overload|unavailable|generativelanguage|key=|AIza/i.test(s)) {
+      return 'Gemini đang quá tải, thử lại sau.';
+    }
+    return s || 'Gemini đang quá tải, thử lại sau.';
+  }
+async function sendMessage(text){
+    if (!text || !text.trim()) return;
+    input.value = '';
+    input.style.height = 'auto';
+    sendBtn.disabled = true;
+    addMsg('user', text);
+    showLoading();
+
+    try {
+      // Map history to Gemini format
+      var apiHistory = history.slice(0, -1).slice(-10).map(function(m){
+        return { role: m.role === 'user' ? 'user' : 'model', text: m.text };
+      });
+
+      var r = await fetch('/api/method/gemini_chat', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-Frappe-CSRF-Token': ((window.frappe && frappe.csrf_token) || window.csrf_token || (document.cookie.match(/csrf_token=([^;]+)/) || [])[1] || '') },
+        body: JSON.stringify({ message: text, history: apiHistory })
+      });
+      var j = await r.json();
+      hideLoading();
+
+      if (j.message && j.message.success && j.message.reply) {
+        addMsg('bot', j.message.reply);
+      } else {
+        var err = cleanAiError((j.message && j.message.error) || 'Lỗi không xác định');
+        addMsg('bot', err);
+      }
+    } catch (e) {
+      hideLoading();
+      addMsg('bot', cleanAiError(e && e.message ? e.message : 'Không kết nối được AI, thử lại sau.'));
+    } finally {
+      sendBtn.disabled = false;
+      input.focus();
+    }
+  }
+
+  // Open/close
+  function openChat(){
+    panel.classList.add('is-open');
+    fab.classList.add('is-open');
+    renderHistory();
+    setTimeout(function(){ input.focus(); }, 100);
+  }
+  function closeChat(){
+    panel.classList.remove('is-open');
+    fab.classList.remove('is-open');
+  }
+
+  fab.addEventListener('click', function(){
+    if (panel.classList.contains('is-open')) closeChat();
+    else openChat();
+  });
+  closeBtn.addEventListener('click', closeChat);
+
+  // Send
+  sendBtn.addEventListener('click', function(){ sendMessage(input.value); });
+  input.addEventListener('keydown', function(e){
+    if (e.key === 'Enter' && !e.shiftKey){
+      e.preventDefault();
+      sendMessage(input.value);
+    }
+  });
+  // Auto-grow textarea
+  input.addEventListener('input', function(){
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 100) + 'px';
+  });
+
+  // Suggested chips
+  suggestEl.addEventListener('click', function(e){
+    var b = e.target.closest('.ec-chat-chip');
+    if (!b) return;
+    sendMessage(b.dataset.msg);
+  });
+
+  // Init render
+  renderHistory();
+})();
+
+  // Minimal markdown -> HTML for chatbot replies
+  function mdToHtml(text) {
+    if (!text) return '';
+    // Escape HTML first
+    var esc = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    // Bold **text**
+    esc = esc.replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>');
+    // Italic *text* (but not in middle of word)
+    esc = esc.replace(/(^|\s)\*([^*\n]+?)\*(?=\s|$|[.,;:!?])/g, '$1<em>$2</em>');
+    // Inline code `text`
+    esc = esc.replace(/`([^`\n]+?)`/g, '<code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-family:monospace;font-size:0.92em;">$1</code>');
+    // Bullets: lines starting with - or *
+    var lines = esc.split('\n');
+    var out = [];
+    var inList = false;
+    for (var i = 0; i < lines.length; i++) {
+      var ln = lines[i];
+      var bm = ln.match(/^\s*[-\*]\s+(.+)$/);
+      if (bm) {
+        if (!inList) { out.push('<ul style="margin:6px 0;padding-left:20px;">'); inList = true; }
+        out.push('<li>' + bm[1] + '</li>');
+      } else {
+        if (inList) { out.push('</ul>'); inList = false; }
+        out.push(ln);
+      }
+    }
+    if (inList) out.push('</ul>');
+    var joined = out.join('\n');
+    // Paragraph breaks: double newline -> <br><br>
+    joined = joined.replace(/\n\n+/g, '<br><br>').replace(/\n/g, '<br>');
+    return joined;
+  }
+  </script>
+{% endif %}
+            </div>
+          </div>
+
+          <div class="panel" data-ec2-hidden="1">
+            <div class="panel-header">
+              <div class="panel-title">Việc cần làm <span class="badge b-pink" data-ec-ac-badge="1" hidden></span></div>
+              <a class="panel-action" href="/viec-cua-toi">Tất cả</a>
+            </div>
+            <div class="approval-list">
+              {% if approvals_count == 0 %}
+                <div style="padding:24px;text-align:center;color:#6b7280;font-size:13px;">Không có yêu cầu nào đang chờ duyệt</div>
+              {% else %}
+                {% if so_count %}
+                <a href="/app/sales-order?docstatus=0" class="approval-item" style="text-decoration:none;color:inherit;">
+                  <div class="approval-content">
+                    <div class="approval-type">Sales Order</div>
+                    <div class="approval-title">{{ so_count }} đơn hàng đang chờ duyệt</div>
+                    <div class="approval-meta">Click để xem chi tiết</div>
+                  </div>
+                </a>
+                {% endif %}
+                {% if leave_count %}
+                <a href="/app/leave-application?status=Open" class="approval-item type-leave" style="text-decoration:none;color:inherit;">
+                  <div class="approval-content">
+                    <div class="approval-type">Đơn nghỉ phép</div>
+                    <div class="approval-title">{{ leave_count }} đơn đang chờ duyệt</div>
+                    <div class="approval-meta">Click để xem chi tiết</div>
+                  </div>
+                </a>
+                {% endif %}
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  function p2(n) { return (n < 10 ? '0' : '') + n; }
+  function updateClock() {
+    var el = document.getElementById('clock');
+    if (!el) return;
+    var now = new Date();
+    el.textContent = p2(now.getHours()) + ':' + p2(now.getMinutes()) + ':' + p2(now.getSeconds());
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  /* Loi chao + dong ngay da ve san tu gio server. Chi sua khi dong ho may nay noi khac
+     (vd may dat mui gio khac) - cung may thi khong dong vao chu nao. */
+  var now = new Date(), hour = now.getHours();
+  var prefix = hour < 12 ? 'Chào buổi sáng' : (hour < 18 ? 'Chào buổi chiều' : 'Chào buổi tối');
+  var gEl = document.getElementById('greeting');
+  if (gEl) {
+    var g = gEl.textContent, gi = g.indexOf(', ');
+    if (gi > 0 && g.slice(0, gi) !== prefix) { gEl.textContent = prefix + g.slice(gi); }
+  }
+  var days = ['Chủ Nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'];
+  var dayTxt = days[now.getDay()] + ', ' + p2(now.getDate()) + ' tháng ' + (now.getMonth() + 1);
+  var tEl = document.getElementById('today-text');
+  var tNode = tEl && tEl.firstChild;
+  if (tNode && tNode.nodeType === 3 && tNode.nodeValue !== dayTxt) { tNode.nodeValue = dayTxt; }
+
+  document.addEventListener('keydown', function(e) {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault();
+      var s = document.getElementById('global-search');
+      if (s) s.focus();
+    }
+  });
+})();
+</script>
+<script id="ec-action-center-widget" src="/assets/ecentric_workspace/js/action_center_widget.js" defer></script><!-- /ec-action-center-widget -->
+
+
+<script id="ec-lich-hom-nay-loader" src="/assets/ecentric_workspace/js/pm_home_calendar.js" defer></script><!-- /ec-lich-hom-nay-loader -->
+
+<style>
+  /* ec-att-home-v2 */
+  .ecentric-app .status-dot-w.is-ok { background: #34d399; box-shadow: 0 0 0 3px rgba(52,211,153,0.28); }
+  .ecentric-app .status-dot-w.is-late { background: #fbbf24; box-shadow: 0 0 0 3px rgba(251,191,36,0.3); }
+  .ecentric-app .status-dot-w.is-off { background: rgba(255,255,255,0.9); box-shadow: 0 0 0 3px rgba(255,255,255,0.22); }
+  .ecentric-app .btn-checkin[disabled] { cursor: default; opacity: 0.62; }
+</style>
+<script>
+/* ec-att-home-v2 -- the home check-in card is a MIRROR of the widget on
+   /ec-hr/attendance, not a second implementation. It reads ec_hr_attendance_data
+   and writes through ec_hr_checkin, so every company rule (giờ mở cổng, cutoff,
+   ngày nghỉ, nghỉ phép, một lần một ngày) is enforced by the same server code
+   that the attendance page uses. Writing Employee Checkin rows straight from the
+   browser -- which v1 did -- bypassed all of it and invented an OUT log that this
+   system does not have: check-in is IN-only, once per day. */
+(function () {
+  var D = null, BUSY = false;
+  function q(s) { return document.querySelector(s); }
+  function p2(n) { return (n < 10 ? "0" : "") + n; }
+  function today() { var d = new Date(); return d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate()); }
+  function month() { return today().slice(0, 7); }
+  function hm(t) { return String(t || "").slice(0, 5); }
+  function tok() { return (window.frappe && frappe.csrf_token) || window.csrf_token || ""; }
+  function post(method, params) {
+    var body = new URLSearchParams(params || {});
+    return fetch("/api/method/" + method, {
+      method: "POST", credentials: "same-origin",
+      headers: { "X-Frappe-CSRF-Token": tok(), "Content-Type": "application/x-www-form-urlencoded" },
+      body: body
+    }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); });
+  }
+  function serverMsg(j) {
+    var list, first;
+    try { list = JSON.parse((j && j._server_messages) || "[]"); } catch (e) { list = []; }
+    try { first = JSON.parse(list[0] || "{}").message; } catch (e2) { first = list[0]; }
+    return String(first || "").replace(/<[^>]*>/g, "").trim();
+  }
+  function say(cls, text) {
+    var d = q(".checkin-status .status-dot-w"), t = q(".checkin-status span + span");
+    if (d) { d.className = "status-dot-w" + (cls ? " " + cls : ""); }
+    if (t) { t.textContent = text; }
+  }
+  function setBtn(label, on) {
+    var b = q(".btn-checkin");
+    if (!b) { return; }
+    b.textContent = label;
+    b.disabled = !on;
+  }
+  function byDate(rows, key) {
+    var m = {}, i;
+    rows = rows || [];
+    for (i = 0; i < rows.length; i++) { m[rows[i].d] = key ? rows[i][key] : rows[i]; }
+    return m;
+  }
+  function leaveOn(rows, day) {
+    var i; rows = rows || [];
+    for (i = 0; i < rows.length; i++) { if (rows[i].f <= day && day <= rows[i].t) { return rows[i]; } }
+    return null;
+  }
+  function renderCard() {
+    var day = today();
+    var hol = byDate(D.holidays)[day];
+    var ci = byDate(D.checkins, "t")[day];
+    var att = byDate(D.attendance, "s")[day];
+    var lv = leaveOn(D.leaves, day);
+    var cut = hm(D.cutoff);
+    if (hol) {
+      say("is-off", "Ngày nghỉ" + (hol.desc ? " · " + hol.desc : ""));
+      setBtn("Không cần chấm công", false);
+    } else if (lv || att === "On Leave") {
+      say("is-off", "Hôm nay bạn nghỉ phép" + (lv && lv.type ? " · " + lv.type : ""));
+      setBtn("Không cần chấm công", false);
+    } else if (ci) {
+      var late = hm(ci) > cut;
+      say(late ? "is-late" : "is-ok",
+        "Đã check-in lúc " + hm(ci) + (late ? " · sau cutoff, cần giải trình" : ""));
+      setBtn("Đã chấm công hôm nay", false);
+    } else {
+      say("", "Chưa check-in hôm nay · cutoff " + cut);
+      setBtn("Check-in ngay", true);
+    }
+  }
+  function renderTile() {
+    var tile = q("[data-ec-att-hours]");
+    if (!tile) { return; }
+    var card = tile.closest(".stat-card") || tile.parentElement;
+    var val = card.querySelector(".stat-value"), meta = card.querySelector(".stat-meta");
+    // ec-att-summary-v1: doc thang tu server, KHONG tu dem lai.
+    // Ban truoc dem D.checkins.length -- so ngay CO check-in -- nen trang chu bao
+    // 9 ngay trong khi trang cham cong bao 1: cung mot thang, hai con so. Cong
+    // duoc cong nhan con phai tru ngay di muon/ve som chua duyet, mot quy tac ma
+    // dem lai o day chac chan se troi. Payroll chay tren cong thuc, nen con so
+    // hien ra phai dung la con so C&B tinh luong.
+    var sm = (D && D.summary) || null;
+    if (!sm) {
+      if (val) { val.innerHTML = "—"; }
+      if (meta) { meta.textContent = "Chưa có dữ liệu công"; }
+      return;
+    }
+    if (val) { val.innerHTML = sm.present + "<span class=\"unit\">/" + sm.working_total + " ngày</span>"; }
+    if (!meta) { return; }
+    if (sm.missing > 0) { meta.textContent = sm.missing + " ngày chưa đủ công"; }
+    else if (sm.present > 0) { meta.textContent = "Đủ công tính tới hôm nay"; }
+    else { meta.textContent = "Chưa có ngày công nào tháng này"; }
+  }
+  function paint() { renderCard(); renderTile(); }
+  function load() {
+    return post("ec_hr_attendance_data", { month: month() }).then(function (res) {
+      if (!res.ok || !res.j || !res.j.message) { throw new Error(serverMsg(res.j) || "load failed"); }
+      D = res.j.message;
+      return D;
+    });
+  }
+  function boot() {
+    if (!q(".checkin-card")) { return; }
+    setBtn("Đang tải…", false);
+    load().then(paint).catch(function (e) {
+      say("", String(e.message || e).slice(0, 90) || "Không tải được trạng thái chấm công");
+      setBtn("Thử lại", true);
+    });
+  }
+  window.ecentricCheckin = function () {
+    if (BUSY) { return; }
+    if (!D) { boot(); return; }
+    BUSY = true;
+    setBtn("Đang chấm công…", false);
+    post("ec_hr_checkin", {}).then(function (res) {
+      BUSY = false;
+      if (!res.ok) {
+        say("is-late", serverMsg(res.j).slice(0, 90) || "Chấm công không thành công");
+        setBtn("Thử lại", true);
+        return;
+      }
+      return load().then(paint);
+    }).catch(function () {
+      BUSY = false;
+      say("is-late", "Mất kết nối, thử lại");
+      setBtn("Thử lại", true);
+    });
+  };
+  if (document.readyState === "loading") { document.addEventListener("DOMContentLoaded", boot); } else { boot(); }
+})();
+</script>
+
+<script>
+/* ec-leave-tile-v1 -- "Phép còn lại" reads the same ec_hr_leave_data the leave
+   page reads, so the tile and the page can never disagree. Shows the ANNUAL
+   balance only: summing every type would add 30 ngày ốm to the number and tell
+   people they have a month off.
+   Runs on DOMContentLoaded, never inline: frappe.csrf_token is not populated at
+   parse time on a portal page, and an empty token turns this into a silent 403. */
+(function () {
+  function boot() {
+    var tile = document.querySelector("[data-ec-leave-bal]");
+    if (!tile) { return; }
+    var card = tile.closest(".stat-card") || tile.parentElement;
+    var val = card.querySelector(".stat-value"), meta = card.querySelector(".stat-meta");
+    function setMeta(t) { if (meta) { meta.textContent = t; } }
+    function setVal(t) { if (val) { val.innerHTML = t + "<span class=\"unit\">ngày</span>"; } }
+    setMeta("Đang tải…");
+    fetch("/api/method/ec_hr_leave_data", {
+      method: "POST", credentials: "same-origin",
+      headers: { "X-Frappe-CSRF-Token": (window.frappe && frappe.csrf_token) || window.csrf_token || "", "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({})
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var m = j && j.message;
+        if (!m) { throw new Error("no data"); }
+        var types = m.types || [], annual = null, i;
+        for (i = 0; i < types.length; i++) { if (types[i].name === "Annual Leave") { annual = types[i]; } }
+        setVal(annual ? (Math.round(annual.bal * 100) / 100) : 0);
+        var open = (m.mine || []).filter(function (x) { return x.st === "Open"; }).length;
+        if (open) { setMeta(open + " đơn đang chờ duyệt"); }
+        else { setMeta("Phép năm " + new Date().getFullYear()); }
+      })
+      .catch(function () { setMeta("Không tải được số dư phép"); });
+  }
+  if (document.readyState === "loading") { document.addEventListener("DOMContentLoaded", boot); } else { boot(); }
+})();
+</script><script id="ec-sla-home-card-loader" src="/assets/ecentric_workspace/js/sla_home_card.js" defer></script><!-- /ec-sla-home-card-loader -->
+{# Trang chu v2: JS chi DO DU LIEU vao bo cuc da co san o tren (hang doi, dong thoi gian,
+   vong tien do). Asset cua app, co ma bam trong ten file (bench build). #}
+<script src="{{ bundled_asset('ec_home_v2.bundle.js') }}" defer></script>

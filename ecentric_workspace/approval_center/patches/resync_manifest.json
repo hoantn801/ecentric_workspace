@@ -239,5 +239,10 @@
     "baseline": "2026-09-28",
     "last_resync_patch": "p220_create_offer_nsp_pages",
     "sha256": "78e058a80de0472a5d2f7bb68283b198dbdad9a218259bb7c2ada4ef1648eaa4"
+  },
+  "legacy_pages/home/main_section.html": {
+    "baseline": "2026-09-29",
+    "last_resync_patch": "p224_resync_home_v2_nguon",
+    "sha256": "0a77f921665a2a619232041647cfaa3158216cf070fa6905b1a03020a81fdb5d"
   }
 }

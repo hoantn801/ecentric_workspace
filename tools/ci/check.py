@@ -380,8 +380,9 @@ def check_pagesync():
     băm bằng CHÍNH `page_sync_util.content_sha256` -- không chép lại công thức băm, để
     không bao giờ có chuyện phép kiểm băm một kiểu còn lúc chạy thật băm kiểu khác.
 
-    `BASELINE_SHA256 = None` (legacy_pages/home) là cố ý: module đó tự khoá mình thành
-    no-op cho tới khi có baseline được duyệt. Bỏ qua, không báo lỗi.
+    `BASELINE_SHA256 = None` nghĩa là module tự khoá mình thành no-op cho tới khi có baseline
+    được duyệt: bỏ qua, không báo lỗi. (legacy_pages/home từng như vậy tới 29/09/2026; nay
+    trang chủ đã có nguồn trong repo và được kiểm như mọi trang khác.)
     """
     import importlib
 
