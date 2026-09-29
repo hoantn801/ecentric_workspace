@@ -57,7 +57,7 @@ class _NS(dict):
 
 
 def render(src, user="hoan.tran@ecentric.vn", full_name="Hoàn Trần", now=None,
-           news=None, policies=None, pm=True):
+           news=None, policies=None, pm=True, cel=None):
     """Render nhu Frappe (SandboxedEnvironment), frappe gia. StrictUndefined: bien la nao
     trong template cung lam test DO (Frappe that dung DebugUndefined - loi bi giau)."""
     import jinja2
@@ -78,9 +78,13 @@ def render(src, user="hoan.tran@ecentric.vn", full_name="Hoàn Trần", now=None
                  utils=_NS(now_datetime=lambda: now))
     env = SandboxedEnvironment(undefined=jinja2.StrictUndefined)
     # has_pm_module_access: ham Jinja cua app (hooks.py jinja.methods) - o day gia lap ket qua
+    extra = {}
+    if cel is not None:
+        # home_today_celebration: ham Jinja cua app (hooks.py jinja.methods) - gia lap ket qua
+        extra["home_today_celebration"] = lambda: cel
     return env.from_string(src).render(
         frappe=frappe, has_pm_module_access=lambda user=None: pm,
-        bundled_asset=lambda p: "/assets/ecentric_workspace/dist/js/" + p)
+        bundled_asset=lambda p: "/assets/ecentric_workspace/dist/js/" + p, **extra)
 
 
 def _jinja_or_skip(tc):
@@ -205,7 +209,11 @@ class TestJinjaRender(unittest.TestCase):
                 # vong lap tin / chinh sach / panel viec (an) - co tu ban live, giu nguyen
                 " n.name ", " n.image ", " loop.index ", " n.title[:40] ", " n.category or 'TIN' ",
                 " n.title ", " n.published_on.strftime('%d/%m/%Y') if n.published_on else '' ",
-                " so_count ", " leave_count ", " p.name ", " p.title "}
+                " so_count ", " leave_count ", " p.name ", " p.title ",
+                # popup "Hom nay o eCentric" + trang tri sinh nhat (p228, home_today/)
+                " bundled_asset('ec_home_popup.bundle.js') ", " 1 if ec_cel.has_content else 0 ",
+                " ec_cel.level ", " ec_cel.badge|e ", " '🎂' if ec_cel.level == 3 else '👋' ",
+                " '🎉' if ec_cel.level == 3 else '🎂' "}
         self.assertEqual(exprs - want, set(), "bieu thuc Jinja moi chua duoc duyet")
 
 
@@ -412,3 +420,94 @@ class TestHydrateJs(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestHomeTodayCelebration(unittest.TestCase):
+    """Popup "Hom nay o eCentric" + trang tri ngay sinh nhat (p228, PO chot 29/09/2026).
+    Muc trang tri do SERVER quyet (ham Jinja home_today_celebration) nen nam san trong markup;
+    moi lop trang tri la lop noi, khong doi cay bo cuc cua dai navy."""
+
+    def setUp(self):
+        _jinja_or_skip(self)
+
+    @staticmethod
+    def cel(level, badge="", has=True):
+        return {"level": level, "badge": badge, "has_content": has}
+
+    def test_no_birthday_no_decoration(self):
+        out = render(_src(), cel=self.cel(0, has=False))
+        self.assertIn('data-ec2-home="1" data-ec-today="0">', out)
+        self.assertIn('<section class="ec2-band" aria-label="Hôm nay">', out)
+        for mk in ("ec-cel-deco", "ec-cel-tag", "ec-cel-rain", "ec-cel-streamer", 'data-ec-cel="'):
+            self.assertNotIn(mk, out.split('<div class="ecentric-app">', 1)[1], mk)
+        self.assertIn('<h1 id="greeting">Chào buổi chiều, Hoàn 👋</h1>', out)
+
+    def test_levels(self):
+        one = render(_src(), cel=self.cel(1, "Hôm nay có 2 sinh nhật"))
+        body = one.split('<div class="ecentric-app">', 1)[1]
+        self.assertIn('<section class="ec2-band" aria-label="Hôm nay" data-ec-cel="1">', one)
+        self.assertIn('class="ec-cel-flags"', body)
+        self.assertNotIn("ec-cel-bal", body)
+        self.assertIn('<p id="today-text">Thứ Ba, 29 tháng 9<span class="ec-cel-tag">🎂 Hôm nay có 2 sinh nhật</span></p>', one)
+        two = render(_src(), cel=self.cel(2, "Phòng Data có sinh nhật Khoa")).split('<div class="ecentric-app">', 1)[1]
+        self.assertIn('class="ec-cel-bal r"', two)
+        self.assertIn('class="ec-cel-spark', two)
+        self.assertNotIn("ec-cel-rain", two)
+        me = render(_src(), cel=self.cel(3, "Chúc mừng sinh nhật bạn!"))
+        body = me.split('<div class="ecentric-app">', 1)[1]
+        self.assertIn('<h1 id="greeting">Chào buổi chiều, Hoàn 🎂</h1>', me)
+        self.assertIn('<span class="ec-cel-tag">🎉 Chúc mừng sinh nhật bạn!</span>', me)
+        self.assertIn('class="ec-cel-bal l"', body)
+        self.assertEqual(body.count('<div class="ec-cel-rain" aria-hidden="true">'), 1)
+        self.assertEqual(body.count("ec-cel-streamer"), 1)
+        self.assertIn('data-ec2-tl-loading="1" data-ec-cel="3">', me)
+
+    def test_greeting_prefix_still_fixable_by_clock_js(self):
+        """JS dong ho chi thay tien to truoc ', ' cua #greeting - trang tri khong duoc doi dang do."""
+        me = render(_src(), cel=self.cel(3, "x"))
+        h1 = me.split('<h1 id="greeting">')[1].split("</h1>")[0]
+        self.assertTrue(h1.startswith("Chào buổi chiều, "))
+
+    def test_badge_is_escaped(self):
+        out = render(_src(), cel=self.cel(1, '<img src=x onerror=alert(1)>'))
+        self.assertIn("&lt;img src=x", out)
+        self.assertNotIn("<img src=x onerror", out)
+
+    def test_renders_without_the_celebration_hook(self):
+        """Rollback code ma chua tra trang: ham Jinja chua co -> muc 0, trang van render."""
+        out = render(_src())
+        self.assertIn('data-ec-today="0"', out)
+        self.assertNotIn('data-ec-cel="', out.split('<div class="ecentric-app">', 1)[1])
+
+    def test_decoration_is_overlay_only(self):
+        """Lop trang tri: absolute/fixed + pointer-events:none; khong doi kich thuoc dai navy."""
+        s = _src()
+        css = s[s.index("/* ---- ngay co sinh nhat"):s.index("</style>", s.index("/* ---- ngay co sinh nhat"))]
+        self.assertIn(".ecentric-app .ec-cel-deco{position:absolute;inset:0;", css)
+        self.assertIn("pointer-events:none", css)
+        self.assertIn(".ec-cel-rain{position:fixed;inset:0;pointer-events:none;", css)
+        for bad in ("padding", "margin", "height:auto", "min-height"):
+            self.assertNotIn(".ecentric-app .ec2-band[data-ec-cel]{" + bad, css)
+        # cay bo cuc giong het ngay thuong: chi them lop trang tri + nhan
+        strip = lambda h: re.sub(r'<div class="ec-cel-deco".*?</svg>(?:<div class="ec-cel-bal r">.*?</div>(?:<i class="ec-cel-spark[^>]*></i>)*)?(?:<div class="ec-cel-bal l">.*?</div>)?</div>', "", h, flags=re.S)
+        a = render(_src(), cel=self.cel(0))
+        b = strip(render(_src(), cel=self.cel(2, "x")))
+        band = lambda h: h[h.index('<section class="ec2-band"'):h.index("</section>", h.index('<section class="ec2-band"'))]
+        self.assertEqual(re.sub(r'<span class="ec-cel-tag">.*?</span>|\s*data-ec-cel="\d"', "", band(b)).strip(),
+                         band(a).strip())
+
+    def test_popup_asset_loaded_once_after_home_v2(self):
+        s = _src()
+        tag = "<script src=\"{{ bundled_asset('ec_home_popup.bundle.js') }}\" defer></script>"
+        self.assertEqual(s.count(tag), 1)
+        self.assertLess(s.index("bundled_asset('ec_home_v2.bundle.js')"), s.index(tag))
+        self.assertNotIn("ec_welcome_popup", re.sub(r"\{#.*?#\}", "", s, flags=re.S), "popup HR rieng khong nap nua")
+        js = io.open(os.path.join(APP, "public", "js", "ec_home_popup.js"), encoding="utf-8").read()
+        self.assertNotIn("{{", js)
+        self.assertNotIn("{%", js)
+        self.assertIn('import "./ec_home_popup.js";',
+                      io.open(os.path.join(APP, "public", "js", "ec_home_popup.bundle.js"), encoding="utf-8").read())
+        hooks = io.open(os.path.join(APP, "hooks.py"), encoding="utf-8").read()
+        self.assertIn('jinja["methods"].append("ecentric_workspace.home_today.jinja.home_today_celebration")', hooks)
+        self.assertNotIn("ec_home_popup", hooks.split("web_include_js")[1][:2000] if "web_include_js" in hooks else "")
+

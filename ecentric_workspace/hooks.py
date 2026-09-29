@@ -588,3 +588,8 @@ scheduler_events["cron"].setdefault("*/15 10 * * *", []).append(
 website_redirects = list(globals().get("website_redirects") or []) + [
     {"source": "/attendance-database", "target": "/ec-hr/attendance", "redirect_http_status": 302},
 ]
+
+# 29/09/2026 (popup "Hom nay o eCentric", PO Hoan chot): trang chu ve san muc trang tri sinh nhat
+# cho TUNG nguoi xem (ca cong ty Nhe / cung phong ban Vua / nguoi sinh nhat Ruc ro) va biet popup
+# co gi de hien khong - tu truoc lan ve dau (A65 §5), khong doan trong HTML. Xem home_today/.
+jinja["methods"].append("ecentric_workspace.home_today.jinja.home_today_celebration")

@@ -1,0 +1,23 @@
+{"has_content": true, "date": "2026-09-29", "date_label": "Thứ Ba, 29/09/2026",
+ "news": [
+  {"key":"news:N1","tag":"mod","tag_label":"Module mới","title":"Chấm công và xin nghỉ ngay trên điện thoại","date_label":"29/09/2026","excerpt":"Từ hôm nay mọi người có thể chấm công, xem quỹ phép và gửi đơn nghỉ tại /ec-hr mà không cần mở máy tính.","content_html":"<p>Từ hôm nay mọi người có thể <b>chấm công</b>, xem quỹ phép và gửi đơn nghỉ tại /ec-hr.</p><p>Hướng dẫn chi tiết ở mục Hướng dẫn.</p>","image":"","url":""},
+  {"key":"pol:P1","tag":"pol","tag_label":"Chính sách","title":"Chính sách công tác phí 2026","date_label":"Hiệu lực 01/10/2026","excerpt":"Cập nhật định mức lưu trú và phụ cấp đi lại cho chuyến công tác trong và ngoài nước.","content_html":"","image":"","url":"/files/cong-tac-phi-2026.pdf"},
+  {"key":"news:N3","tag":"inf","tag_label":"Thông báo","title":"Bảo trì hệ thống ERP tối thứ Bảy","date_label":"27/09/2026","excerpt":"ERP tạm dừng từ 22:00 đến 23:00 ngày 04/10 để nâng cấp.","content_html":"","image":"","url":""}],
+ "birthdays": {"today": [
+   {"key":"bd:E1:2026","name":"Nguyễn Thu Hà","role":"Account Executive · Account","initials":"TH","color":1},
+   {"key":"bd:E2:2026","name":"Trần Minh Khoa","role":"Data Analyst · Data","initials":"MK","color":0}],
+  "soon": [
+   {"name":"Phạm Quốc Huy","role":"Operation","initials":"QH","color":3,"date":"01/10","weekday":"Thứ Năm"},
+   {"name":"Đỗ Khánh Linh","role":"Finance","initials":"KL","color":4,"date":"03/10","weekday":"Thứ Bảy"},
+   {"name":"Vũ Hoàng Nam","role":"System","initials":"HN","color":5,"date":"05/10","weekday":"Thứ Hai"}]},
+ "onboard": [{"key":"new:EC-NSP-0001","name":"Lê Bảo Ngọc","role":"Content Specialist · Marketing","intro":"Mình mê cà phê muối và chạy bộ buổi sáng. Rất mong được học hỏi từ mọi người!","initials":"BN","color":2}],
+ "anniversaries": [{"key":"ann:E7:2026","name":"Hồ Ngọc Trâm","role":"HR · Human Resources","initials":"NT","color":6,"years":3,"joined":"29/09/2023"}],
+ "holidays": [{"name":"Tết Dương lịch","days_off":1,"day":"01","month":"TH 1","date_label":"Thứ Sáu, 01/01/2027","days_left":94},
+              {"name":"Tết Nguyên đán","days_off":5,"day":"05","month":"TH 2","date_label":"Thứ Sáu, 05/02/2027","days_left":129}],
+ "event_coming_soon": true,
+ "reactions": {
+  "bd:E1:2026":{"heart":{"n":5,"names":["Minh Anh","Quang","Thảo","Tuấn","Vy"],"mine":false},"flower":{"n":2,"names":["Minh Anh","Quang"],"mine":false},"cake":{"n":7,"names":["Minh Anh","Quang","Thảo","Tuấn","Vy","Hùng","Lan"],"mine":false},"party":{"n":1,"names":["Minh Anh"],"mine":false}},
+  "bd:E2:2026":{"heart":{"n":3,"names":["A","B","C"],"mine":false},"flower":{"n":0,"names":[],"mine":false},"cake":{"n":4,"names":["A","B","C","D"],"mine":false},"party":{"n":2,"names":["A","B"],"mine":false}},
+  "new:EC-NSP-0001":{"heart":{"n":6,"names":["A","B","C","D","E","F"],"mine":false},"flower":{"n":1,"names":["A"],"mine":false},"cake":{"n":0,"names":[],"mine":false},"party":{"n":5,"names":["A","B","C","D","E"],"mine":false}},
+  "ann:E7:2026":{"heart":{"n":4,"names":["A","B","C","D"],"mine":false},"flower":{"n":3,"names":["A","B","C"],"mine":false},"cake":{"n":0,"names":[],"mine":false},"party":{"n":6,"names":["A","B","C","D","E","F"],"mine":false}}},
+ "keys": ["news:N1","pol:P1","news:N3","bd:E1:2026","bd:E2:2026","new:EC-NSP-0001","ann:E7:2026"]}

@@ -1,0 +1,398 @@
+// Copyright (c) 2026, eCentric and contributors
+// Popup "Hôm nay ở eCentric" trên trang chủ (PO Hoàn chốt 29/09/2026).
+// ĐẶC TẢ GIAO DIỆN: C:\dev\home-popup-su-kien\v3_ban_chot\popup_hom_nay_mockup_v3_chot.html
+// (kiểu "Ảnh phủ kín"). Sửa ở đây phải giữ giống mockup - PO duyệt đúng bản đó.
+//
+// Nạp từ CHÍNH nguồn trang chủ (legacy_pages/home/main_section.html) bằng
+// bundled_asset('ec_home_popup.bundle.js') + defer. Không nằm trong web_include_js.
+//
+// Luật (brief NHIEU_LOP/brief_popup_su_kien.md, A65):
+//   * Popup NỔI (position:fixed + nền mờ), không chèn vào luồng trang, không dời gì của trang.
+//     z-index 1040 < eC Mate (1045): nút eC Mate luôn nằm TRÊN nền mờ.
+//   * Server (Jinja) đã cho biết có nội dung không: [data-ec-today="1"]. Không có -> không gọi API.
+//   * Hiện mỗi lần mở trang chủ; tích "Không hiện lại hôm nay" -> nhớ trong trình duyệt theo
+//     ngày + danh sách mục; trong ngày có mục MỚI (tin / sinh nhật / bạn mới) thì hiện lại.
+//   * Chỉ hiện sau khi trang tải xong. Lỗi API -> im lặng (console), không toast cho cả công ty.
+//   * File này không có cặp ngoặc nhọn kép / ngoặc-phần-trăm của Jinja.
+(() => {
+  'use strict';
+  if (window.EcHomePopup) return;
+
+  const API_GET = 'ecentric_workspace.home_today.api.get_today';
+  const API_REACT = 'ecentric_workspace.home_today.api.toggle_reaction';
+  const HIDE_KEY = 'ec_home_today_hide';
+  const ROOT = 'ech-pop';
+  const DUR = 7000;
+  const COLORS = ['#2C3DA6', '#EF7CAF', '#10b981', '#e59400', '#7c5cd6', '#0e8fb3', '#d9534f'];
+  const EMO = [['heart', '❤️'], ['flower', '🌸'], ['cake', '🎂'], ['party', '🎉']];
+  const SCN = {
+    news: { g: ['#0e8fb3', '#2C3DA6'], e: '📣', dots: ['#FFC000', '#fff', '#b8f5dd'] },
+    bd: { g: ['#EF7CAF', '#7a4fc4'], e: '🎂', dots: ['#FFC000', '#fff', '#8fa0ff'] },
+    new: { g: ['#10b981', '#0e7aa8'], e: '👋', dots: ['#FFC000', '#fff', '#b8f5dd'] },
+    ev: { g: ['#2C3DA6', '#141c52'], e: '📅', dots: ['#FFC000', '#8fa0ff', '#fff'] },
+    hol: { g: ['#FFC000', '#f08a24'], e: '🎆', dots: ['#fff', '#EF7CAF', '#2C3DA6'] },
+    ann: { g: ['#7c5cd6', '#2C3DA6'], e: '🏅', dots: ['#FFC000', '#fff', '#EF7CAF'] },
+  };
+
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const given = (nm) => { const w = String(nm || '').trim().split(/\s+/); return w[w.length - 1] || ''; };
+  const warn = (e) => { if (window.console && console.warn) console.warn('ec_home_popup:', e); };
+
+  // ------------------------------------------------------------ nhớ "không hiện hôm nay" --
+  const readHide = () => { try { return JSON.parse(window.localStorage.getItem(HIDE_KEY) || 'null'); } catch (e) { return null; } };
+  const writeHide = (v) => { try { if (v) window.localStorage.setItem(HIDE_KEY, JSON.stringify(v)); else window.localStorage.removeItem(HIDE_KEY); } catch (e) { /* private mode */ } };
+  const shouldShow = (data) => {
+    const h = readHide();
+    if (!h || h.d !== data.date) return true;
+    const seen = new Set(h.k || []);
+    return (data.keys || []).some((k) => !seen.has(k));
+  };
+
+  // ------------------------------------------------------------ CSS (một lần) ------------
+  const P = '#' + ROOT;
+  const CSS = [
+    P + '{--navy:#2C3DA6;--navy-50:#eef0fb;--navy-100:#d9deef;--navy-900:#141c52;--yellow:#FFC000;--yellow-50:#fff8e1;',
+    '--pink:#EF7CAF;--pink-50:#fdeef5;--green-50:#ecfdf5;--app-bg:#f7f8fb;--surface:#fff;--line:#e5e7eb;--line-soft:rgba(17,24,39,.07);',
+    '--g400:#9ca3af;--g500:#6b7280;--g600:#4b5563;--g700:#374151;--g900:#111827;',
+    'position:fixed;inset:0;z-index:1040;display:flex;align-items:center;justify-content:center;padding:22px;',
+    "background:rgba(17,24,39,.5);font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13.5px;line-height:1.5;color:var(--g900);animation:ech-in .2s ease}",
+    P + ' *{box-sizing:border-box}',
+    P + ' h2,' + P + ' h3,' + P + ' p{margin:0}',
+    '@keyframes ech-in{from{opacity:0}}',
+    P + ' .dlg{background:var(--surface);border-radius:18px;box-shadow:0 30px 70px rgba(0,0,0,.3);width:min(900px,100%);max-height:100%;display:flex;flex-direction:column;overflow:hidden}',
+    P + ' .dlg:focus{outline:none}',
+    P + ' .dh{display:flex;align-items:center;gap:12px;padding:14px 18px 14px 22px;border-bottom:1px solid var(--line)}',
+    P + ' .dh .t{flex:1;min-width:0}',
+    P + ' .dh h2{font-size:17px;font-weight:800;letter-spacing:-.2px;color:var(--g900);line-height:1.3}',
+    P + ' .dh p{font-size:12px;color:var(--g500)}',
+    P + ' .x{all:unset;cursor:pointer;width:32px;height:32px;border-radius:8px;display:grid;place-items:center;font-size:20px;line-height:1;color:var(--g600)}',
+    P + ' .x:hover{background:var(--app-bg)}',
+    P + ' .x:focus-visible{outline:3px solid var(--yellow)}',
+    P + ' .dbody{display:grid;grid-template-columns:236px minmax(0,1fr);min-height:0;flex:1}',
+    P + ' .thumbs{display:flex;flex-direction:column;gap:8px;padding:14px;background:var(--app-bg);border-right:1px solid var(--line);overflow:auto}',
+    P + ' .th{all:unset;cursor:pointer;position:relative;display:grid;grid-template-columns:1fr;align-items:center;padding:0;height:74px;flex:none;border-radius:12px;overflow:hidden;min-width:0;transition:box-shadow .15s,opacity .15s}',
+    P + ' .th::after{content:"";position:absolute;inset:0;border-radius:12px;background:linear-gradient(90deg,rgba(0,0,0,.35),rgba(0,0,0,0) 70%);pointer-events:none}',
+    P + ' .th:focus-visible{outline:3px solid var(--yellow);outline-offset:1px}',
+    P + ' .th .img{position:absolute;inset:0;width:100%;height:100%;border-radius:12px;overflow:hidden;display:block}',
+    P + ' .th .img svg,' + P + ' .th .img img{width:100%;height:100%;display:block;object-fit:cover}',
+    P + ' .th .tx{position:relative;z-index:1;min-width:0;display:flex;flex-direction:column;padding:0 34px 0 12px;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.35)}',
+    P + ' .th .tt{font-weight:700;font-size:13px;line-height:1.3}',
+    P + ' .th .ts{font-size:11.5px;color:rgba(255,255,255,.9);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    P + ' .th .ct{position:absolute;z-index:2;top:6px;right:8px;background:var(--pink);color:#fff;font-size:10.5px;font-weight:800;border-radius:999px;padding:0 6px;line-height:16px}',
+    P + ' .th .ct.soon{background:var(--yellow-50);color:#8a6400}',
+    P + ' .th[aria-selected="true"]{box-shadow:0 0 0 3px var(--surface),0 0 0 5px var(--navy)}',
+    P + ' .th:not([aria-selected="true"]){opacity:.78}',
+    P + ' .th:hover{opacity:1}',
+    P + ' .th .prog{position:absolute;z-index:2;left:10px;right:10px;bottom:3px;height:3px;border-radius:2px;overflow:hidden}',
+    P + ' .th[aria-selected="true"] .prog{background:rgba(255,255,255,.35)}',
+    P + ' .th[aria-selected="true"] .prog i{display:block;height:100%;width:0;background:#fff;animation:ech-prog ' + DUR + 'ms linear forwards}',
+    P + ' .paused .th .prog i{animation-play-state:paused}',
+    '@keyframes ech-prog{to{width:100%}}',
+    P + ' .stage{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:auto}',
+    P + ' .hero{position:relative;height:170px;flex:none;overflow:hidden}',
+    P + ' .hero svg,' + P + ' .hero img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}',
+    P + ' .hero.photo::after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,rgba(0,0,0,.55),rgba(0,0,0,0) 65%)}',
+    P + ' .hero .cap{position:absolute;z-index:1;left:22px;bottom:16px;right:22px;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.25)}',
+    P + ' .hero .cap small{font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;opacity:.9}',
+    P + ' .hero .cap h3{margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-.4px;line-height:1.2;text-wrap:balance;color:#fff}',
+    P + ' .hero .cnt{position:absolute;z-index:1;right:18px;top:14px;background:rgba(255,255,255,.2);backdrop-filter:blur(4px);color:#fff;font-size:12px;font-weight:700;border-radius:999px;padding:3px 10px;font-variant-numeric:tabular-nums}',
+    P + ' .content{padding:16px 22px 18px;display:flex;flex-direction:column;gap:14px;animation:ech-fade .3s ease}',
+    '@keyframes ech-fade{from{opacity:0;transform:translateY(4px)}}',
+    P + ' .eyebrow{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--g500)}',
+    P + ' .ppl{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}',
+    P + ' .pc{display:flex;gap:12px;align-items:flex-start;padding:12px;border:1px solid var(--line);border-radius:12px;min-width:0}',
+    P + ' .pc .who{flex:1;min-width:0;display:flex;flex-direction:column}',
+    P + ' .pc .nm{font-weight:700;font-size:14px}',
+    P + ' .pc .rl,' + P + ' .sl .rl,' + P + ' .hol .rl,' + P + ' .note{font-size:12px;color:var(--g500)}',
+    P + ' .ava{flex:none;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:14px;color:#fff;position:relative}',
+    P + ' .ava.ring{box-shadow:0 0 0 3px var(--surface),0 0 0 5px var(--yellow)}',
+    P + ' .ava.lg{width:64px;height:64px;font-size:21px}',
+    P + ' .intro{margin:6px 0 0;padding:9px 12px;border-left:3px solid var(--yellow);background:var(--navy-50);border-radius:8px;font-size:12.5px;font-style:italic;color:var(--g700);white-space:pre-wrap}',
+    P + ' .soonlist{display:flex;flex-direction:column}',
+    P + ' .sl{display:grid;grid-template-columns:54px 30px 1fr;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line-soft)}',
+    P + ' .sl:last-child{border-bottom:0}',
+    P + ' .sl time{font-variant-numeric:tabular-nums;font-weight:800;color:var(--navy);font-size:13px}',
+    P + ' .sl .ava{width:30px;height:30px;font-size:11px}',
+    P + ' .hol{display:grid;grid-template-columns:64px 1fr auto;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:12px}',
+    P + ' .hol .dd{text-align:center;border-radius:10px;background:var(--yellow-50);padding:5px 0;line-height:1.1}',
+    P + ' .hol .dd b{display:block;font-size:20px;font-weight:800;color:#8a6400;font-variant-numeric:tabular-nums}',
+    P + ' .hol .dd small{font-size:10.5px;font-weight:700;color:#8a6400}',
+    P + ' .hol .nm{font-weight:700}',
+    P + ' .hol .left{font-size:12px;font-weight:700;color:var(--navy);background:var(--navy-50);padding:3px 9px;border-radius:999px;white-space:nowrap;font-variant-numeric:tabular-nums}',
+    P + ' .wipbox{display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:18px 10px;border:1px dashed var(--navy-100);border-radius:12px;color:var(--g600)}',
+    P + ' .wipbox b{font-size:15px;color:var(--g900)}',
+    P + ' .soon-tag{background:var(--yellow-50);color:#8a6400;font-weight:700;font-size:11px;padding:2px 9px;border-radius:999px}',
+    P + ' .rx{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}',
+    P + ' .rb{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:3px 10px 3px 7px;font-size:13px;line-height:1.5;position:relative;transition:transform .12s}',
+    P + ' .rb .c{font-size:12px;font-weight:700;color:var(--g600);font-variant-numeric:tabular-nums;min-width:1ch}',
+    P + ' .rb[aria-pressed="true"]{background:var(--pink-50);border-color:var(--pink)}',
+    P + ' .rb[aria-pressed="true"] .c{color:#b3246a}',
+    P + ' .rb:hover{transform:translateY(-1px)}',
+    P + ' .rb:focus-visible{outline:3px solid var(--yellow)}',
+    P + ' .rb[aria-busy="true"]{opacity:.6;cursor:progress}',
+    P + ' .rb.pop{animation:ech-pop .35s ease}',
+    '@keyframes ech-pop{40%{transform:scale(1.3)}}',
+    P + ' .tip{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--g900);color:#fff;font-size:11.5px;line-height:1.4;padding:6px 9px;border-radius:7px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .12s;z-index:5}',
+    P + ' .rb:hover .tip,' + P + ' .rb:focus-visible .tip{opacity:1}',
+    P + ' .nw{display:flex;flex-direction:column;gap:5px;padding:12px 14px;border:1px solid var(--line);border-radius:12px}',
+    P + ' .nw.first{border-color:var(--navy-100);background:linear-gradient(180deg,var(--navy-50),var(--surface) 70%)}',
+    P + ' .nw .meta{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--g500)}',
+    P + ' .nw .tg{font-size:10.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;padding:2px 8px;border-radius:999px}',
+    P + ' .tg.pol{background:var(--navy-50);color:var(--navy)}' + P + ' .tg.mod{background:var(--green-50);color:#047857}' + P + ' .tg.inf{background:var(--yellow-50);color:#8a6400}',
+    P + ' .nw .tt{font-weight:800;font-size:15px;line-height:1.35}',
+    P + ' .nw.first .tt{font-size:16.5px}',
+    P + ' .nw .ex{font-size:12.5px;color:var(--g600);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}',
+    P + ' .nw .body{font-size:13px;color:var(--g700);overflow-wrap:anywhere}',
+    P + ' .nw .body img{max-width:100%;height:auto}',
+    P + ' .nw a,' + P + ' .nw .more{all:unset;cursor:pointer;align-self:flex-start;font-weight:700;font-size:12.5px;color:var(--navy);text-decoration:none}',
+    P + ' .nw a:hover,' + P + ' .nw .more:hover{text-decoration:underline}',
+    P + ' .nw a:focus-visible,' + P + ' .nw .more:focus-visible{outline:3px solid var(--yellow);outline-offset:2px;border-radius:4px}',
+    P + ' .df{display:flex;align-items:center;gap:12px;padding:11px 18px 11px 22px;border-top:1px solid var(--line)}',
+    P + ' .df label{flex:1;display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--g600);cursor:pointer;margin:0;font-weight:400}',
+    P + ' .df input{width:16px;height:16px;margin:0;accent-color:var(--navy)}',
+    P + ' .df .pg{font-size:12px;color:var(--g500);font-variant-numeric:tabular-nums}',
+    P + ' .nav{all:unset;cursor:pointer;width:32px;height:32px;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center;font-size:16px;color:var(--g700)}',
+    P + ' .nav:focus-visible{outline:3px solid var(--yellow)}',
+    P + ' .ok{all:unset;cursor:pointer;background:var(--navy);color:#fff;font-weight:700;font-size:13px;padding:9px 18px;border-radius:9px}',
+    P + ' .ok:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}',
+    '@media (max-width:760px){',
+    P + '{padding:10px 10px 92px}',
+    P + ' .dbody{grid-template-columns:1fr;grid-template-rows:auto 1fr}',
+    P + ' .thumbs{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line);padding:10px}',
+    P + ' .th{flex:none;width:130px;height:64px}',
+    P + ' .hero{height:130px}' + P + ' .hero .cap h3{font-size:19px}',
+    P + ' .content{padding:14px 16px}',
+    P + ' .df{flex-wrap:wrap;padding:10px 16px}' + P + ' .df label{flex-basis:100%}',
+    '}',
+    '@media (prefers-reduced-motion:reduce){' + P + ',' + P + ' *{animation:none!important;transition:none!important}}',
+  ].join('\n');
+
+  const injectCss = () => {
+    if (document.getElementById(ROOT + '-css')) return;
+    const st = document.createElement('style');
+    st.id = ROOT + '-css';
+    st.textContent = CSS;
+    document.head.appendChild(st);
+  };
+
+  // ------------------------------------------------------------ ảnh minh hoạ (SVG) -------
+  let gidSeq = 0;
+  const scene = (k, big) => {
+    const s = SCN[k];
+    const gid = ROOT + '-g' + (gidSeq += 1);
+    let dots = '';
+    for (let i = 0; i < (big ? 26 : 9); i += 1) {
+      const x = (i * 83) % 400;
+      const y = (i * 47) % 170;
+      const r = 2 + (i % 3) * 1.6;
+      dots += i % 4 === 0
+        ? '<rect x="' + x + '" y="' + y + '" width="' + (r * 1.6) + '" height="' + (r * 3) + '" rx="1" fill="' + s.dots[i % 3] + '" opacity=".75" transform="rotate(' + (i * 37) + ' ' + x + ' ' + y + ')"/>'
+        : '<circle cx="' + x + '" cy="' + y + '" r="' + r + '" fill="' + s.dots[i % 3] + '" opacity=".6"/>';
+    }
+    return '<svg viewBox="0 0 400 170" preserveAspectRatio="xMidYMid slice" aria-hidden="true">'
+      + '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="' + s.g[0] + '"/><stop offset="1" stop-color="' + s.g[1] + '"/></linearGradient></defs>'
+      + '<rect width="400" height="170" fill="url(#' + gid + ')"/>'
+      + '<circle cx="340" cy="40" r="90" fill="#fff" opacity=".08"/><circle cx="40" cy="170" r="70" fill="#fff" opacity=".07"/>'
+      + dots
+      + '<text x="330" y="' + (big ? 112 : 110) + '" font-size="' + (big ? 92 : 80) + '" text-anchor="middle">' + s.e + '</text></svg>';
+  };
+  const cover = (sl, big) => (sl.image
+    ? '<img src="' + esc(sl.image) + '" alt="" loading="lazy">'
+    : scene(sl.k, big));
+
+  // ------------------------------------------------------------ mảnh nội dung -----------
+  const ava = (p, cls) => '<span class="ava ' + (cls || '') + '" style="background:' + COLORS[(p.color || 0) % COLORS.length] + '">' + esc(p.initials || '?') + '</span>';
+
+  const rxHTML = (st, key) => {
+    const per = (st.data.reactions || {})[key];
+    if (!per) return '';
+    return '<div class="rx">' + EMO.map(([k, e]) => {
+      const v = per[k] || { n: 0, names: [], mine: false };
+      const who = (v.mine ? ['Bạn'] : []).concat(v.names || []);
+      const more = v.n - who.length;
+      const tip = who.length ? who.slice(0, 5).join(', ') + (who.length > 5 || more > 0 ? ' +' + (Math.max(who.length - 5, 0) + Math.max(more, 0)) : '') : 'Chưa ai thả';
+      return '<button type="button" class="rb" aria-pressed="' + (!!v.mine) + '" data-rx="' + esc(key) + '|' + k + '" aria-label="' + e + ' ' + v.n + '">'
+        + e + '<span class="c">' + (v.n || '') + '</span><span class="tip">' + esc(tip) + '</span></button>';
+    }).join('') + '</div>';
+  };
+
+  const person = (st, p, sub) => '<div class="pc">' + ava(p, 'ring') + '<div class="who"><span class="nm">' + esc(p.name) + '</span>'
+    + '<span class="rl">' + esc([p.role, sub].filter(Boolean).join(' · ')) + '</span>' + (p.key ? rxHTML(st, p.key) : '') + '</div></div>';
+
+  const newsHTML = (st) => st.data.news.map((n, i) => {
+    const open = st.open[n.key];
+    let act = '';
+    if (n.url) act = '<a href="' + esc(n.url) + '" target="_blank" rel="noopener">Xem văn bản →</a>';
+    else if (n.content_html) act = '<button type="button" class="more" data-more="' + esc(n.key) + '">' + (open ? 'Thu gọn ↑' : 'Xem chi tiết →') + '</button>';
+    return '<div class="nw' + (i ? '' : ' first') + '"><div class="meta"><span class="tg ' + esc(n.tag) + '">' + esc(n.tag_label) + '</span>' + esc(n.date_label) + '</div>'
+      + '<div class="tt">' + esc(n.title) + '</div>'
+      + (open && n.content_html ? '<div class="body">' + n.content_html + '</div>' : (n.excerpt ? '<div class="ex">' + esc(n.excerpt) + '</div>' : ''))
+      + act + '</div>';
+  }).join('');
+
+  // ------------------------------------------------------------ các ô --------------------
+  const buildSlides = (d) => {
+    const out = [];
+    const news = d.news || [];
+    const bd = d.birthdays || { today: [], soon: [] };
+    const nw = d.onboard || [];
+    const hol = d.holidays || [];
+    const ann = d.anniversaries || [];
+    if (news.length) {
+      const tags = [...new Set(news.map((n) => n.tag_label))];
+      out.push({ k: 'news', t: 'Thông báo', s: tags.join(' · '), ct: news.length, hs: 'Thông báo công ty',
+        h: news[0].title, cnt: news.length + ' thông báo', image: news[0].image, body: newsHTML });
+    }
+    if (bd.today.length || bd.soon.length) {
+      const n = bd.today.length;
+      const sub = [n ? n + ' hôm nay' : '', bd.soon.length ? bd.soon.length + ' tuần này' : ''].filter(Boolean).join(' · ');
+      const names = bd.today.map((p) => given(p.name));
+      const h = n ? 'Chúc mừng sinh nhật ' + (names.length > 1 ? names.slice(0, -1).join(', ') + ' và ' + names[names.length - 1] : names[0]) + '!' : 'Sinh nhật 7 ngày tới';
+      out.push({ k: 'bd', t: 'Sinh nhật', s: sub, ct: n || null, hs: 'Sinh nhật', h, cnt: n ? n + ' hôm nay' : bd.soon.length + ' sắp tới',
+        body: (st) => (n ? '<div class="eyebrow">Hôm nay · ' + esc(d.date_label.split(', ')[1] ? d.date_label.split(', ')[1].slice(0, 5) : '') + '</div><div class="ppl">' + bd.today.map((p) => person(st, p)).join('') + '</div>' : '')
+          + (bd.soon.length ? '<div class="eyebrow">7 ngày tới</div><div class="soonlist">' + bd.soon.map((p) => '<div class="sl"><time>' + esc(p.date) + '</time>' + ava(p) + '<div><b>' + esc(p.name) + '</b> <span class="rl">· ' + esc([p.role, p.weekday].filter(Boolean).join(' · ')) + '</span></div></div>').join('') + '</div>' : '') });
+    }
+    if (nw.length) {
+      const one = nw.length === 1;
+      out.push({ k: 'new', t: 'Bạn mới', s: one ? [nw[0].name, nw[0].role.split(' · ').pop()].filter(Boolean).join(' · ') : nw.length + ' bạn mới', ct: nw.length,
+        hs: 'Chào bạn mới', h: one ? 'Hôm nay là ngày đầu tiên của ' + given(nw[0].name) : 'Chào ' + nw.length + ' bạn mới hôm nay', cnt: nw.length + ' bạn mới',
+        body: (st) => nw.map((p) => '<div class="pc" style="align-items:center">' + ava(p, 'lg ring') + '<div class="who"><span class="nm" style="font-size:17px">' + esc(p.name) + '</span><span class="rl">' + esc(p.role) + '</span>'
+          + (p.intro ? '<p class="intro">' + esc(p.intro) + '</p>' : '') + rxHTML(st, p.key) + '</div></div>').join('')
+          + '<p class="note">Cả nhà cùng say hi và giúp bạn ấy làm quen nhé.</p>' });
+    }
+    if (d.event_coming_soon) {
+      out.push({ k: 'ev', t: 'Sự kiện công ty', s: 'Sắp ra mắt', ct: 'soon', hs: 'Sự kiện công ty', h: 'Lịch sự kiện đang được xây dựng', cnt: 'Sắp ra mắt',
+        body: () => '<div class="wipbox"><span class="soon-tag">Sắp ra mắt</span><b>Team building, workshop, tiệc cuối năm…</b><span>Khi HR nhập lịch sự kiện, các sự kiện sắp tới sẽ hiện ở đây kèm ngày giờ và địa điểm.</span></div>' });
+    }
+    if (hol.length) {
+      out.push({ k: 'hol', t: 'Nghỉ lễ sắp tới', s: hol[0].name + ' · còn ' + hol[0].days_left + ' ngày', ct: null, hs: 'Nghỉ lễ sắp tới', h: hol[0].name,
+        cnt: hol[0].days_left ? 'Còn ' + hol[0].days_left + ' ngày' : 'Hôm nay',
+        body: () => hol.map((x) => '<div class="hol"><div class="dd"><b>' + esc(x.day) + '</b><small>' + esc(x.month) + '</small></div><div><div class="nm">' + esc(x.name) + '</div><div class="rl">'
+          + esc(x.date_label + (x.days_off > 1 ? ' · nghỉ ' + x.days_off + ' ngày' : '')) + '</div></div><span class="left">' + (x.days_left ? 'còn ' + x.days_left + ' ngày' : 'hôm nay') + '</span></div>').join('') });
+    }
+    if (ann.length) {
+      const one = ann.length === 1;
+      out.push({ k: 'ann', t: 'Kỷ niệm gắn bó', s: one ? ann[0].name + ' · ' + ann[0].years + ' năm' : ann.length + ' người', ct: ann.length, hs: 'Kỷ niệm gắn bó',
+        h: one ? given(ann[0].name) + ' tròn ' + ann[0].years + ' năm cùng eCentric' : ann.length + ' người tròn năm gắn bó hôm nay', cnt: ann.length + ' người',
+        body: (st) => ann.map((p) => person(st, p, 'vào công ty ' + p.joined + ' · ' + p.years + ' năm')).join('') });
+    }
+    return out;
+  };
+
+  // ------------------------------------------------------------ popup --------------------
+  const thumbHTML = (st, sl, n) => '<button type="button" class="th" role="tab" aria-selected="' + (n === st.i) + '" data-i="' + n + '">'
+    + '<span class="img">' + cover(sl, false) + '</span>'
+    + '<span class="tx"><span class="tt">' + esc(sl.t) + '</span><span class="ts">' + esc(sl.s) + '</span></span>'
+    + (sl.ct === 'soon' ? '<span class="ct soon">Mới</span>' : (sl.ct ? '<span class="ct">' + sl.ct + '</span>' : ''))
+    + '<span class="prog"><i></i></span></button>';
+
+  const render = (st, focus) => {
+    const sl = st.slides[st.i];
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    st.root.innerHTML = '<div class="dlg' + (st.paused || st.manual || reduce ? ' paused' : '') + '" role="dialog" aria-modal="true" aria-labelledby="' + ROOT + '-title" tabindex="-1">'
+      + '<div class="dh"><div class="t"><h2 id="' + ROOT + '-title">Hôm nay ở eCentric</h2><p>' + esc(st.data.date_label) + '</p></div><button type="button" class="x" data-close aria-label="Đóng">×</button></div>'
+      + '<div class="dbody"><div class="thumbs" role="tablist" aria-label="Chủ đề">' + st.slides.map((s, n) => thumbHTML(st, s, n)).join('') + '</div>'
+      + '<div class="stage" role="tabpanel"><div class="hero' + (sl.image ? ' photo' : '') + '">' + cover(sl, true) + '<span class="cnt">' + esc(sl.cnt) + '</span>'
+      + '<div class="cap"><small>' + esc(sl.hs) + '</small><h3>' + esc(sl.h) + '</h3></div></div>'
+      + '<div class="content">' + sl.body(st) + '</div></div></div>'
+      + '<div class="df"><label><input type="checkbox" data-hide ' + (st.hide ? 'checked' : '') + '> Không hiện lại hôm nay</label>'
+      + '<button type="button" class="nav" data-step="-1" aria-label="Mục trước">‹</button><span class="pg">' + (st.i + 1) + ' / ' + st.slides.length + '</span><button type="button" class="nav" data-step="1" aria-label="Mục sau">›</button>'
+      + '<button type="button" class="ok" data-close>Đóng</button></div></div>';
+    const bar = st.root.querySelector('.th[aria-selected="true"] .prog i');
+    if (bar && !reduce && st.slides.length > 1) {
+      bar.addEventListener('animationend', () => {
+        if (!st.manual && !st.paused) { st.i = (st.i + 1) % st.slides.length; render(st, false); }
+      });
+    }
+    const dlg = st.root.querySelector('.dlg');
+    dlg.addEventListener('mouseenter', () => { st.paused = true; dlg.classList.add('paused'); });
+    dlg.addEventListener('mouseleave', () => { st.paused = false; if (!st.manual && !reduce) dlg.classList.remove('paused'); });
+    if (focus) dlg.focus();
+  };
+
+  const go = (st, i) => { st.i = (i + st.slides.length) % st.slides.length; st.manual = true; render(st, false); };
+
+  const post = (method, data) => {
+    if (window.ecApi && window.ecApi.post) return window.ecApi.post(method, data);
+    const token = (window.frappe && window.frappe.csrf_token) || window.csrf_token || '';
+    return fetch('/api/method/' + method, {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-Frappe-CSRF-Token': token },
+      body: JSON.stringify(data),
+    }).then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))).then((j) => j && j.message);
+  };
+
+  const react = (st, btn) => {
+    if (btn.getAttribute('aria-busy') === 'true') return;
+    const [key, kind] = btn.dataset.rx.split('|');
+    st.manual = true;
+    btn.setAttribute('aria-busy', 'true');
+    post(API_REACT, { target: key, kind }).then((res) => {
+      if (res && res.target && res.reactions) st.data.reactions[res.target] = res.reactions;
+      render(st, false);
+      const again = st.root.querySelector('[data-rx="' + key + '|' + kind + '"]');
+      if (again) { again.classList.add('pop'); again.focus(); }
+    }, (e) => { warn(e); btn.removeAttribute('aria-busy'); });
+  };
+
+  const show = (data) => {
+    const slides = buildSlides(data);
+    if (!slides.length || document.getElementById(ROOT)) return null;
+    injectCss();
+    const root = document.createElement('div');
+    root.id = ROOT;
+    const st = { data, slides, root, i: 0, paused: false, manual: false, hide: false, open: {}, prevFocus: document.activeElement };
+    const close = () => {
+      root.remove();
+      document.removeEventListener('keydown', onKey, true);
+      if (st.prevFocus && st.prevFocus.focus) { try { st.prevFocus.focus(); } catch (e) { /* bỏ qua */ } }
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') { close(); return; }
+      if (!e.target.closest || !e.target.closest('.thumbs')) return;
+      const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[e.key];
+      if (step) { e.preventDefault(); go(st, st.i + step); const t = root.querySelector('[data-i="' + st.i + '"]'); if (t) t.focus(); }
+    };
+    root.addEventListener('click', (e) => {
+      if (e.target === root || (e.target.closest && e.target.closest('[data-close]'))) { close(); return; }
+      const r = e.target.closest('[data-rx]'); if (r) { react(st, r); return; }
+      const t = e.target.closest('[data-i]'); if (t) { go(st, Number(t.dataset.i)); const f = root.querySelector('[data-i="' + st.i + '"]'); if (f) f.focus(); return; }
+      const s = e.target.closest('[data-step]'); if (s) { go(st, st.i + Number(s.dataset.step)); return; }
+      const m = e.target.closest('[data-more]'); if (m) { st.open[m.dataset.more] = !st.open[m.dataset.more]; st.manual = true; render(st, false); }
+    });
+    root.addEventListener('change', (e) => {
+      if (!e.target.hasAttribute('data-hide')) return;
+      st.hide = e.target.checked;
+      writeHide(st.hide ? { d: data.date, k: data.keys || [] } : null);
+    });
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(root);
+    render(st, true);
+    return st;
+  };
+
+  const load = () => {
+    const req = window.ecApi && window.ecApi.get
+      ? window.ecApi.get(API_GET)
+      : fetch('/api/method/' + API_GET, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))).then((j) => j && j.message);
+    return req.then((data) => {
+      if (!data || !data.has_content || !shouldShow(data)) return null;
+      return show(data);
+    }, (e) => { warn(e); return null; });
+  };
+
+  const run = () => {
+    // Server (Jinja) chưa nói "có nội dung" -> không gọi API thừa.
+    const flag = document.querySelector('[data-ec-today]');
+    if (!flag || flag.getAttribute('data-ec-today') !== '1') return Promise.resolve(null);
+    return load();
+  };
+
+  window.EcHomePopup = { run, show, buildSlides, shouldShow, HIDE_KEY };
+  // Chỉ hiện sau khi trang đã vẽ xong và ổn định (không tranh lần vẽ đầu).
+  const start = () => setTimeout(run, 400);
+  if (document.readyState === 'complete') start();
+  else window.addEventListener('load', start, { once: true });
+})();
