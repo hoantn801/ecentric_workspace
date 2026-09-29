@@ -262,7 +262,8 @@
     wide: icon("M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"),
     narrow: icon("M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"),
     cal: icon("M4 7h16v13H4zM4 11h16M9 3v4M15 3v4"),
-    cash: icon("M3 6h18v12H3zM12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5")
+    cash: icon("M3 6h18v12H3zM12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5"),
+    form: icon("M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6")
   };
 
   var CSS = [
@@ -473,10 +474,13 @@
   }
 
   function payCard(m, idx) {
-    var h = '<div class="card"><div class="ch">' + I.cash + "<b>Đề nghị thanh toán</b>" +
+    var h = '<div class="card"><div class="ch">' + (m.code === "PAYMENT_REQUEST" ? I.cash : I.form) +
+      "<b>" + esc(m.title || "Đề nghị thanh toán") + "</b>" +
       '<span class="pill">' + (m.draft ? "Đã tạo nháp" : "Nháp") + "</span></div>";
     if (m.state === "reading") {
-      return h + '<div class="note">Mình đang đọc tệp, thường mất 10–30 giây…</div></div>';
+      return h + '<div class="note">' + (m.urls && m.urls.length ?
+        "Mình đang đọc tệp, thường mất 10–30 giây…" : "Mình đang điền phiếu từ câu của bạn…") +
+        "</div></div>";
     }
     var keys = Object.keys(m.fields || {});
     if (keys.length) {
@@ -499,7 +503,7 @@
         (m.state === "saving" ? " disabled" : "") + ">" +
         (m.state === "saving" ? "Đang tạo nháp…" : m.draft ? "Mở nháp để gửi" : "Tạo nháp & mở") + "</button>";
     }
-    h += '<a class="btn s" href="' + esc(S.boot.payment_route || "/approvals/payment-request") +
+    h += '<a class="btn s" href="' + esc(m.route || S.boot.payment_route || "/approvals/payment-request") +
       '">Tự điền</a></div></div>';
     if (m.by) h += '<div class="by">Điền bởi ' + esc(modelLabel(m.by)) + "</div>";
     return h;
@@ -551,7 +555,7 @@
         dropTyping();
         r = r || {};
         if (r.action === "leave") return onLeave(r);
-        if (r.action === "payment_request") return onPay(r, text, urls);
+        if (r.action === "approval" || r.action === "payment_request") return onApproval(r, text, urls);
         if (r.action === "answer" && !r.needs_data && r.reply) return push({ role: "bot", text: r.reply, by: r.model });
         if (r.action === "answer") return onAnswer(text, hist);
         push({ role: "bot", text: r.reply || "Bạn nói rõ hơn giúp mình nhé.",
@@ -590,15 +594,14 @@
       .then(function () { paint(); save(); });
   }
 
-  function onPay(r, text, urls) {
+  /* Mọi form Approval Center (29/09): server đã chọn form trong danh sách người này tạo được
+   * và kiểm lại ở suggest/create_draft. Không có tệp thì AI điền từ chính câu chat. */
+  function onApproval(r, text, urls) {
     S.boot.labels = r.labels || {};
-    if (!urls.length) {
-      push({ role: "bot", text: r.reply || "Bạn thả hoá đơn hoặc báo giá vào đây, mình điền phiếu giúp." });
-      return;
-    }
     S.wide = true;
-    push({ role: "bot", text: r.reply || "Mình đọc tệp và điền sẵn phiếu cho bạn nhé." });
-    var idx = push({ role: "pay", state: "reading", code: r.approval_code, route: r.route,
+    push({ role: "bot", text: r.reply || "Mình điền sẵn phiếu cho bạn nhé.", by: r.model });
+    var idx = push({ role: "pay", state: "reading", code: r.approval_code || "PAYMENT_REQUEST",
+                     title: r.approval_title || "", route: r.route,
                      labels: r.labels || {}, urls: urls });
     S.files = [];
     return post(API.suggest, { approval_code: r.approval_code, note: text, files: JSON.stringify(urls) })
@@ -606,6 +609,9 @@
         var m = S.msgs[idx];
         res = res || {};
         m.state = "ready";
+        if (!res.refused && !res.error && !Object.keys(res.fields || {}).length) {
+          m.error = "Mình chưa điền được ô nào từ câu này — bạn bấm Tự điền, hoặc kể rõ hơn nhé.";
+        }
         if (res.refused || res.error) {
           m.error = res.refused === "refused_quota" ? "Bạn đã dùng hết lượt AI điền hộ hôm nay." :
             res.refused === "empty" ? "Mình không đọc được tệp nào — bạn thử tệp PDF hoặc ảnh rõ hơn nhé." :

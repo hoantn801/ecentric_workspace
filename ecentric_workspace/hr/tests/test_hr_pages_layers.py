@@ -88,5 +88,20 @@ class TestKhongNhieuLop(unittest.TestCase):
             self.assertNotRegex(src, r"window\.fetch\s*=")
 
 
+class TestAttendanceDatabaseNghi(unittest.TestCase):
+    def test_chuyen_huong_sang_trang_moi(self):
+        # 29/09: /attendance-database (ban cu, khong menu, boc window.fetch) cho nghi.
+        import ast
+        with open(os.path.join(APP, "hooks.py"), encoding="utf-8") as fh:
+            tree = ast.parse(fh.read())
+        rules = []
+        for node in tree.body:
+            if isinstance(node, ast.Assign) and any(getattr(t, "id", "") == "website_redirects" for t in node.targets):
+                for d in ast.walk(node.value):
+                    if isinstance(d, ast.Dict):
+                        rules.append(ast.literal_eval(d))
+        self.assertIn({"source": "/attendance-database", "target": "/ec-hr/attendance",
+                       "redirect_http_status": 302}, rules)
+
 if __name__ == "__main__":
     unittest.main()
