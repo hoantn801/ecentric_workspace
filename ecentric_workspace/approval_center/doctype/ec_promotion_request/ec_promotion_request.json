@@ -20,6 +20,7 @@
   "material_signature",
   "sb_form",
   "promoted_employee",
+  "salary_reviewer",
   "full_name",
   "current_position",
   "proposed_position",
@@ -116,6 +117,14 @@
    "options": "Employee"
   },
   {
+   "fieldname": "salary_reviewer",
+   "fieldtype": "Link",
+   "label": "Salary Reviewer (Step 1)",
+   "options": "User",
+   "read_only": 1,
+   "description": "Nguoi dau tien tren chuoi reports_to xem duoc luong nhan su (29/09/2026)"
+  },
+  {
    "fieldname": "full_name",
    "fieldtype": "Data",
    "label": "Full name",
@@ -194,7 +203,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-09-29 20:00:00.000000",
+ "modified": "2026-09-30 01:00:00.000000",
  "module": "Approval Center",
  "name": "EC Promotion Request",
  "naming_rule": "Expression",

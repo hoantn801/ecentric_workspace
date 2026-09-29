@@ -1,7 +1,8 @@
 # Copyright (c) 2026, eCentric and contributors
 """Idempotent, System-Manager-only setup for PROMOTION_REQUEST-V1 (Draft):
-L1 Direct Manager Review (Requester Manager, resolved at runtime; no fallback - salary-bearing
-form, blocked at submit if unresolved), L2 CnB Review, L3 HOF Review, L4 CEO Review (each Any One,
+L1 Direct Manager Review (29/09/2026, review Phan quyen P1: Reference User Field
+`salary_reviewer` = nguoi DAU TIEN tren chuoi reports_to cua nhan su duoc de xuat xem duoc luong
+nguoi do; khong co ai / trung nguoi gui -> service bo cap nay, nen cap KHONG mandatory), L2 CnB Review, L3 HOF Review, L4 CEO Review (each Any One,
 User participants). CnB/HOF/CEO identities are config seed args (emails allowed here only). No
 fulfillment; no SLA. dry-run default; apply=1 required. Never overwrites an Active process."""
 import json
@@ -62,7 +63,7 @@ def setup_promotion_v1(cnb=None, hof=None, ceo=None, dry_run=1, apply=0):
         rep["warnings"].append("Another Active process exists for %s: %s" % (APPROVAL_TYPE, active))
     rep["planned"] = [
         "process %s (Draft), no SLA (v1)" % PROCESS_CODE,
-        "L1 Direct Manager Review (Requester Manager, Any One, no fallback)",
+        "L1 Direct Manager Review (Reference User Field salary_reviewer, Any One, bo duoc)",
         "L2 CnB Review (Any One)=%s" % users[2],
         "L3 HOF Review (Any One)=%s" % users[3],
         "L4 CEO Review (Any One)=%s" % users[4],
@@ -99,7 +100,7 @@ def _upsert(users):
         lvl.approval_process = PROCESS_CODE
         lvl.level_no = no
         lvl.level_name = name
-        lvl.mandatory = 1
+        lvl.mandatory = 0 if source == "manager" else 1
         lvl.approval_mode = "Any One"
         lvl.minimum_approvals = 1
         lvl.allows_amount_adjustment = 0
@@ -107,7 +108,8 @@ def _upsert(users):
         lvl.set("participants", [])
         if source == "manager":
             lvl.append("participants", {"participant_purpose": "Approver",
-                                        "source_type": "Requester Manager", "sort_order": 0})
+                                        "source_type": "Reference User Field",
+                                        "reference_field": "salary_reviewer", "sort_order": 0})
         else:
             for i, row in enumerate(participant_rows(ulist)):
                 row.update({"participant_purpose": "Approver", "sort_order": i})
@@ -141,9 +143,9 @@ def validate_promotion_v1():
         for l in levels:
             parts = frappe.get_all("EC Approval Participant",
                                    filters={"parent": l.name, "participant_purpose": "Approver"},
-                                   fields=["source_type", "user", "role"])
+                                   fields=["source_type", "user", "role", "reference_field"])
             if l.level_no == 1:
-                c(any(p.source_type == "Requester Manager" for p in parts), "L1 Requester Manager source")
+                c(any(p.source_type == "Reference User Field" for p in parts), "L1 salary_reviewer source")
             else:
                 for ok, msg in check_approver_parts(parts, l.level_no):
                     c(ok, msg)

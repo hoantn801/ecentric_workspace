@@ -106,7 +106,8 @@ def build(today="2026-10-01"):
         W.tables[dt][name].update(vals)
     fr.db = types.SimpleNamespace(get_value=get_value, set_value=set_value, commit=lambda: None,
                                   rollback=lambda: W.notes.append("rollback"),
-                                  exists=lambda dt, n: n in W.tables.get(dt, {}))
+                                  exists=lambda dt, n: n in W.tables.get(dt, {}),
+                                  count=lambda dt, f=None: len([r for r in W.tables.get(dt, {}).values() if _match(r, f)]))
     W.tables["User"]["hr@x"] = Doc(doctype="User", name="hr@x", enabled=1)
     fr.get_doc = lambda dt, name: W.tables[dt][name]
     fr.new_doc = lambda dt: Doc(doctype=dt, name=None)
@@ -218,7 +219,9 @@ def test_mot_nguoi_loi_khong_chan_nguoi_khac(env):
     emp("E2", "b@x", relieving="2026-09-30")
     W.fail_save["Employee"] = {"E1"}
     out = job.run()
-    assert ("E1", "error") in out["results"] and ("E2", "locked") in out["results"]
+    # 29/09 (P4): khoa User truoc, Left loi van la "da khoa, chua Left" - nguoi sau van chay
+    assert ("E1", "locked_not_left") in out["results"] and ("E2", "locked") in out["results"]
+    assert W.tables["User"]["a@x"]["enabled"] == 0
     assert any("E1" in (t or "") for t in W.logs)
 
 
@@ -312,3 +315,27 @@ def test_p235_ghi_bu_chi_don_that_da_duyet_khong_ghi_de(env):
     assert W.tables["Employee"]["E3"]["relieving_date"] == "2026-09-30"
     assert W.tables["Employee"]["E4"]["relieving_date"] is None      # chua duyet
     assert all(e["status"] == "Active" for e in W.tables["Employee"].values())
+
+
+# --------------------------- review Phan quyen P4 ---------------------------
+def test_co_api_key_thi_khong_tu_khoa(env):
+    fr, off, job, _c, _r = env()
+    emp("E1", "k@x", relieving="2026-09-30")
+    W.tables["User"]["k@x"]["api_key"] = "abc"
+    assert job.run()["results"] == [("E1", "skipped_api_key")]
+    assert W.tables["User"]["k@x"]["enabled"] == 1
+
+
+def test_quan_ly_nghi_van_bi_khoa_du_chua_chuyen_left_duoc(env):
+    fr, off, job, _c, _r = env()
+    emp("BOSS", "boss@x", relieving="2026-09-30")
+    emp("E2", "b@x", reports_to="BOSS")
+    W.fail_save["Employee"] = {"BOSS"}                        # ERPNext chan Left khi con nguoi report
+    W.tables["EC Department Approver Item"] = {"i1": Obj(name="i1", approver_user="boss@x", parent="Ops - EC")}
+    W.tables["EC Approval Participant"] = {"p1": Obj(name="p1", user="boss@x", parent="LVL-1",
+                                                     parenttype="EC Approval Level", participant_purpose="Approver")}
+    out = job.run()
+    assert out["results"] == [("BOSS", "locked_not_left")]
+    assert W.tables["User"]["boss@x"]["enabled"] == 0         # KHOA TRUOC
+    msg = W.events[0][1]["message"]
+    assert "1 nguoi report cho BOSS" in msg and "EC Department Approver Ops - EC" in msg and "LVL-1" in msg

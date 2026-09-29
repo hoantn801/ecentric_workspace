@@ -254,7 +254,7 @@
   function processPreviewHTML(){
     var steps=[
       {name:"Tạo yêu cầu",state:"current",statusLabel:"Đang thực hiện",meta:"Điền thông tin đề xuất thăng chức."},
-      {name:"Direct Manager review",state:"upcoming",statusLabel:"Chờ",meta:"Quản lý trực tiếp xem xét."},
+      {name:"Direct Manager review",state:"upcoming",statusLabel:"Chờ",meta:"Quản lý xem được lương nhân sự xem xét."},
       {name:"CnB review",state:"upcoming",statusLabel:"Chờ",meta:"Compensation & Benefits xem xét."},
       {name:"HOF review",state:"upcoming",statusLabel:"Chờ",meta:"Head of Function xem xét."},
       {name:"CEO review",state:"upcoming",statusLabel:"Chờ",meta:"CEO phê duyệt."}];
@@ -411,6 +411,9 @@
   function renderDetail(b){ b.innerHTML=skeleton(4);
     call("get_detail",{name:state.id}).then(function(det){ drawDetail(b,det); })
     .catch(function(e){ var perm=/quyền|access|permission/i.test((e&&e.message)||""); b.innerHTML='<div class="card"><div class="state"><h4>'+(perm?"Bạn không có quyền xem yêu cầu này":"Không tải được yêu cầu")+'</h4><button type="button" class="btn" id="d-back">Quay lại</button></div></div>'; var bk=$("d-back"); if(bk)bk.onclick=function(){ window.location.href=hubHref(); }; }); }
+  // Review Phan quyen P1 (29/09): server da xoa so voi nguoi khong xem duoc luong nhan su do.
+  var HIDDEN_SALARY="Ẩn - bạn không có quyền xem lương nhân sự này";
+  function salaryVal(biz,k){ return biz.salary_hidden?HIDDEN_SALARY:biz[k]; }
   function applyBannerHTML(det){ var x=(det&&det.extra)||{}, ap=(det&&det.approval)||{};
     if(ap.approval_status!=="Approved"||!x.auto_apply) return "";
     var cls=x.applied_at?(/LỖI|tay/.test(x.apply_result||"")?"warn":"info"):(x.apply_result?"err":"warn");
@@ -420,7 +423,7 @@
     b.innerHTML='<div style="margin-bottom:12px"><button type="button" class="btn" id="d-back">‹ Danh sách</button></div>'
       +'<div class="card"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px"><div><h3 style="margin:0">'+esc(biz.request_title||biz.name||state.id)+'</h3><div class="hint">'+esc(biz.name||"")+' · '+esc(biz.full_name||"")+' · '+esc(biz.requested_by||"")+' · '+esc(biz.department||"")+'</div></div><div>'+badge(ap.approval_status||"Draft")+'</div></div></div>'
       +'<div class="card"><h3>Tiến trình phê duyệt</h3><div class="stepper" id="d-stepper"></div></div>'
-      +'<div class="card"><h3>Thông tin nhân sự</h3><div class="grid2">'+kv("Họ tên",biz.full_name)+kv("Phòng ban",biz.department)+kv("Vị trí hiện tại",biz.current_position)+kv("Vị trí đề xuất",biz.proposed_position)+kv("Lương hiện tại (VND)",biz.current_salary)+kv("Lương đề xuất (VND)",biz.proposed_salary)+kv("Ngày hiệu lực",biz.effective_date_of_promotion)+'</div><div class="fld" style="margin-top:10px"><label>Lý do đề xuất</label><textarea class="ro" readonly rows="3">'+esc(biz.justification||"")+'</textarea></div><div class="fld" style="margin-top:10px"><label>Đãi ngộ / phúc lợi khác</label><textarea class="ro" readonly rows="2">'+esc(biz.incentives||"")+'</textarea></div></div>'
+      +'<div class="card"><h3>Thông tin nhân sự</h3><div class="grid2">'+kv("Họ tên",biz.full_name)+kv("Phòng ban",biz.department)+kv("Vị trí hiện tại",biz.current_position)+kv("Vị trí đề xuất",biz.proposed_position)+kv("Lương hiện tại (VND)",salaryVal(biz,"current_salary"))+kv("Lương đề xuất (VND)",salaryVal(biz,"proposed_salary"))+kv("Ngày hiệu lực",biz.effective_date_of_promotion)+'</div><div class="fld" style="margin-top:10px"><label>Lý do đề xuất</label><textarea class="ro" readonly rows="3">'+esc(biz.justification||"")+'</textarea></div><div class="fld" style="margin-top:10px"><label>Đãi ngộ / phúc lợi khác</label><textarea class="ro" readonly rows="2">'+esc((biz.salary_hidden?HIDDEN_SALARY:(biz.incentives||"")))+'</textarea></div></div>'
       +applyBannerHTML(det)
       +'<div class="card"><h3>Đính kèm</h3>'+renderAttachments(det.attachments)+'</div>'
       +'<div class="card"><h3>Hành động</h3>'+actionPanelHTML(det)+'</div>'

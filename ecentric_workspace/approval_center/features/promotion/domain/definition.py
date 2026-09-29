@@ -20,6 +20,8 @@ def _definition(code, doctype, feature, editable, mine, approvals, options, filt
         filter_builder=ExactAndDateFilters(filters),
         # 29/09: duyet xong tu cap nhat ho so + luong; ket qua hien o chi tiet.
         detail_extender=ServiceMethod(_BASE, "promotion_block"),
+        # Review Phan quyen P1: nguoi xem khong xem duoc luong nhan su do thi khong thay so.
+        business_redactor=ServiceMethod(_BASE, "redact_business"),
         ai_exclude_fields=("current_salary", "proposed_salary", "incentives"),
         **service_callbacks(feature),
     )

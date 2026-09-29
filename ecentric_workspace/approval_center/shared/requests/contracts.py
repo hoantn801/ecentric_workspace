@@ -79,6 +79,12 @@ class ApprovalDefinition:
     #: -> dict, gan vao detail["extra"]. Dung khi form can ngu canh ngoai phieu (Payment Request:
     #: chuoi cac dot thanh toan). Chi DOC; khong ghi, khong giu tham chieu.
     detail_extender: Optional[Callable] = None
+    #: An bot truong nhay cam khoi man hinh chi tiet theo NGUOI XEM, do module so huu:
+    #: (business_dict, approval_request) -> None, sua business_dict tai cho. Chay SAU khi doc
+    #: phieu, TRUOC khi tra ve trinh duyet - moi duong doc chi tiet (form, hub, action center)
+    #: di qua query_service.get_detail nen chi can mot cho. Vd Promotion (29/09): nguoi duyet
+    #: khong xem duoc luong nhan su do (Lead o buoc quan ly truc tiep) khong thay so luong.
+    business_redactor: Optional[Callable] = None
     #: Ba dau hieu ngoai le cho tab "Tao hang loat", do module so huu:
     #: (rows, user) -> {key: {ten_co: bool}}. Mac dinh None = form nay khong co dau hieu nao
     #: va man hinh chi don gian khong ve cot do.
