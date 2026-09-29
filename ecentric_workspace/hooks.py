@@ -577,3 +577,14 @@ web_include_js.append("ec_api.bundle.js")
 # --------------------------------------------------------------------------- #
 scheduler_events["cron"].setdefault("*/15 10 * * *", []).append(
     "ecentric_workspace.approval_center.features.new_staff_preparation.application.welcome.send_welcome_teams")
+
+# --------------------------------------------------------------------------- #
+# 29/09/2026 - Cho nghi /attendance-database (Web Page "attendance", tao 05/2026): ban tien than
+# cua /ec-hr/attendance, khong menu, khong trang nao link toi, nguon chi nam trong DB va co khoi
+# boc window.fetch (NHIEU_LOP brief_hr buoc 6). Hoan chot 29/09: cho nghi -> chuyen sang
+# /ec-hr/attendance. 302 (khong 301) de trinh duyet khong nho vinh vien, muon mo lai chi can go
+# dong nay. KHONG xoa / unpublish Web Page tren production.
+# --------------------------------------------------------------------------- #
+website_redirects = list(globals().get("website_redirects") or []) + [
+    {"source": "/attendance-database", "target": "/ec-hr/attendance", "redirect_http_status": 302},
+]
