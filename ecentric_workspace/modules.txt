@@ -6,3 +6,4 @@ Notification Center
 Approval Center
 Reporting
 SLA
+Home Today

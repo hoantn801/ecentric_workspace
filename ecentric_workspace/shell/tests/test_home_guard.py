@@ -108,7 +108,9 @@ class TestHomeSync(unittest.TestCase):
         self.assertEqual(self.ps.SUPERSEDES_SHA256, (
             "2a4c6826a8f091a203a960e44be652dea97486f5ad75fef09188294e5c9bcf76",
             "0a77f921665a2a619232041647cfaa3158216cf070fa6905b1a03020a81fdb5d",
-            "52d1d24463601e8c41cd75fb569dce3bde22c563ee4e22ca39aca2fe5d4b0faa"))
+            "52d1d24463601e8c41cd75fb569dce3bde22c563ee4e22ca39aca2fe5d4b0faa",
+            # p227 (go chat cu) - ban live truoc khi p228 them popup "Hom nay o eCentric"
+            "7bfda03ccb1e779f481347c7b8e54b9affc3a8072d45c42e1c14bea685d18aec"))
 
     def test_sync_writes_the_file_under_the_drift_lock_after_a_render_check(self):
         res = self.ps.sync()

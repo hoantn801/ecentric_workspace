@@ -1,0 +1,164 @@
+{
+ "doctype": "DocType",
+ "name": "EC Home Announcement",
+ "module": "Home Today",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "autoname": "hash",
+ "naming_rule": "Random",
+ "sort_field": "start_date",
+ "sort_order": "DESC",
+ "title_field": "title",
+ "show_title_field_in_link": 1,
+ "image_field": "image",
+ "make_attachments_public": 1,
+ "description": "Thông báo lên popup \"Hôm nay ở eCentric\" trên trang chủ (tính năng mới, chính sách, sự kiện, poster ảnh). Xem home_today/README.md.",
+ "field_order": [
+  "title",
+  "category",
+  "display",
+  "column_break_1",
+  "published",
+  "start_date",
+  "end_date",
+  "section_image",
+  "image",
+  "section_content",
+  "summary",
+  "content",
+  "link",
+  "link_label"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Tiêu đề",
+   "reqd": 1,
+   "in_list_view": 1,
+   "length": 140
+  },
+  {
+   "fieldname": "category",
+   "fieldtype": "Select",
+   "label": "Loại",
+   "options": "Tính năng mới\nModule mới\nChính sách\nSự kiện\nThông báo",
+   "default": "Thông báo",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "display",
+   "fieldtype": "Select",
+   "label": "Cách hiện",
+   "options": "Ảnh + nội dung\nChỉ ảnh (hiện full)",
+   "default": "Ảnh + nội dung",
+   "description": "Chỉ ảnh (hiện full): thông báo thành một ô riêng trong popup, ảnh phủ kín khung bên phải. Nên dùng ảnh ngang ~1600×900."
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "published",
+   "fieldtype": "Check",
+   "label": "Đăng lên popup",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "start_date",
+   "fieldtype": "Date",
+   "label": "Hiện từ ngày",
+   "default": "Today",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "end_date",
+   "fieldtype": "Date",
+   "label": "Hiện đến ngày",
+   "description": "Để trống = hiện 7 ngày kể từ ngày bắt đầu."
+  },
+  {
+   "fieldname": "section_image",
+   "fieldtype": "Section Break",
+   "label": "Ảnh"
+  },
+  {
+   "fieldname": "image",
+   "fieldtype": "Attach Image",
+   "label": "Ảnh",
+   "description": "Ảnh bìa (Ảnh + nội dung) hoặc ảnh poster (Chỉ ảnh). Tệp tải lên ở đây luôn là tệp công khai để mọi người xem được."
+  },
+  {
+   "fieldname": "section_content",
+   "fieldtype": "Section Break",
+   "label": "Nội dung"
+  },
+  {
+   "fieldname": "summary",
+   "fieldtype": "Small Text",
+   "label": "Tóm tắt",
+   "description": "1–2 câu hiện ngay trong popup. Để trống thì lấy từ nội dung."
+  },
+  {
+   "fieldname": "content",
+   "fieldtype": "Text Editor",
+   "label": "Nội dung chi tiết",
+   "description": "Hiện khi bấm \"Xem chi tiết\"."
+  },
+  {
+   "fieldname": "link",
+   "fieldtype": "Data",
+   "label": "Đường dẫn",
+   "options": "URL",
+   "description": "Tuỳ chọn: trang tính năng mới (vd /ec-hr/attendance) hoặc link ngoài."
+  },
+  {
+   "fieldname": "link_label",
+   "fieldtype": "Data",
+   "label": "Chữ trên nút",
+   "description": "Vd: Dùng thử ngay. Để trống = \"Mở →\"."
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 1,
+   "share": 1
+  },
+  {
+   "role": "HR Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 1
+  },
+  {
+   "role": "HR User",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "report": 1,
+   "print": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}
