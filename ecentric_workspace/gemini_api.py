@@ -527,11 +527,25 @@ KIE_PROVIDER = "kie"
 #: gioi han that, nen code cho qua nhung tep ma Kie chac chan tu choi: ban ghi
 #: khong co diem, va ly do that thi nam o tan loi 400 cua Kie.
 #:
-#: TAM dat 3.5 MiB (duoi so quan sat duoc mot chut). Con so DUNG phai do bang
-#: `probe_inline_limit()` roi cap nhat o day kem ngay do -- dung suy tiep tu mot
-#: quan sat duy nhat, va gioi han co the khac nhau giua cac dialect.
-#: [TEMP-WORKAROUND 2026-09-29: so uoc luong tu mot loi 400. Go sau khi do that.]
-KIE_INLINE_MAX_BYTES = 3584 * 1024        # 3.5 MiB
+#: DA DO, 29/09/2026, bang `probe_inline_limit()` (snapshot kie_inline_20260929_133355):
+#:
+#:   gemini-3-8-flash         (dialect gemini, inlineData) : 2MB OK, 3MB OK,
+#:                                                            3.5MB khi lot khi 502
+#:   gemini-3-8-flash-openai  (dialect gemini_oai, data: URL): TU CHOI ngay o 2MB
+#:   gemini-3-6-flash-openai  (dialect gemini_oai)           : TU CHOI ngay o 2MB
+#:
+#: Hai nhanh lech nhau rat xa. Lay 3 MiB = muc nhanh CHINH nhan chac chan.
+#:
+#: KHONG lay MIN qua ca chuoi. Phep do ban dau khuyen lay min voi ly le "mot tep
+#: phai lot qua ca model du phong thi chuoi moi co nghia" -- nghe hop ly, nhung
+#: so lieu cho thay no dan toi tran < 2MB, bop chet ca deck binh thuong. Nhanh
+#: `-openai` khong bao gio nhan noi tep co nay, nen voi duong CHAM DIEM no khong
+#: phai du phong: phai bo qua no nhu da bo qua gpt-6-luna, chu khong keo tran
+#: xuong theo no. (Viec bo qua nam o gateway `_usable` - xem ghi chu duoi.)
+#:
+#: 3.5MB bi loai vi 502: do la proxy NHA MINH het gio, khong phai Kie tu choi --
+#: nhung vung 3-3.5MB da chung to la khong on dinh, khong nen o sat mep.
+KIE_INLINE_MAX_BYTES = 3 * 1024 * 1024    # 3 MiB, do that 29/09
 
 #: Nen ma khong an gi thi dung som. Deck toan anh chup thi ha do phan giai an
 #: ngay; deck la PDF xuat tu Office (anh da nen san, chu la vector) thi khong an
@@ -594,10 +608,23 @@ def shrink_pdf_for_inline(data, max_bytes=KIE_INLINE_MAX_BYTES):
             break
         if time.time() - started > SHRINK_MAX_SECONDS:
             return None, "het ngan sach thoi gian khi nen (da thu toi %.2f)" % scale
+        replaced = failed = 0
+        first_err = ""
         try:
             reader = PdfReader(_io.BytesIO(data))
             writer = PdfWriter()
             for page in reader.pages:
+                writer.add_page(page)
+            # Sua anh tren trang cua WRITER, khong phai trang cua READER.
+            #
+            # Ban 25/09 duyet `reader.pages` roi goi `img.replace(...)`, va pypdf
+            # nem "Cannot update an image not belonging to a PdfWriter" o MOI anh.
+            # Vong lap bat `except Exception: continue` voi y "mot anh hong khong
+            # lam hong ca tep", nen no nuot sach: khong anh nao duoc thay, ham tra
+            # ve PDF ghi-lai-y-nguyen, va bao cao la "nen khong an". Ham nen chua
+            # bao gio nen duoc gi tu luc viet ra. Dinh that: ban 10.010.963 byte
+            # "giam 95 byte" -- do la chenh lech khi ghi lai, khong phai nen.
+            for page in writer.pages:
                 for img in list(getattr(page, "images", []) or []):
                     try:
                         pil = Image.open(_io.BytesIO(img.data))
@@ -605,10 +632,13 @@ def shrink_pdf_for_inline(data, max_bytes=KIE_INLINE_MAX_BYTES):
                         h = max(1, int(pil.height * scale))
                         pil = pil.convert("RGB").resize((w, h))
                         img.replace(pil, quality=quality)
-                    except Exception:
-                        # Mot anh hong khong duoc lam hong ca tep.
-                        continue
-                writer.add_page(page)
+                        replaced += 1
+                    except Exception as exc:
+                        # Van bo qua anh hong -- nhung DEM lai. Nuot im lang la
+                        # thu da giau loi tren suot bon ngay.
+                        failed += 1
+                        if not first_err:
+                            first_err = str(exc)[:120]
             out = _io.BytesIO()
             writer.write(out)
             shrunk = out.getvalue()
@@ -617,6 +647,15 @@ def shrink_pdf_for_inline(data, max_bytes=KIE_INLINE_MAX_BYTES):
 
         if not (shrunk and shrunk.startswith(b"%PDF")):
             return None, "ket qua nen khong phai PDF hop le"
+
+        # Khong thay duoc anh NAO la mot chuyen khac han voi "nen chua du".
+        # Gop hai cai vao mot thong bao chinh la cach loi tren an minh.
+        if replaced == 0:
+            why = "PDF khong co anh bitmap nao de ha do phan giai"
+            if failed:
+                why = "co %d anh nhung KHONG thay duoc anh nao (%s)" % (failed, first_err)
+            return None, ("khong nen duoc: %s. Can nguoi nop xuat lai file nhe hon."
+                          % why)
         last_size = len(shrunk)
         if last_size <= max_bytes:
             return shrunk, "da nen %d -> %d byte (ty le %.2f, chat luong %d)" % (
@@ -666,7 +705,45 @@ def probe_llm_chain():
                            if not dialects.ACCEPTS_FILES.get(dialects.dialect_of(m))],
         "dialect": dict((m, dialects.dialect_of(m)) for m in chain),
         "tran_inline_bytes": KIE_INLINE_MAX_BYTES,
+        "suc_khoe": _health_snapshot(chain),
     }
+
+
+def _health_snapshot(chain):
+    """Ti le thanh cong 60 phut gan nhat cua tung model. -> dict.
+
+    Doc tu `platform.ai.health`, do cron 10 phut ping bang mot cau cuc ngan --
+    tin hieu SACH: no khong dinh luu luong do dac nang (29/09 minh day vai MB
+    len Kie nhieu luot; neu ho co gioi han tan suat thi bieu hien y het "khong
+    on dinh", va bang do nay tach duoc hai chuyen do).
+
+    `rate = None` nghia la CHUA DU MAU de ket luan, khac han rate = 0. Gop hai
+    cai lam mot la bien "chua biet" thanh "hong".
+
+    Import luoi va nuot loi: `health` la module cua cong AI chung, co the chua
+    co tren ban dang chay hoac doi cho. Mot ham chan doan khong duoc phep chet
+    vi thu no muon chan doan.
+    """
+    out = {}
+    try:
+        from ecentric_workspace.platform.ai import health
+    except Exception as exc:
+        return {"_loi": "khong doc duoc health: %s" % str(exc)[:120]}
+    for m in chain:
+        try:
+            rate, n, med_ms = health.stats(m)
+        except Exception as exc:
+            out[m] = {"_loi": str(exc)[:80]}
+            continue
+        out[m] = {
+            "ti_le": (None if rate is None else round(float(rate), 3)),
+            "so_mau": n,
+            "ms_trung_vi": med_ms,
+            "du_mau": rate is not None,
+            "bi_bo_qua": bool(rate is not None
+                              and health.is_unhealthy_rate(rate)),
+        }
+    return out
 
 
 @frappe.whitelist(methods=["POST"])
