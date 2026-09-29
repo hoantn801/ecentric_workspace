@@ -54,9 +54,18 @@ def _holidays(repo, viewer, today):
     return hit
 
 
-def _onboard(repo):
+def _onboard_rows(repo, day):
+    key = C.CACHE_KEY + "onb:" + day.isoformat()
+    rows = repo.cache_get(key)
+    if rows is None:
+        rows = list(repo.onboard_rows())
+        repo.cache_set(key, rows, C.ONBOARD_TTL)
+    return rows
+
+
+def _onboard(repo, day):
     out = []
-    for r in repo.onboard_rows():
+    for r in _onboard_rows(repo, day):
         name = (r.get("candidate_name") or "").strip()
         if not r.get("name") or not name:
             continue
@@ -85,7 +94,7 @@ def today(user, now=None, repo=None):
     day = _today(repo, now)
     sh = _shared(repo, day)
     viewer = repo.viewer_employee(user)
-    onboard = _onboard(repo)
+    onboard = _onboard(repo, day)
     react_keys = [p["key"] for p in sh["bd_today"]] + [p["key"] for p in onboard] + [p["key"] for p in sh["anniv"]]
     rows = repo.reactions(react_keys)
     names = repo.full_names([r.get("user") for r in rows])
@@ -115,7 +124,7 @@ def toggle(user, target, kind, now=None, repo=None):
         raise HomeTodayError("Cảm xúc không hợp lệ")
     day = _today(repo, now)
     sh = _shared(repo, day)
-    valid = {p["key"] for p in sh["bd_today"]} | {p["key"] for p in sh["anniv"]} | {p["key"] for p in _onboard(repo)}
+    valid = {p["key"] for p in sh["bd_today"]} | {p["key"] for p in sh["anniv"]} | {p["key"] for p in _onboard(repo, day)}
     if target not in valid:
         raise HomeTodayError("Mục này không còn trong ngày hôm nay")
     existing = repo.find_reaction(target, kind, user)
@@ -136,19 +145,23 @@ def celebration(user, now=None, repo=None):
     """Cho trang chu (Jinja, render theo tung nguoi): muc trang tri + popup co gi de hien khong.
     KHONG BAO GIO nem loi - loi o day la trang chu 500 cho ca cong ty. Loi -> muc 0, ghi log."""
     off = {"level": C.LEVEL_NONE, "badge": "", "has_content": False}
+    fail_key = C.CACHE_KEY + "fail"
     try:
         repo = _repo(repo)
-        if not user or user == "Guest":
+        if not user or user == "Guest" or repo.cache_get(fail_key):
             return off
         day = _today(repo, now)
         sh = _shared(repo, day)
         viewer = repo.viewer_employee(user) if sh["bd_today"] else None
         out = D.celebration(sh["bd_today"], viewer, sh["depts"])
-        out["has_content"] = bool(sh["news"] or sh["bd_today"] or sh["bd_soon"] or sh["anniv"]) or bool(repo.onboard_rows())
+        out["has_content"] = bool(sh["news"] or sh["bd_today"] or sh["bd_soon"] or sh["anniv"]) or bool(_onboard_rows(repo, day))
         return out
     except Exception:
+        # Ghi log MOT lan moi FAIL_TTL, trong luc do tra muc 0 ngay (khong truy van lai):
+        # moi lan mo trang chu ma ghi Error Log = bao Error Log nhu vu scheduler GBS.
         try:
-            _repo(repo).log_error("home_today.celebration")
+            repo.cache_set(fail_key, 1, C.FAIL_TTL)
+            repo.log_error("home_today.celebration")
         except Exception:
             pass
         return off

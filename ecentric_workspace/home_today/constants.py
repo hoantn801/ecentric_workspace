@@ -25,6 +25,10 @@ LEVEL_NONE, LEVEL_LIGHT, LEVEL_DEPT, LEVEL_ME = 0, 1, 2, 3
 #: Du lieu dung chung cho moi nguoi (khong phu thuoc ai xem) cache theo ngay.
 CACHE_KEY = "ec_home_today:v1:"
 CACHE_TTL = 600
+#: Ban moi hom nay (goi ham cua chat HR, 1 + N truy van) - cache ngan vi mo cua 08:30.
+ONBOARD_TTL = 60
+#: celebration() loi -> nho 10 phut: khong ghi Error Log / khong truy van lai MOI lan mo trang chu.
+FAIL_TTL = 600
 
 #: Nhan the tin. News Post.category (site) -> nhan hien tren popup.
 NEWS_TAGS = {

@@ -6,10 +6,13 @@ Ghi chu quyen: cac ham doc chay phia server, loc theo phien nguoi dung o service
 CHI de tinh ngay/thang - domain.birthdays khong tra nam sinh ra ngoai.
 """
 import datetime
+import re
 
 import frappe
 
 from ecentric_workspace.home_today import constants as C
+
+_STRIP_RE = re.compile(r"<(style|link|script)\b[^>]*>.*?</\1\s*>|<(style|link|script)\b[^>]*/?>", re.I | re.S)
 
 
 def active_employees():
@@ -61,24 +64,39 @@ def news_rows(today):
     meta = frappe.get_meta(C.NEWS_DT)
     if not meta.has_field("ec_show_in_popup"):
         return []
-    fields = ["name", "title", "category", "image", "summary", "published_on", "content"]
-    if meta.has_field("ec_popup_until"):
-        fields.append("ec_popup_until")
+    # DocType cua site: chi doc cot CO THAT (thieu mot cot = ca popup chet, xem service._shared)
+    fields = ["name"] + [f for f in ("title", "category", "image", "summary", "published_on",
+                                     "content", "ec_popup_until") if meta.has_field(f)]
+    if "published_on" not in fields:
+        return []
     rows = frappe.get_all(
         C.NEWS_DT, fields=fields, order_by="published_on desc", limit=20,
-        filters={"published": 1, "ec_show_in_popup": 1,
-                 "published_on": [">=", today - datetime.timedelta(days=90)]})
-    from frappe.utils.html_utils import sanitize_html
+        filters={"published": 1, "ec_show_in_popup": 1})
     for r in rows:
-        r["content_html"] = sanitize_html(r.get("content") or "")[:20000]
+        r["content_html"] = safe_html(r.get("content"))
     return rows
+
+
+def safe_html(html, limit=20000):
+    """HTML tin noi bo -> an toan de gan innerHTML tren trang chu cua MOI nguoi.
+    always_sanitize: sanitize_html mac dinh tra NGUYEN chuoi neu no parse duoc thanh JSON hoac
+    khong co the. Cat TRUOC khi lam sach (cat sau co the de lai the mo do). Bo <style>/<link>:
+    allowlist cua Frappe giu <style> -> mot tin co the doi mau ca trang chu."""
+    from frappe.utils.html_utils import sanitize_html
+    raw = (html or "")[:limit]
+    clean = sanitize_html(raw, always_sanitize=True) or ""
+    return _STRIP_RE.sub("", clean)
 
 
 def policy_rows(today):
     if not frappe.db.exists("DocType", C.POLICY_DT):
         return []
+    meta = frappe.get_meta(C.POLICY_DT)
+    if not (meta.has_field("effective_date") and meta.has_field("is_active")):
+        return []
+    fields = ["name"] + [f for f in ("title", "effective_date", "document", "content") if meta.has_field(f)]
     return frappe.get_all(
-        C.POLICY_DT, fields=["name", "title", "effective_date", "document", "content"],
+        C.POLICY_DT, fields=fields,
         filters={"is_active": 1,
                  "effective_date": ["between", [today - datetime.timedelta(days=C.POLICY_DAYS - 1), today]]},
         order_by="effective_date desc", limit=10)
@@ -120,7 +138,17 @@ def add_reaction(target, kind, user, today):
 
 
 def is_duplicate(exc):
-    return isinstance(exc, frappe.DuplicateEntryError) or frappe.db.is_unique_key_violation(exc)
+    """Trung dedupe_key (truong unique): Frappe nem UniqueValidationError(doctype, name, e) -
+    args[0] la TEN DOCTYPE, loi MySQL goc nam o __cause__ / args[2]."""
+    if isinstance(exc, (frappe.DuplicateEntryError, frappe.UniqueValidationError)):
+        return True
+    for e in (exc, getattr(exc, "__cause__", None)):
+        try:
+            if e is not None and frappe.db.is_unique_key_violation(e):
+                return True
+        except Exception:
+            pass
+    return False
 
 
 def remove_reaction(name):

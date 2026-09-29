@@ -103,6 +103,10 @@ class TestPopupInJsdom(unittest.TestCase):
         self.assertEqual(a["now"], "Sinh nhật")
         self.assertEqual(a["pausedStays"], "Sinh nhật")
         self.assertTrue(a["closedByBackdrop"])
+        self.assertTrue(a["escInMateKeepsOpen"], "Esc khi dang go trong eC Mate khong duoc dong popup")
+
+    def test_keyboard_user_stops_auto_rotate(self):
+        self.assertEqual(self.r["focusPause"], {"stays": "Thông báo", "focusKept": True})
 
     def test_hide_today_and_new_items(self):
         self.assertEqual(self.r["hidden"], {"same": False, "newItem": True, "otherDay": True, "junk": True})

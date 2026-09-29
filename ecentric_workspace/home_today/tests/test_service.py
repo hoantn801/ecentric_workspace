@@ -143,12 +143,25 @@ class TestCelebration(unittest.TestCase):
         self.assertEqual(S.celebration("khoa@x", repo=FakeRepo())["level"], 1)
         self.assertEqual(S.celebration("Guest", repo=FakeRepo())["level"], 0)
 
-    def test_never_raises(self):
+    def test_never_raises_and_logs_once_per_window(self):
         r = FakeRepo()
         r.fail = RuntimeError("db down")
+        logs = []
+        r.log_error = logs.append
         out = S.celebration("xem@x", repo=r)
         self.assertEqual(out, {"level": 0, "badge": "", "has_content": False})
-        self.assertEqual(r.logged, "home_today.celebration")
+        self.assertEqual(logs, ["home_today.celebration"])
+        for _ in range(5):                       # 5 lan mo trang chu tiep theo: khong truy van, khong log
+            self.assertEqual(S.celebration("xem@x", repo=r)["level"], 0)
+        self.assertEqual((len(logs), r.calls["employees"]), (1, 1))
+
+    def test_onboard_cached_between_renders(self):
+        r = FakeRepo()
+        r.emps = [dict(r.emps[2])]
+        for _ in range(3):
+            S.celebration("xem@x", repo=r)
+        S.today("xem@x", repo=r)
+        self.assertEqual(r.calls["onboard"], 1)
 
     def test_has_content_without_birthdays(self):
         r = FakeRepo()
@@ -158,6 +171,41 @@ class TestCelebration(unittest.TestCase):
         r2 = FakeRepo()
         r2.emps = [dict(r2.emps[2])]
         self.assertTrue(S.celebration("xem@x", repo=r2)["has_content"], "chi co ban moi cung la co noi dung")
+
+
+
+class TestSafeHtml(unittest.TestCase):
+    """repository.safe_html bang frappe gia: always_sanitize, cat TRUOC khi lam sach, bo style/link/script."""
+
+    def test_safe_html(self):
+        import types
+        calls = []
+        fake = types.ModuleType("frappe")
+        utils = types.ModuleType("frappe.utils")
+        hu = types.ModuleType("frappe.utils.html_utils")
+
+        def sanitize_html(html, always_sanitize=False):
+            calls.append((html, always_sanitize))
+            return html
+        hu.sanitize_html = sanitize_html
+        saved = {k: sys.modules.get(k) for k in ("frappe", "frappe.utils", "frappe.utils.html_utils")}
+        sys.modules.update({"frappe": fake, "frappe.utils": utils, "frappe.utils.html_utils": hu})
+        try:
+            import importlib
+            from ecentric_workspace.home_today import repository as R
+            importlib.reload(R)
+            out = R.safe_html('<p>a</p><style>body{display:none}</style><link rel="stylesheet" href="x"><script>x()</script><b>b</b>')
+            self.assertEqual(out, "<p>a</p><b>b</b>")
+            self.assertTrue(calls[-1][1], "phai always_sanitize=True")
+            R.safe_html("x" * 30000)
+            self.assertEqual(len(calls[-1][0]), 20000, "cat truoc khi lam sach")
+            self.assertEqual(R.safe_html(None), "")
+        finally:
+            for k, v in saved.items():
+                if v is None:
+                    sys.modules.pop(k, None)
+                else:
+                    sys.modules[k] = v
 
 
 if __name__ == "__main__":

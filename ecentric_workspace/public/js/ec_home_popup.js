@@ -308,6 +308,9 @@
     const dlg = st.root.querySelector('.dlg');
     dlg.addEventListener('mouseenter', () => { st.paused = true; dlg.classList.add('paused'); });
     dlg.addEventListener('mouseleave', () => { st.paused = false; if (!st.manual && !reduce) dlg.classList.remove('paused'); });
+    // Nguoi dung ban phim / trinh doc man hinh: da vao trong popup thi DUNG tu chuyen o -
+    // chuyen o = ve lai popup = mat focus dang dung.
+    dlg.addEventListener('focusin', (e) => { if (e.target !== dlg) { st.manual = true; dlg.classList.add('paused'); } });
     if (focus) dlg.focus();
   };
 
@@ -329,11 +332,14 @@
     st.manual = true;
     btn.setAttribute('aria-busy', 'true');
     post(API_REACT, { target: key, kind }).then((res) => {
-      if (res && res.target && res.reactions) st.data.reactions[res.target] = res.reactions;
+      if (res && res.target && res.reactions) {
+        st.data.reactions = st.data.reactions || {};
+        st.data.reactions[res.target] = res.reactions;
+      }
       render(st, false);
       const again = st.root.querySelector('[data-rx="' + key + '|' + kind + '"]');
       if (again) { again.classList.add('pop'); again.focus(); }
-    }, (e) => { warn(e); btn.removeAttribute('aria-busy'); });
+    }).catch((e) => { warn(e); btn.removeAttribute('aria-busy'); });
   };
 
   const show = (data) => {
@@ -349,7 +355,12 @@
       if (st.prevFocus && st.prevFocus.focus) { try { st.prevFocus.focus(); } catch (e) { /* bỏ qua */ } }
     };
     const onKey = (e) => {
-      if (e.key === 'Escape') { close(); return; }
+      // Esc chi dong popup khi focus dang o popup / trang - khong dong khi dang go trong eC Mate
+      // (nam TREN nen mo, z 1045).
+      const t = e.target;
+      const here = root.contains(t) || t === document.body || t === document.documentElement || t === document;
+      if (e.key === 'Escape') { if (here) close(); return; }
+      if (!here) return;
       if (!e.target.closest || !e.target.closest('.thumbs')) return;
       const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[e.key];
       if (step) { e.preventDefault(); go(st, st.i + step); const t = root.querySelector('[data-i="' + st.i + '"]'); if (t) t.focus(); }

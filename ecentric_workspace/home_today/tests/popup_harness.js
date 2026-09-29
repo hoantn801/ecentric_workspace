@@ -102,8 +102,21 @@ const txt = (el) => (el ? el.textContent.replace(/\s+/g, ' ').trim() : null);
     pop.querySelector('.dlg').dispatchEvent(new b.w.Event('mouseenter'));
     pop.querySelector('.th[aria-selected="true"] .prog i').dispatchEvent(new b.w.Event('animationend'));
     out.auto.pausedStays = txt(pop.querySelector('.th[aria-selected="true"] .tt'));
+    // Esc khi dang go trong eC Mate (ngoai popup) -> KHONG dong popup
+    const mate = b.d.createElement('textarea'); mate.id = 'ec-khay-fake'; b.d.body.appendChild(mate);
+    mate.focus();
+    mate.dispatchEvent(new b.w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    out.auto.escInMateKeepsOpen = !!b.d.getElementById('ech-pop');
     pop.dispatchEvent(new b.w.MouseEvent('click', { bubbles: true }));
     out.auto.closedByBackdrop = !b.d.getElementById('ech-pop');
+  }
+  // 3b) nguoi dung ban phim da vao popup -> khong tu chuyen o nua (khong mat focus)
+  {
+    const b = await boot(htmlOn, {});
+    const pop = b.d.getElementById('ech-pop');
+    pop.querySelector('[data-hide]').focus();
+    pop.querySelector('.th[aria-selected="true"] .prog i').dispatchEvent(new b.w.Event('animationend'));
+    out.focusPause = { stays: txt(pop.querySelector('.th[aria-selected="true"] .tt')), focusKept: b.d.activeElement === pop.querySelector('[data-hide]') };
   }
   // 4) da tich hom nay -> khong hien; co muc moi -> hien lai; ngay khac -> hien
   {
