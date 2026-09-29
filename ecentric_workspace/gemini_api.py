@@ -705,7 +705,45 @@ def probe_llm_chain():
                            if not dialects.ACCEPTS_FILES.get(dialects.dialect_of(m))],
         "dialect": dict((m, dialects.dialect_of(m)) for m in chain),
         "tran_inline_bytes": KIE_INLINE_MAX_BYTES,
+        "suc_khoe": _health_snapshot(chain),
     }
+
+
+def _health_snapshot(chain):
+    """Ti le thanh cong 60 phut gan nhat cua tung model. -> dict.
+
+    Doc tu `platform.ai.health`, do cron 10 phut ping bang mot cau cuc ngan --
+    tin hieu SACH: no khong dinh luu luong do dac nang (29/09 minh day vai MB
+    len Kie nhieu luot; neu ho co gioi han tan suat thi bieu hien y het "khong
+    on dinh", va bang do nay tach duoc hai chuyen do).
+
+    `rate = None` nghia la CHUA DU MAU de ket luan, khac han rate = 0. Gop hai
+    cai lam mot la bien "chua biet" thanh "hong".
+
+    Import luoi va nuot loi: `health` la module cua cong AI chung, co the chua
+    co tren ban dang chay hoac doi cho. Mot ham chan doan khong duoc phep chet
+    vi thu no muon chan doan.
+    """
+    out = {}
+    try:
+        from ecentric_workspace.platform.ai import health
+    except Exception as exc:
+        return {"_loi": "khong doc duoc health: %s" % str(exc)[:120]}
+    for m in chain:
+        try:
+            rate, n, med_ms = health.stats(m)
+        except Exception as exc:
+            out[m] = {"_loi": str(exc)[:80]}
+            continue
+        out[m] = {
+            "ti_le": (None if rate is None else round(float(rate), 3)),
+            "so_mau": n,
+            "ms_trung_vi": med_ms,
+            "du_mau": rate is not None,
+            "bi_bo_qua": bool(rate is not None
+                              and health.is_unhealthy_rate(rate)),
+        }
+    return out
 
 
 @frappe.whitelist(methods=["POST"])
