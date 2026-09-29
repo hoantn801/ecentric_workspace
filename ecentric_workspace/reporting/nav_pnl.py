@@ -26,18 +26,20 @@ APP = {
     "icon": "wallet", "group": "Doanh thu & Lợi nhuận", "order": 5,
     "active_patterns": ["/pnl-dashboard"],
     "visible_when": "internal", "owner": "reporting_pnl",
-    "keywords": ["pnl", "doanh thu", "loi nhuan", "chi phi", "opex", "bao cao"],
+    "keywords": ["pnl", "doanh thu", "loi nhuan", "chi phi", "opex", "bao cao", "dong tien", "du bao"],
     # canonical entry (resolve_context + tim kiem); KHONG phai mot dong sidebar
     # -- 5 view ben duoi MOI la nav, y het pm.app.
     "sidebar_hidden": True,
 }
 
 VIEWS = [
+    # 29/09: lam lai 5 tab. Hash cu #doanh-thu / #chi-phi / #opex van mo duoc -
+    # trang tu chuyen sang #bao-cao / #nhan-su.
     ("pnl.view.tong_quan", "Tổng quan", "/pnl-dashboard#tong-quan", "grid", 10),
-    ("pnl.view.brand", "Theo brand", "/pnl-dashboard#brand", "briefcase", 20),
-    ("pnl.view.doanh_thu", "Cấu trúc doanh thu", "/pnl-dashboard#doanh-thu", "chart", 30),
-    ("pnl.view.chi_phi", "Cấu trúc chi phí", "/pnl-dashboard#chi-phi", "wallet", 40),
-    ("pnl.view.opex", "OPEX", "/pnl-dashboard#opex", "list", 50),
+    ("pnl.view.brand", "Brand", "/pnl-dashboard#brand", "briefcase", 20),
+    ("pnl.view.nhan_su", "Nhân sự & chi phí", "/pnl-dashboard#nhan-su", "wallet", 30),
+    ("pnl.view.du_bao", "Dự báo", "/pnl-dashboard#du-bao", "chart", 40),
+    ("pnl.view.bao_cao", "Báo cáo", "/pnl-dashboard#bao-cao", "list", 50),
 ]
 
 

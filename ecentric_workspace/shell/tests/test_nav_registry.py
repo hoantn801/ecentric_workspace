@@ -306,8 +306,8 @@ class TestPnlSubSidebar(unittest.TestCase):
         items = nav.compose("pnl", roles=set())
         routes = [it["route"] for it in items]
         for r in ("/pnl-dashboard#tong-quan", "/pnl-dashboard#brand",
-                  "/pnl-dashboard#doanh-thu", "/pnl-dashboard#chi-phi",
-                  "/pnl-dashboard#opex"):
+                  "/pnl-dashboard#nhan-su", "/pnl-dashboard#du-bao",
+                  "/pnl-dashboard#bao-cao"):
             self.assertIn(r, routes)
         # muc canonical /pnl-dashboard la sidebar_hidden -> khong phai mot dong
         self.assertNotIn("/pnl-dashboard", routes)
