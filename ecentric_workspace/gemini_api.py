@@ -643,18 +643,52 @@ def shrink_pdf_for_inline(data, max_bytes=KIE_INLINE_MAX_BYTES):
 
 
 @frappe.whitelist(methods=["POST"])
-def probe_llm_health():
+def probe_llm_chain():
+    """Chuoi model dang chay, va model nao NHAN duoc tep. Khong goi model nao.
+
+    Vi sao tach rieng khoi `probe_llm_health`: health goi THAT ca chuoi roi moi
+    tra loi, nen no 504 truoc khi kip noi chuoi gom nhung gi -- mot ham chan
+    doan khong goi duoc thi khong chan doan duoc gi.
+
+    Va vi sao khong doc thang System Settings: o `ec_llm_model_kie_fallback`
+    RONG khong co nghia la khong co du phong -- `config.fallback_models()` roi
+    ve `DEFAULT_FALLBACKS` ghi trong code. 29/09 mot script doc o do roi ket
+    luan "chuoi chi con mot mat xich", sai han. Hoi cai DANG CHAY, dung doc o.
+    """
+    frappe.only_for("System Manager")
+    from ecentric_workspace.platform.ai import config, dialects
+    chain = config.chain()
+    return {
+        "chain": chain,
+        "nhan_tep": [m for m in chain
+                     if dialects.ACCEPTS_FILES.get(dialects.dialect_of(m))],
+        "khong_nhan_tep": [m for m in chain
+                           if not dialects.ACCEPTS_FILES.get(dialects.dialect_of(m))],
+        "dialect": dict((m, dialects.dialect_of(m)) for m in chain),
+        "tran_inline_bytes": KIE_INLINE_MAX_BYTES,
+    }
+
+
+@frappe.whitelist(methods=["POST"])
+def probe_llm_health(models=None):
     """Tung model trong chuoi AI co song khong - goi THAT mot cau ngan qua cong chung.
+
+    `models` (chuoi, cach nhau dau phay) de goi TUNG model mot. Khong co tham so
+    nay thi ham chay het chuoi trong MOT request va an 504 o proxy -- da dinh
+    that 29/09, hai lan.
 
     KHONG BAO GIO tra ve khoa: chi co / khong + do dai.
     """
     frappe.only_for("System Manager")
     from ecentric_workspace.platform.ai import config, gateway
     key = config.api_key()
+    if isinstance(models, str):
+        models = [m.strip() for m in models.split(",") if m.strip()]
+    chain = models or config.chain()
     out = {"key_present": bool(key), "key_len": len(key or ""), "disabled": config.disabled(),
-           "chain": config.chain(), "models": {}}
+           "chain": config.chain(), "da_thu": chain, "models": {}}
     schema = {"type": "object", "properties": {"ping": {"type": "string"}}, "required": ["ping"]}
-    for model in config.chain():
+    for model in chain:
         res = gateway.generate('Tra ve dung {"ping": "pong"}', schema=schema, models=[model],
                                purpose="probe_llm_health", budget=60, attempt_timeout=55)
         out["models"][model] = {"ok": res["ok"], "ms": res["latency_ms"],
