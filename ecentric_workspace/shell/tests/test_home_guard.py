@@ -104,9 +104,10 @@ class TestHomeSync(unittest.TestCase):
     def test_baseline_is_pinned_and_supersedes_live(self):
         sha = hashlib.sha256(io.open(os.path.join(HOME, "main_section.html"), "rb").read()).hexdigest()
         self.assertEqual(self.ps.BASELINE_SHA256, sha)
-        self.assertEqual(len(self.ps.SUPERSEDES_SHA256), 1)
-        self.assertEqual(self.ps.SUPERSEDES_SHA256[0],
-                         "2a4c6826a8f091a203a960e44be652dea97486f5ad75fef09188294e5c9bcf76")
+        # ban live truoc giai doan 2, roi ban p224 (nut cham cong xuong dong) - theo thu tu
+        self.assertEqual(self.ps.SUPERSEDES_SHA256, (
+            "2a4c6826a8f091a203a960e44be652dea97486f5ad75fef09188294e5c9bcf76",
+            "0a77f921665a2a619232041647cfaa3158216cf070fa6905b1a03020a81fdb5d"))
 
     def test_sync_writes_the_file_under_the_drift_lock_after_a_render_check(self):
         res = self.ps.sync()
