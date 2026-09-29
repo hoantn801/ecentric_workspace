@@ -124,6 +124,19 @@
     P + ' .wipbox b{font-size:15px;color:var(--g900)}',
     P + ' .soon-tag{background:var(--yellow-50);color:#8a6400;font-weight:700;font-size:11px;padding:2px 9px;border-radius:999px}',
     P + ' .rx{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}',
+    P + ' .pc{position:relative;padding-right:46px}',
+    P + ' .rxadd{position:absolute;top:8px;right:8px;z-index:4}',
+    P + ' .rxbtn{all:unset;cursor:pointer;width:32px;height:32px;border-radius:9px;display:grid;place-items:center;color:var(--g500);transition:background .12s,color .12s}',
+    P + ' .rxbtn:hover,' + P + ' .rxadd.open .rxbtn,' + P + ' .rxadd:hover .rxbtn{background:var(--app-bg);color:var(--navy)}',
+    P + ' .rxbtn:focus-visible{outline:3px solid var(--yellow)}',
+    P + ' .rxpick{position:absolute;right:0;top:100%;display:none;gap:2px;padding:4px;margin-top:2px;background:var(--surface);border:1px solid var(--line);border-radius:999px;box-shadow:0 10px 26px rgba(17,24,39,.16)}',
+    P + ' .rxpick::before{content:"";position:absolute;left:0;right:0;top:-8px;height:8px}',
+    P + ' .rxadd:hover .rxpick,' + P + ' .rxadd:focus-within .rxpick,' + P + ' .rxadd.open .rxpick{display:flex}',
+    P + ' .rxadd.rest:not(.open) .rxpick{display:none}',
+    P + ' .rxpick button{all:unset;cursor:pointer;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:20px;line-height:1;transition:transform .12s,background .12s}',
+    P + ' .rxpick button:hover{transform:translateY(-2px) scale(1.25);background:var(--app-bg)}',
+    P + ' .rxpick button[aria-pressed="true"]{background:var(--pink-50)}',
+    P + ' .rxpick button:focus-visible{outline:3px solid var(--yellow)}',
     P + ' .rb{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:3px 10px 3px 7px;font-size:13px;line-height:1.5;position:relative;transition:transform .12s}',
     P + ' .rb .c{font-size:12px;font-weight:700;color:var(--g600);font-variant-numeric:tabular-nums;min-width:1ch}',
     P + ' .rb[aria-pressed="true"]{background:var(--pink-50);border-color:var(--pink)}',
@@ -215,20 +228,36 @@
   // ------------------------------------------------------------ mảnh nội dung -----------
   const ava = (p, cls) => '<span class="ava ' + (cls || '') + '" style="background:' + COLORS[(p.color || 0) % COLORS.length] + '">' + esc(p.initials || '?') + '</span>';
 
-  const rxHTML = (st, key) => {
+  // Cam xuc kieu Teams (PO 29/09 16:27): goc tren phai the co MOT nut mat cuoi (+); re chuot /
+  // cham -> hien 4 icon de chon. Duoi ten CHI hien cam xuc DA co nguoi tha (icon + so); chua ai
+  // tha thi khong hien gi. Bam vao o cam xuc = bat/tat cua minh.
+  const SMILE_ADD = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">'
+    + '<path d="M20.5 11.5A8.5 8.5 0 1 1 12.5 3"/><path d="M8.5 14.5c.9 1.2 2.1 1.8 3.5 1.8s2.6-.6 3.5-1.8"/><circle cx="9" cy="10" r=".9" fill="currentColor" stroke="none"/>'
+    + '<circle cx="15" cy="10" r=".9" fill="currentColor" stroke="none"/><path d="M19 2.5v5M16.5 5h5"/></svg>';
+  const rxState = (st, key) => {
     const per = (st.data.reactions || {})[key];
-    if (!per) return '';
-    return '<div class="rx">' + EMO.map(([k, e]) => {
-      const v = per[k] || { n: 0, names: [], mine: false };
+    return per ? EMO.map(([k, e]) => ({ k, e, v: per[k] || { n: 0, names: [], mine: false } })) : null;
+  };
+  const rxAdd = (st, key) => {
+    const all = rxState(st, key);
+    if (!all) return '';
+    return '<div class="rxadd' + (st.pick === key ? ' open' : '') + '"><button type="button" class="rxbtn" data-rxopen="' + esc(key) + '" aria-label="Thả cảm xúc" aria-haspopup="true" aria-expanded="' + (st.pick === key) + '">' + SMILE_ADD + '</button>'
+      + '<div class="rxpick" role="menu">' + all.map((x) => '<button type="button" role="menuitem" aria-pressed="' + (!!x.v.mine) + '" data-rx="' + esc(key) + '|' + x.k + '" aria-label="' + x.e + '">' + x.e + '</button>').join('') + '</div></div>';
+  };
+  const rxHTML = (st, key) => {
+    const all = rxState(st, key);
+    const used = (all || []).filter((x) => x.v.n > 0);
+    if (!used.length) return '';
+    return '<div class="rx">' + used.map(({ k, e, v }) => {
       const who = (v.mine ? ['Bạn'] : []).concat(v.names || []);
-      const more = v.n - who.length;
-      const tip = who.length ? who.slice(0, 5).join(', ') + (who.length > 5 || more > 0 ? ' +' + (Math.max(who.length - 5, 0) + Math.max(more, 0)) : '') : 'Chưa ai thả';
+      const extra = Math.max(who.length - 5, 0) + Math.max(v.n - who.length, 0);
+      const tip = who.slice(0, 5).join(', ') + (extra ? ' +' + extra : '');
       return '<button type="button" class="rb" aria-pressed="' + (!!v.mine) + '" data-rx="' + esc(key) + '|' + k + '" aria-label="' + e + ' ' + v.n + '">'
-        + e + '<span class="c">' + (v.n || '') + '</span><span class="tip">' + esc(tip) + '</span></button>';
+        + e + '<span class="c">' + v.n + '</span><span class="tip">' + esc(tip) + '</span></button>';
     }).join('') + '</div>';
   };
 
-  const person = (st, p, sub) => '<div class="pc">' + ava(p, 'ring') + '<div class="who"><span class="nm">' + esc(p.name) + '</span>'
+  const person = (st, p, sub) => '<div class="pc">' + (p.key ? rxAdd(st, p.key) : '') + ava(p, 'ring') + '<div class="who"><span class="nm">' + esc(p.name) + '</span>'
     + '<span class="rl">' + esc([p.role, sub].filter(Boolean).join(' · ')) + '</span>' + (p.key ? rxHTML(st, p.key) : '') + '</div></div>';
 
   const linkHTML = (n) => '<a href="' + esc(n.url) + '"' + (/^https?:/i.test(n.url) ? ' target="_blank" rel="noopener"' : '') + '>' + esc(n.link_label || 'Mở →') + '</a>';
@@ -276,7 +305,7 @@
       const one = nw.length === 1;
       out.push({ k: 'new', t: 'Bạn mới', s: one ? [nw[0].name, nw[0].role.split(' · ').pop()].filter(Boolean).join(' · ') : nw.length + ' bạn mới', ct: nw.length,
         hs: 'Chào bạn mới', h: one ? 'Hôm nay là ngày đầu tiên của ' + given(nw[0].name) : 'Chào ' + nw.length + ' bạn mới hôm nay', cnt: nw.length + ' bạn mới',
-        body: (st) => nw.map((p) => '<div class="pc" style="align-items:center">' + ava(p, 'lg ring') + '<div class="who"><span class="nm" style="font-size:17px">' + esc(p.name) + '</span><span class="rl">' + esc(p.role) + '</span>'
+        body: (st) => nw.map((p) => '<div class="pc" style="align-items:center">' + rxAdd(st, p.key) + ava(p, 'lg ring') + '<div class="who"><span class="nm" style="font-size:17px">' + esc(p.name) + '</span><span class="rl">' + esc(p.role) + '</span>'
           + (p.intro ? '<p class="intro">' + esc(p.intro) + '</p>' : '') + rxHTML(st, p.key) + '</div></div>').join('')
           + '<p class="note">Cả nhà cùng say hi và giúp bạn ấy làm quen nhé.</p>' });
     }
@@ -366,7 +395,10 @@
         st.data.reactions[res.target] = res.reactions;
       }
       render(st, false);
-      const again = st.root.querySelector('[data-rx="' + key + '|' + kind + '"]');
+      // Chon xong thi dong bang chon (nhu Teams) - ke ca khi chuot van dang dung tren nut.
+      const add = st.root.querySelector('[data-rxopen="' + key + '"]');
+      if (add) { const w = add.parentElement; w.classList.add('rest'); w.addEventListener('mouseleave', () => w.classList.remove('rest'), { once: true }); }
+      const again = st.root.querySelector('.rx [data-rx="' + key + '|' + kind + '"]');
       if (again) { again.classList.add('pop'); again.focus(); }
     }).catch((e) => { warn(e); btn.removeAttribute('aria-busy'); });
   };
@@ -396,7 +428,10 @@
     };
     root.addEventListener('click', (e) => {
       if (e.target === root || (e.target.closest && e.target.closest('[data-close]'))) { close(); return; }
-      const r = e.target.closest('[data-rx]'); if (r) { react(st, r); return; }
+      const o = e.target.closest('[data-rxopen]');
+      if (o) { st.manual = true; st.pick = st.pick === o.dataset.rxopen ? null : o.dataset.rxopen; o.parentElement.classList.toggle('open', !!st.pick); o.setAttribute('aria-expanded', String(!!st.pick)); return; }
+      const r = e.target.closest('[data-rx]'); if (r) { st.pick = null; react(st, r); return; }
+      if (st.pick && !e.target.closest('.rxadd')) { st.pick = null; const op = root.querySelector('.rxadd.open'); if (op) op.classList.remove('open'); }
       const t = e.target.closest('[data-i]'); if (t) { go(st, Number(t.dataset.i)); const f = root.querySelector('[data-i="' + st.i + '"]'); if (f) f.focus(); return; }
       const s = e.target.closest('[data-step]'); if (s) { go(st, st.i + Number(s.dataset.step)); return; }
       const m = e.target.closest('[data-more]'); if (m) { st.open[m.dataset.more] = !st.open[m.dataset.more]; st.manual = true; render(st, false); }

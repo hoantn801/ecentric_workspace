@@ -79,12 +79,23 @@ const txt = (el) => (el ? el.textContent.replace(/\s+/g, ' ').trim() : null);
     pop.querySelector('[data-i="2"]').click();
     m.bdHero = txt(pop.querySelector('.hero h3'));
     m.soon = [...pop.querySelectorAll('.sl')].map(txt);
-    const heart = pop.querySelector('[data-rx="bd:E1:2026|heart"]');
+    // chi hien o cam xuc DA co nguoi tha; moi the co 1 nut mat cuoi + bang chon 4 icon
+    const chips = (k) => [...pop.querySelectorAll('.pc')].map((c) => [...c.querySelectorAll('.rx .rb')].map((b) => b.dataset.rx.split('|')[1] + ':' + txt(b.querySelector('.c'))));
+    m.chipsBefore = chips();
+    m.pickers = [...pop.querySelectorAll('.pc .rxadd')].map((w) => w.querySelectorAll('.rxpick button').length);
+    const heart = pop.querySelector('.rx [data-rx="bd:E1:2026|heart"]');
     m.heartBefore = [heart.getAttribute('aria-pressed'), txt(heart.querySelector('.c'))];
     heart.click();
     await sleep(30);
-    const heart2 = pop.querySelector('[data-rx="bd:E1:2026|heart"]');
+    const heart2 = pop.querySelector('.rx [data-rx="bd:E1:2026|heart"]');
     m.heartAfter = [heart2.getAttribute('aria-pressed'), txt(heart2.querySelector('.c')), txt(heart2.querySelector('.tip'))];
+    // cham nut mat cuoi (dien thoai) -> mo bang chon; chon hoa cho Khoa (chua ai tha) -> o moi hien
+    pop.querySelector('[data-rxopen="bd:E2:2026"]').click();
+    m.pickOpen = pop.querySelector('[data-rxopen="bd:E2:2026"]').parentElement.classList.contains('open');
+    pop.querySelector('.rxpick [data-rx="bd:E2:2026|flower"]').click();
+    await sleep(30);
+    m.afterPick = chips()[1];
+    m.pickClosed = !pop.querySelector('.rxadd.open');
     m.post = b.calls.filter((c) => c.post);
     // phim mui ten tren cot o
     pop.querySelector('[data-i="2"]').focus();
