@@ -131,6 +131,10 @@ class TestPopupInJsdom(unittest.TestCase):
     def test_hide_today_and_new_items(self):
         self.assertEqual(self.r["hidden"], {"same": False, "newItem": True, "otherDay": True, "junk": True})
 
+    def test_reopen_keeps_hide_tick(self):
+        """PO 29/09 17:31: da tich "Khong hien lai hom nay" roi bam mo lai -> o tich phai con tich."""
+        self.assertEqual(self.r["reopen"], {"checked": True, "clearedAfterUntick": True, "freshUnchecked": True})
+
     def test_escaping_and_empty_tiles_hidden(self):
         x = self.r["xss"]
         self.assertFalse(x["pwn"])

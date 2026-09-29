@@ -146,6 +146,18 @@ const txt = (el) => (el ? el.textContent.replace(/\s+/g, ' ').trim() : null);
     out.hidden.otherDay = !!(await boot(htmlOn, { storage: JSON.stringify({ d: '2026-09-28', k: p.keys }) })).d.getElementById('ech-pop');
     out.hidden.junk = !!(await boot(htmlOn, { storage: '{rac' })).d.getElementById('ech-pop');
   }
+  // 4b) da tich an roi bam nut mo lai -> o tich VAN tich; bo tich -> xoa co an
+  {
+    const p = JSON.parse(payloadRaw);
+    const b = await boot(htmlOn, { storage: JSON.stringify({ d: p.date, k: p.keys }) });
+    await b.w.EcHomePopup.load(true);
+    const cb = b.d.querySelector('#ech-pop [data-hide]');
+    out.reopen = { checked: !!(cb && cb.checked) };
+    cb.checked = false; cb.dispatchEvent(new b.w.Event('change', { bubbles: true }));
+    out.reopen.clearedAfterUntick = b.w.localStorage.getItem('ec_home_today_hide') === null;
+    const f = await boot(htmlOn, {});
+    out.reopen.freshUnchecked = !f.d.querySelector('#ech-pop [data-hide]').checked;
+  }
   // 5) du lieu doc hai duoc escape; o rong bi an
   {
     const p = JSON.parse(payloadRaw);
