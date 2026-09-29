@@ -26,3 +26,17 @@ def close_self():
 @frappe.whitelist(methods=["POST"])
 def close_team(group="team"):
     return service.close_team(_user(), group)
+
+
+@frappe.whitelist(methods=["GET"])
+def get_overview():
+    u = _user()
+    if not service.can_overview(u):
+        frappe.throw("Bạn không có quyền xem mục này.", frappe.PermissionError)
+    return service.overview(u)
+
+
+@frappe.whitelist(methods=["POST"])
+def remind_department(department=""):
+    from ecentric_workspace.hr.timesheet_close import reminders
+    return reminders.remind_department(_user(), department or None)

@@ -55,6 +55,8 @@ def make_frappe(emps, roles, pending=None):
     fr = types.ModuleType("frappe")
     fr.rows = {}
     pending = pending or {}
+    DEPTS = {"D": Row(name="D", department_name="Service", manager_email="boss@x")}
+    USERS = {"boss@x": 1, "vinh@x": 1, "hau@x": 1, "thu@x": 1, "ceo@x": 1, "cnb@x": 1}
     fr.PermissionError = Throw
 
     def throw(msg, exc=None):
@@ -91,6 +93,10 @@ def make_frappe(emps, roles, pending=None):
                 if v[1] == filters.get("user_id"):
                     return e
             return None
+        if dt_ == "Department":
+            return DEPTS[filters][field] if filters in DEPTS else None
+        if dt_ == "User":
+            return USERS.get(filters)
         if dt_ == "EC Timesheet Close":
             for n, r in fr.rows.items():
                 if _match(r, filters):
@@ -104,7 +110,22 @@ def make_frappe(emps, roles, pending=None):
         sql=sql, get_value=get_value, set_value=set_value,
         get_single_value=lambda *a: "EC",
         exists=lambda dt_, f: any(_match(r, f) for r in fr.rows.values()))
-    fr.get_all = lambda dt_, filters=None, fields=None, **k: [Row(r) for r in fr.rows.values() if _match(r, filters or {})]
+    DEPTS = {"D": Row(name="D", department_name="Service", manager_email="boss@x")}
+    USERS = {"boss@x": 1, "vinh@x": 1, "hau@x": 1, "thu@x": 1, "ceo@x": 1, "cnb@x": 1}
+
+    def get_all(dt_, filters=None, fields=None, **k):
+        if dt_ == "User":
+            return [Row(name=u, full_name=u.split("@")[0].title()) for u in USERS if u in filters["name"][1]]
+        if dt_ == "Department":
+            return list(DEPTS.values())
+        return [Row(r) for r in fr.rows.values() if _match(r, filters or {})]
+    fr.get_all = get_all
+    fr.get_roles = lambda u: list(roles.get(u, set()))
+    fr.sent = []
+    ev = types.ModuleType("ecentric_workspace.notification_center.events")
+    ev.publish_notification_event = lambda et, user, title, msg, **k: fr.sent.append((user, title, msg, k.get("dedupe_key")))
+    sys.modules["ecentric_workspace.notification_center.events"] = ev
+    fr.conf = {}
 
     def get_doc(a, b=None):
         if isinstance(a, dict):
@@ -118,9 +139,10 @@ def make_frappe(emps, roles, pending=None):
     fr.utils = utils
     sys.modules["frappe"] = fr
     sys.modules["frappe.utils"] = utils
-    for m in ("ecentric_workspace.hr.timesheet_close.service",):
+    for m in ("ecentric_workspace.hr.timesheet_close.service", "ecentric_workspace.hr.timesheet_close.reminders"):
         sys.modules.pop(m, None)
     svc = importlib.import_module("ecentric_workspace.hr.timesheet_close.service")
+    fr.rem = importlib.import_module("ecentric_workspace.hr.timesheet_close.reminders")
     return fr, svc
 
 
@@ -205,6 +227,55 @@ class ChotCong(unittest.TestCase):
         with self.assertRaises(Throw):
             S.close_self("thu@x")
 
+
+
+class TongQuanNhanSu(unittest.TestCase):
+    """Tab 'Chot cong' tren /tong-quan#nhan-su va nut Nhac theo phong."""
+
+    def setUp(self):
+        NOW[0] = dt.datetime(2026, 10, 2, 10, 0)
+
+    def test_chi_hr_cnb_xem_duoc(self):
+        fr, S = make_frappe(EMPS, ROLES)
+        self.assertTrue(S.can_overview("cnb@x"))
+        self.assertFalse(S.can_overview("vinh@x"))
+
+    def test_tien_do_theo_phong(self):
+        fr, S = make_frappe(EMPS, ROLES)
+        S.ensure_rows("2026-09")
+        S.close_self("hau@x")
+        o = S.overview("cnb@x")
+        self.assertTrue(o["active"])
+        self.assertEqual(o["stats"], {"total": 4, "closed": 0, "self_closed": 1, "open": 3})
+        d = o["departments"][0]
+        self.assertEqual((d["label"], d["manager"], d["state"], d["total"]), ("Service", "Boss", "partial", 4))
+        self.assertIn("Vinh", d["leads_pending"])
+
+    def test_nhac_phong_gui_nhan_vien_leader_va_truong_phong(self):
+        fr, S = make_frappe(EMPS, ROLES)
+        S.ensure_rows("2026-09")
+        S.close_self("hau@x")
+        r = fr.rem.remind_department("cnb@x", "D")
+        to = sorted(u for u, *_ in fr.sent)
+        # thu, vinh, ceo chua chot; vinh + ceo la leader con no; boss la truong phong. hau da chot -> khong nhan phan nhan vien
+        self.assertEqual(to, ["boss@x", "ceo@x", "thu@x", "vinh@x"])
+        self.assertEqual(r, {"members": 3, "leads": 3})
+        msg_vinh = [m for u, t, m, k in fr.sent if u == "vinh@x"][0]
+        self.assertIn("Bạn chưa chốt công", msg_vinh)
+        self.assertIn("Team của bạn còn 2 người", msg_vinh)
+
+    def test_nhan_vien_thuong_khong_bam_nhac_duoc(self):
+        fr, S = make_frappe(EMPS, ROLES)
+        S.ensure_rows("2026-09")
+        with self.assertRaises(Throw):
+            fr.rem.remind_department("vinh@x", "D")
+
+    def test_chua_den_ky_thi_bao_ky_sap_toi(self):
+        fr, S = make_frappe(EMPS, ROLES)
+        NOW[0] = dt.datetime(2026, 9, 29, 10, 0)
+        o = S.overview("cnb@x")
+        self.assertFalse(o["active"])
+        self.assertEqual((o["period"], o["opens"], o["member_deadline"]), ("2026-09", "2026-10-01", "2026-10-02 12:00"))
 
 if __name__ == "__main__":
     unittest.main()

@@ -124,3 +124,57 @@ def preview(kind="day1"):
     period = R.prev_period(now)
     return {"period": period, "deadlines": [str(x) for x in S.deadlines(period)],
             "plan": _plan(period, only_pending=(kind == "due"))}
+
+
+# ------------------------------------------------------------------ nhac theo phong (HR bam)
+def remind_department(sender, department):
+    """HR / CnB bam 'Nhac' tren /tong-quan#nhan-su/chot-cong cho MOT phong ban.
+
+    Gui (chuong ERP + Teams) cho: nhan vien phong do CHUA chot; leader con nguoi chua chot
+    trong phong; truong phong (Department.manager_email). Moi nguoi MOT tin.
+    Chong bam lien tay: cung phong, cung nguoi nhan -> toi da 1 tin / 30 phut."""
+    if not S.can_overview(sender):
+        frappe.throw("Chỉ HR / CnB được gửi nhắc chốt công.", frappe.PermissionError)
+    now = now_datetime()
+    period = R.prev_period(now)
+    if not R.window_open(period, now):
+        frappe.throw("Chưa đến kỳ chốt công.")
+    m_due, l_due = S.deadlines(period)
+    rows = frappe.get_all(S.DT, filters={"period_month": period, "department": department or ("is", "not set")},
+                          fields=["user", "status", "lead_user"])
+    pending = [r for r in rows if r.status != R.ST_CLOSED]
+    if not pending:
+        return {"members": 0, "leads": 0, "note": "Phòng này đã chốt xong."}
+    plan = {}
+    for r in pending:
+        if r.status == R.ST_OPEN and r.user:
+            plan.setdefault(r.user, {"member": False, "team": 0})["member"] = True
+        if r.lead_user:
+            plan.setdefault(r.lead_user, {"member": False, "team": 0})["team"] += 1
+    mgr = frappe.db.get_value("Department", department, "manager_email") if department else None
+    label = (frappe.db.get_value("Department", department, "department_name") if department else None) or department or ""
+    if mgr and frappe.db.get_value("User", mgr, "enabled"):
+        plan.setdefault(mgr, {"member": False, "team": 0})["manager"] = len(pending)
+    slot = int(now.timestamp() // 1800)
+    n_members = n_leads = 0
+    for user, p in plan.items():
+        parts = []
+        if p.get("member"):
+            parts.append("Bạn chưa chốt công %s — hạn 12:00 %s." % (_label(period), _fmt(m_due)))
+            n_members += 1
+        if p.get("team"):
+            parts.append("Team của bạn còn %d người chưa được chốt — hạn chốt team 15:00 %s." % (p["team"], _fmt(l_due)))
+            n_leads += 1
+        if p.get("manager") and not p.get("team"):
+            parts.append("Phòng %s còn %d người chưa chốt công %s." % (label, p["manager"], _label(period)))
+            n_leads += 1
+        if not parts:
+            continue
+        try:
+            publish_notification_event(
+                "task_assigned", user, "Nhân sự nhắc: chốt công %s" % _label(period), " ".join(parts),
+                severity="action_required", action_url=ACTION_URL, reference_doctype=S.DT,
+                dedupe_key="tsclose|hr|%s|%s|%s|%s" % (period, department or "-", user, slot), from_user=sender)
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "timesheet_close remind_department " + str(user))
+    return {"members": n_members, "leads": n_leads}

@@ -281,3 +281,69 @@ def close_team(user, group):
         doc.flags.ignore_permissions = True
         doc.save(ignore_permissions=True)
     return {"closed": len(rows), "team_closed_at": str(now)[:16]}
+
+
+# ------------------------------------------------------------------ HR overview
+OVERVIEW_ROLES = ("System Manager", "HR Manager", "HR User", "EC CnB")
+
+
+def can_overview(user):
+    return user == "Administrator" or bool(set(frappe.get_roles(user)) & set(OVERVIEW_ROLES))
+
+
+def _names(users):
+    users = [u for u in users if u]
+    if not users:
+        return {}
+    return {r.name: r.full_name or r.name for r in frappe.get_all(
+        "User", filters={"name": ("in", users)}, fields=["name", "full_name"])}
+
+
+def overview(user):
+    """Tab 'Chot cong' trong /tong-quan#nhan-su: tien do theo phong ban. Chi ten + trang thai,
+    khong so lieu cong / luong."""
+    now = now_datetime()
+    period = R.prev_period(now)
+    if not R.window_open(period, now):
+        nxt = R.period_of(now)
+        m_due, l_due = deadlines(nxt)
+        return {"active": False, "period": nxt, "label": "tháng %d/%s" % (int(nxt[5:7]), nxt[:4]),
+                "opens": str(R.next_period_first_day(nxt)), "member_deadline": str(m_due)[:16],
+                "lead_deadline": str(l_due)[:16]}
+    ensure_rows(period)
+    m_due, l_due = deadlines(period)
+    rows = frappe.get_all(DT, filters={"period_month": period}, fields=_fields() + ["department", "user"])
+    depts = {d.name: d for d in frappe.get_all("Department", fields=["name", "department_name", "manager_email"],
+                                                limit_page_length=0)}
+    names = _names(list({r.lead_user for r in rows} | {d.manager_email for d in depts.values()}))
+    groups = {}
+    for r in rows:
+        g = groups.setdefault(r.department or "", {"members": []})
+        g["members"].append(r)
+    out = []
+    for key, g in groups.items():
+        ms = g["members"]
+        d = depts.get(key) or {}
+        leads = sorted({r.lead_user for r in ms if r.lead_user and r.status != R.ST_CLOSED})
+        closed = sum(1 for r in ms if r.status == R.ST_CLOSED)
+        self_closed = sum(1 for r in ms if r.member_closed_at and r.close_mode == R.MODE_SELF)
+        state = "done" if closed == len(ms) else ("partial" if closed or self_closed else "none")
+        out.append({
+            "department": key, "label": (d.get("department_name") if d else "") or key or "Chưa gán phòng",
+            "manager": names.get(d.get("manager_email")) if d else None,
+            "leads_pending": [names.get(u, u) for u in leads],
+            "total": len(ms), "closed": closed, "self_closed": self_closed, "state": state,
+            "member_only": sum(1 for r in ms if r.status == R.ST_MEMBER),
+            "members": sorted([{"name": r.employee_name, "status": r.status, "close_mode": r.close_mode or "",
+                                "member_closed_at": str(r.member_closed_at or "")[:16],
+                                "lead": names.get(r.lead_user) if r.lead_user else "CnB / HR chốt thay"}
+                               for r in ms], key=lambda x: (x["status"] == R.ST_CLOSED, x["name"] or "")),
+        })
+    out.sort(key=lambda x: ({"none": 0, "partial": 1, "done": 2}[x["state"]], x["label"]))
+    tot = len(rows)
+    return {"active": True, "period": period, "label": "tháng %d/%s" % (int(period[5:7]), period[:4]),
+            "member_deadline": str(m_due)[:16], "lead_deadline": str(l_due)[:16], "now": str(now)[:16],
+            "stats": {"total": tot, "closed": sum(1 for r in rows if r.status == R.ST_CLOSED),
+                      "self_closed": sum(1 for r in rows if r.member_closed_at and r.close_mode == R.MODE_SELF),
+                      "open": sum(1 for r in rows if r.status == R.ST_OPEN)},
+            "departments": out}
