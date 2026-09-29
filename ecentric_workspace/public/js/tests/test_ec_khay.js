@@ -174,6 +174,26 @@ const shell='<aside data-ec-shell="1"></aside><main>trang</main>';
   const mt2=/translate\((-?[\d.]+) (-?[\d.]+)\)/.exec(look.getAttribute("transform")||"");
   ok("mat linh vat: nhin xuong, khong qua 2.2", !!mt2 && parseFloat(mt2[2])>1 && parseFloat(mt2[2])<=2.2);
 
+  // keo nut sang cho khac (29/09): keo > 6px thi doi vi tri + nho, KHONG mo khung; bam thuong van mo
+  const fab8=R8.querySelector(".fab"), W8=e8.w;
+  const wasOpen=!R8.querySelector(".pan").hidden;
+  if (wasOpen) { fab8.click(); await tick(); }
+  fab8.getBoundingClientRect=()=>({left:W8.innerWidth-94,top:W8.innerHeight-94,right:W8.innerWidth-14,bottom:W8.innerHeight-14,width:80,height:80});
+  Object.defineProperty(fab8,"offsetWidth",{value:80}); Object.defineProperty(fab8,"offsetHeight",{value:80});
+  fab8.dispatchEvent(new W8.MouseEvent("pointerdown",{clientX:500,clientY:500,button:0,bubbles:true}));
+  W8.dispatchEvent(new W8.MouseEvent("pointermove",{clientX:400,clientY:300,bubbles:true}));
+  W8.dispatchEvent(new W8.MouseEvent("pointerup",{clientX:400,clientY:300,bubbles:true}));
+  fab8.click(); await tick();
+  ok("keo nut: doi vi tri (sang trai 100, len 200)", fab8.style.right==="114px" && fab8.style.bottom==="214px");
+  ok("keo nut: nho vi tri", JSON.parse(W8.localStorage.getItem("ec_khay_fab_pos")||"{}").right===114);
+  ok("keo nut: tha ra khong mo khung", R8.querySelector(".pan").hidden===true);
+  fab8.click(); await tick();
+  ok("keo nut: bam thuong van mo khung", R8.querySelector(".pan").hidden===false);
+  fab8.dispatchEvent(new W8.MouseEvent("pointerdown",{clientX:500,clientY:500,button:0,bubbles:true}));
+  W8.dispatchEvent(new W8.MouseEvent("pointermove",{clientX:-5000,clientY:9000,bubbles:true}));
+  W8.dispatchEvent(new W8.MouseEvent("pointerup",{bubbles:true}));
+  ok("keo nut: khong ra ngoai khung nhin", parseFloat(fab8.style.right)<=W8.innerWidth-84 && parseFloat(fab8.style.bottom)>=4);
+
   let all=true; Object.keys(c).forEach(k=>{console.log((c[k]?"PASS":"FAIL")+" - "+k); if(!c[k]) all=false;});
   console.log(all?"ALL_PASS":"SOME_FAIL"); process.exit(all?0:1);
 })();
