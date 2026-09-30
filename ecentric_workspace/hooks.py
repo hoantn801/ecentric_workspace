@@ -634,3 +634,19 @@ elif isinstance(_att_prev, str):
         _att_ev["before_insert"] = [_att_prev, _ATT_SHIFT_HOOK]
 elif _ATT_SHIFT_HOOK not in _att_prev:
     _att_prev.append(_ATT_SHIFT_HOOK)
+
+# --------------------------------------------------------------------------- #
+# 30/09/2026 - Phep duyet tre (>7 ngay) khong con duoc job dem SLA quet toi -> ngay nghi
+# van hien "Chua lam". Duyet phep (on_submit, Approved) -> dong bo lai ngay cong SLA cua
+# dung nhung ngay trong phieu. Xem sla/application/hooks.py + patch sla.p015.
+# --------------------------------------------------------------------------- #
+_SLA_LEAVE_HOOK = "ecentric_workspace.sla.application.hooks.on_leave_application_submit"
+_sla_la = doc_events.setdefault("Leave Application", {})
+_sla_la_prev = _sla_la.get("on_submit")
+if _sla_la_prev is None:
+    _sla_la["on_submit"] = [_SLA_LEAVE_HOOK]
+elif isinstance(_sla_la_prev, str):
+    if _sla_la_prev != _SLA_LEAVE_HOOK:
+        _sla_la["on_submit"] = [_sla_la_prev, _SLA_LEAVE_HOOK]
+elif _SLA_LEAVE_HOOK not in _sla_la_prev:
+    _sla_la_prev.append(_SLA_LEAVE_HOOK)

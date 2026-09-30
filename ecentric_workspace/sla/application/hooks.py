@@ -346,3 +346,31 @@ def on_employee_checkin(doc, method=None):
         except Exception:
             pass
     return None
+
+
+# --------------------------------------------------------------------------- #
+# Cong VAO: phieu nghi phep vua duoc DUYET (on_submit, status Approved)
+#
+# Phep duyet tre hon 7 ngay thi job dem khong con quet toi ngay do - ngay nghi
+# nam `Open` va hien "Chua lam" vinh vien. Hook nay dong bo lai dung nhung ngay
+# cua phieu ngay luc duyet. Cung rang buoc voi `on_employee_checkin`: chay BEN
+# TRONG giao dich duyet, nen nuot moi Exception.
+# --------------------------------------------------------------------------- #
+def on_leave_application_submit(doc, method=None):
+    """Nghi phep da duyet -> ngay do thanh "Khong tinh diem", du duyet tre bao lau."""
+    try:
+        if getattr(doc, "status", None) != "Approved":
+            return
+        emp = getattr(doc, "employee", None)
+        if not emp:
+            return
+        from ecentric_workspace.sla.infrastructure import attendance_source
+        attendance_source.sync_leave(emp, getattr(doc, "from_date", None),
+                                     getattr(doc, "to_date", None))
+    except Exception:
+        try:
+            frappe.log_error(title="sla.on_leave_application_submit",
+                             message=frappe.get_traceback())
+        except Exception:
+            pass
+    return None
