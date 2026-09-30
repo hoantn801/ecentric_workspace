@@ -80,6 +80,65 @@ CAT_GRP = {
 CASH_GRP = {"TT": "Chi nhà cung cấp dịch vụ (KOL, livestream, media…)", "VH": "Chi vận hành văn phòng, công cụ",
             "LG_TRONG_KHOI": "Chi lương, thưởng (qua ĐNTT)", "LG": "Chi nhân sự khác (ngoài bảng lương)", "KT_CHIHO": "Chi hộ brand", "KT_TAMUNG": "Tạm ứng",
             "KT_KYQUY": "Ký quỹ, đặt cọc", "KT_TRANO": "Trả nợ gốc vay", "": "Chi khác (chưa phân loại)"}
+
+# Chi phi van hanh theo SO P&L (sheet 'expensive' cua file P&L Finance), da gom theo nhom - chi dung cho thang <= HIST_CUT.
+# Khong co dong luong (luong khoi chung lay tu bang luong); phan chenh con lai vao O_SO.
+EXP_HIST = {
+    "2025-01": {"O_EVENT": 61848626, "O_HR": 2008333, "O_KHAC": 9332312, "O_PRO": 2239200, "O_TOOL": 19590687, "O_VP": 62892297},
+    "2025-02": {"O_EVENT": 3730856, "O_HR": 2008333, "O_KHAC": 30995290, "O_PRO": 320400, "O_TOOL": 23346685, "O_VP": 61015170},
+    "2025-03": {"O_EVENT": 9197000, "O_HR": 4544565, "O_KHAC": 31538644, "O_PRO": 211200, "O_TOOL": 12961738, "O_VP": 95224610},
+    "2025-04": {"O_EVENT": 4923889, "O_HR": 2008333, "O_KHAC": 22510206, "O_PRO": 194400, "O_TOOL": 40696373, "O_VP": 88111435},
+    "2025-05": {"O_EVENT": 8991889, "O_HR": 17340560, "O_KHAC": 11465505, "O_PRO": 202800, "O_TOOL": 38816651, "O_VP": 101563115},
+    "2025-06": {"O_EVENT": 5944555, "O_HR": 26746260, "O_KHAC": 20133858, "O_PRO": 244800, "O_TOOL": 39807485, "O_VP": 93881428},
+    "2025-07": {"O_EVENT": 13096065, "O_HR": 4390000, "O_KHAC": 12591574, "O_PRO": 1419600, "O_TOOL": 39995354, "O_VP": 85691140},
+    "2025-08": {"O_EVENT": 6386930, "O_HR": 4390000, "O_KHAC": 21189806, "O_PRO": 367200, "O_TOOL": 52814288, "O_VP": 90386960},
+    "2025-09": {"O_EVENT": 64757809, "O_HR": 4390000, "O_KHAC": 39525693, "O_PRO": 337200, "O_TOOL": 40276594, "O_VP": 86436846},
+    "2025-10": {"O_EVENT": 42520647, "O_HR": 6287963, "O_KHAC": 24968521, "O_PRO": 289600, "O_TOOL": 45527433, "O_VP": 91850555},
+    "2025-11": {"O_EVENT": 15720146, "O_KHAC": 22139800, "O_PRO": 458800, "O_TOOL": 49632747, "O_VP": 161662128},
+    "2025-12": {"O_EVENT": 15484192, "O_KHAC": 52904870, "O_PRO": 333405141, "O_TOOL": 58520854, "O_VP": 165746020},
+    "2026-01": {"O_EVENT": 144600282, "O_KHAC": 51540898, "O_PRO": 533200, "O_TOOL": 57616024, "O_VP": 159729955},
+    "2026-02": {"O_EVENT": 7253861, "O_KHAC": 39592074, "O_PRO": 563300, "O_TOOL": 68640421, "O_VP": 152371500},
+    "2026-03": {"O_EVENT": 42521845, "O_KHAC": 4012058, "O_PRO": 429600, "O_TOOL": 68811925, "O_VP": 162059915},
+    "2026-04": {"O_EVENT": 13718731, "O_KHAC": 51053927, "O_PRO": 639600, "O_TOOL": 96272273, "O_VP": 162056241},
+    "2026-05": {"O_EVENT": 32503017, "O_KHAC": 26811119, "O_PRO": 569600, "O_TOOL": 64668590, "O_VP": 167816959},
+    "2026-06": {"O_EVENT": 282119718, "O_KHAC": 85498160, "O_PRO": 600400, "O_TOOL": 70976659, "O_VP": 193260608},
+    "2026-07": {"O_EVENT": 129640135, "O_KHAC": 59893679, "O_PRO": 530400, "O_TOOL": 64828597, "O_VP": 210245758},
+    "2026-08": {"O_EVENT": 94003607, "O_KHAC": 31557304, "O_PRO": 630500, "O_TOOL": 65828597, "O_VP": 186473041},
+}
+# Ma chuc danh trong file luong -> ten vi tri (Designation) tren ERP.
+ROLE_NAME = {
+    "COMMERCIAL": "Commercial Executive",
+    "KOL/KOC": "Affiliate Management Executive",
+    "MER": "Campaign & Merchandise Executive",
+    "DES": "Design Executive",
+    "MERDIA ONSITE": "Digital Marketing Executive",
+    "MERDIA OFFSITE": "Digital Marketing Executive",
+    "Digital Marketing": "Digital Marketing Executive",
+    "HOST_IH": "Livestream Host",
+    "HOST": "Livestream Host",
+    "PRODUCTION": "Production",
+    "PRODUCTION LEAD": "Production Manager",
+    "CONTENT": "Content Creator",
+    "PBI": "Analytics Engineer",
+    "DATA & SYSTEM": "Data & System",
+    "AI": "AI & Digital Solutions Developer",
+    "SA": "Sale Admin",
+    "VA": "Business Development Executive",
+    "GA": "General Accounting Executive",
+    "TA": "TA",
+    "HR": "HR",
+    "OPS": "Operation & System Executive",
+    "OPS & SYSTEM MANAGER": "Operation, System & Data Manager",
+    "SERVICE LEAD": "Service Lead",
+    "SERVICE PROJECT LEAD": "Service Lead",
+    "PROJECT LEAD": "Project Lead",
+    "KAM": "Key Account Manager",
+    "KAM_AI": "AI Livestream Key Account Manager",
+    "LABOR": "Labor",
+    "ECOM LEAD": "E-commerce Lead",
+    "CS": "CS/CX (chưa có trên ERP)"
+}
+
 HIST_BRAND_FIX = {"Định phí BBT tháng 11": "BBT-VN"}
 EXTRA_CLIENT = {"CM Foods": "CM Foods", "Masan": "Masan", "Fonterra": "Fonterra", "MCN": "ECENTRIC"}
 
@@ -178,10 +237,12 @@ else:
     dto = year + "-12-31"
     so_rows = frappe.db.sql("""
         SELECT so.name, ifnull(so.ec_brand, '') AS brand, ifnull(so.net_total, 0) AS net,
-               date_format(""" + ecol + """, '%%Y-%%m') AS ky, ifnull(so.workflow_state, '') AS st
+               date_format(""" + ecol + """, '%%Y-%%m') AS ky, ifnull(so.workflow_state, '') AS st,
+               date_format(so.transaction_date, '%%Y-%%m') AS tky, left(ifnull(so.ec_mso_month, ''), 7) AS mso
         FROM `tabSales Order` so
-        WHERE so.docstatus < 2 AND """ + ecol + """ >= %(df)s AND """ + ecol + """ <= %(dt)s
-    """, {"df": dfrom, "dt": dto}, as_dict=True)
+        WHERE so.docstatus < 2 AND ((""" + ecol + """ >= %(df)s AND """ + ecol + """ <= %(dt)s)
+              OR (left(ifnull(so.ec_mso_month, ''), 7) >= %(ym0)s AND left(ifnull(so.ec_mso_month, ''), 7) <= %(ym1)s))
+    """, {"df": dfrom, "dt": dto, "ym0": year + "-01", "ym1": year + "-12"}, as_dict=True)
     so_ok = {}
     for r in so_rows:
         st = r.get("st") or ""
@@ -192,8 +253,9 @@ else:
         FROM `tabSales Order Item` soi
         INNER JOIN `tabSales Order` so ON so.name = soi.parent
         LEFT JOIN `tabItem` it ON it.name = soi.item_code
-        WHERE so.docstatus < 2 AND """ + ecol + """ >= %(df)s AND """ + ecol + """ <= %(dt)s
-    """, {"df": dfrom, "dt": dto}, as_dict=True)
+        WHERE so.docstatus < 2 AND ((""" + ecol + """ >= %(df)s AND """ + ecol + """ <= %(dt)s)
+              OR (left(ifnull(so.ec_mso_month, ''), 7) >= %(ym0)s AND left(ifnull(so.ec_mso_month, ''), 7) <= %(ym1)s))
+    """, {"df": dfrom, "dt": dto, "ym0": year + "-01", "ym1": year + "-12"}, as_dict=True)
     so_items = {}
     for r in it_rows:
         if r.get("parent") in so_ok:
@@ -205,32 +267,50 @@ else:
             rev[b] = {}
         addm(rev[b], g, i, v)
 
+    # Ghi nhan doanh thu SO: thang <= HIST_CUT giu luat cu (SO vao thang ecol, da khop so P&L bang dong ADJ).
+    # Thang sau HIST_CUT: ghi theo THANG DICH VU cua SO (ec_mso_month); SO khong co thi theo ngay SO.
+    # SO co thang dich vu <= HIST_CUT (vd hop dong quy 07-09 gan thang 07, chu ky 26/08-25/09 gan thang 08)
+    # bo di vi so P&L da tinh -> khong don ca hop dong vao thang dang chay.
+    def so_shares(r):
+        ky = r.get("ky") or ""
+        if ky <= HIST_CUT:
+            if ky in midx:
+                return [[midx[ky], 1.0]]
+            return []
+        mm = r.get("mso") or r.get("tky") or ""
+        if mm <= HIST_CUT or mm not in midx:
+            return []
+        return [[midx[mm], 1.0]]
+
     for name in so_ok:
         r = so_ok[name]
-        i = midx.get(r.get("ky"))
-        if i is None:
+        shares = so_shares(r)
+        if not shares:
             continue
         b = brand_key(r.get("brand"))
-        net = frappe.utils.flt(r.get("net"))
-        its = so_items.get(name) or []
-        tot_it = 0.0
-        for x in its:
-            tot_it = tot_it + frappe.utils.flt(x.get("amt"))
-        if not its or not tot_it:
-            rev_add(b, "KHAC", i, net)
-            continue
-        for x in its:
-            code = x.get("item_code") or ""
-            g = ITEM_GRP.get(code)
-            if not g:
-                ig = x.get("ig") or ""
-                if ig.find("vận chuyển") >= 0 or ig.find("kho bãi") >= 0:
-                    g = "FFM"
-                elif code[:4] == "GBS_" or code[:4] == "REV_" or ig[:3] == "GBS":
-                    g = "GBS"
-                else:
-                    g = "KHAC"
-            rev_add(b, g, i, net * frappe.utils.flt(x.get("amt")) / tot_it)
+        net0 = frappe.utils.flt(r.get("net"))
+        for sh in shares:
+            i = sh[0]
+            net = net0 * sh[1]
+            its = so_items.get(name) or []
+            tot_it = 0.0
+            for x in its:
+                tot_it = tot_it + frappe.utils.flt(x.get("amt"))
+            if not its or not tot_it:
+                rev_add(b, "KHAC", i, net)
+                continue
+            for x in its:
+                code = x.get("item_code") or ""
+                g = ITEM_GRP.get(code)
+                if not g:
+                    ig = x.get("ig") or ""
+                    if ig.find("vận chuyển") >= 0 or ig.find("kho bãi") >= 0:
+                        g = "FFM"
+                    elif code[:4] == "GBS_" or code[:4] == "REV_" or ig[:3] == "GBS":
+                        g = "GBS"
+                    else:
+                        g = "KHAC"
+                rev_add(b, g, i, net * frappe.utils.flt(x.get("amt")) / tot_it)
 
     # ------------------------------------------------------------ so P&L lich su
     hrows = []
@@ -246,6 +326,7 @@ else:
         """, {"df": dfrom, "dt": HIST_END if dto > HIST_END else dto}, as_dict=True)
     so_gv_kh = {}
     so_cp_kh = {}
+    adj_rows = []
     cogs = {}
     opex = {}
     book_sal = z()
@@ -261,6 +342,9 @@ else:
                 addm(so_gv_kh, kh, i, amt)
             else:
                 addm(so_cp_kh, kh, i, amt)
+            continue
+        if loai == "Doanh thu" and h.get("ma") == "ADJ":
+            adj_rows = adj_rows + [[brand_key(h.get("brand")), h.get("nhom") or "", i, amt]]
             continue
         if loai == "Doanh thu":
             nh = h.get("nhom") or ""
@@ -290,6 +374,26 @@ else:
             addm(cogs, HIST_COGS.get(nh) or "C_KHAC", i, amt)
         else:
             addm(opex, "O_SO", i, amt)
+
+    # Dong ADJ ("ERP cao hon so - dieu chinh ve so P&L"): khong de thanh dong doanh thu am rieng, ma tru
+    # ty le vao cac nhom doanh thu cua chinh brand do trong thang (tru phi gian hang), de tong van bang so.
+    for a in adj_rows:
+        b = a[0]
+        i = a[2]
+        g = HIST_NHOM.get(a[1])
+        if g and g != "KHAC":
+            rev_add(b, g, i, a[3])
+            continue
+        base = 0.0
+        for gg in (rev.get(b) or {}):
+            if gg != "STORE" and rev[b][gg][i] > 0:
+                base = base + rev[b][gg][i]
+        if base <= 0:
+            rev_add(b, "KHAC", i, a[3])
+            continue
+        for gg in list((rev.get(b) or {}).keys()):
+            if gg != "STORE" and rev[b][gg][i] > 0:
+                rev[b][gg][i] = rev[b][gg][i] + a[3] * rev[b][gg][i] / base
 
     # ------------------------------------------------------------ luong (bang luong lich su + TB 3 thang)
     luong_kh = {}
@@ -333,13 +437,13 @@ else:
             sal_total[i] = sal_total[i] + t
             if kh == CTY_KEY:
                 addm(opex, "O_NS", i, t)
-                addm(sal_role_o, r.get("cd") or "(khong ro)", i, t)
+                addm(sal_role_o, ROLE_NAME.get(r.get("cd") or "") or r.get("cd") or "(khong ro)", i, t)
             else:
                 addm(cogs, "C_LUONG", i, t)
                 addm(luong_kh, kh, i, t)
-                addm(sal_role_c, r.get("cd") or "(khong ro)", i, t)
+                addm(sal_role_c, ROLE_NAME.get(r.get("cd") or "") or r.get("cd") or "(khong ro)", i, t)
             addm(fte_kh, kh, i, f)
-            addm(sal_role, r.get("cd") or "(khong ro)", i, t)
+            addm(sal_role, ROLE_NAME.get(r.get("cd") or "") or r.get("cd") or "(khong ro)", i, t)
             addm(sal_dept, r.get("pb") or "(chua ro)", i, t)
             addm(fte_dept, r.get("pb") or "(chua ro)", i, f)
     # thang <= HIST_CUT co luong that: luong so (book_sal) da bo o tren; phan chenh (luong that - luong so trong
@@ -410,6 +514,25 @@ else:
             else:
                 addm(opex, g, i, amt)
             addm(opex_dept, r.get("dept") or "(chua ro)", i, amt)
+
+    # Thang <= HIST_CUT: tach chi phi van hanh theo nhom tu so P&L (EXP_HIST). Tong giu nguyen bang so;
+    # phan con lai (chu yeu chenh luong so <-> bang luong) nam o O_SO.
+    for i in range(12):
+        eh = EXP_HIST.get(months[i])
+        if msrc[i] != "so" or not eh:
+            continue
+        tong = 0.0
+        for g in opex:
+            tong = tong + opex[g][i]
+        ns = (opex.get("O_NS") or z())[i]
+        for g in list(opex.keys()):
+            if g != "O_NS":
+                opex[g][i] = 0.0
+        da = 0.0
+        for g in eh:
+            addm(opex, g, i, frappe.utils.flt(eh[g]))
+            da = da + frappe.utils.flt(eh[g])
+        addm(opex, "O_SO", i, tong - ns - da)
 
     # ------------------------------------------------------------ dong tien
     cash_chi = {}

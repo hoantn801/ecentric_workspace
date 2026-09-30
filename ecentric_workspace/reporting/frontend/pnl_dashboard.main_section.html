@@ -113,8 +113,8 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
 #ec-pnl-root .sev.ok{ background:#dcefe5; color:var(--ok); }
 #ec-pnl-root .movers{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:8px 16px; margin-top:6px; font-size:12.5px; min-height:92px; }
 #ec-pnl-root .movers .h{ font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin-bottom:2px; }
-#ec-pnl-root .movers .row{ display:flex; justify-content:space-between; gap:8px; padding:2px 0; border-bottom:1px dashed var(--grid); }
-#ec-pnl-root .movers .row b{ font-family:var(--f-num); font-weight:600; }
+#ec-pnl-root .movers .mv-row{ display:flex; margin:0; width:auto; justify-content:space-between; gap:8px; padding:2px 0; border-bottom:1px dashed var(--grid); }
+#ec-pnl-root .movers .mv-row b{ font-family:var(--f-num); font-weight:600; }
 #ec-pnl-root .sheet{ background:var(--surface); border:1px solid var(--line); border-radius:var(--r); overflow:hidden; }
 #ec-pnl-root .sheet-head{ display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; padding:12px 14px; border-bottom:1px solid var(--line); }
 #ec-pnl-root .sheet-head h2{ margin:0; font-size:15px; font-weight:700; letter-spacing:.01em; text-transform:uppercase; display:flex; gap:6px; align-items:center; }
@@ -274,7 +274,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     <div class="grid2e" style="margin-top:12px">
       <div class="card"><div class="cardhead"><div><h3>Quỹ lương và số người <button type="button" class="info" data-tip="payroll">!</button><span class="lock">lương</span></h3><div class="sub">Cột: quỹ lương gồm BHXH, thưởng · đường: số người quy đổi</div></div>
         <select id="sel-dept" aria-label="Phòng ban"><option value="all">Toàn công ty</option></select></div><div class="ch" id="hr-pay"></div></div>
-      <div class="card"><h3>Chi phí hoạt động theo nhóm <button type="button" class="info" data-tip="opexgrp">!</button></h3><div class="sub">Từ ĐNTT đã duyệt, xếp theo tháng ghi nhận chi phí · % trong tháng</div><div class="ch" id="hr-opex"></div></div>
+      <div class="card"><h3>Chi phí hoạt động theo nhóm <button type="button" class="info" data-tip="opexgrp">!</button></h3><div class="sub">Đến T8/2026 theo chi tiết sổ P&amp;L, từ T9 theo ĐNTT đã duyệt · % trong tháng</div><div class="ch" id="hr-opex"></div></div>
     </div>
     <section class="sheet" style="margin-top:12px">
       <div class="sheet-head"><div><h2>Theo phòng ban <button type="button" class="info" data-tip="dept">!</button></h2><div class="meta" id="dept-meta"></div></div>
@@ -351,7 +351,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
   var OPEX_HD = [
     ["O_VP", "Văn phòng, điện nước, internet"], ["O_TOOL", "Công cụ, phần mềm, thiết bị"], ["O_HR", "Tuyển dụng, đào tạo"],
     ["O_EVENT", "Sự kiện, phúc lợi, tiếp khách"], ["O_PRO", "Kế toán, pháp lý, thuế phí, ngân hàng"],
-    ["O_KHAC", "Marketing eCentric, đi lại, khác"], ["O_SO", "Chi phí vận hành theo sổ (chưa tách nhóm)"]
+    ["O_KHAC", "Marketing eCentric, đi lại, khác"], ["O_SO", "Chênh lệch lương sổ P&L ↔ bảng lương"]
   ];
   var THU_G = ["Thu từ khách hàng", "Thu hộ brand (chi hộ hoàn lại)", "Thu khác (lãi tiền gửi, hoàn cọc…)"];
   var CHI_G = ["Chi lương, thưởng (qua ĐNTT)", "Chi nhà cung cấp dịch vụ (KOL, livestream, media…)", "Chi vận hành văn phòng, công cụ",
@@ -367,7 +367,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     to: "Các ô số tổng và biểu đồ cộng dồn từ tháng 1 đến tháng này. Mặc định là tháng gần nhất đã đủ số; tháng đang chạy còn thiếu chi phí nên lợi nhuận dễ bị cao giả.",
     col: "Xem bảng theo từng tháng hoặc gộp theo quý. Số dư đầu kỳ của quý lấy tháng đầu quý, số dư cuối kỳ lấy tháng cuối quý.",
     so: "<b>Sổ P&amp;L</b>: tháng đã chốt sổ kế toán (đến T8/2026). Số đã khớp file P&amp;L của Finance.",
-    erp: "<b>ERP</b>: tháng đang chạy. Doanh thu từ SO, phí vận hành gian hàng tính từ NMV, chi phí từ ĐNTT đã duyệt, lương ước tính bằng trung bình 3 tháng gần nhất cho tới khi có số thật.",
+    erp: "<b>ERP</b>: tháng đang chạy. Doanh thu từ SO theo <b>tháng dịch vụ (tháng MSO)</b>, phí vận hành gian hàng tính từ NMV, lương ước tính bằng trung bình 3 tháng cho tới khi có số thật. ĐNTT thường về chậm nên chi phí lấy số lớn hơn giữa ĐNTT đã duyệt và mức tối thiểu: chi phí thuê ngoài theo tỷ lệ chi phí/doanh thu 3 tháng gần nhất, chi phí vận hành bằng trung bình 3 tháng.",
     est: "<b>Ước tính</b>: tháng chưa tới. Doanh thu lấy số lớn hơn giữa SO đã ký và trung bình 3 tháng gần nhất; chi phí theo trung bình 3 tháng; lương theo trung bình 3 tháng có số thật.",
     bridge: "Bắt đầu từ lợi nhuận tháng so sánh, cộng trừ từng khoản thay đổi, ra lợi nhuận tháng này. Cột xanh làm lợi nhuận tăng, cột đỏ làm giảm. Doanh thu tăng là xanh, chi phí tăng là đỏ.",
     alerts: "Máy tự soi: khách hàng lỗ nhiều tháng liền, biên gộp giảm mạnh so với tháng trước, khoản chi tăng nhanh hơn doanh thu, chi phí chờ duyệt lớn. Đỏ là cần xử lý, vàng là cần theo dõi.",
@@ -379,7 +379,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     rank: "Xếp theo doanh thu lũy kế. Bấm một dòng để mở báo cáo P&amp;L riêng của khách hàng hoặc sub-brand đó.",
     sublevel: "<b>Khách hàng</b> gộp các sub-brand theo trường Khách hàng mẹ trên ERP. <b>Sub-brand</b> là từng Brand trên ERP; lương và chi phí chung của sub-brand chia theo tỷ trọng doanh thu trong nhóm.",
     payroll: "Tổng chi phí lương gồm lương, BHXH phần công ty, thưởng, phụ cấp, lấy từ bảng lương (gộp theo chức danh, không có tên). Tháng chưa có số thật lấy trung bình 3 tháng gần nhất.",
-    opexgrp: "Chi phí vận hành ngoài lương, gom theo loại chi phí trên ĐNTT. Mỗi đoạn cột ghi % của tháng đó, trên đầu cột là tổng tiền.",
+    opexgrp: "Chi phí vận hành ngoài lương. Tháng đã chốt sổ lấy từ chi tiết chi phí trong file P&amp;L của Finance, từ T9/2026 lấy theo loại chi phí trên ĐNTT. Mỗi đoạn cột ghi % của tháng đó, trên đầu cột là tổng tiền.",
     dept: "Phòng ban theo ERP, gắn qua mã nhân sự (người đã nghỉ trước khi có ERP gán theo chức danh). Chi phí nhân sự gồm lương, BHXH, thưởng. Chi phí hoạt động lấy từ ĐNTT của phòng.",
     pending: "ĐNTT, thưởng, affiliate đang chờ duyệt. Chưa tính vào P&amp;L. Cột Kỳ là tháng sẽ ghi nhận nếu được duyệt.",
     hiring: "Người sắp vào, sắp nghỉ theo phiếu tuyển dụng và nghỉ việc. Chỉ ghi chức danh, không có tên.",
@@ -412,7 +412,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     "r-D-br": "Phần chi phí chung chia cho brand. Tháng đã chốt sổ theo sổ P&amp;L, tháng ERP theo tỷ trọng doanh thu.",
     "r-E": "Lợi nhuận gộp − chi phí vận hành. Chưa trừ thuế thu nhập doanh nghiệp và chi phí tài chính.",
     "r-LUONG": "Lương, BHXH, thưởng của nhân sự làm dịch vụ, gộp theo chức danh. Tháng chưa có số thật: trung bình 3 tháng.",
-    "r-SO": "Chi phí vận hành các tháng đã chốt sổ nằm gộp một dòng trong file P&amp;L (đã trừ phần lương khối chung tách ra ở trên).",
+    "r-SO": "Tháng đã chốt sổ: lương trong sổ P&amp;L và lương trong bảng lương chia giá vốn / chi phí vận hành hơi khác nhau. Dòng này giữ phần chênh để tổng chi phí đúng bằng sổ. Thường rất nhỏ.",
     "r-STORE": "Tháng đã chốt sổ theo sổ P&amp;L. Từ T9/2026 tính từ NMV × mức phí từng brand (EC Phi Quan Ly Brand).",
     "c-A": "Finance nhập số dư tiền đầu năm một lần trong EC Dong Tien Nhap Tay. Các tháng sau tự nối từ số dư cuối tháng trước.",
     "c-B": "Tiền thật sự vào tài khoản trong tháng. ERP chưa ghi phiếu thu nên Finance nhập tay trong EC Dong Tien Nhap Tay.",
@@ -554,6 +554,26 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
       }
       estNonSal(M.cogs, { C_LUONG: 1 }); estNonSal(M.opex, { O_NS: 1, O_SO: 1 }); estNonSal(M.ttKh, {});
       var nb3 = avg3(M.ttNb); for (i = 0; i < 12; i++) if (M.src[i] === "est") M.ttNb[i] = nb3;
+      // Thang dang chay: DNTT chua ve du -> chi phi thue ngoai toi thieu = ty le chi phi/doanh thu 3 thang gan nhat
+      // x doanh thu thang nay; chi phi van hanh toi thieu = trung binh 3 thang. Phan bu them chia theo ty trong doanh thu.
+      M.floorAdd = Z();
+      var ci = M.months.indexOf(M.cur);
+      if (ci >= 0 && M.src[ci] === "erp" && M.k3.length) {
+        var revG = {}, bb, gg;
+        for (bb in M.rev) for (gg in M.rev[bb]) { if (!revG[gg]) revG[gg] = Z(); revG[gg] = add(revG[gg], M.rev[bb][gg]); }
+        var revAllG = sumObj(revG), PAIR = { C_KOL: "KOL", C_LIVE: "LIVE", C_VIDEO: "VIDEO", C_MEDIA: "MEDIA", C_FFM: "FFM" };
+        Object.keys(M.cogs).forEach(function (cg) {
+          if (cg === "C_LUONG") return;
+          var rv = PAIR[cg] ? (revG[PAIR[cg]] || Z()) : revAllG, rc = avg3(rv), cc = avg3(M.cogs[cg]);
+          var fl = rc > 0 ? cc / rc * rv[ci] : 0;
+          if (fl > M.cogs[cg][ci]) { M.floorAdd[ci] += fl - M.cogs[cg][ci]; M.ttNb[ci] += fl - M.cogs[cg][ci]; M.cogs[cg][ci] = fl; }
+        });
+        Object.keys(M.opex).forEach(function (og) {
+          if (og === "O_NS" || og === "O_SO") return;
+          var fl2 = avg3(M.opex[og]);
+          if (fl2 > M.opex[og][ci]) { M.floorAdd[ci] += fl2 - M.opex[og][ci]; M.opex[og][ci] = fl2; }
+        });
+      }
       M.cogsT = sumObj(M.cogs); M.opexT = sumObj(M.opex);
       M.soGv = co.so_gv_kh || {}; M.soCp = co.so_cp_kh || {};
       M.soGvT = sumObj(M.soGv); M.soCpT = sumObj(M.soCp);
@@ -750,7 +770,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     mv.sort(function (a, b) { return b[1] - a[1]; });
     var up = mv.filter(function (x) { return x[1] >= 5e5; }).slice(0, 3), dn = mv.filter(function (x) { return x[1] <= -5e5; }).reverse().slice(0, 3);
     function col(t, a, cls) {
-      return '<div><div class="h">' + t + "</div>" + (a.length ? a.map(function (x) { return '<div class="row"><span>' + esc(x[0]) + '</span><b class="' + cls + '">' + (x[1] >= 0 ? "+" : "−") + fmt(Math.abs(x[1])) + "</b></div>"; }).join("") : '<div class="row"><span>Không có</span></div>') + "</div>";
+      return '<div><div class="h">' + t + "</div>" + (a.length ? a.map(function (x) { return '<div class="mv-row"><span>' + esc(x[0]) + '</span><b class="' + cls + '">' + (x[1] >= 0 ? "+" : "−") + fmt(Math.abs(x[1])) + "</b></div>"; }).join("") : '<div class="mv-row"><span>Không có</span></div>') + "</div>";
     }
     $("ov-movers").innerHTML = col(st.scope === "cty" ? "Khách hàng kéo lợi nhuận lên" : "Khoản kéo lên", up, "up") + col(st.scope === "cty" ? "Khách hàng kéo lợi nhuận xuống" : "Khoản kéo xuống", dn, "down");
   }
@@ -919,7 +939,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     if (!(M && M.cost)) { noCost("hr-opex", "Chỉ CEO, HOF, C&amp;B xem được chi phí toàn công ty."); }
     else {
       c = chart("hr-opex");
-      var P = pal(), groups = OPEX_HD.filter(function (x) { return x[0] !== "O_SO"; }).concat([["O_NSK", "Nhân sự khác"], ["O_SO", "Theo sổ (chưa tách nhóm)"]]);
+      var P = pal(), groups = OPEX_HD.filter(function (x) { return x[0] !== "O_SO"; }).concat([["O_NSK", "Nhân sự khác"]]);
       P = P.concat([css("--faint")]); while (P.length < groups.length) P.splice(P.length - 1, 0, css("--c2"));
       var totals = []; var t;
       for (t = 0; t < n; t++) totals.push(groups.reduce(function (s, x) { return s + (M.opex[x[0]][t] || 0); }, 0));
@@ -1248,6 +1268,8 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
   }
   function render() {
     showTabs();
+    var h1 = document.querySelector("#pnl-main header.top h1"), Mh = D[st.year];
+    if (h1) h1.textContent = (st.scope !== "cty" && Mh && Mh.brands && (st.tab === "tong-quan" || st.tab === "bao-cao")) ? "PnL · " + keyLabel(Mh, st.brand) : "PnL eCentric";
     if (!D[st.year] && MODE !== "dept") return;
     try {
       if (st.tab === "tong-quan") renderOV(); else if (st.tab === "brand") renderBR();
