@@ -60,7 +60,7 @@ def _rows_for(user, period):
     return rows
 
 
-def _decorate_groups(groups):
+def _decorate_groups(groups, period=None):
     """Them nhan/don vi/thu tu de UI khong phai biet ve hang so cua backend."""
     out = []
     for g in sorted(groups, key=lambda k: GROUP_SORT.get(k, 999)):
@@ -69,7 +69,7 @@ def _decorate_groups(groups):
             "group_key": g,
             "label": GROUP_LABEL.get(g, g),
             "unit": GROUP_UNIT.get(g, ""),
-            "counts_toward_sla": bool(GROUP_COUNTS_TOWARD_SLA.get(g, 1)),
+            "counts_toward_sla": bool(scoring.counts_in_period(g, period)),
             "min_sample": GROUP_MIN_SAMPLE.get(g, DEFAULT_MIN_SAMPLE),
         })
         out.append(b)
@@ -88,8 +88,8 @@ def person_board(user, period=None):
         "user": user,
         "period": period,
         "overall": agg["overall"],
-        "groups": _decorate_groups(agg["groups"]),
-        "contribution": scoring.contribution(agg["groups"]),
+        "groups": _decorate_groups(agg["groups"], period),
+        "contribution": scoring.contribution(agg["groups"], period),
     }
 
 

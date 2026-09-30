@@ -29,6 +29,7 @@ from datetime import datetime, timedelta
 
 from ecentric_workspace.sla.constants import (
     ALL_GROUPS, DEFAULT_MIN_SAMPLE, GROUP_COUNTS_TOWARD_SLA, GROUP_MIN_SAMPLE,
+    GROUP_OFF_PERIODS,
     OVERALL_MIN_SAMPLE, STATUS_CANCELLED, STATUS_EXCLUDED, STATUS_LATE,
     STATUS_MET, STATUS_MISSED, STATUS_OPEN,
 )
@@ -195,7 +196,18 @@ def aggregate(rows, now=None, min_sample_by_group=None):
     return {"groups": groups, "overall": overall}
 
 
-def contribution(groups):
+def counts_in_period(group_key, period=None):
+    """Nhom nay co cong vao %SLA cua ky `period` ("YYYY-MM") khong? -> 0/1.
+
+    Hang so nhom (GROUP_COUNTS_TOWARD_SLA) tru nhung ky bi tat tam thoi
+    (GROUP_OFF_PERIODS). Khong co `period` thi chi doc hang so.
+    """
+    if period and str(period)[:7] in GROUP_OFF_PERIODS.get(group_key, ()):
+        return 0
+    return 1 if GROUP_COUNTS_TOWARD_SLA.get(group_key, 1) else 0
+
+
+def contribution(groups, period=None):
     """Ti le xx%% la do dau? Tra ve danh sach nhom da sap theo so dau viec HONG
     (late + missed) giam dan.
 
@@ -205,7 +217,7 @@ def contribution(groups):
     """
     out = []
     for g, b in groups.items():
-        if not GROUP_COUNTS_TOWARD_SLA.get(g, 1):
+        if not counts_in_period(g, period):
             continue
         fails = b["late"] + b["missed"]
         if fails:
