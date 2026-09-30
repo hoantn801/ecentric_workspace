@@ -662,3 +662,8 @@ except NameError:
     override_doctype_class = {}
 override_doctype_class.setdefault(
     "Report", "ecentric_workspace.hr.timesheet_close.report_override.EcReport")
+
+# AI Video hang loat: day tiep du an dang chay / chay dem (10 phut). Tat bang site_config
+# `ec_video_scheduler_disabled: 1`.
+scheduler_events["cron"]["*/10 * * * *"].append(
+    "ecentric_workspace.ai_tools.features.ai_video.application.scheduler.tick")

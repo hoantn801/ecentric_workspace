@@ -1,0 +1,184 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-10-01 00:00:00.000000",
+ "description": "Dự án video AI của một brand (một host).",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "brand",
+  "title",
+  "status",
+  "host_image",
+  "host_key",
+  "anchor_source",
+  "anchor_state",
+  "talk_count",
+  "talk_state",
+  "section_run",
+  "gate_motion",
+  "gate_hold_a",
+  "night_mode",
+  "audio_seconds",
+  "mix_mode",
+  "mix_variants",
+  "state_json",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "brand",
+   "fieldtype": "Data",
+   "label": "Brand",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Tên dự án",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Trạng thái",
+   "options": "Đang chạy\nTạm dừng\nLưu trữ",
+   "default": "Đang chạy",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "host_image",
+   "fieldtype": "Attach Image",
+   "label": "Ảnh host"
+  },
+  {
+   "fieldname": "host_key",
+   "fieldtype": "Data",
+   "label": "Mã host (worker)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "anchor_source",
+   "fieldtype": "Select",
+   "label": "Khung neo lấy từ",
+   "options": "master\nhost",
+   "default": "master",
+   "description": "master = từ ảnh master SKU đầu tiên (khớp khung hình cầm SP); host = từ ảnh host gốc"
+  },
+  {
+   "fieldname": "anchor_state",
+   "fieldtype": "Data",
+   "label": "Trạng thái khung neo",
+   "read_only": 1
+  },
+  {
+   "fieldname": "talk_count",
+   "fieldtype": "Int",
+   "label": "Số clip nói",
+   "default": "6"
+  },
+  {
+   "fieldname": "talk_state",
+   "fieldtype": "Data",
+   "label": "Trạng thái clip nói",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_run",
+   "fieldtype": "Section Break",
+   "label": "Chạy"
+  },
+  {
+   "fieldname": "gate_motion",
+   "fieldtype": "Check",
+   "label": "Dừng QC sau clip lấy/hạ SP",
+   "default": "1"
+  },
+  {
+   "fieldname": "gate_hold_a",
+   "fieldtype": "Check",
+   "label": "Dừng QC sau clip cầm A",
+   "default": "1"
+  },
+  {
+   "fieldname": "night_mode",
+   "fieldtype": "Check",
+   "label": "Chạy đêm (tự làm tiếp, tự trộn + xuất)",
+   "default": "0"
+  },
+  {
+   "fieldname": "audio_seconds",
+   "fieldtype": "Float",
+   "label": "Độ dài audio mặc định (giây)",
+   "default": "72"
+  },
+  {
+   "fieldname": "mix_mode",
+   "fieldtype": "Select",
+   "label": "Kiểu trộn mặc định",
+   "options": "mix\nhold\ntalk",
+   "default": "mix"
+  },
+  {
+   "fieldname": "mix_variants",
+   "fieldtype": "Int",
+   "label": "Số bản / SKU",
+   "default": "5"
+  },
+  {
+   "fieldname": "state_json",
+   "fieldtype": "Long Text",
+   "label": "Trạng thái nội bộ (JSON)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC AI Video Project",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  },
+  {
+   "role": "EC AI Content",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "title_field": "title",
+ "show_title_field_in_link": 1
+}

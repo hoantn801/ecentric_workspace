@@ -73,6 +73,21 @@ AI_TOOL_ITEMS = [
             },
         ],
     },
+    {
+        # AI Video hang loat: brand -> du an -> lo SKU -> anh cam -> clip -> tron & xuat.
+        # Worker (n8n) chay tren laptop, noi qua Cloudflare Tunnel (site_config).
+        "key": "ai_tools.video",
+        "label": "AI Video hàng loạt",
+        "route": "/ai-video",
+        "icon": "activity",
+        "group": "",
+        "order": 22,
+        "active_patterns": ["/ai-video"],
+        "visible_when": "internal",
+        "keywords": ["video", "ai video", "livestream video", "host", "cam san pham",
+                     "tron video", "hang loat", "capcut"],
+        "owner": "ai_tools",
+    },
 ]
 
 
