@@ -359,3 +359,62 @@ def sync_one(employee, day=None):
         frappe.log_error(title="sla.attendance.sync_one %s" % emp.get("user_id"),
                          message=frappe.get_traceback())
     return report
+
+
+# --------------------------------------------------------------------------- #
+# Duong DUYET PHEP
+#
+# 30/09/2026: bon phieu nghi cua thang 9 duoc duyet cung mot luc chieu 30/09 -
+# co phieu nghi ngay 18/09, tuc 12 ngay sau. Job dem chi quet lai 7 ngay, nen
+# ngay 18/09 nam lai `Open` -> hien "Chua lam" vinh vien, du phep da duyet.
+#
+# Sua bang cach dong bo lai DUNG nhung ngay cua phieu ngay luc no duoc duyet.
+# Cung `_sync_employee` voi job dem va hook cham cong - khong luat moi. Chi
+# nhung ngay DA QUA (<= hom nay): ngay tuong lai de job dem tao dung ngay do,
+# nhu moi ngay cong khac. Tran 62 ngay de mot phieu nhap sai nam khong keo
+# ca giao dich duyet.
+# --------------------------------------------------------------------------- #
+LEAVE_SYNC_MAX_DAYS = 62
+
+
+def sync_leave(employee, from_date, to_date):
+    """Dong bo lai nhung ngay cong cua mot phieu nghi. Chay lai duoc.
+
+    Tra ve `_new_report()` da dien, hoac `None` neu khong co gi de lam.
+    """
+    if not employee or not from_date or not to_date:
+        return None
+    lo, hi = getdate(from_date), getdate(to_date)
+    if hi < lo:
+        lo, hi = hi, lo
+    today = getdate(frappe.utils.nowdate())
+    if hi > today:
+        hi = today
+    if lo > hi:
+        return None
+    if (hi - lo).days > LEAVE_SYNC_MAX_DAYS:
+        lo = frappe.utils.add_days(hi, -LEAVE_SYNC_MAX_DAYS)
+        lo = getdate(lo)
+    emp = _employee_one(employee)
+    if not emp:
+        return None
+    report = _new_report()
+    report["nhan_vien"] = 1
+    report["tu_ngay"], report["den_ngay"] = str(lo), str(hi)
+    sp = "sla_att_leave"
+    try:
+        frappe.db.savepoint(sp)
+    except Exception:
+        sp = None
+    try:
+        _sync_employee(emp, lo, hi, {}, report)
+    except Exception:
+        if sp:
+            try:
+                frappe.db.rollback(save_point=sp)
+            except Exception:
+                pass
+        report["loi"].append(emp.get("user_id"))
+        frappe.log_error(title="sla.attendance.sync_leave %s" % emp.get("user_id"),
+                         message=frappe.get_traceback())
+    return report

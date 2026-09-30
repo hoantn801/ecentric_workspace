@@ -305,3 +305,4 @@ ecentric_workspace.approval_center.patches.p235_ghi_bu_ngay_nghi_viec
 ecentric_workspace.approval_center.patches.p236_resync_pnl_5_tab_moi
 ecentric_workspace.hr.patches.p003_fill_attendance_shift
 ecentric_workspace.approval_center.patches.p237_promotion_an_luong_buoc_1
+ecentric_workspace.sla.patches.p015_phep_duyet_tre_resync
