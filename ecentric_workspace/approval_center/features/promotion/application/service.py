@@ -38,17 +38,6 @@ def _ctx(user):
     return frappe.db.get_value("Employee", {"user_id": user}, ["name", "department", "company"], as_dict=True)
 
 
-def _direct_manager_user(user):
-    """Requester's direct manager (reports_to -> user_id) if an active System User, else None."""
-    emp = frappe.db.get_value("Employee", {"user_id": user}, ["name", "reports_to"], as_dict=True)
-    mgr = emp and emp.reports_to and frappe.db.get_value("Employee", emp.reports_to, "user_id")
-    if mgr:
-        row = frappe.db.get_value("User", mgr, ["enabled", "user_type"], as_dict=True)
-        if row and row.enabled and row.user_type == "System User":
-            return mgr
-    return None
-
-
 @frappe.whitelist(methods=["POST"])
 def submit(name):
     doc = frappe.get_doc(BUSINESS_DT, name)
@@ -79,14 +68,16 @@ def submit(name):
                 frappe.throw(_("Muc luong khong the la so am."))
         except (TypeError, ValueError):
             frappe.throw(_("Muc luong phai la so."))
-    # Governance block: Direct Manager must be resolvable (salary-bearing form; no requester choice).
-    if not _direct_manager_user(user):
-        frappe.throw(_("Khong xac dinh duoc Quan ly truc tiep cua ban. Vui long lien he HR/Admin de cap "
-                       "nhat 'Bao cao cho' (reports_to) trong ho so nhan su truoc khi gui yeu cau thang chuc."))
+    # Buoc 1 (review Phan quyen P1, 29/09): nguoi dau tien tren chuoi reports_to cua NHAN SU
+    # DUOC DE XUAT xem duoc luong nguoi do. Khong co / trung nguoi gui -> bo buoc 1 (co ghi audit).
+    doc.salary_reviewer = snap.salary_reviewer(doc.promoted_employee, user) if doc.get("promoted_employee") else None
+    skip = None if doc.salary_reviewer else (1,)
     doc.submitted_at = now_datetime()
     doc.material_signature = _signature(doc)
     doc.save(ignore_permissions=True)
-    req_name = engine.submit(BUSINESS_DT, doc.name, APPROVAL_TYPE, user)
+    req_name = engine.submit(BUSINESS_DT, doc.name, APPROVAL_TYPE, user, skip_level_nos=skip,
+                             skip_reason=_("Không có quản lý nào trên chuỗi báo cáo (khác người gửi) "
+                                           "xem được lương nhân sự này") if skip else None)
     frappe.db.set_value(BUSINESS_DT, doc.name, "approval_request", req_name)
     return req_name
 
@@ -149,11 +140,15 @@ def _notify_manual(doc, why):
                              filters={"approval_request": doc.approval_request, "status": "Approved"},
                              pluck="approver")
         engine.notify(sorted(set(who + [doc.requested_by])),
-                      _("Promotion {0}: cần C&B cập nhật tay ({1}).").format(doc.name, why),
+                      _("Promotion {0}: cần C&B xử lý ({1}).").format(doc.name, why),
                       BUSINESS_DT, doc.name)
         frappe.db.commit()
     except Exception:
         pass
+
+
+def redact_business(business, request=None):
+    return snap.redact(business, request)
 
 
 def promotion_block(business, request):

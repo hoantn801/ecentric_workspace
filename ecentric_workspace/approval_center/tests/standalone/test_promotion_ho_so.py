@@ -1,5 +1,8 @@
-"""Promotion 29/09/2026: chon nhan su theo QUYEN XEM LUONG, thong tin hien tai lay o server,
-duyet xong ghi chuc danh + tao SSA luong moi (khong sua SSA cu).
+"""Promotion 29/09/2026: chon nhan su theo QUYEN XEM LUONG (has_permission tren SSA MOI NHAT),
+thong tin hien tai lay o server, duyet xong ghi chuc danh + tao SSA luong moi o DRAFT (khong sua
+SSA cu). Review Phan quyen P1-P3: an luong voi nguoi xem khong xem duoc, buoc 1 = nguoi dau tien
+tren chuoi reports_to xem duoc luong, khong ghi so tien vao nhat ky, SSA moi khong chep so du
+thue / phong / chuc danh.
 
     python -m pytest ecentric_workspace/approval_center/tests/standalone/test_promotion_ho_so.py
 """
@@ -60,18 +63,27 @@ class Doc(Obj):
         self[k] = v
 
 
-def build(visible=("E-A",)):
+def build(visible=("E-A",), perms=None):
     W.saved, W.inserted, W.submitted, W.logs, W.notes, W.enq = [], [], [], [], [], []
     W.boom_insert = False
+    W.slip = False
     W.visible = set(visible)
+    #: quyen doc SSA theo user: {user: set(ten SSA)}; nguoi dang nhap = me@x
+    W.perms = perms or {}
     W.emps = {"E-A": Doc(doctype="Employee", name="E-A", employee_name="An", department="Ops - EC",
                          designation="Engineer", grade="NV", employment_type="Full-time",
-                         date_of_joining="2025-01-01", company="EC", user_id="an@x", status="Active"),
+                         date_of_joining="2025-01-01", company="EC", user_id="an@x", status="Active",
+                         reports_to="E-LEAD"),
+              "E-LEAD": Doc(doctype="Employee", name="E-LEAD", user_id="lead@x", status="Active", reports_to="E-HEAD"),
+              "E-HEAD": Doc(doctype="Employee", name="E-HEAD", user_id="head@x", status="Active", reports_to=None),
               "E-B": Doc(doctype="Employee", name="E-B", employee_name="Binh", department="Fin - EC",
                          designation="Accountant", company="EC", user_id="b@x", status="Active"),
               "E-ME": Doc(doctype="Employee", name="E-ME", employee_name="Me", user_id="me@x", status="Active")}
-    W.ssa = [Obj(name="SSA-1", employee="E-A", docstatus=1, from_date="2026-01-01", base=20000000,
-                 salary_structure="ST-1", company="EC", variable=0),
+    W.ssa = [Obj(name="SSA-0", employee="E-A", docstatus=1, from_date="2025-01-01", base=15000000,
+                 salary_structure="ST-0", company="EC", department="Old - EC"),
+             Obj(name="SSA-1", employee="E-A", docstatus=1, from_date="2026-01-01", base=20000000,
+                 salary_structure="ST-1", company="EC", variable=0, department="Ops - EC",
+                 designation="Engineer", grade="NV", taxable_earnings_till_date=5, tax_deducted_till_date=1),
              Obj(name="SSA-2", employee="E-B", docstatus=1, from_date="2026-01-01", base=15000000,
                  salary_structure="ST-1", company="EC"),
              Obj(name="SSA-3", employee="E-ME", docstatus=1, from_date="2026-01-01", base=1, salary_structure="ST-1")]
@@ -85,25 +97,27 @@ def build(visible=("E-A",)):
         raise (exc or Throw)(msg)
     fr.throw = throw
 
-    def get_list(dt, filters=None, fields=None, pluck=None, order_by=None, limit_page_length=None, distinct=False):
-        assert dt == "Salary Structure Assignment"
-        rows = [r for r in W.ssa if r.employee in W.visible]         # quyen cua nguoi dang nhap
-        f = filters or {}
-        if "employee" in f:
-            rows = [r for r in rows if r.employee == f["employee"]]
-        if "from_date" in f:
-            rows = [r for r in rows if r.from_date <= f["from_date"][1]]
-        rows = sorted(rows, key=lambda r: r.from_date, reverse=True)
-        if pluck:
-            return [r.get(pluck) for r in rows]
-        return rows[:limit_page_length] if limit_page_length else rows
-    fr.get_list = get_list
+    def has_permission(dt, ptype="read", doc=None, user=None):
+        user = user or fr.session.user
+        if doc is None:
+            return bool(W.perms.get(user)) or (user == "me@x" and bool(W.visible))
+        allowed = W.perms.get(user)
+        if allowed is None and user == "me@x":
+            allowed = {r.name for r in W.ssa if r.employee in W.visible}
+        return doc in (allowed or set())
+    fr.has_permission = has_permission
+    fr.get_list = lambda *a, **k: (_ for _ in ()).throw(AssertionError("khong duoc dung get_list"))
 
     def get_all(dt, filters=None, fields=None, pluck=None, order_by=None, limit_page_length=None):
         if dt == "Salary Structure Assignment":                           # khong kiem quyen
-            rows = [r for r in W.ssa if r.employee == filters["employee"] and r.from_date <= filters["from_date"][1]]
+            rows = [r for r in W.ssa if r.docstatus == filters.get("docstatus", 1)]
+            if "employee" in filters:
+                rows = [r for r in rows if r.employee == filters["employee"]]
+            if "from_date" in filters:
+                rows = [r for r in rows if r.from_date <= filters["from_date"][1]]
             rows = sorted(rows, key=lambda r: r.from_date, reverse=True)
-            return [r.get(pluck) for r in rows][:1]
+            vals = [r.get(pluck) for r in rows]
+            return vals[:limit_page_length] if limit_page_length else vals
         if dt == "Employee":
             return [Obj(name=e.name, employee_name=e.employee_name, department=e.department,
                         designation=e.designation) for e in W.emps.values() if e.name in filters["name"][1]]
@@ -113,6 +127,11 @@ def build(visible=("E-A",)):
     fr.get_all = get_all
 
     def get_value(dt, name, fields=None, as_dict=False, **k):
+        if dt == "Salary Structure Assignment":
+            r = next(x for x in W.ssa if x.name == name)
+            return Obj({f: r.get(f) for f in fields}) if as_dict else r.get(fields)
+        if dt == "User":
+            return 1
         if dt == "Employee":
             if isinstance(name, dict):
                 return next((e.name for e in W.emps.values() if e.user_id == name["user_id"]), None)
@@ -121,7 +140,7 @@ def build(visible=("E-A",)):
                 return None
             return Obj({f: e.get(f) for f in fields}) if as_dict else e.get(fields)
         return W.req.get(name, {}).get(fields)
-    fr.db = types.SimpleNamespace(get_value=get_value, exists=lambda dt, n: n in ("Engineer", "Senior Engineer"),
+    fr.db = types.SimpleNamespace(get_value=get_value, exists=lambda dt, n: (n in ("Engineer", "Senior Engineer")) if isinstance(n, str) else W.slip,
                                   set_value=lambda dt, n, v, *a, **k: W.req.setdefault(n, {}).update(v if isinstance(v, dict) else {v: a[0]}),
                                   commit=lambda: None, rollback=lambda: W.notes.append("rollback"))
 
@@ -183,6 +202,12 @@ def test_chi_thay_nguoi_minh_xem_duoc_luong_tru_chinh_minh(env):
     assert [r.name for r in snap.candidates()] == ["E-A"]
 
 
+def test_quyen_theo_ssa_MOI_NHAT_khong_theo_ssa_cu(env):
+    # truong phong cu doc duoc SSA-0 (phong cu) nhung khong doc duoc SSA-1 hien hanh
+    snap, _s = env(perms={"me@x": {"SSA-0"}})
+    assert snap.can_view_salary("E-A") is False and snap.candidates() == []
+
+
 def test_khong_quyen_luong_thi_khong_xem_duoc_thong_tin(env):
     snap, _s = env(visible=("E-A",))
     assert snap.snapshot("E-A")["current_salary"] == 20000000
@@ -222,13 +247,18 @@ def test_duyet_xong_chay_nen(env):
 def test_ghi_chuc_danh_va_tao_ssa_moi_khong_sua_ssa_cu(env):
     snap, s = env()
     _req()
-    assert s.apply_to_employee("P-1") == {"applied": True, "ok": True}
+    assert s.apply_to_employee("P-1") == {"applied": True, "ok": False}
     assert W.emps["E-A"]["designation"] == "Senior Engineer"
     (new,) = W.inserted
     assert new["base"] == 28000000 and new["from_date"] == "2026-10-01" and new["salary_structure"] == "ST-1"
-    assert new["employee"] == "E-A" and new.get("docstatus") is None and W.submitted == ["SSA-NEW"]
-    assert W.ssa[0].base == 20000000                                        # SSA cu giu nguyen
-    assert W.req["P-1"]["applied_at"] and "Lương mới" in W.req["P-1"]["apply_result"]
+    assert new["employee"] == "E-A" and new.get("docstatus") is None and W.submitted == []   # DRAFT
+    for f in ("taxable_earnings_till_date", "tax_deducted_till_date", "department", "designation", "grade"):
+        assert f not in new, f                                              # P3: khong chep
+    assert W.ssa[1].base == 20000000                                        # SSA cu giu nguyen
+    res = W.req["P-1"]["apply_result"]
+    assert W.req["P-1"]["applied_at"] and "Draft" in res and "C&B" in res
+    assert "28000000" not in res and "28,000,000" not in res and "20000000" not in res   # P2
+    assert W.notes                                                          # bao C&B submit
     assert s.apply_to_employee("P-1") == {"skipped": True}                 # idempotent
     assert len(W.inserted) == 1
 
@@ -254,3 +284,38 @@ def test_loi_tao_ssa_thi_rollback_va_bao(env):
     assert s.apply_to_employee("P-1") == {"applied": False}
     assert "rollback" in W.notes and W.logs and "LỖI" in W.req["P-1"]["apply_result"]
     assert not W.req["P-1"].get("applied_at")
+
+
+def test_ky_luong_da_chot_thi_canh_bao(env):
+    snap, s = env()
+    _req()
+    W.slip = True
+    s.apply_to_employee("P-1")
+    assert "phiếu lương đã chốt" in W.req["P-1"]["apply_result"]
+
+
+def test_buoc_1_la_nguoi_dau_tien_tren_chuoi_xem_duoc_luong(env):
+    snap, s = env(perms={"lead@x": set(), "head@x": {"SSA-1"}})
+    assert snap.salary_reviewer("E-A", "me@x") == "head@x"                 # bo qua Lead
+    assert snap.salary_reviewer("E-A", "head@x") is None                   # trung nguoi gui -> bo buoc
+    snap2, _ = env(perms={"lead@x": set(), "head@x": set()})
+    assert snap2.salary_reviewer("E-A", "me@x") is None
+
+
+def test_an_luong_voi_nguoi_xem_khong_co_quyen(env):
+    snap, s = env(perms={"me@x": set()})
+    b = {"promoted_employee": "E-A", "current_salary": 1, "proposed_salary": 2, "incentives": "x"}
+    s.redact_business(b)
+    assert b["current_salary"] is None and b["proposed_salary"] is None and b["incentives"] is None
+    assert b["salary_hidden"] == 1
+    snap, s = env(perms={"me@x": {"SSA-1"}})
+    b = {"promoted_employee": "E-A", "current_salary": 1, "proposed_salary": 2}
+    s.redact_business(b)
+    assert b["current_salary"] == 1 and "salary_hidden" not in b
+
+
+def test_an_luong_loi_thi_an_het(env):
+    snap, s = env()
+    b = {"promoted_employee": "E-KHONG-CO", "current_salary": 1}
+    s.redact_business(b)
+    assert b["current_salary"] is None

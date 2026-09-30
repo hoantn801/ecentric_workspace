@@ -346,9 +346,13 @@ def detail(definition, name):
             # Khoi phu khong duoc lam hong man hinh chi tiet; ghi log de sua.
             frappe.log_error(frappe.get_traceback(), "detail_extender %s" % definition.code)
             extra = {"error": True}
+    biz = business.as_dict()
+    if getattr(definition, "business_redactor", None):
+        # KHONG nuot loi o day: redactor tu fail-closed (an het truong nhay cam khi loi).
+        definition.business_redactor(biz, request)
     return {
         "extra": extra,
-        "business": business.as_dict(),
+        "business": biz,
         "business_doctype": definition.business_doctype,   # hub can no de goi Duyet & Ky
         "approval": {
             "name": request.name if request else None,
