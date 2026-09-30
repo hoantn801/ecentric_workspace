@@ -618,3 +618,19 @@ scheduler_events["cron"].setdefault("0 9 * * *", []).append(
 # --------------------------------------------------------------------------- #
 scheduler_events["cron"].setdefault("30 0 * * *", []).append(
     "ecentric_workspace.hr.offboarding.lock_left_employees_job.run")
+
+# --------------------------------------------------------------------------- #
+# 30/09/2026 - Moi Attendance phai co ca (Shift Type): Attendance tu duyet don nghi / duyet
+# giai trinh truoc day KHONG co ca -> bang cong tach nguoi do thanh 2 dong. Xem
+# hr/attendance_shift.py (+ patch hr.p003 dien ca cho du lieu cu).
+# --------------------------------------------------------------------------- #
+_ATT_SHIFT_HOOK = "ecentric_workspace.hr.attendance_shift.ensure_shift"
+_att_ev = doc_events.setdefault("Attendance", {})
+_att_prev = _att_ev.get("before_insert")
+if _att_prev is None:
+    _att_ev["before_insert"] = [_ATT_SHIFT_HOOK]
+elif isinstance(_att_prev, str):
+    if _att_prev != _ATT_SHIFT_HOOK:
+        _att_ev["before_insert"] = [_att_prev, _ATT_SHIFT_HOOK]
+elif _ATT_SHIFT_HOOK not in _att_prev:
+    _att_prev.append(_ATT_SHIFT_HOOK)
