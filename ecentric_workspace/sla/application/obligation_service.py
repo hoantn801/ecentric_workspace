@@ -121,11 +121,14 @@ def open_obligation(type_code, owner_user, source_doctype, source_name,
         _log("sla.open_obligation.due")
         due_at = None
 
+    counts = t.get("counts_toward_sla") or 0
+    if counts and not scoring.counts_in_period(t["group_key"], due_rules.period_of(opened_at)):
+        counts = 0   # nhom tam khong tinh diem trong ky nay - xem GROUP_OFF_PERIODS
     doc = frappe.get_doc({
         "doctype": DT_OBLIGATION,
         "obligation_type": t["name"],
         "group_key": t["group_key"],
-        "counts_toward_sla": t.get("counts_toward_sla") or 0,
+        "counts_toward_sla": counts,
         "owner_user": owner_user,
         "employee": employee,
         "department": department,
