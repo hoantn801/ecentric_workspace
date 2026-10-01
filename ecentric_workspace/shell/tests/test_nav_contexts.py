@@ -66,6 +66,9 @@ class TestRouteToContext(unittest.TestCase):
                           "Cài app lên điện thoại"])
 
     def test_home_portal_preserves_restored_ia(self):
+        def labels_route_of(items, label):
+            return next((i["route"] for i in items if i["label"] == label), None)
+
         # PO-locked: portal context == the restored Homepage 4-group IA
         home = nav.compose("home")
         groups = []
@@ -83,7 +86,9 @@ class TestRouteToContext(unittest.TestCase):
         # opens that feed -- a sidebar row would be a second door to the same
         # room) and "Cài app lên điện thoại" (a phone-install guide has no
         # business in the desktop portal menu; it still shows inside /ec-hr).
-        self.assertEqual(len(home), 19)
+        # +1 (01/10/2026, PO Hoan): "Tin nội bộ" (/tin-noi-bo) trong nhom Workspace.
+        self.assertEqual(len(home), 20)
+        self.assertEqual(labels_route_of(home, "Tin nội bộ"), "/tin-noi-bo")
         self.assertFalse(any(i["route"] == "/viec-cua-toi" for i in home))
         self.assertFalse(any(i["route"] == "/ec-hr/huong-dan-cai-app" for i in home))
         labels = {i["label"]: i["route"] for i in home}

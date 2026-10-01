@@ -1,0 +1,115 @@
+{
+ "doctype": "DocType",
+ "name": "EC Read Receipt",
+ "module": "Internal Posts",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "allow_rename": 0,
+ "autoname": "hash",
+ "naming_rule": "Random",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "title_field": "reference_name",
+ "description": "Ai đã mở bản ghi nào (lượt xem). Dùng chung: Tin nội bộ hôm nay, tài liệu ISO sau này. Ghi bởi platform/read_receipt.py; không nhập tay.",
+ "field_order": [
+  "reference_doctype",
+  "reference_name",
+  "version",
+  "column_break_1",
+  "user",
+  "first_seen",
+  "last_seen",
+  "seen_count",
+  "dedupe_key"
+ ],
+ "fields": [
+  {
+   "fieldname": "reference_doctype",
+   "fieldtype": "Link",
+   "label": "Loại bản ghi",
+   "options": "DocType",
+   "reqd": 1,
+   "read_only": 1,
+   "in_list_view": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "reference_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Bản ghi",
+   "options": "reference_doctype",
+   "reqd": 1,
+   "read_only": 1,
+   "in_list_view": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "version",
+   "fieldtype": "Data",
+   "label": "Phiên bản",
+   "read_only": 1,
+   "description": "Để trống với bài viết; tài liệu ISO ghi số phiên bản."
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "Người xem",
+   "options": "User",
+   "reqd": 1,
+   "read_only": 1,
+   "in_list_view": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "first_seen",
+   "fieldtype": "Datetime",
+   "label": "Mở lần đầu",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_seen",
+   "fieldtype": "Datetime",
+   "label": "Mở gần nhất",
+   "read_only": 1
+  },
+  {
+   "fieldname": "seen_count",
+   "fieldtype": "Int",
+   "label": "Số lần mở",
+   "read_only": 1
+  },
+  {
+   "fieldname": "dedupe_key",
+   "fieldtype": "Data",
+   "label": "Khoá",
+   "unique": 1,
+   "read_only": 1,
+   "hidden": 1,
+   "length": 200
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1
+  },
+  {
+   "role": "HR Manager",
+   "read": 1,
+   "report": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}
