@@ -46,8 +46,8 @@
   },
   "approval_center/features/daily_target/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p203_resync_all_forms_alltab",
-    "sha256": "2a38b07fe2f6544d88e34f4835ce9bff20007497994ba535fc6a61c846de23ef"
+    "last_resync_patch": "p242_daily_target_data_xu_ly",
+    "sha256": "525f2a3e8154df7d7d3056f320a62b10fcae1b53d0e8bb56dda5b9984e001f41"
   },
   "approval_center/features/data_request/ui/main_section.html": {
     "last_resync_patch": "p203_resync_all_forms_alltab",

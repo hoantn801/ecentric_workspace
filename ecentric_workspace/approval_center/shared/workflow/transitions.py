@@ -673,7 +673,8 @@ FULFILLMENT_DOCTYPES = ("EC AI Topup Request", "EC Asset Request", "EC Data Requ
                         "EC Document Request", "EC Resignation Request", "EC System Request",
                         "EC Payment Request",    # buoc 6 Finance xu ly UNC (07/09)
                         "EC Booking Request",    # Booking xu ly yeu cau (11/09)
-                        "EC Hiring Request")     # HR tuyen dung sau CEO duyet (28/09)
+                        "EC Hiring Request",     # HR tuyen dung sau CEO duyet (28/09)
+                        "EC Daily Target Request")   # team Data xu ly sau duyet (01/10)
 
 
 def _fulfillment_snapshot(business_doctype, name):
@@ -1797,6 +1798,8 @@ _FULFILLMENT_HANDLERS = {
     "EC Offer Request": "ecentric_workspace.approval_center.features.offer_request.application.service.on_final_approval",
     "EC New Staff Preparation": "ecentric_workspace.approval_center.features.new_staff_preparation.application.service.on_final_approval",
     # 29/09: duyet xong -> ghi gia tri moi vao ho so Employee (o nen, sau commit).
+    # 01/10: Daily Target duyet xong -> hang doi team Data (Role EC Data Team).
+    "EC Daily Target Request": "ecentric_workspace.approval_center.features.daily_target.application.service.on_final_approval",
     "EC Employee Information Update Request": "ecentric_workspace.approval_center.features.employee_info_update.application.service.on_final_approval",
     # 29/09: Promotion duyet xong -> ghi chuc danh + tao SSA luong moi (nen, sau commit).
     "EC Promotion Request": "ecentric_workspace.approval_center.features.promotion.application.service.on_final_approval",
