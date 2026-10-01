@@ -114,7 +114,9 @@ class TestHomeSync(unittest.TestCase):
             # p228 (popup) - ban live truoc khi p230 them nut mo lai popup
             "633e6dd057e87f240e8dcee5aa6e62b4c623745f5ba775248e8c566a12b90baf",
             # p230 (nut mo lai popup) - ban live truoc khi p241 doi menu "AI Tool" -> "SI Tool"
-            "cfb286e5c4f0d5672e67d236ece09c1225ab4cd3fc7090d2d86fdcf7f31118f0"))
+            "cfb286e5c4f0d5672e67d236ece09c1225ab4cd3fc7090d2d86fdcf7f31118f0",
+            # p241 (menu "SI Tool") - ban live truoc khi p245 them muc "Khảo sát"
+            "a347101b1c8d6e61e4816c4e281340be6ed0418399f9f429ebb58362201c76c2"))
 
     def test_sync_writes_the_file_under_the_drift_lock_after_a_render_check(self):
         res = self.ps.sync()

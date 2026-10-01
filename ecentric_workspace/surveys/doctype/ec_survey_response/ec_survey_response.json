@@ -1,0 +1,88 @@
+{
+ "doctype": "DocType",
+ "name": "EC Survey Response",
+ "module": "Surveys",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "allow_rename": 0,
+ "sort_field": "submitted_at",
+ "sort_order": "DESC",
+ "description": "Một phiếu trả lời. Ẩn danh thì KHÔNG lưu người trả lời ở đây (xem EC Survey Participant).",
+ "autoname": "hash",
+ "field_order": [
+  "survey",
+  "respondent",
+  "submitted_at",
+  "updated_at",
+  "score",
+  "max_score",
+  "answers_json"
+ ],
+ "fields": [
+  {
+   "fieldname": "survey",
+   "fieldtype": "Link",
+   "label": "Khảo sát",
+   "options": "EC Survey",
+   "reqd": 1,
+   "in_list_view": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "respondent",
+   "fieldtype": "Link",
+   "label": "Người trả lời",
+   "options": "User",
+   "in_list_view": 1,
+   "search_index": 1,
+   "description": "Để trống khi khảo sát ẩn danh."
+  },
+  {
+   "fieldname": "submitted_at",
+   "fieldtype": "Datetime",
+   "label": "Nộp lúc",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "updated_at",
+   "fieldtype": "Datetime",
+   "label": "Sửa lần cuối"
+  },
+  {
+   "fieldname": "score",
+   "fieldtype": "Float",
+   "label": "Điểm"
+  },
+  {
+   "fieldname": "max_score",
+   "fieldtype": "Float",
+   "label": "Điểm tối đa"
+  },
+  {
+   "fieldname": "answers_json",
+   "fieldtype": "Long Text",
+   "label": "Câu trả lời (JSON)"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}

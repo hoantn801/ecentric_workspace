@@ -123,6 +123,11 @@ HOME_PORTAL_ITEMS = [
     {"key": "home.portal.pm", "label": "Công việc", "route": "/pm", "icon": "briefcase",
      "group": "Workspace", "order": 40, "active_patterns": ["/pm"],
      "visible_when": "internal", "owner": "home_portal", "alias": True},
+    # Khao sat noi bo (01/10/2026): route /khao-sat thuoc ngu canh `surveys`, day chi la alias.
+    {"key": "home.portal.surveys", "label": "Khảo sát", "route": "/khao-sat", "icon": "list",
+     "group": "Workspace", "order": 45, "active_patterns": ["/khao-sat"],
+     "visible_when": "internal", "owner": "home_portal", "alias": True,
+     "keywords": ["khao sat", "survey", "form"]},
     {"key": "home.portal.hall", "label": "eCentric Hall", "route": "/hall", "icon": "building",
      "group": "Workspace", "order": 50, "active_patterns": ["/hall"],
      "visible_when": "internal", "owner": "home_portal", "keywords": ["hall"]},
@@ -217,6 +222,7 @@ def _providers():
     from ecentric_workspace.pm import nav as pm_nav
     from ecentric_workspace.guides import nav as guides_nav
     from ecentric_workspace.ai_tools import nav as ai_tools_nav
+    from ecentric_workspace.surveys import nav as surveys_nav
     return [
         ("core", lambda: list(CORE_ITEMS)),
         ("approval_center", approval_nav.items),
@@ -235,6 +241,8 @@ def _providers():
         ("guides", guides_nav.items),
         # AI Tool: mot muc cha (/ai-tool) + children la tung cong cu.
         ("ai_tools", ai_tools_nav.items),
+        # Khao sat noi bo: hub cho moi nguoi + trang quan ly cho nguoi tao.
+        ("surveys", surveys_nav.items),
         ("home_portal", lambda: list(HOME_PORTAL_ITEMS)),
     ]
 
@@ -287,6 +295,11 @@ CONTEXTS = {
         "entry": {"key": "ctx.ai_tools", "label": "SI Tool",
                   "route": "/ai-tool", "icon": "grid"},
     },
+    "surveys": {
+        "providers": ["core", "surveys"],
+        "entry": {"key": "ctx.surveys", "label": "Khảo sát",
+                  "route": "/khao-sat", "icon": "list"},
+    },
     "pnl": {
         "providers": ["core", "reporting_pnl"],
         "entry": {"key": "ctx.pnl", "label": "Doanh thu (PnL)",
@@ -296,7 +309,7 @@ CONTEXTS = {
 #: order in which specialized contexts are probed for route resolution and in
 #: which launcher entries render.
 CONTEXT_ORDER = ["approval_document", "hr", "alert_center", "reporting", "pnl", "pm",
-                 "ai_tools"]
+                 "ai_tools", "surveys"]
 #: `pnl` dung TRUOC `reporting`? Khong can: /pnl-dashboard khong khop mau nao
 #: cua reporting (/reports, /reports/*), nen hai ngu canh khong tranh nhau.
 DEFAULT_CONTEXT = "approval_document"

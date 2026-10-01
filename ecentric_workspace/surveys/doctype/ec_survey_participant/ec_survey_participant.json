@@ -1,0 +1,110 @@
+{
+ "doctype": "DocType",
+ "name": "EC Survey Participant",
+ "module": "Surveys",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "allow_rename": 0,
+ "sort_field": "submitted_at",
+ "sort_order": "DESC",
+ "description": "Ai đã nộp khảo sát nào + phần thưởng. Tách khỏi phiếu trả lời để khảo sát ẩn danh vẫn chống nộp trùng và trao quà được. name = khảo sát + băm email (chống trùng ở tầng khoá chính). autoname=Prompt CÓ CHỦ Ý: với \"hash\", Frappe gặp trùng khoá chính sẽ tự sinh tên khác và chèn tiếp - mất chống trùng.",
+ "autoname": "Prompt",
+ "field_order": [
+  "survey",
+  "user",
+  "submitted_at",
+  "response",
+  "lucky_number",
+  "reward_result",
+  "prize",
+  "prize_label",
+  "rewarded_at",
+  "reminded_at"
+ ],
+ "fields": [
+  {
+   "fieldname": "survey",
+   "fieldtype": "Link",
+   "label": "Khảo sát",
+   "options": "EC Survey",
+   "reqd": 1,
+   "in_list_view": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "Người tham gia",
+   "options": "User",
+   "reqd": 1,
+   "in_list_view": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "submitted_at",
+   "fieldtype": "Datetime",
+   "label": "Nộp lúc",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "response",
+   "fieldtype": "Link",
+   "label": "Phiếu trả lời",
+   "options": "EC Survey Response",
+   "description": "Để trống khi ẩn danh - không nối được người với câu trả lời."
+  },
+  {
+   "fieldname": "lucky_number",
+   "fieldtype": "Int",
+   "label": "Số may mắn"
+  },
+  {
+   "fieldname": "reward_result",
+   "fieldtype": "Select",
+   "label": "Kết quả quà",
+   "options": "\nWin\nLose",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "prize",
+   "fieldtype": "Data",
+   "label": "Mã quà"
+  },
+  {
+   "fieldname": "prize_label",
+   "fieldtype": "Data",
+   "label": "Quà"
+  },
+  {
+   "fieldname": "rewarded_at",
+   "fieldtype": "Datetime",
+   "label": "Trao lúc"
+  },
+  {
+   "fieldname": "reminded_at",
+   "fieldtype": "Datetime",
+   "label": "Nhắc lần cuối"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}
