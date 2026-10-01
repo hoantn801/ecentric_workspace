@@ -33,7 +33,11 @@
   "summary",
   "content",
   "link",
-  "link_label"
+  "link_label",
+  "section_source",
+  "source_doctype",
+  "source_name",
+  "source_version"
  ],
  "fields": [
   {
@@ -126,6 +130,35 @@
    "fieldtype": "Data",
    "label": "Chữ trên nút",
    "description": "Vd: Dùng thử ngay. Để trống = \"Mở →\"."
+  },
+  {
+   "fieldname": "section_source",
+   "fieldtype": "Section Break",
+   "label": "Nguồn (tự điền)",
+   "collapsible": 1,
+   "description": "Thông báo do một tính năng khác tạo (bài Tin nội bộ, tài liệu ISO ban hành). Đừng sửa tay."
+  },
+  {
+   "fieldname": "source_doctype",
+   "fieldtype": "Link",
+   "label": "Loại nguồn",
+   "options": "DocType",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "source_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Bản ghi nguồn",
+   "options": "source_doctype",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "source_version",
+   "fieldtype": "Data",
+   "label": "Phiên bản nguồn",
+   "read_only": 1
   }
  ],
  "permissions": [

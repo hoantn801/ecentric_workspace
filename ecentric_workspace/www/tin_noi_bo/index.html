@@ -1,0 +1,97 @@
+{% extends "templates/includes/internal_posts/layout.html" %}
+{% from "templates/includes/internal_posts/macros.html" import icon, cover, cat_badge, state_badges, card, mini %}
+{#- /tin-noi-bo - huong "Chuyen muc" (mockup v5). Moi gia tri tu nguoi nhap deu |e. -#}
+{% block eip_page %}
+{%- set base = "/tin-noi-bo" -%}
+<div class="eip-head">
+  <div>
+    <h1 class="eip-h1">{{ title|e }}</h1>
+    <p>{% if category and category.slug == "huong-dan" %}Gộp cả bài hướng dẫn cũ. Mở /huong-dan cũng tới đúng trang này.{% else %}Thông báo, hướng dẫn, chính sách và tool mới của eCentric.{% endif %}</p>
+  </div>
+  <div class="eip-head-tools">
+    <form class="eip-search" method="get" action="{{ base }}" role="search">
+      {{ icon('search') }}
+      <label class="eip-sr" for="eip-q">Tìm theo tiêu đề</label>
+      <input id="eip-q" name="q" type="search" value="{{ q|e }}" placeholder="Tìm theo tiêu đề…" maxlength="60" autocomplete="off">
+      {% if category %}<input type="hidden" name="chuyen-muc" value="{{ category.slug|e }}">{% endif %}
+    </form>
+    {% if is_editor %}
+    <a href="{{ base }}/quan-ly" class="eip-btn">Quản lý bài</a>
+    <a href="{{ base }}/viet-bai" class="eip-btn eip-primary">{{ icon('plus') }}Viết bài</a>
+    {% endif %}
+  </div>
+</div>
+
+<nav class="eip-chips" aria-label="Chuyên mục">
+  <a class="eip-chip" href="{{ base }}"{% if mode == "all" %} aria-current="page"{% endif %}>Tất cả <em>{{ total }}</em></a>
+  {%- for c in categories %}
+  <a class="eip-chip" href="{{ base }}?chuyen-muc={{ c.slug|urlencode }}"{% if category and category.slug == c.slug and not unseen %} aria-current="page"{% endif %}>{{ c.name|e }} <em>{{ counts.get(c.slug, 0) }}</em></a>
+  {%- endfor %}
+  {%- if unseen_count or unseen %}
+  <a class="eip-chip" href="{{ base }}?chua-xem=1"{% if unseen %} aria-current="page"{% endif %}><span class="eip-unseen-dot" aria-hidden="true"></span>Chưa xem <em>{{ unseen_count }}</em></a>
+  {%- endif %}
+</nav>
+
+{% if mode == "all" %}
+  {% if pin or side %}
+  <div class="eip-feature{% if not pin %} eip-feature-nopin{% endif %}">
+    {% if pin %}
+    <a href="{{ pin.url|e }}" class="eip-big">
+      {{ cover(pin.cover, 'eip-cover-fill') }}
+      <span class="eip-big-body">
+        <span class="eip-pinmark">{{ icon('pin') }}Đã ghim</span>
+        <h2>{{ pin.title|e }}</h2>
+        {% if pin.summary %}<p class="eip-clamp2">{{ pin.summary|e }}</p>{% endif %}
+        <span class="eip-meta">{{ cat_badge(pin.category) }}<span>{{ pin.date_label|e }}</span>{% if pin.author %}<span class="eip-dot"></span><span>{{ pin.author|e }}</span>{% endif %}{{ state_badges(pin) }}</span>
+      </span>
+    </a>
+    {% endif %}
+    {% if side %}
+    <div class="eip-side">
+      {% for c in side %}{{ mini(c) }}{% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% for s in sections %}
+  <section class="eip-sec" aria-labelledby="eip-sec-{{ loop.index }}">
+    <div class="eip-sec-h">
+      <h2 id="eip-sec-{{ loop.index }}"><i class="eip-sw-{{ s.category.color|e }}" aria-hidden="true"></i>{{ s.category.name|e }}</h2>
+      <a href="{{ base }}?chuyen-muc={{ s.category.slug|urlencode }}">Xem tất cả ({{ s.total }}) →</a>
+    </div>
+    <div class="eip-row">
+      {% for c in s.cards %}{{ card(c) }}{% endfor %}
+    </div>
+  </section>
+  {% else %}
+  {% if not pin and not side %}
+  <div class="eip-empty">
+    <b>Chưa có bài nào.</b>
+    <span>{% if is_editor %}Bấm "Viết bài" để đăng bài đầu tiên.{% else %}Khi HR đăng thông báo, hướng dẫn hay chính sách mới, bài sẽ hiện ở đây.{% endif %}</span>
+  </div>
+  {% endif %}
+  {% endfor %}
+
+{% else %}
+  {% if items %}
+  <div class="eip-row eip-row-list">
+    {% for c in items %}{{ card(c) }}{% endfor %}
+  </div>
+  {% if page_count > 1 %}
+  {%- set qs -%}{% if category %}chuyen-muc={{ category.slug|urlencode }}&{% endif %}{% if unseen %}chua-xem=1&{% endif %}{% if q %}q={{ q|urlencode }}&{% endif %}{%- endset -%}
+  <nav class="eip-pager" aria-label="Trang">
+    {% if page_no > 1 %}<a class="eip-btn" href="{{ base }}?{{ qs }}trang={{ page_no - 1 }}">← Trước</a>{% endif %}
+    <span>Trang {{ page_no }} / {{ page_count }}</span>
+    {% if page_no < page_count %}<a class="eip-btn" href="{{ base }}?{{ qs }}trang={{ page_no + 1 }}">Sau →</a>{% endif %}
+  </nav>
+  {% endif %}
+  {% else %}
+  <div class="eip-empty">
+    {% if unseen %}<b>Bạn đã xem hết các bài.</b><span>Bài mới sẽ có nhãn "Chưa xem".</span>
+    {% elif q %}<b>Không có bài nào khớp "{{ q|e }}".</b><span>Thử từ khoá ngắn hơn, hoặc <a href="{{ base }}">xem tất cả</a>.</span>
+    {% else %}<b>Chuyên mục này chưa có bài.</b><span><a href="{{ base }}">Xem tất cả bài</a></span>{% endif %}
+  </div>
+  {% endif %}
+{% endif %}
+{% endblock %}

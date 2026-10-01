@@ -1,0 +1,398 @@
+/* ec_internal_posts.css - Tin noi bo (/tin-noi-bo, /tin-noi-bo/<slug>, /viet-bai, /quan-ly).
+   Thiet ke = mockup v5 PO duyet 01/10/2026. Mau + chu theo DESIGN.md cua ERP (chi giao dien sang).
+   Moi lop deu co tien to eip- va moi luat deu nam duoi .eip-app: khong dung toi trang khac,
+   khong dung toi .ec-sidebar / shell (shell co CSS rieng: ec_shell.bundle.css). */
+
+.eip-app{
+  --eip-navy:#2C3DA6;--eip-navy-50:#eef0fb;--eip-navy-100:#d9deef;--eip-navy-700:#1f2d80;
+  --eip-yellow-50:#fff8e1;--eip-amber-ink:#8a5a00;
+  --eip-pink-50:#fdeef5;--eip-pink-ink:#b4236a;
+  --eip-green:#10b981;--eip-green-50:#ecfdf5;--eip-green-ink:#047857;
+  --eip-red:#dc2626;--eip-red-50:#fef2f2;
+  --eip-purple-50:#f1edfd;--eip-purple-ink:#5b3cc4;
+  --eip-orange-50:#fff1e8;--eip-orange-ink:#c2410c;
+  --eip-teal-50:#e6f7fa;--eip-teal-ink:#0e7490;
+  --eip-bg:#f7f8fb;--eip-surface:#fff;--eip-line:#e5e7eb;--eip-soft:#f3f4f6;
+  --eip-g300:#d1d5db;--eip-g400:#9ca3af;--eip-g500:#6b7280;--eip-g600:#4b5563;--eip-g700:#374151;--eip-g800:#1f2937;--eip-g900:#111827;
+  display:grid;grid-template-columns:248px minmax(0,1fr);min-height:100vh;
+  background:var(--eip-bg);color:var(--eip-g800);
+  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  font-size:13.5px;line-height:1.5;letter-spacing:normal;color-scheme:light;
+}
+.eip-app *,.eip-app *::before,.eip-app *::after{box-sizing:border-box}
+.eip-main{min-width:0;display:flex;flex-direction:column}
+.eip-page{padding:22px 24px 48px;min-width:0;width:100%;max-width:1320px}
+.eip-app a{color:inherit}
+.eip-app button{font:inherit;cursor:pointer}
+.eip-app :focus-visible{outline:2px solid var(--eip-navy);outline-offset:2px}
+.eip-app [hidden]{display:none !important}
+.eip-app h1,.eip-app h2,.eip-app h3,.eip-app h4{font-family:inherit;letter-spacing:normal}
+.eip-sr{position:absolute !important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.eip-ic{width:16px;height:16px;flex:none}
+.eip-muted{color:var(--eip-g500)}
+.eip-clamp2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* ---------- thanh phan dung chung ---------- */
+.eip-badge{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 9px;font-size:11.5px;font-weight:700;white-space:nowrap;line-height:1.6}
+.eip-badge .eip-ic{width:11px;height:11px}
+.eip-tag-navy{background:var(--eip-navy-50);color:var(--eip-navy)}
+.eip-tag-green{background:var(--eip-green-50);color:var(--eip-green-ink)}
+.eip-tag-pink{background:var(--eip-pink-50);color:var(--eip-pink-ink)}
+.eip-tag-yellow{background:var(--eip-yellow-50);color:var(--eip-amber-ink)}
+.eip-tag-purple{background:var(--eip-purple-50);color:var(--eip-purple-ink)}
+.eip-tag-orange{background:var(--eip-orange-50);color:var(--eip-orange-ink)}
+.eip-tag-teal{background:var(--eip-teal-50);color:var(--eip-teal-ink)}
+.eip-tag-charcoal{background:var(--eip-soft);color:var(--eip-g700)}
+.eip-b-new{background:var(--eip-navy);color:#fff}
+.eip-b-scope{background:var(--eip-soft);color:var(--eip-g600)}
+.eip-b-exp{background:var(--eip-soft);color:var(--eip-g500);text-decoration:line-through}
+.eip-b-draft{background:#fff;border:1px dashed var(--eip-g400);color:var(--eip-g600)}
+.eip-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid var(--eip-line);background:var(--eip-surface);color:var(--eip-g700) !important;border-radius:9px;padding:8px 14px;font-weight:600;font-size:12.5px;line-height:1.4;text-decoration:none !important;white-space:nowrap}
+.eip-btn:hover{background:#f9fafb;color:var(--eip-g900) !important}
+.eip-btn .eip-ic{width:15px;height:15px}
+.eip-btn.eip-primary{background:var(--eip-navy);border-color:var(--eip-navy);color:#fff !important}
+.eip-btn.eip-primary:hover{background:var(--eip-navy-700)}
+.eip-btn.eip-danger{color:var(--eip-red) !important}
+.eip-btn.eip-danger:hover{background:var(--eip-red-50)}
+.eip-btn-sm{padding:5px 10px}
+.eip-btn:disabled,.eip-btn[aria-busy="true"]{opacity:.55;cursor:not-allowed}
+.eip-meta{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;color:var(--eip-g500);font-size:12.5px}
+.eip-dot{width:3px;height:3px;border-radius:50%;background:var(--eip-g400);display:inline-block}
+.eip-legacy{font-size:11px;color:var(--eip-g400);font-weight:600}
+.eip-note{font-size:12.5px;color:var(--eip-g500);margin:0}
+.eip-note-sm{margin-top:10px;font-size:11.5px}
+.eip-help{font-size:11.5px;color:var(--eip-g500);line-height:1.45}
+.eip-opt{font-weight:400;color:var(--eip-g500)}
+.eip-panel{background:var(--eip-surface);border:1px solid var(--eip-line);border-radius:12px;padding:16px 18px}
+.eip-panel-h{margin:0 0 10px !important;font-size:11px !important;font-weight:700 !important;letter-spacing:.4px !important;text-transform:uppercase;color:var(--eip-g500) !important;line-height:1.5 !important}
+.eip-pinmark{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--eip-navy)}
+.eip-pinmark .eip-ic{width:12px;height:12px;fill:currentColor}
+.eip-pinmark-light{color:#fff}
+.eip-unseen-dot{width:8px;height:8px;border-radius:50%;background:var(--eip-navy);display:inline-block;box-shadow:0 0 0 3px var(--eip-navy-50);flex:none}
+.eip-empty{background:var(--eip-surface);border:1px dashed var(--eip-g300);border-radius:12px;padding:28px 20px;display:flex;flex-direction:column;gap:4px;align-items:flex-start;color:var(--eip-g600);margin-top:16px}
+.eip-empty b{color:var(--eip-g900);font-size:14px}
+.eip-empty a{color:var(--eip-navy);font-weight:600}
+/* toast nam NGOAI .eip-app (cuoi layout) nen khong dung bien --eip-* */
+.eip-toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#111827;color:#fff;border-radius:10px;padding:10px 18px;font-size:13px;z-index:1000;box-shadow:0 8px 24px rgba(0,0,0,.18);max-width:calc(100vw - 32px);font-family:Inter,system-ui,sans-serif}
+.eip-toast[hidden]{display:none}
+.eip-toast.eip-toast-err{background:#991b1b}
+
+/* ---------- anh bia: 8 mau nen + bieu tuong chuyen muc ---------- */
+.eip-cover{position:relative;overflow:hidden;display:block;background:var(--cv1,#2C3DA6)}
+.eip-cover::before{content:"";position:absolute;inset:0;background:radial-gradient(120% 90% at 100% 0%,var(--cv2,#5b6fe0) 0%,transparent 60%),radial-gradient(80% 80% at 0% 100%,rgba(255,255,255,.18),transparent 60%)}
+.eip-cover .eip-cover-ic{position:absolute;right:8%;bottom:10%;width:34%;max-width:120px;height:auto;color:rgba(255,255,255,.88)}
+.eip-cover-img{background:var(--eip-soft)}
+.eip-cover-img::before{display:none}
+.eip-cover-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.eip-cover-fill{position:absolute;inset:0}
+.eip-cv-navy{--cv1:#2C3DA6;--cv2:#5b6fe0}
+.eip-cv-green{--cv1:#0f8f6b;--cv2:#34d399}
+.eip-cv-pink{--cv1:#c43a7f;--cv2:#f59ac6}
+.eip-cv-yellow{--cv1:#b37800;--cv2:#FFC000}
+.eip-cv-purple{--cv1:#5b3cc4;--cv2:#a78bfa}
+.eip-cv-orange{--cv1:#c2410c;--cv2:#fb923c}
+.eip-cv-teal{--cv1:#0e7490;--cv2:#22d3ee}
+.eip-cv-charcoal{--cv1:#1f2937;--cv2:#6b7280}
+.eip-sw-navy{background:#2C3DA6}.eip-sw-green{background:#10b981}.eip-sw-pink{background:#EF7CAF}.eip-sw-yellow{background:#FFC000}
+.eip-sw-purple{background:#7c5ce0}.eip-sw-orange{background:#f97316}.eip-sw-teal{background:#06b6d4}.eip-sw-charcoal{background:#4b5563}
+
+/* ---------- dau trang danh sach ---------- */
+.eip-head{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between;margin-bottom:16px}
+.eip-h1{margin:0 !important;font-size:22px !important;font-weight:800 !important;letter-spacing:-.4px !important;color:var(--eip-g900) !important;line-height:1.3 !important}
+.eip-head p{margin:2px 0 0;color:var(--eip-g500);font-size:13px}
+.eip-head-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.eip-search{display:flex;align-items:center;gap:8px;border:1px solid var(--eip-line);background:var(--eip-surface);border-radius:9px;padding:0 11px;color:var(--eip-g400);min-width:0;margin:0}
+.eip-search:focus-within{border-color:var(--eip-navy);box-shadow:0 0 0 3px var(--eip-navy-50)}
+.eip-search .eip-ic{width:15px;height:15px}
+.eip-search input{border:0;outline:0;background:transparent;font:inherit;font-size:13px;color:var(--eip-g900);padding:7px 0;width:200px;min-width:0}
+.eip-search input::placeholder{color:var(--eip-g400)}
+.eip-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.eip-chip{border:1px solid var(--eip-line);background:var(--eip-surface);color:var(--eip-g600) !important;border-radius:999px;padding:6px 13px;font-size:13px;font-weight:500;display:inline-flex;gap:6px;align-items:center;text-decoration:none !important;white-space:nowrap}
+.eip-chip:hover{border-color:var(--eip-navy-100);color:var(--eip-navy) !important}
+.eip-chip em{font-style:normal;color:var(--eip-g400);font-size:12px}
+.eip-chip[aria-current]{background:var(--eip-navy-50);border-color:var(--eip-navy-100);color:var(--eip-navy) !important;font-weight:600}
+.eip-chip[aria-current] em{color:var(--eip-navy)}
+
+/* ---------- huong "Chuyen muc": bai ghim + 3 bai moi ---------- */
+.eip-feature{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:14px;margin-bottom:22px}
+.eip-feature-nopin{grid-template-columns:1fr}
+.eip-feature-nopin .eip-side{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+.eip-big{position:relative;border-radius:14px;overflow:hidden;min-height:260px;display:flex;align-items:flex-end;text-decoration:none !important}
+.eip-big .eip-cover .eip-cover-ic{top:12%;bottom:auto;width:22%}
+.eip-big-body{position:relative;padding:20px 22px;color:#fff;display:flex;flex-direction:column;gap:8px;background:linear-gradient(transparent,rgba(10,16,48,.55) 40%);width:100%}
+.eip-big-body h2{margin:0;font-size:21px;line-height:1.3;letter-spacing:-.3px;text-wrap:balance;color:#fff;font-weight:700}
+.eip-big-body p{margin:0;color:rgba(255,255,255,.88);font-size:13px}
+.eip-big-body .eip-meta{color:rgba(255,255,255,.85)}
+.eip-big-body .eip-dot{background:rgba(255,255,255,.7)}
+.eip-big-body .eip-pinmark{color:#fff}
+.eip-big:hover h2{text-decoration:underline;text-underline-offset:3px}
+.eip-side{display:flex;flex-direction:column;gap:10px}
+.eip-mini{display:grid;grid-template-columns:96px minmax(0,1fr);gap:12px;background:var(--eip-surface);border:1px solid var(--eip-line);border-radius:12px;overflow:hidden;text-decoration:none !important;color:inherit}
+.eip-mini:hover{border-color:var(--eip-navy-100);box-shadow:0 2px 10px rgba(31,45,128,.06)}
+.eip-mini .eip-cover{min-height:84px}
+.eip-mini .eip-cover .eip-cover-ic{width:42%}
+.eip-mini-t{padding:10px 12px 10px 0;display:flex;flex-direction:column;gap:5px;min-width:0}
+.eip-mini h3{margin:0;font-size:13.5px;line-height:1.35;color:var(--eip-g900);font-weight:700}
+
+/* ---------- moi chuyen muc mot hang ---------- */
+.eip-sec{margin-top:24px}
+.eip-sec-h{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.eip-sec-h h2{margin:0;font-size:16px;font-weight:800;color:var(--eip-g900);display:flex;align-items:center;gap:8px}
+.eip-sec-h h2 i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.eip-sec-h a{font-size:12.5px;color:var(--eip-navy) !important;font-weight:600;text-decoration:none !important}
+.eip-sec-h a:hover{text-decoration:underline !important}
+.eip-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.eip-card{background:var(--eip-surface);border:1px solid var(--eip-line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:7px;text-decoration:none !important;color:inherit;min-width:0}
+.eip-card:hover{border-color:var(--eip-navy-100);box-shadow:0 2px 10px rgba(31,45,128,.06)}
+.eip-card h4{margin:0;font-size:14px;line-height:1.35;color:var(--eip-g900);font-weight:700}
+.eip-card p{margin:0;font-size:12.5px;color:var(--eip-g600)}
+.eip-aud{font-size:12px;color:var(--eip-green-ink);font-weight:600}
+.eip-card-guide{border-top:3px solid var(--eip-green)}
+.eip-pager{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:20px;font-size:13px;color:var(--eip-g600)}
+
+/* ---------- trang bai ---------- */
+.eip-notice{display:flex;gap:10px;align-items:flex-start;border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:14px;background:var(--eip-soft);color:var(--eip-g700)}
+.eip-notice .eip-ic{margin-top:2px}
+.eip-notice-scope{background:var(--eip-navy-50);color:var(--eip-navy-700)}
+.eip-hero{position:relative;border-radius:14px;overflow:hidden;min-height:220px;display:flex;align-items:flex-end;margin-bottom:20px}
+.eip-hero .eip-cover .eip-cover-ic{top:14%;bottom:auto;width:18%}
+.eip-hero-body{position:relative;padding:24px 26px;color:#fff;display:flex;flex-direction:column;gap:10px;width:100%;background:linear-gradient(transparent,rgba(10,16,48,.6) 45%)}
+.eip-hero-body h1{margin:0;font-size:26px;line-height:1.25;letter-spacing:-.5px;text-wrap:balance;max-width:32ch;color:#fff;font-weight:800}
+.eip-hero-body .eip-meta{color:rgba(255,255,255,.88)}
+.eip-hero-body .eip-dot{background:rgba(255,255,255,.7)}
+.eip-read{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:26px;align-items:start}
+.eip-read-main{background:var(--eip-surface);border:1px solid var(--eip-line);border-radius:14px;padding:26px 30px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.eip-lede{margin:0;font-size:15px;line-height:1.6;color:var(--eip-g600);font-weight:500}
+.eip-rail{display:flex;flex-direction:column;gap:14px;position:sticky;top:72px;min-width:0}
+.eip-toc{display:flex;flex-direction:column;gap:2px;font-size:13px}
+.eip-toc a{padding:6px 10px;border-left:2px solid var(--eip-line);color:var(--eip-g600) !important;text-decoration:none !important}
+.eip-toc a:hover{color:var(--eip-navy) !important}
+.eip-toc a[aria-current]{border-left-color:var(--eip-navy);color:var(--eip-navy) !important;font-weight:600}
+.eip-seen-big{display:flex;align-items:baseline;gap:6px;font-variant-numeric:tabular-nums}
+.eip-seen-big b{font-size:24px;font-weight:800;color:var(--eip-g900);letter-spacing:-.5px}
+.eip-seen-big span{font-size:13px;color:var(--eip-g500)}
+.eip-bar{height:8px;border-radius:999px;background:var(--eip-soft);overflow:hidden;margin:8px 0 10px}
+.eip-bar i{display:block;height:100%;background:var(--eip-green);border-radius:999px;transition:width .3s}
+.eip-seen-split{display:flex;gap:14px;font-size:12.5px;flex-wrap:wrap}
+.eip-seen-split b{color:var(--eip-g900);font-variant-numeric:tabular-nums}
+.eip-ok{color:var(--eip-green-ink)}
+.eip-no{color:var(--eip-g500)}
+.eip-faces{display:inline-flex;align-items:center}
+.eip-faces i{width:26px;height:26px;border-radius:50%;border:2px solid var(--eip-surface);margin-left:-7px;display:grid;place-items:center;font-style:normal;font-size:10px;font-weight:700;color:#fff;background:var(--eip-g600)}
+.eip-faces i:first-child{margin-left:0}
+.eip-face-0{background:#2C3DA6 !important}.eip-face-1{background:#c43a7f !important}.eip-face-2{background:#0f8f6b !important}.eip-face-3{background:#b37800 !important}.eip-face-4{background:#4b5563 !important}
+.eip-faces-row{margin-top:10px;display:flex;align-items:center;gap:8px}
+.eip-faces-row small{font-size:12px;color:var(--eip-g500)}
+.eip-who{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.eip-who-list{display:flex;flex-wrap:wrap;gap:6px}
+.eip-who-list span{background:var(--eip-surface);border:1px solid var(--eip-line);border-radius:999px;padding:2px 9px;font-size:12px;color:var(--eip-g700)}
+.eip-seen-inline{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12.5px;color:var(--eip-g600)}
+.eip-seen-inline b{color:var(--eip-g900)}
+.eip-mob-only{display:none}
+.eip-files{display:flex;flex-direction:column;gap:8px}
+.eip-file{display:flex;align-items:center;gap:10px;border:1px solid var(--eip-line);border-radius:10px;padding:9px 12px;background:var(--eip-surface);min-width:0}
+.eip-file-ic{width:32px;height:32px;border-radius:8px;background:var(--eip-red-50);color:var(--eip-red);font-size:10px;font-weight:800;display:grid;place-items:center;flex:none}
+.eip-file>div{min-width:0;flex:1}
+.eip-file b{display:block;font-size:13px;color:var(--eip-g800);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.eip-file small{color:var(--eip-g500);font-size:11.5px;display:flex;align-items:center;gap:4px}
+.eip-file small .eip-ic{width:11px;height:11px}
+.eip-file-x{border:0;background:none;color:var(--eip-g500);font-size:18px;line-height:1;padding:2px 6px;border-radius:6px}
+.eip-file-x:hover{background:var(--eip-red-50);color:var(--eip-red)}
+.eip-rx{display:flex;gap:6px;flex-wrap:wrap}
+.eip-rx button{border:1px solid var(--eip-line);background:var(--eip-surface);border-radius:999px;padding:4px 10px;font-size:13px;display:inline-flex;gap:5px;align-items:center;color:var(--eip-g600);min-height:32px}
+.eip-rx button:hover{border-color:var(--eip-navy-100)}
+.eip-rx button[aria-pressed="true"]{background:var(--eip-navy-50);border-color:var(--eip-navy-100);color:var(--eip-navy);font-weight:600}
+.eip-rx button:empty span,.eip-rx span:empty{display:none}
+.eip-rx-who{font-size:12px;color:var(--eip-g500);margin-top:6px}
+.eip-rx-who:empty{display:none}
+.eip-hrbox{border:1px dashed var(--eip-navy-100);background:#fbfbff;border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.eip-hrbox .eip-panel-h{color:var(--eip-navy) !important;margin:0 !important}
+.eip-hrbox .eip-btn{align-self:flex-start}
+.eip-hr-line{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;color:var(--eip-g600);flex-wrap:wrap}
+.eip-hr-line b{color:var(--eip-g900);font-variant-numeric:tabular-nums}
+
+/* noi dung bai (dung chung cho trang bai, o soan va xem truoc) */
+.eip-prose{font-size:14.5px;line-height:1.7;color:var(--eip-g700);max-width:72ch;overflow-wrap:anywhere}
+.eip-prose h2{font-size:17px;font-weight:700;color:var(--eip-g900);margin:26px 0 8px;scroll-margin-top:80px;line-height:1.35}
+.eip-prose h3{font-size:15px;font-weight:700;color:var(--eip-g900);margin:20px 0 6px;scroll-margin-top:80px}
+.eip-prose>:first-child{margin-top:0}
+.eip-prose p{margin:0 0 12px}
+.eip-prose ul,.eip-prose ol{margin:0 0 12px;padding-left:22px}
+.eip-prose li{margin:2px 0}
+.eip-prose a{color:var(--eip-navy);text-decoration:underline;text-underline-offset:2px}
+.eip-prose img{max-width:100%;height:auto;border-radius:10px;border:1px solid var(--eip-line);margin:4px 0 12px;display:block}
+.eip-prose blockquote{margin:0 0 12px;padding:8px 14px;border-left:3px solid var(--eip-navy-100);background:#fafbff;color:var(--eip-g600);border-radius:0 8px 8px 0}
+.eip-prose table{border-collapse:collapse;width:100%;font-size:13.5px;margin:6px 0 14px;display:block;overflow-x:auto}
+.eip-prose th,.eip-prose td{border:1px solid var(--eip-line);padding:8px 10px;text-align:left;vertical-align:top}
+.eip-prose th{background:#fafbfc;font-weight:600;color:var(--eip-g800)}
+.eip-prose hr{border:0;border-top:1px solid var(--eip-line);margin:20px 0}
+
+/* ---------- trang viet bai (HR) ---------- */
+.eip-cmp-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:16px}
+.eip-save-state{font-size:12px;color:var(--eip-g500);display:flex;align-items:center;gap:6px}
+.eip-save-state i{width:7px;height:7px;border-radius:50%;background:var(--eip-green);display:block}
+.eip-save-state.eip-dirty i{background:#f59e0b}
+.eip-cmp-actions{display:flex;gap:8px;flex-wrap:wrap}
+.eip-form-err{background:var(--eip-red-50);border:1px solid #f3c4c4;color:#991b1b;border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:14px;white-space:pre-line}
+.eip-cmp{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:start}
+.eip-cmp-main{background:var(--eip-surface);border:1px solid var(--eip-line);border-radius:14px;min-width:0}
+.eip-cmp-cover{position:relative;height:190px;border-bottom:1px solid var(--eip-line);overflow:hidden;border-radius:14px 14px 0 0;background:var(--eip-soft)}
+.eip-cmp-cover>.eip-cover{position:absolute;inset:0}
+.eip-cmp-cover .eip-cover .eip-cover-ic{width:20%;max-width:90px}
+.eip-cmp-cover .eip-cover-busy{position:absolute;inset:0;display:grid;place-items:center;background:rgba(255,255,255,.7);font-size:13px;color:var(--eip-g700);font-weight:600}
+.eip-cv-pick{padding:14px 26px 16px;border-bottom:1px solid var(--eip-line);display:flex;flex-direction:column;gap:12px;background:#fcfcfe}
+.eip-cv-pick>[data-eip-cvpane]{display:flex;flex-direction:column;gap:12px}
+.eip-cv-tabs{display:inline-flex;gap:2px;background:var(--eip-soft);border-radius:9px;padding:3px;align-self:flex-start;flex-wrap:wrap}
+.eip-cv-tabs button{border:0;background:transparent;border-radius:7px;padding:6px 12px;font-size:12.5px;font-weight:600;color:var(--eip-g600)}
+.eip-cv-tabs button[aria-pressed="true"]{background:var(--eip-surface);color:var(--eip-navy);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.eip-sw-row{display:flex;gap:8px;flex-wrap:wrap}
+.eip-swatch{width:40px;height:28px;border-radius:8px;border:2px solid transparent;padding:0;background:linear-gradient(135deg,var(--cv1),var(--cv2))}
+.eip-swatch[aria-pressed="true"]{border-color:var(--eip-g900);box-shadow:0 0 0 2px #fff inset}
+.eip-chk{display:flex;gap:8px;align-items:center;font-size:12.5px;color:var(--eip-g600);margin:0;font-weight:400}
+.eip-chk input{accent-color:var(--eip-navy);margin:0}
+.eip-drop{border:1.5px dashed var(--eip-g300);border-radius:10px;padding:12px;text-align:center;font-size:12.5px;color:var(--eip-g500);background:#fafbfc;cursor:pointer}
+.eip-drop:hover,.eip-drop.eip-over{border-color:var(--eip-navy);background:var(--eip-navy-50)}
+.eip-drop b{color:var(--eip-navy)}
+.eip-ai-box{display:flex;flex-direction:column;gap:10px}
+.eip-ai-head{display:flex;gap:10px;align-items:flex-start}
+.eip-ai-head b{display:block;font-size:13px;color:var(--eip-g900)}
+.eip-ai-head small{font-size:12px;color:var(--eip-g500)}
+.eip-ai-spark{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--eip-navy),#EF7CAF);color:#fff;display:grid;place-items:center;font-size:14px;flex:none}
+.eip-srcs{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.eip-src{font-size:12px;border-radius:999px;padding:2px 9px;background:var(--eip-soft);color:var(--eip-g500)}
+.eip-src.eip-on{background:var(--eip-green-50);color:var(--eip-green-ink);font-weight:600}
+.eip-ai-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.eip-ai-sk{aspect-ratio:16/9;border-radius:8px;background:linear-gradient(90deg,#eef0f6 25%,#f7f8fb 50%,#eef0f6 75%);background-size:200% 100%;animation:eip-sk 1.2s linear infinite}
+@keyframes eip-sk{to{background-position:-200% 0}}
+@media (prefers-reduced-motion:reduce){.eip-ai-sk{animation:none}.eip-bar i{transition:none}}
+.eip-ai-opt{border:2px solid transparent;border-radius:9px;padding:0;overflow:hidden;background:var(--eip-soft);aspect-ratio:16/9}
+.eip-ai-opt img{width:100%;height:100%;object-fit:cover;display:block}
+.eip-ai-opt[aria-pressed="true"]{border-color:var(--eip-navy);box-shadow:0 0 0 3px var(--eip-navy-50)}
+.eip-ai-acts{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.eip-cmp-fields{padding:20px 26px 6px;display:flex;flex-direction:column;gap:10px}
+.eip-cmp-title{border:0;outline:0;font:inherit;font-size:24px;font-weight:800;letter-spacing:-.4px;color:var(--eip-g900);width:100%;padding:4px 0;background:transparent;box-shadow:none}
+.eip-cmp-title::placeholder,.eip-cmp-sum::placeholder{color:var(--eip-g400)}
+.eip-cmp-title.eip-bad{box-shadow:inset 0 -2px 0 var(--eip-red)}
+.eip-cmp-sum{border:0;outline:0;font:inherit;font-size:14px;color:var(--eip-g600);width:100%;resize:vertical;padding:2px 0;background:transparent;line-height:1.55;box-shadow:none;min-height:46px}
+.eip-cmp-hint{font-size:11.5px;color:var(--eip-g400);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.eip-cmp-hint b{color:var(--eip-g600);font-weight:600;word-break:break-all}
+.eip-tb{position:sticky;top:56px;z-index:3;display:flex;flex-wrap:wrap;gap:2px;padding:8px 20px;border-top:1px solid var(--eip-line);border-bottom:1px solid var(--eip-line);background:#fcfcfe}
+.eip-tb button{border:0;background:transparent;border-radius:6px;min-width:32px;height:30px;padding:0 8px;color:var(--eip-g600);font-weight:600;font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:4px}
+.eip-tb button:hover{background:var(--eip-navy-50);color:var(--eip-navy)}
+.eip-sep{width:1px;background:var(--eip-line);margin:4px 6px}
+.eip-editor{padding:20px 26px 30px;min-height:320px;outline:0;max-width:none}
+.eip-editor:empty::before{content:attr(data-ph);color:var(--eip-g400)}
+.eip-editor img.eip-uploading{opacity:.5}
+.eip-cmp-side{display:flex;flex-direction:column;gap:14px;position:sticky;top:72px}
+.eip-fld{display:flex;flex-direction:column;gap:6px}
+.eip-fld+.eip-fld,.eip-radio-row+.eip-fld,.eip-dept+.eip-err+.eip-fld,.eip-dept+.eip-fld,.eip-err+.eip-fld{margin-top:14px}
+.eip-fld label,.eip-fld .eip-lb{font-size:12.5px;font-weight:600;color:var(--eip-g700);margin:0}
+.eip-inp{border:1px solid var(--eip-line);border-radius:8px;padding:8px 11px;font:inherit;font-size:13.5px;color:var(--eip-g900);background:var(--eip-surface);width:100%;height:auto;box-shadow:none}
+.eip-inp:focus{outline:0;border-color:var(--eip-navy);box-shadow:0 0 0 3px var(--eip-navy-50)}
+.eip-inp.eip-bad{border-color:var(--eip-red);box-shadow:0 0 0 3px var(--eip-red-50)}
+.eip-err{font-size:12px;color:var(--eip-red);display:block}
+.eip-radio-row{display:flex;flex-direction:column;gap:6px}
+.eip-radio{display:flex;gap:9px;align-items:flex-start;border:1px solid var(--eip-line);border-radius:9px;padding:9px 11px;cursor:pointer;font-size:13px;color:var(--eip-g700);margin:0;font-weight:400}
+.eip-radio input{margin-top:3px;accent-color:var(--eip-navy)}
+.eip-radio:has(input:checked){border-color:var(--eip-navy-100);background:var(--eip-navy-50)}
+.eip-radio small{display:block;color:var(--eip-g500);font-size:11.5px}
+.eip-dept{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;max-height:240px;overflow:auto;padding:2px}
+.eip-dept button{border:1px solid var(--eip-line);background:var(--eip-surface);border-radius:999px;padding:4px 10px;font-size:12px;color:var(--eip-g600)}
+.eip-dept button[aria-pressed="true"]{background:var(--eip-navy);border-color:var(--eip-navy);color:#fff}
+.eip-dept button[data-eip-implied]{border-color:var(--eip-navy-100);background:var(--eip-navy-50);color:var(--eip-navy)}
+.eip-dept .eip-dept-d1::before{content:"› ";color:var(--eip-g400)}
+.eip-dept .eip-dept-d2::before,.eip-dept .eip-dept-d3::before,.eip-dept .eip-dept-d4::before{content:"›› ";color:var(--eip-g400)}
+.eip-check{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--eip-line);border-radius:9px;padding:10px 12px;font-size:13px;color:var(--eip-g700);cursor:pointer;margin:0 0 8px;font-weight:600}
+.eip-check input{width:16px;height:16px;margin:2px 0 0;accent-color:var(--eip-navy);flex:none}
+.eip-check small{display:block;font-size:11.5px;color:var(--eip-g500);font-weight:400;margin-top:1px}
+.eip-check:has(input:checked){border-color:var(--eip-navy-100);background:var(--eip-navy-50)}
+.eip-check.eip-dis{opacity:.55;cursor:not-allowed}
+.eip-tog{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;font-size:13px;color:var(--eip-g700)}
+.eip-tog small{display:block;font-size:11.5px;color:var(--eip-g500);margin-top:1px}
+.eip-tog.eip-dis{opacity:.55}
+.eip-sw{flex:none;width:36px;height:20px;border-radius:999px;background:var(--eip-g300);border:0;position:relative;padding:0}
+.eip-sw::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .15s}
+.eip-sw[aria-checked="true"]{background:var(--eip-navy)}
+.eip-sw[aria-checked="true"]::after{left:18px}
+.eip-sw:disabled{cursor:not-allowed}
+.eip-reach{background:var(--eip-navy-50);border:1px solid var(--eip-navy-100);border-radius:10px;padding:10px 12px;font-size:12.5px;color:var(--eip-navy-700);display:flex;gap:8px;align-items:flex-start;margin-top:12px}
+.eip-reach .eip-ic{width:15px;height:15px;margin-top:2px}
+.eip-files+.eip-drop{margin-top:8px}
+.eip-drop+input+.eip-help{display:block;margin-top:8px}
+
+/* hop xac nhan + xem truoc */
+.eip-modal-bg{position:fixed;inset:0;background:rgba(17,24,39,.45);display:grid;place-items:center;z-index:990;padding:16px;font-family:Inter,system-ui,sans-serif}
+.eip-modal{background:var(--eip-surface,#fff);border-radius:14px;width:min(460px,100%);padding:22px 22px 18px;display:flex;flex-direction:column;gap:12px;box-shadow:0 20px 50px rgba(0,0,0,.2)}
+.eip-modal h3{margin:0;font-size:17px;color:var(--eip-g900);font-weight:700}
+.eip-modal ul{margin:0;padding-left:18px;font-size:13px;color:var(--eip-g700);display:flex;flex-direction:column;gap:4px}
+.eip-acts{display:flex;justify-content:flex-end;gap:8px;margin-top:4px;flex-wrap:wrap}
+.eip-preview-bg{place-items:stretch;padding:24px}
+.eip-preview{background:var(--eip-bg);border-radius:14px;width:min(1000px,100%);margin:0 auto;display:flex;flex-direction:column;overflow:hidden;max-height:calc(100vh - 48px)}
+.eip-preview-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 16px;background:var(--eip-surface);border-bottom:1px solid var(--eip-line);font-size:13px}
+.eip-preview-body{padding:20px;overflow:auto}
+
+/* ---------- quan ly bai (HR) ---------- */
+.eip-tabs{display:flex;gap:4px;border-bottom:1px solid var(--eip-line);margin-bottom:14px;overflow-x:auto}
+.eip-tabs a{padding:9px 12px;font-weight:600;font-size:13px;color:var(--eip-g500) !important;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;text-decoration:none !important}
+.eip-tabs a[aria-current]{color:var(--eip-navy) !important;border-bottom-color:var(--eip-navy)}
+.eip-tabs em{font-style:normal;font-weight:500;color:var(--eip-g400);margin-left:4px}
+.eip-tbl{background:var(--eip-surface);border:1px solid var(--eip-line);border-radius:12px;overflow-x:auto}
+.eip-tbl table{width:100%;border-collapse:collapse;font-size:13px;min-width:760px;margin:0}
+.eip-tbl th{text-align:left;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--eip-g500);padding:10px 14px;border-bottom:1px solid var(--eip-line);background:#fafbfc}
+.eip-tbl td{padding:11px 14px;border-bottom:1px solid var(--eip-soft);vertical-align:middle;color:var(--eip-g700)}
+.eip-tbl tr:last-child td{border-bottom:0}
+.eip-t b{color:var(--eip-g900);display:flex;align-items:center;gap:6px}
+.eip-num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.eip-mini-bar{width:70px;height:6px;border-radius:999px;background:var(--eip-soft);display:inline-block;vertical-align:middle;margin-left:6px;overflow:hidden}
+.eip-mini-bar i{display:block;height:100%;background:var(--eip-green)}
+.eip-row-acts{display:flex;gap:6px;justify-content:flex-end}
+.eip-empty-cell{padding:22px 14px !important;text-align:center}
+
+/* ---------- man hinh hep ---------- */
+@media (max-width:1300px){
+  .eip-row{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .eip-feature-nopin .eip-side{grid-template-columns:1fr}
+}
+@media (max-width:1250px){
+  .eip-cmp{grid-template-columns:minmax(0,1fr)}
+  .eip-cmp-side{position:static}
+}
+@media (max-width:1100px){
+  .eip-read{grid-template-columns:minmax(0,1fr) 260px}
+}
+@media (max-width:900px){
+  .eip-app{grid-template-columns:minmax(0,1fr)}
+  .eip-page{padding:16px 14px 88px}
+}
+@media (max-width:760px){
+  .eip-feature{grid-template-columns:minmax(0,1fr)}
+  .eip-big{min-height:220px}
+  .eip-row{grid-template-columns:minmax(0,1fr)}
+  /* dien thoai: moi chuyen muc la mot hang vuot ngang */
+  .eip-sec .eip-row{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:80%;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px;margin-inline:-14px;padding-inline:14px;scroll-padding-inline:14px}
+  .eip-sec .eip-row>*{scroll-snap-align:start}
+  .eip-chips{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;margin-inline:-14px;padding-inline:14px}
+  .eip-chip{flex:none}
+  .eip-h1{font-size:19px !important}
+  .eip-head-tools{width:100%}
+  .eip-search{flex:1}
+  .eip-search input{width:100%}
+  .eip-read{grid-template-columns:minmax(0,1fr)}
+  .eip-rail{position:static}
+  .eip-toc-panel{display:none}
+  .eip-mob-only{display:flex}
+  .eip-read-main{padding:18px 16px}
+  .eip-hero-body{padding:18px}
+  .eip-hero-body h1{font-size:21px}
+  .eip-hero{min-height:200px}
+}
+@media (max-width:640px){
+  .eip-cv-pick,.eip-cmp-fields,.eip-editor{padding-inline:16px}
+  .eip-tb{padding-inline:10px}
+  .eip-cmp-title{font-size:20px}
+  .eip-cmp-cover{height:160px}
+  .eip-cmp-actions{width:100%}
+  .eip-cmp-actions .eip-btn{flex:1}
+  .eip-preview-bg{padding:0}
+  .eip-preview{max-height:100vh;border-radius:0}
+}
