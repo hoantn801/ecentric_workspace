@@ -286,7 +286,7 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 .svy-oe .svy-in { min-height:34px; padding:6px 10px; }
 .svy-oe .ok { color:var(--ok); border-color:var(--ok); background:var(--ok-bg); }
 .svy-oe select.svy-sel { width:auto; min-height:34px; padding:4px 8px; max-width:200px; font-size:12.5px; }
-.svy-edfoot { display:flex; align-items:center; justify-content:flex-end; gap:6px; flex-wrap:wrap; border-top:1px solid var(--line2); padding-top:10px; }
+.svy-edfoot { display:flex; align-items:center; justify-content:flex-end; gap:6px; flex-wrap:wrap; border-top:1px solid var(--line2); padding-top:10px; margin-top:16px; }
 .svy-switch { display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-size:13px; user-select:none; }
 .svy-switch input { appearance:none; width:34px; height:20px; border-radius:10px; background:#d1d5db; position:relative; cursor:pointer; transition:background .15s; margin:0; flex:none; }
 .svy-switch input::after { content:""; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; transition:left .15s; box-shadow:0 1px 2px rgba(0,0,0,.2); }
@@ -370,3 +370,19 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 .svy-tl b { font-size:13.5px; }
 .svy-mode-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(170px,1fr)); gap:10px; }
 @media (max-width:640px) { .svy-ngrid { grid-template-columns:repeat(6, minmax(0,1fr)); } }
+
+/* ---- Va CSS cua Frappe (do tren team.ecentric.vn 02/10/2026) ----
+ * website.bundle.css co hai luat toan site de len trang khao sat:
+ *   .icon { margin:0 auto; font-size:0; width:20px; height:20px }  -> nut .svy-b.icon bi day ra giua
+ *      (nut Quay lai lech, 4 nut cuoi the cau hoi gian deu ca hang).
+ *   input[type=checkbox] { appearance:none; width:var(--checkbox-size) !important; margin-right:...;
+ *      border; :checked -> background-image dau tick }  -> cong tac .svy-switch co lai 14px, nut tron
+ *      de len chu.
+ * Ghi de bang #ec-svy + !important CHI cho thuoc tinh ma Frappe dat !important (quy tac frontend: chi
+ * dung !important khi de thu vien ben thu ba). */
+#ec-svy .svy-b.icon { margin:0; font-size:13.5px; background-size:auto; }
+#ec-svy .svy-switch input[type=checkbox] { width:34px !important; min-width:34px; height:20px; margin:0 !important; padding:0;
+  border:0; border-radius:10px; background:#d1d5db; background-image:none; box-shadow:none; }
+#ec-svy .svy-switch input[type=checkbox]:checked { background:var(--navy); background-image:none; border:0; }
+#ec-svy .svy-switch input[type=checkbox]:focus-visible { box-shadow:0 0 0 3px rgba(44,61,166,.25); }
+#ec-svy .svy-opt input[type=checkbox], #ec-svy .svy-opt input[type=radio] { width:18px !important; height:18px; margin:0 !important; }

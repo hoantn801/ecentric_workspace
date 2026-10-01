@@ -289,19 +289,19 @@
     "sha256": "30ea2f62193d68623b68c5723e61d9dd0802b490f80720c20ce8b37126c179a6"
   },
   "surveys/pages/hub/main_section.html": {
-    "last_resync_patch": "p248_khao_sat_pages",
-    "sha256": "0696a3a17de6869c7220e70675c1aa9b6ef747af1aef64ed7a18f5e376155b09"
+    "last_resync_patch": "p251_resync_khao_sat_giao_dien",
+    "sha256": "00c5608eb1638381d5c144e295c989370ea9aaa3368bb5aa05e3490d80de595f"
   },
   "surveys/pages/fill/main_section.html": {
-    "last_resync_patch": "p248_khao_sat_pages",
-    "sha256": "0ed8342b1e41ccbd3f84ca35bba6f671a388a5e52b24f5931d7089e4dac6e9b4"
+    "last_resync_patch": "p251_resync_khao_sat_giao_dien",
+    "sha256": "8674cdd3c784ff3c14aaaab9e91881fc7675d567ae6dee54fe8054c26e42654c"
   },
   "surveys/pages/manage/main_section.html": {
-    "last_resync_patch": "p248_khao_sat_pages",
-    "sha256": "4ac2c89df55f28ffa6d280c8cd7f15e239a657890295611232b60fed9a12aa48"
+    "last_resync_patch": "p251_resync_khao_sat_giao_dien",
+    "sha256": "936cf147c35a85fcb4406eeb60767f32182c66fa04eabf5b58f8c642e7045e06"
   },
   "surveys/pages/builder/main_section.html": {
-    "last_resync_patch": "p248_khao_sat_pages",
-    "sha256": "c5f8c176540cf21ac6d649ed423eb6368571d56b292842571ec9936d9e78118d"
+    "last_resync_patch": "p251_resync_khao_sat_giao_dien",
+    "sha256": "5d23bd54ab339f90cf800ce7cd81e6298aab74164c9f2364e9c1c33e2e373628"
   }
 }
