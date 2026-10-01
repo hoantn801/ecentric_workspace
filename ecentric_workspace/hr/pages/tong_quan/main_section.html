@@ -142,7 +142,7 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
 @media (max-width:760px){.ecq .tskpis{grid-template-columns:repeat(2,1fr)}}
 .ecq .sbbar{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:14px}
 .ecq .sbbar .muted{flex:1; font-size:12.5px}
-.ecq .sbbar a.btn{margin-left:auto}
+.ecq .sbbar select + a.btn{margin-left:auto}
 .ecq .kpi.sbk-good .n{color:var(--green)} .ecq .kpi.sbk-warn{background:#FFFBEB; border-color:#FDE68A} .ecq .kpi.sbk-warn .n{color:var(--amber)}
 .ecq .kpi.sbk-bad{background:#FEF3F2; border-color:#FECDCA} .ecq .kpi.sbk-bad .n{color:var(--red)}
 .ecq .sbgroups{display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px}
@@ -406,14 +406,8 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
       return '<option value="' + esc(p) + '"' + (p === sel ? " selected" : "") + '>' + esc(monthLabel(p)) + (p === cur && id === "sb-slap" ? " (đang chạy)" : "") + '</option>';
     }).join("") + '</select>';
   }
-  function csvDownload(name, rows) {
-    var txt = "﻿" + rows.map(function (r) {
-      return r.map(function (c) { c = c == null ? "" : String(c); return /[",\n;]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c; }).join(",");
-    }).join("\r\n");
-    var a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([txt], { type: "text/csv;charset=utf-8" }));
-    a.download = name; document.body.appendChild(a); a.click();
-    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+  function xlsxLink(kind, period) {
+    return '<a class="btn" href="' + API + 'export_summary_xlsx?kind=' + kind + '&period=' + encodeURIComponent(period) + '" download>Xuất Excel</a>';
   }
   function sbLoading(box) { box.innerHTML = '<div class="sk" aria-hidden="true"><i></i><i></i><i></i></div>'; }
   function sbError(box, msg, again) {
@@ -429,7 +423,7 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
     SB.slaP = d.period;
     var st = d.stats;
     var html = '<div class="sbbar">' + periodPicker("sb-slap", d.periods, d.current, d.period)
-      + '<span class="muted">' + st.people + ' người · ' + st.scored + ' đầu việc đã chấm</span><button type="button" class="btn" id="sb-csv">Tải CSV</button></div>'
+      + '<span class="muted">' + st.people + ' người · ' + st.scored + ' đầu việc đã chấm</span>' + xlsxLink("sla", d.period) + '</div>'
       + '<div class="kpis">'
       + '<div class="card kpi sbk-' + st.band + '"><div class="l">SLA toàn công ty</div><div class="n">' + pct(st.rate) + '</div><div class="s">' + esc(monthLabel(d.period)) + (d.period === d.current ? " · đang chạy" : "") + '</div></div>'
       + '<div class="card kpi"><div class="l">Đạt (≥ 90%)</div><div class="n">' + st.good + '</div><div class="s">người</div></div>'
@@ -460,15 +454,6 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
     html += '</tbody></table></div><div class="note">Bấm vào một phòng để xem từng người. Cùng công thức với trang Điểm SLA: % = đúng hạn / (đúng hạn + trễ + bỏ lỡ), không tính việc còn trong hạn. Người chuyển phòng giữa tháng được tính ở phòng lúc phát sinh đầu việc.</div></div>';
     box.innerHTML = html;
     document.getElementById("sb-slap").onchange = function (e) { SB.slaP = e.target.value; renderSla(box); };
-    document.getElementById("sb-csv").onclick = function () {
-      var rows = [["Phòng", "Nhân viên", "Email", "% SLA", "Đúng hạn", "Đã chấm", "Trễ", "Bỏ lỡ", "Đang mở"].concat(d.groups.map(function (g) { return g.label + " (đúng hạn/đã chấm)"; }))];
-      d.departments.forEach(function (g) { g.members.forEach(function (m) {
-        rows.push([g.label, m.name, m.user, m.rate == null ? "" : m.rate, m.ontime, m.scored, m.late, m.missed, m.open].concat(d.groups.map(function (x) {
-          var b = m.groups[x.key]; return b && b.scored ? b.ontime + "/" + b.scored : "";
-        })));
-      }); });
-      csvDownload("sla-" + d.period + ".csv", rows);
-    };
     box.onclick = function (ev) {
       var tr = ev.target.closest("tr[data-sb]");
       if (tr) { var k = tr.getAttribute("data-sb"); SB.open[k] = !SB.open[k]; renderSla(box); }
@@ -494,7 +479,7 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
     SB.bwP = d.period;
     var st = d.stats, pend = st.wait_lead + st.wait_head;
     var html = '<div class="sbbar">' + periodPicker("sb-bwp", d.periods, d.current, d.period)
-      + '<a class="btn" href="/ec-hr/phan-bo-cong-viec" target="_blank" rel="noopener">Mở trang Phân bổ công việc</a><button type="button" class="btn" id="sb-csv">Tải CSV</button></div>'
+      + '<a class="btn" href="/ec-hr/phan-bo-cong-viec" target="_blank" rel="noopener">Mở trang Phân bổ công việc</a>' + xlsxLink("brand", d.period) + '</div>'
       + '<div class="kpis">'
       + '<div class="card kpi"><div class="l">Phải nộp</div><div class="n">' + st.total + '</div><div class="s">người · ' + esc(monthLabel(d.period)) + '</div></div>'
       + '<div class="card kpi"><div class="l">Đã chốt</div><div class="n">' + st.final + '</div><div class="s">trưởng phòng đã duyệt</div></div>'
@@ -530,13 +515,6 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
     html += '</tbody></table></div><div class="note">Bấm vào một phòng để xem từng người. Tỷ trọng quy ra số người (FTE): một người khai 60% brand A tính 0,6 người cho brand A. Chỉ cộng các phiếu đã chốt; số của phiếu đang chờ duyệt vẫn hiện ở từng người.</div></div>';
     box.innerHTML = html;
     document.getElementById("sb-bwp").onchange = function (e) { SB.bwP = e.target.value; renderBrand(box); };
-    document.getElementById("sb-csv").onclick = function () {
-      var rows = [["Phòng", "Nhân viên", "Mã NV", "Trạng thái", "Đang chờ"].concat(d.brands.map(function (b) { return b.label + " (%)"; }))];
-      d.departments.forEach(function (g) { g.members.forEach(function (m) {
-        rows.push([g.label, m.name, m.employee, (BW_ST[m.status] || BW_ST.none)[1], m.waiting_on.join(", ")].concat(d.brands.map(function (b) { return m.weights[b.id] || ""; })));
-      }); });
-      csvDownload("phan-bo-cong-viec-" + d.period + ".csv", rows);
-    };
     box.onclick = function (ev) {
       var tr = ev.target.closest("tr[data-sb]");
       if (tr) { var k = tr.getAttribute("data-sb"); SB.open[k] = !SB.open[k]; renderBrand(box); }

@@ -6,6 +6,7 @@
   GET ecentric_workspace.hr.overview.api.get_hr_profile   - ho so 1 nguoi (khung ben phai)
   GET ecentric_workspace.hr.overview.api.get_sla_summary  - tab SLA: % dung han ca cong ty theo phong
   GET ecentric_workspace.hr.overview.api.get_brand_summary - tab Phan bo cong viec: ai da nop / ty trong brand
+  GET ecentric_workspace.hr.overview.api.export_summary_xlsx - xuat Excel cua mot trong hai tab tren
 
 Quyen: the Nhan su chi mo cho HR_CARD_ROLES. Trong the, truong nao tra ve do permlevel
 cua Employee quyet dinh (L0 danh ba / L2 noi bo HR / L1 ca nhan) - xem repository.
@@ -130,3 +131,25 @@ def get_brand_summary(period: str = None):
         data.update({"periods": periods, "current": cur})
         return data
     return _run(build)
+
+
+@frappe.whitelist(methods=["GET"])
+def export_summary_xlsx(kind: str, period: str = None):
+    """Nut "Xuat Excel" cua tab SLA (kind=sla) / Phan bo cong viec (kind=brand). Cung du lieu,
+    cung chan quyen voi get_*_summary. Loi thi nem ra de trinh duyet hien trang loi cua Frappe
+    thay vi tai ve mot tep hong."""
+    _guard()
+    from ecentric_workspace.hr.overview import team_summary as TS
+    from ecentric_workspace.hr.overview import team_summary_repo as TR
+    from ecentric_workspace.hr.overview import xlsx_export
+    if kind == "sla":
+        cur, periods = TR.sla_periods()
+        name, sheets = TS.sla_sheets(TR.sla_summary(_period(period, cur, periods)))
+    elif kind == "brand":
+        cur, periods = TR.brand_periods()
+        name, sheets = TS.brand_sheets(TR.brand_summary(_period(period, cur, periods)))
+    else:
+        frappe.throw("kind phai la sla hoac brand.")
+    frappe.response["filename"] = name
+    frappe.response["filecontent"] = xlsx_export.build(sheets)
+    frappe.response["type"] = "binary"

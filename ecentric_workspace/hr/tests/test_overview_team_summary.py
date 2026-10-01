@@ -140,6 +140,51 @@ class TestBrand(unittest.TestCase):
         self.assertEqual([(b["id"], b["fte"], b["share"]) for b in s["mix"]], [("ABC", 1.5, 75.0), ("NP", 0.5, 25.0)])
 
 
+class TestXuatExcel(unittest.TestCase):
+    def test_sla_ba_sheet(self):
+        d = TS.build_sla([ob("a@x", "Met"), ob("a@x", "Late")], {"a@x": {"name": "An", "department": "Sales - EC", "active": True}},
+                         DEPTS, "2026-09", NOW)
+        name, sheets = TS.sla_sheets(d)
+        self.assertEqual(name, "SLA_thang_9-2026.xlsx")
+        self.assertEqual([t for t, _ in sheets], ["Theo người", "Theo phòng", "Theo nhóm việc"])
+        people = sheets[0][1]
+        self.assertEqual(people[1][:6], ["Sales", "An", "a@x", 50.0, 1, 2])
+        self.assertEqual(len(people[0]), len(people[1]))
+        self.assertEqual(sheets[1][1][-1][0], "Toàn công ty")
+
+    def test_brand_ba_sheet_va_tong(self):
+        exp = [{"employee": "E1", "name": "An", "department": "Sales - EC"},
+               {"employee": "E2", "name": "Binh", "department": "Sales - EC"}]
+        d = TS.build_brand(exp, [doc("D1", "E1", "Approved")], {"D1": {"ABC": 70.0, "NP": 30.0}}, {},
+                           {"ABC": "Abc", "NP": "New Project"}, DEPTS, "2026-09")
+        name, sheets = TS.brand_sheets(d)
+        self.assertEqual(name, "Phan_bo_cong_viec_thang_9-2026.xlsx")
+        people = sheets[0][1]
+        self.assertEqual(people[0], ["Phòng", "Nhân viên", "Mã NV", "Trạng thái", "Đang chờ", "Abc (%)", "New Project (%)", "Tổng (%)"])
+        self.assertEqual(people[1], ["Sales", "An", "E1", "Đã chốt", "", 70.0, 30.0, 100.0])
+        self.assertEqual(people[2][3], "Chưa nộp")
+        self.assertEqual(sheets[1][1][-1], ["Tổng (phiếu đã chốt)", 1.0, 100])
+
+    def test_ghi_xlsx_doc_lai_duoc(self):
+        try:
+            import openpyxl
+        except ImportError:
+            self.skipTest("khong co openpyxl")
+        import importlib.util
+        import io
+        spec = importlib.util.spec_from_file_location(
+            "ec_xlsx_export", os.path.join(os.path.dirname(__file__), "..", "overview", "xlsx_export.py"))
+        X = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(X)
+        data = X.build([("Theo người", [["Phòng", "%"], ["Sales", 92.5], ["Ops", None]]), ("Trống", [])])
+        wb = openpyxl.load_workbook(io.BytesIO(data))
+        self.assertEqual(wb.sheetnames, ["Theo người", "Trống"])
+        ws = wb["Theo người"]
+        self.assertEqual((ws["A1"].value, ws["B2"].value, ws["B3"].value), ("Phòng", 92.5, None))
+        self.assertTrue(ws["A1"].font.bold)
+        self.assertEqual(ws.freeze_panes, "A2")
+
+
 class TestTrang(unittest.TestCase):
     def test_trang_co_hai_tab_trong_script_san_co(self):
         p = os.path.join(os.path.dirname(__file__), "..", "pages", "tong_quan", "main_section.html")
@@ -151,6 +196,8 @@ class TestTrang(unittest.TestCase):
         self.assertIn("ec-tq-sla-brand-v1", h)
         self.assertIn("get_sla_summary", h)
         self.assertIn("get_brand_summary", h)
+        self.assertIn("export_summary_xlsx", h)
+        self.assertNotIn("csvDownload", h)
 
 
 if __name__ == "__main__":

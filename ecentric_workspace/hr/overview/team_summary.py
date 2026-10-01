@@ -200,3 +200,59 @@ def build_brand(expected, docs, details, waiting_on, labels, depts, period):
         "brands": [{"id": b, "label": labels.get(b) or b} for b in used],
         "departments": out,
     }
+
+
+# ---------------------------------------------------------------- Xuat Excel
+BW_STATUS_LABEL = {"final": "Đã chốt", "wait_lead": "Chờ lead", "wait_head": "Chờ trưởng phòng",
+                   "returned": "Bị trả lại", "draft": "Chưa nộp", "none": "Chưa nộp"}
+
+
+def _month(period):
+    return "%d-%s" % (int(period[5:7]), period[:4])
+
+
+def sla_sheets(d):
+    """-> (ten tep, [(ten sheet, [hang])]). Hang dau la tieu de. % de dang so (92.5 = 92,5%)."""
+    groups = d["groups"]
+    people = [["Phòng", "Nhân viên", "Email", "% SLA", "Đúng hạn", "Đã chấm", "Trễ", "Bỏ lỡ", "Đang mở", "Đã nghỉ"]
+              + ["%% %s" % g["label"] for g in groups]]
+    for dep in sorted(d["departments"], key=lambda x: x["label"]):
+        # Tep Excel de tra cuu: xep theo phong roi theo ten (tren man hinh thi can chu y len dau).
+        for m in sorted(dep["members"], key=lambda x: x["name"] or ""):
+            people.append([dep["label"], m["name"], m["user"], m["rate"], m["ontime"], m["scored"], m["late"],
+                           m["missed"], m["open"], "x" if m["left"] else ""]
+                          + [(m["groups"].get(g["key"]) or {}).get("rate") for g in groups])
+    depts = [["Phòng", "Trưởng phòng", "Số người", "% SLA", "Đúng hạn", "Đã chấm", "Dưới 70%", "70 – 90%"]]
+    for dep in d["departments"]:
+        depts.append([dep["label"], dep["manager"] or "", dep["people"], dep["rate"], dep["ontime"], dep["scored"],
+                      dep["bad"], dep["warn"]])
+    st = d["stats"]
+    depts.append(["Toàn công ty", "", st["people"], st["rate"], "", st["scored"], st["bad"], st["warn"]])
+    grp = [["Nhóm việc", "Tính vào % SLA", "% đúng hạn", "Đã chấm"]]
+    for g in groups:
+        grp.append([g["label"], "Có" if g["counts"] else "Không (ngoài %SLA kỳ này)", g["rate"], g["scored"]])
+    return ("SLA_thang_%s.xlsx" % _month(d["period"]),
+            [("Theo người", people), ("Theo phòng", depts), ("Theo nhóm việc", grp)])
+
+
+def brand_sheets(d):
+    brands = d["brands"]
+    people = [["Phòng", "Nhân viên", "Mã NV", "Trạng thái", "Đang chờ"] + ["%s (%%)" % b["label"] for b in brands]
+              + ["Tổng (%)"]]
+    for dep in sorted(d["departments"], key=lambda x: x["label"]):
+        # Tep Excel de tra cuu: xep theo phong roi theo ten (tren man hinh thi can chu y len dau).
+        for m in sorted(dep["members"], key=lambda x: x["name"] or ""):
+            w = m["weights"]
+            people.append([dep["label"], m["name"], m["employee"], BW_STATUS_LABEL.get(m["status"], m["status"]),
+                           ", ".join(m["waiting_on"])] + [w.get(b["id"]) for b in brands]
+                          + [round(sum(w.values()), 2) if w else None])
+    mix = [["Brand", "Số người (FTE)", "Tỷ trọng (%)"]] + [[b["label"], b["fte"], b["share"]] for b in d["mix"]]
+    mix.append(["Tổng (phiếu đã chốt)", round(sum(b["fte"] for b in d["mix"]), 2), 100 if d["mix"] else None])
+    depts = [["Phòng", "Trưởng phòng", "Phải nộp", "Đã chốt", "Chờ duyệt", "Bị trả lại", "Chưa nộp"]
+             + ["%s (FTE)" % b["label"] for b in brands]]
+    for dep in d["departments"]:
+        fte = {b["id"]: b["fte"] for b in dep["mix"]}
+        depts.append([dep["label"], dep["manager"] or "", dep["total"], dep["final"], dep["pending"],
+                      dep["returned"], dep["none"]] + [fte.get(b["id"]) for b in brands])
+    return ("Phan_bo_cong_viec_thang_%s.xlsx" % _month(d["period"]),
+            [("Theo người", people), ("Tỷ trọng công ty", mix), ("Theo phòng", depts)])
