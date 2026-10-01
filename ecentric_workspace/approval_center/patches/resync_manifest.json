@@ -152,6 +152,10 @@
     "last_resync_patch": "p161_publish_guides_and_shell_drift",
     "sha256": "cdfbf179d8dd9a0e2482b41ebde6481c05ea5eba54ab35a0373dcaabc98f8e28"
   },
+  "guides/pages/chot_cong_thang/main_section.html": {
+    "last_resync_patch": "p239_publish_huong_dan_chot_cong",
+    "sha256": "e75638d604c3a7220374f11541ee00aa8fb003161b8191a1d68dd3644a1b1646"
+  },
   "guides/pages/index/main_section.html": {
     "last_resync_patch": "p161_publish_guides_and_shell_drift",
     "sha256": "f0779e4bc55d3adf0297a4d01c846e666815a559fb07ebdea4cc6df4b2dd6d8c"

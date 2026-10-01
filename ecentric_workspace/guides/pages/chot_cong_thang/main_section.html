@@ -1,0 +1,259 @@
+<style id="ec-guide-css">
+/* Frappe's default website chrome is replaced by the shared ERP shell. */
+body > header, body > footer, body > nav.navbar, header.navbar,
+.web-page-header, #navbarSupportedContent, .navbar-collapse { display:none; }
+body { padding:0; margin:0; }
+body main { padding-top:0; }
+body .main-section, body main.container, body main.fluid { margin:0; padding:0; max-width:100%; }
+.ec-guide-wrap { display:flex; min-height:100vh; max-width:none; width:100%; }
+.ec-guide-wrap > main.ec-guide-main { flex:1; min-width:0; padding:0; overflow-x:hidden; }
+
+.ecg{
+  --navy:#1E2A5A; --ink:#141A2E; --ink-2:#4C5372; --ink-3:#7E859E;
+  --bg:#F6F7FB; --card:#fff; --line:#E4E7F0; --blue:#1a73e8; --blue-soft:#E8F0FE;
+  --red:#D93025; --red-soft:#FDECEA; --green:#137333; --green-soft:#E6F4EA;
+  --amber-soft:#FEF7E0; --amber-line:#F0D48A;
+  --shadow:0 1px 2px rgba(20,26,46,.05), 0 12px 32px -20px rgba(20,26,46,.30);
+  background:var(--bg); color:var(--ink); font-size:16px; line-height:1.6;
+  font-family:'Segoe UI', Inter, system-ui, -apple-system, Roboto, sans-serif;
+}
+.ecg *{box-sizing:border-box}
+.ecg .wrap{max-width:860px; margin:0 auto; padding:28px 20px 72px}
+.ecg .backbar{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px}
+.ecg .backbtn{
+  display:inline-flex; align-items:center; gap:6px; text-decoration:none;
+  background:var(--card); border:1px solid var(--line); color:var(--ink-2);
+  padding:7px 13px; border-radius:999px; font-size:13.5px; font-weight:600; cursor:pointer;
+}
+.ecg .backbtn:hover{border-color:var(--blue); color:var(--blue)}
+.ecg h1{font-size:clamp(24px,3vw,32px); margin:6px 0 4px; line-height:1.25}
+.ecg .sub{color:var(--ink-3); font-size:14px; margin-bottom:26px}
+.ecg h2{font-size:20px; margin:36px 0 10px; color:var(--navy)}
+.ecg h3{font-size:16px; margin:24px 0 8px}
+.ecg p{margin:10px 0}
+.ecg .lead{background:var(--blue-soft); border-left:4px solid var(--blue); padding:12px 16px; border-radius:0 8px 8px 0}
+.ecg table{border-collapse:collapse; width:100%; margin:14px 0; font-size:14.5px; background:var(--card)}
+.ecg th,.ecg td{border:1px solid var(--line); padding:9px 11px; text-align:left; vertical-align:top}
+.ecg th{background:#F3F6FA; font-weight:600}
+.ecg figure{margin:14px 0}
+.ecg img{max-width:100%; border:1px solid var(--line); border-radius:8px; box-shadow:var(--shadow); display:block}
+.ecg figcaption{color:var(--ink-3); font-size:13px; margin-top:6px}
+.ecg .note{background:var(--amber-soft); border:1px solid var(--amber-line); border-radius:8px; padding:11px 14px; margin:14px 0; font-size:14.5px}
+.ecg code{background:#EEF1F6; padding:2px 6px; border-radius:4px; font-size:13.5px}
+.ecg hr{border:0; border-top:1px solid var(--line); margin:30px 0}
+.ecg footer{color:var(--ink-3); font-size:13px; margin-top:36px}
+
+/* --- hop han chot + luong 3 buoc (bai chot cong) --- */
+.ecg .deadline{background:var(--card); border:2px solid var(--navy); border-radius:14px; padding:16px 18px 6px; margin:18px 0; box-shadow:var(--shadow)}
+.ecg .dl-head{display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px}
+.ecg .dl-tag{font-size:13px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3)}
+.ecg .dl-day{background:var(--red); color:#fff; font-weight:800; font-size:15px; padding:5px 12px; border-radius:999px}
+.ecg .deadline table{margin:12px 0 4px}
+.ecg .deadline .t{display:block; font-size:22px; font-weight:800; color:var(--red); line-height:1.2}
+.ecg .deadline td small{color:var(--ink-3)}
+.ecg .dl-foot{font-size:14px; color:var(--ink-2)}
+.ecg .flow3{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:12px 0}
+.ecg .flow3 .arw{color:var(--ink-3)}
+.ecg .stp{display:flex; gap:10px; align-items:flex-start; padding:9px 11px; border-radius:9px; border:1px solid var(--line); background:#FBFCFE; font-size:14px}
+.ecg .stp b{display:block; font-size:14px}
+.ecg .stp small{color:var(--ink-3)}
+.ecg .stp .n{flex:0 0 22px; height:22px; border-radius:50%; background:var(--blue); color:#fff; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center}
+.ecg .stp.done{background:var(--green-soft); border-color:#A8D5B5}
+.ecg .stp.done .n{background:var(--green)}
+@media (max-width:600px){ .ecg .flow3{flex-direction:column; align-items:stretch} .ecg .flow3 .arw{text-align:center; transform:rotate(90deg)} }
+</style>
+<div class="ec-guide-wrap">
+  <aside class="ec-shell-mount" data-ec-shell="1" aria-label="Điều hướng eCentric"><div class="ec-shell-head"><a class="ec-shell-brand" href="/"><img class="ec-shell-logoimg" src="/files/eCentric%20logo%20-%20mini.png" alt="eCentric"><span class="ec-shell-logo" hidden>eC</span><span class="ec-shell-brandname">eCentric</span></a></div><div class="ec-shell-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input class="ec-shell-search-in" type="text" placeholder="Tìm chức năng…" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-label="Tìm chức năng" autocomplete="off" spellcheck="false"><button type="button" class="ec-shell-search-clear" data-ec-shell-search-clear="1" hidden aria-label="Xóa tìm kiếm">&times;</button></div><div class="ec-shell-search-results" role="listbox" hidden></div><nav class="ec-shell-nav ec-shell-fallback" aria-label="Điều hướng chính"><a class="ec-shell-item" href="/home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg><span>Trang chủ</span></a><div class="ec-shell-grouplabel">Phê duyệt</div><a class="ec-shell-item" href="/approvals"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Approval Center</span></a><a class="ec-shell-item" href="/approvals/all-requests"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span>Tất cả yêu cầu</span></a><a class="ec-shell-item" href="/approvals/dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg><span>Dashboard</span></a><div class="ec-shell-grouplabel">Chứng từ</div><a class="ec-shell-item" href="/all-ticket"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg><span>Dashboard</span></a><a class="ec-shell-item" href="/approval"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>All Tickets</span></a><div class="ec-shell-grouplabel">Tạo mới</div><a class="ec-shell-item" href="/mso-plan-form"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>MSO Request</span></a><a class="ec-shell-item" href="/gbs-so-form-v2"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>SO Request</span></a><a class="ec-shell-item" href="/gbs-po-form-v2"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>PO Request</span></a><button type="button" class="ec-shell-item ec-shell-subtoggle" data-ec-shell-subtoggle="docs.guides" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>Hướng dẫn</span><svg class="ec-shell-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="ec-shell-children" hidden data-ec-shell-children="docs.guides"><a class="ec-shell-item ec-shell-child" href="/docs/architecture"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>Docs / Architecture</span></a><a class="ec-shell-item ec-shell-child" href="/docs/gbs-flow"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>GBS Flow &amp; Definitions</span></a></div></nav><div class="ec-shell-foot"><a class="ec-shell-usercard" href="/app/user"><span class="ec-shell-avatar">•</span><span class="ec-shell-username">Tài khoản</span></a></div></aside>
+  <main class="ec-guide-main"><div class="ec-shell-topbar" data-ec-shell-topbar="1"><div class="ec-shell-crumbs" data-ec-shell-crumbs="1"><span class="ec-shell-crumb-group">Hướng dẫn</span><span class="sep ec-shell-crumb-sep">/</span><a class="ec-shell-crumblink" href="/huong-dan">Hướng dẫn sử dụng</a><span class="sep ec-shell-crumb-sep">/</span><strong class="ec-shell-crumb-current" data-ec-shell-crumb-detail="1">Chốt công &amp; phân bổ công việc</strong></div><div class="ec-shell-tbright" data-ec-shell-header-right="1"><button type="button" class="ec-shell-iconbtn ec-shell-reminder" data-ec-shell-action-slot="1" aria-label="Việc của tôi" title="Việc của tôi" aria-haspopup="dialog" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h4l2 3h4l2-3h4"/><path d="M4 13V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7"/><path d="M4 13v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></svg><span class="ec-shell-reminder-badge" data-ec-shell-reminder-badge="1" hidden></span></button><button type="button" class="ec-shell-iconbtn ec-shell-slot-disabled" data-ec-shell-settings-slot="1" disabled aria-disabled="true" title="Cài đặt (sắp ra mắt)" aria-label="Cài đặt (sắp ra mắt)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg></button></div></div>
+<div class="ecg">
+<div class="wrap">
+
+  <div class="backbar">
+    <a class="backbtn" href="/huong-dan">← Tất cả hướng dẫn</a>
+    <button type="button" class="backbtn" data-ec-guide-back="1">← Quay lại trang trước</button>
+    <a class="backbtn" href="/ec-hr/attendance">Chấm công</a>
+    <a class="backbtn" href="/ec-hr/phan-bo-cong-viec">Phân bổ công việc</a>
+  </div>
+
+  <h1>Chốt công tháng &amp; Phân bổ công việc</h1>
+  <div class="sub">Cập nhật 01/10/2026 · dành cho mọi nhân viên, leader và trưởng phòng · áp dụng từ công tháng 9/2026</div>
+
+  <p class="lead">Đầu mỗi tháng, mọi người làm <b>2 việc</b> trên ERP cho <b>tháng vừa qua</b>:
+  <b>chốt công</b> và <b>nộp phân bổ công việc theo brand</b>. Cả hai có hạn trong <b>ngày 2</b>.</p>
+
+  <div class="deadline">
+    <div class="dl-head">
+      <span class="dl-tag">Hạn kỳ này · công tháng 9/2026</span>
+      <span class="dl-day">Thứ Sáu 02/10</span>
+    </div>
+    <table>
+      <tr><th>Việc</th><th>Nhân viên</th><th>Leader / Trưởng phòng</th></tr>
+      <tr><td><b>1. Chốt công</b><br><small>Nhân sự → Chấm công</small></td>
+          <td><span class="t">12:00</span>tự chốt</td>
+          <td><span class="t">15:00</span>chốt cho cả team</td></tr>
+      <tr><td><b>2. Phân bổ công việc</b><br><small>Nhân sự → Phân bổ công việc</small></td>
+          <td><span class="t">12:00</span>nộp phiếu</td>
+          <td><span class="t">15:00</span>lead duyệt, trưởng phòng chốt</td></tr>
+    </table>
+    <p class="dl-foot">Các tháng sau hạn vẫn là <b>ngày 2</b>. Ngày 2 rơi vào thứ Bảy, Chủ nhật hoặc ngày lễ
+    thì cả hai hạn dời sang <b>ngày làm việc kế tiếp</b>.</p>
+  </div>
+
+  <div class="note"><b>Chốt rồi là khoá.</b> Sau khi chốt, tháng đó không gửi giải trình, không nộp đơn nghỉ được
+  nữa. Ai không tự chốt kịp sẽ được leader chốt thay và bị tính <b>trễ</b>. Chốt đúng hạn được tính vào
+  <b>điểm SLA</b> của mỗi người, cả nhân viên lẫn leader.</div>
+
+  <hr>
+
+  <h2>1. Chốt công</h2>
+  <p>Làm đủ 3 bước theo thứ tự: kiểm tra, giải trình, rồi mới chốt.</p>
+
+  <h3>Bước 1: Kiểm tra công</h3>
+  <ol>
+    <li>Vào <a href="/ec-hr/attendance"><b>Nhân sự → Chấm công</b></a>. Bấm mũi tên trên lịch để chuyển về tháng cần chốt.</li>
+    <li>Xem màu từng ngày:
+      <ul>
+        <li>Xanh lá <b>Present</b>: đủ công.</li>
+        <li>Vàng nhạt <b>Nghỉ phép</b>: đơn nghỉ đã duyệt.</li>
+        <li>Đỏ <b>Thiếu / Absent</b>: chưa có công, <b>cần xử lý</b>.</li>
+        <li>Vàng <b>Chờ duyệt</b>: đã gửi giải trình hoặc đơn, đang chờ quản lý duyệt.</li>
+        <li>Xám là cuối tuần, cam là ngày lễ.</li>
+      </ul>
+    </li>
+    <li>Ô <b>"Thiếu công"</b> phía trên cho biết tháng đó bạn đang thiếu mấy ngày.</li>
+    <li>Bấm vào một ngày để xem giờ check-in và trạng thái chi tiết.</li>
+  </ol>
+  <figure>
+    <img src="{{img:01-kiem-tra-cong.jpg}}" alt="Trang Chấm công: kiểm tra công tháng">
+    <figcaption>① Vào Chấm công · ② Chuyển về tháng cần chốt · ③ Ô tổng quan: số ngày thiếu công · ④ Ngày màu đỏ "Thiếu": bấm vào để xử lý</figcaption>
+  </figure>
+
+  <h3>Bước 2: Giải trình những ngày chưa đúng</h3>
+  <table>
+    <tr><th>Trường hợp</th><th>Cách xử lý</th></tr>
+    <tr><td>Quên chấm công / ngày bị đỏ "Thiếu"</td><td>Bấm vào ngày đó, ghi lý do vào ô <b>"Giải trình chấm công"</b>, bấm <b>Gửi giải trình</b></td></tr>
+    <tr><td>Check-in sau 10:00 (đi muộn)</td><td>Bấm vào ngày đó, hoặc nút <b>Gửi giải trình</b> ở thẻ "Hôm nay". Ghi lý do rồi gửi</td></tr>
+    <tr><td>Nghỉ phép / nghỉ nửa ngày</td><td>Nộp đơn ở trang <a href="/ec-hr/leave"><b>Nghỉ phép</b></a>. Lỡ đã chấm công hôm đó vẫn nộp được. Đơn được duyệt thì ngày đó tính là ngày phép</td></tr>
+  </table>
+  <figure>
+    <img src="{{img:02-giai-trinh.jpg}}" alt="Gửi giải trình chấm công">
+    <figcaption>Bấm vào ngày thiếu hoặc đi muộn: ① ghi lý do · ② bấm Gửi giải trình</figcaption>
+  </figure>
+  <figure>
+    <img src="{{img:03-xin-nghi-phep.jpg}}" alt="Xin nghỉ phép">
+    <figcaption>① Vào Nghỉ phép, bấm "+ Xin nghỉ phép" · ② Chọn loại nghỉ, ngày, nghỉ nửa ngày nếu có, ghi lý do · ③ Gửi đơn</figcaption>
+  </figure>
+  <ul>
+    <li>Giải trình và đơn nghỉ đều đến <b>quản lý trực tiếp</b> duyệt.</li>
+    <li>Gửi sớm và nhắc quản lý duyệt <b>trước hạn chốt công</b>.</li>
+  </ul>
+
+  <h3>Bước 3: Chốt công</h3>
+  <p>Từ ngày 1 tháng sau, ở trang <b>Chấm công</b>, ngay <b>dưới lịch tháng</b> có khung <b>"Chốt công tháng …"</b>.</p>
+  <p><b>Nhân viên</b></p>
+  <ul>
+    <li>Kiểm tra lại lần cuối rồi bấm <b>Chốt công</b>, <b>trước 12:00 ngày 2</b>.</li>
+    <li>Không tự chốt kịp thì leader chốt thay, và bạn bị tính <b>trễ</b>.</li>
+  </ul>
+  <p><b>Leader (quản lý trực tiếp)</b></p>
+  <ul>
+    <li>Trong cùng khung có danh sách team, trạng thái từng người, và nút <b>Chốt công team (N người)</b>. Hạn <b>15:00 ngày 2</b>.</li>
+    <li>Phải <b>duyệt hết</b> giải trình và đơn nghỉ đang chờ mình thì mới chốt team được. Duyệt ở khung "Giải trình chờ bạn duyệt" trên trang Chấm công và ở trang Nghỉ phép.</li>
+    <li>Bạn nào chưa tự chốt sẽ được chốt thay và bị tính trễ.</li>
+  </ul>
+  <p><b>Người không có quản lý trực tiếp:</b> CnB/HR chốt thay.</p>
+  <figure>
+    <img src="{{img:04-chot-cong.jpg}}" alt="Khung Chốt công dưới lịch tháng">
+    <figcaption>① Nhân viên bấm Chốt công · ② Leader xem trạng thái từng người trong team · ③ Leader bấm Chốt công team</figcaption>
+  </figure>
+  <p>Hệ thống nhắc qua <b>Teams</b> vào sáng ngày 1 và sáng ngày chốt.</p>
+
+  <hr>
+
+  <h2>2. Phân bổ công việc (brand weight)</h2>
+  <p>Mỗi tháng, mọi người khai <b>tháng vừa rồi mình dành bao nhiêu % công sức cho từng brand</b>. Số đã chốt được
+  dùng để <b>chia chi phí theo brand trong PnL</b>, nên mọi người khai đúng thực tế. Tất cả các phòng đều phải nộp,
+  kể cả Management.</p>
+
+  <h3>Nhân viên</h3>
+  <ol>
+    <li>Vào <a href="/ec-hr/phan-bo-cong-viec"><b>Nhân sự → Phân bổ công việc</b></a>. Từ ngày 1, trang tự mở kỳ của <b>tháng vừa qua</b>. Tháng đang chạy thì chưa khai được.</li>
+    <li>Kéo thanh trượt hoặc gõ % cho từng brand đến khi <b>tổng đủ 100%</b>. Chưa đủ 100% thì nút nộp bị khoá.
+      <ul>
+        <li>Thiếu brand nào thì bấm ô <b>Thêm brand bạn đã làm</b> để chọn.</li>
+        <li>Phân bổ giống tháng trước thì bấm <b>Chép sang tháng này</b>.</li>
+      </ul>
+    </li>
+    <li>Bấm <b>Nộp cho lead</b>, <b>trước 12:00 ngày 2</b>.
+      <ul>
+        <li>Muốn sửa khi lead chưa duyệt: bấm <b>Rút phiếu</b>. Số cũ được giữ để sửa rồi nộp lại.</li>
+        <li>Bị <b>trả lại</b>: đọc lý do lead ghi. Số cũ đã điền sẵn, sửa rồi bấm <b>Nộp lại</b>.</li>
+      </ul>
+    </li>
+  </ol>
+  <figure>
+    <img src="{{img:05-brand-weight-nop.jpg}}" alt="Nộp phân bổ công việc">
+    <figcaption>① Vào Phân bổ công việc · ② Chép số tháng trước (nếu giống) · ③ Thêm brand đã làm · ④ Kéo thanh hoặc gõ % đến khi đủ 100% · ⑤ Nộp. Ảnh chụp từ tài khoản phòng Management nên nút là "Nộp và chốt"; nhân viên các phòng khác thấy nút "Nộp cho lead".</figcaption>
+  </figure>
+
+  <h3>Luồng duyệt</h3>
+  <div class="flow3">
+    <div class="stp"><span class="n">1</span><span><b>Nhân viên nộp</b><small>trước 12:00 ngày 2</small></span></div>
+    <div class="arw">→</div>
+    <div class="stp"><span class="n">2</span><span><b>Lead trực tiếp duyệt</b><small>chỉnh số được</small></span></div>
+    <div class="arw">→</div>
+    <div class="stp done"><span class="n">3</span><span><b>Trưởng phòng chốt</b><small>trước 15:00 ngày 2</small></span></div>
+  </div>
+  <ul>
+    <li>Trưởng phòng nộp phiếu của chính mình thì chỉ cần lead duyệt.</li>
+    <li>Phòng <b>Management</b> tự nộp và tự chốt, không qua duyệt.</li>
+  </ul>
+
+  <h3>Lead / Trưởng phòng</h3>
+  <ul>
+    <li>Tab <b>Duyệt</b> có <b>bảng cả team / cả phòng</b>: ai đã nộp, ai chưa nộp, tỷ trọng chung của nhóm.</li>
+    <li>Mở phiếu từng người để <b>chỉnh số rồi duyệt</b>, hoặc <b>Trả lại</b>. Trả lại thì bắt buộc ghi lý do, người nộp sẽ đọc được.</li>
+  </ul>
+  <figure>
+    <img src="{{img:06-brand-weight-duyet.jpg}}" alt="Duyệt phân bổ công việc">
+    <figcaption>① Tab Duyệt · ② Đếm nhanh: chờ bạn duyệt / chưa nộp / đã trả lại / đã chốt · ③ Bảng cả team: bấm vào một dòng để xem, chỉnh và duyệt phiếu của người đó</figcaption>
+  </figure>
+
+  <hr>
+
+  <h2>3. Câu hỏi thường gặp</h2>
+  <table>
+    <tr><th>Tình huống</th><th>Làm gì</th></tr>
+    <tr><td>Không thấy khung "Chốt công"</td><td>Khung chỉ hiện từ ngày 1 tháng sau, ngay dưới lịch tháng. Tải lại trang. Vẫn không thấy thì báo CnB/HR</td></tr>
+    <tr><td>Báo lỗi "Không xác định được Quản lý trực tiếp" khi gửi giải trình</td><td>Hồ sơ của bạn chưa có người quản lý, hoặc tài khoản quản lý đang có vấn đề. Liên hệ CnB/HR</td></tr>
+    <tr><td>Đã chốt công nhưng phát hiện sai</td><td>Không tự sửa được nữa. Liên hệ CnB/HR</td></tr>
+    <tr><td>Nộp phân bổ báo "Phòng … chưa có trưởng phòng"</td><td>Nhờ HR cập nhật trưởng phòng cho phòng đó rồi nộp lại</td></tr>
+    <tr><td>Tháng này làm cho brand mới chưa có trong danh sách</td><td>Báo CnB/HR để thêm brand</td></tr>
+  </table>
+
+  <div class="backbar" style="margin-top:26px">
+    <a class="backbtn" href="/huong-dan">← Tất cả hướng dẫn</a>
+    <a class="backbtn" href="/ec-hr/attendance">Chấm công</a>
+    <a class="backbtn" href="/ec-hr/phan-bo-cong-viec">Phân bổ công việc</a>
+  </div>
+
+  <footer>eCentric · Hướng dẫn nội bộ — cập nhật 01/10/2026</footer>
+</div>
+</div>
+<script id="ec-guide-back">
+(function () {
+  // Nut "Quay lai trang truoc": chi hien khi THAT SU co trang truoc trong cung site.
+  // Khong co referrer noi bo (mo tu chat, tu bookmark) thi history.back() se nem nguoi
+  // dung ra khoi ERP - te hon la khong co nut. Luc do an nut di, hai nut kia van dua ve
+  // dung cho.
+  var b = document.querySelector('[data-ec-guide-back="1"]');
+  if (!b) return;
+  var ref = document.referrer || "";
+  var same = false;
+  try { same = !!ref && new URL(ref).origin === window.location.origin
+                     && new URL(ref).pathname !== window.location.pathname; } catch (e) {}
+  if (!same || history.length <= 1) { b.remove(); return; }
+  b.addEventListener("click", function () { history.back(); });
+})();
+</script>
+</main></div>
