@@ -179,7 +179,7 @@
   function route(){ readRoute(); render(); }
   window.addEventListener("popstate", route);
 
-  function tabAllowed(t){ var tb=state.boot&&state.boot.tabs||{}; return t==="all"||t==="create"||t==="my-requests"||(t==="my-approvals"&&tb.my_approvals); }
+  function tabAllowed(t){ var tb=state.boot&&state.boot.tabs||{}; return t==="all"||t==="create"||t==="my-requests"||(t==="my-approvals"&&tb.my_approvals)||(t==="fulfillment"&&tb.fulfillment); }
   function renderTabs(){ var box=$("dtgt-tabs"); if(!box)return;
     // Thanh tab lay DUNG `state.boot.tabs` lam nguon - cung nguon voi `tabAllowed`.
     // Truoc dot nay backend van tinh quyen cho 4 tab va gui xuong, con man hinh chi ve
@@ -187,6 +187,8 @@
     var tb=(state.boot&&state.boot.tabs)||{};
     var defs=[["create","Tạo yêu cầu",true],["my-requests","Yêu cầu của tôi",true]];
     if(tb.my_approvals) defs.push(["my-approvals","Chờ tôi duyệt",true]);
+    // 01/10: buoc "Data xu ly" sau khi CEO duyet - tab cho Role EC Data Team.
+    if(tb.fulfillment) defs.push(["fulfillment","Tôi xử lý",true]);
     if(tb.all) defs.push(["all","Tất cả",true]);
     box.innerHTML=defs.map(function(d){ var act=(state.tab===d[0]||(state.tab==="detail"&&d[0]==="my-requests"))?" active":"";
       return '<button class="tab'+act+'"'+(d[2]?'':' disabled')+' data-tab="'+d[0]+'">'+esc(d[1])+'</button>'; }).join(""); }
@@ -204,6 +206,7 @@
     if(state.tab==="my-requests") return renderMyRequests(b);
     if(state.tab==="my-approvals") return renderMyApprovals(b);
     if(state.tab==="all") return renderAll(b);
+    if(state.tab==="fulfillment") return renderFulfillment(b);
     return renderCreate(b); }
 
   // ======================= CREATE =======================
@@ -248,7 +251,8 @@
     return [
       {name:"Tạo yêu cầu",state:"current",statusLabel:"Đang thực hiện",meta:"Điền thông tin mục tiêu."},
       {name:appr+" duyệt",state:"upcoming",statusLabel:"Chờ",meta:(scope?("Duyệt bởi "+appr+"."):"Tùy theo phạm vi.")},
-      {name:"Hoàn tất",state:"upcoming",statusLabel:"Chờ",meta:"Mục tiêu được ghi nhận sau khi duyệt."}]; }
+      {name:"Data xử lý",state:"upcoming",statusLabel:"Chờ",meta:"Team Data cập nhật mục tiêu."},
+      {name:"Hoàn tất",state:"upcoming",statusLabel:"Chờ",meta:"Mục tiêu được ghi nhận sau khi Data xử lý."}]; }
   function processPreviewHTML(){ var scope=(state.draft||{}).request_scope;
     return '<div class="card" id="dtgt-process-preview"><h3>Quy trình xử lý yêu cầu</h3><div class="stepper">'+renderStepsHTML(previewSteps(scope))+'</div><div class="hint" style="margin-top:8px">Phạm vi "Project level" gửi tới Commercial Manager; "Consolidated / Total" gửi tới CEO.</div></div>'; }
 
@@ -438,6 +442,37 @@
         call("get_detail",{name:n}).then(function(det){ if(qk==="approve")doApprove(n,det); else if(qk==="reqinfo")doRequestInfo(n); else doReject(n); }).catch(function(e){ toast(mapErr(e),true); }); }; });
     }).catch(function(){ h.innerHTML='<div class="sect-h">'+esc(title)+'</div><div class="card"><div class="state"><h4>Không tải được</h4></div></div>'; }); }
 
+  // ======================= DATA XU LY (01/10) =======================
+  // Daily Target duyet xong -> hang doi cua Role EC Data Team. Mot nguoi nhan phieu, cap nhat
+  // muc tieu vao he thong du lieu, roi "Hoàn tất" kem ghi chu (va tep neu co).
+  var FF_LBL={"Assigned":"Chờ Data nhận","In Progress":"Đang xử lý","Completed":"Đã hoàn tất","Not Started":"—"};
+  function renderFulfillment(b){ if(!(state.boot&&state.boot.tabs&&state.boot.tabs.fulfillment)){ b.innerHTML='<div class="card"><div class="state"><h4>Không khả dụng</h4><p>Bạn không thuộc team Data (EC Data Team).</p></div></div>'; return; }
+    b.innerHTML='<div id="ff-unclaimed"></div><div id="ff-mine"></div>'; loadQueue("unclaimed","ff-unclaimed","Chờ nhận xử lý"); loadQueue("mine","ff-mine","Tôi đang xử lý"); }
+  function loadQueue(section,host,title){ var h=$(host); if(!h)return; h.innerHTML='<div class="sect-h">'+esc(title)+'</div>'+skeleton(2);
+    call("list_fulfillment_queue",{section:section}).then(function(res){ var rows=res&&res.rows||[];
+      if(!rows.length){ h.innerHTML='<div class="sect-h">'+esc(title)+'</div><div class="card"><div class="state"><h4>Không có mục nào</h4></div></div>'; return; }
+      h.innerHTML='<div class="sect-h">'+esc(title)+'</div><div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Mã</th><th>Tiêu đề</th><th>Phạm vi</th><th>Brand</th><th>Tháng</th><th>Trạng thái</th><th>Người xử lý</th><th></th></tr></thead><tbody>'
+        + rows.map(function(r){ var act='<button type="button" class="btn" data-open="'+esc(r.name)+'">Chi tiết</button>'+(r.fulfillment_status==="Assigned"?' <button type="button" class="btn primary" data-claimq="'+esc(r.name)+'">Nhận xử lý</button>':'');
+            return '<tr><td>'+esc(r.name)+'</td><td>'+esc(r.request_title||"—")+'</td><td>'+esc(r.request_scope||"—")+'</td><td>'+esc(r.brand||"—")+'</td><td>'+esc(r.target_month||"—")+'</td><td>'+esc(FF_LBL[r.fulfillment_status]||r.fulfillment_status||"—")+'</td><td>'+esc(r.fulfillment_owner||"—")+'</td><td>'+act+'</td></tr>'; }).join("")
+        +'</tbody></table></div>';
+      h.querySelectorAll("[data-open]").forEach(function(el){ el.onclick=function(){ go({id:el.getAttribute("data-open")}); }; });
+      h.querySelectorAll("[data-claimq]").forEach(function(el){ el.onclick=function(){ el.disabled=true; call("claim_fulfillment",{name:el.getAttribute("data-claimq")}).then(function(){ toast("Đã nhận xử lý."); renderFulfillment($("dtgt-body")); }).catch(function(e){ toast(mapErr(e),true); renderFulfillment($("dtgt-body")); }); }; });
+    }).catch(function(){ h.innerHTML='<div class="sect-h">'+esc(title)+'</div><div class="card"><div class="state"><h4>Không tải được</h4></div></div>'; }); }
+  function dataCardHTML(det){ var biz=det.business||{}, ap=det.approval||{}, cap=det.capabilities||{};
+    if(ap.approval_status!=="Approved"||!biz.fulfillment_status||biz.fulfillment_status==="Not Started") return "";
+    var btns=[];
+    if(cap.can_claim) btns.push('<button type="button" class="btn primary" data-act="claim">Nhận xử lý</button>');
+    if(cap.can_complete) btns.push('<button type="button" class="btn primary" data-act="complete">Hoàn tất</button>');
+    return '<div class="card"><h3>Team Data xử lý</h3>'
+      +'<div class="summary-row"><span>Trạng thái</span><b>'+esc(FF_LBL[biz.fulfillment_status]||biz.fulfillment_status)+'</b></div>'
+      +'<div class="summary-row"><span>Người xử lý</span><b>'+esc(biz.fulfillment_owner||"—")+'</b></div>'
+      +(biz.fulfillment_summary?('<div class="summary-row"><span>Ghi chú</span><b>'+esc(biz.fulfillment_summary)+'</b></div>'):'')
+      +(btns.length?('<div class="actions" style="margin-top:12px">'+btns.join("")+'</div>'):'')
+      +'</div>'; }
+  function doClaim(name){ call("claim_fulfillment",{name:name}).then(function(){ toast("Đã nhận xử lý."); refreshDetail(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); }); }
+  function doComplete(name){ modal("Hoàn tất xử lý", '<div class="banner info">Xác nhận team Data đã cập nhật mục tiêu này vào hệ thống.</div><div class="fld"><label>Ghi chú kết quả <span class="req">*</span></label><textarea id="m-cmt" rows="3" placeholder="VD: Đã cập nhật target tháng 10 vào dashboard"></textarea></div>', {okLabel:"Hoàn tất", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Vui lòng nhập ghi chú kết quả.",true); return Promise.reject(); }
+    return call("complete_fulfillment",{name:name,payload:JSON.stringify({fulfillment_summary:c})}).then(function(){ toast("Đã hoàn tất."); refreshDetail(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); return Promise.reject(e); }); }}); }
+
   // ======================= DETAIL =======================
   function renderDetail(b){ b.innerHTML=skeleton(4);
     call("get_detail",{name:state.id}).then(function(det){ drawDetail(b,det); })
@@ -448,6 +483,7 @@
       +'<div class="card"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px"><div><h3 style="margin:0">'+esc(biz.request_title||biz.name||state.id)+'</h3><div class="hint">'+esc(biz.name||"")+' · '+esc(biz.request_scope||"")+' · '+esc(biz.requested_by||"")+' · '+esc(biz.department||"")+'</div></div><div>'+badge(ap.approval_status||"Draft")+'</div></div></div>'
       +'<div class="card"><h3>Tiến trình phê duyệt</h3><div class="stepper" id="d-stepper"></div></div>'
       +'<div class="card"><h3>Thông tin mục tiêu</h3><div class="grid2">'+kv("Phạm vi",biz.request_scope)+kv("Brand",biz.brand)+kv("Kênh",biz.channels)+kv("Kênh khác",biz.channel_other)+kv("Tháng mục tiêu",biz.target_month)+kv("Loại thiết lập",biz.target_setting_type)+'</div><div class="fld" style="margin-top:10px"><label>Lý do khả thi</label><textarea class="ro" readonly rows="3">'+esc(biz.justification||"")+'</textarea></div>'+(biz.linked_project_level_requests?('<div class="fld" style="margin-top:10px"><label>Yêu cầu cấp dự án liên quan</label><textarea class="ro" readonly rows="2">'+esc(biz.linked_project_level_requests)+'</textarea></div>'):'')+'</div>'
+      +dataCardHTML(det)
       +'<div class="card"><h3>Đính kèm</h3>'+renderAttachments(det.attachments)+'</div>'
       +'<div class="card"><h3>Hành động</h3>'+actionPanelHTML(det)+'</div>'
       +'<div class="card"><h3>Lịch sử</h3>'+timelineHTML(det.timeline)+'</div>';
@@ -472,6 +508,13 @@
       else if(l.level_status==="Skipped"){ st="skipped"; var skw=rows.map(function(r){return esc(r.approver);}); meta=skw.join(", "); }
       else if(l.level_status==="In Progress"||ap.current_level===l.level_no){ st="current"; var elig=rows.filter(function(r){return r.status==="Pending";}).map(function(r){return esc(r.approver);}); meta=(elig.length?(l.approval_mode==="Any One"?elig.join(" hoặc "):elig.join(", ")):"Đang chờ"); }
       steps.push({name:l.level_name||("Cấp "+l.level_no),state:st,meta:meta}); });
+    var biz0=det.business||{}, fs=biz0.fulfillment_status;
+    if(ap.approval_status==="Approved"&&fs&&fs!=="Not Started"){
+      var fst=fs==="Completed"?"done":"current";
+      var fm=fs==="Completed"?("Hoàn tất"+(biz0.completed_by?(" bởi "+esc(biz0.completed_by)):"")):(biz0.fulfillment_owner?("Đang xử lý: "+esc(biz0.fulfillment_owner)):"Chờ Data nhận");
+      steps.push({name:"Data xử lý",state:fst,meta:fm});
+      steps.push({name:"Hoàn tất",state:(fs==="Completed"?"done":"upcoming"),meta:""});
+      return renderStepsHTML(steps); }
     steps.push({name:"Hoàn tất",state:(ap.approval_status==="Approved"?"done":"upcoming"),meta:""});
     return renderStepsHTML(steps); }
   var _STEP_LBL={done:"Hoàn thành",current:"Đang xử lý",upcoming:"Chờ",rejected:"Từ chối",info:"Cần bổ sung",skipped:"Bỏ qua"};
@@ -492,6 +535,7 @@
     if(cap.can_approve) btns.push('<button type="button" class="btn primary" data-act="approve">Duyệt</button>');
     if(cap.can_request_information) btns.push('<button type="button" class="btn" data-act="reqinfo">Yêu cầu bổ sung</button>');
     if(cap.can_reject) btns.push('<button type="button" class="btn" data-act="reject">Từ chối</button>');
+    if(window.EcRemind) btns.push(EcRemind.buttonHTML(cap));   // 01/10: nhac nguoi xu ly (asset dung chung)
     if(cap.can_admin_approve_current_level) btns.push('<button type="button" class="btn warn" data-act="adminapprove">Duyệt thay bước hiện tại</button>');
     if(cap.can_cancel) btns.push('<button type="button" class="btn" data-act="cancel">Hủy yêu cầu</button>');
     return btns.length? '<div class="actions">'+btns.join("")+'</div>' : '<div class="hint">Không có hành động khả dụng cho bạn ở trạng thái hiện tại.</div>'; }
@@ -499,9 +543,10 @@
     var a=el.getAttribute("data-act"); if(!a||el.disabled) return; if(document.querySelector(".ec-dtgt-overlay")) return; e.preventDefault();
     var det=state.detail||{}; var name=(det.business||{}).name||state.id;
     if(a==="editdraft") return startEditDraft(det); if(a==="submitdraft") return doSubmitDraft(name);
-    if(a==="edit") return startEditResubmit(det); if(a==="approve") return doApprove(name,det);
+    if(a==="edit") return startEditResubmit(det); if(a==="approve") return doApprove(name,det); if(a==="remind") return window.EcRemind&&EcRemind.run(call,name,{toast:toast,mapErr:(typeof mapErr==="function"?mapErr:null),done:function(){ if(typeof refreshDetail==="function") refreshDetail(); else if(typeof renderDetail==="function") renderDetail(document.querySelector('[id$="-body"]')); }});
     if(a==="reject") return doReject(name); if(a==="reqinfo") return doRequestInfo(name);
-    if(a==="adminapprove") return doAdminApprove(name); if(a==="cancel") return doCancel(name); }
+    if(a==="adminapprove") return doAdminApprove(name); if(a==="cancel") return doCancel(name);
+    if(a==="claim") return doClaim(name); if(a==="complete") return doComplete(name); }
   function ensureActionHandlers(){ if(document.__dtgtActBound) return; document.__dtgtActBound=true; document.addEventListener("click", handleActionClick, true); }
 
   function modal(title, bodyHTML, opts){ opts=opts||{}; var prevFocus=document.activeElement;

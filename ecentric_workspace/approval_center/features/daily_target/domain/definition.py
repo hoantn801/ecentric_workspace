@@ -30,7 +30,7 @@ DAILY_TARGET_DEFINITION = _definition(
      "target_setting_type", "justification", "request_attachment",
      "linked_project_level_requests", "department", "company"),
     ("name", "request_title", "request_scope", "brand", "target_month", "target_setting_type",
-     "approval_request", "creation", "modified"),
+     "fulfillment_status", "fulfillment_owner", "approval_request", "creation", "modified"),
     ("name", "request_title", "request_scope", "brand", "target_month", "target_setting_type",
      "department", "creation"),
     options=(("scopes", ("Project level", "Consolidated / Total")),

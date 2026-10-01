@@ -16,8 +16,10 @@ ROUTE = "approvals/new-staff-preparation"
 NAME = "new-staff-preparation"
 TITLE = "New Staff Preparation"
 
-BASELINE_SHA256 = "78e058a80de0472a5d2f7bb68283b198dbdad9a218259bb7c2ada4ef1648eaa4"
-SUPERSEDES_SHA256 = ()
+BASELINE_SHA256 = "607193e6d7e404d37e2d2e220a91c15e75736ec34fc8dbabefc5bb90612272eb"
+SUPERSEDES_SHA256 = (
+    "78e058a80de0472a5d2f7bb68283b198dbdad9a218259bb7c2ada4ef1648eaa4",  # ban truoc dot nut Nhac nguoi xu ly 01/10
+)
 
 
 def _html():

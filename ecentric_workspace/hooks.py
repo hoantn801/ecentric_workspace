@@ -667,3 +667,7 @@ override_doctype_class.setdefault(
 # `ec_video_scheduler_disabled: 1`.
 scheduler_events["cron"]["*/10 * * * *"].append(
     "ecentric_workspace.ai_tools.features.ai_video.application.scheduler.tick")
+
+# Nut "Nhac nguoi xu ly" dung chung cho cac form approval (01/10). Mot asset, cac trang chi goi
+# EcRemind.buttonHTML / EcRemind.run. Backend: approval_center/shared/requests/remind.py.
+web_include_js.append("ec_remind.bundle.js")

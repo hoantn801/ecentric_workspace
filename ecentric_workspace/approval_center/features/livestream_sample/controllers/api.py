@@ -94,5 +94,10 @@ def admin_approve_current_level(name, reason=None):
     return _FACADE.admin_approve_current_level(_DEFINITION, name, reason)
 
 
-
-
+# 01/10/2026: nguoi gui nhac nguoi DANG xu ly (ERP + Teams), 15 phut / phieu.
+# Logic chung o shared/requests/remind.py - cung endpoint voi cac form dung bind().
+@frappe.whitelist(methods=["POST"])
+def remind(name):
+    out = _FACADE.remind(_DEFINITION, name)
+    out["detail"] = get_detail(name)
+    return out
