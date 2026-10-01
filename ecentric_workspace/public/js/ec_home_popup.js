@@ -96,7 +96,11 @@
     P + ' .stage{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:auto}',
     P + ' .hero{position:relative;height:170px;flex:none;overflow:hidden}',
     P + ' .hero svg,' + P + ' .hero img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}',
-    P + ' .hero.photo::after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,rgba(0,0,0,.55),rgba(0,0,0,0) 65%)}',
+    // lop toi (::after) va chu (.cap/.cnt) nam TREN anh -> cho click xuyen xuong link
+    P + ' .hero .hlink{position:absolute;inset:0;display:block;cursor:pointer}',
+    P + ' .hero .hlink~.cap,' + P + ' .hero .hlink~.cnt{pointer-events:none}',
+    P + ' .hero .hlink:focus-visible{outline:3px solid #fff;outline-offset:-3px}',
+    P + ' .hero.photo::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(0deg,rgba(0,0,0,.55),rgba(0,0,0,0) 65%)}',
     P + ' .hero .cap{position:absolute;z-index:1;left:22px;bottom:16px;right:22px;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.25)}',
     P + ' .hero .cap small{font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;opacity:.9}',
     P + ' .hero .cap h3{margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-.4px;line-height:1.2;text-wrap:balance;color:#fff}',
@@ -320,7 +324,8 @@
     if (texts.length) {
       const tags = [...new Set(texts.map((n) => n.tag_label))];
       out.push({ k: 'news', t: 'Thông báo', s: tags.join(' · '), ct: texts.length, hs: 'Thông báo công ty',
-        h: texts[0].title, cnt: texts.length + ' thông báo', image: texts[0].image, body: (st) => newsHTML(st, texts) });
+        h: texts[0].title, cnt: texts.length + ' thông báo', image: texts[0].image, image_url: texts[0].image_url || '',
+        body: (st) => newsHTML(st, texts) });
     }
     if (bd.today.length || bd.soon.length) {
       const n = bd.today.length;
@@ -444,7 +449,12 @@
         + '<div class="pbar"><span class="tg ' + esc(n.tag) + '">' + esc(n.tag_label) + '</span><b>' + esc(n.title) + '</b>'
         + (n.url ? linkHTML(n) : '') + '</div>';
     }
-    return '<div class="hero' + (sl.image ? ' photo' : '') + '">' + cover(sl, true) + (sl.cnt ? '<span class="cnt">' + esc(sl.cnt) + '</span>' : '')
+    // Anh cua thong bao co tich "Bam anh mo link" (Tin noi bo, 01/10) -> bam anh di toi bai.
+    const pic = sl.image && sl.image_url
+      ? '<a class="hlink" href="' + esc(sl.image_url) + '"' + (/^https?:/i.test(sl.image_url) ? ' target="_blank" rel="noopener"' : '')
+        + ' aria-label="' + esc('Mở: ' + (sl.h || '')) + '">' + cover(sl, true) + '</a>'
+      : cover(sl, true);
+    return '<div class="hero' + (sl.image ? ' photo' : '') + '">' + pic + (sl.cnt ? '<span class="cnt">' + esc(sl.cnt) + '</span>' : '')
       + '<div class="cap"><small>' + esc(sl.hs) + '</small><h3>' + esc(sl.h) + '</h3></div></div>'
       + '<div class="content">' + sl.body(st) + '</div>';
   };

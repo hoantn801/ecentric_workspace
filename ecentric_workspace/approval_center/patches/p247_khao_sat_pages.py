@@ -1,5 +1,5 @@
 # Copyright (c) 2026, eCentric and contributors
-"""p245_khao_sat_pages: module Khao sat noi bo (01/10/2026, Hoan yeu cau).
+"""p247_khao_sat_pages: module Khao sat noi bo (01/10/2026, Hoan yeu cau).
 
 1. Tao 4 Web Page tu repo: /khao-sat (hub), /khao-sat/lam (lam bai), /khao-sat/quan-ly,
    /khao-sat/soan. Route /khao-sat dang thuoc trang vong quay tra sua 07/2026 -> trang cu
@@ -39,7 +39,7 @@ def execute():
     log = frappe.logger("approval_center")
     for name, fn in (("surveys", _surveys), ("home", _home), ("my_work", _my_work), ("tong_quan", _tong_quan)):
         try:
-            log.info("p245 %s: %s" % (name, fn()))
+            log.info("p247 %s: %s" % (name, fn()))
         except Exception:
             # Mot trang loi khong duoc chan migrate cua ca site - chi ghi lai.
-            frappe.log_error(title="p245_khao_sat_pages: %s" % name)
+            frappe.log_error(title="p247_khao_sat_pages: %s" % name)

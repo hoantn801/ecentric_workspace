@@ -29,11 +29,16 @@
   "end_date",
   "section_image",
   "image",
+  "image_link",
   "section_content",
   "summary",
   "content",
   "link",
-  "link_label"
+  "link_label",
+  "section_source",
+  "source_doctype",
+  "source_name",
+  "source_version"
  ],
  "fields": [
   {
@@ -98,6 +103,13 @@
    "description": "Ảnh bìa (Ảnh + nội dung) hoặc ảnh poster (Chỉ ảnh). Tệp tải lên ở đây luôn là tệp công khai để mọi người xem được."
   },
   {
+   "fieldname": "image_link",
+   "fieldtype": "Check",
+   "label": "Bấm ảnh mở link",
+   "default": "0",
+   "description": "Tích thì bấm vào ảnh trong popup sẽ mở Link bên dưới (kiểu Ảnh + nội dung). Kiểu Chỉ ảnh luôn mở Link nếu có."
+  },
+  {
    "fieldname": "section_content",
    "fieldtype": "Section Break",
    "label": "Nội dung"
@@ -126,6 +138,35 @@
    "fieldtype": "Data",
    "label": "Chữ trên nút",
    "description": "Vd: Dùng thử ngay. Để trống = \"Mở →\"."
+  },
+  {
+   "fieldname": "section_source",
+   "fieldtype": "Section Break",
+   "label": "Nguồn (tự điền)",
+   "collapsible": 1,
+   "description": "Thông báo do một tính năng khác tạo (bài Tin nội bộ, tài liệu ISO ban hành). Đừng sửa tay."
+  },
+  {
+   "fieldname": "source_doctype",
+   "fieldtype": "Link",
+   "label": "Loại nguồn",
+   "options": "DocType",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "source_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Bản ghi nguồn",
+   "options": "source_doctype",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "source_version",
+   "fieldtype": "Data",
+   "label": "Phiên bản nguồn",
+   "read_only": 1
   }
  ],
  "permissions": [

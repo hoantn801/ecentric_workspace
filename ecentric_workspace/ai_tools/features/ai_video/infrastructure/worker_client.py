@@ -11,6 +11,7 @@ Worker: POST /webhook/ec-v6/api {action,...}  header X-EC-Secret
 Worker co the tat (laptop ngu) -> moi loi mang tra WorkerDown de trang bao ro."""
 import hashlib
 import hmac
+import mimetypes
 import re
 import time
 from urllib.parse import urlencode
@@ -86,12 +87,22 @@ def call(action, **payload):
     return data
 
 
+def _mime(filename):
+    """n8n (webhook) chi coi mot phan multipart la FILE khi phan do co Content-Type; thieu
+    no thi file bi doc thanh chuoi van ban trong body -> worker bao "no file" (01/10)."""
+    ext = (filename or "").rsplit(".", 1)[-1].lower()
+    if ext == "webp":
+        return "image/webp"
+    t = mimetypes.guess_type(filename or "")[0]
+    return t or "application/octet-stream"
+
+
 def upload(dest, filename, content):
     """dest: inbox/<lo>/<ten file>. content: bytes."""
     url, sec = _conf()
     try:
         r = requests.post(url + "/webhook/ec-v6/upload", params={"dest": dest}, headers={"X-EC-Secret": sec},
-                          files={"file": (filename, content)}, timeout=120)
+                          files={"file": (filename, content, _mime(filename))}, timeout=120)
     except requests.RequestException:
         raise WorkerDown("Không gửi được file lên máy chạy video.")
     try:

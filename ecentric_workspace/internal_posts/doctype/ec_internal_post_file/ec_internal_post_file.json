@@ -1,0 +1,44 @@
+{
+ "doctype": "DocType",
+ "name": "EC Internal Post File",
+ "module": "Internal Posts",
+ "custom": 0,
+ "istable": 1,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "autoname": "hash",
+ "naming_rule": "Random",
+ "description": "Tệp đính kèm của bài Tin nội bộ. Tệp luôn private: chỉ người đọc được bài mới tải được.",
+ "field_order": [
+  "file_url",
+  "file_name",
+  "file_size"
+ ],
+ "fields": [
+  {
+   "fieldname": "file_url",
+   "fieldtype": "Attach",
+   "label": "Tệp",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "file_name",
+   "fieldtype": "Data",
+   "label": "Tên tệp",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "file_size",
+   "fieldtype": "Int",
+   "label": "Dung lượng (byte)",
+   "read_only": 1
+  }
+ ],
+ "permissions": [],
+ "links": [],
+ "index_web_pages_for_search": 0
+}

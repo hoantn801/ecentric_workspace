@@ -1,0 +1,26 @@
+{#- Tin noi bo - khung chung: vo shell ERP (menu trai + thanh tren tu registry) + vung trang.
+    Bo navbar / footer cua Frappe bang block rong (khong an bang CSS). Menu + thanh tren do
+    internal_posts/pages.py dung tu shell registry - cung ham voi moi trang ERP khac. -#}
+{% extends base_template_path %}
+{% block title %}{{ title|e }} · eCentric{% endblock %}
+{% block navbar %}{% endblock %}
+{% block footer %}{% endblock %}
+{% block style %}{{ super() }}
+<link rel="stylesheet" href="{{ ip_css }}">
+{% endblock %}
+{% block content %}
+<div class="eip-app">
+  {{ ip_shell_mount }}
+  <main class="eip-main">
+    <div class="ec-shell-topbar" data-ec-shell-topbar="1">{{ ip_topbar }}</div>
+    <div class="eip-page">
+      {% block eip_page %}{% endblock %}
+    </div>
+  </main>
+</div>
+<div class="eip-toast" id="eip-toast" role="status" aria-live="polite" hidden></div>
+{% endblock %}
+{% block script %}{{ super() }}
+<script src="{{ ip_js }}" defer></script>
+{% block eip_script %}{% endblock %}
+{% endblock %}
