@@ -166,6 +166,7 @@
     P + ' .poster{position:relative;flex:1 1 auto;min-height:320px;background:#0f1535;overflow:hidden}',
     P + ' .poster .bg{position:absolute;inset:-24px;width:calc(100% + 48px);height:calc(100% + 48px);object-fit:cover;filter:blur(22px) brightness(.6);transform:scale(1.05)}',
     P + ' .poster .pimg{position:absolute;inset:0;display:grid;place-items:center;cursor:zoom-in}',
+    P + ' .poster .pimg.go{cursor:pointer}',
     P + ' .poster .pimg img{max-width:100%;max-height:100%;object-fit:contain;display:block;box-shadow:0 10px 30px rgba(0,0,0,.35)}',
     P + ' .pbar{display:flex;align-items:center;gap:10px;padding:12px 22px;border-top:1px solid var(--line);min-width:0}',
     P + ' .pbar b{flex:1;min-width:0;font-size:14.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
@@ -341,7 +342,12 @@
   const stageHTML = (st, sl) => {
     if (sl.poster) {
       const n = sl.poster;
-      return '<div class="poster"><img class="bg" src="' + esc(n.image) + '" alt="" aria-hidden="true"><a class="pimg" href="' + esc(n.image) + '" target="_blank" rel="noopener" title="Mở ảnh gốc"><img src="' + esc(n.image) + '" alt="' + esc(n.title) + '"></a></div>'
+      // Poster co duong dan -> bam anh di toi dung cho do (PO 01/10: "bam vao hinh cung nen vao cho
+      // huong dan"); khong co duong dan thi bam anh mo anh goc nhu cu.
+      const go = n.url || n.image;
+      const ext = !n.url || /^https?:/i.test(n.url);
+      return '<div class="poster"><img class="bg" src="' + esc(n.image) + '" alt="" aria-hidden="true"><a class="pimg' + (n.url ? ' go' : '') + '" href="' + esc(go) + '"'
+        + (ext ? ' target="_blank" rel="noopener"' : '') + ' title="' + esc(n.url ? (n.link_label || 'Mở') : 'Mở ảnh gốc') + '"><img src="' + esc(n.image) + '" alt="' + esc(n.title) + '"></a></div>'
         + '<div class="pbar"><span class="tg ' + esc(n.tag) + '">' + esc(n.tag_label) + '</span><b>' + esc(n.title) + '</b>'
         + (n.url ? linkHTML(n) : '') + '</div>';
     }

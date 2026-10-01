@@ -84,8 +84,13 @@ class TestPopupInJsdom(unittest.TestCase):
         self.assertEqual(p["img"], "/files/poster-trung-thu.jpg")
         self.assertEqual(p["thumb"], "/files/poster-trung-thu.jpg")
         self.assertTrue(p["heroless"], "poster: anh phu kin, khong co khung chu hero")
-        self.assertEqual(p["open"], "_blank")
+        self.assertEqual(p["open"], "_blank", "poster khong co duong dan: bam anh mo anh goc o tab moi")
         self.assertEqual(p["bar"], "Sự kiệnĐêm hội Trung thu eCentric 2026")
+
+    def test_poster_with_link_click_goes_to_link(self):
+        """PO 01/10: poster co duong dan thi bam vao hinh di toi cho do, khong mo anh goc."""
+        self.assertEqual(self.r["posterLink"], {"href": "/huong-dan/chot-cong-thang", "target": None,
+                                                "btn": "Xem hướng dẫn →"})
 
     def test_news_detail_and_links(self):
         m = self.r["main"]

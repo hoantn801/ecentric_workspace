@@ -169,6 +169,14 @@ const txt = (el) => (el ? el.textContent.replace(/\s+/g, ' ').trim() : null);
     out.xss = { pwn: !!b.w.__pwn, imgs: pop.querySelectorAll('img').length, tiles: [...pop.querySelectorAll('.th .tt')].map(txt),
       escaped: pop.innerHTML.includes('&lt;img src=x') };
   }
+  // 5b) poster co duong dan -> bam anh di toi duong dan (cung tab); khong co -> mo anh goc (tab moi)
+  {
+    const p = JSON.parse(payloadRaw);
+    p.news[0].url = '/huong-dan/chot-cong-thang'; p.news[0].link_label = 'Xem hướng dẫn →';
+    const b = await boot(htmlOn, { payload: p });
+    const a = b.d.querySelector('#ech-pop .poster a.pimg');
+    out.posterLink = { href: a.getAttribute('href'), target: a.getAttribute('target'), btn: txt(b.d.querySelector('#ech-pop .pbar a')) };
+  }
   // 6) API hong -> im lang (console), khong popup
   {
     const b = await boot(htmlOn, { fail: true });
