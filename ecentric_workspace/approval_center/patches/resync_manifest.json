@@ -170,8 +170,8 @@
     "sha256": "176f923979339da9140f34758e29671f90e33007e6c1c5b88bacdb42b979631d"
   },
   "hr/pages/tong_quan/main_section.html": {
-    "last_resync_patch": "p248_khao_sat_pages",
-    "sha256": "47eca2018249f74e54961ca78f16f6ae4fdf842b84fcc75d6455521a5befd59f"
+    "last_resync_patch": "p249_resync_tong_quan_sla_brand",
+    "sha256": "2ff380b1865df5291e0f8558dd947e67dd898bf952332aeec88ea161581e74b5"
   },
   "legacy_pages/all_ticket/main_section.html": {
     "baseline": "2026-08-31",
