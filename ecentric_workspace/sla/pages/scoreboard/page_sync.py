@@ -49,11 +49,12 @@ def shipped_sha():
 # sha256 cua dung ban HTML commit nay ship. Trang /sla chua ton tai tren ban song
 # truoc dot nay, nen lan sync dau khong cham vao khoa - gia tri o day la de tu lan
 # thu hai tro di.
-BASELINE_SHA256 = "da6455763acda2480f707e2ee11a28fce5e9bf0f1d7fd200faf4e63008698a59"
+BASELINE_SHA256 = "161e5d6ff18cf1ab9664fe0b0b46d149a4ddf080e943c8ac3070572032358138"
 
 #: Cac gia tri live ma ban nay duoc phep ghi de (ban repo truoc do). Rong o lan
 #: dau vi chua co ban nao truoc.
 SUPERSEDES_SHA256 = (
+    "da6455763acda2480f707e2ee11a28fce5e9bf0f1d7fd200faf4e63008698a59",  # ban repo truoc khi them o chon ky (01/10)
     "1ff637d8e9751c356e2277181ef3a4d3a9e0b490989c953c7e6a3c559005fb8a",  # ban repo truoc khi them muc menu Phan bo cong viec (25/09)
     "66aed10b614efafd189f3df85a5327d477640d9b7f084476693653db0ebabcf8",  # ban repo truoc dot nay
     "41e7476d633c60faac2426c3511782d52f05b530decd6a35b11055828659447f",  # ban repo truoc dot nay
