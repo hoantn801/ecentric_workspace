@@ -320,3 +320,4 @@ ecentric_workspace.hr.patches.p004_full_cong
 ecentric_workspace.approval_center.patches.p245_resync_pnl_popup_chi_phi
 ecentric_workspace.internal_posts.patches.p001_seed_categories
 ecentric_workspace.approval_center.patches.p246_resync_home_tin_noi_bo
+ecentric_workspace.approval_center.patches.p247_resync_tin_noi_bo_tai_nguyen
