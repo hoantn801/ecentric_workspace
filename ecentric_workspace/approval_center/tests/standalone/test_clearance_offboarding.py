@@ -79,6 +79,18 @@ def build(today="2026-10-01"):
     fr.get_roles = lambda u=None: W.roles.get(u, [])
 
     def _match(row, filters):
+        if isinstance(filters, list):
+            # Dang list [[field, op, val]] - mo phong DUNG Frappe: "<" tren cot ngay so sanh
+            # ifnull(field, '0001-01-01'), nen NULL LOT VAO (goc su co 01/10/2026).
+            for k, op, val in filters:
+                cur = row.get(k)
+                if op == "=" and cur != val:
+                    return False
+                if op == "is" and val == "set" and not cur:
+                    return False
+                if op == "<" and not (str(cur or "0001-01-01") < val):
+                    return False
+            return True
         for k, v in (filters or {}).items():
             if isinstance(v, list):
                 op, val = v
@@ -339,3 +351,35 @@ def test_quan_ly_nghi_van_bi_khoa_du_chua_chuyen_left_duoc(env):
     assert W.tables["User"]["boss@x"]["enabled"] == 0         # KHOA TRUOC
     msg = W.events[0][1]["message"]
     assert "1 nguoi report cho BOSS" in msg and "EC Department Approver Ops - EC" in msg and "LVL-1" in msg
+
+
+# --------------------------- su co 01/10/2026 ---------------------------
+def test_khong_co_ngay_nghi_viec_thi_khong_bao_gio_khoa(env):
+    """Frappe so `relieving_date < hom nay` bang ifnull(..,'0001-01-01'): nguoi chua co ngay
+    nghi viec tung bi khoa (71 tai khoan). Phai loai ra o ca due_employees lan lock_one."""
+    fr, off, job, _c, _r = env()
+    emp("E1", "a@x", relieving="2026-09-30")
+    emp("E3", "c@x", relieving=None)
+    emp("E4", "d@x", relieving="")
+    assert [r.name for r in off.due_employees()] == ["E1"]
+    out = job.run()
+    assert out["results"] == [("E1", "locked")]
+    assert W.tables["User"]["c@x"]["enabled"] == 1 and W.tables["User"]["d@x"]["enabled"] == 1
+
+
+def test_lock_one_doc_lai_ngay_tu_db(env):
+    fr, off, job, _c, _r = env()
+    emp("E3", "c@x", relieving=None)
+    kind, _n = off.lock_one(Obj(name="E3", user_id="c@x", relieving_date="2026-09-01"))
+    assert kind == "skipped_no_date" and W.tables["User"]["c@x"]["enabled"] == 1
+
+
+def test_qua_nhieu_nguoi_mot_dem_thi_dung_khong_khoa_ai(env):
+    fr, off, job, _c, _r = env()
+    for i in range(6):
+        emp("E%d" % i, "u%d@x" % i, relieving="2026-09-30")
+    out = job.run()
+    assert out.get("stopped") == "over_limit" and out["results"] == []
+    assert all(W.tables["User"]["u%d@x" % i]["enabled"] == 1 for i in range(6))
+    W.conf["ec_offboarding_max_per_run"] = 10
+    assert len(job.run()["results"]) == 6

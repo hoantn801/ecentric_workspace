@@ -60,12 +60,19 @@ def mark_resignation(employee_email, letter_date=None, relieving_date=None, sour
 
 
 def due_employees(today=None):
-    """Employee Active co relieving_date TRUOC hom nay (hom nay van con la ngay lam viec)."""
+    """Employee Active co relieving_date TRUOC hom nay (hom nay van con la ngay lam viec).
+
+    SU CO 01/10/2026: filter `relieving_date < hom nay` cua Frappe so sanh
+    ifnull(relieving_date, '0001-01-01') - nguoi KHONG co ngay nghi viec cung lot vao,
+    va job da khoa 71 tai khoan dang lam. Bat buoc "is set" + loc lai bang Python.
+    """
     today = getdate(today or nowdate())
-    return frappe.get_all(EMPLOYEE, filters={"status": "Active",
-                                             "relieving_date": ["<", str(today)]},
+    rows = frappe.get_all(EMPLOYEE, filters=[["status", "=", "Active"],
+                                             ["relieving_date", "is", "set"],
+                                             ["relieving_date", "<", str(today)]],
                           fields=["name", "employee_name", "user_id", "relieving_date"],
                           order_by="relieving_date asc", limit_page_length=0)
+    return [r for r in rows if r.relieving_date and getdate(r.relieving_date) < today]
 
 
 def _has_api_key(user):
@@ -101,6 +108,10 @@ def lock_one(row):
     ket_qua: locked | locked_not_left | left_no_user | skipped_protected | skipped_service |
              skipped_api_key."""
     user = (row.user_id or "").strip()
+    # Chot chan cuoi: doc lai ngay nghi viec tu DB, khong tin vao danh sach ben goi.
+    rd = frappe.db.get_value(EMPLOYEE, row.name, "relieving_date")
+    if not rd or getdate(rd) >= getdate(nowdate()):
+        return "skipped_no_date", row.name
     if user in SKIP_USERS:
         return "skipped_service", user
     if user and PROTECTED_ROLE in frappe.get_roles(user):
@@ -141,7 +152,9 @@ def notify_summary(results):
                  "left_no_user": _("chuyển Left (không có tài khoản)"),
                  "skipped_protected": _("KHÔNG khoá - giữ System Manager, cần xử lý tay"),
                  "skipped_api_key": _("KHÔNG khoá - tài khoản có API key, cần xử lý tay"),
-                 "skipped_service": _("bỏ qua tài khoản dịch vụ"), "error": _("LỖI - xem Error Log")}.get(kind, kind)
+                 "skipped_service": _("bỏ qua tài khoản dịch vụ"),
+                 "skipped_no_date": _("KHÔNG khoá - hồ sơ chưa có ngày làm việc cuối"),
+                 "error": _("LỖI - xem Error Log")}.get(kind, kind)
         lines.append("%s (%s, nghỉ %s): %s" % (row.employee_name or row.name, row.user_id or "—",
                                                row.relieving_date, label))
         seats = approver_seats(row.user_id) if row.user_id else []

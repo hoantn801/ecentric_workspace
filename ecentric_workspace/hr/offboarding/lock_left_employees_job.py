@@ -7,12 +7,22 @@ import frappe
 from ecentric_workspace.hr.offboarding import service
 
 KILL_CONF = "ec_offboarding_lock_disabled"
+#: Phanh an toan (su co 01/10/2026: khoa nham 71 tai khoan). Mot dem ma qua nhieu nguoi
+#: "het ngay lam viec" thi gan nhu chac chan la loi du lieu / loi loc -> KHONG khoa ai, bao HR.
+#: Doi bang site_config `ec_offboarding_max_per_run`.
+MAX_CONF = "ec_offboarding_max_per_run"
+DEFAULT_MAX_PER_RUN = 5
 
 
 def run(today=None):
     if frappe.conf.get(KILL_CONF):
         return {"skipped": "disabled"}
     rows = service.due_employees(today)
+    limit = int(frappe.conf.get(MAX_CONF) or DEFAULT_MAX_PER_RUN)
+    if len(rows) > limit:
+        frappe.log_error(title="lock_left_employees_job: DUNG - %d nguoi > nguong %d" % (len(rows), limit),
+                         message="Khong khoa ai. Kiem tra relieving_date: %s" % [r.name for r in rows])
+        return {"due": len(rows), "results": [], "stopped": "over_limit"}
     results = []
     for row in rows:
         try:
