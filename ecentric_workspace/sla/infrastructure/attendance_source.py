@@ -36,11 +36,23 @@ POLICY_CODE = "SLA-ATT-CHECKIN-10H"
 def _employees():
     """Nhan vien dang lam, co tai khoan. Khong co `user_id` thi khong gan diem
     cho ai duoc - va dem ho vao se tao ra nhung dong nghia vu khong chu."""
-    return frappe.get_all(
+    rows = frappe.get_all(
         "Employee", filters={"status": "Active", "user_id": ("is", "set")},
         fields=["name", "user_id", "employee_name", "department",
                 "holiday_list", "date_of_joining", "company"],
         limit_page_length=0)
+    # 01/10/2026: nguoi "mac dinh du cong" (hr/full_cong.py) khong co SLA cham cong.
+    skip = _full_cong()
+    return [r for r in rows if r["name"] not in skip] if skip else rows
+
+
+def _full_cong():
+    try:
+        from ecentric_workspace.hr import full_cong
+        return full_cong.employees()
+    except Exception:
+        frappe.log_error(title="sla.attendance._full_cong", message=frappe.get_traceback())
+        return set()
 
 
 def _company_holiday_list(company, cache):
@@ -322,6 +334,8 @@ def _employee_one(employee):
     except Exception:
         frappe.log_error(title="sla.attendance._employee_one",
                          message=frappe.get_traceback())
+        return None
+    if rows and rows[0]["name"] in _full_cong():
         return None
     return rows[0] if rows else None
 

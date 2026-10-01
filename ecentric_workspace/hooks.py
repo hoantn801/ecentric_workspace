@@ -671,3 +671,26 @@ scheduler_events["cron"]["*/10 * * * *"].append(
 # Nut "Nhac nguoi xu ly" dung chung cho cac form approval (01/10). Mot asset, cac trang chi goi
 # EcRemind.buttonHTML / EcRemind.run. Backend: approval_center/shared/requests/remind.py.
 web_include_js.append("ec_remind.bundle.js")
+
+# --------------------------------------------------------------------------- #
+# 01/10/2026 - "Mac dinh du cong" (Employee.ec_full_cong): 06:05 hang ngay tu ghi Present
+# cho ngay lam viec con trong, tu ngay 1 thang truoc toi hom nay. Nguoi bat co khong co SLA
+# cham cong, khong bi nhac cham cong, khong can chot cong. Xem hr/full_cong.py + hr.p004.
+# --------------------------------------------------------------------------- #
+scheduler_events["cron"].setdefault("5 6 * * *", []).append(
+    "ecentric_workspace.hr.full_cong.run_daily")
+
+# --------------------------------------------------------------------------- #
+# 01/10/2026 - Doi "Bao cao cho" tren ho so -> dong chot cong chua chot, giai trinh / don
+# nghi dang cho quan ly chuyen sang quan ly moi. Xem hr/reports_to_sync.py. Nuot moi loi.
+# --------------------------------------------------------------------------- #
+_RT_HOOK = "ecentric_workspace.hr.reports_to_sync.on_employee_update"
+_rt_emp = doc_events.setdefault("Employee", {})
+_rt_prev = _rt_emp.get("on_update")
+if _rt_prev is None:
+    _rt_emp["on_update"] = [_RT_HOOK]
+elif isinstance(_rt_prev, str):
+    if _rt_prev != _RT_HOOK:
+        _rt_emp["on_update"] = [_rt_prev, _RT_HOOK]
+elif _RT_HOOK not in _rt_prev:
+    _rt_prev.append(_RT_HOOK)
