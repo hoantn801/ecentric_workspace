@@ -214,7 +214,7 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 .svy-files { display:flex; flex-direction:column; gap:6px; margin-top:8px; }
 .svy-file { display:flex; align-items:center; gap:8px; border:1px solid var(--line); border-radius:8px; padding:6px 10px; font-size:13px; }
 .svy-progress { height:6px; border-radius:3px; background:var(--line); overflow:hidden; }
-.svy-progress i { display:block; height:100%; background:var(--accent); transition:width .3s; }
+.svy-progress i { display:block; height:100%; background:var(--accent); }
 .svy-nav { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
 .svy-banner { display:flex; gap:10px; align-items:flex-start; border-radius:10px; padding:10px 14px; font-size:13px; background:var(--wash); border:1px solid var(--navy-line); color:var(--ink2); }
 .svy-banner.warn { background:var(--warn-bg); border-color:#f3d9a4; color:#6b4300; }
