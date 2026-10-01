@@ -4,10 +4,14 @@
   GET ecentric_workspace.hr.overview.api.get_cards        - the nao nguoi xem duoc thay
   GET ecentric_workspace.hr.overview.api.get_hr_overview  - du lieu 3 tab cua the Nhan su
   GET ecentric_workspace.hr.overview.api.get_hr_profile   - ho so 1 nguoi (khung ben phai)
+  GET ecentric_workspace.hr.overview.api.get_sla_summary  - tab SLA: % dung han ca cong ty theo phong
+  GET ecentric_workspace.hr.overview.api.get_brand_summary - tab Phan bo cong viec: ai da nop / ty trong brand
 
 Quyen: the Nhan su chi mo cho HR_CARD_ROLES. Trong the, truong nao tra ve do permlevel
 cua Employee quyet dinh (L0 danh ba / L2 noi bo HR / L1 ca nhan) - xem repository.
 Khong endpoint nao tra ve so luong. Nguoi dung duoc lay tu session, client khong truyen."""
+import re
+
 import frappe
 from frappe.utils import nowdate
 
@@ -93,4 +97,36 @@ def get_hr_profile(employee: str):
         mgr = repo.employee(emp.get("reports_to"), ("name", "employee_name")) if emp.get("reports_to") else None
         cons = repo.contracts([emp["name"]]) if 2 in levels else []
         return GetHrProfileService().execute(emp, cons, levels, (mgr or {}).get("employee_name") or "")
+    return _run(build)
+
+
+def _period(raw, cur, allowed):
+    p = str(raw or "").strip()
+    return p if re.match(r"^\d{4}-\d{2}$", p) and p in allowed else cur
+
+
+@frappe.whitelist(methods=["GET"])
+def get_sla_summary(period: str = None):
+    """Hoan 01/10: CnB xem SLA ca cong ty. Trang /sla chi mo ca cong ty cho Ban Giam doc /
+    System Manager (sla.permissions); o day mo cho HR_CARD_ROLES qua _guard."""
+    def build():
+        _guard()
+        from ecentric_workspace.hr.overview import team_summary_repo as TR
+        cur, periods = TR.sla_periods()
+        data = TR.sla_summary(_period(period, cur, periods))
+        data.update({"periods": periods, "current": cur})
+        return data
+    return _run(build)
+
+
+@frappe.whitelist(methods=["GET"])
+def get_brand_summary(period: str = None):
+    """Hoan 01/10: CnB xem ai da nop / chot phan bo cong viec (brand weight) va ty trong chung."""
+    def build():
+        _guard()
+        from ecentric_workspace.hr.overview import team_summary_repo as TR
+        cur, periods = TR.brand_periods()
+        data = TR.brand_summary(_period(period, cur, periods))
+        data.update({"periods": periods, "current": cur})
+        return data
     return _run(build)

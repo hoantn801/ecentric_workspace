@@ -140,6 +140,20 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
 .ecq tr.tsmem td{background:#FAFBFD; cursor:default; white-space:normal}
 .ecq .tsm{display:flex; gap:12px; align-items:center; padding:4px 0; flex-wrap:wrap} .ecq .tsm > span:first-child{min-width:180px; font-weight:600}
 @media (max-width:760px){.ecq .tskpis{grid-template-columns:repeat(2,1fr)}}
+.ecq .sbbar{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:14px}
+.ecq .sbbar .muted{flex:1; font-size:12.5px}
+.ecq .sbbar a.btn{margin-left:auto}
+.ecq .kpi.sbk-good .n{color:var(--green)} .ecq .kpi.sbk-warn{background:#FFFBEB; border-color:#FDE68A} .ecq .kpi.sbk-warn .n{color:var(--amber)}
+.ecq .kpi.sbk-bad{background:#FEF3F2; border-color:#FECDCA} .ecq .kpi.sbk-bad .n{color:var(--red)}
+.ecq .sbgroups{display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px}
+.ecq .sbg{display:flex; flex-direction:column; gap:2px; padding:10px 12px; border-radius:10px; background:var(--line-2)}
+.ecq .sbg b{font-size:20px; font-variant-numeric:tabular-nums} .ecq .sbg .muted{font-size:12px}
+.ecq .seg.sbwarn{background:#E2A23B} .ecq .seg.sbbad{background:var(--red)}
+.ecq .sbsmall{font-size:12px; flex-basis:100%}
+.ecq .sbmix{height:14px; margin:4px 0 12px}
+.ecq .sbbrands{display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:6px 16px}
+.ecq .sbbr{display:grid; grid-template-columns:12px 1fr auto 72px; gap:8px; align-items:center; font-size:13px; font-variant-numeric:tabular-nums}
+.ecq .sbbr i{width:10px; height:10px; border-radius:3px} .ecq .sbbr .muted{font-size:12px; text-align:right}
 </style>
 <div class="ec-tq-shellwrap">
   <aside class="ec-shell-mount" data-ec-shell="1" aria-label="Điều hướng eCentric"><div class="ec-shell-head"><a class="ec-shell-brand" href="/"><img class="ec-shell-logoimg" src="/files/eCentric%20logo%20-%20mini.png" alt="eCentric"><span class="ec-shell-logo" hidden>eC</span><span class="ec-shell-brandname">eCentric</span></a></div><div class="ec-shell-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input class="ec-shell-search-in" type="text" placeholder="Tìm chức năng…" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-label="Tìm chức năng" autocomplete="off" spellcheck="false"><button type="button" class="ec-shell-search-clear" data-ec-shell-search-clear="1" hidden aria-label="Xóa tìm kiếm">&times;</button></div><div class="ec-shell-search-results" role="listbox" hidden></div><nav class="ec-shell-nav ec-shell-fallback" aria-label="Điều hướng chính"><div class="ec-shell-grouplabel">Workspace</div><a class="ec-shell-item" href="/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg><span>Trang chủ</span></a><a class="ec-shell-item ec-shell-active" href="/tong-quan" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Tổng quan</span></a><a class="ec-shell-item" href="/approvals"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Phê duyệt</span></a><a class="ec-shell-item" href="/pm"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><span>Công việc</span></a><a class="ec-shell-item" href="/hall"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 8h2M13 8h2M9 12h2M13 12h2M9 16h2M13 16h2"/></svg><span>eCentric Hall</span></a><div class="ec-shell-grouplabel">Nhân sự</div><a class="ec-shell-item" href="/ec-hr/attendance"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg><span>Chấm công</span></a><a class="ec-shell-item" href="/ec-hr/leave"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg><span>Nghỉ phép</span></a><a class="ec-shell-item" href="/ec-hr/salary"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M8 15h2"/></svg><span>Phiếu lương</span></a><a class="ec-shell-item" href="/sla"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/></svg><span>Điểm SLA</span></a><a class="ec-shell-item ec-shell-item-soon" href="/coming-soon?tool=kpi"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/></svg><span>Mục tiêu KPI</span></a><div class="ec-shell-grouplabel">Báo cáo &amp; Phân tích</div><a class="ec-shell-item" href="/reports"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Trung tâm Báo cáo</span></a><a class="ec-shell-item" href="/weekly-update"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg><span>Báo cáo tuần</span></a><a class="ec-shell-item" href="/team-pulse"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg><span>Team Pulse</span></a><a class="ec-shell-item" href="/alerts"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span>Alert Center</span></a><div class="ec-shell-grouplabel">Tài nguyên</div><a class="ec-shell-item" href="/ai-tool"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg><span>SI Tool</span></a><a class="ec-shell-item ec-shell-item-soon" href="/coming-soon?tool=intranet"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg><span>Intranet</span></a><a class="ec-shell-item ec-shell-item-soon" href="/coming-soon?tool=dao-tao"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19a2 2 0 0 1 2-2h14V3H6a2 2 0 0 0-2 2z"/><path d="M4 19a2 2 0 0 0 2 2h14v-4"/></svg><span>Đào tạo</span></a><a class="ec-shell-item" href="/ec-app/hr/recruitment"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="4"/><path d="M3 21v-1a6 6 0 0 1 12 0v1M19 8v6M16 11h6"/></svg><span>Tuyển dụng</span></a><a class="ec-shell-item ec-shell-item-soon" href="/coming-soon?tool=gop-y"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>Góp ý BGD</span></a></nav><div class="ec-shell-foot"><a class="ec-shell-usercard" href="/app/user"><span class="ec-shell-avatar">•</span><span class="ec-shell-username">Tài khoản</span></a></div></aside>
@@ -165,7 +179,7 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
   var API = "/api/method/ecentric_workspace.hr.overview.api.";
   var REPORT_PROFILE = "/app/employee/view/report/" + encodeURIComponent("Hồ sơ nhân sự");
   var REPORT_CONTRACT = "/app/employee/view/report/" + encodeURIComponent("Hợp đồng nhân sự");
-  var TABS = [["bang-dieu-khien", "Bảng điều khiển"], ["danh-sach", "Danh sách"], ["so-do", "Sơ đồ phòng ban"], ["chot-cong", "Chốt công"]];
+  var TABS = [["bang-dieu-khien", "Bảng điều khiển"], ["danh-sach", "Danh sách"], ["so-do", "Sơ đồ phòng ban"], ["chot-cong", "Chốt công"], ["sla", "SLA"], ["phan-bo", "Phân bổ công việc"]];
   var ICON_USERS = '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.5 14.2c2.3.2 4 1.8 4.5 4.3"/></svg>';
   var ICON_SOON = '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 12h8M12 8v8"/></svg>';
 
@@ -247,6 +261,8 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
     if (tab === "danh-sach") renderList(box);
     else if (tab === "so-do") renderOrg(box);
     else if (tab === "chot-cong") renderClose(box);
+    else if (tab === "sla") renderSla(box);
+    else if (tab === "phan-bo") renderBrand(box);
     else renderDashboard(box);
   }
 
@@ -371,6 +387,159 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
       }
       var tr = ev.target.closest("tr[data-dept]");
       if (tr) { var k = tr.getAttribute("data-dept"); TS_OPEN[k] = !TS_OPEN[k]; renderClose(box); }
+    };
+  }
+
+  /* ---- E: SLA + F: Phân bổ công việc (ec-tq-sla-brand-v1, 01/10) ----
+     Tổng hợp cả công ty cho CnB. Số liệu do hr.overview.team_summary quyết định (SLA cùng
+     công thức với /sla). Không có số lương. Chỉ đọc. */
+  var SB = { slaP: "", bwP: "", open: {} };
+  var BRAND_COLORS = ["#2C3DA6", "#EF7CAF", "#3E8ED0", "#E2A23B", "#2F9E7E", "#8467C9", "#D9534F"];
+  function monthLabel(p) { return p ? "Tháng " + parseInt(p.slice(5, 7), 10) + "/" + p.slice(0, 4) : ""; }
+  function pct(v) { return v == null ? "—" : (Math.round(v * 10) / 10) + "%"; }
+  function bandPill(band, v) {
+    var c = band === "good" ? "p-green" : band === "warn" ? "p-amb" : band === "bad" ? "p-red" : "p-gray";
+    return '<span class="pill ' + c + '">' + (v == null ? "chưa có" : pct(v)) + '</span>';
+  }
+  function periodPicker(id, periods, cur, sel) {
+    return '<select class="inp" id="' + id + '" aria-label="Kỳ">' + periods.map(function (p) {
+      return '<option value="' + esc(p) + '"' + (p === sel ? " selected" : "") + '>' + esc(monthLabel(p)) + (p === cur && id === "sb-slap" ? " (đang chạy)" : "") + '</option>';
+    }).join("") + '</select>';
+  }
+  function csvDownload(name, rows) {
+    var txt = "﻿" + rows.map(function (r) {
+      return r.map(function (c) { c = c == null ? "" : String(c); return /[",\n;]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c; }).join(",");
+    }).join("\r\n");
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([txt], { type: "text/csv;charset=utf-8" }));
+    a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+  }
+  function sbLoading(box) { box.innerHTML = '<div class="sk" aria-hidden="true"><i></i><i></i><i></i></div>'; }
+  function sbError(box, msg, again) {
+    box.innerHTML = '<div class="err"><span>' + esc(msg) + '</span><button type="button" class="btn" id="sb-retry">Thử lại</button></div>';
+    document.getElementById("sb-retry").onclick = again;
+  }
+
+  async function renderSla(box) {
+    sbLoading(box);
+    var d;
+    try { d = await call("get_sla_summary", SB.slaP ? { period: SB.slaP } : null); }
+    catch (e) { if (e.message !== "login") sbError(box, e.message, function () { renderSla(box); }); return; }
+    SB.slaP = d.period;
+    var st = d.stats;
+    var html = '<div class="sbbar">' + periodPicker("sb-slap", d.periods, d.current, d.period)
+      + '<span class="muted">' + st.people + ' người · ' + st.scored + ' đầu việc đã chấm</span><button type="button" class="btn" id="sb-csv">Tải CSV</button></div>'
+      + '<div class="kpis">'
+      + '<div class="card kpi sbk-' + st.band + '"><div class="l">SLA toàn công ty</div><div class="n">' + pct(st.rate) + '</div><div class="s">' + esc(monthLabel(d.period)) + (d.period === d.current ? " · đang chạy" : "") + '</div></div>'
+      + '<div class="card kpi"><div class="l">Đạt (≥ 90%)</div><div class="n">' + st.good + '</div><div class="s">người</div></div>'
+      + '<div class="card kpi ' + (st.warn ? "warn" : "") + '"><div class="l">70 – 90%</div><div class="n">' + st.warn + '</div><div class="s">người</div></div>'
+      + '<div class="card kpi ' + (st.bad ? "bad" : "") + '"><div class="l">Dưới 70%</div><div class="n">' + st.bad + '</div><div class="s">người</div></div>'
+      + '<div class="card kpi"><div class="l">Chưa có đầu việc</div><div class="n">' + st.none + '</div><div class="s">chưa chấm trong kỳ</div></div></div>';
+    html += '<div class="card" style="margin-bottom:16px"><div class="ct">Theo nhóm việc</div><div class="sbgroups">'
+      + d.groups.map(function (g) {
+        return '<div class="sbg"><span>' + esc(g.label) + (g.counts ? "" : ' <span class="pill p-gray">ngoài %SLA</span>') + '</span><b>' + pct(g.rate) + '</b><span class="muted">' + g.scored + ' đầu việc</span></div>';
+      }).join("") + '</div></div>';
+    html += '<div class="card"><div class="ct">Theo phòng ban</div><div class="tswrap"><table><thead><tr><th>Phòng</th><th>Trưởng phòng</th><th>Số người</th><th>SLA phòng</th><th>Dưới 70%</th><th>70 – 90%</th></tr></thead><tbody>';
+    d.departments.forEach(function (g) {
+      var k = "sla:" + (g.department || "-");
+      html += '<tr data-sb="' + esc(k) + '"><td><b>' + esc(g.label) + '</b></td><td>' + esc(g.manager || "—") + '</td><td>' + g.people + '</td>'
+        + '<td><div class="tsprog"><div class="track"><div class="seg ' + (g.band === "bad" ? "sbbad" : g.band === "warn" ? "sbwarn" : "o") + '" style="width:' + (g.rate || 0) + '%"></div></div><span>' + pct(g.rate) + '</span></div></td>'
+        + '<td>' + (g.bad ? '<span class="pill p-red">' + g.bad + '</span>' : "—") + '</td><td>' + (g.warn ? '<span class="pill p-amb">' + g.warn + '</span>' : "—") + '</td></tr>';
+      if (SB.open[k]) {
+        html += '<tr class="tsmem"><td colspan="6">' + g.members.map(function (m) {
+          var gs = d.groups.filter(function (x) { return m.groups[x.key]; }).map(function (x) {
+            var b = m.groups[x.key]; return esc(x.label) + " " + (b.scored ? b.ontime + "/" + b.scored : "—") + (b.open ? " (+" + b.open + " đang mở)" : "");
+          }).join(" · ");
+          return '<div class="tsm"><span>' + esc(m.name) + (m.left ? ' <span class="pill p-gray">đã nghỉ</span>' : "") + '</span>' + bandPill(m.band, m.rate)
+            + '<span class="muted">' + (m.scored ? m.ontime + "/" + m.scored + " đúng hạn" + (m.late ? " · " + m.late + " trễ" : "") + (m.missed ? " · " + m.missed + " bỏ lỡ" : "") : "chưa có đầu việc chấm") + '</span>'
+            + '<span class="muted sbsmall">' + gs + '</span></div>';
+        }).join("") + '</td></tr>';
+      }
+    });
+    html += '</tbody></table></div><div class="note">Bấm vào một phòng để xem từng người. Cùng công thức với trang Điểm SLA: % = đúng hạn / (đúng hạn + trễ + bỏ lỡ), không tính việc còn trong hạn. Người chuyển phòng giữa tháng được tính ở phòng lúc phát sinh đầu việc.</div></div>';
+    box.innerHTML = html;
+    document.getElementById("sb-slap").onchange = function (e) { SB.slaP = e.target.value; renderSla(box); };
+    document.getElementById("sb-csv").onclick = function () {
+      var rows = [["Phòng", "Nhân viên", "Email", "% SLA", "Đúng hạn", "Đã chấm", "Trễ", "Bỏ lỡ", "Đang mở"].concat(d.groups.map(function (g) { return g.label + " (đúng hạn/đã chấm)"; }))];
+      d.departments.forEach(function (g) { g.members.forEach(function (m) {
+        rows.push([g.label, m.name, m.user, m.rate == null ? "" : m.rate, m.ontime, m.scored, m.late, m.missed, m.open].concat(d.groups.map(function (x) {
+          var b = m.groups[x.key]; return b && b.scored ? b.ontime + "/" + b.scored : "";
+        })));
+      }); });
+      csvDownload("sla-" + d.period + ".csv", rows);
+    };
+    box.onclick = function (ev) {
+      var tr = ev.target.closest("tr[data-sb]");
+      if (tr) { var k = tr.getAttribute("data-sb"); SB.open[k] = !SB.open[k]; renderSla(box); }
+    };
+  }
+
+  var BW_ST = { final: ["p-green", "Đã chốt"], wait_lead: ["p-blue", "Chờ lead"], wait_head: ["p-blue", "Chờ trưởng phòng"],
+    returned: ["p-amb", "Bị trả lại"], draft: ["p-gray", "Chưa nộp"], none: ["p-gray", "Chưa nộp"] };
+  function bwPill(s) { var x = BW_ST[s] || BW_ST.none; return '<span class="pill ' + x[0] + '">' + x[1] + '</span>'; }
+  function mixBar(mix) {
+    var top = mix.slice(0, BRAND_COLORS.length), rest = mix.slice(BRAND_COLORS.length);
+    var other = rest.reduce(function (a, b) { return a + b.share; }, 0);
+    return '<div class="track sbmix">' + top.map(function (b, i) {
+      return '<div class="seg" title="' + esc(b.label + " " + b.share + "%") + '" style="width:' + b.share + '%;background:' + BRAND_COLORS[i] + '"></div>';
+    }).join("") + (other ? '<div class="seg" style="width:' + other + '%;background:var(--ink-3)"></div>' : "") + '</div>';
+  }
+
+  async function renderBrand(box) {
+    sbLoading(box);
+    var d;
+    try { d = await call("get_brand_summary", SB.bwP ? { period: SB.bwP } : null); }
+    catch (e) { if (e.message !== "login") sbError(box, e.message, function () { renderBrand(box); }); return; }
+    SB.bwP = d.period;
+    var st = d.stats, pend = st.wait_lead + st.wait_head;
+    var html = '<div class="sbbar">' + periodPicker("sb-bwp", d.periods, d.current, d.period)
+      + '<a class="btn" href="/ec-hr/phan-bo-cong-viec" target="_blank" rel="noopener">Mở trang Phân bổ công việc</a><button type="button" class="btn" id="sb-csv">Tải CSV</button></div>'
+      + '<div class="kpis">'
+      + '<div class="card kpi"><div class="l">Phải nộp</div><div class="n">' + st.total + '</div><div class="s">người · ' + esc(monthLabel(d.period)) + '</div></div>'
+      + '<div class="card kpi"><div class="l">Đã chốt</div><div class="n">' + st.final + '</div><div class="s">trưởng phòng đã duyệt</div></div>'
+      + '<div class="card kpi"><div class="l">Chờ duyệt</div><div class="n">' + pend + '</div><div class="s">lead ' + st.wait_lead + ' · trưởng phòng ' + st.wait_head + '</div></div>'
+      + '<div class="card kpi ' + (st.returned ? "warn" : "") + '"><div class="l">Bị trả lại</div><div class="n">' + st.returned + '</div><div class="s">chờ người nộp sửa</div></div>'
+      + '<div class="card kpi ' + (st.none ? "bad" : "") + '"><div class="l">Chưa nộp</div><div class="n">' + st.none + '</div><div class="s">chưa gửi phiếu</div></div></div>';
+    html += '<div class="card" style="margin-bottom:16px"><div class="ct">Tỷ trọng chung của công ty <span class="muted" style="font-weight:500;font-size:12.5px">chỉ tính ' + st.final + ' phiếu đã chốt</span></div>';
+    if (!d.mix.length) html += '<div class="empty">Chưa có phiếu nào được chốt trong kỳ này.</div>';
+    else {
+      html += mixBar(d.mix) + '<div class="sbbrands">' + d.mix.map(function (b, i) {
+        return '<div class="sbbr"><i style="background:' + (BRAND_COLORS[i] || "var(--ink-3)") + '"></i><span>' + esc(b.label) + '</span><b>' + b.share + '%</b><span class="muted">' + b.fte + ' người</span></div>';
+      }).join("") + '</div>';
+    }
+    html += '</div><div class="card"><div class="ct">Theo phòng ban</div><div class="tswrap"><table><thead><tr><th>Phòng</th><th>Trưởng phòng</th><th>Tiến độ chốt</th><th>Chờ duyệt</th><th>Bị trả lại</th><th>Chưa nộp</th><th>Tỷ trọng phòng (đã chốt)</th></tr></thead><tbody>';
+    d.departments.forEach(function (g) {
+      var k = "bw:" + (g.department || "-");
+      html += '<tr data-sb="' + esc(k) + '"><td><b>' + esc(g.label) + '</b></td><td>' + esc(g.manager || "—") + '</td>'
+        + '<td><div class="tsprog"><div class="track"><div class="seg o" style="width:' + (g.final / Math.max(g.total, 1) * 100) + '%"></div></div><span>' + g.final + '/' + g.total + '</span></div></td>'
+        + '<td>' + (g.pending || "—") + '</td><td>' + (g.returned ? '<span class="pill p-amb">' + g.returned + '</span>' : "—") + '</td>'
+        + '<td>' + (g.none ? '<span class="pill p-red">' + g.none + '</span>' : "—") + '</td>'
+        + '<td class="tswrapcell">' + (g.mix.length ? g.mix.slice(0, 3).map(function (b) { return esc(b.label) + " " + b.share + "%"; }).join(" · ") + (g.mix.length > 3 ? " · +" + (g.mix.length - 3) : "") : "—") + '</td></tr>';
+      if (SB.open[k]) {
+        html += '<tr class="tsmem"><td colspan="7">' + g.members.map(function (m) {
+          var w = Object.keys(m.weights).sort(function (a, b) { return m.weights[b] - m.weights[a]; }).map(function (b) {
+            var lb = (d.brands.filter(function (x) { return x.id === b; })[0] || {}).label || b; return esc(lb) + " " + m.weights[b] + "%";
+          }).join(" · ");
+          return '<div class="tsm"><span>' + esc(m.name) + '</span>' + bwPill(m.status)
+            + (m.waiting_on.length ? '<span class="muted">đang chờ ' + esc(m.waiting_on.join(", ")) + '</span>' : "")
+            + '<span class="muted sbsmall">' + (w || "") + '</span></div>';
+        }).join("") + '</td></tr>';
+      }
+    });
+    html += '</tbody></table></div><div class="note">Bấm vào một phòng để xem từng người. Tỷ trọng quy ra số người (FTE): một người khai 60% brand A tính 0,6 người cho brand A. Chỉ cộng các phiếu đã chốt; số của phiếu đang chờ duyệt vẫn hiện ở từng người.</div></div>';
+    box.innerHTML = html;
+    document.getElementById("sb-bwp").onchange = function (e) { SB.bwP = e.target.value; renderBrand(box); };
+    document.getElementById("sb-csv").onclick = function () {
+      var rows = [["Phòng", "Nhân viên", "Mã NV", "Trạng thái", "Đang chờ"].concat(d.brands.map(function (b) { return b.label + " (%)"; }))];
+      d.departments.forEach(function (g) { g.members.forEach(function (m) {
+        rows.push([g.label, m.name, m.employee, (BW_ST[m.status] || BW_ST.none)[1], m.waiting_on.join(", ")].concat(d.brands.map(function (b) { return m.weights[b.id] || ""; })));
+      }); });
+      csvDownload("phan-bo-cong-viec-" + d.period + ".csv", rows);
+    };
+    box.onclick = function (ev) {
+      var tr = ev.target.closest("tr[data-sb]");
+      if (tr) { var k = tr.getAttribute("data-sb"); SB.open[k] = !SB.open[k]; renderBrand(box); }
     };
   }
 
