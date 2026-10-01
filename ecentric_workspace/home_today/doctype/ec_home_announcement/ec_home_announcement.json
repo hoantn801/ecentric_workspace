@@ -29,6 +29,7 @@
   "end_date",
   "section_image",
   "image",
+  "image_link",
   "section_content",
   "summary",
   "content",
@@ -100,6 +101,13 @@
    "fieldtype": "Attach Image",
    "label": "Ảnh",
    "description": "Ảnh bìa (Ảnh + nội dung) hoặc ảnh poster (Chỉ ảnh). Tệp tải lên ở đây luôn là tệp công khai để mọi người xem được."
+  },
+  {
+   "fieldname": "image_link",
+   "fieldtype": "Check",
+   "label": "Bấm ảnh mở link",
+   "default": "0",
+   "description": "Tích thì bấm vào ảnh trong popup sẽ mở Link bên dưới (kiểu Ảnh + nội dung). Kiểu Chỉ ảnh luôn mở Link nếu có."
   },
   {
    "fieldname": "section_content",

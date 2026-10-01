@@ -61,7 +61,7 @@ def announcement_rows(today):
     """Thong bao trang chu (DocType cua app). Cac cot deu co san - doc thang."""
     rows = frappe.get_all(
         C.ANNOUNCEMENT_DT, filters={"published": 1, "start_date": ["<=", today]},
-        fields=["name", "title", "category", "display", "image", "summary", "content", "link",
+        fields=["name", "title", "category", "display", "image", "image_link", "summary", "content", "link",
                 "link_label", "published", "start_date", "end_date"],
         order_by="start_date desc, creation desc", limit=30)
     for x in rows:

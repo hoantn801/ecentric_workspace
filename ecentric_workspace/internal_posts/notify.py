@@ -58,7 +58,8 @@ def run(post):
         out["popup"] = announce_service.publish_from_source(
             C.POST_DT, doc.name, "", doc.title, category=cat.get("home_category"),
             summary=doc.summary or D.plain_text(doc.content, 220), link=url,
-            link_label=C.POPUP_LINK_LABEL, image=image, start_date=start, end_date=end)
+            link_label=C.POPUP_LINK_LABEL, image=image, start_date=start, end_date=end,
+            image_link=bool(doc.popup_image_link))
         if out["popup"] and doc.home_announcement != out["popup"]:
             R.set_post_fields(doc.name, {"home_announcement": out["popup"]})
 

@@ -138,6 +138,7 @@
         <h2 class="eip-panel-h">Báo tin khi đăng</h2>
         <label class="eip-check{% if p.notified %} eip-dis{% endif %}"><input type="checkbox" data-eip-chk="notify_bell"{% if not p.name or p.notify_bell %} checked{% endif %}{% if p.notified %} disabled{% endif %}><span>Gửi chuông thông báo<small>{% if p.notified %}Đã gửi khi đăng. Sửa bài không gửi lại.{% else %}Gửi một lần lúc đăng, sửa bài không gửi lại.{% endif %}</small></span></label>
         <label class="eip-check" data-eip-popup-row><input type="checkbox" data-eip-chk="push_to_home"{% if not p.name or p.push_to_home %} checked{% endif %}><span>Hiển thị trên popup trang chủ<small data-eip-popup-help>Hiện 7 ngày trong "Hôm nay ở eCentric". Bỏ tích trên bài đang hiện thì popup rút ngay.</small></span></label>
+        <label class="eip-check eip-check-sub" data-eip-imglink-row><input type="checkbox" data-eip-chk="popup_image_link"{% if not p.name or p.popup_image_link %} checked{% endif %}><span>Bấm vào ảnh mở bài viết<small data-eip-imglink-help>Ảnh trên popup bấm vào là tới bài. Áp dụng khi ảnh bìa là ảnh tải lên hoặc AI tạo.</small></span></label>
         <div class="eip-reach">{{ icon('users') }}<span data-eip-reach>Bài sẽ tới <b>{{ company_size }} người</b>.</span></div>
       </section>
 

@@ -45,6 +45,7 @@
   "column_break_3",
   "notify_bell",
   "push_to_home",
+  "popup_image_link",
   "notified_on",
   "home_announcement",
   "author_label"
@@ -194,6 +195,14 @@
    "label": "Đưa lên popup trang chủ",
    "default": "1",
    "description": "Chỉ áp dụng cho bài toàn công ty (popup hiện cho mọi người)."
+  },
+  {
+   "fieldname": "popup_image_link",
+   "fieldtype": "Check",
+   "label": "Bấm vào ảnh mở bài viết",
+   "default": "1",
+   "depends_on": "push_to_home",
+   "description": "Ảnh bìa trên popup trang chủ bấm vào là mở bài."
   },
   {
    "fieldname": "notified_on",

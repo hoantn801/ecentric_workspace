@@ -66,6 +66,7 @@ def compose_context(user, name=None, repo=None):
             "slug": doc.get("slug") or "", "published": bool(doc.get("published")),
             "pinned": bool(doc.get("pinned")), "expires_on": str(doc.get("expires_on") or ""),
             "notify_bell": bool(doc.get("notify_bell")), "push_to_home": bool(doc.get("push_to_home")),
+            "popup_image_link": bool(doc.get("popup_image_link")),
             "notified": bool(doc.get("notified_on")),
             "cover_kind": doc.get("cover_kind") or C.COVER_KIND_COLOR,
             "cover_color": doc.get("cover_color") or "", "cover_icon": bool(doc.get("cover_icon")),
@@ -123,6 +124,7 @@ def save(user, payload, action="save", repo=None):
     doc.expires_on = p.get("expires_on") or None
     doc.notify_bell = 1 if _truthy(p.get("notify_bell", 1)) else 0
     doc.push_to_home = 1 if _truthy(p.get("push_to_home", 1)) else 0
+    doc.popup_image_link = 1 if _truthy(p.get("popup_image_link", 1)) else 0
 
     depts = [d for d in (p.get("departments") or []) if d] if p.get("scope") == "dept" else []
     tree = repo.dept_tree()

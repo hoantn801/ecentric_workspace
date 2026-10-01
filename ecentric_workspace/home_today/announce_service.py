@@ -37,7 +37,7 @@ def _repo(repo):
 
 
 def publish_from_source(source_doctype, source_name, source_version, title, category=None,
-                        summary="", link="", link_label="", image="", start_date=None, end_date=None,
+                        summary="", link="", link_label="", image="", start_date=None, end_date=None, image_link=False,
                         repo=None):
     """-> ten EC Home Announcement (da co / vua tao / vua bat lai), hoac None neu loi."""
     repo = _repo(repo)
@@ -48,7 +48,7 @@ def publish_from_source(source_doctype, source_name, source_version, title, cate
             # Nguon doi tieu de / tom tat / link / anh -> popup doi theo. Bi rut roi bat lai ->
             # cua so ngay moi (cua so cu co the da qua). Dang hien -> giu ngay bat dau.
             fresh = {"title": (title or "")[:140], "summary": summary or "", "link": link or "",
-                     "link_label": link_label or "", "image": image or None}
+                     "link_label": link_label or "", "image": image or None, "image_link": 1 if image_link else 0}
             if not repo.announcement_published(name):
                 fresh.update(published=1, start_date=start_date or repo.nowdate(), end_date=end_date)
             repo.update_announcement(name, fresh)
@@ -65,6 +65,7 @@ def publish_from_source(source_doctype, source_name, source_version, title, cate
             "summary": summary or "",
             "link": link or "",
             "link_label": link_label or "",
+            "image_link": 1 if image_link else 0,
             "source_doctype": source_doctype,
             "source_name": source_name,
             "source_version": source_version or "",

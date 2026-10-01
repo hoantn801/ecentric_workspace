@@ -57,6 +57,7 @@
     pinned: !!P.pinned,
     notify_bell: P.name ? !!P.notify_bell : true,
     push_to_home: P.name ? !!P.push_to_home : true,
+    popup_image_link: P.name ? !!P.popup_image_link : true,
     scope: P.scope === 'dept' ? 'dept' : 'all',
     depts: (P.departments || []).filter(function (d) { return DEPTS[d]; }),
     files: (P.attachments || []).slice(),
@@ -233,6 +234,7 @@
       expires_on: el.expires.value || '',
       notify_bell: S.notify_bell ? 1 : 0,
       push_to_home: S.scope === 'all' && S.push_to_home ? 1 : 0,
+      popup_image_link: S.popup_image_link ? 1 : 0,
       scope: S.scope,
       departments: S.scope === 'dept' ? S.depts.slice() : [],
       cover_kind: imageOk ? 'image' : 'color',
@@ -800,6 +802,12 @@
     var box = $('[data-eip-chk="push_to_home"]');
     if (row) row.classList.toggle('eip-dis', !popupOk);
     if (box) { box.disabled = !popupOk; box.checked = popupOk && S.push_to_home; }
+    // "Bam vao anh mo bai": chi co nghia khi bai len popup
+    var imgOk = popupOk && S.push_to_home;
+    var imgRow = $('[data-eip-imglink-row]');
+    var imgBox = $('[data-eip-chk="popup_image_link"]');
+    if (imgRow) imgRow.classList.toggle('eip-dis', !imgOk);
+    if (imgBox) { imgBox.disabled = !imgOk; imgBox.checked = imgOk && S.popup_image_link; }
     var help = $('[data-eip-popup-help]');
     if (help) help.textContent = popupOk
       ? 'Hiện 7 ngày trong "Hôm nay ở eCentric". Bỏ tích trên bài đang hiện thì popup rút ngay.'
@@ -959,7 +967,10 @@
     items.push(S.scope === 'all' ? 'Toàn công ty đọc được (' + n + ' người).'
       : 'Chỉ ' + deptLabels().join(', ') + ' đọc được (' + n + ' người, gồm cả phòng con).');
     if (S.notify_bell && !S.notified) items.push('Gửi chuông thông báo cho ' + n + ' người.');
-    if (S.scope === 'all' && S.push_to_home) items.push('Hiện trên popup trang chủ ' + (el.expires.value ? 'tối đa 7 ngày (tới hạn của bài).' : '7 ngày.'));
+    if (S.scope === 'all' && S.push_to_home) {
+      items.push('Hiện trên popup trang chủ ' + (el.expires.value ? 'tối đa 7 ngày (tới hạn của bài).' : '7 ngày.'));
+      if (S.popup_image_link && S.cover.kind === 'image' && S.cover.image) items.push('Bấm vào ảnh trên popup là mở bài.');
+    }
     if (el.expires.value) items.push('Tự rút khỏi danh sách sau ngày ' + fmtDate(el.expires.value) + '.');
     return items;
   }

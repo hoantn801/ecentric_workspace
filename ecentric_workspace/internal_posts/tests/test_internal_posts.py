@@ -1006,3 +1006,59 @@ class TestAssets(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ====================================================================== popup: bam anh
+_NODE_HERO = r"""
+const fs = require('fs'); const { JSDOM } = require('jsdom');
+const src = fs.readFileSync(process.argv[process.argv.length - 1], 'utf8');
+const run = async (imageUrl) => {
+  const dom = new JSDOM('<!doctype html><body><div data-ec-today="1"></div></body>', { runScripts: 'outside-only', pretendToBeVisual: true, url: 'https://team.ecentric.vn/' });
+  const w = dom.window;
+  const news = [{ key: 'ann:A1', tag: 'nav', tag_label: 'Thông báo', title: 'Lịch nghỉ Tết', date_label: '01/10/2026', excerpt: 'x',
+                  content_html: '', image: '/files/bia.png', poster: false, url: '/tin-noi-bo/lich-nghi-tet', link_label: 'Đọc bài →', image_url: imageUrl }];
+  const payload = { has_content: true, date: '2026-10-01', date_label: 'Thứ Năm', news, birthdays: { today: [], soon: [] }, onboard: [],
+                    anniversaries: [], holidays: [], reactions: {}, keys: ['ann:A1'] };
+  w.ecApi = { get: () => Promise.resolve(payload), post: () => Promise.resolve({}) };
+  w.eval(src);
+  await new Promise((r) => setTimeout(r, 600));
+  const a = w.document.querySelector('.hero a.hlink');
+  return a ? a.getAttribute('href') + '|' + (a.querySelector('img') ? 'img' : '') : '';
+};
+(async () => { console.log(JSON.stringify([await run('/tin-noi-bo/lich-nghi-tet'), await run('')])); })();
+"""
+
+
+class TestPopupImageLink(unittest.TestCase):
+    def test_domain_and_service_carry_flag(self):
+        from ecentric_workspace.home_today import domain as HD
+        row = {"name": "A1", "published": 1, "start_date": TODAY, "title": "T", "category": "Thông báo",
+               "image": "/files/b.png", "link": "/tin-noi-bo/x", "image_link": 1}
+        self.assertEqual(HD.announcements([row], TODAY)[0]["image_url"], "/tin-noi-bo/x")
+        self.assertEqual(HD.announcements([dict(row, image_link=0)], TODAY)[0]["image_url"], "")
+        self.assertEqual(HD.announcements([dict(row, image="")], TODAY)[0]["image_url"], "", "khong anh: khong co gi de bam")
+        self.assertEqual(HD.announcements([dict(row, link="javascript:alert(1)")], TODAY)[0]["image_url"], "")
+        from ecentric_workspace.home_today import announce_service as A
+        r = FakeHomeRepo()
+        n = A.publish_from_source(C.POST_DT, "P1", "", "T", image="/files/b.png", image_link=True, repo=r)
+        self.assertEqual(r.rows[n]["image_link"], 1)
+        A.publish_from_source(C.POST_DT, "P1", "", "T", image="/files/b.png", image_link=False, repo=r)
+        self.assertEqual(r.rows[n]["image_link"], 0, "bo tich tren bai dang hien -> popup doi theo")
+
+    def test_editor_saves_flag_default_on(self):
+        r = seeded()
+        res = E.save(HR, payload(), repo=r)
+        self.assertEqual(r.posts[res["name"]]["popup_image_link"], 1)
+        E.save(HR, payload(name=res["name"], popup_image_link=0), repo=r)
+        self.assertEqual(r.posts[res["name"]]["popup_image_link"], 0)
+        self.assertFalse(E.compose_context(HR, res["name"], repo=r)["post"]["popup_image_link"])
+
+    def test_popup_hero_is_a_link_in_jsdom(self):
+        import shutil
+        import subprocess
+        node = shutil.which("node")
+        if not node or subprocess.run([node, "-e", "require('jsdom')"], capture_output=True).returncode:
+            self.skipTest("can node + jsdom (NODE_PATH)")
+        out = subprocess.run([node, "-e", _NODE_HERO, os.path.join(APP, "public", "js", "ec_home_popup.js")],
+                             capture_output=True, text=True, timeout=60)
+        self.assertEqual(json.loads(out.stdout.strip().splitlines()[-1]), ["/tin-noi-bo/lich-nghi-tet|img", ""], out.stderr)
