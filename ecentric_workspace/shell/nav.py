@@ -173,7 +173,7 @@ HOME_PORTAL_ITEMS = [
     # AI Tool: cong cu AI dung chung. `alias` vi route /ai-tool thuoc ve
     # ai_tools.hub o ngu canh `ai_tools`; thieu co nay thi ngu canh `home`
     # cung chap diem route va /ai-tool co the roi nham ve home.
-    {"key": "home.portal.ai_tools", "label": "AI Tool", "route": "/ai-tool",
+    {"key": "home.portal.ai_tools", "label": "SI Tool", "route": "/ai-tool",
      "icon": "gear", "group": "Tài nguyên", "order": 5,
      "active_patterns": ["/ai-tool"],
      "keywords": ["ai", "cong cu ai", "ai tool", "script", "livestream"],
@@ -284,7 +284,7 @@ CONTEXTS = {
     },
     "ai_tools": {
         "providers": ["core", "ai_tools"],
-        "entry": {"key": "ctx.ai_tools", "label": "AI Tool",
+        "entry": {"key": "ctx.ai_tools", "label": "SI Tool",
                   "route": "/ai-tool", "icon": "grid"},
     },
     "pnl": {

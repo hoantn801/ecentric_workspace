@@ -23,7 +23,7 @@ khoi nav tinh (fallback) nen se khong bao gio hien o thanh ben duc san.
 AI_TOOL_ITEMS = [
     {
         "key": "ai_tools.hub",
-        "label": "AI Tool",
+        "label": "SI Tool",
         "route": "/ai-tool",
         "icon": "grid",
         "group": "",
