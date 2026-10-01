@@ -147,7 +147,9 @@
     P + ' .rb[aria-busy="true"]{opacity:.6;cursor:progress}',
     P + ' .rb.pop{animation:ech-pop .35s ease}',
     '@keyframes ech-pop{40%{transform:scale(1.3)}}',
-    P + ' .tip{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--g900);color:#fff;font-size:11.5px;line-height:1.4;padding:6px 9px;border-radius:7px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .12s;z-index:5}',
+    // Neo trai o cam xuc (khong canh giua): o nam sat mep trai the, canh giua thi nua tip lot ra ngoai
+    // .stage (overflow:auto) va bi cat (PO 01/10). Dai qua 240px thi xuong dong, khong keo dai ra.
+    P + ' .tip{position:absolute;bottom:calc(100% + 6px);left:0;background:var(--g900);color:#fff;font-size:11.5px;line-height:1.4;padding:6px 9px;border-radius:7px;width:max-content;max-width:240px;white-space:normal;pointer-events:none;opacity:0;transition:opacity .12s;z-index:5}',
     P + ' .rb:hover .tip,' + P + ' .rb:focus-visible .tip{opacity:1}',
     P + ' .nw{display:flex;flex-direction:column;gap:5px;padding:12px 14px;border:1px solid var(--line);border-radius:12px}',
     P + ' .nw.first{border-color:var(--navy-100);background:linear-gradient(180deg,var(--navy-50),var(--surface) 70%)}',
