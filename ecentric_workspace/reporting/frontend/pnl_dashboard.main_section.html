@@ -87,6 +87,27 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
 #ec-pnl-tip{ position:fixed; z-index:9999; max-width:320px; background:#0f172a; color:#f8fafc; font:400 12.5px/1.5 Inter,system-ui,sans-serif;
   border-radius:8px; padding:9px 11px; box-shadow:0 6px 24px rgba(0,0,0,.18); pointer-events:none; }
 #ec-pnl-tip b{ font-weight:600; }
+#ec-pnl-popback{ position:fixed; inset:0; z-index:9990; background:rgba(15,23,42,.28); }
+#ec-pnl-pop{ position:fixed; z-index:9991; left:50%; top:50%; transform:translate(-50%,-50%); width:min(760px,calc(100vw - 32px)); max-height:min(80vh,720px);
+  display:flex; flex-direction:column; background:#fff; color:#0f172a; border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 18px 48px rgba(15,23,42,.22);
+  font:400 13px/1.45 Inter,system-ui,sans-serif; }
+#ec-pnl-pop[hidden], #ec-pnl-popback[hidden]{ display:none !important; }
+#ec-pnl-pop .pop-h{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:14px 16px 10px; border-bottom:1px solid #e2e8f0; }
+#ec-pnl-pop h3{ margin:0; font-size:15px; font-weight:700; text-wrap:balance; }
+#ec-pnl-pop .pop-s{ color:#5b6679; font-size:12px; margin-top:2px; }
+#ec-pnl-pop .pop-x{ border:1px solid #e2e8f0; background:#fff; border-radius:8px; width:30px; height:30px; font-size:18px; line-height:1; cursor:pointer; color:#5b6679; flex:none; }
+#ec-pnl-pop .pop-x:hover, #ec-pnl-pop .pop-x:focus-visible{ color:#2C3DA6; border-color:#2C3DA6; outline:none; }
+#ec-pnl-pop .pop-b{ overflow:auto; padding:0 16px; }
+#ec-pnl-pop table{ width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+#ec-pnl-pop th{ position:sticky; top:0; background:#fff; text-align:right; font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:#5b6679; padding:10px 8px 6px; border-bottom:1px solid #e2e8f0; white-space:nowrap; }
+#ec-pnl-pop td{ padding:7px 8px; border-bottom:1px solid #eef2f7; text-align:right; vertical-align:top; }
+#ec-pnl-pop .l{ text-align:left; }
+#ec-pnl-pop td.n{ font-family:"JetBrains Mono",ui-monospace,monospace; white-space:nowrap; }
+#ec-pnl-pop td a{ color:#2C3DA6; text-decoration:none; white-space:nowrap; }
+#ec-pnl-pop td a:hover{ text-decoration:underline; }
+#ec-pnl-pop tr.pop-est td{ color:#8a6a00; background:#fffbeb; font-style:italic; }
+#ec-pnl-pop .pop-empty{ padding:16px; color:#5b6679; margin:0; }
+#ec-pnl-pop .pop-f{ padding:8px 16px 12px; color:#94a3b8; font-size:11.5px; border-top:1px solid #eef2f7; }
 #ec-pnl-root .kpis{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
 #ec-pnl-root .kpi{ background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:12px 14px; min-width:0; min-height:92px; }
 #ec-pnl-root .kpi .k{ display:flex; gap:6px; align-items:center; font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
@@ -274,7 +295,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     <div class="grid2e" style="margin-top:12px">
       <div class="card"><div class="cardhead"><div><h3>Quỹ lương và số người <button type="button" class="info" data-tip="payroll">!</button><span class="lock">lương</span></h3><div class="sub">Cột: quỹ lương gồm BHXH, thưởng · đường: số người quy đổi</div></div>
         <select id="sel-dept" aria-label="Phòng ban"><option value="all">Toàn công ty</option></select></div><div class="ch" id="hr-pay"></div></div>
-      <div class="card"><h3>Chi phí hoạt động theo nhóm <button type="button" class="info" data-tip="opexgrp">!</button></h3><div class="sub">Đến T8/2026 theo chi tiết sổ P&amp;L, từ T9 theo ĐNTT đã duyệt · % trong tháng</div><div class="ch" id="hr-opex"></div></div>
+      <div class="card"><h3>Chi phí hoạt động theo nhóm <button type="button" class="info" data-tip="opexgrp">!</button></h3><div class="sub">Đến T8/2026 theo chi tiết sổ P&amp;L, từ T9 theo ĐNTT đã duyệt · bấm vào cột để xem từng khoản</div><div class="ch" id="hr-opex"></div></div>
     </div>
     <section class="sheet" style="margin-top:12px">
       <div class="sheet-head"><div><h2>Theo phòng ban <button type="button" class="info" data-tip="dept">!</button></h2><div class="meta" id="dept-meta"></div></div>
@@ -379,7 +400,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     rank: "Xếp theo doanh thu lũy kế. Bấm một dòng để mở báo cáo P&amp;L riêng của khách hàng hoặc sub-brand đó.",
     sublevel: "<b>Khách hàng</b> gộp các sub-brand theo trường Khách hàng mẹ trên ERP. <b>Sub-brand</b> là từng Brand trên ERP; lương và chi phí chung của sub-brand chia theo tỷ trọng doanh thu trong nhóm.",
     payroll: "Tổng chi phí lương gồm lương, BHXH phần công ty, thưởng, phụ cấp, lấy từ bảng lương (gộp theo chức danh, không có tên). Tháng chưa có số thật lấy trung bình 3 tháng gần nhất.",
-    opexgrp: "Chi phí vận hành ngoài lương. Tháng đã chốt sổ lấy từ chi tiết chi phí trong file P&amp;L của Finance, từ T9/2026 lấy theo loại chi phí trên ĐNTT. Mỗi đoạn cột ghi % của tháng đó, trên đầu cột là tổng tiền.",
+    opexgrp: "Bấm vào một đoạn cột để xem từng khoản chi của nhóm đó trong tháng, xếp từ lớn đến nhỏ; bấm số tổng trên đầu cột để xem cả tháng. Chi phí vận hành ngoài lương. Tháng đã chốt sổ lấy từ chi tiết chi phí trong file P&amp;L của Finance, từ T9/2026 lấy theo loại chi phí trên ĐNTT. Mỗi đoạn cột ghi % của tháng đó, trên đầu cột là tổng tiền.",
     dept: "Phòng ban theo ERP, gắn qua mã nhân sự (người đã nghỉ trước khi có ERP gán theo chức danh). Chi phí nhân sự gồm lương, BHXH, thưởng. Chi phí hoạt động lấy từ ĐNTT của phòng.",
     pending: "ĐNTT, thưởng, affiliate đang chờ duyệt. Chưa tính vào P&amp;L. Cột Kỳ là tháng sẽ ghi nhận nếu được duyệt.",
     hiring: "Người sắp vào, sắp nghỉ theo phiếu tuyển dụng và nghỉ việc. Chỉ ghi chức danh, không có tên.",
@@ -958,6 +979,14 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
         legend: { bottom: 0, data: groups.map(function (x) { return x[1].split(",")[0]; }), textStyle: { color: css("--muted"), fontSize: 11 }, itemWidth: 10, itemHeight: 8 },
         grid: { left: 60, right: 12, top: 22, bottom: 64 },
         xAxis: ext({ type: "category", data: MN.slice(0, n) }, ax(), { splitLine: { show: false } }), yAxis: ext({ type: "value" }, ax()), series: sr }, true);
+      if (c) {
+        c.getZr().setCursorStyle && c.getZr().setCursorStyle("pointer");
+        c.off("click");
+        c.on("click", function (e) {
+          var gs = e.seriesIndex < groups.length ? [groups[e.seriesIndex]] : groups;
+          openOpexPop(M, e.dataIndex, gs);
+        });
+      }
     }
     // theo phong ban
     var q = st.dcmp === "q", cur = n - 1, pv = q ? Math.max(0, n - 4) : Math.max(0, n - 2);
@@ -995,6 +1024,56 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     hires.forEach(function (r) { h += '<tr><td class="l">' + esc(r.pos) + '</td><td class="l">' + esc(r.dept) + '</td><td class="l"><span class="pill ' + (r.t === "in" ? "p-good" : "p-loss") + '">' + (r.t === "in" ? "Vào" : "Nghỉ") + '</span></td><td class="l">' + esc(r.m) + '</td><td class="n">' + r.n + '</td><td class="l">' + esc(r.st) + "</td></tr>"; });
     $("hr-hiring").innerHTML = hires.length ? h + "</tbody>" : '<tbody><tr><td class="l" style="padding:16px">Không có phiếu tuyển dụng hay nghỉ việc sắp tới.</td></tr></tbody>';
   }
+  // ---------------------------------------------------------------- popup chi tiet chi phi
+  var pop = null, popBack = null, popFocus = null;
+  function closePop() {
+    if (pop) { pop.hidden = true; popBack.hidden = true; }
+    document.removeEventListener("keydown", popKey, true);
+    if (popFocus && popFocus.focus) { try { popFocus.focus(); } catch (e) { } }
+  }
+  function popKey(e) { if (e.key === "Escape") { e.preventDefault(); closePop(); } }
+  function showPop(html) {
+    if (!pop) {
+      popBack = document.createElement("div"); popBack.id = "ec-pnl-popback"; popBack.onclick = closePop;
+      pop = document.createElement("div"); pop.id = "ec-pnl-pop"; pop.setAttribute("role", "dialog"); pop.setAttribute("aria-modal", "true");
+      document.body.appendChild(popBack); document.body.appendChild(pop);
+    }
+    popFocus = document.activeElement;
+    pop.innerHTML = html; pop.hidden = false; popBack.hidden = false;
+    var b = pop.querySelector(".pop-x"); if (b) { b.onclick = closePop; try { b.focus(); } catch (e) { } }
+    document.addEventListener("keydown", popKey, true);
+  }
+  function openOpexPop(M, i, gs) {
+    if (!M || !M.cost) return;
+    var items = (M.cost.opex_items || []), rows = [], tot = 0, src = M.src[i];
+    gs.forEach(function (g) {
+      var gid = g[0], v = (M.opex[gid] || Z())[i] || 0, s = 0;
+      items.forEach(function (x) {
+        if (x.i === i && x.g === gid) { s += x.amount || 0; rows.push({ t: x.title, g: g[1].split(",")[0], name: x.name || "", dept: (x.dept || "").replace(" - EC", ""), a: x.amount || 0 }); }
+      });
+      if (v - s > 5e5) {
+        rows.push({ t: src === "est" ? "Tháng chưa tới: ước tính bằng trung bình 3 tháng gần nhất" : "Ước tính thêm: ĐNTT tháng này chưa về đủ (mức tối thiểu = trung bình 3 tháng)", g: g[1].split(",")[0], name: "", dept: "", a: v - s, est: 1 });
+      }
+      tot += v;
+    });
+    rows.sort(function (a, b) { return b.a - a.a; });
+    var title = (gs.length === 1 ? gs[0][1] : "Chi phí hoạt động") + " · T" + (i + 1) + "/" + M.year;
+    var srcTxt = src === "so" ? "Nguồn: chi tiết chi phí trong sổ P&amp;L của Finance" : (src === "erp" ? "Nguồn: ĐNTT đã duyệt, ghi theo tháng chi phí" : "Tháng ước tính");
+    var h = '<div class="pop-h"><div><h3>' + esc(title) + '</h3><div class="pop-s">Tổng ' + fmt(tot) + " tr.đ · " + rows.length + " khoản · " + srcTxt + '</div></div><button type="button" class="pop-x" aria-label="Đóng">×</button></div>';
+    if (!rows.length) h += '<p class="pop-empty">Không có khoản chi nào trong tháng này.</p>';
+    else {
+      var hasNm = rows.some(function (r) { return r.name; }), hasDp = rows.some(function (r) { return r.dept; });
+      h += '<div class="pop-b"><table><thead><tr><th class="l">Nội dung</th>' + (gs.length > 1 ? '<th class="l">Nhóm</th>' : "") + (hasNm ? '<th class="l">Phiếu</th>' : "") + (hasDp ? '<th class="l">Phòng</th>' : "") + '<th>Số tiền</th><th>%</th></tr></thead><tbody>';
+      rows.forEach(function (r) {
+        var nm = r.name ? (String(r.name).indexOf("EC-PAYR") === 0 ? '<a href="/app/ec-payment-request/' + encodeURIComponent(r.name) + '" target="_blank" rel="noopener">' + esc(r.name) + "</a>" : esc(r.name)) : "—";
+        h += "<tr" + (r.est ? ' class="pop-est"' : "") + '><td class="l">' + esc(r.t) + "</td>" + (gs.length > 1 ? '<td class="l">' + esc(r.g) + "</td>" : "") + (hasNm ? '<td class="l">' + nm + "</td>" : "") + (hasDp ? '<td class="l">' + esc(r.dept || "—") + "</td>" : "") + '<td class="n">' + fmt(r.a) + '</td><td class="n">' + (tot ? Math.round(r.a / tot * 100) + "%" : "") + "</td></tr>";
+      });
+      h += "</tbody></table></div>";
+    }
+    h += '<div class="pop-f">Đơn vị triệu đồng, trước VAT · bấm ra ngoài hoặc Esc để đóng</div>';
+    showPop(h);
+  }
+
   function hiringRows() {
     var out = [], hr = CP && CP.hiring, now = (D[st.year] || {}).cur || "";
     if (!hr) return out;

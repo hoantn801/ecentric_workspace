@@ -83,27 +83,52 @@ CASH_GRP = {"TT": "Chi nhà cung cấp dịch vụ (KOL, livestream, media…)",
 
 # Chi phi van hanh theo SO P&L (sheet 'expensive' cua file P&L Finance), da gom theo nhom - chi dung cho thang <= HIST_CUT.
 # Khong co dong luong (luong khoi chung lay tu bang luong); phan chenh con lai vao O_SO.
-EXP_HIST = {
-    "2025-01": {"O_EVENT": 61848626, "O_HR": 2008333, "O_KHAC": 9332312, "O_PRO": 2239200, "O_TOOL": 19590687, "O_VP": 62892297},
-    "2025-02": {"O_EVENT": 3730856, "O_HR": 2008333, "O_KHAC": 30995290, "O_PRO": 320400, "O_TOOL": 23346685, "O_VP": 61015170},
-    "2025-03": {"O_EVENT": 9197000, "O_HR": 4544565, "O_KHAC": 31538644, "O_PRO": 211200, "O_TOOL": 12961738, "O_VP": 95224610},
-    "2025-04": {"O_EVENT": 4923889, "O_HR": 2008333, "O_KHAC": 22510206, "O_PRO": 194400, "O_TOOL": 40696373, "O_VP": 88111435},
-    "2025-05": {"O_EVENT": 8991889, "O_HR": 17340560, "O_KHAC": 11465505, "O_PRO": 202800, "O_TOOL": 38816651, "O_VP": 101563115},
-    "2025-06": {"O_EVENT": 5944555, "O_HR": 26746260, "O_KHAC": 20133858, "O_PRO": 244800, "O_TOOL": 39807485, "O_VP": 93881428},
-    "2025-07": {"O_EVENT": 13096065, "O_HR": 4390000, "O_KHAC": 12591574, "O_PRO": 1419600, "O_TOOL": 39995354, "O_VP": 85691140},
-    "2025-08": {"O_EVENT": 6386930, "O_HR": 4390000, "O_KHAC": 21189806, "O_PRO": 367200, "O_TOOL": 52814288, "O_VP": 90386960},
-    "2025-09": {"O_EVENT": 64757809, "O_HR": 4390000, "O_KHAC": 39525693, "O_PRO": 337200, "O_TOOL": 40276594, "O_VP": 86436846},
-    "2025-10": {"O_EVENT": 42520647, "O_HR": 6287963, "O_KHAC": 24968521, "O_PRO": 289600, "O_TOOL": 45527433, "O_VP": 91850555},
-    "2025-11": {"O_EVENT": 15720146, "O_KHAC": 22139800, "O_PRO": 458800, "O_TOOL": 49632747, "O_VP": 161662128},
-    "2025-12": {"O_EVENT": 15484192, "O_KHAC": 52904870, "O_PRO": 333405141, "O_TOOL": 58520854, "O_VP": 165746020},
-    "2026-01": {"O_EVENT": 144600282, "O_KHAC": 51540898, "O_PRO": 533200, "O_TOOL": 57616024, "O_VP": 159729955},
-    "2026-02": {"O_EVENT": 7253861, "O_KHAC": 39592074, "O_PRO": 563300, "O_TOOL": 68640421, "O_VP": 152371500},
-    "2026-03": {"O_EVENT": 42521845, "O_KHAC": 4012058, "O_PRO": 429600, "O_TOOL": 68811925, "O_VP": 162059915},
-    "2026-04": {"O_EVENT": 13718731, "O_KHAC": 51053927, "O_PRO": 639600, "O_TOOL": 96272273, "O_VP": 162056241},
-    "2026-05": {"O_EVENT": 32503017, "O_KHAC": 26811119, "O_PRO": 569600, "O_TOOL": 64668590, "O_VP": 167816959},
-    "2026-06": {"O_EVENT": 282119718, "O_KHAC": 85498160, "O_PRO": 600400, "O_TOOL": 70976659, "O_VP": 193260608},
-    "2026-07": {"O_EVENT": 129640135, "O_KHAC": 59893679, "O_PRO": 530400, "O_TOOL": 64828597, "O_VP": 210245758},
-    "2026-08": {"O_EVENT": 94003607, "O_KHAC": 31557304, "O_PRO": 630500, "O_TOOL": 65828597, "O_VP": 186473041},
+EXP_LABELS = [
+    "Chi phí thuê văn phòng, điện, nước sinh hoạt, giữ xe nhân viên",
+    "Chi phí gửi chứng từ, bưu phẩm văn phòng",
+    "Chi phí internet,phone, đường truyền, truyền hình cáp của các văn phòng làm việc",
+    "Chi phí văn phòng phẩm, nhu yếu phẩm văn phòng, nước uống văn phòng",
+    "Chi phí mua sắm Tools, thiết bị thay thế máy móc",
+    "Chi phí tiếp khách của BOD, mua quà tặng khách, chi tham gia sự kiện để mở rộng kinh doanh, networking và tìm kiếm Khách hàng",
+    "Chi phí tiệc công ty",
+    "Chi phí di chuyển (Grab, taxi..)",
+    "Chi phí ngân hàng",
+    "Chi phí tuyển dụng",
+    "Chi phí thuế, lệ phí",
+    "Chi phí khác",
+    "Chi phí phúc lợi khác nhân viên (khám sức khỏe, bảo hiểm sức khỏe…)",
+    "Tên miền",
+    "Chi phí công tác (vé máy bay, khách sạn, di chuyển…)",
+    "Chi phí tranning",
+    "Chi phí quảng cáo",
+    "Chi phí vận hành khác",
+    "Chi phí sữa chữa văn phòng, thiết bị..",
+    "Chi phí mua sắm mới bàn ghế văn phòng",
+    "Chi phí chữ ký số, phần mềm phục vụ báo cáo nhà nước",
+    "Chi phí tổ chức các hoạt động teambuilding",
+]
+# [nhom, chi so trong EXP_LABELS, so tien] theo thang. Khong co dong luong va khong co ghi chu (ghi chu so co ten nguoi).
+EXP_LINES = {
+    "2025-01": [["O_VP", 0, 50527966], ["O_VP", 1, 1530409], ["O_VP", 2, 9632904], ["O_VP", 3, 1201018], ["O_TOOL", 4, 18924020], ["O_EVENT", 5, 22884895], ["O_EVENT", 6, 36663731], ["O_KHAC", 7, 3436526], ["O_PRO", 8, 239200], ["O_HR", 9, 2008333], ["O_PRO", 10, 2000000], ["O_KHAC", 11, 5895786], ["O_EVENT", 12, 2300000], ["O_TOOL", 13, 666667]],
+    "2025-02": [["O_VP", 0, 48555966], ["O_VP", 1, 1004169], ["O_VP", 2, 10217449], ["O_VP", 3, 1237586], ["O_TOOL", 4, 22680018], ["O_EVENT", 5, 1430856], ["O_KHAC", 14, 18005579], ["O_KHAC", 7, 2000000], ["O_PRO", 8, 320400], ["O_HR", 9, 2008333], ["O_KHAC", 11, 10989711], ["O_EVENT", 12, 2300000], ["O_TOOL", 13, 666667]],
+    "2025-03": [["O_VP", 0, 82422198], ["O_VP", 1, 303241], ["O_VP", 2, 9967140], ["O_VP", 3, 2532031], ["O_TOOL", 4, 12295071], ["O_EVENT", 5, 6897000], ["O_KHAC", 14, 15935939], ["O_KHAC", 7, 2706919], ["O_PRO", 8, 211200], ["O_HR", 9, 2008333], ["O_KHAC", 11, 12895786], ["O_HR", 15, 2536232], ["O_EVENT", 12, 2300000], ["O_TOOL", 13, 666667]],
+    "2025-04": [["O_VP", 0, 73951254], ["O_VP", 1, 631284], ["O_VP", 2, 12441312], ["O_VP", 3, 1087585], ["O_TOOL", 4, 40029706], ["O_EVENT", 5, 2453889], ["O_KHAC", 14, 10471444], ["O_KHAC", 7, 4971192], ["O_PRO", 8, 194400], ["O_HR", 9, 2008333], ["O_KHAC", 11, 7067570], ["O_EVENT", 12, 2470000], ["O_TOOL", 13, 666667]],
+    "2025-05": [["O_VP", 0, 78733090], ["O_VP", 1, 716653], ["O_VP", 2, 12440767], ["O_VP", 3, 9672605], ["O_TOOL", 4, 38149984], ["O_EVENT", 5, 6521889], ["O_KHAC", 7, 4829460], ["O_PRO", 8, 202800], ["O_HR", 9, 6398337], ["O_KHAC", 11, 6636045], ["O_HR", 15, 10942223], ["O_EVENT", 12, 2470000], ["O_TOOL", 13, 666667]],
+    "2025-06": [["O_VP", 0, 76196110], ["O_VP", 1, 2937443], ["O_VP", 2, 12828741], ["O_VP", 3, 1919134], ["O_TOOL", 4, 39140818], ["O_EVENT", 5, 2094000], ["O_KHAC", 14, 8910703], ["O_KHAC", 7, 3115741], ["O_PRO", 8, 244800], ["O_HR", 9, 4390000], ["O_KHAC", 11, 8107414], ["O_HR", 15, 22356260], ["O_EVENT", 12, 3850555], ["O_TOOL", 13, 666667]],
+    "2025-07": [["O_VP", 0, 75784550], ["O_VP", 1, 1029355], ["O_VP", 2, 6296130], ["O_VP", 3, 2581105], ["O_TOOL", 4, 39328687], ["O_EVENT", 5, 2133750], ["O_KHAC", 7, 6588679], ["O_PRO", 8, 1419600], ["O_HR", 9, 4390000], ["O_KHAC", 11, 6002895], ["O_EVENT", 12, 10962315], ["O_TOOL", 13, 666667]],
+    "2025-08": [["O_VP", 0, 74875468], ["O_VP", 1, 1663707], ["O_VP", 2, 6301789], ["O_VP", 3, 7545996], ["O_KHAC", 16, 9002271], ["O_TOOL", 4, 52147621], ["O_EVENT", 5, 2922930], ["O_KHAC", 14, 5570860], ["O_PRO", 8, 367200], ["O_HR", 9, 4390000], ["O_KHAC", 11, 6616675], ["O_EVENT", 12, 3464000], ["O_TOOL", 13, 666667]],
+    "2025-09": [["O_VP", 0, 75149432], ["O_VP", 1, 407588], ["O_VP", 2, 6299363], ["O_VP", 3, 4580463], ["O_TOOL", 4, 39609927], ["O_EVENT", 5, 46801759], ["O_EVENT", 6, 14600050], ["O_KHAC", 7, 6988836], ["O_PRO", 8, 337200], ["O_KHAC", 17, 17600000], ["O_HR", 9, 4390000], ["O_KHAC", 11, 14936857], ["O_EVENT", 12, 3356000], ["O_TOOL", 13, 666667]],
+    "2025-10": [["O_VP", 0, 75173926], ["O_VP", 1, 818597], ["O_VP", 2, 6295902], ["O_VP", 3, 9562130], ["O_TOOL", 4, 44860766], ["O_EVENT", 5, 9758147], ["O_EVENT", 6, 342500], ["O_KHAC", 7, 5743922], ["O_PRO", 8, 289600], ["O_HR", 9, 4390000], ["O_KHAC", 11, 19224599], ["O_HR", 15, 1897963], ["O_EVENT", 12, 32420000], ["O_TOOL", 13, 666667]],
+    "2025-11": [["O_VP", 0, 135019014], ["O_VP", 1, 2064815], ["O_VP", 2, 6292404], ["O_VP", 3, 7940833], ["O_TOOL", 4, 48966080], ["O_EVENT", 5, 6528331], ["O_KHAC", 14, 1439074], ["O_KHAC", 7, 8067902], ["O_PRO", 8, 458800], ["O_KHAC", 11, 12632824], ["O_EVENT", 12, 9191815], ["O_TOOL", 13, 666667], ["O_VP", 18, 10345062]],
+    "2025-12": [["O_VP", 0, 133928792], ["O_VP", 1, 2089403], ["O_VP", 2, 11707173], ["O_VP", 3, 7975590], ["O_TOOL", 4, 57854187], ["O_EVENT", 5, 9375000], ["O_KHAC", 14, 1879000], ["O_KHAC", 7, 4123727], ["O_PRO", 8, 415600], ["O_PRO", 10, 332989541], ["O_KHAC", 11, 46902143], ["O_EVENT", 12, 6109192], ["O_TOOL", 13, 666667], ["O_VP", 18, 10045062]],
+    "2026-01": [["O_VP", 0, 134197008], ["O_VP", 1, 3038854], ["O_VP", 2, 9524951], ["O_VP", 3, 3324080], ["O_TOOL", 4, 56949357], ["O_EVENT", 5, 79546721], ["O_EVENT", 6, 58233561], ["O_KHAC", 14, 6957863], ["O_KHAC", 7, 7106755], ["O_PRO", 8, 533200], ["O_KHAC", 11, 37476280], ["O_EVENT", 12, 6820000], ["O_TOOL", 13, 666667], ["O_VP", 18, 9645062]],
+    "2026-02": [["O_VP", 0, 132941512], ["O_VP", 1, 435556], ["O_VP", 2, 9349370], ["O_TOOL", 4, 67973754], ["O_EVENT", 5, 1458500], ["O_KHAC", 14, 2739000], ["O_KHAC", 7, 3594600], ["O_PRO", 8, 563300], ["O_KHAC", 11, 33258474], ["O_EVENT", 12, 5795361], ["O_TOOL", 13, 666667], ["O_VP", 18, 9645062]],
+    "2026-03": [["O_VP", 0, 130990846], ["O_VP", 1, 1729796], ["O_VP", 2, 9163655], ["O_VP", 3, 10530556], ["O_TOOL", 4, 68145258], ["O_EVENT", 5, 11368900], ["O_KHAC", 7, 4012058], ["O_PRO", 8, 429600], ["O_EVENT", 12, 31152945], ["O_TOOL", 13, 666667], ["O_VP", 18, 9645062]],
+    "2026-04": [["O_VP", 0, 137681760], ["O_VP", 1, 1271247], ["O_VP", 2, 9166228], ["O_VP", 3, 4291944], ["O_TOOL", 19, 19930560], ["O_TOOL", 4, 75415787], ["O_EVENT", 5, 5616096], ["O_KHAC", 14, 11024962], ["O_KHAC", 7, 5271296], ["O_PRO", 8, 639600], ["O_TOOL", 20, 259259], ["O_KHAC", 11, 34757669], ["O_EVENT", 12, 8102635], ["O_TOOL", 13, 666667], ["O_VP", 18, 9645062]],
+    "2026-05": [["O_VP", 0, 145338780], ["O_VP", 1, 1468111], ["O_VP", 2, 8644006], ["O_VP", 3, 2721000], ["O_TOOL", 4, 64001923], ["O_EVENT", 5, 15430385], ["O_KHAC", 7, 5366667], ["O_PRO", 8, 569600], ["O_KHAC", 11, 21444452], ["O_EVENT", 12, 17072632], ["O_TOOL", 13, 666667], ["O_VP", 18, 9645062]],
+    "2026-06": [["O_VP", 0, 166784386], ["O_VP", 1, 1339103], ["O_VP", 2, 11238724], ["O_VP", 3, 4253333], ["O_TOOL", 4, 70309992], ["O_EVENT", 5, 9232977], ["O_KHAC", 7, 6770370], ["O_PRO", 8, 600400], ["O_KHAC", 11, 78727790], ["O_EVENT", 21, 263060667], ["O_EVENT", 12, 9826074], ["O_TOOL", 13, 666667], ["O_VP", 18, 9645062]],
+    "2026-07": [["O_VP", 0, 178143516], ["O_VP", 1, 605590], ["O_VP", 2, 5883590], ["O_VP", 3, 15968000], ["O_TOOL", 4, 64161930], ["O_EVENT", 5, 120489542], ["O_KHAC", 7, 5231441], ["O_PRO", 8, 530400], ["O_KHAC", 11, 54662238], ["O_EVENT", 12, 9150593], ["O_TOOL", 13, 666667], ["O_VP", 18, 9645062]],
+    "2026-08": [["O_VP", 0, 166944138], ["O_VP", 1, 2315127], ["O_VP", 2, 5340936], ["O_VP", 3, 2227778], ["O_TOOL", 4, 65161930], ["O_EVENT", 5, 87200000], ["O_KHAC", 14, 14636934], ["O_KHAC", 7, 9920370], ["O_PRO", 8, 630500], ["O_KHAC", 11, 7000000], ["O_EVENT", 12, 6803607], ["O_TOOL", 13, 666667], ["O_VP", 18, 9645062]],
 }
 # Ma chuc danh trong file luong -> ten vi tri (Designation) tren ERP.
 ROLE_NAME = {
@@ -467,6 +492,7 @@ else:
     ]
     tt_kh = {}
     tt_nobrand = z()
+    opex_items = []
     opex_dept = {}
     pending = []
     for sp in specs:
@@ -513,14 +539,25 @@ else:
                     tt_nobrand[i] = tt_nobrand[i] + amt
             else:
                 addm(opex, g, i, amt)
+                if msrc[i] != "so" and len(opex_items) < 3000:
+                    # Nhan su khac (thuong, ngoai bang luong): khong dua tieu de vi co the co ten nguoi.
+                    ttl = r.get("title") or r.get("name")
+                    if g == "O_NSK":
+                        ttl = "Chi nhân sự (ẩn nội dung)"
+                    opex_items = opex_items + [{"i": i, "g": g, "title": ttl, "amount": amt, "name": r.get("name"),
+                                                "dept": r.get("dept") or "", "src": "erp"}]
             addm(opex_dept, r.get("dept") or "(chua ro)", i, amt)
 
-    # Thang <= HIST_CUT: tach chi phi van hanh theo nhom tu so P&L (EXP_HIST). Tong giu nguyen bang so;
+    # Thang <= HIST_CUT: tach chi phi van hanh theo nhom tu so P&L (EXP_LINES). Tong giu nguyen bang so;
     # phan con lai (chu yeu chenh luong so <-> bang luong) nam o O_SO.
     for i in range(12):
-        eh = EXP_HIST.get(months[i])
-        if msrc[i] != "so" or not eh:
+        el = EXP_LINES.get(months[i])
+        if msrc[i] != "so" or not el:
             continue
+        eh = {}
+        for x in el:
+            eh[x[0]] = (eh.get(x[0]) or 0) + x[2]
+            opex_items = opex_items + [{"i": i, "g": x[0], "title": EXP_LABELS[x[1]], "amount": x[2], "src": "so"}]
         tong = 0.0
         for g in opex:
             tong = tong + opex[g][i]
@@ -609,7 +646,7 @@ else:
             "cogs": rnd(cogs), "opex": rnd(opex), "luong_kh": rnd(luong_kh), "tt_kh": rnd(tt_kh),
             "tt_nobrand": [round(v) for v in tt_nobrand], "so_gv_kh": rnd(so_gv_kh), "so_cp_kh": rnd(so_cp_kh),
             "sal_role": rnd(sal_role), "sal_role_c": rnd(sal_role_c), "sal_role_o": rnd(sal_role_o), "sal_dept": rnd(sal_dept), "sal_total": [round(v) for v in sal_total],
-            "opex_dept": rnd(opex_dept), "pending": sorted(pending, key=lambda x: x["amount"], reverse=True),
+            "opex_dept": rnd(opex_dept), "opex_items": opex_items, "pending": sorted(pending, key=lambda x: x["amount"], reverse=True),
             "cash": {"chi": rnd(cash_chi), "thu": rnd(cash_thu), "so_du_dau_nam": so_du, "chi_tu_thang": chi_from},
         }
     else:
