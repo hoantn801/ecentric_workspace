@@ -91,6 +91,8 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
 .av-up{display:inline-flex;align-items:center;gap:6px}
 .av-up label{cursor:pointer;color:var(--navy);font-size:12px;font-weight:600;white-space:nowrap}
 .av-up input[type=file]{display:none}
+.av-sides{display:flex;gap:3px;flex-wrap:wrap;margin-top:4px;align-items:center}
+.av-sides img{width:26px;height:36px;border-radius:4px;object-fit:cover;background:var(--tile);cursor:zoom-in}
 .av-callout{display:flex;gap:10px;align-items:flex-start;background:var(--navy-wash);border:1px solid var(--navy-line);border-radius:9px;padding:10px 12px;font-size:13px;color:var(--ink2)}
 .av-callout.warn{background:var(--warn-bg);border-color:#f3d9a4}
 .av-callout.bad{background:var(--bad-bg);border-color:#f4c2c2}
@@ -293,7 +295,9 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
   function stepInput() {
     const rows = S.items.map((i) => `<tr><td><input type="checkbox" data-sel="${esc(i.name)}" ${S.sel.has(i.name) ? "checked" : ""} ${(i.stage === "new" || i.stage_state === "error") ? "" : "disabled"}></td>
       <td>${esc(i.batch || "")}</td><td><b>${esc(i.sku)}</b><div class="av-hint">${esc(i.product_name || "")}</div></td>
-      <td>${i.product_image ? `<img class="av-thumb" src="${esc(i.product_image)}" alt="" data-media="${esc(i.product_image)}">` : "—"}</td>
+      <td>${i.product_image ? `<img class="av-thumb" src="${esc(i.product_image)}" alt="" data-media="${esc(i.product_image)}">` : "—"}
+        <div class="av-sides">${(i.extra_images || []).map((u) => `<img src="${esc(u)}" alt="Ảnh phụ" data-media="${esc(u)}">`).join("")}
+        ${(i.stage === "new" || i.stage_state === "error") ? `${(i.extra_images || []).length < 4 ? `<span class="av-up"><label class="av-hint">+ ảnh phụ<input type="file" accept="image/*" multiple data-ifile-extra="${esc(i.name)}"></label></span>` : ""}${(i.extra_images || []).length ? `<button class="av-btn sm ghost danger" data-clear-extra="${esc(i.name)}" title="Xoá ảnh phụ">×</button>` : ""}` : ""}</div></td>
       <td class="av-hint">${esc(i.product_type || "")}<br>${esc((CATS.find((x) => x[0] === (i.product_category || "")) || ["", ""])[1])}</td>
       <td class="av-hint">${[i.width_cm, i.height_cm, i.depth_cm].map((x) => x || "–").join(" × ")} cm${i.size_pct ? " · " + i.size_pct + "%" : ""}</td>
       <td class="av-hint">${i.audio_seconds || S.p.audio_seconds || 72}s${i.audio_file ? " · có audio" : ""}</td>
@@ -301,6 +305,8 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
     const drafts = S.drafts.map((d, k) => `<tr data-draft="${k}"><td></td><td><input type="text" data-dk="batch" value="${esc(d.batch)}" style="width:80px"></td>
       <td><input type="text" data-dk="sku" value="${esc(d.sku)}" placeholder="SKU *" style="width:120px"><input type="text" data-dk="product_name" value="${esc(d.product_name)}" placeholder="Tên SP" style="margin-top:4px"></td>
       <td><div class="av-up">${d.product_image ? `<img class="av-thumb" src="${esc(d.product_image)}" alt="">` : ""}<label>${d.product_image ? "Đổi" : "Ảnh chính diện *"}<input type="file" accept="image/*" data-dfile="product_image"></label></div>
+        <div class="av-up" style="margin-top:4px"><label class="av-hint">Ảnh phụ các mặt (≤4)<input type="file" accept="image/*" multiple data-dfile-multi="extra_images"></label></div>
+        <div class="av-sides">${(d.extra_images || []).map((u) => `<img src="${esc(u)}" alt="Ảnh phụ" data-media="${esc(u)}">`).join("")}</div>
         <div class="av-up" style="margin-top:4px">${d.real_hold_image ? "✓" : ""}<label class="av-hint">Ảnh cầm thật (tuỳ chọn)<input type="file" accept="image/*" data-dfile="real_hold_image"></label></div></td>
       <td><input type="text" data-dk="product_type" value="${esc(d.product_type)}" placeholder="VD: lon sữa bột 800g">${catSel(d.product_category, 'data-dk="product_category" style="margin-top:4px"')}</td>
       <td><div class="av-row" style="flex-wrap:nowrap"><input type="number" class="av-num" data-dk="width_cm" value="${esc(d.width_cm)}" placeholder="R"><input type="number" class="av-num" data-dk="height_cm" value="${esc(d.height_cm)}" placeholder="C"><input type="number" class="av-num" data-dk="depth_cm" value="${esc(d.depth_cm)}" placeholder="S"></div><input type="number" class="av-num" data-dk="size_pct" value="${esc(d.size_pct)}" placeholder="±%" style="margin-top:4px" title="Chỉnh cỡ ±% (khi không có số đo)"></td>
@@ -310,7 +316,7 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
     return `<div class="av-panel"><div class="av-panel-h"><h2>Danh sách SKU</h2><div class="av-row"><button class="av-btn" id="av-add">+ Thêm dòng</button>${S.drafts.length ? `<button class="av-btn pri" id="av-save-drafts">Lưu ${S.drafts.length} dòng</button>` : ""}<button class="av-gold" id="av-start" ${nNew ? "" : "disabled"}>Tạo ảnh cầm cho ${nNew} SKU</button></div></div>
       <div class="av-panel-b" style="padding:0"><div class="av-tw"><table><thead><tr><th><input type="checkbox" id="av-selall" aria-label="Chọn tất cả"></th><th>Lô</th><th>SKU</th><th>Ảnh</th><th>Loại / kiểu cầm</th><th>Kích thước (R×C×S)</th><th>Audio</th><th>Trạng thái</th><th></th></tr></thead>
       <tbody>${rows}${drafts}${!rows && !drafts ? `<tr><td colspan="9" class="av-empty">Chưa có SKU. Bấm "+ Thêm dòng".</td></tr>` : ""}</tbody></table></div></div></div>
-      <div class="av-callout"><div>Mỗi SKU tạo <b>2 ảnh cầm</b> để chọn. Kích thước thật (cm) giúp SP đúng cỡ; không có số đo thì dùng ±%. Ảnh cầm thật (tuỳ chọn) được lưu lại để đối chiếu; AI hiện dùng ảnh chính diện. Nhóm kiểu cầm để trống thì tự nhận theo mô tả.</div></div>`;
+      <div class="av-callout"><div>Mỗi SKU tạo <b>2 ảnh cầm</b> để chọn. Kích thước thật (cm) giúp SP đúng cỡ; không có số đo thì dùng ±%. Ảnh phụ các mặt (cạnh, sau, nắp…) tối đa 4 ảnh và ảnh cầm thật được gửi kèm ảnh chính diện để AI giữ đúng hình khối, độ dày, nhãn mặt bên. Nhóm kiểu cầm để trống thì tự nhận theo mô tả.</div></div>`;
   }
   /* step 2: duyet anh */
   function stepPick() {
@@ -391,10 +397,11 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
     if (t.dataset.ddel != null) { S.drafts.splice(+t.dataset.ddel, 1); return renderProject(); }
     if (t.id === "av-save-drafts") {
       const bad = S.drafts.find((d) => !d.sku || !d.product_image); if (bad) return toast("Mỗi dòng cần SKU và ảnh chính diện", true);
-      const rows = S.drafts.map((d) => { const o = {}; Object.keys(d).forEach((k) => { if (d[k] !== "") o[k] = /_cm$|size_pct|audio_seconds/.test(k) ? +d[k] : d[k]; }); return o; });
+      const rows = S.drafts.map((d) => { const o = {}; Object.keys(d).forEach((k) => { if (d[k] !== "" && !(Array.isArray(d[k]) && !d[k].length)) o[k] = /_cm$|size_pct|audio_seconds/.test(k) ? +d[k] : d[k]; }); return o; });
       const r = await act("add_items", { project: P, rows: JSON.stringify(rows) }, "Đã lưu " + rows.length + " SKU"); if (r) { (r.items || []).forEach((n) => S.sel.add(n)); S.drafts = []; loadProject(P); } return;
     }
     if (t.id === "av-start") { const names = [...S.sel].filter((n) => S.items.some((i) => i.name === n)); const r = await act("start_holds", { project: P, names: JSON.stringify(names) }, "Đã gửi tạo ảnh cầm"); if (r) { S.sel.clear(); S.step = "pick"; loadProject(P, true); } return; }
+    if (t.dataset.clearExtra) { if (await act("update_item", { name: t.dataset.clearExtra, data: JSON.stringify({ extra_images: [] }) }, "Đã xoá ảnh phụ")) loadProject(P); return; }
     if (t.dataset.del) { if (!confirm("Xoá SKU này?")) return; if (await act("delete_item", { name: t.dataset.del }, "Đã xoá")) loadProject(P); return; }
     if (t.dataset.pick) { if (await act("pick", { name: t.dataset.pick, candidate: t.dataset.c }, "Đã chọn - đang làm ảnh master")) loadProject(P, true); return; }
     if (t.dataset.regenHolds) { const n = t.dataset.regenHolds; const d = { width_cm: +$("rg-w-" + n).value || null, height_cm: +$("rg-h-" + n).value || null, size_pct: +$("rg-p-" + n).value || null, notes: $("rg-n-" + n).value };
@@ -419,6 +426,8 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
     if (t.dataset.mx) { t.checked ? S.mixSel.add(t.dataset.mx) : S.mixSel.delete(t.dataset.mx); $("av-mix").disabled = !S.mixSel.size && (S.mixMode || S.p.mix_mode) !== "talk"; return; }
     if (t.id === "mx-all") { S.items.forEach((i) => { if (i.stage === "ready" || i.stage === "done") t.checked ? S.mixSel.add(i.name) : S.mixSel.delete(i.name); }); return renderProject(); }
     if (t.dataset.dk) { const k = +t.closest("[data-draft]").dataset.draft; S.drafts[k][t.dataset.dk] = t.value; return; }
+    if (t.dataset.dfileMulti && t.files && t.files.length) { const k = +t.closest("[data-draft]").dataset.draft; const cur = S.drafts[k][t.dataset.dfileMulti] || []; const files = [...t.files].slice(0, Math.max(0, 4 - cur.length)); if (!files.length) return toast("Tối đa 4 ảnh phụ", true); toast("Đang tải " + files.length + " ảnh…"); try { for (const f of files) cur.push(await upload(f)); S.drafts[k][t.dataset.dfileMulti] = cur; renderProject(); } catch (err) { toast(err.message, true); } return; }
+    if (t.dataset.ifileExtra && t.files && t.files.length) { const it = S.items.find((x) => x.name === t.dataset.ifileExtra); const cur = (it && it.extra_images) || []; const files = [...t.files].slice(0, Math.max(0, 4 - cur.length)); if (!files.length) return toast("Tối đa 4 ảnh phụ", true); toast("Đang tải " + files.length + " ảnh…"); try { const urls = cur.slice(); for (const f of files) urls.push(await upload(f)); if (await act("update_item", { name: it.name, data: JSON.stringify({ extra_images: urls }) }, "Đã thêm ảnh phụ")) loadProject(S.p.name); } catch (err) { toast(err.message, true); } return; }
     if (t.dataset.dfile && t.files && t.files[0]) { const k = +t.closest("[data-draft]").dataset.draft; toast("Đang tải file…"); try { S.drafts[k][t.dataset.dfile] = await upload(t.files[0]); renderProject(); } catch (err) { toast(err.message, true); } return; }
     if (t.id === "np-host" && t.files && t.files[0]) { $("np-host-t").textContent = "Đang tải…"; try { S.newHost = await upload(t.files[0]); $("np-host-t").textContent = "✓ " + t.files[0].name; } catch (err) { $("np-host-t").textContent = err.message; } return; }
     if (t.id === "pj-night" || t.id === "pj-gm" || t.id === "pj-ga") { const f = { "pj-night": "night_mode", "pj-gm": "gate_motion", "pj-ga": "gate_hold_a" }[t.id];
