@@ -1,0 +1,125 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-10-01 00:00:00.000000",
+ "description": "Một lần trộn + xuất hàng loạt video.",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "project",
+  "batch",
+  "items",
+  "mode",
+  "variants",
+  "duration",
+  "status",
+  "task_ids",
+  "files_json",
+  "zip_path"
+ ],
+ "fields": [
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Dự án",
+   "options": "EC AI Video Project",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "batch",
+   "fieldtype": "Data",
+   "label": "Lô",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Long Text",
+   "label": "SKU (JSON)"
+  },
+  {
+   "fieldname": "mode",
+   "fieldtype": "Select",
+   "label": "Kiểu",
+   "options": "mix\nhold\ntalk",
+   "default": "mix",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "variants",
+   "fieldtype": "Int",
+   "label": "Số bản / SKU",
+   "default": "5"
+  },
+  {
+   "fieldname": "duration",
+   "fieldtype": "Float",
+   "label": "Độ dài (giây)",
+   "default": "72"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Data",
+   "label": "Trạng thái",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "task_ids",
+   "fieldtype": "Long Text",
+   "label": "Task (JSON)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "files_json",
+   "fieldtype": "Long Text",
+   "label": "File kết quả (JSON)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "zip_path",
+   "fieldtype": "Data",
+   "label": "File ZIP",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC AI Video Export",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  },
+  {
+   "role": "EC AI Content",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

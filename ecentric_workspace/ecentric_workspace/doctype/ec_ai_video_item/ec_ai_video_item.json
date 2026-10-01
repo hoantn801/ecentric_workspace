@@ -1,0 +1,212 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-10-01 00:00:00.000000",
+ "description": "Một SKU trong dự án video AI.",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "project",
+  "batch",
+  "sku",
+  "product_name",
+  "product_type",
+  "product_category",
+  "width_cm",
+  "height_cm",
+  "depth_cm",
+  "size_pct",
+  "pack_count",
+  "notes",
+  "product_image",
+  "extra_images",
+  "real_hold_image",
+  "audio_seconds",
+  "audio_file",
+  "section_state",
+  "job_id",
+  "stage",
+  "stage_state",
+  "selected_candidate",
+  "state_json",
+  "error"
+ ],
+ "fields": [
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Dự án",
+   "options": "EC AI Video Project",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "batch",
+   "fieldtype": "Data",
+   "label": "Lô",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "sku",
+   "fieldtype": "Data",
+   "label": "SKU",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "product_name",
+   "fieldtype": "Data",
+   "label": "Tên sản phẩm"
+  },
+  {
+   "fieldname": "product_type",
+   "fieldtype": "Data",
+   "label": "Loại sản phẩm (mô tả)"
+  },
+  {
+   "fieldname": "product_category",
+   "fieldtype": "Data",
+   "label": "Nhóm kiểu cầm"
+  },
+  {
+   "fieldname": "width_cm",
+   "fieldtype": "Float",
+   "label": "Rộng (cm)"
+  },
+  {
+   "fieldname": "height_cm",
+   "fieldtype": "Float",
+   "label": "Cao (cm)"
+  },
+  {
+   "fieldname": "depth_cm",
+   "fieldtype": "Float",
+   "label": "Sâu (cm)"
+  },
+  {
+   "fieldname": "size_pct",
+   "fieldtype": "Float",
+   "label": "Chỉnh cỡ (%)"
+  },
+  {
+   "fieldname": "pack_count",
+   "fieldtype": "Data",
+   "label": "Số lượng trong gói"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú sản phẩm"
+  },
+  {
+   "fieldname": "product_image",
+   "fieldtype": "Attach Image",
+   "label": "Ảnh chính diện"
+  },
+  {
+   "fieldname": "extra_images",
+   "fieldtype": "Long Text",
+   "label": "Ảnh phụ (JSON)"
+  },
+  {
+   "fieldname": "real_hold_image",
+   "fieldtype": "Attach Image",
+   "label": "Ảnh cầm thực tế"
+  },
+  {
+   "fieldname": "audio_seconds",
+   "fieldtype": "Float",
+   "label": "Độ dài audio (giây)"
+  },
+  {
+   "fieldname": "audio_file",
+   "fieldtype": "Attach",
+   "label": "File audio"
+  },
+  {
+   "fieldname": "section_state",
+   "fieldtype": "Section Break",
+   "label": "Tiến độ"
+  },
+  {
+   "fieldname": "job_id",
+   "fieldtype": "Data",
+   "label": "Job (worker)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "stage",
+   "fieldtype": "Data",
+   "label": "Bước",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "stage_state",
+   "fieldtype": "Data",
+   "label": "Trạng thái bước",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "selected_candidate",
+   "fieldtype": "Data",
+   "label": "Ảnh cầm đã chọn"
+  },
+  {
+   "fieldname": "state_json",
+   "fieldtype": "Long Text",
+   "label": "Trạng thái nội bộ (JSON)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "error",
+   "fieldtype": "Small Text",
+   "label": "Lỗi gần nhất",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC AI Video Item",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  },
+  {
+   "role": "EC AI Content",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "title_field": "sku",
+ "show_title_field_in_link": 1
+}

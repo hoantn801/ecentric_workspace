@@ -1,0 +1,427 @@
+<!--
+  AI Tool > AI Video hang loat. Route /ai-video (Web Page "ai-video"). Repo so huu toan bo byte
+  cua trang. Hai vung shell (aside + topbar) do shell.fallback sinh lai tu shell/nav.py - KHONG
+  sua tay hai vung do. Du lieu qua ecentric_workspace.ai_tools.features.ai_video.controllers.api.*
+  Anh/video xem truc tiep tu worker (laptop chay n8n, qua Cloudflare Tunnel) bang link ky HMAC.
+  Jinja: web page render qua Jinja - cam chuoi mo/dong the Jinja trong CSS/JS.
+-->
+<style id="ec-aiv-css">
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+body > header, body > footer, body > nav.navbar, header.navbar,
+.web-page-header, #navbarSupportedContent, .navbar-collapse { display:none; }
+body { padding:0; margin:0; background:#f5f6fa; }
+body main { padding-top:0; }
+body .main-section, body main.container, body main.fluid { margin:0; padding:0; max-width:100%; }
+.ec-aiv-wrap { display:flex; min-height:100vh; max-width:none; width:100%; }
+.ec-aiv-wrap > main.ec-aiv-main { flex:1; min-width:0; padding:0; overflow-x:hidden; background:#f5f6fa; }
+
+#ec-aiv-root{
+  --ground:#f5f6fa;--surface:#fff;--ink:#111827;--ink2:#4b5563;--ink3:#6b7280;--ink4:#9ca3af;
+  --line:#e5e7eb;--line-soft:#f1f2f6;--navy:#2C3DA6;--navy-d:#1f2c80;--navy-wash:#eef0fb;--navy-line:#c9d0f0;
+  --gold:#f5b800;--gold-ink:#3a2c00;--hero1:#27348f;--hero2:#3a4bc2;
+  --ok:#17683a;--ok-bg:#e7f6ec;--warn:#8a5a08;--warn-bg:#fdf3e2;--bad:#a02020;--bad-bg:#fdeaea;--run:#1d4ed8;--run-bg:#e6efff;
+  --tile:#dfe3f3;--shadow:0 1px 2px rgba(17,24,39,.04);
+  font-family:'Inter',-apple-system,"Segoe UI",Roboto,sans-serif;font-size:14px;line-height:1.5;color:var(--ink);
+}
+#ec-aiv-root *{box-sizing:border-box}
+#ec-aiv-root button,#ec-aiv-root input,#ec-aiv-root select,#ec-aiv-root textarea{font:inherit}
+#ec-aiv-root :focus-visible{outline:2px solid var(--navy);outline-offset:2px}
+.av-wrap{padding:20px 24px 64px;display:flex;flex-direction:column;gap:18px;max-width:1400px}
+.av-hero{border-radius:14px;background:linear-gradient(120deg,var(--hero1),var(--hero2));color:#fff;padding:18px 20px;display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between}
+.av-hero h1{font-size:22px;margin:0;font-weight:700;letter-spacing:-.01em}
+.av-hero .sub{color:rgba(255,255,255,.75);font-size:13px;margin-top:2px;max-width:60ch}
+.av-hero .tag{display:inline-flex;gap:6px;align-items:center;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:1px 10px;font-size:12px;margin-top:8px}
+.av-stats{display:flex;flex-wrap:wrap;gap:8px}
+.av-stat{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:8px 12px;min-width:100px}
+.av-stat span{display:block;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,.72);font-weight:600}
+.av-stat b{font-size:20px;font-variant-numeric:tabular-nums;font-weight:700}
+.av-stat.hl{border-color:var(--gold)} .av-stat.hl b{color:var(--gold)}
+.av-gold{appearance:none;border:0;background:var(--gold);color:var(--gold-ink);font-weight:700;font-size:13.5px;padding:9px 16px;border-radius:9px;cursor:pointer;white-space:nowrap}
+.av-chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.av-chip{appearance:none;font-size:13px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);border-radius:999px;padding:5px 13px;cursor:pointer;display:inline-flex;gap:6px;align-items:center;font-weight:500}
+.av-chip .n{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:var(--line-soft);font-size:11px;font-weight:700;color:var(--ink3)}
+.av-chip.on{border-color:var(--navy);color:var(--navy);background:var(--navy-wash)} .av-chip.on .n{background:var(--navy);color:#fff}
+.av-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.av-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;box-shadow:var(--shadow);position:relative}
+.av-card .ico{width:40px;height:40px;border-radius:10px;background:var(--navy-wash);color:var(--navy);display:grid;place-items:center;font-weight:700;font-size:13px;overflow:hidden}
+.av-card .ico img{width:100%;height:100%;object-fit:cover}
+.av-eyebrow{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink4);font-weight:600}
+.av-card h3{margin:0;font-size:15.5px;font-weight:700}
+.av-meta{font-size:12.5px;color:var(--ink3);display:flex;flex-wrap:wrap;gap:4px 12px}
+.av-meta b{color:var(--ink);font-variant-numeric:tabular-nums}
+.av-card .corner{position:absolute;top:12px;right:12px}
+.av-card .foot{display:flex;justify-content:space-between;align-items:center;margin-top:auto;gap:8px}
+.av-card.new{border-style:dashed;align-items:center;justify-content:center;color:var(--navy);cursor:pointer;min-height:180px;font-weight:600;background:transparent}
+.av-prog{height:5px;border-radius:3px;background:var(--line-soft);overflow:hidden} .av-prog i{display:block;height:100%;background:var(--navy)}
+.av-outline{text-decoration:none;appearance:none;font-size:13px;font-weight:600;color:var(--navy);background:var(--surface);border:1px solid var(--navy);border-radius:8px;padding:6px 12px;cursor:pointer;white-space:nowrap}
+.av-outline:hover{background:var(--navy-wash)}
+.av-pill{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:600;white-space:nowrap}
+.p-ok{background:var(--ok-bg);color:var(--ok)}.p-warn{background:var(--warn-bg);color:var(--warn)}.p-bad{background:var(--bad-bg);color:var(--bad)}.p-run{background:var(--run-bg);color:var(--run)}.p-idle{background:var(--line-soft);color:var(--ink3)}.p-navy{background:var(--navy-wash);color:var(--navy)}
+.av-panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+.av-panel-h{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line-soft)}
+.av-panel-h h2{font-size:15px;margin:0;font-weight:700}
+.av-panel-b{padding:16px}
+.av-hint{font-size:12.5px;color:var(--ink3)}
+.av-btn{appearance:none;font-size:13px;font-weight:500;border-radius:8px;padding:7px 13px;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink);display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.av-btn:hover{border-color:var(--ink4)}
+.av-btn.pri{background:var(--navy);border-color:var(--navy);color:#fff;font-weight:600}
+.av-btn.sm{padding:4px 10px;font-size:12px}
+.av-btn.ghost{border-color:transparent;color:var(--navy);background:transparent}
+.av-btn.danger{color:var(--bad)}
+.av-btn[disabled],.av-gold[disabled]{opacity:.45;cursor:not-allowed}
+#ec-aiv-root a.av-btn,#ec-aiv-root a.av-outline{text-decoration:none}
+.av-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.av-grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.av-f{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--ink2);font-weight:600}
+#ec-aiv-root input[type=text],#ec-aiv-root input[type=number],#ec-aiv-root select,#ec-aiv-root textarea{font-size:13px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:7px 10px;min-width:0;width:100% }
+#ec-aiv-root textarea{min-height:120px;resize:vertical;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
+.av-seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex-wrap:wrap}
+.av-seg button{appearance:none;border:0;background:var(--surface);font-size:12.5px;padding:6px 11px;color:var(--ink2);cursor:pointer}
+.av-seg button.on{background:var(--navy-wash);color:var(--navy);font-weight:600}
+.av-tw{overflow-x:auto}
+#ec-aiv-root table{border-collapse:collapse;width:100%;font-size:13px}
+#ec-aiv-root th{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink4);font-weight:600;text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap;background:var(--ground)}
+#ec-aiv-root td{padding:8px 10px;border-bottom:1px solid var(--line-soft);vertical-align:middle}
+#ec-aiv-root td input[type=text],#ec-aiv-root td input[type=number],#ec-aiv-root td select{padding:5px 7px;font-size:12.5px}
+.av-num{width:64px}
+.av-thumb{width:40px;height:56px;border-radius:6px;background:var(--tile);object-fit:cover;display:block;cursor:pointer}
+.av-up{display:inline-flex;align-items:center;gap:6px}
+.av-up label{cursor:pointer;color:var(--navy);font-size:12px;font-weight:600;white-space:nowrap}
+.av-up input[type=file]{display:none}
+.av-callout{display:flex;gap:10px;align-items:flex-start;background:var(--navy-wash);border:1px solid var(--navy-line);border-radius:9px;padding:10px 12px;font-size:13px;color:var(--ink2)}
+.av-callout.warn{background:var(--warn-bg);border-color:#f3d9a4}
+.av-callout.bad{background:var(--bad-bg);border-color:#f4c2c2}
+.av-hold{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.av-sku{border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;background:var(--surface)}
+.av-sku .top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.av-cands{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.av-cand{border:2px solid var(--line);border-radius:9px;overflow:hidden;display:flex;flex-direction:column;background:var(--surface)}
+.av-cand.sel{border-color:var(--navy)}
+.av-cand img{width:100%;aspect-ratio:9/16;object-fit:cover;background:var(--tile);cursor:zoom-in;display:block}
+.av-cand .cap{display:flex;justify-content:space-between;align-items:center;padding:6px 8px;font-size:12px;gap:6px}
+.av-edit{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.av-units{display:flex;flex-wrap:wrap;gap:6px}
+.av-unit{appearance:none;border:1px solid var(--line);background:var(--ground);border-radius:7px;padding:3px 8px;font-size:12px;cursor:pointer;color:var(--ink2)}
+.av-unit:hover{border-color:var(--navy);color:var(--navy)}
+.av-anchor{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
+.av-anchor img{width:108px;aspect-ratio:9/16;object-fit:cover;border-radius:8px;background:var(--tile);cursor:zoom-in}
+.av-empty{padding:28px 18px;text-align:center;color:var(--ink3)}
+.av-skel{height:14px;border-radius:6px;background:linear-gradient(90deg,#f3f4f6,#e5e7eb,#f3f4f6);background-size:200% 100%;animation:av-sh 1.2s linear infinite;margin:8px 0}
+@keyframes av-sh{to{background-position:-200% 0} }
+.av-modal{position:fixed;inset:0;background:rgba(17,24,39,.55);display:grid;place-items:center;z-index:50;padding:16px}
+.av-modal[hidden]{display:none}
+.av-modal .box{background:var(--surface);border-radius:14px;max-width:560px;width:100%;max-height:90vh;overflow:auto;padding:18px;display:flex;flex-direction:column;gap:12px}
+.av-modal .box.media{max-width:min(92vw,520px);padding:10px;background:#111}
+.av-modal .box.media img,.av-modal .box.media video{width:100%;max-height:82vh;object-fit:contain;border-radius:8px;background:#000}
+.av-toast{position:fixed;left:50%;bottom:20px;transform:translate(-50%,16px);opacity:0;background:#111827;color:#fff;padding:11px 16px;border-radius:10px;font-size:13.5px;z-index:60;transition:.2s;pointer-events:none;max-width:90vw}
+.av-toast.show{opacity:1;transform:translate(-50%,0)} .av-toast.err{background:#dc2626}
+.av-switch{display:inline-flex;gap:8px;align-items:center;font-size:13px;cursor:pointer}
+.av-switch input{width:16px;height:16px;accent-color:var(--navy)}
+@media (max-width:640px){.av-wrap{padding:16px}.av-hero h1{font-size:19px} }
+</style>
+
+<div class="ec-aiv-wrap">
+  <aside class="ec-shell-mount" data-ec-shell="1" aria-label="Điều hướng eCentric"><div class="ec-shell-head"><a class="ec-shell-brand" href="/"><img class="ec-shell-logoimg" src="/files/eCentric%20logo%20-%20mini.png" alt="eCentric"><span class="ec-shell-logo" hidden>eC</span><span class="ec-shell-brandname">eCentric</span></a></div><div class="ec-shell-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input class="ec-shell-search-in" type="text" placeholder="Tìm chức năng…" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-label="Tìm chức năng" autocomplete="off" spellcheck="false"><button type="button" class="ec-shell-search-clear" data-ec-shell-search-clear="1" hidden aria-label="Xóa tìm kiếm">&times;</button></div><div class="ec-shell-search-results" role="listbox" hidden></div><nav class="ec-shell-nav ec-shell-fallback" aria-label="Điều hướng chính"><a class="ec-shell-item" href="/home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg><span>Trang chủ</span></a><a class="ec-shell-item" href="/ai-tool"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>AI Tool</span></a><button type="button" class="ec-shell-item ec-shell-subtoggle" data-ec-shell-subtoggle="ai_tools.livestream" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>AI Livestream Script</span><svg class="ec-shell-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="ec-shell-children" hidden data-ec-shell-children="ai_tools.livestream"><a class="ec-shell-item ec-shell-child" href="/ai-content/ho-so-brand"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>Hồ sơ Brand</span></a><a class="ec-shell-item ec-shell-child" href="/ai-content/bo-luat"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg><span>Bộ luật</span></a></div><a class="ec-shell-item ec-shell-active" href="/ai-video" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg><span>AI Video hàng loạt</span></a></nav><div class="ec-shell-foot"><a class="ec-shell-usercard" href="/app/user"><span class="ec-shell-avatar">•</span><span class="ec-shell-username">Tài khoản</span></a></div></aside>
+<main class="ec-aiv-main"><div class="ec-shell-topbar" data-ec-shell-topbar="1"><div class="ec-shell-crumbs" data-ec-shell-crumbs="1"><strong class="ec-shell-crumb-current">AI Video hàng loạt</strong></div><div class="ec-shell-tbright" data-ec-shell-header-right="1"><button type="button" class="ec-shell-iconbtn ec-shell-reminder" data-ec-shell-action-slot="1" aria-label="Việc của tôi" title="Việc của tôi" aria-haspopup="dialog" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h4l2 3h4l2-3h4"/><path d="M4 13V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7"/><path d="M4 13v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></svg><span class="ec-shell-reminder-badge" data-ec-shell-reminder-badge="1" hidden></span></button><button type="button" class="ec-shell-iconbtn ec-shell-slot-disabled" data-ec-shell-settings-slot="1" disabled aria-disabled="true" title="Cài đặt (sắp ra mắt)" aria-label="Cài đặt (sắp ra mắt)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg></button></div></div>
+<div id="ec-aiv-root">
+  <div class="av-wrap" id="av-view" aria-live="polite">
+    <div class="av-panel av-panel-b"><div class="av-skel" style="width:40%"></div><div class="av-skel" style="width:85%"></div><div class="av-skel" style="width:60%"></div></div>
+  </div>
+  <div class="av-modal" id="av-modal" hidden><div class="box" id="av-modal-box" role="dialog" aria-modal="true"></div></div>
+  <div class="av-toast" id="av-toast" role="status" aria-live="polite"></div>
+</div>
+</main></div>
+
+<script>
+(() => {
+  "use strict";
+  const API = "/api/method/ecentric_workspace.ai_tools.features.ai_video.controllers.api.";
+  const CATS = [["", "Tự nhận theo mô tả"], ["milk_can", "Sữa lon"], ["milk_carton_pack", "Sữa hộp / vỉ"], ["oil_bottle", "Chai dầu ăn"],
+    ["personal_care_bottle", "Chai dầu gội / sữa tắm"], ["cream_tube", "Tuýp kem"], ["diaper_pack", "Bịch tã / bỉm"],
+    ["battery_blister", "Vỉ pin"], ["small_box", "Hộp nhỏ (pin, mỹ phẩm)"], ["biscuit_box_large", "Hộp bánh lớn"],
+    ["soft_pouch", "Túi mềm (bánh, bông, khẩu trang)"], ["hair_dryer", "Máy sấy"], ["table_appliance", "Đồ gia dụng để bàn"]];
+  const STEPS = [["input", "1. Nhập lô"], ["pick", "2. Duyệt ảnh"], ["video", "3. Tạo video"], ["mix", "4. Trộn & xuất"], ["prompt", "Prompt"]];
+  const UNIT_LABEL = { putdown_left: "Hạ trái", putdown_right: "Hạ phải", putdown_below: "Hạ dưới", pickup_left: "Lấy trái", pickup_right: "Lấy phải", pickup_below: "Lấy dưới", hold_01: "Cầm A", hold_02: "Cầm B" };
+  const S = { projects: [], brand: "", p: null, items: [], exports: [], step: "input", timer: null, sel: new Set(), mixSel: new Set(), drafts: [], prompts: null, busy: false };
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  /* ---------- API ---------- */
+  const serverMsg = (b) => { try { const a = JSON.parse(b._server_messages || "[]"); if (a.length) return JSON.parse(a[0]).message || ""; } catch (e) { /* bo qua */ } return ""; };
+  async function call(method, args, http) {
+    const opts = { credentials: "same-origin", headers: { Accept: "application/json" } };
+    let url = API + method;
+    if (http === "GET") { const qs = new URLSearchParams(Object.entries(args || {}).filter(([, v]) => v != null)).toString(); if (qs) url += "?" + qs; }
+    else { opts.method = "POST"; opts.headers["Content-Type"] = "application/json"; opts.headers["X-Frappe-CSRF-Token"] = (window.frappe && window.frappe.csrf_token) || ""; opts.body = JSON.stringify(args || {}); }
+    let res;
+    try { res = await fetch(url, opts); } catch (e) { return { success: false, message: "Mất kết nối mạng.", data: null }; }
+    if (res.status === 401 || res.status === 403) return { success: false, message: "Phiên đăng nhập hết hạn hoặc chưa có quyền EC AI Content.", data: null };
+    let body = {}; try { body = await res.json(); } catch (e) { /* khong phai JSON */ }
+    if (!res.ok) return { success: false, message: serverMsg(body) || ("Máy chủ báo lỗi (" + res.status + ")."), data: null };
+    const m = body.message; if (m && typeof m === "object" && typeof m.success === "boolean") return m;
+    return { success: true, message: "", data: m };
+  }
+  async function act(method, args, okMsg) {
+    if (S.busy) return null; S.busy = true;
+    try { const r = await call(method, args); if (!r.success) { toast(r.message || "Lỗi", true); return null; } if (okMsg) toast(okMsg); return r.data; }
+    finally { S.busy = false; }
+  }
+  async function upload(file) {
+    const fd = new FormData(); fd.append("file", file, file.name); fd.append("is_private", 1);
+    const r = await fetch("/api/method/upload_file", { method: "POST", credentials: "same-origin", headers: { "X-Frappe-CSRF-Token": (window.frappe && window.frappe.csrf_token) || "" }, body: fd });
+    let j = null; try { j = await r.json(); } catch (e) { /* 413 nginx */ }
+    const url = j && j.message && j.message.file_url; if (!url) throw new Error(r.status === 413 ? "File quá lớn" : "Tải file lỗi");
+    return url;
+  }
+  let tt; function toast(msg, err) { const t = $("av-toast"); t.textContent = msg; t.className = "av-toast show" + (err ? " err" : ""); clearTimeout(tt); tt = setTimeout(() => { t.className = "av-toast"; }, err ? 6000 : 2600); }
+
+  /* ---------- modal / media ---------- */
+  function modal(html, media) { const b = $("av-modal-box"); b.className = "box" + (media ? " media" : ""); b.innerHTML = html; $("av-modal").hidden = false; }
+  function closeModal() { $("av-modal").hidden = true; $("av-modal-box").innerHTML = ""; }
+  function showMedia(url, kind) { if (!url) return; modal(kind === "video" ? `<video src="${esc(url)}" controls autoplay loop playsinline></video>` : `<img src="${esc(url)}" alt="">`, true); }
+
+  /* ---------- routing ---------- */
+  function route() { const h = location.hash.replace(/^#\/?/, ""); const m = /^p\/([^/]+)(?:\/(\w+))?/.exec(h); return m ? { project: decodeURIComponent(m[1]), step: m[2] || null } : { project: null }; }
+  window.addEventListener("hashchange", load);
+  async function load() {
+    clearTimeout(S.timer); const r = route();
+    if (!r.project) return loadHub();
+    if (r.step) S.step = r.step;
+    return loadProject(r.project, true);
+  }
+
+  /* ---------- hub ---------- */
+  async function loadHub() {
+    const r = await call("list_projects", {}, "GET");
+    if (!r.success) { $("av-view").innerHTML = `<div class="av-callout bad">${esc(r.message)}</div>`; return; }
+    S.projects = r.data.projects || []; renderHub(r.data.worker_configured);
+  }
+  function renderHub(configured) {
+    const ps = S.projects, brands = {};
+    ps.forEach((p) => { brands[p.brand] = (brands[p.brand] || 0) + 1; });
+    const tot = { sku: 0, run: 0, pick: 0, qc: 0, done: 0 };
+    ps.forEach((p) => { const c = p.counts || {}; tot.sku += c.total || 0; tot.run += c.running || 0; tot.pick += c.pick || 0; tot.qc += c.qc || 0; tot.done += (c.done || 0) + (c.ready || 0); });
+    const list = ps.filter((p) => !S.brand || p.brand === S.brand);
+    $("av-view").innerHTML = `
+      <section class="av-hero"><div><h1>AI Video hàng loạt</h1><div class="sub">Mỗi dự án là một brand + một host. Nhập lô SKU, chọn ảnh cầm, tạo clip rồi trộn ra nhiều video khác nhau cho CapCut.</div>
+        <span class="tag" id="av-ping">Đang kiểm tra máy chạy video…</span></div>
+        <div class="av-stats"><div class="av-stat"><span>Dự án</span><b>${ps.length}</b></div><div class="av-stat"><span>SKU</span><b>${tot.sku}</b></div>
+        <div class="av-stat"><span>Đang chạy</span><b>${tot.run}</b></div><div class="av-stat hl"><span>Chờ chọn / duyệt</span><b>${tot.pick + tot.qc}</b></div><div class="av-stat"><span>Đủ clip / xong</span><b>${tot.done}</b></div></div></section>
+      ${configured ? "" : `<div class="av-callout warn"><div><b>Chưa nối máy chạy video.</b> Cần khai <code>ec_video_worker_url</code> và <code>ec_video_worker_secret</code> trong site_config (IT làm một lần). Vẫn tạo dự án và nhập lô được.</div></div>`}
+      <div class="av-chips"><button class="av-chip ${S.brand ? "" : "on"}" data-brand="">Tất cả <span class="n">${ps.length}</span></button>
+        ${Object.keys(brands).sort().map((b) => `<button class="av-chip ${S.brand === b ? "on" : ""}" data-brand="${esc(b)}">${esc(b)} <span class="n">${brands[b]}</span></button>`).join("")}</div>
+      <div class="av-cards">
+        ${list.map((p) => { const c = p.counts || {}; const pct = c.total ? Math.round(100 * ((c.done || 0) + (c.ready || 0)) / c.total) : 0;
+          const st = c.error ? `<span class="av-pill p-bad">${c.error} lỗi</span>` : (c.pick + c.qc) ? `<span class="av-pill p-warn">${c.pick + c.qc} chờ bạn</span>` : c.running ? `<span class="av-pill p-run">Đang chạy</span>` : `<span class="av-pill p-idle">${esc(p.status)}</span>`;
+          return `<article class="av-card"><div class="corner">${st}</div><div class="ico">${esc((p.brand || "?").slice(0, 2).toUpperCase())}</div>
+            <div><div class="av-eyebrow">${esc(p.brand)}${p.night_mode ? " · chạy đêm" : ""}</div><h3>${esc(p.title)}</h3></div>
+            <div class="av-meta"><span><b>${c.total || 0}</b> SKU</span><span><b>${c.pick || 0}</b> chờ chọn ảnh</span><span><b>${c.qc || 0}</b> chờ duyệt</span><span><b>${(c.ready || 0) + (c.done || 0)}</b> đủ clip</span></div>
+            <div class="av-prog" aria-hidden="true"><i style="width:${pct}%"></i></div>
+            <div class="foot"><span class="av-hint">${pct}% SKU đủ clip</span><a class="av-outline" href="#/p/${encodeURIComponent(p.name)}">Mở dự án →</a></div></article>`; }).join("")}
+        <button class="av-card new" id="av-new">+ Tạo dự án mới</button>
+      </div>`;
+    ping();
+  }
+  async function ping() {
+    const el = $("av-ping"); if (!el) return;
+    const r = await call("worker_ping", {}, "GET");
+    if (!$("av-ping")) return;
+    if (r.success && r.data.up) { const b = r.data.breaker || {}; const wait = b.until && b.until > Date.now(); el.textContent = wait ? "Máy chạy video: bật · nhà cung cấp AI đang lỗi, tự thử lại lúc " + new Date(b.until).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "Máy chạy video: đang bật"; }
+    else el.textContent = "Máy chạy video: " + ((r.data && r.data.message) || r.message || "không kết nối được");
+  }
+  function newProjectForm(p) {
+    p = p || {};
+    modal(`<h2 style="margin:0;font-size:17px">${p.name ? "Cài đặt dự án" : "Tạo dự án"}</h2>
+      <div class="av-grid2"><label class="av-f">Brand<input type="text" id="np-brand" value="${esc(p.brand || "")}" placeholder="VD: Friso"></label>
+      <label class="av-f">Tên dự án<input type="text" id="np-title" value="${esc(p.title || "")}" placeholder="VD: Livestream tháng 10"></label></div>
+      <div class="av-f">Ảnh host (9:16, host ngồi sau bàn)<div class="av-up">${p.host_image ? `<img class="av-thumb" src="${esc(p.host_image)}" alt="">` : ""}<label>Chọn ảnh<input type="file" accept="image/*" id="np-host"></label><span class="av-hint" id="np-host-t"></span></div></div>
+      <div class="av-grid2"><label class="av-f">Khung neo (2 tay trên bàn) lấy từ<select id="np-anchor"><option value="master" ${p.anchor_source !== "host" ? "selected" : ""}>Ảnh master SKU đầu tiên (khuyên dùng)</option><option value="host" ${p.anchor_source === "host" ? "selected" : ""}>Ảnh host gốc</option></select></label>
+      <label class="av-f">Số clip nói (MC, không SP)<input type="number" id="np-talk" min="0" max="12" value="${p.talk_count == null ? 6 : p.talk_count}"></label>
+      <label class="av-f">Độ dài audio mặc định (giây)<input type="number" id="np-audio" min="10" max="600" value="${p.audio_seconds || 72}"></label>
+      <label class="av-f">Số bản trộn / SKU<input type="number" id="np-var" min="1" max="20" value="${p.mix_variants || 5}"></label></div>
+      <div class="av-hint">Khung neo lấy từ master khớp khung hình cầm SP hơn (test 01/10). Clip nói dùng chung cho mọi SKU của host này.</div>
+      <div class="av-row" style="justify-content:flex-end"><button class="av-btn" data-close>Huỷ</button><button class="av-btn pri" id="np-save" data-name="${esc(p.name || "")}">${p.name ? "Lưu" : "Tạo dự án"}</button></div>`);
+    S.newHost = null;
+  }
+  async function saveProject(name) {
+    const d = { brand: $("np-brand").value.trim(), title: $("np-title").value.trim(), anchor_source: $("np-anchor").value,
+      talk_count: +$("np-talk").value || 0, audio_seconds: +$("np-audio").value || 72, mix_variants: +$("np-var").value || 5 };
+    if (!d.brand || !d.title) return toast("Cần brand và tên dự án", true);
+    if (S.newHost) d.host_image = S.newHost;
+    const r = name ? await act("update_project", { name, data: JSON.stringify(d) }, "Đã lưu") : await act("create_project", { data: JSON.stringify(d) }, "Đã tạo dự án");
+    if (!r) return; closeModal(); if (name) loadProject(name); else location.hash = "#/p/" + encodeURIComponent(r.name);
+  }
+
+  /* ---------- project ---------- */
+  async function loadProject(name, doTick) {
+    clearTimeout(S.timer);
+    const r = await call("get_project", { name, tick: doTick ? 1 : 0 }, "GET");
+    if (!r.success) { $("av-view").innerHTML = `<div class="av-callout bad">${esc(r.message)}</div><a class="av-outline" href="#/">← Danh sách dự án</a>`; return; }
+    S.p = r.data.project; S.items = r.data.items || []; S.exports = r.data.exports || []; S.down = r.data.worker_down; S.configured = r.data.worker_configured;
+    renderProject();
+    const running = S.items.some((i) => i.stage_state === "running") || S.exports.some((e) => e.status === "running") || (S.p.anchor_state && S.p.anchor_state !== "ready" && S.items.some((i) => i.stage === "wait_anchor"));
+    S.timer = setTimeout(() => { if (route().project === name && !$("av-modal").hidden === false) loadProject(name, true); else if (route().project === name) S.timer = setTimeout(() => loadProject(name, true), 5000); }, running ? 15000 : 60000);
+  }
+  function counts() { const c = { total: 0, pick: 0, qc: 0, running: 0, ready: 0, done: 0, error: 0 };
+    S.items.forEach((i) => { c.total++; if (i.stage_state === "error") c.error++; else if (i.stage === "pick") c.pick++; else if (i.stage === "qc_motion" || i.stage === "qc_hold_a") c.qc++; else if (i.stage === "ready") c.ready++; else if (i.stage === "done") c.done++; else if (i.stage_state === "running" || i.stage === "wait_anchor") c.running++; }); return c; }
+  function pill(i) {
+    if (i.stage_state === "error") return `<span class="av-pill p-bad" title="${esc(i.error)}">Lỗi · ${esc(i.stage_label)}</span>`;
+    if (i.stage === "done" || i.stage === "ready") return `<span class="av-pill p-ok">${esc(i.stage_label)}</span>`;
+    if (i.stage_state === "running" || i.stage === "wait_anchor") return `<span class="av-pill p-run">${esc(i.stage_label)}…</span>`;
+    if (i.stage === "new") return `<span class="av-pill p-idle">Chưa chạy</span>`;
+    return `<span class="av-pill p-warn">${esc(i.stage_label)}</span>`;
+  }
+  function renderProject() {
+    const p = S.p, c = counts(); const br = p.breaker || {}; const wait = br.until && br.until > Date.now();
+    $("av-view").innerHTML = `
+      <div class="av-row"><a class="av-btn ghost sm" href="#/">← Tất cả dự án</a></div>
+      <section class="av-hero"><div><div class="av-eyebrow" style="color:rgba(255,255,255,.7)">${esc(p.brand)}</div><h1>${esc(p.title)}</h1>
+        <div class="sub">${p.last_tick ? "Cập nhật lúc " + esc(String(p.last_tick).slice(11, 16)) : "Chưa đồng bộ với máy chạy video"}${S.down ? " · " + esc(S.down) : ""}${wait ? " · AI đang lỗi, tự thử lại lúc " + new Date(br.until).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : ""}</div>
+        <div class="av-row" style="margin-top:8px"><label class="av-switch tag" style="color:#fff"><input type="checkbox" id="pj-night" ${p.night_mode ? "checked" : ""}> Chạy đêm (bỏ chốt chặn, tự trộn + nén ZIP)</label><button class="av-btn sm" id="pj-settings">Cài đặt dự án</button></div></div>
+        <div class="av-stats"><div class="av-stat"><span>SKU</span><b>${c.total}</b></div><div class="av-stat hl"><span>Chờ chọn ảnh</span><b>${c.pick}</b></div><div class="av-stat hl"><span>Chờ duyệt clip</span><b>${c.qc}</b></div><div class="av-stat"><span>Đang chạy</span><b>${c.running}</b></div><div class="av-stat"><span>Đủ clip</span><b>${c.ready + c.done}</b></div>${c.error ? `<div class="av-stat"><span>Lỗi</span><b>${c.error}</b></div>` : ""}</div></section>
+      ${S.configured ? "" : `<div class="av-callout warn">Chưa nối máy chạy video (site_config). Nhập lô được, nhưng chưa chạy được.</div>`}
+      <div class="av-chips" role="tablist">${STEPS.map(([k, l]) => { const n = k === "pick" ? c.pick : k === "video" ? c.qc + c.running : k === "mix" ? c.ready + c.done : k === "input" ? c.total : ""; return `<button class="av-chip ${S.step === k ? "on" : ""}" data-step="${k}" role="tab" aria-selected="${S.step === k}">${l}${n !== "" ? ` <span class="n">${n}</span>` : ""}</button>`; }).join("")}</div>
+      <div id="av-step">${({ input: stepInput, pick: stepPick, video: stepVideo, mix: stepMix, prompt: stepPrompt })[S.step]()}</div>`;
+    if (S.step === "prompt") loadPrompts();
+  }
+
+  /* step 1: nhap lo */
+  function catSel(v, attrs) { return `<select ${attrs}>${CATS.map(([k, l]) => `<option value="${k}" ${k === (v || "") ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`; }
+  function stepInput() {
+    const rows = S.items.map((i) => `<tr><td><input type="checkbox" data-sel="${esc(i.name)}" ${S.sel.has(i.name) ? "checked" : ""} ${(i.stage === "new" || i.stage_state === "error") ? "" : "disabled"}></td>
+      <td>${esc(i.batch || "")}</td><td><b>${esc(i.sku)}</b><div class="av-hint">${esc(i.product_name || "")}</div></td>
+      <td>${i.product_image ? `<img class="av-thumb" src="${esc(i.product_image)}" alt="" data-media="${esc(i.product_image)}">` : "—"}</td>
+      <td class="av-hint">${esc(i.product_type || "")}<br>${esc((CATS.find((x) => x[0] === (i.product_category || "")) || ["", ""])[1])}</td>
+      <td class="av-hint">${[i.width_cm, i.height_cm, i.depth_cm].map((x) => x || "–").join(" × ")} cm${i.size_pct ? " · " + i.size_pct + "%" : ""}</td>
+      <td class="av-hint">${i.audio_seconds || S.p.audio_seconds || 72}s${i.audio_file ? " · có audio" : ""}</td>
+      <td>${pill(i)}</td><td>${(i.stage === "new" || i.stage_state === "error") ? `<button class="av-btn sm ghost danger" data-del="${esc(i.name)}">Xoá</button>` : ""}</td></tr>`).join("");
+    const drafts = S.drafts.map((d, k) => `<tr data-draft="${k}"><td></td><td><input type="text" data-dk="batch" value="${esc(d.batch)}" style="width:80px"></td>
+      <td><input type="text" data-dk="sku" value="${esc(d.sku)}" placeholder="SKU *" style="width:120px"><input type="text" data-dk="product_name" value="${esc(d.product_name)}" placeholder="Tên SP" style="margin-top:4px"></td>
+      <td><div class="av-up">${d.product_image ? `<img class="av-thumb" src="${esc(d.product_image)}" alt="">` : ""}<label>${d.product_image ? "Đổi" : "Ảnh chính diện *"}<input type="file" accept="image/*" data-dfile="product_image"></label></div>
+        <div class="av-up" style="margin-top:4px">${d.real_hold_image ? "✓" : ""}<label class="av-hint">Ảnh cầm thật (tuỳ chọn)<input type="file" accept="image/*" data-dfile="real_hold_image"></label></div></td>
+      <td><input type="text" data-dk="product_type" value="${esc(d.product_type)}" placeholder="VD: lon sữa bột 800g">${catSel(d.product_category, 'data-dk="product_category" style="margin-top:4px"')}</td>
+      <td><div class="av-row" style="flex-wrap:nowrap"><input type="number" class="av-num" data-dk="width_cm" value="${esc(d.width_cm)}" placeholder="R"><input type="number" class="av-num" data-dk="height_cm" value="${esc(d.height_cm)}" placeholder="C"><input type="number" class="av-num" data-dk="depth_cm" value="${esc(d.depth_cm)}" placeholder="S"></div><input type="number" class="av-num" data-dk="size_pct" value="${esc(d.size_pct)}" placeholder="±%" style="margin-top:4px" title="Chỉnh cỡ ±% (khi không có số đo)"></td>
+      <td><input type="number" class="av-num" data-dk="audio_seconds" value="${esc(d.audio_seconds)}" placeholder="giây"><div class="av-up" style="margin-top:4px">${d.audio_file ? "✓" : ""}<label class="av-hint">mp3<input type="file" accept="audio/*" data-dfile="audio_file"></label></div></td>
+      <td><span class="av-pill p-idle">Nháp</span></td><td><button class="av-btn sm ghost danger" data-ddel="${k}">Bỏ</button></td></tr>`).join("");
+    const nNew = S.items.filter((i) => S.sel.has(i.name)).length;
+    return `<div class="av-panel"><div class="av-panel-h"><h2>Danh sách SKU</h2><div class="av-row"><button class="av-btn" id="av-add">+ Thêm dòng</button>${S.drafts.length ? `<button class="av-btn pri" id="av-save-drafts">Lưu ${S.drafts.length} dòng</button>` : ""}<button class="av-gold" id="av-start" ${nNew ? "" : "disabled"}>Tạo ảnh cầm cho ${nNew} SKU</button></div></div>
+      <div class="av-panel-b" style="padding:0"><div class="av-tw"><table><thead><tr><th><input type="checkbox" id="av-selall" aria-label="Chọn tất cả"></th><th>Lô</th><th>SKU</th><th>Ảnh</th><th>Loại / kiểu cầm</th><th>Kích thước (R×C×S)</th><th>Audio</th><th>Trạng thái</th><th></th></tr></thead>
+      <tbody>${rows}${drafts}${!rows && !drafts ? `<tr><td colspan="9" class="av-empty">Chưa có SKU. Bấm "+ Thêm dòng".</td></tr>` : ""}</tbody></table></div></div></div>
+      <div class="av-callout"><div>Mỗi SKU tạo <b>2 ảnh cầm</b> để chọn. Kích thước thật (cm) giúp SP đúng cỡ; không có số đo thì dùng ±%. Ảnh phụ các mặt và ảnh cầm thật được lưu lại, pipeline hiện chỉ dùng ảnh chính diện. Nhóm kiểu cầm để trống thì tự nhận theo mô tả.</div></div>`;
+  }
+  /* step 2: duyet anh */
+  function stepPick() {
+    const list = S.items.filter((i) => ["holds", "pick"].includes(i.stage) || (i.candidates || []).length);
+    if (!list.length) return `<div class="av-panel av-empty">Chưa có SKU nào tạo ảnh cầm. Sang bước 1, chọn SKU và bấm "Tạo ảnh cầm".</div>`;
+    return `<div class="av-hold">${list.map((i) => {
+      const cand = (i.candidates || []).map((c) => `<div class="av-cand ${i.selected_candidate === c.id ? "sel" : ""}"><img src="${esc(c.thumb)}" alt="${esc(c.id)}" data-media="${esc(c.full)}" loading="lazy">
+        <div class="cap"><span>${esc(c.id)}${i.ai_reco === c.id ? ' <span class="av-pill p-navy">AI chọn</span>' : ""}</span>${i.stage === "pick" ? `<button class="av-btn sm pri" data-pick="${esc(i.name)}" data-c="${esc(c.id)}">Chọn</button>` : (i.selected_candidate === c.id ? '<span class="av-pill p-ok">Đã chọn</span>' : "")}</div></div>`).join("");
+      return `<div class="av-sku"><div class="top"><div><b>${esc(i.sku)}</b><div class="av-hint">${esc(i.product_name || "")} · ${[i.width_cm, i.height_cm, i.depth_cm].map((x) => x || "–").join("×")} cm</div></div>${pill(i)}</div>
+        ${i.stage === "holds" && !cand ? '<div class="av-skel" style="height:200px"></div>' : `<div class="av-cands">${cand}</div>`}
+        ${i.stage === "pick" || (i.stage_state === "error" && i.stage === "holds") ? `<details><summary class="av-hint" style="cursor:pointer">Không ảnh nào ổn? Sửa thông số và gen lại</summary>
+          <div class="av-edit" style="margin-top:8px"><label class="av-f">Rộng<input type="number" id="rg-w-${esc(i.name)}" value="${esc(i.width_cm || "")}"></label><label class="av-f">Cao<input type="number" id="rg-h-${esc(i.name)}" value="${esc(i.height_cm || "")}"></label><label class="av-f">±%<input type="number" id="rg-p-${esc(i.name)}" value="${esc(i.size_pct || "")}"></label></div>
+          <label class="av-f" style="margin-top:6px">Ghi chú cho AI<input type="text" id="rg-n-${esc(i.name)}" value="${esc(i.notes || "")}"></label>
+          <button class="av-btn sm" style="margin-top:8px" data-regen-holds="${esc(i.name)}">Gen lại 2 ảnh</button></details>` : ""}
+        ${i.stage_state === "error" ? `<div class="av-callout bad">${esc(i.error)} <button class="av-btn sm" data-retry="${esc(i.name)}">Thử lại</button></div>` : ""}</div>`; }).join("")}</div>`;
+  }
+  /* step 3: tao video */
+  function unitBtns(i) { const u = i.units || {}; return Object.keys(UNIT_LABEL).filter((k) => u[k] && !k.startsWith("pickup_")).map((k) => `<button class="av-unit" data-video="${esc(u[k])}">▶ ${UNIT_LABEL[k]}</button>`).join(""); }
+  function stepVideo() {
+    const p = S.p;
+    const gates = `<div class="av-row"><label class="av-switch"><input type="checkbox" id="pj-gm" ${p.gate_motion ? "checked" : ""}> Dừng duyệt sau clip lấy/hạ SP</label><label class="av-switch"><input type="checkbox" id="pj-ga" ${p.gate_hold_a ? "checked" : ""}> Dừng duyệt sau clip cầm A</label></div>`;
+    const anchor = `<div class="av-panel"><div class="av-panel-h"><h2>Khung neo & clip nói (dùng chung cho host)</h2><span class="av-hint">Mọi clip bắt đầu/kết thúc ở khung neo hoặc ảnh master nên ghép thứ tự nào cũng khớp.</span></div>
+      <div class="av-panel-b av-anchor">${p.anchor ? `<img src="${esc(p.anchor.thumb)}" data-media="${esc(p.anchor.full)}" alt="Khung neo">` : `<div class="av-thumb" style="width:108px;height:192px"></div>`}
+      <div style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:8px"><div><b>Khung neo:</b> ${p.anchor ? '<span class="av-pill p-ok">Có</span>' : (p.anchor_state === "running" ? '<span class="av-pill p-run">Đang tạo…</span>' : `<span class="av-pill p-idle">${p.anchor_source === "host" ? "Tạo khi bắt đầu lô" : "Tạo từ master SKU đầu tiên"}</span>`)} ${p.anchor ? `<button class="av-btn sm" id="av-regen-anchor">Tạo lại</button>` : ""}</div>
+      ${p.anchor_error ? `<div class="av-callout bad">${esc(p.anchor_error)} <button class="av-btn sm" id="av-regen-anchor2">Tạo lại khung neo</button></div>` : ""}
+      <div><b>Clip nói:</b> ${esc(p.talk_state || "0/" + (p.talk_count || 0))}</div><div class="av-units">${(p.talks || []).filter((t) => !/_rev$/.test(t.id)).map((t) => `<span class="av-row" style="gap:2px"><button class="av-unit" data-video="${esc(t.url)}">▶ ${esc(t.id.replace("talk_", "Nói "))}</button><button class="av-btn sm ghost danger" title="Xoá để gen lại" data-regen-talk="${esc(t.id)}">↻</button></span>`).join("") || '<span class="av-hint">Chưa có</span>'}</div></div></div></div>`;
+    const list = S.items.filter((i) => !["new", "holds", "pick"].includes(i.stage));
+    const rows = list.map((i) => `<tr><td><b>${esc(i.sku)}</b><div class="av-hint">${esc(i.product_name || "")}</div></td><td>${i.master ? `<img class="av-thumb" src="${esc(i.master)}" alt="" data-media="${esc(i.master)}">` : "—"}</td>
+      <td>${pill(i)}${i.stage_state === "error" ? `<div class="av-hint" style="max-width:260px">${esc(i.error)}</div>` : ""}</td><td><div class="av-units">${unitBtns(i) || '<span class="av-hint">—</span>'}</div></td>
+      <td><div class="av-row">${i.stage === "qc_motion" || i.stage === "qc_hold_a" ? `<button class="av-btn sm pri" data-approve="${esc(i.name)}">Duyệt, làm tiếp</button><button class="av-btn sm" data-regen-clip="${esc(i.name)}">Gen lại</button>` : ""}
+        ${i.stage === "ready" ? `<button class="av-btn sm" data-regen-clip="${esc(i.name)}" title="Gen lại clip cầm B">Gen lại B</button>` : ""}${i.stage_state === "error" ? `<button class="av-btn sm" data-retry="${esc(i.name)}">Thử lại</button>` : ""}</div></td></tr>`).join("");
+    return `<div class="av-panel av-panel-b">${gates}<div class="av-hint" style="margin-top:6px">Tắt cả hai (hoặc bật Chạy đêm) thì máy tự làm hết: lấy/hạ SP (3 hướng) → cầm A → cầm B.</div></div>${anchor}
+      <div class="av-panel"><div class="av-panel-h"><h2>Clip theo SKU</h2><span class="av-hint">Lấy SP = video hạ SP chạy ngược, nên chỉ cần duyệt 3 clip hạ.</span></div><div class="av-tw"><table><thead><tr><th>SKU</th><th>Master</th><th>Trạng thái</th><th>Clip</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="5" class="av-empty">Chưa có SKU nào qua bước chọn ảnh.</td></tr>'}</tbody></table></div></div>`;
+  }
+  /* step 4: tron & xuat */
+  function stepMix() {
+    const p = S.p; const ready = S.items.filter((i) => i.stage === "ready" || i.stage === "done");
+    const mode = S.mixMode || p.mix_mode || "mix";
+    return `<div class="av-panel"><div class="av-panel-h"><h2>Trộn video</h2><div class="av-seg" id="av-mixmode">${[["mix", "Nói + cầm SP"], ["hold", "Chỉ cầm SP"], ["talk", "Chỉ nói"]].map(([k, l]) => `<button data-m="${k}" class="${mode === k ? "on" : ""}">${l}</button>`).join("")}</div></div>
+      <div class="av-panel-b"><div class="av-grid2"><label class="av-f">Số bản khác nhau / SKU<input type="number" id="mx-n" min="1" max="20" value="${p.mix_variants || 5}"></label><label class="av-f">Độ dài (giây, để trống = theo audio từng SKU)<input type="number" id="mx-d" min="10" max="600" placeholder="${p.audio_seconds || 72}"></label><label class="av-f">Tên lô xuất (thư mục)<input type="text" id="mx-b" value="${esc(S.mixBatch || (ready[0] && ready[0].batch) || "lo1")}"></label></div>
+      <div class="av-hint" style="margin:8px 0">Luật: mỗi bản một thứ tự khác · không lặp 1 clip 2 lần liền · đoạn cầm SP luôn là Lấy lên → Cầm → Hạ xuống (đổi hướng) · clip cuối cắt vừa độ dài. Có file audio thì ghép luôn tiếng.</div>
+      <div class="av-tw"><table><thead><tr><th><input type="checkbox" id="mx-all" aria-label="Chọn tất cả"></th><th>SKU</th><th>Lô</th><th>Độ dài</th><th>Trạng thái</th></tr></thead><tbody>
+      ${ready.map((i) => `<tr><td><input type="checkbox" data-mx="${esc(i.name)}" ${S.mixSel.has(i.name) ? "checked" : ""}></td><td><b>${esc(i.sku)}</b></td><td>${esc(i.batch || "")}</td><td>${i.audio_seconds || p.audio_seconds || 72}s${i.audio_file ? " · audio" : ""}</td><td>${pill(i)}</td></tr>`).join("") || '<tr><td colspan="5" class="av-empty">Chưa SKU nào đủ clip.</td></tr>'}</tbody></table></div>
+      <div class="av-row" style="margin-top:12px;justify-content:flex-end"><button class="av-gold" id="av-mix" ${S.mixSel.size || mode === "talk" ? "" : "disabled"}>Trộn & xuất</button></div></div></div>
+      <div class="av-panel"><div class="av-panel-h"><h2>Kết quả</h2><span class="av-hint">Video nằm sẵn trên laptop: C:\\n8n-files\\ecv6\\output\\&lt;brand&gt;\\&lt;lô&gt;\\ — ZIP ở ecv6\\exports.</span></div><div class="av-tw"><table><thead><tr><th>Lúc</th><th>Lô</th><th>Kiểu</th><th>Bản</th><th>Trạng thái</th><th>Tải</th></tr></thead><tbody>
+      ${S.exports.map((e) => `<tr><td class="av-hint">${esc(String(e.creation).slice(5, 16))}</td><td>${esc(e.batch)}</td><td>${esc(e.mode)}</td><td>${e.variants}/SKU · ${e.duration}s</td><td>${e.status === "running" ? '<span class="av-pill p-run">Đang trộn…</span>' : /^done/.test(e.status) ? `<span class="av-pill p-ok">${esc(e.status)}</span>` : `<span class="av-pill p-bad">${esc(e.status)}</span>`}</td>
+        <td><div class="av-units">${e.zip_url ? `<a class="av-btn sm pri" href="${esc(e.zip_url)}">ZIP cả lô</a>` : ""}${(e.files || []).slice(0, 12).map((f) => `<button class="av-unit" data-video="${esc(f.url)}">▶ ${esc(f.name.replace(/\.mp4$/, ""))}</button>`).join("")}${(e.files || []).length > 12 ? `<span class="av-hint">+${e.files.length - 12}</span>` : ""}</div></td></tr>`).join("") || '<tr><td colspan="6" class="av-empty">Chưa xuất lần nào.</td></tr>'}</tbody></table></div></div>`;
+  }
+  /* step 5: prompt */
+  const PROMPT_KEYS = [["anchor_image", "Ảnh khung neo (2 tay trên bàn)"], ["talk", "Clip nói (MC, không SP)"], ["putdown", "Clip hạ SP (DIR_TEXT = hướng, DURATION = số giây)"], ["hold_suffix", "Đuôi thêm vào clip cầm (khoá vòng lặp)"], ["hold_generic", "Clip cầm - mẫu chung (khi SKU không có prompt riêng)"]];
+  function stepPrompt() { return `<div class="av-panel"><div class="av-panel-h"><h2>Prompt dùng chung</h2><span class="av-hint" id="pr-ver"></span></div><div class="av-panel-b" id="pr-body"><div class="av-skel"></div></div></div>
+    <div class="av-callout"><div>Prompt clip cầm của từng SKU lấy theo <b>kiểu cầm</b> (thư viện 12 nhóm trong n8n). Sửa ở đây áp cho mọi lần tạo <b>sau</b> khi lưu; clip đã tạo không đổi. Mỗi lần lưu giữ lại bản cũ. Muốn đổi hàng loạt theo ý (vd "cử chỉ mạnh hơn") thì gửi yêu cầu cho Claude để sửa một lần cho chuẩn.</div></div>`; }
+  async function loadPrompts() {
+    const r = await call("prompts_get", {}, "GET"); const b = $("pr-body"); if (!b) return;
+    if (!r.success) { b.innerHTML = `<div class="av-callout bad">${esc(r.message)}</div>`; return; }
+    const P = r.data.prompts || {}; S.prompts = P; $("pr-ver").textContent = "Phiên bản " + (P.version || 1) + " · " + (r.data.history || []).length + " bản cũ";
+    const dirs = P.putdown_dir || {};
+    b.innerHTML = PROMPT_KEYS.map(([k, l]) => `<label class="av-f" style="margin-bottom:12px">${esc(l)}<textarea data-pk="${k}">${esc(P[k] || "")}</textarea></label>`).join("")
+      + `<div class="av-grid2">${["left", "right", "below"].map((d) => `<label class="av-f">Hướng ${({ left: "trái", right: "phải", below: "dưới" })[d]}<input type="text" data-pd="${d}" value="${esc(dirs[d] || "")}"></label>`).join("")}</div>
+      <div class="av-row" style="justify-content:flex-end;margin-top:12px"><button class="av-btn pri" id="pr-save">Lưu prompt</button></div>`;
+  }
+
+  /* ---------- events ---------- */
+  const root = () => $("ec-aiv-root");
+  document.addEventListener("click", async (e) => {
+    const t = e.target.closest ? e.target.closest("button, img[data-media], [data-close]") : null;
+    if (!t || !root().contains(t)) return;
+    if (t.id === "av-modal" || t.hasAttribute("data-close")) return closeModal();
+    if (t.dataset.media) return showMedia(t.dataset.media, "img");
+    if (t.dataset.video) return showMedia(t.dataset.video, "video");
+    if (t.dataset.brand != null && t.classList.contains("av-chip")) { S.brand = t.dataset.brand; return renderHub(true); }
+    if (t.id === "av-new") return newProjectForm();
+    if (t.id === "np-save") return saveProject(t.dataset.name);
+    if (t.id === "pj-settings") return newProjectForm(S.p);
+    if (t.dataset.step) { S.step = t.dataset.step; history.replaceState(null, "", "#/p/" + encodeURIComponent(S.p.name) + "/" + S.step); return renderProject(); }
+    const P = S.p && S.p.name;
+    if (t.id === "av-add") { const last = S.drafts[S.drafts.length - 1] || S.items[S.items.length - 1] || {}; S.drafts.push({ batch: last.batch || "lo1", sku: "", product_name: "", product_type: "", product_category: "", width_cm: "", height_cm: "", depth_cm: "", size_pct: "", audio_seconds: "" }); return renderProject(); }
+    if (t.dataset.ddel != null) { S.drafts.splice(+t.dataset.ddel, 1); return renderProject(); }
+    if (t.id === "av-save-drafts") {
+      const bad = S.drafts.find((d) => !d.sku || !d.product_image); if (bad) return toast("Mỗi dòng cần SKU và ảnh chính diện", true);
+      const rows = S.drafts.map((d) => { const o = {}; Object.keys(d).forEach((k) => { if (d[k] !== "") o[k] = /_cm$|size_pct|audio_seconds/.test(k) ? +d[k] : d[k]; }); return o; });
+      const r = await act("add_items", { project: P, rows: JSON.stringify(rows) }, "Đã lưu " + rows.length + " SKU"); if (r) { (r.items || []).forEach((n) => S.sel.add(n)); S.drafts = []; loadProject(P); } return;
+    }
+    if (t.id === "av-start") { const names = [...S.sel].filter((n) => S.items.some((i) => i.name === n)); const r = await act("start_holds", { project: P, names: JSON.stringify(names) }, "Đã gửi tạo ảnh cầm"); if (r) { S.sel.clear(); S.step = "pick"; loadProject(P, true); } return; }
+    if (t.dataset.del) { if (!confirm("Xoá SKU này?")) return; if (await act("delete_item", { name: t.dataset.del }, "Đã xoá")) loadProject(P); return; }
+    if (t.dataset.pick) { if (await act("pick", { name: t.dataset.pick, candidate: t.dataset.c }, "Đã chọn - đang làm ảnh master")) loadProject(P, true); return; }
+    if (t.dataset.regenHolds) { const n = t.dataset.regenHolds; const d = { width_cm: +$("rg-w-" + n).value || null, height_cm: +$("rg-h-" + n).value || null, size_pct: +$("rg-p-" + n).value || null, notes: $("rg-n-" + n).value };
+      if (await act("regen_holds", { name: n, data: JSON.stringify(d) }, "Đang gen lại 2 ảnh")) loadProject(P, true); return; }
+    if (t.dataset.retry) { if (await act("retry", { name: t.dataset.retry }, "Đã cho chạy lại")) loadProject(P, true); return; }
+    if (t.dataset.approve) { if (await act("approve", { name: t.dataset.approve }, "Đã duyệt - làm bước tiếp")) loadProject(P, true); return; }
+    if (t.dataset.regenClip) { if (!confirm("Xoá clip hiện tại và gen lại?")) return; if (await act("regen_clip", { name: t.dataset.regenClip }, "Đang gen lại")) loadProject(P, true); return; }
+    if (t.id === "av-regen-anchor" || t.id === "av-regen-anchor2") { if (!confirm("Tạo lại khung neo? Clip đã làm từ khung neo cũ nên gen lại để khớp.")) return; if (await act("regen_anchor", { project: P }, "Đang tạo lại khung neo")) loadProject(P, true); return; }
+    if (t.dataset.regenTalk) { if (!confirm("Xoá clip nói này để gen lại?")) return; if (await act("regen_talk", { project: P, ids: JSON.stringify([t.dataset.regenTalk]) }, "Sẽ gen lại ở lần đồng bộ tới")) loadProject(P, true); return; }
+    if (t.dataset.m) { S.mixMode = t.dataset.m; return renderProject(); }
+    if (t.id === "av-mix") { const d = { mode: S.mixMode || S.p.mix_mode || "mix", variants: +$("mx-n").value || 5, duration: +$("mx-d").value || null, batch: $("mx-b").value.trim() || "lo1", items: [...S.mixSel] };
+      S.mixBatch = d.batch; const r = await act("mix", { project: P, data: JSON.stringify(d) }, "Đang trộn - xem bảng Kết quả"); if (r) { S.mixSel.clear(); loadProject(P, true); } return; }
+    if (t.id === "pr-save") { const d = {}; root().querySelectorAll("[data-pk]").forEach((x) => { d[x.dataset.pk] = x.value; }); d.putdown_dir = {}; root().querySelectorAll("[data-pd]").forEach((x) => { d.putdown_dir[x.dataset.pd] = x.value; });
+      const r = await act("prompts_set", { data: JSON.stringify(d) }, "Đã lưu prompt"); if (r) loadPrompts(); return; }
+  });
+  $("av-modal").addEventListener("click", (e) => { if (e.target.id === "av-modal") closeModal(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("av-modal").hidden) closeModal(); });
+  document.addEventListener("change", async (e) => {
+    const t = e.target; if (!t.closest || !root().contains(t)) return;
+    if (t.dataset.sel) { t.checked ? S.sel.add(t.dataset.sel) : S.sel.delete(t.dataset.sel); const b = $("av-start"); const n = S.items.filter((i) => S.sel.has(i.name)).length; b.textContent = "Tạo ảnh cầm cho " + n + " SKU"; b.disabled = !n; return; }
+    if (t.id === "av-selall") { S.items.forEach((i) => { if (i.stage === "new" || i.stage_state === "error") t.checked ? S.sel.add(i.name) : S.sel.delete(i.name); }); return renderProject(); }
+    if (t.dataset.mx) { t.checked ? S.mixSel.add(t.dataset.mx) : S.mixSel.delete(t.dataset.mx); $("av-mix").disabled = !S.mixSel.size && (S.mixMode || S.p.mix_mode) !== "talk"; return; }
+    if (t.id === "mx-all") { S.items.forEach((i) => { if (i.stage === "ready" || i.stage === "done") t.checked ? S.mixSel.add(i.name) : S.mixSel.delete(i.name); }); return renderProject(); }
+    if (t.dataset.dk) { const k = +t.closest("[data-draft]").dataset.draft; S.drafts[k][t.dataset.dk] = t.value; return; }
+    if (t.dataset.dfile && t.files && t.files[0]) { const k = +t.closest("[data-draft]").dataset.draft; toast("Đang tải file…"); try { S.drafts[k][t.dataset.dfile] = await upload(t.files[0]); renderProject(); } catch (err) { toast(err.message, true); } return; }
+    if (t.id === "np-host" && t.files && t.files[0]) { $("np-host-t").textContent = "Đang tải…"; try { S.newHost = await upload(t.files[0]); $("np-host-t").textContent = "✓ " + t.files[0].name; } catch (err) { $("np-host-t").textContent = err.message; } return; }
+    if (t.id === "pj-night" || t.id === "pj-gm" || t.id === "pj-ga") { const f = { "pj-night": "night_mode", "pj-gm": "gate_motion", "pj-ga": "gate_hold_a" }[t.id];
+      const r = await act("update_project", { name: S.p.name, data: JSON.stringify({ [f]: t.checked ? 1 : 0 }) }, t.checked ? "Đã bật" : "Đã tắt"); if (r) loadProject(S.p.name, true); }
+  });
+  document.addEventListener("input", (e) => { const t = e.target; if (t.dataset && t.dataset.dk && t.closest("[data-draft]")) S.drafts[+t.closest("[data-draft]").dataset.draft][t.dataset.dk] = t.value; });
+  load();
+})();
+</script>
