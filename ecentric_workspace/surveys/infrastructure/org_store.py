@@ -67,3 +67,34 @@ def enqueue(method, **kwargs):
 
 def log_error(title):
     frappe.log_error(frappe.get_traceback(), title)
+
+
+def publish_realtime(user, event, payload):
+    frappe.publish_realtime(event, payload, user=user, after_commit=True)
+
+
+def commit():
+    frappe.db.commit()      # job moi phut: chot tung khao sat, loi o khao sat sau khong keo lui
+
+
+def rollback():
+    frappe.db.rollback()
+
+
+def site_flag(key):
+    try:
+        return bool(int(frappe.conf.get(key) or 0))
+    except (TypeError, ValueError):
+        return False
+
+
+def cache_get(key):
+    return frappe.cache().get_value(key)
+
+
+def cache_set(key, value, ttl):
+    frappe.cache().set_value(key, value, expires_in_sec=ttl)
+
+
+def cache_delete(key):
+    frappe.cache().delete_value(key)

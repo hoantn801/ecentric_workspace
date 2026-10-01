@@ -219,6 +219,12 @@ scheduler_events["cron"].setdefault("0 9,18 * * *", []).append(
 scheduler_events["cron"].setdefault("0 9 * * *", []).append(
     "ecentric_workspace.pm.api.schedule.nudge_unanswered_invites")
 
+# Khao sat (01/10/2026): quay so may man / dua ve dich THEO GIO HEN - bao truoc 5 phut va chot
+# ket qua dung gio. Mot truy van co chi muc tren draw_scheduled_at, gan nhu luon rong.
+# Tat khan cap: site_config ec_survey_draw_disabled: 1.
+scheduler_events["cron"].setdefault("*/1 * * * *", []).append(
+    "ecentric_workspace.surveys.application.draw_service.tick")
+
 # Permissions
 # -----------
 # PM v2 scopes every query in the SERVICE LAYER (ecentric_workspace.pm.api.*). That covers

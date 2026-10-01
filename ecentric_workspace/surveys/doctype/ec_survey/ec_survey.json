@@ -46,6 +46,11 @@
   "reward_note",
   "prizes",
   "lucky_seq",
+  "number_range",
+  "draw_scheduled_at",
+  "draw_notified_at",
+  "draw_results",
+  "wheel_plan",
   "draw_at",
   "section_form",
   "form_json",
@@ -212,7 +217,7 @@
    "fieldname": "reward_mode",
    "fieldtype": "Select",
    "label": "Kiểu phần thưởng",
-   "options": "none\nwheel\nlucky_number",
+   "options": "none\nwheel\nlucky_number\nrace",
    "default": "none",
    "reqd": 1
   },
@@ -242,9 +247,43 @@
    "read_only": 1
   },
   {
+   "fieldname": "number_range",
+   "fieldtype": "Int",
+   "label": "Dải số may mắn (1..N)",
+   "default": "100",
+   "description": "Số may mắn: mỗi người chọn một số trong 1..N, không trùng."
+  },
+  {
+   "fieldname": "draw_scheduled_at",
+   "fieldtype": "Datetime",
+   "label": "Giờ quay",
+   "description": "Số may mắn / Đua về đích: popup trang chủ tự chạy đúng giờ này, báo trước 5 phút.",
+   "search_index": 1
+  },
+  {
+   "fieldname": "draw_notified_at",
+   "fieldtype": "Datetime",
+   "label": "Đã báo trước lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "draw_results",
+   "fieldtype": "Long Text",
+   "label": "Kết quả quay (JSON)",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "wheel_plan",
+   "fieldtype": "Long Text",
+   "label": "Kế hoạch vòng quay (bí mật)",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
    "fieldname": "draw_at",
    "fieldtype": "Datetime",
-   "label": "Quay số lần cuối",
+   "label": "Đã quay lúc",
    "read_only": 1
   },
   {
@@ -285,5 +324,6 @@
  "index_web_pages_for_search": 0,
  "title_field": "title",
  "show_title_field_in_link": 1,
- "search_fields": "title"
+ "search_fields": "title",
+ "modified": "2026-10-01 18:30:00.000000"
 }

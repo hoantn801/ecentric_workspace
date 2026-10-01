@@ -24,6 +24,7 @@
   "prize",
   "prize_label",
   "rewarded_at",
+  "spin_seq",
   "reminded_at"
  ],
  "fields": [
@@ -86,6 +87,13 @@
    "label": "Trao lúc"
   },
   {
+   "fieldname": "spin_seq",
+   "fieldtype": "Int",
+   "label": "Lượt quay thứ",
+   "read_only": 1,
+   "description": "Vòng quay chia đợt: người này quay ở lượt thứ mấy."
+  },
+  {
    "fieldname": "reminded_at",
    "fieldtype": "Datetime",
    "label": "Nhắc lần cuối"
@@ -106,5 +114,6 @@
   }
  ],
  "links": [],
- "index_web_pages_for_search": 0
+ "index_web_pages_for_search": 0,
+ "modified": "2026-10-01 18:30:00.000000"
 }

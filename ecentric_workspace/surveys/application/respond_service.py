@@ -70,12 +70,13 @@ def get_form(ctx, name, preview=False, repo=default_repo):
         "name": name, "title": survey.get("title"), "description": survey.get("description") or "",
         "settings": {k: view.settings(survey)[k] for k in (
             "accent_color", "anonymous", "allow_edit", "show_progress", "shuffle_questions",
-            "is_quiz", "close_at", "open_at", "reward_mode", "reward_note", "show_summary")},
+            "is_quiz", "close_at", "open_at", "reward_mode", "reward_note", "show_summary",
+            "draw_scheduled_at", "number_range")},
         "effective": view.effective(repo, survey), "form": view.public_form(view.form_of(survey)),
         "eligible": eligible, "preview": bool(preview), "can_manage": manage,
         "prizes": [{"id": p["id"], "label": p["label"], "color": p["color"]} for p in view.prizes(survey)],
         "submitted": bool(part), "my_answers": mine,
-        "reward": submit_reward.state(survey, part) if part else None,
+        "reward": submit_reward.state(repo, survey, part, ctx.user) if part else None,
     }
 
 
@@ -125,13 +126,13 @@ def submit(ctx, name, raw_answers, repo=default_repo):
         edited = False
     for url in A.file_urls(form, clean):
         repo.attach_file(repo.file_by_url(url)["name"], C.RESPONSE, resp_name)
-    return _after_submit(repo, survey, form, sc, part, edited)
+    return _after_submit(repo, repo.get_survey(name), form, sc, part, edited, ctx.user)
 
 
-def _after_submit(repo, survey, form, sc, part, edited):
+def _after_submit(repo, survey, form, sc, part, edited, user):
     out = {"submitted": True, "edited": edited,
            "message": survey.get("confirmation_message") or "Cảm ơn bạn đã trả lời khảo sát!",
-           "reward": submit_reward.state(survey, part) if part else None}
+           "reward": submit_reward.state(repo, survey, part, user) if part else None}
     if survey.get("is_quiz") and survey.get("show_score"):
         out["score"] = sc
     if survey.get("show_summary"):

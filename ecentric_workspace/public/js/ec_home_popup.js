@@ -20,6 +20,7 @@
 
   const API_GET = 'ecentric_workspace.home_today.api.get_today';
   const API_REACT = 'ecentric_workspace.home_today.api.toggle_reaction';
+  const API_DRAW = 'ecentric_workspace.surveys.controllers.api.draw_result';
   const HIDE_KEY = 'ec_home_today_hide';
   const ROOT = 'ech-pop';
   const DUR = 7000;
@@ -32,6 +33,8 @@
     ev: { g: ['#2C3DA6', '#141c52'], e: '📅', dots: ['#FFC000', '#8fa0ff', '#fff'] },
     hol: { g: ['#FFC000', '#f08a24'], e: '🎆', dots: ['#fff', '#EF7CAF', '#2C3DA6'] },
     ann: { g: ['#7c5cd6', '#2C3DA6'], e: '🏅', dots: ['#FFC000', '#fff', '#EF7CAF'] },
+    draw: { g: ['#7b3fe4', '#EF7CAF'], e: '🎰', dots: ['#FFC000', '#fff', '#8fa0ff'] },
+    race: { g: ['#0f9f75', '#0ea5e9'], e: '🛒', dots: ['#FFC000', '#fff', '#b8f5dd'] },
   };
 
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
@@ -184,8 +187,31 @@
     P + ' .nav:focus-visible{outline:3px solid var(--yellow)}',
     P + ' .ok{all:unset;cursor:pointer;background:var(--navy);color:#fff;font-weight:700;font-size:13px;padding:9px 18px;border-radius:9px}',
     P + ' .ok:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}',
+    // O "Quay so may man" (module Khao sat, 01/10): khung hieu ung + "Luot quay tiep theo".
+    // .stage la flex cot: khong co flex:none thi khung hieu ung bi ep lun va de len danh sach ben duoi.
+    P + ' .drw,' + P + ' .drsel,' + P + ' .upn,' + P + ' .drempty{flex:none}',
+    P + ' .drsel{display:flex;flex-wrap:wrap;gap:6px;padding:10px 20px 0}',
+    P + ' .drsel button{all:unset;cursor:pointer;border:1px solid var(--line);border-radius:999px;padding:3px 12px;font-size:12px;font-weight:700;color:var(--g600)}',
+    P + ' .drsel button[aria-pressed="true"]{background:var(--navy);border-color:var(--navy);color:#fff}',
+    P + ' .upn{border-top:1px solid var(--line);padding:12px 20px 16px;display:flex;flex-direction:column;gap:8px;background:var(--app-bg)}',
+    P + ' .upn-h{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center}',
+    P + ' .upn-h b{font-size:14px}',
+    P + ' .upn-h b span{display:inline-block;margin-left:6px;background:var(--navy-50);color:var(--navy);border-radius:999px;padding:0 8px;font-size:11.5px}',
+    P + ' .upn-i{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--uc);border-radius:12px;padding:7px 12px}',
+    P + ' .upn-d{border-radius:10px;background:var(--ub);color:var(--uc);display:flex;flex-direction:column;align-items:center;padding:3px 0;line-height:1.1}',
+    P + ' .upn-d b{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums}' + P + ' .upn-d small{font-size:10px;font-weight:700;text-transform:uppercase}',
+    P + ' .upn-b{min-width:0;display:flex;flex-direction:column}',
+    P + ' .upn-b b{font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    P + ' .upn-b small{font-size:11.5px;font-weight:700;color:var(--uc)}',
+    P + ' .upn-r{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end;font-size:12.5px}',
+    P + ' .upn-r .ok{all:unset;color:#047857}' + P + ' .upn-r .todo{color:#b3246a;font-weight:600}' + P + ' .upn-r .wait{color:var(--g500)}',
+    P + ' .upn-r a{all:unset;cursor:pointer;border:1px solid var(--line);border-radius:8px;padding:4px 10px;font-weight:700;font-size:12px;color:var(--navy);background:var(--surface)}',
+    P + ' .upn-r a:focus-visible{outline:3px solid var(--yellow)}',
+    P + ' .upn-left{font-size:11px;font-weight:700;color:var(--g600);background:var(--line);border-radius:999px;padding:2px 8px;white-space:nowrap}',
+    P + ' .drempty{padding:18px 20px;display:flex;flex-direction:column;gap:4px}',
     '@media (max-width:760px){',
     P + '{padding:10px 10px 92px}',
+    P + ' .upn-i{grid-template-columns:44px minmax(0,1fr)}' + P + ' .upn-r{grid-column:2;justify-content:flex-start}',
     P + ' .dbody{grid-template-columns:1fr;grid-template-rows:auto 1fr}',
     P + ' .thumbs{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line);padding:10px}',
     P + ' .th{flex:none;width:130px;height:64px}',
@@ -323,6 +349,17 @@
         body: () => hol.map((x) => '<div class="hol"><div class="dd"><b>' + esc(x.day) + '</b><small>' + esc(x.month) + '</small></div><div><div class="nm">' + esc(x.name) + '</div><div class="rl">'
           + esc(x.date_label + (x.days_off > 1 ? ' · nghỉ ' + x.days_off + ' ngày' : '')) + '</div></div><span class="left">' + (x.days_left ? 'còn ' + x.days_left + ' ngày' : 'hôm nay') + '</span></div>').join('') });
     }
+    const dr = d.draws || {};
+    const today = dr.draws || [];
+    if (today.length || dr.soon) {
+      const first = today[0];
+      const race = first ? first.mode === 'race' : (dr.upcoming || [])[0] && dr.upcoming[0].mode === 'race';
+      const sl = { k: race ? 'race' : 'draw', draw: true, t: race && today.length ? 'Đua về đích' : 'Quay số may mắn',
+        s: first ? first.title + ' · ' + hhmm(first.draw_at) : (dr.upcoming.length + ' lượt sắp tới'),
+        ct: today.length ? (today.some((x) => x.state !== 'done') ? 'live' : null) : dr.upcoming.length || null };
+      // Ngay co quay: o nay dung DAU (PO 01/10 - "dung dau slider trong ngay co quay so").
+      if (today.length) out.unshift(sl); else out.push(sl);
+    }
     if (ann.length) {
       const one = ann.length === 1;
       out.push({ k: 'ann', t: 'Kỷ niệm gắn bó', s: one ? ann[0].name + ' · ' + ann[0].years + ' năm' : ann.length + ' người', ct: ann.length, hs: 'Kỷ niệm gắn bó',
@@ -332,14 +369,70 @@
     return out;
   };
 
+  // ------------------------------------------------------------ quay so (Khao sat) ---------
+  const hhmm = (s) => String(s || '').slice(11, 16);
+  const ME = {
+    holding: (u) => ['ok', '✓ Bạn giữ số ' + u.my_number],
+    joined: () => ['ok', '✓ Bạn đã có xe'],
+    pick: () => ['todo', 'Đã nộp - chưa chọn số'],
+    not_submitted: (u) => ['todo', u.mode === 'race' ? 'Chưa nộp phiếu - chưa có xe' : 'Chưa nộp phiếu'],
+    not_open: (u) => ['wait', 'Mở phiếu từ ' + String(u.open_at || '').slice(8, 10) + '/' + String(u.open_at || '').slice(5, 7)],
+    closed: () => ['wait', 'Đã đóng phiếu'],
+  };
+  const upcomingHTML = (dr) => {
+    const list = dr.upcoming || [];
+    if (!list.length) return '';
+    return '<div class="upn"><div class="upn-h"><b>Lượt quay tiếp theo<span>' + list.length + '</span></b><span class="note">Nộp phiếu để có số / có xe trước giờ quay</span></div>'
+      + list.map((u) => {
+        const c = u.mode === 'race' ? ['#0f9f75', '#e7f8f1', 'Đua về đích'] : ['#7b3fe4', '#f1ebfd', 'Số may mắn'];
+        const me = (ME[u.me] || ME.closed)(u);
+        const cta = u.me === 'not_submitted' ? 'Nộp phiếu' : (u.me === 'pick' ? 'Chọn số' : '');
+        const left = u.days_left > 0 ? 'Còn ' + u.days_left + ' ngày' : 'Hôm nay';
+        return '<div class="upn-i" style="--uc:' + c[0] + ';--ub:' + c[1] + '"><div class="upn-d"><b>' + esc(String(u.draw_at).slice(8, 10)) + '</b><small>Th' + esc(String(u.draw_at).slice(5, 7)) + '</small></div>'
+          + '<div class="upn-b"><b>' + esc(u.title) + '</b><small>' + c[2] + ' · ' + esc(hhmm(u.draw_at)) + '</small></div>'
+          + '<div class="upn-r"><span class="' + me[0] + '">' + esc(me[1]) + '</span>' + (cta ? '<a href="' + esc(u.url) + '">' + cta + '</a>' : '') + '<span class="upn-left">' + left + '</span></div></div>';
+      }).join('') + '</div>';
+  };
+  const drawStageHTML = (st) => {
+    const dr = st.data.draws || {};
+    const today = dr.draws || [];
+    const pick = Math.min(st.drawPick || 0, Math.max(today.length - 1, 0));
+    let h = '';
+    if (today.length > 1) {
+      h += '<div class="drsel">' + today.map((x, i) => '<button type="button" data-drpick="' + i + '" aria-pressed="' + (i === pick) + '">' + esc(x.title) + ' · ' + esc(hhmm(x.draw_at)) + '</button>').join('') + '</div>';
+    }
+    h += today.length ? '<div class="drw" data-drmount></div>'
+      : '<div class="drempty"><span class="eyebrow">Quay số may mắn</span><b style="font-size:17px">Hôm nay chưa có lượt quay</b><span class="note">Các lượt sắp tới ở dưới - nộp phiếu sớm để có số / có xe.</span></div>';
+    return h + upcomingHTML(dr);
+  };
+  // Lay ban moi cua MOT luot quay (luc toi gio) - API nhe cua module Khao sat: chua chot thi tra
+  // ngay ban toi gian, khong tai lai ca popup (ca cong ty cung hoi trong vai phut dang quay).
+  const reloadDraw = (name) => {
+    const req = window.ecApi && window.ecApi.get ? window.ecApi.get(API_DRAW, { name })
+      : fetch('/api/method/' + API_DRAW + '?name=' + encodeURIComponent(name), { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))).then((j) => j && j.message);
+    return req.then((env) => {
+      const d = env && Object.prototype.hasOwnProperty.call(env, 'data') ? env.data : env;
+      return d && d.drawn ? d : null;
+    });
+  };
+  const mountDraw = (st) => {
+    const el = st.root.querySelector('[data-drmount]');
+    if (!el || !window.ECSvyDraw) return;
+    const today = (st.data.draws || {}).draws || [];
+    const d = today[Math.min(st.drawPick || 0, today.length - 1)];
+    window.ECSvyDraw.mount(el, d, { serverNow: st.data.draws.server_now, reload: reloadDraw });
+  };
+
   // ------------------------------------------------------------ popup --------------------
   const thumbHTML = (st, sl, n) => '<button type="button" class="th" role="tab" aria-selected="' + (n === st.i) + '" data-i="' + n + '">'
     + '<span class="img">' + cover(sl, false) + '</span>'
     + '<span class="tx"><span class="tt">' + esc(sl.t) + '</span><span class="ts">' + esc(sl.s) + '</span></span>'
-    + (sl.ct === 'soon' ? '<span class="ct soon">Mới</span>' : (sl.ct ? '<span class="ct">' + sl.ct + '</span>' : ''))
+    + (sl.ct === 'soon' ? '<span class="ct soon">Mới</span>' : sl.ct === 'live' ? '<span class="ct">● Hôm nay</span>' : (sl.ct ? '<span class="ct">' + sl.ct + '</span>' : ''))
     + '<span class="prog"><i></i></span></button>';
 
   const stageHTML = (st, sl) => {
+    if (sl.draw) return drawStageHTML(st);
     if (sl.poster) {
       const n = sl.poster;
       // Poster co duong dan -> bam anh di toi dung cho do (PO 01/10: "bam vao hinh cung nen vao cho
@@ -358,6 +451,10 @@
 
   const render = (st, focus) => {
     const sl = st.slides[st.i];
+    const prevMount = st.root.querySelector('[data-drmount]');
+    if (prevMount && window.ECSvyDraw) window.ECSvyDraw.unmount(prevMount);
+    // Dang o o quay so: khong tu chuyen o (dang dem nguoc / dang quay thi chuyen o la mat hieu ung).
+    if (sl.draw) st.manual = true;
     const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     st.root.innerHTML = '<div class="dlg' + (st.paused || st.manual || reduce ? ' paused' : '') + '" role="dialog" aria-modal="true" aria-labelledby="' + ROOT + '-title" tabindex="-1">'
       + '<div class="dh"><div class="t"><h2 id="' + ROOT + '-title">Hôm nay ở eCentric</h2><p>' + esc(st.data.date_label) + '</p></div><button type="button" class="x" data-close aria-label="Đóng">×</button></div>'
@@ -378,6 +475,7 @@
     // Nguoi dung ban phim / trinh doc man hinh: da vao trong popup thi DUNG tu chuyen o -
     // chuyen o = ve lai popup = mat focus dang dung.
     dlg.addEventListener('focusin', (e) => { if (e.target !== dlg) { st.manual = true; dlg.classList.add('paused'); } });
+    if (sl.draw) mountDraw(st);
     if (focus) dlg.focus();
   };
 
@@ -412,14 +510,29 @@
     }).catch((e) => { warn(e); btn.removeAttribute('aria-busy'); });
   };
 
-  const show = (data) => {
+  let current = null;
+  const show = (data, want) => {
     const slides = buildSlides(data);
-    if (!slides.length || document.getElementById(ROOT)) return null;
+    if (!slides.length) return null;
+    const di = slides.findIndex((x) => x.draw);
+    if (current && document.getElementById(ROOT)) {
+      // Popup dang mo (vi du toi T-5): cap nhat du lieu + nhay toi o quay so, khong mo popup thu hai.
+      current.data = data; current.slides = slides;
+      if (want === 'draw' && di >= 0) { current.i = di; current.drawPick = 0; }
+      current.i = Math.min(current.i, slides.length - 1);
+      render(current, false);
+      return current;
+    }
+    if (document.getElementById(ROOT)) return null;
     injectCss();
     const root = document.createElement('div');
     root.id = ROOT;
-    const st = { data, slides, root, i: 0, paused: false, manual: false, hide: !shouldShow(data), open: {}, prevFocus: document.activeElement };
+    const st = { data, slides, root, i: want === 'draw' && di >= 0 ? di : 0, paused: false, manual: false, hide: !shouldShow(data), open: {}, prevFocus: document.activeElement, drawPick: 0 };
+    current = st;
     const close = () => {
+      const m = root.querySelector('[data-drmount]');
+      if (m && window.ECSvyDraw) window.ECSvyDraw.unmount(m);
+      current = null;
       root.remove();
       document.removeEventListener('keydown', onKey, true);
       if (st.prevFocus && st.prevFocus.focus) { try { st.prevFocus.focus(); } catch (e) { /* bỏ qua */ } }
@@ -443,7 +556,8 @@
       if (st.pick && !e.target.closest('.rxadd')) { st.pick = null; const op = root.querySelector('.rxadd.open'); if (op) op.classList.remove('open'); }
       const t = e.target.closest('[data-i]'); if (t) { go(st, Number(t.dataset.i)); const f = root.querySelector('[data-i="' + st.i + '"]'); if (f) f.focus(); return; }
       const s = e.target.closest('[data-step]'); if (s) { go(st, st.i + Number(s.dataset.step)); return; }
-      const m = e.target.closest('[data-more]'); if (m) { st.open[m.dataset.more] = !st.open[m.dataset.more]; st.manual = true; render(st, false); }
+      const m = e.target.closest('[data-more]'); if (m) { st.open[m.dataset.more] = !st.open[m.dataset.more]; st.manual = true; render(st, false); return; }
+      const dp = e.target.closest('[data-drpick]'); if (dp) { st.drawPick = Number(dp.dataset.drpick); render(st, false); }
     });
     root.addEventListener('change', (e) => {
       if (!e.target.hasAttribute('data-hide')) return;
@@ -456,14 +570,38 @@
     return st;
   };
 
-  const load = (force) => {
+  // Luot quay HOM NAY chua toi T-5: hen gio tu mo popup dung luc (PO 01/10 "luc do se tu popup").
+  // Canh theo gio server; realtime `ec_survey_draw` (neu socket song) mo som hon/chinh xac hon.
+  const armed = {};
+  const arm = (data) => {
+    const dr = data && data.draws;
+    if (!dr || !dr.timers || !window.ECSvyDraw) return;
+    const skew = window.ECSvyDraw._parse(dr.server_now) - Date.now();
+    dr.timers.forEach((t) => {
+      if (armed[t.name]) return;
+      const wait = window.ECSvyDraw._parse(t.open_at) - (Date.now() + skew);
+      if (wait <= 0 || wait > 12 * 3600 * 1000) return;
+      armed[t.name] = setTimeout(() => { load(true, 'draw'); }, wait + 1500);
+    });
+  };
+  const listenRealtime = () => {
+    const rt = window.frappe && window.frappe.realtime;
+    const s = rt && rt.socket;
+    if (!s || s.__ecDrawBound) return;
+    s.__ecDrawBound = true;
+    s.on('ec_survey_draw', () => { load(true, 'draw'); });
+  };
+
+  const load = (force, want) => {
     const req = window.ecApi && window.ecApi.get
       ? window.ecApi.get(API_GET)
       : fetch('/api/method/' + API_GET, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
         .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))).then((j) => j && j.message);
     return req.then((data) => {
+      arm(data);
+      listenRealtime();
       if (!data || !data.has_content || (!force && !shouldShow(data))) return null;
-      return show(data);
+      return show(data, want);
     }, (e) => { warn(e); return null; });
   };
 
@@ -483,7 +621,7 @@
     load(true);
   });
 
-  window.EcHomePopup = { run, show, load, buildSlides, shouldShow, HIDE_KEY };
+  window.EcHomePopup = { run, show, load, buildSlides, shouldShow, HIDE_KEY, upcomingHTML };
   // Chỉ hiện sau khi trang đã vẽ xong và ổn định (không tranh lần vẽ đầu).
   const start = () => setTimeout(run, 400);
   if (document.readyState === 'complete') start();

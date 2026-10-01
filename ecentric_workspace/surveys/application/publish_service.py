@@ -7,7 +7,7 @@ commit) de nut "Phat hanh" khong phai cho vai tram lan ghi Notification Log.
 Moi nguoi mot khoa dedupe -> bam phat hanh lai / job chay lai khong bao trung.
 """
 from ecentric_workspace.surveys import constants as C
-from ecentric_workspace.surveys.application import access, view
+from ecentric_workspace.surveys.application import access, draw_feed, submit_reward, view
 from ecentric_workspace.surveys.domain import schema
 from ecentric_workspace.surveys.domain.errors import SurveyError
 from ecentric_workspace.surveys.infrastructure import repository as default_repo
@@ -26,9 +26,31 @@ def problems(repo, survey):
         out.append("Đối tượng đang chọn không có ai (kiểm tra danh sách loại trừ).")
     if survey.get("reward_mode") != C.REWARD_NONE and not any(p["quantity"] > 0 for p in view.prizes(survey)):
         out.append("Đã bật phần thưởng nhưng chưa nhập quà nào.")
+    out += draw_problems(repo, survey)
     close_at = repo.to_datetime(survey.get("close_at"))
     if close_at and close_at <= repo.now():
         out.append("Giờ đóng đã qua - chọn giờ đóng mới hoặc để trống.")
+    return out
+
+
+def draw_problems(repo, survey):
+    """Quay theo gio hen: phai co gio quay o tuong lai, sau gio mo; dai so du cho moi nguoi."""
+    if survey.get("reward_mode") not in C.SCHEDULED_MODES or survey.get("draw_at"):
+        return []
+    out = []
+    at = repo.to_datetime(survey.get("draw_scheduled_at"))
+    open_at = repo.to_datetime(survey.get("open_at"))
+    if not at:
+        out.append("Chưa chọn giờ quay (tab Phần thưởng).")
+    elif at <= repo.now():
+        out.append("Giờ quay đã qua - chọn giờ quay mới.")
+    elif open_at and at <= open_at:
+        out.append("Giờ quay phải sau giờ mở khảo sát.")
+    if survey.get("reward_mode") == C.REWARD_NUMBER:
+        n = len(access.eligible_set(repo, survey))
+        if view.number_top(survey) < n:
+            out.append("Dải số (1-%d) ít hơn số người tham gia (%d) - tăng dải số để ai cũng chọn được."
+                       % (view.number_top(survey), n))
     return out
 
 
@@ -45,6 +67,10 @@ def publish(ctx, name, repo=default_repo):
     if first:
         values.update({"published_at": repo.now(), "published_by": ctx.user})
     repo.update_survey(name, values)
+    if survey.get("reward_mode") == C.REWARD_WHEEL and not view.wheel_plan(survey):
+        submit_reward.make_plan(repo, repo.get_survey(name))
+    if survey.get("reward_mode") in C.SCHEDULED_MODES:
+        draw_feed.invalidate(repo)
     notified = bool(first and survey.get("notify_on_publish"))
     if notified:
         repo.enqueue(JOB, name=name, kind="open")

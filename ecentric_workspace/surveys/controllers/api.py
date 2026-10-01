@@ -13,9 +13,9 @@ se duoc commit.
 import frappe
 from frappe.utils import strip_html
 
-from ecentric_workspace.surveys.application import (builder_service, publish_service,
-                                                    respond_service, results_service,
-                                                    submit_reward)
+from ecentric_workspace.surveys.application import (builder_service, draw_feed, draw_service,
+                                                    publish_service, respond_service,
+                                                    results_service, submit_reward)
 from ecentric_workspace.surveys.application.access import Ctx
 from ecentric_workspace.surveys.domain.errors import AnswerErrors, SurveyError
 from ecentric_workspace.surveys.infrastructure import repository as repo
@@ -69,6 +69,28 @@ def submit(name, answers=None):
 @frappe.whitelist(methods=["POST"])
 def spin(name):
     return _run(lambda c: submit_reward.spin(c, name, repo))
+
+
+@frappe.whitelist(methods=["POST"])
+def pick_number(name, number=0):
+    return _run(lambda c: submit_reward.pick_number(c, name, number, repo))
+
+
+@frappe.whitelist(methods=["GET"])
+def number_board(name):
+    return _run(lambda c: submit_reward.board(c, name, repo))
+
+
+@frappe.whitelist(methods=["GET"])
+def home_draws():
+    """Quay so / dua ve dich cho popup trang chu (lam moi luc dang quay)."""
+    return _run(lambda c: draw_feed.for_user(c.user, repo))
+
+
+@frappe.whitelist(methods=["GET"])
+def draw_result(name):
+    """Mot luot quay (popup hoi trong luc cho chot ket qua)."""
+    return _run(lambda c: draw_feed.one(c.user, name, repo))
 
 
 @frappe.whitelist(methods=["GET"])
@@ -130,7 +152,7 @@ def remind(name):
 
 @frappe.whitelist(methods=["POST"])
 def draw(name):
-    return _run(lambda c: submit_reward.draw(c, name, repo))
+    return _run(lambda c: draw_service.draw_now(c, name, repo))
 
 
 # ------------------------------------------------------------------------- ket qua --

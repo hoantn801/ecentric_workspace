@@ -44,6 +44,15 @@ class FixedRng:
     def sample(self, pool, n):
         return list(pool)[:n]
 
+    def shuffle(self, seq):
+        seq.sort()
+
+    def randint(self, a, b):
+        return a
+
+    def choice(self, seq):
+        return seq[0]
+
 
 # ----------------------------------------------------------------------------- schema --
 class TestNormalize(unittest.TestCase):
@@ -292,38 +301,104 @@ class TestRewards(unittest.TestCase):
         return [{"id": "p%d" % i, "label": "P%d" % i, "quantity": q, "awarded": 0}
                 for i, q in enumerate(qty)]
 
-    def test_probability(self):
-        self.assertAlmostEqual(rewards.win_probability(self.prizes(3), 30, 0), 0.1)
-        self.assertEqual(rewards.win_probability(self.prizes(3), 30, 29), 1.0)
-        self.assertEqual(rewards.win_probability(self.prizes(3), 30, 99), 1.0)
-        self.assertEqual(rewards.win_probability([{"id": "p", "quantity": 1, "awarded": 1}], 5, 0), 0.0)
+    def test_windows_cover_every_spin_once(self):
+        self.assertEqual(rewards.windows(1, 100, 3), [(1, 33), (34, 66), (67, 100)])
+        self.assertEqual(rewards.windows(1, 2, 5), [(1, 1), (2, 2)])
+        for n, k in ((100, 3), (7, 7), (50, 4), (13, 5)):
+            seen = [x for a, b in rewards.windows(1, n, k) for x in range(a, b + 1)]
+            self.assertEqual(seen, list(range(1, n + 1)), (n, k))
 
-    def test_spin_win_and_lose(self):
-        won, prize, _p = rewards.spin(self.prizes(1, 3), 4, 0, FixedRng(0.5, 0.9))
-        self.assertTrue(won)
-        self.assertEqual(prize["id"], "p1")
-        won, prize, _p = rewards.spin(self.prizes(1), 10, 0, FixedRng(0.5))
-        self.assertFalse(won)
-
-    def test_exact_prize_count_when_turnout_matches(self):
-        """Mo phong 50 nguoi, 3 qua: luon phat DUNG 3, khong hon khong kem."""
+    def test_plan_one_prize_per_window(self):
+        """PO 01/10: 3 qua, 100 nguoi -> 1-33 mot qua, 34-66 mot qua, 67-100 mot qua."""
         import random
-        for seed in range(30):
-            rng = random.Random(seed)
-            prizes = self.prizes(3)
-            for i in range(50):
-                won, prize, _p = rewards.spin(prizes, 50, i, rng)
-                if won:
-                    prize["awarded"] += 1
-            self.assertEqual(prizes[0]["awarded"], 3, seed)
+        for seed in range(200):
+            slots = rewards.plan(self.prizes(1, 2), 100, 0, random.Random(seed))
+            self.assertEqual([(s["from"], s["to"]) for s in slots], [(1, 33), (34, 66), (67, 100)])
+            for s in slots:
+                self.assertTrue(s["from"] <= s["seq"] <= s["to"])
+            self.assertEqual(sorted(s["prize"] for s in slots), ["p0", "p1", "p1"])
 
-    def test_draw_no_repeat_winner(self):
-        res = rewards.draw(self.prizes(2, 2), ["d", "c", "b", "a"], FixedRng())
-        self.assertEqual(res, {"p0": ["a", "b"], "p1": ["c", "d"]})
-        self.assertEqual(rewards.draw(self.prizes(5), ["a"], FixedRng()), {"p0": ["a"]})
+    def test_first_three_cannot_take_everything(self):
+        import random
+        for seed in range(300):
+            slots = rewards.plan(self.prizes(3), 100, 0, random.Random(seed))
+            early = [rewards.spin_result(slots, q, self.prizes(3)) for q in (1, 2, 3)]
+            self.assertLessEqual(sum(1 for x in early if x), 1, seed)
+
+    def test_every_position_has_equal_odds(self):
+        """Ty le trung theo tung vi tri ~ K/E (3/99 = 1/33) - dau, giua, cuoi nhu nhau."""
+        import random
+        rng, hits, runs = random.Random(7), {1: 0, 50: 0, 99: 0}, 20000
+        for _ in range(runs):
+            slots = rewards.plan(self.prizes(3), 99, 0, rng)
+            for q in hits:
+                if rewards.spin_result(slots, q, self.prizes(3)):
+                    hits[q] += 1
+        for q, h in hits.items():
+            self.assertAlmostEqual(h / float(runs), 1 / 33.0, delta=0.006, msg=q)
+
+    def test_exact_count_and_leftover_dropped(self):
+        """Du nguoi -> phat DUNG so qua; it nguoi hon -> qua cua dot chua toi khong trao (PO "B")."""
+        import random
+        for seed in range(50):
+            prizes = self.prizes(3)
+            slots = rewards.plan(prizes, 60, 0, random.Random(seed))
+            for q in range(1, 61):
+                pid = rewards.spin_result(slots, q, prizes)
+                if pid:
+                    prizes[0]["awarded"] += 1
+            self.assertEqual(prizes[0]["awarded"], 3)
+            prizes = self.prizes(3)
+            for q in range(1, 30):              # 29 nguoi quay tren 60 du kien
+                if rewards.spin_result(slots, q, prizes):
+                    prizes[0]["awarded"] += 1
+            self.assertLessEqual(prizes[0]["awarded"], 2)
+
+    def test_replan_keeps_past_and_spreads_rest(self):
+        prizes = self.prizes(4)
+        prizes[0]["awarded"] = 1
+        slots = rewards.plan(prizes, 100, 40, FixedRng())
+        self.assertEqual([(s["from"], s["to"]) for s in slots], [(41, 60), (61, 80), (81, 100)])
+        self.assertEqual(rewards.plan(self.prizes(0), 100, 0, FixedRng()), [])
+
+    def test_spin_result_ignores_exhausted_prize(self):
+        slots = [{"from": 1, "to": 5, "seq": 3, "prize": "p0"}]
+        self.assertEqual(rewards.spin_result(slots, 3, self.prizes(1)), "p0")
+        self.assertIsNone(rewards.spin_result(slots, 2, self.prizes(1)))
+        done = self.prizes(1)
+        done[0]["awarded"] = 1
+        self.assertIsNone(rewards.spin_result(slots, 3, done))
+
+    def test_wave_info_hides_seq(self):
+        slots = [{"from": 1, "to": 33, "seq": 20, "prize": "p0"}, {"from": 34, "to": 66, "seq": 50, "prize": "p1"}]
+        w = rewards.wave_info(slots, 41, self.prizes(1, 1))
+        self.assertEqual(w["current"], 2)
+        self.assertEqual([x["state"] for x in w["waves"]], ["done", "open"])
+        self.assertNotIn("seq", w["waves"][0])
+
+    def test_lucky_draw_whole_range_and_empty_numbers(self):
+        rng = FixedRng()
+        res = rewards.lucky_draw(self.prizes(1, 2), {1: "a", 3: "c"}, 100, rng)
+        self.assertEqual([r["prize"] for r in res], ["p1", "p1", "p0"])       # giai nho truoc
+        self.assertEqual([r["rank"] for r in res], [2, 2, 1])
+        self.assertEqual([r["number"] for r in res], [1, 2, 3])
+        self.assertEqual([r["user"] for r in res], ["a", None, "c"])          # so 2 trong -> de lai
+        self.assertEqual(len(set(r["number"] for r in rewards.lucky_draw(self.prizes(50), {}, 30, rng))), 30)
+
+    def test_free_number(self):
+        self.assertEqual(rewards.free_number(3, {1, 2}, FixedRng()), 3)
+        self.assertIsNone(rewards.free_number(2, {1, 2}, FixedRng()))
+
+    def test_race_everyone_gets_a_cart(self):
+        r = rewards.race(self.prizes(1, 1), ["b", "a", "c", "a"], FixedRng())
+        self.assertEqual(sorted(r["order"]), ["a", "b", "c"])
+        self.assertEqual([(w["place"], w["rank"], w["user"]) for w in r["winners"]], [(1, 1, "a"), (2, 2, "b")])
+        self.assertEqual(rewards.race(self.prizes(5), ["a"], FixedRng())["winners"][0]["user"], "a")
 
     def test_format_number(self):
         self.assertEqual(rewards.format_number(7), "007")
+        self.assertEqual(rewards.format_number(7, 1000), "0007")
+        self.assertEqual(rewards.format_number(100, 100), "100")
 
 
 # ---------------------------------------------------------------------------- summary --

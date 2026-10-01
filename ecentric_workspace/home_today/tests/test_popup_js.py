@@ -21,6 +21,7 @@ from ecentric_workspace.shell.tests import test_home_source as H  # noqa: E402
 JS = os.path.join(APP, "public", "js", "ec_home_popup.js")
 HARNESS = os.path.join(HERE, "popup_harness.js")
 PAYLOAD = os.path.join(HERE, "sample_payload.json")
+DRAW = os.path.join(APP, "public", "surveys", "ec_survey_draw.js")
 
 
 class TestPopupInJsdom(unittest.TestCase):
@@ -41,7 +42,7 @@ class TestPopupInJsdom(unittest.TestCase):
                 fh.write(H.render(H._src(), cel={"level": 1, "badge": "x", "has_content": has}))
                 files.append(fh.name)
         try:
-            p = subprocess.run([node, HARNESS, files[0], files[1], JS, PAYLOAD], capture_output=True,
+            p = subprocess.run([node, HARNESS, files[0], files[1], JS, PAYLOAD, DRAW], capture_output=True,
                                text=True, cwd=HERE, timeout=120)
         finally:
             for f in files:
@@ -146,6 +147,27 @@ class TestPopupInJsdom(unittest.TestCase):
         self.assertEqual(x["imgs"], 0)
         self.assertTrue(x["escaped"])
         self.assertEqual(x["tiles"], ["Sinh nhật", "Sự kiện công ty"])
+
+    def test_draw_tile_first_with_countdown_and_upcoming(self):
+        d = self.r["draw"]
+        self.assertTrue(d["pop"], "luot quay dang dem nguoc la muc moi -> mo lai du da tich an hom nay")
+        self.assertEqual((d["firstTile"], d["badge"]), ("Quay số may mắn", "● Hôm nay"))
+        self.assertEqual((d["chip"], d["mine"]), ("Sắp quay · 10:00", "027"))
+        self.assertRegex(d["clock"] or "", r"^\d\d:\d\d$")
+        self.assertEqual(d["upcoming"], [["Pantry tháng 10", "✓ Bạn đã có xe", "Còn 2 ngày"],
+                                         ["Đào tạo Q3", "Chưa nộp phiếu", "Còn 8 ngày"]])
+        self.assertEqual(d["cta"], [["Nộp phiếu", "/khao-sat/lam?s=KS-3"]])
+        self.assertEqual(d["stillDraw"], "Quay số may mắn")
+
+    def test_draw_results_static_with_empty_number(self):
+        x = self.r["draw"]["done"]
+        self.assertEqual(x["chip"], "Đã quay xong")
+        self.assertEqual(x["nums"], ["012", "083"])
+        self.assertEqual(x["res"], ["MATrần Minh Anh", "Không ai giữ số này · quà để lại"])
+        self.assertTrue(x["replay"])
+
+    def test_popup_opens_itself_at_t_minus_5(self):
+        self.assertEqual(self.r["timer"], {"before": False, "after": True, "slide": "Quay số may mắn", "cta": "Chọn số"})
 
     def test_api_failure_is_silent(self):
         self.assertEqual(self.r["fail"]["pop"], False)

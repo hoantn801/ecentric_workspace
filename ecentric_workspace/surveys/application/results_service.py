@@ -30,14 +30,21 @@ def overview(ctx, name, repo=default_repo):
                        "max_score": scored[0]["max_score"] if scored else schema_max(form)}
     if survey.get("reward_mode") != C.REWARD_NONE:
         names = repo.user_names([p["user"] for p in parts if p.get("reward_result") == C.RESULT_WIN])
+        top = view.number_top(survey)
         out["reward"] = {
             "mode": survey.get("reward_mode"), "prizes": view.prizes(survey),
-            "spins": sum(1 for p in parts if p.get("reward_result")),
-            "numbers": sum(1 for p in parts if p.get("lucky_number")),
+            "spins": sum(1 for p in parts if p.get("spin_seq") or (survey.get("reward_mode") == C.REWARD_WHEEL
+                                                                    and p.get("reward_result"))),
+            "numbers": sum(1 for p in parts if p.get("lucky_number")), "number_range": top,
+            "racers": len(parts) if survey.get("reward_mode") == C.REWARD_RACE else 0,
+            "draw_scheduled_at": view.dt(survey.get("draw_scheduled_at")),
             "draw_at": view.dt(survey.get("draw_at")),
+            "empty_numbers": [rewards.format_number(i["number"], top)
+                              for i in (view.draw_results(survey) or {}).get("items", []) if not i.get("user")]
+            if isinstance(view.draw_results(survey), dict) else [],
             "winners": [{"name": names.get(p["user"], p["user"]), "user": p["user"],
                          "prize": p.get("prize_label") or "",
-                         "lucky_number": rewards.format_number(p["lucky_number"]) if p.get("lucky_number") else "",
+                         "lucky_number": rewards.format_number(p["lucky_number"], top) if p.get("lucky_number") else "",
                          "at": view.dt(p.get("rewarded_at"))}
                         for p in parts if p.get("reward_result") == C.RESULT_WIN]}
     return out

@@ -30,12 +30,18 @@
     function rewardCard() {
       var r = R.ov.reward;
       if (!r) return "";
-      var left = r.prizes.reduce(function (a, p) { return a + Math.max(p.quantity - p.awarded, 0); }, 0);
-      var h = '<section class="svy-panel svy-pad"><div class="svy-row between"><div><div class="svy-eyebrow">Phần thưởng · ' + (r.mode === "wheel" ? "Vòng quay" : "Con số may mắn") + "</div>" +
+      var MODE = { wheel: "Vòng quay chia đợt", lucky_number: "Số may mắn", race: "Đua về đích" };
+      var sched = r.mode === "lucky_number" || r.mode === "race";
+      var stat = r.mode === "wheel" ? r.spins + " lượt đã quay"
+        : r.mode === "lucky_number" ? r.numbers + "/" + r.number_range + " số đã có người giữ" : r.racers + " xe";
+      if (sched) stat += r.draw_at ? " · đã " + (r.mode === "race" ? "đua" : "quay") + " lúc " + esc(S.fmtDt(r.draw_at))
+        : r.draw_scheduled_at ? " · hẹn " + esc(S.fmtDt(r.draw_scheduled_at)) + " trên trang chủ" : " · chưa đặt giờ";
+      var h = '<section class="svy-panel svy-pad"><div class="svy-row between"><div><div class="svy-eyebrow">Phần thưởng · ' + (MODE[r.mode] || "") + "</div>" +
         '<div style="font-weight:600">' + r.prizes.map(function (p) { return esc(p.label) + " " + p.awarded + "/" + p.quantity; }).join(" · ") + "</div>" +
-        '<div class="svy-small svy-muted">' + (r.mode === "wheel" ? r.spins + " lượt đã quay" : r.numbers + " số đã cấp" + (r.draw_at ? " · quay số lần cuối " + esc(S.fmtDt(r.draw_at)) : "")) + "</div></div>";
-      if (r.mode === "lucky_number") h += '<button class="svy-b gold" data-ract="draw"' + (left && r.numbers ? "" : " disabled") + ">" + S.icon("gift") + (r.draw_at ? "Quay tiếp quà còn lại" : "Quay số") + "</button>";
+        '<div class="svy-small svy-muted">' + stat + "</div></div>";
+      if (sched && !r.draw_at) h += '<button class="svy-b gold" data-ract="draw">' + S.icon("gift") + (r.mode === "race" ? "Đua ngay" : "Quay ngay") + "</button>";
       h += "</div>";
+      if (r.empty_numbers && r.empty_numbers.length) h += '<div class="svy-small svy-muted" style="margin-top:8px">Số không ai giữ (quà để lại): <b>' + r.empty_numbers.map(esc).join(", ") + "</b></div>";
       if (r.winners.length) {
         h += '<div class="svy-board" style="margin-top:10px">' + r.winners.map(function (w) {
           return '<div class="it"><span class="svy-av">' + esc(S.initials(w.name)) + '</span><div class="svy-grow"><b>' + esc(w.name) + '</b><div class="svy-small svy-muted">' + esc(w.user) +
@@ -139,14 +145,11 @@
             function (err) { S.busy(b, false); S.toast(err.svyMessage, true); });
         });
       } else if (act === "draw") {
-        S.confirm("Quay số may mắn?", "Hệ thống rút ngẫu nhiên người trúng cho mọi phần quà còn lại, rồi báo cho người trúng qua chuông ERP. Không hoàn tác được.", "Quay số").then(function (ok) {
+        S.confirm("Quay ngay, không chờ giờ hẹn?", "Kết quả được chốt ngay và báo cho người trúng; popup trang chủ hôm nay hiện kết quả. Không hoàn tác được.", "Quay ngay").then(function (ok) {
           if (!ok) return;
           S.busy(b, true);
-          S.api("draw", { name: B.name }, true).then(function (r) {
-            var names = r.winners.map(function (w) { return w.name + " (số " + w.lucky_number + ") - " + w.prize; }).join("\n");
-            S.modal('<h3>🎉 Kết quả quay số</h3><div style="white-space:pre-line;font-size:15px">' + esc(names) + '</div><div class="svy-row" style="justify-content:flex-end"><button class="svy-b pri" data-close>Xong</button></div>');
-            load();
-          }, function (err) { S.busy(b, false); S.toast(err.svyMessage, true); });
+          S.api("draw", { name: B.name }, true).then(function () { S.toast("Đã chốt kết quả."); load(); },
+            function (err) { S.busy(b, false); S.toast(err.svyMessage, true); });
         });
       }
     };

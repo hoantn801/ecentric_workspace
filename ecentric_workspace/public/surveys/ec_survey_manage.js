@@ -8,7 +8,7 @@
   if (!root || root.getAttribute("data-page") !== "manage") return;
   var st = { data: null, filter: "all", q: "" };
   var LABEL = { draft: ["Nháp", "mute"], scheduled: ["Sắp mở", "warn"], open: ["Đang mở", "ok"], closed: ["Đã đóng", "bad"] };
-  var REWARD = { wheel: "Vòng quay", lucky_number: "Số may mắn" };
+  var REWARD = { wheel: "Vòng quay", lucky_number: "Số may mắn", race: "Đua về đích" };
 
   function builder(name, tab) { return "/khao-sat/soan?s=" + encodeURIComponent(name) + (tab ? "&tab=" + tab : ""); }
 

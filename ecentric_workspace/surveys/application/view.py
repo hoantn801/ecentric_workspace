@@ -13,15 +13,16 @@ SETTINGS_FIELDS = ("title", "description", "accent_color", "open_at", "close_at"
                    "allow_edit", "show_progress", "shuffle_questions", "show_summary",
                    "response_limit", "is_quiz", "show_score", "notify_on_publish",
                    "confirmation_message", "audience_mode", "reward_mode", "wheel_expected",
-                   "reward_note")
+                   "reward_note", "number_range", "draw_scheduled_at")
 CHECK_FIELDS = ("anonymous", "allow_edit", "show_progress", "shuffle_questions", "show_summary",
                 "is_quiz", "show_score", "notify_on_publish")
-INT_FIELDS = ("response_limit", "wheel_expected")
-DATETIME_FIELDS = ("open_at", "close_at")
+INT_FIELDS = ("response_limit", "wheel_expected", "number_range")
+DATETIME_FIELDS = ("open_at", "close_at", "draw_scheduled_at")
 #: Mac dinh khi tao moi - ghi tuong minh thay vi dua vao default cua DocType JSON, de mau /
 #: nhan ban / test cung ra mot ket qua.
 DEFAULTS = {"accent_color": "#2C3DA6", "show_progress": 1, "show_score": 1, "notify_on_publish": 1,
-            "audience_mode": C.AUDIENCE_ALL, "reward_mode": C.REWARD_NONE}
+            "audience_mode": C.AUDIENCE_ALL, "reward_mode": C.REWARD_NONE,
+            "number_range": C.NUMBER_RANGE_DEFAULT}
 
 
 def dt(v):
@@ -58,6 +59,27 @@ def prizes(survey):
             for p in survey.get("prizes") or []]
 
 
+def number_top(survey):
+    return int(survey.get("number_range") or 0) or C.NUMBER_RANGE_DEFAULT
+
+
+def draw_results(survey):
+    """Ket qua quay da luu (JSON) - [] neu chua quay. Chi doc o service, khong gui nguyen ban."""
+    try:
+        data = json.loads(survey.get("draw_results") or "[]")
+    except ValueError:
+        return []
+    return data if isinstance(data, (list, dict)) else []
+
+
+def wheel_plan(survey):
+    try:
+        data = json.loads(survey.get("wheel_plan") or "[]")
+    except ValueError:
+        return []
+    return data if isinstance(data, list) else []
+
+
 def settings(survey):
     out = {}
     for f in SETTINGS_FIELDS:
@@ -79,6 +101,7 @@ def card(repo, survey, extra=None):
          "close_at": dt(survey.get("close_at")), "anonymous": int(survey.get("anonymous") or 0),
          "is_quiz": int(survey.get("is_quiz") or 0), "reward_mode": survey.get("reward_mode") or C.REWARD_NONE,
          "accent_color": survey.get("accent_color") or "", "responses": int(survey.get("response_count") or 0),
+         "draw_scheduled_at": dt(survey.get("draw_scheduled_at")), "drawn": bool(survey.get("draw_at")),
          "questions": len(schema.questions(form)), "modified": dt(survey.get("modified")),
          "owner": survey.get("owner") or ""}
     d.update(extra or {})

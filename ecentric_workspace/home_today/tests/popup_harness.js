@@ -5,7 +5,7 @@
 const fs = require('fs');
 const { JSDOM } = require('jsdom');
 
-const [htmlOn, htmlOff, src, payloadRaw] = process.argv.slice(2).map((f, i) => fs.readFileSync(f, 'utf8'));
+const [htmlOn, htmlOff, src, payloadRaw, drawSrc] = process.argv.slice(2).map((f, i) => fs.readFileSync(f, 'utf8'));
 const out = {};
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -33,6 +33,7 @@ async function boot(html, opts) {
   };
   const before = skeleton(w.document);
   const bodyKids = w.document.body.children.length;
+  if (opts.draw) { w.HTMLCanvasElement.prototype.getContext = () => null; w.eval(drawSrc); }
   w.eval(src);
   await sleep(700);
   return { dom, w, d: w.document, calls, warns, before, bodyKids };
@@ -176,6 +177,55 @@ const txt = (el) => (el ? el.textContent.replace(/\s+/g, ' ').trim() : null);
     const b = await boot(htmlOn, { payload: p });
     const a = b.d.querySelector('#ech-pop .poster a.pimg');
     out.posterLink = { href: a.getAttribute('href'), target: a.getAttribute('target'), btn: txt(b.d.querySelector('#ech-pop .pbar a')) };
+  }
+  // 7) O "Quay so may man" (module Khao sat): dung dau, dem nguoc, luot quay tiep theo, ket qua
+  {
+    const p = JSON.parse(payloadRaw);
+    const day = p.date;
+    const draw = { name: 'KS-1', title: 'Year End Party', mode: 'lucky_number', state: 'countdown', draw_at: day + ' 10:00:00',
+      range: [1, 100], holders: 47, my_number: '027', joined: true, url: '/khao-sat/lam?s=KS-1', racers: [], results: [], racer_total: 0,
+      prizes: [{ rank: 1, label: 'Tai nghe', quantity: 1 }, { rank: 2, label: 'Trà sữa', quantity: 1 }] };
+    p.draws = { server_now: day + ' 09:57:00', soon: true, timers: [], draws: [draw], upcoming: [
+      { name: 'KS-2', title: 'Pantry tháng 10', mode: 'race', draw_at: '2026-10-09 15:00:00', days_left: 2, me: 'joined', url: '/khao-sat/lam?s=KS-2' },
+      { name: 'KS-3', title: 'Đào tạo Q3', mode: 'lucky_number', draw_at: '2026-10-15 16:30:00', days_left: 8, me: 'not_submitted', url: '/khao-sat/lam?s=KS-3' }] };
+    const oldKeys = p.keys.slice();
+    p.keys = oldKeys.concat(['draw:KS-1']);
+    const b = await boot(htmlOn, { payload: p, draw: true, storage: JSON.stringify({ d: p.date, k: oldKeys }) });
+    const pop = b.d.getElementById('ech-pop');
+    const o = { pop: !!pop };
+    o.firstTile = txt(pop.querySelector('.th[data-i="0"] .tt'));
+    o.badge = txt(pop.querySelector('.th[data-i="0"] .ct'));
+    o.chip = txt(pop.querySelector('.ecd-chip'));
+    o.mine = txt(pop.querySelector('.ecd-mine b'));
+    o.clock = txt(pop.querySelector('[data-ecd-clock]'));
+    o.upcoming = [...pop.querySelectorAll('.upn-i')].map((r) => [txt(r.querySelector('.upn-b b')), txt(r.querySelector('.upn-r span')), txt(r.querySelector('.upn-left'))]);
+    o.cta = [...pop.querySelectorAll('.upn-r a')].map((a) => [txt(a), a.getAttribute('href')]);
+    await sleep(7500);                                    // khong tu chuyen o khi dang o quay so
+    o.stillDraw = txt(pop.querySelector('.th[aria-selected="true"] .tt'));
+    // ket qua da chot (mo trang sau gio quay): so tinh + nguoi trung + so trong "qua de lai"
+    const done = Object.assign({}, draw, { state: 'done', results: [
+      { rank: 2, prize: 'Trà sữa', number: '012', name: 'Trần Minh Anh', is_me: false },
+      { rank: 1, prize: 'Tai nghe', number: '083', name: '', is_me: false }] });
+    b.w.ECSvyDraw.mount(pop.querySelector('[data-drmount]'), done, { serverNow: day + ' 11:00:00' });
+    o.done = { chip: txt(pop.querySelector('.ecd-chip')), nums: [...pop.querySelectorAll('.ecd-reels')].map(txt),
+      res: [...pop.querySelectorAll('.ecd-res')].map(txt), replay: !!pop.querySelector('[data-ecd-replay]') };
+    out.draw = o;
+  }
+  // 7b) Chua toi T-5 + da tich "khong hien hom nay": popup TU MO dung gio, nhay toi o quay so
+  {
+    const p = JSON.parse(payloadRaw);
+    const now = new Date(Date.now() + 2000);
+    const pad = (n) => String(n).padStart(2, '0');
+    const fmt = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+    const srv = new Date();
+    p.draws = { server_now: fmt(srv), soon: true, draws: [], timers: [{ name: 'KS-9', open_at: fmt(now), draw_at: fmt(new Date(now.getTime() + 300000)) }],
+      upcoming: [{ name: 'KS-9', title: 'Quay trưa nay', mode: 'lucky_number', draw_at: fmt(new Date(now.getTime() + 300000)), days_left: 0, me: 'pick', url: '/khao-sat/lam?s=KS-9' }] };
+    const b = await boot(htmlOn, { payload: p, draw: true, storage: JSON.stringify({ d: p.date, k: p.keys }) });
+    const before = !!b.d.getElementById('ech-pop');
+    await sleep(4200);
+    const pop = b.d.getElementById('ech-pop');
+    out.timer = { before, after: !!pop, slide: pop && txt(pop.querySelector('.th[aria-selected="true"] .tt')),
+      cta: pop && txt(pop.querySelector('.upn-r a')) };
   }
   // 6) API hong -> im lang (console), khong popup
   {

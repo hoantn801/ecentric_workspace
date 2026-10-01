@@ -51,8 +51,32 @@ TARGET_KINDS = (TARGET_DEPARTMENT, TARGET_USER, TARGET_EXCLUDE)
 # -------------------------------------------------------------------------- Phan thuong --
 REWARD_NONE = "none"
 REWARD_WHEEL = "wheel"                 # vong quay - ket qua ngay sau khi nop
-REWARD_NUMBER = "lucky_number"         # con so may man - quay so cuoi dot
-REWARD_MODES = (REWARD_NONE, REWARD_WHEEL, REWARD_NUMBER)
+REWARD_NUMBER = "lucky_number"         # con so may man - tu chon so, quay theo gio hen
+REWARD_RACE = "race"                   # dua ve dich - ai nop cung co xe, chay theo gio hen
+REWARD_MODES = (REWARD_NONE, REWARD_WHEEL, REWARD_NUMBER, REWARD_RACE)
+#: Kieu quay THEO GIO HEN: bao truoc, popup trang chu tu chay, ket qua giu ca ngay.
+SCHEDULED_MODES = (REWARD_NUMBER, REWARD_RACE)
+
+#: Lich quay (PO 01/10): bao + popup truoc 5 phut, "dang quay" 3 phut, ket qua hien toi het ngay.
+DRAW_NOTIFY_BEFORE_MIN = 5
+DRAW_LIVE_MIN = 3
+#: Bo qua bao truoc neu job tre qua muc nay (site sap / scheduler tat) - bao muon vo nghia.
+DRAW_NOTIFY_LATE_MIN = 10
+#: "Luot quay tiep theo" trong popup: lich trong 30 ngay toi; o popup hien khi co luot trong 7 ngay.
+DRAW_UPCOMING_DAYS = 30
+DRAW_TILE_DAYS = 7
+DRAW_UPCOMING_MAX = 8
+#: Dai so may man 1..N.
+NUMBER_RANGE_DEFAULT = 100
+NUMBER_RANGE_MIN = 10
+NUMBER_RANGE_MAX = 9999
+#: Toi da so lan hien trong cuoc dua (xe con lai gom vao "va N xe khac").
+RACE_LANES = 12
+REALTIME_DRAW = "ec_survey_draw"
+
+DRAW_COUNTDOWN = "countdown"
+DRAW_LIVE = "live"
+DRAW_DONE = "done"
 
 RESULT_NONE = ""
 RESULT_WIN = "Win"

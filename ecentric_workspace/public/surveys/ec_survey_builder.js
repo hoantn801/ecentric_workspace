@@ -223,15 +223,20 @@
 
   // --------------------------------------------------------------- phan thuong --
   function rewardTab() {
-    var s = B.settings, started = B.data.stats.reward_started;
-    var modes = [["none", "Không có quà", "Khảo sát bình thường."], ["wheel", "Vòng quay may mắn", "Nộp xong quay ngay, biết kết quả liền."], ["lucky_number", "Con số may mắn", "Nộp xong nhận số; cuối đợt bạn bấm quay số."]];
+    var s = B.settings, st = B.data.stats, started = st.reward_started, drawn = st.drawn;
+    var modes = [["none", "Không có quà", "Khảo sát bình thường."],
+                 ["wheel", "Vòng quay chia đợt", "Nộp xong quay ngay; quà rải đều theo thứ tự quay."],
+                 ["lucky_number", "Số may mắn", "Mỗi người chọn 1 số; quay trực tiếp trên trang chủ theo giờ hẹn."],
+                 ["race", "Đua về đích", "Ai nộp phiếu cũng có xe; về đầu nhận quà, chạy trên trang chủ theo giờ hẹn."]];
+    var sched = s.reward_mode === "lucky_number" || s.reward_mode === "race";
     var h = '<section class="svy-panel svy-pad"><h3 style="font-size:15px;margin-bottom:12px">Kiểu phần thưởng</h3>' +
       (started ? '<div class="svy-banner warn" style="margin-bottom:10px">' + S.icon("lock") + "<div>Đã có người nhận quà / số - không đổi kiểu phần thưởng được nữa.</div></div>" : "") +
-      '<div class="svy-modes">' + modes.map(function (m) {
+      '<div class="svy-modes svy-mode-grid">' + modes.map(function (m) {
         return '<button class="svy-mode' + (s.reward_mode === m[0] ? " on" : "") + '" data-rmode="' + m[0] + '"' + (started && s.reward_mode !== m[0] ? " disabled" : "") + "><b>" + m[1] + "</b><span>" + m[2] + "</span></button>";
       }).join("") + "</div></section>";
     if (s.reward_mode === "none") return h;
-    h += '<section class="svy-panel svy-pad"><h3 style="font-size:15px;margin-bottom:10px">Quà</h3><div class="svy-items" style="gap:8px">';
+    h += '<section class="svy-panel svy-pad"><h3 style="font-size:15px;margin-bottom:4px">Quà</h3><p class="svy-small svy-muted" style="margin:0 0 10px">' +
+      (sched ? "Dòng đầu là giải lớn nhất. " + (s.reward_mode === "race" ? "Về nhất nhận dòng đầu, lần lượt xuống." : "Quay từ giải nhỏ tới giải lớn.") : "Mỗi phần quà nằm ở một đợt riêng.") + '</p><div class="svy-items" style="gap:8px">';
     B.prizes.forEach(function (p, i) {
       h += '<div class="svy-prize"><input type="color" data-p="color" data-i="' + i + '" value="' + esc(p.color || "#2C3DA6") + '" aria-label="Màu ô">' +
         '<input class="svy-in" data-p="label" data-i="' + i + '" value="' + esc(p.label) + '" placeholder="Tên quà, vd Ly trà sữa" maxlength="80">' +
@@ -240,13 +245,52 @@
         '<button class="svy-b ghost icon danger" data-act="pdel" data-i="' + i + '"' + (p.awarded ? " disabled" : "") + ' title="Xoá quà">' + S.icon("x") + "</button></div>";
     });
     h += '</div><button class="svy-b sm" style="margin-top:10px" data-act="padd">' + S.icon("plus") + "Thêm quà</button></section>";
-    h += '<section class="svy-panel svy-pad"><div class="svy-form2">';
-    if (s.reward_mode === "wheel") {
-      h += '<div class="svy-field"><label for="r-exp">Số người dự kiến tham gia</label><input id="r-exp" class="svy-in" type="number" min="0" data-s="wheel_expected" value="' + (s.wheel_expected || 0) + '">' +
-        '<span class="hint">Để 0 = lấy số người trong đối tượng (≈ ' + (eligibleCount() || B.data.stats.eligible) + "). Xác suất trúng mỗi lượt = quà còn lại / lượt còn lại, nên nếu đủ người tham gia sẽ phát đúng hết số quà. Ít người hơn dự kiến thì hạ số này xuống.</span></div>";
+    if (s.reward_mode === "wheel") h += wheelBox(s);
+    if (sched) h += scheduleBox(s, drawn);
+    h += '<section class="svy-panel svy-pad"><div class="svy-field"><label for="r-note">Cách nhận quà</label><textarea id="r-note" class="svy-ta" style="min-height:70px" data-s="reward_note" placeholder="Vd: Nhận tại quầy lễ tân tầng 5 trước 17:00 thứ Sáu." maxlength="1000">' + esc(s.reward_note || "") + "</textarea></div></section>";
+    return h;
+  }
+
+  function totalPrizes() { var n = 0; B.prizes.forEach(function (p) { n += +p.quantity || 0; }); return n; }
+
+  // Vong quay chia dot: K phan qua -> K dot lien tiep, moi dot giau 1 luot trung (minh hoa cho nguoi soan).
+  function wheelBox(s) {
+    var exp = s.wheel_expected || eligibleCount() || B.data.stats.eligible || 0, k = totalPrizes();
+    var h = '<section class="svy-panel svy-pad"><h3 style="font-size:15px;margin-bottom:10px">Vòng quay chia đợt</h3><div class="svy-form2">' +
+      '<div class="svy-field"><label for="r-exp">Số người dự kiến tham gia</label><input id="r-exp" class="svy-in" type="number" min="0" data-s="wheel_expected" value="' + (s.wheel_expected || 0) + '">' +
+      '<span class="hint">Để 0 = lấy số người trong đối tượng (≈ ' + (eligibleCount() || B.data.stats.eligible) + ").</span></div></div>";
+    if (k && exp) {
+      var waves = [], n = Math.max(exp, k);
+      for (var i = 0; i < Math.min(k, 8); i++) waves.push([Math.floor(i * n / k) + 1, Math.floor((i + 1) * n / k)]);
+      h += '<div class="svy-waves" style="justify-content:flex-start;margin-top:10px">' + waves.map(function (w, i) { return '<span class="svy-wave on">Đợt ' + (i + 1) + ": lượt " + w[0] + "-" + w[1] + "</span>"; }).join("") + (k > 8 ? '<span class="svy-wave">… ' + k + " đợt</span>" : "") + "</div>";
     }
-    h += '<div class="svy-field"><label for="r-note">Cách nhận quà</label><textarea id="r-note" class="svy-ta" style="min-height:70px" data-s="reward_note" placeholder="Vd: Nhận tại quầy lễ tân tầng 5 trước 17:00 thứ Sáu." maxlength="1000">' + esc(s.reward_note || "") + "</textarea></div></div></section>";
-    if (s.reward_mode === "lucky_number") h += '<div class="svy-banner">' + S.icon("gift") + "<div>Quay số ở tab <b>Kết quả</b> khi kết thúc đợt. Người trúng nhận thông báo qua chuông ERP.</div></div>";
+    h += '<div class="svy-banner" style="margin-top:10px">' + S.icon("gift") + "<div>Mỗi đợt có đúng 1 phần quà ở một lượt ngẫu nhiên (người chơi không thấy). Người quay thứ 1 hay thứ " + (exp || "N") +
+      " đều cùng cơ hội, mấy người đầu không thể ẵm hết quà. Ít người hơn dự kiến thì quà của đợt chưa tới <b>không trao</b>.</div></div></section>";
+    return h;
+  }
+
+  function scheduleBox(s, drawn) {
+    var race = s.reward_mode === "race", at = s.draw_scheduled_at ? S.fmtDt(s.draw_scheduled_at) : "giờ quay";
+    var t = at.slice(0, 5), early = s.draw_scheduled_at ? (function () {
+      var d = S.parseDt(s.draw_scheduled_at); d = new Date(d.getTime() - 5 * 60000);
+      return ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2);
+    })() : "T-5";
+    var h = '<section class="svy-panel svy-pad"><h3 style="font-size:15px;margin-bottom:10px">Lịch ' + (race ? "đua" : "quay số") + "</h3>";
+    if (drawn) h += '<div class="svy-banner warn" style="margin-bottom:10px">' + S.icon("lock") + "<div>Đã " + (race ? "đua" : "quay") + " lúc " + esc(S.fmtDt(B.data.stats.draw_at)) + " - xem kết quả ở tab Kết quả.</div></div>";
+    h += '<div class="svy-form2"><div class="svy-field"><label for="r-at">Giờ ' + (race ? "đua" : "quay") + '</label><input id="r-at" class="svy-in" type="datetime-local" data-s="draw_scheduled_at" value="' + esc(S.toLocalInput(s.draw_scheduled_at)) + '"' + (drawn ? " disabled" : "") + ">" +
+      '<span class="hint">Nên đặt sau giờ đóng khảo sát. ' + (race ? "Ai nộp trước giờ đua thì có xe." : "Chọn / đổi số được tới giờ quay.") + "</span></div>";
+    if (!race) {
+      h += '<div class="svy-field"><label for="r-top">Dải số (1 tới N)</label><input id="r-top" class="svy-in" type="number" min="10" max="9999" data-s="number_range" value="' + (s.number_range || 100) + '"' + (drawn ? " disabled" : "") + ">" +
+        '<span class="hint">Không nhỏ hơn số người tham gia (≈ ' + (eligibleCount() || B.data.stats.eligible) + "). Máy quay trong cả dải - số không ai giữ thì quà đó để lại.</span></div>";
+    }
+    h += "</div>";
+    h += '<div class="svy-timeline" style="margin-top:12px">' + [
+      ["Trước đó", race ? "Ai nộp phiếu là có xe ở vạch xuất phát" : "Mọi người chọn số sau khi nộp; bảng số công khai"],
+      [early, "Chuông ERP + web push cho toàn bộ người trong đối tượng: còn 5 phút; popup trang chủ tự mở"],
+      [t, race ? "Popup trang chủ tự chạy cuộc đua" : "Popup trang chủ tự quay, từ giải nhỏ tới giải lớn"],
+      ["Cả ngày", "Kết quả ở lại trong popup; người trúng nhận thông báo riêng"]].map(function (x, i) {
+        return '<div class="svy-tl"><i>' + (i + 1) + "</i><b>" + esc(x[0]) + '</b><span class="svy-small svy-muted">' + esc(x[1]) + "</span></div>";
+      }).join("") + "</div></section>";
     return h;
   }
 
@@ -271,6 +315,7 @@
   root.addEventListener("change", function (e) {
     var t = e.target;
     if (B.tab === "questions" && E.onInput(e, B)) return;
+    if (t.getAttribute("data-s") === "draw_scheduled_at" || t.getAttribute("data-s") === "wheel_expected") { B.redraw(); return; }
     if (t.hasAttribute("data-s") && t.type === "checkbox") {
       setField(t.getAttribute("data-s"), t.checked ? 1 : 0);
       if (t.getAttribute("data-s") === "anonymous" && t.checked) setField("allow_edit", 0);

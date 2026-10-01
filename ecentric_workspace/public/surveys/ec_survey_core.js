@@ -212,6 +212,18 @@
     for (var i = 0; i < seedStr.length; i++) { h ^= seedStr.charCodeAt(i); h = Math.imul(h, 16777619); }
     return function () { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return ((h >>> 0) % 100000) / 100000; };
   }
+  // Mau chu doc duoc tren nen mau the (phuong an A "The mau"): nen sang (vang) -> chu den.
+  function onColor(hex) {
+    var m = /^#?([0-9a-f]{6})$/i.exec(hex || "");
+    if (!m) return "#fff";
+    var n = parseInt(m[1], 16), r = n >> 16 & 255, g = n >> 8 & 255, b = n & 255;
+    return (0.299 * r + 0.587 * g + 0.114 * b) > 170 ? "#111827" : "#fff";
+  }
+  function accentVars(hex) {
+    var c = /^#[0-9a-f]{6}$/i.test(hex || "") ? hex : "#2C3DA6";
+    return "--c:" + c + ";--on-c:" + onColor(c);
+  }
+
   function shuffle(arr, rnd) {
     var a = arr.slice();
     for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(rnd() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
@@ -224,6 +236,6 @@
     toast: toast, modal: modal, confirm: confirmBox, busy: busy,
     parseDt: parseDt, fmtDt: fmtDt, fmtDate: fmtDate, toLocalInput: toLocalInput, deadline: deadline, initials: initials,
     sections: sections, path: path, questions: questions, selected: selected, isEmpty: isEmpty,
-    seeded: seeded, shuffle: shuffle, GOTO_SUBMIT: GOTO_SUBMIT, START: START
+    seeded: seeded, shuffle: shuffle, onColor: onColor, accentVars: accentVars, GOTO_SUBMIT: GOTO_SUBMIT, START: START
   };
 })();

@@ -20,7 +20,7 @@ from ecentric_workspace.surveys import constants as C
 SURVEY_LIST_FIELDS = ["name", "title", "description", "status", "open_at", "close_at",
                       "anonymous", "reward_mode", "response_limit", "response_count",
                       "accent_color", "audience_mode", "owner", "modified", "published_at",
-                      "is_quiz", "form_json"]
+                      "is_quiz", "form_json", "draw_scheduled_at", "draw_at", "number_range"]
 
 
 def now():
@@ -194,7 +194,7 @@ def participants(survey):
     return [dict(r) for r in frappe.get_all(
         C.PARTICIPANT, filters={"survey": survey},
         fields=["name", "user", "submitted_at", "response", "lucky_number", "reward_result",
-                "prize", "prize_label", "rewarded_at"],
+                "prize", "prize_label", "rewarded_at", "spin_seq"],
         order_by="submitted_at asc", limit_page_length=20000)]
 
 
@@ -212,6 +212,40 @@ def winners(surveys):
         C.PARTICIPANT, filters={"survey": ["in", list(surveys)], "reward_result": C.RESULT_WIN},
         fields=["survey", "user", "prize_label", "lucky_number", "rewarded_at"],
         order_by="rewarded_at desc", limit_page_length=200)]
+
+
+def count_participants(survey):
+    return frappe.db.count(C.PARTICIPANT, {"survey": survey})
+
+
+# ----------------------------------------------------------------- quay theo gio hen --
+_DRAW_FIELDS = ["name", "title", "status", "reward_mode", "draw_scheduled_at", "draw_notified_at",
+                "draw_at", "open_at", "close_at"]
+
+
+def _draw_filters(extra):
+    f = {"status": ["in", [C.STATUS_OPEN, C.STATUS_CLOSED]],
+         "reward_mode": ["in", list(C.SCHEDULED_MODES)]}
+    f.update(extra)
+    return f
+
+
+def pending_draws(until):
+    """Luot quay CHUA chot co gio hen <= until (job moi phut)."""
+    return [dict(r) for r in frappe.get_all(
+        C.SURVEY, filters=_draw_filters({"draw_scheduled_at": ["<=", until], "draw_at": ["is", "not set"]}),
+        fields=_DRAW_FIELDS, order_by="draw_scheduled_at asc", limit_page_length=50)]
+
+
+def draw_surveys(start, end):
+    """Luot quay co gio hen trong [start, end] (popup trang chu), som truoc."""
+    return [dict(r) for r in frappe.get_all(
+        C.SURVEY, filters=_draw_filters({"draw_scheduled_at": ["between", [start, end]]}),
+        fields=_DRAW_FIELDS, order_by="draw_scheduled_at asc", limit_page_length=50)]
+
+
+def count_draw_surveys(start, end):
+    return frappe.db.count(C.SURVEY, _draw_filters({"draw_scheduled_at": ["between", [start, end]]}))
 
 
 def count_spins(survey):

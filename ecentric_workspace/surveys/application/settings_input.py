@@ -10,6 +10,7 @@ from ecentric_workspace.surveys.domain.errors import SurveyError
 
 _COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 _DT_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})(:\d{2})?$")
+_DT_LABELS = {"open_at": "Giờ mở", "close_at": "Giờ đóng", "draw_scheduled_at": "Giờ quay"}
 
 
 def parse_json(payload):
@@ -48,7 +49,7 @@ def clean_settings(raw, repo):
             except (TypeError, ValueError):
                 out[f] = 0
         elif f in view.DATETIME_FIELDS:
-            out[f] = _dt(v, "Giờ mở" if f == "open_at" else "Giờ đóng")
+            out[f] = _dt(v, _DT_LABELS.get(f, f))
         else:
             out[f] = ("" if v is None else str(v)).strip()
     if "title" in out:
@@ -65,6 +66,9 @@ def clean_settings(raw, repo):
         out["audience_mode"] = C.AUDIENCE_ALL
     if out.get("reward_mode") not in (None,) + C.REWARD_MODES:
         out["reward_mode"] = C.REWARD_NONE
+    if "number_range" in out:
+        out["number_range"] = max(C.NUMBER_RANGE_MIN, min(C.NUMBER_RANGE_MAX,
+                                                          out["number_range"] or C.NUMBER_RANGE_DEFAULT))
     if out.get("open_at") and out.get("close_at") and out["close_at"] <= out["open_at"]:
         raise SurveyError("Giờ đóng phải sau giờ mở.")
     return out
@@ -129,10 +133,26 @@ def clean_prizes(rows, survey):
     return out
 
 
-def guard_reward_change(survey, fields):
-    started = bool(survey.get("lucky_seq")) or any(int(p.get("awarded") or 0) for p in survey.get("prizes") or [])
-    if started and "reward_mode" in fields and fields["reward_mode"] != survey.get("reward_mode"):
+def reward_started(survey):
+    return bool(survey.get("lucky_seq")) or bool(survey.get("draw_at")) or any(
+        int(p.get("awarded") or 0) for p in survey.get("prizes") or [])
+
+
+def guard_reward_change(survey, fields, max_number=0):
+    """Khoa nhung thay doi lam sai ket qua da co.
+
+    max_number : so lon nhat dang co nguoi giu (de khong thu dai so xuong duoi so do).
+    """
+    if reward_started(survey) and "reward_mode" in fields and fields["reward_mode"] != survey.get("reward_mode"):
         raise SurveyError("Đã có người nhận quà / số may mắn - không đổi được kiểu phần thưởng nữa.")
+    if survey.get("draw_at"):
+        if "draw_scheduled_at" in fields and \
+                (fields["draw_scheduled_at"] or "")[:16] != view.dt(survey.get("draw_scheduled_at"))[:16]:
+            raise SurveyError("Đã quay xong - không đổi được giờ quay nữa.")
+        if "number_range" in fields and int(fields["number_range"] or 0) != view.number_top(survey):
+            raise SurveyError("Đã quay xong - không đổi được dải số nữa.")
+    if max_number and int(fields.get("number_range") or max_number) < max_number:
+        raise SurveyError("Đang có người giữ số %d - dải số không được nhỏ hơn." % max_number)
 
 
 def guard_anonymous_change(survey, fields):

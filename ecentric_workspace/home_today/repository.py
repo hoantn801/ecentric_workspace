@@ -153,3 +153,17 @@ def cache_clear_today():
 
 def log_error(title):
     frappe.log_error(title=title, message=frappe.get_traceback())
+
+
+# --------------------------------------------------------------- quay so (module Khao sat) --
+# Doc qua API KHAI BAO cua module Khao sat (surveys.application.draw_feed) - home_today khong
+# cham DocType nao cua khao sat. Loi ben do khong duoc lam hong popup: service bat va bo qua.
+
+def survey_draws(user):
+    from ecentric_workspace.surveys.application import draw_feed
+    return draw_feed.for_user(user)
+
+
+def survey_draws_soon():
+    from ecentric_workspace.surveys.application import draw_feed
+    return draw_feed.any_soon()

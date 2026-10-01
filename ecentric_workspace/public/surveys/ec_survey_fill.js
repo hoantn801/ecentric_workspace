@@ -23,6 +23,7 @@
       st.rnd = S.seeded(d.name + "|" + (window.frappe && frappe.session && frappe.session.user || ""));
       if (d.settings.shuffle_questions) shuffleSections();
       root.style.setProperty("--accent", d.settings.accent_color || "#2C3DA6");
+      root.style.setProperty("--on-accent", S.onColor(d.settings.accent_color || "#2C3DA6"));
       document.title = d.title + " - Khảo sát";
       if (d.my_answers) st.answers = S.clone(d.my_answers);
       if (d.submitted && !st.preview && !(d.settings.allow_edit && d.my_answers && d.effective === "open")) {
@@ -53,12 +54,15 @@
     var d = st.data, set = d.settings, meta = [];
     if (set.close_at) meta.push(S.icon("clock") + "Hạn <b>" + esc(S.fmtDt(set.close_at)) + "</b> (" + esc(S.deadline(set.close_at)) + ")");
     if (set.anonymous) meta.push(S.icon("lock") + "<b>Ẩn danh</b> - người tạo không biết câu trả lời của ai");
+    var when = set.draw_scheduled_at ? " · " + esc(S.fmtDt(set.draw_scheduled_at)) + " trên trang chủ" : "";
     if (set.reward_mode === "wheel") meta.push(S.icon("gift") + "Nộp xong được <b>quay vòng quay may mắn</b>");
-    if (set.reward_mode === "lucky_number") meta.push(S.icon("gift") + "Nộp xong nhận <b>con số may mắn</b>");
+    if (set.reward_mode === "lucky_number") meta.push(S.icon("gift") + "<span>Nộp xong <b>chọn số may mắn</b>, quay số" + when + "</span>");
+    if (set.reward_mode === "race") meta.push(S.icon("gift") + "<span>Nộp xong <b>có xe đua về đích</b>" + when + "</span>");
     if (set.is_quiz) meta.push(S.icon("trophy") + "<b>Bài kiểm tra</b> có chấm điểm");
     var h = "";
     if (st.preview) h += '<div class="svy-banner warn">' + S.icon("eye") + "<div><b>Chế độ xem trước.</b> Câu trả lời không được lưu. Bấm Gửi để thử luồng - không có phiếu nào được tạo.</div></div>";
-    h += '<header class="svy-panel svy-pad svy-fhead"><h1>' + esc(d.title) + "</h1>" + (d.description ? '<div class="desc">' + esc(d.description) + "</div>" : "") +
+    h += '<header class="svy-panel svy-fhead"><div class="band"><span class="sh1" aria-hidden="true"></span><span class="sh2" aria-hidden="true"></span><h1>' + esc(d.title) + "</h1>" +
+      (d.description ? '<div class="desc">' + esc(d.description) + "</div>" : "") + "</div>" +
       (meta.length ? '<div class="svy-meta">' + meta.map(function (m) { return '<span class="svy-row" style="gap:6px">' + m + "</span>"; }).join("") + "</div>" : "") + "</header>";
     return h;
   }
@@ -97,8 +101,8 @@
       h += '<div class="svy-row" style="gap:10px"><div class="svy-progress svy-grow"><i style="width:' + pct + '%"></i></div><span class="svy-small svy-muted">Phần ' + (st.cur + 1) + "/" + p.length + "</span></div>";
     }
     if (sec.sec && (sec.sec.title || sec.sec.description)) {
-      h += '<div><div class="svy-sec">Phần ' + (secs.indexOf(sec) + 1) + " / " + secs.length + '</div><div class="svy-panel svy-pad svy-sech"><h2>' + esc(sec.sec.title) + "</h2>" +
-        (sec.sec.description ? '<div class="qd">' + esc(sec.sec.description) + "</div>" : "") + "</div></div>";
+      h += '<div class="svy-asec"><div class="eb">Phần ' + (secs.indexOf(sec) + 1) + " / " + secs.length + "</div><h2>" + esc(sec.sec.title) + "</h2>" +
+        (sec.sec.description ? '<div class="qd">' + esc(sec.sec.description) + "</div>" : "") + "</div>";
     }
     var n = 0, all = S.questions(st.form);
     sec.items.forEach(function (it) {
@@ -189,23 +193,85 @@
     h += st.preview ? '<button class="svy-b" data-act="restart">Làm lại từ đầu</button>' : '<a class="svy-b" href="/khao-sat">Về trang khảo sát</a>';
     h += "</div></section>";
     if (d.reward && d.reward.mode && d.reward.mode !== "none") h += rewardView(d.reward);
-    else if (d.preview && st.data.settings.reward_mode !== "none") h += '<section class="svy-panel svy-reward"><div class="svy-muted">Xem trước: người trả lời sẽ thấy ' + (st.data.settings.reward_mode === "wheel" ? "vòng quay may mắn" : "con số may mắn") + " ở đây.</div></section>";
+    else if (d.preview && st.data.settings.reward_mode !== "none") h += '<section class="svy-panel svy-reward"><div class="svy-muted">Xem trước: người trả lời sẽ thấy ' + ({ wheel: "vòng quay may mắn", lucky_number: "bảng chọn số may mắn", race: "xe đua của mình" }[st.data.settings.reward_mode] || "phần thưởng") + " ở đây.</div></section>";
     h += '<div id="svy-sum"></div>';
     return h;
   }
 
   function rewardView(r) {
     var h = '<section class="svy-panel svy-reward" id="svy-reward">';
-    if (r.mode === "lucky_number") {
-      h += '<div class="svy-eyebrow">Con số may mắn của bạn</div><div class="svy-big-ticket"><b>' + esc(r.lucky_number || "---") + "</b></div>";
-      if (r.result === "Win") h += '<h2 style="color:var(--ok)">Chúc mừng! Bạn trúng ' + esc(r.prize_label) + "</h2>";
-      else h += '<p class="svy-muted" style="margin:0;max-width:44ch">Người tạo sẽ quay số khi kết thúc đợt. Nếu trúng, bạn nhận thông báo qua chuông ERP.</p>';
-    } else {
-      h += '<div class="svy-eyebrow">Vòng quay may mắn</div><div class="svy-wheelbox"><span class="pin"></span><div id="svy-wheel"></div><div class="hub">eC</div></div><div id="svy-wheel-msg">';
+    if (r.mode === "lucky_number") h += numberView(r);
+    else if (r.mode === "race") h += raceView(r);
+    else {
+      h += '<div class="svy-eyebrow">Vòng quay may mắn</div>' + wavesHTML(r.waves, !!r.result) +
+        '<div class="svy-wheelbox"><span class="pin"></span><div id="svy-wheel"></div><div class="hub">eC</div></div><div id="svy-wheel-msg">';
       h += wheelMsg(r) + "</div>";
     }
     if (r.note) h += '<div class="svy-small svy-muted" style="white-space:pre-line">' + esc(r.note) + "</div>";
     return h + "</section>";
+  }
+
+  // Vong quay chia dot: dot cua minh + dot nao con qua (khong lo luot trung).
+  // Truoc khi quay: KHONG hien luot / dot (biet dot minh con qua hay het thi canh duoc luc quay).
+  function wavesHTML(w, spun) {
+    if (!spun || !w || !w.waves || !w.waves.length) return '<h2 class="svy-wave-h">Mỗi đợt có đúng 1 phần quà</h2><div class="svy-small svy-muted">Quà rải đều theo thứ tự quay - người quay đầu hay cuối đều cùng cơ hội.</div>';
+    var cur = w.waves[w.current - 1];
+    var h = '<div class="svy-small svy-muted">Bạn đã quay ở lượt thứ <b>' + w.seq + "</b>" + (cur ? " · đợt " + cur.index : "") + "</div>";
+    h += '<div class="svy-waves">' + w.waves.map(function (x) {
+      var cls = x.state === "done" ? "done" : x.index === w.current ? "on" : "later";
+      var txt = x.state === "done" ? "đã có người trúng" : x.index === w.current ? "còn quà" : x.state === "open" ? "còn quà" : "chưa tới";
+      return '<span class="svy-wave ' + cls + '">Đợt ' + x.index + " (lượt " + x.from + "-" + x.to + "): " + txt + "</span>";
+    }).join("") + "</div>";
+    return h;
+  }
+
+  function drawWhen(r) {
+    return r.draw_at ? esc(S.fmtDt(r.draw_at)) : "giờ người tạo hẹn";
+  }
+
+  function resultLine(r) {
+    if (r.result === "Win") return '<h2 style="color:var(--ok)">Chúc mừng! Bạn trúng ' + esc(r.prize_label) + "</h2>";
+    if (r.result === "Lose") return '<h3 class="svy-muted">Lần này chưa trúng - hẹn bạn đợt sau!</h3>';
+    return "";
+  }
+
+  // Con so may man: bang so cong khai, so da co nguoi giu thi khoa; doi so duoc toi gio quay.
+  function numberView(r) {
+    var b = r.board || { top: 100, holders: [] }, top = b.top, page = st.npage || 0, size = 100;
+    var held = {};
+    b.holders.forEach(function (x) { held[x.n] = x; });
+    var h = '<div class="svy-eyebrow">Con số may mắn của bạn</div><div class="svy-big-ticket"><b>' + esc(r.lucky_number || "???") + "</b></div>";
+    if (r.drawn) return h + resultLine(r) + '<p class="svy-muted" style="margin:0">Kết quả quay số nằm trong popup <a href="/">trang chủ</a> hôm quay.</p>';
+    h += '<p class="svy-muted" style="margin:0;max-width:52ch">' + (r.lucky_number ? "Đổi được tới giờ quay." : "Chọn một số còn trống - mỗi số chỉ một người giữ.") +
+      " Quay số lúc <b>" + drawWhen(r) + "</b>: popup trang chủ tự quay, máy quay trong cả dải nên có thể ra số chưa ai giữ.</p>";
+    if (!r.can_pick) return h + '<div class="svy-banner">Đã tới giờ quay - không đổi số được nữa.</div>';
+    h += '<div class="svy-row" style="justify-content:center"><button class="svy-b" data-act="pick-random">' + S.icon("gift") + "Chọn giúp tôi một số</button>" +
+      '<span class="svy-small svy-muted">' + b.count + " / " + top + " số đã có người giữ</span></div>";
+    if (top > size) {
+      h += '<div class="svy-npages">';
+      for (var pg = 0; pg * size < top; pg++) h += '<button class="svy-b sm' + (pg === page ? " pri" : "") + '" data-npage="' + pg + '">' + (pg * size + 1) + "-" + Math.min(top, (pg + 1) * size) + "</button>";
+      h += "</div>";
+    }
+    h += '<div class="svy-ngrid" role="grid" aria-label="Bảng số may mắn">';
+    for (var n = page * size + 1; n <= Math.min(top, (page + 1) * size); n++) {
+      var x = held[n], lab = String(n);
+      while (lab.length < Math.max(3, String(top).length)) lab = "0" + lab;
+      h += x ? '<button class="svy-num ' + (x.me ? "mine" : "taken") + '" ' + (x.me ? "" : "disabled ") + 'title="' + esc(x.me ? "Số của bạn" : x.name) + '">' + lab + "</button>"
+        : '<button class="svy-num" data-pick="' + n + '">' + lab + "</button>";
+    }
+    h += "</div>";
+    if (b.holders.length) {
+      h += '<div class="svy-holders"><div class="svy-row between"><b>Ai đang giữ số nào</b><span class="svy-small svy-muted">Công khai cho vui · ' + b.holders.length + " người</span></div><div class=\"svy-hlist\">" +
+        b.holders.map(function (x) { return '<span class="svy-holder' + (x.me ? " me" : "") + '"><b>' + esc(x.label) + "</b>" + esc(x.me ? "Bạn" : x.name || "Đã có người giữ") + "</span>"; }).join("") + "</div></div>";
+    }
+    return h;
+  }
+
+  function raceView(r) {
+    var h = '<div class="svy-eyebrow">Đua về đích</div><div class="svy-cart" aria-hidden="true">🛒</div>';
+    if (r.drawn) return h + resultLine(r) + '<p class="svy-muted" style="margin:0">Xem lại cuộc đua trong popup <a href="/">trang chủ</a> hôm đua.</p>';
+    return h + '<h2 class="svy-wave-h">Xe của bạn đã vào vạch xuất phát</h2><p class="svy-muted" style="margin:0;max-width:50ch">Ai nộp phiếu cũng có một xe. Đúng <b>' + drawWhen(r) +
+      "</b> popup trang chủ tự mở và các xe chạy từ KHO eCentric tới vạch GIAO THÀNH CÔNG - về đầu nhận quà. Trước 5 phút bạn nhận thông báo.</p>";
   }
 
   function wheelMsg(r) {
@@ -214,6 +280,41 @@
     if (r.result === "Lose") return '<h3 class="svy-muted">Chúc bạn may mắn lần sau!</h3>';
     return "";
   }
+
+  function redrawReward() {
+    var box = S.byId("svy-reward");
+    if (box) box.outerHTML = rewardView(st.done.reward);
+  }
+
+  function pick(n, btn) {
+    if (st.picking) return;
+    st.picking = true;
+    if (btn) S.busy(btn, true);
+    S.api("pick_number", { name: st.name, number: n || 0 }, true).then(function (r) {
+      st.picking = false;
+      st.done.reward = r;
+      redrawReward();
+      S.toast("Bạn đang giữ số " + r.lucky_number);
+    }, function (e) {
+      st.picking = false;
+      if (btn) S.busy(btn, false);
+      S.toast(e.svyMessage, true);
+      refreshBoard();
+    });
+  }
+
+  // Lam moi bang so moi 20 giay khi con chon duoc - thay so nguoi khac vua giu.
+  function refreshBoard() {
+    var r = st.done && st.done.reward;
+    if (!r || r.mode !== "lucky_number" || !r.can_pick || document.hidden) return;
+    S.api("number_board", { name: st.name }).then(function (b) {
+      if (!st.done || !st.done.reward || st.picking) return;
+      st.done.reward.board = b;
+      st.done.reward.can_pick = b.can_pick;
+      redrawReward();
+    }, function () { /* im lang: lan sau thu lai */ });
+  }
+  setInterval(refreshBoard, 20000);
 
   function segments() {
     var prizes = st.data.prizes || [], segs = [], palette = ["#2C3DA6", "#f5b800", "#EF7CAF", "#10b981", "#7c3aed", "#0ea5e9", "#f97316"];
@@ -262,6 +363,12 @@
         st.spinning = false;
         st.done.reward = r;
         S.byId("svy-wheel-msg").innerHTML = wheelMsg(r);
+        var head = document.querySelector("#svy-reward .svy-wave-h");
+        if (head && r.waves) {
+          var tmp = document.createElement("div"); tmp.innerHTML = wavesHTML(r.waves, true);
+          var note = head.nextElementSibling;
+          head.parentNode.insertBefore(tmp, head); head.remove(); if (note) note.remove();
+        }
         if (r.result === "Win") confetti();
       }, 5400);
     }, function (e) {
@@ -301,6 +408,10 @@
 
   // ------------------------------------------------------------------- su kien --
   root.addEventListener("click", function (e) {
+    var pk = e.target.closest("[data-pick]");
+    if (pk) { pick(parseInt(pk.getAttribute("data-pick"), 10), pk); return; }
+    var pg = e.target.closest("[data-npage]");
+    if (pg) { st.npage = parseInt(pg.getAttribute("data-npage"), 10); redrawReward(); return; }
     var b = e.target.closest("[data-act]");
     if (!b || b.disabled) return;
     var act = b.getAttribute("data-act");
@@ -310,6 +421,7 @@
     } else if (act === "back") { st.cur = Math.max(0, st.cur - 1); st.errors = {}; render(); window.scrollTo(0, 0); }
     else if (act === "submit") submit(b);
     else if (act === "spin") spin(b);
+    else if (act === "pick-random") pick(0, b);
     else if (act === "summary") showSummary(b);
     else if (act === "edit") { st.done = null; st.cur = 0; render(); window.scrollTo(0, 0); }
     else if (act === "restart") { st.done = null; st.cur = 0; st.answers = {}; st.errors = {}; render(); window.scrollTo(0, 0); }
