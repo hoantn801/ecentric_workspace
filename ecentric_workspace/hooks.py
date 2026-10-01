@@ -650,3 +650,15 @@ elif isinstance(_sla_la_prev, str):
         _sla_la["on_submit"] = [_sla_la_prev, _SLA_LEAVE_HOOK]
 elif _SLA_LEAVE_HOOK not in _sla_la_prev:
     _sla_la_prev.append(_SLA_LEAVE_HOOK)
+
+# --------------------------------------------------------------------------- #
+# 01/10/2026 - Bang cong HRMS (Monthly Attendance Sheet) them 2 cot "NV chot cong" /
+# "Lead chot cong" cho CnB. Khong sua HRMS: lop Report goi execute goc roi gan cot; loi
+# thi tra nguyen ket qua goc. Xem hr/timesheet_close/report_override.py.
+# --------------------------------------------------------------------------- #
+try:
+    override_doctype_class
+except NameError:
+    override_doctype_class = {}
+override_doctype_class.setdefault(
+    "Report", "ecentric_workspace.hr.timesheet_close.report_override.EcReport")
