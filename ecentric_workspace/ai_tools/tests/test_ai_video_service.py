@@ -173,6 +173,7 @@ class TestService(unittest.TestCase):
         p = s.create_project(json.dumps({"brand": "Friso", "title": "T10", "host_image": "/private/files/host.png",
                                          "gate_motion": 1, "gate_hold_a": 1, "talk_count": 2, "anchor_source": "master"}))["name"]
         it = s.add_items(p, json.dumps([{"sku": "FRISO3", "product_image": "/private/files/f.png", "width_cm": 14,
+                                         "extra_images": ["/private/files/host.png", "/a.png", "x", "/h.png", "/private/files/f.png"],
                                          "height_cm": 18, "batch": "lo1", "product_category": "milk_can"},
                                         {"sku": "", "product_image": "x"}]))["items"]
         self.assertEqual(len(it), 1)
@@ -182,6 +183,8 @@ class TestService(unittest.TestCase):
         hs = W.last("holds")
         self.assertTrue(hs["job_id"].endswith("_R1"))
         self.assertEqual(hs["fields"]["product_width_cm"], "14")
+        self.assertEqual(len(hs["extra_images"]), 4)            # toi da 4 anh phu
+        self.assertTrue(hs["extra_images"][0].endswith("_side1.png"))
         self.assertEqual(hs["files"]["host_video"], "ecv6/inbox/%s/host.png" % s.flow.slug(p, 20))
         job = hs["job_id"]
         # anh cam xong -> cho chon
@@ -238,6 +241,9 @@ class TestService(unittest.TestCase):
         self.assertTrue(view["exports"][0]["zip_url"].startswith("https://w.example/webhook/ec-v6/file?p=ecv6%2Fexports"))
 
     def test_rejects_other_users_file(self):
+        with self.assertRaises(Exception):
+            p = self.svc.create_project(json.dumps({"brand": "B", "title": "T", "host_image": "/h.png"}))["name"]
+            self.svc.add_items(p, json.dumps([{"sku": "A", "product_image": "/a.png", "extra_images": ["/private/files/other.png"]}]))
         with self.assertRaises(Exception):
             self.svc.create_project(json.dumps({"brand": "B", "title": "T", "host_image": "/private/files/other.png"}))
         with self.assertRaises(Exception):

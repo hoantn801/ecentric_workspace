@@ -63,14 +63,16 @@ def _file_bytes(file_url):
 
 
 FILE_FIELDS = ("host_image", "product_image", "real_hold_image", "audio_file")
+#: Anh phu cac mat (canh, sau, nap, anh cam that): toi da 4, gui kem anh chinh dien cho AI.
+MAX_EXTRA = 4
 
 
 def _check_files(d):
     """Chi cho gan file do CHINH nguoi dung tai len (hoac System Manager): tranh mot link
     File rieng tu bat ky bi gui sang worker."""
     sm = "System Manager" in frappe.get_roles(frappe.session.user)
-    for k in FILE_FIELDS:
-        url = d.get(k)
+    urls = [(k, d.get(k)) for k in FILE_FIELDS] + [("extra_images", u) for u in (d.get("extra_images") or [])]
+    for k, url in urls:
         if not url:
             continue
         owner = frappe.db.get_value("File", {"file_url": url}, "owner")
@@ -136,7 +138,7 @@ def add_items(project, rows):
         _check_files(r)
         doc = frappe.get_doc(dict({k: r.get(k) for k in ITEM_FIELDS if r.get(k) not in (None, "")},
                                   doctype=I, project=project, stage="new", stage_state="waiting",
-                                  extra_images=json.dumps(r.get("extra_images") or [])))
+                                  extra_images=json.dumps(list(r.get("extra_images") or [])[:MAX_EXTRA])))
         doc.insert(ignore_permissions=True)
         made.append(doc.name)
     return {"items": made}
@@ -149,6 +151,8 @@ def update_item(name, data):
     for k in ITEM_FIELDS:
         if k in d:
             doc.set(k, d[k])
+    if "extra_images" in d:
+        doc.extra_images = json.dumps(list(d.get("extra_images") or [])[:MAX_EXTRA])
     doc.save(ignore_permissions=True)
     return {"name": name}
 
@@ -198,8 +202,15 @@ def _start_holds_one(pdoc, pst, doc):
     job = flow.job_id(pdoc.brand, doc.sku, pdoc.name, attempt)
     prod = wc.upload("inbox/%s/%s_front%s" % (flow.slug(pdoc.name, 20), flow.slug(doc.sku, 40), _ext(doc.product_image)),
                      "front" + _ext(doc.product_image), _file_bytes(doc.product_image))
+    extras = []
+    refs = list(_j(doc.extra_images, []) or [])
+    if doc.real_hold_image:
+        refs.append(doc.real_hold_image)
+    for i, url in enumerate(refs[:MAX_EXTRA]):
+        extras.append(wc.upload("inbox/%s/%s_side%d%s" % (flow.slug(pdoc.name, 20), flow.slug(doc.sku, 40), i + 1, _ext(url)),
+                                "side%d%s" % (i + 1, _ext(url)), _file_bytes(url)))
     step = {"op": "holds", "job_id": job, "fields": flow.hold_fields(doc.as_dict(), pdoc.brand),
-            "files": {"host_video": pst["host_rel"], "product_image": prod}}
+            "files": {"host_video": pst["host_rel"], "product_image": prod}, "extra_images": extras}
     ids = _enqueue(pdoc.name, step, pdoc.night_mode)
     st.update(job=job, attempt=attempt, tasks={"holds": ids}, cands=[], picked=None)
     _save_state(doc, st, job_id=job, stage="holds", stage_state="running", error="", selected_candidate="")
@@ -457,6 +468,7 @@ def get_project(name, do_tick=0):
         st = _j(doc.state_json)
         it = {k: doc.get(k) for k in ITEM_FIELDS + ("name", "job_id", "stage", "stage_state", "error", "selected_candidate")}
         it["stage_label"] = flow.STAGE_LABEL.get(doc.stage or "new", doc.stage)
+        it["extra_images"] = _j(doc.extra_images, []) or []
         it["candidates"] = st.get("cands_view") or []
         it["units"] = st.get("units_view") or {}
         items.append(it)
