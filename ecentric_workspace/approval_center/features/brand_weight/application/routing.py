@@ -69,6 +69,11 @@ class ResolveBrandWeightSkipLevelsService:
         if head == requester_user:
             skip.append(LEVEL_DEPT_HEAD)
             reasons.append("nguoi nop chinh la truong phong")
+        elif lead and lead == head and LEVEL_LEAD not in skip:
+            # 01/10/2026 (Hoan): lead truc tiep CUNG LA truong phong -> mot nguoi phai bam
+            # duyet hai lan cho cung mot phieu. Lead duyet xong la chot.
+            skip.append(LEVEL_DEPT_HEAD)
+            reasons.append("lead truc tiep cung la truong phong, duyet mot lan la chot")
 
         if len(skip) == 2:
             skip = [LEVEL_LEAD]
