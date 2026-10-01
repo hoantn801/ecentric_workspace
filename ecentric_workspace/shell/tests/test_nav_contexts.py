@@ -88,7 +88,9 @@ class TestRouteToContext(unittest.TestCase):
         # business in the desktop portal menu; it still shows inside /ec-hr).
         # 01/10/2026 (PO Hoan): "Tin nội bộ" (/tin-noi-bo) THAY cho "Intranet (sắp ra mắt)"
         # trong nhom Tai nguyen - tong so muc giu nguyen.
-        self.assertEqual(len(home), 19)
+        # +1 (01/10/2026, PO Hoan yeu cau tab Khao sat): "Khảo sát" /khao-sat, alias row
+        # owned by the `surveys` context.
+        self.assertEqual(len(home), 20)
         self.assertEqual(labels_route_of(home, "Tin nội bộ"), "/tin-noi-bo")
         self.assertEqual([i["group"] for i in home if i["label"] == "Tin nội bộ"], ["Tài nguyên"])
         self.assertFalse(any(i["label"] == "Intranet" for i in home))

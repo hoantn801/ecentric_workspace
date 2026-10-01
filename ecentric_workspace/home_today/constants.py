@@ -40,3 +40,6 @@ NEWS_TAG_DEFAULT = ("inf", "Thông báo")
 DISPLAY_POSTER = "Chỉ ảnh (hiện full)"
 
 WEEKDAYS = ("Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật")
+
+#: O "Quay so may man" hien khi co luot quay trong 7 ngay toi (theo doi "Luot quay tiep theo").
+DRAW_TILE_DAYS = 7

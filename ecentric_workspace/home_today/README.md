@@ -14,6 +14,7 @@ Slider "ảnh phủ kín": trái tối đa 6 ô, phải khung ảnh lớn + nộ
 | Sự kiện công ty | "Sắp ra mắt" (chưa có dữ liệu) |
 | Nghỉ lễ sắp tới | Holiday List của người xem (Employee → Company default), bỏ ngày nghỉ tuần |
 | Kỷ niệm gắn bó | Employee.date_of_joining tròn năm hôm nay |
+| Quay số may mắn / Đua về đích | Module Khảo sát (`surveys.application.draw_feed`, qua `repository.survey_draws`). Ngày có quay: ô đứng đầu, tự mở lúc T-5, hiệu ứng `ECSvyDraw`; có lượt trong 7 ngày tới: ô "Lượt quay tiếp theo". Lỗi bên khảo sát không làm hỏng popup |
 
 Hiện mỗi lần mở trang chủ khi có nội dung; "Không hiện lại hôm nay" nhớ trong trình duyệt,
 có mục mới trong ngày thì hiện lại. Thả cảm xúc ❤️🌸🎂🎉 lưu ở DocType `EC Home Reaction`.
