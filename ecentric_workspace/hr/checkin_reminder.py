@@ -151,6 +151,13 @@ def preview():
 
 def _should_skip(emp, today):
     """True khi khong duoc phep nhac nguoi nay hom nay."""
+    # 0) "Mac dinh du cong" (hr/full_cong.py, 01/10/2026): khong cham cong nen khong nhac.
+    try:
+        from ecentric_workspace.hr import full_cong
+        if full_cong.is_full_cong(emp.get("name")):
+            return True
+    except Exception:
+        pass
     # 1) Chua den ngay vao lam -> khong ton tai nghia vu cham cong.
     doj = emp.get("date_of_joining")
     if doj and str(today) < str(doj):

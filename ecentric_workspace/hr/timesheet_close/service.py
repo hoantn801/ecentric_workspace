@@ -77,7 +77,16 @@ def ensure_rows(period):
     have = {r.employee: r for r in frappe.get_all(
         DT, filters={"period_month": period}, fields=["name", "employee", "status", "lead_user"])}
     made = 0
+    # 01/10/2026: nguoi "mac dinh du cong" (hr/full_cong.py) khong can chot cong - khong
+    # sinh dong moi cho ho. Dong da co tu truoc thi de nguyen (CnB/HR chot thay).
+    try:
+        from ecentric_workspace.hr import full_cong
+        no_close = full_cong.employees()
+    except Exception:
+        no_close = set()
     for e in _employees(period):
+        if e.name in no_close and e.name not in have:
+            continue
         lead = leads.get(e.name) or None
         if lead == e.user_id:
             lead = None
