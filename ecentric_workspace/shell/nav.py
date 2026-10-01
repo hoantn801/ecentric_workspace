@@ -111,15 +111,6 @@ HOME_PORTAL_ITEMS = [
      # mobile tab, both fed by get_reminder_summary.
      "keywords": ["viec cua toi", "my work", "todo", "cong viec", "thong bao",
                   "can duyet", "inbox"]},
-    # 01/10/2026 (Hoan chot): Tin noi bo - HR dang bai cho ca cong ty doc (/tin-noi-bo,
-    # internal_posts/). Muc that (khong phai alias) nen resolve_context() dua trang vao ngu
-    # canh portal; "/tin-noi-bo/*" de trang bai / viet bai / quan ly sang dung muc nay.
-    {"key": "home.portal.news", "label": "Tin nội bộ", "route": "/tin-noi-bo",
-     "icon": "doc", "group": "Workspace", "order": 25,
-     "active_patterns": ["/tin-noi-bo", "/tin-noi-bo/*"], "visible_when": "internal",
-     "owner": "home_portal",
-     "keywords": ["tin noi bo", "thong bao", "tin tuc", "news", "bai viet", "chinh sach moi",
-                  "huong dan", "tool moi", "module moi"]},
     {"key": "home.portal.approvals", "label": "Phê duyệt", "route": "/approvals", "icon": "check",
      "group": "Workspace", "order": 30, "active_patterns": ["/approvals"],
      "visible_when": "internal", "owner": "home_portal", "alias": True,
@@ -187,9 +178,17 @@ HOME_PORTAL_ITEMS = [
      "active_patterns": ["/ai-tool"],
      "keywords": ["ai", "cong cu ai", "ai tool", "script", "livestream"],
      "visible_when": "internal", "owner": "home_portal", "alias": True},
-    {"key": "home.portal.intranet", "label": "Intranet", "route": "/coming-soon?tool=intranet",
-     "icon": "globe", "group": "Tài nguyên", "order": 10, "active_patterns": ["/coming-soon?tool=intranet"],
-     "visible_when": "internal", "owner": "home_portal", "discoverable": False, "soon": True},
+    # 01/10/2026 (Hoan chot): Tin noi bo (/tin-noi-bo, internal_posts/) THAY CHO muc "Intranet
+    # (sap ra mat)" - Intranet du dinh chinh la cho cong ty dang tin cho nhan vien (sau them phan
+    # dang bai kieu mang xa hoi noi bo cung o day). Muc that (khong phai alias) nen
+    # resolve_context() dua trang vao ngu canh portal; "/tin-noi-bo/*" cho trang bai / viet bai /
+    # quan ly. "/coming-soon?tool=intranet" (link cu) cung sang dung muc nay.
+    {"key": "home.portal.news", "label": "Tin nội bộ", "route": "/tin-noi-bo",
+     "icon": "globe", "group": "Tài nguyên", "order": 10,
+     "active_patterns": ["/tin-noi-bo", "/tin-noi-bo/*"], "visible_when": "internal",
+     "owner": "home_portal",
+     "keywords": ["tin noi bo", "intranet", "thong bao", "tin tuc", "news", "bai viet",
+                  "chinh sach moi", "huong dan", "tool moi", "module moi"]},
     {"key": "home.portal.training", "label": "Đào tạo", "route": "/coming-soon?tool=dao-tao",
      "icon": "book", "group": "Tài nguyên", "order": 20, "active_patterns": ["/coming-soon?tool=dao-tao"],
      "visible_when": "internal", "owner": "home_portal", "discoverable": False, "soon": True},
