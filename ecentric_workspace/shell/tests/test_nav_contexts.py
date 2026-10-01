@@ -86,11 +86,14 @@ class TestRouteToContext(unittest.TestCase):
         # opens that feed -- a sidebar row would be a second door to the same
         # room) and "Cài app lên điện thoại" (a phone-install guide has no
         # business in the desktop portal menu; it still shows inside /ec-hr).
-        # +1 (01/10/2026, PO Hoan): "Tin nội bộ" (/tin-noi-bo) trong nhom Workspace.
+        # 01/10/2026 (PO Hoan): "Tin nội bộ" (/tin-noi-bo) THAY cho "Intranet (sắp ra mắt)"
+        # trong nhom Tai nguyen - tong so muc giu nguyen.
         # +1 (01/10/2026, PO Hoan yeu cau tab Khao sat): "Khảo sát" /khao-sat, alias row
         # owned by the `surveys` context.
-        self.assertEqual(len(home), 21)
+        self.assertEqual(len(home), 20)
         self.assertEqual(labels_route_of(home, "Tin nội bộ"), "/tin-noi-bo")
+        self.assertEqual([i["group"] for i in home if i["label"] == "Tin nội bộ"], ["Tài nguyên"])
+        self.assertFalse(any(i["label"] == "Intranet" for i in home))
         self.assertFalse(any(i["route"] == "/viec-cua-toi" for i in home))
         self.assertFalse(any(i["route"] == "/ec-hr/huong-dan-cai-app" for i in home))
         labels = {i["label"]: i["route"] for i in home}

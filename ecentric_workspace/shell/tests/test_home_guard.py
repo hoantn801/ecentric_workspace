@@ -117,8 +117,10 @@ class TestHomeSync(unittest.TestCase):
             "cfb286e5c4f0d5672e67d236ece09c1225ab4cd3fc7090d2d86fdcf7f31118f0",
             # p241 (SI Tool) - ban live truoc khi p246 them Tin noi bo (menu + khoi trang chu)
             "a347101b1c8d6e61e4816c4e281340be6ed0418399f9f429ebb58362201c76c2",
-            # p246 (Tin noi bo) - ban live truoc khi p247 them muc "Khảo sát"
-            "852634753df07a7c299822ebced929e974b8bb7518cb39a020d33b03f3d5a849"))
+            # p246 (Tin noi bo o Workspace) - ban truoc khi p247 chuyen vao Tai nguyen thay Intranet
+            "852634753df07a7c299822ebced929e974b8bb7518cb39a020d33b03f3d5a849",
+            # p247 (Tin noi bo vao Tai nguyen) - ban live truoc khi p248 them muc "Khảo sát"
+            "0884ba8f5749ffd97447c4bd33e48c4c2981e348205305990417406f9b2457e0"))
 
     def test_sync_writes_the_file_under_the_drift_lock_after_a_render_check(self):
         res = self.ps.sync()
