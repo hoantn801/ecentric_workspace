@@ -186,6 +186,11 @@ def derive(user, business_doc, approval_request):
         approval_request is None
         or (approval_request.approval_status == "Pending" and not _has_decision(approval_request)))
     admin = is_system_manager(user)
+    try:
+        from ecentric_workspace.approval_center.shared.requests import remind as _rm
+        _remind = _rm.capability(user, business_doc, approval_request)
+    except Exception:
+        _remind = (False, 0)
     admin_approve = False
     if (admin and approval_request and approval_request.approval_status == "Pending"
             and approval_request.current_level):
@@ -214,6 +219,9 @@ def derive(user, business_doc, approval_request):
         "can_complete": _can_complete(user, business_doc),
         "can_reassign": _can_reassign(user, business_doc),
         "can_view_fulfillment": bool(requester or admin or _is_fulfiller(user, business_doc, approval_request)),
+        # 01/10: nut "Nhac nguoi xu ly" - nguoi gui, 15 phut mot lan (shared/requests/remind.py).
+        "can_remind": _remind[0],
+        "remind_wait_seconds": _remind[1],
     }
 
 

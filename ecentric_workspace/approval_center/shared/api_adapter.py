@@ -53,6 +53,13 @@ def bind(approval_code):
     def get_detail(name):
         return facade.detail(definition, name)
 
+    # 01/10/2026: nguoi gui nhac nguoi DANG xu ly (ERP + Teams), 15 phut / phieu. POST: co ghi vet.
+    @frappe.whitelist(methods=["POST"])
+    def remind(name):
+        out = facade.remind(definition, name)
+        out["detail"] = facade.detail(definition, name)
+        return out
+
     @frappe.whitelist(methods=["POST"])
     def save_draft(name=None, payload=None):
         return facade.save_draft(definition, name, payload)
@@ -154,4 +161,5 @@ def bind(approval_code):
         "resubmit": resubmit,
         "cancel": cancel,
         "admin_approve_current_level": admin_approve_current_level,
+        "remind": remind,
     }

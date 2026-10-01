@@ -9,135 +9,135 @@
   },
   "approval_center/features/affiliate_bonus/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p203_resync_all_forms_alltab",
-    "sha256": "ffbcc7d379c3af09db293f3b951a59af8c05093d0e026367432685fc921b91bd"
+    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
+    "sha256": "083e5a4eff1829fa4c9814ae5d417e4e595576189b79a28b44eff532387ce3ff"
   },
   "approval_center/features/ai_topup/ui/main_section.html": {
-    "last_resync_patch": "p203_resync_all_forms_alltab",
-    "sha256": "743cab944df7a037ab05e22c208db64818044a0b25d10b08a3a2ba7099dc0671"
+    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
+    "sha256": "ffc1e63d35ffca4c2afca7fa2a86a01c49056e55b14d2b68396f2368388d49e7"
   },
   "approval_center/features/asset_damage_loss/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p203_resync_all_forms_alltab",
-    "sha256": "410c23c61ddff7a5044a17d2c2fdb17691678424b1d59a305905693e629f8726"
+    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
+    "sha256": "0198c0c6a8d65163bd591f9e31753c6aa30f3a5107b8da49f30778fb10888763"
   },
   "approval_center/features/asset_request/ui/main_section.html": {
-    "last_resync_patch": "p203_resync_all_forms_alltab",
-    "sha256": "d144db63d2b741ae5ef33df50424bcb7b6dd751a4538f64193fe83803b8fde1d"
+    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
+    "sha256": "b93aaa77a43563c16bc77463ced3f1ee1a250ae15a917c52193c57e97ea20837"
   },
   "approval_center/features/booking_request/ui/main_section.html": {
     "baseline": "2026-09-11",
-    "last_resync_patch": "p203_resync_all_forms_alltab",
-    "sha256": "ca9201d4c939f1df7cce02b9f22bdbc6550810b6d8461bce6814da8778b45ca0"
+    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
+    "sha256": "bc830e306625ef55e5f62c7c16efcce1ac05ac450b5d8f336c0157191a4f9be4"
   },
   "approval_center/features/budget_setting/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p203_resync_all_forms_alltab",
-    "sha256": "3a4fb2331a1a5185e136ac2f2f2e3cd6b9850bbb39ea810d55e9097de30b1d43"
+    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
+    "sha256": "f674e1557596d20dfeae6b85e14eb2e80d065b3717995d9efc408cee9494829e"
   },
   "approval_center/features/compensation_leave/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p203_resync_all_forms_alltab",
-    "sha256": "ab974a28a2d45a18383092fea390e29d9d42b8a61c3a82992ff9da2359de6529"
+    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
+    "sha256": "372a5cdd3ea49b6d94988330e5f2dc8abc42ceb506ec1869b9382569262a0de2"
   },
   "approval_center/features/contract_review/ui/main_section.html": {
-    "last_resync_patch": "p205_resync_share_link_pages",
-    "sha256": "1fd6bcfd453eae1ab059a9e2b4feccaaf17db6fa30230bbfbcaa7bd683e817e1"
+    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
+    "sha256": "f0a6f81a1d2d1c3f7fca55ea215a50019707fc32c49a45ea3134ee70a4440a49"
   },
   "approval_center/features/daily_target/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p242_daily_target_data_xu_ly",
-    "sha256": "525f2a3e8154df7d7d3056f320a62b10fcae1b53d0e8bb56dda5b9984e001f41"
+    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
+    "sha256": "1c448aaeccb1fcf38625e4841013062de2a3ae28d2ed90d73044819ae80415c3"
   },
   "approval_center/features/data_request/ui/main_section.html": {
-    "last_resync_patch": "p203_resync_all_forms_alltab",
-    "sha256": "424ebd636adfdf30962f9e78a38812f38dc52c974be7bceac7b947699f0219f7"
+    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
+    "sha256": "3f844df00db5ebcefeec3fc235827efbaffd489ee20ca6bcbeaaa3ea22a8c3be"
   },
   "approval_center/features/document_request/ui/main_section.html": {
-    "last_resync_patch": "p203_resync_all_forms_alltab",
-    "sha256": "7ead0d69edb49b06428cce7c154010dd5b7f8c51aa57881711b86079d55c6d56"
+    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
+    "sha256": "2a37738c7fe022fa96ff4aefe78c2437d70c1521b2e6a8ccbeaec46cbac2585d"
   },
   "approval_center/features/employee_info_update/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p232_eiu_ho_so_nhan_vien",
-    "sha256": "a67f245bf2504bb63ab9cc806f609fdfe92e2053828bc0eb50bdd88491adbf44"
+    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
+    "sha256": "dc54ea67c7a2397ab2145c088d27ce50da7a9c98c8533c6c70b663346178ae20"
   },
   "approval_center/features/employee_referral/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p203_resync_all_forms_alltab",
-    "sha256": "3f9cba01c542623751d0958b9c97f3c558b958881da3d50afe63372612504904"
+    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
+    "sha256": "3b2965928da0f4f4148010969dc7d6aea9c48932340a0dc8815a8c2396d75ed5"
   },
   "approval_center/features/hiring_request/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p220_create_offer_nsp_pages",
-    "sha256": "1b60a0a02e0cad12fefe8561ed6c0d5fa74f8710c79b7e98ac65ee35f32158e7"
+    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
+    "sha256": "9e3c909e9dfeb97534d5f2ddd128a686f250e23260473b361f76fa1c1d795bba"
   },
   "approval_center/features/hr_activity/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p203_resync_all_forms_alltab",
-    "sha256": "5e3da1817c78551894cd6d0ee6de90f7a24683e75cfac2bde129fb957caefd07"
+    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
+    "sha256": "65876f3f85f9bd9b5471aca388ab6fa9cc42d3f78d76108defb196724ce6292a"
   },
   "approval_center/features/late_early_out/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p203_resync_all_forms_alltab",
-    "sha256": "d660dd5eefb721b3b2c51bdc46d041e6b0c2af1e2597ff9fa15d92e8c95c2749"
+    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
+    "sha256": "d6093b8209b3246a7628ec54974ce214847ecb90b70da63e7e85b61722b5f5a9"
   },
   "approval_center/features/lateral_move/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p203_resync_all_forms_alltab",
-    "sha256": "3438c58d63a9b7df70ace1eecbeae8b7f43de99f2d62865b7b5f6d47e6d1883b"
+    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
+    "sha256": "64b293b8840d3c8c49f955baa9653aaf454cf218474b7c887f9686223610b161"
   },
   "approval_center/features/leave/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p203_resync_all_forms_alltab",
-    "sha256": "5da559de3907be15138f79c0fb5d0f82d9f58300404358de2fe0c442f14ddd1b"
+    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
+    "sha256": "794dca75f533186c2913a7b1b8b4efc67a169f3e1e635361faa4af8ede6d3245"
   },
   "approval_center/features/livestream_sample/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p203_resync_all_forms_alltab",
-    "sha256": "17c9460cd8698a52a2c36ecb9f7cf10e71d287ac060f7dcdc02fca2cdad5fecf"
+    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
+    "sha256": "0a4b2387b192f7486841fe7c542dac2e8b59cd9260aa77b2ca919c759a3b81b3"
   },
   "approval_center/features/livestream_supplies/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p203_resync_all_forms_alltab",
-    "sha256": "b35f4e537d7150f17643e9bfc250c004a54175bfb5604a52e174e408f03a88e5"
+    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
+    "sha256": "635c02852c427f551986432271a9cca1922b60345bc04d8740454eabe74177fa"
   },
   "approval_center/features/outside_work/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p203_resync_all_forms_alltab",
-    "sha256": "3002865aedfa6fd4aa0e7c3385a7c35f130871dab8412c6d2e4d5907b9798220"
+    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
+    "sha256": "6b2be5ed0486b6b244745d137186547e3ef52bb74ce2a702069194759a9cfb4f"
   },
   "approval_center/features/payment_request/ui/main_section.html": {
-    "last_resync_patch": "p203_resync_all_forms_alltab",
-    "sha256": "53520ecc4e3a3b35ad48e8576d52695dbf03043d714819953eebb3b6c53f1660"
+    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
+    "sha256": "fb084c118f2fbb496fc9eab6621a4e0232b6da14c70ac63ef0b6f8542aa8decd"
   },
   "approval_center/features/promotion/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p237_promotion_an_luong_buoc_1",
-    "sha256": "4a6526f0dd0e2c90182df7c5652790b1fc2405eb5235505189c21f09c1150863"
+    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
+    "sha256": "8a2cf92f3e2cec954ac0f344038f63483a37a9e91cca7d9da8d38eae3f6d704d"
   },
   "approval_center/features/purchase_request/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p203_resync_all_forms_alltab",
-    "sha256": "79dd5e54fab8d8742d963866998d180ac241e914ac09d993b9465b8b920afcab"
+    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
+    "sha256": "e3487110c47bbbec3265144871991a7694bc2a2a996d9d116af4c7e5bf4dd15b"
   },
   "approval_center/features/resignation/ui/main_section.html": {
-    "last_resync_patch": "p203_resync_all_forms_alltab",
-    "sha256": "29fd4c4ca879f25f52a6e471e67960e1a15f2a3229f07b9482c9639dab1baa9f"
+    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
+    "sha256": "9fa8269cdd6a62a6f8c96b141cd01d08f14442e66a71a8d655f5311e6c32eedd"
   },
   "approval_center/features/service_referral/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p203_resync_all_forms_alltab",
-    "sha256": "f5c530d4611ffc960943213b7d353e926d766133c6d54be347cc4f27b1bc937f"
+    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
+    "sha256": "55133f81393b6a3effdc4208673191c148e200df9d0f02b897ea837d4f00f1a1"
   },
   "approval_center/features/special_bonus/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p203_resync_all_forms_alltab",
-    "sha256": "b2a80c09dece1e664820e63232789a55ef5461f05961c8b70333b7a8d66878e2"
+    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
+    "sha256": "1345dc229ef564cabef48242f89a55600fe2981b55e9bad64e01a16c9cf11b51"
   },
   "approval_center/features/system_request/ui/main_section.html": {
-    "last_resync_patch": "p203_resync_all_forms_alltab",
-    "sha256": "9b750d5223a88101bf5f3947fc5918845fd4320120f95e43926b49fc758bf636"
+    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
+    "sha256": "bbd1401edb087f95cdf9c62667eaf761f9abf20cfb6817993fda518c75455ccc"
   },
   "approval_center/ui/all_requests/main_section.html": {
     "last_resync_patch": "p205_resync_share_link_pages",
@@ -245,13 +245,13 @@
   },
   "approval_center/features/offer_request/ui/main_section.html": {
     "baseline": "2026-09-28",
-    "last_resync_patch": "p220_create_offer_nsp_pages",
-    "sha256": "bde728605a45f92bbc7c7443a903f92fa53d665b8148fcc5e62eea1f778b2a47"
+    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
+    "sha256": "c387a1f64fa737aed7e6bce297d8e5b348a34d614bcf26f980436bc6ba30cc0d"
   },
   "approval_center/features/new_staff_preparation/ui/main_section.html": {
     "baseline": "2026-09-28",
-    "last_resync_patch": "p220_create_offer_nsp_pages",
-    "sha256": "78e058a80de0472a5d2f7bb68283b198dbdad9a218259bb7c2ada4ef1648eaa4"
+    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
+    "sha256": "607193e6d7e404d37e2d2e220a91c15e75736ec34fc8dbabefc5bb90612272eb"
   },
   "legacy_pages/home/main_section.html": {
     "baseline": "2026-09-29",
@@ -285,7 +285,7 @@
   },
   "approval_center/features/clearance_request/ui/main_section.html": {
     "baseline": "2026-09-29",
-    "last_resync_patch": "p233_clearance_request",
-    "sha256": "730ad1ba443632ab1e513ebcf798552de80602d8040862223335c21522accb85"
+    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
+    "sha256": "30ea2f62193d68623b68c5723e61d9dd0802b490f80720c20ce8b37126c179a6"
   }
 }

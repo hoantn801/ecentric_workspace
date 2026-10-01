@@ -9,6 +9,7 @@ import frappe
 from frappe import _
 from ecentric_workspace.approval_center.shared.requests.query_service import requester_display
 from ecentric_workspace.approval_center.shared.workflow import permissions as _perm
+from ecentric_workspace.approval_center.shared.facade import APPROVAL_FACADE as _FACADE
 from ecentric_workspace.approval_center.shared.registry import get_definition
 from ecentric_workspace.approval_center.shared.requests import query_service as _query_service
 
@@ -104,6 +105,11 @@ def _capabilities(user, biz, req):
                           "allows_amount_adjustment"))
     cancel_requester = is_requester and (req is None or (req.approval_status == "Pending" and not _has_decision(req)))
     cancel_admin = (_sm()) and open_
+    try:
+        from ecentric_workspace.approval_center.shared.requests import remind as _rm
+        _remind = _rm.capability(user, biz, req)
+    except Exception:
+        _remind = (False, 0)
     can_admin_approve = False
     if _sm() and req and req.approval_status == "Pending" and req.current_level:
         _cl = frappe.db.get_value("EC Approval Request Level",
@@ -123,6 +129,9 @@ def _capabilities(user, biz, req):
         "can_complete": (biz.fulfillment_owner == user or _sm())
                         and biz.fulfillment_status in ("Assigned", "In Progress"),
         "can_view_fulfillment": _is_fulfiller(user) or is_requester or _sm(),
+        # 01/10: nut "Nhac nguoi xu ly" - cung luat voi cac form khac (shared/requests/remind.py).
+        "can_remind": _remind[0],
+        "remind_wait_seconds": _remind[1],
     }
 
 
@@ -565,5 +574,10 @@ def complete_fulfillment(name, payload=None):
     return {"detail": get_request_detail(name)}
 
 
-
-
+# 01/10/2026: nguoi gui nhac nguoi DANG xu ly (ERP + Teams), 15 phut / phieu.
+# Logic chung o shared/requests/remind.py - cung endpoint voi cac form dung bind().
+@frappe.whitelist(methods=["POST"])
+def remind(name):
+    out = _FACADE.remind(_DEFINITION, name)
+    out["detail"] = get_request_detail(name)
+    return out

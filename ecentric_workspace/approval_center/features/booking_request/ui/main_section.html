@@ -901,6 +901,7 @@
     if(cap.can_request_information) b.push('<button type="button" class="btn" data-act="reqinfo">Yêu cầu bổ sung</button>');
     if(cap.can_edit) b.push('<button type="button" class="btn primary" data-act="edit">Sửa &amp; gửi lại</button>');
     if(cap.can_cancel) b.push('<button type="button" class="btn" data-act="cancel">Hủy yêu cầu</button>');
+    if(window.EcRemind) b.push(EcRemind.buttonHTML(cap));   // 01/10: nhac nguoi xu ly (asset dung chung)
     if(!b.length) return "";
     return '<div class="card"><h3>Hành động</h3><div class="actions" style="display:flex;gap:10px;flex-wrap:wrap">'+b.join("")+'</div></div>';
   }
@@ -911,6 +912,7 @@
     // "Gui lai" tran thi phieu quay ve cap duyet y nguyen noi dung cu - dung cai ngo cut da
     // dinh o ba form khac. Nen o day: nap phieu vao form, sua, roi save_draft + resubmit.
     if(a==="edit") return startEdit();
+    if(a==="remind") return window.EcRemind&&EcRemind.run(call,name,{toast:toast,done:function(){ state.detail=null; renderDetail($("book-body")); }});
     var hoi = {reject:"Lý do từ chối:", reqinfo:"Cần bổ sung gì?", cancel:"Lý do hủy:"}[a];
     var comment=null;
     if(hoi){

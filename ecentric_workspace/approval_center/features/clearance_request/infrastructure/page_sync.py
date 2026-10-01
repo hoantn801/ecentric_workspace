@@ -16,8 +16,10 @@ ROUTE = "approvals/clearance-request"
 NAME = "clearance-request"
 TITLE = "Clearance Request"
 
-BASELINE_SHA256 = "730ad1ba443632ab1e513ebcf798552de80602d8040862223335c21522accb85"
-SUPERSEDES_SHA256 = ()
+BASELINE_SHA256 = "30ea2f62193d68623b68c5723e61d9dd0802b490f80720c20ce8b37126c179a6"
+SUPERSEDES_SHA256 = (
+    "730ad1ba443632ab1e513ebcf798552de80602d8040862223335c21522accb85",  # ban truoc dot nut Nhac nguoi xu ly 01/10
+)
 
 
 def _html():
