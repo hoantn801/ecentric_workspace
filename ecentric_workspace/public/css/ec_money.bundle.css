@@ -1,0 +1,5 @@
+/* O nhap so tien (01/10/2026): can phai, chu so deu cot. Xem public/js/ec_money.bundle.js. */
+input[data-money] {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}

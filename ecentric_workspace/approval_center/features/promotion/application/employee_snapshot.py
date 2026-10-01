@@ -17,10 +17,12 @@ Dung o ba cho, cung mot ham `can_view_salary`:
 
 Sau khi duyet xong (nen, sau commit - apply_promotion):
   * Employee.designation = vi tri de xuat (neu la mot Designation co that; khong thi bao C&B)
-  * luong de xuat khac luong hien tai -> TAO Salary Structure Assignment MOI o DRAFT (chep cau
-    truc / cong ty / bien cua SSA dang hieu luc; KHONG chep so du thue dau ky, phong ban, chuc
-    danh, cap bac - HRMS tu lay tu Employee), base = luong de xuat, from_date = ngay hieu luc.
-    C&B kiem tra roi tu submit. KHONG sua SSA cu.
+  * luong: KHONG tu tao / sua Salary Structure Assignment (01/10/2026, Hoan chot). Luong tren
+    phieu la GROSS (gom thuong hieu suat...), con SSA.base chi la luong co ban - ghi gross vao
+    base la sai. Gross thay doi -> bao C&B tu tach base / thuong va tao bang luong tu ngay
+    hieu luc. (Ban 29/09 tao SSA Draft voi base = luong de xuat: da bo.)
+  * Luong hien tai (gross) do nguoi de xuat TU NHAP; base cua SSA moi nhat chi hien de tham
+    khao (`base_salary`), khong dien vao phieu.
 Khong ghi so tien vao ket qua / nhat ky duyet (ai co dong duyet cung doc duoc nhat ky)."""
 import frappe
 from frappe import _
@@ -29,14 +31,6 @@ from frappe.utils import getdate, nowdate
 SSA = "Salary Structure Assignment"
 EMPLOYEE = "Employee"
 SALARY_FIELDS = ("current_salary", "proposed_salary", "incentives")
-#: Truong cua SSA KHONG chep sang SSA moi.
-_SSA_SKIP = {"name", "owner", "creation", "modified", "modified_by", "docstatus", "idx",
-             "amended_from", "from_date", "base", "doctype", "_user_tags", "_comments",
-             "_assign", "_liked_by", "_seen",
-             # so du thue dau ky: chep sang la cong trung (review P3)
-             "taxable_earnings_till_date", "tax_deducted_till_date",
-             # to chuc: HRMS tu lay tu Employee, chep ban cu la sai pham vi luong
-             "department", "designation", "grade"}
 _MAX_CHAIN = 15
 
 
@@ -128,7 +122,9 @@ def snapshot(employee):
     return {"employee": emp.name, "full_name": emp.employee_name, "department": emp.department,
             "current_position": emp.designation or "", "grade": emp.grade or "",
             "employment_type": emp.employment_type or "", "date_of_joining": emp.date_of_joining,
-            "company": emp.company, "current_salary": ssa.base if ssa else None,
+            "company": emp.company,
+            # THAM KHAO: base (chua gom thuong hieu suat) - phieu dung GROSS do nguoi de xuat nhap.
+            "base_salary": ssa.base if ssa else None,
             "salary_from": ssa.from_date if ssa else None,
             "salary_structure": ssa.salary_structure if ssa else None}
 
@@ -151,28 +147,14 @@ def apply_promotion(doc):
         else:
             ok = False
             notes.append(_("Chức danh \"{0}\" chưa có trong danh mục - C&B cập nhật tay").format(new_pos))
-    cur = latest_ssa(emp.name, as_of=doc.effective_date_of_promotion)
-    new_base = doc.proposed_salary
-    if new_base is not None and float(new_base) != float(doc.current_salary or 0):
-        ok = False                                    # luon can C&B: SSA moi o Draft
-        if not cur:
-            notes.append(_("Chưa có bảng lương (SSA) để chép - C&B tạo tay"))
-        else:
-            old = frappe.get_doc(SSA, cur)
-            new = frappe.new_doc(SSA)
-            for k, v in old.as_dict().items():
-                if k not in _SSA_SKIP and not isinstance(v, list):
-                    new.set(k, v)
-            new.from_date = doc.effective_date_of_promotion
-            new.base = new_base
-            new.flags.ec_promotion_request = doc.name
-            new.flags.ignore_permissions = True
-            new.insert(ignore_permissions=True)                       # DRAFT - C&B submit
-            notes.append(_("Đã tạo bảng lương mới (Draft) từ {0} ({1}) - C&B kiểm tra và submit").format(
-                doc.effective_date_of_promotion, new.name))
-            if frappe.db.exists("Salary Slip", {"employee": emp.name, "docstatus": 1,
-                                                "end_date": [">=", str(getdate(doc.effective_date_of_promotion))]}):
-                notes.append(_("CHÚ Ý: đã có phiếu lương đã chốt từ ngày hiệu lực trở đi - C&B xử lý chênh lệch"))
+    cur, new = doc.current_salary, doc.proposed_salary
+    if new is not None and float(new) != float(cur or 0):
+        ok = False                                    # luon can C&B: luong la gross, khong ghi SSA
+        notes.append(_("Lương gross thay đổi từ {0} - C&B cập nhật bảng lương (tách base / thưởng) theo phiếu").format(
+            doc.effective_date_of_promotion))
+        if frappe.db.exists("Salary Slip", {"employee": emp.name, "docstatus": 1,
+                                            "end_date": [">=", str(getdate(doc.effective_date_of_promotion))]}):
+            notes.append(_("CHÚ Ý: đã có phiếu lương đã chốt từ ngày hiệu lực trở đi - C&B xử lý chênh lệch"))
     if not notes:
         notes.append(_("Không có thay đổi nào cần ghi"))
     return ok, notes

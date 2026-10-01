@@ -257,7 +257,7 @@
       + '<div class="card"><h3>Thông tin yêu cầu</h3><div class="grid2">'
       + fld("request_type","Loại yêu cầu",'<select data-model="request_type"><option value="">—</option>'+opt(fo.request_types,d.request_type)+'</select>')
       + fld("requested_plan","Gói/plan yêu cầu",'<input data-model="requested_plan" value="'+esc(d.requested_plan||"")+'">')
-      + fld("requested_amount","Số tiền đề nghị thanh toán",'<input type="number" min="0" data-model="requested_amount" value="'+esc(d.requested_amount||"")+'"><div class="hint">Nhập tổng số tiền dự kiến cần thanh toán, đã bao gồm VAT/thuế/phí nếu có.</div>')
+      + fld("requested_amount","Số tiền đề nghị thanh toán",'<input type="text" inputmode="decimal" autocomplete="off" data-money="dec" data-model="requested_amount" value="'+esc(window.EcMoney?EcMoney.fmt((d.requested_amount||""),1):(d.requested_amount||""))+'"><div class="hint">Nhập tổng số tiền dự kiến cần thanh toán, đã bao gồm VAT/thuế/phí nếu có.</div>')
       + fld("currency","Tiền tệ",'<select data-model="currency">'+opt((fo.currencies||[]).map(function(x){return {value:x,label:x};}),d.currency||"VND")+'</select>')
       + fld("tax_fee_basis","Cơ sở VAT/thuế/phí",'<select data-model="tax_fee_basis">'+taxBasisOptions(d.tax_fee_basis)+'</select>')
       + fld("needed_by","Ngày cần hoàn thành",'<input type="date" data-model="needed_by" value="'+esc(d.needed_by||"")+'">')
@@ -356,7 +356,7 @@
   function setBusyIds(ids,on){ ids.forEach(function(id){ var el=$(id); if(el) el.disabled=on; }); }
   function attachModel(el){ if(el.__ecw) return; el.__ecw=true;
     el.addEventListener("input",function(){ var editing=state.mode==="edit";
-      var k=el.getAttribute("data-model"); var v=el.type==="number"?(el.value===""?null:Number(el.value)):((el.tagName==="SELECT"&&k==="auto_renewal_expected")?Number(el.value):el.value);
+      var k=el.getAttribute("data-model"); var v=(window.EcMoney&&el.hasAttribute("data-money"))?EcMoney.val(el):el.type==="number"?(el.value===""?null:Number(el.value)):((el.tagName==="SELECT"&&k==="auto_renewal_expected")?Number(el.value):el.value);
       setModel(k,v);
       if(k==="request_title") state.titleTouched=((el.value||"").trim()!=="");
       if(k==="account_mode") renderAcctSub();
@@ -693,9 +693,9 @@
     var isFin = !!(det.capabilities&&det.capabilities.can_adjust_approved_amount); var reqAmt=(det.business||{}).requested_amount;
     var body=summaryHTML(det)
       +'<div class="fld"><label>Ghi chú (không bắt buộc)</label><textarea id="m-cmt" rows="2"></textarea></div>'
-      +(isFin?('<div class="fld"><label>Số tiền được duyệt</label><input id="m-amt" type="number" value="'+esc(det.business.approved_amount!=null?det.business.approved_amount:(reqAmt||""))+'"><div class="hint">Là mức trần thanh toán được duyệt, đã bao gồm VAT/thuế/phí nếu có. Yêu cầu: '+esc(reqAmt||"—")+' '+esc((det.business||{}).currency||"")+' · Cơ sở VAT/thuế/phí: '+esc(taxBasisLabel((det.business||{}).tax_fee_basis))+'. Nếu khác số tiền yêu cầu, bắt buộc nhập lý do.</div></div>'):'');
+      +(isFin?('<div class="fld"><label>Số tiền được duyệt</label><input id="m-amt" type="text" inputmode="decimal" autocomplete="off" data-money="dec" value="'+esc(window.EcMoney?EcMoney.fmt((det.business.approved_amount!=null?det.business.approved_amount:(reqAmt||"")),1):(det.business.approved_amount!=null?det.business.approved_amount:(reqAmt||"")))+'"><div class="hint">Là mức trần thanh toán được duyệt, đã bao gồm VAT/thuế/phí nếu có. Yêu cầu: '+esc(reqAmt||"—")+' '+esc((det.business||{}).currency||"")+' · Cơ sở VAT/thuế/phí: '+esc(taxBasisLabel((det.business||{}).tax_fee_basis))+'. Nếu khác số tiền yêu cầu, bắt buộc nhập lý do.</div></div>'):'');
     modal("Duyệt yêu cầu", body, {okLabel:"Duyệt", onConfirm:function(ov){
-      var cmt=(ov.querySelector("#m-cmt").value||""); var amtEl=ov.querySelector("#m-amt"); var amt=amtEl?amtEl.value:null;
+      var cmt=(ov.querySelector("#m-cmt").value||""); var amtEl=ov.querySelector("#m-amt"); var amt=amtEl?((window.EcMoney&&amtEl.hasAttribute("data-money"))?EcMoney.val(amtEl):amtEl.value):null;
       if(amt!==null&&amt!==""&&Number(amt)!==Number(reqAmt)&&!cmt.trim()){ toast("Cần nhập lý do khi số tiền duyệt khác số tiền yêu cầu.",true); return Promise.reject(); }
       return call("approve",{name:name,comment:cmt,approved_amount:(amt!==null&&amt!==""?amt:null)})
         .then(function(res){ var nx=nextLevelName(res&&res.detail); toast(nx?("Đã duyệt yêu cầu. Yêu cầu đã chuyển sang "+nx+"."):"Đã duyệt yêu cầu."); refreshDetail(); refreshApprovals(); })
@@ -840,7 +840,7 @@
       + fld("actual_account_email","Email account thực",'<input data-comp="actual_account_email" value="'+esc(comp.actual_account_email!=null?comp.actual_account_email:(b.account_email||b.proposed_account_email||""))+'">')
       + fld("confirmed_account_manager","Xác nhận người quản lý",'<input data-comp="confirmed_account_manager" list="ait-users" value="'+esc(comp.confirmed_account_manager!=null?comp.confirmed_account_manager:(b.account_manager||b.proposed_account_manager||""))+'"><datalist id="ait-users"></datalist>')
       + fld("actual_plan","Gói thực",'<input data-comp="actual_plan" value="'+esc(comp.actual_plan!=null?comp.actual_plan:(b.requested_plan||""))+'">')
-      + fld("actual_amount","Số tiền thanh toán thực tế",'<input type="number" data-comp="actual_amount" value="'+esc(comp.actual_amount!=null?comp.actual_amount:(b.approved_amount!=null?b.approved_amount:b.requested_amount||""))+'"><div class="hint">Nhập số tiền thực tế đã thanh toán, đã bao gồm VAT/thuế/phí nếu có.</div>')
+      + fld("actual_amount","Số tiền thanh toán thực tế",'<input type="text" inputmode="decimal" autocomplete="off" data-money="dec" data-comp="actual_amount" value="'+esc(window.EcMoney?EcMoney.fmt((comp.actual_amount!=null?comp.actual_amount:(b.approved_amount!=null?b.approved_amount:b.requested_amount||"")),1):(comp.actual_amount!=null?comp.actual_amount:(b.approved_amount!=null?b.approved_amount:b.requested_amount||"")))+'"><div class="hint">Nhập số tiền thực tế đã thanh toán, đã bao gồm VAT/thuế/phí nếu có.</div>')
       + fld("actual_currency","Tiền tệ thanh toán thực tế",'<select data-comp="actual_currency">'+currencyOptions(fo,comp.actual_currency!=null?comp.actual_currency:(b.currency||"VND"))+'</select>')
       + fld("actual_tax_fee_basis","Cơ sở VAT/thuế/phí thực tế",'<select data-comp="actual_tax_fee_basis">'+taxBasisOptions(comp.actual_tax_fee_basis!=null?comp.actual_tax_fee_basis:(b.tax_fee_basis||"Included"))+'</select>')
       + fld("topup_datetime","Thời điểm top-up",'<input type="datetime-local" data-comp="topup_datetime" value="'+esc(comp.topup_datetime||nowLocal())+'">')
@@ -874,7 +874,8 @@
   function wireFulfillment(det){ var name=(det.business||{}).name;
     var cl=$("ait-claim"); if(cl){ cl.onclick=function(){ cl.disabled=true; call("claim_fulfillment",{name:name}).then(function(){ toast("Đã nhận xử lý."); refreshDetail(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); }); }; }
     state.comp=state.comp||{};
-    document.querySelectorAll("[data-comp]").forEach(function(el){ var k=el.getAttribute("data-comp"); if(state.comp[k]==null||state.comp[k]==="") state.comp[k]=el.value; el.addEventListener("input",function(){ state.comp=state.comp||{}; state.comp[el.getAttribute("data-comp")]=el.value; }); });
+    function compVal(el){ return (window.EcMoney&&el.hasAttribute("data-money"))?EcMoney.val(el):el.value; }
+    document.querySelectorAll("[data-comp]").forEach(function(el){ var k=el.getAttribute("data-comp"); if(state.comp[k]==null||state.comp[k]==="") state.comp[k]=compVal(el); el.addEventListener("input",function(){ state.comp=state.comp||{}; state.comp[el.getAttribute("data-comp")]=compVal(el); }); });
     var pp=document.querySelector('[data-upload="payment_proof"]'); if(pp) pp.addEventListener("change",function(){ uploadFile(pp,"payment_proof","pp-name","PaymentProof",det); });
     var ir=document.querySelector('[data-upload="invoice_receipt"]'); if(ir) ir.addEventListener("change",function(){ uploadFile(ir,"invoice_receipt","ir-name","Invoice",det); });
     var inv=document.querySelector('[data-comp="invoice_status"]'); if(inv) inv.addEventListener("change",function(){ state.comp=state.comp||{}; state.comp.invoice_status=inv.value; applyInvoiceConditional(); });

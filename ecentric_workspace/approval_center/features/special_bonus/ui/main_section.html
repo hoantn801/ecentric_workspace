@@ -225,7 +225,7 @@
       + '</div></div><div class="card"><h3>Thông tin thưởng đặc biệt</h3><div class="grid2">'
       + fld("department","Department",((fo.departments||[]).length?'<select data-model="department"><option value="">— Chọn phòng ban —</option>'+opt(fo.departments||[],d.department)+'</select>':'<select data-model="department" disabled><option value="">Không tải được danh sách phòng ban</option></select><div class="hint">Vui lòng tải lại trang; nếu vẫn lỗi, liên hệ quản trị viên.</div>'),true)
       + fld("project_name","Project Name",'<input data-model="project_name" value="'+esc(d.project_name||"")+'">',true)
-      + fld("total_bonus","Total Bonus (VND)",'<input type="number" min="0" step="1" data-model="total_bonus" value="'+esc(d.total_bonus!=null?d.total_bonus:"")+'">',true)
+      + fld("total_bonus","Total Bonus (VND)",'<input type="text" inputmode="numeric" autocomplete="off" data-money data-model="total_bonus" value="'+esc(window.EcMoney?EcMoney.fmt((d.total_bonus!=null?d.total_bonus:"")):(d.total_bonus!=null?d.total_bonus:""))+'">',true)
       + '<div></div>'
       + fld("reasons","Reasons",'<textarea data-model="reasons" rows="3" placeholder="Lý do đề xuất thưởng đặc biệt.">'+esc(d.reasons||"")+'</textarea>',true).replace('class="fld','class="fld full')
       + fld("request_attachment","Tệp đính kèm",'<input type="file" multiple data-upload="request_attachment"><div class="hint" id="spbn-att-name">'+attTxt+'</div>',false).replace('class="fld','class="fld full')
@@ -316,7 +316,7 @@
 
   function attachModel(el){ if(el.__ecw) return; el.__ecw=true;
     el.addEventListener("input",function(){ var editing=state.mode==="edit"; var k=el.getAttribute("data-model");
-      var v=el.type==="number"?(el.value===""?null:Number(el.value)):el.value; setModel(k,v);
+      var v=(window.EcMoney&&el.hasAttribute("data-money"))?EcMoney.val(el):el.type==="number"?(el.value===""?null:Number(el.value)):el.value; setModel(k,v);
       if(k==="request_title") state.titleTouched=((el.value||"").trim()!=="");
       if(k!=="request_title") maybeAutoTitle();
       renderSummary(); clearFieldError(k);

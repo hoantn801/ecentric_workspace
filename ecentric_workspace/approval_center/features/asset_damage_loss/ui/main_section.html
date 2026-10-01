@@ -244,8 +244,8 @@
       + fld("physical_damage","Thiệt hại vật lý",'<textarea data-model="physical_damage" rows="2">'+esc(d.physical_damage||"")+'</textarea><div class="hint">Detailed description of damage</div>',true).replace('class="fld','class="fld full')
       + fld("data_compromised","Dữ liệu bị ảnh hưởng",'<textarea data-model="data_compromised" rows="2">'+esc(d.data_compromised||"")+'</textarea><div class="hint">Was any Public / Internal / Confidential data compromised?</div>',true).replace('class="fld','class="fld full')
       + fld("impact_on_operations","Ảnh hưởng đến vận hành",'<textarea data-model="impact_on_operations" rows="2">'+esc(d.impact_on_operations||"")+'</textarea><div class="hint">Describe any immediate or potential impact on business operations due to this incident.</div>',true).replace('class="fld','class="fld full')
-      + fld("estimated_repair_cost","Chi phí sửa chữa ước tính (VND)",'<input type="number" min="0" step="1" data-model="estimated_repair_cost" value="'+esc(d.estimated_repair_cost!=null?d.estimated_repair_cost:"")+'"><div class="hint">In VND. Input 0 if not applicable.</div>')
-      + fld("estimated_value_lost_stolen_asset","Giá trị tài sản mất/bị đánh cắp ước tính (VND)",'<input type="number" min="0" step="1" data-model="estimated_value_lost_stolen_asset" value="'+esc(d.estimated_value_lost_stolen_asset!=null?d.estimated_value_lost_stolen_asset:"")+'"><div class="hint">In VND. Input 0 if not applicable.</div>')
+      + fld("estimated_repair_cost","Chi phí sửa chữa ước tính (VND)",'<input type="text" inputmode="numeric" autocomplete="off" data-money data-model="estimated_repair_cost" value="'+esc(window.EcMoney?EcMoney.fmt((d.estimated_repair_cost!=null?d.estimated_repair_cost:"")):(d.estimated_repair_cost!=null?d.estimated_repair_cost:""))+'"><div class="hint">In VND. Input 0 if not applicable.</div>')
+      + fld("estimated_value_lost_stolen_asset","Giá trị tài sản mất/bị đánh cắp ước tính (VND)",'<input type="text" inputmode="numeric" autocomplete="off" data-money data-model="estimated_value_lost_stolen_asset" value="'+esc(window.EcMoney?EcMoney.fmt((d.estimated_value_lost_stolen_asset!=null?d.estimated_value_lost_stolen_asset:"")):(d.estimated_value_lost_stolen_asset!=null?d.estimated_value_lost_stolen_asset:""))+'"><div class="hint">In VND. Input 0 if not applicable.</div>')
       + '</div></div><div class="card"><h3>Hành động đề xuất</h3><div class="grid2">'
       + fld("recommended_actions","Hành động đề xuất",actionsChecksHTML(d,fo),true).replace('class="fld','class="fld full')
       + (actOther?fld("recommended_actions_other","Hành động khác",'<input data-model="recommended_actions_other" value="'+esc(d.recommended_actions_other||"")+'">',true).replace('class="fld','class="fld full'):'')
@@ -345,7 +345,7 @@
 
   function attachModel(el){ if(el.__ecw) return; el.__ecw=true;
     el.addEventListener("input",function(){ var k=el.getAttribute("data-model");
-      var v=el.type==="number"?(el.value===""?null:Number(el.value)):el.value; setModel(k,v);
+      var v=(window.EcMoney&&el.hasAttribute("data-money"))?EcMoney.val(el):el.type==="number"?(el.value===""?null:Number(el.value)):el.value; setModel(k,v);
       if(k==="request_title") state.titleTouched=((el.value||"").trim()!=="");
       if(k!=="request_title") maybeAutoTitle();
       if(k==="asset_type"||k==="incident_type") { renderCreate($("adlr-body")); return; }

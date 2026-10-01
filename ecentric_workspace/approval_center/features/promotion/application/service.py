@@ -54,7 +54,7 @@ def submit(name):
         doc.company = doc.company or emp.company
     _fill_from_employee(doc)
     missing = [f for f in REQUIRED_AT_SUBMIT if not doc.get(f)]
-    if doc.current_salary is None:
+    if not doc.current_salary:                    # gross tu nhap (01/10) - 0 / trong deu la thieu
         missing.append("current_salary")
     if doc.proposed_salary is None:
         missing.append("proposed_salary")
@@ -83,8 +83,9 @@ def submit(name):
 
 
 def _fill_from_employee(doc):
-    """Nhan su chon tu danh sach -> ghi de ho ten / phong ban / vi tri / luong HIEN TAI bang du
-    lieu server (quyen xem luong kiem lai o day). Phieu cu (khong chon nhan su) giu nhu truoc."""
+    """Nhan su chon tu danh sach -> ghi de ho ten / phong ban / vi tri bang du lieu server (quyen
+    xem luong kiem lai o day). Luong hien tai la GROSS do nguoi de xuat tu nhap - KHONG ghi de
+    (01/10). Phieu cu (khong chon nhan su) giu nhu truoc."""
     if not doc.get("promoted_employee"):
         if frappe.db.get_value(BUSINESS_DT, doc.name, "approval_request"):
             return
@@ -93,7 +94,6 @@ def _fill_from_employee(doc):
     doc.full_name = s["full_name"]
     doc.department = s["department"]
     doc.current_position = s["current_position"] or doc.current_position
-    doc.current_salary = s["current_salary"] if s["current_salary"] is not None else doc.current_salary
 
 
 def form_options():
@@ -163,8 +163,7 @@ def resubmit(name, actor=None):
     if doc.get("promoted_employee"):
         _fill_from_employee(doc)
         frappe.db.set_value(BUSINESS_DT, doc.name, {"full_name": doc.full_name, "department": doc.department,
-                                                    "current_position": doc.current_position,
-                                                    "current_salary": doc.current_salary})
+                                                    "current_position": doc.current_position})
     new_sig = _signature(doc)
     material_changed = new_sig != (doc.material_signature or "")
     engine.resubmit(doc.approval_request, actor=actor or frappe.session.user, restart=material_changed)

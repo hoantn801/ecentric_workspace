@@ -45,6 +45,8 @@ class Doc(Obj):
         return self.setdefault("_flags", Obj())
 
     def save(self, ignore_permissions=False):
+        if getattr(W, "boom_save", False):
+            raise RuntimeError("save loi")
         W.saved.append((self["doctype"], dict(self)))
 
     def insert(self, ignore_permissions=False):
@@ -66,6 +68,7 @@ class Doc(Obj):
 def build(visible=("E-A",), perms=None):
     W.saved, W.inserted, W.submitted, W.logs, W.notes, W.enq = [], [], [], [], [], []
     W.boom_insert = False
+    W.boom_save = False
     W.slip = False
     W.visible = set(visible)
     #: quyen doc SSA theo user: {user: set(ten SSA)}; nguoi dang nhap = me@x
@@ -210,17 +213,19 @@ def test_quyen_theo_ssa_MOI_NHAT_khong_theo_ssa_cu(env):
 
 def test_khong_quyen_luong_thi_khong_xem_duoc_thong_tin(env):
     snap, _s = env(visible=("E-A",))
-    assert snap.snapshot("E-A")["current_salary"] == 20000000
+    x = snap.snapshot("E-A")
+    assert x["base_salary"] == 20000000 and "current_salary" not in x   # 01/10: base chi de tham khao
     with pytest.raises(Perm):
         snap.snapshot("E-B")
 
 
-def test_submit_ghi_de_thong_tin_hien_tai_bang_server(env):
+def test_submit_ghi_de_thong_tin_hien_tai_bang_server_nhung_GIU_luong_gross_tu_nhap(env):
     snap, s = env()
     d = Doc(doctype="EC Promotion Request", name="P-1", promoted_employee="E-A", full_name="Gia",
-            current_salary=1, current_position="CEO", department="X")
+            current_salary=35000000, current_position="CEO", department="X")
     s._fill_from_employee(d)
-    assert d.full_name == "An" and d.current_salary == 20000000 and d.current_position == "Engineer"
+    assert d.full_name == "An" and d.current_position == "Engineer"
+    assert d.current_salary == 35000000           # 01/10: gross do nguoi de xuat nhap, KHONG lay base
     assert d.department == "Ops - EC"
 
 
@@ -244,23 +249,19 @@ def test_duyet_xong_chay_nen(env):
     assert W.enq[0][0].endswith("promotion.application.service.apply_to_employee") and W.enq[0][1]["enqueue_after_commit"]
 
 
-def test_ghi_chuc_danh_va_tao_ssa_moi_khong_sua_ssa_cu(env):
+def test_ghi_chuc_danh_va_KHONG_tao_ssa_ma_bao_cnb(env):
+    # 01/10/2026: luong tren phieu la GROSS -> khong ghi vao SSA.base; C&B tu tach base/thuong.
     snap, s = env()
     _req()
     assert s.apply_to_employee("P-1") == {"applied": True, "ok": False}
     assert W.emps["E-A"]["designation"] == "Senior Engineer"
-    (new,) = W.inserted
-    assert new["base"] == 28000000 and new["from_date"] == "2026-10-01" and new["salary_structure"] == "ST-1"
-    assert new["employee"] == "E-A" and new.get("docstatus") is None and W.submitted == []   # DRAFT
-    for f in ("taxable_earnings_till_date", "tax_deducted_till_date", "department", "designation", "grade"):
-        assert f not in new, f                                              # P3: khong chep
+    assert W.inserted == [] and W.submitted == []                          # khong tao SSA nao
     assert W.ssa[1].base == 20000000                                        # SSA cu giu nguyen
     res = W.req["P-1"]["apply_result"]
-    assert W.req["P-1"]["applied_at"] and "Draft" in res and "C&B" in res
-    assert "28000000" not in res and "28,000,000" not in res and "20000000" not in res   # P2
-    assert W.notes                                                          # bao C&B submit
+    assert W.req["P-1"]["applied_at"] and "gross" in res and "C&B" in res and "2026-10-01" in res
+    assert "28000000" not in res and "28.000.000" not in res and "20000000" not in res   # P2
+    assert W.notes                                                          # bao C&B
     assert s.apply_to_employee("P-1") == {"skipped": True}                 # idempotent
-    assert len(W.inserted) == 1
 
 
 def test_luong_khong_doi_thi_khong_tao_ssa(env):
@@ -277,10 +278,10 @@ def test_chuc_danh_khong_co_trong_danh_muc_thi_bao_tay(env):
     assert W.emps["E-A"]["designation"] == "Engineer" and W.notes
 
 
-def test_loi_tao_ssa_thi_rollback_va_bao(env):
+def test_loi_ghi_ho_so_thi_rollback_va_bao(env):
     snap, s = env()
     _req()
-    W.boom_insert = True
+    W.boom_save = True
     assert s.apply_to_employee("P-1") == {"applied": False}
     assert "rollback" in W.notes and W.logs and "LỖI" in W.req["P-1"]["apply_result"]
     assert not W.req["P-1"].get("applied_at")
