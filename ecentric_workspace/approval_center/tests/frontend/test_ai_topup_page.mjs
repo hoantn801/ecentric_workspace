@@ -505,7 +505,7 @@ async function run(){
   { const cb = w.document.getElementById("ait-body").innerHTML;
     ok(/Số tiền đề nghị thanh toán/.test(cb), "requested amount label is 'Số tiền đề nghị thanh toán'");
     ok(/đã bao gồm VAT\/thuế\/phí nếu có/.test(cb), "requested amount helper mentions VAT/thuế/phí");
-    ok(w.document.querySelector('[data-model="requested_amount"]').getAttribute("type")==="number", "requested amount input is numeric-only (no currency text inside)");
+    { const ra=w.document.querySelector('[data-model="requested_amount"]'); ok(ra.getAttribute("data-money")==="dec" && ra.getAttribute("inputmode")==="decimal", "requested amount la o tien (dau cham, so le), khong chua chu tien te"); }
     ok(!!w.document.querySelector('[data-model="currency"]'), "currency remains a separate field");
     ok(!!w.document.querySelector('[data-model="tax_fee_basis"]'), "tax basis dropdown appears");
     ok(/Cơ sở VAT\/thuế\/phí/.test(cb), "tax basis field label present");
@@ -545,7 +545,7 @@ async function run(){
   { const fb = w.document.getElementById("ait-body").innerHTML;
     ok(/Số tiền thanh toán thực tế/.test(fb), "actual amount label is 'Số tiền thanh toán thực tế'");
     ok(/Nhập số tiền thực tế đã thanh toán, đã bao gồm VAT\/thuế\/phí nếu có/.test(fb), "actual amount helper mentions VAT/thuế/phí");
-    ok(w.document.querySelector('[data-comp="actual_amount"]').getAttribute("type")==="number", "actual amount is numeric-only (no currency text)");
+    ok(w.document.querySelector('[data-comp="actual_amount"]').getAttribute("data-money")==="dec", "actual amount la o tien (dau cham, so le)");
     const cur = w.document.querySelector('[data-comp="actual_currency"]');
     ok(cur && cur.tagName.toLowerCase()==="select", "actual currency renders as a dropdown/select");
     ok(cur.value === "USD", "actual currency defaults from request currency (USD)");

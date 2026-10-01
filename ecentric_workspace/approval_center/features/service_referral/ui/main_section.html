@@ -221,7 +221,7 @@
       + fld("contact_name","Contact name",'<input data-model="contact_name" maxlength="140" value="'+esc(d.contact_name||"")+'">',true)
       + fld("contact_phone_number","Contact phone number",'<input data-model="contact_phone_number" maxlength="40" value="'+esc(d.contact_phone_number||"")+'">')
       + fld("contact_email","Contact email",'<input type="email" data-model="contact_email" maxlength="140" value="'+esc(d.contact_email||"")+'">')
-      + fld("estimated_contract_value","Estimated contract value (VND)",'<input type="number" min="0" step="any" data-model="estimated_contract_value" value="'+esc(d.estimated_contract_value==null?"":d.estimated_contract_value)+'">',true)
+      + fld("estimated_contract_value","Estimated contract value (VND)",'<input type="text" inputmode="numeric" autocomplete="off" data-money data-model="estimated_contract_value" value="'+esc(window.EcMoney?EcMoney.fmt((d.estimated_contract_value==null?"":d.estimated_contract_value)):(d.estimated_contract_value==null?"":d.estimated_contract_value))+'">',true)
       + fld("justification","Justification",'<textarea data-model="justification" rows="3" placeholder="Lý do / bối cảnh giới thiệu (không bắt buộc)">'+esc(d.justification||"")+'</textarea>').replace('class="fld','class="fld full')
       + fld("request_attachment","Tệp đính kèm",'<input type="file" multiple data-upload="request_attachment"><div class="hint" id="svrf-att-name">'+esc(d.request_attachment?"Đã tải":"Không bắt buộc")+'</div>').replace('class="fld','class="fld full')
       + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="svrf-summary"></div></div>';
@@ -291,7 +291,7 @@
 
   function attachModel(el){ if(el.__ecw) return; el.__ecw=true;
     el.addEventListener("input",function(){ var k=el.getAttribute("data-model");
-      var v=el.type==="number"?(el.value===""?null:Number(el.value)):el.value; setModel(k,v);
+      var v=(window.EcMoney&&el.hasAttribute("data-money"))?EcMoney.val(el):el.type==="number"?(el.value===""?null:Number(el.value)):el.value; setModel(k,v);
       renderSummary(); clearFieldError(k); }); }
   function wireModels(scope){ (scope||document).querySelectorAll("[data-model]").forEach(attachModel); }
   function uploadFile(fileInput,field,labelId){ var files=fileInput.files?Array.prototype.slice.call(fileInput.files):[]; if(!files.length) return;

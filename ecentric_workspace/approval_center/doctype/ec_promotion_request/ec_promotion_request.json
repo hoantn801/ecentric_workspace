@@ -128,7 +128,7 @@
    "fieldname": "full_name",
    "fieldtype": "Data",
    "label": "Full name",
-   "description": "Server điền từ hồ sơ nhân sự đã chọn (29/09/2026)"
+   "description": "Lương GROSS hiện tại (gồm thưởng hiệu suất...) do người đề xuất tự nhập (01/10/2026)"
   },
   {
    "fieldname": "current_position",
@@ -149,14 +149,14 @@
   {
    "fieldname": "current_salary",
    "fieldtype": "Currency",
-   "label": "Current salary",
+   "label": "Current salary (gross)",
    "options": "VND",
    "description": "Server điền từ hồ sơ nhân sự đã chọn (29/09/2026)"
   },
   {
    "fieldname": "proposed_salary",
    "fieldtype": "Currency",
-   "label": "Proposed salary",
+   "label": "Proposed salary (gross)",
    "options": "VND",
    "reqd": 1
   },
@@ -203,7 +203,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-09-30 01:00:00.000000",
+ "modified": "2026-10-01 17:00:00.000000",
  "module": "Approval Center",
  "name": "EC Promotion Request",
  "naming_rule": "Expression",

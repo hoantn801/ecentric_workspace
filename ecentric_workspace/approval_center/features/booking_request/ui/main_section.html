@@ -479,7 +479,7 @@
         +'<td><input data-k="kol_name" value="'+esc(r.kol_name||"")+'" placeholder="Tên hoặc nickname"></td>'
         +'<td><select data-k="kol_channel" data-ec-no-formkit>'+opt(["","TikTok","Facebook","Instagram","YouTube","Threads","Khác"],r.kol_channel||"")+'</select></td>'
         +'<td><input data-k="kol_link" value="'+esc(r.kol_link||"")+'" placeholder="https://…" inputmode="url"></td>'
-        +'<td class="num"><input data-k="kol_budget" inputmode="numeric" value="'+esc(r.kol_budget||"")+'" placeholder="0"></td>'
+        +'<td class="num"><input data-k="kol_budget" inputmode="numeric" autocomplete="off" data-money value="'+esc(r.kol_budget?tienVN(soTien(r.kol_budget)):"")+'" placeholder="0"></td>'
         +'<td class="act"><button type="button" class="ec-file-x" data-kolx="'+i+'" aria-label="Xóa dòng '+(i+1)+'">&times;</button></td></tr>';
     }).join("");
     if(!rows.length){
@@ -528,7 +528,7 @@
       + fld("request_title","Tiêu đề",'<input id="f-request_title" data-model="request_title" value="'+esc(d.request_title||"")+'" placeholder="VD: Booking KOC tháng 10 — Brand X">',true,errs.request_title)
       + fld("booking_type","Loại booking",'<select id="f-booking_type" data-model="booking_type">'+opt(types,d.booking_type||CHI_DINH)+'</select>',true,errs.booking_type)
       + typeFieldsHTML(d,errs)
-      + fld("expected_budget","Ngân sách dự kiến (VND)",'<input id="f-expected_budget" data-model="expected_budget" inputmode="numeric" value="'+esc(d.expected_budget||"")+'">',true,errs.expected_budget)
+      + fld("expected_budget","Ngân sách dự kiến (VND)",'<input id="f-expected_budget" data-model="expected_budget" inputmode="numeric" autocomplete="off" data-money value="'+esc(d.expected_budget?tienVN(soTien(d.expected_budget)):"")+'">',true,errs.expected_budget)
       + fld("campaign_start_date","Hoạt động bắt đầu",'<input id="f-campaign_start_date" data-model="campaign_start_date" type="date" min="'+today()+'" value="'+esc(String(d.campaign_start_date||"").slice(0,10))+'">',true,errs.campaign_start_date)
       + fld("campaign_end_date","Hoạt động kết thúc",'<input id="f-campaign_end_date" data-model="campaign_end_date" type="date" value="'+esc(String(d.campaign_end_date||"").slice(0,10))+'">',false,errs.campaign_end_date)
       + '</div>' + timelineHintHTML(d) + '</div>';
@@ -569,7 +569,7 @@
       brand_brief:biz.brand_brief||"", cc_to:biz.cc_to||"",
       kol_list:(biz.kol_list||[]).map(function(r){ return {
         kol_name:r.kol_name, kol_channel:r.kol_channel, kol_link:r.kol_link,
-        kol_followers:r.kol_followers, kol_budget:r.kol_budget, kol_note:r.kol_note }; })
+        kol_followers:r.kol_followers, kol_budget:(r.kol_budget===""||r.kol_budget==null)?r.kol_budget:soTien(r.kol_budget), kol_note:r.kol_note }; })
     };
     state.draftName = biz.name || state.id;
     state.editing = true; state.tab = "create"; state._errs = {};
@@ -725,7 +725,7 @@
     if(d.booking_type!==CHI_DINH && !(parseInt(d.kol_count,10)>0)) e.kol_count="Nhập số lượng KOL/KOC.";
     if(d.booking_type===CHI_DINH && !kolRows().some(function(r){ return String(r.kol_name||"").trim(); }))
       e.booking_type="Loại “"+CHI_DINH+"” phải nêu ít nhất một KOL/KOC.";
-    if(!(Number(String(d.expected_budget||"").replace(/[^\d.-]/g,""))>0)) e.expected_budget="Nhập ngân sách dự kiến.";
+    if(!(soTien(d.expected_budget)>0)) e.expected_budget="Nhập ngân sách dự kiến.";
     if(!d.campaign_start_date) e.campaign_start_date="Chọn ngày hoạt động bắt đầu.";
     if(d.campaign_end_date && d.campaign_start_date && d.campaign_end_date<d.campaign_start_date)
       e.campaign_end_date="Ngày kết thúc phải sau ngày bắt đầu.";
@@ -751,7 +751,7 @@
       brand_display_name:d.brand_display_name||d.brand, booking_owner:d.booking_owner||"",
       account_owner:d.account_owner||"", booking_type:d.booking_type,
       kol_count:(d.booking_type===CHI_DINH?0:parseInt(d.kol_count,10)||0),
-      expected_budget:Number(String(d.expected_budget||"").replace(/[^\d.-]/g,""))||0,
+      expected_budget:soTien(d.expected_budget),
       campaign_start_date:d.campaign_start_date, campaign_end_date:d.campaign_end_date||null,
       brand_brief:d.brand_brief, cc_to:d.cc_to||"",
       request_attachment:d.request_attachment||"",

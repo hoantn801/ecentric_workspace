@@ -221,8 +221,8 @@
       + fld("_r2","Phòng ban",'<input class="ro" readonly value="'+esc(c.department||"—")+'">')
       + '</div></div><div class="card"><h3>Thông tin đề xuất</h3><div class="grid2">'
       + fld("service_month","Tháng dịch vụ",'<input type="date" data-model="service_month" value="'+esc(d.service_month||"")+'"><div class="hint">Please input the 1st date of the specified month.</div>',true)
-      + fld("total_amount","Tổng tiền (VND)",'<input type="number" min="0" step="1" data-model="total_amount" value="'+esc(d.total_amount==null?"":d.total_amount)+'">',true)
-      + fld("budget","Ngân sách (VND)",'<input type="number" min="0" step="1" data-model="budget" value="'+esc(d.budget==null?"":d.budget)+'">',true)
+      + fld("total_amount","Tổng tiền (VND)",'<input type="text" inputmode="numeric" autocomplete="off" data-money data-model="total_amount" value="'+esc(window.EcMoney?EcMoney.fmt((d.total_amount==null?"":d.total_amount)):(d.total_amount==null?"":d.total_amount))+'">',true)
+      + fld("budget","Ngân sách (VND)",'<input type="text" inputmode="numeric" autocomplete="off" data-money data-model="budget" value="'+esc(window.EcMoney?EcMoney.fmt((d.budget==null?"":d.budget)):(d.budget==null?"":d.budget))+'">',true)
       + fld("detail","Chi tiết hoạt động",'<textarea data-model="detail" rows="4" placeholder="Các hoạt động là gì (minigame, doanh thu, ...)? Bao nhiêu KOL/KOC nhận thưởng mỗi hoạt động?">'+esc(d.detail||"")+'</textarea><div class="hint">What are the activities (minigames, revenue, ...)? How many KOL/KOCs receive bonus per activity? Please attach a file.</div>',true).replace('class="fld','class="fld full')
       + fld("request_attachment","Tệp đính kèm",'<input type="file" multiple data-upload="request_attachment"><div class="hint" id="att-name">'+esc(d.request_attachment?"Đã tải":"Bắt buộc")+'</div>',true).replace('class="fld','class="fld full')
       + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="afbn-summary"></div></div>';
@@ -312,7 +312,7 @@
 
   function attachModel(el){ if(el.__ecw) return; el.__ecw=true;
     el.addEventListener("input",function(){ var editing=state.mode==="edit"; var k=el.getAttribute("data-model");
-      var v=el.type==="number"?(el.value===""?null:Number(el.value)):el.value; setModel(k,v);
+      var v=(window.EcMoney&&el.hasAttribute("data-money"))?EcMoney.val(el):el.type==="number"?(el.value===""?null:Number(el.value)):el.value; setModel(k,v);
       if(k==="request_title") state.titleTouched=((el.value||"").trim()!=="");
       if(k!=="request_title") maybeAutoTitle();
       renderSummary(); clearFieldError(k);

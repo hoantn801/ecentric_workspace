@@ -226,7 +226,7 @@
       + (isOther?fld("activity_type_other","Loại hoạt động khác",'<input data-model="activity_type_other" value="'+esc(d.activity_type_other||"")+'">',true):'<div></div>')
       + fld("start_date","Ngày bắt đầu",'<input type="date" data-model="start_date" value="'+esc(d.start_date||"")+'">',true)
       + fld("end_date","Ngày kết thúc",'<input type="date" data-model="end_date" value="'+esc(d.end_date||"")+'">',true)
-      + fld("estimated_budget","Ngân sách dự kiến (VND)",'<input type="number" min="0" step="1" data-model="estimated_budget" value="'+esc(d.estimated_budget!=null?d.estimated_budget:"")+'">',true)
+      + fld("estimated_budget","Ngân sách dự kiến (VND)",'<input type="text" inputmode="numeric" autocomplete="off" data-money data-model="estimated_budget" value="'+esc(window.EcMoney?EcMoney.fmt((d.estimated_budget!=null?d.estimated_budget:"")):(d.estimated_budget!=null?d.estimated_budget:""))+'">',true)
       + '<div></div>'
       + fld("detail","Nội dung chi tiết",'<textarea data-model="detail" rows="3" placeholder="Các hoạt động chính / chương trình.">'+esc(d.detail||"")+'</textarea>',true).replace('class="fld','class="fld full')
       + fld("participants","Đối tượng tham gia",'<textarea data-model="participants" rows="2" placeholder="Đối tượng mục tiêu? Số lượng?">'+esc(d.participants||"")+'</textarea>',true).replace('class="fld','class="fld full')
@@ -322,7 +322,7 @@
 
   function attachModel(el){ if(el.__ecw) return; el.__ecw=true;
     el.addEventListener("input",function(){ var editing=state.mode==="edit"; var k=el.getAttribute("data-model");
-      var v=el.type==="number"?(el.value===""?null:Number(el.value)):el.value; setModel(k,v);
+      var v=(window.EcMoney&&el.hasAttribute("data-money"))?EcMoney.val(el):el.type==="number"?(el.value===""?null:Number(el.value)):el.value; setModel(k,v);
       if(k==="request_title") state.titleTouched=((el.value||"").trim()!=="");
       if(k!=="request_title") maybeAutoTitle();
       if(k==="activity_type") { renderCreate($("hrac-body")); return; }

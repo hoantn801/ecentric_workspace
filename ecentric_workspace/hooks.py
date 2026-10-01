@@ -726,3 +726,7 @@ website_redirects = list(globals().get("website_redirects") or []) + [
 ]
 # Anh AI khong duoc chon lam bia qua 3 ngay -> xoa (moi lan bam AI = 3 anh).
 scheduler_events["daily"].append("ecentric_workspace.internal_posts.cover_ai.cleanup_unused")
+
+# O nhap so tien dung chung (01/10): dau cham phan cach + can phai. Trang danh dau data-money.
+web_include_js.append("ec_money.bundle.js")
+web_include_css.append("ec_money.bundle.css")

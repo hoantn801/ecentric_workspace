@@ -6,6 +6,7 @@ const __dir = path.dirname(fileURLToPath(import.meta.url));
 const HTML = pageSource("promotion");
 const [markup, rest] = HTML.split('<script id="ec-promotion">');
 const JS = rest.replace(/<\/script>\s*$/, "");
+const MONEY = (await import("node:fs")).readFileSync(path.join(__dir, "..", "..", "..", "public", "js", "ec_money.bundle.js"), "utf8");
 let fails = 0;
 const ok = (c, n) => { console.log((c ? "  ok: " : "  FAIL: ") + n); if (!c) fails++; };
 const flush = () => new Promise(r => setTimeout(r, 5));
@@ -37,7 +38,7 @@ function boot(over) {
       context: { user: "u@x", employee_name: "U", employee: "EMP-1", department: "Engineering", company: "C" },
       is_system_manager: false, form_options: FO } });
     if (m.endsWith("promotion_candidates")) return Promise.resolve({ message: { rows: [{ name: "HR-EMP-9", employee_name: "Nguyen Van A", department: "Engineering" }] } });
-    if (m.endsWith("promotion_employee")) return Promise.resolve({ message: { employee: "HR-EMP-9", full_name: "Nguyen Van A", department: "Engineering", current_position: "Engineer", current_salary: 20000000, salary_from: "2026-01-01" } });
+    if (m.endsWith("promotion_employee")) return Promise.resolve({ message: { employee: "HR-EMP-9", full_name: "Nguyen Van A", department: "Engineering", current_position: "Engineer", base_salary: 20000000, salary_from: "2026-01-01" } });
     if (m.endsWith("save_draft")) return Promise.resolve({ message: { name: "EC-PROM-2026-00001", capabilities: {} } });
     if (m.endsWith("submit_request")) return Promise.resolve({ message: { approval_request: "AR-1", submitted: true, detail: detail() } });
     if (m.endsWith("list_my_requests")) return Promise.resolve({ message: { rows: [
@@ -54,6 +55,7 @@ function boot(over) {
     if (m.endsWith("get_detail")) return Promise.resolve({ message: (over && over.detail) || detail() });
     return Promise.resolve({ message: { rows: [], total: 0 } });
   }};
+  w.eval(MONEY);   // asset dung chung o so tien (web_include_js)
   w.eval(JS);
   return w;
 }
@@ -65,13 +67,22 @@ async function run() {
   ["request_title", "promoted_employee", "proposed_position", "proposed_salary", "incentives", "justification", "effective_date_of_promotion"].forEach(function (f) {
     ok(!!w.document.querySelector('[data-model="' + f + '"]'), f + " field renders"); });
   // 29/09: ho ten / phong ban / vi tri & luong hien tai do SERVER dien tu nhan su da chon - o chi doc.
-  ["full_name", "department", "current_position", "current_salary"].forEach(function (f) {
+  ["full_name", "department", "current_position"].forEach(function (f) {
     ok(!!w.document.querySelector('input.ro[data-ro="' + f + '"]') && !w.document.querySelector('[data-model="' + f + '"]'), f + " chi doc, khong nhap tay"); });
+  // 01/10: luong hien tai la GROSS do nguoi de xuat TU NHAP (base cua bang luong chua gom thuong).
+  ok(!!w.document.querySelector('input[data-money][data-model="current_salary"]') && !w.document.querySelector('[data-ro="current_salary"]'), "luong hien tai (gross) la o nhap tien");
   { const sel = w.document.querySelector('select[data-model="promoted_employee"]');
     ok(!!sel && /Nguyen Van A/.test(sel.innerHTML), "chon nhan su tu danh sach (theo quyen xem luong)");
     sel.value = "HR-EMP-9"; sel.dispatchEvent(new w.Event("input", { bubbles: true })); await flush(); await flush();
     ok(calls.promotion_employee && calls.promotion_employee.employee === "HR-EMP-9", "chon -> hoi thong tin nhan su");
-    ok(w.document.querySelector('[data-ro="current_salary"]').value === "20000000" && w.document.querySelector('[data-ro="current_position"]').value === "Engineer", "dien san vi tri + luong hien tai"); }
+    const cs = w.document.querySelector('[data-model="current_salary"]');
+    ok(cs.value === "" && w.document.querySelector('[data-ro="current_position"]').value === "Engineer", "dien san vi tri, KHONG dien luong (gross tu nhap)");
+    ok(/20\.000\.000/.test(cs.parentNode.innerHTML) && /chưa gồm thưởng/.test(cs.parentNode.innerHTML), "base chi hien de tham khao");
+    cs.value = "35000000"; cs.dispatchEvent(new w.Event("input", { bubbles: true }));
+    ok(cs.value === "35.000.000" && w.Promotion.state.draft.current_salary === 35000000, "go so -> 35.000.000, model la so");
+    const ps = w.document.querySelector('[data-model="proposed_salary"]');
+    ps.value = "42000000"; ps.dispatchEvent(new w.Event("input", { bubbles: true }));
+    ok(ps.hasAttribute("data-money") && ps.value === "42.000.000" && w.Promotion.state.draft.proposed_salary === 42000000, "luong de xuat cung dau cham"); }
   ok(!!w.document.getElementById("prom-process-preview"), "process preview renders");
   { const pv = w.document.getElementById("prom-process-preview");
     ok(pv.querySelectorAll(".step").length === 5, "preview has 5 steps");

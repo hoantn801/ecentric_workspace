@@ -238,9 +238,9 @@
       + '<div></div>'
       + '</div></div>'
       + '<div class="card"><h3>Ngân sách</h3><div class="grid2">'
-      + fld("approved_budget_current_period","Approved budget "+curW+" (VND)",'<input type="number" min="0" step="1" data-model="approved_budget_current_period" value="'+esc(d.approved_budget_current_period!=null?d.approved_budget_current_period:"")+'">',true)
-      + fld("actual_spending_current_period","Actual spending "+curW+" (VND)",'<input type="number" min="0" step="1" data-model="actual_spending_current_period" value="'+esc(d.actual_spending_current_period!=null?d.actual_spending_current_period:"")+'">',true)
-      + fld("forecast_budget_next_period","Forecast budget "+nextW+" (VND)",'<input type="number" min="0" step="1" data-model="forecast_budget_next_period" value="'+esc(d.forecast_budget_next_period!=null?d.forecast_budget_next_period:"")+'">',true)
+      + fld("approved_budget_current_period","Approved budget "+curW+" (VND)",'<input type="text" inputmode="numeric" autocomplete="off" data-money data-model="approved_budget_current_period" value="'+esc(window.EcMoney?EcMoney.fmt((d.approved_budget_current_period!=null?d.approved_budget_current_period:"")):(d.approved_budget_current_period!=null?d.approved_budget_current_period:""))+'">',true)
+      + fld("actual_spending_current_period","Actual spending "+curW+" (VND)",'<input type="text" inputmode="numeric" autocomplete="off" data-money data-model="actual_spending_current_period" value="'+esc(window.EcMoney?EcMoney.fmt((d.actual_spending_current_period!=null?d.actual_spending_current_period:"")):(d.actual_spending_current_period!=null?d.actual_spending_current_period:""))+'">',true)
+      + fld("forecast_budget_next_period","Forecast budget "+nextW+" (VND)",'<input type="text" inputmode="numeric" autocomplete="off" data-money data-model="forecast_budget_next_period" value="'+esc(window.EcMoney?EcMoney.fmt((d.forecast_budget_next_period!=null?d.forecast_budget_next_period:"")):(d.forecast_budget_next_period!=null?d.forecast_budget_next_period:""))+'">',true)
       + '<div></div>'
       + fld("forecast_justification","Forecast justification",'<textarea data-model="forecast_justification" rows="3" placeholder="Cơ sở / căn cứ cho dự báo ngân sách kỳ sau.">'+esc(d.forecast_justification||"")+'</textarea>',true).replace('class="fld','class="fld full')
       + '</div></div>'
@@ -350,7 +350,7 @@
 
   function attachModel(el){ if(el.__ecw) return; el.__ecw=true;
     el.addEventListener("input",function(){ var k=el.getAttribute("data-model");
-      var v=el.type==="number"?(el.value===""?null:Number(el.value)):el.value; setModel(k,v);
+      var v=(window.EcMoney&&el.hasAttribute("data-money"))?EcMoney.val(el):el.type==="number"?(el.value===""?null:Number(el.value)):el.value; setModel(k,v);
       clearFieldError(k);
       if(k==="budget_period_type"||k==="has_financial_risks"){ renderCreate($("budg-body")); return; }
       renderSummary(); }); }
