@@ -61,7 +61,7 @@ def announcement_rows(today):
     """Thong bao trang chu (DocType cua app). Cac cot deu co san - doc thang."""
     rows = frappe.get_all(
         C.ANNOUNCEMENT_DT, filters={"published": 1, "start_date": ["<=", today]},
-        fields=["name", "title", "category", "display", "image", "summary", "content", "link",
+        fields=["name", "title", "category", "display", "image", "image_link", "summary", "content", "link",
                 "link_label", "published", "start_date", "end_date"],
         order_by="start_date desc, creation desc", limit=30)
     for x in rows:
@@ -153,3 +153,62 @@ def cache_clear_today():
 
 def log_error(title):
     frappe.log_error(title=title, message=frappe.get_traceback())
+
+
+# ------------------------------------------------------------------ thong bao tu nguon khac (01/10/2026) ----
+# Dung boi announce_service.py (Tin noi bo hom nay, tai lieu ISO sau). Chi them, khong sua ham cu.
+def announcement_by_source(source_doctype, source_name, source_version=""):
+    return frappe.db.get_value(C.ANNOUNCEMENT_DT, {"source_doctype": source_doctype, "source_name": source_name,
+                                                   "source_version": source_version or ""}, "name")
+
+
+def announcement_published(name):
+    return bool(frappe.db.get_value(C.ANNOUNCEMENT_DT, name, "published"))
+
+
+def set_announcement_published(name, published):
+    frappe.db.set_value(C.ANNOUNCEMENT_DT, name, "published", 1 if published else 0)
+
+
+def published_announcements_of(source_doctype, source_name):
+    return frappe.get_all(C.ANNOUNCEMENT_DT, filters={"source_doctype": source_doctype,
+                                                      "source_name": source_name, "published": 1},
+                          pluck="name")
+
+
+def update_announcement(name, fields):
+    """Cap nhat thong bao tu nguon (job nen) - quyen da kiem o noi goi."""
+    frappe.db.set_value(C.ANNOUNCEMENT_DT, name, fields)
+
+
+def insert_announcement(fields):
+    """Ghi cua HE THONG thay nguoi dung (job nen / workflow) - quyen da kiem o noi goi."""
+    doc = frappe.get_doc(dict(fields, doctype=C.ANNOUNCEMENT_DT))
+    doc.insert(ignore_permissions=True)
+    return doc.name
+
+
+def savepoint(name):
+    frappe.db.savepoint(name)
+
+
+def rollback_to(name):
+    frappe.db.rollback(save_point=name)
+
+
+def nowdate():
+    return frappe.utils.nowdate()
+
+
+# --------------------------------------------------------------- quay so (module Khao sat) --
+# Doc qua API KHAI BAO cua module Khao sat (surveys.application.draw_feed) - home_today khong
+# cham DocType nao cua khao sat. Loi ben do khong duoc lam hong popup: service bat va bo qua.
+
+def survey_draws(user):
+    from ecentric_workspace.surveys.application import draw_feed
+    return draw_feed.for_user(user)
+
+
+def survey_draws_soon():
+    from ecentric_workspace.surveys.application import draw_feed
+    return draw_feed.any_soon()

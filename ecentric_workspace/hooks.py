@@ -219,6 +219,12 @@ scheduler_events["cron"].setdefault("0 9,18 * * *", []).append(
 scheduler_events["cron"].setdefault("0 9 * * *", []).append(
     "ecentric_workspace.pm.api.schedule.nudge_unanswered_invites")
 
+# Khao sat (01/10/2026): quay so may man / dua ve dich THEO GIO HEN - bao truoc 5 phut va chot
+# ket qua dung gio. Mot truy van co chi muc tren draw_scheduled_at, gan nhu luon rong.
+# Tat khan cap: site_config ec_survey_draw_disabled: 1.
+scheduler_events["cron"].setdefault("*/1 * * * *", []).append(
+    "ecentric_workspace.surveys.application.draw_service.tick")
+
 # Permissions
 # -----------
 # PM v2 scopes every query in the SERVICE LAYER (ecentric_workspace.pm.api.*). That covers
@@ -694,3 +700,29 @@ elif isinstance(_rt_prev, str):
         _rt_emp["on_update"] = [_rt_prev, _RT_HOOK]
 elif _RT_HOOK not in _rt_prev:
     _rt_prev.append(_RT_HOOK)
+
+# --------------------------------------------------------------------------- #
+# 01/10/2026 - Tin noi bo (/tin-noi-bo, PO Hoan chot, mockup v5). HR soan / dang bai cho nhan
+# vien doc, phan chuyen muc, pham vi theo phong ban. Xem internal_posts/README.md.
+#  * route: thu muc www khong duoc co gach ngang -> www/tin_noi_bo/ + 4 luat route. Route tinh
+#    (viet-bai, quan-ly) dung TRUOC route slug; werkzeug cung uu tien route tinh.
+#  * quyen doc: permission_query_conditions (danh sach / trang chu) + has_permission (mo bai,
+#    tai tep private - File.has_permission di theo bai). Bai theo phong ban = phong do + con.
+#  * /huong-dan (muc luc cu) -> chuyen muc Huong dan cua Tin noi bo. Bai /huong-dan/<slug> giu nguyen.
+# --------------------------------------------------------------------------- #
+website_route_rules = list(globals().get("website_route_rules") or []) + [
+    {"from_route": "/tin-noi-bo", "to_route": "tin_noi_bo"},
+    {"from_route": "/tin-noi-bo/viet-bai", "to_route": "tin_noi_bo/viet_bai"},
+    {"from_route": "/tin-noi-bo/quan-ly", "to_route": "tin_noi_bo/quan_ly"},
+    {"from_route": "/tin-noi-bo/<slug>", "to_route": "tin_noi_bo/bai"},
+]
+permission_query_conditions["EC Internal Post"] = "ecentric_workspace.internal_posts.permissions.query_conditions"
+permission_query_conditions["EC Internal Post File"] = "ecentric_workspace.internal_posts.permissions.child_query_conditions"
+permission_query_conditions["EC Internal Post Department"] = "ecentric_workspace.internal_posts.permissions.child_query_conditions"
+has_permission["EC Internal Post"] = "ecentric_workspace.internal_posts.permissions.has_permission"
+jinja["methods"].append("ecentric_workspace.internal_posts.jinja.internal_posts_home")
+website_redirects = list(globals().get("website_redirects") or []) + [
+    {"source": "/huong-dan", "target": "/tin-noi-bo?chuyen-muc=huong-dan", "redirect_http_status": 302},
+]
+# Anh AI khong duoc chon lam bia qua 3 ngay -> xoa (moi lan bam AI = 3 anh).
+scheduler_events["daily"].append("ecentric_workspace.internal_posts.cover_ai.cleanup_unused")

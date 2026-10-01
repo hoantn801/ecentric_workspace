@@ -74,7 +74,7 @@ def render(src, user="hoan.tran@ecentric.vn", full_name="Hoàn Trần", now=None
 
     frappe = _NS(session=_NS(user=user),
                  db=_NS(get_value=get_value, exists=lambda *a, **k: True),
-                 get_all=lambda dt, **k: (news or []) if dt == "News Post" else (policies or []),
+                 get_all=lambda dt, **k: [] if dt == "News Post" else (policies or []),
                  utils=_NS(now_datetime=lambda: now))
     env = SandboxedEnvironment(undefined=jinja2.StrictUndefined)
     # has_pm_module_access: ham Jinja cua app (hooks.py jinja.methods) - o day gia lap ket qua
@@ -82,6 +82,9 @@ def render(src, user="hoan.tran@ecentric.vn", full_name="Hoàn Trần", now=None
     if cel is not None:
         # home_today_celebration: ham Jinja cua app (hooks.py jinja.methods) - gia lap ket qua
         extra["home_today_celebration"] = lambda: cel
+    if news is not None:
+        # internal_posts_home: ham Jinja cua Tin noi bo (hooks.py jinja.methods) - the bai da kiem quyen
+        extra["internal_posts_home"] = lambda: news
     return env.from_string(src).render(
         frappe=frappe, has_pm_module_access=lambda user=None: pm,
         bundled_asset=lambda p: "/assets/ecentric_workspace/dist/js/" + p, **extra)
@@ -196,20 +199,45 @@ class TestJinjaRender(unittest.TestCase):
         self.assertIn("window.location.href = '/login?redirect-to=/'", out)
 
     def test_news_loop_still_renders(self):
-        n = _NS(name="N1", title="Tin A", category="SỰ KIỆN", image=None,
-                published_on=datetime.date(2026, 9, 1))
-        out = render(_src(), news=[n])
-        self.assertIn('href="/app/news-post/N1" class="news-card"', out)
-        self.assertIn("01/09/2026", out)
+        """Khoi "Tin noi bo" (01/10/2026): the bai tu internal_posts_home(), link /tin-noi-bo/<slug>."""
+        def card(title, **kw):
+            c = _NS(url="/tin-noi-bo/bai-a", title=title, pinned=False, unseen=False,
+                    date_label="01/10/2026", category=_NS(name="Thông báo", color="navy"),
+                    cover=_NS(kind="color", color="green", image=""))
+            c.update(kw)
+            return c
+        out = render(_src(), news=[card("Tin A", pinned=True, unseen=True),
+                                   card("Ảnh", url="/tin-noi-bo/b", cover=_NS(kind="image", color="", image="/files/a.png"))])
+        self.assertIn('href="/tin-noi-bo/bai-a" class="news-card"', out)
+        self.assertIn('<div class="news-image news-cv-green"></div>', out)
+        self.assertIn('<img src="/files/a.png" alt="" loading="lazy">', out)
+        self.assertIn("Ghim · Thông báo", out)
+        self.assertIn("01/10/2026 <span class=\"news-new\">· Chưa xem</span>", out)
+        self.assertIn('<a class="panel-action" href="/tin-noi-bo">Xem tất cả</a>', out)
+        self.assertNotIn("/app/news-post", out)
+
+    def test_news_titles_are_escaped(self):
+        out = render(_src(), news=[_NS(url="/tin-noi-bo/x", title="<script>alert(1)</script>", pinned=False,
+                                      unseen=False, date_label="", category=_NS(name="<b>", color="navy"),
+                                      cover=_NS(kind="color", color="navy", image=""))])
+        self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt;", out)
+        self.assertNotIn("<script>alert(1)", out)
+
+    def test_news_empty_and_without_hook(self):
+        out = render(_src(), news=[])
+        self.assertIn("Chưa có tin nào.", out)
+        out = render(_src())            # rollback code: ham Jinja chua co -> khoi rong, khong 500
+        self.assertIn("Chưa có tin nào.", out)
 
     def test_only_intended_jinja_expressions(self):
         exprs = set(re.findall(r"\{\{(.*?)\}\}", _src()))
         want = {" ec_greet ", " first_name|e ", " ec_today ", " ec_now.strftime('%H:%M:%S') ",
                 " ec_pin|round(1) ", " bundled_asset('ec_home_v2.bundle.js') ",
                 # vong lap tin / chinh sach / panel viec (an) - co tu ban live, giu nguyen
-                " n.name ", " n.image ", " loop.index ", " n.title[:40] ", " n.category or 'TIN' ",
-                " n.title ", " n.published_on.strftime('%d/%m/%Y') if n.published_on else '' ",
                 " so_count ", " leave_count ", " p.name ", " p.title ",
+                # khoi Tin noi bo (01/10/2026, internal_posts_home) - moi chuoi deu |e
+                " n.url|e ", " n.cover.image|e ", " n.cover.color|e ", " n.category.color|e ",
+                " 'Ghim · ' if n.pinned else '' ", " n.category.name|e ", " n.title|e ", " n.date_label|e ",
                 # popup "Hom nay o eCentric" + trang tri sinh nhat (p228, home_today/)
                 " bundled_asset('ec_home_popup.bundle.js') ", " 1 if ec_cel.has_content else 0 ",
                 " ec_cel.level ", " ec_cel.badge|e ", " '🎂' if ec_cel.level == 3 else '👋' ",

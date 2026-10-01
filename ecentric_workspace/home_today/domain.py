@@ -218,6 +218,8 @@ def announcements(rows, today, limit=C.NEWS_MAX):
                     "content_html": r.get("content_html") or "",
                     "image": img, "poster": poster,
                     "url": _safe_link(r.get("link")), "link_label": (r.get("link_label") or "").strip(),
+                    # bam ANH mo link (01/10, Tin noi bo): chi khi co anh + co link + duoc tich
+                    "image_url": _safe_link(r.get("link")) if (img and r.get("image_link")) else "",
                     "_sort": (start, r.get("name") or "")})
     out.sort(key=lambda x: x["_sort"], reverse=True)
     for x in out:

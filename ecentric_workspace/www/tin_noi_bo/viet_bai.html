@@ -1,0 +1,180 @@
+{% extends "templates/includes/internal_posts/layout.html" %}
+{% from "templates/includes/internal_posts/macros.html" import icon %}
+{#- /tin-noi-bo/viet-bai - HR soan / sua bai (mockup v5). Server ve san gia tri moi o;
+    ec_internal_posts_editor.js gan hanh vi (dinh dang, anh bia, AI, phong ban, luu / dang).
+    Du lieu cho JS nam trong <script type="application/json"> (da thay "</" phia server). -#}
+{% block eip_page %}
+{%- set p = post or {} -%}
+{%- set published = p.published -%}
+<div class="eip-compose" data-eip-compose>
+  <div class="eip-cmp-bar">
+    <div>
+      <h1 class="eip-h1">{{ title|e }}</h1>
+      <span class="eip-save-state" data-eip-save-state><i aria-hidden="true"></i><span>{% if p.name %}{% if published %}Đang hiện cho mọi người{% else %}Bản nháp đã lưu{% endif %}{% else %}Chưa lưu{% endif %}</span></span>
+    </div>
+    <div class="eip-cmp-actions">
+      {% if p.name and published %}<a class="eip-btn" href="{{ p.url|e }}" target="_blank" rel="noopener">Xem bài</a>{% endif %}
+      <button type="button" class="eip-btn" data-eip-act="preview">Xem trước</button>
+      {% if published %}
+      <button type="button" class="eip-btn" data-eip-act="unpublish">Gỡ bài</button>
+      <button type="button" class="eip-btn eip-primary" data-eip-act="publish">Lưu thay đổi</button>
+      {% else %}
+      <button type="button" class="eip-btn" data-eip-act="save">Lưu nháp</button>
+      <button type="button" class="eip-btn eip-primary" data-eip-act="publish">Đăng bài</button>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="eip-form-err" data-eip-form-err role="alert" hidden></div>
+
+  <div class="eip-cmp">
+    <div class="eip-cmp-main">
+      <div class="eip-cmp-cover" data-eip-cover-preview aria-label="Xem trước ảnh bìa" role="img"></div>
+
+      <div class="eip-cv-pick">
+        <div class="eip-cv-tabs" role="group" aria-label="Kiểu ảnh bìa">
+          <button type="button" data-eip-cvtab="color" aria-pressed="false">Màu nền</button>
+          <button type="button" data-eip-cvtab="upload" aria-pressed="false">Tải ảnh lên</button>
+          <button type="button" data-eip-cvtab="ai" aria-pressed="false">✦ AI tạo ảnh</button>
+        </div>
+
+        <div data-eip-cvpane="color" hidden>
+          <div class="eip-sw-row" role="group" aria-label="Màu nền">
+            {% for c in colors %}<button type="button" class="eip-swatch eip-cv-{{ c.key|e }}" data-eip-color="{{ c.key|e }}" aria-pressed="false" title="{{ c.name|e }}" aria-label="Màu {{ c.name|e }}"></button>{% endfor %}
+          </div>
+          <label class="eip-chk"><input type="checkbox" data-eip-cover-icon{% if not p.name or p.cover_icon %} checked{% endif %}> Hiện biểu tượng chuyên mục trên nền</label>
+        </div>
+
+        <div data-eip-cvpane="upload" hidden>
+          <div class="eip-drop" data-eip-cover-drop role="button" tabindex="0"><b data-eip-cover-drop-label>+ Chọn ảnh</b> hoặc kéo thả vào đây · ảnh ngang 1600×900 đẹp nhất · tối đa 5 MB</div>
+          <input type="file" accept="image/png,image/jpeg,image/webp" data-eip-cover-file hidden>
+        </div>
+
+        <div data-eip-cvpane="ai" hidden>
+          <div class="eip-ai-box">
+            <div class="eip-ai-head"><span class="eip-ai-spark" aria-hidden="true">✦</span><div><b>AI đọc bài bạn viết bên dưới rồi vẽ ảnh bìa</b><small>Không cần nhập gì thêm. Ảnh không có chữ, theo màu eCentric.</small></div></div>
+            <div class="eip-srcs"><span class="eip-help">AI sẽ đọc:</span><span class="eip-src" data-eip-src="title">○ Tiêu đề</span><span class="eip-src" data-eip-src="summary">○ Tóm tắt</span><span class="eip-src" data-eip-src="content">○ Nội dung</span></div>
+            <div class="eip-ai-grid" data-eip-ai-grid hidden></div>
+            <p class="eip-help" data-eip-ai-msg hidden></p>
+            <div class="eip-ai-acts">
+              <button type="button" class="eip-btn eip-primary" data-eip-ai-go disabled>✦ Tạo ảnh bìa</button>
+              <span class="eip-help" data-eip-ai-hint></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="eip-cmp-fields">
+        <label class="eip-sr" for="eip-title">Tiêu đề bài viết</label>
+        <input id="eip-title" class="eip-cmp-title" data-eip-f="title" placeholder="Tiêu đề bài viết" value="{{ p.title|e }}" maxlength="140" autocomplete="off">
+        <span class="eip-err" data-eip-err="title" hidden>Bài cần có tiêu đề.</span>
+        <label class="eip-sr" for="eip-sum">Tóm tắt</label>
+        <textarea id="eip-sum" class="eip-cmp-sum" data-eip-f="summary" rows="2" maxlength="240" placeholder="Tóm tắt 1–2 câu (hiện trên thẻ bài, trang chủ và chuông thông báo)">{{ p.summary|e }}</textarea>
+        <div class="eip-cmp-hint">
+          <span>Đường dẫn: /tin-noi-bo/<b data-eip-slug>{{ p.slug|e if p.slug else "tieu-de-bai-viet" }}</b>{% if published %} <small>(đã đăng nên giữ nguyên)</small>{% endif %}</span>
+          <span data-eip-sum-n>{{ (p.summary or "")|length }}/240</span>
+        </div>
+      </div>
+
+      <div class="eip-tb" role="toolbar" aria-label="Định dạng">
+        <button type="button" data-eip-tb="h2" title="Tiêu đề mục (hiện trong mục lục)">H2</button>
+        <button type="button" data-eip-tb="h3" title="Tiêu đề nhỏ">H3</button>
+        <button type="button" data-eip-tb="bold" title="In đậm (Ctrl+B)"><b>B</b></button>
+        <button type="button" data-eip-tb="italic" title="In nghiêng (Ctrl+I)"><i>I</i></button>
+        <span class="eip-sep" aria-hidden="true"></span>
+        <button type="button" data-eip-tb="ul" title="Danh sách chấm">• Danh sách</button>
+        <button type="button" data-eip-tb="ol" title="Danh sách số">1. Danh sách</button>
+        <span class="eip-sep" aria-hidden="true"></span>
+        <button type="button" data-eip-tb="link" title="Chèn link">Link</button>
+        <button type="button" data-eip-tb="img" title="Chèn ảnh (hoặc dán Ctrl+V)">Ảnh</button>
+        <button type="button" data-eip-tb="table" title="Chèn bảng">Bảng</button>
+        <button type="button" data-eip-tb="quote" title="Trích dẫn">Trích dẫn</button>
+        <button type="button" data-eip-tb="clear" title="Xoá định dạng">Xoá định dạng</button>
+      </div>
+      <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-eip-img-file hidden>
+      <div class="eip-editor eip-prose" id="eip-editor" data-eip-f="content" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Nội dung bài" data-ph="Viết nội dung ở đây. Dán ảnh chụp màn hình trực tiếp được (Ctrl+V).">{{ p.content or "" }}</div>
+    </div>
+
+    <aside class="eip-cmp-side">
+      <section class="eip-panel">
+        <h2 class="eip-panel-h">Phân loại</h2>
+        <div class="eip-fld">
+          <label for="eip-cat">Chuyên mục</label>
+          <select id="eip-cat" class="eip-inp" data-eip-f="category">
+            <option value="">Chọn chuyên mục…</option>
+            {% for c in categories %}<option value="{{ c.slug|e }}"{% if p.category == c.slug %} selected{% endif %}>{{ c.name|e }}</option>{% endfor %}
+          </select>
+          <span class="eip-err" data-eip-err="category" hidden>Chọn một chuyên mục.</span>
+        </div>
+        <div class="eip-fld">
+          <div class="eip-tog"><span>Ghim lên đầu<small>Bài ghim nằm trên cùng danh sách và trang chủ</small></span><button type="button" class="eip-sw" role="switch" aria-checked="{{ 'true' if p.pinned else 'false' }}" data-eip-sw="pinned" aria-label="Ghim bài"></button></div>
+        </div>
+        <div class="eip-fld">
+          <label for="eip-author">Người đăng <span class="eip-opt">(không bắt buộc)</span></label>
+          <input id="eip-author" class="eip-inp" data-eip-f="author_label" value="{{ p.author_label|e }}" maxlength="80" placeholder="Ví dụ: Phòng Nhân sự">
+          <span class="eip-help">Để trống thì hiện tên tài khoản đăng bài.</span>
+        </div>
+      </section>
+
+      <section class="eip-panel">
+        <h2 class="eip-panel-h">Ai được đọc</h2>
+        <div class="eip-radio-row" role="radiogroup" aria-label="Phạm vi">
+          <label class="eip-radio"><input type="radio" name="eip-scope" value="all"{% if p.scope != "dept" %} checked{% endif %}><span>Toàn công ty<small>{{ company_size }} người</small></span></label>
+          <label class="eip-radio"><input type="radio" name="eip-scope" value="dept"{% if p.scope == "dept" %} checked{% endif %}><span>Chỉ một số phòng ban<small>Gồm cả các phòng con. Người ngoài phòng mở link cũng bị chặn.</small></span></label>
+        </div>
+        <div class="eip-dept" data-eip-dept-box role="group" aria-label="Phòng ban"{% if p.scope != "dept" %} hidden{% endif %}>
+          {% for d in departments %}<button type="button" class="eip-dept-d{{ d.depth if d.depth < 4 else 4 }}" data-eip-dept="{{ d.name|e }}" aria-pressed="{{ 'true' if d.name in (p.departments or []) else 'false' }}">{{ d.label|e }}</button>{% endfor %}
+        </div>
+        <span class="eip-err" data-eip-err="departments" hidden>Chọn ít nhất một phòng ban.</span>
+        <div class="eip-fld">
+          <label for="eip-exp">Hiện đến ngày <span class="eip-opt">(không bắt buộc)</span></label>
+          <input id="eip-exp" type="date" class="eip-inp" data-eip-f="expires_on" value="{{ p.expires_on|e }}">
+          <span class="eip-help">Để trống thì bài hiện mãi. Qua ngày này bài rút khỏi danh sách và trang chủ, link vẫn mở được.</span>
+          <span class="eip-err" data-eip-err="expires_on" hidden>Ngày hết hạn phải từ hôm nay trở đi.</span>
+        </div>
+      </section>
+
+      <section class="eip-panel">
+        <h2 class="eip-panel-h">Báo tin khi đăng</h2>
+        <label class="eip-check{% if p.notified %} eip-dis{% endif %}"><input type="checkbox" data-eip-chk="notify_bell"{% if not p.name or p.notify_bell %} checked{% endif %}{% if p.notified %} disabled{% endif %}><span>Gửi chuông thông báo<small>{% if p.notified %}Đã gửi khi đăng. Sửa bài không gửi lại.{% else %}Gửi một lần lúc đăng, sửa bài không gửi lại.{% endif %}</small></span></label>
+        <label class="eip-check" data-eip-popup-row><input type="checkbox" data-eip-chk="push_to_home"{% if not p.name or p.push_to_home %} checked{% endif %}><span>Hiển thị trên popup trang chủ<small data-eip-popup-help>Hiện 7 ngày trong "Hôm nay ở eCentric". Bỏ tích trên bài đang hiện thì popup rút ngay.</small></span></label>
+        <label class="eip-check eip-check-sub" data-eip-imglink-row><input type="checkbox" data-eip-chk="popup_image_link"{% if not p.name or p.popup_image_link %} checked{% endif %}><span>Bấm vào ảnh mở bài viết<small data-eip-imglink-help>Ảnh trên popup bấm vào là tới bài. Áp dụng khi ảnh bìa là ảnh tải lên hoặc AI tạo.</small></span></label>
+        <div class="eip-reach">{{ icon('users') }}<span data-eip-reach>Bài sẽ tới <b>{{ company_size }} người</b>.</span></div>
+      </section>
+
+      <section class="eip-panel">
+        <h2 class="eip-panel-h">Tệp đính kèm</h2>
+        <div class="eip-files" data-eip-files></div>
+        <div class="eip-drop" data-eip-file-drop role="button" tabindex="0"><b>+ Thêm tệp</b> hoặc kéo thả vào đây<br>PDF, Word, Excel, PowerPoint · tối đa 20 MB</div>
+        <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.zip,.png,.jpg,.jpeg" data-eip-file-input hidden>
+        <span class="eip-help">Tệp để riêng tư: chỉ người được đọc bài mới tải được.</span>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<div class="eip-modal-bg" data-eip-modal hidden>
+  <div class="eip-modal" role="dialog" aria-modal="true" aria-labelledby="eip-modal-h">
+    <h3 id="eip-modal-h" data-eip-modal-h></h3>
+    <ul data-eip-modal-list></ul>
+    <div class="eip-acts">
+      <button type="button" class="eip-btn" data-eip-modal-close>Quay lại sửa</button>
+      <button type="button" class="eip-btn eip-primary" data-eip-modal-ok>Đăng bài</button>
+    </div>
+  </div>
+</div>
+
+<div class="eip-modal-bg eip-preview-bg" data-eip-preview hidden>
+  <div class="eip-preview" role="dialog" aria-modal="true" aria-label="Xem trước bài">
+    <div class="eip-preview-bar"><b>Xem trước · nhân viên sẽ thấy như thế này</b><button type="button" class="eip-btn eip-btn-sm" data-eip-preview-close>Đóng</button></div>
+    <div class="eip-preview-body" data-eip-preview-body></div>
+  </div>
+</div>
+
+<template id="eip-icons">
+  {% for k in ["megaphone", "book", "star", "doc", "calendar", "heart"] %}<span data-icon="{{ k }}">{{ icon(k, 'eip-cover-ic') }}</span>{% endfor %}
+  <span data-icon="lock">{{ icon('lock') }}</span>
+</template>
+<script type="application/json" id="eip-data">{{ ip_data_json }}</script>
+{% endblock %}
+{% block eip_script %}<script src="{{ ip_editor_js }}" defer></script>{% endblock %}

@@ -1,0 +1,329 @@
+{
+ "doctype": "DocType",
+ "name": "EC Survey",
+ "module": "Surveys",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "description": "Một khảo sát nội bộ (kiểu Google / Microsoft Forms). Soạn ở /khao-sat/soan, làm ở /khao-sat/lam.",
+ "autoname": "format:KS-{YYYY}-{#####}",
+ "field_order": [
+  "title",
+  "status",
+  "description",
+  "accent_color",
+  "column_break_time",
+  "open_at",
+  "close_at",
+  "published_at",
+  "published_by",
+  "section_settings",
+  "anonymous",
+  "allow_edit",
+  "show_progress",
+  "shuffle_questions",
+  "show_summary",
+  "column_break_settings",
+  "response_limit",
+  "is_quiz",
+  "show_score",
+  "notify_on_publish",
+  "confirmation_message",
+  "section_audience",
+  "audience_mode",
+  "targets",
+  "editors",
+  "section_reward",
+  "reward_mode",
+  "wheel_expected",
+  "reward_note",
+  "prizes",
+  "lucky_seq",
+  "number_range",
+  "draw_scheduled_at",
+  "draw_notified_at",
+  "draw_results",
+  "wheel_plan",
+  "draw_at",
+  "section_form",
+  "form_json",
+  "response_count"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Tiêu đề",
+   "reqd": 1,
+   "in_list_view": 1,
+   "length": 200
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Trạng thái",
+   "options": "Draft\nOpen\nClosed",
+   "default": "Draft",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Mô tả"
+  },
+  {
+   "fieldname": "accent_color",
+   "fieldtype": "Data",
+   "label": "Màu chủ đạo",
+   "default": "#2C3DA6"
+  },
+  {
+   "fieldname": "column_break_time",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "open_at",
+   "fieldtype": "Datetime",
+   "label": "Mở từ"
+  },
+  {
+   "fieldname": "close_at",
+   "fieldtype": "Datetime",
+   "label": "Đóng lúc"
+  },
+  {
+   "fieldname": "published_at",
+   "fieldtype": "Datetime",
+   "label": "Phát hành lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "published_by",
+   "fieldtype": "Link",
+   "label": "Phát hành bởi",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_settings",
+   "fieldtype": "Section Break",
+   "label": "Cài đặt"
+  },
+  {
+   "fieldname": "anonymous",
+   "fieldtype": "Check",
+   "label": "Ẩn danh",
+   "default": "0"
+  },
+  {
+   "fieldname": "allow_edit",
+   "fieldtype": "Check",
+   "label": "Cho sửa câu trả lời sau khi nộp",
+   "default": "0"
+  },
+  {
+   "fieldname": "show_progress",
+   "fieldtype": "Check",
+   "label": "Hiện thanh tiến độ",
+   "default": "1"
+  },
+  {
+   "fieldname": "shuffle_questions",
+   "fieldtype": "Check",
+   "label": "Xáo thứ tự câu hỏi trong từng phần",
+   "default": "0"
+  },
+  {
+   "fieldname": "show_summary",
+   "fieldtype": "Check",
+   "label": "Cho người trả lời xem tóm tắt kết quả",
+   "default": "0"
+  },
+  {
+   "fieldname": "column_break_settings",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "response_limit",
+   "fieldtype": "Int",
+   "label": "Giới hạn số phiếu (0 = không giới hạn)",
+   "default": "0"
+  },
+  {
+   "fieldname": "is_quiz",
+   "fieldtype": "Check",
+   "label": "Bài kiểm tra (có đáp án, điểm)",
+   "default": "0"
+  },
+  {
+   "fieldname": "show_score",
+   "fieldtype": "Check",
+   "label": "Hiện điểm ngay sau khi nộp",
+   "default": "1"
+  },
+  {
+   "fieldname": "notify_on_publish",
+   "fieldtype": "Check",
+   "label": "Báo cho đối tượng khi phát hành",
+   "default": "1"
+  },
+  {
+   "fieldname": "confirmation_message",
+   "fieldtype": "Small Text",
+   "label": "Lời nhắn sau khi nộp"
+  },
+  {
+   "fieldname": "section_audience",
+   "fieldtype": "Section Break",
+   "label": "Đối tượng"
+  },
+  {
+   "fieldname": "audience_mode",
+   "fieldtype": "Select",
+   "label": "Ai được làm",
+   "options": "all\ncustom",
+   "default": "all",
+   "reqd": 1
+  },
+  {
+   "fieldname": "targets",
+   "fieldtype": "Table",
+   "label": "Phòng ban / người",
+   "options": "EC Survey Target"
+  },
+  {
+   "fieldname": "editors",
+   "fieldtype": "Table",
+   "label": "Người cùng quản lý",
+   "options": "EC Survey Editor"
+  },
+  {
+   "fieldname": "section_reward",
+   "fieldtype": "Section Break",
+   "label": "Phần thưởng"
+  },
+  {
+   "fieldname": "reward_mode",
+   "fieldtype": "Select",
+   "label": "Kiểu phần thưởng",
+   "options": "none\nwheel\nlucky_number\nrace",
+   "default": "none",
+   "reqd": 1
+  },
+  {
+   "fieldname": "wheel_expected",
+   "fieldtype": "Int",
+   "label": "Số người dự kiến tham gia (vòng quay)",
+   "default": "0",
+   "description": "0 = lấy số người được làm khảo sát."
+  },
+  {
+   "fieldname": "reward_note",
+   "fieldtype": "Small Text",
+   "label": "Cách nhận quà"
+  },
+  {
+   "fieldname": "prizes",
+   "fieldtype": "Table",
+   "label": "Quà",
+   "options": "EC Survey Prize"
+  },
+  {
+   "fieldname": "lucky_seq",
+   "fieldtype": "Int",
+   "label": "Số may mắn đã cấp",
+   "default": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "number_range",
+   "fieldtype": "Int",
+   "label": "Dải số may mắn (1..N)",
+   "default": "100",
+   "description": "Số may mắn: mỗi người chọn một số trong 1..N, không trùng."
+  },
+  {
+   "fieldname": "draw_scheduled_at",
+   "fieldtype": "Datetime",
+   "label": "Giờ quay",
+   "description": "Số may mắn / Đua về đích: popup trang chủ tự chạy đúng giờ này, báo trước 5 phút.",
+   "search_index": 1
+  },
+  {
+   "fieldname": "draw_notified_at",
+   "fieldtype": "Datetime",
+   "label": "Đã báo trước lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "draw_results",
+   "fieldtype": "Long Text",
+   "label": "Kết quả quay (JSON)",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "wheel_plan",
+   "fieldtype": "Long Text",
+   "label": "Kế hoạch vòng quay (bí mật)",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "draw_at",
+   "fieldtype": "Datetime",
+   "label": "Đã quay lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_form",
+   "fieldtype": "Section Break",
+   "label": "Câu hỏi"
+  },
+  {
+   "fieldname": "form_json",
+   "fieldtype": "Long Text",
+   "label": "Câu hỏi (JSON)",
+   "description": "Do trang /khao-sat/soan ghi. Không sửa tay."
+  },
+  {
+   "fieldname": "response_count",
+   "fieldtype": "Int",
+   "label": "Số phiếu",
+   "default": "0",
+   "read_only": 1,
+   "in_list_view": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "title_field": "title",
+ "show_title_field_in_link": 1,
+ "search_fields": "title",
+ "modified": "2026-10-01 18:30:00.000000"
+}

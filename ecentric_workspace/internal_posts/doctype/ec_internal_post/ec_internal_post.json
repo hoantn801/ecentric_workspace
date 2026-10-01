@@ -1,0 +1,268 @@
+{
+ "doctype": "DocType",
+ "name": "EC Internal Post",
+ "module": "Internal Posts",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "autoname": "hash",
+ "naming_rule": "Random",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "title_field": "title",
+ "show_title_field_in_link": 1,
+ "image_field": "cover_image",
+ "make_attachments_public": 0,
+ "allow_import": 0,
+ "description": "Bài Tin nội bộ (/tin-noi-bo). HR soạn ở /tin-noi-bo/viet-bai (hoặc tại đây). Quyền đọc kiểm phía server: internal_posts/permissions.py.",
+ "field_order": [
+  "title",
+  "category",
+  "slug",
+  "column_break_1",
+  "published",
+  "published_on",
+  "pinned",
+  "expires_on",
+  "section_content",
+  "summary",
+  "content",
+  "attachments",
+  "section_cover",
+  "cover_kind",
+  "cover_color",
+  "cover_icon",
+  "column_break_2",
+  "cover_image",
+  "cover_ai",
+  "section_audience",
+  "departments",
+  "column_break_3",
+  "notify_bell",
+  "push_to_home",
+  "popup_image_link",
+  "notified_on",
+  "home_announcement",
+  "author_label"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Tiêu đề",
+   "reqd": 1,
+   "in_list_view": 1,
+   "length": 140
+  },
+  {
+   "fieldname": "category",
+   "fieldtype": "Link",
+   "label": "Chuyên mục",
+   "options": "EC Post Category",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Bắt buộc khi đăng. Bản nháp để trống được."
+  },
+  {
+   "fieldname": "slug",
+   "fieldtype": "Data",
+   "label": "Đường dẫn",
+   "unique": 1,
+   "length": 90,
+   "description": "/tin-noi-bo/<đường dẫn>. Để trống = tự sinh từ tiêu đề."
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "published",
+   "fieldtype": "Check",
+   "label": "Đã đăng",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "published_on",
+   "fieldtype": "Datetime",
+   "label": "Đăng lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "pinned",
+   "fieldtype": "Check",
+   "label": "Ghim lên đầu"
+  },
+  {
+   "fieldname": "expires_on",
+   "fieldtype": "Date",
+   "label": "Hiện đến ngày",
+   "description": "Để trống = hiện mãi. Qua ngày này bài rút khỏi danh sách và trang chủ, link vẫn mở được."
+  },
+  {
+   "fieldname": "section_content",
+   "fieldtype": "Section Break",
+   "label": "Nội dung"
+  },
+  {
+   "fieldname": "summary",
+   "fieldtype": "Small Text",
+   "label": "Tóm tắt",
+   "description": "1–2 câu, hiện trên thẻ bài, trang chủ và chuông thông báo."
+  },
+  {
+   "fieldname": "content",
+   "fieldtype": "Text Editor",
+   "label": "Nội dung"
+  },
+  {
+   "fieldname": "attachments",
+   "fieldtype": "Table",
+   "label": "Tệp đính kèm",
+   "options": "EC Internal Post File"
+  },
+  {
+   "fieldname": "section_cover",
+   "fieldtype": "Section Break",
+   "label": "Ảnh bìa",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "cover_kind",
+   "fieldtype": "Select",
+   "label": "Kiểu ảnh bìa",
+   "options": "color\nimage",
+   "default": "color",
+   "description": "color = màu nền (+ biểu tượng chuyên mục); image = ảnh tải lên hoặc ảnh AI."
+  },
+  {
+   "fieldname": "cover_color",
+   "fieldtype": "Select",
+   "label": "Màu nền",
+   "options": "\nnavy\ngreen\npink\nyellow\npurple\norange\nteal\ncharcoal"
+  },
+  {
+   "fieldname": "cover_icon",
+   "fieldtype": "Check",
+   "label": "Hiện biểu tượng chuyên mục",
+   "default": "1"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cover_image",
+   "fieldtype": "Attach Image",
+   "label": "Ảnh bìa"
+  },
+  {
+   "fieldname": "cover_ai",
+   "fieldtype": "Check",
+   "label": "Ảnh do AI tạo",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_audience",
+   "fieldtype": "Section Break",
+   "label": "Ai được đọc · Báo tin"
+  },
+  {
+   "fieldname": "departments",
+   "fieldtype": "Table MultiSelect",
+   "label": "Chỉ các phòng ban",
+   "options": "EC Internal Post Department",
+   "description": "Để trống = toàn công ty. Chọn phòng cha thì phòng con cũng đọc được. Người ngoài phạm vi mở link cũng bị chặn."
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "notify_bell",
+   "fieldtype": "Check",
+   "label": "Gửi chuông thông báo khi đăng",
+   "default": "1"
+  },
+  {
+   "fieldname": "push_to_home",
+   "fieldtype": "Check",
+   "label": "Đưa lên popup trang chủ",
+   "default": "1",
+   "description": "Chỉ áp dụng cho bài toàn công ty (popup hiện cho mọi người)."
+  },
+  {
+   "fieldname": "popup_image_link",
+   "fieldtype": "Check",
+   "label": "Bấm vào ảnh mở bài viết",
+   "default": "1",
+   "depends_on": "push_to_home",
+   "description": "Ảnh bìa trên popup trang chủ bấm vào là mở bài."
+  },
+  {
+   "fieldname": "notified_on",
+   "fieldtype": "Datetime",
+   "label": "Đã báo tin lúc",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "home_announcement",
+   "fieldtype": "Link",
+   "label": "Thông báo popup",
+   "options": "EC Home Announcement",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "author_label",
+   "fieldtype": "Data",
+   "label": "Tên người đăng hiển thị",
+   "length": 80,
+   "description": "Vd: Phòng Nhân sự. Để trống = tên người tạo bài."
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 1,
+   "share": 1
+  },
+  {
+   "role": "HR Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 1
+  },
+  {
+   "role": "HR User",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "print": 1
+  },
+  {
+   "role": "Employee",
+   "read": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}

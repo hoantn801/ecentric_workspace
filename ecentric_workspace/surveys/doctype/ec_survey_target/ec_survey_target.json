@@ -1,0 +1,48 @@
+{
+ "doctype": "DocType",
+ "name": "EC Survey Target",
+ "module": "Surveys",
+ "custom": 0,
+ "istable": 1,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "description": "Một dòng đối tượng của khảo sát: phòng ban tham gia (tính cả phòng con), người được chọn, hoặc người bị loại trừ.",
+ "field_order": [
+  "kind",
+  "department",
+  "user"
+ ],
+ "fields": [
+  {
+   "fieldname": "kind",
+   "fieldtype": "Select",
+   "label": "Loại",
+   "options": "Department\nUser\nExclude",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "label": "Phòng ban",
+   "options": "Department",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "Người dùng",
+   "options": "User",
+   "in_list_view": 1
+  }
+ ],
+ "permissions": [],
+ "links": [],
+ "index_web_pages_for_search": 0
+}

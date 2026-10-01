@@ -1,7 +1,7 @@
 {
   "action_center/pages/my_work/main_section.html": {
-    "last_resync_patch": "p241_resync_si_tool_nav",
-    "sha256": "ddef7181ba39cdefc807ff24cf4e2355c07873963cd4c991e5ac8a27e236de7f"
+    "last_resync_patch": "p248_khao_sat_pages",
+    "sha256": "4b0a3f229f3c9dec070efc1fe7540d93bab48c4137aee6a81e133174d45f2a60"
   },
   "ai_tools/pages/ai_video/main_section.html": {
     "last_resync_patch": "p244_resync_ai_video_anh_phu",
@@ -170,8 +170,8 @@
     "sha256": "176f923979339da9140f34758e29671f90e33007e6c1c5b88bacdb42b979631d"
   },
   "hr/pages/tong_quan/main_section.html": {
-    "last_resync_patch": "p246_resync_tong_quan_sla_brand",
-    "sha256": "edba7d37df4bca64f8d93fb8d299d09511599a9193450a9f2348110233a1767f"
+    "last_resync_patch": "p249_resync_tong_quan_sla_brand",
+    "sha256": "2ff380b1865df5291e0f8558dd947e67dd898bf952332aeec88ea161581e74b5"
   },
   "legacy_pages/all_ticket/main_section.html": {
     "baseline": "2026-08-31",
@@ -255,8 +255,8 @@
   },
   "legacy_pages/home/main_section.html": {
     "baseline": "2026-09-29",
-    "last_resync_patch": "p241_resync_si_tool_nav",
-    "sha256": "a347101b1c8d6e61e4816c4e281340be6ed0418399f9f429ebb58362201c76c2"
+    "last_resync_patch": "p248_khao_sat_pages",
+    "sha256": "515b952128681d03098a94a145f772834a3dc623823b43c352c1fede7fb8823f"
   },
   "alerts/site_pages/overview/main_section.html": {
     "baseline": "2026-09-29",
@@ -287,5 +287,21 @@
     "baseline": "2026-09-29",
     "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
     "sha256": "30ea2f62193d68623b68c5723e61d9dd0802b490f80720c20ce8b37126c179a6"
+  },
+  "surveys/pages/hub/main_section.html": {
+    "last_resync_patch": "p248_khao_sat_pages",
+    "sha256": "0696a3a17de6869c7220e70675c1aa9b6ef747af1aef64ed7a18f5e376155b09"
+  },
+  "surveys/pages/fill/main_section.html": {
+    "last_resync_patch": "p248_khao_sat_pages",
+    "sha256": "0ed8342b1e41ccbd3f84ca35bba6f671a388a5e52b24f5931d7089e4dac6e9b4"
+  },
+  "surveys/pages/manage/main_section.html": {
+    "last_resync_patch": "p248_khao_sat_pages",
+    "sha256": "4ac2c89df55f28ffa6d280c8cd7f15e239a657890295611232b60fed9a12aa48"
+  },
+  "surveys/pages/builder/main_section.html": {
+    "last_resync_patch": "p248_khao_sat_pages",
+    "sha256": "c5f8c176540cf21ac6d649ed423eb6368571d56b292842571ec9936d9e78118d"
   }
 }
