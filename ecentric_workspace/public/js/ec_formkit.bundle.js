@@ -104,11 +104,28 @@
         };
       });
     }
+    // 01/10/2026 (Hoan): o nam sat day man hinh thi danh sach bi cat mat duoi.
+    // Mo len TREN khi phia duoi khong du cho ma phia tren rong hon; va co chieu cao
+    // theo cho trong that de khong bao gio tran khoi man hinh.
+    function place() {
+      panel.classList.remove("ec-cb-up");
+      panel.style.maxHeight = "";
+      var r = wrap.getBoundingClientRect();
+      var vh = window.innerHeight || document.documentElement.clientHeight || 0;
+      if (!vh || !r) return;
+      var below = vh - r.bottom - 12, above = r.top - 12;
+      var want = Math.min(panel.scrollHeight || 320, 320);
+      var up = below < want && above > below;
+      if (up) panel.classList.add("ec-cb-up");
+      var room = up ? above : below;
+      if (room > 120 && room < want) panel.style.maxHeight = Math.floor(room) + "px";
+    }
     function open() {
       panel.hidden = false;
       search.value = "";
       render("");
-      setTimeout(function () { search.focus(); }, 0);
+      place();
+      setTimeout(function () { search.focus({ preventScroll: true }); }, 0);
     }
     function close() { panel.hidden = true; }
 
