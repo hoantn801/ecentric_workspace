@@ -186,7 +186,8 @@ const txt = (el) => (el ? el.textContent.replace(/\s+/g, ' ').trim() : null);
       range: [1, 100], holders: 47, my_number: '027', joined: true, url: '/khao-sat/lam?s=KS-1', racers: [], results: [], racer_total: 0,
       prizes: [{ rank: 1, label: 'Tai nghe', quantity: 1 }, { rank: 2, label: 'Trà sữa', quantity: 1 }] };
     p.draws = { server_now: day + ' 09:57:00', soon: true, timers: [], draws: [draw], upcoming: [
-      { name: 'KS-2', title: 'Pantry tháng 10', mode: 'race', draw_at: '2026-10-09 15:00:00', days_left: 2, me: 'joined', url: '/khao-sat/lam?s=KS-2' },
+      { name: 'KS-2', title: 'Pantry tháng 10', mode: 'race', draw_at: '2026-10-09 15:00:00', days_left: 2, me: 'joined', url: '/khao-sat/lam?s=KS-2',
+        prizes: [{ rank: 1, label: 'Voucher <b>500K</b>', quantity: 1 }, { rank: 2, label: 'Trà sữa', quantity: 3 }], note: 'Nhận quà ở lễ tân' },
       { name: 'KS-3', title: 'Đào tạo Q3', mode: 'lucky_number', draw_at: '2026-10-15 16:30:00', days_left: 8, me: 'not_submitted', url: '/khao-sat/lam?s=KS-3' }] };
     const oldKeys = p.keys.slice();
     p.keys = oldKeys.concat(['draw:KS-1']);
@@ -200,6 +201,15 @@ const txt = (el) => (el ? el.textContent.replace(/\s+/g, ' ').trim() : null);
     o.clock = txt(pop.querySelector('[data-ecd-clock]'));
     o.upcoming = [...pop.querySelectorAll('.upn-i')].map((r) => [txt(r.querySelector('.upn-b b')), txt(r.querySelector('.upn-r span')), txt(r.querySelector('.upn-left'))]);
     o.cta = [...pop.querySelectorAll('.upn-r a')].map((a) => [txt(a), a.getAttribute('href')]);
+    // hop qua dau dong: so luong tong + danh sach qua (ten da escape); cham -> bat / tat
+    const g = pop.querySelectorAll('.upn-i .ugift');
+    o.gift = { n: g.length, cnt: txt(g[0].querySelector('.cnt')), noCnt: !g[1].querySelector('.cnt'),
+      items: [...g[0].querySelectorAll('.ugpop li')].map(txt), note: txt(g[0].querySelector('.ugpop .w')),
+      raw: !!g[0].querySelector('.ugpop li b b') };
+    g[0].querySelector('[data-ugift]').click();
+    o.gift.on1 = g[0].classList.contains('on');
+    g[1].querySelector('[data-ugift]').click();
+    o.gift.swap = [g[0].classList.contains('on'), g[1].classList.contains('on')];
     await sleep(7500);                                    // khong tu chuyen o khi dang o quay so
     o.stillDraw = txt(pop.querySelector('.th[aria-selected="true"] .tt'));
     // ket qua da chot (mo trang sau gio quay): so tinh + nguoi trung + so trong "qua de lai"

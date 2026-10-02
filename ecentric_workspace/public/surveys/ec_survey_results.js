@@ -138,7 +138,7 @@
       else if (act === "prev") loadResponse(R.idx - 1);
       else if (act === "next") loadResponse(R.idx + 1);
       else if (act === "remind") {
-        S.confirm("Nhắc người chưa làm?", "Gửi thông báo chuông ERP cho mọi người trong đối tượng chưa nộp. Mỗi người tối đa một lần mỗi ngày.", "Gửi nhắc").then(function (ok) {
+        S.confirm("Nhắc người chưa làm?", "Gửi chuông ERP + tin nhắn Teams cho mọi người trong đối tượng chưa nộp. Mỗi người tối đa một lần mỗi ngày.", "Gửi nhắc").then(function (ok) {
           if (!ok) return;
           S.busy(b, true);
           S.api("remind", { name: B.name }, true).then(function (r) { S.busy(b, false); S.toast(r.queued ? "Đang gửi nhắc cho " + r.queued + " người." : "Mọi người đã làm rồi!"); },

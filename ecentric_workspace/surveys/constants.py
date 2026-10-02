@@ -74,6 +74,11 @@ NUMBER_RANGE_MAX = 9999
 RACE_LANES = 12
 REALTIME_DRAW = "ec_survey_draw"
 
+# Kenh thong bao (Notification Center). "announcement" KHOA Teams; "announcement_urgent" la event
+# type RIENG co ban Teams, da chay qua Power Automate tren prod (Delivery Log 14/09: Sent).
+NOTIFY_EVENT = "announcement"
+NOTIFY_EVENT_TEAMS = "announcement_urgent"
+
 DRAW_COUNTDOWN = "countdown"
 DRAW_LIVE = "live"
 DRAW_DONE = "done"
