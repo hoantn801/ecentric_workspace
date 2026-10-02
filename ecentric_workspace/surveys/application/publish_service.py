@@ -115,6 +115,7 @@ def run_notify(name, kind="open", users=None, repo=default_repo):
     if users is None:
         users = sorted(access.eligible_set(repo, survey))
     day = str(repo.now())[:10]
+    remind = kind == "remind"
     title = ("Khảo sát mới: %s" if kind == "open" else "Nhắc bạn làm khảo sát: %s") % survey.get("title")
     close_at = view.dt(survey.get("close_at"))
     msg = ("Hạn chót %s." % close_at[:16]) if close_at else "Mời bạn dành vài phút trả lời."
@@ -126,8 +127,10 @@ def run_notify(name, kind="open", users=None, repo=default_repo):
     sent = 0
     for u in users:
         try:
-            key = "survey|%s|%s|%s" % (kind, name, u) + ("|" + day if kind == "remind" else "")
-            repo.notify(u, title, msg, C.fill_url(name), name, key)
+            # Nhac -> ca Teams (PO 02/10: nguoi chua lam thuong la nguoi khong mo ERP). Khoa chong
+            # trung theo NGAY + hau to "teams": moi nguoi toi da mot DM Teams / khao sat / ngay.
+            key = "survey|%s|%s|%s" % (kind, name, u) + ("|%s|teams" % day if remind else "")
+            repo.notify(u, title, msg, C.fill_url(name), name, key, teams=remind)
             sent += 1
         except Exception:
             repo.log_error("survey notify %s %s" % (name, u))

@@ -8,9 +8,25 @@
   var st = { tab: "open", data: null };
 
   var MODE = { wheel: "Vòng quay", lucky_number: "Số may mắn", race: "Đua về đích" };
-  function rewardChip(c) {
+  var HOW = { wheel: "Nộp phiếu là được quay ngay.", lucky_number: "Nộp phiếu, chọn 1 số - tới giờ quay số.",
+    race: "Ai nộp phiếu cũng có một xe đua." };
+  // Hop qua goc tren phai the (PO 02/10): tro chuot / cham vao -> danh sach qua. Thay cho dai chu
+  // "So may man: ..." bi cat cut. Popover nam trong the (the overflow:hidden) va tu cuon neu dai.
+  function giftBox(c) {
     if (!MODE[c.reward_mode]) return "";
-    return '<span class="svy-pill gold">' + S.icon("gift") + MODE[c.reward_mode] + (c.prizes && c.prizes.length ? ": " + esc(c.prizes.join(", ")) : "") + "</span>";
+    var list = c.prizes || [], total = 0;
+    list.forEach(function (p) { total += p.quantity || 0; });
+    var rows = list.map(function (p, i) {
+      return '<li><span class="n">' + (i + 1) + '</span><span class="l">' + esc(p.label) + '</span><b>×' + (p.quantity || 0) + "</b></li>";
+    }).join("");
+    var when = c.draw_scheduled_at && c.reward_mode !== "wheel"
+      ? '<div class="w">' + (c.reward_mode === "race" ? "Đua" : "Quay số") + " lúc <b>" + esc(S.fmtDt(c.draw_scheduled_at)) + "</b></div>" : "";
+    return '<div class="svy-gift"><button type="button" class="svy-gbtn" aria-label="Quà tặng: ' + esc(MODE[c.reward_mode]) + '">' +
+      S.icon("gift") + (total ? '<span class="cnt">' + total + "</span>" : "") + "</button>" +
+      '<div class="svy-gpop" role="tooltip"><div class="h">' + S.icon("gift") + esc(MODE[c.reward_mode]) +
+      (total ? '<span>' + total + " phần quà</span>" : "") + "</div>" +
+      (rows ? "<ol>" + rows + "</ol>" : '<div class="e">Người tạo chưa nhập quà.</div>') +
+      '<div class="w">' + HOW[c.reward_mode] + "</div>" + when + "</div></div>";
   }
 
   // Phuong an A "The mau" (PO chot 01/10): dau the la khoi mau cua khao sat, co hoa tiet.
@@ -32,8 +48,8 @@
     var dl = drawLine(c);
     if (dl) meta.push(dl);
     var chips = (soon ? '<span class="svy-pill warn">Mở lúc ' + esc(S.fmtDt(c.open_at)) + "</span>"
-        : (c.close_at ? '<span class="svy-pill run">' + esc(S.deadline(c.close_at)) + "</span>" : '<span class="svy-pill ok">Đang mở</span>')) + rewardChip(c);
-    return '<article class="svy-card a" style="' + S.accentVars(c.accent_color) + '">' + head(c, chips) + '<div class="svy-cbody">' +
+        : (c.close_at ? '<span class="svy-pill run">' + esc(S.deadline(c.close_at)) + "</span>" : '<span class="svy-pill ok">Đang mở</span>'));
+    return '<article class="svy-card a" style="' + S.accentVars(c.accent_color) + '">' + giftBox(c) + head(c, chips) + '<div class="svy-cbody">' +
       (c.description ? '<div class="desc">' + esc(c.description) + "</div>" : "") +
       '<div class="svy-meta">' + meta.join("") + "</div>" +
       '<div class="foot"><span></span>' + (soon ? '<span class="svy-b" aria-disabled="true" style="opacity:.6">Chưa mở</span>'
@@ -49,7 +65,7 @@
     else if (c.reward_result === "Lose") reward = '<span class="svy-pill mute">Chúc may mắn lần sau</span>';
     else if (c.reward_mode === "wheel") reward = '<a class="svy-pill gold" href="/khao-sat/lam?s=' + encodeURIComponent(c.name) + '">' + S.icon("gift") + "Chưa quay - quay ngay</a>";
     var dl = c.drawn ? "" : drawLine(c);
-    return '<article class="svy-card a" style="' + S.accentVars(c.accent_color) + '">' + head(c, '<span class="svy-pill ok">' + S.icon("check") + "Đã nộp</span>") +
+    return '<article class="svy-card a" style="' + S.accentVars(c.accent_color) + '">' + giftBox(c) + head(c, '<span class="svy-pill ok">' + S.icon("check") + "Đã nộp</span>") +
       '<div class="svy-cbody"><div class="svy-meta"><span>Nộp lúc <b>' + esc(S.fmtDt(c.submitted_at)) + "</b></span>" + dl +
       (c.effective === "open" ? "" : "<span>Đã đóng</span>") + '</div><div class="foot">' + (reward || "<span></span>") + '<a class="svy-b sm" href="/khao-sat/lam?s=' + encodeURIComponent(c.name) + '">Xem</a></div></div></article>';
   }
@@ -82,6 +98,16 @@
   root.addEventListener("click", function (e) {
     var t = e.target.closest("[data-tab]");
     if (t) { st.tab = t.getAttribute("data-tab"); render(); }
+  });
+  // Cham (dien thoai khong co hover, Safari khong focus nut khi cham): bat / tat hop qua; cham cho khac thi dong.
+  document.addEventListener("click", function (e) {
+    var g = e.target.closest(".svy-gift");
+    Array.prototype.forEach.call(root.querySelectorAll(".svy-gift.on"), function (x) { if (x !== g) x.classList.remove("on"); });
+    if (g && e.target.closest(".svy-gbtn")) g.classList.toggle("on");
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") return;
+    Array.prototype.forEach.call(root.querySelectorAll(".svy-gift.on"), function (x) { x.classList.remove("on"); });
   });
 
   function boot() {

@@ -386,3 +386,33 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 #ec-svy .svy-switch input[type=checkbox]:checked { background:var(--navy); background-image:none; border:0; }
 #ec-svy .svy-switch input[type=checkbox]:focus-visible { box-shadow:0 0 0 3px rgba(44,61,166,.25); }
 #ec-svy .svy-opt input[type=checkbox], #ec-svy .svy-opt input[type=radio] { width:18px !important; height:18px; margin:0 !important; }
+
+/* ---- hop qua goc the (PO 02/10): tro chuot / cham -> danh sach qua ---- */
+.svy-gift { position:absolute; top:12px; right:12px; z-index:3; }
+#ec-svy .svy-gbtn { position:relative; width:40px; height:40px; border-radius:12px; border:0; padding:0; cursor:pointer;
+  display:grid; place-items:center; background:#ffd43b; color:#5c4100; box-shadow:0 4px 12px rgba(0,0,0,.18);
+  transition:transform .18s ease; }
+#ec-svy .svy-gbtn svg { width:20px; height:20px; }
+#ec-svy .svy-gbtn:hover, .svy-gift.on .svy-gbtn { transform:translateY(-1px) rotate(-6deg); }
+#ec-svy .svy-gbtn:focus-visible { outline:3px solid rgba(255,255,255,.85); outline-offset:2px; }
+.svy-gbtn .cnt { position:absolute; top:-6px; right:-6px; min-width:18px; height:18px; padding:0 5px; border-radius:9px;
+  background:#e8384f; color:#fff; font-size:11px; font-weight:700; line-height:18px; font-variant-numeric:tabular-nums; }
+.svy-gpop { position:absolute; top:calc(100% + 8px); right:0; width:264px; max-width:calc(100vw - 48px); max-height:236px; overflow:auto;
+  background:var(--surface); color:var(--ink); border:1px solid var(--line); border-radius:12px; box-shadow:0 12px 28px rgba(16,24,40,.18);
+  padding:12px; display:flex; flex-direction:column; gap:8px; text-align:left;
+  opacity:0; visibility:hidden; transform:translateY(-4px); transition:opacity .15s ease, transform .15s ease, visibility .15s; }
+.svy-gift:hover .svy-gpop, .svy-gift:focus-within .svy-gpop, .svy-gift.on .svy-gpop { opacity:1; visibility:visible; transform:none; }
+.svy-gpop .h { display:flex; align-items:center; gap:6px; font-weight:700; font-size:13px; color:#6b4e00; }
+.svy-gpop .h svg { width:15px; height:15px; }
+.svy-gpop .h span { margin-left:auto; color:var(--ink3); font-weight:500; font-size:12px; }
+.svy-gpop ol { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
+.svy-gpop li { display:flex; align-items:center; gap:8px; font-size:13px; }
+.svy-gpop li .n { flex:none; width:20px; height:20px; border-radius:6px; background:#fff4cc; color:#6b4e00; font-size:11px; font-weight:700;
+  display:grid; place-items:center; }
+.svy-gpop li .l { flex:1; min-width:0; }
+.svy-gpop li b { flex:none; font-variant-numeric:tabular-nums; color:var(--ink2, var(--ink)); }
+.svy-gpop .w, .svy-gpop .e { font-size:12px; color:var(--ink3); border-top:1px dashed var(--line); padding-top:8px; }
+.svy-gpop .w + .w { border-top:0; padding-top:0; }
+.svy-gpop .w b { color:var(--ink); }
+#ec-svy .svy-chead h3 { max-width:calc(100% - 44px); }
+@media (prefers-reduced-motion: reduce) { #ec-svy .svy-gbtn, .svy-gpop { transition:none; } }

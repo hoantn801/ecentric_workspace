@@ -51,7 +51,7 @@ NOW = datetime.datetime(2026, 10, 1, 9, 0)
 class FakeRepo:
     def __init__(self):
         self.surveys, self.resps, self.parts, self.files = {}, {}, {}, {}
-        self.notified, self.jobs, self.seq = [], [], 0
+        self.notified, self.jobs, self.seq, self.teams = [], [], 0, []
         self.clock, self.realtime, self.cache, self.flags, self.commits = NOW, [], {}, {}, 0
         self.emps = [{"user_id": u, "employee_name": u.split("@")[0].title(), "department": d,
                       "status": "Active"} for u, d in (("hr@x", "HR"), ("a@x", "Ops"),
@@ -250,8 +250,9 @@ class FakeRepo:
     def file_content(self, name):
         return b"x", "x.pdf"
 
-    def notify(self, user, title, message, url, survey, key):
+    def notify(self, user, title, message, url, survey, key, teams=False):
         self.notified.append((user, title, url, key))
+        self.teams.append(teams)
 
     def enqueue(self, method, **kw):
         self.jobs.append((method, kw))
@@ -370,6 +371,15 @@ class TestPublish(Base):
         respond_service.submit(A, name, {"q1": {"sel": ["y"]}}, repo=self.r)
         publish_service.remind(HR, name, repo=self.r)
         self.assertEqual(self.r.jobs[-1][1]["users"], ["b@x", "c@x", "hr@x"])
+
+    def test_remind_goes_to_teams_open_does_not(self):
+        name = self.make()
+        publish_service.run_notify(name, repo=self.r)
+        self.assertEqual(set(self.r.teams), {False})            # phat hanh: chi chuong ERP + web push
+        self.r.teams.clear()
+        publish_service.run_notify(name, kind="remind", users=["b@x"], repo=self.r)
+        self.assertEqual(self.r.teams, [True])                  # nhac: ca Teams
+        self.assertTrue(self.r.notified[-1][3].endswith("|teams"))
 
 
 class TestRespond(Base):

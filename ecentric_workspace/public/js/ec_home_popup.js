@@ -201,7 +201,26 @@
     P + ' .upn-h{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center}',
     P + ' .upn-h b{font-size:14px}',
     P + ' .upn-h b span{display:inline-block;margin-left:6px;background:var(--navy-50);color:var(--navy);border-radius:999px;padding:0 8px;font-size:11.5px}',
-    P + ' .upn-i{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--uc);border-radius:12px;padding:7px 12px}',
+    P + ' .upn-i{position:relative;display:grid;grid-template-columns:36px 44px minmax(0,1fr) auto;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--uc);border-radius:12px;padding:7px 12px}',
+    // Hop qua dau dong (PO 02/10): tro chuot / cham -> danh sach qua cua luot quay.
+    P + ' .upn-i:hover,' + P + ' .upn-i:focus-within{z-index:2}',
+    P + ' .ugift{position:relative}',
+    P + ' .ugift>button{all:unset;cursor:pointer;position:relative;width:36px;height:36px;border-radius:10px;background:#ffd43b;color:#5c4100;display:grid;place-items:center;box-shadow:0 3px 8px rgba(0,0,0,.14);transition:transform .18s ease}',
+    P + ' .ugift>button svg{width:18px;height:18px}',
+    P + ' .ugift>button:hover,' + P + ' .ugift.on>button{transform:rotate(-6deg)}',
+    P + ' .ugift>button:focus-visible{outline:3px solid var(--navy);outline-offset:2px}',
+    P + ' .ugift .cnt{position:absolute;top:-6px;right:-6px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:#e8384f;color:#fff;font-size:10.5px;font-weight:700;line-height:17px;text-align:center;font-variant-numeric:tabular-nums}',
+    P + ' .ugpop{position:absolute;left:0;top:calc(100% + 8px);width:250px;max-width:calc(100vw - 60px);background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 28px rgba(16,24,40,.2);padding:11px 12px;display:flex;flex-direction:column;gap:7px;opacity:0;visibility:hidden;transform:translateY(-4px);transition:opacity .15s ease,transform .15s ease,visibility .15s;z-index:5}',
+    // Dong cuoi mo LEN tren: .stage la khung cuon, mo xuong se day ra thanh cuon.
+    P + ' .upn-i:last-child .ugpop{top:auto;bottom:calc(100% + 8px)}',
+    P + ' .ugift:hover .ugpop,' + P + ' .ugift:focus-within .ugpop,' + P + ' .ugift.on .ugpop{opacity:1;visibility:visible;transform:none}',
+    P + ' .ugpop .h{display:flex;align-items:center;gap:6px;font-weight:700;font-size:12.5px;color:#6b4e00}',
+    P + ' .ugpop .h span{margin-left:auto;color:var(--g500);font-weight:500}',
+    P + ' .ugpop ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px}',
+    P + ' .ugpop li{display:flex;align-items:center;gap:8px;font-size:12.5px}',
+    P + ' .ugpop li i{font-style:normal;flex:none;width:19px;height:19px;border-radius:6px;background:#fff4cc;color:#6b4e00;font-size:10.5px;font-weight:700;display:grid;place-items:center}',
+    P + ' .ugpop li span{flex:1;min-width:0}' + P + ' .ugpop li b{flex:none;font-variant-numeric:tabular-nums}',
+    P + ' .ugpop .w{font-size:11.5px;color:var(--g500);border-top:1px dashed var(--line);padding-top:7px}',
     P + ' .upn-d{border-radius:10px;background:var(--ub);color:var(--uc);display:flex;flex-direction:column;align-items:center;padding:3px 0;line-height:1.1}',
     P + ' .upn-d b{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums}' + P + ' .upn-d small{font-size:10px;font-weight:700;text-transform:uppercase}',
     P + ' .upn-b{min-width:0;display:flex;flex-direction:column}',
@@ -215,7 +234,7 @@
     P + ' .drempty{padding:18px 20px;display:flex;flex-direction:column;gap:4px}',
     '@media (max-width:760px){',
     P + '{padding:10px 10px 92px}',
-    P + ' .upn-i{grid-template-columns:44px minmax(0,1fr)}' + P + ' .upn-r{grid-column:2;justify-content:flex-start}',
+    P + ' .upn-i{grid-template-columns:36px 44px minmax(0,1fr)}' + P + ' .upn-r{grid-column:2/-1;justify-content:flex-start}',
     P + ' .dbody{grid-template-columns:1fr;grid-template-rows:auto 1fr}',
     P + ' .thumbs{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line);padding:10px}',
     P + ' .th{flex:none;width:130px;height:64px}',
@@ -384,6 +403,17 @@
     not_open: (u) => ['wait', 'Mở phiếu từ ' + String(u.open_at || '').slice(8, 10) + '/' + String(u.open_at || '').slice(5, 7)],
     closed: () => ['wait', 'Đã đóng phiếu'],
   };
+  const GIFT_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="8" width="18" height="13" rx="1"/><path d="M12 8v13M3 12h18M12 8c-2-4-6-4-6-1.5S9 8 12 8zm0 0c2-4 6-4 6-1.5S15 8 12 8z"/></svg>';
+  const giftHTML = (u, label) => {
+    const list = u.prizes || [];
+    let total = 0;
+    list.forEach((p) => { total += p.quantity || 0; });
+    const rows = list.map((p, i) => '<li><i>' + (i + 1) + '</i><span>' + esc(p.label) + '</span><b>×' + (p.quantity || 0) + '</b></li>').join('');
+    return '<div class="ugift"><button type="button" data-ugift aria-label="Quà tặng: ' + esc(u.title) + '">' + GIFT_SVG + (total ? '<span class="cnt">' + total + '</span>' : '') + '</button>'
+      + '<div class="ugpop" role="tooltip"><div class="h">' + GIFT_SVG.replace('<svg ', '<svg width="14" height="14" ') + esc(label) + (total ? '<span>' + total + ' phần quà</span>' : '') + '</div>'
+      + (rows ? '<ol>' + rows + '</ol>' : '<div class="w">Chưa có danh sách quà.</div>')
+      + (u.note ? '<div class="w">' + esc(u.note) + '</div>' : '') + '</div></div>';
+  };
   const upcomingHTML = (dr) => {
     const list = dr.upcoming || [];
     if (!list.length) return '';
@@ -393,7 +423,7 @@
         const me = (ME[u.me] || ME.closed)(u);
         const cta = u.me === 'not_submitted' ? 'Nộp phiếu' : (u.me === 'pick' ? 'Chọn số' : '');
         const left = u.days_left > 0 ? 'Còn ' + u.days_left + ' ngày' : 'Hôm nay';
-        return '<div class="upn-i" style="--uc:' + c[0] + ';--ub:' + c[1] + '"><div class="upn-d"><b>' + esc(String(u.draw_at).slice(8, 10)) + '</b><small>Th' + esc(String(u.draw_at).slice(5, 7)) + '</small></div>'
+        return '<div class="upn-i" style="--uc:' + c[0] + ';--ub:' + c[1] + '">' + giftHTML(u, c[2]) + '<div class="upn-d"><b>' + esc(String(u.draw_at).slice(8, 10)) + '</b><small>Th' + esc(String(u.draw_at).slice(5, 7)) + '</small></div>'
           + '<div class="upn-b"><b>' + esc(u.title) + '</b><small>' + c[2] + ' · ' + esc(hhmm(u.draw_at)) + '</small></div>'
           + '<div class="upn-r"><span class="' + me[0] + '">' + esc(me[1]) + '</span>' + (cta ? '<a href="' + esc(u.url) + '">' + cta + '</a>' : '') + '<span class="upn-left">' + left + '</span></div></div>';
       }).join('') + '</div>';
@@ -567,6 +597,10 @@
       const t = e.target.closest('[data-i]'); if (t) { go(st, Number(t.dataset.i)); const f = root.querySelector('[data-i="' + st.i + '"]'); if (f) f.focus(); return; }
       const s = e.target.closest('[data-step]'); if (s) { go(st, st.i + Number(s.dataset.step)); return; }
       const m = e.target.closest('[data-more]'); if (m) { st.open[m.dataset.more] = !st.open[m.dataset.more]; st.manual = true; render(st, false); return; }
+      // Hop qua: dien thoai khong co hover -> cham de bat / tat; cham cho khac thi dong.
+      const ug = e.target.closest('[data-ugift]');
+      root.querySelectorAll('.ugift.on').forEach((x) => { if (!ug || x !== ug.parentElement) x.classList.remove('on'); });
+      if (ug) { ug.parentElement.classList.toggle('on'); return; }
       const dp = e.target.closest('[data-drpick]'); if (dp) { st.drawPick = Number(dp.dataset.drpick); render(st, false); }
     });
     root.addEventListener('change', (e) => {

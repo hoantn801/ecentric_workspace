@@ -54,9 +54,12 @@ def file_content(file_name):
 
 # --------------------------------------------------------------------- thong bao / job --
 
-def notify(user, title, message, url, survey, dedupe_key):
+def notify(user, title, message, url, survey, dedupe_key, teams=False):
+    """teams=True -> event type co ban Teams (DM rieng qua Power Automate, khong rut lai duoc).
+    Chi nut "Nhac nguoi chua lam" dung - xem publish_service.run_notify."""
     from ecentric_workspace.notification_center.events import publish_notification_event
-    return publish_notification_event("announcement", user, title, message, action_url=url,
+    event = C.NOTIFY_EVENT_TEAMS if teams else C.NOTIFY_EVENT
+    return publish_notification_event(event, user, title, message, action_url=url,
                                       reference_doctype=C.SURVEY, reference_name=survey,
                                       dedupe_key=dedupe_key)
 
