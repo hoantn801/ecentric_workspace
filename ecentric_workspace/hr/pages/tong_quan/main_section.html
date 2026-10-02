@@ -370,8 +370,28 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
       }
     });
     html += '</tbody></table></div><div class="legend"><span><i style="background:var(--navy)"></i>Đã chốt xong</span><span><i style="background:var(--pink)"></i>Nhân viên đã tự chốt, chờ leader</span></div><div class="note">Bấm vào một phòng để xem từng người. "Nhắc" gửi chuông ERP + Teams cho nhân viên chưa chốt, leader còn người chưa chốt và trưởng phòng (mỗi phòng tối đa 1 lần / 30 phút).</div></div>';
+    /* ec-tsclose-chotthay-v1 (02/10): CnB / HR chốt thay theo leader (vd anh Lâm chưa chốt cho các trưởng phòng). */
+    if (d.can_close_for_lead && (d.leads || []).length) {
+      html += '<div class="card" style="margin-top:16px"><div class="ct">Leader chưa chốt team</div><div class="tswrap"><table><thead><tr><th>Leader</th><th>Chưa chốt</th><th>Người trong team chưa chốt</th><th></th></tr></thead><tbody>'
+        + d.leads.map(function (l) {
+          return '<tr><td><b>' + esc(l.name) + '</b></td><td>' + l.open + (l.self_closed ? ' <span class="muted">(' + l.self_closed + ' đã tự chốt)</span>' : "") + '</td><td class="tswrapcell">' + esc(l.members.join(", "))
+            + '</td><td><button type="button" class="btn" data-closelead="' + esc(l.lead_user) + '" data-leadname="' + esc(l.name) + '">CnB chốt thay</button></td></tr>';
+        }).join("") + '</tbody></table></div><div class="note">Dùng khi leader không kịp chốt. Người chưa tự chốt sẽ ghi là "HR chốt thay". Còn giải trình / đơn nghỉ chưa xử lý thì không chốt được: xử lý xong rồi bấm lại.</div></div>';
+    }
     box.innerHTML = html;
     box.onclick = async function (ev) {
+      var cl = ev.target.closest("button[data-closelead]");
+      if (cl) {
+        ev.stopPropagation();
+        if (!window.confirm("CnB chốt công thay cho team của " + cl.getAttribute("data-leadname") + "?")) return;
+        cl.disabled = true;
+        try {
+          var rr = await tsCall("close_for_lead", { lead_user: cl.getAttribute("data-closelead") });
+          window.alert(rr.already ? "Team này đã chốt xong." : "Đã chốt thay " + rr.closed + " người.");
+          renderClose(box);
+        } catch (e) { cl.disabled = false; window.alert(e.message); }
+        return;
+      }
       var b = ev.target.closest("button[data-remind],button[data-remind-all]");
       if (b) {
         ev.stopPropagation();
