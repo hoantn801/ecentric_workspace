@@ -207,6 +207,17 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
     return env.data;
   }
 
+  /* ec-tq-bw-remind-v1 (02/10): POST cung envelope {success,data} voi call(). */
+  async function postCall(method, body) {
+    var res = await fetch(API + method, { method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json", Accept: "application/json", "X-Frappe-CSRF-Token": (window.frappe && window.frappe.csrf_token) || "" },
+      body: JSON.stringify(body || {}) });
+    var j = await res.json().catch(function () { return {}; });
+    var env = j.message || {};
+    if (!res.ok || !env.success) throw new Error(env.message || "Không gửi được. Thử lại sau ít phút.");
+    return env.data;
+  }
+
   function skeleton() { root.innerHTML = '<div class="sk" aria-hidden="true"><i></i><i></i><i></i></div>'; }
   function showError(msg, retry) {
     root.innerHTML = '<div class="err"><span>' + esc(msg) + '</span><button type="button" class="btn" id="tq-retry">Thử lại</button></div>';
@@ -513,16 +524,18 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
         return '<div class="sbbr"><i style="background:' + (BRAND_COLORS[i] || "var(--ink-3)") + '"></i><span>' + esc(b.label) + '</span><b>' + b.share + '%</b><span class="muted">' + b.fte + ' người</span></div>';
       }).join("") + '</div>';
     }
-    html += '</div><div class="card"><div class="ct">Theo phòng ban</div><div class="tswrap"><table><thead><tr><th>Phòng</th><th>Trưởng phòng</th><th>Tiến độ chốt</th><th>Chờ duyệt</th><th>Bị trả lại</th><th>Chưa nộp</th><th>Tỷ trọng phòng (đã chốt)</th></tr></thead><tbody>';
+    var bwOpen = d.departments.some(function (x) { return x.state !== "done"; });
+    html += '</div><div class="card"><div class="ct">Theo phòng ban <button type="button" class="btn pri" data-bwremind-all="1"' + (bwOpen ? "" : " disabled") + '>Nhắc tất cả phòng chưa xong</button></div><div class="tswrap"><table><thead><tr><th>Phòng</th><th>Trưởng phòng</th><th>Tiến độ chốt</th><th>Chờ duyệt</th><th>Bị trả lại</th><th>Chưa nộp</th><th>Tỷ trọng phòng (đã chốt)</th><th></th></tr></thead><tbody>';
     d.departments.forEach(function (g) {
       var k = "bw:" + (g.department || "-");
       html += '<tr data-sb="' + esc(k) + '"><td><b>' + esc(g.label) + '</b></td><td>' + esc(g.manager || "—") + '</td>'
         + '<td><div class="tsprog"><div class="track"><div class="seg o" style="width:' + (g.final / Math.max(g.total, 1) * 100) + '%"></div></div><span>' + g.final + '/' + g.total + '</span></div></td>'
         + '<td>' + (g.pending || "—") + '</td><td>' + (g.returned ? '<span class="pill p-amb">' + g.returned + '</span>' : "—") + '</td>'
         + '<td>' + (g.none ? '<span class="pill p-red">' + g.none + '</span>' : "—") + '</td>'
-        + '<td class="tswrapcell">' + (g.mix.length ? g.mix.slice(0, 3).map(function (b) { return esc(b.label) + " " + b.share + "%"; }).join(" · ") + (g.mix.length > 3 ? " · +" + (g.mix.length - 3) : "") : "—") + '</td></tr>';
+        + '<td class="tswrapcell">' + (g.mix.length ? g.mix.slice(0, 3).map(function (b) { return esc(b.label) + " " + b.share + "%"; }).join(" · ") + (g.mix.length > 3 ? " · +" + (g.mix.length - 3) : "") : "—") + '</td>'
+        + '<td>' + (g.state === "done" ? "" : '<button type="button" class="btn" data-bwremind="' + esc(g.department) + '">Nhắc</button>') + '</td></tr>';
       if (SB.open[k]) {
-        html += '<tr class="tsmem"><td colspan="7">' + g.members.map(function (m) {
+        html += '<tr class="tsmem"><td colspan="8">' + g.members.map(function (m) {
           var w = Object.keys(m.weights).sort(function (a, b) { return m.weights[b] - m.weights[a]; }).map(function (b) {
             var lb = (d.brands.filter(function (x) { return x.id === b; })[0] || {}).label || b; return esc(lb) + " " + m.weights[b] + "%";
           }).join(" · ");
@@ -532,10 +545,23 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
         }).join("") + '</td></tr>';
       }
     });
-    html += '</tbody></table></div><div class="note">Bấm vào một phòng để xem từng người. Tỷ trọng quy ra số người (FTE): một người khai 60% brand A tính 0,6 người cho brand A. Chỉ cộng các phiếu đã chốt; số của phiếu đang chờ duyệt vẫn hiện ở từng người.</div></div>';
+    html += '</tbody></table></div><div class="note">Bấm vào một phòng để xem từng người. Tỷ trọng quy ra số người (FTE): một người khai 60% brand A tính 0,6 người cho brand A. Chỉ cộng các phiếu đã chốt; số của phiếu đang chờ duyệt vẫn hiện ở từng người. "Nhắc" gửi chuông ERP + Teams cho người chưa nộp / bị trả lại, người đang phải duyệt và trưởng phòng (mỗi phòng tối đa 1 lần / 30 phút).</div></div>';
     box.innerHTML = html;
     document.getElementById("sb-bwp").onchange = function (e) { SB.bwP = e.target.value; renderBrand(box); };
-    box.onclick = function (ev) {
+    box.onclick = async function (ev) {
+      var rb = ev.target.closest("button[data-bwremind],button[data-bwremind-all]");
+      if (rb) {
+        ev.stopPropagation();
+        var all = rb.hasAttribute("data-bwremind-all");
+        if (!window.confirm("Gửi nhắc phân bổ công việc " + monthLabel(d.period).toLowerCase() + " cho " + (all ? "tất cả phòng chưa xong" : "phòng này") + "?")) return;
+        rb.disabled = true;
+        try {
+          var r = await postCall("remind_brand", all ? { period: d.period, all_open: 1 } : { period: d.period, department: rb.getAttribute("data-bwremind") });
+          rb.textContent = "Đã nhắc ✓";
+          window.alert(r.sent ? "Đã gửi nhắc cho " + r.sent + " người (" + r.submit + " chưa nộp / bị trả lại, " + r.approve + " người đang phải duyệt)." : (r.note || "Không còn ai cần nhắc."));
+        } catch (e) { rb.disabled = false; window.alert(e.message); }
+        return;
+      }
       var tr = ev.target.closest("tr[data-sb]");
       if (tr) { var k = tr.getAttribute("data-sb"); SB.open[k] = !SB.open[k]; renderBrand(box); }
     };

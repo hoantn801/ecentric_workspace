@@ -331,3 +331,4 @@ ecentric_workspace.approval_center.patches.p253_khao_sat_hop_qua_form
 ecentric_workspace.hr.patches.p005_du_cong_ghi_ngay
 ecentric_workspace.approval_center.patches.p254_resync_tong_quan_chot_thay
 ecentric_workspace.approval_center.patches.p255_khao_sat_boc_so
+ecentric_workspace.approval_center.patches.p256_resync_tong_quan_nhac_bw
