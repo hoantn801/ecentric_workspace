@@ -277,7 +277,10 @@ def close_team(user, group):
         frappe.throw("Còn việc đang chờ bạn duyệt trong %s: %s. Duyệt hoặc từ chối hết rồi chốt lại."
                      % ("tháng " + period[5:7].lstrip("0") + "/" + period[:4],
                         ", ".join("%s (%d)" % s for s in stuck)))
-    mode = R.MODE_HR if hr_mode else R.MODE_LEAD
+    return _close_rows(rows, user, R.MODE_HR if hr_mode else R.MODE_LEAD, now)
+
+
+def _close_rows(rows, user, mode, now):
     for r in rows:
         doc = frappe.get_doc(DT, r.name)
         if doc.status == R.ST_OPEN:
@@ -290,6 +293,33 @@ def close_team(user, group):
         doc.flags.ignore_permissions = True
         doc.save(ignore_permissions=True)
     return {"closed": len(rows), "team_closed_at": str(now)[:16]}
+
+
+def close_for_lead(user, lead_user):
+    """02/10/2026 - CnB: CnB / HR chot thay MOT team khi leader chua chot (vd anh Lam chua
+    chot cho cac truong phong). Cung luat voi leader: con giai trinh / don nghi chua xu ly
+    trong ky thi KHONG chot - nhung tinh theo che do HR (moi don deu tinh, vi CnB / HR duyet
+    duoc giai trinh, con don nghi cho leader thi CnB nhac leader hoac duyet o buoc HR)."""
+    now = now_datetime()
+    period = R.prev_period(now)
+    if not R.window_open(period, now):
+        frappe.throw("Chưa đến kỳ chốt công.")
+    if not _is_hr(user):
+        frappe.throw("Chỉ CnB / HR được chốt thay cho leader.", frappe.PermissionError)
+    if not lead_user:
+        frappe.throw("Thiếu leader cần chốt thay.")
+    rows = [r for r in frappe.get_all(DT, filters={"period_month": period, "lead_user": lead_user},
+                                      fields=_fields()) if r.status != R.ST_CLOSED]
+    if not rows:
+        return {"closed": 0, "already": True}
+    pend = _pending([r.employee for r in rows], period)
+    stuck = [(r.employee_name, _blocking(pend[r.employee], user, True)) for r in rows]
+    stuck = [s for s in stuck if s[1]]
+    if stuck:
+        frappe.throw("Còn giải trình / đơn nghỉ chưa xử lý trong %s: %s. Xử lý hết rồi chốt thay lại."
+                     % ("tháng " + period[5:7].lstrip("0") + "/" + period[:4],
+                        ", ".join("%s (%d)" % s for s in stuck)))
+    return _close_rows(rows, user, R.MODE_HR, now)
 
 
 # ------------------------------------------------------------------ HR overview
@@ -349,10 +379,19 @@ def overview(user):
                                for r in ms], key=lambda x: (x["status"] == R.ST_CLOSED, x["name"] or "")),
         })
     out.sort(key=lambda x: ({"none": 0, "partial": 1, "done": 2}[x["state"]], x["label"]))
+    # 02/10: CnB chot thay theo leader - moi leader con nguoi chua chot (Closed) trong team.
+    by_lead = {}
+    for r in rows:
+        if r.lead_user and r.status != R.ST_CLOSED:
+            by_lead.setdefault(r.lead_user, []).append(r)
+    leads = sorted([{"lead_user": u, "name": names.get(u, u), "open": len(ms),
+                     "self_closed": sum(1 for r in ms if r.status == R.ST_MEMBER),
+                     "members": sorted(r.employee_name or "" for r in ms)}
+                    for u, ms in by_lead.items()], key=lambda x: (-x["open"], x["name"] or ""))
     tot = len(rows)
     return {"active": True, "period": period, "label": "tháng %d/%s" % (int(period[5:7]), period[:4]),
             "member_deadline": str(m_due)[:16], "lead_deadline": str(l_due)[:16], "now": str(now)[:16],
             "stats": {"total": tot, "closed": sum(1 for r in rows if r.status == R.ST_CLOSED),
                       "self_closed": sum(1 for r in rows if r.member_closed_at and r.close_mode == R.MODE_SELF),
                       "open": sum(1 for r in rows if r.status == R.ST_OPEN)},
-            "departments": out}
+            "departments": out, "leads": leads, "can_close_for_lead": _is_hr(user)}

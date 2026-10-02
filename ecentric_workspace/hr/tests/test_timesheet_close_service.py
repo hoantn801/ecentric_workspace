@@ -229,6 +229,45 @@ class ChotCong(unittest.TestCase):
 
 
 
+class ChotThayTheoLeader(unittest.TestCase):
+    """02/10: CnB / HR chot thay team cua mot leader (vd anh Lam chua chot cho truong phong)."""
+
+    def setUp(self):
+        NOW[0] = dt.datetime(2026, 10, 2, 14, 0)
+
+    def test_chi_hr_cnb_duoc_chot_thay(self):
+        fr, S = make_frappe(EMPS, ROLES)
+        S.ensure_rows("2026-09")
+        with self.assertRaises(Throw):
+            S.close_for_lead("hau@x", "ceo@x")
+        r = S.close_for_lead("cnb@x", "ceo@x")
+        self.assertEqual(r["closed"], 1)
+        vinh = fr.rows["2026-09-E-VINH"]
+        self.assertEqual((vinh["status"], vinh["close_mode"], vinh["team_closed_by"]), ("Closed", "HR chot thay", "cnb@x"))
+        # team cua Vinh khong bi dong toi
+        self.assertEqual(fr.rows["2026-09-E-HAU"]["status"], "Open")
+        self.assertTrue(S.close_for_lead("cnb@x", "ceo@x")["already"])
+
+    def test_con_giai_trinh_thi_khong_chot_thay(self):
+        fr, S = make_frappe(EMPS, ROLES, pending={"E-VINH": (1, 0, {})})
+        S.ensure_rows("2026-09")
+        with self.assertRaises(Throw):
+            S.close_for_lead("cnb@x", "ceo@x")
+        self.assertEqual(fr.rows["2026-09-E-VINH"]["status"], "Open")
+
+    def test_tong_quan_liet_ke_leader_con_no(self):
+        fr, S = make_frappe(EMPS, ROLES)
+        S.ensure_rows("2026-09")
+        S.close_self("hau@x")
+        o = S.overview("cnb@x")
+        self.assertTrue(o["can_close_for_lead"])
+        leads = {l["lead_user"]: l for l in o["leads"]}
+        self.assertEqual((leads["vinh@x"]["open"], leads["vinh@x"]["self_closed"]), (2, 1))
+        self.assertEqual(leads["ceo@x"]["members"], ["Vinh"])
+        S.close_for_lead("cnb@x", "ceo@x")
+        self.assertNotIn("ceo@x", {l["lead_user"] for l in S.overview("cnb@x")["leads"]})
+
+
 class TongQuanNhanSu(unittest.TestCase):
     """Tab 'Chot cong' tren /tong-quan#nhan-su va nut Nhac theo phong."""
 

@@ -40,3 +40,9 @@ def get_overview():
 def remind_department(department=""):
     from ecentric_workspace.hr.timesheet_close import reminders
     return reminders.remind_department(_user(), department or None)
+
+
+@frappe.whitelist(methods=["POST"])
+def close_for_lead(lead_user=""):
+    """CnB / HR chot thay team cua mot leader (02/10/2026)."""
+    return service.close_for_lead(_user(), lead_user or None)

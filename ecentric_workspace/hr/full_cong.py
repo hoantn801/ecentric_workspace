@@ -11,6 +11,11 @@ nhan vien (Employee.ec_full_cong) thi:
   - khong can chot cong thang (hr/timesheet_close/service.py).
 Job 06:05 hang ngay quet tu ngay 1 thang TRUOC toi hom nay - nguoi moi bat co (hoac HR
 tao ho so moi) la thang dang chot cung du cong luon. Chay lai khong nhan doi gi.
+
+02/10/2026 - CnB tick o cho bac Tuan / bac Linh luc 11h ngay chot cong, ma job 06:05 da
+chay roi -> phai doi toi hom sau. Nay: VUA BAT co (hook Employee.on_update) la ghi du cong
+ngay, huy nghia vu SLA cham cong da sinh, va dong chot cong chua chot cua ho tu chuyen
+"Da chot" (CnB chot thay) - nguoi du cong khong can chot (Hoan chot 02/10).
 """
 import datetime
 
@@ -71,11 +76,14 @@ def _days(start, end):
     return out
 
 
-def mark_range(start, end):
-    """Ghi Attendance Present cho moi ngay lam viec con trong. -> report dict."""
+def mark_range(start, end, only=None):
+    """Ghi Attendance Present cho moi ngay lam viec con trong. -> report dict.
+    `only`: chi nhung ho so nay (van phai dang bat co)."""
     from ecentric_workspace.sla.infrastructure import attendance_source as att
     report = {"tao": 0, "co_san": 0, "loi": []}
     names = employees()
+    if only is not None:
+        names = names & set(only)
     if not names:
         return report
     rows = frappe.get_all("Employee", filters={"name": ("in", list(names))},
@@ -120,7 +128,74 @@ def run_daily():
     first_this = today.replace(day=1)
     start = (first_this - datetime.timedelta(days=1)).replace(day=1)
     rep = mark_range(start, today)
+    try:
+        rep["chot_cong"] = close_rows()
+    except Exception:
+        frappe.log_error(title="Du cong: tu chot cong loi", message=frappe.get_traceback())
     frappe.db.commit()
     if rep["loi"]:
         frappe.log_error(title="Du cong: %d ngay loi" % len(rep["loi"]), message=str(rep))
     return rep
+
+
+def _window_start():
+    today = getdate(nowdate())
+    return (today.replace(day=1) - datetime.timedelta(days=1)).replace(day=1), today
+
+
+def cancel_sla(user_ids):
+    """Huy (Cancelled, KHONG xoa) nghia vu SLA cham cong da sinh cho nguoi du cong."""
+    user_ids = [u for u in (user_ids or []) if u]
+    if not user_ids:
+        return 0
+    names = frappe.get_all("EC SLA Obligation", filters={
+        "obligation_type": "ATTENDANCE_DAY", "owner_user": ("in", user_ids),
+        "status": ("!=", "Cancelled")}, pluck="name", limit_page_length=0)
+    for n in names:
+        frappe.db.set_value("EC SLA Obligation", n, {
+            "status": "Cancelled", "is_breached": 0,
+            "excluded_reason": "Mặc định đủ công - không tính SLA chấm công"},
+            update_modified=False)
+    return len(names)
+
+
+def close_rows(only=None):
+    """Dong chot cong chua chot cua nguoi du cong -> Closed, ghi la CnB/HR chot thay.
+    Nguoi du cong khong chot cong (Hoan 02/10) - de dong Open thi leader / CnB phai bam
+    thay va nguoi do hien la "chua chot" tren tab tong quan."""
+    from ecentric_workspace.hr.timesheet_close import rules as R
+    names = employees()
+    if only is not None:
+        names = names & set(only)
+    if not names:
+        return 0
+    now = frappe.utils.now_datetime()
+    rows = frappe.get_all("EC Timesheet Close", filters={
+        "employee": ("in", list(names)), "status": ("!=", R.ST_CLOSED)},
+        fields=["name", "status"], limit_page_length=0)
+    for r in rows:
+        vals = {"status": R.ST_CLOSED, "team_closed_at": now, "team_closed_by": "Administrator",
+                "notes": "Mặc định đủ công - hệ thống tự chốt"}
+        if r.status == R.ST_OPEN:
+            vals.update({"member_closed_at": now, "member_closed_by": "Administrator",
+                         "close_mode": R.MODE_HR})
+        frappe.db.set_value("EC Timesheet Close", r.name, vals)
+    return len(rows)
+
+
+def on_employee_update(doc, method=None):
+    """Hook Employee.on_update: vua bat co (hoac tao moi da bat) -> ghi du cong ngay, huy SLA
+    cham cong, tu chot cong. Nuot moi loi: khong bao gio chan luu ho so."""
+    try:
+        if not int(doc.get(FIELD) or 0) or doc.get("status") != "Active":
+            return
+        before = doc.get_doc_before_save() if hasattr(doc, "get_doc_before_save") else None
+        if before is not None and int(before.get(FIELD) or 0):
+            return
+        start, today = _window_start()
+        mark_range(start, today, only={doc.name})
+        close_rows(only={doc.name})
+        if doc.get("user_id"):
+            cancel_sla([doc.user_id])
+    except Exception:
+        frappe.log_error(title="Du cong: hook ho so %s" % doc.get("name"), message=frappe.get_traceback())

@@ -730,3 +730,18 @@ scheduler_events["daily"].append("ecentric_workspace.internal_posts.cover_ai.cle
 # O nhap so tien dung chung (01/10): dau cham phan cach + can phai. Trang danh dau data-money.
 web_include_js.append("ec_money.bundle.js")
 web_include_css.append("ec_money.bundle.css")
+
+# --------------------------------------------------------------------------- #
+# 02/10/2026 - Vua bat "Mac dinh du cong" tren ho so -> ghi du cong ngay (khong doi job 06:05),
+# huy SLA cham cong, tu chot cong cho nguoi do. Xem hr/full_cong.py. Nuot moi loi.
+# --------------------------------------------------------------------------- #
+_FC_HOOK = "ecentric_workspace.hr.full_cong.on_employee_update"
+_fc_emp = doc_events.setdefault("Employee", {})
+_fc_prev = _fc_emp.get("on_update")
+if _fc_prev is None:
+    _fc_emp["on_update"] = [_FC_HOOK]
+elif isinstance(_fc_prev, str):
+    if _fc_prev != _FC_HOOK:
+        _fc_emp["on_update"] = [_fc_prev, _FC_HOOK]
+elif _FC_HOOK not in _fc_prev:
+    _fc_prev.append(_FC_HOOK)
