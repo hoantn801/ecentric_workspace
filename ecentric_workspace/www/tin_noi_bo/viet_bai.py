@@ -23,6 +23,7 @@ def get_context(context):
     except service.NotFound:
         raise frappe.PageDoesNotExistError("Không tìm thấy bài này.")
     context.update(ctx)
+    context.post_view = ctx.get("post") or dict(editor_service.BLANK_POST)
     context.title = "Sửa bài" if ctx.get("post") else "Viết bài mới"
     context.ip_data_json = frappe.as_json({
         "post": ctx.get("post"), "departments": ctx["departments"], "employee_lfts": ctx["employee_lfts"],

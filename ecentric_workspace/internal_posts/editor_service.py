@@ -15,6 +15,16 @@ from ecentric_workspace.internal_posts.service import Forbidden, NotFound, PostE
 
 ACTIONS = ("save", "publish", "unpublish")
 
+#: Bai MOI: du moi khoa template viet_bai.html doc. Jinja cua Frappe khong nem loi khi thieu
+#: khoa ma IN RA "{{ no such element: dict object['title'] }}" vao o nhap (gap tren live 02/10).
+BLANK_POST = {
+    "name": "", "title": "", "summary": "", "content": "", "category": "", "slug": "",
+    "published": False, "pinned": False, "expires_on": "", "notify_bell": True, "push_to_home": True,
+    "popup_image_link": True, "notified": False, "cover_kind": C.COVER_KIND_COLOR, "cover_color": "",
+    "cover_icon": True, "cover_image": "", "cover_ai": False, "author_label": "", "scope": "all",
+    "departments": [], "attachments": [], "url": "",
+}
+
 
 def _repo(repo):
     if repo is not None:

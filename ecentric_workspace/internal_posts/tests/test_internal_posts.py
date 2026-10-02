@@ -929,6 +929,7 @@ class TestPages(unittest.TestCase):
         r = seeded()
         r.posts["P3"]["title"] = EVIL
         ctx = E.compose_context(HR, "P3", repo=r)
+        ctx["post_view"] = ctx["post"]
         ctx.update(ip_data_json=json.dumps({"post": ctx["post"]}).replace("</", "<\\/"), ip_editor_js="/e.js")
         out = _render("viet_bai", ctx)
         self.assertNotIn(EVIL, out.split('id="eip-data"')[0])
@@ -939,8 +940,10 @@ class TestPages(unittest.TestCase):
         self.assertIn('<script src="/e.js" defer></script>', out)
         self.assertEqual(out.count('class="eip-swatch'), 8)
         new = E.compose_context(HR, repo=r)
-        new.update(ip_data_json="{}", ip_editor_js="/e.js")
-        out = _render("viet_bai", new, strict=False)
+        new.update(ip_data_json="{}", ip_editor_js="/e.js", post_view=dict(E.BLANK_POST))
+        out = _render("viet_bai", new)                  # StrictUndefined: thieu khoa la DO
+        self.assertNotIn("no such element", out)
+        self.assertIn('value="" maxlength="140"', out)
         self.assertIn('data-eip-act="save"', out)
         self.assertIn("Chưa lưu", out)
         self.assertIn('value="all" checked', out)
@@ -1062,3 +1065,14 @@ class TestPopupImageLink(unittest.TestCase):
         out = subprocess.run([node, "-e", _NODE_HERO, os.path.join(APP, "public", "js", "ec_home_popup.js")],
                              capture_output=True, text=True, timeout=60)
         self.assertEqual(json.loads(out.stdout.strip().splitlines()[-1]), ["/tin-noi-bo/lich-nghi-tet|img", ""], out.stderr)
+
+
+class TestComposeKeys(unittest.TestCase):
+    def test_every_template_key_exists_for_new_and_existing_post(self):
+        """Frappe in '{{ no such element ... }}' thay vi bao loi khi thieu khoa (live 02/10)."""
+        src = io.open(os.path.join(APP, "www", "tin_noi_bo", "viet_bai.html"), encoding="utf-8").read()
+        used = set(re.findall(r"\bp\.([a-z_]+)", src))
+        self.assertTrue(used)
+        self.assertEqual(used - set(E.BLANK_POST), set(), "BLANK_POST thieu khoa")
+        post = E.compose_context(HR, "P1", repo=seeded())["post"]
+        self.assertEqual(used - set(post), set(), "compose_context thieu khoa")

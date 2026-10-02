@@ -4,7 +4,7 @@
     ec_internal_posts_editor.js gan hanh vi (dinh dang, anh bia, AI, phong ban, luu / dang).
     Du lieu cho JS nam trong <script type="application/json"> (da thay "</" phia server). -#}
 {% block eip_page %}
-{%- set p = post or {} -%}
+{%- set p = post_view -%}
 {%- set published = p.published -%}
 <div class="eip-compose" data-eip-compose>
   <div class="eip-cmp-bar">
