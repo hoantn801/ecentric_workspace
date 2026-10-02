@@ -61,7 +61,8 @@
     if (set.is_quiz) meta.push(S.icon("trophy") + "<b>Bài kiểm tra</b> có chấm điểm");
     var h = "";
     if (st.preview) h += '<div class="svy-banner warn">' + S.icon("eye") + "<div><b>Chế độ xem trước.</b> Câu trả lời không được lưu. Bấm Gửi để thử luồng - không có phiếu nào được tạo.</div></div>";
-    h += '<header class="svy-panel svy-fhead"><div class="band"><span class="sh1" aria-hidden="true"></span><span class="sh2" aria-hidden="true"></span><h1>' + esc(d.title) + "</h1>" +
+    var gift = S.giftBox({ mode: set.reward_mode, prizes: d.prizes, drawAt: set.draw_scheduled_at, note: set.reward_note });
+    h += '<header class="svy-panel svy-fhead">' + gift + '<div class="band"><span class="sh1" aria-hidden="true"></span><span class="sh2" aria-hidden="true"></span><h1>' + esc(d.title) + "</h1>" +
       (d.description ? '<div class="desc">' + esc(d.description) + "</div>" : "") + "</div>" +
       (meta.length ? '<div class="svy-meta">' + meta.map(function (m) { return '<span class="svy-row" style="gap:6px">' + m + "</span>"; }).join("") + "</div>" : "") + "</header>";
     return h;

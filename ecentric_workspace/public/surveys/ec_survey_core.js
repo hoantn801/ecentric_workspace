@@ -230,12 +230,61 @@
     return a;
   }
 
+  // ---- Hop qua (PO 02/10): nut hop qua + danh sach qua khi tro chuot / cham / focus ----
+  // Popover position:fixed, JS dat toa do theo nut: khong bi khung overflow:hidden cua the / dau
+  // form cat mat (loi "bi che" o popup trang chu 02/10). Du cho thi mo xuong, khong thi mo len.
+  var GIFT_MODE = { wheel: "Vòng quay", lucky_number: "Số may mắn", race: "Đua về đích" };
+  var GIFT_HOW = { wheel: "Nộp phiếu là được quay ngay.", lucky_number: "Nộp phiếu, chọn 1 số - tới giờ quay số.",
+    race: "Ai nộp phiếu cũng có một xe đua." };
+  function giftBox(o) {
+    if (!GIFT_MODE[o.mode]) return "";
+    var list = (o.prizes || []).filter(function (p) { return (p.quantity || 0) > 0; }), total = 0;
+    list.forEach(function (p) { total += p.quantity; });
+    var rows = list.map(function (p, i) {
+      return '<li><span class="n">' + (i + 1) + '</span><span class="l">' + esc(p.label) + "</span><b>×" + p.quantity + "</b></li>";
+    }).join("");
+    var when = o.drawAt && o.mode !== "wheel"
+      ? '<div class="w">' + (o.mode === "race" ? "Đua" : "Quay số") + " lúc <b>" + esc(fmtDt(o.drawAt)) + "</b></div>" : "";
+    return '<div class="svy-gift' + (o.cls ? " " + o.cls : "") + '"><button type="button" class="svy-gbtn" aria-label="Quà tặng: ' + esc(GIFT_MODE[o.mode]) +
+      (total ? ", " + total + " phần quà" : "") + '">' + icon("gift") + (total ? '<span class="cnt">' + total + "</span>" : "") + "</button>" +
+      '<div class="svy-gpop" role="tooltip"><div class="h">' + icon("gift") + esc(GIFT_MODE[o.mode]) +
+      (total ? "<span>" + total + " phần quà</span>" : "") + "</div>" +
+      (rows ? "<ol>" + rows + "</ol>" : '<div class="e">Người tạo chưa nhập quà.</div>') +
+      (o.note ? '<div class="w">' + esc(o.note) + "</div>" : "") +
+      '<div class="w">' + GIFT_HOW[o.mode] + "</div>" + when + "</div></div>";
+  }
+  function placeGift(g) {
+    var btn = g.querySelector(".svy-gbtn"), pop = g.querySelector(".svy-gpop");
+    if (!btn || !pop) return;
+    var r = btn.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+    var vw = window.innerWidth || document.documentElement.clientWidth, vh = window.innerHeight || document.documentElement.clientHeight;
+    var left = Math.max(8, Math.min(r.right - w, vw - w - 8));
+    var top = (vh - r.bottom >= h + 16 || r.top < h + 16) ? r.bottom + 8 : r.top - h - 8;
+    pop.style.left = left + "px";
+    pop.style.top = Math.max(8, top) + "px";
+  }
+  function giftNear(t) { return t && t.closest ? t.closest(".svy-gift") : null; }
+  document.addEventListener("mouseover", function (e) { var g = giftNear(e.target); if (g) placeGift(g); });
+  document.addEventListener("focusin", function (e) { var g = giftNear(e.target); if (g) placeGift(g); });
+  document.addEventListener("click", function (e) {
+    var g = giftNear(e.target);
+    qsa(document, ".svy-gift.on").forEach(function (x) { if (x !== g) x.classList.remove("on"); });
+    if (g && e.target.closest(".svy-gbtn")) { g.classList.toggle("on"); placeGift(g); }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") qsa(document, ".svy-gift.on").forEach(function (x) { x.classList.remove("on"); });
+  });
+  // Cuon trang khi hop dang mo: bam theo nut (popover fixed khong tu chay theo).
+  function replaceGifts() { qsa(document, ".svy-gift.on, .svy-gift:hover, .svy-gift:focus-within").forEach(placeGift); }
+  window.addEventListener("scroll", replaceGifts, true);
+  window.addEventListener("resize", replaceGifts);
+
   window.ECSvy = {
     esc: esc, byId: byId, qsa: qsa, uid: uid, param: param, clone: clone, icon: icon,
     api: api, apiUrl: apiUrl, friendly: friendly, uploadFile: uploadFile,
     toast: toast, modal: modal, confirm: confirmBox, busy: busy,
     parseDt: parseDt, fmtDt: fmtDt, fmtDate: fmtDate, toLocalInput: toLocalInput, deadline: deadline, initials: initials,
     sections: sections, path: path, questions: questions, selected: selected, isEmpty: isEmpty,
-    seeded: seeded, shuffle: shuffle, onColor: onColor, accentVars: accentVars, GOTO_SUBMIT: GOTO_SUBMIT, START: START
+    seeded: seeded, shuffle: shuffle, giftBox: giftBox, onColor: onColor, accentVars: accentVars, GOTO_SUBMIT: GOTO_SUBMIT, START: START
   };
 })();

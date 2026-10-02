@@ -136,7 +136,8 @@ def _upcoming_item(repo, survey, part, now):
         me, num = "closed", ""
     return {"name": survey["name"], "title": survey.get("title") or "", "mode": survey.get("reward_mode"),
             "draw_at": view.dt(at), "days_left": (at.date() - now.date()).days, "me": me, "my_number": num,
-            "open_at": view.dt(survey.get("open_at")), "url": C.fill_url(survey["name"])}
+            "open_at": view.dt(survey.get("open_at")), "url": C.fill_url(survey["name"]),
+            "prizes": _prizes(survey), "note": survey.get("reward_note") or ""}     # hop qua dau dong (PO 02/10)
 
 
 def one(user, name, repo=default_repo):

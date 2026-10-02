@@ -26,3 +26,8 @@ Trước khi quay, trang không cho biết "bạn là lượt thứ mấy / đ�
 `for_user(user)` → `draws` (hôm nay, từ T-5: countdown → live 3 phút → done), `upcoming` ("Lượt quay tiếp theo", 30 ngày, kèm tình trạng của người xem), `timers` (để popup hẹn giờ tự mở).
 `any_soon()` cho Jinja trang chủ (cache 5 phút). `one(user, name)` cho popup hỏi trong lúc chờ chốt (chưa chốt thì trả ngay, không tính đối tượng).
 Hiệu ứng: `public/surveys/ec_survey_draw.js` (`ECSvyDraw.mount/unmount`), nạp qua `ec_home_popup.bundle.js`.
+
+## Thông báo (02/10/2026)
+- Phát hành: chuông ERP + web push (`announcement`, Teams KHOÁ).
+- "Nhắc người chưa làm": chuông ERP + web push + **Teams** (`announcement_urgent`, qua Power Automate). Khoá chống trùng `survey|remind|<ks>|<user>|<ngày>|teams` → mỗi người tối đa một DM Teams / khảo sát / ngày.
+- Thẻ khảo sát ở `/khao-sat` và dòng "Lượt quay tiếp theo" trong popup trang chủ có hộp quà: trỏ chuột / chạm để xem danh sách quà (`prizes` = tên + số lượng).

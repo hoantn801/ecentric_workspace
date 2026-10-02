@@ -8,9 +8,9 @@
   var st = { tab: "open", data: null };
 
   var MODE = { wheel: "Vòng quay", lucky_number: "Số may mắn", race: "Đua về đích" };
-  function rewardChip(c) {
-    if (!MODE[c.reward_mode]) return "";
-    return '<span class="svy-pill gold">' + S.icon("gift") + MODE[c.reward_mode] + (c.prizes && c.prizes.length ? ": " + esc(c.prizes.join(", ")) : "") + "</span>";
+  // Hop qua goc tren phai the (PO 02/10) - dung chung voi trang lam khao sat (ec_survey_core.js).
+  function giftBox(c) {
+    return S.giftBox({ mode: c.reward_mode, prizes: c.prizes, drawAt: c.draw_scheduled_at });
   }
 
   // Phuong an A "The mau" (PO chot 01/10): dau the la khoi mau cua khao sat, co hoa tiet.
@@ -32,8 +32,8 @@
     var dl = drawLine(c);
     if (dl) meta.push(dl);
     var chips = (soon ? '<span class="svy-pill warn">Mở lúc ' + esc(S.fmtDt(c.open_at)) + "</span>"
-        : (c.close_at ? '<span class="svy-pill run">' + esc(S.deadline(c.close_at)) + "</span>" : '<span class="svy-pill ok">Đang mở</span>')) + rewardChip(c);
-    return '<article class="svy-card a" style="' + S.accentVars(c.accent_color) + '">' + head(c, chips) + '<div class="svy-cbody">' +
+        : (c.close_at ? '<span class="svy-pill run">' + esc(S.deadline(c.close_at)) + "</span>" : '<span class="svy-pill ok">Đang mở</span>'));
+    return '<article class="svy-card a" style="' + S.accentVars(c.accent_color) + '">' + giftBox(c) + head(c, chips) + '<div class="svy-cbody">' +
       (c.description ? '<div class="desc">' + esc(c.description) + "</div>" : "") +
       '<div class="svy-meta">' + meta.join("") + "</div>" +
       '<div class="foot"><span></span>' + (soon ? '<span class="svy-b" aria-disabled="true" style="opacity:.6">Chưa mở</span>'
@@ -49,7 +49,7 @@
     else if (c.reward_result === "Lose") reward = '<span class="svy-pill mute">Chúc may mắn lần sau</span>';
     else if (c.reward_mode === "wheel") reward = '<a class="svy-pill gold" href="/khao-sat/lam?s=' + encodeURIComponent(c.name) + '">' + S.icon("gift") + "Chưa quay - quay ngay</a>";
     var dl = c.drawn ? "" : drawLine(c);
-    return '<article class="svy-card a" style="' + S.accentVars(c.accent_color) + '">' + head(c, '<span class="svy-pill ok">' + S.icon("check") + "Đã nộp</span>") +
+    return '<article class="svy-card a" style="' + S.accentVars(c.accent_color) + '">' + giftBox(c) + head(c, '<span class="svy-pill ok">' + S.icon("check") + "Đã nộp</span>") +
       '<div class="svy-cbody"><div class="svy-meta"><span>Nộp lúc <b>' + esc(S.fmtDt(c.submitted_at)) + "</b></span>" + dl +
       (c.effective === "open" ? "" : "<span>Đã đóng</span>") + '</div><div class="foot">' + (reward || "<span></span>") + '<a class="svy-b sm" href="/khao-sat/lam?s=' + encodeURIComponent(c.name) + '">Xem</a></div></div></article>';
   }
@@ -83,7 +83,6 @@
     var t = e.target.closest("[data-tab]");
     if (t) { st.tab = t.getAttribute("data-tab"); render(); }
   });
-
   function boot() {
     S.api("hub").then(function (d) { st.data = d; render(); }, function (e) {
       root.innerHTML = '<div class="svy-wrap"><div class="svy-panel svy-empty"><b>Không tải được danh sách khảo sát</b>' + esc(e.svyMessage) +

@@ -16,6 +16,12 @@ from ecentric_workspace.surveys.domain.errors import (AnswerErrors, SurveyError,
 from ecentric_workspace.surveys.infrastructure import repository as default_repo
 
 
+def _gift_list(survey):
+    """Hop qua goc the (PO 02/10): ten + so luong tung phan qua, bo qua phan qua so luong 0."""
+    return [{"label": p["label"], "quantity": p["quantity"]}
+            for p in view.prizes(survey or {}) if p["quantity"] > 0]
+
+
 def hub(ctx, repo=default_repo):
     """Trang /khao-sat: dang mo cho toi, da lam, bang vang."""
     mine = {p["survey"]: p for p in repo.participations_of(ctx.user)}
@@ -26,11 +32,12 @@ def hub(ctx, repo=default_repo):
             continue
         full = repo.get_survey(s["name"])
         if access.is_eligible(repo, ctx, full, cache):
-            open_cards.append(view.card(repo, s, {"prizes": [p["label"] for p in view.prizes(full)]}))
+            open_cards.append(view.card(repo, s, {"prizes": _gift_list(full)}))
     done = []
     for s in repo.surveys_by_names(list(mine)):
         p = mine[s["name"]]
-        done.append(view.card(repo, s, {"submitted_at": view.dt(p.get("submitted_at")),
+        done.append(view.card(repo, s, {"prizes": _gift_list(repo.get_survey(s["name"])),
+                                        "submitted_at": view.dt(p.get("submitted_at")),
                                         "lucky_number": p.get("lucky_number") or 0,
                                         "reward_result": p.get("reward_result") or "",
                                         "prize_label": p.get("prize_label") or ""}))
@@ -74,7 +81,8 @@ def get_form(ctx, name, preview=False, repo=default_repo):
             "draw_scheduled_at", "number_range")},
         "effective": view.effective(repo, survey), "form": view.public_form(view.form_of(survey)),
         "eligible": eligible, "preview": bool(preview), "can_manage": manage,
-        "prizes": [{"id": p["id"], "label": p["label"], "color": p["color"]} for p in view.prizes(survey)],
+        "prizes": [{"id": p["id"], "label": p["label"], "color": p["color"], "quantity": p["quantity"]}
+                   for p in view.prizes(survey)],
         "submitted": bool(part), "my_answers": mine,
         "reward": submit_reward.state(repo, survey, part, ctx.user) if part else None,
     }

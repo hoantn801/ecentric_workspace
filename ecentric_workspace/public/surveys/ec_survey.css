@@ -286,7 +286,7 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 .svy-oe .svy-in { min-height:34px; padding:6px 10px; }
 .svy-oe .ok { color:var(--ok); border-color:var(--ok); background:var(--ok-bg); }
 .svy-oe select.svy-sel { width:auto; min-height:34px; padding:4px 8px; max-width:200px; font-size:12.5px; }
-.svy-edfoot { display:flex; align-items:center; justify-content:flex-end; gap:6px; flex-wrap:wrap; border-top:1px solid var(--line2); padding-top:10px; }
+.svy-edfoot { display:flex; align-items:center; justify-content:flex-end; gap:6px; flex-wrap:wrap; border-top:1px solid var(--line2); padding-top:10px; margin-top:16px; }
 .svy-switch { display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-size:13px; user-select:none; }
 .svy-switch input { appearance:none; width:34px; height:20px; border-radius:10px; background:#d1d5db; position:relative; cursor:pointer; transition:background .15s; margin:0; flex:none; }
 .svy-switch input::after { content:""; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; transition:left .15s; box-shadow:0 1px 2px rgba(0,0,0,.2); }
@@ -370,3 +370,63 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 .svy-tl b { font-size:13.5px; }
 .svy-mode-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(170px,1fr)); gap:10px; }
 @media (max-width:640px) { .svy-ngrid { grid-template-columns:repeat(6, minmax(0,1fr)); } }
+
+/* ---- Va CSS cua Frappe (do tren team.ecentric.vn 02/10/2026) ----
+ * website.bundle.css co hai luat toan site de len trang khao sat:
+ *   .icon { margin:0 auto; font-size:0; width:20px; height:20px }  -> nut .svy-b.icon bi day ra giua
+ *      (nut Quay lai lech, 4 nut cuoi the cau hoi gian deu ca hang).
+ *   input[type=checkbox] { appearance:none; width:var(--checkbox-size) !important; margin-right:...;
+ *      border; :checked -> background-image dau tick }  -> cong tac .svy-switch co lai 14px, nut tron
+ *      de len chu.
+ * Ghi de bang #ec-svy + !important CHI cho thuoc tinh ma Frappe dat !important (quy tac frontend: chi
+ * dung !important khi de thu vien ben thu ba). */
+#ec-svy .svy-b.icon { margin:0; font-size:13.5px; background-size:auto; }
+#ec-svy .svy-switch input[type=checkbox] { width:34px !important; min-width:34px; height:20px; margin:0 !important; padding:0;
+  border:0; border-radius:10px; background:#d1d5db; background-image:none; box-shadow:none; }
+#ec-svy .svy-switch input[type=checkbox]:checked { background:var(--navy); background-image:none; border:0; }
+#ec-svy .svy-switch input[type=checkbox]:focus-visible { box-shadow:0 0 0 3px rgba(44,61,166,.25); }
+#ec-svy .svy-opt input[type=checkbox], #ec-svy .svy-opt input[type=radio] { width:18px !important; height:18px; margin:0 !important; }
+
+/* ---- hop qua goc the (PO 02/10): tro chuot / cham -> danh sach qua ---- */
+.svy-gift { position:absolute; top:12px; right:12px; z-index:3; }
+#ec-svy .svy-gbtn { position:relative; width:40px; height:40px; border-radius:12px; border:0; padding:0; cursor:pointer;
+  display:grid; place-items:center; background:#ffd43b; color:#5c4100; box-shadow:0 4px 12px rgba(0,0,0,.18);
+  transition:transform .18s ease; }
+#ec-svy .svy-gbtn svg { width:20px; height:20px; }
+#ec-svy .svy-gbtn:hover, .svy-gift.on .svy-gbtn { transform:translateY(-1px) rotate(-6deg); }
+#ec-svy .svy-gbtn:focus-visible { outline:3px solid rgba(255,255,255,.85); outline-offset:2px; }
+.svy-gbtn .cnt { position:absolute; top:-6px; right:-6px; min-width:18px; height:18px; padding:0 5px; border-radius:9px;
+  background:#e8384f; color:#fff; font-size:11px; font-weight:700; line-height:18px; font-variant-numeric:tabular-nums; }
+.svy-gpop { position:fixed; top:0; left:0; z-index:1060; width:264px; max-width:calc(100vw - 48px); max-height:236px; overflow:auto;
+  background:var(--surface); color:var(--ink); border:1px solid var(--line); border-radius:12px; box-shadow:0 12px 28px rgba(16,24,40,.18);
+  padding:12px; display:flex; flex-direction:column; gap:8px; text-align:left;
+  opacity:0; visibility:hidden; transform:translateY(-4px); transition:opacity .15s ease, transform .15s ease, visibility .15s; }
+.svy-gift:hover .svy-gpop, .svy-gift:focus-within .svy-gpop, .svy-gift.on .svy-gpop { opacity:1; visibility:visible; transform:none; }
+.svy-gpop .h { display:flex; align-items:center; gap:6px; font-weight:700; font-size:13px; color:#6b4e00; }
+.svy-gpop .h svg { width:15px; height:15px; }
+.svy-gpop .h span { margin-left:auto; color:var(--ink3); font-weight:500; font-size:12px; }
+.svy-gpop ol { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
+.svy-gpop li { display:flex; align-items:center; gap:8px; font-size:13px; }
+.svy-gpop li .n { flex:none; width:20px; height:20px; border-radius:6px; background:#fff4cc; color:#6b4e00; font-size:11px; font-weight:700;
+  display:grid; place-items:center; }
+.svy-gpop li .l { flex:1; min-width:0; }
+.svy-gpop li b { flex:none; font-variant-numeric:tabular-nums; color:var(--ink2, var(--ink)); }
+.svy-gpop .w, .svy-gpop .e { font-size:12px; color:var(--ink3); border-top:1px dashed var(--line); padding-top:8px; }
+.svy-gpop .w + .w { border-top:0; padding-top:0; }
+.svy-gpop .w b { color:var(--ink); }
+#ec-svy .svy-chead h3 { max-width:calc(100% - 44px); }
+@media (prefers-reduced-motion: reduce) { #ec-svy .svy-gbtn, .svy-gpop { transition:none; } }
+/* hop qua tren dau form lam khao sat */
+.svy-fhead { position:relative; }
+.svy-fhead .svy-gift { top:16px; right:16px; }
+#ec-svy .svy-fhead .svy-gbtn { width:46px; height:46px; border-radius:14px; }
+#ec-svy .svy-fhead .svy-gbtn svg { width:23px; height:23px; }
+#ec-svy .svy-fhead h1 { max-width:calc(100% - 56px); }
+/* cau noi trong suot qua khe 8px giua nut va popover: re chuot tu nut sang danh sach khong bi tat */
+.svy-gpop::before, .svy-gpop::after { content:""; position:absolute; left:0; right:0; height:10px; }
+.svy-gpop::before { top:-10px; } .svy-gpop::after { bottom:-10px; }
+/* bang so da chon trong Ket qua (nguoi quan ly) */
+.svy-held { margin-top:10px; display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:6px 12px; max-height:340px; overflow:auto; }
+.svy-held .it { display:flex; align-items:center; gap:8px; min-width:0; font-size:13px; }
+.svy-held .it > span:last-child:not(.svy-ticket) { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.svy-held .svy-ticket { padding:1px 8px; flex:none; }

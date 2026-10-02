@@ -170,7 +170,7 @@
     "sha256": "176f923979339da9140f34758e29671f90e33007e6c1c5b88bacdb42b979631d"
   },
   "hr/pages/tong_quan/main_section.html": {
-    "last_resync_patch": "p251_resync_tong_quan_chot_thay",
+    "last_resync_patch": "p254_resync_tong_quan_chot_thay",
     "sha256": "1ddb3ab368c6c7b246b2e50bbc140de641c90847ff3b03921cb693849f5d4515"
   },
   "legacy_pages/all_ticket/main_section.html": {
@@ -289,19 +289,19 @@
     "sha256": "30ea2f62193d68623b68c5723e61d9dd0802b490f80720c20ce8b37126c179a6"
   },
   "surveys/pages/hub/main_section.html": {
-    "last_resync_patch": "p248_khao_sat_pages",
-    "sha256": "0696a3a17de6869c7220e70675c1aa9b6ef747af1aef64ed7a18f5e376155b09"
+    "last_resync_patch": "p253_khao_sat_hop_qua_form",
+    "sha256": "4f925834d2543aeaa5b8ddf4551ed4b5c5cd39758ec13b6b9ac56988c03992e7"
   },
   "surveys/pages/fill/main_section.html": {
-    "last_resync_patch": "p248_khao_sat_pages",
-    "sha256": "0ed8342b1e41ccbd3f84ca35bba6f671a388a5e52b24f5931d7089e4dac6e9b4"
+    "last_resync_patch": "p253_khao_sat_hop_qua_form",
+    "sha256": "0b32a946fa859654fbab988d70b86fbdcc797cb466d1d9ac60ed4af65bf3d856"
   },
   "surveys/pages/manage/main_section.html": {
-    "last_resync_patch": "p248_khao_sat_pages",
-    "sha256": "4ac2c89df55f28ffa6d280c8cd7f15e239a657890295611232b60fed9a12aa48"
+    "last_resync_patch": "p253_khao_sat_hop_qua_form",
+    "sha256": "83e85b0a2d471779ae018929a88773ad0cb061a3eebbebe28ea008f135dcd1ba"
   },
   "surveys/pages/builder/main_section.html": {
-    "last_resync_patch": "p248_khao_sat_pages",
-    "sha256": "c5f8c176540cf21ac6d649ed423eb6368571d56b292842571ec9936d9e78118d"
+    "last_resync_patch": "p253_khao_sat_hop_qua_form",
+    "sha256": "a81792c2c2ce26dae745135d5bd19358d601bee052f3ac9cea70a69b6a62f673"
   }
 }

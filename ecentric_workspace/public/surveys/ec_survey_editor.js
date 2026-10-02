@@ -170,6 +170,7 @@
     }
     h += "</div>";
     if (q.branch && !sectionsAfter(B, q.id).length) h += '<div class="svy-small" style="color:var(--warn)">Chưa có phần nào nằm sau câu này - thêm "Phần mới" để rẽ nhánh.</div>';
+    else if ((q.type === "single" || q.type === "dropdown") && !q.branch) h += '<div class="svy-small svy-muted">Muốn chọn phương án X thì chuyển tới phần Y: thêm "Phần mới" bên dưới, rồi bật "Chuyển tới phần theo câu trả lời" và chọn phần cho từng phương án.</div>';
     return h;
   }
 

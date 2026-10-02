@@ -159,6 +159,17 @@ class TestPopupInJsdom(unittest.TestCase):
         self.assertEqual(d["cta"], [["Nộp phiếu", "/khao-sat/lam?s=KS-3"]])
         self.assertEqual(d["stillDraw"], "Quay số may mắn")
 
+    def test_upcoming_gift_box_lists_prizes(self):
+        g = self.r["draw"]["gift"]
+        self.assertEqual(g["n"], 2)
+        self.assertEqual(g["cnt"], "4")
+        self.assertTrue(g["noCnt"], "luot quay chua nhap qua thi khong co so dem")
+        self.assertEqual(g["items"], ["1Voucher <b>500K</b>×1", "2Trà sữa×3"])
+        self.assertFalse(g["raw"], "ten qua phai escape")
+        self.assertEqual(g["note"], "Nhận quà ở lễ tân")
+        self.assertTrue(g["on1"])
+        self.assertEqual(g["swap"], [False, True], "mo hop nay thi dong hop kia")
+
     def test_draw_results_static_with_empty_number(self):
         x = self.r["draw"]["done"]
         self.assertEqual(x["chip"], "Đã quay xong")

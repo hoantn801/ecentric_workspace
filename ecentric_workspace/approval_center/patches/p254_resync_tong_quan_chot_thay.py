@@ -15,10 +15,10 @@ def execute():
     from ecentric_workspace.hr.pages.tong_quan import page_sync
     try:
         res = page_sync.sync()
-        frappe.logger("approval_center").info("p251 tong-quan: %s" % (res,))
+        frappe.logger("approval_center").info("p254 tong-quan: %s" % (res,))
         html = frappe.db.get_value("Web Page", {"route": page_sync.ROUTE}, "main_section_html") or ""
         miss = [m for m in _MUST if m not in html]
         if miss:
-            frappe.log_error("p251: thieu %s" % (miss,), "p251 tong-quan KHONG toi noi")
+            frappe.log_error("p254: thieu %s" % (miss,), "p254 tong-quan KHONG toi noi")
     except Exception:
-        frappe.log_error(frappe.get_traceback(), "p251 tong-quan sync failed")
+        frappe.log_error(frappe.get_traceback(), "p254 tong-quan sync failed")
