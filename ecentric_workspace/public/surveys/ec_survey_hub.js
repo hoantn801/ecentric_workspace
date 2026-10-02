@@ -8,25 +8,9 @@
   var st = { tab: "open", data: null };
 
   var MODE = { wheel: "Vòng quay", lucky_number: "Số may mắn", race: "Đua về đích" };
-  var HOW = { wheel: "Nộp phiếu là được quay ngay.", lucky_number: "Nộp phiếu, chọn 1 số - tới giờ quay số.",
-    race: "Ai nộp phiếu cũng có một xe đua." };
-  // Hop qua goc tren phai the (PO 02/10): tro chuot / cham vao -> danh sach qua. Thay cho dai chu
-  // "So may man: ..." bi cat cut. Popover nam trong the (the overflow:hidden) va tu cuon neu dai.
+  // Hop qua goc tren phai the (PO 02/10) - dung chung voi trang lam khao sat (ec_survey_core.js).
   function giftBox(c) {
-    if (!MODE[c.reward_mode]) return "";
-    var list = c.prizes || [], total = 0;
-    list.forEach(function (p) { total += p.quantity || 0; });
-    var rows = list.map(function (p, i) {
-      return '<li><span class="n">' + (i + 1) + '</span><span class="l">' + esc(p.label) + '</span><b>×' + (p.quantity || 0) + "</b></li>";
-    }).join("");
-    var when = c.draw_scheduled_at && c.reward_mode !== "wheel"
-      ? '<div class="w">' + (c.reward_mode === "race" ? "Đua" : "Quay số") + " lúc <b>" + esc(S.fmtDt(c.draw_scheduled_at)) + "</b></div>" : "";
-    return '<div class="svy-gift"><button type="button" class="svy-gbtn" aria-label="Quà tặng: ' + esc(MODE[c.reward_mode]) + '">' +
-      S.icon("gift") + (total ? '<span class="cnt">' + total + "</span>" : "") + "</button>" +
-      '<div class="svy-gpop" role="tooltip"><div class="h">' + S.icon("gift") + esc(MODE[c.reward_mode]) +
-      (total ? '<span>' + total + " phần quà</span>" : "") + "</div>" +
-      (rows ? "<ol>" + rows + "</ol>" : '<div class="e">Người tạo chưa nhập quà.</div>') +
-      '<div class="w">' + HOW[c.reward_mode] + "</div>" + when + "</div></div>";
+    return S.giftBox({ mode: c.reward_mode, prizes: c.prizes, drawAt: c.draw_scheduled_at });
   }
 
   // Phuong an A "The mau" (PO chot 01/10): dau the la khoi mau cua khao sat, co hoa tiet.
@@ -99,17 +83,6 @@
     var t = e.target.closest("[data-tab]");
     if (t) { st.tab = t.getAttribute("data-tab"); render(); }
   });
-  // Cham (dien thoai khong co hover, Safari khong focus nut khi cham): bat / tat hop qua; cham cho khac thi dong.
-  document.addEventListener("click", function (e) {
-    var g = e.target.closest(".svy-gift");
-    Array.prototype.forEach.call(root.querySelectorAll(".svy-gift.on"), function (x) { if (x !== g) x.classList.remove("on"); });
-    if (g && e.target.closest(".svy-gbtn")) g.classList.toggle("on");
-  });
-  document.addEventListener("keydown", function (e) {
-    if (e.key !== "Escape") return;
-    Array.prototype.forEach.call(root.querySelectorAll(".svy-gift.on"), function (x) { x.classList.remove("on"); });
-  });
-
   function boot() {
     S.api("hub").then(function (d) { st.data = d; render(); }, function (e) {
       root.innerHTML = '<div class="svy-wrap"><div class="svy-panel svy-empty"><b>Không tải được danh sách khảo sát</b>' + esc(e.svyMessage) +
