@@ -385,6 +385,12 @@ class TestRewards(unittest.TestCase):
         self.assertEqual([r["user"] for r in res], ["a", None, "c"])          # so 2 trong -> de lai
         self.assertEqual(len(set(r["number"] for r in rewards.lucky_draw(self.prizes(50), {}, 30, rng))), 30)
 
+    def test_assign_missing_gives_free_numbers_to_unpicked(self):
+        rng = FixedRng()
+        self.assertEqual(rewards.assign_missing(4, {1: "a"}, ["c", "a", "b"], rng), {2: "b", 3: "c"})
+        self.assertEqual(rewards.assign_missing(2, {1: "a"}, ["a", "b", "c"], rng), {2: "b"})   # het so
+        self.assertEqual(rewards.assign_missing(5, {1: "a", 2: "b"}, ["a", "b"], rng), {})      # ai cung co so
+
     def test_free_number(self):
         self.assertEqual(rewards.free_number(3, {1, 2}, FixedRng()), 3)
         self.assertIsNone(rewards.free_number(2, {1, 2}, FixedRng()))

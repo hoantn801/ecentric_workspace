@@ -243,7 +243,7 @@
     b.holders.forEach(function (x) { held[x.n] = x; });
     var h = '<div class="svy-eyebrow">Con số may mắn của bạn</div><div class="svy-big-ticket"><b>' + esc(r.lucky_number || "???") + "</b></div>";
     if (r.drawn) return h + resultLine(r) + '<p class="svy-muted" style="margin:0">Kết quả quay số nằm trong popup <a href="/">trang chủ</a> hôm quay.</p>';
-    h += '<p class="svy-muted" style="margin:0;max-width:52ch">' + (r.lucky_number ? "Đổi được tới giờ quay." : "Chọn một số còn trống - mỗi số chỉ một người giữ.") +
+    h += '<p class="svy-muted" style="margin:0;max-width:52ch">' + (r.lucky_number ? "Đổi được tới giờ quay." : "Chọn một số còn trống - mỗi số chỉ một người giữ. Quên chọn thì tới giờ máy bốc giúp.") +
       " Quay số lúc <b>" + drawWhen(r) + "</b>: popup trang chủ tự quay, máy quay trong cả dải nên có thể ra số chưa ai giữ.</p>";
     if (!r.can_pick) return h + '<div class="svy-banner">Đã tới giờ quay - không đổi số được nữa.</div>';
     h += '<div class="svy-row" style="justify-content:center"><button class="svy-b" data-act="pick-random">' + S.icon("gift") + "Chọn giúp tôi một số</button>" +

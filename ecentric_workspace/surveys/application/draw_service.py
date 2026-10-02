@@ -46,10 +46,16 @@ def run_draw(name, repo=default_repo, rng=None):
     if survey["reward_mode"] == C.REWARD_NUMBER:
         top = view.number_top(survey)
         held = submit_reward.holders(repo, name)
+        # Nop phieu ma chua chon so -> may boc giup mot so con trong roi moi quay (PO 02/10).
+        auto = rewards.assign_missing(top, held, list(by_user), rng)
+        for n, u in auto.items():
+            repo.update_participant(by_user[u]["name"], {"lucky_number": n})
+            by_user[u]["lucky_number"] = n
+        held = {**held, **auto}
         items = rewards.lucky_draw(prizes, held, top, rng)
         for it in items:
             it["label"] = labels.get(it["prize"], "")
-        data = {"kind": C.REWARD_NUMBER, "top": top, "holders": len(held), "items": items}
+        data = {"kind": C.REWARD_NUMBER, "top": top, "holders": len(held), "items": items, "auto": len(auto)}
         winners = [it for it in items if it["user"]]
         losers = [u for u in held.values()]
     else:
@@ -58,6 +64,7 @@ def run_draw(name, repo=default_repo, rng=None):
             w["label"] = labels.get(w["prize"], "")
         data = {"kind": C.REWARD_RACE, "order": res["order"], "winners": res["winners"]}
         winners, losers = res["winners"], res["order"]
+    auto_users = set(auto.values()) if survey["reward_mode"] == C.REWARD_NUMBER else set()
     now = repo.now()
     won = {w["user"]: w for w in winners}
     count = {}
@@ -77,7 +84,8 @@ def run_draw(name, repo=default_repo, rng=None):
             repo.set_prize_awarded(p["id"], p["awarded"] + count[p["id"]])
     repo.set_survey_values(name, {"draw_results": json.dumps(data, ensure_ascii=False), "draw_at": now})
     for w in winners:
-        how = ("Số may mắn %s của bạn đã trúng" % rewards.format_number(w["number"], data["top"])
+        how = ("Số may mắn %s%s của bạn đã trúng" % (rewards.format_number(w["number"], data["top"]),
+                                                       " (máy bốc giúp)" if w["user"] in auto_users else "")
                if data["kind"] == C.REWARD_NUMBER else "Xe của bạn về thứ %d" % w["place"])
         try:
             repo.notify(w["user"], "Chúc mừng! Bạn trúng %s" % w["label"],
@@ -141,14 +149,19 @@ def notify_soon(name, repo=default_repo):
     title = ("Còn %d phút nữa đua về đích: %s" if race else "Còn %d phút nữa quay số: %s") % (
         C.DRAW_NOTIFY_BEFORE_MIN, survey.get("title"))
     held = {} if race else {u: n for n, u in submit_reward.holders(repo, name).items()}
-    joined = {p["user"] for p in repo.participants(name)} if race else set()
+    joined = {p["user"] for p in repo.participants(name)}
     top = view.number_top(survey)
     sent = 0
     for u in sorted(access.eligible_set(repo, survey)):
         if race:
             mine = "Xe của bạn đã vào vạch xuất phát." if u in joined else "Bạn chưa nộp phiếu nên chưa có xe."
         else:
-            mine = ("Số của bạn: %s." % rewards.format_number(held[u], top)) if u in held else "Bạn chưa giữ số nào."
+            if u in held:
+                mine = "Số của bạn: %s." % rewards.format_number(held[u], top)
+            elif u in joined:
+                mine = "Bạn chưa chọn số - tới giờ máy sẽ bốc giúp bạn một số."
+            else:
+                mine = "Bạn chưa nộp phiếu nên chưa có số."
         try:
             # Gio hen nam trong khoa chong trung: doi gio quay thi dot bao moi khong bi nuot.
             repo.notify(u, title, "Mở trang chủ lúc %s để xem trực tiếp. %s" % (at, mine), HOME_URL, name,
