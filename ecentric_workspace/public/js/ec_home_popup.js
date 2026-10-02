@@ -210,9 +210,10 @@
     P + ' .ugift>button:hover,' + P + ' .ugift.on>button{transform:rotate(-6deg)}',
     P + ' .ugift>button:focus-visible{outline:3px solid var(--navy);outline-offset:2px}',
     P + ' .ugift .cnt{position:absolute;top:-6px;right:-6px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:#e8384f;color:#fff;font-size:10.5px;font-weight:700;line-height:17px;text-align:center;font-variant-numeric:tabular-nums}',
-    P + ' .ugpop{position:absolute;left:0;top:calc(100% + 8px);width:250px;max-width:calc(100vw - 60px);background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 28px rgba(16,24,40,.2);padding:11px 12px;display:flex;flex-direction:column;gap:7px;opacity:0;visibility:hidden;transform:translateY(-4px);transition:opacity .15s ease,transform .15s ease,visibility .15s;z-index:5}',
-    // Dong cuoi mo LEN tren: .stage la khung cuon, mo xuong se day ra thanh cuon.
-    P + ' .upn-i:last-child .ugpop{top:auto;bottom:calc(100% + 8px)}',
+    P + ' .ugpop{position:fixed;left:0;top:0;width:250px;max-width:calc(100vw - 60px);background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 28px rgba(16,24,40,.2);padding:11px 12px;display:flex;flex-direction:column;gap:7px;opacity:0;visibility:hidden;transform:translateY(-4px);transition:opacity .15s ease,transform .15s ease,visibility .15s;z-index:5;max-height:260px;overflow:auto}',
+    P + ' .ugpop::before,' + P + ' .ugpop::after{content:"";position:absolute;left:0;right:0;height:10px}' + P + ' .ugpop::before{top:-10px}' + P + ' .ugpop::after{bottom:-10px}',
+    // Popover position:fixed + JS dat toa do (placeGift): .stage la khung cuon overflow:auto, absolute
+    // mo len / xuong deu bi khung cat (Hoan 02/10 "bi che mat").
     P + ' .ugift:hover .ugpop,' + P + ' .ugift:focus-within .ugpop,' + P + ' .ugift.on .ugpop{opacity:1;visibility:visible;transform:none}',
     P + ' .ugpop .h{display:flex;align-items:center;gap:6px;font-weight:700;font-size:12.5px;color:#6b4e00}',
     P + ' .ugpop .h span{margin-left:auto;color:var(--g500);font-weight:500}',
@@ -414,6 +415,15 @@
       + (rows ? '<ol>' + rows + '</ol>' : '<div class="w">Chưa có danh sách quà.</div>')
       + (u.note ? '<div class="w">' + esc(u.note) + '</div>' : '') + '</div></div>';
   };
+  const placeGift = (g) => {
+    const b = g.querySelector('button'), p = g.querySelector('.ugpop');
+    if (!b || !p) return;
+    const r = b.getBoundingClientRect(), w = p.offsetWidth, h = p.offsetHeight;
+    const vw = window.innerWidth || document.documentElement.clientWidth, vh = window.innerHeight || document.documentElement.clientHeight;
+    const top = (vh - r.bottom >= h + 16 || r.top < h + 16) ? r.bottom + 8 : r.top - h - 8;
+    p.style.left = Math.max(8, Math.min(r.left, vw - w - 8)) + 'px';
+    p.style.top = Math.max(8, top) + 'px';
+  };
   const upcomingHTML = (dr) => {
     const list = dr.upcoming || [];
     if (!list.length) return '';
@@ -600,9 +610,13 @@
       // Hop qua: dien thoai khong co hover -> cham de bat / tat; cham cho khac thi dong.
       const ug = e.target.closest('[data-ugift]');
       root.querySelectorAll('.ugift.on').forEach((x) => { if (!ug || x !== ug.parentElement) x.classList.remove('on'); });
-      if (ug) { ug.parentElement.classList.toggle('on'); return; }
+      if (ug) { ug.parentElement.classList.toggle('on'); placeGift(ug.parentElement); return; }
       const dp = e.target.closest('[data-drpick]'); if (dp) { st.drawPick = Number(dp.dataset.drpick); render(st, false); }
     });
+    const nearGift = (e) => e.target.closest && e.target.closest('.ugift');
+    root.addEventListener('mouseover', (e) => { const g = nearGift(e); if (g) placeGift(g); });
+    root.addEventListener('focusin', (e) => { const g = nearGift(e); if (g) placeGift(g); });
+    root.addEventListener('scroll', () => { root.querySelectorAll('.ugift.on,.ugift:hover,.ugift:focus-within').forEach(placeGift); }, true);
     root.addEventListener('change', (e) => {
       if (!e.target.hasAttribute('data-hide')) return;
       st.hide = e.target.checked;

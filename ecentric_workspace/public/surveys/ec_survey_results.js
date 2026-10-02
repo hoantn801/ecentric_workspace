@@ -41,6 +41,12 @@
         '<div class="svy-small svy-muted">' + stat + "</div></div>";
       if (sched && !r.draw_at) h += '<button class="svy-b gold" data-ract="draw">' + S.icon("gift") + (r.mode === "race" ? "Đua ngay" : "Quay ngay") + "</button>";
       h += "</div>";
+      // Bang so da chon (Hoan 02/10: nguoi quan ly can xem ai giu so nao). Bam moi tai - dung API
+      // number_board co san (an danh thi khong co ten).
+      if (r.mode === "lucky_number" && r.numbers) {
+        h += '<div style="margin-top:10px"><button class="svy-b sm" data-ract="numbers" aria-expanded="' + (R.nums ? "true" : "false") + '">' +
+          S.icon("list") + (R.nums ? "Ẩn các số đã chọn" : "Xem " + r.numbers + " số đã chọn") + '</button><div id="svy-nums"></div></div>';
+      }
       if (r.empty_numbers && r.empty_numbers.length) h += '<div class="svy-small svy-muted" style="margin-top:8px">Số không ai giữ (quà để lại): <b>' + r.empty_numbers.map(esc).join(", ") + "</b></div>";
       if (r.winners.length) {
         h += '<div class="svy-board" style="margin-top:10px">' + r.winners.map(function (w) {
@@ -68,6 +74,7 @@
       el.innerHTML = '<div class="svy-items">' + h + "</div>";
       if (R.sub === "responses") loadResponse(R.idx);
       if (R.sub === "people") loadPeople();
+      if (R.sub === "summary" && R.nums) loadNumbers();
     }
 
     function answerText(q, v) {
@@ -108,6 +115,20 @@
       }, function (e) { box.innerHTML = '<div class="svy-panel svy-empty">' + esc(e.svyMessage) + "</div>"; });
     }
 
+    function loadNumbers() {
+      var box = S.byId("svy-nums");
+      if (!box) return;
+      box.innerHTML = '<div class="svy-skel" style="margin-top:10px"></div>';
+      S.api("number_board", { name: B.name }).then(function (d) {
+        if (!R.nums) return;
+        var list = d.holders || [];
+        box.innerHTML = list.length ? '<div class="svy-held">' + list.map(function (x) {
+          return '<div class="it"><span class="svy-ticket">' + esc(x.label) + "</span>" + (x.name ? "<span>" + esc(x.name) + "</span>" : "") + "</div>";
+        }).join("") + "</div>" + (B.settings.anonymous ? '<div class="svy-small svy-muted" style="margin-top:6px">Khảo sát ẩn danh: chỉ hiện số, không hiện tên.</div>' : "")
+          : '<div class="svy-small svy-muted" style="margin-top:8px">Chưa ai chọn số.</div>';
+      }, function (e) { box.innerHTML = '<div class="svy-small" style="margin-top:8px;color:var(--red,#c0392b)">' + esc(e.svyMessage) + "</div>"; });
+    }
+
     function loadPeople() {
       var box = S.byId("svy-people");
       var paint = function () {
@@ -135,6 +156,13 @@
       if (!b || b.disabled) return;
       var act = b.getAttribute("data-ract");
       if (act === "reload") { R.people = null; load(); }
+      else if (act === "numbers") {
+        R.nums = !R.nums;
+        b.setAttribute("aria-expanded", String(R.nums));
+        var cnt = R.ov.reward.numbers;
+        b.innerHTML = S.icon("list") + (R.nums ? "Ẩn các số đã chọn" : "Xem " + cnt + " số đã chọn");
+        if (R.nums) loadNumbers(); else S.byId("svy-nums").innerHTML = "";
+      }
       else if (act === "prev") loadResponse(R.idx - 1);
       else if (act === "next") loadResponse(R.idx + 1);
       else if (act === "remind") {

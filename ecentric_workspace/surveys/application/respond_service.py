@@ -81,7 +81,8 @@ def get_form(ctx, name, preview=False, repo=default_repo):
             "draw_scheduled_at", "number_range")},
         "effective": view.effective(repo, survey), "form": view.public_form(view.form_of(survey)),
         "eligible": eligible, "preview": bool(preview), "can_manage": manage,
-        "prizes": [{"id": p["id"], "label": p["label"], "color": p["color"]} for p in view.prizes(survey)],
+        "prizes": [{"id": p["id"], "label": p["label"], "color": p["color"], "quantity": p["quantity"]}
+                   for p in view.prizes(survey)],
         "submitted": bool(part), "my_answers": mine,
         "reward": submit_reward.state(repo, survey, part, ctx.user) if part else None,
     }
