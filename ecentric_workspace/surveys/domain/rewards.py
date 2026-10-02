@@ -134,6 +134,17 @@ def free_number(top, taken, rng):
     return rng.choice(free) if free else None
 
 
+def assign_missing(top, holders, users, rng):
+    """May boc giup (PO Hoan 02/10): nguoi DA NOP ma toi gio quay chua chon so -> moi nguoi mot so
+    con trong ngau nhien, khong trung. Het so trong thi nguoi con lai khong co so.
+    Tra {so: user} chi gom cac so vua boc (khong dung toi `holders`)."""
+    have = set(holders.values())
+    todo = sorted(u for u in set(users) if u not in have)
+    free = [n for n in range(1, int(top) + 1) if n not in holders]
+    rng.shuffle(free)
+    return dict(zip(free, todo))
+
+
 # --------------------------------------------------------------------- dua ve dich --
 
 def race(prizes, users, rng):

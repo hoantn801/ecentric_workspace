@@ -31,3 +31,4 @@ Hiệu ứng: `public/surveys/ec_survey_draw.js` (`ECSvyDraw.mount/unmount`), n�
 - Phát hành: chuông ERP + web push (`announcement`, Teams KHOÁ).
 - "Nhắc người chưa làm": chuông ERP + web push + **Teams** (`announcement_urgent`, qua Power Automate). Khoá chống trùng `survey|remind|<ks>|<user>|<ngày>|teams` → mỗi người tối đa một DM Teams / khảo sát / ngày.
 - Thẻ khảo sát ở `/khao-sat` và dòng "Lượt quay tiếp theo" trong popup trang chủ có hộp quà: trỏ chuột / chạm để xem danh sách quà (`prizes` = tên + số lượng).
+- Số may mắn: người đã nộp mà tới giờ quay chưa chọn số → máy bốc giúp một số còn trống ngay trước khi quay (`rewards.assign_missing`, `draw_results.auto`). Tab Kết quả liệt kê "đã nộp - chưa chọn số" + nút "Nhắc chọn số" (`remind_pick`, chuông + Teams, 1 lần / người / ngày).

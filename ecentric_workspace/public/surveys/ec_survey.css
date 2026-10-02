@@ -430,3 +430,6 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 .svy-held .it { display:flex; align-items:center; gap:8px; min-width:0; font-size:13px; }
 .svy-held .it > span:last-child:not(.svy-ticket) { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .svy-held .svy-ticket { padding:1px 8px; flex:none; }
+/* da nop - chua chon so (Ket qua) */
+.svy-unpick { margin-top:12px; padding:10px 12px; border:1px dashed #e6b800; background:#fffbea; border-radius:10px; display:flex; flex-direction:column; gap:8px; }
+.svy-unpick-list { display:flex; flex-wrap:wrap; gap:6px; }

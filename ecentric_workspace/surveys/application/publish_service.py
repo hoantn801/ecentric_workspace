@@ -107,6 +107,21 @@ def remind(ctx, name, repo=default_repo):
     return {"queued": len(todo)}
 
 
+def remind_pick(ctx, name, repo=default_repo):
+    """Nhac nguoi DA NOP ma chua chon so may man (PO 02/10). Chuong + Teams, toi da 1 lan / nguoi / ngay."""
+    survey = repo.get_survey(name)
+    access.require_manage(ctx, survey)
+    if survey.get("reward_mode") != C.REWARD_NUMBER or survey.get("draw_at"):
+        raise SurveyError("Khảo sát này không còn chọn số được.")
+    at = repo.to_datetime(survey.get("draw_scheduled_at"))
+    if at and repo.now() >= at:
+        raise SurveyError("Đã tới giờ quay - không chọn số được nữa.")
+    todo = sorted(p["user"] for p in repo.participants(name) if not p.get("lucky_number"))
+    if todo:
+        repo.enqueue(JOB, name=name, kind="pick", users=todo)
+    return {"queued": len(todo)}
+
+
 def run_notify(name, kind="open", users=None, repo=default_repo):
     """Job nen. Loi tung nguoi khong lam chet ca dot."""
     survey = repo.get_survey(name)
@@ -115,8 +130,9 @@ def run_notify(name, kind="open", users=None, repo=default_repo):
     if users is None:
         users = sorted(access.eligible_set(repo, survey))
     day = str(repo.now())[:10]
-    remind = kind == "remind"
-    title = ("Khảo sát mới: %s" if kind == "open" else "Nhắc bạn làm khảo sát: %s") % survey.get("title")
+    remind = kind in ("remind", "pick")
+    title = {"open": "Khảo sát mới: %s", "pick": "Bạn chưa chọn số may mắn: %s"}.get(
+        kind, "Nhắc bạn làm khảo sát: %s") % survey.get("title")
     close_at = view.dt(survey.get("close_at"))
     msg = ("Hạn chót %s." % close_at[:16]) if close_at else "Mời bạn dành vài phút trả lời."
     open_at = repo.to_datetime(survey.get("open_at"))
@@ -124,6 +140,10 @@ def run_notify(name, kind="open", users=None, repo=default_repo):
         msg = "Mở từ %s. %s" % (view.dt(open_at)[:16], msg)
     if survey.get("reward_mode") != C.REWARD_NONE:
         msg += " Làm xong có quà may mắn!"
+    if kind == "pick":
+        draw_at = view.dt(survey.get("draw_scheduled_at"))
+        msg = "Bạn đã nộp phiếu nhưng chưa chọn số. Chọn số trước giờ quay%s - nếu không, máy sẽ bốc giúp một số." % (
+            " " + draw_at[11:16] + " " + draw_at[8:10] + "/" + draw_at[5:7] if draw_at else "")
     sent = 0
     for u in users:
         try:

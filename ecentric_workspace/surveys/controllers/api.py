@@ -151,6 +151,11 @@ def remind(name):
 
 
 @frappe.whitelist(methods=["POST"])
+def remind_pick(name):
+    return _run(lambda c: publish_service.remind_pick(c, name))
+
+
+@frappe.whitelist(methods=["POST"])
 def draw(name):
     return _run(lambda c: draw_service.draw_now(c, name, repo))
 

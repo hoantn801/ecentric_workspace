@@ -51,7 +51,7 @@ NOW = datetime.datetime(2026, 10, 1, 9, 0)
 class FakeRepo:
     def __init__(self):
         self.surveys, self.resps, self.parts, self.files = {}, {}, {}, {}
-        self.notified, self.jobs, self.seq, self.teams = [], [], 0, []
+        self.notified, self.jobs, self.seq, self.teams, self.notify_msgs = [], [], 0, [], {}
         self.clock, self.realtime, self.cache, self.flags, self.commits = NOW, [], {}, {}, 0
         self.emps = [{"user_id": u, "employee_name": u.split("@")[0].title(), "department": d,
                       "status": "Active"} for u, d in (("hr@x", "HR"), ("a@x", "Ops"),
@@ -252,6 +252,7 @@ class FakeRepo:
 
     def notify(self, user, title, message, url, survey, key, teams=False):
         self.notified.append((user, title, url, key))
+        self.notify_msgs[key] = message
         self.teams.append(teams)
 
     def enqueue(self, method, **kw):
@@ -602,6 +603,46 @@ class TestRewards(Base):
         self.assertEqual(ov["reward"]["empty_numbers"], ["002"])
         with self.assertRaises(SurveyError):
             draw_service.draw_now(HR, name, self.r)
+
+    def test_unpicked_listed_reminded_then_auto_picked(self):
+        name = self.make(settings={"reward_mode": "lucky_number", "number_range": 10,
+                                   "draw_scheduled_at": self.at(60)},
+                         prizes=[{"label": "Tai nghe", "quantity": 1}, {"label": "Trà sữa", "quantity": 1}])
+        for c in (A, B, CC):
+            respond_service.submit(c, name, ok(c), repo=self.r)
+        submit_reward.pick_number(A, name, 3, self.r)
+        ov = results_service.overview(HR, name, repo=self.r)["reward"]
+        self.assertEqual([u["user"] for u in ov["unpicked"]], ["b@x", "c@x"])
+        with self.assertRaises(SurveyPermissionError):
+            publish_service.remind_pick(A, name, repo=self.r)
+        self.assertEqual(publish_service.remind_pick(HR, name, repo=self.r), {"queued": 2})
+        self.assertEqual(self.r.jobs[-1][1], {"name": name, "kind": "pick", "users": ["b@x", "c@x"]})
+        self.r.teams.clear()
+        publish_service.run_notify(repo=self.r, **self.r.jobs[-1][1])
+        self.assertEqual(self.r.teams, [True, True])
+        self.assertTrue(all(n[1].startswith("Bạn chưa chọn số may mắn") for n in self.r.notified[-2:]))
+
+        self.r.clock = NOW + datetime.timedelta(minutes=55)
+        draw_service.tick(self.r)
+        draw_service.notify_soon(repo=self.r, **self.r.jobs[-1][1])
+        soon = {n[0]: n for n in self.r.notified if "|draw_soon|" in n[3]}
+        self.assertIn("máy sẽ bốc giúp", self.r.notify_msgs[soon["b@x"][3]])
+        self.assertIn("Số của bạn: 003", self.r.notify_msgs[soon["a@x"][3]])
+
+        self.r.clock = NOW + datetime.timedelta(minutes=60)
+        self.assertEqual(draw_service.tick(self.r)["drawn"], 1)
+        self.assertEqual((self.r.parts[(name, "b@x")]["lucky_number"], self.r.parts[(name, "c@x")]["lucky_number"]), (1, 2))
+        data = json.loads(self.r.surveys[name]["draw_results"])
+        self.assertEqual(data["auto"], 2)
+        self.assertEqual([(i["number"], i["user"]) for i in data["items"]], [(1, "b@x"), (2, "c@x")])
+        self.assertEqual(self.r.parts[(name, "a@x")]["reward_result"], "Lose")
+        wins = [self.r.notify_msgs[n[3]] for n in self.r.notified if n[3].startswith("survey|win|")]
+        self.assertEqual(len(wins), 2)
+        self.assertTrue(all("(máy bốc giúp)" in m for m in wins))
+        ov = results_service.overview(HR, name, repo=self.r)["reward"]
+        self.assertEqual((ov["unpicked"], ov["auto_picked"]), ([], 2))
+        with self.assertRaises(SurveyError):
+            publish_service.remind_pick(HR, name, repo=self.r)
 
     def test_race_everyone_who_submitted_gets_a_cart(self):
         name = self.make(settings={"reward_mode": "race", "draw_scheduled_at": self.at(30)},

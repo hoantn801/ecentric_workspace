@@ -29,7 +29,10 @@ def overview(ctx, name, repo=default_repo):
         out["quiz"] = {"average": round(sum(r["score"] or 0 for r in scored) / len(scored), 2) if scored else None,
                        "max_score": scored[0]["max_score"] if scored else schema_max(form)}
     if survey.get("reward_mode") != C.REWARD_NONE:
-        names = repo.user_names([p["user"] for p in parts if p.get("reward_result") == C.RESULT_WIN])
+        # Da nop ma chua chon so (chi khi chua quay) - nguoi quan ly nhac rieng; toi gio may boc giup.
+        unpicked = [p["user"] for p in parts if not p.get("lucky_number")] \
+            if survey.get("reward_mode") == C.REWARD_NUMBER and not survey.get("draw_at") else []
+        names = repo.user_names([p["user"] for p in parts if p.get("reward_result") == C.RESULT_WIN] + unpicked)
         top = view.number_top(survey)
         out["reward"] = {
             "mode": survey.get("reward_mode"), "prizes": view.prizes(survey),
@@ -39,6 +42,9 @@ def overview(ctx, name, repo=default_repo):
             "racers": len(parts) if survey.get("reward_mode") == C.REWARD_RACE else 0,
             "draw_scheduled_at": view.dt(survey.get("draw_scheduled_at")),
             "draw_at": view.dt(survey.get("draw_at")),
+            "unpicked": sorted(({"user": u, "name": names.get(u, u)} for u in unpicked), key=lambda x: x["name"]),
+            "auto_picked": int((view.draw_results(survey) or {}).get("auto") or 0)
+            if isinstance(view.draw_results(survey), dict) else 0,
             "empty_numbers": [rewards.format_number(i["number"], top)
                               for i in (view.draw_results(survey) or {}).get("items", []) if not i.get("user")]
             if isinstance(view.draw_results(survey), dict) else [],

@@ -47,6 +47,14 @@
         h += '<div style="margin-top:10px"><button class="svy-b sm" data-ract="numbers" aria-expanded="' + (R.nums ? "true" : "false") + '">' +
           S.icon("list") + (R.nums ? "Ẩn các số đã chọn" : "Xem " + r.numbers + " số đã chọn") + '</button><div id="svy-nums"></div></div>';
       }
+      // Da nop ma chua chon so (PO 02/10): danh sach + nut nhac rieng; toi gio may boc giup.
+      if (r.unpicked && r.unpicked.length) {
+        h += '<div class="svy-unpick"><div class="svy-row between" style="gap:8px;flex-wrap:wrap"><div><b>' + r.unpicked.length +
+          ' người đã nộp nhưng chưa chọn số</b><div class="svy-small svy-muted">Tới giờ quay, máy sẽ tự bốc giúp mỗi người một số còn trống.</div></div>' +
+          '<button class="svy-b sm" data-ract="remind_pick">' + S.icon("bell") + "Nhắc chọn số</button></div>" +
+          '<div class="svy-unpick-list">' + r.unpicked.map(function (u) { return '<span class="svy-pill mute">' + esc(u.name) + "</span>"; }).join("") + "</div></div>";
+      }
+      if (r.auto_picked) h += '<div class="svy-small svy-muted" style="margin-top:8px">Máy đã bốc giúp số cho <b>' + r.auto_picked + "</b> người nộp phiếu mà chưa chọn số.</div>";
       if (r.empty_numbers && r.empty_numbers.length) h += '<div class="svy-small svy-muted" style="margin-top:8px">Số không ai giữ (quà để lại): <b>' + r.empty_numbers.map(esc).join(", ") + "</b></div>";
       if (r.winners.length) {
         h += '<div class="svy-board" style="margin-top:10px">' + r.winners.map(function (w) {
@@ -170,6 +178,13 @@
           if (!ok) return;
           S.busy(b, true);
           S.api("remind", { name: B.name }, true).then(function (r) { S.busy(b, false); S.toast(r.queued ? "Đang gửi nhắc cho " + r.queued + " người." : "Mọi người đã làm rồi!"); },
+            function (err) { S.busy(b, false); S.toast(err.svyMessage, true); });
+        });
+      } else if (act === "remind_pick") {
+        S.confirm("Nhắc chọn số?", "Gửi chuông ERP + tin nhắn Teams cho " + R.ov.reward.unpicked.length + " người đã nộp nhưng chưa chọn số. Mỗi người tối đa một lần mỗi ngày.", "Gửi nhắc").then(function (ok) {
+          if (!ok) return;
+          S.busy(b, true);
+          S.api("remind_pick", { name: B.name }, true).then(function (r) { S.busy(b, false); S.toast(r.queued ? "Đang nhắc " + r.queued + " người chọn số." : "Mọi người đã chọn số rồi!"); },
             function (err) { S.busy(b, false); S.toast(err.svyMessage, true); });
         });
       } else if (act === "draw") {
