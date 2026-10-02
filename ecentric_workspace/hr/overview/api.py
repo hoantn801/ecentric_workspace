@@ -7,6 +7,7 @@
   GET ecentric_workspace.hr.overview.api.get_sla_summary  - tab SLA: % dung han ca cong ty theo phong
   GET ecentric_workspace.hr.overview.api.get_brand_summary - tab Phan bo cong viec: ai da nop / ty trong brand
   GET ecentric_workspace.hr.overview.api.export_summary_xlsx - xuat Excel cua mot trong hai tab tren
+  POST ecentric_workspace.hr.overview.api.remind_brand     - nut Nhac tren tab Phan bo cong viec
 
 Quyen: the Nhan su chi mo cho HR_CARD_ROLES. Trong the, truong nao tra ve do permlevel
 cua Employee quyet dinh (L0 danh ba / L2 noi bo HR / L1 ca nhan) - xem repository.
@@ -153,3 +154,17 @@ def export_summary_xlsx(kind: str, period: str = None):
     frappe.response["filename"] = name
     frappe.response["filecontent"] = xlsx_export.build(sheets)
     frappe.response["type"] = "binary"
+
+
+@frappe.whitelist(methods=["POST"])
+def remind_brand(department: str = "", period: str = None, all_open: int = 0):
+    """Nut "Nhac" / "Nhac tat ca phong chua xong" tren tab Phan bo cong viec (Hoan 02/10).
+    Nhac nguoi chua nop / bi tra lai, nguoi dang phai duyet, va truong phong."""
+    def build():
+        _guard()
+        from ecentric_workspace.hr.overview import brand_remind
+        from ecentric_workspace.hr.overview import team_summary_repo as TR
+        cur, periods = TR.brand_periods()
+        return brand_remind.remind(frappe.session.user, _period(period, cur, periods),
+                                   department or "", bool(int(all_open or 0)))
+    return _run(build)
