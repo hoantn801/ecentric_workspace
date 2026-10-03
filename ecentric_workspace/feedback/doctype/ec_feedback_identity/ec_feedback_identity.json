@@ -1,0 +1,65 @@
+{
+ "doctype": "DocType",
+ "name": "EC Feedback Identity",
+ "module": "Feedback",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "autoname": "hash",
+ "naming_rule": "Random",
+ "track_changes": 0,
+ "track_views": 1,
+ "read_only": 1,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "title_field": "feedback",
+ "description": "KHOÁ RIÊNG: ai gửi góp ý nào (kể cả ẩn danh). Chỉ System Manager đọc được; mỗi lần mở bản ghi được ghi View Log. Người xử lý không bao giờ thấy bảng này.",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1
+  }
+ ],
+ "field_order": [
+  "feedback",
+  "user",
+  "sent_on",
+  "sender_unread"
+ ],
+ "fields": [
+  {
+   "fieldname": "feedback",
+   "fieldtype": "Link",
+   "label": "Góp ý",
+   "options": "EC Feedback",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "Người gửi",
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sent_on",
+   "fieldtype": "Date",
+   "label": "Ngày gửi",
+   "search_index": 1
+  },
+  {
+   "fieldname": "sender_unread",
+   "fieldtype": "Int",
+   "label": "Cập nhật chưa xem",
+   "default": "0",
+   "description": "Số lần người xử lý trả lời / đổi trạng thái mà người gửi chưa mở lại."
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}

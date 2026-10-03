@@ -1,0 +1,88 @@
+{%- extends "templates/includes/feedback/layout.html" -%}
+{%- from "templates/includes/feedback/macros.html" import icon -%}
+{#- /gop-y/tong-quan - tong quan cho BGD (mockup Ban 1 so 5). So lieu = gop y TAO trong thang. -#}
+{% block egy_page %}
+<div class="egy-ov" data-egy-overview="{{ month|e }}">
+  <header class="egy-head">
+    <div>
+      <a class="egy-link egy-back" href="/gop-y/xu-ly">← Hộp xử lý</a>
+      <h1 class="egy-h1">Tổng quan góp ý · {{ month_label|e }}</h1>
+      <p class="egy-sub">Chỉ phòng Management xem được. Số liệu tính trên góp ý gửi trong tháng.</p>
+    </div>
+    <nav class="egy-chips" aria-label="Tháng">
+      {% for m in months %}
+      <a class="egy-chip{% if m == month %} is-on{% endif %}" href="/gop-y/tong-quan?thang={{ m|e }}">{{ m[5:] }}/{{ m[:4] }}</a>
+      {% endfor %}
+    </nav>
+  </header>
+
+  <div class="egy-kpis">
+    <div class="egy-card egy-kpi"><span>Góp ý mới</span><strong>{{ stats.total }}</strong>
+      <small>{% if delta > 0 %}+{{ delta }}{% elif delta < 0 %}{{ delta }}{% else %}bằng{% endif %} so với tháng trước · {{ stats.anonymous }} ẩn danh</small></div>
+    <div class="egy-card egy-kpi"><span>Phản hồi đầu đúng hạn</span><strong>{% if stats.on_time_pct is none %}—{% else %}{{ stats.on_time_pct }}%{% endif %}</strong>
+      <small>trên {{ stats.judged }} góp ý đã tới hạn hoặc đã phản hồi</small></div>
+    <div class="egy-card egy-kpi"><span>Thời gian phản hồi TB</span><strong>{{ stats.avg_label or '—' }}</strong>
+      <small>ngày làm việc</small></div>
+    <div class="egy-card egy-kpi{% if late %} is-alert{% endif %}"><span>Đang quá hạn</span><strong>{{ late|length }}</strong>
+      <small>tất cả các tháng · đã báo nhóm BGD</small></div>
+  </div>
+
+  <div class="egy-split">
+    <section class="egy-card egy-pad egy-grow" aria-label="Theo chủ đề">
+      <div class="egy-row-sb">
+        <h2 class="egy-h2">Theo chủ đề và kết quả</h2>
+        <div class="egy-legend">
+          <span><i class="egy-sw-done"></i>Đã làm / Đã trả lời</span>
+          <span><i class="egy-sw-open"></i>Đang mở</span>
+          <span><i class="egy-sw-no"></i>Không làm</span>
+        </div>
+      </div>
+      {% for t in stats.topics %}
+      <div class="egy-bar-row">
+        <span>{{ t.topic|e }}</span>
+        <span class="egy-track" role="img" aria-label="{{ t.topic|e }}: {{ t.done }} xong, {{ t.open }} đang mở, {{ t.declined }} không làm"><i class="egy-sw-done" style="width:{{ t.done_pct }}%"></i><i class="egy-sw-open" style="width:{{ t.open_pct }}%"></i><i class="egy-sw-no" style="width:{{ t.declined_pct }}%"></i></span>
+        <span class="egy-num">{{ t.total }}</span>
+      </div>
+      {% else %}
+      <p class="egy-empty">Chưa có góp ý nào trong tháng.</p>
+      {% endfor %}
+    </section>
+
+    <section class="egy-card egy-pad egy-side" aria-label="Chủ đề nóng">
+      <div class="egy-row-sb">
+        <h2 class="egy-h2">Chủ đề nóng</h2>
+        <span class="egy-pill egy-st-done">AI · không dùng tên người gửi</span>
+      </div>
+      {% if hot %}
+      <ol class="egy-hotlist">
+        {% for h in hot %}<li><strong>{{ h.name|e }}</strong> — {{ h.count }} góp ý. {{ h.summary|e }}</li>{% endfor %}
+      </ol>
+      <p class="egy-help">Tóm tắt lúc {{ hot_generated|e }}.</p>
+      {% else %}
+      <p class="egy-empty">Chưa có tóm tắt cho tháng này. Bản tin tháng tự tạo ngày 1 tháng sau.</p>
+      {% endif %}
+      <div class="egy-row-end">
+        <button type="button" class="egy-btn" data-egy-summarize{% if not ai_left or not stats.total %} disabled{% endif %}>Tóm tắt ngay (còn {{ ai_left }} lần hôm nay)</button>
+      </div>
+    </section>
+  </div>
+
+  <section class="egy-card egy-pad" aria-label="Góp ý quá hạn">
+    <h2 class="egy-h2">Đang quá hạn phản hồi</h2>
+    {% if late %}
+    <div class="egy-tablewrap">
+      <table class="egy-table">
+        <thead><tr><th>Mã</th><th>Tiêu đề</th><th>Chủ đề</th><th>Đang nhận</th><th>Quá hạn</th></tr></thead>
+        <tbody>
+          {% for r in late %}
+          <tr><td><a class="egy-link" href="/gop-y/xu-ly?loc=qua-han&amp;gy={{ r.name|e }}">{{ r.name|e }}</a></td><td>{{ r.title|e }}</td><td>{{ r.topic|e }}</td><td>{{ r.handler|e }}</td><td class="egy-late">{{ r.sla|e }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="egy-empty">Không có góp ý nào quá hạn. </p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

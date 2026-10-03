@@ -754,3 +754,23 @@ scheduler_events["cron"].setdefault("0 9 * * *", []).extend([
     "ecentric_workspace.pm.api.notifications.pm_due_soon_scan",
     "ecentric_workspace.weekly_report.scheduler.wr_due_overdue_scan",
 ])
+
+# --------------------------------------------------------------------------- #
+# 04/10/2026 - Gop y cong ty (/gop-y, PO Hoan chot, mockup Ban 1). Thay muc "Gop y BGD (sap ra
+# mat)". Nhan vien gui (co the an danh), phong Management - EC xu ly. Xem feedback/README.md.
+#  * route: thu muc www khong duoc co gach ngang -> www/gop_y/ + 4 luat route; route tinh
+#    (xu-ly, tong-quan) dung TRUOC route <code>.
+#  * KHONG co has_permission / permission_query: moi DocType cua module chi System Manager doc
+#    duoc, moi duong doc ghi di qua feedback/service.py (kiem nguoi gui / nguoi xu ly).
+#  * gio cron o site nay la GIO DIA PHUONG (xem ghi chu nhac cham cong o tren).
+# --------------------------------------------------------------------------- #
+website_route_rules = list(globals().get("website_route_rules") or []) + [
+    {"from_route": "/gop-y", "to_route": "gop_y"},
+    {"from_route": "/gop-y/xu-ly", "to_route": "gop_y/xu_ly"},
+    {"from_route": "/gop-y/tong-quan", "to_route": "gop_y/tong_quan"},
+    {"from_route": "/gop-y/<code>", "to_route": "gop_y/chi_tiet"},
+]
+# Nhac han tra loi gop y: moi gio trong gio hanh chinh (phut 7 cho tranh dot :00).
+scheduler_events["cron"].setdefault("7 9-17 * * 1-5", []).append("ecentric_workspace.feedback.notify.remind")
+# Ban tin gop y thang truoc cho BGD: 08:45 ngay 1.
+scheduler_events["cron"].setdefault("45 8 1 * *", []).append("ecentric_workspace.feedback.digest.monthly")

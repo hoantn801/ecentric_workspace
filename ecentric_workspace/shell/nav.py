@@ -212,9 +212,13 @@ HOME_PORTAL_ITEMS = [
      "active_patterns": ["/ec-app/hr/recruitment", "/ec-app/hr/opening"],
      "visible_when": "internal", "owner": "home_portal",
      "keywords": ["tuyen dung", "recruitment", "hiring", "tin tuyen dung", "ung vien"]},
-    {"key": "home.portal.feedback", "label": "Góp ý BGD", "route": "/coming-soon?tool=gop-y",
-     "icon": "message", "group": "Tài nguyên", "order": 40, "active_patterns": ["/coming-soon?tool=gop-y"],
-     "visible_when": "internal", "owner": "home_portal", "discoverable": False, "soon": True},
+    # 04/10/2026 (Hoan chot): Gop y cong ty (/gop-y, feedback/) THAY CHO "Gop y BGD (sap ra mat)".
+    # "/gop-y/*" cho trang mot gop y / hop xu ly / tong quan.
+    {"key": "home.portal.feedback", "label": "Góp ý công ty", "route": "/gop-y",
+     "icon": "message", "group": "Tài nguyên", "order": 40, "active_patterns": ["/gop-y", "/gop-y/*"],
+     "visible_when": "internal", "owner": "home_portal",
+     "keywords": ["gop y", "gop y bgd", "de xuat", "phan anh", "y kien", "feedback", "ban giam doc",
+                  "an danh"]},
 ]
 
 

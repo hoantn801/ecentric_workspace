@@ -1,0 +1,101 @@
+{
+ "doctype": "DocType",
+ "name": "EC Feedback Topic",
+ "module": "Feedback",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "autoname": "field:slug",
+ "naming_rule": "By fieldname",
+ "title_field": "topic_name",
+ "track_changes": 1,
+ "sort_field": "sort_order",
+ "sort_order": "ASC",
+ "show_title_field_in_link": 1,
+ "description": "Chủ đề góp ý (/gop-y). Quản trị thêm / sửa / tắt. Mã đặt xong thì đừng đổi.",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 1
+  }
+ ],
+ "field_order": [
+  "topic_name",
+  "slug",
+  "enabled",
+  "column_break_1",
+  "sort_order",
+  "color",
+  "icon",
+  "hint"
+ ],
+ "fields": [
+  {
+   "fieldname": "topic_name",
+   "fieldtype": "Data",
+   "label": "Tên chủ đề",
+   "reqd": 1,
+   "in_list_view": 1,
+   "length": 60
+  },
+  {
+   "fieldname": "slug",
+   "fieldtype": "Data",
+   "label": "Mã",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1,
+   "length": 40,
+   "description": "Chữ thường, không dấu, nối bằng gạch ngang. Vd: van-phong."
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Đang dùng",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sort_order",
+   "fieldtype": "Int",
+   "label": "Thứ tự",
+   "default": "0"
+  },
+  {
+   "fieldname": "color",
+   "fieldtype": "Select",
+   "label": "Màu",
+   "options": "teal\npink\npurple\nnavy\norange\ngray",
+   "default": "navy"
+  },
+  {
+   "fieldname": "icon",
+   "fieldtype": "Select",
+   "label": "Biểu tượng",
+   "options": "building\nheart\nflow\nmonitor\nusers\ndots",
+   "default": "building"
+  },
+  {
+   "fieldname": "hint",
+   "fieldtype": "Data",
+   "label": "Gợi ý",
+   "length": 120,
+   "description": "Một dòng dưới tên chủ đề, vd: Chỗ ngồi, điều hoà, wifi."
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}

@@ -1,0 +1,56 @@
+{
+ "doctype": "DocType",
+ "name": "EC Feedback Vote",
+ "module": "Feedback",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "autoname": "hash",
+ "naming_rule": "Random",
+ "track_changes": 0,
+ "read_only": 1,
+ "title_field": "feedback",
+ "description": "Lượt +1 trên bảng chung. Một người một lượt mỗi góp ý (dedupe_key duy nhất).",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1
+  }
+ ],
+ "field_order": [
+  "feedback",
+  "user",
+  "dedupe_key"
+ ],
+ "fields": [
+  {
+   "fieldname": "feedback",
+   "fieldtype": "Link",
+   "label": "Góp ý",
+   "options": "EC Feedback",
+   "reqd": 1,
+   "in_list_view": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "Người bấm",
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "fieldname": "dedupe_key",
+   "fieldtype": "Data",
+   "label": "Khoá",
+   "unique": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}
