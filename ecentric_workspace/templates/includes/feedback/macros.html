@@ -1,0 +1,49 @@
+{#- Gop y cong ty - macro dung chung cho 4 trang www/gop_y/*.
+    Jinja cua Frappe KHONG tu escape: moi chuoi do nguoi nhap PHAI qua |e. -#}
+
+{%- macro icon(key, cls="") -%}
+<svg class="egy-ic {{ cls }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+{%- if key == 'building' -%}<path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/>
+{%- elif key == 'heart' -%}<path d="M12 20s-7-4.4-9.2-8.7A5.2 5.2 0 0 1 12 6.4a5.2 5.2 0 0 1 9.2 4.9C19 15.6 12 20 12 20z"/>
+{%- elif key == 'flow' -%}<rect x="3" y="4" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/><path d="M6.5 10v4a3 3 0 0 0 3 3H14"/>
+{%- elif key == 'monitor' -%}<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>
+{%- elif key == 'users' -%}<circle cx="9" cy="8" r="3.5"/><path d="M2 20c.8-3.5 3.5-5 7-5s6.2 1.5 7 5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M22 20c-.5-2.5-2-4-4-4.6"/>
+{%- elif key == 'dots' -%}<path d="M5 12h.01M12 12h.01M19 12h.01"/>
+{%- elif key == 'lock' -%}<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>
+{%- elif key == 'clip' -%}<path d="M21.4 11.1l-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/>
+{%- elif key == 'thumb' -%}<path d="M7 10v11H3V10z"/><path d="M7 10l4-8a3 3 0 0 1 3 3v4h6a2 2 0 0 1 2 2.3l-1.4 8a2 2 0 0 1-2 1.7H7"/>
+{%- elif key == 'send' -%}<path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/>
+{%- elif key == 'inbox' -%}<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13L22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6z"/>
+{%- elif key == 'file' -%}<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>
+{%- else -%}<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+{%- endif -%}
+</svg>
+{%- endmacro -%}
+
+{%- macro pill(status, css) -%}<span class="egy-pill egy-st-{{ css|e }}">{{ status|e }}</span>{%- endmacro -%}
+
+{%- macro sla_pill(key, text) -%}{% if text %}<span class="egy-pill egy-due-{{ key|e }}">{{ text|e }}</span>{% endif %}{%- endmacro -%}
+
+{%- macro tabs(cur, unread_total) -%}
+<nav class="egy-tabs" aria-label="Góp ý">
+  <a class="egy-tab{% if cur == 'gui' %} is-on{% endif %}" href="/gop-y"{% if cur == 'gui' %} aria-current="page"{% endif %}>Gửi góp ý</a>
+  <a class="egy-tab{% if cur == 'cua-toi' %} is-on{% endif %}" href="/gop-y?tab=cua-toi"{% if cur == 'cua-toi' %} aria-current="page"{% endif %}>Của tôi{% if unread_total %} <span class="egy-pill egy-st-reply">{{ unread_total }} trả lời mới</span>{% endif %}</a>
+  <a class="egy-tab{% if cur == 'bang-chung' %} is-on{% endif %}" href="/gop-y?tab=bang-chung"{% if cur == 'bang-chung' %} aria-current="page"{% endif %}>Bảng chung</a>
+</nav>
+{%- endmacro -%}
+
+{%- macro progress(done, total) -%}
+<span class="egy-prog" role="img" aria-label="Tiến độ {{ done }} trên {{ total }}">{% for i in range(total) %}<i class="{% if i < done %}is-on{% endif %}"></i>{% endfor %}</span>
+{%- endmacro -%}
+
+{%- macro my_card(m) -%}
+<a class="egy-card egy-pad egy-mine{% if m.unread %} is-unread{% endif %}" href="/gop-y/{{ m.name|e }}">
+  <span class="egy-row-sb">
+    {{ pill(m.status, m.status_css) }}
+    {% if m.unread %}<span class="egy-pill egy-st-reply">Trả lời mới</span>{% elif m.due %}<span class="egy-help">Hạn phản hồi {{ m.due|e }}</span>{% endif %}
+  </span>
+  <span class="egy-mine-t">{{ m.title|e }}</span>
+  {{ progress(m.done_steps, m.total_steps) }}
+  <span class="egy-help">{{ m.topic|e }}{% if m.anonymous %} · Ẩn danh{% endif %} · {{ m.name|e }}</span>
+</a>
+{%- endmacro -%}

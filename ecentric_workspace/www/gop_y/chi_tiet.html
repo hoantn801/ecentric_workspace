@@ -1,0 +1,95 @@
+{%- extends "templates/includes/feedback/layout.html" -%}
+{%- from "templates/includes/feedback/macros.html" import icon, pill -%}
+{#- /gop-y/<ma> - goc nhin nguoi gui. Ghi chu noi bo KHONG co trong context (service da loc). -#}
+{% block egy_page %}
+<div class="egy-detail" data-egy-detail="{{ fb.name|e }}">
+  <a class="egy-link egy-back" href="/gop-y?tab=cua-toi">← Góp ý của tôi</a>
+
+  <header class="egy-card egy-pad egy-dhead">
+    <div class="egy-meta">
+      {{ pill(fb.status, fb.status_css) }}
+      <span class="egy-pill egy-tag">{{ fb.topic|e }}</span>
+      <span class="egy-pill egy-tag">{{ fb.kind|e }}</span>
+      {% if fb.anonymous %}<span class="egy-pill egy-anon-pill">{{ icon('lock') }} Ẩn danh</span>{% endif %}
+      <span class="egy-code">{{ fb.name|e }}</span>
+    </div>
+    <h1 class="egy-h1">{{ fb.title|e }}</h1>
+    <ol class="egy-steps" aria-label="Tiến độ xử lý">
+      {% for s in steps %}
+      <li class="egy-step{% if s.done %} is-done{% endif %}{% if s.current %} is-cur{% endif %}">
+        <span class="egy-step-bar"></span>{{ s.label|e }}{% if s.date %} · {{ s.date|e }}{% endif %}
+      </li>
+      {% endfor %}
+    </ol>
+  </header>
+
+  <div class="egy-split">
+    <section class="egy-grow egy-thread" aria-label="Trao đổi">
+      <article class="egy-card egy-msg is-mine">
+        <div class="egy-av" aria-hidden="true">{% if fb.anonymous %}{{ icon('lock') }}{% else %}B{% endif %}</div>
+        <div class="egy-grow">
+          <div class="egy-msg-h"><strong>Bạn</strong>{% if fb.anonymous %} <span class="egy-help">(ẩn danh với người xử lý)</span>{% endif %} <span class="egy-help">· {{ fb.sent|e }}</span></div>
+          <p class="egy-msg-b">{{ fb.body|e }}</p>
+        </div>
+      </article>
+      {% if fb.attachments %}
+      <div class="egy-files">
+        {% for a in fb.attachments %}
+        <a class="egy-btn egy-btn-sm" href="/api/method/ecentric_workspace.feedback.api.download?feedback={{ fb.name|urlencode }}&amp;idx={{ a.idx }}">{{ icon('file') }} {{ a.file_name|e }}</a>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% for m in thread %}
+        {% if m.kind == 'status' %}
+        <div class="egy-ev">{{ pill(m.to_status, m.to_status_css) }} {{ m.who|e }} đổi trạng thái · {{ m.when|e }}</div>
+        {% elif m.kind == 'topic' %}
+        <div class="egy-ev">Chuyển sang chủ đề “{{ m.to_topic|e }}” · {{ m.when|e }}</div>
+        {% else %}
+        <article class="egy-card egy-msg{% if m.mine %} is-mine{% else %} is-them{% endif %}">
+          <div class="egy-av" aria-hidden="true">{% if m.mine %}{{ icon('lock') if fb.anonymous else 'B' }}{% else %}{{ m.who[:1]|e }}{% endif %}</div>
+          <div class="egy-grow">
+            <div class="egy-msg-h"><strong>{{ m.who|e }}</strong> <span class="egy-help">· {{ m.when|e }}</span>{% if m.kind == 'reopen' %} <span class="egy-pill egy-st-new">Mở lại</span>{% endif %}</div>
+            <p class="egy-msg-b">{{ m.body|e }}</p>
+          </div>
+        </article>
+        {% endif %}
+      {% endfor %}
+
+
+      {% if can_message %}
+      <form class="egy-card egy-pad egy-compose" data-egy-msg>
+        <label class="egy-lbl" for="egy-reply">Nhắn thêm cho người xử lý</label>
+        <textarea id="egy-reply" class="egy-inp" name="message" rows="3" maxlength="3000" required placeholder="Bổ sung thông tin, hỏi lại…"></textarea>
+        <div class="egy-row-sb">
+          <span class="egy-help">{% if fb.anonymous %}Vẫn gửi dưới dạng ẩn danh{% endif %}</span>
+          <button type="submit" class="egy-btn egy-primary">Gửi</button>
+        </div>
+      </form>
+      {% elif can_reopen %}
+      <form class="egy-card egy-pad egy-compose" data-egy-reopen>
+        <label class="egy-lbl" for="egy-reopen">Chưa ổn? Mở lại góp ý (còn 1 lần)</label>
+        <textarea id="egy-reopen" class="egy-inp" name="message" rows="3" maxlength="3000" required placeholder="Điều gì chưa ổn với cách xử lý?"></textarea>
+        <div class="egy-row-sb">
+          <span class="egy-help">Góp ý quay lại hàng chờ, hạn trả lời mới {{ sla_days }} ngày làm việc.</span>
+          <button type="submit" class="egy-btn">Chưa ổn — mở lại</button>
+        </div>
+      </form>
+      {% elif closed %}
+      <p class="egy-help egy-card egy-pad">Góp ý đã đóng{% if reopen_used %} và đã mở lại một lần{% endif %}. Có điều mới, bạn gửi một góp ý khác nhé.</p>
+      {% endif %}
+    </section>
+
+    <aside class="egy-card egy-pad egy-info">
+      <h2 class="egy-h2">Thông tin</h2>
+      <dl class="egy-kv">
+        <div><dt>Gửi</dt><dd>{{ fb.sent|e }}</dd></div>
+        {% if fb.due and not fb.first_response %}<div><dt>Hạn phản hồi</dt><dd>{{ fb.due|e }}</dd></div>{% endif %}
+        {% if fb.first_response %}<div><dt>Phản hồi đầu</dt><dd class="{{ 'egy-ok' if fb.on_time else 'egy-late' }}">{{ fb.first_response|e }} · {{ 'đúng hạn' if fb.on_time else 'trễ hạn' }}</dd></div>{% endif %}
+        <div><dt>Người xử lý</dt><dd>{{ (fb.handler or 'Chưa ai nhận')|e }}</dd></div>
+        <div><dt>Bảng chung</dt><dd>{% if fb.is_public %}Đã đưa lên · {{ fb.votes }} người “+1”{% else %}Chưa công khai{% endif %}</dd></div>
+      </dl>
+      <p class="egy-help">Mỗi lần đổi trạng thái hoặc có trả lời, bạn nhận chuông ERP.</p>
+    </aside>
+  </div>
+</div>
+{% endblock %}

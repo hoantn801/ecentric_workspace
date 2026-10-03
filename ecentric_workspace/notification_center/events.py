@@ -26,7 +26,8 @@ CHANNELS = ("erp", "toast", "sound", "desktop", "teams", "webpush")
 EVENT_TYPES = ("task_assigned", "task_due_soon", "task_overdue",
                "approval_required", "mention", "system_critical",
                "attendance_missing", "attendance_missing_final",
-               "announcement", "announcement_urgent", "hr_data_issue")
+               "announcement", "announcement_urgent", "hr_data_issue",
+               "feedback_update")
 SEVERITIES = ("info", "action_required", "urgent")
 _SEV_RANK = {"info": 0, "action_required": 1, "urgent": 2}
 _DEFAULT_SEVERITY = {
@@ -41,6 +42,7 @@ _DEFAULT_SEVERITY = {
     "attendance_missing": "info", "attendance_missing_final": "action_required",
     "announcement": "info", "announcement_urgent": "action_required",
     "hr_data_issue": "action_required",
+    "feedback_update": "info",
 }
 # matrix cell: True (always) | "pref" (depends on user preference) | False (never)
 ROUTING_MATRIX = {
@@ -80,6 +82,10 @@ ROUTING_MATRIX = {
     #   False. Muon bat: them chuoi "hr_data_issue" vao CA HAI cho ben Power Automate
     #   truoc, roi moi doi o day.
     "hr_data_issue":           {"erp": True, "toast": True, "sound": "pref", "desktop": "pref", "teams": False, "webpush": True},
+    # Gop y cong ty (04/10/2026): bao NGUOI GUI moi lan gop y cua ho doi trang thai / co tra loi.
+    #   teams = False CO Y, cung ly do voi hr_data_issue: flow Power Automate chan event_type
+    #   bang enum - ten chua khai se bi PA_400. Muon bat Teams: khai "feedback_update" ben PA truoc.
+    "feedback_update":         {"erp": True, "toast": True, "sound": "pref", "desktop": "pref", "teams": False, "webpush": True},
 }
 # severities that bypass quiet hours / minimum-severity / disabled-event suppression
 _BYPASS_SEVERITY = ("urgent",)

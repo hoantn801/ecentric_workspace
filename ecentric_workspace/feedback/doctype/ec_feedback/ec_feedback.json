@@ -1,0 +1,268 @@
+{
+ "doctype": "DocType",
+ "name": "EC Feedback",
+ "module": "Feedback",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "autoname": "GY-.YYYY.-.#####",
+ "naming_rule": "Expression (old style)",
+ "title_field": "title",
+ "track_changes": 0,
+ "read_only": 1,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "show_title_field_in_link": 1,
+ "description": "Góp ý công ty (/gop-y). Chỉ ghi qua trang /gop-y (feedback/service.py). Góp ý ẩn danh: submitter trống, owner = Administrator; danh tính ở EC Feedback Identity.",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1
+  }
+ ],
+ "field_order": [
+  "title",
+  "topic",
+  "kind",
+  "column_break_1",
+  "status",
+  "is_anonymous",
+  "submitter",
+  "submitter_department",
+  "section_body",
+  "body",
+  "attachments",
+  "section_handling",
+  "viewed_at",
+  "viewed_by",
+  "due_at",
+  "responded_at",
+  "first_response_at",
+  "column_break_2",
+  "closed_at",
+  "reopen_count",
+  "reminded_soon_at",
+  "reminded_overdue_at",
+  "last_activity_at",
+  "notify_pending",
+  "pending_event",
+  "duplicate_of",
+  "is_spam",
+  "section_public",
+  "is_public",
+  "public_title",
+  "public_answer",
+  "column_break_3",
+  "public_on",
+  "vote_count",
+  "home_announcement"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Tiêu đề",
+   "reqd": 1,
+   "in_list_view": 1,
+   "length": 140
+  },
+  {
+   "fieldname": "topic",
+   "fieldtype": "Link",
+   "label": "Chủ đề",
+   "options": "EC Feedback Topic",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "kind",
+   "fieldtype": "Select",
+   "label": "Loại",
+   "options": "Đề xuất\nPhản ánh\nCâu hỏi",
+   "default": "Đề xuất"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Trạng thái",
+   "options": "Mới\nĐang xem\nĐã trả lời\nĐã làm\nKhông làm",
+   "default": "Mới",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "is_anonymous",
+   "fieldtype": "Check",
+   "label": "Ẩn danh"
+  },
+  {
+   "fieldname": "submitter",
+   "fieldtype": "Link",
+   "label": "Người gửi",
+   "options": "User",
+   "description": "Trống khi gửi ẩn danh."
+  },
+  {
+   "fieldname": "submitter_department",
+   "fieldtype": "Link",
+   "label": "Phòng ban người gửi",
+   "options": "Department",
+   "description": "Trống khi gửi ẩn danh."
+  },
+  {
+   "fieldname": "section_body",
+   "fieldtype": "Section Break",
+   "label": "Nội dung"
+  },
+  {
+   "fieldname": "body",
+   "fieldtype": "Text",
+   "label": "Nội dung",
+   "reqd": 1
+  },
+  {
+   "fieldname": "attachments",
+   "fieldtype": "Table",
+   "label": "Tệp đính kèm",
+   "options": "EC Feedback File"
+  },
+  {
+   "fieldname": "section_handling",
+   "fieldtype": "Section Break",
+   "label": "Xử lý"
+  },
+  {
+   "fieldname": "viewed_at",
+   "fieldtype": "Datetime",
+   "label": "Bắt đầu xem lúc"
+  },
+  {
+   "fieldname": "viewed_by",
+   "fieldtype": "Link",
+   "label": "Người nhận xử lý",
+   "options": "User"
+  },
+  {
+   "fieldname": "due_at",
+   "fieldtype": "Datetime",
+   "label": "Hạn phản hồi"
+  },
+  {
+   "fieldname": "responded_at",
+   "fieldtype": "Datetime",
+   "label": "Phản hồi lúc (vòng hiện tại)"
+  },
+  {
+   "fieldname": "first_response_at",
+   "fieldtype": "Datetime",
+   "label": "Phản hồi đầu tiên lúc"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "closed_at",
+   "fieldtype": "Datetime",
+   "label": "Đóng lúc"
+  },
+  {
+   "fieldname": "reopen_count",
+   "fieldtype": "Int",
+   "label": "Số lần mở lại",
+   "default": "0"
+  },
+  {
+   "fieldname": "reminded_soon_at",
+   "fieldtype": "Datetime",
+   "label": "Đã nhắc sắp hết hạn"
+  },
+  {
+   "fieldname": "reminded_overdue_at",
+   "fieldtype": "Datetime",
+   "label": "Đã báo quá hạn"
+  },
+  {
+   "fieldname": "last_activity_at",
+   "fieldtype": "Datetime",
+   "label": "Hoạt động gần nhất"
+  },
+  {
+   "fieldname": "notify_pending",
+   "fieldtype": "Check",
+   "label": "Chờ báo theo đợt",
+   "description": "Góp ý ẩn danh: chuông cho người xử lý gửi theo đợt mỗi giờ, không gửi ngay."
+  },
+  {
+   "fieldname": "pending_event",
+   "fieldtype": "Data",
+   "label": "Loại báo đang chờ",
+   "length": 10
+  },
+  {
+   "fieldname": "duplicate_of",
+   "fieldtype": "Link",
+   "label": "Trùng với",
+   "options": "EC Feedback"
+  },
+  {
+   "fieldname": "is_spam",
+   "fieldtype": "Check",
+   "label": "Spam"
+  },
+  {
+   "fieldname": "section_public",
+   "fieldtype": "Section Break",
+   "label": "Bảng chung"
+  },
+  {
+   "fieldname": "is_public",
+   "fieldtype": "Check",
+   "label": "Đưa lên bảng chung"
+  },
+  {
+   "fieldname": "public_title",
+   "fieldtype": "Data",
+   "label": "Tiêu đề công khai",
+   "length": 140
+  },
+  {
+   "fieldname": "public_answer",
+   "fieldtype": "Small Text",
+   "label": "Trả lời công khai"
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "public_on",
+   "fieldtype": "Datetime",
+   "label": "Đưa lên lúc"
+  },
+  {
+   "fieldname": "vote_count",
+   "fieldtype": "Int",
+   "label": "Số +1",
+   "default": "0"
+  },
+  {
+   "fieldname": "home_announcement",
+   "fieldtype": "Link",
+   "label": "Thông báo popup",
+   "options": "EC Home Announcement"
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}
