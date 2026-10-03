@@ -78,13 +78,43 @@ class VersionFilter(unittest.TestCase):
 
 
 class EmployeeScope(unittest.TestCase):
-    def scope(self, roles, user="nv@ecentric.vn"):
+    def scope(self, roles, user="nv@ecentric.vn", path=None, form=None):
         stub = types.ModuleType("frappe")
         stub.session = types.SimpleNamespace(user=user)
         stub.get_roles = lambda u=None: roles
         stub.db = types.SimpleNamespace(escape=lambda v: "'%s'" % v.replace("'", "\\'"))
+        if path is not None:
+            stub.request = types.SimpleNamespace(path=path, method="POST")
+        if form is not None:
+            stub.form_dict = dict(form)
         mod = _load("ec_employee_scope", "employee_scope.py", stub)
         return mod.employee_query_conditions(user, doctype="Employee")
+
+    # 03/10/2026: o Link Employee (search_link / search_widget) thay moi ho so Active.
+    ACTIVE = "(`tabEmployee`.`status` = 'Active' or `tabEmployee`.`user_id` = 'nv@ecentric.vn')"
+
+    def test_link_search_sees_active_employees(self):
+        for m in ("frappe.desk.search.search_link", "frappe.desk.search.search_widget"):
+            self.assertEqual(self.scope(["Employee"], path="/api/method/" + m,
+                                        form={"doctype": "Employee", "txt": "an"}), self.ACTIVE, m)
+        self.assertEqual(self.scope(["Employee"], path="/api/v2/method/frappe.desk.search.search_link",
+                                    form={"doctype": "Employee"}), self.ACTIVE)
+
+    def test_link_search_via_cmd(self):
+        self.assertEqual(self.scope(["Employee"], path="/", form={"cmd": "frappe.desk.search.search_link",
+                                                                   "doctype": "Employee"}), self.ACTIVE)
+
+    def test_list_report_count_still_only_self(self):
+        me = "`tabEmployee`.`user_id` = 'nv@ecentric.vn'"
+        for m in ("frappe.desk.reportview.get", "frappe.client.get_list", "frappe.client.get_count",
+                  "frappe.desk.reportview.export_query"):
+            self.assertEqual(self.scope(["Employee"], path="/api/method/" + m, form={"doctype": "Employee"}), me, m)
+        self.assertEqual(self.scope(["Employee"], path="/api/resource/Employee", form={}), me)
+
+    def test_link_search_of_other_doctype_does_not_widen(self):
+        # vd o Link tren Asset hoi DocType khac nhung code ben trong doc Employee -> van hep
+        self.assertEqual(self.scope(["Employee"], path="/api/method/frappe.desk.search.search_link",
+                                    form={"doctype": "Asset"}), "`tabEmployee`.`user_id` = 'nv@ecentric.vn'")
 
     def test_plain_employee_sees_only_self(self):
         self.assertEqual(self.scope(["Employee"]), "`tabEmployee`.`user_id` = 'nv@ecentric.vn'")

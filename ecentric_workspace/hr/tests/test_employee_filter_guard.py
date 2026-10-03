@@ -167,6 +167,21 @@ class Guard(unittest.TestCase):
             with self.assertRaises(stub.PermissionError, msg=path):
                 guard.guard_employee_filters()
 
+    def test_staff_link_search_cannot_probe_restricted_fields(self):
+        # 03/10/2026: o Link Employee nay thay moi ho so Active - nen chan do qua o tim kiem
+        # phai con nguyen cho nhan vien thuong (dong.diep).
+        for form in ({"doctype": EMP, "txt": "", "filters": '{"bank_ac_no": ["like", "9%"]}'},
+                     {"doctype": EMP, "txt": "9", "searchfield": "bank_ac_no"}):
+            for m in ("frappe.desk.search.search_link", "frappe.desk.search.search_widget"):
+                stub, guard = _frappe_stub("/api/method/" + m, form, HR_USER_RESTRICTED, user="dong.diep@x")
+                with self.assertRaises(stub.PermissionError, msg=m):
+                    guard.guard_employee_filters()
+
+    def test_staff_link_search_by_name_allowed(self):
+        self.call("/api/method/frappe.desk.search.search_link",
+                  {"doctype": EMP, "txt": "Linh", "filters": '{"status": "Active"}'},
+                  HR_USER_RESTRICTED, user="dong.diep@x")
+
     def test_group_by_sidebar_field(self):
         stub, guard = _frappe_stub("/api/method/frappe.desk.listview.get_group_by_count",
                                    {"doctype": EMP, "current_filters": "[]", "field": "bank_ac_no"},
