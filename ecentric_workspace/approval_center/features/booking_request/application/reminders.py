@@ -22,6 +22,7 @@ from frappe.utils import add_days, formatdate, getdate
 from ecentric_workspace.approval_center.features.booking_request.application.service import (
     BUSINESS_DT, _ca_nhom_booking)
 from ecentric_workspace.approval_center.shared.workflow import transitions as engine
+from ecentric_workspace.approval_center.shared.workflow import ngay_lam_viec
 
 REMIND_DAYS_BEFORE = 3
 _ACTIVE = ("Assigned", "In Progress")
@@ -92,8 +93,12 @@ def remind_booking_due(today=None):
         try:
             doc = frappe.get_doc(BUSINESS_DT, name)
             users = [u for u in _nguoi_nhan(doc) if u]
-            if users:
-                engine.notify(users, _tieu_de(doc, hom_nay), BUSINESS_DT, name)
+            # 03/10: khong ban cho nguoi dang nghi; ca nhom nghi thi de ngay lam viec sau.
+            di_lam = ngay_lam_viec.nguoi_di_lam(users, hom_nay)
+            if users and not di_lam:
+                continue
+            if di_lam:
+                engine.notify(di_lam, _tieu_de(doc, hom_nay), BUSINESS_DT, name)
             frappe.db.set_value(BUSINESS_DT, name, "booking_reminded_on", hom_nay,
                                 update_modified=False)
             da_nhac += 1

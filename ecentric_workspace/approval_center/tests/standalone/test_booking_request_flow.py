@@ -26,6 +26,8 @@ import sys
 import types
 import unittest
 
+NGHI = set()   # user dang nghi trong test (ngay_lam_viec stub)
+
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _AC = os.path.abspath(os.path.join(_HERE, "..", ".."))
 _APP = os.path.abspath(os.path.join(_AC, ".."))
@@ -215,8 +217,13 @@ def _load(docs, brands=None, roles=("Employee",), user="book1@ec.vn", todos=None
 
     svc_mod = types.ModuleType(
         "ecentric_workspace.approval_center.features.booking_request.application.service")
+    # 03/10: job nhac bo nguoi dang nghi - test dieu khien bang NGHI (mac dinh ai cung di lam).
+    nlv = types.ModuleType("ecentric_workspace.approval_center.shared.workflow.ngay_lam_viec")
+    nlv.la_ngay_nghi = lambda u, day=None, _cache=None: u in NGHI
+    nlv.nguoi_di_lam = lambda users, day=None: [u for u in (users or []) if u not in NGHI]
     mods = {"frappe": fk, "frappe.utils": fu,
             "ecentric_workspace.approval_center.shared.workflow.transitions": eng,
+            "ecentric_workspace.approval_center.shared.workflow.ngay_lam_viec": nlv,
             "ecentric_workspace.approval_center.shared.requests.command_service": cs,
             "ecentric_workspace.approval_center.features.booking_request.application.service": svc_mod}
     saved = {k: sys.modules.get(k) for k in mods}
@@ -537,6 +544,17 @@ class TestNhacHan(unittest.TestCase):
                              fulfillment_expected_date="2026-09-12")})
         self.rem.remind_booking_due(HOM_NAY)
         self.assertEqual(self.world["notify"][0][0], ["book1@ec.vn", "book2@ec.vn"])
+
+    def test_nguoi_dang_nghi_khong_bi_nhac(self):
+        self._w({"BK-1": _bk(fulfillment_status="Assigned", fulfillment_owner=None,
+                             fulfillment_expected_date="2026-09-12")})
+        NGHI.update({"book1@ec.vn", "book2@ec.vn"})
+        try:
+            self.rem.remind_booking_due(HOM_NAY)
+        finally:
+            NGHI.clear()
+        self.assertEqual(self.world["notify"], [])
+        self.assertNotIn(("BK-1", {"booking_reminded_on": HOM_NAY}), self.world["set_value"])
 
     def test_danh_dau_da_nhac_KHONG_dung_toi_modified(self):
         """Nhac viec la viec cua may - khong duoc lam phieu trong nhu vua co nguoi sua."""
