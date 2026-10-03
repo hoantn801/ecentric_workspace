@@ -174,15 +174,12 @@ scheduler_events["daily"].append(
     "ecentric_workspace.platform.esign.tasks.orphan_file_scan")
 # Payment Request buoc 6: nhac Finance xu ly UNC tu D-3 truoc ngay thanh toan (07/09).
 # Moi phieu mot lan/ngay; tat bang site_config ec_payment_unc_reminder_disabled.
-scheduler_events["daily"].append(
-    "ecentric_workspace.approval_center.features.payment_request.application.reminders.remind_unc_due")
+# 03/10: chuyen sang 09:00 (cron ben duoi) - xem "Nhac viec 09:00".
 # Chia dot: nhac nguoi de nghi tao phieu dot ke tu D-7 truoc ngay du kien.
-scheduler_events["daily"].append(
-    "ecentric_workspace.approval_center.features.payment_request.application.reminders.remind_next_installment")
+# 03/10: chuyen sang 09:00 (cron ben duoi) - xem "Nhac viec 09:00".
 # Booking Request: nhac Booking tu D-3 truoc NGAY DU KIEN XONG ma chinh ho cam ket luc
 # nhan viec (11/09). Moi phieu mot lan/ngay; tat bang site_config ec_booking_reminder_disabled.
-scheduler_events["daily"].append(
-    "ecentric_workspace.approval_center.features.booking_request.application.reminders.remind_booking_due")
+# 03/10: chuyen sang 09:00 (cron ben duoi) - xem "Nhac viec 09:00".
 # esign S2B-C1: bounded retry (*/30) of signed-PDF retrieval for terminal-completed
 # packages whose signed bundle is not yet complete. Safe GET/download only; never resends
 # AddDocument/bulk-process. Same kill switch (ec_esign_scheduler_disabled) + per-provider
@@ -745,3 +742,13 @@ elif isinstance(_fc_prev, str):
         _fc_emp["on_update"] = [_fc_prev, _FC_HOOK]
 elif _FC_HOOK not in _fc_prev:
     _fc_prev.append(_FC_HOOK)
+
+# Nhac viec 09:00 (03/10/2026, Hoan): truoc chay "daily" = 00:00, tin Teams bat luc moi nguoi
+# ngu. Nay 09:00 moi ngay; job tu bo nguoi dang nghi (cuoi tuan / le / nghi phep) qua
+# approval_center/shared/workflow/ngay_lam_viec. Frappe khoa Scheduled Job Type theo method:
+# ba method nay CHI duoc o day (da go khoi "daily" o tren).
+scheduler_events["cron"].setdefault("0 9 * * *", []).extend([
+    "ecentric_workspace.approval_center.features.payment_request.application.reminders.remind_unc_due",
+    "ecentric_workspace.approval_center.features.payment_request.application.reminders.remind_next_installment",
+    "ecentric_workspace.approval_center.features.booking_request.application.reminders.remind_booking_due",
+])
