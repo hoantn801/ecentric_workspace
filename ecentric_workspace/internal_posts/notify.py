@@ -7,6 +7,9 @@ Hai kenh, PO chot 01/10/2026:
     notification_center.events.publish_notification_event voi event "announcement"
     (Teams = False khoa cung trong ROUTING_MATRIX; web push bat). Dedupe theo bai + nguoi:
     job chay lai (retry, hai worker) khong de ra thong bao trung.
+    v6 (03/10): HR tich "Gui kem tin nhan Teams" -> event "announcement_urgent" (co san,
+    teams = True): moi nguoi them MOT tin Teams. Bai bat buoc xac nhan: tieu de chuong ghi ro.
+    Bai hen gio: job nay chay khi schedule.publish_due dang bai (khong phai luc HR bam hen).
   * Popup trang chu: home_today.announce_service (dung chung) - chi bai toan cong ty.
 
 Idempotent: chay lai bao nhieu lan cung ra mot ket qua. Loi tung nguoi khong giet ca dot.
@@ -36,12 +39,19 @@ def run(post):
         from ecentric_workspace.notification_center.events import publish_notification_event
         title = doc.title
         message = doc.summary or ""
+        if doc.require_ack:
+            title = "Cần xác nhận đã đọc: %s" % doc.title
+            dl = D.date_label(doc.ack_deadline)
+            message = ("Hạn xác nhận %s. " % dl if dl else "") + message
+        # v6: "Gui kem tin nhan Teams" -> event co san announcement_urgent (teams = True).
+        event = C.NOTIFY_EVENT_TEAMS if doc.notify_teams else C.NOTIFY_EVENT
+        out["teams"] = bool(doc.notify_teams)
         for user in service.audience(R, depts):
             if user == doc.owner:
                 continue
             try:
                 publish_notification_event(
-                    C.NOTIFY_EVENT, user, title, message, action_url=url,
+                    event, user, title, message, action_url=url,
                     reference_doctype=C.POST_DT, reference_name=doc.name,
                     actor=doc.owner, from_user=doc.owner,
                     dedupe_key="internal_post|%s|%s" % (doc.name, user))

@@ -29,6 +29,7 @@
   "published_on",
   "pinned",
   "expires_on",
+  "publish_at",
   "section_content",
   "summary",
   "content",
@@ -44,11 +45,18 @@
   "departments",
   "column_break_3",
   "notify_bell",
+  "notify_teams",
   "push_to_home",
   "popup_image_link",
   "notified_on",
   "home_announcement",
-  "author_label"
+  "author_label",
+  "section_feedback",
+  "require_ack",
+  "ack_deadline",
+  "ack_reminded_on",
+  "column_break_4",
+  "allow_comments"
  ],
  "fields": [
   {
@@ -103,6 +111,13 @@
    "fieldtype": "Date",
    "label": "Hiện đến ngày",
    "description": "Để trống = hiện mãi. Qua ngày này bài rút khỏi danh sách và trang chủ, link vẫn mở được."
+  },
+  {
+   "fieldname": "publish_at",
+   "fieldtype": "Datetime",
+   "label": "Hẹn đăng lúc",
+   "no_copy": 1,
+   "description": "Bài nháp có giờ hẹn: tới giờ hệ thống tự đăng (kiểm mỗi 5 phút), chuông + popup gửi lúc đó. Để trống = không hẹn."
   },
   {
    "fieldname": "section_content",
@@ -190,6 +205,14 @@
    "default": "1"
   },
   {
+   "fieldname": "notify_teams",
+   "fieldtype": "Check",
+   "label": "Gửi kèm tin nhắn Teams",
+   "default": "0",
+   "depends_on": "notify_bell",
+   "description": "Mỗi người nhận một tin Teams riêng, không rút lại được. Chỉ dùng cho tin quan trọng."
+  },
+  {
    "fieldname": "push_to_home",
    "fieldtype": "Check",
    "label": "Đưa lên popup trang chủ",
@@ -225,6 +248,43 @@
    "label": "Tên người đăng hiển thị",
    "length": 80,
    "description": "Vd: Phòng Nhân sự. Để trống = tên người tạo bài."
+  },
+  {
+   "fieldname": "section_feedback",
+   "fieldtype": "Section Break",
+   "label": "Đọc và phản hồi"
+  },
+  {
+   "fieldname": "require_ack",
+   "fieldtype": "Check",
+   "label": "Bắt buộc xác nhận đã đọc",
+   "default": "0",
+   "description": "Trong bài có nút \"Tôi đã đọc và hiểu\". Dùng cho quy chế, chính sách."
+  },
+  {
+   "fieldname": "ack_deadline",
+   "fieldtype": "Date",
+   "label": "Hạn xác nhận",
+   "depends_on": "require_ack",
+   "description": "ERP tự nhắc người chưa xác nhận 1 ngày trước hạn và đúng ngày hạn (09:00)."
+  },
+  {
+   "fieldname": "ack_reminded_on",
+   "fieldtype": "Date",
+   "label": "HR nhắc tay lần cuối",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "column_break_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "allow_comments",
+   "fieldtype": "Check",
+   "label": "Cho phép bình luận",
+   "default": "1",
+   "description": "Mọi người đọc được bài thì bình luận được. HR ẩn được bình luận không phù hợp."
   }
  ],
  "permissions": [

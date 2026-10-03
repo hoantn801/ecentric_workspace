@@ -349,6 +349,86 @@
 .eip-row-acts{display:flex;gap:6px;justify-content:flex-end}
 .eip-empty-cell{padding:22px 14px !important;text-align:center}
 
+/* ---------- v6 (03/10/2026): hen gio, Teams, AI viet giup, binh luan, xac nhan da doc ---------- */
+.eip-b-ack{background:var(--eip-yellow-50);color:var(--eip-amber-ink)}
+.eip-b-sched{background:var(--eip-purple-50);color:var(--eip-purple-ink)}
+.eip-notice-sched{background:var(--eip-purple-50);color:var(--eip-purple-ink)}
+.eip-hero-body .eip-b-ack{background:#fff3c4;color:#6b4500}
+/* xac nhan da doc */
+.eip-ackbar{display:flex;gap:14px;align-items:center;flex-wrap:wrap;border:1px solid #f2d68a;background:var(--eip-yellow-50);border-radius:12px;padding:14px 16px}
+.eip-ackbar>div{flex:1;min-width:200px;display:flex;flex-direction:column;gap:2px}
+.eip-ackbar b{color:var(--eip-g900);font-size:14px}
+.eip-ackbar span{font-size:12.5px;color:var(--eip-g600)}
+.eip-ackbar-ok{border-color:#bfe9d6;background:var(--eip-green-50)}
+.eip-bar-ack i{background:#FFC000}
+.eip-ackact{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+.eip-ackact .eip-btn{justify-content:center;white-space:normal;text-align:center}
+.eip-btn.eip-wash{background:var(--eip-navy-50);border-color:var(--eip-navy-100);color:var(--eip-navy) !important}
+.eip-btn.eip-wash:hover{background:var(--eip-navy-100)}
+.eip-mini-bar.eip-mini-ack i{background:#FFC000}
+/* binh luan */
+.eip-cmts{border-top:1px solid var(--eip-line);padding-top:18px;margin-top:8px;display:flex;flex-direction:column;gap:14px;scroll-margin-top:80px}
+.eip-cmts-h{margin:0 !important;font-size:15px !important;font-weight:700 !important;color:var(--eip-g900) !important;line-height:1.4 !important}
+.eip-cmts-h em{font-style:normal;color:var(--eip-g400);font-weight:500;margin-left:2px}
+.eip-cmt,.eip-cmt-new{display:flex;gap:10px;align-items:flex-start}
+.eip-cmt-new>div,.eip-cmt-form{flex:1;min-width:0}
+.eip-cmt-new textarea,.eip-cmt-form textarea{width:100%;border:1px solid var(--eip-line);border-radius:10px;padding:9px 12px;font:inherit;font-size:13.5px;resize:vertical;min-height:42px;background:var(--eip-surface);color:var(--eip-g900);box-shadow:none}
+.eip-cmt-new textarea:focus,.eip-cmt-form textarea:focus{outline:0;border-color:var(--eip-navy);box-shadow:0 0 0 3px var(--eip-navy-50)}
+.eip-cmt-new textarea[aria-busy="true"],.eip-cmt-form textarea[aria-busy="true"]{opacity:.6}
+.eip-cmt-form{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.eip-cmt-form-acts{display:flex;gap:6px;justify-content:flex-end;align-items:center;flex-wrap:wrap}
+.eip-cmt-form-acts .eip-help{margin:0 auto 0 0}
+.eip-av{width:32px;height:32px;border-radius:50%;background:var(--eip-navy-50);color:var(--eip-navy);font-weight:700;font-size:11.5px;display:grid;place-items:center;flex:none}
+.eip-av-c1{background:var(--eip-pink-50);color:var(--eip-pink-ink)}
+.eip-av-c2{background:var(--eip-green-50);color:var(--eip-green-ink)}
+.eip-av-c3{background:var(--eip-yellow-50);color:var(--eip-amber-ink)}
+.eip-cb{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.eip-ch{font-size:12.5px;color:var(--eip-g500);display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.eip-ch b{color:var(--eip-g900)}
+.eip-cmt-tag{background:var(--eip-navy-50);color:var(--eip-navy);border-radius:999px;padding:0 7px;font-size:11px;font-weight:700}
+.eip-cmt-text{margin:0;font-size:13.5px;color:var(--eip-g700);line-height:1.55;white-space:pre-line;overflow-wrap:anywhere}
+.eip-ca{display:flex;gap:14px;flex-wrap:wrap}
+.eip-ca button,.eip-linkbtn{border:0;background:none;padding:2px 0;font-size:12px;font-weight:600;color:var(--eip-g500);min-height:24px}
+.eip-ca button:hover,.eip-linkbtn:hover{color:var(--eip-navy)}
+.eip-ca button[aria-pressed="true"]{color:var(--eip-pink-ink)}
+.eip-ca button:disabled{opacity:.5;cursor:wait}
+.eip-ca .eip-ca-hide{color:var(--eip-red)}
+.eip-linkbtn{color:var(--eip-navy)}
+.eip-cmt-rep{margin-top:10px;padding-left:4px}
+.eip-cmt-hidden>.eip-cb{background:var(--eip-soft);border-radius:8px;padding:8px 10px}
+.eip-cmt-hidden .eip-cmt-text{color:var(--eip-g500)}
+.eip-cmt-hidden-note{margin:0 !important}
+.eip-cmt-count{font-size:11.5px;color:var(--eip-g500);font-weight:500;margin-left:6px;white-space:nowrap}
+.eip-sub-t{display:block;font-size:12px;color:var(--eip-g500);margin-top:2px}
+:target.eip-cmt>.eip-cb,.eip-cmt.eip-flash>.eip-cb{animation:eip-flash 1.6s ease-out}
+@keyframes eip-flash{from{background:var(--eip-yellow-50)}to{background:transparent}}
+@media (prefers-reduced-motion:reduce){.eip-cmt.eip-flash>.eip-cb{animation:none}}
+/* viet bai: thoi diem dang, xac nhan */
+.eip-when{display:grid;grid-template-columns:minmax(0,1fr) 110px;gap:10px;margin-top:10px}
+.eip-when .eip-fld+.eip-fld{margin-top:0}
+.eip-fld-sub{margin:0 0 8px 26px}
+.eip-check+.eip-fld-sub{margin-top:-2px}
+.eip-tb .eip-tb-ai{background:linear-gradient(135deg,var(--eip-navy),#5b3cc4);color:#fff;padding:0 12px}
+.eip-tb .eip-tb-ai:hover{color:#fff;opacity:.92;background:linear-gradient(135deg,var(--eip-navy),#5b3cc4)}
+/* AI viet giup */
+.eip-modal.eip-modal-wide{width:min(880px,100%);max-height:calc(100vh - 32px);overflow:auto}
+.eip-mh{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.eip-x{border:0;background:none;font-size:22px;color:var(--eip-g500);line-height:1;padding:2px 8px;border-radius:6px}
+.eip-x:hover{background:var(--eip-soft);color:var(--eip-g900)}
+.eip-aiw-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:16px}
+.eip-aiw-in textarea{font-size:13px;line-height:1.5;resize:vertical}
+.eip-aiw-in .eip-btn{align-self:flex-start}
+.eip-aiw-in label+select,.eip-aiw-in textarea+label{margin-top:6px}
+.eip-aiw-out{border:1px solid var(--eip-line);border-radius:12px;padding:14px 16px;background:#fcfcfe;display:flex;flex-direction:column;gap:6px;min-width:0;max-height:360px;overflow:auto}
+.eip-aiw-out .eip-ai-sk{aspect-ratio:auto;height:14px}
+.eip-aiw-t{font-size:16px;color:var(--eip-g900);font-weight:700;line-height:1.35}
+.eip-aiw-s{margin:0;font-size:13px;color:var(--eip-g600)}
+.eip-aiw-out .eip-prose{font-size:13px}
+.eip-aiw-out .eip-prose h2{font-size:14px;margin:12px 0 4px}
+.eip-aiw-acts{align-items:center}
+.eip-aiw-acts>.eip-help{margin:0 auto 0 0;flex:1 1 220px}
+@media (max-width:700px){.eip-aiw-grid{grid-template-columns:minmax(0,1fr)}}
+
 /* ---------- man hinh hep ---------- */
 @media (max-width:1300px){
   .eip-row{grid-template-columns:repeat(2,minmax(0,1fr))}

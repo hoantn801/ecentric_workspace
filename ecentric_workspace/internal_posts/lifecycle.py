@@ -41,11 +41,28 @@ def validate(doc):
     if doc.cover_kind == C.COVER_KIND_COLOR and not doc.cover_color:
         cat = R.category(doc.category) or {}
         doc.cover_color = cat.get("color") or C.COVER_COLOR_DEFAULT
-    errs = D.validate({
+    # Ngay bai LEN: bai hen gio vua duoc job dang -> ngay da hen (job tre qua nua dem van dung luat
+    # luc HR hen); bai dang hen -> ngay hen; con lai -> hom nay.
+    was_sched = _was(doc, "publish_at") if doc.published and not _was(doc, "published") else None
+    start_at = doc.publish_at or was_sched
+    ref_day = min(R.today(), D.as_date(start_at)) if was_sched else R.today()
+    if doc.published:
+        doc.publish_at = None                       # da dang thi khong con hen
+    if not doc.notify_bell:
+        doc.notify_teams = 0                        # Teams di kem chuong
+    if not doc.require_ack:
+        doc.ack_deadline = None
+    # bai HEN GIO kiem nhu bai dang (chuyen muc bat buoc, han...) - toi gio job dang thang.
+    going_live = bool(doc.published or doc.publish_at)
+    post = {
         "title": doc.title, "category": doc.category, "scope": "dept" if depts else "all",
-        "expires_on": doc.expires_on, "published": doc.published, "_was_published": _was(doc, "published"),
+        "expires_on": doc.expires_on, "published": going_live, "_was_published": _was(doc, "published"),
         "cover_color": doc.cover_color, "cover_kind": doc.cover_kind, "cover_image": doc.cover_image,
-    }, R.today(), R.category_exists, len(depts))
+        "publish_at": start_at, "require_ack": doc.require_ack, "ack_deadline": doc.ack_deadline,
+    }
+    errs = D.validate(post, ref_day, R.category_exists, len(depts))
+    if going_live:
+        errs += D.check_dates(post, ref_day)
     if len(doc.get("attachments") or []) > C.MAX_ATTACHMENTS:
         errs.append(_("Tối đa {0} tệp đính kèm.").format(C.MAX_ATTACHMENTS))
     errs += _foreign_files(doc)

@@ -32,9 +32,20 @@ Mọi trang `no_cache = 1` (cache_html của Frappe lưu theo đường dẫn, d
   **tối đa 5 lần / bài / ngày**. Ảnh không được chọn bị xoá sau 3 ngày (job daily).
 - Cảm xúc dùng lại `EC Home Reaction` (target `post:<tên>`).
 
+## v6 (PO duyệt mockup v6 03/10/2026, artifact FT49YtzaHWTcgoYN8fTBL2)
+
+| Việc | Ở đâu | Luật |
+|---|---|---|
+| Hẹn giờ đăng | `schedule.py`, `publish_at`; cron `*/5` | Bài hẹn = nháp có `publish_at`, chỉ HR thấy. Tới giờ job bật "đã đăng" → lifecycle báo tin như HR bấm Đăng (popup 7 ngày tính từ lúc lên). Lỗi → bỏ hẹn + chuông báo người hẹn. Tab "Hẹn giờ" + "Đăng ngay". Hẹn tối đa 60 ngày. |
+| Gửi kèm Teams | `notify_teams` (mặc định tắt) | Chỉ khi có chuông. Event `announcement_urgent` (có sẵn, teams = True). |
+| AI viết giúp | `ai_write.py`, `ec_internal_posts_aiw.js` | Ý chính + giọng văn → JSON có cấu trúc, server tự dựng HTML và escape. Xem trước rồi "Dùng bài này". 10 lần / bài / ngày (bài chưa lưu: theo người), đếm trong cache, AI lỗi không mất lượt. |
+| Lọc ảnh AI dính chữ | `cover_ai.inspect / pick` | Vẽ 4 ảnh, gửi từng ảnh cho model soi chữ / logo, giữ tối đa 3 ảnh sạch; soi lỗi → giữ + ghi chú; 4 ảnh đều bẩn → Failed kèm lời giải thích. |
+| Bình luận | `comments.py`, DocType `EC Post Comment`, `templates/includes/internal_posts/comments.html` | Ai đọc được bài thì bình luận (nếu `allow_comments`). Trả lời một cấp. Người viết sửa / xoá mềm; HR ẩn / hiện (ẩn gốc = ẩn cả chuỗi). Chuông cho người đăng bài + người được trả lời. Nhân viên không có quyền trên bảng; mọi đường qua api. Tim dùng `EC Home Reaction` target `cmt:<tên>`. |
+| Xác nhận đã đọc | `ack.py`, `EC Read Receipt.kind = ack` | `require_ack` + `ack_deadline` (bắt buộc). Nút "Tôi đã đọc và hiểu". Cron 09:00 nhắc 1 ngày trước hạn + đúng hạn; HR nhắc tay 1 lần / ngày (`ack_reminded_on`); Excel `api.ack_export`. Badge "Cần xác nhận" trên thẻ. |
+
 ## Lớp
 
-`constants` → `domain` (thuần) → `repository` (chỗ DUY NHẤT chạm DB) → `service` (người đọc) /
+`constants` → `domain` (thuần) → `errors` / `audience` → `repository` (chỗ DUY NHẤT chạm DB) → `service` (người đọc) /
 `editor_service` (HR) / `cover_ai` / `notify` → `api.py` (whitelist, user lấy từ phiên, trả
 `{success, message, data}`) và `www/tin_noi_bo/*.py`. `lifecycle.py` = controller DocType.
 

@@ -334,3 +334,4 @@ ecentric_workspace.approval_center.patches.p255_khao_sat_boc_so
 ecentric_workspace.approval_center.patches.p256_resync_tong_quan_nhac_bw
 ecentric_workspace.feedback.patches.p001_seed_topics
 ecentric_workspace.approval_center.patches.p257_resync_gop_y
+ecentric_workspace.internal_posts.patches.p002_read_receipt_kind

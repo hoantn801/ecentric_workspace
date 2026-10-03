@@ -5,20 +5,11 @@ truyen tu PHIEN (frappe.session.user) - khong bao gio tu HTTP.
 
 `repo` tiem vao duoc: test chay bang repo gia, khong can bench.
 """
+from ecentric_workspace.internal_posts import ack, comments
 from ecentric_workspace.internal_posts import constants as C
 from ecentric_workspace.internal_posts import domain as D
-
-
-class NotFound(Exception):
-    """Khong co bai nay (hoac slug sai)."""
-
-
-class Forbidden(Exception):
-    """Co bai nhung nguoi nay khong duoc doc - trang tra 403, khong lo tieu de."""
-
-
-class PostError(Exception):
-    """Loi nguoi dung gay ra (tham so sai) - api tra success False kem thong diep."""
+from ecentric_workspace.internal_posts.audience import audience, scope_label, selected_ranges  # noqa: F401
+from ecentric_workspace.internal_posts.errors import Forbidden, NotFound, PostError  # noqa: F401
 
 
 def _repo(repo):
@@ -26,24 +17,6 @@ def _repo(repo):
         return repo
     from ecentric_workspace.internal_posts import repository
     return repository
-
-
-# ------------------------------------------------------------------ dung chung ---
-def selected_ranges(repo, depts):
-    tree = repo.dept_tree()
-    return [(tree[d][0], tree[d][1]) if d in tree else (None, None) for d in depts or ()]
-
-
-def scope_label(repo, depts):
-    if not depts:
-        return ""
-    tree = repo.dept_tree()
-    return ", ".join(tree[d][2] if d in tree else d for d in depts)
-
-
-def audience(repo, depts):
-    sel = selected_ranges(repo, depts)
-    return [e["user"] for e in repo.active_employees() if D.in_scope(sel, e["lft"])]
 
 
 def _categories(repo):
@@ -55,11 +28,17 @@ def _cards(repo, user, rows, cat_map, today):
     names = [r["name"] for r in rows]
     depts = repo.post_departments(names)
     seen = repo.seen_by(user, names)
+    need = [r["name"] for r in rows if r.get("require_ack") and r.get("published")]
+    acked = repo.acked_by(user, need) if need else set()
+    # "Can xac nhan" chi cho bai yeu cau CHINH nguoi nay (HR thay moi bai, ke ca phong khac)
+    for n in need:
+        if n not in acked and user not in audience(repo, depts.get(n) or []):
+            acked = acked | {n}
     authors = repo.full_names([r.get("owner") for r in rows])
     out = []
     for r in rows:
         author = r.get("author_label") or authors.get(r.get("owner")) or ""
-        out.append(D.card(r, cat_map, seen, today, scope_label(repo, depts.get(r["name"])), author))
+        out.append(D.card(r, cat_map, seen, today, scope_label(repo, depts.get(r["name"])), author, acked))
     return out
 
 
@@ -162,7 +141,11 @@ def post_page(user, slug, repo=None):
         "minutes": D.reading_minutes(body), "is_editor": editor,
         "seen": seen_view(repo, doc.get("name"), depts, user, editor),
         "reactions": reactions_view(repo, doc.get("name"), user),
-        "editor_info": _editor_info(repo, doc) if editor else None,
+        "editor_info": _editor_info(repo, doc, depts) if editor else None,
+        "scheduled": not doc.get("published") and bool(doc.get("publish_at")),
+        "publish_at_label": D.when_label(doc.get("publish_at")),
+        "ack": ack.view(repo, doc, user, editor),
+        "comments": comments.view(repo, doc, user, editor),
     }
 
 
@@ -178,10 +161,19 @@ def _size_label(n):
     return ("%.1f MB" % (n / 1024.0 / 1024.0)).replace(".", ",")
 
 
-def _editor_info(repo, doc):
+def _editor_info(repo, doc, depts=()):
+    start = D.as_datetime(doc.get("publish_at"))
+    popup_window = ""
+    if doc.get("push_to_home") and not depts and start and not doc.get("published"):
+        a, b = D.popup_window(start.date(), doc.get("expires_on"))
+        popup_window = "%s – %s" % (D.short_date(a), D.short_date(b))
     return {"notified_label": D.date_label(doc.get("notified_on")) if doc.get("notified_on") else "",
             "notify_bell": bool(doc.get("notify_bell")),
+            "notify_teams": bool(doc.get("notify_bell")) and bool(doc.get("notify_teams")),
             "popup": bool(doc.get("push_to_home")) and repo.popup_published(doc.get("home_announcement")),
+            "popup_planned": bool(doc.get("push_to_home")) and not depts,
+            "popup_window": popup_window,
+            "publish_at_short": D.short_when(doc.get("publish_at")),
             "edit_url": "%s?bai=%s" % (C.ROUTE_COMPOSE, doc.get("name"))}
 
 

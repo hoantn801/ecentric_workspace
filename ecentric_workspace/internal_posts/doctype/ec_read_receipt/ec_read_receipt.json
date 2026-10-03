@@ -15,11 +15,12 @@
  "sort_field": "creation",
  "sort_order": "DESC",
  "title_field": "reference_name",
- "description": "Ai đã mở bản ghi nào (lượt xem). Dùng chung: Tin nội bộ hôm nay, tài liệu ISO sau này. Ghi bởi platform/read_receipt.py; không nhập tay.",
+ "description": "Ai đã mở bản ghi nào (lượt xem). Dùng chung: Tin nội bộ hôm nay, tài liệu ISO sau này. Hai loại: seen (mở là tính) và ack (bấm xác nhận). Ghi bởi platform/read_receipt.py; không nhập tay.",
  "field_order": [
   "reference_doctype",
   "reference_name",
   "version",
+  "kind",
   "column_break_1",
   "user",
   "first_seen",
@@ -54,6 +55,17 @@
    "label": "Phiên bản",
    "read_only": 1,
    "description": "Để trống với bài viết; tài liệu ISO ghi số phiên bản."
+  },
+  {
+   "fieldname": "kind",
+   "fieldtype": "Select",
+   "label": "Loại",
+   "options": "seen\nack",
+   "default": "seen",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "seen = đã mở; ack = bấm \"Tôi đã đọc và hiểu\" (Tin nội bộ bắt buộc xác nhận)."
   },
   {
    "fieldname": "column_break_1",

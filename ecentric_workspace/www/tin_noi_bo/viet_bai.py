@@ -29,8 +29,9 @@ def get_context(context):
         "post": ctx.get("post"), "departments": ctx["departments"], "employee_lfts": ctx["employee_lfts"],
         "company_size": ctx["company_size"], "ai_limit": ctx["ai_limit"], "ai_used": ctx["ai_used"],
         "ai_enabled": ctx["ai_enabled"], "colors": ctx["colors"],
-        "categories": ctx["categories"],
+        "categories": ctx["categories"], "ai_write": ctx["ai_write"],
     }, indent=None).replace("</", "<\\/")
     pages.shell(context, C.ROUTE, detail=context.title)
     context.ip_editor_js = pages.asset_url("editor")
+    context.ip_aiw_js = pages.asset_url("aiw")
     return context

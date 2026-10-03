@@ -89,6 +89,21 @@ class FakeRepo:
         self.guides = [{"slug": "dnmh-dntt", "route": "/huong-dan/dnmh-dntt", "title": "ĐNMH → ĐNTT",
                         "summary": "Hai vòng", "updated": "2026-09-08", "audience": "Finance"}]
         self.dup_next = False
+        # v6
+        self.acks = {}               # name -> {user: datetime}
+        self.comments = {}           # name -> row
+        self.bells = []              # (event, user, title, message, url, dedupe)
+        self.aiw = {}
+        self.ai_on = True
+        self.ai_calls = []
+        self.ai_reply = None
+        self.fields_set = []
+        self.commits = 0
+        self.rollbacks = 0
+        self.depts = {HR: "Marketing", LAN: "Vận hành", MINH: "Kho", TU: "Marketing"}
+        self.clock = dt.datetime(2026, 10, 1, 9, 0)
+        self.fail_save = None
+        self.fail_transient = None
 
     # -- tien ich test
     def add(self, name, **kw):
@@ -105,7 +120,7 @@ class FakeRepo:
     # -- nguoi dung
     def is_editor(self, user): return user == HR
     def today(self): return TODAY
-    def now(self): return dt.datetime(2026, 10, 1, 9, 0)
+    def now(self): return self.clock
     def dept_tree(self): return self.tree
     def active_employees(self): return list(self.emps)
     def full_names(self, users): return {u: self.names.get(u, u) for u in users or () if u}
@@ -240,6 +255,95 @@ class FakeRepo:
 
     def log_error(self, title): self.errors.append(title)
     def log_message(self, title, msg): self.errors.append(title + ":" + msg)
+
+    # -- v6: anh AI tai ve / luu tach hai buoc (de soi chu)
+    def fetch_image(self, url, max_bytes): return (b"PNG:" + url.encode(), "image/png")
+
+    def save_image_bytes(self, buf, post, file_name):
+        local = "/files/" + file_name
+        self.files[local] = {"post": post, "is_private": 0, "file_name": file_name, "file_size": len(buf)}
+        return local
+
+    # -- v6: hen gio
+    def due_scheduled(self, now):
+        return [n for n, d in sorted(self.posts.items()) if not d.get("published") and d.get("publish_at")
+                and D.as_datetime(d["publish_at"]) <= now]
+
+    def save_post_system(self, doc):
+        if self.fail_save and doc.get("name") == self.fail_save:
+            raise ValueError("Ngày hết hạn đã qua")
+        if self.fail_transient and doc.get("name") == self.fail_transient:
+            raise TimeoutError("Lock wait timeout exceeded (1205)")
+        self.save_post(doc)
+
+    def is_validation_error(self, exc): return isinstance(exc, ValueError)
+
+    def set_post_fields(self, name, values):
+        self.fields_set.append((name, dict(values)))
+        self.posts[name].update(values)
+
+    def commit(self): self.commits += 1
+    def rollback(self): self.rollbacks += 1
+
+    # -- v6: xac nhan da doc
+    def mark_ack(self, name, user):
+        a = self.acks.setdefault(name, {})
+        if user in a:
+            return False
+        a[user] = self.clock
+        return True
+
+    def ack_users(self, name): return set(self.acks.get(name, {}))
+    def ack_times(self, name): return dict(self.acks.get(name, {}))
+    def acked_by(self, user, names): return {n for n in names if user in self.acks.get(n, {})}
+    def ack_users_many(self, names): return {n: set(self.acks.get(n, {})) for n in names}
+
+    def ack_due_posts(self, dates):
+        return [n for n, d in self.posts.items() if d.get("published") and d.get("require_ack")
+                and D.as_date(d.get("ack_deadline")) in dates]
+
+    def user_departments(self, users): return {u: self.depts.get(u, "") for u in users or () if u}
+
+    def send_bell(self, event, user, title, message, url, ref_name, dedupe_key, actor=None):
+        if any(b[5] == dedupe_key for b in self.bells):
+            return
+        self.bells.append((event, user, title, message, url, dedupe_key))
+
+    # -- v6: binh luan
+    def comments_of(self, post):
+        return [dict(c) for c in sorted(self.comments.values(), key=lambda c: c["creation"]) if c["post"] == post]
+
+    def comment(self, name): return dict(self.comments[name]) if name in self.comments else None
+
+    def insert_comment(self, post, user, content, parent=None):
+        name = "CM%02d" % (len(self.comments) + 1)
+        self.comments[name] = {"name": name, "post": post, "user": user, "content": content,
+                               "parent_comment": parent, "hidden": 0, "hidden_by": None, "hidden_on": None,
+                               "deleted": 0, "edited_on": None,
+                               "creation": self.clock + dt.timedelta(seconds=len(self.comments))}
+        return name
+
+    def update_comment(self, name, values): self.comments[name].update(values)
+
+    def comment_count_since(self, post, user, since):
+        return sum(1 for c in self.comments.values() if c["post"] == post and c["user"] == user and c["creation"] >= since)
+
+    def comment_counts(self, names):
+        return {n: sum(1 for c in self.comments.values() if c["post"] == n and not c["hidden"] and not c["deleted"])
+                for n in names}
+
+    # -- v6: AI viet giup
+    def ai_write_used(self, key, day): return self.aiw.get((key, day), 0)
+
+    def ai_write_add(self, key, day):
+        self.aiw[(key, day)] = self.aiw.get((key, day), 0) + 1
+        return self.aiw[(key, day)]
+
+    def ai_available(self): return self.ai_on
+
+    def ai_generate(self, prompt, **kw):
+        self.ai_calls.append((prompt, kw))
+        return self.ai_reply
 
 
 def seeded():
@@ -544,7 +648,7 @@ class TestEditor(unittest.TestCase):
         r = seeded()
         r.seen["P1"] = [LAN, MINH, "nguoi-da-nghi@x"]
         ctx = E.manage_context(HR, "live", repo=r)
-        self.assertEqual({t["key"]: t["count"] for t in ctx["tabs"]}, {"live": 3, "draft": 1, "expired": 1})
+        self.assertEqual({t["key"]: t["count"] for t in ctx["tabs"]}, {"live": 3, "scheduled": 0, "draft": 1, "expired": 1})
         p1 = [i for i in ctx["items"] if i["name"] == "P1"][0]
         self.assertEqual((p1["seen"], p1["total"], p1["pct"]), (2, 4, 50))
         p3 = [i for i in ctx["items"] if i["name"] == "P3"][0]
@@ -609,12 +713,15 @@ class TestCoverAI(unittest.TestCase):
         seen = {}
 
         def gen(prompt, **kw):
+            if kw.get("files"):                         # buoc soi chu: anh 2 dinh chu
+                seen.setdefault("checked", []).append(kw["files"][0]["data"])
+                return {"ok": True, "data": {"has_text": b"2.png" in kw["files"][0]["data"], "has_logo": False}}
             seen["prompt"] = prompt
             return {"ok": True, "data": {"image_prompt": "A flat illustration of a team retreat, navy and yellow, no text"}}
 
         def imgs(prompt, n, **kw):
             seen["img"] = (prompt, n)
-            return {"ok": True, "urls": ["https://kie/1.png", "https://kie/2.png", "https://kie/3.png"], "model": "m"}
+            return {"ok": True, "urls": ["https://kie/%d.png" % i for i in range(1, n + 1)], "model": "m"}
 
         AI.run_job(job, repo=r, generate=gen, make_images=imgs)
         j = r.jobs[job]
@@ -622,9 +729,13 @@ class TestCoverAI(unittest.TestCase):
         self.assertEqual(len(json.loads(j["images"])), 3)
         self.assertIn("Tiêu đề mới", seen["prompt"])
         self.assertIn("Chi tiết", seen["prompt"])
-        self.assertEqual(seen["img"][1], 3)
+        self.assertEqual(seen["img"][1], 4, "ve 4 anh de con du 3 anh sach")
+        self.assertEqual(len(seen["checked"]), 4)
+        self.assertNotIn("/files/ai-bia-JOB-01-4.png", r.files, "chi luu 3 anh sach")
+        self.assertEqual(j["filter_note"], "AI đã soi 4 ảnh và bỏ 1 ảnh dính chữ hoặc logo. 3 ảnh trên đều sạch.")
         st = AI.status(HR, job, repo=r)
         self.assertEqual((st["status"], len(st["images"]), st["error"]), ("Done", 3, ""))
+        self.assertIn("bỏ 1 ảnh", st["note"])
         # anh AI la tep cong khai GAN VAO BAI -> luu lam bia duoc
         url = st["images"][1]
         E.save(HR, payload(name="P1", cover_kind="image", cover_image=url, cover_ai=1), repo=r)
@@ -930,7 +1041,7 @@ class TestPages(unittest.TestCase):
         r.posts["P3"]["title"] = EVIL
         ctx = E.compose_context(HR, "P3", repo=r)
         ctx["post_view"] = ctx["post"]
-        ctx.update(ip_data_json=json.dumps({"post": ctx["post"]}).replace("</", "<\\/"), ip_editor_js="/e.js")
+        ctx.update(ip_data_json=json.dumps({"post": ctx["post"]}).replace("</", "<\\/"), ip_editor_js="/e.js", ip_aiw_js="/w.js")
         out = _render("viet_bai", ctx)
         self.assertNotIn(EVIL, out.split('id="eip-data"')[0])
         self.assertNotIn("</script>\"", out)
@@ -940,7 +1051,7 @@ class TestPages(unittest.TestCase):
         self.assertIn('<script src="/e.js" defer></script>', out)
         self.assertEqual(out.count('class="eip-swatch'), 8)
         new = E.compose_context(HR, repo=r)
-        new.update(ip_data_json="{}", ip_editor_js="/e.js", post_view=dict(E.BLANK_POST))
+        new.update(ip_data_json="{}", ip_editor_js="/e.js", ip_aiw_js="/w.js", post_view=dict(E.BLANK_POST))
         out = _render("viet_bai", new)                  # StrictUndefined: thieu khoa la DO
         self.assertNotIn("no such element", out)
         self.assertIn('value="" maxlength="140"', out)
