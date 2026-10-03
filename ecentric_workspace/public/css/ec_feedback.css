@@ -14,6 +14,7 @@
   --egy-bg:#f7f8fb;--egy-surface:#fff;--egy-line:#e5e7eb;--egy-soft:#f3f4f6;
   --egy-g300:#d1d5db;--egy-g400:#9ca3af;--egy-g500:#6b7280;--egy-g600:#4b5563;--egy-g700:#374151;--egy-g800:#1f2937;--egy-g900:#111827;
   display:grid;grid-template-columns:248px minmax(0,1fr);min-height:100vh;
+  flex:0 0 auto; /* body cua shell la flex cot cao 100vh: khong cho khung bi co lai, de trang cuon het noi dung */
   background:var(--egy-bg);color:var(--egy-g800);
   font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   font-size:13.5px;line-height:1.5;letter-spacing:normal;color-scheme:light;
