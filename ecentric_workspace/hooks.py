@@ -774,3 +774,15 @@ website_route_rules = list(globals().get("website_route_rules") or []) + [
 scheduler_events["cron"].setdefault("7 9-17 * * 1-5", []).append("ecentric_workspace.feedback.notify.remind")
 # Ban tin gop y thang truoc cho BGD: 08:45 ngay 1.
 scheduler_events["cron"].setdefault("45 8 1 * *", []).append("ecentric_workspace.feedback.digest.monthly")
+
+# --------------------------------------------------------------------------- #
+# 03/10/2026 - Tin noi bo v6 (mockup v6, PO Hoan duyet): hen gio dang, gui kem Teams, AI viet
+# giup, loc anh AI dinh chu, binh luan, xac nhan da doc. Xem internal_posts/README.md.
+#  * Hen gio: job moi 5 phut dang cac bai toi gio (bai len tre toi da 5 phut).
+#  * Xac nhan da doc: 09:00 moi ngay nhac nguoi chua xac nhan (1 ngay truoc han + dung ngay han).
+#    Gio cron o site nay la GIO DIA PHUONG (Asia/Ho_Chi_Minh). Method khong trung o cron khac.
+# --------------------------------------------------------------------------- #
+scheduler_events["cron"].setdefault("*/5 * * * *", []).append(
+    "ecentric_workspace.internal_posts.schedule.publish_due")
+scheduler_events["cron"].setdefault("0 9 * * *", []).append(
+    "ecentric_workspace.internal_posts.ack.remind_due")

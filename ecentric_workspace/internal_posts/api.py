@@ -11,8 +11,12 @@ import json
 import frappe
 from frappe import _
 
-from ecentric_workspace.internal_posts import cover_ai, editor_service, service
-from ecentric_workspace.internal_posts.service import Forbidden, NotFound, PostError
+from ecentric_workspace.internal_posts import ack as ack_service
+from ecentric_workspace.internal_posts import ai_write as ai_write_service
+from ecentric_workspace.internal_posts import comments, cover_ai, editor_service, service
+from ecentric_workspace.internal_posts.errors import Forbidden, NotFound, PostError
+
+COMMENTS_TEMPLATE = "templates/includes/internal_posts/comments.html"
 
 
 def _ok(data=None, message=""):
@@ -100,3 +104,75 @@ def cover_ai_start(post, title="", summary="", content=""):
 @frappe.whitelist()
 def cover_ai_status(job):
     return _run(cover_ai.status, _me(), str(job or ""))
+
+
+@frappe.whitelist(methods=["POST"])
+def publish_now(post):
+    """Tab "Hen gio" (trang quan ly): dang ngay, khong doi toi gio hen."""
+    return _run(editor_service.publish_now, _me(), str(post or ""))
+
+
+@frappe.whitelist(methods=["POST"])
+def ai_write(post="", points="", tone=""):
+    """AI viet giup: y chinh -> tieu de + tom tat + noi dung (CHUA ghi vao bai). 10 lan / bai / ngay."""
+    return _run(ai_write_service.write, _me(), str(post or ""), str(points or "")[:20000], str(tone or ""))
+
+
+# ------------------------------------------------------------------ xac nhan da doc ----
+@frappe.whitelist(methods=["POST"])
+def ack(post):
+    """Nguoi dang dang nhap bam "Toi da doc va hieu"."""
+    return _run(ack_service.ack, _me(), str(post or ""))
+
+
+@frappe.whitelist(methods=["POST"])
+def ack_remind(post):
+    """HR nhac nguoi chua xac nhan (toi da 1 lan / bai / ngay)."""
+    return _run(ack_service.remind, _me(), str(post or ""))
+
+
+@frappe.whitelist(methods=["GET"])
+def ack_export(post):
+    """HR tai Excel danh sach xac nhan. Tra TEP (khong phai envelope); loi -> trang loi chuan."""
+    from frappe.utils.xlsxutils import make_xlsx
+    try:
+        fname, rows = ack_service.export(_me(), str(post or ""))
+    except (Forbidden, NotFound, PostError) as e:
+        raise frappe.PermissionError(str(e) or _("Bạn không có quyền làm việc này."))
+    frappe.local.response.filename = fname
+    frappe.local.response.filecontent = make_xlsx(rows, "Xac nhan").getvalue()
+    frappe.local.response.type = "download"
+
+
+# ------------------------------------------------------------------ binh luan --------
+def _comments(fn, *args):
+    """Moi thao tac binh luan tra lai khoi binh luan VE SAN (cung template voi trang bai)."""
+    def run():
+        view = fn(*args)
+        return {"html": frappe.render_template(COMMENTS_TEMPLATE, {"cm": view}), "count": view["count"]}
+    return _run(run)
+
+
+@frappe.whitelist(methods=["POST"])
+def comment_add(post, content="", parent=""):
+    return _comments(comments.add, _me(), str(post or ""), str(content or "")[:20000], str(parent or "") or None)
+
+
+@frappe.whitelist(methods=["POST"])
+def comment_edit(comment, content=""):
+    return _comments(comments.edit, _me(), str(comment or ""), str(content or "")[:20000])
+
+
+@frappe.whitelist(methods=["POST"])
+def comment_delete(comment):
+    return _comments(comments.delete, _me(), str(comment or ""))
+
+
+@frappe.whitelist(methods=["POST"])
+def comment_hide(comment, hidden=1):
+    return _comments(comments.hide, _me(), str(comment or ""), str(hidden) in ("1", "true", "True"))
+
+
+@frappe.whitelist(methods=["POST"])
+def comment_like(comment):
+    return _comments(comments.like, _me(), str(comment or ""))

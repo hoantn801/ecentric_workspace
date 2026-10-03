@@ -6,7 +6,8 @@ Cac quy tac quan trong deu nam o day de MOT noi quyet dinh:
   * bai nao hien o danh sach (da dang, chua het han)                      -> listed()
   * bai nao doc duoc qua link (da dang; het han van doc duoc)            -> readable()
   * mot bai luu co hop le khong                                           -> validate()
-  * so nguoi da xem / chua xem                                            -> seen_summary()
+  * so nguoi da xem / chua xem (va da xac nhan / chua)                   -> seen_summary()
+  * gio hen dang hop le khong, khi nao tu nhac xac nhan                   -> check_schedule(), ack_*()
 """
 import datetime
 import html as _html
@@ -43,6 +44,58 @@ def date_label(v):
 def short_date(v):
     d = as_date(v)
     return d.strftime("%d/%m") if d else ""
+
+
+def as_datetime(v):
+    """'2026-10-06 08:30:00' / datetime -> datetime (khong mui gio: gio he thong = gio VN)."""
+    if v is None or v == "":
+        return None
+    if isinstance(v, datetime.datetime):
+        return v.replace(tzinfo=None)
+    if isinstance(v, datetime.date):
+        return datetime.datetime(v.year, v.month, v.day)
+    t = str(v).strip().replace("T", " ")
+    for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
+        try:
+            return datetime.datetime.strptime(t, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def when_label(v):
+    """'08:30 thứ Hai 06/10' (mockup v6: gio hen dang)."""
+    d = as_datetime(v)
+    if not d:
+        return ""
+    return "%s %s %s" % (d.strftime("%H:%M"), C.WEEKDAYS[d.weekday()][0].lower() + C.WEEKDAYS[d.weekday()][1:],
+                         d.strftime("%d/%m"))
+
+
+def short_when(v):
+    """'08:30 · T2 06/10' (bang quan ly)."""
+    d = as_datetime(v)
+    if not d:
+        return ""
+    wd = "CN" if d.weekday() == 6 else "T%d" % (d.weekday() + 2)
+    return "%s · %s %s" % (d.strftime("%H:%M"), wd, d.strftime("%d/%m"))
+
+
+def ago(v, now):
+    """'vừa xong' / '5 phút trước' / '2 giờ trước' / 'hôm qua' / '28/09' (binh luan)."""
+    d = as_datetime(v)
+    if not d or not now:
+        return ""
+    sec = (now - d).total_seconds()
+    if sec < 60:
+        return "vừa xong"
+    if sec < 3600:
+        return "%d phút trước" % int(sec // 60)
+    if sec < 86400 and d.date() == now.date():
+        return "%d giờ trước" % int(sec // 3600)
+    if (now.date() - d.date()).days == 1:
+        return "hôm qua lúc " + d.strftime("%H:%M")
+    return d.strftime("%d/%m/%Y" if d.year != now.year else "%d/%m")
 
 
 def plain_text(html, limit=None):
@@ -166,6 +219,59 @@ def validate(post, today, category_exists, dept_count):
     return errs
 
 
+def check_schedule(publish_at, now):
+    """Gio hen dang (trang viet bai). -> loi (chuoi) hoac "" neu hop le."""
+    at = as_datetime(publish_at)
+    if not at:
+        return "Chọn ngày và giờ đăng."
+    if at <= now:
+        return "Giờ hẹn đã qua. Chọn giờ muộn hơn, hoặc chọn Đăng ngay."
+    if at > now + datetime.timedelta(days=C.SCHEDULE_MAX_DAYS):
+        return "Chỉ hẹn được trong %d ngày tới." % C.SCHEDULE_MAX_DAYS
+    return ""
+
+
+def check_dates(post, today):
+    """Han hien / han xac nhan so voi ngay bai LEN (hen gio: ngay hen; khong: hom nay)."""
+    errs = []
+    start = (as_datetime(post.get("publish_at")) or datetime.datetime(today.year, today.month, today.day)).date()
+    exp = as_date(post.get("expires_on"))
+    if exp and post.get("publish_at") and exp < start:
+        errs.append("Ngày hết hạn đang trước ngày hẹn đăng.")
+    if post.get("require_ack"):
+        dl = as_date(post.get("ack_deadline"))
+        if not dl:
+            errs.append("Chọn hạn xác nhận đã đọc.")
+        elif dl < start and not post.get("_was_published"):
+            errs.append("Hạn xác nhận phải từ ngày bài lên trở đi.")
+    return errs
+
+
+def ack_remind_dates(deadline):
+    """Ngay ERP tu nhac nguoi chua xac nhan: 1 ngay truoc han + dung ngay han."""
+    dl = as_date(deadline)
+    if not dl:
+        return []
+    return [dl - datetime.timedelta(days=C.ACK_REMIND_DAYS_BEFORE), dl]
+
+
+def ack_remind_due(deadline, today):
+    return today in ack_remind_dates(deadline)
+
+
+def ack_days_left(deadline, today):
+    """'còn 7 ngày' / 'hôm nay là hạn' / 'quá hạn 2 ngày'."""
+    dl = as_date(deadline)
+    if not dl:
+        return ""
+    n = (dl - today).days
+    if n > 0:
+        return "còn %d ngày" % n
+    if n == 0:
+        return "hôm nay là hạn"
+    return "quá hạn %d ngày" % -n
+
+
 def popup_allowed(dept_count):
     """Popup "Hom nay o eCentric" hien cho MOI nguoi -> chi bai toan cong ty."""
     return dept_count == 0
@@ -203,8 +309,9 @@ def category_view(row):
             "home_category": row.get("home_category") or C.HOME_CATEGORY_DEFAULT}
 
 
-def card(post, categories, seen, today, scope_label="", author=""):
-    """Mot the bai cho danh sach / trang chu. `seen` = tap ten bai nguoi xem da mo."""
+def card(post, categories, seen, today, scope_label="", author="", acked=None):
+    """Mot the bai cho danh sach / trang chu. `seen` = tap ten bai nguoi xem da mo;
+    `acked` = tap ten bai nguoi xem da bam xac nhan (None = khong tinh nhan "Can xac nhan")."""
     cat = category_view(categories.get(post.get("category")))
     pub = post.get("published_on") or post.get("creation")
     return {
@@ -218,6 +325,10 @@ def card(post, categories, seen, today, scope_label="", author=""):
         "unseen": bool(post.get("published")) and post.get("name") not in seen and not expired(post, today),
         "scope_label": scope_label, "author": author, "legacy": False, "audience": "",
         "cover": cover(post, categories.get(post.get("category"))),
+        "scheduled": not post.get("published") and bool(post.get("publish_at")),
+        "need_ack": (acked is not None and bool(post.get("published")) and bool(post.get("require_ack"))
+                     and post.get("name") not in acked),
+        "ack_deadline_label": short_date(post.get("ack_deadline")),
     }
 
 
@@ -231,7 +342,7 @@ def legacy_card(guide, category):
         "pinned": False, "date": upd, "date_label": date_label(upd), "short_date": short_date(upd),
         "draft": False, "expired": False, "expires_label": "", "unseen": False,
         "scope_label": "", "author": "", "legacy": True, "audience": guide.get("audience") or "",
-        "cover": cover({}, category),
+        "cover": cover({}, category), "scheduled": False, "need_ack": False, "ack_deadline_label": "",
     }
 
 

@@ -18,7 +18,7 @@ from ecentric_workspace.internal_posts import constants as C
 
 _APP = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ASSETS = {"css": "public/css/ec_internal_posts.css", "js": "public/js/ec_internal_posts.js",
-          "editor": "public/js/ec_internal_posts_editor.js"}
+          "editor": "public/js/ec_internal_posts_editor.js", "aiw": "public/js/ec_internal_posts_aiw.js"}
 _VERSIONS = {}
 MOUNT = '<aside class="ec-shell-mount" data-ec-shell="1" aria-label="Điều hướng eCentric"></aside>'
 

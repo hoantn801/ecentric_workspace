@@ -27,6 +27,7 @@
   "source_text",
   "prompt",
   "images",
+  "filter_note",
   "error"
  ],
  "fields": [
@@ -98,6 +99,13 @@
    "label": "Ảnh (JSON)",
    "options": "JSON",
    "read_only": 1
+  },
+  {
+   "fieldname": "filter_note",
+   "fieldtype": "Small Text",
+   "label": "AI soi ảnh",
+   "read_only": 1,
+   "description": "Kết quả soi chữ / logo trên ảnh AI vừa tạo (bỏ ảnh dính chữ)."
   },
   {
    "fieldname": "error",

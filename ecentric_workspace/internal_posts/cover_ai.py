@@ -8,7 +8,10 @@ Hai buoc, ca hai di qua cong AI chung (platform/ai - MOT nguon khoa, MOT cong ta
   1. gateway.generate(): model chu doc bai -> viet mo ta anh tieng Anh (khong chu, khong logo,
      khong nguoi that, mau eCentric). Model chu hong -> dung mo ta dung san tu tieu de, de HR
      van co anh (khong chan).
-  2. images.generate(): model anh tren Kie ve 3 anh 16:9.
+  2. images.generate(): model anh tren Kie ve AI_COVER_GENERATE (4) anh 16:9.
+  3. (v6, PO duyet 03/10) gateway.generate() kem TEP ANH: soi tung anh, bo anh dinh chu / logo,
+     giu toi da AI_COVER_VARIANTS (3) anh sach. Soi khong duoc (model loi) -> giu anh, ghi chu
+     "chua soi duoc". Ca 4 anh deu ban -> job Failed voi loi de doc (luot van tinh).
 Anh Kie tra la tep TAM -> tai ve, luu thanh File CONG KHAI gan vao bai (anh bia cong khai nhu
 popup - PO chot). Anh khong duoc chon se bi job don dep xoa sau AI_COVER_KEEP_DAYS ngay.
 
@@ -16,6 +19,7 @@ Chay NEN (queue long): mat 10-60 giay. Trang viet bai hoi trang thai moi 3 giay;
 trong luc cho. Loi -> job Failed + loi de doc; KHONG bao gio chan viec dang bai.
 """
 import json
+import time
 
 from ecentric_workspace.internal_posts import constants as C
 from ecentric_workspace.internal_posts import domain as D
@@ -40,6 +44,20 @@ FALLBACK = (
     "logos, no real people."
 )
 FRIENDLY_ERROR = "AI chưa tạo được ảnh lần này. Bấm Tạo lại sau ít phút, hoặc chọn Màu nền."
+ALL_DIRTY = ("AI vẽ %d ảnh nhưng ảnh nào cũng dính chữ hoặc logo nên đã bỏ hết. "
+             "Bấm Tạo lại, hoặc chọn Màu nền.")
+
+VISION_SCHEMA = {"type": "object", "properties": {"has_text": {"type": "boolean"}, "has_logo": {"type": "boolean"},
+                                                  "reason": {"type": "string"}},
+                 "required": ["has_text", "has_logo"]}
+VISION_SYSTEM = (
+    "You are a strict quality checker for AI-generated cover illustrations. Look at the image and "
+    "report has_text = true if ANY visible text appears: letters, words, numbers, captions, labels, "
+    "signage, watermarks, or garbled pseudo-letters (fake text counts as text). Report has_logo = "
+    "true if any logo, brand mark, app icon with a letter, or UI screenshot appears. Plain abstract "
+    "shapes, icons without letters and stylised characters are fine. Reply JSON only, reason in a "
+    "few English words."
+)
 
 
 def _repo(repo):
@@ -100,8 +118,10 @@ def status(user, job, repo=None):
         images = json.loads(row.get("images") or "[]")
     except ValueError:
         images = []
+    failed = row.get("status") == "Failed"
     return {"job": job, "status": row.get("status"), "images": images,
-            "error": FRIENDLY_ERROR if row.get("status") == "Failed" else "",
+            "error": ((row.get("filter_note") or FRIENDLY_ERROR) if failed else ""),
+            "note": "" if failed else (row.get("filter_note") or ""),
             "used": used_today(row.get("post"), repo), "limit": C.AI_COVER_DAILY_LIMIT}
 
 
@@ -129,6 +149,45 @@ def image_prompt(post, generate, text=None):
     return FALLBACK % title.replace('"', "'"), True
 
 
+def inspect(buf, mime, generate):
+    """Buoc 3. -> True (sach) / False (dinh chu / logo) / None (khong soi duoc)."""
+    try:
+        res = generate("Check this cover image.", system=VISION_SYSTEM, schema=VISION_SCHEMA,
+                       files=[{"data": buf, "mime_type": mime or "image/png"}], purpose="post_cover_check",
+                       budget=45, attempt_timeout=30)
+    except Exception:
+        return None
+    data = (res or {}).get("data") if (res or {}).get("ok") else None
+    if not isinstance(data, dict) or "has_text" not in data:
+        return None
+    return not (bool(data.get("has_text")) or bool(data.get("has_logo")))
+
+
+def pick(results, keep=C.AI_COVER_VARIANTS):
+    """results: [(idx, verdict)] -> (chi so giu lai, ghi chu cho HR). Uu tien anh SACH, roi anh
+    chua soi duoc; anh dinh chu khong bao gio giu."""
+    clean = [i for i, v in results if v is True]
+    unknown = [i for i, v in results if v is None]
+    dirty = [i for i, v in results if v is False]
+    chosen = (clean + unknown)[:keep]
+    n = len(results)
+    if not chosen:
+        return [], (ALL_DIRTY % n if dirty else "")
+    parts = []
+    checked = len(clean) + len(dirty)
+    if checked:
+        if dirty:
+            parts.append("AI đã soi %d ảnh và bỏ %d ảnh dính chữ hoặc logo." % (checked, len(dirty)))
+        else:
+            parts.append("AI đã soi %d ảnh, không ảnh nào dính chữ." % checked)
+    shown_unknown = len([i for i in chosen if i in unknown])
+    if shown_unknown:
+        parts.append("%d ảnh chưa soi được, xem kỹ trước khi dùng." % shown_unknown)
+    elif checked:
+        parts.append("%d ảnh trên đều sạch." % len(chosen) if len(chosen) > 1 else "Ảnh trên sạch.")
+    return chosen, " ".join(parts)
+
+
 def run_job(job, repo=None, generate=None, make_images=None):
     """Job nen. Khong nem: moi loi -> job Failed + Error Log."""
     repo = _repo(repo)
@@ -137,24 +196,39 @@ def run_job(job, repo=None, generate=None, make_images=None):
         if not row or row.get("status") in ("Done", "Failed"):
             return
         repo.set_cover_job(job, {"status": "Running"})
+        started = time.time()
         post = repo.get_post(row.get("post"))
         if generate is None:
             from ecentric_workspace.platform.ai.gateway import generate
         if make_images is None:
             from ecentric_workspace.platform.ai.images import generate as make_images
         prompt, _fallback = image_prompt(post, generate, row.get("source_text"))
-        res = make_images(prompt, n=C.AI_COVER_VARIANTS, aspect_ratio="16:9",
+        res = make_images(prompt, n=C.AI_COVER_GENERATE, aspect_ratio="16:9",
                           timeout=C.AI_COVER_TIMEOUT_SECONDS, poll=C.AI_COVER_POLL_SECONDS)
-        saved = []
+        got, results = [], []
         for i, url in enumerate((res or {}).get("urls") or []):
             try:
-                saved.append(repo.save_remote_image(url, row.get("post"), "ai-bia-%s-%d.png" % (job[:8], i + 1),
-                                                    C.AI_COVER_MAX_BYTES))
+                buf, mime = repo.fetch_image(url, C.AI_COVER_MAX_BYTES)
             except Exception:
                 repo.log_error("internal_posts.cover_ai.download")
+                continue
+            clean_so_far = sum(1 for _i, v in results if v is True)
+            # du anh sach roi thi khong ton them luot soi
+            in_time = time.time() - started < C.AI_COVER_CHECK_UNTIL
+            verdict = inspect(buf, mime, generate) if clean_so_far < C.AI_COVER_VARIANTS and in_time else None
+            got.append((buf, mime))
+            results.append((len(got) - 1, verdict))
+        keep, note = pick(results)
+        saved = []
+        for n, idx in enumerate(keep):
+            try:
+                saved.append(repo.save_image_bytes(got[idx][0], row.get("post"), "ai-bia-%s-%d.png" % (job[:8], n + 1)))
+            except Exception:
+                repo.log_error("internal_posts.cover_ai.save")
+        err = "" if saved else (note or (res or {}).get("error") or "khong luu duoc anh nao")
         fields = {"prompt": prompt, "model": (res or {}).get("model") or "",
                   "images": json.dumps(saved), "status": "Done" if saved else "Failed",
-                  "error": "" if saved else ((res or {}).get("error") or "khong luu duoc anh nao")[:1000]}
+                  "filter_note": note if saved or results else "", "error": err[:1000]}
         repo.set_cover_job(job, fields)
         if not saved:
             repo.log_message("internal_posts.cover_ai.failed", "%s: %s" % (job, fields["error"]))

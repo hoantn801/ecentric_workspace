@@ -16,6 +16,8 @@
 {%- elif key == 'lock' -%}<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>
 {%- elif key == 'clock' -%}<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
 {%- elif key == 'users' -%}<circle cx="9" cy="8" r="3.5"/><path d="M2 20c.8-3.5 3.5-5 7-5s6.2 1.5 7 5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M22 20c-.5-2.5-2-4-4-4.6"/>
+{%- elif key == 'bell' -%}<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>
+{%- elif key == 'check' -%}<path d="M5 12l5 5 9-10"/>
 {%- elif key == 'arrow' -%}<path d="M5 12h14M13 6l6 6-6 6"/>
 {%- else -%}<path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/>
 {%- endif -%}
@@ -38,6 +40,8 @@
 {%- if c.draft %}<span class="eip-badge eip-b-draft">Nháp</span>{% endif -%}
 {%- if c.expired %}<span class="eip-badge eip-b-exp">Hết hạn {{ c.expires_label[:5]|e }}</span>{% endif -%}
 {%- if c.unseen %}<span class="eip-badge eip-b-new">Chưa xem</span>{% endif -%}
+{%- if c.need_ack %}<span class="eip-badge eip-b-ack">Cần xác nhận{% if c.ack_deadline_label %} trước {{ c.ack_deadline_label|e }}{% endif %}</span>{% endif -%}
+{%- if c.scheduled %}<span class="eip-badge eip-b-sched">{{ icon('clock') }}Hẹn giờ</span>{% endif -%}
 {%- if c.scope_label %}<span class="eip-badge eip-b-scope">{{ icon('users') }}{{ c.scope_label|e }}</span>{% endif -%}
 {%- endmacro -%}
 

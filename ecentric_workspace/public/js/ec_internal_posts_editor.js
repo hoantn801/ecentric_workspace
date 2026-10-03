@@ -9,6 +9,8 @@
 //   * pham vi phong ban + "Bai se toi N nguoi" (tinh tai cho tu cay phong ban);
 //   * tep dinh kem RIENG TU; kiem truoc khi dang; hop xac nhan; luu / dang / go.
 // Bai moi chua co ten: lan dau can tai tep / goi AI thi tu luu NHAP truoc (tep phai gan vao bai).
+// v6 (03/10): Thoi diem dang (Dang ngay / Hen gio), Gui kem Teams, Doc va phan hoi (bat buoc xac
+// nhan + han, cho phep binh luan). AI viet giup nam o ec_internal_posts_aiw.js (dung window.eipEditor).
 (function () {
   'use strict';
 
@@ -58,6 +60,11 @@
     notify_bell: P.name ? !!P.notify_bell : true,
     push_to_home: P.name ? !!P.push_to_home : true,
     popup_image_link: P.name ? !!P.popup_image_link : true,
+    notify_teams: !!P.notify_teams,
+    allow_comments: P.name ? !!P.allow_comments : true,
+    require_ack: !!P.require_ack,
+    when: P.scheduled ? 'schedule' : 'now',
+    scheduled: !!P.scheduled,
     scope: P.scope === 'dept' ? 'dept' : 'all',
     depts: (P.departments || []).filter(function (d) { return DEPTS[d]; }),
     files: (P.attachments || []).slice(),
@@ -88,6 +95,13 @@
     category: $('[data-eip-f="category"]'),
     author: $('[data-eip-f="author_label"]'),
     expires: $('[data-eip-f="expires_on"]'),
+    pubDate: $('[data-eip-f="publish_date"]'),
+    pubTime: $('[data-eip-f="publish_time"]'),
+    whenBox: $('[data-eip-when-box]'),
+    whenHelp: $('[data-eip-when-help]'),
+    pubBtn: $('[data-eip-publish-btn]'),
+    ackBox: $('[data-eip-ack-box]'),
+    ackDate: $('[data-eip-f="ack_deadline"]'),
     slug: $('[data-eip-slug]'),
     sumN: $('[data-eip-sum-n]'),
     saveState: $('[data-eip-save-state]'),
@@ -143,7 +157,8 @@
   function fieldErr(key, on) {
     var e = $('[data-eip-err="' + key + '"]');
     if (e) e.hidden = !on;
-    var f = key === 'title' ? el.title : key === 'category' ? el.category : key === 'expires_on' ? el.expires : null;
+    var f = key === 'title' ? el.title : key === 'category' ? el.category : key === 'expires_on' ? el.expires
+      : key === 'publish_at' ? el.pubDate : key === 'ack_deadline' ? el.ackDate : null;
     if (f) { f.classList.toggle('eip-bad', !!on); f.setAttribute('aria-invalid', on ? 'true' : 'false'); }
   }
 
@@ -235,6 +250,13 @@
       notify_bell: S.notify_bell ? 1 : 0,
       push_to_home: S.scope === 'all' && S.push_to_home ? 1 : 0,
       popup_image_link: S.popup_image_link ? 1 : 0,
+      notify_teams: S.notify_bell && S.notify_teams ? 1 : 0,
+      allow_comments: S.allow_comments ? 1 : 0,
+      require_ack: S.require_ack ? 1 : 0,
+      ack_deadline: S.require_ack && el.ackDate ? el.ackDate.value : '',
+      publish_mode: scheduling() ? 'schedule' : 'now',
+      publish_date: el.pubDate ? el.pubDate.value : '',
+      publish_time: el.pubTime ? el.pubTime.value : '',
       scope: S.scope,
       departments: S.scope === 'dept' ? S.depts.slice() : [],
       cover_kind: imageOk ? 'image' : 'color',
@@ -255,6 +277,7 @@
     var firstName = !S.name && res && res.name;
     S.name = res.name;
     S.published = !!res.published;
+    S.scheduled = !!res.scheduled;
     if (firstName && window.history && history.replaceState) {
       history.replaceState(null, '', '/tin-noi-bo/viet-bai?bai=' + encodeURIComponent(res.name));
     }
@@ -728,6 +751,57 @@
     markDirty();
   });
 
+  // ------------------------------------------------------------------ thoi diem dang (v6)
+  function scheduling() { return !S.published && S.when === 'schedule' && !!el.pubDate; }
+  function startDateIso() { return scheduling() && el.pubDate.value ? el.pubDate.value : today(); }
+  function whenText() {
+    if (!el.pubDate || !el.pubDate.value) return '';
+    var t = el.pubTime ? el.pubTime.value : '';
+    var d = new Date(el.pubDate.value + 'T00:00:00');
+    var wd = ['chủ Nhật', 'thứ Hai', 'thứ Ba', 'thứ Tư', 'thứ Năm', 'thứ Sáu', 'thứ Bảy'][d.getDay()];
+    return t + ' ' + wd + ' ' + fmtDate(el.pubDate.value).slice(0, 5);
+  }
+  function scheduleAt() {
+    if (!el.pubDate || !el.pubDate.value || !el.pubTime || !el.pubTime.value) return null;
+    var d = new Date(el.pubDate.value + 'T' + el.pubTime.value + ':00');
+    return isNaN(d.getTime()) ? null : d;
+  }
+  function renderWhen() {
+    var sched = scheduling();
+    if (el.whenBox) el.whenBox.hidden = !sched;
+    if (el.whenHelp) {
+      el.whenHelp.hidden = !sched;
+      el.whenHelp.textContent = (sched && whenText() ? 'Lên lúc ' + whenText() + '. ' : '') +
+        'Hệ thống kiểm mỗi 5 phút, bài lên trễ tối đa 5 phút.';
+    }
+    if (el.pubBtn) el.pubBtn.textContent = sched ? 'Hẹn đăng' : 'Đăng bài';
+    if (!sched) fieldErr('publish_at', false);
+    renderReach();
+  }
+  $$('input[name="eip-when"]').forEach(function (r) {
+    r.addEventListener('change', function () {
+      if (!r.checked) return;
+      S.when = r.value === 'schedule' ? 'schedule' : 'now';
+      if (S.when === 'schedule' && el.pubDate && !el.pubDate.value) {
+        var tmr = new Date(); tmr.setDate(tmr.getDate() + 1);
+        el.pubDate.value = tmr.getFullYear() + '-' + pad(tmr.getMonth() + 1) + '-' + pad(tmr.getDate());
+      }
+      markDirty();
+      renderWhen();
+    });
+  });
+  [el.pubDate, el.pubTime].forEach(function (x) {
+    if (x) x.addEventListener('change', function () { fieldErr('publish_at', false); markDirty(); renderWhen(); });
+  });
+  if (el.pubDate) el.pubDate.min = today();
+
+  // Doc va phan hoi: o han xac nhan chi hien khi bat "Bat buoc xac nhan"
+  function renderAck() {
+    if (el.ackBox) el.ackBox.hidden = !S.require_ack;
+    if (!S.require_ack) fieldErr('ack_deadline', false);
+  }
+  if (el.ackDate) el.ackDate.addEventListener('change', function () { fieldErr('ack_deadline', false); markDirty(); });
+
   // ------------------------------------------------------------------ cong tac -----
   $$('[data-eip-sw]').forEach(function (b) {
     b.addEventListener('click', function () {
@@ -746,6 +820,7 @@
       S[c.getAttribute('data-eip-chk')] = c.checked;
       markDirty();
       renderReach();
+      renderAck();
     });
   });
 
@@ -808,6 +883,12 @@
     var imgBox = $('[data-eip-chk="popup_image_link"]');
     if (imgRow) imgRow.classList.toggle('eip-dis', !imgOk);
     if (imgBox) { imgBox.disabled = !imgOk; imgBox.checked = imgOk && S.popup_image_link; }
+    // "Gui kem Teams" di kem chuong: tat chuong (hoac da gui) thi tat theo
+    var teamsOk = S.notify_bell && !S.notified;
+    var teamsRow = $('[data-eip-teams-row]');
+    var teamsBox = $('[data-eip-chk="notify_teams"]');
+    if (teamsRow) teamsRow.classList.toggle('eip-dis', !teamsOk);
+    if (teamsBox) { teamsBox.disabled = !teamsOk; teamsBox.checked = S.notify_bell && S.notify_teams; }
     var help = $('[data-eip-popup-help]');
     if (help) help.textContent = popupOk
       ? 'Hiện 7 ngày trong "Hôm nay ở eCentric". Bỏ tích trên bài đang hiện thì popup rút ngay.'
@@ -815,9 +896,10 @@
     if (!el.reach) return;
     var n = reachCount();
     var via = [];
-    if (S.notify_bell && !S.notified) via.push('qua chuông');
-    if (popupOk && S.push_to_home) via.push((via.length ? 'và ' : '') + 'popup trang chủ');
-    el.reach.innerHTML = 'Bài sẽ tới <b>' + n + ' người</b>' + (via.length ? ' ' + via.join(' ') : '') + '.' +
+    if (S.notify_bell && !S.notified) via.push(S.notify_teams ? 'chuông, Teams' : 'chuông');
+    if (popupOk && S.push_to_home) via.push('popup trang chủ');
+    var at = scheduling() && whenText() ? ', lúc ' + esc(whenText()) : '';
+    el.reach.innerHTML = 'Bài sẽ tới <b>' + n + ' người</b>' + (via.length ? ' qua ' + via.join(' và ') : '') + at + '.' +
       (S.notified ? ' Chuông đã gửi khi đăng, sửa bài không gửi lại.' : '');
   }
 
@@ -882,9 +964,22 @@
       var d = S.scope === 'dept' && !S.depts.length;
       fieldErr('departments', d);
       if (d) errs.push('Chọn ít nhất một phòng ban.');
-      var x = !S.published && el.expires.value && el.expires.value < today();
+      var start = startDateIso();
+      var x = !S.published && el.expires.value && el.expires.value < start;
       fieldErr('expires_on', x);
-      if (x) errs.push('Ngày hết hạn phải từ hôm nay trở đi.');
+      if (x) errs.push(scheduling() ? 'Ngày hết hạn đang trước ngày hẹn đăng.' : 'Ngày hết hạn phải từ hôm nay trở đi.');
+      if (scheduling()) {
+        var at = scheduleAt();
+        var bad = !at || at.getTime() <= Date.now();
+        fieldErr('publish_at', bad);
+        if (bad) errs.push('Chọn ngày và giờ đăng ở tương lai.');
+      }
+      if (S.require_ack) {
+        var dl = el.ackDate ? el.ackDate.value : '';
+        var badAck = !dl || (!S.published && dl < start);
+        fieldErr('ack_deadline', badAck);
+        if (badAck) errs.push('Chọn hạn xác nhận từ ngày bài lên trở đi.');
+      }
     }
     if (errs.length) {
       UI.toast('Còn thiếu thông tin, xem chữ đỏ.', true);
@@ -956,6 +1051,7 @@
     if ((ev.ctrlKey || ev.metaKey) && (ev.key === 's' || ev.key === 'S')) {
       ev.preventDefault();
       if (S.published) UI.toast('Bài đang hiện: bấm "Lưu thay đổi" để lưu.');
+      else if (S.scheduled) UI.toast('Bài đang hẹn giờ: bấm "Hẹn đăng" để lưu và giữ giờ hẹn.');
       else doAction('save');
     }
   });
@@ -963,15 +1059,23 @@
   function publishItems() {
     var n = reachCount();
     var cat = CATS[el.category.value];
-    var items = ['Hiện ngay ở Tin nội bộ, chuyên mục ' + (cat ? cat.name : '') + (S.pinned ? ', ghim trên cùng' : '') + '.'];
+    var items = [(scheduling() ? 'Bài tự lên lúc ' + whenText() + ', chuyên mục ' : 'Hiện ngay ở Tin nội bộ, chuyên mục ') +
+      (cat ? cat.name : '') + (S.pinned ? ', ghim trên cùng' : '') + '.'];
     items.push(S.scope === 'all' ? 'Toàn công ty đọc được (' + n + ' người).'
       : 'Chỉ ' + deptLabels().join(', ') + ' đọc được (' + n + ' người, gồm cả phòng con).');
-    if (S.notify_bell && !S.notified) items.push('Gửi chuông thông báo cho ' + n + ' người.');
+    if (S.notify_bell && !S.notified) items.push('Gửi chuông' + (S.notify_teams ? ' và tin nhắn Teams (không rút lại được)' : ' thông báo') + ' cho ' + n + ' người' + (scheduling() ? ' lúc bài lên.' : '.'));
     if (S.scope === 'all' && S.push_to_home) {
-      items.push('Hiện trên popup trang chủ ' + (el.expires.value ? 'tối đa 7 ngày (tới hạn của bài).' : '7 ngày.'));
+      items.push('Hiện trên popup trang chủ ' + (el.expires.value ? 'tối đa 7 ngày (tới hạn của bài)' : '7 ngày') + (scheduling() ? ', tính từ lúc bài lên.' : '.'));
       if (S.popup_image_link && S.cover.kind === 'image' && S.cover.image) items.push('Bấm vào ảnh trên popup là mở bài.');
     }
     if (el.expires.value) items.push('Tự rút khỏi danh sách sau ngày ' + fmtDate(el.expires.value) + '.');
+    if (S.require_ack && el.ackDate && el.ackDate.value) {
+      var dl = new Date(el.ackDate.value + 'T00:00:00');
+      var before = new Date(dl.getTime() - 86400000);
+      items.push('Mọi người cần xác nhận đã đọc trước ' + fmtDate(el.ackDate.value).slice(0, 5) + '; ERP tự nhắc ' +
+        pad(before.getDate()) + '/' + pad(before.getMonth() + 1) + ' và ' + fmtDate(el.ackDate.value).slice(0, 5) + ' lúc 09:00.');
+    }
+    if (!S.allow_comments) items.push('Tắt bình luận.');
     return items;
   }
 
@@ -981,6 +1085,8 @@
     if (act === 'save') {
       if (!check('save')) return;
       save('save').then(function () {
+        var sb = $('[data-eip-act="save"]');
+        if (sb) sb.textContent = 'Lưu nháp';         // bai hen gio vua bi bo hen
         setSaveState('Đã lưu nháp lúc ' + timeNow(), false);
         UI.toast('Đã lưu nháp. Chỉ HR thấy bài này.');
       }, function () { /* loi da hien */ });
@@ -995,12 +1101,19 @@
         }, function () {});
         return;
       }
+      var sched = scheduling();
       openModal({
-        title: 'Đăng bài "' + el.title.value.trim() + '"?',
+        title: (sched ? 'Hẹn đăng "' : 'Đăng bài "') + el.title.value.trim() + '"?',
         items: publishItems(),
-        ok: 'Đăng bài',
+        ok: sched ? 'Hẹn đăng' : 'Đăng bài',
         onOk: function () {
           save('publish').then(function (res) {
+            if (res.scheduled) {
+              S.dirty = false;
+              UI.toast('Đã hẹn đăng ' + (res.publish_at_label || whenText()) + '. Bài nằm ở tab Hẹn giờ.');
+              setTimeout(function () { window.location.href = '/tin-noi-bo/quan-ly?tab=scheduled'; }, 900);
+              return;
+            }
             UI.toast(S.notify_bell ? 'Đã đăng. Chuông đang gửi tới ' + reachCount() + ' người.' : 'Đã đăng bài.');
             setTimeout(function () { window.location.href = res.url; }, 700);
           }, function () {});
@@ -1077,8 +1190,25 @@
   setTab(S.tab);
   S.dirty = false;                   // setTab o tren khong tinh la sua
   renderFiles();
-  renderReach();
+  renderWhen();
+  renderAck();
   renderAI();
+
+  // Cho ec_internal_posts_aiw.js (AI viet giup) dung lai luu nhap + danh dau sua.
+  window.eipEditor = {
+    name: function () { return S.name; },
+    ensureSaved: ensureSaved,
+    markDirty: markDirty,
+    fields: el,
+    afterContent: function () {
+      if (el.sumN) el.sumN.textContent = el.summary.value.length + '/240';
+      if (!S.published && el.slug) el.slug.textContent = slugify(el.title.value);
+      fieldErr('title', !el.title.value.trim());
+      markDirty();
+      refreshAISoon();
+    },
+    sanitize: function (html) { return sanitize(html).html; }
+  };
   if (!P.name) {
     var cat0 = new URLSearchParams(location.search).get('chuyen-muc');
     if (cat0 && CATS[cat0]) { el.category.value = cat0; renderCover(); }

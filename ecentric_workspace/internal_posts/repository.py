@@ -15,7 +15,8 @@ from ecentric_workspace.internal_posts import constants as C
 
 POST_LIST_FIELDS = ["name", "title", "slug", "category", "summary", "published", "published_on",
                     "pinned", "expires_on", "cover_kind", "cover_color", "cover_icon", "cover_image",
-                    "creation", "modified", "owner", "author_label"]
+                    "creation", "modified", "owner", "author_label", "publish_at", "require_ack", "ack_deadline",
+                    "notify_bell", "notify_teams", "push_to_home", "allow_comments"]
 
 _STRIP_RE = re.compile(r"<(style|link|script|iframe|object|embed)\b[^>]*>.*?</\1\s*>"
                        r"|<(style|link|script|iframe|object|embed|meta)\b[^>]*/?>", re.I | re.S)
@@ -162,6 +163,17 @@ def commit():
     frappe.db.commit()
 
 
+def rollback():
+    frappe.db.rollback()
+
+
+def is_validation_error(exc):
+    """Loi nghiep vu (frappe.throw trong validate) - khac loi tam thoi cua DB."""
+    transient = tuple(e for e in (getattr(frappe, "QueryDeadlockError", None),
+                                  getattr(frappe, "QueryTimeoutError", None)) if e)
+    return isinstance(exc, frappe.ValidationError) and not (transient and isinstance(exc, transient))
+
+
 def get_post(name):
     return frappe.get_doc(C.POST_DT, name)
 
@@ -290,11 +302,25 @@ def save_post(doc):
     return doc
 
 
+def save_post_system(doc):
+    """Job hen gio dang (scheduler chay duoi Administrator) - ghi cua HE THONG thay HR da hen."""
+    doc.flags.ignore_permissions = True
+    doc.save()
+    return doc
+
+
+def due_scheduled(now, limit=50):
+    """Bai nhap co gio hen <= bay gio (job moi 5 phut)."""
+    return frappe.get_all(C.POST_DT, filters={"published": 0, "publish_at": ["<=", now]},
+                          order_by="publish_at asc", pluck="name", limit_page_length=limit)
+
+
 def delete_post(name):
-    """Xoa nhap (nguoi goi da kiem: chua tung dang). Don nhat ky AI + tep gan vao bai truoc -
-    EC Post Cover Job tro toi bai, khong don thi delete_doc bao LinkExistsError."""
-    for job in frappe.get_all(C.COVER_JOB_DT, filters={"post": name}, pluck="name", limit_page_length=0):
-        frappe.delete_doc(C.COVER_JOB_DT, job, ignore_permissions=True, force=True)
+    """Xoa nhap (nguoi goi da kiem: chua tung dang). Don nhat ky AI + binh luan + tep gan vao bai
+    truoc - cac bang do tro toi bai, khong don thi delete_doc bao LinkExistsError."""
+    for dt_ in (C.COVER_JOB_DT, C.COMMENT_DT):
+        for row in frappe.get_all(dt_, filters={"post": name}, pluck="name", limit_page_length=0):
+            frappe.delete_doc(dt_, row, ignore_permissions=True, force=True)
     frappe.delete_doc(C.POST_DT, name)
 
 
@@ -326,14 +352,14 @@ def insert_cover_job(post, user, day, source_text=""):
 
 def enqueue_cover_job(job):
     frappe.enqueue("ecentric_workspace.internal_posts.cover_ai.run_job", job=job, queue="long",
-                   timeout=C.AI_COVER_TIMEOUT_SECONDS + 420, enqueue_after_commit=True)
+                   timeout=C.AI_COVER_JOB_TIMEOUT, enqueue_after_commit=True)
 
 
 def cover_job(job):
     if not job:
         return None
-    return frappe.db.get_value(C.COVER_JOB_DT, job, ["name", "post", "status", "images", "error", "source_text"],
-                               as_dict=True)
+    return frappe.db.get_value(C.COVER_JOB_DT, job, ["name", "post", "status", "images", "error", "source_text",
+                                                     "filter_note"], as_dict=True)
 
 
 def set_cover_job(job, values):
@@ -351,8 +377,8 @@ def post_cover(post):
     return frappe.db.get_value(C.POST_DT, post, "cover_image") if post else None
 
 
-def save_remote_image(url, post, file_name, max_bytes):
-    """Tai anh tu URL tam cua Kie -> File CONG KHAI gan vao bai. -> file_url."""
+def fetch_image(url, max_bytes):
+    """Tai anh tu URL tam cua Kie. -> (bytes, mime)."""
     import requests
     r = requests.get(url, timeout=(5, 60), stream=True)
     r.raise_for_status()
@@ -364,10 +390,21 @@ def save_remote_image(url, post, file_name, max_bytes):
         buf += chunk
         if len(buf) > max_bytes:
             raise ValueError("anh qua lon")
+    return buf, ctype
+
+
+def save_image_bytes(buf, post, file_name):
+    """Anh -> File CONG KHAI gan vao bai. -> file_url."""
     f = frappe.get_doc({"doctype": "File", "file_name": file_name, "content": buf, "is_private": 0,
                         "attached_to_doctype": C.POST_DT, "attached_to_name": post})
     f.insert(ignore_permissions=True)     # job nen ghi thay HR da bam
     return f.file_url
+
+
+def save_remote_image(url, post, file_name, max_bytes):
+    """Tai anh tu URL tam cua Kie -> File CONG KHAI gan vao bai. -> file_url."""
+    buf, _ctype = fetch_image(url, max_bytes)
+    return save_image_bytes(buf, post, file_name)
 
 
 def delete_post_file(url, post):
@@ -380,3 +417,139 @@ def delete_post_file(url, post):
 
 def log_message(title, message):
     frappe.log_error(title=title, message=str(message)[:2000])
+
+
+# ------------------------------------------------------------------ xac nhan da doc (v6) ----
+def mark_ack(name, user):
+    from ecentric_workspace.platform import read_receipt
+    return read_receipt.mark_ack(C.POST_DT, name, user)
+
+
+def ack_users(name):
+    from ecentric_workspace.platform import read_receipt
+    return read_receipt.seen_users(C.POST_DT, name, kind=read_receipt.ACK)
+
+
+def ack_times(name):
+    from ecentric_workspace.platform import read_receipt
+    return read_receipt.seen_times(C.POST_DT, name, kind=read_receipt.ACK)
+
+
+def acked_by(user, names):
+    from ecentric_workspace.platform import read_receipt
+    return read_receipt.seen_by(user, C.POST_DT, names, kind=read_receipt.ACK)
+
+
+def ack_users_many(names):
+    from ecentric_workspace.platform import read_receipt
+    return read_receipt.seen_users_many(C.POST_DT, names, kind=read_receipt.ACK)
+
+
+def ack_due_posts(dates):
+    """Bai dang hien, bat buoc xac nhan, han roi vao mot trong cac ngay `dates` (job 09:00)."""
+    if not dates:
+        return []
+    return frappe.get_all(C.POST_DT, filters={"published": 1, "require_ack": 1, "ack_deadline": ["in", list(dates)]},
+                          pluck="name", limit_page_length=0)
+
+
+def user_departments(users):
+    """{user: ten phong ban} (binh luan: 'Lan · Kinh doanh'; Excel xac nhan)."""
+    users = [u for u in set(users or ()) if u]
+    if not users:
+        return {}
+    rows = frappe.get_all("Employee", filters={"user_id": ["in", users], "status": "Active"},
+                          fields=["user_id", "department"], limit_page_length=0)
+    labels = {k: v[2] for k, v in dept_tree().items()}
+    return {r.user_id: labels.get(r.department, r.department or "") for r in rows}
+
+
+def send_bell(event, user, title, message, url, ref_name, dedupe_key, actor=None):
+    """Chuong (va Teams neu event cho phep) qua notification_center - MOT duong gui."""
+    from ecentric_workspace.notification_center.events import publish_notification_event
+    return publish_notification_event(event, user, title, message, action_url=url,
+                                      reference_doctype=C.POST_DT, reference_name=ref_name,
+                                      actor=actor, from_user=actor, dedupe_key=dedupe_key)
+
+
+# ------------------------------------------------------------------ binh luan (v6) ----------
+COMMENT_FIELDS = ["name", "post", "parent_comment", "user", "content", "hidden", "hidden_by", "hidden_on",
+                  "deleted", "edited_on", "creation"]
+
+
+def comments_of(post):
+    """Moi binh luan cua bai (ca an / da xoa - service quyet dinh ai thay gi)."""
+    return frappe.get_all(C.COMMENT_DT, filters={"post": post}, fields=COMMENT_FIELDS,
+                          order_by="creation asc", limit_page_length=0)
+
+
+def comment(name):
+    if not name:
+        return None
+    return frappe.db.get_value(C.COMMENT_DT, name, COMMENT_FIELDS, as_dict=True)
+
+
+def insert_comment(post, user, content, parent=None):
+    """Ghi cua HE THONG - nhan vien khong co quyen tren bang; service da kiem quyen doc bai."""
+    doc = frappe.get_doc({"doctype": C.COMMENT_DT, "post": post, "user": user, "content": content,
+                          "parent_comment": parent or None})
+    doc.insert(ignore_permissions=True)
+    return doc.name
+
+
+def update_comment(name, values):
+    frappe.db.set_value(C.COMMENT_DT, name, values, update_modified=True)
+
+
+def comment_count_since(post, user, since):
+    return frappe.db.count(C.COMMENT_DT, {"post": post, "user": user, "creation": [">=", since]})
+
+
+def comment_counts(names):
+    """{bai: so binh luan dang hien (khong an, khong xoa)} - bang quan ly."""
+    out = {n: 0 for n in names or ()}
+    if not names:
+        return out
+    rows = frappe.db.sql(
+        "select c.post, count(*) from `tabEC Post Comment` c "
+        "left join `tabEC Post Comment` root on root.name = c.parent_comment "
+        "where c.post in %s and ifnull(c.hidden, 0) = 0 and ifnull(c.deleted, 0) = 0 "
+        "and ifnull(root.hidden, 0) = 0 group by c.post", (tuple(names),))
+    for post, n in rows:
+        out[post] = int(n or 0)
+    return out
+
+
+# ------------------------------------------------------------------ AI viet giup (v6) -------
+_AIW_KEY = "ec_internal_posts:ai_write:%s:%s"
+
+
+def ai_write_used(key, day):
+    try:
+        return int(frappe.cache().get_value(_AIW_KEY % (key, day)) or 0)
+    except Exception:
+        return 0
+
+
+def ai_write_add(key, day):
+    """Dem luot AI viet (cache 2 ngay - gioi han mem de giu chi phi, khong phai so sach)."""
+    k = _AIW_KEY % (key, day)
+    try:
+        n = int(frappe.cache().get_value(k) or 0) + 1
+        frappe.cache().set_value(k, n, expires_in_sec=2 * 86400)
+        return n
+    except Exception:
+        return 0
+
+
+def ai_generate(prompt, **kw):
+    from ecentric_workspace.platform.ai.gateway import generate
+    return generate(prompt, **kw)
+
+
+def ai_available():
+    try:
+        from ecentric_workspace.platform.ai import config
+        return not config.disabled() and bool(config.api_key())
+    except Exception:
+        return False

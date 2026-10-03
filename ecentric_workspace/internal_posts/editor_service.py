@@ -11,9 +11,11 @@ va moi nhan vien doc duoc bai se tai duoc tep do (File.has_permission di theo ba
 """
 from ecentric_workspace.internal_posts import constants as C
 from ecentric_workspace.internal_posts import domain as D
-from ecentric_workspace.internal_posts.service import Forbidden, NotFound, PostError, audience, scope_label
+from ecentric_workspace.internal_posts.audience import audience, scope_label
+from ecentric_workspace.internal_posts.errors import Forbidden, NotFound, PostError
 
 ACTIONS = ("save", "publish", "unpublish")
+PUBLISH_MODES = ("now", "schedule")
 
 #: Bai MOI: du moi khoa template viet_bai.html doc. Jinja cua Frappe khong nem loi khi thieu
 #: khoa ma IN RA "{{ no such element: dict object['title'] }}" vao o nhap (gap tren live 02/10).
@@ -23,6 +25,9 @@ BLANK_POST = {
     "popup_image_link": True, "notified": False, "cover_kind": C.COVER_KIND_COLOR, "cover_color": "",
     "cover_icon": True, "cover_image": "", "cover_ai": False, "author_label": "", "scope": "all",
     "departments": [], "attachments": [], "url": "",
+    # v6
+    "scheduled": False, "publish_date": "", "publish_time": C.SCHEDULE_TIME_DEFAULT, "publish_at_label": "",
+    "notify_teams": False, "allow_comments": True, "require_ack": False, "ack_deadline": "",
 }
 
 
@@ -87,7 +92,8 @@ def compose_context(user, name=None, repo=None):
                             for r in (doc.get("attachments") or [])],
             "url": "%s/%s" % (C.ROUTE, doc.get("slug")),
         }
-    from ecentric_workspace.internal_posts import cover_ai
+        post.update(_v6_fields(doc))
+    from ecentric_workspace.internal_posts import ai_write, cover_ai
     return {
         "post": post, "categories": cats,
         "colors": [{"key": k, "name": v[0], "c1": v[1], "c2": v[2]} for k, v in C.COVER_COLORS.items()],
@@ -97,6 +103,25 @@ def compose_context(user, name=None, repo=None):
         "ai_limit": C.AI_COVER_DAILY_LIMIT,
         "ai_used": cover_ai.used_today(name, repo=repo) if name else 0,
         "ai_enabled": cover_ai.available(),
+        "schedule_times": list(C.SCHEDULE_TIMES),
+        "ai_write": dict(ai_write.quota(user, name, repo=repo), tones=[{"key": k, "label": v} for k, v in C.AI_WRITE_TONES.items()],
+                         enabled=bool(repo.ai_available())),
+    }
+
+
+def _v6_fields(doc):
+    """Hen gio / Teams / binh luan / xac nhan cho trang viet bai."""
+    at = D.as_datetime(doc.get("publish_at"))
+    allow = doc.get("allow_comments")
+    return {
+        "scheduled": bool(at) and not doc.get("published"),
+        "publish_date": at.strftime("%Y-%m-%d") if at else "",
+        "publish_time": at.strftime("%H:%M") if at else C.SCHEDULE_TIME_DEFAULT,
+        "publish_at_label": D.when_label(at) if at else "",
+        "notify_teams": bool(doc.get("notify_teams")),
+        "allow_comments": True if allow is None else bool(allow),
+        "require_ack": bool(doc.get("require_ack")),
+        "ack_deadline": str(doc.get("ack_deadline") or "")[:10],
     }
 
 
@@ -135,6 +160,11 @@ def save(user, payload, action="save", repo=None):
     doc.notify_bell = 1 if _truthy(p.get("notify_bell", 1)) else 0
     doc.push_to_home = 1 if _truthy(p.get("push_to_home", 1)) else 0
     doc.popup_image_link = 1 if _truthy(p.get("popup_image_link", 1)) else 0
+    # v6: Teams (mac dinh TAT, chi khi co chuong), binh luan (mac dinh BAT), xac nhan da doc
+    doc.notify_teams = 1 if doc.notify_bell and _truthy(p.get("notify_teams", 0)) else 0
+    doc.allow_comments = 1 if _truthy(p.get("allow_comments", 1)) else 0
+    doc.require_ack = 1 if _truthy(p.get("require_ack", 0)) else 0
+    doc.ack_deadline = (p.get("ack_deadline") or None) if doc.require_ack else None
 
     depts = [d for d in (p.get("departments") or []) if d] if p.get("scope") == "dept" else []
     tree = repo.dept_tree()
@@ -169,13 +199,46 @@ def save(user, payload, action="save", repo=None):
                      "file_size": f.get("file_size") or 0})
     doc.set("attachments", rows)
 
-    if action == "publish":
-        doc.published = 1
-    elif action == "unpublish":
-        doc.published = 0
+    _apply_action(repo, doc, action, p)
     repo.save_post(doc)
     return {"name": doc.get("name"), "slug": doc.get("slug"), "published": bool(doc.get("published")),
+            "scheduled": bool(doc.get("publish_at")) and not doc.get("published"),
+            "publish_at_label": D.when_label(doc.get("publish_at")),
             "url": "%s/%s" % (C.ROUTE, doc.get("slug"))}
+
+
+def _apply_action(repo, doc, action, p):
+    """save = nhap (bo hen); publish = dang ngay HOAC hen gio (publish_mode); unpublish = go."""
+    if action == "publish" and not doc.get("published") and p.get("publish_mode") == "schedule":
+        at = D.as_datetime("%s %s" % (p.get("publish_date") or "", p.get("publish_time") or ""))
+        err = D.check_schedule(at, repo.now())
+        if err:
+            raise PostError(err)
+        doc.published = 0
+        doc.publish_at = at
+    elif action == "publish":
+        doc.published = 1
+        doc.publish_at = None
+    elif action == "unpublish":
+        doc.published = 0
+        doc.publish_at = None
+    elif not doc.get("published"):
+        doc.publish_at = None
+
+
+def publish_now(user, name, repo=None):
+    """Tab "Hen gio": "Dang ngay" - khong doi toi gio hen."""
+    repo = _repo(repo)
+    _need_editor(repo, user)
+    if not repo.post_exists(name):
+        raise NotFound(name)
+    doc = repo.get_post(name)
+    if doc.get("published"):
+        return {"name": name, "published": True, "url": "%s/%s" % (C.ROUTE, doc.get("slug"))}
+    doc.published = 1
+    doc.publish_at = None
+    repo.save_post(doc)
+    return {"name": name, "published": True, "url": "%s/%s" % (C.ROUTE, doc.get("slug"))}
 
 
 def unpublish(user, name, repo=None):
@@ -203,7 +266,7 @@ def delete_draft(user, name, repo=None):
 
 
 # ------------------------------------------------------------------ quan ly -------
-TABS = (("live", "Đang hiện"), ("draft", "Nháp"), ("expired", "Hết hạn"))
+TABS = (("live", "Đang hiện"), ("scheduled", "Hẹn giờ"), ("draft", "Nháp"), ("expired", "Hết hạn"))
 
 
 def manage_context(user, tab="live", repo=None):
@@ -215,8 +278,11 @@ def manage_context(user, tab="live", repo=None):
     names = [r["name"] for r in rows]
     depts = repo.post_departments(names)
     seen_many = repo.seen_users_many(names)
+    ack_names = [r["name"] for r in rows if r.get("require_ack")]
+    ack_many = repo.ack_users_many(ack_names) if ack_names else {}
+    cmt = repo.comment_counts(names)
     aud_cache = {}
-    groups = {"live": [], "draft": [], "expired": []}
+    groups = {"live": [], "scheduled": [], "draft": [], "expired": []}
     for r in rows:
         d = tuple(depts.get(r["name"]) or ())
         if d not in aud_cache:
@@ -230,8 +296,13 @@ def manage_context(user, tab="live", repo=None):
                 "url": "%s/%s" % (C.ROUTE, r.get("slug")), "edit_url": "%s?bai=%s" % (C.ROUTE_COMPOSE, r["name"]),
                 "seen": seen, "total": len(aud), "pct": int(round(100.0 * seen / len(aud))) if aud else 0,
                 "expires_label": D.date_label(r.get("expires_on")), "published": bool(r.get("published")),
-                "deletable": not r.get("published") and not r.get("published_on")}
-        if not r.get("published"):
+                "deletable": not r.get("published") and not r.get("published_on"),
+                "publish_at_label": D.short_when(r.get("publish_at")),
+                "channels": _channels(r, d), "comments": cmt.get(r["name"], 0),
+                "ack": _ack_cell(r, aud, ack_many.get(r["name"], set()))}
+        if not r.get("published") and r.get("publish_at"):
+            groups["scheduled"].append(item)
+        elif not r.get("published"):
             groups["draft"].append(item)
         elif D.expired(r, today):
             groups["expired"].append(item)
@@ -240,3 +311,25 @@ def manage_context(user, tab="live", repo=None):
     tab = tab if tab in groups else "live"
     return {"tab": tab, "tabs": [{"key": k, "label": lbl, "count": len(groups[k])} for k, lbl in TABS],
             "items": groups[tab]}
+
+
+def _channels(r, depts):
+    """'Chuông · Teams · Popup' (tab Hen gio)."""
+    out = []
+    if r.get("notify_bell"):
+        out.append("Chuông")
+        if r.get("notify_teams"):
+            out.append("Teams")
+    if r.get("push_to_home") and not depts:
+        out.append("Popup")
+    return " · ".join(out) or "Không báo"
+
+
+def _ack_cell(r, aud, acked):
+    if not r.get("require_ack"):
+        return {"on": False, "label": "–"}
+    if not r.get("published"):
+        return {"on": True, "label": "Hạn " + D.short_date(r.get("ack_deadline")), "pct": 0}
+    n = len(acked & aud)
+    return {"on": True, "label": "%d/%d" % (n, len(aud)), "pct": int(round(100.0 * n / len(aud))) if aud else 0,
+            "deadline": D.short_date(r.get("ack_deadline"))}
