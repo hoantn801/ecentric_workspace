@@ -2286,6 +2286,18 @@ class TestPowerAutomateCopilot(unittest.TestCase):
         self.assertEqual(d["status"], "Skipped"); self.assertEqual(d["error_code"], "NOT_INSTALLED")
         self.assertIsNone(d["next_retry_at"])
 
+    def test_not_installed_nhung_da_tung_nhan_thi_thu_lai(self):
+        """04/10/2026: Copilot tra 100 xen ke voi 200 cho CUNG nguoi -> loi tam, thu lai."""
+        self._provider_pa()
+        self.pa.send_event = lambda payload, cfg=None: ("sent", "power_automate_copilot", "200", "")
+        ok = self._dlv_row(); self.tm.deliver(ok)
+        self.assertEqual(FR.get_doc("EC Notification Delivery Log", ok)["status"], "Sent")
+        self.pa.send_event = lambda payload, cfg=None: ("skip", "power_automate_copilot", "NOT_INSTALLED", "x")
+        nm = self._dlv_row("approval_required"); self.tm.deliver(nm)
+        d = FR.get_doc("EC Notification Delivery Log", nm)
+        self.assertEqual(d["status"], "Failed"); self.assertEqual(d["error_code"], "NOT_INSTALLED")
+        self.assertIsNotNone(d["next_retry_at"])
+
     def test_deliver_retry_classified(self):
         self._provider_pa()
         self.pa.send_event = lambda payload, cfg=None: ("retry", "power_automate_copilot", "PA_429", "throttled")
