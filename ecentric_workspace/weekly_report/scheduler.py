@@ -151,11 +151,17 @@ def wr_due_overdue_scan(run_date=None):
         filters={"status": ["not in", ["Submitted", "Reviewed"]]},
         fields=["name", "submitter", "week_label", "due_at"],
         limit_page_length=0)
+    from ecentric_workspace.approval_center.shared.workflow import ngay_lam_viec
+    nghi_cache = {}
     sent = 0
     for w in wtus:
         user = w.get("submitter")
         due = w.get("due_at")
         if not user or not due:
+            continue
+        # 04/10: chay 09:00, nguoi dang nghi khong nhan; dedupe theo han nen ngay lam viec
+        # ke tiep van nhac.
+        if ngay_lam_viec.la_ngay_nghi(user, now.date(), nghi_cache):
             continue
         due_dt = frappe.utils.get_datetime(due)
         label = str(w.get("week_label") or "")
