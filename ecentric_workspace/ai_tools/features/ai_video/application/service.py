@@ -342,6 +342,8 @@ def tick(project):
     _tick_exports(pdoc, tasks)
     pst["host_files"] = hfiles
     pst["breaker"] = W.get("breaker")
+    if W.get("costs"):
+        pst["costs"] = W.get("costs")
     pst["last_tick"] = str(frappe.utils.now_datetime())
     pdoc.host_key = host
     _save_state(pdoc, pst, anchor_state=("ready" if anchor_ready else ast),
@@ -473,6 +475,7 @@ def get_project(name, do_tick=0):
         it["units"] = st.get("units_view") or {}
         items.append(it)
     _attach_worker_views(name, items)
+    proj["cost"] = flow.cost_view(pst.get("costs"), items)
     exports = frappe.get_all(E, filters={"project": name}, fields=["name", "batch", "mode", "variants", "duration",
                                                                    "status", "zip_path", "files_json", "creation"],
                              order_by="creation desc", limit_page_length=30)

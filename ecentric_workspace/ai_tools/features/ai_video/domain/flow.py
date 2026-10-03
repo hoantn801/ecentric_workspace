@@ -197,3 +197,28 @@ def project_summary(items):
         elif stg in RUNNING_STAGES or stg == "wait_anchor":
             c["running"] += 1
     return c
+
+
+def cost_view(costs, items):
+    """Chi phi Kie theo $ (worker tinh tu credit da tieu; uoc tinh voi viec cu chua ghi credit).
+    SKU: cong moi job cua SKU do (ke ca cac lan lam lai). Clip noi/khung neo dung chung -> chia deu cho cac SKU.
+    /video = (chi phi SKU + phan clip noi) / so video da tron cua SKU. Gan ket qua vao tung item (cost_usd, ...)."""
+    costs = costs or {}
+    jobs = costs.get("job") or {}
+    host_usd = round(sum((v or {}).get("usd") or 0 for v in (costs.get("host") or {}).values()), 2)
+    est = sum((v or {}).get("est_credits") or 0 for v in list(jobs.values()) + list((costs.get("host") or {}).values()))
+    videos = costs.get("videos") or {}
+    n = len(items) or 1
+    total = host_usd
+    for it in items:
+        sku = str(it.get("sku") or "")
+        usd = round(sum((v or {}).get("usd") or 0 for k, v in jobs.items() if sku and "_%s_" % sku in "_%s_" % k), 2)
+        share = round(host_usd / n, 2)
+        nv = int(videos.get(sku) or 0)
+        it["cost_usd"] = usd
+        it["cost_share_usd"] = share
+        it["videos"] = nv
+        it["cost_per_video_usd"] = round((usd + share) / nv, 2) if nv else None
+        total += usd
+    return {"total_usd": round(total, 2), "host_usd": host_usd, "estimated": bool(est),
+            "usd_per_credit": costs.get("usd_per_credit")}
