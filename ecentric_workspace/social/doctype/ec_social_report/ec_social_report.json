@@ -1,0 +1,109 @@
+{
+ "doctype": "DocType",
+ "name": "EC Social Report",
+ "module": "Social",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "autoname": "hash",
+ "naming_rule": "Random",
+ "track_changes": 1,
+ "title_field": "post",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "description": "Báo cáo bài Bảng tin. Một người báo một bài một lần (dedupe_key). HR xử lý ở /bang-tin/quan-ly.",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "delete": 1
+  },
+  {
+   "role": "HR Manager",
+   "read": 1,
+   "report": 1
+  }
+ ],
+ "field_order": [
+  "post",
+  "user",
+  "reason",
+  "column_break_1",
+  "status",
+  "handled_by",
+  "handled_on",
+  "action",
+  "dedupe_key"
+ ],
+ "fields": [
+  {
+   "fieldname": "post",
+   "fieldtype": "Link",
+   "label": "Bài",
+   "options": "EC Social Post",
+   "reqd": 1,
+   "in_list_view": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "Người báo cáo",
+   "options": "User",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Small Text",
+   "label": "Lý do"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Trạng thái",
+   "options": "Mới\nĐã xử lý",
+   "default": "Mới",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "handled_by",
+   "fieldtype": "Link",
+   "label": "Xử lý bởi",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "handled_on",
+   "fieldtype": "Datetime",
+   "label": "Xử lý lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "action",
+   "fieldtype": "Data",
+   "label": "Cách xử lý",
+   "read_only": 1
+  },
+  {
+   "fieldname": "dedupe_key",
+   "fieldtype": "Data",
+   "label": "Khoá",
+   "unique": 1
+  }
+ ],
+ "modified": "2026-10-04 10:00:00.000000",
+ "links": [],
+ "index_web_pages_for_search": 0
+}

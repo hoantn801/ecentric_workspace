@@ -1,0 +1,12 @@
+{%- extends "templates/includes/social/layout.html" -%}
+{%- from "templates/includes/social/macros.html" import post_card -%}
+{#- /bang-tin/bai/<ten> - mot bai, binh luan mo san (link tu chuong). -#}
+{% block esc_page %}
+<div class="esc-single">
+  <a class="esc-link" href="/bang-tin">← Bảng tin</a>
+  <div data-esc-feed>
+  {%- set cmh %}{% include "templates/includes/social/comments.html" %}{% endset %}
+  {%- for it in items %}{{ post_card(it, True, cmh) }}{% endfor %}
+  </div>
+</div>
+{% endblock %}

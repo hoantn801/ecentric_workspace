@@ -142,7 +142,9 @@
    "days_left": 129
   }
  ],
- "event_coming_soon": true,
+ "event_coming_soon": false,
+ "events": [{"name": "SP1", "title": "Chạy 5km hồ Bán Nguyệt <b>", "url": "/bang-tin/bai/SP1", "when": "06:00 Chủ Nhật 04/10", "day": "04", "month": "Th10", "place": "Q7", "club": "Chạy bộ", "emoji": "🏃", "going": 14, "days_left": 5}],
+ "wishes": {"bd:E1:2026": 3},
  "reactions": {
   "bd:E1:2026": {
    "heart": {

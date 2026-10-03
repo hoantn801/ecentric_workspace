@@ -1,0 +1,248 @@
+{#- Bang tin + Cau lac bo - macro dung chung cho trang va api (the bai ve lai sau moi thao tac).
+    Jinja cua Frappe KHONG tu escape: moi chuoi do nguoi nhap PHAI qua |e. -#}
+
+{%- macro av(p, cls="") -%}
+<span class="esc-av esc-av-c{{ p.av|default(0) }} {{ cls }}" aria-hidden="true">{{ p.initials|e }}</span>
+{%- endmacro -%}
+
+{%- macro dots() -%}<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>{%- endmacro -%}
+
+{%- macro date_box(d) -%}
+<div class="esc-date" aria-hidden="true"><small>{{ d.mon|e }}</small><b>{{ d.day|e }}</b></div>
+{%- endmacro -%}
+
+{%- macro photos(c) -%}
+{%- set n = c.images|length -%}
+{%- if n -%}
+<div class="esc-photos esc-photos-{{ n if n < 4 else 4 }}" data-esc-photos>
+  {%- for im in c.images[:4] %}
+  <button type="button" class="esc-pic" data-esc-ph="{{ loop.index0 }}" data-src="{{ im.src|e }}" aria-label="Xem ảnh {{ loop.index }}/{{ n }}">
+    <img src="{{ im.src|e }}" alt="" loading="lazy"{% if im.w and im.h %} width="{{ im.w }}" height="{{ im.h }}"{% endif %}>
+    {%- if loop.index == 4 and n > 4 %}<span class="esc-pic-more">+{{ n - 4 }}</span>{% endif %}
+  </button>
+  {%- endfor %}
+  {%- for im in c.images[4:] %}<span hidden data-esc-ph-extra data-src="{{ im.src|e }}"></span>{% endfor %}
+</div>
+{%- endif -%}
+{%- endmacro -%}
+
+{%- macro event_box(c) -%}
+{%- set e = c.event -%}
+<div class="esc-event">
+  {{ date_box(e.date) }}
+  <div class="esc-ev-b">
+    <b class="esc-ev-t">{{ e.title|e }}</b>
+    <div class="esc-ev-m">{{ e.when|e }}{% if e.place %} · {{ e.place|e }}{% endif %} · {{ e.going }} người tham gia{% if e.maybe %} · {{ e.maybe }} có thể{% endif %}</div>
+    {%- if e.open and not c.hidden %}
+    <div class="esc-rsvp" role="group" aria-label="Bạn có tham gia không?">
+      <button type="button" class="esc-btn esc-btn-sm{% if e.mine == 'going' %} esc-btn-pri{% endif %}" data-esc-rsvp="going" aria-pressed="{{ 'true' if e.mine == 'going' else 'false' }}">{% if e.mine == 'going' %}✓ Sẽ tham gia{% else %}Tham gia{% endif %}</button>
+      <button type="button" class="esc-btn esc-btn-sm{% if e.mine == 'maybe' %} esc-btn-wash{% endif %}" data-esc-rsvp="maybe" aria-pressed="{{ 'true' if e.mine == 'maybe' else 'false' }}">{% if e.mine == 'maybe' %}✓ Có thể{% else %}Có thể{% endif %}</button>
+    </div>
+    {%- elif e.state == 'past' %}<p class="esc-note-sm">Sự kiện đã diễn ra.</p>{% endif %}
+    {%- if e.line %}
+    <div class="esc-who-go"><span class="esc-stack">{% for p in e.sample %}{{ av(p, 'esc-av-xs') }}{% endfor %}</span>{{ e.line|e }}</div>
+    {%- endif %}
+  </div>
+</div>
+{%- endmacro -%}
+
+{%- macro post_card(c, open_comments=False, cm_html="") -%}
+<article class="esc-card esc-post{% if c.hidden %} esc-is-hidden{% endif %}" id="p-{{ c.name|e }}" data-esc-post="{{ c.name|e }}" data-esc-kind="{{ c.kind|e }}">
+  <header class="esc-post-h">
+    {%- if c.moment %}<span class="esc-av esc-av-ic" aria-hidden="true">{{ c.moment.icon }}</span>{% else %}{{ av(c.author) }}{% endif %}
+    <div class="esc-post-hb">
+      <div class="esc-who">
+        {%- if c.moment -%}
+          {{ c.moment.label|e }} · <b>{{ c.author.name|e if c.author.user else 'bạn mới' }}</b>
+        {%- elif c.kudos -%}
+          <b>{{ c.author.name|e }}</b> <span>khen</span> <b>{{ c.kudos.to.name|e }}</b>
+        {%- elif c.event -%}
+          <b>{{ c.author.name|e }}</b> <span>tạo sự kiện trong</span> {% if c.club %}<a href="{{ c.club.url|e }}">{{ c.club.emoji|e }} CLB {{ c.club.title|e }}</a>{% endif %}
+        {%- else -%}
+          <b>{{ c.author.name|e }}</b>{% if c.club %} <span>trong</span> <a href="{{ c.club.url|e }}">{{ c.club.emoji|e }} CLB {{ c.club.title|e }}</a>{% elif c.author.dept %} <span>· {{ c.author.dept|e }}</span>{% endif %}
+        {%- endif -%}
+        {%- if c.mentions %} <span>cùng với</span> {% for m in c.mentions %}<b>{{ m.name|e }}</b>{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
+      </div>
+      <div class="esc-meta">
+        {%- if c.kudos %}<span class="esc-badge esc-b-kudo">👏 Lời khen{% if c.kudos.value %} · {{ c.kudos.value|e }}{% endif %}</span>{% endif %}
+        {%- if c.event %}<span class="esc-badge esc-b-auto">Sự kiện CLB</span>{% elif c.club and not c.moment %}<span class="esc-badge esc-b-src">CLB {{ c.club.title|e }}</span>{% endif %}
+        <a href="{{ c.url|e }}" class="esc-ago">{{ c.ago|e }}</a>{% if c.edited %}<span>· đã sửa</span>{% endif %}
+        {%- if not c.moment %}<span>· {% if c.dept_only %}👥 Chỉ {{ c.dept_label|e }}{% else %}🌐 Toàn công ty{% endif %}</span>{% endif %}
+      </div>
+    </div>
+    {%- if c.can_edit or c.can_delete or c.can_report or c.can_hide %}
+    <div class="esc-menu">
+      <button type="button" class="esc-menu-btn" data-esc-menu aria-haspopup="true" aria-expanded="false" aria-label="Thêm thao tác">{{ dots() }}</button>
+      <div class="esc-menu-pop" role="menu" hidden>
+        {% if c.can_edit %}<button type="button" role="menuitem" data-esc-act="edit">Sửa bài</button>{% endif %}
+        {% if c.can_delete %}<button type="button" role="menuitem" data-esc-act="delete">Xoá bài</button>{% endif %}
+        {% if c.can_report and not c.can_hide %}<button type="button" role="menuitem" data-esc-act="report">Báo cáo bài</button>{% endif %}
+        {% if c.can_hide %}{% if c.hidden %}<button type="button" role="menuitem" data-esc-act="unhide">Hiện lại bài</button>{% else %}<button type="button" role="menuitem" data-esc-act="hide">Ẩn bài (HR)</button>{% endif %}{% endif %}
+      </div>
+    </div>
+    {%- endif %}
+  </header>
+  {%- if c.hidden %}
+  <p class="esc-hidden-note">HR đã ẩn bài này{% if c.hidden_reason %}: {{ c.hidden_reason|e }}{% endif %}. Chỉ người đăng và HR còn thấy.</p>
+  {%- endif %}
+  {%- if c.body %}<div class="esc-post-b" data-esc-body>{{ c.body|e }}</div>{% endif %}
+  {{ photos(c) }}
+  {%- if c.event %}<div class="esc-pad-x">{{ event_box(c) }}</div>{% endif %}
+  <div class="esc-rx-row">
+    <span data-esc-rx-sum>{% if c.rx.total %}<span class="esc-em">{{ c.rx.emojis }}</span> {{ c.rx.total }}{% endif %}</span>
+    <button type="button" class="esc-linkbtn" data-esc-cmt-toggle data-esc-cmt-count="{{ c.comments }}">{% if c.comments %}{{ c.comments }} {{ 'lời chúc' if c.moment else 'bình luận' }}{% endif %}</button>
+  </div>
+  <div class="esc-acts">
+    {%- if c.moment %}
+    <button type="button" data-esc-react data-esc-moment="{{ c.moment.key|e }}" aria-pressed="{{ 'true' if c.rx.mine else 'false' }}">{{ c.moment.rx_emoji }} Chúc mừng</button>
+    {%- else %}
+    <button type="button" data-esc-react aria-pressed="{{ 'true' if c.rx.mine else 'false' }}"{% if c.hidden %} disabled{% endif %}>❤️ Thích</button>
+    {%- endif %}
+    <button type="button" data-esc-cmt-open>💬 {{ 'Gửi lời chúc' if c.moment else 'Bình luận' }}</button>
+  </div>
+  <div class="esc-cmts-wrap" data-esc-cmts-wrap{% if not open_comments %} hidden{% endif %}{% if cm_html %} data-esc-loaded="1" id="binh-luan"{% endif %}>{{ cm_html }}</div>
+</article>
+{%- endmacro -%}
+
+{%- macro hr_card(h) -%}
+<article class="esc-card esc-post esc-hr" data-esc-hr="{{ h.name|e }}">
+  <header class="esc-post-h">
+    <span class="esc-av esc-av-hr" aria-hidden="true">HR</span>
+    <div class="esc-post-hb">
+      <div class="esc-who"><b>{{ h.author|e if h.author else 'Phòng Hành chính – Nhân sự' }}</b> <span>đăng ở Tin nội bộ</span></div>
+      <div class="esc-meta">
+        <span class="esc-badge esc-b-hr">Tin nội bộ{% if h.category and h.category.name %} · {{ h.category.name|e }}{% endif %}</span>
+        {% if h.pinned %}<span>📌 Ghim</span>{% endif %}
+        <span>· {{ h.date_label|e }}</span>
+        {% if h.scope_label %}<span>· 👥 {{ h.scope_label|e }}</span>{% endif %}
+      </div>
+    </div>
+  </header>
+  <a class="esc-embed" href="{{ h.url|e }}">
+    {%- if h.cover.kind == 'image' %}<span class="esc-th"><img src="{{ h.cover.image|e }}" alt="" loading="lazy"></span>
+    {%- else %}<span class="esc-th esc-cv-{{ h.cover.color|e }}"></span>{% endif %}
+    <span class="esc-embed-b"><b>{{ h.title|e }}</b>{% if h.summary %}<small>{{ h.summary|e }}</small>{% endif %}
+      {%- if h.need_ack %}<em class="esc-ack">📌 Cần bạn xác nhận đã đọc{% if h.ack_deadline_label %} trước {{ h.ack_deadline_label|e }}{% endif %}</em>{% endif %}</span>
+  </a>
+  <div class="esc-rx-row"{% if not h.rx_total and not h.comments %} data-esc-empty{% endif %}>
+    <span data-esc-rx-sum>{% if h.rx_total %}<span class="esc-em">{{ h.rx_emojis }}</span> {{ h.rx_total }}{% endif %}</span>
+    {% if h.comments %}<a class="esc-linkbtn" href="{{ h.comment_url|e }}">{{ h.comments }} bình luận</a>{% endif %}
+  </div>
+  <div class="esc-acts">
+    <button type="button" data-esc-hr-react aria-pressed="{{ 'true' if h.rx_mine else 'false' }}">❤️ Thích</button>
+    {% if h.comments is not none %}<a href="{{ h.comment_url|e }}">💬 Bình luận</a>{% endif %}
+    <a href="{{ h.url|e }}">Mở bài</a>
+  </div>
+</article>
+{%- endmacro -%}
+
+{%- macro moment_card(m) -%}
+<article class="esc-card esc-post esc-moment esc-mk-{{ m.mk|e }}" id="{{ m.anchor|e }}" data-esc-moment-card="{{ m.key|e }}" data-esc-post="{{ m.post|e }}" data-esc-kind="moment">
+  <header class="esc-post-h">
+    <span class="esc-av esc-av-ic" aria-hidden="true">{{ m.icon }}</span>
+    <div class="esc-post-hb">
+      <div class="esc-who"><b>Hôm nay ở eCentric</b></div>
+      <div class="esc-meta"><span class="esc-badge esc-b-auto">Tự động · {{ m.label|lower|e }}</span></div>
+    </div>
+  </header>
+  <div class="esc-post-b"><b>{{ m.name|e }}</b>{% if m.role %} ({{ m.role|e }}){% endif %} {{ m.text|e }}{% if m.intro %}
+<span class="esc-intro">“{{ m.intro|e }}”</span>{% endif %}</div>
+  <div class="esc-rx-row">
+    <span data-esc-rx-sum>{% if m.rx.total %}<span class="esc-em">{{ m.rx.emojis }}</span> {{ m.rx.total }}{% endif %}</span>
+    <button type="button" class="esc-linkbtn" data-esc-cmt-toggle data-esc-cmt-count="{{ m.wishes }}">{% if m.wishes %}{{ m.wishes }} lời chúc{% endif %}</button>
+  </div>
+  <div class="esc-acts">
+    <button type="button" data-esc-react data-esc-moment="{{ m.key|e }}" aria-pressed="{{ 'true' if m.rx.mine else 'false' }}">{{ m.rx_emoji }} {{ 'Chào bạn mới' if m.mk == 'new' else 'Chúc mừng' }}</button>
+    <button type="button" data-esc-cmt-open>💬 {{ 'Gửi lời chào' if m.mk == 'new' else 'Gửi lời chúc' }}</button>
+  </div>
+  <div class="esc-cmts-wrap" data-esc-cmts-wrap hidden{% if not m.post %} data-esc-loaded="1"{% endif %}>
+    {%- if not m.post %}
+    <section class="esc-cmts" data-esc-cmts="" data-esc-cmt-total="0">
+      <form class="esc-cm-new" data-esc-cmt-form>
+        {{ av(m.me, 'esc-av-s') }}
+        <label class="esc-sr" for="esc-cm-in-{{ m.anchor|e }}">Viết lời chúc</label>
+        <textarea id="esc-cm-in-{{ m.anchor|e }}" rows="1" maxlength="2000" placeholder="{{ 'Viết lời chào…' if m.mk == 'new' else 'Viết lời chúc…' }} (Enter để gửi)" data-esc-cmt-in></textarea>
+      </form>
+    </section>
+    {%- endif %}
+  </div>
+</article>
+{%- endmacro -%}
+
+{%- macro survey_card(s) -%}
+<article class="esc-card esc-post">
+  <header class="esc-post-h">
+    <span class="esc-av esc-av-ic" aria-hidden="true">📋</span>
+    <div class="esc-post-hb">
+      <div class="esc-who"><b>{{ s.title|e }}</b></div>
+      <div class="esc-meta"><span class="esc-badge esc-b-svy">Khảo sát đang mở</span>{% if s.close_at %}<span>· hạn {{ s.close_at[8:10] }}/{{ s.close_at[5:7] }}</span>{% endif %}</div>
+    </div>
+    <a class="esc-btn esc-btn-sm esc-btn-pri" href="{{ s.url|e }}">Làm khảo sát</a>
+  </header>
+</article>
+{%- endmacro -%}
+
+{%- macro items(list) -%}
+{%- for it in list -%}
+{%- if it.type == 'hr' %}{{ hr_card(it) }}
+{%- elif it.type == 'moment' %}{{ moment_card(it) }}
+{%- elif it.type == 'survey' %}{{ survey_card(it) }}
+{%- else %}{{ post_card(it) }}{% endif -%}
+{%- endfor -%}
+{%- endmacro -%}
+
+{%- macro composer(cp, placeholder="") -%}
+{%- if cp.can_post -%}
+<form class="esc-card esc-composer" data-esc-composer novalidate{% if cp.club %} data-esc-club="{{ cp.club.name|e }}"{% endif %}>
+  <div class="esc-cp-row">
+    {{ av(cp.me) }}
+    <label class="esc-sr" for="esc-cp-body">Nội dung bài</label>
+    <textarea id="esc-cp-body" name="body" rows="1" maxlength="{{ cp.body_max }}" data-esc-cp-body placeholder="{{ (placeholder or ((cp.given ~ ' ơi, hôm nay có gì vui chia sẻ không?') if cp.given else 'Hôm nay có gì vui chia sẻ không?'))|e }}"></textarea>
+  </div>
+  <div class="esc-cp-imgs" data-esc-cp-imgs hidden></div>
+  <div class="esc-cp-panel" data-esc-panel="kudos" hidden>
+    <div class="esc-cp-lbl">Khen ai?</div>
+    <div class="esc-pick" data-esc-pick="kudos" data-single="1"></div>
+    <div class="esc-cp-lbl">Vì điều gì? <span>(chọn một)</span></div>
+    <div class="esc-chips" role="radiogroup" aria-label="Giá trị">
+      {% for v in cp.kudos_values %}<label class="esc-chip"><input type="radio" name="kudos_value" value="{{ v.key|e }}">{{ v.label|e }}</label>{% endfor %}
+    </div>
+  </div>
+  <div class="esc-cp-panel" data-esc-panel="tags" hidden>
+    <div class="esc-cp-lbl">Gắn tên đồng nghiệp <span>(họ nhận được thông báo)</span></div>
+    <div class="esc-pick" data-esc-pick="tags"></div>
+  </div>
+  {%- if cp.club and cp.club.can_event %}
+  <div class="esc-cp-panel" data-esc-panel="event" hidden>
+    <div class="esc-cp-grid">
+      <label class="esc-field"><span class="esc-cp-lbl">Tên sự kiện</span><input class="esc-inp" name="event_title" maxlength="140" placeholder="Chạy 5km hồ Bán Nguyệt"></label>
+      <label class="esc-field"><span class="esc-cp-lbl">Bắt đầu</span><input class="esc-inp" name="event_start" type="datetime-local"></label>
+      <label class="esc-field esc-span2"><span class="esc-cp-lbl">Địa điểm</span><input class="esc-inp" name="event_place" maxlength="140" placeholder="Phú Mỹ Hưng, Q7"></label>
+    </div>
+    <p class="esc-note-sm">Thành viên CLB nhận thông báo. Sự kiện hiện trên popup “Hôm nay ở eCentric” 14 ngày trước ngày diễn ra.</p>
+  </div>
+  {%- endif %}
+  <div class="esc-cp-tools">
+    <label class="esc-tool"><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden data-esc-cp-file>🖼 Ảnh</label>
+    {%- if cp.club %}
+      {% if cp.club.can_event %}<button type="button" class="esc-tool" data-esc-tool="event" aria-pressed="false">📅 Tạo sự kiện</button>{% endif %}
+      <button type="button" class="esc-tool" data-esc-tool="tags" aria-pressed="false">🏷 Gắn tên</button>
+    {%- else %}
+      <button type="button" class="esc-tool" data-esc-tool="kudos" aria-pressed="false">👏 Khen đồng nghiệp</button>
+      <button type="button" class="esc-tool" data-esc-tool="tags" aria-pressed="false">🏷 Gắn tên</button>
+      {%- if cp.clubs %}
+      <label class="esc-tool esc-tool-sel"><span aria-hidden="true">🏃</span><span class="esc-sr">Đăng vào CLB</span>
+        <select name="club" data-esc-cp-club>
+          <option value="">Đăng vào CLB…</option>
+          {% for c in cp.clubs %}<option value="{{ c.name|e }}">{{ c.emoji|e }} {{ c.title|e }}</option>{% endfor %}
+        </select></label>
+      {%- endif %}
+      {%- if cp.dept %}<label class="esc-tool esc-tool-chk"><input type="checkbox" name="dept_only" value="1">👥 Chỉ phòng tôi</label>{% endif %}
+    {%- endif %}
+    <button type="submit" class="esc-btn esc-btn-pri esc-cp-send" data-esc-cp-send disabled>Đăng</button>
+  </div>
+</form>
+{%- endif -%}
+{%- endmacro -%}
+
+{%- macro club_icon(c, cls="") -%}<span class="esc-cic esc-k-{{ c.color|e }} {{ cls }}" aria-hidden="true">{{ c.emoji|e }}</span>{%- endmacro -%}

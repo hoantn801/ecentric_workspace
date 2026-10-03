@@ -1,0 +1,141 @@
+{
+ "doctype": "DocType",
+ "name": "EC Club",
+ "module": "Social",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "autoname": "hash",
+ "naming_rule": "Random",
+ "track_changes": 1,
+ "title_field": "club_name",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "description": "Câu lạc bộ trên Bảng tin. Nhân viên đề xuất, HR duyệt một lần; vào CLB tự do. Ghi bởi social/clubs.py.",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "delete": 1
+  },
+  {
+   "role": "HR Manager",
+   "read": 1,
+   "report": 1
+  }
+ ],
+ "field_order": [
+  "club_name",
+  "slug",
+  "emoji",
+  "color",
+  "category",
+  "description",
+  "column_break_1",
+  "status",
+  "lead",
+  "proposed_by",
+  "decided_by",
+  "decided_on",
+  "decision_note"
+ ],
+ "fields": [
+  {
+   "fieldname": "club_name",
+   "fieldtype": "Data",
+   "label": "Tên CLB",
+   "reqd": 1,
+   "length": 60,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "slug",
+   "fieldtype": "Data",
+   "label": "Đường dẫn",
+   "reqd": 1,
+   "unique": 1,
+   "length": 60,
+   "description": "/bang-tin/cau-lac-bo/<đường dẫn>"
+  },
+  {
+   "fieldname": "emoji",
+   "fieldtype": "Data",
+   "label": "Biểu tượng",
+   "length": 8
+  },
+  {
+   "fieldname": "color",
+   "fieldtype": "Select",
+   "label": "Màu",
+   "options": "green\npink\nnavy\norange\npurple",
+   "default": "green"
+  },
+  {
+   "fieldname": "category",
+   "fieldtype": "Select",
+   "label": "Nhóm",
+   "options": "Thể thao\nSở thích",
+   "default": "Thể thao",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Mô tả"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Trạng thái",
+   "options": "Chờ duyệt\nĐang hoạt động\nTừ chối\nNgừng hoạt động",
+   "default": "Chờ duyệt",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "lead",
+   "fieldtype": "Link",
+   "label": "Người phụ trách",
+   "options": "User",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "proposed_by",
+   "fieldtype": "Link",
+   "label": "Người đề xuất",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "decided_by",
+   "fieldtype": "Link",
+   "label": "HR duyệt",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "decided_on",
+   "fieldtype": "Datetime",
+   "label": "Duyệt lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "decision_note",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú của HR"
+  }
+ ],
+ "modified": "2026-10-04 10:00:00.000000",
+ "links": [],
+ "index_web_pages_for_search": 0
+}

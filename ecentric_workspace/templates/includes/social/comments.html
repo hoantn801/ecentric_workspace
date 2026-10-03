@@ -1,0 +1,36 @@
+{#- Bang tin - khoi binh luan / loi chuc duoi mot the bai. Du lieu = internal_posts.comments.view
+    (CUNG bo luat, CUNG bang voi Tin noi bo); day chi la cach ve kieu bong chat cua Bang tin.
+    Noi dung la chu thuong nguoi dung nhap: LUON |e, xuong dong bang CSS pre-line. -#}
+{%- macro item(c, cm, reply=False) -%}
+<div class="esc-cm{% if reply %} esc-cm-rep{% endif %}{% if c.hidden %} esc-cm-hidden{% endif %}" id="bl-{{ c.name|e }}" data-esc-cmt="{{ c.name|e }}">
+  {%- if c.deleted %}
+  <span class="esc-av esc-av-s" aria-hidden="true">··</span>
+  <div class="esc-cm-b"><p class="esc-note-sm">Bình luận đã bị xoá.</p>
+  {%- else %}
+  <span class="esc-av esc-av-s esc-av-c{{ c.av }}" aria-hidden="true">{{ c.initial|e }}</span>
+  <div class="esc-cm-b">
+    {%- if c.hidden %}<p class="esc-note-sm">Đã ẩn bởi HR {{ c.hidden_label|e }} · chỉ HR thấy. <button type="button" class="esc-linkbtn" data-esc-cmt-act="unhide">Hiện lại</button></p>{% endif %}
+    <div class="esc-bub"><b>{{ c.author|e }}</b>{% if c.is_post_author %}<span class="esc-cm-tag">{{ 'Người được chúc' if cm.moment else 'Người đăng' }}</span>{% endif %}
+      <p data-esc-cmt-text>{{ c.content|e }}</p></div>
+    <div class="esc-ca">
+      <span>{{ c.ago|e }}{% if c.edited %} · đã sửa{% endif %}</span>
+      <button type="button" data-esc-cmt-act="like" aria-pressed="{{ 'true' if c.liked else 'false' }}">Thích{% if c.likes %} · ❤️ {{ c.likes }}{% endif %}</button>
+      {% if c.can_reply %}<button type="button" data-esc-cmt-act="reply">Trả lời</button>{% endif %}
+      {% if c.can_edit %}<button type="button" data-esc-cmt-act="edit">Sửa</button><button type="button" data-esc-cmt-act="delete">Xoá</button>{% endif %}
+      {% if cm.is_editor and c.can_hide and not c.hidden %}<button type="button" data-esc-cmt-act="hide">Ẩn</button>{% endif %}
+    </div>
+  {%- endif %}
+    {%- if not reply %}{% for r in c.replies %}{{ item(r, cm, True) }}{% endfor %}{% endif %}
+  </div>
+</div>
+{%- endmacro -%}
+<section class="esc-cmts" data-esc-cmts="{{ cm.post|e }}" data-esc-cmt-total="{{ cm.count }}" aria-label="{{ 'Lời chúc' if cm.moment else 'Bình luận' }}">
+  {% for c in cm["items"] %}{{ item(c, cm) }}{% endfor %}
+  {% if cm.enabled %}
+  <form class="esc-cm-new" data-esc-cmt-form>
+    <span class="esc-av esc-av-s esc-av-c{{ cm.me_av }}" aria-hidden="true">{{ cm.me_initial|e }}</span>
+    <label class="esc-sr" for="esc-cm-in-{{ cm.post|e }}">{{ 'Viết lời chúc' if cm.moment else 'Viết bình luận' }}</label>
+    <textarea id="esc-cm-in-{{ cm.post|e }}" rows="1" maxlength="{{ cm.max }}" placeholder="{{ 'Viết lời chúc…' if cm.moment else 'Viết bình luận…' }} (Enter để gửi)" data-esc-cmt-in></textarea>
+  </form>
+  {% elif cm.allowed %}<p class="esc-note-sm">Bài đã bị ẩn nên không bình luận thêm được.</p>{% endif %}
+</section>

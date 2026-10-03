@@ -1,0 +1,61 @@
+{%- extends "templates/includes/social/layout.html" -%}
+{%- from "templates/includes/social/macros.html" import composer as composer_box, items as render_items, club_icon, av, date_box -%}
+{#- /bang-tin/cau-lac-bo/<slug> - trang mot CLB (mockup v2 man "Trang 1 CLB"). -#}
+{% block esc_page %}
+<div class="esc-grid2">
+  <div class="esc-col">
+    <section class="esc-space" aria-labelledby="esc-club-h">
+      <div class="esc-space-cover esc-cov-{{ club.color|e }}"></div>
+      <div class="esc-space-body">
+        {{ club_icon(club, 'esc-space-ic') }}
+        <div class="esc-grow"><h1 class="esc-h2" id="esc-club-h">CLB {{ club.title|e }}</h1>
+          <p>{{ club.members }} thành viên{% if lead %} · phụ trách: {{ lead.name|e }}{% endif %} · bài CLB hiện cả ở Bảng tin chung</p>
+          {% if club.status != 'Đang hoạt động' %}<p class="esc-warn">{{ club.status|e }}</p>{% endif %}</div>
+        {%- if club.joined %}
+        <button type="button" class="esc-btn" data-esc-join="{{ club.name|e }}" aria-pressed="true" data-reload="1"{% if club.is_lead %} disabled title="Bạn đang phụ trách CLB này"{% endif %}>✓ Đã tham gia</button>
+        {%- else %}
+        <button type="button" class="esc-btn esc-btn-pri" data-esc-join="{{ club.name|e }}" aria-pressed="false" data-reload="1">Tham gia</button>
+        {%- endif %}
+      </div>
+      {% if club.description %}<p class="esc-space-desc">{{ club.description|e }}</p>{% endif %}
+      <nav class="esc-tabs" aria-label="Mục của CLB">
+        {% for k, lb in [('bai-viet', 'Bài viết'), ('su-kien', 'Sự kiện'), ('anh', 'Ảnh'), ('thanh-vien', 'Thành viên')] %}
+        <a href="{{ club.url|e }}{% if k != 'bai-viet' %}?tab={{ k }}{% endif %}"{% if tab == k %} aria-current="page"{% endif %}>{{ lb }}</a>
+        {% endfor %}
+      </nav>
+    </section>
+
+    {% if tab in ('bai-viet', 'su-kien') and can_post %}{{ composer_box(composer, 'Viết vào CLB ' ~ club.title ~ '…') }}{% endif %}
+
+    {% if tab == 'thanh-vien' %}
+    <section class="esc-card esc-pad">
+      <div class="esc-members">
+        {% for m in members %}<div class="esc-li">{{ av(m, 'esc-av-s') }}<div><b>{{ m.name|e }}</b><small>{{ m.dept|e }}{% if lead and m.user == lead.user %} · Phụ trách{% endif %}</small></div></div>{% else %}<p class="esc-note-sm">Chưa có thành viên.</p>{% endfor %}
+      </div>
+    </section>
+    {% elif tab == 'anh' %}
+    <section class="esc-card esc-pad">
+      {% if photos %}<div class="esc-gallery" data-esc-photos>{% for p in photos %}<button type="button" class="esc-pic" data-esc-ph="{{ loop.index0 }}" data-src="{{ p.src|e }}" aria-label="Xem ảnh {{ loop.index }}"><img src="{{ p.src|e }}" alt="" loading="lazy"></button>{% endfor %}</div>
+      {% else %}<p class="esc-note-sm">Chưa có ảnh nào.</p>{% endif %}
+    </section>
+    {% else %}
+    <div class="esc-feed" data-esc-feed data-club="{{ club.slug|e }}" data-tab="{{ tab|e }}">{{ render_items(items) }}</div>
+    {% if not items %}<div class="esc-card esc-pad esc-empty">{{ 'Chưa có sự kiện sắp tới.' if tab == 'su-kien' else 'CLB chưa có bài nào. Mở hàng đi!' }}</div>{% endif %}
+    {% if next %}<button type="button" class="esc-btn esc-more" data-esc-more data-next="{{ next|e }}">Xem bài cũ hơn</button>{% endif %}
+    {% endif %}
+  </div>
+  <aside class="esc-col esc-rail" aria-label="Bên lề">
+    <section class="esc-card esc-pad">
+      <p class="esc-ph">Sắp diễn ra</p>
+      {% if upcoming %}<div class="esc-list">{% for u in upcoming %}<a class="esc-event esc-event-sm" href="{{ u.url|e }}">{{ date_box(u.event.date) }}<div><b>{{ u.event.title|e }}</b><small>{{ u.event.going }} tham gia{% if u.event.maybe %} · {{ u.event.maybe }} có thể{% endif %}</small></div></a>{% endfor %}</div>
+      {% else %}<p class="esc-note-sm">Chưa có sự kiện.{% if can_event %} Bấm “Tạo sự kiện” ở ô đăng bài.{% endif %}</p>{% endif %}
+    </section>
+    <section class="esc-card esc-pad">
+      <p class="esc-ph">Thành viên</p>
+      <div class="esc-stack esc-stack-lg">{% for m in members[:6] %}{{ av(m, 'esc-av-s') }}{% endfor %}{% if members|length > 6 %}<span class="esc-av esc-av-s">+{{ members|length - 6 }}</span>{% endif %}</div>
+      <p class="esc-note-sm">Người phụ trách tạo sự kiện cho CLB. HR vẫn ẩn được bài như mọi chỗ khác.</p>
+    </section>
+    <a class="esc-link" href="/bang-tin/cau-lac-bo">← Tất cả câu lạc bộ</a>
+  </aside>
+</div>
+{% endblock %}

@@ -127,6 +127,8 @@
     P + ' .hol .dd b{display:block;font-size:20px;font-weight:800;color:#8a6400;font-variant-numeric:tabular-nums}',
     P + ' .hol .dd small{font-size:10.5px;font-weight:700;color:#8a6400}',
     P + ' .hol .nm{font-weight:700}',
+    P + ' a.hol{color:inherit;text-decoration:none}', P + ' a.hol:hover{border-color:var(--navy-100);background:var(--navy-50)}',
+    P + ' .wish{display:inline-block;margin-top:6px;font-size:12px;font-weight:600;color:var(--navy);text-decoration:none}', P + ' .wish:hover{text-decoration:underline}',
     P + ' .hol .left{font-size:12px;font-weight:700;color:var(--navy);background:var(--navy-50);padding:3px 9px;border-radius:999px;white-space:nowrap;font-variant-numeric:tabular-nums}',
     P + ' .wipbox{display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:18px 10px;border:1px dashed var(--navy-100);border-radius:12px;color:var(--g600)}',
     P + ' .wipbox b{font-size:15px;color:var(--g900)}',
@@ -311,8 +313,15 @@
     }).join('') + '</div>';
   };
 
+  // Loi chuc tren Bang tin (04/10/2026): cung khoa voi o cam xuc; so loi chuc do server dem.
+  let WISHES = {};
+  const wishHTML = (key) => {
+    if (!key) return '';
+    const n = WISHES[key] || 0;
+    return '<a class="wish" href="/bang-tin#m-' + esc(String(key).replace(/:/g, '-')) + '">💬 ' + (n ? n + ' lời chúc trên Bảng tin' : 'Gửi lời chúc trên Bảng tin') + '</a>';
+  };
   const person = (st, p, sub) => '<div class="pc">' + (p.key ? rxAdd(st, p.key) : '') + ava(p, 'ring') + '<div class="who"><span class="nm">' + esc(p.name) + '</span>'
-    + '<span class="rl">' + esc([p.role, sub].filter(Boolean).join(' · ')) + '</span>' + (p.key ? rxHTML(st, p.key) : '') + '</div></div>';
+    + '<span class="rl">' + esc([p.role, sub].filter(Boolean).join(' · ')) + '</span>' + (p.key ? rxHTML(st, p.key) : '') + wishHTML(p.key) + '</div></div>';
 
   const linkHTML = (n) => '<a href="' + esc(n.url) + '"' + (/^https?:/i.test(n.url) ? ' target="_blank" rel="noopener"' : '') + '>' + esc(n.link_label || 'Mở →') + '</a>';
   const newsHTML = (st, list) => list.map((n, i) => {
@@ -330,6 +339,7 @@
   // ------------------------------------------------------------ các ô --------------------
   const buildSlides = (d) => {
     const out = [];
+    WISHES = d.wishes || {};
     const news = d.news || [];
     const bd = d.birthdays || { today: [], soon: [] };
     const nw = d.onboard || [];
@@ -361,10 +371,20 @@
       out.push({ k: 'new', t: 'Bạn mới', s: one ? [nw[0].name, nw[0].role.split(' · ').pop()].filter(Boolean).join(' · ') : nw.length + ' bạn mới', ct: nw.length,
         hs: 'Chào bạn mới', h: one ? 'Hôm nay là ngày đầu tiên của ' + nw[0].name : 'Chào ' + nw.length + ' bạn mới hôm nay', cnt: nw.length + ' bạn mới',
         body: (st) => nw.map((p) => '<div class="pc" style="align-items:center">' + rxAdd(st, p.key) + ava(p, 'lg ring') + '<div class="who"><span class="nm" style="font-size:17px">' + esc(p.name) + '</span><span class="rl">' + esc(p.role) + '</span>'
-          + (p.intro ? '<p class="intro">' + esc(p.intro) + '</p>' : '') + rxHTML(st, p.key) + '</div></div>').join('')
+          + (p.intro ? '<p class="intro">' + esc(p.intro) + '</p>' : '') + rxHTML(st, p.key) + wishHTML(p.key) + '</div></div>').join('')
           + '<p class="note">Cả nhà cùng say hi và giúp bạn ấy làm quen nhé.</p>' });
     }
-    if (d.event_coming_soon) {
+    // Su kien CLB tu Bang tin (04/10/2026) thay o "Sap ra mat". Moi dong la link toi bai su kien.
+    const evs = d.events || [];
+    if (evs.length) {
+      const e0 = evs[0];
+      out.push({ k: 'ev', t: 'Sự kiện sắp tới', s: e0.title + ' · ' + (e0.days_left > 0 ? 'còn ' + e0.days_left + ' ngày' : 'hôm nay'), ct: evs.length,
+        hs: 'Sự kiện sắp tới', h: (e0.emoji ? e0.emoji + ' ' : '') + e0.title, cnt: evs.length + ' sự kiện',
+        body: () => evs.map((x) => '<a class="hol" href="' + esc(x.url) + '"><div class="dd"><b>' + esc(x.day) + '</b><small>' + esc(x.month) + '</small></div><div><div class="nm">'
+          + esc((x.emoji ? x.emoji + ' ' : '') + x.title) + '</div><div class="rl">' + esc([x.when, x.place, x.club ? 'CLB ' + x.club : ''].filter(Boolean).join(' · ')) + '</div></div>'
+          + (x.going ? '<span class="left">' + x.going + ' tham gia</span>' : '') + '</a>').join('')
+          + '<p class="note"><a href="/bang-tin?loc=su-kien">Xem tất cả trên Bảng tin →</a></p>' });
+    } else if (d.event_coming_soon) {
       out.push({ k: 'ev', t: 'Sự kiện công ty', s: 'Sắp ra mắt', ct: 'soon', hs: 'Sự kiện công ty', h: 'Lịch sự kiện đang được xây dựng', cnt: 'Sắp ra mắt',
         body: () => '<div class="wipbox"><span class="soon-tag">Sắp ra mắt</span><b>Team building, workshop, tiệc cuối năm…</b><span>Khi HR nhập lịch sự kiện, các sự kiện sắp tới sẽ hiện ở đây kèm ngày giờ và địa điểm.</span></div>' });
     }

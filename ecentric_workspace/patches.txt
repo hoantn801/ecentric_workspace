@@ -336,3 +336,6 @@ ecentric_workspace.feedback.patches.p001_seed_topics
 ecentric_workspace.approval_center.patches.p257_resync_gop_y
 ecentric_workspace.internal_posts.patches.p002_read_receipt_kind
 ecentric_workspace.approval_center.patches.p258_resync_ai_video_chi_phi
+ecentric_workspace.internal_posts.patches.p003_comment_ref_doctype
+ecentric_workspace.social.patches.p001_seed_clubs
+ecentric_workspace.approval_center.patches.p259_resync_bang_tin
