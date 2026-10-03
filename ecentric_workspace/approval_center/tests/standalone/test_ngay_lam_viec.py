@@ -80,3 +80,21 @@ def test_loi_tra_cuu_thi_coi_la_di_lam_va_ghi_log():
     m, W = load(EMPS, boom=True)
     assert m.la_ngay_nghi("a@x", MON) is False and W.logs
     assert m.la_ngay_nghi("a@x", SAT) is True          # cuoi tuan khong can tra cuu
+
+
+def test_moi_job_nhac_9h_deu_loc_nguoi_dang_nghi():
+    """04/10 (Hoan): moi job nhac theo han chay 09:00 va bo nguoi dang nghi."""
+    import re
+    root = APP
+    hooks = (root / "hooks.py").read_text(encoding="utf-8")
+    jobs = {"approval_center/features/payment_request/application/reminders.py": ("remind_unc_due", "remind_next_installment"),
+            "approval_center/features/booking_request/application/reminders.py": ("remind_booking_due",),
+            "pm/api/notifications.py": ("pm_overdue_scan", "pm_due_soon_scan"),
+            "weekly_report/scheduler.py": ("wr_due_overdue_scan",)}
+    slot = hooks[hooks.index("# Nhac viec 09:00"):]
+    for path, fns in jobs.items():
+        src = (root / path).read_text(encoding="utf-8")
+        assert "ngay_lam_viec" in src, path
+        for fn in fns:
+            assert fn in slot, fn                                   # nam trong cron 0 9
+            assert len(re.findall(r'"[^"]*\.%s"' % fn, hooks)) == 1, fn  # dung MOT cho

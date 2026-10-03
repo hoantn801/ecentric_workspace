@@ -100,10 +100,8 @@ scheduler_events = {
     "daily": [
         "ecentric_workspace.sla.tasks.sync_attendance",
         "ecentric_workspace.pm.api.recurrence.run_due",
-        "ecentric_workspace.pm.api.notifications.pm_overdue_scan",
-        # Notification Delivery v1: new producers (distinct jobs, not duplicates).
-        "ecentric_workspace.pm.api.notifications.pm_due_soon_scan",
-        "ecentric_workspace.weekly_report.scheduler.wr_due_overdue_scan",
+        # pm_overdue_scan / pm_due_soon_scan / wr_due_overdue_scan: chuyen sang cron 09:00
+        # (04/10) - xem "Nhac viec 09:00" cuoi file.
         "ecentric_workspace.weekly_report.scheduler.generate_weekly_obligations",
     ],
     # Alert Center Phase E (decision D2-E): both jobs are dry-run-safe and
@@ -751,4 +749,8 @@ scheduler_events["cron"].setdefault("0 9 * * *", []).extend([
     "ecentric_workspace.approval_center.features.payment_request.application.reminders.remind_unc_due",
     "ecentric_workspace.approval_center.features.payment_request.application.reminders.remind_next_installment",
     "ecentric_workspace.approval_center.features.booking_request.application.reminders.remind_booking_due",
+    # 04/10 (Hoan): nhac task /pm qua han + sap den han, bao cao tuan qua han / sap han.
+    "ecentric_workspace.pm.api.notifications.pm_overdue_scan",
+    "ecentric_workspace.pm.api.notifications.pm_due_soon_scan",
+    "ecentric_workspace.weekly_report.scheduler.wr_due_overdue_scan",
 ])
