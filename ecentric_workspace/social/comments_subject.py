@@ -80,10 +80,34 @@ def view(user, name):
 
 
 def decorate(view, doc=None):
-    """Them co `moment` (bai khoanh khac: "loi chuc" thay "binh luan") cho template."""
-    doc = doc or SUBJECT.r.post(view.get("post")) or {}
-    view["moment"] = doc.get("kind") == C.KIND_MOMENT
+    """Them co cho template: `moment` (bai khoanh khac: "loi chuc" thay "binh luan"), `hr` (binh
+    luan cua bai Tin noi bo mo ngay tren Bang tin)."""
+    doc = doc or SUBJECT.r.post(view.get("post"))
+    view["moment"] = bool(doc) and doc.get("kind") == C.KIND_MOMENT
+    view["hr"] = doc is None
     return view
+
+
+# ------------------------------------------------------------------ the Tin noi bo tren Bang tin --
+# PO 05/10: bam "Binh luan" tren the Tin HR thi binh luan NGAY tren Bang tin (khong nhay sang trang
+# bai). Van la CUNG chuoi binh luan cua bai Tin noi bo (subject INTERNAL, quyen doc cua Tin noi bo) -
+# binh o dau thi hien ca hai noi, khong co ban sao.
+
+def subject_for(ref):
+    return engine.INTERNAL if ref == "hr" else SUBJECT
+
+
+def subject_of_comment(name):
+    row = _engine_repo().comment(name)
+    return engine.INTERNAL if row and (row.get("ref_doctype") or engine.C.POST_DT) == engine.C.POST_DT else SUBJECT
+
+
+def hr_view(user, name):
+    if not user or user == "Guest":
+        raise D.Forbidden("Cần đăng nhập.")
+    ir = _engine_repo()
+    doc = engine.INTERNAL.load(ir, user, name)
+    return engine.view(ir, doc, user, ir.is_editor(user), engine.INTERNAL)
 
 
 def ensure_moment(user, key, repo=None):

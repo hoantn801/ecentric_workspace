@@ -164,19 +164,35 @@ def parse_cursor(v):
 
 
 # ------------------------------------------------------------------ cam xuc ------
-def rx_summary(rows, target, user, my_kind=C.RX_KIND):
-    """rows EC Home Reaction cua MOT target -> {total, emojis, mine} (mine = toi da tha `my_kind`)."""
-    total, kinds, mine = 0, [], False
+WHO_MAX = 10
+
+
+def who_tip(users, user, names):
+    """Ai da tha cam xuc (re chuot vao so tim): 'Bạn, Nguyễn Thị Lan, Đỗ Minh Khang và 3 người khác'."""
+    seen = []
+    for u in users:
+        if u and u not in seen:
+            seen.append(u)
+    shown = (["Bạn"] if user in seen else []) + [names.get(u) or u for u in seen if u != user]
+    more = len(shown) - WHO_MAX
+    return ", ".join(shown[:WHO_MAX]) + (" và %d người khác" % more if more > 0 else "")
+
+
+def rx_summary(rows, target, user, my_kind=C.RX_KIND, names=None):
+    """rows EC Home Reaction cua MOT target -> {total, emojis, mine, who} (mine = toi da tha `my_kind`)."""
+    total, kinds, mine, users = 0, [], False, []
     for r in rows:
         if r.get("target") != target:
             continue
         total += 1
+        users.append(r.get("user"))
         if r.get("kind") not in kinds:
             kinds.append(r.get("kind"))
         if r.get("user") == user and r.get("kind") == my_kind:
             mine = True
     order = [k for k in ("heart", "party", "flower", "cake") if k in kinds]
-    return {"total": total, "emojis": "".join(C.RX_EMOJI[k] for k in order[:3]), "mine": mine}
+    return {"total": total, "emojis": "".join(C.RX_EMOJI[k] for k in order[:3]), "mine": mine,
+            "who": who_tip(users, user, names or {})}
 
 
 def moment_kind(key):

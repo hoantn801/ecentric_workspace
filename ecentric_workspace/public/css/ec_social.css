@@ -20,7 +20,7 @@
 }
 .esc-app *,.esc-app *::before,.esc-app *::after{box-sizing:border-box}
 .esc-main{min-width:0;display:flex;flex-direction:column}
-.esc-page{padding:18px 22px 48px;min-width:0;width:100%;max-width:1240px}
+.esc-page{padding:18px 22px 48px;min-width:0;width:100%;max-width:none}
 .esc-app a{color:inherit;text-decoration:none}
 .esc-app button,.esc-app input,.esc-app select,.esc-app textarea{font:inherit;color:inherit}
 .esc-app button{cursor:pointer}
@@ -45,7 +45,7 @@
 .esc-row-end{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
 
 /* ---------- khung ---------- */
-.esc-grid2{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start}
+.esc-grid2{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;align-items:start}
 .esc-col{display:flex;flex-direction:column;gap:12px;min-width:0}
 .esc-single{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
 .esc-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;min-width:0}
@@ -353,3 +353,9 @@
 /* Chua co tim / binh luan nao: khong ve dai trong (JS cap nhat so -> :has tu hien lai). */
 .esc-rx-row:has([data-esc-rx-sum]:empty):has([data-esc-cmt-toggle]:empty){display:none}
 .esc-rx-row[data-esc-empty]:has([data-esc-rx-sum]:empty){display:none}
+/* Re chuot / focus vao so cam xuc: ai da tha (PO 05/10). */
+.esc-rxw{position:relative;display:inline-flex}
+.esc-rxw [data-esc-rx-sum][tabindex]{cursor:default;border-radius:6px;padding:1px 3px;margin:-1px -3px}
+.esc-rxw [data-esc-rx-sum][tabindex]:hover{background:var(--soft)}
+.esc-tip{display:none;position:absolute;left:-4px;bottom:calc(100% + 6px);z-index:25;background:#111827;color:#fff;font-size:12px;line-height:1.45;border-radius:8px;padding:6px 10px;width:max-content;max-width:280px;white-space:normal;box-shadow:0 6px 18px rgba(0,0,0,.18)}
+.esc-rxw:hover .esc-tip:not(:empty),.esc-rxw:focus-within .esc-tip:not(:empty){display:block}

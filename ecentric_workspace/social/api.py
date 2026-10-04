@@ -183,36 +183,48 @@ def _comments(fn, *args, **kwargs):
 
 
 @frappe.whitelist()
-def comments(post):
+def comments(post, ref=""):
+    """ref="hr": binh luan cua bai Tin noi bo (the nhung tren Bang tin)."""
+    if ref == "hr":
+        return _comments(lambda: CS.hr_view(_me(), str(post or "")))
     return _comments(lambda: CS.view(_me(), str(post or "")))
 
 
 @frappe.whitelist(methods=["POST"])
-def comment_add(post="", content="", parent="", moment=""):
+def comment_add(post="", content="", parent="", moment="", ref=""):
     def add():
-        name = str(post or "") or CS.ensure_moment(_me(), str(moment or ""))
-        return engine.add(_me(), name, str(content or "")[:20000], str(parent or "") or None, subject=CS.SUBJECT)
+        if ref == "hr":
+            name = str(post or "")
+        else:
+            name = str(post or "") or CS.ensure_moment(_me(), str(moment or ""))
+        return engine.add(_me(), name, str(content or "")[:20000], str(parent or "") or None,
+                          subject=CS.subject_for(ref))
     return _comments(add)
 
 
+# Thao tac theo ma binh luan: loai bai (Bang tin / Tin noi bo) lay tu chinh binh luan.
 @frappe.whitelist(methods=["POST"])
 def comment_edit(comment, content=""):
-    return _comments(engine.edit, _me(), str(comment or ""), str(content or "")[:20000], subject=CS.SUBJECT)
+    c = str(comment or "")
+    return _comments(engine.edit, _me(), c, str(content or "")[:20000], subject=CS.subject_of_comment(c))
 
 
 @frappe.whitelist(methods=["POST"])
 def comment_delete(comment):
-    return _comments(engine.delete, _me(), str(comment or ""), subject=CS.SUBJECT)
+    c = str(comment or "")
+    return _comments(engine.delete, _me(), c, subject=CS.subject_of_comment(c))
 
 
 @frappe.whitelist(methods=["POST"])
 def comment_hide(comment, hidden=1):
-    return _comments(engine.hide, _me(), str(comment or ""), _flag(hidden), subject=CS.SUBJECT)
+    c = str(comment or "")
+    return _comments(engine.hide, _me(), c, _flag(hidden), subject=CS.subject_of_comment(c))
 
 
 @frappe.whitelist(methods=["POST"])
 def comment_like(comment):
-    return _comments(engine.like, _me(), str(comment or ""), subject=CS.SUBJECT)
+    c = str(comment or "")
+    return _comments(engine.like, _me(), c, subject=CS.subject_of_comment(c))
 
 
 # ------------------------------------------------------------------ CLB --------------

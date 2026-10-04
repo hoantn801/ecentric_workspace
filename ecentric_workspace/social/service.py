@@ -197,7 +197,8 @@ def react(user, name, repo=None):
         except Exception as exc:
             if not repo.is_duplicate(exc):
                 raise
-    return D.rx_summary(repo.reactions([target]), target, user)
+    rows = repo.reactions([target])
+    return D.rx_summary(rows, target, user, names=repo.full_names([r.get("user") for r in rows]))
 
 
 def react_moment(user, key, repo=None):
@@ -209,10 +210,9 @@ def react_moment(user, key, repo=None):
     if not kind:
         raise SocialError("Khoảnh khắc không hợp lệ.")
     from ecentric_workspace.social import sources
-    per = sources.toggle_moment(user, key, kind)["reactions"]
-    order = [k for k in ("heart", "party", "flower", "cake") if per.get(k, {}).get("n")]
-    return {"total": sum(v.get("n", 0) for v in per.values()), "emojis": "".join(C.RX_EMOJI[k] for k in order[:3]),
-            "mine": bool(per.get(kind, {}).get("mine"))}
+    sources.toggle_moment(user, key, kind)          # home_today ghi + kiem khoa con trong ngay
+    rows = repo.reactions([key])
+    return D.rx_summary(rows, key, user, kind, repo.full_names([r.get("user") for r in rows]))
 
 
 def rsvp(user, name, answer, repo=None):

@@ -1,6 +1,10 @@
 {#- Bang tin + Cau lac bo - macro dung chung cho trang va api (the bai ve lai sau moi thao tac).
     Jinja cua Frappe KHONG tu escape: moi chuoi do nguoi nhap PHAI qua |e. -#}
 
+{%- macro rxsum(total, emojis, who) -%}
+<span class="esc-rxw"><span data-esc-rx-sum{% if total %} tabindex="0"{% endif %}>{% if total %}<span class="esc-em">{{ emojis }}</span> {{ total }}{% endif %}</span><span class="esc-tip" role="tooltip" data-esc-rx-who>{{ who|e }}</span></span>
+{%- endmacro -%}
+
 {%- macro av(p, cls="") -%}
 <span class="esc-av esc-av-c{{ p.av|default(0) }} {{ cls }}" aria-hidden="true">{{ p.initials|e }}</span>
 {%- endmacro -%}
@@ -89,7 +93,7 @@
   {{ photos(c) }}
   {%- if c.event %}<div class="esc-pad-x">{{ event_box(c) }}</div>{% endif %}
   <div class="esc-rx-row">
-    <span data-esc-rx-sum>{% if c.rx.total %}<span class="esc-em">{{ c.rx.emojis }}</span> {{ c.rx.total }}{% endif %}</span>
+    {{ rxsum(c.rx.total, c.rx.emojis, c.rx.who) }}
     <button type="button" class="esc-linkbtn" data-esc-cmt-toggle data-esc-cmt-count="{{ c.comments }}">{% if c.comments %}{{ c.comments }} {{ 'lời chúc' if c.moment else 'bình luận' }}{% endif %}</button>
   </div>
   <div class="esc-acts">
@@ -105,7 +109,7 @@
 {%- endmacro -%}
 
 {%- macro hr_card(h) -%}
-<article class="esc-card esc-post esc-hr" data-esc-hr="{{ h.name|e }}">
+<article class="esc-card esc-post esc-hr" data-esc-hr="{{ h.name|e }}" data-esc-post="{{ h.name|e }}" data-esc-ref="hr">
   <header class="esc-post-h">
     <span class="esc-av esc-av-hr" aria-hidden="true">HR</span>
     <div class="esc-post-hb">
@@ -124,15 +128,16 @@
     <span class="esc-embed-b"><b>{{ h.title|e }}</b>{% if h.summary %}<small>{{ h.summary|e }}</small>{% endif %}
       {%- if h.need_ack %}<em class="esc-ack">📌 Cần bạn xác nhận đã đọc{% if h.ack_deadline_label %} trước {{ h.ack_deadline_label|e }}{% endif %}</em>{% endif %}</span>
   </a>
-  <div class="esc-rx-row"{% if not h.rx_total and not h.comments %} data-esc-empty{% endif %}>
-    <span data-esc-rx-sum>{% if h.rx_total %}<span class="esc-em">{{ h.rx_emojis }}</span> {{ h.rx_total }}{% endif %}</span>
-    {% if h.comments %}<a class="esc-linkbtn" href="{{ h.comment_url|e }}">{{ h.comments }} bình luận</a>{% endif %}
+  <div class="esc-rx-row">
+    {{ rxsum(h.rx_total, h.rx_emojis, h.rx_who) }}
+    <button type="button" class="esc-linkbtn" data-esc-cmt-toggle data-esc-cmt-count="{{ h.comments or 0 }}">{% if h.comments %}{{ h.comments }} bình luận{% endif %}</button>
   </div>
   <div class="esc-acts">
     <button type="button" data-esc-hr-react aria-pressed="{{ 'true' if h.rx_mine else 'false' }}">❤️ Thích</button>
-    {% if h.comments is not none %}<a href="{{ h.comment_url|e }}">💬 Bình luận</a>{% endif %}
+    {% if h.comments is not none %}<button type="button" data-esc-cmt-open>💬 Bình luận</button>{% endif %}
     <a href="{{ h.url|e }}">Mở bài</a>
   </div>
+  <div class="esc-cmts-wrap" data-esc-cmts-wrap hidden></div>
 </article>
 {%- endmacro -%}
 
@@ -148,7 +153,7 @@
   <div class="esc-post-b"><b>{{ m.name|e }}</b>{% if m.role %} ({{ m.role|e }}){% endif %} {{ m.text|e }}{% if m.intro %}
 <span class="esc-intro">“{{ m.intro|e }}”</span>{% endif %}</div>
   <div class="esc-rx-row">
-    <span data-esc-rx-sum>{% if m.rx.total %}<span class="esc-em">{{ m.rx.emojis }}</span> {{ m.rx.total }}{% endif %}</span>
+    {{ rxsum(m.rx.total, m.rx.emojis, m.rx.who) }}
     <button type="button" class="esc-linkbtn" data-esc-cmt-toggle data-esc-cmt-count="{{ m.wishes }}">{% if m.wishes %}{{ m.wishes }} lời chúc{% endif %}</button>
   </div>
   <div class="esc-acts">
