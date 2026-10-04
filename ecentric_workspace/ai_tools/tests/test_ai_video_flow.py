@@ -100,5 +100,27 @@ class TestFlow(unittest.TestCase):
         self.assertEqual(c, {"total": 6, "pick": 1, "qc": 1, "running": 1, "ready": 1, "done": 1, "error": 1})
 
 
+class TestCostView(unittest.TestCase):
+    def test_chia_chi_phi(self):
+        costs = {"usd_per_credit": 0.005,
+                 "job": {"P_111_X_R1": {"usd": 0.24, "est_credits": 0}, "P_111_X_R2": {"usd": 1.2, "est_credits": 0},
+                         "P_222_X_R1": {"usd": 0.5, "est_credits": 0}, "P_1112_X_R1": {"usd": 9, "est_credits": 0}},
+                 "host": {"H": {"usd": 1.0, "est_credits": 10}}, "videos": {"111": 4}}
+        items = [{"sku": "111"}, {"sku": "222"}]
+        v = flow.cost_view(costs, items)
+        self.assertEqual(items[0]["cost_usd"], 1.44)            # 2 lan lam, khong lan SKU 1112
+        self.assertEqual(items[0]["cost_share_usd"], 0.5)       # clip noi $1 chia 2 SKU
+        self.assertAlmostEqual(items[0]["cost_per_video_usd"], 0.485, delta=0.006)  # (1.44+0.5)/4
+        self.assertIsNone(items[1]["cost_per_video_usd"])       # chua tron video nao
+        self.assertEqual(v["total_usd"], 2.94)
+        self.assertTrue(v["estimated"])
+
+    def test_khong_co_du_lieu(self):
+        items = [{"sku": "1"}]
+        v = flow.cost_view(None, items)
+        self.assertEqual(v["total_usd"], 0)
+        self.assertEqual(items[0]["cost_usd"], 0)
+
+
 if __name__ == "__main__":
     unittest.main()

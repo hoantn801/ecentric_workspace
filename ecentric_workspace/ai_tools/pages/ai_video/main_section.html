@@ -98,7 +98,9 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
 .av-callout.bad{background:var(--bad-bg);border-color:#f4c2c2}
 .av-hold{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
 .av-sku{border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;background:var(--surface)}
-.av-sku .top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.av-sku .top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;flex-wrap:wrap}
+.av-sku .top>div{min-width:0;flex:1 1 auto}
+.av-sku .top b{overflow-wrap:break-word}
 .av-cands{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .av-cand{border:2px solid var(--line);border-radius:9px;overflow:hidden;display:flex;flex-direction:column;background:var(--surface)}
 .av-cand.sel{border-color:var(--navy)}
@@ -276,6 +278,13 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
     if (i.stage === "new") return `<span class="av-pill p-idle">Chưa chạy</span>`;
     return `<span class="av-pill p-warn">${esc(i.stage_label)}</span>`;
   }
+  /* chi phi Kie ($) - worker tinh tu credit da tieu; "~" = co phan uoc tinh (viec cu chua ghi credit) */
+  function usd(v) { return v == null ? "—" : "$" + Number(v).toFixed(2); }
+  function costCell(i) {
+    const est = S.p.cost && S.p.cost.estimated ? "~" : "";
+    if (!i.cost_usd && !i.videos) return '<span class="av-hint">—</span>';
+    return `<b>${est}${usd(i.cost_usd)}</b><div class="av-hint" title="Gồm phần clip nói dùng chung ${usd(i.cost_share_usd)}">${i.videos ? `${est}${usd(i.cost_per_video_usd)}/video · ${i.videos} video` : "chưa trộn video"}</div>`;
+  }
   function renderProject() {
     const p = S.p, c = counts(); const br = p.breaker || {}; const wait = br.until && br.until > Date.now();
     $("av-view").innerHTML = `
@@ -283,7 +292,7 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
       <section class="av-hero"><div><div class="av-eyebrow" style="color:rgba(255,255,255,.7)">${esc(p.brand)}</div><h1>${esc(p.title)}</h1>
         <div class="sub">${p.last_tick ? "Cập nhật lúc " + esc(String(p.last_tick).slice(11, 16)) : "Chưa đồng bộ với máy chạy video"}${S.down ? " · " + esc(S.down) : ""}${wait ? " · AI đang lỗi, tự thử lại lúc " + new Date(br.until).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : ""}</div>
         <div class="av-row" style="margin-top:8px"><label class="av-switch tag" style="color:#fff"><input type="checkbox" id="pj-night" ${p.night_mode ? "checked" : ""}> Chạy đêm (bỏ chốt chặn, tự trộn + nén ZIP)</label><button class="av-btn sm" id="pj-settings">Cài đặt dự án</button></div></div>
-        <div class="av-stats"><div class="av-stat"><span>SKU</span><b>${c.total}</b></div><div class="av-stat hl"><span>Chờ chọn ảnh</span><b>${c.pick}</b></div><div class="av-stat hl"><span>Chờ duyệt clip</span><b>${c.qc}</b></div><div class="av-stat"><span>Đang chạy</span><b>${c.running}</b></div><div class="av-stat"><span>Đủ clip</span><b>${c.ready + c.done}</b></div>${c.error ? `<div class="av-stat"><span>Lỗi</span><b>${c.error}</b></div>` : ""}</div></section>
+        <div class="av-stats"><div class="av-stat"><span>SKU</span><b>${c.total}</b></div><div class="av-stat hl"><span>Chờ chọn ảnh</span><b>${c.pick}</b></div><div class="av-stat hl"><span>Chờ duyệt clip</span><b>${c.qc}</b></div><div class="av-stat"><span>Đang chạy</span><b>${c.running}</b></div><div class="av-stat"><span>Đủ clip</span><b>${c.ready + c.done}</b></div>${p.cost ? `<div class="av-stat" title="Chi phí Kie đã tiêu (gồm clip nói ${usd(p.cost.host_usd)}). ~ = có phần ước tính"><span>Chi phí</span><b>${p.cost.estimated ? "~" : ""}${usd(p.cost.total_usd)}</b></div>` : ""}${c.error ? `<div class="av-stat"><span>Lỗi</span><b>${c.error}</b></div>` : ""}</div></section>
       ${S.configured ? "" : `<div class="av-callout warn">Chưa nối máy chạy video (site_config). Nhập lô được, nhưng chưa chạy được.</div>`}
       <div class="av-chips" role="tablist">${STEPS.map(([k, l]) => { const n = k === "pick" ? c.pick : k === "video" ? c.qc + c.running : k === "mix" ? c.ready + c.done : k === "input" ? c.total : ""; return `<button class="av-chip ${S.step === k ? "on" : ""}" data-step="${k}" role="tab" aria-selected="${S.step === k}">${l}${n !== "" ? ` <span class="n">${n}</span>` : ""}</button>`; }).join("")}</div>
       <div id="av-step">${({ input: stepInput, pick: stepPick, video: stepVideo, mix: stepMix, prompt: stepPrompt })[S.step]()}</div>`;
@@ -301,7 +310,7 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
       <td class="av-hint">${esc(i.product_type || "")}<br>${esc((CATS.find((x) => x[0] === (i.product_category || "")) || ["", ""])[1])}</td>
       <td class="av-hint">${[i.width_cm, i.height_cm, i.depth_cm].map((x) => x || "–").join(" × ")} cm${i.size_pct ? " · " + i.size_pct + "%" : ""}</td>
       <td class="av-hint">${i.audio_seconds || S.p.audio_seconds || 72}s${i.audio_file ? " · có audio" : ""}</td>
-      <td>${pill(i)}</td><td>${(i.stage === "new" || i.stage_state === "error") ? `<button class="av-btn sm ghost danger" data-del="${esc(i.name)}">Xoá</button>` : ""}</td></tr>`).join("");
+      <td>${costCell(i)}</td><td>${pill(i)}</td><td>${(i.stage === "new" || i.stage_state === "error") ? `<button class="av-btn sm ghost danger" data-del="${esc(i.name)}">Xoá</button>` : ""}</td></tr>`).join("");
     const drafts = S.drafts.map((d, k) => `<tr data-draft="${k}"><td></td><td><input type="text" data-dk="batch" value="${esc(d.batch)}" style="width:80px"></td>
       <td><input type="text" data-dk="sku" value="${esc(d.sku)}" placeholder="SKU *" style="width:120px"><input type="text" data-dk="product_name" value="${esc(d.product_name)}" placeholder="Tên SP" style="margin-top:4px"></td>
       <td><div class="av-up">${d.product_image ? `<img class="av-thumb" src="${esc(d.product_image)}" alt="">` : ""}<label>${d.product_image ? "Đổi" : "Ảnh chính diện *"}<input type="file" accept="image/*" data-dfile="product_image"></label></div>
@@ -311,11 +320,11 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
       <td><input type="text" data-dk="product_type" value="${esc(d.product_type)}" placeholder="VD: lon sữa bột 800g">${catSel(d.product_category, 'data-dk="product_category" style="margin-top:4px"')}</td>
       <td><div class="av-row" style="flex-wrap:nowrap"><input type="number" class="av-num" data-dk="width_cm" value="${esc(d.width_cm)}" placeholder="R"><input type="number" class="av-num" data-dk="height_cm" value="${esc(d.height_cm)}" placeholder="C"><input type="number" class="av-num" data-dk="depth_cm" value="${esc(d.depth_cm)}" placeholder="S"></div><input type="number" class="av-num" data-dk="size_pct" value="${esc(d.size_pct)}" placeholder="±%" style="margin-top:4px" title="Chỉnh cỡ ±% (khi không có số đo)"></td>
       <td><input type="number" class="av-num" data-dk="audio_seconds" value="${esc(d.audio_seconds)}" placeholder="giây"><div class="av-up" style="margin-top:4px">${d.audio_file ? "✓" : ""}<label class="av-hint">mp3<input type="file" accept="audio/*" data-dfile="audio_file"></label></div></td>
-      <td><span class="av-pill p-idle">Nháp</span></td><td><button class="av-btn sm ghost danger" data-ddel="${k}">Bỏ</button></td></tr>`).join("");
+      <td></td><td><span class="av-pill p-idle">Nháp</span></td><td><button class="av-btn sm ghost danger" data-ddel="${k}">Bỏ</button></td></tr>`).join("");
     const nNew = S.items.filter((i) => S.sel.has(i.name)).length;
     return `<div class="av-panel"><div class="av-panel-h"><h2>Danh sách SKU</h2><div class="av-row"><button class="av-btn" id="av-add">+ Thêm dòng</button>${S.drafts.length ? `<button class="av-btn pri" id="av-save-drafts">Lưu ${S.drafts.length} dòng</button>` : ""}<button class="av-gold" id="av-start" ${nNew ? "" : "disabled"}>Tạo ảnh cầm cho ${nNew} SKU</button></div></div>
-      <div class="av-panel-b" style="padding:0"><div class="av-tw"><table><thead><tr><th><input type="checkbox" id="av-selall" aria-label="Chọn tất cả"></th><th>Lô</th><th>SKU</th><th>Ảnh</th><th>Loại / kiểu cầm</th><th>Kích thước (R×C×S)</th><th>Audio</th><th>Trạng thái</th><th></th></tr></thead>
-      <tbody>${rows}${drafts}${!rows && !drafts ? `<tr><td colspan="9" class="av-empty">Chưa có SKU. Bấm "+ Thêm dòng".</td></tr>` : ""}</tbody></table></div></div></div>
+      <div class="av-panel-b" style="padding:0"><div class="av-tw"><table><thead><tr><th><input type="checkbox" id="av-selall" aria-label="Chọn tất cả"></th><th>Lô</th><th>SKU</th><th>Ảnh</th><th>Loại / kiểu cầm</th><th>Kích thước (R×C×S)</th><th>Audio</th><th>Chi phí</th><th>Trạng thái</th><th></th></tr></thead>
+      <tbody>${rows}${drafts}${!rows && !drafts ? `<tr><td colspan="10" class="av-empty">Chưa có SKU. Bấm "+ Thêm dòng".</td></tr>` : ""}</tbody></table></div></div></div>
       <div class="av-callout"><div>Mỗi SKU tạo <b>2 ảnh cầm</b> để chọn. Kích thước thật (cm) giúp SP đúng cỡ; không có số đo thì dùng ±%. Ảnh phụ các mặt (cạnh, sau, nắp…) tối đa 4 ảnh và ảnh cầm thật được gửi kèm ảnh chính diện để AI giữ đúng hình khối, độ dày, nhãn mặt bên. Nhóm kiểu cầm để trống thì tự nhận theo mô tả.</div></div>`;
   }
   /* step 2: duyet anh */
@@ -358,15 +367,15 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
     return `<div class="av-panel"><div class="av-panel-h"><h2>Trộn video</h2><div class="av-seg" id="av-mixmode">${[["mix", "Nói + cầm SP"], ["hold", "Chỉ cầm SP"], ["talk", "Chỉ nói"]].map(([k, l]) => `<button data-m="${k}" class="${mode === k ? "on" : ""}">${l}</button>`).join("")}</div></div>
       <div class="av-panel-b"><div class="av-grid2"><label class="av-f">Số bản khác nhau / SKU<input type="number" id="mx-n" min="1" max="20" value="${p.mix_variants || 5}"></label><label class="av-f">Độ dài (giây, để trống = theo audio từng SKU)<input type="number" id="mx-d" min="10" max="600" placeholder="${p.audio_seconds || 72}"></label><label class="av-f">Tên lô xuất (thư mục)<input type="text" id="mx-b" value="${esc(S.mixBatch || (ready[0] && ready[0].batch) || "lo1")}"></label></div>
       <div class="av-hint" style="margin:8px 0">Luật: mỗi bản một thứ tự khác · không lặp 1 clip 2 lần liền · đoạn cầm SP luôn là Lấy lên → Cầm → Hạ xuống (đổi hướng) · clip cuối cắt vừa độ dài. Có file audio thì ghép luôn tiếng.</div>
-      <div class="av-tw"><table><thead><tr><th><input type="checkbox" id="mx-all" aria-label="Chọn tất cả"></th><th>SKU</th><th>Lô</th><th>Độ dài</th><th>Trạng thái</th></tr></thead><tbody>
-      ${ready.map((i) => `<tr><td><input type="checkbox" data-mx="${esc(i.name)}" ${S.mixSel.has(i.name) ? "checked" : ""}></td><td><b>${esc(i.sku)}</b></td><td>${esc(i.batch || "")}</td><td>${i.audio_seconds || p.audio_seconds || 72}s${i.audio_file ? " · audio" : ""}</td><td>${pill(i)}</td></tr>`).join("") || '<tr><td colspan="5" class="av-empty">Chưa SKU nào đủ clip.</td></tr>'}</tbody></table></div>
+      <div class="av-tw"><table><thead><tr><th><input type="checkbox" id="mx-all" aria-label="Chọn tất cả"></th><th>SKU</th><th>Lô</th><th>Độ dài</th><th>Chi phí</th><th>Trạng thái</th></tr></thead><tbody>
+      ${ready.map((i) => `<tr><td><input type="checkbox" data-mx="${esc(i.name)}" ${S.mixSel.has(i.name) ? "checked" : ""}></td><td><b>${esc(i.sku)}</b></td><td>${esc(i.batch || "")}</td><td>${i.audio_seconds || p.audio_seconds || 72}s${i.audio_file ? " · audio" : ""}</td><td>${costCell(i)}</td><td>${pill(i)}</td></tr>`).join("") || '<tr><td colspan="6" class="av-empty">Chưa SKU nào đủ clip.</td></tr>'}</tbody></table></div>
       <div class="av-row" style="margin-top:12px;justify-content:flex-end"><button class="av-gold" id="av-mix" ${S.mixSel.size || mode === "talk" ? "" : "disabled"}>Trộn & xuất</button></div></div></div>
       <div class="av-panel"><div class="av-panel-h"><h2>Kết quả</h2><span class="av-hint">Video nằm sẵn trên laptop: C:\\n8n-files\\ecv6\\output\\&lt;brand&gt;\\&lt;lô&gt;\\ — ZIP ở ecv6\\exports.</span></div><div class="av-tw"><table><thead><tr><th>Lúc</th><th>Lô</th><th>Kiểu</th><th>Bản</th><th>Trạng thái</th><th>Tải</th></tr></thead><tbody>
       ${S.exports.map((e) => `<tr><td class="av-hint">${esc(String(e.creation).slice(5, 16))}</td><td>${esc(e.batch)}</td><td>${esc(e.mode)}</td><td>${e.variants}/SKU · ${e.duration}s</td><td>${e.status === "running" ? '<span class="av-pill p-run">Đang trộn…</span>' : /^done/.test(e.status) ? `<span class="av-pill p-ok">${esc(e.status)}</span>` : `<span class="av-pill p-bad">${esc(e.status)}</span>`}</td>
         <td><div class="av-units">${e.zip_url ? `<a class="av-btn sm pri" href="${esc(e.zip_url)}">ZIP cả lô</a>` : ""}${(e.files || []).slice(0, 12).map((f) => `<button class="av-unit" data-video="${esc(f.url)}">▶ ${esc(f.name.replace(/\.mp4$/, ""))}</button>`).join("")}${(e.files || []).length > 12 ? `<span class="av-hint">+${e.files.length - 12}</span>` : ""}</div></td></tr>`).join("") || '<tr><td colspan="6" class="av-empty">Chưa xuất lần nào.</td></tr>'}</tbody></table></div></div>`;
   }
   /* step 5: prompt */
-  const PROMPT_KEYS = [["anchor_image", "Ảnh khung neo (2 tay trên bàn)"], ["talk", "Clip nói (MC, không SP)"], ["putdown", "Clip hạ SP (DIR_TEXT = hướng, DURATION = số giây)"], ["hold_suffix", "Đuôi thêm vào clip cầm (khoá vòng lặp)"], ["hold_generic", "Clip cầm - mẫu chung (khi SKU không có prompt riêng)"]];
+  const PROMPT_KEYS = [["anchor_image", "Ảnh khung neo (2 tay trên bàn)"], ["talk", "Clip nói (MC, không SP)"], ["putdown", "Clip hạ SP (DIR_TEXT = hướng, DURATION = số giây)"], ["hold_suffix", "Đuôi thêm vào clip cầm (khoá vòng lặp)"], ["hold_two_hand", "Clip cầm - SP cầm 2 tay (sữa vỉ, lon, hộp to)"], ["hold_generic", "Clip cầm - mẫu chung (khi SKU không có prompt riêng)"]];
   function stepPrompt() { return `<div class="av-panel"><div class="av-panel-h"><h2>Prompt dùng chung</h2><span class="av-hint" id="pr-ver"></span></div><div class="av-panel-b" id="pr-body"><div class="av-skel"></div></div></div>
     <div class="av-callout"><div>Prompt clip cầm của từng SKU lấy theo <b>kiểu cầm</b> (thư viện 12 nhóm trong n8n). Sửa ở đây áp cho mọi lần tạo <b>sau</b> khi lưu; clip đã tạo không đổi. Mỗi lần lưu giữ lại bản cũ. Muốn đổi hàng loạt theo ý (vd "cử chỉ mạnh hơn") thì gửi yêu cầu cho Claude để sửa một lần cho chuẩn.</div></div>`; }
   async function loadPrompts() {
