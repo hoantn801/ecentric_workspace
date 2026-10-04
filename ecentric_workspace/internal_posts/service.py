@@ -100,6 +100,39 @@ def home_block(user, repo=None):
     return D.home_cards(_cards(repo, user, rows, cat_map, today))
 
 
+def feed_cards(user, repo=None):
+    """Cho Bang tin (social/sources.py): bai NGUOI XEM doc duoc, da dang, chua het han - moi bai kem
+    so tim / binh luan cua CHINH bai do (mot bo cam xuc, mot bo binh luan; Bang tin khong luu ban sao).
+    `ts` = luc dang (published_on) de tron voi bai Bang tin theo thoi gian."""
+    repo = _repo(repo)
+    today = repo.today()
+    _, cat_map = _categories(repo)
+    rows = repo.list_posts(user, filters={"published": 1})
+    cards = [c for c in _cards(repo, user, rows, cat_map, today) if not c["expired"]]
+    if not cards:
+        return []
+    by_name = {r["name"]: r for r in rows}
+    names = [c["name"] for c in cards]
+    targets = [C.REACTION_TARGET_PREFIX + n for n in names]
+    rx = {}
+    for r in repo.reactions(targets):
+        slot = rx.setdefault(r["target"], {"total": 0, "kinds": [], "mine": False})
+        slot["total"] += 1
+        if r.get("kind") not in slot["kinds"]:
+            slot["kinds"].append(r.get("kind"))
+        if r.get("user") == user and r.get("kind") == C.COMMENT_RX_KIND:
+            slot["mine"] = True
+    cmts = repo.comment_counts(names)
+    for c in cards:
+        r = by_name.get(c["name"]) or {}
+        c["ts"] = r.get("published_on") or r.get("creation")
+        slot = rx.get(C.REACTION_TARGET_PREFIX + c["name"]) or {"total": 0, "kinds": [], "mine": False}
+        c["rx_total"], c["rx_kinds"], c["rx_mine"] = slot["total"], slot["kinds"], slot["mine"]
+        c["comments"] = cmts.get(c["name"], 0) if (r.get("allow_comments") is None or r.get("allow_comments")) else None
+        c["comment_url"] = "%s#%s" % (c["url"], C.COMMENT_ANCHOR)
+    return cards
+
+
 # ------------------------------------------------------------------ mot bai ------
 def _load(repo, user, slug):
     name = repo.name_by_slug(slug)

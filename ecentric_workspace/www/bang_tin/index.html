@@ -1,0 +1,79 @@
+{%- extends "templates/includes/social/layout.html" -%}
+{%- from "templates/includes/social/macros.html" import composer as composer_box, items as render_items, club_icon, av -%}
+{#- /bang-tin - Bang tin (mockup v2, PO duyet 04/10/2026): 2 cot, phan chinh + cot phai 300px. -#}
+{% block esc_page %}
+<h1 class="esc-sr">Bảng tin</h1>
+<div class="esc-grid2">
+  <div class="esc-col">
+    {% if first_page %}{{ composer_box(composer) }}{% endif %}
+    <nav class="esc-filters" aria-label="Lọc bảng tin">
+      {% for f in filters %}<a class="esc-chip-a" href="/bang-tin{% if f.key %}?loc={{ f.key|e }}{% endif %}"{% if f.key == loc %} aria-current="page"{% endif %}>{{ f.label|e }}</a>{% endfor %}
+    </nav>
+    {% if todo %}
+    <section class="esc-card esc-pad esc-only-mob" aria-label="Cần bạn">
+      <p class="esc-ph">Cần bạn</p>
+      <div class="esc-todo">{% for t in todo %}<a href="{{ t.url|e }}"><span aria-hidden="true">{{ t.icon }}</span><span>{{ t.text|e }}</span><b>{{ t.act|e }}</b></a>{% endfor %}</div>
+    </section>
+    {% endif %}
+    <div class="esc-feed" data-esc-feed data-loc="{{ loc|e }}">
+      {{ render_items(items) }}
+    </div>
+    {% if not items %}
+    <div class="esc-card esc-pad esc-empty">
+      {% if loc == 'cua-toi' %}Bạn chưa đăng bài nào. Chia sẻ một điều vui ở ô phía trên nhé.
+      {% elif loc == 'clb-cua-toi' %}Bạn chưa tham gia câu lạc bộ nào. <a class="esc-link" href="/bang-tin/cau-lac-bo">Xem các câu lạc bộ</a>
+      {% elif loc == 'su-kien' %}Chưa có sự kiện hay khảo sát nào sắp tới.
+      {% elif loc == 'phong-toi' %}Phòng bạn chưa có bài nào.
+      {% else %}Chưa có bài nào ở đây.{% endif %}
+    </div>
+    {% endif %}
+    {% if next %}<button type="button" class="esc-btn esc-more" data-esc-more data-next="{{ next|e }}">Xem bài cũ hơn</button>{% endif %}
+  </div>
+
+  {% if first_page %}
+  <aside class="esc-col esc-rail" aria-label="Bên lề">
+    {% if todo %}
+    <section class="esc-card esc-pad esc-only-desk" aria-label="Cần bạn">
+      <p class="esc-ph">Cần bạn</p>
+      <div class="esc-todo">{% for t in todo %}<a href="{{ t.url|e }}"><span aria-hidden="true">{{ t.icon }}</span><span>{{ t.text|e }}</span><b>{{ t.act|e }}</b></a>{% endfor %}</div>
+    </section>
+    {% endif %}
+    {% if today %}
+    <section class="esc-card esc-pad" aria-label="Hôm nay">
+      <p class="esc-ph">Hôm nay</p>
+      <div class="esc-list">
+        {% for m in today %}
+        <div class="esc-li"><span class="esc-av esc-av-s esc-av-ic" aria-hidden="true">{{ m.icon }}</span>
+          <div><b>{{ m.name|e }}</b><small>{{ m.short|e }}</small></div>
+          <a class="esc-btn esc-btn-sm" href="/bang-tin#{{ m.anchor|e }}" data-esc-goto="{{ m.anchor|e }}">{{ m.act|e }}</a></div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+    <section class="esc-card esc-pad" aria-label="Câu lạc bộ của bạn">
+      <p class="esc-ph">Câu lạc bộ của bạn</p>
+      {% if my_clubs %}
+      <div class="esc-clubs">
+        {% for c in my_clubs %}<a class="esc-club" href="{{ c.url|e }}">{{ club_icon(c) }}<div><b>{{ c.title|e }}</b><small>{{ (c.next or c.category)|e }}</small></div></a>{% endfor %}
+      </div>
+      {% else %}<p class="esc-note-sm">Chưa tham gia CLB nào. Chạy bộ, đá bóng, cầu lông… vào chơi cùng mọi người nhé.</p>{% endif %}
+      <div class="esc-sep"></div>
+      <a class="esc-btn esc-btn-sm esc-btn-wash esc-block" href="/bang-tin/cau-lac-bo">Xem tất cả câu lạc bộ</a>
+    </section>
+    {% if feedback_done %}
+    <section class="esc-card esc-pad" aria-label="Góp ý vừa làm">
+      <p class="esc-ph">Góp ý đã làm</p>
+      <div class="esc-list">{% for f in feedback_done %}<div class="esc-fb"><span class="esc-badge esc-b-fb">Đã làm</span><b>{{ f.title|e }}</b><small>{{ f.topic|e }}{% if f.date %} · {{ f.date|e }}{% endif %}</small></div>{% endfor %}</div>
+      <a class="esc-link esc-mt" href="/gop-y?tab=bang-chung&amp;loc=da-lam">Xem bảng chung góp ý →</a>
+    </section>
+    {% endif %}
+    <section class="esc-card esc-pad esc-hall" aria-label="eCentric Hall">
+      <p class="esc-ph">eCentric Hall</p>
+      <p class="esc-hall-t">Văn phòng ảo: check-in giữ chuỗi ngày, chơi mini-game, trò chuyện cùng đồng nghiệp.</p>
+      <a class="esc-btn" href="/hall">Vào Hall</a>
+    </section>
+    {% if is_moderator %}<a class="esc-link" href="/bang-tin/quan-ly">Kiểm duyệt Bảng tin →</a>{% endif %}
+  </aside>
+  {% endif %}
+</div>
+{% endblock %}

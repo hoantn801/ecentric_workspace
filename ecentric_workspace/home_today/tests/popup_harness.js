@@ -165,6 +165,8 @@ const txt = (el) => (el ? el.textContent.replace(/\s+/g, ' ').trim() : null);
     p.news = []; p.onboard = []; p.anniversaries = []; p.holidays = [];
     p.birthdays.today[0].name = '<img src=x onerror="window.__pwn=1">';
     p.birthdays.today[0].role = '<b>x</b>';
+    p.events[0].title = '<img src=x onerror="window.__pwn=2">';
+    p.events[0].club = '<img src=x onerror="window.__pwn=3">';
     const b = await boot(htmlOn, { payload: p });
     const pop = b.d.getElementById('ech-pop');
     out.xss = { pwn: !!b.w.__pwn, imgs: pop.querySelectorAll('img').length, tiles: [...pop.querySelectorAll('.th .tt')].map(txt),

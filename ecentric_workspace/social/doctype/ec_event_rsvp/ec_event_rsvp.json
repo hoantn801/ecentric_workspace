@@ -1,0 +1,77 @@
+{
+ "doctype": "DocType",
+ "name": "EC Event RSVP",
+ "module": "Social",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "autoname": "hash",
+ "naming_rule": "Random",
+ "track_changes": 0,
+ "read_only": 1,
+ "title_field": "post",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "description": "Tham gia / Có thể cho sự kiện CLB. Một người một dòng mỗi sự kiện (dedupe_key).",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "delete": 1
+  },
+  {
+   "role": "HR Manager",
+   "read": 1,
+   "report": 1
+  }
+ ],
+ "field_order": [
+  "post",
+  "user",
+  "answer",
+  "dedupe_key"
+ ],
+ "fields": [
+  {
+   "fieldname": "post",
+   "fieldtype": "Link",
+   "label": "Sự kiện",
+   "options": "EC Social Post",
+   "reqd": 1,
+   "in_list_view": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "Người",
+   "options": "User",
+   "reqd": 1,
+   "in_list_view": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "answer",
+   "fieldtype": "Select",
+   "label": "Trả lời",
+   "options": "going\nmaybe",
+   "default": "going",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "dedupe_key",
+   "fieldtype": "Data",
+   "label": "Khoá",
+   "unique": 1
+  }
+ ],
+ "modified": "2026-10-04 10:00:00.000000",
+ "links": [],
+ "index_web_pages_for_search": 0
+}

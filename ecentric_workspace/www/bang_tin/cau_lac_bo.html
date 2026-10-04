@@ -1,0 +1,71 @@
+{%- extends "templates/includes/social/layout.html" -%}
+{%- from "templates/includes/social/macros.html" import club_icon, av -%}
+{#- /bang-tin/cau-lac-bo - danh sach CLB (mockup v2 man "Câu lạc bộ"). -#}
+{%- macro ccard(c, pending=False) -%}
+<article class="esc-ccard" data-esc-club="{{ c.name|e }}">
+  <a class="esc-ccov esc-cov-{{ c.color|e }}" href="{{ c.url|e }}" tabindex="-1" aria-hidden="true"></a>
+  <div class="esc-cb2">
+    {{ club_icon(c, 'esc-cic-lg') }}
+    <h2 class="esc-h3"><a href="{{ c.url|e }}">{{ c.title|e }}</a></h2>
+    <p>{{ c.description|e }}</p>
+    {%- if pending %}
+    <div class="esc-next">⏳ Chờ HR duyệt{% if c.proposed_by_me %} · đề xuất của bạn{% endif %}</div>
+    {%- elif c.next %}
+    <a class="esc-next" href="{{ c.next.url|e }}">📅 <b>{{ c.next.short|e }}</b> · {{ c.next.title|e }}</a>
+    {%- else %}<div class="esc-next">Chưa có sự kiện sắp tới</div>{% endif %}
+    <div class="esc-crow">
+      <span class="esc-mem">{% if c.sample %}<span class="esc-stack">{% for p in c.sample[:2] %}{{ av(p, 'esc-av-xs') }}{% endfor %}</span>{% endif %}<span data-esc-mem-n>{{ c.members }}</span> {{ 'người muốn tham gia' if pending else 'thành viên' }}</span>
+      {%- if c.joined %}
+      <button type="button" class="esc-btn esc-btn-sm" data-esc-join="{{ c.name|e }}" aria-pressed="true"{% if c.is_lead and not pending %} disabled title="Bạn đang phụ trách CLB này"{% endif %}>✓ {{ 'Đã đăng ký' if pending else 'Đã tham gia' }}</button>
+      {%- else %}
+      <button type="button" class="esc-btn esc-btn-sm esc-btn-pri" data-esc-join="{{ c.name|e }}" aria-pressed="false">{{ 'Tôi cũng muốn tham gia' if pending else 'Tham gia' }}</button>
+      {%- endif %}
+    </div>
+  </div>
+</article>
+{%- endmacro -%}
+{% block esc_page %}
+<header class="esc-head">
+  <div><h1 class="esc-h1">Câu lạc bộ</h1><p class="esc-sub">Bài và sự kiện của CLB hiện cả ở <a class="esc-link" href="/bang-tin">Bảng tin</a> chung.</p></div>
+  {% if is_moderator %}<a class="esc-btn" href="/bang-tin/quan-ly?tab=clb">Quản lý CLB</a>{% endif %}
+</header>
+<div class="esc-col">
+  <div class="esc-note-pin"><span aria-hidden="true">ℹ️</span><span><b>Ai lập CLB?</b> Nhân viên gửi đề xuất, HR duyệt một lần. Vào CLB thì tự bấm tham gia, không cần duyệt.</span></div>
+  <nav class="esc-filters" aria-label="Lọc câu lạc bộ">
+    {% for f in filters %}<a class="esc-chip-a" href="/bang-tin/cau-lac-bo{% if f.key %}?loc={{ f.key|e }}{% endif %}"{% if f.key == loc %} aria-current="page"{% endif %}>{{ f.label|e }}{% if f.n is not none %} ({{ f.n }}){% endif %}</a>{% endfor %}
+  </nav>
+  <div class="esc-club-grid">
+    {% for c in clubs %}{{ ccard(c) }}{% endfor %}
+    <article class="esc-ccard esc-req">
+      <b>+ Đề xuất CLB mới</b>
+      <span>Cần tên, mô tả và người phụ trách (là bạn). Nên rủ trước ít nhất {{ suggest_min }} người muốn tham gia. HR duyệt.</span>
+      <button type="button" class="esc-btn esc-btn-sm" data-esc-propose-open>Đề xuất</button>
+    </article>
+  </div>
+  {% if not clubs and loc %}<p class="esc-note-sm">Không có CLB nào ở mục này.</p>{% endif %}
+  {% if pending %}
+  <h2 class="esc-h2 esc-mt">Đang chờ HR duyệt</h2>
+  <p class="esc-note-sm">Bấm “Tôi cũng muốn tham gia” để HR thấy CLB có người hưởng ứng. Khi được duyệt bạn thành thành viên luôn.</p>
+  <div class="esc-club-grid">{% for c in pending %}{{ ccard(c, True) }}{% endfor %}</div>
+  {% endif %}
+  {% if rejected %}
+  <h2 class="esc-h2 esc-mt">Đề xuất chưa được duyệt</h2>
+  <div class="esc-list">{% for c in rejected %}<div class="esc-card esc-pad"><b>{{ c.emoji|e }} {{ c.title|e }}</b><p class="esc-note-sm">HR: {{ c.note|e }}</p></div>{% endfor %}</div>
+  {% endif %}
+</div>
+
+<div class="esc-modal" data-esc-propose role="dialog" aria-modal="true" aria-labelledby="esc-prop-h" hidden>
+  <form class="esc-modal-box" data-esc-propose-form novalidate>
+    <h2 class="esc-h2" id="esc-prop-h">Đề xuất câu lạc bộ mới</h2>
+    <div class="esc-cp-grid">
+      <label class="esc-field"><span class="esc-cp-lbl">Tên CLB</span><input class="esc-inp" name="club_name" maxlength="60" required placeholder="Chạy bộ"></label>
+      <label class="esc-field"><span class="esc-cp-lbl">Biểu tượng (emoji)</span><input class="esc-inp" name="emoji" maxlength="8" placeholder="🏃"></label>
+      <label class="esc-field"><span class="esc-cp-lbl">Nhóm</span><select class="esc-inp" name="category">{% for c in categories %}<option>{{ c|e }}</option>{% endfor %}</select></label>
+      <fieldset class="esc-field esc-fs"><legend class="esc-cp-lbl">Màu ảnh bìa</legend><div class="esc-swatches">{% for col in colors %}<label class="esc-sw esc-cov-{{ col }}"><input type="radio" name="color" value="{{ col }}"{% if loop.first %} checked{% endif %}><span class="esc-sr">{{ col }}</span></label>{% endfor %}</div></fieldset>
+      <label class="esc-field esc-span2"><span class="esc-cp-lbl">Mô tả</span><textarea class="esc-inp" name="description" rows="3" maxlength="300" required placeholder="CLB làm gì, sinh hoạt khi nào, ở đâu…"></textarea></label>
+    </div>
+    <p class="esc-note-sm">Bạn sẽ là người phụ trách (tạo sự kiện cho CLB). HR duyệt xong bạn nhận được thông báo.</p>
+    <div class="esc-row-end"><button type="button" class="esc-btn" data-esc-modal-close>Huỷ</button><button type="submit" class="esc-btn esc-btn-pri">Gửi đề xuất</button></div>
+  </form>
+</div>
+{% endblock %}

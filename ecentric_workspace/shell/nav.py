@@ -88,6 +88,13 @@ HOME_PORTAL_ITEMS = [
     # 28/09/2026 (Hoan): Tong quan thanh trang that /tong-quan - luoi the theo mang, the dau
     # tien la Nhan su (chi HR / CnB thay the; trang van mo cho moi nguoi noi bo, xem
     # hr/overview). Truoc do la /coming-soon?tool=tong-quan.
+    # 04/10/2026 (Hoan duyet mockup v2): Bang tin noi bo + Cau lac bo (/bang-tin, social/).
+    # "/bang-tin/*" cho trang CLB / mot bai / kiem duyet.
+    {"key": "home.portal.feed", "label": "Bảng tin", "route": "/bang-tin",
+     "icon": "activity", "group": "Workspace", "order": 12,
+     "active_patterns": ["/bang-tin", "/bang-tin/*"], "visible_when": "internal", "owner": "home_portal",
+     "keywords": ["bang tin", "mang xa hoi", "feed", "cau lac bo", "clb", "loi khen", "su kien",
+                  "chay bo", "bong da", "cau long"]},
     {"key": "home.portal.overview", "label": "Tổng quan", "route": "/tong-quan",
      "icon": "grid", "group": "Workspace", "order": 20, "active_patterns": ["/tong-quan"],
      "visible_when": "internal", "owner": "home_portal",

@@ -304,20 +304,22 @@ class FakeRepo:
 
     def user_departments(self, users): return {u: self.depts.get(u, "") for u in users or () if u}
 
-    def send_bell(self, event, user, title, message, url, ref_name, dedupe_key, actor=None):
+    def send_bell(self, event, user, title, message, url, ref_name, dedupe_key, actor=None, ref_doctype=None):
         if any(b[5] == dedupe_key for b in self.bells):
             return
         self.bells.append((event, user, title, message, url, dedupe_key))
 
     # -- v6: binh luan
-    def comments_of(self, post):
-        return [dict(c) for c in sorted(self.comments.values(), key=lambda c: c["creation"]) if c["post"] == post]
+    def comments_of(self, post, ref_doctype=None):
+        ref = ref_doctype or "EC Internal Post"
+        return [dict(c) for c in sorted(self.comments.values(), key=lambda c: c["creation"])
+                if c["post"] == post and c["ref_doctype"] == ref]
 
     def comment(self, name): return dict(self.comments[name]) if name in self.comments else None
 
-    def insert_comment(self, post, user, content, parent=None):
+    def insert_comment(self, post, user, content, parent=None, ref_doctype=None):
         name = "CM%02d" % (len(self.comments) + 1)
-        self.comments[name] = {"name": name, "post": post, "user": user, "content": content,
+        self.comments[name] = {"name": name, "ref_doctype": ref_doctype or "EC Internal Post", "post": post, "user": user, "content": content,
                                "parent_comment": parent, "hidden": 0, "hidden_by": None, "hidden_on": None,
                                "deleted": 0, "edited_on": None,
                                "creation": self.clock + dt.timedelta(seconds=len(self.comments))}
@@ -325,11 +327,15 @@ class FakeRepo:
 
     def update_comment(self, name, values): self.comments[name].update(values)
 
-    def comment_count_since(self, post, user, since):
-        return sum(1 for c in self.comments.values() if c["post"] == post and c["user"] == user and c["creation"] >= since)
+    def comment_count_since(self, post, user, since, ref_doctype=None):
+        ref = ref_doctype or "EC Internal Post"
+        return sum(1 for c in self.comments.values()
+                   if c["post"] == post and c["ref_doctype"] == ref and c["user"] == user and c["creation"] >= since)
 
-    def comment_counts(self, names):
-        return {n: sum(1 for c in self.comments.values() if c["post"] == n and not c["hidden"] and not c["deleted"])
+    def comment_counts(self, names, ref_doctype=None):
+        ref = ref_doctype or "EC Internal Post"
+        return {n: sum(1 for c in self.comments.values()
+                       if c["post"] == n and c["ref_doctype"] == ref and not c["hidden"] and not c["deleted"])
                 for n in names}
 
     # -- v6: AI viet giup

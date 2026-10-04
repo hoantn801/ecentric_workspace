@@ -464,22 +464,24 @@ def user_departments(users):
     return {r.user_id: labels.get(r.department, r.department or "") for r in rows}
 
 
-def send_bell(event, user, title, message, url, ref_name, dedupe_key, actor=None):
+def send_bell(event, user, title, message, url, ref_name, dedupe_key, actor=None, ref_doctype=None):
     """Chuong (va Teams neu event cho phep) qua notification_center - MOT duong gui."""
     from ecentric_workspace.notification_center.events import publish_notification_event
     return publish_notification_event(event, user, title, message, action_url=url,
-                                      reference_doctype=C.POST_DT, reference_name=ref_name,
+                                      reference_doctype=ref_doctype or C.POST_DT, reference_name=ref_name,
                                       actor=actor, from_user=actor, dedupe_key=dedupe_key)
 
 
 # ------------------------------------------------------------------ binh luan (v6) ----------
-COMMENT_FIELDS = ["name", "post", "parent_comment", "user", "content", "hidden", "hidden_by", "hidden_on",
+COMMENT_FIELDS = ["name", "ref_doctype", "post", "parent_comment", "user", "content", "hidden", "hidden_by", "hidden_on",
                   "deleted", "edited_on", "creation"]
 
 
-def comments_of(post):
-    """Moi binh luan cua bai (ca an / da xoa - service quyet dinh ai thay gi)."""
-    return frappe.get_all(C.COMMENT_DT, filters={"post": post}, fields=COMMENT_FIELDS,
+def comments_of(post, ref_doctype=None):
+    """Moi binh luan cua bai (ca an / da xoa - service quyet dinh ai thay gi).
+    ref_doctype: loai bai (mac dinh Tin noi bo; Bang tin dung chung bang - xem comments.py)."""
+    return frappe.get_all(C.COMMENT_DT, filters={"post": post, "ref_doctype": ref_doctype or C.POST_DT},
+                          fields=COMMENT_FIELDS,
                           order_by="creation asc", limit_page_length=0)
 
 
@@ -489,9 +491,10 @@ def comment(name):
     return frappe.db.get_value(C.COMMENT_DT, name, COMMENT_FIELDS, as_dict=True)
 
 
-def insert_comment(post, user, content, parent=None):
+def insert_comment(post, user, content, parent=None, ref_doctype=None):
     """Ghi cua HE THONG - nhan vien khong co quyen tren bang; service da kiem quyen doc bai."""
-    doc = frappe.get_doc({"doctype": C.COMMENT_DT, "post": post, "user": user, "content": content,
+    doc = frappe.get_doc({"doctype": C.COMMENT_DT, "ref_doctype": ref_doctype or C.POST_DT,
+                          "post": post, "user": user, "content": content,
                           "parent_comment": parent or None})
     doc.insert(ignore_permissions=True)
     return doc.name
@@ -501,20 +504,21 @@ def update_comment(name, values):
     frappe.db.set_value(C.COMMENT_DT, name, values, update_modified=True)
 
 
-def comment_count_since(post, user, since):
-    return frappe.db.count(C.COMMENT_DT, {"post": post, "user": user, "creation": [">=", since]})
+def comment_count_since(post, user, since, ref_doctype=None):
+    return frappe.db.count(C.COMMENT_DT, {"ref_doctype": ref_doctype or C.POST_DT, "post": post, "user": user,
+                                          "creation": [">=", since]})
 
 
-def comment_counts(names):
-    """{bai: so binh luan dang hien (khong an, khong xoa)} - bang quan ly."""
+def comment_counts(names, ref_doctype=None):
+    """{bai: so binh luan dang hien (khong an, khong xoa)} - bang quan ly / the Bang tin."""
     out = {n: 0 for n in names or ()}
     if not names:
         return out
     rows = frappe.db.sql(
         "select c.post, count(*) from `tabEC Post Comment` c "
         "left join `tabEC Post Comment` root on root.name = c.parent_comment "
-        "where c.post in %s and ifnull(c.hidden, 0) = 0 and ifnull(c.deleted, 0) = 0 "
-        "and ifnull(root.hidden, 0) = 0 group by c.post", (tuple(names),))
+        "where c.ref_doctype = %s and c.post in %s and ifnull(c.hidden, 0) = 0 and ifnull(c.deleted, 0) = 0 "
+        "and ifnull(root.hidden, 0) = 0 group by c.post", (ref_doctype or C.POST_DT, tuple(names)))
     for post, n in rows:
         out[post] = int(n or 0)
     return out

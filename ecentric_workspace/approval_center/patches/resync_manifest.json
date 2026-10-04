@@ -1,7 +1,7 @@
 {
   "action_center/pages/my_work/main_section.html": {
-    "last_resync_patch": "p257_resync_gop_y",
-    "sha256": "64b565785f08aecb1c67b9218475033534f0478a51d1bb80cba706ab907cba74"
+    "last_resync_patch": "p259_resync_bang_tin",
+    "sha256": "1705db87da13896b023c3347120c5ade28c54ec69267e8a0a34f96b718eb8d08"
   },
   "ai_tools/pages/ai_video/main_section.html": {
     "last_resync_patch": "p258_resync_ai_video_chi_phi",
@@ -170,8 +170,8 @@
     "sha256": "176f923979339da9140f34758e29671f90e33007e6c1c5b88bacdb42b979631d"
   },
   "hr/pages/tong_quan/main_section.html": {
-    "last_resync_patch": "p257_resync_gop_y",
-    "sha256": "bcaf5197c36eb8e7cbcd6ee0c3efc3764da1351390f2a70c6ed32e80bb10235e"
+    "last_resync_patch": "p259_resync_bang_tin",
+    "sha256": "705d2c4557c38b026edfc7bf06b51a861a3a92c0c13b355c3fd58be30cddc88a"
   },
   "legacy_pages/all_ticket/main_section.html": {
     "baseline": "2026-08-31",
@@ -255,8 +255,8 @@
   },
   "legacy_pages/home/main_section.html": {
     "baseline": "2026-09-29",
-    "last_resync_patch": "p257_resync_gop_y",
-    "sha256": "b91c748b800293084ae0583aad3b8a53047758744590952ffaad7c8ed8103820"
+    "last_resync_patch": "p259_resync_bang_tin",
+    "sha256": "489c4b1f4d999ed4887ae20a78481ad7214d21b7d10414a08c983945d6cf9a87"
   },
   "alerts/site_pages/overview/main_section.html": {
     "baseline": "2026-09-29",

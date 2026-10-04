@@ -70,8 +70,9 @@ class TestPopupInJsdom(unittest.TestCase):
     def test_tiles_in_po_order(self):
         m = self.r["main"]
         self.assertEqual(m["tiles"], ["Đêm hội Trung thu eCentric 2026", "Thông báo", "Sinh nhật", "Bạn mới",
-                                      "Sự kiện công ty", "Nghỉ lễ sắp tới", "Kỷ niệm gắn bó"])
-        self.assertEqual(m["badges"], [None, "3", "2", "1", "Mới", None, "1"])
+                                      "Sự kiện sắp tới", "Nghỉ lễ sắp tới", "Kỷ niệm gắn bó"])
+        self.assertEqual(m["badges"], [None, "3", "2", "1", "1", None, "1"])
+        self.assertEqual(m["sub"][4], "Chạy 5km hồ Bán Nguyệt <b> · còn 5 ngày")
         self.assertEqual(m["sub"][0], "Sự kiện · 29/09/2026")
         self.assertEqual(m["sub"][2], "2 hôm nay · 3 tuần này")
         self.assertEqual(m["sub"][5], "Tết Dương lịch · còn 94 ngày")
@@ -146,7 +147,7 @@ class TestPopupInJsdom(unittest.TestCase):
         self.assertFalse(x["pwn"])
         self.assertEqual(x["imgs"], 0)
         self.assertTrue(x["escaped"])
-        self.assertEqual(x["tiles"], ["Sinh nhật", "Sự kiện công ty"])
+        self.assertEqual(x["tiles"], ["Sinh nhật", "Sự kiện sắp tới"])
 
     def test_draw_tile_first_with_countdown_and_upcoming(self):
         d = self.r["draw"]

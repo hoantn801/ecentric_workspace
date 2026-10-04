@@ -14,6 +14,12 @@ Luat:
 
 Bang EC Post Comment khong cap quyen cho nhan vien: moi duong doc / ghi di qua day, sau khi
 kiem quyen doc BAI (repo.can). `view()` tra du lieu de template comments.html ve.
+
+DUNG CHUNG (04/10/2026, Bang tin): binh luan cua bai Bang tin (EC Social Post) cung nam o bang
+EC Post Comment (cot ref_doctype + post la Dynamic Link) va cung chay qua cac ham o day - mot
+bang, mot bo luat (tra loi mot cap, sua / xoa, HR an, tim, chong spam, chuong). Phan khac nhau
+giua hai loai bai (tai bai, ai doc duoc, duong dan, cau chuong) nam trong "subject": mac dinh
+INTERNAL (bai Tin noi bo); social/comments_subject.py cung cap subject cua Bang tin.
 """
 import datetime
 import hashlib
@@ -38,9 +44,50 @@ def enabled(doc):
     return bool(doc.get("published")) and bool(doc.get("allow_comments") if doc.get("allow_comments") is not None else 1)
 
 
-def view(repo, doc, user, editor):
+class InternalSubject:
+    """Bai Tin noi bo (EC Internal Post). Cung giao dien voi social.comments_subject.SocialSubject."""
+    doctype = C.POST_DT
+    dedupe = "internal_post_cmt"
+
+    def load(self, repo, user, name):
+        if not name or not repo.post_exists(name):
+            raise NotFound(name)
+        doc = repo.get_post(name)
+        if not repo.can(doc, "read", user):
+            raise Forbidden("Bạn không có quyền xem bài này.")
+        return doc
+
+    def can_read(self, repo, doc, user):
+        return repo.can(doc, "read", user)
+
+    def allowed(self, doc):
+        return bool(doc.get("published"))
+
+    def enabled(self, doc):
+        return enabled(doc)
+
+    def owner(self, doc):
+        return doc.get("owner")
+
+    def url(self, doc):
+        return "%s/%s#%s" % (C.ROUTE, doc.get("slug"), C.COMMENT_ANCHOR)
+
+    def titles(self, who, doc):
+        t = doc.get("title") or ""
+        return ("%s trả lời bình luận của bạn trong bài \"%s\"" % (who, t),
+                "%s bình luận bài \"%s\"" % (who, t))
+
+    def moderator(self, repo, user):
+        return repo.is_editor(user)
+
+
+INTERNAL = InternalSubject()
+
+
+def view(repo, doc, user, editor, subject=None):
     """Khoi binh luan cho trang bai (va cho api ve lai sau moi thao tac)."""
-    rows = repo.comments_of(doc.get("name")) if doc.get("published") else []
+    subject = subject or INTERNAL
+    rows = repo.comments_of(doc.get("name"), ref_doctype=subject.doctype) if subject.allowed(doc) else []
     now = repo.now()
     users = [r.get("user") for r in rows] + [user]
     names = repo.full_names(users)
@@ -53,8 +100,8 @@ def view(repo, doc, user, editor):
         slot = likes.setdefault(rx["target"], {"n": 0, "mine": False})
         slot["n"] += 1
         slot["mine"] = slot["mine"] or rx.get("user") == user
-    on = enabled(doc)
-    owner = doc.get("owner")
+    on = subject.enabled(doc)
+    owner = subject.owner(doc)
 
     def item(r):
         lk = likes.get(C.COMMENT_RX_PREFIX + r["name"], {"n": 0, "mine": False})
@@ -99,7 +146,7 @@ def view(repo, doc, user, editor):
         items.append(it)
     count = sum(1 for it in items for x in [it] + it["replies"] if not x["deleted"] and not x["hidden"])
     me = names.get(user) or user or ""
-    return {"post": doc.get("name"), "enabled": on, "allowed": bool(doc.get("published")),
+    return {"post": doc.get("name"), "enabled": on, "allowed": subject.allowed(doc),
             "count": count, "items": items, "is_editor": editor,
             "me_initial": _initials(me), "me_av": _avatar(user), "max": C.COMMENT_MAX_CHARS,
             "anchor": C.COMMENT_ANCHOR}
@@ -115,22 +162,18 @@ def _initials(name):
 
 
 # ------------------------------------------------------------------ thao tac ------
-def _post_for(repo, user, name):
+def _post_for(repo, user, name, subject):
     if not user or user == "Guest":
         raise PostError("Cần đăng nhập")
-    if not name or not repo.post_exists(name):
-        raise NotFound(name)
-    doc = repo.get_post(name)
-    if not repo.can(doc, "read", user):
-        raise Forbidden("Bạn không có quyền xem bài này.")
-    return doc
+    return subject.load(repo, user, name)
 
 
-def _comment_for(repo, user, comment):
+def _comment_for(repo, user, comment, subject):
     row = repo.comment(comment)
-    if not row:
+    # Ma binh luan cua LOAI BAI KHAC (vd. goi api Tin noi bo voi binh luan Bang tin) = khong co.
+    if not row or (row.get("ref_doctype") or C.POST_DT) != subject.doctype:
         raise PostError("Không tìm thấy bình luận (có thể đã bị xoá).")
-    return row, _post_for(repo, user, row.get("post"))
+    return row, _post_for(repo, user, row.get("post"), subject)
 
 
 def _clean(content):
@@ -142,20 +185,20 @@ def _clean(content):
     return text
 
 
-def _result(repo, doc, user):
-    return view(repo, doc, user, repo.is_editor(user))
+def _result(repo, doc, user, subject):
+    return view(repo, doc, user, subject.moderator(repo, user), subject)
 
 
-def add(user, post, content, parent=None, repo=None):
-    repo = _repo(repo)
-    doc = _post_for(repo, user, post)
-    if not enabled(doc):
+def add(user, post, content, parent=None, repo=None, subject=None):
+    repo, subject = _repo(repo), subject or INTERNAL
+    doc = _post_for(repo, user, post, subject)
+    if not subject.enabled(doc):
         raise PostError("Bài này đang tắt bình luận.")
     text = _clean(content)
     root = None
     if parent:
         prow = repo.comment(parent)
-        if not prow or prow.get("post") != post:
+        if not prow or prow.get("post") != post or (prow.get("ref_doctype") or C.POST_DT) != subject.doctype:
             raise PostError("Không tìm thấy bình luận để trả lời.")
         if prow.get("parent_comment"):              # tra loi mot cap: gan vao binh luan goc
             prow = repo.comment(prow.get("parent_comment"))
@@ -163,78 +206,78 @@ def add(user, post, content, parent=None, repo=None):
             raise PostError("Bình luận này không còn trả lời được.")
         root = prow
     since = repo.now() - datetime.timedelta(seconds=C.COMMENT_RATE_SECONDS)
-    if repo.comment_count_since(post, user, since) >= C.COMMENT_RATE_MAX:
+    if repo.comment_count_since(post, user, since, ref_doctype=subject.doctype) >= C.COMMENT_RATE_MAX:
         raise PostError("Bạn bình luận hơi nhanh. Đợi một phút rồi gửi tiếp nhé.")
-    name = repo.insert_comment(post, user, text, root["name"] if root else None)
-    _notify(repo, doc, user, name, text, root)
-    return _result(repo, doc, user)
+    name = repo.insert_comment(post, user, text, root["name"] if root else None, ref_doctype=subject.doctype)
+    _notify(repo, doc, user, name, text, root, subject)
+    return _result(repo, doc, user, subject)
 
 
-def _notify(repo, doc, user, name, text, root):
-    url = "%s/%s#%s" % (C.ROUTE, doc.get("slug"), C.COMMENT_ANCHOR)
+def _notify(repo, doc, user, name, text, root, subject):
+    url = subject.url(doc)
     who = repo.full_names([user]).get(user) or user
-    title_post = doc.get("title") or ""
+    reply_title, owner_title = subject.titles(who, doc)
     targets = []
     if root and root.get("user") and root.get("user") != user:
-        targets.append((root.get("user"), "%s trả lời bình luận của bạn trong bài \"%s\"" % (who, title_post)))
-    owner = doc.get("owner")
+        targets.append((root.get("user"), reply_title))
+    owner = subject.owner(doc)
     if owner and owner != user and owner not in [t[0] for t in targets]:
-        targets.append((owner, "%s bình luận bài \"%s\"" % (who, title_post)))
+        targets.append((owner, owner_title))
     snippet = text if len(text) <= 160 else text[:157].rsplit(" ", 1)[0] + "…"
     for u, title in targets:
-        if not repo.can(doc, "read", u):              # khong con doc duoc bai: khong gui trich doan
+        if not subject.can_read(repo, doc, u):        # khong con doc duoc bai: khong gui trich doan
             continue
         try:
             repo.send_bell(C.COMMENT_NOTIFY_EVENT, u, title, snippet, url, doc.get("name"),
-                           "internal_post_cmt|%s|%s" % (name, u), actor=user)
+                           "%s|%s|%s" % (subject.dedupe, name, u), actor=user, ref_doctype=subject.doctype)
         except Exception:
             repo.log_error("internal_posts.comments.notify")
 
 
-def edit(user, comment, content, repo=None):
-    repo = _repo(repo)
-    row, doc = _comment_for(repo, user, comment)
+def edit(user, comment, content, repo=None, subject=None):
+    repo, subject = _repo(repo), subject or INTERNAL
+    row, doc = _comment_for(repo, user, comment, subject)
     if row.get("user") != user or row.get("deleted"):
         raise Forbidden("Chỉ người viết mới sửa được bình luận.")
     if row.get("hidden"):
         raise PostError("HR đã ẩn bình luận này nên không sửa được.")
-    if not enabled(doc):
+    if not subject.enabled(doc):
         raise PostError("Bài này đang tắt bình luận.")
     repo.update_comment(comment, {"content": _clean(content), "edited_on": repo.now()})
-    return _result(repo, doc, user)
+    return _result(repo, doc, user, subject)
 
 
-def delete(user, comment, repo=None):
+def delete(user, comment, repo=None, subject=None):
     """Nguoi viet xoa binh luan cua minh (xoa mem: con tra loi thi hien "Bình luận đã bị xoá")."""
-    repo = _repo(repo)
-    row, doc = _comment_for(repo, user, comment)
+    repo, subject = _repo(repo), subject or INTERNAL
+    row, doc = _comment_for(repo, user, comment, subject)
     if row.get("user") != user:
         raise Forbidden("Chỉ người viết mới xoá được bình luận.")
     if row.get("hidden"):
         raise PostError("HR đã ẩn bình luận này nên không xoá được.")
     if not row.get("deleted"):
         repo.update_comment(comment, {"deleted": 1, "content": ""})
-    return _result(repo, doc, user)
+    return _result(repo, doc, user, subject)
 
 
-def hide(user, comment, hidden=True, repo=None):
+def hide(user, comment, hidden=True, repo=None, subject=None):
     """HR an / hien lai binh luan."""
-    repo = _repo(repo)
-    if not repo.is_editor(user):
+    repo, subject = _repo(repo), subject or INTERNAL
+    if not subject.moderator(repo, user):
         raise Forbidden("Chỉ HR được ẩn bình luận.")
-    row, doc = _comment_for(repo, user, comment)
+    row, doc = _comment_for(repo, user, comment, subject)
     if hidden:
         repo.update_comment(comment, {"hidden": 1, "hidden_by": user, "hidden_on": repo.now()})
     else:
         repo.update_comment(comment, {"hidden": 0, "hidden_by": None, "hidden_on": None})
-    return _result(repo, doc, user)
+    return _result(repo, doc, user, subject)
 
 
-def like(user, comment, repo=None):
+def like(user, comment, repo=None, subject=None):
     """Tha / bo tim tren binh luan."""
-    repo = _repo(repo)
-    row, doc = _comment_for(repo, user, comment)
-    if row.get("deleted") or (row.get("hidden") and not repo.is_editor(user)):
+    repo, subject = _repo(repo), subject or INTERNAL
+    row, doc = _comment_for(repo, user, comment, subject)
+    if row.get("deleted") or (row.get("hidden") and not subject.moderator(repo, user)):
         raise PostError("Bình luận này không còn hiện.")
     target = C.COMMENT_RX_PREFIX + comment
     existing = repo.find_reaction(target, C.COMMENT_RX_KIND, user)
@@ -246,4 +289,4 @@ def like(user, comment, repo=None):
         except Exception as exc:
             if not repo.is_duplicate(exc):
                 raise
-    return _result(repo, doc, user)
+    return _result(repo, doc, user, subject)

@@ -1,0 +1,49 @@
+{
+ "doctype": "DocType",
+ "name": "EC Social Post Image",
+ "module": "Social",
+ "custom": 0,
+ "istable": 1,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "autoname": "hash",
+ "naming_rule": "Random",
+ "track_changes": 0,
+ "description": "Ảnh của bài Bảng tin. Luôn private; xem qua social.api.image (kiểm quyền xem bài).",
+ "permissions": [],
+ "field_order": [
+  "file_url",
+  "file_name",
+  "width",
+  "height"
+ ],
+ "fields": [
+  {
+   "fieldname": "file_url",
+   "fieldtype": "Data",
+   "label": "Đường dẫn",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "file_name",
+   "fieldtype": "Data",
+   "label": "Tên tệp",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "width",
+   "fieldtype": "Int",
+   "label": "Rộng"
+  },
+  {
+   "fieldname": "height",
+   "fieldtype": "Int",
+   "label": "Cao"
+  }
+ ],
+ "modified": "2026-10-04 10:00:00.000000",
+ "links": [],
+ "index_web_pages_for_search": 0
+}

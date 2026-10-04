@@ -105,6 +105,33 @@ def _draw_keys(draws):
     return ["draw:" + d["name"] for d in draws if d.get("state") in ("countdown", "live")]
 
 
+def _social(repo, user, day, keys):
+    """Bang tin (module social): su kien CLB sap toi + so loi chuc cua khoanh khac hom nay.
+    Loi ben do -> popup van chay (khong co o Su kien / khong co so loi chuc), ghi log."""
+    try:
+        events = repo.social_events(user, day) or []
+    except Exception:
+        repo.log_error("home_today.social_events")
+        events = []
+    try:
+        wishes = repo.social_wishes(keys) or {}
+    except Exception:
+        repo.log_error("home_today.social_wishes")
+        wishes = {}
+    return events, wishes
+
+
+def people_today(now=None, repo=None):
+    """Cho Bang tin (social/sources.py): sinh nhat / ban moi / ky niem HOM NAY - cung danh sach, cung
+    khoa cam xuc voi popup (bam tim o Bang tin = tim tren popup). Co ma nhan vien (`emp`) vi Bang tin
+    can tim tai khoan nguoi duoc chuc de gui chuong; khong dua thang ra trinh duyet."""
+    repo = _repo(repo)
+    day = _today(repo, now)
+    sh = _shared(repo, day)
+    return {"date": day, "birthdays": sh["bd_today"], "onboard": _onboard(repo, day),
+            "anniversaries": sh["anniv"]}
+
+
 def today(user, now=None, repo=None):
     repo = _repo(repo)
     if not user or user == "Guest":
@@ -119,6 +146,7 @@ def today(user, now=None, repo=None):
     news = sh["news"]
     draws = _draws(repo, user)
     fresh = [n["key"] for n in news] + react_keys + _draw_keys(draws["draws"])
+    events, wishes = _social(repo, user, day, react_keys)
     return {
         "has_content": bool(news or sh["bd_today"] or sh["bd_soon"] or onboard or sh["anniv"]
                             or draws["draws"] or draws["soon"] or draws["timers"]),
@@ -129,7 +157,11 @@ def today(user, now=None, repo=None):
         "onboard": onboard,
         "anniversaries": [_public(p) for p in sh["anniv"]],
         "holidays": _holidays(repo, viewer, day),
-        "event_coming_soon": True,
+        # 04/10/2026: o "Su kien cong ty · Sap ra mat" -> su kien CLB that tu Bang tin (social/).
+        # Khong co su kien nao -> khong co o (khong con "Sap ra mat").
+        "event_coming_soon": False,
+        "events": events,
+        "wishes": wishes,
         "reactions": D.reactions_view(rows, react_keys, user, names),
         "keys": fresh,
     }

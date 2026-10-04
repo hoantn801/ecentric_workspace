@@ -212,3 +212,17 @@ def survey_draws(user):
 def survey_draws_soon():
     from ecentric_workspace.surveys.application import draw_feed
     return draw_feed.any_soon()
+
+
+# --------------------------------------------------------------- Bang tin (module social) --
+# Doc qua ham KHAI BAO cua social (social/sources.py) - home_today khong cham DocType nao cua
+# Bang tin. Loi ben do khong duoc lam hong popup: service bat va bo qua.
+
+def social_events(user, day):
+    from ecentric_workspace.social import sources
+    return sources.popup_events(user, day)
+
+
+def social_wishes(keys):
+    from ecentric_workspace.social import sources
+    return sources.wish_counts(keys)

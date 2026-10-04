@@ -1,0 +1,67 @@
+{
+ "doctype": "DocType",
+ "name": "EC Club Member",
+ "module": "Social",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "autoname": "hash",
+ "naming_rule": "Random",
+ "track_changes": 0,
+ "read_only": 1,
+ "title_field": "club",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "description": "Thành viên CLB (hoặc người 'muốn tham gia' khi CLB còn chờ duyệt). Một người một dòng mỗi CLB (dedupe_key).",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "delete": 1
+  },
+  {
+   "role": "HR Manager",
+   "read": 1,
+   "report": 1
+  }
+ ],
+ "field_order": [
+  "club",
+  "user",
+  "dedupe_key"
+ ],
+ "fields": [
+  {
+   "fieldname": "club",
+   "fieldtype": "Link",
+   "label": "CLB",
+   "options": "EC Club",
+   "reqd": 1,
+   "in_list_view": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "Thành viên",
+   "options": "User",
+   "reqd": 1,
+   "in_list_view": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "dedupe_key",
+   "fieldtype": "Data",
+   "label": "Khoá",
+   "unique": 1
+  }
+ ],
+ "modified": "2026-10-04 10:00:00.000000",
+ "links": [],
+ "index_web_pages_for_search": 0
+}

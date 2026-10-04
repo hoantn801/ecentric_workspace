@@ -786,3 +786,21 @@ scheduler_events["cron"].setdefault("*/5 * * * *", []).append(
     "ecentric_workspace.internal_posts.schedule.publish_due")
 scheduler_events["cron"].setdefault("0 9 * * *", []).append(
     "ecentric_workspace.internal_posts.ack.remind_due")
+
+# --------------------------------------------------------------------------- #
+# 04/10/2026 - Bang tin + Cau lac bo (/bang-tin, PO Hoan duyet mockup v2). Mang xa hoi noi bo:
+# nhan vien dang bai / anh / loi khen, CLB (de xuat -> HR duyet), su kien CLB (len popup "Hom nay").
+# Tin noi bo / sinh nhat / khao sat / gop y hien lai TU MODULE GOC (khong luu ban sao). Xem social/README.md.
+#  * route: thu muc www khong duoc co gach ngang -> www/bang_tin/ + 5 luat route; route tinh
+#    (cau-lac-bo, quan-ly) dung TRUOC route <slug> / <name>.
+#  * KHONG co has_permission / permission_query: moi DocType cua module chi System Manager (+ HR
+#    Manager doc); moi duong doc / ghi di qua social/service.py (ai thay bai nao: domain.can_see).
+#    Anh private, xem qua social.api.image.
+# --------------------------------------------------------------------------- #
+website_route_rules = list(globals().get("website_route_rules") or []) + [
+    {"from_route": "/bang-tin", "to_route": "bang_tin"},
+    {"from_route": "/bang-tin/cau-lac-bo", "to_route": "bang_tin/cau_lac_bo"},
+    {"from_route": "/bang-tin/quan-ly", "to_route": "bang_tin/quan_ly"},
+    {"from_route": "/bang-tin/cau-lac-bo/<slug>", "to_route": "bang_tin/clb"},
+    {"from_route": "/bang-tin/bai/<name>", "to_route": "bang_tin/bai"},
+]
