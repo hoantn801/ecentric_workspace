@@ -1,0 +1,60 @@
+# Thư viện tài liệu ISO (`iso_docs`)
+
+PO Hoàn chốt 04/10/2026 (mockup B rút gọn cho quản lý, D cho nhân viên). Thiết kế đầy đủ: doc
+"Thư viện tài liệu ISO — kiểm kê & thiết kế". Đóng gói quy trình mới từ chat khác:
+`NHIEU_LOP/iso/HUONG_DAN_DONG_GOI_QUY_TRINH.md`.
+
+## Nguyên tắc
+
+- Tài liệu = bản ghi **Quality Procedure** của ERPNext. **Không sửa DocType gốc**: chỉ Custom Field
+  `ec_*` (fixtures), bảng con `EC Document Revision`, Workflow chuẩn của Frappe.
+- Tên bản ghi = mã tài liệu (`QT-TCKT-03`), qua Property Setter `autoname = field:ec_doc_code`.
+- Không xoá phiên bản cũ: mỗi lần ban hành là một dòng `EC Document Revision`; phiên bản trước chuyển
+  "Hết hiệu lực" với ngày hiệu lực đến = ngày trước ngày hiệu lực mới.
+- Biểu mẫu là tài liệu riêng (`BM-QT-TCKT-03-01`) trỏ về quy trình qua `ec_parent_doc`, **không** dùng
+  cây `parent_quality_procedure` của ERPNext (cây tự chèn con vào bảng bước của cha).
+
+## Luồng duyệt (Workflow "Tài liệu ISO", `workflow_spec.py`)
+
+`Nháp → Chờ trưởng bộ phận → Chờ Ban ISO → Chờ Tổng giám đốc → Ban hành → (Chờ thu hồi → Hết hiệu lực)`
+
+- Trưởng bộ phận = `Department.manager_email` của phòng chủ trì (service tự điền `ec_dept_head`).
+  Không có role riêng: role Employee + điều kiện `doc.ec_dept_head == frappe.session.user`.
+  Phòng chưa có trưởng BP thì Ban ISO bấm thay.
+- Sửa **nhỏ** (X.Y+1) trên tài liệu đã có phiên bản: Ban ISO ban hành luôn, không qua TGĐ.
+  Tài liệu mới và sửa **lớn** (X+1.0) luôn qua TGĐ.
+- "Soạn phiên bản mới" đưa tài liệu về Nháp; phiên bản hiệu lực vẫn đọc được trong lúc soạn.
+
+## Thông báo lên trang chủ (spec PO 04/10)
+
+Tích `ec_notify_home` (chỉ tài liệu toàn công ty) → khi chuyển sang Ban hành, `service.on_update` gọi
+`home_today/announce_service.publish_from_source("Quality Procedure", mã, phiên bản, ...)`:
+tiêu đề "Ban hành: <mã> <tên> (v<phiên bản>)", chuyên mục Chính sách, hiển thị "Ảnh + nội dung",
+hiện từ ngày hiệu lực đến +6 ngày, link `/tai-lieu/<mã>` "Xem tài liệu →".
+Một thông báo cho mỗi phiên bản; lỗi tạo thông báo **không chặn** ban hành (savepoint + Error Log).
+Thu hồi tài liệu thì rút thông báo. Không đụng `ec_home_popup.js`, `home_today/service.py`, trang chủ.
+
+## Quyền
+
+- Ban ISO / TGĐ duyệt tài liệu / System Manager: mọi tài liệu.
+- Nhân viên (hồ sơ Employee Active): tài liệu đã có phiên bản hiệu lực, chưa hết hiệu lực, toàn công ty
+  hoặc phòng mình nằm trong phạm vi (phòng cha gồm phòng con).
+- Người soạn + trưởng BP của tài liệu: luôn thấy; ghi được đúng bước của mình (Nháp / Chờ trưởng BP).
+- Desk User trước đây toàn quyền trên Quality Procedure → nay chỉ đọc (patch p001).
+
+## Lớp code
+
+`constants → domain (thuần) → workflow_spec (thuần) → errors → repository (chỉ chỗ này chạm DB)
+→ service → events (doc_events) / permissions (hooks)`. Patch `p001_setup` dựng field, role,
+Property Setter, Custom DocPerm, Workflow; chạy lại bao nhiêu lần cũng được.
+
+Test (không cần bench): `python -m unittest ecentric_workspace.iso_docs.tests.test_iso_docs`
+
+## Đã làm / còn lại
+
+- [x] Bước 2: nền dữ liệu, luồng duyệt, quyền, lịch sử ban hành, thông báo trang chủ (05/10/2026).
+- [ ] Trang `/tai-lieu` (nhân viên, mockup D) + trang quản lý (mockup B) + "Nhập gói".
+- [ ] Nhắc rà soát định kỳ (cron + kill switch), "Báo nội dung sai / lỗi thời", EC Read Receipt.
+- [ ] Nhập 66 file cũ (dry-run, Hoàn + Ban ISO duyệt mã trước khi ghi).
+- [ ] AI: sơ đồ mermaid / tóm tắt / eC Mate hỏi đáp qua `platform.ai`.
+- [ ] Gán người cho role **Ban ISO** và **TGĐ duyệt tài liệu** trên site (chưa biết thành viên Ban ISO).
