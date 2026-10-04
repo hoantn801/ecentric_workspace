@@ -32,5 +32,5 @@
     <label class="esc-sr" for="esc-cm-in-{{ cm.post|e }}">{{ 'Viết lời chúc' if cm.moment else 'Viết bình luận' }}</label>
     <textarea id="esc-cm-in-{{ cm.post|e }}" rows="1" maxlength="{{ cm.max }}" placeholder="{{ 'Viết lời chúc…' if cm.moment else 'Viết bình luận…' }} (Enter để gửi)" data-esc-cmt-in></textarea>
   </form>
-  {% elif cm.allowed %}<p class="esc-note-sm">Bài đã bị ẩn nên không bình luận thêm được.</p>{% endif %}
+  {% elif cm.allowed %}<p class="esc-note-sm">{{ 'HR đã tắt bình luận cho bài này.' if cm.hr else 'Bài đã bị ẩn nên không bình luận thêm được.' }}</p>{% endif %}
 </section>

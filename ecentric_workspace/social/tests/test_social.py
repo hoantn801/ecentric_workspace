@@ -411,7 +411,11 @@ class TestActions(unittest.TestCase):
         self.p = S.create(LAN, {"body": "Bánh mì hôm nay mình bao!"}, repo=self.r)["name"]
 
     def test_react_toggles_one_heart(self):
-        self.assertEqual(S.react(KHANG, self.p, repo=self.r), {"total": 1, "emojis": "❤️", "mine": True})
+        self.assertEqual(S.react(KHANG, self.p, repo=self.r), {"total": 1, "emojis": "❤️", "mine": True, "who": "Bạn"})
+        S.react(ANH, self.p, repo=self.r)
+        self.assertEqual(S.post_view(KHANG, self.p, repo=self.r)["rx"]["who"], "Bạn, Vũ Ngọc Anh")    # re chuot: ai da tha
+        self.assertEqual(S.post_view(LAN, self.p, repo=self.r)["rx"]["who"], "Đỗ Minh Khang, Vũ Ngọc Anh")
+        S.react(ANH, self.p, repo=self.r)
         self.assertEqual(S.react(KHANG, self.p, repo=self.r)["total"], 0)
 
     def test_edit_and_delete_rights(self):
@@ -668,6 +672,12 @@ class TestModeration(unittest.TestCase):
 
 
 class TestDomain(unittest.TestCase):
+    def test_who_tip_caps_the_list(self):
+        users = ["u%d" % i for i in range(13)] + ["u1", LAN]
+        tip = D.who_tip(users, LAN, {"u0": "An"})
+        self.assertTrue(tip.startswith("Bạn, An, u1"))
+        self.assertTrue(tip.endswith("và 4 người khác"))
+
     def test_helpers(self):
         self.assertEqual(D.slugify("Game & Board game Đà Nẵng"), "game-board-game-da-nang")
         self.assertEqual(D.clean_text("  a  \n\n\n\n b ", 100), "a\n\nb")

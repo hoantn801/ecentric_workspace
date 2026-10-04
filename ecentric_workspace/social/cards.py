@@ -56,6 +56,7 @@ def build(repo, cx, rows, clubs_map=None):
         users.update(x for x in (r.get("author"), r.get("kudos_to"), r.get("hidden_by")) if x)
         users.update(mentions.get(r["name"]) or [])
     users.update(r["user"] for r in rsvp_rows)
+    users.update(r.get("user") for r in rx_rows if r.get("user"))
     names = repo.full_names(list(users))
     depts = repo.user_departments([r.get("author") for r in rows if r.get("author")])
     if clubs_map is None:
@@ -78,7 +79,7 @@ def build(repo, cx, rows, clubs_map=None):
             "mentions": [D.person(u, names) for u in mentions.get(n) or []],
             "ago": D.ago(r.get("creation"), now), "edited": bool(r.get("edited_on")),
             "ts": D.ts(r.get("creation")),
-            "rx": D.rx_summary(rx_rows, C.RX_PREFIX + n, user),
+            "rx": D.rx_summary(rx_rows, C.RX_PREFIX + n, user, names=names),
             "comments": cmts.get(n, 0),
             "hidden": bool(r.get("hidden")), "hidden_reason": r.get("hidden_reason") or "",
             "can_edit": mine and not r.get("hidden"), "can_delete": mine or cx["moderator"],
@@ -94,7 +95,7 @@ def build(repo, cx, rows, clubs_map=None):
             mk = D.moment_kind(r.get("moment_key"))
             kind = C.MOMENT_RX.get(mk, C.RX_KIND)
             card.update(can_edit=False, can_delete=False, can_report=False,
-                        rx=D.rx_summary(rx_rows, r.get("moment_key"), user, kind))
+                        rx=D.rx_summary(rx_rows, r.get("moment_key"), user, kind, names))
             card["moment"] = {"key": r.get("moment_key"), "mk": mk, "label": C.MOMENT_LABEL.get(mk, ""),
                               "icon": C.MOMENT_ICON.get(mk, ""), "rx_kind": kind, "rx_emoji": C.RX_EMOJI[kind]}
         out.append(card)

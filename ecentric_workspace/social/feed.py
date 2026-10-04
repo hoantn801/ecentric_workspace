@@ -51,9 +51,10 @@ def _social_rows(repo, cx, loc, cursor, my_clubs, now):
     return rows, more
 
 
-def _hr_entry(c):
+def _hr_entry(c, user, names):
     return {"type": "hr", "ts": D.ts(c.get("ts")), "hr": dict(c, ago=c.get("date_label") or "",
-                                                           rx_emojis="".join(C.RX_EMOJI.get(k, "") for k in (c.get("rx_kinds") or [])[:3]))}
+                                                           rx_emojis="".join(C.RX_EMOJI.get(k, "") for k in (c.get("rx_kinds") or [])[:3]),
+                                                           rx_who=D.who_tip(c.get("rx_users") or [], user, names))}
 
 
 def moments(repo, cx, people=None):
@@ -65,6 +66,7 @@ def moments(repo, cx, people=None):
         return []
     keys = [p["key"] for _, p in plist]
     rx_rows = repo.reactions(keys)
+    rx_names = repo.full_names([r.get("user") for r in rx_rows if r.get("user")])
     posts = repo.moment_posts(keys)
     hidden = {k for k, p in posts.items() if p.get("hidden")}
     plist = [(mk, p) for mk, p in plist if p["key"] not in hidden]       # HR an khoanh khac: bo the
@@ -85,7 +87,7 @@ def moments(repo, cx, people=None):
                     "given": p.get("given") or D.given(p.get("name")), "role": role, "text": text,
                     "intro": p.get("intro") or "", "initials": p.get("initials") or D.initials(p.get("name")),
                     "rx_kind": C.MOMENT_RX[mk], "rx_emoji": C.RX_EMOJI[C.MOMENT_RX[mk]],
-                    "rx": D.rx_summary(rx_rows, p["key"], cx["user"], C.MOMENT_RX[mk]),
+                    "rx": D.rx_summary(rx_rows, p["key"], cx["user"], C.MOMENT_RX[mk], rx_names),
                     "post": post["name"] if post else "", "wishes": counts.get(post["name"], 0) if post else 0,
                     "act": "Chào" if mk == "new" else "Chúc", "me": me,
                     "short": ("%s năm gắn bó" % p.get("years")) if mk == "ann"
@@ -133,7 +135,8 @@ def page(user, loc="", before="", repo=None):
     entries = [{"type": "post", "ts": D.ts(r.get("creation")), "row": r} for r in rows]
     if loc in ("", "tin-hr"):
         cut = D.ts(cursor) if cursor else None
-        entries += [_hr_entry(c) for c in hr if not cut or D.ts(c.get("ts")) < cut]
+        hr_names = repo.full_names([u for c in hr for u in (c.get("rx_users") or []) if u])
+        entries += [_hr_entry(c, user, hr_names) for c in hr if not cut or D.ts(c.get("ts")) < cut]
     surveys = sources.open_surveys(user, repo)
     if loc != "su-kien":
         entries.sort(key=lambda e: e["ts"], reverse=True)

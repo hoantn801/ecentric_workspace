@@ -358,7 +358,7 @@
     };
     if (wrap.getAttribute('data-esc-loaded') === '1' || !post) { done(); return; }
     wrap.textContent = 'Đang tải…';
-    call('comments', { post: post }, true).then(function (r) {
+    call('comments', { post: post, ref: card.getAttribute('data-esc-ref') || '' }, true).then(function (r) {
       wrap.textContent = '';
       wrap.appendChild(fromHTML(r.html));
       wrap.setAttribute('data-esc-loaded', '1');
@@ -402,6 +402,7 @@
     var post = card.getAttribute('data-esc-post');
     if (post) args.post = post;
     else args.moment = card.getAttribute('data-esc-moment-card') || '';
+    if (card.getAttribute('data-esc-ref')) args.ref = card.getAttribute('data-esc-ref');
     if (reply) args.parent = reply.getAttribute('data-esc-reply-box');
     var edit = ta.closest('[data-esc-edit-cmt]');
     if (edit) {
@@ -490,7 +491,10 @@
       em.textContent = rx.emojis;
       sum.appendChild(em);
       sum.appendChild(document.createTextNode(' ' + rx.total));
-    }
+      sum.setAttribute('tabindex', '0');
+    } else sum.removeAttribute('tabindex');
+    var who = card.querySelector('[data-esc-rx-who]');
+    if (who) who.textContent = rx.who || '';
   }
 
   function menuClose(except) {
@@ -639,7 +643,7 @@
           if (!res || !res.success) throw new Error((res && res.message) || 'Có lỗi, thử lại sau.');
           var heart = (res.data.items || []).filter(function (i) { return i.kind === 'heart'; })[0] || {};
           var em = (res.data.items || []).filter(function (i) { return i.n; }).map(function (i) { return i.emoji; }).slice(0, 3).join('');
-          setRx(hr, { total: res.data.total, emojis: em, mine: !!heart.mine }, b);
+          setRx(hr, { total: res.data.total, emojis: em, mine: !!heart.mine, who: res.data.who || '' }, b);
         }).catch(function (e) { toast(e.message || errMsg(e), true); }).then(function () { busy(b, false); });
       return;
     }

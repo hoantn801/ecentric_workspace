@@ -116,8 +116,9 @@ def feed_cards(user, repo=None):
     targets = [C.REACTION_TARGET_PREFIX + n for n in names]
     rx = {}
     for r in repo.reactions(targets):
-        slot = rx.setdefault(r["target"], {"total": 0, "kinds": [], "mine": False})
+        slot = rx.setdefault(r["target"], {"total": 0, "kinds": [], "mine": False, "users": []})
         slot["total"] += 1
+        slot["users"].append(r.get("user"))
         if r.get("kind") not in slot["kinds"]:
             slot["kinds"].append(r.get("kind"))
         if r.get("user") == user and r.get("kind") == C.COMMENT_RX_KIND:
@@ -126,8 +127,9 @@ def feed_cards(user, repo=None):
     for c in cards:
         r = by_name.get(c["name"]) or {}
         c["ts"] = r.get("published_on") or r.get("creation")
-        slot = rx.get(C.REACTION_TARGET_PREFIX + c["name"]) or {"total": 0, "kinds": [], "mine": False}
+        slot = rx.get(C.REACTION_TARGET_PREFIX + c["name"]) or {"total": 0, "kinds": [], "mine": False, "users": []}
         c["rx_total"], c["rx_kinds"], c["rx_mine"] = slot["total"], slot["kinds"], slot["mine"]
+        c["rx_users"] = slot["users"]                    # ai da tha (Bang tin hien khi re chuot)
         c["comments"] = cmts.get(c["name"], 0) if (r.get("allow_comments") is None or r.get("allow_comments")) else None
         c["comment_url"] = "%s#%s" % (c["url"], C.COMMENT_ANCHOR)
     return cards
