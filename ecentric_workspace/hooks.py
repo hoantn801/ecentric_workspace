@@ -393,6 +393,26 @@ fixtures = [
             "Employee-ec_sub_department", "Employee-ec_bien_so_xe", "Employee-ec_ma_kcb",
             "Employee-ec_noi_kcb", "Employee-ec_laptop", "Employee-ec_thang_tang_bhxh",
             "Employee-ec_hop_dong_section", "Employee-ec_contracts",
+            # Thu vien tai lieu ISO (05/10/2026, iso_docs/README.md): 36 field ec_* tren
+            # Quality Procedure (khong sua DocType goc). Patch iso_docs p001 cung tao neu thieu.
+            "Quality Procedure-ec_sb_iso", "Quality Procedure-ec_doc_code",
+            "Quality Procedure-ec_doc_type", "Quality Procedure-ec_department",
+            "Quality Procedure-ec_parent_doc", "Quality Procedure-ec_cb_iso",
+            "Quality Procedure-ec_doc_state", "Quality Procedure-ec_current_version",
+            "Quality Procedure-ec_effective_from", "Quality Procedure-ec_approver",
+            "Quality Procedure-ec_review_months", "Quality Procedure-ec_next_review",
+            "Quality Procedure-ec_sb_draft", "Quality Procedure-ec_draft_version",
+            "Quality Procedure-ec_change_kind", "Quality Procedure-ec_change_summary",
+            "Quality Procedure-ec_changed_sections", "Quality Procedure-ec_cb_draft",
+            "Quality Procedure-ec_drafter", "Quality Procedure-ec_dept_head",
+            "Quality Procedure-ec_iso_reviewer", "Quality Procedure-ec_source",
+            "Quality Procedure-ec_draft_pdf", "Quality Procedure-ec_draft_docx",
+            "Quality Procedure-ec_sb_flow", "Quality Procedure-ec_mermaid",
+            "Quality Procedure-ec_steps_json", "Quality Procedure-ec_sb_scope",
+            "Quality Procedure-ec_company_wide", "Quality Procedure-ec_scope_departments",
+            "Quality Procedure-ec_cb_scope", "Quality Procedure-ec_notify_home",
+            "Quality Procedure-ec_notify_summary", "Quality Procedure-ec_home_announcement",
+            "Quality Procedure-ec_sb_history", "Quality Procedure-ec_revisions",
 ]]],
     },
     # Ba DocType custom cua PnL dashboard (09-10/09/2026). Truoc day chi ton tai tren
@@ -804,3 +824,31 @@ website_route_rules = list(globals().get("website_route_rules") or []) + [
     {"from_route": "/bang-tin/cau-lac-bo/<slug>", "to_route": "bang_tin/clb"},
     {"from_route": "/bang-tin/bai/<name>", "to_route": "bang_tin/bai"},
 ]
+
+# --------------------------------------------------------------------------- #
+# 05/10/2026 - Thu vien tai lieu ISO, buoc 2 (nen du lieu + luong duyet). PO Hoan chot 04/10,
+# mockup B rut gon + D. Tai lieu = Quality Procedure cua ERPNext (KHONG sua DocType goc): 36
+# Custom Field ec_*, bang con EC Document Revision, Workflow "Tai lieu ISO" (patch iso_docs p001).
+# Xem iso_docs/README.md.
+#  * validate: kiem ma / pham vi / o thong bao; chuyen sang "Ban hanh" -> ghi lich su ban hanh.
+#  * on_update: tich "Thong bao len trang chu" + toan cong ty -> EC Home Announcement qua
+#    home_today/announce_service.py (idempotent theo phien ban, loi KHONG chan ban hanh).
+#  * quyen: Employee co read + write (Custom DocPerm), has_permission / query thu hep lai.
+#  * trang /tai-lieu, nhap goi, nhap file cu, AI: cac lan day sau.
+# --------------------------------------------------------------------------- #
+_ISO_EVENTS = {"validate": "ecentric_workspace.iso_docs.events.validate",
+               "on_update": "ecentric_workspace.iso_docs.events.on_update"}
+_iso_qp = doc_events.setdefault("Quality Procedure", {})
+for _iso_evt, _iso_hook in _ISO_EVENTS.items():
+    _iso_prev = _iso_qp.get(_iso_evt)
+    if _iso_prev is None:
+        _iso_qp[_iso_evt] = [_iso_hook]
+    elif isinstance(_iso_prev, str):
+        if _iso_prev != _iso_hook:
+            _iso_qp[_iso_evt] = [_iso_prev, _iso_hook]
+    elif _iso_hook not in _iso_prev:
+        _iso_prev.append(_iso_hook)
+permission_query_conditions["Quality Procedure"] = "ecentric_workspace.iso_docs.permissions.query_conditions"
+permission_query_conditions["EC Document Revision"] = "ecentric_workspace.iso_docs.permissions.child_query_conditions"
+permission_query_conditions["EC Document Department"] = "ecentric_workspace.iso_docs.permissions.child_query_conditions"
+has_permission["Quality Procedure"] = "ecentric_workspace.iso_docs.permissions.has_permission"

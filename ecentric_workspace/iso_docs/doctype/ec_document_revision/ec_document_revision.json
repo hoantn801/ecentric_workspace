@@ -1,0 +1,167 @@
+{
+ "doctype": "DocType",
+ "name": "EC Document Revision",
+ "module": "ISO Docs",
+ "custom": 0,
+ "istable": 1,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "autoname": "hash",
+ "naming_rule": "Random",
+ "description": "Một lần ban hành của tài liệu ISO (bảng con của Quality Procedure). Phiên bản cũ giữ lại, không xoá.",
+ "field_order": [
+  "version",
+  "change_kind",
+  "status",
+  "effective_from",
+  "effective_to",
+  "summary",
+  "changed_sections",
+  "cb_people",
+  "drafter",
+  "reviewer",
+  "approver",
+  "approved_on",
+  "source",
+  "sb_files",
+  "pdf",
+  "docx",
+  "home_announcement",
+  "sb_ai",
+  "mermaid",
+  "steps_json"
+ ],
+ "fields": [
+  {
+   "fieldname": "version",
+   "fieldtype": "Data",
+   "label": "Phiên bản",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "change_kind",
+   "fieldtype": "Select",
+   "label": "Kiểu sửa",
+   "options": "Lớn\nNhỏ",
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Trạng thái",
+   "options": "Hiệu lực\nHết hiệu lực\nĐã thu hồi",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "effective_from",
+   "fieldtype": "Date",
+   "label": "Hiệu lực từ",
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "effective_to",
+   "fieldtype": "Date",
+   "label": "Hiệu lực đến",
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "summary",
+   "fieldtype": "Small Text",
+   "label": "Tóm tắt thay đổi",
+   "in_list_view": 1,
+   "columns": 3
+  },
+  {
+   "fieldname": "changed_sections",
+   "fieldtype": "Small Text",
+   "label": "Mục thay đổi"
+  },
+  {
+   "fieldname": "cb_people",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "drafter",
+   "fieldtype": "Link",
+   "label": "Người soạn",
+   "options": "User"
+  },
+  {
+   "fieldname": "reviewer",
+   "fieldtype": "Link",
+   "label": "Ban ISO xem xét",
+   "options": "User"
+  },
+  {
+   "fieldname": "approver",
+   "fieldtype": "Link",
+   "label": "Người phê duyệt",
+   "options": "User",
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "approved_on",
+   "fieldtype": "Date",
+   "label": "Ngày duyệt"
+  },
+  {
+   "fieldname": "source",
+   "fieldtype": "Select",
+   "label": "Nguồn",
+   "options": "\nSoạn trên ERP\nGói từ Claude\nNhập file cũ"
+  },
+  {
+   "fieldname": "sb_files",
+   "fieldtype": "Section Break",
+   "label": "Tệp"
+  },
+  {
+   "fieldname": "pdf",
+   "fieldtype": "Attach",
+   "label": "Bản PDF"
+  },
+  {
+   "fieldname": "docx",
+   "fieldtype": "Attach",
+   "label": "Bản Word"
+  },
+  {
+   "fieldname": "home_announcement",
+   "fieldtype": "Link",
+   "label": "Thông báo trang chủ",
+   "options": "EC Home Announcement",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_ai",
+   "fieldtype": "Section Break",
+   "label": "Sơ đồ & các bước"
+  },
+  {
+   "fieldname": "mermaid",
+   "fieldtype": "Code",
+   "label": "Sơ đồ (mermaid)"
+  },
+  {
+   "fieldname": "steps_json",
+   "fieldtype": "Code",
+   "label": "Bước & vai trò (JSON)",
+   "options": "JSON"
+  }
+ ],
+ "permissions": [],
+ "links": [],
+ "index_web_pages_for_search": 0
+}
