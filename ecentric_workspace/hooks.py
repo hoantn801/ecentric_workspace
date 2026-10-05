@@ -852,3 +852,6 @@ permission_query_conditions["Quality Procedure"] = "ecentric_workspace.iso_docs.
 permission_query_conditions["EC Document Revision"] = "ecentric_workspace.iso_docs.permissions.child_query_conditions"
 permission_query_conditions["EC Document Department"] = "ecentric_workspace.iso_docs.permissions.child_query_conditions"
 has_permission["Quality Procedure"] = "ecentric_workspace.iso_docs.permissions.has_permission"
+
+# Nut "Chuyen nguoi xu ly" dung chung (05/10) - Hiring, Daily Target. Endpoint tu bind_fulfillment.
+web_include_js.append("ec_reassign.bundle.js")
