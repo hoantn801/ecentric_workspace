@@ -208,3 +208,19 @@ def force_published(code, note):
     duyet ngoai ERP, khong di lai Workflow. Ghi Comment de con dau vet."""
     frappe.db.set_value(C.QP, code, C.STATE_FIELD, C.S_PUBLISHED, update_modified=False)
     add_comment(code, note)
+
+
+def history(doc_name):
+    """Lich su duyet + y kien cua MOT tai lieu (Comment loai Workflow / Comment). Nguoi goi
+    (manage.editor_page) da kiem quyen doc tai lieu qua get_doc."""
+    rows = frappe.get_all("Comment", filters={"reference_doctype": C.QP, "reference_name": doc_name,
+                                               "comment_type": ["in", ["Workflow", "Comment"]]},
+                          fields=["comment_type", "content", "owner", "creation"], order_by="creation desc",
+                          limit_page_length=50)
+    names = full_names([r.owner for r in rows])
+    out = []
+    for r in rows:
+        text = frappe.utils.strip_html(r.content or "").strip()
+        out.append({"kind": r.comment_type, "text": text, "who": names.get(r.owner, r.owner),
+                    "when": frappe.utils.format_datetime(r.creation, "dd/MM/yyyy HH:mm")})
+    return out

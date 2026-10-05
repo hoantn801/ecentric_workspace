@@ -172,3 +172,101 @@ def to_fields(pkg, code, session_user):
     if isinstance(months, int) and 1 <= months <= 60:
         f["ec_review_months"] = months
     return f
+
+
+# --------------------------------------------------------------------------- bang buoc -> so do
+MAX_ROLES = 12
+
+
+def _clean(s):
+    return " ".join(str(s or "").split())
+
+
+def _label(s):
+    return _clean(s).replace('"', "'").replace("<", "").replace(">", "").replace("#", "")
+
+
+def _roles_of(s):
+    return [x.strip(" .") for x in re.split(r"[;,\n]| và ", s or "") if x.strip(" .")]
+
+
+def steps_from_rows(rows, tom_tat=None, forms=None):
+    """Bang buoc nguoi soan nhap tren trang soan -> (steps_json, so do mermaid).
+
+    rows: [{stt, ten, A, R, dien_giai, phan}] - A: vai tro chiu trach nhiem (mot), R: nguoi thuc hien
+    (cach nhau dau phay), phan: ten quy trinh con (de trong = mot quy trinh). So do di theo thu tu
+    cac buoc trong tung phan; moi phan ve thanh mot khoi rieng tren trang.
+    -> ("", "") neu chua co buoc nao. Loi du lieu -> DocError (o service)."""
+    rows = [r for r in rows or [] if _clean(r.get("ten"))]
+    roles, order, keyed = {}, [], {}
+
+    def code(n):
+        n = _clean(n)[:80]
+        if not n:
+            return ""
+        k = n.lower()
+        if k not in keyed:
+            keyed[k] = n
+            roles[n] = "R%d" % (len(roles) + 1)
+            order.append(n)
+        return roles[keyed[k]]
+
+    steps, seen = [], set()
+    for i, r in enumerate(rows):
+        stt = _clean(r.get("stt")) or str(i + 1)
+        base = "S" + (re.sub(r"[^0-9A-Za-z]", "", stt)[:5] or str(i + 1))
+        sid, n = base, 1
+        while sid in seen:
+            n += 1
+            sid = (base[:5] + "x%d" % n)[:7]
+        seen.add(sid)
+        a_list = _roles_of(r.get("A")) or _roles_of(r.get("R"))[:1] or ["Chưa ghi"]
+        A = code(a_list[0])
+        R = [code(x) for x in a_list[1:] + _roles_of(r.get("R"))] or [A]
+        steps.append({"id": sid, "stt": stt, "ten": _clean(r.get("ten"))[:120], "A": A,
+                      "R": sorted(set(R), key=R.index), "CI": [],
+                      "dien_giai": str(r.get("dien_giai") or "").strip()[:1500] or _clean(r.get("ten")),
+                      "phan": _clean(r.get("phan"))[:120]})
+    if not steps:
+        return "", ""
+    if len(roles) > MAX_ROLES:
+        raise ValueError("Quá %d vai trò khác nhau: gộp bớt cách ghi vai trò (ví dụ cùng một chức danh)." % MAX_ROLES)
+    names = {v: k for k, v in roles.items()}
+    groups = []
+    for b in steps:
+        if not groups or groups[-1][0] != b["phan"]:
+            groups.append((b["phan"], []))
+        groups[-1][1].append(b)
+    multi = len(groups) > 1 or bool(groups[0][0])
+    lines = ["flowchart TD"]
+    for gi, (title, part) in enumerate(groups):
+        if multi:
+            lines.append('subgraph P%d["%s"]' % (gi + 1, _label(title) or "Phần %d" % (gi + 1)))
+        for b in part:
+            t = _label(b["ten"])
+            t = t if len(t) <= 60 else t[:57] + "…"
+            lines.append('%s["<b>%s. %s</b><br/>%s"]' % (b["id"], _label(b["stt"]), t, _label(names[b["A"]])[:50]))
+        for x, y in zip(part, part[1:]):
+            lines.append("%s --> %s" % (x["id"], y["id"]))
+        if multi:
+            lines.append("end")
+    data = {"tom_tat": tom_tat or {}, "vai_tro": [{"ma": roles[n], "ten": n} for n in order],
+            "buoc": steps, "bieu_mau": list(forms or [])}
+    return json.dumps(data, ensure_ascii=False, indent=1), "\n".join(lines)
+
+
+def rows_from_steps(steps_raw):
+    """Nguoc lai: steps_json da luu -> bang buoc cho trang soan (ten vai tro thay vi ma)."""
+    try:
+        data = json.loads(steps_raw) if isinstance(steps_raw, str) else (steps_raw or {})
+    except ValueError:
+        return []
+    names = {r.get("ma"): r.get("ten") for r in data.get("vai_tro") or [] if isinstance(r, dict)}
+    out = []
+    for b in data.get("buoc") or []:
+        if not isinstance(b, dict):
+            continue
+        out.append({"stt": b.get("stt") or "", "ten": b.get("ten") or "", "A": names.get(b.get("A"), b.get("A") or ""),
+                    "R": ", ".join(names.get(x, x) for x in b.get("R") or [] if x != b.get("A")),
+                    "dien_giai": b.get("dien_giai") or "", "phan": b.get("phan") or ""})
+    return out

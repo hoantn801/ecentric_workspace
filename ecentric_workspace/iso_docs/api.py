@@ -105,3 +105,22 @@ def _import_legacy(data):
 def import_legacy(data):
     """Nhap MOT tai lieu cu tu SharePoint (Ban ISO). Khong di lai luong duyet, khong ghi de."""
     return _run(_import_legacy, data)
+
+
+def _save_draft(data):
+    if isinstance(data, str):
+        try:
+            data = json.loads(data or "{}")
+        except ValueError:
+            raise DocError("Dữ liệu gửi lên không hợp lệ.")
+    if not isinstance(data, dict):
+        raise DocError("Dữ liệu gửi lên không hợp lệ.")
+    forms = [_blob(f) for f in data.pop("forms_new", None) or []]
+    return M.save_draft(frappe.session.user, data, _blob(data.pop("pdf", None)), _blob(data.pop("docx", None)),
+                        [f for f in forms if f])
+
+
+@frappe.whitelist(methods=["POST"])
+def save_draft(data):
+    """Luu trang soan /tai-lieu/soan (tao moi: Ban ISO; sua: nguoi soan / Ban ISO khi Nhap)."""
+    return _run(_save_draft, data)
