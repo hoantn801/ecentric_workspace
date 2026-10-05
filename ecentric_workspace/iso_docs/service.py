@@ -10,6 +10,7 @@ bang repo gia, khong can bench.
   on_update : sau khi ban hanh da ghi xong -> thong bao trang chu (neu tich + toan cong ty).
               Loi thong bao KHONG chan ban hanh: announce_service chay trong savepoint, loi ->
               rollback dung phan thong bao + Error Log (spec PO 04/10, muc 4).
+              Moi lan doi trang thai -> xep job notify.state_changed (bao nguoi bam buoc tiep).
 """
 from ecentric_workspace.iso_docs import constants as C
 from ecentric_workspace.iso_docs import domain as D
@@ -66,6 +67,8 @@ def on_validate(doc, repo=None):
     after = doc.get(C.STATE_FIELD)
     kind = D.transition_kind(before, after)
     user = repo.session_user()
+    if before is not None and D.norm_state(before) != D.norm_state(after):
+        doc.flags.ec_transition = (before, after, user)
     if kind == "iso_review":
         doc.ec_iso_reviewer = user
     elif kind == "publish":
@@ -119,4 +122,12 @@ def on_update(doc, repo=None):
     if getattr(flags, "ec_withdrawn", False):
         flags.ec_withdrawn = False
         repo.withdraw_announcements(doc.name)
+    tr = getattr(flags, "ec_transition", None)
+    if tr:
+        flags.ec_transition = None
+        try:
+            repo.enqueue_notify(doc.name, tr[0], tr[1], tr[2], str(doc.get("modified") or ""))
+        except Exception:
+            # thong bao hong KHONG duoc chan chuyen buoc (tai lieu da luu xong)
+            repo.log_error("iso_docs.enqueue_notify")
     return name

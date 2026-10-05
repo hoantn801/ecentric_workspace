@@ -234,3 +234,56 @@ def can_write(doc, user, is_manager):
     if is_state(state, C.S_HEAD) and user and user == doc.get("ec_dept_head"):
         return True
     return False
+
+
+# --------------------------------------------------------------------------- thong bao duyet
+#: trang thai cho -> ai bam buoc tiep (khoa: trang thai da chuan hoa)
+_WAITING = {"head": C.S_HEAD, "iso": C.S_ISO, "ceo": C.S_CEO, "withdraw": C.S_WITHDRAW}
+
+
+def notify_plan(before, after, doc, actor, iso_users=(), ceo_users=(), note=""):
+    """Chuyen buoc before -> after cua tai lieu doc (dict) do actor bam -> danh sach thong bao
+    [{to, event, title, message, url}]. THUAN, khong goi DB.
+
+    - Vao buoc cho (truong BP / Ban ISO / TGD / thu hoi): bao nguoi bam duoc buoc tiep.
+      Truong BP trong (phong chua co) -> Ban ISO, giong dieu kien NO_HEAD cua workflow.
+    - Bi tra ve Nhap tu mot buoc cho: bao nguoi soan, kem y kien.
+    - Ban hanh: bao nguoi soan.
+    Khong bao chinh nguoi bam; moi nguoi mot lan."""
+    if before is None or norm_state(before) == norm_state(after):
+        return []
+    code = doc.get("ec_doc_code") or doc.get("name") or ""
+    name = doc.get("quality_procedure_name") or ""
+    head = "%s %s" % (code, name)
+    ver = doc.get("ec_draft_version") or ""
+    ver_txt = ("bản " + ver) if ver else ("bản đầu" if not doc.get("ec_current_version") else "bản mới")
+    out = []
+    waiting_urls = "/tai-lieu/quan-ly?loc=cho-toi&ma=" + code
+    if is_state(after, C.S_HEAD):
+        to = [doc.get("ec_dept_head")] if doc.get("ec_dept_head") else list(iso_users)
+        out = [(u, "approval_required", "Tài liệu chờ bạn duyệt: " + head,
+                "%s · trưởng bộ phận xem trước khi chuyển Ban ISO" % ver_txt, waiting_urls) for u in to]
+    elif is_state(after, C.S_ISO):
+        out = [(u, "approval_required", "Tài liệu chờ Ban ISO: " + head,
+                "%s · trưởng bộ phận đã đồng ý" % ver_txt, waiting_urls) for u in iso_users]
+    elif is_state(after, C.S_CEO):
+        out = [(u, "approval_required", "Tài liệu chờ Tổng giám đốc duyệt: " + head,
+                "%s · Ban ISO đã xem" % ver_txt, waiting_urls) for u in ceo_users]
+    elif is_state(after, C.S_WITHDRAW):
+        out = [(u, "approval_required", "Đề nghị thu hồi tài liệu: " + head,
+                "Ban ISO đề nghị thu hồi bản đang hiệu lực", waiting_urls) for u in ceo_users]
+    elif is_state(after, C.S_DRAFT) and any(is_state(before, s) for s in _WAITING.values()):
+        msg = "Ý kiến: " + note if note else "Xem ý kiến trong lịch sử duyệt"
+        out = [(doc.get("ec_drafter"), "approval_required", "Tài liệu bị trả lại: " + head,
+                msg[:300], "/tai-lieu/soan?ma=" + code)]
+    elif is_state(after, C.S_PUBLISHED) and any(is_state(before, s) for s in (C.S_ISO, C.S_CEO)):
+        out = [(doc.get("ec_drafter"), "mention", "Tài liệu đã ban hành: " + head,
+                "Bản %s có hiệu lực, nhân viên đã đọc được" % (doc.get("ec_current_version") or ver),
+                "/tai-lieu/" + code)]
+    seen, res = set(), []
+    for to, ev, title, msg, url in out:
+        if not to or to == actor or to in seen or to in ("Guest", "Administrator"):
+            continue
+        seen.add(to)
+        res.append({"to": to, "event": ev, "title": title[:140], "message": msg, "url": url})
+    return res
