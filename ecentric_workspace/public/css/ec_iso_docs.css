@@ -21,6 +21,8 @@
 .eti-app button{cursor:pointer}
 .eti-app :focus-visible{outline:2px solid var(--eti-navy);outline-offset:2px}
 .eti-app [hidden]{display:none}
+/* PO 05/10: khong gach chan link (ke ca khi re chuot) - doi mau / nen thay cho gach chan */
+.eti-app a,.eti-app a:hover,.eti-app a:focus{text-decoration:none}
 .eti-app h1,.eti-app h2,.eti-app h3{font-family:inherit;letter-spacing:normal;margin:0}
 .eti-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .eti-ic{width:16px;height:16px;flex:none}
@@ -32,7 +34,7 @@
 .eti-mut{color:var(--eti-faint);font-size:12.5px}
 .eti-lbl{font-size:12.5px;font-weight:600;color:var(--eti-muted)}
 .eti-link{color:var(--eti-navy);text-decoration:none;font-weight:600;font-size:13px}
-.eti-link:hover{text-decoration:underline}
+.eti-link:hover{color:var(--eti-navy-press)}
 .eti-code{font-weight:700;color:var(--eti-ink);white-space:nowrap;font-size:12.5px;letter-spacing:.01em}
 .eti-empty{margin:0;color:var(--eti-faint)}
 .eti-pad{padding:18px 16px}
@@ -65,7 +67,7 @@
 .eti-banner-off{background:var(--eti-chip);color:var(--eti-muted)}
 .eti-crumb{font-size:12.5px;color:var(--eti-faint)}
 .eti-crumb a{color:var(--eti-navy);text-decoration:none}
-.eti-crumb a:hover{text-decoration:underline}
+.eti-crumb a:hover{color:var(--eti-navy-press)}
 
 /* ---------- thu vien ---------- */
 .eti-hero{padding:18px;display:flex;flex-direction:column;gap:14px}
@@ -89,10 +91,11 @@
 .eti-drow-wide{grid-template-columns:110px minmax(0,1fr) auto}
 .eti-dmain{display:flex;flex-direction:column;gap:2px;min-width:0}
 .eti-dname{color:var(--eti-ink);text-decoration:none;font-weight:500}
-.eti-dname:hover{text-decoration:underline;color:var(--eti-navy)}
+.eti-dname:hover{color:var(--eti-navy)}
 .eti-tiles{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
 .eti-tile{display:flex;flex-direction:column;gap:4px;height:100%;border:1px solid var(--eti-line);border-radius:10px;padding:12px 14px;text-decoration:none}
 .eti-tile:hover{border-color:var(--eti-navy-100);background:var(--eti-soft)}
+.eti-tile:hover b{color:var(--eti-navy)}
 .eti-tile b{color:var(--eti-ink);font-size:13.5px}
 .eti-tile-use{color:var(--eti-muted);font-size:12.5px}
 
@@ -166,7 +169,7 @@
 .eti-b2-v.is-off,.eti-b2-v.is-off .eti-vn{color:var(--eti-faint)}
 .eti-b2-links{display:flex;gap:14px;flex-wrap:wrap;font-size:13px}
 .eti-b2-links a{color:var(--eti-navy);text-decoration:none;font-weight:600}
-.eti-b2-links a:hover{text-decoration:underline}
+.eti-b2-links a:hover{color:var(--eti-navy-press)}
 .eti-actbox{border:1px solid var(--eti-line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
 .eti-app textarea,.eti-import input[type=text]{border:1px solid var(--eti-line);border-radius:8px;padding:8px 10px;background:var(--eti-surface);color:var(--eti-ink);font-size:13px}
 .eti-app textarea{resize:vertical;min-height:56px}
