@@ -1,0 +1,206 @@
+/* ec_iso_docs.css - Thu vien tai lieu ISO (/tai-lieu, /tai-lieu/<ma>, /tai-lieu/quan-ly).
+   Thiet ke = mockup D (nhan vien) + B rut gon (quan ly), PO duyet 04/10/2026. Mau + chu theo
+   DESIGN.md cua ERP. Moi lop co tien to eti- va nam duoi .eti-app: khong dung toi trang khac
+   hay shell (shell co CSS rieng). */
+
+.eti-app{
+  --eti-navy:#2C3DA6;--eti-navy-press:#1f2d80;--eti-navy-50:#eef0fb;--eti-navy-100:#d9deef;
+  --eti-ok:#047857;--eti-ok-50:#ecfdf5;--eti-bad:#b91c1c;--eti-bad-50:#fef2f2;--eti-warn:#8a5a00;--eti-warn-50:#fff8e1;
+  --eti-bg:#f7f8fb;--eti-surface:#fff;--eti-soft:#f9fafb;--eti-line:#e5e7eb;--eti-line2:#f3f4f6;--eti-chip:#f3f4f6;
+  --eti-ink:#111827;--eti-ink2:#374151;--eti-muted:#4b5563;--eti-faint:#6b7280;
+  --eti-r:12px;--eti-gap:14px;
+  display:grid;grid-template-columns:248px minmax(0,1fr);min-height:100vh;flex:0 0 auto;
+  background:var(--eti-bg);color:var(--eti-ink2);
+  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  font-size:13.5px;line-height:1.5;letter-spacing:normal;color-scheme:light;
+}
+.eti-app *,.eti-app *::before,.eti-app *::after{box-sizing:border-box}
+.eti-main{min-width:0;display:flex;flex-direction:column}
+.eti-page{padding:22px 24px 48px;min-width:0;width:100%;max-width:1320px;display:flex;flex-direction:column;gap:var(--eti-gap)}
+.eti-app button,.eti-app input,.eti-app textarea{font:inherit}
+.eti-app button{cursor:pointer}
+.eti-app :focus-visible{outline:2px solid var(--eti-navy);outline-offset:2px}
+.eti-app [hidden]{display:none}
+.eti-app h1,.eti-app h2,.eti-app h3{font-family:inherit;letter-spacing:normal;margin:0}
+.eti-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.eti-ic{width:16px;height:16px;flex:none}
+
+/* ---------- chu ---------- */
+.eti-h1{font-size:22px;font-weight:700;color:var(--eti-ink);line-height:1.3;text-wrap:balance}
+.eti-h2{font-size:15px;font-weight:700;color:var(--eti-ink)}
+.eti-sub{margin:4px 0 0;font-size:13px;color:var(--eti-faint)}
+.eti-mut{color:var(--eti-faint);font-size:12.5px}
+.eti-lbl{font-size:12.5px;font-weight:600;color:var(--eti-muted)}
+.eti-link{color:var(--eti-navy);text-decoration:none;font-weight:600;font-size:13px}
+.eti-link:hover{text-decoration:underline}
+.eti-code{font-weight:700;color:var(--eti-ink);white-space:nowrap;font-size:12.5px;letter-spacing:.01em}
+.eti-empty{margin:0;color:var(--eti-faint)}
+.eti-pad{padding:18px 16px}
+.eti-pre{white-space:pre-line}
+.eti-req{color:var(--eti-bad)}
+
+/* ---------- khoi chung ---------- */
+.eti-card{background:var(--eti-surface);border:1px solid var(--eti-line);border-radius:var(--eti-r);min-width:0}
+.eti-sec{padding:16px 18px;display:flex;flex-direction:column;gap:12px}
+.eti-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px}
+.eti-head-tight{align-items:flex-start}
+.eti-head-act{display:flex;flex-wrap:wrap;gap:8px}
+.eti-row-sb{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px}
+.eti-grow{flex:1;min-width:0}
+.eti-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:9px;border:1px solid var(--eti-line);background:var(--eti-surface);color:var(--eti-ink2);font-size:13px;font-weight:600;white-space:nowrap;text-decoration:none;line-height:1.3}
+.eti-btn:hover{border-color:var(--eti-navy-100);background:var(--eti-soft)}
+.eti-btn-sm{padding:5px 10px;font-size:12.5px}
+.eti-btn-pri{background:var(--eti-navy);border-color:var(--eti-navy);color:#fff}
+.eti-btn-pri:hover{background:var(--eti-navy-press);border-color:var(--eti-navy-press)}
+.eti-btn-danger{color:var(--eti-bad)}
+.eti-btn[disabled],.eti-btn[aria-busy="true"]{opacity:.6;cursor:progress}
+.eti-pill{display:inline-flex;align-items:center;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:700;white-space:nowrap}
+.eti-p-ok{background:var(--eti-ok-50);color:var(--eti-ok)}
+.eti-p-wait{background:var(--eti-navy-50);color:var(--eti-navy)}
+.eti-p-old{background:var(--eti-warn-50);color:var(--eti-warn)}
+.eti-p-off{background:var(--eti-chip);color:var(--eti-muted)}
+.eti-p-bad{background:var(--eti-bad-50);color:var(--eti-bad)}
+.eti-ver{display:inline-flex;padding:1px 7px;border:1px solid var(--eti-line);border-radius:6px;font-size:12px;font-weight:700;color:var(--eti-ink)}
+.eti-banner{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:10px;background:var(--eti-warn-50);color:var(--eti-warn);font-size:13px}
+.eti-banner-off{background:var(--eti-chip);color:var(--eti-muted)}
+.eti-crumb{font-size:12.5px;color:var(--eti-faint)}
+.eti-crumb a{color:var(--eti-navy);text-decoration:none}
+.eti-crumb a:hover{text-decoration:underline}
+
+/* ---------- thu vien ---------- */
+.eti-hero{padding:18px;display:flex;flex-direction:column;gap:14px}
+.eti-ask{display:flex;gap:8px;align-items:center;border:1px solid var(--eti-navy-100);border-radius:10px;padding:6px 6px 6px 12px;color:var(--eti-faint)}
+.eti-ask input[type=search]{border:0;outline:0;flex:1;min-width:0;color:var(--eti-ink);font-size:14px;background:transparent;padding:4px 0}
+.eti-ask:focus-within{border-color:var(--eti-navy);box-shadow:0 0 0 3px var(--eti-navy-50)}
+.eti-tabs{display:flex;gap:4px;border-bottom:1px solid var(--eti-line);overflow-x:auto}
+.eti-tab{padding:10px 10px;font-size:13px;color:var(--eti-muted);border-bottom:2px solid transparent;white-space:nowrap;text-decoration:none}
+.eti-tab.is-on{color:var(--eti-navy);border-bottom-color:var(--eti-navy);font-weight:600}
+.eti-dept{display:grid;grid-template-columns:260px minmax(0,1fr);gap:var(--eti-gap)}
+.eti-dept-list{display:flex;flex-direction:column;gap:2px}
+.eti-dl{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:8px;font-size:13px;color:var(--eti-muted);text-decoration:none}
+.eti-dl:hover{background:var(--eti-soft)}
+.eti-dl b{font-variant-numeric:tabular-nums;color:var(--eti-faint)}
+.eti-dl.is-on{background:var(--eti-navy-50);color:var(--eti-navy);font-weight:600}
+.eti-dept-docs{display:flex;flex-direction:column;gap:14px;min-width:0}
+.eti-eb{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--eti-faint);margin-bottom:4px}
+.eti-dlist{list-style:none;margin:0;padding:0}
+.eti-drow{display:grid;grid-template-columns:110px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--eti-line2);font-size:13px}
+.eti-drow:last-child{border-bottom:0}
+.eti-drow-wide{grid-template-columns:110px minmax(0,1fr) auto}
+.eti-dmain{display:flex;flex-direction:column;gap:2px;min-width:0}
+.eti-dname{color:var(--eti-ink);text-decoration:none;font-weight:500}
+.eti-dname:hover{text-decoration:underline;color:var(--eti-navy)}
+.eti-tiles{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
+.eti-tile{display:flex;flex-direction:column;gap:4px;height:100%;border:1px solid var(--eti-line);border-radius:10px;padding:12px 14px;text-decoration:none}
+.eti-tile:hover{border-color:var(--eti-navy-100);background:var(--eti-soft)}
+.eti-tile b{color:var(--eti-ink);font-size:13.5px}
+.eti-tile-use{color:var(--eti-muted);font-size:12.5px}
+
+/* ---------- mot tai lieu ---------- */
+.eti-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0}
+.eti-fact{border:1px solid var(--eti-line);border-radius:10px;padding:10px 12px;font-size:13px}
+.eti-fact dt{font-size:12.5px;font-weight:600;color:var(--eti-muted);margin-bottom:2px}
+.eti-fact dd{margin:0;color:var(--eti-ink2)}
+.eti-zoom{display:flex;gap:6px}
+.eti-rolebar{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.eti-chips{display:flex;gap:8px;flex-wrap:wrap}
+.eti-chip{padding:6px 12px;border-radius:999px;border:1px solid var(--eti-line);background:var(--eti-surface);font-size:13px;color:var(--eti-muted)}
+.eti-chip.is-on{background:var(--eti-navy-50);border-color:var(--eti-navy-100);color:var(--eti-navy);font-weight:600}
+.eti-flowbox{overflow:auto;border:1px solid var(--eti-line);border-radius:10px;background:var(--eti-surface);padding:16px;min-height:520px;max-height:860px}
+.eti-flowbox svg{display:block;margin:0 auto}
+/* nhan HTML cua mermaid duoc do o ngoai .eti-app (line-height mac dinh): giu dung chieu cao do */
+.eti-app .eti-flowbox svg foreignObject div,.eti-app .eti-flowbox svg foreignObject span,.eti-app .eti-flowbox svg foreignObject p{line-height:normal}
+.eti-flowbox svg .node{transition:opacity .15s}
+.eti-flowbox svg .node.eti-dim{opacity:.28}
+.eti-flowbox svg .eti-dim-edge{opacity:.25}
+.eti-mine{display:flex;flex-direction:column;gap:8px}
+.eti-mine-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.eti-mine-list li{display:grid;grid-template-columns:44px 1fr;gap:10px;align-items:start;font-size:13px}
+.eti-no{font-weight:800;color:var(--eti-navy);background:var(--eti-navy-50);border-radius:8px;text-align:center;padding:3px 0;font-size:12px}
+.eti-steps summary{display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none}
+.eti-steps summary::-webkit-details-marker{display:none}
+.eti-tbl-wrap{overflow-x:auto;margin-top:10px}
+.eti-tbl{width:100%;border-collapse:collapse;font-size:13px}
+.eti-tbl th{font-size:11.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--eti-faint);text-align:left;padding:8px 10px;border-bottom:1px solid var(--eti-line);background:var(--eti-soft);white-space:nowrap}
+.eti-tbl td{padding:9px 10px;border-bottom:1px solid var(--eti-line2);vertical-align:top}
+.eti-tbl tr:target td{background:var(--eti-navy-50)}
+.eti-grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--eti-gap);align-items:start}
+.eti-files{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.eti-file{display:flex;gap:8px;align-items:center;padding:8px 10px;border:1px solid var(--eti-line);border-radius:8px;font-size:12.5px}
+.eti-ext{font-size:10.5px;font-weight:800;padding:2px 5px;border-radius:4px;background:var(--eti-bad-50);color:var(--eti-bad)}
+.eti-ext-w{background:var(--eti-navy-50);color:var(--eti-navy)}
+.eti-hist{list-style:none;margin:0;padding:0}
+.eti-hrow{display:grid;grid-template-columns:44px minmax(0,1fr) auto auto;gap:10px;align-items:start;padding:8px 0;border-bottom:1px dashed var(--eti-line);font-size:13px}
+.eti-hrow:last-child{border-bottom:0}
+.eti-hrow.is-on{background:var(--eti-soft)}
+.eti-vn{font-weight:700;color:var(--eti-ink)}
+.eti-hrow.is-off .eti-vn{color:var(--eti-faint)}
+.eti-faq{border-top:1px solid var(--eti-line2);padding:8px 0}
+.eti-faq summary{cursor:pointer;font-weight:600;color:var(--eti-ink)}
+.eti-faq p{margin:6px 0 0}
+
+/* ---------- quan ly ---------- */
+.eti-b2{display:grid;grid-template-columns:240px minmax(0,1fr);gap:var(--eti-gap);align-items:start}
+.eti-b2-side{padding:8px;display:flex;flex-direction:column;gap:2px}
+.eti-grp{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--eti-faint);padding:12px 10px 4px}
+.eti-dl-foot{margin-top:8px;border-top:1px solid var(--eti-line2);border-radius:0 0 8px 8px}
+.eti-b2-bar{display:flex;gap:10px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--eti-line)}
+.eti-search{display:flex;align-items:center;gap:8px;border:1px solid var(--eti-line);border-radius:8px;padding:7px 11px;color:var(--eti-faint);flex:1;min-width:0}
+.eti-search input{border:0;outline:0;flex:1;min-width:0;color:var(--eti-ink);background:transparent}
+.eti-search:focus-within{border-color:var(--eti-navy)}
+.eti-b2-list{list-style:none;margin:0;padding:0}
+.eti-b2-item{border-bottom:1px solid var(--eti-line2)}
+.eti-b2-item:last-child{border-bottom:0}
+.eti-b2-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 16px;cursor:pointer;list-style:none}
+.eti-b2-row::-webkit-details-marker{display:none}
+.eti-b2-row:hover{background:var(--eti-soft)}
+.eti-b2-t{display:flex;flex-direction:column;gap:2px;min-width:0}
+.eti-nm{font-size:14px;color:var(--eti-ink);font-weight:500}
+.eti-nm .eti-code{margin-right:8px;color:var(--eti-faint)}
+.eti-b2-r{display:flex;align-items:center;gap:10px}
+.eti-caret{display:inline-flex;color:var(--eti-faint);transition:transform .15s}
+.eti-acc[open] .eti-caret{transform:rotate(90deg)}
+.eti-b2-open{padding:4px 16px 16px;display:flex;flex-direction:column;gap:12px}
+.eti-vlist{list-style:none;margin:0;padding:0}
+.eti-b2-v{display:grid;grid-template-columns:52px 150px minmax(0,1fr);gap:10px;font-size:13px;padding:5px 0}
+.eti-b2-v.is-off,.eti-b2-v.is-off .eti-vn{color:var(--eti-faint)}
+.eti-b2-links{display:flex;gap:14px;flex-wrap:wrap;font-size:13px}
+.eti-b2-links a{color:var(--eti-navy);text-decoration:none;font-weight:600}
+.eti-b2-links a:hover{text-decoration:underline}
+.eti-actbox{border:1px solid var(--eti-line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.eti-app textarea,.eti-import input[type=text]{border:1px solid var(--eti-line);border-radius:8px;padding:8px 10px;background:var(--eti-surface);color:var(--eti-ink);font-size:13px}
+.eti-app textarea{resize:vertical;min-height:56px}
+.eti-app textarea:focus,.eti-import input[type=text]:focus{outline:0;border-color:var(--eti-navy);box-shadow:0 0 0 3px var(--eti-navy-50)}
+.eti-acts{display:flex;gap:8px;flex-wrap:wrap}
+
+/* ---------- nhap goi ---------- */
+.eti-dialog{border:1px solid var(--eti-line);border-radius:14px;padding:0;width:min(560px,calc(100vw - 32px));color:var(--eti-ink2);font-family:inherit}
+.eti-dialog::backdrop{background:rgba(17,24,39,.35)}
+.eti-import{padding:18px 20px;display:flex;flex-direction:column;gap:8px;font-size:13.5px}
+.eti-import p{margin:0}
+.eti-import code{font-size:12.5px}
+.eti-imp-err{white-space:pre-line;background:var(--eti-bad-50);color:var(--eti-bad);border-radius:8px;padding:10px 12px;font-size:13px}
+
+.eti-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#111827;color:#fff;padding:10px 16px;border-radius:10px;font-size:13.5px;z-index:2000;max-width:min(560px,calc(100vw - 32px));white-space:pre-line;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+.eti-toast.eti-toast-err{background:var(--eti-bad)}
+
+@media (max-width:1024px){
+  .eti-grid2{grid-template-columns:1fr}
+  .eti-dept,.eti-b2{grid-template-columns:1fr}
+  .eti-dept-list,.eti-b2-side{flex-direction:row;flex-wrap:wrap}
+  .eti-grp{width:100%}
+}
+@media (max-width:900px){.eti-app{grid-template-columns:1fr}.eti-app .ec-shell-mount{display:none}}
+@media (max-width:640px){
+  .eti-page{padding:16px 16px 40px}
+  .eti-facts{grid-template-columns:1fr}
+  .eti-drow,.eti-drow-wide{grid-template-columns:minmax(0,1fr) auto}
+  .eti-drow .eti-code{grid-column:1/-1}
+  .eti-b2-row{grid-template-columns:1fr}
+  .eti-b2-v{grid-template-columns:44px minmax(0,1fr)}
+  .eti-b2-v .eti-vd{display:none}
+  .eti-hrow{grid-template-columns:40px minmax(0,1fr) auto}
+  .eti-hrow .eti-link{grid-column:2}
+  .eti-flowbox{min-height:360px}
+}
+@media (prefers-reduced-motion:reduce){.eti-caret,.eti-flowbox svg .node{transition:none}}

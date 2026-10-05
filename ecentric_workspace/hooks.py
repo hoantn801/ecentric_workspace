@@ -855,3 +855,13 @@ has_permission["Quality Procedure"] = "ecentric_workspace.iso_docs.permissions.h
 
 # Nut "Chuyen nguoi xu ly" dung chung (05/10) - Hiring, Daily Target. Endpoint tu bind_fulfillment.
 web_include_js.append("ec_reassign.bundle.js")
+
+# 05/10/2026 - Thu vien tai lieu ISO, trang (/tai-lieu, PO Hoan duyet mockup D + B rut gon).
+#  * route: thu muc www khong duoc co gach ngang -> www/tai_lieu/ + 3 luat route; route tinh
+#    (quan-ly) dung TRUOC route <code>.
+#  * doc trang qua frappe.get_list / has_permission (quyen o tren); ghi qua iso_docs/api.py.
+website_route_rules = list(globals().get("website_route_rules") or []) + [
+    {"from_route": "/tai-lieu", "to_route": "tai_lieu"},
+    {"from_route": "/tai-lieu/quan-ly", "to_route": "tai_lieu/quan_ly"},
+    {"from_route": "/tai-lieu/<code>", "to_route": "tai_lieu/chi_tiet"},
+]

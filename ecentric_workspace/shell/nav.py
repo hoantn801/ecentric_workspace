@@ -201,6 +201,14 @@ HOME_PORTAL_ITEMS = [
      "owner": "home_portal",
      "keywords": ["tin noi bo", "intranet", "thong bao", "tin tuc", "news", "bai viet",
                   "chinh sach moi", "huong dan", "tool moi", "module moi"]},
+    # 05/10/2026 (Hoan chot): Thu vien tai lieu ISO (/tai-lieu, iso_docs/). "/tai-lieu/*" cho trang
+    # mot tai lieu va danh muc quan ly (/tai-lieu/quan-ly). Muc that, ngu canh portal.
+    {"key": "home.portal.iso_docs", "label": "Thư viện tài liệu", "route": "/tai-lieu",
+     "icon": "doc", "group": "Tài nguyên", "order": 15,
+     "active_patterns": ["/tai-lieu", "/tai-lieu/*"], "visible_when": "internal",
+     "owner": "home_portal",
+     "keywords": ["tai lieu", "iso", "quy trinh", "quy dinh", "chinh sach", "huong dan", "bieu mau",
+                  "quy che", "so tay chat luong", "thu vien"]},
     {"key": "home.portal.training", "label": "Đào tạo", "route": "/coming-soon?tool=dao-tao",
      "icon": "book", "group": "Tài nguyên", "order": 20, "active_patterns": ["/coming-soon?tool=dao-tao"],
      "visible_when": "internal", "owner": "home_portal", "discoverable": False, "soon": True},

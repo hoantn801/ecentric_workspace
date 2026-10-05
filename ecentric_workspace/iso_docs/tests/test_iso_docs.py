@@ -313,6 +313,43 @@ class TestPermissionRules(unittest.TestCase):
 
 
 # =========================================================================== service
+class TestSiteStateNames(unittest.TestCase):
+    """Tren site doc luu "Nhap" / "Cho Truong bo phan" (Workflow State co san, collation bo dau)."""
+    NHAP, CHO_TBP = "Nhap", "Cho Truong bo phan"
+
+    def test_norm(self):
+        self.assertTrue(D.is_state(self.NHAP, C.S_DRAFT))
+        self.assertTrue(D.is_state(self.CHO_TBP, C.S_HEAD))
+        self.assertTrue(D.is_state("HẾT  HIỆU LỰC", C.S_EXPIRED))
+        self.assertTrue(D.is_state("Cho Tong giam doc", C.S_CEO))
+        self.assertFalse(D.is_state(self.NHAP, C.S_HEAD))
+
+    def test_write_with_site_names(self):
+        self.assertTrue(D.can_write({"ec_doc_state": self.NHAP, "ec_drafter": DRAFTER}, DRAFTER, False))
+        self.assertTrue(D.can_write({"ec_doc_state": self.CHO_TBP, "ec_dept_head": HEAD}, HEAD, False))
+        self.assertFalse(D.can_write({"ec_doc_state": self.CHO_TBP, "ec_drafter": DRAFTER}, DRAFTER, False))
+
+    def test_kinds_with_site_names(self):
+        self.assertEqual(D.transition_kind("Ban hành", self.NHAP), "new_draft")
+        self.assertEqual(D.transition_kind(self.NHAP, self.CHO_TBP), "move")
+        self.assertIsNone(D.transition_kind(self.NHAP, C.S_DRAFT))
+        self.assertEqual(D.transition_kind("Cho Ban ISO", "Ban hanh"), "publish")
+
+    def test_read_hides_expired_any_spelling(self):
+        d = {"ec_current_version": "1.0", "ec_doc_state": "Het hieu luc", "ec_company_wide": 1}
+        self.assertFalse(D.can_read(d, "a@x", False, {"lft": 1}, []))
+
+    def test_full_flow_with_site_names(self):
+        iso = Repo()
+        doc = new_doc(ec_doc_state=self.NHAP)
+        move(doc, self.CHO_TBP, iso)
+        move(doc, C.S_ISO, Repo(user=HEAD, home=iso.home))
+        move(doc, C.S_CEO, iso)
+        move(doc, C.S_PUBLISHED, Repo(user=CEO, home=iso.home))
+        self.assertEqual(doc.ec_current_version, "1.0")
+        self.assertEqual(len(iso.home.rows), 1)
+
+
 class TestPublishFlow(unittest.TestCase):
     def test_validate_fills_head_and_rejects_bad(self):
         doc = new_doc(ec_doc_code=" qt-tckt-03 ")

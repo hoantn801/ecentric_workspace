@@ -25,6 +25,10 @@ PO Hoàn chốt 04/10/2026 (mockup B rút gọn cho quản lý, D cho nhân viê
   Tài liệu mới và sửa **lớn** (X+1.0) luôn qua TGĐ.
 - "Soạn phiên bản mới" đưa tài liệu về Nháp; phiên bản hiệu lực vẫn đọc được trong lúc soạn.
 
+**Tên trạng thái trên site:** site đã có sẵn Workflow State "Nhap" và "Cho Truong bo phan" của luồng
+khác. MariaDB coi "Nháp" = "Nhap" nên luồng ISO dùng lại tên cũ, và tài liệu lưu "Nhap". Code luôn so
+trạng thái qua `domain.is_state` (bỏ dấu, không phân biệt hoa thường), **không** so bằng `==`.
+
 ## Thông báo lên trang chủ (spec PO 04/10)
 
 Tích `ec_notify_home` (chỉ tài liệu toàn công ty) → khi chuyển sang Ban hành, `service.on_update` gọi
@@ -53,7 +57,11 @@ Test (không cần bench): `python -m unittest ecentric_workspace.iso_docs.tests
 ## Đã làm / còn lại
 
 - [x] Bước 2: nền dữ liệu, luồng duyệt, quyền, lịch sử ban hành, thông báo trang chủ (05/10/2026).
-- [ ] Trang `/tai-lieu` (nhân viên, mockup D) + trang quản lý (mockup B) + "Nhập gói".
+- [x] Chạy thử trên site 05/10: đủ luồng lớn, sửa nhỏ, thu hồi, thông báo trang chủ; sửa lỗi tên trạng thái bỏ dấu.
+- [x] Trang `/tai-lieu` (thư viện: theo phòng ban / theo việc cần làm / hệ thống ISO, tìm không dấu),
+  `/tai-lieu/<mã>` (sơ đồ mermaid to, chọn vai trò thì tô sáng bước + "Việc của …", biểu mẫu, phiên
+  bản cũ `?ban=X.Y`), `/tai-lieu/quan-ly` (Chờ tôi duyệt / Đến hạn rà soát / theo phòng, bấm bước duyệt,
+  "Nhập gói") - 05/10/2026. Lớp: `library.py`, `manage.py`, `package.py`, `view.py` (thuần), `api.py`.
 - [ ] Nhắc rà soát định kỳ (cron + kill switch), "Báo nội dung sai / lỗi thời", EC Read Receipt.
 - [ ] Nhập 66 file cũ (dry-run, Hoàn + Ban ISO duyệt mã trước khi ghi).
 - [ ] AI: sơ đồ mermaid / tóm tắt / eC Mate hỏi đáp qua `platform.ai`.

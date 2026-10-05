@@ -5,11 +5,25 @@ Moi ham nhan / tra kieu don gian (str, date, dict, list) de service ghep voi rep
 """
 import datetime as _dt
 import re
+import unicodedata
 
 from ecentric_workspace.iso_docs import constants as C
 
 _CODE_RE = re.compile(C.CODE_RE)
 _VER_RE = re.compile(r"^(\d{1,3})\.(\d{1,3})$")
+
+
+# --------------------------------------------------------------------------- ten trang thai
+def norm_state(s):
+    """So trang thai KHONG phan biet dau / hoa thuong. Site da co san Workflow State "Nhap" va
+    "Cho Truong bo phan" (luong duyet khac); collation MariaDB coi "Nháp" = "Nhap" nen Workflow
+    "Tai lieu ISO" dung lai ten cu va doc luu "Nhap". So bang == se truot (phat hien 05/10)."""
+    s = unicodedata.normalize("NFD", (s or "").replace("đ", "d").replace("Đ", "D"))
+    return " ".join("".join(c for c in s if unicodedata.category(c) != "Mn").casefold().split())
+
+
+def is_state(value, state):
+    return norm_state(value) == norm_state(state)
 
 
 # --------------------------------------------------------------------------- phien ban X.Y
@@ -96,17 +110,19 @@ def draft_kind(current_version, change_kind):
 # --------------------------------------------------------------------------- chuyen trang thai
 def transition_kind(before, after):
     """Loai su kien khi trang thai workflow doi before -> after (None neu khong doi)."""
-    if before == after:
+    b, a = norm_state(before), norm_state(after)
+    n = norm_state
+    if b == a:
         return None
-    if after == C.S_PUBLISHED and before in (C.S_ISO, C.S_CEO):
+    if a == n(C.S_PUBLISHED) and b in (n(C.S_ISO), n(C.S_CEO)):
         return "publish"
-    if after == C.S_PUBLISHED and before == C.S_WITHDRAW:
+    if a == n(C.S_PUBLISHED) and b == n(C.S_WITHDRAW):
         return "keep"                     # TGD khong dong y thu hoi
-    if after == C.S_EXPIRED:
+    if a == n(C.S_EXPIRED):
         return "withdraw"
-    if before == C.S_PUBLISHED and after == C.S_DRAFT:
+    if b == n(C.S_PUBLISHED) and a == n(C.S_DRAFT):
         return "new_draft"
-    if before == C.S_ISO and after == C.S_CEO:
+    if b == n(C.S_ISO) and a == n(C.S_CEO):
         return "iso_review"
     return "move"
 
@@ -200,7 +216,7 @@ def can_read(doc, user, is_manager, viewer, selected):
         return True
     if not viewer:
         return False
-    if not doc.get("ec_current_version") or doc.get("ec_doc_state") == C.S_EXPIRED:
+    if not doc.get("ec_current_version") or is_state(doc.get("ec_doc_state"), C.S_EXPIRED):
         return False
     if doc.get("ec_company_wide"):
         return True
@@ -213,8 +229,8 @@ def can_write(doc, user, is_manager):
     if is_manager:
         return True
     state = doc.get("ec_doc_state") or C.S_DRAFT
-    if state == C.S_DRAFT and user and user == doc.get("ec_drafter"):
+    if is_state(state, C.S_DRAFT) and user and user == doc.get("ec_drafter"):
         return True
-    if state == C.S_HEAD and user and user == doc.get("ec_dept_head"):
+    if is_state(state, C.S_HEAD) and user and user == doc.get("ec_dept_head"):
         return True
     return False

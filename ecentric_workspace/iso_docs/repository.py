@@ -95,3 +95,106 @@ def withdraw_announcements(doc_name):
     except Exception:
         frappe.log_error(title="iso_docs.withdraw_announcements")
         return 0
+
+
+# =========================================================================== trang /tai-lieu
+LIST_FIELDS = ["name", "quality_procedure_name", "ec_doc_code", "ec_doc_type", "ec_department",
+               "ec_doc_state", "ec_current_version", "ec_effective_from", "ec_next_review",
+               "ec_draft_version", "ec_change_kind", "ec_change_summary", "ec_drafter", "ec_dept_head",
+               "ec_company_wide", "ec_parent_doc", "modified"]
+REV_FIELDS = ["parent", "idx", "version", "change_kind", "status", "effective_from", "effective_to",
+              "summary", "approver", "pdf", "docx", "steps_json"]
+
+
+def list_docs():
+    """Moi tai lieu NGUOI NAY doc duoc - frappe.get_list ap permission_query_conditions."""
+    return frappe.get_list(C.QP, fields=LIST_FIELDS, order_by="ec_doc_code asc", limit_page_length=0)
+
+
+def revisions(names, effective_only=False):
+    if not names:
+        return []
+    filters = {"parent": ["in", list(names)], "parenttype": C.QP}
+    if effective_only:
+        filters["status"] = C.REV_EFFECTIVE
+    return frappe.get_list(C.REVISION_DT, parent_doctype=C.QP, filters=filters, fields=REV_FIELDS,
+                           order_by="idx asc", limit_page_length=0)
+
+
+def exists(code):
+    return bool(code) and bool(frappe.db.exists(C.QP, code))
+
+
+def get_doc(code):
+    """Tai lieu + kiem quyen doc. Khong co -> None; khong duoc doc -> frappe.PermissionError."""
+    if not exists(code):
+        return None
+    doc = frappe.get_doc(C.QP, code)
+    if not frappe.has_permission(C.QP, "read", doc=doc):
+        raise frappe.PermissionError
+    return doc
+
+
+def transitions(doc):
+    """Cac buoc NGUOI DANG DANG NHAP bam duoc o trang thai hien tai (role + dieu kien Workflow)."""
+    from frappe.model.workflow import get_transitions
+    try:
+        return [{"action": t.action, "next_state": t.next_state} for t in get_transitions(doc)]
+    except Exception:
+        return []
+
+
+def apply_action(doc, action):
+    from frappe.model.workflow import apply_workflow
+    return apply_workflow(doc.as_dict(), action)
+
+
+def add_comment(doc_name, text):
+    frappe.get_doc(C.QP, doc_name).add_comment("Comment", text)
+
+
+def mark_seen(code, user, version):
+    try:
+        from ecentric_workspace.platform import read_receipt
+        read_receipt.mark_seen(C.QP, code, user, version or "")
+    except Exception:
+        frappe.log_error(title="iso_docs.mark_seen")
+
+
+def full_names(users):
+    users = [u for u in set(users or ()) if u]
+    if not users:
+        return {}
+    rows = frappe.get_all("User", filters={"name": ["in", users]}, fields=["name", "full_name"])
+    return {r.name: r.full_name or r.name for r in rows}
+
+
+def departments():
+    return frappe.get_all("Department", filters={"is_group": 0}, pluck="name", order_by="lft asc",
+                          limit_page_length=0)
+
+
+def save_file(doc_name, filename, content):
+    """Tep rieng tu dinh vao tai lieu: ai doc duoc tai lieu thi tai duoc tep (File.has_permission)."""
+    f = frappe.get_doc({"doctype": "File", "file_name": filename, "attached_to_doctype": C.QP,
+                        "attached_to_name": doc_name, "is_private": 1, "content": content})
+    f.save()
+    return f.file_url
+
+
+def insert_doc(fields):
+    scope = fields.pop("scope_departments", [])
+    doc = frappe.get_doc(dict(fields, doctype=C.QP))
+    doc.set("ec_scope_departments", [{"department": d} for d in scope])
+    doc.insert()
+    return doc
+
+
+def update_draft(code, fields):
+    doc = frappe.get_doc(C.QP, code)
+    scope = fields.pop("scope_departments", None)
+    doc.update(fields)
+    if scope is not None:
+        doc.set("ec_scope_departments", [{"department": d} for d in scope])
+    doc.save()
+    return doc

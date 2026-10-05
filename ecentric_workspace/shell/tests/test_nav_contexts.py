@@ -91,7 +91,9 @@ class TestRouteToContext(unittest.TestCase):
         # +1 (01/10/2026, PO Hoan yeu cau tab Khao sat): "Khảo sát" /khao-sat, alias row
         # owned by the `surveys` context.
         # +1 (04/10/2026, PO Hoan duyet mockup v2): "Bảng tin" /bang-tin trong nhom Workspace.
-        self.assertEqual(len(home), 21)
+        # +1 (05/10/2026, PO Hoan): "Thư viện tài liệu" /tai-lieu (iso_docs) trong nhom Tai nguyen.
+        self.assertEqual(len(home), 22)
+        self.assertEqual(labels_route_of(home, "Thư viện tài liệu"), "/tai-lieu")
         self.assertEqual(labels_route_of(home, "Bảng tin"), "/bang-tin")
         self.assertEqual(labels_route_of(home, "Tin nội bộ"), "/tin-noi-bo")
         self.assertEqual([i["group"] for i in home if i["label"] == "Tin nội bộ"], ["Tài nguyên"])

@@ -1,0 +1,48 @@
+{
+  "phien_ban_goi": 1,
+  "loai_goi": "sua_doi",
+  "ma_tai_lieu": "QT-TCKT-03",
+  "ma_de_xuat": "",
+  "loai": "Quy trình",
+  "ten": "Thanh toán",
+  "ten_en": "Payment",
+  "phong_ban": "Finance & Accounting - EC",
+  "kieu_sua": "nho",
+  "tom_tat_thay_doi": "VÍ DỤ MINH HOẠ: thay bước duyệt trên MS Teams Approval bằng duyệt trên ERP.",
+  "muc_thay_doi": "6.2.1, 6.2.2",
+  "nguoi_soan_email": "",
+  "pham_vi_doc": {"ca_cong_ty": true, "phong_ban": []},
+  "chu_ky_ra_soat_thang": 12,
+  "thong_bao_trang_chu": false,
+  "tom_tat_thong_bao": "",
+  "tom_tat": {
+    "dung_khi": "Thanh toán nhà cung cấp, tạm ứng, quyết toán tạm ứng",
+    "chuan_bi": "Phiếu đề nghị và chứng từ theo mục 7",
+    "ket_qua": "Tiền được chuyển sau khi KSNB duyệt UNC trên ngân hàng"
+  },
+  "vai_tro": [
+    {"ma": "nyc", "ten": "Người yêu cầu"},
+    {"ma": "kt", "ten": "Kế toán thanh toán"},
+    {"ma": "ql", "ten": "Trưởng phòng TCKT, Tổng giám đốc"},
+    {"ma": "ktt", "ten": "Kế toán trưởng"},
+    {"ma": "ks", "ten": "KSNB"}
+  ],
+  "buoc": [
+    {"id": "S1", "stt": "1", "ten": "Lập đề nghị, gom chứng từ", "A": "nyc", "R": ["nyc"], "CI": [], "dien_giai": "Người đề nghị lập và tập hợp chứng từ theo mục 7.", "bieu_mau": ["BM-01", "BM-02"], "form_erp": "/approvals/payment-request"},
+    {"id": "S2", "stt": "2", "ten": "Hồ sơ đủ?", "A": "kt", "R": ["kt"], "CI": ["nyc"], "dien_giai": "Kế toán thanh toán kiểm chứng từ; thiếu thì trả lại người đề nghị.", "bieu_mau": [], "form_erp": ""},
+    {"id": "S3", "stt": "3", "ten": "Duyệt đề nghị", "A": "ql", "R": ["ql"], "CI": [], "dien_giai": "Trưởng phòng TCKT rồi Tổng giám đốc duyệt trên ERP.", "bieu_mau": [], "form_erp": ""},
+    {"id": "S4", "stt": "4", "ten": "Đạt?", "A": "ktt", "R": ["ktt"], "CI": ["nyc"], "dien_giai": "Kế toán trưởng phê duyệt chứng từ; không đạt thì trả về.", "bieu_mau": [], "form_erp": ""},
+    {"id": "S5", "stt": "5", "ten": "Lập dự chi, UNC", "A": "kt", "R": ["kt"], "CI": ["ql"], "dien_giai": "Lập danh sách dự chi tuần, trình duyệt, lập UNC và phiếu chi.", "bieu_mau": [], "form_erp": ""},
+    {"id": "S6", "stt": "6", "ten": "Duyệt UNC trên Ebanking", "A": "ks", "R": ["ks"], "CI": ["kt"], "dien_giai": "KSNB duyệt lệnh trên ngân hàng và cập nhật trạng thái đã chi.", "bieu_mau": [], "form_erp": ""},
+    {"id": "S7", "stt": "7", "ten": "Hạch toán, lưu hồ sơ", "A": "kt", "R": ["kt"], "CI": [], "dien_giai": "Lưu hồ sơ theo quy định của luật thuế, kế toán.", "bieu_mau": [], "form_erp": ""}
+  ],
+  "so_do_mermaid": "flowchart TD\nS1[\"<b>1. Lập đề nghị, gom chứng từ</b><br/>Người yêu cầu\"]\nS2{\"<b>2. Hồ sơ đủ?</b><br/>Kế toán thanh toán\"}\nS3[\"<b>3. Duyệt đề nghị</b><br/>Trưởng phòng TCKT, Tổng giám đốc\"]\nS4{\"<b>4. Đạt?</b><br/>Kế toán trưởng\"}\nS5[\"<b>5. Lập dự chi, UNC</b><br/>Kế toán thanh toán\"]\nS6[\"<b>6. Duyệt UNC trên Ebanking</b><br/>KSNB\"]\nS7[\"<b>7. Hạch toán, lưu hồ sơ</b><br/>Kế toán thanh toán\"]\nS1 --> S2\nS2 -- \"Thiếu\" --> S1\nS2 -- \"Đủ\" --> S3\nS3 --> S4\nS4 -- \"Không đạt\" --> S1\nS4 -- \"Đạt\" --> S5\nS5 --> S6\nS6 --> S7",
+  "bieu_mau": [
+    {"ma": "BM-01", "ten": "Phiếu đề nghị thanh toán", "file": "bieu_mau/phieu-de-nghi-thanh-toan.xlsx"},
+    {"ma": "BM-02", "ten": "Phiếu đề nghị tạm ứng", "file": "bieu_mau/phieu-de-nghi-tam-ung.xlsx"}
+  ],
+  "cau_hoi_thuong_gap": [
+    {"hoi": "Hồ sơ bị trả lại thì làm gì?", "dap": "Bổ sung chứng từ theo ghi chú của kế toán rồi nộp lại từ bước 1.", "nguon": "Bước 2"}
+  ],
+  "nguon": "Gói mẫu do chat Thư viện tài liệu ISO soạn ngày 05/10/2026 để minh hoạ định dạng. Không phải bản sẽ ban hành."
+}
