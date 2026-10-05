@@ -63,6 +63,8 @@ Test (không cần bench): `python -m unittest ecentric_workspace.iso_docs.tests
   bản cũ `?ban=X.Y`), `/tai-lieu/quan-ly` (Chờ tôi duyệt / Đến hạn rà soát / theo phòng, bấm bước duyệt,
   "Nhập gói") - 05/10/2026. Lớp: `library.py`, `manage.py`, `package.py`, `view.py` (thuần), `api.py`.
 - [ ] Nhắc rà soát định kỳ (cron + kill switch), "Báo nội dung sai / lỗi thời", EC Read Receipt.
-- [ ] Nhập 66 file cũ (dry-run, Hoàn + Ban ISO duyệt mã trước khi ghi).
+- [x] Nhập tài liệu cũ từ SharePoint: `legacy.py` + `api.import_legacy` (Ban ISO). Không đi lại luồng duyệt,
+  ghi lịch sử phiên bản theo bảng "Lịch sử thay đổi" của file Word, đặt thẳng "Ban hành", nhãn "Bản cũ" trên trang.
+  Không ghi đè, chạy lại an toàn, không thông báo trang chủ.
 - [ ] AI: sơ đồ mermaid / tóm tắt / eC Mate hỏi đáp qua `platform.ai`.
 - [ ] Gán người cho role **Ban ISO** và **TGĐ duyệt tài liệu** trên site (chưa biết thành viên Ban ISO).

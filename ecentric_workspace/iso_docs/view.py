@@ -83,8 +83,8 @@ def flow(steps_raw):
     Vai tro duoc to sang o buoc ma vai tro do la A (chiu trach nhiem) hoac R (thuc hien)."""
     data = load_steps(steps_raw)
     tt = data.get("tom_tat") or {}
-    facts = [(lbl, tt.get(k)) for k, lbl in (("dung_khi", "Dùng khi"), ("chuan_bi", "Bạn chuẩn bị"),
-                                             ("ket_qua", "Kết quả")) if tt.get(k)]
+    facts = [(lbl, tt.get(k)) for k, lbl in (("muc_dich", "Mục đích"), ("dung_khi", "Dùng khi"),
+                                             ("chuan_bi", "Bạn chuẩn bị"), ("ket_qua", "Kết quả")) if tt.get(k)]
     names = {r.get("ma"): r.get("ten") or r.get("ma") for r in data.get("vai_tro") or [] if isinstance(r, dict)}
     steps = [dict(b, who=names.get(b.get("A"), b.get("A") or "")) for b in data.get("buoc") or [] if isinstance(b, dict)]
     roles = []

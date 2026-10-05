@@ -23,6 +23,6 @@
   <span class="eti-code">{{ c.code|e }}</span>
   <a class="eti-dname" href="/tai-lieu/{{ c.code|urlencode }}">{{ c.name|e }}</a>
   <span class="eti-ver" title="Phiên bản đang hiệu lực">{{ c.version|e }}</span>
-  {% if c.drafting %}<span class="eti-pill eti-p-old" title="Bản hiện tại vẫn áp dụng tới khi bản mới ban hành">Đang soạn bản mới</span>{% endif %}
+  {% if c.drafting %}<span class="eti-pill eti-p-old" title="Bản hiện tại vẫn áp dụng tới khi bản mới ban hành">Đang soạn bản mới</span>{% elif c.legacy %}<span class="eti-pill eti-p-off" title="Chuyển từ SharePoint, Ban ISO sẽ soạn lại">Bản cũ</span>{% endif %}
 </li>
 {%- endmacro -%}

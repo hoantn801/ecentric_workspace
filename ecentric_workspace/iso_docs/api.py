@@ -82,3 +82,26 @@ def import_package(data):
     """Nhap goi tu chat Claude. data = JSON {goi: noi dung goi.json, code, pdf, docx, forms: [{name, data}]}.
     Chi Ban ISO / TGD / SM. Tao hoac ghi de BAN NHAP, khong ban hanh."""
     return _run(_import, data)
+
+
+def _import_legacy(data):
+    from ecentric_workspace.iso_docs import legacy
+    if isinstance(data, str):
+        try:
+            data = json.loads(data or "{}")
+        except ValueError:
+            raise DocError("Dữ liệu gửi lên không hợp lệ.")
+    if not isinstance(data, dict):
+        raise DocError("Dữ liệu gửi lên không hợp lệ.")
+    for r in data.get("revisions") or []:
+        for kind in ("pdf", "docx"):
+            r[kind] = _blob(r.get(kind))
+    for f in data.get("forms") or []:
+        f["file"] = _blob(f.get("file"))
+    return legacy.import_one(frappe.session.user, data)
+
+
+@frappe.whitelist(methods=["POST"])
+def import_legacy(data):
+    """Nhap MOT tai lieu cu tu SharePoint (Ban ISO). Khong di lai luong duyet, khong ghi de."""
+    return _run(_import_legacy, data)
