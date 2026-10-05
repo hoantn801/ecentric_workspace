@@ -14,7 +14,9 @@ from ecentric_workspace.ai_tools.features.ai_video.domain import flow
 from ecentric_workspace.ai_tools.features.ai_video.infrastructure import worker_client as wc
 
 P, I, E = "EC AI Video Project", "EC AI Video Item", "EC AI Video Export"
-ROLES = ("EC AI Content", "System Manager")
+ROLES = ("EC AI Content", "EC AI Video Admin", "System Manager")
+#: Sua prompt dung chung + prompt theo nhom SP: chi quan tri (05/10/2026).
+ADMIN_ROLES = ("EC AI Video Admin", "System Manager")
 ITEM_FIELDS = ("sku", "product_name", "product_type", "product_category", "width_cm", "height_cm",
                "depth_cm", "size_pct", "pack_count", "notes", "product_image", "real_hold_image",
                "audio_seconds", "audio_file", "batch")
@@ -27,6 +29,15 @@ PROJECT_SETTINGS = ("title", "brand", "status", "anchor_source", "talk_count", "
 def check_role():
     if not set(ROLES) & set(frappe.get_roles(frappe.session.user)):
         raise frappe.PermissionError("Cần quyền EC AI Content.")
+
+
+def is_admin():
+    return bool(set(ADMIN_ROLES) & set(frappe.get_roles(frappe.session.user)))
+
+
+def check_admin():
+    if not is_admin():
+        raise frappe.PermissionError("Chỉ quản trị AI Video (role EC AI Video Admin) được sửa prompt.")
 
 
 def _j(s, d=None):
@@ -153,8 +164,19 @@ def update_item(name, data):
             doc.set(k, d[k])
     if "extra_images" in d:
         doc.extra_images = json.dumps(list(d.get("extra_images") or [])[:MAX_EXTRA])
+    if "guide_bbox" in d:
+        _set_bbox(doc, d.get("guide_bbox"))
     doc.save(ignore_permissions=True)
     return {"name": name}
+
+
+def _set_bbox(doc, v):
+    bb = flow.parse_bbox(v)
+    if bb is None:
+        raise frappe.ValidationError("Khung sản phẩm không hợp lệ.")
+    st = _j(doc.state_json)
+    st["guide_bbox"] = bb
+    doc.state_json = json.dumps(st, ensure_ascii=False)
 
 
 def delete_item(name):
@@ -184,6 +206,7 @@ def _ensure_host(pdoc):
 def start_holds(project, names):
     pdoc = frappe.get_doc(P, project)
     pst = _ensure_host(pdoc)
+    groups = _group_map()
     started = []
     for n in _j(names, []):
         doc = frappe.get_doc(I, n)
@@ -191,13 +214,31 @@ def start_holds(project, names):
             continue
         if doc.stage not in ("new", "pick") and doc.stage_state != "error":
             continue
-        _start_holds_one(pdoc, pst, doc)
+        _start_holds_one(pdoc, pst, doc, groups)
         started.append(n)
     return {"started": started}
 
 
-def _start_holds_one(pdoc, pst, doc):
+def _group_map():
+    """Trang thai nhom SP tu worker; worker loi thi coi nhu khong co nhom (khong chan viec tao anh)."""
+    try:
+        return wc.call("groups_get").get("groups") or {}
+    except wc.WorkerDown:
+        raise
+    except Exception:
+        return {}
+
+
+def _start_holds_one(pdoc, pst, doc, groups=None):
     st = _j(doc.state_json)
+    rows = [r for r in frappe.get_all(I, filters={"project": pdoc.name, "product_category": doc.product_category},
+                                      fields=["name", "stage", "stage_state", "state_json"]) if r.name != doc.name]
+    # chi SKU DAU cua nhom "dang thu" moi dung cho duyet: SKU khac cung nhom dang bi chan thi thoi
+    others = [r.stage for r in rows] + ["ready" for r in rows if r.stage_state != "error" and _j(r.state_json).get("force_gate")]
+    if flow.needs_trial_gate(doc.product_category, groups if groups is not None else _group_map(), others):
+        st["force_gate"] = True
+    else:
+        st.pop("force_gate", None)
     attempt = int(st.get("attempt") or 0) + 1
     job = flow.job_id(pdoc.brand, doc.sku, pdoc.name, attempt)
     prod = wc.upload("inbox/%s/%s_front%s" % (flow.slug(pdoc.name, 20), flow.slug(doc.sku, 40), _ext(doc.product_image)),
@@ -209,7 +250,10 @@ def _start_holds_one(pdoc, pst, doc):
     for i, url in enumerate(refs[:MAX_EXTRA]):
         extras.append(wc.upload("inbox/%s/%s_side%d%s" % (flow.slug(pdoc.name, 20), flow.slug(doc.sku, 40), i + 1, _ext(url)),
                                 "side%d%s" % (i + 1, _ext(url)), _file_bytes(url)))
-    step = {"op": "holds", "job_id": job, "fields": flow.hold_fields(doc.as_dict(), pdoc.brand),
+    fields = flow.hold_fields(doc.as_dict(), pdoc.brand)
+    if st.get("guide_bbox"):
+        fields["guide_bbox"] = st["guide_bbox"]
+    step = {"op": "holds", "job_id": job, "fields": fields,
             "files": {"host_video": pst["host_rel"], "product_image": prod}, "extra_images": extras}
     ids = _enqueue(pdoc.name, step, pdoc.night_mode)
     st.update(job=job, attempt=attempt, tasks={"holds": ids}, cands=[], picked=None)
@@ -235,6 +279,9 @@ def regen_holds(name, data=None):
     for k in ("width_cm", "height_cm", "depth_cm", "size_pct", "notes", "product_type", "product_category", "pack_count"):
         if k in d:
             doc.set(k, d[k])
+    if "guide_bbox" in d:
+        _set_bbox(doc, d.get("guide_bbox"))
+        doc.save(ignore_permissions=True)
     pdoc = frappe.get_doc(P, doc.project)
     _start_holds_one(pdoc, _ensure_host(pdoc), doc)
     return {"stage": "holds"}
@@ -472,10 +519,13 @@ def get_project(name, do_tick=0):
         it["stage_label"] = flow.STAGE_LABEL.get(doc.stage or "new", doc.stage)
         it["extra_images"] = _j(doc.extra_images, []) or []
         it["candidates"] = st.get("cands_view") or []
+        it["guide_bbox"] = st.get("guide_bbox") or ""
+        it["force_gate"] = bool(st.get("force_gate"))
         it["units"] = st.get("units_view") or {}
         items.append(it)
     _attach_worker_views(name, items)
     proj["cost"] = flow.cost_view(pst.get("costs"), items)
+    proj["is_admin"] = is_admin()
     exports = frappe.get_all(E, filters={"project": name}, fields=["name", "batch", "mode", "variants", "duration",
                                                                    "status", "zip_path", "files_json", "creation"],
                              order_by="creation desc", limit_page_length=30)
@@ -512,6 +562,7 @@ def prompts_get():
 
 
 def prompts_set(data):
+    check_admin()
     d = _j(data)
     allowed = ("anchor_image", "talk", "putdown", "putdown_dir", "hold_suffix", "hold_generic")
     return wc.call("prompts_set", prompts={k: v for k, v in d.items() if k in allowed})
