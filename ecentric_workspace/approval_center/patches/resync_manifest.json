@@ -46,8 +46,8 @@
   },
   "approval_center/features/daily_target/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
-    "sha256": "1c448aaeccb1fcf38625e4841013062de2a3ae28d2ed90d73044819ae80415c3"
+    "last_resync_patch": "p260_nut_chuyen_nguoi_xu_ly_hiring_dt",
+    "sha256": "52cc8053a9c9b5eee4b69f47e0092d924d604a4cd8882f4b54c4483ae0d37139"
   },
   "approval_center/features/data_request/ui/main_section.html": {
     "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
@@ -69,8 +69,8 @@
   },
   "approval_center/features/hiring_request/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p250_o_so_tien_dau_cham",
-    "sha256": "15a2c0f985422021e55ad78daa3699fd327c95c34c111d0ea82df5d6bc04630d"
+    "last_resync_patch": "p260_nut_chuyen_nguoi_xu_ly_hiring_dt",
+    "sha256": "a6fb6f2e2db7d30a0bc7affb48a2e325d2d426dec989001d516669be26309b2d"
   },
   "approval_center/features/hr_activity/ui/main_section.html": {
     "baseline": "2026-08-31",
