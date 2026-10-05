@@ -113,6 +113,34 @@ def _leave_days(employee, start, end):
     return days
 
 
+OUTSIDE_REASON = "Làm việc bên ngoài đã duyệt"
+
+
+def _outside_days(employee, start, end):
+    """05/10/2026: ngay lam viec BEN NGOAI da duyet (EC Outside Work Request, engine Approved).
+    Ngay do khong check-in o van phong dung gio la binh thuong -> loai tru nhu nghi phep, khong
+    cham tre. Loi -> rong (giu hanh vi cu)."""
+    try:
+        rows = frappe.db.sql(
+            """select w.start_date, ifnull(w.end_date, w.start_date)
+               from `tabEC Outside Work Request` w
+               inner join `tabEC Approval Request` a on a.name = w.approval_request
+               where w.employee = %s and a.approval_status = 'Approved'
+                 and w.start_date <= %s and ifnull(w.end_date, w.start_date) >= %s""",
+            (employee, str(end), str(start)))
+    except Exception:
+        frappe.log_error(title="sla.attendance._outside_days", message=frappe.get_traceback())
+        return set()
+    import datetime
+    lo, hi, days = getdate(start), getdate(end), set()
+    for f, t in rows:
+        d, stop = max(getdate(f), lo), min(getdate(t), hi)
+        while d <= stop:
+            days.add(d)
+            d += datetime.timedelta(days=1)
+    return days
+
+
 def _checkins(employee, start, end):
     """{ngay: moc cham SOM NHAT}. Lay som nhat chu khong phai muon nhat: nguoi
     cham 9:00 roi cham lai 14:00 van la cham dung gio."""
@@ -178,6 +206,7 @@ def _sync_employee(emp, start, end, hl_cache, report):
     if not days:
         return
     leave = _leave_days(emp["name"], start, end)
+    outside = _outside_days(emp["name"], start, end)
     checkins = _checkins(emp["name"], start, end)
     user = emp["user_id"]
 
@@ -185,6 +214,8 @@ def _sync_employee(emp, start, end, hl_cache, report):
         action, closed_at, reason = ar.decide(
             d, joined_on=emp.get("date_of_joining"),
             on_leave=(d in leave), first_checkin=checkins.get(d))
+        if d in outside and action != ar.ACT_SKIP and action != ar.ACT_EXCLUDE:
+            action, closed_at, reason = ar.ACT_EXCLUDE, None, OUTSIDE_REASON
         if action == ar.ACT_SKIP:
             report["bo_qua"].append("%s %s (%s)" % (user, d, reason))
             continue

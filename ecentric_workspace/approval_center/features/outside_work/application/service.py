@@ -1,7 +1,8 @@
 # Copyright (c) 2026, eCentric and contributors
 """Outside Work orchestration glue over the generic approval engine.
 Business-type-specific: requester + manager context, submit validation,
-material-change restart on resubmit. No fulfillment, no attendance update (v1)."""
+material-change restart on resubmit. Duyet xong -> application.attendance ghi cong "Present"
+ngay lam viec ben ngoai (05/10/2026)."""
 import hashlib
 import json
 
