@@ -21,6 +21,8 @@
 .eti-app button{cursor:pointer}
 .eti-app :focus-visible{outline:2px solid var(--eti-navy);outline-offset:2px}
 .eti-app [hidden]{display:none}
+/* PO 05/10: khong gach chan link (ke ca khi re chuot) - doi mau / nen thay cho gach chan */
+.eti-app a,.eti-app a:hover,.eti-app a:focus{text-decoration:none}
 .eti-app h1,.eti-app h2,.eti-app h3{font-family:inherit;letter-spacing:normal;margin:0}
 .eti-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .eti-ic{width:16px;height:16px;flex:none}
@@ -32,7 +34,7 @@
 .eti-mut{color:var(--eti-faint);font-size:12.5px}
 .eti-lbl{font-size:12.5px;font-weight:600;color:var(--eti-muted)}
 .eti-link{color:var(--eti-navy);text-decoration:none;font-weight:600;font-size:13px}
-.eti-link:hover{text-decoration:underline}
+.eti-link:hover{color:var(--eti-navy-press)}
 .eti-code{font-weight:700;color:var(--eti-ink);white-space:nowrap;font-size:12.5px;letter-spacing:.01em}
 .eti-empty{margin:0;color:var(--eti-faint)}
 .eti-pad{padding:18px 16px}
@@ -65,7 +67,7 @@
 .eti-banner-off{background:var(--eti-chip);color:var(--eti-muted)}
 .eti-crumb{font-size:12.5px;color:var(--eti-faint)}
 .eti-crumb a{color:var(--eti-navy);text-decoration:none}
-.eti-crumb a:hover{text-decoration:underline}
+.eti-crumb a:hover{color:var(--eti-navy-press)}
 
 /* ---------- thu vien ---------- */
 .eti-hero{padding:18px;display:flex;flex-direction:column;gap:14px}
@@ -89,10 +91,11 @@
 .eti-drow-wide{grid-template-columns:110px minmax(0,1fr) auto}
 .eti-dmain{display:flex;flex-direction:column;gap:2px;min-width:0}
 .eti-dname{color:var(--eti-ink);text-decoration:none;font-weight:500}
-.eti-dname:hover{text-decoration:underline;color:var(--eti-navy)}
+.eti-dname:hover{color:var(--eti-navy)}
 .eti-tiles{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
 .eti-tile{display:flex;flex-direction:column;gap:4px;height:100%;border:1px solid var(--eti-line);border-radius:10px;padding:12px 14px;text-decoration:none}
 .eti-tile:hover{border-color:var(--eti-navy-100);background:var(--eti-soft)}
+.eti-tile:hover b{color:var(--eti-navy)}
 .eti-tile b{color:var(--eti-ink);font-size:13.5px}
 .eti-tile-use{color:var(--eti-muted);font-size:12.5px}
 
@@ -101,13 +104,22 @@
 .eti-fact{border:1px solid var(--eti-line);border-radius:10px;padding:10px 12px;font-size:13px}
 .eti-fact dt{font-size:12.5px;font-weight:600;color:var(--eti-muted);margin-bottom:2px}
 .eti-fact dd{margin:0;color:var(--eti-ink2)}
-.eti-zoom{display:flex;gap:6px}
+.eti-zoom{display:flex;gap:6px;flex-wrap:wrap}
+.eti-seg{display:flex;gap:0;margin-right:6px}
+.eti-seg .eti-btn{border-radius:0}
+.eti-seg .eti-btn:first-child{border-radius:8px 0 0 8px}
+.eti-seg .eti-btn:last-child{border-radius:0 8px 8px 0;margin-left:-1px}
+.eti-seg .eti-btn[aria-pressed="true"]{background:var(--eti-navy-50);border-color:var(--eti-navy-100);color:var(--eti-navy)}
 .eti-rolebar{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
 .eti-chips{display:flex;gap:8px;flex-wrap:wrap}
 .eti-chip{padding:6px 12px;border-radius:999px;border:1px solid var(--eti-line);background:var(--eti-surface);font-size:13px;color:var(--eti-muted)}
 .eti-chip.is-on{background:var(--eti-navy-50);border-color:var(--eti-navy-100);color:var(--eti-navy);font-weight:600}
 .eti-flowbox{overflow:auto;border:1px solid var(--eti-line);border-radius:10px;background:var(--eti-surface);padding:16px;min-height:520px;max-height:860px}
 .eti-flowbox svg{display:block;margin:0 auto}
+.eti-flowbox.is-wide{min-height:0}
+.eti-part+.eti-part{margin-top:18px;padding-top:14px;border-top:1px dashed var(--eti-line)}
+.eti-part-t{font-size:13px;font-weight:700;color:var(--eti-ink);margin:0 0 8px}
+.eti-part-svg{overflow-x:auto}
 /* nhan HTML cua mermaid duoc do o ngoai .eti-app (line-height mac dinh): giu dung chieu cao do */
 .eti-app .eti-flowbox svg foreignObject div,.eti-app .eti-flowbox svg foreignObject span,.eti-app .eti-flowbox svg foreignObject p{line-height:normal}
 .eti-flowbox svg .node{transition:opacity .15s}
@@ -166,7 +178,7 @@
 .eti-b2-v.is-off,.eti-b2-v.is-off .eti-vn{color:var(--eti-faint)}
 .eti-b2-links{display:flex;gap:14px;flex-wrap:wrap;font-size:13px}
 .eti-b2-links a{color:var(--eti-navy);text-decoration:none;font-weight:600}
-.eti-b2-links a:hover{text-decoration:underline}
+.eti-b2-links a:hover{color:var(--eti-navy-press)}
 .eti-actbox{border:1px solid var(--eti-line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
 .eti-app textarea,.eti-import input[type=text]{border:1px solid var(--eti-line);border-radius:8px;padding:8px 10px;background:var(--eti-surface);color:var(--eti-ink);font-size:13px}
 .eti-app textarea{resize:vertical;min-height:56px}
@@ -204,3 +216,62 @@
   .eti-flowbox{min-height:360px}
 }
 @media (prefers-reduced-motion:reduce){.eti-caret,.eti-flowbox svg .node{transition:none}}
+
+/* ---------- danh muc: thong tin tach thanh tung o (PO 05/10) ---------- */
+.eti-facts{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.eti-fact{display:inline-flex;align-items:center;padding:1px 8px;border-radius:6px;background:var(--eti-chip);color:var(--eti-muted);font-size:12px;line-height:1.6;white-space:nowrap}
+.eti-fact-type{background:var(--eti-navy-50);color:var(--eti-navy);font-weight:600}
+.eti-fact-ver{background:var(--eti-ok-50);color:var(--eti-ok);font-weight:600}
+.eti-fact-date{background:transparent;box-shadow:inset 0 0 0 1px var(--eti-line);color:var(--eti-faint)}
+.eti-fact-who{background:var(--eti-warn-50);color:var(--eti-warn)}
+
+/* ---------- trang soan /tai-lieu/soan ---------- */
+.eti-crumb{font-size:12.5px;color:var(--eti-faint)}
+.eti-crumb a{color:var(--eti-navy)}
+.eti-editor{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:var(--eti-gap);align-items:start}
+.eti-ed-main{display:flex;flex-direction:column;gap:var(--eti-gap);min-width:0}
+.eti-ed-side{display:flex;flex-direction:column;gap:var(--eti-gap);position:sticky;top:16px}
+.eti-fs{border:0;margin:0;padding:0;min-width:0;display:flex;flex-direction:column;gap:var(--eti-gap)}
+.eti-fgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px 14px;margin-top:10px}
+.eti-f{display:flex;flex-direction:column;gap:4px;min-width:0}
+.eti-f-2{grid-column:span 4}
+.eti-f-2h{grid-column:span 2}
+.eti-fgrid > .eti-f:not(.eti-f-2):not(.eti-f-2h):first-child{grid-column:span 1}
+.eti-fgrid .eti-f:nth-child(2).eti-f-2{grid-column:span 3}
+.eti-app input[type=text],.eti-app input[type=number],.eti-app select{border:1px solid var(--eti-line);border-radius:8px;padding:7px 10px;background:var(--eti-surface);color:var(--eti-ink);font:inherit;font-size:13px;min-width:0;width:100%}
+.eti-app input[type=text]:focus,.eti-app input[type=number]:focus,.eti-app select:focus{outline:0;border-color:var(--eti-navy);box-shadow:0 0 0 3px var(--eti-navy-50)}
+.eti-app input:disabled,.eti-app select:disabled,.eti-app textarea:disabled{background:var(--eti-soft);color:var(--eti-faint)}
+.eti-radios{display:flex;flex-direction:column;gap:4px}
+.eti-radio,.eti-check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--eti-ink2)}
+.eti-check{margin-top:10px}
+.eti-checks{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:2px 12px}
+.eti-checks .eti-check{margin-top:4px}
+.eti-scope{margin-top:6px;padding:10px 12px;border:1px solid var(--eti-line2);border-radius:10px;background:var(--eti-soft)}
+.eti-steps-ed{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+.eti-step-ed{display:grid;grid-template-columns:52px minmax(0,2fr) minmax(0,1.3fr) minmax(0,1.6fr) auto;gap:8px;padding:10px;border:1px solid var(--eti-line);border-radius:10px;background:var(--eti-surface)}
+.eti-step-ed .eti-se-wide{grid-column:2 / 5}
+.eti-step-ed .eti-se-phan{grid-column:2 / 5}
+.eti-step-ed .eti-se-tools{grid-row:1 / 4;grid-column:5;display:flex;flex-direction:column;gap:4px}
+.eti-step-ed label{display:flex;flex-direction:column;gap:3px;font-size:11.5px;font-weight:600;color:var(--eti-faint);min-width:0}
+.eti-app .eti-step-ed input,.eti-app .eti-step-ed textarea{font-weight:400}
+.eti-icon-btn{border:1px solid var(--eti-line);background:var(--eti-surface);border-radius:6px;width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;color:var(--eti-muted);font-size:14px;line-height:1}
+.eti-icon-btn:hover{background:var(--eti-chip)}
+.eti-icon-btn:disabled{opacity:.4;cursor:default}
+.eti-form-row{display:flex;align-items:center;gap:8px;justify-content:space-between}
+.eti-ed-bar{position:sticky;bottom:0;display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:12px 14px;background:rgba(247,248,251,.94);border-top:1px solid var(--eti-line);backdrop-filter:blur(4px)}
+.eti-ed-bar .eti-imp-err{flex:1;margin:0}
+.eti-tl{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:10px}
+.eti-tl li{display:flex;flex-direction:column;gap:2px;padding-left:12px;border-left:2px solid var(--eti-line)}
+.eti-tl-t{font-size:13px;color:var(--eti-ink2)}
+@media (max-width:1100px){
+  .eti-editor{grid-template-columns:minmax(0,1fr)}
+  .eti-ed-side{position:static}
+}
+@media (max-width:720px){
+  .eti-fgrid{grid-template-columns:minmax(0,1fr)}
+  .eti-fgrid .eti-f,.eti-f-2,.eti-f-2h,.eti-fgrid .eti-f:nth-child(2).eti-f-2{grid-column:1 / -1}
+  .eti-step-ed{grid-template-columns:minmax(0,1fr) auto}
+  .eti-step-ed > label,.eti-step-ed .eti-se-wide,.eti-step-ed .eti-se-phan{grid-column:1 / 2}
+  .eti-step-ed > label:first-child input{max-width:72px}
+  .eti-step-ed .eti-se-tools{grid-column:2;grid-row:1 / 3;flex-direction:column}
+}

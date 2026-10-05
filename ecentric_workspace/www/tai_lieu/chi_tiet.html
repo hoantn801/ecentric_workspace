@@ -36,10 +36,16 @@
 <section class="eti-card eti-sec eti-flowcard" aria-labelledby="eti-flow-h" data-eti-flow data-roles="{{ roles_json|e }}" data-code="{{ d.code|e }}">
   <div class="eti-row-sb">
     <h2 class="eti-h2" id="eti-flow-h">Sơ đồ quy trình</h2>
+    <div class="eti-zoom">
+    <div class="eti-seg" role="group" aria-label="Hướng sơ đồ">
+      <button class="eti-btn eti-btn-sm" type="button" data-dir="TD" aria-pressed="false">Dọc</button>
+      <button class="eti-btn eti-btn-sm" type="button" data-dir="LR" aria-pressed="false">Ngang</button>
+    </div>
     <div class="eti-zoom" role="group" aria-label="Phóng to, thu nhỏ sơ đồ">
       <button class="eti-btn eti-btn-sm" type="button" data-z="-1" aria-label="Thu nhỏ">−</button>
       <button class="eti-btn eti-btn-sm" type="button" data-z="0">Vừa khung</button>
       <button class="eti-btn eti-btn-sm" type="button" data-z="1" aria-label="Phóng to">+</button>
+    </div>
     </div>
   </div>
   {% if f.roles %}

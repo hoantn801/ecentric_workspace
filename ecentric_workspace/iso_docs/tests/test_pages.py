@@ -121,6 +121,10 @@ class Repo:
                                               fields["ec_department"], C.S_DRAFT, **{k: v for k, v in f.items()
                                               if k not in ("ec_doc_code", "quality_procedure_name", "ec_department")})
 
+    def history(self, name):
+        return [{"kind": "Workflow", "text": "Gửi trưởng bộ phận", "who": "Soan", "when": "05/10/2026 09:00"},
+                {"kind": "Comment", "text": EVIL, "who": "Phuong", "when": "05/10/2026 10:00"}]
+
     def update_draft(self, code, fields):
         self.updated.append((code, dict(fields)))
         self.docs[code].update({k: v for k, v in fields.items() if k != "scope_departments"})
@@ -291,7 +295,9 @@ class TestManage(unittest.TestCase):
         self.assertEqual(it["tag"], ("wait", "Bản 1.1 chờ bạn duyệt"))
         self.assertEqual([a["action"] for a in it["actions"]], ["Đồng ý", "Trả lại"])
         self.assertTrue(it["actions"][1]["danger"])
-        self.assertEqual(it["desk"], "")                      # khong phai Ban ISO: khong link desk
+        self.assertFalse(it["can_edit"])                      # dang cho duyet: khong sua
+        self.assertEqual(it["edit"], "/tai-lieu/soan?ma=QT-TCKT-01")
+        self.assertEqual([k for k, _t in it["facts"]], ["type", "dept", "ver", "date", "who"])
         self.assertEqual(it["versions"][0]["version"], "1.1")
 
     def test_counts_and_filters(self):
@@ -309,7 +315,8 @@ class TestManage(unittest.TestCase):
         self.assertEqual(tags["QT-ISO-03"], ("old", "Quá hạn rà soát"))
         self.assertEqual(tags["QT-NS-02"], ("off", "Đang soạn bản 1.0"))
         self.assertEqual(tags["QT-TCKT-01"], ("off", "Bản 1.1 · Chờ trưởng bộ phận"))
-        self.assertTrue(all(i["desk"] for i in ctx["items"]))
+        self.assertEqual({i["code"] for i in ctx["items"] if i["can_edit"]}, {"QT-NS-02"})
+        self.assertTrue(all(i["edit"].startswith("/tai-lieu/soan?ma=") for i in ctx["items"]))
 
     def test_search(self):
         items = M.manage_page(ISO, q="mua hang", repo=seeded())["items"]
@@ -327,6 +334,89 @@ class TestManage(unittest.TestCase):
         self.assertEqual(out["state"], "Nháp")
         self.assertEqual(r.comments, [("QT-TCKT-01", "Trả lại: Thiếu bước đối chiếu")])
         self.assertEqual(r.applied, [("QT-TCKT-01", "Trả lại")])
+
+
+class TestEditor(unittest.TestCase):
+    ROWS = [{"stt": "1", "ten": "Lập đề nghị", "A": "Nhân viên", "R": "", "dien_giai": "Điền phiếu", "phan": ""},
+            {"stt": "2", "ten": "Duyệt", "A": "Trưởng bộ phận", "R": "Kế toán, nhân viên", "dien_giai": "", "phan": ""},
+            {"stt": "", "ten": "  ", "A": "x"}]
+
+    def base(self, **kw):
+        d = {"code": "QT-TCKT-09", "quality_procedure_name": "Tạm ứng", "ec_doc_type": "Quy trình",
+             "ec_department": FIN, "ec_company_wide": 1, "rows": self.ROWS,
+             "tom_tat": {"muc_dich": " Ứng tiền ", "dung_khi": ""}}
+        d.update(kw)
+        return d
+
+    def test_rows_roundtrip(self):
+        raw, mer = P.steps_from_rows(self.ROWS, {"muc_dich": "x"}, [])
+        data = json.loads(raw)
+        self.assertEqual(len(data["buoc"]), 2)                # dong trong bi bo
+        self.assertTrue(mer.startswith("flowchart"))
+        back = P.rows_from_steps(raw)
+        self.assertEqual([b["ten"] for b in back], ["Lập đề nghị", "Duyệt"])
+        self.assertEqual(back[1]["A"], "Trưởng bộ phận")
+        self.assertEqual(back[1]["R"].lower(), "kế toán, nhân viên")   # cung ten vai tro, khong nhan doi
+        self.assertEqual(P.steps_from_rows([], {}, []), ("", ""))
+        many = [{"ten": "b%d" % i, "A": "Vai %d" % i} for i in range(P.MAX_ROLES + 1)]
+        with self.assertRaises(ValueError):
+            P.steps_from_rows(many)
+
+    def test_create(self):
+        r = seeded()
+        out = M.save_draft(ISO, self.base(), repo=r)
+        self.assertEqual(out, {"code": "QT-TCKT-09", "created": True, "url": "/tai-lieu/soan?ma=QT-TCKT-09"})
+        ins = r.inserted[0]
+        self.assertEqual((ins["ec_drafter"], ins["ec_source"]), (ISO, "Soạn trên ERP"))
+        f = r.updated[-1][1]
+        self.assertEqual(json.loads(f["ec_steps_json"])["tom_tat"], {"muc_dich": "Ứng tiền"})
+        self.assertTrue(f["ec_mermaid"])
+        self.assertTrue(D_is_draft(r.docs["QT-TCKT-09"]))
+
+    def test_create_rules(self):
+        r = seeded()
+        with self.assertRaises(Forbidden):
+            M.save_draft(EMP, self.base(), repo=seeded(manager=False))
+        with self.assertRaises(Forbidden):
+            M.editor_page(EMP, repo=seeded(manager=False))
+        for bad in ({"code": "abc"}, {"code": "QT-TCKT-03"}, {"quality_procedure_name": " "},
+                    {"ec_department": "Không có"}):
+            with self.assertRaises(DocError):
+                M.save_draft(ISO, self.base(**bad), repo=r)
+        self.assertEqual(r.inserted, [])
+
+    def test_edit_draft(self):
+        r = seeded(manager=False)
+        r.docs["QT-NS-02"]["ec_drafter"] = EMP
+        out = M.save_draft(EMP, self.base(code="QT-NS-02", existing=1, ec_department=OPS, ec_company_wide=0,
+                                          scope=[FIN, "Lạ"], ec_notify_home=1), repo=r)
+        self.assertFalse(out["created"])
+        f = r.updated[-1][1]
+        self.assertEqual(f["scope_departments"], [FIN])
+        self.assertEqual(f["ec_notify_home"], 0)              # khong toan cong ty: khong thong bao
+        self.assertEqual(r.inserted, [])
+        ctx = M.editor_page(EMP, "QT-NS-02", repo=r)
+        self.assertTrue(ctx["editable"])
+        self.assertEqual([x["ten"] for x in ctx["rows"]], ["Lập đề nghị", "Duyệt"])
+
+    def test_edit_rules(self):
+        r = seeded(manager=False)
+        with self.assertRaises(Forbidden):                    # khong phai nguoi soan
+            M.save_draft(EMP, self.base(code="QT-NS-02", existing=1), repo=r)
+        with self.assertRaises(DocError):                     # dang cho duyet
+            M.save_draft(ISO, self.base(code="QT-TCKT-01", existing=1), repo=seeded())
+        with self.assertRaises(NotFound):
+            M.save_draft(ISO, self.base(code="QT-XX-01", existing=1), repo=seeded())
+        ctx = M.editor_page(ISO, "QT-TCKT-03", repo=seeded())
+        self.assertFalse(ctx["editable"])
+        self.assertIn("Soạn phiên bản mới", ctx["reason"])
+        self.assertTrue(ctx["rows"])                          # lay bang buoc tu ban dang hieu luc
+        self.assertEqual(r.updated, [])
+
+    def test_action_back_to_draft_opens_editor(self):
+        r = seeded(trans={"QT-TCKT-01": [("Trả lại", "Nhap")]})
+        out = M.do_action(ISO, "QT-TCKT-01", "Trả lại", "Thiếu bước", repo=r)
+        self.assertEqual(out["next"], "/tai-lieu/soan?ma=QT-TCKT-01")
 
 
 class TestImport(unittest.TestCase):
@@ -468,6 +558,25 @@ class TestTemplates(unittest.TestCase):
         out2 = render("quan_ly", M.manage_page(HEAD, repo=seeded(manager=False)))
         self.assertNotIn('id="eti-import"', out2)
         self.assertNotIn("/desk/", out2)
+        self.assertIn('href="/tai-lieu/soan"', out)
+        self.assertIn('class="eti-fact eti-fact-ver"', out)
+
+    def test_editor(self):
+        r = self.evil_repo()
+        r.docs["QT-NS-02"]["quality_procedure_name"] = EVIL
+        ctx = M.editor_page(ISO, "QT-NS-02", repo=r)
+        out = render("soan", dict(ctx, boot_json=json.dumps({"rows": [{"ten": "</script>" + EVIL}]})))
+        self.check(out)
+        self.assertEqual(out.count("</script><script>"), 0)      # boot JSON khong dong duoc the script
+        self.assertIn("\\u003c/script>", out)
+        self.assertIn('id="eti-ed-save"', out)
+        self.assertIn("Lịch sử duyệt", out)
+        new = render("soan", dict(M.editor_page(ISO, repo=r), boot_json="{}"))
+        self.assertIn('name="code"', new)
+        self.assertIn("Tạo bản nháp", new)
+        ro = render("soan", dict(M.editor_page(ISO, "QT-TCKT-01", repo=r), boot_json="{}"))
+        self.assertIn("<fieldset class=\"eti-fs\" disabled>", ro)
+        self.assertNotIn('id="eti-ed-save"', ro)
 
 
 if __name__ == "__main__":

@@ -14,7 +14,7 @@
     <a class="eti-btn" href="/tai-lieu">Thư viện nhân viên</a>
     {% if is_manager %}
     <button class="eti-btn" type="button" data-eti-open="eti-import">{{ icon('upload') }} Nhập gói</button>
-    <a class="eti-btn eti-btn-pri" href="/desk/quality-procedure/new">+ Soạn tài liệu mới</a>
+    <a class="eti-btn eti-btn-pri" href="/tai-lieu/soan">+ Soạn tài liệu mới</a>
     {% endif %}
   </div>
 </header>
@@ -46,7 +46,7 @@
       <li class="eti-b2-item">
         <details class="eti-acc"{% if it.open %} open{% endif %}>
           <summary class="eti-b2-row">
-            <span class="eti-b2-t"><span class="eti-nm"><span class="eti-code">{{ it.code|e }}</span>{{ it.name|e }}</span><span class="eti-mut">{{ it.meta|e }}</span></span>
+            <span class="eti-b2-t"><span class="eti-nm"><span class="eti-code">{{ it.code|e }}</span>{{ it.name|e }}</span><span class="eti-facts">{% for k, t in it.facts %}<span class="eti-fact eti-fact-{{ k|e }}">{{ t|e }}</span>{% endfor %}</span></span>
             <span class="eti-b2-r">{% if it.tag %}{{ pill(it.tag[0], it.tag[1]) }}{% endif %}<span class="eti-caret">{{ icon('caret') }}</span></span>
           </summary>
           <div class="eti-b2-open">
@@ -61,7 +61,7 @@
               {% if it.page %}<a href="{{ it.page|e }}">Trang tài liệu</a>{% endif %}
               {% if it.pdf %}<a href="{{ it.pdf|e }}" target="_blank" rel="noopener">Xem PDF</a>{% endif %}
               {% if it.docx %}<a href="{{ it.docx|e }}" download>Tải Word</a>{% endif %}
-              {% if it.desk %}<a href="{{ it.desk|e }}">Mở bản ghi (sửa, xem bản nháp, lịch sử duyệt)</a>{% endif %}
+              <a href="{{ it.edit|e }}">{% if it.can_edit %}Sửa bản nháp{% else %}Xem bản soạn, lịch sử duyệt{% endif %}</a>
             </div>
             {% if it.actions %}
             <form class="eti-actbox" data-eti-act="{{ it.code|e }}">

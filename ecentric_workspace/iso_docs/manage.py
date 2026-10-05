@@ -19,6 +19,7 @@ DANGER_ACTIONS = ("Trả lại", "Thu hồi", "Đề nghị thu hồi")
 FILE_MAX = 20 * 1024 * 1024
 TOTAL_MAX = 24 * 1024 * 1024
 FORM_EXT = (".docx", ".doc", ".xlsx", ".xls", ".pdf", ".pptx")
+EDITOR = "/tai-lieu/soan"
 
 
 def _repo(repo):
@@ -110,22 +111,25 @@ def manage_page(user, flt="", dept="", q="", open_code="", repo=None):
             vlist.append({"version": v.get("version"), "when": V.fdate(v.get("effective_from")),
                           "note": v.get("status") if off else (v.get("summary") or "Đang hiệu lực"),
                           "off": off, "draft": False})
-        meta = [r.get("ec_doc_type") or "", V.dept_label(r.get("ec_department"))]
+        facts = [("type", r.get("ec_doc_type") or ""), ("dept", V.dept_label(r.get("ec_department")))]
         if r.get("ec_current_version"):
-            meta.append("bản %s · hiệu lực %s" % (r["ec_current_version"], V.fdate(r.get("ec_effective_from"))))
+            facts += [("ver", "bản " + r["ec_current_version"]),
+                      ("date", "hiệu lực " + V.fdate(r.get("ec_effective_from")))]
         else:
-            meta.append("chưa ban hành")
+            facts.append(("date", "chưa ban hành"))
         if r.get("ec_drafter") and not D.is_state(st, C.S_PUBLISHED):
-            meta.append("người soạn: %s" % people.get(r["ec_drafter"], r["ec_drafter"]))
+            facts.append(("who", "người soạn: %s" % people.get(r["ec_drafter"], r["ec_drafter"])))
+        meta = [t for _k, t in facts if t]
         items.append({
             "code": r.get("ec_doc_code") or name, "name": r.get("quality_procedure_name") or "",
-            "meta": " · ".join(x for x in meta if x), "tag": _tag(r, a, today),
+            "meta": " · ".join(meta), "facts": [f for f in facts if f[1]], "tag": _tag(r, a, today),
             "versions": vlist, "open": name == open_code,
             "page": ("/tai-lieu/" + (r.get("ec_doc_code") or name)) if r.get("ec_current_version") else "",
             "pdf": cur_pdf, "docx": cur_docx, "state": V.state_label(st),
             "actions": [{"action": x["action"], "next": V.state_label(x["next_state"]),
                          "danger": x["action"] in DANGER_ACTIONS} for x in a],
-            "desk": ("/desk/quality-procedure/" + name) if is_mgr else "",
+            "edit": EDITOR + "?ma=" + (r.get("ec_doc_code") or name),
+            "can_edit": D.is_state(st, C.S_DRAFT) and D.can_write(r, user, is_mgr),
         })
     if items and not any(i["open"] for i in items) and flt == "cho-toi":
         items[0]["open"] = True
@@ -153,7 +157,10 @@ def do_action(user, code, action, note="", repo=None):
     new = repo.apply_action(doc, action)
     if note:
         repo.add_comment(doc.name, "%s: %s" % (action, note))
-    return {"code": code, "state": V.state_label(new.get(C.STATE_FIELD) if new else "")}
+    state = new.get(C.STATE_FIELD) if new else ""
+    # Soan phien ban moi -> sang trang soan luon (PO 05/10: khong qua man quan tri)
+    nxt = (EDITOR + "?ma=" + code) if D.is_state(state, C.S_DRAFT) else ""
+    return {"code": code, "state": V.state_label(state), "next": nxt}
 
 
 # --------------------------------------------------------------------------- nhap goi
@@ -225,3 +232,115 @@ def import_package(user, pkg_raw, code="", pdf=None, docx=None, forms=None, repo
     fields.update(files, ec_steps_json=P.steps_payload(pkg, urls))
     repo.update_draft(code, fields)
     return {"code": code, "created": not exists, "url": "/tai-lieu/quan-ly?loc=dang-soan&ma=" + code}
+
+
+# --------------------------------------------------------------------------- trang soan
+EDIT_FIELDS = ("quality_procedure_name", "ec_doc_type", "ec_department", "ec_company_wide", "ec_notify_home",
+               "ec_notify_summary", "ec_change_kind", "ec_change_summary", "ec_changed_sections",
+               "ec_draft_version", "ec_review_months")
+
+
+def editor_page(user, code="", repo=None):
+    """Trang /tai-lieu/soan: tao moi (khong co ma, chi Ban ISO) hoac sua ban nhap (?ma=)."""
+    repo = _repo(repo)
+    is_mgr = repo.is_manager(user)
+    base = {"types": [n for _p, n in C.DOC_TYPES], "kinds": list(C.KINDS), "departments": repo.departments(),
+            "is_manager": is_mgr}
+    if not code:
+        if not is_mgr:
+            raise Forbidden("Chỉ Ban ISO tạo được tài liệu mới.")
+        return dict(base, mode="new", code="", editable=True, reason="", doc=dict({k: "" for k in EDIT_FIELDS}, ec_company_wide=1, ec_notify_home=0,
+                    ec_review_months=C.REVIEW_MONTHS_DEFAULT), rows=[], tom_tat={}, files={"pdf": "", "docx": ""}, forms=[],
+                    actions=[], history=[], state="", scope=[], current_version="", page="")
+    doc = repo.get_doc(code)
+    if not doc:
+        raise NotFound
+    st = doc.get(C.STATE_FIELD)
+    d = {k: doc.get(k) for k in ("ec_doc_state", "ec_drafter", "ec_dept_head", "ec_current_version")}
+    editable = D.is_state(st, C.S_DRAFT) and D.can_write(d, user, is_mgr)
+    if not D.is_state(st, C.S_DRAFT):
+        reason = "Tài liệu đang ở bước \"%s\". Muốn sửa thì bấm \"Soạn phiên bản mới\" (bản đang hiệu lực vẫn áp dụng)" \
+                 % V.state_label(st) if D.is_state(st, C.S_PUBLISHED) else \
+                 "Tài liệu đang ở bước \"%s\": chỉ xem, trả về Nháp mới sửa được." % V.state_label(st)
+    elif not editable:
+        reason = "Chỉ người soạn và Ban ISO sửa được bản nháp này."
+    else:
+        reason = ""
+    steps_raw = doc.get("ec_steps_json") or ""
+    if not steps_raw:
+        eff = [r for r in doc.get("ec_revisions") or [] if r.get("status") == C.REV_EFFECTIVE]
+        steps_raw = eff[0].get("steps_json") if eff else ""
+    data = V.load_steps(steps_raw)
+    return dict(base, mode="edit", code=doc.get("ec_doc_code") or doc.name, editable=editable, reason=reason,
+                doc={k: doc.get(k) for k in EDIT_FIELDS + ("ec_doc_code",)},
+                rows=P.rows_from_steps(steps_raw), tom_tat=data.get("tom_tat") or {},
+                forms=[f for f in data.get("bieu_mau") or [] if isinstance(f, dict) and f.get("url")],
+                files={"pdf": doc.get("ec_draft_pdf") or "", "docx": doc.get("ec_draft_docx") or ""},
+                scope=[r.get("department") for r in doc.get("ec_scope_departments") or []],
+                actions=[{"action": t["action"], "next": V.state_label(t["next_state"]),
+                          "danger": t["action"] in DANGER_ACTIONS} for t in repo.transitions(doc)],
+                history=repo.history(doc.name), state=V.state_label(st),
+                current_version=doc.get("ec_current_version") or "",
+                page=("/tai-lieu/" + (doc.get("ec_doc_code") or doc.name)) if doc.get("ec_current_version") else "")
+
+
+def save_draft(user, data, pdf=None, docx=None, forms=None, repo=None):
+    """Luu trang soan. Moi: chi Ban ISO, tao o Nhap. Sua: chi khi Nhap + nguoi soan / Ban ISO.
+    Bang buoc -> steps_json + so do (package.steps_from_rows). -> {code, created, url}."""
+    repo = _repo(repo)
+    is_mgr = repo.is_manager(user)
+    code = (data.get("code") or "").strip().upper()
+    creating = not data.get("existing")
+    if creating:
+        if not is_mgr:
+            raise Forbidden("Chỉ Ban ISO tạo được tài liệu mới.")
+        ce = D.code_error(code, data.get("ec_doc_type"))
+        if ce:
+            raise DocError(ce)
+        if repo.exists(code):
+            raise DocError("Mã %s đã có trên ERP." % code)
+    else:
+        doc = repo.get_doc(code)
+        if not doc:
+            raise NotFound
+        d = {k: doc.get(k) for k in ("ec_doc_state", "ec_drafter", "ec_dept_head", "ec_current_version")}
+        if not D.is_state(doc.get(C.STATE_FIELD), C.S_DRAFT):
+            raise DocError("Tài liệu không ở bước Nháp: không sửa được.")
+        if not D.can_write(d, user, is_mgr):
+            raise Forbidden("Chỉ người soạn và Ban ISO sửa được bản nháp này.")
+    if not (data.get("quality_procedure_name") or "").strip():
+        raise DocError("Thiếu tên tài liệu.")
+    if data.get("ec_department") not in repo.departments():
+        raise DocError("Chọn phòng ban chủ trì.")
+    fields = {k: data.get(k) for k in EDIT_FIELDS if k in data}
+    fields["quality_procedure_name"] = fields["quality_procedure_name"].strip()[:140]
+    for k in ("ec_company_wide", "ec_notify_home"):
+        fields[k] = 1 if data.get(k) else 0
+    if not fields["ec_company_wide"]:
+        fields["ec_notify_home"] = 0
+    fields["scope_departments"] = [] if fields["ec_company_wide"] else \
+        [x for x in data.get("scope") or [] if x in repo.departments()]
+    tom_tat = {k: (data.get("tom_tat") or {}).get(k, "").strip() for k in ("muc_dich", "dung_khi", "chuan_bi", "ket_qua")}
+    tom_tat = {k: v for k, v in tom_tat.items() if v}
+    keep_forms = [f for f in data.get("forms_keep") or [] if isinstance(f, dict) and f.get("url")]
+    if creating:
+        fields.update(ec_doc_code=code, ec_drafter=user, ec_source="Soạn trên ERP")
+        repo.insert_doc(dict(fields))
+        fields.pop("ec_doc_code")
+    for f in forms or []:
+        name = _file(f, FORM_EXT)
+        keep_forms.append({"ma": "", "ten": name.rsplit(".", 1)[0], "url": repo.save_file(code, name, f["content"])})
+    try:
+        steps_raw, mermaid = P.steps_from_rows(data.get("rows") or [], tom_tat, keep_forms)
+    except ValueError as e:
+        raise DocError(str(e))
+    if not steps_raw and (tom_tat or keep_forms):
+        steps_raw = json.dumps({"tom_tat": tom_tat, "vai_tro": [], "buoc": [], "bieu_mau": keep_forms},
+                               ensure_ascii=False, indent=1)
+    fields.update(ec_steps_json=steps_raw, ec_mermaid=mermaid)
+    if pdf:
+        fields["ec_draft_pdf"] = repo.save_file(code, _file(pdf, (".pdf",)), pdf["content"])
+    if docx:
+        fields["ec_draft_docx"] = repo.save_file(code, _file(docx, (".docx",)), docx["content"])
+    repo.update_draft(code, fields)
+    return {"code": code, "created": creating, "url": EDITOR + "?ma=" + code}

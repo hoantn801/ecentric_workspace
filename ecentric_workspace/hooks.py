@@ -864,6 +864,7 @@ web_include_js.append("ec_reassign.bundle.js")
 website_route_rules = list(globals().get("website_route_rules") or []) + [
     {"from_route": "/tai-lieu", "to_route": "tai_lieu"},
     {"from_route": "/tai-lieu/quan-ly", "to_route": "tai_lieu/quan_ly"},
+    {"from_route": "/tai-lieu/soan", "to_route": "tai_lieu/soan"},
     {"from_route": "/tai-lieu/<code>", "to_route": "tai_lieu/chi_tiet"},
 ]
 
