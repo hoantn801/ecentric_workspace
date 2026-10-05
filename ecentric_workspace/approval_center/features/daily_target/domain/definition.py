@@ -15,6 +15,9 @@ def _definition(code, doctype, feature, editable, mine, approvals, options=(), f
     return ApprovalDefinition(
         code=code,
         business_doctype=doctype,
+        # 05/10: THIEU dong nay tu dau -> fulfillment_service.claim dung duong dan module rong
+        # ("No module named ...features.") khi nhan xu ly tu popup trang Tat ca yeu cau.
+        feature=feature,
         editable_fields=editable,
         my_request_fields=mine,
         approval_list_fields=approvals,
