@@ -172,6 +172,13 @@ class FakeRepo:
     def comment_counts(self, names, ref_doctype=C.POST_DT):
         return {n: sum(1 for c in self.comments.values() if c["post"] == n and c["ref_doctype"] == ref_doctype
                        and not c["hidden"] and not c["deleted"]) for n in names}
+    def latest_comments(self, names, per=2):
+        out = {}
+        for c in sorted(self.comments.values(), key=lambda c: c["creation"], reverse=True):
+            if (c["post"] in names and c["ref_doctype"] == C.POST_DT and not c["parent_comment"]
+                    and not c["hidden"] and not c["deleted"] and len(out.setdefault(c["post"], [])) < per):
+                out[c["post"]].append(dict(c))
+        return {n: list(reversed(out.get(n, []))) for n in names}
 
     def send_bell(self, *a, **kw):
         if len(a) == 7:                       # internal_posts.comments: (event, user, title, message, url, ref, dedupe)
@@ -711,6 +718,30 @@ class TestTemplates(unittest.TestCase):
         view["moment"] = False
         html = env.get_template("templates/includes/social/comments.html").render(cm=view)
         self.assertNotIn("<img src=x", html)
+        # xem truoc binh luan tren the bai cung phai escape
+        card = S.post_view(LAN, card["name"], repo=r)
+        html = env.get_template("templates/includes/social/items.html").render(items=[dict(card, type="post")])
+        self.assertIn("data-esc-cmt-preview", html)
+        self.assertNotIn("<img src=x", html)
+        self.assertIn("&lt;img src=x", html)
+
+    def test_comment_preview(self):
+        r = FakeRepo()
+        subj = CS.SocialSubject(r)
+        p = S.create(LAN, {"body": "Ai đi ăn trưa?"}, repo=r)["name"]
+        self.assertEqual(S.post_view(ANH, p, repo=r)["preview"], [])
+        a = engine.add(KHANG, p, "Mình 1", repo=r, subject=subj)["items"][0]["name"]
+        engine.add(ANH, p, "Mình 2", repo=r, subject=subj)
+        engine.add(LAN, p, "Trả lời", parent=a, repo=r, subject=subj)        # tra loi: khong vao xem truoc
+        engine.add(ANH, p, "x" * 300, repo=r, subject=subj)
+        card = S.post_view(ANH, p, repo=r)
+        self.assertEqual([c["text"][:6] for c in card["preview"]], ["Mình 2", "x" * 6])   # 2 goc moi nhat, cu -> moi
+        self.assertEqual(card["preview"][0]["author"]["user"], ANH)
+        self.assertLessEqual(len(card["preview"][1]["text"]), C.PREVIEW_CHARS)
+        self.assertEqual(card["comments"], 4)
+        S.hide(HR, p, True, repo=r)
+        self.assertEqual(S.post_view(LAN, p, repo=r)["preview"], [])        # bai bi an: khong lo binh luan
+        self.assertEqual(D.clip("một hai ba bốn", 9), "một hai…")
 
 
 if __name__ == "__main__":
