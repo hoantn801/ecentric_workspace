@@ -33,6 +33,7 @@ assert.ok(row.indexOf('ec-chat-row-unread') > 0);
 var dm = E.rowHtml({ id: 'd', kind: 'dm', title: 'Lâm', avatar: '/files/a".png', initials: 'L', unread: 0,
                      href: '/chat?c=d', preview: '', last_at: '' }, now);
 assert.ok(dm.indexOf('src="/files/a&quot;.png"') > 0, 'avatar escaped');
+assert.ok(dm.indexOf('data-initials="L"') > 0, 'avatar keeps initials for broken-image fallback');
 assert.ok(dm.indexOf('ec-chat-count') < 0, 'no count when 0');
 
 // trang thai than khay

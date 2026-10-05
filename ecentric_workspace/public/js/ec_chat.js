@@ -63,7 +63,10 @@
 
   function avatarHtml(it) {
     if (it.kind === 'dm') {
-      if (it.avatar) return '<img class="ec-chat-av" src="' + esc(it.avatar) + '" alt="" loading="lazy">';
+      if (it.avatar) {
+        return '<img class="ec-chat-av" src="' + esc(it.avatar) + '" alt="" loading="lazy" data-initials="' +
+               esc(it.initials) + '">';
+      }
       return '<span class="ec-chat-av ec-chat-av-txt" aria-hidden="true">' + esc(it.initials) + '</span>';
     }
     return '<span class="ec-chat-av ec-chat-av-ch" aria-hidden="true">' + (it.is_private ? ICON.lock : ICON.hash) + '</span>';
@@ -245,6 +248,17 @@
     if (t.closest('[data-ec-chat-retry]')) { loadFilter(S.filter, true); }
   }
 
+  // Anh dai dien hong (tep da xoa, sai quyen) -> chu viet tat, khong de o anh vo.
+  function onImgError(ev) {
+    var t = ev.target;
+    if (!t || t.tagName !== 'IMG' || !t.classList || !t.classList.contains('ec-chat-av')) return;
+    var s = document.createElement('span');
+    s.className = 'ec-chat-av ec-chat-av-txt';
+    s.setAttribute('aria-hidden', 'true');
+    s.textContent = t.getAttribute('data-initials') || '?';
+    if (t.parentNode) t.parentNode.replaceChild(s, t);
+  }
+
   function onKey(ev) {
     if (S.open && (ev.key === 'Escape' || ev.key === 'Esc')) closePanel(true);
   }
@@ -279,6 +293,7 @@
   function boot() {
     document.addEventListener('click', onClick);
     document.addEventListener('keydown', onKey);
+    document.addEventListener('error', onImgError, true);   // 'error' khong noi bot -> bat o pha capture
     window.addEventListener('resize', function () { if (S.open) place(); });
     // shell ve lai vung phai thanh tren -> huy hieu moi trong; to lai tu so da biet
     document.addEventListener('ec-shell:header-rendered', function () {
