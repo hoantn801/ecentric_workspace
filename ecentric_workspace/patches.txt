@@ -341,3 +341,4 @@ ecentric_workspace.social.patches.p001_seed_clubs
 ecentric_workspace.approval_center.patches.p259_resync_bang_tin
 ecentric_workspace.iso_docs.patches.p001_setup
 ecentric_workspace.approval_center.patches.p260_nut_chuyen_nguoi_xu_ly_hiring_dt
+ecentric_workspace.approval_center.patches.p261_resync_tai_lieu

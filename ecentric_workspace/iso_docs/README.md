@@ -58,7 +58,10 @@ Test (không cần bench): `python -m unittest ecentric_workspace.iso_docs.tests
 
 - [x] Bước 2: nền dữ liệu, luồng duyệt, quyền, lịch sử ban hành, thông báo trang chủ (05/10/2026).
 - [x] Chạy thử trên site 05/10: đủ luồng lớn, sửa nhỏ, thu hồi, thông báo trang chủ; sửa lỗi tên trạng thái bỏ dấu.
-- [ ] Trang `/tai-lieu` (nhân viên, mockup D) + trang quản lý (mockup B) + "Nhập gói".
+- [x] Trang `/tai-lieu` (thư viện: theo phòng ban / theo việc cần làm / hệ thống ISO, tìm không dấu),
+  `/tai-lieu/<mã>` (sơ đồ mermaid to, chọn vai trò thì tô sáng bước + "Việc của …", biểu mẫu, phiên
+  bản cũ `?ban=X.Y`), `/tai-lieu/quan-ly` (Chờ tôi duyệt / Đến hạn rà soát / theo phòng, bấm bước duyệt,
+  "Nhập gói") - 05/10/2026. Lớp: `library.py`, `manage.py`, `package.py`, `view.py` (thuần), `api.py`.
 - [ ] Nhắc rà soát định kỳ (cron + kill switch), "Báo nội dung sai / lỗi thời", EC Read Receipt.
 - [ ] Nhập 66 file cũ (dry-run, Hoàn + Ban ISO duyệt mã trước khi ghi).
 - [ ] AI: sơ đồ mermaid / tóm tắt / eC Mate hỏi đáp qua `platform.ai`.
