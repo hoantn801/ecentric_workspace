@@ -64,7 +64,8 @@
     P + ' *{box-sizing:border-box}',
     P + ' h2,' + P + ' h3,' + P + ' p{margin:0}',
     '@keyframes ech-in{from{opacity:0}}',
-    P + ' .dlg{background:var(--surface);border-radius:18px;box-shadow:0 30px 70px rgba(0,0,0,.3);width:min(900px,100%);max-height:100%;display:flex;flex-direction:column;overflow:hidden}',
+    P + ' .dlg{background:var(--surface);border-radius:18px;box-shadow:0 30px 70px rgba(0,0,0,.3);width:min(940px,100%);height:min(640px,100%);display:flex;flex-direction:column;overflow:hidden}',
+    // Khung CO DINH (PO 05/10): o nao it noi dung cung khong co lai, o dai thi cuon trong .stage.
     P + ' .dlg:focus{outline:none}',
     P + ' .dh{display:flex;align-items:center;gap:12px;padding:14px 18px 14px 22px;border-bottom:1px solid var(--line)}',
     P + ' .dh .t{flex:1;min-width:0}',
@@ -237,6 +238,7 @@
     P + ' .drempty{padding:18px 20px;display:flex;flex-direction:column;gap:4px}',
     '@media (max-width:760px){',
     P + '{padding:10px 10px 92px}',
+    P + ' .dlg{height:100%}',
     P + ' .upn-i{grid-template-columns:36px 44px minmax(0,1fr)}' + P + ' .upn-r{grid-column:2/-1;justify-content:flex-start}',
     P + ' .dbody{grid-template-columns:1fr;grid-template-rows:auto 1fr}',
     P + ' .thumbs{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line);padding:10px}',
