@@ -11,6 +11,8 @@ import os
 
 import frappe
 
+from ecentric_workspace.chat.gateway import chat_enabled  # o Tin nhan (05/10/2026)
+
 ROUTE = "/tai-lieu"
 _APP = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ASSETS = {"css": "public/css/ec_iso_docs.css", "js": "public/js/ec_iso_docs.js"}
@@ -51,7 +53,7 @@ def shell(context, route=ROUTE, detail=""):
         pass
     detail_html = fb.make_detail(fb._esc(detail)) if detail else None
     try:
-        topbar = fb.render_topbar_inner(route, detail_html)
+        topbar = fb.render_topbar_inner(route, detail_html, chat=chat_enabled())
     except Exception:
         topbar = ""
     context.iso_shell_mount = mount

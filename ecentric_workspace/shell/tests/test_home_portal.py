@@ -78,8 +78,13 @@ class TestThreeTierModel(unittest.TestCase):
         scoped count from the EXISTING shared action provider, zero hides."""
         appr = next(i for i in nav.compose("home") if i["key"] == "home.portal.approvals")
         self.assertEqual(appr.get("badge_source"), "action_center.approvals")
-        # no other portal item grows a badge
-        others = [i for i in nav.compose("home") if i["key"] != "home.portal.approvals"]
+        # no other portal item grows a badge -- EXCEPT "Chat noi bo" (05/10/2026, PO Hoan):
+        # tin chua doc tren Raven, to boi ec_chat.js (khoa 'chat.unread' co y khong co trong
+        # BADGE_SOURCES cua ec_shell.js, xem chat/tests/test_chat.py)
+        chat = next(i for i in nav.compose("home") if i["key"] == "home.portal.chat")
+        self.assertEqual(chat.get("badge_source"), "chat.unread")
+        others = [i for i in nav.compose("home")
+                  if i["key"] not in ("home.portal.approvals", "home.portal.chat")]
         self.assertFalse(any(i.get("badge_source") for i in others))
         js = io.open(os.path.join(APP, "public", "js", "ec_shell.js"), encoding="utf-8").read()
         # registered-key resolver, session-scoped provider, zero-hides contract
