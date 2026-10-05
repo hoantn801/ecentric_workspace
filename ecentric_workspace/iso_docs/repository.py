@@ -103,7 +103,7 @@ LIST_FIELDS = ["name", "quality_procedure_name", "ec_doc_code", "ec_doc_type", "
                "ec_draft_version", "ec_change_kind", "ec_change_summary", "ec_drafter", "ec_dept_head",
                "ec_company_wide", "ec_parent_doc", "modified"]
 REV_FIELDS = ["parent", "idx", "version", "change_kind", "status", "effective_from", "effective_to",
-              "summary", "approver", "pdf", "docx", "steps_json"]
+              "summary", "approver", "pdf", "docx", "steps_json", "source"]
 
 
 def list_docs():
@@ -193,8 +193,18 @@ def insert_doc(fields):
 def update_draft(code, fields):
     doc = frappe.get_doc(C.QP, code)
     scope = fields.pop("scope_departments", None)
+    revisions = fields.pop("ec_revisions", None)
     doc.update(fields)
+    if revisions is not None:
+        doc.set("ec_revisions", revisions)
     if scope is not None:
         doc.set("ec_scope_departments", [{"department": d} for d in scope])
     doc.save()
     return doc
+
+
+def force_published(code, note):
+    """CHI cho nhap tai lieu cu (legacy.import_one): dat thang trang thai "Ban hanh" - tai lieu da
+    duyet ngoai ERP, khong di lai Workflow. Ghi Comment de con dau vet."""
+    frappe.db.set_value(C.QP, code, C.STATE_FIELD, C.S_PUBLISHED, update_modified=False)
+    add_comment(code, note)

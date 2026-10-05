@@ -10,6 +10,7 @@ from ecentric_workspace.iso_docs import view as V
 from ecentric_workspace.iso_docs.errors import NotFound
 
 VIEWS = ("phong-ban", "viec", "he-thong")
+LEGACY_SOURCE = "Nhập file cũ"     # = legacy.SOURCE: ban chuyen tu SharePoint, cho soan lai
 
 
 def _repo(repo):
@@ -31,12 +32,14 @@ def _match(c, q):
 
 def _card(r, rev):
     flow = V.flow(rev.get("steps_json") if rev else "")
-    use = dict(flow["facts"]).get("Dùng khi", "")
+    facts = dict(flow["facts"])
+    use = facts.get("Dùng khi") or facts.get("Mục đích") or ""
     return {"code": r.get("ec_doc_code") or r.get("name"), "name": r.get("quality_procedure_name") or "",
             "type": r.get("ec_doc_type") or "", "dept": V.dept_label(r.get("ec_department")),
             "dept_name": r.get("ec_department") or "", "version": r.get("ec_current_version") or "",
             "since": V.fdate(r.get("ec_effective_from")), "use": use,
             "drafting": not D.is_state(r.get("ec_doc_state"), C.S_PUBLISHED),
+            "legacy": bool(rev) and rev.get("source") == LEGACY_SOURCE,
             "ec_doc_type": r.get("ec_doc_type"), "ec_doc_code": r.get("ec_doc_code")}
 
 
@@ -101,6 +104,7 @@ def doc_page(user, code, version="", repo=None):
         "pdf": row.get("pdf") or "", "docx": row.get("docx") or "",
         "mermaid": (row.get("mermaid") or "").strip(), "flow": flow, "history": history,
         "parent": doc.get("ec_parent_doc") or "",
+        "legacy": row.get("source") == LEGACY_SOURCE,
         "children": [{"code": r.get("ec_doc_code") or r.get("name"), "name": r.get("quality_procedure_name") or "",
                       "version": r.get("ec_current_version") or ""}
                      for r in _effective(repo.list_docs()) if r.get("ec_parent_doc") == doc.name],
