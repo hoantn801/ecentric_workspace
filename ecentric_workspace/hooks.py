@@ -865,3 +865,10 @@ website_route_rules = list(globals().get("website_route_rules") or []) + [
     {"from_route": "/tai-lieu/quan-ly", "to_route": "tai_lieu/quan_ly"},
     {"from_route": "/tai-lieu/<code>", "to_route": "tai_lieu/chi_tiet"},
 ]
+
+# --------------------------------------------------------------------------- #
+# 05/10/2026 - Outside Work da duyet -> Attendance "Present" cho ngay lam viec ben ngoai da qua
+# (phieu duyet truoc cho ngay sau). Duyet xong cung ghi ngay qua engine handler.
+# --------------------------------------------------------------------------- #
+scheduler_events["cron"].setdefault("15 6 * * *", []).append(
+    "ecentric_workspace.approval_center.features.outside_work.application.attendance.run_daily")

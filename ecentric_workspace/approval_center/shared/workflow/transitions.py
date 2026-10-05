@@ -1805,6 +1805,9 @@ _FULFILLMENT_HANDLERS = {
     "EC Promotion Request": "ecentric_workspace.approval_center.features.promotion.application.service.on_final_approval",
     # 29/09: Clearance du cac nhom ban giao -> bao line manager.
     "EC Clearance Request": "ecentric_workspace.approval_center.features.clearance_request.application.service.on_final_approval",
+    # 05/10: Outside Work duyet xong -> ngay lam viec ben ngoai co Attendance "Present" (bang cong
+    # ERP / payroll chi doc Attendance). Ngay da co ban ghi thi giu nguyen.
+    "EC Outside Work Request": "ecentric_workspace.approval_center.features.outside_work.application.attendance.on_final_approval",
 }
 
 
