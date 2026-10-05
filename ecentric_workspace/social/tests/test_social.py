@@ -676,6 +676,13 @@ class TestModeration(unittest.TestCase):
         self.assertEqual(([c["title"] for c in ctx["pending"]], [c["title"] for c in ctx["active"]]),
                          (["Cầu lông"], ["Bóng đá"]))
         self.assertEqual(ctx["pending"][0]["proposer"], "Nguyễn Thị Lan")
+        self.assertEqual(ctx["no_lead"], 0)
+        club(r, "Bơi", lead=None)
+        ctx = M.page(HR, "clb", repo=r)
+        self.assertEqual(([c["title"] for c in ctx["active"]], ctx["no_lead"]), (["Bơi", "Bóng đá"], 1))  # chua co PT len dau
+        page = CL.club_page(LAN, "boi", repo=r)
+        self.assertEqual((page["lead"], page["can_event"]), (None, False))
+        self.assertTrue(page["mod_url"].startswith(C.MOD_ROUTE + "?tab=clb#clb-"))
 
 
 class TestDomain(unittest.TestCase):

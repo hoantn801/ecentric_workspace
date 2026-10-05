@@ -363,3 +363,6 @@
 .esc-cm-preview{border-top:1px solid var(--soft);padding:8px 16px 10px;display:flex;flex-direction:column;gap:6px}
 .esc-cm-preview .esc-bub p{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .esc-cm-more{align-self:flex-start;margin-left:36px;font-weight:600}
+/* CLB chua co nguoi phu trach (trang Quan ly). */
+.esc-modclub-nolead{border-color:var(--amber-ink);box-shadow:inset 3px 0 0 var(--amber-ink)}
+.esc-badge-warn{background:var(--yellow-50);color:var(--amber-ink)}

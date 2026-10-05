@@ -90,6 +90,7 @@ def club_page(user, slug, tab="bai-viet", before="", repo=None):
     upcoming = repo.club_events(c["name"], now - datetime.timedelta(hours=C.EVENT_PAST_GRACE_HOURS), limit=10)
     upcoming = [r for r in upcoming if S.visible(cx, r)]
     ctx = {"club": view, "tab": tab, "is_moderator": cx["moderator"], "items": [], "next": "", "photos": [],
+           "mod_url": C.MOD_ROUTE + "?tab=clb#clb-" + c["name"],
            "members": [D.person(u, names, depts) for u in members],
            "lead": D.person(c["lead"], names) if c.get("lead") else None,
            "can_event": c["status"] == C.CLUB_ACTIVE and (c.get("lead") == user or cx["moderator"]),
