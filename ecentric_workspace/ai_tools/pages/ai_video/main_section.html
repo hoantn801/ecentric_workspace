@@ -124,7 +124,40 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
 .av-toast.show{opacity:1;transform:translate(-50%,0)} .av-toast.err{background:#dc2626}
 .av-switch{display:inline-flex;gap:8px;align-items:center;font-size:13px;cursor:pointer}
 .av-switch input{width:16px;height:16px;accent-color:var(--navy)}
-@media (max-width:640px){.av-wrap{padding:16px}.av-hero h1{font-size:19px} }
+/* 05/10 khung SP nguoi dung ve */
+.av-modal .box.fr{max-width:1060px}
+.av-fr{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}
+.av-fr-col{display:flex;flex-direction:column;gap:6px;align-items:center;flex:0 0 auto;max-width:100% }
+.av-fr-stage{position:relative;border-radius:10px;overflow:hidden;background:var(--tile);touch-action:none;user-select:none;-webkit-user-select:none}
+.av-fr-stage>img{display:block;width:100%;height:100%;object-fit:cover;pointer-events:none}
+.av-fr-box{position:absolute;outline:2px solid var(--gold);box-shadow:0 0 0 4px rgba(17,24,39,.28);cursor:move}
+.av-fr-box.empty{background:rgba(245,184,0,.16)}
+.av-fr-box>img{width:100%;height:100%;display:block;pointer-events:none}
+.av-fr-h{position:absolute;width:18px;height:18px;background:#fff;border:2px solid var(--navy);border-radius:4px}
+.av-fr-h.tl{left:-9px;top:-9px;cursor:nwse-resize}.av-fr-h.tr{right:-9px;top:-9px;cursor:nesw-resize}.av-fr-h.bl{left:-9px;bottom:-9px;cursor:nesw-resize}.av-fr-h.br{right:-9px;bottom:-9px;cursor:nwse-resize}
+.av-fr-tag{position:absolute;left:-2px;bottom:-28px;background:var(--navy);color:#fff;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:5px;white-space:nowrap;pointer-events:none}
+.av-fr-ghost{position:absolute;border:2px dashed rgba(255,255,255,.95);box-shadow:0 0 0 1px rgba(17,24,39,.45);pointer-events:none}
+.av-fr-ghost span{position:absolute;right:-2px;top:-22px;background:rgba(17,24,39,.78);color:#fff;font-size:11px;font-weight:600;padding:1px 7px;border-radius:5px;white-space:nowrap}
+.av-fr-side{flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:14px}
+.av-fr-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.av-fr-kpis>div{border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-width:0}
+.av-fr-kpis b{display:block;font-size:18px;font-variant-numeric:tabular-nums}
+.av-btn.sq{min-width:40px;height:40px;justify-content:center}
+.av-mini{position:relative;width:40px;height:71px;border-radius:6px;overflow:hidden;background:var(--tile);flex:none;display:block}
+.av-mini>img{width:100%;height:100%;object-fit:cover;display:block}
+.av-mini>i,.av-cand .ov{position:absolute;border:1.5px solid var(--gold);box-shadow:0 0 0 1px rgba(0,0,0,.4);pointer-events:none}
+.av-cand .im{position:relative}
+.av-cand .ov{border-width:2px;border-style:dashed}
+.av-grp{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}
+.av-grp-list{flex:0 1 280px;min-width:240px;overflow:hidden}
+.av-grp-list button{appearance:none;width:100%;text-align:left;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 14px;border:0;border-bottom:1px solid var(--line-soft);background:var(--surface);cursor:pointer;min-height:44px;font-size:13.5px;color:var(--ink)}
+.av-grp-list button.on{background:var(--navy-wash);font-weight:700}
+.av-grp-list button.new{color:var(--navy);font-weight:600}
+.av-grp-main{flex:999 1 520px;min-width:0;display:flex;flex-direction:column;gap:14px}
+#ec-aiv-root .av-grp-main textarea{min-height:64px;font-family:inherit;font-size:13px}
+#ec-aiv-root .av-grp-main textarea,#ec-aiv-root .av-grp-main input,#ec-aiv-root .av-grp-main select{font-weight:400}
+.av-hist{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;padding:9px 16px;border-bottom:1px solid var(--line-soft);font-size:13px}
+@media (max-width:640px){.av-wrap{padding:16px}.av-hero h1{font-size:19px}.av-fr-kpis{grid-template-columns:1fr 1fr} }
 </style>
 
 <div class="ec-aiv-wrap">
@@ -149,7 +182,12 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
     ["soft_pouch", "Túi mềm (bánh, bông, khẩu trang)"], ["hair_dryer", "Máy sấy"], ["table_appliance", "Đồ gia dụng để bàn"]];
   const STEPS = [["input", "1. Nhập lô"], ["pick", "2. Duyệt ảnh"], ["video", "3. Tạo video"], ["mix", "4. Trộn & xuất"], ["prompt", "Prompt"]];
   const UNIT_LABEL = { putdown_left: "Hạ trái", putdown_right: "Hạ phải", putdown_below: "Hạ dưới", pickup_left: "Lấy trái", pickup_right: "Lấy phải", pickup_below: "Lấy dưới", hold_01: "Cầm A", hold_02: "Cầm B" };
-  const S = { projects: [], brand: "", p: null, items: [], exports: [], step: "input", timer: null, sel: new Set(), mixSel: new Set(), drafts: [], prompts: null, busy: false };
+  /* khung SP: ti le 0..1 tren anh host. Cm chi la UOC TINH theo khung hinh host chuan
+     (vai + tay ao ~44 cm chiem ~58% be ngang anh) - doi chieu lo Friso: vi 110ml ~17 cm, 180ml ~24 cm. */
+  const CM_PER_W = 1 / 0.0132;
+  const GROUP_ST = { ok: ["Đã kiểm chứng", "p-ok"], try: ["Đang thử", "p-warn"], none: ["Mẫu chung", "p-idle"] };
+  let frDrag = null;
+  const S = { showFrame: true, projects: [], brand: "", p: null, items: [], exports: [], step: "input", timer: null, sel: new Set(), mixSel: new Set(), drafts: [], prompts: null, busy: false };
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
@@ -184,7 +222,7 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
 
   /* ---------- modal / media ---------- */
   function modal(html, media) { const b = $("av-modal-box"); b.className = "box" + (media ? " media" : ""); b.innerHTML = html; $("av-modal").hidden = false; }
-  function closeModal() { $("av-modal").hidden = true; $("av-modal-box").innerHTML = ""; }
+  function closeModal() { if (S.fr && S.fr.dirty && !confirm("Bỏ thay đổi khung chưa lưu?")) return; S.fr = null; frDrag = null; $("av-modal").hidden = true; $("av-modal-box").innerHTML = ""; }
   function showMedia(url, kind) { if (!url) return; modal(kind === "video" ? `<video src="${esc(url)}" controls autoplay loop playsinline></video>` : `<img src="${esc(url)}" alt="">`, true); }
 
   /* ---------- routing ---------- */
@@ -267,7 +305,8 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
     S.p = r.data.project; S.items = r.data.items || []; S.exports = r.data.exports || []; S.down = r.data.worker_down; S.configured = r.data.worker_configured;
     renderProject();
     const running = S.items.some((i) => i.stage_state === "running") || S.exports.some((e) => e.status === "running") || (S.p.anchor_state && S.p.anchor_state !== "ready" && S.items.some((i) => i.stage === "wait_anchor"));
-    S.timer = setTimeout(() => { if (route().project === name && !$("av-modal").hidden === false) loadProject(name, true); else if (route().project === name) S.timer = setTimeout(() => loadProject(name, true), 5000); }, running ? 15000 : 60000);
+    const again = () => { if (route().project !== name) return; if ($("av-modal").hidden && S.step !== "prompt") loadProject(name, true); else S.timer = setTimeout(again, 5000); };
+    S.timer = setTimeout(again, running ? 15000 : 60000);
   }
   function counts() { const c = { total: 0, pick: 0, qc: 0, running: 0, ready: 0, done: 0, error: 0 };
     S.items.forEach((i) => { c.total++; if (i.stage_state === "error") c.error++; else if (i.stage === "pick") c.pick++; else if (i.stage === "qc_motion" || i.stage === "qc_hold_a") c.qc++; else if (i.stage === "ready") c.ready++; else if (i.stage === "done") c.done++; else if (i.stage_state === "running" || i.stage === "wait_anchor") c.running++; }); return c; }
@@ -279,6 +318,16 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
     return `<span class="av-pill p-warn">${esc(i.stage_label)}</span>`;
   }
   /* chi phi Kie ($) - worker tinh tu credit da tieu; "~" = co phan uoc tinh (viec cu chua ghi credit) */
+  function bbox(s) { const a = String(s || "").split(",").map(Number); return a.length === 4 && a.every((x) => isFinite(x)) ? { x: a[0], y: a[1], w: a[2], h: a[3] } : null; }
+  function pct(v) { return (v * 100).toFixed(2) + "%"; }
+  function boxStyle(b, k) { k = k || 1; const w = b.w * k, h = b.h * k; return `left:${pct(b.x + (b.w - w) / 2)};top:${pct(b.y + (b.h - h) / 2)};width:${pct(w)};height:${pct(h)}`; }
+  function miniFrame(i) { const b = bbox(i.guide_bbox); if (!S.p.host_image || !b) return ""; return `<span class="av-mini"><img src="${esc(S.p.host_image)}" alt=""><i style="${boxStyle(b)}"></i></span>`; }
+  function frameCell(i) {
+    const b = bbox(i.guide_bbox); const edit = i.stage === "new" || i.stage_state === "error";
+    if (!S.p.host_image) return '<span class="av-hint">Cần ảnh host (Cài đặt dự án)</span>';
+    if (!b) return edit ? `<button class="av-outline" data-frame="${esc(i.name)}" data-frmode="edit">Vẽ khung</button><div class="av-hint" style="margin-top:3px">Không vẽ thì AI tự tính theo số đo</div>` : '<span class="av-hint">AI tự tính</span>';
+    return `<div class="av-row" style="flex-wrap:nowrap">${miniFrame(i)}<div><b>≈ ${Math.round(b.w * CM_PER_W)} cm</b> <span class="av-hint">rộng</span><br><button class="av-btn sm ghost" style="padding-left:0" data-frame="${esc(i.name)}" data-frmode="${edit ? "edit" : "view"}">${edit ? "Sửa khung" : "Xem khung"}</button></div></div>`;
+  }
   function usd(v) { return v == null ? "—" : "$" + Number(v).toFixed(2); }
   function costCell(i) {
     const est = S.p.cost && S.p.cost.estimated ? "~" : "";
@@ -309,8 +358,9 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
         ${(i.stage === "new" || i.stage_state === "error") ? `${(i.extra_images || []).length < 4 ? `<span class="av-up"><label class="av-hint">+ ảnh phụ<input type="file" accept="image/*" multiple data-ifile-extra="${esc(i.name)}"></label></span>` : ""}${(i.extra_images || []).length ? `<button class="av-btn sm ghost danger" data-clear-extra="${esc(i.name)}" title="Xoá ảnh phụ">×</button>` : ""}` : ""}</div></td>
       <td class="av-hint">${esc(i.product_type || "")}<br>${esc((CATS.find((x) => x[0] === (i.product_category || "")) || ["", ""])[1])}</td>
       <td class="av-hint">${[i.width_cm, i.height_cm, i.depth_cm].map((x) => x || "–").join(" × ")} cm${i.size_pct ? " · " + i.size_pct + "%" : ""}</td>
+      <td>${frameCell(i)}</td>
       <td class="av-hint">${i.audio_seconds || S.p.audio_seconds || 72}s${i.audio_file ? " · có audio" : ""}</td>
-      <td>${costCell(i)}</td><td>${pill(i)}</td><td>${(i.stage === "new" || i.stage_state === "error") ? `<button class="av-btn sm ghost danger" data-del="${esc(i.name)}">Xoá</button>` : ""}</td></tr>`).join("");
+      <td>${costCell(i)}</td><td>${pill(i)}${i.force_gate ? '<div class="av-hint">Nhóm đang thử: tự dừng chờ duyệt</div>' : ""}</td><td>${(i.stage === "new" || i.stage_state === "error") ? `<button class="av-btn sm ghost danger" data-del="${esc(i.name)}">Xoá</button>` : ""}</td></tr>`).join("");
     const drafts = S.drafts.map((d, k) => `<tr data-draft="${k}"><td></td><td><input type="text" data-dk="batch" value="${esc(d.batch)}" style="width:80px"></td>
       <td><input type="text" data-dk="sku" value="${esc(d.sku)}" placeholder="SKU *" style="width:120px"><input type="text" data-dk="product_name" value="${esc(d.product_name)}" placeholder="Tên SP" style="margin-top:4px"></td>
       <td><div class="av-up">${d.product_image ? `<img class="av-thumb" src="${esc(d.product_image)}" alt="">` : ""}<label>${d.product_image ? "Đổi" : "Ảnh chính diện *"}<input type="file" accept="image/*" data-dfile="product_image"></label></div>
@@ -319,29 +369,138 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
         <div class="av-up" style="margin-top:4px">${d.real_hold_image ? "✓" : ""}<label class="av-hint">Ảnh cầm thật (tuỳ chọn)<input type="file" accept="image/*" data-dfile="real_hold_image"></label></div></td>
       <td><input type="text" data-dk="product_type" value="${esc(d.product_type)}" placeholder="VD: lon sữa bột 800g">${catSel(d.product_category, 'data-dk="product_category" style="margin-top:4px"')}</td>
       <td><div class="av-row" style="flex-wrap:nowrap"><input type="number" class="av-num" data-dk="width_cm" value="${esc(d.width_cm)}" placeholder="R"><input type="number" class="av-num" data-dk="height_cm" value="${esc(d.height_cm)}" placeholder="C"><input type="number" class="av-num" data-dk="depth_cm" value="${esc(d.depth_cm)}" placeholder="S"></div><input type="number" class="av-num" data-dk="size_pct" value="${esc(d.size_pct)}" placeholder="±%" style="margin-top:4px" title="Chỉnh cỡ ±% (khi không có số đo)"></td>
+      <td class="av-hint">Lưu dòng rồi vẽ khung</td>
       <td><input type="number" class="av-num" data-dk="audio_seconds" value="${esc(d.audio_seconds)}" placeholder="giây"><div class="av-up" style="margin-top:4px">${d.audio_file ? "✓" : ""}<label class="av-hint">mp3<input type="file" accept="audio/*" data-dfile="audio_file"></label></div></td>
       <td></td><td><span class="av-pill p-idle">Nháp</span></td><td><button class="av-btn sm ghost danger" data-ddel="${k}">Bỏ</button></td></tr>`).join("");
     const nNew = S.items.filter((i) => S.sel.has(i.name)).length;
     return `<div class="av-panel"><div class="av-panel-h"><h2>Danh sách SKU</h2><div class="av-row"><button class="av-btn" id="av-add">+ Thêm dòng</button>${S.drafts.length ? `<button class="av-btn pri" id="av-save-drafts">Lưu ${S.drafts.length} dòng</button>` : ""}<button class="av-gold" id="av-start" ${nNew ? "" : "disabled"}>Tạo ảnh cầm cho ${nNew} SKU</button></div></div>
-      <div class="av-panel-b" style="padding:0"><div class="av-tw"><table><thead><tr><th><input type="checkbox" id="av-selall" aria-label="Chọn tất cả"></th><th>Lô</th><th>SKU</th><th>Ảnh</th><th>Loại / kiểu cầm</th><th>Kích thước (R×C×S)</th><th>Audio</th><th>Chi phí</th><th>Trạng thái</th><th></th></tr></thead>
-      <tbody>${rows}${drafts}${!rows && !drafts ? `<tr><td colspan="10" class="av-empty">Chưa có SKU. Bấm "+ Thêm dòng".</td></tr>` : ""}</tbody></table></div></div></div>
-      <div class="av-callout"><div>Mỗi SKU tạo <b>2 ảnh cầm</b> để chọn. Kích thước thật (cm) giúp SP đúng cỡ; không có số đo thì dùng ±%. Ảnh phụ các mặt (cạnh, sau, nắp…) tối đa 4 ảnh và ảnh cầm thật được gửi kèm ảnh chính diện để AI giữ đúng hình khối, độ dày, nhãn mặt bên. Nhóm kiểu cầm để trống thì tự nhận theo mô tả.</div></div>`;
+      <div class="av-panel-b" style="padding:0"><div class="av-tw"><table><thead><tr><th><input type="checkbox" id="av-selall" aria-label="Chọn tất cả"></th><th>Lô</th><th>SKU</th><th>Ảnh</th><th>Loại / kiểu cầm</th><th>Kích thước (R×C×S)</th><th>Khung SP</th><th>Audio</th><th>Chi phí</th><th>Trạng thái</th><th></th></tr></thead>
+      <tbody>${rows}${drafts}${!rows && !drafts ? `<tr><td colspan="11" class="av-empty">Chưa có SKU. Bấm "+ Thêm dòng".</td></tr>` : ""}</tbody></table></div></div></div>
+      <div class="av-callout"><div>Mỗi SKU tạo <b>2 ảnh cầm</b> để chọn. Kích thước thật (cm) giúp SP đúng cỡ; không có số đo thì dùng ±%. Ảnh phụ các mặt (cạnh, sau, nắp…) tối đa 4 ảnh và ảnh cầm thật được gửi kèm ảnh chính diện để AI giữ đúng hình khối, độ dày, nhãn mặt bên. Nhóm kiểu cầm để trống thì tự nhận theo mô tả. <b>Khung SP</b>: kéo khung lên ảnh host đúng chỗ, đúng cỡ muốn SP xuất hiện; AI nhận ảnh host đã dán sẵn SP thật vào khung nên giữ cỡ tốt hơn chỉ nhập cm.</div></div>`;
   }
   /* step 2: duyet anh */
   function stepPick() {
     const list = S.items.filter((i) => ["holds", "pick"].includes(i.stage) || (i.candidates || []).length);
     if (!list.length) return `<div class="av-panel av-empty">Chưa có SKU nào tạo ảnh cầm. Sang bước 1, chọn SKU và bấm "Tạo ảnh cầm".</div>`;
-    return `<div class="av-hold">${list.map((i) => {
-      const cand = (i.candidates || []).map((c) => `<div class="av-cand ${i.selected_candidate === c.id ? "sel" : ""}"><img src="${esc(c.thumb)}" alt="${esc(c.id)}" data-media="${esc(c.full)}" loading="lazy">
+    const anyBox = list.some((i) => bbox(i.guide_bbox));
+    return `${anyBox ? `<label class="av-switch"><input type="checkbox" id="av-showfr" ${S.showFrame ? "checked" : ""}> Hiện khung lên ảnh để so cỡ (ảnh 1 = khung, ảnh 2 = 90% khung)</label>` : ""}<div class="av-hold">${list.map((i) => {
+      const b = bbox(i.guide_bbox);
+      const cand = (i.candidates || []).map((c, ci) => `<div class="av-cand ${i.selected_candidate === c.id ? "sel" : ""}"><div class="im"><img src="${esc(c.thumb)}" alt="${esc(c.id)}" data-media="${esc(c.full)}" loading="lazy">${S.showFrame && b ? `<i class="ov" style="${boxStyle(b, ci ? 0.9 : 1)}"></i>` : ""}</div>
         <div class="cap"><span>${esc(c.id)}${i.ai_reco === c.id ? ' <span class="av-pill p-navy">AI chọn</span>' : ""}</span>${i.stage === "pick" ? `<button class="av-btn sm pri" data-pick="${esc(i.name)}" data-c="${esc(c.id)}">Chọn</button>` : (i.selected_candidate === c.id ? '<span class="av-pill p-ok">Đã chọn</span>' : "")}</div></div>`).join("");
       return `<div class="av-sku"><div class="top"><div><b>${esc(i.sku)}</b><div class="av-hint">${esc(i.product_name || "")} · ${[i.width_cm, i.height_cm, i.depth_cm].map((x) => x || "–").join("×")} cm</div></div>${pill(i)}</div>
         ${i.stage === "holds" && !cand ? '<div class="av-skel" style="height:200px"></div>' : `<div class="av-cands">${cand}</div>`}
         ${i.stage === "pick" || (i.stage_state === "error" && i.stage === "holds") ? `<details><summary class="av-hint" style="cursor:pointer">Không ảnh nào ổn? Sửa thông số và gen lại</summary>
+          <div class="av-row" style="margin-top:8px;flex-wrap:nowrap">${miniFrame(i)}<div><div class="av-hint">${b ? "Khung SP ≈ " + Math.round(b.w * CM_PER_W) + " cm rộng" : "Chưa có khung SP (AI tự tính cỡ)"}</div><button class="av-outline" style="margin-top:4px" data-frame="${esc(i.name)}" data-frmode="regen">${b ? "Vẽ lại khung" : "Vẽ khung"}</button></div></div>
           <div class="av-edit" style="margin-top:8px"><label class="av-f">Rộng<input type="number" id="rg-w-${esc(i.name)}" value="${esc(i.width_cm || "")}"></label><label class="av-f">Cao<input type="number" id="rg-h-${esc(i.name)}" value="${esc(i.height_cm || "")}"></label><label class="av-f">±%<input type="number" id="rg-p-${esc(i.name)}" value="${esc(i.size_pct || "")}"></label></div>
           <label class="av-f" style="margin-top:6px">Ghi chú cho AI<input type="text" id="rg-n-${esc(i.name)}" value="${esc(i.notes || "")}"></label>
           <button class="av-btn sm" style="margin-top:8px" data-regen-holds="${esc(i.name)}">Gen lại 2 ảnh</button></details>` : ""}
         ${i.stage_state === "error" ? `<div class="av-callout bad">${esc(i.error)} <button class="av-btn sm" data-retry="${esc(i.name)}">Thử lại</button></div>` : ""}</div>`; }).join("")}</div>`;
   }
+  /* ---------- hop ve khung SP ---------- */
+  const imgLoad = (src) => new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => no(new Error("Không tải được ảnh")); im.src = src; });
+  /* Tach nen trang/trong suot NOI VOI MEP anh (giong worker v5.16) de xem truoc dung anh AI nhan. */
+  function cutBg(im) {
+    const k = Math.min(1, 700 / Math.max(im.naturalWidth, im.naturalHeight)); const W = Math.max(1, Math.round(im.naturalWidth * k)), H = Math.max(1, Math.round(im.naturalHeight * k));
+    const c = document.createElement("canvas"); c.width = W; c.height = H; const g = c.getContext("2d"); g.drawImage(im, 0, 0, W, H);
+    let d; try { d = g.getImageData(0, 0, W, H); } catch (e) { return { url: im.src, w: im.naturalWidth, h: im.naturalHeight }; }
+    const px = d.data, bg = new Uint8Array(W * H), st = [];
+    const isBg = (i) => { const o = i * 4; if (px[o + 3] < 16) return true; const mn = Math.min(px[o], px[o + 1], px[o + 2]), mx = Math.max(px[o], px[o + 1], px[o + 2]); return mn >= 236 && mx - mn <= 20; };
+    const push = (i) => { if (!bg[i] && isBg(i)) { bg[i] = 1; st.push(i); } };
+    for (let x = 0; x < W; x++) { push(x); push((H - 1) * W + x); } for (let y = 0; y < H; y++) { push(y * W); push(y * W + W - 1); }
+    while (st.length) { const i = st.pop(), x = i % W, y = (i - x) / W; if (x > 0) push(i - 1); if (x < W - 1) push(i + 1); if (y > 0) push(i - W); if (y < H - 1) push(i + W); }
+    let n = 0, x0 = W, y0 = H, x1 = -1, y1 = -1;
+    for (let i = 0; i < W * H; i++) { if (bg[i]) { n++; px[i * 4 + 3] = 0; continue; } const x = i % W, y = (i - x) / W; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    if (x1 < 0 || W * H - n < 0.15 * W * H) return { url: im.src, w: im.naturalWidth, h: im.naturalHeight };
+    g.putImageData(d, 0, 0); const cw = x1 - x0 + 1, ch = y1 - y0 + 1; const o = document.createElement("canvas"); o.width = cw; o.height = ch; o.getContext("2d").drawImage(c, x0, y0, cw, ch, 0, 0, cw, ch);
+    return { url: o.toDataURL("image/png"), w: cw, h: ch };
+  }
+  async function openFrame(name, mode) {
+    const it = S.items.find((x) => x.name === name); if (!it || !S.p.host_image) return;
+    const tok = (S.frTok = (S.frTok || 0) + 1);
+    modal('<div class="av-skel" style="width:60%"></div><div class="av-skel" style="height:320px"></div><div class="av-hint">Đang chuẩn bị ảnh host và tách nền ảnh sản phẩm…</div>');
+    let host, prod;
+    try { [host, prod] = await Promise.all([imgLoad(S.p.host_image), imgLoad(it.product_image)]); } catch (e) { modal(`<div class="av-callout bad">${esc(e.message)}. Thử tải lại trang.</div><div class="av-row" style="justify-content:flex-end"><button class="av-btn" data-close>Đóng</button></div>`); return; }
+    if (!S.grp) { const g = await call("groups_get", {}, "GET"); if (g.success) S.grp = g.data; }
+    if (tok !== S.frTok || $("av-modal").hidden) return;
+    const cut = cutBg(prod);
+    const F = { name, mode, it, hw: host.naturalWidth, hh: host.naturalHeight, ar: cut.w / cut.h, cut: cut.url, paste: true, ghost: true, dirty: false };
+    F.hOf = (w) => w * F.hw / F.ar / F.hh;
+    const grp = ((S.grp && S.grp.groups) || {})[it.product_category] || {};
+    const cm = +it.width_cm || +grp.size_cm || 0;
+    const b = bbox(it.guide_bbox);
+    if (b) { F.w = b.w; F.x = b.x; F.y = b.y + (b.h - F.hOf(b.w)) / 2; } else { F.w = cm ? cm / CM_PER_W : 0.22; F.x = 0.5 - F.w / 2; F.y = 0.5 - F.hOf(F.w) / 2; }
+    F.cm0 = cm; S.fr = F; fit(); renderFrame();
+  }
+  function frH(w) { return S.fr.hOf(w); }
+  function fit() { const F = S.fr; const k = F.ar * F.hh / F.hw; F.w = Math.max(Math.max(0.05, 0.012 * k), Math.min(Math.min(0.75, 0.98 * k), F.w)); const h = frH(F.w); F.x = Math.max(0, Math.min(1 - F.w, F.x)); F.y = Math.max(0, Math.min(1 - h, F.y)); }
+  function frStats() {
+    const F = S.fr; const wcm = Math.round(F.w * CM_PER_W); const hcm = Math.round(wcm / F.ar); const warn = [];
+    if (F.cm0 && Math.abs(wcm - F.cm0) / F.cm0 > 0.25) warn.push(`Khung đang ≈ ${wcm} cm, số đo nhập ${F.cm0} cm. Kéo về gần số đo hoặc bấm "Theo số đo".`);
+    S.items.forEach((o) => { const ob = bbox(o.guide_bbox); if (o.name === F.name || !ob || !+o.width_cm || !+F.it.width_cm) return;
+      if (+F.it.width_cm < +o.width_cm && F.w >= ob.w) warn.push(`SKU này nhỏ hơn ${o.sku} (${F.it.width_cm} < ${o.width_cm} cm) mà khung lại to bằng hoặc hơn. Kiểm tra lại cỡ.`); });
+    return { wcm, hcm, wpct: (F.w * 100).toFixed(1), warn };
+  }
+  function frBoxStyle() { const F = S.fr; return `left:${pct(F.x)};top:${pct(F.y)};width:${pct(F.w)};height:${pct(frH(F.w))}`; }
+  function renderFrame() {
+    const F = S.fr, it = F.it, s = frStats(), ro = F.mode === "view";
+    const avail = Math.max(200, Math.min(window.innerWidth - 80, 1000)); let sh = Math.min(640, Math.round(window.innerHeight * 0.72)), sw = Math.round(sh * F.hw / F.hh);
+    if (sw > avail) { sw = avail; sh = Math.round(sw * F.hh / F.hw); }
+    const ghosts = F.ghost ? S.items.filter((o) => o.name !== F.name && bbox(o.guide_bbox)).map((o) => { const ob = bbox(o.guide_bbox); return `<div class="av-fr-ghost" style="${boxStyle(ob)}"><span>${esc(o.sku)} · ≈ ${Math.round(ob.w * CM_PER_W)} cm</span></div>`; }).join("") : "";
+    const hs = ro ? "" : ["tl", "tr", "bl", "br"].map((k) => `<span class="av-fr-h ${k}" data-frd="${k}"></span>`).join("");
+    const nb = (k, l, a) => `<button class="av-btn sq" data-frn="${k}" ${a ? `aria-label="${a}"` : ""}>${l}</button>`;
+    $("av-modal-box").className = "box fr";
+    $("av-modal-box").innerHTML = `<div class="av-row" style="justify-content:space-between"><div><div class="av-eyebrow">Khung sản phẩm</div><h2 style="margin:0;font-size:17px">${esc(it.sku)} · ${esc(it.product_name || "")}</h2></div><button class="av-btn sq" data-close aria-label="Đóng">✕</button></div>
+      <div class="av-fr"><div class="av-fr-col"><div class="av-fr-stage" id="fr-stage" style="width:${sw}px;height:${sh}px"><img src="${esc(S.p.host_image)}" alt="Ảnh host" draggable="false">${ghosts}
+        <div class="av-fr-box ${F.paste ? "" : "empty"}" id="fr-box" ${ro ? "" : 'data-frd="move"'} style="${frBoxStyle()}">${F.paste ? `<img src="${esc(F.cut)}" alt="" draggable="false">` : ""}<span class="av-fr-tag" id="fr-tag">≈ ${s.wcm} × ${s.hcm} cm</span>${hs}</div></div>
+        <span class="av-hint">${ro ? "Chỉ xem: SKU đã chạy. Muốn đổi khung thì gen lại ảnh ở bước 2." : "Kéo khung để di chuyển · kéo góc để đổi cỡ (giữ đúng tỉ lệ SP)"}</span></div>
+      <div class="av-fr-side"><div class="av-fr-kpis"><div><span class="av-eyebrow">Cỡ thật ước tính</span><b id="fr-cm">≈ ${s.wcm} cm</b><span class="av-hint">chiều ngang SP</span></div><div><span class="av-eyebrow">Chiếm khung hình</span><b id="fr-pct">${s.wpct}%</b><span class="av-hint">bề ngang ảnh</span></div><div><span class="av-eyebrow">Số đo nhập</span><b>${F.cm0 ? F.cm0 + " cm" : "—"}</b><span class="av-hint">${+it.width_cm ? "từ SKU" : (F.cm0 ? "gợi ý của nhóm" : "chưa có")}</span></div></div>
+        <div id="fr-warn">${s.warn.map((w) => `<div class="av-callout warn" style="margin-bottom:6px">${esc(w)}</div>`).join("")}</div>
+        ${ro ? "" : `<div class="av-f">Cỡ khung<div class="av-row" style="flex-wrap:nowrap">${nb("minus", "−", "Nhỏ lại")}<input type="range" id="fr-range" min="5" max="75" step="0.5" value="${s.wpct}" aria-label="Cỡ khung theo % bề ngang ảnh" style="flex:1;accent-color:var(--navy)">${nb("plus", "+", "To lên")}</div></div>
+        <div class="av-f">Vị trí<div class="av-row">${nb("l", "←", "Sang trái")}${nb("u", "↑", "Lên")}${nb("d", "↓", "Xuống")}${nb("r", "→", "Sang phải")}<button class="av-btn" data-frn="center">Đặt giữa ngực</button>${F.cm0 ? `<button class="av-btn" data-frn="cm">Theo số đo ${F.cm0} cm</button>` : ""}</div></div>`}
+        <div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line-soft);padding-top:12px"><label class="av-switch"><input type="checkbox" id="fr-paste" ${F.paste ? "checked" : ""}> Xem như AI nhận (dán ảnh SP đã tách nền vào khung)</label><label class="av-switch"><input type="checkbox" id="fr-ghost" ${F.ghost ? "checked" : ""}> Hiện khung SKU khác trong dự án (để so cỡ)</label></div>
+        <div class="av-callout" style="font-size:12.5px"><div>Cỡ cm là <b>ước tính</b> theo khung hình host chuẩn (vai ≈ 44 cm tính cả tay áo). Đặt khung ở ngực, cạnh dưới cao hơn mặt bàn; SP cầm 2 tay thì không rộng quá vai.</div></div></div></div>
+      <div class="av-row" style="justify-content:space-between;border-top:1px solid var(--line-soft);padding-top:12px">${ro || !bbox(it.guide_bbox) ? "<span></span>" : `<button class="av-btn ghost danger" data-frn="clear">Bỏ khung (để AI tự tính)</button>`}
+        <div class="av-row"><button class="av-btn" data-close>${ro ? "Đóng" : "Huỷ"}</button>${ro ? "" : F.mode === "regen" ? `<button class="av-gold" data-frn="regen">Lưu &amp; gen lại 2 ảnh (~$0.24)</button>` : `<button class="av-btn pri" data-frn="save">Lưu khung</button>`}</div></div>`;
+    $("av-modal").hidden = false;
+  }
+  function frUpdate() {
+    const F = S.fr, s = frStats(); const bx = $("fr-box"); if (!bx) return;
+    bx.setAttribute("style", frBoxStyle()); $("fr-tag").textContent = `≈ ${s.wcm} × ${s.hcm} cm`; $("fr-cm").textContent = `≈ ${s.wcm} cm`; $("fr-pct").textContent = s.wpct + "%";
+    const r = $("fr-range"); if (r) r.value = s.wpct; $("fr-warn").innerHTML = s.warn.map((w) => `<div class="av-callout warn" style="margin-bottom:6px">${esc(w)}</div>`).join(""); F.dirty = true;
+  }
+  function frResize(nw) { const F = S.fr; const cx = F.x + F.w / 2, cy = F.y + frH(F.w) / 2; F.w = nw; F.x = cx - F.w / 2; F.y = cy - frH(F.w) / 2; fit(); frUpdate(); }
+  const frStr = () => { const F = S.fr; return [F.x, F.y, F.w, frH(F.w)].map((v) => v.toFixed(4)).join(","); };
+  async function frAction(k) {
+    const F = S.fr; if (!F) return;
+    const mv = { l: [-0.01, 0], r: [0.01, 0], u: [0, -0.005], d: [0, 0.005] }[k];
+    if (mv) { F.x += mv[0]; F.y += mv[1]; fit(); return frUpdate(); }
+    if (k === "minus" || k === "plus") return frResize(F.w + (k === "plus" ? 0.01 : -0.01));
+    if (k === "center") { F.x = 0.5 - F.w / 2; F.y = 0.5 - frH(F.w) / 2; fit(); return frUpdate(); }
+    if (k === "cm") return frResize(F.cm0 / CM_PER_W);
+    const btns = $("av-modal-box").querySelectorAll("[data-frn],[data-close]"); btns.forEach((b) => { b.disabled = true; });
+    try {
+      if (k === "clear") { if (!confirm("Bỏ khung? AI sẽ tự tính cỡ theo số đo.")) return; if (await act("update_item", { name: F.name, data: JSON.stringify({ guide_bbox: "" }) }, "Đã bỏ khung")) { F.dirty = false; closeModal(); loadProject(S.p.name); } return; }
+      if (k === "save") { if (await act("update_item", { name: F.name, data: JSON.stringify({ guide_bbox: frStr() }) }, "Đã lưu khung")) { F.dirty = false; closeModal(); loadProject(S.p.name); } return; }
+      if (k === "regen") { const n = F.name, v = (id) => { const e = $(id + n); return e ? e.value : ""; };
+        const d = { guide_bbox: frStr(), notes: v("rg-n-") }; ["width_cm", "height_cm", "size_pct"].forEach((f, j) => { const x = +v(["rg-w-", "rg-h-", "rg-p-"][j]); if (x) d[f] = x; });
+        if (await act("regen_holds", { name: n, data: JSON.stringify(d) }, "Đã lưu khung - đang gen lại 2 ảnh")) { F.dirty = false; closeModal(); loadProject(S.p.name, true); } return; }
+    } finally { btns.forEach((b) => { b.disabled = false; }); }
+  }
+  document.addEventListener("pointerdown", (e) => {
+    const t = e.target.closest ? e.target.closest("[data-frd]") : null; if (!t || !S.fr || $("av-modal").hidden) return;
+    e.preventDefault(); const r = $("fr-stage").getBoundingClientRect(); const F = S.fr;
+    frDrag = { mode: t.dataset.frd, px: e.clientX, py: e.clientY, rw: r.width, rh: r.height, x: F.x, y: F.y, w: F.w, h: frH(F.w) };
+    try { t.setPointerCapture(e.pointerId); } catch (err) { /* trinh duyet cu */ }
+  });
+  document.addEventListener("pointermove", (e) => {
+    const d = frDrag; if (!d) return; const F = S.fr; const dx = (e.clientX - d.px) / d.rw, dy = (e.clientY - d.py) / d.rh;
+    if (d.mode === "move") { F.x = d.x + dx; F.y = d.y + dy; }
+    else { F.w = Math.max(0.05, Math.min(0.75, d.mode === "br" || d.mode === "tr" ? d.w + dx : d.w - dx)); const h = frH(F.w);
+      F.x = d.mode === "tl" || d.mode === "bl" ? d.x + d.w - F.w : d.x; F.y = d.mode === "tl" || d.mode === "tr" ? d.y + d.h - h : d.y; }
+    fit(); frUpdate();
+  });
+  const frEnd = () => { frDrag = null; }; document.addEventListener("pointerup", frEnd); document.addEventListener("pointercancel", frEnd);
+
   /* step 3: tao video */
   function unitBtns(i) { const u = i.units || {}; return Object.keys(UNIT_LABEL).filter((k) => u[k] && !k.startsWith("pickup_")).map((k) => `<button class="av-unit" data-video="${esc(u[k])}">▶ ${UNIT_LABEL[k]}</button>`).join(""); }
   function stepVideo() {
@@ -376,16 +535,51 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
   }
   /* step 5: prompt */
   const PROMPT_KEYS = [["anchor_image", "Ảnh khung neo (2 tay trên bàn)"], ["talk", "Clip nói (MC, không SP)"], ["putdown", "Clip hạ SP (DIR_TEXT = hướng, DURATION = số giây)"], ["hold_suffix", "Đuôi thêm vào clip cầm (khoá vòng lặp)"], ["hold_two_hand", "Clip cầm - SP cầm 2 tay (sữa vỉ, lon, hộp to)"], ["hold_generic", "Clip cầm - mẫu chung (khi SKU không có prompt riêng)"]];
-  function stepPrompt() { return `<div class="av-panel"><div class="av-panel-h"><h2>Prompt dùng chung</h2><span class="av-hint" id="pr-ver"></span></div><div class="av-panel-b" id="pr-body"><div class="av-skel"></div></div></div>
-    <div class="av-callout"><div>Prompt clip cầm của từng SKU lấy theo <b>kiểu cầm</b> (thư viện 12 nhóm trong n8n). Sửa ở đây áp cho mọi lần tạo <b>sau</b> khi lưu; clip đã tạo không đổi. Mỗi lần lưu giữ lại bản cũ. Muốn đổi hàng loạt theo ý (vd "cử chỉ mạnh hơn") thì gửi yêu cầu cho Claude để sửa một lần cho chuẩn.</div></div>`; }
+  function stepPrompt() { return `<div class="av-panel"><div class="av-panel-h"><h2>Prompt theo nhóm sản phẩm</h2><span class="av-hint">${S.p.is_admin ? "Bạn là quản trị: sửa được" : "Chỉ quản trị (role EC AI Video Admin) sửa được; bạn xem và gửi yêu cầu nhóm mới"}</span></div><div class="av-panel-b" id="grp-body"><div class="av-skel"></div></div></div>
+    <div class="av-panel"><div class="av-panel-h"><h2>Prompt dùng chung</h2><span class="av-hint" id="pr-ver"></span></div><div class="av-panel-b" id="pr-body"><div class="av-skel"></div></div></div>
+    <div class="av-callout"><div>Prompt clip cầm của từng SKU lấy theo <b>kiểu cầm</b> (thư viện 12 nhóm trong n8n). Sửa ở đây áp cho mọi lần tạo <b>sau</b> khi lưu; clip đã tạo không đổi. Mỗi lần lưu giữ lại bản cũ. Muốn đổi hàng loạt theo ý (vd "cử chỉ mạnh hơn") thì gửi yêu cầu cho Claude để sửa một lần cho chuẩn. Phần <b>theo nhóm SP</b> chỉ là câu <b>thêm</b> vào prompt chung cho SKU thuộc nhóm đó.</div></div>`; }
+  async function loadGroups() {
+    const b = $("grp-body"); if (!b) return;
+    const r = await call("groups_get", {}, "GET"); if (!$("grp-body")) return;
+    if (!r.success) { b.innerHTML = `<div class="av-callout bad">${esc(r.message)}</div>`; return; }
+    S.grp = r.data; S.grpSel = S.grpSel || "milk_carton_pack"; renderGroups();
+  }
+  function renderGroups() {
+    const b = $("grp-body"); if (!b || !S.grp) return; const G = S.grp.groups || {}, edit = !!S.grp.can_edit, sel = S.grpSel;
+    const list = CATS.filter(([k]) => k).map(([k, l]) => { const st = GROUP_ST[(G[k] || {}).status || "none"] || GROUP_ST.none; return `<button class="${sel === k ? "on" : ""}" data-grp="${k}" aria-pressed="${sel === k}"><span>${esc(l)}</span><span class="av-pill ${st[1]}">${st[0]}</span></button>`; }).join("");
+    let main;
+    if (sel === "__new") {
+      main = `<div class="av-f">Tên nhóm<input type="text" id="gr-name" maxlength="80" placeholder="VD: Chai nước giặt 3,5 kg"></div>
+        <div class="av-f">SKU mẫu trong dự án<select id="gr-sku"><option value="">(không chọn)</option>${S.items.map((i) => `<option value="${esc(i.sku + " · " + (i.product_name || ""))}">${esc(i.sku)} · ${esc(i.product_name || "")}</option>`).join("")}</select></div>
+        <div class="av-f">Muốn host cầm thế nào<textarea id="gr-hold" maxlength="600" placeholder="VD: 1 tay xách quai, tay kia đỡ đáy chai; chai nặng"></textarea></div>
+        <div class="av-f">Link ảnh/clip tham khảo (tuỳ chọn)<input type="text" id="gr-ref" maxlength="300"></div>
+        <div class="av-callout"><div>Yêu cầu được gửi thành việc (ToDo) cho người giữ role EC AI Video Admin. Trong lúc chờ, SKU vẫn chạy được với mẫu chung + ghi chú + khung SP.</div></div>
+        <div class="av-row" style="justify-content:flex-end"><button class="av-btn pri" id="gr-req">Gửi yêu cầu</button></div>`;
+    } else {
+      const g = G[sel] || {}, hist = (S.grp.history || {})[sel] || [], dis = edit ? "" : "disabled";
+      const opt = (v, cur, l) => `<option value="${v}" ${v === (cur || "") ? "selected" : ""}>${l}</option>`;
+      main = `<div class="av-grid2"><label class="av-f">Trạng thái<select id="gr-status" ${dis}>${opt("ok", g.status, "Đã kiểm chứng")}${opt("try", g.status, "Đang thử (SKU đầu tự dừng chờ duyệt)")}${opt("none", g.status || "none", "Mẫu chung (không thêm gì)")}</select></label>
+          <label class="av-f">Clip cầm – mẫu gốc<select id="gr-base" ${dis}>${opt("", g.clip_base, "Theo kiểu cầm tự nhận")}${opt("two_hand", g.clip_base, "Cầm 2 tay (SP nặng)")}${opt("one_hand", g.clip_base, "1 tay cầm, tay kia tự nhiên")}</select></label>
+          <label class="av-f">Cỡ gợi ý khi SKU chưa có số đo (cm)<input type="number" id="gr-size" min="1" max="300" step="0.5" value="${esc(g.size_cm || "")}" ${dis}></label></div>
+        <label class="av-f">Ảnh cầm – cách cầm (thêm vào ghi chú gửi AI, ≤300 ký tự)<textarea id="gr-hold" maxlength="300" ${dis}>${esc(g.hold || "")}</textarea></label>
+        <label class="av-f">Clip cầm – thêm cho nhóm này (tiếng Anh tốt hơn, ≤500)<textarea id="gr-clip" maxlength="500" ${dis}>${esc(g.clip || "")}</textarea></label>
+        <label class="av-f">Clip hạ SP – thêm cho nhóm này (≤500)<textarea id="gr-put" maxlength="500" ${dis}>${esc(g.put || "")}</textarea></label>
+        ${edit ? `<div class="av-row"><input type="text" id="gr-note" maxlength="200" placeholder="Ghi chú thay đổi (vd: thêm mặt bàn trống)" style="flex:1 1 240px"><button class="av-btn pri" id="gr-save">Lưu bản mới</button></div>` : ""}
+        <div class="av-hint">Lưu = bản mới, áp cho lần tạo <b>sau</b>; SKU đã tạo không đổi. Chỉ áp khi SKU chọn đúng nhóm ở bước 1 (để "Tự nhận" thì không áp phần ảnh cầm).</div>
+        <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden"><div class="av-hist" style="font-weight:700">Lịch sử ${g.v ? "· đang dùng v" + esc(g.v) : ""}</div>${hist.map((h) => `<div class="av-hist"><b>v${esc(h.v)}</b><span class="av-hint">${esc(String(h.at || "").slice(0, 16).replace("T", " "))} · ${esc(h.by || "")}</span><span style="flex:1 1 200px">${esc(h.note || "")}</span>${edit && h.v !== g.v ? `<button class="av-btn sm ghost" data-grroll="${esc(h.v)}">Quay về bản này</button>` : ""}</div>`).join("") || '<div class="av-hist av-hint">Chưa có bản nào.</div>'}</div>`;
+    }
+    b.innerHTML = `<div class="av-grp"><div class="av-grp-list av-panel">${list}<button class="new ${sel === "__new" ? "on" : ""}" data-grp="__new">+ Yêu cầu nhóm mới</button></div><div class="av-grp-main">${main}</div></div>`;
+  }
   async function loadPrompts() {
+    loadGroups();
     const r = await call("prompts_get", {}, "GET"); const b = $("pr-body"); if (!b) return;
     if (!r.success) { b.innerHTML = `<div class="av-callout bad">${esc(r.message)}</div>`; return; }
     const P = r.data.prompts || {}; S.prompts = P; $("pr-ver").textContent = "Phiên bản " + (P.version || 1) + " · " + (r.data.history || []).length + " bản cũ";
     const dirs = P.putdown_dir || {};
-    b.innerHTML = PROMPT_KEYS.map(([k, l]) => `<label class="av-f" style="margin-bottom:12px">${esc(l)}<textarea data-pk="${k}">${esc(P[k] || "")}</textarea></label>`).join("")
-      + `<div class="av-grid2">${["left", "right", "below"].map((d) => `<label class="av-f">Hướng ${({ left: "trái", right: "phải", below: "dưới" })[d]}<input type="text" data-pd="${d}" value="${esc(dirs[d] || "")}"></label>`).join("")}</div>
-      <div class="av-row" style="justify-content:flex-end;margin-top:12px"><button class="av-btn pri" id="pr-save">Lưu prompt</button></div>`;
+    const ro = S.p.is_admin ? "" : "readonly";
+    b.innerHTML = PROMPT_KEYS.map(([k, l]) => `<label class="av-f" style="margin-bottom:12px">${esc(l)}<textarea data-pk="${k}" ${ro}>${esc(P[k] || "")}</textarea></label>`).join("")
+      + `<div class="av-grid2">${["left", "right", "below"].map((d) => `<label class="av-f">Hướng ${({ left: "trái", right: "phải", below: "dưới" })[d]}<input type="text" data-pd="${d}" value="${esc(dirs[d] || "")}" ${ro}></label>`).join("")}</div>
+      ${S.p.is_admin ? '<div class="av-row" style="justify-content:flex-end;margin-top:12px"><button class="av-btn pri" id="pr-save">Lưu prompt</button></div>' : '<div class="av-hint" style="margin-top:8px">Chỉ quản trị sửa được prompt dùng chung.</div>'}`;
   }
 
   /* ---------- events ---------- */
@@ -423,6 +617,15 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
     if (t.dataset.m) { S.mixMode = t.dataset.m; return renderProject(); }
     if (t.id === "av-mix") { const d = { mode: S.mixMode || S.p.mix_mode || "mix", variants: +$("mx-n").value || 5, duration: +$("mx-d").value || null, batch: $("mx-b").value.trim() || "lo1", items: [...S.mixSel] };
       S.mixBatch = d.batch; const r = await act("mix", { project: P, data: JSON.stringify(d) }, "Đang trộn - xem bảng Kết quả"); if (r) { S.mixSel.clear(); loadProject(P, true); } return; }
+    if (t.dataset.frame) return openFrame(t.dataset.frame, t.dataset.frmode || "edit");
+    if (t.dataset.frn) return frAction(t.dataset.frn);
+    if (t.dataset.grp) { S.grpSel = t.dataset.grp; return renderGroups(); }
+    if (t.id === "gr-save") { const v = (id) => $(id).value; const d = { status: v("gr-status"), clip_base: v("gr-base"), size_cm: v("gr-size"), hold: v("gr-hold"), clip: v("gr-clip"), put: v("gr-put") };
+      t.disabled = true; try { if (await act("groups_set", { data: JSON.stringify({ cat: S.grpSel, data: d, note: v("gr-note") }) }, "Đã lưu bản mới")) loadGroups(); } finally { t.disabled = false; } return; }
+    if (t.dataset.grroll) { if (!confirm("Quay về v" + t.dataset.grroll + "? Bản hiện tại vẫn giữ trong lịch sử.")) return; if (await act("groups_rollback", { cat: S.grpSel, v: t.dataset.grroll }, "Đã quay về v" + t.dataset.grroll)) loadGroups(); return; }
+    if (t.id === "gr-req") { const d = { name: $("gr-name").value.trim(), sku: $("gr-sku").value, hold: $("gr-hold").value.trim(), ref: $("gr-ref").value.trim() };
+      if (!d.name || !d.hold) return toast("Cần tên nhóm và mô tả cách cầm", true);
+      t.disabled = true; try { const r = await act("group_request", { data: JSON.stringify(d) }); if (r) { toast("Đã gửi cho " + r.sent_to + " quản trị"); S.grpSel = "milk_carton_pack"; renderGroups(); } } finally { t.disabled = false; } return; }
     if (t.id === "pr-save") { const d = {}; root().querySelectorAll("[data-pk]").forEach((x) => { d[x.dataset.pk] = x.value; }); d.putdown_dir = {}; root().querySelectorAll("[data-pd]").forEach((x) => { d.putdown_dir[x.dataset.pd] = x.value; });
       const r = await act("prompts_set", { data: JSON.stringify(d) }, "Đã lưu prompt"); if (r) loadPrompts(); return; }
   });
@@ -439,10 +642,12 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
     if (t.dataset.ifileExtra && t.files && t.files.length) { const it = S.items.find((x) => x.name === t.dataset.ifileExtra); const cur = (it && it.extra_images) || []; const files = [...t.files].slice(0, Math.max(0, 4 - cur.length)); if (!files.length) return toast("Tối đa 4 ảnh phụ", true); toast("Đang tải " + files.length + " ảnh…"); try { const urls = cur.slice(); for (const f of files) urls.push(await upload(f)); if (await act("update_item", { name: it.name, data: JSON.stringify({ extra_images: urls }) }, "Đã thêm ảnh phụ")) loadProject(S.p.name); } catch (err) { toast(err.message, true); } return; }
     if (t.dataset.dfile && t.files && t.files[0]) { const k = +t.closest("[data-draft]").dataset.draft; toast("Đang tải file…"); try { S.drafts[k][t.dataset.dfile] = await upload(t.files[0]); renderProject(); } catch (err) { toast(err.message, true); } return; }
     if (t.id === "np-host" && t.files && t.files[0]) { $("np-host-t").textContent = "Đang tải…"; try { S.newHost = await upload(t.files[0]); $("np-host-t").textContent = "✓ " + t.files[0].name; } catch (err) { $("np-host-t").textContent = err.message; } return; }
+    if (t.id === "av-showfr") { S.showFrame = t.checked; return renderProject(); }
+    if (t.id === "fr-paste" || t.id === "fr-ghost") { S.fr[t.id === "fr-paste" ? "paste" : "ghost"] = t.checked; return renderFrame(); }
     if (t.id === "pj-night" || t.id === "pj-gm" || t.id === "pj-ga") { const f = { "pj-night": "night_mode", "pj-gm": "gate_motion", "pj-ga": "gate_hold_a" }[t.id];
       const r = await act("update_project", { name: S.p.name, data: JSON.stringify({ [f]: t.checked ? 1 : 0 }) }, t.checked ? "Đã bật" : "Đã tắt"); if (r) loadProject(S.p.name, true); }
   });
-  document.addEventListener("input", (e) => { const t = e.target; if (t.dataset && t.dataset.dk && t.closest("[data-draft]")) S.drafts[+t.closest("[data-draft]").dataset.draft][t.dataset.dk] = t.value; });
+  document.addEventListener("input", (e) => { const t = e.target; if (t.id === "fr-range" && S.fr) { frResize(+t.value / 100); return; } if (t.dataset && t.dataset.dk && t.closest("[data-draft]")) S.drafts[+t.closest("[data-draft]").dataset.draft][t.dataset.dk] = t.value; });
   load();
 })();
 </script>

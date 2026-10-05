@@ -440,8 +440,9 @@ fixtures = [
         "dt": "Role",
         # EC AI Formfill Pilot da nam trong role.json tu 16/09 nhung thieu o day -> export lai
         # se lam roi mat. EC Khay Pilot (28/09): mo dan tro ly Khay o goc moi trang.
+        # EC AI Video Admin (05/10): quan tri prompt trang /ai-video (prompt chung + theo nhom SP).
         "filters": [["name", "in", ["PM Manager", "PM Member", "EC AI Formfill Pilot",
-                                    "EC Khay Pilot"]]],
+                                    "EC Khay Pilot", "EC AI Video Admin"]]],
     },
     # HR MVP (2026-09): cac Server Script `ec_hr_*` va cac trang `/ec-hr/*` truoc
     # day chi song trong DB, khong co ban trong git -- rebuild site la mat sach

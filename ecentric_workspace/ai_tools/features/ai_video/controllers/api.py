@@ -6,6 +6,7 @@ rollback nua - phai tu rollback de khong luu nua chung (vd da enqueue ma chua gh
 import frappe
 
 from ecentric_workspace.ai_tools.features.ai_video.application import service as svc
+from ecentric_workspace.ai_tools.features.ai_video.application import groups
 from ecentric_workspace.ai_tools.features.ai_video.infrastructure.worker_client import WorkerDown
 
 MSG_UNKNOWN = "Không thực hiện được. Thử lại sau ít phút, nếu vẫn lỗi thì báo IT."
@@ -120,6 +121,26 @@ def prompts_get():
 @frappe.whitelist(methods=["POST"])
 def prompts_set(data: str):
     return _run(lambda: svc.prompts_set(data))
+
+
+@frappe.whitelist(methods=["GET"])
+def groups_get():
+    return _run(groups.groups_get)
+
+
+@frappe.whitelist(methods=["POST"])
+def groups_set(data: str):
+    return _run(lambda: groups.groups_set(data))
+
+
+@frappe.whitelist(methods=["POST"])
+def groups_rollback(cat: str, v: str):
+    return _run(lambda: groups.groups_rollback(cat, v))
+
+
+@frappe.whitelist(methods=["POST"])
+def group_request(data: str):
+    return _run(lambda: groups.group_request(data))
 
 
 @frappe.whitelist(methods=["GET"])

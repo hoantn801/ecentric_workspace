@@ -324,5 +324,99 @@ class TestRegister(unittest.TestCase):
         self.assertEqual(self.store.defaults, {})
 
 
+class TestKhungVaNhom(unittest.TestCase):
+    """05/10: khung SP nguoi dung ve + prompt theo nhom SP + role quan tri."""
+    setUp = TestService.setUp
+    item = TestService.item
+
+    def mk(self, cat="milk_can"):
+        s = self.svc
+        p = s.create_project(json.dumps({"brand": "Friso", "title": "T", "host_image": "/private/files/host.png"}))["name"]
+        it = s.add_items(p, json.dumps([{"sku": "A1", "product_image": "/private/files/f.png", "product_category": cat},
+                                        {"sku": "A2", "product_image": "/private/files/f.png", "product_category": cat}]))["items"]
+        return p, it
+
+    def worker_groups(self, groups):
+        real = self.W.call
+
+        def call(action, **p):
+            if action == "groups_get":
+                return {"ok": True, "groups": groups, "history": {}}
+            return real(action, **p)
+        self.wc.call = call
+
+    def as_admin(self, yes=True):
+        import frappe
+        frappe.get_roles = lambda u=None: ["EC AI Content", "EC AI Video Admin"] if yes else ["EC AI Content"]
+
+    def test_khung_sp_luu_va_gui_worker(self):
+        s = self.svc
+        p, (a, b) = self.mk()
+        s.update_item(a, json.dumps({"guide_bbox": "0.3874,0.4748,0.2266,0.0505"}))
+        self.assertEqual(json.loads(self.item(a)["state_json"])["guide_bbox"], "0.3874,0.4748,0.2266,0.0505")
+        with self.assertRaises(Exception):
+            s.update_item(a, json.dumps({"guide_bbox": "0.9,0.9,0.5,0.5"}))
+        s.start_holds(p, json.dumps([a, b]))
+        steps = [st for _, st in self.W.steps if st["op"] == "holds"]
+        self.assertEqual(steps[0]["fields"]["guide_bbox"], "0.3874,0.4748,0.2266,0.0505")
+        self.assertNotIn("guide_bbox", steps[1]["fields"])
+        s.update_item(b, json.dumps({"guide_bbox": ""}))            # xoa khung = de AI tu tinh
+        self.assertEqual(json.loads(self.item(b)["state_json"]).get("guide_bbox"), "")
+
+    def test_chi_quan_tri_sua_prompt(self):
+        s = self.svc
+        import frappe
+        with self.assertRaises(frappe.PermissionError):
+            s.prompts_set(json.dumps({"talk": "x"}))
+        with self.assertRaises(frappe.PermissionError):
+            self._g().groups_set(json.dumps({"cat": "milk_can", "data": {"status": "ok"}}))
+        self.as_admin()
+        s.prompts_set(json.dumps({"talk": "x", "la": "bo"}))
+        self.assertEqual(self.W.calls[-1], ("prompts_set", {"prompts": {"talk": "x"}}))
+        g = self._g()
+        g.groups_set(json.dumps({"cat": "milk_can", "data": {"status": "ok", "hold": "Đỡ đáy lon"}, "note": "v1"}))
+        self.assertEqual(self.W.calls[-1][0], "groups_set")
+        self.assertEqual(self.W.calls[-1][1]["data"], {"status": "ok", "hold": "Đỡ đáy lon"})
+        self.assertEqual(self.W.calls[-1][1]["by"], "a@ec.vn")
+        for bad in ({"cat": "../etc", "data": {}}, {"cat": "milk_can", "data": {"status": "zz"}}, {"cat": "milk_can", "data": "x"}, ["x"]):
+            with self.assertRaises(frappe.ValidationError):
+                g.groups_set(json.dumps(bad))
+        g.groups_rollback("milk_can", "2")
+        self.assertEqual(self.W.calls[-1], ("groups_rollback", {"cat": "milk_can", "v": 2, "by": "a@ec.vn"}))
+
+    def _g(self):
+        from ecentric_workspace.ai_tools.features.ai_video.application import groups
+        return groups
+
+    def test_nhom_dang_thu_bat_chot_duyet(self):
+        s = self.svc
+        self.worker_groups({"milk_can": {"status": "try"}})
+        p, (a, b) = self.mk("milk_can")
+        s.start_holds(p, json.dumps([a, b]))                     # ca lo cung luc: chi SKU dau dung cho duyet
+        self.assertTrue(json.loads(self.item(a)["state_json"])["force_gate"])
+        self.assertNotIn("force_gate", json.loads(self.item(b)["state_json"]))
+        self.store.rows["EC AI Video Item"][a]["stage"] = "ready"   # SKU dau da ra clip
+        s.start_holds(p, json.dumps([b]))
+        self.assertNotIn("force_gate", json.loads(self.item(b)["state_json"]))
+        self.assertTrue(s.get_project(p)["items"][0]["force_gate"])
+
+    def test_yeu_cau_nhom_moi(self):
+        import frappe
+        frappe.utils.escape_html = lambda x: x.replace("<", "&lt;")
+        g = self._g()
+        with self.assertRaises(frappe.ValidationError):        # chua ai co role quan tri
+            g.group_request(json.dumps({"name": "Chai nuoc giat", "hold": "xach quai"}))
+        self.store.rows["Has Role"] = {"r1": {"name": "r1", "role": "EC AI Video Admin", "parenttype": "User", "parent": "q@ec.vn"},
+                                       "r2": {"name": "r2", "role": "EC AI Video Admin", "parenttype": "User", "parent": "off@ec.vn"}}
+        self.store.rows["User"] = {"q@ec.vn": {"name": "q@ec.vn", "enabled": 1}, "off@ec.vn": {"name": "off@ec.vn", "enabled": 0}}
+        with self.assertRaises(frappe.ValidationError):        # thieu mo ta cach cam
+            g.group_request(json.dumps({"name": "X"}))
+        r = g.group_request(json.dumps({"name": "<b>Chai</b>", "hold": "xach quai", "sku": "S9"}))
+        self.assertEqual(r, {"sent_to": 1})
+        todo = list(self.store.rows["ToDo"].values())[0]
+        self.assertEqual(todo["allocated_to"], "q@ec.vn")
+        self.assertIn("&lt;b>Chai", todo["description"])
+
+
 if __name__ == "__main__":
     unittest.main()

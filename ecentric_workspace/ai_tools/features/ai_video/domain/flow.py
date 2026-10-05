@@ -130,13 +130,13 @@ def decide_item(item, project, W):
         else:
             out["need_anchor_from"] = job
     elif stage == "motion" and ts == "done":
-        if project.get("gate_motion") and not night:
+        if (project.get("gate_motion") and not night) or st.get("force_gate"):
             go("qc_motion", "waiting")
         else:
             go("hold_a")
             enqueue("hold_a", units_step(dirs=[], holds=1, hold_start=1))
     elif stage == "hold_a" and ts == "done":
-        if project.get("gate_hold_a") and not night:
+        if (project.get("gate_hold_a") and not night) or st.get("force_gate"):
             go("qc_hold_a", "waiting")
         else:
             go("hold_b")
@@ -222,3 +222,45 @@ def cost_view(costs, items):
         total += usd
     return {"total_usd": round(total, 2), "host_usd": host_usd, "estimated": bool(est),
             "usd_per_credit": costs.get("usd_per_credit")}
+
+
+def parse_bbox(v):
+    """Khung SP nguoi dung ve tren anh host: "x,y,w,h" (ti le 0..1). Sai -> None. "" -> "" (xoa khung)."""
+    if v in (None, ""):
+        return ""
+    try:
+        x, y, w, h = [float(p) for p in str(v).replace(";", ",").split(",")]
+    except (TypeError, ValueError):
+        return None
+    if not (0 <= x <= 1 and 0 <= y <= 1 and 0.02 <= w <= 1 and 0.01 <= h <= 1 and x + w <= 1.001 and y + h <= 1.001):
+        return None
+    return "%.4f,%.4f,%.4f,%.4f" % (x, y, w, h)
+
+
+# ------------------------------------------------------------------ prompt theo nhom SP ---
+#: 12 nhom kieu cam (khop CATS tren trang + thu vien kieu cam trong n8n).
+CATEGORIES = ("milk_can", "milk_carton_pack", "oil_bottle", "personal_care_bottle", "cream_tube", "diaper_pack",
+              "battery_blister", "small_box", "biscuit_box_large", "soft_pouch", "hair_dryer", "table_appliance")
+GROUP_STATUS = ("ok", "try", "none")   # da kiem chung / dang thu / dung mau chung
+GROUP_FIELDS = {"status": 20, "hold": 300, "clip": 500, "put": 500, "size_cm": 10, "clip_base": 20}
+
+
+def clean_group(d):
+    """Du lieu quan tri sua cho 1 nhom -> dict sach. Sai -> ValueError (thong bao tieng Viet)."""
+    out = {}
+    for k, n in GROUP_FIELDS.items():
+        if k in (d or {}) and d[k] is not None:
+            out[k] = re.sub(r"[`$\\]", "", str(d[k])).strip()[:n]
+    if out.get("status") and out["status"] not in GROUP_STATUS:
+        raise ValueError("Trạng thái nhóm không hợp lệ.")
+    if out.get("clip_base") and out["clip_base"] not in ("two_hand", "one_hand"):
+        raise ValueError("Mẫu clip cầm không hợp lệ.")
+    if out.get("size_cm") and not re.match(r"^\d{1,3}(\.\d)?$", out["size_cm"]):
+        raise ValueError("Cỡ gợi ý phải là số cm (vd 17 hoặc 12.5).")
+    return out
+
+
+def needs_trial_gate(category, groups, other_stages):
+    """SKU thuoc nhom 'Dang thu' va chua SKU nao cung nhom ra du clip -> bat chot duyet (do ton tien ca lo)."""
+    g = (groups or {}).get(category or "") or {}
+    return g.get("status") == "try" and not any(x in ("ready", "done") for x in other_stages or [])

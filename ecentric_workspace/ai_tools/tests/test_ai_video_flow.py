@@ -122,5 +122,39 @@ class TestCostView(unittest.TestCase):
         self.assertEqual(items[0]["cost_usd"], 0)
 
 
+class TestNhomSP(unittest.TestCase):
+    def test_clean_group(self):
+        g = flow.clean_group({"status": "try", "hold": "  Cầm 2 đầu vỉ `x` $y  ", "size_cm": "17", "la": "bo qua"})
+        self.assertEqual(g, {"status": "try", "hold": "Cầm 2 đầu vỉ x y", "size_cm": "17"})
+        self.assertEqual(len(flow.clean_group({"clip": "a" * 900})["clip"]), 500)
+        for bad in ({"status": "xx"}, {"clip_base": "ba_tay"}, {"size_cm": "17cm"}):
+            with self.assertRaises(ValueError):
+                flow.clean_group(bad)
+
+    def test_needs_trial_gate(self):
+        gs = {"milk_can": {"status": "try"}, "milk_carton_pack": {"status": "ok"}}
+        self.assertTrue(flow.needs_trial_gate("milk_can", gs, ["new", "pick"]))
+        self.assertFalse(flow.needs_trial_gate("milk_can", gs, ["ready"]))      # da co SKU cung nhom ra clip
+        self.assertFalse(flow.needs_trial_gate("milk_carton_pack", gs, []))
+        self.assertFalse(flow.needs_trial_gate("", gs, []))
+        self.assertFalse(flow.needs_trial_gate("oil_bottle", None, []))
+
+    def test_force_gate_thang_ca_chay_dem(self):
+        proj = dict(PROJ, gate_motion=0, gate_hold_a=0, night_mode=1)
+        it = item("motion", {"motion": ["m1"]})
+        it["state"]["force_gate"] = True
+        r = flow.decide_item(it, proj, W({"m1": {"state": "done"}}))
+        self.assertEqual(r["set"]["stage"], "qc_motion")
+        it = item("motion", {"motion": ["m1"]})
+        r = flow.decide_item(it, proj, W({"m1": {"state": "done"}}))
+        self.assertEqual(r["set"]["stage"], "hold_a")
+
+    def test_parse_bbox(self):
+        self.assertEqual(flow.parse_bbox("0.3874,0.4748,0.2266,0.0505"), "0.3874,0.4748,0.2266,0.0505")
+        self.assertEqual(flow.parse_bbox(""), "")
+        for bad in ("1,2", "0.9,0.5,0.3,0.1", "a,b,c,d", "0.1,0.1,0.01,0.1"):
+            self.assertIsNone(flow.parse_bbox(bad))
+
+
 if __name__ == "__main__":
     unittest.main()
