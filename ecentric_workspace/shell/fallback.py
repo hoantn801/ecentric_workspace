@@ -53,6 +53,8 @@ ICONS = {
     "book": '<path d="M4 19a2 2 0 0 1 2-2h14V3H6a2 2 0 0 0-2 2z"/><path d="M4 19a2 2 0 0 0 2 2h14v-4"/>',
     "userplus": '<circle cx="9" cy="8" r="4"/><path d="M3 21v-1a6 6 0 0 1 12 0v1M19 8v6M16 11h6"/>',
     "message": '<path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+    # Chat noi bo (05/10/2026): bong chat tron - khac "message" (vuong) cua Gop y cong ty.
+    "chat": '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5.4A8 8 0 1 1 21 12z"/>',
 }
 LOGO_SRC = "/files/eCentric%20logo%20-%20mini.png"
 
@@ -196,7 +198,18 @@ def mount_inner_html(items, active, live=False):
     return head + search + render_nav(items, active, live=live) + foot
 
 
-def render_tbright_inner():
+def render_chat_slot():
+    """Loi vao Chat noi bo tren thanh tren (PO chot 05/10/2026, mockup C): mot LIEN KET that
+    toi /chat (khong JS van vao duoc trang A); ec_chat.js chan cu bam tren man rong de mo khay
+    tha xuong. Huy hieu an luc render, do ec_chat.js dien theo phien. Dat TRUOC hop "Viec cua
+    toi" - goc phai duoi de cho eC Mate."""
+    return ('<a class="ec-shell-iconbtn ec-shell-chat" href="/chat" data-ec-shell-chat-slot="1" '
+            'aria-label="Tin nhắn" title="Tin nhắn" aria-haspopup="dialog" aria-expanded="false">%s'
+            '<span class="ec-shell-reminder-badge" data-ec-shell-chat-badge="1" hidden></span>'
+            '</a>' % _svg("chat"))
+
+
+def render_tbright_inner(chat=False):
     """Canonical header-right: exactly TWO global slots (PO 2026-08-20).
     1. "Việc của tôi" inbox -- the SINGLE entry point. Carries the frozen
        marker data-ec-shell-action-slot="1" + a hidden badge node; the count
@@ -213,8 +226,13 @@ def render_tbright_inner():
     notification lane reads the same governed NC endpoints.
 
     Home/Help are deliberately ABSENT from the global header: both already
-    live in the sidebar (brand link -> / ; HƯỚNG DẪN group)."""
-    return ('<button type="button" class="ec-shell-iconbtn ec-shell-reminder" '
+    live in the sidebar (brand link -> / ; HƯỚNG DẪN group).
+
+    chat=True (05/10/2026): them o Tin nhan dung TRUOC. Ban NUONG vao file trang luon la
+    chat=False (cong vo shell so voi ban nay); o chat chi duoc dung LUC RENDER - hook
+    server_nav cho Web Page, pages.shell() cua trang www - khi chat.gateway.chat_enabled()."""
+    return ((render_chat_slot() if chat else "") +
+            '<button type="button" class="ec-shell-iconbtn ec-shell-reminder" '
             'data-ec-shell-action-slot="1" aria-label="Việc của tôi" title="Việc của tôi" '
             'aria-haspopup="dialog" aria-expanded="false">%s'
             '<span class="ec-shell-reminder-badge" data-ec-shell-reminder-badge="1" hidden></span>'
@@ -291,13 +309,13 @@ def make_detail(inner_html, node_id=None):
             'data-ec-shell-crumb-detail="1"%s>%s</strong>' % (idattr, inner_html))
 
 
-def render_topbar_inner(route, detail_html=None):
+def render_topbar_inner(route, detail_html=None, chat=False):
     """Complete canonical topbar (crumbs + header-right) for pages that have
     NO page topbar of their own (docs/gbs-flow family). Pages WITH a topbar
     keep their container and only get canonical inners."""
     return (crumbs_container(route, detail_html)
             + '<div class="ec-shell-tbright" data-ec-shell-header-right="1">'
-            + render_tbright_inner() + "</div>")
+            + render_tbright_inner(chat=chat) + "</div>")
 
 
 def render_quickaccess_inner():
