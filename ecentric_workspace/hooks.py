@@ -868,11 +868,6 @@ website_route_rules = list(globals().get("website_route_rules") or []) + [
     {"from_route": "/tai-lieu/<code>", "to_route": "tai_lieu/chi_tiet"},
 ]
 
-# 06/10/2026 - Thu vien tai lieu ISO: thu hai 08:40 gom MOT tin "tai lieu can ra soat" cho Ban ISO
-# (iso_docs/notify.review_digest). Tat: site_config ec_iso_review_reminder_disabled = 1.
-scheduler_events["cron"].setdefault("40 8 * * 1", []).append(
-    "ecentric_workspace.iso_docs.notify.review_digest")
-
 # --------------------------------------------------------------------------- #
 # 05/10/2026 - Outside Work da duyet -> Attendance "Present" cho ngay lam viec ben ngoai da qua
 # (phieu duyet truoc cho ngay sau). Duyet xong cung ghi ngay qua engine handler.
