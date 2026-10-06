@@ -122,11 +122,31 @@ class PageSyncTest(unittest.TestCase):
         self.assertIsNotNone(m, "khong tim thay BASELINE_SHA256")
         # Chi canh dinh dang + co mat; bang nhau hay khong tuy luc.
         self.assertEqual(len(m.group(1)), 64)
-        # File bat dau bang BOM UTF-8 (EF BB BF) -- do la noi dung THAT tu live,
-        # giu nguyen moi dung byte. Bo BOM truoc khi kiem, dung "sua cho dep".
-        body = raw[3:] if raw.startswith(b"\xef\xbb\xbf") else raw
-        self.assertTrue(body.lstrip().startswith(b"<"),
+        self.assertTrue(raw.lstrip().startswith(b"<"),
                         "main_section.html phai la HTML")
+
+    def test_source_has_no_bom(self):
+        """Nguon trong repo KHONG duoc bat dau bang BOM UTF-8.
+
+        Lan dau dua trang nay ve repo, file mang BOM (EF BB BF) va chinh test
+        nay tung ghi "do la noi dung THAT tu live, giu nguyen moi dung byte".
+        SAI. Live khong co BOM; BOM do script chup chen vao, vi
+        `WriteAllText(..., Encoding.UTF8)` cua .NET tu ghi preamble. Hau qua:
+        baseline tinh sai, p229 bi khoa chong troi tu choi ngay 06/10 14:25
+        du khong ai sua trang. Va neu khoa khong chan, sync se day mot ky tu
+        BOM len dau trang live.
+        """
+        raw = io.open(os.path.join(_PAGE, "main_section.html"), "rb").read()
+        self.assertFalse(raw.startswith(b"\xef\xbb\xbf"),
+                         "nguon repo co BOM -- chup lai bang UTF8Encoding($false)")
+
+    def test_baseline_is_not_the_bom_poisoned_value(self):
+        """Ghim de khong ai vo tinh khoi phuc baseline cu.
+
+        265c3d0a... la sha cua file CO BOM. Gia tri nay khong bao gio khop live,
+        nen dung no la lam khoa chong troi chan moi lan sync."""
+        self.assertNotIn("265c3d0ac2d78ac5ac499640ef5552b54b543f4d61271dd8346f45c9d33c7468",
+                         self.src)
 
 
 if __name__ == "__main__":

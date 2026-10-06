@@ -45,7 +45,16 @@ TITLE = "Báo cáo tuần"
 #: sha256 cua `main_section_html` live luc chup nguon (06/10/2026 10:34).
 #: Xem docstring: doi so nay ma khong doi chieu live truoc la xoa sua doi cua
 #: nguoi khac.
-BASELINE_SHA256 = "265c3d0ac2d78ac5ac499640ef5552b54b543f4d61271dd8346f45c9d33c7468"
+#:
+#: SO NAY DA SAI MOT LAN -- doc truoc khi doi. Ban dau la 265c3d0a..., tinh tren
+#: file chup co BOM o dau. Nhung live KHONG co BOM: BOM do chinh script chup
+#: chen vao, vi `[IO.File]::WriteAllText(..., [Text.Encoding]::UTF8)` cua .NET
+#: tu ghi preamble EF BB BF. Ket qua: p229 chay ngay 06/10 14:25 va BI TU CHOI
+#: ("live khong khop baseline") du khong ai sua trang. Khoa chan DUNG -- neu no
+#: cho qua thi da day mot ky tu BOM len dau trang live.
+#: Bai hoc: chup nguon thi ghi bang `New-Object Text.UTF8Encoding $false`, va
+#: tinh baseline tu chuoi DOC tu DB, khong tu file da ghi xuong dia.
+BASELINE_SHA256 = "7e481f0faaf6c0062fde5eea5fc3b702bd5757615bcdfbaaf1cc52b04b92be78"
 
 
 def _html():
