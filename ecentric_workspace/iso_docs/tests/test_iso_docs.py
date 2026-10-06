@@ -19,6 +19,7 @@ sys.path.insert(0, ROOT)
 from ecentric_workspace.iso_docs import constants as C  # noqa: E402
 from ecentric_workspace.iso_docs import domain as D  # noqa: E402
 from ecentric_workspace.iso_docs import service as S  # noqa: E402
+from ecentric_workspace.iso_docs import notify as N  # noqa: E402
 from ecentric_workspace.iso_docs import workflow_spec as W  # noqa: E402
 from ecentric_workspace.iso_docs.errors import DocError  # noqa: E402
 from ecentric_workspace.home_today import announce_service as A  # noqa: E402
@@ -103,7 +104,16 @@ class Repo:
     def __init__(self, user=ISO, home=None, heads=None):
         self.user, self.home = user, home or HomeRepo()
         self.heads = heads if heads is not None else {"Finance & Accounting - EC": HEAD}
-        self.links = []
+        self.links, self.enqueued, self.errors = [], [], []
+        self.enqueue_fails = False
+
+    def enqueue_notify(self, name, before, after, actor, stamp):
+        if self.enqueue_fails:
+            raise RuntimeError("redis down")
+        self.enqueued.append((name, before, after, actor))
+
+    def log_error(self, title):
+        self.errors.append(title)
 
     def session_user(self):
         return self.user
@@ -500,6 +510,120 @@ class TestHomeAnnouncement(unittest.TestCase):
 
 
 # =========================================================================== workflow + fixtures
+class NotifyRepo:
+    """Gia repository cho notify.state_changed."""
+
+    def __init__(self, doc, iso=("iso@x", "dong@x"), ceo=("ceo@x",), note="", fail_for=(), disabled=False):
+        self.doc, self.iso, self.ceo, self.note = doc, list(iso), list(ceo), note
+        self.fail_for, self.disabled = set(fail_for), disabled
+        self.sent, self.errors = [], []
+
+    def conf_flag(self, key):
+        return self.disabled
+
+    def get_doc_any(self, name):
+        return self.doc if self.doc and self.doc.name == name else None
+
+    def role_users(self, role):
+        return self.iso if role == C.ROLE_ISO else self.ceo
+
+    def last_note(self, name, actor):
+        return self.note
+
+    def notify(self, event, to, title, message, url, name, actor, key):
+        if to in self.fail_for:
+            raise RuntimeError("smtp")
+        self.sent.append({"event": event, "to": to, "title": title, "message": message, "url": url, "key": key})
+
+    def log_error(self, title):
+        self.errors.append(title)
+
+
+class TestNotify(unittest.TestCase):
+    def doc(self, **kw):
+        return new_doc(ec_dept_head=HEAD, **kw)
+
+    def plan(self, before, after, actor=DRAFTER, **kw):
+        return D.notify_plan(before, after, self.doc(**kw), actor, ["iso@x", "dong@x"], ["ceo@x"])
+
+    def test_each_waiting_state_goes_to_whoever_clicks_next(self):
+        self.assertEqual([n["to"] for n in self.plan(C.S_DRAFT, C.S_HEAD)], [HEAD])
+        self.assertEqual([n["to"] for n in self.plan(C.S_HEAD, C.S_ISO, actor=HEAD)], ["iso@x", "dong@x"])
+        self.assertEqual([n["to"] for n in self.plan(C.S_ISO, C.S_CEO, actor="iso@x")], ["ceo@x"])
+        self.assertEqual([n["to"] for n in self.plan(C.S_PUBLISHED, C.S_WITHDRAW, actor="iso@x")], ["ceo@x"])
+        n = self.plan(C.S_DRAFT, C.S_HEAD)[0]
+        self.assertEqual(n["event"], "approval_required")
+        self.assertEqual(n["url"], "/tai-lieu/quan-ly?loc=cho-toi&ma=QT-TCKT-03")
+        self.assertIn("QT-TCKT-03", n["title"])
+
+    def test_no_head_falls_back_to_iso_and_skips_actor(self):
+        d = new_doc(ec_dept_head="")
+        self.assertEqual([n["to"] for n in D.notify_plan(C.S_DRAFT, C.S_HEAD, d, "iso@x", ["iso@x", "dong@x"], [])],
+                         ["dong@x"])                       # nguoi bam la Ban ISO: khong tu bao minh
+
+    def test_return_and_publish_go_to_drafter(self):
+        r = D.notify_plan(C.S_CEO, C.S_DRAFT, self.doc(), "ceo@x", [], [], "Thiếu bước đối chiếu")
+        self.assertEqual((r[0]["to"], r[0]["url"]), (DRAFTER, "/tai-lieu/soan?ma=QT-TCKT-03"))
+        self.assertIn("Thiếu bước đối chiếu", r[0]["message"])
+        p = D.notify_plan(C.S_CEO, C.S_PUBLISHED, self.doc(ec_current_version="1.0"), "ceo@x", [], [])
+        self.assertEqual((p[0]["to"], p[0]["event"], p[0]["url"]), (DRAFTER, "mention", "/tai-lieu/QT-TCKT-03"))
+
+    def test_quiet_cases(self):
+        self.assertEqual(self.plan(None, C.S_DRAFT), [])               # tao moi
+        self.assertEqual(self.plan("Nhap", C.S_DRAFT), [])             # cung trang thai (ten site)
+        self.assertEqual(self.plan(C.S_HEAD, "Cho Truong bo phan"), [])  # luu lai khi dang cho TBP
+        self.assertEqual(self.plan(C.S_PUBLISHED, C.S_DRAFT, actor="iso@x"), [])   # soan phien ban moi
+        self.assertEqual(D.notify_plan(C.S_DRAFT, C.S_HEAD, self.doc(), HEAD, [], []), [])  # TBP tu gui
+
+    def test_site_state_names(self):
+        self.assertEqual([n["to"] for n in self.plan("Nhap", "Cho Truong bo phan")], [HEAD])
+
+    def test_job_sends_and_survives_one_failure(self):
+        d = self.doc(ec_doc_state=C.S_ISO)
+        r = NotifyRepo(d, fail_for={"iso@x"})
+        out = N.state_changed(d.name, C.S_HEAD, C.S_ISO, HEAD, "t1", repo=r)
+        self.assertEqual(out, {"sent": 1, "failed": 1})
+        self.assertEqual([x["to"] for x in r.sent], ["dong@x"])
+        self.assertEqual(r.sent[0]["key"], "iso|QT-TCKT-03|%s|t1|dong@x" % D.norm_state(C.S_ISO))
+        self.assertEqual(r.errors, ["iso_docs.notify"])
+
+    def test_job_skips(self):
+        d = self.doc(ec_doc_state=C.S_CEO)
+        self.assertEqual(N.state_changed(d.name, C.S_HEAD, C.S_ISO, HEAD, repo=NotifyRepo(d)), {"skipped": "moved"})
+        self.assertEqual(N.state_changed("QT-XX-01", C.S_HEAD, C.S_ISO, HEAD, repo=NotifyRepo(d)), {"skipped": "missing"})
+        self.assertEqual(N.state_changed(d.name, C.S_ISO, C.S_CEO, HEAD, repo=NotifyRepo(d, disabled=True)),
+                         {"skipped": "disabled"})
+
+    def test_job_passes_note_on_return(self):
+        d = self.doc(ec_doc_state="Nhap")
+        r = NotifyRepo(d, note="Sửa bước 3")
+        N.state_changed(d.name, C.S_HEAD, C.S_DRAFT, HEAD, repo=r)
+        self.assertIn("Sửa bước 3", r.sent[0]["message"])
+
+    def test_service_enqueues_on_transition_only(self):
+        repo = Repo(user=DRAFTER)
+        doc = new_doc()
+        move(doc, C.S_HEAD, repo)
+        self.assertEqual(repo.enqueued, [("QT-TCKT-03", C.S_DRAFT, C.S_HEAD, DRAFTER)])
+        doc.flags.before = doc.get(C.STATE_FIELD)
+        S.on_validate(doc, repo); S.on_update(doc, repo)          # luu lai, khong doi trang thai
+        self.assertEqual(len(repo.enqueued), 1)
+
+    def test_enqueue_failure_does_not_block(self):
+        repo = Repo(user=DRAFTER)
+        repo.enqueue_fails = True
+        doc = new_doc()
+        move(doc, C.S_HEAD, repo)
+        self.assertEqual(doc.get(C.STATE_FIELD), C.S_HEAD)
+        self.assertEqual(repo.errors, ["iso_docs.enqueue_notify"])
+
+    def test_links_never_desk(self):
+        for b, a in ((C.S_DRAFT, C.S_HEAD), (C.S_HEAD, C.S_ISO), (C.S_ISO, C.S_CEO), (C.S_CEO, C.S_DRAFT),
+                     (C.S_CEO, C.S_PUBLISHED), (C.S_PUBLISHED, C.S_WITHDRAW)):
+            for n in D.notify_plan(b, a, self.doc(), "x@x", ["iso@x"], ["ceo@x"]):
+                self.assertTrue(n["url"].startswith("/tai-lieu"), n["url"])
+
+
 class TestWorkflowSpec(unittest.TestCase):
     def test_states_complete(self):
         self.assertEqual(tuple(s for s, _ in W.STATES), C.STATES)
