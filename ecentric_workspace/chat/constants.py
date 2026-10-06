@@ -30,3 +30,14 @@ MSG_NO_ACCESS = ("Tài khoản của bạn chưa được bật Chat nội bộ.
 MSG_DISABLED = "Chat nội bộ đang tạm tắt."
 MSG_NOT_INSTALLED = "Chat nội bộ chưa được cài trên hệ thống."
 MSG_LOAD_FAILED = "Không tải được tin nhắn. Thử lại sau ít phút."
+
+#: 06/10/2026 - lop "ruot" cho Raven (khong sua Raven): trang /raven (ca khi nhung trong /chat)
+#: duoc chen them, LUC TRA RESPONSE, mot <link> CSS mau ERP + mot <script src> nho noi ban dich
+#: tieng Viet (boot) vao ham dich cua Raven. Bat = tat CA HAI (Raven ve nguyen ban tieng Anh).
+#: Khong can deploy.
+SKIN_KILL_SWITCH = "ec_chat_skin_disabled"
+#: Bang dich Raven (chuoi giao dien web cua Raven 3.0.0 -> tieng Viet), canh file nay.
+RAVEN_VI_FILE = "raven_vi.json"
+#: Tep tinh (public/) chen vao trang /raven.
+SKIN_CSS = "public/css/ec_chat_raven_skin.css"
+RAVEN_BOOT_JS = "public/js/ec_raven_boot.js"

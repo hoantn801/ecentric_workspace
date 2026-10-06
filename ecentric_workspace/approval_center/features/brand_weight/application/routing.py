@@ -80,3 +80,35 @@ class ResolveBrandWeightSkipLevelsService:
             reasons.append("giu lai buoc truong phong de nguoi nop tu xac nhan, "
                            "khong bo ca hai cap")
         return skip, "; ".join(reasons)
+
+
+# 06/10/2026 (Hoan): lead NOP THAY cho nguoi chua nop (ec-bw-proxy-v1).
+PROXY_FROM = ("none", "draft")
+
+
+def proxy_rule(actor, emp_user, lead, head, status, self_final):
+    """Ham thuan: `actor` co duoc nop thay phieu cua nhan vien (user `emp_user`) khong.
+
+    Tra ve (duoc_khong, ly_do_khi_khong, nop_xong_la_chot).
+
+    Chi nguoi se DUYET BUOC DAU cua phieu do moi nop thay - tuc la lead truc tiep; neu
+    nhan vien khong co lead dung duoc thi buoc 1 bi bo (xem ResolveBrandWeightSkipLevels),
+    buoc dau la truong phong. Nhu vay nop thay = nop + duyet ngay buoc cua chinh minh, khong
+    ai vuot cap ai: truong phong khong nop thay khi lead con do (lead la nguoi biet viec).
+    Phieu ghi requester la CHINH nhan vien (engine resolve nguoi duyet tu nguoi nop), nen
+    nhan vien chua co tai khoan ERP thi khong nop thay duoc."""
+    if status not in PROXY_FROM:
+        return False, _("Phiếu đã nộp rồi. Chỉ chỉnh được khi đến lượt bạn duyệt."), False
+    if self_final:
+        return False, _("Phòng Management tự nộp và tự chốt, không nộp thay."), False
+    if not emp_user:
+        return False, _("Bạn ấy chưa có tài khoản ERP nên chưa nộp thay được. Nhờ HR tạo tài khoản."), False
+    if actor == emp_user:
+        return False, _("Phiếu của chính bạn thì nộp ở tab Phiếu của tôi."), False
+    if lead:
+        if actor != lead:
+            return False, _("Chỉ lead trực tiếp của bạn ấy nộp thay được."), False
+        return True, "", bool(head and (head == lead or head == emp_user))
+    if actor != head:
+        return False, _("Bạn ấy không có lead, chỉ trưởng phòng nộp thay được."), False
+    return True, "", True

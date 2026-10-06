@@ -171,7 +171,8 @@ class TestAccessState(unittest.TestCase):
 # ---------------------------------------------------------------- frappe gia --
 _SAVED = {}
 _OWN = ("frappe", "ecentric_workspace.chat.gateway", "ecentric_workspace.chat.api",
-        "ecentric_workspace.chat.pages", "ecentric_workspace.shell.server_nav")
+        "ecentric_workspace.chat.pages", "ecentric_workspace.shell.server_nav",
+        "ecentric_workspace.chat.boot")
 
 
 class _Cache(object):
@@ -202,6 +203,9 @@ def _fake_frappe():
     f.get_roles = lambda user=None: list(f.roles.get(user or f.session.user, []))
     f.get_attr = lambda path: f.raven[path]
     f.form_dict = {}
+    f.warned = []
+    f.logger = lambda name=None: types.SimpleNamespace(
+        warning=lambda *a, **k: f.warned.append(a[0] if a else ""))
 
     def log_error(title=None, **kw):
         f.logged.append(title)
@@ -435,6 +439,226 @@ class TestChatJs(unittest.TestCase):
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
         self.assertIn("ALL OK", out.stdout)
 
+
+class TestRavenVi(unittest.TestCase):
+    """Ban dich tieng Viet cho Raven (chat/raven_vi.json) + phan thuan raven_skin.py."""
+
+    @classmethod
+    def setUpClass(cls):
+        from ecentric_workspace.chat import raven_skin as S
+        cls.S = S
+        with io.open(os.path.join(APP, "chat", C.RAVEN_VI_FILE), encoding="utf-8") as fh:
+            cls.raw = json.load(fh)
+
+    def test_paths(self):
+        yes = ["/raven", "/raven/", "/raven/Raven/raven-general", "/raven/dm-channel/x?y=1"]
+        no = ["", None, "/", "/app/raven", "/ravenx", "/chat", "/raven-old/a", "/RAVEN"]
+        for p in yes:
+            self.assertTrue(self.S.is_raven_path(p), p)
+        for p in no:
+            self.assertFalse(self.S.is_raven_path(p), p)
+
+    def test_file_is_clean(self):
+        import re
+        ph = re.compile(r"\{[^{}]*\}")
+        self.assertGreater(len(self.raw), 1500)
+        for k, v in self.raw.items():
+            self.assertTrue(isinstance(v, str) and v.strip(), k)
+            self.assertEqual(sorted(ph.findall(k)), sorted(ph.findall(v)), k)
+            self.assertNotIn("<script", v.lower(), k)
+            self.assertEqual(k != k.strip(), v != v.strip(), "khoang trang dau/cuoi: %r" % k)
+        # chuoi nguoi dung thay ngay khi mo chat
+        for k, v in {"No channels yet": "Chưa có kênh nào", "Channels": "Kênh",
+                     "Direct Messages": "Tin nhắn riêng", "Settings": "Cài đặt",
+                     "Join": "Tham gia"}.items():
+            self.assertEqual(self.raw[k], v)
+
+    def test_overlay_returns_new_dict(self):
+        base = {"Antigua and Barbuda": "Antigua & Barbuda", "Channels": "X"}
+        out = self.S.overlay(base, {"Channels": "Kênh"})
+        self.assertEqual(out, {"Antigua and Barbuda": "Antigua & Barbuda", "Channels": "Kênh"})
+        self.assertEqual(base["Channels"], "X")
+        self.assertEqual(self.S.overlay(None, None), {})
+
+    def test_broken_file_means_english(self):
+        self.S._CACHE.pop("khong_co.json", None)
+        self.assertEqual(self.S.load_vi("khong_co.json"), {})
+
+
+class TestBootHook(_FrappeCase):
+
+    def _boot(self, path):
+        from ecentric_workspace.chat import boot
+        self.f.local.request = types.SimpleNamespace(path=path) if path is not None else None
+        b = {"__messages": {"Antigua and Barbuda": "Antigua & Barbuda"}, "lang": "en"}
+        before = b["__messages"]
+        boot.extend_bootinfo(bootinfo=b)
+        return b, before
+
+    def tearDown(self):
+        self.f.local.request = None
+
+    def test_raven_page_gets_vietnamese(self):
+        b, before = self._boot("/raven/Raven/raven-general")
+        self.assertEqual(b["__messages"]["No channels yet"], "Chưa có kênh nào")
+        self.assertEqual(b["__messages"]["Antigua and Barbuda"], "Antigua & Barbuda")
+        self.assertNotIn("No channels yet", before)       # khong sua dict cua cache
+
+    def test_other_pages_untouched(self):
+        for path in ("/app/todo", "/chat", "/api/method/frappe.auth.get_logged_user", "", None):
+            b, before = self._boot(path)
+            self.assertIs(b["__messages"], before, path)
+            self.assertNotIn("No channels yet", b["__messages"])
+
+    def test_kill_switch(self):
+        self.f.conf[C.SKIN_KILL_SWITCH] = 1
+        b, before = self._boot("/raven/")
+        self.assertIs(b["__messages"], before)
+
+    def test_never_breaks_boot(self):
+        from ecentric_workspace.chat import boot
+        self.f.local.request = types.SimpleNamespace(path="/raven/")
+        boot.extend_bootinfo(bootinfo=None)          # loi ben trong -> nuot, khong nem
+        self.assertTrue(self.f.warned)
+
+
+class TestInjectPage(unittest.TestCase):
+    """Chen CSS + script vao HTML trang /raven (giong cau truc raven/www/raven.html 3.0.0)."""
+
+    PAGE = ('<!doctype html><html><head><link rel="stylesheet" href="/assets/raven/x.css">\n'
+            '<script type="module" crossorigin src="/assets/raven/raven/assets/index-1.js"></script>'
+            '</head><body><div id="root"></div>\n'
+            '<script>window.csrf_token = "t";\n if (!window.frappe) window.frappe = {};\n'
+            '    frappe.boot = JSON.parse("{\\"a\\":\\"</scr\\" + \\"ipt>\\"}");\n  </script>\n'
+            '</body></html>')
+
+    def setUp(self):
+        from ecentric_workspace.chat import raven_skin as S
+        self.S = S
+
+    def test_injects_once_in_order(self):
+        out = self.S.inject_page(self.PAGE, "/b.js?v=1", "/s.css?v=1")
+        link = '<link id="ec-raven-skin" rel="stylesheet" href="/s.css?v=1">'
+        script = '<script id="ec-raven-boot" src="/b.js?v=1"></script>'
+        self.assertEqual(out.count(link), 1)
+        self.assertEqual(out.count(script), 1)
+        self.assertLess(out.index('/assets/raven/x.css'), out.index(link))     # sau CSS Raven
+        self.assertLess(out.index(link), out.index("</head>"))
+        boot_end = out.index("</script>", out.index(self.S.BOOT_MARK)) + len("</script>")
+        self.assertEqual(out.index(script), boot_end)                          # ngay sau boot
+        self.assertEqual(out.replace(link, "").replace(script, ""), self.PAGE)  # khong doi gi khac
+        self.assertIsNone(self.S.inject_page(out, "/b.js", "/s.css"))          # khong chen 2 lan
+
+    def test_missing_markers_leave_page_alone(self):
+        for bad in ("", None, "<html><head></head><body>no boot</body></html>",
+                    self.PAGE.replace("</head>", ""), b"bytes"):
+            self.assertIsNone(self.S.inject_page(bad, "/b.js", "/s.css"))
+
+    def test_attr_escaped(self):
+        out = self.S.inject_page(self.PAGE, '/b.js?"><x', "/s.css")
+        self.assertIn('src="/b.js?&quot;&gt;&lt;x"', out)
+
+    def test_asset_url(self):
+        self.assertRegex(self.S.asset_url(C.SKIN_CSS),
+                         r"^/assets/ecentric_workspace/css/ec_chat_raven_skin\.css\?v=[0-9a-f]{10}$")
+        self.assertRegex(self.S.asset_url(C.RAVEN_BOOT_JS),
+                         r"^/assets/ecentric_workspace/js/ec_raven_boot\.js\?v=[0-9a-f]{10}$")
+
+
+class _Resp(object):
+    def __init__(self, html, status=200, mimetype="text/html"):
+        self.data, self.status_code, self.mimetype = html, status, mimetype
+        self.is_streamed = False
+        self.direct_passthrough = False
+
+    def get_data(self, as_text=False):
+        return self.data
+
+    def set_data(self, v):
+        self.data = v
+
+
+class TestAfterRequest(_FrappeCase):
+
+    def _run(self, path, resp):
+        from ecentric_workspace.chat import boot
+        boot.after_request(response=resp, request=types.SimpleNamespace(path=path))
+        return resp.data
+
+    def test_raven_page_injected(self):
+        out = self._run("/raven/Raven/raven-general", _Resp(TestInjectPage.PAGE))
+        self.assertIn('id="ec-raven-skin"', out)
+        self.assertIn('id="ec-raven-boot"', out)
+
+    def test_left_alone(self):
+        page = TestInjectPage.PAGE
+        cases = [("/app/todo", _Resp(page)), ("/chat", _Resp(page)), ("/ravenx", _Resp(page)),
+                 ("/raven/", _Resp(page, status=302)), ("/raven/", _Resp(page, mimetype="application/json")),
+                 ("/api/method/x", _Resp(page))]
+        for path, r in cases:
+            self.assertEqual(self._run(path, r), page, path)
+        r = _Resp(page)
+        r.is_streamed = True
+        self.assertEqual(self._run("/raven/", r), page)
+        self.f.conf[C.SKIN_KILL_SWITCH] = 1
+        self.assertEqual(self._run("/raven/", _Resp(page)), page)
+
+    def test_never_raises(self):
+        from ecentric_workspace.chat import boot
+
+        class Boom(_Resp):
+            def get_data(self, as_text=False):
+                raise RuntimeError("x")
+        boot.after_request(response=Boom(""), request=types.SimpleNamespace(path="/raven/"))
+        boot.after_request()
+        self.assertTrue(self.f.warned)
+
+    def test_hooks_registered_append_only(self):
+        hooks = io.open(os.path.join(APP, "hooks.py"), encoding="utf-8").read()
+        tail = hooks[hooks.index("extend_bootinfo = list("):]
+        ns = {"extend_bootinfo": ["a.b"], "after_request": ["c.d"]}
+        exec(tail, ns)
+        self.assertEqual(ns["extend_bootinfo"], ["a.b", "ecentric_workspace.chat.boot.extend_bootinfo"])
+        self.assertEqual(ns["after_request"], ["c.d", "ecentric_workspace.chat.boot.after_request"])
+        ns = {}
+        exec(tail, ns)
+        self.assertEqual(ns["after_request"], ["ecentric_workspace.chat.boot.after_request"])
+
+
+class TestSkinAssets(unittest.TestCase):
+
+    def test_skin_css_is_scoped(self):
+        import re
+        with io.open(os.path.join(APP, "public", "css", "ec_chat_raven_skin.css"), encoding="utf-8") as fh:
+            body = re.sub(r"/\*.*?\*/", "", fh.read(), flags=re.S)
+        self.assertNotIn("!important", body)
+        self.assertNotIn("@import", body)
+        for sel in re.findall(r"([^{}]+)\{", body):
+            for one in sel.split(","):
+                one = one.strip()
+                self.assertTrue(one.startswith("html:not(.dark)")
+                                or one.startswith('img[src="/assets/raven/raven_logo.svg"]'), one)
+
+    def test_boot_js(self):
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("khong co `node` tren PATH")
+        js = os.path.join(APP, "public", "js", "ec_raven_boot.js")
+        prog = r"""
+var vm=require('vm'),fs=require('fs');var src=fs.readFileSync(process.argv[1],'utf8');var bad=0;
+function run(win){var store=win.store;win.localStorage={getItem:function(k){return k in store?store[k]:null},
+ setItem:function(k,v){store[k]=String(v)}};vm.runInNewContext(src,{window:win});return win;}
+var a=run({frappe:{boot:{__messages:{Join:'Tham gia'}}},store:{}});
+if(a.frappe._messages.Join!=='Tham gia'||a.store['raven-theme']!=='light')bad++;
+var keep={X:'y'};var b=run({frappe:{boot:{__messages:{}},_messages:keep},store:{'raven-theme':'dark'}});
+if(b.frappe._messages!==keep||b.store['raven-theme']!=='dark')bad++;
+var c=run({store:{'raven-theme':'system'}});if(c.frappe!==undefined||c.store['raven-theme']!=='system')bad++;
+var d={frappe:{boot:{}},localStorage:{getItem:function(){throw new Error('x')}}};
+vm.runInNewContext(src,{window:d});if(typeof d.frappe._messages!=='object')bad++;
+console.log(bad?('FAIL '+bad):'ALL OK');process.exit(bad?1:0);"""
+        out = subprocess.run([node, "-e", prog, js], capture_output=True, text=True)
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertIn("ALL OK", out.stdout)
 
 if __name__ == "__main__":
     unittest.main()

@@ -60,6 +60,7 @@ class Repo:
         self.user, self.manager = user, manager
         self.trans = trans or {}
         self.seen, self.applied, self.comments, self.files, self.inserted, self.updated = [], [], [], [], [], []
+        self.reviewed = []
 
     # doc
     def today(self):
@@ -120,6 +121,10 @@ class Repo:
         self.docs[fields["ec_doc_code"]] = qp(fields["ec_doc_code"], fields["quality_procedure_name"],
                                               fields["ec_department"], C.S_DRAFT, **{k: v for k, v in f.items()
                                               if k not in ("ec_doc_code", "quality_procedure_name", "ec_department")})
+
+    def set_next_review(self, name, date):
+        self.reviewed.append((name, date))
+        self.docs[name]["ec_next_review"] = date
 
     def history(self, name):
         return [{"kind": "Workflow", "text": "Gửi trưởng bộ phận", "who": "Soan", "when": "05/10/2026 09:00"},
@@ -433,6 +438,42 @@ class TestEditor(unittest.TestCase):
         r = seeded(trans={"QT-TCKT-01": [("Trả lại", "Nhap")]})
         out = M.do_action(ISO, "QT-TCKT-01", "Trả lại", "Thiếu bước", repo=r)
         self.assertEqual(out["next"], "/tai-lieu/soan?ma=QT-TCKT-01")
+
+
+class TestConfirmReview(unittest.TestCase):
+    def test_extends_review_from_today(self):
+        r = seeded()
+        out = M.confirm_review(ISO, "QT-ISO-03", "  Vẫn đúng với cách làm hiện tại ", repo=r)
+        self.assertEqual(out, {"code": "QT-ISO-03", "next_review": "05/10/2027"})
+        self.assertEqual(r.reviewed, [("QT-ISO-03", dt.date(2027, 10, 5))])
+        self.assertEqual(r.comments, [("QT-ISO-03", "Đã rà soát, giữ nguyên bản 3.0. Rà soát kế tiếp: 05/10/2027. "
+                                                    "Ý kiến: Vẫn đúng với cách làm hiện tại")])
+        self.assertNotIn("QT-ISO-03", [i["code"] for i in M.manage_page(ISO, flt="ra-soat", repo=r)["items"]])
+        r.docs["QT-TCKT-03"]["ec_review_months"] = 6
+        self.assertEqual(M.confirm_review(ISO, "QT-TCKT-03", repo=r)["next_review"], "05/04/2027")
+
+    def test_rules(self):
+        with self.assertRaises(Forbidden):
+            M.confirm_review(EMP, "QT-ISO-03", repo=seeded(manager=False))
+        r = seeded()
+        for code in ("QT-TCKT-01", "QT-NS-02"):              # dang cho duyet / ban nhap
+            with self.assertRaises(DocError):
+                M.confirm_review(ISO, code, repo=r)
+        with self.assertRaises(NotFound):
+            M.confirm_review(ISO, "QT-XX-01", repo=r)
+        self.assertEqual(r.reviewed, [])
+
+    def test_button_only_for_iso_on_published(self):
+        items = {i["code"]: i for i in M.manage_page(ISO, repo=seeded())["items"]}
+        self.assertTrue(items["QT-ISO-03"]["can_review"])
+        self.assertEqual(items["QT-ISO-03"]["review_due"], "qua-han")
+        self.assertFalse(items["QT-TCKT-01"]["can_review"])
+        out = render("quan_ly", M.manage_page(ISO, repo=seeded()))
+        self.assertIn('name="review" value="1"', out)
+        r2 = seeded(user=HEAD, manager=False, trans={"QT-ISO-03": [("Soạn phiên bản mới", "Nhap")]})
+        out2 = render("quan_ly", M.manage_page(HEAD, flt="tat-ca", open_code="QT-ISO-03", repo=r2))
+        self.assertIn('value="Soạn phiên bản mới"', out2)              # co hop nut, nhung khong co nut ra soat
+        self.assertNotIn('name="review"', out2)
 
 
 class TestImport(unittest.TestCase):

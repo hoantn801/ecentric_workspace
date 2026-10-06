@@ -868,6 +868,11 @@ website_route_rules = list(globals().get("website_route_rules") or []) + [
     {"from_route": "/tai-lieu/<code>", "to_route": "tai_lieu/chi_tiet"},
 ]
 
+# 06/10/2026 - Thu vien tai lieu ISO: thu hai 08:40 gom MOT tin "tai lieu can ra soat" cho Ban ISO
+# (iso_docs/notify.review_digest). Tat: site_config ec_iso_review_reminder_disabled = 1.
+scheduler_events["cron"].setdefault("40 8 * * 1", []).append(
+    "ecentric_workspace.iso_docs.notify.review_digest")
+
 # --------------------------------------------------------------------------- #
 # 05/10/2026 - Outside Work da duyet -> Attendance "Present" cho ngay lam viec ben ngoai da qua
 # (phieu duyet truoc cho ngay sau). Duyet xong cung ghi ngay qua engine handler.
@@ -883,3 +888,18 @@ scheduler_events["cron"].setdefault("15 6 * * *", []).append(
 # --------------------------------------------------------------------------- #
 web_include_js.append("ec_chat.bundle.js")
 web_include_css.append("ec_chat.bundle.css")
+
+
+# --------------------------------------------------------------------------- #
+# 06/10/2026 - Chat noi bo: "ruot" Raven tieng Viet + mau ERP. Chi dung trang /raven (chat/boot.py):
+# extend_bootinfo phu ban dich vao boot; after_request chen 1 <link> CSS + 1 <script src> nho vao HTML.
+# Khong doi ngon ngu tai khoan, khong sua Raven. Tat: site_config ec_chat_skin_disabled.
+# --------------------------------------------------------------------------- #
+extend_bootinfo = list(globals().get("extend_bootinfo") or []) + [
+    "ecentric_workspace.chat.boot.extend_bootinfo"]
+after_request = list(globals().get("after_request") or []) + [
+    "ecentric_workspace.chat.boot.after_request"]
+
+# "Cho toi duyet" - duyet nhanh tren dien thoai (06/10). Gan vao [data-ec-cho-duyet] (/viec-cua-toi).
+web_include_js.append("ec_cho_duyet.bundle.js")
+web_include_css.append("ec_cho_duyet.bundle.css")

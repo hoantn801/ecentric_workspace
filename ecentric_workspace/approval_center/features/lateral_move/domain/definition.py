@@ -1,4 +1,5 @@
 """Module-owned immutable approval definition."""
+from dataclasses import replace as _dc_replace
 from ecentric_workspace.approval_center.shared.requests.contracts import (
     ApprovalDefinition,
     STANDARD_STATUS_LABELS,
@@ -36,4 +37,15 @@ LATERAL_MOVE_DEFINITION = _definition(
 )
 
 
-
+# "Cho toi duyet" tren dien thoai (06/10/2026): the duyet nhanh hien cac cap nay. Chi truong
+# nguoi duyet von xem duoc o trang chi tiet; khong dua luong ca nhan.
+LATERAL_MOVE_DEFINITION = _dc_replace(
+    LATERAL_MOVE_DEFINITION,
+    quick_summary=(
+        ("Vị trí mới", "new_position"),
+        ("Phòng ban mới", "new_department"),
+        ("Quản lý mới", "new_line_manager"),
+        ("Từ ngày", "start_date"),
+    ),
+    quick_comment_required=True,
+)

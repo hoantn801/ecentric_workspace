@@ -1,0 +1,31 @@
+/* ec_chat_raven_skin.css - lop giao dien ERP phu len Raven (trang /raven, ca khi nhung trong /chat).
+   chat/boot.py (after_request) chen <link> toi tep nay vao HTML trang /raven. KHONG sua Raven: chi ghi de mau
+   qua lop tien ich Tailwind va thuoc tinh on dinh (aria-current, data-active). Raven dung
+   @layer cho tien ich, CSS khong-layer o day thang ma khong can !important.
+   Chi ap cho giao dien sang (ERP chua co giao dien toi). */
+html:not(.dark){
+  --ec-navy:#2C3DA6;--ec-navy-700:#1f2d80;--ec-navy-100:#d9deef;--ec-navy-50:#eef0fb;
+  --ink-blue-link:var(--ec-navy);
+}
+/* Nut chinh (Raven: den) -> xanh navy ERP */
+html:not(.dark) .bg-surface-gray-10{background-color:var(--ec-navy)}
+html:not(.dark) .hover\:bg-surface-gray-9:hover,
+html:not(.dark) .active\:bg-surface-gray-8:active,
+html:not(.dark) .bg-surface-gray-10[data-state="open"]{background-color:var(--ec-navy-700)}
+/* Dong kenh / tin nhan rieng dang mo */
+html:not(.dark) a[aria-current="page"].bg-surface-elevation-3{background-color:var(--ec-navy-50);color:var(--ec-navy);box-shadow:none}
+html:not(.dark) a[aria-current="page"].bg-surface-elevation-3 svg{color:var(--ec-navy)}
+/* Thanh bieu tuong ben trai */
+html:not(.dark) [data-active="true"].bg-surface-gray-2{background-color:var(--ec-navy-50);color:var(--ec-navy)}
+html:not(.dark) .bg-surface-gray-7.w-1{background-color:var(--ec-navy)}
+/* Nut Gui (Raven: xam nhat) -> navy khi co noi dung; trong (disabled) giu xam.
+   Nhan dien qua cum nut tach doi .gap-px > rounded-e-none / rounded-s-none (SendButton.tsx). */
+html:not(.dark) .gap-px > button.rounded-e-none:not(:disabled),
+html:not(.dark) .gap-px > button.rounded-s-none:not(:disabled){background-color:var(--ec-navy);color:#fff}
+html:not(.dark) .gap-px > button.rounded-e-none:not(:disabled):hover,
+html:not(.dark) .gap-px > button.rounded-s-none:not(:disabled):hover{background-color:var(--ec-navy-700)}
+html:not(.dark) .gap-px > button.rounded-e-none:not(:disabled) svg,
+html:not(.dark) .gap-px > button.rounded-s-none:not(:disabled) svg{color:#fff}
+/* Logo Raven -> logo eCentric */
+img[src="/assets/raven/raven_logo.svg"]{content:url("/files/eCentric%20logo%20-%20mini.png");object-fit:contain}
+html:not(.dark) ::selection{background-color:var(--ec-navy-100)}

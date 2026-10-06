@@ -2,6 +2,7 @@
 
 29/09/2026: danh sach "Field to update" lay tu ho so nhan vien (profile_fields.py) qua
 form_options; ket qua ghi vao ho so hien o chi tiet (eiu_block)."""
+from dataclasses import replace as _dc_replace
 from ecentric_workspace.approval_center.shared.requests.contracts import (
     ApprovalDefinition,
     STANDARD_STATUS_LABELS,
@@ -31,4 +32,15 @@ EMPLOYEE_INFO_UPDATE_DEFINITION = ApprovalDefinition(
     # CCCD, so tai khoan... khong gui sang AI dien ho.
     ai_exclude_fields=("current_value", "new_value"),
     **service_callbacks("employee_info_update", title=True),
+)
+
+
+# "Cho toi duyet" tren dien thoai (06/10/2026): the duyet nhanh hien cac cap nay. Chi truong
+# nguoi duyet von xem duoc o trang chi tiet; khong dua luong ca nhan.
+EMPLOYEE_INFO_UPDATE_DEFINITION = _dc_replace(
+    EMPLOYEE_INFO_UPDATE_DEFINITION,
+    quick_summary=(
+        ("Nhân sự", "target_employee"),
+        ("Trường cần sửa", "field_to_update"),
+    ),
 )

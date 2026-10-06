@@ -1,4 +1,5 @@
 """Immutable definition for the specialized AI Topup request."""
+from dataclasses import replace as _dc_replace
 from dataclasses import dataclass
 
 from ecentric_workspace.approval_center.shared.requests.contracts import ApprovalDefinition, STANDARD_STATUS_LABELS
@@ -36,3 +37,15 @@ AI_TOPUP_DEFINITION = ApprovalDefinition(
     **service_callbacks("ai_topup"))
 
 
+# "Cho toi duyet" tren dien thoai (06/10/2026): the duyet nhanh hien cac cap nay. Chi truong
+# nguoi duyet von xem duoc o trang chi tiet; khong dua luong ca nhan.
+AI_TOPUP_DEFINITION = _dc_replace(
+    AI_TOPUP_DEFINITION,
+    quick_summary=(
+        ("Loại", "request_type"),
+        ("Gói", "package"),
+        ("Số tiền", "requested_amount"),
+        ("Tiền tệ", "currency"),
+        ("Cần trước", "needed_by"),
+    ),
+)

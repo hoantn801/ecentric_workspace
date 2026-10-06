@@ -1,5 +1,6 @@
 # Copyright (c) 2026, eCentric and contributors
 """Module-owned immutable approval definition cho Offer Request (28/09/2026)."""
+from dataclasses import replace as _dc_replace
 from ecentric_workspace.approval_center.shared.requests.contracts import (
     ApprovalDefinition, STANDARD_STATUS_LABELS)
 from ecentric_workspace.approval_center.shared.definition_support import (
@@ -28,3 +29,15 @@ OFFER_REQUEST_DEFINITION = ApprovalDefinition(
     #: Muc luong la thoa thuan voi ung vien - AI khong duoc dien ho tu CV.
     ai_exclude_fields=("compensation",),
     **service_callbacks("offer_request", title=True))
+
+
+# "Cho toi duyet" tren dien thoai (06/10/2026): the duyet nhanh hien cac cap nay. Chi truong
+# nguoi duyet von xem duoc o trang chi tiet; khong dua luong ca nhan.
+OFFER_REQUEST_DEFINITION = _dc_replace(
+    OFFER_REQUEST_DEFINITION,
+    quick_summary=(
+        ("Ứng viên", "candidate_name"),
+        ("Vị trí", "position"),
+        ("Ngày onboard", "onboard_date"),
+    ),
+)

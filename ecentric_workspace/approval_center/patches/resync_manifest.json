@@ -1,7 +1,7 @@
 {
   "action_center/pages/my_work/main_section.html": {
-    "last_resync_patch": "p264_resync_chat",
-    "sha256": "5061c0898357c997787f84a786627f132b99b23480170a36cb30b7158a049668"
+    "last_resync_patch": "p267_resync_my_work_cho_duyet",
+    "sha256": "fb37920418dcc3633f65a5e3caeda115b50b6a6ec67bf75ca0027acf389e0bd0"
   },
   "ai_tools/pages/ai_video/main_section.html": {
     "last_resync_patch": "p259_resync_ai_video_khung_sp",

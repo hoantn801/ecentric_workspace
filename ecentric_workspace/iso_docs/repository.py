@@ -210,6 +210,11 @@ def force_published(code, note):
     add_comment(code, note)
 
 
+def set_next_review(doc_name, date):
+    """Gia han ra soat (manage.confirm_review da kiem quyen Ban ISO + doc doc duoc)."""
+    frappe.db.set_value(C.QP, doc_name, "ec_next_review", date)
+
+
 def history(doc_name):
     """Lich su duyet + y kien cua MOT tai lieu (Comment loai Workflow / Comment). Nguoi goi
     (manage.editor_page) da kiem quyen doc tai lieu qua get_doc."""
@@ -258,10 +263,17 @@ def last_note(doc_name, actor):
     return text.split(":", 1)[1].strip() if ":" in text else text
 
 
+def all_docs_for_review():
+    """Moi tai lieu (job lich, chay duoi Administrator) - chi truong de tinh han ra soat."""
+    return frappe.get_all(C.QP, fields=["name", "ec_doc_code", "ec_doc_state", "ec_current_version",
+                                        "ec_next_review"], limit_page_length=0)
+
+
 def notify(event, recipient, title, message, url, doc_name, actor, dedupe_key):
     from ecentric_workspace.notification_center.events import publish_notification_event
     return publish_notification_event(event, recipient, title, message, action_url=url,
-                                      reference_doctype=C.QP, reference_name=doc_name,
+                                      reference_doctype=C.QP if doc_name else None,
+                                      reference_name=doc_name or None,
                                       actor=actor, from_user=actor, dedupe_key=dedupe_key)
 
 

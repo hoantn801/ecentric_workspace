@@ -64,6 +64,12 @@ def action(code, action, note=""):
     return _run(M.do_action, frappe.session.user, str(code or ""), str(action or ""), str(note or ""))
 
 
+@frappe.whitelist(methods=["POST"])
+def confirm_review(code, note=""):
+    """"Da ra soat, giu nguyen": Ban ISO gia han ra soat mot tai lieu dang ban hanh."""
+    return _run(M.confirm_review, frappe.session.user, str(code or ""), str(note or ""))
+
+
 def _import(data):
     if isinstance(data, str):
         try:

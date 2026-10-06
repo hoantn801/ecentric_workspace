@@ -103,3 +103,38 @@ def get_definition_for_doctype(doctype):
         raise KeyError("unregistered approval business DocType: %s" % doctype) from None
 
 
+
+
+# --------------------------------------------------------------------------- #
+# feature_of(code) - thu muc feature cua mot loai phieu (06/10/2026).
+#
+# `ApprovalDefinition.feature` chi duoc khai o vai form (form co buoc xu ly can no). Duyet
+# nhanh tren dien thoai can goi DUNG controller cua tung loai (features.<f>.controllers.api)
+# de giu nguyen kiem tra nghiep vu cua form, nen can ten thu muc cho MOI loai. Lay tu chinh
+# module da khai bao definition (cac import o dau file nay) - mot nguon su that, khong lap
+# bang tay thu hai de quen cap nhat.
+# --------------------------------------------------------------------------- #
+_FEATURE_PREFIX = "ecentric_workspace.approval_center.features."
+_FEATURE_SUFFIX = ".domain.definition"
+
+
+def _build_feature_map():
+    import sys
+    from ecentric_workspace.approval_center.shared.requests.contracts import ApprovalDefinition
+    out = {}
+    for modname, mod in list(sys.modules.items()):
+        if not (mod and modname.startswith(_FEATURE_PREFIX) and modname.endswith(_FEATURE_SUFFIX)):
+            continue
+        feature = modname[len(_FEATURE_PREFIX):-len(_FEATURE_SUFFIX)]
+        for value in vars(mod).values():
+            if isinstance(value, ApprovalDefinition):
+                out[value.code] = feature
+    return MappingProxyType(out)
+
+
+_FEATURE_BY_CODE = _build_feature_map()
+
+
+def feature_of(code):
+    definition = get_definition(code)
+    return definition.feature or _FEATURE_BY_CODE.get(code, "")

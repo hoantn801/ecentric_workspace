@@ -63,13 +63,14 @@
               {% if it.docx %}<a href="{{ it.docx|e }}" download>Tải Word</a>{% endif %}
               <a href="{{ it.edit|e }}">{% if it.can_edit %}Sửa bản nháp{% else %}Xem bản soạn, lịch sử duyệt{% endif %}</a>
             </div>
-            {% if it.actions %}
+            {% if it.actions or it.can_review %}
             <form class="eti-actbox" data-eti-act="{{ it.code|e }}">
-              <label class="eti-lbl" for="eti-note-{{ loop.index }}">Ý kiến (bắt buộc khi trả lại)</label>
+              <label class="eti-lbl" for="eti-note-{{ loop.index }}">Ý kiến (bắt buộc khi trả lại{% if it.can_review %}; ghi kết quả rà soát nếu có{% endif %})</label>
               <textarea id="eti-note-{{ loop.index }}" name="note" rows="2" maxlength="1000" placeholder="Ghi chú cho người soạn"></textarea>
               <div class="eti-acts">
+                {% if it.can_review %}<button class="eti-btn eti-btn-sm{% if it.review_due %} eti-btn-pri{% endif %}" type="submit" name="review" value="1" title="Nội dung vẫn đúng: tính lại hạn rà soát từ hôm nay, không ra phiên bản mới">Đã rà soát, giữ nguyên</button>{% endif %}
                 {% for a in it.actions %}
-                <button class="eti-btn eti-btn-sm{% if loop.first and not a.danger %} eti-btn-pri{% elif a.danger %} eti-btn-danger{% endif %}" type="submit" name="action" value="{{ a.action|e }}" title="Chuyển sang: {{ a.next|e }}">{{ a.action|e }}</button>
+                <button class="eti-btn eti-btn-sm{% if loop.first and not a.danger and not it.review_due %} eti-btn-pri{% elif a.danger %} eti-btn-danger{% endif %}" type="submit" name="action" value="{{ a.action|e }}" title="Chuyển sang: {{ a.next|e }}">{{ a.action|e }}</button>
                 {% endfor %}
               </div>
             </form>

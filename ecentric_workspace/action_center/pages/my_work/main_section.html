@@ -164,6 +164,13 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
       </div>
     </header>
 
+    <!-- 06/10/2026 "Cho toi duyet": duyet nhanh ngay tai day. Khung + dong "dang tai" nam san
+         trong markup; asset ec_cho_duyet.bundle.js chi thay noi dung [data-cd-body]. -->
+    <section class="cd" id="mw-cho-duyet" data-ec-cho-duyet aria-label="Chờ tôi duyệt">
+      <h2 class="cd-head">Chờ tôi duyệt <b data-cd-count></b></h2>
+      <div data-cd-body aria-live="polite"><p class="cd-loading">Đang tải phiếu chờ bạn duyệt…</p></div>
+    </section>
+
     <div id="mw-body" aria-live="polite">
       <div class="sk" aria-hidden="true">
         <div><i class="a"></i><i class="b"></i></div>
@@ -193,6 +200,8 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
  * KHONG co logic nghiep vu: phan loai / han / thu tu / phan trang deu do
  * server quyet dinh. Moi dong la mot the <a> tro toi `action_url` server da
  * dung san -- moi thao tac duyet xay ra o TRANG DICH.
+ * NGOAI LE (06/10/2026): khoi "Cho toi duyet" o tren duyet NGAY TAI DAY - nhung logic nam o
+ * asset ec_cho_duyet.bundle.js + server quick_approve.py, khong nam trong trang nay.
  */
 (function () {
   "use strict";
@@ -365,6 +374,9 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
       btns[i].classList.toggle("on", on);
       btns[i].setAttribute("aria-selected", on ? "true" : "false");
     }
+    // "Cho toi duyet" la viec -> chi o lan Viec (doi lan do nguoi dung bam, khong phai luc tai).
+    var cd = el("mw-cho-duyet");
+    if (cd) cd.hidden = (next !== "work");
     paint();
     if (next === "noti" && !N.loaded && !N.loading) loadNoti();
   }
@@ -441,6 +453,10 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
     }
     paint();
   }
+
+  // Vua duyet / tu choi o "Cho toi duyet" -> so viec doi: tai lai lan Viec (cung nguon voi
+  // badge "Viec cua toi" o header).
+  document.addEventListener("ec:cho-duyet-doi", function () { loadWork(false); });
 
   document.addEventListener("click", function (ev) {
     if (!ev.target.closest) return;

@@ -60,6 +60,32 @@ def submit(name):
     return req
 
 
+def submit_on_behalf(name, actor):
+    """ec-bw-proxy-v1: lead nop thay. Nguoi nop (requester) van la CHINH nhan vien - engine
+    resolve nguoi duyet tu requester ('Requester Manager', 'Department Manager'), dat lead
+    lam requester thi phieu se di len quan ly cua lead. Quyen nop thay da kiem o
+    team_service (routing.proxy_rule) truoc khi goi vao day."""
+    doc = repo.get_doc(name)
+    if doc.approval_request:
+        frappe.throw(_("Phiếu này đã được nộp."))
+    user = doc.requested_by
+    emp = repo.employee_of(user) if user else None
+    if not emp or emp.name != doc.employee:
+        frappe.throw(_("Không xác định được tài khoản của người được nộp thay."))
+    doc.department = doc.department or emp.department
+    doc.company = doc.company or emp.company
+    doc.direct_manager = repo.user_of_employee(emp.reports_to)
+    doc.submitted_at = now_datetime()
+    repo.save_doc(doc)
+    skip, reason = ResolveBrandWeightSkipLevelsService().execute(emp.name, doc.department, user)
+    req = engine.submit(repo.BUSINESS_DT, doc.name, APPROVAL_TYPE, user, process_code=PROCESS_CODE,
+                        skip_level_nos=skip or None, skip_reason=reason or None)
+    repo.link_request(doc.name, req)
+    repo.add_comment(doc.name, actor, "Nộp thay: %s điền và nộp thay vì nhân viên chưa nộp."
+                     % (repo.full_name(actor) or actor))
+    return req
+
+
 def resubmit(name, actor=None, payload=None):
     doc = repo.get_doc(name)
     if not doc.approval_request:
