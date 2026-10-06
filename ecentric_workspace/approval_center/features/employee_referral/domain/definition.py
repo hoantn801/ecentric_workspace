@@ -1,4 +1,5 @@
 """Stateless definition for EC Employee Referral Request."""
+from dataclasses import replace as _dc_replace
 from ecentric_workspace.approval_center.shared.requests.contracts import (
     ApprovalDefinition,
     STANDARD_STATUS_LABELS,
@@ -46,3 +47,13 @@ EMPLOYEE_REFERRAL_DEFINITION = ApprovalDefinition(
 )
 
 
+# "Cho toi duyet" tren dien thoai (06/10/2026): the duyet nhanh hien cac cap nay. Chi truong
+# nguoi duyet von xem duoc o trang chi tiet; khong dua luong ca nhan.
+EMPLOYEE_REFERRAL_DEFINITION = _dc_replace(
+    EMPLOYEE_REFERRAL_DEFINITION,
+    quick_summary=(
+        ("Ứng viên", "candidate_full_name"),
+        ("Vị trí", "position_applied_for"),
+        ("Phòng ban", "hiring_department"),
+    ),
+)

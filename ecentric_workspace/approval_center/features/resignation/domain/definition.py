@@ -1,4 +1,5 @@
 """Module-owned immutable approval definition."""
+from dataclasses import replace as _dc_replace
 from ecentric_workspace.approval_center.shared.requests.contracts import ApprovalDefinition, STANDARD_STATUS_LABELS
 from ecentric_workspace.approval_center.shared.definition_support import (
     DepartmentRows, ExactAndDateFilters, StaticOptions, service_callbacks,
@@ -30,4 +31,13 @@ RESIGNATION_DEFINITION = _make(
     ("resignation_reason",))
 
 
-
+# "Cho toi duyet" tren dien thoai (06/10/2026): the duyet nhanh hien cac cap nay. Chi truong
+# nguoi duyet von xem duoc o trang chi tiet; khong dua luong ca nhan.
+RESIGNATION_DEFINITION = _dc_replace(
+    RESIGNATION_DEFINITION,
+    quick_summary=(
+        ("Đối tượng", "resignation_for"),
+        ("Ngày làm cuối", "last_working_day"),
+        ("Lý do", "resignation_reason"),
+    ),
+)

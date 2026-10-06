@@ -1,4 +1,5 @@
 """Stateless definition for EC HR Activity Request."""
+from dataclasses import replace as _dc_replace
 from ecentric_workspace.approval_center.shared.requests.contracts import (
     ApprovalDefinition,
     STANDARD_STATUS_LABELS,
@@ -48,3 +49,14 @@ HR_ACTIVITY_DEFINITION = ApprovalDefinition(
 )
 
 
+# "Cho toi duyet" tren dien thoai (06/10/2026): the duyet nhanh hien cac cap nay. Chi truong
+# nguoi duyet von xem duoc o trang chi tiet; khong dua luong ca nhan.
+HR_ACTIVITY_DEFINITION = _dc_replace(
+    HR_ACTIVITY_DEFINITION,
+    quick_summary=(
+        ("Hoạt động", "activity_type"),
+        ("Từ", "start_date"),
+        ("Đến", "end_date"),
+        ("Ngân sách", "estimated_budget"),
+    ),
+)

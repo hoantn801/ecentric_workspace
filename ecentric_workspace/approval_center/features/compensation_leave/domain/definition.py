@@ -1,4 +1,5 @@
 """Stateless definition for EC Compensation Leave Request."""
+from dataclasses import replace as _dc_replace
 from ecentric_workspace.approval_center.shared.requests.contracts import (
     ApprovalDefinition,
     STANDARD_STATUS_LABELS,
@@ -50,3 +51,14 @@ COMPENSATION_LEAVE_DEFINITION = ApprovalDefinition(
 )
 
 
+# "Cho toi duyet" tren dien thoai (06/10/2026): the duyet nhanh hien cac cap nay. Chi truong
+# nguoi duyet von xem duoc o trang chi tiet; khong dua luong ca nhan.
+COMPENSATION_LEAVE_DEFINITION = _dc_replace(
+    COMPENSATION_LEAVE_DEFINITION,
+    quick_summary=(
+        ("Số ngày tăng ca", "overtime_duration_days"),
+        ("Nghỉ bù từ", "cl_start_date"),
+        ("Đến", "cl_end_date"),
+        ("Số ngày nghỉ bù", "cl_duration_days"),
+    ),
+)

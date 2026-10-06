@@ -11,9 +11,13 @@ WHY A PAGE AND NOT JUST THE DRAWER
 NO NEW SURFACE, NO NEW LOGIC
   The page calls the EXISTING session-scoped endpoint
   action_center.api.get_action_items -- the same classification, ordering and
-  cursor pagination the homepage widget and the drawer already use. No item is
-  actionable here: every row is an <a> to the `action_url` the server built.
-  Nothing on this page can mutate a request, so no new permission is exposed.
+  cursor pagination the homepage widget and the drawer already use. Feed rows
+  are <a> links to the `action_url` the server built.
+  EXCEPTION (06/10/2026): the "Cho toi duyet" block decides approvals in place via
+  approval_center.reporting.actions.list_my_pending / quick_decide (logic in
+  shared/requests/quick_approve.py; UI in public/js/ec_cho_duyet.bundle.js). Those
+  endpoints re-check that the user is a Pending approver at the CURRENT level and route
+  through each form's own controller - no new permission is exposed.
 
 BYTES OWNED BY THE REPO
   Same deal as hr/pages/install_guide: this page is new, has no live history to

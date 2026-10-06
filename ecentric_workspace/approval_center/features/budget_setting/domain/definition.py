@@ -1,4 +1,5 @@
 """Module-owned immutable approval definition."""
+from dataclasses import replace as _dc_replace
 from ecentric_workspace.approval_center.shared.requests.contracts import ApprovalDefinition, STANDARD_STATUS_LABELS
 from ecentric_workspace.approval_center.shared.finance_support import Resubmitter, Submitter
 from ecentric_workspace.approval_center.features.budget_setting.application.service import budget_title, validate_budget
@@ -29,3 +30,15 @@ BUDGET_SETTING_DEFINITION = _make(
     budget_title, validate_budget)
 
 
+# "Cho toi duyet" tren dien thoai (06/10/2026): the duyet nhanh hien cac cap nay. Chi truong
+# nguoi duyet von xem duoc o trang chi tiet; khong dua luong ca nhan.
+BUDGET_SETTING_DEFINITION = _dc_replace(
+    BUDGET_SETTING_DEFINITION,
+    quick_summary=(
+        ("Kỳ", "budget_period_type"),
+        ("Từ", "period_start"),
+        ("Ngân sách kỳ tới", "forecast_budget_next_period"),
+        ("Rủi ro tài chính", "has_financial_risks"),
+    ),
+    quick_comment_required=True,
+)

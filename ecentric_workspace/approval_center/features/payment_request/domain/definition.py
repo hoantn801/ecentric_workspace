@@ -1,4 +1,5 @@
 """Module-owned immutable approval definition."""
+from dataclasses import replace as _dc_replace
 from types import MappingProxyType
 from ecentric_workspace.approval_center.shared.requests.contracts import ApprovalDefinition, STANDARD_STATUS_LABELS
 from ecentric_workspace.approval_center.shared.finance_support import Resubmitter, Submitter
@@ -94,3 +95,14 @@ PAYMENT_REQUEST_DEFINITION = _make(
     detail_extender=detail_extra)
 
 
+# "Cho toi duyet" tren dien thoai (06/10/2026): the duyet nhanh hien cac cap nay. Chi truong
+# nguoi duyet von xem duoc o trang chi tiet; khong dua luong ca nhan.
+PAYMENT_REQUEST_DEFINITION = _dc_replace(
+    PAYMENT_REQUEST_DEFINITION,
+    quick_summary=(
+        ("Người nhận", "payee_full_name"),
+        ("Số tiền", "payment_amount"),
+        ("Ngày thanh toán", "payment_date"),
+        ("Hình thức", "payment_mode"),
+    ),
+)

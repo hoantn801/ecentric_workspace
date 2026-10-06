@@ -899,3 +899,7 @@ extend_bootinfo = list(globals().get("extend_bootinfo") or []) + [
     "ecentric_workspace.chat.boot.extend_bootinfo"]
 after_request = list(globals().get("after_request") or []) + [
     "ecentric_workspace.chat.boot.after_request"]
+
+# "Cho toi duyet" - duyet nhanh tren dien thoai (06/10). Gan vao [data-ec-cho-duyet] (/viec-cua-toi).
+web_include_js.append("ec_cho_duyet.bundle.js")
+web_include_css.append("ec_cho_duyet.bundle.css")

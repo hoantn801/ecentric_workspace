@@ -1,4 +1,5 @@
 """Module-owned immutable approval definition."""
+from dataclasses import replace as _dc_replace
 from ecentric_workspace.approval_center.shared.requests.contracts import ApprovalDefinition, STANDARD_STATUS_LABELS
 from ecentric_workspace.approval_center.shared.definition_support import (
     BrandAndDepartmentOptions, ExactAndDateFilters, service_callbacks,
@@ -26,3 +27,16 @@ CONTRACT_REVIEW_DEFINITION = ApprovalDefinition(
     )),
     filter_builder=ExactAndDateFilters(("contract_type", "request_kind")),
     **service_callbacks("contract_review"))
+
+
+# "Cho toi duyet" tren dien thoai (06/10/2026): the duyet nhanh hien cac cap nay. Chi truong
+# nguoi duyet von xem duoc o trang chi tiet; khong dua luong ca nhan.
+CONTRACT_REVIEW_DEFINITION = _dc_replace(
+    CONTRACT_REVIEW_DEFINITION,
+    quick_summary=(
+        ("Loại hợp đồng", "contract_type"),
+        ("Brand", "brand"),
+        ("Giá trị", "contract_value"),
+        ("Hiệu lực từ", "contract_start_date"),
+    ),
+)
