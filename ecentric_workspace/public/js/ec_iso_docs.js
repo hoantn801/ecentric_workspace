@@ -245,6 +245,20 @@
       const btn = e.submitter;
       if (!btn || !btn.value) return;
       const note = (form.querySelector('textarea[name=note]') || {}).value || '';
+      if (btn.name === 'review') {
+        form.querySelectorAll('button').forEach((b) => busy(b, true));
+        try {
+          const r = await call('confirm_review', { code: form.dataset.etiAct, note: note });
+          toast('Đã ghi rà soát. Hạn rà soát kế tiếp: ' + r.next_review);
+          const u = new URL(location.href);
+          u.searchParams.set('ma', form.dataset.etiAct);
+          location.href = u.toString();
+        } catch (err) {
+          form.querySelectorAll('button').forEach((b) => busy(b, false));
+          toast(err.message, true);
+        }
+        return;
+      }
       if (btn.value === 'Trả lại' && note.trim().length < 5) {
         toast('Trả lại cần ghi lý do (ít nhất 5 ký tự).', true);
         const ta = form.querySelector('textarea');

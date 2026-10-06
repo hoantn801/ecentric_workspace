@@ -130,6 +130,9 @@ def manage_page(user, flt="", dept="", q="", open_code="", repo=None):
                          "danger": x["action"] in DANGER_ACTIONS} for x in a],
             "edit": EDITOR + "?ma=" + (r.get("ec_doc_code") or name),
             "can_edit": D.is_state(st, C.S_DRAFT) and D.can_write(r, user, is_mgr),
+            # PO 06/10: ra soat xong ma noi dung van dung -> gia han ra soat, khong ra phien ban moi
+            "can_review": is_mgr and D.is_state(st, C.S_PUBLISHED) and bool(r.get("ec_current_version")),
+            "review_due": V.review_due(r, today),
         })
     if items and not any(i["open"] for i in items) and flt == "cho-toi":
         items[0]["open"] = True
@@ -161,6 +164,26 @@ def do_action(user, code, action, note="", repo=None):
     # Soan phien ban moi -> sang trang soan luon (PO 05/10: khong qua man quan tri)
     nxt = (EDITOR + "?ma=" + code) if D.is_state(state, C.S_DRAFT) else ""
     return {"code": code, "state": V.state_label(state), "next": nxt}
+
+
+def confirm_review(user, code, note="", repo=None):
+    """"Da ra soat, giu nguyen" (PO 06/10): Ban ISO xac nhan tai lieu dang hieu luc van dung ->
+    han ra soat tinh lai tu hom nay (chu ky cua tai lieu), ghi mot dong lich su. Khong tang phien
+    ban, khong qua luong duyet (QT Quan ly tai lieu: ra soat dinh ky do Ban ISO chu tri)."""
+    repo = _repo(repo)
+    if not repo.is_manager(user):
+        raise Forbidden("Chỉ Ban ISO xác nhận rà soát.")
+    doc = repo.get_doc(code)
+    if not doc:
+        raise NotFound
+    if not D.is_state(doc.get(C.STATE_FIELD), C.S_PUBLISHED) or not doc.get("ec_current_version"):
+        raise DocError("Chỉ xác nhận rà soát cho tài liệu đang ban hành.")
+    note = (note or "").strip()[:500]
+    nxt = D.add_months(repo.today(), int(doc.get("ec_review_months") or C.REVIEW_MONTHS_DEFAULT))
+    repo.set_next_review(doc.name, nxt)
+    text = "Đã rà soát, giữ nguyên bản %s. Rà soát kế tiếp: %s" % (doc.get("ec_current_version"), V.fdate(nxt))
+    repo.add_comment(doc.name, text + ((". Ý kiến: " + note) if note else ""))
+    return {"code": code, "next_review": V.fdate(nxt)}
 
 
 # --------------------------------------------------------------------------- nhap goi

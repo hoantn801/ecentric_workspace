@@ -624,6 +624,43 @@ class TestNotify(unittest.TestCase):
                 self.assertTrue(n["url"].startswith("/tai-lieu"), n["url"])
 
 
+class DigestRepo(NotifyRepo):
+    def __init__(self, rows, **kw):
+        super().__init__(None, **kw)
+        self.rows = rows
+
+    def today(self):
+        return dt.date(2026, 10, 5)            # thu hai, tuan 41
+
+    def all_docs_for_review(self):
+        return self.rows
+
+
+class TestReviewDigest(unittest.TestCase):
+    def row(self, code, nr, state=C.S_PUBLISHED, cur="1.0"):
+        return {"name": code, "ec_doc_code": code, "ec_doc_state": state, "ec_current_version": cur,
+                "ec_next_review": nr}
+
+    def test_one_message_per_iso_member(self):
+        rows = [self.row("QT-A-01", dt.date(2025, 1, 1)), self.row("QT-B-01", dt.date(2026, 10, 20)),
+                self.row("QT-C-01", dt.date(2027, 6, 1)), self.row("QT-D-01", dt.date(2024, 1, 1), state=C.S_EXPIRED),
+                self.row("QT-E-01", dt.date(2024, 1, 1), cur="")]
+        r = DigestRepo(rows)
+        out = N.review_digest(repo=r)
+        self.assertEqual(out, {"sent": 2, "failed": 0, "over": 1, "soon": 1})
+        self.assertEqual([x["to"] for x in r.sent], ["iso@x", "dong@x"])
+        m = r.sent[0]
+        self.assertEqual(m["title"], "Tài liệu ISO cần rà soát: 1 quá hạn, 1 sắp đến hạn")
+        self.assertEqual(m["url"], "/tai-lieu/quan-ly?loc=ra-soat")
+        self.assertEqual(m["key"], "iso_review|2026-W41|iso@x")    # chay lai trong tuan: khong trung
+        self.assertIn("QT-A-01", m["message"])
+
+    def test_quiet(self):
+        self.assertEqual(N.review_digest(repo=DigestRepo([self.row("QT-C-01", dt.date(2027, 6, 1))])), {"skipped": "none"})
+        self.assertEqual(N.review_digest(repo=DigestRepo([self.row("QT-A-01", dt.date(2025, 1, 1))], disabled=True)),
+                         {"skipped": "disabled"})
+
+
 class TestWorkflowSpec(unittest.TestCase):
     def test_states_complete(self):
         self.assertEqual(tuple(s for s, _ in W.STATES), C.STATES)

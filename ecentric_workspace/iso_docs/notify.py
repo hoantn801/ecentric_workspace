@@ -45,3 +45,40 @@ def state_changed(name, before, after, actor, stamp="", repo=None):
             failed += 1
             repo.log_error("iso_docs.notify")
     return {"sent": sent, "failed": failed}
+
+
+def review_digest(repo=None):
+    """Thu thu hai hang tuan (hooks cron): MOT tin gom cho moi nguoi Ban ISO - bao nhieu tai lieu
+    qua han / sap den han ra soat (30 ngay). PO 06/10 chon cach (a): chi Ban ISO, khong bao truong
+    phong (56/60 tai lieu chuyen tu SharePoint deu qua han - bao ca loat se thanh rac).
+    Khong co gi -> khong gui. Tat: site_config ec_iso_review_reminder_disabled = 1."""
+    from ecentric_workspace.iso_docs import view as V
+    repo = _repo(repo)
+    if repo.conf_flag("ec_iso_review_reminder_disabled"):
+        return {"skipped": "disabled"}
+    today = repo.today()
+    rows = repo.all_docs_for_review()
+    over = sorted(r.get("ec_doc_code") or r.get("name") for r in rows if V.review_due(r, today) == "qua-han")
+    soon = sorted(r.get("ec_doc_code") or r.get("name") for r in rows if V.review_due(r, today) == "sap-den-han")
+    if not over and not soon:
+        return {"skipped": "none"}
+    parts = []
+    if over:
+        parts.append("%d quá hạn" % len(over))
+    if soon:
+        parts.append("%d sắp đến hạn" % len(soon))
+    title = "Tài liệu ISO cần rà soát: " + ", ".join(parts)
+    sample = (soon + over)[:6]
+    msg = "Ví dụ: %s%s. Rà soát xong mà nội dung vẫn đúng thì bấm \"Đã rà soát, giữ nguyên\"." % (
+        ", ".join(sample), "…" if len(over) + len(soon) > len(sample) else "")
+    y, w, _d = today.isocalendar()
+    sent = failed = 0
+    for u in repo.role_users(C.ROLE_ISO):
+        try:
+            repo.notify("task_due_soon", u, title, msg, "/tai-lieu/quan-ly?loc=ra-soat", None, "Administrator",
+                        "iso_review|%d-W%02d|%s" % (y, w, u))
+            sent += 1
+        except Exception:
+            failed += 1
+            repo.log_error("iso_docs.review_digest")
+    return {"sent": sent, "failed": failed, "over": len(over), "soon": len(soon)}
