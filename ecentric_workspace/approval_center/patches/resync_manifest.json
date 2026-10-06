@@ -303,5 +303,9 @@
   "surveys/pages/builder/main_section.html": {
     "last_resync_patch": "p255_khao_sat_boc_so",
     "sha256": "2ef1b8bc4f939d9590289af02506163e3ad9deac7f8647360a8c4972e4a96714"
+  },
+  "weekly_report/pages/weekly_update/main_section.html": {
+    "last_resync_patch": "p229_resync_weekly_update",
+    "sha256": "da7c585c163844a84cb30a5c7a588de0a11d40a7082f3d44b886777e445fe798"
   }
 }
