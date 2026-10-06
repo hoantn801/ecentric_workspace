@@ -183,6 +183,7 @@ def configured_fulfiller_users(approval_type):
         users.update(frappe.get_all("Has Role", pluck="parent",
                                     filters={"role": ["in", roles], "parenttype": "User"}) or [])
     users.discard("Guest")
+    users.discard("Administrator")   # 06/10: Administrator mang moi role, khong phai nguoi xu ly
     users.discard(None)
     if not users:
         return []

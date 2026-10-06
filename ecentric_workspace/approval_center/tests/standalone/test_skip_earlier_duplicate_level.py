@@ -124,7 +124,7 @@ class _Req(object):
         return self._d.get(k, default)
 
 
-def _run_skip(levels, approvers, co_ky_so=False, guard_loi=False):
+def _run_skip(levels, approvers, co_ky_so=False, guard_loi=False, from_level=None):
     import sys
     db = _DB(levels, approvers)
     frappe = types.ModuleType("frappe")
@@ -170,7 +170,10 @@ def _run_skip(levels, approvers, co_ky_so=False, guard_loi=False):
         # nen phai nap ca hai - va nap ban THAT, khong gia, de phep kiem noi ve ma that.
         exec(compile(_func_source("_luong_co_ky_so"), "<kyso>", "exec"), ns)
         exec(compile(_func_source("_skip_earlier_duplicate_levels"), "<skip>", "exec"), ns)
-        ns["_skip_earlier_duplicate_levels"](_Req())
+        if from_level is None:
+            ns["_skip_earlier_duplicate_levels"](_Req())
+        else:
+            ns["_skip_earlier_duplicate_levels"](_Req(), from_level=from_level)
     finally:
         for k, v in saved.items():
             if v is None:
@@ -518,3 +521,35 @@ class TestDungLuongCoGoi(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+
+class TestGuiLaiApLaiLuatTrungNguoi(unittest.TestCase):
+    """06/10/2026 EC-SPBN-2026-00006: CnB tra lai, Vinh gui lai -> vong reset dua dong da
+    Skipped ve Pending -> anh Lam bi bat duyet cap Quan ly truc tiep du lan dau da bo qua."""
+
+    def test_from_level_1_bo_lai_cap_quan_ly_khi_lam_lai_tu_dau(self):
+        db, _l = _run_skip([_lv(1, "Direct Manager"), _lv(2, "CnB"), _lv(3, "HOF"), _lv(4, "CEO")],
+                           [_ap(1, "lam@x"), _ap(2, "cnb@x"), _ap(3, "hof@x"), _ap(4, "lam@x")],
+                           from_level=1)
+        self.assertEqual(_status(db)[1], "Skipped")
+        self.assertEqual(_status(db)[4], "Pending")
+
+    def test_cap_TRUOC_diem_tiep_tuc_khong_bi_dong(self):
+        lv = [_lv(1, "Direct Manager"), _lv(2, "CnB"), _lv(3, "CEO")]
+        lv[0]["level_status"] = "Approved"
+        aps = [_ap(1, "lam@x"), _ap(2, "cnb@x"), _ap(3, "lam@x")]
+        aps[0]["status"] = "Approved"
+        db, _l = _run_skip(lv, aps, from_level=2)
+        self.assertEqual(_status(db)[1], "Approved", "quyet dinh that khong duoc ghi de thanh Skipped")
+        self.assertFalse(any(w[1] == "RL-1" for w in db.writes))
+
+    def test_resubmit_ap_lai_luat_TRUOC_khi_kich_hoat(self):
+        code = _ma_thuc_thi("resubmit")
+        i = code.index("_skip_earlier_duplicate_levels(")
+        j = code.index("_activate_level(", i)
+        self.assertIn("from_level=resume", code[i:j])
+
+    def test_administrator_khong_bao_gio_la_nguoi_duyet(self):
+        code = _ma_thuc_thi("_is_active_system_user")
+        self.assertIn("'Administrator'", code)
