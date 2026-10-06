@@ -35,6 +35,7 @@ class Throw(Exception):
 class FakeDB:
     def __init__(self, att):
         self.att = att  # name -> dict
+        self.lap = {}  # Leave Application ghi thang bang db.set_value (ec-lv-lead-share-v1)
 
     def _blocking(self, emp, d1, d2):
         return [a for a in self.att.values()
@@ -62,6 +63,9 @@ class FakeDB:
         raise AssertionError(dt)
 
     def set_value(self, dt, name, field, value, update_modified=True):
+        if dt == "Leave Application":
+            self.lap[field] = value
+            return
         assert dt == "Attendance"
         self.att[name][field] = value
 
@@ -93,6 +97,10 @@ class FakeLeave(dict):
 
     def save(self, ignore_permissions=False):
         self._validate()
+        # HRMS share_doc_with_approver: doi leave_approver -> frappe.share.remove chia se
+        # cua nguoi cu BANG QUYEN nguoi bam -> quan ly thuong 403 (ec-lv-lead-share-v1, 06/10)
+        if self.get("_approver0") is not None and self.leave_approver != self._approver0:
+            raise Throw("PermissionError: khong co quyen xoa DocShare")
 
     def submit(self):
         self._validate()
@@ -115,7 +123,7 @@ def run(action, stage="", half_day=1, att_status="Present"):
     la = FakeLeave(db, name="LAP-70", employee="EMP-HAU", employee_name="Hau", from_date="2026-09-29",
                    to_date="2026-09-29", half_day=half_day, half_day_date="2026-09-29" if half_day else None,
                    status="Open", ec_approval_stage=stage, leave_type="Annual Leave", total_leave_days=0.5,
-                   leave_approver="vinh@x")
+                   leave_approver="vinh@x", _approver0="vinh@x")
     fr = types.SimpleNamespace()
     fr.session = types.SimpleNamespace(user="vinh@x")
     fr.form_dict = {"name": "LAP-70", "action": action}
@@ -157,6 +165,10 @@ class TestPhepUuTienHonChamCong(unittest.TestCase):
         la, att, resp = run("approve", stage="lead")
         self.assertEqual(la.ec_approval_stage, "hr")
         self.assertEqual(la.docstatus, 0)
+        # nguoi duyet tiep (HR) ghi SAU save, khong qua save -> khong dung share.remove
+        self.assertEqual(la.leave_approver, "vinh@x")
+        self.assertEqual(la.db.lap.get("leave_approver"), "hr@x")
+        self.assertEqual(resp["message"]["stage"], "hr")
         self.assertEqual((att["status"], att["half_day_status"]), ("Present", None))
 
     def test_khong_dung_vao_ngay_khong_co_cham_cong_di_lam(self):
