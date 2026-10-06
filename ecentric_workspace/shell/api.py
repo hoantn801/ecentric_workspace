@@ -76,7 +76,15 @@ def get_shell_boot():
         # Chat noi bo (05/10/2026): o Tin nhan tren thanh tren. CUNG ham server dung khi ve
         # trang (server_nav / pages.shell) -> markup ec_shell.js ve lai trung lan ve dau.
         "chat_enabled": chat_enabled(),
+        # Menu 2 tang (07/10/2026): thanh khu vuc. None = kill switch -> client ve menu 1 cot.
+        # CUNG cong tac server_nav.rail_enabled() dung khi ve trang.
+        "rail": shell_nav.rail_spec() if _rail_on() else None,
     }
+
+
+def _rail_on():
+    from ecentric_workspace.shell.server_nav import rail_enabled
+    return rail_enabled()
 
 
 def _ser(it):

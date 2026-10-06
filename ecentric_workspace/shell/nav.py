@@ -560,3 +560,89 @@ def _context_score(name, path):
                 elif _norm_path(pat) == path:
                     score = max(score, 800 + len(pat))
     return score
+
+
+# -------------------------------------------------------------------- rail --
+#: Thanh khu vuc ben trai (menu huong C2, PO Hoan duyet mockup 07/10/2026:
+#: NHIEU_LOP/menu_mockup/menu_C2_navy_v2.html). Menu chia 2 tang trong CUNG cot 248px
+#: cua trang: thanh hep (khu vuc) + cot trang (muc cua khu dang mo).
+#:
+#: Moi khu:
+#:   key / label / icon / route   nut tren thanh; bam = di toi `route` (khong ve lai tai cho)
+#:   badge_source                 khoa huy hieu da dang ky (cung co che voi muc menu)
+#:   contexts                     ngu canh (CONTEXTS) thuoc khu nay -> trang o ngu canh do
+#:                                bat sang khu nay, cot hien dung menu cua ngu canh
+#:   keys                         muc portal (HOME_PORTAL_ITEMS) cua khu:
+#:                                - trang o ngu canh `home`: cot = DUNG cac muc nay, theo thu tu
+#:                                - trang o ngu canh khac cua khu: noi them vao cuoi cot nhung
+#:                                  muc chua co route trong cot, duoi nhom `group`
+#:   group                        nhan nhom cho cac muc noi them (de trong = khong nhan)
+#:   group_order                  (tuy chon) thu tu nhom TRONG COT cua khu - chi doi cot, khong doi
+#:                                GROUP_ORDER chung (menu nuong san trong cac trang giu nguyen)
+#: Ngu canh `home` khong nam trong `contexts` cua khu nao: khu cua trang portal suy ra tu
+#: muc dang chon (muc nam trong `keys` cua khu nao), khong thay thi la khu "home".
+#: Kill switch (khong can deploy): site_config `ec_shell_rail_disabled: 1` -> menu 1 cot cu.
+RAIL_DISABLED_FLAG = "ec_shell_rail_disabled"
+RAIL_HOME = "home"
+RAIL = [
+    {"key": "home", "label": "Trang chủ", "icon": "home", "route": "/",
+     "contexts": [], "keys": ["home.portal.home", "home.portal.overview"], "group": ""},
+    {"key": "feed", "label": "Bảng tin", "icon": "news", "route": "/bang-tin",
+     "contexts": [], "keys": ["home.portal.feed", "home.portal.news"], "group": ""},
+    {"key": "chat", "label": "Chat", "icon": "chat", "route": "/chat", "badge_source": "chat.unread",
+     "contexts": [], "keys": ["home.portal.chat"], "group": ""},
+    {"key": "approvals", "label": "Phê duyệt", "icon": "check", "route": "/approvals",
+     "badge_source": "action_center.approvals",
+     "contexts": ["approval_document"], "keys": [], "group": "",
+     # PO 07/10: MSO / SO / PO hien san, ngay duoi nhom Phe duyet.
+     "group_order": ["Phê duyệt", "Tạo mới", "Chứng từ", "Hướng dẫn"]},
+    {"key": "work", "label": "Công việc", "icon": "briefcase", "route": "/pm",
+     "contexts": ["pm"], "keys": [], "group": ""},
+    {"key": "hr", "label": "Nhân sự", "icon": "user", "route": "/ec-hr/attendance",
+     "contexts": ["hr"], "keys": [], "group": ""},
+    {"key": "reports", "label": "Báo cáo", "icon": "chart", "route": "/reports",
+     "contexts": ["reporting", "pnl", "alert_center"],
+     "keys": ["home.portal.reports", "home.portal.weekly", "home.portal.pulse", "home.portal.alerts"],
+     "group": "Báo cáo & Phân tích"},
+    {"key": "company", "label": "Công ty", "icon": "building", "route": "/tai-lieu",
+     "contexts": ["ai_tools", "surveys"],
+     "keys": ["home.portal.iso_docs", "home.portal.feedback", "home.portal.surveys", "home.portal.hall",
+              "home.portal.ai_tools", "home.portal.hiring", "home.portal.training"],
+     "group": "Công ty"},
+]
+
+
+def rail_spec():
+    """Ban tuan tu hoa cua RAIL cho boot (client) - cung du lieu server dung de ve."""
+    return [{"key": s["key"], "label": s["label"], "icon": s["icon"], "route": s["route"],
+             "badge_source": s.get("badge_source") or "", "contexts": list(s["contexts"]),
+             "keys": list(s["keys"]), "group": s["group"],
+             "group_order": list(s.get("group_order") or [])} for s in RAIL]
+
+
+def validate_rail(rail=None):
+    """Khoa dup / muc khong ton tai / ngu canh mo coi. Nem ValueError."""
+    rail = RAIL if rail is None else rail
+    portal = {it["key"] for it in HOME_PORTAL_ITEMS}
+    seen, ctx_owner = set(), {}
+    for s in rail:
+        if s["key"] in seen:
+            raise ValueError("duplicate rail key: %r" % s["key"])
+        seen.add(s["key"])
+        if not s["route"].startswith("/"):
+            raise ValueError("rail %r: route must start with '/'" % s["key"])
+        for k in s["keys"]:
+            if k not in portal:
+                raise ValueError("rail %r: unknown portal key %r" % (s["key"], k))
+        for c in s["contexts"]:
+            if c not in CONTEXTS or c == "home":
+                raise ValueError("rail %r: bad context %r" % (s["key"], c))
+            if c in ctx_owner:
+                raise ValueError("context %r in two rail sections" % c)
+            ctx_owner[c] = s["key"]
+    missing = [c for c in CONTEXTS if c != "home" and c not in ctx_owner]
+    if missing:
+        raise ValueError("contexts without a rail section: %r" % missing)
+    if RAIL_HOME not in seen:
+        raise ValueError("rail must have a %r section" % RAIL_HOME)
+    return True

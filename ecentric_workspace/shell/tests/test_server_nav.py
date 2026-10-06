@@ -137,7 +137,12 @@ class TestRebuildMount(unittest.TestCase):
         new = sn.rebuild_mount(_hub(), "/ec-hr/attendance")
         _, t, j = _mount_span(new, sn)
         items = shell_nav.compose("hr")
-        self.assertEqual(new[t + 1:j], fb.mount_inner_html(items, fb.match_active(items, "/ec-hr/attendance"), live=True))
+        # Menu 2 tang (07/10/2026, mac dinh bat): cot = rail_view() cua ngu canh; menu 1 cot cu
+        # (kill switch) duoc khoa o test_shell_rail.TestKillSwitch.
+        rail = shell_nav.rail_spec()
+        sec, panel = fb.rail_view(rail, "hr", items, shell_nav.compose("home"), "/ec-hr/attendance")
+        self.assertEqual(new[t + 1:j], fb.mount_inner_html(panel, fb.match_active(panel, "/ec-hr/attendance"),
+                                                           live=True, rail=rail, section=sec))
         self.assertNotIn("ec-shell-fallback", new[t + 1:j])
         self.assertIn("data-ec-shell-key=", new[t + 1:j])
 
@@ -295,7 +300,8 @@ class TestHydration(unittest.TestCase):
         return {"enabled": True, "nav": contexts[shell_nav.DEFAULT_CONTEXT]["items"],
                 "contexts": contexts, "context_order": list(shell_nav.CONTEXT_ORDER),
                 "default_context": shell_nav.DEFAULT_CONTEXT, "all_items": [],
-                "user": {"name": "hoan@x.vn", "full_name": "Hoan Tran", "image": ""}}
+                "user": {"name": "hoan@x.vn", "full_name": "Hoan Tran", "image": ""},
+                "rail": shell_nav.rail_spec()}
 
     def _page(self, route):
         _, _, sn = _mods()
