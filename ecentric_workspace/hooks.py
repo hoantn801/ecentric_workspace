@@ -888,3 +888,14 @@ scheduler_events["cron"].setdefault("15 6 * * *", []).append(
 # --------------------------------------------------------------------------- #
 web_include_js.append("ec_chat.bundle.js")
 web_include_css.append("ec_chat.bundle.css")
+
+
+# --------------------------------------------------------------------------- #
+# 06/10/2026 - Chat noi bo: "ruot" Raven tieng Viet + mau ERP. Chi dung trang /raven (chat/boot.py):
+# extend_bootinfo phu ban dich vao boot; after_request chen 1 <link> CSS + 1 <script src> nho vao HTML.
+# Khong doi ngon ngu tai khoan, khong sua Raven. Tat: site_config ec_chat_skin_disabled.
+# --------------------------------------------------------------------------- #
+extend_bootinfo = list(globals().get("extend_bootinfo") or []) + [
+    "ecentric_workspace.chat.boot.extend_bootinfo"]
+after_request = list(globals().get("after_request") or []) + [
+    "ecentric_workspace.chat.boot.after_request"]
