@@ -219,7 +219,10 @@ def _manager_user_of_employee(ident):
 
 def _is_active_system_user(user):
     """Fail-closed check used by all approver resolution."""
-    if not user or user == "Guest":
+    # Administrator KHONG BAO GIO la nguoi duyet / nguoi xu ly (06/10/2026): tu 05/10 13:10
+    # Administrator mang role EC CnB / HOF / CEO / Finance va bi giai vao luong (ghe "Pending"
+    # cua mot tai khoan khong ai dang nhap; o cap che do All la khoa cung ca phieu).
+    if not user or user in ("Guest", "Administrator"):
         return False
     row = frappe.db.get_value("User", user, ["enabled", "user_type"], as_dict=True)
     return bool(row and row.enabled and row.user_type == "System User")
@@ -967,7 +970,7 @@ def _luong_co_ky_so(req, boi_canh):
         return True
 
 
-def _skip_earlier_duplicate_levels(req):
+def _skip_earlier_duplicate_levels(req, from_level=1):
     """Mot nguoi dung o NHIEU cap -> bo cac cap TRUOC, giu cap CUOI CUNG cua ho (Hoan chot 09/09).
 
     Vi du that: EC-HIRE-2026-00003 - nguoi de nghi la hoan.tran, quan ly truc tiep la anh Lam,
@@ -1027,6 +1030,9 @@ def _skip_earlier_duplicate_levels(req):
         fields=["name", "level_no", "level_name", "mandatory"], order_by="level_no asc") or []
     if len(rows) < 2:
         return
+    # from_level (06/10): khi GUI LAI, cac cap truoc diem tiep tuc da co quyet dinh that
+    # (Approved) - KHONG duoc ghi de thanh Skipped. Chi xet tu cap tiep tuc tro di.
+    rows = [r for r in rows if r["level_no"] >= from_level]
     aps = frappe.get_all(
         "EC Approval Request Approver", filters={"approval_request": req.name},
         fields=["name", "level_no", "approver"]) or []
@@ -1653,6 +1659,11 @@ def resubmit(request_name, actor=None, restart=False):
             level_no=resume, to_dt=now_datetime(), attempt=_sla_att)
     log_action(request_name, "Restarted" if restart else "Resubmitted", actor or req.requested_by,
                resume, comment=note, new_status="Pending")
+    # Vong lap reset o tren dua MOI dong ve Pending - ke ca dong da bi luat trung-nguoi bo
+    # qua luc nop (06/10/2026: EC-SPBN-2026-00006, CnB tra lai, Vinh gui lai -> anh Lam bi
+    # bat duyet cap Quan ly truc tiep, du lan dau da bo qua vi anh duyet o cap CEO). Ap lai
+    # DUNG luat cua luc dung luong, chi tu cap tiep tuc; _activate_level tu di qua cap Skipped.
+    _skip_earlier_duplicate_levels(frappe.get_doc("EC Approval Request", request_name), from_level=resume)
     _activate_level(frappe.get_doc("EC Approval Request", request_name), resume)
     return {"esign": esign}
 
