@@ -1,0 +1,43 @@
+{#- /chat - Chat noi bo (PO chot A + C, 05/10/2026). Khung: vo shell ERP (menu trai + thanh tren tu
+    registry, chat/pages.py dung) + Raven trong iframe cung ten mien. Trang thai dau ve san o
+    server: khung nhung, hoac thong diep (tam tat / chua cai / chua co quyen). -#}
+{% extends base_template_path %}
+{% block title %}{{ title|e }} · eCentric{% endblock %}
+{% block navbar %}{% endblock %}
+{% block footer %}{% endblock %}
+{% block style %}{{ super() }}
+<link rel="stylesheet" href="{{ ecc_css }}">
+{% endblock %}
+{% block content %}
+<div class="ecc-app">
+  {{ ecc_shell_mount }}
+  <main class="ecc-main">
+    <div class="ec-shell-topbar" data-ec-shell-topbar="1">{{ ecc_topbar }}</div>
+    <div class="ecc-page">
+      <header class="ecc-head">
+        <div class="ecc-head-title">
+          <h1 class="ecc-h1">Chat nội bộ</h1>
+          <span class="ecc-eyebrow">Thay dần Teams · gọi/họp vẫn dùng Teams</span>
+        </div>
+        {% if chat_state == 'ok' %}
+        <a class="ecc-link" href="{{ chat_src|e }}" target="_top" rel="noopener">Mở toàn màn hình
+          <svg class="ecc-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6M21 3l-8 8M19 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/></svg></a>
+        {% endif %}
+      </header>
+      {% if chat_state == 'ok' %}
+      <div class="ecc-frame-box">
+        <iframe class="ecc-frame" src="{{ chat_src|e }}" title="Chat nội bộ (Raven)"
+                allow="clipboard-read; clipboard-write; microphone; camera; fullscreen"
+                referrerpolicy="same-origin"></iframe>
+      </div>
+      {% else %}
+      <section class="ecc-notice" role="status">
+        <svg class="ecc-notice-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5.4A8 8 0 1 1 21 12z"/></svg>
+        <p class="ecc-notice-text">{{ chat_message|e }}</p>
+        <a class="ecc-btn" href="/home">Về trang chủ</a>
+      </section>
+      {% endif %}
+    </div>
+  </main>
+</div>
+{% endblock %}

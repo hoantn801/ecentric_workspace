@@ -18,6 +18,8 @@ Security posture:
 """
 import frappe
 
+from ecentric_workspace.chat.gateway import chat_enabled
+
 from ecentric_workspace.shell import nav as shell_nav
 
 
@@ -71,6 +73,9 @@ def get_shell_boot():
             "full_name": info.get("full_name") or user,
             "image": info.get("user_image") or "",
         },
+        # Chat noi bo (05/10/2026): o Tin nhan tren thanh tren. CUNG ham server dung khi ve
+        # trang (server_nav / pages.shell) -> markup ec_shell.js ve lai trung lan ve dau.
+        "chat_enabled": chat_enabled(),
     }
 
 

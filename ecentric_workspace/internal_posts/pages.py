@@ -14,6 +14,8 @@ import os
 
 import frappe
 
+from ecentric_workspace.chat.gateway import chat_enabled  # o Tin nhan (05/10/2026)
+
 from ecentric_workspace.internal_posts import constants as C
 
 _APP = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -57,7 +59,7 @@ def shell(context, route, detail=""):
         pass
     detail_html = fb.make_detail(fb._esc(detail)) if detail else None
     try:
-        topbar = fb.render_topbar_inner(C.ROUTE, detail_html)
+        topbar = fb.render_topbar_inner(C.ROUTE, detail_html, chat=chat_enabled())
     except Exception:
         topbar = ""
     context.ip_shell_mount = mount

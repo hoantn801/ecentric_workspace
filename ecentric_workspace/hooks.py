@@ -874,3 +874,12 @@ website_route_rules = list(globals().get("website_route_rules") or []) + [
 # --------------------------------------------------------------------------- #
 scheduler_events["cron"].setdefault("15 6 * * *", []).append(
     "ecentric_workspace.approval_center.features.outside_work.application.attendance.run_daily")
+
+
+# --------------------------------------------------------------------------- #
+# 05/10/2026 - Chat noi bo (Raven, PO chot A + C). O Tin nhan tren thanh tren do shell ve
+# (fallback.render_chat_slot, server_nav luc render); ec_chat.js lo huy hieu + khay tha xuong,
+# no-op khi trang khong co o. Trang A: www/chat. Tat: site_config ec_chat_disabled. Xem chat/.
+# --------------------------------------------------------------------------- #
+web_include_js.append("ec_chat.bundle.js")
+web_include_css.append("ec_chat.bundle.css")

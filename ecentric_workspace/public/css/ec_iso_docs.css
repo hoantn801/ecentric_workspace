@@ -275,3 +275,19 @@
   .eti-step-ed > label:first-child input{max-width:72px}
   .eti-step-ed .eti-se-tools{grid-column:2;grid-row:1 / 3;flex-direction:column}
 }
+
+/* ---------- thu vien: loc loai + the chia theo phong (PO 06/10) ---------- */
+.eti-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.eti-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border:1px solid var(--eti-line);border-radius:999px;font-size:12.5px;color:var(--eti-ink2);background:var(--eti-surface)}
+.eti-chip b{font-weight:600;color:var(--eti-faint)}
+.eti-chip:hover{border-color:var(--eti-navy-100);background:var(--eti-soft)}
+.eti-chip.is-on{background:var(--eti-navy);border-color:var(--eti-navy);color:#fff}
+.eti-chip.is-on b{color:#dfe3f7}
+.eti-dl.is-empty{opacity:.55}
+.eti-sec-h{font-size:14px;font-weight:700;color:var(--eti-ink);margin:2px 0 10px;display:flex;gap:8px;align-items:baseline}
+.eti-dept-docs .eti-dgroup + .eti-dgroup{margin-top:18px;padding-top:16px;border-top:1px solid var(--eti-line2)}
+.eti-tile-top{display:flex;gap:6px;flex-wrap:wrap;min-height:0}
+.eti-tile-top:empty{display:none}
+.eti-dept-docs .eti-tiles{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+.eti-dept-docs .eti-tile-use{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+@media (min-width:900px){.eti-dept .eti-dept-list{position:sticky;top:12px;align-self:start}}

@@ -92,7 +92,9 @@ class TestRouteToContext(unittest.TestCase):
         # owned by the `surveys` context.
         # +1 (04/10/2026, PO Hoan duyet mockup v2): "Bảng tin" /bang-tin trong nhom Workspace.
         # +1 (05/10/2026, PO Hoan): "Thư viện tài liệu" /tai-lieu (iso_docs) trong nhom Tai nguyen.
-        self.assertEqual(len(home), 22)
+        # +1 (05/10/2026, PO Hoan chot A + C): "Chat nội bộ" /chat (chat/) trong nhom Workspace.
+        self.assertEqual(len(home), 23)
+        self.assertEqual(labels_route_of(home, "Chat nội bộ"), "/chat")
         self.assertEqual(labels_route_of(home, "Thư viện tài liệu"), "/tai-lieu")
         self.assertEqual(labels_route_of(home, "Bảng tin"), "/bang-tin")
         self.assertEqual(labels_route_of(home, "Tin nội bộ"), "/tin-noi-bo")
