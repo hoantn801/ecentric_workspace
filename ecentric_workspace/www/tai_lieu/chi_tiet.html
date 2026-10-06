@@ -1,0 +1,128 @@
+{%- extends "templates/includes/iso_docs/layout.html" -%}
+{%- from "templates/includes/iso_docs/macros.html" import icon, ext -%}
+{#- /tai-lieu/<ma> - mot tai lieu (mockup D). So do la view chinh: to, phong to / thu nho, chon vai tro
+    thi to sang cac buoc cua vai tro do. Nguon mermaid nam trong <pre hidden> (escape), JS doc textContent. -#}
+{% block eti_page %}
+{% set f = d.flow %}
+<nav class="eti-crumb" aria-label="Đường dẫn">
+  <a href="/tai-lieu">Thư viện</a> /
+  <a href="/tai-lieu?xem=phong-ban&amp;phong={{ d.dept_name|urlencode }}">{{ d.dept|e }}</a> /
+  <span>{{ d.code|e }}</span>
+</nav>
+
+<section class="eti-card eti-sec" aria-labelledby="eti-title">
+  <div class="eti-head eti-head-tight">
+    <div>
+      <h1 class="eti-h1" id="eti-title">{{ d.name|e }}</h1>
+      <p class="eti-sub">{{ d.code|e }} · {{ d.type|e }} · bản {{ d.version|e }} · hiệu lực từ {{ d.since|e }}{% if d.until %} đến {{ d.until|e }}{% endif %} · phụ trách: {{ d.dept|e }}</p>
+    </div>
+    {% if f.form_erp and not d.is_old %}<a class="eti-btn eti-btn-pri" href="{{ f.form_erp|e }}">Mở biểu mẫu trên ERP</a>{% endif %}
+  </div>
+  {% if d.is_old %}
+  <div class="eti-banner eti-banner-off">{{ icon('warn') }}<span>Đây là bản {{ d.version|e }} đã {{ d.status|lower|e }}. {% if d.current_version %}<a class="eti-link" href="/tai-lieu/{{ d.code|urlencode }}">Xem bản đang hiệu lực ({{ d.current_version|e }})</a>{% endif %}</span></div>
+  {% elif d.drafting %}
+  <div class="eti-banner">{{ icon('warn') }}<span>Bản mới đang được soạn. Bản {{ d.version|e }} vẫn áp dụng tới khi bản mới ban hành.</span></div>
+  {% elif d.legacy %}
+  <div class="eti-banner eti-banner-off">{{ icon('warn') }}<span>Bản cũ chuyển từ SharePoint, Ban ISO sẽ soạn lại. Vẫn áp dụng tới khi có bản mới; chỗ nào nhắc Teams, SharePoint thì làm theo cách hiện tại trên ERP.</span></div>
+  {% endif %}
+  {% if f.facts %}
+  <dl class="eti-facts">
+    {% for lbl, txt in f.facts %}<div class="eti-fact"><dt>{{ lbl|e }}</dt><dd>{{ txt|e }}</dd></div>{% endfor %}
+  </dl>
+  {% endif %}
+</section>
+
+{% if d.mermaid %}
+<section class="eti-card eti-sec eti-flowcard" aria-labelledby="eti-flow-h" data-eti-flow data-roles="{{ roles_json|e }}" data-code="{{ d.code|e }}">
+  <div class="eti-row-sb">
+    <h2 class="eti-h2" id="eti-flow-h">Sơ đồ quy trình</h2>
+    <div class="eti-zoom">
+    <div class="eti-seg" role="group" aria-label="Hướng sơ đồ">
+      <button class="eti-btn eti-btn-sm" type="button" data-dir="TD" aria-pressed="false">Dọc</button>
+      <button class="eti-btn eti-btn-sm" type="button" data-dir="LR" aria-pressed="false">Ngang</button>
+    </div>
+    <div class="eti-zoom" role="group" aria-label="Phóng to, thu nhỏ sơ đồ">
+      <button class="eti-btn eti-btn-sm" type="button" data-z="-1" aria-label="Thu nhỏ">−</button>
+      <button class="eti-btn eti-btn-sm" type="button" data-z="0">Vừa khung</button>
+      <button class="eti-btn eti-btn-sm" type="button" data-z="1" aria-label="Phóng to">+</button>
+    </div>
+    </div>
+  </div>
+  {% if f.roles %}
+  <div class="eti-rolebar">
+    <span class="eti-lbl" id="eti-roles-l">Bạn là</span>
+    <div class="eti-chips" role="group" aria-labelledby="eti-roles-l">
+      <button class="eti-chip is-on" type="button" data-r="" aria-pressed="true">Tất cả</button>
+      {% for r in f.roles %}<button class="eti-chip" type="button" data-r="{{ r.ma|e }}" aria-pressed="false">{{ r.ten|e }}</button>{% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  {% if d.legacy %}<p class="eti-mut">Sơ đồ dựng tự động từ bảng diễn giải của bản cũ, đi theo thứ tự các bước, chưa thể hiện nhánh rẽ. Xem thêm phần diễn giải và toàn văn.</p>{% endif %}
+  <div class="eti-flowbox" id="eti-flow" aria-label="Sơ đồ {{ d.name|e }}"><p class="eti-mut" id="eti-flow-msg">Đang vẽ sơ đồ…</p></div>
+  <pre id="eti-src" hidden>{{ d.mermaid|e }}</pre>
+  <div class="eti-mine" id="eti-mine" hidden>
+    <h3 class="eti-lbl" id="eti-mine-t"></h3>
+    <ol class="eti-mine-list" id="eti-mine-list"></ol>
+  </div>
+</section>
+{% endif %}
+
+{% if f.steps %}
+<section class="eti-card eti-sec" aria-labelledby="eti-steps-h">
+  <details class="eti-steps"{% if not d.mermaid %} open{% endif %}>
+    <summary><h2 class="eti-h2" id="eti-steps-h">Diễn giải từng bước</h2><span class="eti-mut">{{ f.steps|length }} bước</span></summary>
+    <div class="eti-tbl-wrap">
+      <table class="eti-tbl">
+        <thead><tr><th scope="col">Bước</th><th scope="col">Việc</th><th scope="col">Chịu trách nhiệm</th><th scope="col">Diễn giải</th></tr></thead>
+        <tbody>
+        {% for b in f.steps %}
+        <tr id="buoc-{{ b.id|e }}"><td class="eti-code">{{ b.stt|e }}</td><td>{{ b.ten|e }}</td><td>{{ b.who|e }}</td><td class="eti-pre">{{ b.dien_giai|e }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </details>
+</section>
+{% endif %}
+
+<div class="eti-grid2">
+  <section class="eti-card eti-sec" aria-labelledby="eti-files-h">
+    <h2 class="eti-h2" id="eti-files-h">Biểu mẫu và toàn văn</h2>
+    <ul class="eti-files">
+      {% for m in f.forms %}{% if m.url %}
+      <li class="eti-file">{{ ext(m.url) }}<span class="eti-grow">{{ m.ten|e }}{% if m.ma %} <span class="eti-mut">{{ m.ma|e }}</span>{% endif %}</span><a class="eti-btn eti-btn-sm" href="{{ m.url|e }}" download>Tải</a></li>
+      {% endif %}{% endfor %}
+      {% for c in d.children %}
+      <li class="eti-file"><span class="eti-ext eti-ext-w">BM</span><span class="eti-grow">{{ c.name|e }} <span class="eti-mut">{{ c.code|e }}</span></span><a class="eti-btn eti-btn-sm" href="/tai-lieu/{{ c.code|urlencode }}">Xem</a></li>
+      {% endfor %}
+      {% if d.pdf %}<li class="eti-file">{{ ext(d.pdf) }}<span class="eti-grow">Toàn văn {{ d.code|e }} bản {{ d.version|e }}</span><a class="eti-btn eti-btn-sm" href="{{ d.pdf|e }}" target="_blank" rel="noopener">Xem</a></li>{% endif %}
+      {% if d.docx %}<li class="eti-file">{{ ext(d.docx) }}<span class="eti-grow">Bản Word {{ d.code|e }} bản {{ d.version|e }}</span><a class="eti-btn eti-btn-sm" href="{{ d.docx|e }}" download>Tải</a></li>{% endif %}
+    </ul>
+    {% if not (d.pdf or d.docx or d.children or (f.forms|selectattr('url')|list)) %}<p class="eti-empty">Tài liệu này chưa có tệp đính kèm.</p>{% endif %}
+  </section>
+
+  <section class="eti-card eti-sec" aria-labelledby="eti-hist-h">
+    <h2 class="eti-h2" id="eti-hist-h">Các phiên bản</h2>
+    <ul class="eti-hist">
+      {% for h in d.history %}
+      <li class="eti-hrow{% if h.status != 'Hiệu lực' %} is-off{% endif %}{% if h.on %} is-on{% endif %}">
+        <span class="eti-vn">{{ h.version|e }}</span>
+        <span class="eti-grow"><span class="eti-mut">{{ h.since|e }}{% if h.until %} – {{ h.until|e }}{% endif %}{% if h.approver %} · duyệt: {{ h.approver|e }}{% endif %}</span>{% if h.summary %}<br>{{ h.summary|e }}{% endif %}</span>
+        {% if h.status == 'Hiệu lực' %}<span class="eti-pill eti-p-ok">Hiệu lực</span>{% else %}<span class="eti-pill eti-p-off">{{ h.status|e }}</span>{% endif %}
+        {% if not h.on %}<a class="eti-link" href="/tai-lieu/{{ d.code|urlencode }}{% if h.status != 'Hiệu lực' %}?ban={{ h.version|urlencode }}{% endif %}">Xem</a>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+</div>
+
+{% if f.faq %}
+<section class="eti-card eti-sec" aria-labelledby="eti-faq-h">
+  <h2 class="eti-h2" id="eti-faq-h">Câu hỏi thường gặp</h2>
+  {% for x in f.faq %}{% if x.hoi %}
+  <details class="eti-faq"><summary>{{ x.hoi|e }}</summary><p class="eti-pre">{{ x.dap|e }}</p></details>
+  {% endif %}{% endfor %}
+</section>
+{% endif %}
+{% endblock %}
+{% block eti_script %}{% if d.mermaid %}<script src="{{ mermaid_js }}" defer></script>{% endif %}{% endblock %}

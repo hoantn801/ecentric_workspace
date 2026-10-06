@@ -1,0 +1,159 @@
+{%- extends "templates/includes/iso_docs/layout.html" -%}
+{%- from "templates/includes/iso_docs/macros.html" import icon, pill -%}
+{#- /tai-lieu/soan - soan / sua ban nhap ngay tren ERP (PO 05/10). Bang cac buoc do JS ve tu boot JSON
+    (mot duong code); luu = POST iso_docs.api.save_draft roi tai lai trang. -#}
+{% block eti_page %}
+{% set d = doc %}
+<nav class="eti-crumb" aria-label="Đường dẫn"><a href="/tai-lieu/quan-ly">Danh mục tài liệu</a> / <span>{% if mode == 'new' %}Tài liệu mới{% else %}{{ code|e }}{% endif %}</span></nav>
+<header class="eti-head">
+  <div>
+    <h1 class="eti-h1">{% if mode == 'new' %}Soạn tài liệu mới{% else %}{{ d.quality_procedure_name|e }}{% endif %}</h1>
+    <p class="eti-sub">{% if mode == 'new' %}Tạo bản nháp. Chưa ai đọc được cho tới khi duyệt xong và ban hành.{% else %}{{ code|e }} · {{ state|e }}{% if current_version %} · bản đang hiệu lực {{ current_version|e }}{% endif %}{% endif %}</p>
+  </div>
+  <div class="eti-head-act">{% if page %}<a class="eti-btn" href="{{ page|e }}">Trang tài liệu</a>{% endif %}</div>
+</header>
+{% if reason %}<div class="eti-banner">{{ icon('warn') }}<span>{{ reason|e }}</span></div>{% endif %}
+
+<div class="eti-editor">
+  <form class="eti-ed-main" id="eti-ed" data-mode="{{ mode|e }}" data-code="{{ code|e }}" novalidate>
+    <fieldset class="eti-fs"{% if not editable %} disabled{% endif %}>
+    <section class="eti-card eti-sec" aria-labelledby="ed-h1">
+      <h2 class="eti-h2" id="ed-h1">Thông tin chung</h2>
+      <div class="eti-fgrid">
+        <div class="eti-f">
+          <label class="eti-lbl" for="f-code">Mã tài liệu <span class="eti-req">*</span></label>
+          {% if mode == 'new' %}<input id="f-code" name="code" type="text" maxlength="20" required placeholder="QT-TCKT-06" autocomplete="off">
+          <span class="eti-mut">Dạng &lt;Loại&gt;-&lt;Phòng&gt;-&lt;STT&gt;. Mã không đổi được sau khi tạo.</span>
+          {% else %}<input id="f-code" type="text" value="{{ code|e }}" disabled>{% endif %}
+        </div>
+        <div class="eti-f eti-f-2">
+          <label class="eti-lbl" for="f-name">Tên tài liệu <span class="eti-req">*</span></label>
+          <input id="f-name" name="quality_procedure_name" type="text" maxlength="140" required value="{{ (d.quality_procedure_name or '')|e }}">
+        </div>
+        <div class="eti-f">
+          <label class="eti-lbl" for="f-type">Loại</label>
+          <select id="f-type" name="ec_doc_type">{% for t in types %}<option{% if t == d.ec_doc_type %} selected{% endif %}>{{ t|e }}</option>{% endfor %}</select>
+        </div>
+        <div class="eti-f">
+          <label class="eti-lbl" for="f-dept">Phòng ban chủ trì</label>
+          <select id="f-dept" name="ec_department"><option value="">Chọn phòng ban</option>{% for x in departments %}<option value="{{ x|e }}"{% if x == d.ec_department %} selected{% endif %}>{{ x.replace(' - EC','')|e }}</option>{% endfor %}</select>
+        </div>
+        <div class="eti-f">
+          <label class="eti-lbl" for="f-rv">Chu kỳ rà soát (tháng)</label>
+          <input id="f-rv" name="ec_review_months" type="number" min="1" max="60" value="{{ d.ec_review_months or 12 }}">
+        </div>
+      </div>
+    </section>
+
+    {% if mode == 'edit' and current_version %}
+    <section class="eti-card eti-sec" aria-labelledby="ed-h2">
+      <h2 class="eti-h2" id="ed-h2">Phiên bản đang soạn</h2>
+      <div class="eti-fgrid">
+        <div class="eti-f">
+          <span class="eti-lbl" id="f-kind-l">Kiểu sửa</span>
+          <div class="eti-radios" role="radiogroup" aria-labelledby="f-kind-l">
+            {% for k in kinds %}<label class="eti-radio"><input type="radio" name="ec_change_kind" value="{{ k|e }}"{% if k == (d.ec_change_kind or 'Lớn') %} checked{% endif %}> {{ k|e }}{% if k == 'Nhỏ' %} <span class="eti-mut">(Ban ISO ban hành luôn)</span>{% else %} <span class="eti-mut">(qua Tổng giám đốc)</span>{% endif %}</label>{% endfor %}
+          </div>
+        </div>
+        <div class="eti-f">
+          <label class="eti-lbl" for="f-ver">Số phiên bản</label>
+          <input id="f-ver" name="ec_draft_version" type="text" maxlength="7" placeholder="Để trống: tự tính" value="{{ (d.ec_draft_version or '')|e }}">
+        </div>
+        <div class="eti-f eti-f-2">
+          <label class="eti-lbl" for="f-sum">Tóm tắt thay đổi</label>
+          <textarea id="f-sum" name="ec_change_summary" rows="2" maxlength="1000">{{ (d.ec_change_summary or '')|e }}</textarea>
+        </div>
+        <div class="eti-f eti-f-2">
+          <label class="eti-lbl" for="f-sec">Mục thay đổi</label>
+          <input id="f-sec" name="ec_changed_sections" type="text" maxlength="500" placeholder="Ví dụ: 6.2 Lưu đồ, bước 5" value="{{ (d.ec_changed_sections or '')|e }}">
+        </div>
+      </div>
+    </section>
+    {% endif %}
+
+    <section class="eti-card eti-sec" aria-labelledby="ed-h3">
+      <h2 class="eti-h2" id="ed-h3">Tóm tắt cho nhân viên</h2>
+      <p class="eti-mut">Hiện ở đầu trang tài liệu. Viết ngắn, một hai câu mỗi ô.</p>
+      <div class="eti-fgrid">
+        {% for k, lbl in [('muc_dich','Mục đích'),('dung_khi','Dùng khi'),('chuan_bi','Bạn chuẩn bị'),('ket_qua','Kết quả')] %}
+        <div class="eti-f eti-f-2h"><label class="eti-lbl" for="f-{{ k }}">{{ lbl }}</label>
+          <textarea id="f-{{ k }}" name="tt_{{ k }}" rows="2" maxlength="400">{{ (tom_tat.get(k) or '')|e }}</textarea></div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="eti-card eti-sec" aria-labelledby="ed-h4">
+      <div class="eti-row-sb"><h2 class="eti-h2" id="ed-h4">Các bước</h2><span class="eti-mut">Sơ đồ trên trang tài liệu tự vẽ từ bảng này, theo thứ tự các dòng.</span></div>
+      <div class="eti-steps-ed" id="eti-steps-ed"></div>
+      <div class="eti-acts"><button class="eti-btn eti-btn-sm" type="button" data-step-add>+ Thêm bước</button></div>
+      <p class="eti-mut">"Thuộc phần" để trống nếu tài liệu chỉ có một quy trình. Có nhiều quy trình con thì ghi tên phần, sơ đồ chia khối theo phần.</p>
+    </section>
+
+    <section class="eti-card eti-sec" aria-labelledby="ed-h5">
+      <h2 class="eti-h2" id="ed-h5">Tệp</h2>
+      <div class="eti-fgrid">
+        <div class="eti-f eti-f-2h">
+          <label class="eti-lbl" for="f-pdf">Toàn văn PDF</label>
+          {% if files.pdf %}<a class="eti-link" href="{{ files.pdf|e }}" target="_blank" rel="noopener">Đang có: xem bản nháp PDF</a>{% endif %}
+          <input id="f-pdf" type="file" accept=".pdf,application/pdf">
+        </div>
+        <div class="eti-f eti-f-2h">
+          <label class="eti-lbl" for="f-docx">Bản Word</label>
+          {% if files.docx %}<a class="eti-link" href="{{ files.docx|e }}" download>Đang có: tải bản nháp Word</a>{% endif %}
+          <input id="f-docx" type="file" accept=".docx">
+        </div>
+        <div class="eti-f eti-f-2">
+          <span class="eti-lbl">Biểu mẫu</span>
+          <ul class="eti-files" id="eti-forms"></ul>
+          <label class="eti-lbl" for="f-forms">Thêm biểu mẫu (chọn nhiều tệp)</label>
+          <input id="f-forms" type="file" multiple accept=".docx,.doc,.xlsx,.xls,.pdf,.pptx">
+        </div>
+      </div>
+    </section>
+
+    <section class="eti-card eti-sec" aria-labelledby="ed-h6">
+      <h2 class="eti-h2" id="ed-h6">Phạm vi và thông báo</h2>
+      <label class="eti-check"><input type="checkbox" name="ec_company_wide" id="f-wide"{% if d.ec_company_wide %} checked{% endif %}> Áp dụng toàn công ty</label>
+      <div class="eti-scope" id="f-scope"{% if d.ec_company_wide %} hidden{% endif %}>
+        <span class="eti-lbl">Phòng ban được đọc (phòng cha gồm cả phòng con)</span>
+        <div class="eti-checks">{% for x in departments %}<label class="eti-check"><input type="checkbox" name="scope" value="{{ x|e }}"{% if x in scope %} checked{% endif %}> {{ x.replace(' - EC','')|e }}</label>{% endfor %}</div>
+      </div>
+      <label class="eti-check" id="f-notify-w"{% if not d.ec_company_wide %} hidden{% endif %}><input type="checkbox" name="ec_notify_home" id="f-notify"{% if d.ec_notify_home %} checked{% endif %}> Thông báo lên trang chủ khi ban hành (hiện 7 ngày)</label>
+      <div class="eti-f" id="f-nsum-w"{% if not d.ec_notify_home %} hidden{% endif %}>
+        <label class="eti-lbl" for="f-nsum">Tóm tắt cho thông báo</label>
+        <textarea id="f-nsum" name="ec_notify_summary" rows="2" maxlength="300">{{ (d.ec_notify_summary or '')|e }}</textarea>
+      </div>
+    </section>
+    </fieldset>
+    {% if editable %}
+    <div class="eti-ed-bar">
+      <div class="eti-imp-err" id="eti-ed-err" role="alert" hidden></div>
+      <button class="eti-btn eti-btn-pri" type="submit" id="eti-ed-save">{% if mode == 'new' %}Tạo bản nháp{% else %}Lưu nháp{% endif %}</button>
+    </div>
+    {% endif %}
+  </form>
+
+  {% if mode == 'edit' %}
+  <aside class="eti-ed-side">
+    {% if actions %}
+    <section class="eti-card eti-sec" aria-labelledby="ed-h7">
+      <h2 class="eti-h2" id="ed-h7">Chuyển bước</h2>
+      <p class="eti-mut">Lưu nháp trước khi gửi duyệt.</p>
+      <form class="eti-actbox" data-eti-act="{{ code|e }}">
+        <label class="eti-lbl" for="ed-note">Ý kiến (bắt buộc khi trả lại)</label>
+        <textarea id="ed-note" name="note" rows="2" maxlength="1000"></textarea>
+        <div class="eti-acts">{% for a in actions %}<button class="eti-btn eti-btn-sm{% if loop.first and not a.danger %} eti-btn-pri{% elif a.danger %} eti-btn-danger{% endif %}" type="submit" name="action" value="{{ a.action|e }}" title="Chuyển sang: {{ a.next|e }}">{{ a.action|e }}</button>{% endfor %}</div>
+      </form>
+    </section>
+    {% endif %}
+    <section class="eti-card eti-sec" aria-labelledby="ed-h8">
+      <h2 class="eti-h2" id="ed-h8">Lịch sử duyệt</h2>
+      {% if history %}
+      <ol class="eti-tl">{% for h in history %}<li><span class="eti-tl-t">{% if h.kind == 'Workflow' %}{{ pill('wait', h.text) }}{% else %}{{ h.text|e }}{% endif %}</span><span class="eti-mut">{{ h.who|e }} · {{ h.when|e }}</span></li>{% endfor %}</ol>
+      {% else %}<p class="eti-empty">Chưa có.</p>{% endif %}
+    </section>
+  </aside>
+  {% endif %}
+</div>
+<script type="application/json" id="eti-ed-boot">{{ boot_json|replace('<', '\\u003c') }}</script>
+{% endblock %}

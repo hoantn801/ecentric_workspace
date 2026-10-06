@@ -88,6 +88,13 @@ HOME_PORTAL_ITEMS = [
     # 28/09/2026 (Hoan): Tong quan thanh trang that /tong-quan - luoi the theo mang, the dau
     # tien la Nhan su (chi HR / CnB thay the; trang van mo cho moi nguoi noi bo, xem
     # hr/overview). Truoc do la /coming-soon?tool=tong-quan.
+    # 04/10/2026 (Hoan duyet mockup v2): Bang tin noi bo + Cau lac bo (/bang-tin, social/).
+    # "/bang-tin/*" cho trang CLB / mot bai / kiem duyet.
+    {"key": "home.portal.feed", "label": "Bảng tin", "route": "/bang-tin",
+     "icon": "activity", "group": "Workspace", "order": 12,
+     "active_patterns": ["/bang-tin", "/bang-tin/*"], "visible_when": "internal", "owner": "home_portal",
+     "keywords": ["bang tin", "mang xa hoi", "feed", "cau lac bo", "clb", "loi khen", "su kien",
+                  "chay bo", "bong da", "cau long"]},
     {"key": "home.portal.overview", "label": "Tổng quan", "route": "/tong-quan",
      "icon": "grid", "group": "Workspace", "order": 20, "active_patterns": ["/tong-quan"],
      "visible_when": "internal", "owner": "home_portal",
@@ -123,6 +130,11 @@ HOME_PORTAL_ITEMS = [
     {"key": "home.portal.pm", "label": "Công việc", "route": "/pm", "icon": "briefcase",
      "group": "Workspace", "order": 40, "active_patterns": ["/pm"],
      "visible_when": "internal", "owner": "home_portal", "alias": True},
+    # Khao sat noi bo (01/10/2026): route /khao-sat thuoc ngu canh `surveys`, day chi la alias.
+    {"key": "home.portal.surveys", "label": "Khảo sát", "route": "/khao-sat", "icon": "list",
+     "group": "Workspace", "order": 45, "active_patterns": ["/khao-sat"],
+     "visible_when": "internal", "owner": "home_portal", "alias": True,
+     "keywords": ["khao sat", "survey", "form"]},
     {"key": "home.portal.hall", "label": "eCentric Hall", "route": "/hall", "icon": "building",
      "group": "Workspace", "order": 50, "active_patterns": ["/hall"],
      "visible_when": "internal", "owner": "home_portal", "keywords": ["hall"]},
@@ -173,14 +185,30 @@ HOME_PORTAL_ITEMS = [
     # AI Tool: cong cu AI dung chung. `alias` vi route /ai-tool thuoc ve
     # ai_tools.hub o ngu canh `ai_tools`; thieu co nay thi ngu canh `home`
     # cung chap diem route va /ai-tool co the roi nham ve home.
-    {"key": "home.portal.ai_tools", "label": "AI Tool", "route": "/ai-tool",
+    {"key": "home.portal.ai_tools", "label": "SI Tool", "route": "/ai-tool",
      "icon": "gear", "group": "Tài nguyên", "order": 5,
      "active_patterns": ["/ai-tool"],
      "keywords": ["ai", "cong cu ai", "ai tool", "script", "livestream"],
      "visible_when": "internal", "owner": "home_portal", "alias": True},
-    {"key": "home.portal.intranet", "label": "Intranet", "route": "/coming-soon?tool=intranet",
-     "icon": "globe", "group": "Tài nguyên", "order": 10, "active_patterns": ["/coming-soon?tool=intranet"],
-     "visible_when": "internal", "owner": "home_portal", "discoverable": False, "soon": True},
+    # 01/10/2026 (Hoan chot): Tin noi bo (/tin-noi-bo, internal_posts/) THAY CHO muc "Intranet
+    # (sap ra mat)" - Intranet du dinh chinh la cho cong ty dang tin cho nhan vien (sau them phan
+    # dang bai kieu mang xa hoi noi bo cung o day). Muc that (khong phai alias) nen
+    # resolve_context() dua trang vao ngu canh portal; "/tin-noi-bo/*" cho trang bai / viet bai /
+    # quan ly. "/coming-soon?tool=intranet" (link cu) cung sang dung muc nay.
+    {"key": "home.portal.news", "label": "Tin nội bộ", "route": "/tin-noi-bo",
+     "icon": "globe", "group": "Tài nguyên", "order": 10,
+     "active_patterns": ["/tin-noi-bo", "/tin-noi-bo/*"], "visible_when": "internal",
+     "owner": "home_portal",
+     "keywords": ["tin noi bo", "intranet", "thong bao", "tin tuc", "news", "bai viet",
+                  "chinh sach moi", "huong dan", "tool moi", "module moi"]},
+    # 05/10/2026 (Hoan chot): Thu vien tai lieu ISO (/tai-lieu, iso_docs/). "/tai-lieu/*" cho trang
+    # mot tai lieu va danh muc quan ly (/tai-lieu/quan-ly). Muc that, ngu canh portal.
+    {"key": "home.portal.iso_docs", "label": "Thư viện tài liệu", "route": "/tai-lieu",
+     "icon": "doc", "group": "Tài nguyên", "order": 15,
+     "active_patterns": ["/tai-lieu", "/tai-lieu/*"], "visible_when": "internal",
+     "owner": "home_portal",
+     "keywords": ["tai lieu", "iso", "quy trinh", "quy dinh", "chinh sach", "huong dan", "bieu mau",
+                  "quy che", "so tay chat luong", "thu vien"]},
     {"key": "home.portal.training", "label": "Đào tạo", "route": "/coming-soon?tool=dao-tao",
      "icon": "book", "group": "Tài nguyên", "order": 20, "active_patterns": ["/coming-soon?tool=dao-tao"],
      "visible_when": "internal", "owner": "home_portal", "discoverable": False, "soon": True},
@@ -199,9 +227,13 @@ HOME_PORTAL_ITEMS = [
      "active_patterns": ["/ec-app/hr/recruitment", "/ec-app/hr/opening"],
      "visible_when": "internal", "owner": "home_portal",
      "keywords": ["tuyen dung", "recruitment", "hiring", "tin tuyen dung", "ung vien"]},
-    {"key": "home.portal.feedback", "label": "Góp ý BGD", "route": "/coming-soon?tool=gop-y",
-     "icon": "message", "group": "Tài nguyên", "order": 40, "active_patterns": ["/coming-soon?tool=gop-y"],
-     "visible_when": "internal", "owner": "home_portal", "discoverable": False, "soon": True},
+    # 04/10/2026 (Hoan chot): Gop y cong ty (/gop-y, feedback/) THAY CHO "Gop y BGD (sap ra mat)".
+    # "/gop-y/*" cho trang mot gop y / hop xu ly / tong quan.
+    {"key": "home.portal.feedback", "label": "Góp ý công ty", "route": "/gop-y",
+     "icon": "message", "group": "Tài nguyên", "order": 40, "active_patterns": ["/gop-y", "/gop-y/*"],
+     "visible_when": "internal", "owner": "home_portal",
+     "keywords": ["gop y", "gop y bgd", "de xuat", "phan anh", "y kien", "feedback", "ban giam doc",
+                  "an danh"]},
 ]
 
 
@@ -217,6 +249,7 @@ def _providers():
     from ecentric_workspace.pm import nav as pm_nav
     from ecentric_workspace.guides import nav as guides_nav
     from ecentric_workspace.ai_tools import nav as ai_tools_nav
+    from ecentric_workspace.surveys import nav as surveys_nav
     return [
         ("core", lambda: list(CORE_ITEMS)),
         ("approval_center", approval_nav.items),
@@ -235,6 +268,8 @@ def _providers():
         ("guides", guides_nav.items),
         # AI Tool: mot muc cha (/ai-tool) + children la tung cong cu.
         ("ai_tools", ai_tools_nav.items),
+        # Khao sat noi bo: hub cho moi nguoi + trang quan ly cho nguoi tao.
+        ("surveys", surveys_nav.items),
         ("home_portal", lambda: list(HOME_PORTAL_ITEMS)),
     ]
 
@@ -284,8 +319,13 @@ CONTEXTS = {
     },
     "ai_tools": {
         "providers": ["core", "ai_tools"],
-        "entry": {"key": "ctx.ai_tools", "label": "AI Tool",
+        "entry": {"key": "ctx.ai_tools", "label": "SI Tool",
                   "route": "/ai-tool", "icon": "grid"},
+    },
+    "surveys": {
+        "providers": ["core", "surveys"],
+        "entry": {"key": "ctx.surveys", "label": "Khảo sát",
+                  "route": "/khao-sat", "icon": "list"},
     },
     "pnl": {
         "providers": ["core", "reporting_pnl"],
@@ -296,7 +336,7 @@ CONTEXTS = {
 #: order in which specialized contexts are probed for route resolution and in
 #: which launcher entries render.
 CONTEXT_ORDER = ["approval_document", "hr", "alert_center", "reporting", "pnl", "pm",
-                 "ai_tools"]
+                 "ai_tools", "surveys"]
 #: `pnl` dung TRUOC `reporting`? Khong can: /pnl-dashboard khong khop mau nao
 #: cua reporting (/reports, /reports/*), nen hai ngu canh khong tranh nhau.
 DEFAULT_CONTEXT = "approval_document"

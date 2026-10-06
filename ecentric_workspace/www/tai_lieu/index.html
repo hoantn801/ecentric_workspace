@@ -1,0 +1,83 @@
+{%- extends "templates/includes/iso_docs/layout.html" -%}
+{%- from "templates/includes/iso_docs/macros.html" import icon, doc_row -%}
+{#- /tai-lieu - thu vien cho nhan vien (mockup D). Server ve san; doi cach xem / phong = tai trang (GET). -#}
+{% block eti_page %}
+<header class="eti-head">
+  <div>
+    <h1 class="eti-h1">Thư viện tài liệu</h1>
+    <p class="eti-sub">{{ total }} tài liệu đang hiệu lực mà bạn được xem.</p>
+  </div>
+  {% if can_manage %}<a class="eti-btn" href="/tai-lieu/quan-ly">Danh mục quản lý</a>{% endif %}
+</header>
+
+<section class="eti-card eti-hero" aria-label="Tìm và duyệt tài liệu">
+  <form class="eti-ask" method="get" action="/tai-lieu" role="search">
+    <label class="eti-sr" for="eti-q">Tìm tài liệu</label>
+    {{ icon('search') }}
+    <input id="eti-q" type="search" name="q" value="{{ q|e }}" placeholder="Bạn cần làm gì? Ví dụ: tạm ứng, nghỉ phép, mua hàng" autocomplete="off">
+    <input type="hidden" name="xem" value="{{ view|e }}">
+    <button class="eti-btn eti-btn-sm" type="submit">Tìm</button>
+  </form>
+
+  {% if results is not none %}
+    <div class="eti-row-sb">
+      <h2 class="eti-h2">{{ results|length }} kết quả cho “{{ q|e }}”</h2>
+      <a class="eti-link" href="/tai-lieu?xem={{ view|e }}">Xoá tìm kiếm</a>
+    </div>
+    {% if results %}
+    <ul class="eti-dlist">{% for c in results %}
+      <li class="eti-drow eti-drow-wide">
+        <span class="eti-code">{{ c.code|e }}</span>
+        <span class="eti-dmain"><a class="eti-dname" href="/tai-lieu/{{ c.code|urlencode }}">{{ c.name|e }}</a>
+          <span class="eti-mut">{{ c.type|e }} · {{ c.dept|e }}{% if c.use %} · Dùng khi: {{ c.use|e }}{% endif %}</span></span>
+        <span class="eti-ver">{{ c.version|e }}</span>
+      </li>{% endfor %}
+    </ul>
+    {% else %}
+    <p class="eti-empty">Không có tài liệu nào khớp. Thử từ khác ngắn hơn, hoặc xem theo phòng ban.</p>
+    {% endif %}
+  {% else %}
+    <nav class="eti-tabs" aria-label="Cách xem thư viện">
+      <a class="eti-tab{% if view == 'viec' %} is-on{% endif %}" href="/tai-lieu?xem=viec"{% if view == 'viec' %} aria-current="page"{% endif %}>Theo việc cần làm</a>
+      <a class="eti-tab{% if view == 'phong-ban' %} is-on{% endif %}" href="/tai-lieu?xem=phong-ban"{% if view == 'phong-ban' %} aria-current="page"{% endif %}>Theo phòng ban</a>
+      <a class="eti-tab{% if view == 'he-thong' %} is-on{% endif %}" href="/tai-lieu?xem=he-thong"{% if view == 'he-thong' %} aria-current="page"{% endif %}>Hệ thống ISO</a>
+    </nav>
+
+    {% if not total %}
+      <p class="eti-empty">Chưa có tài liệu nào được ban hành trên ERP. Ban ISO đang đưa các quy trình lên dần.</p>
+    {% elif view == 'phong-ban' %}
+      <div class="eti-dept">
+        <nav class="eti-dept-list" aria-label="Phòng ban">
+          {% for d in depts %}
+          <a class="eti-dl{% if d.name == dept %} is-on{% endif %}" href="/tai-lieu?xem=phong-ban&amp;phong={{ d.name|urlencode }}"{% if d.name == dept %} aria-current="true"{% endif %}><span>{{ d.label|e }}</span><b>{{ d.count }}</b></a>
+          {% endfor %}
+        </nav>
+        <div class="eti-dept-docs">
+          {% for label, rows in groups %}
+          <section class="eti-dgroup" aria-label="{{ label|e }}">
+            <h3 class="eti-eb">{{ label|e }}</h3>
+            <ul class="eti-dlist">{% for c in rows %}{{ doc_row(c) }}{% endfor %}</ul>
+          </section>
+          {% endfor %}
+        </div>
+      </div>
+    {% elif view == 'viec' %}
+      {% if tasks %}
+      <ul class="eti-tiles">
+        {% for c in tasks %}
+        <li><a class="eti-tile" href="/tai-lieu/{{ c.code|urlencode }}"><b>{{ c.name|e }}</b><span class="eti-tile-use">{{ c.use|e }}</span><span class="eti-mut">{{ c.code|e }} · {{ c.dept|e }}</span></a></li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="eti-empty">Các quy trình chưa có phần “Dùng khi”. Xem theo phòng ban để tìm tài liệu.</p>
+      {% endif %}
+    {% else %}
+      {% if system %}
+      <ul class="eti-dlist">{% for c in system %}{{ doc_row(c) }}{% endfor %}</ul>
+      {% else %}
+      <p class="eti-empty">Chưa có tài liệu hệ thống ISO nào được ban hành.</p>
+      {% endif %}
+    {% endif %}
+  {% endif %}
+</section>
+{% endblock %}

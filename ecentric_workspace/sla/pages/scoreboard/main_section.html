@@ -101,6 +101,23 @@
     display:inline-flex; align-items:center; gap:8px; }
   #ec-sla-root .sla-tab:hover{ color:var(--gray-800); }
   #ec-sla-root .sla-tab[aria-selected="true"]{ color:var(--navy); border-bottom-color:var(--navy); }
+  /* O chon ky. Khong co no thi sang ngay 1 moi thang, moi nguoi mat sach so
+     lieu thang truoc - dung luc can doi chieu nhat. Dat trong hang tab de no
+     nam cung mot tam mat voi thu no dieu khien. */
+  #ec-sla-root .sla-period{ margin-left:auto; align-self:center; flex:0 0 auto;
+    display:flex; align-items:center; gap:8px; padding-bottom:6px; }
+  #ec-sla-root .sla-period-lb{ font-size:12px; color:var(--gray-500); white-space:nowrap; }
+  #ec-sla-root .sla-period-wrap{ position:relative; display:inline-flex; }
+  #ec-sla-root .sla-period-sel{ appearance:none; -webkit-appearance:none; font:inherit;
+    font-size:13px; font-weight:600; line-height:1.2; color:var(--gray-800);
+    background:var(--surface); border:1px solid var(--hair); border-radius:8px;
+    padding:6px 30px 6px 10px; cursor:pointer; }
+  #ec-sla-root .sla-period-sel:hover{ border-color:var(--gray-300); }
+  #ec-sla-root .sla-period-sel:focus-visible{ outline:2px solid var(--navy); outline-offset:2px; }
+  /* Mui ten VE chu khong phai ky tu Unicode - de no an theo mau chu va net
+     giong moi icon khac trong trang. */
+  #ec-sla-root .sla-period-ic{ position:absolute; right:9px; top:50%; width:14px;
+    height:14px; margin-top:-7px; color:var(--gray-500); pointer-events:none; }
   #ec-sla-root .sla-panel[hidden]{ display:none; }
 
   /* ---------------------------------------------------------------- card -- */
@@ -579,6 +596,7 @@
         <button type="button" class="sla-tab" role="tab" id="sla-tab-dept" aria-controls="sla-panel-dept" aria-selected="false" data-tab="dept"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9.2" cy="8" r="3.3"/><path d="M2.8 19.5a6.4 6.4 0 0 1 12.8 0"/><path d="M16.2 5.3a3.2 3.2 0 0 1 0 5.4"/><path d="M17.6 14.1a6.4 6.4 0 0 1 3.6 5.4"/></svg>Phòng ban</button>
         <button type="button" class="sla-tab" role="tab" id="sla-tab-steps" aria-controls="sla-panel-steps" aria-selected="false" data-tab="steps"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13h4l1.3 2.4h6.4L16.5 13h4"/><path d="M5.6 4.6h12.8l2.1 8.4V18a1.6 1.6 0 0 1-1.6 1.6H5.1A1.6 1.6 0 0 1 3.5 18v-5Z"/></svg>Quy trình duyệt</button>
         <button type="button" class="sla-tab" role="tab" id="sla-tab-rules" aria-controls="sla-panel-rules" aria-selected="false" data-tab="rules"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></svg>Cách tính SLA</button>
+        <label class="sla-period" for="sla-period-sel"><span class="sla-period-lb">Kỳ</span><span class="sla-period-wrap"><select class="sla-period-sel" id="sla-period-sel"><option value="">Đang tải…</option></select><svg class="sla-period-ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg></span></label>
       </div>
 
       <section class="sla-panel" id="sla-panel-me" role="tabpanel" aria-labelledby="sla-tab-me">
@@ -611,7 +629,7 @@
   //: Nguong mau so cua TONG. Lay tu backend qua `scope`; so o day chi la duong
   //: lui khi endpoint do hong - khong duoc de no thanh nguon su that thu hai.
   var OVERALL_MIN_FALLBACK = 10;
-  var S = { scope: null, period: null, overallMin: OVERALL_MIN_FALLBACK, loaded: {} };
+  var S = { scope: null, period: null, periods: [], overallMin: OVERALL_MIN_FALLBACK, loaded: {} };
 
   // ---------------------------------------------------------------- utils --
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){
@@ -1086,8 +1104,8 @@
     // `only_failed: 0` vi khoi "Dang cho ban" can ca nhung dong CON HAN; loc
     // trang thai lam o duoi, khong tinh toan gi.
     return Promise.all([
-      call('my_board', {}),
-      call('person_items', { only_failed: 0 }).catch(function(e){ return { _err: e.message, length: 0 }; }),
+      call('my_board', { period: S.period }),
+      call('person_items', { period: S.period, only_failed: 0 }).catch(function(e){ return { _err: e.message, length: 0 }; }),
       loadDates()
     ]).then(function(res){ renderMe(res[0], res[1] || [], res[2]); });
   }
@@ -1219,7 +1237,7 @@
 
   function loadDept(){
     state('dept', 'Đang tải…');
-    return call('department_board', {}).then(renderDept);
+    return call('department_board', { period: S.period }).then(renderDept);
   }
 
   // ------------------------------------------------------------- ngăn kéo --
@@ -1253,7 +1271,7 @@
     var x = $('sla-dr-x');
     if (x) x.focus();
 
-    Promise.all([ call('person_board', { user: user }), loadDates() ]).then(function(r){
+    Promise.all([ call('person_board', { user: user, period: S.period }), loadDates() ]).then(function(r){
       var b = r[0], dates = r[1];
       (b.groups || []).forEach(function(g){ _labels[g.group_key] = g.label; });
       var o = b.overall;
@@ -1648,6 +1666,48 @@
     });
   }
 
+  // ------------------------------------------------------------ chon ky --
+
+  /**
+   * Ve lai o chon ky.
+   *
+   * Thang hien tai duoc danh dau "dang dien ra". Khong co nhan do thi mot nguoi
+   * chup man hinh thang truoc va mot nguoi chup thang nay se cai nhau ve mot
+   * con so, ma ca hai deu dung: mot con so da chot, mot con so con chay. Nhan
+   * nay dat o DUNG cho nguoi ta quyet dinh, chu khong phai mot dong ghi chu o
+   * cuoi trang khong ai doc.
+   */
+  function renderPeriodSel(){
+    var sel = $('sla-period-sel');
+    if (!sel) return;
+    var list = S.periods && S.periods.length ? S.periods : (S.period ? [S.period] : []);
+    if (!list.length){ sel.parentNode.parentNode.hidden = true; return; }
+    sel.parentNode.parentNode.hidden = false;
+    sel.innerHTML = list.map(function(p){
+      var lb = periodLabel(p);
+      return '<option value="' + esc(p) + '"' + (p === S.period ? ' selected' : '') + '>'
+        + esc(lb.charAt(0).toUpperCase() + lb.slice(1))
+        + (p === S.periods[0] ? ' (đang diễn ra)' : '') + '</option>';
+    }).join('');
+  }
+
+  /**
+   * Doi ky: xoa co nap cua nhung tab PHU THUOC ky roi nap lai tab dang xem.
+   *
+   * "Quy trinh duyet" khong phu thuoc ky (no la cau hinh, khong phai so lieu)
+   * nen giu nguyen - nap lai no chi la mot vong goi mang thua. "Cach tinh SLA"
+   * thi CO phu thuoc: doan giai thich thang 9 chi dung cho thang 9.
+   */
+  function setPeriod(p){
+    if (!p || p === S.period) return;
+    S.period = p;
+    S.loaded.me = false;
+    S.loaded.dept = false;
+    S.loaded.rules = false;
+    renderPeriodSel();
+    runLoader(S.tab || 'me');
+  }
+
   function selectTab(name){
     if (!LOADERS[name]) name = 'me';
     S.tab = name;
@@ -1662,6 +1722,10 @@
 
   function bindEvents(){
     var root = document.getElementById('ec-sla-root');
+    root.addEventListener('change', function(ev){
+      var t = ev.target;
+      if (t && t.id === 'sla-period-sel') setPeriod(t.value);
+    });
     root.addEventListener('click', function(ev){
       var t = ev.target;
       if (!t || !t.closest) return;
@@ -1747,6 +1811,11 @@
       S.scope = s.scope;
       S.period = s.period;
       if (s.overall_min_sample) S.overallMin = s.overall_min_sample;
+      // Backend cu khong tra ve `periods`. Lui ve dung mot thang hien tai
+      // thay vi de o chon rong: thieu lua chon van hon mot o hong.
+      S.periods = (s.periods && s.periods.length) ? s.periods
+                : (s.period ? [s.period] : []);
+      renderPeriodSel();
     }).catch(function(e){
       // Không chặn trang: từng tab vẫn tự báo lỗi của nó. Chỉ nói một câu ở trên.
       var box = document.getElementById('sla-err');

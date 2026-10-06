@@ -1,0 +1,132 @@
+{
+ "doctype": "DocType",
+ "name": "EC Post Cover Job",
+ "module": "Internal Posts",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "allow_rename": 0,
+ "autoname": "hash",
+ "naming_rule": "Random",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "title_field": "post",
+ "description": "Mỗi lần HR bấm \"Tạo ảnh bìa\" bằng AI = một dòng (giới hạn 5 lần / bài / ngày). Ghi bởi internal_posts/cover_ai.py.",
+ "field_order": [
+  "post",
+  "job_date",
+  "status",
+  "column_break_1",
+  "requested_by",
+  "model",
+  "section_detail",
+  "source_text",
+  "prompt",
+  "images",
+  "filter_note",
+  "error"
+ ],
+ "fields": [
+  {
+   "fieldname": "post",
+   "fieldtype": "Link",
+   "label": "Bài",
+   "options": "EC Internal Post",
+   "reqd": 1,
+   "read_only": 1,
+   "in_list_view": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "job_date",
+   "fieldtype": "Date",
+   "label": "Ngày",
+   "read_only": 1,
+   "in_list_view": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Trạng thái",
+   "options": "Queued\nRunning\nDone\nFailed",
+   "default": "Queued",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "requested_by",
+   "fieldtype": "Link",
+   "label": "Người bấm",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "model",
+   "fieldtype": "Data",
+   "label": "Model ảnh",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_detail",
+   "fieldtype": "Section Break",
+   "label": "Chi tiết"
+  },
+  {
+   "fieldname": "source_text",
+   "fieldtype": "Long Text",
+   "label": "Nội dung AI đã đọc",
+   "read_only": 1,
+   "description": "Tiêu đề + tóm tắt + nội dung lúc HR bấm Tạo ảnh bìa (có thể chưa lưu vào bài)."
+  },
+  {
+   "fieldname": "prompt",
+   "fieldtype": "Small Text",
+   "label": "Mô tả ảnh (AI viết)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "images",
+   "fieldtype": "Code",
+   "label": "Ảnh (JSON)",
+   "options": "JSON",
+   "read_only": 1
+  },
+  {
+   "fieldname": "filter_note",
+   "fieldtype": "Small Text",
+   "label": "AI soi ảnh",
+   "read_only": 1,
+   "description": "Kết quả soi chữ / logo trên ảnh AI vừa tạo (bỏ ảnh dính chữ)."
+  },
+  {
+   "fieldname": "error",
+   "fieldtype": "Small Text",
+   "label": "Lỗi",
+   "read_only": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "report": 1,
+   "delete": 1
+  },
+  {
+   "role": "HR Manager",
+   "read": 1,
+   "report": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}

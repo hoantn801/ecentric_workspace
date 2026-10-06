@@ -22,6 +22,16 @@ GUIDES = {
         "updated": "2026-09-08",
         "audience": "Người đề nghị · Cấp duyệt · Finance",
     },
+    "chot-cong-thang": {
+        "title": "Chốt công tháng và phân bổ công việc",
+        "short": "Chốt công & phân bổ công việc",
+        "summary": "Đầu mỗi tháng: kiểm tra công, giải trình, chốt công và nộp tỷ trọng brand. "
+                   "Hạn ngày 2 — nhân viên 12:00, leader / trưởng phòng 15:00.",
+        # Bai cua Nhan su, khong gan voi form nao o Approval Center -> khong co icon "?".
+        "approval_types": [],
+        "updated": "2026-10-01",
+        "audience": "Mọi nhân viên · Leader · Trưởng phòng",
+    },
 }
 
 ROUTE_PREFIX = "/huong-dan"

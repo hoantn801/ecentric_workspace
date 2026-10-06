@@ -4,10 +4,16 @@
   GET ecentric_workspace.hr.overview.api.get_cards        - the nao nguoi xem duoc thay
   GET ecentric_workspace.hr.overview.api.get_hr_overview  - du lieu 3 tab cua the Nhan su
   GET ecentric_workspace.hr.overview.api.get_hr_profile   - ho so 1 nguoi (khung ben phai)
+  GET ecentric_workspace.hr.overview.api.get_sla_summary  - tab SLA: % dung han ca cong ty theo phong
+  GET ecentric_workspace.hr.overview.api.get_brand_summary - tab Phan bo cong viec: ai da nop / ty trong brand
+  GET ecentric_workspace.hr.overview.api.export_summary_xlsx - xuat Excel cua mot trong hai tab tren
+  POST ecentric_workspace.hr.overview.api.remind_brand     - nut Nhac tren tab Phan bo cong viec
 
 Quyen: the Nhan su chi mo cho HR_CARD_ROLES. Trong the, truong nao tra ve do permlevel
 cua Employee quyet dinh (L0 danh ba / L2 noi bo HR / L1 ca nhan) - xem repository.
 Khong endpoint nao tra ve so luong. Nguoi dung duoc lay tu session, client khong truyen."""
+import re
+
 import frappe
 from frappe.utils import nowdate
 
@@ -93,4 +99,72 @@ def get_hr_profile(employee: str):
         mgr = repo.employee(emp.get("reports_to"), ("name", "employee_name")) if emp.get("reports_to") else None
         cons = repo.contracts([emp["name"]]) if 2 in levels else []
         return GetHrProfileService().execute(emp, cons, levels, (mgr or {}).get("employee_name") or "")
+    return _run(build)
+
+
+def _period(raw, cur, allowed):
+    p = str(raw or "").strip()
+    return p if re.match(r"^\d{4}-\d{2}$", p) and p in allowed else cur
+
+
+@frappe.whitelist(methods=["GET"])
+def get_sla_summary(period: str = None):
+    """Hoan 01/10: CnB xem SLA ca cong ty. Trang /sla chi mo ca cong ty cho Ban Giam doc /
+    System Manager (sla.permissions); o day mo cho HR_CARD_ROLES qua _guard."""
+    def build():
+        _guard()
+        from ecentric_workspace.hr.overview import team_summary_repo as TR
+        cur, periods = TR.sla_periods()
+        data = TR.sla_summary(_period(period, cur, periods))
+        data.update({"periods": periods, "current": cur})
+        return data
+    return _run(build)
+
+
+@frappe.whitelist(methods=["GET"])
+def get_brand_summary(period: str = None):
+    """Hoan 01/10: CnB xem ai da nop / chot phan bo cong viec (brand weight) va ty trong chung."""
+    def build():
+        _guard()
+        from ecentric_workspace.hr.overview import team_summary_repo as TR
+        cur, periods = TR.brand_periods()
+        data = TR.brand_summary(_period(period, cur, periods))
+        data.update({"periods": periods, "current": cur})
+        return data
+    return _run(build)
+
+
+@frappe.whitelist(methods=["GET"])
+def export_summary_xlsx(kind: str, period: str = None):
+    """Nut "Xuat Excel" cua tab SLA (kind=sla) / Phan bo cong viec (kind=brand). Cung du lieu,
+    cung chan quyen voi get_*_summary. Loi thi nem ra de trinh duyet hien trang loi cua Frappe
+    thay vi tai ve mot tep hong."""
+    _guard()
+    from ecentric_workspace.hr.overview import team_summary as TS
+    from ecentric_workspace.hr.overview import team_summary_repo as TR
+    from ecentric_workspace.hr.overview import xlsx_export
+    if kind == "sla":
+        cur, periods = TR.sla_periods()
+        name, sheets = TS.sla_sheets(TR.sla_summary(_period(period, cur, periods)))
+    elif kind == "brand":
+        cur, periods = TR.brand_periods()
+        name, sheets = TS.brand_sheets(TR.brand_summary(_period(period, cur, periods)))
+    else:
+        frappe.throw("kind phai la sla hoac brand.")
+    frappe.response["filename"] = name
+    frappe.response["filecontent"] = xlsx_export.build(sheets)
+    frappe.response["type"] = "binary"
+
+
+@frappe.whitelist(methods=["POST"])
+def remind_brand(department: str = "", period: str = None, all_open: int = 0):
+    """Nut "Nhac" / "Nhac tat ca phong chua xong" tren tab Phan bo cong viec (Hoan 02/10).
+    Nhac nguoi chua nop / bi tra lai, nguoi dang phai duyet, va truong phong."""
+    def build():
+        _guard()
+        from ecentric_workspace.hr.overview import brand_remind
+        from ecentric_workspace.hr.overview import team_summary_repo as TR
+        cur, periods = TR.brand_periods()
+        return brand_remind.remind(frappe.session.user, _period(period, cur, periods),
+                                   department or "", bool(int(all_open or 0)))
     return _run(build)

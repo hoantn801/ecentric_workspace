@@ -303,7 +303,7 @@
       + fld("request_type","Loại mẫu",'<select data-model="request_type" class="'+hlCls("request_type")+'"><option value="">—</option>'+opt(fo.request_types||[],d.request_type)+'</select>',true)
       + fld("brand","Legal entity / Brand",brandSelectHTML(d),true)
       + fld("justification","Mục đích",'<input data-model="justification" class="'+hlCls("justification")+'" placeholder="Booking KOL/KOC, Mua tài sản, Phụ lục dịch vụ..." value="'+esc(d.justification||"")+'">',true)
-      + fld("contract_value","Giá trị hợp đồng (VND)",'<input type="number" min="0" data-model="contract_value" class="'+hlCls("contract_value")+'" value="'+esc(d.contract_value||"")+'"><div class="hint">Không có giá trị cụ thể thì ước tính ngân sách trong thời hạn hợp đồng.</div>',true)
+      + fld("contract_value","Giá trị hợp đồng (VND)",'<input type="text" inputmode="numeric" autocomplete="off" data-money data-model="contract_value" class="'+hlCls("contract_value")+'" value="'+esc(window.EcMoney?EcMoney.fmt((d.contract_value||"")):(d.contract_value||""))+'"><div class="hint">Không có giá trị cụ thể thì ước tính ngân sách trong thời hạn hợp đồng.</div>',true)
       + fld("contract_start_date","Ngày bắt đầu",'<input type="date" data-model="contract_start_date" class="'+hlCls("contract_start_date")+'" value="'+esc(d.contract_start_date||"")+'">')
       + fld("contract_end_date","Ngày kết thúc",'<input type="date" data-model="contract_end_date" class="'+hlCls("contract_end_date")+'" value="'+esc(d.contract_end_date||"")+'">')
       + '</div></div><div class="card"><h3>Chi tiết</h3><div class="grid2">'
@@ -407,7 +407,7 @@
 
   function attachModel(el){ if(el.__ecw) return; el.__ecw=true;
     var evt=(el.tagName==="SELECT")?"change":"input";
-    el.addEventListener(evt,function(){ var k=el.getAttribute("data-model"); var v=el.value; setModel(k,v);
+    el.addEventListener(evt,function(){ var k=el.getAttribute("data-model"); var v=(window.EcMoney&&el.hasAttribute("data-money"))?EcMoney.val(el):el.value; setModel(k,v);
       if(k==="request_title") state.titleTouched=((el.value||"").trim()!=="");
       if(k!=="request_title") maybeAutoTitle();
       if(k==="request_kind"){
@@ -622,6 +622,7 @@
     if(cap.can_approve) btns.push('<button type="button" class="btn primary" data-act="approve">Duyệt</button>');
     if(cap.can_request_information) btns.push('<button type="button" class="btn" data-act="reqinfo">Yêu cầu bổ sung</button>');
     if(cap.can_reject) btns.push('<button type="button" class="btn" data-act="reject">Từ chối</button>');
+    if(window.EcRemind) btns.push(EcRemind.buttonHTML(cap));   // 01/10: nhac nguoi xu ly (asset dung chung)
     if(cap.can_admin_approve_current_level) btns.push('<button type="button" class="btn warn" data-act="adminapprove">Duyệt thay bước hiện tại</button>');
     if(cap.can_cancel) btns.push('<button type="button" class="btn" data-act="cancel">Hủy yêu cầu</button>');
     return btns.length? '<div class="actions">'+btns.join("")+'</div>' : '<div class="hint">Không có hành động khả dụng cho bạn ở trạng thái hiện tại.</div>'; }
@@ -629,7 +630,7 @@
     var a=el.getAttribute("data-act"); if(!a||el.disabled) return; if(document.querySelector(".ec-ctr-overlay")) return; e.preventDefault();
     var det=state.detail||{}; var name=(det.business||{}).name||state.id;
     if(a==="editdraft") return startEditDraft(det); if(a==="submitdraft") return doSubmitDraft(name);
-    if(a==="edit") return startEditResubmit(det); if(a==="approve") return doApprove(name,det);
+    if(a==="edit") return startEditResubmit(det); if(a==="approve") return doApprove(name,det); if(a==="remind") return window.EcRemind&&EcRemind.run(call,name,{toast:toast,mapErr:(typeof mapErr==="function"?mapErr:null),done:function(){ if(typeof refreshDetail==="function") refreshDetail(); else if(typeof renderDetail==="function") renderDetail(document.querySelector('[id$="-body"]')); }});
     if(a==="reject") return doReject(name); if(a==="reqinfo") return doRequestInfo(name);
     if(a==="adminapprove") return doAdminApprove(name); if(a==="cancel") return doCancel(name); }
   function ensureActionHandlers(){ if(document.__ctrActBound) return; document.__ctrActBound=true; document.addEventListener("click", handleActionClick, true); }

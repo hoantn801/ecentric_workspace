@@ -1,0 +1,156 @@
+{% extends "templates/includes/internal_posts/layout.html" %}
+{% from "templates/includes/internal_posts/macros.html" import icon, cover, cat_badge %}
+{#- /tin-noi-bo/<slug> - trang bai (mockup v5): bia lon, noi dung tren the trang, cot phai gom
+    Muc luc / Luot xem / Tep dinh kem / Cam xuc / hop "Chi HR thay".
+    post.body da lam sach phia server (repository.safe_html) -> in thang; moi thu khac |e. -#}
+{% block eip_page %}
+{%- set p = post -%}
+{%- set s = p.seen -%}
+<article class="eip-post" data-eip-post="{{ p.name|e }}" data-eip-published="{{ 0 if p.draft else 1 }}">
+  {% if p.scheduled %}<div class="eip-notice eip-notice-sched">{{ icon('clock') }}<span>Đã hẹn đăng lúc {{ p.publish_at_label|e }}. Trước giờ đó chỉ HR thấy bài này.</span></div>
+  {% elif p.draft %}<div class="eip-notice">{{ icon('edit') }}<span>Bản nháp. Chỉ HR xem được.</span></div>{% endif %}
+  {% if p.expired %}<div class="eip-notice">{{ icon('clock') }}<span>Bài đã hết hạn ngày {{ p.expires_label|e }}. Vẫn đọc được qua link nhưng không còn hiện ở danh sách và trang chủ.</span></div>{% endif %}
+  {% if p.scope_label %}<div class="eip-notice eip-notice-scope">{{ icon('users') }}<span>Bài chỉ dành cho {{ p.scope_label|e }} (gồm cả các phòng con).</span></div>{% endif %}
+
+  <header class="eip-hero">
+    {{ cover(p.cover, 'eip-cover-fill') }}
+    <div class="eip-hero-body">
+      <span class="eip-meta">{{ cat_badge(p.category) }}{% if p.ack and p.ack.can_ack %}<span class="eip-badge eip-b-ack" data-eip-ack-badge>Cần xác nhận{% if p.ack.deadline_short %} trước {{ p.ack.deadline_short|e }}{% endif %}</span>{% endif %}{% if p.pinned %}<span class="eip-pinmark eip-pinmark-light">{{ icon('pin') }}Đã ghim</span>{% endif %}{% if p.scope_label %}<span class="eip-badge eip-b-scope">{{ icon('users') }}{{ p.scope_label|e }}</span>{% endif %}</span>
+      <h1>{{ p.title|e }}</h1>
+      <span class="eip-meta"><span>{{ p.date_label|e }}</span>{% if p.author %}<span class="eip-dot"></span><span>{{ p.author|e }}</span>{% endif %}<span class="eip-dot"></span><span>{{ p.minutes }} phút đọc</span></span>
+    </div>
+  </header>
+
+  <div class="eip-read">
+    <div class="eip-read-main">
+      {% if not p.draft and s.total %}
+      <div class="eip-seen-inline eip-mob-only">
+        <span class="eip-faces" aria-hidden="true">{% for f in s.faces[:4] %}<i class="eip-face-{{ loop.index0 }}">{{ f.initial|e }}</i>{% endfor %}</span>
+        <span><b data-eip-seen>{{ s.seen }}</b> đã xem · <span data-eip-notseen>{{ s.not_seen }}</span> chưa xem</span>
+      </div>
+      {% endif %}
+      {% if p.summary %}<p class="eip-lede">{{ p.summary|e }}</p>{% endif %}
+      <div class="eip-prose">{{ p.body }}</div>
+      {%- set a = p.ack %}
+      {% if a and not p.draft and (a.can_ack or a.me_seen) %}
+      <div class="eip-ackbar{% if a.me_seen %} eip-ackbar-ok{% endif %}" data-eip-ackbar>
+        {% if a.me_seen %}
+        <div><b>Bạn đã xác nhận đã đọc bài này.</b><span>Cảm ơn bạn. HR thấy bạn trong danh sách đã xác nhận.</span></div>
+        {% else %}
+        <div><b>Bài này cần bạn xác nhận đã đọc</b><span>{% if a.deadline_label %}Hạn {{ a.deadline_label|e }}{% if a.overdue %} (đã qua hạn, vẫn xác nhận được){% endif %}. {% endif %}Bấm khi đã đọc hết nội dung{% if p.files %} và tệp đính kèm{% endif %}.</span></div>
+        <button type="button" class="eip-btn eip-primary" data-eip-ack>Tôi đã đọc và hiểu</button>
+        {% endif %}
+      </div>
+      {% endif %}
+      {% if p.comments and p.comments.allowed %}{% set cm = p.comments %}{% include "templates/includes/internal_posts/comments.html" %}{% endif %}
+    </div>
+
+    <aside class="eip-rail" aria-label="Thông tin bài">
+      {% if p.toc %}
+      <section class="eip-panel eip-toc-panel">
+        <h2 class="eip-panel-h">Trong bài này</h2>
+        <nav class="eip-toc" aria-label="Mục lục">
+          {% for t in p.toc %}<a href="#{{ t.id|e }}"{% if loop.first %} aria-current="true"{% endif %}>{{ t.text|e }}</a>{% endfor %}
+        </nav>
+      </section>
+      {% endif %}
+
+      <section class="eip-panel" data-eip-seen-panel>
+        <h2 class="eip-panel-h">Lượt xem</h2>
+        {% if p.draft %}
+        <p class="eip-note">Bài chưa đăng nên chưa ai xem.</p>
+        {% elif not s.total %}
+        <p class="eip-note">Chưa có nhân viên nào trong phạm vi bài này.</p>
+        {% else %}
+        <div class="eip-seen-big"><b data-eip-seen>{{ s.seen }}</b><span>/ <span data-eip-total>{{ s.total }}</span> người đã xem</span></div>
+        <div class="eip-bar" role="progressbar" aria-label="Tỷ lệ đã xem" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ s.pct }}"><i data-eip-bar style="width:{{ s.pct }}%"></i></div>
+        <div class="eip-seen-split"><span class="eip-ok">● Đã xem <b data-eip-seen>{{ s.seen }}</b></span><span class="eip-no">○ Chưa xem <b data-eip-notseen>{{ s.not_seen }}</b></span></div>
+        {% if p.is_editor %}
+          {% if s.not_seen_names %}
+          <div class="eip-who">
+            <span class="eip-legacy">CHƯA XEM · chỉ HR thấy tên</span>
+            <div class="eip-who-list">{% for n in s.not_seen_names %}<span>{{ n|e }}</span>{% endfor %}{% if s.not_seen_more %}<span>và {{ s.not_seen_more }} người khác</span>{% endif %}</div>
+          </div>
+          {% endif %}
+        {% elif s.faces %}
+        <div class="eip-faces-row">
+          <span class="eip-faces" aria-hidden="true">{% for f in s.faces %}<i class="eip-face-{{ loop.index0 }}">{{ f.initial|e }}</i>{% endfor %}</span>
+          <small>{{ s.line|e }}</small>
+        </div>
+        {% endif %}
+        <p class="eip-note eip-note-sm">Tính trên {{ s.total }} người {% if p.scope_label %}thuộc {{ p.scope_label|e }}{% else %}trong công ty{% endif %}. Mở bài là được tính đã xem.</p>
+        {% endif %}
+      </section>
+
+      {% if a %}
+      <section class="eip-panel" data-eip-ack-panel>
+        <h2 class="eip-panel-h">Xác nhận đã đọc</h2>
+        {% if p.draft %}
+        <p class="eip-note">Bài chưa đăng. Hạn xác nhận {{ a.deadline_label|e }}{% if a.auto_label %}; ERP tự nhắc {{ a.auto_label|e }} lúc 09:00{% endif %}.</p>
+        {% elif not a.total %}
+        <p class="eip-note">Chưa có nhân viên nào trong phạm vi bài này.</p>
+        {% else %}
+        <div class="eip-seen-big"><b data-eip-acked>{{ a.acked }}</b><span>/ {{ a.total }} đã xác nhận</span></div>
+        <div class="eip-bar eip-bar-ack" role="progressbar" aria-label="Tỷ lệ đã xác nhận" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ a.pct }}"><i data-eip-ack-bar style="width:{{ a.pct }}%"></i></div>
+        {% if p.is_editor %}
+        <div class="eip-seen-split"><span class="eip-ok">● Đã xác nhận <b data-eip-acked>{{ a.acked }}</b></span><span class="eip-no">○ Chưa <b data-eip-notacked>{{ a.not_acked }}</b></span></div>
+          {% if a.not_seen_names %}
+          <div class="eip-who">
+            <span class="eip-legacy">CHƯA XÁC NHẬN · chỉ HR thấy tên</span>
+            <div class="eip-who-list">{% for n in a.not_seen_names %}<span>{{ n|e }}</span>{% endfor %}{% if a.not_seen_more %}<span>và {{ a.not_seen_more }} người khác</span>{% endif %}</div>
+          </div>
+          {% endif %}
+        <div class="eip-ackact">
+          {% if a.not_acked %}<button type="button" class="eip-btn eip-wash" data-eip-ack-remind{% if a.reminded_today %} disabled{% endif %}>{{ icon('bell') }}{% if a.reminded_today %}Hôm nay đã nhắc{% else %}Nhắc {{ a.not_acked }} người chưa xác nhận{% endif %}</button>{% endif %}
+          <a class="eip-btn" href="/api/method/ecentric_workspace.internal_posts.api.ack_export?post={{ p.name|urlencode }}">Tải danh sách (Excel)</a>
+        </div>
+        <p class="eip-note eip-note-sm">{% if a.auto_label %}Tự nhắc: {{ a.auto_label|e }} lúc 09:00. {% endif %}Lần nhắc tay gần nhất: <span data-eip-ack-reminded>{{ a.reminded_label|e if a.reminded_label else "chưa có" }}</span>.</p>
+        {% else %}
+        <p class="eip-note eip-note-sm">{% if a.deadline_label %}Hạn {{ a.deadline_label|e }} · {{ a.days_left|e }}{% endif %}</p>
+        {% endif %}
+        {% endif %}
+      </section>
+      {% endif %}
+
+      {% if p.files %}
+      <section class="eip-panel">
+        <h2 class="eip-panel-h">Tệp đính kèm</h2>
+        <div class="eip-files">
+          {% for f in p.files %}
+          <div class="eip-file">
+            <span class="eip-file-ic">{{ f.ext|e }}</span>
+            <div><b title="{{ f.name|e }}">{{ f.name|e }}</b><small>{{ icon('lock') }}{{ f.size|e if f.size else "Tệp nội bộ" }}</small></div>
+            <a href="{{ f.url|e }}" class="eip-btn eip-btn-sm" download="{{ f.name|e }}" target="_blank" rel="noopener">Tải</a>
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+      {% endif %}
+
+      {% if not p.draft %}
+      <section class="eip-panel" data-eip-rx-panel>
+        <h2 class="eip-panel-h">Cảm xúc</h2>
+        <div class="eip-rx" role="group" aria-label="Thả cảm xúc">
+          {% for r in p.reactions["items"] %}
+          <button type="button" data-eip-rx="{{ r.kind|e }}" aria-pressed="{{ 'true' if r.mine else 'false' }}" aria-label="{{ r.label|e }}" title="{{ r.label|e }}">{{ r.emoji }}<span data-eip-rx-n>{{ r.n if r.n else "" }}</span></button>
+          {% endfor %}
+        </div>
+        <div class="eip-rx-who" data-eip-rx-who>{{ p.reactions.who|e }}</div>
+      </section>
+      {% endif %}
+
+      {% if p.is_editor and p.editor_info %}
+      {%- set e = p.editor_info -%}
+      <section class="eip-hrbox">
+        <h2 class="eip-panel-h">Chỉ HR thấy</h2>
+        {% if p.scheduled %}<div class="eip-hr-line"><span>Lên lúc</span><b>{{ e.publish_at_short|e }}</b></div>{% endif %}
+        <div class="eip-hr-line"><span>Chuông thông báo</span><b>{% if not e.notify_bell %}Tắt{% elif e.notified_label %}Đã gửi {{ e.notified_label|e }}{% elif p.scheduled %}Gửi lúc bài lên{% elif p.draft %}Gửi khi đăng{% else %}Đang gửi…{% endif %}</b></div>
+        <div class="eip-hr-line"><span>Teams</span><b>{% if e.notify_teams %}{% if e.notified_label %}Đã gửi kèm{% else %}Gửi kèm chuông{% endif %}{% else %}Không{% endif %}</b></div>
+        <div class="eip-hr-line"><span>Popup trang chủ</span><b>{% if p.scope_label %}Không (bài theo phòng ban){% elif e.popup %}Đang hiện{% elif p.scheduled and e.popup_window %}{{ e.popup_window|e }}{% elif p.draft %}Chưa{% else %}Không{% endif %}</b></div>
+        <a href="{{ e.edit_url|e }}" class="eip-btn">{{ icon('edit') }}Sửa bài</a>
+      </section>
+      {% endif %}
+    </aside>
+  </div>
+</article>
+{% endblock %}

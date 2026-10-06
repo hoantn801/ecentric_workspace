@@ -64,7 +64,8 @@ async function run() {
   // scope-based preview
   ok(w.DailyTarget.previewSteps("Project level")[1].name === "Commercial Manager duyệt", "Project scope preview -> Commercial Manager");
   ok(w.DailyTarget.previewSteps("Consolidated / Total")[1].name === "CEO duyệt", "Consolidated scope preview -> CEO");
-  ok(w.DailyTarget.previewSteps("Project level").length === 3, "preview has 3 steps (Tạo/approver/Hoàn tất)");
+  // 01/10: them buoc "Data xu ly" sau khi duyet.
+  ok(w.DailyTarget.previewSteps("Project level").length === 4 && w.DailyTarget.previewSteps("Project level")[2].name === "Data xử lý", "preview has 4 steps (Tạo/approver/Data xử lý/Hoàn tất)");
 
   ok(/Project level/.test(cb()) && /Consolidated \/ Total/.test(cb()), "scope options render");
   ok(/Lazada/.test(cb()) && /Shopee/.test(cb()) && /TikTok Shop/.test(cb()), "channel options render");

@@ -7,45 +7,220 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "approval_type", "approval_request", "request_title", "requested_by", "employee",
-  "department", "company", "cb0", "submitted_at", "completed_at", "material_signature",
-  "sb_form", "full_name", "current_position", "proposed_position", "cb1",
-  "current_salary", "proposed_salary", "incentives", "effective_date_of_promotion",
-  "sb_just", "justification"
+  "approval_type",
+  "approval_request",
+  "request_title",
+  "requested_by",
+  "employee",
+  "department",
+  "company",
+  "cb0",
+  "submitted_at",
+  "completed_at",
+  "material_signature",
+  "sb_form",
+  "promoted_employee",
+  "salary_reviewer",
+  "full_name",
+  "current_position",
+  "proposed_position",
+  "cb1",
+  "current_salary",
+  "proposed_salary",
+  "incentives",
+  "effective_date_of_promotion",
+  "sb_just",
+  "justification",
+  "sb_apply",
+  "applied_at",
+  "apply_result"
  ],
  "fields": [
-  {"fieldname": "approval_type", "fieldtype": "Link", "label": "Approval Type", "options": "EC Approval Type", "read_only": 1},
-  {"fieldname": "approval_request", "fieldtype": "Link", "label": "Approval Request", "options": "EC Approval Request", "read_only": 1},
-  {"fieldname": "request_title", "fieldtype": "Data", "length": 255, "label": "Request Title", "reqd": 1, "in_list_view": 1},
-  {"fieldname": "requested_by", "fieldtype": "Link", "label": "Requested By", "options": "User"},
-  {"fieldname": "employee", "fieldtype": "Link", "label": "Employee", "options": "Employee"},
-  {"fieldname": "department", "fieldtype": "Link", "label": "Department", "options": "Department"},
-  {"fieldname": "company", "fieldtype": "Link", "label": "Company", "options": "Company"},
-  {"fieldname": "cb0", "fieldtype": "Column Break"},
-  {"fieldname": "submitted_at", "fieldtype": "Datetime", "label": "Submitted At", "read_only": 1},
-  {"fieldname": "completed_at", "fieldtype": "Datetime", "label": "Completed At", "read_only": 1},
-  {"fieldname": "material_signature", "fieldtype": "Data", "label": "Material Signature", "hidden": 1, "read_only": 1},
-  {"fieldname": "sb_form", "fieldtype": "Section Break", "label": "Promotion"},
-  {"fieldname": "full_name", "fieldtype": "Data", "label": "Full name", "reqd": 1},
-  {"fieldname": "current_position", "fieldtype": "Data", "label": "Current position", "reqd": 1},
-  {"fieldname": "proposed_position", "fieldtype": "Data", "label": "Proposed position", "reqd": 1},
-  {"fieldname": "cb1", "fieldtype": "Column Break"},
-  {"fieldname": "current_salary", "fieldtype": "Currency", "label": "Current salary", "options": "VND", "reqd": 1},
-  {"fieldname": "proposed_salary", "fieldtype": "Currency", "label": "Proposed salary", "options": "VND", "reqd": 1},
-  {"fieldname": "incentives", "fieldtype": "Small Text", "label": "Incentives"},
-  {"fieldname": "effective_date_of_promotion", "fieldtype": "Date", "label": "Effective date of promotion", "reqd": 1},
-  {"fieldname": "sb_just", "fieldtype": "Section Break", "label": "Justification"},
-  {"fieldname": "justification", "fieldtype": "Long Text", "label": "Justification", "reqd": 1, "description": "What are the employee's most significant achievements in the past review period? What specific skills, knowledge, or certifications has the employee demonstrated that qualify them for this promotion? Why is this promotion necessary at this time?"}
+  {
+   "fieldname": "approval_type",
+   "fieldtype": "Link",
+   "label": "Approval Type",
+   "options": "EC Approval Type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approval_request",
+   "fieldtype": "Link",
+   "label": "Approval Request",
+   "options": "EC Approval Request",
+   "read_only": 1
+  },
+  {
+   "fieldname": "request_title",
+   "fieldtype": "Data",
+   "length": 255,
+   "label": "Request Title",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "requested_by",
+   "fieldtype": "Link",
+   "label": "Requested By",
+   "options": "User"
+  },
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "label": "Employee",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "label": "Department",
+   "options": "Department"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "cb0",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "submitted_at",
+   "fieldtype": "Datetime",
+   "label": "Submitted At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "completed_at",
+   "fieldtype": "Datetime",
+   "label": "Completed At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "material_signature",
+   "fieldtype": "Data",
+   "label": "Material Signature",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_form",
+   "fieldtype": "Section Break",
+   "label": "Promotion"
+  },
+  {
+   "fieldname": "promoted_employee",
+   "fieldtype": "Link",
+   "label": "Promoted Employee",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "salary_reviewer",
+   "fieldtype": "Link",
+   "label": "Salary Reviewer (Step 1)",
+   "options": "User",
+   "read_only": 1,
+   "description": "Nguoi dau tien tren chuoi reports_to xem duoc luong nhan su (29/09/2026)"
+  },
+  {
+   "fieldname": "full_name",
+   "fieldtype": "Data",
+   "label": "Full name",
+   "description": "Lương GROSS hiện tại (gồm thưởng hiệu suất...) do người đề xuất tự nhập (01/10/2026)"
+  },
+  {
+   "fieldname": "current_position",
+   "fieldtype": "Data",
+   "label": "Current position",
+   "description": "Server điền từ hồ sơ nhân sự đã chọn (29/09/2026)"
+  },
+  {
+   "fieldname": "proposed_position",
+   "fieldtype": "Data",
+   "label": "Proposed position",
+   "reqd": 1
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "current_salary",
+   "fieldtype": "Currency",
+   "label": "Current salary (gross)",
+   "options": "VND",
+   "description": "Server điền từ hồ sơ nhân sự đã chọn (29/09/2026)"
+  },
+  {
+   "fieldname": "proposed_salary",
+   "fieldtype": "Currency",
+   "label": "Proposed salary (gross)",
+   "options": "VND",
+   "reqd": 1
+  },
+  {
+   "fieldname": "incentives",
+   "fieldtype": "Small Text",
+   "label": "Incentives"
+  },
+  {
+   "fieldname": "effective_date_of_promotion",
+   "fieldtype": "Date",
+   "label": "Effective date of promotion",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sb_just",
+   "fieldtype": "Section Break",
+   "label": "Justification"
+  },
+  {
+   "fieldname": "justification",
+   "fieldtype": "Long Text",
+   "label": "Justification",
+   "reqd": 1,
+   "description": "What are the employee's most significant achievements in the past review period? What specific skills, knowledge, or certifications has the employee demonstrated that qualify them for this promotion? Why is this promotion necessary at this time?"
+  },
+  {
+   "fieldname": "sb_apply",
+   "fieldtype": "Section Break",
+   "label": "Cập nhật hồ sơ sau duyệt"
+  },
+  {
+   "fieldname": "applied_at",
+   "fieldtype": "Datetime",
+   "label": "Applied At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "apply_result",
+   "fieldtype": "Small Text",
+   "label": "Apply Result",
+   "read_only": 1
+  }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-09-28 12:00:00.000000",
+ "modified": "2026-10-01 17:00:00.000000",
  "module": "Approval Center",
  "name": "EC Promotion Request",
  "naming_rule": "Expression",
  "owner": "Administrator",
  "permissions": [
-  {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1, "email": 1, "export": 1, "print": 1, "report": 1, "share": 1}
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  }
  ],
  "sort_field": "modified",
  "sort_order": "DESC",

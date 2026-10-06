@@ -1,0 +1,111 @@
+{%- extends "templates/includes/iso_docs/layout.html" -%}
+{%- from "templates/includes/iso_docs/macros.html" import icon, pill -%}
+{#- /tai-lieu/quan-ly - danh muc tai lieu (mockup B rut gon). Bo loc ben trai, mot danh sach, mo dong
+    (<details>) de xem phien ban, tep va nut duyet. Nhan chi hien khi can chu y. Bam buoc / nhap goi
+    POST qua iso_docs.api roi tai lai trang. -#}
+{% block eti_page %}
+{% set base = '/tai-lieu/quan-ly' %}
+<header class="eti-head">
+  <div>
+    <h1 class="eti-h1">Danh mục tài liệu</h1>
+    <p class="eti-sub">{{ total }} tài liệu{% if counts['cho-toi'] %} · {{ counts['cho-toi'] }} chờ bạn duyệt{% endif %}{% if counts['ra-soat'] %} · {{ counts['ra-soat'] }} đến hạn rà soát{% endif %}</p>
+  </div>
+  <div class="eti-head-act">
+    <a class="eti-btn" href="/tai-lieu">Thư viện nhân viên</a>
+    {% if is_manager %}
+    <button class="eti-btn" type="button" data-eti-open="eti-import">{{ icon('upload') }} Nhập gói</button>
+    <a class="eti-btn eti-btn-pri" href="/tai-lieu/soan">+ Soạn tài liệu mới</a>
+    {% endif %}
+  </div>
+</header>
+
+<div class="eti-b2">
+  <nav class="eti-card eti-b2-side" aria-label="Lọc danh mục">
+    <a class="eti-dl{% if filter == 'cho-toi' %} is-on{% endif %}" href="{{ base }}?loc=cho-toi"><span>Chờ tôi duyệt</span><b>{{ counts['cho-toi'] }}</b></a>
+    <a class="eti-dl{% if filter == 'ra-soat' %} is-on{% endif %}" href="{{ base }}?loc=ra-soat"><span>Đến hạn rà soát</span><b>{{ counts['ra-soat'] }}</b></a>
+    <a class="eti-dl{% if filter == 'dang-soan' %} is-on{% endif %}" href="{{ base }}?loc=dang-soan"><span>Đang soạn, đang duyệt</span><b>{{ counts['dang-soan'] }}</b></a>
+    <a class="eti-dl{% if filter == 'tat-ca' %} is-on{% endif %}" href="{{ base }}?loc=tat-ca"><span>Tất cả</span><b>{{ counts['tat-ca'] }}</b></a>
+    {% if depts %}<h2 class="eti-grp">Phòng ban</h2>{% endif %}
+    {% for d in depts %}
+    <a class="eti-dl{% if filter == 'phong' and dept == d.name %} is-on{% endif %}" href="{{ base }}?loc=phong&amp;phong={{ d.name|urlencode }}"><span>{{ d.label|e }}</span><b>{{ d.count }}</b></a>
+    {% endfor %}
+    {% if counts['het-hieu-luc'] %}
+    <a class="eti-dl eti-dl-foot{% if filter == 'het-hieu-luc' %} is-on{% endif %}" href="{{ base }}?loc=het-hieu-luc"><span>Hết hiệu lực</span><b>{{ counts['het-hieu-luc'] }}</b></a>
+    {% endif %}
+  </nav>
+
+  <section class="eti-card eti-b2-main" aria-label="Danh sách tài liệu">
+    <form class="eti-b2-bar" method="get" action="{{ base }}" role="search">
+      <label class="eti-search" for="eti-mq">{{ icon('search') }}<span class="eti-sr">Tìm theo mã hoặc tên</span>
+        <input id="eti-mq" type="search" name="q" value="{{ q|e }}" placeholder="Tìm theo mã hoặc tên" autocomplete="off"></label>
+      {% if q %}<a class="eti-link" href="{{ base }}">Xoá</a>{% endif %}
+    </form>
+    {% if items %}
+    <ul class="eti-b2-list">
+      {% for it in items %}
+      <li class="eti-b2-item">
+        <details class="eti-acc"{% if it.open %} open{% endif %}>
+          <summary class="eti-b2-row">
+            <span class="eti-b2-t"><span class="eti-nm"><span class="eti-code">{{ it.code|e }}</span>{{ it.name|e }}</span><span class="eti-facts">{% for k, t in it.facts %}<span class="eti-fact eti-fact-{{ k|e }}">{{ t|e }}</span>{% endfor %}</span></span>
+            <span class="eti-b2-r">{% if it.tag %}{{ pill(it.tag[0], it.tag[1]) }}{% endif %}<span class="eti-caret">{{ icon('caret') }}</span></span>
+          </summary>
+          <div class="eti-b2-open">
+            {% if it.versions %}
+            <ul class="eti-vlist">
+              {% for v in it.versions %}
+              <li class="eti-b2-v{% if v.off %} is-off{% endif %}"><span class="eti-vn">{{ v.version|e }}</span><span class="eti-mut eti-vd">{{ v.when|e }}</span><span>{{ v.note|e }}</span></li>
+              {% endfor %}
+            </ul>
+            {% else %}<p class="eti-empty">Chưa có phiên bản nào.</p>{% endif %}
+            <div class="eti-b2-links">
+              {% if it.page %}<a href="{{ it.page|e }}">Trang tài liệu</a>{% endif %}
+              {% if it.pdf %}<a href="{{ it.pdf|e }}" target="_blank" rel="noopener">Xem PDF</a>{% endif %}
+              {% if it.docx %}<a href="{{ it.docx|e }}" download>Tải Word</a>{% endif %}
+              <a href="{{ it.edit|e }}">{% if it.can_edit %}Sửa bản nháp{% else %}Xem bản soạn, lịch sử duyệt{% endif %}</a>
+            </div>
+            {% if it.actions %}
+            <form class="eti-actbox" data-eti-act="{{ it.code|e }}">
+              <label class="eti-lbl" for="eti-note-{{ loop.index }}">Ý kiến (bắt buộc khi trả lại)</label>
+              <textarea id="eti-note-{{ loop.index }}" name="note" rows="2" maxlength="1000" placeholder="Ghi chú cho người soạn"></textarea>
+              <div class="eti-acts">
+                {% for a in it.actions %}
+                <button class="eti-btn eti-btn-sm{% if loop.first and not a.danger %} eti-btn-pri{% elif a.danger %} eti-btn-danger{% endif %}" type="submit" name="action" value="{{ a.action|e }}" title="Chuyển sang: {{ a.next|e }}">{{ a.action|e }}</button>
+                {% endfor %}
+              </div>
+            </form>
+            {% endif %}
+          </div>
+        </details>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="eti-empty eti-pad">{% if q %}Không có tài liệu nào khớp “{{ q|e }}”.{% elif filter == 'cho-toi' %}Không có tài liệu nào chờ bạn duyệt.{% else %}Chưa có tài liệu nào ở mục này.{% endif %}</p>
+    {% endif %}
+  </section>
+</div>
+
+{% if is_manager %}
+<dialog class="eti-dialog" id="eti-import" aria-labelledby="eti-import-h">
+  <form class="eti-import" id="eti-import-form" method="dialog">
+    <div class="eti-row-sb"><h2 class="eti-h2" id="eti-import-h">Nhập gói tài liệu</h2><button class="eti-btn eti-btn-sm" type="button" data-eti-close>Đóng</button></div>
+    <p class="eti-mut">Gói do chat Claude đóng gói theo hướng dẫn: <code>goi.json</code>, toàn văn và biểu mẫu. Nhập gói chỉ tạo bản <b>Nháp</b>, chưa ai đọc được cho tới khi duyệt xong.</p>
+    <label class="eti-lbl" for="eti-f-goi">goi.json <span class="eti-req">*</span></label>
+    <input id="eti-f-goi" name="goi" type="file" accept=".json,application/json" required>
+    <p class="eti-mut" id="eti-goi-info"></p>
+    <label class="eti-lbl" for="eti-f-code">Mã tài liệu</label>
+    <input id="eti-f-code" name="code" type="text" maxlength="20" placeholder="Ví dụ QT-TCKT-03" autocomplete="off">
+    <p class="eti-mut">Gói sửa đổi: lấy theo gói. Tài liệu mới: Ban ISO cấp mã (gợi ý lấy từ gói).</p>
+    <label class="eti-lbl" for="eti-f-pdf">Toàn văn PDF</label>
+    <input id="eti-f-pdf" name="pdf" type="file" accept=".pdf,application/pdf">
+    <label class="eti-lbl" for="eti-f-docx">Bản Word (noi_dung.docx)</label>
+    <input id="eti-f-docx" name="docx" type="file" accept=".docx">
+    <label class="eti-lbl" for="eti-f-forms">Biểu mẫu (thư mục bieu_mau/, chọn nhiều tệp)</label>
+    <input id="eti-f-forms" name="forms" type="file" multiple accept=".docx,.doc,.xlsx,.xls,.pdf,.pptx">
+    <p class="eti-mut">Mỗi tệp tối đa 20 MB, cả gói tối đa 24 MB.</p>
+    <div class="eti-imp-err" id="eti-imp-err" role="alert" hidden></div>
+    <div class="eti-acts"><button class="eti-btn eti-btn-pri" type="submit" id="eti-imp-go">Nhập gói</button></div>
+  </form>
+</dialog>
+{% endif %}
+{% endblock %}

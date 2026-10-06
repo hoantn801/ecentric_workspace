@@ -67,7 +67,8 @@ def scope():
     return _ok({"scope": s, "departments": depts,
                 "overall_min_sample": OVERALL_MIN_SAMPLE,
                 "can_adjust": permissions.can_adjust(),
-                "period": scoreboard_service.current_period()})
+                "period": scoreboard_service.current_period(),
+                "periods": scoreboard_service.periods()})
 
 
 @frappe.whitelist()

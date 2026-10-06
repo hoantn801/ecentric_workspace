@@ -87,6 +87,51 @@ def _today(repo, now):
     return now.date() if isinstance(now, datetime.datetime) else now
 
 
+def _draws(repo, user):
+    """Quay so may man / dua ve dich (module Khao sat). Loi ben do -> popup van chay, ghi log."""
+    try:
+        d = repo.survey_draws(user) or {}
+    except Exception:
+        repo.log_error("home_today.survey_draws")
+        return {"draws": [], "upcoming": [], "timers": [], "server_now": ""}
+    soon = [u for u in d.get("upcoming") or [] if (u.get("days_left") or 0) <= C.DRAW_TILE_DAYS]
+    return {"draws": d.get("draws") or [], "upcoming": d.get("upcoming") or [], "soon": bool(soon),
+            "timers": d.get("timers") or [], "server_now": d.get("server_now") or ""}
+
+
+def _draw_keys(draws):
+    """Luot quay dang dem nguoc / dang quay la "muc moi trong ngay": da tich "Khong hien lai hom
+    nay" van tu mo lai MOT lan luc T-5 (PO 01/10). Ket qua sau do khong mo lai nua."""
+    return ["draw:" + d["name"] for d in draws if d.get("state") in ("countdown", "live")]
+
+
+def _social(repo, user, day, keys):
+    """Bang tin (module social): su kien CLB sap toi + so loi chuc cua khoanh khac hom nay.
+    Loi ben do -> popup van chay (khong co o Su kien / khong co so loi chuc), ghi log."""
+    try:
+        events = repo.social_events(user, day) or []
+    except Exception:
+        repo.log_error("home_today.social_events")
+        events = []
+    try:
+        wishes = repo.social_wishes(keys) or {}
+    except Exception:
+        repo.log_error("home_today.social_wishes")
+        wishes = {}
+    return events, wishes
+
+
+def people_today(now=None, repo=None):
+    """Cho Bang tin (social/sources.py): sinh nhat / ban moi / ky niem HOM NAY - cung danh sach, cung
+    khoa cam xuc voi popup (bam tim o Bang tin = tim tren popup). Co ma nhan vien (`emp`) vi Bang tin
+    can tim tai khoan nguoi duoc chuc de gui chuong; khong dua thang ra trinh duyet."""
+    repo = _repo(repo)
+    day = _today(repo, now)
+    sh = _shared(repo, day)
+    return {"date": day, "birthdays": sh["bd_today"], "onboard": _onboard(repo, day),
+            "anniversaries": sh["anniv"]}
+
+
 def today(user, now=None, repo=None):
     repo = _repo(repo)
     if not user or user == "Guest":
@@ -99,16 +144,24 @@ def today(user, now=None, repo=None):
     rows = repo.reactions(react_keys)
     names = repo.full_names([r.get("user") for r in rows])
     news = sh["news"]
-    fresh = [n["key"] for n in news] + react_keys
+    draws = _draws(repo, user)
+    fresh = [n["key"] for n in news] + react_keys + _draw_keys(draws["draws"])
+    events, wishes = _social(repo, user, day, react_keys)
     return {
-        "has_content": bool(news or sh["bd_today"] or sh["bd_soon"] or onboard or sh["anniv"]),
+        "has_content": bool(news or sh["bd_today"] or sh["bd_soon"] or onboard or sh["anniv"]
+                            or draws["draws"] or draws["soon"] or draws["timers"]),
+        "draws": draws,
         "date": day.isoformat(), "date_label": D.full_label(day),
         "news": news,
         "birthdays": {"today": [_public(p) for p in sh["bd_today"]], "soon": [_public(p) for p in sh["bd_soon"]]},
         "onboard": onboard,
         "anniversaries": [_public(p) for p in sh["anniv"]],
         "holidays": _holidays(repo, viewer, day),
-        "event_coming_soon": True,
+        # 04/10/2026: o "Su kien cong ty · Sap ra mat" -> su kien CLB that tu Bang tin (social/).
+        # Khong co su kien nao -> khong co o (khong con "Sap ra mat").
+        "event_coming_soon": False,
+        "events": events,
+        "wishes": wishes,
         "reactions": D.reactions_view(rows, react_keys, user, names),
         "keys": fresh,
     }
@@ -141,6 +194,14 @@ def toggle(user, target, kind, now=None, repo=None):
     return {"target": target, "reactions": D.reactions_view(rows, [target], user, names)[target]}
 
 
+def _draws_soon(repo):
+    try:
+        return bool(repo.survey_draws_soon())
+    except Exception:
+        repo.log_error("home_today.survey_draws_soon")
+        return False
+
+
 def celebration(user, now=None, repo=None):
     """Cho trang chu (Jinja, render theo tung nguoi): muc trang tri + popup co gi de hien khong.
     KHONG BAO GIO nem loi - loi o day la trang chu 500 cho ca cong ty. Loi -> muc 0, ghi log."""
@@ -154,7 +215,8 @@ def celebration(user, now=None, repo=None):
         sh = _shared(repo, day)
         viewer = repo.viewer_employee(user) if sh["bd_today"] else None
         out = D.celebration(sh["bd_today"], viewer, sh["depts"])
-        out["has_content"] = bool(sh["news"] or sh["bd_today"] or sh["bd_soon"] or sh["anniv"]) or bool(_onboard_rows(repo, day))
+        out["has_content"] = bool(sh["news"] or sh["bd_today"] or sh["bd_soon"] or sh["anniv"]) \
+            or bool(_onboard_rows(repo, day)) or _draws_soon(repo)
         return out
     except Exception:
         # Ghi log MOT lan moi FAIL_TTL, trong luc do tra muc 0 ngay (khong truy van lai):

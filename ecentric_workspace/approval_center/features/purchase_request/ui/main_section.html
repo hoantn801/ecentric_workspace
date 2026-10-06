@@ -230,7 +230,7 @@
       + '<div></div>'
       + hz(fld("justification","Lý do đề nghị mua sắm",'<textarea data-model="justification" rows="3" placeholder="Vì sao cần khoản mua sắm này?">'+esc(d.justification||"")+'</textarea>',true).replace('class="fld','class="fld full'),"Nêu rõ mục đích và tính cấp thiết.")
       + hz(fld("purchase_details","Chi tiết mua sắm",'<textarea data-model="purchase_details" rows="3">'+esc(d.purchase_details||"")+'</textarea>',true).replace('class="fld','class="fld full'),"Please input item description, unit, quantity, and unit price.")
-      + fld("payment_amount","Số tiền thanh toán (VND)",'<input type="number" min="0" step="1" data-model="payment_amount" value="'+esc(d.payment_amount!=null?d.payment_amount:"")+'">',true)
+      + fld("payment_amount","Số tiền thanh toán (VND)",'<input type="text" inputmode="numeric" autocomplete="off" data-money data-model="payment_amount" value="'+esc(window.EcMoney?EcMoney.fmt((d.payment_amount!=null?d.payment_amount:"")):(d.payment_amount!=null?d.payment_amount:""))+'">',true)
       + fld("payment_term","Điều khoản thanh toán",'<select data-model="payment_term"><option value="">— Chọn điều khoản —</option>'+opt(pt,d.payment_term)+'</select>',true)
       + otherFld
       + fld("supplier_type","Loại nhà cung cấp",'<select data-model="supplier_type"><option value="">— Chọn loại —</option>'+opt(stypes,d.supplier_type)+'</select>',true)
@@ -340,7 +340,7 @@
 
   function attachModel(el){ if(el.__ecw) return; el.__ecw=true;
     el.addEventListener("input",function(){ var k=el.getAttribute("data-model");
-      var v=el.type==="number"?(el.value===""?null:Number(el.value)):el.value; setModel(k,v);
+      var v=(window.EcMoney&&el.hasAttribute("data-money"))?EcMoney.val(el):el.type==="number"?(el.value===""?null:Number(el.value)):el.value; setModel(k,v);
       if(k==="payment_term"||k==="supplier_type"){ renderCreate($("purr-body")); return; }
       renderSummary(); clearFieldError(k); }); }
   function wireModels(scope){ (scope||document).querySelectorAll("[data-model]").forEach(attachModel); }
@@ -505,6 +505,7 @@
     if(cap.can_approve) btns.push('<button type="button" class="btn primary" data-act="approve">Duyệt</button>');
     if(cap.can_request_information) btns.push('<button type="button" class="btn" data-act="reqinfo">Yêu cầu bổ sung</button>');
     if(cap.can_reject) btns.push('<button type="button" class="btn" data-act="reject">Từ chối</button>');
+    if(window.EcRemind) btns.push(EcRemind.buttonHTML(cap));   // 01/10: nhac nguoi xu ly (asset dung chung)
     if(cap.can_admin_approve_current_level) btns.push('<button type="button" class="btn warn" data-act="adminapprove">Duyệt thay bước hiện tại</button>');
     if(cap.can_cancel) btns.push('<button type="button" class="btn" data-act="cancel">Hủy yêu cầu</button>');
     return btns.length? '<div class="actions">'+btns.join("")+'</div>' : '<div class="hint">Không có hành động khả dụng cho bạn ở trạng thái hiện tại.</div>'; }
@@ -512,7 +513,7 @@
     var a=el.getAttribute("data-act"); if(!a||el.disabled) return; if(document.querySelector(".ec-purr-overlay")) return; e.preventDefault();
     var det=state.detail||{}; var name=(det.business||{}).name||state.id;
     if(a==="editdraft") return startEditDraft(det); if(a==="submitdraft") return doSubmitDraft(name);
-    if(a==="edit") return startEditResubmit(det); if(a==="approve") return doApprove(name,det);
+    if(a==="edit") return startEditResubmit(det); if(a==="approve") return doApprove(name,det); if(a==="remind") return window.EcRemind&&EcRemind.run(call,name,{toast:toast,mapErr:(typeof mapErr==="function"?mapErr:null),done:function(){ if(typeof refreshDetail==="function") refreshDetail(); else if(typeof renderDetail==="function") renderDetail(document.querySelector('[id$="-body"]')); }});
     if(a==="reject") return doReject(name); if(a==="reqinfo") return doRequestInfo(name);
     if(a==="adminapprove") return doAdminApprove(name); if(a==="cancel") return doCancel(name); }
   function ensureActionHandlers(){ if(document.__promActBound) return; document.__promActBound=true; document.addEventListener("click", handleActionClick, true); }

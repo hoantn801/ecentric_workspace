@@ -103,6 +103,7 @@ class TestStandardRequestPublicApiContract(unittest.TestCase):
         "resubmit": ["name", "payload"],
         "cancel": ["name", "reason"],
         "admin_approve_current_level": ["name", "reason"],
+        "remind": ["name"],
     }
 
     def test_endpoint_names_signatures_aliases_and_post_guards(self):

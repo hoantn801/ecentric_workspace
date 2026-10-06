@@ -33,6 +33,8 @@ class FakeRepo:
                          "department": "Marketing", "welcome_intro": "Xin chào"}]
         self.calls = {"employees": 0, "onboard": 0}
         self.fail = None
+        self.draws, self.draws_soon = {}, False
+        self.events = [{"name": "SP1", "title": "Chạy 5km", "url": "/bang-tin/bai/SP1"}]
 
     # doc
     def now(self): return NOW
@@ -66,6 +68,20 @@ class FakeRepo:
     def is_duplicate(self, exc): return isinstance(exc, Dup)
     def log_error(self, title): self.logged = title
 
+    def survey_draws(self, user):
+        if isinstance(self.draws, Exception):
+            raise self.draws
+        return self.draws
+
+    def survey_draws_soon(self): return self.draws_soon
+
+    def social_events(self, user, day):
+        if isinstance(self.events, Exception):
+            raise self.events
+        return self.events
+
+    def social_wishes(self, keys): return {k: 2 for k in keys if k.startswith("bd:")}
+
 
 class TestToday(unittest.TestCase):
     def test_payload_for_a_colleague(self):
@@ -78,7 +94,9 @@ class TestToday(unittest.TestCase):
         self.assertEqual([(p["name"], p["years"]) for p in out["anniversaries"]], [("Trần Minh Khoa", 3)])
         self.assertEqual(out["onboard"][0]["key"], "new:EC-NSP-0001")
         self.assertEqual(out["holidays"][0]["name"], "Tết Dương lịch")
-        self.assertTrue(out["event_coming_soon"])
+        self.assertFalse(out["event_coming_soon"])
+        self.assertEqual([e["title"] for e in out["events"]], ["Chạy 5km"])
+        self.assertEqual(out["wishes"], {"bd:E1:2026": 2})
         self.assertEqual(set(out["reactions"]), {"bd:E1:2026", "new:EC-NSP-0001", "ann:E2:2026"})
         self.assertEqual(set(out["keys"]), {"bd:E1:2026", "new:EC-NSP-0001", "ann:E2:2026"})
 
@@ -86,6 +104,20 @@ class TestToday(unittest.TestCase):
         blob = repr(S.today("xem@x", repo=FakeRepo()))
         for bad in ("1995", "1993", "'emp'", "Account - EC", "date_of_birth", "user_id", "ha@x"):
             self.assertNotIn(bad, blob)
+
+    def test_social_failure_does_not_break_the_popup(self):
+        r = FakeRepo()
+        r.events = RuntimeError("social down")
+        out = S.today("xem@x", repo=r)
+        self.assertEqual(out["events"], [])
+        self.assertEqual(r.logged, "home_today.social_events")
+        self.assertTrue(out["has_content"])
+
+    def test_people_today_shares_the_popup_keys(self):
+        out = S.people_today(repo=FakeRepo(), now=NOW)
+        self.assertEqual([p["key"] for p in out["birthdays"]], ["bd:E1:2026"])
+        self.assertEqual(out["birthdays"][0]["emp"], "E1")
+        self.assertEqual([p["key"] for p in out["anniversaries"]], ["ann:E2:2026"])
 
     def test_guest_gets_nothing(self):
         r = FakeRepo()
@@ -133,6 +165,48 @@ class TestToggle(unittest.TestCase):
         r.add_reaction = boom
         with self.assertRaises(RuntimeError):
             S.toggle("xem@x", "bd:E1:2026", "cake", repo=r)
+
+
+class TestDraws(unittest.TestCase):
+    """O "Quay so may man" (module Khao sat) trong popup."""
+
+    def quiet(self):
+        r = FakeRepo()
+        r.emps = [dict(r.emps[2])]
+        r.onboard = []
+        return r
+
+    def test_draw_today_is_content_and_reopens_once(self):
+        r = self.quiet()
+        r.draws = {"server_now": "2026-09-29 09:56:00", "upcoming": [], "timers": [],
+                   "draws": [{"name": "KS-1", "state": "countdown"}, {"name": "KS-2", "state": "done"}]}
+        out = S.today("xem@x", repo=r)
+        self.assertTrue(out["has_content"])
+        self.assertEqual(out["keys"], ["draw:KS-1"])              # ket qua (done) khong mo lai popup
+        self.assertEqual(out["draws"]["server_now"], "2026-09-29 09:56:00")
+
+    def test_upcoming_within_7_days_shows_tile_only(self):
+        r = self.quiet()
+        r.draws = {"draws": [], "timers": [], "upcoming": [{"name": "KS-3", "days_left": 12}]}
+        self.assertFalse(S.today("xem@x", repo=r)["has_content"])
+        r.draws["upcoming"].append({"name": "KS-4", "days_left": 3})
+        out = S.today("xem@x", repo=r)
+        self.assertTrue(out["has_content"])
+        self.assertEqual(out["keys"], [])
+
+    def test_survey_error_never_breaks_popup(self):
+        r = FakeRepo()
+        r.draws = RuntimeError("surveys down")
+        out = S.today("xem@x", repo=r)
+        self.assertTrue(out["has_content"])
+        self.assertEqual(out["draws"]["draws"], [])
+        self.assertEqual(r.logged, "home_today.survey_draws")
+
+    def test_celebration_flag_counts_draws(self):
+        r = self.quiet()
+        self.assertFalse(S.celebration("xem@x", repo=r)["has_content"])
+        r.draws_soon = True
+        self.assertTrue(S.celebration("xem@x", repo=r)["has_content"])
 
 
 class TestCelebration(unittest.TestCase):

@@ -39,7 +39,7 @@ NAME = "ecentric-workspace"
 TITLE = "eCentric Workspace"
 
 #: sha256 cua main_section.html commit nay ship (phep kiem `pagesync` cua CI doi chieu).
-BASELINE_SHA256 = "633e6dd057e87f240e8dcee5aa6e62b4c623745f5ba775248e8c566a12b90baf"
+BASELINE_SHA256 = "1f9686d6dbcd3abc827871e3d9b738e69e3efef2c9dd10f6b437356c4c34310c"
 SUPERSEDES_SHA256 = (
     # 29/09/2026: live truoc giai doan 2 = bo cuc cu + khoi JS ec-home-v2 (deploy_home_v2.ps1,
     # ban 28/09 d40b72c) + vo shell/polish cua transform_home. Doi chieu bang trinh duyet.
@@ -50,6 +50,25 @@ SUPERSEDES_SHA256 = (
     "52d1d24463601e8c41cd75fb569dce3bde22c563ee4e22ca39aca2fe5d4b0faa",
     # 29/09 15:00 (p227): go nut chat cu; chua co popup "Hom nay o eCentric" (p228 them)
     "7bfda03ccb1e779f481347c7b8e54b9affc3a8072d45c42e1c14bea685d18aec",
+    # 29/09 16:15 (p228): popup "Hom nay o eCentric" + trang tri; chua co nut mo lai (p230 them)
+    "633e6dd057e87f240e8dcee5aa6e62b4c623745f5ba775248e8c566a12b90baf",
+    # 29/09 (p230): nut mo lai popup; menu con ghi "AI Tool" (p241 doi thanh "SI Tool")
+    "cfb286e5c4f0d5672e67d236ece09c1225ab4cd3fc7090d2d86fdcf7f31118f0",
+    # 01/10 (p241): menu "SI Tool"; khoi "Tin noi bo" con doc News Post cu (p246 doi sang
+    # /tin-noi-bo + them muc menu "Tin noi bo")
+    "a347101b1c8d6e61e4816c4e281340be6ed0418399f9f429ebb58362201c76c2",
+    # 01/10 (p246): Tin noi bo o nhom Workspace; Tai nguyen con "Intranet (sap ra mat)"
+    # (p247 chuyen Tin noi bo vao cho Intranet + o Truy cap nhanh)
+    "852634753df07a7c299822ebced929e974b8bb7518cb39a020d33b03f3d5a849",
+    # 01/10 (p247): Tin noi bo trong Tai nguyen; chua co muc menu "Khao sat" (p248 them)
+    "0884ba8f5749ffd97447c4bd33e48c4c2981e348205305990417406f9b2457e0",
+    # 01/10 (p248): menu "Khao sat"; Tai nguyen con "Gop y BGD (sap ra mat)" (p257 doi thanh
+    # "Gop y cong ty" -> /gop-y + o Truy cap nhanh)
+    "515b952128681d03098a94a145f772834a3dc623823b43c352c1fede7fb8823f",
+    # 04/10 (p257): "Gop y cong ty"; chua co muc menu "Bang tin" (p259 them, nhom Workspace)
+    "b91c748b800293084ae0583aad3b8a53047758744590952ffaad7c8ed8103820",
+    # 04/10 (p259): "Bang tin"; chua co muc menu "Thu vien tai lieu" (p261 them, nhom Tai nguyen)
+    "489c4b1f4d999ed4887ae20a78481ad7214d21b7d10414a08c983945d6cf9a87",
 )
 
 #: Dau vet cua Daily Cockpit (PO tu choi 21/07): nguon trang chu khong bao gio duoc chua lai.

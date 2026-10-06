@@ -15,6 +15,9 @@ def _definition(code, doctype, feature, editable, mine, approvals, options=(), f
     return ApprovalDefinition(
         code=code,
         business_doctype=doctype,
+        # 05/10: THIEU dong nay tu dau -> fulfillment_service.claim dung duong dan module rong
+        # ("No module named ...features.") khi nhan xu ly tu popup trang Tat ca yeu cau.
+        feature=feature,
         editable_fields=editable,
         my_request_fields=mine,
         approval_list_fields=approvals,
@@ -30,7 +33,7 @@ DAILY_TARGET_DEFINITION = _definition(
      "target_setting_type", "justification", "request_attachment",
      "linked_project_level_requests", "department", "company"),
     ("name", "request_title", "request_scope", "brand", "target_month", "target_setting_type",
-     "approval_request", "creation", "modified"),
+     "fulfillment_status", "fulfillment_owner", "approval_request", "creation", "modified"),
     ("name", "request_title", "request_scope", "brand", "target_month", "target_setting_type",
      "department", "creation"),
     options=(("scopes", ("Project level", "Consolidated / Total")),

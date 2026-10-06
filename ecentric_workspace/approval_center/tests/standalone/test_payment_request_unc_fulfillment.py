@@ -24,6 +24,8 @@ import sys
 import types
 import unittest
 
+NGHI = set()   # user dang nghi trong test (ngay_lam_viec stub)
+
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _AC = os.path.abspath(os.path.join(_HERE, "..", ".."))
 _APP = os.path.abspath(os.path.join(_AC, ".."))
@@ -181,10 +183,15 @@ def _load(docs, roles=("Employee",), user="fin@ec.vn", todos=None, participants=
     for k in ("now_datetime", "formatdate", "getdate", "add_days"):
         setattr(fu, k, getattr(fk.utils, k))
     svc_mod = types.ModuleType("ecentric_workspace.approval_center.features.payment_request.application.service")
+    # 03/10: job nhac bo nguoi dang nghi - test dieu khien bang NGHI (mac dinh ai cung di lam).
+    nlv = types.ModuleType("ecentric_workspace.approval_center.shared.workflow.ngay_lam_viec")
+    nlv.la_ngay_nghi = lambda u, day=None, _cache=None: u in NGHI
+    nlv.nguoi_di_lam = lambda users, day=None: [u for u in (users or []) if u not in NGHI]
     mods = {"frappe": fk, "frappe.utils": fu,
             "ecentric_workspace.approval_center.shared.finance_support": fs,
             "ecentric_workspace.approval_center.features.payment_request.application.funding": funding,
             "ecentric_workspace.approval_center.shared.workflow.transitions": eng,
+            "ecentric_workspace.approval_center.shared.workflow.ngay_lam_viec": nlv,
             "ecentric_workspace.approval_center.shared.requests.command_service": cs,
             "ecentric_workspace.approval_center.features.payment_request.application.service": svc_mod}
     saved = {k: sys.modules.get(k) for k in mods}
@@ -527,6 +534,22 @@ class TestReminders(unittest.TestCase):
         self.assertIsNone(w["docs"]["C"]["unc_reminded_on"])
         # chay lan hai cung ngay: khong nhac lai
         self.assertEqual(rem.remind_unc_due(self.TODAY), 0)
+
+    def test_bo_nguoi_dang_nghi_ca_nhom_nghi_thi_de_mai(self):
+        """03/10 (Hoan): khong ban nhac vao nguoi dang nghi; ca nhom nghi thi KHONG danh dau
+        da nhac de ngay lam viec ke tiep nhac tiep."""
+        docs = {"A": _pr(fulfillment_status="Assigned", payment_date="2026-09-10"),
+                "B": _pr(fulfillment_status="In Progress", payment_date="2026-09-01", fulfillment_owner="fin1@ec.vn")}
+        _s, rem, w, _f = _load(docs, case=self)
+        NGHI.add("fin1@ec.vn")
+        try:
+            rem.remind_unc_due(self.TODAY)
+        finally:
+            NGHI.clear()
+        by = {name: users for users, subj, name in w["notify"]}
+        self.assertEqual(by, {"A": ["fin2@ec.vn"]})                   # fin1 nghi -> chi fin2
+        self.assertEqual(w["docs"]["A"]["unc_reminded_on"], self.TODAY)
+        self.assertIsNone(w["docs"]["B"]["unc_reminded_on"])          # nguoi duy nhat nghi -> mai
 
     def test_nhac_theo_ngay_Finance_cam_ket_va_NOI_ca_han_co_UNC(self):
         """Tu 09/09 Finance khai HAI ngay luc nhan viec. Neu thong bao chi noi ngay thanh

@@ -238,9 +238,9 @@
       + '<div></div>'
       + '</div></div>'
       + '<div class="card"><h3>Ngân sách</h3><div class="grid2">'
-      + fld("approved_budget_current_period","Approved budget "+curW+" (VND)",'<input type="number" min="0" step="1" data-model="approved_budget_current_period" value="'+esc(d.approved_budget_current_period!=null?d.approved_budget_current_period:"")+'">',true)
-      + fld("actual_spending_current_period","Actual spending "+curW+" (VND)",'<input type="number" min="0" step="1" data-model="actual_spending_current_period" value="'+esc(d.actual_spending_current_period!=null?d.actual_spending_current_period:"")+'">',true)
-      + fld("forecast_budget_next_period","Forecast budget "+nextW+" (VND)",'<input type="number" min="0" step="1" data-model="forecast_budget_next_period" value="'+esc(d.forecast_budget_next_period!=null?d.forecast_budget_next_period:"")+'">',true)
+      + fld("approved_budget_current_period","Approved budget "+curW+" (VND)",'<input type="text" inputmode="numeric" autocomplete="off" data-money data-model="approved_budget_current_period" value="'+esc(window.EcMoney?EcMoney.fmt((d.approved_budget_current_period!=null?d.approved_budget_current_period:"")):(d.approved_budget_current_period!=null?d.approved_budget_current_period:""))+'">',true)
+      + fld("actual_spending_current_period","Actual spending "+curW+" (VND)",'<input type="text" inputmode="numeric" autocomplete="off" data-money data-model="actual_spending_current_period" value="'+esc(window.EcMoney?EcMoney.fmt((d.actual_spending_current_period!=null?d.actual_spending_current_period:"")):(d.actual_spending_current_period!=null?d.actual_spending_current_period:""))+'">',true)
+      + fld("forecast_budget_next_period","Forecast budget "+nextW+" (VND)",'<input type="text" inputmode="numeric" autocomplete="off" data-money data-model="forecast_budget_next_period" value="'+esc(window.EcMoney?EcMoney.fmt((d.forecast_budget_next_period!=null?d.forecast_budget_next_period:"")):(d.forecast_budget_next_period!=null?d.forecast_budget_next_period:""))+'">',true)
       + '<div></div>'
       + fld("forecast_justification","Forecast justification",'<textarea data-model="forecast_justification" rows="3" placeholder="Cơ sở / căn cứ cho dự báo ngân sách kỳ sau.">'+esc(d.forecast_justification||"")+'</textarea>',true).replace('class="fld','class="fld full')
       + '</div></div>'
@@ -350,7 +350,7 @@
 
   function attachModel(el){ if(el.__ecw) return; el.__ecw=true;
     el.addEventListener("input",function(){ var k=el.getAttribute("data-model");
-      var v=el.type==="number"?(el.value===""?null:Number(el.value)):el.value; setModel(k,v);
+      var v=(window.EcMoney&&el.hasAttribute("data-money"))?EcMoney.val(el):el.type==="number"?(el.value===""?null:Number(el.value)):el.value; setModel(k,v);
       clearFieldError(k);
       if(k==="budget_period_type"||k==="has_financial_risks"){ renderCreate($("budg-body")); return; }
       renderSummary(); }); }
@@ -516,6 +516,7 @@
     if(cap.can_approve) btns.push('<button type="button" class="btn primary" data-act="approve">Duyệt</button>');
     if(cap.can_request_information) btns.push('<button type="button" class="btn" data-act="reqinfo">Yêu cầu bổ sung</button>');
     if(cap.can_reject) btns.push('<button type="button" class="btn" data-act="reject">Từ chối</button>');
+    if(window.EcRemind) btns.push(EcRemind.buttonHTML(cap));   // 01/10: nhac nguoi xu ly (asset dung chung)
     if(cap.can_admin_approve_current_level) btns.push('<button type="button" class="btn warn" data-act="adminapprove">Duyệt thay bước hiện tại</button>');
     if(cap.can_cancel) btns.push('<button type="button" class="btn" data-act="cancel">Hủy yêu cầu</button>');
     return btns.length? '<div class="actions">'+btns.join("")+'</div>' : '<div class="hint">Không có hành động khả dụng cho bạn ở trạng thái hiện tại.</div>'; }
@@ -523,7 +524,7 @@
     var a=el.getAttribute("data-act"); if(!a||el.disabled) return; if(document.querySelector(".ec-budg-overlay")) return; e.preventDefault();
     var det=state.detail||{}; var name=(det.business||{}).name||state.id;
     if(a==="editdraft") return startEditDraft(det); if(a==="submitdraft") return doSubmitDraft(name);
-    if(a==="edit") return startEditResubmit(det); if(a==="approve") return doApprove(name,det);
+    if(a==="edit") return startEditResubmit(det); if(a==="approve") return doApprove(name,det); if(a==="remind") return window.EcRemind&&EcRemind.run(call,name,{toast:toast,mapErr:(typeof mapErr==="function"?mapErr:null),done:function(){ if(typeof refreshDetail==="function") refreshDetail(); else if(typeof renderDetail==="function") renderDetail(document.querySelector('[id$="-body"]')); }});
     if(a==="reject") return doReject(name); if(a==="reqinfo") return doRequestInfo(name);
     if(a==="adminapprove") return doAdminApprove(name); if(a==="cancel") return doCancel(name); }
   function ensureActionHandlers(){ if(document.__budgActBound) return; document.__budgActBound=true; document.addEventListener("click", handleActionClick, true); }

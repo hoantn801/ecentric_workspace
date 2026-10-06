@@ -1,0 +1,135 @@
+{
+ "doctype": "DocType",
+ "name": "EC Post Category",
+ "module": "Internal Posts",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "autoname": "field:slug",
+ "naming_rule": "By fieldname",
+ "sort_field": "sort_order",
+ "sort_order": "ASC",
+ "title_field": "category_name",
+ "show_title_field_in_link": 1,
+ "description": "Chuyên mục của Tin nội bộ (/tin-noi-bo). HR tự thêm / sửa / tắt. Mã (slug) là đường dẫn ?chuyen-muc=, đặt xong thì đừng đổi.",
+ "field_order": [
+  "category_name",
+  "slug",
+  "enabled",
+  "column_break_1",
+  "sort_order",
+  "color",
+  "icon",
+  "home_category",
+  "description"
+ ],
+ "fields": [
+  {
+   "fieldname": "category_name",
+   "fieldtype": "Data",
+   "label": "Tên chuyên mục",
+   "reqd": 1,
+   "in_list_view": 1,
+   "length": 60
+  },
+  {
+   "fieldname": "slug",
+   "fieldtype": "Data",
+   "label": "Mã (đường dẫn)",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1,
+   "length": 60,
+   "description": "Chữ thường, không dấu, nối bằng gạch ngang. Vd: thong-bao. Không đổi sau khi đã có bài."
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Đang dùng",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sort_order",
+   "fieldtype": "Int",
+   "label": "Thứ tự",
+   "default": "10",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "color",
+   "fieldtype": "Select",
+   "label": "Màu",
+   "options": "navy\ngreen\npink\nyellow\npurple\norange\nteal\ncharcoal",
+   "default": "navy",
+   "description": "Màu nhãn và màu nền ảnh bìa mặc định của bài trong chuyên mục."
+  },
+  {
+   "fieldname": "icon",
+   "fieldtype": "Select",
+   "label": "Biểu tượng",
+   "options": "megaphone\nbook\nstar\ndoc\ncalendar\nheart",
+   "default": "megaphone"
+  },
+  {
+   "fieldname": "home_category",
+   "fieldtype": "Select",
+   "label": "Nhãn trên popup trang chủ",
+   "options": "Tính năng mới\nModule mới\nChính sách\nSự kiện\nThông báo",
+   "default": "Thông báo",
+   "description": "Bài đưa lên popup \"Hôm nay ở eCentric\" mang nhãn này."
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Mô tả"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 1,
+   "share": 1
+  },
+  {
+   "role": "HR Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 1
+  },
+  {
+   "role": "HR User",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "print": 1
+  },
+  {
+   "role": "Employee",
+   "read": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}

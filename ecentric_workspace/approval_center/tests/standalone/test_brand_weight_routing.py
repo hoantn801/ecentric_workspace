@@ -96,6 +96,18 @@ class TestLuatBoCap(unittest.TestCase):
         self.assertEqual(skip, [1])
         self.assertIn("khong bo ca hai cap", reason)
 
+    def test_lead_cung_la_truong_phong_thi_duyet_mot_lan(self):
+        """01/10: Hoan vua la lead vua la truong phong Operation & Data & System - phai
+        bam duyet hai lan cho cung mot phieu. Bo buoc 2, lead duyet la chot."""
+        skip, reason = _svc("boss@x", "boss@x").execute("EMP-5", "Ops - EC", "nv@x")
+        self.assertEqual(skip, [2])
+        self.assertIn("duyet mot lan la chot", reason)
+
+    def test_lead_cung_la_truong_phong_va_tu_nop(self):
+        """Truong phong tu nop ma lead cua ho cung chinh ho: van chi bo mot cap."""
+        skip, _r = _svc("nv@x", "nv@x").execute("EMP-6", "Ops - EC", "nv@x")
+        self.assertEqual(skip, [1])
+
     def test_phong_chua_co_truong_phong_thi_nem_loi_ngay(self):
         """Fail to tieng luc nop, khong de phieu treo im nhu don cuoi phuong.nguyen."""
         with self.assertRaises(_Throw) as cm:

@@ -165,5 +165,41 @@ class TestPhepUuTienHonChamCong(unittest.TestCase):
         self.assertEqual(att["status"], "Half Day")
 
 
+
+class NopDonKhiDaChamCong(unittest.TestCase):
+    """ec-lv-apply-att-v1 (30/09): da cham cong sang nay van nop don nghi cho hom nay duoc.
+    Chay DUNG doan code trong ec_hr_leave_apply (tu dong gan att den het vong tra lai) voi
+    mot frappe gia co validate_attendance cua HRMS."""
+
+    def _block(self):
+        with open(FIX, encoding="utf-8") as fh:
+            src = [r for r in json.load(fh) if r["name"] == "ec_hr_leave_apply"][0]["script"]
+        i = src.index("apply_att_rows = ")
+        j = src.index("apply_ar[1], update_modified=False)", i) + len("apply_ar[1], update_modified=False)")
+        return src[i:j]
+
+    def test_insert_qua_va_cham_cong_giu_nguyen(self):
+        att = {"ATT-9": {"name": "ATT-9", "employee": "EMP-HOAN", "date": "2026-09-30", "docstatus": 1,
+                         "status": "Present", "half_day_status": None, "leave_application": None}}
+        db = FakeDB(att)
+        la = FakeLeave(db, name="LAP-NEW", employee="EMP-HOAN", from_date="2026-09-30", to_date="2026-09-30",
+                       half_day=0, status="Open")
+        inserted = []
+        la.insert = lambda ignore_permissions=False: (la._validate(), inserted.append(1))
+        fr = types.SimpleNamespace(db=db, get_doc=lambda d: la)
+        g = {"frappe": fr, "emp": types.SimpleNamespace(name="EMP-HOAN"), "fd": "2026-09-30",
+             "td": "2026-09-30", "doc": {}}
+        exec(compile(self._block(), "apply_block", "exec"), g)
+        self.assertEqual(inserted, [1])
+        self.assertEqual((att["ATT-9"]["status"], att["ATT-9"]["half_day_status"]), ("Present", None))
+
+    def test_ban_cu_thi_bi_chan(self):
+        att = {"ATT-9": {"name": "ATT-9", "employee": "EMP-HOAN", "date": "2026-09-30", "docstatus": 1,
+                         "status": "Present", "half_day_status": None, "leave_application": None}}
+        la = FakeLeave(FakeDB(att), name="LAP-NEW", employee="EMP-HOAN", from_date="2026-09-30",
+                       to_date="2026-09-30", half_day=0, status="Open")
+        with self.assertRaises(Throw):
+            la._validate()
+
 if __name__ == "__main__":
     unittest.main()

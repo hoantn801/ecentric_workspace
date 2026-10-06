@@ -11,11 +11,15 @@ Luat:
   - Moi phieu MOT lan moi ngay (unc_reminded_on = hom nay), ke ca khi da qua han.
   - Assigned -> moi Fulfiller cua process; In Progress -> nguoi da nhan.
   - Loi mot phieu khong chan phieu khac; tat bang site_config ec_payment_unc_reminder_disabled.
+  - 03/10/2026 (Hoan): chay 09:00 (khong phai 00:00) va KHONG ban cho nguoi dang nghi (cuoi tuan,
+    ngay le, nghi phep da duyet - shared/workflow/ngay_lam_viec). Ai cung nghi thi phieu KHONG bi
+    danh dau da nhac -> ngay lam viec ke tiep nhac tiep.
 """
 import frappe
 from frappe import _
 from frappe.utils import add_days, formatdate, getdate
 
+from ecentric_workspace.approval_center.shared.workflow import ngay_lam_viec
 from ecentric_workspace.approval_center.features.payment_request.application.service import (
     BUSINESS_DT, INSTALLMENT, _engine, installments_block)
 
@@ -114,8 +118,11 @@ def remind_unc_due(today=None):
         try:
             doc = frappe.get_doc(BUSINESS_DT, name)
             users = _recipients(doc, engine)
-            if users:
-                engine.notify(users, _subject(doc, today, engine), BUSINESS_DT, name)
+            di_lam = ngay_lam_viec.nguoi_di_lam(users, today)
+            if users and not di_lam:
+                continue                                  # ca nhom dang nghi -> de ngay lam viec sau
+            if di_lam:
+                engine.notify(di_lam, _subject(doc, today, engine), BUSINESS_DT, name)
             frappe.db.set_value(BUSINESS_DT, name, "unc_reminded_on", today, update_modified=False)
             sent += 1
         except Exception:
@@ -154,6 +161,8 @@ def remind_next_installment(today=None):
                 # da tao dot ke (hoac da du) -> khong nhac, khong can nhac lai nua
                 frappe.db.set_value(BUSINESS_DT, name, "next_installment_reminded_on", today, update_modified=False)
                 continue
+            if ngay_lam_viec.la_ngay_nghi(doc.requested_by, today):
+                continue                                  # nguoi de nghi dang nghi -> mai nhac
             days = (getdate(doc.next_installment_date) - today).days
             when = _("còn {0} ngày").format(days) if days > 0 else (_("HÔM NAY") if days == 0 else _("QUÁ HẠN {0} ngày").format(-days))
             engine.notify([doc.requested_by],

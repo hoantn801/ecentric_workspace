@@ -24,6 +24,8 @@ import sys
 import types
 import unittest
 
+NGHI = set()   # user dang nghi trong test (ngay_lam_viec stub)
+
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _AC = os.path.abspath(os.path.join(_HERE, "..", ".."))
 _APP = os.path.abspath(os.path.join(_AC, ".."))
@@ -170,10 +172,15 @@ def _load(docs, user="req@ec.vn", roles=("Employee",), case=None):
         title_builder=lambda d: svc_mod.payment_title(d),
         status_label_map={"Approved": "Đã duyệt"})
     reg.get_definition = lambda code: defn
+    # 03/10: job nhac bo nguoi dang nghi - test dieu khien bang NGHI (mac dinh ai cung di lam).
+    nlv = types.ModuleType("ecentric_workspace.approval_center.shared.workflow.ngay_lam_viec")
+    nlv.la_ngay_nghi = lambda u, day=None, _cache=None: u in NGHI
+    nlv.nguoi_di_lam = lambda users, day=None: [u for u in (users or []) if u not in NGHI]
     mods = {"frappe": fk, "frappe.utils": types.SimpleNamespace(),
             "ecentric_workspace.approval_center.shared.finance_support": fs,
             "ecentric_workspace.approval_center.features.payment_request.application.funding": funding,
             "ecentric_workspace.approval_center.shared.workflow.transitions": eng,
+            "ecentric_workspace.approval_center.shared.workflow.ngay_lam_viec": nlv,
             "ecentric_workspace.approval_center.shared.requests.capabilities": caps,
             "ecentric_workspace.approval_center.shared.requests.query_service": qs,
             "ecentric_workspace.approval_center.shared.requests.command_service": cs,

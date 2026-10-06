@@ -1,0 +1,30 @@
+{#- Bang tin + Cau lac bo - khung chung: vo shell ERP (menu trai + thanh tren tu registry) + vung trang.
+    Bo navbar / footer cua Frappe bang block rong. Menu + thanh tren do social/pages.py dung. -#}
+{% extends base_template_path %}
+{% block title %}{{ title|e }} · eCentric{% endblock %}
+{% block navbar %}{% endblock %}
+{% block footer %}{% endblock %}
+{% block style %}{{ super() }}
+<link rel="stylesheet" href="{{ soc_css }}">
+{% endblock %}
+{% block content %}
+<div class="esc-app">
+  {{ soc_shell_mount }}
+  <main class="esc-main">
+    <div class="ec-shell-topbar" data-ec-shell-topbar="1">{{ soc_topbar }}</div>
+    <div class="esc-page">
+      {% block esc_page %}{% endblock %}
+    </div>
+  </main>
+</div>
+<div class="esc-toast" id="esc-toast" role="status" aria-live="polite" hidden></div>
+<div class="esc-lb" id="esc-lb" role="dialog" aria-modal="true" aria-label="Xem ảnh" hidden>
+  <button type="button" class="esc-lb-x" data-esc-lb-close aria-label="Đóng">×</button>
+  <button type="button" class="esc-lb-nav esc-lb-prev" data-esc-lb-prev aria-label="Ảnh trước">‹</button>
+  <img alt="" data-esc-lb-img>
+  <button type="button" class="esc-lb-nav esc-lb-next" data-esc-lb-next aria-label="Ảnh sau">›</button>
+</div>
+{% endblock %}
+{% block script %}{{ super() }}
+<script src="{{ soc_js }}" defer></script>
+{% endblock %}

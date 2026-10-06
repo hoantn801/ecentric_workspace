@@ -70,6 +70,14 @@ GROUP_COUNTS_TOWARD_SLA = {
     GROUP_TASK: 0,
 }
 
+# Nhom TAM KHONG tinh vao %SLA trong mot so ky (van do, van hien, gan "ngoai %SLA").
+# 30/09/2026 - chu so huu chot: Phan hoi phe duyet thang 9 chua tinh diem, tu
+# 01/10 tinh lai binh thuong. Doc qua `scoring.counts_in_period`, dung chung cho
+# luc mo nghia vu, bang diem va patch sla.p016.
+GROUP_OFF_PERIODS = {
+    GROUP_APPROVAL: ("2026-09",),
+}
+
 # Nguong cho TONG: KHONG CO. Chu so huu chot 18/09.
 #
 # Lap luan cua ong ay, va no dung: mot dau viec du dung le van la MOT dau viec co

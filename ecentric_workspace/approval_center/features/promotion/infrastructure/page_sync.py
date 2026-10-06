@@ -36,8 +36,12 @@ def _html():
 # commit. SUPERSEDES_SHA256 exists for repo-authored edits: at deploy time live
 # still holds the bytes being superseded, and after the first successful write
 # it holds the new snapshot; both are "not drifted", so both must be accepted.
-BASELINE_SHA256 = "a2542c4209f39ffdebb4c1bd51f5a38b7d85e9f1d90cd6110dc04bfa57460052"
+BASELINE_SHA256 = "92f4ec4a9eb739f87a847323f48615e7b384b4060d36b6a1be908fe87970d466"
 SUPERSEDES_SHA256 = (
+    "8a2cf92f3e2cec954ac0f344038f63483a37a9e91cca7d9da8d38eae3f6d704d",  # ban truoc dot o so tien dau cham 01/10
+    "4a6526f0dd0e2c90182df7c5652790b1fc2405eb5235505189c21f09c1150863",  # ban truoc dot nut Nhac nguoi xu ly 01/10
+    "5d1410c9a6dc1653e88feb0e47fc9730804e8d787ac2be0069e5ac98aa0265fb",  # truoc sua review Phan quyen 29/09 (an luong)
+    "a2542c4209f39ffdebb4c1bd51f5a38b7d85e9f1d90cd6110dc04bfa57460052",  # truoc dot 29/09 (chon nhan su theo quyen xem luong + tu cap nhat sau duyet)
     "bd7c4c5263237d236d0477f8890d71b2fde8852b4915887af1bd5fb3ace35666",  # DANG CHAY TREN LIVE truoc dot tab "Tat ca" 16/09
     "28205a6ae65d15124f762f2da7eb006e7b9f472a1a1948911c273aa5709cd538",  # DANG CHAY TREN LIVE truoc dot 16/09 (p200 da ghi)
     "d75af14b5688ec9e729df7cbc3eae3bf06b7807e47ead8c0f2ecdb8bdf51c0a8",  # BASELINE cu (p200 doi HTML ma quen bump - cong do san tren main)

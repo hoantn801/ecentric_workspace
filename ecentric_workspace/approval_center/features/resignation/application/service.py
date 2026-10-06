@@ -78,7 +78,6 @@ def submit(name):
     return req_name
 
 
-@frappe.whitelist(methods=["POST"])
 def resubmit(name, actor=None):
     doc = frappe.get_doc(BUSINESS_DT, name)
     if not doc.approval_request:
@@ -94,30 +93,48 @@ def resubmit(name, actor=None):
 # HR Fulfillment (post-final-approval queue) - dispatched by engine.complete_approval
 # --------------------------------------------------------------------------- #
 def on_final_approval(name):
+    """29/09/2026 (Hoan chot, file Excel): Don nghi viec duyet xong thi DI TIEP Clearance Request
+    (Line Manager / Operation / HR / HOF ban giao song song) - thay cho buoc "HR xu ly" rieng
+    truoc day. Ghi ngay nghi vao ho so + tao Clearance chay NEN sau commit: loi o hai viec do
+    khong bao gio lam hong luot duyet. Don da o hang doi HR tu truoc van xu ly nhu cu."""
+    frappe.enqueue("ecentric_workspace.approval_center.features.resignation.application.service."
+                   "after_approval", queue="short", enqueue_after_commit=True, name=name)
+
+
+def after_approval(name):
+    """(1) Ghi Employee.resignation_letter_date / relieving_date (module HR - job 00:30 khoa tai
+    khoan doc relieving_date). (2) Tao Clearance. Moi viec mot try: viec nay hong khong chan viec kia."""
     doc = frappe.get_doc(BUSINESS_DT, name)
-    proc_name = frappe.db.get_value("EC Approval Request", doc.approval_request, "approval_process")
-    proc = frappe.get_doc("EC Approval Process", proc_name)
-    fulfillers = [u for u, _lbl in engine.resolve_participants(
-        [p for p in proc.participants if p.participant_purpose == "Fulfiller"], doc.requested_by)]
-    emp = frappe.db.get_value("Employee", {"user_id": doc.requested_by}, ["name", "company"], as_dict=True)
-    sla = engine.resolve_sla(proc.fulfillment_sla_policy,
-                             employee=emp.name if emp else None,
-                             company=(emp.company if emp else None) or doc.company)
-    frappe.db.set_value(BUSINESS_DT, name, {
-        "fulfillment_status": "Assigned",
-        "fulfillment_due_at": sla["due_at"] if sla else None,
-        "fulfillment_sla_calendar": sla["calendar"] if sla else None,
-        "fulfillment_sla_holiday_list": sla["holiday_list"] if sla else None,
-    })
-    if fulfillers:
-        engine.assign(BUSINESS_DT, name, fulfillers, _("Resignation HR fulfillment queue"),
-                      date=sla["due_at"] if sla else None,
-                      fulfillment=True)
-    engine.notify([doc.requested_by] + fulfillers,
-                  _("Da duyet - chuyen HR xu ly: {0}").format(engine.request_label(BUSINESS_DT, name)), BUSINESS_DT, name)
+    ket = []
+    try:
+        from ecentric_workspace.hr.offboarding import service as offboarding
+        ket.append(offboarding.mark_resignation(
+            doc.employee_email, letter_date=doc.submitted_at or doc.creation,
+            relieving_date=doc.last_working_day, source=name))
+        frappe.db.commit()
+    except Exception:
+        frappe.db.rollback()
+        frappe.log_error(title="Resignation %s: khong ghi duoc ngay nghi vao ho so" % name,
+                         message=frappe.get_traceback())
+        ket.append("LOI ghi ho so")
+    from ecentric_workspace.approval_center.features.clearance_request.application import (
+        service as clearance)
+    clr = clearance.create_from_resignation(name)
+    ket.append("clearance=%s" % (clr or "LOI"))
+    if doc.approval_request:
+        engine.log_action(doc.approval_request, "Commented", "Administrator",
+                          comment="; ".join(str(k) for k in ket))
+        frappe.db.commit()
+    if not clr:
+        hr = frappe.get_all("EC Approval Request Approver",
+                            filters={"approval_request": doc.approval_request}, pluck="approver")
+        engine.notify(sorted(set(hr + [doc.requested_by])),
+                      _("Chưa tạo được Clearance cho {0} - báo quản trị viên.").format(name),
+                      BUSINESS_DT, name)
+        frappe.db.commit()
+    return ket
 
 
-@frappe.whitelist(methods=["POST"])
 def claim_fulfillment(name, user=None):
     """Idempotent claim. First claim of an Assigned request logs exactly one "Started" timeline
     entry; a repeat claim by the SAME owner returns success without a duplicate entry and without
@@ -156,7 +173,6 @@ def claim_fulfillment(name, user=None):
     return {"owner": user, "claimed": True}
 
 
-@frappe.whitelist(methods=["POST"])
 def complete_fulfillment(name, user=None, payload=None):
     user = user or frappe.session.user
     data = frappe.parse_json(payload) if isinstance(payload, str) else (payload or {})

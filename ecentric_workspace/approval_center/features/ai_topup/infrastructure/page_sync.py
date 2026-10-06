@@ -37,7 +37,7 @@ def _html():
 # commit. SUPERSEDES_SHA256 exists for repo-authored edits: at deploy time live
 # still holds the bytes being superseded, and after the first successful write
 # it holds the new snapshot; both are "not drifted", so both must be accepted.
-BASELINE_SHA256 = "743cab944df7a037ab05e22c208db64818044a0b25d10b08a3a2ba7099dc0671"
+BASELINE_SHA256 = "0635285abc7748911c1e2689d076955cf384aced9b6558563d8fc27a50860be0"
 
 # Giá trị live mà snapshot này được phép ghi đè.
 #
@@ -51,6 +51,8 @@ BASELINE_SHA256 = "743cab944df7a037ab05e22c208db64818044a0b25d10b08a3a2ba7099dc0
 # d6d412c thì sync tiến lên, môi trường đã nhận bytes #241 thì trả về "unchanged".
 # Bỏ entry này khi đã xác nhận deploy trên mọi môi trường.
 SUPERSEDES_SHA256 = (
+    "ffc1e63d35ffca4c2afca7fa2a86a01c49056e55b14d2b68396f2368388d49e7",  # ban truoc dot o so tien dau cham 01/10
+    "743cab944df7a037ab05e22c208db64818044a0b25d10b08a3a2ba7099dc0671",  # ban truoc dot nut Nhac nguoi xu ly 01/10
     "e5637ec2d868f67a3b48a8b4eb5e558341ddea754db8dfe92c21602e5ef33da7",  # DANG CHAY TREN LIVE truoc dot tab "Tat ca" 16/09
     "0dab8e1cab41820100cfb33c298e7c68af3aac1663e7fa84ac5e10590495e205",  # DANG CHAY TREN LIVE truoc dot 16/09 (p200 da ghi)
     "665dd2bb41655ca179c309c30cf2e186592766217571dfa5d1cda343ccc75c10",  # BASELINE cu (p200 doi HTML ma quen bump - cong do san tren main)

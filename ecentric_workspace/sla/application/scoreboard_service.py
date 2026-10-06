@@ -60,7 +60,7 @@ def _rows_for(user, period):
     return rows
 
 
-def _decorate_groups(groups):
+def _decorate_groups(groups, period=None):
     """Them nhan/don vi/thu tu de UI khong phai biet ve hang so cua backend."""
     out = []
     for g in sorted(groups, key=lambda k: GROUP_SORT.get(k, 999)):
@@ -69,7 +69,7 @@ def _decorate_groups(groups):
             "group_key": g,
             "label": GROUP_LABEL.get(g, g),
             "unit": GROUP_UNIT.get(g, ""),
-            "counts_toward_sla": bool(GROUP_COUNTS_TOWARD_SLA.get(g, 1)),
+            "counts_toward_sla": bool(scoring.counts_in_period(g, period)),
             "min_sample": GROUP_MIN_SAMPLE.get(g, DEFAULT_MIN_SAMPLE),
         })
         out.append(b)
@@ -88,8 +88,8 @@ def person_board(user, period=None):
         "user": user,
         "period": period,
         "overall": agg["overall"],
-        "groups": _decorate_groups(agg["groups"]),
-        "contribution": scoring.contribution(agg["groups"]),
+        "groups": _decorate_groups(agg["groups"], period),
+        "contribution": scoring.contribution(agg["groups"], period),
     }
 
 
@@ -174,3 +174,57 @@ def department_board(department=None, period=None):
     board.sort(key=lambda b: (b["overall"]["rate"] is None,
                               -(b["overall"]["rate"] or 0), b["user"]))
     return {"period": period, "scope": scope, "rows": board, "truncated": truncated}
+#: Tran cua danh sach ky. 24 thang la du cho moi cau hoi doi chieu that, va du
+#: ngan de cai o chon khong tro thanh mot cuon so.
+_PERIOD_CAP = 24
+
+
+def _prev_period(p):
+    y, m = int(p[:4]), int(p[5:7])
+    return "%04d-12" % (y - 1) if m == 1 else "%04d-%02d" % (y, m - 1)
+
+
+def periods(limit=_PERIOD_CAP):
+    """Danh sach ky cham diem de nguoi dung chon, MOI NHAT TRUOC.
+
+    LIEN TUC tu thang co du lieu dau tien den thang hien tai, khong phai chi
+    nhung thang co du lieu. Mot danh sach thua thot ("12, 11, 09") bat nguoi doc
+    tu hoi thang 10 di dau mat - va cau tra loi dung ("thang do khong ai phat
+    sinh dau viec nao") lai chinh la thu danh sach do khong noi duoc. Danh sach
+    lien tuc thi thang trong chi hien "chua du mau", va do la cau tra loi that.
+
+    THANG HIEN TAI LUON CO MAT, ke ca khi chua ai phat sinh gi - sang ngay 1 moi
+    thang, bang diem rong la trang thai dung, khong phai mot cai o chon rong.
+
+    Khong nem loi: day la mot cai o chon tren man hinh. Doc that bai thi tra ve
+    mot minh thang hien tai, tuc la dung bang hanh vi cu truoc khi co ham nay.
+    """
+    cur = current_period()
+    first = cur
+    try:
+        rows = frappe.get_all(
+            DT_OBLIGATION, fields=["period_month"],
+            filters=[["period_month", ">", ""]],
+            order_by="period_month asc", limit_page_length=1)
+        if rows and rows[0].get("period_month"):
+            first = str(rows[0]["period_month"])[:7]
+    except Exception:
+        frappe.log_error(title="sla.scoreboard.periods",
+                         message=frappe.get_traceback())
+        first = cur
+    if not first or first > cur:
+        first = cur
+
+    try:
+        cap = int(limit or _PERIOD_CAP)
+    except (TypeError, ValueError):
+        cap = _PERIOD_CAP
+    cap = max(1, min(cap, _PERIOD_CAP))
+
+    out, p = [], cur
+    for _ in range(cap):
+        out.append(p)
+        if p <= first:
+            break
+        p = _prev_period(p)
+    return out

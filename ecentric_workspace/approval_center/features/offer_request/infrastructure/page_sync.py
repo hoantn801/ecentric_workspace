@@ -16,8 +16,10 @@ ROUTE = "approvals/offer-request"
 NAME = "offer-request"
 TITLE = "Offer Request"
 
-BASELINE_SHA256 = "bde728605a45f92bbc7c7443a903f92fa53d665b8148fcc5e62eea1f778b2a47"
-SUPERSEDES_SHA256 = ()
+BASELINE_SHA256 = "c387a1f64fa737aed7e6bce297d8e5b348a34d614bcf26f980436bc6ba30cc0d"
+SUPERSEDES_SHA256 = (
+    "bde728605a45f92bbc7c7443a903f92fa53d665b8148fcc5e62eea1f778b2a47",  # ban truoc dot nut Nhac nguoi xu ly 01/10
+)
 
 
 def _html():

@@ -30,6 +30,16 @@
 #    nhom_brand, kenh, dich_vu, nhom, khoan_muc, ma_erp (BRAND_ALLOC = chi tham khao, ADJ = dieu chinh),
 #    so_tien Currency (truoc VAT) | so_hoa_don | dong_nguon | dot_nap | ghi_chu.
 #    Quyen: System Manager ghi; EC Finance doc. Script nap + doi chieu: C:\dev\pnl_export\hist\
+#
+# 4) EC PnL Luong Lich Su   (module Custom, autoname hash; tao 28/09/2026, them cot 29/09/2026)
+#    Luong da gop thang x chuc danh x khach hang me x phong ban ERP tu file "Phan bo ty trong" (sheet
+#    fact_salary_cost_monthly co ma nhan su). KHONG co ten nhan su; Management team gop 1 dong.
+#    thang Date | chuc_danh | brand (ten trong file) | khach_hang_me (Customer) | phong_ban (Department ERP)
+#    nguon_phong_ban (ERP = theo ma NV; Chuc danh = nguoi nghi truoc khi co ERP) | fte | luong, bhxh,
+#    luong_13, thuong, incentive, phu_cap, phu_cap_khac, le_tet, tong (VND) | dot_nap | ghi_chu.
+#    Script chi doc dot LUONG_DOT (hien LUONG_PB_V2_20260929, 1.692 dong T1/2025-T8/2026); dot V1 cu bo qua.
+#    Thang chua co so that = trung binh 3 thang co so that gan nhat (Hoan chot 29/09). Nap so that la tu thay.
+#    Quyen: System Manager ghi; EC CEO / HOF / CnB / Payroll Viewer All doc. EC Finance KHONG doc.
 # ============================================================================
 
 # ec_pnl_chi_phi - API doc-only cho Dashboard PnL (giai doan 2: CHI PHI & LUONG UOC TINH)
@@ -453,8 +463,125 @@ else:
                 for fk in PAY_MONEY:
                     pay_dept[dk][m][fk] = 0.0
                 pay_dept[dk][m]["source"] = "so_lich_su"
+    # 29/09/2026 (Hoan duyet): LUONG lay tu DocType EC PnL Luong Lich Su, dot nap LUONG_DOT
+    # (file Phan bo ty trong co ma nhan su; da gop thang x chuc danh x khach hang me x phong ban ERP, KHONG co ten;
+    #  Management team gop 1 dong; phong ban theo ma nhan su tren ERP, nguoi da nghi truoc khi co ERP gan theo chuc danh).
+    # - Thang co so that trong bang: dung so that.
+    # - Thang SAU thang co so that cuoi cung: uoc tinh = trung binh 3 thang gan nhat co so that (Hoan chot 29/09).
+    #   Nap so that cua thang do (vd 1/10 nap T9) thi tu thay bang so that, khong can sua code.
+    # - Thang <= HIST_CUT: phan luong that duoc TRU khoi "So lich su" o khoi chi phi khac -> tong chi phi van bang so P&L.
+    LUONG_DT = "EC PnL Luong Lich Su"
+    LUONG_DOT = "LUONG_PB_V2_20260929"
+    luong_month = {}
+    luong_tag = {}
+    luong_by_role = {}
+    luong_by_brand = {}
+    luong_by_dept = {}
+    luong_tb3_from = []
+    if months and frappe.db.exists("DocType", LUONG_DT):
+        lrows = frappe.db.sql("""
+            SELECT date_format(thang, '%%Y-%%m') AS ky, ifnull(chuc_danh, '') AS cd,
+                   ifnull(khach_hang_me, '') AS kh, ifnull(phong_ban, '') AS pb,
+                   SUM(ifnull(fte, 0)) AS fte, SUM(ifnull(luong, 0)) AS luong, SUM(ifnull(bhxh, 0)) AS bhxh,
+                   SUM(ifnull(luong_13, 0)) AS l13, SUM(ifnull(thuong, 0)) AS thuong, SUM(ifnull(incentive, 0)) AS inc,
+                   SUM(ifnull(phu_cap, 0)) AS pc, SUM(ifnull(phu_cap_khac, 0)) AS pck, SUM(ifnull(le_tet, 0)) AS le,
+                   SUM(ifnull(tong, 0)) AS tong
+            FROM `tabEC PnL Luong Lich Su`
+            WHERE dot_nap = %(dot)s
+            GROUP BY date_format(thang, '%%Y-%%m'), ifnull(chuc_danh, ''), ifnull(khach_hang_me, ''), ifnull(phong_ban, '')
+        """, {"dot": LUONG_DOT}, as_dict=True)
+        by_m = {}
+        for r in lrows:
+            k = r.get("ky") or ""
+            if k not in by_m:
+                by_m[k] = []
+            by_m[k] = by_m[k] + [r]
+        actual = sorted(by_m.keys())
+        luong_tb3_from = actual[-3:]
+        for m in months:
+            src = []
+            fac = 1.0
+            tag = ""
+            if m in by_m:
+                src = by_m[m]
+                tag = "that"
+            elif actual and m > actual[-1]:
+                for k in luong_tb3_from:
+                    src = src + by_m[k]
+                fac = 1.0 / len(luong_tb3_from)
+                tag = "tb3"
+            if not src:
+                continue
+            luong_tag[m] = tag
+            srcname = "so_luong_lich_su" if tag == "that" else "tb3_luong"
+            pcm = pay_company[m]
+            for fk in PAY_MONEY:
+                pcm[fk] = 0.0
+            pcm["fte"] = 0.0
+            for hk in ("ft", "intern", "prob", "other", "no_ctc"):
+                pcm[hk] = 0
+            pcm["source"] = srcname
+            for dk in dept_keys:
+                pdm = pay_dept[dk][m]
+                for fk in PAY_MONEY:
+                    pdm[fk] = 0.0
+                pdm["fte"] = 0.0
+                for hk in ("ft", "intern", "prob", "other", "no_ctc"):
+                    pdm[hk] = 0
+                pdm["source"] = srcname
+            tot_m = 0.0
+            for r in src:
+                base = frappe.utils.flt(r.get("luong")) * fac
+                bh = frappe.utils.flt(r.get("bhxh")) * fac
+                allow = (frappe.utils.flt(r.get("pc")) + frappe.utils.flt(r.get("pck")) + frappe.utils.flt(r.get("le"))) * fac
+                bonus = (frappe.utils.flt(r.get("thuong")) + frappe.utils.flt(r.get("inc")) + frappe.utils.flt(r.get("l13"))) * fac
+                tong = frappe.utils.flt(r.get("tong")) * fac
+                fte = frappe.utils.flt(r.get("fte")) * fac
+                pb = r.get("pb") or ""
+                targets = [pcm]
+                if pb in pay_dept:
+                    targets = targets + [pay_dept[pb][m]]
+                for t in targets:
+                    t["base"] = t["base"] + base
+                    t["bh"] = t["bh"] + bh
+                    t["allow"] = t["allow"] + allow
+                    t["bonus"] = t["bonus"] + bonus
+                    t["fixed"] = t["fixed"] + base + bh + allow
+                    t["total"] = t["total"] + tong
+                    t["fte"] = frappe.utils.flt(t.get("fte")) + fte
+                tot_m = tot_m + tong
+                if scope_mode == "all":
+                    for store, key in ((luong_by_role, r.get("cd") or "(khong ro)"),
+                                       (luong_by_brand, r.get("kh") or "(khong ro)"),
+                                       (luong_by_dept, pb or "(chua ro)")):
+                        if key not in store:
+                            store[key] = {}
+                        if m not in store[key]:
+                            store[key][m] = {"month": m, "total": 0.0, "fte": 0.0, "tag": tag}
+                        store[key][m]["total"] = store[key][m]["total"] + tong
+                        store[key][m]["fte"] = store[key][m]["fte"] + fte
+            pcm["headcount"] = int(round(frappe.utils.flt(pcm.get("fte"))))
+            for dk in dept_keys:
+                pay_dept[dk][m]["headcount"] = int(round(frappe.utils.flt(pay_dept[dk][m].get("fte"))))
+            if tag == "that" and m <= HIST_CUT:
+                luong_month[m] = tot_m
+    hist_luong = {"by_role": [], "by_brand": [], "by_dept": [], "tag": luong_tag, "tb3_from": luong_tb3_from}
+    for kname, store, fld in (("by_role", luong_by_role, "chuc_danh"), ("by_brand", luong_by_brand, "khach_hang_me"),
+                              ("by_dept", luong_by_dept, "phong_ban")):
+        for key in sorted(store.keys()):
+            lst = []
+            for m in months:
+                if m in store[key]:
+                    lst = lst + [store[key][m]]
+            hist_luong[kname] = hist_luong[kname] + [{fld: key, "months": lst}]
     if months and months[0] <= HIST_CUT:
-        notes = notes + ["Thang <= 08/2026: luong va chi phi lay tu so P&L (nam trong Chi phi khac, loai 'So lich su'), khong dung luong uoc tinh."]
+        if luong_month:
+            notes = notes + ["Thang <= 08/2026: luong lay tu bang luong lich su (gop theo chuc danh x khach hang me x phong ban, khong co ten); chi phi khac lay tu so P&L (loai 'So lich su', da tru phan luong de khong tinh hai lan)."]
+        else:
+            notes = notes + ["Thang <= 08/2026: luong va chi phi lay tu so P&L (nam trong Chi phi khac, loai 'So lich su'), khong dung luong uoc tinh."]
+    tb3_ms = [m for m in months if luong_tag.get(m) == "tb3"]
+    if tb3_ms:
+        notes = notes + ["Luong " + tb3_ms[0] + (" - " + tb3_ms[-1] if len(tb3_ms) > 1 else "") + ": uoc tinh = trung binh 3 thang co so that gan nhat (" + ", ".join(luong_tb3_from) + "). Nap so that thi tu thay."]
     payroll_by_dept = {}
     for dk in dept_keys:
         lst = []
@@ -726,13 +853,39 @@ else:
     if scope_mode == "all" and months and months[0] <= HIST_CUT and frappe.db.exists("DocType", "EC PnL Lich Su"):
         hrows = frappe.db.sql("""
             SELECT date_format(thang, '%Y-%m') AS ky, ifnull(nhom, '') AS nhom, loai,
+                   CASE WHEN ifnull(nhom, '') = 'Lương & phụ cấp theo chức danh'
+                          OR ifnull(khoan_muc, '') IN ('MERDIA ONSITE', 'MERDIA OFFSITE') THEN 1 ELSE 0 END AS la_luong,
                    SUM(so_tien) AS amt, COUNT(*) AS n
             FROM `tabEC PnL Lich Su`
             WHERE loai IN ('Giá vốn', 'Chi phí vận hành') AND ifnull(ma_erp, '') <> 'BRAND_ALLOC'
-            GROUP BY date_format(thang, '%Y-%m'), ifnull(nhom, ''), loai
+            GROUP BY date_format(thang, '%Y-%m'), ifnull(nhom, ''), loai, la_luong
         """, as_dict=True)
-        hist_used = 0
+        # 29/09/2026: thang co luong lich su -> bo dong luong trong so (gia von theo chuc danh + MERDIA onsite/offsite),
+        # phan luong con lai (khoi chung "CTY" nam gop trong Expense) tru vao nhom chi phi van hanh phan bo.
+        OPEX_NHOM = "Chi phí vận hành (phân bổ)"
+        luong_trong_so = {}
         for r in hrows:
+            m = r.get("ky") or ""
+            if m in luong_month and frappe.utils.cint(r.get("la_luong")):
+                luong_trong_so[m] = frappe.utils.flt(luong_trong_so.get(m)) + frappe.utils.flt(r.get("amt"))
+        tru_opex = {}
+        for m in luong_month:
+            tru_opex[m] = frappe.utils.flt(luong_month.get(m)) - frappe.utils.flt(luong_trong_so.get(m))
+        da_tru = {}
+        hrows2 = []
+        for r in hrows:
+            m = r.get("ky") or ""
+            if m in luong_month and frappe.utils.cint(r.get("la_luong")):
+                continue
+            if m in tru_opex and (r.get("nhom") or "") == OPEX_NHOM and not da_tru.get(m):
+                r["amt"] = frappe.utils.flt(r.get("amt")) - tru_opex[m]
+                da_tru[m] = 1
+            hrows2 = hrows2 + [r]
+        for m in tru_opex:
+            if not da_tru.get(m) and abs(tru_opex[m]) > 0.5:
+                hrows2 = hrows2 + [{"ky": m, "nhom": OPEX_NHOM, "loai": "Chi phí vận hành", "amt": -tru_opex[m], "n": 0}]
+        hist_used = 0
+        for r in hrows2:
             m = r.get("ky") or ""
             if m not in month_kind or m > HIST_CUT:
                 continue
@@ -1193,7 +1346,7 @@ else:
         "params": {"date_from": str(d_from), "date_to": str(d_to), "months": months,
                    "month_kind": month_kind, "current_month": cur_month, "action": action},
         "depts": depts,
-        "payroll": {"by_dept": payroll_by_dept, "company": payroll_company,
+        "payroll": {"by_dept": payroll_by_dept, "company": payroll_company, "hist_luong": hist_luong,
                     "proj_months": proj_months_all, "proj_latest_month": latest_proj_month,
                     "note": "total = base + allow + bh (fixed) + proj (luong du an: dung so o thang HR da nhap, thang khac lay theo thang gan nhat co du lieu cua tung nguoi -> phan do nam trong proj_est) + bonus (thuong & khac, chi thang da nhap)"},
         "variable": {"by_dept": variable_by_dept, "company": variable_company,

@@ -57,8 +57,11 @@ class TestRegistry(unittest.TestCase):
     def test_moi_bai_khai_du_truong(self):
         for slug, g in registry.GUIDES.items():
             with self.subTest(slug=slug):
-                for f in ("title", "short", "summary", "approval_types", "updated"):
+                for f in ("title", "short", "summary", "updated"):
                     self.assertTrue(g.get(f), "bai %s thieu truong %s" % (slug, f))
+                # approval_types BAT BUOC khai (de khong ai quen), nhung duoc rong: bai
+                # khong gan voi form nao (vd chot cong thang) thi khong co icon "?".
+                self.assertIn("approval_types", g, "bai %s thieu truong approval_types" % slug)
                 self.assertIsInstance(g["approval_types"], list)
 
     def test_route_suy_ra_tu_slug(self):

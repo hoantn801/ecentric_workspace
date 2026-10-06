@@ -1,0 +1,80 @@
+{
+ "doctype": "DocType",
+ "name": "EC Feedback Digest",
+ "module": "Feedback",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "autoname": "field:month",
+ "naming_rule": "By fieldname",
+ "track_changes": 0,
+ "read_only": 1,
+ "title_field": "month",
+ "sort_field": "month",
+ "sort_order": "DESC",
+ "description": "Bản tin tháng cho BGD: số liệu + chủ đề nóng (AI). Job ngày 1 hằng tháng tạo.",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1
+  }
+ ],
+ "field_order": [
+  "month",
+  "generated_on",
+  "sent_on",
+  "ai_model",
+  "column_break_1",
+  "stats",
+  "hot_topics"
+ ],
+ "fields": [
+  {
+   "fieldname": "month",
+   "fieldtype": "Data",
+   "label": "Tháng (YYYY-MM)",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1,
+   "length": 7
+  },
+  {
+   "fieldname": "generated_on",
+   "fieldtype": "Datetime",
+   "label": "Tạo lúc"
+  },
+  {
+   "fieldname": "sent_on",
+   "fieldtype": "Datetime",
+   "label": "Đã gửi BGD lúc"
+  },
+  {
+   "fieldname": "ai_model",
+   "fieldtype": "Data",
+   "label": "Model AI"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "stats",
+   "fieldtype": "Code",
+   "label": "Số liệu",
+   "options": "JSON"
+  },
+  {
+   "fieldname": "hot_topics",
+   "fieldtype": "Code",
+   "label": "Chủ đề nóng",
+   "options": "JSON"
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}

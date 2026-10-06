@@ -34,7 +34,21 @@ def claim(definition, name):
     finally:
         frappe.flags.mute_messages = previous
     frappe.local.message_log = []
+    _grant_read_to_claimer(definition, name)
     return result
+
+
+def _grant_read_to_claimer(definition, name):
+    """Nguoi vua NHAN xu ly phai mo duoc TEP DINH KEM (05/10/2026: linh.vuong 403 tep cua
+    EC-DTGT-2026-00035). Cong tep cua Frappe doc DocShare/DocPerm, khong doc luat cua app;
+    DocShare cho nguoi xu ly chi cap luc gui phieu / luc buoc xu ly kich hoat - ai duoc them
+    vao Role xu ly SAU hai moc do (nhu Linh) thi nhan duoc viec ma khong mo duoc tep.
+    Khong noi rong quyen: nguoi nay vua nhan dung viec cua chinh phieu nay. Loi o day khong
+    duoc lam hong viec nhan (da ghi xong) - chi ghi log."""
+    try:
+        transitions._engine_grant_read(definition.business_doctype, name, frappe.session.user)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "claim: cap quyen doc %s" % name)
 
 
 def complete(definition, name, payload=None):

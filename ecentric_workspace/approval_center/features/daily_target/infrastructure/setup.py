@@ -14,6 +14,7 @@ from ecentric_workspace.approval_center.shared.workflow.user_rules import requir
 APPROVAL_TYPE = "DAILY_TARGET"
 PROCESS_PROJECT = "DAILY_TARGET_PROJECT-V1"
 PROCESS_CONSOLIDATED = "DAILY_TARGET_CONSOLIDATED-V1"
+DATA_ROLE = "EC Data Team"
 DEFAULT_PROJECT_APPROVERS = ["linh.ngo@ecentric.vn"]        # Commercial Manager
 DEFAULT_CONSOLIDATED_APPROVERS = ["lam.nguyen@ecentric.vn"]  # CEO
 
@@ -53,7 +54,9 @@ def _upsert_single_level(code, title, level_name, approvers, rep):
     proc.approval_type = APPROVAL_TYPE
     proc.version_no = proc.version_no or 1
     proc.status = "Draft"
-    proc.set("participants", [])
+    # 01/10/2026: sau khi duyet -> team Data xu ly (Role EC Data Team, gan nguoi trong Desk).
+    proc.set("participants", [{"participant_purpose": "Fulfiller", "source_type": "Role",
+                               "role": DATA_ROLE, "sort_order": 0}])
     proc.save(ignore_permissions=True)
     existing = frappe.get_all("EC Approval Level",
                               filters={"approval_process": code, "level_no": 1}, pluck="name")

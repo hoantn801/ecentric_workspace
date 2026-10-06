@@ -1,0 +1,244 @@
+/* ec_feedback.css - Gop y cong ty (/gop-y, /gop-y/<ma>, /gop-y/xu-ly, /gop-y/tong-quan).
+   Thiet ke = mockup Ban 1 PO duyet 04/10/2026. Mau + chu theo DESIGN.md cua ERP (giong Tin noi bo).
+   Moi lop co tien to egy- va moi luat nam duoi .egy-app: khong dung toi trang khac,
+   khong dung toi .ec-sidebar / shell (shell co CSS rieng: ec_shell.bundle.css). */
+
+.egy-app{
+  --egy-navy:#2C3DA6;--egy-navy-50:#eef0fb;--egy-navy-100:#d9deef;--egy-navy-700:#1f2d80;
+  --egy-amber-50:#fff8e1;--egy-amber-ink:#8a5a00;
+  --egy-teal-50:#e6f7fa;--egy-teal-ink:#0e7490;
+  --egy-green-50:#ecfdf5;--egy-green-ink:#047857;
+  --egy-red-50:#fef2f2;--egy-red-ink:#b91c1c;
+  --egy-orange-50:#fff1e8;--egy-orange-ink:#c2410c;
+  --egy-purple-50:#f1edfd;--egy-purple-ink:#5b3cc4;
+  --egy-bg:#f7f8fb;--egy-surface:#fff;--egy-line:#e5e7eb;--egy-soft:#f3f4f6;
+  --egy-g300:#d1d5db;--egy-g400:#9ca3af;--egy-g500:#6b7280;--egy-g600:#4b5563;--egy-g700:#374151;--egy-g800:#1f2937;--egy-g900:#111827;
+  display:grid;grid-template-columns:248px minmax(0,1fr);min-height:100vh;
+  flex:0 0 auto; /* body cua shell la flex cot cao 100vh: khong cho khung bi co lai, de trang cuon het noi dung */
+  background:var(--egy-bg);color:var(--egy-g800);
+  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  font-size:13.5px;line-height:1.5;letter-spacing:normal;color-scheme:light;
+}
+.egy-app *,.egy-app *::before,.egy-app *::after{box-sizing:border-box}
+.egy-main{min-width:0;display:flex;flex-direction:column}
+.egy-page{padding:22px 24px 48px;min-width:0;width:100%;max-width:1320px}
+.egy-app a{color:inherit}
+.egy-app button,.egy-app input,.egy-app select,.egy-app textarea{font:inherit}
+.egy-app button{cursor:pointer}
+.egy-app :focus-visible{outline:2px solid var(--egy-navy);outline-offset:2px}
+.egy-app [hidden]{display:none !important}
+.egy-app h1,.egy-app h2,.egy-app h3{font-family:inherit;letter-spacing:normal;margin:0}
+.egy-sr{position:absolute !important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.egy-ic{width:16px;height:16px;flex:none;vertical-align:-3px}
+
+/* ---------- chu ---------- */
+.egy-h1{font-size:24px;font-weight:700;color:var(--egy-g900);line-height:1.3}
+.egy-h2{font-size:15px;font-weight:700;color:var(--egy-g900)}
+.egy-h3{font-size:16px;font-weight:600;color:var(--egy-g900);margin:8px 0 0 !important}
+.egy-sub{margin:6px 0 0;font-size:14px;color:var(--egy-g600)}
+.egy-help{font-size:12.5px;color:var(--egy-g500);line-height:1.5}
+.egy-ink{color:var(--egy-g900)}
+.egy-link{color:var(--egy-navy) !important;text-decoration:none;font-weight:600;font-size:13px}
+.egy-link:hover{text-decoration:underline}
+.egy-back{display:inline-block;margin-bottom:8px}
+.egy-code{font-size:12px;color:var(--egy-g500);margin-left:auto}
+.egy-empty{margin:0;color:var(--egy-g500);font-size:13.5px}
+.egy-ok{color:var(--egy-green-ink);font-weight:600}
+.egy-late{color:var(--egy-red-ink);font-weight:600}
+.egy-warn{color:var(--egy-amber-ink);font-size:12.5px;margin:6px 0 0}
+
+/* ---------- khoi chung ---------- */
+.egy-card{background:var(--egy-surface);border:1px solid var(--egy-line);border-radius:12px}
+.egy-pad{padding:18px 20px}
+.egy-grow{flex:3 1 480px;min-width:0}
+.egy-side{flex:2 1 320px;min-width:0;display:flex;flex-direction:column;gap:12px}
+.egy-split{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start;margin-top:4px}
+.egy-list{display:flex;flex-direction:column;gap:12px}
+.egy-row-sb{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px}
+.egy-row-end{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px}
+.egy-meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:12.5px;color:var(--egy-g500)}
+.egy-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:6px}
+.egy-head-act{display:flex;gap:10px}
+
+.egy-pill{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;white-space:nowrap;line-height:1.5}
+.egy-pill .egy-ic{width:12px;height:12px}
+.egy-st-new{background:var(--egy-navy-50);color:var(--egy-navy-700)}
+.egy-st-view{background:var(--egy-amber-50);color:var(--egy-amber-ink)}
+.egy-st-reply{background:var(--egy-teal-50);color:var(--egy-teal-ink)}
+.egy-st-done{background:var(--egy-green-50);color:var(--egy-green-ink)}
+.egy-st-no{background:var(--egy-soft);color:var(--egy-g600)}
+.egy-due-late{background:var(--egy-red-50);color:var(--egy-red-ink)}
+.egy-due-soon{background:var(--egy-orange-50);color:var(--egy-orange-ink)}
+.egy-due-ok{background:var(--egy-soft);color:var(--egy-g600)}
+.egy-due-done{background:var(--egy-green-50);color:var(--egy-green-ink)}
+.egy-tag{background:var(--egy-soft);color:var(--egy-g700)}
+.egy-anon-pill{background:var(--egy-g800);color:#fff}
+.egy-hot{display:inline-flex;font-size:12px;font-weight:600;color:var(--egy-orange-ink);background:var(--egy-orange-50);padding:3px 10px;border-radius:999px}
+
+.egy-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:10px;border:1px solid var(--egy-g300);background:#fff;font-size:14px;font-weight:600;color:var(--egy-g800) !important;text-decoration:none !important;white-space:nowrap}
+.egy-btn:hover{background:#f9fafb}
+.egy-btn.egy-primary{background:var(--egy-navy);border-color:var(--egy-navy);color:#fff !important}
+.egy-btn.egy-primary:hover{background:var(--egy-navy-700)}
+.egy-btn-sm{min-height:36px;padding:0 12px;font-size:13px}
+.egy-btn:disabled,.egy-btn[aria-busy="true"]{opacity:.55;cursor:not-allowed}
+
+.egy-lbl{display:block;font-size:13px;font-weight:600;color:var(--egy-g700);margin:0 0 8px;padding:0}
+.egy-inp{width:100%;border:1px solid var(--egy-g300);border-radius:10px;padding:10px 12px;font-size:14px;color:var(--egy-g900);background:#fff}
+textarea.egy-inp{resize:vertical;line-height:1.55}
+.egy-fs{border:0;margin:0;padding:0;min-width:0}
+.egy-form{display:flex;flex-direction:column;gap:18px}
+.egy-check{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--egy-g700);min-height:32px}
+.egy-check input{width:18px;height:18px}
+
+/* chip chon (radio an, nhan la nut) - chay duoc ca khi JS loi */
+.egy-chips{display:flex;flex-wrap:wrap;gap:8px}
+.egy-chip{position:relative;display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 14px;border-radius:999px;border:1px solid var(--egy-g300);background:#fff;font-size:13px;font-weight:500;color:var(--egy-g700) !important;cursor:pointer;text-decoration:none !important}
+.egy-chip input{position:absolute;opacity:0;width:1px;height:1px}
+.egy-chip:has(input:checked),.egy-chip.is-on{border-color:var(--egy-navy);background:var(--egy-navy-50);color:var(--egy-navy-700) !important;font-weight:600}
+.egy-chip:has(input:focus-visible){outline:2px solid var(--egy-navy);outline-offset:2px}
+.egy-chip-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
+
+/* tab */
+.egy-tabs{display:flex;gap:28px;border-bottom:1px solid var(--egy-line);margin:16px 0 22px}
+.egy-tab{padding:12px 2px;font-size:14px;font-weight:600;color:var(--egy-g500) !important;text-decoration:none !important;border-bottom:2px solid transparent;margin-bottom:-1px}
+.egy-tab.is-on{color:var(--egy-navy) !important;border-color:var(--egy-navy)}
+
+/* ---------- gui gop y ---------- */
+.egy-file-btn{cursor:pointer}
+.egy-file-list{margin-left:8px;font-size:12.5px;color:var(--egy-g600)}
+.egy-anon{display:flex;gap:14px;align-items:flex-start;padding:16px;border-radius:12px;background:#f9fafb;border:1px solid var(--egy-line)}
+.egy-anon:has(input:checked){background:var(--egy-navy-50);border-color:#c7cdf0}
+.egy-switch{display:inline-flex;align-items:center;gap:12px;cursor:pointer;flex:none}
+.egy-switch input{position:absolute;opacity:0;width:1px;height:1px}
+.egy-switch-ui{width:46px;height:28px;border-radius:999px;background:var(--egy-g300);position:relative;flex:none;transition:background .15s}
+.egy-switch-ui::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:transform .15s}
+.egy-switch input:checked + .egy-switch-ui{background:var(--egy-navy)}
+.egy-switch input:checked + .egy-switch-ui::after{transform:translateX(18px)}
+.egy-switch input:focus-visible + .egy-switch-ui{outline:2px solid var(--egy-navy);outline-offset:2px}
+.egy-anon-t{font-size:14px;font-weight:600;color:var(--egy-g900)}
+.egy-anon-txt{flex:1;min-width:0;font-size:13px;line-height:1.55;color:var(--egy-g700)}
+.egy-anon-txt p{margin:0}
+
+.egy-mine{display:flex;flex-direction:column;gap:10px;text-decoration:none !important}
+.egy-mine:hover{border-color:#a5b4fc}
+.egy-mine.is-unread{border-color:#a5b4fc}
+.egy-mine-t{font-size:14px;font-weight:600;color:var(--egy-g900)}
+.egy-prog{display:flex;gap:4px}
+.egy-prog i{flex:1;height:4px;border-radius:2px;background:var(--egy-line)}
+.egy-prog i.is-on{background:var(--egy-navy)}
+
+/* ---------- bang chung ---------- */
+.egy-board-bar{margin-bottom:16px}
+.egy-board{display:flex;gap:18px;align-items:flex-start}
+.egy-vote{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;width:92px;min-height:104px;padding:10px 6px;border-radius:16px;border:2px solid var(--egy-navy);background:var(--egy-navy-50);color:var(--egy-navy-700);flex:none;transition:transform .12s ease,background .12s ease}
+.egy-vote:hover{background:var(--egy-navy-100)}
+.egy-vote:active{transform:scale(.96)}
+.egy-vote .egy-ic{width:22px;height:22px}
+.egy-vote strong{font-size:26px;font-weight:700;line-height:1}
+.egy-vote small{font-size:11px;font-weight:600;line-height:1.2;text-align:center}
+.egy-vote.is-on{background:var(--egy-navy);color:#fff}
+.egy-vote.is-on:hover{background:var(--egy-navy-700)}
+.egy-answer{margin-top:10px;padding:12px 14px;border-radius:10px;background:var(--egy-bg);font-size:13px;line-height:1.55;color:var(--egy-g700)}
+.egy-answer strong{color:var(--egy-g900)}
+
+/* ---------- chi tiet ---------- */
+.egy-detail{display:flex;flex-direction:column;gap:18px;max-width:1080px}
+.egy-dhead{display:flex;flex-direction:column;gap:16px}
+.egy-steps{display:flex;gap:6px;margin:0;padding:0;list-style:none}
+.egy-step{flex:1;display:flex;flex-direction:column;gap:8px;font-size:12px;font-weight:600;color:var(--egy-g500)}
+.egy-step-bar{height:6px;border-radius:3px;background:var(--egy-line)}
+.egy-step.is-done{color:var(--egy-purple-ink)}
+.egy-step.is-done .egy-step-bar{background:var(--egy-purple-ink)}
+.egy-thread{display:flex;flex-direction:column;gap:12px}
+.egy-ev{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12.5px;color:var(--egy-g500);padding-left:6px}
+.egy-msg{display:flex;gap:12px;padding:16px 18px}
+.egy-msg.is-them{border-color:#c7cdf0}
+.egy-av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex:none;background:var(--egy-teal-50);color:var(--egy-teal-ink)}
+.egy-msg.is-mine .egy-av{background:var(--egy-g800);color:#fff}
+.egy-msg-h{font-size:13px}
+.egy-msg-b{margin:6px 0 0;font-size:14px;line-height:1.6;color:var(--egy-g800);white-space:pre-wrap;overflow-wrap:anywhere}
+.egy-files{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.egy-compose{display:flex;flex-direction:column;gap:10px}
+.egy-info{flex:1 1 260px;min-width:0}
+.egy-kv{margin:8px 0 12px}
+.egy-kv div{display:flex;justify-content:space-between;gap:12px;font-size:13px;padding:9px 0;border-bottom:1px solid var(--egy-soft)}
+.egy-kv dt{color:var(--egy-g500)}
+.egy-kv dd{margin:0;text-align:right}
+
+/* ---------- hop xu ly ---------- */
+.egy-inbox{display:grid;grid-template-columns:220px minmax(280px,1fr) minmax(0,1.6fr);gap:0;background:#fff;border:1px solid var(--egy-line);border-radius:12px;overflow:hidden;min-height:70vh}
+.egy-filters{padding:20px 10px;border-right:1px solid var(--egy-line);background:#fff}
+.egy-filters .egy-h1{font-size:19px;margin:4px 10px 14px}
+.egy-filters .egy-back{margin-left:10px}
+.egy-flt-list{display:flex;flex-direction:column;gap:2px}
+.egy-flt{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 10px;border-radius:8px;font-size:13.5px;color:var(--egy-g700) !important;text-decoration:none !important}
+.egy-flt span{display:inline-flex;align-items:center;gap:8px}
+.egy-flt b{font-size:12px;font-weight:600;color:var(--egy-g500)}
+.egy-flt.is-on{background:var(--egy-navy-50);color:var(--egy-navy-700) !important;font-weight:600}
+.egy-flt-h{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--egy-g500);margin:20px 10px 8px}
+.egy-flt-foot{margin:20px 10px 0;padding-top:14px;border-top:1px solid var(--egy-soft)}
+.egy-ilist{border-right:1px solid var(--egy-line);min-width:0;overflow:auto;max-height:calc(100vh - 140px)}
+.egy-isearch{padding:14px;border-bottom:1px solid var(--egy-line);position:sticky;top:0;background:#fff;z-index:1}
+.egy-irow{display:flex;flex-direction:column;gap:6px;padding:14px 16px;border-bottom:1px solid var(--egy-soft);text-decoration:none !important}
+.egy-irow:hover{background:#fafbff}
+.egy-irow.is-on{background:var(--egy-navy-50);box-shadow:inset 3px 0 0 var(--egy-navy)}
+.egy-irow-t{font-size:14px;font-weight:600;color:var(--egy-g900)}
+.egy-ipanel{padding:22px 24px;display:flex;flex-direction:column;gap:16px;min-width:0;overflow:auto;max-height:calc(100vh - 140px)}
+.egy-thread-sm{gap:8px}
+.egy-msg-sm{padding:10px 12px;border-radius:10px;background:var(--egy-bg)}
+.egy-msg-sm.is-sender{background:#fff;border:1px solid var(--egy-line)}
+.egy-msg-sm.is-note{background:var(--egy-amber-50)}
+.egy-more{display:flex;flex-direction:column;gap:10px}
+.egy-more summary{cursor:pointer;font-weight:600;font-size:13.5px;color:var(--egy-navy);min-height:28px}
+.egy-more details[open] summary{margin-bottom:12px}
+.egy-more .egy-form{gap:10px}
+.egy-more .egy-form + .egy-form{margin-top:18px;padding-top:16px;border-top:1px solid var(--egy-soft)}
+
+/* ---------- tong quan ---------- */
+.egy-ov{display:flex;flex-direction:column;gap:20px}
+.egy-kpis{display:flex;flex-wrap:wrap;gap:14px}
+.egy-kpi{flex:1 1 200px;padding:18px 20px;display:flex;flex-direction:column;gap:6px}
+.egy-kpi span{font-size:13px;color:var(--egy-g600)}
+.egy-kpi strong{font-size:30px;font-weight:700;color:var(--egy-g900);line-height:1.1}
+.egy-kpi small{font-size:12px;color:var(--egy-g500)}
+.egy-kpi.is-alert{border-color:#fecaca}
+.egy-kpi.is-alert strong{color:var(--egy-red-ink)}
+.egy-legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--egy-g600)}
+.egy-legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.egy-sw-done{background:#047857}.egy-sw-open{background:#f2b84b}.egy-sw-no{background:#9ca3af}
+.egy-bar-row{display:grid;grid-template-columns:170px minmax(0,1fr) 40px;gap:12px;align-items:center;font-size:13px;margin-top:14px}
+.egy-track{height:12px;background:var(--egy-soft);border-radius:6px;overflow:hidden;display:flex}
+.egy-track i{height:100%;display:block}
+.egy-num{text-align:right;font-weight:600}
+.egy-hotlist{margin:8px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:10px;font-size:14px;line-height:1.5}
+.egy-tablewrap{overflow-x:auto;margin-top:8px}
+.egy-table{width:100%;border-collapse:collapse;min-width:640px}
+.egy-table th,.egy-table td{padding:10px 8px;text-align:left;font-size:13px;border-bottom:1px solid var(--egy-soft)}
+.egy-table th{font-size:12px;color:var(--egy-g600);font-weight:600}
+
+/* toast nam NGOAI .egy-app (cuoi layout) nen khong dung bien --egy-* */
+.egy-toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#111827;color:#fff;border-radius:10px;padding:10px 18px;font-size:13px;z-index:1000;box-shadow:0 8px 24px rgba(0,0,0,.18);max-width:calc(100vw - 32px);font-family:Inter,system-ui,sans-serif;white-space:pre-line}
+.egy-toast[hidden]{display:none}
+.egy-toast.egy-toast-err{background:#991b1b}
+
+@media (max-width:1180px){
+  .egy-inbox{grid-template-columns:200px minmax(0,1fr)}
+  .egy-ipanel{grid-column:1 / -1;border-top:1px solid var(--egy-line);max-height:none}
+  .egy-ilist{border-right:0;max-height:60vh}
+}
+@media (max-width:900px){
+  .egy-app{grid-template-columns:1fr}
+  .egy-app .ec-shell-mount{display:none}
+  .egy-page{padding:16px 16px 40px}
+  .egy-inbox{grid-template-columns:1fr}
+  .egy-filters{border-right:0;border-bottom:1px solid var(--egy-line)}
+  .egy-flt-list{flex-direction:row;flex-wrap:wrap}
+  .egy-bar-row{grid-template-columns:110px minmax(0,1fr) 32px}
+}
+@media (max-width:640px){
+  .egy-board{flex-direction:column}
+  .egy-vote{flex-direction:row;width:auto;min-height:48px;padding:0 16px;gap:10px}
+  .egy-tabs{gap:18px;overflow-x:auto}
+  .egy-anon{flex-direction:column}
+}
+@media (prefers-reduced-motion:reduce){.egy-vote,.egy-switch-ui,.egy-switch-ui::after{transition:none}}

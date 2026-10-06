@@ -1,0 +1,28 @@
+{#- Thu vien tai lieu ISO - macro dung chung. Moi chuoi tu du lieu qua |e. -#}
+{%- macro icon(key) -%}
+<svg class="eti-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+{%- if key == 'search' -%}<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
+{%- elif key == 'warn' -%}<path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/>
+{%- elif key == 'file' -%}<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>
+{%- elif key == 'upload' -%}<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>
+{%- elif key == 'caret' -%}<path d="m9 6 6 6-6 6"/>
+{%- else -%}<path d="M5 12h14M13 6l6 6-6 6"/>
+{%- endif -%}
+</svg>
+{%- endmacro -%}
+
+{%- macro pill(css, text) -%}<span class="eti-pill eti-p-{{ css|e }}">{{ text|e }}</span>{%- endmacro -%}
+
+{%- macro ext(url) -%}
+{%- set u = (url or '')|lower -%}
+<span class="eti-ext{% if u.endswith('.xlsx') or u.endswith('.xls') or u.endswith('.docx') or u.endswith('.doc') %} eti-ext-w{% endif %}">{% if u.endswith('.pdf') %}PDF{% elif u.endswith('.xlsx') or u.endswith('.xls') %}XLS{% elif u.endswith('.docx') or u.endswith('.doc') %}DOC{% else %}TỆP{% endif %}</span>
+{%- endmacro -%}
+
+{%- macro doc_row(c) -%}
+<li class="eti-drow">
+  <span class="eti-code">{{ c.code|e }}</span>
+  <a class="eti-dname" href="/tai-lieu/{{ c.code|urlencode }}">{{ c.name|e }}</a>
+  <span class="eti-ver" title="Phiên bản đang hiệu lực">{{ c.version|e }}</span>
+  {% if c.drafting %}<span class="eti-pill eti-p-old" title="Bản hiện tại vẫn áp dụng tới khi bản mới ban hành">Đang soạn bản mới</span>{% elif c.legacy %}<span class="eti-pill eti-p-off" title="Chuyển từ SharePoint, Ban ISO sẽ soạn lại">Bản cũ</span>{% endif %}
+</li>
+{%- endmacro -%}

@@ -129,8 +129,14 @@ def mark_read(name=None):
 # --------------------------------------------------------------------------
 # Overdue daily scheduler
 # --------------------------------------------------------------------------
+def _dang_lam(users, day):
+    from ecentric_workspace.approval_center.shared.workflow import ngay_lam_viec
+    return ngay_lam_viec.nguoi_di_lam(users, day)
+
+
 def pm_overdue_scan():
-    """Daily: notify assignees (or owner) of overdue tasks, once/day/task/user."""
+    """09:00 hang ngay: notify assignees (or owner) of overdue tasks, once/day/task/user.
+    Nguoi dang nghi khong nhan (04/10)."""
     today_d = getdate(nowdate())
     tasks = frappe.get_all(
         "Task", filters={"exp_end_date": ["<", today_d],
@@ -145,6 +151,8 @@ def pm_overdue_scan():
                 users = []
         if not users and t.get("owner"):
             users = [t["owner"]]
+        # 04/10: chay 09:00, bo nguoi dang nghi (cuoi tuan / le / nghi phep) - mai nhac tiep.
+        users = _dang_lam(users, today_d)
         if not users:
             continue
         subject = "[Overdue] Nhiem vu qua han: " + (t.get("subject") or t["name"])
@@ -176,6 +184,8 @@ def pm_due_soon_scan(window_days=2):
                 users = []
         if not users and t.get("owner"):
             users = [t["owner"]]
+        # 04/10: chay 09:00, bo nguoi dang nghi (cuoi tuan / le / nghi phep) - mai nhac tiep.
+        users = _dang_lam(users, today_d)
         if not users:
             continue
         subject = "[Sap den han] Nhiem vu: " + (t.get("subject") or t["name"])

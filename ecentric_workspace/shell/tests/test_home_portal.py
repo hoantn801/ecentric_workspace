@@ -34,10 +34,11 @@ class TestThreeTierModel(unittest.TestCase):
     def test_coming_soon_visible_but_undiscoverable(self):
         home = nav.compose("home")
         soon = [i for i in home if i.get("soon")]
-        # kpi, 3x tài nguyên (intranet, đào tạo, góp ý). "Tuyển dụng" rời nhóm này
+        # kpi, 2x tài nguyên (đào tạo, góp ý). "Tuyển dụng" rời nhóm này
         # 2026-08-11 (trang thật /ec-app/hr/recruitment); "Tổng quan" rời 2026-09-28
-        # (trang thật /tong-quan).
-        self.assertEqual(len(soon), 4)
+        # (trang thật /tong-quan); "Intranet" thành "Tin nội bộ" 2026-10-01 (/tin-noi-bo).
+        # "Góp ý BGD" thành "Góp ý công ty" 2026-10-04 (/gop-y).
+        self.assertEqual(len(soon), 2)
         allr = {i["route"] for i in nav.compose_all()}
         for i in soon:
             self.assertNotIn(i["route"], allr, i["key"])
@@ -117,7 +118,7 @@ class TestHomeShellZones(unittest.TestCase):
 
     def test_canonical_chrome_only(self):
         new = self._src()
-        for keep in ('{{ first_name|e }}', 'ecentricCheckin()', '{% for n in news_list %}',
+        for keep in ('{{ first_name|e }}', 'ecentricCheckin()', '{% for n in ec_news %}',
                      'ec-action-center-widget', 'ec-csrf-fetch-patch'):
             self.assertIn(keep, new, keep)
         self.assertNotIn('class="ec-sidebar"', new)

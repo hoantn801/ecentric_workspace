@@ -210,5 +210,12 @@
   "category": "ADMINISTRATION",
   "legacy_template_name": "New Staff Preparation (Power Automate)",
   "sort_order": 32
+ },
+ {
+  "approval_code": "CLEARANCE_REQUEST",
+  "approval_title": "Clearance Request",
+  "category": "ADMINISTRATION",
+  "legacy_template_name": "Clearance Request (Power Automate)",
+  "sort_order": 33
  }
 ]

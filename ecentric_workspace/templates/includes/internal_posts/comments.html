@@ -1,0 +1,42 @@
+{#- Tin noi bo - khoi Binh luan (mockup v6). Dung o HAI noi: trang bai (bai.html, cm = post.comments)
+    va api.py ve lai sau moi thao tac (frappe.render_template, cm = view) - MOT ban markup.
+    Noi dung binh luan la chu thuong do nguoi dung nhap: LUON |e, xuong dong bang CSS pre-line. -#}
+{%- macro cmt_item(c, cm, reply=False) -%}
+<div class="eip-cmt{% if reply %} eip-cmt-rep{% endif %}{% if c.hidden %} eip-cmt-hidden{% endif %}" id="bl-{{ c.name|e }}" data-eip-cmt="{{ c.name|e }}">
+  {%- if c.deleted %}
+  <span class="eip-av" aria-hidden="true">··</span>
+  <div class="eip-cb"><p class="eip-note eip-note-sm">Bình luận đã bị xoá.</p>
+  {%- else %}
+  <span class="eip-av eip-av-c{{ c.av }}" aria-hidden="true">{{ c.initial|e }}</span>
+  <div class="eip-cb">
+    {%- if c.hidden %}<p class="eip-note eip-note-sm eip-cmt-hidden-note">Bình luận đã ẩn bởi HR {{ c.hidden_label|e }} · chỉ HR thấy nội dung. <button type="button" class="eip-linkbtn" data-eip-cmt-act="unhide">Hiện lại</button></p>{% endif %}
+    <div class="eip-ch"><b>{{ c.author|e }}</b>{% if c.is_post_author %}<span class="eip-cmt-tag">Người đăng bài</span>{% endif %}<span>{% if c.dept %}· {{ c.dept|e }} {% endif %}· {{ c.ago|e }}{% if c.edited %} · đã sửa{% endif %}</span></div>
+    <p class="eip-cmt-text" data-eip-cmt-text>{{ c.content|e }}</p>
+    <div class="eip-ca">
+      {% if c.can_reply %}<button type="button" data-eip-cmt-act="reply">Trả lời</button>{% endif %}
+      <button type="button" data-eip-cmt-act="like" aria-pressed="{{ 'true' if c.liked else 'false' }}" aria-label="Thích{% if c.likes %} ({{ c.likes }}){% endif %}">❤️{% if c.likes %} {{ c.likes }}{% endif %}</button>
+      {% if c.can_edit %}<button type="button" data-eip-cmt-act="edit">Sửa</button><button type="button" data-eip-cmt-act="delete">Xoá</button>{% endif %}
+      {% if cm.is_editor and c.can_hide and not c.hidden %}<button type="button" class="eip-ca-hide" data-eip-cmt-act="hide">Ẩn bình luận</button>{% endif %}
+    </div>
+  {%- endif %}
+    {%- if not reply %}
+    {% for r in c.replies %}{{ cmt_item(r, cm, True) }}{% endfor %}
+    {%- endif %}
+  </div>
+</div>
+{%- endmacro -%}
+<section class="eip-cmts" id="{{ cm.anchor|e }}" data-eip-cmts="{{ cm.post|e }}" data-eip-cmt-max="{{ cm.max }}" aria-labelledby="eip-cmt-h">
+  <h2 class="eip-cmts-h" id="eip-cmt-h">Bình luận <em data-eip-cmt-count>{{ cm.count }}</em></h2>
+  {% if cm.enabled %}
+  <form class="eip-cmt-new" data-eip-cmt-form>
+    <span class="eip-av eip-av-c{{ cm.me_av }}" aria-hidden="true">{{ cm.me_initial|e }}</span>
+    <div>
+      <label class="eip-sr" for="eip-cmt-in">Viết bình luận</label>
+      <textarea id="eip-cmt-in" rows="2" maxlength="{{ cm.max }}" placeholder="Viết bình luận… (Enter để gửi, Shift+Enter xuống dòng)" data-eip-cmt-in></textarea>
+    </div>
+  </form>
+  {% elif cm.allowed %}
+  <p class="eip-note eip-note-sm">HR đã tắt bình luận cho bài này.</p>
+  {% endif %}
+  {% for c in cm["items"] %}{{ cmt_item(c, cm) }}{% else %}{% if cm.enabled %}<p class="eip-note eip-note-sm" data-eip-cmt-empty>Chưa có bình luận nào. Có câu hỏi về bài thì hỏi ở đây nhé.</p>{% endif %}{% endfor %}
+</section>

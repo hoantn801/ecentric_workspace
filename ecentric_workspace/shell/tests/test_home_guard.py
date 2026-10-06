@@ -110,7 +110,21 @@ class TestHomeSync(unittest.TestCase):
             "0a77f921665a2a619232041647cfaa3158216cf070fa6905b1a03020a81fdb5d",
             "52d1d24463601e8c41cd75fb569dce3bde22c563ee4e22ca39aca2fe5d4b0faa",
             # p227 (go chat cu) - ban live truoc khi p228 them popup "Hom nay o eCentric"
-            "7bfda03ccb1e779f481347c7b8e54b9affc3a8072d45c42e1c14bea685d18aec"))
+            "7bfda03ccb1e779f481347c7b8e54b9affc3a8072d45c42e1c14bea685d18aec",
+            # p228 (popup) - ban live truoc khi p230 them nut mo lai popup
+            "633e6dd057e87f240e8dcee5aa6e62b4c623745f5ba775248e8c566a12b90baf",
+            # p230 (nut mo lai popup) - ban live truoc khi p241 doi menu "AI Tool" -> "SI Tool"
+            "cfb286e5c4f0d5672e67d236ece09c1225ab4cd3fc7090d2d86fdcf7f31118f0",
+            # p241 (SI Tool) - ban live truoc khi p246 them Tin noi bo (menu + khoi trang chu)
+            "a347101b1c8d6e61e4816c4e281340be6ed0418399f9f429ebb58362201c76c2",
+            # p246 (Tin noi bo o Workspace) - ban truoc khi p247 chuyen vao Tai nguyen thay Intranet
+            "852634753df07a7c299822ebced929e974b8bb7518cb39a020d33b03f3d5a849",
+            # p247 (Tin noi bo vao Tai nguyen) - ban live truoc khi p248 them muc "Khảo sát"
+            "0884ba8f5749ffd97447c4bd33e48c4c2981e348205305990417406f9b2457e0",
+            # p248 (Khao sat) - ban truoc khi p257 doi "Gop y BGD (sap ra mat)" thanh "Gop y cong ty"
+            "515b952128681d03098a94a145f772834a3dc623823b43c352c1fede7fb8823f",
+            # p257 (Gop y cong ty) - ban live truoc khi p259 them muc "Bảng tin"
+            "b91c748b800293084ae0583aad3b8a53047758744590952ffaad7c8ed8103820"))
 
     def test_sync_writes_the_file_under_the_drift_lock_after_a_render_check(self):
         res = self.ps.sync()

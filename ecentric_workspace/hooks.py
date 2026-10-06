@@ -100,10 +100,8 @@ scheduler_events = {
     "daily": [
         "ecentric_workspace.sla.tasks.sync_attendance",
         "ecentric_workspace.pm.api.recurrence.run_due",
-        "ecentric_workspace.pm.api.notifications.pm_overdue_scan",
-        # Notification Delivery v1: new producers (distinct jobs, not duplicates).
-        "ecentric_workspace.pm.api.notifications.pm_due_soon_scan",
-        "ecentric_workspace.weekly_report.scheduler.wr_due_overdue_scan",
+        # pm_overdue_scan / pm_due_soon_scan / wr_due_overdue_scan: chuyen sang cron 09:00
+        # (04/10) - xem "Nhac viec 09:00" cuoi file.
         "ecentric_workspace.weekly_report.scheduler.generate_weekly_obligations",
     ],
     # Alert Center Phase E (decision D2-E): both jobs are dry-run-safe and
@@ -174,15 +172,12 @@ scheduler_events["daily"].append(
     "ecentric_workspace.platform.esign.tasks.orphan_file_scan")
 # Payment Request buoc 6: nhac Finance xu ly UNC tu D-3 truoc ngay thanh toan (07/09).
 # Moi phieu mot lan/ngay; tat bang site_config ec_payment_unc_reminder_disabled.
-scheduler_events["daily"].append(
-    "ecentric_workspace.approval_center.features.payment_request.application.reminders.remind_unc_due")
+# 03/10: chuyen sang 09:00 (cron ben duoi) - xem "Nhac viec 09:00".
 # Chia dot: nhac nguoi de nghi tao phieu dot ke tu D-7 truoc ngay du kien.
-scheduler_events["daily"].append(
-    "ecentric_workspace.approval_center.features.payment_request.application.reminders.remind_next_installment")
+# 03/10: chuyen sang 09:00 (cron ben duoi) - xem "Nhac viec 09:00".
 # Booking Request: nhac Booking tu D-3 truoc NGAY DU KIEN XONG ma chinh ho cam ket luc
 # nhan viec (11/09). Moi phieu mot lan/ngay; tat bang site_config ec_booking_reminder_disabled.
-scheduler_events["daily"].append(
-    "ecentric_workspace.approval_center.features.booking_request.application.reminders.remind_booking_due")
+# 03/10: chuyen sang 09:00 (cron ben duoi) - xem "Nhac viec 09:00".
 # esign S2B-C1: bounded retry (*/30) of signed-PDF retrieval for terminal-completed
 # packages whose signed bundle is not yet complete. Safe GET/download only; never resends
 # AddDocument/bulk-process. Same kill switch (ec_esign_scheduler_disabled) + per-provider
@@ -218,6 +213,12 @@ scheduler_events["cron"].setdefault("0 9,18 * * *", []).append(
 # employee, skipped entirely when ec_pm_calendar_sync is off).
 scheduler_events["cron"].setdefault("0 9 * * *", []).append(
     "ecentric_workspace.pm.api.schedule.nudge_unanswered_invites")
+
+# Khao sat (01/10/2026): quay so may man / dua ve dich THEO GIO HEN - bao truoc 5 phut va chot
+# ket qua dung gio. Mot truy van co chi muc tren draw_scheduled_at, gan nhu luon rong.
+# Tat khan cap: site_config ec_survey_draw_disabled: 1.
+scheduler_events["cron"].setdefault("*/1 * * * *", []).append(
+    "ecentric_workspace.surveys.application.draw_service.tick")
 
 # Permissions
 # -----------
@@ -392,6 +393,26 @@ fixtures = [
             "Employee-ec_sub_department", "Employee-ec_bien_so_xe", "Employee-ec_ma_kcb",
             "Employee-ec_noi_kcb", "Employee-ec_laptop", "Employee-ec_thang_tang_bhxh",
             "Employee-ec_hop_dong_section", "Employee-ec_contracts",
+            # Thu vien tai lieu ISO (05/10/2026, iso_docs/README.md): 36 field ec_* tren
+            # Quality Procedure (khong sua DocType goc). Patch iso_docs p001 cung tao neu thieu.
+            "Quality Procedure-ec_sb_iso", "Quality Procedure-ec_doc_code",
+            "Quality Procedure-ec_doc_type", "Quality Procedure-ec_department",
+            "Quality Procedure-ec_parent_doc", "Quality Procedure-ec_cb_iso",
+            "Quality Procedure-ec_doc_state", "Quality Procedure-ec_current_version",
+            "Quality Procedure-ec_effective_from", "Quality Procedure-ec_approver",
+            "Quality Procedure-ec_review_months", "Quality Procedure-ec_next_review",
+            "Quality Procedure-ec_sb_draft", "Quality Procedure-ec_draft_version",
+            "Quality Procedure-ec_change_kind", "Quality Procedure-ec_change_summary",
+            "Quality Procedure-ec_changed_sections", "Quality Procedure-ec_cb_draft",
+            "Quality Procedure-ec_drafter", "Quality Procedure-ec_dept_head",
+            "Quality Procedure-ec_iso_reviewer", "Quality Procedure-ec_source",
+            "Quality Procedure-ec_draft_pdf", "Quality Procedure-ec_draft_docx",
+            "Quality Procedure-ec_sb_flow", "Quality Procedure-ec_mermaid",
+            "Quality Procedure-ec_steps_json", "Quality Procedure-ec_sb_scope",
+            "Quality Procedure-ec_company_wide", "Quality Procedure-ec_scope_departments",
+            "Quality Procedure-ec_cb_scope", "Quality Procedure-ec_notify_home",
+            "Quality Procedure-ec_notify_summary", "Quality Procedure-ec_home_announcement",
+            "Quality Procedure-ec_sb_history", "Quality Procedure-ec_revisions",
 ]]],
     },
     # Ba DocType custom cua PnL dashboard (09-10/09/2026). Truoc day chi ton tai tren
@@ -419,8 +440,9 @@ fixtures = [
         "dt": "Role",
         # EC AI Formfill Pilot da nam trong role.json tu 16/09 nhung thieu o day -> export lai
         # se lam roi mat. EC Khay Pilot (28/09): mo dan tro ly Khay o goc moi trang.
+        # EC AI Video Admin (05/10): quan tri prompt trang /ai-video (prompt chung + theo nhom SP).
         "filters": [["name", "in", ["PM Manager", "PM Member", "EC AI Formfill Pilot",
-                                    "EC Khay Pilot"]]],
+                                    "EC Khay Pilot", "EC AI Video Admin"]]],
     },
     # HR MVP (2026-09): cac Server Script `ec_hr_*` va cac trang `/ec-hr/*` truoc
     # day chi song trong DB, khong co ban trong git -- rebuild site la mat sach
@@ -593,3 +615,262 @@ website_redirects = list(globals().get("website_redirects") or []) + [
 # cho TUNG nguoi xem (ca cong ty Nhe / cung phong ban Vua / nguoi sinh nhat Ruc ro) va biet popup
 # co gi de hien khong - tu truoc lan ve dau (A65 §5), khong doan trong HTML. Xem home_today/.
 jinja["methods"].append("ecentric_workspace.home_today.jinja.home_today_celebration")
+
+# --------------------------------------------------------------------------- #
+# 29/09/2026 - Chot cong thang (Hoan chot, project doc claude/chot-cong-thang.md).
+# Nhan vien chot truoc 12:00, leader chot team truoc 15:00 NGAY 2 thang sau (doi qua
+# T7/CN/le). Ky dau: cong thang 9/2026 (han T6 02/10). Logic: hr/timesheet_close.
+#   00:05 hang ngay : sinh dong EC Timesheet Close khi cua so chot mo (ngay 1).
+#   08:35 hang ngay : nhac ngay 1 (ham tu loc ngay 1).
+#   09:00 hang ngay : nhac ngay chot, chi nguoi chua chot (ham tu loc ngay chot).
+# Tat nhac: site_config ec_timesheet_close_reminder_disabled.
+# --------------------------------------------------------------------------- #
+scheduler_events["cron"].setdefault("5 0 * * *", []).append(
+    "ecentric_workspace.hr.timesheet_close.service.ensure_current")
+scheduler_events["cron"].setdefault("35 8 * * *", []).append(
+    "ecentric_workspace.hr.timesheet_close.reminders.remind_day1")
+scheduler_events["cron"].setdefault("0 9 * * *", []).append(
+    "ecentric_workspace.hr.timesheet_close.reminders.remind_close_day")
+
+# --------------------------------------------------------------------------- #
+# 29/09/2026 - Nghi viec: 00:30 hang ngay, nhan vien Active da qua ngay lam viec cuoi
+# (Employee.relieving_date - Don nghi viec ghi luc duyet xong) -> status Left + khoa tai khoan
+# (khong go role, khong xoa User Permission; ai giu System Manager thi chi bao, khong khoa).
+# Tat khan cap: site_config ec_offboarding_lock_disabled. Xem hr/offboarding/.
+# --------------------------------------------------------------------------- #
+scheduler_events["cron"].setdefault("30 0 * * *", []).append(
+    "ecentric_workspace.hr.offboarding.lock_left_employees_job.run")
+
+# --------------------------------------------------------------------------- #
+# 30/09/2026 - Moi Attendance phai co ca (Shift Type): Attendance tu duyet don nghi / duyet
+# giai trinh truoc day KHONG co ca -> bang cong tach nguoi do thanh 2 dong. Xem
+# hr/attendance_shift.py (+ patch hr.p003 dien ca cho du lieu cu).
+# --------------------------------------------------------------------------- #
+_ATT_SHIFT_HOOK = "ecentric_workspace.hr.attendance_shift.ensure_shift"
+_att_ev = doc_events.setdefault("Attendance", {})
+_att_prev = _att_ev.get("before_insert")
+if _att_prev is None:
+    _att_ev["before_insert"] = [_ATT_SHIFT_HOOK]
+elif isinstance(_att_prev, str):
+    if _att_prev != _ATT_SHIFT_HOOK:
+        _att_ev["before_insert"] = [_att_prev, _ATT_SHIFT_HOOK]
+elif _ATT_SHIFT_HOOK not in _att_prev:
+    _att_prev.append(_ATT_SHIFT_HOOK)
+
+# --------------------------------------------------------------------------- #
+# 30/09/2026 - Phep duyet tre (>7 ngay) khong con duoc job dem SLA quet toi -> ngay nghi
+# van hien "Chua lam". Duyet phep (on_submit, Approved) -> dong bo lai ngay cong SLA cua
+# dung nhung ngay trong phieu. Xem sla/application/hooks.py + patch sla.p015.
+# --------------------------------------------------------------------------- #
+_SLA_LEAVE_HOOK = "ecentric_workspace.sla.application.hooks.on_leave_application_submit"
+_sla_la = doc_events.setdefault("Leave Application", {})
+_sla_la_prev = _sla_la.get("on_submit")
+if _sla_la_prev is None:
+    _sla_la["on_submit"] = [_SLA_LEAVE_HOOK]
+elif isinstance(_sla_la_prev, str):
+    if _sla_la_prev != _SLA_LEAVE_HOOK:
+        _sla_la["on_submit"] = [_sla_la_prev, _SLA_LEAVE_HOOK]
+elif _SLA_LEAVE_HOOK not in _sla_la_prev:
+    _sla_la_prev.append(_SLA_LEAVE_HOOK)
+
+# --------------------------------------------------------------------------- #
+# 01/10/2026 - Bang cong HRMS (Monthly Attendance Sheet) them 2 cot "NV chot cong" /
+# "Lead chot cong" cho CnB. Khong sua HRMS: lop Report goi execute goc roi gan cot; loi
+# thi tra nguyen ket qua goc. Xem hr/timesheet_close/report_override.py.
+# --------------------------------------------------------------------------- #
+try:
+    override_doctype_class
+except NameError:
+    override_doctype_class = {}
+override_doctype_class.setdefault(
+    "Report", "ecentric_workspace.hr.timesheet_close.report_override.EcReport")
+
+# AI Video hang loat: day tiep du an dang chay / chay dem (10 phut). Tat bang site_config
+# `ec_video_scheduler_disabled: 1`.
+scheduler_events["cron"]["*/10 * * * *"].append(
+    "ecentric_workspace.ai_tools.features.ai_video.application.scheduler.tick")
+
+# Nut "Nhac nguoi xu ly" dung chung cho cac form approval (01/10). Mot asset, cac trang chi goi
+# EcRemind.buttonHTML / EcRemind.run. Backend: approval_center/shared/requests/remind.py.
+web_include_js.append("ec_remind.bundle.js")
+
+# --------------------------------------------------------------------------- #
+# 01/10/2026 - "Mac dinh du cong" (Employee.ec_full_cong): 06:05 hang ngay tu ghi Present
+# cho ngay lam viec con trong, tu ngay 1 thang truoc toi hom nay. Nguoi bat co khong co SLA
+# cham cong, khong bi nhac cham cong, khong can chot cong. Xem hr/full_cong.py + hr.p004.
+# --------------------------------------------------------------------------- #
+scheduler_events["cron"].setdefault("5 6 * * *", []).append(
+    "ecentric_workspace.hr.full_cong.run_daily")
+
+# --------------------------------------------------------------------------- #
+# 01/10/2026 - Doi "Bao cao cho" tren ho so -> dong chot cong chua chot, giai trinh / don
+# nghi dang cho quan ly chuyen sang quan ly moi. Xem hr/reports_to_sync.py. Nuot moi loi.
+# --------------------------------------------------------------------------- #
+_RT_HOOK = "ecentric_workspace.hr.reports_to_sync.on_employee_update"
+_rt_emp = doc_events.setdefault("Employee", {})
+_rt_prev = _rt_emp.get("on_update")
+if _rt_prev is None:
+    _rt_emp["on_update"] = [_RT_HOOK]
+elif isinstance(_rt_prev, str):
+    if _rt_prev != _RT_HOOK:
+        _rt_emp["on_update"] = [_rt_prev, _RT_HOOK]
+elif _RT_HOOK not in _rt_prev:
+    _rt_prev.append(_RT_HOOK)
+
+# --------------------------------------------------------------------------- #
+# 01/10/2026 - Tin noi bo (/tin-noi-bo, PO Hoan chot, mockup v5). HR soan / dang bai cho nhan
+# vien doc, phan chuyen muc, pham vi theo phong ban. Xem internal_posts/README.md.
+#  * route: thu muc www khong duoc co gach ngang -> www/tin_noi_bo/ + 4 luat route. Route tinh
+#    (viet-bai, quan-ly) dung TRUOC route slug; werkzeug cung uu tien route tinh.
+#  * quyen doc: permission_query_conditions (danh sach / trang chu) + has_permission (mo bai,
+#    tai tep private - File.has_permission di theo bai). Bai theo phong ban = phong do + con.
+#  * /huong-dan (muc luc cu) -> chuyen muc Huong dan cua Tin noi bo. Bai /huong-dan/<slug> giu nguyen.
+# --------------------------------------------------------------------------- #
+website_route_rules = list(globals().get("website_route_rules") or []) + [
+    {"from_route": "/tin-noi-bo", "to_route": "tin_noi_bo"},
+    {"from_route": "/tin-noi-bo/viet-bai", "to_route": "tin_noi_bo/viet_bai"},
+    {"from_route": "/tin-noi-bo/quan-ly", "to_route": "tin_noi_bo/quan_ly"},
+    {"from_route": "/tin-noi-bo/<slug>", "to_route": "tin_noi_bo/bai"},
+]
+permission_query_conditions["EC Internal Post"] = "ecentric_workspace.internal_posts.permissions.query_conditions"
+permission_query_conditions["EC Internal Post File"] = "ecentric_workspace.internal_posts.permissions.child_query_conditions"
+permission_query_conditions["EC Internal Post Department"] = "ecentric_workspace.internal_posts.permissions.child_query_conditions"
+has_permission["EC Internal Post"] = "ecentric_workspace.internal_posts.permissions.has_permission"
+jinja["methods"].append("ecentric_workspace.internal_posts.jinja.internal_posts_home")
+website_redirects = list(globals().get("website_redirects") or []) + [
+    {"source": "/huong-dan", "target": "/tin-noi-bo?chuyen-muc=huong-dan", "redirect_http_status": 302},
+]
+# Anh AI khong duoc chon lam bia qua 3 ngay -> xoa (moi lan bam AI = 3 anh).
+scheduler_events["daily"].append("ecentric_workspace.internal_posts.cover_ai.cleanup_unused")
+
+# O nhap so tien dung chung (01/10): dau cham phan cach + can phai. Trang danh dau data-money.
+web_include_js.append("ec_money.bundle.js")
+web_include_css.append("ec_money.bundle.css")
+
+# --------------------------------------------------------------------------- #
+# 02/10/2026 - Vua bat "Mac dinh du cong" tren ho so -> ghi du cong ngay (khong doi job 06:05),
+# huy SLA cham cong, tu chot cong cho nguoi do. Xem hr/full_cong.py. Nuot moi loi.
+# --------------------------------------------------------------------------- #
+_FC_HOOK = "ecentric_workspace.hr.full_cong.on_employee_update"
+_fc_emp = doc_events.setdefault("Employee", {})
+_fc_prev = _fc_emp.get("on_update")
+if _fc_prev is None:
+    _fc_emp["on_update"] = [_FC_HOOK]
+elif isinstance(_fc_prev, str):
+    if _fc_prev != _FC_HOOK:
+        _fc_emp["on_update"] = [_fc_prev, _FC_HOOK]
+elif _FC_HOOK not in _fc_prev:
+    _fc_prev.append(_FC_HOOK)
+
+# Nhac viec 09:00 (03/10/2026, Hoan): truoc chay "daily" = 00:00, tin Teams bat luc moi nguoi
+# ngu. Nay 09:00 moi ngay; job tu bo nguoi dang nghi (cuoi tuan / le / nghi phep) qua
+# approval_center/shared/workflow/ngay_lam_viec. Frappe khoa Scheduled Job Type theo method:
+# ba method nay CHI duoc o day (da go khoi "daily" o tren).
+scheduler_events["cron"].setdefault("0 9 * * *", []).extend([
+    "ecentric_workspace.approval_center.features.payment_request.application.reminders.remind_unc_due",
+    "ecentric_workspace.approval_center.features.payment_request.application.reminders.remind_next_installment",
+    "ecentric_workspace.approval_center.features.booking_request.application.reminders.remind_booking_due",
+    # 04/10 (Hoan): nhac task /pm qua han + sap den han, bao cao tuan qua han / sap han.
+    "ecentric_workspace.pm.api.notifications.pm_overdue_scan",
+    "ecentric_workspace.pm.api.notifications.pm_due_soon_scan",
+    "ecentric_workspace.weekly_report.scheduler.wr_due_overdue_scan",
+])
+
+# --------------------------------------------------------------------------- #
+# 04/10/2026 - Gop y cong ty (/gop-y, PO Hoan chot, mockup Ban 1). Thay muc "Gop y BGD (sap ra
+# mat)". Nhan vien gui (co the an danh), phong Management - EC xu ly. Xem feedback/README.md.
+#  * route: thu muc www khong duoc co gach ngang -> www/gop_y/ + 4 luat route; route tinh
+#    (xu-ly, tong-quan) dung TRUOC route <code>.
+#  * KHONG co has_permission / permission_query: moi DocType cua module chi System Manager doc
+#    duoc, moi duong doc ghi di qua feedback/service.py (kiem nguoi gui / nguoi xu ly).
+#  * gio cron o site nay la GIO DIA PHUONG (xem ghi chu nhac cham cong o tren).
+# --------------------------------------------------------------------------- #
+website_route_rules = list(globals().get("website_route_rules") or []) + [
+    {"from_route": "/gop-y", "to_route": "gop_y"},
+    {"from_route": "/gop-y/xu-ly", "to_route": "gop_y/xu_ly"},
+    {"from_route": "/gop-y/tong-quan", "to_route": "gop_y/tong_quan"},
+    {"from_route": "/gop-y/<code>", "to_route": "gop_y/chi_tiet"},
+]
+# Nhac han tra loi gop y: moi gio trong gio hanh chinh (phut 7 cho tranh dot :00).
+scheduler_events["cron"].setdefault("7 9-17 * * 1-5", []).append("ecentric_workspace.feedback.notify.remind")
+# Ban tin gop y thang truoc cho BGD: 08:45 ngay 1.
+scheduler_events["cron"].setdefault("45 8 1 * *", []).append("ecentric_workspace.feedback.digest.monthly")
+
+# --------------------------------------------------------------------------- #
+# 03/10/2026 - Tin noi bo v6 (mockup v6, PO Hoan duyet): hen gio dang, gui kem Teams, AI viet
+# giup, loc anh AI dinh chu, binh luan, xac nhan da doc. Xem internal_posts/README.md.
+#  * Hen gio: job moi 5 phut dang cac bai toi gio (bai len tre toi da 5 phut).
+#  * Xac nhan da doc: 09:00 moi ngay nhac nguoi chua xac nhan (1 ngay truoc han + dung ngay han).
+#    Gio cron o site nay la GIO DIA PHUONG (Asia/Ho_Chi_Minh). Method khong trung o cron khac.
+# --------------------------------------------------------------------------- #
+scheduler_events["cron"].setdefault("*/5 * * * *", []).append(
+    "ecentric_workspace.internal_posts.schedule.publish_due")
+scheduler_events["cron"].setdefault("0 9 * * *", []).append(
+    "ecentric_workspace.internal_posts.ack.remind_due")
+
+# --------------------------------------------------------------------------- #
+# 04/10/2026 - Bang tin + Cau lac bo (/bang-tin, PO Hoan duyet mockup v2). Mang xa hoi noi bo:
+# nhan vien dang bai / anh / loi khen, CLB (de xuat -> HR duyet), su kien CLB (len popup "Hom nay").
+# Tin noi bo / sinh nhat / khao sat / gop y hien lai TU MODULE GOC (khong luu ban sao). Xem social/README.md.
+#  * route: thu muc www khong duoc co gach ngang -> www/bang_tin/ + 5 luat route; route tinh
+#    (cau-lac-bo, quan-ly) dung TRUOC route <slug> / <name>.
+#  * KHONG co has_permission / permission_query: moi DocType cua module chi System Manager (+ HR
+#    Manager doc); moi duong doc / ghi di qua social/service.py (ai thay bai nao: domain.can_see).
+#    Anh private, xem qua social.api.image.
+# --------------------------------------------------------------------------- #
+website_route_rules = list(globals().get("website_route_rules") or []) + [
+    {"from_route": "/bang-tin", "to_route": "bang_tin"},
+    {"from_route": "/bang-tin/cau-lac-bo", "to_route": "bang_tin/cau_lac_bo"},
+    {"from_route": "/bang-tin/quan-ly", "to_route": "bang_tin/quan_ly"},
+    {"from_route": "/bang-tin/cau-lac-bo/<slug>", "to_route": "bang_tin/clb"},
+    {"from_route": "/bang-tin/bai/<name>", "to_route": "bang_tin/bai"},
+]
+
+# --------------------------------------------------------------------------- #
+# 05/10/2026 - Thu vien tai lieu ISO, buoc 2 (nen du lieu + luong duyet). PO Hoan chot 04/10,
+# mockup B rut gon + D. Tai lieu = Quality Procedure cua ERPNext (KHONG sua DocType goc): 36
+# Custom Field ec_*, bang con EC Document Revision, Workflow "Tai lieu ISO" (patch iso_docs p001).
+# Xem iso_docs/README.md.
+#  * validate: kiem ma / pham vi / o thong bao; chuyen sang "Ban hanh" -> ghi lich su ban hanh.
+#  * on_update: tich "Thong bao len trang chu" + toan cong ty -> EC Home Announcement qua
+#    home_today/announce_service.py (idempotent theo phien ban, loi KHONG chan ban hanh).
+#  * quyen: Employee co read + write (Custom DocPerm), has_permission / query thu hep lai.
+#  * trang /tai-lieu, nhap goi, nhap file cu, AI: cac lan day sau.
+# --------------------------------------------------------------------------- #
+_ISO_EVENTS = {"validate": "ecentric_workspace.iso_docs.events.validate",
+               "on_update": "ecentric_workspace.iso_docs.events.on_update"}
+_iso_qp = doc_events.setdefault("Quality Procedure", {})
+for _iso_evt, _iso_hook in _ISO_EVENTS.items():
+    _iso_prev = _iso_qp.get(_iso_evt)
+    if _iso_prev is None:
+        _iso_qp[_iso_evt] = [_iso_hook]
+    elif isinstance(_iso_prev, str):
+        if _iso_prev != _iso_hook:
+            _iso_qp[_iso_evt] = [_iso_prev, _iso_hook]
+    elif _iso_hook not in _iso_prev:
+        _iso_prev.append(_iso_hook)
+permission_query_conditions["Quality Procedure"] = "ecentric_workspace.iso_docs.permissions.query_conditions"
+permission_query_conditions["EC Document Revision"] = "ecentric_workspace.iso_docs.permissions.child_query_conditions"
+permission_query_conditions["EC Document Department"] = "ecentric_workspace.iso_docs.permissions.child_query_conditions"
+has_permission["Quality Procedure"] = "ecentric_workspace.iso_docs.permissions.has_permission"
+
+# Nut "Chuyen nguoi xu ly" dung chung (05/10) - Hiring, Daily Target. Endpoint tu bind_fulfillment.
+web_include_js.append("ec_reassign.bundle.js")
+
+# 05/10/2026 - Thu vien tai lieu ISO, trang (/tai-lieu, PO Hoan duyet mockup D + B rut gon).
+#  * route: thu muc www khong duoc co gach ngang -> www/tai_lieu/ + 3 luat route; route tinh
+#    (quan-ly) dung TRUOC route <code>.
+#  * doc trang qua frappe.get_list / has_permission (quyen o tren); ghi qua iso_docs/api.py.
+website_route_rules = list(globals().get("website_route_rules") or []) + [
+    {"from_route": "/tai-lieu", "to_route": "tai_lieu"},
+    {"from_route": "/tai-lieu/quan-ly", "to_route": "tai_lieu/quan_ly"},
+    {"from_route": "/tai-lieu/soan", "to_route": "tai_lieu/soan"},
+    {"from_route": "/tai-lieu/<code>", "to_route": "tai_lieu/chi_tiet"},
+]
+
+# --------------------------------------------------------------------------- #
+# 05/10/2026 - Outside Work da duyet -> Attendance "Present" cho ngay lam viec ben ngoai da qua
+# (phieu duyet truoc cho ngay sau). Duyet xong cung ghi ngay qua engine handler.
+# --------------------------------------------------------------------------- #
+scheduler_events["cron"].setdefault("15 6 * * *", []).append(
+    "ecentric_workspace.approval_center.features.outside_work.application.attendance.run_daily")

@@ -1,0 +1,76 @@
+{% extends "templates/includes/internal_posts/layout.html" %}
+{% from "templates/includes/internal_posts/macros.html" import icon, cat_badge %}
+{#- /tin-noi-bo/quan-ly - HR: Dang hien / Nhap / Het han (mockup v5). -#}
+{% block eip_page %}
+<div class="eip-head">
+  <div>
+    <h1 class="eip-h1">Quản lý bài</h1>
+    <p>Chỉ HR thấy trang này. Sửa, gỡ hoặc xem ai chưa đọc.</p>
+  </div>
+  <div class="eip-head-tools">
+    <a href="/tin-noi-bo" class="eip-btn">Về Tin nội bộ</a>
+    <a href="/tin-noi-bo/viet-bai" class="eip-btn eip-primary">{{ icon('plus') }}Viết bài</a>
+  </div>
+</div>
+
+<nav class="eip-tabs" aria-label="Nhóm bài">
+  {% for t in tabs %}<a href="/tin-noi-bo/quan-ly?tab={{ t.key|e }}"{% if t.key == tab %} aria-current="page"{% endif %}>{{ t.label|e }}<em>{{ t.count }}</em></a>{% endfor %}
+</nav>
+
+<div class="eip-tbl">
+  <table>
+    {%- set sched = tab == "scheduled" %}
+    {%- set live = tab == "live" %}
+    <thead><tr><th scope="col">Bài</th><th scope="col">Chuyên mục</th>
+      {% if sched %}<th scope="col">Lên lúc</th><th scope="col">Báo tin</th>
+      {% else %}<th scope="col">Dành cho</th><th scope="col">{% if tab == "expired" %}Hết hạn{% else %}Ngày{% endif %}</th><th scope="col">Đã xem</th>{% endif %}
+      {% if sched or live %}<th scope="col">Xác nhận</th>{% endif %}
+      <th scope="col"><span class="eip-sr">Thao tác</span></th></tr></thead>
+    <tbody>
+      {% for r in items %}
+      <tr data-eip-row="{{ r.name|e }}">
+        <td class="eip-t"><b>{% if r.pinned %}<span class="eip-pinmark">{{ icon('pin') }}</span>{% endif %}{{ r.title|e if r.title else "(Chưa có tiêu đề)" }}</b>{% if r.comments %}<span class="eip-cmt-count" title="{{ r.comments }} bình luận">💬 {{ r.comments }}</span>{% endif %}{% if sched %}<span class="eip-sub-t">{{ r.scope_label|e }}</span>{% endif %}</td>
+        <td>{% if r.category.name %}{{ cat_badge(r.category) }}{% else %}<span class="eip-muted">–</span>{% endif %}</td>
+        {% if sched %}
+        <td class="eip-num">{{ r.publish_at_label|e }}</td>
+        <td>{{ r.channels|e }}</td>
+        {% else %}
+        <td>{{ r.scope_label|e }}</td>
+        <td class="eip-num">{{ (r.expires_label if tab == "expired" else r.date_label)|e }}</td>
+        <td class="eip-num">{% if r.published and r.total %}{{ r.seen }}/{{ r.total }}<span class="eip-mini-bar" aria-hidden="true"><i style="width:{{ r.pct }}%"></i></span>{% else %}–{% endif %}</td>
+        {% endif %}
+        {% if sched or live %}
+        <td class="eip-num">{% if r.ack.on %}{{ r.ack.label|e }}{% if live %}<span class="eip-mini-bar eip-mini-ack" aria-hidden="true"><i style="width:{{ r.ack.pct }}%"></i></span>{% endif %}{% else %}–{% endif %}</td>
+        {% endif %}
+        <td>
+          <div class="eip-row-acts">
+            <a href="{{ r.url|e }}" class="eip-btn eip-btn-sm">Xem</a>
+            <a href="{{ r.edit_url|e }}" class="eip-btn eip-btn-sm">Sửa</a>
+            {% if r.published %}
+            <button type="button" class="eip-btn eip-btn-sm" data-eip-manage="unpublish" data-eip-name="{{ r.name|e }}" data-eip-title="{{ r.title|e }}">Gỡ</button>
+            {% elif sched %}
+            <button type="button" class="eip-btn eip-btn-sm eip-primary" data-eip-manage="publish_now" data-eip-name="{{ r.name|e }}" data-eip-title="{{ r.title|e }}">Đăng ngay</button>
+            {% elif r.deletable %}
+            <button type="button" class="eip-btn eip-btn-sm eip-danger" data-eip-manage="delete" data-eip-name="{{ r.name|e }}" data-eip-title="{{ r.title|e }}">Xoá nháp</button>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="eip-note eip-empty-cell">{% if tab == "draft" %}Không có bài nháp nào.{% elif tab == "scheduled" %}Chưa có bài nào hẹn giờ. Khi viết bài, chọn "Hẹn giờ" ở mục Thời điểm đăng.{% elif tab == "expired" %}Chưa có bài nào hết hạn.{% else %}Chưa có bài nào đang hiện. Bấm "Viết bài" để đăng bài đầu tiên.{% endif %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="eip-modal-bg" data-eip-confirm hidden>
+  <div class="eip-modal" role="dialog" aria-modal="true" aria-labelledby="eip-confirm-h">
+    <h3 id="eip-confirm-h" data-eip-confirm-h></h3>
+    <p class="eip-note" data-eip-confirm-p></p>
+    <div class="eip-acts">
+      <button type="button" class="eip-btn" data-eip-confirm-no>Thôi</button>
+      <button type="button" class="eip-btn eip-primary" data-eip-confirm-yes></button>
+    </div>
+  </div>
+</div>
+{% endblock %}

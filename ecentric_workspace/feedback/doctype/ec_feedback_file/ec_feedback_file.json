@@ -1,0 +1,42 @@
+{
+ "doctype": "DocType",
+ "name": "EC Feedback File",
+ "module": "Feedback",
+ "custom": 0,
+ "istable": 1,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "autoname": "hash",
+ "naming_rule": "Random",
+ "track_changes": 0,
+ "description": "Tệp đính kèm góp ý. Luôn private; tải qua feedback.api.download (kiểm quyền góp ý).",
+ "permissions": [],
+ "field_order": [
+  "file_url",
+  "file_name",
+  "file_size"
+ ],
+ "fields": [
+  {
+   "fieldname": "file_url",
+   "fieldtype": "Data",
+   "label": "Đường dẫn",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "file_name",
+   "fieldtype": "Data",
+   "label": "Tên tệp",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "file_size",
+   "fieldtype": "Int",
+   "label": "Dung lượng"
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}

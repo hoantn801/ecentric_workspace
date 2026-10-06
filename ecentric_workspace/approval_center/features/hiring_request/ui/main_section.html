@@ -233,7 +233,7 @@
       + fld("department","Department",((fo.departments||[]).length?'<select data-model="department"><option value="">— Chọn phòng ban —</option>'+opt(fo.departments||[],d.department)+'</select>':'<select data-model="department" disabled><option value="">Không tải được danh sách phòng ban</option></select><div class="hint">Vui lòng tải lại trang; nếu vẫn lỗi, liên hệ quản trị viên.</div>'),true)
       + fld("education","Education",'<input data-model="education" value="'+esc(d.education||"")+'"><div class="hint">E.g: From Bachelor Degree</div>',true)
       + fld("line_manager","Line manager",'<input type="email" data-model="line_manager" placeholder="manager@company.com" value="'+esc(d.line_manager||"")+'"><div class="hint">Email of the future line manager — must be an active user</div>',true)
-      + fld("suggested_salary","Suggested salary (VND)",'<input type="number" min="1" step="1" data-model="suggested_salary" value="'+esc(d.suggested_salary!=null?d.suggested_salary:"")+'">',true)
+      + fld("suggested_salary","Suggested salary (VND)",'<input type="text" inputmode="numeric" autocomplete="off" data-money data-model="suggested_salary" value="'+esc(window.EcMoney?EcMoney.fmt((d.suggested_salary!=null?d.suggested_salary:"")):(d.suggested_salary!=null?d.suggested_salary:""))+'">',true)
       + fld("request_attachment","Tệp đính kèm (JD, mô tả...)",'<input type="file" id="hire-file-input"><div class="hint">Không bắt buộc</div>'+'<div class="hint" id="hire-file-name">'+(d.request_attachment?('Đã đính kèm: <a href="'+esc(d.request_attachment)+'" target="_blank">'+esc(fileLabel(d.request_attachment))+'</a>'):'')+'</div>' ).replace('class="fld','class="fld full')
       + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="hire-summary"></div></div>';
   }
@@ -359,7 +359,7 @@
 
   function attachModel(el){ if(el.__ecw) return; el.__ecw=true;
     el.addEventListener("input",function(){ var editing=state.mode==="edit"; var k=el.getAttribute("data-model");
-      var v=el.type==="number"?(el.value===""?null:Number(el.value)):el.value; setModel(k,v);
+      var v=(window.EcMoney&&el.hasAttribute("data-money"))?EcMoney.val(el):el.type==="number"?(el.value===""?null:Number(el.value)):el.value; setModel(k,v);
       if(k==="request_title") state.titleTouched=((el.value||"").trim()!=="");
       if(k!=="request_title") maybeAutoTitle();
       renderSummary(); clearFieldError(k);
@@ -541,6 +541,8 @@
     if(cap.can_approve) btns.push('<button type="button" class="btn primary" data-act="approve">Duyệt</button>');
     if(cap.can_request_information) btns.push('<button type="button" class="btn" data-act="reqinfo">Yêu cầu bổ sung</button>');
     if(cap.can_reject) btns.push('<button type="button" class="btn" data-act="reject">Từ chối</button>');
+    if(window.EcRemind) btns.push(EcRemind.buttonHTML(cap));   // 01/10: nhac nguoi xu ly (asset dung chung)
+    if(window.EcReassign) btns.push(EcReassign.buttonHTML(cap));   // 05/10: chuyen nguoi xu ly (asset dung chung)
     if(cap.can_admin_approve_current_level) btns.push('<button type="button" class="btn warn" data-act="adminapprove">Duyệt thay bước hiện tại</button>');
     if(cap.can_cancel) btns.push('<button type="button" class="btn" data-act="cancel">Hủy yêu cầu</button>');
     return btns.length? '<div class="actions">'+btns.join("")+'</div>' : '<div class="hint">Không có hành động khả dụng cho bạn ở trạng thái hiện tại.</div>'; }
@@ -548,7 +550,7 @@
     var a=el.getAttribute("data-act"); if(!a||el.disabled) return; if(document.querySelector(".ec-hire-overlay")) return; e.preventDefault();
     var det=state.detail||{}; var name=(det.business||{}).name||state.id;
     if(a==="editdraft") return startEditDraft(det); if(a==="submitdraft") return doSubmitDraft(name);
-    if(a==="edit") return startEditResubmit(det); if(a==="approve") return doApprove(name,det);
+    if(a==="edit") return startEditResubmit(det); if(a==="approve") return doApprove(name,det); if(a==="reassign") return window.EcReassign&&EcReassign.run(call,name,{modal:modal,toast:toast,mapErr:mapErr,done:function(){ refreshDetail(); }}); if(a==="remind") return window.EcRemind&&EcRemind.run(call,name,{toast:toast,mapErr:(typeof mapErr==="function"?mapErr:null),done:function(){ if(typeof refreshDetail==="function") refreshDetail(); else if(typeof renderDetail==="function") renderDetail(document.querySelector('[id$="-body"]')); }});
     if(a==="reject") return doReject(name); if(a==="reqinfo") return doRequestInfo(name);
     if(a==="adminapprove") return doAdminApprove(name); if(a==="cancel") return doCancel(name);
     if(a==="claim") return doClaim(name); if(a==="complete") return doComplete(name); }

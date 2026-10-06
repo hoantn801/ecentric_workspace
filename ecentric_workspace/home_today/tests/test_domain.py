@@ -148,6 +148,18 @@ class TestReactions(unittest.TestCase):
         self.assertNotIn("rac", out)
 
 
+class TestGivenName(unittest.TestCase):
+    def test_first_name_not_family_name(self):
+        """PO 29/09 16:32: "Vinh Dinh Khanh Vu" -> chuc mung Vinh (ten), khong phai Vu (ho)."""
+        p = D.person({"name": "E1", "employee_name": "Vinh Dinh Khanh Vu", "first_name": "Vinh",
+                      "department": "Management - EC"}, {"Management - EC": "Management"})
+        self.assertEqual((p["given"], p["initials"]), ("Vinh", "VV"))
+        self.assertEqual(D.person({"name": "E2", "employee_name": "Hieu Nguyen Bui Trung"}, {})["given"], "Hieu")
+        c = D.celebration([dict(p, department="Management - EC")], {"name": "E9", "department": "Management - EC"},
+                          {"Management - EC": "Management"})
+        self.assertEqual(c["badge"], "Phòng Management có sinh nhật Vinh")
+
+
 class TestPeople(unittest.TestCase):
     def test_initials_and_stable_color(self):
         self.assertEqual(D.initials("Nguyễn Thu Hà"), "TH")

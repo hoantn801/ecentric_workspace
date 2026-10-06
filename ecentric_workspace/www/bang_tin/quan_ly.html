@@ -1,0 +1,51 @@
+{%- extends "templates/includes/social/layout.html" -%}
+{%- from "templates/includes/social/macros.html" import post_card, club_icon -%}
+{#- /bang-tin/quan-ly - HR kiem duyet: bai bi bao cao, bai da an, cau lac bo. -#}
+{% block esc_page %}
+<header class="esc-head">
+  <div><h1 class="esc-h1">Kiểm duyệt Bảng tin</h1><p class="esc-sub">Bài đăng thẳng, không chờ duyệt. Ở đây HR xử lý bài bị báo cáo và duyệt câu lạc bộ.</p></div>
+  <a class="esc-btn" href="/bang-tin">Về Bảng tin</a>
+</header>
+<nav class="esc-tabs esc-tabs-page" aria-label="Kiểm duyệt">
+  {% for t in tabs %}<a href="/bang-tin/quan-ly?tab={{ t.key }}"{% if t.key == tab %} aria-current="page"{% endif %}>{{ t.label }}{% if t.key == 'bao-cao' and n_reports %} <span class="esc-badge esc-b-red">{{ n_reports }}</span>{% elif t.key == 'clb' and n_pending %} <span class="esc-badge esc-b-auto">{{ n_pending }} chờ duyệt</span>{% endif %}</a>{% endfor %}
+</nav>
+<div class="esc-single esc-col">
+{% if tab == 'bao-cao' %}
+  {% for g in groups %}
+  <section class="esc-modcase" data-esc-case="{{ g.post.name|e }}">
+    <div class="esc-card esc-pad esc-reports">
+      <p class="esc-ph">{{ g.reports|length }} lượt báo cáo</p>
+      <ul>{% for r in g.reports %}<li><b>{{ r.who|e }}</b> · {{ r.ago|e }}{% if r.reason %}: {{ r.reason|e }}{% endif %}</li>{% endfor %}</ul>
+      <div class="esc-row-end"><button type="button" class="esc-btn" data-esc-dismiss="{{ g.post.name|e }}">Giữ bài, đóng báo cáo</button><button type="button" class="esc-btn esc-btn-danger" data-esc-mod-hide="{{ g.post.name|e }}">Ẩn bài</button></div>
+    </div>
+    {{ post_card(g.post) }}
+  </section>
+  {% else %}<div class="esc-card esc-pad esc-empty">Không có bài nào đang bị báo cáo. 👍</div>{% endfor %}
+{% elif tab == 'da-an' %}
+  <div data-esc-feed>{% for p in hidden %}{{ post_card(p) }}{% else %}<div class="esc-card esc-pad esc-empty">Chưa có bài nào bị ẩn.</div>{% endfor %}</div>
+{% else %}
+  <h2 class="esc-h2">Đề xuất chờ duyệt</h2>
+  {% for c in pending %}
+  <div class="esc-card esc-pad esc-modclub" data-esc-modclub="{{ c.name|e }}">
+    <div class="esc-li">{{ club_icon(c) }}<div><b>{{ c.title|e }}</b><small>{{ c.category|e }} · đề xuất bởi {{ c.proposer|e }} · {{ c.members }} người muốn tham gia</small></div></div>
+    <p>{{ c.description|e }}</p>
+    <label class="esc-field"><span class="esc-cp-lbl">Ghi chú gửi người đề xuất (bắt buộc khi từ chối)</span><input class="esc-inp" data-esc-note maxlength="300"></label>
+    <div class="esc-row-end"><button type="button" class="esc-btn" data-esc-decide="0">Từ chối</button><button type="button" class="esc-btn esc-btn-pri" data-esc-decide="1">Duyệt</button></div>
+  </div>
+  {% else %}<p class="esc-note-sm">Không có đề xuất nào.</p>{% endfor %}
+  <h2 class="esc-h2 esc-mt">Đang hoạt động</h2>
+  {% if no_lead %}<p class="esc-warn">{{ no_lead }} CLB chưa có người phụ trách: chưa ai tạo được sự kiện cho các CLB này. Chọn người ngay trong thẻ CLB rồi bấm Lưu.</p>{% endif %}
+  {% for c in active %}
+  <div class="esc-card esc-pad esc-modclub{% if not c.lead_name %} esc-modclub-nolead{% endif %}" data-esc-modclub="{{ c.name|e }}" id="clb-{{ c.name|e }}">
+    <div class="esc-li">{{ club_icon(c) }}<div><a href="{{ c.url|e }}"><b>{{ c.title|e }}</b></a><small>{{ c.members }} thành viên · {% if c.lead_name %}phụ trách: {{ c.lead_name|e }}{% else %}<span class="esc-badge esc-badge-warn">Chưa có người phụ trách</span>{% endif %}</small></div>
+      <button type="button" class="esc-btn esc-btn-sm" data-esc-status="0">Ngừng hoạt động</button></div>
+    <div class="esc-lead-row"><span class="esc-cp-lbl">{{ 'Đổi người phụ trách' if c.lead_name else 'Chọn người phụ trách' }}</span><div class="esc-pick" data-esc-pick="lead" data-single="1"></div><button type="button" class="esc-btn esc-btn-sm" data-esc-set-lead>Lưu</button></div>
+  </div>
+  {% else %}<p class="esc-note-sm">Chưa có CLB nào.</p>{% endfor %}
+  {% if archived %}
+  <h2 class="esc-h2 esc-mt">Đã ngừng</h2>
+  {% for c in archived %}<div class="esc-card esc-pad esc-modclub" data-esc-modclub="{{ c.name|e }}"><div class="esc-li">{{ club_icon(c) }}<div><b>{{ c.title|e }}</b><small>{{ c.members }} thành viên</small></div><button type="button" class="esc-btn esc-btn-sm" data-esc-status="1">Mở lại</button></div></div>{% endfor %}
+  {% endif %}
+{% endif %}
+</div>
+{% endblock %}

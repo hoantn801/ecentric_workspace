@@ -5,7 +5,7 @@
 const fs = require('fs');
 const { JSDOM } = require('jsdom');
 
-const [htmlOn, htmlOff, src, payloadRaw] = process.argv.slice(2).map((f, i) => fs.readFileSync(f, 'utf8'));
+const [htmlOn, htmlOff, src, payloadRaw, drawSrc] = process.argv.slice(2).map((f, i) => fs.readFileSync(f, 'utf8'));
 const out = {};
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -33,6 +33,7 @@ async function boot(html, opts) {
   };
   const before = skeleton(w.document);
   const bodyKids = w.document.body.children.length;
+  if (opts.draw) { w.HTMLCanvasElement.prototype.getContext = () => null; w.eval(drawSrc); }
   w.eval(src);
   await sleep(700);
   return { dom, w, d: w.document, calls, warns, before, bodyKids };
@@ -79,12 +80,23 @@ const txt = (el) => (el ? el.textContent.replace(/\s+/g, ' ').trim() : null);
     pop.querySelector('[data-i="2"]').click();
     m.bdHero = txt(pop.querySelector('.hero h3'));
     m.soon = [...pop.querySelectorAll('.sl')].map(txt);
-    const heart = pop.querySelector('[data-rx="bd:E1:2026|heart"]');
+    // chi hien o cam xuc DA co nguoi tha; moi the co 1 nut mat cuoi + bang chon 4 icon
+    const chips = (k) => [...pop.querySelectorAll('.pc')].map((c) => [...c.querySelectorAll('.rx .rb')].map((b) => b.dataset.rx.split('|')[1] + ':' + txt(b.querySelector('.c'))));
+    m.chipsBefore = chips();
+    m.pickers = [...pop.querySelectorAll('.pc .rxadd')].map((w) => w.querySelectorAll('.rxpick button').length);
+    const heart = pop.querySelector('.rx [data-rx="bd:E1:2026|heart"]');
     m.heartBefore = [heart.getAttribute('aria-pressed'), txt(heart.querySelector('.c'))];
     heart.click();
     await sleep(30);
-    const heart2 = pop.querySelector('[data-rx="bd:E1:2026|heart"]');
+    const heart2 = pop.querySelector('.rx [data-rx="bd:E1:2026|heart"]');
     m.heartAfter = [heart2.getAttribute('aria-pressed'), txt(heart2.querySelector('.c')), txt(heart2.querySelector('.tip'))];
+    // cham nut mat cuoi (dien thoai) -> mo bang chon; chon hoa cho Khoa (chua ai tha) -> o moi hien
+    pop.querySelector('[data-rxopen="bd:E2:2026"]').click();
+    m.pickOpen = pop.querySelector('[data-rxopen="bd:E2:2026"]').parentElement.classList.contains('open');
+    pop.querySelector('.rxpick [data-rx="bd:E2:2026|flower"]').click();
+    await sleep(30);
+    m.afterPick = chips()[1];
+    m.pickClosed = !pop.querySelector('.rxadd.open');
     m.post = b.calls.filter((c) => c.post);
     // phim mui ten tren cot o
     pop.querySelector('[data-i="2"]').focus();
@@ -135,16 +147,97 @@ const txt = (el) => (el ? el.textContent.replace(/\s+/g, ' ').trim() : null);
     out.hidden.otherDay = !!(await boot(htmlOn, { storage: JSON.stringify({ d: '2026-09-28', k: p.keys }) })).d.getElementById('ech-pop');
     out.hidden.junk = !!(await boot(htmlOn, { storage: '{rac' })).d.getElementById('ech-pop');
   }
+  // 4b) da tich an roi bam nut mo lai -> o tich VAN tich; bo tich -> xoa co an
+  {
+    const p = JSON.parse(payloadRaw);
+    const b = await boot(htmlOn, { storage: JSON.stringify({ d: p.date, k: p.keys }) });
+    await b.w.EcHomePopup.load(true);
+    const cb = b.d.querySelector('#ech-pop [data-hide]');
+    out.reopen = { checked: !!(cb && cb.checked) };
+    cb.checked = false; cb.dispatchEvent(new b.w.Event('change', { bubbles: true }));
+    out.reopen.clearedAfterUntick = b.w.localStorage.getItem('ec_home_today_hide') === null;
+    const f = await boot(htmlOn, {});
+    out.reopen.freshUnchecked = !f.d.querySelector('#ech-pop [data-hide]').checked;
+  }
   // 5) du lieu doc hai duoc escape; o rong bi an
   {
     const p = JSON.parse(payloadRaw);
     p.news = []; p.onboard = []; p.anniversaries = []; p.holidays = [];
     p.birthdays.today[0].name = '<img src=x onerror="window.__pwn=1">';
     p.birthdays.today[0].role = '<b>x</b>';
+    p.events[0].title = '<img src=x onerror="window.__pwn=2">';
+    p.events[0].club = '<img src=x onerror="window.__pwn=3">';
     const b = await boot(htmlOn, { payload: p });
     const pop = b.d.getElementById('ech-pop');
     out.xss = { pwn: !!b.w.__pwn, imgs: pop.querySelectorAll('img').length, tiles: [...pop.querySelectorAll('.th .tt')].map(txt),
       escaped: pop.innerHTML.includes('&lt;img src=x') };
+  }
+  // 5b) poster co duong dan -> bam anh di toi duong dan (cung tab); khong co -> mo anh goc (tab moi)
+  {
+    const p = JSON.parse(payloadRaw);
+    p.news[0].url = '/huong-dan/chot-cong-thang'; p.news[0].link_label = 'Xem hướng dẫn →';
+    const b = await boot(htmlOn, { payload: p });
+    const a = b.d.querySelector('#ech-pop .poster a.pimg');
+    out.posterLink = { href: a.getAttribute('href'), target: a.getAttribute('target'), btn: txt(b.d.querySelector('#ech-pop .pbar a')) };
+  }
+  // 7) O "Quay so may man" (module Khao sat): dung dau, dem nguoc, luot quay tiep theo, ket qua
+  {
+    const p = JSON.parse(payloadRaw);
+    const day = p.date;
+    const draw = { name: 'KS-1', title: 'Year End Party', mode: 'lucky_number', state: 'countdown', draw_at: day + ' 10:00:00',
+      range: [1, 100], holders: 47, my_number: '027', joined: true, url: '/khao-sat/lam?s=KS-1', racers: [], results: [], racer_total: 0,
+      prizes: [{ rank: 1, label: 'Tai nghe', quantity: 1 }, { rank: 2, label: 'Trà sữa', quantity: 1 }] };
+    p.draws = { server_now: day + ' 09:57:00', soon: true, timers: [], draws: [draw], upcoming: [
+      { name: 'KS-2', title: 'Pantry tháng 10', mode: 'race', draw_at: '2026-10-09 15:00:00', days_left: 2, me: 'joined', url: '/khao-sat/lam?s=KS-2',
+        prizes: [{ rank: 1, label: 'Voucher <b>500K</b>', quantity: 1 }, { rank: 2, label: 'Trà sữa', quantity: 3 }], note: 'Nhận quà ở lễ tân' },
+      { name: 'KS-3', title: 'Đào tạo Q3', mode: 'lucky_number', draw_at: '2026-10-15 16:30:00', days_left: 8, me: 'not_submitted', url: '/khao-sat/lam?s=KS-3' }] };
+    const oldKeys = p.keys.slice();
+    p.keys = oldKeys.concat(['draw:KS-1']);
+    const b = await boot(htmlOn, { payload: p, draw: true, storage: JSON.stringify({ d: p.date, k: oldKeys }) });
+    const pop = b.d.getElementById('ech-pop');
+    const o = { pop: !!pop };
+    o.firstTile = txt(pop.querySelector('.th[data-i="0"] .tt'));
+    o.badge = txt(pop.querySelector('.th[data-i="0"] .ct'));
+    o.chip = txt(pop.querySelector('.ecd-chip'));
+    o.mine = txt(pop.querySelector('.ecd-mine b'));
+    o.clock = txt(pop.querySelector('[data-ecd-clock]'));
+    o.upcoming = [...pop.querySelectorAll('.upn-i')].map((r) => [txt(r.querySelector('.upn-b b')), txt(r.querySelector('.upn-r span')), txt(r.querySelector('.upn-left'))]);
+    o.cta = [...pop.querySelectorAll('.upn-r a')].map((a) => [txt(a), a.getAttribute('href')]);
+    // hop qua dau dong: so luong tong + danh sach qua (ten da escape); cham -> bat / tat
+    const g = pop.querySelectorAll('.upn-i .ugift');
+    o.gift = { n: g.length, cnt: txt(g[0].querySelector('.cnt')), noCnt: !g[1].querySelector('.cnt'),
+      items: [...g[0].querySelectorAll('.ugpop li')].map(txt), note: txt(g[0].querySelector('.ugpop .w')),
+      raw: !!g[0].querySelector('.ugpop li b b') };
+    g[0].querySelector('[data-ugift]').click();
+    o.gift.on1 = g[0].classList.contains('on');
+    g[1].querySelector('[data-ugift]').click();
+    o.gift.swap = [g[0].classList.contains('on'), g[1].classList.contains('on')];
+    await sleep(7500);                                    // khong tu chuyen o khi dang o quay so
+    o.stillDraw = txt(pop.querySelector('.th[aria-selected="true"] .tt'));
+    // ket qua da chot (mo trang sau gio quay): so tinh + nguoi trung + so trong "qua de lai"
+    const done = Object.assign({}, draw, { state: 'done', results: [
+      { rank: 2, prize: 'Trà sữa', number: '012', name: 'Trần Minh Anh', is_me: false },
+      { rank: 1, prize: 'Tai nghe', number: '083', name: '', is_me: false }] });
+    b.w.ECSvyDraw.mount(pop.querySelector('[data-drmount]'), done, { serverNow: day + ' 11:00:00' });
+    o.done = { chip: txt(pop.querySelector('.ecd-chip')), nums: [...pop.querySelectorAll('.ecd-reels')].map(txt),
+      res: [...pop.querySelectorAll('.ecd-res')].map(txt), replay: !!pop.querySelector('[data-ecd-replay]') };
+    out.draw = o;
+  }
+  // 7b) Chua toi T-5 + da tich "khong hien hom nay": popup TU MO dung gio, nhay toi o quay so
+  {
+    const p = JSON.parse(payloadRaw);
+    const now = new Date(Date.now() + 2000);
+    const pad = (n) => String(n).padStart(2, '0');
+    const fmt = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+    const srv = new Date();
+    p.draws = { server_now: fmt(srv), soon: true, draws: [], timers: [{ name: 'KS-9', open_at: fmt(now), draw_at: fmt(new Date(now.getTime() + 300000)) }],
+      upcoming: [{ name: 'KS-9', title: 'Quay trưa nay', mode: 'lucky_number', draw_at: fmt(new Date(now.getTime() + 300000)), days_left: 0, me: 'pick', url: '/khao-sat/lam?s=KS-9' }] };
+    const b = await boot(htmlOn, { payload: p, draw: true, storage: JSON.stringify({ d: p.date, k: p.keys }) });
+    const before = !!b.d.getElementById('ech-pop');
+    await sleep(4200);
+    const pop = b.d.getElementById('ech-pop');
+    out.timer = { before, after: !!pop, slide: pop && txt(pop.querySelector('.th[aria-selected="true"] .tt')),
+      cta: pop && txt(pop.querySelector('.upn-r a')) };
   }
   // 6) API hong -> im lang (console), khong popup
   {

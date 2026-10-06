@@ -1,0 +1,54 @@
+{
+ "doctype": "DocType",
+ "name": "EC Survey Prize",
+ "module": "Surveys",
+ "custom": 0,
+ "istable": 1,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "description": "Một hạng quà của khảo sát. Mã quà = name của dòng.",
+ "field_order": [
+  "label",
+  "quantity",
+  "awarded",
+  "color"
+ ],
+ "fields": [
+  {
+   "fieldname": "label",
+   "fieldtype": "Data",
+   "label": "Tên quà",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "quantity",
+   "fieldtype": "Int",
+   "label": "Số lượng",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "awarded",
+   "fieldtype": "Int",
+   "label": "Đã trao",
+   "default": "0",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "color",
+   "fieldtype": "Data",
+   "label": "Màu ô vòng quay"
+  }
+ ],
+ "permissions": [],
+ "links": [],
+ "index_web_pages_for_search": 0
+}

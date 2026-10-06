@@ -66,6 +66,10 @@ def autofill_user_id(doc, method=None):
         return
     if (doc.get("user_id") or "").strip():
         return
+    # 02/10/2026: nguoi "Mac dinh du cong" (hr/full_cong.py) khong dung app cham cong -
+    # vd bac Linh khong co tai khoan cong ty. Khong canh bao, khong bao trong ban quet 08:00.
+    if int(doc.get("ec_full_cong") or 0):
+        return
 
     login = _free_login(doc.get("company_email"), doc.name) \
         or _free_login(doc.get("personal_email"), doc.name)
@@ -155,17 +159,25 @@ def sweep_missing_user_id():
 def _offenders():
     """Ho so Active, den han vao lam (hoac sap), ma chua gan user_id."""
     limit = frappe.utils.add_days(frappe.utils.nowdate(), LOOKAHEAD_DAYS)
+    fields = ["name", "employee_name", "employee_number", "user_id",
+              "company_email", "personal_email", "date_of_joining", "department"]
+    try:
+        if frappe.db.has_column("Employee", "ec_full_cong"):
+            fields.append("ec_full_cong")
+    except Exception:
+        pass
     rows = frappe.get_all(
         "Employee",
         filters={"status": "Active"},
-        fields=["name", "employee_name", "employee_number", "user_id",
-                "company_email", "personal_email", "date_of_joining", "department"],
+        fields=fields,
         order_by="date_of_joining asc",
         limit_page_length=0,
     )
     out = []
     for r in rows:
         if (r.get("user_id") or "").strip():
+            continue
+        if int(r.get("ec_full_cong") or 0):
             continue
         doj = r.get("date_of_joining")
         if doj and str(doj) > str(limit):

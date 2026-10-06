@@ -1,0 +1,141 @@
+{%- extends "templates/includes/feedback/layout.html" -%}
+{%- from "templates/includes/feedback/macros.html" import icon, pill, sla_pill -%}
+{#- /gop-y/xu-ly - hop xu ly (mockup Ban 1 so 4). Nguoi gui an danh: "An danh", khong co duong
+    nao toi danh tinh. Moi thao tac POST qua feedback.api roi tai lai trang. -#}
+{% block egy_page %}
+<div class="egy-inbox">
+  <aside class="egy-filters" aria-label="Lọc">
+    <a class="egy-link egy-back" href="/gop-y">← Góp ý công ty</a>
+    <h1 class="egy-h1">Hộp xử lý</h1>
+    {% set base = '/gop-y/xu-ly' %}
+    <nav class="egy-flt-list">
+      <a class="egy-flt{% if filter == 'can-xu-ly' %} is-on{% endif %}" href="{{ base }}">Cần xử lý <b>{{ counts['can-xu-ly'] }}</b></a>
+      <a class="egy-flt{% if filter == 'qua-han' %} is-on{% endif %}" href="{{ base }}?loc=qua-han"><span class="egy-late">Quá hạn</span> <b>{{ counts['qua-han'] }}</b></a>
+      <a class="egy-flt{% if filter == 'sap-het-han' %} is-on{% endif %}" href="{{ base }}?loc=sap-het-han">Sắp hết hạn (≤ 1 ngày) <b>{{ counts['sap-het-han'] }}</b></a>
+      <a class="egy-flt{% if filter == 'da-dong' %} is-on{% endif %}" href="{{ base }}?loc=da-dong">Đã đóng <b>{{ counts['da-dong'] }}</b></a>
+      <a class="egy-flt{% if filter == 'tat-ca' %} is-on{% endif %}" href="{{ base }}?loc=tat-ca">Tất cả <b>{{ counts['tat-ca'] }}</b></a>
+    </nav>
+    <div class="egy-flt-h">Chủ đề (đang mở)</div>
+    <nav class="egy-flt-list">
+      {% for t in topics %}
+      <a class="egy-flt{% if topic == t.name %} is-on{% endif %}" href="{{ base }}?loc={{ filter|e }}&amp;chu-de={{ t.name|e }}"><span><span class="egy-chip-dot" style="background:{{ t.ink|e }}"></span>{{ t.label|e }}</span> <b>{{ t.count }}</b></a>
+      {% endfor %}
+    </nav>
+    <div class="egy-flt-foot"><a class="egy-link" href="/gop-y/tong-quan">Tổng quan (BGD)</a></div>
+  </aside>
+
+  <section class="egy-ilist" aria-label="Danh sách góp ý">
+    <form class="egy-isearch" method="get" action="{{ base }}">
+      <input type="hidden" name="loc" value="{{ filter|e }}">
+      {% if topic %}<input type="hidden" name="chu-de" value="{{ topic|e }}">{% endif %}
+      <label class="egy-sr" for="egy-q">Tìm góp ý</label>
+      <input id="egy-q" class="egy-inp" type="search" name="q" value="{{ q|e }}" placeholder="Tìm theo tiêu đề, mã…">
+    </form>
+    {% for r in items %}
+    <a class="egy-irow{% if r.on %} is-on{% endif %}" href="{{ base }}?loc={{ filter|e }}{% if topic %}&amp;chu-de={{ topic|e }}{% endif %}{% if q %}&amp;q={{ q|urlencode }}{% endif %}&amp;gy={{ r.name|e }}"{% if r.on %} aria-current="true"{% endif %}>
+      <span class="egy-meta">{{ pill(r.status, r.status_css) }} {{ sla_pill(r.sla_key, r.sla) }} <span class="egy-code">{{ r.name|e }}</span></span>
+      <span class="egy-irow-t">{{ r.title|e }}</span>
+      <span class="egy-help">{{ r.topic|e }} · {{ r.who|e }} · {{ r.votes|e }}</span>
+    </a>
+    {% else %}
+    <p class="egy-empty egy-pad">Không có góp ý nào ở mục này.</p>
+    {% endfor %}
+  </section>
+
+  {% if selected %}
+  {% set s = selected %}
+  <section class="egy-ipanel" aria-label="Góp ý đang mở" data-egy-handle="{{ s.name|e }}" data-egy-status="{{ s.status|e }}"{% if explicit %} data-egy-opened="1"{% endif %}>
+    <div class="egy-meta">
+      {{ pill(s.status, s.status_css) }}
+      {% if s.sla.label %}<span class="egy-pill egy-due-{{ s.sla.key|e }}">{{ s.sla.label|e }}</span>{% endif %}
+      <span class="egy-code">{{ s.name|e }} · gửi {{ s.sent|e }}</span>
+    </div>
+    <h2 class="egy-h1">{{ s.title|e }}</h2>
+    <div class="egy-card egy-pad">
+      <div class="egy-help"><strong class="egy-ink">{% if s.anonymous %}{{ icon('lock') }} {% endif %}{{ s.sender|e }}</strong> · {{ s.topic_label|e }} · {{ s.kind|e }}{% if s.handler %} · đang nhận: {{ s.handler|e }}{% endif %}{% if s.reopen_count %} · đã mở lại {{ s.reopen_count }} lần{% endif %}</div>
+      <p class="egy-msg-b">{{ s.body|e }}</p>
+      {% if s.attachments %}
+      <div class="egy-files">
+        {% for a in s.attachments %}
+        <a class="egy-btn egy-btn-sm" href="/api/method/ecentric_workspace.feedback.api.download?feedback={{ s.name|urlencode }}&amp;idx={{ a.idx }}">{{ icon('file') }} {{ a.file_name|e }}</a>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    {% if s.thread %}
+    <div class="egy-thread egy-thread-sm">
+      {% for m in s.thread %}
+        {% if m.kind == 'status' %}
+        <div class="egy-ev">{{ pill(m.to_status, m.to_status_css) }} {{ m.who|e }} · {{ m.when|e }}</div>
+        {% elif m.kind == 'topic' %}
+        <div class="egy-ev">{{ m.who|e }} chuyển chủ đề “{{ m.from_topic|e }}” → “{{ m.to_topic|e }}” · {{ m.when|e }}</div>
+        {% else %}
+        <div class="egy-msg-sm{% if m.note %} is-note{% elif m.sender %} is-sender{% endif %}">
+          <div class="egy-help"><strong class="egy-ink">{{ m.who|e }}</strong>{% if m.note %} · ghi chú nội bộ{% endif %}{% if m.kind == 'reopen' %} · mở lại góp ý{% endif %} · {{ m.when|e }}</div>
+          <p class="egy-msg-b">{{ m.body|e }}</p>
+        </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <form class="egy-card egy-pad egy-form" data-egy-act>
+      <fieldset class="egy-fs">
+        <legend class="egy-lbl">Trạng thái</legend>
+        <div class="egy-chips">
+          {% for st in statuses %}
+          <label class="egy-chip"><input type="radio" name="status" value="{{ st|e }}"{% if st == s.status %} checked{% endif %}>{{ st|e }}</label>
+          {% endfor %}
+        </div>
+      </fieldset>
+      <div>
+        <label class="egy-lbl" for="egy-ans">Trả lời người gửi</label>
+        <textarea id="egy-ans" class="egy-inp" name="message" rows="4" maxlength="3000" placeholder="Người gửi nhận chuông khi bạn gửi. “Đã trả lời” và “Không làm” bắt buộc có nội dung."></textarea>
+      </div>
+      <div class="egy-row-sb">
+        <label class="egy-check"><input type="checkbox" name="internal"> Ghi chú nội bộ (người gửi không thấy)</label>
+        <button type="submit" class="egy-btn egy-primary">Gửi</button>
+      </div>
+    </form>
+
+    <div class="egy-more">
+      <details class="egy-card egy-pad">
+        <summary>{% if s.is_public %}Đang trên bảng chung · {{ s.votes }} “+1” — sửa / rút{% else %}Đưa lên bảng chung…{% endif %}</summary>
+        <form class="egy-form" data-egy-publish>
+          <p class="egy-help">Bảng chung chỉ hiện tiêu đề và trả lời công khai dưới đây (luôn giấu người gửi). Viết lại nếu nội dung gốc có chi tiết lộ người gửi.{% if s.status == 'Đã làm' %} Góp ý “Đã làm” trên bảng chung lên popup trang chủ 7 ngày.{% endif %}</p>
+          <label class="egy-lbl" for="egy-pt">Tiêu đề công khai</label>
+          <input id="egy-pt" class="egy-inp" name="title" maxlength="140" value="{{ s.public_title|e }}" required>
+          <label class="egy-lbl" for="egy-pa">Trả lời của công ty</label>
+          <textarea id="egy-pa" class="egy-inp" name="answer" rows="3" maxlength="600">{{ s.public_answer|e }}</textarea>
+          <div class="egy-row-end">
+            {% if s.is_public %}<button type="button" class="egy-btn" data-egy-unpublish>Rút khỏi bảng chung</button>{% endif %}
+            <button type="submit" class="egy-btn egy-primary">{{ 'Lưu' if s.is_public else 'Đưa lên' }}</button>
+          </div>
+        </form>
+      </details>
+      <details class="egy-card egy-pad">
+        <summary>Chuyển chủ đề / Đánh dấu trùng, spam…</summary>
+        <form class="egy-form" data-egy-topic>
+          <label class="egy-lbl" for="egy-tp">Chủ đề</label>
+          <div class="egy-row-sb">
+            <select id="egy-tp" class="egy-inp" name="topic">
+              {% for t in topics %}<option value="{{ t.name|e }}"{% if t.name == s.topic %} selected{% endif %}>{{ t.label|e }}</option>{% endfor %}
+            </select>
+            <button type="submit" class="egy-btn">Chuyển</button>
+          </div>
+        </form>
+        <form class="egy-form" data-egy-dup>
+          <label class="egy-lbl" for="egy-of">Trùng với góp ý (mã)</label>
+          <input id="egy-of" class="egy-inp" name="of" placeholder="GY-2026-00042" value="{{ s.duplicate_of|e }}">
+          <label class="egy-check"><input type="checkbox" name="spam"> Spam / không đủ thông tin</label>
+          <label class="egy-lbl" for="egy-dr">Lời nhắn cho người gửi (bỏ trống = câu mặc định)</label>
+          <textarea id="egy-dr" class="egy-inp" name="message" rows="2" maxlength="3000"></textarea>
+          <div class="egy-row-end"><button type="submit" class="egy-btn">Đóng góp ý (Không làm)</button></div>
+        </form>
+      </details>
+    </div>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

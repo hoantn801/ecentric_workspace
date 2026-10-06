@@ -36,11 +36,23 @@ POLICY_CODE = "SLA-ATT-CHECKIN-10H"
 def _employees():
     """Nhan vien dang lam, co tai khoan. Khong co `user_id` thi khong gan diem
     cho ai duoc - va dem ho vao se tao ra nhung dong nghia vu khong chu."""
-    return frappe.get_all(
+    rows = frappe.get_all(
         "Employee", filters={"status": "Active", "user_id": ("is", "set")},
         fields=["name", "user_id", "employee_name", "department",
                 "holiday_list", "date_of_joining", "company"],
         limit_page_length=0)
+    # 01/10/2026: nguoi "mac dinh du cong" (hr/full_cong.py) khong co SLA cham cong.
+    skip = _full_cong()
+    return [r for r in rows if r["name"] not in skip] if skip else rows
+
+
+def _full_cong():
+    try:
+        from ecentric_workspace.hr import full_cong
+        return full_cong.employees()
+    except Exception:
+        frappe.log_error(title="sla.attendance._full_cong", message=frappe.get_traceback())
+        return set()
 
 
 def _company_holiday_list(company, cache):
@@ -95,6 +107,34 @@ def _leave_days(employee, start, end):
     lo, hi, days = getdate(start), getdate(end), set()
     for r in rows:
         d, stop = max(getdate(r["from_date"]), lo), min(getdate(r["to_date"]), hi)
+        while d <= stop:
+            days.add(d)
+            d += datetime.timedelta(days=1)
+    return days
+
+
+OUTSIDE_REASON = "Làm việc bên ngoài đã duyệt"
+
+
+def _outside_days(employee, start, end):
+    """05/10/2026: ngay lam viec BEN NGOAI da duyet (EC Outside Work Request, engine Approved).
+    Ngay do khong check-in o van phong dung gio la binh thuong -> loai tru nhu nghi phep, khong
+    cham tre. Loi -> rong (giu hanh vi cu)."""
+    try:
+        rows = frappe.db.sql(
+            """select w.start_date, ifnull(w.end_date, w.start_date)
+               from `tabEC Outside Work Request` w
+               inner join `tabEC Approval Request` a on a.name = w.approval_request
+               where w.employee = %s and a.approval_status = 'Approved'
+                 and w.start_date <= %s and ifnull(w.end_date, w.start_date) >= %s""",
+            (employee, str(end), str(start)))
+    except Exception:
+        frappe.log_error(title="sla.attendance._outside_days", message=frappe.get_traceback())
+        return set()
+    import datetime
+    lo, hi, days = getdate(start), getdate(end), set()
+    for f, t in rows:
+        d, stop = max(getdate(f), lo), min(getdate(t), hi)
         while d <= stop:
             days.add(d)
             d += datetime.timedelta(days=1)
@@ -166,6 +206,7 @@ def _sync_employee(emp, start, end, hl_cache, report):
     if not days:
         return
     leave = _leave_days(emp["name"], start, end)
+    outside = _outside_days(emp["name"], start, end)
     checkins = _checkins(emp["name"], start, end)
     user = emp["user_id"]
 
@@ -173,6 +214,8 @@ def _sync_employee(emp, start, end, hl_cache, report):
         action, closed_at, reason = ar.decide(
             d, joined_on=emp.get("date_of_joining"),
             on_leave=(d in leave), first_checkin=checkins.get(d))
+        if d in outside and action != ar.ACT_SKIP and action != ar.ACT_EXCLUDE:
+            action, closed_at, reason = ar.ACT_EXCLUDE, None, OUTSIDE_REASON
         if action == ar.ACT_SKIP:
             report["bo_qua"].append("%s %s (%s)" % (user, d, reason))
             continue
@@ -323,6 +366,8 @@ def _employee_one(employee):
         frappe.log_error(title="sla.attendance._employee_one",
                          message=frappe.get_traceback())
         return None
+    if rows and rows[0]["name"] in _full_cong():
+        return None
     return rows[0] if rows else None
 
 
@@ -357,5 +402,64 @@ def sync_one(employee, day=None):
                 pass
         report["loi"].append(emp.get("user_id"))
         frappe.log_error(title="sla.attendance.sync_one %s" % emp.get("user_id"),
+                         message=frappe.get_traceback())
+    return report
+
+
+# --------------------------------------------------------------------------- #
+# Duong DUYET PHEP
+#
+# 30/09/2026: bon phieu nghi cua thang 9 duoc duyet cung mot luc chieu 30/09 -
+# co phieu nghi ngay 18/09, tuc 12 ngay sau. Job dem chi quet lai 7 ngay, nen
+# ngay 18/09 nam lai `Open` -> hien "Chua lam" vinh vien, du phep da duyet.
+#
+# Sua bang cach dong bo lai DUNG nhung ngay cua phieu ngay luc no duoc duyet.
+# Cung `_sync_employee` voi job dem va hook cham cong - khong luat moi. Chi
+# nhung ngay DA QUA (<= hom nay): ngay tuong lai de job dem tao dung ngay do,
+# nhu moi ngay cong khac. Tran 62 ngay de mot phieu nhap sai nam khong keo
+# ca giao dich duyet.
+# --------------------------------------------------------------------------- #
+LEAVE_SYNC_MAX_DAYS = 62
+
+
+def sync_leave(employee, from_date, to_date):
+    """Dong bo lai nhung ngay cong cua mot phieu nghi. Chay lai duoc.
+
+    Tra ve `_new_report()` da dien, hoac `None` neu khong co gi de lam.
+    """
+    if not employee or not from_date or not to_date:
+        return None
+    lo, hi = getdate(from_date), getdate(to_date)
+    if hi < lo:
+        lo, hi = hi, lo
+    today = getdate(frappe.utils.nowdate())
+    if hi > today:
+        hi = today
+    if lo > hi:
+        return None
+    if (hi - lo).days > LEAVE_SYNC_MAX_DAYS:
+        lo = frappe.utils.add_days(hi, -LEAVE_SYNC_MAX_DAYS)
+        lo = getdate(lo)
+    emp = _employee_one(employee)
+    if not emp:
+        return None
+    report = _new_report()
+    report["nhan_vien"] = 1
+    report["tu_ngay"], report["den_ngay"] = str(lo), str(hi)
+    sp = "sla_att_leave"
+    try:
+        frappe.db.savepoint(sp)
+    except Exception:
+        sp = None
+    try:
+        _sync_employee(emp, lo, hi, {}, report)
+    except Exception:
+        if sp:
+            try:
+                frappe.db.rollback(save_point=sp)
+            except Exception:
+                pass
+        report["loi"].append(emp.get("user_id"))
+        frappe.log_error(title="sla.attendance.sync_leave %s" % emp.get("user_id"),
                          message=frappe.get_traceback())
     return report

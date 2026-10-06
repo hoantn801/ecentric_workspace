@@ -1,0 +1,25 @@
+{#- Thu vien tai lieu ISO - khung chung: vo shell ERP (menu trai + thanh tren tu registry) + vung trang.
+    Jinja cua Frappe KHONG tu escape: moi chuoi tu du lieu PHAI qua |e. -#}
+{% extends base_template_path %}
+{% block title %}{{ title|e }} · eCentric{% endblock %}
+{% block navbar %}{% endblock %}
+{% block footer %}{% endblock %}
+{% block style %}{{ super() }}
+<link rel="stylesheet" href="{{ iso_css }}">
+{% endblock %}
+{% block content %}
+<div class="eti-app">
+  {{ iso_shell_mount }}
+  <main class="eti-main">
+    <div class="ec-shell-topbar" data-ec-shell-topbar="1">{{ iso_topbar }}</div>
+    <div class="eti-page">
+      {% block eti_page %}{% endblock %}
+    </div>
+  </main>
+</div>
+<div class="eti-toast" id="eti-toast" role="status" aria-live="polite" hidden></div>
+{% endblock %}
+{% block script %}{{ super() }}
+{% block eti_script %}{% endblock %}
+<script src="{{ iso_js }}" defer></script>
+{% endblock %}

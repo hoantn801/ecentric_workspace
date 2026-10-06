@@ -216,6 +216,14 @@ def deliver(delivery_log):
         if outcome is None:                       # webhook-only path failed transiently
             outcome, provider, code, err = "retry", "webhook", wcode, werr
 
+    # 2b) NOT_INSTALLED cua Copilot (ma 100) KHONG dang tin voi nguoi DA TUNG nhan duoc tin
+    #     (04/10/2026). Do tren ban chay 25/09-04/10: tuan.ly 14 lan NOT_INSTALLED xen giua cac
+    #     lan Sent cach nhau vai phut; 34 nguoi bi nhu vay - tuc tin duyet bi bo mat am tham.
+    #     Nguoi da co it nhat mot lan Sent qua Teams -> coi la loi tam, thu lai theo nhip
+    #     _RETRY_BACKOFF_MIN (toi da MAX_ATTEMPTS). Nguoi CHUA BAO GIO nhan duoc -> van Skipped.
+    if outcome == "skip" and code == "NOT_INSTALLED" and _tung_nhan_teams(doc.get("recipient"), doc.name):
+        outcome, err = "retry", "NOT_INSTALLED nhung nguoi nhan da tung nhan tin Teams - thu lai"
+
     # 3) not sent -> Skipped (bot not installed / blocked) or Failed+retry (transient)
     if outcome == "skip":
         doc.provider = provider or "teams_bot"
@@ -226,6 +234,20 @@ def deliver(delivery_log):
     else:
         _mark_retry_or_fail(doc, provider, code, err)
     doc.save(ignore_permissions=True)
+
+
+def _tung_nhan_teams(recipient, exclude=None):
+    """Nguoi nay da tung nhan thanh cong it nhat mot tin Teams chua. Loi tra cuu -> False
+    (giu hanh vi cu: Skipped)."""
+    if not recipient:
+        return False
+    try:
+        rows = frappe.get_all(DELIVERY_DT, filters={"channel": "teams", "status": "Sent",
+                                                    "recipient": recipient},
+                              pluck="name", limit=2)
+        return any(r != exclude for r in rows)
+    except Exception:
+        return False
 
 
 def process_teams_retries():

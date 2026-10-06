@@ -153,8 +153,11 @@
 (function(){
   "use strict";
   var NS="ecentric_workspace.approval_center.api.employee_info_update.";
-  var VN={ "Personal email":"Email cá nhân", "Bank account":"Số tài khoản ngân hàng", "Hospital code":"Mã bệnh viện (BHYT)", "Mobile phone":"Số điện thoại di động", "Birthplace":"Nơi sinh", "Citizen ID number":"Số CCCD/CMND", "Citizen ID issue date":"Ngày cấp CCCD/CMND", "Citizen ID issue place":"Nơi cấp CCCD/CMND", "Permanent address":"Địa chỉ thường trú", "Temporary address":"Địa chỉ tạm trú", "Position (C&B use only)":"Chức danh (chỉ C&B dùng)", "Other":"Khác" };
-  var FIELD_OPTS=["Personal email","Bank account","Hospital code","Mobile phone","Birthplace","Citizen ID number","Citizen ID issue date","Citizen ID issue place","Permanent address","Temporary address","Position (C&B use only)","Other"];
+  var VN={ "Personal email":"Email cá nhân", "Bank account":"Số tài khoản ngân hàng", "Hospital code":"Mã bệnh viện (BHYT)", "Mobile phone":"Số điện thoại di động", "Birthplace":"Nơi sinh", "Citizen ID number":"Số CCCD/CMND", "Citizen ID issue date":"Ngày cấp CCCD/CMND", "Citizen ID issue place":"Nơi cấp CCCD/CMND", "Permanent address":"Địa chỉ thường trú", "Temporary address":"Địa chỉ tạm trú", "Position (C&B use only)":"Cấp bậc (chỉ C&B)", "Job title (C&B use only)":"Chức danh (chỉ C&B)", "Date of birth":"Ngày sinh", "Marital status":"Tình trạng hôn nhân", "Bank name":"Tên ngân hàng", "Social insurance ID":"Mã số BHXH", "Hospital name":"Nơi KCB ban đầu", "License plate":"Biển số xe", "Emergency contact name":"Người liên hệ khẩn cấp", "Emergency phone":"SĐT khẩn cấp", "Other":"Khác" };
+  // 29/09: danh sach that lay tu HO SO NHAN VIEN o server (form_options); FIELD_TYPES cho biet o
+  // "New value" la ngay / lua chon / chu. Duyet xong server tu ghi vao ho so (tru "Other").
+  var FIELD_TYPES={};
+  var FIELD_OPTS=["Other"];
   var EMAIL_RE=/^[^@\s]+@[^@\s]+\.[^@\s]+$/;
   var state={ boot:null, tab:"create", id:null, mode:"create", draft:null, dirty:false, busy:false, page:0, PAGE:20, listFilters:{}, detail:null };
   function $(id){ return document.getElementById(id); }
@@ -216,7 +219,7 @@
     var steps=[
       {name:"Tạo yêu cầu",state:"current",statusLabel:"Đang thực hiện",meta:"Điền thông tin cần cập nhật."},
       {name:"HR review",state:"upcoming",statusLabel:"Chờ",meta:"HR xem xét & duyệt."},
-      {name:"Hoàn tất",state:"upcoming",statusLabel:"Chờ",meta:"Yêu cầu được ghi nhận."}];
+      {name:"Hoàn tất",state:"upcoming",statusLabel:"Chờ",meta:"Tự ghi vào hồ sơ nhân viên."}];
     return '<div class="card" id="eiu-process-preview"><h3>Quy trình xử lý yêu cầu</h3><div class="stepper">'+renderStepsHTML(steps)+'</div></div>';
   }
   function formCardsHTML(d,c){
@@ -232,8 +235,8 @@
       + fld("employee_email","Employee",'<input data-model="employee_email" type="email" placeholder="ten@ecentric.vn" value="'+esc(d.employee_email||"")+'"><div class="hint">Input email of employee to be updated</div>',true).replace('class="fld','class="fld full')
       + fld("field_to_update","Field to update",selCtrl,true).replace('class="fld','class="fld full')
       + otherFld
-      + fld("current_value","Current value",'<textarea data-model="current_value" rows="2">'+esc(d.current_value||"")+'</textarea>',true).replace('class="fld','class="fld full')
-      + fld("new_value","New value",'<textarea data-model="new_value" rows="2">'+esc(d.new_value||"")+'</textarea>',true).replace('class="fld','class="fld full')
+      + fld("current_value","Current value",'<textarea data-model="current_value" rows="2"'+(d._cv_locked?' class="ro" readonly':'')+'>'+esc(d.current_value||"")+'</textarea><div class="hint" id="eiu-cv-hint">'+esc(cvHint(d))+'</div>').replace('class="fld','class="fld full')
+      + fld("new_value","New value",newValueCtrl(d),true).replace('class="fld','class="fld full')
       + fld("request_attachment","Tệp đính kèm",'<input type="file" multiple data-upload="request_attachment"><div class="hint" id="att-name">'+esc(d.request_attachment?"Đã tải":"Không bắt buộc")+'</div>').replace('class="fld','class="fld full')
       + '</div></div>'
       + '<div class="card"><h3>Người yêu cầu</h3><div class="grid2">'
@@ -242,8 +245,23 @@
       + '</div></div>'
       + '<div class="card"><h3>Tóm tắt</h3><div id="eiu-summary"></div></div>';
   }
+  function cvHint(d){ if(!d.field_to_update) return "";
+    if(d.field_to_update==="Other") return "Trường khác: C&B cập nhật tay vào hồ sơ sau khi duyệt.";
+    return d._cv_locked?"Lấy từ hồ sơ nhân viên. Duyệt xong hệ thống tự ghi giá trị mới vào hồ sơ.":"Duyệt xong hệ thống tự ghi giá trị mới vào hồ sơ."; }
+  function newValueCtrl(d){ var t=FIELD_TYPES[d.field_to_update]||{}; var v=d.new_value||"";
+    if(t.type==="Date") return '<input type="date" data-model="new_value" value="'+esc(v)+'">';
+    if(t.type==="Select"&&t.options&&t.options.length) return '<select data-model="new_value"><option value="">— Chọn —</option>'+t.options.map(function(o){ return '<option value="'+esc(o)+'"'+(v===o?" selected":"")+'>'+esc(o)+'</option>'; }).join("")+'</select>';
+    return '<textarea data-model="new_value" rows="2">'+esc(v)+'</textarea>'; }
+  // Dien san "Current value" tu ho so (chi khi server cho xem: chinh minh hoac C&B).
+  function fetchCurrent(){ var d=state.draft||{}; if(!d.employee_email||!d.field_to_update||d.field_to_update==="Other") return;
+    var key=d.employee_email+"|"+d.field_to_update; state._cvKey=key;
+    call("current_value_of",{employee_email:d.employee_email,field_to_update:d.field_to_update}).then(function(r){
+      if(state._cvKey!==key||state.tab!=="create") return; d=state.draft||{};
+      d._cv_locked=!!(r&&r.readable); if(d._cv_locked) d.current_value=r.value||"";
+      renderCreate($("eiu-body")); }).catch(function(){}); }
   function renderCreate(b){
-    var c=(state.boot&&state.boot.context)||{}; var d=state.draft||{};
+    var c=(state.boot&&state.boot.context)||{}; if(!state.draft) state.draft={}; var d=state.draft;
+    if(!d.employee_email&&c.user&&c.user.indexOf("@")>0){ d.employee_email=c.user; }
     var actions='<div class="actions"><button type="button" class="btn" id="eiu-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="eiu-save">Lưu nháp</button><button type="button" class="btn primary" id="eiu-submit">Gửi yêu cầu</button></div>';
     b.innerHTML='<div class="ec-formwrap">'+processPreviewHTML()+formCardsHTML(d,c)+actions+'</div>';
     renderSummary(); wireCreate();
@@ -265,7 +283,6 @@
     else if(!EMAIL_RE.test(em)) errs.employee_email="Email không hợp lệ.";
     if(!((d.field_to_update||"").toString().trim())) errs.field_to_update="Vui lòng chọn trường cần cập nhật.";
     if(d.field_to_update==="Other"&&!((d.field_to_update_other||"").toString().trim())) errs.field_to_update_other="Vui lòng nhập tên trường khi chọn Other.";
-    if(!((d.current_value||"").toString().trim())) errs.current_value="Vui lòng nhập giá trị hiện tại.";
     if(!((d.new_value||"").toString().trim())) errs.new_value="Vui lòng nhập giá trị mới.";
     return Object.keys(errs).length?errs:null; }
   // Frappe KHONG dat thong diep cua frappe.throw vao e.message. Thong diep that nam trong
@@ -295,7 +312,8 @@
   function attachModel(el){ if(el.__ecw) return; el.__ecw=true;
     var h=function(){ var k=el.getAttribute("data-model"); var v=el.value; setModel(k,v);
       if(k==="field_to_update"){ var vh=document.querySelector('[data-vn="field_to_update"]'); if(vh) vh.textContent=v?(VN[v]||""):"Chọn trường thông tin cần cập nhật.";
-        var hasOther=!!document.querySelector('[data-fld="field_to_update_other"]'); if((v==="Other")!==hasOther){ renderCreate($("eiu-body")); return; } }
+        state.draft._cv_locked=false; state.draft.current_value=""; state.draft.new_value=""; renderCreate($("eiu-body")); fetchCurrent(); return; }
+      if(k==="employee_email"){ state.draft._cv_locked=false; }
       renderSummary(); clearFieldError(k); };
     el.addEventListener("input",h); el.addEventListener("change",h); }
   function wireModels(scope){ (scope||document).querySelectorAll("[data-model]").forEach(attachModel); }
@@ -398,12 +416,18 @@
   function renderDetail(b){ b.innerHTML=skeleton(4);
     call("get_detail",{name:state.id}).then(function(det){ drawDetail(b,det); })
     .catch(function(e){ var perm=/quyền|access|permission/i.test((e&&e.message)||""); b.innerHTML='<div class="card"><div class="state"><h4>'+(perm?"Bạn không có quyền xem yêu cầu này":"Không tải được yêu cầu")+'</h4><button type="button" class="btn" id="d-back">Quay lại</button></div></div>'; var bk=$("d-back"); if(bk)bk.onclick=function(){ window.location.href=hubHref(); }; }); }
+  // Ket qua ghi vao ho so nhan vien sau khi duyet (29/09).
+  function applyBanner(det){ var x=(det&&det.extra)||{}, ap=(det&&det.approval)||{};
+    if(ap.approval_status!=="Approved") return x.auto_apply===false?'<div class="banner info" style="margin-top:10px">Trường này không tự ghi vào hồ sơ: C&B cập nhật tay sau khi duyệt.</div>':'';
+    if(x.applied_at) return '<div class="banner info" style="margin-top:10px">'+esc(x.apply_result||"Đã ghi vào hồ sơ nhân viên.")+'</div>';
+    if(x.apply_result) return '<div class="banner '+(/LỖI/.test(x.apply_result)?"err":"warn")+'" style="margin-top:10px">'+esc(x.apply_result)+'</div>';
+    return '<div class="banner warn" style="margin-top:10px">Đang ghi vào hồ sơ nhân viên…</div>'; }
   function kv(k,v){ return '<div class="fld"><label>'+esc(k)+'</label><input class="ro" readonly value="'+esc(v==null||v===""?"—":v)+'"></div>'; }
   function drawDetail(b,det){ state.detail=det; var biz=det.business||{}, ap=det.approval||{};
     b.innerHTML='<div style="margin-bottom:12px"><button type="button" class="btn" id="d-back">‹ Danh sách</button></div>'
       +'<div class="card"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px"><div><h3 style="margin:0">'+esc(biz.request_title||biz.name||state.id)+'</h3><div class="hint">'+esc(biz.name||"")+' · '+esc(biz.employee_email||"")+' · '+esc(biz.requested_by||"")+' · '+esc(biz.department||"")+'</div></div><div>'+badge(ap.approval_status||"Draft")+'</div></div></div>'
       +'<div class="card"><h3>Tiến trình phê duyệt</h3><div class="stepper" id="d-stepper"></div></div>'
-      +'<div class="card"><h3>Thông tin cập nhật</h3><div class="grid2">'+kv("Employee",biz.employee_email)+kv("Field to update",biz.field_to_update)+'</div><div class="fld" style="margin-top:10px"><label>Current value</label><textarea class="ro" readonly rows="2">'+esc(biz.current_value||"")+'</textarea></div><div class="fld" style="margin-top:10px"><label>New value</label><textarea class="ro" readonly rows="2">'+esc(biz.new_value||"")+'</textarea></div></div>'
+      +'<div class="card"><h3>Thông tin cập nhật</h3><div class="grid2">'+kv("Employee",biz.employee_email)+kv("Field to update",biz.field_to_update)+'</div>'+applyBanner(det)+'<div class="fld" style="margin-top:10px"><label>Current value</label><textarea class="ro" readonly rows="2">'+esc(biz.current_value||"")+'</textarea></div><div class="fld" style="margin-top:10px"><label>New value</label><textarea class="ro" readonly rows="2">'+esc(biz.new_value||"")+'</textarea></div></div>'
       +'<div class="card"><h3>Đính kèm</h3>'+renderAttachments(det.attachments)+'</div>'
       +'<div class="card"><h3>Hành động</h3>'+actionPanelHTML(det)+'</div>'
       +'<div class="card"><h3>Lịch sử</h3>'+timelineHTML(det.timeline)+'</div>';
@@ -450,12 +474,13 @@
     if(cap.can_approve) btns.push('<button type="button" class="btn primary" data-act="approve">Duyệt</button>');
     if(cap.can_request_information) btns.push('<button type="button" class="btn" data-act="reqinfo">Yêu cầu bổ sung</button>');
     if(cap.can_reject) btns.push('<button type="button" class="btn" data-act="reject">Từ chối</button>');
+    if(window.EcRemind) btns.push(EcRemind.buttonHTML(cap));   // 01/10: nhac nguoi xu ly (asset dung chung)
     return btns.length? '<div class="actions">'+btns.join("")+'</div>' : '<div class="hint">Không có hành động khả dụng cho bạn ở trạng thái hiện tại.</div>'; }
   function handleActionClick(e){ var el=e.target&&e.target.closest?e.target.closest("[data-act]"):null; if(!el) return;
     var a=el.getAttribute("data-act"); if(!a||el.disabled) return; if(document.querySelector(".ec-eiu-overlay")) return; e.preventDefault();
     var det=state.detail||{}; var name=(det.business||{}).name||state.id;
     if(a==="editdraft") return startEditDraft(det); if(a==="submitdraft") return doSubmitDraft(name);
-    if(a==="approve") return doApprove(name,det); if(a==="reject") return doReject(name); if(a==="reqinfo") return doRequestInfo(name); }
+    if(a==="approve") return doApprove(name,det); if(a==="remind") return window.EcRemind&&EcRemind.run(call,name,{toast:toast,mapErr:(typeof mapErr==="function"?mapErr:null),done:function(){ if(typeof refreshDetail==="function") refreshDetail(); else if(typeof renderDetail==="function") renderDetail(document.querySelector('[id$="-body"]')); }}); if(a==="reject") return doReject(name); if(a==="reqinfo") return doRequestInfo(name); }
   function ensureActionHandlers(){ if(document.__eiuActBound) return; document.__eiuActBound=true; document.addEventListener("click", handleActionClick, true); }
 
   function modal(title, bodyHTML, opts){ opts=opts||{}; var prevFocus=document.activeElement;
@@ -483,7 +508,7 @@
   function doSubmitDraft(name){ if(state.busy)return; state.busy=true; var btns=Array.prototype.slice.call(document.querySelectorAll('[data-act="submitdraft"],[data-act="editdraft"]')); btns.forEach(function(b){ b.disabled=true; });
     call("submit_request",{name:name}).then(function(){ toast("Gửi yêu cầu thành công. Yêu cầu đã được chuyển đến HR duyệt."); meshDetail(); }).catch(function(e){ if(window.console&&console.error) console.error("EmployeeInfoUpdate submit error:",e); toast(mapErr(e),true); btns.forEach(function(b){ b.disabled=false; }); }).then(function(){ state.busy=false; }); }
 
-  function loadFormOptions(){ call("get_form_options").then(function(fo){ if(fo&&fo.fields_to_update&&fo.fields_to_update.length){ FIELD_OPTS=fo.fields_to_update; if(state.tab==="create") renderCreate($("eiu-body")); } }).catch(function(){}); }
+  function loadFormOptions(){ call("get_form_options").then(function(fo){ if(fo&&fo.fields_to_update&&fo.fields_to_update.length){ FIELD_OPTS=fo.fields_to_update; FIELD_TYPES=fo.field_types||{}; if(state.tab==="create") renderCreate($("eiu-body")); } }).catch(function(){}); }
   function boot(){ ensureActionHandlers(); var t=$("eiu-tabs"); if(t){ t.addEventListener("click",function(e){ var b=e.target.closest("[data-tab]"); if(b&&!b.disabled){ state.page=0; go({tab:b.getAttribute("data-tab")}); } }); }
     call("get_bootstrap").then(function(bd){ state.boot=bd||{tabs:{},context:{},form_options:{}}; route(); loadFormOptions(); })
     .catch(function(){ var bd=$("eiu-body"); if(bd) bd.innerHTML='<div class="card"><div class="state"><h4>Không tải được trang</h4><button type="button" class="btn" id="b-retry">Thử lại</button></div></div>'; var r=$("b-retry"); if(r)r.onclick=boot; }); }

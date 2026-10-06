@@ -1,14 +1,18 @@
-"""Stateless definition preserving the Employee Info Update response contract."""
+"""Stateless definition preserving the Employee Info Update response contract.
+
+29/09/2026: danh sach "Field to update" lay tu ho so nhan vien (profile_fields.py) qua
+form_options; ket qua ghi vao ho so hien o chi tiet (eiu_block)."""
 from ecentric_workspace.approval_center.shared.requests.contracts import (
     ApprovalDefinition,
     STANDARD_STATUS_LABELS,
 )
 from ecentric_workspace.approval_center.shared.definition_support import (
     ExactAndDateFilters,
-    StaticOptions,
+    ServiceMethod,
     service_callbacks,
 )
 
+_BASE = "ecentric_workspace.approval_center.features.employee_info_update.application.service"
 
 EMPLOYEE_INFO_UPDATE_DEFINITION = ApprovalDefinition(
     code="EMPLOYEE_INFO_UPDATE",
@@ -20,13 +24,11 @@ EMPLOYEE_INFO_UPDATE_DEFINITION = ApprovalDefinition(
     approval_list_fields=("name", "request_title", "employee_email", "field_to_update",
                           "department", "creation"),
     status_labels=STANDARD_STATUS_LABELS,
-    options_provider=StaticOptions((("field_to_update_options", (
-        "Personal email", "Bank account", "Hospital code", "Mobile phone", "Birthplace",
-        "Citizen ID number", "Citizen ID issue date", "Citizen ID issue place",
-        "Permanent address", "Temporary address", "Position (C&B use only)", "Other")),)),
+    options_provider=ServiceMethod(_BASE, "form_options"),
     filter_builder=ExactAndDateFilters(),
     approval_projection="legacy_level_name",
+    detail_extender=ServiceMethod(_BASE, "eiu_block"),
+    # CCCD, so tai khoan... khong gui sang AI dien ho.
+    ai_exclude_fields=("current_value", "new_value"),
     **service_callbacks("employee_info_update", title=True),
 )
-
-

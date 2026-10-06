@@ -258,12 +258,15 @@ class TestLuongLeadRoiNhanSu(unittest.TestCase):
         self.assertNotIn("'stage': 'ceo'", khoi)
 
     def test_hr_khong_ky_duoc_buoc_lead(self):
+        # 02/10/2026 (ec-hr-cnb-thay-ceo-v1): ngoai le DUY NHAT - cap tren la CEO thi CnB / HR
+        # ky thay. Moi truong hop khac HR van khong ky buoc lead.
         src = _script("ec_hr_leave_decide")
         i = src.index("if stage == 'lead':")
-        dieu_kien = src[i:i + 160]
-        self.assertIn("mgr_user", dieu_kien)
-        self.assertIn("is_ancestor_mgr", dieu_kien)
-        self.assertNotIn("is_hr", dieu_kien)
+        j = src.index("frappe.throw('Don nay cho quan ly truc tiep duyet truoc.')", i)
+        dieu_kien = src[i:j]
+        self.assertIn("thay_ceo = is_hr and mgr_user == CEO_USER", dieu_kien)
+        self.assertIn("u == mgr_user or is_ancestor_mgr or is_admin or thay_ceo", dieu_kien)
+        self.assertNotIn("or is_hr", dieu_kien)
 
     def test_CEO_duoc_CC_khi_don_xong(self):
         src = _script("ec_hr_leave_decide")

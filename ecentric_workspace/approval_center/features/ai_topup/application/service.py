@@ -62,7 +62,6 @@ def submit(name):
     return req_name
 
 
-@frappe.whitelist(methods=["POST"])
 def resubmit(name, actor=None):
     doc = frappe.get_doc(BUSINESS_DT, name)
     if not doc.approval_request:
@@ -74,7 +73,6 @@ def resubmit(name, actor=None):
     return {"restarted": material_changed}
 
 
-@frappe.whitelist(methods=["POST"])
 def finance_approve(name, approved_amount=None, comment=None, actor=None):
     doc = frappe.get_doc(BUSINESS_DT, name)
     eff = actor or frappe.session.user
@@ -119,7 +117,6 @@ def on_final_approval(name):
                   _("Approved - fulfillment assigned: {0}").format(engine.request_label(BUSINESS_DT, name)), BUSINESS_DT, name)
 
 
-@frappe.whitelist(methods=["POST"])
 def claim_fulfillment(name, user=None):
     user = user or frappe.session.user
     if not frappe.db.exists("ToDo", {"reference_type": BUSINESS_DT, "reference_name": name,
@@ -144,7 +141,6 @@ def claim_fulfillment(name, user=None):
     return {"owner": user}
 
 
-@frappe.whitelist(methods=["POST"])
 def complete_fulfillment(name, user=None):
     user = user or frappe.session.user
     doc = frappe.get_doc(BUSINESS_DT, name)

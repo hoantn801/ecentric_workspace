@@ -78,13 +78,27 @@ def color_index(key, n=7):
     return sum(ord(c) for c in str(key or "")) % n
 
 
+def first_name_of(emp):
+    """TEN goi (PO 29/09 16:32: chuc mung theo TEN, khong theo ho). Ho so nhan vien tren ERP ghi
+    theo thu tu Ten - Dem - Ho ("Vinh Dinh Khanh Vu") -> lay Employee.first_name (chu dau); chua
+    co first_name thi chu dau cua employee_name."""
+    for v in (emp.get("first_name"), emp.get("employee_name"), emp.get("name")):
+        words = [w for w in (v or "").split() if w]
+        if words:
+            return words[0]
+    return ""
+
+
 def person(emp, dept_names):
     dept = emp.get("department") or ""
     dept_label = dept_names.get(dept) or dept
     role = " · ".join(x for x in (emp.get("designation") or "", dept_label) if x)
     name = (emp.get("employee_name") or emp.get("name") or "").strip()
-    return {"emp": emp.get("name"), "name": name, "role": role,
-            "initials": initials(name), "color": color_index(emp.get("name"))}
+    given = first_name_of(emp)
+    words = [w for w in name.split() if w]
+    ini = ((given[:1] + (words[-1][:1] if len(words) > 1 else "")).upper()) or initials(name)
+    return {"emp": emp.get("name"), "name": name, "given": given, "role": role,
+            "initials": ini, "color": color_index(emp.get("name"))}
 
 
 def bd_key(emp, today):
@@ -204,6 +218,8 @@ def announcements(rows, today, limit=C.NEWS_MAX):
                     "content_html": r.get("content_html") or "",
                     "image": img, "poster": poster,
                     "url": _safe_link(r.get("link")), "link_label": (r.get("link_label") or "").strip(),
+                    # bam ANH mo link (01/10, Tin noi bo): chi khi co anh + co link + duoc tich
+                    "image_url": _safe_link(r.get("link")) if (img and r.get("image_link")) else "",
                     "_sort": (start, r.get("name") or "")})
     out.sort(key=lambda x: x["_sort"], reverse=True)
     for x in out:
@@ -223,7 +239,7 @@ def celebration(bd_today, viewer, dept_names):
     dept = viewer.get("department")
     same = [p for p in bd_today if dept and p.get("department") == dept]
     if same:
-        names = ", ".join(given_name(p["name"]) for p in same[:3])
+        names = ", ".join(p.get("given") or given_name(p["name"]) for p in same[:3])
         label = dept_names.get(dept) or dept
         return {"level": C.LEVEL_DEPT, "badge": "Phòng %s có sinh nhật %s" % (label, names)}
     return {"level": C.LEVEL_LIGHT, "badge": "Hôm nay có %d sinh nhật" % len(bd_today)}

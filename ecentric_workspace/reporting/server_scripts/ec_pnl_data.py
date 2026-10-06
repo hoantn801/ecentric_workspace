@@ -9,6 +9,9 @@
 # Sua that = sua Server Script tren live qua REST, roi cap nhat lai file nay
 # trong cung mot commit. Cu phap tuan theo RestrictedPython cua Server Script
 # (khong import, khong dunder, khong tuple-unpack trong vong lap).
+#
+# 29/09/2026: by_brand.label = Brand.ec_brand_name (ten de doc, vd DUT-VN -> Dutch Lady), kem parent_client
+# = Brand.ec_parent_client (khach hang me); options.brand_labels = {ma: ten}. key van la ma Brand de loc.
 # ============================================================================
 
 # ec_pnl_data - API doc-only cho Dashboard PnL (giai doan 1: DOANH THU)
@@ -349,6 +352,19 @@ else:
         return sorted(out, key=lambda x: x["total"], reverse=True)
 
     by_brand = group_rows(live_rows, "ec_brand", "(chua gan brand)", layer_of)
+    # 29/09/2026 (Hoan): hien ten de doc (Brand.ec_brand_name) thay vi ma kieu DUT-VN; kem khach hang me (ec_parent_client).
+    # key giu nguyen ma Brand de loc.
+    bmeta = {}
+    for r in frappe.db.sql("""SELECT name, ifnull(ec_brand_name, '') AS nm, ifnull(ec_parent_client, '') AS pc FROM `tabBrand`""", as_dict=True):
+        bmeta[r.get("name")] = r
+    brand_labels = {}
+    for b in by_brand:
+        mt = bmeta.get(b.get("key"))
+        if mt:
+            if mt.get("nm"):
+                b["label"] = mt.get("nm")
+            b["parent_client"] = mt.get("pc") or ""
+        brand_labels[b.get("key")] = b.get("label")
     by_team = group_rows(live_rows, "ec_team", "(chua gan phong ban)", layer_of)
     by_channel = group_rows(live_rows, "ec_channel", "(chua gan kenh)", layer_of)
 
@@ -489,5 +505,5 @@ else:
         "recon": {"header_net_total": hdr_sum, "line_amount": line_sum,
                   "delta": hdr_sum - line_sum, "so_count": len(live_rows),
                   "line_count": len(item_rows), "so_with_tax": taxed},
-        "options": {"brands": brand_opts, "teams": team_opts},
+        "options": {"brands": brand_opts, "brand_labels": brand_labels, "teams": team_opts},
     }

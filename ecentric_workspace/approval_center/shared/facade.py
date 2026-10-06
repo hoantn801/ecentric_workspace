@@ -65,6 +65,11 @@ class ApprovalFacade:
     def admin_approve_current_level(self, definition, name, reason=None):
         return command_service.admin_approve_current_level(definition, name, reason)
 
+    def remind(self, definition, name):
+        """Nguoi gui nhac nguoi DANG xu ly (ERP + Teams), 15 phut / phieu (01/10)."""
+        from ecentric_workspace.approval_center.shared.requests import remind as _remind
+        return _remind.remind(definition, name)
+
     def approve_with_operation_date(self, definition, name, comment=None, operation_date=None):
         return command_service.approve_with_operation_date(
             definition, name, comment, operation_date)
