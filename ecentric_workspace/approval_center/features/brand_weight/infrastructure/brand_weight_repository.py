@@ -171,3 +171,23 @@ def write_weights(doc_or_name, weights, stage):
     else:
         doc.save()
     return doc.name
+
+
+def add_comment(name, actor, text):
+    """ec-bw-proxy-v1: dau vet tren chinh phieu - ai nop thay."""
+    frappe.get_doc(BUSINESS_DT, name).add_comment("Comment", text, comment_email=actor)
+
+
+def employee_row(employee):
+    return frappe.db.get_value("Employee", {"name": employee, "status": "Active"}, EMP_FIELDS, as_dict=True)
+
+
+def notify(for_user, from_user, name, subject, body=""):
+    """Bao cho nhan vien biet phieu cua minh da duoc nop thay (chuong thong bao)."""
+    if not for_user:
+        return
+    n = frappe.get_doc({"doctype": "Notification Log", "for_user": for_user, "from_user": from_user,
+                        "type": "Alert", "document_type": BUSINESS_DT, "document_name": name,
+                        "link": "/ec-hr/phan-bo-cong-viec", "subject": subject, "email_content": body})
+    n.flags.ignore_permissions = True
+    n.insert(ignore_permissions=True)

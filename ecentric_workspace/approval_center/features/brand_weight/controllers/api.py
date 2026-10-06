@@ -48,3 +48,10 @@ def get_team_period(period: str = None):
 def decide_weights(name: str, action: str, weights: str = None, note: str = None):
     return _run(lambda: ts.DecideWeightsService().execute(
         frappe.session.user, str(name), str(action), weights, note))
+
+
+@frappe.whitelist(methods=["POST"])
+def proxy_weights(employee: str, period: str, weights: str):
+    """ec-bw-proxy-v1: lead nop thay cho nguoi chua nop."""
+    return _run(lambda: ts.ProxySubmitService().execute(
+        frappe.session.user, str(employee), str(period), weights))
