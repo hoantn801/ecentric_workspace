@@ -248,6 +248,8 @@ table.bw-matrix{border-collapse:collapse;width:100%;font-size:13.5px}
     getTeam: (period) => call("get_team_period", { period }, "GET"),
     cancel: (name) => call("cancel", { name, reason: "Nhân viên rút phiếu để sửa" }),
     decide: (name, action, weights, note) => call("decide_weights", { name, action, weights: weights ? JSON.stringify(weights) : null, note: note || null }),
+    // ec-bw-proxy-v1 (06/10): lead nop thay cho nguoi chua nop
+    proxy: (employee, period, weights) => call("proxy_weights", { employee, period, weights: JSON.stringify(weights) }),
   };
 
   /* ---------- tien ich ---------- */
@@ -406,7 +408,7 @@ table.bw-matrix{border-collapse:collapse;width:100%;font-size:13.5px}
     const head = '<tr><th scope="col">Nhân viên</th>' + cols.map((b) => '<th scope="col"><span class="mh"><i class="bw-sw" style="background:' + color(b) + '"></i>' + esc(labelOf(b)) + "</span></th>").join("") + '<th scope="col">Tổng</th><th scope="col" class="l">Trạng thái</th></tr>';
     const rows = team.map((m) => {
       const s = shown(m), counts = LOCKED.includes(m.status) || m.actionable;
-      if (!counts) return '<tr class="none pick" data-pick="' + esc(m.id) + '" aria-selected="' + (m.id === UI.sel) + '" tabindex="0"><td class="bw-name">' + esc(m.name) + "</td>" + cols.map(() => '<td class="dot">·</td>').join("") + '<td>—</td><td class="l">' + statusPill(m.status) + "</td></tr>";
+      if (!counts) return '<tr class="none pick" data-pick="' + esc(m.id) + '" aria-selected="' + (m.id === UI.sel) + '" tabindex="0"><td class="bw-name">' + esc(m.name) + "</td>" + cols.map(() => '<td class="dot">·</td>').join("") + '<td>—</td><td class="l">' + statusPill(m.status) + (m.can_proxy ? ' <span class="bw-hint">· bấm để nộp thay</span>' : "") + "</td></tr>";
       const base = baseOf(m);
       const cells = cols.map((b) => { const v = s[b]; if (v === undefined || num(v) === 0) return '<td class="dot">·</td>'; const ch = m.actionable && num(base[b]) !== num(v); return "<td>" + (ch ? '<span class="chg">' + fmt(v) + "</span>" : fmt(v)) + "</td>"; }).join("");
       const st = totalState(sum(s));
@@ -429,6 +431,7 @@ table.bw-matrix{border-collapse:collapse;width:100%;font-size:13.5px}
   const adjustPanel = () => {
     const m = selected();
     if (!m) return emptyCard("Chọn một người trong bảng để xem phiếu.");
+    if (!m.actionable && m.can_proxy) return proxyPanel(m);
     if (!m.actionable) {
       const why = { none: "chưa nộp phiếu kỳ này.", draft: "đang để nháp, chưa nộp.", rejected: "có phiếu đã bị từ chối, chưa nộp lại.", returned: "đã bị trả lại, đang chờ nộp lại.", final: "đã được chốt.", wait_lead: "đang chờ lead duyệt.", wait_head: "đang chờ trưởng phòng chốt." }[m.status] || "";
       return '<section class="bw-card bw-card-pad bw-section"><div class="bw-adjust-head"><h2 class="bw-h2">' + esc(m.name) + "</h2>" + statusPill(m.status) + '</div><p class="bw-muted">' + esc(m.name) + " " + why + "</p>" + (hasAny(m.current) ? stackBar(m.current, "Số hiện tại") : "") + "</section>";
@@ -442,15 +445,33 @@ table.bw-matrix{border-collapse:collapse;width:100%;font-size:13.5px}
       '<div class="bw-row">' + addSelect(a, "adj-add", "+ Thêm brand bạn ấy quên…") + '<span id="reset-box">' + resetBtn(m) + "</span></div>" +
       '<div id="decide-box">' + decideBox(m, ok) + "</div></section>";
   };
+  /* ec-bw-proxy-v1: nguoi chua nop -> lead (nguoi duyet buoc dau) dien va nop thay. Server
+     quyet dinh ai duoc (can_proxy) va nop xong co chot luon khong (proxy_final). */
+  const proxyPanel = (m) => {
+    const a = adjOf(m), ok = totalState(sum(a)).k === "ok";
+    return '<section class="bw-card bw-card-pad bw-section" aria-labelledby="adj-h">' +
+      '<div class="bw-adjust-head"><div><h2 class="bw-h2" id="adj-h">' + esc(m.name) + " · kỳ " + label(UI.period) + '</h2><p class="bw-muted">' + esc(m.name) + " chưa nộp phiếu kỳ này. Bạn điền và nộp thay được: phiếu ghi là bạn nộp thay, " + esc(m.name) + " sẽ nhận thông báo.</p></div>" + statusPill(m.status) + "</div>" +
+      '<div id="copy-box">' + memberCopy(m) + "</div>" +
+      '<div id="sum-box">' + adjSummary(m) + "</div>" +
+      '<div class="bw-sliders">' + sliderRows(a, "a", null) + "</div>" +
+      '<div class="bw-row">' + addSelect(a, "adj-add", "+ Thêm brand bạn ấy đã làm…") + '<button type="button" class="bw-btn" data-act="even"' + (hasAny(a) ? "" : " disabled") + ">Chia đều</button></div>" +
+      '<div id="decide-box">' + decideBox(m, ok) + "</div></section>";
+  };
   const memberCopy = (m) => copyBanner(m.last, "Tháng " + label(prevOf(UI.period)) + " của " + m.name, "copy-member", same(m.last, adjOf(m)),
     "Tháng " + label(prevOf(UI.period)) + " " + m.name + " chưa có phiếu nào để chép.");
   const resetBtn = (m) => '<button type="button" class="bw-btn bw-btn--ghost" data-act="reset-member"' + (same(adjOf(m), baseOf(m)) ? " disabled" : "") + ">Bỏ chỉnh, về " + (m.stage === "head" ? "số lead đã duyệt" : "số nhân viên đề xuất") + "</button>";
   const adjSummary = (m) => {
     const a = adjOf(m), t = totalState(sum(a));
+    if (!m.actionable) return '<div class="bw-section" style="gap:12px">' + stackBar(a, "Số bạn điền") + '<div class="bw-meter"><span class="big num">' + fmt(sum(a)) + '%</span><span class="bw-pill bw-pill--' + t.k + '">' + t.t + "</span></div></div>";
     return '<div class="bw-section" style="gap:12px">' + stackBar(baseOf(m), m.stage === "head" ? "Lead đã duyệt" : "Nhân viên đề xuất") + stackBar(a, "Sau khi bạn chỉnh") +
       '<div class="bw-meter"><span class="big num">' + fmt(sum(a)) + '%</span><span class="bw-pill bw-pill--' + t.k + '">' + t.t + "</span></div></div>";
   };
   const decideBox = (m, ok) => {
+    if (!m.actionable) {
+      const fin = !!m.proxy_final;
+      return '<div class="bw-foot"><span class="bw-hint">' + (ok ? (fin ? "Nộp thay xong là chốt luôn, PnL đọc được số này." : "Nộp thay xong chuyển trưởng phòng chốt.") : "Tổng phải đủ 100% mới nộp thay được.") + "</span>" +
+        '<div class="bw-row"><button type="button" class="bw-btn bw-btn--primary" data-act="proxy-submit" data-busy-label="Đang nộp…"' + (ok ? "" : " disabled") + ">" + (fin ? "Nộp thay và chốt" : "Nộp thay, chuyển trưởng phòng") + "</button></div></div>";
+    }
     const isHead = m.stage === "head";
     if (UI.returning) {
       return '<div class="bw-return"><label for="ret-note" class="bw-hint">Lý do trả lại, bắt buộc. Người nộp sẽ đọc được.</label><textarea id="ret-note" class="bw-field" placeholder="Ví dụ: Tháng này bạn làm ABBOTT gần nửa tháng, thêm vào nhé."></textarea>' +
@@ -579,6 +600,11 @@ table.bw-matrix{border-collapse:collapse;width:100%;font-size:13.5px}
       if (res) { toast(m.stage === "head" ? "Đã chốt phiếu của " + m.name + "." : "Đã duyệt phiếu của " + m.name + ", chuyển trưởng phòng chốt."); UI.sel = null; await load(); }
       return;
     }
+    if (act === "proxy-submit" && m) {
+      const res = await busy(btn, () => api.proxy(m.id, UI.period, adjOf(m)));
+      if (res) { toast(res.data && res.data.final ? "Đã nộp thay và chốt phiếu của " + m.name + "." : "Đã nộp thay phiếu của " + m.name + ", chuyển trưởng phòng chốt."); UI.sel = null; await load(); }
+      return;
+    }
     if (act === "approve-all") {
       const list = UI.team.filter((x) => x.actionable);
       const res = await busy(btn, async () => {
@@ -607,13 +633,13 @@ table.bw-matrix{border-collapse:collapse;width:100%;font-size:13.5px}
       const v = Math.min(num(t.value), Math.max(0, 100 - others));
       o[b] = v; t.value = v; t.style.setProperty("--p", v + "%");
       const nf = $(t.id + "-n");
-      if (nf) { nf.value = fmt(v); const m = selected(); if (UI.tab === "team" && m) nf.classList.toggle("bw-edited", num(baseOf(m)[b]) !== v); }
+      if (nf) { nf.value = fmt(v); const m = selected(); if (UI.tab === "team" && m && m.actionable) nf.classList.toggle("bw-edited", num(baseOf(m)[b]) !== v); }
       refreshTotals(); return;
     }
     if (t.dataset.type) {
       const b = t.dataset.type; o[b] = t.value;
       const sl = $(t.id.replace(/-n$/, "")); if (sl) { sl.value = num(t.value); sl.style.setProperty("--p", Math.min(100, num(t.value)) + "%"); }
-      const m = selected(); if (UI.tab === "team" && m) t.classList.toggle("bw-edited", num(baseOf(m)[b]) !== num(t.value));
+      const m = selected(); if (UI.tab === "team" && m && m.actionable) t.classList.toggle("bw-edited", num(baseOf(m)[b]) !== num(t.value));
       refreshTotals();
     }
   });

@@ -19,8 +19,9 @@ ROUTE = "ec-hr/phan-bo-cong-viec"
 NAME = "phan-bo-cong-viec"
 TITLE = "Phân bổ công việc"
 
-BASELINE_SHA256 = "2b14bf8fe70cfb058b97870431e2021bbed55c41d536d444e017732f7c7cb4d0"
+BASELINE_SHA256 = "f8744960d064766a8a296d81dbc306c9ac4dfd3e8112b4af32b056beb8c2168f"
 SUPERSEDES_SHA256 = (
+    "2b14bf8fe70cfb058b97870431e2021bbed55c41d536d444e017732f7c7cb4d0",  # p217 (28/09): combobox chung + chep thang truoc, truoc khi lead nop thay (ec-bw-proxy-v1, 06/10)
     "5eafeeb20759329d869dba284339a34da5613ca583d5182cdd758596ec12b75f",  # p214 (26/09): luong tu chot Management, truoc khi doi o them brand sang combobox chung
     "1d01c501aa16b106e59fc86b5fa92d344facbb508771671479e15212c85ee684",  # ban live dau tien (p211, 26/09) - truoc khi them luong tu chot Management
 )
