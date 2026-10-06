@@ -48,9 +48,11 @@ def state_changed(name, before, after, actor, stamp="", repo=None):
 
 
 def review_digest(repo=None):
-    """Thu thu hai hang tuan (hooks cron): MOT tin gom cho moi nguoi Ban ISO - bao nhieu tai lieu
-    qua han / sap den han ra soat (30 ngay). PO 06/10 chon cach (a): chi Ban ISO, khong bao truong
-    phong (56/60 tai lieu chuyen tu SharePoint deu qua han - bao ca loat se thanh rac).
+    """MOT tin gom cho moi nguoi Ban ISO - bao nhieu tai lieu qua han / sap den han ra soat (30 ngay).
+    CHUA GAN LICH: PO 06/10 chon "chua nhac" (56/60 tai lieu chuyen tu SharePoint deu qua han).
+    Khi can bat: them vao hooks.py
+        scheduler_events["cron"].setdefault("40 8 * * 1", []).append(
+            "ecentric_workspace.iso_docs.notify.review_digest")
     Khong co gi -> khong gui. Tat: site_config ec_iso_review_reminder_disabled = 1."""
     from ecentric_workspace.iso_docs import view as V
     repo = _repo(repo)
