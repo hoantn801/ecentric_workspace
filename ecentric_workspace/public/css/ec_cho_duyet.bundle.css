@@ -1,0 +1,87 @@
+/* "Cho toi duyet" - duyet nhanh tren dien thoai (06/10/2026). Xem public/js/ec_cho_duyet.bundle.js.
+   Thiet ke cho be ngang 390px truoc; nut cao >= 44px (ngon tay), khong chu nho hon 13px. */
+/* Bien mau khai cho CA khung trang lan bang truot / thong bao (hai thu sau gan vao <body>). */
+.cd,.cd-ov,.cd-toast{
+  --cd-ink:#141A2E; --cd-ink2:#4C5372; --cd-ink3:#7E859E; --cd-line:#E4E7F0;
+  --cd-card:#FFFFFF; --cd-navy:#1E2A5A; --cd-ok:#1E7A46; --cd-no:#B42318;
+}
+.cd{margin:0 0 22px}
+.cd-head{display:flex; align-items:baseline; gap:8px; margin:0 0 10px;
+  font-size:16px; font-weight:750; color:var(--cd-ink); letter-spacing:-.01em}
+.cd-head b{font-size:13px; font-weight:700; color:var(--cd-navy); background:#E8ECF8;
+  border-radius:999px; padding:1px 9px; min-width:24px; text-align:center}
+.cd-head b:empty{display:none}
+.cd-loading,.cd-empty{margin:0; padding:14px 16px; border:1px dashed var(--cd-line);
+  border-radius:14px; color:var(--cd-ink3); font-size:14px; background:var(--cd-card)}
+.cd-err{padding:12px 14px; border-radius:12px; background:#FDEEF0; color:var(--cd-no); font-size:14px}
+
+.cd-group{margin:0 0 14px}
+.cd-gh{font-size:13px; font-weight:700; color:var(--cd-ink2); margin:0 0 6px;
+  text-transform:uppercase; letter-spacing:.04em}
+.cd-gh span{color:var(--cd-ink3); font-weight:600}
+
+.cd-card{display:flex; align-items:flex-start; gap:10px; background:var(--cd-card);
+  border:1px solid var(--cd-line); border-radius:14px; padding:12px; margin:0 0 8px;
+  cursor:pointer; box-shadow:0 1px 2px rgba(20,26,46,.04)}
+.cd-pick{display:flex; align-items:center; justify-content:center; min-width:28px; min-height:44px; margin:-6px 0}
+.cd-pick input{width:20px; height:20px; accent-color:var(--cd-navy)}
+.cd-main{flex:1; min-width:0}
+.cd-title{font-weight:650; font-size:15px; color:var(--cd-ink); line-height:1.35;
+  overflow-wrap:anywhere}
+.cd-meta{font-size:13px; color:var(--cd-ink3); margin-top:2px}
+.cd-due{color:#B54708; font-weight:650}
+.cd-chips{display:flex; flex-wrap:wrap; gap:4px 6px; margin-top:6px}
+.cd-chip{font-size:13px; color:var(--cd-ink2); background:#F2F4F9; border-radius:8px; padding:2px 8px;
+  max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.cd-chip i{font-style:normal; color:var(--cd-ink3)}
+.cd-note{font-size:13px; color:#B54708; margin-top:6px}
+.cd-act{flex:0 0 auto; align-self:center}
+
+.cd-btn{display:inline-flex; align-items:center; justify-content:center; min-height:44px;
+  padding:0 16px; border-radius:12px; border:1px solid var(--cd-line); background:#fff;
+  color:var(--cd-ink); font:inherit; font-size:15px; font-weight:650; text-decoration:none; cursor:pointer}
+.cd-btn:disabled{opacity:.55; cursor:default}
+.cd-ok{background:var(--cd-ok); border-color:var(--cd-ok); color:#fff}
+.cd-no{color:var(--cd-no); border-color:#F3C1BC}
+.cd-wide{width:100%}
+.cd-link{border:0; background:none; color:var(--cd-navy); font:inherit; font-size:14px;
+  font-weight:600; text-decoration:underline; cursor:pointer; padding:10px 0; min-height:44px}
+.cd-bar{position:sticky; bottom:12px; z-index:5; margin-top:6px}
+.cd-bar:empty{display:none}
+
+/* Bang truot gan vao <body>, NGOAI khung trang -> tu khai phong chu, khong an theo trang. */
+.cd-ov,.cd-toast{font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; line-height:1.5; -webkit-text-size-adjust:100%}
+.cd-ov{position:fixed; inset:0; z-index:1100; background:rgba(20,26,46,.42); color:#141A2E;
+  display:flex; align-items:flex-end; justify-content:center}
+.cd-sheet{width:100%; max-width:560px; max-height:88vh; overflow:auto; background:#fff;
+  border-radius:20px 20px 0 0; padding:8px 16px calc(16px + env(safe-area-inset-bottom));
+  animation:cd-up .18s ease-out}
+@keyframes cd-up{from{transform:translateY(24px)}to{transform:none}}
+@media (prefers-reduced-motion: reduce){.cd-sheet{animation:none}}
+.cd-grip{width:40px; height:4px; border-radius:4px; background:#D5D9E5; margin:4px auto 10px}
+.cd-sh-head{display:flex; gap:10px; align-items:flex-start}
+.cd-sh-head > div{flex:1; min-width:0}
+.cd-sh-type{font-size:13px; color:var(--cd-ink3); font-weight:600}
+.cd-sh-title{font-size:17px; font-weight:750; color:var(--cd-ink); line-height:1.3; overflow-wrap:anywhere}
+.cd-x{border:0; background:#F2F4F9; width:44px; height:44px; border-radius:12px; font-size:22px;
+  line-height:1; cursor:pointer; color:var(--cd-ink2)}
+.cd-kvs{margin:12px 0; border-top:1px solid var(--cd-line)}
+.cd-kv{display:flex; justify-content:space-between; gap:12px; padding:9px 0;
+  border-bottom:1px solid var(--cd-line); font-size:14px}
+.cd-kv span{color:var(--cd-ink3)}
+.cd-kv b{font-weight:650; color:var(--cd-ink); text-align:right; overflow-wrap:anywhere}
+.cd-lbl{display:block; font-size:14px; font-weight:650; color:var(--cd-ink2); margin:10px 0 6px}
+.cd-req{color:var(--cd-no); font-weight:600}
+.cd-sheet textarea{width:100%; box-sizing:border-box; border:1px solid var(--cd-line);
+  border-radius:12px; padding:10px 12px; font:inherit; font-size:16px; resize:vertical}
+.cd-msg{min-height:20px; font-size:14px; color:var(--cd-no); margin-top:6px}
+/* Nut quyet dinh luon trong tam ngon tay, ke ca khi tom tat dai phai cuon. */
+.cd-sh-btns{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;
+  position:sticky; bottom:calc(-16px - env(safe-area-inset-bottom)); background:#fff; padding:8px 0 4px}
+.cd-sh-btns .cd-ok{grid-column:1 / -1}
+.cd-full{display:block; text-align:center}
+.cd-toast{position:fixed; left:12px; right:12px; bottom:calc(16px + env(safe-area-inset-bottom));
+  z-index:1200; background:var(--cd-ink); color:#fff; border-radius:12px; padding:12px 14px;
+  font-size:14px; text-align:center}
+.cd-toast:empty{display:none}
+.cd-toast-err{background:var(--cd-no)}

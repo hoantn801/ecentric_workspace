@@ -1,5 +1,6 @@
 # Copyright (c) 2026, eCentric and contributors
 """Module-owned immutable approval definition cho New Staff Preparation (28/09/2026)."""
+from dataclasses import replace as _dc_replace
 from ecentric_workspace.approval_center.shared.requests.contracts import (
     ApprovalDefinition, STANDARD_STATUS_LABELS)
 from ecentric_workspace.approval_center.shared.definition_support import (
@@ -24,3 +25,16 @@ NEW_STAFF_PREPARATION_DEFINITION = ApprovalDefinition(
     draft_preparer=ServiceMethod(_BASE, "prepare_draft"),
     detail_extender=ServiceMethod(_BASE, "nsp_block"),
     **service_callbacks("new_staff_preparation"))
+
+
+# "Cho toi duyet" tren dien thoai (06/10/2026): the duyet nhanh hien cac cap nay. Chi truong
+# nguoi duyet von xem duoc o trang chi tiet; khong dua luong ca nhan.
+NEW_STAFF_PREPARATION_DEFINITION = _dc_replace(
+    NEW_STAFF_PREPARATION_DEFINITION,
+    quick_summary=(
+        ("Ứng viên", "candidate_name"),
+        ("Vị trí", "position"),
+        ("Ngày onboard", "onboard_date"),
+        ("Laptop công ty", "company_laptop"),
+    ),
+)

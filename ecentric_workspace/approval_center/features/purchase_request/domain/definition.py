@@ -1,4 +1,5 @@
 """Module-owned immutable approval definition."""
+from dataclasses import replace as _dc_replace
 from ecentric_workspace.approval_center.shared.requests.contracts import ApprovalDefinition, STANDARD_STATUS_LABELS
 from ecentric_workspace.approval_center.shared.finance_support import Resubmitter, Submitter
 from ecentric_workspace.approval_center.features.purchase_request.application.service import purchase_title, validate_purchase
@@ -30,3 +31,13 @@ PURCHASE_REQUEST_DEFINITION = _make(
     purchase_title, validate_purchase, manager=True)
 
 
+# "Cho toi duyet" tren dien thoai (06/10/2026): the duyet nhanh hien cac cap nay. Chi truong
+# nguoi duyet von xem duoc o trang chi tiet; khong dua luong ca nhan.
+PURCHASE_REQUEST_DEFINITION = _dc_replace(
+    PURCHASE_REQUEST_DEFINITION,
+    quick_summary=(
+        ("Nhà cung cấp", "supplier_name"),
+        ("Số tiền", "payment_amount"),
+        ("Ngày mua dự kiến", "estimated_purchase_date"),
+    ),
+)

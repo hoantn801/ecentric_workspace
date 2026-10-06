@@ -43,6 +43,13 @@ class ApprovalDefinition:
     approval_projection: str = "standard"
     draft_preparer: Optional[Callable] = None
     feature: str = ""
+    #: "Cho toi duyet" tren dien thoai (06/10/2026): MOI loai phieu tu khai 3-5 cap
+    #: (nhan, fieldname) hien tren the duyet nhanh. Chi dua truong nguoi duyet VON da xem o
+    #: trang chi tiet; KHONG dua luong ca nhan. De trong -> the chi co tieu de + nguoi nop.
+    quick_summary: Tuple[Tuple[str, str], ...] = ()
+    #: Trang form bat buoc nhan xet khi DUYET (luat dang nam o UI tung form) -> the duyet
+    #: nhanh cung bat, va loai nay khong vao duyet hang loat.
+    quick_comment_required: bool = False
     #: Truong KHONG duoc chep khi "Tao phieu moi tu phieu nay".
     #:
     #: Danh cho cac o mang tinh CAM KET CA NHAN - nguoi dung tich vao de xac nhan mot dieu

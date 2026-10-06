@@ -1,4 +1,5 @@
 """Module-owned immutable approval definition."""
+from dataclasses import replace as _dc_replace
 from ecentric_workspace.approval_center.shared.requests.contracts import ApprovalDefinition, STANDARD_STATUS_LABELS
 from ecentric_workspace.approval_center.shared.definition_support import (
     DepartmentRows, ExactAndDateFilters, StaticOptions, service_callbacks,
@@ -28,4 +29,14 @@ ASSET_REQUEST_DEFINITION = _make(
     ("request_type",))
 
 
-
+# "Cho toi duyet" tren dien thoai (06/10/2026): the duyet nhanh hien cac cap nay. Chi truong
+# nguoi duyet von xem duoc o trang chi tiet; khong dua luong ca nhan.
+ASSET_REQUEST_DEFINITION = _dc_replace(
+    ASSET_REQUEST_DEFINITION,
+    quick_summary=(
+        ("Loại yêu cầu", "request_type"),
+        ("Tài sản", "asset_type"),
+        ("Số lượng", "quantity"),
+        ("Cần ngày", "requested_needed_date"),
+    ),
+)

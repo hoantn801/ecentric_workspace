@@ -1,4 +1,5 @@
 """Module-owned immutable approval definition."""
+from dataclasses import replace as _dc_replace
 from ecentric_workspace.approval_center.shared.requests.contracts import (
     ApprovalDefinition,
     STANDARD_STATUS_LABELS,
@@ -31,4 +32,11 @@ SPECIAL_BONUS_DEFINITION = _definition(
 )
 
 
-
+# "Cho toi duyet" tren dien thoai (06/10/2026): the duyet nhanh hien cac cap nay. Chi truong
+# nguoi duyet von xem duoc o trang chi tiet; khong dua luong ca nhan.
+SPECIAL_BONUS_DEFINITION = _dc_replace(
+    SPECIAL_BONUS_DEFINITION,
+    quick_summary=(
+        ("Dự án", "project_name"),
+    ),
+)

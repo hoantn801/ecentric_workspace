@@ -1,4 +1,5 @@
 """Module-owned immutable approval definition."""
+from dataclasses import replace as _dc_replace
 from ecentric_workspace.approval_center.shared.requests.contracts import ApprovalDefinition, STANDARD_STATUS_LABELS
 from ecentric_workspace.approval_center.shared.finance_support import Resubmitter, Submitter
 from ecentric_workspace.approval_center.features.affiliate_bonus.application.service import affiliate_title, validate_affiliate
@@ -23,3 +24,13 @@ AFFILIATE_BONUS_DEFINITION = _make(
     StaticOptions(), affiliate_title, validate_affiliate)
 
 
+# "Cho toi duyet" tren dien thoai (06/10/2026): the duyet nhanh hien cac cap nay. Chi truong
+# nguoi duyet von xem duoc o trang chi tiet; khong dua luong ca nhan.
+AFFILIATE_BONUS_DEFINITION = _dc_replace(
+    AFFILIATE_BONUS_DEFINITION,
+    quick_summary=(
+        ("Tháng dịch vụ", "service_month"),
+        ("Tổng tiền", "total_amount"),
+        ("Ngân sách", "budget"),
+    ),
+)

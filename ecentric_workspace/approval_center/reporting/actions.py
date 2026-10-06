@@ -385,3 +385,18 @@ def _notify_participants(definition, name, request_name, biz, text, me):
                                definition.business_doctype, name)
     except Exception:
         frappe.log_error(frappe.get_traceback(), "add_comment notify %s" % request_name)
+
+
+# --- "Cho toi duyet" tren dien thoai (06/10/2026) -----------------------------------
+# Logic o shared/requests/quick_approve.py (hop dong API ghi o docstring cua no). Day chi
+# la cua vao; KHONG nhan `user` tu client - luon la nguoi dang dang nhap.
+@frappe.whitelist(methods=["GET"])
+def list_my_pending():
+    from ecentric_workspace.approval_center.shared.requests import quick_approve
+    return quick_approve.list_my_pending(frappe.session.user)
+
+
+@frappe.whitelist(methods=["POST"])
+def quick_decide(request_name, action, comment=None):
+    from ecentric_workspace.approval_center.shared.requests import quick_approve
+    return quick_approve.quick_decide(request_name, action, comment)

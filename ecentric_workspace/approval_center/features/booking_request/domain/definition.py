@@ -1,5 +1,6 @@
 # Copyright (c) 2026, eCentric and contributors
 """Module-owned immutable approval definition cho Booking Request."""
+from dataclasses import replace as _dc_replace
 from ecentric_workspace.approval_center.shared.requests.contracts import (
     ApprovalDefinition, STANDARD_STATUS_LABELS)
 from ecentric_workspace.approval_center.shared.definition_support import (
@@ -31,3 +32,17 @@ BOOKING_REQUEST_DEFINITION = ApprovalDefinition(
     clone_exclude_fields=("kol_list",),
     detail_extender=ServiceMethod(_BASE, "booking_block"),
     **service_callbacks("booking_request"))
+
+
+# "Cho toi duyet" tren dien thoai (06/10/2026): the duyet nhanh hien cac cap nay. Chi truong
+# nguoi duyet von xem duoc o trang chi tiet; khong dua luong ca nhan.
+BOOKING_REQUEST_DEFINITION = _dc_replace(
+    BOOKING_REQUEST_DEFINITION,
+    quick_summary=(
+        ("Brand", "brand"),
+        ("Loại booking", "booking_type"),
+        ("Số KOL", "kol_count"),
+        ("Ngân sách dự kiến", "expected_budget"),
+        ("Bắt đầu", "campaign_start_date"),
+    ),
+)

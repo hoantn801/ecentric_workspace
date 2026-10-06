@@ -1,4 +1,5 @@
 """Stateless definition for EC Leave Request."""
+from dataclasses import replace as _dc_replace
 from ecentric_workspace.approval_center.shared.requests.contracts import (
     ApprovalDefinition,
     STANDARD_STATUS_LABELS,
@@ -52,3 +53,14 @@ LEAVE_DEFINITION = ApprovalDefinition(
 )
 
 
+# "Cho toi duyet" tren dien thoai (06/10/2026): the duyet nhanh hien cac cap nay. Chi truong
+# nguoi duyet von xem duoc o trang chi tiet; khong dua luong ca nhan.
+LEAVE_DEFINITION = _dc_replace(
+    LEAVE_DEFINITION,
+    quick_summary=(
+        ("Loại nghỉ", "leave_type"),
+        ("Từ", "start_date"),
+        ("Đến", "end_date"),
+        ("Số ngày", "duration_days"),
+    ),
+)

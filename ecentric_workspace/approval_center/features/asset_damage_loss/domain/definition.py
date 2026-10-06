@@ -1,4 +1,5 @@
 """Stateless definition for EC Asset Damage/Loss Request."""
+from dataclasses import replace as _dc_replace
 from ecentric_workspace.approval_center.shared.requests.contracts import (
     ApprovalDefinition,
     STANDARD_STATUS_LABELS,
@@ -54,3 +55,15 @@ ASSET_DAMAGE_LOSS_DEFINITION = ApprovalDefinition(
 )
 
 
+# "Cho toi duyet" tren dien thoai (06/10/2026): the duyet nhanh hien cac cap nay. Chi truong
+# nguoi duyet von xem duoc o trang chi tiet; khong dua luong ca nhan.
+ASSET_DAMAGE_LOSS_DEFINITION = _dc_replace(
+    ASSET_DAMAGE_LOSS_DEFINITION,
+    quick_summary=(
+        ("Loại tài sản", "asset_type"),
+        ("Sự cố", "incident_type"),
+        ("Ngày", "incident_date"),
+        ("Chi phí sửa ước tính", "estimated_repair_cost"),
+    ),
+    quick_comment_required=True,
+)
