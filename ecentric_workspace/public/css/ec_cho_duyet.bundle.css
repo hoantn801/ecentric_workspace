@@ -23,8 +23,6 @@
 .cd-card{display:flex; align-items:flex-start; gap:10px; background:var(--cd-card);
   border:1px solid var(--cd-line); border-radius:14px; padding:12px; margin:0 0 8px;
   cursor:pointer; box-shadow:0 1px 2px rgba(20,26,46,.04)}
-.cd-pick{display:flex; align-items:center; justify-content:center; min-width:28px; min-height:44px; margin:-6px 0}
-.cd-pick input{width:20px; height:20px; accent-color:var(--cd-navy)}
 .cd-main{flex:1; min-width:0}
 .cd-title{font-weight:650; font-size:15px; color:var(--cd-ink); line-height:1.35;
   overflow-wrap:anywhere}
@@ -46,14 +44,15 @@
 .cd-wide{width:100%}
 .cd-link{border:0; background:none; color:var(--cd-navy); font:inherit; font-size:14px;
   font-weight:600; text-decoration:underline; cursor:pointer; padding:10px 0; min-height:44px}
-.cd-bar{position:sticky; bottom:12px; z-index:5; margin-top:6px}
-.cd-bar:empty{display:none}
 
 /* Bang truot gan vao <body>, NGOAI khung trang -> tu khai phong chu, khong an theo trang. */
 .cd-ov,.cd-toast{font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; line-height:1.5; -webkit-text-size-adjust:100%}
 .cd-ov{position:fixed; inset:0; z-index:1100; background:rgba(20,26,46,.42); color:#141A2E;
   display:flex; align-items:flex-end; justify-content:center}
+/* Keo trong bang chi cuon bang - khong lan ra trang nen (07/10). */
+.cd-ov{overscroll-behavior:contain}
 .cd-sheet{width:100%; max-width:560px; max-height:88vh; overflow:auto; background:#fff;
+  overscroll-behavior:contain; -webkit-overflow-scrolling:touch; touch-action:pan-y; will-change:transform;
   border-radius:20px 20px 0 0; padding:8px 16px calc(16px + env(safe-area-inset-bottom));
   animation:cd-up .18s ease-out}
 @keyframes cd-up{from{transform:translateY(24px)}to{transform:none}}

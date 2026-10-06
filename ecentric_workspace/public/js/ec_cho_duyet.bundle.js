@@ -10,8 +10,8 @@
 //   list_my_pending  - phieu dang cho DUNG minh o DUNG cap hien tai + tom tat + quyen
 //   quick_decide     - di qua controller cua chinh loai phieu; loi -> hoan tac + cau bao ro
 // O day chi ve the, bang truot, va goi hai cua do. Loai can nhap them (ky so, chinh so tien,
-// ngay Operation) -> chi co nut "Mo trang chi tiet". Duyet hang loat chi cho loai khong can
-// nhap them va khong bat buoc nhan xet.
+// ngay Operation) -> chi co nut "Mo trang chi tiet". KHONG co duyet hang loat (07/10, Hoan bo:
+// moi phieu phai duoc mo ra va quyet dinh rieng).
 //
 // Sau moi quyet dinh: phat su kien `ec:cho-duyet-doi` {count} - trang /viec-cua-toi nghe de
 // tai lai lan "Viec" (cung nguon voi badge "Viec cua toi").
@@ -35,6 +35,22 @@
     if (!m) return esc(s);
     return m[3] + "/" + m[2] + (m[4] ? " " + m[4] + ":" + m[5] : "");
   }
+  // Gia tri o mat "xem day du" den tu get_request_detail DANG THO (90500000, 2026-07-01) - cung
+  // nguon popup trang "Tat ca yeu cau" dung, nen dinh dang o day theo fieldtype server gui kem.
+  function fmtVal(v, t) {
+    if (v == null || v === "") return "";
+    var s = String(v);
+    if ((t === "Currency" || t === "Int" || t === "Float") && /^-?\d+(\.\d+)?$/.test(s)) {
+      var n = Number(s), neg = n < 0 ? "-" : "";
+      n = Math.abs(n);
+      var ip = Math.floor(n), frac = Math.round((n - ip) * 100);
+      return neg + String(ip).replace(/\B(?=(\d{3})+(?!\d))/g, ".") + (frac ? "," + (frac < 10 ? "0" : "") + frac : "");
+    }
+    var m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/);
+    if (m && (t === "Date" || t === "Datetime")) return m[3] + "/" + m[2] + "/" + m[1] + (m[4] && t === "Datetime" ? " " + m[4] + ":" + m[5] : "");
+    return s;
+  }
+
   // Cau bao loi: lay nguyen van cau server (QuickDecideError 417). 401 moi la het phien;
   // 403 la thieu quyen - KHONG bao "dang nhap lai".
   function serverMsg(status, j) {
@@ -62,24 +78,14 @@
       if (!r.ok) throw new Error(serverMsg(r.status, j)); return j.message; }); });
   }
 
-  function bulkable(r) {
-    var c = r.capabilities || {};
-    return c.can_approve && !c.needs_input && !c.comment_required && !c.sign_required;
-  }
-
   function Inst(root) {
     this.root = root;
     this.body = root.querySelector("[data-cd-body]") || root;
     this.countEl = root.querySelector("[data-cd-count]");
     this.rows = [];
-    this.picked = {};
     this.busy = false;
     var self = this;
     root.addEventListener("click", function (ev) { self.onClick(ev); });
-    root.addEventListener("change", function (ev) {
-      var cb = ev.target.closest && ev.target.closest("[data-cd-pick]");
-      if (cb) { self.picked[cb.getAttribute("data-cd-pick")] = cb.checked; self.paintBar(); }
-    });
     this.load();
   }
 
@@ -119,9 +125,7 @@
       by[g].forEach(function (r) { h.push(self.cardHTML(r)); });
       h.push("</div>");
     });
-    h.push('<div class="cd-bar" data-cd-bar></div>');
     this.body.innerHTML = h.join("");
-    this.paintBar();
   };
 
   Inst.prototype.cardHTML = function (r) {
@@ -129,40 +133,18 @@
     var chips = (r.summary || []).slice(0, 3).map(function (s) {
       return '<span class="cd-chip"><i>' + esc(s.label) + "</i> " + esc(s.value) + "</span>";
     }).join("");
-    var pick = bulkable(r)
-      ? '<label class="cd-pick"><input type="checkbox" data-cd-pick="' + esc(r.request) + '"'
-        + (this.picked[r.request] ? " checked" : "") + ' aria-label="Chọn để duyệt hàng loạt"></label>'
-      : "";
     var meta = esc(r.requester_name || r.requested_by) + " · gửi " + fmtDate(r.submitted_at)
       + (r.due_at ? ' · <b class="cd-due">hạn ' + fmtDate(r.due_at) + "</b>" : "");
     var act = c.needs_input
       ? (r.detail_url ? '<a class="cd-btn" href="' + esc(r.detail_url) + '">Mở để duyệt</a>' : "")
       : (c.can_approve ? '<button type="button" class="cd-btn cd-ok" data-cd-quick="' + esc(r.request) + '">'
           + (c.sign_required ? "Duyệt &amp; Ký" : "Duyệt") + "</button>" : "");
-    return '<article class="cd-card" data-cd-open="' + esc(r.request) + '">' + pick
+    return '<article class="cd-card" data-cd-open="' + esc(r.request) + '">'
       + '<div class="cd-main"><div class="cd-title">' + esc(r.title) + "</div>"
       + '<div class="cd-meta">' + meta + "</div>"
       + (chips ? '<div class="cd-chips">' + chips + "</div>" : "")
       + (c.needs_input ? '<div class="cd-note">' + esc(c.needs_input_reason) + "</div>" : "")
       + "</div>" + (act ? '<div class="cd-act">' + act + "</div>" : "") + "</article>";
-  };
-
-  Inst.prototype.paintBar = function () {
-    var bar = this.body.querySelector("[data-cd-bar]");
-    if (!bar) return;
-    var ids = this.pickedIds();
-    var eligible = this.rows.filter(bulkable).length;
-    bar.innerHTML = eligible > 1
-      ? (ids.length
-          ? '<button type="button" class="cd-btn cd-ok cd-wide" data-cd-bulk>Duyệt ' + ids.length + " phiếu đã chọn</button>"
-          : '<button type="button" class="cd-link" data-cd-pickall>Chọn tất cả phiếu duyệt nhanh được (' + eligible + ")</button>")
-      : "";
-  };
-
-  Inst.prototype.pickedIds = function () {
-    var self = this;
-    return this.rows.filter(function (r) { return self.picked[r.request] && bulkable(r); })
-      .map(function (r) { return r.request; });
   };
 
   Inst.prototype.find = function (id) {
@@ -174,16 +156,8 @@
     var t = ev.target;
     if (!t.closest) return;
     if (t.closest("[data-cd-retry]")) { this.load(); return; }
-    if (t.closest("[data-cd-pick]") || t.closest(".cd-pick")) return;
-    if (t.closest("[data-cd-pickall]")) {
-      var self = this;
-      this.rows.filter(bulkable).forEach(function (r) { self.picked[r.request] = true; });
-      this.paint();
-      return;
-    }
-    if (t.closest("[data-cd-bulk]")) { this.bulk(); return; }
     var q = t.closest("[data-cd-quick]");
-    if (q) { ev.stopPropagation(); this.openSheet(this.find(q.getAttribute("data-cd-quick")), "approve"); return; }
+    if (q) { ev.stopPropagation(); this.openSheet(this.find(q.getAttribute("data-cd-quick"))); return; }
     if (t.closest("a")) return;            // "Mo de duyet" -> trang chi tiet
     var card = t.closest("[data-cd-open]");
     if (card) this.openSheet(this.find(card.getAttribute("data-cd-open")));
@@ -195,7 +169,7 @@
     Resubmitted: "Gửi lại", Restarted: "Gửi lại từ đầu", Skipped: "Bỏ qua", Cancelled: "Huỷ", Reminded: "Nhắc xử lý",
     Commented: "Ghi chú", Signed: "Đã ký" };
 
-  Inst.prototype.openSheet = function (r, focusAction) {
+  Inst.prototype.openSheet = function (r) {
     if (!r) return;
     var self = this, c = r.capabilities || {};
     var ov = document.createElement("div");
@@ -241,7 +215,10 @@
       + '<div data-cd-pane="full" hidden></div>'
       + "</div>";
     document.body.appendChild(ov);
-    var close = function () { if (ov.parentNode) ov.parentNode.removeChild(ov); };
+    var close = function () {
+      if (ov.parentNode) ov.parentNode.removeChild(ov);
+      if (ov.__unlock) ov.__unlock();
+    };
     ov.addEventListener("click", function (ev) {
       if (ev.target === ov || (ev.target.closest && ev.target.closest("[data-cd-close]"))) { close(); return; }
       if (ev.target.closest && ev.target.closest("[data-cd-full]")) { self.showFull(r, ov); return; }
@@ -249,8 +226,49 @@
       var b = ev.target.closest && ev.target.closest("[data-cd-do]");
       if (b) self.decide(r, b.getAttribute("data-cd-do"), ov, close);
     });
-    var ta = ov.querySelector("#cd-cmt");
-    if (ta && focusAction !== "approve") { try { ta.focus(); } catch (e) { /* bo qua */ } }
+    // KHONG tu focus o nhan xet (07/10, Hoan): focus la bat ban phim len, che mat phieu dang
+    // doc. Nguoi duyet tu cham vao o khi can ghi.
+    self.lockScroll(ov, close);
+  };
+
+  // 07/10 (Hoan): keo trong bang thi BANG di chuyen, khong phai trang nen.
+  //  * khoa cuon trang nen khi bang mo (tra lai dung vi tri khi dong);
+  //  * bang tu cuon ben trong (overscroll-behavior: contain o CSS);
+  //  * dang o dau bang ma keo XUONG -> bang di xuong theo ngon tay; tha qua 90px thi dong,
+  //    chua toi thi bat ve.
+  Inst.prototype.lockScroll = function (ov, close) {
+    var de = document.documentElement, b = document.body;
+    var prev = [de.style.overflow, b.style.overflow];
+    de.style.overflow = "hidden"; b.style.overflow = "hidden";
+    ov.__unlock = function () { de.style.overflow = prev[0]; b.style.overflow = prev[1]; };
+    var sh = ov.querySelector(".cd-sheet");
+    if (!sh) return;
+    // Cham vao nen mo (ngoai bang) ma keo -> khong cho trang nen cuon theo (iOS bo qua
+    // overflow:hidden cua body khi keo tren lop phu).
+    ov.addEventListener("touchmove", function (e) {
+      if (!sh.contains(e.target) && e.cancelable) e.preventDefault();
+    }, { passive: false });
+    var y0 = null, dy = 0;
+    sh.addEventListener("touchstart", function (e) {
+      y0 = (sh.scrollTop <= 0 && e.touches && e.touches.length === 1) ? e.touches[0].clientY : null;
+      dy = 0;
+    }, { passive: true });
+    sh.addEventListener("touchmove", function (e) {
+      if (y0 == null) return;
+      dy = e.touches[0].clientY - y0;
+      if (dy <= 0 || sh.scrollTop > 0) { dy = 0; sh.style.transform = ""; return; }
+      if (e.cancelable) e.preventDefault();
+      sh.style.transition = "none";
+      sh.style.transform = "translateY(" + dy + "px)";
+    }, { passive: false });
+    sh.addEventListener("touchend", function () {
+      if (y0 == null) return;
+      y0 = null;
+      sh.style.transition = "transform .18s ease-out";
+      if (dy > 90) { sh.style.transform = "translateY(100%)"; setTimeout(close, 160); }
+      else { sh.style.transform = ""; }
+      dy = 0;
+    });
   };
 
   // Hai mat cua CUNG mot bang: "act" (quyet dinh) va "full" (xem day du). Doi mat do nguoi
@@ -274,7 +292,7 @@
     get("get_request_detail?request_name=" + encodeURIComponent(r.request)).then(function (d) {
       d = d || {};
       var f = (d.display_fields || []).map(function (x) {
-        return '<div class="cd-kv"><span>' + esc(x.label) + "</span><b>" + esc(x.value) + "</b></div>";
+        return '<div class="cd-kv"><span>' + esc(x.label) + "</span><b>" + esc(fmtVal(x.value, x.fieldtype)) + "</b></div>";
       }).join("");
       var att = (d.attachments || []).map(function (a) {
         var url = a.sp_share_url || a.sp_web_url || a.file_url;
@@ -324,41 +342,11 @@
 
   Inst.prototype.removeRow = function (id, remaining) {
     this.rows = this.rows.filter(function (x) { return x.request !== id; });
-    delete this.picked[id];
     this.paint();
     try {
       document.dispatchEvent(new CustomEvent("ec:cho-duyet-doi",
         { detail: { count: remaining != null ? remaining : this.rows.length } }));
     } catch (e) { /* trinh duyet cu */ }
-  };
-
-  Inst.prototype.bulk = function () {
-    var ids = this.pickedIds();
-    if (!ids.length || this.busy) return;
-    if (!window.confirm("Duyệt " + ids.length + " phiếu đã chọn?")) return;
-    var self = this, ok = 0, fails = [];
-    this.busy = true;
-    var bar = this.body.querySelector("[data-cd-bar]");
-    if (bar) bar.innerHTML = '<div class="cd-note">Đang duyệt 0/' + ids.length + "…</div>";
-    var next = function (i) {
-      if (i >= ids.length) {
-        self.busy = false;
-        self.toast("Đã duyệt " + ok + "/" + ids.length + " phiếu"
-          + (fails.length ? ". Chưa duyệt được: " + fails.join("; ") : "."), fails.length > 0);
-        return self.load().then(function () {
-          try { document.dispatchEvent(new CustomEvent("ec:cho-duyet-doi", { detail: { count: self.rows.length } })); } catch (e) { /* bo qua */ }
-        });
-      }
-      var r = self.find(ids[i]);
-      return post("quick_decide", { request_name: ids[i], action: "approve", comment: "" })
-        .then(function () { ok++; self.picked[ids[i]] = false; })
-        .catch(function (e) { fails.push((r ? r.title : ids[i]) + ": " + e.message); })
-        .then(function () {
-          if (bar) bar.innerHTML = '<div class="cd-note">Đang duyệt ' + (i + 1) + "/" + ids.length + "…</div>";
-          return next(i + 1);
-        });
-    };
-    return next(0);
   };
 
   Inst.prototype.toast = function (text, isErr) {
