@@ -46,6 +46,7 @@ TBRIGHT_OPEN = '<div class="ec-shell-tbright" data-ec-shell-header-right="1">'
 ATTR_CONTEXT = "data-ec-context"
 ATTR_SIG = "data-ec-nav-sig"
 ATTR_RAIL = "data-ec-rail"
+ATTR_NOPANEL = "data-ec-nopanel"
 LOG_TITLE = "ec_shell_server_nav"
 LOG_THROTTLE_KEY = "ec_shell_server_nav_logged"
 LOG_THROTTLE_SEC = 3600
@@ -118,11 +119,15 @@ def rebuild_mount(ms, route):
         new_tag = _set_attr(new_tag, ATTR_SIG,
                             nav_signature(sig_context(context_name, section), panel, active))
         new_tag = _set_attr(new_tag, ATTR_RAIL, "1")
+        if section is not None and section.get("panel") is False:
+            new_tag = _set_attr(new_tag, ATTR_NOPANEL, "1")
+        else:
+            new_tag = _drop_attr(new_tag, ATTR_NOPANEL)
         inner = fb.mount_inner_html(panel, active, live=True, rail=rail, section=section)
         return ms[:start] + new_tag + inner + ms[close:]
     active = fb.match_active(items, route)
     new_tag = _set_attr(new_tag, ATTR_SIG, nav_signature(context_name, items, active))
-    new_tag = _drop_attr(new_tag, ATTR_RAIL)
+    new_tag = _drop_attr(_drop_attr(new_tag, ATTR_RAIL), ATTR_NOPANEL)
     return ms[:start] + new_tag + fb.mount_inner_html(items, active, live=True) + ms[close:]
 
 

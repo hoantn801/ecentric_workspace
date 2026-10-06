@@ -7,12 +7,14 @@
   --ecc-navy:#2C3DA6;--ecc-navy-50:#eef0fb;--ecc-navy-700:#1f2d80;
   --ecc-bg:#f7f8fb;--ecc-surface:#fff;--ecc-line:#e5e7eb;
   --ecc-g400:#9ca3af;--ecc-g500:#6b7280;--ecc-g600:#4b5563;--ecc-g800:#1f2937;--ecc-g900:#111827;
-  display:grid;grid-template-columns:248px minmax(0,1fr);min-height:100vh;
+  display:grid;grid-template-columns:auto minmax(0,1fr);min-height:100vh; /* auto: menu 2 tang - khu Chat chi con thanh 62px (shell data-ec-nopanel) */
   flex:0 0 auto;
   background:var(--ecc-bg);color:var(--ecc-g800);
   font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   font-size:13.5px;line-height:1.5;letter-spacing:normal;color-scheme:light;
 }
+/* kill switch menu 2 tang (ec_shell_rail_disabled): menu 1 cot cu khong tu khai do rong -> giu 248px */
+.ecc-app > .ec-shell-mount:not([data-ec-rail]){width:248px}
 .ecc-app *,.ecc-app *::before,.ecc-app *::after{box-sizing:border-box}
 .ecc-app [hidden]{display:none !important}
 .ecc-app :focus-visible{outline:2px solid var(--ecc-navy);outline-offset:2px}

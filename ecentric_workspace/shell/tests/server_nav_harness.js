@@ -60,6 +60,8 @@ async function hydrate() {
     links: mount ? mount.querySelectorAll('.ec-shell-nav a').length : -1,
     logout: mount ? mount.querySelectorAll('[data-ec-shell-logout]').length : -1,
     rail: mount ? mount.getAttribute('data-ec-rail') : null,
+    nopanel: mount ? mount.getAttribute('data-ec-nopanel') : null,
+    footInRail: mount ? !!mount.querySelector('.ec-shell-rail .ec-shell-foot') : null,
     railBtns: mount ? mount.querySelectorAll('.ec-shell-railbtn').length : -1,
     railOn: (mount && mount.querySelector('.ec-shell-railon')) ? mount.querySelector('.ec-shell-railon').getAttribute('data-ec-shell-rail') : null,
   }));
@@ -81,7 +83,8 @@ function railParity() {
     return {
       name: c.name, sec: secKey, active: active,
       keys: v.panel.map(it => it.key), groups: v.panel.map(it => it.group),
-      rail: E.railHtml(fixture.rail, v.sec ? v.sec.key : null),
+      rail: E.railHtml(fixture.rail, v.sec ? v.sec.key : null, fixture.foot || ''),
+      labels: v.panel.map(it => it.label),
       nav: E.navHtml(v.panel, active),
       sig: E.navSig(c.context + '@' + secKey, v.panel, active),
     };

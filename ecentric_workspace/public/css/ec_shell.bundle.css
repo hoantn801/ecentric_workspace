@@ -526,3 +526,46 @@ a.ec-shell-rm-item:focus-visible, a.ec-shell-nc-item:focus-visible{
   .ec-shell-drawer[data-ec-rail="1"].ec-shell-on{ display:flex; }
   .ec-shell-drawer[data-ec-rail="1"]{ width:min(300px, 88vw); }
 }
+
+/* ---- menu 2 tang: vong sua 1 (PO chup 07/10) --------------------------------
+ * 1) Mau chu tren thanh bi trang de: vd /bang-tin co `.esc-app a{color:inherit}` (0,1,1)
+ *    thang `.ec-shell-railbtn` (0,1,0) -> chu toi tren nen navy. Nang do uu tien
+ *    (a.ec-shell-railbtn trong .ec-shell-rail) VA to mau thang len 2 span con, de quy tac
+ *    `#id a{...}` cua trang cung khong keo duoc chu ve mau toi.
+ * 2) Do rong co dinh: trang xep mount bang flex (vd /ec-hr: .ec-hr-dashwrap) de mount tu
+ *    no theo noi dung -> cot 326px. Rail mode khoa dung --ec-shell-w (248px).
+ * 3) Khu khong cot (Chat): mount chi con thanh 62px; trang tu xep cot `auto`.
+ * 4) The nguoi dung nam o day thanh: chi avatar + nut dang xuat, an ten. */
+.ec-shell-mount[data-ec-rail="1"]{
+  width:var(--ec-shell-w,248px); min-width:var(--ec-shell-w,248px); max-width:var(--ec-shell-w,248px);
+  flex:0 0 var(--ec-shell-w,248px); box-sizing:border-box;
+}
+.ec-shell-mount[data-ec-rail="1"][data-ec-nopanel="1"]{
+  width:var(--ec-rail-w); min-width:var(--ec-rail-w); max-width:var(--ec-rail-w); flex-basis:var(--ec-rail-w);
+  border-right:0;
+}
+.ec-shell-mount[data-ec-nopanel="1"] .ec-shell-panel{ display:none; }
+
+.ec-shell-rail a.ec-shell-railbtn, .ec-shell-rail a.ec-shell-railbtn:visited,
+.ec-shell-rail a.ec-shell-railbtn .ec-shell-raillbl, .ec-shell-rail a.ec-shell-railbtn .ec-shell-railic{
+  color:rgba(255,255,255,.68);
+}
+.ec-shell-rail a.ec-shell-railbtn:hover, .ec-shell-rail a.ec-shell-railbtn:hover .ec-shell-raillbl,
+.ec-shell-rail a.ec-shell-railbtn:hover .ec-shell-railic,
+.ec-shell-rail a.ec-shell-railbtn.ec-shell-railon, .ec-shell-rail a.ec-shell-railbtn.ec-shell-railon .ec-shell-raillbl,
+.ec-shell-rail a.ec-shell-railbtn.ec-shell-railon .ec-shell-railic{
+  color:#fff;
+}
+.ec-shell-rail .ec-shell-railic svg{ stroke:currentColor; }
+
+.ec-shell-rail .ec-shell-railsp{ flex:1 1 auto; min-height:8px; }
+.ec-shell-rail .ec-shell-foot{
+  flex:0 0 auto; flex-direction:column; align-items:center; gap:2px;
+  border-top:0; padding:6px 0 0;
+}
+.ec-shell-rail .ec-shell-usercard{ flex:0 0 auto; padding:2px; border-radius:50%; justify-content:center; }
+.ec-shell-rail .ec-shell-usercard:hover{ background:rgba(255,255,255,.12); }
+.ec-shell-rail .ec-shell-username{ display:none; }
+.ec-shell-rail .ec-shell-avatar{ width:32px; height:32px; background:var(--ec-yellow); color:#141d57; }
+.ec-shell-rail .ec-shell-foot .ec-shell-iconbtn{ width:30px; height:28px; color:rgba(255,255,255,.6); }
+.ec-shell-rail .ec-shell-foot .ec-shell-iconbtn:hover{ background:rgba(255,255,255,.12); color:#fff; }

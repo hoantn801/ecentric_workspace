@@ -18,7 +18,7 @@
 (function () {
   'use strict';
 
-  var VERSION = 'ec-shell v1.22.0 (thanh khu vuc navy + cot trang: menu 2 tang trong cung cot 248px, server ve san; boot.rail = null -> menu 1 cot cu) (v1.21.0 server-rendered menu: the page arrives with the sidebar already built from the live registry + data-ec-context/data-ec-nav-sig; the client keeps that DOM when the signature matches and only personalises the user card -- no menu repaint, no wrong-context flash) (v1.20.0 "Việc của tôi" is a real page at /viec-cua-toi: on a phone the header inbox navigates there instead of opening the overlay drawer; the drawer stays on desktop and links to the page. Badge mirrors into every [data-ec-shell-reminder-badge] node so a page can render its own -- e.g. the mobile tab bar.) (v1.19.1 honest totals: one card per business document, bounded scan raised to 2000 with a "2000+" label when it overflows)';
+  var VERSION = 'ec-shell v1.22.1 (the nguoi dung xuong day thanh; khu Chat khong cot; nhan ngan trong cot; mount rail co do rong co dinh) (v1.22.0 thanh khu vuc navy + cot trang: menu 2 tang trong cung cot 248px, server ve san; boot.rail = null -> menu 1 cot cu) (v1.21.0 server-rendered menu: the page arrives with the sidebar already built from the live registry + data-ec-context/data-ec-nav-sig; the client keeps that DOM when the signature matches and only personalises the user card -- no menu repaint, no wrong-context flash) (v1.20.0 "Việc của tôi" is a real page at /viec-cua-toi: on a phone the header inbox navigates there instead of opening the overlay drawer; the drawer stays on desktop and links to the page. Badge mirrors into every [data-ec-shell-reminder-badge] node so a page can render its own -- e.g. the mobile tab bar.) (v1.19.1 honest totals: one card per business document, bounded scan raised to 2000 with a "2000+" label when it overflows)';
   // Boot cache (sessionStorage, stale-while-revalidate). NEVER authorization:
   // the cache only skips the paint delay; the backend stays the source of
   // truth and refreshes every page view. Keyed/invalidated by VERSION, TTL,
@@ -195,8 +195,8 @@
       }
       if (!sec) sec = rail.filter(function (s) { return s.key === 'home'; })[0] || null;
       if (!sec) return { sec: null, panel: (homeItems || []).slice() };
-      return { sec: sec, panel: sec.keys.filter(function (k) { return byKey[k]; })
-                                        .map(function (k) { return regroup(byKey[k], ''); }) };
+      return { sec: sec, panel: relabel(sec, sec.keys.filter(function (k) { return byKey[k]; })
+                                        .map(function (k) { return regroup(byKey[k], ''); })) };
     }
     for (i = 0; i < rail.length; i++) {
       if (rail[i].contexts.indexOf(ctx) >= 0) { sec = rail[i]; break; }
@@ -222,10 +222,19 @@
           .sort(function (a, b) { return (rank(a.it) - rank(b.it)) || (a.j - b.j); })
           .map(function (x) { return x.it; });
       }
+      panel = relabel(sec, panel);
     }
     return { sec: sec, panel: panel };
   }
-  function railHtml(rail, secKey) {
+  // nhan ngan trong cot (`labels` cua khu) - trung fallback._relabel
+  function relabel(sec, panel) {
+    var labels = (sec && sec.labels) || {};
+    return panel.map(function (it) {
+      if (!Object.prototype.hasOwnProperty.call(labels, it.key)) return it;
+      var o = {}; for (var k in it) o[k] = it[k]; o.label = labels[it.key]; return o;
+    });
+  }
+  function railHtml(rail, secKey, foot) {
     var h = '<nav class="ec-shell-rail" aria-label="Khu vực">' +
       '<a class="ec-shell-brand ec-shell-railbrand" href="/" aria-label="eCentric">' +
       '<img class="ec-shell-logoimg" src="' + LOGO_SRC + '" alt="eCentric">' +
@@ -240,6 +249,7 @@
            '<span class="ec-shell-railic">' + svg(s.icon) + '</span>' +
            '<span class="ec-shell-raillbl">' + esc(s.label) + '</span>' + badge + '</a>';
     });
+    if (foot) h += '<span class="ec-shell-railsp"></span>' + foot;   // the nguoi dung o day thanh
     return h + '</nav>';
   }
   function knownNavRoutes() {
@@ -558,13 +568,12 @@
   function shellHtml(boot, activeKey, opts) {
     if (S.railOn && boot && boot.rail) {
       // Menu 2 tang: thanh khu vuc + cot. CUNG markup fallback.mount_inner_html(rail=...).
-      return railHtml(boot.rail, S.railSec ? S.railSec.key : null) +
+      return railHtml(boot.rail, S.railSec ? S.railSec.key : null, footHtml(boot)) +
         '<div class="ec-shell-panel">' +
           '<div class="ec-shell-head"><span class="ec-shell-paneltitle">' +
             esc(S.railSec ? S.railSec.label : 'eCentric') + '</span></div>' +
           searchHtml() +
           navHtml((S.ctxNav || boot.nav), activeKey) +
-          footHtml(boot) +
         '</div>';
     }
     return (
@@ -615,7 +624,7 @@
   function patchFoot(boot) {
     var foot = S.mount.querySelector('.ec-shell-foot');
     var html = footHtml(boot);
-    if (!foot) { (S.mount.querySelector('.ec-shell-panel') || S.mount).insertAdjacentHTML('beforeend', html); return; }
+    if (!foot) { (S.mount.querySelector('.ec-shell-rail') || S.mount).insertAdjacentHTML('beforeend', html); return; }
     if (foot.outerHTML !== html) foot.outerHTML = html;
   }
 
@@ -733,6 +742,7 @@
     }
     S.drawer.innerHTML = shellHtml(S.boot, S.activeKey, { bell: false }); // fresh render; bell lives in the header
     if (S.railOn) S.drawer.setAttribute('data-ec-rail', '1'); else S.drawer.removeAttribute('data-ec-rail');
+    S.drawer.removeAttribute('data-ec-nopanel');   // tren dien thoai van mo cot (tim kiem + muc)
     S.lastFocus = document.activeElement;
     S.backdrop.classList.add('ec-shell-on');
     S.drawer.classList.add('ec-shell-on');
@@ -1452,6 +1462,8 @@
         S.mount.setAttribute('data-ec-nav-sig', want);
         if (S.railOn) S.mount.setAttribute('data-ec-rail', '1');
         else if (S.mount.removeAttribute) S.mount.removeAttribute('data-ec-rail');
+        if (S.railOn && S.railSec && S.railSec.panel === false) S.mount.setAttribute('data-ec-nopanel', '1');
+        else if (S.mount.removeAttribute) S.mount.removeAttribute('data-ec-nopanel');
         if (S.context) S.mount.setAttribute('data-ec-context', S.context);
       }
     }

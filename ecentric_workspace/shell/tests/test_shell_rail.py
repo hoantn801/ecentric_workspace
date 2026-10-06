@@ -22,7 +22,7 @@ import unittest
 from ecentric_workspace.shell.tests import test_server_nav as T
 
 #: So test trong file (lech = co test khong nap).
-EXPECT_TOTAL = 14
+EXPECT_TOTAL = 21
 
 _SAVED = {}
 
@@ -56,6 +56,8 @@ def tearDownModule():
     else:
         sys.modules["frappe"] = _SAVED["frappe"]
 
+
+FOOT = '<div class="ec-shell-foot"><a class="ec-shell-usercard" href="/app/user">x</a></div>'
 
 PAGE = ('<div class="grid"><aside class="ec-shell-mount" data-ec-shell="1" aria-label="n">'
         '<nav>old</nav></aside><main>body</main></div>')
@@ -165,6 +167,91 @@ class TestServerRender(unittest.TestCase):
         self.assertEqual(sn.rebuild_mount(once, "/approvals"), once)
 
 
+class TestRound2(unittest.TestCase):
+    """Vong sua 07/10 (PO chup): the nguoi dung xuong day thanh, Chat khong cot, nhan ngan."""
+
+    def setUp(self):
+        import frappe
+        frappe.conf.clear()
+
+    def test_user_card_sits_at_the_bottom_of_the_rail(self):
+        html = _render("/approvals")
+        rail, panel = html.split('<div class="ec-shell-panel">', 1)
+        self.assertIn('class="ec-shell-railsp"></span><div class="ec-shell-foot">', rail)
+        self.assertNotIn("ec-shell-foot", panel)
+
+    def test_chat_has_no_panel_others_do(self):
+        tag = re.search(r'<aside[^>]*>', _render("/chat")).group(0)
+        self.assertIn('data-ec-nopanel="1"', tag)
+        for route in ("/", "/approvals", "/tin-noi-bo"):
+            self.assertNotIn("data-ec-nopanel", re.search(r'<aside[^>]*>', _render(route)).group(0), route)
+
+    def test_switching_away_from_chat_drops_nopanel(self):
+        _, _, sn = T._mods()
+        chat = _render("/chat")
+        again = sn.rebuild_mount(chat, "/approvals")
+        self.assertNotIn("data-ec-nopanel", re.search(r'<aside[^>]*>', again).group(0))
+
+    def test_short_label_only_in_the_panel(self):
+        _, shell_nav, _ = T._mods()
+        html = _render("/ec-hr/attendance")
+        self.assertIn('data-ec-shell-key="hr.install_guide"><svg', html)
+        self.assertIn("<span>Cài app</span>", html)
+        self.assertNotIn("Cài app lên điện thoại", html.split('<div class="ec-shell-panel">', 1)[1])
+        full = [it for it in shell_nav.compose("hr") if it["key"] == "hr.install_guide"][0]
+        self.assertEqual(full["label"], "Cài app lên điện thoại", "registry / tim kiem giu nhan goc")
+
+    def test_css_fixes_present(self):
+        import io
+        import os
+        css = io.open(os.path.join(T.APP, "public", "css", "ec_shell.bundle.css"), encoding="utf-8").read()
+        self.assertIn(".ec-shell-rail a.ec-shell-railbtn", css, "do uu tien cao hon `.xxx a{color}` cua trang")
+        self.assertIn('.ec-shell-mount[data-ec-rail="1"]{\n  width:var(--ec-shell-w,248px)', css)
+        self.assertIn('.ec-shell-mount[data-ec-nopanel="1"] .ec-shell-panel{ display:none; }', css)
+        chat = io.open(os.path.join(T.APP, "public", "css", "ec_chat_page.css"), encoding="utf-8").read()
+        self.assertIn("grid-template-columns:auto minmax(0,1fr)", chat)
+
+
+class TestPmPatch(unittest.TestCase):
+    """p272: dua /pm ve vo shell bang DUNG pm.pages.transform; khong nem trong migrate."""
+
+    def _run(self, exists, ms, transform):
+        import frappe
+        from ecentric_workspace.approval_center.patches import p272_pm_vao_vo_shell as P
+        from ecentric_workspace.pm import pages as PM
+        saved = []
+
+        class Doc(object):
+            def save(self, ignore_permissions=False):
+                saved.append((self.main_section, self.main_section_html))
+        frappe.db = type("DB", (), {"exists": lambda self, dt, n: exists,
+                                    "get_value": lambda self, dt, n, f: ms})()
+        frappe.get_doc = lambda dt, n: Doc()
+        frappe.get_traceback = lambda: "tb"
+        frappe.logged[:] = []
+        orig = PM.transform
+        PM.transform = transform
+        try:
+            P.execute()
+        finally:
+            PM.transform = orig
+        return saved, list(frappe.logged)
+
+    def test_updates_unchanged_missing_and_never_raises(self):
+        saved, log = self._run(True, "old", lambda ms: "new")
+        self.assertEqual(saved, [("new", "new")])
+        saved, log = self._run(True, "same", lambda ms: ms)
+        self.assertEqual(saved, [])
+        saved, log = self._run(False, "", lambda ms: "x")
+        self.assertEqual(saved, [])
+
+        def boom(ms):
+            raise ValueError("PM rail not found")
+        saved, log = self._run(True, "weird", boom)
+        self.assertEqual(saved, [])
+        self.assertIn("p272 pm vo shell FAILED", log)
+
+
 class TestKillSwitch(unittest.TestCase):
 
     def tearDown(self):
@@ -217,15 +304,16 @@ class TestJsParity(unittest.TestCase):
             cases.append({"name": route, "path": route, "context": ctx,
                           "items": [api._ser(it) for it in items]})
             want[route] = {"sec": sec["key"] if sec else "", "keys": [it["key"] for it in panel],
-                           "rail": fb.rail_html(rail, sec["key"] if sec else None),
+                           "labels": [it["label"] for it in panel],
+                           "rail": fb.rail_html(rail, sec["key"] if sec else None, FOOT),
                            "nav": fb.render_nav(panel, active, live=True),
                            "sig": sn.nav_signature(sn.sig_context(ctx, sec), panel, active)}
         rows = T._run_harness(node, "rail", {"rail": rail, "home": [api._ser(it) for it in home],
-                                             "cases": cases})
+                                             "cases": cases, "foot": FOOT})
         self.assertEqual(len(rows), len(self.ROUTES))
         for row in rows:
             w = want[row["name"]]
-            for k in ("sec", "keys", "rail", "nav", "sig"):
+            for k in ("sec", "keys", "labels", "rail", "nav", "sig"):
                 self.assertEqual(row[k], w[k], "%s %s" % (row["name"], k))
 
 
@@ -249,7 +337,13 @@ class TestHydration(unittest.TestCase):
             self.assertTrue(r["navKept"], route)
             self.assertEqual(r["rail"], "1", route)
             self.assertEqual(r["railBtns"], 8, route)
+            self.assertTrue(r["footInRail"], route)
             self.assertEqual(r["username"], "Hoan Tran", route)
+
+    def test_chat_page_keeps_rail_without_panel(self):
+        r = self._go(_render("/chat"), "/chat", self._boot())
+        self.assertTrue(r["navKept"])
+        self.assertEqual(r["nopanel"], "1")
 
     def test_kill_switch_in_boot_repaints_one_column_and_drops_attr(self):
         r = self._go(_render("/approvals"), "/approvals", self._boot(rail=False))
@@ -268,7 +362,8 @@ class TestHydration(unittest.TestCase):
 
 def load_tests(loader, tests, pattern):
     suite = unittest.TestSuite()
-    for case in (TestRegistry, TestServerRender, TestKillSwitch, TestJsParity, TestHydration):
+    for case in (TestRegistry, TestServerRender, TestRound2, TestPmPatch, TestKillSwitch, TestJsParity,
+                 TestHydration):
         suite.addTests(loader.loadTestsFromTestCase(case))
     if suite.countTestCases() != EXPECT_TOTAL:
         raise AssertionError("EXPECT_TOTAL=%d nhung nap %d test" % (EXPECT_TOTAL, suite.countTestCases()))
