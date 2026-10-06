@@ -33,16 +33,37 @@ render — cùng cơ chế A65 đang dùng để dựng lại menu trái. Trang 
   hướng dẫn xin quyền. Cấp quyền hàng loạt: `/raven` → Settings → Users → Add users
   (hàm `raven.api.raven_users.add_users_to_raven`; site không dùng Role Profile nên không bị bỏ sót).
 
+## "Ruột" Raven: tiếng Việt + màu ERP (06/10/2026)
+
+Không sửa Raven. Hai hook trong `chat/boot.py`, chỉ đụng trang `/raven` (cả khi nhúng trong `/chat`):
+
+- `extend_bootinfo`: phủ `chat/raven_vi.json` (1.684 chuỗi giao diện web Raven 3.0.0 → tiếng Việt) vào
+  `boot.__messages`. Không đổi ngôn ngữ tài khoản: Desk, HRMS, email giữ nguyên.
+- `after_request`: chèn vào HTML trang `/raven` một `<link>` tới `public/css/ec_chat_raven_skin.css`
+  (nút chính + kênh đang mở màu navy, logo eCentric) và một `<script src>` tới
+  `public/js/ec_raven_boot.js`, ngay sau thẻ script boot của Raven.
+- Vì sao cần `ec_raven_boot.js`: Raven 3.0.0 dịch bằng `window.frappe._messages` nhưng chỉ gán biến
+  này ở chế độ dev/offline, nên trên site thật mọi chuỗi luôn tiếng Anh. Script nối nó vào boot, và
+  chọn sẵn giao diện sáng cho người chưa tự chọn (ERP chỉ có giao diện sáng).
+- Raven đổi template (mất mốc `frappe.boot = JSON.parse(`) → trang giữ nguyên bản gốc, không vỡ.
+  Raven thêm chữ mới → chữ đó hiện tiếng Anh tới khi bổ sung vào `raven_vi.json`.
+- Vẫn tiếng Anh vì Raven viết cứng, không qua `_()`: ngày giờ ("6th October 2026", "3:19 pm"),
+  "Failed to load messages", bộ lọc "Participating" / "AI Agents" ở trang Luồng.
+- Tắt: `site_config` → `"ec_chat_skin_disabled": 1` (Raven về nguyên bản tiếng Anh, không cần deploy).
+- `/chat` chừa ~80px dưới khung: góc phải dưới là chỗ của eC Mate, nút Gửi của Raven nằm đúng góc đó.
+
 ## Kiểm
 
 ```
-python -m unittest ecentric_workspace.chat.tests.test_chat        # 27 test, gồm node harness ec_chat.js
+python -m unittest ecentric_workspace.chat.tests.test_chat        # 45 test, gồm node harness ec_chat.js + ec_raven_boot.js
 python -m unittest discover -s ecentric_workspace/shell/tests -t . -p "test_*.py"
 python tools/ci/check.py
 ```
 
 Đột biến (05/10): mở kênh ngoài danh sách, lộ trường Raven User, bỏ escape tiêu đề, bỏ qua kill
-switch, hiện kênh lưu trữ — 5/5 bị bắt.
+switch, hiện kênh lưu trữ — 5/5 bị bắt. Đột biến (06/10, lớp ruột): khớp nhầm `/ravenx`, sửa dict boot
+tại chỗ, chèn 2 lần, chèn sai chỗ, bỏ escape, bỏ kiểm đường dẫn / status / mimetype / kill switch, ghi đè
+`_messages` có sẵn, ghi đè chủ đề người dùng đã chọn — 11/11 bị bắt.
 
 ## Không kiểm được ngoài site thật
 
