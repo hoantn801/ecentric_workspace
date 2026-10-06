@@ -390,7 +390,8 @@
     globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/>',
     book:'<path d="M4 19a2 2 0 0 1 2-2h14V3H6a2 2 0 0 0-2 2z"/><path d="M4 19a2 2 0 0 0 2 2h14v-4"/>',
     userplus:'<circle cx="9" cy="8" r="4"/><path d="M3 21v-1a6 6 0 0 1 12 0v1M19 8v6M16 11h6"/>',
-    message:'<path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'
+    message:'<path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+    chat:'<path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5.4A8 8 0 1 1 21 12z"/>'
   };
   function svg(name) {
     return '<svg viewBox="0 0 24 24" aria-hidden="true">' + (ICONS[name] || ICONS.doc) + '</svg>';
@@ -432,6 +433,8 @@
         return sc.approval || 0;
       }
     }
+    // 'chat.unread' (Chat noi bo, 05/10/2026) CO Y khong o day: ec_chat.js to ca huy hieu
+    // menu trai lan o Tin nhan tu MOT lan goi get_unread_total. Khoa la nhan la -> bo qua.
   };
   var badgeCache = {};   // per-pageview promise cache (one fetch per source)
 
@@ -1306,7 +1309,16 @@
     // only, unread notifications show as a dot inside the drawer.
     // Notification delivery (realtime, toast, sound, desktop) is untouched:
     // notification_center.js boots independently of the bell node.
-    slot.innerHTML =
+    // Chat noi bo (05/10/2026): o Tin nhan dung TRUOC, CUNG markup voi
+    // fallback.render_chat_slot(); boot.chat_enabled do server tinh bang dung ham ma
+    // server dung de ve trang (chat.gateway.chat_enabled) -> lan ve dau == lan hydrate.
+    var chat = (S.boot && S.boot.chat_enabled)
+      ? '<a class="ec-shell-iconbtn ec-shell-chat" href="/chat" data-ec-shell-chat-slot="1" ' +
+          'aria-label="Tin nhắn" title="Tin nhắn" aria-haspopup="dialog" aria-expanded="false">' + svg('chat') +
+          '<span class="ec-shell-reminder-badge" data-ec-shell-chat-badge="1" hidden></span>' +
+        '</a>'
+      : '';
+    slot.innerHTML = chat +
       '<button type="button" class="ec-shell-iconbtn ec-shell-reminder" ' +
         'data-ec-shell-action-slot="1" aria-label="Việc của tôi" title="Việc của tôi" ' +
         'aria-haspopup="dialog" aria-expanded="false">' + svg('inbox') +
@@ -1355,6 +1367,9 @@
     bindLogoFallback();
     try { bindBadges(); } catch (e) { warn(e); }   // badges are cosmetic; never block
     try { bindReminder(); hydrateReminderBadge(); } catch (e) { warn(e); }
+    // Bao cho asset khac (ec_chat.js) la vung phai thanh tren vua ve lai: o do tu dien lai
+    // huy hieu cua minh. Shell KHONG biet gi ve chat ngoai markup cua o.
+    try { document.dispatchEvent(new CustomEvent('ec-shell:header-rendered')); } catch (e) {}
   }
 
   function reinit() {  // idempotent: safe to call repeatedly

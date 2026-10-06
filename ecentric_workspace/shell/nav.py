@@ -99,6 +99,16 @@ HOME_PORTAL_ITEMS = [
      "icon": "grid", "group": "Workspace", "order": 20, "active_patterns": ["/tong-quan"],
      "visible_when": "internal", "owner": "home_portal",
      "keywords": ["tong quan", "overview", "nhan su", "ho so nhan su", "hop dong", "so do phong ban"]},
+    # 05/10/2026 (Hoan chot A + C): Chat noi bo = Raven nhung trong vo ERP (/chat, chat/).
+    # Muc that (khong alias) -> resolve_context() dua /chat vao ngu canh portal. Huy hieu = tong
+    # tin chua doc cua NGUOI NAY tren Raven (chat/api.get_unread_total). Thanh tren co them o
+    # Tin nhan mo khay tha xuong (ec_chat.js); goc phai duoi de cho eC Mate.
+    {"key": "home.portal.chat", "label": "Chat nội bộ", "route": "/chat",
+     "icon": "chat", "group": "Workspace", "order": 13,
+     "active_patterns": ["/chat"], "visible_when": "internal", "owner": "home_portal",
+     "badge_source": "chat.unread",
+     "keywords": ["chat", "chat noi bo", "tin nhan", "nhan tin", "raven", "teams", "kenh",
+                  "message", "dm"]},
     # "Việc của tôi": the SAME session-scoped action feed the header inbox
     # drawer shows, as a full page. Canonically owned here (not an alias) so
     # resolve_context() puts it in the portal context. Rows are links only --

@@ -1,0 +1,50 @@
+/* ec_chat_page.css - trang /chat (Chat noi bo, PO chot A + C 05/10/2026).
+   Raven nhung trong iframe, nam trong vo shell ERP. Mau + chu theo DESIGN.md cua ERP.
+   Moi lop co tien to ecc- va moi luat nam duoi .ecc-app: khong dung toi trang khac,
+   khong dung toi .ec-sidebar / shell (shell co CSS rieng). Khong sua giao dien Raven. */
+
+.ecc-app{
+  --ecc-navy:#2C3DA6;--ecc-navy-50:#eef0fb;--ecc-navy-700:#1f2d80;
+  --ecc-bg:#f7f8fb;--ecc-surface:#fff;--ecc-line:#e5e7eb;
+  --ecc-g400:#9ca3af;--ecc-g500:#6b7280;--ecc-g600:#4b5563;--ecc-g800:#1f2937;--ecc-g900:#111827;
+  display:grid;grid-template-columns:248px minmax(0,1fr);min-height:100vh;
+  flex:0 0 auto;
+  background:var(--ecc-bg);color:var(--ecc-g800);
+  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  font-size:13.5px;line-height:1.5;letter-spacing:normal;color-scheme:light;
+}
+.ecc-app *,.ecc-app *::before,.ecc-app *::after{box-sizing:border-box}
+.ecc-app [hidden]{display:none !important}
+.ecc-app :focus-visible{outline:2px solid var(--ecc-navy);outline-offset:2px}
+.ecc-main{min-width:0;display:flex;flex-direction:column;height:100vh}
+.ecc-page{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:12px;padding:16px 20px 20px;width:100%}
+
+.ecc-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.ecc-head-title{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;min-width:0}
+.ecc-h1{margin:0;font-family:inherit;font-size:24px;font-weight:800;letter-spacing:-.4px;line-height:1.25;color:var(--ecc-g900)}
+.ecc-eyebrow{font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--ecc-g500)}
+.ecc-link{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--ecc-navy);text-decoration:none}
+.ecc-link:hover{color:var(--ecc-navy-700);text-decoration:underline}
+.ecc-ic{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+.ecc-frame-box{flex:1 1 auto;min-height:520px;display:flex;background:var(--ecc-surface);border:1px solid var(--ecc-line);border-radius:12px;overflow:hidden}
+.ecc-frame{flex:1 1 auto;width:100%;height:100%;min-height:520px;border:0;display:block;background:var(--ecc-surface)}
+
+.ecc-notice{max-width:560px;margin:48px auto;background:var(--ecc-surface);border:1px solid var(--ecc-line);border-radius:12px;padding:28px 24px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center}
+.ecc-notice-ic{width:36px;height:36px;fill:none;stroke:var(--ecc-navy);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;background:var(--ecc-navy-50);border-radius:10px;padding:7px}
+.ecc-notice-text{margin:0;font-size:14px;color:var(--ecc-g600);line-height:1.6}
+.ecc-btn{display:inline-flex;align-items:center;min-height:38px;padding:9px 15px;border:1px solid var(--ecc-line);border-radius:9px;background:var(--ecc-surface);color:#374151;font-size:12.5px;font-weight:600;text-decoration:none}
+.ecc-btn:hover{background:#f9fafb;color:var(--ecc-g900)}
+
+@media (max-width:900px){
+  .ecc-app{grid-template-columns:1fr}
+  .ecc-app .ec-shell-mount{display:none}
+}
+@media (max-width:640px){
+  .ecc-main{height:100dvh}
+  .ecc-page{padding:10px 8px 8px;gap:8px}
+  .ecc-h1{font-size:20px}
+  .ecc-eyebrow{display:none}
+  .ecc-frame-box,.ecc-frame{min-height:0}
+  .ecc-frame-box{border-radius:10px}
+}

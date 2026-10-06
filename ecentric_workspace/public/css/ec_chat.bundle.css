@@ -1,0 +1,72 @@
+/* ec_chat.bundle.css - o Tin nhan + khay tha xuong tren thanh tren ERP (Chat noi bo, mockup C,
+   PO chot 05/10/2026). Nap toan site qua hooks.py web_include_css; moi lop co tien to ec-chat-
+   (va .ec-shell-chat cho chinh o) nen khong va voi Bootstrap / trang khac.
+   z-index 960: tren shell (<= 900), duoi Notification Center (1000) va toast (1100). */
+
+.ec-shell-chat{ position:relative; overflow:visible; }
+
+.ec-chat-pop{
+  position:fixed; z-index:960; box-sizing:border-box; max-width:calc(100vw - 16px);
+  background:#fff; border:1px solid #e5e7eb; border-radius:12px;
+  box-shadow:0 12px 32px rgba(17,24,39,.12); overflow:hidden;
+  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  font-size:13.5px; line-height:1.5; letter-spacing:normal; color:#374151;
+  display:flex; flex-direction:column; max-height:min(560px, calc(100vh - 80px));
+}
+.ec-chat-pop *,.ec-chat-pop *::before,.ec-chat-pop *::after{ box-sizing:border-box; }
+.ec-chat-pop :focus-visible{ outline:2px solid #2C3DA6; outline-offset:2px; }
+
+.ec-chat-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px 14px; border-bottom:1px solid #f3f4f6; }
+.ec-chat-h{ margin:0; font-family:inherit; font-size:15px; font-weight:700; line-height:1.3; letter-spacing:normal; color:#111827; }
+.ec-chat-chips{ display:flex; gap:6px; }
+.ec-chat-chip{
+  min-height:28px; padding:4px 11px; border-radius:999px; border:1px solid #e5e7eb; background:#fff;
+  font:inherit; font-size:12px; font-weight:600; color:#4b5563; cursor:pointer;
+}
+.ec-chat-chip:hover{ background:#f9fafb; color:#111827; }
+.ec-chat-chip[aria-pressed="true"]{ background:#eef0fb; border-color:#d9deef; color:#2C3DA6; }
+
+.ec-chat-body{ flex:1 1 auto; overflow-y:auto; overscroll-behavior:contain; }
+.ec-chat-list{ display:flex; flex-direction:column; }
+.ec-chat-row{
+  display:flex; align-items:center; gap:10px; padding:10px 14px; min-height:56px;
+  border-bottom:1px solid #f3f4f6; text-decoration:none; color:inherit;
+}
+.ec-chat-row:hover{ background:#f9fafb; text-decoration:none; color:inherit; }
+.ec-chat-row-unread{ background:#fafbfc; }
+.ec-chat-av{ width:34px; height:34px; flex:0 0 34px; border-radius:999px; object-fit:cover; }
+.ec-chat-av-txt{ display:flex; align-items:center; justify-content:center; background:#eef0fb; color:#2C3DA6; font-size:12px; font-weight:700; }
+.ec-chat-av-ch{ display:flex; align-items:center; justify-content:center; border-radius:8px; background:#f3f4f6; color:#4b5563; }
+.ec-chat-av-ch svg{ width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.ec-chat-row-main{ flex:1 1 auto; min-width:0; display:flex; flex-direction:column; }
+.ec-chat-row-top{ display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+.ec-chat-row-title{ font-weight:600; color:#374151; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ec-chat-row-unread .ec-chat-row-title{ font-weight:700; color:#111827; }
+.ec-chat-row-time{ flex:0 0 auto; font-size:11.5px; color:#6b7280; }
+.ec-chat-row-prev{ font-size:12.5px; color:#6b7280; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ec-chat-row-unread .ec-chat-row-prev{ color:#374151; }
+.ec-chat-count{
+  flex:0 0 auto; min-width:18px; height:18px; padding:0 5px; border-radius:999px;
+  background:#dc2626; color:#fff; font-size:11px; font-weight:700; line-height:18px; text-align:center;
+}
+
+.ec-chat-empty{ padding:28px 16px; text-align:center; color:#4b5563; font-size:13px; }
+.ec-chat-empty p{ margin:0 0 10px; }
+.ec-chat-btn{
+  min-height:34px; padding:7px 14px; border-radius:9px; border:1px solid #e5e7eb; background:#fff;
+  font:inherit; font-size:12.5px; font-weight:600; color:#374151; cursor:pointer;
+}
+.ec-chat-btn:hover{ background:#f9fafb; color:#111827; }
+
+.ec-chat-sk{ padding:8px 14px; display:flex; flex-direction:column; gap:10px; }
+.ec-chat-sk i{ display:block; height:40px; border-radius:8px; background:linear-gradient(90deg,#f3f4f6,#f9fafb,#f3f4f6); background-size:200% 100%; animation:ec-chat-sk 1.2s linear infinite; }
+@keyframes ec-chat-sk{ from{ background-position:200% 0; } to{ background-position:0 0; } }
+.ec-chat-sr{ position:absolute !important; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+
+.ec-chat-foot{
+  display:block; padding:11px 14px; border-top:1px solid #e5e7eb; text-align:center;
+  font-size:13px; font-weight:600; color:#2C3DA6; text-decoration:none;
+}
+.ec-chat-foot:hover{ background:#f9fafb; color:#1f2d80; text-decoration:none; }
+
+@media (prefers-reduced-motion:reduce){ .ec-chat-sk i{ animation:none; } }

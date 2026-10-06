@@ -33,6 +33,8 @@ import re
 
 import frappe
 
+from ecentric_workspace.chat.gateway import chat_enabled
+
 from ecentric_workspace.shell import fallback as fb
 from ecentric_workspace.shell import nav as shell_nav
 
@@ -40,6 +42,7 @@ KILL_SWITCH = "ec_shell_server_nav_disabled"
 MOUNT_OPEN = '<aside class="ec-shell-mount"'
 MOUNT_CLOSE = "</aside>"
 OPT_IN = 'data-ec-shell="1"'
+TBRIGHT_OPEN = '<div class="ec-shell-tbright" data-ec-shell-header-right="1">'
 ATTR_CONTEXT = "data-ec-context"
 ATTR_SIG = "data-ec-nav-sig"
 LOG_TITLE = "ec_shell_server_nav"
@@ -110,6 +113,17 @@ def _log_once():
         pass
 
 
+def rebuild_tbright(ms, chat):
+    """Vung phai thanh tren dung lai LUC RENDER (05/10/2026, Chat noi bo). Ban nuong trong
+    file trang giu 2 o (cong vo shell so voi fallback.render_tbright_inner()); o day them o
+    Tin nhan khi chat bat. Dung MOT vung `.ec-shell-tbright` - 0 hoac >= 2 vung -> None
+    (de nguyen, khong doan), giong rebuild_mount."""
+    if not ms or ms.count(TBRIGHT_OPEN) != 1:
+        return None
+    return fb.TBRIGHT_RE.sub(lambda m: m.group(1) + fb.render_tbright_inner(chat=chat) + m.group(2),
+                             ms, count=1)
+
+
 def fill_shell_mount(context):
     """hooks.update_website_context. Tra {"main_section": ...} hoac None. Khong bao gio nem."""
     try:
@@ -118,8 +132,11 @@ def fill_shell_mount(context):
         ms = context.get("main_section")
         if not isinstance(ms, str) or MOUNT_OPEN not in ms:
             return None
-        new = rebuild_mount(ms, _route_of(context))
-        if new is None or new == ms:
+        new = rebuild_mount(ms, _route_of(context)) or ms
+        # Chat noi bo: chi khi o duoc bat - tat thi trang y het truoc thay doi nay.
+        if chat_enabled():
+            new = rebuild_tbright(new, True) or new
+        if new == ms:
             return None
         return {"main_section": new}
     except Exception:

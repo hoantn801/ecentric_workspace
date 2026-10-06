@@ -43,31 +43,50 @@ def _card(r, rev):
             "ec_doc_type": r.get("ec_doc_type"), "ec_doc_code": r.get("ec_doc_code")}
 
 
-def library_page(user, view="phong-ban", dept="", q="", repo=None):
+def library_page(user, view="phong-ban", dept="", q="", loai="", repo=None):
+    """Thu vien nhan vien (PO 06/10): mot man the theo phong ban - loc theo loai tai lieu (chip) va
+    phong ban (cot trai, "Tat ca" = moi phong, moi phong mot khoi). Tab "He thong ISO" giu rieng.
+    view "viec" cu (tab Theo viec can lam) -> phong-ban: link cu khong chet."""
     repo = _repo(repo)
     rows = _effective(repo.list_docs())
     revs = {r["parent"]: r for r in repo.revisions([r["name"] for r in rows], effective_only=True)}
     cards = [_card(r, revs.get(r["name"])) for r in rows]
     view = view if view in VIEWS else "phong-ban"
-    counts = {}
-    for c in cards:
-        counts[c["dept_name"]] = counts.get(c["dept_name"], 0) + 1
-    depts = [{"name": d, "label": V.dept_label(d), "count": n}
-             for d, n in sorted(counts.items(), key=lambda x: V.dept_label(x[0]))]
-    if dept not in counts:
-        dept = depts[0]["name"] if depts else ""
-    ctx = {"view": view, "q": q, "total": len(cards), "depts": depts, "dept": dept,
-           "dept_label": V.dept_label(dept), "results": None, "groups": [], "tasks": [], "system": []}
+    view = "phong-ban" if view == "viec" else view
+    ctx = {"view": view, "q": q, "total": len(cards), "results": None, "types": [], "depts": [],
+           "dept": "", "dept_label": "", "loai": "", "sections": [], "system": []}
     if q.strip():
         ctx["results"] = [c for c in cards if _match(c, q)]
         return ctx
-    if view == "phong-ban":
-        ctx["groups"] = V.group_by_type([c for c in cards if c["dept_name"] == dept])
-    elif view == "viec":
-        ctx["tasks"] = sorted((c for c in cards if c["use"] and c["type"] in ("Quy trình", "Hướng dẫn")),
-                              key=lambda c: c["name"])
-    else:
+    if view == "he-thong":
         ctx["system"] = [c for c in cards if V.code_dept(c["code"]) == "ISO"]
+        return ctx
+    # loai: dem tren phong dang chon; phong: dem tren loai dang chon -> so tren chip luon khop ket qua
+    dept_names = {c["dept_name"] for c in cards}
+    dept = dept if dept in dept_names else ""
+    in_dept = [c for c in cards if not dept or c["dept_name"] == dept]
+    tcount = {}
+    for c in in_dept:
+        tcount[c["type"] or "Khác"] = tcount.get(c["type"] or "Khác", 0) + 1
+    loai = loai if loai in tcount else ""
+    order = V.TYPE_ORDER + sorted(k for k in tcount if k not in V.TYPE_ORDER)
+    ctx["types"] = [{"name": t, "label": V.TYPE_PLURAL.get(t, t), "count": tcount[t]} for t in order if t in tcount]
+    of_type = [c for c in cards if not loai or (c["type"] or "Khác") == loai]
+    dcount = {}
+    for c in of_type:
+        dcount[c["dept_name"]] = dcount.get(c["dept_name"], 0) + 1
+    ctx["depts"] = [{"name": d, "label": V.dept_label(d), "count": dcount.get(d, 0)}
+                    for d in sorted(dept_names, key=V.dept_label)]
+    ctx["all_count"] = len(of_type)
+    shown = [c for c in of_type if not dept or c["dept_name"] == dept]
+    groups = {}
+    for c in shown:
+        groups.setdefault(c["dept_name"], []).append(c)
+    t_rank = {t: i for i, t in enumerate(order)}
+    ctx["sections"] = [{"dept": d, "label": V.dept_label(d),
+                        "cards": sorted(groups[d], key=lambda c: (t_rank.get(c["type"] or "Khác", 99), c["name"]))}
+                       for d in sorted(groups, key=V.dept_label)]
+    ctx.update(dept=dept, dept_label=V.dept_label(dept) if dept else "", loai=loai)
     return ctx
 
 
