@@ -359,3 +359,10 @@
 .esc-rxw [data-esc-rx-sum][tabindex]:hover{background:var(--soft)}
 .esc-tip{display:none;position:absolute;left:-4px;bottom:calc(100% + 6px);z-index:25;background:#111827;color:#fff;font-size:12px;line-height:1.45;border-radius:8px;padding:6px 10px;width:max-content;max-width:280px;white-space:normal;box-shadow:0 6px 18px rgba(0,0,0,.18)}
 .esc-rxw:hover .esc-tip:not(:empty),.esc-rxw:focus-within .esc-tip:not(:empty){display:block}
+/* Xem truoc binh luan tren the bai (mockup v2). */
+.esc-cm-preview{border-top:1px solid var(--soft);padding:8px 16px 10px;display:flex;flex-direction:column;gap:6px}
+.esc-cm-preview .esc-bub p{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.esc-cm-more{align-self:flex-start;margin-left:36px;font-weight:600}
+/* CLB chua co nguoi phu trach (trang Quan ly). */
+.esc-modclub-nolead{border-color:var(--amber-ink);box-shadow:inset 3px 0 0 var(--amber-ink)}
+.esc-badge-warn{background:var(--yellow-50);color:var(--amber-ink)}

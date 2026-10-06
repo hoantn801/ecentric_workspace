@@ -351,6 +351,8 @@
     var wrap = card.querySelector('[data-esc-cmts-wrap]');
     if (!wrap) return;
     wrap.hidden = false;
+    var pv = card.querySelector('[data-esc-cmt-preview]');
+    if (pv) pv.remove();                // khoi day du thay cho phan xem truoc
     var post = card.getAttribute('data-esc-post');
     var done = function () {
       var ta = wrap.querySelector('[data-esc-cmt-in]');

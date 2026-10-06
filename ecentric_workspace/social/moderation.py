@@ -27,7 +27,7 @@ def page(user, tab="bao-cao", repo=None):
     reports = repo.open_reports()
     pending = repo.clubs([C.CLUB_PENDING])
     ctx = {"tab": tab, "tabs": [{"key": k, "label": lb} for k, lb in TABS], "n_reports": len({r["post"] for r in reports}),
-           "n_pending": len(pending), "groups": [], "hidden": [], "pending": [], "active": [], "archived": []}
+           "n_pending": len(pending), "groups": [], "hidden": [], "pending": [], "active": [], "archived": [], "no_lead": 0}
     if tab == "bao-cao":
         by_post = {}
         for r in reports:
@@ -52,4 +52,7 @@ def page(user, tab="bao-cao", repo=None):
             c["proposer"] = leads.get(props.get(c["name"])) or ""
             key = {C.CLUB_PENDING: "pending", C.CLUB_ACTIVE: "active", C.CLUB_ARCHIVED: "archived"}[c["status"]]
             ctx[key].append(c)
+        # CLB chua co nguoi phu trach len dau: khong ai tao duoc su kien cho CLB do (tru HR).
+        ctx["active"].sort(key=lambda c: bool(c.get("lead_name")))
+        ctx["no_lead"] = sum(1 for c in ctx["active"] if not c.get("lead_name"))
     return ctx
