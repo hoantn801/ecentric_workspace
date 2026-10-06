@@ -237,20 +237,36 @@ class TestLibrary(unittest.TestCase):
         ctx = L.library_page(EMP, repo=seeded())
         self.assertEqual(ctx["total"], 3)          # bo ban nhap moi + tai lieu het hieu luc
         self.assertEqual([d["label"] for d in ctx["depts"]], ["Finance & Accounting", "Operation & Data & System"])
-        self.assertEqual(ctx["dept"], FIN)
-        codes = [c["code"] for _l, rows in ctx["groups"] for c in rows]
-        self.assertEqual(codes, ["QT-TCKT-01", "QT-TCKT-03"])
+        self.assertEqual(ctx["dept"], "")          # mac dinh: moi phong, moi phong mot khoi
+        self.assertEqual([(s["label"], [c["code"] for c in s["cards"]]) for s in ctx["sections"]],
+                         [("Finance & Accounting", ["QT-TCKT-01", "QT-TCKT-03"]),
+                          ("Operation & Data & System", ["QT-ISO-03"])])
+        self.assertEqual(ctx["all_count"], 3)
+
+    def test_filter_dept_and_type(self):
+        r = seeded()
+        r.docs["QT-TCKT-01"]["ec_doc_type"] = "Hướng dẫn"
+        ctx = L.library_page(EMP, dept=FIN, repo=r)
+        self.assertEqual([s["dept"] for s in ctx["sections"]], [FIN])
+        self.assertEqual([(t["name"], t["count"]) for t in ctx["types"]], [("Quy trình", 1), ("Hướng dẫn", 1)])
+        ctx = L.library_page(EMP, loai="Hướng dẫn", repo=r)
+        self.assertEqual([c["code"] for s in ctx["sections"] for c in s["cards"]], ["QT-TCKT-01"])
+        self.assertEqual({d["label"]: d["count"] for d in ctx["depts"]},
+                         {"Finance & Accounting": 1, "Operation & Data & System": 0})
+        ctx = L.library_page(EMP, dept="Không có", loai="Lạ", repo=r)       # tham so la -> bo qua
+        self.assertEqual((ctx["dept"], ctx["loai"], len(ctx["sections"])), ("", "", 2))
+        ctx = L.library_page(EMP, dept=OPS, loai="Hướng dẫn", repo=r)      # loai khong co o phong -> bo loc
+        self.assertEqual(ctx["loai"], "")
 
     def test_drafting_flag(self):
         ctx = L.library_page(EMP, repo=seeded())
-        flags = {c["code"]: c["drafting"] for _l, rows in ctx["groups"] for c in rows}
-        self.assertEqual(flags, {"QT-TCKT-01": True, "QT-TCKT-03": False})
+        flags = {c["code"]: c["drafting"] for s in ctx["sections"] for c in s["cards"]}
+        self.assertEqual(flags, {"QT-TCKT-01": True, "QT-TCKT-03": False, "QT-ISO-03": False})
 
     def test_views(self):
         r = seeded()
         self.assertEqual([c["code"] for c in L.library_page(EMP, view="he-thong", repo=r)["system"]], ["QT-ISO-03"])
-        tasks = L.library_page(EMP, view="viec", repo=r)["tasks"]
-        self.assertTrue(tasks and all(t["use"] for t in tasks))
+        self.assertEqual(L.library_page(EMP, view="viec", repo=r)["view"], "phong-ban")   # link cu
         self.assertEqual(L.library_page(EMP, view="la", repo=r)["view"], "phong-ban")
 
     def test_search_accent_insensitive(self):
@@ -516,6 +532,13 @@ class TestTemplates(unittest.TestCase):
         for view in ("phong-ban", "viec", "he-thong"):
             out = render("index", dict(L.library_page(EMP, view=view, repo=r), can_manage=True))
             self.assertIn('aria-current="page"', out)
+        out = render("index", dict(L.library_page(EMP, repo=r), can_manage=True))
+        self.assertIn("Tất cả phòng ban", out)
+        self.assertIn('class="eti-sec-h"', out)
+        self.assertNotIn("Theo việc cần làm", out)
+        out = render("index", dict(L.library_page(EMP, dept=FIN, loai="Quy trình", repo=r), can_manage=True))
+        self.assertIn('href="/tai-lieu?loai=Quy%20tr%C3%ACnh"', out)       # bo phong, giu loai
+        self.assertIn('href="/tai-lieu?phong=Finance%20%26%20Accounting%20-%20EC"', out)
         self.check(render("index", dict(L.library_page(EMP, repo=r), can_manage=False)))
         out = render("index", dict(L.library_page(EMP, q="thanh", repo=r), can_manage=False))
         self.assertIn("kết quả cho", out)

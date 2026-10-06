@@ -17,7 +17,8 @@ sitemap = 0
 def get_context(context):
     pages.require_login(pages.ROUTE)
     context.update(library.library_page(frappe.session.user, view=pages.arg("xem", "phong-ban"),
-                                        dept=pages.arg("phong"), q=pages.arg("q")))
+                                        dept=pages.arg("phong"), q=pages.arg("q"),
+                                        loai=pages.arg("loai")))
     context.title = "Thư viện tài liệu"
     context.can_manage = _can_manage()
     pages.shell(context)

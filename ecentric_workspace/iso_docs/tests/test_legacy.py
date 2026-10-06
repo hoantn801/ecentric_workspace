@@ -124,7 +124,7 @@ class TestLegacyImport(unittest.TestCase):
         r = Repo()
         run(r)
         ctx = L.library_page(TP.EMP, repo=r)
-        card = ctx["groups"][0][1][0]
+        card = ctx["sections"][0]["cards"][0]
         self.assertTrue(card["legacy"])
         self.assertEqual(card["use"], TP.PKG["tom_tat"]["dung_khi"])   # "Dung khi" truoc, roi moi toi "Muc dich"
         d = L.doc_page(TP.EMP, "QT-TCKT-02", repo=r)
@@ -133,7 +133,7 @@ class TestLegacyImport(unittest.TestCase):
         out = TP.render("chi_tiet", {"d": d, "roles_json": "[]", "mermaid_js": "/m.js"})
         self.assertIn("Bản cũ chuyển từ SharePoint", out)
         out = TP.render("index", dict(ctx, can_manage=False))
-        self.assertIn(">Bản cũ<", out)
+        self.assertNotIn(">Bản cũ<", out)          # PO 06/10: the thu vien bo nhan (ca 61 deu la ban cu)
 
 
 if __name__ == "__main__":
