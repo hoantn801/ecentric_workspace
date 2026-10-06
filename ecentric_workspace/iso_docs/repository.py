@@ -224,3 +224,52 @@ def history(doc_name):
         out.append({"kind": r.comment_type, "text": text, "who": names.get(r.owner, r.owner),
                     "when": frappe.utils.format_datetime(r.creation, "dd/MM/yyyy HH:mm")})
     return out
+
+
+# --------------------------------------------------------------------------- thong bao (notify.py)
+def conf_flag(key):
+    return bool(frappe.conf.get(key))
+
+
+def get_doc_any(name):
+    """Doc tai lieu KHONG kiem quyen - chi dung trong job nen thong bao (khong tra gi ra ngoai)."""
+    if not name or not frappe.db.exists(C.QP, name):
+        return None
+    return frappe.get_doc(C.QP, name)
+
+
+def role_users(role):
+    """User dang bat (enabled) co role - Administrator / Guest loai."""
+    rows = frappe.get_all("Has Role", filters={"role": role, "parenttype": "User"}, pluck="parent")
+    if not rows:
+        return []
+    ok = set(frappe.get_all("User", filters={"name": ["in", rows], "enabled": 1}, pluck="name"))
+    return sorted(u for u in ok if u not in ("Administrator", "Guest"))
+
+
+def last_note(doc_name, actor):
+    """Y kien moi nhat cua nguoi bam (Comment "Tra lai: ...") - de dua vao thong bao."""
+    rows = frappe.get_all("Comment", filters={"reference_doctype": C.QP, "reference_name": doc_name,
+                                               "comment_type": "Comment", "owner": actor},
+                          fields=["content"], order_by="creation desc", limit_page_length=1)
+    if not rows:
+        return ""
+    text = frappe.utils.strip_html(rows[0].content or "").strip()
+    return text.split(":", 1)[1].strip() if ":" in text else text
+
+
+def notify(event, recipient, title, message, url, doc_name, actor, dedupe_key):
+    from ecentric_workspace.notification_center.events import publish_notification_event
+    return publish_notification_event(event, recipient, title, message, action_url=url,
+                                      reference_doctype=C.QP, reference_name=doc_name,
+                                      actor=actor, from_user=actor, dedupe_key=dedupe_key)
+
+
+def enqueue_notify(name, before, after, actor, stamp):
+    frappe.enqueue("ecentric_workspace.iso_docs.notify.state_changed", queue="short", timeout=300,
+                   enqueue_after_commit=True, name=name, before=before, after=after, actor=actor,
+                   stamp=stamp)
+
+
+def log_error(title):
+    frappe.log_error(title=title, message=frappe.get_traceback())

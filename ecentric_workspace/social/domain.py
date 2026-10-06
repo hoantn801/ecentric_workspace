@@ -90,6 +90,11 @@ def clean_text(text, limit, empty_msg=None):
     return t
 
 
+def clip(text, n):
+    t = str(text or "").strip()
+    return t if len(t) <= n else t[:n - 1].rsplit(" ", 1)[0] + "…"
+
+
 def kudos_label(value):
     return dict(C.KUDOS_VALUES).get(value or "", "")
 

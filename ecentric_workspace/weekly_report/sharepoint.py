@@ -126,77 +126,20 @@ def _item_url(rel_path):
     return GRAPH + "/sites/" + SITE_ID + "/drive/root:/" + quote(rel_path, safe="/")
 
 
-#: Hau to them vao ten tep khi Graph tu choi vi trung ten. Thu lan luot cho den
-#: khi lot, roi moi chiu thua. Ba lan la du: qua ba lan thi khong phai va cham
-#: ten nua ma la chuyen khac, va thu them chi lam nguoi dung doi lau hon.
-RENAME_ATTEMPTS = 3
-
-
-def _with_suffix(rel_path, n):
-    """`.../2026-W40_NV1_bao cao.pdf` + 2 -> `.../2026-W40_NV1_bao cao (2).pdf`.
-
-    Chen TRUOC duoi tep, khong noi vao cuoi: `bao cao.pdf (2)` thi SharePoint
-    va trinh duyet deu khong con nhan ra la PDF.
-    """
-    head, sep, tail = rel_path.rpartition("/")
-    base, dot, ext = tail.rpartition(".")
-    if not dot:                      # khong co duoi tep
-        return head + sep + tail + " (%d)" % n
-    return head + sep + base + " (%d)" % n + dot + ext
-
-
 def create_deck_upload_session(rel_path, token):
-    """-> uploadUrl (chuoi). Giu nguyen kieu tra ve cu.
-
-    Tung dinh tra ve (url, duong_dan_that) de nguoi goi biet tep doi ten thanh
-    gi. KHONG lam the: `approval_center...sharepoint_mirror` dung gia tri nay
-    THANG lam URL de PUT, nen tra ve tuple la lam hong module cua chat khac.
-    Va cung khong can: ca hai noi goi deu lay `webUrl` tu phan hoi cuoi cua
-    Graph, tuc duong dan THAT -- tep co doi ten thi ban ghi van tro dung cho.
-    Lan doi ten duoc ghi vao Error Log de con truy.
-
-    VI SAO CO VONG THU LAI (04/10/2026): hai nguoi bi chan nop vi
-    `HTTP 409 nameAlreadyExists`, 13 lan trong hai ngay. Code DA gui
-    `conflictBehavior: replace` va dong do dang chay tren production, nen Graph
-    van tu choi ghi de -- co the vi tep dang bi check-out, hoac vi mot phien
-    upload do dang con giu cho. Nguyen nhan goc chua xac dinh.
-    Nhung du nguyen nhan la gi, nem nguyen ma loi Graph ra man hinh nguoi nop
-    la sai: ho khong lam gi sai, va ho khong doc duoc
-    `{"error":{"code":"nameAlreadyExists"`. Doi ten mot lan roi di tiep thi ho
-    nop duoc; con lai de minh truy nguyen nhan sau.
-    """
     # Do NOT send item.name: rel_path already ends with the final (prefixed)
     # filename, and a differing item.name makes Graph answer 400 invalidRequest.
-    last = None
-    for attempt in range(RENAME_ATTEMPTS + 1):
-        path = rel_path if attempt == 0 else _with_suffix(rel_path, attempt + 1)
-        resp = requests.post(
-            _item_url(path) + ":/createUploadSession",
-            headers={"Authorization": "Bearer " + token,
-                     "Content-Type": "application/json"},
-            json={"item": {"@microsoft.graph.conflictBehavior": "replace"}},
-            timeout=TIMEOUT,
-        )
-        if resp.status_code < 400:
-            url = (resp.json() or {}).get("uploadUrl")
-            if not url:
-                raise GraphError("Graph did not return an uploadUrl")
-            if attempt:
-                # De lai dau vet: neu chuyen nay thanh thuong xuyen thi phai
-                # chua goc, chu khong phai de no lang le sinh ra ban sao.
-                frappe.log_error(
-                    message="%s -> %s (lan thu %d)" % (rel_path, path, attempt + 1),
-                    title="wr_upload_doi_ten_do_trung",
-                )
-            return url
-
-        last = "HTTP {0} {1}".format(resp.status_code, (resp.text or "")[:400])
-        # Chi doi ten khi dung la va cham TEN. Moi loi khac (401, 403, 404,
-        # 500...) doi ten khong cuu duoc, va thu them chi lam nguoi dung doi.
-        if not (resp.status_code == 409 and "nameAlreadyExists" in (resp.text or "")):
-            break
-
-    raise GraphError("createUploadSession {0} failed: {1}".format(rel_path, last))
+    resp = requests.post(
+        _item_url(rel_path) + ":/createUploadSession",
+        headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"},
+        json={"item": {"@microsoft.graph.conflictBehavior": "replace"}},
+        timeout=TIMEOUT,
+    )
+    _check(resp, "createUploadSession " + rel_path)
+    url = (resp.json() or {}).get("uploadUrl")
+    if not url:
+        raise GraphError("Graph did not return an uploadUrl")
+    return url
 
 
 def dept_clean(department):

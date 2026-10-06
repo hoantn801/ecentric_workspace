@@ -46,6 +46,7 @@ def build(repo, cx, rows, clubs_map=None):
     targets = [C.RX_PREFIX + n for n in names_] + [r["moment_key"] for r in rows if r.get("moment_key")]
     rx_rows = repo.reactions(targets)
     cmts = repo.comment_counts(names_)
+    previews = repo.latest_comments([n for n in names_ if cmts.get(n)], C.PREVIEW_COMMENTS)
     ev_names = [r["name"] for r in rows if r.get("kind") == C.KIND_EVENT]
     rsvp_rows = repo.rsvps(ev_names) if ev_names else []
     by_post = {}
@@ -57,6 +58,7 @@ def build(repo, cx, rows, clubs_map=None):
         users.update(mentions.get(r["name"]) or [])
     users.update(r["user"] for r in rsvp_rows)
     users.update(r.get("user") for r in rx_rows if r.get("user"))
+    users.update(c.get("user") for v in previews.values() for c in v if c.get("user"))
     names = repo.full_names(list(users))
     depts = repo.user_departments([r.get("author") for r in rows if r.get("author")])
     if clubs_map is None:
@@ -81,6 +83,9 @@ def build(repo, cx, rows, clubs_map=None):
             "ts": D.ts(r.get("creation")),
             "rx": D.rx_summary(rx_rows, C.RX_PREFIX + n, user, names=names),
             "comments": cmts.get(n, 0),
+            # Xem truoc 1-2 binh luan moi nhat duoi bai (mockup v2); bam mo thi thay bang khoi day du.
+            "preview": [{"author": D.person(c.get("user"), names), "text": D.clip(c.get("content"), C.PREVIEW_CHARS)}
+                        for c in previews.get(n) or []] if not r.get("hidden") else [],
             "hidden": bool(r.get("hidden")), "hidden_reason": r.get("hidden_reason") or "",
             "can_edit": mine and not r.get("hidden"), "can_delete": mine or cx["moderator"],
             "can_report": not mine, "can_hide": cx["moderator"],

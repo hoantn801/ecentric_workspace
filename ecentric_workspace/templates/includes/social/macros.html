@@ -104,6 +104,14 @@
     {%- endif %}
     <button type="button" data-esc-cmt-open>💬 {{ 'Gửi lời chúc' if c.moment else 'Bình luận' }}</button>
   </div>
+  {%- if c.preview and not open_comments %}
+  <div class="esc-cm-preview" data-esc-cmt-preview>
+    {%- for p in c.preview %}
+    <div class="esc-cm">{{ av(p.author, 'esc-av-s') }}<div class="esc-cm-b"><div class="esc-bub"><b>{{ p.author.name|e }}</b><p>{{ p.text|e }}</p></div></div></div>
+    {%- endfor %}
+    {%- if c.comments > c.preview|length %}<button type="button" class="esc-linkbtn esc-cm-more" data-esc-cmt-open>Xem tất cả {{ c.comments }} {{ 'lời chúc' if c.moment else 'bình luận' }}</button>{% endif %}
+  </div>
+  {%- endif %}
   <div class="esc-cmts-wrap" data-esc-cmts-wrap{% if not open_comments %} hidden{% endif %}{% if cm_html %} data-esc-loaded="1" id="binh-luan"{% endif %}>{{ cm_html }}</div>
 </article>
 {%- endmacro -%}

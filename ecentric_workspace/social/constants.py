@@ -49,6 +49,9 @@ KUDOS_VALUES = (
 
 # ------------------------------------------------------------------ bang tin ------
 FEED_PAGE = 20
+#: Xem truoc binh luan tren the bai: so binh luan goc moi nhat + do dai toi da moi binh luan.
+PREVIEW_COMMENTS = 2
+PREVIEW_CHARS = 200
 #: Tin noi bo ghim con "noi" dau trang 1 trong bay nhieu ngay ke tu luc dang.
 PIN_FLOAT_DAYS = 14
 #: ?loc= tren /bang-tin

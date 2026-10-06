@@ -258,6 +258,22 @@ def comment_counts(names):
     return IR.comment_counts(names, ref_doctype=C.POST_DT)
 
 
+def latest_comments(names, per=2):
+    """{bai: [binh luan goc moi nhat, dang hien]} - xem truoc tren the bai (cu -> moi)."""
+    out = {n: [] for n in names or ()}
+    if not names:
+        return out
+    rows = frappe.db.sql(
+        "select name, post, user, content, creation from `tabEC Post Comment` "
+        "where ref_doctype = %s and post in %s and ifnull(parent_comment, '') = '' "
+        "and ifnull(hidden, 0) = 0 and ifnull(deleted, 0) = 0 order by creation desc limit 500",
+        (C.POST_DT, tuple(names)), as_dict=True)
+    for r in rows:
+        if len(out.setdefault(r.post, [])) < per:
+            out[r.post].append(dict(r))
+    return {n: list(reversed(v)) for n, v in out.items()}
+
+
 # ------------------------------------------------------------------ CLB --------------
 def clubs(statuses=None):
     filters = {"status": ["in", list(statuses)]} if statuses else {}

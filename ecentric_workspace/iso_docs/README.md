@@ -38,6 +38,23 @@ hiện từ ngày hiệu lực đến +6 ngày, link `/tai-lieu/<mã>` "Xem tài
 Một thông báo cho mỗi phiên bản; lỗi tạo thông báo **không chặn** ban hành (savepoint + Error Log).
 Thu hồi tài liệu thì rút thông báo. Không đụng `ec_home_popup.js`, `home_today/service.py`, trang chủ.
 
+## Thông báo người duyệt (06/10, `notify.py`)
+
+Mỗi lần trạng thái đổi qua luồng duyệt, `service.on_update` xếp job `notify.state_changed`
+(chạy sau commit, hàng `short`). Ai nhận do `domain.notify_plan` quyết định:
+
+| Chuyển sang | Ai nhận | Link |
+|---|---|---|
+| Chờ trưởng bộ phận | `ec_dept_head` (trống thì Ban ISO) | `/tai-lieu/quan-ly?loc=cho-toi&ma=` |
+| Chờ Ban ISO | mọi user role Ban ISO | như trên |
+| Chờ Tổng giám đốc, Chờ thu hồi | role TGĐ duyệt tài liệu | như trên |
+| Nháp (bị trả lại từ bước chờ) | người soạn, kèm ý kiến | `/tai-lieu/soan?ma=` |
+| Ban hành | người soạn | `/tai-lieu/<mã>` |
+
+Không báo chính người bấm. Nhập file cũ (`force_published`) không qua `on_update` nên không báo ai.
+Tắt hẳn: `site_config` `ec_iso_notify_disabled = 1`. Qua `notification_center.publish_notification_event`
+(chuông ERP + Teams theo ma trận của notification_center), dedupe theo (tài liệu, trạng thái, lần lưu).
+
 ## Quyền
 
 - Ban ISO / TGĐ duyệt tài liệu / System Manager: mọi tài liệu.

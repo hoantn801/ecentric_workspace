@@ -10,7 +10,8 @@
         {{ club_icon(club, 'esc-space-ic') }}
         <div class="esc-grow"><h1 class="esc-h2" id="esc-club-h">CLB {{ club.title|e }}</h1>
           <p>{{ club.members }} thành viên{% if lead %} · phụ trách: {{ lead.name|e }}{% endif %} · bài CLB hiện cả ở Bảng tin chung</p>
-          {% if club.status != 'Đang hoạt động' %}<p class="esc-warn">{{ club.status|e }}</p>{% endif %}</div>
+          {% if club.status != 'Đang hoạt động' %}<p class="esc-warn">{{ club.status|e }}</p>
+          {%- elif not lead %}<p class="esc-warn">Chưa có người phụ trách nên chưa tạo được sự kiện.{% if is_moderator %} <a href="{{ mod_url|e }}">Chỉ định người phụ trách</a>{% else %} HR sẽ chỉ định sớm.{% endif %}</p>{% endif %}</div>
         {%- if club.joined %}
         <button type="button" class="esc-btn" data-esc-join="{{ club.name|e }}" aria-pressed="true" data-reload="1"{% if club.is_lead %} disabled title="Bạn đang phụ trách CLB này"{% endif %}>✓ Đã tham gia</button>
         {%- else %}

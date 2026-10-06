@@ -34,11 +34,12 @@
   </div>
   {% else %}<p class="esc-note-sm">Không có đề xuất nào.</p>{% endfor %}
   <h2 class="esc-h2 esc-mt">Đang hoạt động</h2>
+  {% if no_lead %}<p class="esc-warn">{{ no_lead }} CLB chưa có người phụ trách: chưa ai tạo được sự kiện cho các CLB này. Chọn người ngay trong thẻ CLB rồi bấm Lưu.</p>{% endif %}
   {% for c in active %}
-  <div class="esc-card esc-pad esc-modclub" data-esc-modclub="{{ c.name|e }}">
-    <div class="esc-li">{{ club_icon(c) }}<div><a href="{{ c.url|e }}"><b>{{ c.title|e }}</b></a><small>{{ c.members }} thành viên · phụ trách: {{ c.lead_name|e or 'chưa có' }}</small></div>
+  <div class="esc-card esc-pad esc-modclub{% if not c.lead_name %} esc-modclub-nolead{% endif %}" data-esc-modclub="{{ c.name|e }}" id="clb-{{ c.name|e }}">
+    <div class="esc-li">{{ club_icon(c) }}<div><a href="{{ c.url|e }}"><b>{{ c.title|e }}</b></a><small>{{ c.members }} thành viên · {% if c.lead_name %}phụ trách: {{ c.lead_name|e }}{% else %}<span class="esc-badge esc-badge-warn">Chưa có người phụ trách</span>{% endif %}</small></div>
       <button type="button" class="esc-btn esc-btn-sm" data-esc-status="0">Ngừng hoạt động</button></div>
-    <div class="esc-lead-row"><span class="esc-cp-lbl">Đổi người phụ trách</span><div class="esc-pick" data-esc-pick="lead" data-single="1"></div><button type="button" class="esc-btn esc-btn-sm" data-esc-set-lead>Lưu</button></div>
+    <div class="esc-lead-row"><span class="esc-cp-lbl">{{ 'Đổi người phụ trách' if c.lead_name else 'Chọn người phụ trách' }}</span><div class="esc-pick" data-esc-pick="lead" data-single="1"></div><button type="button" class="esc-btn esc-btn-sm" data-esc-set-lead>Lưu</button></div>
   </div>
   {% else %}<p class="esc-note-sm">Chưa có CLB nào.</p>{% endfor %}
   {% if archived %}
