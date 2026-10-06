@@ -274,5 +274,9 @@
     "baseline": "2026-09-29",
     "last_resync_patch": "p223_resync_alert_center_nhieu_lop",
     "sha256": "e8be1000a03aa65b14d56223d636ea9b0e3a7462024196ab89282c437c4df99c"
+  },
+  "weekly_report/pages/weekly_update/main_section.html": {
+    "last_resync_patch": "p229_resync_weekly_update",
+    "sha256": "da7c585c163844a84cb30a5c7a588de0a11d40a7082f3d44b886777e445fe798"
   }
 }
