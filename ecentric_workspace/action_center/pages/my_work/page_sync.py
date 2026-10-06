@@ -47,8 +47,26 @@ def _html():
         return fh.read()
 
 
+def _with_tab_bar(html):
+    """Gan thanh tab duoi (dien thoai) vao NGUON truoc khi ghi (07/10/2026, Hoan: bam
+    "Viec cua toi" thi mat menu duoi).
+
+    Thanh tab cua trang nay KHONG nam trong main_section.html: hr/pages/tab_bar.py tung
+    chen no thang vao ban LIVE (insert_transform, chep tu /ec-hr/salary). Moi lan resync trang
+    nay (p213, p264, p267) ghi de ban live bang nguon repo -> thanh tab mat theo, khong ai bao.
+    Nen sync goi lai DUNG phep bien doi do tren nguon - mot nguon thanh tab duy nhat van la
+    /ec-hr/salary, khong chep them ban thu hai vao repo. Khong lay duoc (trang nguon thieu /
+    moc khong khop) -> ghi log, van sync trang (khong co thanh tab con hon khong cap nhat)."""
+    try:
+        from ecentric_workspace.hr.pages import tab_bar
+        return tab_bar.insert_transform(html, ROUTE, tab_bar.INSERT_TARGETS[ROUTE])
+    except Exception:
+        frappe.log_error(title="my_work: khong gan duoc thanh tab", message=frappe.get_traceback())
+        return html
+
+
 def sync(html=None):
-    html = html if html is not None else _html()
+    html = _with_tab_bar(html if html is not None else _html())
     res = page_sync_util.upsert_web_page(ROUTE, NAME, TITLE, html, publish=1)
     if res.get("name") and frappe.db.exists("Web Page", res["name"]):
         res.update(page_sync_util.strip_legacy_shims(res["name"]))
