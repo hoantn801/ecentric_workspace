@@ -2,6 +2,7 @@
 //
 //   node server_nav_harness.js parity  <fixture.json>
 //   node server_nav_harness.js hydrate <fixture.json>
+//   node server_nav_harness.js rail    <fixture.json>   (menu 2 tang: railView/railHtml)
 //
 // parity : in navHtml()/navSig() cua JS cho tung case -> Python so voi ban server.
 // hydrate: dung trang tu `html` (menu do server dung san), cho fetch boot tra `boot`,
@@ -58,13 +59,41 @@ async function hydrate() {
     username: name ? name.textContent : null,
     links: mount ? mount.querySelectorAll('.ec-shell-nav a').length : -1,
     logout: mount ? mount.querySelectorAll('[data-ec-shell-logout]').length : -1,
+    rail: mount ? mount.getAttribute('data-ec-rail') : null,
+    railBtns: mount ? mount.querySelectorAll('.ec-shell-railbtn').length : -1,
+    railOn: (mount && mount.querySelector('.ec-shell-railon')) ? mount.querySelector('.ec-shell-railon').getAttribute('data-ec-shell-rail') : null,
   }));
+}
+
+// rail: in railView()/railHtml()/navHtml()/navSig() cua JS cho tung case (menu 2 tang).
+function railParity() {
+  const vm = require('vm');
+  const win = { location: { pathname: '/nowhere' }, addEventListener() {}, console };
+  win.window = win;
+  const doc = { readyState: 'complete', querySelector: () => null, addEventListener() {} };
+  const sb = vm.createContext({ window: win, document: doc, console });
+  vm.runInContext(SRC, sb);
+  const E = win.ECShell;
+  const out = fixture.cases.map(c => {
+    const v = E.railView(fixture.rail, c.context, c.items, fixture.home, c.path);
+    const active = E.matchActive(v.panel, c.path);
+    const secKey = v.sec ? v.sec.key : '';
+    return {
+      name: c.name, sec: secKey, active: active,
+      keys: v.panel.map(it => it.key), groups: v.panel.map(it => it.group),
+      rail: E.railHtml(fixture.rail, v.sec ? v.sec.key : null),
+      nav: E.navHtml(v.panel, active),
+      sig: E.navSig(c.context + '@' + secKey, v.panel, active),
+    };
+  });
+  process.stdout.write(JSON.stringify(out));
 }
 
 try {
   if (mode === 'parity') parity();
+  else if (mode === 'rail') railParity();
   else if (mode === 'hydrate') hydrate().catch(e => { console.error(e && e.stack || e); process.exit(1); });
-  else { console.error('mode must be parity|hydrate'); process.exit(1); }
+  else { console.error('mode must be parity|rail|hydrate'); process.exit(1); }
 } catch (e) {
   console.error(e && e.stack || e);
   process.exit(1);

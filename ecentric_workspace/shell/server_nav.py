@@ -45,6 +45,7 @@ OPT_IN = 'data-ec-shell="1"'
 TBRIGHT_OPEN = '<div class="ec-shell-tbright" data-ec-shell-header-right="1">'
 ATTR_CONTEXT = "data-ec-context"
 ATTR_SIG = "data-ec-nav-sig"
+ATTR_RAIL = "data-ec-rail"
 LOG_TITLE = "ec_shell_server_nav"
 LOG_THROTTLE_KEY = "ec_shell_server_nav_logged"
 LOG_THROTTLE_SEC = 3600
@@ -63,6 +64,25 @@ def nav_signature(context_name, items, active_key):
         for ch in it.get("children") or []:
             keys.append(ch["key"])
     return "%s|%s|%s" % (context_name or "", active_key or "", ",".join(keys))
+
+
+def rail_enabled():
+    """Menu 2 tang (thanh khu vuc) bat? Kill switch site_config `ec_shell_rail_disabled`.
+    CUNG ham api.get_shell_boot dung -> server va client luon cung mot kieu menu."""
+    try:
+        return not frappe.conf.get(shell_nav.RAIL_DISABLED_FLAG)
+    except Exception:
+        return True
+
+
+def sig_context(context_name, section):
+    """Phan ngu canh cua chu ky khi co thanh khu vuc: "<ngu canh>@<khu>".
+    ec_shell.js tinh dung cong thuc nay."""
+    return "%s@%s" % (context_name or "", section["key"] if section else "")
+
+
+def _drop_attr(tag, name):
+    return re.sub(r'\s%s="[^"]*"' % re.escape(name), "", tag)
 
 
 def _set_attr(tag, name, value):
@@ -88,9 +108,21 @@ def rebuild_mount(ms, route):
         return None
     context_name = shell_nav.resolve_context(route)
     items = shell_nav.compose(context_name)
-    active = fb.match_active(items, route)
     new_tag = _set_attr(open_tag, ATTR_CONTEXT, context_name)
+    if rail_enabled():
+        # Menu 2 tang (07/10/2026): thanh khu vuc + cot chi giu muc cua khu dang mo.
+        rail = shell_nav.rail_spec()
+        home_items = items if context_name == "home" else shell_nav.compose("home")
+        section, panel = fb.rail_view(rail, context_name, items, home_items, route)
+        active = fb.match_active(panel, route)
+        new_tag = _set_attr(new_tag, ATTR_SIG,
+                            nav_signature(sig_context(context_name, section), panel, active))
+        new_tag = _set_attr(new_tag, ATTR_RAIL, "1")
+        inner = fb.mount_inner_html(panel, active, live=True, rail=rail, section=section)
+        return ms[:start] + new_tag + inner + ms[close:]
+    active = fb.match_active(items, route)
     new_tag = _set_attr(new_tag, ATTR_SIG, nav_signature(context_name, items, active))
+    new_tag = _drop_attr(new_tag, ATTR_RAIL)
     return ms[:start] + new_tag + fb.mount_inner_html(items, active, live=True) + ms[close:]
 
 

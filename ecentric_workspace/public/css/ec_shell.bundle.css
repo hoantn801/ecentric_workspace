@@ -455,3 +455,74 @@ a.ec-shell-rm-item:focus-visible, a.ec-shell-nc-item:focus-visible{
 /* notifications: give the lane the same breathing room as the work lane */
 .ec-shell-nc-list{ padding:6px 0 10px; }
 .ec-shell-nc-head strong{ font-weight:600; color:var(--ec-gray-900); }
+
+/* ---- menu 2 tang: thanh khu vuc navy + cot trang (07/10/2026) -------------
+ * PO Hoan duyet mockup NHIEU_LOP/menu_mockup/menu_C2_navy_v2.html. Ca hai tang nam
+ * TRONG cung cot 248px ma moi trang da danh cho menu (khong trang nao phai sua grid):
+ * thanh 62px + cot 186px. Chi ap khi mount/drawer mang data-ec-rail="1" (server
+ * ve san; kill switch ec_shell_rail_disabled -> khong co thuoc tinh -> menu 1 cot cu). */
+.ec-shell-mount[data-ec-rail="1"], .ec-shell-drawer[data-ec-rail="1"]{
+  --ec-rail-w:62px; --ec-rail-a:#1f2d80; --ec-rail-b:#141d57;
+  flex-direction:row;
+}
+.ec-shell-rail{
+  flex:0 0 var(--ec-rail-w); width:var(--ec-rail-w); min-height:0;
+  display:flex; flex-direction:column; align-items:stretch; gap:2px;
+  padding:12px 0 10px; overflow-y:auto; overflow-x:hidden; scrollbar-width:none;
+  background:linear-gradient(180deg, var(--ec-rail-a), var(--ec-rail-b));
+}
+.ec-shell-rail::-webkit-scrollbar{ display:none; }
+.ec-shell-rail .ec-shell-railbrand{
+  flex:0 0 auto; justify-content:center; margin:0 0 10px; padding:0;
+}
+.ec-shell-rail .ec-shell-logoimg{ width:32px; height:32px; }
+.ec-shell-rail .ec-shell-logo[hidden], .ec-shell-rail .ec-shell-logoimg[hidden]{ display:none; }
+.ec-shell-rail .ec-shell-logo{ width:32px; height:32px; border-radius:50%; background:var(--ec-yellow); color:#141d57; }
+.ec-shell-railbtn{
+  position:relative; flex:0 0 auto; display:flex; flex-direction:column; align-items:center;
+  gap:4px; padding:7px 2px 8px; color:rgba(255,255,255,.68);
+  font-size:9.5px; font-weight:500; line-height:1.1; letter-spacing:.01em; text-align:center;
+}
+.ec-shell-railbtn::before{
+  content:""; position:absolute; left:0; top:9px; bottom:9px; width:3px;
+  border-radius:0 3px 3px 0; background:transparent;
+}
+.ec-shell-railic{
+  width:34px; height:30px; border-radius:9px; display:flex; align-items:center; justify-content:center;
+}
+.ec-shell-railic svg{ width:19px; height:19px; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; }
+.ec-shell-raillbl{ max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ec-shell-railbtn:hover{ color:#fff; }
+.ec-shell-railbtn:hover .ec-shell-railic{ background:rgba(255,255,255,.08); }
+.ec-shell-railbtn.ec-shell-railon{ color:#fff; font-weight:600; }
+.ec-shell-railbtn.ec-shell-railon::before{ background:var(--ec-yellow); }
+.ec-shell-railbtn.ec-shell-railon .ec-shell-railic{ background:rgba(255,255,255,.15); }
+.ec-shell-railbtn .ec-shell-badge{
+  position:absolute; top:2px; right:9px; margin:0; min-width:17px; height:17px; line-height:17px;
+  font-size:10px; padding:0 4px; box-shadow:0 0 0 2px var(--ec-rail-a);
+}
+.ec-shell-rail a:focus-visible{ outline:2px solid #fff; outline-offset:-3px; border-radius:10px; }
+
+.ec-shell-panel{ flex:1 1 auto; min-width:0; min-height:0; display:flex; flex-direction:column; background:#fff; }
+.ec-shell-panel .ec-shell-head{ padding:16px 12px 10px 14px; }
+.ec-shell-paneltitle{
+  font-size:15px; font-weight:700; color:#141d57;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.ec-shell-panel .ec-shell-search{ margin:2px 10px 8px; }
+.ec-shell-panel .ec-shell-nav{ padding:4px 8px; }
+.ec-shell-panel .ec-shell-grouplabel{ padding:12px 10px 4px; }
+.ec-shell-panel .ec-shell-item{ padding:8px 10px; gap:9px; font-size:13px; color:var(--ec-gray-700); }
+.ec-shell-panel .ec-shell-item > span:not(.ec-shell-badge){ min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ec-shell-panel .ec-shell-subtoggle{ font-size:13px; }
+.ec-shell-panel .ec-shell-item.ec-shell-child{ padding-left:34px; font-size:12.5px; }
+/* dang chon = nen navy dac, chu trang (mockup C2) */
+.ec-shell-panel .ec-shell-item.ec-shell-active{ background:var(--ec-navy); color:#fff; }
+.ec-shell-panel .ec-shell-item.ec-shell-active svg{ stroke:#fff; }
+.ec-shell-panel .ec-shell-item.ec-shell-active .ec-shell-badge{ background:#fff; color:#DC2626; }
+.ec-shell-panel .ec-shell-foot{ padding:8px; }
+
+@media (max-width:900px){
+  .ec-shell-drawer[data-ec-rail="1"].ec-shell-on{ display:flex; }
+  .ec-shell-drawer[data-ec-rail="1"]{ width:min(300px, 88vw); }
+}

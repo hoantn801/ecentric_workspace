@@ -18,7 +18,7 @@
 (function () {
   'use strict';
 
-  var VERSION = 'ec-shell v1.21.0 (server-rendered menu: the page arrives with the sidebar already built from the live registry + data-ec-context/data-ec-nav-sig; the client keeps that DOM when the signature matches and only personalises the user card -- no menu repaint, no wrong-context flash) (v1.20.0 "Việc của tôi" is a real page at /viec-cua-toi: on a phone the header inbox navigates there instead of opening the overlay drawer; the drawer stays on desktop and links to the page. Badge mirrors into every [data-ec-shell-reminder-badge] node so a page can render its own -- e.g. the mobile tab bar.) (v1.19.1 honest totals: one card per business document, bounded scan raised to 2000 with a "2000+" label when it overflows)';
+  var VERSION = 'ec-shell v1.22.0 (thanh khu vuc navy + cot trang: menu 2 tang trong cung cot 248px, server ve san; boot.rail = null -> menu 1 cot cu) (v1.21.0 server-rendered menu: the page arrives with the sidebar already built from the live registry + data-ec-context/data-ec-nav-sig; the client keeps that DOM when the signature matches and only personalises the user card -- no menu repaint, no wrong-context flash) (v1.20.0 "Việc của tôi" is a real page at /viec-cua-toi: on a phone the header inbox navigates there instead of opening the overlay drawer; the drawer stays on desktop and links to the page. Badge mirrors into every [data-ec-shell-reminder-badge] node so a page can render its own -- e.g. the mobile tab bar.) (v1.19.1 honest totals: one card per business document, bounded scan raised to 2000 with a "2000+" label when it overflows)';
   // Boot cache (sessionStorage, stale-while-revalidate). NEVER authorization:
   // the cache only skips the paint delay; the backend stays the source of
   // truth and refreshes every page view. Keyed/invalidated by VERSION, TTL,
@@ -180,6 +180,67 @@
   function declaredContext(boot, mount) {
     var d = mount && mount.getAttribute ? mount.getAttribute('data-ec-context') : '';
     return (d && boot && boot.contexts && boot.contexts[d]) ? d : null;
+  }
+  // ---- thanh khu vuc (menu 2 tang, 07/10/2026). Ban sao CUNG thuat toan voi
+  // shell/fallback.py rail_view()/rail_html() -- parity co test (test_shell_rail.py).
+  function railView(rail, ctx, ctxNav, homeItems, pathname) {
+    var byKey = {};
+    (homeItems || []).forEach(function (it) { byKey[it.key] = it; });
+    function regroup(it, g) { var o = {}; for (var k in it) o[k] = it[k]; o.group = g; return o; }
+    var sec = null, i;
+    if (ctx === 'home') {
+      var act = matchActive(homeItems || [], pathname);
+      for (i = 0; i < rail.length; i++) {
+        if (act && rail[i].keys.indexOf(act) >= 0) { sec = rail[i]; break; }
+      }
+      if (!sec) sec = rail.filter(function (s) { return s.key === 'home'; })[0] || null;
+      if (!sec) return { sec: null, panel: (homeItems || []).slice() };
+      return { sec: sec, panel: sec.keys.filter(function (k) { return byKey[k]; })
+                                        .map(function (k) { return regroup(byKey[k], ''); }) };
+    }
+    for (i = 0; i < rail.length; i++) {
+      if (rail[i].contexts.indexOf(ctx) >= 0) { sec = rail[i]; break; }
+    }
+    var panel = (ctxNav || []).filter(function (it) { return String(it.key).indexOf('core.') !== 0; });
+    if (sec) {
+      var have = {};
+      panel.forEach(function (it) {
+        have[normPath(it.route)] = 1;
+        (it.children || []).forEach(function (ch) { have[normPath(ch.route)] = 1; });
+      });
+      sec.keys.forEach(function (k) {
+        var it = byKey[k];
+        if (!it || have[normPath(it.route)]) return;
+        have[normPath(it.route)] = 1;
+        panel.push(regroup(it, sec.group));
+      });
+      var order = sec.group_order || [];
+      if (order.length) {
+        // sort on dinh (giu thu tu ban dau khi cung hang) - trung fallback.rail_view
+        var rank = function (it) { var r = order.indexOf(it.group || ''); return r < 0 ? order.length : r; };
+        panel = panel.map(function (it, j) { return { it: it, j: j }; })
+          .sort(function (a, b) { return (rank(a.it) - rank(b.it)) || (a.j - b.j); })
+          .map(function (x) { return x.it; });
+      }
+    }
+    return { sec: sec, panel: panel };
+  }
+  function railHtml(rail, secKey) {
+    var h = '<nav class="ec-shell-rail" aria-label="Khu vực">' +
+      '<a class="ec-shell-brand ec-shell-railbrand" href="/" aria-label="eCentric">' +
+      '<img class="ec-shell-logoimg" src="' + LOGO_SRC + '" alt="eCentric">' +
+      '<span class="ec-shell-logo" hidden>eC</span></a>';
+    rail.forEach(function (s) {
+      var on = s.key === secKey;
+      var badge = s.badge_source
+        ? '<span class="ec-shell-badge" data-ec-shell-badge="' + esc(s.badge_source) + '" hidden></span>'
+        : '';
+      h += '<a class="ec-shell-railbtn' + (on ? ' ec-shell-railon' : '') + '" href="' + esc(s.route) + '"' +
+           ' data-ec-shell-rail="' + esc(s.key) + '"' + (on ? ' aria-current="true"' : '') + '>' +
+           '<span class="ec-shell-railic">' + svg(s.icon) + '</span>' +
+           '<span class="ec-shell-raillbl">' + esc(s.label) + '</span>' + badge + '</a>';
+    });
+    return h + '</nav>';
   }
   function knownNavRoutes() {
     if (!S.boot) return [];
@@ -391,7 +452,10 @@
     book:'<path d="M4 19a2 2 0 0 1 2-2h14V3H6a2 2 0 0 0-2 2z"/><path d="M4 19a2 2 0 0 0 2 2h14v-4"/>',
     userplus:'<circle cx="9" cy="8" r="4"/><path d="M3 21v-1a6 6 0 0 1 12 0v1M19 8v6M16 11h6"/>',
     message:'<path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
-    chat:'<path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5.4A8 8 0 1 1 21 12z"/>'
+    chat:'<path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5.4A8 8 0 1 1 21 12z"/>',
+    // Thanh khu vuc (07/10/2026): Bang tin (to bao) + Nhan su (nguoi). Trung shell/fallback.py.
+    news:'<rect x="3" y="4" width="14" height="16" rx="2"/><path d="M17 8h3a1 1 0 0 1 1 1v9a2 2 0 0 1-2 2H5M7 8h6M7 12h6M7 16h4"/>',
+    user:'<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/>'
   };
   function svg(name) {
     return '<svg viewBox="0 0 24 24" aria-hidden="true">' + (ICONS[name] || ICONS.doc) + '</svg>';
@@ -492,6 +556,17 @@
   // toasts/sound/desktop -- its init() runs without a bell node and its
   // MutationObserver simply never finds one to badge.
   function shellHtml(boot, activeKey, opts) {
+    if (S.railOn && boot && boot.rail) {
+      // Menu 2 tang: thanh khu vuc + cot. CUNG markup fallback.mount_inner_html(rail=...).
+      return railHtml(boot.rail, S.railSec ? S.railSec.key : null) +
+        '<div class="ec-shell-panel">' +
+          '<div class="ec-shell-head"><span class="ec-shell-paneltitle">' +
+            esc(S.railSec ? S.railSec.label : 'eCentric') + '</span></div>' +
+          searchHtml() +
+          navHtml((S.ctxNav || boot.nav), activeKey) +
+          footHtml(boot) +
+        '</div>';
+    }
     return (
       '<div class="ec-shell-head">' +
         '<a class="ec-shell-brand" href="/">' +
@@ -503,7 +578,14 @@
       // Frontend-only; module entries from the boot nav, approval types from
       // the permission-filtered catalog (lazy-loaded). Results are plain
       // <a href> -- no interception, backend authorization unchanged.
-      '<div class="ec-shell-search">' +
+      searchHtml() +
+      navHtml((S.ctxNav || boot.nav), activeKey) +
+      footHtml(boot)
+    );
+  }
+
+  function searchHtml() {
+    return '<div class="ec-shell-search">' +
         svg('search') +
         '<input class="ec-shell-search-in" type="text" placeholder="Tìm chức năng…" ' +
           'role="combobox" aria-expanded="false" aria-autocomplete="list" ' +
@@ -511,10 +593,7 @@
         '<button type="button" class="ec-shell-search-clear" data-ec-shell-search-clear="1" ' +
           'hidden aria-label="Xóa tìm kiếm">&times;</button>' +
       '</div>' +
-      '<div class="ec-shell-search-results" role="listbox" hidden></div>' +
-      navHtml((S.ctxNav || boot.nav), activeKey) +
-      footHtml(boot)
-    );
+      '<div class="ec-shell-search-results" role="listbox" hidden></div>';
   }
 
   function footHtml(boot) {
@@ -536,7 +615,7 @@
   function patchFoot(boot) {
     var foot = S.mount.querySelector('.ec-shell-foot');
     var html = footHtml(boot);
-    if (!foot) { S.mount.insertAdjacentHTML('beforeend', html); return; }
+    if (!foot) { (S.mount.querySelector('.ec-shell-panel') || S.mount).insertAdjacentHTML('beforeend', html); return; }
     if (foot.outerHTML !== html) foot.outerHTML = html;
   }
 
@@ -559,7 +638,7 @@
   function intentTarget(ev) {
     var t = ev.target && ev.target.closest ? ev.target : null;
     if (!t) return null;
-    return t.closest('.ec-shell-nav a, .ec-shell-drawer a, .ec-shell-fallback a, a.ec-shell-crumblink');
+    return t.closest('.ec-shell-nav a, .ec-shell-rail a, .ec-shell-drawer a, .ec-shell-fallback a, a.ec-shell-crumblink');
   }
 
   // Cross-document View Transitions: PURE progressive enhancement. We only
@@ -653,6 +732,7 @@
       document.body.appendChild(S.drawer);
     }
     S.drawer.innerHTML = shellHtml(S.boot, S.activeKey, { bell: false }); // fresh render; bell lives in the header
+    if (S.railOn) S.drawer.setAttribute('data-ec-rail', '1'); else S.drawer.removeAttribute('data-ec-rail');
     S.lastFocus = document.activeElement;
     S.backdrop.classList.add('ec-shell-on');
     S.drawer.classList.add('ec-shell-on');
@@ -1344,6 +1424,14 @@
     if (!S.mount || !S.boot) return;
     S.context = declaredContext(S.boot, S.mount) || resolveContext(S.boot, window.location.pathname);
     S.ctxNav = S.context ? ctxItems(S.boot, S.context) : S.boot.nav;
+    // Menu 2 tang: cot chi giu muc cua khu dang mo (railView); boot.rail = null -> menu 1 cot.
+    S.railOn = !!(S.boot.rail && S.boot.rail.length && S.context);
+    S.railSec = null;
+    if (S.railOn) {
+      var rv = railView(S.boot.rail, S.context, S.ctxNav, ctxItems(S.boot, 'home'), window.location.pathname);
+      S.railSec = rv.sec;
+      S.ctxNav = rv.panel;
+    }
     S.activeKey = matchActive(S.ctxNav, window.location.pathname);
     if (hasHashItems(S.ctxNav)) {
       var hk = hashActiveKey(S.ctxNav, window.location.pathname, window.location.hash);
@@ -1353,7 +1441,8 @@
     // data-ec-nav-sig always describes the menu CURRENTLY in the DOM (server-set
     // on first paint, re-stamped after every client repaint), so an equal
     // signature means "already showing this menu" -- keep it, no repaint.
-    var want = navSig(S.context, S.ctxNav, S.activeKey);
+    var want = navSig(S.railOn ? (S.context + '@' + (S.railSec ? S.railSec.key : '')) : S.context,
+                      S.ctxNav, S.activeKey);
     var have = S.mount.getAttribute ? S.mount.getAttribute('data-ec-nav-sig') : null;
     if (have && have === want && S.mount.querySelector && S.mount.querySelector('.ec-shell-nav')) {
       patchFoot(S.boot);
@@ -1361,6 +1450,8 @@
       S.mount.innerHTML = shellHtml(S.boot, S.activeKey, { bell: !bellInHeader });
       if (S.mount.setAttribute) {
         S.mount.setAttribute('data-ec-nav-sig', want);
+        if (S.railOn) S.mount.setAttribute('data-ec-rail', '1');
+        else if (S.mount.removeAttribute) S.mount.removeAttribute('data-ec-rail');
         if (S.context) S.mount.setAttribute('data-ec-context', S.context);
       }
     }
@@ -1447,6 +1538,8 @@
       resolveContext: resolveContext,
       declaredContext: declaredContext,
       navSig: navSig,
+      railView: railView,
+      railHtml: railHtml,
       navHtml: navHtml,
       ctxItems: ctxItems,
       allItems: allItems,

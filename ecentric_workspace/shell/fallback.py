@@ -55,6 +55,9 @@ ICONS = {
     "message": '<path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
     # Chat noi bo (05/10/2026): bong chat tron - khac "message" (vuong) cua Gop y cong ty.
     "chat": '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5.4A8 8 0 1 1 21 12z"/>',
+    # Thanh khu vuc (07/10/2026): Bang tin (to bao) + Nhan su (nguoi).
+    "news": '<rect x="3" y="4" width="14" height="16" rx="2"/><path d="M17 8h3a1 1 0 0 1 1 1v9a2 2 0 0 1-2 2H5M7 8h6M7 12h6M7 16h4"/>',
+    "user": '<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/>',
 }
 LOGO_SRC = "/files/eCentric%20logo%20-%20mini.png"
 
@@ -172,7 +175,69 @@ def render_mount_inner(route, live=False):
     return mount_inner_html(items, match_active(items, route), live=live)
 
 
-def mount_inner_html(items, active, live=False):
+def rail_view(rail, context_name, ctx_items, home_items, pathname):
+    """(khu dang mo, danh sach muc cua cot) cho trang o `pathname`.
+
+    Cung thuat toan voi ec_shell.js railView() (parity co test). `rail` = nav.rail_spec().
+    - Ngu canh `home`: khu = khu co muc dang chon trong `keys`, khong co thi khu "home";
+      cot = dung cac muc `keys` cua khu, theo thu tu, khong nhan nhom.
+    - Ngu canh khac: khu = khu co ngu canh trong `contexts` (None neu khong khu nao nhan);
+      cot = menu cua ngu canh (bo muc core "Trang chu" - thanh da co) + muc `keys` cua khu
+      ma route chua co trong cot, duoi nhan `group` cua khu; roi xep nhom theo
+      `group_order` cua khu (sort on dinh)."""
+    by_key = {it["key"]: it for it in home_items or []}
+    if context_name == "home":
+        act = match_active(home_items or [], pathname)
+        sec = None
+        for s in rail:
+            if act and act in s["keys"]:
+                sec = s
+                break
+        if sec is None:
+            sec = next((s for s in rail if s["key"] == shell_nav.RAIL_HOME), None)
+        if sec is None:
+            return None, list(home_items or [])
+        return sec, [dict(by_key[k], group="") for k in sec["keys"] if k in by_key]
+    sec = next((s for s in rail if context_name in s["contexts"]), None)
+    panel = [it for it in ctx_items or [] if not str(it["key"]).startswith("core.")]
+    if sec is not None:
+        have = set()
+        for it in panel:
+            have.add(_norm(it["route"]))
+            for ch in it.get("children") or []:
+                have.add(_norm(ch["route"]))
+        for k in sec["keys"]:
+            it = by_key.get(k)
+            if it is None or _norm(it["route"]) in have:
+                continue
+            have.add(_norm(it["route"]))
+            panel.append(dict(it, group=sec["group"]))
+        order = sec.get("group_order") or []
+        if order:
+            panel.sort(key=lambda it: order.index(it.get("group", "")) if it.get("group", "") in order
+                       else len(order))
+    return sec, panel
+
+
+def rail_html(rail, section_key):
+    """Thanh khu vuc - byte-identical voi ec_shell.js railHtml()."""
+    h = ['<nav class="ec-shell-rail" aria-label="Khu vực">'
+         '<a class="ec-shell-brand ec-shell-railbrand" href="/" aria-label="eCentric">'
+         '<img class="ec-shell-logoimg" src="%s" alt="eCentric">'
+         '<span class="ec-shell-logo" hidden>eC</span></a>' % LOGO_SRC]
+    for s in rail:
+        on = s["key"] == section_key
+        badge = ('<span class="ec-shell-badge" data-ec-shell-badge="%s" hidden></span>'
+                 % esc_live(s["badge_source"])) if s.get("badge_source") else ""
+        h.append('<a class="ec-shell-railbtn%s" href="%s" data-ec-shell-rail="%s"%s>'
+                 '<span class="ec-shell-railic">%s</span><span class="ec-shell-raillbl">%s</span>%s</a>'
+                 % (" ec-shell-railon" if on else "", esc_live(s["route"]), esc_live(s["key"]),
+                    ' aria-current="true"' if on else "", _svg(s["icon"]), esc_live(s["label"]), badge))
+    h.append("</nav>")
+    return "".join(h)
+
+
+def mount_inner_html(items, active, live=False, rail=None, section=None):
     """head + search + nav + generic foot for an already-composed item list.
     The foot stays GENERIC even when live: the rendered page is cached and
     shared by every user, so the user card is personalised client-side."""
@@ -195,6 +260,14 @@ def mount_inner_html(items, active, live=False):
             '<span class="ec-shell-avatar">•</span>'
             '<span class="ec-shell-username">Tài khoản</span></a>'
             '</div>')
+    if rail:
+        # Menu 2 tang (07/10/2026): thanh khu vuc + cot. Logo len thanh; dau cot = ten khu.
+        title = section["label"] if section else "eCentric"
+        head = ('<div class="ec-shell-head"><span class="ec-shell-paneltitle">%s</span></div>'
+                % esc_live(title))
+        return (rail_html(rail, section["key"] if section else None) +
+                '<div class="ec-shell-panel">' + head + search +
+                render_nav(items, active, live=live) + foot + '</div>')
     return head + search + render_nav(items, active, live=live) + foot
 
 
