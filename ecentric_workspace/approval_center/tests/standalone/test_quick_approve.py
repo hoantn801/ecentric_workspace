@@ -113,6 +113,10 @@ def build(boom=None):
             return [r for r in W.approvers if _match(r, filters)]
         if dt_ == "EC Approval Request":
             return [r for r in W.requests.values() if _match(r, filters)]
+        if dt_ == "EC Digital Signature Package":
+            return [Obj(name="PKG-1", superseded_by=None, status="Locked")] if filters.get("business_name") == "PAY-1" else []
+        if dt_ == "EC Digital Signature File":
+            return [Obj(name="DSF-1", file_name="UNC-KOL-T9.pdf")] if filters.get("package") == "PKG-1" else []
         raise AssertionError(dt_)
     fr.get_all = get_all
 
@@ -194,7 +198,9 @@ def build(boom=None):
     pay_ctl = types.ModuleType("ecentric_workspace.approval_center.features.payment_request.controllers.api")
     pay_ctl.approve = _mk("pay_approve")
 
-    pkgs = ["ecentric_workspace", "ecentric_workspace.approval_center", "ecentric_workspace.approval_center.shared",
+    esg = types.ModuleType("ecentric_workspace.platform.esign.api")
+    esg.approve_and_sign = lambda dt, name, comment=None: W.calls.append(("approve_and_sign", dt, name, comment)) or {"ok": 1}
+    pkgs = ["ecentric_workspace", "ecentric_workspace.platform", "ecentric_workspace.platform.esign", "ecentric_workspace.approval_center", "ecentric_workspace.approval_center.shared",
             "ecentric_workspace.approval_center.shared.requests", "ecentric_workspace.approval_center.shared.workflow",
             "ecentric_workspace.approval_center.features", "ecentric_workspace.approval_center.features.leave",
             "ecentric_workspace.approval_center.features.leave.controllers",
@@ -205,7 +211,9 @@ def build(boom=None):
     sys.modules["ecentric_workspace.approval_center.shared.requests"].capabilities = caps
     sys.modules["ecentric_workspace.approval_center.shared.workflow"].permissions = perm
     sys.modules.update({"frappe": fr, "frappe.utils": fu, reg.__name__: reg, caps.__name__: caps,
-                        perm.__name__: perm, ctl.__name__: ctl, pay_ctl.__name__: pay_ctl})
+                        perm.__name__: perm, ctl.__name__: ctl, pay_ctl.__name__: pay_ctl,
+                        esg.__name__: esg})
+    sys.modules["ecentric_workspace.platform.esign"].api = esg
     spec = importlib.util.spec_from_file_location(
         "quick_approve_ut", APP / "approval_center/shared/requests/quick_approve.py")
     m = importlib.util.module_from_spec(spec)
@@ -235,11 +243,30 @@ def test_list_tom_tat_dinh_dang_va_khong_co_luong():
     assert r1["capabilities"]["can_approve"] and not r1["capabilities"]["needs_input"]
 
 
-def test_list_phieu_ky_so_can_mo_chi_tiet():
+def test_list_phieu_ky_so_duyet_va_ky_ngay_tai_the():
+    # 07/10 (Hoan chot "vao thang B"): cap ky so KHONG con bat mo trang chi tiet.
     m, W = build()
     r5 = next(r for r in m.list_my_pending("me@x")["rows"] if r["request"] == "R5")
-    assert r5["capabilities"]["needs_input"] and "ký số" in r5["capabilities"]["needs_input_reason"]
+    assert r5["capabilities"]["sign_required"] and not r5["capabilities"]["needs_input"]
+    assert r5["sign_files"] == [{"dsf": "DSF-1", "file_name": "UNC-KOL-T9.pdf"}]
     assert r5["summary"] == [{"label": "Số tiền", "value": "12.500.000"}]
+    r1 = next(r for r in m.list_my_pending("me@x")["rows"] if r["request"] == "R1")
+    assert not r1["capabilities"]["sign_required"] and r1["sign_files"] == []
+
+
+def test_duyet_ky_di_qua_chuc_nang_ky_chinh_thuc():
+    m, W = build()
+    m.quick_decide("R5", "approve_sign", "ok", user="me@x")
+    assert W.calls == [("approve_and_sign", "EC Payment Request", "PAY-1", "ok")]
+
+
+def test_cap_ky_khong_duyet_thuong_va_nguoc_lai():
+    m, W = build()
+    with pytest.raises(m.QuickDecideError, match="Duyệt & Ký"):
+        m.quick_decide("R5", "approve", None, user="me@x")
+    with pytest.raises(m.QuickDecideError, match="không yêu cầu ký số"):
+        m.quick_decide("R1", "approve_sign", None, user="me@x")
+    assert W.calls == []
 
 
 # ----------------------------------------------------------------------------- decide
@@ -264,13 +291,6 @@ def test_khong_phai_luot_minh_thi_tu_choi_ro_ly_do():
     for req in ("R2", "R3"):
         with pytest.raises(m.QuickDecideError, match="không còn là người duyệt"):
             m.quick_decide(req, "approve", None, user="me@x")
-    assert W.calls == []
-
-
-def test_can_nhap_them_thi_khong_duyet_nhanh():
-    m, W = build()
-    with pytest.raises(m.QuickDecideError, match="ký số"):
-        m.quick_decide("R5", "approve", None, user="me@x")
     assert W.calls == []
 
 

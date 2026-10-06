@@ -15,10 +15,18 @@ dung hop dong nay; moi dong la mot dict):
     detail_url     trang chi tiet cua form ("/<route>?id=<ten>")
     summary        [{"label", "value"}] 0-5 cap, gia tri DA dinh dang kieu Viet Nam
     capabilities   {can_approve, can_reject, can_request_info, needs_input,
-                    needs_input_reason, comment_required}
+                    needs_input_reason, comment_required, sign_required}
+    sign_files     [{"dsf", "file_name"}] tai lieu SE KY cua cap nay (khi sign_required) - man
+                   hinh mo qua platform.esign.api.get_package_file (co kiem quyen), khong lo
+                   duong dan /private/files.
 
 NGUON SU THAT: dong approver `Pending` DUNG cap hien tai (`current_level`) cua phieu dang
 `Pending`, cap do dang `In Progress`. KHONG suy tu cay to chuc, khong suy tu ToDo.
+
+KY SO (07/10/2026, Hoan chot "vao thang B"): cap bat buoc ky -> action "approve_sign" goi
+DUNG chuc nang ky chinh thuc platform.esign.api.approve_and_sign (cung duong popup trang
+"Tat ca yeu cau" va form dang dung). Nut "Duyet" thuong bi chan o cap nay. Tu choi / yeu cau bo
+sung o cap ky van di controller cua form (y nhu trang form lam).
 
 QUYET DINH (quick_decide) di qua DUNG controller cua loai phieu
 (features.<feature>.controllers.api.approve / reject / request_information) - duong ma trang
@@ -45,7 +53,7 @@ MAX_SUMMARY = 5
 #: Truong luong ca nhan KHONG BAO GIO len the duyet nhanh, ke ca khi ai do khai nham vao
 #: quick_summary. Chot thu hai sau test khai bao.
 _SALARY_MARKERS = ("salary", "luong", "incentive", "total_bonus", "gross", "base_pay")
-ACTIONS = {"approve": "approve", "reject": "reject",
+ACTIONS = {"approve": "approve", "approve_sign": "approve_sign", "reject": "reject",
            "request_information": "request_information", "request_info": "request_information"}
 
 
@@ -84,8 +92,6 @@ def _capabilities(definition, user, biz, req):
 
 def _needs_input(definition, caps, level_name, biz):
     """-> (bool, ly do). Loai nao duyet phai nhap them thi khong duyet nhanh duoc."""
-    if caps.get("requires_signature"):
-        return True, _("Cần ký số - mở trang chi tiết để duyệt & ký.")
     if caps.get("can_adjust_approved_amount"):
         return True, _("Cần xác nhận số tiền được duyệt - mở trang chi tiết.")
     mod = _controller(definition)
@@ -99,6 +105,27 @@ def _needs_input(definition, caps, level_name, biz):
                 and not biz.get("operation_expected_completion_date"):
             return True, _("Cần nhập ngày dự kiến hoàn thành (Operation) - mở trang chi tiết.")
     return False, ""
+
+
+def _sign_files(business_doctype, business_name):
+    """Tep SE KY cua goi ky hien hanh (khong bi thay the). Loi -> [] (the van hien, chi thieu
+    link xem tai lieu)."""
+    try:
+        pk = frappe.get_all("EC Digital Signature Package",
+                            filters={"business_doctype": business_doctype,
+                                     "business_name": business_name},
+                            fields=["name", "superseded_by", "status"],
+                            order_by="creation desc", limit_page_length=5) or []
+        pk = [p for p in pk if not p.get("superseded_by") and p.get("status") != "Cancelled"]
+        if not pk:
+            return []
+        rows = frappe.get_all("EC Digital Signature File",
+                              filters={"package": pk[0].name, "requires_signature": 1},
+                              fields=["name", "file_name"], order_by="idx_order asc") or []
+        return [{"dsf": r.name, "file_name": r.file_name} for r in rows]
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "quick_approve.sign_files %s" % business_name)
+        return []
 
 
 def _fmt(value, fieldtype):
@@ -234,7 +261,10 @@ def list_my_pending(user=None):
                 "needs_input": need,
                 "needs_input_reason": why,
                 "comment_required": bool(definition.quick_comment_required),
+                "sign_required": bool(caps.get("requires_signature")),
             },
+            "sign_files": (_sign_files(definition.business_doctype, req.reference_name)
+                           if caps.get("requires_signature") else []),
         })
     rows.sort(key=lambda r: (r["due_at"] is None, r["due_at"] or "", r["submitted_at"] or ""))
     return {"rows": rows, "count": len(rows)}
@@ -263,19 +293,30 @@ def quick_decide(request_name, action, comment=None, user=None):
         raise QuickDecideError(_("Bạn không còn là người duyệt của bước hiện tại - phiếu có thể "
                                  "đã được người khác xử lý, đã bị trả lại hoặc đã đổi bước."))
     comment = (comment or "").strip()
-    if method != "approve" and not comment:
+    if method in ("reject", "request_information") and not comment:
         raise QuickDecideError(_("Cần ghi lý do."))
-    if method == "approve" and definition.quick_comment_required and not comment:
+    if method in ("approve", "approve_sign") and definition.quick_comment_required and not comment:
         raise QuickDecideError(_("Loại phiếu này bắt buộc nhập nhận xét khi duyệt."))
     biz = frappe.get_doc(definition.business_doctype, req.reference_name)
     lv_name = frappe.db.get_value(_LEVEL, {"approval_request": req.name,
                                            "level_no": req.current_level}, "level_name")
-    need, why = _needs_input(definition, _capabilities(definition, user, biz,
-                                                      frappe.get_doc(_REQ, req.name)), lv_name, biz)
-    if need and method == "approve":
+    caps = _capabilities(definition, user, biz, frappe.get_doc(_REQ, req.name))
+    need, why = _needs_input(definition, caps, lv_name, biz)
+    if need and method in ("approve", "approve_sign"):
         raise QuickDecideError(why)
-    mod = _controller(definition)
-    fn = getattr(mod, method, None) if mod else None
+    sign = bool(caps.get("requires_signature"))
+    if method == "approve" and sign:
+        raise QuickDecideError(_("Bước này bắt buộc ký số - dùng nút \"Duyệt & Ký\"."))
+    if method == "approve_sign":
+        if not sign:
+            raise QuickDecideError(_("Bước này không yêu cầu ký số - dùng nút \"Duyệt\"."))
+        from ecentric_workspace.platform.esign import api as esign_api
+
+        def fn(name, comment=None):
+            return esign_api.approve_and_sign(definition.business_doctype, name, comment=comment)
+    else:
+        mod = _controller(definition)
+        fn = getattr(mod, method, None) if mod else None
     if not callable(fn):
         raise QuickDecideError(_("Loại phiếu này chưa hỗ trợ duyệt nhanh - mở trang chi tiết."))
     sp = "ec_quick_decide"

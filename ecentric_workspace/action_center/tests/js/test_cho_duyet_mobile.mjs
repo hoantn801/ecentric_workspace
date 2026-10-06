@@ -26,7 +26,11 @@ const ROWS = () => ([
   { request: "R3", approval_type: "PAY", type_label: "Thanh toán", title: "Thanh toán NCC", requester_name: "Anh A", requested_by: "a@x",
     submitted_at: "2026-10-04 09:00:00", due_at: null, level_name: "CEO", detail_url: "/approvals/payment-request?id=PAY-1",
     summary: [{ label: "Số tiền", value: "12.500.000" }],
-    capabilities: { can_approve: true, can_reject: true, can_request_info: true, needs_input: true, needs_input_reason: "Cần ký số - mở trang chi tiết để duyệt & ký.", comment_required: false } },
+    capabilities: { can_approve: true, can_reject: true, can_request_info: true, needs_input: false, needs_input_reason: "", comment_required: false, sign_required: true },
+    sign_files: [{ dsf: "DSF-1", file_name: "UNC-KOL-T9.pdf" }] },
+  { request: "R5", approval_type: "AIT", type_label: "AI Topup", title: "Topup Claude", requester_name: "Anh D", requested_by: "d@x",
+    submitted_at: "2026-10-03 09:00:00", due_at: null, level_name: "Finance", detail_url: "/approvals/ai-topup?id=AIT-1", summary: [],
+    capabilities: { can_approve: true, can_reject: true, can_request_info: true, needs_input: true, needs_input_reason: "Cần xác nhận số tiền được duyệt - mở trang chi tiết.", comment_required: false } },
   { request: "R4", approval_type: "PROM", type_label: "Thăng chức", title: "Promotion X", requester_name: "Anh C", requested_by: "c@x",
     submitted_at: "2026-10-03 09:00:00", due_at: null, level_name: "CnB", detail_url: "/approvals/promotion?id=P-1", summary: [],
     capabilities: { can_approve: true, can_reject: true, can_request_info: true, needs_input: false, needs_input_reason: "", comment_required: true } },
@@ -55,6 +59,9 @@ function boot(opts = {}) {
       rows = rows.filter((r) => r.request !== body.request_name);
       return res(200, { message: { ok: true, remaining: rows.length } });
     }
+    if (m.startsWith("get_request_detail")) return res(200, { message: { display_fields: [{ label: "Ngân hàng", value: "Vietcombank" }],
+      attachments: [{ file_name: "HD-KOL-T9.pdf", file_url: "/private/files/HD-KOL-T9.pdf", sp_web_url: "https://sp/HD" }],
+      timeline: [{ action: "Submitted", actor: "minh@x", action_time: "2026-10-04 15:00:00" }, { action: "Approved", actor: "ketoan@x", action_time: "2026-10-05 09:20:00", comment: "OK" }] } });
     if (m === "get_action_items") return res(200, { message: { items: [], counts: {}, total: 0, next_cursor: null } });
     return res(200, { message: { items: [], unread: 0 } });
   };
@@ -75,11 +82,13 @@ ok(/font-size:16px/.test(CSS.match(/\.cd-sheet textarea\{[^}]*\}/)[0]), "o nhap 
 { // 1) danh sach nhom theo loai
   const { w } = boot(); await flush();
   const gh = $$(w, ".cd-gh").map((x) => x.textContent);
-  ok(gh.length === 3 && /Nghỉ phép 2/.test(gh[0]), "nhom theo loai phieu: " + gh.join(" | "));
-  ok($(w, "[data-cd-count]").textContent === "4", "so dem = so phieu cho");
+  ok(gh.length === 4 && /Nghỉ phép 2/.test(gh[0]), "nhom theo loai phieu: " + gh.join(" | "));
+  ok($(w, "[data-cd-count]").textContent === "5", "so dem = so phieu cho");
   const r3 = $(w, '[data-cd-open="R3"]');
-  ok(!r3.querySelector("[data-cd-quick]") && r3.querySelector('a[href="/approvals/payment-request?id=PAY-1"]'), "phieu can ky so: chi co link mo trang chi tiet");
-  ok(!r3.querySelector("[data-cd-pick]") && !$(w, '[data-cd-open="R4"] [data-cd-pick]'), "khong cho chon hang loat: can nhap them / bat buoc nhan xet");
+  ok(/Duyệt & Ký/.test(r3.querySelector("[data-cd-quick]").textContent), "phieu can ky: nut Duyet & Ky ngay tren the");
+  const r5 = $(w, '[data-cd-open="R5"]');
+  ok(!r5.querySelector("[data-cd-quick]") && r5.querySelector('a[href="/approvals/ai-topup?id=AIT-1"]'), "phieu can nhap them: chi link mo trang chi tiet");
+  ok(!r3.querySelector("[data-cd-pick]") && !r5.querySelector("[data-cd-pick]") && !$(w, '[data-cd-open="R4"] [data-cd-pick]'), "khong cho chon hang loat: ky so / can nhap them / bat buoc nhan xet");
 }
 
 { // 2) duyet trong bang truot -> goi quick_decide approve, the bien mat, trang tai lai lan Viec
@@ -112,10 +121,32 @@ ok(/font-size:16px/.test(CSS.match(/\.cd-sheet textarea\{[^}]*\}/)[0]), "o nhap 
   ok(calls.some((c) => c[0] === "quick_decide" && c[1].action === "request_information"), "yeu cau bo sung -> quick_decide request_information");
 }
 
-{ // 5) phieu can nhap them: bang truot chi co nut mo trang chi tiet
+{ // 5) ky so ngay tai bang (07/10, vao thang B): link tai lieu ky + Duyet & Ky -> approve_sign
+  const { w, calls } = boot(); await flush();
+  $(w, '[data-cd-open="R3"] [data-cd-quick]').click(); await flush();
+  const doc = $(w, ".cd-sheet a.cd-doc");
+  ok(doc && /get_package_file\?dsf_name=DSF-1$/.test(doc.getAttribute("href")) && !/private\/files/.test(doc.getAttribute("href")), "link tai lieu se ky qua cua co kiem quyen");
+  ok(!$(w, '.cd-sheet [data-cd-do="approve"]'), "cap ky: khong co nut Duyet thuong");
+  $(w, '.cd-sheet [data-cd-do="approve_sign"]').click(); await flush();
+  ok(calls.some((c) => c[0] === "quick_decide" && c[1].request_name === "R3" && c[1].action === "approve_sign"), "Duyet & Ky -> quick_decide approve_sign");
+}
+{ // 5b) phieu can nhap them: bang chi co nut mo trang chi tiet
   const { w } = boot(); await flush();
-  $(w, '[data-cd-open="R3"] .cd-title').click(); await flush();
-  ok(!$(w, ".cd-sheet [data-cd-do]") && $(w, '.cd-sheet a[href="/approvals/payment-request?id=PAY-1"]'), "needs_input: khong co nut quyet dinh, chi mo trang chi tiet");
+  $(w, '[data-cd-open="R5"] .cd-title').click(); await flush();
+  ok(!$(w, ".cd-sheet [data-cd-do]") && $(w, '.cd-sheet a[href="/approvals/ai-topup?id=AIT-1"]'), "needs_input: khong co nut quyet dinh, chi mo trang chi tiet");
+}
+{ // 5c) xem day du phieu ngay trong bang, roi ve buoc duyet ma giu nhan xet dang go
+  const { w, calls } = boot(); await flush();
+  $(w, '[data-cd-open="R1"] .cd-title').click(); await flush();
+  $(w, "#cd-cmt").value = "dang go do";
+  $(w, ".cd-sheet [data-cd-full]").click(); await flush();
+  const full = $(w, '[data-cd-pane="full"]');
+  ok(!full.hidden && $(w, '[data-cd-pane="act"]').hidden, "chuyen sang mat xem day du");
+  ok(calls.some((c) => c[0] === "get_request_detail"), "dung cua chi tiet cua trang Tat ca yeu cau");
+  ok(/Vietcombank/.test(full.textContent) && /HD-KOL-T9.pdf/.test(full.textContent) && /Đã duyệt/.test(full.textContent) && /OK/.test(full.textContent), "co truong + dinh kem + lich su");
+  ok(full.querySelector('a[href="https://sp/HD"]'), "dinh kem uu tien link SharePoint");
+  full.querySelector("[data-cd-back]").click(); await flush();
+  ok(full.hidden && $(w, "#cd-cmt").value === "dang go do", "ve buoc duyet, nhan xet dang go con nguyen");
 }
 
 { // 6) duyet hang loat: chi R1 + R2

@@ -79,9 +79,29 @@
 .cd-sh-btns{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;
   position:sticky; bottom:calc(-16px - env(safe-area-inset-bottom)); background:#fff; padding:8px 0 4px}
 .cd-sh-btns .cd-ok{grid-column:1 / -1}
-.cd-full{display:block; text-align:center}
+.cd-full{display:block; width:100%; text-align:center}
 .cd-toast{position:fixed; left:12px; right:12px; bottom:calc(16px + env(safe-area-inset-bottom));
   z-index:1200; background:var(--cd-ink); color:#fff; border-radius:12px; padding:12px 14px;
   font-size:14px; text-align:center}
 .cd-toast:empty{display:none}
 .cd-toast-err{background:var(--cd-no)}
+
+/* 07/10: ky so ngay tai bang + mat "xem day du phieu". */
+.cd-docs{margin:10px 0 4px}
+.cd-doc{display:flex; align-items:center; gap:10px; min-height:52px; padding:8px 10px; margin-bottom:6px;
+  border:1px solid var(--cd-line); border-radius:12px; text-decoration:none; color:var(--cd-ink)}
+.cd-doc-ic{flex:0 0 auto; font-size:11px; font-weight:800; color:#fff; background:var(--cd-no); border-radius:6px; padding:4px 6px}
+.cd-doc-nm{flex:1; min-width:0; display:flex; flex-direction:column; font-size:14px}
+.cd-doc-nm b{font-weight:650}
+.cd-doc-nm i{font-style:normal; font-size:13px; color:var(--cd-ink3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.cd-doc-go{font-size:14px; font-weight:650; color:var(--cd-navy)}
+.cd-hint{font-size:13px; color:var(--cd-ink3); text-align:center; margin:8px 0 0}
+.cd-sheet-full{max-height:94vh}
+.cd-back{padding:6px 0; min-height:44px; text-decoration:none}
+.cd-sec{font-size:13px; font-weight:700; color:var(--cd-ink2); text-transform:uppercase; letter-spacing:.04em; margin:14px 0 2px}
+.cd-fn{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70%}
+.cd-a{color:var(--cd-navy); font-weight:650; text-decoration:none}
+.cd-tl{font-size:13px; color:var(--cd-ink2); padding:6px 0 6px 12px; border-left:2px solid var(--cd-line); margin-left:4px}
+.cd-tl b{color:var(--cd-ink); font-weight:650}
+.cd-tl-c{color:var(--cd-ink3); margin-top:2px}
+.cd-mt{margin-top:14px}

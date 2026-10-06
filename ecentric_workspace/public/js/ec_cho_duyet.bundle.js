@@ -64,7 +64,7 @@
 
   function bulkable(r) {
     var c = r.capabilities || {};
-    return c.can_approve && !c.needs_input && !c.comment_required;
+    return c.can_approve && !c.needs_input && !c.comment_required && !c.sign_required;
   }
 
   function Inst(root) {
@@ -137,7 +137,8 @@
       + (r.due_at ? ' · <b class="cd-due">hạn ' + fmtDate(r.due_at) + "</b>" : "");
     var act = c.needs_input
       ? (r.detail_url ? '<a class="cd-btn" href="' + esc(r.detail_url) + '">Mở để duyệt</a>' : "")
-      : (c.can_approve ? '<button type="button" class="cd-btn cd-ok" data-cd-quick="' + esc(r.request) + '">Duyệt</button>' : "");
+      : (c.can_approve ? '<button type="button" class="cd-btn cd-ok" data-cd-quick="' + esc(r.request) + '">'
+          + (c.sign_required ? "Duyệt &amp; Ký" : "Duyệt") + "</button>" : "");
     return '<article class="cd-card" data-cd-open="' + esc(r.request) + '">' + pick
       + '<div class="cd-main"><div class="cd-title">' + esc(r.title) + "</div>"
       + '<div class="cd-meta">' + meta + "</div>"
@@ -189,6 +190,11 @@
   };
 
   // ---- bang truot tu duoi len -------------------------------------------------------
+  var SIGN_FILE = "/api/method/ecentric_workspace.platform.esign.api.get_package_file?dsf_name=";
+  var ACT_VI = { Submitted: "Đã gửi", Approved: "Đã duyệt", Rejected: "Từ chối", "Information Requested": "Yêu cầu bổ sung",
+    Resubmitted: "Gửi lại", Restarted: "Gửi lại từ đầu", Skipped: "Bỏ qua", Cancelled: "Huỷ", Reminded: "Nhắc xử lý",
+    Commented: "Ghi chú", Signed: "Đã ký" };
+
   Inst.prototype.openSheet = function (r, focusAction) {
     if (!r) return;
     var self = this, c = r.capabilities || {};
@@ -197,36 +203,98 @@
     var rows = (r.summary || []).map(function (s) {
       return '<div class="cd-kv"><span>' + esc(s.label) + "</span><b>" + esc(s.value) + "</b></div>";
     }).join("");
+    // 07/10 (Hoan chot "vao thang B"): cap ky so duyet & ky NGAY TAI BANG, kem link xem tai
+    // lieu se ky (qua cua co kiem quyen, khong lo /private/files).
+    var files = (c.sign_required && (r.sign_files || []).length)
+      ? '<div class="cd-docs">' + (r.sign_files || []).map(function (f) {
+          return '<a class="cd-doc" href="' + SIGN_FILE + encodeURIComponent(f.dsf) + '" target="_blank" rel="noopener">'
+            + '<span class="cd-doc-ic" aria-hidden="true">PDF</span><span class="cd-doc-nm"><b>Tài liệu sẽ ký</b><i>'
+            + esc(f.file_name) + "</i></span><span class=\"cd-doc-go\">Xem</span></a>";
+        }).join("") + "</div>"
+      : "";
     var btns = c.needs_input
       ? (r.detail_url ? '<a class="cd-btn cd-ok cd-wide" href="' + esc(r.detail_url) + '">Mở trang chi tiết để duyệt</a>' : "")
-      : ((c.can_approve ? '<button type="button" class="cd-btn cd-ok" data-cd-do="approve">Duyệt</button>' : "")
+      : ((c.can_approve ? (c.sign_required
+            ? '<button type="button" class="cd-btn cd-ok" data-cd-do="approve_sign">Duyệt &amp; Ký</button>'
+            : '<button type="button" class="cd-btn cd-ok" data-cd-do="approve">Duyệt</button>') : "")
         + (c.can_request_info ? '<button type="button" class="cd-btn" data-cd-do="request_information">Yêu cầu bổ sung</button>' : "")
         + (c.can_reject ? '<button type="button" class="cd-btn cd-no" data-cd-do="reject">Từ chối</button>' : ""));
     ov.innerHTML = '<div class="cd-sheet" role="dialog" aria-modal="true" aria-label="' + esc(r.title) + '">'
       + '<div class="cd-grip" aria-hidden="true"></div>'
+      + '<div data-cd-pane="act">'
       + '<div class="cd-sh-head"><div><div class="cd-sh-type">' + esc(r.type_label) + " · " + esc(r.level_name || "") + "</div>"
       + '<div class="cd-sh-title">' + esc(r.title) + "</div>"
       + '<div class="cd-meta">' + esc(r.requester_name || r.requested_by) + " · gửi " + fmtDate(r.submitted_at)
       + (r.due_at ? " · hạn " + fmtDate(r.due_at) : "") + "</div></div>"
       + '<button type="button" class="cd-x" data-cd-close aria-label="Đóng">&times;</button></div>'
       + (rows ? '<div class="cd-kvs">' + rows + "</div>" : "")
+      + files
       + (c.needs_input ? '<div class="cd-note">' + esc(c.needs_input_reason) + "</div>"
         : '<label class="cd-lbl" for="cd-cmt">Nhận xét / lý do'
           + (c.comment_required ? ' <span class="cd-req">(bắt buộc khi duyệt)</span>' : "")
           + '</label><textarea id="cd-cmt" rows="3" placeholder="Từ chối / yêu cầu bổ sung bắt buộc ghi lý do"></textarea>'
           + '<div class="cd-msg" data-cd-msg role="alert"></div>')
       + '<div class="cd-sh-btns">' + btns + "</div>"
-      + (r.detail_url ? '<a class="cd-link cd-full" href="' + esc(r.detail_url) + '">Xem đầy đủ phiếu</a>' : "")
+      + (c.sign_required && !c.needs_input ? '<p class="cd-hint">Chữ ký được xác nhận trong vài phút sau khi gửi.</p>' : "")
+      + '<button type="button" class="cd-link cd-full" data-cd-full>Xem đầy đủ phiếu</button>'
+      + "</div>"
+      + '<div data-cd-pane="full" hidden></div>'
       + "</div>";
     document.body.appendChild(ov);
     var close = function () { if (ov.parentNode) ov.parentNode.removeChild(ov); };
     ov.addEventListener("click", function (ev) {
       if (ev.target === ov || (ev.target.closest && ev.target.closest("[data-cd-close]"))) { close(); return; }
+      if (ev.target.closest && ev.target.closest("[data-cd-full]")) { self.showFull(r, ov); return; }
+      if (ev.target.closest && ev.target.closest("[data-cd-back]")) { self.pane(ov, "act"); return; }
       var b = ev.target.closest && ev.target.closest("[data-cd-do]");
       if (b) self.decide(r, b.getAttribute("data-cd-do"), ov, close);
     });
     var ta = ov.querySelector("#cd-cmt");
     if (ta && focusAction !== "approve") { try { ta.focus(); } catch (e) { /* bo qua */ } }
+  };
+
+  // Hai mat cua CUNG mot bang: "act" (quyet dinh) va "full" (xem day du). Doi mat do nguoi
+  // dung bam, khong phai luc tai - binh luan / chu dang go o mat "act" van giu nguyen.
+  Inst.prototype.pane = function (ov, which) {
+    Array.prototype.forEach.call(ov.querySelectorAll("[data-cd-pane]"), function (p) {
+      p.hidden = p.getAttribute("data-cd-pane") !== which;
+    });
+    var sh = ov.querySelector(".cd-sheet");
+    if (sh) { sh.classList.toggle("cd-sheet-full", which === "full"); sh.scrollTop = 0; }
+  };
+
+  // Chi tiet day du = DUNG cua popup trang "Tat ca yeu cau" (reporting.actions.get_request_detail:
+  // facade.detail cua chinh form -> da kiem quyen xem, da an luong theo luat cua form).
+  Inst.prototype.showFull = function (r, ov) {
+    var self = this, box = ov.querySelector('[data-cd-pane="full"]');
+    var head = '<button type="button" class="cd-link cd-back" data-cd-back>‹ Về bước duyệt</button>'
+      + '<div class="cd-sh-title">' + esc(r.title) + "</div>";
+    box.innerHTML = head + '<p class="cd-loading">Đang tải chi tiết phiếu…</p>';
+    this.pane(ov, "full");
+    get("get_request_detail?request_name=" + encodeURIComponent(r.request)).then(function (d) {
+      d = d || {};
+      var f = (d.display_fields || []).map(function (x) {
+        return '<div class="cd-kv"><span>' + esc(x.label) + "</span><b>" + esc(x.value) + "</b></div>";
+      }).join("");
+      var att = (d.attachments || []).map(function (a) {
+        var url = a.sp_share_url || a.sp_web_url || a.file_url;
+        return '<div class="cd-kv"><span class="cd-fn">' + esc(a.file_name || a.file_url) + '</span><b><a class="cd-a" href="'
+          + esc(url) + '" target="_blank" rel="noopener">Mở</a></b></div>';
+      }).join("");
+      var tl = (d.timeline || []).map(function (t) {
+        return '<div class="cd-tl"><b>' + esc(ACT_VI[t.action] || t.action) + "</b> · " + esc(t.actor || "")
+          + " · " + fmtDate(t.action_time) + (t.comment ? '<div class="cd-tl-c">' + esc(t.comment) + "</div>" : "") + "</div>";
+      }).join("");
+      box.innerHTML = head
+        + (f ? '<div class="cd-sec">Thông tin</div><div class="cd-kvs">' + f + "</div>" : "")
+        + (att ? '<div class="cd-sec">Đính kèm (' + (d.attachments || []).length + ')</div><div class="cd-kvs">' + att + "</div>" : "")
+        + (tl ? '<div class="cd-sec">Lịch sử duyệt</div>' + tl : "")
+        + '<button type="button" class="cd-btn cd-ok cd-wide cd-mt" data-cd-back>Về bước duyệt</button>'
+        + (r.detail_url ? '<a class="cd-link cd-full" href="' + esc(r.detail_url) + '">Mở trang đầy đủ</a>' : "");
+    }).catch(function (e) {
+      box.innerHTML = head + '<div class="cd-err">' + esc(e.message) + "</div>"
+        + '<button type="button" class="cd-btn cd-wide cd-mt" data-cd-back>Về bước duyệt</button>';
+    });
   };
 
   Inst.prototype.decide = function (r, action, ov, close) {
@@ -235,8 +303,8 @@
     var ta = ov.querySelector("#cd-cmt"), msg = ov.querySelector("[data-cd-msg]");
     var cmt = ta ? (ta.value || "").trim() : "";
     var say = function (t) { if (msg) msg.textContent = t; };
-    if (action !== "approve" && !cmt) { say(action === "reject" ? "Từ chối bắt buộc ghi lý do." : "Ghi rõ cần bổ sung gì."); if (ta) ta.focus(); return; }
-    if (action === "approve" && c.comment_required && !cmt) { say("Loại phiếu này bắt buộc nhập nhận xét khi duyệt."); if (ta) ta.focus(); return; }
+    if ((action === "reject" || action === "request_information") && !cmt) { say(action === "reject" ? "Từ chối bắt buộc ghi lý do." : "Ghi rõ cần bổ sung gì."); if (ta) ta.focus(); return; }
+    if ((action === "approve" || action === "approve_sign") && c.comment_required && !cmt) { say("Loại phiếu này bắt buộc nhập nhận xét khi duyệt."); if (ta) ta.focus(); return; }
     var self = this, btns = ov.querySelectorAll("[data-cd-do]");
     this.busy = true;
     Array.prototype.forEach.call(btns, function (b) { b.disabled = true; });
@@ -245,7 +313,8 @@
       self.busy = false;
       close();
       self.removeRow(r.request, res && res.remaining);
-      self.toast({ approve: "Đã duyệt ", reject: "Đã từ chối ", request_information: "Đã yêu cầu bổ sung " }[action] + r.title);
+      self.toast({ approve: "Đã duyệt ", approve_sign: "Đã gửi lệnh ký - ", reject: "Đã từ chối ",
+                   request_information: "Đã yêu cầu bổ sung " }[action] + r.title);
     }).catch(function (e) {
       self.busy = false;
       Array.prototype.forEach.call(btns, function (b) { b.disabled = false; });
