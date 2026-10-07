@@ -18,6 +18,7 @@
   "height_cm",
   "depth_cm",
   "size_pct",
+  "weight_g",
   "pack_count",
   "notes",
   "product_image",
@@ -91,6 +92,12 @@
    "fieldname": "size_pct",
    "fieldtype": "Float",
    "label": "Chỉnh cỡ (%)"
+  },
+  {
+   "fieldname": "weight_g",
+   "fieldtype": "Float",
+   "label": "Khối lượng (g)",
+   "description": "Áng chừng độ nặng để AI cầm cho đúng (VD hộp pin 40 viên ~ 900 g)"
   },
   {
    "fieldname": "pack_count",
@@ -172,7 +179,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-10-01 00:00:00.000000",
+ "modified": "2026-10-07 17:00:00.000000",
  "modified_by": "Administrator",
  "module": "Ecentric Workspace",
  "name": "EC AI Video Item",

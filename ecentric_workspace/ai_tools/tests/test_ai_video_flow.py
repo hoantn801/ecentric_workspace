@@ -115,6 +115,31 @@ class TestCostView(unittest.TestCase):
         self.assertEqual(v["total_usd"], 2.94)
         self.assertTrue(v["estimated"])
 
+    def test_chi_phi_theo_loai_viec(self):
+        costs = {"usd_per_credit": 0.005,
+                 "job": {"P_111_X_R1": {"usd": 3.0, "kinds": {"hold_images": 48, "master": 24, "putdown": 126, "hold": 252}, "regen": 126}},
+                 "host": {"H": {"usd": 1.0, "kinds": {"anchor": 24, "talk": 126}, "regen": 0}}}
+        items = [{"sku": "111"}]
+        v = flow.cost_view(costs, items)
+        self.assertEqual(items[0]["cost_kinds"], {"holds": 0.24, "master": 0.12, "put": 0.63, "clip": 1.26, "regen": 0.63})
+        self.assertEqual(v["kinds"]["clip"], 1.26)
+        self.assertEqual(v["host_kinds"], {"anchor": 0.12, "talk": 0.63})
+
+    def test_khoi_luong_vao_ghi_chu(self):
+        self.assertEqual(flow.weight_note(None), "")
+        self.assertIn("about 900 g", flow.weight_note(900))
+        self.assertIn("firm", flow.weight_note(900))
+        self.assertIn("1.5 kg", flow.weight_note(1500))
+        f = flow.hold_fields({"sku": "A", "weight_g": 80, "notes": "Hộp đỏ"}, "Pin")
+        self.assertTrue(f["product_notes"].startswith("WEIGHT: about 80 g"))
+        self.assertTrue(f["product_notes"].endswith("Hộp đỏ"))
+        self.assertEqual(flow.hold_fields({"sku": "A"}, "Pin")["product_notes"], "")
+
+    def test_tron_co_audio_dem_2s(self):
+        s = flow.mix_step({"sku": "A", "audio_seconds": 30}, {"brand": "B", "host_key": "H"}, {"job": "J"}, voice="ecv6/inbox/x/a.mp3")
+        self.assertEqual((s["voice_pad_s"], s["keep_duration"], s["voice"]), (2, False, "ecv6/inbox/x/a.mp3"))
+        self.assertTrue(flow.mix_step({"sku": "A", "keep_duration": True}, {}, {}, None)["keep_duration"])
+
     def test_khong_co_du_lieu(self):
         items = [{"sku": "1"}]
         v = flow.cost_view(None, items)
