@@ -615,7 +615,9 @@ class TestAfterRequest(_FrappeCase):
 
     def test_hooks_registered_append_only(self):
         hooks = io.open(os.path.join(APP, "hooks.py"), encoding="utf-8").read()
-        tail = hooks[hooks.index("extend_bootinfo = list("):]
+        start = hooks.index("extend_bootinfo = list(")
+        end = hooks.find("\n\n", start)
+        tail = hooks[start:end if end > 0 else len(hooks)]
         ns = {"extend_bootinfo": ["a.b"], "after_request": ["c.d"]}
         exec(tail, ns)
         self.assertEqual(ns["extend_bootinfo"], ["a.b", "ecentric_workspace.chat.boot.extend_bootinfo"])

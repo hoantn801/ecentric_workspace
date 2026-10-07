@@ -898,3 +898,30 @@ after_request = list(globals().get("after_request") or []) + [
 # "Cho toi duyet" - duyet nhanh tren dien thoai (06/10). Gan vao [data-ec-cho-duyet] (/viec-cua-toi).
 web_include_js.append("ec_cho_duyet.bundle.js")
 web_include_css.append("ec_cho_duyet.bundle.css")
+
+
+# --------------------------------------------------------------------------- #
+# 07/10/2026 - Chat noi bo: phieu trong chat (chat/phieu_gateway.py). Khong sua Raven, khong sua
+# Approval Center. (1) the phieu trong chat mo trang /approvals thay vi Desk; (2) dan link phieu
+# ERP -> tin nhan mang the phieu; (3) bot "Phieu duyet" nhan rieng thong bao phe duyet.
+# Tat: site_config ec_chat_phieu_disabled (ca 3) / ec_chat_bot_disabled (chi bot).
+# --------------------------------------------------------------------------- #
+raven_document_link_override = list(globals().get("raven_document_link_override") or []) + [
+    "ecentric_workspace.chat.phieu_gateway.document_link"]
+
+
+def _ec_chat_add_doc_event(doctype, event, path):
+    events = doc_events.setdefault(doctype, {})
+    prev = events.get(event)
+    if prev is None:
+        events[event] = [path]
+    elif isinstance(prev, str):
+        events[event] = [prev, path] if prev != path else [prev]
+    elif path not in prev:
+        events[event] = list(prev) + [path]
+
+
+_ec_chat_add_doc_event("Raven Message", "before_insert",
+                       "ecentric_workspace.chat.phieu_gateway.on_raven_message_before_insert")
+_ec_chat_add_doc_event("EC Notification Delivery Log", "after_insert",
+                       "ecentric_workspace.chat.phieu_gateway.on_delivery_log_after_insert")
