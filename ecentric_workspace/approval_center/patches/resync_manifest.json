@@ -205,8 +205,8 @@
   },
   "legacy_pages/gbs_so_form_v2/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p223_resync_gbs_form_nhieu_lop",
-    "sha256": "06e4d72b16e6356f130593d0d95b260a42957e97b62a0c6132b5a92740bb3d8d"
+    "last_resync_patch": "p226_gbs_so_store_tuy_chon",
+    "sha256": "63e82e7f38065f53c2e114de377da7e970037beb43a9df9b236dca29a57aa735"
   },
   "legacy_pages/mso_plan_form/main_section.html": {
     "baseline": "2026-08-31",

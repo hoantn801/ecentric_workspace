@@ -43,8 +43,11 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "06e4d72b16e6356f130593d0d95b260a42957e97b62a0c6132b5a92740bb3d8d"
+BASELINE_SHA256 = "63e82e7f38065f53c2e114de377da7e970037beb43a9df9b236dca29a57aa735"
 SUPERSEDES_SHA256 = (
+    # 07/10/2026 (p226): o Store (Platform) chi bat buoc o che do direct; che do GBS du an moi
+    # chua co store tren GBS thi de trong (GBS xac nhan khong bat buoc).
+    "06e4d72b16e6356f130593d0d95b260a42957e97b62a0c6132b5a92740bb3d8d",  # 29/09 nhieu lop (p223)
     # 29/09/2026 (A65 / NHIEU_LOP, brief_gbs): form ve DUNG trang thai cuoi ngay tu HTML. Thanh
     # che do, o Muc uu tien, khung combobox, khung MSO, o Store + 2 o ngay, cot UOM/VAT, khung chain
     # nam san trong markup; che do dat len <html data-ec-*-mode> truoc khi ve; CSS tung chen luc chay
