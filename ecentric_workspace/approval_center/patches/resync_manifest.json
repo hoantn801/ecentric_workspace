@@ -311,5 +311,9 @@
   "weekly_report/pages/weekly_update/main_section.html": {
     "last_resync_patch": "p230_resync_weekly_update_bom",
     "sha256": "bcfec3a49e4da5715ff38db8cff485c5da8c3e8f2ab29349822eb3abd7d73bef"
+  },
+  "pm/frontend/pm_app.html": {
+    "last_resync_patch": "p275_resync_pm_vao_nguon",
+    "sha256": "bf88bd3c56106b8e4e8409624a496222a4a2b605a9021ced4047de9707805fe2"
   }
 }
