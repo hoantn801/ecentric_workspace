@@ -620,14 +620,179 @@ RAIL = [
 ]
 
 
-def rail_spec():
-    """Ban tuan tu hoa cua RAIL cho boot (client) - cung du lieu server dung de ve."""
+# ------------------------------------------------------------ rail layout --
+#: Bo cuc COT cua tung khu (PO duyet mockup NHIEU_LOP/menu_mockup/cot_menu_thong_minh_toan_bo.html,
+#: 07/10/2026). Thu tu khoi: Viec cua toi -> Tao nhanh -> nhom tra cuu -> chan cot.
+#: Khoi (`t`):
+#:   todo    {"items": [muc]}                      khoi nen xanh nhat, dau cot
+#:   group   {"label": "...", "items": [muc]}      nhan "" = khong nhan
+#:   chips   {"label": "...", "items": [muc], "more": muc}   nut gon mot hang
+#:   button  {"item": muc}                          mot nut rong
+#:   help    {"item": muc}                          dong nho o chan cot (ngoai vung cuon)
+#: Muc:
+#:   {"key": <key registry>}  + tuy chon "label" / "caption" / "icon" / "children": [muc]
+#:   {"key": "rail.<...>", "label", "route", "icon"} = LIEN KET rieng cua cot (khong co trong
+#:     registry). Tuy chon: "active_patterns", "noactive" (khong bao gio to dang chon - vd link
+#:     co ?box=), "badge_source", "badge": "reminder" (so Viec cua toi tren thanh tren),
+#:     "roles": [...] (UX: chi hien voi nguoi co MOT trong cac role; trang van tu kiem quyen),
+#:     "soon".
+#:   Muc co "children" = menu con gap/mo (tu mo khi trang dang o trong do).
+#: Muc registry cua ngu canh dang mo ma bo cuc KHONG dat -> tu noi vao nhom "Mục khác" o cuoi:
+#: module them muc moi khong bao gio bi mat khoi cot (test khoa: hien nay khong co muc nao).
+APPROVALS_CAPTION = "Chỉ admin"
+
+RAIL_LAYOUTS = {
+    "home": [
+        {"t": "todo", "items": [
+            {"key": "rail.home.mywork", "label": "Việc của tôi", "route": "/viec-cua-toi", "icon": "inbox",
+             "badge": "reminder"}]},
+        {"t": "group", "label": "", "items": [{"key": "home.portal.home"}, {"key": "home.portal.overview"}]},
+        {"t": "chips", "label": "Lối tắt", "items": [
+            {"key": "rail.home.att", "label": "Chấm công", "route": "/ec-hr/attendance", "icon": "clock", "noactive": True},
+            {"key": "rail.home.leave", "label": "Xin nghỉ", "route": "/ec-hr/leave", "icon": "calendar", "noactive": True},
+            {"key": "rail.home.req", "label": "Đề nghị", "route": "/approvals", "icon": "check", "noactive": True}]},
+        {"t": "help", "item": {"key": "rail.help", "label": "Hướng dẫn sử dụng", "route": "/huong-dan", "icon": "book"}},
+    ],
+    "feed": [
+        {"t": "group", "label": "", "items": [
+            {"key": "home.portal.feed"},
+            {"key": "rail.feed.clubs", "label": "Câu lạc bộ", "route": "/bang-tin/cau-lac-bo", "icon": "users",
+             "active_patterns": ["/bang-tin/cau-lac-bo", "/bang-tin/cau-lac-bo/*"]},
+            {"key": "home.portal.news"}]},
+        {"t": "chips", "label": "Tạo nhanh", "items": [
+            {"key": "rail.feed.post", "label": "Đăng bài", "route": "/bang-tin", "icon": "plus", "noactive": True},
+            {"key": "rail.feed.write", "label": "Viết tin", "route": "/tin-noi-bo/viet-bai", "icon": "plus",
+             "roles": ["System Manager", "HR Manager", "HR User"]}]},
+        {"t": "group", "label": "Quản lý", "items": [
+            {"key": "rail.feed.mod", "label": "Duyệt bài bảng tin", "route": "/bang-tin/quan-ly", "icon": "check",
+             "caption": "Chỉ admin / HR", "roles": ["System Manager", "HR Manager", "HR User"]},
+            {"key": "rail.feed.newsmg", "label": "Quản lý tin nội bộ", "route": "/tin-noi-bo/quan-ly", "icon": "doc",
+             "caption": "Chỉ admin / HR", "roles": ["System Manager", "HR Manager", "HR User"]}]},
+    ],
+    "approvals": [
+        {"t": "todo", "items": [
+            {"key": "rail.appr.waiting", "label": "Chờ tôi duyệt", "route": "/approvals/all-requests?box=received",
+             "icon": "check", "badge_source": "action_center.approvals", "noactive": True},
+            {"key": "rail.appr.sent", "label": "Tôi đã gửi", "route": "/approvals/all-requests?box=sent",
+             "icon": "send", "noactive": True}]},
+        {"t": "chips", "label": "Tạo nhanh", "items": [
+            {"key": "legacy.create_mso", "label": "MSO"}, {"key": "legacy.create_so", "label": "SO"},
+            {"key": "legacy.create_po", "label": "PO"}],
+         "more": {"key": "rail.appr.more", "label": "+ Loại yêu cầu khác…", "route": "/approvals", "icon": "plus",
+                  "noactive": True}},
+        {"t": "group", "label": "Tra cứu", "items": [
+            {"key": "apc.catalog", "label": "Danh mục yêu cầu", "icon": "grid"},
+            {"key": "apc.all"},
+            {"key": "approval.inbox", "label": "Tất cả chứng từ"}]},
+        {"t": "group", "label": "Thống kê", "items": [
+            {"key": "apc.dashboard", "label": "Phê duyệt"},
+            {"key": "tickets.all", "label": "Chứng từ", "icon": "chart"},
+            {"key": "apc.esign_ops", "caption": APPROVALS_CAPTION}]},
+        {"t": "help", "item": {"key": "docs.guides", "label": "Hướng dẫn sử dụng", "icon": "book"}},
+    ],
+    "work": [
+        {"t": "todo", "items": [{"key": "pm.view.mywork"}, {"key": "pm.view.assignments"},
+                                {"key": "pm.view.schedule"}]},
+        {"t": "group", "label": "Quản lý", "items": [
+            {"key": "pm.view.overview"}, {"key": "pm.view.projects"},
+            {"key": "pm.view.work", "label": "Danh sách việc"}, {"key": "pm.view.recurring", "label": "Việc lặp lại"},
+            {"key": "pm.view.timesheet"}]},
+        {"t": "help", "item": {"key": "pm.view.guide", "label": "Hướng dẫn quản lý công việc"}},
+    ],
+    "hr": [
+        {"t": "group", "label": "Của tôi", "items": [{"key": "hr.attendance"}, {"key": "hr.leave"},
+                                                     {"key": "hr.salary"}]},
+        {"t": "button", "item": {"key": "rail.hr.leave", "label": "Xin nghỉ phép", "route": "/ec-hr/leave",
+                                 "icon": "plus", "noactive": True}},
+        {"t": "group", "label": "Hiệu suất", "items": [
+            {"key": "sla.scoreboard"}, {"key": "hr.brand_weight"},
+            {"key": "rail.hr.kpi", "label": "Mục tiêu KPI", "route": "/coming-soon?tool=kpi", "icon": "target",
+             "soon": True, "noactive": True}]},
+        {"t": "help", "item": {"key": "hr.install_guide", "label": "Cài app lên điện thoại"}},
+    ],
+    "reports": [
+        {"t": "group", "label": "", "items": [{"key": "reporting.hub", "label": "Trung tâm báo cáo"}]},
+        {"t": "group", "label": "Vận hành", "items": [{"key": "reporting.weekly"}, {"key": "reporting.pulse"}]},
+        {"t": "group", "label": "Kinh doanh", "items": [
+            {"key": "rail.rep.pnl", "label": "Doanh thu (PnL)", "route": "/pnl-dashboard", "icon": "wallet",
+             "caption": "Theo quyền", "children": [
+                 {"key": "pnl.view.tong_quan"}, {"key": "pnl.view.brand"}, {"key": "pnl.view.nhan_su"},
+                 {"key": "pnl.view.du_bao"}, {"key": "pnl.view.bao_cao"}]}]},
+        {"t": "group", "label": "Cảnh báo", "items": [
+            {"key": "rail.rep.alerts", "label": "Alert Center", "route": "/alerts", "icon": "bell", "children": [
+                {"key": "alerts.dashboard", "label": "Tổng quan"}, {"key": "alerts.policies", "label": "Chính sách"},
+                {"key": "alerts.rules", "label": "Quy tắc"}, {"key": "alerts.locks", "label": "Khoá"},
+                {"key": "alerts.health", "label": "Kết nối"}]}]},
+    ],
+    "company": [
+        {"t": "group", "label": "Tài liệu", "items": [
+            {"key": "home.portal.iso_docs", "children": [
+                {"key": "rail.co.docs", "label": "Thư viện", "route": "/tai-lieu", "icon": "doc"},
+                {"key": "rail.co.docsmg", "label": "Quản lý tài liệu", "route": "/tai-lieu/quan-ly", "icon": "gear",
+                 "roles": ["System Manager", "Ban ISO", "TGĐ duyệt tài liệu"]}]}]},
+        {"t": "group", "label": "Tiếng nói nhân viên", "items": [
+            {"key": "home.portal.feedback", "children": [
+                {"key": "rail.co.fb", "label": "Gửi góp ý", "route": "/gop-y", "icon": "message"},
+                {"key": "rail.co.fbin", "label": "Hộp xử lý", "route": "/gop-y/xu-ly", "icon": "inbox",
+                 "roles": ["System Manager"]},
+                {"key": "rail.co.fbov", "label": "Tổng quan góp ý", "route": "/gop-y/tong-quan", "icon": "chart",
+                 "roles": ["System Manager"]}]},
+            {"key": "surveys.hub", "children": [
+                {"key": "rail.co.survey", "label": "Làm khảo sát", "route": "/khao-sat", "icon": "list"},
+                {"key": "surveys.manage"}]}]},
+        {"t": "group", "label": "Công cụ", "items": [
+            {"key": "ai_tools.hub", "children": [
+                {"key": "rail.co.si", "label": "Tất cả công cụ", "route": "/ai-tool", "icon": "grid"},
+                {"key": "ai_tools.livestream", "label": "Livestream Script"},
+                {"key": "ai_tools.livestream.brand"}, {"key": "ai_tools.livestream.rules"},
+                {"key": "ai_tools.video"}]}]},
+        {"t": "group", "label": "Khác", "items": [
+            {"key": "home.portal.hall"}, {"key": "home.portal.hiring", "caption": "Chỉ HR"},
+            {"key": "home.portal.training"}]},
+    ],
+}
+
+
+def _layout_for(sec_key, roles):
+    """Bo cuc cua khu da LOC theo vai tro: muc / lien ket co "roles" chi giu khi nguoi xem co
+    mot trong cac role; roles=None (trang render chung cho moi nguoi) -> bo het."""
+    have = set(roles) if roles is not None else None
+
+    def ok(it):
+        need = it.get("roles")
+        return not need or (have is not None and bool(have & set(need)))
+
+    def clean(it):
+        out = {k: v for k, v in it.items() if k not in ("roles", "children")}
+        if it.get("children"):
+            out["children"] = [clean(c) for c in it["children"] if ok(c)]
+        return out
+
+    blocks = []
+    for b in RAIL_LAYOUTS.get(sec_key) or []:
+        nb = {k: v for k, v in b.items() if k not in ("items", "item", "more")}
+        if "items" in b:
+            nb["items"] = [clean(i) for i in b["items"] if ok(i)]
+        if "item" in b:
+            if not ok(b["item"]):
+                continue
+            nb["item"] = clean(b["item"])
+        if "more" in b and ok(b["more"]):
+            nb["more"] = clean(b["more"])
+        blocks.append(nb)
+    return blocks
+
+
+def rail_spec(roles=None):
+    """Ban tuan tu hoa cua RAIL cho boot (client) - cung du lieu server dung de ve.
+    roles: role cua nguoi xem (boot) hoac None (render chung) -> loc lien ket theo vai tro."""
     return [{"key": s["key"], "label": s["label"], "icon": s["icon"], "route": s["route"],
              "badge_source": s.get("badge_source") or "", "contexts": list(s["contexts"]),
              "keys": list(s["keys"]), "group": s["group"],
              "group_order": list(s.get("group_order") or []),
              "labels": dict(s.get("labels") or {}),
-             "panel": s.get("panel", True) is not False} for s in RAIL]
+             "panel": s.get("panel", True) is not False,
+             "layout": _layout_for(s["key"], roles)} for s in RAIL]
 
 
 def validate_rail(rail=None):
