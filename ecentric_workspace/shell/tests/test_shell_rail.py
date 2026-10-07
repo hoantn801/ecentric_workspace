@@ -22,7 +22,7 @@ import unittest
 from ecentric_workspace.shell.tests import test_server_nav as T
 
 #: So test trong file (lech = co test khong nap).
-EXPECT_TOTAL = 28
+EXPECT_TOTAL = 31
 
 _SAVED = {}
 
@@ -272,6 +272,30 @@ class TestLayout(unittest.TestCase):
         self.assertIn('data-ec-shell-badge="action_center.approvals" hidden', appr)
 
 
+class TestCollapse(unittest.TestCase):
+    """Nut thu gon cot (07/10/2026): co nut o dau cot + nut mo lai tren thanh; CSS doi luoi trang."""
+
+    def setUp(self):
+        import frappe
+        frappe.conf.clear()
+
+    def test_buttons_rendered(self):
+        html = _render("/approvals")
+        rail, panel = html.split('<div class="ec-shell-panel">', 1)
+        self.assertIn('data-ec-shell-collapse="0"', rail, "nut mo lai nam tren thanh")
+        self.assertIn('<span class="ec-shell-paneltitle">Phê duyệt</span><button type="button" class="ec-shell-collapse" '
+                      'data-ec-shell-collapse="1"', panel)
+
+    def test_css_shrinks_page_grid_and_pm(self):
+        import io
+        import os
+        css = io.open(os.path.join(T.APP, "public", "css", "ec_shell.bundle.css"), encoding="utf-8").read()
+        self.assertIn('[data-ec-shell-collapsed="1"] :has(> .ec-shell-mount[data-ec-rail="1"]){ grid-template-columns:62px', css)
+        self.assertIn('[data-ec-shell-collapsed="1"] #ec-pm-root{ grid-template-columns:62px', css,
+                      "/pm co !important rieng (#ec-pm-root) -> can quy tac cu the hon")
+        self.assertIn('[data-ec-shell-collapsed="1"] .ec-shell-mount[data-ec-rail="1"] .ec-shell-panel{ display:none; }', css)
+
+
 class TestPmPatch(unittest.TestCase):
     """p272: dua /pm ve vo shell bang DUNG pm.pages.transform; khong nem trong migrate."""
 
@@ -415,6 +439,18 @@ class TestHydration(unittest.TestCase):
         self.assertEqual(r["clicked"], {"expanded": "false", "hidden": True},
                          "server ve san o trang thai MO -> lan bam dau phai GAP")
 
+    def test_collapse_button_toggles_and_remembers(self):
+        node, why = T._node_ok(need_jsdom=True)
+        if not node:
+            self.skipTest(why)
+        r = T._run_harness(node, "hydrate", {"html": _render("/approvals"), "pathname": "/approvals",
+                                             "boot": self._boot(), "clickSel": ["[data-ec-shell-collapse='1']"]})
+        self.assertEqual(r["collapsed"], {"attr": "1", "saved": "1"})
+        r = T._run_harness(node, "hydrate", {"html": _render("/approvals"), "pathname": "/approvals",
+                                             "boot": self._boot(),
+                                             "clickSel": ["[data-ec-shell-collapse='1']", "[data-ec-shell-collapse='0']"]})
+        self.assertEqual(r["collapsed"], {"attr": None, "saved": "0"})
+
     def test_chat_page_keeps_rail_without_panel(self):
         r = self._go(_render("/chat"), "/chat", self._boot())
         self.assertTrue(r["navKept"])
@@ -437,7 +473,7 @@ class TestHydration(unittest.TestCase):
 
 def load_tests(loader, tests, pattern):
     suite = unittest.TestSuite()
-    for case in (TestRegistry, TestServerRender, TestRound2, TestLayout, TestPmPatch, TestKillSwitch, TestJsParity,
+    for case in (TestRegistry, TestServerRender, TestRound2, TestLayout, TestCollapse, TestPmPatch, TestKillSwitch, TestJsParity,
                  TestHydration):
         suite.addTests(loader.loadTestsFromTestCase(case))
     if suite.countTestCases() != EXPECT_TOTAL:

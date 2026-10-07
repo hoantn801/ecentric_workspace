@@ -411,6 +411,11 @@ def rail_panel_nav(blocks, active):
     return '<nav class="ec-shell-nav" aria-label="Điều hướng chính">%s</nav>%s' % ("".join(h), foot)
 
 
+#: Thu gon / mo rong cot (07/10/2026). CUNG chuoi voi ec_shell.js (COLLAPSE_BTN / EXPAND_BTN).
+PANEL_COLLAPSE_BTN = ('<button type="button" class="ec-shell-collapse" data-ec-shell-collapse="1" aria-label="Thu gọn menu" title="Thu gọn menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m11 17-5-5 5-5M18 17l-5-5 5-5"/></svg></button>')
+RAIL_EXPAND_BTN = ('<button type="button" class="ec-shell-expand" data-ec-shell-collapse="0" aria-label="Mở rộng menu" title="Mở rộng menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m13 17 5-5-5-5M6 17l5-5-5-5"/></svg></button>')
+
+
 def rail_html(rail, section_key, foot=""):
     """Thanh khu vuc - byte-identical voi ec_shell.js railHtml(). `foot` (the nguoi dung)
     nam o DAY thanh (PO 07/10: avatar duoi cung nhu mockup), khong nam trong cot."""
@@ -426,6 +431,8 @@ def rail_html(rail, section_key, foot=""):
                  '<span class="ec-shell-railic">%s</span><span class="ec-shell-raillbl">%s</span>%s</a>'
                  % (" ec-shell-railon" if on else "", esc_live(s["route"]), esc_live(s["key"]),
                     ' aria-current="true"' if on else "", _svg(s["icon"]), esc_live(s["label"]), badge))
+    # Nut mo lai cot - chi hien khi nguoi dung da thu gon (CSS [data-ec-shell-collapsed]).
+    h.append(RAIL_EXPAND_BTN)
     if foot:
         h.append('<span class="ec-shell-railsp"></span>' + foot)
     h.append("</nav>")
@@ -458,8 +465,8 @@ def mount_inner_html(items, active, live=False, rail=None, section=None, blocks=
     if rail:
         # Menu 2 tang (07/10/2026): thanh khu vuc + cot. Logo len thanh; dau cot = ten khu.
         title = section["label"] if section else "eCentric"
-        head = ('<div class="ec-shell-head"><span class="ec-shell-paneltitle">%s</span></div>'
-                % esc_live(title))
+        head = ('<div class="ec-shell-head"><span class="ec-shell-paneltitle">%s</span>%s</div>'
+                % (esc_live(title), PANEL_COLLAPSE_BTN))
         nav = rail_panel_nav(blocks, active) if blocks is not None else render_nav(items, active, live=live)
         return (rail_html(rail, section["key"] if section else None, foot) +
                 '<div class="ec-shell-panel">' + head + search + nav + '</div>')
