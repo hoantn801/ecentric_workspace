@@ -629,6 +629,8 @@ RAIL = [
 #:   chips   {"label": "...", "items": [muc], "more": muc}   nut gon mot hang
 #:   button  {"item": muc}                          mot nut rong
 #:   help    {"item": muc}                          dong nho o chan cot (ngoai vung cuon)
+#:   part    {"label": "..."}                       tieu de PHAN (co vach ngan) - chia mot khu thanh
+#:                                                  nhieu phan ro rang (Phe duyet: Yeu cau / Chung tu)
 #: Muc:
 #:   {"key": <key registry>}  + tuy chon "label" / "caption" / "icon" / "children": [muc]
 #:   {"key": "rail.<...>", "label", "route", "icon"} = LIEN KET rieng cua cot (khong co trong
@@ -669,25 +671,27 @@ RAIL_LAYOUTS = {
             {"key": "rail.feed.newsmg", "label": "Quản lý tin nội bộ", "route": "/tin-noi-bo/quan-ly", "icon": "doc",
              "caption": "Chỉ admin / HR", "roles": ["System Manager", "HR Manager", "HR User"]}]},
     ],
+    # PO 07/10: thanh van GOP mot khu "Phe duyet", nhung cot TACH 2 phan ro rang - yeu cau phe
+    # duyet (approvals) va chung tu MSO / SO / PO (dung nhieu, de chung de roi).
     "approvals": [
+        {"t": "part", "label": "Yêu cầu phê duyệt"},
         {"t": "todo", "items": [
             {"key": "rail.appr.waiting", "label": "Chờ tôi duyệt", "route": "/approvals/all-requests?box=received",
              "icon": "check", "badge_source": "action_center.approvals", "noactive": True},
             {"key": "rail.appr.sent", "label": "Tôi đã gửi", "route": "/approvals/all-requests?box=sent",
              "icon": "send", "noactive": True}]},
-        {"t": "chips", "label": "Tạo nhanh", "items": [
-            {"key": "legacy.create_mso", "label": "MSO"}, {"key": "legacy.create_so", "label": "SO"},
-            {"key": "legacy.create_po", "label": "PO"}],
-         "more": {"key": "rail.appr.more", "label": "+ Loại yêu cầu khác…", "route": "/approvals", "icon": "plus",
-                  "noactive": True}},
-        {"t": "group", "label": "Tra cứu", "items": [
-            {"key": "apc.catalog", "label": "Danh mục yêu cầu", "icon": "grid"},
+        {"t": "group", "label": "", "items": [
+            {"key": "apc.catalog", "label": "Tạo yêu cầu", "icon": "grid"},
             {"key": "apc.all"},
-            {"key": "approval.inbox", "label": "Tất cả chứng từ"}]},
-        {"t": "group", "label": "Thống kê", "items": [
-            {"key": "apc.dashboard", "label": "Phê duyệt"},
-            {"key": "tickets.all", "label": "Chứng từ", "icon": "chart"},
+            {"key": "apc.dashboard", "label": "Thống kê phê duyệt"},
             {"key": "apc.esign_ops", "caption": APPROVALS_CAPTION}]},
+        {"t": "part", "label": "Chứng từ MSO · SO · PO"},
+        {"t": "chips", "label": "", "items": [
+            {"key": "legacy.create_mso", "label": "MSO"}, {"key": "legacy.create_so", "label": "SO"},
+            {"key": "legacy.create_po", "label": "PO"}]},
+        {"t": "group", "label": "", "items": [
+            {"key": "approval.inbox", "label": "Tất cả chứng từ"},
+            {"key": "tickets.all", "label": "Thống kê chứng từ", "icon": "chart"}]},
         {"t": "help", "item": {"key": "docs.guides", "label": "Hướng dẫn sử dụng", "icon": "book"}},
     ],
     "work": [

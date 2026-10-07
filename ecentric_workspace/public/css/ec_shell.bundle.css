@@ -620,3 +620,8 @@ a.ec-shell-rm-item:focus-visible, a.ec-shell-nc-item:focus-visible{
 /* nut Tao nhanh: theo do dai chu, du cho thi xuong hang (khong cat chu, khong ep sat) */
 .ec-shell-chips{ flex-wrap:wrap; }
 .ec-shell-mount a.ec-shell-chip, .ec-shell-drawer a.ec-shell-chip{ flex:1 1 auto; padding:6px 9px; overflow:visible; text-overflow:clip; }
+/* tieu de PHAN trong cot (vd Phe duyet: "Yeu cau phe duyet" / "Chung tu MSO · SO · PO") -
+ * dam hon nhan nhom, co vach ngan phia tren (tru phan dau tien). */
+.ec-shell-part{ margin:10px 2px 4px; padding:10px 6px 2px; border-top:1px solid var(--ec-gray-200);
+  font-size:11px; font-weight:700; color:#141d57; letter-spacing:.01em; }
+.ec-shell-nav > .ec-shell-part:first-child{ margin-top:0; padding-top:4px; border-top:0; }

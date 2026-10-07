@@ -140,18 +140,20 @@ class TestServerRender(unittest.TestCase):
         self.assertNotIn("home.portal.approvals", co, "khu Cong ty khong mang muc khu khac")
         self.assertEqual(_groups(_render("/tai-lieu")), ["Tài liệu", "Tiếng nói nhân viên", "Công cụ", "Khác"])
 
-    def test_approvals_shows_mso_so_po_right_under_approvals(self):
+    def test_approvals_column_has_two_clear_parts(self):
         html = _render("/approvals")
-        keys = _panel_keys(html)
-        self.assertEqual(keys[:2], ["rail.appr.waiting", "rail.appr.sent"], "Viec cua toi o dau cot")
-        chips = re.search(r'<div class="ec-shell-chips">(.*?)</div>', html).group(1)
-        self.assertEqual(re.findall(r'>([^<]+)</a>', chips), ["MSO", "SO", "PO"], "Tao nhanh: 3 nut mot hang")
-        self.assertEqual(_groups(html), ["Tạo nhanh", "Tra cứu", "Thống kê"])
-        self.assertIn(">Danh mục yêu cầu<", html)
-        self.assertIn(">Tất cả chứng từ<", html)
-        self.assertNotIn("core.home", keys, "Trang chu da nam tren thanh")
-        self.assertIn('data-ec-shell-badge="action_center.approvals"', html.split("ec-shell-panel")[0],
-                      "huy hieu phe duyet nam tren thanh")
+        nav = html.split('<nav class="ec-shell-nav"', 1)[1]
+        parts = re.findall(r'<div class="ec-shell-part">([^<]+)</div>', nav)
+        self.assertEqual(parts, ["Yêu cầu phê duyệt", "Chứng từ MSO · SO · PO"])
+        first, second = nav.split('class="ec-shell-part">Chứng từ', 1)
+        for k in ("rail.appr.waiting", "rail.appr.sent", "apc.catalog", "apc.all", "apc.dashboard"):
+            self.assertIn('data-ec-shell-key="%s"' % k, first, k)
+        for k in ("legacy.create_mso", "legacy.create_so", "legacy.create_po", "approval.inbox", "tickets.all"):
+            self.assertIn('data-ec-shell-key="%s"' % k, second, k)
+            self.assertNotIn('data-ec-shell-key="%s"' % k, first, k)
+        chips = re.search(r'<div class="ec-shell-chips">(.*?)</div>', second).group(1)
+        self.assertEqual(re.findall(r'>([^<]+)</a>', chips), ["MSO", "SO", "PO"])
+        self.assertEqual(_sec(_render("/mso-plan-form")), "approvals", "thanh van GOP mot khu")
 
     def test_reports_section_has_pnl_and_alerts_as_submenus(self):
         html = _render("/alerts/rules")
