@@ -206,7 +206,10 @@ def _gemini_parse(body):
         except Exception:
             continue
         if chunk.get("usageMetadata"):
-            usage = chunk["usageMetadata"]
+            usage = dict(chunk["usageMetadata"], **({"credits_consumed": usage["credits_consumed"]}
+                                                    if "credits_consumed" in usage else {}))
+        if chunk.get("credits_consumed") is not None:
+            usage = dict(usage, credits_consumed=chunk["credits_consumed"])
         for cand in chunk.get("candidates") or []:
             finish = cand.get("finishReason") or finish
             for part in (cand.get("content") or {}).get("parts") or []:
@@ -227,7 +230,7 @@ def _gpt_parse(body):
         for c in item.get("content") or []:
             if c.get("type") == "output_text" and c.get("text"):
                 texts.append(c["text"])
-    return "".join(texts), obj.get("usage") or {}, obj.get("status") or ""
+    return "".join(texts), _with_credits(obj), obj.get("status") or ""
 
 
 def _chat_parse(body):
@@ -243,7 +246,15 @@ def _chat_parse(body):
             texts.append(content)
         elif isinstance(content, list):
             texts.extend(c.get("text") or "" for c in content if isinstance(c, dict))
-    return "".join(texts), obj.get("usage") or {}, finish
+    return "".join(texts), _with_credits(obj), finish
+
+
+def _with_credits(obj):
+    """usage + `credits_consumed` cua Kie (nam ngoai usage, o goc than) neu co."""
+    usage = dict(obj.get("usage") or {})
+    if obj.get("credits_consumed") is not None:
+        usage["credits_consumed"] = obj["credits_consumed"]
+    return usage
 
 
 def parse(model, status, body):

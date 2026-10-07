@@ -107,9 +107,11 @@ def _record(key, task_id):
     return parse_record(r.status_code, (r.content or b"").decode("utf-8", "replace"))
 
 
-def generate(prompt, n=3, aspect_ratio="16:9", timeout=180, poll=3, sleep=time.sleep, clock=time.time):
+def generate(prompt, n=3, aspect_ratio="16:9", timeout=180, poll=3, sleep=time.sleep, clock=time.time,
+             purpose="image"):
     """-> {ok, urls, error, model, tasks}. Khong nem. Mot task loi thi van tra anh cua task con lai."""
     out = {"ok": False, "urls": [], "error": "", "model": model(), "tasks": []}
+    started = clock()
     if config.disabled():
         out["error"] = "ai_disabled"
         return out
@@ -146,7 +148,18 @@ def generate(prompt, n=3, aspect_ratio="16:9", timeout=180, poll=3, sleep=time.s
         errors.append("het %ss ma con %d anh chua xong" % (timeout, len(pending)))
     out["ok"] = bool(out["urls"])
     out["error"] = "; ".join(errors)[:1000]
+    _record_usage(purpose, out, started, clock)
     return out
+
+
+def _record_usage(purpose, out, started, clock):
+    """Mot dong EC AI Usage Log cho ca lo anh (usage.py). Nuot loi."""
+    try:
+        from ecentric_workspace.platform.ai import usage
+        usage.record(purpose, dict(out, latency_ms=int((clock() - started) * 1000)),
+                     images=len(out.get("urls") or []))
+    except Exception:
+        pass
 
 
 def config_scrub(text, key):

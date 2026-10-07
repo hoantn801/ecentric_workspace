@@ -102,7 +102,7 @@ class Env(object):
                     "ecentric_workspace.platform.ai"):
             sys.modules[pkg] = types.ModuleType(pkg)
         self.mod = {}
-        for name in ("config", "dialects", "health", "gateway", "scope", "chat", "company_summary"):
+        for name in ("config", "dialects", "health", "usage", "gateway", "scope", "chat", "company_summary"):
             full = "ecentric_workspace.platform.ai." + name
             m = types.ModuleType(full)
             m.__file__ = os.path.join(AI, name + ".py")
@@ -655,6 +655,37 @@ class SucKhoeVaCheDoNhanh(unittest.TestCase):
         r = e.gw.generate("chao")
         self.assertEqual(e.models_called, ["gemini-3-8-flash", "gpt-5-5"], "tuan tu nhu truoc")
         self.assertTrue(r["ok"])
+
+
+class GhiSoLieuDung(unittest.TestCase):
+    """07/10: moi luot goi qua cong AI -> mot dong EC AI Usage Log (usage.py)."""
+
+    def test_moi_luot_deu_ghi_ca_thanh_cong_lan_hong(self):
+        e = Env()
+        got = []
+        e.mod["usage"].record = lambda purpose, out, images=0: got.append((purpose, out["ok"], out["model"]))
+        e.replies["gemini"] = (200, sse("chao"))
+        e.gw.generate("x", purpose="khay")
+        e.replies["gemini"] = (200, KIE_500)
+        e.replies["gpt"] = (200, KIE_500)
+        e.gw.generate("y", purpose="chat")
+        self.assertEqual(got, [("khay", True, "gemini-3-8-flash"), ("chat", False, "")])
+
+    def test_ghi_hong_khong_lam_hong_luot_ai(self):
+        e = Env()
+
+        def boom(*a, **k):
+            raise RuntimeError("db chet")
+        e.mod["usage"].record = boom
+        e.replies["gemini"] = (200, sse("chao"))
+        self.assertTrue(e.gw.generate("x", purpose="khay")["ok"])
+
+    def test_credit_cua_kie_di_vao_usage(self):
+        d = Env().mod["dialects"]
+        body = chat_body("ok")
+        text, usage, finish, err = d.parse("gemini-3-8-flash-openai", 200, body)
+        self.assertEqual(usage["credits_consumed"], 0.05)
+        self.assertEqual(usage["prompt_tokens"], 530)
 
 
 if __name__ == "__main__":

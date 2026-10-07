@@ -88,6 +88,22 @@ AI_TOOL_ITEMS = [
                      "tron video", "hang loat", "capcut"],
         "owner": "ai_tools",
     },
+    {
+        # Thong ke dung AI (07/10): ai dung AI, dung gi, on khong, ton bao nhieu. Pham vi xem
+        # do SERVER kep (platform/ai/usage_api.py): lanh dao toan cty, truong phong phong minh,
+        # con lai chi chinh minh - nen muc menu de "internal" cho moi nguoi.
+        "key": "ai_tools.usage",
+        "label": "Thống kê dùng AI",
+        "route": "/ai-usage",
+        "icon": "chart",
+        "group": "",
+        "order": 23,
+        "active_patterns": ["/ai-usage"],
+        "visible_when": "internal",
+        "keywords": ["usage", "thong ke ai", "su dung ai", "chi phi ai", "credit", "kie",
+                     "ai usage", "danh gia ai"],
+        "owner": "ai_tools",
+    },
 ]
 
 

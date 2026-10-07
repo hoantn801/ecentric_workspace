@@ -442,7 +442,8 @@ fixtures = [
         # se lam roi mat. EC Khay Pilot (28/09): mo dan tro ly Khay o goc moi trang.
         # EC AI Video Admin (05/10): quan tri prompt trang /ai-video (prompt chung + theo nhom SP).
         "filters": [["name", "in", ["PM Manager", "PM Member", "EC AI Formfill Pilot",
-                                    "EC Khay Pilot", "EC AI Video Admin"]]],
+                                    "EC Khay Pilot", "EC AI Video Admin",
+                                    "EC AI Usage Viewer"]]],
     },
     # HR MVP (2026-09): cac Server Script `ec_hr_*` va cac trang `/ec-hr/*` truoc
     # day chi song trong DB, khong co ban trong git -- rebuild site la mat sach
