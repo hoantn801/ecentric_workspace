@@ -625,3 +625,28 @@ a.ec-shell-rm-item:focus-visible, a.ec-shell-nc-item:focus-visible{
 .ec-shell-part{ margin:10px 2px 4px; padding:10px 6px 2px; border-top:1px solid var(--ec-gray-200);
   font-size:11px; font-weight:700; color:#141d57; letter-spacing:.01em; }
 .ec-shell-nav > .ec-shell-part:first-child{ margin-top:0; padding-top:4px; border-top:0; }
+
+/* ---- thu gon cot (07/10/2026) -------------------------------------------------
+ * Nut « o dau cot; khi thu gon chi con thanh 62px, nut » tren thanh mo lai. Trang thai dat tren
+ * <html data-ec-shell-collapsed="1"> (ec_shell.js, nho theo trinh duyet). Cot luoi cua trang
+ * (248px) duoc doi thanh 62px bang :has() tren CHA cua mount - khong trang nao phai sua CSS;
+ * /pm co quy tac !important rieng (#ec-pm-root) nen can mot dong cu the hon. */
+.ec-shell-panel .ec-shell-head{ display:flex; align-items:center; gap:6px; }
+.ec-shell-panel .ec-shell-paneltitle{ flex:1 1 auto; min-width:0; }
+.ec-shell-collapse{ flex:0 0 auto; width:26px; height:26px; border:0; border-radius:7px; background:transparent;
+  color:var(--ec-gray-400); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; }
+.ec-shell-collapse:hover{ background:var(--ec-gray-100); color:var(--ec-gray-700); }
+.ec-shell-collapse svg, .ec-shell-expand svg{ width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.ec-shell-expand{ display:none; }
+[data-ec-shell-collapsed="1"] .ec-shell-mount .ec-shell-expand{
+  display:flex; align-self:center; margin-top:6px; width:34px; height:28px; border:0; border-radius:9px;
+  background:rgba(255,255,255,.1); color:#fff; cursor:pointer; align-items:center; justify-content:center; padding:0;
+}
+[data-ec-shell-collapsed="1"] .ec-shell-mount .ec-shell-expand:hover{ background:rgba(255,255,255,.2); }
+[data-ec-shell-collapsed="1"] .ec-shell-mount[data-ec-rail="1"]{
+  width:var(--ec-rail-w); min-width:var(--ec-rail-w); max-width:var(--ec-rail-w); flex-basis:var(--ec-rail-w); border-right:0;
+}
+[data-ec-shell-collapsed="1"] .ec-shell-mount[data-ec-rail="1"] .ec-shell-panel{ display:none; }
+[data-ec-shell-collapsed="1"] :has(> .ec-shell-mount[data-ec-rail="1"]){ grid-template-columns:62px minmax(0,1fr) !important; }
+[data-ec-shell-collapsed="1"] #ec-pm-root{ grid-template-columns:62px minmax(0,1fr) !important; }
+[data-ec-shell-collapsed="1"] .ec-shell-mount[data-ec-nopanel="1"] .ec-shell-expand{ display:none; }

@@ -18,7 +18,7 @@
 (function () {
   'use strict';
 
-  var VERSION = 'ec-shell v1.23.1 (Phe duyet chia 2 phan trong cot: Yeu cau / Chung tu MSO-SO-PO) (v1.23.0 cot theo bo cuc tung khu: Viec cua toi, Tao nhanh, nhom, menu con, chan cot) (v1.22.1 the nguoi dung xuong day thanh; khu Chat khong cot; nhan ngan trong cot; mount rail co do rong co dinh) (v1.22.0 thanh khu vuc navy + cot trang: menu 2 tang trong cung cot 248px, server ve san; boot.rail = null -> menu 1 cot cu) (v1.21.0 server-rendered menu: the page arrives with the sidebar already built from the live registry + data-ec-context/data-ec-nav-sig; the client keeps that DOM when the signature matches and only personalises the user card -- no menu repaint, no wrong-context flash) (v1.20.0 "Việc của tôi" is a real page at /viec-cua-toi: on a phone the header inbox navigates there instead of opening the overlay drawer; the drawer stays on desktop and links to the page. Badge mirrors into every [data-ec-shell-reminder-badge] node so a page can render its own -- e.g. the mobile tab bar.) (v1.19.1 honest totals: one card per business document, bounded scan raised to 2000 with a "2000+" label when it overflows)';
+  var VERSION = 'ec-shell v1.24.0 (nut thu gon / mo rong cot, nho theo trinh duyet) (v1.23.1 Phe duyet chia 2 phan trong cot: Yeu cau / Chung tu MSO-SO-PO) (v1.23.0 cot theo bo cuc tung khu: Viec cua toi, Tao nhanh, nhom, menu con, chan cot) (v1.22.1 the nguoi dung xuong day thanh; khu Chat khong cot; nhan ngan trong cot; mount rail co do rong co dinh) (v1.22.0 thanh khu vuc navy + cot trang: menu 2 tang trong cung cot 248px, server ve san; boot.rail = null -> menu 1 cot cu) (v1.21.0 server-rendered menu: the page arrives with the sidebar already built from the live registry + data-ec-context/data-ec-nav-sig; the client keeps that DOM when the signature matches and only personalises the user card -- no menu repaint, no wrong-context flash) (v1.20.0 "Việc của tôi" is a real page at /viec-cua-toi: on a phone the header inbox navigates there instead of opening the overlay drawer; the drawer stays on desktop and links to the page. Badge mirrors into every [data-ec-shell-reminder-badge] node so a page can render its own -- e.g. the mobile tab bar.) (v1.19.1 honest totals: one card per business document, bounded scan raised to 2000 with a "2000+" label when it overflows)';
   // Boot cache (sessionStorage, stale-while-revalidate). NEVER authorization:
   // the cache only skips the paint delay; the backend stays the source of
   // truth and refreshes every page view. Keyed/invalidated by VERSION, TTL,
@@ -372,6 +372,20 @@
     });
     return '<nav class="ec-shell-nav" aria-label="Điều hướng chính">' + h + '</nav>' + foot;
   }
+  // Thu gon / mo rong cot (07/10/2026). CUNG chuoi voi shell/fallback.py PANEL_COLLAPSE_BTN /
+  // RAIL_EXPAND_BTN. Trang thai luu theo trinh duyet (localStorage) va dat tren <html>
+  // (data-ec-shell-collapsed) NGAY khi script chay - truoc init - de tranh nhay cot.
+  var COLLAPSE_BTN = '<button type="button" class="ec-shell-collapse" data-ec-shell-collapse="1" aria-label="Thu gọn menu" title="Thu gọn menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m11 17-5-5 5-5M18 17l-5-5 5-5"/></svg></button>';
+  var EXPAND_BTN = '<button type="button" class="ec-shell-expand" data-ec-shell-collapse="0" aria-label="Mở rộng menu" title="Mở rộng menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m13 17 5-5-5-5M6 17l5-5-5-5"/></svg></button>';
+  var COLLAPSE_KEY = 'ec_shell_collapsed';
+  function setCollapsed(on, save) {
+    try {
+      var root = document.documentElement;
+      if (on) root.setAttribute('data-ec-shell-collapsed', '1');
+      else root.removeAttribute('data-ec-shell-collapsed');
+      if (save) window.localStorage.setItem(COLLAPSE_KEY, on ? '1' : '0');
+    } catch (e) { /* storage bi chan: van doi duoc trong trang nay */ }
+  }
   function railHtml(rail, secKey, foot) {
     var h = '<nav class="ec-shell-rail" aria-label="Khu vực">' +
       '<a class="ec-shell-brand ec-shell-railbrand" href="/" aria-label="eCentric">' +
@@ -387,6 +401,7 @@
            '<span class="ec-shell-railic">' + svg(s.icon) + '</span>' +
            '<span class="ec-shell-raillbl">' + esc(s.label) + '</span>' + badge + '</a>';
     });
+    h += EXPAND_BTN;                    // mo lai cot - chi hien khi da thu gon
     if (foot) h += '<span class="ec-shell-railsp"></span>' + foot;   // the nguoi dung o day thanh
     return h + '</nav>';
   }
@@ -713,7 +728,7 @@
       return railHtml(boot.rail, S.railSec ? S.railSec.key : null, footHtml(boot)) +
         '<div class="ec-shell-panel">' +
           '<div class="ec-shell-head"><span class="ec-shell-paneltitle">' +
-            esc(S.railSec ? S.railSec.label : 'eCentric') + '</span></div>' +
+            esc(S.railSec ? S.railSec.label : 'eCentric') + '</span>' + COLLAPSE_BTN + '</div>' +
           searchHtml() +
           (S.railBlocks ? railPanelHtml(S.railBlocks, activeKey) : navHtml((S.ctxNav || boot.nav), activeKey)) +
         '</div>';
@@ -1113,6 +1128,8 @@
       if (t.closest('[data-ec-shell-logout]')) { ev.preventDefault(); doLogout(); return; }
       if (t.closest('[data-ec-shell-open]'))   { ev.preventDefault(); drawerOpen(); return; }
       if (t.closest('[data-ec-shell-close]'))  { drawerClose(); return; }
+      var cb = t.closest('[data-ec-shell-collapse]');
+      if (cb) { setCollapsed(cb.getAttribute('data-ec-shell-collapse') === '1', true); return; }
       var st = t.closest('[data-ec-shell-subtoggle]');
       if (st) {
         var k = st.getAttribute('data-ec-shell-subtoggle');
@@ -1723,6 +1740,9 @@
 
   var p = window.location && window.location.pathname || '';
   if (p === '/app' || p.indexOf('/app/') === 0) return;  // never on Desk
+
+  // Cot da thu gon lan truoc -> dat ngay (script nam cuoi body, chay truoc khi trang ve xong).
+  try { if (window.localStorage.getItem(COLLAPSE_KEY) === '1') setCollapsed(true, false); } catch (e) {}
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init, { once: true });

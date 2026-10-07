@@ -50,6 +50,16 @@ async function hydrate() {
   w.eval(SRC);
   await new Promise(r => setTimeout(r, 60));
   const navAfter = mount ? mount.querySelector('.ec-shell-nav') : null;
+  // tuy chon: bam mot phan tu bat ky (fixture.clickSel) roi bao trang thai thu gon tren <html>
+  let collapsed = null;
+  if (fixture.clickSel && mount) {
+    (fixture.clickSel || []).forEach(sel => {
+      const el = mount.querySelector(sel);
+      if (el) el.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+    });
+    collapsed = { attr: w.document.documentElement.getAttribute('data-ec-shell-collapsed'),
+                  saved: w.localStorage.getItem('ec_shell_collapsed') };
+  }
   // tuy chon: bam mot menu con (fixture.click = key) roi bao trang thai mo/gap
   let clicked = null;
   if (fixture.click && mount) {
@@ -71,6 +81,7 @@ async function hydrate() {
     logout: mount ? mount.querySelectorAll('[data-ec-shell-logout]').length : -1,
     rail: mount ? mount.getAttribute('data-ec-rail') : null,
     clicked: clicked,
+    collapsed: collapsed,
     nopanel: mount ? mount.getAttribute('data-ec-nopanel') : null,
     footInRail: mount ? !!mount.querySelector('.ec-shell-rail .ec-shell-foot') : null,
     railBtns: mount ? mount.querySelectorAll('.ec-shell-railbtn').length : -1,
