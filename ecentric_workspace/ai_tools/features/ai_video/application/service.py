@@ -370,13 +370,20 @@ def _tick(project):
     pd["host_key"] = host
     for doc in items:
         d = _idict(doc)
+        st = d["state"]
+        v = _views_from(jstate.get(st.get("job"))) if st.get("job") in jstate else None
+        vchg = v is not None and v != st.get("views")
+        if vchg:
+            st["views"] = v
         if d.get("stage_state") == "error":
+            if vchg:
+                _save_state(doc, st)
             continue
         res = flow.decide_item(d, pd, ctx)
         st = d["state"]
         for key, step in res["steps"]:
             st.setdefault("tasks", {})[key] = _enqueue(project, step, pdoc.night_mode)
-        if res["set"] or res["steps"]:
+        if res["set"] or res["steps"] or vchg:
             _save_state(doc, st, **res["set"])
         need_from = need_from or res["need_anchor_from"]
     # khung neo + clip noi
@@ -541,7 +548,7 @@ def get_project(name, do_tick=0):
     proj["last_tick"] = pst.get("last_tick")
     proj["anchor_error"] = pst.get("anchor_error")
     proj["zipped"] = {b: wc.sign(z) for b, z in (pst.get("zipped") or {}).items()}
-    items = []
+    items, missing = [], []
     for n in frappe.get_all(I, filters={"project": name}, order_by="creation asc", pluck="name"):
         doc = frappe.get_doc(I, n)
         st = _j(doc.state_json)
@@ -553,7 +560,12 @@ def get_project(name, do_tick=0):
         it["force_gate"] = bool(st.get("force_gate"))
         it["units"] = st.get("units_view") or {}
         items.append(it)
-    _attach_worker_views(name, items)
+        if st.get("views"):
+            _apply_views(it, st["views"])
+        elif it.get("job_id"):
+            missing.append(it)
+    if missing:
+        _attach_worker_views(name, missing)
     proj["cost"] = flow.cost_view(pst.get("costs"), items)
     proj["is_admin"] = is_admin()
     exports = frappe.get_all(E, filters={"project": name}, fields=["name", "batch", "mode", "variants", "duration",
@@ -570,6 +582,24 @@ def get_project(name, do_tick=0):
 def _stale(e):
     tsm = getattr(frappe, "TimestampMismatchError", None)
     return bool(tsm and isinstance(e, tsm)) or "has been modified after you have opened it" in str(e)
+
+
+def _views_from(j):
+    """Duong dan file tren worker cua 1 job (anh cam, goi y AI, master, clip) - luu vao state SKU luc tick
+    de mo trang chi can ky link tai cho, khong phai hoi laptop qua tunnel (07/10/2026)."""
+    if not j:
+        return None
+    return {"cands": [[c["id"], c["file"]["path"]] for c in j.get("candidates") or [] if c.get("file")],
+            "reco": (j.get("ai_qc") or {}).get("recommended"),
+            "master": (j.get("master") or {}).get("path"),
+            "units": {k: v["path"] for k, v in (j.get("units") or {}).items() if k.startswith(("pickup_", "putdown_", "hold_"))}}
+
+
+def _apply_views(it, v):
+    it["candidates"] = [{"id": i, "thumb": _thumb(p), "full": wc.sign(p)} for i, p in v.get("cands") or []]
+    it["ai_reco"] = v.get("reco")
+    it["master"] = v.get("master") and _thumb(v["master"])
+    it["units"] = {k: wc.sign(p) for k, p in (v.get("units") or {}).items()}
 
 
 def _attach_worker_views(project, items):

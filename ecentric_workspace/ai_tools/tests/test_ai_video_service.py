@@ -432,6 +432,23 @@ class TestKhungVaNhom(unittest.TestCase):
         s.tick = lambda name: (_ for _ in ()).throw(Exception("EC AI Video Item x has been modified after you have opened it"))
         self.assertIsNone(s.get_project(p, 1)["worker_down"])
 
+    def test_mo_du_an_khong_hoi_worker_khi_da_co_link(self):
+        s = self.svc
+        p = s.create_project(json.dumps({"brand": "Friso", "title": "T", "host_image": "/private/files/host.png"}))["name"]
+        it = s.add_items(p, json.dumps([{"sku": "A1", "product_image": "/private/files/f.png"}]))["items"][0]
+        s.start_holds(p, json.dumps([it]))
+        job = self.item(it)["job_id"]
+        st = json.loads(self.item(it)["state_json"])
+        st["views"] = {"cands": [["hold_c01", "jobs/%s/c1.png" % job]], "reco": "hold_c01", "master": None, "units": {"hold_01": "ecv6/units/x/hold_01.mp4"}}
+        self.item(it)["state_json"] = json.dumps(st)
+        calls = []
+        real = self.wc.call
+        self.wc.call = lambda a, **k: calls.append(a) or real(a, **k)
+        v = s.get_project(p)
+        self.assertEqual(calls, [])                                   # khong goi laptop
+        self.assertEqual(v["items"][0]["candidates"][0]["id"], "hold_c01")
+        self.assertIn("hold_01", v["items"][0]["units"])
+
     def test_khoi_luong_gui_worker(self):
         s, W = self.svc, self.W
         p = s.create_project(json.dumps({"brand": "Pin", "title": "T", "host_image": "/private/files/host.png"}))["name"]
