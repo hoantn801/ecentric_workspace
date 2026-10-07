@@ -297,4 +297,15 @@ def generate(prompt, system=None, schema=None, files=None, history=None, json_mo
     if not out["ok"]:
         out["error"] = trail or "chuoi model rong"
         _log("ec_ai_failed", "%s: %s" % (purpose or "?", out["error"]))
+    _record_usage(purpose, out)
     return out
+
+
+def _record_usage(purpose, out):
+    """Moi luot -> mot dong EC AI Usage Log (usage.py). Nap tre + nuot loi: ghi so lieu khong
+    bao gio duoc lam hong luot goi AI."""
+    try:
+        from ecentric_workspace.platform.ai import usage
+        usage.record(purpose, out)
+    except Exception:
+        pass

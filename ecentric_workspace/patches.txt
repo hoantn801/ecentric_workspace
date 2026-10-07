@@ -356,3 +356,4 @@ ecentric_workspace.approval_center.patches.p272_pm_vao_vo_shell
 ecentric_workspace.approval_center.patches.p226_gbs_so_store_tuy_chon
 ecentric_workspace.approval_center.patches.p273_resync_tong_quan_file_cnb
 ecentric_workspace.chat.patches.p001_the_phieu_preview
+ecentric_workspace.approval_center.patches.p274_create_ai_usage_page

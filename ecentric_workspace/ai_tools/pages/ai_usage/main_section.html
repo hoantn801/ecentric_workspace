@@ -1,0 +1,306 @@
+<!--
+  AI Tool > Thong ke dung AI. Route /ai-usage (Web Page "ai-usage"). Repo so huu toan bo byte cua
+  trang. Hai vung shell (aside + topbar) do shell.fallback sinh lai tu shell/nav.py - KHONG sua tay.
+  Du lieu: ecentric_workspace.platform.ai.usage_api.summary - SERVER kep pham vi xem (lanh dao: toan
+  cong ty; truong phong: phong minh; con lai: chinh minh). Trang khong tu quyet ai xem gi.
+  Khong luu noi dung cau hoi (Hoan 07/10). Jinja: cam chuoi mo/dong the Jinja trong CSS/JS.
+-->
+<style id="ec-aiu-css">
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+body > header, body > footer, body > nav.navbar, header.navbar,
+.web-page-header, #navbarSupportedContent, .navbar-collapse { display:none; }
+body { padding:0; margin:0; background:#f5f6fa; }
+body main { padding-top:0; }
+body .main-section, body main.container, body main.fluid { margin:0; padding:0; max-width:100%; }
+.ec-aiu-wrap { display:flex; min-height:100vh; max-width:none; width:100%; }
+.ec-aiu-wrap > main.ec-aiu-main { flex:1; min-width:0; padding:0; overflow-x:hidden; background:#f5f6fa; }
+
+#ec-aiu-root{
+  --surface:#fff;--ink:#111827;--ink2:#4b5563;--ink3:#6b7280;--ink4:#9ca3af;
+  --line:#e5e7eb;--line-soft:#f1f2f6;--navy:#2C3DA6;--navy-wash:#eef0fb;
+  --gold:#f5b800;--hero1:#27348f;--hero2:#3a4bc2;
+  --ok:#17683a;--ok-bg:#e7f6ec;--warn:#8a5a08;--warn-bg:#fdf3e2;--bad:#a02020;--bad-bg:#fdeaea;
+  --shadow:0 1px 2px rgba(17,24,39,.04);
+  font-family:'Inter',-apple-system,"Segoe UI",Roboto,sans-serif;font-size:14px;line-height:1.5;color:var(--ink);
+}
+#ec-aiu-root *{box-sizing:border-box}
+#ec-aiu-root button,#ec-aiu-root input,#ec-aiu-root select{font:inherit}
+#ec-aiu-root :focus-visible{outline:2px solid var(--navy);outline-offset:2px}
+.au-wrap{padding:20px 24px 64px;display:flex;flex-direction:column;gap:16px;max-width:1400px}
+.au-hero{border-radius:14px;background:linear-gradient(120deg,var(--hero1),var(--hero2));color:#fff;padding:18px 20px;display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between}
+#ec-aiu-root .au-hero h1{font-size:22px;margin:2px 0 0;font-weight:700;color:#fff}
+.au-hero .sub{color:rgba(255,255,255,.78);font-size:13px;margin:2px 0 0;max-width:60ch}
+.au-eyebrow{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,.75);font-weight:600}
+.au-stats{display:flex;flex-wrap:wrap;gap:8px}
+.au-stat{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:8px 12px;min-width:132px}
+.au-stat span{display:block;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,.75);font-weight:600}
+#ec-aiu-root .au-stat b{display:block;font-size:20px;font-variant-numeric:tabular-nums;font-weight:700;color:#fff}
+.au-stat small{display:block;font-size:11.5px;color:rgba(255,255,255,.75)}
+.au-stat.hl{border-color:var(--gold)} #ec-aiu-root .au-stat.hl b{color:var(--gold)}
+.au-filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.au-chip{appearance:none;font-size:13px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);border-radius:999px;padding:5px 13px;cursor:pointer;font-weight:500}
+.au-chip.on{border-color:var(--navy);color:var(--navy);background:var(--navy-wash)}
+.au-chip:disabled,.au-sel select:disabled{opacity:.6;cursor:wait}
+.au-sel{display:inline-flex;gap:6px;align-items:center;font-size:13px;color:var(--ink3);margin-left:6px}
+.au-sel select{border:1px solid var(--line);border-radius:8px;padding:5px 8px;background:var(--surface);color:var(--ink)}
+.au-busy{font-size:12.5px;color:var(--ink3)}
+.au-panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:var(--shadow);min-width:0}
+.au-h{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;justify-content:space-between;margin-bottom:10px}
+#ec-aiu-root .au-h h2{font-size:15.5px;font-weight:700;margin:0}
+.au-note{font-size:12px;color:var(--ink3)}
+.au-grid{display:grid;grid-template-columns:1fr;gap:16px}
+@media (min-width:1500px){.au-grid{grid-template-columns:1fr 1fr} }
+.au-scroll{overflow-x:auto}
+.au-t{width:100%;border-collapse:collapse;font-size:13px}
+.au-t th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);font-weight:600;text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+.au-t th.sort{cursor:pointer;user-select:none} .au-t th.sort:hover{color:var(--navy)}
+.au-t td{padding:8px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+.au-t .n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.au-t tr:last-child td{border-bottom:0}
+.au-sub{display:block;font-size:11.5px;color:var(--ink3)} .au-t td .au-sub{font-weight:400}
+.au-mini{height:4px;border-radius:2px;background:var(--line-soft);margin-top:4px;max-width:220px} .au-mini i{display:block;height:100%;border-radius:2px;background:var(--navy)}
+.au-meter{height:8px;border-radius:4px;background:var(--line-soft);min-width:90px;overflow:hidden} .au-meter i{display:block;height:100%;border-radius:4px;background:var(--navy)}
+.au-pill{display:inline-block;font-size:12px;font-weight:600;border-radius:999px;padding:1px 8px;white-space:nowrap}
+.au-pill.ok{background:var(--ok-bg);color:var(--ok)} .au-pill.warn{background:var(--warn-bg);color:var(--warn)} .au-pill.bad{background:var(--bad-bg);color:var(--bad)}
+.au-tag{display:inline-block;font-size:12px;background:var(--line-soft);color:var(--ink2);border-radius:6px;padding:1px 7px;margin:2px 4px 2px 0;white-space:nowrap}
+.au-search input{border:1px solid var(--line);border-radius:8px;padding:6px 10px;min-width:240px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.au-grp{margin:8px 0} .au-grp > b{display:block;font-size:12.5px;color:var(--ink2);margin-bottom:2px}
+.au-empty{color:var(--ink3);margin:6px 0}
+.au-trend{width:100%;height:auto;display:block}
+.au-trend .base{stroke:var(--line);stroke-width:1}
+.au-trend .au-bar path{fill:var(--navy)} .au-trend .au-bar:hover path{fill:#1f2c80}
+.au-trend .hit{fill:transparent}
+.au-trend .ticks text{font-size:10px;fill:var(--ink3);text-anchor:middle}
+.au-tip{position:fixed;z-index:50;background:#111827;color:#fff;font-size:12px;padding:5px 8px;border-radius:6px;pointer-events:none;white-space:nowrap}
+.au-funnel{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.au-funnel i{color:var(--ink4);font-style:normal}
+.au-step{background:var(--navy-wash);border-radius:10px;padding:10px 14px;min-width:150px}
+.au-step b{display:block;font-size:20px;color:var(--navy);font-variant-numeric:tabular-nums} .au-step span{font-size:12.5px;color:var(--ink2)}
+.au-err{display:flex;flex-direction:column;gap:6px;align-items:flex-start;border-color:#f3c4c4;background:var(--bad-bg);color:var(--bad)}
+.au-btn{appearance:none;border:1px solid var(--navy);background:var(--surface);color:var(--navy);border-radius:8px;padding:5px 12px;font-weight:600;cursor:pointer}
+.au-skel{height:12px;border-radius:6px;background:linear-gradient(90deg,#eef0f4,#f7f8fa,#eef0f4);background-size:200% 100%;animation:au-sh 1.2s infinite;margin:10px 0}
+@keyframes au-sh{to{background-position:-200% 0} }
+.au-foot{font-size:12px;color:var(--ink3);max-width:110ch}
+@media (max-width:640px){.au-funnel i{display:none}.au-step{flex:1 1 100% }.au-wrap{padding:16px}.au-grid{grid-template-columns:1fr}.au-stat{min-width:calc(50% - 4px)}.au-search input{min-width:0;width:100% } }
+@media (prefers-reduced-motion:reduce){.au-skel{animation:none} }
+</style>
+
+<div class="ec-aiu-wrap">
+  <aside class="ec-shell-mount" data-ec-shell="1" aria-label="Điều hướng eCentric"><div class="ec-shell-head"><a class="ec-shell-brand" href="/"><img class="ec-shell-logoimg" src="/files/eCentric%20logo%20-%20mini.png" alt="eCentric"><span class="ec-shell-logo" hidden>eC</span><span class="ec-shell-brandname">eCentric</span></a></div><div class="ec-shell-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input class="ec-shell-search-in" type="text" placeholder="Tìm chức năng…" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-label="Tìm chức năng" autocomplete="off" spellcheck="false"><button type="button" class="ec-shell-search-clear" data-ec-shell-search-clear="1" hidden aria-label="Xóa tìm kiếm">&times;</button></div><div class="ec-shell-search-results" role="listbox" hidden></div><nav class="ec-shell-nav ec-shell-fallback" aria-label="Điều hướng chính"><a class="ec-shell-item" href="/home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg><span>Trang chủ</span></a><a class="ec-shell-item" href="/ai-tool"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>SI Tool</span></a><button type="button" class="ec-shell-item ec-shell-subtoggle" data-ec-shell-subtoggle="ai_tools.livestream" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>AI Livestream Script</span><svg class="ec-shell-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="ec-shell-children" hidden data-ec-shell-children="ai_tools.livestream"><a class="ec-shell-item ec-shell-child" href="/ai-content/ho-so-brand"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>Hồ sơ Brand</span></a><a class="ec-shell-item ec-shell-child" href="/ai-content/bo-luat"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg><span>Bộ luật</span></a></div><a class="ec-shell-item" href="/ai-video"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg><span>AI Video hàng loạt</span></a><a class="ec-shell-item ec-shell-active" href="/ai-usage" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg><span>Thống kê dùng AI</span></a></nav><div class="ec-shell-foot"><a class="ec-shell-usercard" href="/app/user"><span class="ec-shell-avatar">•</span><span class="ec-shell-username">Tài khoản</span></a></div></aside>
+<main class="ec-aiu-main"><div class="ec-shell-topbar" data-ec-shell-topbar="1"><div class="ec-shell-crumbs" data-ec-shell-crumbs="1"><strong class="ec-shell-crumb-current">Thống kê dùng AI</strong></div><div class="ec-shell-tbright" data-ec-shell-header-right="1"><button type="button" class="ec-shell-iconbtn ec-shell-reminder" data-ec-shell-action-slot="1" aria-label="Việc của tôi" title="Việc của tôi" aria-haspopup="dialog" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h4l2 3h4l2-3h4"/><path d="M4 13V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7"/><path d="M4 13v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></svg><span class="ec-shell-reminder-badge" data-ec-shell-reminder-badge="1" hidden></span></button><button type="button" class="ec-shell-iconbtn ec-shell-slot-disabled" data-ec-shell-settings-slot="1" disabled aria-disabled="true" title="Cài đặt (sắp ra mắt)" aria-label="Cài đặt (sắp ra mắt)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg></button></div></div>
+<div id="ec-aiu-root">
+  <div class="au-wrap" id="au-view" aria-live="polite">
+    <div class="au-panel"><div class="au-skel" style="width:40%"></div><div class="au-skel" style="width:85%"></div><div class="au-skel" style="width:60%"></div></div>
+  </div>
+  <div class="au-tip" id="au-tip" role="tooltip" hidden></div>
+</div>
+</main></div>
+
+<script>
+(() => {
+  "use strict";
+  const API = "/api/method/ecentric_workspace.platform.ai.usage_api.summary";
+  const S = { days: 30, month: false, dept: "", data: null, sort: "calls", dir: -1, q: "", busy: false };
+  const el = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const nf = (n) => (n == null ? "–" : Number(n).toLocaleString("vi-VN"));
+  const pct = (n) => (n == null ? "–" : nf(n) + "%");
+  const usd = (n) => (n == null ? "–" : "$" + Number(n).toLocaleString("vi-VN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+  const sec = (ms) => (ms == null ? "–" : (ms / 1000).toLocaleString("vi-VN", { maximumFractionDigits: 1 }) + " s");
+  const vnDate = (d) => { const p = String(d || "").slice(0, 10).split("-"); return p.length === 3 ? p[2] + "/" + p[1] : d; };
+  const serverMsg = (b) => { try { const a = JSON.parse(b._server_messages || "[]"); if (a.length) return JSON.parse(a[0]).message || ""; } catch (e) { /* bo qua */ } return ""; };
+
+  async function load() {
+    S.busy = true; paintFilters();
+    const args = { department: S.dept };
+    if (S.month) { const t = new Date(); args.from_date = t.getFullYear() + "-" + String(t.getMonth() + 1).padStart(2, "0") + "-01"; }
+    else args.days = S.days;
+    const qs = new URLSearchParams(Object.entries(args).filter(([, v]) => v !== "" && v != null)).toString();
+    try {
+      const r = await fetch(API + "?" + qs, { credentials: "same-origin", headers: { Accept: "application/json" } });
+      const b = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(serverMsg(b) || (r.status === 403 ? "Bạn không có quyền xem phạm vi này." : "Không tải được số liệu (" + r.status + ")."));
+      S.data = b.message || {};
+      paint();
+    } catch (e) {
+      el("au-view").innerHTML = '<div class="au-panel au-err" role="alert"><b>Không tải được số liệu.</b><span>' + esc(e.message || e) +
+        '</span><button type="button" class="au-btn" data-act="retry">Thử lại</button></div>';
+    } finally { S.busy = false; paintFilters(); }
+  }
+
+  function scopeText(d) {
+    const s = d.scope || {};
+    if (s.kind === "all") return d.department ? "Phòng " + d.department : "Toàn công ty";
+    if (s.kind === "dept") return d.department ? "Phòng " + d.department : "Phòng của bạn: " + (s.departments || []).join(", ");
+    return "Số liệu của riêng bạn";
+  }
+
+  function filtersHtml(d) {
+    const chip = (key, label, on) => '<button type="button" class="au-chip' + (on ? " on" : "") + '" data-period="' + key + '"' + (S.busy ? " disabled" : "") + ">" + label + "</button>";
+    let h = '<div class="au-filters" role="group" aria-label="Khoảng thời gian">' +
+      chip("7", "7 ngày", !S.month && S.days === 7) + chip("30", "30 ngày", !S.month && S.days === 30) +
+      chip("90", "90 ngày", !S.month && S.days === 90) + chip("month", "Tháng này", S.month);
+    const deps = (d && d.departments) || [];
+    if (deps.length) {
+      h += '<label class="au-sel"><span>Phòng</span><select id="au-dept"' + (S.busy ? " disabled" : "") + '><option value="">' +
+        (d.scope && d.scope.kind === "all" ? "Toàn công ty" : "Tất cả phòng của bạn") + "</option>" +
+        deps.map((x) => '<option value="' + esc(x) + '"' + (x === S.dept ? " selected" : "") + ">" + esc(x) + "</option>").join("") + "</select></label>";
+    }
+    return h + (S.busy ? '<span class="au-busy">Đang tải…</span>' : "") + "</div>";
+  }
+  function paintFilters() { const f = el("au-filters"); if (f) f.innerHTML = filtersHtml(S.data); }
+
+  function kpis(d) {
+    const t = d.totals || {}, self = d.scope && d.scope.kind === "self";
+    const tile = (label, val, sub, hl) => '<div class="au-stat' + (hl ? " hl" : "") + '"><span>' + label + "</span><b>" + val + "</b>" + (sub ? "<small>" + sub + "</small>" : "") + "</div>";
+    return '<div class="au-stats">' +
+      tile("Lượt dùng AI", nf(t.user_calls), self ? "" : (t.system_calls ? nf(t.system_calls) + " lượt hệ thống tự chạy" : ""), true) +
+      (self ? "" : tile("Người đang dùng", nf(t.active_users) + (t.headcount ? " / " + nf(t.headcount) : ""), t.adoption_pct != null ? pct(t.adoption_pct) + " nhân sự trong phạm vi" : "")) +
+      tile("Thành công", pct(t.ok_rate), "trên mọi lượt gọi") +
+      tile("Chi phí ước tính", usd(t.usd), nf(t.credits) + " credit Kie") + "</div>";
+  }
+
+  function trend(d) {
+    const rows = d.daily || [];
+    const max = Math.max(1, ...rows.map((r) => r.calls));
+    const W = 720, H = 160, pad = 24, bw = Math.max(2, (W - pad) / Math.max(1, rows.length) - 2);
+    let bars = "";
+    rows.forEach((r, i) => {
+      const h = r.calls ? Math.max(3, (H - 26) * r.calls / max) : 0;
+      const x = pad + i * ((W - pad) / rows.length);
+      bars += '<g class="au-bar" data-tip="' + esc(vnDate(r.date) + ": " + nf(r.calls) + " lượt · " + nf(r.users) + " người") + '">' +
+        '<rect class="hit" x="' + x + '" y="0" width="' + (bw + 2) + '" height="' + H + '"/>' +
+        (h ? '<path d="' + roundTop(x, H - 18 - h, bw, h) + '"/>' : "") + "</g>";
+    });
+    const step = Math.max(1, Math.ceil(rows.length / 8));
+    const ticks = rows.map((r, i) => (i % step === 0 ? '<text x="' + (pad + i * ((W - pad) / rows.length) + bw / 2) + '" y="' + (H - 4) + '">' + vnDate(r.date) + "</text>" : "")).join("");
+    return '<section class="au-panel"><header class="au-h"><h2>Lượt dùng theo ngày</h2><span class="au-note">Cao nhất ' + nf(max) + " lượt/ngày</span></header>" +
+      '<svg class="au-trend" viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Lượt dùng AI theo ngày">' +
+      '<line class="base" x1="' + pad + '" x2="' + W + '" y1="' + (H - 18) + '" y2="' + (H - 18) + '"/>' + bars + '<g class="ticks">' + ticks + "</g></svg></section>";
+  }
+  function roundTop(x, y, w, h) {
+    const r = Math.min(4, w / 2, h);
+    return "M" + x + "," + (y + h) + "V" + (y + r) + "Q" + x + "," + y + " " + (x + r) + "," + y + "H" + (x + w - r) + "Q" + (x + w) + "," + y + " " + (x + w) + "," + (y + r) + "V" + (y + h) + "Z";
+  }
+
+  function featureTable(d) {
+    const rows = d.by_feature || [];
+    if (!rows.length) return "";
+    const max = Math.max(1, ...rows.map((r) => r.calls));
+    return '<section class="au-panel"><header class="au-h"><h2>Theo tính năng</h2><span class="au-note">Chờ = thời gian từ lúc hỏi tới lúc có trả lời (trung vị / 90% số lượt)</span></header>' +
+      '<div class="au-scroll"><table class="au-t"><thead><tr><th>Tính năng</th><th class="n">Lượt</th><th class="n">Người dùng</th><th class="n">Thành công</th><th class="n">Chờ</th><th class="n">Chi phí</th></tr></thead><tbody>' +
+      rows.map((r) => "<tr><td><div class=\"au-lab\">" + esc(r.label) + '</div><div class="au-mini"><i style="width:' + (100 * r.calls / max).toFixed(1) + '%"></i></div>' +
+        (r.system_calls ? '<small class="au-sub">' + nf(r.system_calls) + " lượt hệ thống</small>" : "") + "</td>" +
+        '<td class="n">' + nf(r.calls) + '</td><td class="n">' + nf(r.users) + '</td><td class="n">' + okBadge(r.ok_rate, r.error_calls) + "</td>" +
+        '<td class="n">' + sec(r.p50_ms) + ' <small class="au-sub">/ ' + sec(r.p90_ms) + '</small></td><td class="n">' + usd(r.usd) + "</td></tr>").join("") +
+      "</tbody></table></div></section>";
+  }
+  function okBadge(rate, errs) {
+    if (rate == null) return "–";
+    const cls = rate >= 95 ? "ok" : rate >= 80 ? "warn" : "bad";
+    const word = cls === "ok" ? "Tốt" : cls === "warn" ? "Cần xem" : "Lỗi nhiều";
+    return '<span class="au-pill ' + cls + '" title="' + esc(nf(errs) + " lượt lỗi") + '">' + pct(rate) + " · " + word + "</span>";
+  }
+
+  function deptTable(d) {
+    if (!d.scope || d.scope.kind === "self") return "";
+    const rows = (d.by_department || []).filter((r) => r.headcount || r.calls);
+    if (!rows.length) return "";
+    return '<section class="au-panel"><header class="au-h"><h2>Theo phòng</h2><span class="au-note">Tỉ lệ áp dụng = số người có dùng AI / nhân sự đang làm</span></header>' +
+      '<div class="au-scroll"><table class="au-t"><thead><tr><th>Phòng</th><th class="n">Nhân sự</th><th class="n">Đang dùng</th><th>Tỉ lệ áp dụng</th><th class="n">Lượt</th><th class="n">Chi phí</th></tr></thead><tbody>' +
+      rows.map((r) => "<tr><td>" + esc(r.department) + '</td><td class="n">' + nf(r.headcount) + '</td><td class="n">' + nf(r.active) + "</td>" +
+        '<td><div class="au-meter" title="' + esc(pct(r.adoption_pct)) + '"><i style="width:' + Math.min(100, r.adoption_pct || 0) + '%"></i></div><small class="au-sub">' + pct(r.adoption_pct) + "</small></td>" +
+        '<td class="n">' + nf(r.calls) + '</td><td class="n">' + usd(r.usd) + "</td></tr>").join("") + "</tbody></table></div></section>";
+  }
+
+  function peopleTable(d) {
+    const self = d.scope && d.scope.kind === "self";
+    let rows = (d.by_person || []).slice();
+    const q = S.q.trim().toLowerCase();
+    if (q) rows = rows.filter((r) => (r.name + " " + r.user + " " + r.department).toLowerCase().includes(q));
+    const k = S.sort, dir = S.dir;
+    rows.sort((a, b) => (a[k] > b[k] ? 1 : a[k] < b[k] ? -1 : 0) * dir);
+    const th = (key, label, n) => '<th class="' + (n ? "n " : "") + 'sort" data-sort="' + key + '" aria-sort="' + (S.sort === key ? (S.dir > 0 ? "ascending" : "descending") : "none") + '">' + label + (S.sort === key ? (S.dir > 0 ? " ▲" : " ▼") : "") + "</th>";
+    return '<section class="au-panel"><header class="au-h"><h2>' + (self ? "Bạn đã dùng" : "Theo người") + "</h2>" +
+      (self ? "" : '<label class="au-search"><span class="sr">Tìm người</span><input id="au-q" type="search" placeholder="Tìm tên, email, phòng…" value="' + esc(S.q) + '"></label>') + "</header>" +
+      (rows.length ? '<div class="au-scroll"><table class="au-t"><thead><tr>' + th("name", "Người") + th("department", "Phòng") + th("calls", "Lượt", 1) + th("days", "Số ngày dùng", 1) +
+        "<th>Hay dùng</th>" + th("ok_rate", "Thành công", 1) + th("usd", "Chi phí", 1) + th("last", "Lần cuối", 1) + "</tr></thead><tbody>" +
+        rows.map((r) => '<tr><td><b>' + esc(r.name) + '</b><small class="au-sub">' + esc(r.user) + "</small></td><td>" + esc(r.department) + "</td>" +
+          '<td class="n">' + nf(r.calls) + '</td><td class="n">' + nf(r.days) + "</td><td>" +
+          (r.features || []).slice(0, 3).map((f) => '<span class="au-tag">' + esc(f.label) + " · " + nf(f.calls) + "</span>").join("") + "</td>" +
+          '<td class="n">' + pct(r.ok_rate) + '</td><td class="n">' + usd(r.usd) + '</td><td class="n">' + esc(vnDate(r.last)) + " " + esc(String(r.last || "").slice(11, 16)) + "</td></tr>").join("") +
+        "</tbody></table></div>" : '<p class="au-empty">' + (q ? "Không ai khớp tìm kiếm." : "Chưa có lượt dùng AI nào trong khoảng này.") + "</p>") + "</section>";
+  }
+
+  function neverList(d) {
+    if (!d.scope || d.scope.kind === "self") return "";
+    const rows = d.never || [];
+    if (!rows.length) return '<section class="au-panel"><header class="au-h"><h2>Chưa dùng AI</h2></header><p class="au-empty">Mọi người trong phạm vi đều đã dùng AI trong khoảng này.</p></section>';
+    const groups = {};
+    rows.forEach((r) => (groups[r.department] = groups[r.department] || []).push(r));
+    return '<section class="au-panel"><header class="au-h"><h2>Chưa dùng AI trong khoảng này</h2><span class="au-note">' + nf(rows.length) + " người</span></header>" +
+      Object.keys(groups).map((g) => '<div class="au-grp"><b>' + esc(g) + " (" + groups[g].length + ")</b><div>" +
+        groups[g].map((r) => '<span class="au-tag" title="' + esc(r.user) + '">' + esc(r.name) + "</span>").join("") + "</div></div>").join("") + "</section>";
+  }
+
+  function funnel(d) {
+    const f = d.formfill;
+    if (!f || !(f.suggested || f.drafts)) return "";
+    const step = (n, label) => '<div class="au-step"><b>' + nf(n) + "</b><span>" + label + "</span></div>";
+    return '<section class="au-panel"><header class="au-h"><h2>AI điền hộ phiếu: có được dùng thật không?</h2></header><div class="au-funnel">' +
+      step(f.suggested, "lượt AI điền gợi ý") + '<i aria-hidden="true">→</i>' + step(f.drafts, "nháp được tạo") + '<i aria-hidden="true">→</i>' +
+      step(f.sent, "phiếu đã gửi duyệt" + (f.sent_pct != null ? " (" + pct(f.sent_pct) + " số nháp)" : "")) + "</div></section>";
+  }
+
+  function footnote(d) {
+    const t = d.totals || {};
+    const parts = ["Không lưu nội dung câu hỏi — chỉ đếm lượt, tính năng, model, thời gian và chi phí.",
+      "Số liệu bắt đầu từ 07/10/2026 (AI điền hộ có từ 16/09).",
+      "Chi phí: dùng số credit Kie báo về; nếu Kie không báo thì ước tính theo token × giá model. 1 credit ≈ $" + (d.usd_per_credit || 0.005) + "."];
+    if (t.cost_unpriced_calls) parts.push(nf(t.cost_unpriced_calls) + " lượt chưa có giá model nên chưa tính vào chi phí — chi phí thật có thể cao hơn.");
+    return '<p class="au-foot">' + parts.map(esc).join(" ") + "</p>";
+  }
+
+  function paint() {
+    const d = S.data || {};
+    const p = d.period || {};
+    el("au-view").innerHTML =
+      '<section class="au-hero"><div><div class="au-eyebrow">' + esc(scopeText(d)) + " · " + esc(vnDate(p.from)) + " – " + esc(vnDate(p.to)) + "</div>" +
+      "<h1>Thống kê dùng AI</h1><p class=\"sub\">Ai đang dùng AI, dùng tính năng nào, chạy có ổn không và tốn bao nhiêu.</p></div>" + kpis(d) + "</section>" +
+      '<div id="au-filters">' + filtersHtml(d) + "</div>" +
+      trend(d) + '<div class="au-grid">' + featureTable(d) + deptTable(d) + "</div>" + funnel(d) + peopleTable(d) + neverList(d) + footnote(d);
+  }
+
+  /* ---------- su kien (uy quyen) ---------- */
+  document.addEventListener("click", (e) => {
+    const t = e.target.closest("#ec-aiu-root [data-period], #ec-aiu-root [data-sort], #ec-aiu-root [data-act]");
+    if (!t || S.busy) return;
+    if (t.dataset.period) {
+      S.month = t.dataset.period === "month";
+      if (!S.month) S.days = Number(t.dataset.period);
+      load();
+    } else if (t.dataset.sort) {
+      S.dir = S.sort === t.dataset.sort ? -S.dir : (t.dataset.sort === "name" || t.dataset.sort === "department" ? 1 : -1);
+      S.sort = t.dataset.sort; paint();
+    } else if (t.dataset.act === "retry") load();
+  });
+  document.addEventListener("change", (e) => { if (e.target && e.target.id === "au-dept") { S.dept = e.target.value; load(); } });
+  document.addEventListener("input", (e) => {
+    if (e.target && e.target.id === "au-q") {
+      S.q = e.target.value; const pos = e.target.selectionStart; paint();
+      const q = el("au-q"); if (q) { q.focus(); q.setSelectionRange(pos, pos); }
+    }
+  });
+  const tip = () => el("au-tip");
+  document.addEventListener("mousemove", (e) => {
+    const g = e.target.closest && e.target.closest("#ec-aiu-root .au-bar");
+    const t = tip(); if (!t) return;
+    if (!g) { t.hidden = true; return; }
+    t.textContent = g.getAttribute("data-tip"); t.hidden = false;
+    t.style.left = Math.min(window.innerWidth - t.offsetWidth - 8, e.clientX + 12) + "px"; t.style.top = (e.clientY - 34) + "px";
+  });
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", load); else load();
+})();
+</script>
