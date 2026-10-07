@@ -82,6 +82,22 @@ def sig_context(context_name, section):
     return "%s@%s" % (context_name or "", section["key"] if section else "")
 
 
+def rail_parts(rail, context_name, items, route):
+    """(khu, muc cot cu, khoi bo cuc|None, muc dang chon, chu ky) cho trang o `route`.
+    Mot cho duy nhat tinh - rebuild_mount va test cung goi."""
+    home_items = items if context_name == "home" else shell_nav.compose("home")
+    section, panel = fb.rail_view(rail, context_name, items, home_items, route)
+    if section is not None and section.get("layout"):
+        # Cot theo bo cuc cua khu (07/10/2026): Viec cua toi / Tao nhanh / nhom / chan cot.
+        pool = fb.rail_pool(shell_nav.compose(c) for c in shell_nav.CONTEXTS)
+        blocks, sig_keys, match = fb.rail_layout(section, context_name, items, pool)
+        active = fb.match_active(match, route)
+        sig = "%s|%s|%s" % (sig_context(context_name, section), active or "", ",".join(sig_keys))
+        return section, panel, blocks, active, sig
+    active = fb.match_active(panel, route)
+    return section, panel, None, active, nav_signature(sig_context(context_name, section), panel, active)
+
+
 def _drop_attr(tag, name):
     return re.sub(r'\s%s="[^"]*"' % re.escape(name), "", tag)
 
@@ -113,17 +129,14 @@ def rebuild_mount(ms, route):
     if rail_enabled():
         # Menu 2 tang (07/10/2026): thanh khu vuc + cot chi giu muc cua khu dang mo.
         rail = shell_nav.rail_spec()
-        home_items = items if context_name == "home" else shell_nav.compose("home")
-        section, panel = fb.rail_view(rail, context_name, items, home_items, route)
-        active = fb.match_active(panel, route)
-        new_tag = _set_attr(new_tag, ATTR_SIG,
-                            nav_signature(sig_context(context_name, section), panel, active))
+        section, panel, blocks, active, sig = rail_parts(rail, context_name, items, route)
+        new_tag = _set_attr(new_tag, ATTR_SIG, sig)
         new_tag = _set_attr(new_tag, ATTR_RAIL, "1")
         if section is not None and section.get("panel") is False:
             new_tag = _set_attr(new_tag, ATTR_NOPANEL, "1")
         else:
             new_tag = _drop_attr(new_tag, ATTR_NOPANEL)
-        inner = fb.mount_inner_html(panel, active, live=True, rail=rail, section=section)
+        inner = fb.mount_inner_html(panel, active, live=True, rail=rail, section=section, blocks=blocks)
         return ms[:start] + new_tag + inner + ms[close:]
     active = fb.match_active(items, route)
     new_tag = _set_attr(new_tag, ATTR_SIG, nav_signature(context_name, items, active))

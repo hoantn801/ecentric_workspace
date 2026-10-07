@@ -140,9 +140,9 @@ class TestRebuildMount(unittest.TestCase):
         # Menu 2 tang (07/10/2026, mac dinh bat): cot = rail_view() cua ngu canh; menu 1 cot cu
         # (kill switch) duoc khoa o test_shell_rail.TestKillSwitch.
         rail = shell_nav.rail_spec()
-        sec, panel = fb.rail_view(rail, "hr", items, shell_nav.compose("home"), "/ec-hr/attendance")
-        self.assertEqual(new[t + 1:j], fb.mount_inner_html(panel, fb.match_active(panel, "/ec-hr/attendance"),
-                                                           live=True, rail=rail, section=sec))
+        sec, panel, blocks, active, _ = sn.rail_parts(rail, "hr", items, "/ec-hr/attendance")
+        self.assertEqual(new[t + 1:j], fb.mount_inner_html(panel, active, live=True, rail=rail, section=sec,
+                                                           blocks=blocks))
         self.assertNotIn("ec-shell-fallback", new[t + 1:j])
         self.assertIn("data-ec-shell-key=", new[t + 1:j])
 

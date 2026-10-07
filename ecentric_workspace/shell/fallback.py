@@ -58,6 +58,10 @@ ICONS = {
     # Thanh khu vuc (07/10/2026): Bang tin (to bao) + Nhan su (nguoi).
     "news": '<rect x="3" y="4" width="14" height="16" rx="2"/><path d="M17 8h3a1 1 0 0 1 1 1v9a2 2 0 0 1-2 2H5M7 8h6M7 12h6M7 16h4"/>',
     "user": '<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/>',
+    # Cot thong minh (07/10/2026): gui / them / nhom nguoi.
+    "send": '<path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/>',
+    "plus": '<path d="M12 5v14M5 12h14"/>',
+    "users": '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20v-.5a6.5 6.5 0 0 1 13 0v.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 5.8"/>',
 }
 LOGO_SRC = "/files/eCentric%20logo%20-%20mini.png"
 
@@ -226,6 +230,182 @@ def _relabel(sec, panel):
     return [dict(it, label=labels[it["key"]]) if it["key"] in labels else it for it in panel]
 
 
+# ------------------------------------------------------- cot theo bo cuc --
+def rail_pool(contexts_items):
+    """{key: muc} tu menu cua MOI ngu canh (ca muc con). Thu tu ngu canh = thu tu khai bao;
+    key trung -> giu lan dau. Client dung DUNG cong thuc tren boot.contexts."""
+    pool = {}
+    for items in contexts_items:
+        for it in items or []:
+            pool.setdefault(it["key"], it)
+            for ch in it.get("children") or []:
+                pool.setdefault(ch["key"], ch)
+    return pool
+
+
+def _resolve(spec, pool):
+    """Mot muc cua bo cuc -> muc ve duoc (dict) hoac None (muc registry khong co / khong du quyen)."""
+    if spec.get("route"):
+        it = {"key": spec["key"], "label": spec.get("label") or "", "route": spec["route"],
+              "icon": spec.get("icon") or "doc",
+              "active_patterns": list(spec.get("active_patterns") or [spec["route"]])}
+    else:
+        base = pool.get(spec["key"])
+        if base is None:
+            return None
+        it = {"key": base["key"], "label": base.get("label") or "", "route": base["route"],
+              "icon": base.get("icon") or "doc", "active_patterns": list(base.get("active_patterns") or [])}
+        if base.get("soon"):
+            it["soon"] = True
+        if base.get("badge_source"):
+            it["badge_source"] = base["badge_source"]
+    for k in ("label", "icon"):
+        if spec.get(k):
+            it[k] = spec[k]
+    for k in ("caption", "badge_source", "badge", "noactive", "soon"):
+        if spec.get(k):
+            it[k] = spec[k]
+    kids = [c for c in (_resolve(ch, pool) for ch in spec.get("children") or []) if c is not None]
+    if len(kids) > 1:
+        it["children"] = kids          # 0-1 muc con -> ve nhu muc thuong (bam thang)
+    return it
+
+
+def rail_layout(sec, context_name, ctx_items, pool):
+    """Khoi cua cot theo bo cuc khu `sec` -> (blocks, sig_keys, match_items).
+
+    Trung ec_shell.js railLayout() (parity co test). Muc registry cua ngu canh dang mo ma bo
+    cuc khong dat (khong tinh core.*) -> nhom "Mục khác" o cuoi (tru ngu canh home: menu portal la
+    ca 23 muc cua moi khu)."""
+    blocks, placed = [], set()
+
+    def take(spec):
+        it = _resolve(spec, pool)
+        if it is None:
+            return None
+        placed.add(it["key"])
+        for c in it.get("children") or []:
+            placed.add(c["key"])
+        for c in spec.get("children") or []:
+            placed.add(c["key"])
+        return it
+
+    for b in sec.get("layout") or []:
+        t = b["t"]
+        if t in ("todo", "group"):
+            items = [x for x in (take(i) for i in b.get("items") or []) if x]
+            if items:
+                blocks.append({"t": t, "label": b.get("label") or "", "items": items})
+        elif t == "chips":
+            items = [x for x in (take(i) for i in b.get("items") or []) if x]
+            more = take(b["more"]) if b.get("more") else None
+            if items or more:
+                blocks.append({"t": t, "label": b.get("label") or "", "items": items, "more": more})
+        elif t in ("button", "help"):
+            it = take(b["item"]) if b.get("item") else None
+            if it:
+                blocks.append({"t": t, "item": it})
+    if context_name != "home":
+        extra = [it for it in ctx_items or []
+                 if not str(it["key"]).startswith("core.") and it["key"] not in placed]
+        if extra:
+            blocks.append({"t": "group", "label": "Mục khác", "items": [_resolve({"key": it["key"]}, {it["key"]: it})
+                                                                   for it in extra]})
+    sig_keys, match = [], []
+
+    def walk(it):
+        sig_keys.append(it["key"])
+        if it.get("children"):
+            for c in it["children"]:
+                walk(c)
+        elif not it.get("noactive"):
+            match.append({"key": it["key"], "route": it["route"], "active_patterns": it["active_patterns"]})
+
+    for b in blocks:
+        for it in (b.get("items") or []) + ([b["more"]] if b.get("more") else []) + ([b["item"]] if b.get("item") else []):
+            walk(it)
+    return blocks, sig_keys, match
+
+
+def _rail_item(it, active, cls=""):
+    on = it["key"] == active
+    lab = esc_live(it["label"])
+    if it.get("caption"):
+        lab = '<span class="ec-shell-lb"><span>%s</span><small class="ec-shell-cap">%s</small></span>' % (
+            lab, esc_live(it["caption"]))
+    else:
+        lab = "<span>%s</span>" % lab
+    badge = ""
+    if it.get("badge") == "reminder":
+        badge = '<span class="ec-shell-badge" data-ec-shell-reminder-badge="1" hidden></span>'
+    elif it.get("badge_source"):
+        badge = '<span class="ec-shell-badge" data-ec-shell-badge="%s" hidden></span>' % esc_live(it["badge_source"])
+    soon = '<span class="ec-shell-soon">Sắp có</span>' if it.get("soon") else ""
+    return ('<a class="ec-shell-item%s%s%s" href="%s" data-ec-shell-key="%s"%s>%s%s%s%s</a>'
+            % (cls, " ec-shell-item-soon" if it.get("soon") else "", " ec-shell-active" if on else "",
+               esc_live(it["route"]), esc_live(it["key"]), ' aria-current="page"' if on else "",
+               _svg(it["icon"]), lab, badge, soon))
+
+
+def _rail_entry(it, active):
+    kids = it.get("children") or []
+    if not kids:
+        return _rail_item(it, active)
+    opened = any(c["key"] == active for c in kids)
+    lab = esc_live(it["label"])
+    if it.get("caption"):
+        lab = '<span class="ec-shell-lb"><span>%s</span><small class="ec-shell-cap">%s</small></span>' % (
+            lab, esc_live(it["caption"]))
+    else:
+        lab = "<span>%s</span>" % lab
+    return ('<button type="button" class="ec-shell-item ec-shell-subtoggle" data-ec-shell-subtoggle="%s" '
+            'aria-expanded="%s">%s%s<svg class="ec-shell-chev" viewBox="0 0 24 24" aria-hidden="true">'
+            '<path d="m6 9 6 6 6-6"/></svg></button><div class="ec-shell-children"%s data-ec-shell-children="%s">%s</div>'
+            % (esc_live(it["key"]), "true" if opened else "false", _svg(it["icon"]), lab,
+               "" if opened else " hidden", esc_live(it["key"]),
+               "".join(_rail_item(c, active, " ec-shell-child") for c in kids)))
+
+
+def _chip(it, active, cls="ec-shell-chip"):
+    on = it["key"] == active
+    return ('<a class="%s%s" href="%s" data-ec-shell-key="%s"%s>%s</a>'
+            % (cls, " ec-shell-active" if on else "", esc_live(it["route"]), esc_live(it["key"]),
+               ' aria-current="page"' if on else "", esc_live(it["label"])))
+
+
+def rail_panel_nav(blocks, active):
+    """<nav> cua cot + dong chan cot. Byte-identical voi ec_shell.js railPanelHtml()."""
+    h, foot = [], ""
+    for b in blocks:
+        t = b["t"]
+        if t == "help":
+            it = b["item"]
+            on = it["key"] == active
+            foot = ('<a class="ec-shell-help%s" href="%s" data-ec-shell-key="%s"%s>%s<span>%s</span></a>'
+                    % (" ec-shell-active" if on else "", esc_live(it["route"]), esc_live(it["key"]),
+                       ' aria-current="page"' if on else "", _svg(it["icon"]), esc_live(it["label"])))
+            continue
+        if b.get("label"):
+            h.append('<div class="ec-shell-grouplabel">%s</div>' % esc_live(b["label"]))
+        if t == "todo":
+            h.append('<div class="ec-shell-todo">%s</div>' % "".join(_rail_entry(i, active) for i in b["items"]))
+        elif t == "group":
+            h.append("".join(_rail_entry(i, active) for i in b["items"]))
+        elif t == "chips":
+            if b["items"]:
+                h.append('<div class="ec-shell-chips">%s</div>' % "".join(_chip(i, active) for i in b["items"]))
+            if b.get("more"):
+                h.append(_chip(b["more"], active, "ec-shell-more"))
+        elif t == "button":
+            it = b["item"]
+            on = it["key"] == active
+            h.append('<div class="ec-shell-chips"><a class="ec-shell-chip ec-shell-chipwide%s" href="%s" '
+                     'data-ec-shell-key="%s"%s>%s<span>%s</span></a></div>'
+                     % (" ec-shell-active" if on else "", esc_live(it["route"]), esc_live(it["key"]),
+                        ' aria-current="page"' if on else "", _svg(it["icon"]), esc_live(it["label"])))
+    return '<nav class="ec-shell-nav" aria-label="Điều hướng chính">%s</nav>%s' % ("".join(h), foot)
+
+
 def rail_html(rail, section_key, foot=""):
     """Thanh khu vuc - byte-identical voi ec_shell.js railHtml(). `foot` (the nguoi dung)
     nam o DAY thanh (PO 07/10: avatar duoi cung nhu mockup), khong nam trong cot."""
@@ -247,7 +427,7 @@ def rail_html(rail, section_key, foot=""):
     return "".join(h)
 
 
-def mount_inner_html(items, active, live=False, rail=None, section=None):
+def mount_inner_html(items, active, live=False, rail=None, section=None, blocks=None):
     """head + search + nav + generic foot for an already-composed item list.
     The foot stays GENERIC even when live: the rendered page is cached and
     shared by every user, so the user card is personalised client-side."""
@@ -275,9 +455,9 @@ def mount_inner_html(items, active, live=False, rail=None, section=None):
         title = section["label"] if section else "eCentric"
         head = ('<div class="ec-shell-head"><span class="ec-shell-paneltitle">%s</span></div>'
                 % esc_live(title))
+        nav = rail_panel_nav(blocks, active) if blocks is not None else render_nav(items, active, live=live)
         return (rail_html(rail, section["key"] if section else None, foot) +
-                '<div class="ec-shell-panel">' + head + search +
-                render_nav(items, active, live=live) + '</div>')
+                '<div class="ec-shell-panel">' + head + search + nav + '</div>')
     return head + search + render_nav(items, active, live=live) + foot
 
 
