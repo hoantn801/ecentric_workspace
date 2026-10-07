@@ -18,7 +18,7 @@
 (function () {
   'use strict';
 
-  var VERSION = 'ec-shell v1.23.0 (cot theo bo cuc tung khu: Viec cua toi, Tao nhanh, nhom, menu con, chan cot) (v1.22.1 the nguoi dung xuong day thanh; khu Chat khong cot; nhan ngan trong cot; mount rail co do rong co dinh) (v1.22.0 thanh khu vuc navy + cot trang: menu 2 tang trong cung cot 248px, server ve san; boot.rail = null -> menu 1 cot cu) (v1.21.0 server-rendered menu: the page arrives with the sidebar already built from the live registry + data-ec-context/data-ec-nav-sig; the client keeps that DOM when the signature matches and only personalises the user card -- no menu repaint, no wrong-context flash) (v1.20.0 "Việc của tôi" is a real page at /viec-cua-toi: on a phone the header inbox navigates there instead of opening the overlay drawer; the drawer stays on desktop and links to the page. Badge mirrors into every [data-ec-shell-reminder-badge] node so a page can render its own -- e.g. the mobile tab bar.) (v1.19.1 honest totals: one card per business document, bounded scan raised to 2000 with a "2000+" label when it overflows)';
+  var VERSION = 'ec-shell v1.23.1 (Phe duyet chia 2 phan trong cot: Yeu cau / Chung tu MSO-SO-PO) (v1.23.0 cot theo bo cuc tung khu: Viec cua toi, Tao nhanh, nhom, menu con, chan cot) (v1.22.1 the nguoi dung xuong day thanh; khu Chat khong cot; nhan ngan trong cot; mount rail co do rong co dinh) (v1.22.0 thanh khu vuc navy + cot trang: menu 2 tang trong cung cot 248px, server ve san; boot.rail = null -> menu 1 cot cu) (v1.21.0 server-rendered menu: the page arrives with the sidebar already built from the live registry + data-ec-context/data-ec-nav-sig; the client keeps that DOM when the signature matches and only personalises the user card -- no menu repaint, no wrong-context flash) (v1.20.0 "Việc của tôi" is a real page at /viec-cua-toi: on a phone the header inbox navigates there instead of opening the overlay drawer; the drawer stays on desktop and links to the page. Badge mirrors into every [data-ec-shell-reminder-badge] node so a page can render its own -- e.g. the mobile tab bar.) (v1.19.1 honest totals: one card per business document, bounded scan raised to 2000 with a "2000+" label when it overflows)';
   // Boot cache (sessionStorage, stale-while-revalidate). NEVER authorization:
   // the cache only skips the paint delay; the backend stays the source of
   // truth and refreshes every page view. Keyed/invalidated by VERSION, TTL,
@@ -290,6 +290,8 @@
       } else if (b.t === 'button' || b.t === 'help') {
         it = b.item ? take(b.item) : null;
         if (it) blocks.push({ t: b.t, item: it });
+      } else if (b.t === 'part') {
+        blocks.push({ t: 'part', label: b.label || '' });
       }
     });
     if (ctx !== 'home') {
@@ -352,6 +354,7 @@
           esc(it.key) + '"' + (on ? ' aria-current="page"' : '') + '>' + svg(it.icon) + '<span>' + esc(it.label) + '</span></a>';
         return;
       }
+      if (b.t === 'part') { h += '<div class="ec-shell-part">' + esc(b.label) + '</div>'; return; }
       if (b.label) h += '<div class="ec-shell-grouplabel">' + esc(b.label) + '</div>';
       if (b.t === 'todo') {
         h += '<div class="ec-shell-todo">' + b.items.map(function (i) { return railEntry(i, active); }).join('') + '</div>';

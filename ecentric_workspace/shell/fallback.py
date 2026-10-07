@@ -305,6 +305,8 @@ def rail_layout(sec, context_name, ctx_items, pool):
             it = take(b["item"]) if b.get("item") else None
             if it:
                 blocks.append({"t": t, "item": it})
+        elif t == "part":
+            blocks.append({"t": t, "label": b.get("label") or ""})
     if context_name != "home":
         extra = [it for it in ctx_items or []
                  if not str(it["key"]).startswith("core.") and it["key"] not in placed]
@@ -384,6 +386,9 @@ def rail_panel_nav(blocks, active):
             foot = ('<a class="ec-shell-help%s" href="%s" data-ec-shell-key="%s"%s>%s<span>%s</span></a>'
                     % (" ec-shell-active" if on else "", esc_live(it["route"]), esc_live(it["key"]),
                        ' aria-current="page"' if on else "", _svg(it["icon"]), esc_live(it["label"])))
+            continue
+        if t == "part":
+            h.append('<div class="ec-shell-part">%s</div>' % esc_live(b["label"]))
             continue
         if b.get("label"):
             h.append('<div class="ec-shell-grouplabel">%s</div>' % esc_live(b["label"]))
