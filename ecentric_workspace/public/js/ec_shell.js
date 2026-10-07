@@ -648,11 +648,22 @@
         var sc = (msg && msg.source_counts) || {};
         return sc.approval || 0;
       }
+    },
+    // PM rail badges (A73, 10/2026): BOTH keys read the SAME session-scoped endpoint --
+    // rail_badges() takes no user parameter -- and badgeCache below is keyed by URL,
+    // so the two badges cost exactly one request per pageview.
+    'pm.mywork': {
+      url: '/api/method/ecentric_workspace.pm.api.dashboard.rail_badges',
+      count: function (msg) { return (msg && msg.mywork) || 0; }
+    },
+    'pm.assignments': {
+      url: '/api/method/ecentric_workspace.pm.api.dashboard.rail_badges',
+      count: function (msg) { return (msg && msg.assignments) || 0; }
     }
     // 'chat.unread' (Chat noi bo, 05/10/2026) CO Y khong o day: ec_chat.js to ca huy hieu
     // menu trai lan o Tin nhan tu MOT lan goi get_unread_total. Khoa la nhan la -> bo qua.
   };
-  var badgeCache = {};   // per-pageview promise cache (one fetch per source)
+  var badgeCache = {};   // per-pageview RESPONSE cache keyed by URL: sources sharing an endpoint fetch once
 
   function bindBadges() {
     var nodes = document.querySelectorAll('[data-ec-shell-badge]');
@@ -661,14 +672,15 @@
       var key = el.getAttribute('data-ec-shell-badge');
       var src = BADGE_SOURCES[key];
       if (!src) return;                                  // unknown key: stay hidden
-      if (!badgeCache[key]) {
-        badgeCache[key] = fetch(src.url, {
+      if (!badgeCache[src.url]) {
+        badgeCache[src.url] = fetch(src.url, {
           credentials: 'same-origin', headers: { Accept: 'application/json' }
         }).then(function (r) { return r.json(); })
-          .then(function (j) { return src.count(j && j.message); })
-          .catch(function () { return 0; });
+          .catch(function () { return null; });            // silent: badges are cosmetic
       }
-      badgeCache[key].then(function (n) {
+      badgeCache[src.url].then(function (j) {
+        var n = 0;
+        try { n = src.count(j && j.message) || 0; } catch (e) { n = 0; }
         if (n > 0) { el.textContent = n > 99 ? '99+' : String(n); el.hidden = false; }
       });
     });

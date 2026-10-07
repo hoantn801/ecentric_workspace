@@ -12,6 +12,20 @@
   body { background: #f7f8fb !important; padding: 0 !important; margin: 0 !important; }
   .page-content, .common-page-style, .container, main, .web-page-content, .page_content, .main-section, main.container, main.fluid {
     padding: 0 !important; margin: 0 !important; max-width: none !important; }
+
+/* A65 (10/2026): cac rule duoi day GOP tu khoi style vo-shell cua p272 ve nguon trang
+   ve nguon trang; giu nguyen hieu luc, bo rule cua cau noi an da xoa.
+   Giu xuong dong ro rang - Jinja safety (pm/pages.py, su co 2026-07-23). */
+#ec-pm-root { grid-template-columns: 248px 1fr !important; }
+.ec-pm-topsearch { position: relative; display: flex; align-items: center; flex: 1 1 260px; max-width: 340px; margin: 0 8px; }
+.ec-pm-topsearch .search-icon { position: absolute; left: 10px; width: 15px; height: 15px; color: #9ca3af; pointer-events: none; }
+.ec-pm-topsearch input { width: 100%; padding: 7px 10px 7px 30px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 13px; background: #f9fafb; }
+.ec-pm-topsearch { display: none !important; }
+#tb-new { display: none !important; }
+@media (max-width: 1100px) {
+  #ec-pm-root { grid-template-columns: 1fr !important; }
+  #ec-pm-root .ec-shell-mount { display: none; }
+}
 </style>
 
 <style>
@@ -855,45 +869,19 @@
 </defs></svg>
 
 <div class="ecentric-app" id="ec-pm-root">
-  <aside class="ec-sidebar">
-    <div class="sidebar-header">
-      <a href="/home" class="brand"><span class="logo">PM</span><span class="brand-name">eCentric<br>Workspace</span></a>
-    </div>
-    <div class="sidebar-search">
-      <svg class="icon icon-sm search-icon"><use href="#p-search"/></svg>
-      <input type="text" id="pm-search" placeholder="Tìm dự án, nhiệm vụ...">
-    </div>
-    <nav class="nav-section" id="pm-nav">
-      <div class="nav-label">Quản lý dự án</div>
-      <a class="nav-item" data-view="dashboard"><svg class="icon"><use href="#p-grid"/></svg><span>Tổng quan</span></a>
-      <a class="nav-item" data-view="mytasks"><svg class="icon"><use href="#p-inbox"/></svg><span>Việc của tôi</span></a>
-      <a class="nav-item" data-view="schedule"><svg class="icon"><use href="#p-calendar"/></svg><span>Lịch làm việc</span></a>
-      <a class="nav-item" data-view="projects"><svg class="icon"><use href="#p-folder"/></svg><span>Dự án</span></a>
-      <a class="nav-item" data-view="work"><svg class="icon"><use href="#p-list"/></svg><span>Công việc</span></a>
-      <a class="nav-item" data-view="timesheet"><svg class="icon"><use href="#p-clock"/></svg><span>Timesheet</span></a>
-      <a class="nav-item" data-view="recurring"><svg class="icon"><use href="#p-repeat"/></svg><span>Recurring</span></a>
-      <!-- G4.11: PM sidebar "Thông báo" hidden (backend + topbar bell retained). -->
-      <a class="nav-item" data-view="assignments"><svg class="icon"><use href="#p-inbox"/></svg><span>Yêu cầu giao việc</span></a>
-      <div class="nav-label" style="margin-top:10px;">Khác</div>
-      <a class="nav-item" data-view="guide"><svg class="icon"><use href="#p-book"/></svg><span>Hướng dẫn</span></a>
-      <a class="nav-item" href="/home"><svg class="icon"><use href="#p-back"/></svg><span>Về Workspace</span></a>
-    </nav>
-    <div class="sidebar-footer">
-      <a href="/app/user" class="user-card"><div class="avatar" id="pm-av">PM</div>
-        <div class="user-info"><div class="user-name" id="pm-uname">Đang tải...</div><div class="user-role" id="pm-urole">PM</div></div></a>
-      <button class="logout-btn" title="Đăng xuất" onclick="fetch('/api/method/logout',{credentials:'same-origin'}).finally(function(){window.location.href='/login-page';});">
-        <svg viewBox="0 0 24 24"><use href="#p-logout"/></svg></button>
-    </div>
-  </aside>
+  <aside class="ec-shell-mount" data-ec-shell="1" aria-label="Điều hướng eCentric"><div class="ec-shell-head"><a class="ec-shell-brand" href="/"><img class="ec-shell-logoimg" src="/files/eCentric%20logo%20-%20mini.png" alt="eCentric"><span class="ec-shell-logo" hidden>eC</span><span class="ec-shell-brandname">eCentric</span></a></div><div class="ec-shell-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input class="ec-shell-search-in" type="text" placeholder="Tìm chức năng…" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-label="Tìm chức năng" autocomplete="off" spellcheck="false"><button type="button" class="ec-shell-search-clear" data-ec-shell-search-clear="1" hidden aria-label="Xóa tìm kiếm">&times;</button></div><div class="ec-shell-search-results" role="listbox" hidden></div><nav class="ec-shell-nav ec-shell-fallback" aria-label="Điều hướng chính"><a class="ec-shell-item" href="/home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg><span>Trang chủ</span></a><div class="ec-shell-grouplabel">Quản lý dự án</div><a class="ec-shell-item" href="/pm#overview"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Tổng quan</span></a><a class="ec-shell-item" href="/pm#mywork"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h4l2 3h4l2-3h4"/><path d="M4 13V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7"/><path d="M4 13v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></svg><span>Việc của tôi</span></a><a class="ec-shell-item" href="/pm#schedule"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg><span>Lịch làm việc</span></a><a class="ec-shell-item" href="/pm#projects"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Dự án</span></a><a class="ec-shell-item" href="/pm#work/list"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span>Công việc</span></a><a class="ec-shell-item" href="/pm#timesheet"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg><span>Timesheet</span></a><a class="ec-shell-item" href="/pm#recurring"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg><span>Recurring</span></a><a class="ec-shell-item ec-shell-active" href="/pm#assignments/in" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 13h5l1 2h6l1-2h5"/></svg><span>Yêu cầu giao việc</span></a><a class="ec-shell-item" href="/pm#guide"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19a2 2 0 0 1 2-2h14V3H6a2 2 0 0 0-2 2z"/><path d="M4 19a2 2 0 0 0 2 2h14v-4"/></svg><span>Hướng dẫn</span></a></nav><div class="ec-shell-foot"><a class="ec-shell-usercard" href="/app/user"><span class="ec-shell-avatar">•</span><span class="ec-shell-username">Tài khoản</span></a></div></aside>
 
   <div class="ec-main">
     <div class="topbar">
-      <div class="breadcrumb">Project Management / <strong id="pm-crumb">Tổng quan</strong></div>
-      <div class="topbar-actions">
+      <div class="breadcrumb ec-shell-crumbs" data-ec-shell-crumbs="1"><span class="ec-shell-crumb-group">Quản lý dự án</span><span class="sep ec-shell-crumb-sep">/</span><a class="ec-shell-crumblink" href="/pm#assignments/in">Yêu cầu giao việc</a><span class="sep ec-shell-crumb-sep">/</span><strong class="ec-shell-crumb-current ec-shell-crumb-detail" data-ec-shell-crumb-detail="1" id="pm-crumb">Tổng quan</strong></div>
+      <div class="ec-pm-topsearch"><div class="sidebar-search">
+      <svg class="icon icon-sm search-icon"><use href="#p-search"/></svg>
+      <input type="text" id="pm-search" placeholder="Tìm dự án, nhiệm vụ...">
+    </div></div><div class="topbar-actions">
         <span class="preview-tag" id="pm-preview" style="display:none;">Preview (mock)</span>
         <button class="tb-timer" id="tb-timer" title="Timer đang chạy — bấm để mở task"></button>
         <button class="pm-btn primary" id="tb-new" style="padding:7px 12px"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Tạo nhiệm vụ</button>
-        <a class="icon-btn" id="tb-bell" href="/app/notification-log" target="_blank" rel="noopener" data-ec-notification-bell="1" aria-label="Thông báo" title="Thông báo" style="position:relative"><svg class="icon icon-sm"><use href="#p-bell"/></svg></a>
+        <div class="ec-shell-tbright" data-ec-shell-header-right="1"><button type="button" class="ec-shell-iconbtn ec-shell-reminder" data-ec-shell-action-slot="1" aria-label="Việc của tôi" title="Việc của tôi" aria-haspopup="dialog" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h4l2 3h4l2-3h4"/><path d="M4 13V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7"/><path d="M4 13v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></svg><span class="ec-shell-reminder-badge" data-ec-shell-reminder-badge="1" hidden></span></button><button type="button" class="ec-shell-iconbtn ec-shell-slot-disabled" data-ec-shell-settings-slot="1" disabled aria-disabled="true" title="Cài đặt (sắp ra mắt)" aria-label="Cài đặt (sắp ra mắt)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg></button></div>
       </div>
     </div>
     <div class="content" id="pm-view"><div class="pm-state"><span class="spin"></span></div></div>
@@ -3678,7 +3666,7 @@
 
   var VIEWS={dashboard:showDashboard,mytasks:showMyTasks,projects:showProjects,work:showWork,tasks:showTasks,board:showBoard,gantt:showGantt,calendar:showCalendar,timesheet:showTimesheet,recurring:showRecurring,assignments:showAssignments,notifications:redirectToGlobalNotifications,guide:showGuide,schedule:showSchedule};
   function go(v){if(window.PMCharts)PMCharts.disposeAll();window._pmOpenProject=null;var WM={tasks:"list",board:"board",gantt:"gantt",calendar:"calendar",table:"table",work:null};var isW=Object.prototype.hasOwnProperty.call(WM,v);var navKey=isW?"work":v;
-    window._curView=navKey;Array.prototype.forEach.call(el("pm-nav").querySelectorAll(".nav-item[data-view]"),function(b){b.classList.toggle("active",b.getAttribute("data-view")===navKey);});
+    window._curView=navKey; /* A73: trang thai active do vo shell chung to (ec_shell.js hash-aware); rail noi bo PM da bo */
     el("pm-crumb").textContent=isW?"Công việc":(CRUMB[v]||"Tổng quan");
     if(isW){if(WM[v])window._workView=WM[v];try{localStorage.setItem("pm_work_view",window._workView||"list");}catch(_){}showWork();}
     else (VIEWS[v]||showDashboard)();
@@ -3701,6 +3689,7 @@
     var h=(location.hash||"").replace(/^#\/?/,""); _pmExpectedHash=location.hash;
     var p=h.split("/"), head=p[0]||"overview";
     var VMAP={overview:"dashboard",mywork:"mytasks",projects:"projects",timesheet:"timesheet",recurring:"recurring",guide:"guide",schedule:"schedule"};
+    if(head==="new"){ go("mytasks"); setTimeout(function(){ try{ newTask(null); }catch(e){} },0); return; } /* nut rail "+ Nhiem vu moi" (/pm#new): mo form tao viec; go() tra hash ve #mywork nen bam lai van kich hoat */
     if(head==="task"&&p[1]){ go("work"); openTask(decodeURIComponent(p[1])); return; }
     if(head==="project"&&p[1]){ go("projects"); openProject(decodeURIComponent(p[1])); return; }
     if(head==="assignments"){ window._asgTab=(p[1]==="out")?"out":"in"; go("assignments"); return; }
@@ -3788,12 +3777,12 @@
     }
     render();
   }
-  Array.prototype.forEach.call(el("pm-nav").querySelectorAll(".nav-item[data-view]"),function(b){b.onclick=function(){var v=b.getAttribute("data-view");if(v==="notifications"){window.open("/app/notification-log","_blank","noopener");return;}go(v);};});
+  /* A73: dieu huong view den tu cac muc /pm#... cua menu chung -> hashchange -> pmApplyRoute(). */
   { var _ps=el("pm-search"); if(_ps) _ps.addEventListener("keydown",function(e){if(e.key==="Enter"){F.q=this.value.trim().toLowerCase();go("tasks");}}); }
 
-  function fillUser(){
-    if(!LIVE){ window._pmUser="hoan.tran@ecentric.vn"; el("pm-av").textContent="PV"; el("pm-uname").textContent="Preview User"; el("pm-urole").textContent="Mock"; el("pm-preview").style.display="inline-block"; return; }
-    api("frappe.auth.get_logged_user").then(function(u){ u=u||"User"; window._pmUser=u; el("pm-av").textContent=ini(u); el("pm-uname").textContent=u.split("@")[0]; el("pm-urole").textContent="Thành viên PM"; }).catch(function(){ el("pm-uname").textContent="Người dùng"; });
+  function fillUser(){ /* A73: the nguoi dung hien o chan menu chung; chi con giu window._pmUser */
+    if(!LIVE){ window._pmUser="hoan.tran@ecentric.vn"; var _pv=el("pm-preview"); if(_pv)_pv.style.display="inline-block"; return; }
+    api("frappe.auth.get_logged_user").then(function(u){ window._pmUser=u||"User"; }).catch(function(){});
   }
   // PM badge retired -> Global Notification Center owns the unread badge on the bell.
   // No-op kept so existing call sites stay valid; PM notifications API is not called

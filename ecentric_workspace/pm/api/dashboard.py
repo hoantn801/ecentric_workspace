@@ -272,3 +272,39 @@ def my_tasklist():
         "attention": _slim(attention), "week": _slim(week),
         "nodue": _slim(nodue), "done": _slim(done),
     }
+
+
+@frappe.whitelist()
+def rail_badges():
+    """Session-scoped counts for the shared-shell rail badges (A73). Deliberately takes
+    NO parameters: the user is ALWAYS frappe.session.user, so one person can never read
+    another person's numbers. Called once per pageview by ec_shell.js bindBadges()
+    (BADGE_SOURCES keys pm.mywork / pm.assignments share this one request).
+
+      mywork      - open tasks assigned to me (_assign), workflow_state not in _FINISHED;
+                    same population my_tasklist() shows (overdue is a subset of open).
+      assignments - PM Assignment Request rows waiting for MY answer (recipient = me,
+                    status still open: Pending / Reschedule Proposed).
+
+    Badges are cosmetic: any failure must stay silent client-side, so this never throws
+    for non-PM users - it just returns zeros."""
+    user = frappe.session.user
+    if not user or user == "Guest":
+        return {"mywork": 0, "assignments": 0}
+    try:
+        pmperm.require_pm_access()
+    except Exception:
+        return {"mywork": 0, "assignments": 0}
+    mywork = len(frappe.get_all(
+        "Task",
+        filters=[["_assign", "like", "%" + user + "%"],
+                 ["workflow_state", "not in", _FINISHED]],
+        fields=["name"], limit_page_length=0,
+    ))
+    assignments = len(frappe.get_all(
+        "PM Assignment Request",
+        filters=[["recipient", "=", user],
+                 ["status", "in", ["Pending", "Reschedule Proposed"]]],
+        fields=["name"], limit_page_length=0,
+    ))
+    return {"mywork": mywork, "assignments": assignments}
