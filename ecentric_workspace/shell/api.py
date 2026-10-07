@@ -78,7 +78,7 @@ def get_shell_boot():
         "chat_enabled": chat_enabled(),
         # Menu 2 tang (07/10/2026): thanh khu vuc. None = kill switch -> client ve menu 1 cot.
         # CUNG cong tac server_nav.rail_enabled() dung khi ve trang.
-        "rail": shell_nav.rail_spec() if _rail_on() else None,
+        "rail": shell_nav.rail_spec(roles) if _rail_on() else None,
     }
 
 

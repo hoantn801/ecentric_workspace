@@ -50,6 +50,16 @@ async function hydrate() {
   w.eval(SRC);
   await new Promise(r => setTimeout(r, 60));
   const navAfter = mount ? mount.querySelector('.ec-shell-nav') : null;
+  // tuy chon: bam mot menu con (fixture.click = key) roi bao trang thai mo/gap
+  let clicked = null;
+  if (fixture.click && mount) {
+    const btn = mount.querySelector('[data-ec-shell-subtoggle="' + fixture.click + '"]');
+    if (btn) {
+      btn.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+      const box = btn.nextElementSibling;
+      clicked = { expanded: btn.getAttribute('aria-expanded'), hidden: !!(box && box.hidden) };
+    }
+  }
   const name = mount && mount.querySelector('.ec-shell-username');
   process.stdout.write(JSON.stringify({
     hasMount: !!mount,
@@ -60,6 +70,7 @@ async function hydrate() {
     links: mount ? mount.querySelectorAll('.ec-shell-nav a').length : -1,
     logout: mount ? mount.querySelectorAll('[data-ec-shell-logout]').length : -1,
     rail: mount ? mount.getAttribute('data-ec-rail') : null,
+    clicked: clicked,
     nopanel: mount ? mount.getAttribute('data-ec-nopanel') : null,
     footInRail: mount ? !!mount.querySelector('.ec-shell-rail .ec-shell-foot') : null,
     railBtns: mount ? mount.querySelectorAll('.ec-shell-railbtn').length : -1,
@@ -78,8 +89,16 @@ function railParity() {
   const E = win.ECShell;
   const out = fixture.cases.map(c => {
     const v = E.railView(fixture.rail, c.context, c.items, fixture.home, c.path);
-    const active = E.matchActive(v.panel, c.path);
     const secKey = v.sec ? v.sec.key : '';
+    if (v.sec && v.sec.layout && v.sec.layout.length) {
+      const lay = E.railLayout(v.sec, c.context, c.items, E.railPool({ contexts: fixture.contexts }));
+      const act = E.matchActive(lay.match, c.path);
+      return { name: c.name, sec: secKey, active: act, keys: lay.sig,
+               rail: E.railHtml(fixture.rail, secKey, fixture.foot || ''),
+               nav: E.railPanelHtml(lay.blocks, act),
+               sig: c.context + '@' + secKey + '|' + (act || '') + '|' + lay.sig.join(',') };
+    }
+    const active = E.matchActive(v.panel, c.path);
     return {
       name: c.name, sec: secKey, active: active,
       keys: v.panel.map(it => it.key), groups: v.panel.map(it => it.group),

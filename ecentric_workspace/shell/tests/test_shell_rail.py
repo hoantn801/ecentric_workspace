@@ -22,7 +22,7 @@ import unittest
 from ecentric_workspace.shell.tests import test_server_nav as T
 
 #: So test trong file (lech = co test khong nap).
-EXPECT_TOTAL = 21
+EXPECT_TOTAL = 28
 
 _SAVED = {}
 
@@ -129,34 +129,39 @@ class TestServerRender(unittest.TestCase):
             self.assertEqual(_sec(_render(route)), sec, route)
 
     def test_portal_sections_show_only_their_own_items(self):
-        self.assertEqual(_panel_keys(_render("/")), ["home.portal.home", "home.portal.overview"])
-        self.assertEqual(_panel_keys(_render("/tin-noi-bo")), ["home.portal.feed", "home.portal.news"])
-        self.assertEqual(_panel_keys(_render("/chat")), ["home.portal.chat"])
+        self.assertEqual(_panel_keys(_render("/")), ["rail.home.mywork", "home.portal.home", "home.portal.overview",
+                                                     "rail.home.att", "rail.home.leave", "rail.home.req", "rail.help"])
+        self.assertEqual(_panel_keys(_render("/tin-noi-bo")), ["home.portal.feed", "rail.feed.clubs",
+                                                               "home.portal.news", "rail.feed.post"],
+                         "nguoi chua chung minh quyen (render chung) khong thay Viet tin / Quan ly")
         co = _panel_keys(_render("/tai-lieu"))
         self.assertEqual(co[0], "home.portal.iso_docs")
         self.assertIn("home.portal.feedback", co)
         self.assertNotIn("home.portal.approvals", co, "khu Cong ty khong mang muc khu khac")
-        self.assertEqual(_groups(_render("/tai-lieu")), [], "cot portal khong nhan nhom")
+        self.assertEqual(_groups(_render("/tai-lieu")), ["Tài liệu", "Tiếng nói nhân viên", "Công cụ", "Khác"])
 
-    def test_approvals_shows_mso_so_po_right_under_approvals(self):
+    def test_approvals_column_has_two_clear_parts(self):
         html = _render("/approvals")
-        keys = _panel_keys(html)
-        for k in ("legacy.create_mso", "legacy.create_so", "legacy.create_po"):
-            self.assertIn(k, keys)
-        self.assertEqual(_groups(html)[:3], ["Phê duyệt", "Tạo mới", "Chứng từ"])
-        self.assertNotIn("core.home", keys, "Trang chu da nam tren thanh")
-        self.assertIn('data-ec-shell-badge="action_center.approvals"', html.split("ec-shell-panel")[0],
-                      "huy hieu phe duyet nam tren thanh")
+        nav = html.split('<nav class="ec-shell-nav"', 1)[1]
+        parts = re.findall(r'<div class="ec-shell-part">([^<]+)</div>', nav)
+        self.assertEqual(parts, ["Yêu cầu phê duyệt", "Chứng từ MSO · SO · PO"])
+        first, second = nav.split('class="ec-shell-part">Chứng từ', 1)
+        for k in ("rail.appr.waiting", "rail.appr.sent", "apc.catalog", "apc.all", "apc.dashboard"):
+            self.assertIn('data-ec-shell-key="%s"' % k, first, k)
+        for k in ("legacy.create_mso", "legacy.create_so", "legacy.create_po", "approval.inbox", "tickets.all"):
+            self.assertIn('data-ec-shell-key="%s"' % k, second, k)
+            self.assertNotIn('data-ec-shell-key="%s"' % k, first, k)
+        chips = re.search(r'<div class="ec-shell-chips">(.*?)</div>', second).group(1)
+        self.assertEqual(re.findall(r'>([^<]+)</a>', chips), ["MSO", "SO", "PO"])
+        self.assertEqual(_sec(_render("/mso-plan-form")), "approvals", "thanh van GOP mot khu")
 
-    def test_module_section_appends_missing_portal_items_once(self):
-        keys = _panel_keys(_render("/alerts/rules"))
-        self.assertEqual(keys[:5], ["alerts.dashboard", "alerts.policies", "alerts.rules",
-                                    "alerts.locks", "alerts.health"])
-        self.assertEqual(keys[5:], ["home.portal.reports", "home.portal.weekly", "home.portal.pulse"],
-                         "/alerts da co trong cot -> khong lap Alert Center")
-        rep = _panel_keys(_render("/reports"))
-        self.assertNotIn("home.portal.reports", rep, "cung route voi reporting.hub -> khong lap")
-        self.assertIn("home.portal.alerts", rep)
+    def test_reports_section_has_pnl_and_alerts_as_submenus(self):
+        html = _render("/alerts/rules")
+        self.assertIn('data-ec-shell-subtoggle="rail.rep.alerts" aria-expanded="true"', html, "dang o trong -> mo")
+        self.assertIn('data-ec-shell-subtoggle="rail.rep.pnl" aria-expanded="false"', html, "khac -> gap")
+        self.assertIn('<div class="ec-shell-children" hidden data-ec-shell-children="rail.rep.pnl">', html)
+        self.assertIn('data-ec-shell-key="alerts.rules" aria-current="page"', html)
+        self.assertIn(">Quy tắc<", html)
 
     def test_mount_attrs_and_idempotent(self):
         _, _, sn = T._mods()
@@ -192,14 +197,12 @@ class TestRound2(unittest.TestCase):
         again = sn.rebuild_mount(chat, "/approvals")
         self.assertNotIn("data-ec-nopanel", re.search(r'<aside[^>]*>', again).group(0))
 
-    def test_short_label_only_in_the_panel(self):
-        _, shell_nav, _ = T._mods()
+    def test_install_guide_is_a_small_footer_link(self):
         html = _render("/ec-hr/attendance")
-        self.assertIn('data-ec-shell-key="hr.install_guide"><svg', html)
-        self.assertIn("<span>Cài app</span>", html)
-        self.assertNotIn("Cài app lên điện thoại", html.split('<div class="ec-shell-panel">', 1)[1])
-        full = [it for it in shell_nav.compose("hr") if it["key"] == "hr.install_guide"][0]
-        self.assertEqual(full["label"], "Cài app lên điện thoại", "registry / tim kiem giu nhan goc")
+        nav, foot = html.split('<div class="ec-shell-panel">', 1)[1].split("</nav>", 1)
+        self.assertNotIn("hr.install_guide", nav)
+        self.assertIn('<a class="ec-shell-help" href="/ec-hr/huong-dan-cai-app" data-ec-shell-key="hr.install_guide">',
+                      foot)
 
     def test_css_fixes_present(self):
         import io
@@ -210,6 +213,63 @@ class TestRound2(unittest.TestCase):
         self.assertIn('.ec-shell-mount[data-ec-nopanel="1"] .ec-shell-panel{ display:none; }', css)
         chat = io.open(os.path.join(T.APP, "public", "css", "ec_chat_page.css"), encoding="utf-8").read()
         self.assertIn("grid-template-columns:auto minmax(0,1fr)", chat)
+
+
+class TestLayout(unittest.TestCase):
+    """Cot theo bo cuc (07/10/2026): khong mat muc, loc vai tro, menu con, link khong to dang chon."""
+
+    def setUp(self):
+        import frappe
+        frappe.conf.clear()
+
+    def test_every_module_item_is_placed_no_khac_group(self):
+        for route in ("/", "/approvals", "/pm", "/ec-hr/attendance", "/reports", "/alerts", "/pnl-dashboard",
+                      "/tai-lieu", "/ai-tool", "/khao-sat", "/bang-tin"):
+            self.assertNotIn('grouplabel">Mục khác<', _render(route), route)
+
+    def test_unplaced_module_item_falls_into_khac(self):
+        fb, shell_nav, _ = T._mods()
+        sec = [s for s in shell_nav.rail_spec() if s["key"] == "reports"][0]
+        extra = {"key": "reporting.moi", "label": "Bao cao moi", "route": "/bao-cao-moi", "icon": "chart",
+                 "group": "", "active_patterns": ["/bao-cao-moi"]}
+        items = shell_nav.compose("reporting") + [extra]
+        blocks, sig, _ = fb.rail_layout(sec, "reporting", items, fb.rail_pool([items]))
+        self.assertEqual(blocks[-1]["label"], "Mục khác")
+        self.assertEqual([i["key"] for i in blocks[-1]["items"]], ["reporting.moi"])
+
+    def test_role_links_follow_the_viewer(self):
+        _, shell_nav, _ = T._mods()
+
+        def keys(roles, sec):
+            lay = [s for s in shell_nav.rail_spec(roles) if s["key"] == sec][0]["layout"]
+            out = []
+            for b in lay:
+                for i in (b.get("items") or []) + ([b["item"]] if b.get("item") else []):
+                    out.append(i["key"])
+                    out += [c["key"] for c in i.get("children") or []]
+            return out
+        self.assertNotIn("rail.feed.write", keys(None, "feed"))
+        self.assertNotIn("rail.feed.write", keys(["Employee"], "feed"))
+        self.assertIn("rail.feed.write", keys(["HR User"], "feed"))
+        self.assertIn("rail.co.docsmg", keys(["Ban ISO"], "company"))
+        self.assertNotIn("rail.co.docsmg", keys(["HR User"], "company"))
+
+    def test_single_child_tree_becomes_plain_link(self):
+        html = _render("/tai-lieu")
+        self.assertNotIn('data-ec-shell-subtoggle="home.portal.iso_docs"', html, "nhan vien: 1 muc con -> bam thang")
+        self.assertIn('data-ec-shell-key="home.portal.iso_docs" aria-current="page"', html)
+        self.assertIn('data-ec-shell-subtoggle="ai_tools.hub"', html, "SI Tool van co menu con")
+
+    def test_query_links_never_steal_the_highlight(self):
+        html = _render("/approvals/all-requests")
+        self.assertIn('data-ec-shell-key="apc.all" aria-current="page"', html)
+        self.assertNotIn('data-ec-shell-key="rail.appr.waiting" aria-current', html)
+
+    def test_badges_reuse_existing_sources(self):
+        self.assertIn('data-ec-shell-reminder-badge="1" hidden', _render("/").split('<div class="ec-shell-panel">')[1])
+        self.assertIn('data-ec-shell-key="rail.appr.waiting"><svg', _render("/approvals"))
+        appr = _render("/approvals").split('<div class="ec-shell-panel">')[1]
+        self.assertIn('data-ec-shell-badge="action_center.approvals" hidden', appr)
 
 
 class TestPmPatch(unittest.TestCase):
@@ -283,9 +343,10 @@ class TestKillSwitch(unittest.TestCase):
 
 
 class TestJsParity(unittest.TestCase):
-    ROUTES = ["/", "/tin-noi-bo", "/chat", "/viec-cua-toi", "/approvals", "/mso-plan-form",
-              "/ec-hr/leave", "/reports", "/alerts/rules", "/pnl-dashboard", "/tai-lieu",
-              "/ai-tool", "/ai-content/brand", "/khao-sat", "/hall", "/zz-khong-co"]
+    ROUTES = ["/", "/tin-noi-bo", "/bang-tin/cau-lac-bo", "/chat", "/viec-cua-toi", "/approvals",
+              "/approvals/all-requests", "/mso-plan-form", "/ec-hr/leave", "/pm", "/reports", "/alerts/rules",
+              "/pnl-dashboard", "/tai-lieu", "/gop-y", "/ai-tool", "/ai-content/ho-so-brand", "/khao-sat",
+              "/hall", "/huong-dan", "/zz-khong-co"]
 
     def test_rail_view_and_markup_identical_in_js(self):
         node, why = T._node_ok()
@@ -299,21 +360,25 @@ class TestJsParity(unittest.TestCase):
         for route in self.ROUTES:
             ctx = shell_nav.resolve_context(route)
             items = shell_nav.compose(ctx)
-            sec, panel = fb.rail_view(rail, ctx, items, home, route)
-            active = fb.match_active(panel, route)
+            sec, panel, blocks, active, sig = sn.rail_parts(rail, ctx, items, route)
             cases.append({"name": route, "path": route, "context": ctx,
                           "items": [api._ser(it) for it in items]})
-            want[route] = {"sec": sec["key"] if sec else "", "keys": [it["key"] for it in panel],
-                           "labels": [it["label"] for it in panel],
+            if blocks is not None:
+                keys = sig.split("|", 2)[2].split(",")
+                nav = fb.rail_panel_nav(blocks, active)
+            else:
+                keys = [it["key"] for it in panel]
+                nav = fb.render_nav(panel, active, live=True)
+            want[route] = {"sec": sec["key"] if sec else "", "keys": keys,
                            "rail": fb.rail_html(rail, sec["key"] if sec else None, FOOT),
-                           "nav": fb.render_nav(panel, active, live=True),
-                           "sig": sn.nav_signature(sn.sig_context(ctx, sec), panel, active)}
+                           "nav": nav, "sig": sig}
+        contexts = {c: {"items": [api._ser(it) for it in shell_nav.compose(c)]} for c in shell_nav.CONTEXTS}
         rows = T._run_harness(node, "rail", {"rail": rail, "home": [api._ser(it) for it in home],
-                                             "cases": cases, "foot": FOOT})
+                                             "contexts": contexts, "cases": cases, "foot": FOOT})
         self.assertEqual(len(rows), len(self.ROUTES))
         for row in rows:
             w = want[row["name"]]
-            for k in ("sec", "keys", "labels", "rail", "nav", "sig"):
+            for k in ("sec", "keys", "rail", "nav", "sig"):
                 self.assertEqual(row[k], w[k], "%s %s" % (row["name"], k))
 
 
@@ -340,6 +405,16 @@ class TestHydration(unittest.TestCase):
             self.assertTrue(r["footInRail"], route)
             self.assertEqual(r["username"], "Hoan Tran", route)
 
+    def test_open_submenu_closes_on_first_click(self):
+        node, why = T._node_ok(need_jsdom=True)
+        if not node:
+            self.skipTest(why)
+        r = T._run_harness(node, "hydrate", {"html": _render("/alerts/rules"), "pathname": "/alerts/rules",
+                                             "boot": self._boot(), "click": "rail.rep.alerts"})
+        self.assertTrue(r["navKept"])
+        self.assertEqual(r["clicked"], {"expanded": "false", "hidden": True},
+                         "server ve san o trang thai MO -> lan bam dau phai GAP")
+
     def test_chat_page_keeps_rail_without_panel(self):
         r = self._go(_render("/chat"), "/chat", self._boot())
         self.assertTrue(r["navKept"])
@@ -362,7 +437,7 @@ class TestHydration(unittest.TestCase):
 
 def load_tests(loader, tests, pattern):
     suite = unittest.TestSuite()
-    for case in (TestRegistry, TestServerRender, TestRound2, TestPmPatch, TestKillSwitch, TestJsParity,
+    for case in (TestRegistry, TestServerRender, TestRound2, TestLayout, TestPmPatch, TestKillSwitch, TestJsParity,
                  TestHydration):
         suite.addTests(loader.loadTestsFromTestCase(case))
     if suite.countTestCases() != EXPECT_TOTAL:

@@ -18,7 +18,7 @@
 (function () {
   'use strict';
 
-  var VERSION = 'ec-shell v1.22.1 (the nguoi dung xuong day thanh; khu Chat khong cot; nhan ngan trong cot; mount rail co do rong co dinh) (v1.22.0 thanh khu vuc navy + cot trang: menu 2 tang trong cung cot 248px, server ve san; boot.rail = null -> menu 1 cot cu) (v1.21.0 server-rendered menu: the page arrives with the sidebar already built from the live registry + data-ec-context/data-ec-nav-sig; the client keeps that DOM when the signature matches and only personalises the user card -- no menu repaint, no wrong-context flash) (v1.20.0 "Việc của tôi" is a real page at /viec-cua-toi: on a phone the header inbox navigates there instead of opening the overlay drawer; the drawer stays on desktop and links to the page. Badge mirrors into every [data-ec-shell-reminder-badge] node so a page can render its own -- e.g. the mobile tab bar.) (v1.19.1 honest totals: one card per business document, bounded scan raised to 2000 with a "2000+" label when it overflows)';
+  var VERSION = 'ec-shell v1.23.1 (Phe duyet chia 2 phan trong cot: Yeu cau / Chung tu MSO-SO-PO) (v1.23.0 cot theo bo cuc tung khu: Viec cua toi, Tao nhanh, nhom, menu con, chan cot) (v1.22.1 the nguoi dung xuong day thanh; khu Chat khong cot; nhan ngan trong cot; mount rail co do rong co dinh) (v1.22.0 thanh khu vuc navy + cot trang: menu 2 tang trong cung cot 248px, server ve san; boot.rail = null -> menu 1 cot cu) (v1.21.0 server-rendered menu: the page arrives with the sidebar already built from the live registry + data-ec-context/data-ec-nav-sig; the client keeps that DOM when the signature matches and only personalises the user card -- no menu repaint, no wrong-context flash) (v1.20.0 "Việc của tôi" is a real page at /viec-cua-toi: on a phone the header inbox navigates there instead of opening the overlay drawer; the drawer stays on desktop and links to the page. Badge mirrors into every [data-ec-shell-reminder-badge] node so a page can render its own -- e.g. the mobile tab bar.) (v1.19.1 honest totals: one card per business document, bounded scan raised to 2000 with a "2000+" label when it overflows)';
   // Boot cache (sessionStorage, stale-while-revalidate). NEVER authorization:
   // the cache only skips the paint delay; the backend stays the source of
   // truth and refreshes every page view. Keyed/invalidated by VERSION, TTL,
@@ -233,6 +233,144 @@
       if (!Object.prototype.hasOwnProperty.call(labels, it.key)) return it;
       var o = {}; for (var k in it) o[k] = it[k]; o.label = labels[it.key]; return o;
     });
+  }
+  // ---- cot theo bo cuc cua khu (07/10/2026) -- ban sao fallback.rail_pool / rail_layout /
+  // rail_panel_nav. Parity co test (test_shell_rail.py).
+  function railPool(boot) {
+    var pool = {};
+    var names = Object.keys((boot && boot.contexts) || {});
+    names.forEach(function (n) {
+      (boot.contexts[n].items || []).forEach(function (it) {
+        if (!pool[it.key]) pool[it.key] = it;
+        (it.children || []).forEach(function (ch) { if (!pool[ch.key]) pool[ch.key] = ch; });
+      });
+    });
+    return pool;
+  }
+  function railResolve(spec, pool) {
+    var it, base;
+    if (spec.route) {
+      it = { key: spec.key, label: spec.label || '', route: spec.route, icon: spec.icon || 'doc',
+             active_patterns: (spec.active_patterns && spec.active_patterns.length) ? spec.active_patterns.slice() : [spec.route] };
+    } else {
+      base = pool[spec.key];
+      if (!base) return null;
+      it = { key: base.key, label: base.label || '', route: base.route, icon: base.icon || 'doc',
+             active_patterns: (base.active_patterns || []).slice() };
+      if (base.soon) it.soon = true;
+      if (base.badge_source) it.badge_source = base.badge_source;
+    }
+    ['label', 'icon'].forEach(function (k) { if (spec[k]) it[k] = spec[k]; });
+    ['caption', 'badge_source', 'badge', 'noactive', 'soon'].forEach(function (k) { if (spec[k]) it[k] = spec[k]; });
+    var kids = (spec.children || []).map(function (c) { return railResolve(c, pool); })
+      .filter(function (c) { return c; });
+    if (kids.length > 1) it.children = kids;        // 0-1 muc con -> muc thuong
+    return it;
+  }
+  function railLayout(sec, ctx, ctxNav, pool) {
+    var blocks = [], placed = {};
+    function take(spec) {
+      var it = railResolve(spec, pool);
+      if (!it) return null;
+      placed[it.key] = 1;
+      (it.children || []).forEach(function (c) { placed[c.key] = 1; });
+      (spec.children || []).forEach(function (c) { placed[c.key] = 1; });
+      return it;
+    }
+    function takeAll(arr) { return (arr || []).map(take).filter(function (x) { return x; }); }
+    (sec.layout || []).forEach(function (b) {
+      var items, more, it;
+      if (b.t === 'todo' || b.t === 'group') {
+        items = takeAll(b.items);
+        if (items.length) blocks.push({ t: b.t, label: b.label || '', items: items });
+      } else if (b.t === 'chips') {
+        items = takeAll(b.items);
+        more = b.more ? take(b.more) : null;
+        if (items.length || more) blocks.push({ t: b.t, label: b.label || '', items: items, more: more });
+      } else if (b.t === 'button' || b.t === 'help') {
+        it = b.item ? take(b.item) : null;
+        if (it) blocks.push({ t: b.t, item: it });
+      } else if (b.t === 'part') {
+        blocks.push({ t: 'part', label: b.label || '' });
+      }
+    });
+    if (ctx !== 'home') {
+      var extra = (ctxNav || []).filter(function (it) {
+        return String(it.key).indexOf('core.') !== 0 && !placed[it.key];
+      });
+      if (extra.length) {
+        blocks.push({ t: 'group', label: 'Mục khác', items: extra.map(function (it) {
+          var one = {}; one[it.key] = it; return railResolve({ key: it.key }, one);
+        }) });
+      }
+    }
+    var sig = [], match = [];
+    function walk(it) {
+      sig.push(it.key);
+      if (it.children && it.children.length) it.children.forEach(walk);
+      else if (!it.noactive) match.push({ key: it.key, route: it.route, active_patterns: it.active_patterns });
+    }
+    blocks.forEach(function (b) {
+      (b.items || []).concat(b.more ? [b.more] : []).concat(b.item ? [b.item] : []).forEach(walk);
+    });
+    return { blocks: blocks, sig: sig, match: match };
+  }
+  function railLabel(it) {
+    return it.caption
+      ? '<span class="ec-shell-lb"><span>' + esc(it.label) + '</span><small class="ec-shell-cap">' + esc(it.caption) + '</small></span>'
+      : '<span>' + esc(it.label) + '</span>';
+  }
+  function railItem(it, active, cls) {
+    var on = it.key === active;
+    var badge = it.badge === 'reminder'
+      ? '<span class="ec-shell-badge" data-ec-shell-reminder-badge="1" hidden></span>'
+      : (it.badge_source ? '<span class="ec-shell-badge" data-ec-shell-badge="' + esc(it.badge_source) + '" hidden></span>' : '');
+    return '<a class="ec-shell-item' + (cls || '') + (it.soon ? ' ec-shell-item-soon' : '') + (on ? ' ec-shell-active' : '') +
+      '" href="' + esc(it.route) + '" data-ec-shell-key="' + esc(it.key) + '"' + (on ? ' aria-current="page"' : '') + '>' +
+      svg(it.icon) + railLabel(it) + badge + (it.soon ? '<span class="ec-shell-soon">Sắp có</span>' : '') + '</a>';
+  }
+  function railEntry(it, active) {
+    var kids = it.children || [];
+    if (!kids.length) return railItem(it, active, '');
+    var opened = kids.some(function (c) { return c.key === active; });
+    return '<button type="button" class="ec-shell-item ec-shell-subtoggle" data-ec-shell-subtoggle="' + esc(it.key) + '" ' +
+      'aria-expanded="' + (opened ? 'true' : 'false') + '">' + svg(it.icon) + railLabel(it) +
+      '<svg class="ec-shell-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>' +
+      '<div class="ec-shell-children"' + (opened ? '' : ' hidden') + ' data-ec-shell-children="' + esc(it.key) + '">' +
+      kids.map(function (c) { return railItem(c, active, ' ec-shell-child'); }).join('') + '</div>';
+  }
+  function railChip(it, active, cls) {
+    var on = it.key === active;
+    return '<a class="' + cls + (on ? ' ec-shell-active' : '') + '" href="' + esc(it.route) + '" data-ec-shell-key="' +
+      esc(it.key) + '"' + (on ? ' aria-current="page"' : '') + '>' + esc(it.label) + '</a>';
+  }
+  function railPanelHtml(blocks, active) {
+    var h = '', foot = '';
+    blocks.forEach(function (b) {
+      var it, on;
+      if (b.t === 'help') {
+        it = b.item; on = it.key === active;
+        foot = '<a class="ec-shell-help' + (on ? ' ec-shell-active' : '') + '" href="' + esc(it.route) + '" data-ec-shell-key="' +
+          esc(it.key) + '"' + (on ? ' aria-current="page"' : '') + '>' + svg(it.icon) + '<span>' + esc(it.label) + '</span></a>';
+        return;
+      }
+      if (b.t === 'part') { h += '<div class="ec-shell-part">' + esc(b.label) + '</div>'; return; }
+      if (b.label) h += '<div class="ec-shell-grouplabel">' + esc(b.label) + '</div>';
+      if (b.t === 'todo') {
+        h += '<div class="ec-shell-todo">' + b.items.map(function (i) { return railEntry(i, active); }).join('') + '</div>';
+      } else if (b.t === 'group') {
+        h += b.items.map(function (i) { return railEntry(i, active); }).join('');
+      } else if (b.t === 'chips') {
+        if (b.items.length) h += '<div class="ec-shell-chips">' + b.items.map(function (i) { return railChip(i, active, 'ec-shell-chip'); }).join('') + '</div>';
+        if (b.more) h += railChip(b.more, active, 'ec-shell-more');
+      } else if (b.t === 'button') {
+        it = b.item; on = it.key === active;
+        h += '<div class="ec-shell-chips"><a class="ec-shell-chip ec-shell-chipwide' + (on ? ' ec-shell-active' : '') +
+          '" href="' + esc(it.route) + '" data-ec-shell-key="' + esc(it.key) + '"' + (on ? ' aria-current="page"' : '') + '>' +
+          svg(it.icon) + '<span>' + esc(it.label) + '</span></a></div>';
+      }
+    });
+    return '<nav class="ec-shell-nav" aria-label="Điều hướng chính">' + h + '</nav>' + foot;
   }
   function railHtml(rail, secKey, foot) {
     var h = '<nav class="ec-shell-rail" aria-label="Khu vực">' +
@@ -465,7 +603,11 @@
     chat:'<path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5.4A8 8 0 1 1 21 12z"/>',
     // Thanh khu vuc (07/10/2026): Bang tin (to bao) + Nhan su (nguoi). Trung shell/fallback.py.
     news:'<rect x="3" y="4" width="14" height="16" rx="2"/><path d="M17 8h3a1 1 0 0 1 1 1v9a2 2 0 0 1-2 2H5M7 8h6M7 12h6M7 16h4"/>',
-    user:'<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/>'
+    user:'<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/>',
+    // Cot thong minh (07/10/2026): gui / them / nhom nguoi. Trung shell/fallback.py.
+    send:'<path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/>',
+    plus:'<path d="M12 5v14M5 12h14"/>',
+    users:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20v-.5a6.5 6.5 0 0 1 13 0v.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 5.8"/>'
   };
   function svg(name) {
     return '<svg viewBox="0 0 24 24" aria-hidden="true">' + (ICONS[name] || ICONS.doc) + '</svg>';
@@ -573,7 +715,7 @@
           '<div class="ec-shell-head"><span class="ec-shell-paneltitle">' +
             esc(S.railSec ? S.railSec.label : 'eCentric') + '</span></div>' +
           searchHtml() +
-          navHtml((S.ctxNav || boot.nav), activeKey) +
+          (S.railBlocks ? railPanelHtml(S.railBlocks, activeKey) : navHtml((S.ctxNav || boot.nav), activeKey)) +
         '</div>';
     }
     return (
@@ -974,7 +1116,8 @@
       var st = t.closest('[data-ec-shell-subtoggle]');
       if (st) {
         var k = st.getAttribute('data-ec-shell-subtoggle');
-        S.subOpen[k] = !(S.subOpen[k] === true);
+        // doc trang thai THAT tren DOM (server co the ve san o trang thai mo)
+        S.subOpen[k] = st.getAttribute('aria-expanded') !== 'true';
         var box = st.nextElementSibling;
         if (box && box.getAttribute && box.getAttribute('data-ec-shell-children') === k) {
           box.hidden = !S.subOpen[k];
@@ -1437,10 +1580,19 @@
     // Menu 2 tang: cot chi giu muc cua khu dang mo (railView); boot.rail = null -> menu 1 cot.
     S.railOn = !!(S.boot.rail && S.boot.rail.length && S.context);
     S.railSec = null;
+    S.railBlocks = null;
+    var sigKeys = null;
     if (S.railOn) {
+      var ctxAll = S.ctxNav;
       var rv = railView(S.boot.rail, S.context, S.ctxNav, ctxItems(S.boot, 'home'), window.location.pathname);
       S.railSec = rv.sec;
       S.ctxNav = rv.panel;
+      if (rv.sec && rv.sec.layout && rv.sec.layout.length) {
+        var lay = railLayout(rv.sec, S.context, ctxAll, railPool(S.boot));
+        S.railBlocks = lay.blocks;
+        S.ctxNav = lay.match;          // dang chon + hash (PM/PnL) chi xet muc bam duoc
+        sigKeys = lay.sig;
+      }
     }
     S.activeKey = matchActive(S.ctxNav, window.location.pathname);
     if (hasHashItems(S.ctxNav)) {
@@ -1451,8 +1603,10 @@
     // data-ec-nav-sig always describes the menu CURRENTLY in the DOM (server-set
     // on first paint, re-stamped after every client repaint), so an equal
     // signature means "already showing this menu" -- keep it, no repaint.
-    var want = navSig(S.railOn ? (S.context + '@' + (S.railSec ? S.railSec.key : '')) : S.context,
-                      S.ctxNav, S.activeKey);
+    var want = sigKeys
+      ? (S.context + '@' + (S.railSec ? S.railSec.key : '')) + '|' + (S.activeKey || '') + '|' + sigKeys.join(',')
+      : navSig(S.railOn ? (S.context + '@' + (S.railSec ? S.railSec.key : '')) : S.context,
+               S.ctxNav, S.activeKey);
     var have = S.mount.getAttribute ? S.mount.getAttribute('data-ec-nav-sig') : null;
     if (have && have === want && S.mount.querySelector && S.mount.querySelector('.ec-shell-nav')) {
       patchFoot(S.boot);
@@ -1552,6 +1706,9 @@
       navSig: navSig,
       railView: railView,
       railHtml: railHtml,
+      railPool: railPool,
+      railLayout: railLayout,
+      railPanelHtml: railPanelHtml,
       navHtml: navHtml,
       ctxItems: ctxItems,
       allItems: allItems,
