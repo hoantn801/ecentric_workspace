@@ -922,7 +922,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
           <input class="f-control" type="date" id="createdAt"/>
           <span class="field-hint">Để trống = dùng ngày hôm nay</span>
         </div>
-        <div class="field"><label class="field-label" data-field-key="store_name">Store (Platform) <span class="req">*</span></label><div class="ec-cb"><input type="text" readonly class="ec-cb-display ec-empty" placeholder="-- Ch&#7885;n store --"><span class="ec-cb-arrow">&#9660;</span><div class="ec-cb-panel" hidden><div class="ec-cb-search-wrap"><input class="ec-cb-search" placeholder="T&#236;m..."></div><div class="ec-cb-count" style="display:none"></div><div class="ec-cb-list"></div></div></div><select id="ec-store" required style="display:none" data-ec-cb-hidden="1"><option value="">-- Ch&#7885;n store --</option></select></div>
+        <div class="field"><label class="field-label" data-field-key="store_name">Store (Platform) <span class="req ec-only-direct">*</span></label><div class="ec-cb"><input type="text" readonly class="ec-cb-display ec-empty" placeholder="-- Ch&#7885;n store --"><span class="ec-cb-arrow">&#9660;</span><div class="ec-cb-panel" hidden><div class="ec-cb-search-wrap"><input class="ec-cb-search" placeholder="T&#236;m..."></div><div class="ec-cb-count" style="display:none"></div><div class="ec-cb-list"></div></div></div><select id="ec-store" style="display:none" data-ec-cb-hidden="1"><option value="">-- Ch&#7885;n store --</option></select><span class="field-hint ec-only-gbsrev">D&#7921; &#225;n m&#7899;i ch&#432;a c&#243; store tr&#234;n GBS th&#236; &#273;&#7875; tr&#7889;ng.</span></div>
         <div class="field"><label class="field-label">Ng&#224;y giao d&#7883;ch <span class="req">*</span></label><input class="f-control" type="date" id="transaction_date"/></div>
         <div class="field"><label class="field-label">Ng&#224;y giao h&#224;ng <span class="req">*</span></label><input class="f-control" type="date" id="delivery_date"/></div>
       </div>
@@ -5398,7 +5398,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       '  </div>',
       '  <div class="field">',
       '    <label data-field-key="store_name">Store (Platform) <span class="req" style="color:#dc2626;font-weight:600">*</span></label>',
-      '    <select id="ec-store" required><option value="">-- Chọn store --</option></select>',
+      '    <select id="ec-store"><option value="">-- Chọn store --</option></select>',
       '  </div>',
       '</div>'
     ].join('\n');
@@ -5617,7 +5617,10 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       var missing = [];
       if (otEl && !otEl.value) missing.push('Order Type');
       if (plEl && !plEl.value) missing.push('Price List');
-      if (stEl && !stEl.value) missing.push('Store (Platform)');
+      // 07/10/2026: Store chi bat buoc o che do direct (so EC theo san). Che do GBS: du an moi
+      // chua co store tren GBS thi de trong - submit_gbs_so / sync chi gui custom_store khi co.
+      var stReq = document.documentElement.getAttribute('data-ec-so-mode') !== 'gbsrev';
+      if (stReq && stEl && !stEl.value) missing.push('Store (Platform)');
       if (missing.length) {
         e.preventDefault();
         e.stopPropagation();
