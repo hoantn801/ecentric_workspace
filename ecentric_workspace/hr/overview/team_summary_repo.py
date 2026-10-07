@@ -122,3 +122,40 @@ def brand_summary(period):
                 for e in frappe.get_all("Employee", filters={"status": "Active", "user_id": ["is", "set"]},
                                         fields=["name", "employee_name", "department"], limit_page_length=0)]
     return TS.build_brand(expected, full, details, waiting, labels, _departments(), period)
+
+
+# ------------------------------------------------------------------ File tong hop cua CnB
+def _company():
+    return (frappe.defaults.get_global_default("company")
+            or (frappe.get_all("Company", pluck="name", limit=1) or [None])[0])
+
+
+def cnb_dashboard(period):
+    """ec-cnb-dashboard-v1: file "Timesheet Thang N Dashboard" CnB tu ghep moi thang.
+    Bang cong lay TU CHINH bao cao Monthly Attendance Sheet cua HRMS (cung ma P/H/L/A/HD/P/WO
+    va 2 cot chot cong nhu khi CnB tu xuat) -> khong tu tinh lai cong o day."""
+    from hrms.hr.report.monthly_attendance_sheet import monthly_attendance_sheet as MAS
+
+    from ecentric_workspace.hr.overview import cnb_dashboard as CD
+    from ecentric_workspace.hr.timesheet_close import report_columns as RC
+
+    filters = frappe._dict(filter_based_on="Month", month=str(int(period[5:7])), year=period[:4],
+                           company=_company(), summarized_view=0)
+    res = MAS.execute(filters)
+    closes = frappe.get_all("EC Timesheet Close", filters={"period_month": period},
+                            fields=["employee", "status", "close_mode", "lead_user", "member_closed_at",
+                                    "member_deadline", "team_closed_at", "lead_deadline"],
+                            limit_page_length=0)
+    res = RC.add_columns(res, {r.employee: r for r in closes})
+    depts = _departments()
+    emps = frappe.get_all("Employee", fields=["name", "department", "user_id"], order_by="status asc",
+                          limit_page_length=0)
+    dept_of = {e.name: (depts.get(e.department) or {}).get("label") or (e.department or "") for e in emps}
+    emp_of_user = {}
+    for e in emps:
+        if e.user_id:
+            emp_of_user.setdefault(e.user_id, e.name)
+    days, ts = CD.timesheet_rows(res, dept_of)
+    sla_groups, sla = CD.sla_rows(sla_summary(period), emp_of_user)
+    bw_brands, bw = CD.brand_rows(brand_summary(period))
+    return CD.filename(period), CD.build(period, days, ts, sla_groups, sla, bw_brands, bw)
