@@ -20,6 +20,10 @@ FEATURES = {
     "feedback_digest": "Tổng hợp góp ý",
 }
 SYSTEM_USERS = ("Administrator", "Guest", "")
+#: AI tu chay tren du lieu cua nguoi khac (cham bao cao tuan khi nop, tong hop gop y hang thang):
+#: tinh vao luot / chi phi cua tinh nang nhung KHONG tinh la "nguoi do dung AI" - neu khong,
+#: ai nop bao cao tuan cung thanh "dang dung AI" va ti le ap dung vo nghia.
+AUTO_PURPOSES = ("weekly_report", "feedback_digest")
 USD_PER_CREDIT = 0.005
 
 
@@ -81,7 +85,7 @@ def aggregate(rows, people, start, end):
         d = daily.setdefault(day, {"date": day, "calls": 0, "users": set()})
         d["calls"] += 1
 
-        if u in SYSTEM_USERS:
+        if u in SYSTEM_USERS or purpose in AUTO_PURPOSES:
             sys_calls += 1
             f["system"] += 1
             continue

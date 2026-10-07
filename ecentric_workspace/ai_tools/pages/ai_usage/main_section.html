@@ -256,7 +256,8 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
   function footnote(d) {
     const t = d.totals || {};
     const parts = ["Không lưu nội dung câu hỏi — chỉ đếm lượt, tính năng, model, thời gian và chi phí.",
-      "Số liệu bắt đầu từ 07/10/2026 (AI điền hộ có từ 16/09).",
+      "Log đầy đủ bắt đầu từ 07/10/2026. Trước đó chỉ khôi phục được từ dấu vết có sẵn: AI điền phiếu (từ 16/09), tóm tắt công ty, chấm báo cáo tuần (từ 05/2026) và ảnh bìa — không có chi phí; eC Mate, hỏi đáp số liệu và AI Content trước 07/10 không được lưu nên không đếm được.",
+      "Chấm báo cáo tuần là AI tự chạy khi nộp: tính vào lượt và chi phí, không tính là người nộp “dùng AI”.",
       "Chi phí: dùng số credit Kie báo về; nếu Kie không báo thì ước tính theo token × giá model. 1 credit ≈ $" + (d.usd_per_credit || 0.005) + "."];
     if (t.cost_unpriced_calls) parts.push(nf(t.cost_unpriced_calls) + " lượt chưa có giá model nên chưa tính vào chi phí — chi phí thật có thể cao hơn.");
     return '<p class="au-foot">' + parts.map(esc).join(" ") + "</p>";

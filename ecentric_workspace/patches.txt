@@ -359,3 +359,4 @@ ecentric_workspace.chat.patches.p001_the_phieu_preview
 ecentric_workspace.approval_center.patches.p274_create_ai_usage_page
 ecentric_workspace.approval_center.patches.p273_resync_ai_video_fix8
 ecentric_workspace.approval_center.patches.p275_resync_pm_vao_nguon
+ecentric_workspace.approval_center.patches.p276_backfill_ai_usage_log
