@@ -438,7 +438,10 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
     }).join("") + '</select>';
   }
   function xlsxLink(kind, period) {
-    return '<a class="btn" href="' + API + 'export_summary_xlsx?kind=' + kind + '&period=' + encodeURIComponent(period) + '" download>Xuất Excel</a>';
+    /* ec-cnb-dashboard-v1 (07/10): them file tong hop thang CnB tu ghep (bang cong + SLA +
+       phan bo cong viec + dashboard loc phong) - cung ky dang chon. */
+    return '<a class="btn" href="' + API + 'export_summary_xlsx?kind=' + kind + '&period=' + encodeURIComponent(period) + '" download>Xuất Excel</a>'
+      + '<a class="btn" href="' + API + 'export_summary_xlsx?kind=cnb&period=' + encodeURIComponent(period) + '" download title="Bảng công + SLA + Phân bổ công việc + Dashboard lọc phòng, cùng mẫu file CnB">File tổng hợp tháng</a>';
   }
   function sbLoading(box) { box.innerHTML = '<div class="sk" aria-hidden="true"><i></i><i></i><i></i></div>'; }
   function sbError(box, msg, again) {

@@ -136,7 +136,7 @@ def get_brand_summary(period: str = None):
 
 @frappe.whitelist(methods=["GET"])
 def export_summary_xlsx(kind: str, period: str = None):
-    """Nut "Xuat Excel" cua tab SLA (kind=sla) / Phan bo cong viec (kind=brand). Cung du lieu,
+    """Nut "Xuat Excel" cua tab SLA (kind=sla) / Phan bo cong viec (kind=brand) / file tong hop CnB (kind=cnb). Cung du lieu,
     cung chan quyen voi get_*_summary. Loi thi nem ra de trinh duyet hien trang loi cua Frappe
     thay vi tai ve mot tep hong."""
     _guard()
@@ -149,8 +149,18 @@ def export_summary_xlsx(kind: str, period: str = None):
     elif kind == "brand":
         cur, periods = TR.brand_periods()
         name, sheets = TS.brand_sheets(TR.brand_summary(_period(period, cur, periods)))
+    elif kind == "cnb":
+        # ec-cnb-dashboard-v1 (07/10): file 4 sheet CnB tu ghep moi thang (bang cong + SLA +
+        # phan bo cong viec + dashboard loc phong). Ky mac dinh = thang vua qua.
+        cur, bw_periods = TR.brand_periods()
+        periods = sorted(set(bw_periods) | set(TR.sla_periods()[1]), reverse=True)
+        name, content = TR.cnb_dashboard(_period(period, cur, periods))
+        frappe.response["filename"] = name
+        frappe.response["filecontent"] = content
+        frappe.response["type"] = "binary"
+        return
     else:
-        frappe.throw("kind phai la sla hoac brand.")
+        frappe.throw("kind phai la sla, brand hoac cnb.")
     frappe.response["filename"] = name
     frappe.response["filecontent"] = xlsx_export.build(sheets)
     frappe.response["type"] = "binary"
