@@ -579,6 +579,11 @@ def _context_score(name, path):
 #:   group                        nhan nhom cho cac muc noi them (de trong = khong nhan)
 #:   group_order                  (tuy chon) thu tu nhom TRONG COT cua khu - chi doi cot, khong doi
 #:                                GROUP_ORDER chung (menu nuong san trong cac trang giu nguyen)
+#:   labels                       (tuy chon) {key: nhan ngan} - doi nhan TRONG COT (cot hep 186px),
+#:                                nhan goc trong registry / tim kiem giu nguyen
+#:   panel                        (tuy chon, mac dinh True) False = khu khong co cot: trang tu co
+#:                                danh sach rieng (Chat: Raven da co kenh + tin nhan) -> mount chi
+#:                                con thanh 62px (data-ec-nopanel="1"), trang tu xep cot `auto`.
 #: Ngu canh `home` khong nam trong `contexts` cua khu nao: khu cua trang portal suy ra tu
 #: muc dang chon (muc nam trong `keys` cua khu nao), khong thay thi la khu "home".
 #: Kill switch (khong can deploy): site_config `ec_shell_rail_disabled: 1` -> menu 1 cot cu.
@@ -590,7 +595,9 @@ RAIL = [
     {"key": "feed", "label": "Bảng tin", "icon": "news", "route": "/bang-tin",
      "contexts": [], "keys": ["home.portal.feed", "home.portal.news"], "group": ""},
     {"key": "chat", "label": "Chat", "icon": "chat", "route": "/chat", "badge_source": "chat.unread",
-     "contexts": [], "keys": ["home.portal.chat"], "group": ""},
+     "contexts": [], "keys": ["home.portal.chat"], "group": "",
+     # PO 07/10: Raven da co danh sach kenh / tin nhan - khong them cot thu 3.
+     "panel": False},
     {"key": "approvals", "label": "Phê duyệt", "icon": "check", "route": "/approvals",
      "badge_source": "action_center.approvals",
      "contexts": ["approval_document"], "keys": [], "group": "",
@@ -599,7 +606,8 @@ RAIL = [
     {"key": "work", "label": "Công việc", "icon": "briefcase", "route": "/pm",
      "contexts": ["pm"], "keys": [], "group": ""},
     {"key": "hr", "label": "Nhân sự", "icon": "user", "route": "/ec-hr/attendance",
-     "contexts": ["hr"], "keys": [], "group": ""},
+     "contexts": ["hr"], "keys": [], "group": "",
+     "labels": {"hr.install_guide": "Cài app"}},
     {"key": "reports", "label": "Báo cáo", "icon": "chart", "route": "/reports",
      "contexts": ["reporting", "pnl", "alert_center"],
      "keys": ["home.portal.reports", "home.portal.weekly", "home.portal.pulse", "home.portal.alerts"],
@@ -617,7 +625,9 @@ def rail_spec():
     return [{"key": s["key"], "label": s["label"], "icon": s["icon"], "route": s["route"],
              "badge_source": s.get("badge_source") or "", "contexts": list(s["contexts"]),
              "keys": list(s["keys"]), "group": s["group"],
-             "group_order": list(s.get("group_order") or [])} for s in RAIL]
+             "group_order": list(s.get("group_order") or []),
+             "labels": dict(s.get("labels") or {}),
+             "panel": s.get("panel", True) is not False} for s in RAIL]
 
 
 def validate_rail(rail=None):

@@ -197,7 +197,7 @@ def rail_view(rail, context_name, ctx_items, home_items, pathname):
             sec = next((s for s in rail if s["key"] == shell_nav.RAIL_HOME), None)
         if sec is None:
             return None, list(home_items or [])
-        return sec, [dict(by_key[k], group="") for k in sec["keys"] if k in by_key]
+        return sec, _relabel(sec, [dict(by_key[k], group="") for k in sec["keys"] if k in by_key])
     sec = next((s for s in rail if context_name in s["contexts"]), None)
     panel = [it for it in ctx_items or [] if not str(it["key"]).startswith("core.")]
     if sec is not None:
@@ -216,11 +216,19 @@ def rail_view(rail, context_name, ctx_items, home_items, pathname):
         if order:
             panel.sort(key=lambda it: order.index(it.get("group", "")) if it.get("group", "") in order
                        else len(order))
+        panel = _relabel(sec, panel)
     return sec, panel
 
 
-def rail_html(rail, section_key):
-    """Thanh khu vuc - byte-identical voi ec_shell.js railHtml()."""
+def _relabel(sec, panel):
+    """Nhan ngan trong cot (`labels` cua khu); muc khac giu nguyen object."""
+    labels = (sec or {}).get("labels") or {}
+    return [dict(it, label=labels[it["key"]]) if it["key"] in labels else it for it in panel]
+
+
+def rail_html(rail, section_key, foot=""):
+    """Thanh khu vuc - byte-identical voi ec_shell.js railHtml(). `foot` (the nguoi dung)
+    nam o DAY thanh (PO 07/10: avatar duoi cung nhu mockup), khong nam trong cot."""
     h = ['<nav class="ec-shell-rail" aria-label="Khu vực">'
          '<a class="ec-shell-brand ec-shell-railbrand" href="/" aria-label="eCentric">'
          '<img class="ec-shell-logoimg" src="%s" alt="eCentric">'
@@ -233,6 +241,8 @@ def rail_html(rail, section_key):
                  '<span class="ec-shell-railic">%s</span><span class="ec-shell-raillbl">%s</span>%s</a>'
                  % (" ec-shell-railon" if on else "", esc_live(s["route"]), esc_live(s["key"]),
                     ' aria-current="true"' if on else "", _svg(s["icon"]), esc_live(s["label"]), badge))
+    if foot:
+        h.append('<span class="ec-shell-railsp"></span>' + foot)
     h.append("</nav>")
     return "".join(h)
 
@@ -265,9 +275,9 @@ def mount_inner_html(items, active, live=False, rail=None, section=None):
         title = section["label"] if section else "eCentric"
         head = ('<div class="ec-shell-head"><span class="ec-shell-paneltitle">%s</span></div>'
                 % esc_live(title))
-        return (rail_html(rail, section["key"] if section else None) +
+        return (rail_html(rail, section["key"] if section else None, foot) +
                 '<div class="ec-shell-panel">' + head + search +
-                render_nav(items, active, live=live) + foot + '</div>')
+                render_nav(items, active, live=live) + '</div>')
     return head + search + render_nav(items, active, live=live) + foot
 
 
