@@ -18,7 +18,7 @@ ROLES = ("EC AI Content", "EC AI Video Admin", "System Manager")
 #: Sua prompt dung chung + prompt theo nhom SP: chi quan tri (05/10/2026).
 ADMIN_ROLES = ("EC AI Video Admin", "System Manager")
 ITEM_FIELDS = ("sku", "product_name", "product_type", "product_category", "width_cm", "height_cm",
-               "depth_cm", "size_pct", "pack_count", "notes", "product_image", "real_hold_image",
+               "depth_cm", "size_pct", "weight_g", "pack_count", "notes", "product_image", "real_hold_image",
                "audio_seconds", "audio_file", "batch")
 PROJECT_SETTINGS = ("title", "brand", "status", "anchor_source", "talk_count", "gate_motion", "gate_hold_a",
                     "night_mode", "audio_seconds", "mix_mode", "mix_variants", "notes", "host_image")
@@ -276,7 +276,7 @@ def regen_holds(name, data=None):
     """Tao lai 2 anh cam (job moi). data: thong so moi (kich thuoc/ghi chu...) neu co."""
     doc = frappe.get_doc(I, name)
     d = _j(data)
-    for k in ("width_cm", "height_cm", "depth_cm", "size_pct", "notes", "product_type", "product_category", "pack_count"):
+    for k in ("width_cm", "height_cm", "depth_cm", "size_pct", "weight_g", "notes", "product_type", "product_category", "pack_count"):
         if k in d:
             doc.set(k, d[k])
     if "guide_bbox" in d:
@@ -329,8 +329,31 @@ def cancel_project(project):
 
 # ------------------------------------------------------------------ tick ---
 
+def _tick_lock(project, take=True):
+    """Moi du an chi 1 tick cung luc (07/10/2026): bat/tat chay dem lien tuc hoac mo 2 tab -> 2 tick cung ghi
+    1 SKU -> loi "has been modified after you have opened it". Khong co Redis (test) thi coi nhu lay duoc khoa."""
+    try:
+        c = frappe.cache()
+        key = c.make_key("ai_video_tick|" + project)
+        if take:
+            return bool(c.set(key, 1, nx=True, ex=120))
+        c.delete(key)
+    except Exception:
+        pass
+    return True
+
+
 def tick(project):
-    """Doc worker 1 lan, cap nhat moi SKU + khung neo/clip noi cua du an."""
+    """Doc worker 1 lan, cap nhat moi SKU + khung neo/clip noi cua du an. Dang co tick khac -> bo qua."""
+    if not _tick_lock(project):
+        return {"ok": False, "busy": True}
+    try:
+        return _tick(project)
+    finally:
+        _tick_lock(project, take=False)
+
+
+def _tick(project):
     pdoc = frappe.get_doc(P, project)
     items = [frappe.get_doc(I, n) for n in frappe.get_all(I, filters={"project": project}, pluck="name")]
     jobs = sorted({_j(d.state_json).get("job") for d in items if _j(d.state_json).get("job")})
@@ -446,6 +469,7 @@ def mix(project, data):
         it["batch"] = batch
         if d.get("duration"):
             it["audio_seconds"] = float(d["duration"])
+            it["keep_duration"] = True          # nguoi dung nhap do dai -> giu dung, ke ca khi co audio
         step = flow.mix_step(it, pd, st, voice)
         step["host"] = pdoc.host_key
         ids += _enqueue(project, step, pdoc.night_mode)
@@ -497,6 +521,12 @@ def get_project(name, do_tick=0):
         except wc.WorkerDown as e:
             frappe.db.rollback()
             down = str(e)
+        except Exception as e:
+            # nguoi dung vua sua SKU dung luc tick dang ghi -> bo luot dong bo nay, van tra du lieu (lan sau dong bo lai)
+            if not _stale(e):
+                raise
+            frappe.db.rollback()
+            down = None
         else:
             down = None
     else:
@@ -535,6 +565,11 @@ def get_project(name, do_tick=0):
         ex.pop("files_json", None)
     return {"project": proj, "items": items, "exports": exports, "worker_down": down,
             "worker_configured": wc.configured()}
+
+
+def _stale(e):
+    tsm = getattr(frappe, "TimestampMismatchError", None)
+    return bool(tsm and isinstance(e, tsm)) or "has been modified after you have opened it" in str(e)
 
 
 def _attach_worker_views(project, items):

@@ -400,6 +400,46 @@ class TestKhungVaNhom(unittest.TestCase):
         self.assertNotIn("force_gate", json.loads(self.item(b)["state_json"]))
         self.assertTrue(s.get_project(p)["items"][0]["force_gate"])
 
+    def test_tick_dang_chay_thi_bo_qua(self):
+        s = self.svc
+        held = set()
+
+        class Cache:
+            def make_key(self, k):
+                return k
+
+            def set(self, k, v, nx=False, ex=None):
+                if nx and k in held:
+                    return None
+                held.add(k)
+                return True
+
+            def delete(self, k):
+                held.discard(k)
+
+        sys.modules["frappe"].cache = lambda: Cache()
+        p = s.create_project(json.dumps({"brand": "Friso", "title": "T", "host_image": "/private/files/host.png"}))["name"]
+        held.add("ai_video_tick|" + p)                      # tick khac dang giu khoa
+        self.assertEqual(s.tick(p), {"ok": False, "busy": True})
+        self.assertEqual(s.get_project(p, 1)["project"]["name"], p)   # van mo duoc du an
+        held.clear()
+        self.assertTrue(s.tick(p)["ok"])
+        self.assertFalse(held)                              # tick xong tra khoa
+
+    def test_tick_bi_ghi_de_van_mo_duoc(self):
+        s = self.svc
+        p = s.create_project(json.dumps({"brand": "Friso", "title": "T", "host_image": "/private/files/host.png"}))["name"]
+        s.tick = lambda name: (_ for _ in ()).throw(Exception("EC AI Video Item x has been modified after you have opened it"))
+        self.assertIsNone(s.get_project(p, 1)["worker_down"])
+
+    def test_khoi_luong_gui_worker(self):
+        s, W = self.svc, self.W
+        p = s.create_project(json.dumps({"brand": "Pin", "title": "T", "host_image": "/private/files/host.png"}))["name"]
+        it = s.add_items(p, json.dumps([{"sku": "THO40", "product_image": "/private/files/f.png", "weight_g": 900}]))["items"][0]
+        self.assertEqual(self.item(it)["weight_g"], 900)
+        s.start_holds(p, json.dumps([it]))
+        self.assertIn("about 900 g", W.last("holds")["fields"]["product_notes"])
+
     def test_yeu_cau_nhom_moi(self):
         import frappe
         frappe.utils.escape_html = lambda x: x.replace("<", "&lt;")

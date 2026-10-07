@@ -56,6 +56,29 @@ def tasks_state(ids, tasks):
     return "running", None
 
 
+def weight_note(g):
+    """Khoi luong (gram) -> 1 cau tieng Anh cho AI: nang nhe khac nhau thi cach cam khac (07/10/2026).
+    Worker cung doc cau nay trong product_notes de them vao prompt clip cam/ha."""
+    try:
+        g = float(g or 0)
+    except (TypeError, ValueError):
+        return ""
+    if g <= 0:
+        return ""
+    w = ("%d g" % round(g)) if g < 1000 else ("%.1f kg" % (g / 1000)).replace(".0 kg", " kg")
+    if g < 150:
+        feel = "very light, held easily between the fingers"
+    elif g < 500:
+        feel = "light, held comfortably in one hand"
+    elif g < 1200:
+        feel = "noticeably heavy for its size, held with a firm full-hand grip, it never floats or wobbles"
+    elif g < 3000:
+        feel = "heavy, supported from below with the hand under the base, wrist slightly braced"
+    else:
+        feel = "very heavy, both hands under it, held close to the body"
+    return "WEIGHT: about %s (%s)." % (w, feel)
+
+
 def hold_fields(item, brand):
     """Truong form n8n v5.9 cho buoc tao anh cam."""
     def num(v):
@@ -65,13 +88,21 @@ def hold_fields(item, brand):
         "brand_name": brand or "", "product_type": item.get("product_type") or "",
         "product_width_cm": num(item.get("width_cm")), "product_height_cm": num(item.get("height_cm")),
         "product_depth_cm": num(item.get("depth_cm")), "size_adjust_pct": num(item.get("size_pct")),
-        "pack_count": item.get("pack_count") or "", "product_notes": item.get("notes") or "",
+        "pack_count": item.get("pack_count") or "",
+        "product_notes": " ".join(x for x in (weight_note(item.get("weight_g")), item.get("notes") or "") if x)[:400],
         "product_category": item.get("product_category") or "", "lipsync": "0",
     }
 
 
+#: co audio: video = VOICE_PAD_S giay dau (chua noi) + audio + VOICE_PAD_S giay cuoi (07/10/2026)
+VOICE_PAD_S = 2
+
+
 def mix_step(item, project, st, voice=None):
+    """Co audio thi worker tu do do dai audio va cong 2s dau/cuoi (bo qua duration_s),
+    tru khi nguoi dung nhap do dai co dinh luc tron (keep_duration)."""
     return {"op": "mix", "mode": project.get("mix_mode") or "mix", "n": int(project.get("mix_variants") or 5),
+            "voice_pad_s": VOICE_PAD_S, "keep_duration": bool(item.get("keep_duration")),
             "duration_s": float(item.get("audio_seconds") or project.get("audio_seconds") or 72),
             "brand": project.get("brand"), "batch_id": item.get("batch") or "lo", "sku": item.get("sku"),
             "host": project.get("host_key"), "jobs": [st.get("job")], "voice": voice}
@@ -210,9 +241,13 @@ def cost_view(costs, items):
     videos = costs.get("videos") or {}
     n = len(items) or 1
     total = host_usd
+    upc = float(costs.get("usd_per_credit") or 0.005)
+    kinds_all = {}
     for it in items:
         sku = str(it.get("sku") or "")
-        usd = round(sum((v or {}).get("usd") or 0 for k, v in jobs.items() if sku and "_%s_" % sku in "_%s_" % k), 2)
+        mine = [v or {} for k, v in jobs.items() if sku and "_%s_" % sku in "_%s_" % k]
+        usd = round(sum(v.get("usd") or 0 for v in mine), 2)
+        it["cost_kinds"] = _kinds(mine, upc, kinds_all)
         share = round(host_usd / n, 2)
         nv = int(videos.get(sku) or 0)
         it["cost_usd"] = usd
@@ -220,8 +255,29 @@ def cost_view(costs, items):
         it["videos"] = nv
         it["cost_per_video_usd"] = round((usd + share) / nv, 2) if nv else None
         total += usd
+    host_kinds = _kinds(list((costs.get("host") or {}).values()), upc, None)
     return {"total_usd": round(total, 2), "host_usd": host_usd, "estimated": bool(est),
-            "usd_per_credit": costs.get("usd_per_credit")}
+            "usd_per_credit": costs.get("usd_per_credit"), "kinds": {k: round(v, 2) for k, v in kinds_all.items()},
+            "host_kinds": host_kinds}
+
+
+#: loai viec worker -> cot chi phi tren trang (07/10/2026)
+COST_KIND = {"hold_images": "holds", "master": "master", "putdown": "put", "hold": "clip", "anchor": "anchor", "talk": "talk"}
+
+
+def _kinds(bags, upc, acc):
+    """Cong credit theo loai viec cua cac job/host -> $. 'regen' = phan da tieu cho cac lan gen bi QC loai."""
+    out = {}
+    for b in bags:
+        for k, c in (b.get("kinds") or {}).items():
+            col = COST_KIND.get(k, "other")
+            out[col] = out.get(col, 0) + (c or 0) * upc
+        out["regen"] = out.get("regen", 0) + (b.get("regen") or 0) * upc
+    out = {k: round(v, 2) for k, v in out.items() if v}
+    if acc is not None:
+        for k, v in out.items():
+            acc[k] = acc.get(k, 0) + v
+    return out
 
 
 def parse_bbox(v):

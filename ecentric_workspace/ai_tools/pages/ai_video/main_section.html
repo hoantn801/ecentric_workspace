@@ -89,6 +89,23 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
 .av-num{width:64px}
 .av-thumb{width:40px;height:56px;border-radius:6px;background:var(--tile);object-fit:cover;display:block;cursor:pointer}
 .av-up{display:inline-flex;align-items:center;gap:6px}
+.av-btn.av-loading,.av-gold.av-loading{position:relative;color:transparent !important;pointer-events:none}
+.av-btn.av-loading::after,.av-gold.av-loading::after{content:"";position:absolute;inset:0;margin:auto;width:14px;height:14px;border-radius:50%;border:2px solid var(--ink3);border-color:var(--ink3) transparent var(--ink3) transparent;animation:av-spin .8s linear infinite}
+.av-btn.pri.av-loading::after{border-color:#fff transparent #fff transparent}
+@keyframes av-spin{to{transform:rotate(360deg)}}
+.av-sync{display:inline-flex;align-items:center;gap:6px;margin-left:8px}
+.av-sync[hidden]{display:none}
+.av-sync i{width:8px;height:8px;border-radius:50%;background:#9fe0b4;animation:av-pulse 1s ease-in-out infinite}
+@keyframes av-pulse{50%{opacity:.25}}
+.av-stat-btn{appearance:none;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.av-stat-btn:hover{background:rgba(255,255,255,.18)}
+.av-drop{display:block;border:2px dashed var(--navy-line);border-radius:12px;padding:18px;text-align:center;color:var(--navy);background:var(--navy-wash);cursor:pointer;font-weight:600}
+.av-drop.on,.av-panel.on{outline:2px dashed var(--navy);outline-offset:-2px}
+tr.on td{background:var(--navy-wash)}
+.av-bulk textarea{width:100%;min-height:110px;font-family:ui-monospace,Consolas,monospace;font-size:12px;border:1px solid var(--line);border-radius:8px;padding:8px}
+.av-bulk code{background:var(--line-soft);border-radius:4px;padding:0 4px}
+.av-modal .box.wide{max-width:920px}
+@media (prefers-reduced-motion:reduce){.av-btn.av-loading::after,.av-gold.av-loading::after,.av-sync i{animation:none}}
 .av-up label{cursor:pointer;color:var(--navy);font-size:12px;font-weight:600;white-space:nowrap}
 .av-up input[type=file]{display:none}
 .av-sides{display:flex;gap:3px;flex-wrap:wrap;margin-top:4px;align-items:center}
@@ -187,7 +204,7 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
   const CM_PER_W = 1 / 0.0132;
   const GROUP_ST = { ok: ["Đã kiểm chứng", "p-ok"], try: ["Đang thử", "p-warn"], none: ["Mẫu chung", "p-idle"] };
   let frDrag = null;
-  const S = { showFrame: true, projects: [], brand: "", p: null, items: [], exports: [], step: "input", timer: null, sel: new Set(), mixSel: new Set(), drafts: [], prompts: null, busy: false };
+  const S = { showFrame: true, projects: [], brand: "", p: null, items: [], exports: [], step: "input", timer: null, sel: new Set(), mixSel: new Set(), drafts: [], prompts: null, busy: false, btn: null, shown: null, syncing: false, renderLater: false, bulk: null };
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
@@ -206,10 +223,12 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
     const m = body.message; if (m && typeof m === "object" && typeof m.success === "boolean") return m;
     return { success: true, message: "", data: m };
   }
+  /* nut vua bam (S.btn) quay vong + khoa lai cho den khi may chu tra loi: bam "Duyet" la thay ngay dang xu ly */
   async function act(method, args, okMsg) {
-    if (S.busy) return null; S.busy = true;
+    if (S.busy) { toast("Đang xử lý thao tác trước, đợi chút…"); return null; } S.busy = true;
+    const b = S.btn; S.btn = null; if (b) { b.disabled = true; b.classList.add("av-loading"); b.setAttribute("aria-busy", "true"); }
     try { const r = await call(method, args); if (!r.success) { toast(r.message || "Lỗi", true); return null; } if (okMsg) toast(okMsg); return r.data; }
-    finally { S.busy = false; }
+    finally { S.busy = false; if (b && b.isConnected) { b.disabled = false; b.classList.remove("av-loading"); b.removeAttribute("aria-busy"); } }
   }
   async function upload(file) {
     const fd = new FormData(); fd.append("file", file, file.name); fd.append("is_private", 1);
@@ -237,6 +256,7 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
 
   /* ---------- hub ---------- */
   async function loadHub() {
+    S.shown = null;
     const r = await call("list_projects", {}, "GET");
     if (!r.success) { $("av-view").innerHTML = `<div class="av-callout bad">${esc(r.message)}</div>`; return; }
     S.projects = r.data.projects || []; renderHub(r.data.worker_configured);
@@ -298,16 +318,37 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
   }
 
   /* ---------- project ---------- */
+  /* Mo du an: ve ngay tu du lieu ERP (nhanh), roi moi dong bo voi may chay video o nen (cham 2-4s qua tunnel).
+     Chi 1 lan tai cung luc; bam lien tuc thi gop lai 1 lan sau. Dang go o o nhap thi doi roi moi ve lai. */
+  let loading = false, loadNext = null;
   async function loadProject(name, doTick) {
     clearTimeout(S.timer);
-    const r = await call("get_project", { name, tick: doTick ? 1 : 0 }, "GET");
-    if (!r.success) { $("av-view").innerHTML = `<div class="av-callout bad">${esc(r.message)}</div><a class="av-outline" href="#/">← Danh sách dự án</a>`; return; }
-    S.p = r.data.project; S.items = r.data.items || []; S.exports = r.data.exports || []; S.down = r.data.worker_down; S.configured = r.data.worker_configured;
-    renderProject();
+    if (loading) { loadNext = { name, doTick: !!(doTick || (loadNext && loadNext.name === name && loadNext.doTick)) }; return; }
+    loading = true;
+    try {
+      if (S.shown !== name) { $("av-view").innerHTML = '<div class="av-skel" style="height:150px"></div><div class="av-skel" style="width:40%"></div><div class="av-skel" style="height:280px"></div>'; if (!await fetchProject(name, false)) return; }
+      else if (!doTick) await fetchProject(name, false);
+      if (doTick) { S.syncing = true; syncMark(); await fetchProject(name, true); }
+    } finally { loading = false; S.syncing = false; syncMark(); }
+    if (loadNext) { const n = loadNext; loadNext = null; return loadProject(n.name, n.doTick); }
+    if (route().project !== name || !S.p) return;
     const running = S.items.some((i) => i.stage_state === "running") || S.exports.some((e) => e.status === "running") || (S.p.anchor_state && S.p.anchor_state !== "ready" && S.items.some((i) => i.stage === "wait_anchor"));
     const again = () => { if (route().project !== name) return; if ($("av-modal").hidden && S.step !== "prompt") loadProject(name, true); else S.timer = setTimeout(again, 5000); };
     S.timer = setTimeout(again, running ? 15000 : 60000);
   }
+  async function fetchProject(name, doTick) {
+    const r = await call("get_project", { name, tick: doTick ? 1 : 0 }, "GET");
+    if (route().project !== name) return false;
+    if (!r.success) {
+      if (S.shown !== name) { $("av-view").innerHTML = `<div class="av-callout bad">${esc(r.message)}</div><a class="av-outline" href="#/">← Danh sách dự án</a>`; return false; }
+      toast(r.message, true); return true;
+    }
+    S.p = r.data.project; S.items = r.data.items || []; S.exports = r.data.exports || []; S.down = r.data.worker_down; S.configured = r.data.worker_configured;
+    if (S.shown === name && typing()) S.renderLater = true; else renderProject();
+    return true;
+  }
+  function typing() { const a = document.activeElement; return !!(a && root().contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && !/^(checkbox|file|radio)$/.test(a.type) && !a.closest("#av-modal")); }
+  function syncMark() { const el = $("av-sync"); if (el) el.hidden = !S.syncing; }
   function counts() { const c = { total: 0, pick: 0, qc: 0, running: 0, ready: 0, done: 0, error: 0 };
     S.items.forEach((i) => { c.total++; if (i.stage_state === "error") c.error++; else if (i.stage === "pick") c.pick++; else if (i.stage === "qc_motion" || i.stage === "qc_hold_a") c.qc++; else if (i.stage === "ready") c.ready++; else if (i.stage === "done") c.done++; else if (i.stage_state === "running" || i.stage === "wait_anchor") c.running++; }); return c; }
   function pill(i) {
@@ -335,13 +376,14 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
     return `<b>${est}${usd(i.cost_usd)}</b><div class="av-hint" title="Gồm phần clip nói dùng chung ${usd(i.cost_share_usd)}">${i.videos ? `${est}${usd(i.cost_per_video_usd)}/video · ${i.videos} video` : "chưa trộn video"}</div>`;
   }
   function renderProject() {
+    S.shown = S.p.name; S.renderLater = false;
     const p = S.p, c = counts(); const br = p.breaker || {}; const wait = br.until && br.until > Date.now();
     $("av-view").innerHTML = `
       <div class="av-row"><a class="av-btn ghost sm" href="#/">← Tất cả dự án</a></div>
       <section class="av-hero"><div><div class="av-eyebrow" style="color:rgba(255,255,255,.7)">${esc(p.brand)}</div><h1>${esc(p.title)}</h1>
-        <div class="sub">${p.last_tick ? "Cập nhật lúc " + esc(String(p.last_tick).slice(11, 16)) : "Chưa đồng bộ với máy chạy video"}${S.down ? " · " + esc(S.down) : ""}${wait ? " · AI đang lỗi, tự thử lại lúc " + new Date(br.until).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : ""}</div>
+        <div class="sub">${p.last_tick ? "Cập nhật lúc " + esc(String(p.last_tick).slice(11, 16)) : "Chưa đồng bộ với máy chạy video"}${S.down ? " · " + esc(S.down) : ""}${wait ? " · AI đang lỗi, tự thử lại lúc " + new Date(br.until).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : ""}<span class="av-sync" id="av-sync" ${S.syncing ? "" : "hidden"}><i></i>đang đồng bộ máy chạy video…</span></div>
         <div class="av-row" style="margin-top:8px"><label class="av-switch tag" style="color:#fff"><input type="checkbox" id="pj-night" ${p.night_mode ? "checked" : ""}> Chạy đêm (bỏ chốt chặn, tự trộn + nén ZIP)</label><button class="av-btn sm" id="pj-settings">Cài đặt dự án</button></div></div>
-        <div class="av-stats"><div class="av-stat"><span>SKU</span><b>${c.total}</b></div><div class="av-stat hl"><span>Chờ chọn ảnh</span><b>${c.pick}</b></div><div class="av-stat hl"><span>Chờ duyệt clip</span><b>${c.qc}</b></div><div class="av-stat"><span>Đang chạy</span><b>${c.running}</b></div><div class="av-stat"><span>Đủ clip</span><b>${c.ready + c.done}</b></div>${p.cost ? `<div class="av-stat" title="Chi phí Kie đã tiêu (gồm clip nói ${usd(p.cost.host_usd)}). ~ = có phần ước tính"><span>Chi phí</span><b>${p.cost.estimated ? "~" : ""}${usd(p.cost.total_usd)}</b></div>` : ""}${c.error ? `<div class="av-stat"><span>Lỗi</span><b>${c.error}</b></div>` : ""}</div></section>
+        <div class="av-stats"><div class="av-stat"><span>SKU</span><b>${c.total}</b></div><div class="av-stat hl"><span>Chờ chọn ảnh</span><b>${c.pick}</b></div><div class="av-stat hl"><span>Chờ duyệt clip</span><b>${c.qc}</b></div><div class="av-stat"><span>Đang chạy</span><b>${c.running}</b></div><div class="av-stat"><span>Đủ clip</span><b>${c.ready + c.done}</b></div>${p.cost ? `<button class="av-stat av-stat-btn" id="av-cost" title="Bấm xem chi tiết. Gồm clip nói ${usd(p.cost.host_usd)}. ~ = có phần ước tính"><span>Chi phí ›</span><b>${p.cost.estimated ? "~" : ""}${usd(p.cost.total_usd)}</b></button>` : ""}${c.error ? `<div class="av-stat"><span>Lỗi</span><b>${c.error}</b></div>` : ""}</div></section>
       ${S.configured ? "" : `<div class="av-callout warn">Chưa nối máy chạy video (site_config). Nhập lô được, nhưng chưa chạy được.</div>`}
       <div class="av-chips" role="tablist">${STEPS.map(([k, l]) => { const n = k === "pick" ? c.pick : k === "video" ? c.qc + c.running : k === "mix" ? c.ready + c.done : k === "input" ? c.total : ""; return `<button class="av-chip ${S.step === k ? "on" : ""}" data-step="${k}" role="tab" aria-selected="${S.step === k}">${l}${n !== "" ? ` <span class="n">${n}</span>` : ""}</button>`; }).join("")}</div>
       <div id="av-step">${({ input: stepInput, pick: stepPick, video: stepVideo, mix: stepMix, prompt: stepPrompt })[S.step]()}</div>`;
@@ -357,9 +399,9 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
         <div class="av-sides">${(i.extra_images || []).map((u) => `<img src="${esc(u)}" alt="Ảnh phụ" data-media="${esc(u)}">`).join("")}
         ${(i.stage === "new" || i.stage_state === "error") ? `${(i.extra_images || []).length < 4 ? `<span class="av-up"><label class="av-hint">+ ảnh phụ<input type="file" accept="image/*" multiple data-ifile-extra="${esc(i.name)}"></label></span>` : ""}${(i.extra_images || []).length ? `<button class="av-btn sm ghost danger" data-clear-extra="${esc(i.name)}" title="Xoá ảnh phụ">×</button>` : ""}` : ""}</div></td>
       <td class="av-hint">${esc(i.product_type || "")}<br>${esc((CATS.find((x) => x[0] === (i.product_category || "")) || ["", ""])[1])}</td>
-      <td class="av-hint">${[i.width_cm, i.height_cm, i.depth_cm].map((x) => x || "–").join(" × ")} cm${i.size_pct ? " · " + i.size_pct + "%" : ""}</td>
+      <td class="av-hint">${[i.width_cm, i.height_cm, i.depth_cm].map((x) => x || "–").join(" × ")} cm${i.size_pct ? " · " + i.size_pct + "%" : ""}${i.weight_g ? "<br>" + gram(i.weight_g) : ""}</td>
       <td>${frameCell(i)}</td>
-      <td class="av-hint">${i.audio_seconds || S.p.audio_seconds || 72}s${i.audio_file ? " · có audio" : ""}</td>
+      <td class="av-hint">${durTxt(i)}</td>
       <td>${costCell(i)}</td><td>${pill(i)}${i.force_gate ? '<div class="av-hint">Nhóm đang thử: tự dừng chờ duyệt</div>' : ""}</td><td>${(i.stage === "new" || i.stage_state === "error") ? `<button class="av-btn sm ghost danger" data-del="${esc(i.name)}">Xoá</button>` : ""}</td></tr>`).join("");
     const drafts = S.drafts.map((d, k) => `<tr data-draft="${k}"><td></td><td><input type="text" data-dk="batch" value="${esc(d.batch)}" style="width:80px"></td>
       <td><input type="text" data-dk="sku" value="${esc(d.sku)}" placeholder="SKU *" style="width:120px"><input type="text" data-dk="product_name" value="${esc(d.product_name)}" placeholder="Tên SP" style="margin-top:4px"></td>
@@ -368,16 +410,120 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
         <div class="av-sides">${(d.extra_images || []).map((u) => `<img src="${esc(u)}" alt="Ảnh phụ" data-media="${esc(u)}">`).join("")}</div>
         <div class="av-up" style="margin-top:4px">${d.real_hold_image ? "✓" : ""}<label class="av-hint">Ảnh cầm thật (tuỳ chọn)<input type="file" accept="image/*" data-dfile="real_hold_image"></label></div></td>
       <td><input type="text" data-dk="product_type" value="${esc(d.product_type)}" placeholder="VD: lon sữa bột 800g">${catSel(d.product_category, 'data-dk="product_category" style="margin-top:4px"')}</td>
-      <td><div class="av-row" style="flex-wrap:nowrap"><input type="number" class="av-num" data-dk="width_cm" value="${esc(d.width_cm)}" placeholder="R"><input type="number" class="av-num" data-dk="height_cm" value="${esc(d.height_cm)}" placeholder="C"><input type="number" class="av-num" data-dk="depth_cm" value="${esc(d.depth_cm)}" placeholder="S"></div><input type="number" class="av-num" data-dk="size_pct" value="${esc(d.size_pct)}" placeholder="±%" style="margin-top:4px" title="Chỉnh cỡ ±% (khi không có số đo)"></td>
+      <td><div class="av-row" style="flex-wrap:nowrap"><input type="number" class="av-num" data-dk="width_cm" value="${esc(d.width_cm)}" placeholder="R"><input type="number" class="av-num" data-dk="height_cm" value="${esc(d.height_cm)}" placeholder="C"><input type="number" class="av-num" data-dk="depth_cm" value="${esc(d.depth_cm)}" placeholder="S"></div><div class="av-row" style="flex-wrap:nowrap;margin-top:4px"><input type="number" class="av-num" data-dk="size_pct" value="${esc(d.size_pct)}" placeholder="±%" title="Chỉnh cỡ ±% (khi không có số đo)"><input type="number" class="av-num" data-dk="weight_g" value="${esc(d.weight_g)}" placeholder="nặng g" title="Khối lượng (gram): AI cầm đúng độ nặng, VD hộp pin 40 viên ~900 g"></div></td>
       <td class="av-hint">Lưu dòng rồi vẽ khung</td>
       <td><input type="number" class="av-num" data-dk="audio_seconds" value="${esc(d.audio_seconds)}" placeholder="giây"><div class="av-up" style="margin-top:4px">${d.audio_file ? "✓" : ""}<label class="av-hint">mp3<input type="file" accept="audio/*" data-dfile="audio_file"></label></div></td>
       <td></td><td><span class="av-pill p-idle">Nháp</span></td><td><button class="av-btn sm ghost danger" data-ddel="${k}">Bỏ</button></td></tr>`).join("");
     const nNew = S.items.filter((i) => S.sel.has(i.name)).length;
-    return `<div class="av-panel"><div class="av-panel-h"><h2>Danh sách SKU</h2><div class="av-row"><button class="av-btn" id="av-add">+ Thêm dòng</button>${S.drafts.length ? `<button class="av-btn pri" id="av-save-drafts">Lưu ${S.drafts.length} dòng</button>` : ""}<button class="av-gold" id="av-start" ${nNew ? "" : "disabled"}>Tạo ảnh cầm cho ${nNew} SKU</button></div></div>
-      <div class="av-panel-b" style="padding:0"><div class="av-tw"><table><thead><tr><th><input type="checkbox" id="av-selall" aria-label="Chọn tất cả"></th><th>Lô</th><th>SKU</th><th>Ảnh</th><th>Loại / kiểu cầm</th><th>Kích thước (R×C×S)</th><th>Khung SP</th><th>Audio</th><th>Chi phí</th><th>Trạng thái</th><th></th></tr></thead>
-      <tbody>${rows}${drafts}${!rows && !drafts ? `<tr><td colspan="11" class="av-empty">Chưa có SKU. Bấm "+ Thêm dòng".</td></tr>` : ""}</tbody></table></div></div></div>
-      <div class="av-callout"><div>Mỗi SKU tạo <b>2 ảnh cầm</b> để chọn. Kích thước thật (cm) giúp SP đúng cỡ; không có số đo thì dùng ±%. Ảnh phụ các mặt (cạnh, sau, nắp…) tối đa 4 ảnh và ảnh cầm thật được gửi kèm ảnh chính diện để AI giữ đúng hình khối, độ dày, nhãn mặt bên. Nhóm kiểu cầm để trống thì tự nhận theo mô tả. <b>Khung SP</b>: kéo khung lên ảnh host đúng chỗ, đúng cỡ muốn SP xuất hiện; AI nhận ảnh host đã dán sẵn SP thật vào khung nên giữ cỡ tốt hơn chỉ nhập cm.</div></div>`;
+    return `<div class="av-panel" id="av-skus"><div class="av-panel-h"><h2>Danh sách SKU</h2><div class="av-row"><button class="av-btn" id="av-bulk">Nhập hàng loạt</button><button class="av-btn" id="av-add">+ Thêm dòng</button>${S.drafts.length ? `<button class="av-btn pri" id="av-save-drafts">Lưu ${S.drafts.length} dòng</button>` : ""}<button class="av-gold" id="av-start" ${nNew ? "" : "disabled"}>Tạo ảnh cầm cho ${nNew} SKU</button></div></div>
+      <div class="av-panel-b" style="padding:0"><div class="av-tw"><table><thead><tr><th><input type="checkbox" id="av-selall" aria-label="Chọn tất cả"></th><th>Lô</th><th>SKU</th><th>Ảnh</th><th>Loại / kiểu cầm</th><th>Kích thước (R×C×S) · nặng</th><th>Khung SP</th><th>Audio</th><th>Chi phí</th><th>Trạng thái</th><th></th></tr></thead>
+      <tbody>${rows}${drafts}${!rows && !drafts ? `<tr><td colspan="11" class="av-empty">Chưa có SKU. Bấm "Nhập hàng loạt" (dán từ Excel + kéo thả ảnh, audio) hoặc "+ Thêm dòng".</td></tr>` : ""}</tbody></table></div></div></div>
+      <div class="av-callout"><div>Kéo thả ảnh / audio thẳng vào một dòng nháp, hoặc thả nhiều file vào bảng để nhập hàng loạt (đặt tên file theo SKU). Mỗi SKU tạo <b>2 ảnh cầm</b> để chọn. <b>Khối lượng</b> (gram) giúp AI cầm đúng độ nặng. Kích thước thật (cm) giúp SP đúng cỡ; không có số đo thì dùng ±%. Ảnh phụ các mặt (cạnh, sau, nắp…) tối đa 4 ảnh và ảnh cầm thật được gửi kèm ảnh chính diện để AI giữ đúng hình khối, độ dày, nhãn mặt bên. Nhóm kiểu cầm để trống thì tự nhận theo mô tả. <b>Khung SP</b>: kéo khung lên ảnh host đúng chỗ, đúng cỡ muốn SP xuất hiện; AI nhận ảnh host đã dán sẵn SP thật vào khung nên giữ cỡ tốt hơn chỉ nhập cm.</div></div>`;
   }
+  /* co audio: video = 2s dau + audio + 2s cuoi (may chay video tu do audio); khong audio: so giay nhap / mac dinh du an */
+  function durTxt(i) { if (!i.audio_file) return (i.audio_seconds || S.p.audio_seconds || 72) + "s"; return (i.audio_seconds ? "~" + Math.round(+i.audio_seconds + 4) + "s · " : "") + '<span title="2s đầu chưa nói + audio + 2s cuối">audio +2s đầu/cuối</span>'; }
+  function gram(g) { g = +g; return g >= 1000 ? (g / 1000).toFixed(1).replace(/\.0$/, "") + " kg" : Math.round(g) + " g"; }
+  function blankDraft(batch) { const last = S.drafts[S.drafts.length - 1] || S.items[S.items.length - 1] || {}; return { batch: batch || last.batch || "lo1", sku: "", product_name: "", product_type: "", product_category: "", width_cm: "", height_cm: "", depth_cm: "", size_pct: "", weight_g: "", audio_seconds: "" }; }
+
+  /* nhap hang loat: dan bang tu Excel + keo tha anh/audio dat ten theo SKU */
+  const BULK_COLS = ["batch", "sku", "product_name", "product_type", "width_cm", "height_cm", "depth_cm", "weight_g", "audio_seconds", "notes"];
+  const norm = (x) => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/gi, "d").toLowerCase().trim();
+  const numv = (x) => { const n = parseFloat(String(x || "").replace(",", ".")); return isFinite(n) && n > 0 ? String(n) : ""; };
+  const isAudio = (f) => /^audio\//.test(f.type || "") || /\.(mp3|wav|m4a|aac|ogg)$/i.test(f.name);
+  function bulkModal() {
+    S.bulk = S.bulk || { text: "", up: [] };
+    modal(`<div class="av-bulk"><h3 style="margin:0 0 6px">Nhập hàng loạt</h3>
+      <p class="av-hint" style="margin:0 0 6px"><b>1.</b> Dán bảng từ Excel, mỗi dòng 1 SKU, cột theo thứ tự: <b>Lô · SKU · Tên SP · Loại SP · Rộng · Cao · Sâu (cm) · Nặng (g) · Audio (giây) · Ghi chú</b>. Dòng tiêu đề tự bỏ qua. <button class="av-btn sm ghost" id="bk-tpl">Tải file mẫu</button></p>
+      <textarea id="bk-text" aria-label="Bảng SKU dán từ Excel" placeholder="lo1&#9;PIN40&#9;Pin đũa AA con thỏ&#9;hộp pin 40 viên&#9;15&#9;6&#9;6&#9;900&#9;72">${esc(S.bulk.text)}</textarea>
+      <p class="av-hint" style="margin:10px 0 6px"><b>2.</b> Kéo thả ảnh + audio của cả lô. Đặt tên file theo SKU: <code>SKU.jpg</code> ảnh chính diện · <code>SKU_1.jpg</code>…<code>SKU_4.jpg</code> ảnh phụ các mặt · <code>SKU.mp3</code> audio (tự đọc số giây). Không dán bảng thì mỗi ảnh chính tạo 1 dòng.</p>
+      <label class="av-drop" id="bk-drop">Kéo thả file vào đây hoặc bấm để chọn<input type="file" id="bk-files" multiple accept="image/*,audio/*" hidden></label>
+      <div id="bk-prev">${bulkPreview()}</div>
+      <div class="av-row" style="justify-content:flex-end;margin-top:12px"><button class="av-btn" data-close>Đóng</button><button class="av-btn pri" id="bk-ok">Đưa vào bảng</button></div></div>`);
+    $("av-modal-box").classList.add("wide");
+  }
+  function bulkRows() {
+    const out = [];
+    String((S.bulk && S.bulk.text) || "").split(/\r?\n/).forEach((l) => {
+      if (!l.trim()) return;
+      const v = (l.includes("\t") ? l.split("\t") : l.split(l.includes(";") ? ";" : ",")).map((x) => x.trim());
+      if (v.some((x) => /^sku$/i.test(x)) || !v[1]) return;
+      const r = {}; BULK_COLS.forEach((k, i) => { r[k] = /_cm$|weight_g|audio_seconds/.test(k) ? numv(v[i]) : (v[i] || ""); }); r.batch = r.batch || "lo1"; out.push(r);
+    });
+    if (!out.length && S.bulk) S.bulk.up.filter((f) => f.kind === "img" && !/[_\- ]\d$/.test(f.name.replace(/\.[^.]+$/, ""))).forEach((f) => {
+      const sku = f.name.replace(/\.[^.]+$/, "").trim(); if (!out.some((r) => norm(r.sku) === norm(sku))) out.push({ batch: "lo1", sku, product_name: "", product_type: "", width_cm: "", height_cm: "", depth_cm: "", weight_g: "", audio_seconds: "", notes: "" }); });
+    return out;
+  }
+  function bulkFiles(sku) {
+    const k = norm(sku), out = { main: "", extras: [], audio: "", sec: 0 };
+    ((S.bulk && S.bulk.up) || []).forEach((f) => {
+      const st = norm(f.name.replace(/\.[^.]+$/, "")); const same = st === k; const side = st.startsWith(k) && /^[_\- ]/.test(st.slice(k.length));
+      if (f.kind === "audio") { if (same || side) { out.audio = f.url; out.sec = f.sec; } return; }
+      if (same) out.main = f.url; else if (side) out.extras.push(f.url);
+    });
+    out.extras = out.extras.slice(0, 4); return out;
+  }
+  function bulkPreview() {
+    if (!S.bulk) return "";
+    const rows = bulkRows(), used = new Set();
+    const tr = rows.map((r) => { const f = bulkFiles(r.sku); [f.main, f.audio].concat(f.extras).forEach((u) => u && used.add(u));
+      return `<tr><td>${esc(r.batch)}</td><td><b>${esc(r.sku)}</b><div class="av-hint">${esc(r.product_name)}</div></td><td>${f.main ? `<img class="av-thumb" src="${esc(f.main)}" alt="">` : '<span class="av-pill p-bad">Thiếu ảnh chính</span>'}${f.extras.length ? `<div class="av-hint">+${f.extras.length} ảnh phụ</div>` : ""}</td>
+        <td class="av-hint">${[r.width_cm, r.height_cm, r.depth_cm].map((x) => x || "–").join(" × ")} cm${r.weight_g ? " · " + gram(r.weight_g) : ""}</td><td class="av-hint">${f.audio ? "✓ audio" + (f.sec ? " " + f.sec + "s" : "") : (r.audio_seconds ? r.audio_seconds + "s" : "—")}</td></tr>`; }).join("");
+    const loose = S.bulk.up.filter((x) => !used.has(x.url)).map((x) => x.name);
+    return `<div id="bk-st" class="av-hint" style="margin:8px 0">${S.bulk.uploading ? esc(S.bulk.uploading) + " · " : ""}${rows.length} SKU · ${S.bulk.up.length} file đã tải${loose.length ? ` · <b style="color:var(--bad)">chưa khớp SKU nào: ${esc(loose.slice(0, 8).join(", "))}${loose.length > 8 ? "…" : ""}</b>` : ""}</div>
+      ${rows.length ? `<div class="av-tw" style="max-height:300px;overflow:auto"><table><thead><tr><th>Lô</th><th>SKU</th><th>Ảnh</th><th>Cỡ · nặng</th><th>Audio</th></tr></thead><tbody>${tr}</tbody></table></div>` : ""}`;
+  }
+  function bulkRefresh() { const el = $("bk-prev"); if (el) el.innerHTML = bulkPreview(); }
+  function audioSec(f) { return new Promise((res) => { const a = new Audio(), u = URL.createObjectURL(f); let done = false; const fin = (v) => { if (done) return; done = true; URL.revokeObjectURL(u); res(v); };
+    a.preload = "metadata"; a.onloadedmetadata = () => fin(isFinite(a.duration) ? Math.round(a.duration) : 0); a.onerror = () => fin(0); a.src = u; setTimeout(() => fin(0), 5000); }); }
+  async function bulkAdd(files) {
+    S.bulk = S.bulk || { text: "", up: [] };
+    const list = files.filter((f) => /^image\//.test(f.type || "") || isAudio(f) || /\.(jpe?g|png|webp)$/i.test(f.name));
+    if (!list.length) return toast("Chỉ nhận file ảnh và audio", true);
+    let n = 0; const total = list.length; const q = list.slice();
+    const tick = () => { S.bulk.uploading = n < total ? `Đang tải ${n}/${total}…` : ""; bulkRefresh(); };
+    tick();
+    const worker = async () => { for (let f = q.shift(); f; f = q.shift()) {
+      try { const kind = isAudio(f) ? "audio" : "img"; const sec = kind === "audio" ? await audioSec(f) : 0; const url = await upload(f);
+        S.bulk.up = S.bulk.up.filter((x) => x.name !== f.name); S.bulk.up.push({ name: f.name, url, kind, sec }); }
+      catch (err) { toast(f.name + ": " + err.message, true); }
+      n++; tick(); } };
+    await Promise.all([worker(), worker(), worker()]);
+  }
+  async function dropOnDraft(k, files) {
+    const d = S.drafts[k]; if (!d) return;
+    toast("Đang tải " + files.length + " file…");
+    try {
+      for (const f of files) {
+        if (isAudio(f)) { const s2 = await audioSec(f); d.audio_file = await upload(f); if (s2) d.audio_seconds = String(s2); }
+        else if (/^image\//.test(f.type || "")) { const u = await upload(f); if (!d.product_image) d.product_image = u; else if ((d.extra_images || []).length < 4) d.extra_images = (d.extra_images || []).concat([u]); }
+      }
+      toast("Đã thêm file vào dòng " + (d.sku || k + 1)); renderProject();
+    } catch (err) { toast(err.message, true); }
+  }
+  /* keo tha: o tha cua hop nhap, 1 dong nhap, hoac ca bang SKU (-> mo nhap hang loat) */
+  let dropOn = null, dropT = null;
+  const hasFiles = (e) => !!(e.dataTransfer && [...(e.dataTransfer.types || [])].includes("Files"));
+  const dropZone = (e) => { const x = e.target && e.target.closest ? e.target : null; return x && (x.closest("#bk-drop") || x.closest("[data-draft]") || x.closest("#av-skus")); };
+  function markDrop(z) { if (dropOn && dropOn !== z) dropOn.classList.remove("on"); dropOn = z; if (z) z.classList.add("on"); clearTimeout(dropT); if (z) dropT = setTimeout(() => markDrop(null), 300); }
+  document.addEventListener("dragover", (e) => { if (!hasFiles(e)) return; const z = dropZone(e); if (!z) return; e.preventDefault(); e.dataTransfer.dropEffect = "copy"; markDrop(z); });
+  document.addEventListener("drop", (e) => { if (!hasFiles(e)) return; const z = dropZone(e); markDrop(null); if (!z) return; e.preventDefault(); const files = [...e.dataTransfer.files];
+    if (z.id === "bk-drop") return bulkAdd(files);
+    if (z.dataset.draft != null) return dropOnDraft(+z.dataset.draft, files);
+    bulkModal(); bulkAdd(files); });
+
+  /* chi phi chi tiet theo loai viec */
+  function costModal() {
+    const c = S.p.cost || {}, K = [["holds", "Ảnh cầm"], ["master", "Master"], ["put", "Clip hạ"], ["clip", "Clip cầm"], ["regen", "Trong đó: gen lại do QC"]], hk = c.host_kinds || {};
+    const m = (v) => (v ? "$" + Number(v).toFixed(2) : "—");
+    const rows = S.items.filter((i) => i.cost_usd || i.videos).map((i) => `<tr><td><b>${esc(i.sku)}</b><div class="av-hint">${esc(i.product_name || "")}</div></td>${K.map(([k]) => `<td>${m((i.cost_kinds || {})[k])}</td>`).join("")}<td><b>${usd(i.cost_usd)}</b></td><td>${i.videos || 0}</td><td>${i.cost_per_video_usd != null ? usd(i.cost_per_video_usd) : "—"}</td></tr>`).join("");
+    modal(`<h3 style="margin:0">Chi phí Kie</h3><p class="av-hint" style="margin:0">Tính từ credit Kie máy chạy video đã tiêu${c.usd_per_credit ? " ($" + c.usd_per_credit + "/credit)" : ""}. Cột "gen lại do QC" là phần đã nằm trong các cột trước, tách ra để thấy QC tốn bao nhiêu.${c.estimated ? " Dấu ~: có việc cũ chưa ghi credit nên ước tính." : ""} /video = (chi phí SKU + phần clip nói chia đều) ÷ số video đã trộn.</p>
+      <div class="av-tw"><table><thead><tr><th>SKU</th>${K.map(([, l]) => `<th>${l}</th>`).join("")}<th>Tổng</th><th>Video</th><th>/video</th></tr></thead><tbody>${rows || '<tr><td colspan="9" class="av-empty">Chưa có chi phí.</td></tr>'}
+      <tr><td><b>Host</b><div class="av-hint">dùng chung</div></td><td colspan="2" class="av-hint">Khung neo ${m(hk.anchor)}</td><td colspan="2" class="av-hint">Clip nói ${m(hk.talk)}</td><td>${m(hk.regen)}</td><td><b>${usd(c.host_usd)}</b></td><td colspan="2"></td></tr>
+      <tr><td><b>Cả dự án</b></td>${K.map(([k]) => `<td>${m((c.kinds || {})[k])}</td>`).join("")}<td><b>${c.estimated ? "~" : ""}${usd(c.total_usd)}</b></td><td colspan="2"></td></tr></tbody></table></div>
+      <div class="av-row" style="justify-content:flex-end"><button class="av-btn" data-close>Đóng</button></div>`);
+    $("av-modal-box").classList.add("wide");
+  }
+
   /* step 2: duyet anh */
   function stepPick() {
     const list = S.items.filter((i) => ["holds", "pick"].includes(i.stage) || (i.candidates || []).length);
@@ -516,18 +662,18 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
       <td>${pill(i)}${i.stage_state === "error" ? `<div class="av-hint" style="max-width:260px">${esc(i.error)}</div>` : ""}</td><td><div class="av-units">${unitBtns(i) || '<span class="av-hint">—</span>'}</div></td>
       <td><div class="av-row">${i.stage === "qc_motion" || i.stage === "qc_hold_a" ? `<button class="av-btn sm pri" data-approve="${esc(i.name)}">Duyệt, làm tiếp</button><button class="av-btn sm" data-regen-clip="${esc(i.name)}">Gen lại</button>` : ""}
         ${i.stage === "ready" ? `<button class="av-btn sm" data-regen-clip="${esc(i.name)}" title="Gen lại clip cầm B">Gen lại B</button>` : ""}${i.stage_state === "error" ? `<button class="av-btn sm" data-retry="${esc(i.name)}">Thử lại</button>` : ""}</div></td></tr>`).join("");
-    return `<div class="av-panel av-panel-b">${gates}<div class="av-hint" style="margin-top:6px">Tắt cả hai (hoặc bật Chạy đêm) thì máy tự làm hết: lấy/hạ SP (3 hướng) → cầm A → cầm B.</div></div>${anchor}
-      <div class="av-panel"><div class="av-panel-h"><h2>Clip theo SKU</h2><span class="av-hint">Lấy SP = video hạ SP chạy ngược, nên chỉ cần duyệt 3 clip hạ.</span></div><div class="av-tw"><table><thead><tr><th>SKU</th><th>Master</th><th>Trạng thái</th><th>Clip</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="5" class="av-empty">Chưa có SKU nào qua bước chọn ảnh.</td></tr>'}</tbody></table></div></div>`;
+    return `<div class="av-panel av-panel-b">${gates}<div class="av-hint" style="margin-top:6px">Tắt cả hai (hoặc bật Chạy đêm) thì máy tự làm hết: lấy/hạ SP → cầm A → cầm B. Lấy/hạ 2 hướng; SP cầm 1 tay chỉ 1 hướng (bên tay cầm).</div></div>${anchor}
+      <div class="av-panel"><div class="av-panel-h"><h2>Clip theo SKU</h2><span class="av-hint">Lấy SP = video hạ SP chạy ngược, nên chỉ cần duyệt clip hạ.</span></div><div class="av-tw"><table><thead><tr><th>SKU</th><th>Master</th><th>Trạng thái</th><th>Clip</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="5" class="av-empty">Chưa có SKU nào qua bước chọn ảnh.</td></tr>'}</tbody></table></div></div>`;
   }
   /* step 4: tron & xuat */
   function stepMix() {
     const p = S.p; const ready = S.items.filter((i) => i.stage === "ready" || i.stage === "done");
     const mode = S.mixMode || p.mix_mode || "mix";
     return `<div class="av-panel"><div class="av-panel-h"><h2>Trộn video</h2><div class="av-seg" id="av-mixmode">${[["mix", "Nói + cầm SP"], ["hold", "Chỉ cầm SP"], ["talk", "Chỉ nói"]].map(([k, l]) => `<button data-m="${k}" class="${mode === k ? "on" : ""}">${l}</button>`).join("")}</div></div>
-      <div class="av-panel-b"><div class="av-grid2"><label class="av-f">Số bản khác nhau / SKU<input type="number" id="mx-n" min="1" max="20" value="${p.mix_variants || 5}"></label><label class="av-f">Độ dài (giây, để trống = theo audio từng SKU)<input type="number" id="mx-d" min="10" max="600" placeholder="${p.audio_seconds || 72}"></label><label class="av-f">Tên lô xuất (thư mục)<input type="text" id="mx-b" value="${esc(S.mixBatch || (ready[0] && ready[0].batch) || "lo1")}"></label></div>
+      <div class="av-panel-b"><div class="av-grid2"><label class="av-f">Số bản khác nhau / SKU<input type="number" id="mx-n" min="1" max="20" value="${p.mix_variants || 5}"></label><label class="av-f">Độ dài (giây, để trống = theo audio từng SKU: 2s đầu + audio + 2s cuối)<input type="number" id="mx-d" min="10" max="600" placeholder="${p.audio_seconds || 72}"></label><label class="av-f">Tên lô xuất (thư mục)<input type="text" id="mx-b" value="${esc(S.mixBatch || (ready[0] && ready[0].batch) || "lo1")}"></label></div>
       <div class="av-hint" style="margin:8px 0">Luật: mỗi bản một thứ tự khác · không lặp 1 clip 2 lần liền · đoạn cầm SP luôn là Lấy lên → Cầm → Hạ xuống (đổi hướng) · clip cuối cắt vừa độ dài. Có file audio thì ghép luôn tiếng.</div>
       <div class="av-tw"><table><thead><tr><th><input type="checkbox" id="mx-all" aria-label="Chọn tất cả"></th><th>SKU</th><th>Lô</th><th>Độ dài</th><th>Chi phí</th><th>Trạng thái</th></tr></thead><tbody>
-      ${ready.map((i) => `<tr><td><input type="checkbox" data-mx="${esc(i.name)}" ${S.mixSel.has(i.name) ? "checked" : ""}></td><td><b>${esc(i.sku)}</b></td><td>${esc(i.batch || "")}</td><td>${i.audio_seconds || p.audio_seconds || 72}s${i.audio_file ? " · audio" : ""}</td><td>${costCell(i)}</td><td>${pill(i)}</td></tr>`).join("") || '<tr><td colspan="6" class="av-empty">Chưa SKU nào đủ clip.</td></tr>'}</tbody></table></div>
+      ${ready.map((i) => `<tr><td><input type="checkbox" data-mx="${esc(i.name)}" ${S.mixSel.has(i.name) ? "checked" : ""}></td><td><b>${esc(i.sku)}</b></td><td>${esc(i.batch || "")}</td><td>${durTxt(i)}</td><td>${costCell(i)}</td><td>${pill(i)}</td></tr>`).join("") || '<tr><td colspan="6" class="av-empty">Chưa SKU nào đủ clip.</td></tr>'}</tbody></table></div>
       <div class="av-row" style="margin-top:12px;justify-content:flex-end"><button class="av-gold" id="av-mix" ${S.mixSel.size || mode === "talk" ? "" : "disabled"}>Trộn & xuất</button></div></div></div>
       <div class="av-panel"><div class="av-panel-h"><h2>Kết quả</h2><span class="av-hint">Video nằm sẵn trên laptop: C:\\n8n-files\\ecv6\\output\\&lt;brand&gt;\\&lt;lô&gt;\\ — ZIP ở ecv6\\exports.</span></div><div class="av-tw"><table><thead><tr><th>Lúc</th><th>Lô</th><th>Kiểu</th><th>Bản</th><th>Trạng thái</th><th>Tải</th></tr></thead><tbody>
       ${S.exports.map((e) => `<tr><td class="av-hint">${esc(String(e.creation).slice(5, 16))}</td><td>${esc(e.batch)}</td><td>${esc(e.mode)}</td><td>${e.variants}/SKU · ${e.duration}s</td><td>${e.status === "running" ? '<span class="av-pill p-run">Đang trộn…</span>' : /^done/.test(e.status) ? `<span class="av-pill p-ok">${esc(e.status)}</span>` : `<span class="av-pill p-bad">${esc(e.status)}</span>`}</td>
@@ -587,6 +733,7 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
   document.addEventListener("click", async (e) => {
     const t = e.target.closest ? e.target.closest("button, img[data-media], [data-close]") : null;
     if (!t || !root().contains(t)) return;
+    S.btn = t.tagName === "BUTTON" ? t : null;
     if (t.id === "av-modal" || t.hasAttribute("data-close")) return closeModal();
     if (t.dataset.media) return showMedia(t.dataset.media, "img");
     if (t.dataset.video) return showMedia(t.dataset.video, "video");
@@ -596,27 +743,33 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
     if (t.id === "pj-settings") return newProjectForm(S.p);
     if (t.dataset.step) { S.step = t.dataset.step; history.replaceState(null, "", "#/p/" + encodeURIComponent(S.p.name) + "/" + S.step); return renderProject(); }
     const P = S.p && S.p.name;
-    if (t.id === "av-add") { const last = S.drafts[S.drafts.length - 1] || S.items[S.items.length - 1] || {}; S.drafts.push({ batch: last.batch || "lo1", sku: "", product_name: "", product_type: "", product_category: "", width_cm: "", height_cm: "", depth_cm: "", size_pct: "", audio_seconds: "" }); return renderProject(); }
+    if (t.id === "av-add") { S.drafts.push(blankDraft()); return renderProject(); }
+    if (t.id === "av-bulk") return bulkModal();
+    if (t.id === "bk-tpl") { const csv = "\ufeffLô,SKU,Tên SP,Loại SP,Rộng (cm),Cao (cm),Sâu (cm),Nặng (g),Audio (giây),Ghi chú\nlo1,PIN40,Pin đũa AA con thỏ,hộp pin 40 viên,15,6,6,900,72,\n"; const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = "mau_nhap_lo_ai_video.csv"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); return; }
+    if (t.id === "bk-ok") { const rows = bulkRows(); if (!rows.length) return toast("Chưa có dòng nào - dán bảng hoặc thả ảnh đặt tên theo SKU", true); if (S.bulk.uploading) return toast("Đợi tải xong file…", true);
+      rows.forEach((r) => { const f = bulkFiles(r.sku); S.drafts.push(Object.assign(blankDraft(r.batch), r, { product_image: f.main || "", extra_images: f.extras, audio_file: f.audio || "", audio_seconds: f.sec ? String(f.sec) : r.audio_seconds })); });
+      S.bulk = null; closeModal(); toast("Đã đưa " + rows.length + " dòng vào bảng - kiểm tra rồi bấm Lưu"); return renderProject(); }
+    if (t.id === "av-cost") return costModal();
     if (t.dataset.ddel != null) { S.drafts.splice(+t.dataset.ddel, 1); return renderProject(); }
     if (t.id === "av-save-drafts") {
       const bad = S.drafts.find((d) => !d.sku || !d.product_image); if (bad) return toast("Mỗi dòng cần SKU và ảnh chính diện", true);
-      const rows = S.drafts.map((d) => { const o = {}; Object.keys(d).forEach((k) => { if (d[k] !== "" && !(Array.isArray(d[k]) && !d[k].length)) o[k] = /_cm$|size_pct|audio_seconds/.test(k) ? +d[k] : d[k]; }); return o; });
+      const rows = S.drafts.map((d) => { const o = {}; Object.keys(d).forEach((k) => { if (d[k] !== "" && !(Array.isArray(d[k]) && !d[k].length)) o[k] = /_cm$|size_pct|weight_g|audio_seconds/.test(k) ? +d[k] : d[k]; }); return o; });
       const r = await act("add_items", { project: P, rows: JSON.stringify(rows) }, "Đã lưu " + rows.length + " SKU"); if (r) { (r.items || []).forEach((n) => S.sel.add(n)); S.drafts = []; loadProject(P); } return;
     }
-    if (t.id === "av-start") { const names = [...S.sel].filter((n) => S.items.some((i) => i.name === n)); const r = await act("start_holds", { project: P, names: JSON.stringify(names) }, "Đã gửi tạo ảnh cầm"); if (r) { S.sel.clear(); S.step = "pick"; loadProject(P, true); } return; }
+    if (t.id === "av-start") { const names = [...S.sel].filter((n) => S.items.some((i) => i.name === n)); const r = await act("start_holds", { project: P, names: JSON.stringify(names) }, "Đã gửi tạo ảnh cầm"); if (r) { S.sel.clear(); S.step = "pick"; loadProject(P); } return; }
     if (t.dataset.clearExtra) { if (await act("update_item", { name: t.dataset.clearExtra, data: JSON.stringify({ extra_images: [] }) }, "Đã xoá ảnh phụ")) loadProject(P); return; }
     if (t.dataset.del) { if (!confirm("Xoá SKU này?")) return; if (await act("delete_item", { name: t.dataset.del }, "Đã xoá")) loadProject(P); return; }
-    if (t.dataset.pick) { if (await act("pick", { name: t.dataset.pick, candidate: t.dataset.c }, "Đã chọn - đang làm ảnh master")) loadProject(P, true); return; }
+    if (t.dataset.pick) { if (await act("pick", { name: t.dataset.pick, candidate: t.dataset.c }, "Đã chọn - đang làm ảnh master")) loadProject(P); return; }
     if (t.dataset.regenHolds) { const n = t.dataset.regenHolds; const d = { width_cm: +$("rg-w-" + n).value || null, height_cm: +$("rg-h-" + n).value || null, size_pct: +$("rg-p-" + n).value || null, notes: $("rg-n-" + n).value };
-      if (await act("regen_holds", { name: n, data: JSON.stringify(d) }, "Đang gen lại 2 ảnh")) loadProject(P, true); return; }
-    if (t.dataset.retry) { if (await act("retry", { name: t.dataset.retry }, "Đã cho chạy lại")) loadProject(P, true); return; }
-    if (t.dataset.approve) { if (await act("approve", { name: t.dataset.approve }, "Đã duyệt - làm bước tiếp")) loadProject(P, true); return; }
-    if (t.dataset.regenClip) { if (!confirm("Xoá clip hiện tại và gen lại?")) return; if (await act("regen_clip", { name: t.dataset.regenClip }, "Đang gen lại")) loadProject(P, true); return; }
+      if (await act("regen_holds", { name: n, data: JSON.stringify(d) }, "Đang gen lại 2 ảnh")) loadProject(P); return; }
+    if (t.dataset.retry) { if (await act("retry", { name: t.dataset.retry }, "Đã cho chạy lại")) loadProject(P); return; }
+    if (t.dataset.approve) { if (await act("approve", { name: t.dataset.approve }, "Đã duyệt - làm bước tiếp")) loadProject(P); return; }
+    if (t.dataset.regenClip) { if (!confirm("Xoá clip hiện tại và gen lại?")) return; if (await act("regen_clip", { name: t.dataset.regenClip }, "Đang gen lại")) loadProject(P); return; }
     if (t.id === "av-regen-anchor" || t.id === "av-regen-anchor2") { if (!confirm("Tạo lại khung neo? Clip đã làm từ khung neo cũ nên gen lại để khớp.")) return; if (await act("regen_anchor", { project: P }, "Đang tạo lại khung neo")) loadProject(P, true); return; }
     if (t.dataset.regenTalk) { if (!confirm("Xoá clip nói này để gen lại?")) return; if (await act("regen_talk", { project: P, ids: JSON.stringify([t.dataset.regenTalk]) }, "Sẽ gen lại ở lần đồng bộ tới")) loadProject(P, true); return; }
     if (t.dataset.m) { S.mixMode = t.dataset.m; return renderProject(); }
     if (t.id === "av-mix") { const d = { mode: S.mixMode || S.p.mix_mode || "mix", variants: +$("mx-n").value || 5, duration: +$("mx-d").value || null, batch: $("mx-b").value.trim() || "lo1", items: [...S.mixSel] };
-      S.mixBatch = d.batch; const r = await act("mix", { project: P, data: JSON.stringify(d) }, "Đang trộn - xem bảng Kết quả"); if (r) { S.mixSel.clear(); loadProject(P, true); } return; }
+      S.mixBatch = d.batch; const r = await act("mix", { project: P, data: JSON.stringify(d) }, "Đang trộn - xem bảng Kết quả"); if (r) { S.mixSel.clear(); loadProject(P); } return; }
     if (t.dataset.frame) return openFrame(t.dataset.frame, t.dataset.frmode || "edit");
     if (t.dataset.frn) return frAction(t.dataset.frn);
     if (t.dataset.grp) { S.grpSel = t.dataset.grp; return renderGroups(); }
@@ -640,14 +793,19 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
     if (t.dataset.dk) { const k = +t.closest("[data-draft]").dataset.draft; S.drafts[k][t.dataset.dk] = t.value; return; }
     if (t.dataset.dfileMulti && t.files && t.files.length) { const k = +t.closest("[data-draft]").dataset.draft; const cur = S.drafts[k][t.dataset.dfileMulti] || []; const files = [...t.files].slice(0, Math.max(0, 4 - cur.length)); if (!files.length) return toast("Tối đa 4 ảnh phụ", true); toast("Đang tải " + files.length + " ảnh…"); try { for (const f of files) cur.push(await upload(f)); S.drafts[k][t.dataset.dfileMulti] = cur; renderProject(); } catch (err) { toast(err.message, true); } return; }
     if (t.dataset.ifileExtra && t.files && t.files.length) { const it = S.items.find((x) => x.name === t.dataset.ifileExtra); const cur = (it && it.extra_images) || []; const files = [...t.files].slice(0, Math.max(0, 4 - cur.length)); if (!files.length) return toast("Tối đa 4 ảnh phụ", true); toast("Đang tải " + files.length + " ảnh…"); try { const urls = cur.slice(); for (const f of files) urls.push(await upload(f)); if (await act("update_item", { name: it.name, data: JSON.stringify({ extra_images: urls }) }, "Đã thêm ảnh phụ")) loadProject(S.p.name); } catch (err) { toast(err.message, true); } return; }
-    if (t.dataset.dfile && t.files && t.files[0]) { const k = +t.closest("[data-draft]").dataset.draft; toast("Đang tải file…"); try { S.drafts[k][t.dataset.dfile] = await upload(t.files[0]); renderProject(); } catch (err) { toast(err.message, true); } return; }
+    if (t.dataset.dfile && t.files && t.files[0]) { const k = +t.closest("[data-draft]").dataset.draft; toast("Đang tải file…"); try { if (t.dataset.dfile === "audio_file") { const s2 = await audioSec(t.files[0]); if (s2) S.drafts[k].audio_seconds = String(s2); } S.drafts[k][t.dataset.dfile] = await upload(t.files[0]); renderProject(); } catch (err) { toast(err.message, true); } return; }
     if (t.id === "np-host" && t.files && t.files[0]) { $("np-host-t").textContent = "Đang tải…"; try { S.newHost = await upload(t.files[0]); $("np-host-t").textContent = "✓ " + t.files[0].name; } catch (err) { $("np-host-t").textContent = err.message; } return; }
     if (t.id === "av-showfr") { S.showFrame = t.checked; return renderProject(); }
     if (t.id === "fr-paste" || t.id === "fr-ghost") { S.fr[t.id === "fr-paste" ? "paste" : "ghost"] = t.checked; return renderFrame(); }
     if (t.id === "pj-night" || t.id === "pj-gm" || t.id === "pj-ga") { const f = { "pj-night": "night_mode", "pj-gm": "gate_motion", "pj-ga": "gate_hold_a" }[t.id];
-      const r = await act("update_project", { name: S.p.name, data: JSON.stringify({ [f]: t.checked ? 1 : 0 }) }, t.checked ? "Đã bật" : "Đã tắt"); if (r) loadProject(S.p.name, true); }
+      const v = t.checked; t.disabled = true; S.btn = null;
+      const r = await act("update_project", { name: S.p.name, data: JSON.stringify({ [f]: v ? 1 : 0 }) }, v ? "Đã bật" : "Đã tắt");
+      t.disabled = false; if (!r) { t.checked = !v; return; } S.p[f] = v ? 1 : 0; return; }
+    if (t.id === "bk-files" && t.files && t.files.length) { bulkAdd([...t.files]); t.value = ""; return; }
   });
-  document.addEventListener("input", (e) => { const t = e.target; if (t.id === "fr-range" && S.fr) { frResize(+t.value / 100); return; } if (t.dataset && t.dataset.dk && t.closest("[data-draft]")) S.drafts[+t.closest("[data-draft]").dataset.draft][t.dataset.dk] = t.value; });
+  document.addEventListener("focusout", () => setTimeout(() => { if (S.renderLater && !typing() && !S.busy && S.p && route().project === S.p.name) renderProject(); }, 250));  /* 250ms: de cu bam nut (vd Luu) xong da roi moi ve lai */
+  document.addEventListener("input", (e) => { const t = e.target; if (t.id === "fr-range" && S.fr) { frResize(+t.value / 100); return; }
+    if (t.id === "bk-text" && S.bulk) { S.bulk.text = t.value; clearTimeout(S.bkT); S.bkT = setTimeout(bulkRefresh, 250); return; } if (t.dataset && t.dataset.dk && t.closest("[data-draft]")) S.drafts[+t.closest("[data-draft]").dataset.draft][t.dataset.dk] = t.value; });
   load();
 })();
 </script>
