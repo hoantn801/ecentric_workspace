@@ -52,10 +52,33 @@ Không sửa Raven. Hai hook trong `chat/boot.py`, chỉ đụng trang `/raven` 
 - Tắt: `site_config` → `"ec_chat_skin_disabled": 1` (Raven về nguyên bản tiếng Anh, không cần deploy).
 - `/chat` chừa ~80px dưới khung: góc phải dưới là chỗ của eC Mate, nút Gửi của Raven nằm đúng góc đó.
 
+## Phiếu trong chat (07/10/2026)
+
+PO: "mọi người có thể gửi phiếu qua lại trong chat cho tiện". `chat/phieu.py` (thuần) + `chat/phieu_gateway.py`.
+Không sửa Raven, không sửa Approval Center: chỉ đọc registry loại phiếu + `EC Approval Type.route`, nghe 2 sự kiện.
+
+- **Dán link phiếu** (`https://team.ecentric.vn/approvals/<loại>?id=<số phiếu>`) vào chat → tin nhắn tự
+  mang **thẻ phiếu** của Raven (doc_events `Raven Message.before_insert` gán `link_doctype/link_document`,
+  tắt xem trước web vì link nội bộ chỉ ra trang đăng nhập). Chỉ gắn khi NGƯỜI GỬI xem được phiếu;
+  người xem thẻ cũng do Raven kiểm quyền riêng (không có quyền → chỉ thấy số phiếu).
+- **Thẻ phiếu mở trang duyệt ERP** chứ không mở Desk: hook `raven_document_link_override`. Áp cả cho
+  thẻ tạo bằng nút "Đính kèm chứng từ" của Raven.
+- **Dòng trên thẻ**: patch `chat/patches/p001_the_phieu_preview` bật `in_preview` (Property Setter) cho
+  người đề nghị, phòng ban, ngày gửi, số tiền của mọi loại phiếu. Không có patch này Raven hiện mọi
+  trường bắt buộc (lý do dài, số tài khoản ngân hàng…).
+- **Bot "Phiếu duyệt"** nhắn riêng mỗi thông báo phê duyệt (cần duyệt / đã duyệt / từ chối / cần bổ sung /
+  huỷ) — cùng lúc với chuông ERP, nghe dòng `erp` của `EC Notification Delivery Log` (event
+  `approval_required`), gửi bằng job nền sau commit. Kèm thẻ phiếu + link. Chỉ gửi cho người có chat.
+  Bot tự tạo ở lần gửi đầu. Teams vẫn nhận như cũ (chưa tắt kênh nào).
+- Tắt: `ec_chat_bot_disabled` (chỉ bot) / `ec_chat_phieu_disabled` (cả ba). Không cần deploy.
+- Duyệt NGAY trong chat: chưa làm — nút chuyển trạng thái trên thẻ của Raven chỉ chạy với Frappe
+  Workflow, phiếu của ta chạy engine riêng; làm được thì phải sửa Raven.
+
 ## Kiểm
 
 ```
 python -m unittest ecentric_workspace.chat.tests.test_chat        # 45 test, gồm node harness ec_chat.js + ec_raven_boot.js
+python -m unittest ecentric_workspace.chat.tests.test_phieu       # 15 test phiếu trong chat
 python -m unittest discover -s ecentric_workspace/shell/tests -t . -p "test_*.py"
 python tools/ci/check.py
 ```
