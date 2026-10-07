@@ -23,7 +23,8 @@
   "credits",
   "cost_source",
   "images",
-  "error"
+  "error",
+  "backfilled"
  ],
  "fields": [
   {
@@ -113,12 +114,18 @@
    "fieldname": "error",
    "fieldtype": "Small Text",
    "label": "Lỗi (rút gọn)"
+  },
+  {
+   "fieldname": "backfilled",
+   "fieldtype": "Check",
+   "label": "Khôi phục từ dữ liệu cũ",
+   "description": "Dòng dựng lại từ dấu vết có sẵn (trước khi có log này) - không có token/credit."
   }
  ],
  "in_create": 1,
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-10-07 00:00:00.000000",
+ "modified": "2026-10-07 16:00:00.000000",
  "modified_by": "Administrator",
  "module": "Ecentric Workspace",
  "name": "EC AI Usage Log",

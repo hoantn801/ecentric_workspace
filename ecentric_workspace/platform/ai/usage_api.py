@@ -89,16 +89,15 @@ def _formfill(scope, people, department, start, end):
         logs = frappe.get_all(FORMFILL_LOG, filters=filters,
                               fields=["outcome", "business_doc", "approval_code"],
                               limit_page_length=0)
-        from ecentric_workspace.approval_center.shared.registry import get_definition
-        by_code, statuses = {}, {}
-        for l in logs:
-            if l.business_doc:
-                by_code.setdefault(l.approval_code, []).append(l.business_doc)
-        for code, names in by_code.items():
-            dt = get_definition(code).business_doctype
-            for r in frappe.get_all(dt, filters={"name": ["in", names]},
-                                    fields=["name", "approval_status"]):
-                statuses[r.name] = r.approval_status
+        # "Da gui" = da co EC Approval Request cho phieu. KHONG doc `approval_status` tren tung
+        # doctype nghiep vu: nhieu doctype khong co cot do (vd EC Outside Work Request -> 1054).
+        drafts = [l.business_doc for l in logs if l.business_doc]
+        statuses = {}
+        if drafts:
+            for r in frappe.get_all("EC Approval Request",
+                                    filters={"reference_name": ["in", drafts]},
+                                    fields=["reference_name", "approval_status"]):
+                statuses[r.reference_name] = r.approval_status or "Pending"
         return report.funnel([dict(l) for l in logs], statuses)
     except Exception:
         frappe.log_error(title="ai_usage formfill funnel")

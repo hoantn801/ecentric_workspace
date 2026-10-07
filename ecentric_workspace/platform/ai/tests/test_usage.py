@@ -211,6 +211,101 @@ class GomSo(unittest.TestCase):
         self.assertEqual(f, {"suggested": 3, "drafts": 2, "sent": 1, "sent_pct": 50.0})
 
 
+class _D(dict):
+    """frappe._dict: vua dict() duoc vua doc thuoc tinh."""
+    __getattr__ = dict.get
+
+
+class TuDong(unittest.TestCase):
+    """AI tu chay khi nop bao cao tuan: tinh luot, KHONG tinh la nguoi nop dung AI."""
+
+    def test_cham_bao_cao_tuan_khong_tinh_ti_le_ap_dung(self):
+        sys.modules["frappe"] = FakeFrappe()
+        R = load("usage_report")
+        people = {e["user_id"]: {"name": e["name"], "department": e["department"]} for e in EMPS}
+        rows = [{"user": "b@ec.vn", "purpose": "weekly_report", "ok": 1, "creation": "2026-10-07 08:00:00"},
+                {"user": "b@ec.vn", "purpose": "feedback_digest", "ok": 1, "creation": "2026-10-07 08:00:00"},
+                {"user": "c@ec.vn", "purpose": "khay", "ok": 1, "creation": "2026-10-07 09:00:00"}]
+        d = R.aggregate(rows, people, "2026-10-07", "2026-10-07")
+        self.assertEqual((d["totals"]["calls"], d["totals"]["system_calls"], d["totals"]["active_users"]), (3, 2, 1))
+        self.assertEqual([p["user"] for p in d["by_person"]], ["c@ec.vn"])
+        self.assertIn("b@ec.vn", [x["user"] for x in d["never"]])
+
+
+class PheuAiDienHo(unittest.TestCase):
+    """'Da gui' doc tu EC Approval Request - KHONG doc approval_status tren doctype nghiep vu
+    (EC Outside Work Request khong co cot do -> loi 1054 tren site 07/10)."""
+
+    def test_doc_trang_thai_tu_approval_request(self):
+        fk = FakeFrappe(roles=("EC CEO",), user="ceo@ec.vn", employees=EMPS, depts=DEPTS, logs=LOGS)
+        base = fk.get_all
+        asked = []
+
+        def get_all(dt, filters=None, fields=None, **k):
+            asked.append(dt)
+            if dt == "EC AI Formfill Log":
+                return [_D(outcome="ok", business_doc="OW-1", approval_code="outside_work"),
+                        _D(outcome="ok", business_doc="OW-2", approval_code="outside_work"),
+                        _D(outcome="error", business_doc=None, approval_code="leave")]
+            if dt == "EC Approval Request":
+                self.assertEqual(filters, {"reference_name": ["in", ["OW-1", "OW-2"]]})
+                return [_D(reference_name="OW-1", approval_status="Pending")]
+            return base(dt, filters=filters, fields=fields, **k)
+        fk.get_all = get_all
+        errors = []
+        fk.log_error = lambda **k: errors.append(k)
+        sys.modules["frappe"] = fk
+        load("usage")
+        load("usage_report")
+        d = load("usage_api").summary(days=7)
+        self.assertEqual(errors, [])
+        self.assertEqual(d["formfill"], {"suggested": 2, "drafts": 2, "sent": 1, "sent_pct": 50.0})
+        self.assertNotIn("EC Outside Work Request", asked)
+
+
+class KhoiPhucLichSu(unittest.TestCase):
+    def setUp(self):
+        sys.modules["frappe"] = FakeFrappe()
+        self.B = load("usage_backfill")
+
+    def test_dung_lai_tu_dau_vet_cu(self):
+        B = self.B
+        src = {
+            "formfill": (B.from_formfill, [
+                {"creation": "2026-09-20 10:00:00", "request_user": "a@ec.vn", "outcome": "ok",
+                 "model": "grok-4-7", "latency_ms": 9000},
+                {"creation": "2026-09-21 10:00:00", "request_user": "a@ec.vn", "outcome": "refused_quota"},
+                {"creation": "2026-09-22 10:00:00", "request_user": "c@ec.vn", "outcome": "error"},
+                {"creation": "2026-10-07 16:00:00", "request_user": "c@ec.vn", "outcome": "ok"}]),
+            "company_summary": (B.from_company_summary, [
+                {"creation": "2026-06-01 12:00:00", "owner": "boss@ec.vn", "generated_by": "boss@ec.vn",
+                 "auto_generated": 1, "model_used": "gemini"},
+                {"creation": "2026-06-02 12:00:00", "owner": "boss@ec.vn", "generated_by": "boss@ec.vn",
+                 "generated_at": "2026-06-02 12:05:00", "auto_generated": 0}]),
+            "weekly_report": (B.from_weekly, [
+                {"creation": "2026-05-20 09:00:00", "owner": "b@ec.vn", "department": "Media - EC"}]),
+            "post_cover": (B.from_post_cover, [
+                {"creation": "2026-10-02 09:00:00", "requested_by": "c@ec.vn", "status": "Failed"}]),
+        }
+        rows = B.build(src, {"a@ec.vn": "Media - EC", "c@ec.vn": "Finance - EC", "boss@ec.vn": "Mgmt"},
+                       "2026-10-07 15:30:00")
+        self.assertEqual([(r["purpose"], r["user"]) for r in rows], [
+            ("weekly_report", "b@ec.vn"), ("company_summary", "Administrator"),
+            ("company_summary", "boss@ec.vn"), ("formfill", "a@ec.vn"), ("formfill", "c@ec.vn"),
+            ("post_cover", "c@ec.vn")], "bo luot bi chan truoc AI va luot sau moc log that")
+        self.assertEqual(rows[2]["creation"], "2026-06-02 12:05:00")
+        self.assertEqual(rows[2]["department"], "Mgmt")
+        self.assertEqual(rows[0]["department"], "Media - EC")
+        self.assertEqual(rows[1]["department"], "")
+        ff = rows[3]
+        self.assertEqual((ff["ok"], ff["latency_ms"], ff["model"], ff["department"]), (1, 9000, "grok-4-7", "Media - EC"))
+        self.assertEqual((rows[4]["ok"], rows[4]["error"]), (0, "error"))
+        self.assertEqual((rows[5]["ok"], rows[5]["error"]), (0, "Failed"))
+        for r in rows:
+            self.assertEqual((r["backfilled"], r["credits"], r["total_tokens"], r["cost_source"]), (1, 0.0, 0, ""))
+            self.assertEqual(sorted(r), sorted(B.FIELDS[6:] + ["creation"]), "khong co cot noi dung")
+
+
 class PhamViXem(unittest.TestCase):
     """Hoan 07/10: lanh dao xem toan cong ty, truong phong xem phong minh, con lai chi minh."""
 
