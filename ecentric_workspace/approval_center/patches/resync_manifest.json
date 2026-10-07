@@ -170,8 +170,8 @@
     "sha256": "176f923979339da9140f34758e29671f90e33007e6c1c5b88bacdb42b979631d"
   },
   "hr/pages/tong_quan/main_section.html": {
-    "last_resync_patch": "p264_resync_chat",
-    "sha256": "099a35804968835a3293c11b99538dade5285f8103224a79dd6acbac7b9e3ee9"
+    "last_resync_patch": "p273_resync_tong_quan_file_cnb",
+    "sha256": "cfc9b0110818577e065a5334376ac3a29c69f0c20f4dd9ac2f9d44aae74a662d"
   },
   "legacy_pages/all_ticket/main_section.html": {
     "baseline": "2026-08-31",
@@ -240,8 +240,8 @@
   },
   "approval_center/features/brand_weight/ui/main_section.html": {
     "baseline": "2026-09-25",
-    "last_resync_patch": "p217_brand_weight_formkit_copy",
-    "sha256": "2b14bf8fe70cfb058b97870431e2021bbed55c41d536d444e017732f7c7cb4d0"
+    "last_resync_patch": "p265_brand_weight_nop_thay",
+    "sha256": "f8744960d064766a8a296d81dbc306c9ac4dfd3e8112b4af32b056beb8c2168f"
   },
   "approval_center/features/offer_request/ui/main_section.html": {
     "baseline": "2026-09-28",
