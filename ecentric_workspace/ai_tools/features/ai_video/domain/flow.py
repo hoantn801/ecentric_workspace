@@ -24,11 +24,13 @@ STAGE_LABEL = {
     "motion": "Đang tạo clip lấy/hạ SP", "qc_motion": "Chờ duyệt clip lấy/hạ",
     "hold_a": "Đang tạo clip cầm A", "qc_hold_a": "Chờ duyệt clip cầm A",
     "hold_b": "Đang tạo clip cầm B", "ready": "Đủ clip - sẵn sàng trộn",
-    "mixing": "Đang trộn video", "done": "Xong",
+    "mixing": "Đang trộn video", "done": "Xong", "fix": "Đang gen lại clip",
 }
 DIRS = ("left", "right", "below")
 QC_STAGES = ("pick", "qc_motion", "qc_hold_a")
-RUNNING_STAGES = ("holds", "master", "motion", "hold_a", "hold_b", "mixing")
+RUNNING_STAGES = ("holds", "master", "motion", "hold_a", "hold_b", "mixing", "fix")
+#: clip SKU nguoi dung bo tick / gen lai rieng (08/10/2026); bo Ha trai = bo ca Lay trai (ban chay nguoc)
+UNIT_KEYS = ("putdown_left", "putdown_right", "putdown_below", "hold_01", "hold_02")
 
 
 def slug(s, n=40):
@@ -104,8 +106,21 @@ def mix_step(item, project, st, voice=None):
     return {"op": "mix", "mode": project.get("mix_mode") or "mix", "n": int(project.get("mix_variants") or 5),
             "voice_pad_s": VOICE_PAD_S, "keep_duration": bool(item.get("keep_duration")),
             "duration_s": float(item.get("audio_seconds") or project.get("audio_seconds") or 72),
-            "brand": project.get("brand"), "batch_id": item.get("batch") or "lo", "sku": item.get("sku"),
-            "host": project.get("host_key"), "jobs": [st.get("job")], "voice": voice}
+            "brand": project.get("brand"), "batch_id": item.get("out_dir") or project.get("out_dir") or "video",
+            "sku": item.get("sku"), "unit_off": unit_off(st),
+            "host": project.get("host_key"), "jobs": [st.get("job")], "voice": voice,
+            "talk_off": talk_off(project)}
+
+
+def unit_off(st):
+    """Clip SKU bo tick -> 'job:unit' cho worker (08/10/2026)."""
+    job = (st or {}).get("job")
+    return sorted("%s:%s" % (job, u) for u in (st or {}).get("unit_off") or []) if job else []
+
+
+def talk_off(project):
+    """Clip noi nguoi dung bo tick (khong dung khi tron) - luu o state du an (08/10/2026)."""
+    return sorted((project.get("state") or {}).get("talk_off") or [])
 
 
 def decide_item(item, project, W):
@@ -180,6 +195,8 @@ def decide_item(item, project, W):
             go("ready", "waiting")
     elif stage == "mixing" and ts == "done":
         go("done", "done")
+    elif stage == "fix" and ts == "done":
+        go("ready", "waiting")                  # gen lai 1 clip xong -> ve lai du clip
     return out
 
 
@@ -197,8 +214,17 @@ def approve_item(item, project):
     raise ValueError("SKU không ở bước chờ duyệt")
 
 
-def regen_units(stage, dirs=None):
-    """Clip nao can xoa de gen lai o mot chot chan -> (ten unit, buoc chay lai)."""
+def regen_units(stage, dirs=None, unit=None):
+    """Clip nao can xoa de gen lai o mot chot chan -> (ten unit, buoc chay lai).
+    unit: gen lai DUNG 1 clip khi SKU da du clip (08/10/2026) -> buoc 'fix', xong ve lai ready."""
+    if unit:
+        if unit not in UNIT_KEYS:
+            raise ValueError("Clip không hợp lệ")
+        if stage not in ("ready", "done"):
+            raise ValueError("Chỉ gen lại từng clip khi SKU đã đủ clip")
+        if unit.startswith("putdown_"):
+            return [unit], "fix", {"dirs": [unit[8:]], "holds": 0, "keep_dirs": True}
+        return [unit], "fix", {"dirs": [], "holds": 1, "hold_start": int(unit[-2:])}
     if stage == "qc_motion":
         d = [x for x in (dirs or DIRS) if x in DIRS] or list(DIRS)
         return ["putdown_" + x for x in d], "motion", {"dirs": d, "holds": 0}
@@ -245,7 +271,12 @@ def cost_view(costs, items):
     kinds_all = {}
     for it in items:
         sku = str(it.get("sku") or "")
-        mine = [v or {} for k, v in jobs.items() if sku and "_%s_" % sku in "_%s_" % k]
+        jid = str(it.get("job_id") or "")
+        pre = jid.rsplit("_", 1)[0] + "_" if "_" in jid else ""
+        if pre:   # 08/10: moi lan lam cua dung SKU nay (R1, R2, W4...), ke ca viec chay ngoai ERP; SKU co dau van khop
+            mine = [v or {} for k, v in jobs.items() if k == jid or (k.startswith(pre) and re.match(r"^[A-Z]\d+$", k[len(pre):]))]
+        else:
+            mine = [v or {} for k, v in jobs.items() if sku and "_%s_" % sku in "_%s_" % k]
         usd = round(sum(v.get("usd") or 0 for v in mine), 2)
         it["cost_kinds"] = _kinds(mine, upc, kinds_all)
         share = round(host_usd / n, 2)
