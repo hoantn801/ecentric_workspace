@@ -297,11 +297,16 @@ def approve(name):
     return {"stage": stage}
 
 
-def regen_clip(name, dirs=None):
+def regen_clip(name, dirs=None, unit=None):
     doc = frappe.get_doc(I, name)
     pdoc = frappe.get_doc(P, doc.project)
     st = _j(doc.state_json)
-    units, stage, extra = flow.regen_units(doc.stage, _j(dirs, None))
+    try:
+        units, stage, extra = flow.regen_units(doc.stage, _j(dirs, None), unit or None)
+    except ValueError as e:
+        raise frappe.ValidationError(str(e))
+    if unit and unit in (st.get("unit_off") or []):
+        st["unit_off"] = [u for u in st["unit_off"] if u != unit]      # clip gen lai: mac dinh dung lai
     wc.call("regen", job_id=st["job"], stage="unit", units=units)
     step = dict({"op": "units", "host": pdoc.host_key, "job_id": st["job"]}, **extra)
     st.setdefault("tasks", {})[stage] = _enqueue(pdoc.name, step, pdoc.night_mode)
@@ -368,6 +373,7 @@ def _tick(project):
     ctx = {"tasks": tasks, "jobs": jstate, "anchor_ready": anchor_ready}
     pd = _pdict(pdoc)
     pd["host_key"] = host
+    pd["out_dir"] = _today()                     # chay dem: video vao thu muc ngay tron
     for doc in items:
         d = _idict(doc)
         st = d["state"]
@@ -383,6 +389,8 @@ def _tick(project):
         st = d["state"]
         for key, step in res["steps"]:
             st.setdefault("tasks", {})[key] = _enqueue(project, step, pdoc.night_mode)
+            if step.get("op") == "mix":
+                st["out_dir"] = step["batch_id"]
         if res["set"] or res["steps"] or vchg:
             _save_state(doc, st, **res["set"])
         need_from = need_from or res["need_anchor_from"]
@@ -404,16 +412,14 @@ def _tick(project):
     tst, _ = flow.tasks_state((pst.get("talk") or {}).get("tasks"), tasks)
     if anchor_ready and want > talk_n and tst != "running" and not pst.get("talk_hold"):
         pst["talk"] = {"tasks": _enqueue(project, {"op": "talk", "host": host, "fill_to": want}, pdoc.night_mode)}
-    # chay dem: lo nao xong het thi nen zip
+    # chay dem: SKU nao tron xong thi nen 1 ZIP rieng cho SKU do (08/10: khong gom theo lo -> khong lan SP)
     if pdoc.night_mode:
-        batches = {}
-        for doc in items:
-            batches.setdefault(doc.batch or "lo", []).append(doc.stage)
         zipped = pst.setdefault("zipped", {})
-        for b, stages in batches.items():
-            if stages and all(s == "done" for s in stages) and b not in zipped:
+        for doc in items:
+            od = _j(doc.state_json).get("out_dir")
+            if doc.stage == "done" and od and doc.sku not in zipped:
                 try:
-                    zipped[b] = wc.call("export", brand=pdoc.brand, batch_id=b).get("zip")
+                    zipped[doc.sku] = wc.call("export", brand=pdoc.brand, batch_id=od, sku=doc.sku).get("zip")
                 except frappe.ValidationError:
                     pass
     _tick_exports(pdoc, tasks)
@@ -455,7 +461,7 @@ def mix(project, data):
     names = d.get("items") or []
     mode = d.get("mode") or pdoc.mix_mode or "mix"
     n = max(1, min(20, int(d.get("variants") or pdoc.mix_variants or 5)))
-    batch = d.get("batch") or "lo"
+    batch = (d.get("batch") or "").strip() or _today()
     exp = frappe.get_doc({"doctype": E, "project": project, "batch": batch, "items": json.dumps(names),
                           "mode": mode, "variants": n, "duration": float(d.get("duration") or pdoc.audio_seconds or 72),
                           "status": "running"})
@@ -463,6 +469,11 @@ def mix(project, data):
     ids = []
     pd = _pdict(pdoc)
     pd.update(mix_mode=mode, mix_variants=n)
+    off = flow.talk_off(pd)
+    talks = [k for k in (pd["state"].get("host_files") or {}) if k.startswith("talk_") and not k.endswith("_rev")]
+    if mode != "hold" and talks and not [k for k in talks if k not in off]:
+        exp.db_set("status", "error: chưa tick clip nói nào - tick ít nhất 1 clip ở bước Tạo video")
+        return {"export": exp.name, "tasks": 0}
     for nm in names:
         doc = frappe.get_doc(I, nm)
         st = _j(doc.state_json)
@@ -473,7 +484,7 @@ def mix(project, data):
             voice = wc.upload("inbox/%s/%s_voice%s" % (flow.slug(project, 20), flow.slug(doc.sku, 40), _ext(doc.audio_file, ".mp3")),
                               "voice" + _ext(doc.audio_file, ".mp3"), _file_bytes(doc.audio_file))
         it = doc.as_dict()
-        it["batch"] = batch
+        it["batch"] = it["out_dir"] = batch
         if d.get("duration"):
             it["audio_seconds"] = float(d["duration"])
             it["keep_duration"] = True          # nguoi dung nhap do dai -> giu dung, ke ca khi co audio
@@ -482,7 +493,8 @@ def mix(project, data):
         ids += _enqueue(project, step, pdoc.night_mode)
     if mode == "talk" and not names:
         step = {"op": "mix", "mode": "talk", "n": n, "duration_s": exp.duration, "brand": pdoc.brand,
-                "batch_id": batch, "sku": "NOI_" + flow.slug(pdoc.title, 20), "host": pdoc.host_key, "jobs": []}
+                "batch_id": batch, "sku": "NOI_" + flow.slug(pdoc.title, 20), "host": pdoc.host_key, "jobs": [],
+                "talk_off": off}
         ids += _enqueue(project, step, pdoc.night_mode)
     if not ids:
         exp.db_set("status", "error: không có SKU nào đủ clip")
@@ -505,11 +517,14 @@ def _tick_exports(pdoc, tasks):
         if stt == "failed" and not files:
             doc.status = "error: %s" % (err or "")[:120]
         else:
-            try:
-                doc.zip_path = wc.call("export", brand=pdoc.brand, batch_id=doc.batch).get("zip")
-            except frappe.ValidationError as e:
-                doc.zip_path = ""
-                frappe.log_error(title="ai_video export", message=str(e))
+            for sku in sorted({f.replace("\\", "/").split("/")[-2] for f in files if "/" in f.replace("\\", "/")}):
+                try:                             # 08/10: 1 ZIP / SKU (luu chung files_json, duoi .zip)
+                    z = wc.call("export", brand=pdoc.brand, batch_id=doc.batch, sku=sku).get("zip")
+                    if z:
+                        files.append(z)
+                except frappe.ValidationError as e:
+                    frappe.log_error(title="ai_video export", message=str(e))
+            doc.files_json = json.dumps(files)
             doc.status = "done" if stt == "done" else "done (có lỗi)"
         doc.save(ignore_permissions=True)
 
@@ -544,6 +559,7 @@ def get_project(name, do_tick=0):
     proj = {k: pdoc.get(k) for k in PROJECT_SETTINGS + ("name", "host_key", "anchor_state", "talk_state")}
     proj["anchor"] = hf.get("anchor") and {"thumb": _thumb(hf["anchor"]["path"]), "full": wc.sign(hf["anchor"]["path"])}
     proj["talks"] = [{"id": k, "url": wc.sign(v["path"])} for k, v in sorted(hf.items()) if k.startswith("talk_")]
+    proj["talk_off"] = sorted(pst.get("talk_off") or [])
     proj["breaker"] = pst.get("breaker")
     proj["last_tick"] = pst.get("last_tick")
     proj["anchor_error"] = pst.get("anchor_error")
@@ -559,6 +575,7 @@ def get_project(name, do_tick=0):
         it["guide_bbox"] = st.get("guide_bbox") or ""
         it["force_gate"] = bool(st.get("force_gate"))
         it["units"] = st.get("units_view") or {}
+        it["unit_off"] = st.get("unit_off") or []
         items.append(it)
         if st.get("views"):
             _apply_views(it, st["views"])
@@ -573,7 +590,9 @@ def get_project(name, do_tick=0):
                              order_by="creation desc", limit_page_length=30)
     for ex in exports:
         ex["zip_url"] = wc.sign(ex.zip_path) if ex.zip_path else None
-        ex["files"] = [{"name": os.path.basename(f), "url": wc.sign(f)} for f in _j(ex.files_json, [])]
+        fl = _j(ex.files_json, []) or []
+        ex["files"] = [{"name": os.path.basename(f), "url": wc.sign(f)} for f in fl if not f.endswith(".zip")]
+        ex["zips"] = [{"sku": os.path.basename(f)[:-4], "url": wc.sign(f)} for f in fl if f.endswith(".zip")]
         ex.pop("files_json", None)
     return {"project": proj, "items": items, "exports": exports, "worker_down": down,
             "worker_configured": wc.configured()}
@@ -653,5 +672,74 @@ def regen_anchor(project):
 
 def regen_talk(project, ids):
     pdoc = frappe.get_doc(P, project)
-    wc.call("regen", stage="talk", host=pdoc.host_key, job_id="x", units=[i for i in _j(ids, []) if i.startswith("talk_")])
+    units = [i for i in _j(ids, []) if i.startswith("talk_")]
+    wc.call("regen", stage="talk", host=pdoc.host_key, job_id="x", units=units)
+    pst = _j(pdoc.state_json)
+    if set(units) & set(pst.get("talk_off") or []):
+        pst["talk_off"] = [k for k in pst["talk_off"] if k not in units]    # clip gen lai: mac dinh dung lai
+        _save_state(pdoc, pst)
     return {"ok": True}
+
+
+def set_units(name, off):
+    """Clip SKU KHONG dung khi tron (bo tick). Phai con it nhat 1 clip ha + 1 clip cam (08/10/2026)."""
+    doc = frappe.get_doc(I, name)
+    st = _j(doc.state_json)
+    off = sorted({u for u in _j(off, []) or [] if u in flow.UNIT_KEYS})
+    have = set(((st.get("views") or {}).get("units") or {}).keys()) | set((st.get("units_view") or {}).keys())
+    if have and (not [u for u in have if u.startswith("putdown_") and u not in off]
+                 or not [u for u in have if u in ("hold_01", "hold_02") and u not in off]):
+        raise frappe.ValidationError("Cần giữ ít nhất 1 clip hạ và 1 clip cầm để trộn.")
+    st["unit_off"] = off
+    _save_state(doc, st)
+    return {"unit_off": off}
+
+
+def _today():
+    t = getattr(frappe.utils, "today", None)
+    if t:
+        return str(t())
+    import datetime
+    return datetime.date.today().isoformat()
+
+
+def _check_owner(pdoc):
+    if not (is_admin() or pdoc.get("owner") in (None, frappe.session.user)):
+        raise frappe.PermissionError("Chỉ người tạo dự án hoặc quản trị AI Video được lưu trữ / xoá dự án.")
+
+
+def archive_project(name, on=1):
+    """Luu tru: an khoi danh sach, tat chay dem, khong tu dong bo nua. Du lieu giu nguyen, bo luu tru lai duoc."""
+    pdoc = frappe.get_doc(P, name)
+    _check_owner(pdoc)
+    on = int(on or 0)
+    pdoc.status = "Lưu trữ" if on else "Đang chạy"
+    if on:
+        pdoc.night_mode = 0
+    pdoc.save(ignore_permissions=True)
+    return {"status": pdoc.status}
+
+
+def delete_project(name):
+    """Xoa du an + SKU + lich su xuat tren ERP. Video/clip da tao tren laptop giu nguyen.
+    SKU dang chay thi huy viec tren may chay video truoc (may tat -> bao loi, khong xoa)."""
+    pdoc = frappe.get_doc(P, name)
+    _check_owner(pdoc)
+    items = frappe.get_all(I, filters={"project": name}, fields=["name", "stage", "stage_state"])
+    if [i for i in items if i.get("stage") in flow.RUNNING_STAGES and i.get("stage_state") != "error"]:
+        wc.call("cancel", batch_id=name)            # WorkerDown -> bao "chua huy duoc", khong xoa
+    for e in frappe.get_all(E, filters={"project": name}, pluck="name"):
+        frappe.delete_doc(E, e, ignore_permissions=True)
+    for i in items:
+        frappe.delete_doc(I, i.get("name"), ignore_permissions=True)
+    frappe.delete_doc(P, name, ignore_permissions=True)
+    return {"deleted": name}
+
+
+def set_talks(project, off):
+    """Clip noi KHONG dung khi tron (bo tick). Clip van giu tren laptop, tick lai la dung lai."""
+    pdoc = frappe.get_doc(P, project)
+    pst = _j(pdoc.state_json)
+    pst["talk_off"] = sorted({str(i) for i in _j(off, []) if str(i).startswith("talk_") and not str(i).endswith("_rev")})
+    _save_state(pdoc, pst)
+    return {"talk_off": pst["talk_off"]}

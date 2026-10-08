@@ -129,6 +129,8 @@ class FakeWorker:
                     "jobs": [dict(self.jobs.get(j, {}), job_id=j) for j in p.get("jobs") or []],
                     "hosts": [{"host": h, "files": self.host_files} for h in p.get("hosts") or []]}
         if action == "export":
+            if p.get("sku"):
+                return {"ok": True, "zip": "ecv6/exports/Friso/%s/%s.zip" % (p["batch_id"], p["sku"])}
             return {"ok": True, "zip": "ecv6/exports/Friso/%s.zip" % p["batch_id"]}
         return {"ok": True}
 
@@ -235,10 +237,11 @@ class TestService(unittest.TestCase):
         W.finish("mix")
         s.tick(p)
         e = self.store.rows["EC AI Video Export"][ex["export"]]
-        self.assertEqual((e["status"], e["zip_path"]), ("done", "ecv6/exports/Friso/lo1.zip"))
+        self.assertEqual(e["status"], "done")
+        self.assertIn("ecv6/exports/Friso/lo1/%s.zip" % m["sku"], json.loads(e["files_json"]))     # 1 ZIP / SKU
         view = s.get_project(p)
         self.assertEqual(view["items"][0]["stage_label"], "Đủ clip - sẵn sàng trộn")
-        self.assertTrue(view["exports"][0]["zip_url"].startswith("https://w.example/webhook/ec-v6/file?p=ecv6%2Fexports"))
+        self.assertTrue(view["exports"][0]["zips"][0]["url"].startswith("https://w.example/webhook/ec-v6/file?p=ecv6%2Fexports"))
 
     def test_rejects_other_users_file(self):
         with self.assertRaises(Exception):
@@ -287,7 +290,9 @@ class TestService(unittest.TestCase):
             s.tick(p)
         self.assertEqual(self.item(n)["stage"], "done")
         st = json.loads(self.store.rows["EC AI Video Project"][p]["state_json"])
-        self.assertEqual(st["zipped"], {"L": "ecv6/exports/Friso/L.zip"})
+        day = W.last("mix")["batch_id"]
+        self.assertRegex(day, r"^\d{4}-\d{2}-\d{2}$")                     # chay dem: thu muc theo ngay
+        self.assertEqual(st["zipped"], {"A": "ecv6/exports/Friso/%s/A.zip" % day})   # 1 ZIP / SKU
 
 
 class TestRegister(unittest.TestCase):
@@ -448,6 +453,87 @@ class TestKhungVaNhom(unittest.TestCase):
         self.assertEqual(calls, [])                                   # khong goi laptop
         self.assertEqual(v["items"][0]["candidates"][0]["id"], "hold_c01")
         self.assertIn("hold_01", v["items"][0]["units"])
+
+    def test_bo_tick_clip_noi_khong_dung_khi_tron(self):
+        s, W = self.svc, self.W
+        p = s.create_project(json.dumps({"brand": "B", "title": "T", "host_image": "/h.png", "talk_count": 2}))["name"]
+        W.host_files = {"talk_01": {"path": "t1"}, "talk_01_rev": {"path": "t1r"}, "talk_02": {"path": "t2"}}
+        s.tick(p)
+        self.assertEqual(s.set_talks(p, json.dumps(["talk_02", "talk_09_rev", "x"]))["talk_off"], ["talk_02"])
+        self.assertEqual(s.get_project(p)["project"]["talk_off"], ["talk_02"])
+        s.mix(p, json.dumps({"mode": "talk", "variants": 1}))
+        self.assertEqual(W.last("mix")["talk_off"], ["talk_02"])
+        s.set_talks(p, json.dumps(["talk_01", "talk_02"]))                # bo het -> khong tron, bao loi
+        r = s.mix(p, json.dumps({"mode": "talk", "variants": 1}))
+        self.assertEqual(r["tasks"], 0)
+        self.assertIn("tick", self.store.rows["EC AI Video Export"][r["export"]]["status"])
+        s.regen_talk(p, json.dumps(["talk_01"]))                          # gen lai -> tu tick lai
+        self.assertEqual(s.get_project(p)["project"]["talk_off"], ["talk_02"])
+
+    def _ready_item(self):
+        s, W = self.svc, self.W
+        p = s.create_project(json.dumps({"brand": "B", "title": "T", "host_image": "/h.png", "talk_count": 0}))["name"]
+        n = s.add_items(p, json.dumps([{"sku": "A1", "product_image": "/a.png"}]))["items"][0]
+        s.start_holds(p, json.dumps([n]))
+        st = json.loads(self.item(n)["state_json"])
+        st["views"] = {"cands": [], "units": {k: "u/" + k for k in ("putdown_left", "pickup_left", "putdown_right", "hold_01", "hold_02")}}
+        self.item(n).update(stage="ready", stage_state="waiting", state_json=json.dumps(st))
+        return p, n
+
+    def test_bo_tick_clip_sku_va_gen_lai_tung_clip(self):
+        s, W = self.svc, self.W
+        p, n = self._ready_item()
+        self.assertEqual(s.set_units(n, json.dumps(["putdown_left", "hold_02", "pickup_left", "xx"]))["unit_off"], ["hold_02", "putdown_left"])
+        with self.assertRaises(Exception):                                  # phai con 1 clip ha + 1 clip cam
+            s.set_units(n, json.dumps(["hold_01", "hold_02"]))
+        s.mix(p, json.dumps({"items": [n], "variants": 1, "batch": "dot1"}))
+        job = self.item(n)["job_id"]
+        m = W.last("mix")
+        self.assertEqual((m["unit_off"], m["batch_id"]), (sorted([job + ":hold_02", job + ":putdown_left"]), "dot1"))
+        s.regen_clip(n, None, "putdown_left")                               # gen lai dung 1 clip
+        u = W.last("units")
+        self.assertEqual((u["dirs"], u["holds"], u["keep_dirs"]), (["left"], 0, True))
+        self.assertEqual(self.item(n)["stage"], "fix")
+        self.assertEqual(json.loads(self.item(n)["state_json"])["unit_off"], ["hold_02"])
+        W.finish("units")
+        s.tick(p)
+        self.assertEqual(self.item(n)["stage"], "ready")
+        s.regen_clip(n, None, "hold_02")
+        self.assertEqual((W.last("units")["holds"], W.last("units")["hold_start"]), (1, 2))
+
+    def test_xuat_zip_tung_sku(self):
+        s, W = self.svc, self.W
+        p, n = self._ready_item()
+        r = s.mix(p, json.dumps({"items": [n], "variants": 1}))
+        W.finish("mix")
+        s.tick(p)
+        ex = s.get_project(p)["exports"][0]
+        self.assertEqual([z["sku"] for z in ex["zips"]], ["A1"])
+        self.assertEqual(len(ex["files"]), 1)
+        self.assertRegex(self.store.rows["EC AI Video Export"][r["export"]]["batch"], r"^\d{4}-\d{2}-\d{2}$")
+
+    def test_chi_phi_theo_job_ca_viec_ngoai_erp(self):
+        items = [{"sku": "Pin cúc áo", "job_id": "PIN_PIN_C_C_O_P1_R2"}, {"sku": "123", "job_id": None}]
+        costs = {"usd_per_credit": 0.005, "job": {"PIN_PIN_C_C_O_P1_R1": {"usd": 1.0}, "PIN_PIN_C_C_O_P1_R2": {"usd": 2.0},
+                                                   "PIN_PIN_C_C_O_P1_R2_X": {"usd": 9.0}, "B_123_P1_R1": {"usd": 0.5}}}
+        from ecentric_workspace.ai_tools.features.ai_video.domain import flow
+        flow.cost_view(costs, items)
+        self.assertEqual((items[0]["cost_usd"], items[1]["cost_usd"]), (3.0, 0.5))
+
+    def test_luu_tru_va_xoa_du_an(self):
+        s = self.svc
+        p, n = self._ready_item()
+        s.mix(p, json.dumps({"items": [n], "variants": 1}))
+        self.assertEqual(s.archive_project(p, 1)["status"], "Lưu trữ")
+        self.assertEqual(s.archive_project(p, 0)["status"], "Đang chạy")
+        self.store.rows["EC AI Video Project"][p]["owner"] = "b@ec.vn"      # nguoi khac, khong phai quan tri
+        with self.assertRaises(Exception):
+            s.delete_project(p)
+        self.store.rows["EC AI Video Project"][p]["owner"] = "a@ec.vn"
+        s.delete_project(p)
+        self.assertNotIn(p, self.store.rows["EC AI Video Project"])
+        self.assertEqual([r for r in self.store.rows["EC AI Video Item"].values() if r.get("project") == p], [])
+        self.assertEqual([r for r in self.store.rows["EC AI Video Export"].values() if r.get("project") == p], [])
 
     def test_khoi_luong_gui_worker(self):
         s, W = self.svc, self.W

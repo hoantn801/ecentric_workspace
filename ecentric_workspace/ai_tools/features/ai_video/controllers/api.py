@@ -84,8 +84,8 @@ def approve(name: str):
 
 
 @frappe.whitelist(methods=["POST"])
-def regen_clip(name: str, dirs: str = None):
-    return _run(lambda: svc.regen_clip(name, dirs))
+def regen_clip(name: str, dirs: str = None, unit: str = None):
+    return _run(lambda: svc.regen_clip(name, dirs, unit))
 
 
 @frappe.whitelist(methods=["POST"])
@@ -111,6 +111,26 @@ def regen_anchor(project: str):
 @frappe.whitelist(methods=["POST"])
 def regen_talk(project: str, ids: str):
     return _run(lambda: svc.regen_talk(project, ids))
+
+
+@frappe.whitelist(methods=["POST"])
+def set_talks(project: str, off: str):
+    return _run(lambda: svc.set_talks(project, off))
+
+
+@frappe.whitelist(methods=["POST"])
+def set_units(name: str, off: str):
+    return _run(lambda: svc.set_units(name, off))
+
+
+@frappe.whitelist(methods=["POST"])
+def archive_project(name: str, on: int = 1):
+    return _run(lambda: svc.archive_project(name, on))
+
+
+@frappe.whitelist(methods=["POST"])
+def delete_project(name: str):
+    return _run(lambda: svc.delete_project(name))
 
 
 @frappe.whitelist(methods=["GET"])

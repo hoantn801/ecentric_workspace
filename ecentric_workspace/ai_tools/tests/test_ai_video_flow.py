@@ -62,7 +62,7 @@ class TestFlow(unittest.TestCase):
             flow.approve_item(item("hold_b"), PROJ)
 
     def test_night_mode_skips_gates_and_mixes(self):
-        night = dict(PROJ, night_mode=1)
+        night = dict(PROJ, night_mode=1, out_dir="2026-10-08")
         r = flow.decide_item(item("motion", {"motion": ["t"]}), night, W({"t": {"state": "done"}}))
         self.assertEqual(r["set"]["stage"], "hold_a")
         r = flow.decide_item(item("hold_a", {"hold_a": ["t"]}), night, W({"t": {"state": "done"}}))
@@ -70,7 +70,7 @@ class TestFlow(unittest.TestCase):
         r = flow.decide_item(item("hold_b", {"hold_b": ["t"]}, audio_seconds=65), night, W({"t": {"state": "done"}}))
         self.assertEqual(r["set"]["stage"], "mixing")
         mix = r["steps"][0][1]
-        self.assertEqual((mix["op"], mix["duration_s"], mix["jobs"], mix["batch_id"]), ("mix", 65.0, ["J1"], "lo1"))
+        self.assertEqual((mix["op"], mix["duration_s"], mix["jobs"], mix["batch_id"]), ("mix", 65.0, ["J1"], "2026-10-08"))
         r = flow.decide_item(item("mixing", {"mixing": ["m"]}), night, W({"m": {"state": "done"}}))
         self.assertEqual(r["set"]["stage"], "done")
 
@@ -134,6 +134,18 @@ class TestCostView(unittest.TestCase):
         self.assertTrue(f["product_notes"].startswith("WEIGHT: about 80 g"))
         self.assertTrue(f["product_notes"].endswith("Hộp đỏ"))
         self.assertEqual(flow.hold_fields({"sku": "A"}, "Pin")["product_notes"], "")
+
+    def test_gen_lai_tung_clip(self):
+        self.assertEqual(flow.regen_units("done", None, "hold_01"), (["hold_01"], "fix", {"dirs": [], "holds": 1, "hold_start": 1}))
+        with self.assertRaises(ValueError):
+            flow.regen_units("qc_motion", None, "hold_01")
+        out = flow.decide_item({"stage": "fix", "state": {"job": "J", "tasks": {"fix": ["t1"]}}}, {}, {"tasks": {"t1": {"id": "t1", "state": "done"}}})
+        self.assertEqual(out["set"]["stage"], "ready")
+
+    def test_tron_gui_clip_noi_bo_tick(self):
+        s = flow.mix_step({"sku": "A"}, {"state": {"talk_off": ["talk_03", "talk_01"]}}, {"job": "J"})
+        self.assertEqual(s["talk_off"], ["talk_01", "talk_03"])
+        self.assertEqual(flow.mix_step({"sku": "A"}, {}, {})["talk_off"], [])
 
     def test_tron_co_audio_dem_2s(self):
         s = flow.mix_step({"sku": "A", "audio_seconds": 30}, {"brand": "B", "host_key": "H"}, {"job": "J"}, voice="ecv6/inbox/x/a.mp3")

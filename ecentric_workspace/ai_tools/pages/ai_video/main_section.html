@@ -127,6 +127,10 @@ tr.on td{background:var(--navy-wash)}
 .av-units{display:flex;flex-wrap:wrap;gap:6px}
 .av-unit{appearance:none;border:1px solid var(--line);background:var(--ground);border-radius:7px;padding:3px 8px;font-size:12px;cursor:pointer;color:var(--ink2)}
 .av-unit:hover{border-color:var(--navy);color:var(--navy)}
+.av-talk{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--line);border-radius:9px;padding:2px 2px 2px 7px}
+.av-talk input{margin:0 3px 0 0;cursor:pointer}
+.av-talk.off{background:var(--ground);border-style:dashed}
+.av-danger{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between;border-top:1px solid var(--line);padding-top:10px}.av-danger .av-hint{flex:1;min-width:220px}.av-talk.off .av-unit{opacity:.5;text-decoration:line-through}
 .av-anchor{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
 .av-anchor img{width:108px;aspect-ratio:9/16;object-fit:cover;border-radius:8px;background:var(--tile);cursor:zoom-in}
 .av-empty{padding:28px 18px;text-align:center;color:var(--ink3)}
@@ -197,7 +201,7 @@ tr.on td{background:var(--navy-wash)}
     ["personal_care_bottle", "Chai dầu gội / sữa tắm"], ["cream_tube", "Tuýp kem"], ["diaper_pack", "Bịch tã / bỉm"],
     ["battery_blister", "Vỉ pin"], ["small_box", "Hộp nhỏ (pin, mỹ phẩm)"], ["biscuit_box_large", "Hộp bánh lớn"],
     ["soft_pouch", "Túi mềm (bánh, bông, khẩu trang)"], ["hair_dryer", "Máy sấy"], ["table_appliance", "Đồ gia dụng để bàn"]];
-  const STEPS = [["input", "1. Nhập lô"], ["pick", "2. Duyệt ảnh"], ["video", "3. Tạo video"], ["mix", "4. Trộn & xuất"], ["prompt", "Prompt"]];
+  const STEPS = [["input", "1. Nhập SKU"], ["pick", "2. Duyệt ảnh"], ["video", "3. Tạo video"], ["mix", "4. Trộn & xuất"], ["prompt", "Prompt"]];
   const UNIT_LABEL = { putdown_left: "Hạ trái", putdown_right: "Hạ phải", putdown_below: "Hạ dưới", pickup_left: "Lấy trái", pickup_right: "Lấy phải", pickup_below: "Lấy dưới", hold_01: "Cầm A", hold_02: "Cầm B" };
   /* khung SP: ti le 0..1 tren anh host. Cm chi la UOC TINH theo khung hinh host chuan
      (vai + tay ao ~44 cm chiem ~58% be ngang anh) - doi chieu lo Friso: vi 110ml ~17 cm, 180ml ~24 cm. */
@@ -262,7 +266,7 @@ tr.on td{background:var(--navy-wash)}
     S.projects = r.data.projects || []; renderHub(r.data.worker_configured);
   }
   function renderHub(configured) {
-    const ps = S.projects, brands = {};
+    const all = S.projects || [], arch = all.filter((p) => p.status === "Lưu trữ"), ps = S.showArch ? arch : all.filter((p) => p.status !== "Lưu trữ"), brands = {};
     ps.forEach((p) => { brands[p.brand] = (brands[p.brand] || 0) + 1; });
     const tot = { sku: 0, run: 0, pick: 0, qc: 0, done: 0 };
     ps.forEach((p) => { const c = p.counts || {}; tot.sku += c.total || 0; tot.run += c.running || 0; tot.pick += c.pick || 0; tot.qc += c.qc || 0; tot.done += (c.done || 0) + (c.ready || 0); });
@@ -274,7 +278,8 @@ tr.on td{background:var(--navy-wash)}
         <div class="av-stat"><span>Đang chạy</span><b>${tot.run}</b></div><div class="av-stat hl"><span>Chờ chọn / duyệt</span><b>${tot.pick + tot.qc}</b></div><div class="av-stat"><span>Đủ clip / xong</span><b>${tot.done}</b></div></div></section>
       ${configured ? "" : `<div class="av-callout warn"><div><b>Chưa nối máy chạy video.</b> Cần khai <code>ec_video_worker_url</code> và <code>ec_video_worker_secret</code> trong site_config (IT làm một lần). Vẫn tạo dự án và nhập lô được.</div></div>`}
       <div class="av-chips"><button class="av-chip ${S.brand ? "" : "on"}" data-brand="">Tất cả <span class="n">${ps.length}</span></button>
-        ${Object.keys(brands).sort().map((b) => `<button class="av-chip ${S.brand === b ? "on" : ""}" data-brand="${esc(b)}">${esc(b)} <span class="n">${brands[b]}</span></button>`).join("")}</div>
+        ${Object.keys(brands).sort().map((b) => `<button class="av-chip ${S.brand === b ? "on" : ""}" data-brand="${esc(b)}">${esc(b)} <span class="n">${brands[b]}</span></button>`).join("")}
+        ${arch.length || S.showArch ? `<button class="av-chip ${S.showArch ? "on" : ""}" id="av-arch" title="Dự án đã lưu trữ">${S.showArch ? "← Đang dùng" : "Đã lưu trữ"} <span class="n">${arch.length}</span></button>` : ""}</div>
       <div class="av-cards">
         ${list.map((p) => { const c = p.counts || {}; const pct = c.total ? Math.round(100 * ((c.done || 0) + (c.ready || 0)) / c.total) : 0;
           const st = c.error ? `<span class="av-pill p-bad">${c.error} lỗi</span>` : (c.pick + c.qc) ? `<span class="av-pill p-warn">${c.pick + c.qc} chờ bạn</span>` : c.running ? `<span class="av-pill p-run">Đang chạy</span>` : `<span class="av-pill p-idle">${esc(p.status)}</span>`;
@@ -283,7 +288,7 @@ tr.on td{background:var(--navy-wash)}
             <div class="av-meta"><span><b>${c.total || 0}</b> SKU</span><span><b>${c.pick || 0}</b> chờ chọn ảnh</span><span><b>${c.qc || 0}</b> chờ duyệt</span><span><b>${(c.ready || 0) + (c.done || 0)}</b> đủ clip</span></div>
             <div class="av-prog" aria-hidden="true"><i style="width:${pct}%"></i></div>
             <div class="foot"><span class="av-hint">${pct}% SKU đủ clip</span><a class="av-outline" href="#/p/${encodeURIComponent(p.name)}">Mở dự án →</a></div></article>`; }).join("")}
-        <button class="av-card new" id="av-new">+ Tạo dự án mới</button>
+        ${S.showArch ? (list.length ? "" : '<div class="av-empty">Chưa có dự án lưu trữ.</div>') : '<button class="av-card new" id="av-new">+ Tạo dự án mới</button>'}
       </div>`;
     ping();
   }
@@ -305,6 +310,8 @@ tr.on td{background:var(--navy-wash)}
       <label class="av-f">Độ dài audio mặc định (giây)<input type="number" id="np-audio" min="10" max="600" value="${p.audio_seconds || 72}"></label>
       <label class="av-f">Số bản trộn / SKU<input type="number" id="np-var" min="1" max="20" value="${p.mix_variants || 5}"></label></div>
       <div class="av-hint">Khung neo lấy từ master khớp khung hình cầm SP hơn (test 01/10). Clip nói dùng chung cho mọi SKU của host này.</div>
+      ${p.name ? `<div class="av-danger"><div class="av-hint"><b>Lưu trữ</b>: ẩn khỏi danh sách, tắt chạy đêm, dữ liệu giữ nguyên (bỏ lưu trữ được). <b>Xoá</b>: xoá dự án, SKU và lịch sử xuất trên ERP; video/clip đã tạo trên laptop vẫn giữ.</div>
+        <div class="av-row"><button class="av-btn sm" id="np-arch" data-name="${esc(p.name)}" data-on="${p.status === "Lưu trữ" ? 0 : 1}">${p.status === "Lưu trữ" ? "Bỏ lưu trữ" : "Lưu trữ dự án"}</button><button class="av-btn sm ghost danger" id="np-del" data-name="${esc(p.name)}" data-title="${esc(p.title || "")}">Xoá dự án</button></div></div>` : ""}
       <div class="av-row" style="justify-content:flex-end"><button class="av-btn" data-close>Huỷ</button><button class="av-btn pri" id="np-save" data-name="${esc(p.name || "")}">${p.name ? "Lưu" : "Tạo dự án"}</button></div>`);
     S.newHost = null;
   }
@@ -394,7 +401,7 @@ tr.on td{background:var(--navy-wash)}
   function catSel(v, attrs) { return `<select ${attrs}>${CATS.map(([k, l]) => `<option value="${k}" ${k === (v || "") ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`; }
   function stepInput() {
     const rows = S.items.map((i) => `<tr><td><input type="checkbox" data-sel="${esc(i.name)}" ${S.sel.has(i.name) ? "checked" : ""} ${(i.stage === "new" || i.stage_state === "error") ? "" : "disabled"}></td>
-      <td>${esc(i.batch || "")}</td><td><b>${esc(i.sku)}</b><div class="av-hint">${esc(i.product_name || "")}</div></td>
+      <td><b>${esc(i.sku)}</b><div class="av-hint">${esc(i.product_name || "")}</div></td>
       <td>${i.product_image ? `<img class="av-thumb" src="${esc(i.product_image)}" alt="" data-media="${esc(i.product_image)}">` : "—"}
         <div class="av-sides">${(i.extra_images || []).map((u) => `<img src="${esc(u)}" alt="Ảnh phụ" data-media="${esc(u)}">`).join("")}
         ${(i.stage === "new" || i.stage_state === "error") ? `${(i.extra_images || []).length < 4 ? `<span class="av-up"><label class="av-hint">+ ảnh phụ<input type="file" accept="image/*" multiple data-ifile-extra="${esc(i.name)}"></label></span>` : ""}${(i.extra_images || []).length ? `<button class="av-btn sm ghost danger" data-clear-extra="${esc(i.name)}" title="Xoá ảnh phụ">×</button>` : ""}` : ""}</div></td>
@@ -403,7 +410,7 @@ tr.on td{background:var(--navy-wash)}
       <td>${frameCell(i)}</td>
       <td class="av-hint">${durTxt(i)}</td>
       <td>${costCell(i)}</td><td>${pill(i)}${i.force_gate ? '<div class="av-hint">Nhóm đang thử: tự dừng chờ duyệt</div>' : ""}</td><td>${(i.stage === "new" || i.stage_state === "error") ? `<button class="av-btn sm ghost danger" data-del="${esc(i.name)}">Xoá</button>` : ""}</td></tr>`).join("");
-    const drafts = S.drafts.map((d, k) => `<tr data-draft="${k}"><td></td><td><input type="text" data-dk="batch" value="${esc(d.batch)}" style="width:80px"></td>
+    const drafts = S.drafts.map((d, k) => `<tr data-draft="${k}"><td></td>
       <td><input type="text" data-dk="sku" value="${esc(d.sku)}" placeholder="SKU *" style="width:120px"><input type="text" data-dk="product_name" value="${esc(d.product_name)}" placeholder="Tên SP" style="margin-top:4px"></td>
       <td><div class="av-up">${d.product_image ? `<img class="av-thumb" src="${esc(d.product_image)}" alt="">` : ""}<label>${d.product_image ? "Đổi" : "Ảnh chính diện *"}<input type="file" accept="image/*" data-dfile="product_image"></label></div>
         <div class="av-up" style="margin-top:4px"><label class="av-hint">Ảnh phụ các mặt (≤4)<input type="file" accept="image/*" multiple data-dfile-multi="extra_images"></label></div>
@@ -416,25 +423,25 @@ tr.on td{background:var(--navy-wash)}
       <td></td><td><span class="av-pill p-idle">Nháp</span></td><td><button class="av-btn sm ghost danger" data-ddel="${k}">Bỏ</button></td></tr>`).join("");
     const nNew = S.items.filter((i) => S.sel.has(i.name)).length;
     return `<div class="av-panel" id="av-skus"><div class="av-panel-h"><h2>Danh sách SKU</h2><div class="av-row"><button class="av-btn" id="av-bulk">Nhập hàng loạt</button><button class="av-btn" id="av-add">+ Thêm dòng</button>${S.drafts.length ? `<button class="av-btn pri" id="av-save-drafts">Lưu ${S.drafts.length} dòng</button>` : ""}<button class="av-gold" id="av-start" ${nNew ? "" : "disabled"}>Tạo ảnh cầm cho ${nNew} SKU</button></div></div>
-      <div class="av-panel-b" style="padding:0"><div class="av-tw"><table><thead><tr><th><input type="checkbox" id="av-selall" aria-label="Chọn tất cả"></th><th>Lô</th><th>SKU</th><th>Ảnh</th><th>Loại / kiểu cầm</th><th>Kích thước (R×C×S) · nặng</th><th>Khung SP</th><th>Audio</th><th>Chi phí</th><th>Trạng thái</th><th></th></tr></thead>
-      <tbody>${rows}${drafts}${!rows && !drafts ? `<tr><td colspan="11" class="av-empty">Chưa có SKU. Bấm "Nhập hàng loạt" (dán từ Excel + kéo thả ảnh, audio) hoặc "+ Thêm dòng".</td></tr>` : ""}</tbody></table></div></div></div>
+      <div class="av-panel-b" style="padding:0"><div class="av-tw"><table><thead><tr><th><input type="checkbox" id="av-selall" aria-label="Chọn tất cả"></th><th>SKU</th><th>Ảnh</th><th>Loại / kiểu cầm</th><th>Kích thước (R×C×S) · nặng</th><th>Khung SP</th><th>Audio</th><th>Chi phí</th><th>Trạng thái</th><th></th></tr></thead>
+      <tbody>${rows}${drafts}${!rows && !drafts ? `<tr><td colspan="10" class="av-empty">Chưa có SKU. Bấm "Nhập hàng loạt" (dán từ Excel + kéo thả ảnh, audio) hoặc "+ Thêm dòng".</td></tr>` : ""}</tbody></table></div></div></div>
       <div class="av-callout"><div>Kéo thả ảnh / audio thẳng vào một dòng nháp, hoặc thả nhiều file vào bảng để nhập hàng loạt (đặt tên file theo SKU). Mỗi SKU tạo <b>2 ảnh cầm</b> để chọn. <b>Khối lượng</b> (gram) giúp AI cầm đúng độ nặng. Kích thước thật (cm) giúp SP đúng cỡ; không có số đo thì dùng ±%. Ảnh phụ các mặt (cạnh, sau, nắp…) tối đa 4 ảnh và ảnh cầm thật được gửi kèm ảnh chính diện để AI giữ đúng hình khối, độ dày, nhãn mặt bên. Nhóm kiểu cầm để trống thì tự nhận theo mô tả. <b>Khung SP</b>: kéo khung lên ảnh host đúng chỗ, đúng cỡ muốn SP xuất hiện; AI nhận ảnh host đã dán sẵn SP thật vào khung nên giữ cỡ tốt hơn chỉ nhập cm.</div></div>`;
   }
   /* co audio: video = 2s dau + audio + 2s cuoi (may chay video tu do audio); khong audio: so giay nhap / mac dinh du an */
   function durTxt(i) { if (!i.audio_file) return (i.audio_seconds || S.p.audio_seconds || 72) + "s"; return (i.audio_seconds ? "~" + Math.round(+i.audio_seconds + 4) + "s · " : "") + '<span title="2s đầu chưa nói + audio + 2s cuối">audio +2s đầu/cuối</span>'; }
   function gram(g) { g = +g; return g >= 1000 ? (g / 1000).toFixed(1).replace(/\.0$/, "") + " kg" : Math.round(g) + " g"; }
-  function blankDraft(batch) { const last = S.drafts[S.drafts.length - 1] || S.items[S.items.length - 1] || {}; return { batch: batch || last.batch || "lo1", sku: "", product_name: "", product_type: "", product_category: "", width_cm: "", height_cm: "", depth_cm: "", size_pct: "", weight_g: "", audio_seconds: "" }; }
+  function blankDraft(batch) { return { batch: batch || "lo1", sku: "", product_name: "", product_type: "", product_category: "", width_cm: "", height_cm: "", depth_cm: "", size_pct: "", weight_g: "", audio_seconds: "" }; }
 
   /* nhap hang loat: dan bang tu Excel + keo tha anh/audio dat ten theo SKU */
-  const BULK_COLS = ["batch", "sku", "product_name", "product_type", "width_cm", "height_cm", "depth_cm", "weight_g", "audio_seconds", "notes"];
+  const BULK_COLS = ["sku", "product_name", "product_type", "width_cm", "height_cm", "depth_cm", "weight_g", "audio_seconds", "notes"];
   const norm = (x) => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/gi, "d").toLowerCase().trim();
   const numv = (x) => { const n = parseFloat(String(x || "").replace(",", ".")); return isFinite(n) && n > 0 ? String(n) : ""; };
   const isAudio = (f) => /^audio\//.test(f.type || "") || /\.(mp3|wav|m4a|aac|ogg)$/i.test(f.name);
   function bulkModal() {
     S.bulk = S.bulk || { text: "", up: [] };
     modal(`<div class="av-bulk"><h3 style="margin:0 0 6px">Nhập hàng loạt</h3>
-      <p class="av-hint" style="margin:0 0 6px"><b>1.</b> Dán bảng từ Excel, mỗi dòng 1 SKU, cột theo thứ tự: <b>Lô · SKU · Tên SP · Loại SP · Rộng · Cao · Sâu (cm) · Nặng (g) · Audio (giây) · Ghi chú</b>. Dòng tiêu đề tự bỏ qua. <button class="av-btn sm ghost" id="bk-tpl">Tải file mẫu</button></p>
-      <textarea id="bk-text" aria-label="Bảng SKU dán từ Excel" placeholder="lo1&#9;PIN40&#9;Pin đũa AA con thỏ&#9;hộp pin 40 viên&#9;15&#9;6&#9;6&#9;900&#9;72">${esc(S.bulk.text)}</textarea>
+      <p class="av-hint" style="margin:0 0 6px"><b>1.</b> Dán bảng từ Excel, mỗi dòng 1 SKU, cột theo thứ tự: <b>SKU · Tên SP · Loại SP · Rộng · Cao · Sâu (cm) · Nặng (g) · Audio (giây) · Ghi chú</b>. Dòng tiêu đề tự bỏ qua. <button class="av-btn sm ghost" id="bk-tpl">Tải file mẫu</button></p>
+      <textarea id="bk-text" aria-label="Bảng SKU dán từ Excel" placeholder="PIN40&#9;Pin đũa AA con thỏ&#9;hộp pin 40 viên&#9;15&#9;6&#9;6&#9;900&#9;72">${esc(S.bulk.text)}</textarea>
       <p class="av-hint" style="margin:10px 0 6px"><b>2.</b> Kéo thả ảnh + audio của cả lô. Đặt tên file theo SKU: <code>SKU.jpg</code> ảnh chính diện · <code>SKU_1.jpg</code>…<code>SKU_4.jpg</code> ảnh phụ các mặt · <code>SKU.mp3</code> audio (tự đọc số giây). Không dán bảng thì mỗi ảnh chính tạo 1 dòng.</p>
       <label class="av-drop" id="bk-drop">Kéo thả file vào đây hoặc bấm để chọn<input type="file" id="bk-files" multiple accept="image/*,audio/*" hidden></label>
       <div id="bk-prev">${bulkPreview()}</div>
@@ -446,8 +453,10 @@ tr.on td{background:var(--navy-wash)}
     String((S.bulk && S.bulk.text) || "").split(/\r?\n/).forEach((l) => {
       if (!l.trim()) return;
       const v = (l.includes("\t") ? l.split("\t") : l.split(l.includes(";") ? ";" : ",")).map((x) => x.trim());
-      if (v.some((x) => /^sku$/i.test(x)) || !v[1]) return;
-      const r = {}; BULK_COLS.forEach((k, i) => { r[k] = /_cm$|weight_g|audio_seconds/.test(k) ? numv(v[i]) : (v[i] || ""); }); r.batch = r.batch || "lo1"; out.push(r);
+      if (v.some((x) => /^sku$/i.test(x))) return;
+      if (v.length > 9 && /^l[oô]\s*\d*$/i.test(v[0])) v.shift();   /* file mau cu co cot Lo dau dong */
+      if (!v[0]) return;
+      const r = {}; BULK_COLS.forEach((k, i) => { r[k] = /_cm$|weight_g|audio_seconds/.test(k) ? numv(v[i]) : (v[i] || ""); }); r.batch = "lo1"; out.push(r);
     });
     if (!out.length && S.bulk) S.bulk.up.filter((f) => f.kind === "img" && !/[_\- ]\d$/.test(f.name.replace(/\.[^.]+$/, ""))).forEach((f) => {
       const sku = f.name.replace(/\.[^.]+$/, "").trim(); if (!out.some((r) => norm(r.sku) === norm(sku))) out.push({ batch: "lo1", sku, product_name: "", product_type: "", width_cm: "", height_cm: "", depth_cm: "", weight_g: "", audio_seconds: "", notes: "" }); });
@@ -466,11 +475,11 @@ tr.on td{background:var(--navy-wash)}
     if (!S.bulk) return "";
     const rows = bulkRows(), used = new Set();
     const tr = rows.map((r) => { const f = bulkFiles(r.sku); [f.main, f.audio].concat(f.extras).forEach((u) => u && used.add(u));
-      return `<tr><td>${esc(r.batch)}</td><td><b>${esc(r.sku)}</b><div class="av-hint">${esc(r.product_name)}</div></td><td>${f.main ? `<img class="av-thumb" src="${esc(f.main)}" alt="">` : '<span class="av-pill p-bad">Thiếu ảnh chính</span>'}${f.extras.length ? `<div class="av-hint">+${f.extras.length} ảnh phụ</div>` : ""}</td>
+      return `<tr><td><b>${esc(r.sku)}</b><div class="av-hint">${esc(r.product_name)}</div></td><td>${f.main ? `<img class="av-thumb" src="${esc(f.main)}" alt="">` : '<span class="av-pill p-bad">Thiếu ảnh chính</span>'}${f.extras.length ? `<div class="av-hint">+${f.extras.length} ảnh phụ</div>` : ""}</td>
         <td class="av-hint">${[r.width_cm, r.height_cm, r.depth_cm].map((x) => x || "–").join(" × ")} cm${r.weight_g ? " · " + gram(r.weight_g) : ""}</td><td class="av-hint">${f.audio ? "✓ audio" + (f.sec ? " " + f.sec + "s" : "") : (r.audio_seconds ? r.audio_seconds + "s" : "—")}</td></tr>`; }).join("");
     const loose = S.bulk.up.filter((x) => !used.has(x.url)).map((x) => x.name);
     return `<div id="bk-st" class="av-hint" style="margin:8px 0">${S.bulk.uploading ? esc(S.bulk.uploading) + " · " : ""}${rows.length} SKU · ${S.bulk.up.length} file đã tải${loose.length ? ` · <b style="color:var(--bad)">chưa khớp SKU nào: ${esc(loose.slice(0, 8).join(", "))}${loose.length > 8 ? "…" : ""}</b>` : ""}</div>
-      ${rows.length ? `<div class="av-tw" style="max-height:300px;overflow:auto"><table><thead><tr><th>Lô</th><th>SKU</th><th>Ảnh</th><th>Cỡ · nặng</th><th>Audio</th></tr></thead><tbody>${tr}</tbody></table></div>` : ""}`;
+      ${rows.length ? `<div class="av-tw" style="max-height:300px;overflow:auto"><table><thead><tr><th>SKU</th><th>Ảnh</th><th>Cỡ · nặng</th><th>Audio</th></tr></thead><tbody>${tr}</tbody></table></div>` : ""}`;
   }
   function bulkRefresh() { const el = $("bk-prev"); if (el) el.innerHTML = bulkPreview(); }
   function audioSec(f) { return new Promise((res) => { const a = new Audio(), u = URL.createObjectURL(f); let done = false; const fin = (v) => { if (done) return; done = true; URL.revokeObjectURL(u); res(v); };
@@ -648,7 +657,21 @@ tr.on td{background:var(--navy-wash)}
   const frEnd = () => { frDrag = null; }; document.addEventListener("pointerup", frEnd); document.addEventListener("pointercancel", frEnd);
 
   /* step 3: tao video */
+  /* SKU du clip: tick = dung khi tron (bo Ha trai = bo ca Lay trai); ↻ gen lai dung clip do. 08/10/2026 */
+  function unitList(i) {
+    if (i.stage !== "ready" && i.stage !== "done") return unitBtns(i);
+    const u = i.units || {}, off = new Set(i.unit_off || []);
+    return Object.keys(UNIT_LABEL).filter((k) => u[k] && !k.startsWith("pickup_")).map((k) => `<span class="av-talk${off.has(k) ? " off" : ""}"><input type="checkbox" data-unit-use="${esc(i.name)}" data-unit="${k}" ${off.has(k) ? "" : "checked"} aria-label="Dùng ${UNIT_LABEL[k]} khi trộn" title="Tick = dùng khi trộn"><button class="av-unit" data-video="${esc(u[k])}">▶ ${UNIT_LABEL[k]}</button><button class="av-btn sm ghost danger" title="Gen lại riêng clip này" data-regen-unit="${esc(i.name)}" data-unit="${k}">↻</button></span>`).join("");
+  }
   function unitBtns(i) { const u = i.units || {}; return Object.keys(UNIT_LABEL).filter((k) => u[k] && !k.startsWith("pickup_")).map((k) => `<button class="av-unit" data-video="${esc(u[k])}">▶ ${UNIT_LABEL[k]}</button>`).join(""); }
+  function today() { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  /* clip noi: tick = dung khi tron; bo tick = khong dung (clip van giu, tick lai la dung). 08/10/2026 */
+  function talkList(p) {
+    const off = new Set(p.talk_off || []), ts = (p.talks || []).filter((t) => !/_rev$/.test(t.id)), on = ts.filter((t) => !off.has(t.id)).length;
+    const head = `<div><b>Clip nói:</b> ${esc(p.talk_state || "0/" + (p.talk_count || 0))}${ts.length ? ` · <b>dùng ${on}</b>` : ""}${ts.length && !on ? ' <span class="av-pill p-bad">Chưa tick clip nào - trộn kiểu có nói sẽ báo lỗi</span>' : ""}</div>
+      <div class="av-hint">Máy tự tạo ngay khi có khung neo (sau khi duyệt ảnh master SKU đầu tiên), chạy song song với clip SP, dùng chung mọi dự án cùng host. Bỏ tick clip chưa đạt thì lúc trộn không dùng; ↻ để gen lại (~$0.63/clip).</div>`;
+    return head + `<div class="av-units">${ts.map((t) => `<span class="av-talk${off.has(t.id) ? " off" : ""}"><input type="checkbox" data-talk-use="${esc(t.id)}" ${off.has(t.id) ? "" : "checked"} aria-label="Dùng ${esc(t.id.replace("talk_", "Nói "))} khi trộn" title="Tick = dùng khi trộn"><button class="av-unit" data-video="${esc(t.url)}">▶ ${esc(t.id.replace("talk_", "Nói "))}</button><button class="av-btn sm ghost danger" title="Xoá để gen lại" data-regen-talk="${esc(t.id)}">↻</button></span>`).join("") || '<span class="av-hint">Chưa có</span>'}</div>`;
+  }
   function stepVideo() {
     const p = S.p;
     const gates = `<div class="av-row"><label class="av-switch"><input type="checkbox" id="pj-gm" ${p.gate_motion ? "checked" : ""}> Dừng duyệt sau clip lấy/hạ SP</label><label class="av-switch"><input type="checkbox" id="pj-ga" ${p.gate_hold_a ? "checked" : ""}> Dừng duyệt sau clip cầm A</label></div>`;
@@ -656,28 +679,28 @@ tr.on td{background:var(--navy-wash)}
       <div class="av-panel-b av-anchor">${p.anchor ? `<img src="${esc(p.anchor.thumb)}" data-media="${esc(p.anchor.full)}" alt="Khung neo">` : `<div class="av-thumb" style="width:108px;height:192px"></div>`}
       <div style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:8px"><div><b>Khung neo:</b> ${p.anchor ? '<span class="av-pill p-ok">Có</span>' : (p.anchor_state === "running" ? '<span class="av-pill p-run">Đang tạo…</span>' : `<span class="av-pill p-idle">${p.anchor_source === "host" ? "Tạo khi bắt đầu lô" : "Tạo từ master SKU đầu tiên"}</span>`)} ${p.anchor ? `<button class="av-btn sm" id="av-regen-anchor">Tạo lại</button>` : ""}</div>
       ${p.anchor_error ? `<div class="av-callout bad">${esc(p.anchor_error)} <button class="av-btn sm" id="av-regen-anchor2">Tạo lại khung neo</button></div>` : ""}
-      <div><b>Clip nói:</b> ${esc(p.talk_state || "0/" + (p.talk_count || 0))}</div><div class="av-units">${(p.talks || []).filter((t) => !/_rev$/.test(t.id)).map((t) => `<span class="av-row" style="gap:2px"><button class="av-unit" data-video="${esc(t.url)}">▶ ${esc(t.id.replace("talk_", "Nói "))}</button><button class="av-btn sm ghost danger" title="Xoá để gen lại" data-regen-talk="${esc(t.id)}">↻</button></span>`).join("") || '<span class="av-hint">Chưa có</span>'}</div></div></div></div>`;
+      ${talkList(p)}</div></div></div>`;
     const list = S.items.filter((i) => !["new", "holds", "pick"].includes(i.stage));
     const rows = list.map((i) => `<tr><td><b>${esc(i.sku)}</b><div class="av-hint">${esc(i.product_name || "")}</div></td><td>${i.master ? `<img class="av-thumb" src="${esc(i.master)}" alt="" data-media="${esc(i.master)}">` : "—"}</td>
-      <td>${pill(i)}${i.stage_state === "error" ? `<div class="av-hint" style="max-width:260px">${esc(i.error)}</div>` : ""}</td><td><div class="av-units">${unitBtns(i) || '<span class="av-hint">—</span>'}</div></td>
+      <td>${pill(i)}${i.stage_state === "error" ? `<div class="av-hint" style="max-width:260px">${esc(i.error)}</div>` : ""}</td><td><div class="av-units">${unitList(i) || '<span class="av-hint">—</span>'}</div></td>
       <td><div class="av-row">${i.stage === "qc_motion" || i.stage === "qc_hold_a" ? `<button class="av-btn sm pri" data-approve="${esc(i.name)}">Duyệt, làm tiếp</button><button class="av-btn sm" data-regen-clip="${esc(i.name)}">Gen lại</button>` : ""}
-        ${i.stage === "ready" ? `<button class="av-btn sm" data-regen-clip="${esc(i.name)}" title="Gen lại clip cầm B">Gen lại B</button>` : ""}${i.stage_state === "error" ? `<button class="av-btn sm" data-retry="${esc(i.name)}">Thử lại</button>` : ""}</div></td></tr>`).join("");
+${i.stage_state === "error" ? `<button class="av-btn sm" data-retry="${esc(i.name)}">Thử lại</button>` : ""}</div></td></tr>`).join("");
     return `<div class="av-panel av-panel-b">${gates}<div class="av-hint" style="margin-top:6px">Tắt cả hai (hoặc bật Chạy đêm) thì máy tự làm hết: lấy/hạ SP → cầm A → cầm B. Lấy/hạ 2 hướng; SP cầm 1 tay chỉ 1 hướng (bên tay cầm).</div></div>${anchor}
-      <div class="av-panel"><div class="av-panel-h"><h2>Clip theo SKU</h2><span class="av-hint">Lấy SP = video hạ SP chạy ngược, nên chỉ cần duyệt clip hạ.</span></div><div class="av-tw"><table><thead><tr><th>SKU</th><th>Master</th><th>Trạng thái</th><th>Clip</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="5" class="av-empty">Chưa có SKU nào qua bước chọn ảnh.</td></tr>'}</tbody></table></div></div>`;
+      <div class="av-panel"><div class="av-panel-h"><h2>Clip theo SKU</h2><span class="av-hint">Lấy SP = video hạ SP chạy ngược, nên chỉ cần duyệt clip hạ. Đủ clip: bỏ tick clip chưa đạt thì lúc trộn không dùng; ↻ gen lại riêng clip đó.</span></div><div class="av-tw"><table><thead><tr><th>SKU</th><th>Master</th><th>Trạng thái</th><th>Clip</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="5" class="av-empty">Chưa có SKU nào qua bước chọn ảnh.</td></tr>'}</tbody></table></div></div>`;
   }
   /* step 4: tron & xuat */
   function stepMix() {
     const p = S.p; const ready = S.items.filter((i) => i.stage === "ready" || i.stage === "done");
     const mode = S.mixMode || p.mix_mode || "mix";
     return `<div class="av-panel"><div class="av-panel-h"><h2>Trộn video</h2><div class="av-seg" id="av-mixmode">${[["mix", "Nói + cầm SP"], ["hold", "Chỉ cầm SP"], ["talk", "Chỉ nói"]].map(([k, l]) => `<button data-m="${k}" class="${mode === k ? "on" : ""}">${l}</button>`).join("")}</div></div>
-      <div class="av-panel-b"><div class="av-grid2"><label class="av-f">Số bản khác nhau / SKU<input type="number" id="mx-n" min="1" max="20" value="${p.mix_variants || 5}"></label><label class="av-f">Độ dài (giây, để trống = theo audio từng SKU: 2s đầu + audio + 2s cuối)<input type="number" id="mx-d" min="10" max="600" placeholder="${p.audio_seconds || 72}"></label><label class="av-f">Tên lô xuất (thư mục)<input type="text" id="mx-b" value="${esc(S.mixBatch || (ready[0] && ready[0].batch) || "lo1")}"></label></div>
+      <div class="av-panel-b"><div class="av-grid2"><label class="av-f">Số bản khác nhau / SKU<input type="number" id="mx-n" min="1" max="20" value="${p.mix_variants || 5}"></label><label class="av-f">Độ dài (giây, để trống = theo audio từng SKU: 2s đầu + audio + 2s cuối)<input type="number" id="mx-d" min="10" max="600" placeholder="${p.audio_seconds || 72}"></label><label class="av-f">Tên thư mục xuất (để gom video từng đợt)<input type="text" id="mx-b" value="${esc(S.mixBatch || today())}"></label></div>
       <div class="av-hint" style="margin:8px 0">Luật: mỗi bản một thứ tự khác · không lặp 1 clip 2 lần liền · đoạn cầm SP luôn là Lấy lên → Cầm → Hạ xuống (đổi hướng) · clip cuối cắt vừa độ dài. Có file audio thì ghép luôn tiếng.</div>
-      <div class="av-tw"><table><thead><tr><th><input type="checkbox" id="mx-all" aria-label="Chọn tất cả"></th><th>SKU</th><th>Lô</th><th>Độ dài</th><th>Chi phí</th><th>Trạng thái</th></tr></thead><tbody>
-      ${ready.map((i) => `<tr><td><input type="checkbox" data-mx="${esc(i.name)}" ${S.mixSel.has(i.name) ? "checked" : ""}></td><td><b>${esc(i.sku)}</b></td><td>${esc(i.batch || "")}</td><td>${durTxt(i)}</td><td>${costCell(i)}</td><td>${pill(i)}</td></tr>`).join("") || '<tr><td colspan="6" class="av-empty">Chưa SKU nào đủ clip.</td></tr>'}</tbody></table></div>
+      <div class="av-tw"><table><thead><tr><th><input type="checkbox" id="mx-all" aria-label="Chọn tất cả"></th><th>SKU</th><th>Độ dài</th><th>Chi phí</th><th>Trạng thái</th></tr></thead><tbody>
+      ${ready.map((i) => `<tr><td><input type="checkbox" data-mx="${esc(i.name)}" ${S.mixSel.has(i.name) ? "checked" : ""}></td><td><b>${esc(i.sku)}</b></td><td>${durTxt(i)}</td><td>${costCell(i)}</td><td>${pill(i)}</td></tr>`).join("") || '<tr><td colspan="5" class="av-empty">Chưa SKU nào đủ clip.</td></tr>'}</tbody></table></div>
       <div class="av-row" style="margin-top:12px;justify-content:flex-end"><button class="av-gold" id="av-mix" ${S.mixSel.size || mode === "talk" ? "" : "disabled"}>Trộn & xuất</button></div></div></div>
-      <div class="av-panel"><div class="av-panel-h"><h2>Kết quả</h2><span class="av-hint">Video nằm sẵn trên laptop: C:\\n8n-files\\ecv6\\output\\&lt;brand&gt;\\&lt;lô&gt;\\ — ZIP ở ecv6\\exports.</span></div><div class="av-tw"><table><thead><tr><th>Lúc</th><th>Lô</th><th>Kiểu</th><th>Bản</th><th>Trạng thái</th><th>Tải</th></tr></thead><tbody>
+      <div class="av-panel"><div class="av-panel-h"><h2>Kết quả</h2><span class="av-hint">Video nằm sẵn trên laptop: C:\\n8n-files\\ecv6\\output\\&lt;brand&gt;\\&lt;thư mục&gt;\\&lt;SKU&gt;\\ — mỗi SKU 1 file ZIP ở ecv6\\exports.</span></div><div class="av-tw"><table><thead><tr><th>Lúc</th><th>Thư mục</th><th>Kiểu</th><th>Bản</th><th>Trạng thái</th><th>Tải</th></tr></thead><tbody>
       ${S.exports.map((e) => `<tr><td class="av-hint">${esc(String(e.creation).slice(5, 16))}</td><td>${esc(e.batch)}</td><td>${esc(e.mode)}</td><td>${e.variants}/SKU · ${e.duration}s</td><td>${e.status === "running" ? '<span class="av-pill p-run">Đang trộn…</span>' : /^done/.test(e.status) ? `<span class="av-pill p-ok">${esc(e.status)}</span>` : `<span class="av-pill p-bad">${esc(e.status)}</span>`}</td>
-        <td><div class="av-units">${e.zip_url ? `<a class="av-btn sm pri" href="${esc(e.zip_url)}">ZIP cả lô</a>` : ""}${(e.files || []).slice(0, 12).map((f) => `<button class="av-unit" data-video="${esc(f.url)}">▶ ${esc(f.name.replace(/\.mp4$/, ""))}</button>`).join("")}${(e.files || []).length > 12 ? `<span class="av-hint">+${e.files.length - 12}</span>` : ""}</div></td></tr>`).join("") || '<tr><td colspan="6" class="av-empty">Chưa xuất lần nào.</td></tr>'}</tbody></table></div></div>`;
+        <td><div class="av-units">${(e.zips || []).map((z) => `<a class="av-btn sm pri" href="${esc(z.url)}">ZIP ${esc(z.sku)}</a>`).join("")}${e.zip_url ? `<a class="av-btn sm" href="${esc(e.zip_url)}">ZIP</a>` : ""}${(e.files || []).slice(0, 12).map((f) => `<button class="av-unit" data-video="${esc(f.url)}">▶ ${esc(f.name.replace(/\.mp4$/, ""))}</button>`).join("")}${(e.files || []).length > 12 ? `<span class="av-hint">+${e.files.length - 12}</span>` : ""}</div></td></tr>`).join("") || '<tr><td colspan="6" class="av-empty">Chưa xuất lần nào.</td></tr>'}</tbody></table></div></div>`;
   }
   /* step 5: prompt */
   const PROMPT_KEYS = [["anchor_image", "Ảnh khung neo (2 tay trên bàn)"], ["talk", "Clip nói (MC, không SP)"], ["putdown", "Clip hạ SP (DIR_TEXT = hướng, DURATION = số giây)"], ["hold_suffix", "Đuôi thêm vào clip cầm (khoá vòng lặp)"], ["hold_two_hand", "Clip cầm - SP cầm 2 tay (sữa vỉ, lon, hộp to)"], ["hold_generic", "Clip cầm - mẫu chung (khi SKU không có prompt riêng)"]];
@@ -745,7 +768,7 @@ tr.on td{background:var(--navy-wash)}
     const P = S.p && S.p.name;
     if (t.id === "av-add") { S.drafts.push(blankDraft()); return renderProject(); }
     if (t.id === "av-bulk") return bulkModal();
-    if (t.id === "bk-tpl") { const csv = "\ufeffLô,SKU,Tên SP,Loại SP,Rộng (cm),Cao (cm),Sâu (cm),Nặng (g),Audio (giây),Ghi chú\nlo1,PIN40,Pin đũa AA con thỏ,hộp pin 40 viên,15,6,6,900,72,\n"; const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = "mau_nhap_lo_ai_video.csv"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); return; }
+    if (t.id === "bk-tpl") { const csv = "\ufeffSKU,Tên SP,Loại SP,Rộng (cm),Cao (cm),Sâu (cm),Nặng (g),Audio (giây),Ghi chú\nPIN40,Pin đũa AA con thỏ,hộp pin 40 viên,15,6,6,900,72,\n"; const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = "mau_nhap_lo_ai_video.csv"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); return; }
     if (t.id === "bk-ok") { const rows = bulkRows(); if (!rows.length) return toast("Chưa có dòng nào - dán bảng hoặc thả ảnh đặt tên theo SKU", true); if (S.bulk.uploading) return toast("Đợi tải xong file…", true);
       rows.forEach((r) => { const f = bulkFiles(r.sku); S.drafts.push(Object.assign(blankDraft(r.batch), r, { product_image: f.main || "", extra_images: f.extras, audio_file: f.audio || "", audio_seconds: f.sec ? String(f.sec) : r.audio_seconds })); });
       S.bulk = null; closeModal(); toast("Đã đưa " + rows.length + " dòng vào bảng - kiểm tra rồi bấm Lưu"); return renderProject(); }
@@ -764,11 +787,15 @@ tr.on td{background:var(--navy-wash)}
       if (await act("regen_holds", { name: n, data: JSON.stringify(d) }, "Đang gen lại 2 ảnh")) loadProject(P); return; }
     if (t.dataset.retry) { if (await act("retry", { name: t.dataset.retry }, "Đã cho chạy lại")) loadProject(P); return; }
     if (t.dataset.approve) { if (await act("approve", { name: t.dataset.approve }, "Đã duyệt - làm bước tiếp")) loadProject(P); return; }
+    if (t.dataset.regenUnit) { if (!confirm("Gen lại riêng clip " + (UNIT_LABEL[t.dataset.unit] || t.dataset.unit) + "? (tốn credit Kie, clip cũ bị thay)")) return; if (await act("regen_clip", { name: t.dataset.regenUnit, unit: t.dataset.unit }, "Đang gen lại clip")) loadProject(P, true); return; }
+    if (t.id === "av-arch") { S.showArch = !S.showArch; S.brand = ""; return renderHub(true); }
+    if (t.id === "np-arch") { const on = +t.dataset.on; if (!(await act("archive_project", { name: t.dataset.name, on }, on ? "Đã lưu trữ dự án" : "Đã bỏ lưu trữ"))) return; S.fr = null; closeModal(); if (on) location.hash = "#/"; else loadProject(t.dataset.name); return; }
+    if (t.id === "np-del") { if (!confirm("Xoá hẳn dự án \"" + t.dataset.title + "\" khỏi ERP? Không hoàn tác được. Video đã tạo trên laptop vẫn giữ.")) return; if (!(await act("delete_project", { name: t.dataset.name }, "Đã xoá dự án"))) return; S.fr = null; S.showArch = false; closeModal(); location.hash = "#/"; return; }
     if (t.dataset.regenClip) { if (!confirm("Xoá clip hiện tại và gen lại?")) return; if (await act("regen_clip", { name: t.dataset.regenClip }, "Đang gen lại")) loadProject(P); return; }
     if (t.id === "av-regen-anchor" || t.id === "av-regen-anchor2") { if (!confirm("Tạo lại khung neo? Clip đã làm từ khung neo cũ nên gen lại để khớp.")) return; if (await act("regen_anchor", { project: P }, "Đang tạo lại khung neo")) loadProject(P, true); return; }
     if (t.dataset.regenTalk) { if (!confirm("Xoá clip nói này để gen lại?")) return; if (await act("regen_talk", { project: P, ids: JSON.stringify([t.dataset.regenTalk]) }, "Sẽ gen lại ở lần đồng bộ tới")) loadProject(P, true); return; }
     if (t.dataset.m) { S.mixMode = t.dataset.m; return renderProject(); }
-    if (t.id === "av-mix") { const d = { mode: S.mixMode || S.p.mix_mode || "mix", variants: +$("mx-n").value || 5, duration: +$("mx-d").value || null, batch: $("mx-b").value.trim() || "lo1", items: [...S.mixSel] };
+    if (t.id === "av-mix") { const d = { mode: S.mixMode || S.p.mix_mode || "mix", variants: +$("mx-n").value || 5, duration: +$("mx-d").value || null, batch: $("mx-b").value.trim() || today(), items: [...S.mixSel] };
       S.mixBatch = d.batch; const r = await act("mix", { project: P, data: JSON.stringify(d) }, "Đang trộn - xem bảng Kết quả"); if (r) { S.mixSel.clear(); loadProject(P); } return; }
     if (t.dataset.frame) return openFrame(t.dataset.frame, t.dataset.frmode || "edit");
     if (t.dataset.frn) return frAction(t.dataset.frn);
@@ -788,6 +815,14 @@ tr.on td{background:var(--navy-wash)}
     const t = e.target; if (!t.closest || !root().contains(t)) return;
     if (t.dataset.sel) { t.checked ? S.sel.add(t.dataset.sel) : S.sel.delete(t.dataset.sel); const b = $("av-start"); const n = S.items.filter((i) => S.sel.has(i.name)).length; b.textContent = "Tạo ảnh cầm cho " + n + " SKU"; b.disabled = !n; return; }
     if (t.id === "av-selall") { S.items.forEach((i) => { if (i.stage === "new" || i.stage_state === "error") t.checked ? S.sel.add(i.name) : S.sel.delete(i.name); }); return renderProject(); }
+    if (t.dataset.unitUse) { const it = S.items.find((x) => x.name === t.dataset.unitUse); if (!it) return; const off = new Set(it.unit_off || []); t.checked ? off.delete(t.dataset.unit) : off.add(t.dataset.unit); const prev = it.unit_off;
+      it.unit_off = [...off]; renderProject();
+      const r = await act("set_units", { name: it.name, off: JSON.stringify([...off]) }, t.checked ? "Sẽ dùng clip này khi trộn" : "Đã bỏ clip này khi trộn");
+      it.unit_off = r ? r.unit_off : prev; renderProject(); return; }
+    if (t.dataset.talkUse) { const off = new Set(S.p.talk_off || []); t.checked ? off.delete(t.dataset.talkUse) : off.add(t.dataset.talkUse); const prev = S.p.talk_off;
+      S.p.talk_off = [...off]; renderProject();
+      const r = await act("set_talks", { project: S.p.name, off: JSON.stringify([...off]) }, t.checked ? "Sẽ dùng clip này khi trộn" : "Đã bỏ clip này khi trộn");
+      if (r) S.p.talk_off = r.talk_off; else S.p.talk_off = prev; renderProject(); return; }
     if (t.dataset.mx) { t.checked ? S.mixSel.add(t.dataset.mx) : S.mixSel.delete(t.dataset.mx); $("av-mix").disabled = !S.mixSel.size && (S.mixMode || S.p.mix_mode) !== "talk"; return; }
     if (t.id === "mx-all") { S.items.forEach((i) => { if (i.stage === "ready" || i.stage === "done") t.checked ? S.mixSel.add(i.name) : S.mixSel.delete(i.name); }); return renderProject(); }
     if (t.dataset.dk) { const k = +t.closest("[data-draft]").dataset.draft; S.drafts[k][t.dataset.dk] = t.value; return; }
