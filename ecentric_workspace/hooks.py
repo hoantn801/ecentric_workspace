@@ -926,3 +926,10 @@ _ec_chat_add_doc_event("Raven Message", "before_insert",
                        "ecentric_workspace.chat.phieu_gateway.on_raven_message_before_insert")
 _ec_chat_add_doc_event("EC Notification Delivery Log", "after_insert",
                        "ecentric_workspace.chat.phieu_gateway.on_delivery_log_after_insert")
+
+# 08/10/2026 (Hoan): nhip gui tin day ra ngoai app (Teams, web push) - notification_center/nhip_gui.
+# Tin 21:00-09:00 giu lai (status Held) toi 9:00 ngay lam viec ke tiep cua nguoi nhan; nhieu tin
+# cho cung mot nguoi trong 3 phut gom thanh MOT tin. Job nay moi phut xa cac dong Held da den gio.
+# Tat: site_config ec_notify_pacing = {"tat": 1}.
+scheduler_events["cron"].setdefault("*/1 * * * *", []).append(
+    "ecentric_workspace.notification_center.nhip_gui.xa_tin_giu")

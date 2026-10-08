@@ -16,6 +16,7 @@ scheduler no longer reads them.
 import re
 
 import frappe
+from ecentric_workspace.notification_center.nhip_gui import gop_tin_job  # gop tin Teams (08/10)
 
 from ecentric_workspace.weekly_report import service
 from ecentric_workspace.weekly_report import week_calendar
@@ -133,6 +134,7 @@ def generate_weekly_obligations(run_date=None, employee_names=None):
     return stats
 
 
+@gop_tin_job
 def wr_due_overdue_scan(run_date=None):
     """Daily: for every non-terminal Weekly Team Update obligation, notify the submitter
     when it is due soon (<=24h) or overdue. Routes through the ONE central publish service

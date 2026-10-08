@@ -105,7 +105,7 @@
    "fieldname": "status",
    "fieldtype": "Select",
    "label": "Status",
-   "options": "Pending\nSent\nFailed\nSkipped\nSuppressed\nDuplicate",
+   "options": "Pending\nSent\nFailed\nSkipped\nSuppressed\nDuplicate\nHeld\nMerged",
    "default": "Pending",
    "in_standard_filter": 1,
    "search_index": 1
