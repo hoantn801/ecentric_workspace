@@ -354,7 +354,7 @@ tr.on td{background:var(--navy-wash)}
     if (S.shown === name && typing()) S.renderLater = true; else renderProject();
     return true;
   }
-  function typing() { const a = document.activeElement; return !!(a && root().contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && !/^(checkbox|file|radio)$/.test(a.type) && !a.closest("#av-modal")); }
+  function typing() { if (S.picking && Date.now() - S.picking < 60000) return true; const a = document.activeElement; return !!(a && root().contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && !/^(checkbox|file|radio)$/.test(a.type) && !a.closest("#av-modal")); }
   function syncMark() { const el = $("av-sync"); if (el) el.hidden = !S.syncing; }
   function counts() { const c = { total: 0, pick: 0, qc: 0, running: 0, ready: 0, done: 0, error: 0 };
     S.items.forEach((i) => { c.total++; if (i.stage_state === "error") c.error++; else if (i.stage === "pick") c.pick++; else if (i.stage === "qc_motion" || i.stage === "qc_hold_a") c.qc++; else if (i.stage === "ready") c.ready++; else if (i.stage === "done") c.done++; else if (i.stage_state === "running" || i.stage === "wait_anchor") c.running++; }); return c; }
@@ -774,7 +774,9 @@ ${i.stage_state === "error" ? `<button class="av-btn sm" data-retry="${esc(i.nam
       S.bulk = null; closeModal(); toast("Đã đưa " + rows.length + " dòng vào bảng - kiểm tra rồi bấm Lưu"); return renderProject(); }
     if (t.id === "av-cost") return costModal();
     if (t.dataset.ddel != null) { S.drafts.splice(+t.dataset.ddel, 1); return renderProject(); }
-    if (t.id === "av-save-drafts") {
+    if (t.id === "av-save-drafts") { const key = (x) => String(x || "").trim().toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_|_$/g, ""); const have = new Set(S.items.map((i) => key(i.sku))), dup = [];
+      S.drafts.forEach((d) => { const k = key(d.sku); if (!k) return; if (have.has(k)) dup.push(d.sku.trim()); have.add(k); });
+      if (dup.length) return toast("SKU bị trùng: " + [...new Set(dup)].join(", ") + " - sửa mã rồi lưu lại", true);
       const bad = S.drafts.find((d) => !d.sku || !d.product_image); if (bad) return toast("Mỗi dòng cần SKU và ảnh chính diện", true);
       const rows = S.drafts.map((d) => { const o = {}; Object.keys(d).forEach((k) => { if (d[k] !== "" && !(Array.isArray(d[k]) && !d[k].length)) o[k] = /_cm$|size_pct|weight_g|audio_seconds/.test(k) ? +d[k] : d[k]; }); return o; });
       const r = await act("add_items", { project: P, rows: JSON.stringify(rows) }, "Đã lưu " + rows.length + " SKU"); if (r) { (r.items || []).forEach((n) => S.sel.add(n)); S.drafts = []; loadProject(P); } return;
@@ -813,6 +815,7 @@ ${i.stage_state === "error" ? `<button class="av-btn sm" data-retry="${esc(i.nam
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("av-modal").hidden) closeModal(); });
   document.addEventListener("change", async (e) => {
     const t = e.target; if (!t.closest || !root().contains(t)) return;
+    if (t.type === "file") S.picking = 0;
     if (t.dataset.sel) { t.checked ? S.sel.add(t.dataset.sel) : S.sel.delete(t.dataset.sel); const b = $("av-start"); const n = S.items.filter((i) => S.sel.has(i.name)).length; b.textContent = "Tạo ảnh cầm cho " + n + " SKU"; b.disabled = !n; return; }
     if (t.id === "av-selall") { S.items.forEach((i) => { if (i.stage === "new" || i.stage_state === "error") t.checked ? S.sel.add(i.name) : S.sel.delete(i.name); }); return renderProject(); }
     if (t.dataset.unitUse) { const it = S.items.find((x) => x.name === t.dataset.unitUse); if (!it) return; const off = new Set(it.unit_off || []); t.checked ? off.delete(t.dataset.unit) : off.add(t.dataset.unit); const prev = it.unit_off;
@@ -838,6 +841,9 @@ ${i.stage_state === "error" ? `<button class="av-btn sm" data-retry="${esc(i.nam
       t.disabled = false; if (!r) { t.checked = !v; return; } S.p[f] = v ? 1 : 0; return; }
     if (t.id === "bk-files" && t.files && t.files.length) { bulkAdd([...t.files]); t.value = ""; return; }
   });
+  /* 08/10: bam chon anh/mp3 -> giu nguyen trang toi khi hop chon file dong (truoc: trang ve lai giua chung, file chon bi mat, phai bam lan 2) */
+  document.addEventListener("click", (e) => { const l = e.target.closest && e.target.closest("label, input[type=file]"); if (l && root().contains(l) && (l.type === "file" || l.querySelector("input[type=file]"))) S.picking = Date.now(); }, true);
+  window.addEventListener("focus", () => setTimeout(() => { if (!S.picking) return; S.picking = 0; if (S.renderLater && !typing() && !S.busy && S.p && route().project === S.p.name) renderProject(); }, 400));
   document.addEventListener("focusout", () => setTimeout(() => { if (S.renderLater && !typing() && !S.busy && S.p && route().project === S.p.name) renderProject(); }, 250));  /* 250ms: de cu bam nut (vd Luu) xong da roi moi ve lai */
   document.addEventListener("input", (e) => { const t = e.target; if (t.id === "fr-range" && S.fr) { frResize(+t.value / 100); return; }
     if (t.id === "bk-text" && S.bulk) { S.bulk.text = t.value; clearTimeout(S.bkT); S.bkT = setTimeout(bulkRefresh, 250); return; } if (t.dataset && t.dataset.dk && t.closest("[data-draft]")) S.drafts[+t.closest("[data-draft]").dataset.draft][t.dataset.dk] = t.value; });

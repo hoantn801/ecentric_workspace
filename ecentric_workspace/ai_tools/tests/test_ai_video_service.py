@@ -535,6 +535,17 @@ class TestKhungVaNhom(unittest.TestCase):
         self.assertEqual([r for r in self.store.rows["EC AI Video Item"].values() if r.get("project") == p], [])
         self.assertEqual([r for r in self.store.rows["EC AI Video Export"].values() if r.get("project") == p], [])
 
+    def test_chan_sku_trung(self):
+        s = self.svc
+        p = s.create_project(json.dumps({"brand": "B", "title": "T", "host_image": "/h.png"}))["name"]
+        s.add_items(p, json.dumps([{"sku": "PHN_001", "product_image": "/a.png"}]))
+        for rows in ([{"sku": "PHN_003", "product_image": "/a.png"}, {"sku": "phn-003", "product_image": "/a.png"}],
+                     [{"sku": "PHN 001", "product_image": "/a.png"}]):
+            with self.assertRaises(Exception) as c:
+                s.add_items(p, json.dumps(rows))
+            self.assertIn("trùng", str(c.exception))
+        self.assertEqual(len(self.store.rows["EC AI Video Item"]), 1)          # khong luu dong nao khi co trung
+
     def test_khoi_luong_gui_worker(self):
         s, W = self.svc, self.W
         p = s.create_project(json.dumps({"brand": "Pin", "title": "T", "host_image": "/private/files/host.png"}))["name"]

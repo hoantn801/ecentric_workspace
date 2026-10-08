@@ -143,9 +143,18 @@ def update_project(name, data):
 def add_items(project, rows):
     frappe.get_doc(P, project)
     made = []
-    for r in _j(rows, []):
-        if not (r.get("sku") or "").strip():
-            continue
+    rows = [r for r in _j(rows, []) if (r.get("sku") or "").strip()]
+    # 08/10: SKU trung (ke ca khac dau gach/hoa thuong) dung chung job/thu muc tren may chay video -> chan
+    seen = {flow.slug(s, 32): s for s in frappe.get_all(I, filters={"project": project}, pluck="sku") if s}
+    dup = []
+    for r in rows:
+        k = flow.slug(r["sku"].strip(), 32)
+        if k in seen:
+            dup.append(r["sku"].strip())
+        seen[k] = r["sku"]
+    if dup:
+        raise frappe.ValidationError("SKU bị trùng: %s. Mỗi SKU chỉ 1 dòng trong dự án - sửa mã rồi lưu lại." % ", ".join(sorted(set(dup))))
+    for r in rows:
         _check_files(r)
         doc = frappe.get_doc(dict({k: r.get(k) for k in ITEM_FIELDS if r.get(k) not in (None, "")},
                                   doctype=I, project=project, stage="new", stage_state="waiting",
