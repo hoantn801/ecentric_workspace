@@ -11,6 +11,7 @@ Anti-spam:
 """
 
 import frappe
+from ecentric_workspace.notification_center.nhip_gui import gop_tin_job  # gop tin Teams (08/10)
 from frappe import _
 from frappe.utils import nowdate, getdate, today, add_days
 
@@ -134,6 +135,7 @@ def _dang_lam(users, day):
     return ngay_lam_viec.nguoi_di_lam(users, day)
 
 
+@gop_tin_job
 def pm_overdue_scan():
     """09:00 hang ngay: notify assignees (or owner) of overdue tasks, once/day/task/user.
     Nguoi dang nghi khong nhan (04/10)."""
@@ -165,6 +167,7 @@ def pm_overdue_scan():
             frappe.log_error(frappe.get_traceback(), "pm_overdue_scan")
 
 
+@gop_tin_job
 def pm_due_soon_scan(window_days=2):
     """Daily: notify assignees (or owner) of tasks due within `window_days` and not yet
     terminal. Idempotent: stable dedupe key includes the due date, so re-running the

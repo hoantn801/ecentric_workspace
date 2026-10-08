@@ -16,6 +16,7 @@ Luat:
   - Loi mot phieu khong chan phieu khac; tat bang site_config `ec_booking_reminder_disabled`.
 """
 import frappe
+from ecentric_workspace.notification_center.nhip_gui import gop_tin_job  # gop tin Teams (08/10)
 from frappe import _
 from frappe.utils import add_days, formatdate, getdate
 
@@ -83,6 +84,7 @@ def due_candidates(today=None):
     return out
 
 
+@gop_tin_job
 def remind_booking_due(today=None):
     """Scheduler daily. Tra ve so phieu da nhac (de test/verify)."""
     if frappe.conf.get("ec_booking_reminder_disabled"):

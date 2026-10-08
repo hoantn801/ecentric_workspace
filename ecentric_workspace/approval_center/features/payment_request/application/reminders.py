@@ -16,6 +16,7 @@ Luat:
     danh dau da nhac -> ngay lam viec ke tiep nhac tiep.
 """
 import frappe
+from ecentric_workspace.notification_center.nhip_gui import gop_tin_job  # gop tin Teams (08/10)
 from frappe import _
 from frappe.utils import add_days, formatdate, getdate
 
@@ -107,6 +108,7 @@ def due_candidates(today=None):
     return out
 
 
+@gop_tin_job
 def remind_unc_due(today=None):
     """Scheduler daily. Tra ve so phieu da nhac (de test/verify)."""
     if frappe.conf.get("ec_payment_unc_reminder_disabled"):
@@ -146,6 +148,7 @@ def next_installment_candidates(today=None):
             if not r.next_installment_reminded_on or getdate(r.next_installment_reminded_on) != today]
 
 
+@gop_tin_job
 def remind_next_installment(today=None):
     """Scheduler daily. Tra ve so phieu da nhac."""
     if frappe.conf.get("ec_payment_unc_reminder_disabled"):

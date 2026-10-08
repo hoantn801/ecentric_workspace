@@ -19,6 +19,7 @@ import json
 
 import frappe
 
+from ecentric_workspace.notification_center import nhip_gui as _nhip
 from ecentric_workspace.notification_center.resolvers import resolve_notification
 
 REALTIME_EVENT = "ec_notification"
@@ -260,6 +261,13 @@ def route_delivery(event_id, recipient, routing, event_type, severity, dedupe_ke
               "title": title or "", "message": message or "", "actor": actor or ""}
     for ch, decision in routing.items():
         if decision == "deliver":
+            # Gio yen lang + gop tin (nhip_gui, 08/10/2026): tin day ra ngoai app ban dem hoac
+            # don dap thi GIU lai (Held), job xa_tin_giu gui sau - mot tin gop/nguoi.
+            hen = _nhip.hen_gio(recipient, ch, severity, event_type)
+            if hen:
+                _delivery(event_id, recipient, ch, _nhip.ST_GIU, provider="",
+                          next_retry_at=hen, **common)
+                continue
             if ch == "teams":
                 nm = _delivery(event_id, recipient, ch, "Pending", provider="", **common)
                 if nm:
@@ -504,6 +512,7 @@ def publish_task_assignment_delivery(recipient, task_name, title, message="",
               "reference_name": task_name, "title": title or "", "message": message or "",
               "actor": actor or ""}
     teams_jobs = []
+    webpush_jobs = []
     for ch, decision in routing.items():
         if decision == "deliver":
             if ch == "erp":
@@ -512,12 +521,25 @@ def publish_task_assignment_delivery(recipient, task_name, title, message="",
                           sent_at=frappe.utils.now_datetime(), **common)
             elif ch == "teams":
                 if _teams_send:
+                    hen = _nhip.hen_gio(recipient, ch, severity, event_type)
+                    if hen:
+                        _delivery(event_id, recipient, ch, _nhip.ST_GIU, provider="",
+                                  next_retry_at=hen, **common)
+                        continue
                     nm = _delivery(event_id, recipient, "teams", "Pending", provider="", **common)
                     if nm:
                         teams_jobs.append(nm)
                 else:
                     _delivery(event_id, recipient, "teams", "Skipped", provider="dryrun",
                               error_code="NO_CREDENTIAL", **common)
+            elif ch == "webpush":
+                # 08/10/2026: truoc day nhanh nay roi vao `else` ben duoi -> ghi "Sent" ma KHONG
+                # goi provider, tuc web push cua task PM chua bao gio thuc su duoc gui.
+                hen = _nhip.hen_gio(recipient, ch, severity, event_type)
+                nm = _delivery(event_id, recipient, ch, _nhip.ST_GIU if hen else "Pending",
+                               provider="", **(dict(common, next_retry_at=hen) if hen else common))
+                if nm and not hen:
+                    webpush_jobs.append(nm)
             else:
                 _delivery(event_id, recipient, ch, "Sent",
                           sent_at=frappe.utils.now_datetime(), **common)
@@ -533,6 +555,12 @@ def publish_task_assignment_delivery(recipient, task_name, title, message="",
                            queue="default", enqueue_after_commit=True, delivery_log=nm)
         except Exception:
             frappe.log_error(frappe.get_traceback(), "publish_task_assignment_delivery teams")
+    for nm in webpush_jobs:
+        try:
+            frappe.enqueue("ecentric_workspace.notification_center.providers.webpush.deliver",
+                           queue="default", enqueue_after_commit=True, delivery_log=nm)
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "publish_task_assignment_delivery webpush")
 
     # realtime AFTER commit only (web process) -> toast/sound/desktop fire immediately.
     # Badge is owned by the native Assignment log -> update_badge False (no double-increment).
