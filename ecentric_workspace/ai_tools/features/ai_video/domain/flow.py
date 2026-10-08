@@ -292,6 +292,70 @@ def cost_view(costs, items):
             "host_kinds": host_kinds}
 
 
+def _item_bags(bags, it):
+    """Cac job cua dung SKU nay (R1, R2, W4...), giong cost_view."""
+    sku = str(it.get("sku") or "")
+    jid = str(it.get("job_id") or "")
+    pre = jid.rsplit("_", 1)[0] + "_" if "_" in jid else ""
+    if pre:
+        return [v or {} for k, v in bags.items() if k == jid or (k.startswith(pre) and re.match(r"^[A-Z]\d+$", k[len(pre):]))]
+    return [v or {} for k, v in bags.items() if sku and "_%s_" % sku in "_%s_" % k]
+
+
+def _union(ivs):
+    """Gop cac doan [bat dau, xong] (ms) -> (so giay may chay, bat dau som nhat, xong muon nhat)."""
+    a = sorted([float(x[0]), float(x[1])] for x in ivs if x and len(x) == 2 and x[1] > x[0])
+    tot, cur = 0.0, None
+    for s, e in a:
+        if cur and s <= cur[1]:
+            cur[1] = max(cur[1], e)
+        else:
+            if cur:
+                tot += cur[1] - cur[0]
+            cur = [s, e]
+    if cur:
+        tot += cur[1] - cur[0]
+    return (int(round(tot / 1000)), a[0][0] if a else None, max((e for _, e in a), default=None))
+
+
+#: loai viec worker -> cot thoi gian (09/10/2026)
+TIME_KIND = {"hold_images": "holds", "master": "master", "putdown": "put", "hold": "clip", "mix": "mix", "anchor": "anchor", "talk": "talk"}
+
+
+def time_view(times, items):
+    """Thoi gian may chay (giay) theo buoc cho tung SKU + ca du an. 'secs' = tong thoi gian co it nhat 1 viec cua SKU
+    dang chay (viec song song chi tinh 1 lan, khong tinh luc cho duyet); 'wall' = tu luc bat dau den luc xong (ke ca cho)."""
+    times = times or {}
+    jobs, mixes, hosts = times.get("job") or {}, times.get("mix") or {}, times.get("host") or {}
+    all_iv, kinds_all = [], {}
+    for it in items:
+        bags = _item_bags(jobs, it) + ([mixes[str(it.get("sku"))]] if str(it.get("sku")) in mixes else [])
+        iv, kinds = [], {}
+        for b in bags:
+            iv += b.get("iv") or []
+            for k, v in (b.get("kinds") or {}).items():
+                col = TIME_KIND.get(k, "other")
+                kinds[col] = kinds.get(col, 0) + int(v or 0)
+        secs, t0, t1 = _union(iv)
+        mx = mixes.get(str(it.get("sku"))) or {}
+        it["time_kinds"] = kinds
+        it["time_secs"] = secs
+        it["time_wall"] = int(round((t1 - t0) / 1000)) if t0 else 0
+        it["time_per_video"] = int(round((mx.get("secs") or 0) / mx["videos"])) if mx.get("videos") else None
+        all_iv += iv
+        for k, v in kinds.items():
+            kinds_all[k] = kinds_all.get(k, 0) + v
+    hk, hiv = {}, []
+    for b in hosts.values():
+        hiv += (b or {}).get("iv") or []
+        for k, v in ((b or {}).get("kinds") or {}).items():
+            col = TIME_KIND.get(k, "other")
+            hk[col] = hk.get(col, 0) + int(v or 0)
+    secs, t0, t1 = _union(all_iv + hiv)
+    return {"secs": secs, "wall": int(round((t1 - t0) / 1000)) if t0 else 0, "kinds": kinds_all,
+            "host_kinds": hk, "host_secs": _union(hiv)[0]}
+
+
 #: loai viec worker -> cot chi phi tren trang (07/10/2026)
 COST_KIND = {"hold_images": "holds", "master": "master", "putdown": "put", "hold": "clip", "anchor": "anchor", "talk": "talk"}
 
