@@ -542,6 +542,12 @@ def _tick_exports(pdoc, tasks):
             warn = sum(len(((tasks.get(i) or {}).get("result") or {}).get("warn") or []) for i in ids)
             if warn:
                 doc.status = "%s · %d bản thiếu clip để khớp độ dài - nên gen thêm 1-2 clip cầm/nói" % (doc.status, warn)
+            # 09/10: ra it ban hon yeu cau (het thu tu clip khac nhau trong thu muc) -> noi ro, khong de "done" trong tron
+            short = [x for x in (((tasks.get(i) or {}).get("result") or {}).get("short") for i in ids) if x]
+            if short:
+                doc.status = "%s · %s bản - hết thứ tự clip khác nhau trong thư mục này: đặt tên thư mục mới hoặc gen thêm clip" % (
+                    doc.status, ", ".join("%s %s/%s" % (x.get("sku") or "?", x.get("made", 0), x.get("want", 0)) for x in short))
+            doc.status = doc.status[:140]
         doc.save(ignore_permissions=True)
 
 
