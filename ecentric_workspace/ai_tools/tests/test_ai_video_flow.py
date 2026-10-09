@@ -125,6 +125,22 @@ class TestCostView(unittest.TestCase):
         self.assertEqual(v["kinds"]["clip"], 1.26)
         self.assertEqual(v["host_kinds"], {"anchor": 0.12, "talk": 0.63})
 
+    def test_thoi_gian_theo_buoc(self):
+        T = 1791500000000
+        times = {"job": {"P_111_X_R1": {"iv": [[T, T + 300e3], [T + 500e3, T + 600e3]], "kinds": {"hold": 300, "putdown": 100}},
+                         "P_1112_X_R1": {"iv": [[T, T + 9e6]], "kinds": {"hold": 9000}}},
+                 "mix": {"111": {"iv": [[T + 700e3, T + 1000e3]], "kinds": {"mix": 300}, "videos": 3, "secs": 300}},
+                 "host": {"H": {"iv": [[T + 100e3, T + 200e3]], "kinds": {"talk": 100}}}}
+        items = [{"sku": "111", "job_id": "P_111_X_R2"}]
+        v = flow.time_view(times, items)
+        self.assertEqual(items[0]["time_kinds"], {"clip": 300, "put": 100, "mix": 300})   # khong lan SKU 1112
+        self.assertEqual(items[0]["time_secs"], 700)
+        self.assertEqual(items[0]["time_wall"], 1000)
+        self.assertEqual(items[0]["time_per_video"], 100)
+        self.assertEqual(v["secs"], 700)                      # clip noi chay cung luc -> khong cong them
+        self.assertEqual(v["host_kinds"], {"talk": 100})
+        self.assertEqual(flow.time_view(None, [{"sku": "1"}])["secs"], 0)
+
     def test_khoi_luong_vao_ghi_chu(self):
         self.assertEqual(flow.weight_note(None), "")
         self.assertIn("about 900 g", flow.weight_note(900))

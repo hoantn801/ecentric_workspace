@@ -546,6 +546,24 @@ class TestKhungVaNhom(unittest.TestCase):
             self.assertIn("trùng", str(c.exception))
         self.assertEqual(len(self.store.rows["EC AI Video Item"]), 1)          # khong luu dong nao khi co trung
 
+    def test_ket_qua_tron_bao_thieu_clip(self):
+        s, W = self.svc, self.W
+        p, n = self._ready_item()
+        r = s.mix(p, json.dumps({"items": [n], "variants": 1}))
+        W.finish("mix")
+        tid = [t for t, st in W.steps if st["op"] == "mix"][-1]
+        W.tasks[tid]["result"]["warn"] = ["A1_hold_01.mp4: kho clip khong du"]
+        s.tick(p)
+        self.assertIn("nên gen thêm", self.store.rows["EC AI Video Export"][r["export"]]["status"])
+
+    def test_ket_qua_tron_ghi_theo_audio(self):
+        s = self.svc
+        p, n = self._ready_item()
+        r = s.mix(p, json.dumps({"items": [n], "variants": 1}))
+        self.assertEqual(self.store.rows["EC AI Video Export"][r["export"]]["duration"], 0)
+        r = s.mix(p, json.dumps({"items": [n], "variants": 1, "duration": 45}))
+        self.assertEqual(self.store.rows["EC AI Video Export"][r["export"]]["duration"], 45)
+
     def test_khoi_luong_gui_worker(self):
         s, W = self.svc, self.W
         p = s.create_project(json.dumps({"brand": "Pin", "title": "T", "host_image": "/private/files/host.png"}))["name"]

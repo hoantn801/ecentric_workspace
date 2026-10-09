@@ -436,6 +436,8 @@ def _tick(project):
     pst["breaker"] = W.get("breaker")
     if W.get("costs"):
         pst["costs"] = W.get("costs")
+    if W.get("times"):                          # 09/10: thoi gian may chay tung buoc
+        pst["times"] = W.get("times")
     pst["last_tick"] = str(frappe.utils.now_datetime())
     pdoc.host_key = host
     _save_state(pdoc, pst, anchor_state=("ready" if anchor_ready else ast),
@@ -472,7 +474,8 @@ def mix(project, data):
     n = max(1, min(20, int(d.get("variants") or pdoc.mix_variants or 5)))
     batch = (d.get("batch") or "").strip() or _today()
     exp = frappe.get_doc({"doctype": E, "project": project, "batch": batch, "items": json.dumps(names),
-                          "mode": mode, "variants": n, "duration": float(d.get("duration") or pdoc.audio_seconds or 72),
+                          "mode": mode, "variants": n,   # 0 = theo audio tung SKU (08/10); "chi noi" khong co SKU -> do dai du an
+                          "duration": float(d.get("duration") or (pdoc.audio_seconds or 72 if mode == "talk" else 0)),
                           "status": "running"})
     exp.insert(ignore_permissions=True)
     ids = []
@@ -535,6 +538,10 @@ def _tick_exports(pdoc, tasks):
                     frappe.log_error(title="ai_video export", message=str(e))
             doc.files_json = json.dumps(files)
             doc.status = "done" if stt == "done" else "done (có lỗi)"
+            # 08/10: worker chi chinh toc clip cam +-20%; vuot -> bao nen gen them 1-2 clip
+            warn = sum(len(((tasks.get(i) or {}).get("result") or {}).get("warn") or []) for i in ids)
+            if warn:
+                doc.status = "%s · %d bản thiếu clip để khớp độ dài - nên gen thêm 1-2 clip cầm/nói" % (doc.status, warn)
         doc.save(ignore_permissions=True)
 
 
@@ -593,6 +600,7 @@ def get_project(name, do_tick=0):
     if missing:
         _attach_worker_views(name, missing)
     proj["cost"] = flow.cost_view(pst.get("costs"), items)
+    proj["time"] = flow.time_view(pst.get("times"), items)
     proj["is_admin"] = is_admin()
     exports = frappe.get_all(E, filters={"project": name}, fields=["name", "batch", "mode", "variants", "duration",
                                                                    "status", "zip_path", "files_json", "creation"],
