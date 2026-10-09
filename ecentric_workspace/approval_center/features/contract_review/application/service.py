@@ -142,7 +142,11 @@ def _soi_guong_sharepoint(name):
     try:
         frappe.enqueue(
             "ecentric_workspace.approval_center.shared.integrations.sharepoint_mirror.dong_bo_nen",
-            queue="long", business_doctype=BUSINESS_DT, business_name=name)
+            queue="long", business_doctype=BUSINESS_DT, business_name=name,
+            # SAU commit (09/10/2026): truoc day job chay ngay, doc phieu khi `approval_request`
+            # chua ghi xong -> chi cap quyen cho nguoi gui. EC-CTR-2026-00036: 8 nguoi duyet
+            # bam "Mo online" deu an "You need access".
+            enqueue_after_commit=True)
     except Exception:
         frappe.log_error(frappe.get_traceback(), "enqueue soi guong SharePoint %s" % name)
 

@@ -302,15 +302,27 @@ def nguoi_trong_luong(business_doctype, business_name):
         fields.append("cc_to")
     row = frappe.db.get_value(business_doctype, business_name, fields, as_dict=True) or {}
     ra = [row.get("requested_by")]
-    if row.get("approval_request"):
+    req = row.get("approval_request") or _phieu_duyet_theo_tham_chieu(business_doctype, business_name)
+    if req:
         ra += frappe.get_all("EC Approval Request Approver",
-                             filters={"approval_request": row["approval_request"]},
+                             filters={"approval_request": req},
                              pluck="approver")
     for e in (row.get("cc_to") or "").replace(";", ",").split(","):
         e = e.strip()
         if e:
             ra.append(e)
     return [e for e in dict.fromkeys(ra) if e and "@" in e]
+
+
+def _phieu_duyet_theo_tham_chieu(business_doctype, business_name):
+    """Lui ve tra EC Approval Request theo (reference_doctype, reference_name) khi truong
+    `approval_request` tren phieu nghiep vu con trong (09/10/2026, EC-CTR-2026-00036): thieu
+    buoc nay thi danh sach cap quyen chi con moi nguoi gui."""
+    rows = frappe.get_all("EC Approval Request",
+                          filters={"reference_doctype": business_doctype,
+                                   "reference_name": business_name},
+                          pluck="name", order_by="creation desc", limit_page_length=1)
+    return rows[0] if rows else None
 
 
 def _dinh_kem(business_doctype, business_name):
