@@ -546,6 +546,19 @@ class TestKhungVaNhom(unittest.TestCase):
             self.assertIn("trùng", str(c.exception))
         self.assertEqual(len(self.store.rows["EC AI Video Item"]), 1)          # khong luu dong nao khi co trung
 
+    def test_ket_qua_tron_bao_thieu_ban(self):
+        s, W = self.svc, self.W
+        p, n = self._ready_item()
+        r = s.mix(p, json.dumps({"items": [n], "variants": 2}))
+        W.finish("mix")
+        tid = [t for t, st in W.steps if st["op"] == "mix"][-1]
+        W.tasks[tid]["result"]["short"] = {"sku": "PHN_004", "made": 0, "want": 2}
+        s.tick(p)
+        st = self.store.rows["EC AI Video Export"][r["export"]]["status"]
+        self.assertIn("PHN_004 0/2", st)
+        self.assertIn("thư mục mới", st)
+        self.assertLessEqual(len(st), 140)
+
     def test_ket_qua_tron_bao_thieu_clip(self):
         s, W = self.svc, self.W
         p, n = self._ready_item()
