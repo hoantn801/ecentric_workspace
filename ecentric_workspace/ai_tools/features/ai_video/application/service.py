@@ -295,20 +295,31 @@ def _save_file(name, content):
 
 # ------------------------------------------------------------------ SKU actions ---
 
+MSG_NEED_FRAME = "Chưa vẽ khung SP: bấm Vẽ khung (kéo khung lên ảnh host đúng chỗ, đúng cỡ) rồi tạo lại."
+
+
+def _has_frame(doc):
+    """10/10: bat buoc ve khung SP (bo che do AI tu tinh co theo so do)."""
+    return bool(_j(doc.state_json).get("guide_bbox"))
+
+
 def start_holds(project, names):
     pdoc = frappe.get_doc(P, project)
     pst = _ensure_host(pdoc)
     groups = _group_map()
-    started = []
+    started, need_frame = [], []
     for n in _j(names, []):
         doc = frappe.get_doc(I, n)
         if doc.project != project or not doc.product_image:
             continue
         if doc.stage not in ("new", "pick") and doc.stage_state != "error":
             continue
+        if not _has_frame(doc):
+            need_frame.append(doc.sku)
+            continue
         _start_holds_one(pdoc, pst, doc, groups)
         started.append(n)
-    return {"started": started}
+    return {"started": started, "need_frame": need_frame}
 
 
 def _group_map():
@@ -374,6 +385,8 @@ def regen_holds(name, data=None):
     if "guide_bbox" in d:
         _set_bbox(doc, d.get("guide_bbox"))
         doc.save(ignore_permissions=True)
+    if not _has_frame(doc):
+        raise frappe.ValidationError(MSG_NEED_FRAME)
     pdoc = frappe.get_doc(P, doc.project)
     _start_holds_one(pdoc, _ensure_host(pdoc), doc)
     return {"stage": "holds"}
