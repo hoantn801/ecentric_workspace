@@ -28,6 +28,7 @@ BLANK_POST = {
     # v6
     "scheduled": False, "publish_date": "", "publish_time": C.SCHEDULE_TIME_DEFAULT, "publish_at_label": "",
     "notify_teams": False, "allow_comments": True, "require_ack": False, "ack_deadline": "",
+    "survey": "", "survey_cta": "", "survey_end_card": True, "survey_badge": True,
 }
 
 
@@ -100,6 +101,7 @@ def compose_context(user, name=None, repo=None):
         "departments": dept_options(repo),
         "employee_lfts": [e["lft"] for e in repo.active_employees() if e["lft"] is not None],
         "company_size": len(repo.active_employees()),
+        "survey_options": _survey_options(repo, user, post),
         "ai_limit": C.AI_COVER_DAILY_LIMIT,
         "ai_used": cover_ai.used_today(name, repo=repo) if name else 0,
         "ai_enabled": cover_ai.available(),
@@ -107,6 +109,15 @@ def compose_context(user, name=None, repo=None):
         "ai_write": dict(ai_write.quota(user, name, repo=repo), tones=[{"key": k, "label": v} for k, v in C.AI_WRITE_TONES.items()],
                          enabled=bool(repo.ai_available())),
     }
+
+
+def _survey_options(repo, user, post):
+    """Khao sat gan duoc (minh tao / cung quan ly, chua dong) + khao sat bai dang gan (du ai tao)."""
+    opts = list(repo.survey_options(user) or [])
+    cur = (post or {}).get("survey")
+    if cur and cur not in {o["name"] for o in opts}:
+        opts.insert(0, {"name": cur, "title": cur, "draft": False, "label": cur})
+    return opts
 
 
 def _v6_fields(doc):
@@ -122,6 +133,10 @@ def _v6_fields(doc):
         "allow_comments": True if allow is None else bool(allow),
         "require_ack": bool(doc.get("require_ack")),
         "ack_deadline": str(doc.get("ack_deadline") or "")[:10],
+        # Khao sat kem bai (PO duyet mockup 10/10/2026)
+        "survey": doc.get("survey") or "", "survey_cta": doc.get("survey_cta") or "",
+        "survey_end_card": True if doc.get("survey_end_card") is None else bool(doc.get("survey_end_card")),
+        "survey_badge": True if doc.get("survey_badge") is None else bool(doc.get("survey_badge")),
     }
 
 
@@ -165,6 +180,14 @@ def save(user, payload, action="save", repo=None):
     doc.allow_comments = 1 if _truthy(p.get("allow_comments", 1)) else 0
     doc.require_ack = 1 if _truthy(p.get("require_ack", 0)) else 0
     doc.ack_deadline = (p.get("ack_deadline") or None) if doc.require_ack else None
+    # Khao sat kem bai: chi gan khao sat minh tao / cung quan ly (giu nguyen khao sat da gan thi khong hoi lai)
+    sv = str(p.get("survey") or "").strip()[:140]
+    if sv and sv != (doc.get("survey") or "") and not repo.survey_can_attach(user, sv):
+        raise PostError("Chỉ gắn được khảo sát bạn tạo hoặc cùng quản lý.")
+    doc.survey = sv or None
+    doc.survey_cta = str(p.get("survey_cta") or "").strip()[:C.SURVEY_CTA_MAX] if sv else ""
+    doc.survey_end_card = 1 if _truthy(p.get("survey_end_card", 1)) else 0
+    doc.survey_badge = 1 if _truthy(p.get("survey_badge", 1)) else 0
 
     depts = [d for d in (p.get("departments") or []) if d] if p.get("scope") == "dept" else []
     tree = repo.dept_tree()

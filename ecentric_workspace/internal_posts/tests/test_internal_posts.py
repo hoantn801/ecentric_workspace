@@ -254,6 +254,21 @@ class FakeRepo:
         return 1 if self.files.pop(url, None) else 0
 
     def log_error(self, title): self.errors.append(title)
+
+    # -- khao sat kem bai (surveys.application.post_link qua repository)
+    surveys = {}                 # ten -> {manager: set, card: {user: dict|None}, badge: {user: dict}}
+    def survey_options(self, user):
+        return [{"name": n, "title": v.get("title", n), "draft": v.get("draft", False), "label": n}
+                for n, v in self.surveys.items() if user in v.get("manager", ())]
+    def survey_can_attach(self, user, name):
+        return name in self.surveys and user in self.surveys[name].get("manager", ())
+    def survey_card(self, user, name):
+        if name == "BOOM":
+            raise RuntimeError("khao sat loi")
+        return (self.surveys.get(name) or {}).get("card", {}).get(user)
+    def survey_badges(self, user, names):
+        return {n: self.surveys[n]["badge"][user] for n in names
+                if n in self.surveys and user in self.surveys[n].get("badge", {})}
     def log_message(self, title, msg): self.errors.append(title + ":" + msg)
 
     # -- v6: anh AI tai ve / luu tach hai buoc (de soi chu)
@@ -984,6 +999,86 @@ def _render(page, ctx, strict=True):
 
 
 EVIL = '<script>alert("x")</script>'
+
+
+def _svy_card(state, **kw):
+    d = {"name": "KS-1", "title": "Lộ trình Claude Team", "questions": 9, "minutes": 3, "close_label": "31/10/2026",
+         "days_left": 21, "anonymous": False, "url": "/khao-sat/lam?s=KS-1", "manage_url": "/khao-sat/soan?s=KS-1",
+         "is_manager": False, "pct": 38, "state": state}
+    d.update(kw)
+    return d
+
+
+class TestSurveyAttach(unittest.TestCase):
+    """Khao sat kem bai (PO duyet mockup 10/10/2026)."""
+
+    def seeded(self):
+        r = seeded()
+        r.surveys = {"KS-1": {"title": "Lộ trình Claude Team", "manager": {HR}, "draft": True,
+                              "card": {LAN: _svy_card("todo"), MINH: _svy_card("done", submitted_label="14:20 12/10", can_edit=True),
+                                       HR: _svy_card("draft", is_manager=True)},
+                              "badge": {LAN: {"kind": "todo", "label": "Khảo sát · còn 21 ngày"},
+                                        MINH: {"kind": "done", "label": "Đã làm khảo sát"}}},
+                     "KS-2": {"manager": {"other@x"}}}
+        return r
+
+    def test_save_only_manageable_survey(self):
+        r = self.seeded()
+        res = E.save(HR, payload(survey="KS-1", survey_cta="  Chọn mốc  ", survey_end_card=0), "save", repo=r)
+        doc = r.posts[res["name"]]
+        self.assertEqual((doc["survey"], doc["survey_cta"], doc["survey_end_card"], doc["survey_badge"]),
+                         ("KS-1", "Chọn mốc", 0, 1))
+        with self.assertRaises(E.PostError):
+            E.save(HR, payload(name=res["name"], survey="KS-2"), "save", repo=r)
+        # khao sat da gan (du ai tao) giu nguyen khi luu lai
+        r.posts[res["name"]]["survey"] = "KS-2"
+        E.save(HR, payload(name=res["name"], survey="KS-2"), "save", repo=r)
+        E.save(HR, payload(name=res["name"], survey=""), "save", repo=r)
+        self.assertEqual((r.posts[res["name"]]["survey"], r.posts[res["name"]]["survey_cta"]), (None, ""))
+        ctx = E.compose_context(HR, res["name"], repo=r)
+        self.assertEqual([o["name"] for o in ctx["survey_options"]], ["KS-1"])
+
+    def test_card_follows_viewer(self):
+        r = self.seeded()
+        r.posts["P2"].update(survey="KS-1", survey_cta="", survey_end_card=None)
+        self.assertEqual(S.post_page(LAN, "cong-tac-phi", repo=r)["survey"]["state"], "todo")
+        lan = S.post_page(LAN, "cong-tac-phi", repo=r)["survey"]
+        self.assertEqual((lan["cta"], lan["end_card"]), ("Lộ trình Claude Team", True))
+        minh = S.post_page(MINH, "cong-tac-phi", repo=r)["survey"]
+        self.assertEqual((minh["state"], minh["end_card"]), ("done", False))
+        self.assertIsNone(S.post_page(TU, "cong-tac-phi", repo=r)["survey"], "ngoai doi tuong: khong hien")
+        r.posts["P2"]["survey"] = "BOOM"
+        self.assertIsNone(S.post_page(LAN, "cong-tac-phi", repo=r)["survey"], "loi khao sat khong lam hong trang bai")
+        self.assertIn("internal_posts survey card", r.errors)
+
+    def test_list_badges(self):
+        r = self.seeded()
+        r.posts["P2"].update(survey="KS-1", survey_badge=None)
+        cards = {c["name"]: c for c in S._cards(r, LAN, [dict(v) for v in r.posts.values()], {}, TODAY)}
+        self.assertEqual(cards["P2"]["survey_badge"]["kind"], "todo")
+        self.assertIsNone(cards["P1"]["survey_badge"])
+        r.posts["P2"]["survey_badge"] = 0
+        cards = {c["name"]: c for c in S._cards(r, LAN, [dict(v) for v in r.posts.values()], {}, TODAY)}
+        self.assertIsNone(cards["P2"]["survey_badge"])
+
+    def test_render_states_escaped(self):
+        r = self.seeded()
+        r.surveys["KS-1"]["card"][LAN] = _svy_card("todo", title=EVIL)
+        r.posts["P2"].update(survey="KS-1", survey_cta=EVIL)
+        out = _render("bai", {"post": S.post_page(LAN, "cong-tac-phi", repo=r)})
+        self.assertNotIn(EVIL, out)
+        self.assertIn("eip-svy-todo", out)
+        self.assertIn('href="/khao-sat/lam?s=KS-1"', out)
+        self.assertIn("Đọc xong rồi?", out)
+        self.assertIn("38% đã trả lời", out)
+        out = _render("bai", {"post": S.post_page(MINH, "cong-tac-phi", repo=r)})
+        self.assertIn("Bạn đã trả lời khảo sát lúc 14:20 12/10", out)
+        self.assertNotIn("Đọc xong rồi?", out)
+        out = _render("bai", {"post": S.post_page(HR, "cong-tac-phi", repo=r)})
+        self.assertIn("Khảo sát đang là bản nháp", out)
+        self.assertIn('href="/khao-sat/soan?s=KS-1"', out)
+        out = _render("bai", {"post": S.post_page(TU, "cong-tac-phi", repo=r)})
+        self.assertNotIn("eip-svy", out)
 
 
 class TestPages(unittest.TestCase):

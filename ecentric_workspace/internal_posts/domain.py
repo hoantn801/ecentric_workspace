@@ -329,6 +329,7 @@ def card(post, categories, seen, today, scope_label="", author="", acked=None):
         "need_ack": (acked is not None and bool(post.get("published")) and bool(post.get("require_ack"))
                      and post.get("name") not in acked),
         "ack_deadline_label": short_date(post.get("ack_deadline")),
+        "survey_badge": None,          # service._cards dien (khao sat kem bai)
     }
 
 
@@ -343,6 +344,7 @@ def legacy_card(guide, category):
         "draft": False, "expired": False, "expires_label": "", "unseen": False,
         "scope_label": "", "author": "", "legacy": True, "audience": guide.get("audience") or "",
         "cover": cover({}, category), "scheduled": False, "need_ack": False, "ack_deadline_label": "",
+        "survey_badge": None,
     }
 
 

@@ -16,7 +16,7 @@ from ecentric_workspace.internal_posts import constants as C
 POST_LIST_FIELDS = ["name", "title", "slug", "category", "summary", "published", "published_on",
                     "pinned", "expires_on", "cover_kind", "cover_color", "cover_icon", "cover_image",
                     "creation", "modified", "owner", "author_label", "publish_at", "require_ack", "ack_deadline",
-                    "notify_bell", "notify_teams", "push_to_home", "allow_comments"]
+                    "notify_bell", "notify_teams", "push_to_home", "allow_comments", "survey", "survey_badge"]
 
 _STRIP_RE = re.compile(r"<(style|link|script|iframe|object|embed)\b[^>]*>.*?</\1\s*>"
                        r"|<(style|link|script|iframe|object|embed|meta)\b[^>]*/?>", re.I | re.S)
@@ -194,6 +194,29 @@ def owner_names(owners):
 
 
 # ------------------------------------------------------------------ noi dung -----
+# ------------------------------------------------------------------ khao sat kem bai ---
+# Doc khao sat qua API khai bao cua module Khao sat (surveys/application/post_link.py) -
+# Tin noi bo khong cham DocType EC Survey.
+def survey_options(user):
+    from ecentric_workspace.surveys.application import post_link
+    return post_link.options(user, roles(user))
+
+
+def survey_can_attach(user, name):
+    from ecentric_workspace.surveys.application import post_link
+    return post_link.can_attach(user, roles(user), name)
+
+
+def survey_card(user, name):
+    from ecentric_workspace.surveys.application import post_link
+    return post_link.card(user, roles(user), name)
+
+
+def survey_badges(user, names):
+    from ecentric_workspace.surveys.application import post_link
+    return post_link.badges(user, roles(user), names)
+
+
 def safe_html(html, limit=200000):
     """HTML nguoi soan nhap -> an toan de in ra trang cua MOI nguoi.
 

@@ -177,6 +177,28 @@
         <label class="eip-check"><input type="checkbox" data-eip-chk="allow_comments"{% if p.allow_comments %} checked{% endif %}><span>Cho phép bình luận<small>Mọi người đọc được bài thì bình luận được. HR ẩn được bình luận không phù hợp.</small></span></label>
       </section>
 
+      {%- set svo = survey_options or [] %}
+      <section class="eip-panel eip-svy-panel" data-eip-svy-panel>
+        <h2 class="eip-panel-h">Khảo sát kèm bài</h2>
+        <div class="eip-fld">
+          <label for="eip-svy">Gắn khảo sát</label>
+          <select id="eip-svy" class="eip-inp" data-eip-svy-pick>
+            <option value="">Không gắn khảo sát</option>
+            {% for o in svo %}<option value="{{ o.name|e }}"{% if p.survey == o.name %} selected{% endif %}>{{ o.label|e }}</option>{% endfor %}
+          </select>
+          <span class="eip-help">Chỉ hiện khảo sát bạn tạo hoặc cùng quản lý, đang nháp hoặc đang mở. <a href="/khao-sat/quan-ly" target="_blank" rel="noopener">+ Tạo khảo sát mới</a></span>
+        </div>
+        <div data-eip-svy-box{% if not p.survey %} hidden{% endif %}>
+          <div class="eip-fld">
+            <label for="eip-svy-cta">Câu kêu gọi <span class="eip-opt">(không bắt buộc)</span></label>
+            <input id="eip-svy-cta" class="eip-inp" data-eip-svy-cta value="{{ p.survey_cta|e }}" maxlength="140" placeholder="Để trống thì dùng tên khảo sát">
+          </div>
+          <label class="eip-check"><input type="checkbox" data-eip-chk="survey_end_card"{% if not p.name or p.survey_end_card %} checked{% endif %}><span>Nhắc lại ở cuối bài<small>Thêm thẻ "Đọc xong rồi? …" sau nội dung.</small></span></label>
+          <label class="eip-check"><input type="checkbox" data-eip-chk="survey_badge"{% if not p.name or p.survey_badge %} checked{% endif %}><span>Hiện nhãn "Khảo sát" trên thẻ bài<small>Ở danh sách Tin nội bộ và trang chủ, khi khảo sát đang mở.</small></span></label>
+          <p class="eip-svy-warn" data-eip-svy-draft hidden><b>Khảo sát đang là Nháp.</b> Khi bấm Đăng bài, ERP phát hành khảo sát cùng lúc để nhân viên bấm vào không gặp trang trống.</p>
+        </div>
+      </section>
+
       <section class="eip-panel">
         <h2 class="eip-panel-h">Tệp đính kèm</h2>
         <div class="eip-files" data-eip-files></div>

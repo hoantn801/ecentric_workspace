@@ -1,5 +1,5 @@
 {% extends "templates/includes/internal_posts/layout.html" %}
-{% from "templates/includes/internal_posts/macros.html" import icon, cover, cat_badge %}
+{% from "templates/includes/internal_posts/macros.html" import icon, cover, cat_badge, survey_card, survey_meta %}
 {#- /tin-noi-bo/<slug> - trang bai (mockup v5): bia lon, noi dung tren the trang, cot phai gom
     Muc luc / Luot xem / Tep dinh kem / Cam xuc / hop "Chi HR thay".
     post.body da lam sach phia server (repository.safe_html) -> in thang; moi thu khac |e. -#}
@@ -21,6 +21,9 @@
     </div>
   </header>
 
+  {%- set sv = p.survey %}
+  {% if sv %}{{ survey_card(sv) }}{% endif %}
+
   <div class="eip-read">
     <div class="eip-read-main">
       {% if not p.draft and s.total %}
@@ -31,6 +34,12 @@
       {% endif %}
       {% if p.summary %}<p class="eip-lede">{{ p.summary|e }}</p>{% endif %}
       <div class="eip-prose">{{ p.body }}</div>
+      {% if sv and sv.end_card %}
+      <section class="eip-svy-end" aria-label="Khảo sát cuối bài">
+        <div><b>Đọc xong rồi? Cho Công ty biết ý kiến của bạn</b><span>{{ sv.title|e }}{% if sv.close_label %} · hạn {{ sv.close_label|e }}{% endif %}</span></div>
+        {% if sv.state == 'draft' %}<a class="eip-btn eip-svy-ghost" href="{{ sv.manage_url|e }}">Mở trình soạn khảo sát</a>{% else %}<a class="eip-btn eip-primary" href="{{ sv.url|e }}">Làm khảo sát</a>{% endif %}
+      </section>
+      {% endif %}
       {%- set a = p.ack %}
       {% if a and not p.draft and (a.can_ack or a.me_seen) %}
       <div class="eip-ackbar{% if a.me_seen %} eip-ackbar-ok{% endif %}" data-eip-ackbar>
@@ -46,6 +55,15 @@
     </div>
 
     <aside class="eip-rail" aria-label="Thông tin bài">
+      {% if sv and sv.state in ('todo', 'done') %}
+      <section class="eip-panel eip-svy-rail">
+        <h2 class="eip-panel-h">Khảo sát</h2>
+        <b class="eip-svy-rail-t">{{ sv.title|e }}</b>
+        <div class="eip-bar" role="progressbar" aria-label="Tỷ lệ đã trả lời" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ sv.pct or 0 }}"><i style="width:{{ sv.pct or 0 }}%"></i></div>
+        <p class="eip-note">{{ sv.pct or 0 }}% đã trả lời{% if sv.days_left is not none %} · {% if sv.days_left == 0 %}hạn hôm nay{% else %}còn {{ sv.days_left }} ngày{% endif %}{% endif %}</p>
+        {% if sv.state == 'todo' %}<a class="eip-btn eip-primary eip-svy-railbtn" href="{{ sv.url|e }}">Làm khảo sát</a>{% else %}<p class="eip-svy-ok">{{ icon('check') }}Bạn đã trả lời</p>{% endif %}
+      </section>
+      {% endif %}
       {% if p.toc %}
       <section class="eip-panel eip-toc-panel">
         <h2 class="eip-panel-h">Trong bài này</h2>

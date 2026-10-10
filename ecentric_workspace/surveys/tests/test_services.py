@@ -41,6 +41,7 @@ from ecentric_workspace.surveys.application import (builder_service, draw_feed, 
                                                     draw_service, publish_service,
                                                     respond_service, results_service,
                                                     submit_reward)
+from ecentric_workspace.surveys.application import post_link  # noqa: E402
 from ecentric_workspace.surveys.application.access import Ctx  # noqa: E402
 from ecentric_workspace.surveys.domain.errors import (AnswerErrors, SurveyError,  # noqa: E402
                                                       SurveyPermissionError)
@@ -285,6 +286,49 @@ class Base(unittest.TestCase):
         if publish:
             publish_service.publish(HR, name, repo=self.r)
         return name
+
+
+class TestPostLink(Base):
+    """Khao sat gan vao bai Tin noi bo (PO duyet mockup 10/10/2026)."""
+
+    def card(self, who, name):
+        return post_link.card(who.user, who.roles, name, repo=self.r)
+
+    def test_options_and_attach(self):
+        draft = self.make(publish=False)
+        live = self.make()
+        opts = {o["name"]: o for o in post_link.options(HR.user, HR.roles, repo=self.r)}
+        self.assertEqual((opts[draft]["draft"], opts[live]["draft"]), (True, False))
+        self.assertTrue(post_link.can_attach(HR.user, HR.roles, live, repo=self.r))
+        self.assertFalse(post_link.can_attach(A.user, A.roles, live, repo=self.r))
+        self.assertFalse(post_link.can_attach(HR.user, HR.roles, "KS-404", repo=self.r))
+        self.assertEqual(post_link.options(A.user, A.roles, repo=self.r), [])
+
+    def test_card_states(self):
+        draft = self.make(publish=False)
+        self.assertIsNone(self.card(A, draft), "nhap: nhan vien khong thay")
+        self.assertEqual(self.card(HR, draft)["state"], "draft")
+        name = self.make(settings={"audience_mode": "custom", "close_at": "2026-10-31 23:59:00", "allow_edit": 1},
+                         targets=[{"kind": "Department", "department": "Ops"}, {"kind": "Exclude", "user": "a@x"}])
+        self.assertIsNone(self.card(A, name), "ngoai doi tuong: an")
+        c = self.card(B, name)
+        self.assertEqual((c["state"], c["questions"], c["minutes"], c["days_left"], c["close_label"]),
+                         ("todo", 2, 1, 30, "31/10/2026"))
+        self.assertEqual(c["url"], C.fill_url(name))
+        respond_service.submit(B, name, {"q1": {"sel": ["y"]}}, repo=self.r)
+        c = self.card(B, name)
+        self.assertEqual((c["state"], c["can_edit"]), ("done", True))
+        self.assertGreater(c["pct"], 0)
+        badges = post_link.badges(B.user, B.roles, [name, name, ""], repo=self.r)
+        self.assertEqual(badges[name]["kind"], "done")
+        publish_service.close(HR, name, repo=self.r)
+        self.assertEqual(self.card(B, name)["state"], "closed")
+        self.assertEqual(post_link.badges(B.user, B.roles, [name], repo=self.r), {})
+
+    def test_badge_todo_only_for_audience(self):
+        name = self.make(settings={"close_at": "2026-10-05 18:00:00"})
+        self.assertEqual(post_link.badges(A.user, A.roles, [name], repo=self.r)[name],
+                         {"kind": "todo", "label": "Khảo sát · còn 4 ngày"})
 
 
 class TestBuilder(Base):
