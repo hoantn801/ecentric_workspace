@@ -15,6 +15,10 @@
   --eip-bg:#f7f8fb;--eip-surface:#fff;--eip-line:#e5e7eb;--eip-soft:#f3f4f6;
   --eip-g300:#d1d5db;--eip-g400:#9ca3af;--eip-g500:#6b7280;--eip-g600:#4b5563;--eip-g700:#374151;--eip-g800:#1f2937;--eip-g900:#111827;
   display:grid;grid-template-columns:248px minmax(0,1fr);min-height:100vh;
+  flex:0 0 auto; /* <body> cua Frappe la flex cot cao 100vh: khong cho khung bi co ve 1 man hinh
+                   (min-height tuong minh thay cho min-height:auto -> flex-shrink co duoc xuong 100vh,
+                   menu trai "dinh" chi trong 1 man roi troi theo trang - PO chup 10/10/2026). Cung cach
+                   .ecc-app / .esc-app / .egy-app / .eti-app. */
   background:var(--eip-bg);color:var(--eip-g800);
   font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   font-size:13.5px;line-height:1.5;letter-spacing:normal;color-scheme:light;
