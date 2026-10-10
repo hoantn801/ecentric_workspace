@@ -168,6 +168,7 @@ tr.on td{background:var(--navy-wash)}
 .av-mini>img{width:100%;height:100%;object-fit:cover;display:block}
 .av-mini>i,.av-cand .ov{position:absolute;border:1.5px solid var(--gold);box-shadow:0 0 0 1px rgba(0,0,0,.4);pointer-events:none}
 .av-cand .im{position:relative}
+.av-cand .qc{padding:0 8px 7px;font-size:11.5px;line-height:1.35}.av-cand .qc.bad{color:var(--bad)}.av-cand .qc.warn{color:var(--warn)}.av-cand .qc.ok{color:var(--ok)}
 .av-cand .ov{border-width:2px;border-style:dashed}
 .av-grp{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}
 .av-grp-list{flex:0 1 280px;min-width:240px;overflow:hidden}
@@ -202,7 +203,7 @@ tr.on td{background:var(--navy-wash)}
     ["battery_blister", "Vỉ pin"], ["small_box", "Hộp nhỏ (pin, mỹ phẩm)"], ["biscuit_box_large", "Hộp bánh lớn"],
     ["soft_pouch", "Túi mềm (bánh, bông, khẩu trang)"], ["hair_dryer", "Máy sấy"], ["table_appliance", "Đồ gia dụng để bàn"]];
   const STEPS = [["input", "1. Nhập SKU"], ["pick", "2. Duyệt ảnh"], ["video", "3. Tạo video"], ["mix", "4. Trộn & xuất"], ["prompt", "Prompt"]];
-  const UNIT_LABEL = { putdown_left: "Hạ trái", putdown_right: "Hạ phải", putdown_below: "Hạ dưới", pickup_left: "Lấy trái", pickup_right: "Lấy phải", pickup_below: "Lấy dưới", hold_01: "Cầm A", hold_02: "Cầm B" };
+  const UNIT_LABEL = { putdown_left: "Hạ trái", putdown_right: "Hạ phải", putdown_below: "Hạ dưới", pickup_left: "Lấy trái", pickup_right: "Lấy phải", pickup_below: "Lấy dưới", hold_01: "Cầm A", hold_02: "Cầm B", hold_03: "Cầm C", hold_04: "Cầm D", hold_05: "Cầm E", hold_06: "Cầm F" };
   /* khung SP: ti le 0..1 tren anh host. Cm chi la UOC TINH theo khung hinh host chuan
      (vai + tay ao ~44 cm chiem ~58% be ngang anh) - doi chieu lo Friso: vi 110ml ~17 cm, 180ml ~24 cm. */
   const CM_PER_W = 1 / 0.0132;
@@ -211,6 +212,11 @@ tr.on td{background:var(--navy-wash)}
   const S = { showFrame: true, projects: [], brand: "", p: null, items: [], exports: [], step: "input", timer: null, sel: new Set(), mixSel: new Set(), drafts: [], prompts: null, busy: false, btn: null, shown: null, syncing: false, renderLater: false, bulk: null };
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  // 10/10: loi AI kiem tra anh cam (worker tra ma khong dau) -> chu de doc
+  const QC_VI = [[/^co x/, "Cỡ SP x"], [/^ho rang$/, "Cười hở răng"], [/^nham mat$/, "Nhắm mắt"], [/^dat tren ban$/, "SP đặt trên bàn"], [/^sai SP$/, "Sai sản phẩm"], [/^sai chu /, "Sai chữ: "], [/^chu /, "Chữ hơi lệch: "]];
+  const qcVi = (x) => QC_VI.reduce((a, [r, t]) => a.replace(r, t), String(x));
+  const qcView = (q) => !q ? "" : !q.pass ? `<div class="qc bad">⚠ ${esc((q.issues || []).map(qcVi).join(" · "))}</div>`
+    : (q.warn || []).length ? `<div class="qc warn">${esc(q.warn.map(qcVi).join(" · "))}</div>` : '<div class="qc ok">✓ AI kiểm tra: ổn</div>';
 
   /* ---------- API ---------- */
   const serverMsg = (b) => { try { const a = JSON.parse(b._server_messages || "[]"); if (a.length) return JSON.parse(a[0]).message || ""; } catch (e) { /* bo qua */ } return ""; };
@@ -308,7 +314,10 @@ tr.on td{background:var(--navy-wash)}
       <div class="av-grid2"><label class="av-f">Khung neo (2 tay trên bàn) lấy từ<select id="np-anchor"><option value="master" ${p.anchor_source !== "host" ? "selected" : ""}>Ảnh master SKU đầu tiên (khuyên dùng)</option><option value="host" ${p.anchor_source === "host" ? "selected" : ""}>Ảnh host gốc</option></select></label>
       <label class="av-f">Số clip nói (MC, không SP)<input type="number" id="np-talk" min="0" max="12" value="${p.talk_count == null ? 6 : p.talk_count}"></label>
       <label class="av-f">Độ dài audio mặc định (giây)<input type="number" id="np-audio" min="10" max="600" value="${p.audio_seconds || 72}"></label>
-      <label class="av-f">Số bản trộn / SKU<input type="number" id="np-var" min="1" max="20" value="${p.mix_variants || 5}"></label></div>
+      <label class="av-f">Số bản trộn / SKU<input type="number" id="np-var" min="1" max="20" value="${p.mix_variants || 5}"></label>
+      <label class="av-f">Nhà cung cấp AI (ảnh + clip)<select id="np-prov">${[["plenx", "PlenX (chính, rẻ ~5 lần)"], ["kie", "Kie"]].map(([v, l]) => `<option value="${v}" ${(p.ai_provider || "plenx") === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+      <label class="av-f">Số clip cầm / SKU<input type="number" id="np-holds" min="2" max="6" value="${p.hold_count || 4}" title="Clip cầm A, B, C, D... Từ 3 clip trở lên thì trộn chỉ chạy xuôi, không tua ngược"></label></div>
+      <label class="av-switch"><input type="checkbox" id="np-pxfb" ${p.px_fallback === false ? "" : "checked"}> PlenX lỗi thì chuyển sang Kie (bỏ tick = luôn thử lại PlenX)</label>
       <div class="av-hint">Khung neo lấy từ master khớp khung hình cầm SP hơn (test 01/10). Clip nói dùng chung cho mọi SKU của host này.</div>
       ${p.name ? `<div class="av-danger"><div class="av-hint"><b>Lưu trữ</b>: ẩn khỏi danh sách, tắt chạy đêm, dữ liệu giữ nguyên (bỏ lưu trữ được). <b>Xoá</b>: xoá dự án, SKU và lịch sử xuất trên ERP; video/clip đã tạo trên laptop vẫn giữ.</div>
         <div class="av-row"><button class="av-btn sm" id="np-arch" data-name="${esc(p.name)}" data-on="${p.status === "Lưu trữ" ? 0 : 1}">${p.status === "Lưu trữ" ? "Bỏ lưu trữ" : "Lưu trữ dự án"}</button><button class="av-btn sm ghost danger" id="np-del" data-name="${esc(p.name)}" data-title="${esc(p.title || "")}">Xoá dự án</button></div></div>` : ""}
@@ -317,7 +326,7 @@ tr.on td{background:var(--navy-wash)}
   }
   async function saveProject(name) {
     const d = { brand: $("np-brand").value.trim(), title: $("np-title").value.trim(), anchor_source: $("np-anchor").value,
-      talk_count: +$("np-talk").value || 0, audio_seconds: +$("np-audio").value || 72, mix_variants: +$("np-var").value || 5 };
+      talk_count: +$("np-talk").value || 0, audio_seconds: +$("np-audio").value || 72, mix_variants: +$("np-var").value || 5, ai_provider: $("np-prov").value, px_fallback: $("np-pxfb").checked, hold_count: +$("np-holds").value || 4 };
     if (!d.brand || !d.title) return toast("Cần brand và tên dự án", true);
     if (S.newHost) d.host_image = S.newHost;
     const r = name ? await act("update_project", { name, data: JSON.stringify(d) }, "Đã lưu") : await act("create_project", { data: JSON.stringify(d) }, "Đã tạo dự án");
@@ -554,7 +563,7 @@ tr.on td{background:var(--navy-wash)}
     return `${anyBox ? `<label class="av-switch"><input type="checkbox" id="av-showfr" ${S.showFrame ? "checked" : ""}> Hiện khung lên ảnh để so cỡ (ảnh 1 = khung, ảnh 2 = 90% khung)</label>` : ""}<div class="av-hold">${list.map((i) => {
       const b = bbox(i.guide_bbox);
       const cand = (i.candidates || []).map((c, ci) => `<div class="av-cand ${i.selected_candidate === c.id ? "sel" : ""}"><div class="im"><img src="${esc(c.thumb)}" alt="${esc(c.id)}" data-media="${esc(c.full)}" loading="lazy">${S.showFrame && b ? `<i class="ov" style="${boxStyle(b, ci ? 0.9 : 1)}"></i>` : ""}</div>
-        <div class="cap"><span>${esc(c.id)}${i.ai_reco === c.id ? ' <span class="av-pill p-navy">AI chọn</span>' : ""}</span>${i.stage === "pick" ? `<button class="av-btn sm pri" data-pick="${esc(i.name)}" data-c="${esc(c.id)}">Chọn</button>` : (i.selected_candidate === c.id ? '<span class="av-pill p-ok">Đã chọn</span>' : "")}</div></div>`).join("");
+        <div class="cap"><span>${esc(c.id)}${i.ai_reco === c.id ? ' <span class="av-pill p-navy">AI chọn</span>' : ""}</span>${i.stage === "pick" ? `<button class="av-btn sm pri" data-pick="${esc(i.name)}" data-c="${esc(c.id)}">Chọn</button>` : (i.selected_candidate === c.id ? '<span class="av-pill p-ok">Đã chọn</span>' : "")}</div>${qcView(c.qc)}</div>`).join("");
       return `<div class="av-sku"><div class="top"><div><b>${esc(i.sku)}</b><div class="av-hint">${esc(i.product_name || "")} · ${[i.width_cm, i.height_cm, i.depth_cm].map((x) => x || "–").join("×")} cm</div></div>${pill(i)}</div>
         ${i.stage === "holds" && !cand ? '<div class="av-skel" style="height:200px"></div>' : `<div class="av-cands">${cand}</div>`}
         ${i.stage === "pick" || (i.stage_state === "error" && i.stage === "holds") ? `<details><summary class="av-hint" style="cursor:pointer">Không ảnh nào ổn? Sửa thông số và gen lại</summary>

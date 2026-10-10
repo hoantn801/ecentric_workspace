@@ -58,6 +58,9 @@ class TestFlow(unittest.TestCase):
         self.assertEqual((stage, step["holds"], step["hold_start"], step["dirs"]), ("hold_a", 1, 1, []))
         stage, step = flow.approve_item(item("qc_hold_a"), PROJ)
         self.assertEqual((stage, step["hold_start"]), ("hold_b", 2))
+        self.assertEqual(step["holds"], 3)                          # 09/10: mac dinh PlenX -> 4 clip cam (B, C, D)
+        self.assertEqual(flow.hold_count({"state": {"provider": "kie"}}), 2)
+        self.assertEqual(flow.hold_count({"state": {"hold_count": 9}}), 6)
         with self.assertRaises(ValueError):
             flow.approve_item(item("hold_b"), PROJ)
 
