@@ -22,7 +22,7 @@ import unittest
 from ecentric_workspace.shell.tests import test_server_nav as T
 
 #: So test trong file (lech = co test khong nap).
-EXPECT_TOTAL = 31
+EXPECT_TOTAL = 32
 
 _SAVED = {}
 
@@ -296,6 +296,23 @@ class TestCollapse(unittest.TestCase):
         self.assertIn('[data-ec-shell-collapsed="1"] .ec-shell-mount[data-ec-rail="1"] .ec-shell-panel{ display:none; }', css)
 
 
+class TestPageIsolationCss(unittest.TestCase):
+    """10/10/2026: khoi #ec-reporting-shell-isolation (/weekly-update, /team-pulse) ep
+    .ec-shell-mount{flex-direction:column;width:auto} bang !important -> thanh bi day len dau cot.
+    Vo shell phai thang: quy tac rail mode cung !important, do uu tien cao hon."""
+
+    def test_rail_mode_wins_over_page_important_rules(self):
+        import io
+        import os
+        css = io.open(os.path.join(T.APP, "public", "css", "ec_shell.bundle.css"), encoding="utf-8").read()
+        rule = css[css.index('.ec-shell-mount[data-ec-rail="1"]{\n  flex-direction:row !important'):]
+        self.assertIn("width:var(--ec-shell-w,248px) !important", rule[:300])
+        self.assertIn('[data-ec-shell-collapsed="1"] .ec-shell-mount[data-ec-rail="1"]{\n  width:var(--ec-rail-w) !important',
+                      css)
+        self.assertIn('.ec-shell-mount[data-ec-rail="1"] .ec-shell-panel a.ec-shell-item.ec-shell-active{\n  '
+                      'background:var(--ec-navy) !important', css)
+
+
 class TestPmPatch(unittest.TestCase):
     """p272: dua /pm ve vo shell bang DUNG pm.pages.transform; khong nem trong migrate."""
 
@@ -473,7 +490,7 @@ class TestHydration(unittest.TestCase):
 
 def load_tests(loader, tests, pattern):
     suite = unittest.TestSuite()
-    for case in (TestRegistry, TestServerRender, TestRound2, TestLayout, TestCollapse, TestPmPatch, TestKillSwitch, TestJsParity,
+    for case in (TestRegistry, TestServerRender, TestRound2, TestLayout, TestCollapse, TestPageIsolationCss, TestPmPatch, TestKillSwitch, TestJsParity,
                  TestHydration):
         suite.addTests(loader.loadTestsFromTestCase(case))
     if suite.countTestCases() != EXPECT_TOTAL:
