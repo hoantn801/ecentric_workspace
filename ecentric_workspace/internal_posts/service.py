@@ -35,11 +35,49 @@ def _cards(repo, user, rows, cat_map, today):
         if n not in acked and user not in audience(repo, depts.get(n) or []):
             acked = acked | {n}
     authors = repo.full_names([r.get("owner") for r in rows])
+    badges = _survey_badges(repo, user, rows)
     out = []
     for r in rows:
         author = r.get("author_label") or authors.get(r.get("owner")) or ""
-        out.append(D.card(r, cat_map, seen, today, scope_label(repo, depts.get(r["name"])), author, acked))
+        card = D.card(r, cat_map, seen, today, scope_label(repo, depts.get(r["name"])), author, acked)
+        card["survey_badge"] = badges.get(r.get("survey")) if r.get("survey") else None
+        out.append(card)
     return out
+
+
+def _on(v):
+    """Check mac dinh BAT (truong moi them, bai cu co the la None)."""
+    return v is None or bool(v)
+
+
+def _survey_badges(repo, user, rows):
+    """Nhan "Khao sat · con N ngay" / "Da lam khao sat" tren the bai (bai da dang, HR bat nhan)."""
+    names = [r.get("survey") for r in rows if r.get("survey") and r.get("published") and _on(r.get("survey_badge"))]
+    if not names:
+        return {}
+    try:
+        return repo.survey_badges(user, names) or {}
+    except Exception:
+        repo.log_error("internal_posts survey badges")
+        return {}
+
+
+def _survey_view(repo, doc, user):
+    """The khao sat duoi bia (+ cot phai, + cuoi bai) theo NGUOI XEM. None = khong hien."""
+    name = doc.get("survey")
+    if not name:
+        return None
+    try:
+        c = repo.survey_card(user, name)
+    except Exception:
+        repo.log_error("internal_posts survey card")
+        return None
+    if not c:
+        return None
+    c = dict(c)
+    c["cta"] = doc.get("survey_cta") or c.get("title") or ""
+    c["end_card"] = _on(doc.get("survey_end_card")) and c.get("state") in ("todo", "draft")
+    return c
 
 
 def _legacy(repo, cat_map):
@@ -181,6 +219,7 @@ def post_page(user, slug, repo=None):
         "publish_at_label": D.when_label(doc.get("publish_at")),
         "ack": ack.view(repo, doc, user, editor),
         "comments": comments.view(repo, doc, user, editor),
+        "survey": _survey_view(repo, doc, user),
     }
 
 

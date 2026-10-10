@@ -56,7 +56,13 @@
   "ack_deadline",
   "ack_reminded_on",
   "column_break_4",
-  "allow_comments"
+  "allow_comments",
+  "section_survey",
+  "survey",
+  "survey_cta",
+  "column_break_survey",
+  "survey_end_card",
+  "survey_badge"
  ],
  "fields": [
   {
@@ -285,6 +291,40 @@
    "label": "Cho phép bình luận",
    "default": "1",
    "description": "Mọi người đọc được bài thì bình luận được. HR ẩn được bình luận không phù hợp."
+  },
+  {
+   "fieldname": "section_survey",
+   "fieldtype": "Section Break",
+   "label": "Khảo sát kèm bài"
+  },
+  {
+   "fieldname": "survey",
+   "fieldtype": "Link",
+   "label": "Khảo sát",
+   "options": "EC Survey",
+   "description": "Thẻ khảo sát hiện ngay dưới bìa bài, đổi theo người xem (chưa làm / đã làm / đã đóng)."
+  },
+  {
+   "fieldname": "survey_cta",
+   "fieldtype": "Data",
+   "label": "Câu kêu gọi",
+   "description": "Để trống thì dùng tên khảo sát."
+  },
+  {
+   "fieldname": "column_break_survey",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "survey_end_card",
+   "fieldtype": "Check",
+   "label": "Nhắc lại ở cuối bài",
+   "default": "1"
+  },
+  {
+   "fieldname": "survey_badge",
+   "fieldtype": "Check",
+   "label": "Hiện nhãn Khảo sát trên thẻ bài",
+   "default": "1"
   }
  ],
  "permissions": [

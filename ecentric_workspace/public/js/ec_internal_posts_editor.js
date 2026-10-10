@@ -63,6 +63,9 @@
     notify_teams: !!P.notify_teams,
     allow_comments: P.name ? !!P.allow_comments : true,
     require_ack: !!P.require_ack,
+    survey: P.survey || '',
+    survey_end_card: P.name ? P.survey_end_card !== false : true,
+    survey_badge: P.name ? P.survey_badge !== false : true,
     when: P.scheduled ? 'schedule' : 'now',
     scheduled: !!P.scheduled,
     scope: P.scope === 'dept' ? 'dept' : 'all',
@@ -252,6 +255,10 @@
       popup_image_link: S.popup_image_link ? 1 : 0,
       notify_teams: S.notify_bell && S.notify_teams ? 1 : 0,
       allow_comments: S.allow_comments ? 1 : 0,
+      survey: S.survey || '',
+      survey_cta: S.survey && el.svyCta ? el.svyCta.value.trim() : '',
+      survey_end_card: S.survey_end_card ? 1 : 0,
+      survey_badge: S.survey_badge ? 1 : 0,
       require_ack: S.require_ack ? 1 : 0,
       ack_deadline: S.require_ack && el.ackDate ? el.ackDate.value : '',
       publish_mode: scheduling() ? 'schedule' : 'now',
@@ -824,6 +831,39 @@
     });
   });
 
+  // ------------------------------------------------------------------ khao sat kem bai
+  // PO duyet mockup 10/10/2026: chon khao sat (minh tao / cung quan ly), cau keu goi, nhac cuoi bai,
+  // nhan tren the. Khao sat con Nhap -> luc Dang bai phat hanh khao sat cung luc.
+  var SVY = {};
+  (D.survey_options || []).forEach(function (o) { SVY[o.name] = o; });
+  el.svyPick = $('[data-eip-svy-pick]');
+  el.svyCta = $('[data-eip-svy-cta]');
+  function svyDraft() { return !!(S.survey && SVY[S.survey] && SVY[S.survey].draft); }
+  function renderSurvey() {
+    var box = $('[data-eip-svy-box]');
+    if (box) box.hidden = !S.survey;
+    var warn = $('[data-eip-svy-draft]');
+    if (warn) warn.hidden = !svyDraft();
+    if (el.svyCta) el.svyCta.placeholder = S.survey && SVY[S.survey] ? SVY[S.survey].title : 'Để trống thì dùng tên khảo sát';
+  }
+  if (el.svyPick) el.svyPick.addEventListener('change', function () {
+    S.survey = el.svyPick.value || '';
+    markDirty();
+    renderSurvey();
+  });
+  if (el.svyCta) el.svyCta.addEventListener('input', markDirty);
+  renderSurvey();
+
+  function publishSurveyFirst() {
+    // Khao sat con Nhap: phat hanh truoc, loi thi DUNG (khong dang bai tro toi trang trong).
+    if (!svyDraft()) return Promise.resolve();
+    return window.ecApi.post('ecentric_workspace.surveys.controllers.api.publish', { name: S.survey }).then(function (r) {
+      if (!r || !r.success) throw new Error('Chưa phát hành được khảo sát: ' + ((r && r.message) || 'lỗi không rõ') + ' Bài chưa được đăng.');
+      SVY[S.survey].draft = false;
+      renderSurvey();
+    });
+  }
+
   // ------------------------------------------------------------------ pham vi ------
   $$('input[name="eip-scope"]').forEach(function (r) {
     r.addEventListener('change', function () {
@@ -1076,6 +1116,11 @@
         pad(before.getDate()) + '/' + pad(before.getMonth() + 1) + ' và ' + fmtDate(el.ackDate.value).slice(0, 5) + ' lúc 09:00.');
     }
     if (!S.allow_comments) items.push('Tắt bình luận.');
+    if (S.survey) {
+      var so = SVY[S.survey];
+      items.push('Gắn khảo sát "' + (so ? so.title : S.survey) + '" ngay dưới bìa bài' + (S.survey_end_card ? ' và ở cuối bài.' : '.'));
+      if (svyDraft()) items.push('Khảo sát đang Nháp: ERP phát hành khảo sát cùng lúc (theo cài đặt thông báo của khảo sát).');
+    }
     return items;
   }
 
@@ -1107,7 +1152,10 @@
         items: publishItems(),
         ok: sched ? 'Hẹn đăng' : 'Đăng bài',
         onOk: function () {
-          save('publish').then(function (res) {
+          publishSurveyFirst().then(function () { return save('publish'); }, function (e) {
+            UI.toast(e.message, true);
+            throw e;
+          }).then(function (res) {
             if (res.scheduled) {
               S.dirty = false;
               UI.toast('Đã hẹn đăng ' + (res.publish_at_label || whenText()) + '. Bài nằm ở tab Hẹn giờ.');

@@ -30,6 +30,7 @@ def get_context(context):
         "company_size": ctx["company_size"], "ai_limit": ctx["ai_limit"], "ai_used": ctx["ai_used"],
         "ai_enabled": ctx["ai_enabled"], "colors": ctx["colors"],
         "categories": ctx["categories"], "ai_write": ctx["ai_write"],
+        "survey_options": ctx.get("survey_options") or [],
     }, indent=None).replace("</", "<\\/")
     pages.shell(context, C.ROUTE, detail=context.title)
     context.ip_editor_js = pages.asset_url("editor")

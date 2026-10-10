@@ -43,6 +43,46 @@
 {%- if c.need_ack %}<span class="eip-badge eip-b-ack">Cần xác nhận{% if c.ack_deadline_label %} trước {{ c.ack_deadline_label|e }}{% endif %}</span>{% endif -%}
 {%- if c.scheduled %}<span class="eip-badge eip-b-sched">{{ icon('clock') }}Hẹn giờ</span>{% endif -%}
 {%- if c.scope_label %}<span class="eip-badge eip-b-scope">{{ icon('users') }}{{ c.scope_label|e }}</span>{% endif -%}
+{%- if c.survey_badge %}<span class="eip-badge eip-b-svy{{ ' eip-b-svy-done' if c.survey_badge.kind == 'done' else '' }}">{{ icon('check' if c.survey_badge.kind == 'done' else 'doc') }}{{ c.survey_badge.label|e }}</span>{% endif -%}
+{%- endmacro -%}
+
+{#- Khao sat kem bai (PO duyet mockup 10/10/2026). sv = post.survey; where = top | rail | end. -#}
+{%- macro survey_meta(sv) -%}
+{%- if sv.questions %}<span>{{ sv.questions }} câu · khoảng {{ sv.minutes }} phút</span>{% endif -%}
+{%- if sv.close_label %}<span>Hạn {{ sv.close_label|e }}{% if sv.days_left is not none %} · {% if sv.days_left == 0 %}hạn hôm nay{% else %}còn {{ sv.days_left }} ngày{% endif %}{% endif %}</span>{% endif -%}
+{%- if sv.anonymous %}<span>Ẩn danh</span>{% endif -%}
+{%- endmacro -%}
+
+{%- macro survey_card(sv) -%}
+{%- set st = sv.state -%}
+<section class="eip-svy eip-svy-{{ st|e }}" aria-label="Khảo sát kèm bài" data-eip-svy>
+  <span class="eip-svy-ic" aria-hidden="true">{{ icon('check' if st == 'done' else 'doc') }}</span>
+  <div class="eip-svy-t">
+    {%- if st == 'done' %}
+    <span class="eip-svy-k">Khảo sát kèm bài</span>
+    <b>Bạn đã trả lời khảo sát{% if sv.submitted_label %} lúc {{ sv.submitted_label|e }}{% endif %}</b>
+    <span class="eip-svy-m"><span>Cảm ơn bạn.{% if sv.can_edit and sv.close_label %} Sửa được câu trả lời đến {{ sv.close_label|e }}.{% endif %}</span></span>
+    {%- elif st == 'closed' %}
+    <span class="eip-svy-k">Khảo sát kèm bài</span>
+    <b>Khảo sát đã đóng{% if sv.close_label %} ngày {{ sv.close_label|e }}{% endif %}</b>
+    {%- elif st == 'draft' %}
+    <span class="eip-svy-k">Chỉ người quản lý khảo sát thấy</span>
+    <b>Khảo sát đang là bản nháp – nhân viên chưa thấy thẻ này</b>
+    <span class="eip-svy-m"><span>{{ sv.cta|e }}</span><span>Phát hành khảo sát trước hoặc cùng lúc đăng bài.</span></span>
+    {%- elif st == 'soon' %}
+    <span class="eip-svy-k">Khảo sát kèm bài</span>
+    <b>{{ sv.cta|e }}</b>
+    <span class="eip-svy-m"><span>Mở lúc {{ sv.open_label|e }}</span>{{ survey_meta(sv) }}</span>
+    {%- else %}
+    <span class="eip-svy-k">Khảo sát kèm bài · cần ý kiến của bạn</span>
+    <b>{{ sv.cta|e }}</b>
+    <span class="eip-svy-m">{{ survey_meta(sv) }}</span>
+    {%- endif %}
+  </div>
+  {%- if st == 'todo' %}<a class="eip-btn eip-primary eip-svy-go" href="{{ sv.url|e }}">Làm khảo sát {{ icon('arrow') }}</a>
+  {%- elif st == 'done' %}<a class="eip-btn eip-svy-ghost" href="{{ sv.url|e }}">{{ 'Xem / sửa câu trả lời' if sv.can_edit else 'Xem khảo sát' }}</a>
+  {%- elif st == 'draft' %}<a class="eip-btn eip-svy-ghost" href="{{ sv.manage_url|e }}">Mở trình soạn khảo sát</a>{% endif %}
+</section>
 {%- endmacro -%}
 
 {%- macro card(c) -%}

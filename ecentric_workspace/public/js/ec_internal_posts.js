@@ -101,19 +101,41 @@
 
     // Muc dang doc trong "Trong bai nay"
     var toc = document.querySelector('.eip-toc');
-    if (toc && 'IntersectionObserver' in window) {
+    if (toc) {
+      // Tinh theo vi tri cuon (khong dung IntersectionObserver): muc cuoi bai ngan khong bao gio
+      // cham vung quan sat o dau trang nen "keo max cung khong nhay" (PO bao 10/10/2026).
+      // Cuon toi day trang -> muc cuoi cung; bam vao muc luc -> sang muc do ngay.
       var links = all('a', toc);
       var byId = {};
       links.forEach(function (a) { byId[(a.getAttribute('href') || '').slice(1)] = a; });
       var heads = all('.eip-prose h2[id]', article).filter(function (h) { return byId[h.id]; });
-      var io = new IntersectionObserver(function (entries) {
-        entries.forEach(function (en) {
-          if (!en.isIntersecting) return;
-          links.forEach(function (a) { a.removeAttribute('aria-current'); });
-          byId[en.target.id].setAttribute('aria-current', 'true');
-        });
-      }, { rootMargin: '-80px 0px -65% 0px' });
-      heads.forEach(function (h) { io.observe(h); });
+      var mark = function (id) {
+        links.forEach(function (a) { if (a === byId[id]) a.setAttribute('aria-current', 'true'); else a.removeAttribute('aria-current'); });
+      };
+      var pinned = null;
+      var spy = function () {
+        if (!heads.length) return;
+        var doc = document.documentElement;
+        var atEnd = window.innerHeight + (window.pageYOffset || doc.scrollTop) >= doc.scrollHeight - 4;
+        if (atEnd) { mark(pinned || heads[heads.length - 1].id); return; }
+        pinned = null;
+        var cur = heads[0];
+        heads.forEach(function (h) { if (h.getBoundingClientRect().top <= 120) cur = h; });
+        mark(cur.id);
+      };
+      var ticking = false;
+      window.addEventListener('scroll', function () {
+        if (ticking) return;
+        ticking = true;
+        window.requestAnimationFrame(function () { ticking = false; spy(); });
+      }, { passive: true });
+      toc.addEventListener('click', function (ev) {
+        var a = ev.target.closest('a');
+        if (!a) return;
+        var id = (a.getAttribute('href') || '').slice(1);
+        if (byId[id]) { pinned = id; mark(id); }
+      });
+      spy();
     }
   }
 

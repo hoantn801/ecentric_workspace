@@ -67,6 +67,9 @@ COVER_COLORS = {
     "charcoal": ("Than", "#1f2937", "#6b7280"),
 }
 COVER_COLOR_DEFAULT = "navy"
+#: Khao sat kem bai: do dai toi da cau keu goi.
+SURVEY_CTA_MAX = 140
+
 COVER_KIND_COLOR = "color"
 COVER_KIND_IMAGE = "image"
 #: Bieu tuong chuyen muc (Select trong EC Post Category).

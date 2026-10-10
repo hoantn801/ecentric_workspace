@@ -216,7 +216,7 @@
 .eip-hr-line b{color:var(--eip-g900);font-variant-numeric:tabular-nums}
 
 /* noi dung bai (dung chung cho trang bai, o soan va xem truoc) */
-.eip-prose{font-size:14.5px;line-height:1.7;color:var(--eip-g700);max-width:72ch;overflow-wrap:anywhere}
+.eip-prose{font-size:14.5px;line-height:1.7;color:var(--eip-g700);overflow-wrap:anywhere}
 .eip-prose h2{font-size:17px;font-weight:700;color:var(--eip-g900);margin:26px 0 8px;scroll-margin-top:80px;line-height:1.35}
 .eip-prose h3{font-size:15px;font-weight:700;color:var(--eip-g900);margin:20px 0 6px;scroll-margin-top:80px}
 .eip-prose>:first-child{margin-top:0}
@@ -481,3 +481,45 @@
   .eip-preview-bg{padding:0}
   .eip-preview{max-height:100vh;border-radius:0}
 }
+
+/* Khao sat kem bai (PO duyet mockup 10/10/2026): the duoi bia, the cot phai, the cuoi bai. */
+.eip-svy{display:flex;align-items:center;gap:18px;background:var(--eip-surface);border:1.5px solid #FFC000;border-radius:14px;padding:16px 20px;margin:-6px 0 20px;box-shadow:0 6px 18px rgba(255,192,0,.14)}
+.eip-svy-ic{width:46px;height:46px;border-radius:13px;background:#FFC000;color:#3a2a00;display:grid;place-items:center;flex:none}
+.eip-svy-ic .eip-ic{width:24px;height:24px}
+.eip-svy-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.eip-svy-t b{font-size:16.5px;line-height:1.35;color:var(--eip-g900)}
+.eip-svy-k{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--eip-amber-ink)}
+.eip-svy-m{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--eip-g500)}
+.eip-btn.eip-svy-go{padding:12px 20px;font-size:14px;border-radius:11px;flex:none}
+.eip-btn.eip-svy-go .eip-ic{width:16px;height:16px}
+.eip-btn.eip-svy-ghost{padding:10px 16px;font-size:13px;border-radius:10px;flex:none;color:var(--eip-navy) !important}
+.eip-svy-done{border-color:#a7e3c4;box-shadow:none}
+.eip-svy-done .eip-svy-ic{background:var(--eip-green);color:#fff;border-radius:50%}
+.eip-svy-done .eip-svy-t b{color:var(--eip-green-ink)}
+.eip-svy-closed{border:1px solid var(--eip-line);box-shadow:none}
+.eip-svy-closed .eip-svy-ic{background:var(--eip-soft);color:var(--eip-g500)}
+.eip-svy-closed .eip-svy-t b{color:var(--eip-g600);font-size:15px}
+.eip-svy-draft{border-style:dashed;border-color:#c27c00;box-shadow:none}
+.eip-svy-draft .eip-svy-t b{color:#5c3d00}
+.eip-svy-end{display:flex;align-items:center;gap:16px;background:var(--eip-yellow-50);border-radius:12px;padding:16px 18px}
+.eip-svy-end>div{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.eip-svy-end b{font-size:15px;color:var(--eip-g900)}
+.eip-svy-end span{font-size:12.5px;color:var(--eip-g500)}
+.eip-svy-rail{border-color:#ffe08a}
+.eip-svy-rail .eip-panel-h{color:var(--eip-amber-ink)}
+.eip-svy-rail-t{display:block;font-size:13.5px;line-height:1.4;color:var(--eip-g900)}
+.eip-svy-rail .eip-bar i{background:#FFC000}
+.eip-btn.eip-svy-railbtn{display:flex;width:100%;margin-top:10px;padding:10px 0}
+.eip-svy-ok{display:flex;align-items:center;gap:6px;margin:8px 0 0;font-size:12.5px;font-weight:600;color:var(--eip-green-ink)}
+.eip-svy-ok .eip-ic{width:15px;height:15px}
+.eip-b-svy{background:#FFC000;color:#3a2a00}
+.eip-b-svy .eip-ic{width:12px;height:12px}
+.eip-b-svy.eip-b-svy-done{background:var(--eip-green-50);color:var(--eip-green-ink)}
+@media (max-width:760px){
+  .eip-svy{flex-wrap:wrap;padding:14px 16px;gap:12px}
+  .eip-svy-ic{width:38px;height:38px}
+  .eip-btn.eip-svy-go,.eip-btn.eip-svy-ghost{width:100%}
+  .eip-svy-end{flex-direction:column;align-items:stretch}
+}
+.eip-svy-panel [data-eip-svy-box]{margin-top:12px}
+.eip-svy-warn{margin:8px 0 0;background:var(--eip-yellow-50);color:#5c3d00;border-radius:10px;padding:9px 11px;font-size:12.5px;line-height:1.45}
