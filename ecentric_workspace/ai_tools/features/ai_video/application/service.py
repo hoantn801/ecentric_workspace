@@ -97,7 +97,12 @@ def _ext(file_url, default=".png"):
 
 
 def _enqueue(project, step, night=False):
-    res = wc.call("enqueue", batch_id=project, night=bool(night), steps=[step])
+    pv = _j(frappe.db.get_value(P, project, "state_json")).get("provider")   # 09/10: kie | plenx | "" (mac dinh may chay video)
+    st = _j(frappe.db.get_value(P, project, "state_json"))
+    kw = {"provider": pv} if pv in ("kie", "plenx") else {}
+    if st.get("px_fallback") is False:            # 09/10: khong chuyen Kie khi PlenX loi (thu lai PlenX)
+        kw["px_fallback"] = False
+    res = wc.call("enqueue", batch_id=project, night=bool(night), steps=[step], **kw)
     return res.get("task_ids") or []
 
 
@@ -125,8 +130,24 @@ def create_project(data):
         raise frappe.ValidationError("Cần tên brand và tên dự án.")
     _check_files(d)
     doc = frappe.get_doc(dict({k: d.get(k) for k in PROJECT_SETTINGS if d.get(k) not in (None, "")}, doctype=P))
+    st0 = {}
+    if d.get("ai_provider") in ("kie", "plenx"):
+        st0["provider"] = d["ai_provider"]
+    st0.update(_ai_opts(d))
+    if st0:
+        doc.state_json = json.dumps(st0)
     doc.insert(ignore_permissions=True)
     return {"name": doc.name}
+
+
+def _ai_opts(d):
+    """09/10: tuy chon AI trong Cai dat du an -> state_json: px_fallback (bool), hold_count (2..6)."""
+    out = {}
+    if "px_fallback" in d:
+        out["px_fallback"] = bool(d["px_fallback"])
+    if d.get("hold_count") not in (None, ""):
+        out["hold_count"] = max(2, min(6, int(d["hold_count"])))
+    return out
 
 
 def update_project(name, data):
@@ -136,6 +157,16 @@ def update_project(name, data):
     for k in PROJECT_SETTINGS:
         if k in d:
             doc.set(k, d[k])
+    if "ai_provider" in d:                       # 09/10: nha cung cap AI (Kie / PlenX), luu trong state_json
+        if d["ai_provider"] not in ("", "kie", "plenx"):
+            raise frappe.ValidationError("Nhà cung cấp AI không hợp lệ.")
+        st = _j(doc.state_json)
+        st["provider"] = d["ai_provider"]
+        doc.state_json = json.dumps(st)
+    if _ai_opts(d):
+        st = _j(doc.state_json)
+        st.update(_ai_opts(d))
+        doc.state_json = json.dumps(st)
     doc.save(ignore_permissions=True)
     return {"name": doc.name}
 
@@ -582,6 +613,9 @@ def get_project(name, do_tick=0):
     proj["anchor"] = hf.get("anchor") and {"thumb": _thumb(hf["anchor"]["path"]), "full": wc.sign(hf["anchor"]["path"])}
     proj["talks"] = [{"id": k, "url": wc.sign(v["path"])} for k, v in sorted(hf.items()) if k.startswith("talk_")]
     proj["talk_off"] = sorted(pst.get("talk_off") or [])
+    proj["ai_provider"] = pst.get("provider") or ""
+    proj["px_fallback"] = pst.get("px_fallback") is not False
+    proj["hold_count"] = flow.hold_count({"state": pst})
     proj["breaker"] = pst.get("breaker")
     proj["last_tick"] = pst.get("last_tick")
     proj["anchor_error"] = pst.get("anchor_error")
@@ -631,14 +665,16 @@ def _views_from(j):
     de mo trang chi can ky link tai cho, khong phai hoi laptop qua tunnel (07/10/2026)."""
     if not j:
         return None
-    return {"cands": [[c["id"], c["file"]["path"]] for c in j.get("candidates") or [] if c.get("file")],
+    return {"cands": [[c["id"], c["file"]["path"]] + ([c["qc"]] if c.get("qc") else [])   # 10/10: + loi AI kiem tra
+                      for c in j.get("candidates") or [] if c.get("file")],
             "reco": (j.get("ai_qc") or {}).get("recommended"),
             "master": (j.get("master") or {}).get("path"),
             "units": {k: v["path"] for k, v in (j.get("units") or {}).items() if k.startswith(("pickup_", "putdown_", "hold_"))}}
 
 
 def _apply_views(it, v):
-    it["candidates"] = [{"id": i, "thumb": _thumb(p), "full": wc.sign(p)} for i, p in v.get("cands") or []]
+    it["candidates"] = [{"id": c[0], "thumb": _thumb(c[1]), "full": wc.sign(c[1]), "qc": c[2] if len(c) > 2 else None}
+                        for c in v.get("cands") or []]
     it["ai_reco"] = v.get("reco")
     it["master"] = v.get("master") and _thumb(v["master"])
     it["units"] = {k: wc.sign(p) for k, p in (v.get("units") or {}).items()}
@@ -656,8 +692,8 @@ def _attach_worker_views(project, items):
     js = {j["job_id"]: j for j in W.get("jobs") or []}
     for it in items:
         j = js.get(it.get("job_id")) or {}
-        it["candidates"] = [{"id": c["id"], "thumb": _thumb(c["file"]["path"]), "full": wc.sign(c["file"]["path"])}
-                            for c in j.get("candidates") or [] if c.get("file")]
+        it["candidates"] = [{"id": c["id"], "thumb": _thumb(c["file"]["path"]), "full": wc.sign(c["file"]["path"]),
+                             "qc": c.get("qc")} for c in j.get("candidates") or [] if c.get("file")]
         it["ai_reco"] = (j.get("ai_qc") or {}).get("recommended")
         it["master"] = j.get("master") and _thumb(j["master"]["path"])
         it["units"] = {k: wc.sign(v["path"]) for k, v in (j.get("units") or {}).items()
