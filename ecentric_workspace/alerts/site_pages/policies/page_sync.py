@@ -22,9 +22,10 @@ def _html():
 
 
 # sha256 cua dung khoi HTML commit nay ship (UTF-8, LF).
-BASELINE_SHA256 = "7157c23133d16ffe0dc827c6ccdbb831af85c73b24d13cdb922c2d59142a120f"
+BASELINE_SHA256 = "1710ebb24b30b016cac50adcb5a4e0282e088d61fd8ba8744c5b9bd70c517af7"
 #: Cac ban live duoc phep ghi de (moi nhat o dau).
 SUPERSEDES_SHA256 = (
+    "7157c23133d16ffe0dc827c6ccdbb831af85c73b24d13cdb922c2d59142a120f",   # p223 (29/09/2026) - truoc khi can giua noi dung (10/10)
     "9353c6bcca9a27b0b59170e765113cc825048ac7dddfe29ac5f425b621278ada",   # ban live 29/09/2026 (truoc NHIEU_LOP: khoi inline, csrf-fetch-patch)
 )
 
