@@ -11,6 +11,12 @@ import types
 import unittest
 
 
+def _frame(svc, *names):
+    """10/10: tao anh cam bat buoc co khung SP."""
+    for n in names:
+        svc.update_item(n, json.dumps({"guide_bbox": "0.3874,0.4748,0.2266,0.0505"}))
+
+
 # ------------------------------------------------------------------ frappe gia ---
 class _Err(Exception):
     pass
@@ -180,6 +186,7 @@ class TestService(unittest.TestCase):
                                         {"sku": "", "product_image": "x"}]))["items"]
         self.assertEqual(len(it), 1)
         n = it[0]
+        _frame(self.svc, n)
         s.start_holds(p, json.dumps([n]))
         self.assertEqual(self.item(n)["stage"], "holds")
         hs = W.last("holds")
@@ -256,6 +263,7 @@ class TestService(unittest.TestCase):
         s, W = self.svc, self.W
         p = s.create_project(json.dumps({"brand": "B", "title": "T", "host_image": "/h.png"}))["name"]
         n = s.add_items(p, json.dumps([{"sku": "A", "product_image": "/a.png"}]))["items"][0]
+        _frame(self.svc, n)
         s.start_holds(p, json.dumps([n]))
         tid = W.steps[-1][0]
         W.tasks[tid].update(state="failed", error="state=fail failCode=500")
@@ -276,6 +284,7 @@ class TestService(unittest.TestCase):
         p = s.create_project(json.dumps({"brand": "B", "title": "T", "host_image": "/h.png", "night_mode": 1,
                                          "anchor_source": "host", "talk_count": 0}))["name"]
         n = s.add_items(p, json.dumps([{"sku": "A", "product_image": "/a.png", "batch": "L"}]))["items"][0]
+        _frame(self.svc, n)
         s.start_holds(p, json.dumps([n]))
         s.tick(p)
         self.assertEqual(W.last("anchor")["host_image"].endswith("host.png"), True)   # nguon host: tao ngay
@@ -361,10 +370,12 @@ class TestKhungVaNhom(unittest.TestCase):
         self.assertEqual(json.loads(self.item(a)["state_json"])["guide_bbox"], "0.3874,0.4748,0.2266,0.0505")
         with self.assertRaises(Exception):
             s.update_item(a, json.dumps({"guide_bbox": "0.9,0.9,0.5,0.5"}))
-        s.start_holds(p, json.dumps([a, b]))
+        r = s.start_holds(p, json.dumps([a, b]))
         steps = [st for _, st in self.W.steps if st["op"] == "holds"]
         self.assertEqual(steps[0]["fields"]["guide_bbox"], "0.3874,0.4748,0.2266,0.0505")
-        self.assertNotIn("guide_bbox", steps[1]["fields"])
+        self.assertEqual((len(steps), r["need_frame"]), (1, ["A2"]))   # 10/10: chua ve khung -> khong tao anh cam
+        with self.assertRaises(Exception):
+            s.regen_holds(b, json.dumps({"width_cm": 20}))
         s.update_item(b, json.dumps({"guide_bbox": ""}))            # xoa khung = de AI tu tinh
         self.assertEqual(json.loads(self.item(b)["state_json"]).get("guide_bbox"), "")
 
@@ -397,10 +408,12 @@ class TestKhungVaNhom(unittest.TestCase):
         s = self.svc
         self.worker_groups({"milk_can": {"status": "try"}})
         p, (a, b) = self.mk("milk_can")
+        _frame(self.svc, a, b)
         s.start_holds(p, json.dumps([a, b]))                     # ca lo cung luc: chi SKU dau dung cho duyet
         self.assertTrue(json.loads(self.item(a)["state_json"])["force_gate"])
         self.assertNotIn("force_gate", json.loads(self.item(b)["state_json"]))
         self.store.rows["EC AI Video Item"][a]["stage"] = "ready"   # SKU dau da ra clip
+        _frame(self.svc, b)
         s.start_holds(p, json.dumps([b]))
         self.assertNotIn("force_gate", json.loads(self.item(b)["state_json"]))
         self.assertTrue(s.get_project(p)["items"][0]["force_gate"])
@@ -441,6 +454,7 @@ class TestKhungVaNhom(unittest.TestCase):
         s, W = self.svc, self.W
         p = s.create_project(json.dumps({"brand": "Friso", "title": "T", "host_image": "/private/files/host.png"}))["name"]
         it = s.add_items(p, json.dumps([{"sku": "A1", "product_image": "/private/files/f.png"}]))["items"][0]
+        _frame(self.svc, it)
         s.start_holds(p, json.dumps([it]))
         job = self.item(it)["job_id"]
         W.finish("holds")
@@ -491,6 +505,7 @@ class TestKhungVaNhom(unittest.TestCase):
         s = self.svc
         p = s.create_project(json.dumps({"brand": "Friso", "title": "T", "host_image": "/private/files/host.png"}))["name"]
         it = s.add_items(p, json.dumps([{"sku": "A1", "product_image": "/private/files/f.png"}]))["items"][0]
+        _frame(self.svc, it)
         s.start_holds(p, json.dumps([it]))
         job = self.item(it)["job_id"]
         st = json.loads(self.item(it)["state_json"])
@@ -524,6 +539,7 @@ class TestKhungVaNhom(unittest.TestCase):
         s, W = self.svc, self.W
         p = s.create_project(json.dumps({"brand": "B", "title": "T", "host_image": "/h.png", "talk_count": 0}))["name"]
         n = s.add_items(p, json.dumps([{"sku": "A1", "product_image": "/a.png"}]))["items"][0]
+        _frame(self.svc, n)
         s.start_holds(p, json.dumps([n]))
         st = json.loads(self.item(n)["state_json"])
         st["views"] = {"cands": [], "units": {k: "u/" + k for k in ("putdown_left", "pickup_left", "putdown_right", "hold_01", "hold_02")}}
@@ -653,6 +669,7 @@ class TestKhungVaNhom(unittest.TestCase):
         p = s.create_project(json.dumps({"brand": "Pin", "title": "T", "host_image": "/private/files/host.png"}))["name"]
         it = s.add_items(p, json.dumps([{"sku": "THO40", "product_image": "/private/files/f.png", "weight_g": 900}]))["items"][0]
         self.assertEqual(self.item(it)["weight_g"], 900)
+        _frame(self.svc, it)
         s.start_holds(p, json.dumps([it]))
         self.assertIn("about 900 g", W.last("holds")["fields"]["product_notes"])
 
