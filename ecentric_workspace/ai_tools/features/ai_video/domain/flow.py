@@ -185,8 +185,8 @@ def decide_item(item, project, W):
         if (project.get("gate_hold_a") and not night) or st.get("force_gate"):
             go("qc_hold_a", "waiting")
         else:
-            go("hold_b")
-            enqueue("hold_b", units_step(dirs=[], holds=1, hold_start=2))
+            go("hold_b")   # 09/10: B, C, D... (so clip cam theo du an)
+            enqueue("hold_b", units_step(dirs=[], holds=hold_count(project) - 1, hold_start=2))
     elif stage == "hold_b" and ts == "done":
         if night:
             go("mixing")
@@ -200,6 +200,15 @@ def decide_item(item, project, W):
     return out
 
 
+def hold_count(project):
+    """So clip cam / SKU (09/10): dat trong Cai dat du an; mac dinh 4 khi dung PlenX (re), 2 khi Kie."""
+    st = project.get("state") or {}
+    n = st.get("hold_count")
+    if not n:
+        n = 2 if st.get("provider") == "kie" else 4
+    return max(2, min(6, int(n)))
+
+
 def approve_item(item, project):
     """Nguoi duyet o mot chot chan -> buoc tiep theo."""
     st = item.get("state") or {}
@@ -209,7 +218,7 @@ def approve_item(item, project):
         step.update(dirs=[], holds=1, hold_start=1)
         return "hold_a", step
     if stage == "qc_hold_a":
-        step.update(dirs=[], holds=1, hold_start=2)
+        step.update(dirs=[], holds=hold_count(project) - 1, hold_start=2)
         return "hold_b", step
     raise ValueError("SKU không ở bước chờ duyệt")
 

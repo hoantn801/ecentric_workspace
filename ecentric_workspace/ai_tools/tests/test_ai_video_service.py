@@ -437,6 +437,56 @@ class TestKhungVaNhom(unittest.TestCase):
         s.tick = lambda name: (_ for _ in ()).throw(Exception("EC AI Video Item x has been modified after you have opened it"))
         self.assertIsNone(s.get_project(p, 1)["worker_down"])
 
+    def test_anh_cam_hien_loi_ai_kiem_tra(self):
+        s, W = self.svc, self.W
+        p = s.create_project(json.dumps({"brand": "Friso", "title": "T", "host_image": "/private/files/host.png"}))["name"]
+        it = s.add_items(p, json.dumps([{"sku": "A1", "product_image": "/private/files/f.png"}]))["items"][0]
+        s.start_holds(p, json.dumps([it]))
+        job = self.item(it)["job_id"]
+        W.finish("holds")
+        qc = {"pass": False, "issues": ["ho rang", 'sai chu "300 g" -> "800 g"'], "warn": []}
+        W.jobs[job] = {"candidates": [{"id": "hold_c01", "file": {"path": "jobs/%s/c1.png" % job}, "qc": qc},
+                                      {"id": "hold_c02", "file": {"path": "jobs/%s/c2.png" % job}}]}
+        s.tick(p)
+        c = s.get_project(p)["items"][0]["candidates"]
+        self.assertEqual((c[0]["qc"], c[1]["qc"]), (qc, None))
+        st = json.loads(self.item(it)["state_json"])
+        self.assertEqual(st["views"]["cands"][0][2], qc)            # luu kem link -> mo trang khong hoi laptop
+
+    def _hs_store_portrait(self, owner="a@ec.vn"):
+        self.store.rows.setdefault("File", {})["F1"] = {"name": "F1", "file_url": "/private/files/me.png", "owner": owner}
+
+    def test_tao_anh_host_tu_anh_chan_dung(self):
+        s, W = self.svc, self.W
+        self._hs_store_portrait()
+        r = s.host_seat_start("/private/files/me.png")
+        key = r["key"]
+        self.assertRegex(key, r"^hs_[0-9a-f]{10}$")
+        st = W.last("host_seat")
+        self.assertEqual((st["key"], st["n"], st["portrait"]), (key, 4, "ecv6/inbox/%s/portrait.png" % key))
+        out = "ecv6/output/host_seat/%s/host_seat_%d.png"
+        W.tasks = {"x1": {"id": "x1", "kind": "host_seat", "state": "done", "out": out % (key, 1)},
+                   "x2": {"id": "x2", "kind": "host_seat", "state": "running", "out": out % (key, 2)},
+                   "y": {"id": "y", "kind": "mix", "state": "done", "out": "z"}}
+        v = s.host_seat_status(key)
+        self.assertEqual([i["id"] for i in v["items"]], ["x1", "x2"])
+        self.assertFalse(v["done"])
+        self.assertIn("raw%2Fhost_seat_1.png", v["items"][0]["full"])
+        got = []
+        self.wc.fetch = lambda path: got.append(path) or b"png"
+        s._save_file = lambda name, content: "/private/files/" + name
+        self.assertEqual(s.host_seat_pick(key, "x1")["file_url"], "/private/files/host_%s_x1.png" % key)
+        self.assertEqual(got, ["ecv6/output/host_seat/%s/raw/host_seat_1.png" % key])
+        with self.assertRaises(Exception):
+            s.host_seat_pick(key, "x2")                                 # chua xong
+        with self.assertRaises(Exception):
+            s.host_seat_status("../../etc")                             # ma la
+
+    def test_tao_anh_host_chan_file_nguoi_khac(self):
+        self._hs_store_portrait(owner="b@ec.vn")
+        with self.assertRaises(Exception):
+            self.svc.host_seat_start("/private/files/me.png")
+
     def test_mo_du_an_khong_hoi_worker_khi_da_co_link(self):
         s = self.svc
         p = s.create_project(json.dumps({"brand": "Friso", "title": "T", "host_image": "/private/files/host.png"}))["name"]
@@ -545,6 +595,27 @@ class TestKhungVaNhom(unittest.TestCase):
                 s.add_items(p, json.dumps(rows))
             self.assertIn("trùng", str(c.exception))
         self.assertEqual(len(self.store.rows["EC AI Video Item"]), 1)          # khong luu dong nao khi co trung
+
+    def test_tat_du_phong_kie_va_so_clip_cam(self):
+        s, W = self.svc, self.W
+        p, n = self._ready_item()
+        s.update_project(p, json.dumps({"px_fallback": False, "hold_count": 3}))
+        s.mix(p, json.dumps({"items": [n], "variants": 1}))
+        self.assertIs([c for c in W.calls if c[0] == "enqueue"][-1][1].get("px_fallback"), False)
+        st = json.loads(self.store.rows["EC AI Video Project"][p]["state_json"])
+        self.assertEqual((st["px_fallback"], st["hold_count"]), (False, 3))
+
+    def test_chon_nha_cung_cap_ai(self):
+        s, W = self.svc, self.W
+        p, n = self._ready_item()
+        s.update_project(p, json.dumps({"ai_provider": "plenx"}))
+        s.mix(p, json.dumps({"items": [n], "variants": 1}))
+        self.assertEqual([c for c in W.calls if c[0] == "enqueue"][-1][1].get("provider"), "plenx")
+        s.update_project(p, json.dumps({"ai_provider": ""}))
+        s.mix(p, json.dumps({"items": [n], "variants": 1}))
+        self.assertNotIn("provider", [c for c in W.calls if c[0] == "enqueue"][-1][1])
+        with self.assertRaises(Exception):
+            s.update_project(p, json.dumps({"ai_provider": "abc"}))
 
     def test_ket_qua_tron_bao_thieu_ban(self):
         s, W = self.svc, self.W

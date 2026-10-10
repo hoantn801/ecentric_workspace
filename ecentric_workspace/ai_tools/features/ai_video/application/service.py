@@ -7,6 +7,8 @@ worker mot lan cho ca du an, roi goi domain.flow.decide_item cho tung SKU. Trang
 tick moi 15s khi dang mo; scheduler goi 10 phut/lan cho du an dang chay (chay dem)."""
 import json
 import os
+import re
+import secrets
 
 import frappe
 
@@ -97,7 +99,12 @@ def _ext(file_url, default=".png"):
 
 
 def _enqueue(project, step, night=False):
-    res = wc.call("enqueue", batch_id=project, night=bool(night), steps=[step])
+    pv = _j(frappe.db.get_value(P, project, "state_json")).get("provider")   # 09/10: kie | plenx | "" (mac dinh may chay video)
+    st = _j(frappe.db.get_value(P, project, "state_json"))
+    kw = {"provider": pv} if pv in ("kie", "plenx") else {}
+    if st.get("px_fallback") is False:            # 09/10: khong chuyen Kie khi PlenX loi (thu lai PlenX)
+        kw["px_fallback"] = False
+    res = wc.call("enqueue", batch_id=project, night=bool(night), steps=[step], **kw)
     return res.get("task_ids") or []
 
 
@@ -125,8 +132,24 @@ def create_project(data):
         raise frappe.ValidationError("Cần tên brand và tên dự án.")
     _check_files(d)
     doc = frappe.get_doc(dict({k: d.get(k) for k in PROJECT_SETTINGS if d.get(k) not in (None, "")}, doctype=P))
+    st0 = {}
+    if d.get("ai_provider") in ("kie", "plenx"):
+        st0["provider"] = d["ai_provider"]
+    st0.update(_ai_opts(d))
+    if st0:
+        doc.state_json = json.dumps(st0)
     doc.insert(ignore_permissions=True)
     return {"name": doc.name}
+
+
+def _ai_opts(d):
+    """09/10: tuy chon AI trong Cai dat du an -> state_json: px_fallback (bool), hold_count (2..6)."""
+    out = {}
+    if "px_fallback" in d:
+        out["px_fallback"] = bool(d["px_fallback"])
+    if d.get("hold_count") not in (None, ""):
+        out["hold_count"] = max(2, min(6, int(d["hold_count"])))
+    return out
 
 
 def update_project(name, data):
@@ -136,6 +159,16 @@ def update_project(name, data):
     for k in PROJECT_SETTINGS:
         if k in d:
             doc.set(k, d[k])
+    if "ai_provider" in d:                       # 09/10: nha cung cap AI (Kie / PlenX), luu trong state_json
+        if d["ai_provider"] not in ("", "kie", "plenx"):
+            raise frappe.ValidationError("Nhà cung cấp AI không hợp lệ.")
+        st = _j(doc.state_json)
+        st["provider"] = d["ai_provider"]
+        doc.state_json = json.dumps(st)
+    if _ai_opts(d):
+        st = _j(doc.state_json)
+        st.update(_ai_opts(d))
+        doc.state_json = json.dumps(st)
     doc.save(ignore_permissions=True)
     return {"name": doc.name}
 
@@ -208,6 +241,56 @@ def _ensure_host(pdoc):
         pdoc.host_key = _host_key(pdoc)
         _save_state(pdoc, st)
     return st
+
+
+# ------------------------------------------------------------------ tao anh host ---
+#: 10/10: anh chan dung -> may chay video tao anh host ngoi sau ban theo khung chuan (nua Kie, nua PlenX Full).
+HOST_SEAT_N = 4
+_HOST_SEAT_KEY = re.compile(r"^hs_[0-9a-f]{10}$")
+
+
+def host_seat_start(portrait):
+    if not portrait:
+        raise frappe.ValidationError("Chưa chọn ảnh chân dung.")
+    _check_files({"host_image": portrait})
+    key = "hs_" + secrets.token_hex(5)
+    rel = wc.upload("inbox/%s/portrait%s" % (key, _ext(portrait)), "portrait" + _ext(portrait), _file_bytes(portrait))
+    r = wc.call("enqueue", batch_id=key, steps=[{"op": "host_seat", "key": key, "portrait": rel, "n": HOST_SEAT_N}])
+    return {"key": key, "tasks": len(r.get("task_ids") or [])}
+
+
+def _host_seat_tasks(key):
+    if not _HOST_SEAT_KEY.match(key or ""):
+        raise frappe.ValidationError("Mã lượt tạo ảnh host không hợp lệ.")
+    return [t for t in wc.call("status", batch_id=key).get("tasks") or []
+            if t.get("kind") == "host_seat" and t.get("out")]
+
+
+def _raw_path(out):
+    """Worker luu ban goc 2K o raw/ canh ban da can khung."""
+    d, f = out.rsplit("/", 1)
+    return "%s/raw/%s" % (d, f)
+
+
+def host_seat_status(key):
+    items = [{"id": t["id"], "state": t["state"], "error": (t.get("error") or "")[:160],
+              "thumb": _thumb(t["out"]) if t["state"] == "done" else None,
+              "full": wc.sign(_raw_path(t["out"])) if t["state"] == "done" else None}
+             for t in _host_seat_tasks(key)]
+    return {"items": items, "done": bool(items) and all(i["state"] in ("done", "failed", "cancelled") for i in items)}
+
+
+def host_seat_pick(key, task_id):
+    t = next((t for t in _host_seat_tasks(key) if t["id"] == task_id and t["state"] == "done"), None)
+    if not t:
+        raise frappe.ValidationError("Ảnh này chưa xong hoặc không còn trên máy chạy video.")
+    return {"file_url": _save_file("host_%s_%s.png" % (key, task_id[-6:]), wc.fetch(_raw_path(t["out"])))}
+
+
+def _save_file(name, content):
+    f = frappe.get_doc({"doctype": "File", "file_name": name, "is_private": 1, "content": content})
+    f.insert(ignore_permissions=True)
+    return f.file_url
 
 
 # ------------------------------------------------------------------ SKU actions ---
@@ -582,6 +665,9 @@ def get_project(name, do_tick=0):
     proj["anchor"] = hf.get("anchor") and {"thumb": _thumb(hf["anchor"]["path"]), "full": wc.sign(hf["anchor"]["path"])}
     proj["talks"] = [{"id": k, "url": wc.sign(v["path"])} for k, v in sorted(hf.items()) if k.startswith("talk_")]
     proj["talk_off"] = sorted(pst.get("talk_off") or [])
+    proj["ai_provider"] = pst.get("provider") or ""
+    proj["px_fallback"] = pst.get("px_fallback") is not False
+    proj["hold_count"] = flow.hold_count({"state": pst})
     proj["breaker"] = pst.get("breaker")
     proj["last_tick"] = pst.get("last_tick")
     proj["anchor_error"] = pst.get("anchor_error")
@@ -631,14 +717,16 @@ def _views_from(j):
     de mo trang chi can ky link tai cho, khong phai hoi laptop qua tunnel (07/10/2026)."""
     if not j:
         return None
-    return {"cands": [[c["id"], c["file"]["path"]] for c in j.get("candidates") or [] if c.get("file")],
+    return {"cands": [[c["id"], c["file"]["path"]] + ([c["qc"]] if c.get("qc") else [])   # 10/10: + loi AI kiem tra
+                      for c in j.get("candidates") or [] if c.get("file")],
             "reco": (j.get("ai_qc") or {}).get("recommended"),
             "master": (j.get("master") or {}).get("path"),
             "units": {k: v["path"] for k, v in (j.get("units") or {}).items() if k.startswith(("pickup_", "putdown_", "hold_"))}}
 
 
 def _apply_views(it, v):
-    it["candidates"] = [{"id": i, "thumb": _thumb(p), "full": wc.sign(p)} for i, p in v.get("cands") or []]
+    it["candidates"] = [{"id": c[0], "thumb": _thumb(c[1]), "full": wc.sign(c[1]), "qc": c[2] if len(c) > 2 else None}
+                        for c in v.get("cands") or []]
     it["ai_reco"] = v.get("reco")
     it["master"] = v.get("master") and _thumb(v["master"])
     it["units"] = {k: wc.sign(p) for k, p in (v.get("units") or {}).items()}
@@ -656,8 +744,8 @@ def _attach_worker_views(project, items):
     js = {j["job_id"]: j for j in W.get("jobs") or []}
     for it in items:
         j = js.get(it.get("job_id")) or {}
-        it["candidates"] = [{"id": c["id"], "thumb": _thumb(c["file"]["path"]), "full": wc.sign(c["file"]["path"])}
-                            for c in j.get("candidates") or [] if c.get("file")]
+        it["candidates"] = [{"id": c["id"], "thumb": _thumb(c["file"]["path"]), "full": wc.sign(c["file"]["path"]),
+                             "qc": c.get("qc")} for c in j.get("candidates") or [] if c.get("file")]
         it["ai_reco"] = (j.get("ai_qc") or {}).get("recommended")
         it["master"] = j.get("master") and _thumb(j["master"]["path"])
         it["units"] = {k: wc.sign(v["path"]) for k, v in (j.get("units") or {}).items()

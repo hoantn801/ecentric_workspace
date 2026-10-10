@@ -114,6 +114,20 @@ def upload(dest, filename, content):
     return data["path"]
 
 
+def fetch(path, timeout=90):
+    """Tai 1 file tu worker ve (bytes) qua link ky - vd anh host AI tao de luu thanh File ERP (10/10)."""
+    u = sign(path, ttl=600)
+    if not u:
+        raise WorkerDown("Chưa cấu hình máy chạy video.")
+    try:
+        r = requests.get(u, timeout=timeout)
+    except requests.RequestException:
+        raise WorkerDown("Không tải được file từ máy chạy video.")
+    if r.status_code != 200 or not r.content:
+        raise frappe.ValidationError("Tải file từ máy chạy video lỗi (HTTP %s)." % r.status_code)
+    return r.content
+
+
 def sign(path, ttl=6 * 3600, width=None):
     """Link xem file tren worker. path tuong doi /files (vd 'ecv6/units/X/hold_01.mp4')."""
     if not path or not configured():

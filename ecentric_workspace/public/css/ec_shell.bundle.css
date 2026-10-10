@@ -650,3 +650,43 @@ a.ec-shell-rm-item:focus-visible, a.ec-shell-nc-item:focus-visible{
 [data-ec-shell-collapsed="1"] :has(> .ec-shell-mount[data-ec-rail="1"]){ grid-template-columns:62px minmax(0,1fr) !important; }
 [data-ec-shell-collapsed="1"] #ec-pm-root{ grid-template-columns:62px minmax(0,1fr) !important; }
 [data-ec-shell-collapsed="1"] .ec-shell-mount[data-ec-nopanel="1"] .ec-shell-expand{ display:none; }
+
+/* ---- menu 2 tang: chong CSS "co lap" cua trang (10/10/2026) -------------------------
+ * /weekly-update va /team-pulse mang khoi <style id="ec-reporting-shell-isolation"> (tu
+ * truoc menu 2 tang) ep .ec-shell-mount{flex-direction:column;width:auto} + a.ec-shell-item
+ * bang !important -> thanh khu vuc bi day thanh o vuong nho tren dau cot (PO chup 10/10).
+ * Vo shell phai tu dung vung: cac quy tac duoi day chi ap trong rail mode, cung !important
+ * nhung do uu tien cao hon. [TEMP-WORKAROUND] cho toi khi chat Bao cao bo khoi co lap khoi
+ * 2 trang do (A65: khoi cu chi duoc giam) - xem 03_BUGS. */
+.ec-shell-mount[data-ec-rail="1"]{
+  flex-direction:row !important; width:var(--ec-shell-w,248px) !important;
+  min-width:var(--ec-shell-w,248px) !important; max-width:var(--ec-shell-w,248px) !important;
+}
+.ec-shell-mount[data-ec-rail="1"][data-ec-nopanel="1"],
+[data-ec-shell-collapsed="1"] .ec-shell-mount[data-ec-rail="1"]{
+  width:var(--ec-rail-w) !important; min-width:var(--ec-rail-w) !important; max-width:var(--ec-rail-w) !important;
+}
+.ec-shell-mount[data-ec-rail="1"] .ec-shell-rail .ec-shell-foot{
+  flex-direction:column !important; border-top:0 !important; padding:6px 0 0 !important; gap:2px !important;
+}
+.ec-shell-mount[data-ec-rail="1"] .ec-shell-panel .ec-shell-head{ padding:14px 12px 8px 14px !important; gap:6px !important; }
+.ec-shell-mount[data-ec-rail="1"] .ec-shell-panel .ec-shell-search{ margin:0 10px 4px !important; }
+.ec-shell-mount[data-ec-rail="1"] .ec-shell-panel .ec-shell-search-in{ font-size:12px !important; padding:6px 26px 6px 28px !important; }
+.ec-shell-mount[data-ec-rail="1"] .ec-shell-panel .ec-shell-nav{ padding:2px 8px 6px !important; gap:1px !important; }
+.ec-shell-mount[data-ec-rail="1"] .ec-shell-panel .ec-shell-grouplabel{ font-size:9.5px !important; padding:10px 8px 3px !important; }
+.ec-shell-mount[data-ec-rail="1"] .ec-shell-panel a.ec-shell-item{
+  padding:6px 9px !important; gap:8px !important; font-size:12.5px !important; border-radius:7px !important;
+  color:var(--ec-gray-700) !important; background:transparent !important;
+}
+.ec-shell-mount[data-ec-rail="1"] .ec-shell-panel a.ec-shell-item:hover{ background:var(--ec-gray-100) !important; }
+.ec-shell-mount[data-ec-rail="1"] .ec-shell-panel a.ec-shell-item svg{ width:16px !important; height:16px !important; }
+.ec-shell-mount[data-ec-rail="1"] .ec-shell-panel a.ec-shell-item.ec-shell-active{
+  background:var(--ec-navy) !important; color:#fff !important; font-weight:600 !important;
+}
+.ec-shell-mount[data-ec-rail="1"] .ec-shell-panel a.ec-shell-item.ec-shell-child{
+  padding:5px 8px !important; font-size:12px !important; color:var(--ec-gray-600) !important;
+}
+.ec-shell-mount[data-ec-rail="1"] .ec-shell-panel a.ec-shell-item.ec-shell-child.ec-shell-active{
+  background:var(--ec-navy-50) !important; color:var(--ec-navy) !important;
+}
+.ec-shell-mount[data-ec-rail="1"] .ec-shell-todo a.ec-shell-item{ color:var(--ec-gray-800) !important; }

@@ -181,3 +181,18 @@ def register_worker(url: str = None, ts: str = None, sig: str = None):
     if ok:
         frappe.db.commit()
     return {"success": bool(ok), "message": "" if ok else "rejected", "data": None}
+
+
+@frappe.whitelist(methods=["POST"])
+def host_seat_start(portrait: str):
+    return _run(lambda: svc.host_seat_start(portrait))
+
+
+@frappe.whitelist(methods=["GET"])
+def host_seat_status(key: str):
+    return _run(lambda: svc.host_seat_status(key))
+
+
+@frappe.whitelist(methods=["POST"])
+def host_seat_pick(key: str, task_id: str):
+    return _run(lambda: svc.host_seat_pick(key, task_id))
