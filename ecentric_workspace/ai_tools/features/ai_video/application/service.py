@@ -7,6 +7,8 @@ worker mot lan cho ca du an, roi goi domain.flow.decide_item cho tung SKU. Trang
 tick moi 15s khi dang mo; scheduler goi 10 phut/lan cho du an dang chay (chay dem)."""
 import json
 import os
+import re
+import secrets
 
 import frappe
 
@@ -239,6 +241,56 @@ def _ensure_host(pdoc):
         pdoc.host_key = _host_key(pdoc)
         _save_state(pdoc, st)
     return st
+
+
+# ------------------------------------------------------------------ tao anh host ---
+#: 10/10: anh chan dung -> may chay video tao anh host ngoi sau ban theo khung chuan (nua Kie, nua PlenX Full).
+HOST_SEAT_N = 4
+_HOST_SEAT_KEY = re.compile(r"^hs_[0-9a-f]{10}$")
+
+
+def host_seat_start(portrait):
+    if not portrait:
+        raise frappe.ValidationError("Chưa chọn ảnh chân dung.")
+    _check_files({"host_image": portrait})
+    key = "hs_" + secrets.token_hex(5)
+    rel = wc.upload("inbox/%s/portrait%s" % (key, _ext(portrait)), "portrait" + _ext(portrait), _file_bytes(portrait))
+    r = wc.call("enqueue", batch_id=key, steps=[{"op": "host_seat", "key": key, "portrait": rel, "n": HOST_SEAT_N}])
+    return {"key": key, "tasks": len(r.get("task_ids") or [])}
+
+
+def _host_seat_tasks(key):
+    if not _HOST_SEAT_KEY.match(key or ""):
+        raise frappe.ValidationError("Mã lượt tạo ảnh host không hợp lệ.")
+    return [t for t in wc.call("status", batch_id=key).get("tasks") or []
+            if t.get("kind") == "host_seat" and t.get("out")]
+
+
+def _raw_path(out):
+    """Worker luu ban goc 2K o raw/ canh ban da can khung."""
+    d, f = out.rsplit("/", 1)
+    return "%s/raw/%s" % (d, f)
+
+
+def host_seat_status(key):
+    items = [{"id": t["id"], "state": t["state"], "error": (t.get("error") or "")[:160],
+              "thumb": _thumb(t["out"]) if t["state"] == "done" else None,
+              "full": wc.sign(_raw_path(t["out"])) if t["state"] == "done" else None}
+             for t in _host_seat_tasks(key)]
+    return {"items": items, "done": bool(items) and all(i["state"] in ("done", "failed", "cancelled") for i in items)}
+
+
+def host_seat_pick(key, task_id):
+    t = next((t for t in _host_seat_tasks(key) if t["id"] == task_id and t["state"] == "done"), None)
+    if not t:
+        raise frappe.ValidationError("Ảnh này chưa xong hoặc không còn trên máy chạy video.")
+    return {"file_url": _save_file("host_%s_%s.png" % (key, task_id[-6:]), wc.fetch(_raw_path(t["out"])))}
+
+
+def _save_file(name, content):
+    f = frappe.get_doc({"doctype": "File", "file_name": name, "is_private": 1, "content": content})
+    f.insert(ignore_permissions=True)
+    return f.file_url
 
 
 # ------------------------------------------------------------------ SKU actions ---

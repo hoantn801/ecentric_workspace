@@ -453,6 +453,40 @@ class TestKhungVaNhom(unittest.TestCase):
         st = json.loads(self.item(it)["state_json"])
         self.assertEqual(st["views"]["cands"][0][2], qc)            # luu kem link -> mo trang khong hoi laptop
 
+    def _hs_store_portrait(self, owner="a@ec.vn"):
+        self.store.rows.setdefault("File", {})["F1"] = {"name": "F1", "file_url": "/private/files/me.png", "owner": owner}
+
+    def test_tao_anh_host_tu_anh_chan_dung(self):
+        s, W = self.svc, self.W
+        self._hs_store_portrait()
+        r = s.host_seat_start("/private/files/me.png")
+        key = r["key"]
+        self.assertRegex(key, r"^hs_[0-9a-f]{10}$")
+        st = W.last("host_seat")
+        self.assertEqual((st["key"], st["n"], st["portrait"]), (key, 4, "ecv6/inbox/%s/portrait.png" % key))
+        out = "ecv6/output/host_seat/%s/host_seat_%d.png"
+        W.tasks = {"x1": {"id": "x1", "kind": "host_seat", "state": "done", "out": out % (key, 1)},
+                   "x2": {"id": "x2", "kind": "host_seat", "state": "running", "out": out % (key, 2)},
+                   "y": {"id": "y", "kind": "mix", "state": "done", "out": "z"}}
+        v = s.host_seat_status(key)
+        self.assertEqual([i["id"] for i in v["items"]], ["x1", "x2"])
+        self.assertFalse(v["done"])
+        self.assertIn("raw%2Fhost_seat_1.png", v["items"][0]["full"])
+        got = []
+        self.wc.fetch = lambda path: got.append(path) or b"png"
+        s._save_file = lambda name, content: "/private/files/" + name
+        self.assertEqual(s.host_seat_pick(key, "x1")["file_url"], "/private/files/host_%s_x1.png" % key)
+        self.assertEqual(got, ["ecv6/output/host_seat/%s/raw/host_seat_1.png" % key])
+        with self.assertRaises(Exception):
+            s.host_seat_pick(key, "x2")                                 # chua xong
+        with self.assertRaises(Exception):
+            s.host_seat_status("../../etc")                             # ma la
+
+    def test_tao_anh_host_chan_file_nguoi_khac(self):
+        self._hs_store_portrait(owner="b@ec.vn")
+        with self.assertRaises(Exception):
+            self.svc.host_seat_start("/private/files/me.png")
+
     def test_mo_du_an_khong_hoi_worker_khi_da_co_link(self):
         s = self.svc
         p = s.create_project(json.dumps({"brand": "Friso", "title": "T", "host_image": "/private/files/host.png"}))["name"]

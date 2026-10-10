@@ -4,8 +4,8 @@
     "sha256": "fb37920418dcc3633f65a5e3caeda115b50b6a6ec67bf75ca0027acf389e0bd0"
   },
   "ai_tools/pages/ai_video/main_section.html": {
-    "last_resync_patch": "p283_resync_ai_video_fix9i",
-    "sha256": "92266dbe2f240a66c86ac2ca0e9b99b3cde40e29baed98d4c52e934e0ecd4a5f"
+    "last_resync_patch": "p286_resync_ai_video_host_seat",
+    "sha256": "d17e4c768e1dde55f2c9fe6416d91ffacbea161e33767f18471ffe1409222a7b"
   },
   "ai_tools/pages/ai_usage/main_section.html": {
     "last_resync_patch": "p274_create_ai_usage_page",

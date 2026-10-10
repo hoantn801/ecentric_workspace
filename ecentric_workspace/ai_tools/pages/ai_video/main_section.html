@@ -108,6 +108,9 @@ tr.on td{background:var(--navy-wash)}
 @media (prefers-reduced-motion:reduce){.av-btn.av-loading::after,.av-gold.av-loading::after,.av-sync i{animation:none}}
 .av-up label{cursor:pointer;color:var(--navy);font-size:12px;font-weight:600;white-space:nowrap}
 .av-up input[type=file]{display:none}
+.av-hs{margin-top:6px}.av-hs summary{cursor:pointer}.av-hs-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}
+.av-hs-grid .c{display:flex;flex-direction:column;gap:4px;min-width:0}.av-hs-grid img,.av-hs-grid .sk{width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:6px;background:var(--tile);display:block;margin:0;height:auto}
+@media (max-width:640px){.av-hs-grid{grid-template-columns:repeat(2,1fr)}}
 .av-sides{display:flex;gap:3px;flex-wrap:wrap;margin-top:4px;align-items:center}
 .av-sides img{width:26px;height:36px;border-radius:4px;object-fit:cover;background:var(--tile);cursor:zoom-in}
 .av-callout{display:flex;gap:10px;align-items:flex-start;background:var(--navy-wash);border:1px solid var(--navy-line);border-radius:9px;padding:10px 12px;font-size:13px;color:var(--ink2)}
@@ -310,7 +313,11 @@ tr.on td{background:var(--navy-wash)}
     modal(`<h2 style="margin:0;font-size:17px">${p.name ? "Cài đặt dự án" : "Tạo dự án"}</h2>
       <div class="av-grid2"><label class="av-f">Brand<input type="text" id="np-brand" value="${esc(p.brand || "")}" placeholder="VD: Friso"></label>
       <label class="av-f">Tên dự án<input type="text" id="np-title" value="${esc(p.title || "")}" placeholder="VD: Livestream tháng 10"></label></div>
-      <div class="av-f">Ảnh host (9:16, host ngồi sau bàn)<div class="av-up">${p.host_image ? `<img class="av-thumb" src="${esc(p.host_image)}" alt="">` : ""}<label>Chọn ảnh<input type="file" accept="image/*" id="np-host"></label><span class="av-hint" id="np-host-t"></span></div></div>
+      <div class="av-f">Ảnh host (9:16, host ngồi sau bàn)<div class="av-up" id="np-host-up">${p.host_image ? `<img class="av-thumb" src="${esc(p.host_image)}" alt="">` : ""}<label>Chọn ảnh<input type="file" accept="image/*" id="np-host"></label><span class="av-hint" id="np-host-t"></span></div></div>
+      <details class="av-hs"><summary class="av-hint">Chưa có ảnh host ngồi bàn? Tạo từ ảnh chân dung</summary>
+        <div class="av-hint">Ảnh chân dung rõ mặt, đứng hay ngồi, nền nào cũng được. Máy chạy video tạo 4 ảnh host ngồi sau bàn theo đúng khung hình chuẩn (~2–3 phút, ~10.000đ). Chọn 1 ảnh rồi bấm Lưu.</div>
+        <div class="av-up" style="margin-top:6px"><label>Chọn ảnh chân dung<input type="file" accept="image/*" id="np-portrait"></label><span class="av-hint" id="np-hs-t"></span></div>
+        <div class="av-hs-grid" id="np-hs-grid"></div></details>
       <div class="av-grid2"><label class="av-f">Khung neo (2 tay trên bàn) lấy từ<select id="np-anchor"><option value="master" ${p.anchor_source !== "host" ? "selected" : ""}>Ảnh master SKU đầu tiên (khuyên dùng)</option><option value="host" ${p.anchor_source === "host" ? "selected" : ""}>Ảnh host gốc</option></select></label>
       <label class="av-f">Số clip nói (MC, không SP)<input type="number" id="np-talk" min="0" max="12" value="${p.talk_count == null ? 6 : p.talk_count}"></label>
       <label class="av-f">Độ dài audio mặc định (giây)<input type="number" id="np-audio" min="10" max="600" value="${p.audio_seconds || 72}"></label>
@@ -322,7 +329,29 @@ tr.on td{background:var(--navy-wash)}
       ${p.name ? `<div class="av-danger"><div class="av-hint"><b>Lưu trữ</b>: ẩn khỏi danh sách, tắt chạy đêm, dữ liệu giữ nguyên (bỏ lưu trữ được). <b>Xoá</b>: xoá dự án, SKU và lịch sử xuất trên ERP; video/clip đã tạo trên laptop vẫn giữ.</div>
         <div class="av-row"><button class="av-btn sm" id="np-arch" data-name="${esc(p.name)}" data-on="${p.status === "Lưu trữ" ? 0 : 1}">${p.status === "Lưu trữ" ? "Bỏ lưu trữ" : "Lưu trữ dự án"}</button><button class="av-btn sm ghost danger" id="np-del" data-name="${esc(p.name)}" data-title="${esc(p.title || "")}">Xoá dự án</button></div></div>` : ""}
       <div class="av-row" style="justify-content:flex-end"><button class="av-btn" data-close>Huỷ</button><button class="av-btn pri" id="np-save" data-name="${esc(p.name || "")}">${p.name ? "Lưu" : "Tạo dự án"}</button></div>`);
-    S.newHost = null;
+    S.newHost = null; S.hs = null; clearTimeout(S.hsTimer);
+  }
+  /* 10/10: tao anh host ngoi ban tu anh chan dung - may chay video gen 4 anh, chon 1 -> thanh anh host (bam Luu) */
+  async function hostSeatStart(file) {
+    const st = $("np-hs-t"); st.textContent = "Đang tải ảnh…";
+    let url; try { url = await upload(file); } catch (err) { st.textContent = err.message; return; }
+    st.textContent = "Đang gửi sang máy chạy video…"; S.btn = null;
+    const r = await act("host_seat_start", { portrait: url });
+    if (!r) { st.textContent = ""; return; }
+    S.hs = { key: r.key, picked: null }; st.textContent = "Đang tạo " + r.tasks + " ảnh (~2–3 phút)…"; hostSeatPoll();
+  }
+  async function hostSeatPoll() {
+    clearTimeout(S.hsTimer); if (!$("np-hs-grid") || !S.hs) return;
+    const r = await call("host_seat_status", { key: S.hs.key }, "GET");
+    const g = $("np-hs-grid"); if (!g || !S.hs) return;
+    if (!r.success) { $("np-hs-t").textContent = (r.message || "Lỗi") + " - tự thử lại sau 15 giây"; S.hsTimer = setTimeout(hostSeatPoll, 15000); return; }
+    const its = r.data.items || [];
+    g.innerHTML = its.map((i, k) => i.state === "done"
+      ? `<div class="c"><a href="${esc(i.full)}" target="_blank" rel="noopener" title="Xem ảnh gốc"><img src="${esc(i.thumb)}" alt="Ảnh host ${k + 1}"></a><button class="av-btn sm ${S.hs.picked === i.id ? "" : "pri"}" data-hs-pick="${esc(i.id)}">${S.hs.picked === i.id ? "✓ Đã chọn" : "Dùng ảnh này"}</button></div>`
+      : ["failed", "cancelled"].includes(i.state) ? `<div class="c"><div class="sk"></div><span class="av-hint" style="color:var(--bad)">Lỗi${i.error ? ": " + esc(i.error) : ""}</span></div>`
+        : '<div class="c"><div class="sk av-skel"></div><span class="av-hint">Đang tạo…</span></div>').join("");
+    $("np-hs-t").textContent = r.data.done ? (S.hs.picked ? "✓ Đã chọn ảnh - bấm Lưu để dùng" : "Xong - chọn 1 ảnh rồi bấm Lưu") : "Đang tạo ảnh (~2–3 phút)…";
+    if (!r.data.done) S.hsTimer = setTimeout(hostSeatPoll, 8000);
   }
   async function saveProject(name) {
     const d = { brand: $("np-brand").value.trim(), title: $("np-title").value.trim(), anchor_source: $("np-anchor").value,
@@ -812,6 +841,10 @@ ${i.stage_state === "error" ? `<button class="av-btn sm" data-retry="${esc(i.nam
     if (t.id === "av-start") { const names = [...S.sel].filter((n) => S.items.some((i) => i.name === n)); const r = await act("start_holds", { project: P, names: JSON.stringify(names) }, "Đã gửi tạo ảnh cầm"); if (r) { S.sel.clear(); S.step = "pick"; loadProject(P); } return; }
     if (t.dataset.clearExtra) { if (await act("update_item", { name: t.dataset.clearExtra, data: JSON.stringify({ extra_images: [] }) }, "Đã xoá ảnh phụ")) loadProject(P); return; }
     if (t.dataset.del) { if (!confirm("Xoá SKU này?")) return; if (await act("delete_item", { name: t.dataset.del }, "Đã xoá")) loadProject(P); return; }
+    if (t.dataset.hsPick) { const r = await act("host_seat_pick", { key: S.hs.key, task_id: t.dataset.hsPick }, "Đã chọn ảnh host - bấm Lưu để dùng"); if (!r) return;
+      S.newHost = r.file_url; S.hs.picked = t.dataset.hsPick; const im = document.querySelector("#np-host-up img");
+      if (im) im.src = r.file_url; else $("np-host-up").insertAdjacentHTML("afterbegin", `<img class="av-thumb" src="${esc(r.file_url)}" alt="">`);
+      $("np-host-t").textContent = "✓ Ảnh AI tạo"; return hostSeatPoll(); }
     if (t.dataset.pick) { if (await act("pick", { name: t.dataset.pick, candidate: t.dataset.c }, "Đã chọn - đang làm ảnh master")) loadProject(P); return; }
     if (t.dataset.regenHolds) { const n = t.dataset.regenHolds; const d = { width_cm: +$("rg-w-" + n).value || null, height_cm: +$("rg-h-" + n).value || null, size_pct: +$("rg-p-" + n).value || null, notes: $("rg-n-" + n).value };
       if (await act("regen_holds", { name: n, data: JSON.stringify(d) }, "Đang gen lại 2 ảnh")) loadProject(P); return; }
@@ -865,6 +898,7 @@ ${i.stage_state === "error" ? `<button class="av-btn sm" data-retry="${esc(i.nam
     if (t.dataset.dfileMulti && t.files && t.files.length) { const k = +t.closest("[data-draft]").dataset.draft; const cur = S.drafts[k][t.dataset.dfileMulti] || []; const files = [...t.files].slice(0, Math.max(0, 4 - cur.length)); if (!files.length) return toast("Tối đa 4 ảnh phụ", true); toast("Đang tải " + files.length + " ảnh…"); try { for (const f of files) cur.push(await upload(f)); S.drafts[k][t.dataset.dfileMulti] = cur; renderProject(); } catch (err) { toast(err.message, true); } return; }
     if (t.dataset.ifileExtra && t.files && t.files.length) { const it = S.items.find((x) => x.name === t.dataset.ifileExtra); const cur = (it && it.extra_images) || []; const files = [...t.files].slice(0, Math.max(0, 4 - cur.length)); if (!files.length) return toast("Tối đa 4 ảnh phụ", true); toast("Đang tải " + files.length + " ảnh…"); try { const urls = cur.slice(); for (const f of files) urls.push(await upload(f)); if (await act("update_item", { name: it.name, data: JSON.stringify({ extra_images: urls }) }, "Đã thêm ảnh phụ")) loadProject(S.p.name); } catch (err) { toast(err.message, true); } return; }
     if (t.dataset.dfile && t.files && t.files[0]) { const k = +t.closest("[data-draft]").dataset.draft; toast("Đang tải file…"); try { if (t.dataset.dfile === "audio_file") { const s2 = await audioSec(t.files[0]); if (s2) S.drafts[k].audio_seconds = String(s2); } S.drafts[k][t.dataset.dfile] = await upload(t.files[0]); renderProject(); } catch (err) { toast(err.message, true); } return; }
+    if (t.id === "np-portrait" && t.files && t.files[0]) { hostSeatStart(t.files[0]); t.value = ""; return; }
     if (t.id === "np-host" && t.files && t.files[0]) { $("np-host-t").textContent = "Đang tải…"; try { S.newHost = await upload(t.files[0]); $("np-host-t").textContent = "✓ " + t.files[0].name; } catch (err) { $("np-host-t").textContent = err.message; } return; }
     if (t.id === "av-showfr") { S.showFrame = t.checked; return renderProject(); }
     if (t.id === "fr-paste" || t.id === "fr-ghost") { S.fr[t.id === "fr-paste" ? "paste" : "ghost"] = t.checked; return renderFrame(); }
