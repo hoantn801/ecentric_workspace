@@ -691,5 +691,96 @@ class TestKhungVaNhom(unittest.TestCase):
         self.assertIn("&lt;b>Chai", todo["description"])
 
 
+
+class TestCongThuc(unittest.TestCase):
+    """12/10: cong thuc prompt theo brand + dong SP: SKU chon cong thuc -> gui worker; dong dang thu dung SKU dau;
+    chi quan tri sua / sao chep / quay ve ban cu."""
+    setUp = TestService.setUp
+    item = TestService.item
+    mk = TestKhungVaNhom.mk
+    as_admin = TestKhungVaNhom.as_admin
+
+    REC = {"friso__lon-sua-bot": {"key": "friso__lon-sua-bot", "brand": "FRISO", "line": "Lon sữa bột", "category": "milk_can",
+                                  "status": "ok", "weight_g": "950", "v": 3},
+           "friso__thu": {"key": "friso__thu", "brand": "FRISO", "line": "Thử", "status": "try", "v": 1},
+           "friso__tat": {"key": "friso__tat", "brand": "FRISO", "line": "Tắt", "status": "off", "v": 1}}
+
+    def worker_recipes(self):
+        real = self.W.call
+
+        def call(action, **p):
+            if action == "recipes_get":
+                return {"ok": True, "recipes": self.REC, "history": {}}
+            if action == "groups_get":
+                return {"ok": True, "groups": {}, "history": {}}
+            return real(action, **p)
+        self.wc.call = call
+
+    def _r(self):
+        from ecentric_workspace.ai_tools.features.ai_video.application import recipes
+        return recipes
+
+    def test_sku_chon_cong_thuc_gui_worker(self):
+        s, W = self.svc, self.W
+        self.worker_recipes()
+        p, (a, b) = self.mk("oil_bottle")
+        s.update_item(a, json.dumps({"recipe": "friso__lon-sua-bot"}))
+        with self.assertRaises(Exception):
+            s.update_item(b, json.dumps({"recipe": "../x"}))
+        _frame(s, a, b)
+        s.start_holds(p, json.dumps([a, b]))
+        st = [x for _, x in W.steps if x["op"] == "holds"]
+        fa, fb = st[0]["fields"], st[1]["fields"]
+        self.assertEqual((fa["recipe"], fa["product_category"]), ("friso__lon-sua-bot", "milk_can"))   # nhom theo cong thuc
+        self.assertIn("about 950 g", fa["product_notes"])                                           # khoi luong mac dinh cua dong
+        self.assertNotIn("recipe", fb)                                                             # SKU khong chon: nhu cu
+        self.assertEqual(fb["product_category"], "oil_bottle")
+        self.assertEqual(s.get_project(p)["items"][0]["recipe"], "friso__lon-sua-bot")
+        self.assertEqual(json.loads(self.item(a)["state_json"])["recipe_v"], 3)
+
+    def test_cong_thuc_khi_them_sku_va_tat(self):
+        s, W = self.svc, self.W
+        self.worker_recipes()
+        p = s.create_project(json.dumps({"brand": "FRISO", "title": "T", "host_image": "/private/files/host.png"}))["name"]
+        a, b = s.add_items(p, json.dumps([{"sku": "L1", "product_image": "/private/files/f.png", "recipe": "friso__tat"},
+                                          {"sku": "L2", "product_image": "/private/files/f.png", "recipe": "friso__thu"}]))["items"]
+        _frame(s, a, b)
+        s.start_holds(p, json.dumps([a, b]))
+        fa, fb = [x["fields"] for _, x in W.steps if x["op"] == "holds"]
+        self.assertNotIn("recipe", fa)                           # dong da tat: chay theo nhom SP
+        self.assertEqual(fb["recipe"], "friso__thu")
+        self.assertTrue(json.loads(self.item(b)["state_json"])["force_gate"])    # dong dang thu: SKU dau dung cho duyet
+        self.assertNotIn("force_gate", json.loads(self.item(a)["state_json"]))
+
+    def test_chi_quan_tri_sua_cong_thuc(self):
+        import frappe
+        r = self._r()
+        with self.assertRaises(frappe.PermissionError):
+            r.recipes_set(json.dumps({"data": {"brand": "FRISO", "line": "Lon"}}))
+        self.as_admin()
+        r.recipes_set(json.dumps({"data": {"brand": "FRISO", "line": "Lon", "clip_style": "gesture_b", "la": "bo"}, "note": "tao"}))
+        self.assertEqual(self.W.calls[-1], ("recipes_set", {"data": {"brand": "FRISO", "line": "Lon", "clip_style": "gesture_b"},
+                                                           "by": "a@ec.vn", "note": "tao"}))
+        r.recipes_set(json.dumps({"key": "friso__lon", "data": {"status": "ok"}, "relock": 1}))
+        self.assertEqual(self.W.calls[-1][1]["key"], "friso__lon")
+        self.assertTrue(self.W.calls[-1][1]["relock"])
+        for bad in ({"data": {"brand": "FRISO"}}, {"key": "../x", "data": {}}, {"data": {"brand": "A", "line": "B", "clip_style": "zz"}},
+                    {"data": {"brand": "A", "line": "B", "weight_g": "1kg"}}, ["x"]):
+            with self.assertRaises(frappe.ValidationError):
+                r.recipes_set(json.dumps(bad))
+        r.recipes_copy(json.dumps({"from": "friso__lon", "brand": "Brand A", "line": "Lon sữa"}))
+        self.assertEqual(self.W.calls[-1], ("recipes_copy", {"from": "friso__lon", "brand": "Brand A", "line": "Lon sữa", "by": "a@ec.vn"}))
+        with self.assertRaises(frappe.ValidationError):
+            r.recipes_copy(json.dumps({"from": "friso__lon", "brand": "", "line": "x"}))
+        r.recipes_rollback("friso__lon", "2")
+        self.assertEqual(self.W.calls[-1], ("recipes_rollback", {"key": "friso__lon", "v": 2, "by": "a@ec.vn"}))
+
+    def test_doc_cong_thuc_kem_danh_sach_brand(self):
+        self.worker_recipes()
+        self.svc.create_project(json.dumps({"brand": "FRISO", "title": "T", "host_image": "/private/files/host.png"}))
+        self.svc.create_project(json.dumps({"brand": "Vinasoy", "title": "T2", "host_image": "/private/files/host.png"}))
+        g = self._r().recipes_get()
+        self.assertEqual((sorted(g["recipes"]), g["brands"], g["can_edit"]), (sorted(self.REC), ["FRISO", "Vinasoy"], False))
+
 if __name__ == "__main__":
     unittest.main()

@@ -17,6 +17,7 @@ decide_item() chi DOC trang thai worker va tra ve: cac truong can ghi + cac buoc
 worker can enqueue. Goi lai nhieu lan khong sinh viec trung (idempotent) vi moi buoc
 chi enqueue khi stage doi."""
 import re
+import unicodedata
 
 STAGE_LABEL = {
     "new": "Mới", "holds": "Đang tạo ảnh cầm", "pick": "Chờ chọn ảnh",
@@ -424,3 +425,43 @@ def needs_trial_gate(category, groups, other_stages):
     """SKU thuoc nhom 'Dang thu' va chua SKU nao cung nhom ra du clip -> bat chot duyet (do ton tien ca lo)."""
     g = (groups or {}).get(category or "") or {}
     return g.get("status") == "try" and not any(x in ("ready", "done") for x in other_stages or [])
+
+
+# ------------------------------------------------------------- cong thuc theo brand + dong SP ---
+#: 12/10/2026: moi brand co cac "dong SP" (vd FRISO · Lon sua bot) = 1 cong thuc prompt rieng, da test thi CHOT
+#: (worker khoa ban prompt day du -> sua prompt chung khong lam vo dong da chot). Brand moi giong dong cu: sao chep.
+RECIPE_STATUS = ("try", "ok", "off")          # dang thu / da chot / tat
+RECIPE_SIDES = ("host_right", "host_left", "auto")
+RECIPE_CLIPS = ("gesture_b", "still", "on_product", "one_hand")
+RECIPE_FIELDS = {"brand": 60, "line": 80, "category": 40, "status": 10, "hold_side": 20, "clip_style": 20,
+                 "image_notes": 600, "clip_notes": 600, "put_notes": 600, "frame_hint": 200, "weight_g": 6}
+RECIPE_KEY_RE = re.compile(r"^[a-z0-9-]{1,40}__[a-z0-9-]{1,40}$")
+
+
+def clean_recipe(d):
+    """Du lieu quan tri sua cho 1 cong thuc -> dict sach. Sai -> ValueError (thong bao tieng Viet)."""
+    out = {}
+    for k, n in RECIPE_FIELDS.items():
+        if k in (d or {}) and d[k] is not None:
+            out[k] = re.sub(r"[`$\\]", "", str(d[k])).strip()[:n]
+    if out.get("status") and out["status"] not in RECIPE_STATUS:
+        raise ValueError("Trạng thái công thức không hợp lệ.")
+    if out.get("hold_side") and out["hold_side"] not in RECIPE_SIDES:
+        raise ValueError("Bên tay đỡ không hợp lệ.")
+    if out.get("clip_style") and out["clip_style"] not in RECIPE_CLIPS:
+        raise ValueError("Kiểu tay trong clip không hợp lệ.")
+    if out.get("category") and out["category"] not in CATEGORIES:
+        raise ValueError("Nhóm sản phẩm không hợp lệ.")
+    if out.get("weight_g") and not re.match(r"^\d{1,6}$", out["weight_g"]):
+        raise ValueError("Khối lượng phải là số gram (vd 950).")
+    return out
+
+
+def recipe_key_ok(key):
+    return bool(key) and bool(RECIPE_KEY_RE.match(str(key)))
+
+
+def brand_key(s):
+    """So brand khong phan biet hoa thuong / dau: 'Friso' == 'FRISO' (khop recipeSlug cua worker)."""
+    s = re.sub(r"[̀-ͯ]", "", unicodedata.normalize("NFD", str(s or ""))).replace("đ", "d").replace("Đ", "D")
+    return re.sub(r"-+", "-", re.sub(r"[^a-z0-9]+", "-", s.lower())).strip("-")[:40]

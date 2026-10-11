@@ -212,5 +212,21 @@ class TestNhomSP(unittest.TestCase):
             self.assertIsNone(flow.parse_bbox(bad))
 
 
+
+class TestCongThuc(unittest.TestCase):
+    def test_clean_recipe(self):
+        self.assertEqual(flow.clean_recipe({"brand": " FRISO ", "line": "Lon `x`", "clip_style": "still", "khac": 1}),
+                         {"brand": "FRISO", "line": "Lon x", "clip_style": "still"})
+        for bad in ({"status": "zz"}, {"hold_side": "x"}, {"clip_style": "x"}, {"category": "abc"}, {"weight_g": "9.5"}):
+            with self.assertRaises(ValueError):
+                flow.clean_recipe(bad)
+
+    def test_ma_cong_thuc_va_brand(self):
+        self.assertTrue(flow.recipe_key_ok("friso__lon-sua-bot"))
+        for bad in ("", "friso", "../x__y", "Friso__Lon"):
+            self.assertFalse(flow.recipe_key_ok(bad))
+        self.assertEqual(flow.brand_key("Sữa Đậu Nành  Vinasoy"), "sua-dau-nanh-vinasoy")
+        self.assertEqual(flow.brand_key("FRISO"), flow.brand_key("friso"))
+
 if __name__ == "__main__":
     unittest.main()

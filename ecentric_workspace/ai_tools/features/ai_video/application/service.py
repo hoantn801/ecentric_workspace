@@ -192,6 +192,8 @@ def add_items(project, rows):
         doc = frappe.get_doc(dict({k: r.get(k) for k in ITEM_FIELDS if r.get(k) not in (None, "")},
                                   doctype=I, project=project, stage="new", stage_state="waiting",
                                   extra_images=json.dumps(list(r.get("extra_images") or [])[:MAX_EXTRA])))
+        if r.get("recipe"):
+            _set_recipe(doc, r.get("recipe"))
         doc.insert(ignore_permissions=True)
         made.append(doc.name)
     return {"items": made}
@@ -208,6 +210,8 @@ def update_item(name, data):
         doc.extra_images = json.dumps(list(d.get("extra_images") or [])[:MAX_EXTRA])
     if "guide_bbox" in d:
         _set_bbox(doc, d.get("guide_bbox"))
+    if "recipe" in d:
+        _set_recipe(doc, d.get("recipe"))
     doc.save(ignore_permissions=True)
     return {"name": name}
 
@@ -218,6 +222,16 @@ def _set_bbox(doc, v):
         raise frappe.ValidationError("Khung sản phẩm không hợp lệ.")
     st = _j(doc.state_json)
     st["guide_bbox"] = bb
+    doc.state_json = json.dumps(st, ensure_ascii=False)
+
+
+def _set_recipe(doc, key):
+    """12/10: SKU chon cong thuc (brand + dong SP); rong = theo nhom SP nhu cu."""
+    key = str(key or "").strip()
+    if key and not flow.recipe_key_ok(key):
+        raise frappe.ValidationError("Công thức không hợp lệ.")
+    st = _j(doc.state_json)
+    st["recipe"] = key
     doc.state_json = json.dumps(st, ensure_ascii=False)
 
 
@@ -307,6 +321,7 @@ def start_holds(project, names):
     pdoc = frappe.get_doc(P, project)
     pst = _ensure_host(pdoc)
     groups = _group_map()
+    recipes = _recipe_map()
     started, need_frame = [], []
     for n in _j(names, []):
         doc = frappe.get_doc(I, n)
@@ -317,7 +332,7 @@ def start_holds(project, names):
         if not _has_frame(doc):
             need_frame.append(doc.sku)
             continue
-        _start_holds_one(pdoc, pst, doc, groups)
+        _start_holds_one(pdoc, pst, doc, groups, recipes)
         started.append(n)
     return {"started": started, "need_frame": need_frame}
 
@@ -332,13 +347,33 @@ def _group_map():
         return {}
 
 
-def _start_holds_one(pdoc, pst, doc, groups=None):
+def _recipe_map():
+    """Cong thuc brand + dong SP tu worker; worker loi thi coi nhu khong co (SKU chay theo nhom SP)."""
+    try:
+        return wc.call("recipes_get").get("recipes") or {}
+    except wc.WorkerDown:
+        raise
+    except Exception:
+        return {}
+
+
+def _start_holds_one(pdoc, pst, doc, groups=None, recipes=None):
     st = _j(doc.state_json)
-    rows = [r for r in frappe.get_all(I, filters={"project": pdoc.name, "product_category": doc.product_category},
-                                      fields=["name", "stage", "stage_state", "state_json"]) if r.name != doc.name]
-    # chi SKU DAU cua nhom "dang thu" moi dung cho duyet: SKU khac cung nhom dang bi chan thi thoi
+    rkey = st.get("recipe") or ""
+    rec = (recipes if recipes is not None else (_recipe_map() if rkey else {})).get(rkey) if rkey else None
+    if rec and rec.get("status") == "off":
+        rec = None
+    if rec:   # 12/10: cong thuc thay nhom SP - dong "dang thu" thi SKU dau cua dong dung cho duyet
+        rows = [r for r in frappe.get_all(I, filters={"project": pdoc.name}, fields=["name", "stage", "stage_state", "state_json"])
+                if r.name != doc.name and _j(r.state_json).get("recipe") == rkey]
+        gkey, gmap = rkey, {rkey: rec}
+    else:
+        rows = [r for r in frappe.get_all(I, filters={"project": pdoc.name, "product_category": doc.product_category},
+                                          fields=["name", "stage", "stage_state", "state_json"]) if r.name != doc.name]
+        gkey, gmap = doc.product_category, (groups if groups is not None else _group_map())
+    # chi SKU DAU cua nhom/dong "dang thu" moi dung cho duyet: SKU khac cung nhom dang bi chan thi thoi
     others = [r.stage for r in rows] + ["ready" for r in rows if r.stage_state != "error" and _j(r.state_json).get("force_gate")]
-    if flow.needs_trial_gate(doc.product_category, groups if groups is not None else _group_map(), others):
+    if flow.needs_trial_gate(gkey, gmap, others):
         st["force_gate"] = True
     else:
         st.pop("force_gate", None)
@@ -353,7 +388,18 @@ def _start_holds_one(pdoc, pst, doc, groups=None):
     for i, url in enumerate(refs[:MAX_EXTRA]):
         extras.append(wc.upload("inbox/%s/%s_side%d%s" % (flow.slug(pdoc.name, 20), flow.slug(doc.sku, 40), i + 1, _ext(url)),
                                 "side%d%s" % (i + 1, _ext(url)), _file_bytes(url)))
-    fields = flow.hold_fields(doc.as_dict(), pdoc.brand)
+    item = doc.as_dict()
+    if rec:
+        if rec.get("category"):
+            item["product_category"] = rec["category"]
+        if not item.get("weight_g") and rec.get("weight_g"):
+            item["weight_g"] = rec["weight_g"]
+    fields = flow.hold_fields(item, pdoc.brand)
+    if rec:
+        fields["recipe"] = rkey
+        st["recipe_v"] = rec.get("v")
+    else:
+        st.pop("recipe_v", None)
     if st.get("guide_bbox"):
         fields["guide_bbox"] = st["guide_bbox"]
     step = {"op": "holds", "job_id": job, "fields": fields,
@@ -384,6 +430,9 @@ def regen_holds(name, data=None):
             doc.set(k, d[k])
     if "guide_bbox" in d:
         _set_bbox(doc, d.get("guide_bbox"))
+        doc.save(ignore_permissions=True)
+    if "recipe" in d:
+        _set_recipe(doc, d.get("recipe"))
         doc.save(ignore_permissions=True)
     if not _has_frame(doc):
         raise frappe.ValidationError(MSG_NEED_FRAME)
@@ -694,6 +743,8 @@ def get_project(name, do_tick=0):
         it["extra_images"] = _j(doc.extra_images, []) or []
         it["candidates"] = st.get("cands_view") or []
         it["guide_bbox"] = st.get("guide_bbox") or ""
+        it["recipe"] = st.get("recipe") or ""
+        it["recipe_v"] = st.get("recipe_v")
         it["force_gate"] = bool(st.get("force_gate"))
         it["units"] = st.get("units_view") or {}
         it["unit_off"] = st.get("unit_off") or []
