@@ -256,3 +256,9 @@ def anchor_start(project: str):
 @frappe.whitelist(methods=["POST"])
 def anchor_pick(project: str, task_id: str):
     return _run(lambda: host.anchor_pick(project, task_id))
+
+
+# 12/10 fix9q: clip noi chi gen khi bam (so tu bang tinh, hoac Bo qua = so mac dinh)
+@frappe.whitelist(methods=["POST"])
+def talk_gen(project: str, n: str = None, durs: str = None):
+    return _run(lambda: svc.talk_gen(project, n, durs))

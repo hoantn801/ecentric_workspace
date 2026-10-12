@@ -87,6 +87,7 @@ def anchor_pick(project, task_id):
     st["anchor_round"] = rd
     st.pop("anchor_stale", None)
     st["anchor_flow"] = "pick"
+    st.pop("talk_go", None)                      # 12/10 fix9q: chot khung neo khong tu gen clip noi
     hf = st.get("host_files") or {}
     hf["anchor"] = {"path": r.get("anchor") or "ecv6/hosts/%s/anchor.png" % host}
     st["host_files"] = hf
@@ -102,6 +103,7 @@ def adopt_existing(pdoc, st, anchor_rel):
     except Exception:
         frappe.log_error(title="ai_video adopt anchor")
     st["anchor_flow"] = "pick"
+    st.pop("talk_go", None)
     st.pop("anchor_round", None)
 
 

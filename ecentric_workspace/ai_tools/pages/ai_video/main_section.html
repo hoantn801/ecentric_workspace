@@ -337,7 +337,7 @@ tr.on td{background:var(--navy-wash)}
         <div class="av-up" style="margin-top:6px"><label>Chọn ảnh chân dung<input type="file" accept="image/*" id="np-portrait"></label><span class="av-hint" id="np-hs-t"></span></div>
         <div class="av-hs-grid" id="np-hs-grid"></div></details>
       <div class="av-grid2">${p.name && p.anchor_flow !== "pick" ? "" : "<!--"}<label class="av-f">Khung neo (2 tay trên bàn) lấy từ<select id="np-anchor"><option value="master" ${p.anchor_source !== "host" ? "selected" : ""}>Ảnh master SKU đầu tiên (khuyên dùng)</option><option value="host" ${p.anchor_source === "host" ? "selected" : ""}>Ảnh host gốc</option></select></label>${p.name && p.anchor_flow !== "pick" ? "" : "-->"}
-      <label class="av-f">Số clip nói (MC, không SP)<input type="number" id="np-talk" min="0" max="150" value="${p.talk_count == null ? 6 : p.talk_count}"></label>
+      <label class="av-f">Số clip nói mặc định (gen khi bấm Bỏ qua ở tab A)<input type="number" id="np-talk" min="0" max="150" value="${p.talk_count == null ? 6 : p.talk_count}"></label>
       <label class="av-f">Độ dài audio mặc định (giây)<input type="number" id="np-audio" min="10" max="600" value="${p.audio_seconds || 72}"></label>
       <label class="av-f">Số bản trộn / SKU<input type="number" id="np-var" min="1" max="20" value="${p.mix_variants || 5}"></label>
       <label class="av-f">Nhà cung cấp AI (ảnh + clip)<select id="np-prov">${[["plenx", "PlenX (chính, rẻ ~5 lần)"], ["kie", "Kie"]].map(([v, l]) => `<option value="${v}" ${(p.ai_provider || "plenx") === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
@@ -771,10 +771,12 @@ tr.on td{background:var(--navy-wash)}
   function today() { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
   /* clip noi: tick = dung khi tron; bo tick = khong dung (clip van giu, tick lai la dung). 08/10/2026 */
   function talkList(p) {
-    const off = new Set(p.talk_off || []), ts = (p.talks || []).filter((t) => !/_rev$/.test(t.id)), on = ts.filter((t) => !off.has(t.id)).length;
+    const off = new Set(p.talk_off || []), all = (p.talks || []).filter((t) => !/_rev(\.qcfail)?$/.test(t.id));
+    const ts = all.filter((t) => !/\.qcfail$/.test(t.id)), bad = all.filter((t) => /\.qcfail$/.test(t.id)), on = ts.filter((t) => !off.has(t.id)).length;
     const head = `<div><b>Clip nói:</b> ${esc(p.talk_state || "0/" + (p.talk_count || 0))}${ts.length ? ` · <b>dùng ${on}</b>` : ""}${ts.length && !on ? ' <span class="av-pill p-bad">Chưa tick clip nào - trộn kiểu có nói sẽ báo lỗi</span>' : ""}</div>
-      <div class="av-hint">Máy tự tạo khi đã chốt khung neo, đủ theo "Số clip nói" trong Cài đặt dự án (hoặc nút Gen thêm bên dưới), dùng chung mọi dự án cùng host. Bỏ tick clip chưa đạt thì lúc trộn không dùng; ↻ để gen lại (tốn 1 lượt gen).</div>`;
-    return head + `<div class="av-units">${ts.map((t) => `<span class="av-talk${off.has(t.id) ? " off" : ""}"><input type="checkbox" data-talk-use="${esc(t.id)}" ${off.has(t.id) ? "" : "checked"} aria-label="Dùng ${esc(t.id.replace("talk_", "Nói "))} khi trộn" title="Tick = dùng khi trộn"><button class="av-unit" data-video="${esc(t.url)}">▶ ${esc(t.id.replace("talk_", "Nói "))}</button><button class="av-btn sm ghost danger" title="Xoá để gen lại" data-regen-talk="${esc(t.id)}">↻</button></span>`).join("") || '<span class="av-hint">Chưa có</span>'}</div>`;
+      <div class="av-hint">${p.anchor_flow === "pick" ? "Chỉ gen khi bạn bấm: số clip theo bảng tính bên dưới, hoặc Bỏ qua để gen số mặc định trong Cài đặt dự án." : "Máy tự tạo khi đã chốt khung neo, đủ theo \"Số clip nói\" trong Cài đặt dự án (hoặc nút Gen thêm bên dưới)."} Dùng chung mọi dự án cùng host. Bỏ tick clip chưa đạt thì lúc trộn không dùng; ↻ để gen lại (tốn 1 lượt gen).</div>`;
+    return head + `<div class="av-units">${ts.map((t) => `<span class="av-talk${off.has(t.id) ? " off" : ""}"><input type="checkbox" data-talk-use="${esc(t.id)}" ${off.has(t.id) ? "" : "checked"} aria-label="Dùng ${esc(t.id.replace("talk_", "Nói "))} khi trộn" title="Tick = dùng khi trộn"><button class="av-unit" data-video="${esc(t.url)}">▶ ${esc(t.id.replace("talk_", "Nói "))}</button><button class="av-btn sm ghost danger" title="Xoá để gen lại" data-regen-talk="${esc(t.id)}">↻</button></span>`).join("") || '<span class="av-hint">Chưa có</span>'}</div>
+      ${bad.length ? `<div class="av-units av-talk-bad"><span class="av-hint">Lỗi QC (không dùng khi trộn, đã tính 1 lượt):</span>${bad.map((t) => `<span class="av-talk off"><button class="av-unit" data-video="${esc(t.url)}" title="Lỗi QC 2 lần gen (mở miệng / vẫy tay / giật...)">▶ ${esc(t.id.replace("talk_", "Nói ").replace(".qcfail", ""))} · lỗi QC</button><button class="av-btn sm ghost danger" title="Xoá để gen lại" data-regen-talk="${esc(t.id)}">↻</button></span>`).join("")}</div>` : ""}`;
   }
   function stepVideo() {
     const p = S.p;
@@ -799,6 +801,7 @@ ${i.stage_state === "error" ? `<button class="av-btn sm" data-retry="${esc(i.nam
     let mode = S.mixMode || p.mix_mode || "mix"; if (mode !== "hold") mode = "mix";   // 12/10 fix9p: chi noi -> tab A
     return `<div class="av-panel"><div class="av-panel-h"><h2>Trộn video</h2><div class="av-seg" id="av-mixmode">${mixSeg(mode)}</div></div>
       <div class="av-panel-b"><div class="av-grid2"><label class="av-f">Số bản khác nhau / SKU<input type="number" id="mx-n" min="1" max="20" value="${esc(S.mixN != null ? S.mixN : p.mix_variants || 5)}"></label><label class="av-f">Độ dài (giây, để trống = theo audio từng SKU: 2s đầu + audio + 2s cuối)<input type="number" id="mx-d" min="10" max="600" placeholder="Theo audio từng SKU" value="${esc(S.mixD || "")}"></label><label class="av-f">Tên thư mục xuất (để gom video từng đợt)<input type="text" id="mx-b" value="${esc(S.mixBatch || today())}"></label></div>
+      ${mode === "mix" && !(p.talks || []).some((t) => !/(_rev|\.qcfail)$/.test(t.id)) ? `<div class="av-callout warn" style="margin-top:8px"><div>Chưa có clip nói - kiểu "Nói + cầm SP" cần clip nói. <button class="av-btn sm" data-step="talk">Gen ở tab A</button></div></div>` : ""}
       <div class="av-hint" style="margin:8px 0">Luật: mỗi bản một thứ tự khác · không lặp 1 clip 2 lần liền · đoạn cầm SP luôn là Lấy lên → Cầm → Hạ xuống (đổi hướng) · clip cuối cắt vừa độ dài. Có file audio thì ghép luôn tiếng.</div>
       <div class="av-tw"><table><thead><tr><th><input type="checkbox" id="mx-all" aria-label="Chọn tất cả"></th><th>SKU</th><th>Độ dài</th><th>Chi phí</th><th>Trạng thái</th></tr></thead><tbody>
       ${ready.map((i) => `<tr><td><input type="checkbox" data-mx="${esc(i.name)}" ${S.mixSel.has(i.name) ? "checked" : ""}></td><td><b>${esc(i.sku)}</b>${mode === "hold" ? holdMaxTxt(i, +(S.mixN != null ? S.mixN : p.mix_variants) || 5) : ""}</td><td>${durTxt(i)}</td><td>${costCell(i)}</td><td>${pill(i)}</td></tr>`).join("") || '<tr><td colspan="5" class="av-empty">Chưa SKU nào đủ clip.</td></tr>'}</tbody></table></div>
@@ -822,16 +825,43 @@ ${i.stage_state === "error" ? `<button class="av-btn sm" data-retry="${esc(i.nam
       <div class="av-hint">Giật = % khung nhảy (trên 5% là thấy giật). Trùng = % khung giống hệt khung ở chính video đó (cách ≥2s) / ở video khác trong đợt (tính cả đoạn tua ngược, bỏ 0,6s đầu/cuối).</div></details>`;
   }
   function faqState() { if (!S.faq || S.faq.project !== S.p.name) S.faq = { project: S.p.name, kind: "voice", voices: [], n: 10, sec: 30, lead: 0.5, tail: 0.8, target: 20, batch: today() + "-noi", stock: null }; return S.faq; }
+  /* 12/10 fix9q: tu tinh mix do dai clip noi (10/8/6s) - moi video ghep khit do dai voice nhat (giong cach worker chon:
+     thieu x2/s, du x1.5/s, it clip hon), roi chia so giay canh rieng can co theo ti le tung do dai, tru kho dang co */
+  const TD = [10, 8, 6], NAT = 0.963, CPS = 3;
+  const nomDur = (d) => [4, 6, 8, 10].reduce((a, b) => Math.abs(b * NAT - d) < Math.abs(a * NAT - d) ? b : a, 10);
+  function fitCombo(need, min) {
+    let best = null;
+    for (let a = 0; a <= Math.ceil(need / (10 * NAT)) + 1; a++) for (let b = 0; b <= 2; b++) for (let c = 0; c <= 2; c++) {
+      const n = a + b + c, L = (a * 10 + b * 8 + c * 6) * NAT; if (!n || L < min) continue;
+      const cost = (L < need ? (need - L) * 2 : (L - need) * 1.5) + n * 0.4;
+      if (!best || cost < best.cost) best = { k: { 10: a, 8: b, 6: c }, L, cost };
+    }
+    return best || { k: { 10: Math.ceil(need / (10 * NAT)), 8: 0, 6: 0 }, L: Math.ceil(need / (10 * NAT)) * 10 * NAT, cost: 0 };
+  }
   function faqCalc() {
     const F = faqState(), st = F.stock; const lead = +F.lead || 0, tail = +F.tail || 0, r = Math.max(0, Math.min(100, +F.target || 0)) / 100;
-    const T = F.kind === "length" ? Math.max(0, +F.n || 0) * Math.max(0, (+F.sec || 0) - 1.2)
-      : F.voices.filter((v) => v.rel).reduce((a, v) => a + Math.max(0, lead + (v.speech || v.dur || 0) + tail - 1.2), 0);
-    if (!st || !T) return null;
-    const have = st.unique_s || 0, need = T * (1 - r) + T * r / 3, miss = Math.max(0, need - have);
-    const oks = (st.clips || []).filter((c) => c.ok); const avg = oks.length ? oks.reduce((a, c) => a + c.d, 0) / oks.length : 9.4;
-    const clips = Math.ceil(miss / Math.max(3, avg)); const pass = st.pass_rate || 0.7; const tasks = Math.ceil(clips / Math.max(0.2, pass));
-    const cr = tasks * (st.px_credits_per_task || 30);
-    return { T, have, need, miss, clips, tasks, cr, vnd: cr * (st.vnd_per_credit || 80), now: Math.max(0, Math.min(100, (1 - have / T) * 150)), pass };
+    const vids = F.kind === "length" ? Array.from({ length: Math.max(0, Math.min(100, +F.n || 0)) }, () => ({ need: +F.sec || 0, min: +F.sec || 0 }))
+      : F.voices.filter((v) => v.rel).map((v) => { const sp = v.speech || v.dur || 0; return { need: lead + sp + tail, min: lead + sp + 0.3 }; });
+    if (!st || !vids.length || !vids.every((v) => v.need > 0)) return null;
+    const use = { 10: 0, 8: 0, 6: 0 }, maxPer = { 10: 0, 8: 0, 6: 0 }; let T = 0, over = 0;
+    for (const v of vids) { const c = fitCombo(v.need, v.min); T += Math.max(0, c.L - 1.2); over += Math.max(0, c.L - v.need);
+      for (const d of TD) { use[d] += c.k[d] * d * NAT; maxPer[d] = Math.max(maxPer[d], c.k[d]); } }
+    if (!T) return null;
+    const U = use[10] + use[8] + use[6], need = T * (1 - r) + T * r / 3;
+    const oks = (st.clips || []).filter((c) => c.ok), haveS = { 10: 0, 8: 0, 6: 0, 4: 0 }, haveN = { 10: 0, 8: 0, 6: 0, 4: 0 };
+    for (const c of oks) { const d = nomDur(c.d); haveS[d] += c.d; haveN[d]++; }
+    const pass = st.pass_rate || 0.7, add = {}, gens = {}; let clips = 0, tasks = 0, cr = 0;
+    for (const d of TD) {
+      const want = need * use[d] / U;
+      add[d] = use[d] ? Math.max(Math.ceil(Math.max(0, want - haveS[d]) / (d * NAT)), maxPer[d] - haveN[d], 0) : 0;
+      gens[d] = add[d] ? Math.ceil(add[d] / Math.max(0.2, pass)) : 0;
+      clips += add[d]; tasks += gens[d]; cr += gens[d] * d * CPS;
+    }
+    const durs = []; const left = { ...gens };            /* xen ke de dung giua chung van can doi */
+    while (durs.length < tasks) for (const d of TD) { const k = Math.ceil(left[d] * 10 / Math.max(1, tasks)); for (let i = 0; i < Math.max(1, k) && left[d] > 0; i++) { durs.push(d); left[d]--; } }
+    const have = oks.reduce((a, c) => a + c.d, 0);
+    return { T, have, need, clips, tasks, cr, vnd: cr * (st.vnd_per_credit || 80), now: Math.max(0, Math.min(100, (1 - have / T) * 150)), pass, add, gens, durs,
+      haveN, over: over / vids.length, mix: TD.map((d) => Math.round(use[d] / U * 100)) };
   }
   function stepFaq() {
     const F = faqState(), st = F.stock, c = faqCalc(), up = F.voices.filter((v) => v.st === "up").length, ok = F.voices.filter((v) => v.rel).length;
@@ -853,17 +883,20 @@ ${i.stage_state === "error" ? `<button class="av-btn sm" data-retry="${esc(i.nam
         ${F.voices.map((v, k) => `<tr><td class="av-hint">${k + 1}</td><td>${esc(v.name)}</td><td class="av-num">${v.dur ? fmtN(v.dur, 1) + "s" : "-"}</td><td class="av-num">${v.speech ? fmtN(v.speech, 1) + "s" : "-"}</td><td>${v.rel ? '<span class="av-pill p-ok">Đã tải</span>' : v.st === "err" ? `<span class="av-pill p-bad">${esc(v.err || "Lỗi")}</span>` : '<span class="av-pill p-run">Đang tải…</span>'}</td></tr>`).join("")}</tbody></table></div>` : ""}
       <h3 style="font-size:14px;margin:14px 0 0">Bảng tính số clip nói cần có</h3>
       ${c ? `<div class="av-calc"><div><span>Thời lượng tính trùng</span><b>${fmtN(c.T)}s</b></div><div><span>Cảnh riêng cần có</span><b>${fmtN(c.need)}s</b></div><div><span>Đang có</span><b>${fmtN(c.have)}s</b></div>
-        <div class="${c.clips ? "hl" : ""}"><span>Clip nói đạt cần thêm</span><b>${c.clips}</b></div><div class="${c.tasks ? "hl" : ""}"><span>Lượt gen (theo tỉ lệ đạt)</span><b>${c.tasks}</b></div><div><span>Chi phí ước tính</span><b>~${fmtN(c.vnd / 1000)}k₫</b></div></div>
-        <div class="av-hint">Với kho hiện tại, trùng chéo ước khoảng <b>${fmtN(c.now)}%</b>. Ước tính theo giả định phần cảnh dùng chung được lặp ~3 lần; số thật xem cột Trùng ở bảng Kết quả sau khi trộn.</div>` : `<div class="av-hint">${st ? (isV ? "Tải voice lên để tính." : "Nhập số video và độ dài để tính.") : F.loading ? "Đang đọc kho clip nói…" : "Chưa đọc được kho clip nói."}</div>`}
+        <div class="${c.clips ? "hl" : ""}"><span>Clip nói đạt cần thêm</span><b>${c.clips}</b><span>${TD.filter((d) => c.add[d]).map((d) => c.add[d] + "×" + d + "s").join(" · ") || "đủ"}</span></div><div class="${c.tasks ? "hl" : ""}"><span>Lượt gen (theo tỉ lệ đạt ${fmtN(c.pass * 100)}%)</span><b>${c.tasks}</b></div><div><span>Chi phí ước tính</span><b>~${fmtN(c.vnd / 1000)}k₫</b></div></div>
+        <div class="av-hint">Tỉ lệ độ dài tự tính để mỗi video ghép khít độ dài voice: ${TD.map((d, k) => `${d}s ${c.mix[k]}%`).join(" · ")} (dư trung bình ${fmtN(c.over, 1)}s/video). Kho đạt hiện có: ${[10, 8, 6, 4].filter((d) => c.haveN[d]).map((d) => c.haveN[d] + "×" + d + "s").join(" · ") || "chưa có"}.<br>Với kho hiện tại, trùng chéo ước khoảng <b>${fmtN(c.now)}%</b>. Ước tính theo giả định phần cảnh dùng chung được lặp ~3 lần; số thật xem cột Trùng ở bảng Kết quả sau khi trộn.</div>` : `<div class="av-hint">${st ? (isV ? "Tải voice lên để tính." : "Nhập số video và độ dài để tính.") : F.loading ? "Đang đọc kho clip nói…" : "Chưa đọc được kho clip nói."}</div>`}
       <div class="av-row" style="margin-top:12px;justify-content:flex-end">
-        ${c && c.tasks ? `<button class="av-btn" id="fq-gen" data-n="${c.tasks}" data-total="${total}" data-vnd="${Math.round(c.vnd)}">Gen thêm ${c.tasks} clip nói</button>` : ""}
+        ${c && c.tasks ? `<button class="av-btn" id="fq-gen" data-durs="${c.durs.join(",")}" data-vnd="${Math.round(c.vnd)}">Gen thêm ${c.tasks} clip nói</button>` : ""}
         <button class="av-gold" id="fq-mix" ${nOut && !up ? "" : "disabled"}>Trộn ${nOut} video</button></div></div></div>`;
   }
   /* kho clip noi (tab A): clip, % giat, so lieu QC */
   function talkStock() {
-    const p = S.p, st = faqState().stock; const bad = st ? (st.clips || []).filter((c) => c.stutter != null && c.stutter > 5) : [];
+    const p = S.p, F = faqState(), st = F.stock; const bad = st ? (st.clips || []).filter((c) => c.stutter != null && c.stutter > 5) : [];
+    const key = (p.talks || []).map((t) => t.id).join(",");      /* 12/10 fix9q: so clip doi -> doc lai kho */
+    if (st && F.key !== key && !F.loading) { F.stock = null; faqStock(); }
+    const skip = p.anchor_flow === "pick" && !p.talk_go ? `<div class="av-callout warn" style="margin-top:8px"><div><b>Chưa gen clip nói cho đợt này.</b> Tải voice (hoặc nhập số video theo độ dài) ở dưới → bảng tính ra số clip cần → bấm <b>Gen thêm</b>. Không cần tính: <button class="av-btn sm" id="talk-skip">Bỏ qua, gen mặc định ${esc(p.talk_count || 0)} clip</button></div></div>` : "";
     return `<div class="av-panel"><div class="av-panel-h"><h2>Kho clip nói</h2><span class="av-hint">Dùng chung cho video chỉ nói và video nói + cầm SP của host này.</span></div>
-      <div class="av-panel-b">${talkList(p)}
+      <div class="av-panel-b">${talkList(p)}${skip}
       ${st ? `<div class="av-hint" style="margin-top:8px"><b>${st.good}</b> clip đạt (${fmtN(st.unique_s, 1)}s cảnh riêng) · ${st.failed} clip lỗi QC · tỉ lệ đạt ${st.pass_rate != null ? fmtN(st.pass_rate * 100) + "%" : "-"} · ~${fmtN(st.px_credits_per_task || 30, 1)} credit/lượt.${bad.length ? ` <span style="color:var(--bad)">Clip giật (tự bỏ khi trộn): ${bad.map((b) => esc(b.id) + " " + fmtN(b.stutter, 1) + "%").join(", ")}.</span>` : " Không clip nào giật quá 5%."}</div>` : ""}</div></div>`;
   }
   /* buoc 0: host & khung neo (12/10 fix9p) */
@@ -889,7 +922,7 @@ ${i.stage_state === "error" ? `<button class="av-btn sm" data-retry="${esc(i.nam
   const needAnchor = () => `<div class="av-callout warn"><div><b>Chưa chốt khung neo.</b> Làm bước <b>0. Host &amp; khung neo</b> trước (tạo 4 ảnh, chọn 1). <button class="av-btn sm pri" data-step="host">Đến bước 0</button></div></div>`;
   function stepTalk() { return S.p.anchor ? talkStock() + stepFaq() + resultsPanel("faq") : needAnchor(); }
   async function faqStock() {
-    const F = faqState(); F.loading = true;
+    const F = faqState(); F.loading = true; F.key = (S.p.talks || []).map((t) => t.id).join(",");
     const r = await call("faq_stock", { project: S.p.name }, "GET"); F.loading = false;
     if (r.success) F.stock = r.data; else toast(r.message || "Không đọc được kho clip nói", true);
     if (S.step === "talk") renderProject();
@@ -1080,10 +1113,13 @@ ${i.stage_state === "error" ? `<button class="av-btn sm" data-retry="${esc(i.nam
     if (t.dataset.regenTalk) { if (!confirm("Xoá clip nói này để gen lại?")) return; if (await act("regen_talk", { project: P, ids: JSON.stringify([t.dataset.regenTalk]) }, "Sẽ gen lại ở lần đồng bộ tới")) loadProject(P, true); return; }
     if (t.dataset.m) { S.mixMode = t.dataset.m; return renderProject(); }
     if (t.id === "fq-clear") { faqState().voices = []; return renderProject(); }
-    if (t.id === "fq-gen") { const F = faqState(), n = +t.dataset.n, want = Math.min(150, +t.dataset.total + n);
-      if (want < +t.dataset.total + n && !confirm("Mỗi dự án tối đa 150 lượt clip nói - chỉ gen được " + (want - t.dataset.total) + " lượt. Tiếp tục?")) return;
-      if (!confirm(`Gen thêm ${want - t.dataset.total} lượt clip nói (~${fmtN(+t.dataset.vnd / 1000)}k₫)? Clip lỗi QC tự gen lại 1 lần, clip giật tự bị loại.`)) return;
-      if (await act("update_project", { name: S.p.name, data: JSON.stringify({ talk_count: want }) }, "Đang gen thêm clip nói - xem ở bước 3")) { F.stock = null; loadProject(S.p.name, true); } return; }
+    if (t.id === "fq-gen") { const F = faqState(), durs = t.dataset.durs.split(",").map(Number);   /* 12/10 fix9q: gen dung ke hoach bang tinh (tron 10/8/6s) */
+      const cnt = [10, 8, 6].filter((d) => durs.includes(d)).map((d) => durs.filter((x) => x === d).length + "×" + d + "s").join(" + ");
+      if (!confirm(`Gen thêm ${durs.length} lượt clip nói (${cnt}, ~${fmtN(+t.dataset.vnd / 1000)}k₫)? Clip lỗi QC tự gen lại 1 lần, clip giật tự bị loại. Mỗi host tối đa 150 lượt.`)) return;
+      if (await act("talk_gen", { project: S.p.name, durs: JSON.stringify(durs) }, "Đang gen thêm clip nói - xem ở Kho clip nói")) { F.stock = null; loadProject(S.p.name, true); } return; }
+    if (t.id === "talk-skip") { const F = faqState();
+      if (!confirm(`Gen clip nói cho đủ ${S.p.talk_count || 0} lượt (số mặc định trong Cài đặt dự án)?`)) return;
+      if (await act("talk_gen", { project: S.p.name }, "Đang gen clip nói")) { F.stock = null; loadProject(S.p.name, true); } return; }
     if (t.id === "fq-mix") { const F = faqState(); const vs = F.kind === "length" ? [] : F.voices.filter((v) => v.rel).map((v) => ({ rel: v.rel, name: v.name }));
       const d = F.kind === "length" ? { mode: "length", n: +F.n, seconds: +F.sec, batch: F.batch, target: +F.target } : { voices: vs, batch: F.batch, lead_s: +F.lead, tail_s: +F.tail, target: +F.target };
       if (await act("faq_mix", { project: S.p.name, data: JSON.stringify(d) }, "Đang trộn " + (F.kind === "length" ? +F.n : vs.length) + " video - xem bảng Kết quả")) { F.voices = []; F.batch = today() + "-noi-" + Date.now().toString(36).slice(-3); loadProject(S.p.name); } return; }
