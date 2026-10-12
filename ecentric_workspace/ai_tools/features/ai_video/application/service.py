@@ -78,6 +78,8 @@ def _file_bytes(file_url):
 FILE_FIELDS = ("host_image", "product_image", "real_hold_image", "audio_file")
 #: Anh phu cac mat (canh, sau, nap, anh cam that): toi da 4, gui kem anh chinh dien cho AI.
 MAX_EXTRA = 4
+#: So clip noi toi da / du an (12/10: FAQ can kho lon de it trung khung).
+MAX_TALK = 150
 
 
 def _check_files(d):
@@ -131,8 +133,9 @@ def create_project(data):
     if not (d.get("brand") or "").strip() or not (d.get("title") or "").strip():
         raise frappe.ValidationError("Cần tên brand và tên dự án.")
     _check_files(d)
+    d.setdefault("anchor_source", "host")         # 12/10 fix9p: khung neo lam truoc (buoc 0), chon 1 trong 4 ung vien
     doc = frappe.get_doc(dict({k: d.get(k) for k in PROJECT_SETTINGS if d.get(k) not in (None, "")}, doctype=P))
-    st0 = {}
+    st0 = {"anchor_flow": "pick"} if d.get("anchor_source") == "host" else {}
     if d.get("ai_provider") in ("kie", "plenx"):
         st0["provider"] = d["ai_provider"]
     st0.update(_ai_opts(d))
@@ -156,6 +159,12 @@ def update_project(name, data):
     d = _j(data)
     _check_files({k: d[k] for k in FILE_FIELDS if k in d})
     doc = frappe.get_doc(P, name)
+    if d.get("host_image") and d.get("host_image") != doc.host_image and _j(doc.state_json).get("anchor_flow") == "pick":
+        st = _j(doc.state_json)                    # 12/10 fix9p: doi anh host goc -> phai tao lai khung neo
+        st["host_orig"], st["anchor_stale"] = d["host_image"], 1
+        doc.state_json = json.dumps(st)
+    if d.get("talk_count") not in (None, ""):
+        d["talk_count"] = max(0, min(MAX_TALK, int(d["talk_count"])))     # 12/10: FAQ can nhieu clip noi
     for k in PROJECT_SETTINGS:
         if k in d:
             doc.set(k, d[k])
@@ -319,6 +328,9 @@ def _has_frame(doc):
 
 def start_holds(project, names):
     pdoc = frappe.get_doc(P, project)
+    st0 = _j(pdoc.state_json)
+    if st0.get("anchor_flow") == "pick" and "anchor" not in (st0.get("host_files") or {}):
+        raise frappe.ValidationError("Chưa chốt khung neo: vào bước 0. Host & khung neo, tạo và chọn khung neo trước.")
     pst = _ensure_host(pdoc)
     groups = _group_map()
     recipes = _recipe_map()
@@ -549,8 +561,10 @@ def _tick(project):
             _save_state(doc, st, **res["set"])
         need_from = need_from or res["need_anchor_from"]
     # khung neo + clip noi
+    from ecentric_workspace.ai_tools.features.ai_video.application import host as hostmod
+    hostmod.tick_round(pst, tasks)                        # 12/10 fix9p: ung vien khung neo (buoc 0)
     ast, _ = flow.tasks_state((pst.get("anchor") or {}).get("tasks"), tasks)
-    if not anchor_ready and ast in ("none", "failed") and not pst.get("anchor_hold"):
+    if not anchor_ready and ast in ("none", "failed") and not pst.get("anchor_hold") and pst.get("anchor_flow") != "pick":
         step = None
         if (pdoc.anchor_source or "master") == "host" and pst.get("host_rel"):
             step = {"op": "anchor", "host": host, "host_image": pst["host_rel"]}
@@ -561,11 +575,11 @@ def _tick(project):
             pst["anchor"] = {"tasks": _enqueue(project, step, pdoc.night_mode), "from": need_from}
         elif ast == "failed":
             pst["anchor_error"] = "Tạo khung neo lỗi - bấm Tạo lại khung neo."
-    talk_n = len([k for k in hfiles if k.startswith("talk_") and not k.endswith("_rev")])
+    talk_n, talk_fail = flow.talk_counts(hfiles)          # 12/10: clip loi QC (.qcfail) tinh la 1 luot, khong gen bu vo han
     want = int(pdoc.talk_count or 0)
     tst, _ = flow.tasks_state((pst.get("talk") or {}).get("tasks"), tasks)
-    if anchor_ready and want > talk_n and tst != "running" and not pst.get("talk_hold"):
-        pst["talk"] = {"tasks": _enqueue(project, {"op": "talk", "host": host, "fill_to": want}, pdoc.night_mode)}
+    if anchor_ready and want > talk_n + talk_fail and tst != "running" and not pst.get("talk_hold"):
+        pst["talk"] = {"tasks": _enqueue(project, {"op": "talk", "host": host, "fill_to": want - talk_fail}, pdoc.night_mode)}
     # chay dem: SKU nao tron xong thi nen 1 ZIP rieng cho SKU do (08/10: khong gom theo lo -> khong lan SP)
     if pdoc.night_mode:
         zipped = pst.setdefault("zipped", {})
@@ -663,6 +677,10 @@ def mix(project, data):
 def _tick_exports(pdoc, tasks):
     for ex in frappe.get_all(E, filters={"project": pdoc.name, "status": "running"}, fields=["name"]):
         doc = frappe.get_doc(E, ex.name)
+        if isinstance(_j(doc.items, None), dict):      # 12/10: dot tron theo voice (FAQ)
+            from ecentric_workspace.ai_tools.features.ai_video.application import faq
+            faq.tick_export(pdoc, doc, tasks)
+            continue
         ids = _j(doc.task_ids, [])
         stt, err = flow.tasks_state(ids, tasks)
         if stt == "running":
@@ -733,6 +751,8 @@ def get_project(name, do_tick=0):
     proj["breaker"] = pst.get("breaker")
     proj["last_tick"] = pst.get("last_tick")
     proj["anchor_error"] = pst.get("anchor_error")
+    from ecentric_workspace.ai_tools.features.ai_video.application import host as hostmod
+    proj.update(hostmod.host_view(pst))                   # 12/10 fix9p: anh host goc, ung vien khung neo
     proj["zipped"] = {b: wc.sign(z) for b, z in (pst.get("zipped") or {}).items()}
     items, missing = [], []
     for n in frappe.get_all(I, filters={"project": name}, order_by="creation asc", pluck="name"):
@@ -759,7 +779,7 @@ def get_project(name, do_tick=0):
     proj["time"] = flow.time_view(pst.get("times"), items)
     proj["is_admin"] = is_admin()
     exports = frappe.get_all(E, filters={"project": name}, fields=["name", "batch", "mode", "variants", "duration",
-                                                                   "status", "zip_path", "files_json", "creation"],
+                                                                   "status", "zip_path", "files_json", "creation", "items"],
                              order_by="creation desc", limit_page_length=30)
     for ex in exports:
         ex["zip_url"] = wc.sign(ex.zip_path) if ex.zip_path else None
@@ -767,6 +787,10 @@ def get_project(name, do_tick=0):
         ex["files"] = [{"name": os.path.basename(f), "url": wc.sign(f)} for f in fl if not f.endswith(".zip")]
         ex["zips"] = [{"sku": os.path.basename(f)[:-4], "url": wc.sign(f)} for f in fl if f.endswith(".zip")]
         ex.pop("files_json", None)
+        meta = _j(ex.pop("items", None), None)
+        if isinstance(meta, dict) and meta.get("faq"):
+            from ecentric_workspace.ai_tools.features.ai_video.application import faq
+            faq.export_view(ex, meta)
     return {"project": proj, "items": items, "exports": exports, "worker_down": down,
             "worker_configured": wc.configured()}
 

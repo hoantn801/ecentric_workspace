@@ -6,7 +6,9 @@ rollback nua - phai tu rollback de khong luu nua chung (vd da enqueue ma chua gh
 import frappe
 
 from ecentric_workspace.ai_tools.features.ai_video.application import service as svc
+from ecentric_workspace.ai_tools.features.ai_video.application import faq
 from ecentric_workspace.ai_tools.features.ai_video.application import groups
+from ecentric_workspace.ai_tools.features.ai_video.application import host
 from ecentric_workspace.ai_tools.features.ai_video.application import recipes
 from ecentric_workspace.ai_tools.features.ai_video.infrastructure.worker_client import WorkerDown
 
@@ -217,3 +219,40 @@ def host_seat_status(key: str):
 @frappe.whitelist(methods=["POST"])
 def host_seat_pick(key: str, task_id: str):
     return _run(lambda: svc.host_seat_pick(key, task_id))
+
+
+# 12/10: tron hang loat theo voice (FAQ) + kho clip noi + host co san
+@frappe.whitelist(methods=["GET"])
+def hosts_list():
+    return _run(faq.hosts_list)
+
+
+@frappe.whitelist(methods=["POST"])
+def set_host(project: str, host: str = None):
+    return _run(lambda: faq.set_host(project, host))
+
+
+@frappe.whitelist(methods=["GET"])
+def faq_stock(project: str):
+    return _run(lambda: faq.stock(project))
+
+
+@frappe.whitelist(methods=["POST"])
+def faq_upload_voice(project: str, url: str, batch: str = None):
+    return _run(lambda: faq.upload_voice(project, url, batch))
+
+
+@frappe.whitelist(methods=["POST"])
+def faq_mix(project: str, data: str):
+    return _run(lambda: faq.mix(project, data))
+
+
+# 12/10 fix9p: buoc 0 - khung neo lam truoc, chon 1 trong 4 ung vien
+@frappe.whitelist(methods=["POST"])
+def anchor_start(project: str):
+    return _run(lambda: host.anchor_start(project))
+
+
+@frappe.whitelist(methods=["POST"])
+def anchor_pick(project: str, task_id: str):
+    return _run(lambda: host.anchor_pick(project, task_id))

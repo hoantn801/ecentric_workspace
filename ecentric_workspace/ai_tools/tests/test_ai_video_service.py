@@ -169,6 +169,14 @@ class TestService(unittest.TestCase):
         self.real_sign = wc.sign
         wc.call, wc.upload = self.W.call, self.W.upload
         service._file_bytes = lambda url: b"img"
+        # 12/10 fix9p: du an moi mac dinh lam khung neo truoc (buoc 0). Cac test cu di theo luong cu
+        # (khung neo tu master) -> mac dinh anchor_source = master; test luong moi khai ro "host".
+        _cp = service.create_project
+        def _create(data, _cp=_cp):
+            d = json.loads(data)
+            d.setdefault("anchor_source", "master")
+            return _cp(json.dumps(d))
+        service.create_project = _create
         self.store.rows["File"] = {str(i): {"name": str(i), "file_url": u, "owner": "a@ec.vn"} for i, u in enumerate(
             ["/private/files/host.png", "/private/files/f.png", "/h.png", "/a.png", "x"])}
         self.store.rows["File"]["99"] = {"name": "99", "file_url": "/private/files/other.png", "owner": "b@ec.vn"}
@@ -285,13 +293,15 @@ class TestService(unittest.TestCase):
                                          "anchor_source": "host", "talk_count": 0}))["name"]
         n = s.add_items(p, json.dumps([{"sku": "A", "product_image": "/a.png", "batch": "L"}]))["items"][0]
         _frame(self.svc, n)
-        s.start_holds(p, json.dumps([n]))
-        s.tick(p)
-        self.assertEqual(W.last("anchor")["host_image"].endswith("host.png"), True)   # nguon host: tao ngay
-        job = W.last("holds")["job_id"]
-        W.finish("holds"); W.finish("anchor")
-        W.jobs[job] = {"candidates": [{"id": "hold_c02", "file": {"path": "c"}}], "master": {"path": "m"}}
+        with self.assertRaises(Exception):                 # 12/10 fix9p: nguon host -> phai chot khung neo truoc
+            s.start_holds(p, json.dumps([n]))
         W.host_files = {"anchor": {"path": "a"}}
+        s.tick(p)
+        self.assertFalse([x for _, x in W.steps if x["op"] == "anchor"])      # khong tu tao khung neo nua
+        s.start_holds(p, json.dumps([n]))
+        job = W.last("holds")["job_id"]
+        W.finish("holds")
+        W.jobs[job] = {"candidates": [{"id": "hold_c02", "file": {"path": "c"}}], "master": {"path": "m"}}
         s.tick(p)
         s.pick(n, "hold_c02")
         for op in ("master", "units", "units", "units", "mix"):
@@ -781,6 +791,143 @@ class TestCongThuc(unittest.TestCase):
         self.svc.create_project(json.dumps({"brand": "Vinasoy", "title": "T2", "host_image": "/private/files/host.png"}))
         g = self._r().recipes_get()
         self.assertEqual((sorted(g["recipes"]), g["brands"], g["can_edit"]), (sorted(self.REC), ["FRISO", "Vinasoy"], False))
+
+    # ---------------------------------------------------------------- 12/10: FAQ theo voice ---
+    def _faq(self):
+        from ecentric_workspace.ai_tools.features.ai_video.application import faq
+        return faq
+
+    def test_faq_tron_theo_voice_va_do_trung(self):
+        s, W, f = self.svc, self.W, self._faq()
+        for i, u in enumerate(["/private/files/1_Gia.mp3", "/private/files/2_Ship.mp3"]):
+            self.store.rows["File"]["v%d" % i] = {"name": "v%d" % i, "file_url": u, "owner": "a@ec.vn"}
+        p = s.create_project(json.dumps({"brand": "FRISO", "title": "FAQ", "talk_count": 0}))["name"]
+        v1 = f.upload_voice(p, "/private/files/1_Gia.mp3", "dot1")
+        v2 = f.upload_voice(p, "/private/files/2_Ship.mp3", "dot1")
+        self.assertEqual(v1["name"], "1_Gia")
+        self.assertTrue(v1["rel"].startswith("ecv6/inbox/%s/faq/DOT1/" % s.flow.slug(p, 20)))
+        r = f.mix(p, json.dumps({"voices": [v1, v2], "batch": "dot1", "lead_s": 0.5, "tail_s": 1}))
+        st = W.last("faq")
+        self.assertEqual((st["sku"], st["lead_s"], st["tail_s"], len(st["voices"]), st["batch_id"]), ("FAQ_DOT1", 0.5, 1.0, 2, "dot1"))
+        E = lambda: self.store.rows["EC AI Video Export"][r["export"]]     # noqa: E731
+        plan = [t for t, x in W.steps if x["op"] == "faq"][0]
+        # ke hoach xong -> sinh 2 task con
+        W.tasks[plan].update(state="done", result={"spawned": ["c1", "c2"], "dir": "ecv6/output/FRISO/dot1/FAQ_DOT1"})
+        W.tasks["c1"] = {"id": "c1", "state": "running"}
+        W.tasks["c2"] = {"id": "c2", "state": "running"}
+        s.tick(p)
+        self.assertEqual(json.loads(E()["task_ids"]), [plan, "c1", "c2"])
+        self.assertEqual(E()["status"], "running")
+        for c, n in (("c1", "1_Gia"), ("c2", "2_Ship")):
+            W.tasks[c].update(state="done", result={"files": ["ecv6/output/FRISO/dot1/FAQ_DOT1/%s.mp4" % n],
+                                                     "faq": {"name": n, "file": "ecv6/output/FRISO/dot1/FAQ_DOT1/%s.mp4" % n, "dur": 9.4, "tail": 0.9, "stutter": 1.1}})
+        s.tick(p)
+        self.assertEqual(W.last("dupcheck")["dir"], "ecv6/output/FRISO/dot1/FAQ_DOT1")     # xong het -> do trung khung
+        self.assertEqual(E()["status"], "running")
+        s.tick(p)
+        self.assertEqual(len([1 for _, x in W.steps if x["op"] == "dupcheck"]), 1)
+        dt = [t for t, x in W.steps if x["op"] == "dupcheck"][0]
+        W.tasks[dt].update(state="done", result={"dup": {"self_pct": 1.5, "cross_pct": 12.0, "thr": 2, "rows": [
+            {"file": "1_Gia.mp4", "self_pct": 0, "cross_pct": 10, "best": "2_Ship.mp4", "best_pct": 10}]}})
+        s.tick(p)
+        self.assertIn("2/2 video", E()["status"])
+        self.assertIn("trùng chéo 12.0%", E()["status"])
+        self.assertIn("ecv6/exports/Friso/dot1/FAQ_DOT1.zip", json.loads(E()["files_json"]))
+        view = s.get_project(p)["exports"][0]
+        rows = {x["file"]: x for x in view["faq"]["rows"]}
+        self.assertEqual((rows["1_Gia.mp4"]["cross"], rows["1_Gia.mp4"]["stutter"], view["faq"]["dup"]["cross"]), (10, 1.1, 12.0))
+        self.assertTrue(rows["2_Ship.mp4"]["url"].startswith("https://w.example/"))
+
+    def test_faq_chan_file_va_duong_dan_la(self):
+        import frappe
+        s, f = self.svc, self._faq()
+        p = s.create_project(json.dumps({"brand": "B", "title": "T"}))["name"]
+        self.store.rows["File"]["v9"] = {"name": "v9", "file_url": "/private/files/x.mp3", "owner": "b@ec.vn"}
+        with self.assertRaises(frappe.ValidationError):
+            f.upload_voice(p, "/private/files/f.png", "d")          # khong phai voice
+        with self.assertRaises(frappe.ValidationError):
+            f.upload_voice(p, "/private/files/x.mp3", "d")          # file nguoi khac
+        for bad in ([{"rel": "ecv6/inbox/khac/faq/d/a.mp3"}], [{"rel": "ecv6/inbox/%s/faq/D/../../a.mp3" % s.flow.slug(p, 20)}], []):
+            with self.assertRaises(frappe.ValidationError):
+                f.mix(p, json.dumps({"voices": bad, "batch": "d"}))
+
+    def test_dem_clip_noi_loi_qc_khong_gen_bu_vo_han(self):
+        s, W = self.svc, self.W
+        self.assertEqual(s.flow.talk_counts({"talk_01": 1, "talk_01_rev": 1, "talk_02.qcfail": 1, "talk_02_rev.qcfail": 1, "anchor": 1}), (1, 1))
+        p = s.create_project(json.dumps({"brand": "B", "title": "T", "talk_count": 5}))["name"]
+        W.host_files = {"anchor": {"path": "a.png"}, "talk_01": {"path": "t"}, "talk_01_rev": {"path": "t"},
+                        "talk_02.qcfail": {"path": "t"}, "talk_02_rev.qcfail": {"path": "t"}}
+        s.tick(p)
+        self.assertEqual(W.last("talk")["fill_to"], 4)               # 5 - 1 luot loi
+        s.update_project(p, json.dumps({"talk_count": 999}))
+        self.assertEqual(self.store.rows["EC AI Video Project"][p]["talk_count"], 150)
+
+    def test_quan_tri_chon_host_co_san(self):
+        import frappe
+        s, W, f = self.svc, self.W, self._faq()
+        real = W.call
+        W.call = lambda a, **k: {"ok": True, "hosts": [{"host": "H_FAQ_GREEN", "anchor": "ecv6/hosts/H_FAQ_GREEN/anchor.png"}]} if a == "hosts_list" else real(a, **k)
+        self.wc.call = W.call
+        p = s.create_project(json.dumps({"brand": "B", "title": "T"}))["name"]
+        with self.assertRaises(frappe.PermissionError):
+            f.set_host(p, "H_FAQ_GREEN")
+        self.as_admin()
+        self.assertEqual(f.set_host(p, "H_FAQ_GREEN")["host_key"], "H_FAQ_GREEN")
+        with self.assertRaises(frappe.ValidationError):
+            f.set_host(p, "../x")
+        self.assertTrue(f.hosts_list()["hosts"][0]["thumb"].startswith("https://w.example/"))
+        self.assertEqual(f.set_host(p, "")["host_key"], "H_" + s.flow.slug(p, 12))
+
+
+    # ---------------------------------------------------------------- 12/10 fix9p: buoc 0 khung neo ---
+    def test_khung_neo_lam_truoc_chon_1_trong_4(self):
+        import frappe
+        s, W = self.svc, self.W
+        from ecentric_workspace.ai_tools.features.ai_video.application import host as H
+        saved = []
+        s._save_file = lambda name, content: saved.append((name, content)) or "/private/files/%s" % name
+        self.wc.fetch = lambda path, timeout=90: b"ANCHOR:" + path.encode()
+        p = s.create_project(json.dumps({"brand": "FRISO", "title": "Moi", "host_image": "/private/files/host.png", "anchor_source": "host"}))["name"]
+        self.assertEqual(json.loads(self.store.rows["EC AI Video Project"][p]["state_json"])["anchor_flow"], "pick")
+        H.anchor_start(p)
+        st = [x for _, x in W.steps if x["op"] == "anchor"]
+        self.assertEqual([(x["variant"], x["provider"], "px" in x) for x in st], [(1, "plenx", True), (2, "plenx", True), (3, "plenx", True), (4, "plenx", True)])
+        self.assertTrue(st[0]["host_image"].endswith("host_src.png"))
+        ids = [t for t, x in W.steps if x["op"] == "anchor"]
+        W.tasks[ids[1]].update(state="done", out="ecv6/hosts/H/anchor_c2.png")
+        s.tick(p)
+        rv = s.get_project(p)["project"]["anchor_round"]
+        self.assertEqual((rv["items"][1]["state"], rv["items"][1]["provider"], rv["done"]), ("done", "plenx", False))
+        self.assertTrue(rv["items"][1]["thumb"].startswith("https://w.example/"))
+        with self.assertRaises(frappe.ValidationError):
+            H.anchor_pick(p, ids[0])                                    # chua xong
+        H.anchor_pick(p, ids[1])
+        self.assertIn(("anchor_pick", {"host": "H_" + s.flow.slug(p, 12), "cand": 2}), W.calls)
+        pr = self.store.rows["EC AI Video Project"][p]
+        pst = json.loads(pr["state_json"])
+        self.assertEqual((pr["host_image"], pst["host_orig"]), ("/private/files/anchor_%s.png" % s.flow.slug(p, 20), "/private/files/host.png"))
+        self.assertIn("anchor", pst["host_files"])
+        # sau khi chot: tao anh cam duoc, anh host gui di = khung neo
+        n = s.add_items(p, json.dumps([{"sku": "L1", "product_image": "/private/files/f.png"}]))["items"][0]
+        _frame(s, n)
+        s.start_holds(p, json.dumps([n]))
+        self.assertTrue(W.last("holds")["files"]["host_video"].endswith("host.png"))
+        self.assertIn("inbox/%s/host.png" % s.flow.slug(p, 20), W.uploads)
+        # tao lai khung neo van tu anh goc
+        H.anchor_start(p)
+        self.assertIn("inbox/%s/host_src.png" % s.flow.slug(p, 20), W.uploads)
+
+    def test_chi_noi_theo_do_dai(self):
+        import frappe
+        s, W = self.svc, self.W
+        f = self._faq()
+        p = s.create_project(json.dumps({"brand": "B", "title": "T"}))["name"]
+        f.mix(p, json.dumps({"mode": "length", "n": 3, "seconds": 30, "batch": "d"}))
+        st = W.last("faq")
+        self.assertEqual(st["voices"], [{"name": "noi_30s_%02d" % i, "dur": 30.0} for i in (1, 2, 3)])
+        for bad in ({"mode": "length", "n": 0, "seconds": 30}, {"mode": "length", "n": 2, "seconds": 1}):
+            with self.assertRaises(frappe.ValidationError):
+                f.mix(p, json.dumps(bad))
 
 if __name__ == "__main__":
     unittest.main()
