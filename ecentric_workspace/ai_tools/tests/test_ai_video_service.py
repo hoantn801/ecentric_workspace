@@ -929,5 +929,48 @@ class TestCongThuc(unittest.TestCase):
             with self.assertRaises(frappe.ValidationError):
                 f.mix(p, json.dumps(bad))
 
+    # ---------------------------------------------------------------- 12/10 fix9q: clip noi chi gen khi bam ---
+    def test_chot_khung_neo_khong_tu_gen_clip_noi(self):
+        import frappe
+        s, W = self.svc, self.W
+        from ecentric_workspace.ai_tools.features.ai_video.application import host as H
+        s._save_file = lambda name, content: "/private/files/%s" % name
+        self.wc.fetch = lambda path, timeout=90: b"A"
+        p = s.create_project(json.dumps({"brand": "B", "title": "T", "host_image": "/private/files/host.png", "anchor_source": "host", "talk_count": 6}))["name"]
+        H.anchor_start(p)
+        ids = [t for t, x in W.steps if x["op"] == "anchor"]
+        W.tasks[ids[0]].update(state="done", out="ecv6/hosts/H/anchor_c1.png")
+        s.tick(p)
+        H.anchor_pick(p, ids[0])
+        W.host_files = {"anchor": {"path": "a.png"}, "talk_01": {"path": "t"}, "talk_02.qcfail": {"path": "t"}}
+        s.tick(p)
+        self.assertFalse([x for _, x in W.steps if x["op"] == "talk"])  # chua bam -> khong gen
+        self.assertFalse(s.get_project(p)["project"]["talk_go"])
+        self.assertEqual(s.talk_gen(p, None, json.dumps([10, 8, 6])), {"talk_count": 5, "new": 3})   # 2 luot da co + 3
+        s.tick(p)
+        self.assertEqual((W.last("talk")["fill_to"], W.last("talk")["durations"]), (4, [10, 8, 6]))   # 5 - 1 loi QC
+        for bad in ([7], [10, "8"], "x"):
+            with self.assertRaises(frappe.ValidationError):
+                s.talk_gen(p, None, json.dumps(bad))
+        s.talk_gen(p, "6")                                              # khong ke hoach -> tron mac dinh
+        W.tasks[[t for t, x in W.steps if x["op"] == "talk"][-1]]["state"] = "done"
+        s.tick(p)
+        self.assertEqual(W.last("talk")["durations"], [10, 8, 10, 6, 10, 10])
+        s.tick(p)
+        self.assertNotIn("talk_plan", json.loads(self.store.rows["EC AI Video Project"][p]["state_json"]))
+        with self.assertRaises(frappe.ValidationError):
+            s.talk_gen(p, "0")
+        p2 = s.create_project(json.dumps({"brand": "B", "title": "T2", "host_image": "/private/files/host.png", "anchor_source": "host", "talk_count": 2}))["name"]
+        st = json.loads(self.store.rows["EC AI Video Project"][p2]["state_json"]); st["host_files"] = dict(W.host_files)
+        self.store.rows["EC AI Video Project"][p2]["state_json"] = json.dumps(st)
+        with self.assertRaises(frappe.ValidationError):
+            s.talk_gen(p2)                                               # Bo qua: mac dinh 2, da co 2 luot
+        # gen lai clip loi QC: xoa ca ban nguoc, chan ten la
+        s.regen_talk(p, json.dumps(["talk_02.qcfail"]))
+        self.assertIn(("regen", {"stage": "talk", "host": self.store.rows["EC AI Video Project"][p]["host_key"], "job_id": "x",
+                                  "units": ["talk_02.qcfail", "talk_02_rev.qcfail"]}), W.calls)
+        with self.assertRaises(frappe.ValidationError):
+            s.regen_talk(p, json.dumps(["talk_../../x"]))
+
 if __name__ == "__main__":
     unittest.main()

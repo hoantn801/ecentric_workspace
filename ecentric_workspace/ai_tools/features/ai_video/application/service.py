@@ -578,8 +578,13 @@ def _tick(project):
     talk_n, talk_fail = flow.talk_counts(hfiles)          # 12/10: clip loi QC (.qcfail) tinh la 1 luot, khong gen bu vo han
     want = int(pdoc.talk_count or 0)
     tst, _ = flow.tasks_state((pst.get("talk") or {}).get("tasks"), tasks)
-    if anchor_ready and want > talk_n + talk_fail and tst != "running" and not pst.get("talk_hold"):
-        pst["talk"] = {"tasks": _enqueue(project, {"op": "talk", "host": host, "fill_to": want - talk_fail}, pdoc.night_mode)}
+    # 12/10 fix9q: du an chon khung neo -> chi gen clip noi khi nguoi dung bam Gen (bang tinh) / Bo qua (so mac dinh)
+    talk_ok = pst.get("anchor_flow") != "pick" or pst.get("talk_go")
+    if anchor_ready and talk_ok and want > talk_n + talk_fail and tst != "running" and not pst.get("talk_hold"):
+        step = {"op": "talk", "host": host, "fill_to": want - talk_fail}
+        if pst.get("talk_plan"):                  # 12/10 fix9q: do dai tung clip moi (10/8/6s) theo bang tinh
+            step["durations"] = pst.pop("talk_plan")
+        pst["talk"] = {"tasks": _enqueue(project, step, pdoc.night_mode)}
     # chay dem: SKU nao tron xong thi nen 1 ZIP rieng cho SKU do (08/10: khong gom theo lo -> khong lan SP)
     if pdoc.night_mode:
         zipped = pst.setdefault("zipped", {})
@@ -753,6 +758,7 @@ def get_project(name, do_tick=0):
     proj["anchor_error"] = pst.get("anchor_error")
     from ecentric_workspace.ai_tools.features.ai_video.application import host as hostmod
     proj.update(hostmod.host_view(pst))                   # 12/10 fix9p: anh host goc, ung vien khung neo
+    proj["talk_go"] = bool(pst.get("talk_go"))
     proj["zipped"] = {b: wc.sign(z) for b, z in (pst.get("zipped") or {}).items()}
     items, missing = [], []
     for n in frappe.get_all(I, filters={"project": name}, order_by="creation asc", pluck="name"):
@@ -869,14 +875,57 @@ def regen_anchor(project):
     return {"ok": True}
 
 
+#: Bo qua bang tinh: tron do dai mac dinh ~60% 10s, 20% 8s, 20% 6s (clip ngan giup video khit do dai voice)
+TALK_DUR_CYCLE = (10, 8, 10, 6, 10)
+TALK_DURS = (6, 8, 10)
+
+
+def talk_gen(project, n=None, durs=None):
+    """12/10 fix9q: gen clip noi theo yeu cau.
+    durs = [10, 8, 6, ...] ke hoach tu bang tinh tab A (trang tu tinh ti le do dai toi uu); n = so luot (moi clip 10s);
+    bo trong ca hai = Bo qua bang tinh, gen cho du "So clip noi" mac dinh, do dai tron theo TALK_DUR_CYCLE."""
+    pdoc = frappe.get_doc(P, project)
+    st = _j(pdoc.state_json)
+    hf = st.get("host_files") or {}
+    if "anchor" not in hf:
+        raise frappe.ValidationError("Chưa chốt khung neo - làm bước 0 trước.")
+    have = sum(flow.talk_counts(hf))
+    plan = None
+    if durs not in (None, "", "[]"):
+        plan = _j(durs, None)
+        if not isinstance(plan, list) or not plan or not all(isinstance(x, int) and x in TALK_DURS for x in plan):
+            raise frappe.ValidationError("Kế hoạch độ dài clip không hợp lệ (chỉ 6/8/10 giây).")
+        n = len(plan)
+    if n in (None, ""):
+        want = min(MAX_TALK, int(pdoc.talk_count or 0))
+        if want <= have:
+            raise frappe.ValidationError("Kho đã có %d lượt clip nói (mặc định %d) - không cần gen thêm. Muốn thêm thì dùng bảng tính bên dưới." % (have, want))
+    else:
+        n = int(n)
+        if not 1 <= n <= MAX_TALK:
+            raise frappe.ValidationError("Số clip gen thêm 1-%d." % MAX_TALK)
+        want = min(MAX_TALK, have + n)
+        if want <= have:
+            raise frappe.ValidationError("Đã đủ %d lượt clip nói (tối đa mỗi host)." % MAX_TALK)
+    k = want - have
+    st["talk_plan"] = (plan or [TALK_DUR_CYCLE[i % len(TALK_DUR_CYCLE)] for i in range(k)])[:k]
+    st["talk_go"] = True
+    st.pop("talk_hold", None)
+    _save_state(pdoc, st, talk_count=want)
+    return {"talk_count": want, "new": want - have}
+
+
 def regen_talk(project, ids):
     pdoc = frappe.get_doc(P, project)
-    units = [i for i in _j(ids, []) if i.startswith("talk_")]
+    units = [i for i in _j(ids, []) if re.match(r"^talk_\d{1,3}(_rev)?(\.qcfail)?$", str(i))]
+    units += [u.replace(".qcfail", "_rev.qcfail") for u in units if u.endswith(".qcfail") and "_rev" not in u]   # 12/10 fix9q: xoa ca ban nguoc loi QC
+    if not units:
+        raise frappe.ValidationError("Clip nói không hợp lệ.")
     wc.call("regen", stage="talk", host=pdoc.host_key, job_id="x", units=units)
     pst = _j(pdoc.state_json)
-    if set(units) & set(pst.get("talk_off") or []):
-        pst["talk_off"] = [k for k in pst["talk_off"] if k not in units]    # clip gen lai: mac dinh dung lai
-        _save_state(pdoc, pst)
+    pst["talk_off"] = [k for k in pst.get("talk_off") or [] if k not in units]    # clip gen lai: mac dinh dung lai
+    pst["talk_go"] = True                        # 12/10 fix9q: bam gen lai = cho phep gen (du an chon khung neo)
+    _save_state(pdoc, pst)
     return {"ok": True}
 
 
