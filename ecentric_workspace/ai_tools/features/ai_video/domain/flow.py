@@ -119,6 +119,12 @@ def unit_off(st):
     return sorted("%s:%s" % (job, u) for u in (st or {}).get("unit_off") or []) if job else []
 
 
+def talk_counts(host_files):
+    """(clip noi dat, clip noi loi QC het luot) theo file host tren worker: talk_01, talk_05.qcfail (bo ban tua nguoc)."""
+    keys = list(host_files or {})
+    return (len([k for k in keys if re.match(r"^talk_\d+$", k)]), len([k for k in keys if re.match(r"^talk_\d+\.qcfail$", k)]))
+
+
 def talk_off(project):
     """Clip noi nguoi dung bo tick (khong dung khi tron) - luu o state du an (08/10/2026)."""
     return sorted((project.get("state") or {}).get("talk_off") or [])
