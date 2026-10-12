@@ -833,40 +833,40 @@ ${i.stage_state === "error" ? `<button class="av-btn sm" data-retry="${esc(i.nam
   function faqState() { if (!S.faq || S.faq.project !== S.p.name) S.faq = { project: S.p.name, kind: "voice", voices: [], n: 10, sec: 30, lead: 0.5, tail: 0.8, target: 20, batch: today() + "-noi", stock: null }; return S.faq; }
   /* 12/10 fix9q: tu tinh mix do dai clip noi (10/8/6s) - moi video ghep khit do dai voice nhat (giong cach worker chon:
      thieu x2/s, du x1.5/s, it clip hon), roi chia so giay canh rieng can co theo ti le tung do dai, tru kho dang co */
-  const TD = [10, 8, 6], NAT = 0.963, CPS = 3;
-  const nomDur = (d) => [4, 6, 8, 10].reduce((a, b) => Math.abs(b * NAT - d) < Math.abs(a * NAT - d) ? b : a, 10);
+  const TD = [10, 8, 6], NAT = 0.963, CPS = 3, EFF = { 10: 9.36, 8: 7.43, 6: 5.5, 4: 3.6 }, JN = 0.15;   /* 13/10: do dai that sau khi khoa + bo khung lap; noi clip mat ~0.15s */
+  const nomDur = (d) => [4, 6, 8, 10].reduce((a, b) => Math.abs(EFF[b] - d) < Math.abs(EFF[a] - d) ? b : a, 10);
   function fitCombo(need, min) {
     let best = null;
-    for (let a = 0; a <= Math.ceil(need / (10 * NAT)) + 1; a++) for (let b = 0; b <= 2; b++) for (let c = 0; c <= 2; c++) {
-      const n = a + b + c, L = (a * 10 + b * 8 + c * 6) * NAT; if (!n || L < min) continue;
+    for (let a = 0; a <= Math.ceil(need / EFF[10]) + 1; a++) for (let b = 0; b <= 2; b++) for (let c = 0; c <= 2; c++) {
+      const n = a + b + c, L = a * EFF[10] + b * EFF[8] + c * EFF[6] - Math.max(0, n - 1) * JN; if (!n || L < min) continue;
       const cost = (L < need ? (need - L) * 2 : (L - need) * 1.5) + n * 0.4;
       if (!best || cost < best.cost) best = { k: { 10: a, 8: b, 6: c }, L, cost };
     }
-    return best || { k: { 10: Math.ceil(need / (10 * NAT)), 8: 0, 6: 0 }, L: Math.ceil(need / (10 * NAT)) * 10 * NAT, cost: 0 };
+    return best || { k: { 10: Math.ceil(need / EFF[10]), 8: 0, 6: 0 }, L: Math.ceil(need / EFF[10]) * EFF[10], cost: 0 };
   }
   function faqCalc() {
     const F = faqState(), st = F.stock; const lead = +F.lead || 0, tail = +F.tail || 0, r = Math.max(0, Math.min(100, +F.target || 0)) / 100;
     const vids = F.kind === "length" ? Array.from({ length: Math.max(0, Math.min(100, +F.n || 0)) }, () => ({ need: +F.sec || 0, min: +F.sec || 0 }))
-      : F.voices.filter((v) => v.rel).map((v) => { const sp = v.speech || v.dur || 0; return { need: lead + sp + tail, min: lead + sp + 0.3 }; });
+      : F.voices.filter((v) => v.rel).map((v) => { const sp = v.speech || v.dur || 0; return { need: lead + sp + tail, min: Math.min(lead, 0.2) + sp + 0.3 }; });   /* worker cho lang dau co gian toi 0.2s */
     if (!st || !vids.length || !vids.every((v) => v.need > 0)) return null;
     const use = { 10: 0, 8: 0, 6: 0 }, maxPer = { 10: 0, 8: 0, 6: 0 }; let T = 0, over = 0;
     for (const v of vids) { const c = fitCombo(v.need, v.min); T += Math.max(0, c.L - 1.2); over += Math.max(0, c.L - v.need);
-      for (const d of TD) { use[d] += c.k[d] * d * NAT; maxPer[d] = Math.max(maxPer[d], c.k[d]); } }
+      for (const d of TD) { use[d] += c.k[d] * EFF[d]; maxPer[d] = Math.max(maxPer[d], c.k[d]); } }
     if (!T) return null;
-    const U = use[10] + use[8] + use[6], need = T * (1 - r) + T * r / 3;
+    const U = use[10] + use[8] + use[6], need = T * (1 - r / 2);   /* 13/10: do that - clip dung lai thuong o 2 video, ca 2 deu tinh trung -> canh rieng = T(1 - r/2) */
     const oks = (st.clips || []).filter((c) => c.ok), haveS = { 10: 0, 8: 0, 6: 0, 4: 0 }, haveN = { 10: 0, 8: 0, 6: 0, 4: 0 };
     for (const c of oks) { const d = nomDur(c.d); haveS[d] += c.d; haveN[d]++; }
     const pass = st.pass_rate || 0.7, add = {}, gens = {}; let clips = 0, tasks = 0, cr = 0;
     for (const d of TD) {
       const want = need * use[d] / U;
-      add[d] = use[d] ? Math.max(Math.ceil(Math.max(0, want - haveS[d]) / (d * NAT)), maxPer[d] - haveN[d], 0) : 0;
+      add[d] = use[d] ? Math.max(Math.ceil(Math.max(0, want - haveS[d]) / EFF[d]), maxPer[d] - haveN[d], 0) : 0;
       gens[d] = add[d] ? Math.ceil(add[d] / Math.max(0.2, pass)) : 0;
       clips += add[d]; tasks += gens[d]; cr += gens[d] * d * CPS;
     }
     const durs = []; const left = { ...gens };            /* xen ke de dung giua chung van can doi */
     while (durs.length < tasks) for (const d of TD) { const k = Math.ceil(left[d] * 10 / Math.max(1, tasks)); for (let i = 0; i < Math.max(1, k) && left[d] > 0; i++) { durs.push(d); left[d]--; } }
     const have = oks.reduce((a, c) => a + c.d, 0);
-    return { T, have, need, clips, tasks, cr, vnd: cr * (st.vnd_per_credit || 80), now: Math.max(0, Math.min(100, (1 - have / T) * 150)), pass, add, gens, durs,
+    return { T, have, need, clips, tasks, cr, vnd: cr * (st.vnd_per_credit || 80), now: Math.max(0, Math.min(100, (1 - have / T) * 200)), pass, add, gens, durs,
       haveN, over: over / vids.length, mix: TD.map((d) => Math.round(use[d] / U * 100)) };
   }
   function stepFaq() {
@@ -890,7 +890,7 @@ ${i.stage_state === "error" ? `<button class="av-btn sm" data-retry="${esc(i.nam
       <h3 style="font-size:14px;margin:14px 0 0">Bảng tính số clip nói cần có</h3>
       ${c ? `<div class="av-calc"><div><span>Thời lượng tính trùng</span><b>${fmtN(c.T)}s</b></div><div><span>Cảnh riêng cần có</span><b>${fmtN(c.need)}s</b></div><div><span>Đang có</span><b>${fmtN(c.have)}s</b></div>
         <div class="${c.clips ? "hl" : ""}"><span>Clip nói đạt cần thêm</span><b>${c.clips}</b><span>${TD.filter((d) => c.add[d]).map((d) => c.add[d] + "×" + d + "s").join(" · ") || "đủ"}</span></div><div class="${c.tasks ? "hl" : ""}"><span>Lượt gen (theo tỉ lệ đạt ${fmtN(c.pass * 100)}%)</span><b>${c.tasks}</b></div><div><span>Chi phí ước tính</span><b>~${fmtN(c.vnd / 1000)}k₫</b></div></div>
-        <div class="av-hint">Tỉ lệ độ dài tự tính để mỗi video ghép khít độ dài voice: ${TD.map((d, k) => `${d}s ${c.mix[k]}%`).join(" · ")} (dư trung bình ${fmtN(c.over, 1)}s/video). Kho đạt hiện có: ${[10, 8, 6, 4].filter((d) => c.haveN[d]).map((d) => c.haveN[d] + "×" + d + "s").join(" · ") || "chưa có"}.<br>Với kho hiện tại, trùng chéo ước khoảng <b>${fmtN(c.now)}%</b>. Ước tính theo giả định phần cảnh dùng chung được lặp ~3 lần; số thật xem cột Trùng ở bảng Kết quả sau khi trộn.</div>` : `<div class="av-hint">${st ? (isV ? "Tải voice lên để tính." : "Nhập số video và độ dài để tính.") : F.loading ? "Đang đọc kho clip nói…" : "Chưa đọc được kho clip nói."}</div>`}
+        <div class="av-hint">Tỉ lệ độ dài tự tính để mỗi video ghép khít độ dài voice: ${TD.map((d, k) => `${d}s ${c.mix[k]}%`).join(" · ")} (dư trung bình ${fmtN(c.over, 1)}s/video). Kho đạt hiện có: ${[10, 8, 6, 4].filter((d) => c.haveN[d]).map((d) => c.haveN[d] + "×" + d + "s").join(" · ") || "chưa có"}.<br>Với kho hiện tại, trùng chéo ước khoảng <b>${fmtN(c.now)}%</b>. Ước tính theo giả định clip dùng lại thường nằm ở 2 video; số thật xem cột Trùng ở bảng Kết quả sau khi trộn.</div>` : `<div class="av-hint">${st ? (isV ? "Tải voice lên để tính." : "Nhập số video và độ dài để tính.") : F.loading ? "Đang đọc kho clip nói…" : "Chưa đọc được kho clip nói."}</div>`}
       <div class="av-row" style="margin-top:12px;justify-content:flex-end">
         ${(S.p.talk_run || []).length ? `<span class="av-hint" style="align-self:center">Đang gen ${(S.p.talk_run || []).length} clip - xong thì bảng tính tự tính lại</span>` : c && c.tasks ? `<button class="av-btn" id="fq-gen" data-durs="${c.durs.join(",")}" data-vnd="${Math.round(c.vnd)}">Gen thêm ${c.tasks} clip nói</button>` : ""}
         <button class="av-gold" id="fq-mix" ${nOut && !up ? "" : "disabled"}>Trộn ${nOut} video</button></div></div></div>`;
