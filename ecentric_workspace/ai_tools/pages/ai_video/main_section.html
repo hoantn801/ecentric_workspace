@@ -133,6 +133,8 @@ tr.on td{background:var(--navy-wash)}
 .av-talk{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--line);border-radius:9px;padding:2px 2px 2px 7px}
 .av-talk input{margin:0 3px 0 0;cursor:pointer}
 .av-talk.off{background:var(--ground);border-style:dashed}
+.av-talk-run{padding:5px 9px;font-size:13px;color:var(--ink2);background:var(--navy-wash);gap:6px}
+.av-dot{width:8px;height:8px;border-radius:50%;background:var(--ink3);display:inline-block}.av-dot.on{background:var(--gold,#e0a100);animation:av-pulse 1.2s infinite}
 .av-danger{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between;border-top:1px solid var(--line);padding-top:10px}.av-danger .av-hint{flex:1;min-width:220px}.av-talk.off .av-unit{opacity:.5;text-decoration:line-through}
 .av-anchor{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
 .av-anchor img{width:108px;aspect-ratio:9/16;object-fit:cover;border-radius:8px;background:var(--tile);cursor:zoom-in}
@@ -769,13 +771,17 @@ tr.on td{background:var(--navy-wash)}
     let f = 1; for (let k = 2; k <= h; k++) f *= k; return h && d ? f * d * d : 0; }
   function holdMaxTxt(i, n) { const m = holdMax(i); return `<div class="av-hint" data-hmax="${m}" style="${n > m ? "color:var(--bad);font-weight:600" : ""}">Chỉ cầm SP: tối đa ${m} bản</div>`; }
   function today() { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  function talkRunTxt(run) { const c = {}; run.forEach((r) => { const k = r.dur || "?"; c[k] = (c[k] || 0) + 1; }); return Object.keys(c).sort((a, b) => b - a).map((k) => c[k] + "×" + k + "s").join(" · "); }
   /* clip noi: tick = dung khi tron; bo tick = khong dung (clip van giu, tick lai la dung). 08/10/2026 */
   function talkList(p) {
     const off = new Set(p.talk_off || []), all = (p.talks || []).filter((t) => !/_rev(\.qcfail)?$/.test(t.id));
     const ts = all.filter((t) => !/\.qcfail$/.test(t.id)), bad = all.filter((t) => /\.qcfail$/.test(t.id)), on = ts.filter((t) => !off.has(t.id)).length;
-    const head = `<div><b>Clip nói:</b> ${esc(p.talk_state || "0/" + (p.talk_count || 0))}${ts.length ? ` · <b>dùng ${on}</b>` : ""}${ts.length && !on ? ' <span class="av-pill p-bad">Chưa tick clip nào - trộn kiểu có nói sẽ báo lỗi</span>' : ""}</div>
+    const run = p.talk_run || [], runTxt = talkRunTxt(run);   /* 12/10 fix9q: clip dang gen */
+    const head = `<div><b>Clip nói:</b> ${esc(p.talk_state || "0/" + (p.talk_count || 0))}${ts.length ? ` · <b>dùng ${on}</b>` : ""}${run.length ? ` · <span class="av-pill p-run">Đang gen ${run.length} clip</span>` : ""}${ts.length && !on ? ' <span class="av-pill p-bad">Chưa tick clip nào - trộn kiểu có nói sẽ báo lỗi</span>' : ""}</div>
       <div class="av-hint">${p.anchor_flow === "pick" ? "Chỉ gen khi bạn bấm: số clip theo bảng tính bên dưới, hoặc Bỏ qua để gen số mặc định trong Cài đặt dự án." : "Máy tự tạo khi đã chốt khung neo, đủ theo \"Số clip nói\" trong Cài đặt dự án (hoặc nút Gen thêm bên dưới)."} Dùng chung mọi dự án cùng host. Bỏ tick clip chưa đạt thì lúc trộn không dùng; ↻ để gen lại (tốn 1 lượt gen).</div>`;
     return head + `<div class="av-units">${ts.map((t) => `<span class="av-talk${off.has(t.id) ? " off" : ""}"><input type="checkbox" data-talk-use="${esc(t.id)}" ${off.has(t.id) ? "" : "checked"} aria-label="Dùng ${esc(t.id.replace("talk_", "Nói "))} khi trộn" title="Tick = dùng khi trộn"><button class="av-unit" data-video="${esc(t.url)}">▶ ${esc(t.id.replace("talk_", "Nói "))}</button><button class="av-btn sm ghost danger" title="Xoá để gen lại" data-regen-talk="${esc(t.id)}">↻</button></span>`).join("") || '<span class="av-hint">Chưa có</span>'}</div>
+      ${run.length ? `<div class="av-callout" style="margin-top:8px"><div><b>Đang gen ${run.length} clip nói</b> (${runTxt}) · ${run.filter((r) => r.state === "running").length} đang chạy, ${run.filter((r) => r.state !== "running").length} chờ lượt. Mỗi clip ~3–6 phút, chạy song song; xong clip nào hiện ngay ở trên. Clip lỗi QC tự gen lại 1 lần.</div></div>
+      <div class="av-units" style="margin-top:6px">${run.map((r) => `<span class="av-talk av-talk-run" title="${r.state === "running" ? "Đang gen" : "Chờ lượt"}${r.gen > 1 ? " - gen lại lần " + r.gen : ""}"><i class="av-dot${r.state === "running" ? " on" : ""}"></i>${esc(String(r.id || "").replace("talk_", "Nói "))}${r.dur ? " · " + r.dur + "s" : ""} · ${r.state === "running" ? (r.gen > 1 ? "gen lại" : "đang gen") : "chờ"}</span>`).join("")}</div>` : ""}
       ${bad.length ? `<div class="av-units av-talk-bad"><span class="av-hint">Lỗi QC (không dùng khi trộn, đã tính 1 lượt):</span>${bad.map((t) => `<span class="av-talk off"><button class="av-unit" data-video="${esc(t.url)}" title="Lỗi QC 2 lần gen (mở miệng / vẫy tay / giật...)">▶ ${esc(t.id.replace("talk_", "Nói ").replace(".qcfail", ""))} · lỗi QC</button><button class="av-btn sm ghost danger" title="Xoá để gen lại" data-regen-talk="${esc(t.id)}">↻</button></span>`).join("")}</div>` : ""}`;
   }
   function stepVideo() {
@@ -886,7 +892,7 @@ ${i.stage_state === "error" ? `<button class="av-btn sm" data-retry="${esc(i.nam
         <div class="${c.clips ? "hl" : ""}"><span>Clip nói đạt cần thêm</span><b>${c.clips}</b><span>${TD.filter((d) => c.add[d]).map((d) => c.add[d] + "×" + d + "s").join(" · ") || "đủ"}</span></div><div class="${c.tasks ? "hl" : ""}"><span>Lượt gen (theo tỉ lệ đạt ${fmtN(c.pass * 100)}%)</span><b>${c.tasks}</b></div><div><span>Chi phí ước tính</span><b>~${fmtN(c.vnd / 1000)}k₫</b></div></div>
         <div class="av-hint">Tỉ lệ độ dài tự tính để mỗi video ghép khít độ dài voice: ${TD.map((d, k) => `${d}s ${c.mix[k]}%`).join(" · ")} (dư trung bình ${fmtN(c.over, 1)}s/video). Kho đạt hiện có: ${[10, 8, 6, 4].filter((d) => c.haveN[d]).map((d) => c.haveN[d] + "×" + d + "s").join(" · ") || "chưa có"}.<br>Với kho hiện tại, trùng chéo ước khoảng <b>${fmtN(c.now)}%</b>. Ước tính theo giả định phần cảnh dùng chung được lặp ~3 lần; số thật xem cột Trùng ở bảng Kết quả sau khi trộn.</div>` : `<div class="av-hint">${st ? (isV ? "Tải voice lên để tính." : "Nhập số video và độ dài để tính.") : F.loading ? "Đang đọc kho clip nói…" : "Chưa đọc được kho clip nói."}</div>`}
       <div class="av-row" style="margin-top:12px;justify-content:flex-end">
-        ${c && c.tasks ? `<button class="av-btn" id="fq-gen" data-durs="${c.durs.join(",")}" data-vnd="${Math.round(c.vnd)}">Gen thêm ${c.tasks} clip nói</button>` : ""}
+        ${(S.p.talk_run || []).length ? `<span class="av-hint" style="align-self:center">Đang gen ${(S.p.talk_run || []).length} clip - xong thì bảng tính tự tính lại</span>` : c && c.tasks ? `<button class="av-btn" id="fq-gen" data-durs="${c.durs.join(",")}" data-vnd="${Math.round(c.vnd)}">Gen thêm ${c.tasks} clip nói</button>` : ""}
         <button class="av-gold" id="fq-mix" ${nOut && !up ? "" : "disabled"}>Trộn ${nOut} video</button></div></div></div>`;
   }
   /* kho clip noi (tab A): clip, % giat, so lieu QC */
@@ -1120,7 +1126,8 @@ ${i.stage_state === "error" ? `<button class="av-btn sm" data-retry="${esc(i.nam
     if (t.id === "talk-skip") { const F = faqState();
       if (!confirm(`Gen clip nói cho đủ ${S.p.talk_count || 0} lượt (số mặc định trong Cài đặt dự án)?`)) return;
       if (await act("talk_gen", { project: S.p.name }, "Đang gen clip nói")) { F.stock = null; loadProject(S.p.name, true); } return; }
-    if (t.id === "fq-mix") { const F = faqState(); const vs = F.kind === "length" ? [] : F.voices.filter((v) => v.rel).map((v) => ({ rel: v.rel, name: v.name }));
+    if (t.id === "fq-mix") { const F = faqState();
+      if ((S.p.talk_run || []).length && !confirm(`Còn ${S.p.talk_run.length} clip nói đang gen. Trộn bây giờ chỉ dùng clip đã xong (dễ trùng hơn). Vẫn trộn?`)) return; const vs = F.kind === "length" ? [] : F.voices.filter((v) => v.rel).map((v) => ({ rel: v.rel, name: v.name }));
       const d = F.kind === "length" ? { mode: "length", n: +F.n, seconds: +F.sec, batch: F.batch, target: +F.target } : { voices: vs, batch: F.batch, lead_s: +F.lead, tail_s: +F.tail, target: +F.target };
       if (await act("faq_mix", { project: S.p.name, data: JSON.stringify(d) }, "Đang trộn " + (F.kind === "length" ? +F.n : vs.length) + " video - xem bảng Kết quả")) { F.voices = []; F.batch = today() + "-noi-" + Date.now().toString(36).slice(-3); loadProject(S.p.name); } return; }
     if (t.id === "av-mix") { const d = { mode: S.mixMode || S.p.mix_mode || "mix", variants: +$("mx-n").value || 5, duration: +$("mx-d").value || null, batch: $("mx-b").value.trim() || today(), items: [...S.mixSel] };
