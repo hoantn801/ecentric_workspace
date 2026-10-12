@@ -585,6 +585,12 @@ def _tick(project):
         if pst.get("talk_plan"):                  # 12/10 fix9q: do dai tung clip moi (10/8/6s) theo bang tinh
             step["durations"] = pst.pop("talk_plan")
         pst["talk"] = {"tasks": _enqueue(project, step, pdoc.night_mode)}
+    run = []                                      # 12/10 fix9q: clip noi dang gen -> hien ro tren trang
+    for t in tasks.values():
+        if t.get("kind") == "talk" and t.get("host") == host and t.get("state") in ("queued", "running"):
+            m = re.search(r"(talk_\d+)\.mp4$", str(t.get("out") or ""))
+            run.append({"id": m.group(1) if m else "", "dur": t.get("dur"), "state": t["state"], "gen": int(t.get("gen") or 0)})
+    pst["talk_run"] = sorted(run, key=lambda x: x["id"])
     # chay dem: SKU nao tron xong thi nen 1 ZIP rieng cho SKU do (08/10: khong gom theo lo -> khong lan SP)
     if pdoc.night_mode:
         zipped = pst.setdefault("zipped", {})
@@ -759,6 +765,7 @@ def get_project(name, do_tick=0):
     from ecentric_workspace.ai_tools.features.ai_video.application import host as hostmod
     proj.update(hostmod.host_view(pst))                   # 12/10 fix9p: anh host goc, ung vien khung neo
     proj["talk_go"] = bool(pst.get("talk_go"))
+    proj["talk_run"] = pst.get("talk_run") or []
     proj["zipped"] = {b: wc.sign(z) for b, z in (pst.get("zipped") or {}).items()}
     items, missing = [], []
     for n in frappe.get_all(I, filters={"project": name}, order_by="creation asc", pluck="name"):

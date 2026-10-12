@@ -971,6 +971,14 @@ class TestCongThuc(unittest.TestCase):
                                   "units": ["talk_02.qcfail", "talk_02_rev.qcfail"]}), W.calls)
         with self.assertRaises(frappe.ValidationError):
             s.regen_talk(p, json.dumps(["talk_../../x"]))
+        # dang gen: trang thay tung clip (so, do dai, lan gen)
+        host = self.store.rows["EC AI Video Project"][p]["host_key"]
+        W.tasks = {"k1": {"id": "k1", "kind": "talk", "host": host, "state": "running", "out": "ecv6/hosts/%s/talk_07.mp4" % host, "dur": 8, "gen": 2},
+                   "k2": {"id": "k2", "kind": "talk", "host": host, "state": "queued", "out": "ecv6/hosts/%s/talk_06.mp4" % host, "dur": 6},
+                   "k3": {"id": "k3", "kind": "talk", "host": host, "state": "done", "out": "x/talk_05.mp4", "dur": 10}}
+        s.tick(p)
+        self.assertEqual(s.get_project(p)["project"]["talk_run"], [{"id": "talk_06", "dur": 6, "state": "queued", "gen": 0},
+                                                                  {"id": "talk_07", "dur": 8, "state": "running", "gen": 2}])
 
 if __name__ == "__main__":
     unittest.main()
