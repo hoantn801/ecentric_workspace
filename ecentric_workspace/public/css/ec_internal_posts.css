@@ -25,7 +25,7 @@
 }
 .eip-app *,.eip-app *::before,.eip-app *::after{box-sizing:border-box}
 .eip-main{min-width:0;display:flex;flex-direction:column}
-.eip-page{padding:22px 24px 48px;min-width:0;width:100%;max-width:1320px}
+.eip-page{padding:22px 24px 48px;min-width:0;width:100%;max-width:1320px;margin-inline:auto}
 .eip-app a{color:inherit}
 .eip-app button{font:inherit;cursor:pointer}
 .eip-app :focus-visible{outline:2px solid var(--eip-navy);outline-offset:2px}
