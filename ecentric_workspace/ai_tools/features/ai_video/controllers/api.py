@@ -7,6 +7,7 @@ import frappe
 
 from ecentric_workspace.ai_tools.features.ai_video.application import service as svc
 from ecentric_workspace.ai_tools.features.ai_video.application import groups
+from ecentric_workspace.ai_tools.features.ai_video.application import recipes
 from ecentric_workspace.ai_tools.features.ai_video.infrastructure.worker_client import WorkerDown
 
 MSG_UNKNOWN = "Không thực hiện được. Thử lại sau ít phút, nếu vẫn lỗi thì báo IT."
@@ -156,6 +157,26 @@ def groups_set(data: str):
 @frappe.whitelist(methods=["POST"])
 def groups_rollback(cat: str, v: str):
     return _run(lambda: groups.groups_rollback(cat, v))
+
+
+@frappe.whitelist(methods=["GET"])
+def recipes_get():
+    return _run(recipes.recipes_get)
+
+
+@frappe.whitelist(methods=["POST"])
+def recipes_set(data: str):
+    return _run(lambda: recipes.recipes_set(data))
+
+
+@frappe.whitelist(methods=["POST"])
+def recipes_copy(data: str):
+    return _run(lambda: recipes.recipes_copy(data))
+
+
+@frappe.whitelist(methods=["POST"])
+def recipes_rollback(key: str, v: str):
+    return _run(lambda: recipes.recipes_rollback(key, v))
 
 
 @frappe.whitelist(methods=["POST"])

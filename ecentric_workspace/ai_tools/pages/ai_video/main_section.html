@@ -181,6 +181,12 @@ tr.on td{background:var(--navy-wash)}
 .av-grp-main{flex:999 1 520px;min-width:0;display:flex;flex-direction:column;gap:14px}
 #ec-aiv-root .av-grp-main textarea{min-height:64px;font-family:inherit;font-size:13px}
 #ec-aiv-root .av-grp-main textarea,#ec-aiv-root .av-grp-main input,#ec-aiv-root .av-grp-main select{font-weight:400}
+.av-grp-list .bh{display:flex;justify-content:space-between;align-items:center;padding:9px 14px 6px;background:var(--line-soft);font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink2);border-bottom:1px solid var(--line-soft)}
+.av-grp-list .bh.cur{background:var(--navy-wash);color:var(--navy)}
+.av-grp-list button.sub{padding-left:22px}
+.av-grp-list button.add{color:var(--navy);font-size:12.5px;min-height:38px;padding-left:22px}
+.av-rcp-lock{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12.5px;color:var(--ink2);background:var(--line-soft);border-radius:8px;padding:8px 12px}
+.av-rcp-copy{border:1px dashed var(--navy-line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px}
 .av-hist{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;padding:9px 16px;border-bottom:1px solid var(--line-soft);font-size:13px}
 @media (max-width:640px){.av-wrap{padding:16px}.av-hero h1{font-size:19px}.av-fr-kpis{grid-template-columns:1fr 1fr} }
 </style>
@@ -211,6 +217,10 @@ tr.on td{background:var(--navy-wash)}
      (vai + tay ao ~44 cm chiem ~58% be ngang anh) - doi chieu lo Friso: vi 110ml ~17 cm, 180ml ~24 cm. */
   const CM_PER_W = 1 / 0.0132;
   const GROUP_ST = { ok: ["Đã kiểm chứng", "p-ok"], try: ["Đang thử", "p-warn"], none: ["Mẫu chung", "p-idle"] };
+  /* 12/10: cong thuc prompt theo BRAND + DONG SP (worker luu, chot = khoa prompt) */
+  const RCP_ST = { ok: ["Đã chốt", "p-ok"], try: ["Đang thử", "p-warn"], off: ["Tắt", "p-idle"] };
+  const RCP_SIDE = [["host_right", "Tay phải host đỡ đáy (bên trái ảnh)"], ["host_left", "Tay trái host đỡ đáy (bên phải ảnh)"], ["auto", "Để AI tự chọn"]];
+  const RCP_CLIP = [["gesture_b", "Cử chỉ nhẹ (khuyên dùng)"], ["still", "2 tay giữ, không cử chỉ"], ["on_product", "Cử chỉ trên SP (chạm nắp, chỉ logo)"], ["one_hand", "Cầm 1 tay, tay kia cử chỉ"]];
   let frDrag = null;
   const S = { showFrame: true, projects: [], brand: "", p: null, items: [], exports: [], step: "input", timer: null, sel: new Set(), mixSel: new Set(), drafts: [], prompts: null, busy: false, btn: null, shown: null, syncing: false, renderLater: false, bulk: null };
   const $ = (id) => document.getElementById(id);
@@ -434,6 +444,7 @@ tr.on td{background:var(--navy-wash)}
       <div class="av-chips" role="tablist">${STEPS.map(([k, l]) => { const n = k === "pick" ? c.pick : k === "video" ? c.qc + c.running : k === "mix" ? c.ready + c.done : k === "input" ? c.total : ""; return `<button class="av-chip ${S.step === k ? "on" : ""}" data-step="${k}" role="tab" aria-selected="${S.step === k}">${l}${n !== "" ? ` <span class="n">${n}</span>` : ""}</button>`; }).join("")}</div>
       <div id="av-step">${({ input: stepInput, pick: stepPick, video: stepVideo, mix: stepMix, prompt: stepPrompt })[S.step]()}</div>`;
     if (S.step === "prompt") loadPrompts();
+    if (!S.rcp && !S.rcpLoading) loadRecipes().then(() => { if (!S.rcp || !S.p || S.step === "prompt") return; if (typing()) S.renderLater = true; else renderProject(); });
   }
 
   /* step 1: nhap lo */
@@ -444,7 +455,7 @@ tr.on td{background:var(--navy-wash)}
       <td>${i.product_image ? `<img class="av-thumb" src="${esc(i.product_image)}" alt="" data-media="${esc(i.product_image)}">` : "—"}
         <div class="av-sides">${(i.extra_images || []).map((u) => `<img src="${esc(u)}" alt="Ảnh phụ" data-media="${esc(u)}">`).join("")}
         ${(i.stage === "new" || i.stage_state === "error") ? `${(i.extra_images || []).length < 4 ? `<span class="av-up"><label class="av-hint">+ ảnh phụ<input type="file" accept="image/*" multiple data-ifile-extra="${esc(i.name)}"></label></span>` : ""}${(i.extra_images || []).length ? `<button class="av-btn sm ghost danger" data-clear-extra="${esc(i.name)}" title="Xoá ảnh phụ">×</button>` : ""}` : ""}</div></td>
-      <td class="av-hint">${esc(i.product_type || "")}<br>${esc((CATS.find((x) => x[0] === (i.product_category || "")) || ["", ""])[1])}</td>
+      <td class="av-hint">${esc(i.product_type || "")}<br>${esc((CATS.find((x) => x[0] === (i.product_category || "")) || ["", ""])[1])}<div style="margin-top:4px">${(i.stage === "new" || i.stage_state === "error") ? recSel(i.recipe, `data-irec="${esc(i.name)}" aria-label="Công thức của ${esc(i.sku)}"`) : (i.recipe ? `<span class="av-pill p-navy">${esc(rcpName(i.recipe))}${i.recipe_v ? " · v" + esc(i.recipe_v) : ""}</span>` : "")}</div></td>
       <td class="av-hint">${[i.width_cm, i.height_cm, i.depth_cm].map((x) => x || "–").join(" × ")} cm${i.size_pct ? " · " + i.size_pct + "%" : ""}${i.weight_g ? "<br>" + gram(i.weight_g) : ""}</td>
       <td>${frameCell(i)}</td>
       <td class="av-hint">${durTxt(i)}</td>
@@ -455,20 +466,35 @@ tr.on td{background:var(--navy-wash)}
         <div class="av-up" style="margin-top:4px"><label class="av-hint">Ảnh phụ các mặt (≤4)<input type="file" accept="image/*" multiple data-dfile-multi="extra_images"></label></div>
         <div class="av-sides">${(d.extra_images || []).map((u) => `<img src="${esc(u)}" alt="Ảnh phụ" data-media="${esc(u)}">`).join("")}</div>
         <div class="av-up" style="margin-top:4px">${d.real_hold_image ? "✓" : ""}<label class="av-hint">Ảnh cầm thật (tuỳ chọn)<input type="file" accept="image/*" data-dfile="real_hold_image"></label></div></td>
-      <td><input type="text" data-dk="product_type" value="${esc(d.product_type)}" placeholder="VD: lon sữa bột 800g">${catSel(d.product_category, 'data-dk="product_category" style="margin-top:4px"')}</td>
+      <td><input type="text" data-dk="product_type" value="${esc(d.product_type)}" placeholder="VD: lon sữa bột 800g">${catSel(d.product_category, 'data-dk="product_category" style="margin-top:4px"')}${recSel(d.recipe, 'data-dk="recipe" style="margin-top:4px" aria-label="Công thức"')}</td>
       <td><div class="av-row" style="flex-wrap:nowrap"><input type="number" class="av-num" data-dk="width_cm" value="${esc(d.width_cm)}" placeholder="R"><input type="number" class="av-num" data-dk="height_cm" value="${esc(d.height_cm)}" placeholder="C"><input type="number" class="av-num" data-dk="depth_cm" value="${esc(d.depth_cm)}" placeholder="S"></div><div class="av-row" style="flex-wrap:nowrap;margin-top:4px"><input type="number" class="av-num" data-dk="size_pct" value="${esc(d.size_pct)}" placeholder="±%" title="Chỉnh cỡ ±% (khi không có số đo)"><input type="number" class="av-num" data-dk="weight_g" value="${esc(d.weight_g)}" placeholder="nặng g" title="Khối lượng (gram): AI cầm đúng độ nặng, VD hộp pin 40 viên ~900 g"></div></td>
       <td class="av-hint">Lưu dòng rồi vẽ khung</td>
       <td><input type="number" class="av-num" data-dk="audio_seconds" value="${esc(d.audio_seconds)}" placeholder="giây"><div class="av-up" style="margin-top:4px">${d.audio_file ? "✓" : ""}<label class="av-hint">mp3<input type="file" accept="audio/*" data-dfile="audio_file"></label></div></td>
       <td></td><td><span class="av-pill p-idle">Nháp</span></td><td><button class="av-btn sm ghost danger" data-ddel="${k}">Bỏ</button></td></tr>`).join("");
     const nNew = S.items.filter((i) => S.sel.has(i.name)).length;
     return `<div class="av-panel" id="av-skus"><div class="av-panel-h"><h2>Danh sách SKU</h2><div class="av-row"><button class="av-btn" id="av-bulk">Nhập hàng loạt</button><button class="av-btn" id="av-add">+ Thêm dòng</button>${S.drafts.length ? `<button class="av-btn pri" id="av-save-drafts">Lưu ${S.drafts.length} dòng</button>` : ""}<button class="av-gold" id="av-start" ${nNew ? "" : "disabled"}>Tạo ảnh cầm cho ${nNew} SKU</button></div></div>
-      <div class="av-panel-b" style="padding:0"><div class="av-tw"><table><thead><tr><th><input type="checkbox" id="av-selall" aria-label="Chọn tất cả"></th><th>SKU</th><th>Ảnh</th><th>Loại / kiểu cầm</th><th>Kích thước (R×C×S) · nặng</th><th>Khung SP</th><th>Audio</th><th>Chi phí</th><th>Trạng thái</th><th></th></tr></thead>
+      <div class="av-panel-b" style="padding:0"><div class="av-tw"><table><thead><tr><th><input type="checkbox" id="av-selall" aria-label="Chọn tất cả"></th><th>SKU</th><th>Ảnh</th><th>Loại / kiểu cầm · công thức</th><th>Kích thước (R×C×S) · nặng</th><th>Khung SP</th><th>Audio</th><th>Chi phí</th><th>Trạng thái</th><th></th></tr></thead>
       <tbody>${rows}${drafts}${!rows && !drafts ? `<tr><td colspan="10" class="av-empty">Chưa có SKU. Bấm "Nhập hàng loạt" (dán từ Excel + kéo thả ảnh, audio) hoặc "+ Thêm dòng".</td></tr>` : ""}</tbody></table></div></div></div>
-      <div class="av-callout"><div>Kéo thả ảnh / audio thẳng vào một dòng nháp, hoặc thả nhiều file vào bảng để nhập hàng loạt (đặt tên file theo SKU). Mỗi SKU tạo <b>4 ảnh cầm</b> để chọn (2 Kie + 2 PlenX). <b>Khối lượng</b> (gram) giúp AI cầm đúng độ nặng. Kích thước thật (cm) giúp SP đúng cỡ; không có số đo thì dùng ±%. Ảnh phụ các mặt (cạnh, sau, nắp…) tối đa 4 ảnh và ảnh cầm thật được gửi kèm ảnh chính diện để AI giữ đúng hình khối, độ dày, nhãn mặt bên. Nhóm kiểu cầm để trống thì tự nhận theo mô tả. <b>Khung SP (bắt buộc)</b>: kéo khung lên ảnh host đúng chỗ, đúng cỡ muốn SP xuất hiện; AI nhận ảnh host đã dán sẵn SP thật vào khung nên giữ cỡ tốt hơn chỉ nhập cm.</div></div>`;
+      <div class="av-callout"><div>Kéo thả ảnh / audio thẳng vào một dòng nháp, hoặc thả nhiều file vào bảng để nhập hàng loạt (đặt tên file theo SKU). Mỗi SKU tạo <b>4 ảnh cầm</b> để chọn (PlenX, Kie dự phòng). <b>Công thức</b> (brand + dòng SP, quản lý ở tab Prompt) giữ cách cầm, tay đỡ và cử chỉ đã chốt cho cả dòng; chọn công thức thì nhóm kiểu cầm và khối lượng mặc định tự điền. <b>Khối lượng</b> (gram) giúp AI cầm đúng độ nặng. Kích thước thật (cm) giúp SP đúng cỡ; không có số đo thì dùng ±%. Ảnh phụ các mặt (cạnh, sau, nắp…) tối đa 4 ảnh và ảnh cầm thật được gửi kèm ảnh chính diện để AI giữ đúng hình khối, độ dày, nhãn mặt bên. Nhóm kiểu cầm để trống thì tự nhận theo mô tả. <b>Khung SP (bắt buộc)</b>: kéo khung lên ảnh host đúng chỗ, đúng cỡ muốn SP xuất hiện; AI nhận ảnh host đã dán sẵn SP thật vào khung nên giữ cỡ tốt hơn chỉ nhập cm.</div></div>`;
   }
   /* co audio: video = 2s dau + audio + 2s cuoi (may chay video tu do audio); khong audio: so giay nhap / mac dinh du an */
   function durTxt(i) { if (!i.audio_file) return (i.audio_seconds || S.p.audio_seconds || 72) + "s"; return (i.audio_seconds ? "~" + Math.round(+i.audio_seconds + 4) + "s · " : "") + '<span title="2s đầu chưa nói + audio + 2s cuối">audio +2s đầu/cuối</span>'; }
   function gram(g) { g = +g; return g >= 1000 ? (g / 1000).toFixed(1).replace(/\.0$/, "") + " kg" : Math.round(g) + " g"; }
+  /* 12/10: cong thuc cua brand du an (so brand khong phan biet hoa thuong / dau) */
+  const bkey = (x) => norm(x).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
+  const rcpAll = () => (S.rcp && S.rcp.recipes) || {};
+  const rcpOf = (k) => (k && rcpAll()[k]) || null;
+  function rcpName(k) { const r = rcpOf(k); return r ? r.line : (k ? "Công thức đã xoá" : ""); }
+  function brandRecipes(brand) { const b = bkey(brand); return Object.values(rcpAll()).filter((r) => bkey(r.brand) === b).sort((x, y) => String(x.line).localeCompare(String(y.line), "vi")); }
+  function recSel(cur, attrs) {
+    const list = brandRecipes(S.p && S.p.brand).filter((r) => r.status !== "off" || r.key === cur);
+    if (!S.rcp) return `<select ${attrs} disabled><option>Đang tải công thức…</option></select>`;
+    return `<select ${attrs}><option value="">${list.length ? "Theo nhóm SP (không dùng công thức)" : "Brand chưa có công thức (tạo ở tab Prompt)"}</option>${list.map((r) => `<option value="${esc(r.key)}" ${r.key === cur ? "selected" : ""}>${esc(r.line)} · ${esc((RCP_ST[r.status] || RCP_ST.try)[0])}</option>`).join("")}${cur && !rcpOf(cur) ? `<option value="${esc(cur)}" selected>Công thức đã xoá</option>` : ""}</select>`;
+  }
+  async function loadRecipes() {
+    if (S.rcpLoading) return; S.rcpLoading = true;
+    try { const r = await call("recipes_get", {}, "GET"); if (r.success) S.rcp = r.data; } finally { S.rcpLoading = false; }
+  }
   function blankDraft(batch) { return { batch: batch || "lo1", sku: "", product_name: "", product_type: "", product_category: "", width_cm: "", height_cm: "", depth_cm: "", size_pct: "", weight_g: "", audio_seconds: "" }; }
 
   /* nhap hang loat: dan bang tu Excel + keo tha anh/audio dat ten theo SKU */
@@ -589,11 +615,11 @@ tr.on td{background:var(--navy-wash)}
     const list = S.items.filter((i) => ["holds", "pick"].includes(i.stage) || (i.candidates || []).length);
     if (!list.length) return `<div class="av-panel av-empty">Chưa có SKU nào tạo ảnh cầm. Sang bước 1, chọn SKU và bấm "Tạo ảnh cầm".</div>`;
     const anyBox = list.some((i) => bbox(i.guide_bbox));
-    return `${anyBox ? `<label class="av-switch"><input type="checkbox" id="av-showfr" ${S.showFrame ? "checked" : ""}> Hiện khung lên ảnh để so cỡ (ảnh 1, 3 = khung; ảnh 2, 4 = 90% khung)</label>` : ""}<div class="av-hold">${list.map((i) => {
+    return `${anyBox ? `<label class="av-switch"><input type="checkbox" id="av-showfr" ${S.showFrame ? "checked" : ""}> Hiện khung bạn vẽ lên ảnh để so cỡ</label>` : ""}<div class="av-hold">${list.map((i) => {
       const b = bbox(i.guide_bbox);
-      const cand = (i.candidates || []).map((c, ci) => `<div class="av-cand ${i.selected_candidate === c.id ? "sel" : ""}"><div class="im"><img src="${esc(c.thumb)}" alt="${esc(c.id)}" data-media="${esc(c.full)}" loading="lazy">${S.showFrame && b ? `<i class="ov" style="${boxStyle(b, ci % 2 ? 0.9 : 1)}"></i>` : ""}</div>
+      const cand = (i.candidates || []).map((c, ci) => `<div class="av-cand ${i.selected_candidate === c.id ? "sel" : ""}"><div class="im"><img src="${esc(c.thumb)}" alt="${esc(c.id)}" data-media="${esc(c.full)}" loading="lazy">${S.showFrame && b ? `<i class="ov" style="${boxStyle(b)}"></i>` : ""}</div>
         <div class="cap"><span>${esc(c.id)}${i.ai_reco === c.id ? ' <span class="av-pill p-navy">AI chọn</span>' : ""}</span>${i.stage === "pick" ? `<button class="av-btn sm pri" data-pick="${esc(i.name)}" data-c="${esc(c.id)}">Chọn</button>` : (i.selected_candidate === c.id ? '<span class="av-pill p-ok">Đã chọn</span>' : "")}</div>${qcView(c.qc)}</div>`).join("");
-      return `<div class="av-sku"><div class="top"><div><b>${esc(i.sku)}</b><div class="av-hint">${esc(i.product_name || "")} · ${[i.width_cm, i.height_cm, i.depth_cm].map((x) => x || "–").join("×")} cm</div></div>${pill(i)}</div>
+      return `<div class="av-sku"><div class="top"><div><b>${esc(i.sku)}</b><div class="av-hint">${esc(i.product_name || "")} · ${[i.width_cm, i.height_cm, i.depth_cm].map((x) => x || "–").join("×")} cm</div>${i.recipe ? `<span class="av-pill p-navy" style="margin-top:4px">Công thức: ${esc(rcpName(i.recipe))}${i.recipe_v ? " · v" + esc(i.recipe_v) : ""}</span>` : ""}</div>${pill(i)}</div>
         ${i.stage === "holds" && !cand ? '<div class="av-skel" style="height:200px"></div>' : `<div class="av-cands">${cand}</div>`}
         ${i.stage === "pick" || (i.stage_state === "error" && i.stage === "holds") ? `<details><summary class="av-hint" style="cursor:pointer">Không ảnh nào ổn? Sửa thông số và gen lại</summary>
           <div class="av-row" style="margin-top:8px;flex-wrap:nowrap">${miniFrame(i)}<div><div class="av-hint">${b ? "Khung SP ≈ " + Math.round(b.w * CM_PER_W) + " cm rộng" : "Chưa có khung SP: bấm Vẽ khung trước khi gen lại"}</div><button class="av-outline" style="margin-top:4px" data-frame="${esc(i.name)}" data-frmode="regen">${b ? "Vẽ lại khung" : "Vẽ khung"}</button></div></div>
@@ -660,6 +686,7 @@ tr.on td{background:var(--navy-wash)}
         <div class="av-fr-box ${F.paste ? "" : "empty"}" id="fr-box" ${ro ? "" : 'data-frd="move"'} style="${frBoxStyle()}">${F.paste ? `<img src="${esc(F.cut)}" alt="" draggable="false">` : ""}<span class="av-fr-tag" id="fr-tag">≈ ${s.wcm} × ${s.hcm} cm</span>${hs}</div></div>
         <span class="av-hint">${ro ? "Chỉ xem: SKU đã chạy. Muốn đổi khung thì gen lại ảnh ở bước 2." : "Kéo khung để di chuyển · kéo góc để đổi cỡ (giữ đúng tỉ lệ SP)"}</span></div>
       <div class="av-fr-side"><div class="av-fr-kpis"><div><span class="av-eyebrow">Cỡ thật ước tính</span><b id="fr-cm">≈ ${s.wcm} cm</b><span class="av-hint">chiều ngang SP</span></div><div><span class="av-eyebrow">Chiếm khung hình</span><b id="fr-pct">${s.wpct}%</b><span class="av-hint">bề ngang ảnh</span></div><div><span class="av-eyebrow">Số đo nhập</span><b>${F.cm0 ? F.cm0 + " cm" : "—"}</b><span class="av-hint">${+it.width_cm ? "từ SKU" : (F.cm0 ? "gợi ý của nhóm" : "chưa có")}</span></div></div>
+        ${(rcpOf(it.recipe) || {}).frame_hint ? `<div class="av-callout" style="margin-bottom:6px"><div><b>Gợi ý khung (${esc(rcpName(it.recipe))}):</b> ${esc(rcpOf(it.recipe).frame_hint)}</div></div>` : ""}
         <div id="fr-warn">${s.warn.map((w) => `<div class="av-callout warn" style="margin-bottom:6px">${esc(w)}</div>`).join("")}</div>
         ${ro ? "" : `<div class="av-f">Cỡ khung<div class="av-row" style="flex-wrap:nowrap">${nb("minus", "−", "Nhỏ lại")}<input type="range" id="fr-range" min="5" max="75" step="0.5" value="${s.wpct}" aria-label="Cỡ khung theo % bề ngang ảnh" style="flex:1;accent-color:var(--navy)">${nb("plus", "+", "To lên")}</div></div>
         <div class="av-f">Vị trí<div class="av-row">${nb("l", "←", "Sang trái")}${nb("u", "↑", "Lên")}${nb("d", "↓", "Xuống")}${nb("r", "→", "Sang phải")}<button class="av-btn" data-frn="center">Đặt giữa ngực</button>${F.cm0 ? `<button class="av-btn" data-frn="cm">Theo số đo ${F.cm0} cm</button>` : ""}</div></div>`}
@@ -760,9 +787,64 @@ ${i.stage_state === "error" ? `<button class="av-btn sm" data-retry="${esc(i.nam
   }
   /* step 5: prompt */
   const PROMPT_KEYS = [["anchor_image", "Ảnh khung neo (2 tay trên bàn)"], ["talk", "Clip nói (MC, không SP)"], ["putdown", "Clip hạ SP (DIR_TEXT = hướng, DURATION = số giây)"], ["hold_suffix", "Đuôi thêm vào clip cầm (khoá vòng lặp)"], ["hold_two_hand", "Clip cầm - SP cầm 2 tay (sữa vỉ, lon, hộp to)"], ["hold_generic", "Clip cầm - mẫu chung (khi SKU không có prompt riêng)"]];
-  function stepPrompt() { return `<div class="av-panel"><div class="av-panel-h"><h2>Prompt theo nhóm sản phẩm</h2><span class="av-hint">${S.p.is_admin ? "Bạn là quản trị: sửa được" : "Chỉ quản trị (role EC AI Video Admin) sửa được; bạn xem và gửi yêu cầu nhóm mới"}</span></div><div class="av-panel-b" id="grp-body"><div class="av-skel"></div></div></div>
+  function stepPrompt() { return `<div class="av-panel"><div class="av-panel-h"><h2>Công thức theo brand &amp; dòng sản phẩm</h2><span class="av-hint">${S.p.is_admin ? "Bạn là quản trị: tạo, sửa, chốt, sao chép được" : "Chỉ quản trị (role EC AI Video Admin) sửa được; bạn xem và chọn công thức cho SKU ở bước 1"}</span></div><div class="av-panel-b" id="rcp-body"><div class="av-skel"></div></div></div>
+    <div class="av-panel"><div class="av-panel-h"><h2>Prompt theo nhóm sản phẩm</h2><span class="av-hint">${S.p.is_admin ? "Bạn là quản trị: sửa được" : "Chỉ quản trị (role EC AI Video Admin) sửa được; bạn xem và gửi yêu cầu nhóm mới"}</span></div><div class="av-panel-b" id="grp-body"><div class="av-skel"></div></div></div>
     <div class="av-panel"><div class="av-panel-h"><h2>Prompt dùng chung</h2><span class="av-hint" id="pr-ver"></span></div><div class="av-panel-b" id="pr-body"><div class="av-skel"></div></div></div>
-    <div class="av-callout"><div>Prompt clip cầm của từng SKU lấy theo <b>kiểu cầm</b> (thư viện 12 nhóm trong n8n). Sửa ở đây áp cho mọi lần tạo <b>sau</b> khi lưu; clip đã tạo không đổi. Mỗi lần lưu giữ lại bản cũ. Muốn đổi hàng loạt theo ý (vd "cử chỉ mạnh hơn") thì gửi yêu cầu cho Claude để sửa một lần cho chuẩn. Phần <b>theo nhóm SP</b> chỉ là câu <b>thêm</b> vào prompt chung cho SKU thuộc nhóm đó.</div></div>`; }
+    <div class="av-callout"><div>Prompt clip cầm của từng SKU lấy theo <b>kiểu cầm</b> (thư viện 12 nhóm trong n8n). Sửa ở đây áp cho mọi lần tạo <b>sau</b> khi lưu; clip đã tạo không đổi. Mỗi lần lưu giữ lại bản cũ. Muốn đổi hàng loạt theo ý (vd "cử chỉ mạnh hơn") thì gửi yêu cầu cho Claude để sửa một lần cho chuẩn. Phần <b>theo nhóm SP</b> chỉ là câu <b>thêm</b> vào prompt chung cho SKU thuộc nhóm đó. SKU đã chọn <b>công thức</b> thì dùng công thức (thay cho nhóm); công thức <b>đã chốt</b> giữ nguyên bản prompt lúc chốt dù prompt chung đổi sau đó. Trong "Clip cầm - SP cầm 2 tay", <code>&#123;&#123;HAND_BLOCK&#125;&#125;</code> là chỗ chèn kiểu tay (cử chỉ nhẹ / đứng yên / cử chỉ trên SP).</div></div>`; }
+  async function loadRecipesPanel() {
+    const b = $("rcp-body"); if (!b) return;
+    await loadRecipes(); if (!$("rcp-body")) return;
+    if (!S.rcp) { b.innerHTML = '<div class="av-callout bad">Không đọc được công thức từ máy chạy video. Thử lại sau ít phút.</div>'; return; }
+    if (!S.rcpSel) { const mine = brandRecipes(S.p.brand); S.rcpSel = mine.length ? mine[0].key : "__new"; S.rcpNewBrand = S.p.brand || ""; }
+    renderRecipes();
+  }
+  function renderRecipes() {
+    const b = $("rcp-body"); if (!b || !S.rcp) return;
+    const R = rcpAll(), edit = !!S.rcp.can_edit, sel = S.rcpSel, cur = bkey(S.p.brand);
+    const names = {}; [...(S.rcp.brands || []), ...Object.values(R).map((r) => r.brand)].forEach((x) => { const k = bkey(x); if (k && !names[k]) names[k] = x; });
+    const order = Object.keys(names).sort((x, y) => (x === cur ? -1 : y === cur ? 1 : names[x].localeCompare(names[y], "vi")));
+    const list = order.map((k) => { const rs = brandRecipes(names[k]);
+      return `<div class="bh ${k === cur ? "cur" : ""}"><span>${esc(names[k])}</span><span>${rs.length} dòng</span></div>${rs.map((r) => { const st = RCP_ST[r.status] || RCP_ST.try; return `<button class="sub ${sel === r.key ? "on" : ""}" data-rcp="${esc(r.key)}" aria-pressed="${sel === r.key}"><span>${esc(r.line)}</span><span class="av-pill ${st[1]}">${st[0]}</span></button>`; }).join("")}${edit ? `<button class="add" data-rcpnew="${esc(names[k])}">+ Dòng SP mới cho ${esc(names[k])}</button>` : ""}`; }).join("");
+    const opt = (v, curv, l) => `<option value="${esc(v)}" ${v === (curv || "") ? "selected" : ""}>${esc(l)}</option>`;
+    const dis = edit ? "" : "disabled";
+    const fields = (r) => `<div class="av-grid2"><label class="av-f">Nhóm kiểu cầm<select id="rc-cat" ${dis}>${CATS.map(([k, l]) => opt(k, r.category, k ? l : "Theo SKU (không đặt)")).join("")}</select></label>
+        <label class="av-f">Tay đỡ sản phẩm<select id="rc-side" ${dis}>${RCP_SIDE.map(([k, l]) => opt(k, r.hold_side || "host_right", l)).join("")}</select></label>
+        <label class="av-f">Tay trong clip cầm<select id="rc-clip" ${dis}>${RCP_CLIP.map(([k, l]) => opt(k, r.clip_style || "gesture_b", l)).join("")}</select></label>
+        <label class="av-f">Khối lượng mặc định (g)<input type="number" id="rc-w" min="1" max="99999" value="${esc(r.weight_g || "")}" placeholder="VD 950" ${dis}></label></div>
+      <div class="av-hint">Cử chỉ nhẹ: tay đỡ đáy giữ yên suốt clip, tay bên cạnh nhấc lên mở lòng bàn tay ~1 giây rồi giữ lại. Tay đỡ đúng bên giúp cử chỉ tự nhiên; ảnh cầm sai bên sẽ có cảnh báo ở bước 2.</div>
+      <label class="av-f">Gợi ý vẽ khung (hiện trong cửa sổ vẽ khung)<input type="text" id="rc-frame" maxlength="200" value="${esc(r.frame_hint || "")}" placeholder="VD: khung gần giữa người, cao ngang ngực" ${dis}></label>
+      <label class="av-f">Ảnh cầm – lưu ý riêng của dòng (tiếng Anh tốt hơn, ≤600)<textarea id="rc-img" maxlength="600" ${dis}>${esc(r.image_notes || "")}</textarea></label>
+      <label class="av-f">Clip cầm – lưu ý riêng (≤600)<textarea id="rc-cl" maxlength="600" ${dis}>${esc(r.clip_notes || "")}</textarea></label>
+      <label class="av-f">Clip đặt xuống / nhấc lên – lưu ý riêng (≤600)<textarea id="rc-put" maxlength="600" ${dis}>${esc(r.put_notes || "")}</textarea></label>`;
+    let main;
+    if (sel === "__new") {
+      const all = Object.values(R).sort((x, y) => (x.brand + x.line).localeCompare(y.brand + y.line, "vi"));
+      main = edit ? `<h3 style="margin:0;font-size:15px">Dòng sản phẩm mới</h3>
+        <div class="av-grid2"><label class="av-f">Brand<input type="text" id="rc-brand" maxlength="60" list="rc-brands" value="${esc(S.rcpNewBrand || "")}" placeholder="VD: FRISO"></label>
+          <label class="av-f">Tên dòng sản phẩm<input type="text" id="rc-line" maxlength="80" placeholder="VD: Lon sữa bột 800g"></label></div>
+        <datalist id="rc-brands">${Object.values(names).map((n) => `<option value="${esc(n)}">`).join("")}</datalist>
+        <label class="av-f">Bắt đầu từ<select id="rc-from"><option value="">Trống (tự điền bên dưới)</option>${all.map((r) => `<option value="${esc(r.key)}">Sao chép ${esc(r.brand)} · ${esc(r.line)}${r.status === "ok" ? " (đã chốt)" : ""}</option>`).join("")}</select></label>
+        <div id="rc-newf">${fields({})}</div>
+        <div class="av-row" style="justify-content:flex-end"><button class="av-btn pri" id="rc-create">Tạo công thức (Đang thử)</button></div>
+        <div class="av-hint">Công thức mới ở trạng thái <b>Đang thử</b>: SKU đầu tiên dùng nó sẽ dừng chờ duyệt. Test ổn thì bấm <b>Chốt</b> để khoá prompt.</div>`
+        : '<div class="av-callout"><div>Chưa có công thức nào cho brand này. Nhờ quản trị (role EC AI Video Admin) tạo hoặc sao chép từ brand có dòng sản phẩm tương tự.</div></div>';
+    } else {
+      const r = R[sel] || {}, hist = (S.rcp.history || {})[sel] || [], st = RCP_ST[r.status] || RCP_ST.try;
+      const used = S.items.filter((i) => i.recipe === sel).length;
+      main = `<div class="av-row" style="justify-content:space-between"><div><div class="av-eyebrow">${esc(r.brand)}</div><h3 style="margin:2px 0 0;font-size:16px">${esc(r.line)} <span class="av-pill ${st[1]}">${st[0]}</span> <span class="av-hint">v${esc(r.v || 1)}</span></h3></div><span class="av-hint">${used ? used + " SKU trong dự án này đang dùng" : "Chưa SKU nào trong dự án này dùng"}${r.copied_from ? " · sao chép từ " + esc(r.copied_from) : ""}</span></div>
+        <div class="av-rcp-lock">${r.status === "ok" ? `🔒 Đã khoá prompt lúc <b>${esc(String(r.locked_at || "").slice(0, 16).replace("T", " "))}</b>. Sửa prompt chung không ảnh hưởng dòng này.${edit ? ' <button class="av-btn sm ghost" id="rc-relock">Khoá lại theo prompt chung mới</button>' : ""}` : r.status === "off" ? "Đang tắt: SKU chọn công thức này chạy theo nhóm SP." : "Đang thử: dùng prompt chung mới nhất; SKU đầu tiên của dòng dừng chờ duyệt. Test ổn thì bấm Chốt."}</div>
+        <label class="av-f">Tên dòng sản phẩm<input type="text" id="rc-line" maxlength="80" value="${esc(r.line || "")}" ${dis}></label>
+        ${fields(r)}
+        ${edit ? `<div class="av-row"><input type="text" id="rc-note" maxlength="200" placeholder="Ghi chú thay đổi (vd: đổi sang không cử chỉ)" style="flex:1 1 220px"><select id="rc-status" aria-label="Trạng thái" style="width:auto;flex:0 0 auto">${opt("try", r.status, "Đang thử")}${opt("ok", r.status, "Đã chốt")}${opt("off", r.status, "Tắt")}</select><button class="av-btn pri" id="rc-save">Lưu bản mới</button>${r.status !== "ok" ? '<button class="av-gold" id="rc-lock">Chốt &amp; khoá prompt</button>' : ""}</div>
+        <div class="av-rcp-copy"><b style="font-size:13px">Sao chép sang brand / dòng khác</b><div class="av-grid2"><label class="av-f">Brand<input type="text" id="rc-cbrand" maxlength="60" list="rc-brands" placeholder="VD: Brand A"></label><label class="av-f">Tên dòng mới<input type="text" id="rc-cline" maxlength="80" value="${esc(r.line || "")}"></label></div>
+          <datalist id="rc-brands">${Object.values(names).map((n) => `<option value="${esc(n)}">`).join("")}</datalist>
+          <div class="av-row" style="justify-content:space-between"><span class="av-hint">Bản sao ở trạng thái Đang thử, giữ toàn bộ cài đặt và lưu ý.</span><button class="av-btn" id="rc-copy">Sao chép</button></div></div>` : ""}
+        <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden"><div class="av-hist" style="font-weight:700">Lịch sử${r.v ? " · đang dùng v" + esc(r.v) : ""}</div>${hist.map((h) => `<div class="av-hist"><b>v${esc(h.v)}</b>${h.status ? `<span class="av-pill ${(RCP_ST[h.status] || RCP_ST.try)[1]}">${(RCP_ST[h.status] || RCP_ST.try)[0]}</span>` : ""}<span class="av-hint">${esc(String(h.at || "").slice(0, 16).replace("T", " "))} · ${esc(h.by || "")}</span><span style="flex:1 1 200px">${esc(h.note || "")}</span>${edit && h.v !== r.v ? `<button class="av-btn sm ghost" data-rcroll="${esc(h.v)}">Quay về bản này</button>` : ""}</div>`).join("") || '<div class="av-hist av-hint">Chưa có bản nào.</div>'}</div>`;
+    }
+    b.innerHTML = `<div class="av-grp"><div class="av-grp-list av-panel">${list || '<div class="av-hist av-hint">Chưa có brand nào.</div>'}${edit ? `<button class="new ${sel === "__new" && !S.rcpNewBrand ? "on" : ""}" data-rcpnew="">+ Brand mới</button>` : ""}</div><div class="av-grp-main">${main}</div></div>`;
+  }
+  function rcpForm() { const v = (id) => ($(id) ? $(id).value : ""); return { category: v("rc-cat"), hold_side: v("rc-side"), clip_style: v("rc-clip"), weight_g: v("rc-w"), frame_hint: v("rc-frame"), image_notes: v("rc-img"), clip_notes: v("rc-cl"), put_notes: v("rc-put"), line: v("rc-line").trim() }; }
+  async function rcpAfter(r, key) { if (!r) return; S.rcp = null; S.rcpSel = key || r.key || S.rcpSel; await loadRecipes(); renderRecipes(); }
   async function loadGroups() {
     const b = $("grp-body"); if (!b) return;
     const r = await call("groups_get", {}, "GET"); if (!$("grp-body")) return;
@@ -796,6 +878,7 @@ ${i.stage_state === "error" ? `<button class="av-btn sm" data-retry="${esc(i.nam
     b.innerHTML = `<div class="av-grp"><div class="av-grp-list av-panel">${list}<button class="new ${sel === "__new" ? "on" : ""}" data-grp="__new">+ Yêu cầu nhóm mới</button></div><div class="av-grp-main">${main}</div></div>`;
   }
   async function loadPrompts() {
+    loadRecipesPanel();
     loadGroups();
     const r = await call("prompts_get", {}, "GET"); const b = $("pr-body"); if (!b) return;
     if (!r.success) { b.innerHTML = `<div class="av-callout bad">${esc(r.message)}</div>`; return; }
@@ -870,6 +953,23 @@ ${i.stage_state === "error" ? `<button class="av-btn sm" data-retry="${esc(i.nam
     if (t.dataset.frame) return openFrame(t.dataset.frame, t.dataset.frmode || "edit");
     if (t.dataset.frn) return frAction(t.dataset.frn);
     if (t.dataset.grp) { S.grpSel = t.dataset.grp; return renderGroups(); }
+    if (t.dataset.rcp) { S.rcpSel = t.dataset.rcp; return renderRecipes(); }
+    if (t.dataset.rcpnew != null) { S.rcpSel = "__new"; S.rcpNewBrand = t.dataset.rcpnew; return renderRecipes(); }
+    if (t.id === "rc-create") { const f = rcpForm(), brand = $("rc-brand").value.trim(), from = $("rc-from").value;
+      if (!brand || !f.line) return toast("Cần brand và tên dòng sản phẩm", true);
+      const r = from ? await act("recipes_copy", { data: JSON.stringify({ from, brand, line: f.line }) }, "Đã tạo bản sao (Đang thử)")
+        : await act("recipes_set", { data: JSON.stringify({ data: Object.assign(f, { brand, status: "try" }), note: "Tạo mới" }) }, "Đã tạo công thức");
+      return rcpAfter(r); }
+    if (t.id === "rc-save" || t.id === "rc-lock") { const f = rcpForm(); if (!f.line) return toast("Cần tên dòng sản phẩm", true);
+      const lock = t.id === "rc-lock"; if (lock && !confirm("Chốt công thức này? Prompt hiện tại sẽ được khoá cho cả dòng; sửa prompt chung sau này không ảnh hưởng.")) return;
+      f.status = lock ? "ok" : $("rc-status").value;
+      return rcpAfter(await act("recipes_set", { data: JSON.stringify({ key: S.rcpSel, data: f, note: $("rc-note").value || (lock ? "Chốt" : "") }) }, lock ? "Đã chốt và khoá prompt" : "Đã lưu bản mới"), S.rcpSel); }
+    if (t.id === "rc-relock") { if (!confirm("Khoá lại theo prompt chung hiện tại? Clip tạo sau sẽ dùng prompt chung mới nhất.")) return;
+      return rcpAfter(await act("recipes_set", { data: JSON.stringify({ key: S.rcpSel, data: {}, relock: 1, note: "Khoá lại theo prompt chung mới" }) }, "Đã khoá lại"), S.rcpSel); }
+    if (t.id === "rc-copy") { const brand = $("rc-cbrand").value.trim(), line = $("rc-cline").value.trim(); if (!brand || !line) return toast("Cần brand và tên dòng mới", true);
+      return rcpAfter(await act("recipes_copy", { data: JSON.stringify({ from: S.rcpSel, brand, line }) }, "Đã sao chép sang " + brand)); }
+    if (t.dataset.rcroll) { if (!confirm("Quay về v" + t.dataset.rcroll + "? Bản hiện tại vẫn giữ trong lịch sử.")) return;
+      return rcpAfter(await act("recipes_rollback", { key: S.rcpSel, v: t.dataset.rcroll }, "Đã quay về v" + t.dataset.rcroll), S.rcpSel); }
     if (t.id === "gr-save") { const v = (id) => $(id).value; const d = { status: v("gr-status"), clip_base: v("gr-base"), size_cm: v("gr-size"), hold: v("gr-hold"), clip: v("gr-clip"), put: v("gr-put") };
       t.disabled = true; try { if (await act("groups_set", { data: JSON.stringify({ cat: S.grpSel, data: d, note: v("gr-note") }) }, "Đã lưu bản mới")) loadGroups(); } finally { t.disabled = false; } return; }
     if (t.dataset.grroll) { if (!confirm("Quay về v" + t.dataset.grroll + "? Bản hiện tại vẫn giữ trong lịch sử.")) return; if (await act("groups_rollback", { cat: S.grpSel, v: t.dataset.grroll }, "Đã quay về v" + t.dataset.grroll)) loadGroups(); return; }
@@ -896,7 +996,12 @@ ${i.stage_state === "error" ? `<button class="av-btn sm" data-retry="${esc(i.nam
       if (r) S.p.talk_off = r.talk_off; else S.p.talk_off = prev; renderProject(); return; }
     if (t.dataset.mx) { t.checked ? S.mixSel.add(t.dataset.mx) : S.mixSel.delete(t.dataset.mx); $("av-mix").disabled = !S.mixSel.size && (S.mixMode || S.p.mix_mode) !== "talk"; return; }
     if (t.id === "mx-all") { S.items.forEach((i) => { if (i.stage === "ready" || i.stage === "done") t.checked ? S.mixSel.add(i.name) : S.mixSel.delete(i.name); }); return renderProject(); }
-    if (t.dataset.dk) { const k = +t.closest("[data-draft]").dataset.draft; S.drafts[k][t.dataset.dk] = t.value; return; }
+    if (t.dataset.dk) { const k = +t.closest("[data-draft]").dataset.draft; S.drafts[k][t.dataset.dk] = t.value;
+      if (t.dataset.dk === "recipe") { const r = rcpOf(t.value); if (r) { if (r.category) S.drafts[k].product_category = r.category; if (r.weight_g && !S.drafts[k].weight_g) S.drafts[k].weight_g = r.weight_g; } renderProject(); } return; }
+    if (t.dataset.irec) { const it = S.items.find((x) => x.name === t.dataset.irec); if (!it) return; const r = rcpOf(t.value), d = { recipe: t.value };
+      if (r && r.category) d.product_category = r.category; if (r && r.weight_g && !it.weight_g) d.weight_g = +r.weight_g;
+      S.btn = null; if (await act("update_item", { name: it.name, data: JSON.stringify(d) }, t.value ? "Đã chọn công thức " + rcpName(t.value) : "Đã bỏ công thức")) loadProject(S.p.name); return; }
+    if (t.id === "rc-from") { const r = rcpOf(t.value); if (r) { $("rc-newf").innerHTML = ""; $("rc-newf").insertAdjacentHTML("beforeend", '<div class="av-callout"><div>Sao chép toàn bộ cài đặt và lưu ý của <b>' + esc(r.brand + " · " + r.line) + '</b>. Sửa thêm sau khi tạo.</div></div>'); if (!$("rc-line").value) $("rc-line").value = r.line; } else { const lv = $("rc-line").value; S.rcpNewBrand = $("rc-brand").value; renderRecipes(); $("rc-line").value = lv; } return; }
     if (t.dataset.dfileMulti && t.files && t.files.length) { const k = +t.closest("[data-draft]").dataset.draft; const cur = S.drafts[k][t.dataset.dfileMulti] || []; const files = [...t.files].slice(0, Math.max(0, 4 - cur.length)); if (!files.length) return toast("Tối đa 4 ảnh phụ", true); toast("Đang tải " + files.length + " ảnh…"); try { for (const f of files) cur.push(await upload(f)); S.drafts[k][t.dataset.dfileMulti] = cur; renderProject(); } catch (err) { toast(err.message, true); } return; }
     if (t.dataset.ifileExtra && t.files && t.files.length) { const it = S.items.find((x) => x.name === t.dataset.ifileExtra); const cur = (it && it.extra_images) || []; const files = [...t.files].slice(0, Math.max(0, 4 - cur.length)); if (!files.length) return toast("Tối đa 4 ảnh phụ", true); toast("Đang tải " + files.length + " ảnh…"); try { const urls = cur.slice(); for (const f of files) urls.push(await upload(f)); if (await act("update_item", { name: it.name, data: JSON.stringify({ extra_images: urls }) }, "Đã thêm ảnh phụ")) loadProject(S.p.name); } catch (err) { toast(err.message, true); } return; }
     if (t.dataset.dfile && t.files && t.files[0]) { const k = +t.closest("[data-draft]").dataset.draft; toast("Đang tải file…"); try { if (t.dataset.dfile === "audio_file") { const s2 = await audioSec(t.files[0]); if (s2) S.drafts[k].audio_seconds = String(s2); } S.drafts[k][t.dataset.dfile] = await upload(t.files[0]); renderProject(); } catch (err) { toast(err.message, true); } return; }
