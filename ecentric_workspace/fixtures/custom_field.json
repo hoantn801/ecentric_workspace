@@ -782,6 +782,28 @@
  },
  {
   "doctype": "Custom Field",
+  "name": "Employee-ec_ho_ten_vi",
+  "dt": "Employee",
+  "fieldname": "ec_ho_ten_vi",
+  "label": "Họ tên (tiếng Việt)",
+  "fieldtype": "Data",
+  "insert_after": "employee_name",
+  "permlevel": 0,
+  "description": "Họ tên đầy đủ, có dấu. Ví dụ: Nguyễn Văn An"
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Employee-ec_chuc_danh_vi",
+  "dt": "Employee",
+  "fieldname": "ec_chuc_danh_vi",
+  "label": "Chức danh (tiếng Việt)",
+  "fieldtype": "Data",
+  "insert_after": "designation",
+  "permlevel": 0,
+  "description": "Chức danh tiếng Việt dùng trên hợp đồng, giấy tờ."
+ },
+ {
+  "doctype": "Custom Field",
   "name": "Quality Procedure-ec_sb_iso",
   "dt": "Quality Procedure",
   "fieldname": "ec_sb_iso",
