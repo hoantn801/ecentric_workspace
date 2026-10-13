@@ -60,6 +60,8 @@ def shell(context, detail=""):
     context.soc_topbar = topbar
     context.soc_css = asset_url("css")
     context.soc_js = asset_url("js")
+    context.soc_rx_kinds = [{"kind": k, "emoji": C.RX_EMOJI[k], "label": C.RX_LABEL[k]}
+                            for k in C.RX_POST_KINDS]
     context.no_cache = 1
     context.show_sidebar = 0
     return context

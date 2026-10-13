@@ -115,10 +115,15 @@ def delete(post):
 
 
 @frappe.whitelist(methods=["POST"])
-def react(post="", moment=""):
+def react(post="", moment="", kind=""):
     if moment:
         return _run(S.react_moment, _me(), str(moment))
-    return _run(S.react, _me(), str(post or ""))
+    return _run(S.react, _me(), str(post or ""), str(kind or "") or None)
+
+
+@frappe.whitelist(methods=["GET"])
+def reactors(post):
+    return _run(S.reactors, _me(), str(post or ""))
 
 
 @frappe.whitelist(methods=["POST"])

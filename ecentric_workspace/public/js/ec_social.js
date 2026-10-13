@@ -484,6 +484,11 @@
 
   function setRx(card, rx, btn) {
     btn.setAttribute('aria-pressed', rx.mine ? 'true' : 'false');
+    if (rx.label && btn.hasAttribute('data-esc-rx-pick')) {
+      btn.textContent = rx.emoji + ' ' + rx.label;
+      btn.className = 'esc-rx-btn' + (rx.tone ? ' esc-rx-t-' + rx.tone : '');
+      if (rx.kind) btn.setAttribute('data-esc-rx-mine', rx.kind); else btn.removeAttribute('data-esc-rx-mine');
+    }
     var sum = card.querySelector('[data-esc-rx-sum]');
     if (!sum) return;
     sum.textContent = '';
@@ -497,6 +502,154 @@
     } else sum.removeAttribute('tabindex');
     var who = card.querySelector('[data-esc-rx-who]');
     if (who) who.textContent = rx.who || '';
+  }
+
+  // ------------------------------------------------------------------ 7 cam xuc ------
+  // Re chuot vao Thich ~0,45s (dien thoai: nhan giu ~0,4s) -> thanh chon. Mat nao -> server quyet dinh
+  // tha / doi / bo; JS chi hien lai ket qua server tra ve.
+  var rxBar = document.getElementById('esc-rxbar');
+  var rxBtn = null, rxOpenT = null, rxCloseT = null, rxTouch = null, rxSkipClick = false, rxTouchAt = 0;
+
+  function rxSend(btn, kind) {
+    var card = cardOf(btn);
+    if (!card || btn.disabled) return;
+    busy(btn, true);
+    call('react', { post: card.getAttribute('data-esc-post'), kind: kind })
+      .then(function (rx) { setRx(card, rx, btn); }, function (e) { toast(e.message, true); })
+      .then(function () { busy(btn, false); });
+  }
+  function rxHide() {
+    clearTimeout(rxOpenT); clearTimeout(rxCloseT);
+    if (!rxBar || rxBar.hidden) return;
+    rxBar.hidden = true;
+    rxBar.querySelectorAll('.esc-on').forEach(function (x) { x.classList.remove('esc-on'); });
+  }
+  function rxShow(btn) {
+    if (!rxBar || btn.disabled) return;
+    clearTimeout(rxCloseT);
+    rxBtn = btn;
+    rxBar.hidden = false;
+    var r = btn.getBoundingClientRect(), w = rxBar.offsetWidth;
+    var left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8));
+    rxBar.style.left = left + 'px';
+    rxBar.style.top = Math.max(8, r.top - rxBar.offsetHeight - 10) + 'px';
+  }
+  function rxLater() { clearTimeout(rxOpenT); clearTimeout(rxCloseT); rxCloseT = setTimeout(rxHide, 350); }
+  function rxPick(b) {
+    var btn = rxBtn;
+    rxHide();
+    if (btn) { rxSend(btn, b.getAttribute('data-esc-rx-kind')); btn.focus(); }
+  }
+  function rxUnder(x, y) {
+    var el = document.elementFromPoint(x, y);
+    return el && el.closest ? el.closest('#esc-rxbar [data-esc-rx-kind]') : null;
+  }
+  if (rxBar) {
+    document.addEventListener('mouseover', function (ev) {
+      if (Date.now() - rxTouchAt < 1000) return;      // chuot gia sau khi cham man hinh
+      var b = ev.target.closest && ev.target.closest('[data-esc-rx-pick]');
+      if (b && !b.disabled) {
+        clearTimeout(rxCloseT);
+        if (rxBar.hidden || rxBtn !== b) { clearTimeout(rxOpenT); rxOpenT = setTimeout(function () { rxShow(b); }, 450); }
+      } else if (ev.target.closest && ev.target.closest('#esc-rxbar')) clearTimeout(rxCloseT);
+    });
+    document.addEventListener('mouseout', function (ev) {
+      var from = ev.target.closest && ev.target.closest('[data-esc-rx-pick],#esc-rxbar');
+      var to = ev.relatedTarget && ev.relatedTarget.closest && ev.relatedTarget.closest('[data-esc-rx-pick],#esc-rxbar');
+      if (from && !to) rxLater();
+    });
+    document.addEventListener('touchstart', function (ev) {
+      rxTouchAt = Date.now();
+      rxSkipClick = false;
+      var b = ev.target.closest && ev.target.closest('[data-esc-rx-pick]');
+      if (!b || b.disabled) return;
+      rxTouch = { btn: b, open: false };
+      clearTimeout(rxOpenT);
+      rxOpenT = setTimeout(function () { rxTouch.open = true; rxSkipClick = true; rxShow(b); }, 400);
+    }, { passive: true });
+    document.addEventListener('touchmove', function (ev) {
+      if (!rxTouch) return;
+      if (!rxTouch.open) { clearTimeout(rxOpenT); rxTouch = null; return; }
+      ev.preventDefault();
+      var t = ev.touches[0], on = rxUnder(t.clientX, t.clientY);
+      rxBar.querySelectorAll('[data-esc-rx-kind]').forEach(function (x) { x.classList.toggle('esc-on', x === on); });
+    }, { passive: false });
+    document.addEventListener('touchend', function (ev) {
+      rxTouchAt = Date.now();
+      if (!rxTouch) return;
+      clearTimeout(rxOpenT);
+      if (rxTouch.open) {
+        var t = ev.changedTouches[0], on = rxUnder(t.clientX, t.clientY);
+        if (on) { ev.preventDefault(); rxPick(on); }
+      }
+      rxTouch = null;
+    });
+    document.addEventListener('contextmenu', function (ev) {
+      if (rxTouch && rxTouch.open) ev.preventDefault();
+    });
+    rxBar.addEventListener('keydown', function (ev) {
+      var all = Array.prototype.slice.call(rxBar.querySelectorAll('[data-esc-rx-kind]'));
+      var i = all.indexOf(document.activeElement);
+      if (ev.key === 'ArrowRight' || ev.key === 'ArrowLeft') {
+        ev.preventDefault();
+        all[(i + (ev.key === 'ArrowRight' ? 1 : -1) + all.length) % all.length].focus();
+      } else if (ev.key === 'Escape') { var back = rxBtn; rxHide(); if (back) back.focus(); }
+    });
+    rxBar.addEventListener('focusout', function (ev) {
+      if (!ev.relatedTarget || !rxBar.contains(ev.relatedTarget)) rxLater();
+    });
+    document.addEventListener('keydown', function (ev) {
+      var b = ev.target.closest && ev.target.closest('[data-esc-rx-pick]');
+      if (b && ev.key === 'ArrowUp') { ev.preventDefault(); rxShow(b); rxBar.querySelector('[data-esc-rx-kind]').focus(); }
+    });
+    window.addEventListener('scroll', function () { if (!rxTouch) rxHide(); }, { passive: true });
+  }
+
+  // Bang "ai da tha gi" (bam vao dong tong cua bai).
+  var who = { data: null, back: null, tab: '' };
+  function whoRender() {
+    var box = document.getElementById('esc-rxwho');
+    var tabs = box.querySelector('[data-esc-rxwho-tabs]'), list = box.querySelector('[data-esc-rxwho-list]');
+    tabs.textContent = ''; list.textContent = '';
+    var d = who.data;
+    if (!d) { var li0 = document.createElement('li'); li0.className = 'esc-rxwho-empty'; li0.textContent = 'Đang tải…'; list.appendChild(li0); return; }
+    [{ kind: '', label: 'Tất cả ' + d.total }].concat(d.tabs.map(function (t) { return { kind: t.kind, label: t.emoji + ' ' + t.n }; }))
+      .forEach(function (t) {
+        var b = document.createElement('button');
+        b.type = 'button'; b.setAttribute('role', 'tab'); b.setAttribute('data-esc-rxwho-tab', t.kind);
+        b.setAttribute('aria-selected', t.kind === who.tab ? 'true' : 'false');
+        b.textContent = t.label;
+        tabs.appendChild(b);
+      });
+    var shown = d.people.filter(function (p) { return !who.tab || p.kind === who.tab; });
+    if (!shown.length) { var li1 = document.createElement('li'); li1.className = 'esc-rxwho-empty'; li1.textContent = 'Chưa có ai thả cảm xúc.'; list.appendChild(li1); }
+    shown.forEach(function (p) {
+      var li = document.createElement('li');
+      var avw = document.createElement('span'); avw.className = 'esc-rxwho-av';
+      var av = document.createElement('span'); av.className = 'esc-av esc-av-c' + (p.av || 0); av.setAttribute('aria-hidden', 'true'); av.textContent = p.initials;
+      var k = document.createElement('span'); k.className = 'esc-rxwho-k'; k.textContent = p.emoji;
+      avw.appendChild(av); avw.appendChild(k);
+      var nm = document.createElement('span'); nm.textContent = p.name;
+      li.appendChild(avw); li.appendChild(nm);
+      list.appendChild(li);
+    });
+  }
+  function whoOpen(btn) {
+    var box = document.getElementById('esc-rxwho');
+    var card = cardOf(btn);
+    if (!box || !card) return;
+    who = { data: null, back: btn, tab: '' };
+    box.hidden = false;
+    whoRender();
+    box.querySelector('[data-esc-rxwho-close]').focus();
+    call('reactors', { post: card.getAttribute('data-esc-post') }, true)
+      .then(function (d) { who.data = d; whoRender(); }, function (e) { whoClose(); toast(e.message, true); });
+  }
+  function whoClose() {
+    var box = document.getElementById('esc-rxwho');
+    if (!box || box.hidden) return;
+    box.hidden = true;
+    if (who.back) who.back.focus();
   }
 
   function menuClose(except) {
@@ -629,6 +782,16 @@
     }
     if (!t.closest('.esc-menu')) menuClose();
     if ((b = t.closest('[data-esc-act]'))) return postAction(b);
+    if (rxBar && !rxBar.hidden && !t.closest('#esc-rxbar,[data-esc-rx-pick]')) rxHide();
+    if ((b = t.closest('#esc-rxbar [data-esc-rx-kind]'))) return rxPick(b);
+    if ((b = t.closest('[data-esc-rx-open]'))) return whoOpen(b);
+    if ((b = t.closest('[data-esc-rxwho-tab]'))) { who.tab = b.getAttribute('data-esc-rxwho-tab'); return whoRender(); }
+    if (t.closest('[data-esc-rxwho-close]') || t.id === 'esc-rxwho') return whoClose();
+    if ((b = t.closest('[data-esc-rx-pick]'))) {
+      if (rxSkipClick) { rxSkipClick = false; return; }
+      rxHide();
+      return rxSend(b, b.getAttribute('data-esc-rx-mine') || 'heart');
+    }
     if ((b = t.closest('[data-esc-react]'))) {
       var card = cardOf(b);
       var key = b.getAttribute('data-esc-moment');
@@ -691,6 +854,7 @@
   document.addEventListener('keydown', function (ev) {
     var t = ev.target;
     if (ev.key === 'Escape') {
+      whoClose();
       menuClose();
       lbClose();
       proposeClose();

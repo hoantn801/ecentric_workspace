@@ -16,6 +16,18 @@
       {% block esc_page %}{% endblock %}
     </div>
   </main>
+  <div class="esc-rxbar" id="esc-rxbar" role="toolbar" aria-label="Chọn cảm xúc" hidden>
+    {%- for k in soc_rx_kinds or [] %}
+    <button type="button" data-esc-rx-kind="{{ k.kind|e }}" data-esc-rx-label="{{ k.label|e }}" aria-label="{{ k.label|e }}"><span class="esc-rxbar-tip" aria-hidden="true">{{ k.label|e }}</span><span class="esc-rxbar-em" aria-hidden="true">{{ k.emoji }}</span></button>
+    {%- endfor %}
+  </div>
+  <div class="esc-modal" id="esc-rxwho" role="dialog" aria-modal="true" aria-labelledby="esc-rxwho-h" hidden>
+    <div class="esc-modal-box esc-rxwho-box">
+      <div class="esc-rxwho-head"><b id="esc-rxwho-h">Cảm xúc về bài viết</b><button type="button" class="esc-rxwho-x" data-esc-rxwho-close aria-label="Đóng">×</button></div>
+      <div class="esc-rxwho-tabs" role="tablist" data-esc-rxwho-tabs></div>
+      <ul class="esc-rxwho-list" data-esc-rxwho-list aria-live="polite"></ul>
+    </div>
+  </div>
 </div>
 <div class="esc-toast" id="esc-toast" role="status" aria-live="polite" hidden></div>
 <div class="esc-lb" id="esc-lb" role="dialog" aria-modal="true" aria-label="Xem ảnh" hidden>

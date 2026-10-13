@@ -70,7 +70,19 @@ FILTER_KEYS = tuple(k for k, _ in FILTERS)
 #: Dung chung bang EC Home Reaction voi popup / Tin noi bo. Target "soc:<ten bai>".
 RX_PREFIX = "soc:"
 RX_KIND = "heart"
-RX_EMOJI = {"heart": "❤️", "flower": "\U0001f338", "cake": "\U0001f382", "party": "\U0001f389"}
+#: Bai Bang tin: 7 cam xuc nhu Facebook (PO duyet 13/10/2026). Moi nguoi MOT cam xuc / bai,
+#: chon mat khac = thay. Thu tu = thu tu tren thanh chon.
+RX_POST_KINDS = ("heart", "haha", "wow", "sad", "angry", "clap", "thanks")
+RX_EMOJI = {"heart": "❤️", "flower": "\U0001f338", "cake": "\U0001f382", "party": "\U0001f389",
+            "haha": "\U0001f606", "wow": "\U0001f62e", "sad": "\U0001f622", "angry": "\U0001f621",
+            "clap": "\U0001f44f", "thanks": "\U0001f64f"}
+RX_LABEL = {"heart": "Thích", "haha": "Haha", "wow": "Wow", "sad": "Buồn", "angry": "Phẫn nộ",
+            "clap": "Vỗ tay", "thanks": "Cảm ơn"}
+#: Mau chu cua nut khi da tha (lop CSS esc-rx-t-<tone>).
+RX_TONE = {"heart": "pink", "haha": "amber", "wow": "amber", "sad": "amber", "angry": "red",
+           "clap": "navy", "thanks": "navy"}
+#: Thu tu uu tien khi so luong bang nhau (dong tong hien 3 mat nhieu nhat).
+RX_ORDER = RX_POST_KINDS + ("party", "flower", "cake")
 #: Khoanh khac hom nay: bam "Chuc mung" tren Bang tin = cung cam xuc tren popup (cung khoa).
 MOMENT_RX = {"bd": "cake", "ann": "flower", "new": "party"}
 MOMENT_LABEL = {"bd": "Sinh nhật", "ann": "Kỷ niệm gắn bó", "new": "Bạn mới"}

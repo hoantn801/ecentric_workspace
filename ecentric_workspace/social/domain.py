@@ -184,20 +184,42 @@ def who_tip(users, user, names):
 
 
 def rx_summary(rows, target, user, my_kind=C.RX_KIND, names=None):
-    """rows EC Home Reaction cua MOT target -> {total, emojis, mine, who} (mine = toi da tha `my_kind`)."""
-    total, kinds, mine, users = 0, [], False, []
+    """rows EC Home Reaction cua MOT target -> {total, emojis, mine, who, kind, label, tone, counts}.
+    my_kind=None (bai Bang tin): mine = toi da tha BAT KY cam xuc nao, kind = cam xuc cua toi.
+    Con lai (khoanh khac): mine = toi da tha dung `my_kind`. emojis = 3 mat nhieu nhat."""
+    total, count, mine, users, my = 0, {}, False, [], None
     for r in rows:
         if r.get("target") != target:
             continue
         total += 1
+        k = r.get("kind")
         users.append(r.get("user"))
-        if r.get("kind") not in kinds:
-            kinds.append(r.get("kind"))
-        if r.get("user") == user and r.get("kind") == my_kind:
-            mine = True
-    order = [k for k in ("heart", "party", "flower", "cake") if k in kinds]
-    return {"total": total, "emojis": "".join(C.RX_EMOJI[k] for k in order[:3]), "mine": mine,
-            "who": who_tip(users, user, names or {})}
+        count[k] = count.get(k, 0) + 1
+        if r.get("user") == user and (my_kind is None or k == my_kind):
+            mine, my = True, k
+    rank = {k: i for i, k in enumerate(C.RX_ORDER)}
+    order = sorted(count, key=lambda k: (-count[k], rank.get(k, 99)))
+    out = {"total": total, "emojis": "".join(C.RX_EMOJI.get(k, "") for k in order[:3]), "mine": mine,
+           "who": who_tip(users, user, names or {})}
+    if my_kind is None:
+        out.update(kind=my, label=C.RX_LABEL.get(my, C.RX_LABEL[C.RX_KIND]),
+                   emoji=C.RX_EMOJI.get(my or C.RX_KIND), tone=C.RX_TONE.get(my, ""),
+                   counts=[{"kind": k, "emoji": C.RX_EMOJI.get(k, ""), "n": count[k]} for k in order])
+    return out
+
+
+def reactors(rows, target, user, names):
+    """Bang "Cam xuc ve bai viet": tab theo tung mat + danh sach nguoi (Ban dau tien)."""
+    s = rx_summary(rows, target, user, None, names)
+    people = []
+    for r in rows:
+        if r.get("target") != target:
+            continue
+        p = person(r.get("user"), names)
+        people.append(dict(p, kind=r.get("kind"), emoji=C.RX_EMOJI.get(r.get("kind"), ""),
+                           name="Bạn" if r.get("user") == user else p["name"]))
+    people.sort(key=lambda p: 0 if p["user"] == user else 1)
+    return {"total": s["total"], "tabs": s["counts"], "people": people}
 
 
 def moment_kind(key):
