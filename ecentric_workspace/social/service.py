@@ -180,25 +180,41 @@ def post_view(user, name, repo=None):
     return cards.build(repo, cx, [row])[0]
 
 
-def react(user, name, repo=None):
-    """Tha / bo tim. Bai Bang tin: target soc:<ten>. Bai khoanh khac: khoa popup (bd:/ann:/new:)."""
+def react(user, name, kind=C.RX_KIND, repo=None):
+    """Tha / doi / bo cam xuc bai Bang tin (target soc:<ten>). Moi nguoi MOT cam xuc: bam lai dung mat
+    dang tha = bo; chon mat khac = thay mat cu."""
     repo = _repo(repo)
+    kind = kind or C.RX_KIND
+    if kind not in C.RX_POST_KINDS:
+        raise SocialError("Cảm xúc không hợp lệ.")
     cx = context(repo, user)
     row = load(repo, cx, name)
     if row.get("hidden"):
         raise SocialError("Bài này đã bị ẩn.")
     target = C.RX_PREFIX + name
-    existing = repo.find_reaction(target, C.RX_KIND, user)
-    if existing:
-        repo.remove_reaction(existing)
-    else:
+    had = [r.get("kind") for r in repo.reactions([target]) if r.get("user") == user]
+    for k in had:
+        existing = repo.find_reaction(target, k, user)
+        if existing:
+            repo.remove_reaction(existing)
+    if kind not in had:
         try:
-            repo.add_reaction(target, C.RX_KIND, user, repo.today())
+            repo.add_reaction(target, kind, user, repo.today())
         except Exception as exc:
             if not repo.is_duplicate(exc):
                 raise
     rows = repo.reactions([target])
-    return D.rx_summary(rows, target, user, names=repo.full_names([r.get("user") for r in rows]))
+    return D.rx_summary(rows, target, user, None, repo.full_names([r.get("user") for r in rows]))
+
+
+def reactors(user, name, repo=None):
+    """Ai da tha gi tren mot bai (bam vao dong tong). Cung quyen xem bai."""
+    repo = _repo(repo)
+    cx = context(repo, user)
+    load(repo, cx, name)
+    target = C.RX_PREFIX + name
+    rows = repo.reactions([target])
+    return D.reactors(rows, target, user, repo.full_names([r.get("user") for r in rows]))
 
 
 def react_moment(user, key, repo=None):

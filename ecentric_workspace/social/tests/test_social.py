@@ -418,12 +418,45 @@ class TestActions(unittest.TestCase):
         self.p = S.create(LAN, {"body": "Bánh mì hôm nay mình bao!"}, repo=self.r)["name"]
 
     def test_react_toggles_one_heart(self):
-        self.assertEqual(S.react(KHANG, self.p, repo=self.r), {"total": 1, "emojis": "❤️", "mine": True, "who": "Bạn"})
+        rx = S.react(KHANG, self.p, repo=self.r)
+        self.assertEqual({k: rx[k] for k in ("total", "emojis", "mine", "who", "kind", "label")},
+                         {"total": 1, "emojis": "❤️", "mine": True, "who": "Bạn", "kind": "heart", "label": "Thích"})
         S.react(ANH, self.p, repo=self.r)
         self.assertEqual(S.post_view(KHANG, self.p, repo=self.r)["rx"]["who"], "Bạn, Vũ Ngọc Anh")    # re chuot: ai da tha
         self.assertEqual(S.post_view(LAN, self.p, repo=self.r)["rx"]["who"], "Đỗ Minh Khang, Vũ Ngọc Anh")
         S.react(ANH, self.p, repo=self.r)
         self.assertEqual(S.react(KHANG, self.p, repo=self.r)["total"], 0)
+
+    def test_react_seven_kinds_one_per_person(self):
+        rx = S.react(KHANG, self.p, "haha", repo=self.r)
+        self.assertEqual((rx["kind"], rx["label"], rx["tone"], rx["total"]), ("haha", "Haha", "amber", 1))
+        rx = S.react(KHANG, self.p, "angry", repo=self.r)                 # doi mat: thay, khong cong them
+        self.assertEqual((rx["kind"], rx["total"], rx["emojis"]), ("angry", 1, "\U0001f621"))
+        S.react(ANH, self.p, "clap", repo=self.r)
+        S.react(LAN, self.p, "clap", repo=self.r)
+        rx = S.react(HR, self.p, "heart", repo=self.r)
+        self.assertEqual(rx["emojis"], "\U0001f44f❤️\U0001f621")           # nhieu nhat truoc, hoa -> thu tu thanh
+        self.assertEqual(rx["total"], 4)
+        rx = S.react(KHANG, self.p, "angry", repo=self.r)                 # bam lai dung mat = bo
+        self.assertEqual((rx["mine"], rx["kind"], rx["label"], rx["total"]), (False, None, "Thích", 3))
+        with self.assertRaises(S.SocialError):
+            S.react(KHANG, self.p, "cake", repo=self.r)                   # mat cua popup, khong cho bai
+        card = S.post_view(ANH, self.p, repo=self.r)
+        self.assertEqual((card["rx"]["kind"], card["rx"]["emoji"]), ("clap", "\U0001f44f"))
+
+    def test_reactors_list(self):
+        S.react(KHANG, self.p, "haha", repo=self.r)
+        S.react(ANH, self.p, "heart", repo=self.r)
+        S.react(LAN, self.p, "haha", repo=self.r)
+        d = S.reactors(ANH, self.p, repo=self.r)
+        self.assertEqual(d["total"], 3)
+        self.assertEqual([(t["kind"], t["n"]) for t in d["tabs"]], [("haha", 2), ("heart", 1)])
+        self.assertEqual(d["people"][0]["name"], "Bạn")
+        self.assertEqual(d["people"][0]["kind"], "heart")
+        self.assertEqual(len(d["people"]), 3)
+        S.hide(HR, self.p, True, "Spam", repo=self.r)
+        with self.assertRaises(S.Forbidden):
+            S.reactors(KHANG, self.p, repo=self.r)                        # cung quyen xem bai
 
     def test_edit_and_delete_rights(self):
         with self.assertRaises(S.Forbidden):

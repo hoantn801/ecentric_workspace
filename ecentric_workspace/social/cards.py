@@ -81,7 +81,7 @@ def build(repo, cx, rows, clubs_map=None):
             "mentions": [D.person(u, names) for u in mentions.get(n) or []],
             "ago": D.ago(r.get("creation"), now), "edited": bool(r.get("edited_on")),
             "ts": D.ts(r.get("creation")),
-            "rx": D.rx_summary(rx_rows, C.RX_PREFIX + n, user, names=names),
+            "rx": D.rx_summary(rx_rows, C.RX_PREFIX + n, user, None, names),
             "comments": cmts.get(n, 0),
             # Xem truoc 1-2 binh luan moi nhat duoi bai (mockup v2); bam mo thi thay bang khoi day du.
             "preview": [{"author": D.person(c.get("user"), names), "text": D.clip(c.get("content"), C.PREVIEW_CHARS)}

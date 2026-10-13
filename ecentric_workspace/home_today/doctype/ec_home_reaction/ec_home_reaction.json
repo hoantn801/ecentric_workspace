@@ -40,7 +40,7 @@
    "fieldtype": "Select",
    "label": "Kind",
    "reqd": 1,
-   "options": "heart\nflower\ncake\nparty",
+   "options": "heart\nflower\ncake\nparty\nhaha\nwow\nsad\nangry\nclap\nthanks",
    "in_list_view": 1,
    "read_only": 1
   },
