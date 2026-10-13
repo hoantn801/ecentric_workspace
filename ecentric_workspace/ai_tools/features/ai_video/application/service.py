@@ -804,6 +804,9 @@ def get_project(name, do_tick=0):
         if isinstance(meta, dict) and meta.get("faq"):
             from ecentric_workspace.ai_tools.features.ai_video.application import faq
             faq.export_view(ex, meta)
+        elif isinstance(meta, list) and str(ex.get("status") or "").startswith("done"):
+            from ecentric_workspace.ai_tools.features.ai_video.application import faq
+            ex["ls_files"] = [{"file": x["file"], "dur": x["dur"]} for x in faq.voiced_files(meta, fl)]   # 16/10: SKU co voice
     return {"project": proj, "items": items, "exports": exports, "worker_down": down,
             "worker_configured": wc.configured()}
 

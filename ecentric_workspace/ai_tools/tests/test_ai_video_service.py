@@ -838,6 +838,103 @@ class TestCongThuc(unittest.TestCase):
         self.assertEqual((rows["1_Gia.mp4"]["cross"], rows["1_Gia.mp4"]["stutter"], view["faq"]["dup"]["cross"]), (10, 1.1, 12.0))
         self.assertTrue(rows["2_Ship.mp4"]["url"].startswith("https://w.example/"))
 
+    def test_lipsync_dot_faq(self):
+        import frappe
+        s, W, f = self.svc, self.W, self._faq()
+        p = s.create_project(json.dumps({"brand": "FRISO", "title": "FAQ", "talk_count": 0}))["name"]
+        d = "ecv6/output/FRISO/dot1/FAQ_DOT1/"
+        src = frappe.get_doc({"doctype": s.E, "project": p, "batch": "dot1", "mode": "talk", "variants": 2, "duration": 0,
+                              "status": "done · 2/2 video", "items": json.dumps({"faq": 1, "kind": "voice", "voices": ["a", "b"], "sku": "FAQ_DOT1"}),
+                              "files_json": json.dumps([d + "a.mp4", d + "b.mp4", "ecv6/exports/Friso/dot1/FAQ_DOT1.zip"])})
+        src.insert()
+        view = {e["name"]: e for e in s.get_project(p)["exports"]}[src.name]
+        self.assertEqual(view["faq"]["ls_usd_per_s"], f.LS_USD_PER_S)
+        r = f.lipsync(p, src.name, json.dumps(["b.mp4"]))                      # 1 video
+        self.assertEqual(r["videos"], 1)
+        self.assertEqual(W.last("lipsync"), {"op": "lipsync", "model": "musetalk", "video": d + "b.mp4", "out": "ecv6/output/FRISO/dot1/FAQ_DOT1_LS/b.mp4"})
+        with self.assertRaises(frappe.ValidationError):
+            f.lipsync(p, src.name)                                             # dang chay -> chan
+        E = lambda: self.store.rows["EC AI Video Export"][r["export"]]     # noqa: E731
+        tid = json.loads(E()["task_ids"])[0]
+        W.tasks[tid].update(out="ecv6/output/FRISO/dot1/FAQ_DOT1_LS/b.mp4", progress="K15 làm nét")
+        s.tick(p)
+        self.assertEqual(E()["status"], "running")
+        lv = {e["name"]: e for e in s.get_project(p)["exports"]}[r["export"]]
+        self.assertEqual((lv["faq"]["kind"], lv["faq"]["rows"][0]["prog"]), ("lipsync", "K15 làm nét"))
+        W.tasks[tid].update(state="done", result={"files": ["ecv6/output/FRISO/dot1/FAQ_DOT1_LS/b.mp4"],
+                                                  "lipsync": {"gpu_sec": 40.2, "sec": 90, "out": {"dur": 9.4}}})
+        s.tick(p)
+        self.assertEqual(E()["status"], "done · 1/1 video lipsync · GPU fal 40s")
+        self.assertIn("ecv6/exports/Friso/dot1/FAQ_DOT1_LS.zip", json.loads(E()["files_json"]))
+        lv = {e["name"]: e for e in s.get_project(p)["exports"]}[r["export"]]
+        row = lv["faq"]["rows"][0]
+        self.assertEqual((row["gpu"], row["dur"], lv["faq"]["src"]), (40.2, 9.4, src.name))
+        self.assertTrue(row["url"].startswith("https://w.example/"))
+        with self.assertRaises(frappe.ValidationError):
+            f.lipsync(p, r["export"])                                          # khong lipsync dot lipsync
+        f.lipsync(p, src.name)                                                 # xong -> lam lai ca dot duoc
+        self.assertEqual(len([1 for _, x in W.steps if x["op"] == "lipsync"]), 3)
+
+    def test_lipsync_dot_sku_co_voice(self):
+        """16/10: dot tron B4 (noi + cam SP) - SKU co voice thi lipsync ca doan cam SP; SKU khong voice bo qua."""
+        import frappe
+        s, W, f = self.svc, self.W, self._faq()
+        p = s.create_project(json.dumps({"brand": "FRISO", "title": "Cam", "talk_count": 0}))["name"]
+        for nm, sku, au in (("it1", "Sữa Gold 400g", "/private/files/v.mp3"), ("it2", "B2", "")):
+            self.store.rows.setdefault(s.I, {})[nm] = {"name": nm, "project": p, "sku": sku, "audio_file": au, "audio_seconds": "30" if au else None}
+        d1, d2 = "ecv6/output/FRISO/dot4/Sua_Gold_400g/", "ecv6/output/FRISO/dot4/B2/"
+        src = frappe.get_doc({"doctype": s.E, "project": p, "batch": "dot4", "mode": "mix", "variants": 2, "duration": 0, "status": "done",
+                              "items": json.dumps(["it1", "it2"]),
+                              "files_json": json.dumps([d1 + "Sua_Gold_400g_mix_01.mp4", d1 + "Sua_Gold_400g_mix_02.mp4", d2 + "B2_mix_01.mp4",
+                                                        "ecv6/exports/Friso/dot4/Sua_Gold_400g.zip"])})
+        src.insert()
+        view = {e["name"]: e for e in s.get_project(p)["exports"]}[src.name]
+        self.assertEqual([x["file"] for x in view["ls_files"]], ["Sua_Gold_400g_mix_01.mp4", "Sua_Gold_400g_mix_02.mp4"])
+        self.assertEqual(view["ls_files"][0]["dur"], 34.0)                    # 2s dau + 30s voice + 2s cuoi
+        r = f.lipsync(p, src.name, json.dumps(["Sua_Gold_400g_mix_02.mp4", "B2_mix_01.mp4"]))
+        self.assertEqual(r["videos"], 1)                                       # B2 khong voice -> khong lipsync
+        self.assertEqual(W.last("lipsync"), {"op": "lipsync", "model": "musetalk", "video": d1 + "Sua_Gold_400g_mix_02.mp4",
+                                             "out": "ecv6/output/FRISO/dot4/Sua_Gold_400g_LS/Sua_Gold_400g_mix_02.mp4"})
+        E = lambda: self.store.rows["EC AI Video Export"][r["export"]]     # noqa: E731
+        tid = json.loads(E()["task_ids"])[0]
+        W.tasks[tid].update(state="done", result={"files": ["ecv6/output/FRISO/dot4/Sua_Gold_400g_LS/Sua_Gold_400g_mix_02.mp4"],
+                                                  "lipsync": {"gpu_sec": 100, "sec": 200, "out": {"dur": 34}}})
+        s.tick(p)
+        self.assertTrue(E()["status"].startswith("done · 1/1 video lipsync"))
+        self.assertIn("ecv6/exports/Friso/dot4/Sua_Gold_400g_LS.zip", json.loads(E()["files_json"]))
+        lv = {e["name"]: e for e in s.get_project(p)["exports"]}[r["export"]]
+        self.assertEqual((lv["faq"]["kind"], lv["faq"]["hold"]), ("lipsync", 1))  # hien o bang Ket qua B4
+        self.store.rows[s.I]["it1"]["audio_file"] = ""
+        with self.assertRaises(frappe.ValidationError):
+            f.lipsync(p, src.name)                                             # khong SKU nao co voice
+
+    def test_tron_xong_tu_lipsync(self):
+        s, W, f = self.svc, self.W, self._faq()
+        self.store.rows["File"]["v0"] = {"name": "v0", "file_url": "/private/files/1_Gia.mp3", "owner": "a@ec.vn"}
+        p = s.create_project(json.dumps({"brand": "FRISO", "title": "FAQ", "talk_count": 0}))["name"]
+        v1 = f.upload_voice(p, "/private/files/1_Gia.mp3", "dot2")
+        r = f.mix(p, json.dumps({"voices": [v1], "batch": "dot2", "auto_ls": 1}))
+        rows = self.store.rows["EC AI Video Export"]
+        self.assertEqual(json.loads(rows[r["export"]]["items"])["auto_ls"], 1)
+        plan = [t for t, x in W.steps if x["op"] == "faq"][0]
+        W.tasks[plan].update(state="done", result={"spawned": ["c1"], "dir": "ecv6/output/FRISO/dot2/FAQ_DOT2"})
+        W.tasks["c1"] = {"id": "c1", "state": "done", "result": {"files": ["ecv6/output/FRISO/dot2/FAQ_DOT2/1_Gia.mp4"],
+                                                                  "faq": {"name": "1_Gia", "file": "ecv6/output/FRISO/dot2/FAQ_DOT2/1_Gia.mp4", "dur": 9.4}}}
+        s.tick(p)                                                              # xong het -> do trung
+        dt = [t for t, x in W.steps if x["op"] == "dupcheck"][0]
+        W.tasks[dt].update(state="done", result={"dup": {"self_pct": 1, "cross_pct": 5, "thr": 2, "rows": []}})
+        self.assertFalse([1 for _, x in W.steps if x["op"] == "lipsync"])
+        s.tick(p)                                                              # dot tron xong -> tu tao dot lipsync
+        self.assertTrue(rows[r["export"]]["status"].startswith("done"))
+        self.assertEqual(W.last("lipsync"), {"op": "lipsync", "model": "musetalk", "video": "ecv6/output/FRISO/dot2/FAQ_DOT2/1_Gia.mp4",
+                                             "out": "ecv6/output/FRISO/dot2/FAQ_DOT2_LS/1_Gia.mp4"})
+        ls = json.loads(rows[r["export"]]["items"])["ls_export"]
+        self.assertTrue(json.loads(rows[ls]["items"])["lipsync"])
+        s.tick(p)
+        self.assertEqual(len([1 for _, x in W.steps if x["op"] == "lipsync"]), 1)  # chi 1 lan
+        r2 = f.mix(p, json.dumps({"mode": "length", "n": 1, "seconds": 10, "batch": "dot3", "auto_ls": 1}))
+        self.assertNotIn("auto_ls", json.loads(rows[r2["export"]]["items"]))     # dot khong tieng -> khong tu lipsync
+
     def test_faq_chan_file_va_duong_dan_la(self):
         import frappe
         s, f = self.svc, self._faq()

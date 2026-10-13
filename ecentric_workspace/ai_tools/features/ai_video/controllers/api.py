@@ -247,6 +247,12 @@ def faq_mix(project: str, data: str):
     return _run(lambda: faq.mix(project, data))
 
 
+# 13/10: lipsync dot tron theo voice (MuseTalk + hau ky K15 tren may chay video)
+@frappe.whitelist(methods=["POST"])
+def faq_lipsync(project: str, export: str, files: str = None):
+    return _run(lambda: faq.lipsync(project, export, files))
+
+
 # 12/10 fix9p: buoc 0 - khung neo lam truoc, chon 1 trong 4 ung vien
 @frappe.whitelist(methods=["POST"])
 def anchor_start(project: str):
