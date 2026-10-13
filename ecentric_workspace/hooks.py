@@ -933,3 +933,13 @@ _ec_chat_add_doc_event("EC Notification Delivery Log", "after_insert",
 # Tat: site_config ec_notify_pacing = {"tat": 1}.
 scheduler_events["cron"].setdefault("*/1 * * * *", []).append(
     "ecentric_workspace.notification_center.nhip_gui.xa_tin_giu")
+
+# 13/10/2026 (CnB): "Ho ten (tieng Viet)" + "Chuc danh (tieng Viet)" tren ho so nhan vien
+# (Employee.ec_ho_ten_vi, ec_chuc_danh_vi). Schema di theo fixtures/custom_field.json - them ten
+# vao bo loc fixture Custom Field o day thay vi sua danh sach phia tren.
+for _ec_fx in fixtures:
+    if isinstance(_ec_fx, dict) and _ec_fx.get("dt") == "Custom Field":
+        _ec_fx_names = _ec_fx["filters"][0][2]
+        for _ec_fx_n in ("Employee-ec_ho_ten_vi", "Employee-ec_chuc_danh_vi"):
+            if _ec_fx_n not in _ec_fx_names:
+                _ec_fx_names.append(_ec_fx_n)
