@@ -499,7 +499,7 @@
   "fieldname": "ec_vat_pct",
   "label": "Thuế VAT trong số tiền (%)",
   "fieldtype": "Select",
-  "options": "0\n8\n10",
+  "options": "0\n0.0\n8\n10",
   "default": "0",
   "insert_after": "ec_ky_chi_phi",
   "description": "Số tiền trên là số thực trả. Chọn thuế suất để PnL tách phần thuế ra khỏi chi phí."
