@@ -107,6 +107,31 @@ ok(/if \(this\.mode === 'ym'\) \{ this\.mode = null;/.test(SRC),
 ok(/ec-dp-ymgrid/.test(CSS) && /ec-dp-ymcell/.test(CSS), 'CSS: chooser grid styled');
 ok(/\.ec-dp-title \{[\s\S]*?cursor: pointer/.test(CSS), 'CSS: title looks clickable');
 
+// ---- o hien thi luon theo gia tri that (14/10/2026, don nghi HR-LAP-2026-00094) ----
+// /ec-hr/leave dat lai Tu/Den ngay = hom nay bang `input.value = ...` (khong co su kien change).
+// Truoc ban sua, o hien thi giu ngay nguoi dung chon lan truoc -> thay 16/10, gui 14/10.
+(function () {
+  function FakeInput() { this._v = ''; }
+  Object.defineProperty(FakeInput.prototype, 'value', {
+    configurable: true, enumerable: true,
+    get: function () { return this._v; }, set: function (v) { this._v = String(v); }
+  });
+  const inp = new FakeInput(), shown = [];
+  const dp = { valNode: {}, refresh: function () { shown.push(inp.value); } };
+  D.trackValue(inp, dp);
+  inp.value = '2026-10-14';
+  ok(inp.value === '2026-10-14', 'trackValue: gia tri that van ghi / doc binh thuong');
+  ok(shown[shown.length - 1] === '2026-10-14', 'trackValue: gan .value bang code -> o hien thi ve lai');
+  inp.value = '';
+  ok(shown[shown.length - 1] === '', 'trackValue: gan rong -> o hien thi ve lai (placeholder)');
+  const other = new FakeInput(); other.value = 'x';
+  ok(shown.indexOf('x') < 0, 'trackValue: chi bat o duoc nang cap, khong dung prototype chung');
+  const dpBroken = { valNode: {}, refresh: function () { throw new Error('boom'); } };
+  const inp2 = new FakeInput(); D.trackValue(inp2, dpBroken); inp2.value = '2026-10-16';
+  ok(inp2.value === '2026-10-16', 'trackValue: hien thi loi khong chan viec ghi gia tri');
+})();
+ok(/trackValue\(input, this\);\s+this\.refresh\(\);/.test(SRC), 'build(): trackValue truoc lan refresh dau');
+
 // ---- hooks wiring (regression guard) ----
 ok(HOOKS.indexOf('ec_datepicker.bundle.js') >= 0, 'hooks: JS bundle in web_include_js');
 ok(HOOKS.indexOf('ec_datepicker.bundle.css') >= 0, 'hooks: CSS bundle in web_include_css');

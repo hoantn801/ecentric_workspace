@@ -85,6 +85,7 @@
     dateOutOfRange: dateOutOfRange, clampInt: clampInt,
     MONTHS_VI: MONTHS_VI, WEEKDAYS_VI: WEEKDAYS_VI
   };
+  PURE.trackValue = trackValue;   // khong dung DOM; khai bao o duoi (hoisting)
   if (typeof module !== 'undefined' && module.exports) module.exports = PURE;
   if (typeof document === 'undefined') return; // node unit tests stop here
 
@@ -117,6 +118,30 @@
   var openInst = null;
   var RANGE_REG = {}; // group -> [DP, DP]
 
+  // 14/10/2026 (don nghi HR-LAP-2026-00094): o hien thi chi cap nhat khi co su kien
+  // `change`. Trang nao gan `input.value = ...` bang code thi o hien thi giu ngay CU trong khi
+  // gia tri that (thu se gui di) da la ngay MOI. Case that: /ec-hr/leave moi lan mo form dat
+  // lai Tu/Den ngay = hom nay; nguoi dung chon 16/10, dong form, mo lai -> man hinh van hien
+  // 16/10/2026 nhung don luu 14/10. Hien thi phai LUON la gia tri that, nen bat ca phep gan
+  // `.value` tren chinh o nay (chi o nay, khong dung prototype chung), roi ve lai o hien thi.
+  function trackValue(input, dp) {
+    var proto = Object.getPrototypeOf(input), desc = null;
+    while (proto && !desc) {
+      desc = Object.getOwnPropertyDescriptor(proto, 'value');
+      proto = Object.getPrototypeOf(proto);
+    }
+    if (!desc || !desc.get || !desc.set || !desc.configurable) return;
+    Object.defineProperty(input, 'value', {
+      configurable: true,
+      enumerable: desc.enumerable,
+      get: function () { return desc.get.call(this); },
+      set: function (v) {
+        desc.set.call(this, v);
+        try { if (dp.valNode) dp.refresh(); } catch (e) { /* hien thi loi khong duoc chan gia tri */ }
+      }
+    });
+  }
+
   function DP(input) {
     this.input = input;
     this.withTime = input.type === 'datetime-local';
@@ -145,6 +170,7 @@
     this.valNode = field.querySelector('.ec-dp-val');
     this.placeholder = input.getAttribute('placeholder')
       || (this.withTime ? 'dd/mm/yyyy hh:mm' : 'dd/mm/yyyy');
+    trackValue(input, this);
     this.refresh();
     var self = this;
     field.addEventListener('click', function () { self.toggle(); });
