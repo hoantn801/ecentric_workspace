@@ -112,8 +112,8 @@
     "sha256": "6b2be5ed0486b6b244745d137186547e3ef52bb74ce2a702069194759a9cfb4f"
   },
   "approval_center/features/payment_request/ui/main_section.html": {
-    "last_resync_patch": "p243_nut_nhac_nguoi_xu_ly",
-    "sha256": "fb084c118f2fbb496fc9eab6621a4e0232b6da14c70ac63ef0b6f8542aa8decd"
+    "last_resync_patch": "p297_payment_request_vat_0",
+    "sha256": "f4aa29c9cf47a4b18971ffdccba4e3d631177cc4a961c6ab2f4858caaaf238f9"
   },
   "approval_center/features/promotion/ui/main_section.html": {
     "baseline": "2026-08-31",
