@@ -387,3 +387,4 @@ ecentric_workspace.approval_center.patches.p300_resync_pm_lam_lai
 ecentric_workspace.pm.patches.p029_pm_task_pinned_comments
 ecentric_workspace.approval_center.patches.p301_resync_pm_hotfix1
 ecentric_workspace.approval_center.patches.p302_resync_pm_hotfix2
+ecentric_workspace.approval_center.patches.p303_resync_pm_hotfix3

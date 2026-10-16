@@ -155,6 +155,8 @@ def set_task_labels(task, labels):
     doc = frappe.get_doc("Task", task)
     if not pmperm.can_view_task(doc.as_dict(), user):
         frappe.throw(_("Not permitted to edit this task's labels."), frappe.PermissionError)
+    from ecentric_workspace.pm import task_flow as _tflow   # lazy: avoid import cycle
+    _tflow.require_edit(doc.as_dict(), user)
     pmperm.assert_task_not_terminal(doc, _(_TERMINAL_MSG))
 
     if isinstance(labels, str):

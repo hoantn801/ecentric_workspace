@@ -101,6 +101,8 @@ def set_item(task, row_name, is_done):
     doc = frappe.get_doc("Task", task)
     if not pmperm.can_view_task(doc.as_dict(), user):
         frappe.throw(_("Not permitted to edit this task's checklist."), frappe.PermissionError)
+    from ecentric_workspace.pm import task_flow as _tflow   # lazy: avoid import cycle
+    _tflow.require_edit(doc.as_dict(), user)
     # G4.2/G4.3: terminal tasks have IMMUTABLE checklists (audit-safe). Reopen is the
     # governed path. Uses the shared helper; exact message preserved from G4.2.
     pmperm.assert_task_not_terminal(
@@ -134,6 +136,8 @@ def add_item(task, title, is_required=0):
     doc = frappe.get_doc("Task", task)
     if not pmperm.can_view_task(doc.as_dict(), user):
         frappe.throw(_("Not permitted to edit this task's checklist."), frappe.PermissionError)
+    from ecentric_workspace.pm import task_flow as _tflow   # lazy: avoid import cycle
+    _tflow.require_edit(doc.as_dict(), user)
     pmperm.assert_task_not_terminal(
         doc, _("Không thể chỉnh checklist sau khi nhiệm vụ đã hoàn thành/huỷ. Vui lòng Reopen trước."))
     title = (title or "").strip()
@@ -152,6 +156,8 @@ def _chk_editable_doc(task):
     doc = frappe.get_doc("Task", task)
     if not pmperm.can_view_task(doc.as_dict(), user):
         frappe.throw(_("Not permitted to edit this task's checklist."), frappe.PermissionError)
+    from ecentric_workspace.pm import task_flow as _tflow   # lazy: avoid import cycle
+    _tflow.require_edit(doc.as_dict(), user)
     pmperm.assert_task_not_terminal(
         doc, _("Không thể chỉnh checklist sau khi nhiệm vụ đã hoàn thành/huỷ. Vui lòng Reopen trước."))
     return doc
@@ -238,6 +244,8 @@ def complete_task(task):
     doc = frappe.get_doc("Task", task)
     if not pmperm.can_view_task(doc.as_dict(), user):
         frappe.throw(_("Not permitted to complete this task."), frappe.PermissionError)
+    from ecentric_workspace.pm import task_flow as _tflow   # lazy: avoid import cycle
+    _tflow.require_edit(doc.as_dict(), user)
     items = doc.get("pm_checklist") or []
     if not items:
         frappe.throw(_("Nhiệm vụ này không có checklist."))

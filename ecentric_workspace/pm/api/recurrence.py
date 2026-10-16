@@ -478,6 +478,8 @@ def create_from_task(task, frequency, start_date=None, end_date=None, max_occurr
     t = frappe.get_doc("Task", task)
     if not pmperm.can_view_task(t.as_dict(), user):
         frappe.throw(_("Not permitted."), frappe.PermissionError)
+    from ecentric_workspace.pm import task_flow as _tflow   # lazy: avoid import cycle
+    _tflow.require_edit(t.as_dict(), user)
     if t.get("parent_task"):
         frappe.throw(_("Chỉ nhiệm vụ cấp 1 mới tạo được định kỳ (nhiệm vụ con thì không)."))
     dur = 0

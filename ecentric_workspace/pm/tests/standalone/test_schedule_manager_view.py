@@ -24,6 +24,10 @@ def load(fake_get_all, depts_of):
     sys.modules["frappe"] = fr
     sys.modules["frappe.utils"] = ut
     pm = types.ModuleType("ecentric_workspace.pm.permissions")
+    # real permissions source (canonical is_department_head_of lives there since hotfix 3),
+    # then stub the lookups this test controls
+    psrc = os.path.join(HERE, "..", "..", "permissions.py")
+    exec(compile(open(psrc, encoding="utf-8").read(), psrc, "exec"), pm.__dict__)
     pm.get_user_departments = lambda u: depts_of.get(u, [])
     pm.require_pm_access = lambda *a, **k: None
     pm.can_see_all_pm_data = lambda u=None: False

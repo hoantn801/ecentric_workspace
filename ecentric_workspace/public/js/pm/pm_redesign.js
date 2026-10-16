@@ -572,7 +572,9 @@ function normTask(res) {
     rec: pick(res, t, "recurrence"),
     history: pick(res, t, "history"),
     isGiver: !!(g && g.user === me), isAssignee: asg.indexOf(me) >= 0,
-    canManage: truthy(pick(res, t, "can_manage", "is_leader"))
+    canManage: truthy(pick(res, t, "can_manage", "is_leader")),
+    /* PO 16/10 "siết lại": người chỉ xem được (cùng phòng, xem lịch) mở ở chế độ chỉ xem. BE cũ chưa trả can_edit -> coi như sửa được. */
+    canEdit: pick(res, t, "can_edit") === undefined || pick(res, t, "can_edit") === null ? true : truthy(pick(res, t, "can_edit"))
   };
 }
 const giverName = d => d.giver ? d.giver.full_name || nameOf(d.giver.user) : "người giao";
@@ -604,9 +606,10 @@ const reviewVariant = d => d.review && !d.isGiver && !d.canManage && d.t.workflo
 function statusBarHtml(d) {
   const cur = curBucket(d.t.workflow_state);
   const set = [["To Do", "Chưa làm"], ["In Progress", "Đang làm"]].concat(reviewVariant(d) ? [["Review", "Gửi kiểm tra"]] : [["Review", "Chờ duyệt"], ["Done", "Xong"]]);
-  return `<div class="pmr-statusbar" role="radiogroup" aria-label="Trạng thái">${set.map(s => {
+  const ro = !d.canEdit;
+  return `<div class="pmr-statusbar${ro ? " pmr-ro" : ""}" role="radiogroup" aria-label="Trạng thái"${ro ? ' aria-disabled="true"' : ""}>${set.map(s => {
     const onS = s[0] === cur;
-    return `<button type="button" role="radio" aria-checked="${onS}" class="pmr-sb-${stateIdx(s[0])}${onS ? " pmr-on" : ""}" data-act="state"${dattr("s", s[0])}>${esc(s[1])}</button>`;
+    return `<button type="button" role="radio" aria-checked="${onS}" class="pmr-sb-${stateIdx(s[0])}${onS ? " pmr-on" : ""}" data-act="state"${dattr("s", s[0])}${ro ? " disabled" : ""}>${esc(s[1])}</button>`;
   }).join("")}</div>`;
 }
 const fl = (label, body, cls) => `<div class="pmr-fl${cls ? " " + cls : ""}"><span class="pmr-lb">${label}</span><div>${body}</div></div>`;
@@ -622,11 +625,12 @@ function paintTask() {
     h += `<div class="pmr-giver">${av(d.giver.user, gname)}<div><b>${esc(gname)}</b> giao cho bạn${line.length ? `<div class="pmr-muted">${esc(line.join(" · "))}</div>` : ""}</div>${cfg.openChat ? Bs("Nhắn", "chat", "pmr-ghost") : ""}</div>`;
   }
   h += statusBarHtml(d);
+  if (!d.canEdit) h += `<div class="pmr-hint pmr-ro-hint">${ic("eye", "pmr-s")}Chỉ xem: chỉ người nhận, người giao, quản lý dự án, trưởng phòng của người nhận hoặc quản trị PM mới sửa được việc này. Bạn vẫn bình luận được.</div>`;
   if (reviewVariant(d) && !terminal) h += `<div class="pmr-hint">${esc(gname)} cần kiểm tra việc này: bấm <b>Gửi kiểm tra</b> khi làm xong, ${esc(gname)} sẽ đóng việc.</div>`;
   h += '</div><div class="pmr-sh-b"><div class="pmr-due-sec"></div>';
   if (!d.isAssignee || d.isGiver) h += fl("Người giao", d.giver ? (d.isGiver ? `<span class="pmr-who">${av(cfg.user)}Bạn</span>` : who(d.giver.user, gname)) : muted("—"));
   if (!(d.split && d.subs.length)) {
-    h += `<div class="pmr-fl"><span class="pmr-lb">Người nhận</span><div class="pmr-pick-wrap">${d.asg.length ? d.asg.map(u => `<span class="pmr-pc">${av(u)}${esc(nameOf(u))}</span>`).join("") : muted("Chưa có người nhận") + " "}${t.workflow_state === "Cancelled" ? "" : L("+ Thêm người", "add-assignee")}</div></div>`;
+    h += `<div class="pmr-fl"><span class="pmr-lb">Người nhận</span><div class="pmr-pick-wrap">${d.asg.length ? d.asg.map(u => `<span class="pmr-pc">${av(u)}${esc(nameOf(u))}</span>`).join("") : muted("Chưa có người nhận") + " "}${terminal || !d.canEdit ? "" : L("+ Thêm người", "add-assignee")}</div></div>`;
   }
   h += fl("Dự án", t.project ? L(esc(t.project_name || t.project), "project", "", "pmr-link-ink") : muted(NOPROJ));
   if (d.rec) h += fl("Lặp lại", `<span class="pmr-tag">${ic("repeat", "pmr-s")}${esc(typeof d.rec === "string" ? d.rec : d.rec.label || d.rec.name || "")}</span>`);
@@ -674,7 +678,7 @@ function paintDue() {
   if (!sec) return;
   const di = dueInfo(t.exp_end_date, t.pm_end_time, t.workflow_state), mine = myPdr(d), open = !isClosed(t.workflow_state);
   const other = d.pdr && !mine && (!d.pdr.status || d.pdr.status === "Pending") ? d.pdr : null;
-  const canAsk = d.isAssignee && !d.isGiver && open, canEdit = (d.isGiver || d.canManage) && open;
+  const canAsk = d.isAssignee && !d.isGiver && open, canEdit = (d.isGiver || d.canManage) && open && d.canEdit;
   let h = `<div class="pmr-fl pmr-fl-first"><span class="pmr-lb">Hạn</span><div class="pmr-due-row">${dueSpan(di)}${t.exp_end_date ? muted(esc(fullDue(t.exp_end_date, t.pm_end_time))) : ""}`;
   if (canAsk && !mine) h += Bs("Xin dời hạn", "ask-open", "pmr-wash pmr-ml", ` aria-expanded="${!!TS.askOpen}"`);
   else if (canEdit) h += L("Đổi hạn", "due-edit", "", "pmr-ml");
@@ -847,13 +851,14 @@ function tabPeople(p) {
 /* Việc con đặt tên riêng (không phải "Mỗi người một việc"): danh sách + nút tròn Xong + thêm nhanh.
    Khôi phục tính năng của /pm cũ (G4.8), giới hạn 2 cấp. */
 function tabSubs(p) {
-  const d = TS.d, closed = isClosed(d.t.workflow_state);
+  const d = TS.d, closed = isClosed(d.t.workflow_state) || !d.canEdit;
   const rows = d.subs.map(s => {
     const done = s.workflow_state === "Done", us = arr(s._assign), u = us[0], di = s.exp_end_date ? dueInfo(s.exp_end_date, s.pm_end_time, s.workflow_state) : null;
-    return `<div class="pmr-srow${done ? " pmr-done" : ""}"><button type="button" class="pmr-cb" data-act="sub-tick"${dattr("task", s.name)} aria-pressed="${done}" aria-label="${done ? "Bỏ đánh dấu xong" : "Đánh dấu xong"}: ${esc(s.subject)}"></button>` +
+    return `<div class="pmr-srow${done ? " pmr-done" : ""}"><button type="button" class="pmr-cb" data-act="sub-tick"${dattr("task", s.name)} aria-pressed="${done}" aria-label="${done ? "Bỏ đánh dấu xong" : "Đánh dấu xong"}: ${esc(s.subject)}"${d.canEdit ? "" : " disabled"}></button>` +
       `<button type="button" class="pmr-tname" data-act="open-sub"${dattr("task", s.name)}>${esc(s.subject || s.name)}</button>` +
       `<span class="pmr-srow-due${di && di.late ? " pmr-warn" : ""}">${di ? esc(di.text) : ""}</span>` +
-      `<span class="pmr-srow-who">${closed && !u ? "" : `<button type="button" class="pmr-srow-asg" data-act="sub-assign"${dattr("task", s.name)} aria-label="${u ? "Giao thêm người cho việc con (đang giao: " + esc(us.map(nameOf).join(", ")) + ")" : "Giao việc con cho…"}" title="${u ? esc(us.map(nameOf).join(", ")) + " · bấm để giao thêm người" : "Giao cho…"}">${u ? stack(us, 3) : '<span class="pmr-srow-noone"></span>'}</button>`}</span></div>`;
+      /* giao nhanh: chỉ người sửa được, và việc con chưa Xong/Huỷ (server G4.3: mở lại trước khi giao) */
+      `<span class="pmr-srow-who">${!d.canEdit || isClosed(s.workflow_state) ? (u ? `<span title="${esc(us.map(nameOf).join(", "))}">${stack(us, 3)}</span>` : "") : `<button type="button" class="pmr-srow-asg" data-act="sub-assign"${dattr("task", s.name)} aria-label="${u ? "Giao thêm người cho việc con (đang giao: " + esc(us.map(nameOf).join(", ")) + ")" : "Giao việc con cho…"}" title="${u ? esc(us.map(nameOf).join(", ")) + " · bấm để giao thêm người" : "Giao cho…"}">${u ? stack(us, 3) : '<span class="pmr-srow-noone"></span>'}</button>`}</span></div>`;
   }).join("");
   p.innerHTML = `<div class="pmr-sub-list">${rows || (closed ? smallEmpty("Không có việc con.") : "")}</div>` + (closed ? "" :
     `<div class="pmr-row pmr-sub-add"><input class="pmr-in pmr-sub-in" aria-label="Việc con mới" placeholder="Thêm việc con, Enter để lưu">${Bs("Thêm việc con", "sub-add")}</div>` +
@@ -902,7 +907,7 @@ function paintStepsCount() {
   if (tb && ck) tb.textContent = "Các bước" + (ck.total ? ` ${ck.done}/${ck.total}` : "");
 }
 function tabSteps(p) {
-  const rows = (TS.chk && TS.chk.rows) || [], terminal = isClosed(TS.d.t.workflow_state);
+  const rows = (TS.chk && TS.chk.rows) || [], terminal = isClosed(TS.d.t.workflow_state) || !TS.d.canEdit;
   p.innerHTML = (rows.length ? rows.map(r => `<label class="pmr-ck${r.is_done ? " pmr-done" : ""}"><input type="checkbox" data-act="step-tick"${dattr("row", r.name)}${r.is_done ? " checked" : ""}${terminal ? " disabled" : ""}><span>${esc(r.item_label)}</span>${r.is_required ? '<em class="pmr-tag">Bắt buộc</em>' : ""}</label>`).join("")
     : smallEmpty("Chưa có bước nào. Chia việc thành vài bước để người nhận biết cần làm gì và bạn theo dõi được tiến độ.")) +
     (terminal ? "" : `<div class="pmr-row pmr-step-add"><input class="pmr-in pmr-step-in" aria-label="Bước mới" placeholder="Thêm bước, Enter để lưu">${Bs("Thêm bước", "step-add")}</div>`);
