@@ -429,7 +429,8 @@ def dong_bo_mot_tep(business_doctype, business_name, file_url):
     """
     if not duoc_soi_guong(business_doctype):
         return {"bo_qua": "loai phieu khong nam trong danh sach cho phep"}
-    if frappe.db.get_value(LINK_DT, {"file_url": file_url}, "sp_item_id"):
+    if frappe.db.get_value(LINK_DT, {"file_url": file_url, "business_doctype": business_doctype,
+                                     "business_name": business_name}, "sp_item_id"):
         return {"bo_qua": "tep da co tren SharePoint - khong tai lai"}
     tep = frappe.get_all(
         "File",
