@@ -948,6 +948,86 @@ class TestCongThuc(unittest.TestCase):
             with self.assertRaises(frappe.ValidationError):
                 f.mix(p, json.dumps({"voices": bad, "batch": "d"}))
 
+    # ---------------------------------------------------------------- 16/10: nhieu ban moi voice ---
+    def _faq_voices(self, batch, names):
+        s, f = self.svc, self._faq()
+        for n in names:
+            self.store.rows["File"]["f_" + n] = {"name": "f_" + n, "file_url": "/private/files/%s.mp3" % n, "owner": "a@ec.vn"}
+        p = s.create_project(json.dumps({"brand": "FRISO", "title": "FAQ", "talk_count": 0}))["name"]
+        return p, [f.upload_voice(p, "/private/files/%s.mp3" % n, batch) for n in names]
+
+    def _faq_finish(self, p, plan_result, children):
+        """worker: ke hoach xong -> task con xong -> do trung xong."""
+        s, W = self.svc, self.W
+        plan = [t for t, x in W.steps if x["op"] == "faq"][-1]
+        W.tasks[plan].update(state="done", result=plan_result)
+        for cid, res in children:
+            W.tasks[cid] = {"id": cid, "state": "done", "result": res}
+        s.tick(p)
+        dt = [t for t, x in W.steps if x["op"] == "dupcheck"][-1]
+        W.tasks[dt].update(state="done", result={"dup": {"self_pct": 1, "cross_pct": 4, "thr": 2, "rows": []}})
+        s.tick(p)
+
+    def test_faq_nhieu_ban_moi_voice(self):
+        s, W, f = self.svc, self.W, self._faq()
+        p, vs = self._faq_voices("dot5", ["1_Gia", "2_Ship"])
+        r = f.mix(p, json.dumps({"voices": vs, "batch": "dot5", "copies": 2}))
+        self.assertEqual((r["voices"], r["copies"], r["videos"]), (2, 2, 4))
+        st = W.last("faq")
+        self.assertEqual((st["copies"], len(st["voices"])), (2, 2))               # worker tu nhan 2 voice x 2 ban
+        rows = self.store.rows["EC AI Video Export"]
+        meta = json.loads(rows[r["export"]]["items"])
+        self.assertEqual((meta["copies"], meta["voices"], rows[r["export"]]["variants"]), (2, ["1_Gia", "2_Ship"], 4))
+        d = "ecv6/output/FRISO/dot5/FAQ_DOT5/"
+        kids = []
+        for i, (n, k) in enumerate([(n, k) for n in ("1_Gia", "2_Ship") for k in (1, 2)]):
+            fn = "%s_%d.mp4" % (n, k)
+            kids.append(("k%d" % i, {"files": [d + fn], "faq": {"name": n, "copy": k, "copies": 2, "file": d + fn, "dur": 9.4, "tail": 0.9, "stutter": 1}}))
+        self._faq_finish(p, {"spawned": [c for c, _ in kids], "dir": d[:-1], "copies": 2, "videos": 4}, kids)
+        self.assertIn("4/4 video", rows[r["export"]]["status"])
+        self.assertNotIn("chưa hỗ trợ", rows[r["export"]]["status"])
+        view = {e["name"]: e for e in s.get_project(p)["exports"]}[r["export"]]
+        self.assertEqual((view["faq"]["copies"], view["faq"]["voices"]), (2, 2))
+        self.assertEqual([(x["file"], x["copy"]) for x in view["faq"]["rows"]],
+                         [("1_Gia_1.mp4", 1), ("1_Gia_2.mp4", 2), ("2_Ship_1.mp4", 1), ("2_Ship_2.mp4", 2)])
+        ls = f.lipsync(p, r["export"])                                          # lipsync ca dot = ca 4 ban
+        self.assertEqual(ls["videos"], 4)
+        self.assertEqual(sorted(x["video"].rsplit("/", 1)[-1] for _, x in W.steps if x["op"] == "lipsync"),
+                         ["1_Gia_1.mp4", "1_Gia_2.mp4", "2_Ship_1.mp4", "2_Ship_2.mp4"])
+
+    def test_faq_so_ban_gioi_han_va_mac_dinh(self):
+        import frappe
+        s, W, f = self.svc, self.W, self._faq()
+        p, vs = self._faq_voices("dot6", ["a"])
+        r = f.mix(p, json.dumps({"voices": vs, "batch": "dot6"}))              # API cu khong gui copies -> 1 ban
+        self.assertNotIn("copies", W.last("faq"))
+        self.assertEqual((r["copies"], json.loads(self.store.rows["EC AI Video Export"][r["export"]]["items"])["copies"]), (1, 1))
+        for bad in (0, 4, "x", -1):
+            with self.assertRaises(frappe.ValidationError):
+                f.mix(p, json.dumps({"voices": vs, "batch": "dot6", "copies": bad}))
+        many = [{"rel": vs[0]["rel"], "name": "v%d" % i} for i in range(f.MAX_VIDEOS // 2 + 1)]
+        with self.assertRaises(frappe.ValidationError) as cm:
+            f.mix(p, json.dumps({"voices": many, "batch": "dot6", "copies": 2}))   # 51 x 2 = 102 > 100
+        self.assertIn("Tối đa %d video" % f.MAX_VIDEOS, str(cm.exception))
+        self.assertEqual(f.mix(p, json.dumps({"voices": many, "batch": "dot6", "copies": 1}))["videos"], len(many))
+        r2 = f.mix(p, json.dumps({"mode": "length", "n": 3, "seconds": 20, "batch": "dot7", "copies": 3}))
+        self.assertEqual((r2["copies"], r2["videos"]), (1, 3))                   # theo do dai: bo qua so ban
+        self.assertNotIn("copies", W.last("faq"))
+
+    def test_faq_nhieu_ban_worker_cu(self):
+        """Worker chua cap nhat bo qua copies -> 1 ban/voice: ERP dem dung so video va bao tren trang."""
+        s, W, f = self.svc, self.W, self._faq()
+        p, vs = self._faq_voices("dot8", ["1_Gia", "2_Ship"])
+        r = f.mix(p, json.dumps({"voices": vs, "batch": "dot8", "copies": 2}))
+        d = "ecv6/output/FRISO/dot8/FAQ_DOT8/"
+        kids = [("o%d" % i, {"files": [d + n + ".mp4"], "faq": {"name": n, "file": d + n + ".mp4", "dur": 9}}) for i, n in enumerate(("1_Gia", "2_Ship"))]
+        self._faq_finish(p, {"spawned": [c for c, _ in kids], "dir": d[:-1]}, kids)   # khong co "copies"
+        st = self.store.rows["EC AI Video Export"][r["export"]]["status"]
+        self.assertIn("2/2 video", st)
+        self.assertIn("chưa hỗ trợ nhiều bản", st)
+        view = {e["name"]: e for e in s.get_project(p)["exports"]}[r["export"]]
+        self.assertEqual((view["faq"]["copies"], view["faq"]["copies_req"]), (1, 2))
+
     def test_dem_clip_noi_loi_qc_khong_gen_bu_vo_han(self):
         s, W = self.svc, self.W
         self.assertEqual(s.flow.talk_counts({"talk_01": 1, "talk_01_rev": 1, "talk_02.qcfail": 1, "talk_02_rev.qcfail": 1, "anchor": 1}), (1, 1))
