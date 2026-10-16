@@ -247,6 +247,16 @@ def _is_system_artefact(file_name):
     return str(file_name or "").startswith(_SYSTEM_FILE_PREFIXES)
 
 
+def _tep_doi_chung(doctype, name):
+    """Ten ban ghi File la ban doi chung cua phieu (dau moc tuong minh, khong theo ten tep).
+    Phieu khong co ban nao -> mot truy van `exists`, khong nap module SharePoint."""
+    if not frappe.db.exists("EC SharePoint Snapshot",
+                            {"business_doctype": doctype, "business_name": name}):
+        return set()
+    from ecentric_workspace.approval_center.shared.integrations import sharepoint_mirror
+    return sharepoint_mirror.tep_doi_chung(doctype, name)
+
+
 def _copy_attachments(source, target):
     """Gan cac tep cua phieu cu sang phieu moi. Tra ve (so tep chep duoc, danh sach loi).
 
@@ -259,9 +269,14 @@ def _copy_attachments(source, target):
     rows = frappe.get_all("File",
                           filters={"attached_to_doctype": source.doctype,
                                    "attached_to_name": source.name},
-                          fields=["file_url", "file_name", "is_private"],
+                          fields=["name", "file_url", "file_name", "is_private"],
                           limit_page_length=0)
     rows = [r for r in rows if not _is_system_artefact(r.get("file_name"))]
+    # Ban doi chung (16/10/2026) cua phieu cu KHONG duoc thanh dinh kem cua phieu moi: chep
+    # sang thi lan gui toi no bi soi guong len SharePoint va thanh "tep hop dong" moi.
+    doi_chung = _tep_doi_chung(source.doctype, source.name)
+    if doi_chung:
+        rows = [r for r in rows if r.get("name") not in doi_chung]
     seen, copied, failed = set(), 0, []
     for r in rows:
         url = (r.get("file_url") or "").strip()

@@ -40,3 +40,17 @@ CONTRACT_REVIEW_DEFINITION = _dc_replace(
         ("Hiệu lực từ", "contract_start_date"),
     ),
 )
+
+
+# Tab "Tat ca" (16/10/2026, Finance gop y, PO duyet): them cot + o loc theo truong nghiep vu.
+# "Gia tri" trung truong so tien cua form (business_summary.AMOUNT_FIELDS) nen KHONG thanh
+# cot moi - no doi nhan cot "So tien" san co thanh "Gia tri". Xem all_list.py.
+CONTRACT_REVIEW_DEFINITION = _dc_replace(
+    CONTRACT_REVIEW_DEFINITION,
+    all_tab_columns=(
+        ("Legal entity / Brand", "brand", "text"),
+        ("Loại hợp đồng", "contract_type", "select"),
+        ("Giá trị", "contract_value", "money"),
+    ),
+    all_tab_filters=("brand", "contract_type"),
+)

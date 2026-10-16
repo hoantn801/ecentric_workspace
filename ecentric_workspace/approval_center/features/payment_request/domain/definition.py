@@ -106,3 +106,15 @@ PAYMENT_REQUEST_DEFINITION = _dc_replace(
         ("Hình thức", "payment_mode"),
     ),
 )
+
+
+# Tab "Tat ca" (16/10/2026): nguoi nhan + brand lien quan thanh cot, loc duoc theo brand.
+# KHONG dua so tai khoan / ngan hang vao day: cot cua tab nay di thang vao tep xuat.
+PAYMENT_REQUEST_DEFINITION = _dc_replace(
+    PAYMENT_REQUEST_DEFINITION,
+    all_tab_columns=(
+        ("Người nhận", "payee_full_name", "text"),
+        ("Brand", "ec_brand", "text"),
+    ),
+    all_tab_filters=("ec_brand",),
+)

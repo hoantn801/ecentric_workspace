@@ -146,7 +146,9 @@ def _load(source_fields, status, actor="a@x.vn", requested_by="a@x.vn",
     qs = types.SimpleNamespace(
         employee_context=lambda u: {"employee": "EMP-1", "department": "IT", "company": "EC"})
 
-    env = {"frappe": _Frappe, "_": lambda s: s, "capabilities": caps, "query_service": qs}
+    env = {"frappe": _Frappe, "_": lambda s: s, "capabilities": caps, "query_service": qs,
+           # Ban doi chung (16/10/2026): phieu trong cac test nay khong co ban nao.
+           "_tep_doi_chung": lambda dt, dn: set()}
     exec(compile(src, "command_service.py", "exec"), env)
     return env["clone_request"], inserted_files, created
 

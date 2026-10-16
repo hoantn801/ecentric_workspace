@@ -42,6 +42,9 @@ THU_MUC_THEO_PHIEU = {
 }
 
 LINK_DT = "EC SharePoint File Link"
+#: Ban doi chung (16/10/2026) - ban chup bat bien cua tep tren SharePoint tai moi quyet dinh.
+#: Xem `sharepoint_snapshot.py`. Khai o DAY vi chinh module nay la noi phai LOAI chung ra.
+SNAP_DT = "EC SharePoint Snapshot"
 TIMEOUT = 30
 
 
@@ -325,12 +328,39 @@ def _phieu_duyet_theo_tham_chieu(business_doctype, business_name):
     return rows[0] if rows else None
 
 
+def tep_doi_chung(business_doctype, business_name):
+    """Ten (docname) cac ban ghi File la BAN DOI CHUNG cua phieu. DAU MOC TUONG MINH.
+
+    Khop theo ten ban ghi File ma `EC SharePoint Snapshot` tro vao - KHONG theo tien to ten tep,
+    va KHONG theo `file_url`: Frappe gop tep trung noi dung vao CUNG mot `file_url`
+    (`content_hash`), nen mot ban chup chua ai sua co the trung URL voi chinh tep nguoi gui tai
+    len. Loai theo URL thi loai luon tep that cua ho khoi SharePoint.
+
+    Moi cho duyet dinh kem cua phieu (soi guong, chep sang phieu moi, man hinh chi tiet) phai
+    goi ham nay. Ban doi chung ma bi day nguoc len SharePoint thi no thanh "tep hop dong" moi
+    va nguoi duyet sau se sua tren no."""
+    ra = set()
+    for r in frappe.get_all(SNAP_DT,
+                            filters={"business_doctype": business_doctype,
+                                     "business_name": business_name},
+                            fields=["docx_file", "pdf_file"], limit_page_length=0) or []:
+        for f in (r.get("docx_file"), r.get("pdf_file")):
+            if f:
+                ra.add(f)
+    return ra
+
+
 def _dinh_kem(business_doctype, business_name):
-    """Dinh kem cua mot phieu. Tep Office truoc: do la thu nguoi ta can mo bang Word Online."""
+    """Dinh kem cua mot phieu. Tep Office truoc: do la thu nguoi ta can mo bang Word Online.
+
+    KHONG gom ban doi chung (16/10/2026) - xem `tep_doi_chung`."""
     tep = frappe.get_all(
         "File",
         filters={"attached_to_doctype": business_doctype, "attached_to_name": business_name},
-        fields=["file_name", "file_url"], order_by="creation asc")
+        fields=["name", "file_name", "file_url"], order_by="creation asc")
+    loai = tep_doi_chung(business_doctype, business_name)
+    if loai:
+        tep = [t for t in tep if t.get("name") not in loai]
     duoi = (".docx", ".doc", ".xlsx", ".xls", ".pptx", ".ppt")
     office = [t for t in tep if (t.file_name or "").lower().endswith(duoi)]
     khac = [t for t in tep if t not in office]
@@ -383,6 +413,53 @@ def dong_bo_nen(business_doctype, business_name):
         return dong_bo_phieu(business_doctype, business_name)
     except Exception:
         frappe.log_error(frappe.get_traceback(), "SharePoint soi guong nen %s" % business_name)
+        return None
+
+
+def dong_bo_mot_tep(business_doctype, business_name, file_url):
+    """Dua DUNG MOT tep (vua duoc nguoi xu ly them o buoc duyet - `requests/add_file.py`) len
+    SharePoint, cap quyen cho ca luong, ghi lien ket. Tra ve dict tong ket.
+
+    KHAC `dong_bo_phieu` o cho KHONG dung toi tep nao khac cua phieu: tep da co tren SharePoint
+    la ban SONG, nguoi duyet sua/comment truc tiep - tai lai la xoa sach cong cua ho (cung ly do
+    voi `cap_bu_link`). Hai lop chan:
+      1. tep nay DA co lien ket SharePoint -> bo qua (goi lai / job chay hai lan khong ghi de);
+      2. mot dinh kem KHAC cua phieu trung ten sau khi lam sach -> bo qua + ghi log. Upload
+         session dung conflictBehavior=replace, trung ten la ghi de dung tep cua nguoi khac.
+    """
+    if not duoc_soi_guong(business_doctype):
+        return {"bo_qua": "loai phieu khong nam trong danh sach cho phep"}
+    if frappe.db.get_value(LINK_DT, {"file_url": file_url, "business_doctype": business_doctype,
+                                     "business_name": business_name}, "sp_item_id"):
+        return {"bo_qua": "tep da co tren SharePoint - khong tai lai"}
+    tep = frappe.get_all(
+        "File",
+        filters={"attached_to_doctype": business_doctype, "attached_to_name": business_name},
+        fields=["file_name", "file_url"], order_by="creation asc")
+    cua_tep = [t for t in tep if t.file_url == file_url]
+    if not cua_tep:
+        return {"bo_qua": "tep khong thuoc phieu nay"}
+    t = cua_tep[0]
+    ten = wr_sp.safe_filename(t.file_name).lower()
+    if any(wr_sp.safe_filename(k.file_name).lower() == ten for k in tep if k.file_url != file_url):
+        frappe.log_error("Trung ten %s tren phieu %s - khong tai len de khoi ghi de tep cu"
+                         % (t.file_name, business_name), "SharePoint them tep - trung ten")
+        return {"bo_qua": "trung ten voi tep khac cua phieu"}
+    token = wr_sp.get_app_token()
+    kq = tai_len(business_doctype, t.file_url, t.file_name, business_name, token=token)
+    r = cap_quyen(kq["item_id"], nguoi_trong_luong(business_doctype, business_name), token=token)
+    ghi_lien_ket(business_doctype, t.file_url, business_name, kq, r["da_cap"],
+                 share_url=r.get("link"))
+    return {"xong": [t.file_name]}
+
+
+def dong_bo_mot_tep_nen(business_doctype, business_name, file_url):
+    """Diem vao `frappe.enqueue` cho `dong_bo_mot_tep`. Nuot HET loi (xem `dong_bo_nen`)."""
+    try:
+        return dong_bo_mot_tep(business_doctype, business_name, file_url)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(),
+                         "SharePoint them tep nen %s / %s" % (business_name, file_url))
         return None
 
 

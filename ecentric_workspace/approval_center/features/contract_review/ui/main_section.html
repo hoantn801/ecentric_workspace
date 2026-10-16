@@ -546,6 +546,7 @@
             +'</div><div class="fld'+(ch.indexOf("request_details")>=0?' hl-changed-box':'')+'" style="margin-top:10px"><label>Yêu cầu chi tiết'+(ch.indexOf("request_details")>=0?' <span class="badge b-amber" style="font-size:10px">Đã sửa</span>':'')+'</label><textarea class="ro" readonly rows="4">'+esc(biz.request_details||"")+'</textarea></div></div>';
         })()
       +'<div class="card"><h3>Đính kèm</h3>'+renderAttachments(det.attachments)+'</div>'
+      +renderDoiChung(det.doi_chung)
       +'<div class="card"><h3>Hành động</h3>'+actionPanelHTML(det)+'</div>'
       +'<div class="card"><h3>Lịch sử</h3>'+timelineHTML(det.timeline)+'</div>';
     $("d-back").onclick=function(){ window.location.href=hubHref(); };
@@ -574,6 +575,28 @@
            +'<td style="white-space:nowrap">'+mo+'</td></tr>'
            + canhBaoSuaSauDuyet(f);
     }).join("")+'</tbody></table>'; }
+
+  // Ban doi chung (16/10/2026): server tu chup tep tren SharePoint o MOI quyet dinh (duyet / tu
+  // choi / tra lai / hoan tat) - giu nguyen track changes + comment luc do, vi nguoi duyet sau
+  // co the Accept/Reject hay xoa comment cua nguoi truoc tren ban song. Server da tach rieng khoi
+  // det.attachments va sap MOI NHAT TRUOC; o day chi ve. Khong co ban nao thi khong ve the.
+  function renderDoiChung(list){ if(!list||!list.length) return "";
+    return '<div class="card"><h3>Bản đối chứng</h3>'
+      +'<div class="hint" style="margin-bottom:8px">Hệ thống tự chụp tệp trên SharePoint ngay khi có quyết định — giữ nguyên track changes và comment tại thời điểm đó. Không sửa, không xoá được.</div>'
+      +'<table class="tbl"><tbody>'+list.map(function(x){
+        var nhan=String(x.action_label||x.action||""); nhan=nhan.charAt(0).toUpperCase()+nhan.slice(1);
+        var duoi=String(x.source_file_name||"").split(".").pop().toUpperCase()||"Bản gốc";
+        var links=[];
+        if(x.pdf_file_url) links.push('<a href="'+esc(x.pdf_file_url)+'" target="_blank" rel="noopener">PDF</a>');
+        if(x.docx_file_url) links.push('<a href="'+esc(x.docx_file_url)+'" target="_blank" rel="noopener">'+esc(duoi)+'</a>');
+        var row='<tr><td><b>'+esc(nhan)+'</b><div class="hint">'+esc(x.source_file_name||"")+'</div></td>'
+          +'<td>'+esc(x.actor_name||x.actor||"")+'</td><td>'+esc(fmt(x.action_time))+'</td>'
+          +'<td style="white-space:nowrap">'+(links.join(' <span class="hint">·</span> ')||'<span class="hint">—</span>')+'</td></tr>';
+        if(x.sua_sau_quyet_dinh) row+='<tr><td colspan="4"><div class="banner warn" style="margin:6px 0 2px">'
+          +'Tệp được sửa lúc '+esc(fmt(x.sp_last_modified))+(x.sp_last_modified_by?(' bởi '+esc(x.sp_last_modified_by)):'')
+          +' — sau quyết định nhưng trước lúc chụp. Bản này có thể đã gồm thay đổi đó.</div></td></tr>';
+        return row;
+      }).join("")+'</tbody></table></div>'; }
 
   // Ban tren SharePoint la ban SONG - Hoan chot cho sua/comment truc tiep. Nen "tep da doi"
   // KHONG phai loi, va khong duoc chan: nguoi duyet sua mot cau chu cung lam moc thoi gian

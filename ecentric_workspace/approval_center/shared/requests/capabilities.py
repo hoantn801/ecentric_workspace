@@ -199,6 +199,11 @@ def derive(user, business_doc, approval_request):
             {"approval_request": approval_request.name,
              "level_no": approval_request.current_level}, "level_status")
         admin_approve = level_status == "In Progress"
+    try:
+        from ecentric_workspace.approval_center.shared.requests import add_file as _af
+        _add = _af.capability(user, business_doc, approval_request)
+    except Exception:
+        _add = {"can_add_attachment": False, "add_attachment_request": None}
     return {
         "requires_signature": _requires_signature(can_act, business_doc, approval_request),
         "can_edit": requester and (
@@ -222,6 +227,9 @@ def derive(user, business_doc, approval_request):
         # 01/10: nut "Nhac nguoi xu ly" - nguoi gui, 15 phut mot lan (shared/requests/remind.py).
         "can_remind": _remind[0],
         "remind_wait_seconds": _remind[1],
+        # 16/10: nut "Them tep" - nguoi DANG giu phieu (shared/requests/add_file.py).
+        "can_add_attachment": _add["can_add_attachment"],
+        "add_attachment_request": _add["add_attachment_request"],
     }
 
 

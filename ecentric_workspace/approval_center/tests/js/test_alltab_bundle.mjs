@@ -82,10 +82,18 @@ la(/res\.ok/.test(than) && /res\.text\(\)/.test(than),
 const maKhongCT = SRC.replace(/\/\/[^\n]*/g, "");
 la(!/["']approval_type["']/.test(maKhongCT),
    "bundle GUI approval_type len server - viec ghim form la cua server, client dung cham vao");
-// Danh sach khoa loc phai GIONG NHAU giua man hinh va export. Lech nhau thi tep xuat ra
+// Bo loc gui server phai GIONG NHAU giua man hinh va export. Lech nhau thi tep xuat ra
 // khong khop cai nguoi ta dang nhin - va khong ai phat hien cho toi luc doi chieu so lieu.
+// Tu 16/10 ca hai di qua MOT ham `boLoc(st)` (them sort / so tien / loc rieng form): mot
+// danh sach khoa duy nhat, va CA nap lan taiTep deu goi no.
 const khoa = [...maKhongCT.matchAll(/\[\s*"status",\s*"department",\s*"requester",\s*"date_from",\s*"date_to"\s*\]/g)];
-la(khoa.length === 2, `danh sach khoa loc xuat hien ${khoa.length} lan, cho doi 2 (bang + export)`);
+la(khoa.length === 1, `danh sach khoa loc xuat hien ${khoa.length} lan, cho doi 1 (trong boLoc)`);
+{
+  const than = (ten, ket) => maKhongCT.slice(maKhongCT.indexOf("function " + ten + "("),
+                                             maKhongCT.indexOf(ket, maKhongCT.indexOf("function " + ten + "(")));
+  la(/var f = boLoc\(st\);/.test(than("nap", "function boLoc")), "nap khong dung boLoc");
+  la(/var f = boLoc\(st\);/.test(than("taiTep", "var HEN")), "export khong dung boLoc - tep se lech bang");
+}
 
 // ---- 6. chong ket qua cu ghi de ket qua moi --------------------------------------------
 {
@@ -109,6 +117,14 @@ la(khoa.length === 2, `danh sach khoa loc xuat hien ${khoa.length} lan, cho doi 
   la(st.rows.length === 1 && st.rows[0].name === "MOI",
      `ket qua cu ghi de ket qua moi (dang la ${JSON.stringify(st.rows)})`);
   la(st.total === 1, "tong cua luot cu ghi de tong cua luot moi");
+}
+
+// ---- 6b. ban sao ec_alltab.js phai GIONG HET bundle -------------------------------------
+// Hai file cung ten trong public/js: sua mot ma quen mot thi trang nao nap ban kia se chay
+// code cu ma khong ai biet (16/10/2026, doi sang loc tren header cot).
+{
+  const COPY = readFileSync(join(here, "..", "..", "..", "public", "js", "ec_alltab.js"), "utf8");
+  la(COPY === SRC, "ec_alltab.js lech ec_alltab.bundle.js - chep lai cho giong het");
 }
 
 // ---- 7. ca 28 form phai noi vao bundle, khong chep UI ----------------------------------

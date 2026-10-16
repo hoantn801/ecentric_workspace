@@ -82,7 +82,10 @@ class TestGuard(unittest.TestCase):
         va la nguon lam `test_feature_architecture` do tu 04/09."""
         h = _read("hooks.py")
         i = h.index('"File": {')
-        self.assertIn('"on_trash": "ecentric_workspace.platform.esign.file_guard.forbid_signed_file_delete"', h[i:i + 400])
+        # 16/10: on_trash thanh DANH SACH (them chot ban doi chung hop dong) - van phai co guard nay.
+        khoi = h[i:i + 600]
+        self.assertIn('"on_trash": [', khoi)
+        self.assertIn('"ecentric_workspace.platform.esign.file_guard.forbid_signed_file_delete"', khoi)
 
 
 if __name__ == "__main__":

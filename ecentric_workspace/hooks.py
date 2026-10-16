@@ -53,7 +53,12 @@ doc_events = {
     "File": {
         # 08/09 (Hoan): tep da ky so KHONG BAO GIO duoc xoa - moi duong, ke ca Administrator.
         # Cong cu quan tri co ly do that bat frappe.flags.ec_allow_signed_file_delete.
-        "on_trash": "ecentric_workspace.platform.esign.file_guard.forbid_signed_file_delete",
+        "on_trash": [
+            "ecentric_workspace.platform.esign.file_guard.forbid_signed_file_delete",
+            # 16/10: ban doi chung hop dong (EC SharePoint Snapshot) la bang chung bat bien -
+            # nguoi gui phieu (chu phieu) khong duoc go no khoi phieu.
+            "ecentric_workspace.approval_center.shared.integrations.sharepoint_snapshot.chan_xoa_tep_doi_chung",
+        ],
     },
     "Task": {
         # G4.10: enforce PM transition rules on EVERY save path (API + generic apply_workflow).
@@ -943,3 +948,9 @@ for _ec_fx in fixtures:
         for _ec_fx_n in ("Employee-ec_ho_ten_vi", "Employee-ec_chuc_danh_vi"):
             if _ec_fx_n not in _ec_fx_names:
                 _ec_fx_names.append(_ec_fx_n)
+
+# 16/10/2026 - Nut "Them tep" o buoc duyet (moi form + popup hub). Nguoi DANG giu phieu them tep,
+# chi them khong xoa, ghi lich su "Attachment Added". Gan vao EcRemind.buttonHTML (31 form khong
+# phai sua). Backend: approval_center/shared/requests/add_file.py; endpoint reporting.actions.
+web_include_js.append("ec_addfile.bundle.js")
+web_include_css.append("ec_addfile.bundle.css")
