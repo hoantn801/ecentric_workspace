@@ -166,7 +166,7 @@
   // ---- bang truot tu duoi len -------------------------------------------------------
   var SIGN_FILE = "/api/method/ecentric_workspace.platform.esign.api.get_package_file?dsf_name=";
   var ACT_VI = { Submitted: "Đã gửi", Approved: "Đã duyệt", Rejected: "Từ chối", "Information Requested": "Yêu cầu bổ sung",
-    Resubmitted: "Gửi lại", Restarted: "Gửi lại từ đầu", Skipped: "Bỏ qua", Cancelled: "Huỷ", Reminded: "Nhắc xử lý",
+    Resubmitted: "Gửi lại", Restarted: "Gửi lại từ đầu", Skipped: "Bỏ qua", Cancelled: "Huỷ", Reminded: "Nhắc xử lý", "Attachment Added": "Thêm tệp",
     Commented: "Ghi chú", Signed: "Đã ký" };
 
   Inst.prototype.openSheet = function (r) {

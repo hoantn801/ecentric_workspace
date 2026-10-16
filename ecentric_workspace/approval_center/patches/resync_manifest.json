@@ -31,8 +31,8 @@
   },
   "approval_center/features/booking_request/ui/main_section.html": {
     "baseline": "2026-09-11",
-    "last_resync_patch": "p250_o_so_tien_dau_cham",
-    "sha256": "57b471e16dfb1da8c6de66f41a32c3015ae51c1c77b4e2f5f8c87738f71be274"
+    "last_resync_patch": "p298_them_tep_buoc_duyet",
+    "sha256": "eeb75037146cbf63018150055f8b4d0ec6a28559277e4873f185996041c2c04b"
   },
   "approval_center/features/budget_setting/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -144,8 +144,8 @@
     "sha256": "bbd1401edb087f95cdf9c62667eaf761f9abf20cfb6817993fda518c75455ccc"
   },
   "approval_center/ui/all_requests/main_section.html": {
-    "last_resync_patch": "p205_resync_share_link_pages",
-    "sha256": "fb6816fe1e87562c17fd139be7b73f3f15d7bef62218bbe7c9c42abe36024196"
+    "last_resync_patch": "p298_them_tep_buoc_duyet",
+    "sha256": "42701962b373db3db109f878a70900ada43210cecd034e1b423cad1950d8b3ea"
   },
   "approval_center/ui/dashboard/main_section.html": {
     "baseline": "2026-08-31",

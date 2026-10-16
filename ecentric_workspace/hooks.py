@@ -943,3 +943,9 @@ for _ec_fx in fixtures:
         for _ec_fx_n in ("Employee-ec_ho_ten_vi", "Employee-ec_chuc_danh_vi"):
             if _ec_fx_n not in _ec_fx_names:
                 _ec_fx_names.append(_ec_fx_n)
+
+# 16/10/2026 - Nut "Them tep" o buoc duyet (moi form + popup hub). Nguoi DANG giu phieu them tep,
+# chi them khong xoa, ghi lich su "Attachment Added". Gan vao EcRemind.buttonHTML (31 form khong
+# phai sua). Backend: approval_center/shared/requests/add_file.py; endpoint reporting.actions.
+web_include_js.append("ec_addfile.bundle.js")
+web_include_css.append("ec_addfile.bundle.css")

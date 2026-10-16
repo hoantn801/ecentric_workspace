@@ -508,7 +508,8 @@
   var ACT_VI={ Submitted:"Đã gửi", Approved:"Đã duyệt", Rejected:"Từ chối", Cancelled:"Đã huỷ",
     Completed:"Hoàn tất", Resubmitted:"Gửi lại", "Information Requested":"Yêu cầu bổ sung",
     Skipped:"Bỏ qua", Started:"Bắt đầu xử lý", Reopened:"Mở lại", Escalated:"Chuyển cấp trên",
-    "Information Provided":"Đã bổ sung", Claimed:"Nhận xử lý", Assigned:"Giao xử lý", Delegated:"Uỷ quyền" };
+    "Information Provided":"Đã bổ sung", Claimed:"Nhận xử lý", Assigned:"Giao xử lý", Delegated:"Uỷ quyền",
+    "Attachment Added":"Thêm tệp" };
   var HL_KEYS=["số tiền","chi phí","giá trị","ngân sách","tổng","số lượng","ngày","thời gian","hạn"];
   function ovEl(){
     var ov=document.getElementById("ec-apl-ov");
@@ -606,6 +607,15 @@
   // phình là trôi lên. Nên: chờ dữ liệu rồi dựng MỘT LẦN. Chỉ khi mạng chậm quá ngưỡng mới
   // hiện khung chờ, để người dùng biết hệ thống đang làm việc.
   var SKELETON_AFTER_MS=180;
+  // Thêm tệp xong (ec_addfile.bundle.js): popup tự vẽ lại đúng phiếu đang mở để danh sách
+  // "Đính kèm" + lịch sử hiện tệp mới; preventDefault để asset không tự phát popstate.
+  document.addEventListener("ec-addfile:done", function(e){
+    var d=(e&&e.detail)||{};
+    if(!state.openReq || d.request!==state.openReq) return;
+    e.preventDefault();
+    toast("Đã thêm tệp "+(d.file_name||"")+" vào "+state.openReq, "ok");
+    openDetail(state.openReq);
+  });
   function openDetail(reqName){
     if(!reqName) return;
     state.openReq=reqName;
@@ -910,6 +920,8 @@
     if(cap.can_reject) acts.push('<button type="button" class="btn reject" data-a="reject">Từ chối</button>');
     if(cap.can_request_information) acts.push('<button type="button" class="btn" data-a="info">Yêu cầu bổ sung</button>');
     if(cap.can_claim) acts.push('<button type="button" class="btn claim" data-a="claim">Nhận xử lý</button>');
+    // 16/10: "Thêm tệp" cho người đang giữ phiếu - nút + tải lên ở asset chung ec_addfile.bundle.js.
+    if(window.EcAddFile) acts.push(EcAddFile.buttonHTML(cap));
 
     box.classList.toggle("solo", !tl);
     ensureShell(box);

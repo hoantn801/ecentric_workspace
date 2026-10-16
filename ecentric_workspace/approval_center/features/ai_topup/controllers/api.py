@@ -115,6 +115,11 @@ def _capabilities(user, biz, req):
         _cl = frappe.db.get_value("EC Approval Request Level",
                                   {"approval_request": req.name, "level_no": req.current_level}, "level_status")
         can_admin_approve = (_cl == "In Progress")
+    try:
+        from ecentric_workspace.approval_center.shared.requests import add_file as _af
+        _add = _af.capability(user, biz, req)
+    except Exception:
+        _add = {"can_add_attachment": False, "add_attachment_request": None}
     return {
         "can_edit": is_requester and (req is None or req.approval_status == "Information Required"),
         "can_submit": is_requester and req is None,
@@ -132,6 +137,9 @@ def _capabilities(user, biz, req):
         # 01/10: nut "Nhac nguoi xu ly" - cung luat voi cac form khac (shared/requests/remind.py).
         "can_remind": _remind[0],
         "remind_wait_seconds": _remind[1],
+        # 16/10: nut "Them tep" - cung luat voi cac form khac (shared/requests/add_file.py).
+        "can_add_attachment": _add["can_add_attachment"],
+        "add_attachment_request": _add["add_attachment_request"],
     }
 
 

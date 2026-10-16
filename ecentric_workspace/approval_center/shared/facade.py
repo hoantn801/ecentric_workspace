@@ -70,6 +70,11 @@ class ApprovalFacade:
         from ecentric_workspace.approval_center.shared.requests import remind as _remind
         return _remind.remind(definition, name)
 
+    def add_attachment(self, definition, name, file_url):
+        """Nguoi DANG giu phieu them tep o buoc duyet - chi them, ghi lich su (16/10)."""
+        from ecentric_workspace.approval_center.shared.requests import add_file as _add_file
+        return _add_file.add(definition, name, file_url)
+
     def approve_with_operation_date(self, definition, name, comment=None, operation_date=None):
         return command_service.approve_with_operation_date(
             definition, name, comment, operation_date)

@@ -64,7 +64,7 @@
    "fieldname": "action",
    "fieldtype": "Select",
    "label": "Action",
-   "options": "Submitted\nApproved\nRejected\nInformation Requested\nResubmitted\nRestarted\nSkipped\nCancelled\nSystem Transition\nAssigned\nStarted\nCompleted\nCommented\nReminded",
+   "options": "Submitted\nApproved\nRejected\nInformation Requested\nResubmitted\nRestarted\nSkipped\nCancelled\nSystem Transition\nAssigned\nStarted\nCompleted\nCommented\nReminded\nAttachment Added",
    "in_list_view": 1,
    "in_standard_filter": 1
   },

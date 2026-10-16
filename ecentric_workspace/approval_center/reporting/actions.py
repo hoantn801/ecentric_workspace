@@ -54,6 +54,16 @@ def claim_fulfillment(request_name):
     return APPROVAL_FACADE.claim_fulfillment(definition, name)
 
 
+# 16/10/2026: nut "Them tep" o buoc duyet - MOT endpoint cho moi form (nut dung chung
+# ec_addfile.bundle.js tren 31 trang form + popup hub). Luat o shared/requests/add_file.py.
+@frappe.whitelist(methods=["POST"])
+def add_attachment(request_name, file_url):
+    definition, name = _resolve(request_name)
+    out = APPROVAL_FACADE.add_attachment(definition, name, file_url)
+    out["business_name"] = name
+    return out
+
+
 @frappe.whitelist(methods=["POST"])
 def discard_draft(approval_type, name):
     """Huỷ một bản nháp từ dải "Nháp của tôi" trên hub (07/09, Hoàn: nháp không dùng thì

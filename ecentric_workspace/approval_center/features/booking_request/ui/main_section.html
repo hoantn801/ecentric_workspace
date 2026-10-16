@@ -224,6 +224,10 @@
     var url=window.location.pathname+(q.toString()?("?"+q.toString()):""); window.history[replace?"replaceState":"pushState"]({},"",url); route(); }
   function route(){ readRoute(); render(); }
   window.addEventListener("popstate", route);
+  // 16/10: "Thêm tệp" xong (ec_addfile.bundle.js). Chi tiết ở đây được nhớ theo mã phiếu, nên
+  // tín hiệu popstate chung của asset sẽ vẽ lại từ bản cũ -> tự bỏ bản nhớ rồi tải lại.
+  document.addEventListener("ec-addfile:done", function(e){ if(state.tab!=="detail"||!state.id) return;
+    e.preventDefault(); state.detail=null; toast("Đã thêm tệp "+((e.detail||{}).file_name||"")+" vào phiếu."); renderDetail($("book-body")); });
 
   function renderTabs(){ var box=$("book-tabs"); if(!box)return;
     // Cung nguon voi `tabAllowed`: `state.boot.tabs` do server tinh theo tung nguoi.

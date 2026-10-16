@@ -14,7 +14,15 @@
   "use strict";
   if (window.EcRemind) return;
   function mins(sec) { return Math.max(1, Math.ceil((Number(sec) || 0) / 60)); }
+  // 16/10: khu nut nay cung la CHO DUNG CHUNG cho nut "Them tep" (ec_addfile.bundle.js) - 31 trang
+  // form da goi EcRemind.buttonHTML(cap), noi them o day thi khong phai sua trang nao. Nguoi gui
+  // thay nut Nhac, nguoi dang giu phieu thay nut Them tep; hai luat khong chong nhau.
   function buttonHTML(cap) {
+    var extra = (window.EcAddFile && typeof window.EcAddFile.buttonHTML === "function")
+      ? window.EcAddFile.buttonHTML(cap) : "";
+    return remindHTML(cap) + extra;
+  }
+  function remindHTML(cap) {
     cap = cap || {};
     if (!cap.can_remind) return "";
     var wait = Number(cap.remind_wait_seconds) || 0;

@@ -1,0 +1,15 @@
+/* Nut "Them tep" o buoc duyet (16/10/2026) - xem public/js/ec_addfile.bundle.js. */
+.ec-addfile-btn { cursor: pointer; user-select: none; }
+.ec-addfile-btn:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.ec-addfile-panel { margin-top: 10px; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 9px;
+  background: #f8fafc; font-size: 13px; line-height: 1.45; color: #1e293b; }
+.ec-addfile-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.ec-addfile-err { margin-top: 8px; color: #b91c1c; font-weight: 600; }
+.ec-addfile-err[hidden] { display: none; }
+.ec-addfile-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 10090;
+  background: #0f172a; color: #fff; padding: 10px 16px; border-radius: 9px; font-size: 13.5px; max-width: 92vw; }
+.ec-addfile-toast.err { background: #b91c1c; }
+.ec-addfile-toast[hidden] { display: none; }
+@media (max-width: 768px) {
+  .ec-addfile-btn, .ec-addfile-panel .btn { min-height: 44px; }
+}
