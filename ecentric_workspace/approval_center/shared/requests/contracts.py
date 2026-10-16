@@ -1,4 +1,5 @@
 """Immutable contract implemented by every Approval Center request type."""
+import re
 from dataclasses import dataclass, fields
 from types import MappingProxyType
 from typing import Callable, Mapping, Optional, Tuple
@@ -18,6 +19,12 @@ STANDARD_STATUS_LABELS = (
     ("Rejected", "Bị từ chối"),
     ("Cancelled", "Đã hủy"),
 )
+
+#: Kieu hien thi hop le cho mot cot them o tab "Tat ca" (xem `all_tab_columns`).
+ALL_TAB_COLUMN_KINDS = ("text", "money", "date", "select")
+#: Ten truong duoc phep khai cho tab "Tat ca". Ten nay se di vao SQL (duoi dang dinh danh
+#: trong dau backtick) nen chan ngay tu luc nap registry, khong doi toi luc truy van.
+_FIELDNAME_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,6 +108,16 @@ class ApprovalDefinition:
     #: so tai khoan; mot form nghi phep se dem thu khac hoan toan), va endpoint dung chung
     #: da co dung mot luat - hoi registry. Them form thu 29 khong duoc sua file nay.
     batch_flagger: Optional[Callable] = None
+    #: Cot THEM cho tab "Tat ca" cua form nay: ((nhan, fieldname, kieu), ...), kieu thuoc
+    #: ALL_TAB_COLUMN_KINDS. fieldname la truong cua `business_doctype` (khong phai cua
+    #: EC Approval Request). Server doc gia tri theo lo cho trang dang xem va dua vao tep
+    #: xuat. Cot trung voi truong so tien cua form (business_summary.AMOUNT_FIELDS) KHONG
+    #: them cot moi - nhan cua no thay cho nhan "So tien" cua cot da co.
+    #: Mac dinh rong = bang giu nguyen 5 cot nhu cu.
+    all_tab_columns: Tuple[Tuple[str, str, str], ...] = ()
+    #: Truong (cua `business_doctype`) co o loc dang danh sach chon tren tab "Tat ca". Gia tri
+    #: trong danh sach chi lay tu nhung phieu NGUOI XEM DUOC PHEP XEM (scope_predicate).
+    all_tab_filters: Tuple[str, ...] = ()
 
     @property
     def status_label_map(self) -> Mapping[str, str]:
@@ -132,5 +149,24 @@ def validate_definition(definition: ApprovalDefinition) -> None:
         raise ValueError("definition callback is not callable: detail_extender")
     if definition.batch_flagger is not None and not callable(definition.batch_flagger):
         raise ValueError("definition callback is not callable: batch_flagger")
+    _validate_all_tab(definition)
+
+
+def _validate_all_tab(definition: ApprovalDefinition) -> None:
+    """Khai bao tab "Tat ca" sai thi gay LUC NAP, khong phai luc mot nguoi bam loc."""
+    for col in definition.all_tab_columns:
+        if not (isinstance(col, tuple) and len(col) == 3
+                and all(isinstance(x, str) for x in col)):
+            raise ValueError("all_tab_columns entries must be (label, fieldname, kind)")
+        label, fieldname, kind = col
+        if not label.strip():
+            raise ValueError("all_tab_columns label is empty: %s" % fieldname)
+        if not _FIELDNAME_RE.match(fieldname):
+            raise ValueError("all_tab_columns fieldname is not a plain fieldname: %r" % fieldname)
+        if kind not in ALL_TAB_COLUMN_KINDS:
+            raise ValueError("all_tab_columns kind not allowed: %r" % kind)
+    for fieldname in definition.all_tab_filters:
+        if not (isinstance(fieldname, str) and _FIELDNAME_RE.match(fieldname)):
+            raise ValueError("all_tab_filters fieldname is not a plain fieldname: %r" % (fieldname,))
 
 

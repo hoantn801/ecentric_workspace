@@ -30,7 +30,8 @@
 .ec-at-bar{ display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
 .ec-at-bar .ec-at-q,
 .ec-at-bar .ec-at-f,
-.ec-at-bar button{
+.ec-at-bar button,
+.ec-at-more .ec-at-f{
   height:30px; font-size:12px; font-family:inherit; color:var(--ec-at-body);
   background:var(--ec-at-surface); border:1px solid var(--ec-at-border);
   border-radius:6px; padding:0 8px; box-sizing:border-box;
@@ -41,7 +42,29 @@
 .ec-at-bar button:disabled{ opacity:.55; cursor:default; }
 .ec-at-bar .ec-at-x{ color:var(--ec-at-accent); border-color:var(--ec-at-accent); }
 .ec-at-spacer{ flex:1 1 auto; }
-.ec-at-bar :focus-visible{ outline:2px solid var(--ec-at-accent); outline-offset:2px; }
+.ec-at-bar :focus-visible,
+.ec-at-more :focus-visible{ outline:2px solid var(--ec-at-accent); outline-offset:2px; }
+/* Mot o chon co gia tri dai (ten phap nhan, loai hop dong) khong duoc day hang loc tran ngang. */
+.ec-at-bar .ec-at-f,
+.ec-at-more .ec-at-f{ max-width:100%; min-width:0; text-overflow:ellipsis; }
+
+/* "Bo loc them" (16/10/2026): khoang so tien + o loc rieng tung form. Thu gon mac dinh;
+   so tren nut cho biet hang dang dong van con loc. */
+.ec-at-mo{ display:inline-flex; align-items:center; gap:5px; }
+.ec-at-so{
+  display:inline-block; min-width:16px; height:16px; line-height:16px; padding:0 4px;
+  border-radius:8px; font-size:10px; font-weight:600; text-align:center; box-sizing:border-box;
+  background:var(--ec-at-accent); color:var(--ec-at-surface);
+}
+.ec-at-so[hidden]{ display:none; }
+.ec-at-more{
+  display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin:-4px 0 10px;
+  padding:8px; border:1px dashed var(--ec-at-border); border-radius:8px; background:var(--ec-at-wash);
+}
+.ec-at-more[hidden]{ display:none; }
+.ec-at-khoang{ display:inline-flex; align-items:center; gap:4px; flex:0 1 auto; min-width:0; }
+.ec-at-more .ec-at-tien{ width:130px; min-width:0; flex:1 1 90px; }
+.ec-at-gach{ color:var(--ec-at-muted); }
 
 .ec-at-wrap{ border:1px solid var(--ec-at-border); border-radius:8px; overflow:auto; background:var(--ec-at-surface); }
 .ec-at-tb{ width:100%; border-collapse:collapse; table-layout:fixed; min-width:720px; }
@@ -50,9 +73,12 @@
   background:var(--ec-at-wash); padding:6px 8px; border-bottom:1px solid var(--ec-at-border);
   white-space:nowrap;
 }
-.ec-at-tb th:nth-child(1){ width:14%; } .ec-at-tb th:nth-child(2){ width:32%; }
-.ec-at-tb th:nth-child(3){ width:16%; } .ec-at-tb th:nth-child(4){ width:21%; }
-.ec-at-tb th:nth-child(5){ width:17%; }
+/* Do rong theo LOP cot, khong theo thu tu: form khai them cot (all_tab_columns) se chen
+   giua bang, nth-child se gan nham do rong cho cot khac. */
+.ec-at-tb .ec-at-c-ma{ width:14%; } .ec-at-tb .ec-at-c-tt{ width:32%; }
+.ec-at-tb .ec-at-c-tien{ width:16%; } .ec-at-tb .ec-at-c-st{ width:21%; }
+.ec-at-tb .ec-at-c-cho{ width:17%; } .ec-at-tb .ec-at-c-x{ width:14%; }
+.ec-at-tb.ec-at-rong{ min-width:940px; }
 .ec-at-tb td{ padding:6px 8px; border-top:1px solid var(--ec-at-hair); vertical-align:top; }
 .ec-at-row{ cursor:pointer; }
 .ec-at-row:hover{ background:var(--ec-at-wash); }
@@ -87,4 +113,6 @@
 @media (max-width:720px){
   .ec-at-q{ flex-basis:100%; }
   .ec-at-spacer{ display:none; }
+  .ec-at-khoang{ flex-basis:100%; }
+  .ec-at-more .ec-at-f:not(.ec-at-tien){ flex:1 1 100%; }
 }

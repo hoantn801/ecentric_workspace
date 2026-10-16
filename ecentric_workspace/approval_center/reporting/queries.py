@@ -5,6 +5,8 @@ The ONLY place that touches the DB for the dashboard. Every query ANDs the scope
 predicate (scope.scope_predicate) and uses %(name)s parameters - never string-formatted
 values. Callers pass a resolved scope + a validated filter dict.
 """
+import re
+
 import frappe
 
 from ecentric_workspace.approval_center.reporting import scope as _scope
@@ -277,7 +279,89 @@ def _list_where(scope, filters, search, params):
                      "WHERE va.approval_request = r.name AND va.approver = %(_me_recv)s)")
     elif box == "fulfil":
         where.append(_my_todo_clause(me, params))
+    bz = _biz_clause(filters, params)
+    if bz:
+        where.append(bz)
     return " AND ".join(where)
+
+
+# --------------------------------------------------------------------------------------
+# Loc / sap xep theo truong cua DocType NGHIEP VU (tab "Tat ca" cua tung form, 16/10/2026).
+#
+# Tieu de, so tien, brand... nam o DocType nghiep vu, khong o `EC Approval Request`. Tab
+# "Tat ca" cua MOT form biet dung DocType nghiep vu cua no, nen all_list dung san mot dac ta
+# `_biz` (KHOA NOI BO, gach duoi: `_parse_filters` khong bao gio chep no tu client - cung
+# loai voi `_search_refs`, `_me`). Trang hub lien-form khong dat `_biz` -> hanh vi khong doi.
+#
+# Dinh danh (ten DocType, ten truong) KHONG the di bang tham so SQL, nen bi chan hai lop:
+# all_list chi dua vao nhung gi definition khai VA meta co that; o day kiem lai bang regex
+# truoc khi dat vao dau backtick. Gia tri luon la %(tham_so)s.
+# --------------------------------------------------------------------------------------
+
+_BIZ_FIELD_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
+_BIZ_DT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _-]{0,139}$")
+
+#: Khoa sap xep DUY NHAT duoc chap nhan. Client gui gi khac -> mac dinh (moi -> cu).
+SORT_KEYS = ("newest", "oldest", "amount_desc", "amount_asc")
+_NGAY = "COALESCE(r.submitted_at, r.creation)"
+
+
+def _biz_ident(dt, field=None):
+    if not (isinstance(dt, str) and _BIZ_DT_RE.match(dt)):
+        raise ValueError("biz doctype khong hop le: %r" % (dt,))
+    if field is not None and not (isinstance(field, str) and _BIZ_FIELD_RE.match(field)):
+        raise ValueError("biz field khong hop le: %r" % (field,))
+    return "`tab%s`" % dt, ("`%s`" % field if field else None)
+
+
+def _biz_clause(filters, params):
+    """EXISTS tren DocType nghiep vu cho cac dieu kien `_biz` (bang / so tien tu - den).
+
+    Tra None khi khong co dieu kien nao. Duoc AND vao `where` cung scope_predicate - day la
+    LOC THU HEP, khong bao gio noi rong pham vi."""
+    biz = (filters or {}).get("_biz") or {}
+    dt = biz.get("doctype")
+    if not dt:
+        return None
+    conds = []
+    bang, _ = _biz_ident(dt)
+    for i, (field, val) in enumerate(biz.get("eq") or ()):
+        _, cot = _biz_ident(dt, field)
+        k = "bz_eq%d" % i
+        params[k] = val
+        conds.append("b.%s = %%(%s)s" % (cot, k))
+    amt = biz.get("amount_field")
+    for key, op in (("amount_min", ">="), ("amount_max", "<=")):
+        val = biz.get(key)
+        if val is None or not amt:
+            continue
+        _, cot = _biz_ident(dt, amt)
+        params["bz_" + key] = val
+        conds.append("b.%s %s %%(bz_%s)s" % (cot, op, key))
+    if not conds:
+        return None
+    params["bz_dt"] = dt
+    return ("EXISTS (SELECT 1 FROM " + bang + " b WHERE b.name = r.reference_name "
+            "AND r.reference_doctype = %(bz_dt)s AND " + " AND ".join(conds) + ")")
+
+
+def _order_by(filters):
+    """ORDER BY tu MOT khoa trong SORT_KEYS. Khong co khoa / khoa la -> y nhu truoc day."""
+    key = (filters or {}).get("_sort")
+    if key not in SORT_KEYS or key == "newest":
+        return _NGAY + " DESC"
+    if key == "oldest":
+        return _NGAY + " ASC, r.name ASC"
+    biz = (filters or {}).get("_biz") or {}
+    dt, amt = biz.get("doctype"), biz.get("amount_field")
+    if not (dt and amt):
+        return _NGAY + " DESC"
+    bang, cot = _biz_ident(dt, amt)
+    tien = "(SELECT b.%s FROM %s b WHERE b.name = r.reference_name)" % (cot, bang)
+    huong = "DESC" if key == "amount_desc" else "ASC"
+    # Phieu khong co so tien luon xuong CUOI, ca hai chieu: dua 20 dong "trong" len dau
+    # bang "tang dan" la giau mat thu nguoi ta dang tim.
+    return "%s IS NULL, %s %s, %s DESC, r.name DESC" % (tien, tien, huong, _NGAY)
 
 
 def awaiting_my_decision_sql(param_name):
@@ -322,7 +406,7 @@ def fetch_requests_page(scope, filters, start, page_length, search=None):
     params["_start"] = int(start)
     params["_len"] = int(page_length)
     sql = ("SELECT " + _FIELDS + _BASE + " WHERE " + where +
-           " ORDER BY COALESCE(r.submitted_at, r.creation) DESC LIMIT %(_start)s, %(_len)s")
+           " ORDER BY " + _order_by(filters) + " LIMIT %(_start)s, %(_len)s")
     return frappe.db.sql(sql, params, as_dict=True)
 
 
