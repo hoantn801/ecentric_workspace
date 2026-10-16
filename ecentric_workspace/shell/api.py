@@ -104,6 +104,8 @@ def _ser(it):
         "soon": bool(it.get("soon")),
         "alias": bool(it.get("alias")),
         "badge_source": it.get("badge_source") or "",
+        # extra first hash segments the item owns (hash SPA sub-routes, e.g. /pm#project/<id>)
+        "hash_segments": list(it.get("hash_segments") or []),
         "children": [
             {
                 "key": ch["key"], "label": ch["label"], "route": ch["route"],

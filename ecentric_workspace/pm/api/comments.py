@@ -118,4 +118,64 @@ def list(reference_doctype, reference_name):
         fields=["name", "content", "owner", "creation"],
         order_by="creation asc", limit_page_length=200,
     )
-    return {"rows": rows}
+    have = set(r["name"] for r in rows)
+    pinned = [n for n in _read_pins(reference_doctype, reference_name) if n in have]
+    for r in rows:
+        r["pinned"] = 1 if r["name"] in pinned else 0
+    return {"rows": rows, "pinned": pinned, "can_pin": 1 if _pin_supported(reference_doctype) else 0}
+
+
+# --------------------------------------------------------------------------- pin (16/10/2026)
+# "Ghim" a comment so the key note of a task stays on top (yellow) for everyone in the task.
+# Storage: Task.ec_pinned_comments (hidden Small Text, JSON list of Comment names, p029) --
+# one canonical place, no change to the Frappe-native Comment DocType. Who: anyone who may
+# comment on the task (same gate as add/list). Audit: an "Info" Comment on the task timeline
+# (Desk) records who pinned/unpinned what; the PM chat list only reads comment_type=Comment.
+PIN_FIELD = "ec_pinned_comments"
+MAX_PINS = 5
+
+
+def _pin_supported(reference_doctype):
+    return reference_doctype == "Task" and frappe.get_meta("Task").has_field(PIN_FIELD)
+
+
+def _read_pins(reference_doctype, reference_name):
+    if not _pin_supported(reference_doctype):
+        return []
+    raw = frappe.db.get_value("Task", reference_name, PIN_FIELD) or "[]"
+    try:
+        vals = frappe.parse_json(raw) or []
+    except Exception:
+        vals = []
+    return [v for v in vals if isinstance(v, str) and v]
+
+
+@frappe.whitelist(methods=["POST"])
+def pin(reference_doctype, reference_name, comment, pinned=1):
+    """Pin / unpin one comment of a PM Task. Returns {"pinned": [comment names]}."""
+    _require_access(reference_doctype, reference_name)
+    if not _pin_supported(reference_doctype):
+        frappe.throw(_("Chưa ghim được: chỉ áp dụng cho bình luận của việc."))
+    c = frappe.db.get_value("Comment", comment, ["reference_doctype", "reference_name",
+                                                 "comment_type", "content"], as_dict=True)
+    if not c or c.get("reference_doctype") != reference_doctype \
+            or c.get("reference_name") != reference_name or c.get("comment_type") != "Comment":
+        frappe.throw(_("Bình luận không thuộc việc này."), frappe.PermissionError)
+    want = str(pinned) not in ("0", "false", "False", "")
+    cur = _read_pins(reference_doctype, reference_name)
+    if want and comment not in cur:
+        if len(cur) >= MAX_PINS:
+            frappe.throw(_("Mỗi việc ghim tối đa {0} bình luận. Bỏ ghim bớt trước.").format(MAX_PINS))
+        cur.append(comment)
+    elif not want and comment in cur:
+        cur = [n for n in cur if n != comment]
+    else:
+        return {"pinned": cur}
+    frappe.db.set_value("Task", reference_name, PIN_FIELD, frappe.as_json(cur), update_modified=False)
+    snippet = frappe.utils.strip_html(c.get("content") or "")[:80]
+    frappe.get_doc({
+        "doctype": "Comment", "comment_type": "Info",
+        "reference_doctype": reference_doctype, "reference_name": reference_name,
+        "content": ("Đã ghim bình luận: " if want else "Đã bỏ ghim bình luận: ") + snippet,
+    }).insert(ignore_permissions=True)
+    return {"pinned": cur}

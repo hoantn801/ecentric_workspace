@@ -52,12 +52,18 @@ function makeEnv(opts) {
       "T-G": { task: { name: "T-G", subject: "Đối soát hoàn tiền", project: "P2", project_name: "Mua sắm", workflow_state: "In Progress", exp_end_date: dayOff(1), owner: ME, _assign: JSON.stringify([U2]) },
         giver: { user: ME, full_name: "Tôi Đây" }, pending_deadline_request: { request: "REQ-9", requested_by: U2, from_name: "Lan Anh", new_end: dayOff(4), reason: "đợi file", status: "Pending" } },
       "T-P": { task: { name: "T-P", subject: "Báo cáo tháng — cha", project: "P1", project_name: "ANDROS - SHOPEE", workflow_state: "In Progress", exp_end_date: dayOff(3), owner: ME, _assign: JSON.stringify([ME]) },
-        giver: { user: ME, full_name: "Tôi Đây" }, subtasks: [
+        giver: { user: ME, full_name: "Tôi Đây" }, split: 1, subtasks: [
           { name: "T-P1", subject: "x — Lan", workflow_state: "Done", _assign: JSON.stringify([U2]) },
           { name: "T-P2", subject: "x — Nga", workflow_state: "To Do", _assign: JSON.stringify([U3]), exp_end_date: dayOff(-2) }],
         children_progress: { done: 1, total: 2, open: 1, people: [
           { user: U2, full_name: "Lan Anh", task: "T-P1", state: "Done", opened: true, done_on: dayOff(-1), late: false, steps: null },
-          { user: U3, full_name: "Phương Nga", task: "T-P2", state: "To Do", opened: false, done_on: null, late: true, steps: null }] } }
+          { user: U3, full_name: "Phương Nga", task: "T-P2", state: "To Do", opened: false, done_on: null, late: true, steps: null }] } },
+    /* việc con đặt tên riêng (không chia người) — tab Việc con */
+    "T-S": { task: { name: "T-S", subject: "Thanh toán server Cloud", project: "P2", project_name: "Mua sắm", workflow_state: "In Progress", exp_end_date: dayOff(3), owner: ME, _assign: JSON.stringify([ME]) },
+      giver: { user: ME, full_name: "Tôi Đây" }, split: 0, subtasks: [
+        { name: "T-S1", subject: "Nhận báo giá", workflow_state: "Done", _assign: JSON.stringify([U2]) },
+        { name: "T-S2", subject: "Làm Payment Request", workflow_state: "To Do", exp_end_date: dayOff(-1), _assign: null }] },
+    "T-S2": { task: { name: "T-S2", subject: "Làm Payment Request", project: "P2", project_name: "Mua sắm", parent_task: "T-S", workflow_state: "To Do", owner: ME, _assign: null }, giver: { user: ME, full_name: "Tôi Đây" } },
     },
     checklist: { "T-1": { rows: [{ name: "r1", item_label: "Kéo số liệu", is_required: 1, is_done: 1 }, { name: "r2", item_label: "Nhận xét SKU", is_required: 0, is_done: 0 }], total: 2, done: 1 } },
     listRows: [
@@ -119,8 +125,9 @@ function makeEnv(opts) {
     "checklist.get_for_task": (a) => db.checklist[a.task] || { rows: [], total: 0, done: 0 },
     "checklist.set_item": (a) => { const c = db.checklist[a.task]; c.rows.forEach(r => { if (r.name === a.row_name) r.is_done = +a.is_done; }); c.done = c.rows.filter(r => r.is_done).length; return c; },
     "checklist.add_item": (a) => ({ rows: [{ name: "n1", item_label: a.title, is_done: 0 }], total: 1, done: 0 }),
-    "comments.list": () => ({ rows: [{ name: "C1", content: "Thêm so sánh cùng kỳ <img src=x onerror=alert(1)><script>alert(2)</script>", owner: BOSS, creation: dayOff(-1) + " 16:20:00" }] }),
-    "comments.add": () => ({ ok: 1 }),
+    "comments.list": () => ({ rows: [{ name: "C1", content: "Thêm so sánh cùng kỳ <img src=x onerror=alert(1)><script>alert(2)</script>", owner: BOSS, creation: dayOff(-1) + " 16:20:00", pinned: 0 }], pinned: [], can_pin: 1 }),
+    "comments.add": (a) => ({ name: "C-NEW", content: a.content, owner: ME, creation: dayOff(0) + " 10:00:00" }),
+    "comments.pin": (a) => ({ pinned: +a.pinned ? [a.comment] : [] }),
     "timesheet.list": () => ({ rows: [{ from_time: dayOff(-1) + " 09:00:00", hours: 2, description: "Đối chiếu", owner: ME }], total_hours: 3.5 }),
     "timesheet.log": (a) => ({ timesheet: "TS-1", hours: a.hours }),
     "timer.get_active": () => ({ active: false }),
@@ -181,7 +188,7 @@ async function block(name, fn) {
     ok("nhãn ưu tiên Thấp/Bình thường/Cao/Gấp", P.priorityLabel("Low") === "Thấp" && P.priorityLabel("Medium") === "Bình thường" && P.priorityLabel("High") === "Cao" && P.priorityLabel("Urgent") === "Gấp");
     ok("không có '{{' '{%' '{#' trong JS/CSS (an toàn Jinja)", !/\{\{|\{%|\{#/.test(JS) && !/\{\{|\{%|\{#/.test(CSS));
     ok("không data: URI, không emoji trong JS/CSS", !/data:(image|text|application)/.test(JS + CSS) && !/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(JS + CSS));
-    ok("ngân sách: JS ≤ 120 KB, CSS ≤ 30 KB", Buffer.byteLength(JS) <= 120 * 1024 && Buffer.byteLength(CSS) <= 30 * 1024, Buffer.byteLength(JS) + " / " + Buffer.byteLength(CSS));
+    ok("ngân sách: JS ≤ 134 KB, CSS ≤ 34 KB (nâng 16/10: ô tìm dự án, chống mất nháp, việc con, 2 card + ghim bình luận)", Buffer.byteLength(JS) <= 134 * 1024 && Buffer.byteLength(CSS) <= 34 * 1024, Buffer.byteLength(JS) + " / " + Buffer.byteLength(CSS));
     ok("mọi selector CSS có namespace .pmr- (trừ :root/@keyframes)", CSS.replace(/\/\*[\s\S]*?\*\//g, "").replace(/@keyframes[^{]+\{([^{}]*\{[^}]*\})*[^}]*\}/g, "").split("}").map(b => b.split("{")[0].trim()).filter(s => s && !/^@media|^:root$|^from|^to|^\d+%/.test(s))
       .every(sel => sel.split(",").every(x => /\.pmr-/.test(x))));
     let threw = false;
@@ -373,12 +380,16 @@ async function block(name, fn) {
     ok("tab Thời gian: bấm giờ + đã ghi 3,5 giờ + log", E.$(".pmr-timer", sh).textContent.includes("Bắt đầu bấm giờ") && sh.textContent.includes("3,5 giờ") && E.$$(".pmr-lg", sh).length === 1);
     E.click(E.$(".pmr-timer", sh)); await flush();
     ok("bấm giờ → timer.start(task) + phát pmr:timer", E.last("timer.start").args.task === "T-1" && E.events.some(e => e.n === "pmr:timer" && e.d.active));
-    E.click(E.byText(".pmr-stabs button", "Bình luận", sh)); await flush();
+    ok("Bình luận ở cột phải (không còn là tab) + đếm 1", !E.byText(".pmr-stabs button", "Bình luận", sh) && !!E.$(".pmr-side .pmr-cms", sh) && E.$(".pmr-side-n", sh).textContent === "1");
     ok("bình luận: làm sạch HTML (không script, không onerror)", !E.$(".pmr-cm-c script", sh) && !E.$(".pmr-cm-c img[onerror]", sh) && E.$(".pmr-cm-c", sh).textContent.includes("Thêm so sánh"));
     E.$(".pmr-cm-in", sh).value = "Em gửi chiều nay https://x.vn/a";
     E.click(E.byText(".pmr-btn", "Gửi", sh)); await flush();
     const ca = E.last("comments.add");
-    ok("gửi bình luận → comments.add(Task, nội dung có link)", ca && ca.args.reference_name === "T-1" && /<a href="https:\/\/x\.vn\/a"/.test(ca.args.content) && E.$$(".pmr-cm", sh).length === 2);
+    ok("gửi bình luận → comments.add(Task, nội dung có link)", ca && ca.args.reference_name === "T-1" && /<a href="https:\/\/x\.vn\/a"/.test(ca.args.content) && E.$$(".pmr-cm", sh).length === 2 && E.$(".pmr-side-n", sh).textContent === "2");
+    E.click(E.$('.pmr-cm-pin[data-cm="C1"]', sh)); await flush();
+    ok("ghim bình luận → comments.pin(C1, 1) + lên khối “Đã ghim” vàng ở đầu", E.last("comments.pin").args.comment === "C1" && E.last("comments.pin").args.pinned === 1 && !!E.$('.pmr-pins .pmr-cm-pinned [data-cm="C1"]', sh) && E.$(".pmr-pins-h", sh).textContent.includes("Đã ghim · 1") && E.$$(".pmr-cms .pmr-cm", sh).length === 1);
+    E.click(E.$('.pmr-cm-pin[data-cm="C1"]', sh)); await flush();
+    ok("bỏ ghim → comments.pin(C1, 0), khối Đã ghim biến mất", E.last("comments.pin").args.pinned === 0 && !E.$(".pmr-pins", sh) && E.$$(".pmr-cms .pmr-cm", sh).length === 2);
     ok("tasks.get recurrence → dòng Lặp lại có nhãn lịch", sh.textContent.includes("Hằng tháng ngày 7"));
     E.click(E.byText(".pmr-stabs button", "Lịch sử", sh)); await flush();
     ok("tab Lịch sử: history {from,to,by_name} → “Chưa làm” → “Đang làm” + dòng tạo việc", E.$$(".pmr-his-r", sh).length === 2 && E.$(".pmr-his-r", sh).textContent.includes("Tôi Đây") && E.$(".pmr-his-r", sh).textContent.includes("“Chưa làm” → “Đang làm”") && sh.textContent.includes("tạo việc"));
@@ -404,6 +415,19 @@ async function block(name, fn) {
     ok("việc cha: children_progress.people → “chưa mở” + ngày xong theo từng người", rowsP[1] === "chưa mở" && /^xong /.test(rowsP[0]));
     E.click(E.byText(".pmr-statusbar button", "Xong", sh)); await flush();
     ok("markDone(T-P) chạy qua tasks.mark_done (không popup giờ)", E.last("tasks.mark_done").args.name === "T-P" && !E.$(".pmr-pop"));
+    await E.w.PMR.openTask("T-S"); await flush();
+    ok("việc con đặt tên (không chia người): tab “Việc con 1/2” mở sẵn, còn ô Người nhận", E.$(".pmr-stabs [aria-selected=true]", sh).textContent === "Việc con 1/2" && !E.byText(".pmr-stabs button", "Từng người", sh) && sh.textContent.includes("Người nhận") && E.$$(".pmr-srow", sh).length === 2);
+    ok("việc con: dòng xong gạch ngang, dòng trễ cảnh báo, chưa có người → vòng trống", E.$$(".pmr-srow", sh)[0].classList.contains("pmr-done") && !!E.$(".pmr-srow-due.pmr-warn", sh) && !!E.$(".pmr-srow-noone", sh));
+    E.click(E.$$(".pmr-srow [data-act=sub-tick]", sh)[1]); await flush();
+    ok("nút tròn việc con → tasks.mark_done(T-S2)", E.last("tasks.mark_done").args.name === "T-S2");
+    E.click(E.$$(".pmr-srow [data-act=sub-tick]", sh)[0]); await flush();
+    ok("bỏ tick việc con đã xong → set_status To Do", E.last("tasks.set_status").args.name === "T-S1" && E.last("tasks.set_status").args.action === "To Do");
+    E.$(".pmr-sub-in", sh).value = "Chờ kế toán gửi UNC";
+    E.click(E.$("[data-act=sub-add]", sh)); await flush();
+    const cs = E.last("tasks.create");
+    ok("Thêm việc con → tasks.create(parent_task, cùng dự án)", cs && cs.args.parent_task === "T-S" && cs.args.project === "P2" && cs.args.subject === "Chờ kế toán gửi UNC");
+    await E.w.PMR.openTask("T-S2"); await flush();
+    ok("mở việc con: không có tab Việc con (2 cấp) + có nút ‹ Việc cha", !E.byText(".pmr-stabs button", "Việc con", sh) && !!E.$("[data-act=open-sub][data-task=T-S]", sh));
   });
 
   /* ---------------- Giao việc ---------------- */
@@ -417,10 +441,11 @@ async function block(name, fn) {
     E.click(E.byText(".pmr-link", "+ Thêm người", sh)); await flush();
     E.click(E.$$(".pmr-picker [data-act=pick]", sh)[0]); await flush();
     E.click(E.$$(".pmr-picker [data-act=pick]", sh)[0]); await flush();
-    ok("newTask: chip người nhận + nút “Giao cho 2 người”", E.$$(".pmr-chips .pmr-pc", sh).length === 2 && E.$("[data-act=nt-submit]", sh).textContent === "Giao cho 2 người");
+    ok("newTask: chip người nhận + nút “Gửi yêu cầu cho 2 người” (Cần đồng ý bật mặc định)", E.$$(".pmr-chips .pmr-pc", sh).length === 2 && E.$("[data-act=nt-submit]", sh).textContent === "Gửi yêu cầu cho 2 người");
     E.click(E.$$(".pmr-chips .pmr-rm", sh)[1]);
     ok("bỏ người (nút ×) → người đó quay lại danh sách chọn", E.$$(".pmr-chips .pmr-pc", sh).length === 1 && E.$(".pmr-picker [data-act=pick]", sh).getAttribute("data-u") === U3);
     E.click(E.$$(".pmr-picker [data-act=pick]", sh)[0]); await flush();
+    E.click(E.$("[data-act=tog][data-k=ask]", sh));   /* tắt Cần đồng ý (mặc định bật) để thử nhánh giao thẳng */
     E.click(E.$("[data-act=tog][data-k=split]", sh));
     ok("công tắc là role=switch + aria-checked, mở tuỳ chọn con Tự đóng", E.$("[data-k=split]", sh).getAttribute("role") === "switch" && E.$("[data-k=split]", sh).getAttribute("aria-checked") === "true" && E.$('.pmr-opt[data-o="split"]', sh).classList.contains("pmr-open"));
     E.click(E.$("[data-act=tog][data-k=auto]", sh));
@@ -446,7 +471,7 @@ async function block(name, fn) {
     E.$(".pmr-title-in", sh).value = "Cần đồng ý";
     E.click(E.byText(".pmr-link", "+ Thêm người", sh)); await flush();
     E.click(E.$$(".pmr-picker [data-act=pick]", sh)[0]); await flush();
-    E.click(E.$("[data-act=tog][data-k=ask]", sh));
+    ok("Cần người nhận đồng ý BẬT mặc định (PO 16/10)", E.$("[data-act=tog][data-k=ask]", sh).getAttribute("aria-checked") === "true");
     ok("chế độ Cần đồng ý: nút đổi thành “Gửi yêu cầu cho …”", /Gửi yêu cầu cho/.test(E.$("[data-act=nt-submit]", sh).textContent));
     E.click(E.$("[data-act=nt-submit]", sh)); await flush();
     const cw = E.last("assignment.create_with_task");
@@ -456,6 +481,9 @@ async function block(name, fn) {
     E.fail["tasks.create"] = "Dự án đã đóng";
     E.click(E.$("[data-act=nt-submit]", sh)); await flush();
     ok("create lỗi → giữ ngăn kéo + giữ dữ liệu + toast lỗi server", sh.classList.contains("pmr-on") && E.$(".pmr-title-in", sh).value === "Lỗi server" && E.toastText().includes("Dự án đã đóng") && !E.$("[data-act=nt-submit]", sh).disabled);
+    ok("Cần đồng ý bật nhưng không chọn ai → vẫn tạo việc thường (tasks.create)", !!E.last("tasks.create") && E.last("tasks.create").args.subject === "Lỗi server");
+    const qd = E.w.PMR._pure.quickDue;
+    ok("Hạn nhanh: Hôm nay ≠ Cuối tuần (thứ Sáu → thứ Sáu tuần sau), Cuối tuần luôn là thứ Sáu", qd("today") !== qd("weekend") && new Date(qd("weekend") + "T00:00:00").getDay() === 5, qd("today") + " / " + qd("weekend"));
     const plan = E.w.PMR._pure.buildCreatePlan({ subject: "x", assignees: [U2, U3], ask: true, split: true, auto: false, review: false, steps: [], labels: [], due: "", time: "", rep: false, priority: "Medium", project: "" });
     ok("Cần đồng ý + Mỗi người một việc → recipients + split_per_assignee (SPEC mục 7)", plan.method === "assignment.create_with_task" && JSON.parse(plan.args.recipients).length === 2 && plan.args.split_per_assignee === 1 && plan.args.auto_close === 0);
   });
@@ -517,7 +545,7 @@ async function block(name, fn) {
     Object.keys(E.db.tasks).forEach(n => {
       const r = H["tasks.get"]({ name: n }), t = r.task;
       within("tasks.get", r);
-      const std = ["name", "subject", "project", "project_name", "workflow_state", "exp_end_date", "owner", "_assign", "priority", "creation"];
+      const std = ["name", "subject", "project", "project_name", "workflow_state", "exp_end_date", "owner", "_assign", "priority", "creation", "parent_task"];   /* trường gốc của Task (doc.as_dict) */
       Object.keys(t).forEach(k => { if (std.indexOf(k) < 0 && CONTRACT["tasks.get.task+"].indexOf(k) < 0) bad.push("tasks.get.task." + k); });
       if (t.giver) within("tasks.get.giver", t.giver);
       if (t.recurrence) within("tasks.get.recurrence", t.recurrence);
