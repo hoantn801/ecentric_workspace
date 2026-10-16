@@ -211,6 +211,7 @@
   .sch-cal{ position:relative; overflow:hidden; border:1px solid var(--gray-100); border-radius:10px; background:#fff; }
   .sch-blk{ position:absolute; border-radius:6px; padding:3px 6px; font-size:10.5px; overflow:hidden; cursor:grab; box-sizing:border-box; }
   .sch-blk b{ font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; }
+  .sch-ro-wrap .sch-blk, .sch-ro-wrap .sch-mtg{ cursor:pointer; }
   .sch-blk .x{ cursor:pointer; opacity:.6; float:right; margin-left:3px; }
   .sch-blk .rz{ position:absolute; left:0; bottom:0; width:100%; height:7px; cursor:ns-resize; }
   .sch-mtg{ position:absolute; box-sizing:border-box; background:#EEEDFE; color:#3C3489; border-left:3px solid #7F77DD; border-radius:6px; padding:2px 6px; font-size:10px; overflow:hidden; }
@@ -975,8 +976,8 @@
 <script src="/assets/ecentric_workspace/charts/chart_common.js"></script>
 <script src="/assets/ecentric_workspace/charts/pm_charts.js"></script>
 <!-- PM lam lai (16/10/2026): asset dung chung window.PMR (man moi + ngan keo viec + luong Xong). Nap TRUOC script chinh; 404 -> script chinh tu fallback ve man cu. -->
-<link rel="stylesheet" href="/assets/ecentric_workspace/css/pm/pm_redesign.css?v=732039b034">
-<script src="/assets/ecentric_workspace/js/pm/pm_redesign.js?v=732039b034"></script>
+<link rel="stylesheet" href="/assets/ecentric_workspace/css/pm/pm_redesign.css?v=fdbeffe157">
+<script src="/assets/ecentric_workspace/js/pm/pm_redesign.js?v=fdbeffe157"></script>
 <script>
 (function(){
   var PM="ecentric_workspace.pm.api.";
@@ -3130,7 +3131,7 @@
       for(i=0;i<7;i++){ var td=(days[i].toDateString()===now.toDateString()); hdr+='<div style="position:absolute;left:'+(i*100/7)+'%;width:'+(100/7)+'%;height:26px;line-height:26px;text-align:center;font-size:11px;font-weight:600;border-left:1px solid var(--gray-100);color:'+(td?'var(--navy)':'var(--gray-500)')+'">'+DN[i]+' '+days[i].getDate()+'/'+(days[i].getMonth()+1)+'</div>'; }
       hdr+='</div></div>';
 
-      var body='<div id="sch-body" style="position:relative;height:'+HH+'px;border-top:1px solid var(--gray-100)">';
+      var body='<div id="sch-body"'+(ro?' class="sch-ro-wrap"':'')+' style="position:relative;height:'+HH+'px;border-top:1px solid var(--gray-100)">';
       var hh; for(hh=0;hh<=HN;hh++){ var y=minToY(hh*60); body+='<div style="position:absolute;left:'+GUT+'px;right:0;top:'+y+'px;border-top:1px solid var(--gray-100)"></div>'; if(hh<HN) body+='<div style="position:absolute;left:0;top:'+(y-6)+'px;width:'+(GUT-5)+'px;text-align:right;font-size:10px;color:var(--gray-400)">'+pad(hh)+'h</div>'; }
       body+='<div id="sch-days" style="position:absolute;left:'+GUT+'px;right:0;top:0;height:'+HH+'px">';
       body+='<div style="position:absolute;left:0;right:0;top:'+Y_WS+'px;height:'+(Y_WE-Y_WS)+'px;background:#F5F9FF"></div>';
@@ -3218,7 +3219,7 @@
 
     function closeMtgPop(){ var p=document.querySelector(".mtgpop"); if(p&&p.parentNode)p.parentNode.removeChild(p); }
 
-    function openMtgPop(mg, anchor){
+    function openMtgPop(mg, anchor, ro){
       closeMtgPop();
       var pop=document.createElement("div"); pop.className="mtgpop";
       var r=anchor.getBoundingClientRect();
@@ -3232,8 +3233,14 @@
       var rlabel=org?"Bạn là chủ trì":(resp==="accepted"?"Đã nhận":(resp==="declined"?"Đã từ chối":(resp==="tentativelyAccepted"?"Tạm nhận":"Chưa phản hồi")));
       var answered=(resp==="accepted"||resp==="declined"||resp==="tentativelyAccepted");
       var h='<span class="mp-x">&times;</span><h4>'+esc(mg.subject||"Họp")+'</h4>'+
-            '<div class="mp-sub">'+dstr+' · '+tr+(mg.location?(' · '+esc(mg.location)):'')+'</div>'+
-            '<div class="mp-badgerow"><span class="mp-badge">'+rlabel+'</span>'+
+            '<div class="mp-sub">'+dstr+' · '+tr+(mg.location?(' · '+esc(mg.location)):'')+'</div>';
+      if(ro){ /* lich nguoi khac: chi thong tin */
+        h+='<div class="mp-badgerow"><span class="mp-badge">Lịch của '+esc(st.user||"")+'</span></div>';
+        pop.innerHTML=h; (document.getElementById("ec-pm-root")||document.body).appendChild(pop);
+        pop.querySelector(".mp-x").onclick=closeMtgPop; pop.onclick=function(e){ e.stopPropagation(); };
+        return;
+      }
+      h+='<div class="mp-badgerow"><span class="mp-badge">'+rlabel+'</span>'+
             ((!org&&answered)?'<button class="mp-link" data-rsvp-open="1">Thay đổi</button>':'')+'</div>';
       if(mg.ev_type==="occurrence"||mg.ev_type==="exception"){
         h+='<div class="mp-warn">Đây là một buổi trong chuỗi họp định kỳ — thay đổi chỉ áp dụng cho buổi này.</div>';
@@ -3335,8 +3342,27 @@
 
     function wire(){
       if(st._detach){ try{st._detach();}catch(_){} st._detach=null; }
-      if(st._ro) return;
       var body=el("sch-body"); if(!body) return;
+      if(st._ro){
+        /* Xem lich nguoi khac (chi xem, hotfix 2 16/10): bam viec -> mo chi tiet (server van kiem quyen),
+           bam hop -> the thong tin (khong co phan hoi / doi gio / tham gia). Khong keo tha. */
+        body.addEventListener("click",function(e){
+          var mt=e.target.closest?e.target.closest(".sch-mtg"):null;
+          if(mt){ e.preventDefault(); e.stopPropagation(); var mg=(st._mtgs||[])[parseInt(mt.getAttribute("data-mtg"),10)]; if(mg) openMtgPop(mg, mt, true); return; }
+          var bk=e.target.closest?e.target.closest(".sch-blk"):null; if(!bk) return;
+          var arr=(st.data&&st.data.blocks)||[], b=null, i; for(i=0;i<arr.length;i++){ if(arr[i].name===bk.getAttribute("data-name")){ b=arr[i]; break; } }
+          if(!b||b.masked||!b.task){ toast("Chỉ xem được giờ bận của việc này"); return; }
+          if(b.view_only){ /* quan ly xem duoc ten viec nhung khong co quyen mo viec: the thong tin */
+            e.preventDefault(); e.stopPropagation();
+            var m=((st.data&&st.data.meta)||{})[b.task]||{}, s0=String(b.start||""), e0=String(b.end||"");
+            openMtgPop({subject:m.subject||((st.data.subjects||{})[b.task])||"Việc", start:s0, end:e0,
+                        location:[m.project||"", m.end?("hạn "+m.end.split("-").reverse().slice(0,2).join("/")):""].filter(function(x){return x;}).join(" · ")}, bk, true);
+            return;
+          }
+          try{openTask(b.task);}catch(_){}
+        });
+        return;
+      }
       var drag=null, ghost=null;
       function cancelDrag(){ drag=null; var gs=document.querySelectorAll(".sch-ghost"); for(var i=0;i<gs.length;i++){ if(gs[i].parentNode) gs[i].parentNode.removeChild(gs[i]); } ghost=null; }
       function findBlk(name){ var arr=(st.data.blocks||[]); for(var i=0;i<arr.length;i++) if(arr[i].name===name) return arr[i]; return null; }

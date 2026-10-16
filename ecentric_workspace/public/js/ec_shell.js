@@ -259,6 +259,9 @@
              active_patterns: (base.active_patterns || []).slice() };
       if (base.soon) it.soon = true;
       if (base.badge_source) it.badge_source = base.badge_source;
+      // hash_segments (vd Du an so huu #project/<id>) phai di theo muc rail, neu khong
+      // muc "Du an" khong sang khi mo mot du an (hotfix 2, 16/10/2026)
+      if (base.hash_segments && base.hash_segments.length) it.hash_segments = base.hash_segments.slice();
     }
     ['label', 'icon'].forEach(function (k) { if (spec[k]) it[k] = spec[k]; });
     ['caption', 'badge_source', 'badge', 'noactive', 'soon'].forEach(function (k) { if (spec[k]) it[k] = spec[k]; });
@@ -308,7 +311,8 @@
     function walk(it) {
       sig.push(it.key);
       if (it.children && it.children.length) it.children.forEach(walk);
-      else if (!it.noactive) match.push({ key: it.key, route: it.route, active_patterns: it.active_patterns });
+      else if (!it.noactive) match.push({ key: it.key, route: it.route, active_patterns: it.active_patterns,
+                                          hash_segments: it.hash_segments || [] });
     }
     blocks.forEach(function (b) {
       (b.items || []).concat(b.more ? [b.more] : []).concat(b.item ? [b.item] : []).forEach(walk);

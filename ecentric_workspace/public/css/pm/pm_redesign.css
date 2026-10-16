@@ -398,7 +398,12 @@ tr.pmr-done .pmr-tname,.pmr-ck.pmr-done span{color:var(--pmr-g500);text-decorati
 .pmr-srow.pmr-done .pmr-tname{color:var(--pmr-g500);text-decoration:line-through}
 .pmr-srow-due{font-size:12.5px;color:var(--pmr-g500);white-space:nowrap}
 .pmr-srow-due.pmr-warn{color:var(--pmr-red,#dc2626)}
-.pmr-srow-noone{width:22px;height:22px;border-radius:50%;border:1.5px dashed var(--pmr-g300,#cbd5e1)}
+.pmr-srow-noone{display:block;width:22px;height:22px;border-radius:50%;border:1.5px dashed var(--pmr-g300,#cbd5e1)}
+.pmr-srow-who{position:relative;display:flex}
+.pmr-srow-asg{border:0;background:none;padding:0;border-radius:50%;cursor:pointer;display:flex}
+.pmr-srow-asg:hover .pmr-srow-noone{border-color:var(--pmr-navy);background:var(--pmr-navy-50)}
+.pmr-srow-asg:hover .pmr-av{box-shadow:0 0 0 2px var(--pmr-navy-100)}
+.pmr-srow-who .pmr-picker{left:auto;right:0}
 .pmr-sub-add{margin-top:8px}.pmr-sub-add .pmr-in{flex:1}
 .pmr-sub-hint{margin:8px 2px 0;font-size:12.5px}
 .pmr-crumb-up{font-size:12.5px}

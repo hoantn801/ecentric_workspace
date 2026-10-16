@@ -422,11 +422,17 @@ async function block(name, fn) {
     ok("nút tròn việc con → tasks.mark_done(T-S2)", E.last("tasks.mark_done").args.name === "T-S2");
     E.click(E.$$(".pmr-srow [data-act=sub-tick]", sh)[0]); await flush();
     ok("bỏ tick việc con đã xong → set_status To Do", E.last("tasks.set_status").args.name === "T-S1" && E.last("tasks.set_status").args.action === "To Do");
+    E.click(E.$('[data-act=sub-assign][data-task="T-S2"]', sh)); await flush();
+    ok("bấm vòng người nhận việc con → mở chọn người ngay tại dòng", !!E.$(".pmr-srow-who .pmr-picker", sh));
+    E.click(E.$$(".pmr-srow-who .pmr-picker [data-act=pick]", sh)[0]); await flush();
+    ok("chọn người → tasks.assign(T-S2) không cần mở việc con", E.last("tasks.assign").args.name === "T-S2" && JSON.parse(E.last("tasks.assign").args.users).length === 1);
+    ok("việc con đã có người: vòng người nhận là chồng avatar, nhãn “giao thêm” (không phải đổi)", /giao thêm/i.test(E.$('[data-act=sub-assign][data-task="T-S1"]', sh).getAttribute("aria-label")) && !!E.$('[data-act=sub-assign][data-task="T-S1"] .pmr-stack', sh));
     E.$(".pmr-sub-in", sh).value = "Chờ kế toán gửi UNC";
     E.click(E.$("[data-act=sub-add]", sh)); await flush();
     const cs = E.last("tasks.create");
     ok("Thêm việc con → tasks.create(parent_task, cùng dự án)", cs && cs.args.parent_task === "T-S" && cs.args.project === "P2" && cs.args.subject === "Chờ kế toán gửi UNC");
     await E.w.PMR.openTask("T-S2"); await flush();
+    ok("việc đã Xong vẫn có “+ Thêm người”", (await (async () => { E.db.tasks["T-S2"].task.workflow_state = "Done"; await E.w.PMR.openTask("T-S2"); await flush(); return !!E.byText(".pmr-link", "+ Thêm người", sh); })()));
     ok("mở việc con: không có tab Việc con (2 cấp) + có nút ‹ Việc cha", !E.byText(".pmr-stabs button", "Việc con", sh) && !!E.$("[data-act=open-sub][data-task=T-S]", sh));
   });
 

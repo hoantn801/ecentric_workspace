@@ -626,7 +626,7 @@ function paintTask() {
   h += '</div><div class="pmr-sh-b"><div class="pmr-due-sec"></div>';
   if (!d.isAssignee || d.isGiver) h += fl("Người giao", d.giver ? (d.isGiver ? `<span class="pmr-who">${av(cfg.user)}Bạn</span>` : who(d.giver.user, gname)) : muted("—"));
   if (!(d.split && d.subs.length)) {
-    h += `<div class="pmr-fl"><span class="pmr-lb">Người nhận</span><div class="pmr-pick-wrap">${d.asg.length ? d.asg.map(u => `<span class="pmr-pc">${av(u)}${esc(nameOf(u))}</span>`).join("") : muted("Chưa có người nhận") + " "}${terminal ? "" : L("+ Thêm người", "add-assignee")}</div></div>`;
+    h += `<div class="pmr-fl"><span class="pmr-lb">Người nhận</span><div class="pmr-pick-wrap">${d.asg.length ? d.asg.map(u => `<span class="pmr-pc">${av(u)}${esc(nameOf(u))}</span>`).join("") : muted("Chưa có người nhận") + " "}${t.workflow_state === "Cancelled" ? "" : L("+ Thêm người", "add-assignee")}</div></div>`;
   }
   h += fl("Dự án", t.project ? L(esc(t.project_name || t.project), "project", "", "pmr-link-ink") : muted(NOPROJ));
   if (d.rec) h += fl("Lặp lại", `<span class="pmr-tag">${ic("repeat", "pmr-s")}${esc(typeof d.rec === "string" ? d.rec : d.rec.label || d.rec.name || "")}</span>`);
@@ -773,6 +773,7 @@ function onTaskClick(a, b) {
     case "add-person": return addPersonChild(b);
     case "sub-add": return addSubtask(b);
     case "sub-tick": return tickSubtask(b);
+    case "sub-assign": return assignSubtask(b);
     case "nudge-sub": return nudge(b, name, ga(b, "u"));
     case "step-add": return addStep(b);
     case "timer": return toggleTimer(b);
@@ -848,14 +849,25 @@ function tabPeople(p) {
 function tabSubs(p) {
   const d = TS.d, closed = isClosed(d.t.workflow_state);
   const rows = d.subs.map(s => {
-    const done = s.workflow_state === "Done", u = arr(s._assign)[0], di = s.exp_end_date ? dueInfo(s.exp_end_date, s.pm_end_time, s.workflow_state) : null;
+    const done = s.workflow_state === "Done", us = arr(s._assign), u = us[0], di = s.exp_end_date ? dueInfo(s.exp_end_date, s.pm_end_time, s.workflow_state) : null;
     return `<div class="pmr-srow${done ? " pmr-done" : ""}"><button type="button" class="pmr-cb" data-act="sub-tick"${dattr("task", s.name)} aria-pressed="${done}" aria-label="${done ? "Bỏ đánh dấu xong" : "Đánh dấu xong"}: ${esc(s.subject)}"></button>` +
       `<button type="button" class="pmr-tname" data-act="open-sub"${dattr("task", s.name)}>${esc(s.subject || s.name)}</button>` +
-      `<span class="pmr-srow-due${di && di.late ? " pmr-warn" : ""}">${di ? esc(di.text) : ""}</span>${u ? av(u) : '<span class="pmr-srow-noone" title="Chưa có người nhận"></span>'}</div>`;
+      `<span class="pmr-srow-due${di && di.late ? " pmr-warn" : ""}">${di ? esc(di.text) : ""}</span>` +
+      `<span class="pmr-srow-who">${closed && !u ? "" : `<button type="button" class="pmr-srow-asg" data-act="sub-assign"${dattr("task", s.name)} aria-label="${u ? "Giao thêm người cho việc con (đang giao: " + esc(us.map(nameOf).join(", ")) + ")" : "Giao việc con cho…"}" title="${u ? esc(us.map(nameOf).join(", ")) + " · bấm để giao thêm người" : "Giao cho…"}">${u ? stack(us, 3) : '<span class="pmr-srow-noone"></span>'}</button>`}</span></div>`;
   }).join("");
   p.innerHTML = `<div class="pmr-sub-list">${rows || (closed ? smallEmpty("Không có việc con.") : "")}</div>` + (closed ? "" :
     `<div class="pmr-row pmr-sub-add"><input class="pmr-in pmr-sub-in" aria-label="Việc con mới" placeholder="Thêm việc con, Enter để lưu">${Bs("Thêm việc con", "sub-add")}</div>` +
     (rows ? "" : '<p class="pmr-muted pmr-sub-hint">Chia việc lớn thành các việc nhỏ có người nhận và hạn riêng. Bấm vào việc con để giao người, đặt hạn.</p>'));
+}
+/* Bấm vòng người nhận của việc con -> chọn người, giao ngay (tasks.assign), không phải mở việc con. */
+function assignSubtask(b) {
+  const name = ga(b, "task"), s = (TS.d.subs || []).find(x => x.name === name), parent = TS.d.t.name;
+  if (!s) return;
+  pickPeople(b.parentNode, u => call("tasks.assign", { name, users: JSON.stringify([u]) }).then(() => {
+    toast(`Đã giao “${s.subject}” cho ${nameOf(u)}`);
+    changed({ task: name });
+    openTask(parent, { tab: "subs" });
+  }, e => errToast(e, "Chưa giao được")), { exclude: arr(s._assign) });
 }
 function addSubtask(b) {
   const t = TS.d.t, inp = $S(".pmr-sub-in"), subject = ((inp && inp.value) || "").trim();

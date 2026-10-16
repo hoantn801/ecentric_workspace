@@ -381,6 +381,15 @@ const BOOT2 = JSON.parse(JSON.stringify(BOOT1)); BOOT2.nav[1].label = 'Approval 
     ok(HAK(pmViews, '/pm', '#mywork', 'pm.view.recurring') === 'pm.view.mywork', 'a real view hash still wins over keepKey');
     ok(HAK(pmViews, '/pm', '#task/T1', 'other.ctx.key') === 'pm.view.overview', 'keepKey from another context is ignored');
     ok(HAK([{ key: 'pm.view.projects', route: '/pm#projects', hash_segments: ['project'] }].concat(pmViews), '/pm', '#project/P1') === 'pm.view.projects', 'hash_segments: Du an owns #project/<id>');
+    {
+      const RL = env.win.ECShell.railLayout;
+      const pool = { 'pm.view.mywork': { key: 'pm.view.mywork', route: '/pm#mywork' },
+                     'pm.view.projects': { key: 'pm.view.projects', route: '/pm#projects', hash_segments: ['project'] } };
+      const lay = RL({ layout: [{ t: 'group', items: [{ key: 'pm.view.mywork' }, { key: 'pm.view.projects' }] }] }, 'work', [], pool);
+      const pj = lay.match.filter(m => m.key === 'pm.view.projects')[0];
+      ok(pj && pj.hash_segments && pj.hash_segments[0] === 'project', 'rail layout keeps hash_segments on matched items (hotfix 2)');
+      ok(HAK(lay.match, '/pm', '#project/P1') === 'pm.view.projects', 'rail mode: #project/<id> lights Du an');
+    }
     // MPA safety: a context with NO hash items is never touched
     const mpa = [
       { key: 'apc.catalog', route: '/approvals', active_patterns: ['/approvals'] },

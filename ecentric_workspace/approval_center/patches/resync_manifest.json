@@ -313,7 +313,7 @@
     "sha256": "bcfec3a49e4da5715ff38db8cff485c5da8c3e8f2ab29349822eb3abd7d73bef"
   },
   "pm/frontend/pm_app.html": {
-    "last_resync_patch": "p301_resync_pm_hotfix1",
-    "sha256": "3d5d13c83c7250947c790ae88688da181bcc3ae1443f99febb017339ebc3e14a"
+    "last_resync_patch": "p302_resync_pm_hotfix2",
+    "sha256": "7e72f33d2ad346d885639572324966681b4eff7994b0d43ccd647eac5ba9e1f4"
   }
 }
