@@ -22,6 +22,7 @@ from frappe.model.workflow import (
 from frappe.utils import get_datetime, getdate
 
 from ecentric_workspace.pm import permissions as pmperm
+from ecentric_workspace.pm import task_flow as tflow
 from ecentric_workspace.pm.deadlock import retry_on_deadlock
 from ecentric_workspace.pm.api import notifications as pmnotif
 from ecentric_workspace.pm.api import labels as pmlabels
@@ -49,7 +50,7 @@ _STALE_MSG = ("Trạng thái nhiệm vụ đã thay đổi hoặc bạn không c
 # FREE-STATUS model (2026-08-06, Hoàn): a user may switch a task to ANY workflow state directly
 # (no fixed To Do->Start->Review->Done order). Native `status` synced for terminal states so
 # is_task_terminal + reports stay consistent; other states map to the active "Open".
-_STATE_STATUS = {"Done": "Completed", "Cancelled": "Cancelled"}
+_STATE_STATUS = tflow.STATE_STATUS  # single definition lives in pm.task_flow (write_state)
 
 # The lean, ordered status set shown as a segmented control (Hoàn 2026-08-06). Backlog/Blocked are
 # NOT offered as buttons (Backlog folds into To Do; Blocked becomes a label). Existing tasks parked
@@ -348,9 +349,30 @@ def _project_names(rows):
 # --------------------------------------------------------------------------
 # READ (PM1-T05)
 # --------------------------------------------------------------------------
+def _page_without_personal(and_filters, or_filters, start, page_length, personal):
+    """Paged task rows with personal-log projects removed. Two light queries (name+project for
+    the whole scope, then full fields for the page) keep page sizes exact; filtering in Python
+    keeps tasks WITHOUT a project (SQL `project not in` would drop NULLs)."""
+    light = frappe.get_all("Task", filters=and_filters or None, or_filters=or_filters,
+                           fields=["name", "project"], order_by="modified desc",
+                           limit_page_length=0)
+    keep = [r["name"] for r in light if r.get("project") not in personal]
+    page = keep[int(start):int(start) + int(page_length)]
+    if not page:
+        return []
+    rows = frappe.get_all("Task", filters={"name": ["in", page]}, fields=_FIELDS,
+                          limit_page_length=0)
+    order = {n: i for i, n in enumerate(page)}
+    return sorted(rows, key=lambda r: order.get(r["name"], 0))
+
+
 @frappe.whitelist()
-def list(project=None, view="list", start=0, page_length=50, status=None):
-    """Permission-scoped task list. Returns {rows, view}."""
+def list(project=None, view="list", start=0, page_length=50, status=None, include_personal=0):
+    """Permission-scoped task list. Returns {rows, view}.
+
+    PM redesign: tasks of personal-log projects (Project.ec_personal_log) are hidden unless
+    include_personal=1. An explicit `project` filter always returns that project's tasks (the
+    worklog script and the project page ask for one project by name)."""
     pmperm.require_pm_access()
     user = frappe.session.user
 
@@ -367,10 +389,14 @@ def list(project=None, view="list", start=0, page_length=50, status=None):
     else:
         or_filters = pmperm.task_scope_or_filters(user)  # None = all
 
-    rows = frappe.get_all(
-        "Task", filters=and_filters or None, or_filters=or_filters, fields=_FIELDS,
-        start=int(start), page_length=int(page_length), order_by="modified desc",
-    )
+    personal = set() if (project or tflow.truthy(include_personal)) else tflow.personal_log_projects()
+    if personal:
+        rows = _page_without_personal(and_filters, or_filters, start, page_length, personal)
+    else:
+        rows = frappe.get_all(
+            "Task", filters=and_filters or None, or_filters=or_filters, fields=_FIELDS,
+            start=int(start), page_length=int(page_length), order_by="modified desc",
+        )
     # G4.8 additive: resolve project_name per row + a {email: full_name} map (batch, no N+1).
     pmap = _project_names(rows)
     for r in rows:
@@ -409,7 +435,62 @@ def get(name):
     d["labels"] = lmap.get(d["name"], [])
     for x in subtasks:
         x["labels"] = lmap.get(x["name"], [])
+    _redesign_detail(doc, d, bool(subtasks), user)
+    if d.get("giver"):
+        emails.append(d["giver"]["user"])
     return {"task": d, "subtasks": subtasks, "user_names": _names_map(emails)}
+
+
+def _pending_deadline(task_name):
+    try:
+        row = tflow.open_deadline_request(task_name)
+    except Exception:
+        return None  # kind field not migrated yet
+    if not row:
+        return None
+    by = row.get("requested_by")
+    return {"request": row["name"], "requested_by": by,
+            "from_name": tflow.full_names([by]).get(by) if by else None,
+            "recipient": row.get("recipient"), "new_end": tflow.d10(row.get("proposed_end")),
+            "reason": row.get("message"), "status": "Pending",
+            "created": str(row.get("creation") or "")}
+
+
+def _recurrence_of(task_name):
+    """{name, label} of the PM Recurrence whose latest occurrence (last_task) is this task -
+    same lookup + label as pm_inbox.given batches[].recurrence. Fail-safe -> None."""
+    try:
+        from ecentric_workspace.pm.api import pm_inbox
+        return pm_inbox._recurrence_by_task([task_name]).get(task_name)
+    except Exception:
+        return None
+
+
+def _redesign_detail(doc, d, has_children, user):
+    """PM redesign additions to tasks.get (contract: tests/standalone/test_contract_shapes.py
+    TASK_GET_REDESIGN_KEYS): giver, can_manage (giver or leader), is_leader, review/auto-close
+    flags, recurrence, the pending deadline request, child progress (+ per-person rows) and the
+    state-change history. Opening by an assignee stamps PM Task Seen ("đã mở")."""
+    giver = tflow.giver_of({"name": doc.name, "owner": doc.get("owner"),
+                            "parent_task": doc.get("parent_task")})
+    d["giver"] = tflow.person(giver, _names_map([giver])) if giver else None
+    leader = bool(pmperm.can_see_all_pm_data(user))
+    d["is_leader"] = 1 if leader else 0
+    d["can_manage"] = 1 if (leader or (giver and giver == user)) else 0
+    d["review_required"] = 1 if tflow.truthy(doc.get("ec_review_required")) else 0
+    d["auto_close"] = 1 if tflow.truthy(doc.get("ec_auto_close")) else 0
+    d["split"] = 1 if tflow.truthy(doc.get("ec_split_parent")) else 0
+    d["recurrence"] = _recurrence_of(doc.name)
+    d["pending_deadline_request"] = _pending_deadline(doc.name)
+    prog = tflow.children_progress(doc.name) if has_children else None
+    if prog is not None:
+        prog["people"] = tflow.children_people(doc.name)
+    d["children_progress"] = prog
+    d["history"] = tflow.state_history(doc.name)
+    asg = pmperm.assignees_of(d) or pmperm.assignees_of(
+        {"_assign": frappe.db.get_value("Task", doc.name, "_assign")})
+    if user in asg:
+        tflow.record_seen(doc.name, user)
 
 
 @frappe.whitelist()
@@ -632,8 +713,14 @@ def _expand_project_dates(project, child_start, child_end, user):
 @retry_on_deadlock
 def create(project, subject, parent_task=None, priority=None,
            exp_start_date=None, exp_end_date=None, description=None, assignee=None,
-           pm_start_time=None, pm_end_time=None, assignees=None, split_per_assignee=None):
+           pm_start_time=None, pm_end_time=None, assignees=None, split_per_assignee=None,
+           auto_close=None, review_required=None):
     """Create a Task (or sub-task via parent_task) under a project the user may see.
+
+    PM redesign: `review_required` (Task.ec_review_required) makes a non-giver's Xong send the
+    task to Review instead of Done; `auto_close` (Task.ec_auto_close) lets a split parent close
+    itself when the last child is Done (otherwise it goes to Review). A split parent is marked
+    ec_split_parent=1 so the roll-up knows which parents to manage.
 
     G5.2: supports multiple assignees via `assignees` (list / JSON-array string / separated
     string); the legacy singular `assignee` remains accepted and back-compatible.
@@ -705,6 +792,8 @@ def create(project, subject, parent_task=None, priority=None,
         "pm_start_time": pm_start_time,
         "pm_end_time": pm_end_time,
         "description": description,
+        "ec_review_required": 1 if tflow.truthy(review_required) else 0,
+        "ec_auto_close": 1 if tflow.truthy(auto_close) else 0,
     })
     doc.insert()  # honors DocPerm 'create'; sets owner/creation (audit)
 
@@ -714,6 +803,7 @@ def create(project, subject, parent_task=None, priority=None,
         # the parent to everyone as well would make each of them see both rows in "Việc của
         # tôi", which is exactly the noise this mode is meant to remove.
         doc.is_group = 1
+        doc.ec_split_parent = 1
         doc.save()
         _assign_add({"doctype": "Task", "name": doc.name, "assign_to": [user]})
         made = []
@@ -730,6 +820,7 @@ def create(project, subject, parent_task=None, priority=None,
                 "pm_start_time": pm_start_time,
                 "pm_end_time": pm_end_time,
                 "description": description,
+                "ec_review_required": 1 if tflow.truthy(review_required) else 0,
             })
             child.insert()
             _assign_add({"doctype": "Task", "name": child.name, "assign_to": [_em]})
@@ -959,28 +1050,96 @@ def set_status(name, action):
     # cannot complete a parent while it still has open sub-tasks (canonical terminal check).
     if target == "Done" and pmperm.has_open_children(name):
         frappe.throw(_("Không thể hoàn thành nhiệm vụ khi vẫn còn nhiệm vụ con chưa đóng."))
+    # PM redesign: a review-required task is closed only by its giver / a leader.
+    if target == "Done" and _needs_review(doc, user):
+        frappe.throw(_("Việc này cần người giao kiểm tra. Hãy bấm Gửi kiểm tra."),
+                     frappe.PermissionError)
     cur = doc.get("workflow_state")
     if cur != target:
-        frappe.db.set_value("Task", name,
-                            {"workflow_state": target, "status": _STATE_STATUS.get(target, "Open")})
-        if target in ("Done", "Cancelled"):
-            # Closing the task should clear it from everyone's Nhắc việc: the native ToDos
-            # created by assign_to stay Open otherwise and Việc-của-tôi keeps counting it.
-            try:
-                for _t in frappe.get_all("ToDo", filters={"reference_type": "Task",
-                                                          "reference_name": name,
-                                                          "status": "Open"}, pluck="name"):
-                    frappe.db.set_value("ToDo", _t, "status", "Closed")
-            except Exception:
-                frappe.log_error(frappe.get_traceback(), "PM set_status close todos")
-        try:
-            d2 = frappe.get_doc("Task", name).as_dict()
-            pmnotif.notify_users(pmnotif._task_recipients(d2, exclude=user),
-                                 "Nhiem vu '" + (d2.get("subject") or name) + "' -> " + target,
-                                 name, event_type="mention", severity="info", due_suffix=target)
-        except Exception:
-            pass
+        # Audited write: completed_on/completed_by, Version row, ToDo close, notify.
+        tflow.write_state(name, target, user)
+        _after_terminal(name, target, user)
     return {"name": name, "workflow_state": target}
+
+
+def _needs_review(doc, user):
+    """True when `user` may not close this task directly (ec_review_required and not giver)."""
+    if not tflow.truthy(doc.get("ec_review_required")):
+        return False
+    return not tflow.is_giver_or_leader(
+        {"name": doc.name, "owner": doc.get("owner"), "parent_task": doc.get("parent_task")}, user)
+
+
+def _after_terminal(name, target, user):
+    """Split-parent roll-up after a child reaches Done/Cancelled. Never fails the caller."""
+    if target not in tflow.FINISHED:
+        return None
+    try:
+        return tflow.rollup_parent(name, user)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "PM rollup_parent " + str(name))
+        return None
+
+
+@frappe.whitelist()
+def mark_done(name):
+    """The ONE "Xong" action used by every screen (PM redesign).
+
+    Returns {state, blocked_reason?, missing?, withdrew_request?, parent_state?}. A blocked
+    completion is NOT an error (HTTP 200 + blocked_reason) so the UI can explain it:
+      * "required_steps" - required checklist steps still open (`missing` = count);
+      * "open_children"  - sub-tasks still open (`missing` = count).
+    review_required + caller is not the giver/leader -> Review ("Gửi kiểm tra", giver told).
+    A pending deadline request on the task is withdrawn automatically."""
+    pmperm.require_pm_access()
+    user = frappe.session.user
+    doc = frappe.get_doc("Task", name)
+    if not pmperm.can_view_task(doc.as_dict(), user):
+        frappe.throw(_("Not permitted to change this task."), frappe.PermissionError)
+    cur = doc.get("workflow_state")
+    if cur == "Cancelled":
+        frappe.throw(_("Việc đã huỷ. Hãy mở lại trước khi bấm Xong."))
+    if cur == "Done":
+        return {"state": "Done"}
+    missing = tflow.missing_required_steps(doc)
+    if missing:
+        return {"state": cur, "blocked_reason": "required_steps", "missing": missing}
+    prog = tflow.children_progress(name)
+    if prog and prog["open"]:
+        return {"state": cur, "blocked_reason": "open_children", "missing": prog["open"]}
+    target = "Review" if _needs_review(doc, user) else "Done"
+    out = {"state": target}
+    if cur == target:
+        return out
+    withdrew = _withdraw_on_done(name)
+    if withdrew:
+        out["withdrew_request"] = withdrew
+    tflow.write_state(name, target, user)
+    if target == "Review":
+        _notify_review_requested(doc, user)
+    else:
+        parent_state = _after_terminal(name, target, user)
+        if parent_state:
+            out["parent_state"] = parent_state
+    return out
+
+
+def _withdraw_on_done(name):
+    try:
+        return tflow.withdraw_open_deadline(name, _("Tự rút vì việc đã xong."))
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "PM mark_done withdraw " + str(name))
+        return None
+
+
+def _notify_review_requested(doc, user):
+    giver = tflow.giver_of({"name": doc.name, "owner": doc.get("owner"),
+                            "parent_task": doc.get("parent_task")})
+    who = frappe.db.get_value("User", user, "full_name") or user
+    tflow.emit(tflow.EV_READY_FOR_REVIEW, [giver], doc.name,
+               _("Gửi kiểm tra: {0}").format(doc.get("subject") or doc.name),
+               _("{0} đã làm xong và gửi bạn kiểm tra.").format(who),
+               actor=user, suffix="review|" + str(frappe.utils.now_datetime()))
 
 
 @frappe.whitelist()
@@ -1017,6 +1176,8 @@ def delete(name, cascade=None):
     # 500 QA hit on every delete). Deleting per-parent is cheap (a cluster is tiny).
     for _p in cluster:
         frappe.db.delete("Task Depends On", {"parent": _p})
+        # PM redesign: "đã mở" tracking rows link the Task -> would block delete_doc.
+        frappe.db.delete(tflow.SEEN_DT, {"task": _p})
     for _k in kids:
         # A child cannot be deleted while it still points at the parent (NestedSet link
         # check), so unlink then delete -- same order that works by hand.

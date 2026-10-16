@@ -695,18 +695,19 @@ RAIL_LAYOUTS = {
         {"t": "help", "item": {"key": "docs.guides", "label": "Hướng dẫn sử dụng", "icon": "book"}},
     ],
     "work": [
+        # PM lam lai (PO chot 16/10/2026, _pm_redesign/SPEC.md diem 1): 9 muc.
         {"t": "todo", "items": [
-            # badge_source: both keys resolve ONE shared session-scoped request
+            # badge_source: every pm.* key resolves ONE shared session-scoped request
             # (pm.api.dashboard.rail_badges) in ec_shell.js BADGE_SOURCES.
             {"key": "pm.view.mywork", "badge_source": "pm.mywork"},
-            {"key": "pm.view.assignments", "badge_source": "pm.assignments"},
+            {"key": "pm.view.assignments", "badge_source": "pm.received"},
+            {"key": "pm.view.given"},
             {"key": "pm.view.schedule"}]},
-        {"t": "button", "item": {"key": "rail.pm.new", "label": "Nhiệm vụ mới", "route": "/pm#new",
+        {"t": "button", "item": {"key": "rail.pm.new", "label": "Giao việc", "route": "/pm#new",
                                  "icon": "plus", "noactive": True}},
         {"t": "group", "label": "Quản lý", "items": [
             {"key": "pm.view.overview"}, {"key": "pm.view.projects"},
-            {"key": "pm.view.work", "label": "Danh sách việc"}, {"key": "pm.view.recurring", "label": "Việc lặp lại"},
-            {"key": "pm.view.timesheet"}]},
+            {"key": "pm.view.work"}, {"key": "pm.view.timesheet"}]},
         {"t": "help", "item": {"key": "pm.view.guide", "label": "Hướng dẫn quản lý công việc"}},
     ],
     "hr": [

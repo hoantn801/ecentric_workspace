@@ -34,6 +34,13 @@ _DAYS = {"Daily": 1, "Weekly": 7, "Biweekly": 14}
 _FREQ = ("Daily", "Weekly", "Biweekly", "Monthly")
 _PRIORITIES = ("Low", "Medium", "High", "Urgent")
 
+# PM redesign (16/10/2026, patch p028): completion flags a rule carries over to every occurrence,
+# same meaning as the Task fields set by tasks.create (rule field -> Task field).
+#   split_per_assignee -> parent gets ec_split_parent=1 + one child per assignee
+#   auto_close         -> Task.ec_auto_close (split parent closes itself when the last child is Done)
+#   review_required    -> Task.ec_review_required (non-giver's Xong goes to Review)
+_FLAG_FIELDS = ("split_per_assignee", "auto_close", "review_required")
+
 # NOTE: this module defines a whitelisted `list()` endpoint which shadows the builtin `list`.
 # Capture the builtin here (before `def list`) so isinstance()/list() calls stay correct.
 _LIST = list
@@ -192,12 +199,22 @@ def _clean_int(v, default=0):
 # --------------------------------------------------------------------------
 # Template <-> rule serialization
 # --------------------------------------------------------------------------
+def _flag(v):
+    return 0 if str(v if v is not None else "").strip().lower() in (
+        "", "0", "false", "none", "null") else 1
+
+
 def _apply_template(r, subject=None, description=None, priority=None, assignees=None,
                     template_start_time=None, template_end_time=None, duration_days=None,
                     project=None, checklist_items=None, subtasks=None, labels=None,
-                    is_create=False):
+                    is_create=False, split_per_assignee=None, auto_close=None,
+                    review_required=None):
     """Write template fields + child tables onto rule doc `r`. On update, a field left as None is
     UNCHANGED; child tables / labels are replaced only when a (possibly empty) list is supplied."""
+    for f, v in (("split_per_assignee", split_per_assignee), ("auto_close", auto_close),
+                 ("review_required", review_required)):
+        if v is not None or is_create:
+            r.set(f, _flag(v))
     if subject is not None:
         subject = (subject or "").strip()
         if is_create and not subject:
@@ -274,6 +291,9 @@ def _template_dict(r):
         "checklist_items": items,
         "subtasks": subs,
         "labels": _load_list(r.get("template_labels")),
+        "split_per_assignee": _flag(r.get("split_per_assignee")),
+        "auto_close": _flag(r.get("auto_close")),
+        "review_required": _flag(r.get("review_required")),
     }
 
 
@@ -314,8 +334,11 @@ def create(subject, frequency, description=None, priority=None, assignees=None, 
            template_start_time=None, template_end_time=None, duration_days=None,
            checklist_items=None, subtasks=None, labels=None,
            start_date=None, end_date=None, max_occurrences=None,
-           interval=None, weekly_days=None, monthly_day=None):
-    """Create a SELF-CONTAINED recurrence rule. No source task is created or referenced."""
+           interval=None, weekly_days=None, monthly_day=None,
+           split_per_assignee=None, auto_close=None, review_required=None):
+    """Create a SELF-CONTAINED recurrence rule. No source task is created or referenced.
+    split_per_assignee / auto_close / review_required (PM redesign) are applied to every
+    generated occurrence (see _clone)."""
     pmperm.require_pm_access()
     subject = (subject or "").strip()
     if not subject or not frequency:
@@ -341,7 +364,8 @@ def create(subject, frequency, description=None, priority=None, assignees=None, 
                     assignees=assignees, template_start_time=template_start_time,
                     template_end_time=template_end_time, duration_days=duration_days,
                     project=project, checklist_items=checklist_items, subtasks=subtasks,
-                    labels=labels, is_create=True)
+                    labels=labels, is_create=True, split_per_assignee=split_per_assignee,
+                    auto_close=auto_close, review_required=review_required)
     r.insert(ignore_permissions=True)
     return _as_dict(r)
 
@@ -351,7 +375,8 @@ def update_template(name, subject=None, description=None, priority=None, assigne
                     project=None, template_start_time=None, template_end_time=None,
                     duration_days=None, checklist_items=None, subtasks=None, labels=None,
                     frequency=None, start_date=None, end_date=None, max_occurrences=None,
-                    interval=None, weekly_days=None, monthly_day=None):
+                    interval=None, weekly_days=None, monthly_day=None,
+                    split_per_assignee=None, auto_close=None, review_required=None):
     """Edit a rule's template (fields + checklist + sub-tasks) AND/OR its schedule, inline. Only
     supplied arguments are changed. This is the 'sửa task/subtask ngay trong quy tắc' entry point."""
     r = _manage(name)
@@ -377,7 +402,8 @@ def update_template(name, subject=None, description=None, priority=None, assigne
                     assignees=assignees, template_start_time=template_start_time,
                     template_end_time=template_end_time, duration_days=duration_days,
                     project=project, checklist_items=checklist_items, subtasks=subtasks,
-                    labels=labels, is_create=False)
+                    labels=labels, is_create=False, split_per_assignee=split_per_assignee,
+                    auto_close=auto_close, review_required=review_required)
     r.save(ignore_permissions=True)
     return _as_dict(r)
 
@@ -461,25 +487,78 @@ def create_from_task(task, frequency, start_date=None, end_date=None, max_occurr
         dur = _clean_int(duration_days, dur)  # monthly "từ ngày X đến ngày Y" overrides task span
     citems = [{"item_label": c.get("item_label"), "is_required": 1 if c.get("is_required") else 0}
               for c in (t.get("pm_checklist") or []) if c.get("item_label")]
-    subs = []
-    for k in frappe.get_all("Task", filters={"parent_task": task},
-                            fields=["subject", "description", "priority", "_assign"],
-                            order_by="creation asc", limit_page_length=0):
-        subs.append({"subject": k.get("subject"), "description": k.get("description"),
-                     "priority": k.get("priority"), "assignees": _load_list(k.get("_assign"))})
+    kids = frappe.get_all("Task", filters={"parent_task": task},
+                          fields=["name", "subject", "description", "priority", "_assign",
+                                  "workflow_state"],
+                          order_by="creation asc", limit_page_length=0)
+    split = _flag(t.get("ec_split_parent"))
+    if split:
+        # "Mỗi người một việc" source: the children ARE the per-person parts, not template
+        # sub-tasks (otherwise every occurrence would get them twice). The people come from the
+        # live children (the parent itself is assigned to the giver); steps from the first child
+        # when the parent has none (pm_redesign adds form steps to each child).
+        live = [k for k in kids if k.get("workflow_state") != "Cancelled"]
+        people = []
+        for k in live:
+            for u in _people_of(k):
+                if u not in people:
+                    people.append(u)
+        if not citems and live:
+            first = frappe.get_doc("Task", live[0]["name"])
+            citems = [{"item_label": c.get("item_label"),
+                       "is_required": 1 if c.get("is_required") else 0}
+                      for c in (first.get("pm_checklist") or []) if c.get("item_label")]
+        subs = []
+    else:
+        people = _people_of({"name": task, "_assign": t.get("_assign")})
+        subs = [{"subject": k.get("subject"), "description": k.get("description"),
+                 "priority": k.get("priority"), "assignees": _people_of(k)} for k in kids]
     lbls = [a["label"] for a in frappe.get_all(
         "PM Task Label Assignment", filters={"task": task}, fields=["label"],
         limit_page_length=0) if a.get("label")]
     sd = start_date or (str(t.get("exp_start_date")) if t.get("exp_start_date") else None)
-    return create(
+    out = create(
         subject=t.get("subject") or task, frequency=frequency,
         description=t.get("description"), priority=t.get("priority"),
-        assignees=json.dumps(_load_list(t.get("_assign"))), project=t.get("project"),
+        assignees=json.dumps(people), project=t.get("project"),
         template_start_time=t.get("pm_start_time"), template_end_time=t.get("pm_end_time"),
         duration_days=dur, checklist_items=json.dumps(citems), subtasks=json.dumps(subs),
         labels=json.dumps(lbls), start_date=sd, end_date=end_date,
         max_occurrences=max_occurrences, interval=interval, weekly_days=weekly_days,
-        monthly_day=monthly_day)
+        monthly_day=monthly_day, split_per_assignee=split,
+        auto_close=_flag(t.get("ec_auto_close")),
+        review_required=_flag(t.get("ec_review_required")))
+    # The source task is the series' first occurrence: link it as last_task so "Tôi đã giao" and
+    # tasks.get show the "Lặp lại" tag right away (run_due overwrites it with each new occurrence).
+    try:
+        frappe.db.set_value(DT, out["name"], "last_task", task, update_modified=False)
+        out["last_task"] = task
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "PM create_from_task link " + str(task))
+    return out
+
+
+def _people_of(task_row):
+    """Assignees of a task; when it is still unassigned because it went through "Cần đồng ý",
+    the recipients of its open / accepted assignment requests (occurrences are then assigned
+    directly - a recurring series does not re-ask every period)."""
+    users = [u for u in _load_list(task_row.get("_assign")) if u]
+    if users or not task_row.get("name"):
+        return users
+    try:
+        rows = frappe.get_all("PM Assignment Request",
+                              filters={"task": task_row["name"],
+                                       "status": ["in", ["Pending", "Reschedule Proposed",
+                                                         "Accepted"]]},
+                              fields=["recipient", "kind"], limit_page_length=0)
+    except Exception:
+        return []
+    out = []
+    for r in rows:
+        if (r.get("kind") or "Assignment") != "Deadline" and r.get("recipient") \
+                and r["recipient"] not in out:
+            out.append(r["recipient"])
+    return out
 
 
 # --------------------------------------------------------------------------
@@ -498,18 +577,29 @@ def _clone(r, occ_date):
     dur = _clean_int(r.get("template_duration_days"), 0)
     if dur > 0:
         fields["exp_end_date"] = add_days(occ_date, dur)
+    users = _load_list(r.get("template_assignees"))
+    split = bool(_flag(r.get("split_per_assignee")) and len(users) > 1)
+    fields["ec_review_required"] = _flag(r.get("review_required"))
+    fields["ec_auto_close"] = _flag(r.get("auto_close"))
+    if split:
+        fields["is_group"] = 1
+        fields["ec_split_parent"] = 1
     t = frappe.get_doc(fields)
     t.insert(ignore_permissions=True)  # active workflow sets workflow_state=Backlog on insert
+    if split:
+        _clone_split_children(r, t, occ_date, users, fields)
     # assignees (notify=0 -> no daily assignment spam; recurring notice below goes to owner)
     try:
-        users = _load_list(r.get("template_assignees"))
-        if users:
-            _assign_add({"doctype": "Task", "name": t.name, "assign_to": users, "notify": 0})
+        # split: the parent is the giver's coordination row (as in tasks.create split)
+        asg = [r.get("owner")] if split and r.get("owner") else ([] if split else users)
+        if asg:
+            _assign_add({"doctype": "Task", "name": t.name, "assign_to": asg, "notify": 0})
     except Exception:
         frappe.log_error(frappe.get_traceback(), "Recurring assignment failed: " + t.name)
-    # checklist snapshot
+    # checklist snapshot (split: the steps live on each person's child, see _clone_split_children)
     try:
-        citems = sorted(r.get("pm_checklist_items") or [], key=lambda x: (x.idx or 0))
+        citems = [] if split else sorted(r.get("pm_checklist_items") or [],
+                                         key=lambda x: (x.idx or 0))
         for it in citems:
             t.append("pm_checklist", {
                 "item_label": it.item_label, "is_required": it.is_required, "is_done": 0,
@@ -536,7 +626,9 @@ def _clone(r, occ_date):
         frappe.log_error(frappe.get_traceback(), "Recurring label copy failed: " + t.name)
     # sub-tasks (one level); nested-set writes covered by run_due's deadlock retry
     try:
-        for st in sorted(r.get("pm_subtasks") or [], key=lambda x: (x.idx or 0)):
+        # split: the per-person children replace template sub-tasks (extra children would keep
+        # the split parent from ever rolling up)
+        for st in ([] if split else sorted(r.get("pm_subtasks") or [], key=lambda x: (x.idx or 0))):
             child = frappe.get_doc({
                 "doctype": "Task", "subject": st.subject,
                 "description": st.get("description"),
@@ -555,6 +647,32 @@ def _clone(r, occ_date):
     except Exception:
         frappe.log_error(frappe.get_traceback(), "Recurring subtask copy failed: " + t.name)
     return t.name
+
+
+def _clone_split_children(r, t, occ_date, users, fields):
+    """"Mỗi người một việc" occurrence: one child per template assignee (same naming as
+    tasks.create split), each with the rule's checklist + review flag. Best-effort per child."""
+    citems = sorted(r.get("pm_checklist_items") or [], key=lambda x: (x.idx or 0))
+    for em in users:
+        try:
+            who = frappe.db.get_value("User", em, "full_name") or em.split("@")[0]
+            child = frappe.get_doc({
+                "doctype": "Task", "subject": (fields.get("subject") or "")[:120] + " — " + who,
+                "description": fields.get("description"), "priority": fields.get("priority"),
+                "project": fields.get("project"), "parent_task": t.name,
+                "exp_start_date": occ_date, "exp_end_date": fields.get("exp_end_date"),
+                "pm_start_time": fields.get("pm_start_time"),
+                "pm_end_time": fields.get("pm_end_time"),
+                "ec_review_required": fields.get("ec_review_required") or 0,
+            })
+            for it in citems:
+                child.append("pm_checklist", {
+                    "item_label": it.item_label, "is_required": it.is_required, "is_done": 0,
+                    "source_template_item": (it.name or it.item_label)})
+            child.insert(ignore_permissions=True)
+            _assign_add({"doctype": "Task", "name": child.name, "assign_to": [em], "notify": 0})
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "Recurring split child failed: " + t.name)
 
 
 def _process(name, today):
@@ -583,7 +701,10 @@ def _process(name, today):
     r.occurrences_done = (r.occurrences_done or 0) + 1
     r.last_task = new_task
     r.last_run_date = nrd
-    r.next_run_date = _advance(nrd, r.frequency, r.start_date, r.occurrences_done)
+    # BUGFIX (16/10/2026): was _advance(nrd, r.frequency, r.start_date, r.occurrences_done) - a
+    # stale call from before 30a42d22 changed the signature to _advance(r, current); it raised
+    # TypeError after _clone, so _process_with_retry rolled back every generated occurrence.
+    r.next_run_date = _advance(r, nrd)
     if (r.end_date and getdate(r.next_run_date) > getdate(r.end_date)) or \
        (r.max_occurrences and r.occurrences_done >= r.max_occurrences):
         r.status = "Completed"

@@ -56,8 +56,46 @@ def _set_open_keys(doc):
     open_request_key = '<task>::<recipient>' (one open request per pair); open_task_key = '<task>'
     (the canonical 'one OPEN request per TASK' invariant, any recipient). One canonical helper."""
     is_open = doc.status in OPEN_STATUSES
+    if (doc.get("kind") or "") == "Deadline":
+        # PM redesign: deadline requests live in their own key namespace (pm.task_flow).
+        from ecentric_workspace.pm import task_flow as tflow
+        doc.open_request_key, doc.open_task_key = tflow.deadline_keys(
+            doc.task, doc.requested_by, is_open)
+        return
     doc.open_request_key = _open_key(doc.task, doc.recipient) if is_open else None
     doc.open_task_key = doc.task if is_open else None
+
+
+def _assert_assignment_kind(doc):
+    """PM redesign: kind=Deadline requests (xin dời hạn) are handled ONLY by pm.api.pm_inbox;
+    the assignment accept/resend paths would assign the task + rewrite its schedule."""
+    if (doc.get("kind") or "Assignment") == "Deadline":
+        frappe.throw(_("Đây là đề xuất dời hạn. Hãy trả lời trong mục Tôi đã giao."))
+
+
+def _release_split_child(doc, reason):
+    """PM redesign (PO point 7): "Cần đồng ý" + "Mỗi người một việc" - one person declining
+    their part cancels only that child, so the split parent keeps running (and can roll up).
+    The requester is told by the existing rejection reminder. Never fails the response."""
+    from ecentric_workspace.pm import task_flow as tflow
+    try:
+        parent = frappe.db.get_value("Task", doc.task, "parent_task")
+        if not parent or not tflow.truthy(frappe.db.get_value("Task", parent, "ec_split_parent")):
+            return
+        tflow.write_state(doc.task, "Cancelled", frappe.session.user, notify=False)
+        tflow.add_comment(doc.task, _("Huỷ phần việc vì người nhận từ chối: {0}").format(reason or ""))
+        tflow.rollup_parent(doc.task, frappe.session.user)
+        # Tell the requester through notification_center too (the [XN:] ToDo reminder only shows
+        # in Nhắc việc). Points at the PARENT: that is what keeps running.
+        from ecentric_workspace.pm.api import notifications as pmnotif
+        who = frappe.db.get_value("User", doc.recipient, "full_name") or doc.recipient
+        pmnotif.notify_users([doc.requested_by],
+                             _("{0} từ chối phần việc: {1}").format(
+                                 who, frappe.db.get_value("Task", parent, "subject") or parent),
+                             parent, from_user=frappe.session.user, event_type="mention",
+                             message=reason or "", due_suffix="split-reject|" + str(doc.name))
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "assignment release split child " + str(doc.name))
 
 
 def _event(doc, action, detail=None, old_start=None, old_end=None, new_start=None, new_end=None):
@@ -285,21 +323,35 @@ def create_request(task, recipient, proposed_start=None, proposed_end=None, mess
 @frappe.whitelist()
 def create_with_task(subject, recipient=None, project=None, description=None, priority=None,
                      proposed_start=None, proposed_end=None, message=None,
-                     checklist_template=None, labels=None, recipients=None, parent_task=None):
+                     checklist_template=None, labels=None, recipients=None, parent_task=None,
+                     review_required=None, auto_close=None, split_per_assignee=None):
     """G5.0 primary flow: create a NEW UNASSIGNED Backlog task + its assignment request in ONE
     transaction. The task stays unassigned in Backlog until Accepted. Rolls back on any failure.
 
     G5.2: `recipients` (list / separated string) is accepted for symmetry with direct mode, but the
     PM Assignment Request model enforces ONE open request per Task (open_task_key), so request mode
     supports exactly one recipient per Task; multiple recipients are rejected with a clear message
-    (use direct 'Phân công ngay' to assign several people)."""
+    (use direct 'Phân công ngay' to assign several people).
+
+    PM redesign (PO point 7, "Cần đồng ý" + "Mỗi người một việc"): with split_per_assignee and
+    2+ recipients (top-level only) the task becomes a split parent (ec_split_parent=1, assigned to
+    the requester, like tasks.create split) with ONE unassigned child + ONE request per recipient.
+    Each person accepts / rejects their own part; a rejection cancels only that child
+    (_release_split_child), the parent keeps running and the requester is told. `review_required`
+    / `auto_close` are stored as in tasks.create. Single-recipient result is unchanged:
+    {task, request}; split result: {task, children, requests, split: 1}."""
     pmperm.require_pm_access()
     user = frappe.session.user
     if not subject:
         frappe.throw(_("Tên nhiệm vụ là bắt buộc."))
     from ecentric_workspace.pm.api import tasks as pmtasks
     from ecentric_workspace.pm.api import labels as pmlabels
+    from ecentric_workspace.pm import task_flow as tflow
     _rcpts = pmtasks._normalize_assignees(recipient, recipients)
+    if len(_rcpts) > 1 and tflow.truthy(split_per_assignee) and not parent_task:
+        return _create_split_with_requests(
+            user, subject, _rcpts, project, description, priority, proposed_start,
+            proposed_end, message, checklist_template, labels, review_required, auto_close)
     if len(_rcpts) > 1:
         frappe.throw(_("Chế độ Yêu cầu xác nhận chỉ hỗ trợ một người nhận cho mỗi nhiệm vụ "
                        "(mỗi nhiệm vụ chỉ có một yêu cầu đang mở). Dùng Phân công ngay để giao "
@@ -314,23 +366,70 @@ def create_with_task(subject, recipient=None, project=None, description=None, pr
     try:
         t = pmtasks.create(project or "", subject, parent_task=(parent_task or None),
                            priority=priority, description=description,
-                           exp_start_date=sd, exp_end_date=ed, pm_start_time=st, pm_end_time=et)
+                           exp_start_date=sd, exp_end_date=ed, pm_start_time=st, pm_end_time=et,
+                           auto_close=auto_close, review_required=review_required)
         task_name = t["name"]
         if labels:
             pmlabels.set_task_labels(task_name, labels)
-        if checklist_template:
-            tmpl = frappe.get_doc("PM Checklist Template", checklist_template)
-            if tmpl.get("is_active"):
-                tdoc = frappe.get_doc("Task", task_name)
-                for it in sorted(tmpl.get("items") or [], key=lambda x: (x.idx or 0)):
-                    tdoc.append("pm_checklist", {"item_label": it.item_label,
-                                                 "is_required": it.is_required, "is_done": 0})
-                tdoc.save(ignore_permissions=True)
+        _apply_checklist_template(task_name, checklist_template)
         req = create_request(task_name, recipient, proposed_start, proposed_end, message)
     except Exception:
         frappe.db.rollback()
         raise
     return {"task": task_name, "request": req}
+
+
+def _apply_checklist_template(task_name, checklist_template):
+    if not checklist_template:
+        return
+    tmpl = frappe.get_doc("PM Checklist Template", checklist_template)
+    if tmpl.get("is_active"):
+        tdoc = frappe.get_doc("Task", task_name)
+        for it in sorted(tmpl.get("items") or [], key=lambda x: (x.idx or 0)):
+            tdoc.append("pm_checklist", {"item_label": it.item_label,
+                                         "is_required": it.is_required, "is_done": 0})
+        tdoc.save(ignore_permissions=True)
+
+
+def _create_split_with_requests(user, subject, rcpts, project, description, priority,
+                                proposed_start, proposed_end, message, checklist_template,
+                                labels, review_required, auto_close):
+    """Request mode + "Mỗi người một việc": split parent (assigned to the requester, never to the
+    recipients) + one unassigned child and one Pending request per recipient. All-or-nothing:
+    every recipient is validated before anything is written; any failure rolls back."""
+    from ecentric_workspace.pm.api import tasks as pmtasks
+    from ecentric_workspace.pm.api import labels as pmlabels
+    for r in rcpts:
+        _recipient_eligible(r)
+    proposed_start, proposed_end = _clean_sched(proposed_start, proposed_end)  # G5.1: fail fast
+    sd, st = _split(proposed_start)
+    ed, et = _split(proposed_end)
+    try:
+        t = pmtasks.create(project or "", subject, priority=priority, description=description,
+                           exp_start_date=sd, exp_end_date=ed, pm_start_time=st, pm_end_time=et,
+                           auto_close=auto_close, review_required=review_required)
+        parent = t["name"]
+        pdoc = frappe.get_doc("Task", parent)
+        pdoc.is_group = 1
+        pdoc.ec_split_parent = 1
+        pdoc.save()
+        _assign_add({"doctype": "Task", "name": parent, "assign_to": [user]})  # coordination row
+        if labels:
+            pmlabels.set_task_labels(parent, labels)
+        children, requests = [], []
+        for em in rcpts:
+            who = frappe.db.get_value("User", em, "full_name") or em.split("@")[0]
+            c = pmtasks.create(project or "", (subject or "")[:120] + " — " + who,
+                               parent_task=parent, priority=priority, description=description,
+                               exp_start_date=sd, exp_end_date=ed, pm_start_time=st,
+                               pm_end_time=et, review_required=review_required)
+            _apply_checklist_template(c["name"], checklist_template)
+            requests.append(create_request(c["name"], em, proposed_start, proposed_end, message))
+            children.append(c["name"])
+    except Exception:
+        frappe.db.rollback()
+        raise
+    return {"task": parent, "children": children, "requests": requests, "split": 1}
 
 
 # --------------------------------------------------------------------------
@@ -344,6 +443,7 @@ def respond(name, decision, reason=None, counter_start=None, counter_end=None):
     doc = frappe.get_doc(DT, name)
     if doc.recipient != user:
         frappe.throw(_("Bạn chỉ có thể phản hồi yêu cầu giao việc của mình."), frappe.PermissionError)
+    _assert_assignment_kind(doc)
     if doc.status not in OPEN_STATUSES:
         frappe.throw(_("Yêu cầu này không còn mở."))
 
@@ -388,6 +488,7 @@ def respond(name, decision, reason=None, counter_start=None, counter_end=None):
         _close_request_todos(doc.name, doc.recipient)
         _req_todo(doc.name, doc.task, doc.requested_by, _task_subject(doc.task),
                   "Yêu cầu bị TỪ CHỐI — xem lại / gửi lại")
+        _release_split_child(doc, reason)
     elif decision == "reschedule":
         _close_request_todos(doc.name, doc.recipient)
         _req_todo(doc.name, doc.task, doc.requested_by, _task_subject(doc.task),
@@ -406,6 +507,7 @@ def requester_action(name, action, proposed_start=None, proposed_end=None, messa
     doc = frappe.get_doc(DT, name)
     if not _is_requester_or_leader(doc, user):
         frappe.throw(_("Bạn không có quyền quản lý yêu cầu này."), frappe.PermissionError)
+    _assert_assignment_kind(doc)
 
     if action == "accept_counter":
         if doc.status != "Reschedule Proposed":
@@ -471,8 +573,11 @@ def requester_action(name, action, proposed_start=None, proposed_end=None, messa
 def _list(filters):
     rows = frappe.get_all(DT, filters=filters, fields=[
         "name", "task", "recipient", "requested_by", "status", "proposed_start",
-        "proposed_end", "counter_start", "counter_end", "message", "response_reason", "modified"],
+        "proposed_end", "counter_start", "counter_end", "message", "response_reason", "modified",
+        "kind"],
         order_by="modified desc", limit_page_length=200, ignore_permissions=True)
+    # PM redesign: deadline requests (kind=Deadline) are listed by pm_inbox, not here.
+    rows = [r for r in rows if (r.get("kind") or "Assignment") != "Deadline"]
     names = list({r["task"] for r in rows if r.get("task")})
     subj = {}
     if names:
