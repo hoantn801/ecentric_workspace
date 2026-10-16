@@ -62,7 +62,7 @@
 .ec-at-tb th{
   text-align:left; font-weight:600; font-size:11px; color:var(--ec-at-muted);
   background:var(--ec-at-wash); padding:6px 8px; border-bottom:1px solid var(--ec-at-border);
-  white-space:nowrap;
+  white-space:nowrap; vertical-align:middle;
 }
 /* Do rong theo LOP cot, khong theo thu tu: form khai them cot (all_tab_columns) se chen
    giua bang, nth-child se gan nham do rong cho cot khac. */
@@ -70,7 +70,9 @@
    chieu; cot dang sap mang mau nhan + mui ten. Pheu mo o noi loc cua cot. */
 .ec-at-h{ display:flex; align-items:center; gap:2px; min-width:0; }
 .ec-at-num .ec-at-h{ justify-content:flex-end; }
-.ec-at-hl{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+/* Nhan cot DUOC xuong dong (16/10): cat "Mã · n…", "Legal en…" thi nguoi ta khong biet
+   minh dang bam sap xep cot nao. Bang da cuon ngang nen hai dong khong lam vo bo cuc. */
+.ec-at-hl{ white-space:normal; overflow-wrap:break-word; line-height:1.25; min-width:0; text-align:inherit; }
 .ec-at-sx{
   display:inline-flex; align-items:center; gap:3px; min-width:0; max-width:100%;
   padding:0; border:0; background:transparent; cursor:pointer;
