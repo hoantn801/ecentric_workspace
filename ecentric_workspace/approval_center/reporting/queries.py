@@ -34,6 +34,11 @@ _FIELDS = """
 _OPEN = "('Pending','Information Required')"
 
 
+#: Tran so gia tri trong MOT menh de IN cua o loc nhieu gia tri. Danh sach lay tu
+#: get_all_filters cung bi chan o 500 (all_list.DISTINCT_MAX) - day la lop chan thu hai.
+IN_MAX = 500
+
+
 def _non_date_filters(filters, params):
     """Build filter fragments (excluding date range) into a list; mutate params."""
     frag = []
@@ -47,9 +52,20 @@ def _non_date_filters(filters, params):
     }
     for key, col in m.items():
         val = (filters or {}).get(key)
-        if val in (None, "", []):
+        if val in (None, "", [], ()):
             continue
         pk = "f_" + key
+        if isinstance(val, (list, tuple)):
+            # Nhieu gia tri (o loc dang danh sach tick cua tab "Tat ca", 16/10/2026): IN voi
+            # MOI gia tri mot tham so. Khong bao gio truyen ca list vao mot %(x)s - driver se
+            # noi no thanh "('a','b')" sau dau "=", vua sai vua tuy driver.
+            khoa = []
+            for i, x in enumerate(list(val)[:IN_MAX]):
+                k = "%s_%d" % (pk, i)
+                params[k] = x
+                khoa.append("%%(%s)s" % k)
+            frag.append("%s IN (%s)" % (col, ", ".join(khoa)))
+            continue
         params[pk] = val
         frag.append("%s = %%(%s)s" % (col, pk))
     # approver filter -> membership on the approver child
@@ -301,9 +317,16 @@ def _list_where(scope, filters, search, params):
 _BIZ_FIELD_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 _BIZ_DT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _-]{0,139}$")
 
-#: Khoa sap xep DUY NHAT duoc chap nhan. Client gui gi khac -> mac dinh (moi -> cu).
-SORT_KEYS = ("newest", "oldest", "amount_desc", "amount_asc")
+#: Sap xep (16/10/2026, loc tren header cot): all_list dich {"col","dir"} cua client thanh
+#: mot dac ta NOI BO `_sort` = {"key", "dir", ...}. Chi ba loai khoa duoc dung ORDER BY:
+#:   submitted  - ngay gui (mac dinh, DESC)
+#:   status     - trang thai phieu, theo THU TU NHAN TIENG VIET do all_list dua vao (`order`)
+#:   biz        - mot truong cua DocType nghiep vu (`field`, da kiem o all_list + regex o day)
+#: Khoa / chieu la -> mac dinh moi -> cu. Khong co manh ORDER BY nao do client viet.
+SORT_KINDS = ("submitted", "status", "biz")
+SORT_DIRS = ("asc", "desc")
 _NGAY = "COALESCE(r.submitted_at, r.creation)"
+_MAC_DINH = _NGAY + " DESC"
 
 
 def _biz_ident(dt, field=None):
@@ -315,8 +338,10 @@ def _biz_ident(dt, field=None):
 
 
 def _biz_clause(filters, params):
-    """EXISTS tren DocType nghiep vu cho cac dieu kien `_biz` (bang / so tien tu - den).
+    """EXISTS tren DocType nghiep vu cho cac dieu kien `_biz` (bang / thuoc / so tien tu - den).
 
+    `eq`  = ((field, gia_tri), ...)        - mot gia tri (dang cu)
+    `in`  = ((field, (gt1, gt2, ...)), ...) - nhieu gia tri (o tick tren header cot)
     Tra None khi khong co dieu kien nao. Duoc AND vao `where` cung scope_predicate - day la
     LOC THU HEP, khong bao gio noi rong pham vi."""
     biz = (filters or {}).get("_biz") or {}
@@ -330,6 +355,15 @@ def _biz_clause(filters, params):
         k = "bz_eq%d" % i
         params[k] = val
         conds.append("b.%s = %%(%s)s" % (cot, k))
+    for i, (field, vals) in enumerate(biz.get("in") or ()):
+        _, cot = _biz_ident(dt, field)
+        khoa = []
+        for j, val in enumerate(list(vals or ())[:IN_MAX]):
+            k = "bz_in%d_%d" % (i, j)
+            params[k] = val
+            khoa.append("%%(%s)s" % k)
+        if khoa:
+            conds.append("b.%s IN (%s)" % (cot, ", ".join(khoa)))
     amt = biz.get("amount_field")
     for key, op in (("amount_min", ">="), ("amount_max", "<=")):
         val = biz.get(key)
@@ -345,23 +379,43 @@ def _biz_clause(filters, params):
             "AND r.reference_doctype = %(bz_dt)s AND " + " AND ".join(conds) + ")")
 
 
-def _order_by(filters):
-    """ORDER BY tu MOT khoa trong SORT_KEYS. Khong co khoa / khoa la -> y nhu truoc day."""
-    key = (filters or {}).get("_sort")
-    if key not in SORT_KEYS or key == "newest":
-        return _NGAY + " DESC"
-    if key == "oldest":
-        return _NGAY + " ASC, r.name ASC"
+def _order_by(filters, params=None):
+    """ORDER BY tu dac ta `_sort` (xem SORT_KINDS). Khong co / la -> y nhu truoc day.
+
+    `params` chi can cho sap theo trang thai (thu tu nhan di bang tham so). Thieu `params`
+    thi sap trang thai roi ve thu tu cot tho - khong bao gio noi gia tri vao chuoi SQL."""
+    s = (filters or {}).get("_sort")
+    if not isinstance(s, dict):
+        return _MAC_DINH
+    key, huong = s.get("key"), s.get("dir")
+    if key not in SORT_KINDS or huong not in SORT_DIRS:
+        return _MAC_DINH
+    H = huong.upper()
+    if key == "submitted":
+        return _MAC_DINH if huong == "desc" else _NGAY + " ASC, r.name ASC"
+    if key == "status":
+        order = [x for x in (s.get("order") or ()) if isinstance(x, str)][:20]
+        if not order or params is None:
+            return "r.approval_status %s, %s DESC, r.name DESC" % (H, _NGAY)
+        khoa = []
+        for i, x in enumerate(order):
+            k = "so_st%d" % i
+            params[k] = x
+            khoa.append("%%(%s)s" % k)
+        return "FIELD(r.approval_status, %s) %s, %s DESC, r.name DESC" % (
+            ", ".join(khoa), H, _NGAY)
+    # key == "biz"
     biz = (filters or {}).get("_biz") or {}
-    dt, amt = biz.get("doctype"), biz.get("amount_field")
-    if not (dt and amt):
-        return _NGAY + " DESC"
-    bang, cot = _biz_ident(dt, amt)
-    tien = "(SELECT b.%s FROM %s b WHERE b.name = r.reference_name)" % (cot, bang)
-    huong = "DESC" if key == "amount_desc" else "ASC"
-    # Phieu khong co so tien luon xuong CUOI, ca hai chieu: dua 20 dong "trong" len dau
-    # bang "tang dan" la giau mat thu nguoi ta dang tim.
-    return "%s IS NULL, %s %s, %s DESC, r.name DESC" % (tien, tien, huong, _NGAY)
+    dt, field = biz.get("doctype"), s.get("field")
+    if not (dt and field):
+        return _MAC_DINH
+    bang, cot = _biz_ident(dt, field)
+    gt = "(SELECT b.%s FROM %s b WHERE b.name = r.reference_name)" % (cot, bang)
+    # Phieu khong co gia tri luon xuong CUOI, ca hai chieu: dua 20 dong "trong" len dau
+    # bang "tang dan" la giau mat thu nguoi ta dang tim. Truong chu: chuoi rong cung la trong.
+    # Truong so / ngay: chi NULL (0 la mot so tien that; so '' voi ngay la canh bao cua DB).
+    trong = ("(%s IS NULL OR %s = '')" % (gt, gt)) if s.get("text") else ("%s IS NULL" % gt)
+    return "%s, %s %s, %s DESC, r.name DESC" % (trong, gt, H, _NGAY)
 
 
 def awaiting_my_decision_sql(param_name):
@@ -406,7 +460,7 @@ def fetch_requests_page(scope, filters, start, page_length, search=None):
     params["_start"] = int(start)
     params["_len"] = int(page_length)
     sql = ("SELECT " + _FIELDS + _BASE + " WHERE " + where +
-           " ORDER BY " + _order_by(filters) + " LIMIT %(_start)s, %(_len)s")
+           " ORDER BY " + _order_by(filters, params) + " LIMIT %(_start)s, %(_len)s")
     return frappe.db.sql(sql, params, as_dict=True)
 
 

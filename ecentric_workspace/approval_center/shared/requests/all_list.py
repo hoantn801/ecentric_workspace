@@ -30,8 +30,14 @@ Ba rang buoc di kem, khong phai trang tri:
 
 LOC THEM / SAP XEP / COT RIENG (16/10/2026, Finance gop y tren Contract Review, PO duyet).
 Bon thu, deu nam o tang dung chung nay de 28 form cung huong:
-  * Sap xep `filters.sort` thuoc mot danh sach TRANG (`queries.SORT_KEYS`). Gia tri la ->
-    mac dinh moi -> cu. Khong co ORDER BY nao do client viet.
+  * Sap xep `filters.sort` = {"col": <khoa cot>, "dir": "asc"|"desc"} (16/10/2026, sap xep
+    + loc ngay tren header cot). Khoa cot thuoc mot danh sach TRANG dung tu chinh cac cot
+    dang hien (`_khoa_sap_xep`): submitted / title / amount / status / "x:<fieldname>" voi
+    fieldname definition khai VA meta co. Khoa cu "newest/oldest/amount_desc/amount_asc"
+    van nhan (`SORT_CU`). Gia tri la -> mac dinh moi -> cu. Khong co ORDER BY nao do client
+    viet; queries chi nhan dac ta noi bo `_sort` da kiem.
+  * O loc trang thai / phong ban / nguoi de nghi / truong nghiep vu nhan MOT gia tri (dang
+    cu) hoac DANH SACH gia tri (o tick tren header) -> IN, moi gia tri mot tham so SQL.
   * Khoang so tien `filters.amount_min/amount_max` - chi khi form CO truong so tien, va
     truong do la DUNG truong cot "So tien" dang hien (business_summary.AMOUNT_FIELDS).
     Loc mot truong khac voi truong dang hien la noi doi nguoi dung.
@@ -101,10 +107,74 @@ def _doc_bo_loc(filters):
     return filters if isinstance(filters, dict) else {}
 
 
+#: Khoa sap xep dang chuoi cua ban truoc (16/10/2026, o <select>) -> dac ta cot moi. Giu de
+#: link / tep xuat cu va client chua tai lai van ra dung thu tu.
+SORT_CU = {
+    "newest": {"col": "submitted", "dir": "desc"},
+    "oldest": {"col": "submitted", "dir": "asc"},
+    "amount_desc": {"col": "amount", "dir": "desc"},
+    "amount_asc": {"col": "amount", "dir": "asc"},
+}
+#: Kieu cot ma o trong la chuoi rong ('' cung xuong cuoi khi sap xep).
+_KIEU_CHU = ("text", "select")
+#: Khoa loc o EC Approval Request nhan DANH SACH (o tick tren header cot).
+_LOC_DS = ("status", "department", "requester")
+
+
+def _gia_tri_don(x):
+    """Mot gia tri loc tu client -> chuoi da cat, hoac None. Chi chuoi / so; bool, dict, list
+    long nhau deu bi bo (khong nem loi - bo loc rac thi coi nhu khong loc)."""
+    if isinstance(x, bool) or not isinstance(x, (str, int, float)):
+        return None
+    x = str(x).strip()
+    return x[:GIA_TRI_MAX] if x else None
+
+
+def _danh_sach(v):
+    """Gia tri o loc (mot gia tri HOAC danh sach) -> list chuoi khong trung, toi da
+    DISTINCT_MAX. Dang khac -> []."""
+    if isinstance(v, (list, tuple)):
+        tho = v
+    else:
+        tho = [v]
+    out = []
+    for x in tho:
+        x = _gia_tri_don(x)
+        if x is not None and x not in out:
+            out.append(x)
+        if len(out) >= DISTINCT_MAX:
+            break
+    return out
+
+
+def _trang_thai_engine(vals):
+    """Gia tri trang thai (nhan chuan hoa hoac gia tri engine) -> gia tri engine hop le.
+    "Draft" khong co tren EC Approval Request nen bi bo, giong `_parse_filters`."""
+    out = []
+    for x in vals:
+        e = _status.to_engine(x) if x in _status.NORMALIZED_STATUSES else x
+        if e in _status.ENGINE_STATUSES and e not in out:
+            out.append(e)
+    return out
+
+
 def _pinned_filters(definition, filters, search=None):
     """Bo loc da chuan hoa, voi approval_type BI GHI DE ve form nay."""
     goc = _doc_bo_loc(filters)
-    f = _rapi._parse_filters(goc, force_date=False)
+    # Ba o loc o EC Approval Request nhan ca DANH SACH. `_parse_filters` cua hub chi biet MOT
+    # gia tri (va nem TypeError voi list o "status"), nen tach ra chuan hoa o day roi gan lai.
+    co_ban = {k: v for k, v in goc.items() if k not in _LOC_DS}
+    ds = {}
+    for k in _LOC_DS:
+        vals = _danh_sach(goc.get(k))
+        if k == "status":
+            vals = _trang_thai_engine(vals)
+        if vals:
+            ds[k] = vals[0] if len(vals) == 1 else vals
+    f = _rapi._parse_filters(co_ban, force_date=False)
+    for k in _LOC_DS:
+        f.pop(k, None)
+    f.update(ds)
     f["approval_type"] = definition.code          # ghi de, khong phai mac dinh
     if search:
         f["_search_refs"] = _ma_theo_tieu_de(definition, search)
@@ -172,36 +242,79 @@ def _so_tien(v):
     return n
 
 
+def _khoa_sap_xep(definition, meta, tien):
+    """{khoa cot: (loai, truong, la_chu)} DUOC PHEP sap xep cho form nay - dung tu chinh cac
+    cot dang hien, khong tu client. Day la danh sach trang duy nhat cua ORDER BY."""
+    out = {"submitted": ("submitted", None, False), "status": ("status", None, False)}
+    if meta.has_field(_bsum.TITLE_FIELD) and _TEN_TRUONG.match(_bsum.TITLE_FIELD):
+        out["title"] = ("biz", _bsum.TITLE_FIELD, True)
+    if tien:
+        out["amount"] = ("biz", tien, False)
+    for _n, fn, kieu in _cot_hien(definition, meta):
+        out["x:" + fn] = ("biz", fn, kieu in _KIEU_CHU)
+    return out
+
+
+def _thu_tu_trang_thai():
+    """Gia tri engine xep theo NHAN TIENG VIET dang hien (A -> Z). Sap theo gia tri tieng Anh
+    thi "A -> Z" tren man hinh ra "Đã duyệt, Đã hủy, Cần bổ sung..." - khong ai doc noi."""
+    import unicodedata
+
+    def khoa(nhan):
+        # Bo dau de "Đ" dung sau "D", "Ầ" dung canh "A" - xap xi thu tu tu dien tieng Viet.
+        t = unicodedata.normalize("NFD", nhan.replace("Đ", "D~").replace("đ", "d~"))
+        return "".join(c for c in t if not unicodedata.combining(c)).lower()
+    nhan = {e: TRANG_THAI_VI.get(_status.normalize(e), e) for e in _status.ENGINE_STATUSES}
+    return sorted(_status.ENGINE_STATUSES, key=lambda e: khoa(nhan[e]))
+
+
+def _dac_ta_sap_xep(definition, meta, tien, sort):
+    """{"col","dir"} (hoac khoa cu dang chuoi) -> dac ta noi bo `_sort`, hoac None = mac dinh.
+
+    Khoa phai nam trong `_khoa_sap_xep` (khai + meta co); chieu phai la asc/desc. Moi thu
+    khac -> None. Moi -> cu (mac dinh) cung tra None de hub di dung duong cu."""
+    if isinstance(sort, str):
+        sort = SORT_CU.get(sort)
+    if not isinstance(sort, dict):
+        return None
+    col, huong = sort.get("col"), sort.get("dir")
+    if not isinstance(col, str) or huong not in _q.SORT_DIRS:
+        return None
+    cho_phep = _khoa_sap_xep(definition, meta, tien)
+    if col not in cho_phep:
+        return None
+    loai, truong, chu = cho_phep[col]
+    if loai == "submitted":
+        return None if huong == "desc" else {"key": "submitted", "dir": "asc"}
+    if loai == "status":
+        return {"key": "status", "dir": huong, "order": _thu_tu_trang_thai()}
+    return {"key": "biz", "dir": huong, "field": truong, "text": bool(chu)}
+
+
 def _loc_nghiep_vu(definition, goc, f):
     """Dat `_biz` (dieu kien tren DocType nghiep vu) + `_sort` vao bo loc da ghim.
 
-    Chi ten truong da kiem (`_loc_them`, `_truong_tien`) moi vao duoc dac ta; tu client chi
-    lay GIA TRI. Khong co gi de loc/sap xep -> khong dat khoa nao (hub y nhu cu)."""
+    Chi ten truong da kiem (`_loc_them`, `_truong_tien`, `_khoa_sap_xep`) moi vao duoc dac
+    ta; tu client chi lay GIA TRI. Khong co gi de loc/sap xep -> khong dat khoa nao (hub y
+    nhu cu)."""
     meta = frappe.get_meta(definition.business_doctype)
     tien = _truong_tien(definition, meta)
-    eq = []
+    thuoc = []
     them = goc.get("extra") if isinstance(goc.get("extra"), dict) else {}
     for fn in _loc_them(definition, meta):
-        v = them.get(fn)
-        if isinstance(v, bool) or not isinstance(v, (str, int, float)):
-            continue
-        v = str(v).strip()
-        if v:
-            eq.append((fn, v[:GIA_TRI_MAX]))
+        vals = _danh_sach(them.get(fn))
+        if vals:
+            thuoc.append((fn, tuple(vals)))
     lo = _so_tien(goc.get("amount_min")) if tien else None
     hi = _so_tien(goc.get("amount_max")) if tien else None
     if lo is not None and hi is not None and lo > hi:
         lo, hi = hi, lo                      # go nguoc hai dau thi hieu y, khong tra rong
-    sort = goc.get("sort")
-    if sort not in _q.SORT_KEYS or sort == "newest":
-        sort = None
-    elif sort.startswith("amount_") and not tien:
-        sort = None
+    sort = _dac_ta_sap_xep(definition, meta, tien, goc.get("sort"))
     if sort:
         f["_sort"] = sort
-    if eq or lo is not None or hi is not None or (sort or "").startswith("amount_"):
+    if thuoc or lo is not None or hi is not None or (sort or {}).get("key") == "biz":
         f["_biz"] = {"doctype": definition.business_doctype, "amount_field": tien,
-                     "eq": tuple(eq), "amount_min": lo, "amount_max": hi}
+                     "in": tuple(thuoc), "amount_min": lo, "amount_max": hi}
     return f
 
 
@@ -318,38 +431,51 @@ def filter_options(definition):
     sp, params = _scope.scope_predicate(scope)
     params["ft_type"] = definition.code
     where = sp + " AND r.approval_type = %(ft_type)s"
+    params["ft_max"] = DISTINCT_MAX
     depts = frappe.db.sql(
         "SELECT DISTINCT r.requester_department AS v FROM `tabEC Approval Request` r "
         "WHERE " + where + " AND r.requester_department IS NOT NULL "
-        "ORDER BY r.requester_department", params, as_dict=True)
+        "AND r.requester_department != '' "
+        "ORDER BY r.requester_department LIMIT %(ft_max)s", params, as_dict=True)
     reqs = frappe.db.sql(
         "SELECT DISTINCT r.requested_by AS v, u.full_name AS label "
         "FROM `tabEC Approval Request` r LEFT JOIN `tabUser` u ON u.name = r.requested_by "
-        "WHERE " + where + " AND r.requested_by IS NOT NULL ORDER BY u.full_name",
-        params, as_dict=True)
+        "WHERE " + where + " AND r.requested_by IS NOT NULL ORDER BY u.full_name "
+        "LIMIT %(ft_max)s", params, as_dict=True)
     meta = frappe.get_meta(definition.business_doctype)
     tien = _truong_tien(definition, meta)
     cot = _cot_them(definition, meta)
     nhan_tien = next((n for n, fn, _k in cot if fn == tien), None)
     nhan_cot = {fn: n for n, fn, _k in cot}
     loc = []
+    co_loc = set()
     for fn in _loc_them(definition, meta):
+        co_loc.add(fn)
         loc.append({"fieldname": fn, "label": nhan_cot.get(fn) or _nhan_truong(meta, fn),
                     "options": _gia_tri_rieng(definition, fn, where, dict(params))})
     return {
         "departments": [d["v"] for d in depts],
         "requesters": [{"value": r["v"], "label": r.get("label") or r["v"]} for r in reqs],
         # Gia tri gui len server giu nguyen tieng Anh (engine doc no); chi NHAN la tieng
-        # Viet. Dich ca gia tri thi bo loc im lang khong khop gi ca.
+        # Viet. Dich ca gia tri thi bo loc im lang khong khop gi ca. "Draft" khong bao gio
+        # co tren EC Approval Request (xem reporting.status) -> khong dua vao o tick: tick no
+        # thi server bo qua va nguoi dung tuong da loc.
         "statuses": [{"value": x, "label": TRANG_THAI_VI.get(x, x)}
-                     for x in _status.NORMALIZED_STATUSES],
+                     for x in _status.NORMALIZED_STATUSES
+                     if _status.to_engine(x) in _status.ENGINE_STATUSES],
         "scope_mode": scope.get("mode"),
         # None = form khong co so tien -> man hinh khong ve o "so tien tu/den" lan sap xep
         # theo so tien.
         "amount": {"field": tien, "label": nhan_tien or "Số tiền"} if tien else None,
-        "columns": [{"label": n, "fieldname": fn, "kind": k}
+        # `sort`: khoa gui lai trong filters.sort.col; `filter`: cot co o tick (gia tri o
+        # extra_filters cung fieldname).
+        "columns": [{"label": n, "fieldname": fn, "kind": k, "sort": "x:" + fn,
+                     "filter": fn in co_loc}
                     for n, fn, k in _cot_hien(definition, meta)],
         "extra_filters": loc,
+        # Khoa cot duoc sap xep (danh sach trang cua server). Cot khong co o day thi man
+        # hinh khong cho bam sap xep - bam roi server im lang ve mac dinh la noi doi.
+        "sort_cols": list(_khoa_sap_xep(definition, meta, tien).keys()),
     }
 
 

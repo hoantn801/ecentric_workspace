@@ -119,6 +119,14 @@ la(khoa.length === 1, `danh sach khoa loc xuat hien ${khoa.length} lan, cho doi 
   la(st.total === 1, "tong cua luot cu ghi de tong cua luot moi");
 }
 
+// ---- 6b. ban sao ec_alltab.js phai GIONG HET bundle -------------------------------------
+// Hai file cung ten trong public/js: sua mot ma quen mot thi trang nao nap ban kia se chay
+// code cu ma khong ai biet (16/10/2026, doi sang loc tren header cot).
+{
+  const COPY = readFileSync(join(here, "..", "..", "..", "public", "js", "ec_alltab.js"), "utf8");
+  la(COPY === SRC, "ec_alltab.js lech ec_alltab.bundle.js - chep lai cho giong het");
+}
+
 // ---- 7. ca 28 form phai noi vao bundle, khong chep UI ----------------------------------
 let soForm = 0;
 for (const f of readdirSync(FEAT).filter((d) => !d.startsWith("_") && !d.startsWith("."))) {

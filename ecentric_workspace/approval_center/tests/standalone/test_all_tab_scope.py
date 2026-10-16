@@ -72,16 +72,29 @@ def _tra(cu):
             sys.modules[khoa] = gt
 
 
-def _sort_keys_that():
+def _hang_that(ten):
+    """Doc mot hang literal THAT cua queries.py (khong chep tay vao stub - stub tu bia ra
+    danh sach rieng thi bai test kiem chinh no chu khong kiem code)."""
     import ast
     import io
     import os
     p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "reporting",
                      "queries.py")
     for n in ast.parse(io.open(p, encoding="utf-8").read()).body:
-        if isinstance(n, ast.Assign) and getattr(n.targets[0], "id", "") == "SORT_KEYS":
+        if isinstance(n, ast.Assign) and getattr(n.targets[0], "id", "") == ten:
             return ast.literal_eval(n.value)
-    raise AssertionError("queries.SORT_KEYS bien mat")
+    raise AssertionError("queries.%s bien mat" % ten)
+
+
+def _status_that(ten_mod):
+    """reporting/status.py THAT (thuan Python, khong frappe) - nhan + anh xa trang thai."""
+    import io
+    import os
+    p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "reporting",
+                     "status.py")
+    m = types.ModuleType(ten_mod)
+    exec(compile(io.open(p, encoding="utf-8").read(), p, "exec"), m.__dict__)
+    return m
 
 
 def _nap():
@@ -152,9 +165,8 @@ def _nap():
         return ghi.get("_count", 3)
     q.count_requests = _count
     q.fetch_requests_page = lambda sc, f, a, b, s=None: [{"reference_name": "R1"}]
-    # Danh sach trang THAT cua queries (doc tu nguon, khong chep tay) - stub ma tu bia ra
-    # danh sach rieng thi bai test kiem chinh no chu khong kiem code.
-    q.SORT_KEYS = _sort_keys_that()
+    # Chieu sap xep THAT cua queries (doc tu nguon, khong chep tay).
+    q.SORT_DIRS = _hang_that("SORT_DIRS")
     svc = types.ModuleType(base + "service")
 
     def _list(sc, f, start=0, page_length=50, search=None):
@@ -165,9 +177,7 @@ def _nap():
         return {"rows": [dict(x) for x in ghi.get("_rows", mau)],
                 "total": ghi.get("_count", 3), "start": start, "page_length": page_length}
     svc.list_requests = _list
-    st = types.ModuleType(base + "status")
-    st.NORMALIZED_STATUSES = ["Draft", "Pending", "Information Required",
-                              "Completed", "Rejected", "Cancelled"]
+    st = _status_that(base + "status")
     for m in (rapi, scope, q, svc, st):
         _dat(m.__name__, m)
 
@@ -379,49 +389,192 @@ def _nap_cr():
 
 
 class TestSapXep(_Nen):
-    """Sap xep la mot khoa trong danh sach TRANG - khong bao gio la ORDER BY cua client."""
+    """Sap xep {"col","dir"} chi nhan khoa cot trong danh sach TRANG dung tu chinh cac cot
+    dang hien (16/10/2026, sap xep tren header). Khong bao gio la ORDER BY cua client."""
 
     def _f(self, al, ghi, sort, d=None):
         al.list_all(d or _DefCR(), filters={"sort": sort})
         return ghi["service_calls"][-1]["filters"]
 
-    def test_cu_den_moi_duoc_nhan(self):
+    # -- tuong thich nguoc: khoa chuoi cua ban <select> truoc -----------------------------
+    def test_khoa_cu_oldest_van_nhan(self):
         al, ghi = _nap_cr()
-        self.assertEqual(self._f(al, ghi, "oldest").get("_sort"), "oldest")
+        self.assertEqual(self._f(al, ghi, "oldest").get("_sort"),
+                         {"key": "submitted", "dir": "asc"})
 
-    def test_chuoi_tiem_SQL_bi_bo_qua(self):
+    def test_khoa_cu_so_tien_van_nhan(self):
         al, ghi = _nap_cr()
-        for xau in ("submitted_at; DROP TABLE `tabUser`", "r.name DESC", "OLDEST", ["oldest"],
-                    {"k": 1}, 1):
-            f = self._f(al, ghi, xau)
-            self.assertNotIn("_sort", f, "khoa sap xep la lot qua: %r" % (xau,))
-            self.assertNotIn("_biz", f)
+        for cu, huong in (("amount_desc", "desc"), ("amount_asc", "asc")):
+            f = self._f(al, ghi, cu)
+            self.assertEqual(f.get("_sort"), {"key": "biz", "dir": huong,
+                                              "field": "contract_value", "text": False})
+            self.assertEqual(f["_biz"]["doctype"], "EC Contract Review Request")
+            self.assertEqual(f["_biz"]["amount_field"], "contract_value",
+                             "phai sap theo DUNG truong cot 'So tien' dang hien (AMOUNT_FIELDS)")
 
     def test_moi_den_cu_la_mac_dinh_khong_dat_khoa(self):
         al, ghi = _nap_cr()
-        self.assertNotIn("_sort", self._f(al, ghi, "newest"),
-                         "mac dinh phai di dung duong cu cua hub, khong them khoa thua")
+        for mac_dinh in ("newest", {"col": "submitted", "dir": "desc"}):
+            f = self._f(al, ghi, mac_dinh)
+            self.assertNotIn("_sort", f, "mac dinh phai di dung duong cu cua hub")
+            self.assertNotIn("_biz", f)
 
-    def test_theo_so_tien_mang_dung_truong_cot_so_tien(self):
+    # -- dac ta moi -----------------------------------------------------------------------
+    def test_cot_ngay_gui_cu_den_moi(self):
         al, ghi = _nap_cr()
-        f = self._f(al, ghi, "amount_desc")
-        self.assertEqual(f.get("_sort"), "amount_desc")
-        self.assertEqual(f["_biz"]["amount_field"], "contract_value",
-                         "phai sap theo DUNG truong cot 'So tien' dang hien (AMOUNT_FIELDS)")
+        self.assertEqual(self._f(al, ghi, {"col": "submitted", "dir": "asc"}).get("_sort"),
+                         {"key": "submitted", "dir": "asc"})
+
+    def test_cot_tieu_de_sap_theo_request_title_la_chu(self):
+        al, ghi = _nap_cr()
+        f = self._f(al, ghi, {"col": "title", "dir": "asc"})
+        self.assertEqual(f["_sort"], {"key": "biz", "dir": "asc", "field": "request_title",
+                                      "text": True})
         self.assertEqual(f["_biz"]["doctype"], "EC Contract Review Request")
+
+    def test_form_khong_co_request_title_thi_khong_sap_tieu_de(self):
+        al, ghi = _nap()
+        ghi["_truong"] = ("payment_amount",)
+        f = self._f(al, ghi, {"col": "title", "dir": "asc"}, _Def())
+        self.assertNotIn("_sort", f)
+        self.assertNotIn("title", al.filter_options(_Def())["sort_cols"])
+
+    def test_cot_trang_thai_theo_thu_tu_nhan_tieng_viet(self):
+        al, ghi = _nap_cr()
+        s = self._f(al, ghi, {"col": "status", "dir": "desc"})["_sort"]
+        self.assertEqual((s["key"], s["dir"]), ("status", "desc"))
+        nhan = [al.TRANG_THAI_VI[al._status.normalize(e)] for e in s["order"]]
+        self.assertEqual(nhan, ["Cần bổ sung", "Chờ duyệt", "Đã hủy", "Hoàn tất", "Từ chối"],
+                         "A -> Z phai theo nhan tieng Viet dang hien, khong theo gia tri tieng Anh")
+        self.assertNotIn("_biz", self._f(al, ghi, {"col": "status", "dir": "asc"}),
+                         "sap trang thai khong can dung DocType nghiep vu")
+
+    def test_cot_them_khai_bao(self):
+        al, ghi = _nap_cr()
+        f = self._f(al, ghi, {"col": "x:brand", "dir": "desc"})
+        self.assertEqual(f["_sort"], {"key": "biz", "dir": "desc", "field": "brand", "text": True})
+        f = self._f(al, ghi, {"col": "x:contract_type", "dir": "asc"})
+        self.assertTrue(f["_sort"]["text"], "kieu select la chu - chuoi rong xuong cuoi")
+
+    def test_tiem_va_khoa_la_ve_mac_dinh(self):
+        al, ghi = _nap_cr()
+        for xau in ("submitted_at; DROP TABLE `tabUser`", "r.name DESC", "OLDEST", ["oldest"],
+                    {"k": 1}, 1, None, True,
+                    {"col": "x:name; DROP", "dir": "asc"},
+                    {"col": "x:brand` DESC, (SELECT 1)", "dir": "asc"},
+                    {"col": "x:request_title", "dir": "asc"},        # khong khai la cot
+                    {"col": "x:contract_value", "dir": "asc"},       # trung cot so tien
+                    {"col": "x:", "dir": "asc"},
+                    {"col": "brand", "dir": "asc"},                  # thieu tien to x:
+                    {"col": "r.approval_status", "dir": "asc"},
+                    {"col": "amount", "dir": "ASC"},
+                    {"col": "amount", "dir": "asc; DROP"},
+                    {"col": "amount"},
+                    {"col": ["amount"], "dir": "asc"},
+                    {"dir": "asc"}):
+            f = self._f(al, ghi, xau)
+            self.assertNotIn("_sort", f, "khoa sap xep la lot qua: %r" % (xau,))
+            self.assertNotIn("_biz", f, "khoa la van dung dac ta nghiep vu: %r" % (xau,))
+
+    def test_cot_khai_ma_meta_khong_co_thi_khong_sap(self):
+        al, ghi = _nap()
+        ghi["_truong"] = ("contract_type", "contract_value", "request_title")   # khong co brand
+        f = self._f(al, ghi, {"col": "x:brand", "dir": "asc"})
+        self.assertNotIn("_sort", f)
+        self.assertNotIn("x:brand", al.filter_options(_DefCR())["sort_cols"])
 
     def test_form_khong_co_so_tien_thi_bo_sap_xep_theo_so_tien(self):
         al, ghi = _nap()
         ghi["_truong"] = ("request_title",)
-        f = self._f(al, ghi, "amount_asc")
-        self.assertNotIn("_sort", f)
-        self.assertNotIn("_biz", f)
+        for sx in ("amount_asc", {"col": "amount", "dir": "desc"}):
+            f = self._f(al, ghi, sx)
+            self.assertNotIn("_sort", f)
+            self.assertNotIn("_biz", f)
+
+    def test_sort_cols_khop_dung_cot_dang_hien(self):
+        al, ghi = _nap_cr()
+        o = al.filter_options(_DefCR())
+        self.assertEqual(o["sort_cols"], ["submitted", "status", "title", "amount",
+                                          "x:brand", "x:contract_type"])
+        self.assertEqual([(c["sort"], c["filter"]) for c in o["columns"]],
+                         [("x:brand", True), ("x:contract_type", True)])
+        # Moi khoa server khai la sap duoc - khong khoa nao ma bam roi ve mac dinh.
+        for k in o["sort_cols"]:
+            if k == "submitted":
+                continue
+            self.assertIn("_sort", self._f(al, ghi, {"col": k, "dir": "asc"}), k)
 
     def test_export_theo_cung_thu_tu(self):
         al, ghi = _nap_cr()
+        al.export_all(_DefCR(), filters='{"sort": {"col": "x:brand", "dir": "asc"}}')
+        self.assertEqual(ghi["service_calls"][-1]["filters"].get("_sort", {}).get("field"),
+                         "brand", "tep xuat ra phai cung thu tu voi bang dang nhin")
         al.export_all(_DefCR(), filters='{"sort": "oldest"}')
-        self.assertEqual(ghi["service_calls"][-1]["filters"].get("_sort"), "oldest",
-                         "tep xuat ra phai cung thu tu voi bang dang nhin")
+        self.assertEqual(ghi["service_calls"][-1]["filters"].get("_sort"),
+                         {"key": "submitted", "dir": "asc"})
+
+
+class TestLocNhieuGiaTri(_Nen):
+    """O tick tren header: trang thai / phong ban / nguoi de nghi nhan DANH SACH (-> IN).
+    Dang mot gia tri cu van chay nhu truoc."""
+
+    def _f(self, al, ghi, **flt):
+        al.list_all(_Def(), filters=flt)
+        return ghi["service_calls"][-1]["filters"]
+
+    def test_mot_gia_tri_dang_cu_giu_nguyen(self):
+        al, ghi = _nap()
+        f = self._f(al, ghi, department="Ops", requester="a@e.c", status="Pending")
+        self.assertEqual((f["department"], f["requester"], f["status"]),
+                         ("Ops", "a@e.c", "Pending"))
+
+    def test_danh_sach_thanh_list(self):
+        al, ghi = _nap()
+        f = self._f(al, ghi, department=["Ops", " Finance ", "Ops", ""],
+                    requester=["a@e.c", "b@e.c"])
+        self.assertEqual(f["department"], ["Ops", "Finance"], "phai cat khoang trang + bo trung")
+        self.assertEqual(f["requester"], ["a@e.c", "b@e.c"])
+
+    def test_danh_sach_mot_phan_tu_thanh_gia_tri_don(self):
+        al, ghi = _nap()
+        self.assertEqual(self._f(al, ghi, department=["Ops"])["department"], "Ops")
+
+    def test_trang_thai_nhan_chuan_hoa_doi_sang_engine(self):
+        al, ghi = _nap()
+        f = self._f(al, ghi, status=["Completed", "Pending", "Draft", "Hacked'--"])
+        self.assertEqual(f["status"], ["Approved", "Pending"],
+                         "Completed -> Approved; Draft va gia tri la bi bo")
+        self.assertNotIn("status", self._f(al, ghi, status=["Draft"]))
+        self.assertNotIn("status", self._f(al, ghi, status="Draft"))
+
+    def test_gia_tri_rac_bi_bo_khong_nem_loi(self):
+        al, ghi = _nap()
+        f = self._f(al, ghi, department={"x": 1}, requester=[{"a": 1}, ["b"], True, None],
+                    status={"$ne": 1})
+        for k in ("department", "requester", "status"):
+            self.assertNotIn(k, f, "gia tri rac lot vao bo loc %s" % k)
+
+    def test_danh_sach_co_tran(self):
+        al, ghi = _nap()
+        f = self._f(al, ghi, department=["d%d" % i for i in range(al.DISTINCT_MAX + 50)])
+        self.assertEqual(len(f["department"]), al.DISTINCT_MAX)
+
+    def test_gia_tri_qua_dai_bi_cat(self):
+        al, ghi = _nap()
+        self.assertEqual(len(self._f(al, ghi, department=["x" * 999, "y"])["department"][0]),
+                         al.GIA_TRI_MAX)
+
+    def test_approval_type_van_bi_ghi_de_khi_co_danh_sach(self):
+        al, ghi = _nap()
+        f = self._f(al, ghi, approval_type=["BOOKING_REQUEST"], department=["Ops", "HR"])
+        self.assertEqual(f["approval_type"], "PAYMENT_REQUEST")
+
+    def test_export_cung_bo_loc_danh_sach(self):
+        al, ghi = _nap()
+        al.export_all(_Def(), filters={"department": ["Ops", "HR"], "status": ["Rejected"]})
+        f = ghi["service_calls"][-1]["filters"]
+        self.assertEqual((f["department"], f["status"]), (["Ops", "HR"], "Rejected"))
+        self.assertEqual(f["approval_type"], "PAYMENT_REQUEST")
 
 
 class TestKhoangTien(_Nen):
@@ -485,13 +638,27 @@ class TestCotVaLocThem(_Nen):
         al, ghi = _nap_cr()
         al.list_all(_DefCR(), filters={"extra": {
             "brand": " ACME ", "contract_type": "Sales / Bán ra (EC)",
-            "request_title": "khong khai loc", "brand`; DROP": "x", "contract_value": 1}})
-        eq = dict(ghi["service_calls"][-1]["filters"]["_biz"]["eq"])
-        self.assertEqual(eq, {"brand": "ACME", "contract_type": "Sales / Bán ra (EC)"})
+            "request_title": "khong khai loc", "brand`; DROP": "x", "contract_value": 1,
+            "name; DROP TABLE x": ["a"]}})
+        b = ghi["service_calls"][-1]["filters"]["_biz"]
+        self.assertEqual(dict(b["in"]), {"brand": ("ACME",),
+                                         "contract_type": ("Sales / Bán ra (EC)",)})
+        self.assertNotIn("eq", b, "tu 16/10 moi loc truong nghiep vu di qua `in`")
+
+    def test_danh_sach_gia_tri_thanh_IN(self):
+        al, ghi = _nap_cr()
+        al.list_all(_DefCR(), filters={"extra": {"brand": ["ACME", "Beta", "ACME", " "],
+                                                 "contract_type": []}})
+        b = ghi["service_calls"][-1]["filters"]["_biz"]
+        self.assertEqual(dict(b["in"]), {"brand": ("ACME", "Beta")},
+                         "bo trung + bo rong; danh sach rong = khong loc")
 
     def test_gia_tri_khong_phai_chuoi_bi_bo(self):
         al, ghi = _nap_cr()
-        al.list_all(_DefCR(), filters={"extra": {"brand": ["a", "b"], "contract_type": {"x": 1}}})
+        al.list_all(_DefCR(), filters={"extra": {"brand": [{"a": 1}, ["b"], True],
+                                                 "contract_type": {"x": 1}}})
+        self.assertNotIn("_biz", ghi["service_calls"][-1]["filters"])
+        al.list_all(_DefCR(), filters={"extra": ["brand", "ACME"]})
         self.assertNotIn("_biz", ghi["service_calls"][-1]["filters"])
 
     def test_truong_khai_ma_meta_khong_co_thi_bi_loai(self):
@@ -552,6 +719,27 @@ class TestGiaTriRiengTrongPhamVi(_Nen):
             self.assertEqual(p["ft_max"], al.DISTINCT_MAX)
         self.assertEqual(o["extra_filters"][0]["options"], ["ACME"])
 
+    def test_phong_ban_va_nguoi_de_nghi_cung_trong_pham_vi_va_co_tran(self):
+        al, ghi = _nap_cr()
+        ghi["_sql_tra"] = [{"v": "Ops", "label": "An"}]
+        o = al.filter_options(_DefCR())
+        co_ban = [(q, p) for q, p in ghi["sql"] if "b.`" not in q]
+        self.assertEqual(len(co_ban), 2, "phong ban + nguoi de nghi")
+        for q, p in co_ban:
+            self.assertIn("r.requested_by = %(u)s AND r.approval_type = %(ft_type)s", q)
+            self.assertIn("LIMIT %(ft_max)s", q, "o tick khong gioi han la tai vo ich len DB")
+            self.assertEqual(p["ft_max"], al.DISTINCT_MAX)
+        self.assertEqual(o["departments"], ["Ops"])
+        self.assertEqual(o["requesters"], [{"value": "Ops", "label": "An"}])
+
+    def test_trang_thai_khong_co_nhap(self):
+        al, _ = _nap()
+        st = al.filter_options(_Def())["statuses"]
+        self.assertNotIn("Draft", [x["value"] for x in st],
+                         "Nhap khong bao gio co tren EC Approval Request - tick vao la loc gia")
+        self.assertEqual([x["label"] for x in st],
+                         ["Chờ duyệt", "Cần bổ sung", "Hoàn tất", "Từ chối", "Đã hủy"])
+
     def test_ten_truong_la_khong_bao_gio_vao_SQL(self):
         al, ghi = _nap_cr()
         n = len(ghi.get("sql", []))
@@ -571,8 +759,8 @@ class TestExportCotThem(_Nen):
         self.assertEqual(dau[:len(co_dinh)], co_dinh, "vi tri cot cu phai giu nguyen")
         self.assertEqual(dau[len(co_dinh):], ["Legal entity / Brand", "Loại hợp đồng"])
         self.assertEqual(dong[len(co_dinh):], ["ACME", "Sales"])
-        self.assertEqual(dict(ghi["service_calls"][-1]["filters"]["_biz"]["eq"]),
-                         {"brand": "ACME"}, "tep xuat ra phai cung bo loc voi bang")
+        self.assertEqual(dict(ghi["service_calls"][-1]["filters"]["_biz"]["in"]),
+                         {"brand": ("ACME",)}, "tep xuat ra phai cung bo loc voi bang")
 
     def test_form_khong_khai_thi_tep_y_nhu_cu(self):
         al, ghi = _nap()

@@ -25,13 +25,11 @@
   --ec-at-hoi-fg:   var(--ec-selected-text, #2C3DA6);
 }
 
-.ec-at{ font-size:12px; color:var(--ec-at-body); }
+.ec-at{ font-size:12px; color:var(--ec-at-body); position:relative; }
 
 .ec-at-bar{ display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
 .ec-at-bar .ec-at-q,
-.ec-at-bar .ec-at-f,
-.ec-at-bar button,
-.ec-at-more .ec-at-f{
+.ec-at-bar button{
   height:30px; font-size:12px; font-family:inherit; color:var(--ec-at-body);
   background:var(--ec-at-surface); border:1px solid var(--ec-at-border);
   border-radius:6px; padding:0 8px; box-sizing:border-box;
@@ -42,29 +40,22 @@
 .ec-at-bar button:disabled{ opacity:.55; cursor:default; }
 .ec-at-bar .ec-at-x{ color:var(--ec-at-accent); border-color:var(--ec-at-accent); }
 .ec-at-spacer{ flex:1 1 auto; }
-.ec-at-bar :focus-visible,
-.ec-at-more :focus-visible{ outline:2px solid var(--ec-at-accent); outline-offset:2px; }
-/* Mot o chon co gia tri dai (ten phap nhan, loai hop dong) khong duoc day hang loc tran ngang. */
-.ec-at-bar .ec-at-f,
-.ec-at-more .ec-at-f{ max-width:100%; min-width:0; text-overflow:ellipsis; }
+.ec-at :focus-visible{ outline:2px solid var(--ec-at-accent); outline-offset:2px; }
 
-/* "Bo loc them" (16/10/2026): khoang so tien + o loc rieng tung form. Thu gon mac dinh;
-   so tren nut cho biet hang dang dong van con loc. */
-.ec-at-mo{ display:inline-flex; align-items:center; gap:5px; }
-.ec-at-so{
-  display:inline-block; min-width:16px; height:16px; line-height:16px; padding:0 4px;
-  border-radius:8px; font-size:10px; font-weight:600; text-align:center; box-sizing:border-box;
-  background:var(--ec-at-accent); color:var(--ec-at-surface);
+/* Hang chip (16/10/2026): tom tat thu tu + o loc dang bat. Rong thi an ngay trong markup. */
+.ec-at-chips{ display:flex; gap:6px; flex-wrap:wrap; margin:-4px 0 10px; }
+.ec-at-chips[hidden]{ display:none; }
+.ec-at-chip{
+  display:inline-flex; align-items:center; gap:2px; max-width:100%; min-width:0;
+  height:24px; padding:0 2px 0 8px; box-sizing:border-box; border-radius:12px;
+  font-size:11px; background:var(--ec-at-hoi-bg); color:var(--ec-at-hoi-fg);
 }
-.ec-at-so[hidden]{ display:none; }
-.ec-at-more{
-  display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin:-4px 0 10px;
-  padding:8px; border:1px dashed var(--ec-at-border); border-radius:8px; background:var(--ec-at-wash);
+.ec-at-chip-t{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+.ec-at-chip-x{
+  flex:none; width:20px; height:20px; padding:0; border:0; border-radius:10px; cursor:pointer;
+  background:transparent; color:inherit; font:inherit; font-size:13px; line-height:20px;
 }
-.ec-at-more[hidden]{ display:none; }
-.ec-at-khoang{ display:inline-flex; align-items:center; gap:4px; flex:0 1 auto; min-width:0; }
-.ec-at-more .ec-at-tien{ width:130px; min-width:0; flex:1 1 90px; }
-.ec-at-gach{ color:var(--ec-at-muted); }
+.ec-at-chip-x:hover{ background:var(--ec-at-surface); }
 
 .ec-at-wrap{ border:1px solid var(--ec-at-border); border-radius:8px; overflow:auto; background:var(--ec-at-surface); }
 .ec-at-tb{ width:100%; border-collapse:collapse; table-layout:fixed; min-width:720px; }
@@ -75,6 +66,27 @@
 }
 /* Do rong theo LOP cot, khong theo thu tu: form khai them cot (all_tab_columns) se chen
    giua bang, nth-child se gan nham do rong cho cot khac. */
+/* Header = cho sap xep + loc (16/10/2026). Nhan la mot nut: bam de sap, bam lai de dao
+   chieu; cot dang sap mang mau nhan + mui ten. Pheu mo o noi loc cua cot. */
+.ec-at-h{ display:flex; align-items:center; gap:2px; min-width:0; }
+.ec-at-num .ec-at-h{ justify-content:flex-end; }
+.ec-at-hl{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+.ec-at-sx{
+  display:inline-flex; align-items:center; gap:3px; min-width:0; max-width:100%;
+  padding:0; border:0; background:transparent; cursor:pointer;
+  font:inherit; font-weight:600; color:inherit; text-align:inherit;
+}
+.ec-at-sx:hover .ec-at-hl{ color:var(--ec-at-text); }
+.ec-at-on .ec-at-sx{ color:var(--ec-at-accent); }
+.ec-at-mui{ flex:none; font-size:9px; }
+.ec-at-mui:empty{ display:none; }
+.ec-at-pheu{
+  flex:none; display:inline-flex; align-items:center; justify-content:center;
+  width:22px; height:22px; padding:0; border:0; border-radius:4px; cursor:pointer;
+  background:transparent; color:var(--ec-at-muted); opacity:.75;
+}
+.ec-at-pheu:hover, .ec-at-pheu[aria-expanded="true"]{ background:var(--ec-at-hair); opacity:1; }
+.ec-at-pheu.ec-at-co{ color:var(--ec-at-accent); opacity:1; }
 .ec-at-tb .ec-at-c-ma{ width:14%; } .ec-at-tb .ec-at-c-tt{ width:32%; }
 .ec-at-tb .ec-at-c-tien{ width:16%; } .ec-at-tb .ec-at-c-st{ width:21%; }
 .ec-at-tb .ec-at-c-cho{ width:17%; } .ec-at-tb .ec-at-c-x{ width:14%; }
@@ -110,9 +122,74 @@
 .ec-at-pg button:disabled{ opacity:.45; cursor:default; }
 .ec-at-pg :focus-visible{ outline:2px solid var(--ec-at-accent); outline-offset:2px; }
 
+/* O noi loc / sap xep cua mot cot. Dat trong .ec-at (khong trong .ec-at-wrap - khung bang
+   cuon ngang se cat mat o noi). Dong mac dinh: [hidden] ngay trong markup. */
+.ec-at-pop{
+  position:absolute; z-index:40; width:264px; max-width:calc(100vw - 16px);
+  max-height:60vh; overflow:auto; box-sizing:border-box; padding:10px;
+  background:var(--ec-at-surface); border:1px solid var(--ec-at-border); border-radius:8px;
+  box-shadow:0 8px 24px rgba(17,24,39,.14);
+}
+.ec-at-pop[hidden], .ec-at-nen[hidden]{ display:none; }
+.ec-at-pop-dau{ display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:8px; }
+.ec-at-pop-t{ font-weight:600; color:var(--ec-at-text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ec-at-dong{
+  flex:none; width:24px; height:24px; padding:0; border:0; border-radius:4px; cursor:pointer;
+  background:transparent; color:var(--ec-at-muted); font:inherit; font-size:16px; line-height:24px;
+}
+.ec-at-dong:hover{ background:var(--ec-at-hair); }
+.ec-at-hg-row{ display:flex; gap:6px; margin-bottom:10px; }
+.ec-at-pop button.ec-at-hg,
+.ec-at-pop-chan button{
+  flex:1 1 0; min-width:0; height:30px; padding:0 8px; box-sizing:border-box; cursor:pointer;
+  font:inherit; color:var(--ec-at-body); background:var(--ec-at-surface);
+  border:1px solid var(--ec-at-border); border-radius:6px; white-space:nowrap;
+}
+.ec-at-pop button.ec-at-hg:hover, .ec-at-pop-chan .ec-at-bo:hover{ background:var(--ec-at-wash); }
+.ec-at-pop button.ec-at-dang{ border-color:var(--ec-at-accent); color:var(--ec-at-accent); background:var(--ec-at-ring); }
+.ec-at-pop-chan{ display:flex; gap:6px; margin-top:10px; }
+.ec-at-pop-chan .ec-at-ap{ background:var(--ec-at-accent); border-color:var(--ec-at-accent); color:var(--ec-at-surface); font-weight:600; }
+.ec-at-nhom{ border:0; margin:0 0 8px; padding:0; min-width:0; }
+.ec-at-nhom legend{ padding:0; margin-bottom:4px; font-size:11px; font-weight:600; color:var(--ec-at-muted); }
+.ec-at-tim{
+  width:100%; height:28px; margin-bottom:4px; padding:0 8px; box-sizing:border-box;
+  font:inherit; border:1px solid var(--ec-at-border); border-radius:6px;
+}
+.ec-at-ds{ max-height:200px; overflow:auto; }
+.ec-at-ck{ display:flex; align-items:center; gap:6px; min-height:26px; cursor:pointer; color:var(--ec-at-text); }
+.ec-at-ck[hidden]{ display:none; }
+.ec-at-ck span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+.ec-at-ck input{ flex:none; margin:0; }
+.ec-at-chua{ color:var(--ec-at-muted); padding:4px 0; }
+.ec-at-khoang{ display:flex; gap:6px; }
+.ec-at-khoang label{ flex:1 1 0; min-width:0; display:flex; flex-direction:column; gap:3px; font-size:11px; color:var(--ec-at-muted); }
+.ec-at-khoang input{
+  width:100%; min-width:0; height:30px; padding:0 8px; box-sizing:border-box;
+  font:inherit; color:var(--ec-at-body); border:1px solid var(--ec-at-border); border-radius:6px;
+}
+/* So tien: dau cham + can phai (cung luat voi ec_money). */
+.ec-at-khoang input.ec-at-tien{ text-align:right; font-variant-numeric:tabular-nums; }
+
+/* <= 640px: o noi thanh TAM DAY (bottom sheet). JS gan .ec-at-sheet khi mo (cung nguong
+   640px) - mot nguong, mot cho quyet, de vi tri neo cua desktop khong chen vao. */
+.ec-at-nen{ position:fixed; inset:0; z-index:1000; background:rgba(17,24,39,.32); }
+.ec-at-pop.ec-at-sheet{
+  position:fixed; left:0; right:0; bottom:0; top:auto; z-index:1001;
+  width:auto; max-width:none; max-height:70vh; overflow-y:auto;
+  border-radius:12px 12px 0 0; padding:12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+}
+.ec-at-sheet button.ec-at-hg,
+.ec-at-sheet .ec-at-pop-chan button,
+.ec-at-sheet .ec-at-khoang input,
+.ec-at-sheet .ec-at-tim{ height:44px; font-size:14px; }
+.ec-at-sheet .ec-at-dong{ width:44px; height:44px; }
+.ec-at-sheet .ec-at-ck{ min-height:44px; font-size:14px; }
+.ec-at-sheet .ec-at-ds{ max-height:none; }
+
 @media (max-width:720px){
   .ec-at-q{ flex-basis:100%; }
   .ec-at-spacer{ display:none; }
-  .ec-at-khoang{ flex-basis:100%; }
-  .ec-at-more .ec-at-f:not(.ec-at-tien){ flex:1 1 100%; }
+}
+@media (max-width:640px){
+  .ec-at-pheu{ width:28px; height:28px; }
 }
