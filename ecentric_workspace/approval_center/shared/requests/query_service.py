@@ -240,6 +240,19 @@ def gan_sharepoint(attachments, approvers):
     return attachments
 
 
+def _tach_doi_chung(business_doctype, name, rows):
+    """(dinh kem cua nguoi dung, ban doi chung) - xem `sharepoint_snapshot.tach_ban_doi_chung`.
+
+    Phieu khong co ban doi chung nao (27/28 loai phieu, va moi phieu Contract Review chua ai
+    quyet dinh) chi ton MOT truy van `exists` tren cot co index, va KHONG nap module SharePoint.
+    Goi SAU cong `can_view` cua `detail` - ham duoi khong tu kiem quyen."""
+    if not frappe.db.exists("EC SharePoint Snapshot",
+                            {"business_doctype": business_doctype, "business_name": name}):
+        return rows, []
+    from ecentric_workspace.approval_center.shared.integrations import sharepoint_snapshot
+    return sharepoint_snapshot.tach_ban_doi_chung(business_doctype, name, rows)
+
+
 def dedupe_attachments(rows):
     """One row per physical file.
 
@@ -332,11 +345,12 @@ def detail(definition, name):
             if level:
                 action["level_no"] = level.level_no
                 action["level_name"] = level.level_name
-    attachments = gan_sharepoint(dedupe_attachments(frappe.get_all(
+    files, doi_chung = _tach_doi_chung(definition.business_doctype, name, frappe.get_all(
         "File", filters={"attached_to_doctype": definition.business_doctype,
                          "attached_to_name": name},
-        fields=["file_name", "file_url", "is_private", "owner", "creation"],
-        order_by="creation asc")), approvers)
+        fields=["name", "file_name", "file_url", "is_private", "owner", "creation"],
+        order_by="creation asc"))
+    attachments = gan_sharepoint(dedupe_attachments(files), approvers)
     status = request.approval_status if request else "Draft"
     extra = {}
     if getattr(definition, "detail_extender", None):
@@ -363,6 +377,10 @@ def detail(definition, name):
             "status_label": definition.status_label_map.get(status),
         },
         "levels": levels, "approvers": approvers, "attachments": attachments,
+        # Ban doi chung (16/10/2026): KHONG nam trong `attachments` - khong phai tep nguoi dung
+        # tai len, khong co "online", khong tinh vao so dinh kem. Rong voi moi loai phieu khong
+        # soi guong SharePoint.
+        "doi_chung": doi_chung,
         "fulfillment": fulfillment_block(business, request),
         "timeline": timeline,
         "process_preview": ([] if request else process_preview(

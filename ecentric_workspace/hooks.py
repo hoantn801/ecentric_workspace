@@ -53,7 +53,12 @@ doc_events = {
     "File": {
         # 08/09 (Hoan): tep da ky so KHONG BAO GIO duoc xoa - moi duong, ke ca Administrator.
         # Cong cu quan tri co ly do that bat frappe.flags.ec_allow_signed_file_delete.
-        "on_trash": "ecentric_workspace.platform.esign.file_guard.forbid_signed_file_delete",
+        "on_trash": [
+            "ecentric_workspace.platform.esign.file_guard.forbid_signed_file_delete",
+            # 16/10: ban doi chung hop dong (EC SharePoint Snapshot) la bang chung bat bien -
+            # nguoi gui phieu (chu phieu) khong duoc go no khoi phieu.
+            "ecentric_workspace.approval_center.shared.integrations.sharepoint_snapshot.chan_xoa_tep_doi_chung",
+        ],
     },
     "Task": {
         # G4.10: enforce PM transition rules on EVERY save path (API + generic apply_workflow).

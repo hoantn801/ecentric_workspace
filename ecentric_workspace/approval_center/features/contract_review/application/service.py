@@ -151,6 +151,25 @@ def _soi_guong_sharepoint(name):
         frappe.log_error(frappe.get_traceback(), "enqueue soi guong SharePoint %s" % name)
 
 
+def on_decision(name, approval_request, approval_action, action):
+    """Nguoi nghe quyet dinh cua engine (`transitions._DECISION_OBSERVERS`), 16/10/2026.
+
+    Moi lan Duyet / Tu choi / Yeu cau bo sung / hoan tat duyet: chup lai tep hop dong tren
+    SharePoint NGUYEN TRANG luc do (ban doi chung). Ly do + thiet ke: docstring dau
+    `shared/integrations/sharepoint_snapshot.py`.
+
+    Chay GIUA giao dich duyet nen CHI xep viec: tai tep tu Graph mat vai giay, va mot su co cua
+    Microsoft khong duoc lam hong lan duyet. SAU commit: job doc dong EC Approval Action vua ghi
+    - chay truoc commit thi dong do chua ton tai. Giao dich rollback thi Frappe huy luon viec
+    da xep, khong co ban chup ma."""
+    try:
+        frappe.enqueue(
+            "ecentric_workspace.approval_center.shared.integrations.sharepoint_snapshot.chup_nen",
+            queue="long", approval_action=approval_action, enqueue_after_commit=True)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "enqueue ban doi chung %s" % name)
+
+
 def _notify_ceo_cc(req_name, doc):
     """CEO vẫn phải BIẾT về điều chỉnh dù không duyệt — gửi qua đúng pipeline thông báo
     (in-app + Teams) mà engine dùng, không tự chế kênh riêng. Lỗi thông báo không được

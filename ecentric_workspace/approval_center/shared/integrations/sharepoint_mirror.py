@@ -42,6 +42,9 @@ THU_MUC_THEO_PHIEU = {
 }
 
 LINK_DT = "EC SharePoint File Link"
+#: Ban doi chung (16/10/2026) - ban chup bat bien cua tep tren SharePoint tai moi quyet dinh.
+#: Xem `sharepoint_snapshot.py`. Khai o DAY vi chinh module nay la noi phai LOAI chung ra.
+SNAP_DT = "EC SharePoint Snapshot"
 TIMEOUT = 30
 
 
@@ -325,12 +328,39 @@ def _phieu_duyet_theo_tham_chieu(business_doctype, business_name):
     return rows[0] if rows else None
 
 
+def tep_doi_chung(business_doctype, business_name):
+    """Ten (docname) cac ban ghi File la BAN DOI CHUNG cua phieu. DAU MOC TUONG MINH.
+
+    Khop theo ten ban ghi File ma `EC SharePoint Snapshot` tro vao - KHONG theo tien to ten tep,
+    va KHONG theo `file_url`: Frappe gop tep trung noi dung vao CUNG mot `file_url`
+    (`content_hash`), nen mot ban chup chua ai sua co the trung URL voi chinh tep nguoi gui tai
+    len. Loai theo URL thi loai luon tep that cua ho khoi SharePoint.
+
+    Moi cho duyet dinh kem cua phieu (soi guong, chep sang phieu moi, man hinh chi tiet) phai
+    goi ham nay. Ban doi chung ma bi day nguoc len SharePoint thi no thanh "tep hop dong" moi
+    va nguoi duyet sau se sua tren no."""
+    ra = set()
+    for r in frappe.get_all(SNAP_DT,
+                            filters={"business_doctype": business_doctype,
+                                     "business_name": business_name},
+                            fields=["docx_file", "pdf_file"], limit_page_length=0) or []:
+        for f in (r.get("docx_file"), r.get("pdf_file")):
+            if f:
+                ra.add(f)
+    return ra
+
+
 def _dinh_kem(business_doctype, business_name):
-    """Dinh kem cua mot phieu. Tep Office truoc: do la thu nguoi ta can mo bang Word Online."""
+    """Dinh kem cua mot phieu. Tep Office truoc: do la thu nguoi ta can mo bang Word Online.
+
+    KHONG gom ban doi chung (16/10/2026) - xem `tep_doi_chung`."""
     tep = frappe.get_all(
         "File",
         filters={"attached_to_doctype": business_doctype, "attached_to_name": business_name},
-        fields=["file_name", "file_url"], order_by="creation asc")
+        fields=["name", "file_name", "file_url"], order_by="creation asc")
+    loai = tep_doi_chung(business_doctype, business_name)
+    if loai:
+        tep = [t for t in tep if t.get("name") not in loai]
     duoi = (".docx", ".doc", ".xlsx", ".xls", ".pptx", ".ppt")
     office = [t for t in tep if (t.file_name or "").lower().endswith(duoi)]
     khac = [t for t in tep if t not in office]

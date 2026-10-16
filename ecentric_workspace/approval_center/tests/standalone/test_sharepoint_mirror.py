@@ -98,7 +98,8 @@ def _nap_mirror(frappe_gia, tai_len=None, ghi=None, cap=None, nguoi=None):
     ns["ghi_lien_ket"] = ghi or (lambda *a, **k: None)
     ns["cap_quyen"] = cap or (lambda *a, **k: {"da_cap": ["a@x.vn"], "bo_qua": [], "link": "L"})
     ns["nguoi_trong_luong"] = nguoi or (lambda *a, **k: ["a@x.vn"])
-    exec(compile(_doan(_MIRROR, "THU_MUC_THEO_PHIEU", "duoc_soi_guong", "_dinh_kem",
+    exec(compile(_doan(_MIRROR, "THU_MUC_THEO_PHIEU", "SNAP_DT", "duoc_soi_guong",
+                       "tep_doi_chung", "_dinh_kem",
                        "dong_bo_phieu", "dong_bo_nen"), "<m>", "exec"), ns)
     return ns
 

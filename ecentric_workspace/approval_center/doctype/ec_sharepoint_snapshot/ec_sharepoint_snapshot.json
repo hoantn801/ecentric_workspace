@@ -1,0 +1,294 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-10-16 09:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "index_web_pages_for_search": 0,
+ "in_create": 1,
+ "links": [],
+ "modified": "2026-10-16 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Approval Center",
+ "name": "EC SharePoint Snapshot",
+ "owner": "Administrator",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "title_field": "source_file_name",
+ "field_order": [
+  "khoa",
+  "business_doctype",
+  "business_name",
+  "approval_request",
+  "approval_action",
+  "cb0",
+  "level_no",
+  "actor",
+  "action",
+  "action_label",
+  "action_time",
+  "captured_at",
+  "sb_src",
+  "source_file_url",
+  "source_file_name",
+  "sp_link",
+  "sp_item_id",
+  "cb1",
+  "sp_etag",
+  "sp_version_id",
+  "sp_last_modified",
+  "sp_last_modified_by",
+  "sp_on_dinh",
+  "sb_out",
+  "docx_file",
+  "docx_file_url",
+  "sha256",
+  "size_bytes",
+  "cb2",
+  "pdf_file",
+  "pdf_file_url",
+  "pdf_error",
+  "reused_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "khoa",
+   "fieldtype": "Data",
+   "label": "Khoa chong trung",
+   "read_only": 1,
+   "unique": 1,
+   "description": "<EC Approval Action>|<sp_item_id>. Moi quyet dinh chi chup MOI tep MOT lan - job chay lai (hoac hai job cham nhau) dung o day, khong sinh ban trung."
+  },
+  {
+   "fieldname": "business_doctype",
+   "fieldtype": "Data",
+   "label": "Business DocType",
+   "read_only": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "business_name",
+   "fieldtype": "Data",
+   "label": "Business Name",
+   "read_only": 1,
+   "in_list_view": 1,
+   "search_index": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "approval_request",
+   "fieldtype": "Link",
+   "label": "Approval Request",
+   "read_only": 1,
+   "options": "EC Approval Request"
+  },
+  {
+   "fieldname": "approval_action",
+   "fieldtype": "Link",
+   "label": "Quyet dinh (EC Approval Action)",
+   "read_only": 1,
+   "options": "EC Approval Action",
+   "reqd": 1,
+   "description": "Dong lich su duyet sinh ra ban chup nay. Cap/nguoi/hanh dong ben duoi chep tu dong do de doc nhanh, khong phai nguon thu hai."
+  },
+  {
+   "fieldname": "cb0",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "level_no",
+   "fieldtype": "Int",
+   "label": "Cap",
+   "read_only": 1,
+   "in_list_view": 1,
+   "description": "0 = moc hoan tat duyet (dong 'All levels approved' cua engine)."
+  },
+  {
+   "fieldname": "actor",
+   "fieldtype": "Link",
+   "label": "Nguoi quyet dinh",
+   "read_only": 1,
+   "options": "User",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "action",
+   "fieldtype": "Data",
+   "label": "Hanh dong",
+   "read_only": 1,
+   "in_list_view": 1,
+   "description": "Approved / Rejected / Information Requested - dung gia tri cua EC Approval Action."
+  },
+  {
+   "fieldname": "action_label",
+   "fieldtype": "Data",
+   "label": "Nhan hien thi",
+   "read_only": 1,
+   "description": "Vi du: sau duyet cap 2 / khi tra lai cap 1 / hoan tat duyet."
+  },
+  {
+   "fieldname": "action_time",
+   "fieldtype": "Datetime",
+   "label": "Thoi diem quyet dinh",
+   "read_only": 1
+  },
+  {
+   "fieldname": "captured_at",
+   "fieldtype": "Datetime",
+   "label": "Thoi diem chup",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_src",
+   "fieldtype": "Section Break",
+   "label": "Nguon tren SharePoint"
+  },
+  {
+   "fieldname": "source_file_url",
+   "fieldtype": "Small Text",
+   "label": "Tep goc trong ERP (file_url)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "source_file_name",
+   "fieldtype": "Data",
+   "label": "Ten tep goc",
+   "read_only": 1,
+   "length": 255
+  },
+  {
+   "fieldname": "sp_link",
+   "fieldtype": "Link",
+   "label": "Lien ket SharePoint",
+   "read_only": 1,
+   "options": "EC SharePoint File Link"
+  },
+  {
+   "fieldname": "sp_item_id",
+   "fieldtype": "Data",
+   "label": "SharePoint Item ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "sp_etag",
+   "fieldtype": "Data",
+   "label": "eTag luc chup",
+   "read_only": 1,
+   "length": 255
+  },
+  {
+   "fieldname": "sp_version_id",
+   "fieldtype": "Data",
+   "label": "Phien ban SharePoint",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sp_last_modified",
+   "fieldtype": "Datetime",
+   "label": "Sua lan cuoi tren SharePoint",
+   "read_only": 1,
+   "description": "Doc tu Graph ngay luc chup, da doi ve gio he thong. Lon hon thoi diem quyet dinh nghia la tep da bi sua GIUA luc bam nut va luc chup."
+  },
+  {
+   "fieldname": "sp_last_modified_by",
+   "fieldtype": "Data",
+   "label": "Nguoi sua lan cuoi",
+   "read_only": 1,
+   "length": 255
+  },
+  {
+   "fieldname": "sp_on_dinh",
+   "fieldtype": "Check",
+   "label": "eTag khop truoc/sau khi tai",
+   "read_only": 1,
+   "description": "1 = eTag doc truoc va sau khi tai giong nhau: khong ai luu de len tep trong luc dang chup."
+  },
+  {
+   "fieldname": "sb_out",
+   "fieldtype": "Section Break",
+   "label": "Ban luu"
+  },
+  {
+   "fieldname": "docx_file",
+   "fieldtype": "Link",
+   "label": "Ban goc (File)",
+   "read_only": 1,
+   "options": "File",
+   "description": "Tep Office tai nguyen ve - giu track changes + comment. Gan vao phieu nghiep vu, rieng tu."
+  },
+  {
+   "fieldname": "docx_file_url",
+   "fieldtype": "Small Text",
+   "label": "Ban goc (URL)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sha256",
+   "fieldtype": "Data",
+   "label": "SHA-256 ban goc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "size_bytes",
+   "fieldtype": "Int",
+   "label": "Dung luong (byte)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb2",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "pdf_file",
+   "fieldtype": "Link",
+   "label": "Ban PDF (File)",
+   "read_only": 1,
+   "options": "File",
+   "description": "Graph ?format=pdf - de doc nhanh. Co the trong neu Graph khong chuyen duoc; ban goc van la bang chung."
+  },
+  {
+   "fieldname": "pdf_file_url",
+   "fieldtype": "Small Text",
+   "label": "Ban PDF (URL)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "pdf_error",
+   "fieldtype": "Small Text",
+   "label": "Loi chuyen PDF",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reused_from",
+   "fieldtype": "Link",
+   "label": "Dung lai tep cua",
+   "read_only": 1,
+   "options": "EC SharePoint Snapshot",
+   "description": "Noi dung trung byte voi ban chup truoc cua cung tep (vi du cap cuoi duyet roi he thong ghi 'hoan tat'): tro vao cung tep, khong luu them ban."
+  }
+ ],
+ "permissions": [
+  {
+   "delete": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 0,
+   "write": 1,
+   "create": 0
+  }
+ ]
+}

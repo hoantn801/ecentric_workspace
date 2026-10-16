@@ -45,8 +45,8 @@
     "sha256": "372a5cdd3ea49b6d94988330e5f2dc8abc42ceb506ec1869b9382569262a0de2"
   },
   "approval_center/features/contract_review/ui/main_section.html": {
-    "last_resync_patch": "p250_o_so_tien_dau_cham",
-    "sha256": "9d0b02cee16a2b3199a154b135cfe9789a9c0519a86085c265f1e856fc5c49bb"
+    "last_resync_patch": "p299_ban_doi_chung_hop_dong",
+    "sha256": "da66ee89676c603238225aea83196178c42e9379f5e3087e9267d28ef04359f7"
   },
   "approval_center/features/daily_target/ui/main_section.html": {
     "baseline": "2026-08-31",

@@ -334,12 +334,43 @@ def resolve_participants(participants, requester, context=None):
 def log_action(request_name, action, actor, level_no=None, level_name=None, comment=None,
                previous_status=None, new_status=None, related_user=None):
     seq = (frappe.db.count("EC Approval Action", {"approval_request": request_name}) or 0) + 1
-    frappe.get_doc({
+    row = frappe.get_doc({
         "doctype": "EC Approval Action", "approval_request": request_name, "seq": seq,
         "level_no": level_no, "level_name": level_name, "actor": actor or frappe.session.user,
         "action": action, "comment": comment, "action_time": now_datetime(),
         "previous_status": previous_status, "new_status": new_status, "related_user": related_user,
     }).insert(ignore_permissions=True)
+    if action in _DECISION_ACTIONS:
+        _notify_decision_observers(request_name, getattr(row, "name", None), action)
+
+
+# Nguoi nghe QUYET DINH (16/10/2026, ban doi chung Contract Review). Cung khuon voi bang
+# handler fulfillment ben duoi: khoa theo business DocType -> dotted path, them mot dong
+# la mot loai phieu "nghe" duoc; engine khong biet nguoi nghe lam gi.
+#
+# VI SAO o `log_action` chu khong o tung ham approve/reject/...: moi duong quyet dinh - nut
+# tren form, duyet nhanh tren dien thoai, duyet & ky so (esign goi thang engine.approve), duyet
+# thay cua System Manager, moc "hoan tat" cua complete_approval - deu di qua DUNG mot cho nay va
+# deu de lai MOT dong EC Approval Action. Dong do la khoa idempotent tu nhien cho nguoi nghe.
+#
+# Chu ky: handler(reference_name, approval_request, approval_action, action). Handler PHAI chi
+# xep viec (enqueue_after_commit) - no chay GIUA giao dich duyet. Loi cua handler bi nuot +
+# ghi log: mot tinh nang phu khong duoc phep lam hong mot lan duyet.
+_DECISION_ACTIONS = ("Approved", "Rejected", "Information Requested")
+_DECISION_OBSERVERS = {
+    "EC Contract Review Request": "ecentric_workspace.approval_center.features.contract_review.application.service.on_decision",
+}
+
+
+def _notify_decision_observers(request_name, action_name, action):
+    try:
+        ref = frappe.db.get_value("EC Approval Request", request_name,
+                                  ["reference_doctype", "reference_name"], as_dict=True)
+        handler = ref and _DECISION_OBSERVERS.get(ref.get("reference_doctype"))
+        if handler and action_name:
+            frappe.get_attr(handler)(ref.get("reference_name"), request_name, action_name, action)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "decision observer %s" % request_name)
 
 
 def request_label(reference_doctype, reference_name, approval_type=None):
