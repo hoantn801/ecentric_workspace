@@ -138,17 +138,45 @@ def _is_chat_user(user):
 
 
 def ensure_bot():
-    """Raven Bot ten C.BOT_NAME; tao neu chua co (Raven tu tao Raven User loai Bot)."""
+    """Raven Bot ten C.BOT_NAME; tao neu chua co. Raven tu tao Raven User loai Bot trong
+    on_update - nhung luu Raven User KHONG ignore_permissions, nen PHAI goi duoi quyen
+    Administrator (send_bot_message lo viec do). Bot da co ma thieu Raven User (lan tao loi
+    07/10) -> luu lai de Raven tao bu."""
     if frappe.db.exists("Raven Bot", C.BOT_NAME):
-        return frappe.get_doc("Raven Bot", C.BOT_NAME)
+        bot = frappe.get_doc("Raven Bot", C.BOT_NAME)
+        if not bot.get("raven_user"):
+            bot.save(ignore_permissions=True)
+            bot = frappe.get_doc("Raven Bot", C.BOT_NAME)
+        return bot
     bot = frappe.get_doc({"doctype": "Raven Bot", "bot_name": C.BOT_NAME,
                           "description": C.BOT_DESCRIPTION, "image": C.BOT_IMAGE})
     bot.insert(ignore_permissions=True)
-    return bot
+    return frappe.get_doc("Raven Bot", C.BOT_NAME)
+
+
+_ERR_KEY = "ec_chat_bot_err"
+_ERR_EVERY = 600
+
+
+def _log_failure():
+    """Ghi Error Log toi da 1 lan / 10 phut (07-16/10 da de lai ~3.000 dong giong het nhau)."""
+    try:
+        cache = frappe.cache()
+        if cache.get_value(_ERR_KEY):
+            return
+        cache.set_value(_ERR_KEY, 1, expires_in_sec=_ERR_EVERY)
+    except Exception:
+        pass
+    frappe.log_error(title="ec_chat bot", message=frappe.get_traceback())
 
 
 def send_bot_message(delivery_log):
-    """Job nen: doc dong Delivery Log, gui tin rieng cho nguoi nhan kem the phieu."""
+    """Job nen: doc dong Delivery Log, gui tin rieng cho nguoi nhan kem the phieu.
+
+    Chay duoi quyen Administrator: job ke thua phien cua nguoi bam duyet / gui phieu, ma Raven
+    tao Raven User cho bot va kenh tin rieng KHONG bo qua quyen. Loi -> rollback toan bo phan
+    ghi do dang (khong de lai bot thieu Raven User nhu 07/10) roi ghi log co gioi han."""
+    prev_user = getattr(getattr(frappe, "session", None), "user", None)
     try:
         if _off(C.BOT_KILL_SWITCH) or C.RAVEN_APP not in (frappe.get_installed_apps() or []):
             return
@@ -162,8 +190,19 @@ def send_bot_message(delivery_log):
         path = erp_path(doctype, docname)
         url = row.action_url or (frappe.utils.get_url() + path if path else "")
         link = bool(path) and frappe.db.exists(doctype, docname)
+        frappe.set_user("Administrator")
         ensure_bot().send_direct_message(
             row.recipient, text=P.bot_html(row.title, row.message, url),
             link_doctype=doctype if link else None, link_document=docname if link else None)
     except Exception:
-        frappe.log_error(title="ec_chat bot", message=frappe.get_traceback())
+        try:
+            frappe.db.rollback()
+        except Exception:
+            pass
+        _log_failure()
+    finally:
+        if prev_user and getattr(frappe.session, "user", None) != prev_user:
+            try:
+                frappe.set_user(prev_user)
+            except Exception:
+                pass

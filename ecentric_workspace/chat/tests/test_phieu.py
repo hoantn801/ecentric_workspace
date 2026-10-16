@@ -73,11 +73,27 @@ class _Doc(dict):
 
 
 class _Bot(object):
+    """Raven Bot gia. Nhu Raven that: tao Raven User cho bot trong on_update ma KHONG bo qua
+    quyen -> chi Administrator lam duoc; thieu Raven User thi gui tin no (TypeError 07/10)."""
     def __init__(self, f):
         self.f = f
 
+    def get(self, k):
+        return self.f.bot_raven_user if k == "raven_user" else None
+
+    def _on_update(self):
+        if self.f.session.user != "Administrator":
+            raise PermissionError("Raven User create")
+        self.f.bot_raven_user = "BOT-RU"
+
+    def save(self, ignore_permissions=False):
+        self.f.bot_saves += 1
+        self._on_update()
+
     def send_direct_message(self, user, text=None, link_doctype=None, link_document=None):
-        self.f.sent.append((user, text, link_doctype, link_document))
+        if not self.f.bot_raven_user:
+            raise TypeError("'>' not supported between instances of 'NoneType' and 'str'")
+        self.f.sent.append((user, text, link_doctype, link_document, self.f.session.user))
 
 
 def _fake_frappe():
@@ -111,7 +127,9 @@ def _fake_frappe():
         if dt == "Raven Bot":
             return name in f.bots
         return (dt, name) in f.docs
-    f.db = types.SimpleNamespace(exists=exists)
+    def rollback():
+        f.rollbacks += 1
+    f.db = types.SimpleNamespace(exists=exists, rollback=rollback)
 
     def get_value(dt, filters, fields=None, as_dict=False):
         if dt == "Raven User":
@@ -122,15 +140,23 @@ def _fake_frappe():
         return None
     f.db.get_value = get_value
 
+    f.bot_raven_user = None
+    f.bot_saves = 0
+    f.rollbacks = 0
+
     def get_doc(arg, name=None):
         if isinstance(arg, dict):
             def insert(ignore_permissions=False):
                 f.bot_inserts = getattr(f, "bot_inserts", 0) + 1
-                f.bots.add(arg["bot_name"])
-                return _Bot(f)
-            return types.SimpleNamespace(insert=insert, send_direct_message=_Bot(f).send_direct_message)
+                f.bots.add(arg["bot_name"])       # dong da ghi TRUOC on_update (nhu Frappe)
+                _Bot(f)._on_update()
+            return types.SimpleNamespace(insert=insert)
         return _Bot(f)
     f.get_doc = get_doc
+
+    def set_user(u):
+        f.session.user = u
+    f.set_user = set_user
 
     def enqueue(path, **kw):
         f.enqueued.append((path, kw))
@@ -268,8 +294,10 @@ class TestBot(_Case):
         self.G.send_bot_message("DL1")
         self.G.send_bot_message("DL1")
         self.assertEqual((self.f.bots, self.f.bot_inserts), ({C.BOT_NAME}, 1))
-        user, text, dt, dn = self.f.sent[0]
-        self.assertEqual((user, dt, dn), ("hoan.tran@ecentric.vn", "EC Payment Request", PAYR))
+        user, text, dt, dn, as_user = self.f.sent[0]
+        self.assertEqual((user, dt, dn, as_user),
+                         ("hoan.tran@ecentric.vn", "EC Payment Request", PAYR, "Administrator"))
+        self.assertEqual(self.f.session.user, "lam.nguyen@ecentric.vn")   # tra lai phien cu
         self.assertIn("https://team.ecentric.vn/approvals/payment-request?id=" + PAYR, text)
 
     def test_skips(self):
@@ -288,10 +316,28 @@ class TestBot(_Case):
     def test_no_card_for_missing_doc_and_errors_logged(self):
         self._row(reference_name="EC-PAYR-GONE", action_url="https://team.ecentric.vn/approvals/x?id=1")
         self.G.send_bot_message("DL1")
-        self.assertEqual(self.f.sent[-1][2:], (None, None))
+        self.assertEqual(self.f.sent[-1][2:4], (None, None))
         self.f.db.get_value = lambda *a, **k: 1 / 0
+        for _ in range(3):
+            self.G.send_bot_message("DL1")
+        self.assertEqual(self.f.errors, ["ec_chat bot"])       # 1 lan / 10 phut, khong 3
+        self.assertEqual(self.f.rollbacks, 3)
+
+    def test_repairs_bot_left_without_raven_user(self):
+        # dung trang thai prod 07-16/10: bot da co, raven_user rong
+        self.f.bots.add(C.BOT_NAME)
+        self._row()
         self.G.send_bot_message("DL1")
-        self.assertEqual(self.f.errors, ["ec_chat bot"])
+        self.assertEqual((self.f.bot_saves, self.f.bot_raven_user), (1, "BOT-RU"))
+        self.assertEqual(len(self.f.sent), 1)
+        self.G.send_bot_message("DL1")
+        self.assertEqual(self.f.bot_saves, 1)                  # da du, khong luu lai
+
+    def test_failed_create_is_rolled_back(self):
+        self._row()
+        self.f.set_user = lambda u: None                       # gia lap khong len quyen duoc
+        self.G.send_bot_message("DL1")
+        self.assertEqual((self.f.rollbacks, self.f.sent), (1, []))
 
 
 class TestHooksAndPatch(unittest.TestCase):
@@ -299,7 +345,9 @@ class TestHooksAndPatch(unittest.TestCase):
     def test_hooks_append_only(self):
         with io.open(os.path.join(APP, "hooks.py"), encoding="utf-8") as fh:
             hooks = fh.read()
-        tail = hooks[hooks.index("raven_document_link_override = list("):]
+        start = hooks.index("raven_document_link_override = list(")
+        last = '"ecentric_workspace.chat.phieu_gateway.on_delivery_log_after_insert")'
+        tail = hooks[start:hooks.index(last, start) + len(last)]
         ns = {"doc_events": {"Raven Message": {"before_insert": "other.hook"}},
               "raven_document_link_override": ["x.y"]}
         exec(tail, ns)
