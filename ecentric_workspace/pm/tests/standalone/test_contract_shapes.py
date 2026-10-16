@@ -29,7 +29,7 @@ JS_TEST = os.path.join(F.SRC, "ecentric_workspace", "public", "js", "pm", "tests
 PERSON = ["done_on", "full_name", "late", "opened", "state", "steps", "task", "user"]
 CONTRACT = {
     "tasks.get": ["subtasks", "task", "user_names"],
-    "tasks.get.task+": ["auto_close", "can_manage", "children_progress", "giver", "history",
+    "tasks.get.task+": ["auto_close", "can_edit", "can_manage", "children_progress", "giver", "history",
                         "is_leader", "pending_deadline_request", "recurrence", "review_required",
                         "split"],
     "tasks.get.giver": ["full_name", "user"],

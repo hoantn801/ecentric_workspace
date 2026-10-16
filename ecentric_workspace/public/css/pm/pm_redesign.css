@@ -407,3 +407,6 @@ tr.pmr-done .pmr-tname,.pmr-ck.pmr-done span{color:var(--pmr-g500);text-decorati
 .pmr-sub-add{margin-top:8px}.pmr-sub-add .pmr-in{flex:1}
 .pmr-sub-hint{margin:8px 2px 0;font-size:12.5px}
 .pmr-crumb-up{font-size:12.5px}
+.pmr-statusbar.pmr-ro button{cursor:default}.pmr-statusbar.pmr-ro button:not(.pmr-on){opacity:.55}
+.pmr-ro-hint{display:flex;align-items:center;gap:6px;margin-top:8px}
+.pmr-cb:disabled{cursor:default;opacity:.6}

@@ -96,7 +96,10 @@ def week(user=None, week_start=None):
         for b in blocks:
             if b.get("task") not in viewable:
                 if manager_view and b.get("task"):
-                    b["view_only"] = 1
+                    # PO 16/10: heads may open/edit their staff's tasks (can_view_task head rule);
+                    # view_only only when even that does not grant access.
+                    if not pmperm.can_view_task({"name": b["task"]}, caller):
+                        b["view_only"] = 1
                 else:
                     b["masked"] = 1
         if manager_view:
@@ -496,17 +499,7 @@ def _is_department_head_of(caller, target):
     (Employee.department + Employee Department Membership via pmperm.get_user_departments).
     Fail-safe -> False. Convention: department head = Department.manager_email (never
     reports_to / designation)."""
-    if not caller or not target or caller == target:
-        return False
-    try:
-        depts = list(pmperm.get_user_departments(target) or [])
-        if not depts:
-            return False
-        rows = frappe.get_all("Department", filters={"name": ["in", depts]},
-                              fields=["name", "manager_email"], ignore_permissions=True) or []
-        return any((r.get("manager_email") or "").strip().lower() == caller.lower() for r in rows)
-    except Exception:
-        return False
+    return pmperm.is_department_head_of(caller, target)   # canonical rule lives in permissions
 
 
 def _headed_staff_ids(caller):

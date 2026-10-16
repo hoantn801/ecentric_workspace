@@ -150,6 +150,58 @@ def is_giver_or_leader(task, user):
     return bool(user) and giver_of(task) == user
 
 
+EDIT_DENIED_MSG = ("Bạn chỉ xem được việc này. Chỉ người nhận, người giao, quản lý dự án, "
+                   "trưởng phòng của người nhận hoặc quản trị PM mới thay đổi được.")
+
+
+def can_edit_task(task, user=None):
+    """PO 16/10/2026 ("siết lại"): who may CHANGE a task (status, due, assignees, steps,
+    sub-tasks, labels, recurrence). Viewing stays can_view_task (project / department
+    visibility); editing is limited to the people actually responsible:
+      * PM leaders + PM Manager role (pmperm.can_transition_any_task);
+      * the task owner, its assignees and its giver (giver_of: accepted requester / owner);
+      * the Project's ec_manager;
+      * the department head (Department.manager_email) of the assignees / unassigned owner;
+      * for a sub-task: anyone who may edit the parent (owner / giver / assignees / manager).
+    `task` is a dict/doc with at least `name`; missing fields are read from the DB."""
+    user = user or frappe.session.user
+    if not user or user == "Guest":
+        return False
+    if pmperm.can_transition_any_task(user):
+        return True
+    t = dict(task or {})
+    name = t.get("name")
+    if name and not all(k in t for k in ("owner", "project", "parent_task", "_assign")):
+        row = frappe.db.get_value("Task", name, ["owner", "project", "parent_task", "_assign"],
+                                  as_dict=True) or {}
+        for k in ("owner", "project", "parent_task", "_assign"):
+            if t.get(k) is None:
+                t[k] = row.get(k)
+    if t.get("owner") == user:
+        return True
+    raw = t.get("_assign")
+    assignees = raw if isinstance(raw, (list, tuple)) else (frappe.parse_json(raw or "[]") or [])
+    if user in assignees:
+        return True
+    if name and giver_of({"name": name, "owner": t.get("owner"),
+                          "parent_task": t.get("parent_task")}) == user:
+        return True
+    if t.get("project") and frappe.db.get_value("Project", t.get("project"), "ec_manager") == user:
+        return True
+    # PO 16/10/2026: the department head of the assignee(s) (or of the owner when unassigned)
+    if pmperm.is_department_head_of_any(user, assignees or [t.get("owner")]):
+        return True
+    parent = t.get("parent_task")
+    if parent and parent != name:
+        return can_edit_task({"name": parent}, user)
+    return False
+
+
+def require_edit(task, user=None):
+    if not can_edit_task(task, user):
+        frappe.throw(_(EDIT_DENIED_MSG), frappe.PermissionError)
+
+
 # --------------------------------------------------------------------------- notify
 def emit(event_type, users, task_name, title, message="", actor=None, suffix=None,
          action_task=None):

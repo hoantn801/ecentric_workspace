@@ -190,7 +190,42 @@ def can_view_task(task, user=None):
     project = task.get("project")
     if project and can_view_project(project, user):
         return True
+    # PO 16/10/2026: a department head sees (and may comment on / edit, see
+    # task_flow.can_edit_task) the tasks of the people they lead.
+    if is_department_head_of_any(user, assignees or [task.get("owner")]):
+        return True
     return False
+
+
+def is_department_head_of(caller, target):
+    """True when `caller` is Department.manager_email of any department `target` belongs to
+    (Employee.department + Employee Department Membership via get_user_departments).
+    Canonical rule: department head = Department.manager_email (never reports_to /
+    designation). Fail-safe -> False."""
+    if not caller or not target or caller == target:
+        return False
+    try:
+        depts = [d for d in (get_user_departments(target) or [])]
+        if not depts:
+            return False
+        rows = frappe.get_all("Department", filters={"name": ["in", depts]},
+                              fields=["name", "manager_email"], ignore_permissions=True) or []
+        return any((r.get("manager_email") or "").strip().lower() == caller.lower() for r in rows)
+    except Exception:
+        return False
+
+
+def is_department_head_of_any(caller, users):
+    """Cheap pre-check (is caller a head at all?) before resolving each user's departments."""
+    users = [u for u in (users or []) if u and u != caller]
+    if not caller or not users:
+        return False
+    try:
+        if not frappe.db.exists("Department", {"manager_email": caller}):
+            return False
+    except Exception:
+        return False
+    return any(is_department_head_of(caller, u) for u in users)
 
 
 def visible_task_subset(names, user=None):

@@ -477,6 +477,7 @@ def _redesign_detail(doc, d, has_children, user):
     leader = bool(pmperm.can_see_all_pm_data(user))
     d["is_leader"] = 1 if leader else 0
     d["can_manage"] = 1 if (leader or (giver and giver == user)) else 0
+    d["can_edit"] = 1 if tflow.can_edit_task(d, user) else 0   # PO 16/10: viewers open read-only
     d["review_required"] = 1 if tflow.truthy(doc.get("ec_review_required")) else 0
     d["auto_close"] = 1 if tflow.truthy(doc.get("ec_auto_close")) else 0
     d["split"] = 1 if tflow.truthy(doc.get("ec_split_parent")) else 0
@@ -750,6 +751,7 @@ def create(project, subject, parent_task=None, priority=None,
         parent = frappe.get_doc("Task", parent_task)
         if not pmperm.can_view_task(parent.as_dict(), user):
             frappe.throw(_("Not permitted to add a sub-task to this task."), frappe.PermissionError)
+        tflow.require_edit(parent.as_dict(), user)   # PO 16/10: only people responsible add sub-tasks
         # 2-LEVEL CAP: a sub-task can never itself have children. Hierarchy stays
         # Project -> Task -> Sub-task (simpler to manage; use the checklist for finer breakdown).
         if parent.get("parent_task"):
@@ -859,6 +861,7 @@ def update(name, subject=None, description=None, priority=None,
     doc = frappe.get_doc("Task", name)
     if not pmperm.can_view_task(doc.as_dict(), user):
         frappe.throw(_("Not permitted to edit this task."), frappe.PermissionError)
+    tflow.require_edit(doc.as_dict(), user)
     # G4.8: a sub-task must stay in its parent's project — block moving it to a different one.
     if project is not None and doc.get("parent_task"):
         parent_project = frappe.db.get_value("Task", doc.get("parent_task"), "project")
@@ -955,6 +958,7 @@ def assign(name, users):
     doc = frappe.get_doc("Task", name)
     if not pmperm.can_view_task(doc.as_dict(), user):
         frappe.throw(_("Not permitted to assign this task."), frappe.PermissionError)
+    tflow.require_edit(doc.as_dict(), user)
     # G4.3: cannot assign a terminal task. Reopen first.
     pmperm.assert_task_not_terminal(
         doc, _("Không thể giao nhiệm vụ đã hoàn thành/huỷ. Vui lòng Reopen trước."))
@@ -1041,6 +1045,7 @@ def set_status(name, action):
     doc = frappe.get_doc("Task", name)
     if not pmperm.can_view_task(doc.as_dict(), user):
         frappe.throw(_("Not permitted to change this task."), frappe.PermissionError)
+    tflow.require_edit(doc.as_dict(), user)
     target = action
     if target not in _pm_states():
         frappe.throw(_(_STALE_MSG))
@@ -1096,6 +1101,7 @@ def mark_done(name):
     doc = frappe.get_doc("Task", name)
     if not pmperm.can_view_task(doc.as_dict(), user):
         frappe.throw(_("Not permitted to change this task."), frappe.PermissionError)
+    tflow.require_edit(doc.as_dict(), user)
     cur = doc.get("workflow_state")
     if cur == "Cancelled":
         frappe.throw(_("Việc đã huỷ. Hãy mở lại trước khi bấm Xong."))
