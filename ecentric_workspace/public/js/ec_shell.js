@@ -525,12 +525,15 @@
     return i < 0 ? s : s.slice(0, i);
   }
 
-  function hashActiveKey(items, pathname, hash) {
+  // keepKey: khi hash không thuộc mục nào (lớp phủ như #task/<id>, #new) thì GIỮ mục đang sáng
+  // thay vì nhảy về mục đầu (mở việc từ trang Dự án không được làm sáng "Việc của tôi").
+  function hashActiveKey(items, pathname, hash, keepKey) {
     var path = normPath(pathname);
     var h = hash || '';
     var curSeg = hashSeg(h);
-    var fallback = null, exact = null, seg = null;
+    var fallback = null, exact = null, seg = null, keep = null;
     flattenNav(items).forEach(function (it) {
+      if (keepKey && it.key === keepKey) keep = it.key;
       var r = it.route || '';
       var hi = r.indexOf('#');
       if (hi < 0) return;                      // MPA item -> not our concern
@@ -540,9 +543,11 @@
       if (rh === h) exact = it.key;
       // sub-view (e.g. #work/board) shares the base nav item (#work/list):
       // match on first hash segment when no exact hit exists.
-      if (seg === null && curSeg && hashSeg(rh) === curSeg) seg = it.key;
+      // `hash_segments`: extra first-segments this item owns (e.g. Dự án owns #project/<id>)
+      if (seg === null && curSeg && (hashSeg(rh) === curSeg ||
+          (it.hash_segments || []).indexOf(curSeg) >= 0)) seg = it.key;
     });
-    return exact || seg || fallback;           // empty/other hash -> first view
+    return exact || seg || keep || fallback;   // empty/other hash -> keep current, else first view
   }
 
   function hasHashItems(items) {
@@ -556,7 +561,7 @@
   // MPA routes are untouched.
   function applyHashActive() {
     if (!S.mount || !S.ctxNav || !hasHashItems(S.ctxNav)) return;
-    var key = hashActiveKey(S.ctxNav, window.location.pathname, window.location.hash);
+    var key = hashActiveKey(S.ctxNav, window.location.pathname, window.location.hash, S.activeKey);
     if (!key) return;
     S.activeKey = key;
     var links = S.mount.querySelectorAll('a.ec-shell-item[data-ec-shell-key]');

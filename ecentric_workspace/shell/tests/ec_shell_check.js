@@ -377,6 +377,10 @@ const BOOT2 = JSON.parse(JSON.stringify(BOOT1)); BOOT2.nav[1].label = 'Approval 
     ok(HAK(pmViews, '/pm', '#mywork') === 'pm.view.mywork', 'hash picks mywork');
     ok(HAK(pmViews, '/pm', '') === 'pm.view.overview', 'empty hash -> first view (overview)');
     ok(HAK(pmViews, '/pm', '#task/T1') === 'pm.view.overview', 'unknown detail hash -> first view fallback');
+    ok(HAK(pmViews, '/pm', '#task/T1', 'pm.view.recurring') === 'pm.view.recurring', 'overlay hash (#task/<id>) keeps the current item (hotfix 16/10)');
+    ok(HAK(pmViews, '/pm', '#mywork', 'pm.view.recurring') === 'pm.view.mywork', 'a real view hash still wins over keepKey');
+    ok(HAK(pmViews, '/pm', '#task/T1', 'other.ctx.key') === 'pm.view.overview', 'keepKey from another context is ignored');
+    ok(HAK([{ key: 'pm.view.projects', route: '/pm#projects', hash_segments: ['project'] }].concat(pmViews), '/pm', '#project/P1') === 'pm.view.projects', 'hash_segments: Du an owns #project/<id>');
     // MPA safety: a context with NO hash items is never touched
     const mpa = [
       { key: 'apc.catalog', route: '/approvals', active_patterns: ['/approvals'] },

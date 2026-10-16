@@ -975,8 +975,8 @@
 <script src="/assets/ecentric_workspace/charts/chart_common.js"></script>
 <script src="/assets/ecentric_workspace/charts/pm_charts.js"></script>
 <!-- PM lam lai (16/10/2026): asset dung chung window.PMR (man moi + ngan keo viec + luong Xong). Nap TRUOC script chinh; 404 -> script chinh tu fallback ve man cu. -->
-<link rel="stylesheet" href="/assets/ecentric_workspace/css/pm/pm_redesign.css?v=e8f3e3c350">
-<script src="/assets/ecentric_workspace/js/pm/pm_redesign.js?v=e8f3e3c350"></script>
+<link rel="stylesheet" href="/assets/ecentric_workspace/css/pm/pm_redesign.css?v=732039b034">
+<script src="/assets/ecentric_workspace/js/pm/pm_redesign.js?v=732039b034"></script>
 <script>
 (function(){
   var PM="ecentric_workspace.pm.api.";
@@ -1173,7 +1173,7 @@
       var d=res[0]||{};var cc=res[1]||{};if(cc.is_leader!==undefined)window._isLeader=!!cc.is_leader;
       var recRules=(res[2]&&res[2].rows)||[];var vTasks=(res[3]&&res[3].rows)||[];var ac=res[4]||{active:false};var pset=res[5]||{};
       var showWl=pmShowPersonal();var user=window._pmUser||pmCurUser();
-      var wlSeen={},wlN=0;function keep(t){if(!pmIsPersonal(t,pset))return true;if(t&&t.name&&!wlSeen[t.name]){wlSeen[t.name]=1;wlN++;}return showWl;}
+      var wlSeen={},wlN=0;function keep(t){if(!pmIsPersonal(t,pset))return true;if(t&&t.name&&!wlSeen[t.name]&&t.workflow_state!=="Done"&&t.workflow_state!=="Cancelled"){wlSeen[t.name]=1;wlN++;}return showWl;} /* dem chi viec nhat ky DANG MO (truoc dem ca viec da xong -> 669) */
       var tmap={};vTasks.forEach(function(t){tmap[t.name]=t;});
       var today=pmLocalYmd();
       var recToday=recRules.filter(function(r){return r.last_run_date&&String(r.last_run_date).slice(0,10)===today&&r.last_task&&tmap[r.last_task];}).map(function(r){return tmap[r.last_task];}).filter(keep);
@@ -3019,6 +3019,8 @@
     b+=sec(3,"Làm việc và bấm Xong","Người nhận việc",
       steps(['Bắt đầu làm thì bấm '+st("s1","Đang làm")+' (hoặc bấm giờ, xem mục 4).',
              'Việc có <b>Các bước</b> thì tích từng bước khi làm xong.',
+             'Cần ghi chú hay trao đổi thì viết ở cột <b>Bình luận</b> bên phải. Ghi chú quan trọng (số tài khoản, link file, thống nhất cuối) thì bấm biểu tượng <b>ghim</b>: bình luận đó nằm trên cùng, nền vàng nhạt, ai mở việc cũng thấy ngay.',
+             'Việc lớn thì chia thành <b>Việc con</b>: mở việc, chọn tab <b>Việc con</b>, gõ tên rồi Enter. Bấm nút tròn để đánh Xong từng việc con; bấm vào tên để giao người, đặt hạn riêng.',
              'Làm xong thì bấm <b>Xong</b>. Việc chuyển sang Xong ngay. Nếu bấm nhầm, chọn <b>Hoàn tác</b> trên thông báo.'])+
       '<div class="pmg-fig"><div class="pmg-toast">Đã xong: “Báo cáo tháng 9 — ANDROS · Shopee” <b>Ghi giờ</b> <b>Hoàn tác</b></div><p class="pmg-cap">Thông báo hiện ra sau khi bấm Xong. Ghi giờ ở đây không bắt buộc.</p></div>'+
       shot("done_toast")+
@@ -3047,7 +3049,7 @@
         '<div class="pmg-opt pmg-opt-sub"><div><b>Tự đóng khi mọi người xong</b>Tắt (mặc định): khi mọi người xong, việc chuyển sang Chờ duyệt để bạn kiểm tra.</div><span class="pmg-tog"></span></div>'+
         '<div class="pmg-opt"><div><b>Cần tôi kiểm tra trước khi xong</b>Người nhận bấm “Gửi kiểm tra” thay vì Xong.</div><span class="pmg-tog"></span></div>'+
         '<div class="pmg-opt"><div><b>Lặp lại</b>Ví dụ: ngày 7 hằng tháng, tự giao lại cho cùng nhóm.</div><span class="pmg-tog on"></span></div>'+
-        '<div class="pmg-opt"><div><b>Cần người nhận đồng ý</b>Người nhận nhận việc, đề xuất hạn khác hoặc từ chối trước khi bắt đầu.</div><span class="pmg-tog"></span></div>'+
+        '<div class="pmg-opt"><div><b>Cần người nhận đồng ý</b>Bật sẵn. Người nhận nhận việc, đề xuất hạn khác hoặc từ chối trước khi bắt đầu. Tắt đi nếu muốn giao thẳng. Tạo việc cho chính mình thì không cần.</div><span class="pmg-tog on"></span></div>'+
       '</div><p class="pmg-cap">Mô tả, các bước, ưu tiên, nhãn, việc cha: bấm “Thêm…” để mở, hoặc thêm sau trong chi tiết việc.</p></div>'+
       shot("new_task_sheet")+
       tip("p-repeat",'<b>Báo cáo hằng tháng cho cả nhóm:</b> chọn cả nhóm, bật <b>Mỗi người một việc</b> và <b>Lặp lại</b>. Từ tháng sau, hệ thống tự giao lại, bạn không phải tạo tay nữa.'));
@@ -3070,7 +3072,7 @@
     /* 8 */
     b+=sec(8,"Câu hỏi thường gặp","Ai cũng đọc",
       faq([["“Việc của tôi” khác “Được giao cho tôi” thế nào?","<b>Việc của tôi</b> là toàn bộ việc bạn đang làm. <b>Được giao cho tôi</b> chỉ chứa những gì cần bạn <b>trả lời</b>: nhận việc, việc mới giao, kết quả xin dời hạn."],
-           ["Tôi không muốn nhận một việc được giao thẳng?","Việc giao thẳng không có nút từ chối. Hãy <b>Xin dời hạn</b> nếu không kịp, hoặc bình luận trong việc để trao đổi với người giao."],
+           ["Tôi không muốn nhận một việc được giao thẳng?","Việc giao thẳng không có nút từ chối. Hãy <b>Xin dời hạn</b> nếu không kịp, hoặc viết ở cột <b>Bình luận</b> bên phải của việc để trao đổi với người giao."],
            ["Tôi bấm Xong nhầm?","Chọn <b>Hoàn tác</b> trên thông báo, hoặc mở việc và đổi lại trạng thái."],
            ["Vì sao việc chung chưa đóng dù mọi người đã xong?","Việc chuyển sang Chờ duyệt để người giao kiểm tra rồi mới đóng. Nếu không cần kiểm tra, khi giao hãy bật <b>Tự đóng khi mọi người xong</b>."],
            ["Tôi có phải ghi giờ không?","Tuỳ quy định của nhóm bạn. Hệ thống không bắt buộc. Muốn ghi thì xem mục 4."],

@@ -491,7 +491,6 @@ def _team_user_ids(user):
     return list(ids)
 
 
-@frappe.whitelist()
 def _is_department_head_of(caller, target):
     """True when `caller` is Department.manager_email of any department `target` belongs to
     (Employee.department + Employee Department Membership via pmperm.get_user_departments).
@@ -526,6 +525,7 @@ def _headed_staff_ids(caller):
         return []
 
 
+@frappe.whitelist()
 def viewable_users():
     """Internal users whose week the caller may open (read-only): a leader sees the whole
     company; everyone else sees their own team/department. Empty -> UI hides the picker."""

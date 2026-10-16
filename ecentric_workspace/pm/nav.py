@@ -47,5 +47,7 @@ def items():
             # hash-aware active selection happens client-side.
             "active_patterns": ["/pm"],
             "visible_when": "internal", "owner": "pm", "view": True,
+            # #project/<id> (chi tiet du an) sang menu "Du an", khong roi ve muc dau "Viec cua toi"
+            **({"hash_segments": ["project"]} if key == "pm.view.projects" else {}),
         })
     return out

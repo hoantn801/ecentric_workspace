@@ -384,3 +384,5 @@ ecentric_workspace.pm.patches.p026_pm_split_parent_backfill
 ecentric_workspace.pm.patches.p027_pm_task_seen_baseline
 ecentric_workspace.pm.patches.p028_pm_recurrence_completion_flags
 ecentric_workspace.approval_center.patches.p300_resync_pm_lam_lai
+ecentric_workspace.pm.patches.p029_pm_task_pinned_comments
+ecentric_workspace.approval_center.patches.p301_resync_pm_hotfix1
