@@ -28,6 +28,8 @@ EVENT_TYPES = ("task_assigned", "task_due_soon", "task_overdue",
                "approval_required", "mention", "system_critical",
                "attendance_missing", "attendance_missing_final",
                "announcement", "announcement_urgent", "hr_data_issue",
+               # PM redesign 16/10/2026 (xin doi han / nhac / cho duyet) - same defaults as task_assigned.
+               "task_deadline_requested", "task_deadline_answered", "task_nudge", "task_ready_for_review",
                "feedback_update")
 SEVERITIES = ("info", "action_required", "urgent")
 _SEV_RANK = {"info": 0, "action_required": 1, "urgent": 2}
@@ -44,6 +46,9 @@ _DEFAULT_SEVERITY = {
     "announcement": "info", "announcement_urgent": "action_required",
     "hr_data_issue": "action_required",
     "feedback_update": "info",
+    # PM redesign 16/10/2026: cung muc voi task_assigned.
+    "task_deadline_requested": "action_required", "task_deadline_answered": "action_required",
+    "task_nudge": "action_required", "task_ready_for_review": "action_required",
 }
 # matrix cell: True (always) | "pref" (depends on user preference) | False (never)
 ROUTING_MATRIX = {
@@ -87,6 +92,14 @@ ROUTING_MATRIX = {
     #   teams = False CO Y, cung ly do voi hr_data_issue: flow Power Automate chan event_type
     #   bang enum - ten chua khai se bi PA_400. Muon bat Teams: khai "feedback_update" ben PA truoc.
     "feedback_update":         {"erp": True, "toast": True, "sound": "pref", "desktop": "pref", "teams": False, "webpush": True},
+    # PM redesign 16/10/2026 (/pm lam lai): xin doi han, tra loi doi han, nguoi giao nhac, viec cho duyet.
+    #   Mac dinh GIONG HET task_assigned (PO chot: moi nhac/doi han di qua notification_center).
+    #   LUU Y teams = True: neu provider Teams dang la Power Automate co enum event_type (xem ghi chu
+    #   hr_data_issue) thi phai khai 4 chuoi nay ben flow PA truoc, neu khong tin Teams se PA_400.
+    "task_deadline_requested": {"erp": True, "toast": True, "sound": True,   "desktop": "pref", "teams": True,  "webpush": True},
+    "task_deadline_answered":  {"erp": True, "toast": True, "sound": True,   "desktop": "pref", "teams": True,  "webpush": True},
+    "task_nudge":              {"erp": True, "toast": True, "sound": True,   "desktop": "pref", "teams": True,  "webpush": True},
+    "task_ready_for_review":   {"erp": True, "toast": True, "sound": True,   "desktop": "pref", "teams": True,  "webpush": True},
 }
 # severities that bypass quiet hours / minimum-severity / disabled-event suppression
 _BYPASS_SEVERITY = ("urgent",)

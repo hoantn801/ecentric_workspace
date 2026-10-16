@@ -10,6 +10,7 @@ import frappe
 from frappe import _
 
 from ecentric_workspace.pm import permissions as pmperm
+from ecentric_workspace.pm import task_flow as tflow
 
 _FIELDS = [
     "name", "project_name", "status", "percent_complete",
@@ -18,8 +19,11 @@ _FIELDS = [
 
 
 @frappe.whitelist()
-def list(start=0, page_length=20, status=None):
-    """Permission-scoped, paginated project list. Returns {rows, total}."""
+def list(start=0, page_length=20, status=None, include_personal=0):
+    """Permission-scoped, paginated project list. Returns {rows, total}.
+
+    PM redesign: personal-log projects (ec_personal_log=1, the worklog) are hidden unless
+    include_personal=1; every row carries ec_personal_log (0/1)."""
     pmperm.require_pm_access()
     user = frappe.session.user
 
@@ -27,15 +31,19 @@ def list(start=0, page_length=20, status=None):
     if status:
         filters["status"] = status
 
+    personal = tflow.personal_log_projects()
+    hide = set() if tflow.truthy(include_personal) else personal
     visible = pmperm.get_visible_project_names(user)
     if visible is not None:
         # need-to-know: also show projects where the user only has an assigned/owned task
         # (they can open it, but its task list is scoped to their own tasks). NOTE: this module
         # defines `def list`, which shadows the builtin `list` -> use sorted(), never bare list().
-        openable = set(visible) | pmperm.projects_with_my_tasks(user)
+        openable = (set(visible) | pmperm.projects_with_my_tasks(user)) - hide
         if not openable:
             return {"rows": [], "total": 0}
         filters["name"] = ["in", sorted(openable)]
+    elif hide:
+        filters["name"] = ["not in", sorted(hide)]  # Project.name is never NULL
 
     rows = frappe.get_all(
         "Project", filters=filters, fields=_FIELDS,
@@ -61,6 +69,8 @@ def list(start=0, page_length=20, status=None):
             r["task_total"] = a["total"]
             r["task_done"] = a["done"]
             r["progress"] = int(round(a["done"] * 100.0 / a["total"])) if a["total"] else 0
+    for r in rows:
+        r["ec_personal_log"] = 1 if r["name"] in personal else 0
 
     total = frappe.db.count("Project", filters)
     return {"rows": rows, "total": total}

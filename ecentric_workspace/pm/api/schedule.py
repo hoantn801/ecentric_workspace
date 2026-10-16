@@ -63,7 +63,7 @@ def week(user=None, week_start=None):
     team = _team_user_ids(caller)
     readonly = False
     if target != caller:
-        if leader or target in team:
+        if leader or target in team or _is_department_head_of(caller, target):
             readonly = True
         else:
             frappe.throw(_("Không có quyền xem lịch người này."), frappe.PermissionError)
@@ -84,12 +84,23 @@ def week(user=None, week_start=None):
     # no task name / tooltip), and the target's unscheduled backlog is never exposed. This
     # keeps schedule visibility (coordination) from leaking task content beyond the
     # viewer's project permissions. `visible_task_subset` returns everything for leaders.
+    # PO 16/10/2026: a department head (Department.manager_email of the TARGET's department)
+    # or a PM leader sees task titles / project / due of the target's blocks and the meeting
+    # subjects (except Outlook Private/Confidential). READ-ONLY detail: blocks for tasks the
+    # manager has no task permission on carry `view_only` so the UI shows the tooltip but
+    # never opens the task drawer. Teammates (same department, not head) still see "Bận".
+    manager_view = bool(readonly and (leader or _is_department_head_of(caller, target)))
     if readonly:
         backlog = []
         viewable = set(pmperm.visible_task_subset(list(scheduled), caller)) if scheduled else set()
         for b in blocks:
             if b.get("task") not in viewable:
-                b["masked"] = 1
+                if manager_view and b.get("task"):
+                    b["view_only"] = 1
+                else:
+                    b["masked"] = 1
+        if manager_view:
+            viewable = viewable | {b["task"] for b in blocks if b.get("task")}
     else:
         # Backlog = open tasks NOT already scheduled this week.
         backlog = [t for t in _open_tasks_for(target) if t["name"] not in scheduled]
@@ -108,6 +119,7 @@ def week(user=None, week_start=None):
 
     return {
         "readonly": readonly,
+        "detail_level": "own" if not readonly else ("manager" if manager_view else "busy"),
         "is_leader": leader,
         "can_view_others": leader or bool(team),
         "user": target,
@@ -116,11 +128,12 @@ def week(user=None, week_start=None):
         "backlog": backlog,
         "subjects": subj,
         "meta": meta,
-        "meetings": _ms_meetings(target, start_dt, end_dt, mask=readonly),
+        "meetings": _ms_meetings(target, start_dt, end_dt, mask=readonly,
+                                 show_subject=manager_view),
     }
 
 
-def _ms_meetings(email, start_dt, end_dt, mask=False):
+def _ms_meetings(email, start_dt, end_dt, mask=False, show_subject=False):
     """Outlook/Teams calendar 'busy' blocks for `email` in [start_dt, end_dt] (naive
     site-local 'YYYY-MM-DD HH:MM:SS'). Overlaid on the week as read-only context so people
     don't schedule work over a meeting.
@@ -144,7 +157,7 @@ def _ms_meetings(email, start_dt, end_dt, mask=False):
                "?startDateTime=" + start_dt.replace(" ", "T") + "%2B07:00"
                "&endDateTime=" + end_dt.replace(" ", "T") + "%2B07:00"
                "&$select=id,subject,start,end,showAs,isAllDay,onlineMeeting,location,"
-               "responseStatus,isOrganizer,type"
+               "responseStatus,isOrganizer,type,sensitivity"
                "&$top=100&$orderby=start/dateTime")
         r = requests.get(url, headers={"Authorization": "Bearer " + token,
                          "Prefer": 'outlook.timezone="Asia/Ho_Chi_Minh"'}, timeout=12)
@@ -158,7 +171,17 @@ def _ms_meetings(email, start_dt, end_dt, mask=False):
             en = ((ev.get("end") or {}).get("dateTime") or "")[:19].replace("T", " ")
             if not st or not en:
                 continue
-            row = {"subject": "Họp" if mask else (ev.get("subject") or "Họp"),
+            # mask = viewing someone else. show_subject = viewer is that person's department
+            # head / PM leader: real subject unless the owner marked it Private/Confidential.
+            if not mask:
+                subj = ev.get("subject") or "Họp"
+            elif show_subject and (ev.get("sensitivity") or "normal") == "normal":
+                subj = ev.get("subject") or "Họp"
+            elif show_subject:
+                subj = "Họp riêng"
+            else:
+                subj = "Họp"
+            row = {"subject": subj,
                    "start": st, "end": en, "showAs": ev.get("showAs") or "busy"}
             # Actionable fields ONLY for the caller's own calendar. When masked (viewing a
             # teammate) we deliberately omit the event id / join link / response so nobody
@@ -469,6 +492,40 @@ def _team_user_ids(user):
 
 
 @frappe.whitelist()
+def _is_department_head_of(caller, target):
+    """True when `caller` is Department.manager_email of any department `target` belongs to
+    (Employee.department + Employee Department Membership via pmperm.get_user_departments).
+    Fail-safe -> False. Convention: department head = Department.manager_email (never
+    reports_to / designation)."""
+    if not caller or not target or caller == target:
+        return False
+    try:
+        depts = list(pmperm.get_user_departments(target) or [])
+        if not depts:
+            return False
+        rows = frappe.get_all("Department", filters={"name": ["in", depts]},
+                              fields=["name", "manager_email"], ignore_permissions=True) or []
+        return any((r.get("manager_email") or "").strip().lower() == caller.lower() for r in rows)
+    except Exception:
+        return False
+
+
+def _headed_staff_ids(caller):
+    """User ids of employees in departments whose manager_email is `caller`. Fail-safe []."""
+    try:
+        depts = [d["name"] for d in frappe.get_all(
+            "Department", filters={"manager_email": caller}, fields=["name"],
+            ignore_permissions=True) or []]
+        if not depts:
+            return []
+        rows = frappe.get_all("Employee", filters={"department": ["in", depts],
+                              "status": "Active", "user_id": ["is", "set"]},
+                              fields=["user_id"], ignore_permissions=True) or []
+        return [r["user_id"] for r in rows if r.get("user_id") and r["user_id"] != caller]
+    except Exception:
+        return []
+
+
 def viewable_users():
     """Internal users whose week the caller may open (read-only): a leader sees the whole
     company; everyone else sees their own team/department. Empty -> UI hides the picker."""
@@ -477,7 +534,7 @@ def viewable_users():
         flt = {"enabled": 1, "user_type": "System User",
                "name": ["not in", ["Administrator", "Guest"]]}
     else:
-        ids = _team_user_ids(caller)
+        ids = list(set(_team_user_ids(caller)) | set(_headed_staff_ids(caller)))
         if not ids:
             return {"users": []}
         flt = {"enabled": 1, "name": ["in", ids]}

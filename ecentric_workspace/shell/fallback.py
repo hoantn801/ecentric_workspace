@@ -60,6 +60,8 @@ ICONS = {
     "user": '<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/>',
     # Cot thong minh (07/10/2026): gui / them / nhom nguoi.
     "send": '<path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/>',
+    # PM lam lai (16/10/2026): "Duoc giao cho toi" - mui ten vao khay. Trung ec_shell.js ICONS.recv.
+    "recv": '<path d="M12 3v11M7.5 9.5 12 14l4.5-4.5"/><path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/>',
     "plus": '<path d="M12 5v14M5 12h14"/>',
     "users": '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20v-.5a6.5 6.5 0 0 1 13 0v.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 5.8"/>',
 }

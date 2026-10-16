@@ -30,8 +30,10 @@ NAME = "project-management"
 TITLE = "Project Management"
 
 #: sha256 cua pm_app.html commit nay ship (cong QC `pagesync` doi chieu manifest).
-BASELINE_SHA256 = "bf88bd3c56106b8e4e8409624a496222a4a2b605a9021ced4047de9707805fe2"
+BASELINE_SHA256 = "da77c8210f673f5f359b7c46dbf3aceecd095038ddd565881c038b404cab48c1"
 SUPERSEDES_SHA256 = (
+    # 10/2026: ban truoc /pm lam lai (rail-shell p275).
+    "bf88bd3c56106b8e4e8409624a496222a4a2b605a9021ced4047de9707805fe2",
     # 10/2026: ban live ngay truoc khi dua nguon = p272 transform tren trang cu.
     "df82855d0d0d9f0459229082b7a322f882e99898e40cf3b3f4f6770961d77ae6",
     "82c68f9918d917da7ff944ab60f1ee9177193a17b940216e92b6052405a6b759",
@@ -43,7 +45,7 @@ FORBIDDEN = ('class="ec-sidebar"', 'id="ec-pm-nav-bridge"',
 #: Moi marker phai xuat hien DUNG MOT lan trong nguon.
 REQUIRED_ONCE = ('data-ec-shell="1"', 'data-ec-shell-crumbs="1"',
                  'data-ec-shell-header-right="1"', 'data-ec-shell-action-slot="1"',
-                 'id="pm-search"', 'id="pm-crumb"', 'id="tb-new"', 'head==="new"')
+                 'id="pm-search"', 'id="pm-crumb"', 'id="tb-new"', 'hd==="new"')
 
 
 def _path():
