@@ -388,3 +388,4 @@ ecentric_workspace.pm.patches.p029_pm_task_pinned_comments
 ecentric_workspace.approval_center.patches.p301_resync_pm_hotfix1
 ecentric_workspace.approval_center.patches.p302_resync_pm_hotfix2
 ecentric_workspace.approval_center.patches.p303_resync_pm_hotfix3
+ecentric_workspace.approval_center.patches.p297_resync_ai_video_ban_voice
