@@ -1,0 +1,91 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:machine_code",
+ "creation": "2026-10-17 00:00:00.000000",
+ "description": "Máy phát chạy app eCentric AI Live. Tạo token ở nút trên form, dán vào app trên máy đó.",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "machine_code",
+  "label",
+  "enabled",
+  "brands",
+  "user"
+ ],
+ "fields": [
+  {
+   "fieldname": "machine_code",
+   "fieldtype": "Data",
+   "label": "Mã máy",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1,
+   "description": "vd MAY01"
+  },
+  {
+   "fieldname": "label",
+   "fieldtype": "Data",
+   "label": "Tên / vị trí",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Đang dùng",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "brands",
+   "fieldtype": "Small Text",
+   "label": "Brand giao cho máy",
+   "description": "Mỗi dòng một mã brand (trùng Mã brand ở EC AI Live Brand Config)"
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "Tài khoản máy",
+   "options": "User",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-17 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC AI Live Machine",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  },
+  {
+   "role": "EC AI Video Admin",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
