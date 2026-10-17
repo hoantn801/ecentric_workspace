@@ -67,8 +67,19 @@ def normalize_faq(rows):
 
 
 def normalize_generic(d):
+    """{greet|thanks|answer|cho: [voice], scripts: {nhom: [loi doc]}} - loi doc la ghi chu de thu am, khong gui may."""
     d = d if isinstance(d, dict) else {}
-    return {g: _audio_list(d.get(g), "Câu chung %s" % g) for g in C.GENERIC_GROUPS}
+    out = {g: _audio_list(d.get(g), "Câu chung %s" % g) for g in C.GENERIC_GROUPS}
+    raw = d.get("scripts") if isinstance(d.get("scripts"), dict) else {}
+    out["scripts"] = {g: [str(s).strip()[:C.MAX_SCRIPT_CHARS] for s in (raw.get(g) or [])
+                          if isinstance(s, str)][:C.MAX_AUDIO_PER_GROUP] for g in C.GENERIC_GROUPS if raw.get(g)}
+    return out
+
+
+def generic_defaults():
+    """Goi y cho trang: so ban nen co + loi doc mau moi loai clip chung."""
+    return {g: {"min": C.GENERIC_COUNTS[g][0], "max": C.GENERIC_COUNTS[g][1], "scripts": list(C.GENERIC_SCRIPTS[g])}
+            for g in C.GENERIC_GROUPS}
 
 
 def audio_entries(products, faq, generic):

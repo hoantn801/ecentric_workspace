@@ -110,6 +110,21 @@ class FakeBrands:
 
 
 class TestKitPlan(unittest.TestCase):
+    def test_generic_four_sets_scripts_and_defaults(self):
+        gen = kit_plan.normalize_generic({"cho": [V("cho_1.mp3")], "thanks": [V("camon.mp3")],
+                                          "scripts": {"cho": ["  Dạ em xem chút nha  ", 5, "x" * 300], "bogus": ["y"]}})
+        self.assertEqual(set(gen) - {"scripts"}, {"greet", "thanks", "answer", "cho"})
+        self.assertEqual(gen["scripts"], {"cho": ["Dạ em xem chút nha", "x" * C.MAX_SCRIPT_CHARS]})
+        ents = kit_plan.audio_entries([], [], gen)
+        self.assertEqual([e[0] for e in ents], ["thanks_1", "cho_1"])
+        st = kit_plan.build_step({"name": "k", "brand": "friso", "host_key": "H_X"}, [], [], gen,
+                                 {a["file"]: "ecv6/inbox/k/" + n for n, a in ents})
+        self.assertEqual(sorted(st["generic"]), ["answer", "cho", "greet", "thanks"])
+        self.assertEqual(st["generic"]["cho"][0]["audio"], "ecv6/inbox/k/cho_1")
+        d = kit_plan.generic_defaults()
+        self.assertEqual({g: (d[g]["min"], d[g]["max"], len(d[g]["scripts"])) for g in d},
+                         {"greet": (3, 5, 5), "thanks": (3, 3, 3), "answer": (2, 2, 2), "cho": (3, 3, 3)})
+
     def test_normalize_and_step(self):
         p = kit_plan.normalize_products(kit_payload()["products"] + [{"name": "Mum"}])
         self.assertEqual([x["id"] for x in p], ["sp01", "sp02"])

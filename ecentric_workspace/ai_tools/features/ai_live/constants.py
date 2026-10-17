@@ -83,7 +83,26 @@ MAX_FAQ_TOPICS = 30
 FAQ_COPIES = (2, 5)
 #: Nhom video cua 1 SP: khoa trong bolive.json (products[].groups)
 PRODUCT_AUDIO_GROUPS = ("main_free", "main_hold")
-GENERIC_GROUPS = ("greet", "thanks", "answer")
+GENERIC_GROUPS = ("greet", "thanks", "answer", "cho")
+#: So ban nen co moi loai clip chung (min, max) - chi de goi y tren trang, khong chan luu.
+GENERIC_COUNTS = {"greet": (3, 5), "thanks": (3, 3), "answer": (2, 2), "cho": (3, 3)}
+MAX_SCRIPT_CHARS = 200
+#: Loi goi y cho clip chung (team sua tren trang roi thu am / TTS). {brand} = ten brand.
+GENERIC_SCRIPTS = {
+    "greet": ("Dạ em chào cả nhà mới vào phiên live của nhà {brand} ạ, mọi người xem live vui vẻ nha.",
+              "Em chào các anh chị vừa ghé phiên live nha, có gì thắc mắc cứ để lại bình luận cho em ạ.",
+              "Chào mừng mọi người đến với phiên live hôm nay của {brand}, nhiều ưu đãi lắm, ở lại với em nha.",
+              "Dạ em chào các bạn mới vào nè, nhớ bấm theo dõi kênh để không bỏ lỡ ưu đãi nha.",
+              "Em chào cả nhà, cảm ơn mọi người đã ghé live, mình cùng xem sản phẩm hôm nay nha."),
+    "thanks": ("Dạ em cảm ơn anh chị đã quan tâm ạ, mọi người đợi em chút xíu, em giới thiệu lại ngay nha.",
+               "Cảm ơn cả nhà đã hỏi nha, em sẽ nói lại phần này ngay sau đây, mọi người chờ em một chút ạ.",
+               "Dạ em ghi nhận câu hỏi rồi ạ, lát nữa em giới thiệu lại kỹ hơn cho mình nha."),
+    "answer": ("Dạ câu này anh chị nhắn tin cho shop để được tư vấn kỹ hơn nha, shop phản hồi ngay ạ.",
+               "Dạ phần này em chưa có thông tin chính xác, mình để lại tin nhắn cho shop để được hỗ trợ nha."),
+    "cho": ("Dạ em xem câu hỏi của mình chút nha.",
+            "Dạ để em đọc kỹ câu hỏi nha, mọi người chờ em một xíu.",
+            "Dạ có câu hỏi nè, em xem ngay cho mình ạ."),
+}
 
 #: Studio anh host: model -> nhan, credit PlenX moi anh (None = chua co bang gia, khong uoc tinh).
 IMAGE_MODELS = (("nano-banana-full", "Nano Banana Full 2K (PlenX)", 10),
@@ -123,3 +142,80 @@ class KitMsg:
     BAD_PLAN = "Bộ motion không hợp lệ (mỗi loại 0–20 clip, tổng 1–60, độ dài 4/6/8/10 giây)."
     NEED_PROMPT = "Chưa nhập mô tả ảnh host."
     BAD_PICK = "Ảnh này chưa xong hoặc không thuộc lượt tạo hiện tại."
+
+
+# ------------------------------------------------------------------ Giam sat live (fix10c) ---
+HEALTH = "EC AI Live Health"
+HEALTH_SAMPLE = "EC AI Live Health Sample"
+ALERT_LOG = "EC AI Live Alert"
+ALERT_SETTINGS = "EC AI Live Alert Settings"
+
+
+class Level:
+    OK = "ok"
+    INFO = "info"
+    WARN = "warn"
+    CRIT = "critical"
+    OFF = "offline"
+    #: Ngoai gio live, khong len song: o xam, khong bao dong.
+    IDLE = "idle"
+
+
+#: Thu tu muc canh bao (cao hon = nang hon). offline xep ngang critical.
+LEVEL_RANK = {Level.IDLE: -1, Level.OK: 0, Level.INFO: 1, Level.WARN: 2, Level.CRIT: 3, Level.OFF: 3}
+APP_ALERT_LEVELS = (Level.INFO, Level.WARN, Level.CRIT)
+#: Trang thai live do app gui; 3 trang thai dau = dang len song (mat tin hieu luc nay la su co).
+ON_AIR_STATES = ("preflight", "live", "ending")
+LIVE_STATES = ON_AIR_STATES + ("idle", "stopped", "error")
+
+LIVE_RE = re.compile(r"^[A-Za-z0-9_.-]{1,40}$")
+ALERT_CODE_RE = re.compile(r"^[a-z0-9_.-]{1,40}$")
+HHMM_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+MAX_HB_LIVES = 8
+MAX_HB_ALERTS = 20
+MAX_ALERT_TEXT = 200
+MAX_SLOTS = 14
+MAX_THUMB_BYTES = 200 * 1024
+THUMB_DIR = "ai_live_thumbs"
+THUMB_KINDS = ("obs", "phone")
+
+#: Mau so lieu toi da 1 dong / 60 s moi live; giu 24 gio. Lich su canh bao giu 14 ngay.
+SAMPLE_EVERY_S = 60
+SAMPLE_KEEP_HOURS = 24
+ALERT_KEEP_DAYS = 14
+#: Mac dinh (doi duoc trong EC AI Live Alert Settings).
+DEAD_MAN_MIN = 2
+DEDUPE_MIN = 10
+ESCALATE_MIN = 5
+#: O tren tuong chuyen vang khi qua 75 s chua co tin hieu (app gui moi 30 s).
+STALE_WARN_S = 75
+#: Nguong hien mau o (app cung tu bao dong theo nguong rieng).
+FPS_MIN = 25.0
+DROP_PCT_MAX = 2.0
+GPU_MAX = 90.0
+VRAM_MAX = 95.0
+TZ_OFFSET_H = 7  # gio Viet Nam, khong doi mua
+
+#: Zalo Bot Platform (bot.zaloplatforms.com): API kieu Telegram. CAN XAC NHAN tren bot that -> de doi trong cai dat.
+ZALO_API_BASE = "https://bot-api.zaloplatforms.com"
+ZALO_SEND_PATH = "/bot{token}/sendMessage"
+TEAMS_FORMATS = ("workflows", "messagecard")
+HTTP_TIMEOUT = 10
+#: Tat may quet: site_config ec_ai_live_monitor_disabled = 1
+KILL_SWITCH = "ec_ai_live_monitor_disabled"
+MONITOR_LINK = "/ai-video#/monitor"
+
+
+class MonMsg:
+    BAD_HB = "Dữ liệu tín hiệu máy không hợp lệ: %s"
+    NO_KEY = "Không tìm thấy live %s."
+    NO_THUMB = "Chưa có ảnh."
+    NO_CHANNEL = "Chưa cấu hình Teams hoặc Zalo trong EC AI Live Alert Settings."
+    TEST_TEXT = "Tin thử từ màn Giám sát AI Live: kênh báo động hoạt động bình thường."
+    OFFLINE = "Mất tín hiệu %d phút (mất điện, mất mạng hoặc app tắt) trong giờ live"
+    BACK = "Đã có tín hiệu lại"
+    ESCALATED = "Kéo dài hơn %d phút"
+
+
+#: Ten hien thi cua ma canh bao do may chu tu sinh (app gui text rieng cho ma cua no).
+SERVER_CODES = {"offline": "Mất tín hiệu", "back": "Có tín hiệu lại"}

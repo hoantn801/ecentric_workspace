@@ -696,6 +696,12 @@ override_doctype_class.setdefault(
 scheduler_events["cron"]["*/10 * * * *"].append(
     "ecentric_workspace.ai_tools.features.ai_video.application.scheduler.tick")
 
+# AI Live - Giam sat (18/10, fix10c): moi phut xet tin hieu may phat. Mat tin hieu > 2 phut trong gio live
+# (mat dien / mat mang) -> bao Teams + Zalo; vang keo dai -> nang do; chong lap 10 phut. Khong co live nao
+# thi chi 1 truy van rong. Tat khan: site_config `ec_ai_live_monitor_disabled: 1`.
+scheduler_events["cron"].setdefault("*/1 * * * *", []).append(
+    "ecentric_workspace.ai_tools.features.ai_live.jobs.monitor_tick_job.run")
+
 # Nut "Nhac nguoi xu ly" dung chung cho cac form approval (01/10). Mot asset, cac trang chi goi
 # EcRemind.buttonHTML / EcRemind.run. Backend: approval_center/shared/requests/remind.py.
 web_include_js.append("ec_remind.bundle.js")

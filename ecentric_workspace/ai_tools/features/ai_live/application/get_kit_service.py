@@ -25,4 +25,5 @@ class GetKitService:
             kit["status"] = status
         kit["state"] = {k: st.get(k) for k in ("progress", "error", "out", "kit_folder")}
         kit["summary"] = kit_plan.summary(kit.get("products") or [], kit.get("faq") or [], kit.get("generic") or {})
+        kit["generic_defaults"] = kit_plan.generic_defaults()
         return kit

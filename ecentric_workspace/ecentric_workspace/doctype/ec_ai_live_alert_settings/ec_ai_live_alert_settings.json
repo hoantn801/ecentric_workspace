@@ -1,0 +1,171 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-10-18 00:00:00.000000",
+ "description": "Kênh báo động AI Live (Teams / Zalo) và ngưỡng mất tín hiệu.",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "enabled",
+  "dead_man_minutes",
+  "dedupe_minutes",
+  "escalate_minutes",
+  "sec_teams",
+  "teams_enabled",
+  "teams_format",
+  "teams_webhook_url",
+  "sec_zalo",
+  "zalo_enabled",
+  "zalo_bot_token",
+  "zalo_chat_id",
+  "col_z",
+  "zalo_api_base",
+  "zalo_send_path",
+  "sec_help",
+  "help_html"
+ ],
+ "fields": [
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Bật báo động",
+   "default": "1",
+   "description": "Tắt = vẫn ghi tín hiệu và hiện màn Giám sát, nhưng không gửi tin."
+  },
+  {
+   "fieldname": "dead_man_minutes",
+   "fieldtype": "Int",
+   "label": "Mất tín hiệu bao nhiêu phút thì báo",
+   "default": "2",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "dedupe_minutes",
+   "fieldtype": "Int",
+   "label": "Không báo lặp cùng lỗi trong (phút)",
+   "default": "10",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "escalate_minutes",
+   "fieldtype": "Int",
+   "label": "Cảnh báo vàng kéo dài bao lâu thì nâng đỏ (phút)",
+   "default": "5",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "sec_teams",
+   "fieldtype": "Section Break",
+   "label": "Microsoft Teams"
+  },
+  {
+   "fieldname": "teams_enabled",
+   "fieldtype": "Check",
+   "label": "Gửi Teams",
+   "default": "0"
+  },
+  {
+   "fieldname": "teams_format",
+   "fieldtype": "Select",
+   "label": "Định dạng",
+   "options": "workflows\nmessagecard",
+   "default": "workflows"
+  },
+  {
+   "fieldname": "teams_webhook_url",
+   "fieldtype": "Password",
+   "label": "Link webhook Teams",
+   "description": "Link bí mật của kênh - giữ kín."
+  },
+  {
+   "fieldname": "sec_zalo",
+   "fieldtype": "Section Break",
+   "label": "Zalo Bot"
+  },
+  {
+   "fieldname": "zalo_enabled",
+   "fieldtype": "Check",
+   "label": "Gửi Zalo",
+   "default": "0"
+  },
+  {
+   "fieldname": "zalo_bot_token",
+   "fieldtype": "Password",
+   "label": "Token bot Zalo"
+  },
+  {
+   "fieldname": "zalo_chat_id",
+   "fieldtype": "Data",
+   "label": "ID nhóm Zalo (chat_id)"
+  },
+  {
+   "fieldname": "col_z",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "zalo_api_base",
+   "fieldtype": "Data",
+   "label": "Địa chỉ API Zalo Bot",
+   "default": "https://bot-api.zaloplatforms.com"
+  },
+  {
+   "fieldname": "zalo_send_path",
+   "fieldtype": "Data",
+   "label": "Đường dẫn gửi tin",
+   "default": "/bot{token}/sendMessage",
+   "description": "{token} được thay bằng token bot khi gửi."
+  },
+  {
+   "fieldname": "sec_help",
+   "fieldtype": "Section Break",
+   "label": "Hướng dẫn"
+  },
+  {
+   "fieldname": "help_html",
+   "fieldtype": "HTML",
+   "label": "",
+   "options": "<div class=\"text-muted small\"><p><b>Teams</b>: trong kênh trực, mở <i>Workflows</i> → mẫu <i>Post to a channel when a webhook request is received</i> → chép link webhook vào ô trên, để Định dạng = workflows. Webhook kiểu cũ (Incoming Webhook connector) thì chọn messagecard.</p><p><b>Zalo</b>: tạo bot tại bot.zaloplatforms.com, thêm bot vào nhóm trực, dán token bot và ID nhóm (chat_id). Địa chỉ API và đường dẫn gửi để sẵn theo kiểu Telegram, cần kiểm lại với bot thật bằng nút <b>Gửi thử</b> trên /ai-video#/monitor.</p><p>Key và token lưu mã hoá, không trả về trình duyệt, không ghi log.</p></div>"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 1,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-10-18 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC AI Live Alert Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 0,
+   "export": 0,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  },
+  {
+   "role": "EC AI Video Admin",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 0,
+   "export": 0,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

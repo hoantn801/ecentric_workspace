@@ -240,6 +240,10 @@ tr.on td{background:var(--navy-wash)}
 .lk-mode label.on{border-color:var(--navy);background:var(--navy-wash)}
 .lk-mode small{display:block;color:var(--ink3);font-weight:400}
 .lk-dirty{color:var(--warn);font-weight:600;font-size:12.5px}
+.lk-scripts{min-width:320px}
+.lk-line{display:flex;gap:4px;align-items:flex-start;margin-bottom:4px}
+#ec-aiv-root .lk-line textarea{min-height:0;font-family:inherit;font-size:12.5px;font-weight:400;resize:vertical}
+.lk-line button{appearance:none;border:0;background:transparent;color:var(--ink3);cursor:pointer;font-size:15px;line-height:1;padding:4px}
 
 </style>
 <script>
@@ -256,11 +260,12 @@ tr.on td{background:var(--navy-wash)}
   const norm = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase().trim();
   const ST_PILL = { "Nháp": "p-idle", "Đang gửi": "p-run", "Đang dựng": "p-run", "Xong": "p-ok", "Lỗi": "p-bad" };
   const BUSY_ST = ["Đang gửi", "Đang dựng"];
-  const GEN = [["greet", "Chào chung", "Chào người mới vào, không gọi tên"], ["thanks", "Cảm ơn / hẹn giới thiệu lại", "Khi mọi bản FAQ đang nghỉ"], ["answer", "Trả lời chung", "Câu hỏi chưa có FAQ (chế độ Tiết kiệm)"]];
+  const GEN = [["greet", "Chào chung", "Chào người mới vào, không gọi tên"], ["thanks", "Cảm ơn / hẹn giới thiệu lại", "Khi mọi bản FAQ đang nghỉ"], ["answer", "Trả lời chung", "Câu hỏi chưa có FAQ (chế độ Tiết kiệm)"], ["cho", "Câu chờ", "Phát khi đọc lại câu hỏi bị trễ (realtime chậm)"]];
+  const GEN_EMPTY = () => ({ greet: [], thanks: [], answer: [], cho: [], scripts: {} });
   const LS_USD_S = 0.012;
   const DEF_PROMPT = "Nữ MC người Việt khoảng 25 tuổi, áo sơ mi trắng, tóc buộc gọn, ngồi sau bàn trắng, hai tay đặt trên bàn, nhìn thẳng camera, cười mỉm nhẹ. Nền phông xanh lá đồng màu (chroma key), ánh sáng studio dịu, khung dọc 9:16, thấy từ giữa đùi trở lên, không chữ, không logo.";
   const L = { kits: [], brands: [], brand: "", hosts: null, models: [], proposal: [], kit: null, dirty: false, timer: null, busy: false, studio: null, refs: [], mplan: null };
-  const isMine = (h) => /^(kits|kit\/|hosts)/.test(h || "");
+  const isMine = (h) => /^(kits|kit\/|hosts|monitor)/.test(h || "");
   const hash = () => location.hash.replace(/^#\/?/, "");
   const view = () => $("av-view");
 
@@ -306,6 +311,7 @@ tr.on td{background:var(--navy-wash)}
   async function load(h) {
     clearTimeout(L.timer); h = h == null ? hash() : h;
     if (/^hosts/.test(h)) return loadHosts();
+    if (/^monitor/.test(h)) return window.ecAiLiveMon ? window.ecAiLiveMon.load(h) : fail("Màn Giám sát chưa tải xong, tải lại trang.");
     const m = /^kit\/(.+)$/.exec(h); if (m) return loadKit(decodeURIComponent(m[1]));
     return loadKits();
   }
@@ -317,7 +323,7 @@ tr.on td{background:var(--navy-wash)}
     L.kit = null; L.dirty = false;
     const r = await call("list_kits", {}, "GET"); if (!isMine(hash())) return;
     if (!r.success) return fail(r.message);
-    L.kits = r.data.kits || []; L.brands = r.data.brands || []; renderKits();
+    L.kits = r.data.kits || []; L.brands = r.data.brands || []; if (r.data.generic_defaults) L.genDefs = r.data.generic_defaults; renderKits();
   }
   function renderKits() {
     const brands = [...new Set(L.kits.map((k) => k.brand))].sort(), list = L.kits.filter((k) => !L.brand || k.brand === L.brand);
@@ -334,14 +340,15 @@ tr.on td{background:var(--navy-wash)}
 
   /* ---------- 1 Bo live ---------- */
   const blankKit = () => ({ name: null, brand: L.brand || L.brands[0] || "", title: "", host_key: "", voice_id: "", voice_provider: "", mode: "full", break_sec: "20", background: "", bake_bg: 0,
-    products: [], faq: [{ topic: "Giá", videos: [] }, { topic: "Cách dùng", videos: [] }, { topic: "Vận chuyển", videos: [] }], generic: { greet: [], thanks: [], answer: [] }, status: "Nháp", state: {} });
+    products: [], faq: [{ topic: "Giá", videos: [] }, { topic: "Cách dùng", videos: [] }, { topic: "Vận chuyển", videos: [] }], generic: GEN_EMPTY(), status: "Nháp", state: {} });
   async function loadKit(name) {
     const [kr, hr, gr] = await Promise.all([name === "new" ? Promise.resolve(null) : call("get_kit", { name, tick: 1 }, "GET"), call("list_hosts", {}, "GET"), L.brands.length ? Promise.resolve(null) : call("list_kits", {}, "GET")]);
     if (!isMine(hash())) return;
-    if (gr && gr.success) { L.kits = gr.data.kits || []; L.brands = gr.data.brands || []; }
+    if (gr && gr.success) { L.kits = gr.data.kits || []; L.brands = gr.data.brands || []; if (gr.data.generic_defaults) L.genDefs = gr.data.generic_defaults; }
     L.hosts = hr.success ? hr.data.hosts || [] : null; L.hostsMsg = hr.success ? "" : hr.message;
     if (kr && !kr.success) return fail(kr.message);
-    L.kit = kr ? kr.data : blankKit(); L.kit.generic = L.kit.generic || { greet: [], thanks: [], answer: [] }; L.dirty = false;
+    L.kit = kr ? kr.data : blankKit(); L.kit.generic = Object.assign(GEN_EMPTY(), L.kit.generic || {}); L.kit.generic.scripts = L.kit.generic.scripts || {}; L.dirty = false;
+    if (kr && kr.data.generic_defaults) L.genDefs = kr.data.generic_defaults;
     renderKit(); schedulePoll();
   }
   function schedulePoll() { clearTimeout(L.timer); if (L.kit && L.kit.name && BUSY_ST.includes(L.kit.status)) L.timer = setTimeout(poll, 15000); }
@@ -361,6 +368,22 @@ tr.on td{background:var(--navy-wash)}
       ${ro() ? "" : `<button type="button" data-lk-vdel="${path}|${i}" aria-label="Bỏ voice này">×</button>`}</span>`).join("")}
       ${ro() ? "" : `<label class="lk-add">+ voice<input type="file" accept="audio/*,.mp3,.wav,.m4a" multiple data-lk-vadd="${path}"></label>`}</div>`;
   }
+  /* Clip chung (fix10c): 4 loai, moi loai co loi goi y sua duoc (de thu am / TTS) + so ban nen co. */
+  const brandLabel = () => { const b = String((L.kit && L.kit.brand) || "").trim(); return b ? b.charAt(0).toUpperCase() + b.slice(1) : "nhà mình"; };
+  function genLines(g) { const own = ((L.kit.generic.scripts || {})[g]) || null; if (own) return own; const d = (L.genDefs || {})[g]; return d ? d.scripts.map((x) => x.replace(/\{brand\}/g, brandLabel())) : []; }
+  function genPanel() {
+    const k = L.kit, defs = L.genDefs || {};
+    const row = ([g, l, h]) => { const d = defs[g] || {}, n = (k.generic[g] || []).length, lines = genLines(g), own = !!(k.generic.scripts || {})[g];
+      const want = d.min ? (d.min === d.max ? d.min : d.min + "–" + d.max) : "", off = d.min && (n < d.min || n > d.max);
+      return `<tr><td style="width:240px"><b>${l}</b><div class="av-hint">${h}</div>${want ? `<div class="av-hint" style="${off ? "color:var(--warn);font-weight:600" : ""}">Nên có ${want} bản · đang có ${n}</div>` : ""}</td>
+        <td>${voices("g." + g)}</td>
+        <td class="lk-scripts"><div class="av-hint" style="margin-bottom:4px">Lời gợi ý${own ? " (đã sửa)" : ""} – thu âm / TTS mỗi dòng thành 1 file <code>${g === "greet" ? "chao" : g === "thanks" ? "camon" : g === "answer" ? "traloi" : "cho"}_1.mp3</code>, <code>_2</code>…</div>
+          ${lines.map((s, i) => `<div class="lk-line"><textarea rows="2" data-lk-gs="${g}|${i}" aria-label="Lời ${l} ${i + 1}"${dis()}>${esc(s)}</textarea>${ro() ? "" : `<button type="button" data-lk-gsdel="${g}|${i}" aria-label="Bỏ dòng">×</button>`}</div>`).join("")}
+          <div class="av-row" style="gap:10px">${ro() ? "" : `<button class="av-btn sm ghost" data-lk-gsadd="${g}">+ Thêm lời</button>${own ? `<button class="av-btn sm ghost" data-lk-gsreset="${g}">Khôi phục gợi ý</button>` : ""}`}<button class="av-btn sm ghost" data-lk-gscopy="${g}">Chép lời</button></div></td></tr>`; };
+    return `<div class="av-panel"><div class="av-panel-h"><h2>Clip chung</h2><span class="av-hint">Không gọi tên khách, dựng sẵn 1 lần. Dùng cho chế độ Tiết kiệm và làm dự phòng khi realtime trễ. Thả file đặt tên <code>chao_1</code> / <code>camon_1</code> / <code>traloi_1</code> / <code>cho_1</code> vào ô thả voice phía trên, hoặc bấm + voice ở từng loại.</span></div>
+        <div class="av-tw"><table><thead><tr><th>Loại</th><th>Voice (mỗi file = 1 bản)</th><th>Lời đọc</th></tr></thead><tbody>${GEN.map(row).join("")}</tbody></table></div></div>`;
+  }
+  function genOwn(g) { const k = L.kit; k.generic.scripts = k.generic.scripts || {}; if (!k.generic.scripts[g]) k.generic.scripts[g] = genLines(g).slice(); return k.generic.scripts[g]; }
   function summary() {
     const k = L.kit; let n = 0, s = 0; const add = (l) => (l || []).forEach((v) => { n++; s += +v.dur || 0; });
     k.products.forEach((p) => { add(p.main_free); add(p.main_hold); }); k.faq.forEach((q) => add(q.videos)); GEN.forEach(([g]) => add(k.generic[g]));
@@ -402,7 +425,7 @@ tr.on td{background:var(--navy-wash)}
           <div class="av-f">Nền brand<div class="av-row">${k.background ? `<span class="av-pill p-ok">${bgKind === "video" ? "Nền động (video)" : "Nền tĩnh (ảnh)"}</span><span class="av-hint">${esc(String(k.background).split("/").pop())}</span>` : '<span class="av-hint">Chưa có – để trống nếu app đã có nền.</span>'}${ro() ? "" : '<label class="lk-add">Chọn file nền<input type="file" accept="video/mp4,video/webm,.mov,image/png,image/jpeg,image/webp" id="lk-bg"></label>'}</div>
             <label class="lk-bake"><input type="checkbox" data-lk-k="bake_bg" ${k.bake_bg ? "checked" : ""}${bgKind === "image" && !ro() ? "" : " disabled"}> <span>Ghép sẵn nền vào video (chỉ nền tĩnh – nhẹ card màn hình máy phát, hết viền xanh)</span></label></div>
         </div></div></div>
-      <div class="av-drop" id="lk-drop"${ro() ? " hidden" : ""}>Thả nhiều file voice vào đây – tự xếp theo tên file<div class="av-hint" style="font-weight:400;margin-top:4px"><code>&lt;mã SP&gt;_khong_1.mp3</code> (video không cầm SP) · <code>&lt;mã SP&gt;_cam_1.mp3</code> (cầm SP) · <code>faq_gia_1.mp3</code> · <code>chao_1.mp3</code> · <code>camon_1.mp3</code> · <code>traloi_1.mp3</code> · thêm <code>_v2</code> cho bản giọng mới</div></div>
+      <div class="av-drop" id="lk-drop"${ro() ? " hidden" : ""}>Thả nhiều file voice vào đây – tự xếp theo tên file<div class="av-hint" style="font-weight:400;margin-top:4px"><code>&lt;mã SP&gt;_khong_1.mp3</code> (video không cầm SP) · <code>&lt;mã SP&gt;_cam_1.mp3</code> (cầm SP) · <code>faq_gia_1.mp3</code> · <code>chao_1.mp3</code> · <code>camon_1.mp3</code> · <code>traloi_1.mp3</code> · <code>cho_1.mp3</code> · thêm <code>_v2</code> cho bản giọng mới</div></div>
       <div class="av-panel"><div class="av-panel-h"><h2>Sản phẩm <span class="av-hint">${k.products.length}</span></h2><div class="av-row">${ro() ? "" : '<button class="av-btn sm" data-lk="p-paste">Dán danh sách SP</button><button class="av-btn sm pri" data-lk="p-add">+ Thêm SP</button>'}</div></div>
         <div class="av-tw"><table><thead><tr><th>Mã SP</th><th>Tên SP</th><th>Mã SP Shopee</th><th>Mã SP TikTok</th><th>Voice video không cầm SP</th><th>Voice video cầm SP</th><th title="Clip câm hạ SP xuống / nâng SP lên, dùng khi trả lời lúc đang cầm SP">Hạ / nâng SP</th><th></th></tr></thead>
         <tbody>${k.products.map((p, i) => `<tr><td class="lk-id"><input type="text" data-lk-p="${i}" data-lk-pk="id" value="${esc(p.id)}" placeholder="sp${String(i + 1).padStart(2, "0")}"${dis()}></td><td class="lk-name"><input type="text" data-lk-p="${i}" data-lk-pk="name" value="${esc(p.name)}"${dis()}></td>
@@ -412,8 +435,7 @@ tr.on td{background:var(--navy-wash)}
           <td>${ro() ? "" : `<button class="av-btn sm ghost danger" data-lk-pdel="${i}" aria-label="Xoá SP">Xoá</button>`}</td></tr>`).join("") || '<tr><td colspan="8" class="av-empty">Chưa có sản phẩm. Bấm + Thêm SP hoặc Dán danh sách SP.</td></tr>'}</tbody></table></div></div>
       <div class="av-panel"><div class="av-panel-h"><h2>FAQ dùng chung mọi SP</h2><div class="av-row"><span class="av-hint">Hiện chỉ có giá chung. Mỗi chủ đề 2–5 bản để không phát lặp trong 15 phút.</span>${ro() ? "" : '<button class="av-btn sm" data-lk="q-add">+ Thêm chủ đề</button>'}</div></div>
         <div class="av-tw"><table><thead><tr><th>Chủ đề</th><th>Voice (mỗi file = 1 bản)</th><th></th></tr></thead><tbody>${k.faq.map((q, i) => `<tr><td style="width:220px"><input type="text" data-lk-q="${i}" value="${esc(q.topic)}" placeholder="vd Giá"${dis()}></td><td>${voices("q." + i + ".videos")}${(q.videos || []).length && (q.videos || []).length < 2 ? '<span class="av-hint" style="color:var(--warn)">Nên có ít nhất 2 bản</span>' : ""}</td><td>${ro() ? "" : `<button class="av-btn sm ghost danger" data-lk-qdel="${i}">Xoá</button>`}</td></tr>`).join("") || '<tr><td colspan="3" class="av-empty">Chưa có chủ đề.</td></tr>'}</tbody></table></div></div>
-      <div class="av-panel"><div class="av-panel-h"><h2>Câu chung gen sẵn</h2><span class="av-hint">Dùng cho chế độ Tiết kiệm (và dự phòng khi realtime trễ). 3–5 bản mỗi loại.</span></div>
-        <div class="av-tw"><table><tbody>${GEN.map(([g, l, h]) => `<tr><td style="width:240px"><b>${l}</b><div class="av-hint">${h}</div></td><td>${voices("g." + g)}</td></tr>`).join("")}</tbody></table></div></div>
+      ${genPanel()}
       <div class="av-panel av-panel-b"><div class="lk-sum" id="lk-sum">${sumHtml()}</div></div>`;
     renderStatus();
   }
@@ -443,6 +465,7 @@ tr.on td{background:var(--navy-wash)}
   function route1(f) {
     const n = norm(f.name.replace(/\.[^.]+$/, "")).replace(/\s+/g, "_");
     if (/^(chao|greet)/.test(n)) return "g.greet"; if (/^(cam_?on|thanks|hen)/.test(n)) return "g.thanks"; if (/^(tra_?loi|answer)/.test(n)) return "g.answer";
+    if (/^(cau_?cho|cho|wait)([_\-]|\d|$)/.test(n)) return "g.cho";
     const q = /^faq[_\-]+(.+?)(?:[_\-]+v?\d+)*$/.exec(n);
     if (q) { const key = q[1].replace(/[_\-]+/g, " ").trim(); let i = L.kit.faq.findIndex((x) => norm(x.topic) === key); if (i < 0) { L.kit.faq.push({ topic: key.charAt(0).toUpperCase() + key.slice(1), videos: [] }); i = L.kit.faq.length - 1; } return "q." + i + ".videos"; }
     const ps = L.kit.products.map((p, i) => [norm(p.id), i]).filter(([id]) => id).sort((a, b) => b[0].length - a[0].length);
@@ -453,7 +476,7 @@ tr.on td{background:var(--navy-wash)}
     const groups = {}, miss = [];
     files.filter(isAudio).forEach((f) => { const p = route1(f); if (p) (groups[p] = groups[p] || []).push(f); else miss.push(f.name); });
     for (const p of Object.keys(groups)) await addVoices(p, groups[p]);
-    if (miss.length) toast("Không nhận ra " + miss.length + " file (đặt tên theo mã SP / faq_ / chao_ / camon_ / traloi_): " + miss.slice(0, 3).join(", "), true);
+    if (miss.length) toast("Không nhận ra " + miss.length + " file (đặt tên theo mã SP / faq_ / chao_ / camon_ / traloi_ / cho_): " + miss.slice(0, 3).join(", "), true);
   }
   function pasteProducts() {
     modal(`<h3 style="margin:0">Dán danh sách sản phẩm</h3><p class="av-hint" style="margin:0">Mỗi dòng một SP: <code>Mã SP; Tên SP; Mã Shopee; Mã TikTok</code> (2 cột cuối không bắt buộc). Dán từ Excel cũng được (cột cách nhau bằng Tab).</p>
@@ -530,13 +553,17 @@ tr.on td{background:var(--navy-wash)}
   /* ---------- su kien ---------- */
   document.addEventListener("click", async (e) => {
     if (!isMine(hash())) return;
-    const t = e.target.closest ? e.target.closest("[data-lk],[data-lk-brand],[data-lk-vdel],[data-lk-pdel],[data-lk-qdel],[data-lk-motion],[data-lk-pick],[data-lk-refdel]") : null;
+    const t = e.target.closest ? e.target.closest("[data-lk],[data-lk-brand],[data-lk-vdel],[data-lk-pdel],[data-lk-qdel],[data-lk-motion],[data-lk-pick],[data-lk-refdel],[data-lk-gsadd],[data-lk-gsdel],[data-lk-gsreset],[data-lk-gscopy]") : null;
     if (!t || !$("ec-aiv-root").contains(t)) return;
     const a = t.dataset.lk, k = L.kit;
     if (t.dataset.lkBrand != null) { L.brand = t.dataset.lkBrand; return renderKits(); }
     if (t.dataset.lkVdel) { const [p, i] = t.dataset.lkVdel.split("|"); listAt(p).splice(+i, 1); L.dirty = true; return renderKit(); }
     if (t.dataset.lkPdel) { if (!confirm("Xoá sản phẩm này khỏi Bộ live?")) return; k.products.splice(+t.dataset.lkPdel, 1); L.dirty = true; return renderKit(); }
     if (t.dataset.lkQdel) { k.faq.splice(+t.dataset.lkQdel, 1); L.dirty = true; return renderKit(); }
+    if (t.dataset.lkGsadd) { const l = genOwn(t.dataset.lkGsadd); if (l.length >= 6) return toast("Tối đa 6 lời mỗi loại", true); l.push(""); L.dirty = true; return renderKit(); }
+    if (t.dataset.lkGsdel) { const [g, i] = t.dataset.lkGsdel.split("|"); genOwn(g).splice(+i, 1); L.dirty = true; return renderKit(); }
+    if (t.dataset.lkGsreset) { delete k.generic.scripts[t.dataset.lkGsreset]; L.dirty = true; return renderKit(); }
+    if (t.dataset.lkGscopy) { const txt = genLines(t.dataset.lkGscopy).filter((x) => x.trim()).map((x, i) => (i + 1) + ". " + x).join("\n"); try { await navigator.clipboard.writeText(txt); toast("Đã chép lời – dán vào công cụ TTS"); } catch (err) { toast("Không chép được, bôi đen và chép tay giúp em", true); } return; }
     if (t.dataset.lkMotion) return motionModal(t.dataset.lkMotion);
     if (t.dataset.lkRefdel) { L.refs.splice(+t.dataset.lkRefdel, 1); return renderHosts(); }
     if (t.dataset.lkPick) { const r = await act(t, "host_save", { host: L.studio.host, cand: +t.dataset.lkPick, label: ($("lk-st-label") || {}).value || "" }, "Đã lưu host vào kho"); if (!r) return; L.studio.saved = true; try { localStorage.removeItem("ecAiLiveStudio"); } catch (err) { /* bo qua */ } return loadHosts(); }
@@ -561,6 +588,7 @@ tr.on td{background:var(--navy-wash)}
     if (t.dataset.lkK && t.type !== "checkbox") { k[t.dataset.lkK] = t.value; return touch(); }
     if (t.dataset.lkP != null && t.dataset.lkPk) { const p = k.products[+t.dataset.lkP], f = t.dataset.lkPk; if (f === "shopee" || f === "tiktok") { p.platformIds = p.platformIds || {}; p.platformIds[f] = t.value.trim(); } else p[f] = t.value; return touch(); }
     if (t.dataset.lkQ != null) { k.faq[+t.dataset.lkQ].topic = t.value; return touch(); }
+    if (t.dataset.lkGs) { const [g, i] = t.dataset.lkGs.split("|"); genOwn(g)[+i] = t.value.slice(0, 200); return touch(); }
   });
   document.addEventListener("change", async (e) => {
     if (!isMine(hash())) return; const t = e.target, k = L.kit;
@@ -579,6 +607,201 @@ tr.on td{background:var(--navy-wash)}
   document.addEventListener("dragover", (e) => { if (!isMine(hash()) || !hasFiles(e)) return; const z = e.target.closest && e.target.closest("#lk-drop"); if (!z) return; e.preventDefault(); e.dataTransfer.dropEffect = "copy"; z.classList.add("on"); });
   document.addEventListener("dragleave", (e) => { const z = e.target.closest && e.target.closest("#lk-drop"); if (z) z.classList.remove("on"); });
   document.addEventListener("drop", (e) => { if (!isMine(hash()) || !hasFiles(e)) return; const z = e.target.closest && e.target.closest("#lk-drop"); if (!z) return; e.preventDefault(); z.classList.remove("on"); if (L.kit && !ro()) dropVoices([...e.dataTransfer.files]); });
+})();
+</script>
+<style id="ec-ailive-mon-css">
+#av-view.lm-wide{max-width:none}
+.lm-bar{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between}
+.lm-upd{font-size:12.5px;color:var(--ink3)} .lm-upd.bad{color:var(--bad);font-weight:600}
+.lm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.lm-tile{background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px;cursor:pointer;box-shadow:var(--shadow);min-width:0}
+.lm-tile:hover{border-color:var(--navy-line)}
+.lm-tile.lv-critical,.lm-tile.lv-offline{border-left-color:var(--bad);box-shadow:0 0 0 1px var(--bad) inset}
+.lm-tile.lv-warn{border-left-color:var(--gold)}
+.lm-tile.lv-ok{border-left-color:var(--ok)}
+.lm-tile.lv-idle{border-left-color:var(--line);opacity:.72}
+.lm-tile.lv-offline .lm-kpis,.lm-tile.lv-offline .lm-shots{opacity:.45}
+.lm-tile header{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.lm-who{min-width:0} .lm-who b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lm-who span{display:block;font-size:12px;color:var(--ink3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lm-shots{display:grid;grid-template-columns:1fr;gap:6px}
+.lm-shots.two{grid-template-columns:1fr 1fr}
+.lm-shot{position:relative;aspect-ratio:9/16;max-height:260px;width:100%;border-radius:8px;background:var(--tile);overflow:hidden;display:grid;place-items:center;color:var(--ink3);font-size:11.5px}
+.lm-shots:not(.two) .lm-shot{aspect-ratio:auto;height:220px}
+.lm-shot img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#111;display:block}
+.lm-shot i{position:absolute;left:6px;bottom:6px;font-style:normal;font-size:10.5px;background:rgba(17,24,39,.72);color:#fff;border-radius:5px;padding:1px 6px}
+.lm-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;font-size:11px;color:var(--ink3);text-align:center}
+.lm-kpis b{display:block;font-size:14px;color:var(--ink);font-variant-numeric:tabular-nums}
+.lm-kpis .bad b{color:var(--bad)}
+.lm-sub{font-size:11.5px;color:var(--ink3)}
+.lm-why{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:3px;font-size:12px}
+.lm-why li{border-radius:6px;padding:3px 7px}
+.lm-why li.critical{background:var(--bad-bg);color:var(--bad);font-weight:600} .lm-why li.warn{background:var(--warn-bg);color:var(--warn)} .lm-why li.info{background:var(--line-soft);color:var(--ink2)}
+.lm-last{font-size:11.5px;color:var(--ink3);border-top:1px solid var(--line-soft);padding-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lm-empty{background:var(--surface);border:1px dashed var(--line);border-radius:12px;padding:28px;text-align:center;color:var(--ink3)}
+.lm-charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.lm-chart{border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.lm-chart h4{margin:0 0 4px;font-size:12px;color:var(--ink2);display:flex;justify-content:space-between} .lm-chart h4 b{color:var(--ink);font-variant-numeric:tabular-nums}
+.lm-chart svg{width:100%;height:56px;display:block}
+.lm-dshots{display:flex;gap:10px;justify-content:center} .lm-dshots .lm-shot{width:200px;max-height:none;aspect-ratio:9/16}
+@media (min-width:1700px){.lm-grid{grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}}
+@media (max-width:640px){.lm-grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}.lm-charts{grid-template-columns:1fr}.lm-dshots .lm-shot{width:44vw}}
+</style>
+<script>
+/* AI Live - Giam sat (18/10, fix10c): route #/monitor - tuong live cua tat ca may phat. Script rieng; window.ecAiLive.load
+   goi window.ecAiLiveMon.load. Tu lam moi 15 s. Anh tai rieng tung o khi doi (monitor_thumb), khong tai lai anh cu. */
+(() => {
+  "use strict";
+  const API = "/api/method/ecentric_workspace.ai_tools.features.ai_live.controllers.api.";
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const LV = { critical: ["Đỏ", "p-bad"], offline: ["Mất tín hiệu", "p-bad"], warn: ["Vàng", "p-warn"], ok: ["Ổn", "p-ok"], idle: ["Ngoài giờ", "p-idle"] };
+  const ST = { live: "Đang live", preflight: "Kiểm tra trước giờ", ending: "Đang kết thúc", idle: "Chờ", stopped: "Đã dừng", error: "Lỗi app" };
+  const FILTERS = [["", "Tất cả", "total"], ["problem", "Có vấn đề", null], ["critical", "Đỏ", "critical"], ["warn", "Vàng", "warn"], ["ok", "Ổn", "ok"], ["idle", "Ngoài giờ", "idle"]];
+  const M = { data: null, brand: "", level: "", timer: null, failed: 0, thumbs: new Map(), queue: [], running: 0, detail: null, inited: false };
+  const on = () => /^monitor/.test(location.hash.replace(/^#\/?/, ""));
+  const view = () => $("av-view");
+
+  const serverMsg = (b) => { try { const a = JSON.parse(b._server_messages || "[]"); if (a.length) return JSON.parse(a[0]).message || ""; } catch (e) { /* bo qua */ } return ""; };
+  async function call(method, args, http) {
+    const opts = { credentials: "same-origin", headers: { Accept: "application/json" } };
+    let url = API + method;
+    if (http === "GET") { const qs = new URLSearchParams(Object.entries(args || {}).filter(([, v]) => v != null && v !== "")).toString(); if (qs) url += "?" + qs; }
+    else { opts.method = "POST"; opts.headers["Content-Type"] = "application/json"; opts.headers["X-Frappe-CSRF-Token"] = (window.frappe && window.frappe.csrf_token) || ""; opts.body = JSON.stringify(args || {}); }
+    let res;
+    try { res = await fetch(url, opts); } catch (e) { return { success: false, message: "Mất kết nối mạng.", data: null }; }
+    if (res.status === 401) return { success: false, message: "Phiên đăng nhập hết hạn.", data: null };
+    let body = {}; try { body = await res.json(); } catch (e) { /* khong phai JSON */ }
+    const m = body.message; if (m && typeof m === "object" && typeof m.success === "boolean") return m;
+    if (!res.ok) return { success: false, message: serverMsg(body) || ("Máy chủ báo lỗi (" + res.status + ")."), data: null };
+    return { success: true, message: "", data: m };
+  }
+  let tt; function toast(msg, err) { const t = $("av-toast"); if (!t) return; t.textContent = msg; t.className = "av-toast show" + (err ? " err" : ""); clearTimeout(tt); tt = setTimeout(() => { t.className = "av-toast"; }, err ? 6000 : 2600); }
+  const ago = (s) => { s = Math.max(0, Math.round(Number(s) || 0)); if (s < 60) return s + " giây"; if (s < 3600) return Math.floor(s / 60) + " phút"; if (s < 86400) return Math.floor(s / 3600) + " giờ"; return Math.floor(s / 86400) + " ngày"; };
+  const hhmm = (ts) => { const d = new Date(ts * 1000); return d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }); };
+  const num = (v, d) => (v == null || v === "" ? "–" : Number(v).toLocaleString("vi-VN", { maximumFractionDigits: d || 0 }));
+
+  /* ---------- route ---------- */
+  async function load() {
+    clearTimeout(M.timer); M.detail = null;
+    const v = view(); v.classList.add("lm-wide");
+    if (!M.data) v.innerHTML = `<section class="av-hero"><div>${crumbs()}<h1>Giám sát live</h1><div class="sub">Đang tải tín hiệu các máy phát…</div></div></section>`;
+    else render();
+    return refresh();
+  }
+  window.addEventListener("hashchange", () => { if (!on()) { clearTimeout(M.timer); M.detail = null; const v = view(); if (v) v.classList.remove("lm-wide"); } });
+  const crumbs = () => `<div class="av-eyebrow" style="color:rgba(255,255,255,.75)"><a href="#/" style="color:inherit">AI Video hàng loạt</a> / <a href="#/kits" style="color:inherit">Bộ live</a> / Giám sát</div>`;
+
+  async function refresh() {
+    clearTimeout(M.timer); if (!on()) return;
+    const r = await call("monitor_wall", { brand: M.brand, level: M.level }, "GET");
+    if (!on()) return;
+    if (r.success) { M.data = r.data; M.failed = 0; render(); pumpThumbs(); if (M.detail) openDetail(M.detail, true); }
+    else { M.failed++; if (!M.data) view().innerHTML = `<section class="av-hero"><div>${crumbs()}<h1>Giám sát live</h1></div></section><div class="av-callout bad"><div>${esc(r.message || "Không tải được.")}</div></div><div><button class="av-outline" data-lm="retry">Thử lại</button></div>`; else stamp(); }
+    M.timer = setTimeout(refresh, ((M.data && M.data.refresh_s) || 15) * 1000);
+  }
+  function stamp() {
+    const el = $("lm-upd"); if (!el || !M.data) return;
+    el.className = "lm-upd" + (M.failed ? " bad" : "");
+    el.textContent = M.failed ? `Mất kết nối máy chủ – đang thử lại (số liệu lúc ${hhmm(M.data.server_time)})` : `Cập nhật ${hhmm(M.data.server_time)} · tự làm mới ${M.data.refresh_s || 15} giây/lần`;
+  }
+
+  /* ---------- tuong ---------- */
+  function render() {
+    const d = M.data, c = d.counts || {};
+    const stat = (k, label, cls) => `<div class="av-stat${cls ? " " + cls : ""}"><span>${label}</span><b>${c[k] || 0}</b></div>`;
+    view().innerHTML = `
+      <section class="av-hero"><div>${crumbs()}<h1>Giám sát live</h1><div class="sub">Mỗi ô là một live trên một máy phát. Đỏ = cần xử lý ngay (mất tín hiệu, OBS không phát lên sàn, vàng kéo dài). Máy mất tín hiệu quá ${d.dead_man_min || 2} phút trong giờ live sẽ được báo qua Teams / Zalo.</div></div>
+        <div class="av-stats">${stat("critical", "Đỏ", c.critical ? "hl" : "")}${stat("warn", "Vàng")}${stat("ok", "Ổn")}${stat("idle", "Ngoài giờ")}</div></section>
+      <div class="lm-bar"><div class="av-chips">${FILTERS.map(([v, label, k]) => `<button class="av-chip ${M.level === v ? "on" : ""}" data-lm-level="${v}">${label}${k ? ` <span class="n">${c[k] || 0}</span>` : ""}</button>`).join("")}</div>
+        <div class="av-row"><span class="lm-upd" id="lm-upd"></span><button class="av-outline" data-lm="test">Gửi thử báo động</button><a class="av-outline" href="/app/ec-ai-live-alert-settings" target="_blank" rel="noopener">Cài đặt báo động</a></div></div>
+      ${(d.brands || []).length > 1 ? `<div class="av-chips"><button class="av-chip ${M.brand ? "" : "on"}" data-lm-brand="">Mọi brand</button>${d.brands.map((b) => `<button class="av-chip ${M.brand === b ? "on" : ""}" data-lm-brand="${esc(b)}">${esc(b)}</button>`).join("")}</div>` : ""}
+      ${d.tiles.length ? `<div class="lm-grid">${d.tiles.map(tile).join("")}</div>`
+        : `<div class="lm-empty">${c.total ? "Không có live nào khớp bộ lọc." : "Chưa có máy phát nào gửi tín hiệu. Mở app eCentric AI Live trên máy phát (đã nhập mã máy) là ô của từng live sẽ hiện ở đây."}</div>`}`;
+    stamp(); paintThumbs();
+  }
+  function shot(t, kind) {
+    const label = kind === "obs" ? "OBS" : "Điện thoại";
+    if (!t.thumbs[kind]) return kind === "obs" ? `<div class="lm-shot">Chưa có ảnh</div>` : "";
+    return `<div class="lm-shot"><img data-lm-img="${esc(t.key)}|${kind}" alt="Ảnh ${label} của ${esc(t.live)}"><i>${label}</i></div>`;
+  }
+  function tile(t) {
+    const lv = LV[t.level] || LV.ok, m = t.metrics || {}, phone = !!t.thumbs.phone;
+    const k = (v, d, unit, bad) => `<span class="${bad ? "bad" : ""}"><b>${num(v, d)}</b>${unit}</span>`;
+    const why = (t.reasons || []).slice(0, 2).map((r) => `<li class="${esc(r.level)}">${esc(r.text)}</li>`).join("");
+    const la = t.last_alert;
+    return `<article class="lm-tile lv-${esc(t.level)}" tabindex="0" role="button" data-lm-key="${esc(t.key)}" aria-label="${esc(t.brand)} ${esc(t.machine)} ${esc(t.live)}: ${lv[0]}">
+      <header><div class="lm-who"><b>${esc(t.brand || "—")}</b><span>${esc(t.machine)} · ${esc(t.live)}</span></div><span class="av-pill ${lv[1]}">${lv[0]}</span></header>
+      <div class="lm-shots${phone ? " two" : ""}">${shot(t, "obs")}${shot(t, "phone")}</div>
+      <div class="lm-kpis">${k(m.fps, 0, "khung/s", m.fps != null && m.fps < 25)}${k(m.drop_pct, 1, "% rớt", m.drop_pct > 2)}${k(m.gpu, 0, "% GPU", m.gpu > 90)}${k(m.kbps, 0, "kbps", m.streaming === false && t.state === "live")}</div>
+      <div class="lm-sub">${esc(ST[t.state] || t.state || "—")} · tín hiệu ${ago(t.stale_s)} trước${m.comment_age_s != null ? ` · comment ${ago(m.comment_age_s)} trước` : ""}</div>
+      ${why ? `<ul class="lm-why">${why}</ul>` : ""}
+      ${la ? `<div class="lm-last" title="${esc(la.text)}">Báo lúc ${hhmm(la.ts)}: ${esc(la.text)}</div>` : ""}</article>`;
+  }
+
+  /* ---------- anh: chi tai o co anh moi, toi da 4 luot cung luc ---------- */
+  function pumpThumbs() {
+    for (const t of (M.data && M.data.tiles) || []) for (const kind of ["obs", "phone"]) {
+      const v = t.thumbs[kind], id = t.key + "|" + kind, have = M.thumbs.get(id);
+      if (v && (!have || have.v < v) && !M.queue.some((q) => q.id === id)) M.queue.push({ id, key: t.key, kind, v });
+    }
+    while (M.running < 4 && M.queue.length) { const q = M.queue.shift(); M.running++; fetchThumb(q).finally(() => { M.running--; pumpThumbs(); }); }
+  }
+  async function fetchThumb(q) {
+    const r = await call("monitor_thumb", { key: q.key, kind: q.kind }, "GET");
+    if (!r.success || !r.data) return;
+    M.thumbs.set(q.id, { v: q.v, uri: r.data.data_uri }); paintThumbs();
+  }
+  function paintThumbs() {
+    document.querySelectorAll("img[data-lm-img]").forEach((img) => { const t = M.thumbs.get(img.dataset.lmImg); if (t && img.getAttribute("src") !== t.uri) img.src = t.uri; });
+  }
+
+  /* ---------- chi tiet 1 live ---------- */
+  function spark(samples, f, max) {
+    const pts = samples.filter((s) => s[f] != null); if (pts.length < 2) return `<svg viewBox="0 0 300 56" role="img" aria-label="Chưa đủ số liệu"><text x="150" y="32" text-anchor="middle" font-size="11" fill="currentColor" opacity=".5">Chưa đủ số liệu</text></svg>`;
+    const t0 = pts[0].ts, t1 = pts[pts.length - 1].ts || t0 + 1, hi = Math.max(max || 0, ...pts.map((s) => s[f])) || 1;
+    const xy = pts.map((s) => `${(((s.ts - t0) / (t1 - t0 || 1)) * 296 + 2).toFixed(1)},${(54 - (s[f] / hi) * 50).toFixed(1)}`).join(" ");
+    return `<svg viewBox="0 0 300 56" preserveAspectRatio="none" role="img" aria-label="Biểu đồ 1 giờ"><polyline points="${xy}" fill="none" stroke="var(--navy)" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>`;
+  }
+  async function openDetail(key, quiet) {
+    M.detail = key;
+    const r = await call("monitor_detail", { key }, "GET");
+    if (M.detail !== key || !on()) return;
+    if (!r.success) { if (!quiet) toast(r.message || "Lỗi", true); return; }
+    if (quiet && $("av-modal").hidden) { M.detail = null; return; }
+    const d = r.data, lv = LV[d.level] || LV.ok, s = d.samples || [], m = d.metrics || {}, last = (f) => num(m[f], f === "drop_pct" ? 1 : 0);
+    const chart = (f, label, max) => `<div class="lm-chart"><h4><span>${label}</span><b>${last(f)}</b></h4>${spark(s, f, max)}</div>`;
+    const b = $("av-modal-box"); b.className = "box wide";
+    b.innerHTML = `<div class="av-row" style="justify-content:space-between"><div><div class="av-eyebrow">${esc(d.machine)} · ${esc(d.live)}</div><h2 style="margin:0;font-size:17px">${esc(d.brand || "—")} <span class="av-pill ${lv[1]}">${lv[0]}</span></h2></div><button class="av-btn sq" data-close aria-label="Đóng">✕</button></div>
+      <div class="lm-dshots">${shot(d, "obs")}${shot(d, "phone")}</div>
+      ${(d.reasons || []).length ? `<ul class="lm-why">${d.reasons.map((x) => `<li class="${esc(x.level)}">${esc(x.text)}</li>`).join("")}</ul>` : `<div class="av-callout"><div>Không có cảnh báo.</div></div>`}
+      <div class="lm-sub">${esc(ST[d.state] || d.state || "—")} · tín hiệu ${ago(d.stale_s)} trước${d.app_version ? " · app " + esc(d.app_version) : ""}${(d.schedule || []).length ? " · lịch " + d.schedule.map((x) => esc(x.start) + "–" + esc(x.end)).join(", ") : ""}</div>
+      <div class="lm-charts">${chart("fps", "Khung hình/giây (1 giờ)", 30)}${chart("drop_pct", "Rớt khung (%)", 5)}${chart("gpu", "Card đồ hoạ (%)", 100)}${chart("kbps", "Bitrate lên sàn (kbps)")}</div>
+      <div><div class="av-eyebrow" style="margin-bottom:4px">Báo động 24 giờ</div>${(d.alerts || []).length ? `<table><thead><tr><th>Lúc</th><th>Mức</th><th>Nội dung</th><th>Teams / Zalo</th></tr></thead><tbody>${d.alerts.map((a) => `<tr><td>${hhmm(a.ts)}</td><td><span class="av-pill ${(LV[a.level] || LV.warn)[1]}">${(LV[a.level] || LV.warn)[0]}</span></td><td>${esc(a.text)}</td><td>${esc(a.teams || "–")} / ${esc(a.zalo || "–")}</td></tr>`).join("")}</tbody></table>` : `<div class="lm-sub">Chưa có báo động nào.</div>`}</div>`;
+    $("av-modal").hidden = false; paintThumbs();
+    const t = (M.data && M.data.tiles || []).find((x) => x.key === key);
+    if (t) pumpThumbs();
+  }
+
+  /* ---------- su kien ---------- */
+  document.addEventListener("click", async (e) => {
+    if (!on()) return;
+    const t = e.target.closest ? e.target.closest("[data-lm-level],[data-lm-brand],[data-lm],[data-lm-key]") : null; if (!t) return;
+    if (t.dataset.lmLevel != null) { M.level = t.dataset.lmLevel; return refresh(); }
+    if (t.dataset.lmBrand != null) { M.brand = t.dataset.lmBrand; return refresh(); }
+    if (t.dataset.lm === "retry") return refresh();
+    if (t.dataset.lm === "test") {
+      t.disabled = true; t.classList.add("av-loading");
+      try { const r = await call("alert_test", {}); if (!r.success) return toast(r.message || "Lỗi", true);
+        const f = (x) => (x.ok ? "đã gửi" : x.code === "OFF" ? "chưa bật" : "lỗi " + x.code); toast(`Teams: ${f(r.data.teams)} · Zalo: ${f(r.data.zalo)}`, !(r.data.teams.ok || r.data.zalo.ok)); }
+      finally { t.disabled = false; t.classList.remove("av-loading"); }
+      return;
+    }
+    if (t.dataset.lmKey) return openDetail(t.dataset.lmKey);
+  });
+  document.addEventListener("keydown", (e) => { if (!on() || e.key !== "Enter") return; const t = e.target.closest && e.target.closest("[data-lm-key]"); if (t) { e.preventDefault(); openDetail(t.dataset.lmKey); } });
+  document.addEventListener("visibilitychange", () => { if (on() && !document.hidden && M.data && Date.now() / 1000 - M.data.server_time > 20) refresh(); });
+  window.ecAiLiveMon = { load };
 })();
 </script>
 
@@ -677,7 +900,7 @@ tr.on td{background:var(--navy-wash)}
         <span class="tag" id="av-ping">Đang kiểm tra máy chạy video…</span></div>
         <div class="av-stats"><div class="av-stat"><span>Dự án</span><b>${ps.length}</b></div><div class="av-stat"><span>SKU</span><b>${tot.sku}</b></div>
         <div class="av-stat"><span>Đang chạy</span><b>${tot.run}</b></div><div class="av-stat hl"><span>Chờ chọn / duyệt</span><b>${tot.pick + tot.qc}</b></div><div class="av-stat"><span>Đủ clip / xong</span><b>${tot.done}</b></div></div></section>
-      <div class="av-row"><a class="av-outline" href="#/kits">Bộ live cho app AI Live →</a><a class="av-outline" href="#/hosts">Kho host · Studio ảnh host →</a></div>
+      <div class="av-row"><a class="av-outline" href="#/kits">Bộ live cho app AI Live →</a><a class="av-outline" href="#/hosts">Kho host · Studio ảnh host →</a><a class="av-outline" href="#/monitor">Giám sát live →</a></div>
       ${configured ? "" : `<div class="av-callout warn"><div><b>Chưa nối máy chạy video.</b> Cần khai <code>ec_video_worker_url</code> và <code>ec_video_worker_secret</code> trong site_config (IT làm một lần). Vẫn tạo dự án và nhập lô được.</div></div>`}
       <div class="av-chips"><button class="av-chip ${S.brand ? "" : "on"}" data-brand="">Tất cả <span class="n">${ps.length}</span></button>
         ${Object.keys(brands).sort().map((b) => `<button class="av-chip ${S.brand === b ? "on" : ""}" data-brand="${esc(b)}">${esc(b)} <span class="n">${brands[b]}</span></button>`).join("")}

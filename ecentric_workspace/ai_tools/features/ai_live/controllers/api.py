@@ -118,3 +118,40 @@ def host_save(host: str, cand: int, label: str = None):
 def motion_set(host: str, plan: str = None, dry_run: int = 1):
     from ecentric_workspace.ai_tools.features.ai_live.application.motion_set_service import MotionSetService
     return _run(lambda: MotionSetService().execute(_roles(), host, plan, bool(int(dry_run or 0))))
+
+
+# ------------------------------------------------------------------ Giam sat live (fix10c) ---
+
+def _monitor_link():
+    return frappe.utils.get_url().rstrip("/") + C.MONITOR_LINK
+
+
+@frappe.whitelist(methods=["POST"])
+def push_heartbeat(machine: str = None, lives=None, thumb_b64=None):
+    from ecentric_workspace.ai_tools.features.ai_live.application.push_heartbeat_service import PushHeartbeatService
+    payload = {"machine": machine, "lives": lives, "thumb_b64": thumb_b64}
+    return _run(lambda: PushHeartbeatService().execute(frappe.session.user, payload))
+
+
+@frappe.whitelist(methods=["GET"])
+def monitor_wall(brand: str = None, level: str = None):
+    from ecentric_workspace.ai_tools.features.ai_live.application.monitor_wall_service import MonitorWallService
+    return _run(lambda: MonitorWallService().execute(_roles(), brand or None, level or None))
+
+
+@frappe.whitelist(methods=["GET"])
+def monitor_detail(key: str):
+    from ecentric_workspace.ai_tools.features.ai_live.application.monitor_detail_service import MonitorDetailService
+    return _run(lambda: MonitorDetailService().execute(_roles(), key))
+
+
+@frappe.whitelist(methods=["GET"])
+def monitor_thumb(key: str, kind: str = "obs"):
+    from ecentric_workspace.ai_tools.features.ai_live.application.monitor_thumb_service import MonitorThumbService
+    return _run(lambda: MonitorThumbService().execute(_roles(), key, kind))
+
+
+@frappe.whitelist(methods=["POST"])
+def alert_test():
+    from ecentric_workspace.ai_tools.features.ai_live.application.alert_test_service import AlertTestService
+    return _run(lambda: AlertTestService(link=_monitor_link()).execute(_roles()))
