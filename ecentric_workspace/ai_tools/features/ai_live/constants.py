@@ -58,3 +58,68 @@ class AiLiveError(Exception):
 
 class AiLivePermission(AiLiveError):
     pass
+
+
+# ------------------------------------------------------------------ Bo live + kho host (fix10b) ---
+KIT = "EC AI Live Kit"
+
+
+class KitStatus:
+    DRAFT = "Nháp"
+    SENDING = "Đang gửi"
+    BUILDING = "Đang dựng"
+    DONE = "Xong"
+    ERROR = "Lỗi"
+
+
+PRODUCT_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
+HOST_RE = re.compile(r"^H_[A-Z0-9_]{3,40}$")
+PLATFORM_ID_RE = re.compile(r"^[A-Za-z0-9_.-]{0,40}$")
+AUDIO_EXT = (".mp3", ".wav", ".m4a")
+BG_EXT = {".mp4": "video", ".webm": "video", ".mov": "video", ".png": "image", ".jpg": "image", ".jpeg": "image", ".webp": "image"}
+MAX_PRODUCTS = 60
+MAX_AUDIO_PER_GROUP = 6
+MAX_FAQ_TOPICS = 30
+FAQ_COPIES = (2, 5)
+#: Nhom video cua 1 SP: khoa trong bolive.json (products[].groups)
+PRODUCT_AUDIO_GROUPS = ("main_free", "main_hold")
+GENERIC_GROUPS = ("greet", "thanks", "answer")
+
+#: Studio anh host: model -> nhan, credit PlenX moi anh (None = chua co bang gia, khong uoc tinh).
+IMAGE_MODELS = (("nano-banana-full", "Nano Banana Full 2K (PlenX)", 10),
+                ("nano-banana-pro", "Nano Banana Pro", None),
+                ("gpt-image", "GPT Image", None),
+                ("seedream", "Seedream", None))
+HOST_IMAGE_N = 4
+MAX_REFS = 4
+MAX_PROMPT = 2000
+
+#: Bo motion de xuat cho host moi (17/10, tinh tu H_BOO3HGI9JF 81 clip va H_FAQ_GREEN 22 clip): 20 clip noi.
+MOTION_PROPOSAL = ((10, 10), (8, 5), (6, 3), (4, 2))
+MOTION_DURS = (4, 6, 8, 10)
+MAX_MOTION_CLIPS = 60
+#: Uoc tinh: PlenX ~3 credit/giay video (1080p), x1,5 cho lan gen lai do QC; 80 d/credit (goi 399.000d / 5.000).
+PX_CREDIT_PER_S = 3
+QC_FACTOR = 1.5
+VND_PER_PX_CREDIT = 80
+#: Lipsync (giong AI Video): ~$0.012/giay neu chay fal; may GPU rieng thi gan nhu khong ton.
+LS_USD_PER_S = 0.012
+HOST_LABELS_KEY = "ec_ai_live_host_labels"
+#: Tien to batch_id tren may chay video (tach lo Bo live / Studio anh / bo motion).
+BATCH_KIT, BATCH_HOST_IMAGE, BATCH_MOTION = "kit_", "hi_", "ms_"
+
+
+class KitMsg:
+    NOT_FOUND = "Không tìm thấy Bộ live %s."
+    BAD_PRODUCT = "Dòng sản phẩm %d: %s"
+    BAD_FAQ = "Chủ đề FAQ %d: %s"
+    BAD_FILE = "File không hợp lệ hoặc không phải của bạn: %s"
+    NEED_HOST = "Chưa chọn host (host phải có trong Kho host)."
+    NEED_BRAND = "Chưa chọn brand."
+    NOTHING = "Bộ live chưa có voice nào để dựng."
+    BUSY = "Bộ live đang dựng, đợi xong rồi gửi lại."
+    BAD_HOST = "Mã host không hợp lệ."
+    BAD_MODEL = "Model ảnh không hợp lệ."
+    BAD_PLAN = "Bộ motion không hợp lệ (mỗi loại 0–20 clip, tổng 1–60, độ dài 4/6/8/10 giây)."
+    NEED_PROMPT = "Chưa nhập mô tả ảnh host."
+    BAD_PICK = "Ảnh này chưa xong hoặc không thuộc lượt tạo hiện tại."

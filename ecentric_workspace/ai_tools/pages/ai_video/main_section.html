@@ -213,6 +213,375 @@ tr.on td{background:var(--navy-wash)}
 </div>
 </main></div>
 
+<style id="ec-ailive-css">
+.lk-voices{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.lk-v{display:inline-flex;gap:4px;align-items:center;background:var(--navy-wash);color:var(--navy);border-radius:999px;padding:2px 4px 2px 9px;font-size:11.5px;font-weight:600;white-space:nowrap;max-width:260px}
+.lk-v span.nm{overflow:hidden;text-overflow:ellipsis}
+.lk-v select{width:auto !important;padding:0 2px !important;font-size:11px !important;border-radius:5px !important}
+.lk-v button{appearance:none;border:0;background:transparent;color:var(--ink3);cursor:pointer;font-size:14px;line-height:1;padding:0 4px}
+.lk-add{font-size:12px;color:var(--navy);font-weight:600;cursor:pointer;white-space:nowrap}
+.lk-add input{display:none}
+.lk-hosts{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,170px));gap:16px}
+.lk-host img,.lk-cand img{width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:8px;background:var(--tile);cursor:pointer;display:block}
+.lk-noimg{width:100%;aspect-ratio:9/16;border-radius:8px;background:var(--tile);display:grid;place-items:center;color:var(--ink3);font-size:12px}
+.lk-cands{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+#ec-aiv-root .lk-st textarea,#ec-aiv-root .lk-st input{font-weight:400}
+.lk-bake{display:flex;gap:8px;align-items:flex-start;font-weight:400}
+#ec-aiv-root td.lk-name input{min-width:150px} #ec-aiv-root td.lk-id input{min-width:72px} #ec-aiv-root td.lk-plat input{min-width:96px}
+.lk-refs{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.lk-refs figure{margin:0;position:relative}
+.lk-refs img{width:56px;height:56px;object-fit:cover;border-radius:6px;display:block}
+.lk-refs button{position:absolute;top:-6px;right:-6px;appearance:none;border:0;border-radius:50%;width:18px;height:18px;background:var(--ink);color:#fff;font-size:11px;cursor:pointer}
+.lk-sum{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;color:var(--ink2)}
+.lk-sum b{color:var(--ink);font-variant-numeric:tabular-nums}
+#lk-drop.on{outline:2px dashed var(--navy);outline-offset:-2px}
+.lk-mode{display:flex;gap:10px;flex-wrap:wrap}
+.lk-mode label{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer;flex:1;min-width:220px;font-weight:500;color:var(--ink);font-size:13px}
+.lk-mode label.on{border-color:var(--navy);background:var(--navy-wash)}
+.lk-mode small{display:block;color:var(--ink3);font-weight:400}
+.lk-dirty{color:var(--warn);font-weight:600;font-size:12.5px}
+
+</style>
+<script>
+/* AI Live (17/10, fix10b): Bo live + Kho host / Studio anh host. Route #/kits, #/kit/<ten|new>, #/hosts.
+   Script rieng, khong dung bien cua script chinh; script chinh goi window.ecAiLive.load(hash).
+   API: ecentric_workspace.ai_tools.features.ai_live.controllers.api.* (envelope success/message/data). */
+(() => {
+  "use strict";
+  const API = "/api/method/ecentric_workspace.ai_tools.features.ai_live.controllers.api.";
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const enc = encodeURIComponent;
+  const fmt = (n, d) => Number(n || 0).toLocaleString("vi-VN", { maximumFractionDigits: d || 0 });
+  const norm = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase().trim();
+  const ST_PILL = { "Nháp": "p-idle", "Đang gửi": "p-run", "Đang dựng": "p-run", "Xong": "p-ok", "Lỗi": "p-bad" };
+  const BUSY_ST = ["Đang gửi", "Đang dựng"];
+  const GEN = [["greet", "Chào chung", "Chào người mới vào, không gọi tên"], ["thanks", "Cảm ơn / hẹn giới thiệu lại", "Khi mọi bản FAQ đang nghỉ"], ["answer", "Trả lời chung", "Câu hỏi chưa có FAQ (chế độ Tiết kiệm)"]];
+  const LS_USD_S = 0.012;
+  const DEF_PROMPT = "Nữ MC người Việt khoảng 25 tuổi, áo sơ mi trắng, tóc buộc gọn, ngồi sau bàn trắng, hai tay đặt trên bàn, nhìn thẳng camera, cười mỉm nhẹ. Nền phông xanh lá đồng màu (chroma key), ánh sáng studio dịu, khung dọc 9:16, thấy từ giữa đùi trở lên, không chữ, không logo.";
+  const L = { kits: [], brands: [], brand: "", hosts: null, models: [], proposal: [], kit: null, dirty: false, timer: null, busy: false, studio: null, refs: [], mplan: null };
+  const isMine = (h) => /^(kits|kit\/|hosts)/.test(h || "");
+  const hash = () => location.hash.replace(/^#\/?/, "");
+  const view = () => $("av-view");
+
+  /* ---------- helpers (giong script chinh) ---------- */
+  const serverMsg = (b) => { try { const a = JSON.parse(b._server_messages || "[]"); if (a.length) return JSON.parse(a[0]).message || ""; } catch (e) { /* bo qua */ } return ""; };
+  async function call(method, args, http) {
+    const opts = { credentials: "same-origin", headers: { Accept: "application/json" } };
+    let url = API + method;
+    if (http === "GET") { const qs = new URLSearchParams(Object.entries(args || {}).filter(([, v]) => v != null)).toString(); if (qs) url += "?" + qs; }
+    else { opts.method = "POST"; opts.headers["Content-Type"] = "application/json"; opts.headers["X-Frappe-CSRF-Token"] = (window.frappe && window.frappe.csrf_token) || ""; opts.body = JSON.stringify(args || {}); }
+    let res;
+    try { res = await fetch(url, opts); } catch (e) { return { success: false, message: "Mất kết nối mạng.", data: null }; }
+    if (res.status === 401) return { success: false, message: "Phiên đăng nhập hết hạn.", data: null };
+    let body = {}; try { body = await res.json(); } catch (e) { /* khong phai JSON */ }
+    const m = body.message; if (m && typeof m === "object" && typeof m.success === "boolean") return m;
+    if (!res.ok) return { success: false, message: serverMsg(body) || ("Máy chủ báo lỗi (" + res.status + ")."), data: null };
+    return { success: true, message: "", data: m };
+  }
+  let tt; function toast(msg, err) { const t = $("av-toast"); if (!t) return; t.textContent = msg; t.className = "av-toast show" + (err ? " err" : ""); clearTimeout(tt); tt = setTimeout(() => { t.className = "av-toast"; }, err ? 6000 : 2600); }
+  async function act(btn, method, args, okMsg) {
+    if (L.busy) { toast("Đang xử lý thao tác trước, đợi chút…"); return null; } L.busy = true;
+    if (btn) { btn.disabled = true; btn.classList.add("av-loading"); btn.setAttribute("aria-busy", "true"); }
+    try { const r = await call(method, args); if (!r.success) { toast(r.message || "Lỗi", true); return null; } if (okMsg) toast(okMsg); return r.data; }
+    finally { L.busy = false; if (btn && btn.isConnected) { btn.disabled = false; btn.classList.remove("av-loading"); btn.removeAttribute("aria-busy"); } }
+  }
+  async function upload(file) {
+    const fd = new FormData(); fd.append("file", file, file.name); fd.append("is_private", 1);
+    const r = await fetch("/api/method/upload_file", { method: "POST", credentials: "same-origin", headers: { "X-Frappe-CSRF-Token": (window.frappe && window.frappe.csrf_token) || "" }, body: fd });
+    let j = null; try { j = await r.json(); } catch (e) { /* 413 nginx */ }
+    const url = j && j.message && j.message.file_url; if (!url) throw new Error(r.status === 413 ? "File quá lớn" : "Tải file lỗi");
+    return url;
+  }
+  function audioSec(f) { return new Promise((res) => { const a = new Audio(), u = URL.createObjectURL(f); let done = false; const fin = (v) => { if (done) return; done = true; URL.revokeObjectURL(u); res(v); };
+    a.preload = "metadata"; a.onloadedmetadata = () => fin(isFinite(a.duration) ? Math.round(a.duration * 10) / 10 : 0); a.onerror = () => fin(0); a.src = u; setTimeout(() => fin(0), 5000); }); }
+  const isAudio = (f) => /^audio\//.test(f.type || "") || /\.(mp3|wav|m4a)$/i.test(f.name);
+  const verOf = (name) => { const m = /[_\- ]v(\d{1,2})(?=[_\- .]|$)/i.exec(name.replace(/\.[^.]+$/, "")); return m ? +m[1] : 1; };
+  function modal(html) { const b = $("av-modal-box"); b.className = "box wide"; b.innerHTML = html; $("av-modal").hidden = false; }
+  function closeModal() { $("av-modal").hidden = true; $("av-modal-box").innerHTML = ""; }
+  function fail(msg) { view().innerHTML = `<div class="av-callout bad"><div>${esc(msg)}</div></div><div><a class="av-outline" href="#/">← AI Video hàng loạt</a></div>`; }
+  const crumbs = (x) => `<div class="av-eyebrow" style="color:rgba(255,255,255,.75)"><a href="#/" style="color:inherit">AI Video hàng loạt</a> / ${x}</div>`;
+
+  /* ---------- route ---------- */
+  async function load(h) {
+    clearTimeout(L.timer); h = h == null ? hash() : h;
+    if (/^hosts/.test(h)) return loadHosts();
+    const m = /^kit\/(.+)$/.exec(h); if (m) return loadKit(decodeURIComponent(m[1]));
+    return loadKits();
+  }
+  window.ecAiLive = { load, isMine };
+  window.addEventListener("beforeunload", (e) => { if (L.dirty && isMine(hash())) { e.preventDefault(); e.returnValue = ""; } });
+
+  /* ---------- danh sach Bo live ---------- */
+  async function loadKits() {
+    L.kit = null; L.dirty = false;
+    const r = await call("list_kits", {}, "GET"); if (!isMine(hash())) return;
+    if (!r.success) return fail(r.message);
+    L.kits = r.data.kits || []; L.brands = r.data.brands || []; renderKits();
+  }
+  function renderKits() {
+    const brands = [...new Set(L.kits.map((k) => k.brand))].sort(), list = L.kits.filter((k) => !L.brand || k.brand === L.brand);
+    view().innerHTML = `
+      <section class="av-hero"><div>${crumbs("Bộ live")}<h1>Bộ live</h1><div class="sub">Mỗi Bộ live gồm video chính, FAQ và câu chung của một brand. App eCentric AI Live trên máy phát tải Bộ live từ Thư mục Bộ live (Google Drive / SharePoint) của brand.</div></div>
+        <div class="av-row"><a class="av-gold" href="#/kit/new">+ Tạo Bộ live</a><a class="av-outline" href="#/hosts">Kho host</a></div></section>
+      ${brands.length > 1 ? `<div class="av-chips"><button class="av-chip ${L.brand ? "" : "on"}" data-lk-brand="">Tất cả <span class="n">${L.kits.length}</span></button>${brands.map((b) => `<button class="av-chip ${L.brand === b ? "on" : ""}" data-lk-brand="${esc(b)}">${esc(b)} <span class="n">${L.kits.filter((k) => k.brand === b).length}</span></button>`).join("")}</div>` : ""}
+      <div class="av-cards">${list.map((k) => `<article class="av-card"><div class="corner"><span class="av-pill ${ST_PILL[k.status] || "p-idle"}">${esc(k.status || "Nháp")}</span></div>
+          <div><div class="av-eyebrow">${esc(k.brand)} · ${k.mode === "lite" ? "Tiết kiệm" : "Đầy đủ"}</div><h3>${esc(k.title || k.brand)}</h3></div>
+          <div class="av-meta"><span><b>${k.products || 0}</b> SP</span><span>nghỉ <b>${esc(k.break_sec || 20)}</b>s</span><span>${k.host_key ? "host " + esc(k.host_key) : "chưa chọn host"}</span></div>
+          <div class="foot"><span class="av-hint">${esc(String(k.modified || "").slice(0, 16))}</span><a class="av-outline" href="#/kit/${enc(k.name)}">Mở →</a></div></article>`).join("")}
+        <a class="av-card new" href="#/kit/new" style="text-decoration:none">+ Tạo Bộ live</a></div>`;
+  }
+
+  /* ---------- 1 Bo live ---------- */
+  const blankKit = () => ({ name: null, brand: L.brand || L.brands[0] || "", title: "", host_key: "", voice_id: "", voice_provider: "", mode: "full", break_sec: "20", background: "", bake_bg: 0,
+    products: [], faq: [{ topic: "Giá", videos: [] }, { topic: "Cách dùng", videos: [] }, { topic: "Vận chuyển", videos: [] }], generic: { greet: [], thanks: [], answer: [] }, status: "Nháp", state: {} });
+  async function loadKit(name) {
+    const [kr, hr, gr] = await Promise.all([name === "new" ? Promise.resolve(null) : call("get_kit", { name, tick: 1 }, "GET"), call("list_hosts", {}, "GET"), L.brands.length ? Promise.resolve(null) : call("list_kits", {}, "GET")]);
+    if (!isMine(hash())) return;
+    if (gr && gr.success) { L.kits = gr.data.kits || []; L.brands = gr.data.brands || []; }
+    L.hosts = hr.success ? hr.data.hosts || [] : null; L.hostsMsg = hr.success ? "" : hr.message;
+    if (kr && !kr.success) return fail(kr.message);
+    L.kit = kr ? kr.data : blankKit(); L.kit.generic = L.kit.generic || { greet: [], thanks: [], answer: [] }; L.dirty = false;
+    renderKit(); schedulePoll();
+  }
+  function schedulePoll() { clearTimeout(L.timer); if (L.kit && L.kit.name && BUSY_ST.includes(L.kit.status)) L.timer = setTimeout(poll, 15000); }
+  async function poll() {
+    if (!L.kit || !isMine(hash()) || !/^kit\//.test(hash())) return;
+    const r = await call("get_kit", { name: L.kit.name, tick: 1 }, "GET");
+    if (r.success && L.kit && r.data.name === L.kit.name) { const keep = L.dirty ? L.kit : null; L.kit = keep ? Object.assign(keep, { status: r.data.status, state: r.data.state }) : r.data; renderStatus(); if (!BUSY_ST.includes(L.kit.status)) renderKit(); }
+    schedulePoll();
+  }
+  const ro = () => !!(L.kit && BUSY_ST.includes(L.kit.status));
+  const dis = () => (ro() ? " disabled" : "");
+  function listAt(path) { const [a, b, c] = path.split("."); const k = L.kit; if (a === "p") return k.products[+b][c]; if (a === "q") return k.faq[+b].videos; return k.generic[b]; }
+  function voices(path) {
+    const list = listAt(path) || [];
+    return `<div class="lk-voices">${list.map((v, i) => `<span class="lk-v" title="${esc(v.name)}${v.dur ? " · " + fmt(v.dur, 1) + " giây" : ""}"><span class="nm">${esc(String(v.name || "").replace(/\.[^.]+$/, ""))}</span>${v.dur ? `<span class="av-hint">${fmt(v.dur, 1)}s</span>` : ""}
+      <select data-lk-vver="${path}|${i}" aria-label="Phiên bản giọng"${dis()}>${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<option value="${n}" ${+v.version === n ? "selected" : ""}>v${n}</option>`).join("")}</select>
+      ${ro() ? "" : `<button type="button" data-lk-vdel="${path}|${i}" aria-label="Bỏ voice này">×</button>`}</span>`).join("")}
+      ${ro() ? "" : `<label class="lk-add">+ voice<input type="file" accept="audio/*,.mp3,.wav,.m4a" multiple data-lk-vadd="${path}"></label>`}</div>`;
+  }
+  function summary() {
+    const k = L.kit; let n = 0, s = 0; const add = (l) => (l || []).forEach((v) => { n++; s += +v.dur || 0; });
+    k.products.forEach((p) => { add(p.main_free); add(p.main_hold); }); k.faq.forEach((q) => add(q.videos)); GEN.forEach(([g]) => add(k.generic[g]));
+    return { n, s, usd: s * LS_USD_S };
+  }
+  function sumHtml() { const x = summary(); return `<span><b>${L.kit.products.length}</b> sản phẩm</span><span><b>${x.n}</b> video sẽ dựng</span><span><b>${fmt(x.s / 60, 1)}</b> phút voice</span><span>Lipsync nếu chạy fal ~<b>$${x.usd.toFixed(2)}</b> (máy GPU riêng gần như không tốn)</span>${L.dirty ? '<span class="lk-dirty">● Chưa lưu</span>' : ""}`; }
+  function renderStatus() {
+    const el = $("lk-status"); if (!el || !L.kit) return; const k = L.kit, st = k.state || {}, p = st.progress || {};
+    const pill = `<span class="av-pill ${ST_PILL[k.status] || "p-idle"}">${esc(k.status || "Nháp")}</span>`;
+    let body = "";
+    if (k.status === "Đang gửi") body = "Đang gửi voice và nền sang máy chạy video…";
+    else if (k.status === "Đang dựng") body = p.total ? `Đã xong <b>${p.done}</b>/${p.total} việc${p.failed ? `, <span style="color:var(--bad)">${p.failed} lỗi</span>` : ""}. Trang tự cập nhật mỗi 15 giây.<div class="av-prog" style="margin-top:6px"><i style="width:${Math.round(100 * (p.done || 0) / p.total)}%"></i></div>` : "Đã xếp hàng trên máy chạy video, chờ bắt đầu… (mở trang này để máy chạy tiếp)";
+    else if (k.status === "Xong") body = `Bộ live đã dựng xong${st.kit_folder ? `, nằm trong Thư mục Bộ live của brand: <code>${esc(st.kit_folder)}</code>` : ""}. Máy phát mở app eCentric AI Live → chọn Bộ live để tải về.${st.kit_folder ? "" : ' <span style="color:var(--warn)">Brand chưa khai Thư mục Bộ live (Google Drive / SharePoint) – nhờ quản trị điền ở cấu hình AI Live của brand.</span>'}`;
+    else if (k.status === "Lỗi") body = `<span style="color:var(--bad)">${esc(st.error || "Có việc bị lỗi.")}</span>${(p.errors || []).map((e) => `<div class="av-hint">${esc(e)}</div>`).join("")}<div class="av-hint">Sửa nếu cần rồi bấm Dựng Bộ live lại – voice đã gửi không phải gửi lại.</div>`;
+    else body = "Chưa dựng. Điền xong thì bấm Lưu, rồi Dựng Bộ live.";
+    el.innerHTML = `<div class="av-row" style="justify-content:space-between"><div class="av-row">${pill}<span>${body}</span></div></div>`;
+  }
+  function renderKit() {
+    const k = L.kit, hosts = L.hosts || [], hasHost = hosts.some((h) => h.host === k.host_key);
+    const bgKind = /\.(mp4|webm|mov)$/i.test(k.background || "") ? "video" : k.background ? "image" : "";
+    view().innerHTML = `
+      <section class="av-hero"><div>${crumbs('<a href="#/kits" style="color:inherit">Bộ live</a>')}<h1>${esc(k.title || (k.name ? k.brand : "Bộ live mới"))}</h1><div class="sub">Video chính tự cắt điểm nghỉ ở cuối câu theo khoảng nghỉ đã chọn; đoạn cuối gộp phần dư (75s nghỉ 30s → 30 + 45). Thả nhiều file voice vào ô bên dưới, trang tự xếp theo tên file.</div></div>
+        <div class="av-row"><button class="av-btn" data-lk="kit-save"${dis()}>Lưu</button><button class="av-gold" data-lk="kit-build"${dis() || (k.name ? "" : " disabled")} title="${k.name ? "" : "Lưu trước"}">Dựng Bộ live</button></div></section>
+      <div class="av-panel av-panel-b" id="lk-status"></div>
+      <div class="av-panel"><div class="av-panel-h"><h2>Thông tin chung</h2></div><div class="av-panel-b" style="display:flex;flex-direction:column;gap:14px">
+        <div class="av-grid2">
+          <label class="av-f">Brand<input type="text" list="lk-brands" data-lk-k="brand" value="${esc(k.brand)}" placeholder="vd friso"${dis()}><datalist id="lk-brands">${L.brands.map((b) => `<option value="${esc(b)}">`).join("")}</datalist><span class="av-hint" style="font-weight:400">Mã brand trùng cấu hình AI Live của brand (key, máy GPU, Thư mục Bộ live).</span></label>
+          <label class="av-f">Tên Bộ live<input type="text" data-lk-k="title" value="${esc(k.title)}" placeholder="vd Friso tháng 11"${dis()}></label>
+          <label class="av-f">Host<select data-lk-k="host_key"${dis()}><option value="">— Chọn host trong Kho host —</option>${hosts.map((h) => `<option value="${esc(h.host)}" ${h.host === k.host_key ? "selected" : ""}>${esc(h.label || h.host)}${h.label ? " · " + esc(h.host) : ""} (${h.talks} clip motion)</option>`).join("")}${k.host_key && !hasHost ? `<option value="${esc(k.host_key)}" selected>${esc(k.host_key)}</option>` : ""}</select>
+            <span class="av-hint" style="font-weight:400">${L.hosts == null ? esc(L.hostsMsg || "Không lấy được Kho host.") : '<a href="#/hosts">Mở Kho host</a> để tạo host mới hoặc gen motion.'}</span></label>
+          <label class="av-f">Voice ID (giọng host)<input type="text" data-lk-k="voice_id" value="${esc(k.voice_id)}" placeholder="tạm dùng giọng hiện có"${dis()}></label>
+        </div>
+        <div class="lk-mode">
+          <label class="${k.mode !== "lite" ? "on" : ""}"><input type="radio" name="lk-mode" value="full" ${k.mode !== "lite" ? "checked" : ""}${dis()}><span><b>Đầy đủ</b><small>Chào theo tên, đọc lại câu hỏi, AI trả lời realtime (cần máy GPU).</small></span></label>
+          <label class="${k.mode === "lite" ? "on" : ""}"><input type="radio" name="lk-mode" value="lite" ${k.mode === "lite" ? "checked" : ""}${dis()}><span><b>Tiết kiệm</b><small>Không realtime: AI chỉ đọc bình luận để chọn FAQ; chào và cảm ơn dùng câu chung gen sẵn.</small></span></label>
+        </div>
+        <div class="av-grid2">
+          <label class="av-f">Khoảng nghỉ video chính<select data-lk-k="break_sec"${dis()}>${[20, 25, 30, 35].map((s) => `<option value="${s}" ${+k.break_sec === s ? "selected" : ""}>${s} giây${s === 20 ? " (mặc định)" : ""}</option>`).join("")}</select><span class="av-hint" style="font-weight:400">Khách hỏi giữa chừng thì app cắt ở cuối câu gần nhất, chờ tối đa 20 giây.</span></label>
+          <div class="av-f">Nền brand<div class="av-row">${k.background ? `<span class="av-pill p-ok">${bgKind === "video" ? "Nền động (video)" : "Nền tĩnh (ảnh)"}</span><span class="av-hint">${esc(String(k.background).split("/").pop())}</span>` : '<span class="av-hint">Chưa có – để trống nếu app đã có nền.</span>'}${ro() ? "" : '<label class="lk-add">Chọn file nền<input type="file" accept="video/mp4,video/webm,.mov,image/png,image/jpeg,image/webp" id="lk-bg"></label>'}</div>
+            <label class="lk-bake"><input type="checkbox" data-lk-k="bake_bg" ${k.bake_bg ? "checked" : ""}${bgKind === "image" && !ro() ? "" : " disabled"}> <span>Ghép sẵn nền vào video (chỉ nền tĩnh – nhẹ card màn hình máy phát, hết viền xanh)</span></label></div>
+        </div></div></div>
+      <div class="av-drop" id="lk-drop"${ro() ? " hidden" : ""}>Thả nhiều file voice vào đây – tự xếp theo tên file<div class="av-hint" style="font-weight:400;margin-top:4px"><code>&lt;mã SP&gt;_khong_1.mp3</code> (video không cầm SP) · <code>&lt;mã SP&gt;_cam_1.mp3</code> (cầm SP) · <code>faq_gia_1.mp3</code> · <code>chao_1.mp3</code> · <code>camon_1.mp3</code> · <code>traloi_1.mp3</code> · thêm <code>_v2</code> cho bản giọng mới</div></div>
+      <div class="av-panel"><div class="av-panel-h"><h2>Sản phẩm <span class="av-hint">${k.products.length}</span></h2><div class="av-row">${ro() ? "" : '<button class="av-btn sm" data-lk="p-paste">Dán danh sách SP</button><button class="av-btn sm pri" data-lk="p-add">+ Thêm SP</button>'}</div></div>
+        <div class="av-tw"><table><thead><tr><th>Mã SP</th><th>Tên SP</th><th>Mã SP Shopee</th><th>Mã SP TikTok</th><th>Voice video không cầm SP</th><th>Voice video cầm SP</th><th title="Clip câm hạ SP xuống / nâng SP lên, dùng khi trả lời lúc đang cầm SP">Hạ / nâng SP</th><th></th></tr></thead>
+        <tbody>${k.products.map((p, i) => `<tr><td class="lk-id"><input type="text" data-lk-p="${i}" data-lk-pk="id" value="${esc(p.id)}" placeholder="sp${String(i + 1).padStart(2, "0")}"${dis()}></td><td class="lk-name"><input type="text" data-lk-p="${i}" data-lk-pk="name" value="${esc(p.name)}"${dis()}></td>
+          <td class="lk-plat"><input type="text" data-lk-p="${i}" data-lk-pk="shopee" value="${esc((p.platformIds || {}).shopee)}" placeholder="không bắt buộc"${dis()}></td><td class="lk-plat"><input type="text" data-lk-p="${i}" data-lk-pk="tiktok" value="${esc((p.platformIds || {}).tiktok)}" placeholder="không bắt buộc"${dis()}></td>
+          <td>${voices("p." + i + ".main_free")}</td><td>${voices("p." + i + ".main_hold")}</td>
+          <td><label class="av-row" style="gap:4px"><input type="checkbox" data-lk-pc="${i}" ${p.putdown || p.pickup ? "checked" : ""}${dis()}> có</label></td>
+          <td>${ro() ? "" : `<button class="av-btn sm ghost danger" data-lk-pdel="${i}" aria-label="Xoá SP">Xoá</button>`}</td></tr>`).join("") || '<tr><td colspan="8" class="av-empty">Chưa có sản phẩm. Bấm + Thêm SP hoặc Dán danh sách SP.</td></tr>'}</tbody></table></div></div>
+      <div class="av-panel"><div class="av-panel-h"><h2>FAQ dùng chung mọi SP</h2><div class="av-row"><span class="av-hint">Hiện chỉ có giá chung. Mỗi chủ đề 2–5 bản để không phát lặp trong 15 phút.</span>${ro() ? "" : '<button class="av-btn sm" data-lk="q-add">+ Thêm chủ đề</button>'}</div></div>
+        <div class="av-tw"><table><thead><tr><th>Chủ đề</th><th>Voice (mỗi file = 1 bản)</th><th></th></tr></thead><tbody>${k.faq.map((q, i) => `<tr><td style="width:220px"><input type="text" data-lk-q="${i}" value="${esc(q.topic)}" placeholder="vd Giá"${dis()}></td><td>${voices("q." + i + ".videos")}${(q.videos || []).length && (q.videos || []).length < 2 ? '<span class="av-hint" style="color:var(--warn)">Nên có ít nhất 2 bản</span>' : ""}</td><td>${ro() ? "" : `<button class="av-btn sm ghost danger" data-lk-qdel="${i}">Xoá</button>`}</td></tr>`).join("") || '<tr><td colspan="3" class="av-empty">Chưa có chủ đề.</td></tr>'}</tbody></table></div></div>
+      <div class="av-panel"><div class="av-panel-h"><h2>Câu chung gen sẵn</h2><span class="av-hint">Dùng cho chế độ Tiết kiệm (và dự phòng khi realtime trễ). 3–5 bản mỗi loại.</span></div>
+        <div class="av-tw"><table><tbody>${GEN.map(([g, l, h]) => `<tr><td style="width:240px"><b>${l}</b><div class="av-hint">${h}</div></td><td>${voices("g." + g)}</td></tr>`).join("")}</tbody></table></div></div>
+      <div class="av-panel av-panel-b"><div class="lk-sum" id="lk-sum">${sumHtml()}</div></div>`;
+    renderStatus();
+  }
+  function touch() { L.dirty = true; const s = $("lk-sum"); if (s) s.innerHTML = sumHtml(); }
+  function payload() { const k = L.kit; return { brand: k.brand.trim(), title: k.title, host_key: k.host_key, voice_id: k.voice_id, voice_provider: k.voice_provider, mode: k.mode, break_sec: +k.break_sec, background: k.background || null, bake_bg: k.bake_bg ? 1 : 0, products: k.products, faq: k.faq, generic: k.generic }; }
+  async function saveKit(btn) {
+    const r = await act(btn, "save_kit", { name: L.kit.name || undefined, data: JSON.stringify(payload()) }, "Đã lưu Bộ live"); if (!r) return null;
+    L.dirty = false;
+    if (!L.kit.name) { L.kit.name = r.name; location.hash = "#/kit/" + enc(r.name); return r; }
+    const s = $("lk-sum"); if (s) s.innerHTML = sumHtml(); return r;
+  }
+  async function buildKit(btn) {
+    const x = summary(), k = L.kit;
+    if (!k.host_key) return toast("Chưa chọn host.", true);
+    if (!x.n) return toast("Chưa có voice nào để dựng.", true);
+    if (!confirm(`Dựng ${x.n} video (${fmt(x.s / 60, 1)} phút voice) cho brand ${k.brand}?\n\nMáy chạy video ghép motion có sẵn của host, lipsync, cắt điểm nghỉ ${k.break_sec} giây ở cuối câu, rồi ghi Bộ live vào Thư mục Bộ live của brand. Lipsync nếu chạy fal ~$${x.usd.toFixed(2)}; máy GPU riêng gần như không tốn.`)) return;
+    if (L.dirty && !(await saveKit(null))) return;
+    const r = await act(btn, "build_kit", { name: k.name }, "Đã gửi – đang chuyển voice sang máy chạy video"); if (r) loadKit(k.name);
+  }
+  async function addVoices(path, files) {
+    files = files.filter(isAudio); if (!files.length) return toast("Chỉ nhận file mp3 / wav / m4a.", true);
+    toast("Đang tải " + files.length + " voice…");
+    let n = 0;
+    for (const f of files) { try { const dur = await audioSec(f); const url = await upload(f); const list = listAt(path); if (list.length >= 6) { toast("Tối đa 6 voice mỗi nhóm", true); break; } list.push({ file: url, name: f.name, dur, version: verOf(f.name) }); n++; } catch (err) { toast(f.name + ": " + err.message, true); } }
+    if (n) { L.dirty = true; renderKit(); toast("Đã thêm " + n + " voice"); }
+  }
+  function route1(f) {
+    const n = norm(f.name.replace(/\.[^.]+$/, "")).replace(/\s+/g, "_");
+    if (/^(chao|greet)/.test(n)) return "g.greet"; if (/^(cam_?on|thanks|hen)/.test(n)) return "g.thanks"; if (/^(tra_?loi|answer)/.test(n)) return "g.answer";
+    const q = /^faq[_\-]+(.+?)(?:[_\-]+v?\d+)*$/.exec(n);
+    if (q) { const key = q[1].replace(/[_\-]+/g, " ").trim(); let i = L.kit.faq.findIndex((x) => norm(x.topic) === key); if (i < 0) { L.kit.faq.push({ topic: key.charAt(0).toUpperCase() + key.slice(1), videos: [] }); i = L.kit.faq.length - 1; } return "q." + i + ".videos"; }
+    const ps = L.kit.products.map((p, i) => [norm(p.id), i]).filter(([id]) => id).sort((a, b) => b[0].length - a[0].length);
+    for (const [id, i] of ps) { if (n === id || n.startsWith(id + "_") || n.startsWith(id + "-")) { const rest = n.slice(id.length + 1); return "p." + i + (/^(cam|hold)/.test(rest) ? ".main_hold" : ".main_free"); } }
+    return null;
+  }
+  async function dropVoices(files) {
+    const groups = {}, miss = [];
+    files.filter(isAudio).forEach((f) => { const p = route1(f); if (p) (groups[p] = groups[p] || []).push(f); else miss.push(f.name); });
+    for (const p of Object.keys(groups)) await addVoices(p, groups[p]);
+    if (miss.length) toast("Không nhận ra " + miss.length + " file (đặt tên theo mã SP / faq_ / chao_ / camon_ / traloi_): " + miss.slice(0, 3).join(", "), true);
+  }
+  function pasteProducts() {
+    modal(`<h3 style="margin:0">Dán danh sách sản phẩm</h3><p class="av-hint" style="margin:0">Mỗi dòng một SP: <code>Mã SP; Tên SP; Mã Shopee; Mã TikTok</code> (2 cột cuối không bắt buộc). Dán từ Excel cũng được (cột cách nhau bằng Tab).</p>
+      <textarea id="lk-paste" placeholder="sp01; Friso Gold 4 850g; 2234567; 1729384"></textarea><div class="av-row" style="justify-content:flex-end"><button class="av-btn" data-close="1">Huỷ</button><button class="av-btn pri" data-lk="p-paste-ok">Thêm</button></div>`);
+  }
+
+  /* ---------- Kho host + Studio ---------- */
+  async function loadHosts() {
+    const r = await call("list_hosts", {}, "GET"); if (!isMine(hash())) return;
+    if (!r.success) return fail(r.message);
+    L.hosts = r.data.hosts || []; L.models = r.data.models || []; L.proposal = r.data.motion_proposal || []; L.propCost = r.data.motion_cost;
+    if (!L.studio) { try { const h = localStorage.getItem("ecAiLiveStudio"); if (h && !L.hosts.some((x) => x.host === h)) L.studio = { host: h, items: [], done: false }; } catch (e) { /* bo qua */ } }
+    renderHosts(); if (L.studio && !L.studio.done) studioPoll();
+  }
+  function modelCost() { const m = L.models.find((x) => x.id === (L.stModel || (L.models[0] || {}).id)); return m && m.credits ? `4 ảnh × ${m.credits} credit ≈ <b>${fmt(m.credits * 4 * 80)}đ</b>` : "Chi phí theo bảng giá nhà cung cấp (chưa có ước tính)"; }
+  function renderHosts() {
+    const st = L.studio;
+    view().innerHTML = `
+      <section class="av-hero"><div>${crumbs("Kho host")}<h1>Kho host</h1><div class="sub">Host dùng chung cho mọi brand. Brand mới chỉ cần chọn host, đưa voice; motion trong kho được dùng lại, chỉ lipsync và hậu kỳ.</div></div><div class="av-row"><a class="av-outline" href="#/kits" style="background:#fff">Bộ live →</a></div></section>
+      <div class="av-panel"><div class="av-panel-h"><h2>Studio ảnh host</h2><span class="av-hint">Tạo 4 ảnh host mới, chọn 1 ảnh để lưu vào kho.</span></div><div class="av-panel-b"><div class="av-grid2" style="align-items:start">
+        <div class="lk-st" style="display:flex;flex-direction:column;gap:12px">
+          <label class="av-f">Tên host<input type="text" id="lk-st-label" value="${esc(L.stLabel || "")}" placeholder="vd Linh – áo trắng"></label>
+          <label class="av-f">Mô tả ảnh<textarea id="lk-st-prompt" style="font-family:inherit;font-size:13px;min-height:130px">${esc(L.stPrompt || DEF_PROMPT)}</textarea></label>
+          <label class="av-f">Model<select id="lk-st-model">${L.models.map((m) => `<option value="${esc(m.id)}" ${m.id === L.stModel ? "selected" : ""}>${esc(m.label)}</option>`).join("")}</select></label>
+          <div class="av-f">Ảnh tham chiếu (tối đa 4: khuôn mặt, trang phục, tư thế…)<div class="lk-refs">${L.refs.map((u, i) => `<figure><img src="${esc(u)}" alt=""><button type="button" data-lk-refdel="${i}" aria-label="Bỏ ảnh">×</button></figure>`).join("")}${L.refs.length < 4 ? '<label class="lk-add">+ Ảnh<input type="file" accept="image/png,image/jpeg,image/webp" multiple id="lk-st-refs"></label>' : ""}</div></div>
+          <div class="av-row" style="justify-content:space-between"><span class="av-hint" id="lk-st-cost">${modelCost()}</span><button class="av-btn pri" data-lk="studio-go">Tạo 4 ảnh</button></div>
+        </div>
+        <div>${st ? `<div class="av-row" style="justify-content:space-between;margin-bottom:8px"><b>Lượt ${esc(st.host)}</b><span class="av-hint">${st.done ? "Đã xong" : "Đang tạo… (~1–3 phút)"}</span></div>
+          <div class="lk-cands">${(st.items || []).map((it) => `<div class="lk-cand">${it.thumb ? `<img src="${esc(it.thumb)}" data-media="${esc(it.full || it.thumb)}" alt="Ảnh ứng viên">` : `<div class="lk-noimg">${it.state === "failed" ? "Lỗi" : "Đang tạo…"}</div>`}
+            <div class="av-row" style="margin-top:6px">${it.cand ? `<button class="av-btn sm pri" data-lk-pick="${it.cand}">Lưu vào kho</button>` : it.error ? `<span class="av-hint" style="color:var(--bad)">${esc(it.error)}</span>` : ""}</div></div>`).join("") || '<div class="av-hint">Đang chờ máy chạy video nhận việc…</div>'}</div>
+          ${st.saved ? `<div class="av-callout" style="margin-top:10px"><div>Đã lưu host <b>${esc(st.host)}</b>. Bước tiếp: <button class="av-btn sm pri" data-lk-motion="${esc(st.host)}">Gen bộ motion</button></div></div>` : ""}` : '<div class="av-empty">Ảnh tạo ra sẽ hiện ở đây.</div>'}</div>
+      </div></div></div>
+      <div class="av-panel"><div class="av-panel-h"><h2>Host trong kho <span class="av-hint">${L.hosts.length}</span></h2></div><div class="av-panel-b"><div class="lk-hosts">
+        ${L.hosts.map((h) => `<div class="lk-host">${h.thumb ? `<img src="${esc(h.thumb)}" data-media="${esc(h.thumb)}" alt="${esc(h.label || h.host)}">` : '<div class="lk-noimg">Chưa có ảnh</div>'}
+          <div style="margin-top:6px"><b>${esc(h.label || h.host)}</b>${h.label ? `<div class="av-hint">${esc(h.host)}</div>` : ""}</div>
+          <div class="av-row" style="margin-top:6px;justify-content:space-between">${h.talks ? `<span class="av-pill p-ok">${h.talks} clip motion</span>` : '<span class="av-pill p-warn">Chưa có motion</span>'}<button class="av-btn sm${h.talks ? "" : " pri"}" data-lk-motion="${esc(h.host)}">${h.talks ? "Gen thêm motion" : "Gen bộ motion"}</button></div></div>`).join("") || '<div class="av-empty">Chưa có host nào.</div>'}
+      </div></div></div>`;
+  }
+  async function studioGo(btn) {
+    const prompt = $("lk-st-prompt").value.trim(); if (!prompt) return toast("Chưa nhập mô tả ảnh.", true);
+    const model = $("lk-st-model").value, label = $("lk-st-label").value.trim();
+    const m = L.models.find((x) => x.id === model);
+    if (!confirm(`Tạo 4 ảnh host bằng ${m ? m.label : model}?${m && m.credits ? `\nƯớc tính ${m.credits * 4} credit ≈ ${fmt(m.credits * 4 * 80)}đ.` : ""}`)) return;
+    const r = await act(btn, "host_image_start", { data: JSON.stringify({ prompt, model, label, refs: L.refs }) }, "Đã gửi – đang tạo 4 ảnh"); if (!r) return;
+    L.studio = { host: r.host, items: [], done: false }; try { localStorage.setItem("ecAiLiveStudio", r.host); } catch (e) { /* bo qua */ }
+    renderHosts(); studioPoll();
+  }
+  async function studioPoll() {
+    clearTimeout(L.timer); if (!L.studio || !/^hosts/.test(hash())) return;
+    const r = await call("host_image_status", { host: L.studio.host }, "GET");
+    if (!/^hosts/.test(hash()) || !L.studio) return;
+    if (r.success) { L.studio.items = r.data.items || []; L.studio.done = r.data.done; if (!typingHere()) renderHosts(); }
+    if (!L.studio.done) L.timer = setTimeout(studioPoll, 5000);
+  }
+  const typingHere = () => { const a = document.activeElement; return !!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.type !== "file" && view().contains(a)); };
+  function motionModal(host) {
+    const h = (L.hosts || []).find((x) => x.host === host) || { host };
+    const plan = {}; (L.proposal || []).forEach((p) => { plan[p.dur] = p.n; }); L.mplan = { host, plan };
+    modal(`<h3 style="margin:0">Gen bộ motion – ${esc(h.label || host)}</h3>
+      <p class="av-hint" style="margin:0">Đề xuất 20 clip nói câm, tỉ lệ 50/25/15/10% theo độ dài, tính từ 2 host đang dùng thật (H_BOO3HGI9JF 81 clip, H_FAQ_GREEN 22 clip). Clip ngắn giúp khớp câu ngắn mà không phải kéo giãn. Sửa số lượng nếu cần.</p>
+      <div class="av-tw"><table><thead><tr><th>Độ dài clip</th><th>Số clip</th></tr></thead><tbody>${[10, 8, 6, 4].map((d) => `<tr><td>${d} giây</td><td><input type="number" min="0" max="20" value="${plan[d] || 0}" data-lk-mn="${d}" style="width:90px"></td></tr>`).join("")}</tbody></table></div>
+      <div class="av-callout"><div id="lk-mcost">${costLine(L.propCost)}</div></div>
+      <div class="av-row" style="justify-content:flex-end"><button class="av-btn" data-close="1">Huỷ</button><button class="av-btn pri" data-lk="motion-go">Gen bộ motion</button></div>`);
+  }
+  const costLine = (c) => !c ? "" : `<b>${c.clips} clip · ${c.seconds} giây</b> – ước tính <b>~${fmt(c.credits)} credit ≈ ${fmt(c.vnd)}đ</b><div class="av-hint">${esc(c.formula)}. Trang AI Video ghi chi phí thật sau khi chạy.</div>`;
+  const mplanArr = () => [10, 8, 6, 4].map((d) => ({ dur: d, n: Math.max(0, Math.min(20, +(L.mplan.plan[d] || 0))) })).filter((x) => x.n);
+  let mT; function motionRecalc() { clearTimeout(mT); mT = setTimeout(async () => { if (!L.mplan) return; const r = await call("motion_set", { host: L.mplan.host, plan: JSON.stringify(mplanArr()), dry_run: 1 }); const el = $("lk-mcost"); if (el) el.innerHTML = r.success ? costLine(r.data.cost) : `<span style="color:var(--bad)">${esc(r.message)}</span>`; }, 300); }
+  async function motionGo(btn) {
+    const plan = mplanArr(), n = plan.reduce((a, x) => a + x.n, 0); if (!n) return toast("Chưa chọn số clip.", true);
+    const r = await act(btn, "motion_set", { host: L.mplan.host, plan: JSON.stringify(plan), dry_run: 0 }, "Đã xếp " + n + " clip motion – máy chạy video gen dần, kết quả hiện trong Kho host"); if (!r) return;
+    closeModal(); L.mplan = null; loadHosts();
+  }
+
+  /* ---------- su kien ---------- */
+  document.addEventListener("click", async (e) => {
+    if (!isMine(hash())) return;
+    const t = e.target.closest ? e.target.closest("[data-lk],[data-lk-brand],[data-lk-vdel],[data-lk-pdel],[data-lk-qdel],[data-lk-motion],[data-lk-pick],[data-lk-refdel]") : null;
+    if (!t || !$("ec-aiv-root").contains(t)) return;
+    const a = t.dataset.lk, k = L.kit;
+    if (t.dataset.lkBrand != null) { L.brand = t.dataset.lkBrand; return renderKits(); }
+    if (t.dataset.lkVdel) { const [p, i] = t.dataset.lkVdel.split("|"); listAt(p).splice(+i, 1); L.dirty = true; return renderKit(); }
+    if (t.dataset.lkPdel) { if (!confirm("Xoá sản phẩm này khỏi Bộ live?")) return; k.products.splice(+t.dataset.lkPdel, 1); L.dirty = true; return renderKit(); }
+    if (t.dataset.lkQdel) { k.faq.splice(+t.dataset.lkQdel, 1); L.dirty = true; return renderKit(); }
+    if (t.dataset.lkMotion) return motionModal(t.dataset.lkMotion);
+    if (t.dataset.lkRefdel) { L.refs.splice(+t.dataset.lkRefdel, 1); return renderHosts(); }
+    if (t.dataset.lkPick) { const r = await act(t, "host_save", { host: L.studio.host, cand: +t.dataset.lkPick, label: ($("lk-st-label") || {}).value || "" }, "Đã lưu host vào kho"); if (!r) return; L.studio.saved = true; try { localStorage.removeItem("ecAiLiveStudio"); } catch (err) { /* bo qua */ } return loadHosts(); }
+    if (a === "kit-save") return saveKit(t);
+    if (a === "kit-build") return buildKit(t);
+    if (a === "p-add") { k.products.push({ id: "sp" + String(k.products.length + 1).padStart(2, "0"), name: "", platformIds: { shopee: "", tiktok: "" }, main_free: [], main_hold: [], putdown: true, pickup: true }); L.dirty = true; return renderKit(); }
+    if (a === "q-add") { k.faq.push({ topic: "", videos: [] }); L.dirty = true; return renderKit(); }
+    if (a === "p-paste") return pasteProducts();
+    if (a === "p-paste-ok") { const rows = ($("lk-paste").value || "").split(/\r?\n/).map((l) => l.split(/[;\t]/).map((x) => x.trim())).filter((c) => c[0]);
+      rows.forEach((c) => { const ex = k.products.find((p) => norm(p.id) === norm(c[0])); const pl = { shopee: c[2] || "", tiktok: c[3] || "" };
+        if (ex) { if (c[1]) ex.name = c[1]; ex.platformIds = Object.assign(ex.platformIds || {}, Object.fromEntries(Object.entries(pl).filter(([, v]) => v))); }
+        else k.products.push({ id: c[0], name: c[1] || "", platformIds: pl, main_free: [], main_hold: [], putdown: true, pickup: true }); });
+      closeModal(); L.dirty = true; toast("Đã thêm / cập nhật " + rows.length + " SP"); return renderKit(); }
+    if (a === "studio-go") return studioGo(t);
+    if (a === "motion-go") return motionGo(t);
+  });
+  document.addEventListener("input", (e) => {
+    if (!isMine(hash())) return; const t = e.target, k = L.kit;
+    if (t.dataset.lkMn && L.mplan) { L.mplan.plan[t.dataset.lkMn] = +t.value || 0; return motionRecalc(); }
+    if (t.id === "lk-st-prompt") { L.stPrompt = t.value; return; } if (t.id === "lk-st-label") { L.stLabel = t.value; return; }
+    if (!k) return;
+    if (t.dataset.lkK && t.type !== "checkbox") { k[t.dataset.lkK] = t.value; return touch(); }
+    if (t.dataset.lkP != null && t.dataset.lkPk) { const p = k.products[+t.dataset.lkP], f = t.dataset.lkPk; if (f === "shopee" || f === "tiktok") { p.platformIds = p.platformIds || {}; p.platformIds[f] = t.value.trim(); } else p[f] = t.value; return touch(); }
+    if (t.dataset.lkQ != null) { k.faq[+t.dataset.lkQ].topic = t.value; return touch(); }
+  });
+  document.addEventListener("change", async (e) => {
+    if (!isMine(hash())) return; const t = e.target, k = L.kit;
+    if (t.id === "lk-st-model") { L.stModel = t.value; const c = $("lk-st-cost"); if (c) c.innerHTML = modelCost(); return; }
+    if (t.id === "lk-st-refs" && t.files && t.files.length) { const files = [...t.files].slice(0, 4 - L.refs.length); toast("Đang tải " + files.length + " ảnh…"); for (const f of files) { try { L.refs.push(await upload(f)); } catch (err) { toast(err.message, true); } } return renderHosts(); }
+    if (!k) return;
+    if (t.dataset.lkVadd && t.files && t.files.length) { const files = [...t.files]; t.value = ""; return addVoices(t.dataset.lkVadd, files); }
+    if (t.dataset.lkVver) { const [p, i] = t.dataset.lkVver.split("|"); listAt(p)[+i].version = +t.value; return touch(); }
+    if (t.dataset.lkPc != null) { const p = k.products[+t.dataset.lkPc]; p.putdown = p.pickup = t.checked; return touch(); }
+    if (t.dataset.lkK === "bake_bg") { k.bake_bg = t.checked ? 1 : 0; return touch(); }
+    if (t.dataset.lkK === "host_key" || t.dataset.lkK === "break_sec") { k[t.dataset.lkK] = t.value; return touch(); }
+    if (t.name === "lk-mode") { k.mode = t.value; L.dirty = true; return renderKit(); }
+    if (t.id === "lk-bg" && t.files && t.files[0]) { toast("Đang tải nền…"); try { k.background = await upload(t.files[0]); if (!/\.(png|jpe?g|webp)$/i.test(k.background)) k.bake_bg = 0; L.dirty = true; renderKit(); } catch (err) { toast(err.message, true); } }
+  });
+  const hasFiles = (e) => !!(e.dataTransfer && [...(e.dataTransfer.types || [])].includes("Files"));
+  document.addEventListener("dragover", (e) => { if (!isMine(hash()) || !hasFiles(e)) return; const z = e.target.closest && e.target.closest("#lk-drop"); if (!z) return; e.preventDefault(); e.dataTransfer.dropEffect = "copy"; z.classList.add("on"); });
+  document.addEventListener("dragleave", (e) => { const z = e.target.closest && e.target.closest("#lk-drop"); if (z) z.classList.remove("on"); });
+  document.addEventListener("drop", (e) => { if (!isMine(hash()) || !hasFiles(e)) return; const z = e.target.closest && e.target.closest("#lk-drop"); if (!z) return; e.preventDefault(); z.classList.remove("on"); if (L.kit && !ro()) dropVoices([...e.dataTransfer.files]); });
+})();
+</script>
+
 <script>
 (() => {
   "use strict";
@@ -281,7 +650,10 @@ tr.on td{background:var(--navy-wash)}
   function route() { const h = location.hash.replace(/^#\/?/, ""); const m = /^p\/([^/]+)(?:\/(\w+))?/.exec(h); return m ? { project: decodeURIComponent(m[1]), step: m[2] || null } : { project: null }; }
   window.addEventListener("hashchange", load);
   async function load() {
-    clearTimeout(S.timer); const r = route();
+    clearTimeout(S.timer);
+    const h0 = location.hash.replace(/^#\/?/, "");   /* 17/10 fix10b: Bo live + Kho host (script ec-ailive) */
+    if (window.ecAiLive && window.ecAiLive.isMine(h0)) { S.p = null; return window.ecAiLive.load(h0); }
+    const r = route();
     if (!r.project) return loadHub();
     S.step = r.step || null;
     return loadProject(r.project, true);
@@ -305,6 +677,7 @@ tr.on td{background:var(--navy-wash)}
         <span class="tag" id="av-ping">Đang kiểm tra máy chạy video…</span></div>
         <div class="av-stats"><div class="av-stat"><span>Dự án</span><b>${ps.length}</b></div><div class="av-stat"><span>SKU</span><b>${tot.sku}</b></div>
         <div class="av-stat"><span>Đang chạy</span><b>${tot.run}</b></div><div class="av-stat hl"><span>Chờ chọn / duyệt</span><b>${tot.pick + tot.qc}</b></div><div class="av-stat"><span>Đủ clip / xong</span><b>${tot.done}</b></div></div></section>
+      <div class="av-row"><a class="av-outline" href="#/kits">Bộ live cho app AI Live →</a><a class="av-outline" href="#/hosts">Kho host · Studio ảnh host →</a></div>
       ${configured ? "" : `<div class="av-callout warn"><div><b>Chưa nối máy chạy video.</b> Cần khai <code>ec_video_worker_url</code> và <code>ec_video_worker_secret</code> trong site_config (IT làm một lần). Vẫn tạo dự án và nhập lô được.</div></div>`}
       <div class="av-chips"><button class="av-chip ${S.brand ? "" : "on"}" data-brand="">Tất cả <span class="n">${ps.length}</span></button>
         ${Object.keys(brands).sort().map((b) => `<button class="av-chip ${S.brand === b ? "on" : ""}" data-brand="${esc(b)}">${esc(b)} <span class="n">${brands[b]}</span></button>`).join("")}
