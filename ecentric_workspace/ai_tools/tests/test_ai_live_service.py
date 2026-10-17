@@ -96,7 +96,7 @@ class FakeCosts:
 
 class TestGetConfig(unittest.TestCase):
     def setUp(self):
-        self.svc = GetConfigService(FakeMachines(), FakeBrands())
+        self.svc = GetConfigService(FakeMachines(), FakeBrands(), sessions=types.SimpleNamespace(by_machine=lambda code: []))
 
     def test_returns_enabled_brands_with_keys(self):
         d = self.svc.execute("u1", "MAY01")

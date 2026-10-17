@@ -7,6 +7,7 @@ import binascii
 from ecentric_workspace.ai_tools.features.ai_live import constants as C
 from ecentric_workspace.ai_tools.features.ai_live.application import _common
 from ecentric_workspace.ai_tools.features.ai_live.domain import health_rules as R
+from ecentric_workspace.ai_tools.features.ai_live.domain import session_rules as S
 
 
 def decode_thumb(b64):
@@ -28,13 +29,14 @@ def decode_thumb(b64):
 
 
 class PushHeartbeatService:
-    def __init__(self, machines=None, health=None, samples=None, thumbs=None, clock=None):
+    def __init__(self, machines=None, health=None, samples=None, thumbs=None, clock=None, summaries=None):
         from ecentric_workspace.ai_tools.features.ai_live.application import _deps_monitor as D
         self.machines = machines or D.machines()
         self.health = health or D.health()
         self.samples = samples or D.samples()
         self.thumbs = thumbs or D.thumbs()
         self.clock = clock or R.now_ts
+        self._summaries = summaries               # fix10d: tong ket cuoi phien gui kem tin hieu (nap muon)
 
     def execute(self, user, payload):
         p = payload if isinstance(payload, dict) else (_common.parse_json(payload, "tín hiệu") or {})
@@ -45,6 +47,7 @@ class PushHeartbeatService:
         if not isinstance(lives, list) or len(lives) > C.MAX_HB_LIVES:
             raise C.AiLiveError(C.MonMsg.BAD_HB % "lives")
         now, allowed, top = self.clock(), _common.machine_brands(m), p.get("thumb_b64")
+        self._m = m
         saved, skipped = [], []
         for lv in lives:
             why = self._one(m["machine_code"], allowed, lv if isinstance(lv, dict) else {}, top, len(lives), now)
@@ -67,9 +70,12 @@ class PushHeartbeatService:
         row = {"machine": machine, "live": live, "brand": brand, "state": state, "last_seen_ts": now,
                "app_version": str(lv.get("app_version") or "")[:20], "metrics": metrics, "alerts": alerts,
                "schedule": R.sanitize_schedule(lv["schedule"]) if "schedule" in lv else (prev.get("schedule") or [])}
+        if "detail" in lv:                       # fix10d: chi tiet phien (dang phat, sap phat, hang cau hoi...) - ghi de
+            row["detail"] = S.sanitize_detail(lv.get("detail"), now) or {}
         obs = lv.get("thumb_b64") or (top.get(live) if isinstance(top, dict) else (top if n_lives == 1 else None))
         bad = []
-        for kind, b64 in (("obs", obs), ("phone", lv.get("phone_thumb_b64"))):
+        for kind, b64 in (("obs", obs), ("phone", lv.get("phone_thumb_b64")), ("platform", lv.get("platform_thumb_b64")),
+                         ("stream", lv.get("stream_thumb_b64"))):
             if not b64:
                 continue
             try:
@@ -83,4 +89,16 @@ class PushHeartbeatService:
         if now - self.samples.last_ts(key) >= C.SAMPLE_EVERY_S:
             top_level = max([C.LEVEL_RANK[a["level"]] for a in alerts] or [0])
             self.samples.insert(key, now, {3: C.Level.CRIT, 2: C.Level.WARN}.get(top_level, C.Level.OK), metrics)
+        if lv.get("session_summary"):
+            try:
+                self._summary_svc().save(self._m, live, brand, lv["session_summary"])
+            except C.AiLiveError as e:
+                bad.append("tổng kết phiên (%s)" % e)
         return ("ảnh hỏng: " + ", ".join(bad)) if bad else None
+
+    def _summary_svc(self):
+        if self._summaries is None:
+            from ecentric_workspace.ai_tools.features.ai_live.application.push_session_summary_service import \
+                PushSessionSummaryService
+            self._summaries = PushSessionSummaryService(machines=self.machines, clock=self.clock)
+        return self._summaries

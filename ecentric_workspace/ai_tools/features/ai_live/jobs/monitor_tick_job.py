@@ -23,7 +23,8 @@ def run():
             frappe.db.rollback()
             frappe.log_error(title="ai_live monitor tick: %s" % row.get("key"))
     try:
-        svc.purge()
+        from ecentric_workspace.ai_tools.features.ai_live.application import _deps_session as DS
+        svc.purge(commands=DS.commands(), logs=DS.logs())
         frappe.db.commit()
     except Exception:
         frappe.db.rollback()

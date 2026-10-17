@@ -177,7 +177,8 @@ MAX_ALERT_TEXT = 200
 MAX_SLOTS = 14
 MAX_THUMB_BYTES = 200 * 1024
 THUMB_DIR = "ai_live_thumbs"
-THUMB_KINDS = ("obs", "phone")
+THUMB_KINDS = ("obs", "phone", "platform", "stream")  # fix10d: platform = xem truoc Seller Center / LIVE Manager (extension),
+#                                                       stream = khung hinh luong cong khai TikTok
 
 #: Mau so lieu toi da 1 dong / 60 s moi live; giu 24 gio. Lich su canh bao giu 14 ngay.
 SAMPLE_EVERY_S = 60
@@ -219,3 +220,69 @@ class MonMsg:
 
 #: Ten hien thi cua ma canh bao do may chu tu sinh (app gui text rieng cho ma cua no).
 SERVER_CODES = {"offline": "Mất tín hiệu", "back": "Có tín hiệu lại"}
+
+
+# ------------------------------------------------------------------ Phien live + Lich live (fix10d) ---
+SESSION = "EC AI Live Session"
+SESSION_SLOT = "EC AI Live Session Slot"
+COMMAND = "EC AI Live Command"
+
+PLATFORMS = ("TikTok", "Shopee")
+#: Ma phien live = ma live tren app (lives.<id>) -> cung luat voi LIVE_RE.
+DEFAULT_MAX_LIVES = 2
+MAX_SESSIONS = 300
+MAX_SESSION_SLOTS = 40
+TIKTOK_USER_RE = re.compile(r"^@?[A-Za-z0-9_.]{2,24}$")
+PHONE_SERIAL_RE = re.compile(r"^[A-Za-z0-9_.:-]{3,64}$")
+WATCH_URL_RE = re.compile(r"^https://[^\s]{4,400}$")
+#: Man "Xem nhu khach": thu tu nguon anh phia khach + nhan; anh qua 2 phut -> "mat hinh".
+VIEWER_SOURCES = ("platform", "stream", "phone")
+VIEWER_STALE_S = 120
+OBS_PORT_RANGE = (1024, 65535)
+
+
+class SessionStatus:
+    ON_AIR = "on_air"
+    SCHEDULED = "scheduled"
+    OFF = "off"
+    PROBLEM = "problem"
+
+
+#: Lenh tu trang ERP cho app tren may phat (app hoi pull_commands moi ~10 s).
+CMD_ACTIONS = ("pause_ai", "resume_ai", "skip_clip", "play_faq")
+CMD_QUEUED, CMD_SENT, CMD_DONE, CMD_FAILED, CMD_EXPIRED = "Queued", "Sent", "Done", "Failed", "Expired"
+CMD_TTL_S = 120
+CMD_PULL_MAX = 20
+CMD_KEEP_DAYS = 7
+MAX_CMD_ARG = 120
+
+#: Gioi han khoi "detail" app gui kem tin hieu (chi luu ban moi nhat).
+DETAIL_LIMITS = {"next": 10, "queue": 20, "recent": 30, "greeted": 20}
+MAX_DETAIL_TEXT = 160
+DETAIL_COUNTERS = ("comments", "answered", "greeted", "faq", "ai")
+
+
+class SessMsg:
+    BAD_ID = "Mã phiên live không hợp lệ (chữ, số, . _ -; tối đa 40 ký tự)."
+    BAD_PLATFORM = "Sàn phải là TikTok hoặc Shopee."
+    NEED_TIKTOK = "Phiên TikTok cần username kênh."
+    BAD_TIKTOK = "Username TikTok không hợp lệ: %s"
+    BAD_PORT = "Cổng OBS phải từ 1024 đến 65535."
+    PORT_TAKEN = "Cổng OBS %s đã dùng cho phiên %s trên cùng máy."
+    BAD_SLOT = "Khung giờ %d: %s"
+    SLOT_OVERLAP = "Khung giờ %d trùng với khung %d của chính phiên này."
+    CAPACITY = "Máy %s chỉ chạy tối đa %d live cùng lúc – %s trùng giờ với: %s."
+    NOT_FOUND = "Không tìm thấy phiên live %s."
+    BAD_CMD = "Lệnh không hợp lệ."
+    NO_MACHINE = "Phiên live chưa gán máy phát."
+    CMD_NOT_FOUND = "Không tìm thấy lệnh %s."
+    BAD_WEEK = "Tuần không hợp lệ (dùng ngày thứ Hai, dạng YYYY-MM-DD)."
+    BRAND_OFF = "Brand %s chưa giao cho máy %s."
+    BAD_URL = "Link xem phiên phải bắt đầu bằng https://"
+    BAD_SERIAL = "Mã điện thoại (adb serial) không hợp lệ."
+
+#: Tong ket cuoi phien (app gui khi phien ket thuc) - lich su phien, giu 400 ngay.
+SESSION_LOG = "EC AI Live Session Log"
+SUMMARY_REASONS = ("schedule_end", "manual", "error", "restart", "other")
+LOG_KEEP_DAYS = 400
+MAX_HISTORY_DAYS = 90

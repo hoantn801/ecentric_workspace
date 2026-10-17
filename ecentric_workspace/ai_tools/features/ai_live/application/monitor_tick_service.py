@@ -43,10 +43,15 @@ class MonitorTickService:
                 sent += self._send(row, r["code"], C.Level.CRIT, r["text"], now)
         return sent
 
-    def purge(self):
+    def purge(self, commands=None, logs=None):
+        """commands / logs (fix10d): repo lenh cho app + lich su phien - job truyen vao; khong truyen thi bo qua."""
         now = self.clock()
         self.samples.purge(now - C.SAMPLE_KEEP_HOURS * 3600)
         self.alerts.purge(now - C.ALERT_KEEP_DAYS * 86400)
+        if commands is not None:
+            commands.purge(now - C.CMD_KEEP_DAYS * 86400)
+        if logs is not None:
+            logs.purge(now - C.LOG_KEEP_DAYS * 86400)
 
     def _send(self, row, code, level, text, now, dedupe=True):
         akey = "%s|%s" % (row["key"], code)

@@ -1,0 +1,216 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-10-18 00:00:00.000000",
+ "description": "Tổng kết mỗi lần chạy của một phiên live (app gửi khi phiên kết thúc). Giữ 400 ngày.",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "log_key",
+  "live",
+  "machine",
+  "brand",
+  "app_session",
+  "started_at",
+  "col_1",
+  "started_ts",
+  "ended_ts",
+  "duration_s",
+  "reason",
+  "sec_counts",
+  "comments",
+  "answered",
+  "greeted",
+  "col_2",
+  "faq",
+  "ai",
+  "cost_usd",
+  "alerts"
+ ],
+ "fields": [
+  {
+   "fieldname": "log_key",
+   "fieldtype": "Data",
+   "label": "Khoá (máy__live__phiên app)",
+   "unique": 1,
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "live",
+   "fieldtype": "Data",
+   "label": "Phiên",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "machine",
+   "fieldtype": "Data",
+   "label": "Máy phát",
+   "in_standard_filter": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "brand",
+   "fieldtype": "Data",
+   "label": "Brand",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "app_session",
+   "fieldtype": "Data",
+   "label": "Mã lần chạy (app)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "started_at",
+   "fieldtype": "Datetime",
+   "label": "Bắt đầu",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "started_ts",
+   "fieldtype": "Float",
+   "label": "Bắt đầu (epoch)",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "ended_ts",
+   "fieldtype": "Float",
+   "label": "Kết thúc (epoch)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "duration_s",
+   "fieldtype": "Int",
+   "label": "Thời lượng (giây)",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Data",
+   "label": "Lý do kết thúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sec_counts",
+   "fieldtype": "Section Break",
+   "label": "Số liệu"
+  },
+  {
+   "fieldname": "comments",
+   "fieldtype": "Int",
+   "label": "Comment",
+   "read_only": 1
+  },
+  {
+   "fieldname": "answered",
+   "fieldtype": "Int",
+   "label": "Đã trả lời",
+   "read_only": 1
+  },
+  {
+   "fieldname": "greeted",
+   "fieldtype": "Int",
+   "label": "Đã chào",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_2",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "faq",
+   "fieldtype": "Int",
+   "label": "Clip FAQ",
+   "read_only": 1
+  },
+  {
+   "fieldname": "ai",
+   "fieldtype": "Int",
+   "label": "Trả lời AI",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cost_usd",
+   "fieldtype": "Float",
+   "label": "Chi phí (USD)",
+   "in_list_view": 1,
+   "read_only": 1,
+   "precision": "4"
+  },
+  {
+   "fieldname": "alerts",
+   "fieldtype": "Int",
+   "label": "Số báo động",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-10-18 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC AI Live Session Log",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  },
+  {
+   "role": "EC AI Video Admin",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  },
+  {
+   "role": "EC AI Content",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 0,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

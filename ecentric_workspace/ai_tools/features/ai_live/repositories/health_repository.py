@@ -5,24 +5,28 @@ import json
 
 from ecentric_workspace.ai_tools.features.ai_live import constants as C
 
-_JSON = ("metrics", "alerts", "schedule")
+_JSON = ("metrics", "alerts", "schedule", "detail")
+_EMPTY = {"metrics": dict, "alerts": list, "schedule": list, "detail": dict}
 
 
 def _row(d):
     out = {"key": d.get("name"), "machine": d.get("machine"), "live": d.get("live"), "brand": d.get("brand") or "",
            "state": d.get("state") or "", "app_version": d.get("app_version") or "",
            "last_seen_ts": float(d.get("last_seen_ts") or 0), "obs_thumb_ts": float(d.get("obs_thumb_ts") or 0),
-           "phone_thumb_ts": float(d.get("phone_thumb_ts") or 0), "offline_alerted": int(d.get("offline_alerted") or 0)}
+           "phone_thumb_ts": float(d.get("phone_thumb_ts") or 0),
+           "platform_thumb_ts": float(d.get("platform_thumb_ts") or 0), "stream_thumb_ts": float(d.get("stream_thumb_ts") or 0),
+           "offline_alerted": int(d.get("offline_alerted") or 0)}
     for k in _JSON:
         try:
-            out[k] = json.loads(d.get(k + "_json") or "null") or ([] if k != "metrics" else {})
+            out[k] = json.loads(d.get(k + "_json") or "null") or _EMPTY[k]()
         except ValueError:
-            out[k] = [] if k != "metrics" else {}
+            out[k] = _EMPTY[k]()
     return out
 
 
 _FIELDS = ["name", "machine", "live", "brand", "state", "app_version", "last_seen_ts", "obs_thumb_ts",
-           "phone_thumb_ts", "offline_alerted", "metrics_json", "alerts_json", "schedule_json"]
+           "phone_thumb_ts", "platform_thumb_ts", "stream_thumb_ts", "offline_alerted", "metrics_json", "alerts_json", "schedule_json",
+           "detail_json"]
 
 
 def local_dt(ts):

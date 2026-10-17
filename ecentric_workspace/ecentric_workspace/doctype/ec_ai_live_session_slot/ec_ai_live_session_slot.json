@@ -1,0 +1,65 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-10-18 00:00:00.000000",
+ "description": "Một khung giờ của phiên live (giờ Việt Nam).",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "days",
+  "on_date",
+  "slot_start",
+  "slot_end"
+ ],
+ "fields": [
+  {
+   "fieldname": "days",
+   "fieldtype": "Data",
+   "label": "Thứ trong tuần",
+   "in_list_view": 1,
+   "columns": 2,
+   "description": "1 = thứ Hai … 7 = Chủ nhật; vd 1-5 hoặc 1,3,5. Trống = mọi ngày. Bỏ qua nếu có Ngày cụ thể."
+  },
+  {
+   "fieldname": "on_date",
+   "fieldtype": "Date",
+   "label": "Ngày cụ thể",
+   "in_list_view": 1,
+   "columns": 2,
+   "description": "Chỉ live đúng ngày này (không lặp hằng tuần)."
+  },
+  {
+   "fieldname": "slot_start",
+   "fieldtype": "Data",
+   "label": "Bắt đầu (HH:MM)",
+   "in_list_view": 1,
+   "reqd": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "slot_end",
+   "fieldtype": "Data",
+   "label": "Kết thúc (HH:MM)",
+   "in_list_view": 1,
+   "reqd": 1,
+   "columns": 2,
+   "description": "Nhỏ hơn giờ bắt đầu = qua đêm (vd 22:00 → 02:00)."
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-10-18 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC AI Live Session Slot",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

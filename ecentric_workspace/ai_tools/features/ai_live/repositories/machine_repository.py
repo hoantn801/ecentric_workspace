@@ -15,7 +15,17 @@ class MachineRepository:
             return None
         doc = frappe.get_doc(C.MACHINE, code)
         return {"machine_code": doc.name, "label": doc.label, "enabled": int(doc.enabled or 0),
-                "user": doc.user, "brands": doc.brands or ""}
+                "user": doc.user, "brands": doc.brands or "",
+                "max_lives": int(doc.get("max_lives") or 0) or C.DEFAULT_MAX_LIVES}
+
+    def all(self):
+        """Moi may phat (cho trang Phien live / Lich live): ma, ten, bat/tat, so live toi da, brand."""
+        import frappe
+        rows = frappe.get_all(C.MACHINE, fields=["name", "label", "enabled", "max_lives", "brands"],
+                              order_by="name asc", limit_page_length=200)
+        return [{"machine_code": r["name"], "label": r.get("label") or "", "enabled": int(r.get("enabled") or 0),
+                 "max_lives": int(r.get("max_lives") or 0) or C.DEFAULT_MAX_LIVES, "brands": r.get("brands") or ""}
+                for r in rows]
 
     def upsert(self, code, label, brands):
         import frappe

@@ -11,6 +11,7 @@
   "machine_code",
   "label",
   "enabled",
+  "max_lives",
   "brands",
   "user"
  ],
@@ -38,6 +39,14 @@
    "in_list_view": 1
   },
   {
+   "fieldname": "max_lives",
+   "fieldtype": "Int",
+   "label": "Số live tối đa cùng lúc",
+   "default": "2",
+   "in_list_view": 1,
+   "description": "Lịch live không cho xếp quá số này trên máy (card 5060: 2)."
+  },
+  {
    "fieldname": "brands",
    "fieldtype": "Small Text",
    "label": "Brand giao cho máy",
@@ -53,7 +62,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-10-17 00:00:00.000000",
+ "modified": "2026-10-18 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Ecentric Workspace",
  "name": "EC AI Live Machine",

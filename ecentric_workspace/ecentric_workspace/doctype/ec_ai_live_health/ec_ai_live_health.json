@@ -22,7 +22,10 @@
   "phone_thumb_ts",
   "metrics_json",
   "alerts_json",
-  "schedule_json"
+  "schedule_json",
+  "platform_thumb_ts",
+  "stream_thumb_ts",
+  "detail_json"
  ],
  "fields": [
   {
@@ -126,13 +129,31 @@
    "fieldtype": "Long Text",
    "label": "Lịch live (JSON)",
    "read_only": 1
+  },
+  {
+   "fieldname": "platform_thumb_ts",
+   "fieldtype": "Float",
+   "label": "Ảnh từ sàn (epoch)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "stream_thumb_ts",
+   "fieldtype": "Float",
+   "label": "Ảnh luồng công khai (epoch)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "detail_json",
+   "fieldtype": "Long Text",
+   "label": "Chi tiết phiên (JSON)",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 0,
  "issingle": 0,
  "istable": 0,
  "links": [],
- "modified": "2026-10-18 00:00:00.000000",
+ "modified": "2026-10-18 00:00:01.000000",
  "modified_by": "Administrator",
  "module": "Ecentric Workspace",
  "name": "EC AI Live Health",

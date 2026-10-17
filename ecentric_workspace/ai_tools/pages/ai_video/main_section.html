@@ -265,7 +265,7 @@ tr.on td{background:var(--navy-wash)}
   const LS_USD_S = 0.012;
   const DEF_PROMPT = "Nữ MC người Việt khoảng 25 tuổi, áo sơ mi trắng, tóc buộc gọn, ngồi sau bàn trắng, hai tay đặt trên bàn, nhìn thẳng camera, cười mỉm nhẹ. Nền phông xanh lá đồng màu (chroma key), ánh sáng studio dịu, khung dọc 9:16, thấy từ giữa đùi trở lên, không chữ, không logo.";
   const L = { kits: [], brands: [], brand: "", hosts: null, models: [], proposal: [], kit: null, dirty: false, timer: null, busy: false, studio: null, refs: [], mplan: null };
-  const isMine = (h) => /^(kits|kit\/|hosts|monitor)/.test(h || "");
+  const isMine = (h) => /^(kits|kit\/|hosts|monitor|lives|live\/|schedule|history|watch)/.test(h || "");  /* 18/10 fix10d: Phien live / Lich live */
   const hash = () => location.hash.replace(/^#\/?/, "");
   const view = () => $("av-view");
 
@@ -312,6 +312,7 @@ tr.on td{background:var(--navy-wash)}
     clearTimeout(L.timer); h = h == null ? hash() : h;
     if (/^hosts/.test(h)) return loadHosts();
     if (/^monitor/.test(h)) return window.ecAiLiveMon ? window.ecAiLiveMon.load(h) : fail("Màn Giám sát chưa tải xong, tải lại trang.");
+    if (/^(lives|live\/|schedule|history|watch)/.test(h)) return window.ecAiLiveSess ? window.ecAiLiveSess.load(h) : fail("Màn Phiên live chưa tải xong, tải lại trang.");
     const m = /^kit\/(.+)$/.exec(h); if (m) return loadKit(decodeURIComponent(m[1]));
     return loadKits();
   }
@@ -389,7 +390,7 @@ tr.on td{background:var(--navy-wash)}
     k.products.forEach((p) => { add(p.main_free); add(p.main_hold); }); k.faq.forEach((q) => add(q.videos)); GEN.forEach(([g]) => add(k.generic[g]));
     return { n, s, usd: s * LS_USD_S };
   }
-  function sumHtml() { const x = summary(); return `<span><b>${L.kit.products.length}</b> sản phẩm</span><span><b>${x.n}</b> video sẽ dựng</span><span><b>${fmt(x.s / 60, 1)}</b> phút voice</span><span>Lipsync nếu chạy fal ~<b>$${x.usd.toFixed(2)}</b> (máy GPU riêng gần như không tốn)</span>${L.dirty ? '<span class="lk-dirty">● Chưa lưu</span>' : ""}`; }
+  function sumHtml() { const x = summary(); return `<span><b>${L.kit.products.length}</b> sản phẩm</span><span><b>${x.n}</b> video sẽ dựng</span><span><b>${fmt(x.s / 60, 1)}</b> phút voice</span><span>Lipsync: tính theo số giây video</span>${L.dirty ? '<span class="lk-dirty">● Chưa lưu</span>' : ""}`; }
   function renderStatus() {
     const el = $("lk-status"); if (!el || !L.kit) return; const k = L.kit, st = k.state || {}, p = st.progress || {};
     const pill = `<span class="av-pill ${ST_PILL[k.status] || "p-idle"}">${esc(k.status || "Nháp")}</span>`;
@@ -451,7 +452,7 @@ tr.on td{background:var(--navy-wash)}
     const x = summary(), k = L.kit;
     if (!k.host_key) return toast("Chưa chọn host.", true);
     if (!x.n) return toast("Chưa có voice nào để dựng.", true);
-    if (!confirm(`Dựng ${x.n} video (${fmt(x.s / 60, 1)} phút voice) cho brand ${k.brand}?\n\nMáy chạy video ghép motion có sẵn của host, lipsync, cắt điểm nghỉ ${k.break_sec} giây ở cuối câu, rồi ghi Bộ live vào Thư mục Bộ live của brand. Lipsync nếu chạy fal ~$${x.usd.toFixed(2)}; máy GPU riêng gần như không tốn.`)) return;
+    if (!confirm(`Dựng ${x.n} video (${fmt(x.s / 60, 1)} phút voice) cho brand ${k.brand}?\n\nMáy chạy video ghép motion có sẵn của host, lipsync, cắt điểm nghỉ ${k.break_sec} giây ở cuối câu, rồi ghi Bộ live vào Thư mục Bộ live của brand. Lipsync tính theo số giây video.`)) return;
     if (L.dirty && !(await saveKit(null))) return;
     const r = await act(btn, "build_kit", { name: k.name }, "Đã gửi – đang chuyển voice sang máy chạy video"); if (r) loadKit(k.name);
   }
@@ -804,6 +805,564 @@ tr.on td{background:var(--navy-wash)}
   window.ecAiLiveMon = { load };
 })();
 </script>
+<style id="ec-ailive-sess-css">
+#av-view.ls-wide{max-width:none}
+#ec-aiv-root a.av-chip,#ec-aiv-root a.av-gold,#ec-aiv-root a.av-btn{text-decoration:none}
+.ls-tabs{display:flex;flex-wrap:wrap;gap:6px}
+.ls-bar{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between}
+.ls-filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.ls-filters select{width:auto!important;min-width:130px}
+.ls-upd{font-size:12.5px;color:var(--ink3)} .ls-upd.bad{color:var(--bad);font-weight:600}
+.ls-bulk{position:sticky;top:8px;z-index:5;display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--navy-wash);border:1px solid var(--navy-line);border-radius:10px;padding:8px 12px}
+.ls-bulk[hidden]{display:none}
+.ls-table td .t{font-weight:600} .ls-table td .s{display:block;font-size:12px;color:var(--ink3)}
+.ls-table tr[data-ls-open]{cursor:pointer} .ls-table tr[data-ls-open]:hover td{background:var(--navy-wash)}
+.ls-why{font-size:11.5px;color:var(--bad);display:block;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ls-grid{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:14px;align-items:start}
+.ls-col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.ls-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;box-shadow:var(--shadow);min-width:0}
+.ls-card h3{margin:0 0 8px;font-size:13px;color:var(--ink2);display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.ls-card h3 small{font-weight:400;color:var(--ink3)}
+.ls-shots{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.ls-shot{position:relative;aspect-ratio:9/16;border-radius:8px;background:var(--tile);overflow:hidden;display:grid;place-items:center;color:var(--ink3);font-size:11.5px;text-align:center;padding:6px}
+.ls-shot img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#111}
+.ls-shot i{position:absolute;left:6px;bottom:6px;font-style:normal;font-size:10.5px;background:rgba(17,24,39,.72);color:#fff;border-radius:5px;padding:1px 6px}
+.ls-now b{font-size:15px} .ls-prog{height:6px;border-radius:3px;background:var(--line-soft);overflow:hidden;margin-top:8px}
+.ls-prog i{display:block;height:100%;background:var(--navy);width:0;transition:width .9s linear}
+.ls-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:13px}
+.ls-list li{display:flex;gap:8px;justify-content:space-between;border-bottom:1px solid var(--line-soft);padding-bottom:5px;min-width:0}
+.ls-list li span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.ls-list li em{font-style:normal;color:var(--ink3);white-space:nowrap;font-size:12px}
+.ls-ctl{display:flex;flex-wrap:wrap;gap:8px}
+.ls-kpi{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;text-align:center}
+.ls-kpi div{background:var(--ground);border-radius:8px;padding:6px 4px;font-size:11.5px;color:var(--ink3)} .ls-kpi b{display:block;font-size:16px;color:var(--ink)}
+.ls-charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.ls-chart h4{margin:0 0 2px;font-size:12px;color:var(--ink2);display:flex;justify-content:space-between} .ls-chart svg{width:100%;height:48px;display:block}
+/* lich tuan */
+.lc-head{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+.lc-legend{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:var(--ink3);align-items:center}
+.lc-legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:4px}
+.lc-day{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.lc-day.today{border-color:var(--navy)}
+.lc-dh{display:flex;justify-content:space-between;align-items:center;padding:6px 12px;background:var(--ground);font-weight:600;font-size:13px}
+.lc-lane{display:grid;grid-template-columns:150px 1fr;border-top:1px solid var(--line-soft);min-height:38px}
+.lc-ln{padding:6px 10px;font-size:12px;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-right:1px solid var(--line-soft)}
+.lc-ln small{display:block;color:var(--ink4);font-size:11px}
+.lc-track{position:relative;min-height:38px;cursor:crosshair;touch-action:none;
+  background-image:repeating-linear-gradient(90deg,transparent 0,transparent calc(100%/24 - 1px),var(--line-soft) calc(100%/24 - 1px),var(--line-soft) calc(100%/24))}
+.lc-hours{display:grid;grid-template-columns:150px 1fr;font-size:10.5px;color:var(--ink4)}
+.lc-hours div:last-child{display:grid;grid-template-columns:repeat(24,1fr)} .lc-hours span{padding-left:2px}
+.lc-blk{position:absolute;top:4px;bottom:4px;border-radius:6px;background:var(--navy-wash);border:1px solid var(--navy-line);color:var(--navy-d);font-size:11.5px;padding:2px 6px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:grab;touch-action:none;user-select:none}
+.lc-blk.date{background:#fff7e0;border-color:#f0d58a;color:var(--gold-ink)}
+.lc-blk.off{opacity:.45}
+.lc-blk.bad{background:var(--bad-bg);border-color:var(--bad);color:var(--bad);font-weight:600}
+.lc-blk.cont{cursor:default;border-style:dashed}
+.lc-blk.drag{opacity:.75;cursor:grabbing;box-shadow:0 4px 12px rgba(17,24,39,.2);z-index:3}
+.lc-sel{position:absolute;top:4px;bottom:4px;background:rgba(44,61,166,.18);border:1px dashed var(--navy);border-radius:6px;pointer-events:none}
+.lc-desk{display:flex;flex-direction:column;gap:10px}
+.lc-mob{display:none}
+.lc-chip{display:flex;justify-content:space-between;gap:8px;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12.5px;background:var(--surface);cursor:pointer;width:100%;text-align:left}
+.lc-chip.bad{border-color:var(--bad);background:var(--bad-bg)}
+/* xem nhu khach (toan man hinh) */
+.vw{position:fixed;inset:0;z-index:45;background:#0b0f1a;color:#e5e7eb;display:flex;flex-direction:column}
+.vw-bar{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between;padding:8px 14px;font-size:13px}
+.vw-bar b{font-size:15px;color:#fff} .vw-bar .av-btn{background:#1f2937;color:#fff;border-color:#374151}
+.vw-grid{flex:1;display:grid;gap:8px;padding:0 14px 14px;align-content:center;justify-content:center;min-height:0}
+.vw-t{position:relative;background:#111827;border-radius:10px;overflow:hidden;cursor:pointer;aspect-ratio:9/16;border:1px solid #1f2937}
+.vw-t img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.vw-t .h{position:absolute;left:0;right:0;top:0;padding:6px 8px;background:linear-gradient(rgba(0,0,0,.65),transparent);font-size:12px;display:flex;justify-content:space-between;gap:6px}
+.vw-t .h span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vw-t .src{position:absolute;left:6px;bottom:6px;font-size:11px;background:rgba(0,0,0,.7);border-radius:5px;padding:1px 7px}
+.vw-t.stale img{filter:grayscale(1) brightness(.45)}
+.vw-t .lost{position:absolute;inset:0;display:none;place-items:center;font-weight:700;color:#fca5a5;font-size:13px;text-align:center;padding:8px}
+.vw-t.stale .lost{display:grid}
+.vw-t.prob{border-color:#dc2626}
+.vw-big{max-width:min(92vw,560px)!important;background:#0b0f1a!important;color:#e5e7eb}
+.vw-big img{width:100%;max-height:74vh;object-fit:contain;border-radius:8px;background:#000}
+@media (max-width:900px){.ls-grid{grid-template-columns:1fr}}
+@media (max-width:720px){
+  .ls-table thead{display:none} .ls-table,.ls-table tbody,.ls-table tr,.ls-table td{display:block;width:100% }
+  .ls-table tr{border:1px solid var(--line);border-radius:10px;margin-bottom:8px;padding:6px 8px;background:var(--surface)}
+  .ls-table td{border:0!important;padding:3px 4px!important} .ls-table td[data-l]::before{content:attr(data-l) ": ";color:var(--ink3);font-size:11.5px}
+  .ls-why{max-width:none;white-space:normal}
+  .lc-desk{display:none} .lc-mob{display:flex;flex-direction:column;gap:10px}
+  .ls-kpi{grid-template-columns:repeat(2,minmax(0,1fr))} .ls-charts{grid-template-columns:1fr}
+}
+</style>
+<script>
+/* AI Live - Phien live + Lich live + Lich su phien (18/10, fix10d): route #/lives, #/live/<ma>, #/schedule[/<ngay>],
+   #/history. Script rieng; window.ecAiLive.load goi window.ecAiLiveSess.load. Nguon goc phien + lich = ERP
+   (DocType EC AI Live Session); chi tiet "dang phat / sap phat / hang cau hoi" do app gui kem tin hieu. */
+(() => {
+  "use strict";
+  const API = "/api/method/ecentric_workspace.ai_tools.features.ai_live.controllers.api.";
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const ST = { problem: ["Có vấn đề", "p-bad"], on_air: ["Đang live", "p-ok"], scheduled: ["Có lịch", "p-navy"], off: ["Tắt / chưa có lịch", "p-idle"] };
+  const APP = { live: "Đang live", preflight: "Kiểm tra trước giờ", ending: "Đang kết thúc", idle: "Chờ", stopped: "Đã dừng", error: "Lỗi app" };
+  const ACT = { pause_ai: "Tạm dừng AI", resume_ai: "Tiếp tục AI", skip_clip: "Bỏ clip đang phát", play_faq: "Phát FAQ ngay" };
+  const CMD_ST = { Queued: ["Chờ app nhận", "p-idle"], Sent: ["App đã nhận", "p-run"], Done: ["Xong", "p-ok"], Failed: ["Lỗi", "p-bad"], Expired: ["Hết hạn", "p-warn"] };
+  const KIND = { main: "Video chính", faq: "FAQ", answer: "Trả lời", greet: "Chào", readback: "Đọc câu hỏi", generic: "Clip chung", putdown: "Hạ SP", pickup: "Nâng SP" };
+  const REASON = { schedule_end: "Hết giờ theo lịch", manual: "Dừng tay", error: "Lỗi", restart: "Khởi động lại", other: "Khác" };
+  const WD = ["", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ nhật"];
+  const P = { list: null, f: { brand: "", platform: "", machine: "", status: "" }, sel: new Set(), detail: null, week: null, wk: "", by: "machine",
+    hist: null, hf: { brand: "", days: 7 }, timer: null, tick: null, failed: 0, thumbs: new Map(), drag: null, skew: 0 };
+  const hash = () => location.hash.replace(/^#\/?/, "");
+  const on = () => /^(lives|live\/|schedule|history|watch)/.test(hash());
+  const view = () => $("av-view");
+
+  const serverMsg = (b) => { try { const a = JSON.parse(b._server_messages || "[]"); if (a.length) return JSON.parse(a[0]).message || ""; } catch (e) { /* bo qua */ } return ""; };
+  async function call(method, args, http) {
+    const opts = { credentials: "same-origin", headers: { Accept: "application/json" } };
+    let url = API + method;
+    if (http === "GET") { const qs = new URLSearchParams(Object.entries(args || {}).filter(([, v]) => v != null && v !== "")).toString(); if (qs) url += "?" + qs; }
+    else { opts.method = "POST"; opts.headers["Content-Type"] = "application/json"; opts.headers["X-Frappe-CSRF-Token"] = (window.frappe && window.frappe.csrf_token) || ""; opts.body = JSON.stringify(args || {}); }
+    let res;
+    try { res = await fetch(url, opts); } catch (e) { return { success: false, message: "Mất kết nối mạng.", data: null }; }
+    if (res.status === 401) return { success: false, message: "Phiên đăng nhập hết hạn – tải lại trang.", data: null };
+    let body = {}; try { body = await res.json(); } catch (e) { /* khong phai JSON */ }
+    const m = body.message; if (m && typeof m === "object" && typeof m.success === "boolean") return m;
+    if (!res.ok) return { success: false, message: serverMsg(body) || ("Máy chủ báo lỗi (" + res.status + ")."), data: null };
+    return { success: true, message: "", data: m };
+  }
+  let tt; function toast(msg, err) { const t = $("av-toast"); if (!t) return; t.textContent = msg; t.className = "av-toast show" + (err ? " err" : ""); clearTimeout(tt); tt = setTimeout(() => { t.className = "av-toast"; }, err ? 6000 : 2600); }
+  const vn = (ts) => new Date((ts + 7 * 3600) * 1000);
+  const hhmm = (ts) => { const d = vn(ts); return String(d.getUTCHours()).padStart(2, "0") + ":" + String(d.getUTCMinutes()).padStart(2, "0"); };
+  const dmy = (ts) => { const d = vn(ts); return String(d.getUTCDate()).padStart(2, "0") + "/" + String(d.getUTCMonth() + 1).padStart(2, "0"); };
+  const ago = (s) => { s = Math.max(0, Math.round(Number(s) || 0)); if (s < 60) return s + " giây"; if (s < 3600) return Math.floor(s / 60) + " phút"; if (s < 86400) return Math.floor(s / 3600) + " giờ"; return Math.floor(s / 86400) + " ngày"; };
+  const dur = (s) => { s = Math.round(Number(s) || 0); const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60); return h ? h + " giờ " + (m ? m + " phút" : "") : m + " phút"; };
+  const num = (v, d) => (v == null || v === "" ? "–" : Number(v).toLocaleString("vi-VN", { maximumFractionDigits: d || 0 }));
+  const usd = (v) => (v == null ? "–" : "$" + Number(v).toFixed(2));
+  const nowS = () => Date.now() / 1000 + P.skew;
+  const pill = (st) => { const x = ST[st] || ST.off; return `<span class="av-pill ${x[1]}">${x[0]}</span>`; };
+  const nextTxt = (n, now) => { if (!n) return "–"; if (n.start <= now) return "Đang trong khung, đến " + hhmm(n.end); const d0 = dmy(now), d1 = dmy(n.start); return (d0 === d1 ? "Hôm nay " : d1 + " ") + hhmm(n.start) + "–" + hhmm(n.end); };
+  function stop() { clearTimeout(P.timer); clearInterval(P.tick); P.timer = P.tick = null; }
+  const tabs = (cur) => `<div class="ls-tabs">${[["lives", "Phiên live"], ["schedule", "Lịch live"], ["history", "Lịch sử phiên"], ["monitor", "Giám sát"]]
+    .map(([r, l]) => `<a class="av-chip ${cur === r ? "on" : ""}" href="#/${r}">${l}</a>`).join("")}</div>`;
+  const crumbs = (x) => `<div class="av-eyebrow" style="color:rgba(255,255,255,.75)"><a href="#/" style="color:inherit">AI Video hàng loạt</a> / ${x}</div>`;
+  const fail = (title, msg, retry) => { view().innerHTML = `<section class="av-hero"><div>${crumbs(title)}<h1>${title}</h1></div></section><div class="av-callout bad"><div>${esc(msg || "Không tải được.")}</div></div>${retry ? `<div><button class="av-outline" data-ls="retry">Thử lại</button></div>` : ""}`; };
+
+  /* ---------- route ---------- */
+  async function load(h) {
+    stop(); h = h == null ? hash() : h;
+    if ($("av-modal") && !$("av-modal").hidden) closeModal();
+    const v = view(); v.classList.add("ls-wide");
+    let m = /^live\/(.+)$/.exec(h); if (m) return loadDetail(decodeURIComponent(m[1]));
+    m = /^schedule(?:\/(\d{4}-\d{2}-\d{2}))?/.exec(h); if (m) { P.wk = m[1] || P.wk || ""; return loadWeek(); }
+    if (/^history/.test(h)) return loadHistory();
+    if (/^watch/.test(h)) return loadWatch();
+    return loadList();
+  }
+  window.addEventListener("hashchange", () => { if (!/^watch/.test(hash())) closeWatch(); if (!on()) { stop(); const v = view(); if (v) v.classList.remove("ls-wide"); } });
+
+  /* ---------- danh sach phien ---------- */
+  async function loadList(quiet) {
+    if (!quiet && !P.list) view().innerHTML = `<section class="av-hero"><div>${crumbs("Phiên live")}<h1>Phiên live</h1><div class="sub">Đang tải…</div></div></section>`;
+    const r = await call("list_sessions", P.f, "GET");
+    if (!/^lives/.test(hash())) return;
+    if (r.success) { P.list = r.data; P.failed = 0; P.skew = r.data.server_time - Date.now() / 1000; renderList(); }
+    else { P.failed++; if (!P.list) return fail("Phiên live", r.message, true); stampList(); }
+    P.timer = setTimeout(() => loadList(true), 15000);
+  }
+  function stampList() { const el = $("ls-upd"); if (!el || !P.list) return; el.className = "ls-upd" + (P.failed ? " bad" : ""); el.textContent = P.failed ? `Mất kết nối – đang thử lại (số liệu lúc ${hhmm(P.list.server_time)})` : `Cập nhật ${hhmm(P.list.server_time)} · tự làm mới 15 giây/lần`; }
+  function renderList() {
+    const d = P.list, c = d.counts || {}, fa = d.facets || {}, now = d.server_time;
+    const stat = (k, label, hl) => `<button class="av-stat av-stat-btn${hl ? " hl" : ""}" data-ls-status="${P.f.status === k ? "" : k}"><span>${label}</span><b>${c[k] || 0}</b></button>`;
+    const sel = (key, label, opts) => `<select data-ls-f="${key}" aria-label="${label}"><option value="">${label}: tất cả</option>${opts.map(([v, l]) => `<option value="${esc(v)}" ${P.f[key] === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
+    P.sel = new Set([...P.sel].filter((id) => d.sessions.some((s) => s.id === id)));
+    view().innerHTML = `
+      <section class="av-hero"><div>${crumbs("Phiên live")}<h1>Phiên live</h1><div class="sub">Mọi phiên live của các brand trên mọi máy phát. Phiên + lịch tạo trên ERP, app trên máy phát tự lấy về. Bấm một dòng để xem chi tiết đang phát, sắp phát, câu hỏi của khách.</div></div>
+        <div class="av-stats">${stat("problem", "Có vấn đề", c.problem)}${stat("on_air", "Đang live")}${stat("scheduled", "Có lịch")}${stat("off", "Tắt")}</div></section>
+      ${tabs("lives")}
+      <div class="ls-bar"><div class="ls-filters">${sel("brand", "Brand", (fa.brands || []).map((b) => [b, b]))}${sel("platform", "Sàn", (fa.platforms || []).map((b) => [b, b]))}${sel("machine", "Máy", (fa.machines || []).map((m) => [m.code, m.code + (m.label ? " · " + m.label : "")]))}
+        ${P.f.status ? `<button class="av-chip on" data-ls-status="">${(ST[P.f.status] || ST.off)[0]} ✕</button>` : ""}</div>
+        <div class="av-row"><span class="ls-upd" id="ls-upd"></span><a class="av-btn" href="#/watch">👁 Xem như khách</a><a class="av-gold" href="/app/ec-ai-live-session/new" target="_blank" rel="noopener">+ Thêm phiên</a></div></div>
+      <div class="ls-bulk" id="ls-bulk" ${P.sel.size ? "" : "hidden"}><b id="ls-nsel">${P.sel.size}</b> phiên đã chọn<button class="av-btn sm" data-ls="bulk-on">Bật</button><button class="av-btn sm" data-ls="bulk-off">Tắt</button><button class="av-btn sm ghost" data-ls="bulk-clear">Bỏ chọn</button></div>
+      ${d.sessions.length ? `<div class="av-panel"><table class="ls-table"><thead><tr><th><input type="checkbox" data-ls-all aria-label="Chọn tất cả" ${d.sessions.every((s) => P.sel.has(s.id)) ? "checked" : ""}></th><th>Phiên</th><th>Brand · Sàn</th><th>Máy</th><th>Trạng thái</th><th>Khung kế tiếp</th><th>Người xem</th><th>Chi phí hôm nay</th><th>Đang phát</th></tr></thead><tbody>
+        ${d.sessions.map((s) => `<tr data-ls-open="${esc(s.id)}">
+          <td><input type="checkbox" data-ls-sel="${esc(s.id)}" ${P.sel.has(s.id) ? "checked" : ""} aria-label="Chọn ${esc(s.title)}"></td>
+          <td><span class="t">${esc(s.title)}</span><span class="s">${esc(s.id)}${s.shop_name ? " · " + esc(s.shop_name) : ""}</span></td>
+          <td data-l="Brand · Sàn">${esc(s.brand || "—")} · ${esc(s.platform || "—")}</td>
+          <td data-l="Máy">${esc(s.machine || "Chưa gán")}</td>
+          <td data-l="Trạng thái">${pill(s.status)}${(s.reasons || []).length ? `<span class="ls-why" title="${esc(s.reasons.map((x) => x.text).join(" · "))}">${esc(s.reasons[0].text)}</span>` : ""}</td>
+          <td data-l="Khung kế tiếp">${nextTxt(s.next, now)}</td>
+          <td data-l="Người xem">${num(s.viewers)}</td>
+          <td data-l="Chi phí hôm nay">${usd(s.cost_today_usd)}</td>
+          <td data-l="Đang phát">${esc(s.now_playing || "–")}</td></tr>`).join("")}
+      </tbody></table></div>` : `<div class="av-empty">${c.total ? "Không có phiên nào khớp bộ lọc." : 'Chưa có phiên live nào. Bấm <b>+ Thêm phiên</b> (chọn brand, sàn, máy phát, cổng OBS, Bộ live, khung giờ).'}</div>`}`;
+    stampList();
+  }
+  async function bulk(enabled) {
+    const names = [...P.sel]; if (!names.length) return;
+    const r = await call("set_sessions_enabled", { names: JSON.stringify(names), enabled: enabled ? 1 : 0 });
+    if (!r.success) return toast(r.message || "Lỗi", true);
+    const errs = r.data.errors || [];
+    toast(`${enabled ? "Đã bật" : "Đã tắt"} ${r.data.done.length} phiên` + (errs.length ? ` · ${errs.length} lỗi: ${errs[0].id} – ${errs[0].error}` : ""), !!errs.length);
+    P.sel.clear(); loadList(true);
+  }
+
+  /* ---------- chi tiet phien ---------- */
+  async function loadDetail(name, quiet) {
+    if (!quiet) { P.detail = null; view().innerHTML = `<section class="av-hero"><div>${crumbs(`<a href="#/lives" style="color:inherit">Phiên live</a> / ${esc(name)}`)}<h1>${esc(name)}</h1><div class="sub">Đang tải…</div></div></section>`; }
+    const r = await call("session_detail", { name }, "GET");
+    if (hash() !== "live/" + encodeURIComponent(name) && hash() !== "live/" + name) return;
+    if (r.success) { P.detail = r.data; P.failed = 0; P.skew = r.data.server_time - Date.now() / 1000; renderDetail(); pumpThumbs(); }
+    else { P.failed++; if (!P.detail) return fail("Phiên live", r.message, true); }
+    clearTimeout(P.timer); P.timer = setTimeout(() => loadDetail(name, true), 10000);
+    if (!P.tick) P.tick = setInterval(paintProgress, 1000);
+  }
+  function shot(d, kind, label) {
+    if (!d.key) return `<div class="ls-shot">${label}<br>chưa gán máy</div>`;
+    if (!(d.thumbs || {})[kind]) return `<div class="ls-shot">${label}<br>chưa có ảnh</div>`;
+    return `<div class="ls-shot"><img data-ls-img="${esc(d.key)}|${kind}" alt="${label} ${esc(d.title)}"><i>${label}</i></div>`;
+  }
+  function spark(samples, f, max) {
+    const pts = (samples || []).filter((s) => s[f] != null); if (pts.length < 2) return `<svg viewBox="0 0 300 48" role="img" aria-label="Chưa đủ số liệu"><text x="150" y="28" text-anchor="middle" font-size="11" fill="currentColor" opacity=".5">Chưa đủ số liệu</text></svg>`;
+    const t0 = pts[0].ts, t1 = pts[pts.length - 1].ts || t0 + 1, hi = Math.max(max || 0, ...pts.map((s) => s[f])) || 1;
+    const xy = pts.map((s) => `${(((s.ts - t0) / (t1 - t0 || 1)) * 296 + 2).toFixed(1)},${(46 - (s[f] / hi) * 42).toFixed(1)}`).join(" ");
+    return `<svg viewBox="0 0 300 48" preserveAspectRatio="none" role="img" aria-label="Biểu đồ 1 giờ"><polyline points="${xy}" fill="none" stroke="var(--navy)" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>`;
+  }
+  function renderDetail() {
+    const d = P.detail, s = d.session, det = d.detail || {}, nw = det.now || {}, cnt = det.counters || {}, pf = det.platform || {}, m = d.metrics || {};
+    const list = (items, fn, empty) => (items && items.length ? `<ul class="ls-list">${items.map(fn).join("")}</ul>` : `<div class="av-hint">${empty}</div>`);
+    const kind = (k) => KIND[k] || k || "";
+    const slots = (s.slots || []).map((x) => (x.date ? x.date.split("-").reverse().slice(0, 2).join("/") : x.days.length === 7 ? "Mọi ngày" : x.days.map((n) => WD[n].replace("Thứ ", "T").replace("Chủ nhật", "CN")).join(", ")) + " " + x.start + "–" + x.end).join(" · ");
+    const stale = d.last_seen_ts ? nowS() - d.last_seen_ts : null;
+    view().innerHTML = `
+      <section class="av-hero"><div>${crumbs(`<a href="#/lives" style="color:inherit">Phiên live</a> / ${esc(s.id)}`)}<h1>${esc(s.title)} ${pill(d.status)}</h1>
+        <div class="sub">${esc(s.brand || "—")} · ${esc(s.platform)}${s.tiktok_username ? " @" + esc(s.tiktok_username) : ""}${s.shop_name ? " · " + esc(s.shop_name) : ""} · máy ${esc(s.machine || "chưa gán")}${s.obs_port ? " · OBS cổng " + s.obs_port : ""}${s.kit ? " · Bộ live " + esc(s.kit) : ""}</div>
+        <div class="sub">Lịch: ${esc(slots || "chưa có khung giờ")} · Kế tiếp: ${nextTxt(d.next, nowS())}</div></div>
+        <div class="av-stats"><div class="av-stat"><span>Người xem</span><b>${num(pf.viewers)}</b></div><div class="av-stat"><span>Comment / đã trả lời</span><b>${num(cnt.comments)} / ${num(cnt.answered)}</b></div><div class="av-stat"><span>Chi phí hôm nay</span><b>${usd(det.cost_today_usd)}</b></div></div></section>
+      ${tabs("lives")}
+      ${(d.reasons || []).length ? `<div class="av-callout ${d.status === "problem" ? "bad" : "warn"}"><div>${d.reasons.map((x) => esc(x.text)).join(" · ")}</div></div>` : ""}
+      <div class="ls-ctl"><button class="av-btn" data-ls-cmd="pause_ai">⏸ Tạm dừng AI</button><button class="av-btn" data-ls-cmd="resume_ai">▶ Tiếp tục AI</button><button class="av-btn" data-ls-cmd="skip_clip">⏭ Bỏ clip đang phát</button><button class="av-btn" data-ls-cmd="play_faq">Phát FAQ ngay…</button>
+        <a class="av-outline" href="/app/ec-ai-live-session/${encodeURIComponent(s.id)}" target="_blank" rel="noopener">Sửa phiên</a><a class="av-outline" href="#/schedule">Lịch live</a><a class="av-outline" href="#/history" data-ls-hist="${esc(s.id)}">Lịch sử</a></div>
+      <div class="ls-grid"><div class="ls-col">
+        <div class="ls-card"><h3>Hình đang phát <small>${stale == null ? "chưa có tín hiệu" : "tín hiệu " + ago(stale) + " trước"}${d.app_state ? " · " + esc(APP[d.app_state] || d.app_state) : ""}</small></h3>
+          <div class="ls-shots">${shot(d, "obs", "OBS")}${shot(d, "platform", "Ảnh từ sàn")}${(d.thumbs || {}).stream ? shot(d, "stream", "Luồng công khai") : shot(d, "phone", "Điện thoại")}</div></div>
+        <div class="ls-card ls-now"><h3>Đang phát</h3>${nw.kind || nw.file ? `<b>${esc(kind(nw.kind))}${nw.product ? " – " + esc(nw.product) : ""}</b><div class="av-hint">${esc(nw.file || "")}</div><div class="ls-prog"><i id="ls-prog"></i></div><div class="av-hint" id="ls-left"></div>` : `<div class="av-hint">App chưa gửi thông tin đang phát.</div>`}</div>
+        <div class="ls-card"><h3>Sắp phát</h3>${list(det.next, (x) => `<li><span>${esc(kind(x.kind))}${x.product ? " – " + esc(x.product) : ""}</span><em>${x.eta_s != null ? "~" + ago(x.eta_s) : ""}</em></li>`, "Chưa có.")}</div>
+        <div class="ls-card"><h3>Số liệu 1 giờ <small>${num(m.fps)} khung/s · rớt ${num(m.drop_pct, 1)}% · GPU ${num(m.gpu)}%</small></h3><div class="ls-charts">
+          ${[["fps", "Khung/giây", 30], ["drop_pct", "Rớt khung %", 5], ["gpu", "GPU %", 100], ["kbps", "Bitrate kbps"]].map(([f, l, mx]) => `<div class="ls-chart"><h4><span>${l}</span></h4>${spark(d.samples, f, mx)}</div>`).join("")}</div></div>
+      </div><div class="ls-col">
+        <div class="ls-card"><h3>Hàng câu hỏi <small>${(det.queue || []).length} câu</small></h3>${list(det.queue, (x) => `<li><span><b>${esc(x.user)}</b>: ${esc(x.question)}</span><em>${esc(x.state || "")}</em></li>`, "Không có câu hỏi đang chờ.")}</div>
+        <div class="ls-card"><h3>Comment gần đây</h3>${list(det.recent, (x) => `<li><span><b>${esc(x.user)}</b>: ${esc(x.text)}</span><em>${esc(x.handled || "")}</em></li>`, "Chưa có comment.")}</div>
+        <div class="ls-card"><h3>Đã chào <small>${num(cnt.greeted)} người</small></h3>${list(det.greeted, (x) => `<li><span>${esc(x.name)}</span><em>${esc(x.mode || "")}</em></li>`, "Chưa chào ai.")}</div>
+        <div class="ls-card"><h3>Báo động 24 giờ</h3>${list(d.alerts, (a) => `<li><span>${esc(a.text)}</span><em>${hhmm(a.ts)}</em></li>`, "Không có báo động.")}</div>
+        <div class="ls-card"><h3>Lệnh đã gửi cho app</h3>${list(d.commands, (x) => `<li><span>${esc(ACT[x.action] || x.action)}${x.args && x.args.topic ? " – " + esc(x.args.topic) : ""}${x.result ? ` <span class="av-hint">(${esc(x.result)})</span>` : ""}</span><em>${hhmm(x.created_ts)} <span class="av-pill ${(CMD_ST[x.status] || CMD_ST.Queued)[1]}">${(CMD_ST[x.status] || CMD_ST.Queued)[0]}</span></em></li>`, "Chưa gửi lệnh nào.")}</div>
+        <div class="ls-card"><h3>Các lần chạy gần đây <small>30 ngày</small></h3>${list(d.history, (x) => `<li><span>${dmy(x.started_ts)} ${hhmm(x.started_ts)} · ${dur(x.duration_s)} · ${num(x.comments)} comment · ${num(x.answered)} trả lời · ${num(x.greeted)} chào</span><em>${usd(x.cost_usd)}</em></li>`, "Chưa có tổng kết phiên nào.")}</div>
+      </div></div>`;
+    paintThumbs(); paintProgress();
+  }
+  function paintProgress() {
+    const d = P.detail; if (!d || !/^live\//.test(hash())) return;
+    const nw = (d.detail || {}).now || {}, bar = $("ls-prog"), left = $("ls-left"); if (!bar || !nw.started_at || !nw.ends_at) return;
+    const t = nowS(), p = Math.max(0, Math.min(1, (t - nw.started_at) / Math.max(1, nw.ends_at - nw.started_at)));
+    bar.style.width = (p * 100).toFixed(1) + "%"; if (left) left.textContent = t < nw.ends_at ? "Còn " + ago(nw.ends_at - t) : "Đang chuyển clip…";
+  }
+  function pumpThumbs() {
+    const d = P.detail; if (!d || !d.key) return;
+    Object.entries(d.thumbs || {}).forEach(async ([kind, v]) => {
+      const id = d.key + "|" + kind, have = P.thumbs.get(id); if (!v || (have && have.v >= v)) return;
+      P.thumbs.set(id, { v, uri: have && have.uri });
+      const r = await call("monitor_thumb", { key: d.key, kind }, "GET");
+      if (r.success && r.data) { P.thumbs.set(id, { v, uri: r.data.data_uri }); paintThumbs(); }
+    });
+  }
+  function paintThumbs() { document.querySelectorAll("img[data-ls-img]").forEach((img) => { const t = P.thumbs.get(img.dataset.lsImg); if (t && t.uri && img.getAttribute("src") !== t.uri) img.src = t.uri; }); }
+  async function command(action, btn) {
+    const d = P.detail; if (!d) return;
+    let args = null;
+    if (action === "play_faq") return modalFaq();
+    if (btn) { btn.disabled = true; btn.classList.add("av-loading"); }
+    try { const r = await call("queue_command", { name: d.session.id, action, args }); toast(r.success ? `Đã gửi lệnh "${ACT[action]}" – app nhận trong khoảng 10 giây` : r.message || "Lỗi", !r.success); if (r.success) loadDetail(d.session.id, true); }
+    finally { if (btn) { btn.disabled = false; btn.classList.remove("av-loading"); } }
+  }
+  function modal(html) { const b = $("av-modal-box"); b.className = "box"; b.innerHTML = html; $("av-modal").hidden = false; }
+  function closeModal() { $("av-modal").hidden = true; $("av-modal-box").innerHTML = ""; }
+  function modalFaq() {
+    modal(`<h3 style="margin:0">Phát FAQ ngay</h3><label class="av-f">Chủ đề FAQ (đúng tên chủ đề trong Bộ live, vd Giá, Cách pha)<input type="text" id="ls-faq" maxlength="120" placeholder="Giá"></label>
+      <div class="av-hint">App phát clip FAQ của chủ đề này ở điểm nghỉ kế tiếp (bỏ qua cooldown một lần).</div>
+      <div class="av-row" style="justify-content:flex-end"><button class="av-btn" data-close>Huỷ</button><button class="av-btn pri" data-ls="faq-go">Gửi lệnh</button></div>`);
+    setTimeout(() => { const i = $("ls-faq"); if (i) i.focus(); }, 30);
+  }
+
+  /* ---------- lich tuan ---------- */
+  async function loadWeek(quiet) {
+    if (!quiet && !P.week) view().innerHTML = `<section class="av-hero"><div>${crumbs("Lịch live")}<h1>Lịch live</h1><div class="sub">Đang tải…</div></div></section>`;
+    const r = await call("week_schedule", { week: P.wk }, "GET");
+    if (!/^schedule/.test(hash())) return;
+    if (!r.success) return P.week ? toast(r.message || "Lỗi", true) : fail("Lịch live", r.message, true);
+    P.week = r.data; P.wk = r.data.week; renderWeek();
+  }
+  const sessOf = (id) => (P.week.sessions || []).find((s) => s.id === id);
+  const laneOf = (s) => (P.by === "brand" ? s.brand || "—" : s.machine || "Chưa gán máy");
+  const minOf = (hm) => { const [h, m] = hm.split(":").map(Number); return h * 60 + m; };
+  const hmOf = (mins) => { mins = ((Math.round(mins) % 1440) + 1440) % 1440; return String(Math.floor(mins / 60)).padStart(2, "0") + ":" + String(mins % 60).padStart(2, "0"); };
+  function lanes() {
+    const w = P.week, keys = new Set();
+    (w.sessions || []).forEach((s) => keys.add(laneOf(s)));
+    if (P.by === "machine") (w.machines || []).forEach((m) => keys.add(m.code));
+    return [...keys].sort();
+  }
+  const spanOf = (b, day) => { const a = minOf(b.start), e0 = minOf(b.end), cont = day !== b.date; return cont ? [0, e0] : [a, e0 > a ? e0 : 1440]; };
+  function blockHtml(b, day, row) {
+    const s = sessOf(b.session) || {}, cont = day !== b.date, [left, right] = spanOf(b, day);
+    const cls = ["lc-blk", b.recurring ? "" : "date", b.enabled ? "" : "off", b.conflict ? "bad" : "", cont ? "cont" : ""].filter(Boolean).join(" ");
+    const tip = `${s.title || b.session} · ${b.start}–${b.end}${b.recurring ? " · lặp hằng tuần" : " · chỉ ngày này"}${b.conflict ? " · VƯỢT SỐ LIVE CỦA MÁY" : ""}${b.enabled ? "" : " · phiên đang tắt"}`;
+    return `<div class="${cls}" style="left:${(left / 14.4).toFixed(3)}%;width:${Math.max(0.8, (right - left) / 14.4).toFixed(3)}%;top:${4 + row * 26}px;height:22px;bottom:auto" title="${esc(tip)}" ${cont ? "" : `data-lc-blk="${esc(b.session)}|${b.slot}|${b.date}"`}>${cont ? "↪ " : ""}${esc(s.title || b.session)} ${b.start}–${b.end}</div>`;
+  }
+  function renderWeek() {
+    const w = P.week, ls = lanes();
+    const daysHtml = w.days.map((day, i) => {
+      const prev = i ? w.days[i - 1] : null;
+      const rows = ls.map((ln) => {
+        const mine = (w.blocks || []).filter((b) => laneOf(sessOf(b.session) || {}) === ln && (b.date === day || (b.date === prev && minOf(b.end) < minOf(b.start))));
+        const m = (w.machines || []).find((x) => x.code === ln), ends = [];
+        const placed = mine.map((b) => [b, spanOf(b, day)]).sort((x, y) => x[1][0] - y[1][0]).map(([b, sp]) => {
+          let r = ends.findIndex((e) => e <= sp[0]); if (r < 0) { r = ends.length; ends.push(0); } ends[r] = sp[1]; return blockHtml(b, day, r); });
+        return `<div class="lc-lane"><div class="lc-ln">${esc(ln)}${m ? `<small>tối đa ${m.max_lives} live</small>` : ""}</div><div class="lc-track" style="min-height:${8 + Math.max(1, ends.length) * 26}px" data-lc-track="${esc(ln)}|${day}">${placed.join("")}</div></div>`;
+      }).join("") || `<div class="lc-lane"><div class="lc-ln">—</div><div class="lc-track"></div></div>`;
+      return `<div class="lc-day${day === w.today ? " today" : ""}"><div class="lc-dh"><span>${WD[i + 1]} ${day.split("-").reverse().slice(0, 2).join("/")}</span>${day === w.today ? '<span class="av-pill p-navy">Hôm nay</span>' : ""}</div>${rows}</div>`;
+    }).join("");
+    const mob = w.days.map((day, i) => {
+      const bl = (w.blocks || []).filter((b) => b.date === day).sort((a, b) => a.start_ts - b.start_ts);
+      return `<div class="lc-day${day === w.today ? " today" : ""}"><div class="lc-dh"><span>${WD[i + 1]} ${day.split("-").reverse().slice(0, 2).join("/")}</span><button class="av-btn sm" data-lc-add="${day}">+ Khung</button></div><div style="display:flex;flex-direction:column;gap:6px;padding:8px">
+        ${bl.map((b) => { const s = sessOf(b.session) || {}; return `<button class="lc-chip${b.conflict ? " bad" : ""}" data-lc-blk="${esc(b.session)}|${b.slot}|${b.date}"><span><b>${b.start}–${b.end}</b> ${esc(s.title || b.session)}</span><span class="av-hint">${esc(laneOf(s))}${b.recurring ? "" : " · 1 ngày"}</span></button>`; }).join("") || '<div class="av-hint">Không có live.</div>'}</div></div>`;
+    }).join("");
+    const nConf = (w.conflicts || []).length;
+    const wkLabel = `${w.days[0].split("-").reverse().slice(0, 2).join("/")} – ${w.days[6].split("-").reverse().join("/")}`;
+    view().innerHTML = `
+      <section class="av-hero"><div>${crumbs("Lịch live")}<h1>Lịch live</h1><div class="sub">Kéo trên dải giờ để tạo khung mới, kéo khối để đổi giờ, bấm khối để sửa / xoá. Khối đỏ = máy vượt số live tối đa cùng lúc. Khung "lặp hằng tuần" áp cho mọi tuần.</div></div>
+        <div class="av-stats"><div class="av-stat"><span>Khung trong tuần</span><b>${(w.blocks || []).length}</b></div><div class="av-stat${nConf ? " hl" : ""}"><span>Chỗ vượt máy</span><b>${nConf}</b></div></div></section>
+      ${tabs("schedule")}
+      <div class="lc-head"><div class="av-row"><button class="av-btn" data-lc-week="-7" aria-label="Tuần trước">←</button><b>${wkLabel}</b><button class="av-btn" data-lc-week="7" aria-label="Tuần sau">→</button><button class="av-btn sm" data-lc-week="0">Tuần này</button></div>
+        <div class="av-row"><div class="av-seg"><button class="${P.by === "machine" ? "on" : ""}" data-lc-by="machine">Theo máy</button><button class="${P.by === "brand" ? "on" : ""}" data-lc-by="brand">Theo brand</button></div>
+          <button class="av-btn" data-ls="copy-week" title="Chép các khung 'chỉ ngày' của tuần này sang tuần sau">Chép tuần sang tuần sau</button><a class="av-gold" href="/app/ec-ai-live-session/new" target="_blank" rel="noopener">+ Thêm phiên</a></div></div>
+      <div class="lc-legend"><span><i style="background:var(--navy-wash);border:1px solid var(--navy-line)"></i>Lặp hằng tuần</span><span><i style="background:#fff7e0;border:1px solid #f0d58a"></i>Chỉ ngày này</span><span><i style="background:var(--bad-bg);border:1px solid var(--bad)"></i>Vượt số live của máy</span><span><i style="background:var(--line-soft);opacity:.6"></i>Phiên đang tắt</span></div>
+      ${(w.sessions || []).length ? "" : `<div class="av-callout"><div>Chưa có phiên live. Bấm <b>+ Thêm phiên</b> để tạo (brand, sàn, máy, cổng OBS), rồi quay lại đây xếp giờ.</div></div>`}
+      <div class="lc-desk"><div class="lc-hours"><div></div><div>${Array.from({ length: 24 }, (_, h) => `<span>${h}h</span>`).join("")}</div></div>${daysHtml}</div>
+      <div class="lc-mob">${mob}</div>`;
+  }
+  async function saveSlots(sid, slots, okMsg) {
+    const r = await call("save_slots", { name: sid, slots: JSON.stringify(slots) });
+    if (!r.success) { toast(r.message || "Không lưu được", true); loadWeek(true); return false; }
+    toast(okMsg || "Đã lưu lịch"); closeModal(); loadWeek(true); return true;
+  }
+  const clone = (slots) => (slots || []).map((x) => ({ days: x.days.slice(), date: x.date, start: x.start, end: x.end }));
+  function editModal(sid, idx, day) {
+    const s = sessOf(sid); if (!s) return; const x = s.slots[idx];
+    modal(`<h3 style="margin:0">${esc(s.title)}</h3><div class="av-hint">${esc(s.brand || "")} · máy ${esc(s.machine || "chưa gán")} · ${x.date ? "chỉ ngày " + x.date.split("-").reverse().join("/") : "lặp hằng tuần: " + (x.days.length === 7 ? "mọi ngày" : x.days.map((n) => WD[n]).join(", "))}</div>
+      <div class="av-row"><label class="av-f" style="flex:1">Bắt đầu<input type="text" id="lc-a" value="${x.start}" placeholder="19:00" inputmode="numeric"></label><label class="av-f" style="flex:1">Kết thúc<input type="text" id="lc-b" value="${x.end}" placeholder="22:00" inputmode="numeric"></label></div>
+      <div class="av-hint">Giờ kết thúc nhỏ hơn giờ bắt đầu = qua đêm. ${x.date ? "" : "Sửa ở đây đổi giờ cho mọi tuần."}</div>
+      <div class="av-row" style="justify-content:space-between"><button class="av-btn danger" data-lc-del="${esc(sid)}|${idx}">Xoá khung${x.date ? "" : " (mọi tuần)"}</button>
+        <div class="av-row">${x.date ? "" : `<button class="av-btn" data-lc-skip="${esc(sid)}|${idx}|${day}" title="Giữ khung hằng tuần, chỉ bỏ ngày này">Bỏ riêng ngày ${day.split("-").reverse().slice(0, 2).join("/")}</button>`}<a class="av-outline" href="#/live/${encodeURIComponent(sid)}">Chi tiết phiên</a><button class="av-btn" data-close>Huỷ</button><button class="av-btn pri" data-lc-save="${esc(sid)}|${idx}">Lưu</button></div></div>`);
+  }
+  function addModal(lane, day, a, b) {
+    const ss = (P.week.sessions || []).filter((s) => !lane || laneOf(s) === lane);
+    if (!ss.length) return toast(lane ? "Chưa có phiên nào ở " + lane + " – tạo phiên trước." : "Chưa có phiên live – tạo phiên trước.", true);
+    const wd = new Date(day + "T00:00:00Z").getUTCDay() || 7;
+    modal(`<h3 style="margin:0">Thêm khung live – ${WD[wd]} ${day.split("-").reverse().slice(0, 2).join("/")}</h3>
+      <label class="av-f">Phiên<select id="lc-s">${ss.map((s) => `<option value="${esc(s.id)}">${esc(s.title)} · ${esc(s.brand || "—")} · ${esc(s.machine || "chưa gán máy")}</option>`).join("")}</select></label>
+      <div class="av-row"><label class="av-f" style="flex:1">Bắt đầu<input type="text" id="lc-a" value="${a || "19:00"}" inputmode="numeric"></label><label class="av-f" style="flex:1">Kết thúc<input type="text" id="lc-b" value="${b || "22:00"}" inputmode="numeric"></label></div>
+      <div class="av-seg" role="radiogroup"><button class="on" data-lc-rep="date" type="button">Chỉ ngày này</button><button data-lc-rep="week" type="button">Lặp mỗi ${WD[wd]}</button><button data-lc-rep="all" type="button">Lặp mọi ngày</button></div>
+      <div class="av-row" style="justify-content:flex-end"><button class="av-btn" data-close>Huỷ</button><button class="av-btn pri" data-lc-create="${day}">Thêm</button></div>`);
+  }
+  async function copyWeek() {
+    const w = P.week, days = new Set(w.days), add = [];
+    (w.sessions || []).forEach((s) => { const extra = (s.slots || []).filter((x) => x.date && days.has(x.date)); if (extra.length) add.push([s, extra]); });
+    if (!add.length) return toast("Tuần này không có khung 'chỉ ngày' nào để chép (khung lặp hằng tuần đã tự có ở tuần sau).");
+    if (!confirm(`Chép ${add.reduce((n, [, e]) => n + e.length, 0)} khung "chỉ ngày" của ${add.length} phiên sang tuần sau?`)) return;
+    let ok = 0;
+    for (const [s, extra] of add) {
+      const nx = extra.map((x) => { const d = new Date(x.date + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + 7); return { days: [], date: d.toISOString().slice(0, 10), start: x.start, end: x.end }; });
+      const all = clone(s.slots).concat(nx.filter((n) => !s.slots.some((x) => x.date === n.date && x.start === n.start)));
+      const r = await call("save_slots", { name: s.id, slots: JSON.stringify(all) });
+      if (r.success) ok++; else toast(s.title + ": " + (r.message || "lỗi"), true);
+    }
+    if (ok) toast(`Đã chép lịch ${ok} phiên sang tuần sau`);
+    loadWeek(true);
+  }
+
+  /* keo tha tren dai gio: tao khung moi / doi gio khung co san (buoc 15 phut) */
+  const snap = (m) => Math.round(m / 15) * 15;
+  const minsAt = (track, clientX) => { const r = track.getBoundingClientRect(); return Math.max(0, Math.min(1440, ((clientX - r.left) / r.width) * 1440)); };
+  document.addEventListener("pointerdown", (e) => {
+    if (!/^schedule/.test(hash()) || e.button !== 0) return;
+    const blk = e.target.closest && e.target.closest(".lc-desk [data-lc-blk]"), track = e.target.closest && e.target.closest(".lc-desk [data-lc-track]");
+    if (!track) return;
+    const x0 = minsAt(track, e.clientX);
+    if (blk) { P.drag = { kind: "move", blk, track, x0, left0: parseFloat(blk.style.left), moved: false }; }
+    else { const sel = document.createElement("div"); sel.className = "lc-sel"; track.appendChild(sel); P.drag = { kind: "new", track, sel, a: snap(x0), b: snap(x0) }; }
+    track.setPointerCapture && track.setPointerCapture(e.pointerId); e.preventDefault();
+  });
+  document.addEventListener("pointermove", (e) => {
+    const g = P.drag; if (!g) return;
+    const x = minsAt(g.track, e.clientX);
+    if (g.kind === "new") { g.b = snap(x); const lo = Math.min(g.a, g.b), hi = Math.max(g.a, g.b); g.sel.style.left = (lo / 14.4) + "%"; g.sel.style.width = ((hi - lo) / 14.4) + "%"; }
+    else { const dm = snap(x - g.x0); if (Math.abs(x - g.x0) > 4) g.moved = true; g.dm = dm; g.blk.classList.add("drag"); g.blk.style.left = Math.max(0, g.left0 + dm / 14.4) + "%"; }
+  });
+  document.addEventListener("pointerup", async () => {
+    const g = P.drag; if (!g) return; P.drag = null;
+    if (g.kind === "new") {
+      g.sel.remove(); const lo = Math.min(g.a, g.b), hi = Math.max(g.a, g.b); const [lane, day] = g.track.dataset.lcTrack.split("|");
+      return addModal(lane, day, hmOf(lo), hmOf(hi - lo >= 15 ? hi : lo + 120));
+    }
+    const [sid, idx, day] = g.blk.dataset.lcBlk.split("|");
+    if (!g.moved || !g.dm) { g.blk.classList.remove("drag"); return editModal(sid, +idx, day); }
+    const s = sessOf(sid), slots = clone(s.slots), x = slots[+idx];
+    x.start = hmOf(minOf(x.start) + g.dm); x.end = hmOf(minOf(x.end) + g.dm);
+    if (!x.date && !confirm(`Khung này lặp hằng tuần – dời sang ${x.start}–${x.end} cho mọi tuần?`)) return renderWeek();
+    saveSlots(sid, slots, "Đã dời sang " + x.start + "–" + x.end);
+  });
+
+  /* ---------- lich su phien ---------- */
+  async function loadHistory() {
+    if (!P.hist) view().innerHTML = `<section class="av-hero"><div>${crumbs("Lịch sử phiên")}<h1>Lịch sử phiên</h1><div class="sub">Đang tải…</div></div></section>`;
+    const r = await call("session_history", { live: P.hf.live || "", brand: P.hf.brand, days: P.hf.days }, "GET");
+    if (!/^history/.test(hash())) return;
+    if (!r.success) return fail("Lịch sử phiên", r.message, true);
+    P.hist = r.data; renderHistory();
+  }
+  function renderHistory() {
+    const h = P.hist, t = h.totals || {};
+    const stat = (l, v) => `<div class="av-stat"><span>${l}</span><b>${v}</b></div>`;
+    view().innerHTML = `
+      <section class="av-hero"><div>${crumbs("Lịch sử phiên")}<h1>Lịch sử phiên</h1><div class="sub">Mỗi dòng là một lần chạy của một phiên live (app gửi tổng kết khi phiên kết thúc).</div></div>
+        <div class="av-stats">${stat("Lần chạy", num(t.runs))}${stat("Giờ live", num(t.hours, 1))}${stat("Comment / trả lời", num(t.comments) + " / " + num(t.answered))}${stat("Chi phí", usd(t.cost_usd))}</div></section>
+      ${tabs("history")}
+      <div class="ls-bar"><div class="ls-filters"><select data-lh="brand" aria-label="Brand"><option value="">Brand: tất cả</option>${(h.brands || []).map((b) => `<option ${P.hf.brand === b ? "selected" : ""}>${esc(b)}</option>`).join("")}</select>
+        <div class="av-seg">${[7, 30, 90].map((n) => `<button class="${P.hf.days === n ? "on" : ""}" data-lh-days="${n}">${n} ngày</button>`).join("")}</div>
+        ${P.hf.live ? `<button class="av-chip on" data-lh-live="">Phiên ${esc(P.hf.live)} ✕</button>` : ""}</div></div>
+      ${(h.rows || []).length ? `<div class="av-panel"><table class="ls-table"><thead><tr><th>Bắt đầu</th><th>Phiên</th><th>Brand</th><th>Thời lượng</th><th>Comment</th><th>Đã trả lời</th><th>Đã chào</th><th>FAQ / AI</th><th>Chi phí</th><th>Kết thúc vì</th></tr></thead><tbody>
+        ${h.rows.map((x) => `<tr data-ls-open="${esc(x.live)}"><td>${dmy(x.started_ts)} ${hhmm(x.started_ts)}</td><td data-l="Phiên"><span class="t">${esc(x.live)}</span><span class="s">${esc(x.machine)}</span></td><td data-l="Brand">${esc(x.brand || "—")}</td><td data-l="Thời lượng">${dur(x.duration_s)}</td>
+          <td data-l="Comment">${num(x.comments)}</td><td data-l="Đã trả lời">${num(x.answered)}</td><td data-l="Đã chào">${num(x.greeted)}</td><td data-l="FAQ / AI">${num(x.faq)} / ${num(x.ai)}</td><td data-l="Chi phí">${usd(x.cost_usd)}</td><td data-l="Kết thúc vì">${esc(REASON[x.reason] || x.reason || "")}</td></tr>`).join("")}
+      </tbody></table></div>` : `<div class="av-empty">Chưa có tổng kết phiên nào trong ${h.days} ngày.</div>`}`;
+  }
+
+  /* ---------- xem nhu khach: tuong anh phia khach cua moi phien dang live (toan man hinh) ---------- */
+  const SRC = { stream: "Luồng TikTok", phone: "Điện thoại" };
+  const W = { data: null, imgs: new Map(), q: [], run: 0, el: null };
+  async function loadWatch() {
+    stop(); view().innerHTML = `<section class="av-hero"><div>${crumbs("Xem như khách")}<h1>Xem như khách</h1><div class="sub">Đang mở màn toàn màn hình…</div></div></section>${tabs("lives")}`;
+    if (!W.el) { W.el = document.createElement("div"); W.el.className = "vw"; W.el.setAttribute("role", "region"); W.el.setAttribute("aria-label", "Xem như khách"); ($("ec-aiv-root") || document.body).appendChild(W.el); window.addEventListener("resize", layoutWatch); }
+    W.el.innerHTML = `<div class="vw-bar"><b>Xem như khách</b><span id="vw-info">Đang tải…</span><div class="av-row"><button class="av-btn" data-vw="fs">⛶ Toàn màn hình</button><button class="av-btn" data-vw="exit">✕ Thoát</button></div></div><div class="vw-grid" id="vw-grid"></div>`;
+    await refreshWatch();
+    if (!P.tick) P.tick = setInterval(ageWatch, 1000);
+  }
+  function closeWatch() { if (W.el) { W.el.remove(); W.el = null; window.removeEventListener("resize", layoutWatch); } if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); }
+  async function refreshWatch() {
+    clearTimeout(P.timer); if (!/^watch/.test(hash()) || !W.el) return;
+    const r = await call("viewer_wall", {}, "GET");
+    if (!W.el) return;
+    if (r.success) { W.data = r.data; P.skew = r.data.server_time - Date.now() / 1000; renderWatch(); }
+    else { const i = $("vw-info"); if (i) i.textContent = "Mất kết nối – đang thử lại"; }
+    P.timer = setTimeout(refreshWatch, ((W.data && W.data.refresh_s) || 5) * 1000);
+  }
+  const srcLabel = (t) => (t.source === "platform" ? t.platform || "Sàn" : SRC[t.source] || "Chưa có ảnh");
+  function renderWatch() {
+    const g = $("vw-grid"), d = W.data; if (!g) return;
+    const live = d.tiles.length, lost = d.tiles.filter((t) => t.stale).length;
+    $("vw-info").textContent = `${live} phiên đang live${lost ? ` · ${lost} mất hình` : ""} · tự làm mới ${d.refresh_s} giây/lần`;
+    if (!live) { g.innerHTML = `<div style="text-align:center;color:#9ca3af">Không có phiên nào đang trong giờ live.</div>`; return; }
+    g.innerHTML = d.tiles.map((t) => `<div class="vw-t${t.stale ? " stale" : ""}${t.status === "problem" ? " prob" : ""}" data-vw-open="${esc(t.id)}" tabindex="0" role="button" aria-label="${esc(t.title)}">
+      ${t.source ? `<img data-vw-img="${esc(t.key)}|${t.source}" alt="">` : ""}<div class="h"><span><b>${esc(t.title)}</b> · ${esc(t.brand)}</span><span>${t.viewers != null ? "👁 " + num(t.viewers) : ""}</span></div>
+      <div class="lost">${t.source ? "Mất hình" : "Chưa có ảnh phía khách"}<br>${t.source ? "ảnh cuối " + ago(t.age_s) + " trước" : "cần extension / điện thoại"}</div>
+      <span class="src" data-vw-age="${t.source_ts || 0}" data-vw-src="${esc(srcLabel(t))}">${esc(srcLabel(t))}${t.source ? " · " + ago(t.age_s) : ""}</span></div>`).join("");
+    layoutWatch(); paintWatch(); pumpWatch();
+  }
+  function layoutWatch() {
+    const g = $("vw-grid"); if (!g || !W.data) return; const n = Math.max(1, W.data.tiles.length);
+    const r = g.getBoundingClientRect(), w = r.width - 28, h = Math.max(200, window.innerHeight - g.offsetTop - 14), gap = 8;
+    let best = { c: 1, tw: 0 };
+    for (let c = 1; c <= n; c++) { const rows = Math.ceil(n / c), tw = Math.min((w - gap * (c - 1)) / c, ((h - gap * (rows - 1)) / rows) * 9 / 16); if (tw > best.tw) best = { c, tw }; }
+    g.style.gridTemplateColumns = `repeat(${best.c}, ${Math.max(60, Math.floor(best.tw))}px)`;
+  }
+  function ageWatch() {
+    if (!W.el) return; const now = nowS();
+    W.el.querySelectorAll("[data-vw-age]").forEach((el) => { const ts = +el.dataset.vwAge; if (!ts) return; el.textContent = el.dataset.vwSrc + " · " + ago(now - ts);
+      const tile = el.closest(".vw-t"); if (tile) tile.classList.toggle("stale", now - ts > ((W.data && W.data.stale_s) || 120)); });
+  }
+  function pumpWatch() {
+    for (const t of (W.data && W.data.tiles) || []) { if (!t.source || !t.key) continue; const id = t.key + "|" + t.source, have = W.imgs.get(id);
+      if ((!have || have.v < t.source_ts) && !W.q.some((x) => x.id === id)) W.q.push({ id, key: t.key, kind: t.source, v: t.source_ts }); }
+    while (W.run < 4 && W.q.length) { const q = W.q.shift(); W.run++; call("monitor_thumb", { key: q.key, kind: q.kind }, "GET").then((r) => { if (r.success && r.data) { W.imgs.set(q.id, { v: q.v, uri: r.data.data_uri }); paintWatch(); } }).finally(() => { W.run--; pumpWatch(); }); }
+  }
+  function paintWatch() { if (!W.el) return; W.el.querySelectorAll("img[data-vw-img]").forEach((img) => { const t = W.imgs.get(img.dataset.vwImg); if (t && img.getAttribute("src") !== t.uri) img.src = t.uri; }); }
+  function bigWatch(id) {
+    const t = ((W.data && W.data.tiles) || []).find((x) => x.id === id); if (!t) return; const im = t.source ? W.imgs.get(t.key + "|" + t.source) : null;
+    const b = $("av-modal-box"); b.className = "box vw-big"; b.innerHTML = `<div class="av-row" style="justify-content:space-between"><b>${esc(t.title)} · ${esc(t.brand)}</b><button class="av-btn sm" data-close aria-label="Đóng">✕</button></div>
+      ${im && im.uri ? `<img src="${im.uri}" alt="${esc(t.title)}">` : `<div class="av-empty">Chưa có ảnh phía khách.</div>`}
+      <div class="av-row" style="justify-content:space-between"><span>${esc(srcLabel(t))}${t.source ? " · " + ago(nowS() - t.source_ts) + " trước" : ""}</span><span class="av-row">${t.watch_url ? `<a class="av-gold" href="${esc(t.watch_url)}" target="_blank" rel="noopener noreferrer">Mở phiên trên sàn ↗</a>` : '<span class="av-hint">Chưa có link xem – thêm ở form phiên.</span>'}<a class="av-outline" href="#/live/${encodeURIComponent(t.id)}">Chi tiết phiên</a></span></div>`;
+    $("av-modal").hidden = false;
+  }
+  document.addEventListener("click", (e) => {
+    if (!W.el) return; const t = e.target.closest ? e.target.closest("[data-vw],[data-vw-open]") : null; if (!t) return;
+    if (t.dataset.vw === "exit") { location.hash = "#/lives"; return; }
+    if (t.dataset.vw === "fs") { (document.fullscreenElement ? document.exitFullscreen() : W.el.requestFullscreen()).catch(() => toast("Trình duyệt không cho toàn màn hình", true)); return; }
+    if (t.dataset.vwOpen) bigWatch(t.dataset.vwOpen);
+  });
+  document.addEventListener("keydown", (e) => { if (!W.el) return; if (e.key === "Enter" && e.target.dataset && e.target.dataset.vwOpen) bigWatch(e.target.dataset.vwOpen); });
+
+  /* ---------- su kien ---------- */
+  document.addEventListener("click", async (e) => {
+    if (!on()) return;
+    const t = e.target.closest ? e.target.closest("[data-ls],[data-ls-status],[data-ls-sel],[data-ls-all],[data-ls-open],[data-ls-cmd],[data-ls-hist],[data-lc-week],[data-lc-by],[data-lc-blk],[data-lc-add],[data-lc-del],[data-lc-skip],[data-lc-save],[data-lc-rep],[data-lc-create],[data-lh-days],[data-lh-live]") : null;
+    if (!t) return;
+    const ds = t.dataset;
+    if (ds.lsSel != null || ds.lsAll != null) {
+      e.stopPropagation();
+      if (ds.lsAll != null) { (P.list.sessions || []).forEach((s) => (t.checked ? P.sel.add(s.id) : P.sel.delete(s.id))); document.querySelectorAll("[data-ls-sel]").forEach((c) => { c.checked = t.checked; }); }
+      else t.checked ? P.sel.add(ds.lsSel) : P.sel.delete(ds.lsSel);
+      const b = $("ls-bulk"); if (b) b.hidden = !P.sel.size; const n = $("ls-nsel"); if (n) n.textContent = P.sel.size; return;
+    }
+    if (ds.lsStatus != null) { P.f.status = ds.lsStatus; return loadList(true); }
+    if (ds.ls === "retry") return load();
+    if (ds.ls === "bulk-on") return bulk(true);
+    if (ds.ls === "bulk-off") return bulk(false);
+    if (ds.ls === "bulk-clear") { P.sel.clear(); return renderList(); }
+    if (ds.ls === "copy-week") return copyWeek();
+    if (ds.ls === "faq-go") {
+      const topic = ($("ls-faq") || {}).value || ""; if (!topic.trim()) return toast("Nhập chủ đề FAQ", true);
+      const r = await call("queue_command", { name: P.detail.session.id, action: "play_faq", args: JSON.stringify({ topic: topic.trim() }) });
+      toast(r.success ? "Đã gửi lệnh phát FAQ " + topic.trim() : r.message || "Lỗi", !r.success); if (r.success) { closeModal(); loadDetail(P.detail.session.id, true); } return;
+    }
+    if (ds.lsCmd) return command(ds.lsCmd, t);
+    if (ds.lsHist) { P.hf.live = ds.lsHist; return; }
+    if (ds.lsOpen) { if (e.target.closest("input,a,button")) return; location.hash = "#/live/" + encodeURIComponent(ds.lsOpen); return; }
+    if (ds.lcWeek != null) { const n = +ds.lcWeek; if (!n) P.wk = ""; else { const d = new Date(P.week.week + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + n); P.wk = d.toISOString().slice(0, 10); } return loadWeek(true); }
+    if (ds.lcBy) { P.by = ds.lcBy; return renderWeek(); }
+    if (ds.lcAdd) return addModal("", ds.lcAdd);
+    if (ds.lcBlk && t.classList.contains("lc-chip")) { const [sid, idx, day] = ds.lcBlk.split("|"); return editModal(sid, +idx, day); }
+    if (ds.lcRep) { t.parentNode.querySelectorAll("[data-lc-rep]").forEach((b) => b.classList.toggle("on", b === t)); return; }
+    if (ds.lcSave || ds.lcDel || ds.lcSkip) {
+      const [sid, idx, day] = (ds.lcSave || ds.lcDel || ds.lcSkip).split("|"); const s = sessOf(sid); if (!s) return;
+      const slots = clone(s.slots), x = slots[+idx];
+      if (ds.lcDel) { if (!confirm("Xoá khung " + x.start + "–" + x.end + (x.date ? "" : " (mọi tuần)") + "?")) return; slots.splice(+idx, 1); return saveSlots(sid, slots, "Đã xoá khung"); }
+      if (ds.lcSkip) { const wd = new Date(day + "T00:00:00Z").getUTCDay() || 7; return toast(`Khung lặp hằng tuần không bỏ riêng 1 ngày được – đổi thành "chỉ ngày" cho các ngày cần live, hoặc bỏ ${WD[wd]} khỏi khung trong form phiên.`, true); }
+      x.start = (($("lc-a") || {}).value || "").trim(); x.end = (($("lc-b") || {}).value || "").trim();
+      return saveSlots(sid, slots);
+    }
+    if (ds.lcCreate) {
+      const day = ds.lcCreate, sid = ($("lc-s") || {}).value, s = sessOf(sid); if (!s) return;
+      const rep = (document.querySelector("[data-lc-rep].on") || {}).dataset || {}, wd = new Date(day + "T00:00:00Z").getUTCDay() || 7;
+      const a = (($("lc-a") || {}).value || "").trim(), b = (($("lc-b") || {}).value || "").trim();
+      const nx = rep.lcRep === "week" ? { days: [wd], date: null, start: a, end: b } : rep.lcRep === "all" ? { days: [1, 2, 3, 4, 5, 6, 7], date: null, start: a, end: b } : { days: [], date: day, start: a, end: b };
+      return saveSlots(sid, clone(s.slots).concat([nx]), "Đã thêm khung " + a + "–" + b);
+    }
+    if (ds.lhDays) { P.hf.days = +ds.lhDays; return loadHistory(); }
+    if (ds.lhLive != null) { P.hf.live = ""; return loadHistory(); }
+  });
+  document.addEventListener("change", (e) => {
+    if (!on()) return; const t = e.target;
+    if (t.dataset && t.dataset.lsF) { P.f[t.dataset.lsF] = t.value; return loadList(true); }
+    if (t.dataset && t.dataset.lh) { P.hf.brand = t.value; return loadHistory(); }
+  });
+  document.addEventListener("keydown", (e) => { if (!on() || e.key !== "Enter") return; const tr = e.target.closest && e.target.closest("tr[data-ls-open]"); if (tr && e.target === tr) location.hash = "#/live/" + encodeURIComponent(tr.dataset.lsOpen); });
+  document.addEventListener("visibilitychange", () => { if (on() && !document.hidden && /^lives/.test(hash())) loadList(true); });
+  window.ecAiLiveSess = { load, isMine: (h) => /^(lives|live\/|schedule|history|watch)/.test(h || "") };
+})();
+</script>
 
 <script>
 (() => {
@@ -900,7 +1459,7 @@ tr.on td{background:var(--navy-wash)}
         <span class="tag" id="av-ping">Đang kiểm tra máy chạy video…</span></div>
         <div class="av-stats"><div class="av-stat"><span>Dự án</span><b>${ps.length}</b></div><div class="av-stat"><span>SKU</span><b>${tot.sku}</b></div>
         <div class="av-stat"><span>Đang chạy</span><b>${tot.run}</b></div><div class="av-stat hl"><span>Chờ chọn / duyệt</span><b>${tot.pick + tot.qc}</b></div><div class="av-stat"><span>Đủ clip / xong</span><b>${tot.done}</b></div></div></section>
-      <div class="av-row"><a class="av-outline" href="#/kits">Bộ live cho app AI Live →</a><a class="av-outline" href="#/hosts">Kho host · Studio ảnh host →</a><a class="av-outline" href="#/monitor">Giám sát live →</a></div>
+      <div class="av-row"><a class="av-outline" href="#/kits">Bộ live cho app AI Live →</a><a class="av-outline" href="#/hosts">Kho host · Studio ảnh host →</a><a class="av-outline" href="#/lives">Phiên live →</a><a class="av-outline" href="#/schedule">Lịch live →</a><a class="av-outline" href="#/monitor">Giám sát live →</a></div>
       ${configured ? "" : `<div class="av-callout warn"><div><b>Chưa nối máy chạy video.</b> Cần khai <code>ec_video_worker_url</code> và <code>ec_video_worker_secret</code> trong site_config (IT làm một lần). Vẫn tạo dự án và nhập lô được.</div></div>`}
       <div class="av-chips"><button class="av-chip ${S.brand ? "" : "on"}" data-brand="">Tất cả <span class="n">${ps.length}</span></button>
         ${Object.keys(brands).sort().map((b) => `<button class="av-chip ${S.brand === b ? "on" : ""}" data-brand="${esc(b)}">${esc(b)} <span class="n">${brands[b]}</span></button>`).join("")}
@@ -1412,8 +1971,8 @@ ${i.stage_state === "error" ? `<button class="av-btn sm" data-retry="${esc(i.nam
   function resultsPanel(kind) {
     const exs = S.exports.filter((e) => (kind === "faq") === !!(e.faq && !e.faq.hold));   /* 16/10: lipsync dot SKU nam o bang B4 */
     return `<div class="av-panel"><div class="av-panel-h"><h2>Kết quả</h2><span class="av-hint">Video nằm sẵn trên laptop: C:\\n8n-files\\ecv6\\output\\&lt;brand&gt;\\&lt;thư mục&gt;\\&lt;SKU&gt;\\ — mỗi SKU 1 file ZIP ở ecv6\\exports.</span></div><div class="av-tw"><table><thead><tr><th>Lúc</th><th>Thư mục</th><th>Kiểu</th><th>Bản</th><th>Trạng thái</th><th>Tải</th></tr></thead><tbody>
-      ${exs.map((e) => { const ei = S.exports.indexOf(e); return `<tr><td class="av-hint">${esc(String(e.creation).slice(5, 16))}</td><td>${esc(e.batch)}</td><td>${e.faq ? (e.faq.kind === "lipsync" ? "Lipsync" : "Chỉ nói") : esc(e.mode)}</td><td>${e.faq ? (e.faq.kind === "lipsync" ? `${e.faq.voices} video · MuseTalk` : e.faq.kind === "length" ? `${e.faq.voices} video · ${fmtN(e.faq.seconds)}s, không tiếng` : `${e.faq.voices} voice${(e.faq.copies || 1) > 1 ? ` × ${e.faq.copies} bản` : ""}${(e.faq.copies_req || 1) > (e.faq.copies || 1) ? ` <span class="av-hint" title="Máy chạy video chưa cập nhật bản hỗ trợ nhiều bản mỗi voice">(yêu cầu ${e.faq.copies_req} bản)</span>` : ""} · giọng sau ${e.faq.lead_s}s`) : `${e.variants}/SKU · ${+e.duration ? e.duration + "s" : '<span title="2s đầu + audio + 2s cuối, riêng từng SKU">theo audio</span>'}`}</td><td>${e.status === "running" ? `<span class="av-pill p-run">${e.faq && e.faq.kind === "lipsync" ? `Đang lipsync ${(e.faq.rows || []).filter((r) => r.state === "done").length}/${e.faq.voices}…` : e.faq && (e.faq.rows || []).length ? "Đang đo trùng khung…" : "Đang trộn…"}</span>` : /^done/.test(e.status) ? `<span class="av-pill p-ok">${esc(e.status)}</span>` : `<span class="av-pill p-bad">${esc(e.status)}</span>`}</td>
-        <td><div class="av-units">${(e.zips || []).length > 1 ? `<button class="av-btn sm pri" data-zip-all="${ei}">Tải tất cả (${e.zips.length})</button>` : ""}${(e.zips || []).map((z) => `<a class="av-btn sm pri" href="${esc(z.url)}">ZIP ${esc(z.sku)}</a>`).join("")}${e.zip_url ? `<a class="av-btn sm" href="${esc(e.zip_url)}">ZIP</a>` : ""}${lsOk(e) ? `<button class="av-btn sm" data-ls="${esc(e.name)}" title="Khớp khẩu hình cả đợt (MuseTalk + hậu kỳ), ra thư mục mới đuôi _LS">Lipsync</button>` : ""}${e.faq ? "" : (e.files || []).slice(0, 12).map((f) => `<button class="av-unit" data-video="${esc(f.url)}">▶ ${esc(f.name.replace(/\.mp4$/, ""))}</button>`).join("")}${!e.faq && (e.files || []).length > 12 ? `<span class="av-hint">+${e.files.length - 12}</span>` : ""}</div></td></tr>${e.faq && (e.faq.rows || []).length ? `<tr><td colspan="6" style="padding-top:0">${e.faq.kind === "lipsync" ? lsRows(e.faq) : faqRows(e.faq, lsOk(e) ? e.name : "")}</td></tr>` : ""}`; }).join("") || '<tr><td colspan="6" class="av-empty">Chưa xuất lần nào.</td></tr>'}</tbody></table></div></div>`;
+      ${exs.map((e) => { const ei = S.exports.indexOf(e); return `<tr><td class="av-hint">${esc(String(e.creation).slice(5, 16))}</td><td>${esc(e.batch)}</td><td>${e.faq ? (e.faq.kind === "lipsync" ? "Lipsync" : "Chỉ nói") : esc(e.mode)}</td><td>${e.faq ? (e.faq.kind === "lipsync" ? `${e.faq.voices} video · lipsync` : e.faq.kind === "length" ? `${e.faq.voices} video · ${fmtN(e.faq.seconds)}s, không tiếng` : `${e.faq.voices} voice${(e.faq.copies || 1) > 1 ? ` × ${e.faq.copies} bản` : ""}${(e.faq.copies_req || 1) > (e.faq.copies || 1) ? ` <span class="av-hint" title="Máy chạy video chưa cập nhật bản hỗ trợ nhiều bản mỗi voice">(yêu cầu ${e.faq.copies_req} bản)</span>` : ""} · giọng sau ${e.faq.lead_s}s`) : `${e.variants}/SKU · ${+e.duration ? e.duration + "s" : '<span title="2s đầu + audio + 2s cuối, riêng từng SKU">theo audio</span>'}`}</td><td>${e.status === "running" ? `<span class="av-pill p-run">${e.faq && e.faq.kind === "lipsync" ? `Đang lipsync ${(e.faq.rows || []).filter((r) => r.state === "done").length}/${e.faq.voices}…` : e.faq && (e.faq.rows || []).length ? "Đang đo trùng khung…" : "Đang trộn…"}</span>` : /^done/.test(e.status) ? `<span class="av-pill p-ok">${esc(e.status)}</span>` : `<span class="av-pill p-bad">${esc(e.status)}</span>`}</td>
+        <td><div class="av-units">${(e.zips || []).length > 1 ? `<button class="av-btn sm pri" data-zip-all="${ei}">Tải tất cả (${e.zips.length})</button>` : ""}${(e.zips || []).map((z) => `<a class="av-btn sm pri" href="${esc(z.url)}">ZIP ${esc(z.sku)}</a>`).join("")}${e.zip_url ? `<a class="av-btn sm" href="${esc(e.zip_url)}">ZIP</a>` : ""}${lsOk(e) ? `<button class="av-btn sm" data-ls="${esc(e.name)}" title="Khớp khẩu hình cả đợt (kèm hậu kỳ), ra thư mục mới đuôi _LS">Lipsync</button>` : ""}${e.faq ? "" : (e.files || []).slice(0, 12).map((f) => `<button class="av-unit" data-video="${esc(f.url)}">▶ ${esc(f.name.replace(/\.mp4$/, ""))}</button>`).join("")}${!e.faq && (e.files || []).length > 12 ? `<span class="av-hint">+${e.files.length - 12}</span>` : ""}</div></td></tr>${e.faq && (e.faq.rows || []).length ? `<tr><td colspan="6" style="padding-top:0">${e.faq.kind === "lipsync" ? lsRows(e.faq) : faqRows(e.faq, lsOk(e) ? e.name : "")}</td></tr>` : ""}`; }).join("") || '<tr><td colspan="6" class="av-empty">Chưa xuất lần nào.</td></tr>'}</tbody></table></div></div>`;
   }
   /* 12/10: tron theo voice (FAQ / tra loi cau hoi khi live): moi voice 1 video chi noi, khong tua, it trung khung */
   const fmtN = (n, d) => (+n || 0).toLocaleString("vi-VN", { maximumFractionDigits: d == null ? 0 : d });
@@ -1422,7 +1981,7 @@ ${i.stage_state === "error" ? `<button class="av-btn sm" data-retry="${esc(i.nam
   const lsOk = (e) => !!(e.faq ? e.faq.kind === "voice" && /^done/.test(e.status) && (e.faq.rows || []).some((r) => r.url) : /^done/.test(e.status) && (e.ls_files || []).length);   /* 16/10: dot SKU co voice */
   function lsRows(f) {
     const rows = f.rows || [];
-    return `<details class="av-faqd" ${rows.some((r) => r.state !== "done") ? "open" : ""}><summary class="av-hint">Xem ${rows.length} video lipsync${f.gpu_sec ? ` · GPU fal ${fmtN(f.gpu_sec)}s` : ""}</summary><div class="av-tw"><table><thead><tr><th>Video</th><th class="av-num">Dài</th><th class="av-num">GPU fal</th><th class="av-num">Xử lý</th><th>Trạng thái</th><th></th></tr></thead><tbody>
+    return `<details class="av-faqd" ${rows.some((r) => r.state !== "done") ? "open" : ""}><summary class="av-hint">Xem ${rows.length} video lipsync${f.gpu_sec ? ` · GPU ${fmtN(f.gpu_sec)}s` : ""}</summary><div class="av-tw"><table><thead><tr><th>Video</th><th class="av-num">Dài</th><th class="av-num">GPU</th><th class="av-num">Xử lý</th><th>Trạng thái</th><th></th></tr></thead><tbody>
       ${rows.map((r) => `<tr><td>${esc(r.name || r.file)}</td><td class="av-num">${r.dur != null ? fmtN(r.dur, 1) + "s" : "-"}</td><td class="av-num">${r.gpu != null ? fmtN(r.gpu, 1) + "s" : "-"}</td><td class="av-num">${r.sec != null ? fmtN(r.sec) + "s" : "-"}</td>
         <td>${r.err ? `<span class="av-pill p-bad" title="${esc(r.err)}">Lỗi</span> <span class="av-hint">${esc(r.err.slice(0, 80))}</span>` : r.state === "done" ? '<span class="av-pill p-ok">Xong</span>' : `<span class="av-pill p-run">${esc(r.prog || (r.state === "queued" ? "Chờ" : "Đang chạy"))}</span>`}</td>
         <td>${r.url ? `<div class="av-units"><button class="av-unit" data-video="${esc(r.url)}">▶</button><a class="av-btn sm" href="${esc(r.url)}" download>Tải</a></div>` : ""}</td></tr>`).join("")}</tbody></table></div>
@@ -1498,7 +2057,7 @@ ${i.stage_state === "error" ? `<button class="av-btn sm" data-retry="${esc(i.nam
       <div class="av-panel-b">${input}
         <label class="av-f">Tỉ lệ trùng chéo mục tiêu (%)<input type="number" id="fq-target" min="0" max="100" step="5" value="${esc(F.target)}"></label>
         <label class="av-f">Tên thư mục xuất${isV && F.voices.length ? " (đã khoá theo voice đã tải)" : ""}<input type="text" id="fq-batch" value="${esc(F.batch)}" ${isV && F.voices.length ? "disabled" : ""}></label></div>
-      ${isV ? `<label class="av-switch" style="margin-top:10px"><input type="checkbox" id="fq-autols" ${F.autols ? "checked" : ""}> Tự lipsync khi trộn xong (MuseTalk + hậu kỳ, phí fal ước tối đa ~$${LS_USD_S}/giây video)</label>` : ""}
+      ${isV ? `<label class="av-switch" style="margin-top:10px"><input type="checkbox" id="fq-autols" ${F.autols ? "checked" : ""}> Tự lipsync khi trộn xong (kèm hậu kỳ, phí ước tối đa ~$${LS_USD_S}/giây video)</label>` : ""}
       ${S.exports.some((e) => e.faq && e.batch === F.batch && /^done/.test(e.status)) ? `<div class="av-callout warn" style="margin-top:8px"><div>Thư mục <b>${esc(F.batch)}</b> đã có video của lần trộn trước - trộn tiếp vào đây thì máy tính cả video cũ khi chia clip và đo trùng. Nên dùng thư mục mới${F.voices.length ? " (bấm Xoá danh sách, đổi tên thư mục rồi chọn lại voice)" : ""}.</div></div>` : ""}
       ${isV && F.voices.length ? `<div class="av-tw" style="margin-top:10px;max-height:260px;overflow:auto"><table><thead><tr><th>#</th><th>Voice</th><th class="av-num">Dài</th><th class="av-num">Giọng nói</th><th>Trạng thái</th></tr></thead><tbody>
         ${F.voices.map((v, k) => `<tr><td class="av-hint">${k + 1}</td><td>${esc(v.name)}</td><td class="av-num">${v.dur ? fmtN(v.dur, 1) + "s" : "-"}</td><td class="av-num">${v.speech ? fmtN(v.speech, 1) + "s" : "-"}</td><td>${v.rel ? '<span class="av-pill p-ok">Đã tải</span>' : v.st === "err" ? `<span class="av-pill p-bad">${esc(v.err || "Lỗi")}</span>` : '<span class="av-pill p-run">Đang tải…</span>'}</td></tr>`).join("")}</tbody></table></div>` : ""}
@@ -1724,7 +2283,7 @@ ${i.stage_state === "error" ? `<button class="av-btn sm" data-retry="${esc(i.nam
     if (t.dataset.retry) { if (await act("retry", { name: t.dataset.retry }, "Đã cho chạy lại")) loadProject(P); return; }
     if (t.dataset.approve) { if (await act("approve", { name: t.dataset.approve }, "Đã duyệt - làm bước tiếp")) loadProject(P); return; }
     if (t.dataset.ls) { const e = S.exports.find((x) => x.name === t.dataset.ls); if (!e) return; const f = t.dataset.lsFile; const rows = e.faq ? (e.faq.rows || []).filter((r) => r.url && (!f || r.file === f)) : (e.ls_files || []).filter((r) => !f || r.file === f).map((r) => Object.assign({}, r, { dur: r.dur || +e.duration || 72 }));
-      if (!rows.length || !confirm(`Lipsync ${rows.length} video bằng MuseTalk + hậu kỳ (mở miệng theo giọng, làm nét, vân da gốc)?\nPhí fal ước tối đa ${lsCost(rows)}. Mỗi video vài phút; video mới nằm ở thư mục đuôi _LS.`)) return;
+      if (!rows.length || !confirm(`Lipsync ${rows.length} video kèm hậu kỳ (mở miệng theo giọng, làm nét, vân da gốc)?\nPhí ước tối đa ${lsCost(rows)}. Mỗi video vài phút; video mới nằm ở thư mục đuôi _LS.`)) return;
       if (await act("faq_lipsync", { project: P, export: e.name, files: f ? JSON.stringify([f]) : "" }, "Đang lipsync " + rows.length + " video - xem bảng Kết quả")) loadProject(P, true); return; }
     if (t.dataset.zipAll !== undefined) { const zs = (S.exports[+t.dataset.zipAll] || {}).zips || [];
       zs.forEach((z, i) => setTimeout(() => { const a = document.createElement("a"); a.href = z.url; a.download = ""; a.rel = "noopener"; document.body.appendChild(a); a.click(); a.remove(); }, i * 1500));

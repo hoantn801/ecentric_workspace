@@ -131,7 +131,11 @@ def sanitize_schedule(slots):
         if not (C.HHMM_RE.match(a) and C.HHMM_RE.match(b)) or a == b:
             continue
         days = [int(d) for d in (s.get("days") or range(1, 8)) if str(d).isdigit() and 1 <= int(d) <= 7]
-        out.append({"days": sorted(set(days)) or list(range(1, 8)), "start": a, "end": b})
+        row = {"days": sorted(set(days)) or list(range(1, 8)), "start": a, "end": b}
+        d = str(s.get("date") or "")[:10]
+        if C.DATE_RE.match(d):
+            row["date"] = d                      # fix10d: khung chi 1 ngay cu the (lich live ERP)
+        out.append(row)
     return out
 
 
@@ -145,8 +149,13 @@ def in_schedule(slots, now):
     t = datetime.fromtimestamp(now, _VN)
     cur, wd = t.hour * 60 + t.minute, t.isoweekday()
     prev_wd = 7 if wd == 1 else wd - 1
+    today, yday = t.date().isoformat(), (t.date() - timedelta(days=1)).isoformat()
     for s in slots or []:
         a, b = _mins(s["start"]), _mins(s["end"])
+        if s.get("date"):                         # khung 1 ngay: chi tinh dung ngay do (+ phan qua dem hom sau)
+            if (s["date"] == today and (a <= cur < b if a < b else cur >= a)) or (a > b and s["date"] == yday and cur < b):
+                return True
+            continue
         if a < b and wd in s["days"] and a <= cur < b:
             return True
         if a > b and ((wd in s["days"] and cur >= a) or (prev_wd in s["days"] and cur < b)):
