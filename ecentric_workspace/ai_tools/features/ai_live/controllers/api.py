@@ -233,3 +233,31 @@ def push_session_summary(machine: str = None, live: str = None, brand: str = Non
 def viewer_wall():
     from ecentric_workspace.ai_tools.features.ai_live.application.viewer_wall_service import ViewerWallService
     return _run(lambda: ViewerWallService().execute(_roles()))
+
+
+# ------------------------------------------------------------------ Dua vit (fix10e, W20) ---
+
+@frappe.whitelist(methods=["POST"])
+def push_race_result(machine: str = None, race=None, png_b64: str = None):
+    from ecentric_workspace.ai_tools.features.ai_live.application.push_race_result_service import PushRaceResultService
+    return _run(lambda: PushRaceResultService().execute(frappe.session.user, str(machine or ""), race, png_b64))
+
+
+@frappe.whitelist(methods=["GET"])
+def list_races(brand: str = None, live: str = None, date_from: str = None, date_to: str = None, outcome: str = None,
+               prize: str = None):
+    from ecentric_workspace.ai_tools.features.ai_live.application.list_races_service import ListRacesService
+    return _run(lambda: ListRacesService().execute(_roles(), brand, live, date_from, date_to, outcome, prize))
+
+
+@frappe.whitelist(methods=["GET"])
+def export_races_csv(brand: str = None, live: str = None, date_from: str = None, date_to: str = None, outcome: str = None,
+                     prize: str = None):
+    from ecentric_workspace.ai_tools.features.ai_live.application.export_races_csv_service import ExportRacesCsvService
+    return _run(lambda: ExportRacesCsvService().execute(_roles(), brand, live, date_from, date_to, outcome, prize))
+
+
+@frappe.whitelist(methods=["POST"])
+def set_prize_status(items=None, status: str = None, note: str = None):
+    from ecentric_workspace.ai_tools.features.ai_live.application.set_prize_status_service import SetPrizeStatusService
+    return _run(lambda: SetPrizeStatusService(atomic=_atomic).execute(_roles(), items, status, note))

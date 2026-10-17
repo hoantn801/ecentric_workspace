@@ -46,7 +46,7 @@ class CommandRepository:
         if ts_field:
             vals[ts_field] = ts
         if result is not None:
-            vals["result"] = str(result)[:C.MAX_DETAIL_TEXT]
+            vals["result"] = str(result)[:C.MAX_CMD_RESULT]
         frappe.db.set_value(C.COMMAND, name, vals, update_modified=False)
 
     def recent(self, live, since_ts, limit=20):

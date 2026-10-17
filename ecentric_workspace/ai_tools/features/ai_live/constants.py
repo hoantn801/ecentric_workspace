@@ -83,9 +83,11 @@ MAX_FAQ_TOPICS = 30
 FAQ_COPIES = (2, 5)
 #: Nhom video cua 1 SP: khoa trong bolive.json (products[].groups)
 PRODUCT_AUDIO_GROUPS = ("main_free", "main_hold")
-GENERIC_GROUPS = ("greet", "thanks", "answer", "cho")
+GENERIC_GROUPS = ("greet", "thanks", "answer", "cho", "race_call", "race_commentary", "race_winner", "race_claim")
+#: fix10e: 4 nhom clip dua vit (W20) - may live doc generic.race_* trong bolive.json; khong co thi van dua (host noi realtime).
 #: So ban nen co moi loai clip chung (min, max) - chi de goi y tren trang, khong chan luu.
-GENERIC_COUNTS = {"greet": (3, 5), "thanks": (3, 3), "answer": (2, 2), "cho": (3, 3)}
+GENERIC_COUNTS = {"greet": (3, 5), "thanks": (3, 3), "answer": (2, 2), "cho": (3, 3),
+                  "race_call": (2, 2), "race_commentary": (3, 4), "race_winner": (2, 2), "race_claim": (1, 2)}
 MAX_SCRIPT_CHARS = 200
 #: Loi goi y cho clip chung (team sua tren trang roi thu am / TTS). {brand} = ten brand.
 GENERIC_SCRIPTS = {
@@ -102,6 +104,17 @@ GENERIC_SCRIPTS = {
     "cho": ("Dạ em xem câu hỏi của mình chút nha.",
             "Dạ để em đọc kỹ câu hỏi nha, mọi người chờ em một xíu.",
             "Dạ có câu hỏi nè, em xem ngay cho mình ạ."),
+    # fix10e - dua vit (W20): khong ten khach, khong gia; binh luan trung tinh (ket qua hien tren bang).
+    "race_call": ("Đua vịt có thưởng đây cả nhà ơi! Comment chữ vịt để tham gia, một phút nữa mình xuất phát nha.",
+                  "Cả nhà ơi sắp đua vịt rồi nè! Comment chữ vịt để có vịt của mình, quà xịn từ {brand} đang chờ nha."),
+    "race_commentary": ("Xuất phát rồi! Các bạn vịt đang bơi rất là hăng nha… Ai đang dẫn đầu vậy ta, nhìn lên bảng nào!",
+                        "Sát nút quá cả nhà ơi, chưa biết ai về nhất đâu nha!",
+                        "Vịt nào cũng cố gắng hết sức luôn, mọi người cổ vũ vịt của mình đi nào!",
+                        "Sắp tới đích rồi đó cả nhà, căng thẳng quá đi, cùng xem nha!"),
+    "race_winner": ("Về đích rồi! Chúc mừng các bạn có tên trên màn hình nha!",
+                    "Kết quả có rồi nè cả nhà! Chúc mừng các bạn trúng giải, tên đang hiện trên bảng đó nha!"),
+    "race_claim": ("Bạn nào trúng giải nhắn tin cho shop để nhận quà nha.",
+                   "Các bạn trúng giải nhớ nhắn tin cho shop để shop gửi quà nha, chưa trúng thì lát mình đua tiếp nè."),
 }
 
 #: Studio anh host: model -> nhan, credit PlenX moi anh (None = chua co bang gia, khong uoc tinh).
@@ -249,12 +262,13 @@ class SessionStatus:
 
 
 #: Lenh tu trang ERP cho app tren may phat (app hoi pull_commands moi ~10 s).
-CMD_ACTIONS = ("pause_ai", "resume_ai", "skip_clip", "play_faq")
+CMD_ACTIONS = ("pause_ai", "resume_ai", "skip_clip", "play_faq", "start_race", "stop_race")  # fix10e: dua vit
 CMD_QUEUED, CMD_SENT, CMD_DONE, CMD_FAILED, CMD_EXPIRED = "Queued", "Sent", "Done", "Failed", "Expired"
 CMD_TTL_S = 120
 CMD_PULL_MAX = 20
 CMD_KEEP_DAYS = 7
 MAX_CMD_ARG = 120
+MAX_CMD_RESULT = 140                 # cot Data cua Frappe = varchar(140)
 
 #: Gioi han khoi "detail" app gui kem tin hieu (chi luu ban moi nhat).
 DETAIL_LIMITS = {"next": 10, "queue": 20, "recent": 30, "greeted": 20}
@@ -286,3 +300,45 @@ SESSION_LOG = "EC AI Live Session Log"
 SUMMARY_REASONS = ("schedule_end", "manual", "error", "restart", "other")
 LOG_KEEP_DAYS = 400
 MAX_HISTORY_DAYS = 90
+
+
+# ------------------------------------------------------------------ Dua vit (fix10e, W20) ---
+RACE = "EC AI Live Race"
+RACE_WINNER = "EC AI Live Race Winner"
+RACE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{6,64}$")
+#: Trang thai trao giai: ma app (W20) -> nhan luu tren ERP (Select). Ma la -> "Chua trao".
+PRIZE_STATUS = {"chua_trao": "Chưa trao", "da_trao": "Đã trao", "khong_lien_lac": "Không liên lạc được"}
+PRIZE_DEFAULT = "chua_trao"
+#: Ket qua cuoc dua (app gui status: done | not_enough | cancelled | cancelled_<ly do> | aborted_restart).
+RACE_OUTCOMES = {"done": "Đã đua xong", "not_enough": "Chưa đủ người", "cancelled": "Đã huỷ",
+                 "aborted_restart": "Huỷ do app khởi động lại"}
+RACE_BY = {"app": "Bấm trên app", "schedule": "Lịch giờ cố định", "every": "Mỗi X phút", "erp": "Lệnh từ ERP"}
+MAX_RACE_TIERS = 10
+MAX_RACE_WINNERS = 100
+MAX_RACE_TEXT = 140
+MAX_RACE_NOTE = 500
+MAX_PNG_BYTES = 3 * 1024 * 1024
+RACE_LIST_MAX = 500
+RACE_DEFAULT_DAYS = 7
+RACE_MAX_DAYS = 366
+RACE_BULK_MAX = 500
+#: Tham so lenh start_race (ghi de 1 lan tren app) - cung khoang voi cai dat W20.
+RACE_ARG_RANGES = {"regSeconds": (20, 300), "raceSeconds": (20, 60), "minEntrants": (2, 100)}
+RACE_ANNOUNCE = ("ascending", "descending")
+RACE_EXCLUDE = ("none", "today", "week")
+MAX_KEYWORD = 30
+MAX_TIER_LABEL = 40
+MAX_TIER_PRIZE = 120
+
+
+class RaceMsg:
+    BAD_RACE = "Kết quả đua vịt không hợp lệ: %s"
+    BAD_ID = "Mã cuộc đua không hợp lệ."
+    OTHER_MACHINE = "Cuộc đua %s thuộc máy khác."
+    BAD_PNG = "Ảnh kết quả phải là PNG ≤ 3 MB."
+    BAD_STATUS = "Trạng thái trao giải phải là: Chưa trao, Đã trao hoặc Không liên lạc được."
+    NO_ITEMS = "Chưa chọn người thắng nào."
+    TOO_MANY = "Tối đa %d người thắng mỗi lần cập nhật."
+    BAD_DATE = "Ngày không hợp lệ (dạng YYYY-MM-DD)."
+    BAD_ARG = "Tham số đua vịt không hợp lệ: %s"
+    NOT_FOUND = "Không tìm thấy cuộc đua %s."

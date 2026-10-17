@@ -241,6 +241,7 @@ tr.on td{background:var(--navy-wash)}
 .lk-mode small{display:block;color:var(--ink3);font-weight:400}
 .lk-dirty{color:var(--warn);font-weight:600;font-size:12.5px}
 .lk-scripts{min-width:320px}
+.lk-sep td{background:var(--navy-wash);font-size:13px}
 .lk-line{display:flex;gap:4px;align-items:flex-start;margin-bottom:4px}
 #ec-aiv-root .lk-line textarea{min-height:0;font-family:inherit;font-size:12.5px;font-weight:400;resize:vertical}
 .lk-line button{appearance:none;border:0;background:transparent;color:var(--ink3);cursor:pointer;font-size:15px;line-height:1;padding:4px}
@@ -260,12 +261,16 @@ tr.on td{background:var(--navy-wash)}
   const norm = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase().trim();
   const ST_PILL = { "Nháp": "p-idle", "Đang gửi": "p-run", "Đang dựng": "p-run", "Xong": "p-ok", "Lỗi": "p-bad" };
   const BUSY_ST = ["Đang gửi", "Đang dựng"];
-  const GEN = [["greet", "Chào chung", "Chào người mới vào, không gọi tên"], ["thanks", "Cảm ơn / hẹn giới thiệu lại", "Khi mọi bản FAQ đang nghỉ"], ["answer", "Trả lời chung", "Câu hỏi chưa có FAQ (chế độ Tiết kiệm)"], ["cho", "Câu chờ", "Phát khi đọc lại câu hỏi bị trễ (realtime chậm)"]];
-  const GEN_EMPTY = () => ({ greet: [], thanks: [], answer: [], cho: [], scripts: {} });
+  const GEN = [["greet", "Chào chung", "Chào người mới vào, không gọi tên"], ["thanks", "Cảm ơn / hẹn giới thiệu lại", "Khi mọi bản FAQ đang nghỉ"], ["answer", "Trả lời chung", "Câu hỏi chưa có FAQ (chế độ Tiết kiệm)"], ["cho", "Câu chờ", "Phát khi đọc lại câu hỏi bị trễ (realtime chậm)"],
+    /* 18/10 fix10e: 4 nhom clip dua vit (W20) - khong ten khach, khong gia */
+    ["race_call", "Mời tham gia", "Mời comment từ khoá để vào đua · 5–8 giây", 1], ["race_commentary", "Bình luận lúc đua", "Phát khi vịt đang chạy, không nói ai thắng · 10–15 giây", 1],
+    ["race_winner", "Chúc mừng (không tên)", "Khi không kịp gọi tên, tên người thắng hiện trên bảng · 5–7 giây", 1], ["race_claim", "Cách nhận quà", "Phát sau lời chúc mừng · 4–6 giây", 1]];
+  const GEN_FILE = { greet: "chao", thanks: "camon", answer: "traloi", cho: "cho", race_call: "dua_moi", race_commentary: "dua_binhluan", race_winner: "dua_chucmung", race_claim: "dua_nhanqua" };
+  const GEN_EMPTY = () => Object.assign(Object.fromEntries(GEN.map(([g]) => [g, []])), { scripts: {} });
   const LS_USD_S = 0.012;
   const DEF_PROMPT = "Nữ MC người Việt khoảng 25 tuổi, áo sơ mi trắng, tóc buộc gọn, ngồi sau bàn trắng, hai tay đặt trên bàn, nhìn thẳng camera, cười mỉm nhẹ. Nền phông xanh lá đồng màu (chroma key), ánh sáng studio dịu, khung dọc 9:16, thấy từ giữa đùi trở lên, không chữ, không logo.";
   const L = { kits: [], brands: [], brand: "", hosts: null, models: [], proposal: [], kit: null, dirty: false, timer: null, busy: false, studio: null, refs: [], mplan: null };
-  const isMine = (h) => /^(kits|kit\/|hosts|monitor|lives|live\/|schedule|history|watch)/.test(h || "");  /* 18/10 fix10d: Phien live / Lich live */
+  const isMine = (h) => /^(kits|kit\/|hosts|monitor|lives|live\/|schedule|history|watch|races)/.test(h || "");  /* 18/10 fix10d: Phien live / Lich live; fix10e: Dua vit */
   const hash = () => location.hash.replace(/^#\/?/, "");
   const view = () => $("av-view");
 
@@ -313,6 +318,7 @@ tr.on td{background:var(--navy-wash)}
     if (/^hosts/.test(h)) return loadHosts();
     if (/^monitor/.test(h)) return window.ecAiLiveMon ? window.ecAiLiveMon.load(h) : fail("Màn Giám sát chưa tải xong, tải lại trang.");
     if (/^(lives|live\/|schedule|history|watch)/.test(h)) return window.ecAiLiveSess ? window.ecAiLiveSess.load(h) : fail("Màn Phiên live chưa tải xong, tải lại trang.");
+    if (/^races/.test(h)) return window.ecAiLiveRace ? window.ecAiLiveRace.load(h) : fail("Màn Đua vịt chưa tải xong, tải lại trang.");
     const m = /^kit\/(.+)$/.exec(h); if (m) return loadKit(decodeURIComponent(m[1]));
     return loadKits();
   }
@@ -378,11 +384,12 @@ tr.on td{background:var(--navy-wash)}
       const want = d.min ? (d.min === d.max ? d.min : d.min + "–" + d.max) : "", off = d.min && (n < d.min || n > d.max);
       return `<tr><td style="width:240px"><b>${l}</b><div class="av-hint">${h}</div>${want ? `<div class="av-hint" style="${off ? "color:var(--warn);font-weight:600" : ""}">Nên có ${want} bản · đang có ${n}</div>` : ""}</td>
         <td>${voices("g." + g)}</td>
-        <td class="lk-scripts"><div class="av-hint" style="margin-bottom:4px">Lời gợi ý${own ? " (đã sửa)" : ""} – thu âm / TTS mỗi dòng thành 1 file <code>${g === "greet" ? "chao" : g === "thanks" ? "camon" : g === "answer" ? "traloi" : "cho"}_1.mp3</code>, <code>_2</code>…</div>
+        <td class="lk-scripts"><div class="av-hint" style="margin-bottom:4px">Lời gợi ý${own ? " (đã sửa)" : ""} – thu âm / TTS mỗi dòng thành 1 file <code>${GEN_FILE[g]}_1.mp3</code>, <code>_2</code>…</div>
           ${lines.map((s, i) => `<div class="lk-line"><textarea rows="2" data-lk-gs="${g}|${i}" aria-label="Lời ${l} ${i + 1}"${dis()}>${esc(s)}</textarea>${ro() ? "" : `<button type="button" data-lk-gsdel="${g}|${i}" aria-label="Bỏ dòng">×</button>`}</div>`).join("")}
           <div class="av-row" style="gap:10px">${ro() ? "" : `<button class="av-btn sm ghost" data-lk-gsadd="${g}">+ Thêm lời</button>${own ? `<button class="av-btn sm ghost" data-lk-gsreset="${g}">Khôi phục gợi ý</button>` : ""}`}<button class="av-btn sm ghost" data-lk-gscopy="${g}">Chép lời</button></div></td></tr>`; };
-    return `<div class="av-panel"><div class="av-panel-h"><h2>Clip chung</h2><span class="av-hint">Không gọi tên khách, dựng sẵn 1 lần. Dùng cho chế độ Tiết kiệm và làm dự phòng khi realtime trễ. Thả file đặt tên <code>chao_1</code> / <code>camon_1</code> / <code>traloi_1</code> / <code>cho_1</code> vào ô thả voice phía trên, hoặc bấm + voice ở từng loại.</span></div>
-        <div class="av-tw"><table><thead><tr><th>Loại</th><th>Voice (mỗi file = 1 bản)</th><th>Lời đọc</th></tr></thead><tbody>${GEN.map(row).join("")}</tbody></table></div></div>`;
+    const sep = `<tr class="lk-sep"><td colspan="3"><b>Đua vịt</b> <span class="av-hint">– host mời, bình luận, chúc mừng khi có mini game đua vịt. Không có thì vẫn đua được (tên hiện trên bảng).</span></td></tr>`;
+    return `<div class="av-panel"><div class="av-panel-h"><h2>Clip chung</h2><span class="av-hint">Không gọi tên khách, dựng sẵn 1 lần. Dùng cho chế độ Tiết kiệm và làm dự phòng khi realtime trễ. Thả file đặt tên <code>chao_1</code> / <code>camon_1</code> / <code>traloi_1</code> / <code>cho_1</code> / <code>dua_moi_1</code> / <code>dua_binhluan_1</code> / <code>dua_chucmung_1</code> / <code>dua_nhanqua_1</code> vào ô thả voice phía trên, hoặc bấm + voice ở từng loại.</span></div>
+        <div class="av-tw"><table><thead><tr><th>Loại</th><th>Voice (mỗi file = 1 bản)</th><th>Lời đọc</th></tr></thead><tbody>${GEN.filter((x) => !x[3]).map(row).join("")}${sep}${GEN.filter((x) => x[3]).map(row).join("")}</tbody></table></div></div>`;
   }
   function genOwn(g) { const k = L.kit; k.generic.scripts = k.generic.scripts || {}; if (!k.generic.scripts[g]) k.generic.scripts[g] = genLines(g).slice(); return k.generic.scripts[g]; }
   function summary() {
@@ -426,7 +433,7 @@ tr.on td{background:var(--navy-wash)}
           <div class="av-f">Nền brand<div class="av-row">${k.background ? `<span class="av-pill p-ok">${bgKind === "video" ? "Nền động (video)" : "Nền tĩnh (ảnh)"}</span><span class="av-hint">${esc(String(k.background).split("/").pop())}</span>` : '<span class="av-hint">Chưa có – để trống nếu app đã có nền.</span>'}${ro() ? "" : '<label class="lk-add">Chọn file nền<input type="file" accept="video/mp4,video/webm,.mov,image/png,image/jpeg,image/webp" id="lk-bg"></label>'}</div>
             <label class="lk-bake"><input type="checkbox" data-lk-k="bake_bg" ${k.bake_bg ? "checked" : ""}${bgKind === "image" && !ro() ? "" : " disabled"}> <span>Ghép sẵn nền vào video (chỉ nền tĩnh – nhẹ card màn hình máy phát, hết viền xanh)</span></label></div>
         </div></div></div>
-      <div class="av-drop" id="lk-drop"${ro() ? " hidden" : ""}>Thả nhiều file voice vào đây – tự xếp theo tên file<div class="av-hint" style="font-weight:400;margin-top:4px"><code>&lt;mã SP&gt;_khong_1.mp3</code> (video không cầm SP) · <code>&lt;mã SP&gt;_cam_1.mp3</code> (cầm SP) · <code>faq_gia_1.mp3</code> · <code>chao_1.mp3</code> · <code>camon_1.mp3</code> · <code>traloi_1.mp3</code> · <code>cho_1.mp3</code> · thêm <code>_v2</code> cho bản giọng mới</div></div>
+      <div class="av-drop" id="lk-drop"${ro() ? " hidden" : ""}>Thả nhiều file voice vào đây – tự xếp theo tên file<div class="av-hint" style="font-weight:400;margin-top:4px"><code>&lt;mã SP&gt;_khong_1.mp3</code> (video không cầm SP) · <code>&lt;mã SP&gt;_cam_1.mp3</code> (cầm SP) · <code>faq_gia_1.mp3</code> · <code>chao_1.mp3</code> · <code>camon_1.mp3</code> · <code>traloi_1.mp3</code> · <code>cho_1.mp3</code> · <code>dua_moi_1.mp3</code> (đua vịt) · thêm <code>_v2</code> cho bản giọng mới</div></div>
       <div class="av-panel"><div class="av-panel-h"><h2>Sản phẩm <span class="av-hint">${k.products.length}</span></h2><div class="av-row">${ro() ? "" : '<button class="av-btn sm" data-lk="p-paste">Dán danh sách SP</button><button class="av-btn sm pri" data-lk="p-add">+ Thêm SP</button>'}</div></div>
         <div class="av-tw"><table><thead><tr><th>Mã SP</th><th>Tên SP</th><th>Mã SP Shopee</th><th>Mã SP TikTok</th><th>Voice video không cầm SP</th><th>Voice video cầm SP</th><th title="Clip câm hạ SP xuống / nâng SP lên, dùng khi trả lời lúc đang cầm SP">Hạ / nâng SP</th><th></th></tr></thead>
         <tbody>${k.products.map((p, i) => `<tr><td class="lk-id"><input type="text" data-lk-p="${i}" data-lk-pk="id" value="${esc(p.id)}" placeholder="sp${String(i + 1).padStart(2, "0")}"${dis()}></td><td class="lk-name"><input type="text" data-lk-p="${i}" data-lk-pk="name" value="${esc(p.name)}"${dis()}></td>
@@ -465,6 +472,8 @@ tr.on td{background:var(--navy-wash)}
   }
   function route1(f) {
     const n = norm(f.name.replace(/\.[^.]+$/, "")).replace(/\s+/g, "_");
+    if (/^(race_?call|dua_?moi)/.test(n)) return "g.race_call"; if (/^(race_?comm|dua_?binh_?luan)/.test(n)) return "g.race_commentary";
+    if (/^(race_?win|dua_?chuc_?mung)/.test(n)) return "g.race_winner"; if (/^(race_?claim|dua_?nhan_?qua)/.test(n)) return "g.race_claim";
     if (/^(chao|greet)/.test(n)) return "g.greet"; if (/^(cam_?on|thanks|hen)/.test(n)) return "g.thanks"; if (/^(tra_?loi|answer)/.test(n)) return "g.answer";
     if (/^(cau_?cho|cho|wait)([_\-]|\d|$)/.test(n)) return "g.cho";
     const q = /^faq[_\-]+(.+?)(?:[_\-]+v?\d+)*$/.exec(n);
@@ -477,7 +486,7 @@ tr.on td{background:var(--navy-wash)}
     const groups = {}, miss = [];
     files.filter(isAudio).forEach((f) => { const p = route1(f); if (p) (groups[p] = groups[p] || []).push(f); else miss.push(f.name); });
     for (const p of Object.keys(groups)) await addVoices(p, groups[p]);
-    if (miss.length) toast("Không nhận ra " + miss.length + " file (đặt tên theo mã SP / faq_ / chao_ / camon_ / traloi_ / cho_): " + miss.slice(0, 3).join(", "), true);
+    if (miss.length) toast("Không nhận ra " + miss.length + " file (đặt tên theo mã SP / faq_ / chao_ / camon_ / traloi_ / cho_ / dua_moi_…): " + miss.slice(0, 3).join(", "), true);
   }
   function pasteProducts() {
     modal(`<h3 style="margin:0">Dán danh sách sản phẩm</h3><p class="av-hint" style="margin:0">Mỗi dòng một SP: <code>Mã SP; Tên SP; Mã Shopee; Mã TikTok</code> (2 cột cuối không bắt buộc). Dán từ Excel cũng được (cột cách nhau bằng Tab).</p>
@@ -900,7 +909,7 @@ tr.on td{background:var(--navy-wash)}
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const ST = { problem: ["Có vấn đề", "p-bad"], on_air: ["Đang live", "p-ok"], scheduled: ["Có lịch", "p-navy"], off: ["Tắt / chưa có lịch", "p-idle"] };
   const APP = { live: "Đang live", preflight: "Kiểm tra trước giờ", ending: "Đang kết thúc", idle: "Chờ", stopped: "Đã dừng", error: "Lỗi app" };
-  const ACT = { pause_ai: "Tạm dừng AI", resume_ai: "Tiếp tục AI", skip_clip: "Bỏ clip đang phát", play_faq: "Phát FAQ ngay" };
+  const ACT = { pause_ai: "Tạm dừng AI", resume_ai: "Tiếp tục AI", skip_clip: "Bỏ clip đang phát", play_faq: "Phát FAQ ngay", start_race: "Bắt đầu đua vịt", stop_race: "Dừng đua vịt" };
   const CMD_ST = { Queued: ["Chờ app nhận", "p-idle"], Sent: ["App đã nhận", "p-run"], Done: ["Xong", "p-ok"], Failed: ["Lỗi", "p-bad"], Expired: ["Hết hạn", "p-warn"] };
   const KIND = { main: "Video chính", faq: "FAQ", answer: "Trả lời", greet: "Chào", readback: "Đọc câu hỏi", generic: "Clip chung", putdown: "Hạ SP", pickup: "Nâng SP" };
   const REASON = { schedule_end: "Hết giờ theo lịch", manual: "Dừng tay", error: "Lỗi", restart: "Khởi động lại", other: "Khác" };
@@ -937,7 +946,7 @@ tr.on td{background:var(--navy-wash)}
   const pill = (st) => { const x = ST[st] || ST.off; return `<span class="av-pill ${x[1]}">${x[0]}</span>`; };
   const nextTxt = (n, now) => { if (!n) return "–"; if (n.start <= now) return "Đang trong khung, đến " + hhmm(n.end); const d0 = dmy(now), d1 = dmy(n.start); return (d0 === d1 ? "Hôm nay " : d1 + " ") + hhmm(n.start) + "–" + hhmm(n.end); };
   function stop() { clearTimeout(P.timer); clearInterval(P.tick); P.timer = P.tick = null; }
-  const tabs = (cur) => `<div class="ls-tabs">${[["lives", "Phiên live"], ["schedule", "Lịch live"], ["history", "Lịch sử phiên"], ["monitor", "Giám sát"]]
+  const tabs = (cur) => `<div class="ls-tabs">${[["lives", "Phiên live"], ["schedule", "Lịch live"], ["history", "Lịch sử phiên"], ["races", "Đua vịt"], ["monitor", "Giám sát"]]
     .map(([r, l]) => `<a class="av-chip ${cur === r ? "on" : ""}" href="#/${r}">${l}</a>`).join("")}</div>`;
   const crumbs = (x) => `<div class="av-eyebrow" style="color:rgba(255,255,255,.75)"><a href="#/" style="color:inherit">AI Video hàng loạt</a> / ${x}</div>`;
   const fail = (title, msg, retry) => { view().innerHTML = `<section class="av-hero"><div>${crumbs(title)}<h1>${title}</h1></div></section><div class="av-callout bad"><div>${esc(msg || "Không tải được.")}</div></div>${retry ? `<div><button class="av-outline" data-ls="retry">Thử lại</button></div>` : ""}`; };
@@ -947,7 +956,7 @@ tr.on td{background:var(--navy-wash)}
     stop(); h = h == null ? hash() : h;
     if ($("av-modal") && !$("av-modal").hidden) closeModal();
     const v = view(); v.classList.add("ls-wide");
-    let m = /^live\/(.+)$/.exec(h); if (m) return loadDetail(decodeURIComponent(m[1]));
+    let m = /^live\/([^/?]+)(\/giai)?/.exec(h); if (m) { P.dtab = m[2] ? "giai" : ""; return loadDetail(decodeURIComponent(m[1])); }
     m = /^schedule(?:\/(\d{4}-\d{2}-\d{2}))?/.exec(h); if (m) { P.wk = m[1] || P.wk || ""; return loadWeek(); }
     if (/^history/.test(h)) return loadHistory();
     if (/^watch/.test(h)) return loadWatch();
@@ -1005,10 +1014,10 @@ tr.on td{background:var(--navy-wash)}
   async function loadDetail(name, quiet) {
     if (!quiet) { P.detail = null; view().innerHTML = `<section class="av-hero"><div>${crumbs(`<a href="#/lives" style="color:inherit">Phiên live</a> / ${esc(name)}`)}<h1>${esc(name)}</h1><div class="sub">Đang tải…</div></div></section>`; }
     const r = await call("session_detail", { name }, "GET");
-    if (hash() !== "live/" + encodeURIComponent(name) && hash() !== "live/" + name) return;
+    const base = hash().replace(/\/giai$/, ""); if (base !== "live/" + encodeURIComponent(name) && base !== "live/" + name) return;
     if (r.success) { P.detail = r.data; P.failed = 0; P.skew = r.data.server_time - Date.now() / 1000; renderDetail(); pumpThumbs(); }
     else { P.failed++; if (!P.detail) return fail("Phiên live", r.message, true); }
-    clearTimeout(P.timer); P.timer = setTimeout(() => loadDetail(name, true), 10000);
+    clearTimeout(P.timer); if (P.dtab !== "giai") P.timer = setTimeout(() => loadDetail(name, true), 10000);   /* tab Giai thuong tu lam moi rieng */
     if (!P.tick) P.tick = setInterval(paintProgress, 1000);
   }
   function shot(d, kind, label) {
@@ -1035,9 +1044,10 @@ tr.on td{background:var(--navy-wash)}
         <div class="av-stats"><div class="av-stat"><span>Người xem</span><b>${num(pf.viewers)}</b></div><div class="av-stat"><span>Comment / đã trả lời</span><b>${num(cnt.comments)} / ${num(cnt.answered)}</b></div><div class="av-stat"><span>Chi phí hôm nay</span><b>${usd(det.cost_today_usd)}</b></div></div></section>
       ${tabs("lives")}
       ${(d.reasons || []).length ? `<div class="av-callout ${d.status === "problem" ? "bad" : "warn"}"><div>${d.reasons.map((x) => esc(x.text)).join(" · ")}</div></div>` : ""}
-      <div class="ls-ctl"><button class="av-btn" data-ls-cmd="pause_ai">⏸ Tạm dừng AI</button><button class="av-btn" data-ls-cmd="resume_ai">▶ Tiếp tục AI</button><button class="av-btn" data-ls-cmd="skip_clip">⏭ Bỏ clip đang phát</button><button class="av-btn" data-ls-cmd="play_faq">Phát FAQ ngay…</button>
+      <div class="ls-ctl"><button class="av-btn" data-ls-cmd="pause_ai">⏸ Tạm dừng AI</button><button class="av-btn" data-ls-cmd="resume_ai">▶ Tiếp tục AI</button><button class="av-btn" data-ls-cmd="skip_clip">⏭ Bỏ clip đang phát</button><button class="av-btn" data-ls-cmd="play_faq">Phát FAQ ngay…</button><button class="av-btn" data-ls-race="start">Đua vịt…</button><button class="av-btn" data-ls-race="stop">Dừng đua vịt</button>
         <a class="av-outline" href="/app/ec-ai-live-session/${encodeURIComponent(s.id)}" target="_blank" rel="noopener">Sửa phiên</a><a class="av-outline" href="#/schedule">Lịch live</a><a class="av-outline" href="#/history" data-ls-hist="${esc(s.id)}">Lịch sử</a></div>
-      <div class="ls-grid"><div class="ls-col">
+      <div class="ls-tabs ls-sub"><a class="av-chip ${P.dtab === "giai" ? "" : "on"}" href="#/live/${encodeURIComponent(s.id)}">Tổng quan</a><a class="av-chip ${P.dtab === "giai" ? "on" : ""}" href="#/live/${encodeURIComponent(s.id)}/giai">Giải thưởng (đua vịt)</a></div>
+      ${P.dtab === "giai" ? `<div id="lr-mount"></div>` : `<div class="ls-grid"><div class="ls-col">
         <div class="ls-card"><h3>Hình đang phát <small>${stale == null ? "chưa có tín hiệu" : "tín hiệu " + ago(stale) + " trước"}${d.app_state ? " · " + esc(APP[d.app_state] || d.app_state) : ""}</small></h3>
           <div class="ls-shots">${shot(d, "obs", "OBS")}${shot(d, "platform", "Ảnh từ sàn")}${(d.thumbs || {}).stream ? shot(d, "stream", "Luồng công khai") : shot(d, "phone", "Điện thoại")}</div></div>
         <div class="ls-card ls-now"><h3>Đang phát</h3>${nw.kind || nw.file ? `<b>${esc(kind(nw.kind))}${nw.product ? " – " + esc(nw.product) : ""}</b><div class="av-hint">${esc(nw.file || "")}</div><div class="ls-prog"><i id="ls-prog"></i></div><div class="av-hint" id="ls-left"></div>` : `<div class="av-hint">App chưa gửi thông tin đang phát.</div>`}</div>
@@ -1049,9 +1059,10 @@ tr.on td{background:var(--navy-wash)}
         <div class="ls-card"><h3>Comment gần đây</h3>${list(det.recent, (x) => `<li><span><b>${esc(x.user)}</b>: ${esc(x.text)}</span><em>${esc(x.handled || "")}</em></li>`, "Chưa có comment.")}</div>
         <div class="ls-card"><h3>Đã chào <small>${num(cnt.greeted)} người</small></h3>${list(det.greeted, (x) => `<li><span>${esc(x.name)}</span><em>${esc(x.mode || "")}</em></li>`, "Chưa chào ai.")}</div>
         <div class="ls-card"><h3>Báo động 24 giờ</h3>${list(d.alerts, (a) => `<li><span>${esc(a.text)}</span><em>${hhmm(a.ts)}</em></li>`, "Không có báo động.")}</div>
-        <div class="ls-card"><h3>Lệnh đã gửi cho app</h3>${list(d.commands, (x) => `<li><span>${esc(ACT[x.action] || x.action)}${x.args && x.args.topic ? " – " + esc(x.args.topic) : ""}${x.result ? ` <span class="av-hint">(${esc(x.result)})</span>` : ""}</span><em>${hhmm(x.created_ts)} <span class="av-pill ${(CMD_ST[x.status] || CMD_ST.Queued)[1]}">${(CMD_ST[x.status] || CMD_ST.Queued)[0]}</span></em></li>`, "Chưa gửi lệnh nào.")}</div>
+        <div class="ls-card"><h3>Lệnh đã gửi cho app</h3>${list(d.commands, (x) => `<li><span>${esc(ACT[x.action] || x.action)}${x.args && (x.args.topic || x.args.keyword) ? " – " + esc(x.args.topic || "từ khoá " + x.args.keyword) : ""}${x.result ? ` <span class="av-hint">(${esc(x.result)})</span>` : ""}</span><em>${hhmm(x.created_ts)} <span class="av-pill ${(CMD_ST[x.status] || CMD_ST.Queued)[1]}">${(CMD_ST[x.status] || CMD_ST.Queued)[0]}</span></em></li>`, "Chưa gửi lệnh nào.")}</div>
         <div class="ls-card"><h3>Các lần chạy gần đây <small>30 ngày</small></h3>${list(d.history, (x) => `<li><span>${dmy(x.started_ts)} ${hhmm(x.started_ts)} · ${dur(x.duration_s)} · ${num(x.comments)} comment · ${num(x.answered)} trả lời · ${num(x.greeted)} chào</span><em>${usd(x.cost_usd)}</em></li>`, "Chưa có tổng kết phiên nào.")}</div>
-      </div></div>`;
+      </div></div>`}`;
+    if (P.dtab === "giai") { const el = $("lr-mount"); if (el) { if (window.ecAiLiveRace) window.ecAiLiveRace.mount(el, { live: s.id }); else el.innerHTML = '<div class="av-callout bad"><div>Màn Đua vịt chưa tải xong, tải lại trang.</div></div>'; } return; }
     paintThumbs(); paintProgress();
   }
   function paintProgress() {
@@ -1080,6 +1091,29 @@ tr.on td{background:var(--navy-wash)}
   }
   function modal(html) { const b = $("av-modal-box"); b.className = "box"; b.innerHTML = html; $("av-modal").hidden = false; }
   function closeModal() { $("av-modal").hidden = true; $("av-modal-box").innerHTML = ""; }
+  /* 18/10 fix10e: dua vit - de trong = dung cai dat tren app; chi gui gia tri da nhap (ghi de 1 lan) */
+  function modalRace() {
+    const sel = (id, opts) => `<select id="${id}"><option value="">Theo cài đặt trên app</option>${opts.map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select>`;
+    modal(`<h3 style="margin:0">Bắt đầu đua vịt</h3><div class="av-hint">App mở đăng ký ngay (từ chối nếu đang có cuộc đua, live chưa chạy hoặc AI đang tạm dừng). Để trống = dùng cài đặt trên app.</div>
+      <div class="lr-form"><label class="av-f">Từ khoá<input type="text" id="lr-kw" maxlength="30" placeholder="vịt"></label>
+        <label class="av-f">Thời gian đăng ký (giây)<input type="number" id="lr-reg" min="20" max="300" placeholder="60"></label>
+        <label class="av-f">Thời gian đua (giây)<input type="number" id="lr-race" min="20" max="60" placeholder="30"></label>
+        <label class="av-f">Tối thiểu người chơi<input type="number" id="lr-min" min="2" max="100" placeholder="2"></label>
+        <label class="av-f">Loại người đã trúng${sel("lr-ex", [["none", "Không loại"], ["today", "Đã trúng hôm nay"], ["week", "Đã trúng trong 7 ngày"]])}</label>
+        <label class="av-f">Thứ tự công bố${sel("lr-ord", [["ascending", "Từ giải thấp lên giải nhất"], ["descending", "Từ giải nhất xuống"]])}</label></div>
+      <div><b style="font-size:13px">Giải lần này</b> <span class="av-hint">(để trống = theo cài đặt trên app)</span><div id="lr-tiers"></div><button class="av-btn sm ghost" data-ls="race-tier">+ Thêm giải</button></div>
+      <div class="av-row" style="justify-content:flex-end"><button class="av-btn" data-close>Huỷ</button><button class="av-btn pri" data-ls="race-go">Gửi lệnh bắt đầu</button></div>`);
+  }
+  function raceArgs() {
+    const v = (id) => (($(id) || {}).value || "").trim(), out = {};
+    if (v("lr-kw")) out.keyword = v("lr-kw");
+    [["lr-reg", "regSeconds"], ["lr-race", "raceSeconds"], ["lr-min", "minEntrants"]].forEach(([id, k]) => { if (v(id)) out[k] = +v(id); });
+    if (v("lr-ex")) out.excludeWinners = v("lr-ex");
+    if (v("lr-ord")) out.announceOrder = v("lr-ord");
+    const tiers = [...document.querySelectorAll("#lr-tiers .lr-tier")].map((r) => ({ label: r.querySelector("[data-t=label]").value.trim(), count: +r.querySelector("[data-t=count]").value || 0, prize: r.querySelector("[data-t=prize]").value.trim() })).filter((x) => x.label || x.prize);
+    if (tiers.length) out.tiers = tiers;
+    return out;
+  }
   function modalFaq() {
     modal(`<h3 style="margin:0">Phát FAQ ngay</h3><label class="av-f">Chủ đề FAQ (đúng tên chủ đề trong Bộ live, vd Giá, Cách pha)<input type="text" id="ls-faq" maxlength="120" placeholder="Giá"></label>
       <div class="av-hint">App phát clip FAQ của chủ đề này ở điểm nghỉ kế tiếp (bỏ qua cooldown một lần).</div>
@@ -1307,7 +1341,7 @@ tr.on td{background:var(--navy-wash)}
   /* ---------- su kien ---------- */
   document.addEventListener("click", async (e) => {
     if (!on()) return;
-    const t = e.target.closest ? e.target.closest("[data-ls],[data-ls-status],[data-ls-sel],[data-ls-all],[data-ls-open],[data-ls-cmd],[data-ls-hist],[data-lc-week],[data-lc-by],[data-lc-blk],[data-lc-add],[data-lc-del],[data-lc-skip],[data-lc-save],[data-lc-rep],[data-lc-create],[data-lh-days],[data-lh-live]") : null;
+    const t = e.target.closest ? e.target.closest("[data-ls],[data-ls-status],[data-ls-sel],[data-ls-all],[data-ls-open],[data-ls-cmd],[data-ls-race],[data-ls-hist],[data-lc-week],[data-lc-by],[data-lc-blk],[data-lc-add],[data-lc-del],[data-lc-skip],[data-lc-save],[data-lc-rep],[data-lc-create],[data-lh-days],[data-lh-live]") : null;
     if (!t) return;
     const ds = t.dataset;
     if (ds.lsSel != null || ds.lsAll != null) {
@@ -1328,6 +1362,16 @@ tr.on td{background:var(--navy-wash)}
       toast(r.success ? "Đã gửi lệnh phát FAQ " + topic.trim() : r.message || "Lỗi", !r.success); if (r.success) { closeModal(); loadDetail(P.detail.session.id, true); } return;
     }
     if (ds.lsCmd) return command(ds.lsCmd, t);
+    if (ds.lsRace === "start") return modalRace();
+    if (ds.lsRace === "stop") return modal(`<h3 style="margin:0">Dừng đua vịt?</h3><div class="av-hint">App gỡ mọi clip của cuộc đua đang chạy khỏi hàng và ghi kết quả "đã huỷ". Không có cuộc đua nào thì app báo lại.</div><div class="av-row" style="justify-content:flex-end"><button class="av-btn" data-close>Không</button><button class="av-btn pri" data-ls="race-stop">Dừng đua vịt</button></div>`);
+    if (ds.ls === "race-tier") { const box = $("lr-tiers"); if (box && box.children.length < 10) box.insertAdjacentHTML("beforeend", `<div class="lr-tier"><input data-t="label" maxlength="40" placeholder="Giải nhất" aria-label="Tên giải"><input data-t="count" type="number" min="0" max="100" value="1" aria-label="Số người"><input data-t="prize" maxlength="120" placeholder="Phần quà" aria-label="Phần quà"><button class="av-btn sm ghost" data-ls="race-tier-del" aria-label="Bỏ giải">×</button></div>`); return; }
+    if (ds.ls === "race-tier-del") { t.closest(".lr-tier").remove(); return; }
+    if (ds.ls === "race-go" || ds.ls === "race-stop") {
+      const go = ds.ls === "race-go", args = go ? raceArgs() : null; t.disabled = true;
+      const r = await call("queue_command", { name: P.detail.session.id, action: go ? "start_race" : "stop_race", args: args ? JSON.stringify(args) : null });
+      t.disabled = false; toast(r.success ? `Đã gửi lệnh "${ACT[go ? "start_race" : "stop_race"]}" – app nhận trong khoảng 10 giây` : r.message || "Lỗi", !r.success);
+      if (r.success) { closeModal(); loadDetail(P.detail.session.id, true); } return;
+    }
     if (ds.lsHist) { P.hf.live = ds.lsHist; return; }
     if (ds.lsOpen) { if (e.target.closest("input,a,button")) return; location.hash = "#/live/" + encodeURIComponent(ds.lsOpen); return; }
     if (ds.lcWeek != null) { const n = +ds.lcWeek; if (!n) P.wk = ""; else { const d = new Date(P.week.week + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + n); P.wk = d.toISOString().slice(0, 10); } return loadWeek(true); }
@@ -1361,6 +1405,165 @@ tr.on td{background:var(--navy-wash)}
   document.addEventListener("keydown", (e) => { if (!on() || e.key !== "Enter") return; const tr = e.target.closest && e.target.closest("tr[data-ls-open]"); if (tr && e.target === tr) location.hash = "#/live/" + encodeURIComponent(tr.dataset.lsOpen); });
   document.addEventListener("visibilitychange", () => { if (on() && !document.hidden && /^lives/.test(hash())) loadList(true); });
   window.ecAiLiveSess = { load, isMine: (h) => /^(lives|live\/|schedule|history|watch)/.test(h || "") };
+})();
+</script>
+<style id="ec-ailive-race-css">
+.ls-sub{margin-top:-6px}
+.lr-form{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.lr-tier{display:grid;grid-template-columns:1.2fr 70px 2fr auto;gap:6px;margin:6px 0}
+.lr-tier input{min-width:0}
+.lr-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;justify-content:space-between}
+.lr-filters{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+.lr-filters label{display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--ink3);font-weight:600}
+.lr-filters input,.lr-filters select{min-width:0;max-width:170px}
+.lr-sum{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--ink2)}
+.lr-sum b{color:var(--ink)}
+.lr-list{display:flex;flex-direction:column;gap:12px}
+.lr-race{border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow:hidden}
+.lr-rh{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line-soft);background:var(--ground)}
+.lr-rh b{font-size:14px}
+.lr-meta{font-size:12.5px;color:var(--ink3)}
+.lr-w table{width:100%;border-collapse:collapse}
+.lr-w th,.lr-w td{padding:7px 10px;border-bottom:1px solid var(--line-soft);text-align:left;font-size:13px;vertical-align:middle;white-space:nowrap}
+.lr-w th{font-size:11.5px;color:var(--ink3);font-weight:600;text-transform:uppercase;letter-spacing:.02em}
+.lr-w td.nm{white-space:normal;min-width:120px;font-weight:600}
+.lr-w input[data-lr-note]{width:100%;min-width:140px;font-size:12.5px}
+#ec-aiv-root .lr-w select.st-ok{border-color:var(--ok);color:var(--ok);background:var(--ok-bg)}
+#ec-aiv-root .lr-w select.st-warn{border-color:#e5c07b;color:var(--warn);background:var(--warn-bg)}
+#ec-aiv-root .lr-w select.st-bad{border-color:#e8a3a3;color:var(--bad);background:var(--bad-bg)}
+.lr-none{padding:10px 14px;font-size:13px;color:var(--ink3)}
+.lr-bulk{position:fixed;right:24px;bottom:16px;z-index:50;width:max-content;max-width:calc(100vw - 32px);display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--ink);color:#fff;border-radius:10px;padding:10px 14px;box-shadow:0 6px 18px rgba(17,24,39,.25)}
+.lr-bulk[hidden]{display:none}
+#ec-aiv-root .lr-bulk select{color:var(--ink);width:auto}
+@media (max-width:640px){.lr-bulk{right:16px;bottom:12px}}
+@media (max-width:640px){.lr-tier{grid-template-columns:1fr 64px auto}.lr-tier [data-t=prize]{grid-column:1/3}.lr-filters input,.lr-filters select{max-width:150px}
+  .lr-w table,.lr-w tbody{display:block}.lr-w thead{display:none}
+  .lr-w tr{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;padding:8px 12px 10px 40px;position:relative;border-bottom:1px solid var(--line-soft)}
+  #ec-aiv-root .lr-w td{border:0;padding:0;white-space:normal}.lr-w td:first-child{position:absolute;left:12px;top:9px}
+  .lr-w td.nm{order:-1;flex:1 1 100%;font-size:14px}.lr-w td[data-l]{font-size:12.5px}.lr-w td[data-l]::before{content:attr(data-l) ": ";color:var(--ink3)}
+  .lr-w td:nth-child(6),.lr-w td:nth-child(7){flex:1 1 100%}.lr-w select,.lr-w input[data-lr-note]{width:100%}}
+</style>
+<script>
+/* 18/10 fix10e: Dua vit (W20) - trang #/races (moi cuoc dua, loc brand / live / ngay, xuat CSV, cap nhat trao giai hang loat)
+   + tab "Giai thuong" trong chi tiet phien (window.ecAiLiveRace.mount). Ket qua do app chot; ERP chi sua trang thai trao giai + ghi chu. */
+(() => {
+  "use strict";
+  const API = "/api/method/ecentric_workspace.ai_tools.features.ai_live.controllers.api.";
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const STP = { "Chưa trao": "st-warn", "Đã trao": "st-ok", "Không liên lạc được": "st-bad" };
+  const STATUSES = Object.keys(STP);
+  const OUT = { done: ["Đã đua xong", "p-ok"], not_enough: ["Chưa đủ người", "p-idle"], cancelled: ["Đã huỷ", "p-warn"], aborted_restart: ["Huỷ do app khởi động lại", "p-warn"] };
+  const BY = { app: "bấm trên app", schedule: "lịch giờ cố định", every: "mỗi X phút", erp: "lệnh từ ERP" };
+  const R = { el: null, scope: "", f: { brand: "", live: "", date_from: "", date_to: "", outcome: "", prize: "" }, data: null, sel: new Set(), seq: 0 };
+
+  async function call(method, args, http) {
+    const opts = { credentials: "same-origin", headers: { Accept: "application/json" } };
+    let url = API + method;
+    if (http === "GET") { const qs = new URLSearchParams(Object.entries(args || {}).filter(([, v]) => v != null && v !== "")).toString(); if (qs) url += "?" + qs; }
+    else { opts.method = "POST"; opts.headers["Content-Type"] = "application/json"; opts.headers["X-Frappe-CSRF-Token"] = (window.frappe && window.frappe.csrf_token) || ""; opts.body = JSON.stringify(args || {}); }
+    let res;
+    try { res = await fetch(url, opts); } catch (e) { return { success: false, message: "Mất kết nối mạng.", data: null }; }
+    if (res.status === 401) return { success: false, message: "Phiên đăng nhập hết hạn – tải lại trang.", data: null };
+    let body = {}; try { body = await res.json(); } catch (e) { /* khong phai JSON */ }
+    const m = body.message; if (m && typeof m === "object" && typeof m.success === "boolean") return m;
+    return res.ok ? { success: true, message: "", data: m } : { success: false, message: "Máy chủ báo lỗi (" + res.status + ").", data: null };
+  }
+  let tt; function toast(msg, err) { const t = $("av-toast"); if (!t) return; t.textContent = msg; t.className = "av-toast show" + (err ? " err" : ""); clearTimeout(tt); tt = setTimeout(() => { t.className = "av-toast"; }, err ? 6000 : 2600); }
+  const vn = (ts) => new Date((ts + 7 * 3600) * 1000);
+  const when = (r) => { const t = r.finished_ts || r.race_started_ts || r.reg_started_ts; if (!t) return r.race_date.split("-").reverse().join("/"); const d = vn(t), p = (n) => String(n).padStart(2, "0"); return `${p(d.getUTCDate())}/${p(d.getUTCMonth() + 1)} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`; };
+  const crumbs = (x) => `<div class="av-eyebrow" style="color:rgba(255,255,255,.75)"><a href="#/" style="color:inherit">AI Video hàng loạt</a> / ${x}</div>`;
+  const tabs = () => `<div class="ls-tabs">${[["lives", "Phiên live"], ["schedule", "Lịch live"], ["history", "Lịch sử phiên"], ["races", "Đua vịt"], ["monitor", "Giám sát"]].map(([r, l]) => `<a class="av-chip ${r === "races" ? "on" : ""}" href="#/${r}">${l}</a>`).join("")}</div>`;
+  const live = () => !!(R.el && R.el.isConnected);
+
+  /* ---------- vao trang / gan vao chi tiet phien ---------- */
+  function load(h) {
+    const q = new URLSearchParams(String(h || "").split("?")[1] || ""), v = $("av-view"); v.classList.add("ls-wide");
+    R.scope = ""; R.sel.clear(); R.data = null;
+    R.f = { brand: q.get("brand") || "", live: q.get("live") || "", date_from: q.get("from") || "", date_to: q.get("to") || "", outcome: "", prize: q.get("prize") || "" };
+    v.innerHTML = `<section class="av-hero"><div>${crumbs("Đua vịt")}<h1>Đua vịt</h1><div class="sub">Mọi cuộc đua vịt trong live của các brand: người thắng, phần quà, trạng thái trao giải. Kết quả do app chốt ngẫu nhiên có kiểm chứng – ERP chỉ cập nhật trao giải và ghi chú.</div></div><div class="av-stats" id="lr-stats"></div></section>${tabs()}<div id="lr-body" class="lr-list"><div class="av-hint">Đang tải…</div></div>`;
+    R.el = $("lr-body"); return fetchRaces();
+  }
+  function mount(el, opts) {
+    R.el = el; R.scope = (opts && opts.live) || ""; R.sel.clear(); R.data = null;
+    const d = new Date(Date.now() + 7 * 3600 * 1000), to = d.toISOString().slice(0, 10); d.setUTCDate(d.getUTCDate() - 29);
+    R.f = { brand: "", live: R.scope, date_from: d.toISOString().slice(0, 10), date_to: to, outcome: "", prize: "" };
+    el.innerHTML = '<div class="av-hint">Đang tải giải thưởng…</div>'; return fetchRaces();
+  }
+  async function fetchRaces() {
+    const my = ++R.seq, r = await call("list_races", R.f, "GET");
+    if (my !== R.seq || !live()) return;
+    if (!r.success) { R.el.innerHTML = `<div class="av-callout bad"><div>${esc(r.message || "Không tải được danh sách đua vịt.")}</div></div><div><button class="av-outline" data-lr="refresh">Thử lại</button></div>`; return; }
+    R.data = r.data; R.f.date_from = r.data.date_from; R.f.date_to = r.data.date_to;
+    const keep = new Set(r.data.races.flatMap((x) => x.winners.map((w) => x.id + "|" + w.rank))); [...R.sel].forEach((k) => { if (!keep.has(k)) R.sel.delete(k); });
+    render();
+  }
+
+  /* ---------- ve ---------- */
+  function render() {
+    const d = R.data, t = d.totals, st = $("lr-stats");
+    if (st && !R.scope) st.innerHTML = `<div class="av-stat"><span>Cuộc đua</span><b>${t.races}</b></div><div class="av-stat"><span>Người thắng</span><b>${t.winners}</b></div><div class="av-stat"><span>Chưa trao</span><b>${t.chua_trao}</b></div>`;
+    const opt = (list, cur, all) => `<option value="">${all}</option>` + [...new Set(list.concat(cur ? [cur] : []))].map((x) => `<option value="${esc(x)}" ${x === cur ? "selected" : ""}>${esc(x)}</option>`).join("");
+    const filters = `<div class="lr-filters">
+        ${R.scope ? "" : `<label>Brand<select data-lr-f="brand">${opt(d.brands, R.f.brand, "Tất cả")}</select></label><label>Phiên live<select data-lr-f="live">${opt(d.lives, R.f.live, "Tất cả")}</select></label>`}
+        <label>Từ ngày<input type="date" data-lr-f="date_from" value="${esc(R.f.date_from)}"></label><label>Đến ngày<input type="date" data-lr-f="date_to" value="${esc(R.f.date_to)}"></label>
+        <label>Kết quả<select data-lr-f="outcome"><option value="">Tất cả</option>${Object.entries(OUT).map(([k, [l]]) => `<option value="${k}" ${R.f.outcome === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+        <label>Trao giải<select data-lr-f="prize"><option value="">Tất cả</option>${STATUSES.map((s) => `<option ${R.f.prize === s ? "selected" : ""}>${s}</option>`).join("")}</select></label></div>`;
+    const sum = `<div class="lr-sum"><span><b>${t.races}</b> cuộc đua (${t.done} đua xong)</span><span><b>${t.winners}</b> người thắng</span><span>Đã trao <b>${t.da_trao}</b></span><span>Chưa trao <b>${t.chua_trao}</b></span><span>Không liên lạc được <b>${t.khong_lien_lac}</b></span>${d.truncated ? '<span class="av-hint">Chỉ hiện 500 cuộc đua mới nhất – thu hẹp khoảng ngày.</span>' : ""}</div>`;
+    R.el.innerHTML = `<div class="lr-bar">${filters}<div class="av-row"><button class="av-btn" data-lr="refresh">Làm mới</button><button class="av-btn" data-lr="csv">Xuất CSV</button>${R.scope ? `<a class="av-outline" href="#/races?live=${encodeURIComponent(R.scope)}">Mở trang Đua vịt</a>` : ""}</div></div>
+      ${sum}${d.races.length ? d.races.map(raceHtml).join("") : `<div class="av-callout"><div>Chưa có cuộc đua nào trong khoảng này. Cuộc đua hiện ở đây khi app trên máy phát gửi kết quả (cần app có tính năng Đua vịt).</div></div>`}
+      <div class="lr-bulk" id="lr-bulk" ${R.sel.size ? "" : "hidden"}><span>Đã chọn <b id="lr-nsel">${R.sel.size}</b> người thắng</span><select id="lr-bulk-st" aria-label="Trạng thái mới">${STATUSES.map((s) => `<option>${s}</option>`).join("")}</select><button class="av-btn pri sm" data-lr="bulk-go">Cập nhật</button><button class="av-btn sm" data-lr="bulk-clear">Bỏ chọn</button></div>`;
+  }
+  function raceHtml(r) {
+    const o = OUT[r.outcome] || [r.status_raw || r.outcome, "p-idle"], ex = r.excluded_count ? ` · loại ${r.excluded_count}${r.excluded_reasons.length ? " (" + r.excluded_reasons.map((x) => esc(x.reason) + " " + x.n).join(", ") + ")" : ""}` : "";
+    const head = `<div class="lr-rh"><b>${when(r)}</b>${R.scope ? "" : `<a href="#/live/${encodeURIComponent(r.live)}/giai">${esc(r.live)}</a>`}${r.brand ? `<span class="lr-meta">${esc(r.brand)}</span>` : ""}<span class="av-pill ${o[1]}">${esc(o[0])}</span>
+      <span class="lr-meta">${r.entrants} người đua (đăng ký ${r.registered}${ex}) · từ khoá "${esc(r.keyword)}" · ${esc(BY[r.by] || r.by)}${r.seed ? ` · mã kiểm tra <code title="${esc(r.algo)}">${esc(r.seed.slice(0, 12))}…</code>` : ""}</span>
+      ${r.png_url ? `<a class="av-outline" href="${esc(r.png_url)}" target="_blank" rel="noopener">Ảnh kết quả</a>` : ""}</div>`;
+    if (!r.winners.length) return `<div class="lr-race">${head}<div class="lr-none">Không có người thắng.</div></div>`;
+    const all = r.winners.every((w) => R.sel.has(r.id + "|" + w.rank));
+    return `<div class="lr-race">${head}<div class="lr-w av-tw"><table><thead><tr><th><input type="checkbox" data-lr-all="${esc(r.id)}" ${all ? "checked" : ""} aria-label="Chọn cả cuộc đua"></th><th>Hạng</th><th>Giải</th><th>Phần quà</th><th>Người thắng</th><th>Trao giải</th><th>Ghi chú</th></tr></thead><tbody>
+      ${r.winners.map((w) => { const k = r.id + "|" + w.rank; return `<tr><td><input type="checkbox" data-lr-sel="${esc(k)}" ${R.sel.has(k) ? "checked" : ""} aria-label="Chọn ${esc(w.name)}"></td><td data-l="Hạng">${w.rank}</td><td data-l="Giải">${esc(w.tier)}</td><td data-l="Quà">${esc(w.prize)}</td><td class="nm">${esc(w.name)}</td>
+        <td><select class="${STP[w.status] || ""}" data-lr-st="${esc(k)}" aria-label="Trao giải cho ${esc(w.name)}">${STATUSES.map((s) => `<option ${s === w.status ? "selected" : ""}>${s}</option>`).join("")}</select></td>
+        <td><input type="text" maxlength="500" data-lr-note="${esc(k)}" value="${esc(w.note)}" placeholder="vd đã gửi đơn #123" aria-label="Ghi chú ${esc(w.name)}"></td></tr>`; }).join("")}</tbody></table></div></div>`;
+  }
+  const winner = (k) => { const [id, rank] = k.split("|"); const r = (R.data.races || []).find((x) => x.id === id); return r && r.winners.find((w) => String(w.rank) === rank); };
+
+  /* ---------- ghi ---------- */
+  async function setStatus(keys, status, note) {
+    const items = keys.map((k) => { const [race, rank] = k.split("|"); return { race, rank: +rank }; });
+    const r = await call("set_prize_status", { items: JSON.stringify(items), status, note: note == null ? null : note });
+    if (!r.success) { toast(r.message || "Không cập nhật được.", true); fetchRaces(); return false; }
+    toast(note != null && keys.length === 1 ? "Đã lưu ghi chú" : `Đã cập nhật ${r.data.updated} người thắng: ${r.data.status}`); return true;
+  }
+  async function exportCsv(btn) {
+    btn.disabled = true; btn.classList.add("av-loading");
+    try {
+      const r = await call("export_races_csv", R.f, "GET"); if (!r.success) return toast(r.message || "Không xuất được CSV.", true);
+      const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([r.data.csv], { type: "text/csv;charset=utf-8" })); a.download = r.data.filename;
+      document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+      toast(`Đã xuất ${r.data.rows} dòng`);
+    } finally { btn.disabled = false; btn.classList.remove("av-loading"); }
+  }
+  function paintBulk() { const b = $("lr-bulk"); if (b) b.hidden = !R.sel.size; const n = $("lr-nsel"); if (n) n.textContent = R.sel.size; }
+
+  document.addEventListener("click", async (e) => {
+    if (!live()) return;
+    const t = e.target.closest ? e.target.closest("[data-lr],[data-lr-sel],[data-lr-all]") : null; if (!t || !(R.el.contains(t))) return;
+    const ds = t.dataset;
+    if (ds.lrSel != null) { t.checked ? R.sel.add(ds.lrSel) : R.sel.delete(ds.lrSel); return paintBulk(); }
+    if (ds.lrAll != null) { const r = R.data.races.find((x) => x.id === ds.lrAll); (r ? r.winners : []).forEach((w) => (t.checked ? R.sel.add(r.id + "|" + w.rank) : R.sel.delete(r.id + "|" + w.rank))); t.closest(".lr-race").querySelectorAll("[data-lr-sel]").forEach((c) => { c.checked = t.checked; }); return paintBulk(); }
+    if (ds.lr === "refresh") return fetchRaces();
+    if (ds.lr === "csv") return exportCsv(t);
+    if (ds.lr === "bulk-clear") { R.sel.clear(); return render(); }
+    if (ds.lr === "bulk-go") { const st = ($("lr-bulk-st") || {}).value; t.disabled = true; const ok = await setStatus([...R.sel], st, null); t.disabled = false; if (ok) { R.sel.clear(); fetchRaces(); } }
+  });
+  document.addEventListener("change", async (e) => {
+    if (!live() || !R.el.contains(e.target)) return; const t = e.target, ds = t.dataset || {};
+    if (ds.lrF) { R.f[ds.lrF] = t.value; return fetchRaces(); }
+    if (ds.lrSt) { const w = winner(ds.lrSt); if (await setStatus([ds.lrSt], t.value, null) && w) { w.status = t.value; t.className = STP[t.value] || ""; } return; }
+    if (ds.lrNote) { const w = winner(ds.lrNote); if (!w || w.note === t.value.trim()) return; if (await setStatus([ds.lrNote], w.status, t.value.trim())) w.note = t.value.trim(); }
+  });
+  window.ecAiLiveRace = { load, mount, isMine: (h) => /^races/.test(h || "") };
 })();
 </script>
 
@@ -1459,7 +1662,7 @@ tr.on td{background:var(--navy-wash)}
         <span class="tag" id="av-ping">Đang kiểm tra máy chạy video…</span></div>
         <div class="av-stats"><div class="av-stat"><span>Dự án</span><b>${ps.length}</b></div><div class="av-stat"><span>SKU</span><b>${tot.sku}</b></div>
         <div class="av-stat"><span>Đang chạy</span><b>${tot.run}</b></div><div class="av-stat hl"><span>Chờ chọn / duyệt</span><b>${tot.pick + tot.qc}</b></div><div class="av-stat"><span>Đủ clip / xong</span><b>${tot.done}</b></div></div></section>
-      <div class="av-row"><a class="av-outline" href="#/kits">Bộ live cho app AI Live →</a><a class="av-outline" href="#/hosts">Kho host · Studio ảnh host →</a><a class="av-outline" href="#/lives">Phiên live →</a><a class="av-outline" href="#/schedule">Lịch live →</a><a class="av-outline" href="#/monitor">Giám sát live →</a></div>
+      <div class="av-row"><a class="av-outline" href="#/kits">Bộ live cho app AI Live →</a><a class="av-outline" href="#/hosts">Kho host · Studio ảnh host →</a><a class="av-outline" href="#/lives">Phiên live →</a><a class="av-outline" href="#/schedule">Lịch live →</a><a class="av-outline" href="#/races">Đua vịt →</a><a class="av-outline" href="#/monitor">Giám sát live →</a></div>
       ${configured ? "" : `<div class="av-callout warn"><div><b>Chưa nối máy chạy video.</b> Cần khai <code>ec_video_worker_url</code> và <code>ec_video_worker_secret</code> trong site_config (IT làm một lần). Vẫn tạo dự án và nhập lô được.</div></div>`}
       <div class="av-chips"><button class="av-chip ${S.brand ? "" : "on"}" data-brand="">Tất cả <span class="n">${ps.length}</span></button>
         ${Object.keys(brands).sort().map((b) => `<button class="av-chip ${S.brand === b ? "on" : ""}" data-brand="${esc(b)}">${esc(b)} <span class="n">${brands[b]}</span></button>`).join("")}

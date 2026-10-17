@@ -1,0 +1,99 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-10-18 00:00:00.000000",
+ "description": "Một người thắng của cuộc đua vịt.",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "race_rank",
+  "tier",
+  "prize",
+  "winner_name",
+  "prize_status",
+  "note",
+  "app_status",
+  "app_note"
+ ],
+ "fields": [
+  {
+   "fieldname": "race_rank",
+   "fieldtype": "Int",
+   "label": "Hạng về đích",
+   "read_only": 1,
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "tier",
+   "fieldtype": "Data",
+   "label": "Giải",
+   "read_only": 1,
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "prize",
+   "fieldtype": "Data",
+   "label": "Phần quà",
+   "read_only": 1,
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "winner_name",
+   "fieldtype": "Data",
+   "label": "Tên người thắng",
+   "read_only": 1,
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "prize_status",
+   "fieldtype": "Select",
+   "label": "Trạng thái trao giải",
+   "options": "Chưa trao\nĐã trao\nKhông liên lạc được",
+   "default": "Chưa trao",
+   "in_list_view": 1,
+   "columns": 2,
+   "reqd": 1
+  },
+  {
+   "fieldname": "note",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú",
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "app_status",
+   "fieldtype": "Data",
+   "label": "Trạng thái app gửi lần cuối",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "app_note",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú app gửi lần cuối",
+   "read_only": 1,
+   "hidden": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-10-18 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC AI Live Race Winner",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

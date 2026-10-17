@@ -1,5 +1,6 @@
 # Copyright (c) 2026, eCentric and contributors
-"""Trang chi tiet phien -> xep 1 lenh cho app tren may phat (tam dung / tiep tuc AI, bo clip dang phat, phat FAQ ngay).
+"""Trang chi tiet phien -> xep 1 lenh cho app tren may phat (tam dung / tiep tuc AI, bo clip dang phat, phat FAQ ngay,
+bat dau / dung dua vit).
 App hoi pull_commands khoang 10 s/lan; lenh qua CMD_TTL_S chua lay thi het han."""
 from ecentric_workspace.ai_tools.features.ai_live import constants as C
 from ecentric_workspace.ai_tools.features.ai_live.application import _common
@@ -29,6 +30,9 @@ class QueueCommandService:
             if not topic:
                 raise C.AiLiveError(C.SessMsg.BAD_CMD)
             clean["topic"] = topic
+        elif action == "start_race":                 # fix10e: tham so tuy chon, ghi de 1 lan tren app
+            from ecentric_workspace.ai_tools.features.ai_live.domain import race_rules as RR
+            clean = RR.start_args(a)
         cid = self.commands.insert({"live": sess["id"], "machine": sess["machine"], "action": action, "args": clean,
                                     "created_ts": self.clock(), "requested_by": user})
         return {"id": cid, "status": C.CMD_QUEUED}

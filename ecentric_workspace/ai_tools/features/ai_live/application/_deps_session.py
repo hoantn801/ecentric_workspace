@@ -20,3 +20,8 @@ def machines_all():
 def logs():
     from ecentric_workspace.ai_tools.features.ai_live.repositories.session_log_repository import SessionLogRepository
     return SessionLogRepository()
+
+
+def races():
+    from ecentric_workspace.ai_tools.features.ai_live.repositories.race_repository import RaceRepository
+    return RaceRepository()
