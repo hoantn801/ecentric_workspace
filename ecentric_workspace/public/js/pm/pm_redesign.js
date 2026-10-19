@@ -251,6 +251,8 @@ function personalToggle(container, onChange, o) {
     paint();
     if (onChange) safe(onChange, isPersonalShown());
   });
+  /* đếm = 0 (không có gì bị ẩn) và đang ẩn -> không hiện dòng "Đang ẩn 0 …" */
+  if (o.count === 0 && !isPersonalShown()) w.hidden = true;
   if (container) container.appendChild(w);
   return w;
 }
@@ -692,7 +694,8 @@ function paintDue() {
     TS.askPick = TS.askPick || opts[0][0];
     h += `<div class="pmr-rs"><h4>Xin ${esc(giverName(d))} dời hạn</h4><div class="pmr-row"><span class="pmr-lb pmr-lb-w">Hạn mới</span><div class="pmr-qd" role="group" aria-label="Hạn mới">` +
       opts.map(x => qdBtn("ask-pick", "d", x[0], x[1], !TS.askCustom && TS.askPick === x[0])).join("") + qdBtn("ask-custom", "d", "", "Chọn ngày…", TS.askCustom) + "</div>" +
-      `<input class="pmr-in pmr-ask-date${TS.askCustom ? "" : " pmr-hide"}" type="date" aria-label="Chọn ngày" value="${esc(TS.askPick)}"></div>` +
+      /* bọc riêng: ec_datepicker bọc input trong .ec-dp-wrap nên ẩn input không ẩn được ô ngày -> ẩn cả khối bọc */
+      `<span class="pmr-ask-date-w"${TS.askCustom ? "" : " hidden"}><input class="pmr-in pmr-ask-date" type="date" aria-label="Chọn ngày" value="${esc(TS.askPick)}"></span></div>` +
       '<textarea class="pmr-ta pmr-ask-reason" placeholder="Lý do (người giao sẽ thấy)" aria-label="Lý do"></textarea><div class="pmr-err-t pmr-hide" role="alert"></div>' +
       `<div class="pmr-acts">${Bs("Huỷ", "ask-cancel")}${Bs("Gửi đề xuất", "ask-send", "pmr-pri")}</div></div>`;
   }

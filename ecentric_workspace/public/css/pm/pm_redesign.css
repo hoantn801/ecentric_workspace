@@ -410,3 +410,6 @@ tr.pmr-done .pmr-tname,.pmr-ck.pmr-done span{color:var(--pmr-g500);text-decorati
 .pmr-statusbar.pmr-ro button{cursor:default}.pmr-statusbar.pmr-ro button:not(.pmr-on){opacity:.55}
 .pmr-ro-hint{display:flex;align-items:center;gap:6px;margin-top:8px}
 .pmr-cb:disabled{cursor:default;opacity:.6}
+/* ô ngày (ec_datepicker bọc .ec-dp-wrap width:100%) nằm cùng hàng với nút hạn nhanh */
+.pmr-qd .ec-dp-wrap{width:auto;flex:0 0 170px}.pmr-qd .pmr-nt-time{width:118px;flex:0 0 118px}
+.pmr-ask-date-w[hidden]{display:none}.pmr-ask-date-w{display:block;max-width:220px;margin-top:6px}

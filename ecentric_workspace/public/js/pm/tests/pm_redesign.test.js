@@ -260,6 +260,11 @@ async function block(name, fn) {
   await block('Điều phối #4', async () => {
     const E = makeEnv();
     await E.w.PMR.render.coordinate(E.main); await flush();
+    ok("coordinate: có dự án nhật ký bị ẩn → hiện dòng “Đang ẩn 1 …”", !!E.$(".pmr-hidenote", E.main) && !E.$(".pmr-hidenote", E.main).hidden);
+    { const orig = E.H["pm_inbox.coordinate"]; E.H["pm_inbox.coordinate"] = (x) => Object.assign(orig(x), { personal_hidden: 0 });
+      await E.w.PMR.render.coordinate(E.main); await flush();
+      ok("coordinate: không ẩn dự án nào → không hiện dòng “Đang ẩn 0 …”", !E.$(".pmr-hidenote", E.main) || E.$(".pmr-hidenote", E.main).hidden);
+      E.H["pm_inbox.coordinate"] = orig; await E.w.PMR.render.coordinate(E.main); await flush(); }
     const vs = E.$$(".pmr-strip .pmr-v", E.main).map(x => x.textContent);
     ok("coordinate: dải 5 KPI (gồm % đúng hạn tổng)", vs.length === 5 && vs[0] === "18" && vs[4] === "82%");
     const peopleHead = E.$$(".pmr-grid2 .pmr-panel", E.main)[1].textContent;
@@ -357,6 +362,7 @@ async function block(name, fn) {
     ok("openTask: hạn trễ + Xin dời hạn + tab Các bước 1/2", E.$(".pmr-due.pmr-late", sh).textContent === "Trễ 1 ngày" && !!E.byText(".pmr-btn", "Xin dời hạn", sh) && E.byText(".pmr-stabs button", "Các bước", sh).textContent === "Các bước 1/2");
     E.click(E.byText(".pmr-btn", "Xin dời hạn", sh)); await flush();
     ok("Xin dời hạn: form ngay tại chỗ (không modal), có ngày nhanh + lý do", !!E.$(".pmr-rs .pmr-qd", sh) && !!E.$(".pmr-ask-reason", sh) && E.$$(".pmr-rs .pmr-qd button", sh).length === 4);
+    ok("Xin dời hạn: ô chọn ngày (cả khối bọc của ec_datepicker) ẩn tới khi bấm “Chọn ngày…”", E.$(".pmr-ask-date-w", sh).hidden === true && E.$(".pmr-ask-date-w .pmr-ask-date", sh) !== null);
     E.click(E.byText(".pmr-btn", "Gửi đề xuất", sh)); await flush();
     ok("Xin dời hạn: thiếu lý do → không gọi api, báo lỗi tại form", !E.last("pm_inbox.request_deadline") && !E.$(".pmr-rs .pmr-err-t", sh).classList.contains("pmr-hide"));
     const pick = E.$$(".pmr-rs .pmr-qd button", sh)[1], newEnd = pick.getAttribute("data-d");

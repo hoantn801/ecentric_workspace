@@ -256,109 +256,7 @@
   .sch-nav button:hover{ background:var(--gray-50); color:var(--navy); }
   .sch-nav button.accent{ color:var(--navy); font-weight:600; background:var(--navy-50); }
   .sch-nav .icon{ vertical-align:-2px; }
-  /* ===== Huong dan (PM lam lai 16/10/2026) - namespace .pmg-* ; ve bang HTML, khong anh nhung ===== */
-  .pmg{ display:grid; grid-template-columns:220px minmax(0,1fr); gap:24px; max-width:1120px; }
-  .pmg-toc{ position:sticky; top:12px; align-self:start; background:#fff; border:1px solid var(--gray-200); border-radius:12px; padding:12px 8px; }
-  .pmg-toc b{ display:block; font-size:12.5px; color:var(--gray-600); padding:0 8px 6px; }
-  .pmg-toc button{ display:flex; width:100%; gap:8px; align-items:center; padding:6px 8px; border:0; background:none; border-radius:8px; color:var(--gray-700); font:inherit; font-size:13.5px; text-align:left; cursor:pointer; }
-  .pmg-toc button:hover{ background:var(--gray-100); }
-  .pmg-toc button span{ width:20px; height:20px; border-radius:50%; background:var(--navy-50); color:var(--navy); display:grid; place-items:center; font-size:11px; font-weight:700; flex:0 0 20px; }
-  .pmg-sec{ background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:22px 24px; margin-bottom:18px; scroll-margin-top:16px; font-size:14px; line-height:1.6; color:var(--gray-800); }
-  .pmg-sec h2{ margin:0 0 4px; font-size:18px; font-weight:700; color:var(--gray-900); display:flex; align-items:center; gap:10px; }
-  .pmg-sec h3{ font-size:14.5px; margin:18px 0 6px; color:var(--gray-900); }
-  .pmg-sec p{ margin:6px 0; max-width:72ch; }
-  .pmg-n{ width:26px; height:26px; border-radius:50%; background:var(--navy); color:#fff; display:grid; place-items:center; font-size:13px; flex:0 0 26px; }
-  .pmg-who{ font-size:12.5px; color:var(--gray-600); margin:0 0 14px; }
-  .pmg-i{ width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; flex:0 0 auto; vertical-align:-3px; }
-  .pmg-steps{ margin:8px 0; padding-left:0; list-style:none; counter-reset:pmgs; }
-  .pmg-steps li{ counter-increment:pmgs; position:relative; padding:4px 0 4px 34px; max-width:70ch; }
-  .pmg-steps li::before{ content:counter(pmgs); position:absolute; left:0; top:5px; width:22px; height:22px; border-radius:50%; background:var(--navy-50); color:var(--navy); font-weight:700; font-size:12px; display:grid; place-items:center; }
-  .pmg-tip, .pmg-warn{ display:flex; gap:10px; border-radius:10px; padding:10px 14px; margin:12px 0; font-size:13.5px; }
-  .pmg-tip{ background:var(--navy-50); border:1px solid var(--navy-100); color:#141d57; }
-  .pmg-warn{ background:var(--yellow-50); border:1px solid #fde68a; color:#78350f; }
-  .pmg-fig{ margin:14px 0 6px; border:1px solid var(--gray-200); border-radius:12px; background:var(--bg,#f7f8fb); padding:14px; overflow:auto; }
-  .pmg-cap{ font-size:12.5px; color:var(--gray-500); margin:6px 0 0; }
-  .pmg-cap0{ margin:0; }
-  .pmg-mk{ background:#fff; border:1px solid var(--gray-200); border-radius:12px; }
-  .pmg-co{ display:inline-grid; place-items:center; width:20px; height:20px; border-radius:50%; background:var(--yellow); color:#141d57; font-size:11px; font-weight:800; margin-right:6px; flex:0 0 20px; box-shadow:0 0 0 2px #fff; }
-  .pmg-sp{ width:20px; flex:0 0 20px; }
-  .pmg-btn{ display:inline-flex; align-items:center; gap:6px; border:1px solid var(--gray-200); background:#fff; border-radius:8px; padding:5px 11px; font-weight:600; font-size:12.5px; color:var(--gray-700); }
-  .pmg-btn.pmg-wash{ background:var(--navy-50); border-color:var(--navy-100); color:var(--navy); }
-  .pmg-st{ display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:2px 10px; font-size:11.5px; font-weight:700; white-space:nowrap; }
-  .pmg-st::before{ content:""; width:7px; height:7px; border-radius:50%; background:currentColor; }
-  .pmg-s0{ background:var(--gray-100); color:var(--gray-600); }
-  .pmg-s1{ background:var(--navy-50); color:var(--navy); }
-  .pmg-s2{ background:var(--yellow-50); color:#b45309; }
-  .pmg-s3{ background:#ecfdf5; color:#047857; }
-  .pmg-s3::before{ background:#10b981; }
-  .pmg-s4{ background:var(--gray-100); color:var(--gray-500); }
-  .pmg-av{ width:22px; height:22px; border-radius:50%; display:inline-grid; place-items:center; font-size:9.5px; font-weight:700; color:#fff; flex:0 0 22px; }
-  .pmg-a1{ background:#2C3DA6; } .pmg-a2{ background:#0f766e; } .pmg-a3{ background:#9d174d; } .pmg-a4{ background:#475569; } .pmg-a5{ background:#a16207; }
-  .pmg-row{ display:flex; align-items:center; gap:10px; }
-  .pmg-push{ margin-left:auto; }
-  .pmg-menu-grid{ display:grid; grid-template-columns:230px minmax(0,1fr); gap:18px; align-items:start; }
-  .pmg-menu{ width:230px; padding:10px; }
-  .pmg-todo{ background:var(--navy-50); border-radius:10px; padding:4px; margin-bottom:8px; }
-  .pmg-it{ display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:7px; font-size:13px; color:var(--gray-700); }
-  .pmg-b{ margin-left:auto; background:#dc2626; color:#fff; border-radius:999px; font-size:10px; font-weight:700; padding:0 6px; }
-  .pmg-lbl{ font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--gray-500); padding:8px 8px 2px; }
-  .pmg-add{ border:1px solid var(--navy-100); background:var(--navy-50); color:var(--navy); border-radius:8px; text-align:center; font-weight:600; font-size:12.5px; padding:6px; margin:0 2px 4px; }
-  .pmg-legend{ font-size:13px; }
-  .pmg-legend div{ display:flex; gap:8px; align-items:flex-start; margin:6px 0; }
-  .pmg-legend b{ color:var(--gray-900); }
-  .pmg-flow{ display:flex; align-items:stretch; flex-wrap:wrap; margin:10px 0; }
-  .pmg-fstep{ background:#fff; border:1px solid var(--gray-200); border-radius:10px; padding:9px 12px; min-width:130px; max-width:190px; font-size:12.5px; color:var(--gray-700); }
-  .pmg-fstep b{ display:block; font-size:13px; color:var(--gray-900); }
-  .pmg-fstep.pmg-g{ border-top:3px solid var(--navy); }
-  .pmg-fstep.pmg-n{ border-top:3px solid #10b981; }
-  .pmg-fstep.pmg-s{ border-top:3px solid var(--gray-400); }
-  .pmg-farr{ display:grid; place-items:center; color:var(--gray-400); padding:0 6px; font-size:18px; }
-  .pmg-flow-legend{ display:flex; gap:16px; font-size:12px; color:var(--gray-600); margin-top:4px; }
-  .pmg-flow-legend span::before{ content:""; display:inline-block; width:14px; height:3px; margin-right:6px; vertical-align:middle; border-radius:2px; }
-  .pmg-flow-legend .pmg-lg::before{ background:var(--navy); }
-  .pmg-flow-legend .pmg-ln::before{ background:#10b981; }
-  .pmg-flow-legend .pmg-ls::before{ background:var(--gray-400); }
-  .pmg-states{ display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; margin:10px 0; }
-  .pmg-states div{ background:#fff; border:1px solid var(--gray-200); border-radius:10px; padding:10px; font-size:12.5px; color:var(--gray-600); }
-  .pmg-states .pmg-st{ margin-bottom:6px; }
-  .pmg-sheet{ width:420px; max-width:100%; padding:14px 16px; }
-  .pmg-sheet-w{ width:480px; }
-  .pmg-sheet h4{ margin:4px 0 8px; font-size:15px; color:var(--gray-900); }
-  .pmg-giver{ display:flex; align-items:center; gap:8px; background:var(--gray-50); border:1px solid var(--gray-100); border-radius:9px; padding:7px 10px; font-size:12.5px; }
-  .pmg-seg{ display:flex; background:var(--gray-100); border-radius:9px; padding:3px; gap:2px; margin:10px 0; }
-  .pmg-seg span{ flex:1; text-align:center; border-radius:7px; padding:5px 0; font-size:12px; font-weight:600; color:var(--gray-600); }
-  .pmg-seg span.on{ background:#fff; color:var(--navy); box-shadow:0 1px 2px rgba(17,24,39,.08); }
-  .pmg-fl{ display:flex; align-items:center; gap:10px; border-top:1px solid var(--gray-100); padding:7px 0; font-size:12.5px; }
-  .pmg-fl .k{ width:80px; color:var(--gray-600); font-weight:600; }
-  .pmg-late{ color:#dc2626; font-weight:700; }
-  .pmg-mute{ color:var(--gray-500); }
-  .pmg-toast{ display:inline-flex; gap:14px; align-items:center; background:var(--gray-900); color:#fff; border-radius:9px; padding:8px 14px; font-size:13px; }
-  .pmg-toast b{ color:var(--yellow); font-weight:700; }
-  .pmg-tog{ display:inline-block; width:32px; height:18px; border-radius:99px; background:var(--gray-300); position:relative; vertical-align:middle; flex:0 0 32px; }
-  .pmg-tog::after{ content:""; position:absolute; width:14px; height:14px; border-radius:50%; background:#fff; top:2px; left:2px; }
-  .pmg-tog.on{ background:var(--navy); }
-  .pmg-tog.on::after{ left:16px; }
-  .pmg-opt{ display:flex; gap:10px; align-items:flex-start; border-top:1px solid var(--gray-100); padding:8px 0; font-size:12.5px; }
-  .pmg-opt b{ display:block; font-size:13px; color:var(--gray-900); }
-  .pmg-opt .pmg-tog{ margin-left:auto; margin-top:2px; }
-  .pmg-opt-sub{ padding-left:16px; }
-  .pmg-faq{ width:100%; border-collapse:collapse; font-size:13.5px; }
-  .pmg-faq td{ border-top:1px solid var(--gray-100); padding:10px 8px; vertical-align:top; }
-  .pmg-faq td:first-child{ font-weight:600; color:var(--gray-900); width:36%; }
-  .pmg-places{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:10px 0; }
-  .pmg-places div{ background:#fff; border:1px solid var(--gray-200); border-radius:10px; padding:10px 12px; font-size:13px; }
-  .pmg-places b{ display:block; color:var(--gray-900); }
-  .pmg-c-done{ color:#047857; font-weight:700; } .pmg-c-run{ color:var(--navy); font-weight:700; } .pmg-c-late{ color:#dc2626; font-weight:700; }
-  .pmg-shot{ margin:12px 0; }
-  .pmg-shot img{ display:block; max-width:100%; border:1px solid var(--gray-200); border-radius:10px; }
-  .pmg-shot-ph{ border:1px dashed var(--gray-300); border-radius:10px; background:var(--gray-50); color:var(--gray-500); font-size:12.5px; padding:22px 14px; text-align:center; }
-  @media (max-width:900px){
-    .pmg{ grid-template-columns:1fr; }
-    .pmg-toc{ position:static; }
-    .pmg-menu-grid{ grid-template-columns:1fr; }
-    .pmg-states{ grid-template-columns:1fr 1fr; }
-    .pmg-places{ grid-template-columns:1fr; }
-  }
+  /* Huong dan (.pmg-*): CSS + noi dung o asset rieng public/css/pm/pm_guide.css + public/js/pm/pm_guide.js (16/10/2026) */
 
   .stats-strip{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:16px; }
   .stat-card{ background:#fff; border:1px solid var(--gray-200); border-radius:10px; padding:11px 13px; position:relative; overflow:hidden; }
@@ -976,8 +874,8 @@
 <script src="/assets/ecentric_workspace/charts/chart_common.js"></script>
 <script src="/assets/ecentric_workspace/charts/pm_charts.js"></script>
 <!-- PM lam lai (16/10/2026): asset dung chung window.PMR (man moi + ngan keo viec + luong Xong). Nap TRUOC script chinh; 404 -> script chinh tu fallback ve man cu. -->
-<link rel="stylesheet" href="/assets/ecentric_workspace/css/pm/pm_redesign.css?v=f720731be9">
-<script src="/assets/ecentric_workspace/js/pm/pm_redesign.js?v=f720731be9"></script>
+<link rel="stylesheet" href="/assets/ecentric_workspace/css/pm/pm_redesign.css?v=83d166ae2a">
+<script src="/assets/ecentric_workspace/js/pm/pm_redesign.js?v=83d166ae2a"></script>
 <script>
 (function(){
   var PM="ecentric_workspace.pm.api.";
@@ -2948,140 +2846,21 @@
   // PM notif view retired -> Global NC
 
 
-  /* Huong dan (PM lam lai 16/10/2026): viet lai theo pm_mockup/huong_dan_pm_v1.html - 8 muc.
-     Hinh minh hoa ve bang HTML/SVG ngay trong trang (KHONG data URI: sanitize cat, va 8 anh base64
-     cu nang ~467KB da bo). Anh chup that chen sau deploy vao o <figure class="pmg-shot"
-     data-shot="<khoa>"> (anh /files/...). CSS: namespace pmg- trong <style> cua trang. */
+  /* Huong dan: noi dung + CSS o asset rieng (pm_guide.js/.css), tai khi mo #guide, cung phien ban ?v= voi pm_redesign. */
+  var _pmGuideLoad=null;
+  function pmGuideAssets(){
+    if(_pmGuideLoad)return _pmGuideLoad;
+    var s0=document.querySelector('script[src*="/js/pm/pm_redesign.js"]'),v=s0&&s0.src.indexOf("?v=")>=0?s0.src.split("?v=")[1]:String(Date.now());
+    _pmGuideLoad=new Promise(function(res,rej){
+      if(!document.querySelector('link[data-pmg-css]')){var l=document.createElement("link");l.rel="stylesheet";l.href="/assets/ecentric_workspace/css/pm/pm_guide.css?v="+v;l.setAttribute("data-pmg-css","1");document.head.appendChild(l);}
+      if(window.PMGuide)return res();
+      var sc=document.createElement("script");sc.src="/assets/ecentric_workspace/js/pm/pm_guide.js?v="+v;sc.onload=function(){window.PMGuide?res():rej(new Error("PMGuide"));};sc.onerror=function(){_pmGuideLoad=null;rej(new Error("load"));};document.head.appendChild(sc);
+    });
+    return _pmGuideLoad;}
   function showGuide(){var c=el("pm-view");
-    function ic(id){return '<svg class="pmg-i" aria-hidden="true"><use href="#'+id+'"/></svg>';}
-    function co(n){return '<span class="pmg-co">'+n+'</span>';}
-    function shot(key){return '<figure class="pmg-shot" data-shot="'+key+'"><div class="pmg-shot-ph">Ảnh chụp màn hình sẽ được thêm sau khi triển khai</div></figure>';}
-    function steps(arr){return '<ol class="pmg-steps">'+arr.map(function(x){return '<li>'+x+'</li>';}).join("")+'</ol>';}
-    function st(cls,label){return '<span class="pmg-st pmg-'+cls+'">'+label+'</span>';}
-    function av(cls,txt){return '<span class="pmg-av pmg-'+cls+'">'+txt+'</span>';}
-    function tip(icon,html,warn){return '<div class="'+(warn?'pmg-warn':'pmg-tip')+'">'+ic(icon)+'<span>'+html+'</span></div>';}
-    function flow(arr,legend){var h='<div class="pmg-flow">';arr.forEach(function(x,i){if(i)h+='<div class="pmg-farr" aria-hidden="true">→</div>';h+='<div class="pmg-fstep pmg-'+x[0]+'"><b>'+x[1]+'</b>'+x[2]+'</div>';});
-      return h+'</div><div class="pmg-flow-legend">'+legend+'</div>';}
-    function faq(rows){return '<table class="pmg-faq"><tbody>'+rows.map(function(r){return '<tr><td>'+r[0]+'</td><td>'+r[1]+'</td></tr>';}).join("")+'</tbody></table>';}
-    function sec(n,title,who,inner){return '<section class="pmg-sec" id="pmg-s'+n+'"><h2><span class="pmg-n">'+n+'</span>'+title+'</h2><p class="pmg-who">'+who+'</p>'+inner+'</section>';}
-    var LG_N='<span class="pmg-ln">người nhận</span>',LG_G='<span class="pmg-lg">người giao</span>',LG_S='<span class="pmg-ls">hệ thống</span>';
-    var TOC=["Công việc gồm những gì","Khi được giao việc","Làm việc và bấm Xong","Ghi giờ","Giao việc cho người khác","Theo dõi việc đã giao","Dành cho trưởng nhóm","Câu hỏi thường gặp"];
-    var h=head("Hướng dẫn quản lý công việc","Đọc mục 1–4 nếu bạn chủ yếu nhận việc. Đọc thêm mục 5–6 nếu bạn giao việc cho người khác. Mỗi mục chỉ mất khoảng 1 phút.");
-    var b='<div class="pmg"><nav class="pmg-toc" aria-label="Mục lục"><b>Mục lục</b>'+
-      TOC.map(function(t,i){return '<button type="button" data-pmg-jump="pmg-s'+(i+1)+'"><span>'+(i+1)+'</span>'+t+'</button>';}).join("")+'</nav><div class="pmg-main">';
-    /* 1 */
-    b+=sec(1,"Công việc gồm những gì","Ai cũng đọc",
-      '<div class="pmg-fig"><div class="pmg-menu-grid"><div class="pmg-mk pmg-menu">'+
-        '<div class="pmg-todo">'+
-          '<div class="pmg-it">'+co(1)+ic("p-inbox")+'Việc của tôi<span class="pmg-b">9</span></div>'+
-          '<div class="pmg-it">'+co(2)+ic("p-recv")+'Được giao cho tôi<span class="pmg-b">2</span></div>'+
-          '<div class="pmg-it">'+co(3)+ic("p-send")+'Tôi đã giao</div>'+
-          '<div class="pmg-it">'+co(4)+ic("p-calendar")+'Lịch làm việc</div></div>'+
-        '<div class="pmg-add">'+co(5)+'+ Giao việc</div>'+
-        '<div class="pmg-lbl">Quản lý</div>'+
-        '<div class="pmg-it">'+ic("p-radar")+'Điều phối</div><div class="pmg-it">'+ic("p-folder")+'Dự án</div>'+
-        '<div class="pmg-it">'+ic("p-list")+'Tất cả việc</div><div class="pmg-it">'+ic("p-clock")+'Timesheet</div></div>'+
-      '<div class="pmg-legend">'+
-        '<div>'+co(1)+'<span><b>Việc của tôi</b>: tất cả việc bạn đang phải làm, xếp theo hạn. Mở mỗi sáng là đủ.</span></div>'+
-        '<div>'+co(2)+'<span><b>Được giao cho tôi</b>: chỉ những việc <b>cần bạn trả lời</b> (nhận việc, việc mới giao, các lần xin dời hạn). Có số đỏ là có việc chờ bạn.</span></div>'+
-        '<div>'+co(3)+'<span><b>Tôi đã giao</b>: việc bạn giao cho người khác, ai xong ai chưa.</span></div>'+
-        '<div>'+co(4)+'<span><b>Lịch làm việc</b>: xếp việc vào giờ trong tuần, xem lịch họp Outlook.</span></div>'+
-        '<div>'+co(5)+'<span><b>Giao việc</b>: tạo việc cho mình hoặc giao cho người khác.</span></div>'+
-        '<div><span class="pmg-sp"></span><span>Nhóm <b>Quản lý</b> dành cho trưởng nhóm và người theo dõi dự án (xem mục 7). <b>Timesheet</b> là nơi xem tổng giờ đã ghi.</span></div>'+
-      '</div></div></div>'+shot("menu")+
-      '<h3>Một việc có 4 trạng thái</h3><div class="pmg-states">'+
-        '<div>'+st("s0","Chưa làm")+'<br>Mới tạo hoặc chưa bắt đầu.</div>'+
-        '<div>'+st("s1","Đang làm")+'<br>Bạn đã bắt đầu làm.</div>'+
-        '<div>'+st("s2","Chờ duyệt")+'<br>Đã làm xong, đang chờ người giao kiểm tra.</div>'+
-        '<div>'+st("s3","Xong")+'<br>Hoàn tất.</div>'+
-        '<div>'+st("s4","Đã huỷ")+'<br>Chỉ trưởng nhóm huỷ được. Mặc định bị ẩn.</div></div>');
-    /* 2 */
-    b+=sec(2,"Khi được giao việc","Người nhận việc",
-      '<p>Khi có người giao việc cho bạn, bạn nhận <b>tin Teams</b> kèm đường link. Bấm link, hoặc vào <b>Được giao cho tôi</b>, là thấy ngay ai giao, hạn khi nào.</p>'+
-      shot("received")+
-      '<div class="pmg-fig"><div class="pmg-mk pmg-sheet">'+
-        '<div class="pmg-cap pmg-cap0">ANDROS - SHOPEE › Báo cáo tháng 9</div><h4>Báo cáo tháng 9 — ANDROS · Shopee</h4>'+
-        '<div class="pmg-giver">'+co(1)+av("a3","HL")+'<span><b>Hương Lê</b> giao cho bạn · 01/10</span></div>'+
-        '<div class="pmg-seg"><span>Chưa làm</span><span class="on">Đang làm</span><span>Chờ duyệt</span><span>Xong</span></div>'+
-        '<div class="pmg-fl"><span class="k">Hạn</span><span class="pmg-late">Trễ 1 ngày</span><span class="pmg-mute">07/10 18:00</span><span class="pmg-row pmg-push">'+co(2)+'<span class="pmg-btn pmg-wash">Xin dời hạn</span></span></div>'+
-      '</div><p class="pmg-cap">'+co(1)+'Người giao luôn hiện ngay dưới tên việc. '+co(2)+'Không kịp hạn thì bấm Xin dời hạn.</p></div>'+
-      shot("task_sheet_receiver")+
-      '<h3>Có hai kiểu được giao</h3>'+
-      faq([["Giao thẳng (phổ biến nhất)","Việc đến thẳng danh sách của bạn. Không có nút từ chối. Nếu hạn không hợp lý, hãy <b>Xin dời hạn</b>."],
-           ["Cần bạn đồng ý","Việc nằm ở <b>Được giao cho tôi → Cần bạn trả lời</b>. Bạn chọn <b>Nhận việc</b>, <b>Đề xuất hạn khác</b> hoặc <b>Từ chối</b> (bắt buộc ghi lý do)."]])+
-      '<h3>Xin dời hạn</h3>'+
-      steps(['Mở việc, bấm <b>Xin dời hạn</b> ngay cạnh hạn.',
-             'Chọn ngày mới (Ngày mai, cuối tuần, hoặc chọn ngày), ghi ngắn lý do, bấm <b>Gửi đề xuất</b>.',
-             'Người giao nhận tin Teams và trả lời. Trong lúc chờ, <b>hạn cũ vẫn giữ</b>. Bạn theo dõi kết quả ở <b>Được giao cho tôi → Xin dời hạn của bạn</b>.'])+
-      shot("deadline_form")+
-      flow([["n","Bạn","Xin dời hạn + lý do"],["s","Hệ thống","Báo người giao qua Teams"],["g","Người giao","Đồng ý hoặc giữ hạn cũ"],["n","Bạn","Nhận kết quả, hạn tự cập nhật"]],LG_N+LG_G+LG_S)+
-      tip("p-info",'Nếu bạn làm xong trước khi người giao trả lời, cứ bấm Xong. Đề xuất dời hạn sẽ <b>tự rút</b>.'));
-    /* 3 */
-    b+=sec(3,"Làm việc và bấm Xong","Người nhận việc",
-      steps(['Bắt đầu làm thì bấm '+st("s1","Đang làm")+' (hoặc bấm giờ, xem mục 4).',
-             'Việc có <b>Các bước</b> thì tích từng bước khi làm xong.',
-             'Cần ghi chú hay trao đổi thì viết ở cột <b>Bình luận</b> bên phải. Ghi chú quan trọng (số tài khoản, link file, thống nhất cuối) thì bấm biểu tượng <b>ghim</b>: bình luận đó nằm trên cùng, nền vàng nhạt, ai mở việc cũng thấy ngay.',
-             'Việc lớn thì chia thành <b>Việc con</b>: mở việc, chọn tab <b>Việc con</b>, gõ tên rồi Enter. Bấm nút tròn để đánh Xong từng việc con; bấm vào tên để giao người, đặt hạn riêng.',
-             'Làm xong thì bấm <b>Xong</b>. Việc chuyển sang Xong ngay. Nếu bấm nhầm, chọn <b>Hoàn tác</b> trên thông báo.'])+
-      '<div class="pmg-fig"><div class="pmg-toast">Đã xong: “Báo cáo tháng 9 — ANDROS · Shopee” <b>Ghi giờ</b> <b>Hoàn tác</b></div><p class="pmg-cap">Thông báo hiện ra sau khi bấm Xong. Ghi giờ ở đây không bắt buộc.</p></div>'+
-      shot("done_toast")+
-      '<h3>Khi nút là “Gửi kiểm tra” thay vì “Xong”</h3>'+
-      '<p>Người giao đã bật <b>Cần tôi kiểm tra trước khi xong</b>. Làm xong, bạn bấm <b>Gửi kiểm tra</b>, việc chuyển sang '+st("s2","Chờ duyệt")+'. Người giao kiểm tra rồi đóng, hoặc trả lại để bạn sửa.</p>'+
-      tip("p-alert",'<b>Không bấm Xong được?</b> Có hai lý do: còn <b>bước bắt buộc</b> chưa tích, hoặc còn <b>việc con</b> chưa xong. Hệ thống sẽ ghi rõ lý do và mở tới đúng chỗ cần làm.',true));
-    /* 4 */
-    b+=sec(4,"Ghi giờ","Ai cần ghi giờ làm việc",
-      '<p>Có 4 chỗ để ghi giờ. Ghi ở chỗ nào cũng được cộng vào cùng một nơi, và bạn xem tổng ở <b>Timesheet</b>.</p>'+
-      '<div class="pmg-places">'+
-        '<div><b>1. Tab “Thời gian” trong việc</b>Bấm giờ, hoặc ghi tay số giờ kèm việc đã làm. Dùng chỗ này là chính.</div>'+
-        '<div><b>2. Nút “Ghi giờ” sau khi bấm Xong</b>Ghi nhanh ngay lúc vừa xong việc.</div>'+
-        '<div><b>3. Đồng hồ trên thanh trên cùng</b>Đang bấm giờ thì đồng hồ hiện ở đó, bấm Dừng là tự ghi.</div>'+
-        '<div><b>4. Lịch làm việc</b>Xác nhận các khối giờ đã xếp trong tuần.</div></div>'+
-      shot("time_tab"));
-    /* 5 */
-    b+=sec(5,"Giao việc cho người khác","Người giao việc · cũng dùng để tạo việc cho chính mình",
-      steps(['Bấm <b>+ Giao việc</b> trên cột menu.',
-             'Điền <b>tên việc</b> (bắt buộc), chọn <b>người nhận</b> và <b>hạn</b>.',
-             'Cần thêm gì thì bật trong <b>Tuỳ chọn</b> bên dưới, rồi bấm <b>Giao</b>. Bạn ở lại màn đang làm, người nhận nhận tin Teams.'])+
-      '<div class="pmg-fig"><div class="pmg-mk pmg-sheet pmg-sheet-w">'+
-        '<h4>Báo cáo tháng 10 — ANDROS · Shopee</h4>'+
-        '<div class="pmg-fl"><span class="k">Người nhận</span>'+av("a2","TT")+av("a5","DL")+av("a4","VĐ")+av("a1","LA")+av("a3","NL")+'</div>'+
-        '<div class="pmg-fl"><span class="k">Hạn</span><span class="pmg-btn">Ngày mai</span><span class="pmg-btn pmg-wash">T6 07/11 · 18:00</span></div>'+
-        '<div class="pmg-opt"><div><b>Mỗi người một việc riêng</b>5 người → 5 việc, theo dõi được ai xong. Tắt = một người xong là cả việc xong.</div><span class="pmg-tog on"></span></div>'+
-        '<div class="pmg-opt pmg-opt-sub"><div><b>Tự đóng khi mọi người xong</b>Tắt (mặc định): khi mọi người xong, việc chuyển sang Chờ duyệt để bạn kiểm tra.</div><span class="pmg-tog"></span></div>'+
-        '<div class="pmg-opt"><div><b>Cần tôi kiểm tra trước khi xong</b>Người nhận bấm “Gửi kiểm tra” thay vì Xong.</div><span class="pmg-tog"></span></div>'+
-        '<div class="pmg-opt"><div><b>Lặp lại</b>Ví dụ: ngày 7 hằng tháng, tự giao lại cho cùng nhóm.</div><span class="pmg-tog on"></span></div>'+
-        '<div class="pmg-opt"><div><b>Cần người nhận đồng ý</b>Bật sẵn. Người nhận nhận việc, đề xuất hạn khác hoặc từ chối trước khi bắt đầu. Tắt đi nếu muốn giao thẳng. Tạo việc cho chính mình thì không cần.</div><span class="pmg-tog on"></span></div>'+
-      '</div><p class="pmg-cap">Mô tả, các bước, ưu tiên, nhãn, việc cha: bấm “Thêm…” để mở, hoặc thêm sau trong chi tiết việc.</p></div>'+
-      shot("new_task_sheet")+
-      tip("p-repeat",'<b>Báo cáo hằng tháng cho cả nhóm:</b> chọn cả nhóm, bật <b>Mỗi người một việc</b> và <b>Lặp lại</b>. Từ tháng sau, hệ thống tự giao lại, bạn không phải tạo tay nữa.'));
-    /* 6 */
-    b+=sec(6,"Theo dõi việc đã giao","Người giao việc",
-      '<p>Vào <b>Tôi đã giao</b>. Mỗi dòng là một lần giao, kèm thanh tiến độ của từng người: <span class="pmg-c-done">xanh</span> là xong, <span class="pmg-c-run">navy</span> là đang làm, <span class="pmg-c-late">đỏ</span> là trễ. Bấm vào dòng để xem ai chưa mở việc.</p>'+
-      steps(['<b>Nhắc</b>: bấm “Nhắc” cạnh từng người, hoặc “Nhắc N người” để nhắc tất cả người chưa xong. Tin nhắc gửi qua Teams.',
-             '<b>Xin dời hạn</b>: hiện ở đầu trang. Bạn chọn <b>Đồng ý</b> hoặc <b>Giữ hạn cũ</b>.',
-             '<b>Mọi người đã xong</b>: việc chuyển sang '+st("s2","Chờ duyệt")+'. Bạn kiểm tra rồi bấm <b>Đóng việc</b>, hoặc <b>Trả lại</b> cho người cần sửa.',
-             '<b>Việc lặp lại</b>: xem ở tab <b>Lặp lại</b>. Ở đó có thể tạm dừng hoặc chạy lại.'])+
-      shot("given")+
-      '<h3>Toàn bộ vòng đời của một việc</h3>'+
-      flow([["g","Người giao","Giao việc"],["s","Hệ thống","Tin Teams cho người nhận"],["n","Người nhận","Làm · xin dời hạn nếu cần"],["n","Người nhận","Xong / Gửi kiểm tra"],["g","Người giao","Đóng việc (nếu cần kiểm tra)"]],LG_G+LG_N+LG_S));
-    /* 7 */
-    b+=sec(7,"Dành cho trưởng nhóm","Leader, người theo dõi dự án",
-      faq([["Điều phối","Mở đầu ngày: số việc đang mở, trễ hạn, chưa có người nhận. Mục <b>Cần xử lý</b> có nút làm ngay: Nhắc, Giao, Đặt hạn."],
-           ["Dự án","Bảng tất cả dự án, có tiến độ (số việc xong trên tổng), số việc trễ và chưa giao. Bấm vào một dự án để xem việc, Kanban, Gantt, lịch và timesheet của dự án đó."],
-           ["Tất cả việc","Mọi việc bạn được xem. Gõ để lọc ngay, có lọc nhanh <b>Trễ hạn / Chưa có người / Hạn tuần này</b>. Đổi kiểu xem: Danh sách, Kanban, Theo hạn, Gantt."]])+
-      shot("coordinate")+shot("all_work"));
-    /* 8 */
-    b+=sec(8,"Câu hỏi thường gặp","Ai cũng đọc",
-      faq([["“Việc của tôi” khác “Được giao cho tôi” thế nào?","<b>Việc của tôi</b> là toàn bộ việc bạn đang làm. <b>Được giao cho tôi</b> chỉ chứa những gì cần bạn <b>trả lời</b>: nhận việc, việc mới giao, kết quả xin dời hạn."],
-           ["Mở việc của người khác nhưng không sửa được?","Bạn xem được việc của cùng phòng hoặc cùng dự án, nhưng chỉ <b>người nhận, người giao, quản lý dự án, trưởng phòng của người nhận</b> và quản trị PM mới đổi trạng thái, hạn, người nhận, các bước. Bạn vẫn bình luận được để trao đổi."],
-           ["Tôi không muốn nhận một việc được giao thẳng?","Việc giao thẳng không có nút từ chối. Hãy <b>Xin dời hạn</b> nếu không kịp, hoặc viết ở cột <b>Bình luận</b> bên phải của việc để trao đổi với người giao."],
-           ["Tôi bấm Xong nhầm?","Chọn <b>Hoàn tác</b> trên thông báo, hoặc mở việc và đổi lại trạng thái."],
-           ["Vì sao việc chung chưa đóng dù mọi người đã xong?","Việc chuyển sang Chờ duyệt để người giao kiểm tra rồi mới đóng. Nếu không cần kiểm tra, khi giao hãy bật <b>Tự đóng khi mọi người xong</b>."],
-           ["Tôi có phải ghi giờ không?","Tuỳ quy định của nhóm bạn. Hệ thống không bắt buộc. Muốn ghi thì xem mục 4."],
-           ["Việc nhật ký cá nhân (worklog) đi đâu rồi?","Mặc định được ẩn khỏi các màn Công việc và không tính vào số đếm. Bấm <b>Hiện</b> ở dòng “Đang ẩn … việc nhật ký cá nhân” để xem lại."]]));
-    b+='</div></div>';
-    c.innerHTML=h+b;
-    Array.prototype.forEach.call(c.querySelectorAll("[data-pmg-jump]"),function(x){x.onclick=function(){var t=document.getElementById(x.getAttribute("data-pmg-jump"));if(t&&t.scrollIntoView)t.scrollIntoView({behavior:"auto",block:"start"});};}); /* auto (khong smooth): smooth bi nuot sau hash-nav SPA */
+    c.innerHTML=head("Hướng dẫn quản lý công việc","")+'<div class="pm-state">Đang tải hướng dẫn…</div>';
+    pmGuideAssets().then(function(){if(window._curView!=="guide")return;window.PMGuide.render(c,{head:head});},
+      function(){if(window._curView!=="guide")return;c.innerHTML=head("Hướng dẫn quản lý công việc","")+'<div class="pm-state">Chưa tải được hướng dẫn. <button class="pm-btn" onclick="location.reload()">Tải lại</button></div>';});
   }
   function showSchedule(){
     var c=el("pm-view"); spin(c);
