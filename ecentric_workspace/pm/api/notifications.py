@@ -30,7 +30,7 @@ def _stable_dedupe(event_type, task_name, user, suffix=None):
 
 def notify_users(users, subject, task_name, from_user=None, dedup_key=None,
                  event_type="task_assigned", severity=None, message="",
-                 due_suffix=None, action_url=None):
+                 due_suffix=None, action_url=None, allow_terminal=False):
     """Route PM task notifications through the ONE central publish service
     (ecentric_workspace.notification_center.events.publish_notification_event) so the
     native Notification Log has a SINGLE owner and every event also flows to
@@ -38,9 +38,9 @@ def notify_users(users, subject, task_name, from_user=None, dedup_key=None,
     a call, or a task already Done/Cancelled. Idempotency is handled centrally by the
     stable dedupe key (the legacy same-day substring check is no longer needed)."""
     from_user = from_user or frappe.session.user
-    # Never notify about a terminal task.
+    # Never notify about a terminal task (except the "đã xong" notice to followers/CC).
     try:
-        if frappe.db.get_value("Task", task_name, "workflow_state") in ("Done", "Cancelled"):
+        if not allow_terminal and frappe.db.get_value("Task", task_name, "workflow_state") in ("Done", "Cancelled"):
             return
     except Exception:
         pass
@@ -165,6 +165,29 @@ def pm_overdue_scan():
         except Exception:
             frappe.db.rollback()
             frappe.log_error(frappe.get_traceback(), "pm_overdue_scan")
+        _notify_followers_overdue(t, today_d)
+
+
+def _notify_followers_overdue(t, today_d):
+    """Người theo dõi (CC, PO 20/10/2026): ONE notice per task per due date (stable dedupe
+    suffix "cc-<due>"), not the daily reminder assignees get. Never breaks the scan."""
+    try:
+        from ecentric_workspace.pm import task_flow as tflow
+        row = frappe.db.get_value("Task", t["name"], ["name", "subject", "parent_task", "_assign"],
+                                  as_dict=True) or {}
+        users = _dang_lam(tflow.relevant_followers(row), today_d)
+        if not users:
+            return
+        doer = tflow.assignees(row)
+        names = tflow.full_names(doer)
+        subject = "Trễ hạn: “{0}”{1}".format(row.get("subject") or t["name"],
+                                            (" · " + ", ".join(names.get(u) or u for u in doer[:3])) if doer else "")
+        notify_users(users, subject, t["name"], from_user="Administrator", event_type="task_overdue",
+                     due_suffix="cc-" + str(t.get("exp_end_date")))
+        frappe.db.commit()
+    except Exception:
+        frappe.db.rollback()
+        frappe.log_error(frappe.get_traceback(), "pm_overdue_scan followers")
 
 
 @gop_tin_job

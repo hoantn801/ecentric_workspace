@@ -413,3 +413,10 @@ tr.pmr-done .pmr-tname,.pmr-ck.pmr-done span{color:var(--pmr-g500);text-decorati
 /* ô ngày (ec_datepicker bọc .ec-dp-wrap width:100%) nằm cùng hàng với nút hạn nhanh */
 .pmr-qd .ec-dp-wrap{width:auto;flex:0 0 170px}.pmr-qd .pmr-nt-time{width:118px;flex:0 0 118px}
 .pmr-ask-date-w[hidden]{display:none}.pmr-ask-date-w{display:block;max-width:220px;margin-top:6px}
+/* Theo dõi (CC), 20/10/2026 */
+.pmr-pc-auto{background:var(--pmr-amber-50);border-color:var(--pmr-amber-line)}
+.pmr-cc-why{font-size:10.5px;color:var(--pmr-amber);font-weight:600;margin-left:2px}
+.pmr-cc-empty{font-size:12.5px}
+.pmr-cc-conf{display:flex;align-items:center;gap:8px;flex-wrap:wrap;width:100%;margin-top:6px;padding:7px 10px;border-radius:9px;background:var(--pmr-navy-50);color:var(--pmr-navy-700);font-size:12.5px}
+.pmr-cc-conf>span{flex:1;min-width:200px}
+.pmr-giver-s{color:var(--pmr-g700);font-weight:600}

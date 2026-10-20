@@ -874,8 +874,8 @@
 <script src="/assets/ecentric_workspace/charts/chart_common.js"></script>
 <script src="/assets/ecentric_workspace/charts/pm_charts.js"></script>
 <!-- PM lam lai (16/10/2026): asset dung chung window.PMR (man moi + ngan keo viec + luong Xong). Nap TRUOC script chinh; 404 -> script chinh tu fallback ve man cu. -->
-<link rel="stylesheet" href="/assets/ecentric_workspace/css/pm/pm_redesign.css?v=83d166ae2a">
-<script src="/assets/ecentric_workspace/js/pm/pm_redesign.js?v=83d166ae2a"></script>
+<link rel="stylesheet" href="/assets/ecentric_workspace/css/pm/pm_redesign.css?v=6dde6cb5ba">
+<script src="/assets/ecentric_workspace/js/pm/pm_redesign.js?v=6dde6cb5ba"></script>
 <script>
 (function(){
   var PM="ecentric_workspace.pm.api.";
@@ -3201,7 +3201,7 @@
      Alias duoc chuan hoa bang history.replaceState (Back khong bi ket o alias).
      Thieu asset PMR: projects/work ve man cu; received/given/coordinate bao tai lai trang. */
   var WORK_ALIAS={tasks:"list",list:"list",board:"board",calendar:"due",due:"due",gantt:"gantt",table:"list"};
-  var GIVEN_TABS={run:1,rep:1,done:1};
+  var GIVEN_TABS={run:1,rep:1,done:1,follow:1};   /* follow = Toi theo doi (CC, 20/10/2026) */
   function pmrMissing(c,label){c.innerHTML=head(label,"")+'<div class="pm-err">Chưa tải được giao diện mới của Công việc. Bấm Ctrl+Shift+R để tải lại trang. <a href="/pm#mywork">Về Việc của tôi</a></div>';}
   function pmrRender(fn,label,args){var c=el("pm-view");var p=pmr();
     if(!p||!p.render||typeof p.render[fn]!=="function"){pmrMissing(c,label);return false;}

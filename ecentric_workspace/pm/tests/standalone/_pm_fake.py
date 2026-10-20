@@ -393,8 +393,9 @@ class FakeFrappe(object):
         self.departments = {}
         self.hooks = {}
         self.unique = {"PM Assignment Request": ("open_request_key", "open_task_key")}
-        self.autoname = {"PM Task Seen": lambda d: "%s::%s" % (d["task"], d["user"])}
-        self.doctypes = {"PM Task Seen", "PM Assignment Request", "Project", "Task"}
+        self.autoname = {"PM Task Seen": lambda d: "%s::%s" % (d["task"], d["user"]),
+                         "PM Task Follower": lambda d: "%s::%s" % (d["task"], d["user"])}
+        self.doctypes = {"PM Task Seen", "PM Task Follower", "PM Assignment Request", "Project", "Task"}
         self.meta_fields = {}
         self.utils = _make_utils(self)
         self.db = FakeDB(self)
@@ -567,7 +568,7 @@ def _stub_pm_modules(fk):
 
     def notify_users(users, subject, task_name, from_user=None, dedup_key=None,
                      event_type="task_assigned", severity=None, message="", due_suffix=None,
-                     action_url=None):
+                     action_url=None, allow_terminal=False):
         from_user = from_user or fk.session.user
         for u in users or []:
             if u and u != from_user and u != "Administrator":

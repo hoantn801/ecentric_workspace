@@ -7,7 +7,8 @@ API = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "api")
 MUST = {"schedule.py": {"week", "viewable_users", "today", "rsvp", "reschedule", "place", "move", "remove", "confirm"},
         "comments.py": {"add", "upload", "list", "pin"},
         "pm_inbox.py": {"received", "given", "coordinate", "request_deadline", "answer_deadline",
-                        "withdraw_deadline", "nudge", "close_parent"}}
+                        "withdraw_deadline", "nudge", "close_parent", "cc_suggest"},
+        "tasks.py": {"create", "get", "assign", "set_status", "mark_done", "set_followers"}}
 
 
 def whitelisted(path):

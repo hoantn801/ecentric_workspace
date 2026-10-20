@@ -194,7 +194,30 @@ def can_view_task(task, user=None):
     # task_flow.can_edit_task) the tasks of the people they lead.
     if is_department_head_of_any(user, assignees or [task.get("owner")]):
         return True
+    # PO 20/10/2026: người theo dõi (CC) of the task or of its parent (split part) may view.
+    if is_follower(task, user):
+        return True
     return False
+
+
+FOLLOW_DT = "PM Task Follower"
+
+
+def is_follower(task, user=None):
+    """CC / người theo dõi of the task itself or of its parent task. Fail-safe False."""
+    user = user or frappe.session.user
+    name = task.get("name") if task else None
+    if not name or not user:
+        return False
+    try:
+        names = [name]
+        parent = task.get("parent_task") if "parent_task" in task else frappe.db.get_value("Task", name, "parent_task")
+        if parent:
+            names.append(parent)
+        return bool(frappe.get_all(FOLLOW_DT, filters={"task": ["in", names], "user": user},
+                                   pluck="name", limit_page_length=1))
+    except Exception:
+        return False
 
 
 def is_department_head_of(caller, target):
@@ -240,6 +263,13 @@ def visible_task_subset(names, user=None):
     visible = get_visible_project_names(user) or []
     if visible:
         ors.append(["project", "in", visible])
+    try:   # PO 20/10/2026: tasks the user follows (CC) + their parts
+        followed = frappe.get_all(FOLLOW_DT, filters={"user": user}, pluck="task", limit_page_length=0) or []
+    except Exception:
+        followed = []
+    if followed:
+        ors.append(["name", "in", followed])
+        ors.append(["parent_task", "in", followed])
     rows = frappe.get_all("Task", filters={"name": ["in", names]}, or_filters=ors,
                           fields=["name"], limit_page_length=0)
     return [r["name"] for r in rows]

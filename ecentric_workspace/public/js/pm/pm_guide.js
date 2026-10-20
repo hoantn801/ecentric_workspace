@@ -153,7 +153,9 @@ function content() {
       [b("Mỗi người một việc riêng"), "Giao cùng một việc cho nhiều người, ai cũng phải làm (ví dụ báo cáo tháng). Mỗi người có việc con riêng, bạn thấy ai xong ai chưa."],
       [b("Tự đóng khi mọi người xong"), "Tắt (mặc định): mọi người xong thì việc sang Chờ duyệt để bạn kiểm tra. Bật: tự đóng luôn."],
       [b("Cần tôi kiểm tra trước khi xong"), "Bạn muốn duyệt kết quả. Người nhận bấm Gửi kiểm tra thay vì Xong."],
-      [b("Lặp lại"), "Việc định kỳ (ví dụ ngày 7 hằng tháng). Hệ thống tự giao lại cho cùng người."]]) +
+      [b("Lặp lại"), "Việc định kỳ (ví dụ ngày 7 hằng tháng). Hệ thống tự giao lại cho cùng người."],
+      [b("Theo dõi (CC)"), "Người cần nắm việc nhưng không phải làm. <b>Tự thêm</b> trưởng phòng của người nhận khi bạn giao cho người <b>phòng khác</b> (bỏ được). Giao cho chính trưởng phòng thì không CC lên trên."]]) +
+    tip("<b>Giao cho cả trưởng phòng lẫn nhân viên của họ?</b> Form sẽ gợi ý <b>chuyển trưởng phòng sang Theo dõi</b>: nhân viên làm, trưởng phòng nắm tiến độ, không ai phải bấm Xong thay ai.") +
     tip("<b>Báo cáo hằng tháng cho cả nhóm:</b> chọn cả nhóm, bật <b>Mỗi người một việc</b> và <b>Lặp lại</b>. Từ tháng sau hệ thống tự giao, bạn không phải tạo tay."));
 
   /* 7 */
@@ -164,7 +166,8 @@ function content() {
       ["g", "<b>Nhắc</b> từng người, hoặc <b>Nhắc N người</b> chưa xong. Tin nhắc đi qua Teams."],
       ["g", "Đề xuất dời hạn hiện ở đầu trang: <b>Đồng ý</b> hoặc <b>Giữ hạn cũ</b>."],
       ["g", "Việc sang " + st("s2", "Chờ duyệt") + ": kiểm tra rồi <b>Đóng việc</b>, hoặc <b>Trả lại</b> người cần sửa."],
-      ["g", "Việc lặp lại xem ở tab <b>Lặp lại</b>: tạm dừng hoặc chạy lại."]]) +
+      ["g", "Việc lặp lại xem ở tab <b>Lặp lại</b>: tạm dừng hoặc chạy lại."],
+      ["l", "Việc bạn được CC nằm ở tab <b>Tôi theo dõi</b>: xem tiến độ, mở việc, bình luận. Bạn nhận tin khi được CC, khi việc xong và khi trễ hạn."]]) +
     lanes("Luồng “Mỗi người một việc”", ["g", "s", "n"], [
       ["g", "Giao cho cả nhóm, bật <b>Mỗi người một việc</b>"], ["s", "Tạo việc con cho từng người, gửi Teams"],
       ["n", "Mỗi người làm và bấm Xong phần của mình"], ["s", "Người cuối xong: việc chung sang Chờ duyệt"],
@@ -188,6 +191,7 @@ function content() {
       ["Đổi hạn", "Xin dời hạn", "✓", "✓", "—"],
       ["Thêm người nhận, việc con, các bước", "✓", "✓", "✓", "—"],
       ["Bình luận, ghim ghi chú", "✓", "✓", "✓", "✓"],
+      ["Thêm / bỏ người theo dõi (CC)", "✓", "✓", "✓", "Tự theo dõi"],
       ["Huỷ việc", "—", "—", "Quản trị PM", "—"]]) +
     "<p class=\"pmg-note\">Trưởng phòng ở đây là trưởng phòng của <b>người nhận</b> việc. Quản lý dự án và quản trị PM có quyền như người giao.</p>");
 
@@ -198,6 +202,7 @@ function content() {
       ["Không muốn nhận một việc giao thẳng?", "Giao thẳng không có nút từ chối. Hãy <b>Xin dời hạn</b>, hoặc viết ở <b>Bình luận</b> để trao đổi với người giao."],
       ["Bấm Xong nhầm?", "Chọn <b>Hoàn tác</b> trên thông báo, hoặc mở việc đổi lại trạng thái."],
       ["Việc chung chưa đóng dù mọi người đã xong?", "Việc sang Chờ duyệt để người giao kiểm tra. Không cần kiểm tra thì khi giao bật <b>Tự đóng khi mọi người xong</b>."],
+      ["Được CC thì phải làm gì?", "Không phải bấm Xong. Bạn chỉ theo dõi: xem ở <b>Tôi đã giao → Tôi theo dõi</b>, bình luận khi cần. Không muốn theo dõi nữa thì bấm × cạnh tên mình trong việc."],
       ["Muốn giao thêm người cho việc đã Xong?", "Chuyển việc về <b>Đang làm</b> trước, rồi thêm người."],
       ["Có bắt buộc ghi giờ không?", "Tuỳ quy định của nhóm. Hệ thống không bắt buộc."],
       ["Việc nhật ký cá nhân (worklog) đi đâu?", "Mặc định ẩn khỏi các màn Công việc và không tính vào số đếm. Bấm <b>Hiện</b> ở dòng “Đang ẩn …” để xem."]]));

@@ -352,15 +352,38 @@ def _rules(user):
             for r in rows]
 
 
+def _followed_roots(user, personal):
+    """Top-level tasks the user follows (CC), still running (PO 20/10/2026)."""
+    names = tflow.followed_task_names(user)
+    if not names:
+        return []
+    rows = frappe.get_all("Task", filters=[["name", "in", names],
+                                           ["workflow_state", "not in", list(tflow.FINISHED)]],
+                          fields=_TASK_FIELDS + ["ec_auto_close", "ec_review_required",
+                                                 "ec_split_parent"],
+                          order_by="modified desc", limit_page_length=0)
+    rows = [r for r in rows if not r.get("parent_task")]
+    return tflow.drop_personal(rows, personal=personal)
+
+
 @frappe.whitelist()
 def given(tab="run"):
     pmperm.require_pm_access()
     user = frappe.session.user
-    if tab not in ("run", "rep", "done"):
+    if tab not in ("run", "rep", "done", "follow"):
         frappe.throw(_("Tab không hợp lệ."))
     out = {"banner": _deadline_banner(user), "batches": [], "rules": []}
     if tab == "rep":
         out["rules"] = _rules(user)
+        return out
+    if tab == "follow":
+        roots = _followed_roots(user, tflow.personal_log_projects())
+        gv = tflow.givers_map(roots)
+        gn = tflow.full_names(list(gv.values()))
+        out["batches"] = _batches(roots, "", frappe.utils.nowdate())   # "" -> keep every person
+        for b in out["batches"]:
+            g = gv.get(b["task"])
+            b["giver"] = {"user": g, "full_name": gn.get(g) or g} if g else None
         return out
     roots = _given_roots(user, tab, tflow.personal_log_projects())
     out["batches"] = _batches(roots, user, frappe.utils.nowdate())
@@ -736,3 +759,25 @@ def _return_parts(doc, users, note, me):
         tflow.write_state(doc.name, "In Progress", me, notify=False)
     return {"task": doc.name, "state": frappe.db.get_value("Task", doc.name, "workflow_state"),
             "returned": [k["name"] for k in picked]}
+
+
+# --------------------------------------------------------------------------- CC suggest
+@frappe.whitelist()
+def cc_suggest(assignees=None):
+    """Người theo dõi (CC) the Giao việc form proposes for the current giver (PO 20/10/2026):
+    {suggest: [{user, full_name, for, for_names}], conflicts: [{head, head_name, members,
+    member_names}]}. Read-only; the form sends the final list as tasks.create(cc=...)."""
+    pmperm.require_pm_access()
+    user = frappe.session.user
+    asg = _parse_users(assignees)
+    sugg = tflow.suggest_cc(user, asg)
+    conf = tflow.head_conflicts(asg)
+    names = tflow.full_names([x["user"] for x in sugg] + [u for x in sugg for u in x["for"]]
+                             + [c["head"] for c in conf] + [m for c in conf for m in c["members"]])
+    return {"suggest": [{"user": x["user"], "full_name": names.get(x["user"]) or x["user"],
+                         "for": x["for"], "for_names": [names.get(u) or u for u in x["for"]]}
+                        for x in sugg],
+            "conflicts": [{"head": c["head"], "head_name": names.get(c["head"]) or c["head"],
+                           "members": c["members"],
+                           "member_names": [names.get(m) or m for m in c["members"]]} for c in conf]}
+

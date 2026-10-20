@@ -15,6 +15,7 @@ Module path: ecentric_workspace.pm.api.assignment
 """
 
 import contextlib
+import json
 
 import frappe
 from frappe import _
@@ -324,7 +325,7 @@ def create_request(task, recipient, proposed_start=None, proposed_end=None, mess
 def create_with_task(subject, recipient=None, project=None, description=None, priority=None,
                      proposed_start=None, proposed_end=None, message=None,
                      checklist_template=None, labels=None, recipients=None, parent_task=None,
-                     review_required=None, auto_close=None, split_per_assignee=None):
+                     review_required=None, auto_close=None, split_per_assignee=None, cc=None):
     """G5.0 primary flow: create a NEW UNASSIGNED Backlog task + its assignment request in ONE
     transaction. The task stays unassigned in Backlog until Accepted. Rolls back on any failure.
 
@@ -348,10 +349,17 @@ def create_with_task(subject, recipient=None, project=None, description=None, pr
     from ecentric_workspace.pm.api import labels as pmlabels
     from ecentric_workspace.pm import task_flow as tflow
     _rcpts = pmtasks._normalize_assignees(recipient, recipients)
+    # PO 20/10/2026: người theo dõi (CC) computed from the RECIPIENTS (the task itself stays
+    # unassigned until accepted); explicit cc wins, None = automatic.
+    _cc = pmtasks.parse_cc(cc)
+    if _cc is None:
+        _cc = tflow.suggest_cc(user, _rcpts)
+    _cc_json = json.dumps(_cc)
     if len(_rcpts) > 1 and tflow.truthy(split_per_assignee) and not parent_task:
         return _create_split_with_requests(
             user, subject, _rcpts, project, description, priority, proposed_start,
-            proposed_end, message, checklist_template, labels, review_required, auto_close)
+            proposed_end, message, checklist_template, labels, review_required, auto_close,
+            cc=_cc_json)
     if len(_rcpts) > 1:
         frappe.throw(_("Chế độ Yêu cầu xác nhận chỉ hỗ trợ một người nhận cho mỗi nhiệm vụ "
                        "(mỗi nhiệm vụ chỉ có một yêu cầu đang mở). Dùng Phân công ngay để giao "
@@ -367,7 +375,8 @@ def create_with_task(subject, recipient=None, project=None, description=None, pr
         t = pmtasks.create(project or "", subject, parent_task=(parent_task or None),
                            priority=priority, description=description,
                            exp_start_date=sd, exp_end_date=ed, pm_start_time=st, pm_end_time=et,
-                           auto_close=auto_close, review_required=review_required)
+                           auto_close=auto_close, review_required=review_required,
+                           cc=(None if parent_task else _cc_json))
         task_name = t["name"]
         if labels:
             pmlabels.set_task_labels(task_name, labels)
@@ -393,7 +402,7 @@ def _apply_checklist_template(task_name, checklist_template):
 
 def _create_split_with_requests(user, subject, rcpts, project, description, priority,
                                 proposed_start, proposed_end, message, checklist_template,
-                                labels, review_required, auto_close):
+                                labels, review_required, auto_close, cc=None):
     """Request mode + "Mỗi người một việc": split parent (assigned to the requester, never to the
     recipients) + one unassigned child and one Pending request per recipient. All-or-nothing:
     every recipient is validated before anything is written; any failure rolls back."""
@@ -407,7 +416,7 @@ def _create_split_with_requests(user, subject, rcpts, project, description, prio
     try:
         t = pmtasks.create(project or "", subject, priority=priority, description=description,
                            exp_start_date=sd, exp_end_date=ed, pm_start_time=st, pm_end_time=et,
-                           auto_close=auto_close, review_required=review_required)
+                           auto_close=auto_close, review_required=review_required, cc=cc)
         parent = t["name"]
         pdoc = frappe.get_doc("Task", parent)
         pdoc.is_group = 1

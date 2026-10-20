@@ -18,7 +18,7 @@ const PMA = "ecentric_workspace.pm.api.";
  * backend thật trên fake frappe để khẳng định từng bộ khoá). Khối "hợp đồng" ở cuối file này kiểm mọi
  * fixture của api giả nằm TRONG bảng: đổi shape backend thì phải sửa cả 2 file. Mục có "+" = tập con bắt buộc. */
 // CONTRACT-BEGIN (JSON thuần — đồng bộ với test_contract_shapes.py::CONTRACT)
-const CONTRACT = {"tasks.get": ["subtasks", "task", "user_names"], "tasks.get.task+": ["auto_close", "can_edit", "can_manage", "children_progress", "giver", "history", "is_leader", "pending_deadline_request", "recurrence", "review_required", "split"], "tasks.get.giver": ["full_name", "user"], "tasks.get.recurrence": ["label", "name"], "tasks.get.pending_deadline_request": ["created", "from_name", "new_end", "reason", "recipient", "request", "requested_by", "status"], "tasks.get.children_progress": ["done", "open", "people", "total"], "tasks.get.history": ["at", "by", "by_name", "from", "to"], "person": ["done_on", "full_name", "late", "opened", "state", "steps", "task", "user"], "tasks.mark_done": ["blocked_reason", "missing", "parent_state", "state", "withdrew_request"], "tasks.create": ["name", "parent_task", "project", "subject"], "tasks.create.split": ["children", "name", "parent_task", "project", "split", "subject"], "pm_inbox.received": ["badge", "my_deadline_requests", "needs_reply", "unopened"], "pm_inbox.received.needs_reply": ["created", "from_name", "from_user", "message", "project_name", "proposed_end", "request", "subject", "task"], "pm_inbox.received.unopened": ["exp_end_date", "from_name", "from_user", "project_name", "subject", "task", "workflow_state"], "pm_inbox.received.my_deadline_requests": ["answer", "answered_at", "new_end", "old_end", "reason", "request", "status", "subject", "task", "unseen"], "pm_inbox.given": ["banner", "batches", "rules"], "pm_inbox.given.banner": ["created", "from_name", "from_user", "new_end", "old_end", "project_name", "reason", "request", "subject", "task"], "pm_inbox.given.batches": ["auto_close", "done_count", "exp_end_date", "people", "project_name", "recurrence", "review_required", "split", "subject", "task", "total", "workflow_state"], "pm_inbox.given.rules": ["assignees", "name", "next_run", "schedule_label", "status", "subject"], "pm_inbox.coordinate": ["kpi", "people", "personal_hidden", "projects", "todo"], "pm_inbox.coordinate.kpi": ["done_week", "late", "on_time_pct_30d", "open", "unassigned"], "pm_inbox.coordinate.todo.late": ["assignees", "days_late", "exp_end_date", "full_name", "kind", "opened", "project", "project_name", "subject", "task", "user", "workflow_state"], "pm_inbox.coordinate.todo.group": ["count", "kind", "projects", "tasks"], "pm_inbox.coordinate.todo.overload": ["full_name", "kind", "late", "open", "user"], "pm_inbox.coordinate.people": ["done_week", "full_name", "late", "open", "user"], "pm_inbox.coordinate.projects": ["done", "late", "name", "open", "owner", "owner_name", "project_name", "total", "unassigned"], "pm_inbox.request_deadline": ["new_end", "old_end", "request", "status", "task"], "pm_inbox.answer_deadline": ["exp_end_date", "parent_extended", "request", "status", "task"], "pm_inbox.withdraw_deadline": ["request", "status"], "pm_inbox.nudge": ["sent", "skipped", "task"], "pm_inbox.close_parent": ["returned", "state", "task"], "dashboard.rail_badges": ["assignments", "mywork", "received"], "assignment.create_with_task": ["request", "task"], "assignment.create_with_task.split": ["children", "requests", "split", "task"], "recurrence.create_from_task+": ["auto_close", "name", "review_required", "split_per_assignee"]};
+const CONTRACT = {"tasks.get": ["subtasks", "task", "user_names"], "tasks.get.task+": ["auto_close", "can_edit", "can_manage", "children_progress", "followers", "giver", "history", "is_follower", "is_leader", "pending_deadline_request", "recurrence", "review_required", "split"], "tasks.get.giver": ["full_name", "user"], "tasks.get.recurrence": ["label", "name"], "tasks.get.pending_deadline_request": ["created", "from_name", "new_end", "reason", "recipient", "request", "requested_by", "status"], "tasks.get.children_progress": ["done", "open", "people", "total"], "tasks.get.history": ["at", "by", "by_name", "from", "to"], "person": ["done_on", "full_name", "late", "opened", "state", "steps", "task", "user"], "tasks.mark_done": ["blocked_reason", "missing", "parent_state", "state", "withdrew_request"], "tasks.create": ["name", "parent_task", "project", "subject"], "tasks.create.split": ["children", "name", "parent_task", "project", "split", "subject"], "pm_inbox.received": ["badge", "my_deadline_requests", "needs_reply", "unopened"], "pm_inbox.received.needs_reply": ["created", "from_name", "from_user", "message", "project_name", "proposed_end", "request", "subject", "task"], "pm_inbox.received.unopened": ["exp_end_date", "from_name", "from_user", "project_name", "subject", "task", "workflow_state"], "pm_inbox.received.my_deadline_requests": ["answer", "answered_at", "new_end", "old_end", "reason", "request", "status", "subject", "task", "unseen"], "pm_inbox.given": ["banner", "batches", "rules"], "pm_inbox.given.banner": ["created", "from_name", "from_user", "new_end", "old_end", "project_name", "reason", "request", "subject", "task"], "pm_inbox.given.batches": ["auto_close", "done_count", "exp_end_date", "people", "project_name", "recurrence", "review_required", "split", "subject", "task", "total", "workflow_state"], "pm_inbox.given.rules": ["assignees", "name", "next_run", "schedule_label", "status", "subject"], "pm_inbox.coordinate": ["kpi", "people", "personal_hidden", "projects", "todo"], "pm_inbox.coordinate.kpi": ["done_week", "late", "on_time_pct_30d", "open", "unassigned"], "pm_inbox.coordinate.todo.late": ["assignees", "days_late", "exp_end_date", "full_name", "kind", "opened", "project", "project_name", "subject", "task", "user", "workflow_state"], "pm_inbox.coordinate.todo.group": ["count", "kind", "projects", "tasks"], "pm_inbox.coordinate.todo.overload": ["full_name", "kind", "late", "open", "user"], "pm_inbox.coordinate.people": ["done_week", "full_name", "late", "open", "user"], "pm_inbox.coordinate.projects": ["done", "late", "name", "open", "owner", "owner_name", "project_name", "total", "unassigned"], "pm_inbox.request_deadline": ["new_end", "old_end", "request", "status", "task"], "pm_inbox.answer_deadline": ["exp_end_date", "parent_extended", "request", "status", "task"], "pm_inbox.withdraw_deadline": ["request", "status"], "pm_inbox.nudge": ["sent", "skipped", "task"], "pm_inbox.close_parent": ["returned", "state", "task"], "dashboard.rail_badges": ["assignments", "mywork", "received"], "assignment.create_with_task": ["request", "task"], "assignment.create_with_task.split": ["children", "requests", "split", "task"], "recurrence.create_from_task+": ["auto_close", "name", "review_required", "split_per_assignee"]};
 // CONTRACT-END
 
 const results = [];
@@ -85,7 +85,12 @@ function makeEnv(opts) {
         { request: "DL-1", task: "T-1", subject: "Cập nhật giá sàn", old_end: dayOff(1), new_end: dayOff(4), reason: "đợi số liệu", status: "Pending" },
         { request: "DL-2", task: "T-2", subject: "Duyệt GMV", old_end: dayOff(0), new_end: dayOff(2), reason: "x", status: "Rejected", answer: "Không dời được", answered_at: dayOff(0) + " 08:30:00" }],
       badge: 3 }),
-    "pm_inbox.given": (a) => a.tab === "rep" ? { banner: [], batches: [], rules: [{ name: "REC-1", subject: "Báo cáo tháng — ANDROS", schedule_label: "Ngày 7 hằng tháng · 18:00", assignees: [U2, U3], next_run: dayOff(20), status: "Active" }] } : ({
+    "pm_inbox.cc_suggest": (a) => { const asg = JSON.parse(a.assignees || "[]");
+      return { suggest: asg.indexOf(U3) >= 0 && asg.indexOf(BOSS) < 0 ? [{ user: BOSS, full_name: "Hương Lê", for: [U3], for_names: ["Phương Nga"] }] : [],
+        conflicts: asg.indexOf(BOSS) >= 0 && asg.indexOf(U3) >= 0 ? [{ head: BOSS, head_name: "Hương Lê", members: [U3], member_names: ["Phương Nga"] }] : [] }; },
+    "tasks.set_followers": (a) => ({ task: a.name, followers: [] }),
+    "pm_inbox.given": (a) => a.tab === "follow" ? { banner: [], rules: [], batches: [{ task: "B-F", subject: "Monthly Plan 11", project_name: "Mua sắm", split: true, exp_end_date: dayOff(2), workflow_state: "In Progress",
+        giver: { user: U2, full_name: "Lan Anh" }, people: [{ user: U3, full_name: "Phương Nga", task: "B-Fa", state: "To Do", opened: false, late: true }], done_count: 0, total: 1 }] } : a.tab === "rep" ? { banner: [], batches: [], rules: [{ name: "REC-1", subject: "Báo cáo tháng — ANDROS", schedule_label: "Ngày 7 hằng tháng · 18:00", assignees: [U2, U3], next_run: dayOff(20), status: "Active" }] } : ({
       banner: [{ request: "DL-7", task: "T-G", subject: "Đối soát hoàn tiền", from_user: U2, from_name: "Thảo Trần", old_end: dayOff(1), new_end: dayOff(4), reason: "đợi Boxme" }],
       batches: [
         { task: "B-1", subject: "Báo cáo tháng 9 — Dutch Lady", project_name: "FCV - Dutch Lady", split: true, auto_close: 0, review_required: 0, recurrence: null, exp_end_date: dayOff(-1), workflow_state: "Review",
@@ -188,7 +193,7 @@ async function block(name, fn) {
     ok("nhãn ưu tiên Thấp/Bình thường/Cao/Gấp", P.priorityLabel("Low") === "Thấp" && P.priorityLabel("Medium") === "Bình thường" && P.priorityLabel("High") === "Cao" && P.priorityLabel("Urgent") === "Gấp");
     ok("không có '{{' '{%' '{#' trong JS/CSS (an toàn Jinja)", !/\{\{|\{%|\{#/.test(JS) && !/\{\{|\{%|\{#/.test(CSS));
     ok("không data: URI, không emoji trong JS/CSS", !/data:(image|text|application)/.test(JS + CSS) && !/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(JS + CSS));
-    ok("ngân sách: JS ≤ 134 KB, CSS ≤ 34 KB (nâng 16/10: ô tìm dự án, chống mất nháp, việc con, 2 card + ghim bình luận)", Buffer.byteLength(JS) <= 134 * 1024 && Buffer.byteLength(CSS) <= 34 * 1024, Buffer.byteLength(JS) + " / " + Buffer.byteLength(CSS));
+    ok("ngân sách: JS ≤ 144 KB, CSS ≤ 36 KB (nâng 20/10: + Theo dõi/CC; 16/10: tìm dự án, việc con, 2 card, ghim)", Buffer.byteLength(JS) <= 144 * 1024 && Buffer.byteLength(CSS) <= 36 * 1024, Buffer.byteLength(JS) + " / " + Buffer.byteLength(CSS));
     ok("mọi selector CSS có namespace .pmr- (trừ :root/@keyframes)", CSS.replace(/\/\*[\s\S]*?\*\//g, "").replace(/@keyframes[^{]+\{([^{}]*\{[^}]*\})*[^}]*\}/g, "").split("}").map(b => b.split("{")[0].trim()).filter(s => s && !/^@media|^:root$|^from|^to|^\d+%/.test(s))
       .every(sel => sel.split(",").every(x => /\.pmr-/.test(x))));
     let threw = false;
@@ -515,6 +520,49 @@ async function block(name, fn) {
   });
 
   /* ---------------- Dự án + nhật ký cá nhân ---------------- */
+  await block('Theo dõi (CC) #13', async () => {
+    const E = makeEnv();
+    E.w.PMR.newTask({}); await flush();
+    const sh = E.sheet();
+    ok("form Giao việc có hàng “Theo dõi (CC)”", !!E.$(".pmr-fl-cc .pmr-cc-chips", sh));
+    E.$(".pmr-title-in", sh).value = "Monthly Plan 11";
+    E.click(E.byText(".pmr-link", "+ Thêm người", sh)); await flush();
+    E.click(E.$('.pmr-picker [data-act=pick][data-u="' + U3 + '"]', sh)); await flush(8);
+    ok("chọn người phòng khác → gọi cc_suggest, tự thêm trưởng phòng (chip “trưởng phòng”)", E.last("pm_inbox.cc_suggest") && E.$$(".pmr-cc-chips .pmr-pc-auto", sh).length === 1 && E.$(".pmr-cc-chips", sh).textContent.includes("Hương Lê"));
+    E.click(E.$('.pmr-cc-chips [data-act=nt-cc-rm][data-u="' + BOSS + '"]', sh)); await flush();
+    E.click(E.byText(".pmr-link", "+ Thêm người", sh)); await flush();
+    E.click(E.$('.pmr-picker [data-act=pick][data-u="' + U2 + '"]', sh)); await flush(8);
+    ok("bỏ CC tự động → không bị thêm lại khi đổi người nhận", !E.$$(".pmr-cc-chips .pmr-pc", sh).some(x => x.textContent.includes("Hương Lê")));
+    E.click(E.byText(".pmr-link", "+ Thêm", E.$(".pmr-fl-cc", sh))); await flush();
+    E.click(E.$('.pmr-fl-cc .pmr-picker [data-act=pick][data-u="' + BOSS + '"]', sh)); await flush();
+    ok("thêm CC tay được", E.$$(".pmr-cc-chips .pmr-pc", sh).some(x => x.textContent.includes("Hương Lê")) && !E.$(".pmr-cc-chips .pmr-pc-auto", sh));
+    E.click(E.$("[data-act=tog][data-k=ask]", sh));
+    E.click(E.$("[data-act=nt-submit]", sh)); await flush(10);
+    const cr = E.last("tasks.create");
+    ok("giao → tasks.create(cc=[Hương Lê]) gửi danh sách cuối cùng", cr && JSON.parse(cr.args.cc).map(x => x.user).join() === BOSS, cr && cr.args.cc);
+    E.w.PMR.newTask({}); await flush();
+    E.$(".pmr-title-in", sh).value = "Có trưởng phòng";
+    E.click(E.byText(".pmr-link", "+ Thêm người", sh)); await flush();
+    E.click(E.$('.pmr-picker [data-act=pick][data-u="' + BOSS + '"]', sh)); await flush();
+    E.click(E.$('.pmr-picker [data-act=pick][data-u="' + U3 + '"]', sh)); await flush(8);
+    ok("chọn cả trưởng phòng lẫn nhân viên → gợi ý (không tự đổi)", !!E.$(".pmr-cc-conf", sh) && E.$$(".pmr-chips .pmr-pc", sh).length === 2);
+    E.click(E.$("[data-act=nt-cc-move]", sh)); await flush(8);
+    ok("“Chuyển sang Theo dõi” → bỏ khỏi người nhận, vào CC", E.$$(".pmr-chips .pmr-pc", sh).length === 1 && E.$(".pmr-cc-chips", sh).textContent.includes("Hương Lê"));
+    const plan = E.w.PMR._pure.buildCreatePlan({ subject: "x", assignees: [U2], ask: true, split: false, auto: false, review: false, steps: [], labels: [], due: "", time: "", rep: false, priority: "Medium", project: "", cc: [{ user: BOSS, for: [] }], ccOff: [], ccReady: true });
+    ok("chế độ Cần đồng ý cũng gửi cc", plan.method === "assignment.create_with_task" && JSON.parse(plan.args.cc)[0].user === BOSS);
+    E.db.tasks["T-1"].followers = [{ user: U2, full_name: "Lan Anh", source: "Tự động", inherited: 0 }];
+    await E.w.PMR.openTask("T-1"); await flush();
+    ok("chi tiết việc: hàng “Theo dõi” hiện người CC; người nhận (không sửa được ds) thấy nút “Theo dõi việc này”? → không, vì là người nhận", sh.textContent.includes("Theo dõi") && sh.textContent.includes("Lan Anh") && !E.byText(".pmr-link", "Theo dõi việc này", sh));
+    E.db.tasks["T-1"].can_edit = 0; E.db.tasks["T-1"].task._assign = JSON.stringify([U2]);
+    await E.w.PMR.openTask("T-1"); await flush();
+    E.click(E.byText(".pmr-link", "Theo dõi việc này", sh)); await flush();
+    ok("người xem → “Theo dõi việc này” → set_followers(add=[me])", E.last("tasks.set_followers") && JSON.parse(E.last("tasks.set_followers").args.add)[0] === ME);
+    delete E.db.tasks["T-1"].followers; delete E.db.tasks["T-1"].can_edit; E.db.tasks["T-1"].task._assign = JSON.stringify([ME]);
+    E.w.PMR.closeSheet();
+    await E.w.PMR.render.given(E.main, "follow"); await flush();
+    ok("Tôi đã giao → tab “Tôi theo dõi”: có người giao, chỉ nút Mở (không Nhắc/Đóng)", E.$('[data-act=gtab][data-tab=follow][aria-selected=true]', E.main) && E.main.textContent.includes("Lan Anh giao") && !E.byText(".pmr-btn", "Nhắc", E.main) && !E.byText(".pmr-btn", "Đóng việc", E.main) && !!E.byText(".pmr-btn", "Mở", E.main));
+  });
+
   await block('Dự án + nhật ký cá nhân #10', async () => {
     const E = makeEnv();
     await E.w.PMR.render.projects(E.main); await flush();
