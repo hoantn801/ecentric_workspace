@@ -478,6 +478,13 @@ def _redesign_detail(doc, d, has_children, user):
     d["is_leader"] = 1 if leader else 0
     d["can_manage"] = 1 if (leader or (giver and giver == user)) else 0
     d["can_edit"] = 1 if tflow.can_edit_task(d, user) else 0   # PO 16/10: viewers open read-only
+    # PO 20/10/2026: người theo dõi (CC) - own + parent's (a split part shows the parent's CC)
+    _fr = tflow.follower_rows([doc.name] + ([doc.get("parent_task")] if doc.get("parent_task") else []))
+    _fn = tflow.full_names([r["user"] for r in _fr])
+    d["followers"] = [{"user": r["user"], "full_name": _fn.get(r["user"]) or r["user"],
+                       "source": r.get("source"), "inherited": 1 if r["task"] != doc.name else 0}
+                      for r in _fr]
+    d["is_follower"] = 1 if any(r["user"] == user for r in _fr) else 0
     d["review_required"] = 1 if tflow.truthy(doc.get("ec_review_required")) else 0
     d["auto_close"] = 1 if tflow.truthy(doc.get("ec_auto_close")) else 0
     d["split"] = 1 if tflow.truthy(doc.get("ec_split_parent")) else 0
@@ -715,7 +722,7 @@ def _expand_project_dates(project, child_start, child_end, user):
 def create(project, subject, parent_task=None, priority=None,
            exp_start_date=None, exp_end_date=None, description=None, assignee=None,
            pm_start_time=None, pm_end_time=None, assignees=None, split_per_assignee=None,
-           auto_close=None, review_required=None):
+           auto_close=None, review_required=None, cc=None):
     """Create a Task (or sub-task via parent_task) under a project the user may see.
 
     PM redesign: `review_required` (Task.ec_review_required) makes a non-giver's Xong send the
@@ -732,7 +739,11 @@ def create(project, subject, parent_task=None, priority=None,
     parent (assigned to the creator) with ONE sub-task per assignee. No new completion logic
     is needed -- set_status already refuses to close a parent while any child is open, so the
     parent turns Done only after every person is finished. Ignored for a sub-task (the
-    hierarchy is capped at 2 levels) or when there are fewer than 2 assignees."""
+    hierarchy is capped at 2 levels) or when there are fewer than 2 assignees.
+
+    CC (PO 20/10/2026): `cc` = người theo dõi (JSON list of emails or {user, for}). None ->
+    automatic (department heads of cross-department assignees, task_flow.suggest_cc); an
+    explicit list (even empty) is used as given. Followers attach to the top-level task."""
     pmperm.require_pm_access()
     user = frappe.session.user
     if not subject:
@@ -833,6 +844,7 @@ def create(project, subject, parent_task=None, priority=None,
                                            actor=user)
         except Exception:
             frappe.log_error(frappe.get_traceback(), "PM create split notify")
+        _apply_cc(doc.name, cc, user, _asg_emails)
         return {"name": doc.name, "subject": doc.subject, "project": doc.project,
                 "parent_task": doc.parent_task, "children": made, "split": 1}
 
@@ -846,8 +858,53 @@ def create(project, subject, parent_task=None, priority=None,
                                            actor=user)
         except Exception:
             frappe.log_error(frappe.get_traceback(), "PM create assign notify")
+    if not parent_task:
+        _apply_cc(doc.name, cc, user, _asg_emails)
     return {"name": doc.name, "subject": doc.subject,
             "project": doc.project, "parent_task": doc.parent_task}
+
+
+def parse_cc(cc):
+    """None -> None (automatic). JSON/list of emails or {user, for} -> list of dicts."""
+    if cc is None:
+        return None
+    if isinstance(cc, str):
+        cc = cc.strip()
+        if not cc:
+            return []
+        try:
+            cc = json.loads(cc)
+        except Exception:
+            cc = [x.strip() for x in cc.replace(";", ",").split(",")]
+    if isinstance(cc, (str, dict)):
+        cc = [cc]
+    out = []
+    for it in (cc or []):
+        if isinstance(it, dict) and it.get("user"):
+            out.append({"user": it["user"], "for": [u for u in (it.get("for") or []) if isinstance(u, str)]})
+        elif isinstance(it, str) and it.strip():
+            out.append({"user": it.strip(), "for": []})
+    return out
+
+
+def _apply_cc(task_name, cc, user, assignees_list, notify=True):
+    """Attach followers (explicit `cc`, or automatic when None). Never fails the caller."""
+    try:
+        items = parse_cc(cc)
+        auto = items is None
+        if auto:
+            items = tflow.suggest_cc(user, assignees_list)
+        else:
+            sugg = {x["user"]: x["for"] for x in tflow.suggest_cc(user, assignees_list)}
+            for it in items:   # keep the "for" link when an explicit pick matches a suggestion
+                if not it.get("for") and it["user"] in sugg:
+                    it["for"] = sugg[it["user"]]
+        return tflow.add_followers(task_name, items, user,
+                                   source=tflow.SRC_AUTO if auto else tflow.SRC_MANUAL,
+                                   notify=notify, assignees_list=assignees_list)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "PM create cc " + str(task_name))
+        return []
 
 
 @frappe.whitelist()
@@ -981,6 +1038,9 @@ def assign(name, users):
     pmnotif.notify_task_assignment(users, name,
                                    "Ban duoc giao nhiem vu: " + (doc.get("subject") or name),
                                    actor=user)
+    # PO 20/10/2026: CC tự động trưởng phòng (khác phòng) của người mới được giao, gắn ở việc gốc.
+    _root = doc.get("parent_task") or name
+    _apply_cc(_root, None, user, users)
     return {"name": name, "assigned": users,
             "_assign": frappe.db.get_value("Task", name, "_assign")}
 
@@ -1184,6 +1244,7 @@ def delete(name, cascade=None):
         frappe.db.delete("Task Depends On", {"parent": _p})
         # PM redesign: "đã mở" tracking rows link the Task -> would block delete_doc.
         frappe.db.delete(tflow.SEEN_DT, {"task": _p})
+        frappe.db.delete(tflow.FOLLOW_DT, {"task": _p})   # người theo dõi (CC) of the deleted task
     for _k in kids:
         # A child cannot be deleted while it still points at the parent (NestedSet link
         # check), so unlink then delete -- same order that works by hand.
@@ -1315,3 +1376,31 @@ def pm_task_transition_guard(doc, method=None):
     if not pmperm.can_view_task(doc.as_dict(), user):
         frappe.throw(_("Bạn không có quyền đổi trạng thái nhiệm vụ này."),
                      frappe.PermissionError)
+
+
+@frappe.whitelist(methods=["POST"])
+def set_followers(name, add=None, remove=None):
+    """Người theo dõi (CC) of a task (PO 20/10/2026). People who may edit the task add/remove
+    anyone; anyone who may view it can follow / unfollow THEMSELVES. Followers attach to the
+    top-level task (a split part manages its parent's list). Returns {followers}."""
+    pmperm.require_pm_access()
+    user = frappe.session.user
+    doc = frappe.get_doc("Task", name)
+    if not pmperm.can_view_task(doc.as_dict(), user):
+        frappe.throw(_("Not permitted."), frappe.PermissionError)
+    root = doc.get("parent_task") or name
+    rdoc = frappe.get_doc("Task", root) if root != name else doc
+    editor = tflow.can_edit_task(rdoc.as_dict(), user)
+    adds = [x["user"] for x in (parse_cc(add) or [])]
+    rems = [x["user"] for x in (parse_cc(remove) or [])]
+    if not editor and any(u != user for u in adds + rems):
+        frappe.throw(_(tflow.EDIT_DENIED_MSG), frappe.PermissionError)
+    if adds:
+        tflow.add_followers(root, adds, user, source=tflow.SRC_MANUAL, notify=True)
+    for u in rems:
+        tflow.remove_follower(root, u, user)
+    rows = tflow.follower_rows([root])
+    fn = tflow.full_names([r["user"] for r in rows])
+    return {"task": root, "followers": [{"user": r["user"], "full_name": fn.get(r["user"]) or r["user"],
+                                         "source": r.get("source")} for r in rows]}
+

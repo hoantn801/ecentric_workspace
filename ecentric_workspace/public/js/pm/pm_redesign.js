@@ -160,6 +160,7 @@ const ICONS = {
   plus: '<path d="M12 5v14M5 12h14"/>',
   right: '<path d="m9 6 6 6-6 6"/>',
   pin: '<path d="M12 17v5"/><path d="M9 4h6l-1 6 3 4H7l3-4z"/>',
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
   cal: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
   repeat: '<path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>',
@@ -575,6 +576,7 @@ function normTask(res) {
     history: pick(res, t, "history"),
     isGiver: !!(g && g.user === me), isAssignee: asg.indexOf(me) >= 0,
     canManage: truthy(pick(res, t, "can_manage", "is_leader")),
+    followers: arr(pick(res, t, "followers")), isFollower: truthy(pick(res, t, "is_follower")),
     /* PO 16/10 "siết lại": người chỉ xem được (cùng phòng, xem lịch) mở ở chế độ chỉ xem. BE cũ chưa trả can_edit -> coi như sửa được. */
     canEdit: pick(res, t, "can_edit") === undefined || pick(res, t, "can_edit") === null ? true : truthy(pick(res, t, "can_edit"))
   };
@@ -634,6 +636,7 @@ function paintTask() {
   if (!(d.split && d.subs.length)) {
     h += `<div class="pmr-fl"><span class="pmr-lb">Người nhận</span><div class="pmr-pick-wrap">${d.asg.length ? d.asg.map(u => `<span class="pmr-pc">${av(u)}${esc(nameOf(u))}</span>`).join("") : muted("Chưa có người nhận") + " "}${terminal || !d.canEdit ? "" : L("+ Thêm người", "add-assignee")}</div></div>`;
   }
+  h += fl("Theo dõi", followersHtml(d));
   h += fl("Dự án", t.project ? L(esc(t.project_name || t.project), "project", "", "pmr-link-ink") : muted(NOPROJ));
   if (d.rec) h += fl("Lặp lại", `<span class="pmr-tag">${ic("repeat", "pmr-s")}${esc(typeof d.rec === "string" ? d.rec : d.rec.label || d.rec.name || "")}</span>`);
   if (t.priority) h += fl("Ưu tiên", esc(priorityLabel(t.priority)));
@@ -661,6 +664,22 @@ function paintTask() {
     else if (cl.contains("pmr-sub-in")) { e.preventDefault(); $("[data-act=sub-add]", sh).click(); }
   };
   focusFirst(sh, TS.askOpen ? ".pmr-ask-reason" : ".pmr-statusbar .pmr-on");
+}
+/* Người theo dõi (CC) trong chi tiết việc: người sửa được việc thêm/bỏ ai cũng được; người xem được thì tự
+   theo dõi / bỏ theo dõi chính mình. Việc con chia người hiện CC của việc cha (không bỏ ở đây). */
+function followersHtml(d) {
+  const me = cfg.user, fs = d.followers, closed = d.t.workflow_state === "Cancelled";
+  const chips = fs.map(f => `<span class="pmr-pc${f.inherited ? " pmr-pc-auto" : ""}" title="${f.inherited ? "Theo dõi cả việc chung" : esc(f.source || "")}">${av(f.user, f.full_name)}${esc(f.full_name || nameOf(f.user))}` +
+    (!f.inherited && !closed && (d.canEdit || f.user === me) ? `<button type="button" class="pmr-rm" data-act="fl-rm"${dattr("u", f.user)} aria-label="Bỏ theo dõi ${esc(f.full_name || nameOf(f.user))}">${ic("x", "pmr-s")}</button>` : "") + "</span>").join("");
+  let acts = "";
+  if (!closed && d.canEdit) acts += L("+ Thêm", "fl-add");
+  else if (!closed && !d.isAssignee && !fs.some(f => f.user === me)) acts += L("Theo dõi việc này", "fl-me");
+  return `<div class="pmr-pick-wrap pmr-fls">${chips || (acts ? "" : muted("Không có"))}${acts}</div>`;
+}
+function setFollowers(b, args, okMsg) {
+  const name = TS.d.t.name;
+  busy(b, call("tasks.set_followers", Object.assign({ name }, args))).then(() => { toast(okMsg); changed({ task: name }); openTask(name, { tab: TS.tab }); },
+    e => errToast(e, "Chưa cập nhật được người theo dõi"));
 }
 function myPdr(d) {
   const p = d.pdr;
@@ -778,6 +797,10 @@ function onTaskClick(a, b) {
       return;
     case "open-sub": return openTask(ga(b, "task"));
     case "add-person": return addPersonChild(b);
+    case "fl-add": return pickPeople(b.parentNode, u => setFollowers(b, { add: JSON.stringify([u]) }, "Đã thêm " + nameOf(u) + " vào theo dõi"),
+      { exclude: () => d.asg.concat(d.followers.map(f => f.user)) });
+    case "fl-me": return setFollowers(b, { add: JSON.stringify([cfg.user]) }, "Bạn đang theo dõi việc này");
+    case "fl-rm": { const u = ga(b, "u"); return setFollowers(b, { remove: JSON.stringify([u]) }, u === cfg.user ? "Đã bỏ theo dõi" : "Đã bỏ " + nameOf(u) + " khỏi theo dõi"); }
     case "sub-add": return addSubtask(b);
     case "sub-tick": return tickSubtask(b);
     case "sub-assign": return assignSubtask(b);
@@ -1061,7 +1084,8 @@ function newTask(o) {
   o = o || {};
   const sh = sheetOpen("new", "Giao việc mới", o.onClose);
   NT = { o, subject: o.subject || "", assignees: (o.assignees || []).slice(), due: o.due || "", time: o.time || "", project: o.project || "", parent: o.parent || null,
-    split: false, auto: false, review: false, rep: false, ask: o.requestMode === undefined ? true : !!o.requestMode, freq: "Monthly", mday: "", desc: "", steps: [], priority: "Medium", labels: [], disc: false, projects: null, labelsAll: null };
+    split: false, auto: false, review: false, rep: false, ask: o.requestMode === undefined ? true : !!o.requestMode, freq: "Monthly", mday: "", desc: "", steps: [], priority: "Medium", labels: [], disc: false, projects: null, labelsAll: null,
+    cc: [], ccOff: [], ccReady: false, conflicts: [], ccSeq: 0 };
   paintNew();
   focusFirst(sh, ".pmr-title-in");
   call("projects.list", { page_length: 500 }).then(r => {
@@ -1105,6 +1129,7 @@ function paintNew() {
   let h = `<div class="pmr-sh-h"><div class="pmr-sh-top"><span>${sub ? "Thêm việc con" : "Giao việc mới"}</span>${xBtn}</div>` +
     `<input class="pmr-title-in" aria-label="Tên việc" placeholder="Tên việc cần giao" value="${esc(st.subject)}"></div><div class="pmr-sh-b">` +
     `<div class="pmr-fl pmr-fl-first"><span class="pmr-lb">Người nhận</span><div class="pmr-pick-wrap"><span class="pmr-chips"></span>${L("+ Thêm người", "nt-add")}<div class="pmr-suggest"></div></div></div>` +
+    (sub ? "" : `<div class="pmr-fl pmr-fl-cc"><span class="pmr-lb">Theo dõi (CC)</span><div class="pmr-pick-wrap"><span class="pmr-cc-chips"></span>${L("+ Thêm", "nt-cc-add")}<div class="pmr-cc-note"></div></div></div>`) +
     fl("Hạn", `<div class="pmr-qd" role="group" aria-label="Hạn">${[["today", "Hôm nay"], ["tomorrow", "Ngày mai"], ["week", "Cuối tuần"]].map(x => { const v = quickDue(x[0]); return qdBtn("nt-due", "d", v, x[1], st.due === v); }).join("")}` +
       `<input class="pmr-in pmr-nt-date" type="date" aria-label="Ngày hạn" value="${esc(st.due)}"><input class="pmr-in pmr-nt-time" type="time" aria-label="Giờ hạn" value="${esc(st.time)}"></div>`) +
     fl("Dự án", `<div class="pmr-pj" data-ec-no-formkit><input type="hidden" class="pmr-nt-proj" value="${esc(st.project)}"><input class="pmr-in pmr-pj-in" aria-label="Dự án" autocomplete="off" placeholder="Đang tải dự án…"${sub ? " disabled" : ""}><div class="pmr-pj-list" role="listbox" hidden></div></div>`);
@@ -1142,6 +1167,46 @@ function paintChips() {
     ? L(`Gợi ý: nhóm lần giao trước (${esc(last.assignees.map(nameOf).slice(0, 3).join(", "))}${last.assignees.length > 3 ? "…" : ""})`, "nt-last", "", "pmr-link-muted") : "";
   if (sh) sh.textContent = splitHint();
   if (sb) sb.textContent = submitLabel();
+  refreshCc();
+}
+/* == Theo dõi (CC), PO 20/10/2026 ==
+   Server gợi ý (pm_inbox.cc_suggest): trưởng phòng của người nhận KHÁC phòng với người giao; người nhận là
+   manager thì không CC lên trên. Người dùng bỏ được (không tự thêm lại), thêm tay được. Chọn cả trưởng phòng
+   lẫn nhân viên của họ làm người nhận -> gợi ý chuyển trưởng phòng sang Theo dõi (không tự đổi). */
+function refreshCc() {
+  if (!NT || NT.parent || !$S(".pmr-cc-chips")) return;
+  const seq = ++NT.ccSeq, asg = NT.assignees.slice();
+  if (!asg.length) { NT.cc = NT.cc.filter(x => !x.auto); NT.conflicts = []; NT.ccReady = true; return paintCc(); }
+  call("pm_inbox.cc_suggest", { assignees: JSON.stringify(asg) }).then(r => {
+    if (!NT || seq !== NT.ccSeq) return;
+    r = r || {};
+    const keep = NT.cc.filter(x => !x.auto && asg.indexOf(x.user) < 0);
+    arr(r.suggest).forEach(x => {
+      if (NT.ccOff.indexOf(x.user) >= 0 || asg.indexOf(x.user) >= 0) return;
+      const m = keep.filter(k => k.user === x.user)[0];
+      if (m) { m.for = x.for || []; m.forNames = x.for_names || []; return; }
+      if (x.full_name) NAMES[x.user] = x.full_name;
+      keep.push({ user: x.user, auto: true, for: x.for || [], forNames: x.for_names || [] });
+    });
+    NT.cc = keep;
+    NT.conflicts = arr(r.conflicts).filter(c => asg.indexOf(c.head) >= 0);
+    NT.ccReady = true;
+    paintCc();
+  }, () => { if (NT && seq === NT.ccSeq) { NT.ccReady = false; paintCc(); } });
+}
+function paintCc() {
+  const w = NT && $S(".pmr-cc-chips"), note = NT && $S(".pmr-cc-note");
+  if (!w) return;
+  w.innerHTML = NT.cc.map(x => `<span class="pmr-pc${x.auto ? " pmr-pc-auto" : ""}" title="${x.auto ? esc("Tự thêm: trưởng phòng của " + (x.forNames || x.for || []).join(", ")) : "Thêm tay"}">${av(x.user)}${esc(nameOf(x.user))}` +
+    `${x.auto ? '<small class="pmr-cc-why">trưởng phòng</small>' : ""}<button type="button" class="pmr-rm" data-act="nt-cc-rm"${dattr("u", x.user)} aria-label="Bỏ theo dõi ${esc(nameOf(x.user))}">${ic("x", "pmr-s")}</button></span>`).join("") ||
+    `<span class="pmr-muted pmr-cc-empty">${NT.assignees.length ? "Không ai" : "Tự gợi ý trưởng phòng khi giao cho người phòng khác"}</span>`;
+  if (note) note.innerHTML = NT.conflicts.map(c => `<div class="pmr-cc-conf">${ic("info", "pmr-s")}<span><b>${esc(c.head_name || nameOf(c.head))}</b> là trưởng phòng của ${esc((c.member_names || c.members || []).join(", "))}. Trưởng phòng thường chỉ cần theo dõi, không phải tự làm.</span>` +
+    `${Bs("Chuyển sang Theo dõi", "nt-cc-move", "pmr-wash", dattr("u", c.head))}</div>`).join("");
+}
+function ccPayload(st) {
+  /* chưa có gợi ý (lỗi mạng) và người dùng chưa đụng vào -> để server tự gợi ý (null) */
+  if (!st.ccReady && !st.cc.length && !st.ccOff.length) return null;
+  return JSON.stringify(st.cc.map(x => ({ user: x.user, for: x.for || [] })));
 }
 function paintSteps() {
   const w = $S(".pmr-steps");
@@ -1210,6 +1275,15 @@ function onNewClick(a, b) {
     case "close": return sheetClose();
     case "nt-add": pickPeople(b.parentNode, u => { if (NT.assignees.indexOf(u) < 0) NT.assignees.push(u); paintChips(); }, { exclude: () => NT.assignees, keepOpen: true }); return;
     case "nt-rm": { const u = ga(b, "u"), pk = $S(".pmr-picker"); NT.assignees = NT.assignees.filter(x => x !== u); if (pk) pk.repaint(); return paintChips(); }
+    case "nt-cc-add": pickPeople(b.parentNode, u => { if (!NT.cc.some(x => x.user === u)) NT.cc.push({ user: u, auto: false, for: [] }); NT.ccOff = NT.ccOff.filter(x => x !== u); paintCc(); }, { exclude: () => NT.assignees.concat(NT.cc.map(x => x.user)), keepOpen: true }); return;
+    case "nt-cc-rm": { const u = ga(b, "u"); NT.cc = NT.cc.filter(x => x.user !== u); if (NT.ccOff.indexOf(u) < 0) NT.ccOff.push(u); return paintCc(); }
+    case "nt-cc-move": {
+      const u = ga(b, "u"), c = NT.conflicts.filter(x => x.head === u)[0] || {};
+      NT.assignees = NT.assignees.filter(x => x !== u);
+      if (!NT.cc.some(x => x.user === u)) NT.cc.push({ user: u, auto: false, for: c.members || [], forNames: c.member_names || [] });
+      toast(`Đã chuyển ${nameOf(u)} sang Theo dõi`);
+      return paintChips();
+    }
     case "nt-last": {
       const l = loadLast();
       if (l) { NT.assignees = (l.assignees || []).slice(); if (!NT.project && l.project) { NT.project = l.project; paintProjectSel(); } }
@@ -1274,12 +1348,14 @@ function buildCreatePlan(st) {
       proposed_end: end ? `${end} ${tm || "18:00:00"}` : null, labels: lbl, review_required: st.review ? 1 : 0 };
     if (n > 1) Object.assign(a, { recipients: JSON.stringify(st.assignees), split_per_assignee: split ? 1 : null, auto_close: split ? (st.auto ? 1 : 0) : null });
     else a.recipient = st.assignees[0];
+    if (!st.parent && st.cc && ccPayload(st) != null) a.cc = ccPayload(st);
     plan.method = "assignment.create_with_task";
     plan.args = a;
   } else {
     plan.method = "tasks.create";
     plan.args = { project: st.project || "", subject: st.subject, parent_task: st.parent || null, priority: st.priority || null, exp_end_date: end, pm_end_time: end ? tm : null,
       description: st.desc || null, assignees: n ? JSON.stringify(st.assignees) : null, split_per_assignee: split ? 1 : null, auto_close: split ? (st.auto ? 1 : 0) : null, review_required: st.review ? 1 : 0 };
+    if (!st.parent && st.cc && ccPayload(st) != null) plan.args.cc = ccPayload(st);
     if (lbl) plan.followups.push({ method: "labels.set_task_labels", args: { labels: lbl }, target: "task" });
   }
   st.steps.forEach(s => plan.followups.push({ method: "checklist.add_item", args: { title: s, is_required: 0 }, target: split ? "children" : "task" }));
@@ -1443,6 +1519,7 @@ function givenSub(d, tab) {
   const b = d.batches || [];
   if (tab === "rep") return (d.rules || []).length + " lịch lặp lại";
   if (tab === "done") return b.length + " lần giao đã xong";
+  if (tab === "follow") return b.length + " việc bạn đang theo dõi (CC) · không cần bạn bấm Xong";
   let ready = 0, late = 0;
   b.forEach(x => { const s = batchStats(x); if (s.ready) ready++; late += s.lateP.length; });
   const parts = [b.length + " lần giao đang chạy"];
@@ -1463,9 +1540,11 @@ function personLast(p, b) {
   return { text: parts.join(" · ") || "đã mở", warn: !opened || truthy(p.late) };
 }
 const pname = p => p.full_name || nameOf(p.user);
-function batchHtml(b) {
+function batchHtml(b, mode) {
+  const follow = mode === "follow";
   const s = batchStats(b), people = s.people, split = truthy(b.split), ws = b.workflow_state, closed = isClosed(ws), expandable = people.length > 1 || split;
   const open = expandable && (OPEN_BATCH[b.task] != null ? OPEN_BATCH[b.task] : (s.ready || s.lateP.length > 0)), meta = [];
+  if (follow && b.giver) meta.push(`<span class="pmr-giver-s">${esc(b.giver.full_name || nameOf(b.giver.user))} giao</span>`);
   if (b.project_name) meta.push(`<span class="pmr-proj">${esc(b.project_name)}</span>`);
   if (b.recurrence) meta.push(`<span class="pmr-tag">${ic("repeat", "pmr-s")}${esc(b.recurrence.label || b.recurrence.name || "lặp lại")}</span>`);
   if (split) meta.push("<span>Mỗi người một việc</span>");
@@ -1479,7 +1558,8 @@ function batchHtml(b) {
   const dueCol = s.ready ? pill("Review") + `<div class="pmr-muted pmr-xs">hạn ${esc(shortDate(b.exp_end_date))}</div>`
     : (closed ? pill(ws) : `${dueSpan(di)}${b.exp_end_date ? `<div class="pmr-muted pmr-xs">hạn ${esc(fullDue(b.exp_end_date))}</div>` : ""}`);
   let act;
-  if (s.ready) act = Bs("Đóng việc", "close-batch", "pmr-wash");
+  if (follow) act = Bs("Mở", "open", "", taskAttr);   /* người theo dõi: xem, không đóng / nhắc / trả lại */
+  else if (s.ready) act = Bs("Đóng việc", "close-batch", "pmr-wash");
   else if (split && s.lateP.length) act = Bs(`Nhắc ${s.notDone.length} người`, "nudge", "pmr-wash");
   else if (!split && !closed && ws === "Review") act = Bs("Trả lại", "return-solo") + Bs("Đóng việc", "close-solo", "pmr-wash");
   else if (split || closed) act = Bs("Mở", "open", "", taskAttr);
@@ -1488,7 +1568,7 @@ function batchHtml(b) {
     (expandable ? `<button type="button" class="pmr-chev-b" data-act="toggle" aria-expanded="${open}" aria-label="Xem từng người">${ic("right", "pmr-chev")}</button>` : "<span></span>") +
     `<div class="pmr-minw"><button type="button" class="pmr-btitle" data-act="open"${taskAttr}>${esc(b.subject || b.task)}</button><div class="pmr-bmeta">${meta.join('<span class="pmr-dot-sep"></span>')}</div></div>` +
     `${prog}<div>${dueCol}</div><div class="pmr-bact">${act}</div></div>`;
-  if (s.ready) {
+  if (s.ready && !follow) {
     h += `<div class="pmr-ready">${ic("appr", "pmr-s")}<span>Cả ${s.total} người đã xong. Việc chuyển sang <b>Chờ duyệt</b> để bạn kiểm tra rồi đóng.</span>${Bs("Trả lại", "return-open")}</div>` +
       `<div class="pmr-retform pmr-hide"><div class="pmr-rs"><h4>Trả lại cho ai?</h4><div class="pmr-row">${people.map(p => `<label class="pmr-ck"><input type="checkbox" value="${esc(p.user)}"><span>${esc(pname(p))}</span></label>`).join("")}</div>` +
       `<textarea class="pmr-ta pmr-ret-note" aria-label="Lời nhắn" placeholder="Cần sửa gì (người nhận sẽ thấy)"></textarea><div class="pmr-acts">${Bs("Huỷ", "return-cancel")}${Bs("Trả lại", "return-send", "pmr-wash")}</div></div></div>`;
@@ -1496,7 +1576,7 @@ function batchHtml(b) {
   if (expandable) {
     h += `<div class="pmr-people">${people.map(p => {
       const l = personLast(p, b);
-      const pa = isDoneP(p) || closed ? "<span></span>" : (l.warn ? L("Nhắc", "nudge-one", dattr("u", p.user)) : L("Mở", "open", dattr("task", p.task || b.task)));
+      const pa = isDoneP(p) || closed ? "<span></span>" : (l.warn && !follow ? L("Nhắc", "nudge-one", dattr("u", p.user)) : L("Mở", "open", dattr("task", p.task || b.task)));
       return `<div class="pmr-prow"><span class="pmr-nm">${av(p.user, pname(p))}${esc(pname(p))}</span>${pill(p.state)}<span class="pmr-last${l.warn ? " pmr-warn" : ""}">${esc(l.text)}</span>${pa}</div>`;
     }).join("")}</div>`;
   }
@@ -1513,7 +1593,7 @@ function rulesHtml(rules) {
 }
 function renderGiven(c, tab) {
   prep(c);
-  tab = tab === "rep" || tab === "done" ? tab : "run";
+  tab = tab === "rep" || tab === "done" || tab === "follow" ? tab : "run";
   const right = B(ic("plus", "pmr-s") + "Giao việc", "new", "pmr-pri"), again = () => renderGiven(c, tab);
   const h0 = pageHead("Tôi đã giao", "", right);
   c.innerHTML = h0 + skel(6);
@@ -1526,15 +1606,16 @@ function renderGiven(c, tab) {
       return `<div class="pmr-alert" role="status"${dattr("req", x.request)}>${ic("cal")}<div><b>${esc(nm)} đề xuất dời hạn</b> “${esc(x.subject || x.task)}” từ ${esc(dayLabel(x.old_end))} sang <b>${esc(dayLabel(x.new_end))}</b>${x.reason ? ` — “${esc(x.reason)}”` : ""}</div>` +
         `<div class="pmr-alert-act">${Bs("Giữ hạn cũ", "dl-keep")}${B("Đồng ý " + esc(shortDate(x.new_end)), "dl-accept", "pmr-sm pmr-wash")}</div></div>`;
     }).join("");
-    h += `<div class="pmr-tabs" role="tablist">${[["run", "Đang chạy"], ["rep", "Lặp lại"], ["done", "Đã xong"]].map(x => {
+    h += `<div class="pmr-tabs" role="tablist">${[["run", "Đang chạy"], ["rep", "Lặp lại"], ["done", "Đã xong"], ["follow", "Tôi theo dõi"]].map(x => {
       const n = x[0] === tab ? (tab === "rep" ? rules.length : batches.length) : counts[x[0]];
       return `<button type="button" role="tab"${onA(x[0] === tab, "selected")} data-act="gtab" data-tab="${x[0]}">${x[1]}${n != null ? ` <span class="pmr-cnt pmr-num">${n}</span>` : ""}</button>`;
     }).join("")}</div>`;
     if (tab === "rep") h += `<div class="pmr-panel">${rulesHtml(rules)}</div>`;
     else if (!batches.length) {
-      h += '<div class="pmr-panel">' + (tab === "done" ? emptyBox("appr", "Chưa có lần giao nào xong", "Việc bạn giao, khi người nhận làm xong và bạn đóng, sẽ chuyển sang đây.")
+      h += '<div class="pmr-panel">' + (tab === "follow" ? emptyBox("eye", "Bạn chưa theo dõi việc nào", "Khi người phòng khác giao việc cho nhân viên của bạn, bạn được CC tự động và việc hiện ở đây. Bạn cũng có thể bấm “Theo dõi việc này” trong một việc.")
+        : tab === "done" ? emptyBox("appr", "Chưa có lần giao nào xong", "Việc bạn giao, khi người nhận làm xong và bạn đóng, sẽ chuyển sang đây.")
         : emptyBox("list", "Bạn chưa giao việc nào đang chạy", "Giao việc cho một hay nhiều người, rồi theo dõi ai đã mở, ai đang làm, ai trễ ngay tại đây.", `<div class="pmr-mt">${B(ic("plus", "pmr-s") + "Giao việc", "new", "pmr-wash")}</div>`)) + "</div>";
-    } else h += `<div class="pmr-panel pmr-batches">${batches.map(batchHtml).join("")}</div>`;
+    } else h += `<div class="pmr-panel pmr-batches">${batches.map(x => batchHtml(x, tab === "follow" ? "follow" : "")).join("")}</div>`;
     c.innerHTML = h;
     on(c, (a, b) => onGiven(c, tab, d, a, b));
   }, e => loadErr(c, e, again, h0));

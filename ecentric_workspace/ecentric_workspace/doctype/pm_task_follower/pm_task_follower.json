@@ -1,0 +1,81 @@
+{
+ "doctype": "DocType",
+ "name": "PM Task Follower",
+ "module": "Ecentric Workspace",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "allow_rename": 0,
+ "in_create": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "description": "PM: người theo dõi (CC) một việc (/pm 20/10/2026). Không phải người làm: xem, bình luận, nhận tin khi được CC / việc xong / trễ hạn. Ghi bởi ecentric_workspace.pm.task_flow.add_followers - không sửa tay.",
+ "field_order": [
+  "task",
+  "user",
+  "source",
+  "for_users",
+  "added_by"
+ ],
+ "fields": [
+  {
+   "fieldname": "task",
+   "fieldtype": "Link",
+   "label": "Việc",
+   "options": "Task",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "Người theo dõi",
+   "options": "User",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "source",
+   "fieldtype": "Select",
+   "label": "Nguồn",
+   "options": "Tự động\nThêm tay",
+   "default": "Thêm tay",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "for_users",
+   "fieldtype": "Small Text",
+   "label": "Theo dõi cho (người nhận)",
+   "description": "JSON: người nhận mà người này là trưởng phòng (CC tự động). Rỗng = theo dõi cả việc.",
+   "read_only": 1
+  },
+  {
+   "fieldname": "added_by",
+   "fieldtype": "Link",
+   "label": "Người thêm",
+   "options": "User",
+   "read_only": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "export": 1,
+   "report": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}

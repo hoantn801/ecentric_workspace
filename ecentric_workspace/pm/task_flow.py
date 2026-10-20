@@ -12,6 +12,7 @@ One home for the rules that tasks.py (mark_done / set_status / get) and pm_inbox
   * deadline requests               - PM Assignment Request kind=Deadline lookups/withdraw.
   * seen tracking                   - PM Task Seen (first_seen / last_seen per task+user).
   * emit                            - notification_center events via pmnotif.notify_users.
+  * followers (CC)                  - PM Task Follower: suggest_cc / add_followers / notices.
 
 Module path: ecentric_workspace.pm.task_flow
 """
@@ -26,6 +27,9 @@ from ecentric_workspace.pm.api import notifications as pmnotif
 
 REQ_DT = "PM Assignment Request"
 SEEN_DT = "PM Task Seen"
+FOLLOW_DT = "PM Task Follower"
+SRC_AUTO = "Tự động"
+SRC_MANUAL = "Thêm tay"
 KIND_DEADLINE = "Deadline"
 KIND_ASSIGNMENT = "Assignment"
 FINISHED = ("Done", "Cancelled")
@@ -277,6 +281,8 @@ def write_state(name, target, user, notify=True):
                                  name, event_type="mention", severity="info", due_suffix=target)
         except Exception:
             pass
+        if target == "Done":
+            notify_followers_done(name, user)   # người theo dõi (CC) biết việc đã xong
     return cur
 
 
@@ -517,3 +523,207 @@ def missing_required_steps(doc):
     """Count of required checklist steps not ticked (mark_done blocks on > 0)."""
     return len([d for d in (doc.get("pm_checklist") or [])
                 if d.get("is_required") and not d.get("is_done")])
+
+
+# --------------------------------------------------------------------------- followers (CC)
+# PO 20/10/2026: "giao việc cho member của team khác thì CC thêm manager của bạn đó".
+#   * auto-CC = department head(s) (Department.manager_email) of each assignee, ONLY when the
+#     giver works in a different department (same-team work stays quiet);
+#   * an assignee who is a department head themselves is a manager -> never CC upwards (CEO);
+#   * never the giver, never someone who is already an assignee.
+# A follower can view + comment (pmperm.can_view_task), is not an assignee (never in Việc của
+# tôi), and gets a notice when CC'd, when the work is done and when it runs late.
+def _norm_user(u):
+    return (u or "").strip().lower()
+
+
+def _user_depts(user):
+    return set(pmperm.get_user_departments(user) or [])
+
+
+def is_department_head(user):
+    """True when `user` heads at least one department (= a manager)."""
+    if not user:
+        return False
+    try:
+        return bool(frappe.db.exists("Department", {"manager_email": user}))
+    except Exception:
+        return False
+
+
+def _heads_of_depts(depts):
+    if not depts:
+        return []
+    rows = frappe.get_all("Department", filters={"name": ["in", sorted(depts)]},
+                          fields=["manager_email"], ignore_permissions=True) or []
+    heads = []
+    for r in rows:
+        h = (r.get("manager_email") or "").strip()
+        if h and h not in heads:
+            heads.append(h)
+    if not heads:
+        return []
+    ok = set(frappe.get_all("User", filters={"name": ["in", heads], "enabled": 1}, pluck="name") or [])
+    return [h for h in heads if h in ok]
+
+
+def suggest_cc(giver, assignees_list):
+    """[{user, for: [assignees]}] - automatic CC for a giver handing work to `assignees_list`."""
+    asg = [a for a in (assignees_list or []) if a]
+    asg_set = set(_norm_user(a) for a in asg)
+    gdepts = _user_depts(giver)
+    out, order = {}, []
+    for a in asg:
+        if _norm_user(a) == _norm_user(giver) or is_department_head(a):
+            continue  # own task / a manager: no CC upwards
+        ad = _user_depts(a)
+        if not ad or (ad & gdepts):
+            continue  # same department (or unknown): no automatic CC
+        for h in _heads_of_depts(ad):
+            if _norm_user(h) in asg_set or _norm_user(h) == _norm_user(giver):
+                continue
+            if h not in out:
+                out[h] = []
+                order.append(h)
+            if a not in out[h]:
+                out[h].append(a)
+    return [{"user": h, "for": out[h]} for h in order]
+
+
+def head_conflicts(assignees_list):
+    """[{head, members}] - an assignee who is the department head of other assignees (the
+    "Thai Cao + his team" case): the form suggests moving the head to CC."""
+    asg = [a for a in (assignees_list or []) if a]
+    out = []
+    for h in asg:
+        if not is_department_head(h):
+            continue
+        members = [m for m in asg if m != h and h in _heads_of_depts(_user_depts(m))]
+        if members:
+            out.append({"head": h, "members": members})
+    return out
+
+
+def follower_rows(task_names):
+    names = [t for t in (task_names or []) if t]
+    if not names:
+        return []
+    return frappe.get_all(FOLLOW_DT, filters={"task": ["in", names]},
+                          fields=["task", "user", "source", "for_users", "added_by"],
+                          order_by="creation asc", limit_page_length=0) or []
+
+
+def followers_of(task_name):
+    return [r["user"] for r in follower_rows([task_name])]
+
+
+def _for_list(row):
+    try:
+        v = json.loads(row.get("for_users") or "[]") or []
+    except Exception:
+        v = []
+    return [u for u in v if isinstance(u, str)]
+
+
+def add_followers(task_name, items, actor, source=SRC_MANUAL, notify=True, assignees_list=None):
+    """Attach followers to `task_name`. items: list of email or {user, for}. Skips assignees,
+    the actor's own row is allowed (self-follow). Audited with an Info comment. Returns the
+    users actually added."""
+    if not task_name or not items:
+        return []
+    asg = set(_norm_user(a) for a in (assignees_list or []))
+    asg |= set(_norm_user(a) for a in assignees({"name": task_name}))
+    for k in frappe.get_all("Task", filters={"parent_task": task_name}, fields=["_assign"],
+                            limit_page_length=0) or []:
+        asg |= set(_norm_user(a) for a in assignees(k))   # split parts: their people are doers
+    existing = set(_norm_user(u) for u in followers_of(task_name))
+    added = []
+    for it in items:
+        u = it.get("user") if isinstance(it, dict) else it
+        fu = (it.get("for") if isinstance(it, dict) else None) or []
+        if not u or _norm_user(u) in asg or _norm_user(u) in existing or u in _SYSTEM_USERS:
+            continue
+        if not frappe.db.exists("User", {"name": u, "enabled": 1}):
+            continue
+        try:
+            frappe.get_doc({"doctype": FOLLOW_DT, "name": "{0}::{1}".format(task_name, u),
+                            "task": task_name, "user": u, "source": source,
+                            "for_users": json.dumps(fu) if fu else None,
+                            "added_by": actor}).insert(ignore_permissions=True)
+        except frappe.DuplicateEntryError:
+            continue
+        existing.add(_norm_user(u))
+        added.append(u)
+    if added:
+        names = full_names(added)
+        add_comment(task_name, "Thêm người theo dõi (CC): " + ", ".join(names.get(u) or u for u in added))
+        if notify:
+            _notify_cc(task_name, added, actor)
+    return added
+
+
+def remove_follower(task_name, user, actor):
+    key = "{0}::{1}".format(task_name, user)
+    if not frappe.db.exists(FOLLOW_DT, key):
+        return False
+    frappe.delete_doc(FOLLOW_DT, key, ignore_permissions=True)
+    add_comment(task_name, "Bỏ người theo dõi (CC): " + (full_names([user]).get(user) or user))
+    return True
+
+
+def relevant_followers(task_row):
+    """Followers to tell about `task_row` (dict with name, parent_task, _assign): the task's own
+    followers + its parent's followers (split part); a parent follower with `for_users` only
+    hears about the parts of the people they were CC'd for."""
+    own = follower_rows([task_row.get("name")])
+    users = [r["user"] for r in own]
+    parent = task_row.get("parent_task")
+    if parent:
+        asg = set(assignees(task_row))
+        for r in follower_rows([parent]):
+            fu = set(_for_list(r))
+            if (not fu or (fu & asg)) and r["user"] not in users:
+                users.append(r["user"])
+    return [u for u in users if u not in assignees(task_row)]
+
+
+def _notify_cc(task_name, users, actor):
+    try:
+        t = frappe.db.get_value("Task", task_name, ["subject", "_assign"], as_dict=True) or {}
+        kids = frappe.get_all("Task", filters={"parent_task": task_name}, fields=["_assign"],
+                              limit_page_length=0) or []
+        who = assignees({"name": task_name, "_assign": t.get("_assign")})
+        for k in kids:
+            who += [u for u in assignees(k) if u not in who]
+        who = [u for u in who if u != actor]
+        names = full_names(who + [actor])
+        title = "Bạn được CC: {0} giao “{1}”{2}".format(
+            names.get(actor) or actor, t.get("subject") or task_name,
+            (" cho " + ", ".join(names.get(u) or u for u in who[:4]) + ("…" if len(who) > 4 else "")) if who else "")
+        pmnotif.notify_users(users, title, task_name, from_user=actor, event_type="task_assigned",
+                             severity="info", due_suffix="cc")
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "PM notify cc " + str(task_name))
+
+
+def notify_followers_done(task_name, actor):
+    """Task reached Done -> tell its followers (and the parent's followers CC'd for this person)."""
+    try:
+        row = frappe.db.get_value("Task", task_name, ["name", "subject", "parent_task", "_assign"],
+                                  as_dict=True) or {}
+        users = [u for u in relevant_followers(row) if u != actor]
+        if not users:
+            return
+        doer = assignees(row)
+        names = full_names(doer + [actor])
+        title = "Đã xong: “{0}”{1}".format(row.get("subject") or task_name,
+                                         (" · " + ", ".join(names.get(u) or u for u in doer[:3])) if doer else "")
+        pmnotif.notify_users(users, title, task_name, from_user=actor, event_type="mention",
+                             severity="info", due_suffix="cc-done", allow_terminal=True)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "PM notify followers done " + str(task_name))
+
+
+def followed_task_names(user):
+    return frappe.get_all(FOLLOW_DT, filters={"user": user}, pluck="task", limit_page_length=0) or []
+
