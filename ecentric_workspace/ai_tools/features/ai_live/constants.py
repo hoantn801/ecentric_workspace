@@ -294,6 +294,8 @@ class SessMsg:
     BRAND_OFF = "Brand %s chưa giao cho máy %s."
     BAD_URL = "Link xem phiên phải bắt đầu bằng https://"
     BAD_SERIAL = "Mã điện thoại (adb serial) không hợp lệ."
+    NOT_ON_MACHINE = "Phiên live %s không thuộc máy %s (hoặc chưa tạo trên ERP)."
+    BAD_SLOTS = "Danh sách khung giờ không hợp lệ (cần mảng JSON, gửi [] để xoá hết khung)."
 
 #: Tong ket cuoi phien (app gui khi phien ket thuc) - lich su phien, giu 400 ngay.
 SESSION_LOG = "EC AI Live Session Log"

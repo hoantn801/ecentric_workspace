@@ -13,6 +13,7 @@ from ecentric_workspace.ai_tools.features.ai_live.application.list_sessions_serv
 from ecentric_workspace.ai_tools.features.ai_live.application.pull_commands_service import PullCommandsService
 from ecentric_workspace.ai_tools.features.ai_live.application.push_heartbeat_service import PushHeartbeatService
 from ecentric_workspace.ai_tools.features.ai_live.application.push_session_summary_service import PushSessionSummaryService
+from ecentric_workspace.ai_tools.features.ai_live.application.push_slots_service import PushSlotsService
 from ecentric_workspace.ai_tools.features.ai_live.application.queue_command_service import QueueCommandService
 from ecentric_workspace.ai_tools.features.ai_live.application.save_slots_service import SaveSlotsService
 from ecentric_workspace.ai_tools.features.ai_live.application.session_detail_service import SessionDetailService
@@ -378,6 +379,64 @@ class TestHeartbeatSummaryConfig(unittest.TestCase):
         self.assertEqual((a["watch_url"], a["phone_serial"]), ("", ""))
         self.assertEqual(d["max_lives"], 2)
 
+
+class TestPushSlots(unittest.TestCase):
+    """App gui lai khung gio cua 1 phien tren may minh (lich 2 chieu)."""
+    APP = [{"days": [1, 2, 3, 4, 5], "start": "19:00", "end": "22:00"}, {"days": "6-7", "start": "22:00", "end": "02:00"},
+           {"days": list(range(1, 8)), "date": "2026-10-25", "start": "09:00", "end": "10:30"}]
+
+    def setUp(self):
+        self.ss = FakeSessions([sess("a"), sess("d", machine="MAY02"), sess("n", brand="nestle"), sess("off", enabled=0)])
+        self.svc = PushSlotsService(FakeMachines(), self.ss)
+
+    def test_success_round_trip_with_get_config(self):
+        import json
+        r = self.svc.execute("u1", "MAY01", "a", json.dumps(self.APP))
+        self.assertEqual(self.ss.saved, ["a"])
+        self.assertEqual(r["session"]["id"], "a")
+        self.assertEqual(r["session"]["slots"], r["slots"])
+        self.assertEqual(r["slots"][2], {"days": [], "date": "2026-10-25", "start": "09:00", "end": "10:30"})
+        self.assertEqual(r["schedule"][1], {"days": [6, 7], "start": "22:00", "end": "02:00"})
+        from ecentric_workspace.ai_tools.tests.test_ai_live_service import FakeBrands
+        lv = GetConfigService(FakeMachines(), FakeBrands(), sessions=self.ss).execute("u1", "MAY01")["lives"][0]
+        self.assertEqual(lv["schedule"], r["schedule"])                       # app keo ve dung cai vua gui
+        self.svc.execute("u1", "MAY01", "a", lv["schedule"])                  # gui lai schedule cua get_config -> y nguyen
+        self.assertEqual(self.ss.get("a")["slots"], r["slots"])
+        self.assertEqual(self.svc.execute("u1", "MAY01", "off", [])["slots"], [])   # phien dang tat van luu duoc; [] = xoa het
+
+    def test_same_normalization_as_save_slots(self):
+        other = FakeSessions([sess("a")])
+        SaveSlotsService(other).execute(VIEW, "a", self.APP)
+        self.svc.execute("u1", "MAY01", "a", self.APP)
+        self.assertEqual(self.ss.get("a")["slots"], other.get("a")["slots"])
+        for bad in ([{"start": "9h", "end": "11:00"}], [{"days": "8", "start": "09:00", "end": "10:00"}]):
+            with self.assertRaises(C.AiLiveError) as cm:
+                self.svc.execute("u1", "MAY01", "a", bad)
+            self.assertIn("Khung giờ 1", str(cm.exception))
+        for bad in (None, "", '{"start":"09:00"}', "not json"):
+            with self.assertRaises(C.AiLiveError):
+                self.svc.execute("u1", "MAY01", "a", bad)                     # khong tu xoa lich khi thieu slots
+        self.assertEqual(self.ss.saved, ["a"])
+
+    def test_unknown_live_or_brand_for_machine(self):
+        for live in ("d", "zz", "", "a b"):                                   # d thuoc MAY02
+            with self.assertRaises(C.AiLiveError) as cm:
+                self.svc.execute("u1", "MAY01", live, self.APP)
+            self.assertNotIsInstance(cm.exception, C.AiLivePermission)
+        with self.assertRaises(C.AiLiveError) as cm:
+            self.svc.execute("u1", "MAY01", "zz", self.APP)
+        self.assertIn("không thuộc máy MAY01", str(cm.exception))
+        with self.assertRaises(C.AiLiveError) as cm:
+            self.svc.execute("u1", "MAY01", "n", self.APP)                    # brand nestle chua giao cho MAY01
+        self.assertIn("nestle", str(cm.exception))
+        self.assertEqual(self.ss.saved, [])
+
+    def test_machine_token_mismatch(self):
+        for user, code in (("u2", "MAY01"), ("u1", "MAY02"), ("u1", ""), ("someone", "MAY01")):
+            with self.assertRaises(C.AiLivePermission):
+                self.svc.execute(user, code, "a", self.APP)
+        self.assertEqual(self.svc.execute("u2", "MAY02", "d", self.APP)["session"]["id"], "d")
+        self.assertEqual(self.ss.saved, ["d"])
 
 
 class TestViewerWall(unittest.TestCase):

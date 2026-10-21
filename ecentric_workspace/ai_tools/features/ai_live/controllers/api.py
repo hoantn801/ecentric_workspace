@@ -229,6 +229,12 @@ def push_session_summary(machine: str = None, live: str = None, brand: str = Non
     return _run(lambda: PushSessionSummaryService().execute(frappe.session.user, str(machine or ""), live, brand, summary))
 
 
+@frappe.whitelist(methods=["POST"])
+def push_slots(machine: str = None, live: str = None, slots=None):
+    from ecentric_workspace.ai_tools.features.ai_live.application.push_slots_service import PushSlotsService
+    return _run(lambda: PushSlotsService().execute(frappe.session.user, str(machine or ""), live, slots))
+
+
 @frappe.whitelist(methods=["GET"])
 def viewer_wall():
     from ecentric_workspace.ai_tools.features.ai_live.application.viewer_wall_service import ViewerWallService
