@@ -52,6 +52,11 @@ def _epoch(v):
     return (d if d.tzinfo else d.replace(tzinfo=timezone.utc)).timestamp()
 
 
+def epoch(v):
+    """Ban cong khai cua _epoch (fix10f: domain/machine_watch_rules dung lai)."""
+    return _epoch(v)
+
+
 def normalize_metrics(raw, now):
     """So lieu gon cho 1 live. Chi giu so trong khoang hop le; chuoi cat ngan."""
     raw = raw if isinstance(raw, dict) else {}

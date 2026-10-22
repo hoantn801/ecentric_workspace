@@ -960,3 +960,10 @@ for _ec_fx in fixtures:
 # phai sua). Backend: approval_center/shared/requests/add_file.py; endpoint reporting.actions.
 web_include_js.append("ec_addfile.bundle.js")
 web_include_css.append("ec_addfile.bundle.css")
+
+# 23/10/2026 - AI Live W17 (fix10f): "may im lang". Moi phut xet nhip tim CA MAY (push_heartbeat luu len
+# EC AI Live Machine): may dang co live ma im lang > 3 phut -> bao KHAN Teams/Zalo, nhac lai 5 phut/lan
+# (01:00-07:00: 15 phut/lan), co nhip lai -> bao lien lac lai. Tat app dung cach ('stopping') thi khong bao.
+# Tat khan cung giam sat live: site_config `ec_ai_live_monitor_disabled: 1`.
+scheduler_events["cron"].setdefault("*/1 * * * *", []).append(
+    "ecentric_workspace.ai_tools.features.ai_live.jobs.watch_machines_job.run")

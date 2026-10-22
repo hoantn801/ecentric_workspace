@@ -22,6 +22,15 @@
   "col_z",
   "zalo_api_base",
   "zalo_send_path",
+  "sec_machine",
+  "machine_offline_minutes",
+  "machine_repeat_minutes",
+  "col_machine",
+  "night_repeat_minutes",
+  "night_start",
+  "night_end",
+  "sec_channels",
+  "channels",
   "sec_help",
   "help_html"
  ],
@@ -118,6 +127,58 @@
    "description": "{token} được thay bằng token bot khi gửi."
   },
   {
+   "fieldname": "sec_machine",
+   "fieldtype": "Section Break",
+   "label": "Máy im lặng (mất điện / mất mạng / treo)",
+   "description": "Máy đang có live mà không gửi nhịp tim quá N phút thì báo KHẨN. Tắt app đúng cách hoặc không có live thì không báo."
+  },
+  {
+   "fieldname": "machine_offline_minutes",
+   "fieldtype": "Int",
+   "label": "Máy im lặng bao nhiêu phút thì báo",
+   "default": "3"
+  },
+  {
+   "fieldname": "machine_repeat_minutes",
+   "fieldtype": "Int",
+   "label": "Nhắc lại mỗi (phút)",
+   "default": "5"
+  },
+  {
+   "fieldname": "col_machine",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "night_repeat_minutes",
+   "fieldtype": "Int",
+   "label": "Ban đêm nhắc lại mỗi (phút)",
+   "default": "15"
+  },
+  {
+   "fieldname": "night_start",
+   "fieldtype": "Data",
+   "label": "Ban đêm từ (HH:MM)",
+   "default": "01:00"
+  },
+  {
+   "fieldname": "night_end",
+   "fieldtype": "Data",
+   "label": "Ban đêm đến (HH:MM)",
+   "default": "07:00"
+  },
+  {
+   "fieldname": "sec_channels",
+   "fieldtype": "Section Break",
+   "label": "Kênh theo nhóm / brand",
+   "description": "Kênh Teams / Zalo ở trên là kênh chung, luôn nhận (nếu bật). Thêm dòng ở đây để báo thêm cho nhóm phụ trách brand: brand của live trùng thì nhóm nhận; để trống brand = nhóm nhận mọi báo động. Cùng một webhook / nhóm Zalo chỉ nhận 1 lần."
+  },
+  {
+   "fieldname": "channels",
+   "fieldtype": "Table",
+   "label": "Kênh theo nhóm / brand",
+   "options": "EC AI Live Alert Channel"
+  },
+  {
    "fieldname": "sec_help",
    "fieldtype": "Section Break",
    "label": "Hướng dẫn"
@@ -133,7 +194,7 @@
  "issingle": 1,
  "istable": 0,
  "links": [],
- "modified": "2026-10-18 00:00:00.000000",
+ "modified": "2026-10-23 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Ecentric Workspace",
  "name": "EC AI Live Alert Settings",

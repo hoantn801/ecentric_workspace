@@ -2,7 +2,12 @@
 """Quan tri bam "Gui thu": gui 1 tin thu ra Teams / Zalo theo EC AI Live Alert Settings, tra ket qua tung kenh."""
 from ecentric_workspace.ai_tools.features.ai_live import constants as C
 from ecentric_workspace.ai_tools.features.ai_live.application import _common
+from ecentric_workspace.ai_tools.features.ai_live.application._alert_send import send_routed
 from ecentric_workspace.ai_tools.features.ai_live.domain import health_rules as R
+
+
+def _ok(code):
+    return str(code).isdigit() and 200 <= int(code) < 300
 
 
 class AlertTestService:
@@ -15,9 +20,11 @@ class AlertTestService:
     def execute(self, roles):
         _common.require_role(roles, C.ADMIN_ROLES, C.Msg.NEED_ADMIN)
         cfg = self.settings.get(with_secrets=True)
-        if not (cfg.get("teams_enabled") or cfg.get("zalo_enabled")):
+        groups = [g for g in cfg.get("channels") or [] if g.get("enabled") and (g.get("teams_enabled") or g.get("zalo_enabled"))]
+        if not (cfg.get("teams_enabled") or cfg.get("zalo_enabled") or groups):
             raise C.AiLiveError(C.MonMsg.NO_CHANNEL)
         title, body = R.format_alert(C.Level.INFO, {"brand": "Thử"}, C.MonMsg.TEST_TEXT)
-        t_ok, t_code = self.sender.send_teams(cfg, C.Level.INFO, title, body, self.link)
-        z_ok, z_code = self.sender.send_zalo(cfg, title, body, self.link)
-        return {"teams": {"ok": t_ok, "code": t_code}, "zalo": {"ok": z_ok, "code": z_code}}
+        res = send_routed(self.sender, cfg, C.Level.INFO, title, body, self.link, [], all_groups=True)
+        (_, t_code, z_code), rest = res[0], res[1:]               # fix10f: kenh chung + tung nhom brand
+        return {"teams": {"ok": _ok(t_code), "code": t_code}, "zalo": {"ok": _ok(z_code), "code": z_code},
+                "groups": [{"group": g, "teams": t, "zalo": z} for g, t, z in rest]}

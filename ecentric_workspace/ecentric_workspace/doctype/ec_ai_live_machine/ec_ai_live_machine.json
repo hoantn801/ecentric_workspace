@@ -13,7 +13,31 @@
   "enabled",
   "max_lives",
   "brands",
-  "user"
+  "user",
+  "sec_hb",
+  "hb_last_seen",
+  "hb_state",
+  "hb_version",
+  "hb_boot_at",
+  "hb_app_started_at",
+  "col_hb",
+  "hb_on_air",
+  "hb_lives",
+  "hb_alert_count",
+  "hb_alerts",
+  "hb_resume_crash",
+  "sec_watch",
+  "watch_lost_ts",
+  "watch_sent_ts",
+  "watch_back_ts",
+  "col_watch",
+  "watch_lost_boot_ts",
+  "watch_lost_started_ts",
+  "watch_brands",
+  "hb_last_seen_ts",
+  "hb_boot_ts",
+  "hb_started_ts",
+  "hb_lives_json"
  ],
  "fields": [
   {
@@ -58,11 +82,177 @@
    "label": "Tài khoản máy",
    "options": "User",
    "read_only": 1
+  },
+  {
+   "fieldname": "sec_hb",
+   "fieldtype": "Section Break",
+   "label": "Nhịp tim (app gửi 30 giây/lần)",
+   "collapsible": 0
+  },
+  {
+   "read_only": 1,
+   "fieldname": "hb_last_seen",
+   "fieldtype": "Datetime",
+   "label": "Lần cuối liên lạc",
+   "in_list_view": 1,
+   "no_copy": 1
+  },
+  {
+   "read_only": 1,
+   "fieldname": "hb_state",
+   "fieldtype": "Data",
+   "label": "Trạng thái app",
+   "description": "running = đang chạy; stopping = tắt app đúng cách (không báo động)",
+   "no_copy": 1
+  },
+  {
+   "read_only": 1,
+   "fieldname": "hb_version",
+   "fieldtype": "Data",
+   "label": "Phiên bản app",
+   "no_copy": 1
+  },
+  {
+   "read_only": 1,
+   "fieldname": "hb_boot_at",
+   "fieldtype": "Datetime",
+   "label": "Máy khởi động lúc",
+   "no_copy": 1
+  },
+  {
+   "read_only": 1,
+   "fieldname": "hb_app_started_at",
+   "fieldtype": "Datetime",
+   "label": "App mở lúc",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "col_hb",
+   "fieldtype": "Column Break"
+  },
+  {
+   "read_only": 1,
+   "fieldname": "hb_on_air",
+   "fieldtype": "Check",
+   "label": "Đang có live lên sóng",
+   "no_copy": 1
+  },
+  {
+   "read_only": 1,
+   "fieldname": "hb_lives",
+   "fieldtype": "Small Text",
+   "label": "Live đang chạy",
+   "no_copy": 1
+  },
+  {
+   "read_only": 1,
+   "fieldname": "hb_alert_count",
+   "fieldtype": "Int",
+   "label": "Số cảnh báo đang có",
+   "no_copy": 1
+  },
+  {
+   "read_only": 1,
+   "fieldname": "hb_alerts",
+   "fieldtype": "Small Text",
+   "label": "Cảnh báo đang có",
+   "no_copy": 1
+  },
+  {
+   "read_only": 1,
+   "fieldname": "hb_resume_crash",
+   "fieldtype": "Check",
+   "label": "Lần mở app gần nhất là sau lỗi",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "sec_watch",
+   "fieldtype": "Section Break",
+   "label": "Báo động máy im lặng (hệ thống tự ghi)",
+   "collapsible": 1
+  },
+  {
+   "read_only": 1,
+   "fieldname": "watch_lost_ts",
+   "fieldtype": "Float",
+   "label": "Mất liên lạc từ (epoch, 0 = bình thường)",
+   "no_copy": 1
+  },
+  {
+   "read_only": 1,
+   "fieldname": "watch_sent_ts",
+   "fieldtype": "Float",
+   "label": "Lần báo gần nhất (epoch)",
+   "no_copy": 1
+  },
+  {
+   "read_only": 1,
+   "fieldname": "watch_back_ts",
+   "fieldtype": "Float",
+   "label": "Có nhịp tim lại lúc (epoch)",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "col_watch",
+   "fieldtype": "Column Break"
+  },
+  {
+   "read_only": 1,
+   "fieldname": "watch_lost_boot_ts",
+   "fieldtype": "Float",
+   "label": "boot_at lúc mất (epoch)",
+   "no_copy": 1
+  },
+  {
+   "read_only": 1,
+   "fieldname": "watch_lost_started_ts",
+   "fieldtype": "Float",
+   "label": "app_started_at lúc mất (epoch)",
+   "no_copy": 1
+  },
+  {
+   "read_only": 1,
+   "fieldname": "watch_brands",
+   "fieldtype": "Small Text",
+   "label": "Brand đã báo",
+   "no_copy": 1
+  },
+  {
+   "read_only": 1,
+   "fieldname": "hb_last_seen_ts",
+   "fieldtype": "Float",
+   "label": "Lần cuối liên lạc (epoch)",
+   "hidden": 1,
+   "no_copy": 1
+  },
+  {
+   "read_only": 1,
+   "fieldname": "hb_boot_ts",
+   "fieldtype": "Float",
+   "label": "Máy khởi động (epoch)",
+   "hidden": 1,
+   "no_copy": 1
+  },
+  {
+   "read_only": 1,
+   "fieldname": "hb_started_ts",
+   "fieldtype": "Float",
+   "label": "App mở (epoch)",
+   "hidden": 1,
+   "no_copy": 1
+  },
+  {
+   "read_only": 1,
+   "fieldname": "hb_lives_json",
+   "fieldtype": "Long Text",
+   "label": "Live đang chạy (JSON)",
+   "hidden": 1,
+   "no_copy": 1
   }
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-10-18 00:00:00.000000",
+ "modified": "2026-10-23 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Ecentric Workspace",
  "name": "EC AI Live Machine",

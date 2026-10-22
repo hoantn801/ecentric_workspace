@@ -38,6 +38,12 @@ class FakeMachines:
         return {"u1": {"machine_code": "MAY01", "enabled": 1, "user": "u1", "brands": "friso\nwilmar"},
                 "u2": {"machine_code": "MAY02", "enabled": 0, "user": "u2", "brands": "friso"}}.get(user)
 
+    def save_heartbeat(self, code, vals):      # fix10f: nhip tim ca may (test may im lang o test_ai_live_machine_watch)
+        self.__dict__.setdefault("hb", {}).setdefault(code, {}).update(vals)
+
+    def heartbeats(self):
+        return []
+
 
 class FakeHealth:
     def __init__(self):
@@ -156,7 +162,8 @@ class World:
         return PushHeartbeatService(FakeMachines(), self.health, self.samples, self.thumbs, self.clock).execute(user, payload)
 
     def tick(self):
-        svc = MonitorTickService(self.health, self.samples, self.alerts, self.settings, self.sender, self.clock, "https://x/m")
+        svc = MonitorTickService(self.health, self.samples, self.alerts, self.settings, self.sender, self.clock, "https://x/m",
+                                 FakeMachines())
         return sum(svc.check(r) for r in svc.targets())
 
     def wall(self, roles=VIEW, **kw):
@@ -331,7 +338,7 @@ class TestTick(unittest.TestCase):
 
     def test_purge(self):
         w = World(T0)
-        svc = MonitorTickService(w.health, w.samples, w.alerts, w.settings, w.sender, w.clock)
+        svc = MonitorTickService(w.health, w.samples, w.alerts, w.settings, w.sender, w.clock, machines=FakeMachines())
         svc.purge()
         self.assertEqual(w.samples.purged, T0 - 86400)
         self.assertEqual(w.alerts.purged, T0 - 14 * 86400)

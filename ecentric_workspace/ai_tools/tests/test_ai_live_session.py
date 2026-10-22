@@ -58,6 +58,12 @@ class FakeMachines:
     def all(self):
         return list(self.rows.values())
 
+    def save_heartbeat(self, code, vals):      # fix10f: nhip tim ca may (test may im lang o test_ai_live_machine_watch)
+        self.__dict__.setdefault("hb", {}).setdefault(code, {}).update(vals)
+
+    def heartbeats(self):
+        return []
+
 
 class FakeSessions:
     def __init__(self, rows=()):

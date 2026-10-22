@@ -7,6 +7,7 @@ import binascii
 from ecentric_workspace.ai_tools.features.ai_live import constants as C
 from ecentric_workspace.ai_tools.features.ai_live.application import _common
 from ecentric_workspace.ai_tools.features.ai_live.domain import health_rules as R
+from ecentric_workspace.ai_tools.features.ai_live.domain import machine_watch_rules as W
 from ecentric_workspace.ai_tools.features.ai_live.domain import session_rules as S
 
 
@@ -48,6 +49,7 @@ class PushHeartbeatService:
             raise C.AiLiveError(C.MonMsg.BAD_HB % "lives")
         now, allowed, top = self.clock(), _common.machine_brands(m), p.get("thumb_b64")
         self._m = m
+        self.machines.save_heartbeat(m["machine_code"], W.heartbeat_vals(p, lives, m, now))  # fix10f: nhip tim ca may
         saved, skipped = [], []
         for lv in lives:
             why = self._one(m["machine_code"], allowed, lv if isinstance(lv, dict) else {}, top, len(lives), now)

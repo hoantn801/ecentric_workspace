@@ -344,3 +344,46 @@ class RaceMsg:
     BAD_DATE = "Ngày không hợp lệ (dạng YYYY-MM-DD)."
     BAD_ARG = "Tham số đua vịt không hợp lệ: %s"
     NOT_FOUND = "Không tìm thấy cuộc đua %s."
+
+
+# ------------------------------------------------------------------ May im lang (W17, fix10f) ---
+#: Bang con cua EC AI Live Alert Settings: kenh Teams / Zalo theo nhom brand.
+ALERT_CHANNEL = "EC AI Live Alert Channel"
+#: Trang thai app ca may (eC Live >= 1.0.20). 'stopping' = tat app dung cach -> im lang khong phai su co.
+APP_RUNNING = "running"
+APP_STOPPING = "stopping"
+APP_STATES = (APP_RUNNING, APP_STOPPING)
+#: Mac dinh (doi duoc trong EC AI Live Alert Settings).
+MACHINE_OFFLINE_MIN = 3
+MACHINE_REPEAT_MIN = 5
+NIGHT_REPEAT_MIN = 15
+NIGHT_START = "01:00"
+NIGHT_END = "07:00"
+#: boot_at moi lech hon chung nay so voi luc mat lien lac = may da khoi dong lai.
+REBOOT_TOLERANCE_S = 60
+MAX_MACHINE_ALERTS = 20
+MACHINE_ALERT_KEY = "machine:%s"
+
+
+class WatchCode:
+    OFFLINE = "machine_offline"
+    BACK = "machine_back"
+
+
+class WatchAction:
+    NONE = "none"
+    LOST = "lost"
+    REMIND = "remind"
+    BACK = "back"
+
+
+class WatchMsg:
+    TITLE_LOST = "[KHẨN] AI Live · Máy %s"
+    TITLE_BACK = "[XANH] AI Live · Máy %s"
+    LOST = "Máy %s mất liên lạc từ %s (mất điện / mất mạng / treo). Đang có live: %s."
+    STILL = " Đã %d phút chưa liên lạc lại."
+    BACK = "Máy %s đã liên lạc lại sau %d phút."
+    REBOOT = " Máy vừa khởi động lại (mất điện / reset)."
+    APP_RESTART = " App eC Live vừa mở lại%s (máy không khởi động lại)."
+    CRASH = " sau lỗi"
+    DAY = " ngày %s"
