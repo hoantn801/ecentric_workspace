@@ -26,7 +26,9 @@ def decode_thumb(b64):
         return data, "jpg"
     if data[:8] == b"\x89PNG\r\n\x1a\n":
         return data, "png"
-    raise C.AiLiveError(C.MonMsg.BAD_HB % "ảnh không phải jpg/png")
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":            # fix10g: platform_thumb_b64 co the la WEBP
+        return data, "webp"
+    raise C.AiLiveError(C.MonMsg.BAD_HB % "ảnh không phải jpg/png/webp")
 
 
 class PushHeartbeatService:
@@ -45,9 +47,11 @@ class PushHeartbeatService:
         lives = p.get("lives")
         if isinstance(lives, str):
             lives = _common.parse_json(lives, "lives")
-        if not isinstance(lives, list) or len(lives) > C.MAX_HB_LIVES:
+        if not isinstance(lives, list):
             raise C.AiLiveError(C.MonMsg.BAD_HB % "lives")
+        lives = lives[:C.MAX_HB_LIVES]              # fix10g: thua thi cat, khong bo ca nhip (bo nhip = bao "may im lang" gia)
         now, allowed, top = self.clock(), _common.machine_brands(m), p.get("thumb_b64")
+        self._minimal = bool(p.get("minimal"))          # may tai cao: lives rut gon -> giu so lieu / canh bao lan truoc
         self._m = m
         self.machines.save_heartbeat(m["machine_code"], W.heartbeat_vals(p, lives, m, now))  # fix10f: nhip tim ca may
         saved, skipped = [], []
@@ -67,8 +71,12 @@ class PushHeartbeatService:
         prev = self.health.get(key) or {}
         state = str(lv.get("state") or "").lower()
         state = state if state in C.LIVE_STATES else "idle"
-        metrics = R.normalize_metrics(lv.get("metrics"), now)
-        alerts = R.merge_alerts(lv.get("alerts"), R.metric_reasons(state, metrics), prev.get("alerts"), now)
+        if self._minimal and "metrics" not in lv:
+            metrics = prev.get("metrics") or {}
+            app_alerts = [a for a in prev.get("alerts") or [] if a.get("src") == "app"]
+        else:
+            metrics, app_alerts = R.normalize_metrics(lv.get("metrics"), now), lv.get("alerts")
+        alerts = R.merge_alerts(app_alerts, R.metric_reasons(state, metrics), prev.get("alerts"), now)
         row = {"machine": machine, "live": live, "brand": brand, "state": state, "last_seen_ts": now,
                "app_version": str(lv.get("app_version") or "")[:20], "metrics": metrics, "alerts": alerts,
                "schedule": R.sanitize_schedule(lv["schedule"]) if "schedule" in lv else (prev.get("schedule") or [])}
@@ -88,7 +96,7 @@ class PushHeartbeatService:
             self.thumbs.save(key, kind, data, ext)
             row[kind + "_thumb_ts"] = now
         self.health.upsert(key, row)
-        if now - self.samples.last_ts(key) >= C.SAMPLE_EVERY_S:
+        if now - self.samples.last_ts(key) >= C.SAMPLE_EVERY_S and not (self._minimal and "metrics" not in lv):
             top_level = max([C.LEVEL_RANK[a["level"]] for a in alerts] or [0])
             self.samples.insert(key, now, {3: C.Level.CRIT, 2: C.Level.WARN}.get(top_level, C.Level.OK), metrics)
         if lv.get("session_summary"):

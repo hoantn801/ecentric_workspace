@@ -858,7 +858,7 @@ tr.on td{background:var(--navy-wash)}
 .lc-ln{padding:6px 10px;font-size:12px;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-right:1px solid var(--line-soft)}
 .lc-ln small{display:block;color:var(--ink4);font-size:11px}
 .lc-track{position:relative;min-height:38px;cursor:crosshair;touch-action:none;
-  background-image:repeating-linear-gradient(90deg,transparent 0,transparent calc(100%/24 - 1px),var(--line-soft) calc(100%/24 - 1px),var(--line-soft) calc(100%/24))}
+  background-image:repeating-linear-gradient(90deg,transparent 0,transparent calc(100%/var(--hn,24) - 1px),var(--line-soft) calc(100%/var(--hn,24) - 1px),var(--line-soft) calc(100%/var(--hn,24)))}
 .lc-hours{display:grid;grid-template-columns:150px 1fr;font-size:10.5px;color:var(--ink4)}
 .lc-hours div:last-child{display:grid;grid-template-columns:repeat(24,1fr)} .lc-hours span{padding-left:2px}
 .lc-blk{position:absolute;top:4px;bottom:4px;border-radius:6px;background:var(--navy-wash);border:1px solid var(--navy-line);color:var(--navy-d);font-size:11.5px;padding:2px 6px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:grab;touch-action:none;user-select:none}
@@ -872,6 +872,54 @@ tr.on td{background:var(--navy-wash)}
 .lc-mob{display:none}
 .lc-chip{display:flex;justify-content:space-between;gap:8px;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12.5px;background:var(--surface);cursor:pointer;width:100%;text-align:left}
 .lc-chip.bad{border-color:var(--bad);background:var(--bad-bg)}
+/* lich live: 4 kieu xem + ban nhap / phat hanh (23/10, fix10g) */
+.lc-views{display:inline-flex;flex-wrap:wrap;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--surface)}
+#ec-aiv-root .lc-views a{padding:7px 14px;font-size:13px;font-weight:600;color:var(--ink2);text-decoration:none;border-right:1px solid var(--line-soft);display:inline-flex;gap:6px;align-items:center}
+#ec-aiv-root .lc-views a:last-child{border-right:0}
+#ec-aiv-root .lc-views a.on{background:var(--navy);color:#fff}
+.lc-views .n{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--gold);color:var(--gold-ink);font-size:11px;font-weight:700}
+.lc-draftbar{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between;background:#fffbea;border:1px solid #f0d58a;border-radius:10px;padding:10px 14px;font-size:13px;position:sticky;top:8px;z-index:6}
+.lc-blk.chg{border-style:dashed;border-width:1.5px}
+.lc-blk.chg::before{content:"nháp";font-size:9.5px;font-weight:700;background:var(--gold);color:var(--gold-ink);border-radius:4px;padding:0 4px;margin-right:4px}
+.lc-blk.held{background:repeating-linear-gradient(135deg,#eef0fb 0 6px,#e1e5f7 6px 12px);border-color:var(--navy);color:var(--navy-d);cursor:help}
+.lc-blk.held::before{content:"giữ giờ cũ";font-size:9.5px;font-weight:700;background:var(--navy);color:#fff;border-radius:4px;padding:0 4px;margin-right:4px}
+.lc-now{position:absolute;top:0;bottom:0;width:2px;background:#c0306f;z-index:2;pointer-events:none}
+.gt{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.gt-hours{display:grid;grid-template-columns:254px 1fr;font-size:10.5px;color:var(--ink3);background:var(--ground);border-bottom:1px solid var(--line)}
+.gt-hours div:last-child{display:grid;grid-template-columns:repeat(var(--hn,24),1fr)} .gt-hours span{padding:4px 0 4px 2px}
+.gt-m{display:grid;grid-template-columns:190px 1fr;border-top:1px solid var(--line)}
+.gt-m:first-of-type{border-top:0}
+.gt-mh{padding:8px 10px;display:flex;flex-direction:column;gap:4px;border-right:1px solid var(--line-soft);font-size:12px;min-width:0}
+.gt-mh b{font-size:13.5px} .gt-mh small{color:var(--ink3)}
+.gt-lanes{display:flex;flex-direction:column;min-width:0}
+.gt-k{display:grid;grid-template-columns:64px 1fr;border-bottom:1px dashed var(--line-soft)} .gt-k:last-child{border-bottom:0}
+.gt-k > span{font-size:11px;color:var(--ink3);padding:8px 6px;font-weight:600;border-right:1px solid var(--line-soft)}
+.mo-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;align-items:start}
+.mo-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden;min-width:720px}
+.mo-dow{background:var(--ground);padding:7px;text-align:center;font-size:11.5px;font-weight:700;color:var(--ink3)}
+#ec-aiv-root a.mo-c{background:var(--surface);min-height:118px;padding:6px 7px;display:flex;flex-direction:column;gap:3px;text-decoration:none;color:var(--ink);min-width:0}
+#ec-aiv-root a.mo-c:hover{background:var(--navy-wash)}
+.mo-c.o{background:#fafbfc!important} .mo-c.o .d{color:var(--ink3)}
+.mo-c .d{font-weight:600;font-size:12px;min-width:22px;height:22px;line-height:22px;text-align:center;border-radius:50%}
+.mo-c.t .d{background:var(--navy);color:#fff}
+.mo-chip{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;gap:5px;align-items:center}
+.mo-chip i,.mo-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;display:inline-block}
+.mo-bar{height:6px;border-radius:6px;background:var(--line-soft);overflow:hidden} .mo-bar i{display:block;height:100%;border-radius:6px}
+.mo-side{display:flex;flex-direction:column;gap:12px}
+.sy-pub{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;justify-content:space-between;background:#fffbea;border:1px solid #f0d58a;border-radius:12px;padding:12px 14px}
+.sy-pub input[type=text]{min-width:260px;flex:1}
+.sy-diff{margin:0;padding-left:16px;font-size:12.5px}
+.sy-table .av-pill{white-space:normal;text-align:left} .sy-table td:last-child .av-btn{white-space:nowrap} .sy-table td.sy-ses{min-width:150px} .sy-table td.sy-chg{min-width:240px} .sy-table td.sy-when{min-width:170px} .sy-table td.sy-chk{min-width:150px}
+.sy-err{color:var(--bad);font-size:12px;font-weight:600;display:block}
+.sy-m{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.sy-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;font-size:12.5px;min-width:0}
+.sy-card.warn{border-color:#f0d58a}.sy-card.bad{border-color:#e8a3a3}
+.sy-kv{display:grid;grid-template-columns:96px minmax(0,1fr);gap:2px 8px} .sy-kv span:nth-child(odd){color:var(--ink3)}
+.sy-log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.sy-log li{border-bottom:1px solid var(--line-soft);padding-bottom:8px;font-size:12.5px}
+.sy-rules{font-size:13px;color:var(--ink2)} .sy-rules summary{cursor:pointer;font-weight:600;color:var(--ink)} .sy-rules ul{margin:6px 0 0;padding-left:18px}
+@media (max-width:1000px){.mo-layout{grid-template-columns:1fr}}
+@media (max-width:720px){.gt-hours{display:none}}
 /* xem nhu khach (toan man hinh) */
 .vw{position:fixed;inset:0;z-index:45;background:#0b0f1a;color:#e5e7eb;display:flex;flex-direction:column}
 .vw-bar{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between;padding:8px 14px;font-size:13px}
@@ -915,7 +963,8 @@ tr.on td{background:var(--navy-wash)}
   const REASON = { schedule_end: "Hết giờ theo lịch", manual: "Dừng tay", error: "Lỗi", restart: "Khởi động lại", other: "Khác" };
   const WD = ["", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ nhật"];
   const P = { list: null, f: { brand: "", platform: "", machine: "", status: "" }, sel: new Set(), detail: null, week: null, wk: "", by: "machine",
-    hist: null, hf: { brand: "", days: 7 }, timer: null, tick: null, failed: 0, thumbs: new Map(), drag: null, skew: 0 };
+    hist: null, hf: { brand: "", days: 7 }, timer: null, tick: null, failed: 0, thumbs: new Map(), drag: null, skew: 0,
+    day: "", dayData: null, mo: "", moData: null, sync: null, syncSel: null, syncKnown: null, syncUrg: new Set(), syncPoll: 0, sc: { a: 0, b: 1440 } };  /* fix10g */
   const hash = () => location.hash.replace(/^#\/?/, "");
   const on = () => /^(lives|live\/|schedule|history|watch)/.test(hash());
   const view = () => $("av-view");
@@ -957,6 +1006,8 @@ tr.on td{background:var(--navy-wash)}
     if ($("av-modal") && !$("av-modal").hidden) closeModal();
     const v = view(); v.classList.add("ls-wide");
     let m = /^live\/([^/?]+)(\/giai)?/.exec(h); if (m) { P.dtab = m[2] ? "giai" : ""; return loadDetail(decodeURIComponent(m[1])); }
+    m = /^schedule\/(day|month|sync)(?:\/([0-9-]{7,10}))?/.exec(h);   /* fix10g: Gantt ngay / Thang / Dong bo */
+    if (m) { if (m[1] === "day") { P.day = m[2] || P.day || ""; return loadDay(); } if (m[1] === "month") { P.mo = m[2] || P.mo || ""; return loadMonth(); } return loadSync(); }
     m = /^schedule(?:\/(\d{4}-\d{2}-\d{2}))?/.exec(h); if (m) { P.wk = m[1] || P.wk || ""; return loadWeek(); }
     if (/^history/.test(h)) return loadHistory();
     if (/^watch/.test(h)) return loadWatch();
@@ -1131,27 +1182,32 @@ tr.on td{background:var(--navy-wash)}
   }
   const sessOf = (id) => (P.week.sessions || []).find((s) => s.id === id);
   const laneOf = (s) => (P.by === "brand" ? s.brand || "—" : s.machine || "Chưa gán máy");
+  const laneOfB = (b) => (P.by === "brand" ? (sessOf(b.session) || {}).brand || "—" : b.machine || "Chưa gán máy");  /* fix10g: khoi giu gio cu nam o may cu */
   const minOf = (hm) => { const [h, m] = hm.split(":").map(Number); return h * 60 + m; };
   const hmOf = (mins) => { mins = ((Math.round(mins) % 1440) + 1440) % 1440; return String(Math.floor(mins / 60)).padStart(2, "0") + ":" + String(mins % 60).padStart(2, "0"); };
   function lanes() {
     const w = P.week, keys = new Set();
     (w.sessions || []).forEach((s) => keys.add(laneOf(s)));
+    (w.blocks || []).forEach((b) => keys.add(laneOfB(b)));
     if (P.by === "machine") (w.machines || []).forEach((m) => keys.add(m.code));
     return [...keys].sort();
   }
+  /* fix10g: thang gio [P.sc.a, P.sc.b] phut - tuan = ca ngay, Gantt ngay thu tu gio som nhat (<= 6h) toi 24h */
+  const pctOf = (m) => ((m - P.sc.a) / (P.sc.b - P.sc.a)) * 100;
+  const hoursRow = () => { const h0 = P.sc.a / 60; return Array.from({ length: 24 - h0 }, (_, i) => `<span>${h0 + i}h</span>`).join(""); };
   const spanOf = (b, day) => { const a = minOf(b.start), e0 = minOf(b.end), cont = day !== b.date; return cont ? [0, e0] : [a, e0 > a ? e0 : 1440]; };
   function blockHtml(b, day, row) {
     const s = sessOf(b.session) || {}, cont = day !== b.date, [left, right] = spanOf(b, day);
-    const cls = ["lc-blk", b.recurring ? "" : "date", b.enabled ? "" : "off", b.conflict ? "bad" : "", cont ? "cont" : ""].filter(Boolean).join(" ");
-    const tip = `${s.title || b.session} · ${b.start}–${b.end}${b.recurring ? " · lặp hằng tuần" : " · chỉ ngày này"}${b.conflict ? " · VƯỢT SỐ LIVE CỦA MÁY" : ""}${b.enabled ? "" : " · phiên đang tắt"}`;
-    return `<div class="${cls}" style="left:${(left / 14.4).toFixed(3)}%;width:${Math.max(0.8, (right - left) / 14.4).toFixed(3)}%;top:${4 + row * 26}px;height:22px;bottom:auto" title="${esc(tip)}" ${cont ? "" : `data-lc-blk="${esc(b.session)}|${b.slot}|${b.date}"`}>${cont ? "↪ " : ""}${esc(s.title || b.session)} ${b.start}–${b.end}</div>`;
+    const cls = ["lc-blk", b.recurring ? "" : "date", b.enabled ? "" : "off", b.conflict ? "bad" : "", cont ? "cont" : "", b.changed ? "chg" : "", b.held ? "held" : ""].filter(Boolean).join(" ");
+    const tip = `${s.title || b.session} · ${b.start}–${b.end}${b.recurring ? " · lặp hằng tuần" : " · chỉ ngày này"}${b.conflict ? " · VƯỢT SỐ LIVE CỦA MÁY" : ""}${b.enabled ? "" : " · phiên đang tắt"}${b.changed ? " · nháp, chưa phát hành" : ""}${b.held ? ` · giữ giờ cũ tới ${hhmm(b.held_until)} (${HOLD[b.held_why] || ""}), lịch mới áp từ lần sau` : ""}`;
+    return `<div class="${cls}" style="left:${pctOf(Math.max(left, P.sc.a)).toFixed(3)}%;width:${Math.max(0.8, pctOf(right) - pctOf(Math.max(left, P.sc.a))).toFixed(3)}%;top:${4 + row * 26}px;height:22px;bottom:auto" title="${esc(tip)}" ${b.held ? `data-lc-held="${esc(b.session)}|${b.held_until}|${b.held_why}"` : cont ? "" : `data-lc-blk="${esc(b.session)}|${b.slot}|${b.date}"`}>${cont ? "↪ " : ""}${esc(s.title || b.session)} ${b.start}–${b.end}</div>`;
   }
   function renderWeek() {
-    const w = P.week, ls = lanes();
+    const w = P.week, ls = lanes(); P.sc = { a: 0, b: 1440 };
     const daysHtml = w.days.map((day, i) => {
       const prev = i ? w.days[i - 1] : null;
       const rows = ls.map((ln) => {
-        const mine = (w.blocks || []).filter((b) => laneOf(sessOf(b.session) || {}) === ln && (b.date === day || (b.date === prev && minOf(b.end) < minOf(b.start))));
+        const mine = (w.blocks || []).filter((b) => laneOfB(b) === ln && (b.date === day || (b.date === prev && minOf(b.end) < minOf(b.start))));
         const m = (w.machines || []).find((x) => x.code === ln), ends = [];
         const placed = mine.map((b) => [b, spanOf(b, day)]).sort((x, y) => x[1][0] - y[1][0]).map(([b, sp]) => {
           let r = ends.findIndex((e) => e <= sp[0]); if (r < 0) { r = ends.length; ends.push(0); } ends[r] = sp[1]; return blockHtml(b, day, r); });
@@ -1167,33 +1223,31 @@ tr.on td{background:var(--navy-wash)}
     const nConf = (w.conflicts || []).length;
     const wkLabel = `${w.days[0].split("-").reverse().slice(0, 2).join("/")} – ${w.days[6].split("-").reverse().join("/")}`;
     view().innerHTML = `
-      <section class="av-hero"><div>${crumbs("Lịch live")}<h1>Lịch live</h1><div class="sub">Kéo trên dải giờ để tạo khung mới, kéo khối để đổi giờ, bấm khối để sửa / xoá. Khối đỏ = máy vượt số live tối đa cùng lúc. Khung "lặp hằng tuần" áp cho mọi tuần.</div></div>
-        <div class="av-stats"><div class="av-stat"><span>Khung trong tuần</span><b>${(w.blocks || []).length}</b></div><div class="av-stat${nConf ? " hl" : ""}"><span>Chỗ vượt máy</span><b>${nConf}</b></div></div></section>
-      ${tabs("schedule")}
+      ${schedHead("week", "Kéo trên dải giờ để tạo khung mới, kéo khối để đổi giờ, bấm khối để sửa / xoá. Khối đỏ = máy vượt số live tối đa cùng lúc. Khung “lặp hằng tuần” áp cho mọi tuần. Mọi sửa đổi vào bản nháp.",
+        stat("Bản lịch", w.version) + stat("Khung trong tuần", (w.blocks || []).length) + stat("Chỗ vượt máy", nConf, nConf), w.drafts)}
       <div class="lc-head"><div class="av-row"><button class="av-btn" data-lc-week="-7" aria-label="Tuần trước">←</button><b>${wkLabel}</b><button class="av-btn" data-lc-week="7" aria-label="Tuần sau">→</button><button class="av-btn sm" data-lc-week="0">Tuần này</button></div>
         <div class="av-row"><div class="av-seg"><button class="${P.by === "machine" ? "on" : ""}" data-lc-by="machine">Theo máy</button><button class="${P.by === "brand" ? "on" : ""}" data-lc-by="brand">Theo brand</button></div>
-          <button class="av-btn" data-ls="copy-week" title="Chép các khung 'chỉ ngày' của tuần này sang tuần sau">Chép tuần sang tuần sau</button><a class="av-gold" href="/app/ec-ai-live-session/new" target="_blank" rel="noopener">+ Thêm phiên</a></div></div>
-      <div class="lc-legend"><span><i style="background:var(--navy-wash);border:1px solid var(--navy-line)"></i>Lặp hằng tuần</span><span><i style="background:#fff7e0;border:1px solid #f0d58a"></i>Chỉ ngày này</span><span><i style="background:var(--bad-bg);border:1px solid var(--bad)"></i>Vượt số live của máy</span><span><i style="background:var(--line-soft);opacity:.6"></i>Phiên đang tắt</span></div>
+          <button class="av-btn" data-ls="copy-week" title="Chép các khung 'chỉ ngày' của tuần này sang tuần sau">Chép tuần sang tuần sau</button></div></div>
+      ${legend()}
       ${(w.sessions || []).length ? "" : `<div class="av-callout"><div>Chưa có phiên live. Bấm <b>+ Thêm phiên</b> để tạo (brand, sàn, máy, cổng OBS), rồi quay lại đây xếp giờ.</div></div>`}
       <div class="lc-desk"><div class="lc-hours"><div></div><div>${Array.from({ length: 24 }, (_, h) => `<span>${h}h</span>`).join("")}</div></div>${daysHtml}</div>
       <div class="lc-mob">${mob}</div>`;
   }
-  async function saveSlots(sid, slots, okMsg) {
-    const r = await call("save_slots", { name: sid, slots: JSON.stringify(slots) });
-    if (!r.success) { toast(r.message || "Không lưu được", true); loadWeek(true); return false; }
-    toast(okMsg || "Đã lưu lịch"); closeModal(); loadWeek(true); return true;
-  }
+  async function saveSlots(sid, slots, okMsg) { return saveDraft(sid, { slots: JSON.stringify(slots) }, okMsg); }  /* fix10g: vao ban nhap */
   const clone = (slots) => (slots || []).map((x) => ({ days: x.days.slice(), date: x.date, start: x.start, end: x.end }));
   function editModal(sid, idx, day) {
-    const s = sessOf(sid); if (!s) return; const x = s.slots[idx];
-    modal(`<h3 style="margin:0">${esc(s.title)}</h3><div class="av-hint">${esc(s.brand || "")} · máy ${esc(s.machine || "chưa gán")} · ${x.date ? "chỉ ngày " + x.date.split("-").reverse().join("/") : "lặp hằng tuần: " + (x.days.length === 7 ? "mọi ngày" : x.days.map((n) => WD[n]).join(", "))}</div>
+    const s = sessOf(sid); if (!s) return; const x = s.slots[idx]; const ms = P.week.machines || [];
+    modal(`<h3 style="margin:0">${esc(s.title)}</h3><div class="av-hint">${esc(s.brand || "")} · ${x.date ? "chỉ ngày " + x.date.split("-").reverse().join("/") : "lặp hằng tuần: " + (x.days.length === 7 ? "mọi ngày" : x.days.map((n) => WD[n]).join(", "))}${s.draft_state === "stale" ? ' · <b style="color:var(--bad)">bản nháp đang lệch – xử lý ở tab Đồng bộ</b>' : ""}</div>
+      ${(s.diff || []).length ? `<div class="av-callout warn"><div><b>Bản nháp của phiên này (chưa phát hành):</b><ul class="sy-diff">${s.diff.map((d) => `<li>${esc(d)}</li>`).join("")}</ul></div></div>` : ""}
       <div class="av-row"><label class="av-f" style="flex:1">Bắt đầu<input type="text" id="lc-a" value="${x.start}" placeholder="19:00" inputmode="numeric"></label><label class="av-f" style="flex:1">Kết thúc<input type="text" id="lc-b" value="${x.end}" placeholder="22:00" inputmode="numeric"></label></div>
-      <div class="av-hint">Giờ kết thúc nhỏ hơn giờ bắt đầu = qua đêm. ${x.date ? "" : "Sửa ở đây đổi giờ cho mọi tuần."}</div>
+      <div class="av-row"><label class="av-f" style="flex:1">Máy phát (cả phiên)<select id="lc-m"><option value="">Chưa gán</option>${ms.map((m) => `<option value="${esc(m.code)}" ${m.code === s.machine ? "selected" : ""}>${esc(m.code)}${m.label ? " · " + esc(m.label) : ""}</option>`).join("")}</select></label>
+        <label class="av-f" style="flex:1">Kênh OBS (cổng)<input type="number" id="lc-p" min="1024" max="65535" value="${s.obs_port || ""}" placeholder="4455"></label></div>
+      <div class="av-hint">Giờ kết thúc nhỏ hơn giờ bắt đầu = qua đêm. ${x.date ? "" : "Sửa ở đây đổi giờ cho mọi tuần. "}Đổi máy / kênh áp cho cả phiên. Lưu vào bản nháp – app nhận khi bấm Phát hành.</div>
       <div class="av-row" style="justify-content:space-between"><button class="av-btn danger" data-lc-del="${esc(sid)}|${idx}">Xoá khung${x.date ? "" : " (mọi tuần)"}</button>
-        <div class="av-row">${x.date ? "" : `<button class="av-btn" data-lc-skip="${esc(sid)}|${idx}|${day}" title="Giữ khung hằng tuần, chỉ bỏ ngày này">Bỏ riêng ngày ${day.split("-").reverse().slice(0, 2).join("/")}</button>`}<a class="av-outline" href="#/live/${encodeURIComponent(sid)}">Chi tiết phiên</a><button class="av-btn" data-close>Huỷ</button><button class="av-btn pri" data-lc-save="${esc(sid)}|${idx}">Lưu</button></div></div>`);
+        <div class="av-row">${(s.diff || []).length ? `<button class="av-btn" data-lc-undo="${esc(sid)}">Bỏ nháp phiên này</button>` : ""}${x.date ? "" : `<button class="av-btn" data-lc-skip="${esc(sid)}|${idx}|${day}" title="Giữ khung hằng tuần, chỉ bỏ ngày này">Bỏ riêng ngày ${day.split("-").reverse().slice(0, 2).join("/")}</button>`}<a class="av-outline" href="#/live/${encodeURIComponent(sid)}">Chi tiết phiên</a><button class="av-btn" data-close>Huỷ</button><button class="av-btn pri" data-lc-save="${esc(sid)}|${idx}">Lưu vào nháp</button></div></div>`);
   }
   function addModal(lane, day, a, b) {
-    const ss = (P.week.sessions || []).filter((s) => !lane || laneOf(s) === lane);
+    const ss = (P.week.sessions || []).filter((s) => !lane || laneOf(s) === lane || s.machine === lane);
     if (!ss.length) return toast(lane ? "Chưa có phiên nào ở " + lane + " – tạo phiên trước." : "Chưa có phiên live – tạo phiên trước.", true);
     const wd = new Date(day + "T00:00:00Z").getUTCDay() || 7;
     modal(`<h3 style="margin:0">Thêm khung live – ${WD[wd]} ${day.split("-").reverse().slice(0, 2).join("/")}</h3>
@@ -1218,11 +1272,190 @@ tr.on td{background:var(--navy-wash)}
     loadWeek(true);
   }
 
+  /* ---------- lich live: dau trang chung + Gantt ngay / Thang / Dong bo (23/10, fix10g) ----------
+     Moi sua doi (keo tha, form khung, doi may / kenh) vao BAN NHAP (save_draft); app chi nhan khi Phat hanh o #/schedule/sync. */
+  const VIEWS = [["day", "Gantt ngày", "#/schedule/day"], ["week", "Tuần", "#/schedule"], ["month", "Tháng", "#/schedule/month"], ["sync", "Đồng bộ", "#/schedule/sync"]];
+  const HOLD = { on_air: "đang live", soon: "sắp lên sóng", late: "máy nhận muộn" };
+  const TONE = { ok: "p-ok", warn: "p-warn", bad: "p-bad", idle: "p-idle" };
+  const BRAND_DOT = ["#2C3DA6", "#17845a", "#b95f0a", "#c0306f", "#6a44c8", "#0e7490", "#7a5c00", "#4b5563"];
+  const brandDot = (b) => { let h = 0; for (const c of String(b || "")) h = (h * 31 + c.charCodeAt(0)) >>> 0; return BRAND_DOT[h % BRAND_DOT.length]; };
+  const stat = (l, v, hl) => `<div class="av-stat${hl ? " hl" : ""}"><span>${l}</span><b>${v}</b></div>`;
+  const isoAdd = (d, n) => { const x = new Date(d + "T00:00:00Z"); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+  const vnToday = () => vn(nowS()).toISOString().slice(0, 10);
+  const syncPill = (sy) => (sy ? `<span class="av-pill ${TONE[sy.tone] || "p-idle"}">${esc(sy.text)}</span>${Math.abs(sy.skew || 0) > 60 ? `<span class="av-pill p-warn" title="Đồng hồ máy lệch so với ERP – giờ lên live lệch theo">Đồng hồ lệch ${Math.round(sy.skew)} giây</span>` : ""}` : "");
+  const legend = () => `<div class="lc-legend"><span><i style="background:var(--navy-wash);border:1px solid var(--navy-line)"></i>Lặp hằng tuần</span><span><i style="background:#fff7e0;border:1px solid #f0d58a"></i>Chỉ ngày này</span><span><i style="border:1.5px dashed var(--navy)"></i>Nháp (chưa phát hành)</span><span><i style="background:repeating-linear-gradient(135deg,#eef0fb 0 3px,#e1e5f7 3px 6px);border:1px solid var(--navy)"></i>Giữ giờ cũ</span><span><i style="background:var(--bad-bg);border:1px solid var(--bad)"></i>Vượt số live của máy</span></div>`;
+  function schedHead(cur, sub, stats, drafts) {
+    return `<section class="av-hero"><div>${crumbs("Lịch live")}<h1>Lịch live</h1><div class="sub">${sub}</div></div><div class="av-stats">${stats}</div></section>
+      ${tabs("schedule")}
+      <div class="ls-bar"><nav class="lc-views" aria-label="Kiểu xem lịch">${VIEWS.map(([k, l, href]) => `<a class="${k === cur ? "on" : ""}" href="${href}"${k === cur ? ' aria-current="page"' : ""}>${l}${k === "sync" && drafts ? ` <span class="n" aria-label="${drafts} phiên chờ phát hành">${drafts}</span>` : ""}</a>`).join("")}</nav>
+        <a class="av-gold" href="/app/ec-ai-live-session/new" target="_blank" rel="noopener">+ Thêm phiên</a></div>
+      ${drafts && cur !== "sync" ? `<div class="lc-draftbar" role="status"><span><b>${drafts} phiên có thay đổi chưa phát hành.</b> App trên các máy vẫn chạy lịch cũ cho tới khi bấm Phát hành.</span><a class="av-gold" href="#/schedule/sync">Xem &amp; phát hành</a></div>` : ""}`;
+  }
+  function reloadSched() {
+    const h = hash();
+    if (/^schedule\/day/.test(h)) return loadDay(true);
+    if (/^schedule\/month/.test(h)) return loadMonth(true);
+    if (/^schedule\/sync/.test(h)) return loadSync(true);
+    return loadWeek(true);
+  }
+  async function saveDraft(sid, data, okMsg) {
+    const r = await call("save_draft", Object.assign({ name: sid }, data));
+    if (!r.success) { toast(r.message || "Không lưu được", true); reloadSched(); return false; }
+    toast((okMsg || "Đã lưu") + " vào bản nháp – Phát hành ở tab Đồng bộ để gửi xuống máy"); closeModal(); reloadSched(); return true;
+  }
+
+  /* Gantt ngay: moi dong = 1 may phat, chia theo kenh OBS; vach hong = bay gio */
+  async function loadDay(quiet) {
+    if (!quiet && !P.dayData) view().innerHTML = `<section class="av-hero"><div>${crumbs("Lịch live")}<h1>Lịch live</h1><div class="sub">Đang tải…</div></div></section>`;
+    const day = P.day || vnToday();
+    const r = await call("week_schedule", { start: isoAdd(day, -1), days: 2 }, "GET");
+    if (!/^schedule\/day/.test(hash())) return;
+    if (!r.success) return P.dayData ? toast(r.message || "Lỗi", true) : fail("Lịch live", r.message, true);
+    P.week = r.data; P.dayData = r.data; P.day = r.data.days[1]; P.skew = r.data.server_time - Date.now() / 1000; renderDay();
+    clearTimeout(P.timer); P.timer = setTimeout(() => { if (/^schedule\/day/.test(hash()) && $("av-modal").hidden && !P.drag) loadDay(true); }, 60000);
+  }
+  function renderDay() {
+    const w = P.dayData, day = w.days[1], prev = w.days[0], now = nowS();
+    const nowMin = day === w.today ? (() => { const d = vn(now); return d.getUTCHours() * 60 + d.getUTCMinutes(); })() : -1;
+    const blocks = (w.blocks || []).filter((b) => b.date === day || (b.date === prev && minOf(b.end) < minOf(b.start)));
+    const first = Math.min(360, ...blocks.map((b) => spanOf(b, day)[0]), nowMin >= 0 ? nowMin : 1440);
+    P.sc = { a: Math.floor(first / 60) * 60, b: 1440 }; const hn = 24 - P.sc.a / 60;
+    const codes = new Set((w.machines || []).filter((m) => m.enabled).map((m) => m.code));
+    blocks.forEach((b) => codes.add(b.machine || ""));
+    const rows = [...codes].sort((a, b) => (a === "") - (b === "") || a.localeCompare(b)).map((code) => {
+      const m = (w.machines || []).find((x) => x.code === code), mine = blocks.filter((b) => (b.machine || "") === code);
+      const ports = [...new Set(mine.map((b) => b.obs_port || 0))].sort((a, b) => (a === 0) - (b === 0) || a - b);
+      if (!ports.length) ports.push(0);
+      const lanes = ports.map((port) => {
+        const ends = [];
+        const placed = mine.filter((b) => (b.obs_port || 0) === port).map((b) => [b, spanOf(b, day)]).sort((x, y) => x[1][0] - y[1][0]).map(([b, sp]) => {
+          let r = ends.findIndex((e) => e <= sp[0]); if (r < 0) { r = ends.length; ends.push(0); } ends[r] = sp[1]; return blockHtml(b, day, r); });
+        return `<div class="gt-k"><span>${port ? "OBS " + port : ports.length > 1 ? "Chưa đặt cổng" : "—"}</span><div class="lc-track" style="--hn:${hn};min-height:${8 + Math.max(1, ends.length) * 26}px" data-lc-track="${esc(code)}|${day}">${placed.join("")}${nowMin >= 0 ? `<i class="lc-now" style="left:${pctOf(nowMin).toFixed(3)}%" aria-hidden="true"></i>` : ""}</div></div>`;
+      }).join("");
+      return `<div class="gt-m"><div class="gt-mh"><b>${esc(code || "Chưa gán máy")}</b>${m ? `<small>${esc(m.label || "")}${m.label ? " · " : ""}tối đa ${m.max_lives} live</small>${syncPill(m.sync)}` : ""}</div><div class="gt-lanes">${lanes}</div></div>`;
+    }).join("");
+    const mob = blocks.slice().sort((a, b) => a.start_ts - b.start_ts).map((b) => { const s = sessOf(b.session) || {};
+      return `<button class="lc-chip${b.conflict ? " bad" : ""}" ${b.held ? `data-lc-held="${esc(b.session)}|${b.held_until}|${b.held_why}"` : `data-lc-blk="${esc(b.session)}|${b.slot}|${b.date}"`}><span><b>${b.start}–${b.end}</b> ${esc(s.title || b.session)}</span><span class="av-hint">${esc(b.machine || "chưa gán")}${b.obs_port ? " · " + b.obs_port : ""}${b.held ? " · giữ giờ cũ" : b.changed ? " · nháp" : ""}</span></button>`; }).join("") || `<div class="av-empty">Không có khung live nào trong ngày.</div>`;
+    const wdN = new Date(day + "T00:00:00Z").getUTCDay() || 7, nConf = (w.conflicts || []).length;
+    const onAir = blocks.filter((b) => b.start_ts <= now && now < b.end_ts).length;
+    view().innerHTML = schedHead("day", "Mỗi dòng là một máy phát, chia theo kênh OBS. Kéo trên dải giờ để thêm khung, kéo khối để đổi giờ, bấm khối để sửa giờ / đổi máy / kênh. Mọi sửa đổi vào bản nháp.",
+      stat("Bản lịch", w.version) + stat("Khung trong ngày", blocks.length) + stat("Đang trong giờ live", onAir) + stat("Chỗ vượt máy", nConf, nConf), w.drafts) + `
+      <div class="lc-head"><div class="av-row"><button class="av-btn" data-lc-day="-1" aria-label="Ngày trước">←</button><b>${WD[wdN]} ${day.split("-").reverse().join("/")}</b><button class="av-btn" data-lc-day="1" aria-label="Ngày sau">→</button><button class="av-btn sm" data-lc-day="0">Hôm nay</button></div>${legend()}</div>
+      ${(w.sessions || []).length ? "" : `<div class="av-callout"><div>Chưa có phiên live. Bấm <b>+ Thêm phiên</b> để tạo (brand, sàn, máy, cổng OBS), rồi quay lại đây xếp giờ.</div></div>`}
+      <div class="lc-desk"><div class="gt"><div class="gt-hours" style="--hn:${hn}"><div></div><div>${hoursRow()}</div></div>${rows || `<div class="av-empty">Chưa có máy phát.</div>`}</div></div>
+      <div class="lc-mob">${mob}</div>`;
+  }
+
+  /* Thang: moi o = 1 ngay (so lan live, vai khung noi bat, thanh = luc dong nhat / so live toi da cua may) */
+  async function loadMonth(quiet) {
+    if (!quiet && !P.moData) view().innerHTML = `<section class="av-hero"><div>${crumbs("Lịch live")}<h1>Lịch live</h1><div class="sub">Đang tải…</div></div></section>`;
+    const r = await call("month_schedule", { month: P.mo || "" }, "GET");
+    if (!/^schedule\/month/.test(hash())) return;
+    if (!r.success) return P.moData ? toast(r.message || "Lỗi", true) : fail("Lịch live", r.message, true);
+    P.moData = r.data; P.mo = r.data.month; renderMonth();
+  }
+  function renderMonth() {
+    const d = P.moData, caps = {}; (d.machine_util || []).forEach((m) => { caps[m.code] = m.max_lives || 2; });
+    const [y, mo] = d.month.split("-").map(Number);
+    const cells = d.days.map((x) => {
+      const load = Math.max(0, ...Object.entries(x.peak || {}).map(([c, k]) => k / (caps[c] || 2)));
+      const pct = Math.min(100, Math.round(load * 100)), col = x.over.length ? "var(--bad)" : pct >= 100 ? "#b95f0a" : "#17845a";
+      return `<a class="mo-c${x.in_month ? "" : " o"}${x.date === d.today ? " t" : ""}" href="#/schedule/day/${x.date}" aria-label="Ngày ${x.date.split("-").reverse().join("/")}: ${x.n} lần live">
+        <div class="av-row" style="justify-content:space-between;gap:4px"><span class="d">${+x.date.slice(8)}</span>${x.over.length ? `<span class="av-pill p-bad">Vượt ${esc(x.over.join(", "))}</span>` : ""}</div>
+        ${(x.chips || []).map((c) => `<span class="mo-chip"><i style="background:${brandDot(c.brand)}"></i><b>${c.start}</b> ${esc(c.title)}</span>`).join("")}
+        ${x.n > (x.chips || []).length ? `<span class="av-hint" style="font-size:11px">+${x.n - x.chips.length} khung khác</span>` : ""}
+        <span style="margin-top:auto;font-size:10.5px;color:var(--ink3)">${x.n} lần · ${num(x.hours, 1)} giờ</span><span class="mo-bar"><i style="width:${pct}%;background:${col}"></i></span></a>`;
+    }).join("");
+    const bh = Object.entries(d.brand_hours || {}).sort((a, b) => b[1] - a[1]), bmax = Math.max(1, ...bh.map((x) => x[1]));
+    view().innerHTML = schedHead("month", "Nhìn cả tháng: ngày nào kín máy, ngày nào còn trống. Thanh dưới mỗi ngày = lúc đông nhất so với số live tối đa của máy. Bấm một ngày để mở Gantt ngày đó.",
+      stat("Giờ live trong tháng", num(d.total_hours, 0)) + stat("Ngày vượt số live", d.over_days, d.over_days), d.drafts) + `
+      <div class="lc-head"><div class="av-row"><button class="av-btn" data-lc-mo="-1" aria-label="Tháng trước">←</button><b>Tháng ${mo}/${y}</b><button class="av-btn" data-lc-mo="1" aria-label="Tháng sau">→</button><button class="av-btn sm" data-lc-mo="0">Tháng này</button></div>
+        <div class="lc-legend"><span><i style="background:#17845a"></i>Còn chỗ</span><span><i style="background:#b95f0a"></i>Kín máy</span><span><i style="background:var(--bad)"></i>Vượt số live</span></div></div>
+      <div class="mo-layout"><div style="overflow-x:auto"><div class="mo-grid">${["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ nhật"].map((x) => `<div class="mo-dow">${x}</div>`).join("")}${cells}</div></div>
+        <aside class="mo-side"><div class="ls-card"><h3>Giờ live theo brand <small>tháng ${mo}</small></h3>${bh.length ? bh.map(([b, h]) => `<div style="display:flex;flex-direction:column;gap:3px;margin-bottom:8px"><div class="av-row" style="justify-content:space-between;font-size:12.5px"><span><i class="mo-dot" style="background:${brandDot(b)}"></i> ${esc(b || "—")}</span><b>${num(h, 1)} giờ</b></div><span class="mo-bar"><i style="width:${(h / bmax * 100).toFixed(1)}%;background:${brandDot(b)}"></i></span></div>`).join("") : '<div class="av-hint">Chưa có khung live nào.</div>'}</div>
+          <div class="ls-card"><h3>Máy bận bao nhiêu <small>giờ live / (24 giờ × số live tối đa)</small></h3>${(d.machine_util || []).map((m) => `<div style="display:grid;grid-template-columns:60px minmax(0,1fr) 44px;gap:8px;align-items:center;font-size:12.5px;margin-bottom:6px"><b>${esc(m.code)}</b><span class="mo-bar" style="height:9px"><i style="width:${Math.min(100, m.pct)}%;background:var(--navy)"></i></span><span style="text-align:right">${num(m.pct, 0)}%</span></div>`).join("") || '<div class="av-hint">Chưa có máy phát.</div>'}</div></aside></div>`;
+  }
+
+  /* Dong bo: ban nhap -> phat hanh, may nhan lich, dang giu gio cu, nhat ky (ca app sua) */
+  async function loadSync(quiet) {
+    if (!quiet && !P.sync) view().innerHTML = `<section class="av-hero"><div>${crumbs("Lịch live")}<h1>Lịch live</h1><div class="sub">Đang tải…</div></div></section>`;
+    const r = await call("sync_overview", {}, "GET");
+    if (!/^schedule\/sync/.test(hash())) return;
+    if (!r.success) return P.sync ? toast(r.message || "Lỗi", true) : fail("Lịch live", r.message, true);
+    const d = r.data, ids = new Set(d.drafts.map((x) => x.id)), okIds = d.drafts.filter((x) => x.state === "ready" && !x.errors.length).map((x) => x.id);
+    if (!P.syncSel) P.syncSel = new Set(okIds);
+    else { okIds.forEach((id) => { if (!(P.syncKnown || new Set()).has(id)) P.syncSel.add(id); }); [...P.syncSel].forEach((id) => { if (!okIds.includes(id)) P.syncSel.delete(id); }); }
+    [...P.syncUrg].forEach((id) => { if (!ids.has(id)) P.syncUrg.delete(id); });
+    P.syncKnown = ids; P.sync = d; P.skew = d.server_time - Date.now() / 1000; renderSync();
+    clearTimeout(P.timer);
+    if (P.syncPoll > 0) { P.syncPoll--; P.timer = setTimeout(() => { if (/^schedule\/sync/.test(hash()) && $("av-modal").hidden) loadSync(true); }, 10000); }
+  }
+  function renderSync() {
+    const d = P.sync, drafts = d.drafts || [], now = nowS(), selN = drafts.filter((x) => P.syncSel.has(x.id)).length;
+    const rows = drafts.map((x) => {
+      const ok = x.state === "ready" && !x.errors.length;
+      const check = x.state === "stale" ? `<span class="av-pill p-warn">Lệch: phiên vừa được đổi (bản ${x.published_version})</span><div class="av-row" style="margin-top:6px"><button class="av-btn sm" data-sy-keep="${esc(x.id)}">Giữ bản nháp của tôi</button><button class="av-btn sm" data-sy-drop="${esc(x.id)}">Theo bản mới</button></div>`
+        : x.errors.length ? x.errors.map((e) => `<span class="sy-err">✕ ${esc(e)}</span>`).join("") : '<span class="av-pill p-ok">✓ Hợp lệ</span>';
+      const when = x.hold_text ? `<span class="av-pill p-navy">Giữ giờ cũ · ${esc(x.hold_text)}</span>${x.hold_why === "soon" ? `<label class="av-hint" style="display:flex;gap:6px;align-items:center;margin-top:6px"><input type="checkbox" data-sy-urg="${esc(x.id)}" ${P.syncUrg.has(x.id) ? "checked" : ""}> Khẩn: áp ngay lần này</label>` : '<span class="av-hint" style="display:block">Áp dụng từ lần sau</span>'}` : x.state === "stale" ? '<span class="av-hint">Chọn giữ / bỏ trước</span>' : '<span class="av-pill p-ok">Áp dụng ngay</span>';
+      return `<tr><td><input type="checkbox" data-sy-sel="${esc(x.id)}" ${P.syncSel.has(x.id) ? "checked" : ""} ${ok ? "" : "disabled"} aria-label="Chọn ${esc(x.title)}"></td>
+        <td class="sy-ses" data-l="Phiên"><span class="t">${esc(x.title)}</span><span class="s">${esc(x.brand || "—")} · ${esc(x.id)}</span>${x.by ? `<span class="s" title="Người sửa">sửa: ${esc(String(x.by).split("@")[0])}</span>` : ""}</td>
+        <td class="sy-chg" data-l="Thay đổi"><ul class="sy-diff">${x.diff.map((t) => `<li>${esc(t)}</li>`).join("") || "<li>—</li>"}</ul></td>
+        <td data-l="Máy">${esc(x.machine_before || "chưa gán")}${x.machine_after !== x.machine_before ? " → " + esc(x.machine_after || "chưa gán") : ""}</td>
+        <td class="sy-chk" data-l="Kiểm tra">${check}</td><td class="sy-when" data-l="Khi phát hành">${when}</td>
+        <td><button class="av-btn sm ghost" data-sy-drop="${esc(x.id)}" data-sy-ask="1">Bỏ nháp</button></td></tr>`;
+    }).join("");
+    const mc = (d.machines || []).filter((m) => m.enabled || m.sync.fetched_ts).map((m) => `<div class="sy-card ${m.sync.tone === "bad" ? "bad" : m.sync.tone === "warn" ? "warn" : ""}">
+      <div class="av-row" style="justify-content:space-between"><span><b>${esc(m.code)}</b> <span class="av-hint">${esc(m.label || "")}</span></span></div><div class="av-row">${syncPill(m.sync)}</div>
+      <div class="sy-kv"><span>Lịch trên máy</span><b>${m.sync.version ? "Bản " + m.sync.version + (m.sync.version >= d.version ? " (mới nhất)" : "") : "—"}</b>
+        <span>Tải lịch lần cuối</span><span>${m.sync.fetched_ts ? hhmm(m.sync.fetched_ts) + " · " + ago(now - m.sync.fetched_ts) + " trước" : "chưa"}</span>
+        <span>Nhịp tim</span><span>${m.last_seen_ts ? ago(now - m.last_seen_ts) + " trước" : "chưa có"}</span><span>App</span><span>${esc(m.app_version || "—")}</span>
+        <span>Đang live</span><span>${m.lives.length ? esc(m.lives.join(", ")) : "không"}</span></div>
+      ${m.sync.pending.length ? `<span class="av-hint">Chờ nhận: ${esc(m.sync.pending.join(", "))}</span>` : ""}</div>`).join("");
+    const holds = (d.holds || []).length ? `<div class="av-panel"><div class="av-panel-h"><h2>Đang giữ giờ cũ</h2><span class="av-hint">Lần live đang chạy / sắp chạy giữ nguyên tới hết, lịch mới áp từ lần sau</span></div><div class="av-panel-b"><ul class="sy-log">${d.holds.map((h) => `<li><b>${esc(h.title)}</b> · ${esc(h.machine)} · giữ tới ${hhmm(h.until)} (${esc(h.why_text)})<ul class="sy-diff">${h.diff.map((t) => `<li>${esc(t)}</li>`).join("")}</ul></li>`).join("")}</ul></div></div>` : "";
+    const log = (d.versions || []).length ? `<ul class="sy-log">${d.versions.map((v) => `<li><div class="av-row" style="justify-content:space-between"><span><b>Bản ${v.version}</b> · <span class="av-pill ${v.source === "app" ? "p-run" : v.source === "erp_urgent" ? "p-warn" : "p-navy"}">${esc(v.source_text)}</span> · ${esc(v.by)}</span><span class="av-hint">${dmy(v.ts)} ${hhmm(v.ts)}</span></div>${v.note ? `<div class="av-hint">“${esc(v.note)}”</div>` : ""}<ul class="sy-diff">${v.changes.map((c) => `<li><b>${esc(c.title)}</b>: ${esc((c.texts || []).join("; ") || "không đổi")}${c.held_until ? ` <span class="av-hint">(giữ giờ cũ tới ${hhmm(c.held_until)} – ${esc(HOLD[c.held_why] || "")})</span>` : ""}</li>`).join("")}</ul></li>`).join("")}</ul>` : '<div class="av-hint">Chưa phát hành lần nào.</div>';
+    const rules = `<details class="sy-rules av-panel" style="padding:12px 16px"><summary>Lịch mới áp dụng thế nào khi đang live?</summary><ul>
+      <li><b>Đang live lúc phát hành:</b> lần đang chạy giữ nguyên giờ bắt đầu, máy, kênh tới hết; lịch mới áp từ lần sau. Riêng kéo dài giờ kết thúc thì áp ngay.</li>
+      <li><b>Sắp lên sóng trong ${d.lock_min} phút:</b> mặc định giữ giờ cũ cho lần đó. Tick “Khẩn” để áp ngay (máy nhận trong khoảng 10 giây nếu app hiểu lệnh tải lịch, không thì tối đa 5 phút).</li>
+      <li><b>Máy nhận muộn</b> (đã lên live theo giờ cũ rồi mới nhận lịch mới): ERP giữ giờ cũ tới hết lần đó, không tắt live giữa chừng.</li>
+      <li><b>Đổi máy khi đang live:</b> phiên ở lại máy cũ tới hết lần này, máy mới nhận từ lần sau – không có lúc 2 máy cùng phát một phiên.</li>
+      <li><b>App sửa giờ trên máy:</b> ERP nhận luôn thành bản mới. Ai đang có bản nháp cho phiên đó sẽ thấy “Lệch” và chọn giữ hay bỏ.</li>
+      <li>Đổi số phút “sắp lên sóng” hoặc tắt lệnh tải lịch ngay: Desk → EC AI Live Schedule Settings.</li></ul></details>`;
+    const waiting = (d.machines || []).filter((m) => m.sync.tone === "warn").length;
+    view().innerHTML = schedHead("sync", "Sửa lịch ở Gantt ngày / Tuần chỉ vào bản nháp. Bấm Phát hành thì app trên từng máy tự lấy lịch mới. App sửa giờ trên máy thì ERP nhận luôn (nguồn App).",
+      stat("Bản lịch hiện tại", d.version) + stat("Phiên trong nháp", drafts.length, drafts.length) + stat("Máy chờ nhận", waiting, waiting), drafts.length) + `
+      ${drafts.length ? `<div class="av-panel"><div class="av-panel-h"><h2>Bản nháp chờ phát hành</h2><span class="av-hint">Chỉ phiên được chọn mới phát hành. Phiên có lỗi: sửa lại ở Gantt ngày / Tuần.</span></div>
+        <div style="overflow-x:auto"><table class="ls-table sy-table"><thead><tr><th><span class="av-hint">Chọn</span></th><th>Phiên</th><th>Thay đổi</th><th>Máy</th><th>Kiểm tra</th><th>Khi phát hành</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+        <div class="av-panel-b"><div class="sy-pub"><label class="av-f" style="flex:1">Ghi chú (tuỳ chọn)<input type="text" id="sy-note" maxlength="280" placeholder="vd Dời ca tối Friso theo yêu cầu brand"></label>
+          <div class="av-row"><button class="av-btn" data-sy="drop-all">Bỏ hết nháp</button><button class="av-gold" data-sy="publish" ${selN ? "" : "disabled"}>Phát hành ${selN} phiên → bản ${d.version + 1}</button></div></div></div></div>`
+      : `<div class="av-callout"><div>Không có thay đổi nào chờ phát hành. Sửa lịch ở <a href="#/schedule/day">Gantt ngày</a> hoặc <a href="#/schedule">Tuần</a> – thay đổi vào bản nháp và hiện ở đây.</div></div>`}
+      ${holds}
+      <div class="av-panel"><div class="av-panel-h"><h2>Máy phát nhận lịch</h2><div class="av-row"><span class="av-hint">${d.refresh_on_publish ? "Phát hành xong ERP gửi lệnh tải lịch ngay (khoảng 10 giây)." : "App tự tải lịch 5 phút một lần."}</span><button class="av-btn sm" data-sy="reload">Làm mới</button></div></div><div class="av-panel-b"><div class="sy-m">${mc || '<div class="av-hint">Chưa có máy phát.</div>'}</div></div></div>
+      <div class="av-panel"><div class="av-panel-h"><h2>Nhật ký phát hành</h2><span class="av-hint">Gồm cả thay đổi do app trên máy gửi về</span></div><div class="av-panel-b">${log}</div></div>
+      ${rules}`;
+  }
+  function syncCount() {
+    const b = document.querySelector("[data-sy=publish]"); if (!b || !P.sync) return;
+    const n = P.sync.drafts.filter((x) => P.syncSel.has(x.id)).length; b.disabled = !n; b.textContent = `Phát hành ${n} phiên → bản ${P.sync.version + 1}`;
+  }
+  async function publishSync(btn) {
+    const names = P.sync.drafts.filter((x) => P.syncSel.has(x.id)).map((x) => x.id); if (!names.length) return;
+    const urgent = names.filter((id) => P.syncUrg.has(id)), held = P.sync.drafts.filter((x) => names.includes(x.id) && x.hold_until && !urgent.includes(x.id)).length;
+    if (!confirm(`Phát hành ${names.length} phiên thành bản ${P.sync.version + 1}?${held ? `\n${held} phiên đang / sắp live sẽ giữ giờ cũ cho lần này.` : ""}${urgent.length ? `\n${urgent.length} phiên áp ngay (khẩn).` : ""}`)) return;
+    btn.disabled = true; btn.classList.add("av-loading");
+    const r = await call("publish_schedule", { names: JSON.stringify(names), urgent: JSON.stringify(urgent), note: (($("sy-note") || {}).value || "").trim() });
+    btn.classList.remove("av-loading"); btn.disabled = false;
+    if (!r.success) { toast(r.message || "Không phát hành được", true); return loadSync(true); }
+    if (!r.data.published) { toast((r.data.errors || [])[0] ? r.data.errors[0].title + ": " + r.data.errors[0].error : "Có lỗi – xem cột Kiểm tra", true); return loadSync(true); }
+    toast(`Đã phát hành bản ${r.data.version}${(r.data.refresh_sent || []).length ? " · đã gửi lệnh tải lịch cho " + r.data.refresh_sent.join(", ") : ""}`);
+    P.syncSel = null; P.syncUrg.clear(); P.syncPoll = 12; loadSync(true);
+  }
+
   /* keo tha tren dai gio: tao khung moi / doi gio khung co san (buoc 15 phut) */
   const snap = (m) => Math.round(m / 15) * 15;
-  const minsAt = (track, clientX) => { const r = track.getBoundingClientRect(); return Math.max(0, Math.min(1440, ((clientX - r.left) / r.width) * 1440)); };
+  const minsAt = (track, clientX) => { const r = track.getBoundingClientRect(); return Math.max(P.sc.a, Math.min(P.sc.b, P.sc.a + ((clientX - r.left) / r.width) * (P.sc.b - P.sc.a))); };
   document.addEventListener("pointerdown", (e) => {
     if (!/^schedule/.test(hash()) || e.button !== 0) return;
+    if (e.target.closest && e.target.closest("[data-lc-held]")) return;     /* fix10g: lan dang giu gio cu - khong keo */
     const blk = e.target.closest && e.target.closest(".lc-desk [data-lc-blk]"), track = e.target.closest && e.target.closest(".lc-desk [data-lc-track]");
     if (!track) return;
     const x0 = minsAt(track, e.clientX);
@@ -1233,8 +1466,8 @@ tr.on td{background:var(--navy-wash)}
   document.addEventListener("pointermove", (e) => {
     const g = P.drag; if (!g) return;
     const x = minsAt(g.track, e.clientX);
-    if (g.kind === "new") { g.b = snap(x); const lo = Math.min(g.a, g.b), hi = Math.max(g.a, g.b); g.sel.style.left = (lo / 14.4) + "%"; g.sel.style.width = ((hi - lo) / 14.4) + "%"; }
-    else { const dm = snap(x - g.x0); if (Math.abs(x - g.x0) > 4) g.moved = true; g.dm = dm; g.blk.classList.add("drag"); g.blk.style.left = Math.max(0, g.left0 + dm / 14.4) + "%"; }
+    if (g.kind === "new") { g.b = snap(x); const lo = Math.min(g.a, g.b), hi = Math.max(g.a, g.b); g.sel.style.left = pctOf(lo) + "%"; g.sel.style.width = (pctOf(hi) - pctOf(lo)) + "%"; }
+    else { const dm = snap(x - g.x0); if (Math.abs(x - g.x0) > 4) g.moved = true; g.dm = dm; g.blk.classList.add("drag"); g.blk.style.left = Math.max(0, g.left0 + (dm / (P.sc.b - P.sc.a)) * 100) + "%"; }
   });
   document.addEventListener("pointerup", async () => {
     const g = P.drag; if (!g) return; P.drag = null;
@@ -1246,7 +1479,7 @@ tr.on td{background:var(--navy-wash)}
     if (!g.moved || !g.dm) { g.blk.classList.remove("drag"); return editModal(sid, +idx, day); }
     const s = sessOf(sid), slots = clone(s.slots), x = slots[+idx];
     x.start = hmOf(minOf(x.start) + g.dm); x.end = hmOf(minOf(x.end) + g.dm);
-    if (!x.date && !confirm(`Khung này lặp hằng tuần – dời sang ${x.start}–${x.end} cho mọi tuần?`)) return renderWeek();
+    if (!x.date && !confirm(`Khung này lặp hằng tuần – dời sang ${x.start}–${x.end} cho mọi tuần?`)) return /^schedule\/day/.test(hash()) ? renderDay() : renderWeek();
     saveSlots(sid, slots, "Đã dời sang " + x.start + "–" + x.end);
   });
 
@@ -1341,7 +1574,7 @@ tr.on td{background:var(--navy-wash)}
   /* ---------- su kien ---------- */
   document.addEventListener("click", async (e) => {
     if (!on()) return;
-    const t = e.target.closest ? e.target.closest("[data-ls],[data-ls-status],[data-ls-sel],[data-ls-all],[data-ls-open],[data-ls-cmd],[data-ls-race],[data-ls-hist],[data-lc-week],[data-lc-by],[data-lc-blk],[data-lc-add],[data-lc-del],[data-lc-skip],[data-lc-save],[data-lc-rep],[data-lc-create],[data-lh-days],[data-lh-live]") : null;
+    const t = e.target.closest ? e.target.closest("[data-ls],[data-ls-status],[data-ls-sel],[data-ls-all],[data-ls-open],[data-ls-cmd],[data-ls-race],[data-ls-hist],[data-lc-week],[data-lc-by],[data-lc-blk],[data-lc-add],[data-lc-del],[data-lc-skip],[data-lc-save],[data-lc-rep],[data-lc-create],[data-lh-days],[data-lh-live],[data-lc-day],[data-lc-mo],[data-lc-held],[data-lc-undo],[data-sy],[data-sy-sel],[data-sy-urg],[data-sy-keep],[data-sy-drop]") : null;
     if (!t) return;
     const ds = t.dataset;
     if (ds.lsSel != null || ds.lsAll != null) {
@@ -1385,7 +1618,7 @@ tr.on td{background:var(--navy-wash)}
       if (ds.lcDel) { if (!confirm("Xoá khung " + x.start + "–" + x.end + (x.date ? "" : " (mọi tuần)") + "?")) return; slots.splice(+idx, 1); return saveSlots(sid, slots, "Đã xoá khung"); }
       if (ds.lcSkip) { const wd = new Date(day + "T00:00:00Z").getUTCDay() || 7; return toast(`Khung lặp hằng tuần không bỏ riêng 1 ngày được – đổi thành "chỉ ngày" cho các ngày cần live, hoặc bỏ ${WD[wd]} khỏi khung trong form phiên.`, true); }
       x.start = (($("lc-a") || {}).value || "").trim(); x.end = (($("lc-b") || {}).value || "").trim();
-      return saveSlots(sid, slots);
+      return saveDraft(sid, { slots: JSON.stringify(slots), machine: ($("lc-m") || {}).value || "", obs_port: (($("lc-p") || {}).value || "").trim() || 0 }, "Đã lưu");
     }
     if (ds.lcCreate) {
       const day = ds.lcCreate, sid = ($("lc-s") || {}).value, s = sessOf(sid); if (!s) return;
@@ -1395,6 +1628,21 @@ tr.on td{background:var(--navy-wash)}
       return saveSlots(sid, clone(s.slots).concat([nx]), "Đã thêm khung " + a + "–" + b);
     }
     if (ds.lhDays) { P.hf.days = +ds.lhDays; return loadHistory(); }
+    /* fix10g: Gantt ngay / Thang / Dong bo */
+    if (ds.lcDay != null) { const n = +ds.lcDay, target = n ? "#/schedule/day/" + isoAdd(P.day || vnToday(), n) : "#/schedule/day"; if (!n) P.day = ""; if (location.hash === target) return loadDay(true); location.hash = target; return; }
+    if (ds.lcMo != null) { const n = +ds.lcMo; let target = "#/schedule/month"; if (n) { const [y, m] = (P.mo || vnToday().slice(0, 7)).split("-").map(Number), d = new Date(Date.UTC(y, m - 1 + n, 1)); target += "/" + d.toISOString().slice(0, 7); } else P.mo = ""; if (location.hash === target) return loadMonth(true); location.hash = target; return; }
+    if (ds.lcHeld) { const [sid, until, why] = ds.lcHeld.split("|"), s = sessOf(sid) || {}; return toast(`${s.title || sid}: lần này giữ giờ cũ tới ${hhmm(+until)} (${HOLD[why] || "đang live"}) – lịch mới áp từ lần sau.`); }
+    if (ds.lcUndo) { const r = await call("discard_drafts", { names: JSON.stringify([ds.lcUndo]) }); toast(r.success ? "Đã bỏ bản nháp của phiên" : r.message || "Lỗi", !r.success); if (r.success) { closeModal(); reloadSched(); } return; }
+    if (ds.sySel) { t.checked ? P.syncSel.add(ds.sySel) : P.syncSel.delete(ds.sySel); return syncCount(); }
+    if (ds.syUrg) { t.checked ? P.syncUrg.add(ds.syUrg) : P.syncUrg.delete(ds.syUrg); return; }
+    if (ds.syKeep) { const r = await call("resolve_draft", { name: ds.syKeep, keep: 1 }); toast(r.success ? "Đã giữ bản nháp – kiểm tra lại rồi phát hành" : r.message || "Lỗi", !r.success); return loadSync(true); }
+    if (ds.syDrop) {
+      const x = (P.sync.drafts || []).find((d) => d.id === ds.syDrop); if (ds.syAsk && !confirm(`Bỏ bản nháp của ${x ? x.title : ds.syDrop}?`)) return;
+      const r = await call("discard_drafts", { names: JSON.stringify([ds.syDrop]) }); toast(r.success ? "Đã bỏ bản nháp" : r.message || "Lỗi", !r.success); return loadSync(true);
+    }
+    if (ds.sy === "drop-all") { if (!confirm("Bỏ toàn bộ bản nháp? Lịch đang phát hành giữ nguyên.")) return; const r = await call("discard_drafts", {}); toast(r.success ? "Đã bỏ hết bản nháp" : r.message || "Lỗi", !r.success); return loadSync(true); }
+    if (ds.sy === "reload") return loadSync(true);
+    if (ds.sy === "publish") return publishSync(t);
     if (ds.lhLive != null) { P.hf.live = ""; return loadHistory(); }
   });
   document.addEventListener("change", (e) => {

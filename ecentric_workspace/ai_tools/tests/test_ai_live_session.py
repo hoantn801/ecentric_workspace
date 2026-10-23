@@ -25,6 +25,7 @@ from ecentric_workspace.ai_tools.features.ai_live.application.week_schedule_serv
 from ecentric_workspace.ai_tools.features.ai_live.domain import health_rules as R
 from ecentric_workspace.ai_tools.features.ai_live.domain import session_rules as S
 from ecentric_workspace.ai_tools.tests.test_ai_live_monitor import FakeAlerts, FakeHealth, FakeSamples, FakeSettings, FakeThumbs
+from ecentric_workspace.ai_tools.tests.test_ai_live_service import FakeSchedule
 
 VN = timezone(timedelta(hours=7))
 VIEW, NOBODY = ["EC AI Content"], ["Employee"]
@@ -64,6 +65,14 @@ class FakeMachines:
     def heartbeats(self):
         return []
 
+    def record_fetch(self, code, ts, version):    # fix10g
+        self.rows[code].update(cfg_fetched_ts=ts, cfg_version=version)
+
+    def sync_states(self):
+        base = {"hb_last_seen_ts": 0, "cfg_fetched_ts": 0, "cfg_version": 0, "hb_version": "", "hb_clock_skew_s": 0,
+                "hb_lives": []}
+        return [dict(base, **m) for _, m in sorted(self.rows.items())]
+
 
 class FakeSessions:
     def __init__(self, rows=()):
@@ -83,6 +92,22 @@ class FakeSessions:
     def save_slots(self, name, slots):
         self.rows[name]["slots"] = slots
         self.saved.append(name)
+
+    def save_draft(self, name, draft, base, user, ts):    # fix10g
+        self.rows[name].update(draft=draft or None, draft_base_version=base if draft else 0, draft_by=user if draft else "",
+                               draft_at=str(ts) if draft else "")
+
+    def publish(self, name, view, meta):
+        self.rows[name].update(slots=view["slots"], machine=view["machine"], obs_port=view["obs_port"],
+                               published_version=meta["version"], published_ts=meta["ts"], published_source=meta["source"],
+                               prev=meta.get("prev"), held_until_ts=meta.get("held_until") or 0,
+                               held_why=meta.get("held_why") or "")
+        if not meta.get("keep_draft"):
+            self.rows[name].update(draft=None, draft_base_version=0, draft_by="")
+        self.saved.append(name)
+
+    def set_hold(self, name, until, why):
+        self.rows[name].update(held_until_ts=until, held_why=why)
 
     def set_enabled(self, names, enabled):
         for n in names:
@@ -288,21 +313,22 @@ class TestListDetailWeek(unittest.TestCase):
     def test_week_conflicts(self):
         self.sessions.rows["e"] = sess("e", slots=S.norm_slots([{"date": "2026-10-21", "start": "20:00", "end": "21:00"}]))
         self.sessions.rows["f"] = sess("f", slots=S.norm_slots([{"date": "2026-10-21", "start": "20:30", "end": "21:30"}]))
-        d = WeekScheduleService(self.sessions, FakeMachines(), clock=lambda: MON).execute(VIEW, "2026-10-22")
+        d = WeekScheduleService(self.sessions, FakeMachines(), clock=lambda: MON, schedule=FakeSchedule()).execute(VIEW, "2026-10-22")
         self.assertEqual(d["week"], "2026-10-19")
         self.assertEqual(len(d["days"]), 7)
         hit = [b for b in d["blocks"] if b["conflict"]]
         self.assertTrue(hit and {b["session"] for b in hit} >= {"a", "e", "f"} and all(b["date"] == "2026-10-21" for b in hit))
         self.assertEqual(len([b for b in d["blocks"] if b["session"] == "a"]), 7)
         with self.assertRaises(C.AiLiveError):
-            WeekScheduleService(self.sessions, FakeMachines(), clock=lambda: MON).execute(VIEW, "22/10/2026")
+            WeekScheduleService(self.sessions, FakeMachines(), clock=lambda: MON, schedule=FakeSchedule()).execute(VIEW, "22/10/2026")
 
 
 class TestEditAndCommands(unittest.TestCase):
     def test_save_slots_and_bulk(self):
         ss = FakeSessions([sess("a"), sess("b")])
         r = SaveSlotsService(ss).execute(VIEW, "a", '[{"days":"6,7","start":"09:00","end":"11:00"}]')
-        self.assertEqual(r["session"]["slots"][0]["days"], [6, 7])
+        self.assertEqual(r["session"]["draft"]["slots"][0]["days"], [6, 7])     # fix10g: vao ban nhap
+        self.assertEqual(r["session"]["slots"][0]["days"], list(range(1, 8)))   # lich dang phat hanh giu nguyen
         with self.assertRaises(C.AiLiveError):
             SaveSlotsService(ss).execute(VIEW, "a", [{"start": "9h", "end": "11:00"}])
         ss.rows["boom"] = sess("boom")
@@ -376,7 +402,7 @@ class TestHeartbeatSummaryConfig(unittest.TestCase):
         ss = FakeSessions([sess("a", mode="lite", obs_port=4455), sess("b", enabled=0), sess("d", machine="MAY02"),
                            sess("e", slots=S.norm_slots([{"date": "2026-10-21", "start": "09:00", "end": "10:00"}]))])
         machines = FakeMachines()
-        d = GetConfigService(machines, FakeBrands(), sessions=ss).execute("u1", "MAY01")
+        d = GetConfigService(machines, FakeBrands(), sessions=ss, schedule=FakeSchedule(3), clock=lambda: MON).execute("u1", "MAY01")
         self.assertEqual([lv["id"] for lv in d["lives"]], ["a", "e"])
         a, e = d["lives"]
         self.assertEqual((a["mode"], a["mode_override"], a["obs_port"]), ("lite", "lite", 4455))
@@ -393,7 +419,10 @@ class TestPushSlots(unittest.TestCase):
 
     def setUp(self):
         self.ss = FakeSessions([sess("a"), sess("d", machine="MAY02"), sess("n", brand="nestle"), sess("off", enabled=0)])
-        self.svc = PushSlotsService(FakeMachines(), self.ss)
+        from ecentric_workspace.ai_tools.features.ai_live.application.publish_schedule_service import PublishScheduleService
+        self.machines, self.sched = FakeMachines(), FakeSchedule()
+        pub = PublishScheduleService(self.ss, self.machines, self.sched, FakeCommands(), clock=lambda: MON)
+        self.svc = PushSlotsService(self.machines, self.ss, publisher=pub)
 
     def test_success_round_trip_with_get_config(self):
         import json
@@ -404,7 +433,8 @@ class TestPushSlots(unittest.TestCase):
         self.assertEqual(r["slots"][2], {"days": [], "date": "2026-10-25", "start": "09:00", "end": "10:30"})
         self.assertEqual(r["schedule"][1], {"days": [6, 7], "start": "22:00", "end": "02:00"})
         from ecentric_workspace.ai_tools.tests.test_ai_live_service import FakeBrands
-        lv = GetConfigService(FakeMachines(), FakeBrands(), sessions=self.ss).execute("u1", "MAY01")["lives"][0]
+        lv = GetConfigService(FakeMachines(), FakeBrands(), sessions=self.ss, schedule=self.sched, clock=lambda: MON).execute(
+            "u1", "MAY01")["lives"][0]
         self.assertEqual(lv["schedule"], r["schedule"])                       # app keo ve dung cai vua gui
         self.svc.execute("u1", "MAY01", "a", lv["schedule"])                  # gui lai schedule cua get_config -> y nguyen
         self.assertEqual(self.ss.get("a")["slots"], r["slots"])
@@ -414,7 +444,7 @@ class TestPushSlots(unittest.TestCase):
         other = FakeSessions([sess("a")])
         SaveSlotsService(other).execute(VIEW, "a", self.APP)
         self.svc.execute("u1", "MAY01", "a", self.APP)
-        self.assertEqual(self.ss.get("a")["slots"], other.get("a")["slots"])
+        self.assertEqual(self.ss.get("a")["slots"], other.get("a")["draft"]["slots"])
         for bad in ([{"start": "9h", "end": "11:00"}], [{"days": "8", "start": "09:00", "end": "10:00"}]):
             with self.assertRaises(C.AiLiveError) as cm:
                 self.svc.execute("u1", "MAY01", "a", bad)

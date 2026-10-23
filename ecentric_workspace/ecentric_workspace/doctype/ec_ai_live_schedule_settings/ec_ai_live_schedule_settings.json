@@ -1,0 +1,98 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-10-23 12:00:00.000000",
+ "description": "Cài đặt Lịch live AI Live: số bản lịch, giữ giờ cũ khi sắp lên sóng, lệnh tải lịch ngay.",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "current_version",
+  "lock_minutes",
+  "refresh_on_publish",
+  "col_1",
+  "last_published_by",
+  "last_published_at"
+ ],
+ "fields": [
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "current_version",
+   "fieldtype": "Int",
+   "label": "Bản lịch hiện tại",
+   "description": "Tăng 1 mỗi lần phát hành (trên ERP hoặc app sửa)."
+  },
+  {
+   "fieldname": "lock_minutes",
+   "fieldtype": "Int",
+   "label": "Sắp lên sóng trong bao nhiêu phút thì giữ giờ cũ",
+   "default": "15",
+   "description": "Phiên bắt đầu trong N phút tới: phát hành thường giữ giờ cũ cho lần đó, phát hành khẩn thì áp ngay. Nên ≥ 15 (app tải lịch 5 phút/lần + kiểm tra trước giờ 10 phút)."
+  },
+  {
+   "fieldname": "refresh_on_publish",
+   "fieldtype": "Check",
+   "label": "Gửi lệnh tải lịch ngay cho máy khi phát hành",
+   "default": "0",
+   "description": "Chỉ bật khi app eC Live đã hiểu lệnh refresh_config (bản 1.0.21 chưa có – app sẽ báo 'Lệnh không hỗ trợ'). Tắt thì máy nhận lịch ở lần tải 5 phút."
+  },
+  {
+   "fieldname": "col_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "last_published_by",
+   "fieldtype": "Data",
+   "label": "Phát hành gần nhất bởi"
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "last_published_at",
+   "fieldtype": "Datetime",
+   "label": "Phát hành gần nhất lúc"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 1,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-10-23 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC AI Live Schedule Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  },
+  {
+   "role": "EC AI Video Admin",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

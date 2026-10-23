@@ -18,14 +18,28 @@ def _live_list(lives):
 def on_air_lives(payload, lives):
     """Live dang len song o nhip nay: state preflight/live/ending, hoac on_air (1.0.20) = true / danh sach ma live."""
     lives, flag = _live_list(lives), payload.get("on_air")
-    named = {str(x) for x in flag} if isinstance(flag, list) else set()
-    out = [lv for lv in lives if str(lv.get("state") or "").lower() in C.ON_AIR_STATES or str(lv["live"]) in named]
-    if not out and flag is True:
-        out = lives
-    return [{"live": str(lv["live"]), "brand": str(lv.get("brand") or "")[:40]} for lv in out[:C.MAX_HB_LIVES]]
+    # 1.0.21: on_air = [{live, brand, mode, talking, since}]; ban cu: true / danh sach ma live
+    objs = [x for x in flag if isinstance(x, dict) and C.LIVE_RE.match(str(x.get("live") or ""))] if isinstance(flag, list) else []
+    named = {str(x) for x in flag if not isinstance(x, dict)} if isinstance(flag, list) else set()
+    out = [{"live": str(x["live"]), "brand": str(x.get("brand") or "")[:40]} for x in objs]
+    seen = {x["live"] for x in out}
+    for lv in lives:
+        if lv["live"] not in seen and (str(lv.get("state") or "").lower() in C.ON_AIR_STATES or str(lv["live"]) in named
+                                       or (flag is True and not objs)):
+            out.append({"live": str(lv["live"]), "brand": str(lv.get("brand") or "")[:40]})
+            seen.add(lv["live"])
+    return out[:C.MAX_HB_LIVES]
 
 
-def active_alerts(lives):
+def active_alerts(lives, problems=None):
+    """Bao dong dang con: problems[] cap may (1.0.21, da gom ca bao dong tung live) neu co, khong thi alerts tung live.
+    Dong "<live>: <noi dung> (do|vang)"; do truoc."""
+    if isinstance(problems, list):
+        rows = [p for p in problems[:C.MAX_HB_PROBLEMS] if isinstance(p, dict)]
+        rows = [p for p in rows if str(p.get("level") or "").lower() in (C.Level.WARN, C.Level.CRIT)]
+        rows.sort(key=lambda p: str(p.get("level")).lower() != C.Level.CRIT)
+        return [("%s: " % p["live"] if p.get("live") else "") + "%s (%s)" % (str(p.get("text") or p.get("rule") or "")[:80],
+                _LV[str(p["level"]).lower()]) for p in rows][:C.MAX_MACHINE_ALERTS]
     out = []
     for lv in _live_list(lives):
         for a in (lv.get("alerts") or [])[:C.MAX_HB_ALERTS]:
@@ -45,10 +59,23 @@ def heartbeat_vals(payload, lives, machine, now):
     vals = {"hb_last_seen_ts": now, "hb_state": state if state in C.APP_STATES else C.APP_RUNNING,
             "hb_version": str(app.get("version") or "")[:20], "hb_boot_ts": R.epoch(payload.get("boot_at")) or 0,
             "hb_started_ts": R.epoch(payload.get("app_started_at")) or 0, "hb_on_air": 1 if lives_now else 0,
-            "hb_lives": lives_now, "hb_alerts": active_alerts(lives), "hb_resume_crash": 1 if resume.get("from_crash") else 0}
+            "hb_lives": lives_now, "hb_alerts": active_alerts(lives, payload.get("problems")),
+            "hb_resume_crash": 1 if resume.get("from_crash") else 0, "hb_resume": _resume_text(resume)}
+    at = R.epoch(payload.get("at"))
+    if at:                                       # fix10g: dong ho may lech so voi ERP (lich chay theo gio may)
+        vals["hb_clock_skew_s"] = round(at - now, 1)
     if float(machine.get("watch_lost_ts") or 0) > 0 and not float(machine.get("watch_back_ts") or 0):
         vals["watch_back_ts"] = now
     return vals
+
+
+def _resume_text(resume):
+    """1.0.21 resume = {resumed_at, from_crash, lives, ok, failed} -> 'tu phat tiep: OK L1 · loi L2' (rong neu khong co)."""
+    ok = [str(x) for x in resume.get("ok") or [] if not isinstance(x, (dict, list))][:10]
+    bad = [str(x) for x in resume.get("failed") or [] if not isinstance(x, (dict, list))][:10]
+    if not (ok or bad):
+        return ""
+    return C.WatchMsg.RESUME % (", ".join(ok) or "–", ", ".join(bad) or "–")
 
 
 def silent_s(m, now):
@@ -114,8 +141,10 @@ def _back_reason(m):
         return C.WatchMsg.REBOOT
     started, lost_started = float(m.get("hb_started_ts") or 0), float(m.get("watch_lost_started_ts") or 0)
     if started and lost_started and started - lost_started > C.REBOOT_TOLERANCE_S:
-        return C.WatchMsg.APP_RESTART % (C.WatchMsg.CRASH if m.get("hb_resume_crash") else "")
-    return ""
+        return C.WatchMsg.APP_RESTART % (C.WatchMsg.CRASH if m.get("hb_resume_crash") else "") + (
+            " " + m["hb_resume"] if m.get("hb_resume") else "")
+    if boot and lost_boot:
+        return C.WatchMsg.NET                     # may + app khong khoi dong lai -> mat mang / ERP khong nhan duoc
 
 
 def decide(m, now, cfg, expected):
@@ -142,6 +171,9 @@ def decide(m, now, cfg, expected):
     if lost_ts and now - float(m.get("watch_sent_ts") or 0) < repeat_minutes(now, cfg) * 60:
         return none
     text = C.WatchMsg.LOST % (name, _clock(last, now), _lives_text(lives))
+    crit = [a for a in m.get("hb_alerts") or [] if a.endswith("(đỏ)")][:2]
+    if crit:                                      # goi y nguyen nhan tu bao dong khan cua nhip cuoi
+        text += C.WatchMsg.LAST_PROBLEMS % "; ".join(c[:-5].strip() for c in crit)
     vals = {"watch_sent_ts": now}
     if lost_ts:
         text += C.WatchMsg.STILL % int(age // 60)

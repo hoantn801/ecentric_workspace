@@ -6,17 +6,21 @@ import json
 from ecentric_workspace.ai_tools.features.ai_live import constants as C
 
 _TS = ("hb_last_seen_ts", "hb_boot_ts", "hb_started_ts", "watch_lost_ts", "watch_back_ts", "watch_sent_ts",
-       "watch_lost_boot_ts", "watch_lost_started_ts")
-_HB_FIELDS = list(_TS) + ["hb_state", "hb_version", "hb_on_air", "hb_lives_json", "hb_resume_crash", "watch_brands"]
+       "watch_lost_boot_ts", "watch_lost_started_ts", "cfg_fetched_ts", "hb_clock_skew_s")
+_HB_FIELDS = list(_TS) + ["hb_state", "hb_version", "hb_on_air", "hb_lives_json", "hb_resume_crash", "watch_brands",
+                          "cfg_version", "hb_alerts", "hb_resume"]
 #: truong epoch -> truong Datetime de nguoi xem tren Desk
-_DT = {"hb_last_seen_ts": "hb_last_seen", "hb_boot_ts": "hb_boot_at", "hb_started_ts": "hb_app_started_at"}
+_DT = {"hb_last_seen_ts": "hb_last_seen", "hb_boot_ts": "hb_boot_at", "hb_started_ts": "hb_app_started_at",
+       "cfg_fetched_ts": "cfg_fetched_at"}
 
 
 def _hb(d):
     out = {k: float(d.get(k) or 0) for k in _TS}
     out.update({"hb_state": d.get("hb_state") or "", "hb_version": d.get("hb_version") or "",
                 "hb_on_air": int(d.get("hb_on_air") or 0), "hb_resume_crash": int(d.get("hb_resume_crash") or 0),
-                "watch_brands": [b for b in str(d.get("watch_brands") or "").splitlines() if b]})
+                "cfg_version": int(d.get("cfg_version") or 0),
+                "watch_brands": [b for b in str(d.get("watch_brands") or "").splitlines() if b],
+                "hb_alerts": [a for a in str(d.get("hb_alerts") or "").splitlines() if a], "hb_resume": d.get("hb_resume") or ""})
     try:
         out["hb_lives"] = json.loads(d.get("hb_lives_json") or "[]") or []
     except ValueError:
@@ -70,6 +74,19 @@ class MachineRepository:
 
     def set_watch(self, code, vals):
         self.save_heartbeat(code, vals)
+
+    def record_fetch(self, code, ts, version):
+        """fix10g: may vua tai get_config (= da nhan lich ban `version`)."""
+        self.save_heartbeat(code, {"cfg_fetched_ts": ts, "cfg_version": int(version or 0)})
+
+    def sync_states(self):
+        """fix10g: moi may (ca may tat) + trang thai nhan lich, de man Dong bo / Gantt hien."""
+        import frappe
+        rows = frappe.get_all(C.MACHINE, fields=["name", "label", "enabled", "max_lives", "brands"] + _HB_FIELDS,
+                              order_by="name asc", limit_page_length=200)
+        return [dict(_hb(r), machine_code=r["name"], label=r.get("label") or "", enabled=int(r.get("enabled") or 0),
+                     max_lives=int(r.get("max_lives") or 0) or C.DEFAULT_MAX_LIVES, brands=r.get("brands") or "")
+                for r in rows]
 
     def all(self):
         """Moi may phat (cho trang Phien live / Lich live): ma, ten, bat/tat, so live toi da, brand."""

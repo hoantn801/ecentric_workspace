@@ -14,7 +14,9 @@
   "machine",
   "session",
   "usd",
-  "items_json"
+  "items_json",
+  "live",
+  "brand_unknown"
  ],
  "fields": [
   {
@@ -65,11 +67,25 @@
    "fieldtype": "Long Text",
    "label": "Chi tiết (JSON)",
    "read_only": 1
+  },
+  {
+   "fieldname": "live",
+   "fieldtype": "Data",
+   "label": "Live (khi chưa rõ brand)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "brand_unknown",
+   "fieldtype": "Check",
+   "label": "Chưa xác định brand",
+   "read_only": 1,
+   "in_list_view": 1,
+   "description": "Brand rỗng hoặc chưa giao cho máy lúc app gửi – xem lại cấu hình máy / phiên."
   }
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-10-17 00:00:00.000000",
+ "modified": "2026-10-23 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Ecentric Workspace",
  "name": "EC AI Live Cost Log",

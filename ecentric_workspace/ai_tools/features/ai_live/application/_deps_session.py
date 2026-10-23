@@ -25,3 +25,9 @@ def logs():
 def races():
     from ecentric_workspace.ai_tools.features.ai_live.repositories.race_repository import RaceRepository
     return RaceRepository()
+
+
+def schedule():
+    """fix10g: so phien ban lich + nhat ky phat hanh."""
+    from ecentric_workspace.ai_tools.features.ai_live.repositories.schedule_repository import ScheduleRepository
+    return ScheduleRepository()

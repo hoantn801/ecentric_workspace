@@ -19,8 +19,8 @@ class ValidateSessionService:
     def execute(self, doc):
         """doc: DocType (hoac doi tuong co thuoc tinh giong vay). Sua doc tai cho; loi -> AiLiveError."""
         sid = str(doc.live_id or doc.name or "").strip()
-        if not C.LIVE_RE.match(sid):
-            raise C.AiLiveError(C.SessMsg.BAD_ID)
+        if not C.SESSION_ID_RE.match(sid):                 # fix10g: khop app eC Live (khong dau cham, <= 32)
+            raise C.AiLiveError(C.ContractMsg.BAD_SESSION_ID)
         doc.live_id = sid
         if doc.platform not in C.PLATFORMS:
             raise C.AiLiveError(C.SessMsg.BAD_PLATFORM)
@@ -37,7 +37,8 @@ class ValidateSessionService:
         clash = S.self_overlap(slots, today)
         if clash:
             raise C.AiLiveError(C.SessMsg.SLOT_OVERLAP % (clash[1], clash[0]))
-        if doc.machine:
+        publishing = bool(getattr(getattr(doc, "flags", None), "ec_publish", False))
+        if doc.machine and not publishing:      # fix10g: phat hanh lich da kiem suc chua / cong OBS tren ca bo
             self._machine(doc, sid, slots, today)
         return doc
 

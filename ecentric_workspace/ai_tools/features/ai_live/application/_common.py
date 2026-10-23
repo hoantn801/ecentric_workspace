@@ -35,3 +35,12 @@ def parse_json(value, label):
         return json.loads(value)
     except ValueError:
         raise C.AiLiveError(C.Msg.BAD_JSON % label)
+
+
+def id_list(v):
+    """fix10g: danh sach ma tu JSON '["a","b"]', chuoi "a,b" hoac list -> list chuoi khong rong."""
+    if isinstance(v, str) and v.strip().startswith("["):
+        v = parse_json(v, "danh sách")
+    if isinstance(v, str):
+        v = v.split(",")
+    return [str(x).strip() for x in (v or []) if str(x).strip()]

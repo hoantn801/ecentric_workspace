@@ -28,7 +28,19 @@
   "col_3",
   "phone_serial",
   "sec_slots",
-  "slots"
+  "slots",
+  "sec_publish",
+  "published_version",
+  "published_source",
+  "held_why",
+  "col_pub",
+  "draft_by",
+  "draft_at",
+  "draft_base_version",
+  "published_ts",
+  "held_until_ts",
+  "draft_json",
+  "prev_json"
  ],
  "fields": [
   {
@@ -163,13 +175,99 @@
    "fieldtype": "Table",
    "label": "Khung giờ",
    "options": "EC AI Live Session Slot"
+  },
+  {
+   "fieldname": "sec_publish",
+   "fieldtype": "Section Break",
+   "label": "Bản nháp & phát hành (hệ thống ghi)",
+   "collapsible": 1
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "published_version",
+   "fieldtype": "Int",
+   "label": "Bản lịch đang phát hành"
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "published_source",
+   "fieldtype": "Data",
+   "label": "Phát hành từ",
+   "description": "erp / erp_urgent (khẩn) / app (app trên máy sửa)"
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "held_why",
+   "fieldtype": "Data",
+   "label": "Đang giữ giờ cũ vì",
+   "description": "on_air = đang live lúc phát hành; soon = sắp lên sóng; late = máy nhận muộn"
+  },
+  {
+   "fieldname": "col_pub",
+   "fieldtype": "Column Break"
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "draft_by",
+   "fieldtype": "Data",
+   "label": "Bản nháp của"
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "draft_at",
+   "fieldtype": "Datetime",
+   "label": "Sửa nháp lúc"
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "draft_base_version",
+   "fieldtype": "Int",
+   "label": "Nháp dựa trên bản"
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "published_ts",
+   "fieldtype": "Float",
+   "label": "Phát hành lúc (epoch)",
+   "hidden": 1
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "held_until_ts",
+   "fieldtype": "Float",
+   "label": "Giữ giờ cũ tới (epoch)",
+   "hidden": 1
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "draft_json",
+   "fieldtype": "Long Text",
+   "label": "Bản nháp (JSON)",
+   "hidden": 1
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "prev_json",
+   "fieldtype": "Long Text",
+   "label": "Bản trước (JSON)",
+   "hidden": 1
   }
  ],
  "index_web_pages_for_search": 0,
  "issingle": 0,
  "istable": 0,
  "links": [],
- "modified": "2026-10-18 00:00:00.000000",
+ "modified": "2026-10-23 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Ecentric Workspace",
  "name": "EC AI Live Session",

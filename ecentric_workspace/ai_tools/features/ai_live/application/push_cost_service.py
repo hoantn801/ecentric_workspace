@@ -23,9 +23,10 @@ class PushCostService:
     def execute(self, user, payload):
         p = payload if isinstance(payload, dict) else (_common.parse_json(payload, "chi phí") or {})
         m = _common.require_machine(self.machines, user, p.get("machine"))
-        brand = str(p.get("brand") or "")
-        if brand not in _common.machine_brands(m):
-            raise C.AiLivePermission(C.Msg.BRAND_NOT_ALLOWED % brand)
+        brand, live = str(p.get("brand") or "").strip(), str(p.get("live") or "").strip()[:40]
+        # fix10g (hop dong 1.0.21 #7): brand rong / chua giao cho may -> VAN LUU, gan co. Tra 403 thi app hieu la sai token
+        # va dung CA hang cho chi phi.
+        unknown = not brand or brand not in _common.machine_brands(m)
         session, date = str(p.get("session") or ""), str(p.get("date") or "")
         if not C.SESSION_RE.match(session):
             raise C.AiLiveError(C.Msg.BAD_COST % "session")
@@ -33,11 +34,13 @@ class PushCostService:
             raise C.AiLiveError(C.Msg.BAD_COST % "date")
         usd = self._usd(p.get("usd"), "usd")
         items = self._items(p.get("items"))
-        key = hashlib.sha1(("%s|%s|%s|%s" % (m["machine_code"], brand, session, date)).encode()).hexdigest()[:20]
+        key_parts = (m["machine_code"], brand, session, date) + ((live,) if not brand else ())
+        key = hashlib.sha1("|".join(key_parts).encode()).hexdigest()[:20]
         self.costs.upsert(key, {"machine": m["machine_code"], "brand": brand, "session": session, "date": date,
-                                "usd": usd, "items_json": json.dumps(items, ensure_ascii=False)})
-        total = self.costs.day_total(brand, date)
-        cfg = self.brands.get(brand) or {}
+                                "usd": usd, "items_json": json.dumps(items, ensure_ascii=False), "live": live,
+                                "brand_unknown": 1 if unknown else 0})
+        total = self.costs.day_total(brand, date) if brand else usd
+        cfg = (self.brands.get(brand) or {}) if not unknown else {}
         cap = float(cfg.get("daily_cost_cap_usd") or 0)
         return {"saved": True, "brand_day_usd": round(total, 4), "daily_cost_cap_usd": cap,
                 "over_cap": bool(cap and total >= cap)}

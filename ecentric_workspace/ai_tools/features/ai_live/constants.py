@@ -184,7 +184,7 @@ LIVE_STATES = ON_AIR_STATES + ("idle", "stopped", "error")
 LIVE_RE = re.compile(r"^[A-Za-z0-9_.-]{1,40}$")
 ALERT_CODE_RE = re.compile(r"^[a-z0-9_.-]{1,40}$")
 HHMM_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
-MAX_HB_LIVES = 8
+MAX_HB_LIVES = 50                    # eC Live 1.0.21 gui toi 50 live (truncated + lives_total neu hon)
 MAX_HB_ALERTS = 20
 MAX_ALERT_TEXT = 200
 MAX_SLOTS = 14
@@ -262,7 +262,8 @@ class SessionStatus:
 
 
 #: Lenh tu trang ERP cho app tren may phat (app hoi pull_commands moi ~10 s).
-CMD_ACTIONS = ("pause_ai", "resume_ai", "skip_clip", "play_faq", "start_race", "stop_race")  # fix10e: dua vit
+CMD_ACTIONS = ("pause_ai", "resume_ai", "skip_clip", "play_faq", "start_race", "stop_race",  # fix10e: dua vit
+               "refresh_config")  # fix10g: app tai lai get_config ngay (sau khi phat hanh lich)
 CMD_QUEUED, CMD_SENT, CMD_DONE, CMD_FAILED, CMD_EXPIRED = "Queued", "Sent", "Done", "Failed", "Expired"
 CMD_TTL_S = 120
 CMD_PULL_MAX = 20
@@ -299,7 +300,7 @@ class SessMsg:
 
 #: Tong ket cuoi phien (app gui khi phien ket thuc) - lich su phien, giu 400 ngay.
 SESSION_LOG = "EC AI Live Session Log"
-SUMMARY_REASONS = ("schedule_end", "manual", "error", "restart", "other")
+SUMMARY_REASONS = ("schedule_end", "manual", "error", "restart", "crash_resume", "other")  # 1.0.21: crash_resume
 LOG_KEEP_DAYS = 400
 MAX_HISTORY_DAYS = 90
 
@@ -387,3 +388,67 @@ class WatchMsg:
     APP_RESTART = " App eC Live vừa mở lại%s (máy không khởi động lại)."
     CRASH = " sau lỗi"
     DAY = " ngày %s"
+    NET = " Máy không khởi động lại (mất mạng / ERP không nhận được nhịp tim)."
+    RESUME = "Tự phát tiếp: OK %s · lỗi %s."
+    LAST_PROBLEMS = " Báo động khẩn cuối cùng: %s."
+
+
+# ------------------------------------------------------------------ Lich live: ban nhap -> phat hanh (fix10g) ---
+SCHEDULE_SETTINGS = "EC AI Live Schedule Settings"
+SCHEDULE_VERSION = "EC AI Live Schedule Version"
+#: Khung bat dau trong N phut toi coi la "sap len song": mac dinh giu gio cu cho lan do.
+#: 15 = app tai lich 5 phut/lan (eC Live erp.refreshMs) + kiem tra truoc gio 10 phut (schedule.preflightMin).
+LOCK_MIN = 15
+APP_REFRESH_MIN = 5
+CLOCK_SKEW_WARN_S = 60
+CMD_REFRESH = "refresh_config"
+MAX_VERSION_LOG = 40
+VERSION_KEEP_DAYS = 180
+MAX_DIFF_LINES = 12
+MAX_MONTH_CHIPS = 3
+
+
+class PubSource:
+    ERP = "erp"
+    URGENT = "erp_urgent"
+    APP = "app"
+
+
+class DraftState:
+    NONE = "none"
+    READY = "ready"
+    STALE = "stale"          # app (hoac nguoi khac) vua phat hanh phien nay sau khi ban nhap duoc tao
+
+
+class HoldWhy:
+    ON_AIR = "on_air"        # dang live luc phat hanh
+    SOON = "soon"            # sap len song trong LOCK_MIN phut
+    LATE = "late"            # may nhan lich moi sau khi da len live theo gio cu
+
+
+HOLD_TEXT = {HoldWhy.ON_AIR: "đang live", HoldWhy.SOON: "sắp lên sóng", HoldWhy.LATE: "máy nhận muộn"}
+PUB_SOURCE_TEXT = {PubSource.ERP: "ERP", PubSource.URGENT: "ERP (khẩn)", PubSource.APP: "App trên máy"}
+
+
+class PubMsg:
+    NO_DRAFT = "Không có thay đổi nào trong bản nháp để phát hành."
+    STALE = "Phiên %s vừa được đổi lịch (bản %s) sau khi bạn sửa nháp – chọn giữ bản nháp hoặc theo bản mới trước."
+    APP_STALE = "Lịch phiên %s trên ERP đã đổi (bản %s) từ lúc app tải về – tải lại lịch rồi sửa lại."
+    APP_HELD = "Phiên %s đang giữ giờ cũ tới %s (lịch mới đã phát hành) – sửa sau giờ đó hoặc sửa trên ERP."
+    BAD_MONTH = "Tháng không hợp lệ (dạng YYYY-MM)."
+    BAD_DAYS = "Số ngày xem phải từ 1 đến 7."
+    HOLD = "%s: giữ giờ cũ tới %s (%s), áp dụng từ lần sau."
+    LATE = "Máy %s nhận lịch mới sau khi phiên %s đã lên live theo giờ cũ – giữ giờ cũ tới %s."
+
+
+# ------------------------------------------------------------------ Khop hop dong eC Live 1.0.21 (fix10g) ---
+#: Ma phien tren ERP = ma live tren app; app chi nhan ^[A-Za-z0-9_-]{1,32}$ (src/remote/sessions.js normalizeSession).
+SESSION_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
+#: App (src/schedule/time.js) tu choi CA lich cua live neu co khung ngan hon 5 phut.
+MIN_SLOT_MIN = 5
+MAX_HB_PROBLEMS = 30
+
+
+class ContractMsg:
+    BAD_SESSION_ID = "Mã phiên live chỉ gồm chữ, số, _ và -, tối đa 32 ký tự (app eC Live bỏ qua mã khác)."
+    SLOT_TOO_SHORT = "khung ngắn hơn %d phút (app eC Live sẽ từ chối cả lịch)"

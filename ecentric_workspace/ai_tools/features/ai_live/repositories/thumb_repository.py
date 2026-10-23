@@ -26,13 +26,14 @@ class ThumbRepository:
         with open(tmp, "wb") as fh:
             fh.write(data)
         os.replace(tmp, path)
-        other = self._path(key, kind, "png" if ext == "jpg" else "jpg")
-        if os.path.exists(other):
-            os.remove(other)
+        for e in ("jpg", "png", "webp"):              # fix10g: xoa ban khac duoi cua cung o
+            other = self._path(key, kind, e)
+            if e != ext and os.path.exists(other):
+                os.remove(other)
 
     def read(self, key, kind):
         """(bytes, mime) hoac None."""
-        for ext, mime in (("jpg", "image/jpeg"), ("png", "image/png")):
+        for ext, mime in (("jpg", "image/jpeg"), ("png", "image/png"), ("webp", "image/webp")):
             path = self._path(key, kind, ext)
             if os.path.exists(path):
                 with open(path, "rb") as fh:

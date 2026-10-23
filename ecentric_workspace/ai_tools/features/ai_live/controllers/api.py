@@ -34,14 +34,18 @@ def _roles():
 @frappe.whitelist(methods=["GET"])
 def get_config(machine: str = None):
     from ecentric_workspace.ai_tools.features.ai_live.application.get_config_service import GetConfigService
-    return _run(lambda: GetConfigService().execute(frappe.session.user, str(machine or "")))
+    out = _run(lambda: GetConfigService().execute(frappe.session.user, str(machine or "")))
+    if out["success"]:
+        frappe.db.commit()  # fix10g: GET khong tu commit - ghi "may da nhan ban lich" + giu gio "nhan muon"
+    return out
 
 
 @frappe.whitelist(methods=["POST"])
-def push_cost(machine: str = None, brand: str = None, session: str = None, date: str = None, usd=None, items=None):
+def push_cost(machine: str = None, brand: str = None, session: str = None, date: str = None, usd=None, items=None,
+              live: str = None, brand_unknown=None):
     from ecentric_workspace.ai_tools.features.ai_live.application.push_cost_service import PushCostService
-    payload = {"machine": machine, "brand": brand, "session": session, "date": date, "usd": usd,
-               "items": frappe.parse_json(items) if isinstance(items, str) else items}
+    payload = {"machine": machine, "brand": brand, "session": session, "date": date, "usd": usd, "live": live,
+               "brand_unknown": brand_unknown, "items": frappe.parse_json(items) if isinstance(items, str) else items}
     return _run(lambda: PushCostService().execute(frappe.session.user, payload))
 
 
@@ -127,9 +131,10 @@ def _monitor_link():
 
 
 @frappe.whitelist(methods=["POST"])
-def push_heartbeat(machine: str = None, lives=None, thumb_b64=None):
+def push_heartbeat(machine: str = None, lives=None, thumb_b64=None, **kwargs):
     from ecentric_workspace.ai_tools.features.ai_live.application.push_heartbeat_service import PushHeartbeatService
-    payload = {"machine": machine, "lives": lives, "thumb_b64": thumb_b64}
+    # fix10g: nhan CA than nhip tim (state, boot_at, app_started_at, on_air, problems, resume, minimal, at, app, sys...)
+    payload = dict({k: v for k, v in kwargs.items() if k != "cmd"}, machine=machine, lives=lives, thumb_b64=thumb_b64)
     return _run(lambda: PushHeartbeatService().execute(frappe.session.user, payload))
 
 
@@ -188,15 +193,15 @@ def session_history(live: str = None, brand: str = None, days: int = 7):
 
 
 @frappe.whitelist(methods=["GET"])
-def week_schedule(week: str = None):
+def week_schedule(week: str = None, days: int = 7, start: str = None, view: str = "draft"):
     from ecentric_workspace.ai_tools.features.ai_live.application.week_schedule_service import WeekScheduleService
-    return _run(lambda: WeekScheduleService().execute(_roles(), week or None))
+    return _run(lambda: WeekScheduleService().execute(_roles(), week or None, int(days or 7), start or None, str(view or "draft")))
 
 
 @frappe.whitelist(methods=["POST"])
 def save_slots(name: str, slots=None):
     from ecentric_workspace.ai_tools.features.ai_live.application.save_slots_service import SaveSlotsService
-    return _run(lambda: SaveSlotsService().execute(_roles(), name, slots))
+    return _run(lambda: SaveSlotsService().execute(_roles(), name, slots, frappe.session.user))
 
 
 @frappe.whitelist(methods=["POST"])
@@ -230,9 +235,9 @@ def push_session_summary(machine: str = None, live: str = None, brand: str = Non
 
 
 @frappe.whitelist(methods=["POST"])
-def push_slots(machine: str = None, live: str = None, slots=None):
+def push_slots(machine: str = None, live: str = None, slots=None, base_version=None):
     from ecentric_workspace.ai_tools.features.ai_live.application.push_slots_service import PushSlotsService
-    return _run(lambda: PushSlotsService().execute(frappe.session.user, str(machine or ""), live, slots))
+    return _run(lambda: PushSlotsService().execute(frappe.session.user, str(machine or ""), live, slots, base_version))
 
 
 @frappe.whitelist(methods=["GET"])
@@ -267,3 +272,41 @@ def export_races_csv(brand: str = None, live: str = None, date_from: str = None,
 def set_prize_status(items=None, status: str = None, note: str = None):
     from ecentric_workspace.ai_tools.features.ai_live.application.set_prize_status_service import SetPrizeStatusService
     return _run(lambda: SetPrizeStatusService(atomic=_atomic).execute(_roles(), items, status, note))
+
+
+# ------------------------------------------------------------------ Lich live: ban nhap -> phat hanh (fix10g) ---
+
+@frappe.whitelist(methods=["POST"])
+def save_draft(name: str, slots=None, machine: str = None, obs_port=None):
+    from ecentric_workspace.ai_tools.features.ai_live.application.save_draft_service import SaveDraftService
+    return _run(lambda: SaveDraftService().execute(frappe.session.user, _roles(), name, slots, machine, obs_port))
+
+
+@frappe.whitelist(methods=["POST"])
+def discard_drafts(names=None):
+    from ecentric_workspace.ai_tools.features.ai_live.application.discard_draft_service import DiscardDraftService
+    return _run(lambda: DiscardDraftService().execute(frappe.session.user, _roles(), names))
+
+
+@frappe.whitelist(methods=["POST"])
+def resolve_draft(name: str, keep: int = 1):
+    from ecentric_workspace.ai_tools.features.ai_live.application.resolve_draft_service import ResolveDraftService
+    return _run(lambda: ResolveDraftService().execute(frappe.session.user, _roles(), name, bool(int(keep or 0))))
+
+
+@frappe.whitelist(methods=["POST"])
+def publish_schedule(names=None, urgent=None, note: str = None):
+    from ecentric_workspace.ai_tools.features.ai_live.application.publish_schedule_service import PublishScheduleService
+    return _run(lambda: PublishScheduleService().execute(frappe.session.user, _roles(), names, urgent, note or ""))
+
+
+@frappe.whitelist(methods=["GET"])
+def sync_overview():
+    from ecentric_workspace.ai_tools.features.ai_live.application.sync_overview_service import SyncOverviewService
+    return _run(lambda: SyncOverviewService().execute(_roles()))
+
+
+@frappe.whitelist(methods=["GET"])
+def month_schedule(month: str = None, view: str = "draft"):
+    from ecentric_workspace.ai_tools.features.ai_live.application.month_schedule_service import MonthScheduleService
+    return _run(lambda: MonthScheduleService().execute(_roles(), month or None, str(view or "draft")))

@@ -23,5 +23,6 @@ class PullCommandsService:
                 break
             self.commands.set_status(c["id"], C.CMD_SENT, "sent_ts", now)
             out.append({"id": c["id"], "live": c["live"], "action": c["action"], "args": c["args"],
-                        "created_ts": c["created_ts"]})
+                        "created_ts": c["created_ts"], "ttl_sec": C.CMD_TTL_S,   # fix10g: app 1.0.21 tu bo lenh qua han
+                        "created_at": R.iso(c["created_ts"]), "expires_at": R.iso(c["created_ts"] + C.CMD_TTL_S)})
         return {"commands": out, "server_time": now}

@@ -41,6 +41,31 @@ class FakeMachines:
         self.rotated.append(user)
         return "k%d:s%d" % (len(self.rotated), len(self.rotated))
 
+    def record_fetch(self, code, ts, version):    # fix10g: may da tai lich ban nao
+        self.rows[code].update(cfg_fetched_ts=ts, cfg_version=version)
+
+
+class FakeSchedule:
+    """fix10g: so phien ban lich + nhat ky phat hanh (thay ScheduleRepository)."""
+
+    def __init__(self, version=0, lock_min=15, refresh=1):
+        self.version, self.lock_min, self.refresh, self.log = version, lock_min, refresh, []
+
+    def settings(self):
+        return {"version": self.version, "lock_min": self.lock_min, "refresh_on_publish": self.refresh,
+                "last_published_by": "", "last_published_at": ""}
+
+    def next_version(self, user, ts):
+        self.version += 1
+        return self.version
+
+    def insert_version(self, row):
+        self.log.append(row)
+
+    def versions(self, limit=40):
+        return [{"version": r["version"], "source": r["source"], "by": r["published_by"], "ts": r["published_ts"],
+                 "note": r.get("note") or "", "changes": r["changes"], "machines": r["machines"]} for r in reversed(self.log)][:limit]
+
 
 class FakeBrands:
     def __init__(self):
@@ -96,7 +121,8 @@ class FakeCosts:
 
 class TestGetConfig(unittest.TestCase):
     def setUp(self):
-        self.svc = GetConfigService(FakeMachines(), FakeBrands(), sessions=types.SimpleNamespace(by_machine=lambda code: []))
+        self.svc = GetConfigService(FakeMachines(), FakeBrands(), sessions=types.SimpleNamespace(list=lambda: []),
+                                    schedule=FakeSchedule())
 
     def test_returns_enabled_brands_with_keys(self):
         d = self.svc.execute("u1", "MAY01")
@@ -138,12 +164,21 @@ class TestPushCost(unittest.TestCase):
         self.assertEqual(json.loads(list(self.costs.rows.values())[0]["items_json"])[0]["kind"], "llm")
 
     def test_rejects_bad_input(self):
-        for bad in ({"brand": "nivea"}, {"session": "x y"}, {"date": "17/10"}, {"usd": -1}, {"usd": "abc"},
+        for bad in ({"session": "x y"}, {"date": "17/10"}, {"usd": -1}, {"usd": "abc"},
                     {"items": "x"}, {"items": [1]}, {"usd": float("nan")}):
             with self.assertRaises(C.AiLiveError, msg=str(bad)):
                 self.svc.execute("u1", dict(self.base, **bad))
         with self.assertRaises(C.AiLivePermission):
             self.svc.execute("u1", dict(self.base, machine="MAY02"))
+
+    def test_unknown_brand_is_kept_not_403(self):
+        """Hop dong 1.0.21 #7: brand rong (kem live) / chua giao -> van luu, gan co; 403 se lam app dung ca hang cho."""
+        r = self.svc.execute("u1", dict(self.base, brand="", live="L1", usd=0.4))
+        self.assertEqual((r["brand_day_usd"], r["over_cap"]), (0.4, False))
+        r2 = self.svc.execute("u1", dict(self.base, brand="nivea"))
+        self.assertFalse(r2["over_cap"])
+        flags = sorted((x["brand"], x["brand_unknown"], x["live"]) for x in self.costs.rows.values())
+        self.assertEqual(flags, [("", 1, "L1"), ("nivea", 1, "")])
 
 
 class TestPutBrandSettings(unittest.TestCase):

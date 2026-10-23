@@ -26,6 +26,11 @@
   "hb_alert_count",
   "hb_alerts",
   "hb_resume_crash",
+  "hb_resume",
+  "cfg_fetched_at",
+  "cfg_version",
+  "hb_clock_skew_s",
+  "cfg_fetched_ts",
   "sec_watch",
   "watch_lost_ts",
   "watch_sent_ts",
@@ -166,6 +171,43 @@
    "no_copy": 1
   },
   {
+   "fieldname": "hb_resume",
+   "fieldtype": "Small Text",
+   "label": "Tự phát tiếp sau khi sập",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "cfg_fetched_at",
+   "fieldtype": "Datetime",
+   "label": "Tải lịch lần cuối"
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "cfg_version",
+   "fieldtype": "Int",
+   "label": "Bản lịch máy đã nhận"
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "hb_clock_skew_s",
+   "fieldtype": "Float",
+   "label": "Đồng hồ máy lệch (giây)",
+   "description": "Dương = máy chạy nhanh hơn ERP. Lệch > 60 giây thì giờ lên live lệch theo."
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "cfg_fetched_ts",
+   "fieldtype": "Float",
+   "label": "Tải lịch lần cuối (epoch)",
+   "hidden": 1
+  },
+  {
    "fieldname": "sec_watch",
    "fieldtype": "Section Break",
    "label": "Báo động máy im lặng (hệ thống tự ghi)",
@@ -252,7 +294,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-10-23 00:00:00.000000",
+ "modified": "2026-10-23 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Ecentric Workspace",
  "name": "EC AI Live Machine",

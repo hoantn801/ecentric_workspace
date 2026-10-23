@@ -51,12 +51,15 @@ def norm_slots(slots):
             d = str(s.get("date") or "").strip()[:10]
             if d and not C.DATE_RE.match(d):
                 raise C.AiLiveError("ngày phải dạng YYYY-MM-DD")
+            if (_mins(b) - _mins(a)) % 1440 < C.MIN_SLOT_MIN:
+                raise C.AiLiveError(C.ContractMsg.SLOT_TOO_SHORT % C.MIN_SLOT_MIN)
             out.append({"days": [] if d else _parse_days(s.get("days")), "date": d or None, "start": a, "end": b})
         except C.AiLiveError as e:
             raise C.AiLiveError(C.SessMsg.BAD_SLOT % (i, e))
     if len(out) > C.MAX_SESSION_SLOTS:
         raise C.AiLiveError(C.SessMsg.BAD_SLOT % (len(out), "tối đa %d khung" % C.MAX_SESSION_SLOTS))
-    return out
+    # fix10g: thu tu on dinh (app dat ma khung erp1, erp2... theo thu tu): lap hang tuan truoc, roi ngay cu the; theo gio
+    return sorted(out, key=lambda s: (s["date"] or "", s["days"], s["start"]))
 
 
 def _applies(slot, day):
@@ -200,10 +203,12 @@ def sanitize_summary(raw, now):
     sid = str(raw.get("session") or raw.get("session_id") or "").strip()
     if not C.SESSION_RE.match(sid):
         raise C.AiLiveError(C.MonMsg.BAD_HB % "mã phiên trong tổng kết")
-    start, end = R._epoch(raw.get("started_at")), R._epoch(raw.get("ended_at")) or now
+    dur = _num(raw.get("duration_s"))
+    start = R._epoch(raw.get("started_at"))
+    # 1.0.21: crash_resume gui ended_at = null (phien bi ngat) -> lay bat dau + thoi luong neu co, khong thi gio nhan
+    end = R._epoch(raw.get("ended_at")) or (start + dur if start and dur is not None and dur >= 0 else now)
     if not start or start > now + 300 or end < start:
         raise C.AiLiveError(C.MonMsg.BAD_HB % "giờ bắt đầu / kết thúc")
-    dur = _num(raw.get("duration_s"))
     cnt = raw.get("counters") if isinstance(raw.get("counters"), dict) else raw
     cost = _num(raw.get("cost_usd"))
     reason = str(raw.get("reason") or "other")

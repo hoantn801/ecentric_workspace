@@ -1,0 +1,154 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-10-23 12:00:00.000000",
+ "description": "Nhật ký phát hành Lịch live AI Live (mỗi dòng 1 bản).",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "version",
+  "source",
+  "published_by",
+  "published_at",
+  "published_ts",
+  "col_1",
+  "note",
+  "sessions",
+  "machines",
+  "sec_2",
+  "changes_json"
+ ],
+ "fields": [
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "version",
+   "fieldtype": "Int",
+   "label": "Bản",
+   "in_list_view": 1
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "source",
+   "fieldtype": "Data",
+   "label": "Nguồn",
+   "in_list_view": 1,
+   "description": "erp / erp_urgent / app"
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "published_by",
+   "fieldtype": "Data",
+   "label": "Người / máy phát hành",
+   "in_list_view": 1
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "published_at",
+   "fieldtype": "Datetime",
+   "label": "Lúc",
+   "in_list_view": 1
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "published_ts",
+   "fieldtype": "Float",
+   "label": "Lúc (epoch)",
+   "hidden": 1
+  },
+  {
+   "fieldname": "col_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "note",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú"
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "sessions",
+   "fieldtype": "Small Text",
+   "label": "Phiên"
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "machines",
+   "fieldtype": "Small Text",
+   "label": "Máy"
+  },
+  {
+   "fieldname": "sec_2",
+   "fieldtype": "Section Break"
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "changes_json",
+   "fieldtype": "Long Text",
+   "label": "Thay đổi (JSON)"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-10-23 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC AI Live Schedule Version",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  },
+  {
+   "role": "EC AI Video Admin",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  },
+  {
+   "role": "EC AI Content",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0,
+ "in_create": 1
+}

@@ -225,7 +225,9 @@ class TestHeartbeat(unittest.TestCase):
         with self.assertRaises(C.AiLivePermission):
             w.push({"machine": "MAY09", "lives": []})
         with self.assertRaises(C.AiLiveError):
-            w.push({"machine": "MAY01", "lives": [live()] * 9})
+            w.push({"machine": "MAY01", "lives": "x"})
+        r = w.push({"machine": "MAY01", "lives": [live(live="L%d" % i) for i in range(60)]})   # 1.0.21: toi 50, thua thi cat
+        self.assertEqual(len(r["saved"]), C.MAX_HB_LIVES)
 
     def test_server_reasons_and_since_kept(self):
         w = World(T0)

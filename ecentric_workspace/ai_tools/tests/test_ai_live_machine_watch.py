@@ -209,7 +209,8 @@ class TestBack(unittest.TestCase):
         self.assertEqual(w.at(0.5).watch(), 1)
         a = w.last()
         self.assertEqual((a["code"], a["level"]), (C.WatchCode.BACK, C.Level.INFO))
-        self.assertEqual(a["text"], "Máy MAY01 (Máy 1) đã liên lạc lại sau 10 phút.")
+        self.assertEqual(a["text"], "Máy MAY01 (Máy 1) đã liên lạc lại sau 10 phút. "
+                                    "Máy không khởi động lại (mất mạng / ERP không nhận được nhịp tim).")
         self.assertTrue(w.sender.sent[-1][4].startswith("[XANH]"))
         self.assertEqual((w.m["watch_lost_ts"], w.m["watch_back_ts"]), (0, 0))
         self.assertEqual(w.at(1).watch(), 0)
