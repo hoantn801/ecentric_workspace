@@ -3,4 +3,4 @@
 CHI re-export - code that o ai_tools/features/ai_live/controllers/api.py (ham da @frappe.whitelist)."""
 from ecentric_workspace.ai_tools.features.ai_live.controllers.api import (  # noqa: F401
     ack_command, cost_summary, get_config, pull_commands, push_cost, push_heartbeat, push_race_result,
-    push_session_summary, push_slots, put_brand_settings, register_machine)
+    push_session_summary, push_slot_report, push_slots, put_brand_settings, register_machine)

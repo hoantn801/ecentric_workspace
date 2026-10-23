@@ -492,13 +492,14 @@ class TestViewerWall(unittest.TestCase):
         health.upsert("MAY01__a", {"machine": "MAY01", "live": "a", "brand": "friso", "state": "live", "last_seen_ts": at - 10,
                                    "metrics": {}, "alerts": [], "schedule": [], "detail": {"platform": {"viewers": 9}},
                                    "platform_thumb_ts": at - 200, "phone_thumb_ts": at - 30})
-        d = ViewerWallService(ss, health, FakeSettings(), clock=lambda: at).execute(VIEW)
+        d = ViewerWallService(ss, health, FakeSettings(), clock=lambda: at, machines=FakeMachines()).execute(VIEW)
         self.assertEqual([t["id"] for t in d["tiles"]], ["a"])
+        self.assertEqual((d["tiles"][0]["wall"]["level"], d["counts"]["ok"]), ("ok", 1))     # fix10h: tinh trang nhu Truc live
         t = d["tiles"][0]
         self.assertEqual((t["source"], t["age_s"], t["stale"], t["viewers"]), ("phone", 30, False, 9))
         self.assertTrue(t["watch_url"].startswith("https://"))
         with self.assertRaises(C.AiLivePermission):
-            ViewerWallService(ss, health, FakeSettings(), clock=lambda: at).execute(NOBODY)
+            ViewerWallService(ss, health, FakeSettings(), clock=lambda: at, machines=FakeMachines()).execute(NOBODY)
 
 
 if __name__ == "__main__":

@@ -25,7 +25,8 @@
   "schedule_json",
   "platform_thumb_ts",
   "stream_thumb_ts",
-  "detail_json"
+  "detail_json",
+  "extra_json"
  ],
  "fields": [
   {
@@ -147,13 +148,20 @@
    "fieldtype": "Long Text",
    "label": "Chi tiết phiên (JSON)",
    "read_only": 1
+  },
+  {
+   "fieldname": "extra_json",
+   "fieldtype": "Long Text",
+   "label": "AI / FAQ / eSync / eVoice (JSON, eC Live 1.0.21)",
+   "read_only": 1,
+   "hidden": 1
   }
  ],
  "index_web_pages_for_search": 0,
  "issingle": 0,
  "istable": 0,
  "links": [],
- "modified": "2026-10-18 00:00:01.000000",
+ "modified": "2026-10-23 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "Ecentric Workspace",
  "name": "EC AI Live Health",

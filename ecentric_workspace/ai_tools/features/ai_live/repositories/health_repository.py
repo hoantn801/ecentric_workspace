@@ -5,8 +5,8 @@ import json
 
 from ecentric_workspace.ai_tools.features.ai_live import constants as C
 
-_JSON = ("metrics", "alerts", "schedule", "detail")
-_EMPTY = {"metrics": dict, "alerts": list, "schedule": list, "detail": dict}
+_JSON = ("metrics", "alerts", "schedule", "detail", "extra")
+_EMPTY = {"metrics": dict, "alerts": list, "schedule": list, "detail": dict, "extra": dict}
 
 
 def _row(d):
@@ -26,7 +26,7 @@ def _row(d):
 
 _FIELDS = ["name", "machine", "live", "brand", "state", "app_version", "last_seen_ts", "obs_thumb_ts",
            "phone_thumb_ts", "platform_thumb_ts", "stream_thumb_ts", "offline_alerted", "metrics_json", "alerts_json", "schedule_json",
-           "detail_json"]
+           "detail_json", "extra_json"]  # fix10h: extra = {ai, faq, esync, evoice} (eC Live 1.0.21)
 
 
 def local_dt(ts):

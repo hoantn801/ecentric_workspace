@@ -135,6 +135,54 @@ class FakeSettings:
         return d
 
 
+class FakeIncidents:
+    """fix10h: EC AI Live Incident trong bo nho."""
+
+    def __init__(self):
+        self.rows, self.purged, self.n = {}, None, 0
+
+    def insert(self, row):
+        self.n += 1
+        name = "INC%03d" % self.n
+        d = {"name": name, "sent_count": 0, "acked_by": "", "ack_note": "", "resolve_text": ""}
+        for k in ("opened_ts", "first_sent_ts", "last_sent_ts", "acked_ts", "escalated_ts", "resolved_ts", "missing_since_ts"):
+            d[k] = 0.0
+        d.update(row)
+        self.rows[name] = d
+        return name
+
+    def update(self, name, vals):
+        self.rows[name].update(vals)
+
+    def get(self, name):
+        r = self.rows.get(name)
+        return dict(r) if r else None
+
+    def _open(self):
+        return [dict(r) for r in self.rows.values() if r["status"] in (C.IncStatus.OPEN, C.IncStatus.ACKED)]
+
+    def open_by_key(self, key):
+        r = [x for x in self._open() if x["incident_key"] == key]
+        return r[-1] if r else None
+
+    def open_all(self, kind=None):
+        return [x for x in self._open() if not kind or x["kind"] == kind]
+
+    def by_status(self, status, since_ts, limit=200):
+        return [dict(r) for r in self.rows.values() if r["status"] == status
+                and (status != C.IncStatus.DONE or r["resolved_ts"] >= since_ts)][:limit]
+
+    def counts(self, since_ts):
+        out = {}
+        for r in self.rows.values():
+            if r["status"] != C.IncStatus.DONE or r["resolved_ts"] >= since_ts:
+                out[r["status"]] = out.get(r["status"], 0) + 1
+        return out
+
+    def purge(self, before):
+        self.purged = before
+
+
 class FakeSender:
     def __init__(self):
         self.sent = []
@@ -156,14 +204,14 @@ class World:
     def __init__(self, t0):
         self.clock = Clock(t0)
         self.health, self.samples, self.thumbs, self.alerts = FakeHealth(), FakeSamples(), FakeThumbs(), FakeAlerts()
-        self.settings, self.sender = FakeSettings(), FakeSender()
+        self.settings, self.sender, self.incidents = FakeSettings(), FakeSender(), FakeIncidents()
 
     def push(self, payload, user="u1"):
         return PushHeartbeatService(FakeMachines(), self.health, self.samples, self.thumbs, self.clock).execute(user, payload)
 
     def tick(self):
         svc = MonitorTickService(self.health, self.samples, self.alerts, self.settings, self.sender, self.clock, "https://x/m",
-                                 FakeMachines())
+                                 FakeMachines(), self.incidents)
         return sum(svc.check(r) for r in svc.targets())
 
     def wall(self, roles=VIEW, **kw):
@@ -340,7 +388,8 @@ class TestTick(unittest.TestCase):
 
     def test_purge(self):
         w = World(T0)
-        svc = MonitorTickService(w.health, w.samples, w.alerts, w.settings, w.sender, w.clock, machines=FakeMachines())
+        svc = MonitorTickService(w.health, w.samples, w.alerts, w.settings, w.sender, w.clock, machines=FakeMachines(),
+                                 incidents=w.incidents)
         svc.purge()
         self.assertEqual(w.samples.purged, T0 - 86400)
         self.assertEqual(w.alerts.purged, T0 - 14 * 86400)

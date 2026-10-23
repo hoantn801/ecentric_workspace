@@ -23,7 +23,7 @@ class TestHeartbeat1021(unittest.TestCase):
                on_air=[{"live": "L1", "brand": "friso", "mode": "camera", "talking": True, "since": "2026-10-19T12:55:00.000Z"}],
                problems=[{"rule": "network_down", "level": "critical", "text": "Mất mạng", "live": None},
                          {"rule": "cpu_high", "level": "warn", "text": "CPU 97%"}])
-        self.assertEqual(w.m["hb_lives"], [{"live": "L1", "brand": "friso"}])
+        self.assertEqual(w.m["hb_lives"], [{"live": "L1", "brand": "friso", "since": 1792414500.0, "mode": "camera"}])
         self.assertEqual(w.m["hb_alerts"], ["Mất mạng (đỏ)", "CPU 97% (vàng)"])
         self.assertEqual(w.at(4).watch(), 1)
         self.assertIn("Báo động khẩn cuối cùng: Mất mạng.", w.last()["text"])

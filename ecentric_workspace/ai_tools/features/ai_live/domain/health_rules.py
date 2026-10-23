@@ -126,6 +126,30 @@ def merge_alerts(app_alerts, server_reasons, prev, now):
     return out
 
 
+def _txt(v, n=60):
+    return str(v)[:n] if v is not None else ""
+
+
+def sanitize_extra(lv, prev):
+    """fix10h - truong them cua eC Live 1.0.21 cho man Truc live: ai (chinh / du phong), faq (de bam 'Phat FAQ'),
+    esync / evoice. Nhip rut gon khong co faq -> giu faq lan truoc."""
+    out = dict(prev or {})
+    ai = lv.get("ai")
+    if isinstance(ai, dict):
+        mode = str(ai.get("mode") or "").lower()
+        out["ai"] = {"mode": mode if mode in ("main", "backup") else "", "label": _txt(ai.get("label") or ai.get("model")),
+                     "provider": _txt(ai.get("provider"), 30)}
+    if isinstance(lv.get("faq"), list):
+        out["faq"] = [{"id": _txt(f.get("id"), 40), "title": _txt(f.get("title"), 80)}
+                      for f in lv["faq"][:C.MAX_FAQ_ITEMS] if isinstance(f, dict) and (f.get("id") or f.get("title"))]
+    for k in ("esync", "evoice"):
+        v = lv.get(k)
+        if isinstance(v, dict):
+            out[k] = {kk: (vv if isinstance(vv, (int, float, bool)) or vv is None else _txt(vv, 80))
+                      for kk, vv in list(v.items())[:10]}
+    return out
+
+
 def sanitize_schedule(slots):
     """[{days:[1..7] (1 = thu Hai), start:"HH:MM", end:"HH:MM"}]; thieu days = moi ngay."""
     out = []

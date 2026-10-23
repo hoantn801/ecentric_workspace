@@ -22,6 +22,7 @@
   "hb_app_started_at",
   "col_hb",
   "hb_on_air",
+  "hb_minimal",
   "hb_lives",
   "hb_alert_count",
   "hb_alerts",
@@ -290,11 +291,17 @@
    "label": "Live đang chạy (JSON)",
    "hidden": 1,
    "no_copy": 1
+  },
+  {
+   "fieldname": "hb_minimal",
+   "fieldtype": "Check",
+   "label": "Máy đang tải cao (nhịp rút gọn)",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-10-23 12:00:00.000000",
+ "modified": "2026-10-23 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "Ecentric Workspace",
  "name": "EC AI Live Machine",

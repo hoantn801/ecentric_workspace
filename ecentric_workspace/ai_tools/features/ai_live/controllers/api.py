@@ -310,3 +310,47 @@ def sync_overview():
 def month_schedule(month: str = None, view: str = "draft"):
     from ecentric_workspace.ai_tools.features.ai_live.application.month_schedule_service import MonthScheduleService
     return _run(lambda: MonthScheduleService().execute(_roles(), month or None, str(view or "draft")))
+
+
+# ------------------------------------------------------------------ Truc live: su co, ke hoach vs thuc te, wallboard (fix10h) ---
+
+@frappe.whitelist(methods=["POST"])
+def push_slot_report(machine: str = None, slots=None):
+    from ecentric_workspace.ai_tools.features.ai_live.application.push_slot_report_service import PushSlotReportService
+    return _run(lambda: PushSlotReportService().execute(frappe.session.user, str(machine or ""), slots))
+
+
+@frappe.whitelist(methods=["GET"])
+def wallboard(brand: str = None, machine: str = None):
+    from ecentric_workspace.ai_tools.features.ai_live.application.wallboard_service import WallboardService
+    return _run(lambda: WallboardService().execute(_roles(), brand or None, machine or None))
+
+
+@frappe.whitelist(methods=["POST"])
+def wall_command(machine: str = None, live: str = None, action: str = None, args=None):
+    from ecentric_workspace.ai_tools.features.ai_live.application.queue_command_service import QueueCommandService
+    return _run(lambda: QueueCommandService().execute_wall(frappe.session.user, _roles(), machine, live, action, args))
+
+
+@frappe.whitelist(methods=["GET"])
+def command_status(ids=None):
+    from ecentric_workspace.ai_tools.features.ai_live.application.queue_command_service import CommandStatusService
+    return _run(lambda: CommandStatusService().execute(_roles(), ids))
+
+
+@frappe.whitelist(methods=["GET"])
+def list_incidents(status: str = "open", days: int = 7):
+    from ecentric_workspace.ai_tools.features.ai_live.application.incidents_service import ListIncidentsService
+    return _run(lambda: ListIncidentsService().execute(_roles(), status or "open", int(days or 7)))
+
+
+@frappe.whitelist(methods=["POST"])
+def ack_incident(name: str = None, note: str = None):
+    from ecentric_workspace.ai_tools.features.ai_live.application.incidents_service import AckIncidentService
+    return _run(lambda: AckIncidentService().execute(frappe.session.user, _roles(), name, note or ""))
+
+
+@frappe.whitelist(methods=["GET"])
+def schedule_actuals(date: str = None):
+    from ecentric_workspace.ai_tools.features.ai_live.application.schedule_actuals_service import ScheduleActualsService
+    return _run(lambda: ScheduleActualsService().execute(_roles(), date or None))

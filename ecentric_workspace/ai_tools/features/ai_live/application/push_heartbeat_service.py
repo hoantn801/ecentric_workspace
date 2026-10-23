@@ -80,6 +80,7 @@ class PushHeartbeatService:
         row = {"machine": machine, "live": live, "brand": brand, "state": state, "last_seen_ts": now,
                "app_version": str(lv.get("app_version") or "")[:20], "metrics": metrics, "alerts": alerts,
                "schedule": R.sanitize_schedule(lv["schedule"]) if "schedule" in lv else (prev.get("schedule") or [])}
+        row["extra"] = R.sanitize_extra(lv, prev.get("extra"))          # fix10h: ai / faq / esync / evoice (1.0.21)
         if "detail" in lv:                       # fix10d: chi tiet phien (dang phat, sap phat, hang cau hoi...) - ghi de
             row["detail"] = S.sanitize_detail(lv.get("detail"), now) or {}
         obs = lv.get("thumb_b64") or (top.get(live) if isinstance(top, dict) else (top if n_lives == 1 else None))

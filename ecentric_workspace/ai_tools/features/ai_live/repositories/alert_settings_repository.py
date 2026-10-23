@@ -7,7 +7,8 @@ from ecentric_workspace.ai_tools.features.ai_live import constants as C
 def _channel(row, with_secrets):
     d = {"enabled": int(row.enabled or 0), "group_name": row.group_name or "", "brands": row.brands or "",
          "teams_enabled": int(row.teams_enabled or 0), "teams_format": row.teams_format or "",
-         "zalo_enabled": int(row.zalo_enabled or 0), "zalo_chat_id": row.zalo_chat_id or ""}
+         "zalo_enabled": int(row.zalo_enabled or 0), "zalo_chat_id": row.zalo_chat_id or "",
+         "escalation_only": int(row.get("escalation_only") or 0)}
     if with_secrets:
         d["teams_webhook_url"] = row.get_password("teams_webhook_url", raise_exception=False) or ""
         d["zalo_bot_token"] = row.get_password("zalo_bot_token", raise_exception=False) or ""
@@ -29,6 +30,7 @@ class AlertSettingsRepository:
              "machine_repeat_min": int(doc.get("machine_repeat_minutes") or C.MACHINE_REPEAT_MIN),
              "night_repeat_min": int(doc.get("night_repeat_minutes") or C.NIGHT_REPEAT_MIN),
              "night_start": doc.get("night_start") or C.NIGHT_START, "night_end": doc.get("night_end") or C.NIGHT_END,
+             "incident_escalate_min": int(doc.get("incident_escalate_minutes") or C.INC_ESCALATE_MIN),
              "channels": [_channel(r, with_secrets) for r in (doc.get("channels") or [])]}
         if with_secrets:
             d["teams_webhook_url"] = doc.get_password("teams_webhook_url", raise_exception=False) or ""

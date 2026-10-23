@@ -21,7 +21,7 @@ def on_air_lives(payload, lives):
     # 1.0.21: on_air = [{live, brand, mode, talking, since}]; ban cu: true / danh sach ma live
     objs = [x for x in flag if isinstance(x, dict) and C.LIVE_RE.match(str(x.get("live") or ""))] if isinstance(flag, list) else []
     named = {str(x) for x in flag if not isinstance(x, dict)} if isinstance(flag, list) else set()
-    out = [{"live": str(x["live"]), "brand": str(x.get("brand") or "")[:40]} for x in objs]
+    out = [_air(x) for x in objs]
     seen = {x["live"] for x in out}
     for lv in lives:
         if lv["live"] not in seen and (str(lv.get("state") or "").lower() in C.ON_AIR_STATES or str(lv["live"]) in named
@@ -29,6 +29,17 @@ def on_air_lives(payload, lives):
             out.append({"live": str(lv["live"]), "brand": str(lv.get("brand") or "")[:40]})
             seen.add(lv["live"])
     return out[:C.MAX_HB_LIVES]
+
+
+def _air(x):
+    """1 phan tu on_air (1.0.21) -> {live, brand[, since, mode]} (since = epoch giay, cho dong ho 'len song bao lau')."""
+    d = {"live": str(x["live"]), "brand": str(x.get("brand") or "")[:40]}
+    since = R.epoch(x.get("since_iso") or x.get("since"))
+    if since:
+        d["since"] = since
+    if str(x.get("mode") or "") in ("camera", "rtmp", "both", "talk"):
+        d["mode"] = str(x["mode"])
+    return d
 
 
 def active_alerts(lives, problems=None):
@@ -60,7 +71,8 @@ def heartbeat_vals(payload, lives, machine, now):
             "hb_version": str(app.get("version") or "")[:20], "hb_boot_ts": R.epoch(payload.get("boot_at")) or 0,
             "hb_started_ts": R.epoch(payload.get("app_started_at")) or 0, "hb_on_air": 1 if lives_now else 0,
             "hb_lives": lives_now, "hb_alerts": active_alerts(lives, payload.get("problems")),
-            "hb_resume_crash": 1 if resume.get("from_crash") else 0, "hb_resume": _resume_text(resume)}
+            "hb_resume_crash": 1 if resume.get("from_crash") else 0, "hb_resume": _resume_text(resume),
+            "hb_minimal": 1 if payload.get("minimal") else 0}
     at = R.epoch(payload.get("at"))
     if at:                                       # fix10g: dong ho may lech so voi ERP (lich chay theo gio may)
         vals["hb_clock_skew_s"] = round(at - now, 1)
@@ -111,8 +123,9 @@ def expected_lives(m, sessions, health_rows, now):
     """Live cua may luc nay: dang len song o nhip cuoi + phien ERP dang trong khung gio + lich app gui kem.
     Tra [{live, brand, name}] khong trung ma live."""
     code, out = m["machine_code"], {}
+    titles = {s["id"]: s.get("title") or s["id"] for s in sessions or []}     # fix10h: ten phien ERP thay ma live
     for lv in m.get("hb_lives") or []:
-        out.setdefault(lv["live"], {"live": lv["live"], "brand": lv.get("brand") or "", "name": lv["live"]})
+        out.setdefault(lv["live"], {"live": lv["live"], "brand": lv.get("brand") or "", "name": titles.get(lv["live"], lv["live"])})
     for s in sessions or []:
         if s.get("machine") == code and s.get("enabled") and S.window_now(s.get("slots") or [], now):
             out[s["id"]] = {"live": s["id"], "brand": s.get("brand") or "", "name": s.get("title") or s["id"]}

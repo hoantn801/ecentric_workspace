@@ -55,6 +55,18 @@ class CommandRepository:
                               order_by="created_ts desc", limit_page_length=limit)
         return [_row(r) for r in rows]
 
+    def since(self, ts, limit=500):
+        """fix10h: lenh moi tao tu ts (o tren man Truc live hien trang thai lenh 1 cham)."""
+        import frappe
+        rows = frappe.get_all(C.COMMAND, filters={"created_ts": [">=", ts]}, fields=FIELDS, order_by="created_ts desc",
+                              limit_page_length=limit)
+        return [_row(r) for r in rows]
+
+    def many(self, names):
+        import frappe
+        names = [str(n) for n in (names or [])][:50]
+        return [_row(r) for r in frappe.get_all(C.COMMAND, filters={"name": ["in", names]}, fields=FIELDS)] if names else []
+
     def purge(self, before_ts):
         import frappe
         frappe.db.delete(C.COMMAND, {"created_ts": ["<", before_ts]})

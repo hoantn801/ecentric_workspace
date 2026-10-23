@@ -8,7 +8,7 @@ from ecentric_workspace.ai_tools.features.ai_live import constants as C
 _TS = ("hb_last_seen_ts", "hb_boot_ts", "hb_started_ts", "watch_lost_ts", "watch_back_ts", "watch_sent_ts",
        "watch_lost_boot_ts", "watch_lost_started_ts", "cfg_fetched_ts", "hb_clock_skew_s")
 _HB_FIELDS = list(_TS) + ["hb_state", "hb_version", "hb_on_air", "hb_lives_json", "hb_resume_crash", "watch_brands",
-                          "cfg_version", "hb_alerts", "hb_resume"]
+                          "cfg_version", "hb_alerts", "hb_resume", "hb_minimal"]
 #: truong epoch -> truong Datetime de nguoi xem tren Desk
 _DT = {"hb_last_seen_ts": "hb_last_seen", "hb_boot_ts": "hb_boot_at", "hb_started_ts": "hb_app_started_at",
        "cfg_fetched_ts": "cfg_fetched_at"}
@@ -17,7 +17,7 @@ _DT = {"hb_last_seen_ts": "hb_last_seen", "hb_boot_ts": "hb_boot_at", "hb_starte
 def _hb(d):
     out = {k: float(d.get(k) or 0) for k in _TS}
     out.update({"hb_state": d.get("hb_state") or "", "hb_version": d.get("hb_version") or "",
-                "hb_on_air": int(d.get("hb_on_air") or 0), "hb_resume_crash": int(d.get("hb_resume_crash") or 0),
+                "hb_on_air": int(d.get("hb_on_air") or 0), "hb_minimal": int(d.get("hb_minimal") or 0), "hb_resume_crash": int(d.get("hb_resume_crash") or 0),
                 "cfg_version": int(d.get("cfg_version") or 0),
                 "watch_brands": [b for b in str(d.get("watch_brands") or "").splitlines() if b],
                 "hb_alerts": [a for a in str(d.get("hb_alerts") or "").splitlines() if a], "hb_resume": d.get("hb_resume") or ""})

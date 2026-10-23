@@ -25,5 +25,6 @@ class MonitorDetailService:
         hist = self.alerts.for_key(row["key"], now - 86400)
         out = tile(row, ev, hist[0] if hist else None)
         out.update({"samples": self.samples.since(row["key"], now - 3600), "alerts": hist,
-                    "schedule": row.get("schedule") or [], "server_time": now})
+                    "schedule": row.get("schedule") or [], "server_time": now,
+                    "faq": (row.get("extra") or {}).get("faq") or []})      # fix10h: chon FAQ cho lenh "Phat FAQ"
         return out

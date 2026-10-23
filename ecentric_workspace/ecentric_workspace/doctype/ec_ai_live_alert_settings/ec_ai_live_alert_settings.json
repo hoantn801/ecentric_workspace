@@ -29,6 +29,7 @@
   "night_repeat_minutes",
   "night_start",
   "night_end",
+  "incident_escalate_minutes",
   "sec_channels",
   "channels",
   "sec_help",
@@ -188,13 +189,20 @@
    "fieldtype": "HTML",
    "label": "",
    "options": "<div class=\"text-muted small\"><p><b>Teams</b>: trong kênh trực, mở <i>Workflows</i> → mẫu <i>Post to a channel when a webhook request is received</i> → chép link webhook vào ô trên, để Định dạng = workflows. Webhook kiểu cũ (Incoming Webhook connector) thì chọn messagecard.</p><p><b>Zalo</b>: tạo bot tại bot.zaloplatforms.com, thêm bot vào nhóm trực, dán token bot và ID nhóm (chat_id). Địa chỉ API và đường dẫn gửi để sẵn theo kiểu Telegram, cần kiểm lại với bot thật bằng nút <b>Gửi thử</b> trên /ai-video#/monitor.</p><p>Key và token lưu mã hoá, không trả về trình duyệt, không ghi log.</p></div>"
+  },
+  {
+   "fieldname": "incident_escalate_minutes",
+   "fieldtype": "Int",
+   "label": "KHẨN chưa ai xác nhận sau (phút) thì leo thang",
+   "default": "10",
+   "description": "Gửi thêm 1 tin [LEO THANG] cho kênh chung và các nhóm \"Chỉ nhận tin leo thang\" (quản lý). Xác nhận sự cố ở /ai-video#/monitor/incidents."
   }
  ],
  "index_web_pages_for_search": 0,
  "issingle": 1,
  "istable": 0,
  "links": [],
- "modified": "2026-10-23 00:00:00.000000",
+ "modified": "2026-10-23 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "Ecentric Workspace",
  "name": "EC AI Live Alert Settings",

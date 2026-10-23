@@ -11,8 +11,8 @@ from ecentric_workspace.ai_tools.features.ai_live.application.push_heartbeat_ser
 from ecentric_workspace.ai_tools.features.ai_live.application.watch_machines_service import WatchMachinesService
 from ecentric_workspace.ai_tools.features.ai_live.domain import alert_routing as A
 from ecentric_workspace.ai_tools.features.ai_live.domain import machine_watch_rules as W
-from ecentric_workspace.ai_tools.tests.test_ai_live_monitor import (ADMIN, Clock, FakeAlerts, FakeHealth, FakeSamples,
-                                                                    FakeSettings, FakeThumbs, live, vn_ts)
+from ecentric_workspace.ai_tools.tests.test_ai_live_monitor import (ADMIN, Clock, FakeAlerts, FakeHealth, FakeIncidents,
+                                                                    FakeSamples, FakeSettings, FakeThumbs, live, vn_ts)
 
 T0 = vn_ts(2026, 10, 19, 20, 0)      # thu Hai 20:00 gio VN
 NIGHT = vn_ts(2026, 10, 20, 2, 0)    # thu Ba 02:00
@@ -78,7 +78,7 @@ class World:
         self.clock = Clock(t0)
         self.machines, self.sessions = Machines(), Sessions(sessions)
         self.health, self.samples, self.thumbs, self.alerts = FakeHealth(), FakeSamples(), FakeThumbs(), FakeAlerts()
-        self.settings, self.sender = FakeSettings(**settings), Sender()
+        self.settings, self.sender, self.incidents = FakeSettings(**settings), Sender(), FakeIncidents()
 
     def push(self, lives=None, **top):
         p = dict({"machine": "MAY01", "at": self.clock.t, "app": {"version": "1.0.20", "uptimeMs": 1000},
@@ -88,12 +88,12 @@ class World:
 
     def watch(self):
         svc = WatchMachinesService(self.machines, self.sessions, self.health, self.alerts, self.settings, self.sender,
-                                   self.clock, "https://x/m")
+                                   self.clock, "https://x/m", self.incidents)
         return sum(svc.check(m) for m in svc.targets())
 
     def tick(self):
         svc = MonitorTickService(self.health, self.samples, self.alerts, self.settings, self.sender, self.clock,
-                                 "https://x/m", self.machines)
+                                 "https://x/m", self.machines, self.incidents)
         return sum(svc.check(r) for r in svc.targets())
 
     def at(self, minutes):
@@ -180,7 +180,7 @@ class TestRepeat(unittest.TestCase):
         self.assertIn("mất liên lạc từ 20:00", w.last()["text"])
 
     def test_night_every_15_minutes(self):
-        w = World(NIGHT)
+        w = World(NIGHT, incident_escalate_min=60)          # fix10h: leo thang (10 phut) test rieng o test_ai_live_incident
         w.push([live(schedule=[])])
         self.assertEqual(w.at(3.5).watch(), 1)
         self.assertEqual(sum(w.at(1).watch() for _ in range(14)), 0)

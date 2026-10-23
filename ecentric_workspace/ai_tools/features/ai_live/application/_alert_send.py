@@ -4,10 +4,10 @@ quet may im lang va nut Gui thu. sender: module infrastructure.alert_channels (t
 from ecentric_workspace.ai_tools.features.ai_live.domain import alert_routing as A
 
 
-def send_routed(sender, cfg, level, title, body, link, brands, all_groups=False):
+def send_routed(sender, cfg, level, title, body, link, brands, all_groups=False, escalation=False):
     """-> [(nhom, ma Teams, ma Zalo)]; nhom "" = kenh chung. Khong tra / khong ghi URL hay token."""
     out = []
-    for ch in A.channels_for(cfg, brands, all_groups):
+    for ch in A.channels_for(cfg, brands, all_groups, escalation):
         _, t_code = sender.send_teams(ch, level, title, body, link)
         _, z_code = sender.send_zalo(ch, title, body, link)
         out.append((ch["group"], t_code, z_code))

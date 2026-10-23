@@ -9,9 +9,10 @@ from ecentric_workspace.ai_tools.features.ai_live import constants as C
 def run():
     if frappe.conf.get(C.KILL_SWITCH):
         return
+    from ecentric_workspace.ai_tools.features.ai_live.application import _deps_monitor as D
     from ecentric_workspace.ai_tools.features.ai_live.application.monitor_tick_service import MonitorTickService
     log = frappe.logger("ai_live")
-    svc = MonitorTickService(link=frappe.utils.get_url().rstrip("/") + C.MONITOR_LINK)
+    svc = MonitorTickService(link=frappe.utils.get_url().rstrip("/") + C.MONITOR_LINK, reports=D.slot_reports())
     rows, sent, failed = svc.targets(), 0, 0
     log.info("ai_live monitor tick: start (%d live)" % len(rows))
     for row in rows:

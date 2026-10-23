@@ -452,3 +452,68 @@ MAX_HB_PROBLEMS = 30
 class ContractMsg:
     BAD_SESSION_ID = "Mã phiên live chỉ gồm chữ, số, _ và -, tối đa 32 ký tự (app eC Live bỏ qua mã khác)."
     SLOT_TOO_SHORT = "khung ngắn hơn %d phút (app eC Live sẽ từ chối cả lịch)"
+
+
+# ------------------------------------------------------------------ Truc live: su co, ke hoach vs thuc te, wallboard (fix10h) ---
+INCIDENT = "EC AI Live Incident"
+SLOT_REPORT = "EC AI Live Slot Report"
+
+
+class IncKind:
+    SILENT = "machine_silent"      # may im lang (ERP tu sinh, W17)
+    FORWARD = "forward"            # app khong tu gui duoc Teams/Zalo -> ERP gui ho (lives[].alerts[].forward)
+
+
+class IncStatus:
+    OPEN = "Open"
+    ACKED = "Acknowledged"
+    DONE = "Resolved"
+
+
+INC_STATUS_TEXT = {IncStatus.OPEN: "Đang mở", IncStatus.ACKED: "Đã xác nhận", IncStatus.DONE: "Đã xong"}
+INC_STATUS_KEYS = {"open": IncStatus.OPEN, "acked": IncStatus.ACKED, "done": IncStatus.DONE}
+#: KHAN chua ai xac nhan sau N phut -> gui them cho kenh "nhan leo thang" (doi trong Alert Settings).
+INC_ESCALATE_MIN = 10
+INC_KEEP_DAYS = 90
+MAX_INC_NOTE = 500
+INC_LIST_MAX = 200
+
+
+class IncMsg:
+    NOT_FOUND = "Không tìm thấy sự cố %s."
+    DONE = "Sự cố này đã xong – không cần xác nhận."
+    ACKED = "Sự cố này đã được %s xác nhận."
+    NEED_NOTE = "Sự cố KHẨN cần ghi chú khi xác nhận (đã làm gì / ai đang xử lý)."
+    FWD = "%s (app trên máy không tự gửi được, ERP gửi hộ)."
+    FWD_STILL = " Vẫn còn sau %d phút."
+    FWD_OK = "Đã ổn: %s (sau %d phút)."
+    FWD_STOPPED = "Đóng báo động: %s – live đã dừng gửi tín hiệu (máy vẫn chạy)."
+    ESC_TITLE = "[LEO THANG] %s"
+    ESC = "%s – chưa ai xác nhận sau %d phút. Xác nhận trên ERP: Trực live → Sự cố."
+    ACK_NOTE = " (Đã xác nhận: %s%s.)"
+    BAD_STATUS = "Trạng thái phải là open, acked hoặc done."
+
+
+#: push_slot_report (hop dong A8): app gui toi 20 khung / lan; ERP nhan toi 100, thua bo qua (bao lai so bo).
+MAX_SLOT_REPORTS = 100
+SLOT_STATUSES = ("pending", "running", "on_time", "late", "missed", "ended_early", "overran", "stop_failed")
+INTERRUPT_REASONS = ("app_restart", "resume", "network", "esync_down", "host_missing", "tiktok_ended", "unknown")
+MAX_INTERRUPTIONS = 30
+#: Khung ke hoach qua gio bat dau N phut ma khong co bao cao nao -> "Khong co bao cao (may im lang?)".
+NO_REPORT_AFTER_MIN = 15
+#: start_status on_time = len song tre <= 120 s (app tinh).
+ON_TIME_S = 120
+SLOT_REPORT_KEEP_DAYS = 120
+
+
+class SlotMsg:
+    BAD = "Báo cáo khung giờ không hợp lệ: %s"
+    NONE = "Không có khung giờ nào trong báo cáo."
+
+
+#: Wallboard (B2): poll 15 s, lenh 1 cham chi 4 lenh nay; lenh gan day hien tren o 10 phut.
+WALL_REFRESH_S = 15
+WALL_ACTIONS = ("pause_ai", "resume_ai", "skip_clip", "play_faq")
+WALL_CMD_WINDOW_S = 600
+WALL_WAIT_AHEAD_S = 6 * 3600
+MAX_FAQ_ITEMS = 100

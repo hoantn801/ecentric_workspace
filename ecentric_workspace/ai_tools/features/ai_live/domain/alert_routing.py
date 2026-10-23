@@ -12,12 +12,16 @@ def brand_set(text_or_list):
     return {str(b).strip().lower() for b in items if str(b).strip()}
 
 
-def channels_for(cfg, brands, all_groups=False):
+def channels_for(cfg, brands, all_groups=False, escalation=False):
     """-> [cfg kenh] (cung khoa voi cfg chung: teams_enabled, teams_webhook_url, teams_format, zalo_enabled,
-    zalo_bot_token, zalo_chat_id, zalo_api_base, zalo_send_path, group). all_groups: gui thu moi nhom."""
+    zalo_bot_token, zalo_chat_id, zalo_api_base, zalo_send_path, group). all_groups: gui thu moi nhom.
+    fix10h: nhom "chi nhan leo thang" (quan ly) chi nhan tin leo thang (escalation=True); tin leo thang gui kenh chung
+    + cac nhom leo thang (khong gui lai cho nhom brand thuong da nhan tin goc)."""
     want, out = brand_set(brands), [dict(cfg, group="")]
     for g in cfg.get("channels") or []:
         if not g.get("enabled"):
+            continue
+        if not all_groups and escalation != "both" and bool(g.get("escalation_only")) != bool(escalation):
             continue
         gb = brand_set(g.get("brands"))
         if all_groups or not gb or gb & want:

@@ -35,3 +35,25 @@ def settings():
 def sender():
     from ecentric_workspace.ai_tools.features.ai_live.infrastructure import alert_channels
     return alert_channels
+
+
+def incidents():
+    """fix10h: su co may im lang / bao dong gui ho (xac nhan, leo thang)."""
+    from ecentric_workspace.ai_tools.features.ai_live.repositories.incident_repository import IncidentRepository
+    return IncidentRepository()
+
+
+def slot_reports():
+    """fix10h: ke hoach vs thuc te tung khung (push_slot_report)."""
+    from ecentric_workspace.ai_tools.features.ai_live.repositories.slot_report_repository import SlotReportRepository
+    return SlotReportRepository()
+
+
+def costs():
+    from ecentric_workspace.ai_tools.features.ai_live.repositories.cost_log_repository import CostLogRepository
+    return CostLogRepository()
+
+
+def brands():
+    from ecentric_workspace.ai_tools.features.ai_live.repositories.brand_config_repository import BrandConfigRepository
+    return BrandConfigRepository()

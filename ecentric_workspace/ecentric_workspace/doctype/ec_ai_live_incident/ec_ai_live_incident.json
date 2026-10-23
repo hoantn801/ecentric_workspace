@@ -1,0 +1,269 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-10-23 18:00:00.000000",
+ "description": "Sự cố AI Live (máy im lặng / báo động app nhờ ERP gửi hộ): xác nhận dừng nhắc lại, KHẨN chưa xác nhận sau 10 phút thì leo thang. Sửa qua trang /ai-video#/monitor/incidents. Tự xoá sau 90 ngày.",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "opened_at",
+  "status",
+  "level",
+  "kind",
+  "machine",
+  "live",
+  "brand",
+  "code",
+  "title",
+  "text",
+  "col_1",
+  "sent_count",
+  "acked_by",
+  "acked_at",
+  "ack_note",
+  "resolved_at",
+  "resolve_text",
+  "sec_sys",
+  "incident_key",
+  "opened_ts",
+  "first_sent_ts",
+  "last_sent_ts",
+  "acked_ts",
+  "escalated_ts",
+  "resolved_ts",
+  "missing_since_ts"
+ ],
+ "fields": [
+  {
+   "fieldname": "opened_at",
+   "fieldtype": "Datetime",
+   "label": "Mở lúc",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Trạng thái",
+   "read_only": 1,
+   "options": "Open\nAcknowledged\nResolved",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "default": "Open"
+  },
+  {
+   "fieldname": "level",
+   "fieldtype": "Data",
+   "label": "Mức",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "kind",
+   "fieldtype": "Select",
+   "label": "Loại",
+   "read_only": 1,
+   "options": "machine_silent\nforward",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "machine",
+   "fieldtype": "Data",
+   "label": "Máy",
+   "read_only": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "live",
+   "fieldtype": "Data",
+   "label": "Live",
+   "read_only": 1
+  },
+  {
+   "fieldname": "brand",
+   "fieldtype": "Data",
+   "label": "Brand",
+   "read_only": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "code",
+   "fieldtype": "Data",
+   "label": "Mã báo động",
+   "read_only": 1
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Tiêu đề",
+   "read_only": 1
+  },
+  {
+   "fieldname": "text",
+   "fieldtype": "Small Text",
+   "label": "Nội dung",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "col_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "sent_count",
+   "fieldtype": "Int",
+   "label": "Số tin đã gửi",
+   "read_only": 1
+  },
+  {
+   "fieldname": "acked_by",
+   "fieldtype": "Data",
+   "label": "Người xác nhận",
+   "read_only": 1
+  },
+  {
+   "fieldname": "acked_at",
+   "fieldtype": "Datetime",
+   "label": "Xác nhận lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "ack_note",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú xác nhận",
+   "read_only": 1
+  },
+  {
+   "fieldname": "resolved_at",
+   "fieldtype": "Datetime",
+   "label": "Xong lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "resolve_text",
+   "fieldtype": "Small Text",
+   "label": "Tin đóng sự cố",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sec_sys",
+   "fieldtype": "Section Break",
+   "label": "Kỹ thuật",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "incident_key",
+   "fieldtype": "Data",
+   "label": "Khoá sự cố",
+   "read_only": 1,
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "opened_ts",
+   "fieldtype": "Float",
+   "label": "Mở lúc (epoch)",
+   "read_only": 1,
+   "hidden": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "last_sent_ts",
+   "fieldtype": "Float",
+   "label": "Gửi gần nhất (epoch)",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "acked_ts",
+   "fieldtype": "Float",
+   "label": "Xác nhận (epoch)",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "escalated_ts",
+   "fieldtype": "Float",
+   "label": "Leo thang (epoch)",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "resolved_ts",
+   "fieldtype": "Float",
+   "label": "Xong (epoch)",
+   "read_only": 1,
+   "hidden": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "missing_since_ts",
+   "fieldtype": "Float",
+   "label": "Mã biến mất từ (epoch)",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "first_sent_ts",
+   "fieldtype": "Float",
+   "label": "Báo lần đầu (epoch)",
+   "read_only": 1,
+   "hidden": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-10-23 18:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC AI Live Incident",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  },
+  {
+   "role": "EC AI Video Admin",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  },
+  {
+   "role": "EC AI Content",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 0,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  }
+ ],
+ "sort_field": "opened_at",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}
