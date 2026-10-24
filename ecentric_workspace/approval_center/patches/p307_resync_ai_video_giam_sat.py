@@ -1,5 +1,5 @@
 # Copyright (c) 2026, eCentric and contributors
-"""p299_resync_ai_video_giam_sat: trang /ai-video (18/10/2026): them "Giam sat live" (#/monitor).
+"""p307_resync_ai_video_giam_sat: trang /ai-video (18/10/2026): them "Giam sat live" (#/monitor).
 - Tuong o: moi live tren moi may phat 1 o (anh OBS + anh dien thoai neu co, mau do / vang / on / ngoai gio,
   khung/giay, % rot khung, % GPU, kbps, comment gan nhat, bao dong gan nhat); loc theo muc + brand; tu lam moi 15 s.
 - Bam o: chi tiet (bieu do 1 gio, lich su bao dong 24 gio). Nut "Gui thu bao dong" + link Cai dat bao dong.
@@ -15,6 +15,6 @@ def execute():
     if not frappe.db.exists("DocType", "Web Page"):
         return
     try:
-        frappe.logger("ai_tools").info("p299_resync_ai_video_giam_sat: %s" % (page_sync.sync() or {}))
+        frappe.logger("ai_tools").info("p307_resync_ai_video_giam_sat: %s" % (page_sync.sync() or {}))
     except Exception:
-        frappe.log_error(title="p299_resync_ai_video_giam_sat")
+        frappe.log_error(title="p307_resync_ai_video_giam_sat")

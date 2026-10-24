@@ -1,5 +1,5 @@
 # Copyright (c) 2026, eCentric and contributors
-"""p300_resync_ai_video_phien_live: trang /ai-video (18/10/2026): them quan ly phien live tren ERP.
+"""p308_resync_ai_video_phien_live: trang /ai-video (18/10/2026): them quan ly phien live tren ERP.
 - "Phien live" (#/lives): danh sach moi phien (brand, san, may, trang thai, khung ke tiep, nguoi xem, chi phi hom nay,
   dang phat), loc brand / san / may / trang thai, bat-tat hang loat; nut "Xem nhu khach" (#/watch): tuong anh phia
   khach cua moi phien dang live (anh tu san -> luong TikTok -> dien thoai), nhan nguon + tuoi anh, mat hinh > 2 phut.
@@ -18,6 +18,6 @@ def execute():
     if not frappe.db.exists("DocType", "Web Page"):
         return
     try:
-        frappe.logger("ai_tools").info("p300_resync_ai_video_phien_live: %s" % (page_sync.sync() or {}))
+        frappe.logger("ai_tools").info("p308_resync_ai_video_phien_live: %s" % (page_sync.sync() or {}))
     except Exception:
-        frappe.log_error(title="p300_resync_ai_video_phien_live")
+        frappe.log_error(title="p308_resync_ai_video_phien_live")
