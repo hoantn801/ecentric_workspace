@@ -1,0 +1,159 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-10-18 00:00:00.000000",
+ "description": "Lệnh từ trang Phiên live cho app trên máy phát (tạm dừng / tiếp tục AI, bỏ clip, phát FAQ ngay). Tự xoá sau 7 ngày.",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "live",
+  "machine",
+  "action",
+  "args_json",
+  "status",
+  "col_1",
+  "created_ts",
+  "sent_ts",
+  "done_ts",
+  "result",
+  "requested_by"
+ ],
+ "fields": [
+  {
+   "fieldname": "live",
+   "fieldtype": "Data",
+   "label": "Phiên",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1,
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "machine",
+   "fieldtype": "Data",
+   "label": "Máy phát",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1,
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "action",
+   "fieldtype": "Select",
+   "label": "Lệnh",
+   "options": "pause_ai\nresume_ai\nskip_clip\nplay_faq\nstart_race\nstop_race",
+   "in_list_view": 1,
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "args_json",
+   "fieldtype": "Small Text",
+   "label": "Tham số (JSON)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Trạng thái",
+   "options": "Queued\nSent\nDone\nFailed\nExpired",
+   "default": "Queued",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "created_ts",
+   "fieldtype": "Float",
+   "label": "Tạo lúc (epoch)",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "sent_ts",
+   "fieldtype": "Float",
+   "label": "App nhận lúc (epoch)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "done_ts",
+   "fieldtype": "Float",
+   "label": "Xong lúc (epoch)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "result",
+   "fieldtype": "Data",
+   "label": "Kết quả",
+   "read_only": 1
+  },
+  {
+   "fieldname": "requested_by",
+   "fieldtype": "Link",
+   "label": "Người bấm",
+   "options": "User",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-10-18 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC AI Live Command",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  },
+  {
+   "role": "EC AI Video Admin",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  },
+  {
+   "role": "EC AI Content",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 0,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

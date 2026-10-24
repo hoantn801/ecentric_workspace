@@ -1,0 +1,173 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-10-17 00:00:00.000000",
+ "description": "Bộ live: video chính / FAQ / câu chung của một brand, dựng trên máy chạy video, app eCentric AI Live tải về.",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "brand",
+  "title",
+  "status",
+  "host_key",
+  "voice_id",
+  "voice_provider",
+  "col_1",
+  "mode",
+  "break_sec",
+  "background",
+  "bake_bg",
+  "sec_data",
+  "products_json",
+  "faq_json",
+  "generic_json",
+  "state_json"
+ ],
+ "fields": [
+  {
+   "fieldname": "brand",
+   "fieldtype": "Data",
+   "label": "Mã brand",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Tên Bộ live",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Data",
+   "label": "Trạng thái",
+   "read_only": 1,
+   "in_list_view": 1,
+   "default": "Nháp"
+  },
+  {
+   "fieldname": "host_key",
+   "fieldtype": "Data",
+   "label": "Host"
+  },
+  {
+   "fieldname": "voice_id",
+   "fieldtype": "Data",
+   "label": "Voice ID"
+  },
+  {
+   "fieldname": "voice_provider",
+   "fieldtype": "Data",
+   "label": "Nhà cung cấp giọng"
+  },
+  {
+   "fieldname": "col_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "mode",
+   "fieldtype": "Select",
+   "label": "Chế độ",
+   "options": "full\nlite",
+   "default": "full"
+  },
+  {
+   "fieldname": "break_sec",
+   "fieldtype": "Select",
+   "label": "Khoảng nghỉ (giây)",
+   "options": "20\n25\n30\n35",
+   "default": "20"
+  },
+  {
+   "fieldname": "background",
+   "fieldtype": "Attach",
+   "label": "Nền"
+  },
+  {
+   "fieldname": "bake_bg",
+   "fieldtype": "Check",
+   "label": "Ghép sẵn nền (chỉ nền tĩnh)"
+  },
+  {
+   "fieldname": "sec_data",
+   "fieldtype": "Section Break",
+   "label": "Dữ liệu (trang /ai-video ghi)",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "products_json",
+   "fieldtype": "Long Text",
+   "label": "Sản phẩm (JSON)"
+  },
+  {
+   "fieldname": "faq_json",
+   "fieldtype": "Long Text",
+   "label": "FAQ (JSON)"
+  },
+  {
+   "fieldname": "generic_json",
+   "fieldtype": "Long Text",
+   "label": "Câu chung (JSON)"
+  },
+  {
+   "fieldname": "state_json",
+   "fieldtype": "Long Text",
+   "label": "Trạng thái dựng (JSON)",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-17 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC AI Live Kit",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  },
+  {
+   "role": "EC AI Video Admin",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  },
+  {
+   "role": "EC AI Content",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title",
+ "track_changes": 1
+}

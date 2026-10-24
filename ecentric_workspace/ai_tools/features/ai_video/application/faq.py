@@ -372,7 +372,7 @@ def _tick_lipsync(pdoc, doc, meta, tasks):
     st = "done" if not bad else ("error: %s" % str(bad[0].get("error") or "")[:100] if not made else "done (có lỗi)")
     st += " · %d/%d video lipsync" % (made, len(ids))
     if gpu:
-        st += " · GPU fal %ds" % round(gpu)
+        st += " · GPU %ds" % round(gpu)
     doc.items = json.dumps(meta, ensure_ascii=False)
     doc.files_json = json.dumps(files)
     doc.status = st[:140]

@@ -1,0 +1,167 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-10-18 00:00:00.000000",
+ "description": "Tin báo động AI Live đã gửi (Teams / Zalo) - chống lặp 10 phút và lịch sử trên màn Giám sát. Tự xoá sau 14 ngày.",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "sent_at",
+  "level",
+  "brand",
+  "machine",
+  "live",
+  "code",
+  "text",
+  "col_1",
+  "teams_result",
+  "zalo_result",
+  "alert_key",
+  "health_key",
+  "sent_ts"
+ ],
+ "fields": [
+  {
+   "fieldname": "sent_at",
+   "fieldtype": "Datetime",
+   "label": "Lúc gửi",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "level",
+   "fieldtype": "Data",
+   "label": "Mức",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "brand",
+   "fieldtype": "Data",
+   "label": "Brand",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "machine",
+   "fieldtype": "Data",
+   "label": "Máy",
+   "in_standard_filter": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "live",
+   "fieldtype": "Data",
+   "label": "Live",
+   "read_only": 1
+  },
+  {
+   "fieldname": "code",
+   "fieldtype": "Data",
+   "label": "Mã",
+   "read_only": 1
+  },
+  {
+   "fieldname": "text",
+   "fieldtype": "Small Text",
+   "label": "Nội dung",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "teams_result",
+   "fieldtype": "Data",
+   "label": "Kết quả Teams",
+   "read_only": 1
+  },
+  {
+   "fieldname": "zalo_result",
+   "fieldtype": "Data",
+   "label": "Kết quả Zalo",
+   "read_only": 1
+  },
+  {
+   "fieldname": "alert_key",
+   "fieldtype": "Data",
+   "label": "Khoá chống lặp",
+   "search_index": 1,
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "health_key",
+   "fieldtype": "Data",
+   "label": "Khoá live",
+   "search_index": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "sent_ts",
+   "fieldtype": "Float",
+   "label": "Lúc gửi (epoch)",
+   "search_index": 1,
+   "read_only": 1,
+   "hidden": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-10-18 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC AI Live Alert",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  },
+  {
+   "role": "EC AI Video Admin",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  },
+  {
+   "role": "EC AI Content",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 0,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  }
+ ],
+ "sort_field": "sent_at",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

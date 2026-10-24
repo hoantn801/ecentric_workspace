@@ -696,6 +696,12 @@ override_doctype_class.setdefault(
 scheduler_events["cron"]["*/10 * * * *"].append(
     "ecentric_workspace.ai_tools.features.ai_video.application.scheduler.tick")
 
+# AI Live - Giam sat (18/10, fix10c): moi phut xet tin hieu may phat. Mat tin hieu > 2 phut trong gio live
+# (mat dien / mat mang) -> bao Teams + Zalo; vang keo dai -> nang do; chong lap 10 phut. Khong co live nao
+# thi chi 1 truy van rong. Tat khan: site_config `ec_ai_live_monitor_disabled: 1`.
+scheduler_events["cron"].setdefault("*/1 * * * *", []).append(
+    "ecentric_workspace.ai_tools.features.ai_live.jobs.monitor_tick_job.run")
+
 # Nut "Nhac nguoi xu ly" dung chung cho cac form approval (01/10). Mot asset, cac trang chi goi
 # EcRemind.buttonHTML / EcRemind.run. Backend: approval_center/shared/requests/remind.py.
 web_include_js.append("ec_remind.bundle.js")
@@ -954,3 +960,10 @@ for _ec_fx in fixtures:
 # phai sua). Backend: approval_center/shared/requests/add_file.py; endpoint reporting.actions.
 web_include_js.append("ec_addfile.bundle.js")
 web_include_css.append("ec_addfile.bundle.css")
+
+# 23/10/2026 - AI Live W17 (fix10f): "may im lang". Moi phut xet nhip tim CA MAY (push_heartbeat luu len
+# EC AI Live Machine): may dang co live ma im lang > 3 phut -> bao KHAN Teams/Zalo, nhac lai 5 phut/lan
+# (01:00-07:00: 15 phut/lan), co nhip lai -> bao lien lac lai. Tat app dung cach ('stopping') thi khong bao.
+# Tat khan cung giam sat live: site_config `ec_ai_live_monitor_disabled: 1`.
+scheduler_events["cron"].setdefault("*/1 * * * *", []).append(
+    "ecentric_workspace.ai_tools.features.ai_live.jobs.watch_machines_job.run")

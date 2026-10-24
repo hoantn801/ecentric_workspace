@@ -1,0 +1,317 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:live_id",
+ "creation": "2026-10-18 00:00:00.000000",
+ "description": "Phiên live (nguồn gốc là ERP): app trên máy phát lấy danh sách phiên + lịch qua get_config. Sửa lịch nhanh ở /ai-video#/schedule.",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "live_id",
+  "title",
+  "enabled",
+  "col_1",
+  "brand",
+  "platform",
+  "shop_name",
+  "tiktok_username",
+  "sec_machine",
+  "machine",
+  "obs_port",
+  "auto_obs_start",
+  "col_2",
+  "kit",
+  "mode",
+  "sec_watch",
+  "watch_url",
+  "col_3",
+  "phone_serial",
+  "sec_slots",
+  "slots",
+  "sec_publish",
+  "published_version",
+  "published_source",
+  "held_why",
+  "col_pub",
+  "draft_by",
+  "draft_at",
+  "draft_base_version",
+  "published_ts",
+  "held_until_ts",
+  "draft_json",
+  "prev_json"
+ ],
+ "fields": [
+  {
+   "fieldname": "live_id",
+   "fieldtype": "Data",
+   "label": "Mã phiên",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1,
+   "description": "Trùng mã live trên app (chữ, số, . _ -; tối đa 40 ký tự), vd friso_tt_1"
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Tên phiên",
+   "in_list_view": 1,
+   "description": "vd Friso TikTok tối"
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Đang dùng",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "col_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "brand",
+   "fieldtype": "Link",
+   "label": "Brand",
+   "options": "EC AI Live Brand Config",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "platform",
+   "fieldtype": "Select",
+   "label": "Sàn",
+   "options": "TikTok\nShopee",
+   "reqd": 1,
+   "default": "TikTok",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "shop_name",
+   "fieldtype": "Data",
+   "label": "Tên shop / kênh"
+  },
+  {
+   "fieldname": "tiktok_username",
+   "fieldtype": "Data",
+   "label": "Username TikTok",
+   "depends_on": "eval:doc.platform==\"TikTok\"",
+   "description": "Không cần @"
+  },
+  {
+   "fieldname": "sec_machine",
+   "fieldtype": "Section Break",
+   "label": "Máy phát"
+  },
+  {
+   "fieldname": "machine",
+   "fieldtype": "Link",
+   "label": "Máy phát",
+   "options": "EC AI Live Machine",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "obs_port",
+   "fieldtype": "Int",
+   "label": "Cổng OBS WebSocket",
+   "description": "Mỗi live trên cùng máy một cổng riêng (vd 4455, 4456)."
+  },
+  {
+   "fieldname": "auto_obs_start",
+   "fieldtype": "Check",
+   "label": "Tự bấm phát trên OBS khi tới giờ",
+   "default": "0"
+  },
+  {
+   "fieldname": "col_2",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "kit",
+   "fieldtype": "Link",
+   "label": "Bộ live",
+   "options": "EC AI Live Kit"
+  },
+  {
+   "fieldname": "mode",
+   "fieldtype": "Select",
+   "label": "Chế độ",
+   "options": "\nfull\nlite",
+   "description": "Trống = theo brand. full = Đầy đủ, lite = Tiết kiệm."
+  },
+  {
+   "fieldname": "sec_watch",
+   "fieldtype": "Section Break",
+   "label": "Xem như khách"
+  },
+  {
+   "fieldname": "watch_url",
+   "fieldtype": "Data",
+   "label": "Link xem phiên trên sàn",
+   "options": "URL",
+   "description": "Link trang live của shop (https://…) – mở từ màn \"Xem như khách\"."
+  },
+  {
+   "fieldname": "col_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "phone_serial",
+   "fieldtype": "Data",
+   "label": "Điện thoại theo dõi (adb serial)",
+   "description": "Không bắt buộc. Máy phát chụp màn hình điện thoại này để kiểm tra hình phía khách."
+  },
+  {
+   "fieldname": "sec_slots",
+   "fieldtype": "Section Break",
+   "label": "Lịch live"
+  },
+  {
+   "fieldname": "slots",
+   "fieldtype": "Table",
+   "label": "Khung giờ",
+   "options": "EC AI Live Session Slot"
+  },
+  {
+   "fieldname": "sec_publish",
+   "fieldtype": "Section Break",
+   "label": "Bản nháp & phát hành (hệ thống ghi)",
+   "collapsible": 1
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "published_version",
+   "fieldtype": "Int",
+   "label": "Bản lịch đang phát hành"
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "published_source",
+   "fieldtype": "Data",
+   "label": "Phát hành từ",
+   "description": "erp / erp_urgent (khẩn) / app (app trên máy sửa)"
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "held_why",
+   "fieldtype": "Data",
+   "label": "Đang giữ giờ cũ vì",
+   "description": "on_air = đang live lúc phát hành; soon = sắp lên sóng; late = máy nhận muộn"
+  },
+  {
+   "fieldname": "col_pub",
+   "fieldtype": "Column Break"
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "draft_by",
+   "fieldtype": "Data",
+   "label": "Bản nháp của"
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "draft_at",
+   "fieldtype": "Datetime",
+   "label": "Sửa nháp lúc"
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "draft_base_version",
+   "fieldtype": "Int",
+   "label": "Nháp dựa trên bản"
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "published_ts",
+   "fieldtype": "Float",
+   "label": "Phát hành lúc (epoch)",
+   "hidden": 1
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "held_until_ts",
+   "fieldtype": "Float",
+   "label": "Giữ giờ cũ tới (epoch)",
+   "hidden": 1
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "draft_json",
+   "fieldtype": "Long Text",
+   "label": "Bản nháp (JSON)",
+   "hidden": 1
+  },
+  {
+   "read_only": 1,
+   "no_copy": 1,
+   "fieldname": "prev_json",
+   "fieldtype": "Long Text",
+   "label": "Bản trước (JSON)",
+   "hidden": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-10-23 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC AI Live Session",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  },
+  {
+   "role": "EC AI Video Admin",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  },
+  {
+   "role": "EC AI Content",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 0,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

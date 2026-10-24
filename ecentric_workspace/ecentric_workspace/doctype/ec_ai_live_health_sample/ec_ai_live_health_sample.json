@@ -1,0 +1,126 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-10-18 00:00:00.000000",
+ "description": "Số liệu gọn mỗi phút của một live (vẽ biểu đồ 1 giờ trên màn Giám sát). Tự xoá sau 24 giờ.",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "health_key",
+  "ts",
+  "level",
+  "fps",
+  "drop_pct",
+  "gpu",
+  "kbps"
+ ],
+ "fields": [
+  {
+   "fieldname": "health_key",
+   "fieldtype": "Data",
+   "label": "Khoá (máy__live)",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1,
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "ts",
+   "fieldtype": "Float",
+   "label": "Thời điểm (epoch)",
+   "in_list_view": 1,
+   "search_index": 1,
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "level",
+   "fieldtype": "Data",
+   "label": "Mức",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "fps",
+   "fieldtype": "Float",
+   "label": "Khung/giây",
+   "read_only": 1,
+   "precision": "1"
+  },
+  {
+   "fieldname": "drop_pct",
+   "fieldtype": "Float",
+   "label": "Rớt khung (%)",
+   "read_only": 1,
+   "precision": "2"
+  },
+  {
+   "fieldname": "gpu",
+   "fieldtype": "Float",
+   "label": "GPU (%)",
+   "read_only": 1,
+   "precision": "1"
+  },
+  {
+   "fieldname": "kbps",
+   "fieldtype": "Float",
+   "label": "Bitrate (kbps)",
+   "read_only": 1,
+   "precision": "0"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-10-18 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC AI Live Health Sample",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  },
+  {
+   "role": "EC AI Video Admin",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  },
+  {
+   "role": "EC AI Content",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 0,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

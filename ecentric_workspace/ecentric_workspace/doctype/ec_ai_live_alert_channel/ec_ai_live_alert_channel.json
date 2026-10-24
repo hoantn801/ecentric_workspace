@@ -1,0 +1,118 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-10-23 00:00:00.000000",
+ "description": "Kênh báo động AI Live (Teams / Zalo) của một nhóm phụ trách brand.",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "enabled",
+  "group_name",
+  "brands",
+  "escalation_only",
+  "col_t",
+  "teams_enabled",
+  "teams_format",
+  "teams_webhook_url",
+  "col_z",
+  "zalo_enabled",
+  "zalo_chat_id",
+  "zalo_bot_token"
+ ],
+ "fields": [
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Bật",
+   "default": "1",
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "group_name",
+   "fieldtype": "Data",
+   "label": "Tên nhóm",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "brands",
+   "fieldtype": "Small Text",
+   "label": "Brand",
+   "in_list_view": 1,
+   "columns": 3,
+   "description": "Mỗi dòng một mã brand (trùng Mã brand ở EC AI Live Brand Config). Để trống = nhận mọi báo động."
+  },
+  {
+   "fieldname": "col_t",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "teams_enabled",
+   "fieldtype": "Check",
+   "label": "Gửi Teams",
+   "default": "0",
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "teams_format",
+   "fieldtype": "Select",
+   "label": "Định dạng Teams",
+   "options": "\nworkflows\nmessagecard",
+   "description": "Để trống = theo kênh chung."
+  },
+  {
+   "fieldname": "teams_webhook_url",
+   "fieldtype": "Password",
+   "label": "Link webhook Teams"
+  },
+  {
+   "fieldname": "col_z",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "zalo_enabled",
+   "fieldtype": "Check",
+   "label": "Gửi Zalo",
+   "default": "0",
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "zalo_chat_id",
+   "fieldtype": "Data",
+   "label": "ID nhóm Zalo (chat_id)"
+  },
+  {
+   "fieldname": "zalo_bot_token",
+   "fieldtype": "Password",
+   "label": "Token bot Zalo",
+   "description": "Để trống = dùng token bot của kênh chung."
+  },
+  {
+   "fieldname": "escalation_only",
+   "fieldtype": "Check",
+   "label": "Chỉ nhận tin leo thang (quản lý)",
+   "in_list_view": 1,
+   "description": "Bật: nhóm này chỉ nhận tin [LEO THANG] khi sự cố KHẨN chưa ai xác nhận, không nhận báo động thường."
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-10-23 18:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC AI Live Alert Channel",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

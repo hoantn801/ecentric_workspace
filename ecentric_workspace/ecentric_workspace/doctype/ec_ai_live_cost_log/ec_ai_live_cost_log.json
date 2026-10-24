@@ -1,0 +1,135 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:log_key",
+ "creation": "2026-10-17 00:00:00.000000",
+ "description": "Chi phí AI của một phiên live trong một ngày (máy phát gửi số luỹ kế).",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "log_key",
+  "date",
+  "brand",
+  "machine",
+  "session",
+  "usd",
+  "items_json",
+  "live",
+  "brand_unknown"
+ ],
+ "fields": [
+  {
+   "fieldname": "log_key",
+   "fieldtype": "Data",
+   "label": "Khoá",
+   "unique": 1,
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "label": "Ngày",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "brand",
+   "fieldtype": "Data",
+   "label": "Brand",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "machine",
+   "fieldtype": "Data",
+   "label": "Máy",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "session",
+   "fieldtype": "Data",
+   "label": "Phiên"
+  },
+  {
+   "fieldname": "usd",
+   "fieldtype": "Float",
+   "label": "Chi phí ($)",
+   "in_list_view": 1,
+   "precision": "4"
+  },
+  {
+   "fieldname": "items_json",
+   "fieldtype": "Long Text",
+   "label": "Chi tiết (JSON)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "live",
+   "fieldtype": "Data",
+   "label": "Live (khi chưa rõ brand)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "brand_unknown",
+   "fieldtype": "Check",
+   "label": "Chưa xác định brand",
+   "read_only": 1,
+   "in_list_view": 1,
+   "description": "Brand rỗng hoặc chưa giao cho máy lúc app gửi – xem lại cấu hình máy / phiên."
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-23 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC AI Live Cost Log",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  },
+  {
+   "role": "EC AI Video Admin",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  },
+  {
+   "role": "EC AI Content",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 0,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  }
+ ],
+ "sort_field": "date",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

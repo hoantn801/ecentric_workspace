@@ -1,0 +1,243 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:brand",
+ "creation": "2026-10-17 00:00:00.000000",
+ "description": "Cấu hình AI Live theo brand: máy GPU realtime, khoá AI/giọng, chế độ, mẫu câu, playlist, cooldown. Máy phát AI Live tự lấy về.",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "brand",
+  "brand_name",
+  "enabled",
+  "mode",
+  "break_sec",
+  "daily_cost_cap_usd",
+  "col_1",
+  "gpu_url",
+  "kit_folder",
+  "sec_keys",
+  "claude_key",
+  "kie_key",
+  "col_2",
+  "minimax_key",
+  "minimax_group",
+  "plenx_key",
+  "sec_shopee",
+  "shopee_partner_id",
+  "shopee_partner_key",
+  "shopee_shop_id",
+  "col_3",
+  "shopee_access_token",
+  "shopee_refresh_token",
+  "sec_settings",
+  "templates_json",
+  "playlist_json",
+  "cooldowns_json",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "brand",
+   "fieldtype": "Data",
+   "label": "Mã brand",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1,
+   "description": "Chữ thường, không dấu, vd friso"
+  },
+  {
+   "fieldname": "brand_name",
+   "fieldtype": "Data",
+   "label": "Tên brand",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Đang dùng",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "mode",
+   "fieldtype": "Select",
+   "label": "Chế độ",
+   "options": "full\nlite",
+   "default": "full",
+   "in_list_view": 1,
+   "description": "full = Đầy đủ (có realtime) · lite = Tiết kiệm (không realtime)"
+  },
+  {
+   "fieldname": "break_sec",
+   "fieldtype": "Select",
+   "label": "Khoảng nghỉ video chính (giây)",
+   "options": "20\n25\n30\n35",
+   "default": "20"
+  },
+  {
+   "fieldname": "daily_cost_cap_usd",
+   "fieldtype": "Float",
+   "label": "Trần chi phí AI mỗi ngày ($)",
+   "default": "0",
+   "description": "0 = không giới hạn"
+  },
+  {
+   "fieldname": "col_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "gpu_url",
+   "fieldtype": "Data",
+   "label": "Máy GPU realtime (URL)",
+   "description": "Mỗi brand một máy GPU riêng"
+  },
+  {
+   "fieldname": "kit_folder",
+   "fieldtype": "Data",
+   "label": "Thư mục Bộ live (Google Drive / SharePoint)",
+   "description": "Đường dẫn thư mục đồng bộ trên máy phát, vd G:\\My Drive\\AI Live\\friso"
+  },
+  {
+   "fieldname": "sec_keys",
+   "fieldtype": "Section Break",
+   "label": "Khoá (chỉ máy phát đọc được)"
+  },
+  {
+   "fieldname": "claude_key",
+   "fieldtype": "Password",
+   "label": "Key Claude"
+  },
+  {
+   "fieldname": "kie_key",
+   "fieldtype": "Password",
+   "label": "Key Kie (dự phòng AI)"
+  },
+  {
+   "fieldname": "col_2",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "minimax_key",
+   "fieldtype": "Password",
+   "label": "Key MiniMax"
+  },
+  {
+   "fieldname": "minimax_group",
+   "fieldtype": "Data",
+   "label": "MiniMax Group ID"
+  },
+  {
+   "fieldname": "plenx_key",
+   "fieldtype": "Password",
+   "label": "Key PlenX (dự phòng giọng)"
+  },
+  {
+   "fieldname": "sec_shopee",
+   "fieldtype": "Section Break",
+   "label": "Shopee Open Platform (lưu sẵn, chưa dùng)",
+   "collapsible": 1,
+   "description": "Chỉ lưu và gửi cho máy phát; app chưa gọi API Shopee."
+  },
+  {
+   "fieldname": "shopee_partner_id",
+   "fieldtype": "Data",
+   "label": "Shopee Partner ID"
+  },
+  {
+   "fieldname": "shopee_partner_key",
+   "fieldtype": "Password",
+   "label": "Shopee Partner Key"
+  },
+  {
+   "fieldname": "shopee_shop_id",
+   "fieldtype": "Data",
+   "label": "Shopee Shop ID"
+  },
+  {
+   "fieldname": "col_3",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "shopee_access_token",
+   "fieldtype": "Password",
+   "label": "Shopee Access Token"
+  },
+  {
+   "fieldname": "shopee_refresh_token",
+   "fieldtype": "Password",
+   "label": "Shopee Refresh Token"
+  },
+  {
+   "fieldname": "sec_settings",
+   "fieldtype": "Section Break",
+   "label": "Cài đặt dùng chung (app sửa và đồng bộ lên)",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "templates_json",
+   "fieldtype": "Code",
+   "label": "Mẫu câu (JSON)",
+   "options": "JSON"
+  },
+  {
+   "fieldname": "playlist_json",
+   "fieldtype": "Code",
+   "label": "Playlist (JSON)",
+   "options": "JSON"
+  },
+  {
+   "fieldname": "cooldowns_json",
+   "fieldtype": "Code",
+   "label": "Cooldown (JSON)",
+   "options": "JSON"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-17 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC AI Live Brand Config",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  },
+  {
+   "role": "EC AI Video Admin",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "title_field": "brand_name"
+}

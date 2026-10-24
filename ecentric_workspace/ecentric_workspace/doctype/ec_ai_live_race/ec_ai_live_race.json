@@ -1,0 +1,351 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:race_id",
+ "creation": "2026-10-18 00:00:00.000000",
+ "description": "Kết quả một cuộc đua vịt trong live (app gửi qua push_race_result). Sửa trạng thái trao giải ở đây hoặc trên /ai-video#/races.",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "race_id",
+  "live",
+  "brand",
+  "race_date",
+  "started_at",
+  "col_1",
+  "outcome",
+  "status_raw",
+  "keyword",
+  "triggered_by",
+  "auto",
+  "sec_winners",
+  "winners_n",
+  "awarded_n",
+  "col_w",
+  "unreachable_n",
+  "winners",
+  "ranking_png",
+  "sec_entry",
+  "entrants",
+  "registered",
+  "excluded_count",
+  "col_2",
+  "excluded_json",
+  "tiers_json",
+  "sec_proof",
+  "seed",
+  "algo",
+  "audit_id",
+  "col_3",
+  "machine",
+  "app_session",
+  "reg_started_ts",
+  "race_started_ts",
+  "finished_ts",
+  "sort_ts",
+  "png_sha256"
+ ],
+ "fields": [
+  {
+   "fieldname": "race_id",
+   "fieldtype": "Data",
+   "label": "Mã cuộc đua",
+   "reqd": 1,
+   "unique": 1,
+   "read_only": 1,
+   "in_list_view": 0,
+   "description": "Mã do app tạo (W20), dùng để kiểm tra lại kết quả trên máy live."
+  },
+  {
+   "fieldname": "live",
+   "fieldtype": "Data",
+   "label": "Mã phiên live",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "brand",
+   "fieldtype": "Data",
+   "label": "Brand",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "race_date",
+   "fieldtype": "Date",
+   "label": "Ngày (giờ VN)",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "started_at",
+   "fieldtype": "Datetime",
+   "label": "Mở đăng ký lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "outcome",
+   "fieldtype": "Select",
+   "label": "Kết quả",
+   "options": "done\nnot_enough\ncancelled\naborted_restart",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "done = đã đua xong · not_enough = chưa đủ người · cancelled = đã huỷ · aborted_restart = huỷ do app khởi động lại"
+  },
+  {
+   "fieldname": "status_raw",
+   "fieldtype": "Data",
+   "label": "Trạng thái gốc từ app",
+   "read_only": 1
+  },
+  {
+   "fieldname": "keyword",
+   "fieldtype": "Data",
+   "label": "Từ khoá",
+   "read_only": 1
+  },
+  {
+   "fieldname": "triggered_by",
+   "fieldtype": "Data",
+   "label": "Bắt đầu bởi",
+   "read_only": 1,
+   "description": "app = bấm trên app · schedule = lịch giờ cố định · every = mỗi X phút · erp = lệnh từ ERP"
+  },
+  {
+   "fieldname": "auto",
+   "fieldtype": "Check",
+   "label": "Tự động",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sec_winners",
+   "fieldtype": "Section Break",
+   "label": "Người thắng & trao giải"
+  },
+  {
+   "fieldname": "winners_n",
+   "fieldtype": "Int",
+   "label": "Số người thắng",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "awarded_n",
+   "fieldtype": "Int",
+   "label": "Đã trao",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "col_w",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "unreachable_n",
+   "fieldtype": "Int",
+   "label": "Không liên lạc được",
+   "read_only": 1
+  },
+  {
+   "fieldname": "winners",
+   "fieldtype": "Table",
+   "label": "Người thắng",
+   "options": "EC AI Live Race Winner",
+   "cannot_add_rows": 1,
+   "cannot_delete_rows": 1,
+   "description": "Chỉ sửa được Trạng thái trao giải và Ghi chú. Danh sách người thắng do app chốt, không sửa được."
+  },
+  {
+   "fieldname": "ranking_png",
+   "fieldtype": "Attach Image",
+   "label": "Ảnh xếp hạng",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sec_entry",
+   "fieldtype": "Section Break",
+   "label": "Người tham gia"
+  },
+  {
+   "fieldname": "entrants",
+   "fieldtype": "Int",
+   "label": "Vào đua (sau lọc)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "registered",
+   "fieldtype": "Int",
+   "label": "Đã đăng ký",
+   "read_only": 1
+  },
+  {
+   "fieldname": "excluded_count",
+   "fieldtype": "Int",
+   "label": "Bị loại khi lọc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_2",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "excluded_json",
+   "fieldtype": "Code",
+   "label": "Lý do loại (JSON)",
+   "options": "JSON",
+   "read_only": 1
+  },
+  {
+   "fieldname": "tiers_json",
+   "fieldtype": "Code",
+   "label": "Cơ cấu giải (JSON)",
+   "options": "JSON",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sec_proof",
+   "fieldtype": "Section Break",
+   "label": "Bằng chứng & nguồn",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "seed",
+   "fieldtype": "Data",
+   "label": "Seed (hex)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "algo",
+   "fieldtype": "Data",
+   "label": "Thuật toán",
+   "read_only": 1
+  },
+  {
+   "fieldname": "audit_id",
+   "fieldtype": "Data",
+   "label": "Mã nhật ký trên app",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_3",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "machine",
+   "fieldtype": "Data",
+   "label": "Máy phát",
+   "read_only": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "app_session",
+   "fieldtype": "Data",
+   "label": "Mã lượt chạy trên app",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reg_started_ts",
+   "fieldtype": "Float",
+   "label": "Mở đăng ký (epoch)",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "race_started_ts",
+   "fieldtype": "Float",
+   "label": "Xuất phát (epoch)",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "finished_ts",
+   "fieldtype": "Float",
+   "label": "Về đích (epoch)",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "sort_ts",
+   "fieldtype": "Float",
+   "label": "Mốc sắp xếp (epoch)",
+   "read_only": 1,
+   "hidden": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "png_sha256",
+   "fieldtype": "Data",
+   "label": "SHA-256 ảnh",
+   "read_only": 1,
+   "hidden": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-10-18 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC AI Live Race",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  },
+  {
+   "role": "EC AI Video Admin",
+   "read": 1,
+   "write": 1,
+   "create": 0,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  },
+  {
+   "role": "EC AI Content",
+   "read": 1,
+   "write": 1,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "live",
+ "track_changes": 1
+}

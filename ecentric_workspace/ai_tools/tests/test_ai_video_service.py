@@ -864,7 +864,7 @@ class TestCongThuc(unittest.TestCase):
         W.tasks[tid].update(state="done", result={"files": ["ecv6/output/FRISO/dot1/FAQ_DOT1_LS/b.mp4"],
                                                   "lipsync": {"gpu_sec": 40.2, "sec": 90, "out": {"dur": 9.4}}})
         s.tick(p)
-        self.assertEqual(E()["status"], "done · 1/1 video lipsync · GPU fal 40s")
+        self.assertEqual(E()["status"], "done · 1/1 video lipsync · GPU 40s")
         self.assertIn("ecv6/exports/Friso/dot1/FAQ_DOT1_LS.zip", json.loads(E()["files_json"]))
         lv = {e["name"]: e for e in s.get_project(p)["exports"]}[r["export"]]
         row = lv["faq"]["rows"][0]

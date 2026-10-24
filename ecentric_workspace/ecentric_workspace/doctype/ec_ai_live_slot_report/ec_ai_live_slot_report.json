@@ -1,0 +1,272 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:report_key",
+ "creation": "2026-10-23 18:00:00.000000",
+ "description": "Kế hoạch vs thực tế từng khung giờ live do app eC Live báo (push_slot_report). Ghi đè theo (máy, live, giờ kế hoạch). Tự xoá sau 120 ngày.",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "report_key",
+  "date",
+  "planned_start",
+  "machine",
+  "live",
+  "brand",
+  "status",
+  "start_status",
+  "start_delay_sec",
+  "col_1",
+  "actual_start",
+  "actual_end",
+  "downtime_sec",
+  "ai_failover_count",
+  "alerts_critical",
+  "note",
+  "final",
+  "off_plan",
+  "session_id",
+  "sec_sys",
+  "interruptions_json",
+  "planned_start_ts",
+  "planned_end_ts",
+  "actual_start_ts",
+  "actual_end_ts",
+  "updated_ts",
+  "received_ts"
+ ],
+ "fields": [
+  {
+   "fieldname": "report_key",
+   "fieldtype": "Data",
+   "label": "Khoá (máy|live|giờ kế hoạch)",
+   "read_only": 1,
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "label": "Ngày",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "planned_start",
+   "fieldtype": "Datetime",
+   "label": "Kế hoạch bắt đầu",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "machine",
+   "fieldtype": "Data",
+   "label": "Máy",
+   "read_only": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "live",
+   "fieldtype": "Data",
+   "label": "Live",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "brand",
+   "fieldtype": "Data",
+   "label": "Brand",
+   "read_only": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Data",
+   "label": "Kết quả",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "start_status",
+   "fieldtype": "Data",
+   "label": "Lên sóng",
+   "read_only": 1
+  },
+  {
+   "fieldname": "start_delay_sec",
+   "fieldtype": "Int",
+   "label": "Trễ (giây)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "actual_start",
+   "fieldtype": "Datetime",
+   "label": "Thực tế bắt đầu",
+   "read_only": 1
+  },
+  {
+   "fieldname": "actual_end",
+   "fieldtype": "Datetime",
+   "label": "Thực tế kết thúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "downtime_sec",
+   "fieldtype": "Int",
+   "label": "Gián đoạn (giây)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "ai_failover_count",
+   "fieldtype": "Int",
+   "label": "Số lần chuyển AI dự phòng",
+   "read_only": 1
+  },
+  {
+   "fieldname": "alerts_critical",
+   "fieldtype": "Int",
+   "label": "Số báo động khẩn",
+   "read_only": 1
+  },
+  {
+   "fieldname": "note",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú của app",
+   "read_only": 1
+  },
+  {
+   "fieldname": "final",
+   "fieldtype": "Check",
+   "label": "Đã chốt",
+   "read_only": 1
+  },
+  {
+   "fieldname": "off_plan",
+   "fieldtype": "Check",
+   "label": "Ngoài kế hoạch ERP",
+   "read_only": 1
+  },
+  {
+   "fieldname": "session_id",
+   "fieldtype": "Data",
+   "label": "Mã phiên chạy (session_id)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sec_sys",
+   "fieldtype": "Section Break",
+   "label": "Kỹ thuật",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "interruptions_json",
+   "fieldtype": "Long Text",
+   "label": "Gián đoạn (JSON)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "planned_start_ts",
+   "fieldtype": "Float",
+   "label": "Kế hoạch bắt đầu (epoch)",
+   "read_only": 1,
+   "hidden": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "planned_end_ts",
+   "fieldtype": "Float",
+   "label": "Kế hoạch kết thúc (epoch)",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "actual_start_ts",
+   "fieldtype": "Float",
+   "label": "Thực tế bắt đầu (epoch)",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "actual_end_ts",
+   "fieldtype": "Float",
+   "label": "Thực tế kết thúc (epoch)",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "updated_ts",
+   "fieldtype": "Float",
+   "label": "App cập nhật (epoch)",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "received_ts",
+   "fieldtype": "Float",
+   "label": "ERP nhận (epoch)",
+   "read_only": 1,
+   "hidden": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-10-23 18:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC AI Live Slot Report",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  },
+  {
+   "role": "EC AI Video Admin",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  },
+  {
+   "role": "EC AI Content",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 0,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  }
+ ],
+ "sort_field": "planned_start",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}
