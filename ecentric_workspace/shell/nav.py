@@ -757,6 +757,13 @@ RAIL_LAYOUTS = {
                 {"key": "ai_tools.livestream", "label": "Livestream Script"},
                 {"key": "ai_tools.livestream.brand"}, {"key": "ai_tools.livestream.rules"},
                 {"key": "ai_tools.video"}, {"key": "ai_tools.usage"}]}]},
+        # 25/10/2026 (Hoan chot): AI Live thanh khoi rieng (trang /ai-live), khong nam trong SI Tool.
+        {"t": "group", "label": "AI Live", "items": [
+            {"key": "ai_tools.live", "children": [
+                {"key": "ai_tools.live.monitor"}, {"key": "ai_tools.live.incidents"},
+                {"key": "ai_tools.live.lives"}, {"key": "ai_tools.live.schedule"},
+                {"key": "ai_tools.live.history"}, {"key": "ai_tools.live.races"},
+                {"key": "ai_tools.live.kits"}, {"key": "ai_tools.live.watch"}]}]},
         {"t": "group", "label": "Khác", "items": [
             {"key": "home.portal.hall"}, {"key": "home.portal.hiring", "caption": "Chỉ HR"},
             {"key": "home.portal.training"}]},

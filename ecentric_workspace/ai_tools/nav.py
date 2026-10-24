@@ -89,6 +89,40 @@ AI_TOOL_ITEMS = [
         "owner": "ai_tools",
     },
     {
+        # 25/10/2026 (Hoan chot): AI Live tach khoi AI Video thanh trang rieng /ai-live "Quan ly AI Live"
+        # (truoc nam trong /ai-video#/monitor...). Muc con la view hash cua cung trang (giong /pm):
+        # bam muc nao mo dung man do; muc sang theo hash khop dung (#/monitor/list... giu muc dang sang).
+        "key": "ai_tools.live",
+        "label": "Quản lý AI Live",
+        "route": "/ai-live",
+        "icon": "target",
+        "group": "",
+        "order": 23,
+        "active_patterns": ["/ai-live"],
+        "visible_when": "internal",
+        "keywords": ["ai live", "live", "truc live", "phien live", "lich live", "su co", "may phat",
+                     "eC Live", "dua vit", "bo live", "tuong hinh", "giam sat", "bao dong"],
+        "owner": "ai_tools",
+        "children": [
+            {"key": "ai_tools.live.monitor", "label": "Trực live", "route": "/ai-live#/monitor", "icon": "bell",
+             "order": 10, "active_patterns": ["/ai-live"], "visible_when": "internal", "owner": "ai_tools"},
+            {"key": "ai_tools.live.incidents", "label": "Sự cố", "route": "/ai-live#/monitor/incidents", "icon": "reminder",
+             "order": 15, "active_patterns": ["/ai-live"], "visible_when": "internal", "owner": "ai_tools"},
+            {"key": "ai_tools.live.lives", "label": "Phiên live", "route": "/ai-live#/lives", "icon": "list",
+             "order": 20, "active_patterns": ["/ai-live"], "visible_when": "internal", "owner": "ai_tools"},
+            {"key": "ai_tools.live.schedule", "label": "Lịch live", "route": "/ai-live#/schedule", "icon": "calendar",
+             "order": 30, "active_patterns": ["/ai-live"], "visible_when": "internal", "owner": "ai_tools"},
+            {"key": "ai_tools.live.history", "label": "Lịch sử phiên", "route": "/ai-live#/history", "icon": "clock",
+             "order": 40, "active_patterns": ["/ai-live"], "visible_when": "internal", "owner": "ai_tools"},
+            {"key": "ai_tools.live.races", "label": "Đua vịt", "route": "/ai-live#/races", "icon": "users",
+             "order": 50, "active_patterns": ["/ai-live"], "visible_when": "internal", "owner": "ai_tools"},
+            {"key": "ai_tools.live.kits", "label": "Bộ live & Kho host", "route": "/ai-live#/kits", "icon": "folder",
+             "order": 60, "active_patterns": ["/ai-live"], "visible_when": "internal", "owner": "ai_tools"},
+            {"key": "ai_tools.live.watch", "label": "Tường hình", "route": "/ai-live#/watch", "icon": "grid",
+             "order": 70, "active_patterns": ["/ai-live"], "visible_when": "internal", "owner": "ai_tools"},
+        ],
+    },
+    {
         # Thong ke dung AI (07/10): ai dung AI, dung gi, on khong, ton bao nhieu. Pham vi xem
         # do SERVER kep (platform/ai/usage_api.py): lanh dao toan cty, truong phong phong minh,
         # con lai chi chinh minh - nen muc menu de "internal" cho moi nguoi.
@@ -97,7 +131,7 @@ AI_TOOL_ITEMS = [
         "route": "/ai-usage",
         "icon": "chart",
         "group": "",
-        "order": 23,
+        "order": 24,
         "active_patterns": ["/ai-usage"],
         "visible_when": "internal",
         "keywords": ["usage", "thong ke ai", "su dung ai", "chi phi ai", "credit", "kie",

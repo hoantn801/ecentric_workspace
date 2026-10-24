@@ -228,7 +228,7 @@ TEAMS_FORMATS = ("workflows", "messagecard")
 HTTP_TIMEOUT = 10
 #: Tat may quet: site_config ec_ai_live_monitor_disabled = 1
 KILL_SWITCH = "ec_ai_live_monitor_disabled"
-MONITOR_LINK = "/ai-video#/monitor"
+MONITOR_LINK = "/ai-live#/monitor"   # 25/10: AI Live tach sang trang rieng /ai-live
 
 
 class MonMsg:
