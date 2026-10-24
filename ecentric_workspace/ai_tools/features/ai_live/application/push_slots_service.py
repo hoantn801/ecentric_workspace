@@ -6,7 +6,8 @@ fix10g: ERP NHAN LUON thanh 1 ban phat hanh moi (nguon "app"), khong qua ban nha
 - App gui `base_version` (= lives[].schedule_version luc tai) ma ERP da phat hanh ban moi hon cho phien nay va khac
   -> tu choi, app tai lai lich roi sua lai (khong de app ghi de thay doi ERP ma no chua thay).
   Khong gui base_version (app cu) -> "sua sau cung thang".
-- Phien dang giu gio cu (lich moi da phat hanh, app dang chay ban cu) -> tu choi toi het lan do.
+- Phien dang giu gio cu (lich moi da phat hanh, app dang chay ban cu) -> tu choi toi het lan do (ma schedule_held).
+  Luc giu, get_config tra schedule_version = ban CU dang chay (24/10), nen het moc giu ma app gui base cu -> schedule_stale.
 - Ai dang co ban nhap cho phien nay -> ban nhap thanh "lech" (draft_state stale), phai chon giu / bo truoc khi phat hanh.
 - Van kiem trung gio, suc chua may (tinh ca lan dang giu gio cu), cong OBS."""
 from datetime import datetime
@@ -37,13 +38,17 @@ class PushSlotsService:
         after = dict(before, slots=clean)
         version = sess.get("published_version") or 0
         if not P.same(before, after):
+            held = float(sess.get("held_until_ts") or 0)
+            if held > self.clock() and sess.get("prev"):   # app dang chay ban cu - sua luc nay se de mat lich moi
+                # kiem TRUOC base_version: luc giu gio, get_config tra version cua ban cu -> neu bao "stale" thi app
+                # tai lai van nhan ban cu, lap vo han
+                raise C.AiLiveError(C.PubMsg.APP_HELD % (sess["title"], datetime.fromtimestamp(held, R._VN).strftime("%H:%M")),
+                                    C.ErrCode.SCHEDULE_HELD, {"held_until": held, "schedule_version": version})
             raw_base = "" if base_version is None else str(base_version).strip()
             base = int(raw_base) if raw_base.lstrip("-").isdigit() else None
             if base is not None and base < version:
-                raise C.AiLiveError(C.PubMsg.APP_STALE % (sess["title"], version))
-            held = float(sess.get("held_until_ts") or 0)
-            if held > self.clock():                    # app dang chay ban cu - sua luc nay se de mat lich moi
-                raise C.AiLiveError(C.PubMsg.APP_HELD % (sess["title"], datetime.fromtimestamp(held, R._VN).strftime("%H:%M")))
+                raise C.AiLiveError(C.PubMsg.APP_STALE % (sess["title"], version), C.ErrCode.SCHEDULE_STALE,
+                                    {"schedule_version": version, "base_version": base})
             pub = self.publisher()
             all_s = self.sessions.list()
             _, errors = pub.plan(all_s, {sess["id"]: after}, no_hold=True)

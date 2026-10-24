@@ -92,7 +92,8 @@ class PublishScheduleService:
         for sid, after in afters.items():
             s, before = by_id[sid], P.published_view(by_id[sid])
             until, why = holds.get(sid, (0, ""))
-            self.sessions.publish(sid, after, {"version": version, "ts": now, "source": source, "prev": before,
+            prev = dict(before, version=int(s.get("published_version") or 0))   # ban cu kem so ban (get_config luc giu gio)
+            self.sessions.publish(sid, after, {"version": version, "ts": now, "source": source, "prev": prev,
                                                "held_until": until, "held_why": why,
                                                "keep_draft": source == C.PubSource.APP})   # nhap cua nguoi khac -> lech
             changes.append({"session": sid, "title": s["title"], "brand": s["brand"], "texts": P.diff_texts(before, after),

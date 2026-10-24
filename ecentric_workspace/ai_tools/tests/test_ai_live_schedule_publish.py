@@ -246,6 +246,45 @@ class TestApp(unittest.TestCase):
         w.clock.t = at(22, 5)
         self.assertEqual(w.app_push("a", [{"days": DAILY, "start": "19:00", "end": "23:00"}])["schedule_version"], 2)
 
+    def test_error_codes_for_app(self):
+        """24/10 (hoi cua team app 1.0.28): loi tra ma on dinh trong data.code, khong phai frappe.throw."""
+        w = World(at(12))
+        w.draft("a", slots=[slot("19:30", "22:00", DAILY)])
+        w.publish()                                                        # ban 1
+        with self.assertRaises(C.AiLiveError) as cm:
+            w.app_push("a", [{"days": DAILY, "start": "20:00", "end": "22:00"}], base=0)
+        self.assertEqual((cm.exception.code, cm.exception.data["schedule_version"]), (C.ErrCode.SCHEDULE_STALE, 1))
+        self.assertIn("đã đổi (bản 1)", str(cm.exception))
+        w2 = World(at(20))
+        w2.draft("a", slots=[slot("19:30", "22:00", DAILY)])
+        w2.publish()
+        with self.assertRaises(C.AiLiveError) as cm:
+            w2.app_push("a", [{"days": DAILY, "start": "19:00", "end": "23:00"}], base=1)
+        self.assertEqual((cm.exception.code, cm.exception.data["held_until"]), (C.ErrCode.SCHEDULE_HELD, at(22)))
+
+    def test_held_serves_old_version_then_stale_after_hold(self):
+        """Luc giu gio cu, get_config tra schedule cu + schedule_version CUA BAN CU; het moc giu, app sua tu ban cu
+        (base cu) -> schedule_stale, khong ghi de lich moi."""
+        w = World(at(12))
+        w.draft("a", slots=[slot("19:00", "22:00", DAILY), slot("09:00", "10:00", [6])])
+        w.publish()                                                        # ban 1 (doi khung khac, khong giu)
+        w.clock.t = at(20)                                                 # a dang live 19-22
+        w.draft("a", slots=[slot("19:30", "22:00", DAILY)])
+        w.publish()                                                        # ban 2, giu toi 22:00
+        lv = w.lives()["a"]
+        self.assertEqual((starts(lv), lv["held_until"], lv["schedule_version"]), ([("19:00", "22:00"), ("09:00", "10:00")], at(22), 1))
+        with self.assertRaises(C.AiLiveError) as cm:                       # dang giu: tu choi du base la gi
+            w.app_push("a", [{"days": DAILY, "start": "19:00", "end": "23:00"}], base=lv["schedule_version"])
+        self.assertEqual(cm.exception.code, C.ErrCode.SCHEDULE_HELD)
+        w.clock.t = at(22, 5)                                              # het giu, app chua tai lai lich
+        with self.assertRaises(C.AiLiveError) as cm:
+            w.app_push("a", [{"days": DAILY, "start": "19:00", "end": "23:00"}], base=1)
+        self.assertEqual(cm.exception.code, C.ErrCode.SCHEDULE_STALE)
+        self.assertEqual([(x["start"], x["end"]) for x in w.ss.get("a")["slots"]], [("19:30", "22:00")])   # lich moi con nguyen
+        lv = w.lives()["a"]
+        self.assertEqual((lv["held_until"], lv["schedule_version"]), (None, 2))
+        self.assertEqual(w.app_push("a", [{"days": DAILY, "start": "19:30", "end": "23:00"}], base=2)["schedule_version"], 3)
+
     def test_app_edit_still_checked(self):
         w = World(at(12), [sess("a"), sess("b"), sess("c", slots=[slot("08:00", "10:00", DAILY)])])   # MAY01 toi da 2
         with self.assertRaises(C.AiLiveError) as cm:
