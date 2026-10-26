@@ -4,12 +4,12 @@
     "sha256": "fb37920418dcc3633f65a5e3caeda115b50b6a6ec67bf75ca0027acf389e0bd0"
   },
   "ai_tools/pages/ai_video/main_section.html": {
-    "last_resync_patch": "p312_resync_ai_video_truc_live",
-    "sha256": "a6f6312134a5b64bad22500179dc649734c541ffc99c70796fc05202500481b5"
+    "last_resync_patch": "p313_ai_live_trang_rieng",
+    "sha256": "6e4e3164efcf90fa86981dba33bf1feef2890222c4f02bf6fedad50402398f72"
   },
   "ai_tools/pages/ai_usage/main_section.html": {
-    "last_resync_patch": "p290_canh_giua_noi_dung",
-    "sha256": "a78ea801ae670176c2742ccf10947b88662e434017054cfd9203d605409500a3"
+    "last_resync_patch": "p313_ai_live_trang_rieng",
+    "sha256": "f1bbdb8e4029445c0ab6861ca225b98b0023d7f24732ae960d50a9a7f423c407"
   },
   "approval_center/features/affiliate_bonus/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -315,5 +315,9 @@
   "pm/frontend/pm_app.html": {
     "last_resync_patch": "p305_resync_pm_hotfix5",
     "sha256": "29d65c76aa97239b02ec729687ad2da1423affa5a8dc7d7b582859de1b8feb92"
+  },
+  "ai_tools/pages/ai_live/main_section.html": {
+    "last_resync_patch": "p313_ai_live_trang_rieng",
+    "sha256": "c798fb5341c93a69942b929fcd6b6f5c7b7803f5329d44ad6cd168c9521a3f16"
   }
 }

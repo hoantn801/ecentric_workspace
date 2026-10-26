@@ -138,7 +138,7 @@ class TestServerRender(unittest.TestCase):
         self.assertEqual(co[0], "home.portal.iso_docs")
         self.assertIn("home.portal.feedback", co)
         self.assertNotIn("home.portal.approvals", co, "khu Cong ty khong mang muc khu khac")
-        self.assertEqual(_groups(_render("/tai-lieu")), ["Tài liệu", "Tiếng nói nhân viên", "Công cụ", "Khác"])
+        self.assertEqual(_groups(_render("/tai-lieu")), ["Tài liệu", "Tiếng nói nhân viên", "Công cụ", "AI Live", "Khác"])   # 25/10: AI Live tach rieng
 
     def test_approvals_column_has_two_clear_parts(self):
         html = _render("/approvals")

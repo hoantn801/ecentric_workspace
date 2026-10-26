@@ -20,7 +20,9 @@ def _run(fn):
         return {"success": False, "message": str(e), "data": None}
     except (C.AiLiveError, frappe.ValidationError) as e:
         frappe.db.rollback()
-        return {"success": False, "message": frappe.utils.strip_html(str(e)) or C.Msg.UNKNOWN, "data": None}
+        code = getattr(e, "code", None)
+        data = dict(getattr(e, "data", None) or {}, code=code) if code else None
+        return {"success": False, "message": frappe.utils.strip_html(str(e)) or C.Msg.UNKNOWN, "data": data}
     except Exception:
         frappe.db.rollback()
         frappe.log_error(title="ai_live api")

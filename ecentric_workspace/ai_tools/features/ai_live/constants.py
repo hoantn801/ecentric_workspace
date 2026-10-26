@@ -53,7 +53,18 @@ class Msg:
 
 
 class AiLiveError(Exception):
-    """Loi nghiep vu AI Live - thong diep tieng Viet hien thang cho nguoi dung."""
+    """Loi nghiep vu AI Live - thong diep tieng Viet hien thang cho nguoi dung.
+    24/10: `code` + `data` (tuy chon) cho app doc may: tra trong data cua envelope {success:false, data:{code, ...}}."""
+
+    def __init__(self, message="", code=None, data=None):
+        super().__init__(message)
+        self.code, self.data = code, data or {}
+
+
+class ErrCode:
+    """Ma loi on dinh cho app eC Live (khong so chuoi tieng Viet)."""
+    SCHEDULE_STALE = "schedule_stale"     # base_version cu hon ban ERP da phat hanh -> get_config roi sua lai
+    SCHEDULE_HELD = "schedule_held"       # phien dang giu gio cu (held_until) -> sua sau moc do hoac sua tren ERP
 
 
 class AiLivePermission(AiLiveError):
@@ -217,7 +228,7 @@ TEAMS_FORMATS = ("workflows", "messagecard")
 HTTP_TIMEOUT = 10
 #: Tat may quet: site_config ec_ai_live_monitor_disabled = 1
 KILL_SWITCH = "ec_ai_live_monitor_disabled"
-MONITOR_LINK = "/ai-video#/monitor"
+MONITOR_LINK = "/ai-live#/monitor"   # 25/10: AI Live tach sang trang rieng /ai-live
 
 
 class MonMsg:
