@@ -228,6 +228,13 @@ html[data-ec-cp-collapsed="1"] #chainPreview .cp-head{margin:0}
 html[data-ec-cp-collapsed="1"] #chainPreview .cp-title,
 html[data-ec-cp-collapsed="1"] #chainPreview .cp-body,
 html[data-ec-cp-collapsed="1"] #chainPreview .cp-meta{display:none}
+
+/* 28/10/2026 PO gom nhieu SO: nhan SO tung dong + khung them SO */
+#itemsBody .ec-row-so{display:inline-block;margin-top:3px;padding:1px 7px;border-radius:9px;background:#eef2ff;color:#3730a3;font-size:11px;font-weight:600;white-space:nowrap}
+#ecAddSoBox{margin-top:12px;padding:10px 12px;border:1px dashed #c7d2fe;border-radius:8px;background:#f8faff}
+#ecAddSoBox .ec-addso-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+#ecAddSoBox select,#ecAddSoBox input{padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;min-width:220px}
+#ecSoList{font-size:12px;color:#374151;margin-top:6px}
 </style>
 
 <!-- HIDE-NAVBAR-V1 -->
@@ -954,6 +961,16 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
 </table>
 <button type="button" id="btnAddRow" style="background:rgba(44,61,166,0.08);color:#2C3DA6;border:1px dashed #2C3DA6;padding:8px 16px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;margin-top:10px;width:100%">+ Thêm dòng item</button>
 <button type="button" id="btnRefreshItems" class="ec-only-gbsbuy" style="background:#fff;color:#2C3DA6;border:1px solid #2C3DA6;padding:8px 16px;border-radius:7px;font-size:12.5px;font-weight:600;cursor:pointer;margin-top:10px;margin-left:10px">&#8635; Refresh items list</button>
+<div id="ecAddSoBox" class="ec-only-gbsbuy">
+  <button type="button" id="btnAddSo" style="background:#fff;color:#3730a3;border:1px solid #6366f1;padding:7px 14px;border-radius:7px;font-size:12.5px;font-weight:600;cursor:pointer">+ Th&#234;m items t&#7915; SO kh&#225;c</button>
+  <span class="field-hint" style="margin-left:6px">M&#7897;t PO c&#243; th&#7875; g&#7897;p nhi&#7873;u SO c&#249;ng brand (&#273;&#227; duy&#7879;t tr&#234;n GBS). M&#7895;i d&#242;ng ghi r&#245; thu&#7897;c SO n&#224;o.</span>
+  <div class="ec-addso-row" id="ecAddSoPanel" hidden>
+    <select id="ecAddSoSel"><option value="">-- Ch&#7885;n SO c&#249;ng brand --</option></select>
+    <input id="ecAddSoCode" placeholder="ho&#7863;c g&#245; m&#227; GBS-SO-...">
+    <button type="button" id="btnAddSoGo" style="background:#4f46e5;color:#fff;border:0;padding:7px 14px;border-radius:7px;font-size:12.5px;font-weight:600;cursor:pointer">Th&#234;m</button>
+  </div>
+  <div id="ecSoList"></div>
+</div>
 <script id="ec-gbs-po-item-tax">
 /* v19 2026-08-04 - VAT theo từng dòng cho GBS PO (#178, #183).
    Danh sách VAT lấy trực tiếp từ boxme qua /api/method/gbs_list_item_tax_templates
@@ -2303,7 +2320,8 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
           item_name: tr.querySelector('.item-name').value,
           qty: parseFloat(tr.querySelector('.item-qty').value) || 0,
           rate: _gbsParseNum ? _gbsParseNum(tr.querySelector('.item-rate').value) : (parseFloat(tr.querySelector('.item-rate').value) || 0),
-          item_tax_template: (function(){ var s = tr.querySelector('.item-tax'); return (s && !s.disabled && s.value) ? s.value : ''; })()
+          item_tax_template: (function(){ var s = tr.querySelector('.item-tax'); return (s && !s.disabled && s.value) ? s.value : ''; })(),
+          sales_order: tr.getAttribute('data-so') || undefined  // 28/10: PO gom nhieu SO - SO cua dong nay
           // warehouse removed - set_warehouse at doc level auto-fills each item server-side
         });
       });
@@ -2930,6 +2948,115 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     return m ? decodeURIComponent(m[1]) : '';
   }
   var fromSo = urlParam('from_so');
+
+  // ===== 28/10/2026 PO gom NHIEU SO (yeu cau GBS - chi Huong) =====================
+  // Moi dong item mang data-so = SO (GBS) cua no; submit gui items[].sales_order. Server
+  // (submit_gbs_po v10_multi_so) kiem moi SO: ton tai, da Approved/Completed tren GBS, cung brand.
+  // parent_so = SO dau tien (giu tuong thich). Khung "Them items tu SO khac" nam san trong HTML.
+  function soEsc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function tagRowSo(tr, so){
+    if (!tr || !so) return;
+    tr.setAttribute('data-so', so);
+    var cell = (tr.querySelector('.item-name') || {}).parentNode;
+    if (!cell) return;
+    var b = cell.querySelector('.ec-row-so');
+    if (!b) { b = document.createElement('span'); b.className = 'ec-row-so'; cell.appendChild(b); }
+    b.textContent = so;
+    renderSoList();
+  }
+  window._ecPoTagRowSo = tagRowSo;
+  function soInRows(){
+    var out = [];
+    document.querySelectorAll('#itemsBody tr[data-so]').forEach(function(tr){
+      var s = tr.getAttribute('data-so'); if (s && out.indexOf(s) < 0) out.push(s);
+    });
+    return out;
+  }
+  function renderSoList(){
+    var el = document.getElementById('ecSoList'); if (!el) return;
+    var l = soInRows();
+    el.innerHTML = l.length ? ('SO trong PO n&#224;y: ' + l.map(function(s){
+      return '<a href="/approval?id=' + encodeURIComponent(s) + '&type=gbs_so" target="_blank">' + soEsc(s) + '</a>'; }).join(', ')) : '';
+  }
+  function appendSoItems(so, items){
+    var tbody = document.getElementById('itemsBody'), add = document.getElementById('btnAddRow');
+    if (!tbody || !add) return 0;
+    var n = 0;
+    (items || []).forEach(function(it){
+      var trs = tbody.querySelectorAll('tr'), last = trs[trs.length - 1], tr = null;
+      var lastCode = last ? (last.querySelector('.item-code') || {}).value : 'x';
+      if (last && !lastCode && !last.getAttribute('data-so')) tr = last;   // dung lai dong trong
+      if (!tr) { add.click(); trs = tbody.querySelectorAll('tr'); tr = trs[trs.length - 1]; }
+      if (!tr) return;
+      tagRowSo(tr, so);
+      var cd = tr.querySelector('.item-code'), nm = tr.querySelector('.item-name'),
+          qt = tr.querySelector('.item-qty'), rt = tr.querySelector('.item-rate');
+      if (cd) { cd.value = it.item_code || ''; try { cd.dispatchEvent(new Event('input', {bubbles:true})); } catch(e){} }
+      if (nm) nm.value = it.item_name || '';
+      if (qt) { qt.value = it.qty || 0; try { qt.dispatchEvent(new Event('input', {bubbles:true})); } catch(e){} }
+      if (rt) {
+        var rv = (typeof it.rate === 'number') ? it.rate : (parseFloat(it.rate) || 0);
+        rt.value = rv ? rv.toLocaleString('vi-VN', { maximumFractionDigits: 20, useGrouping: true }) : '0';
+        try { rt.dispatchEvent(new Event('input', {bubbles:true})); } catch(e){}
+      }
+      n++;
+    });
+    renderSoList();
+    return n;
+  }
+  function loadSoOptions(){
+    var sel = document.getElementById('ecAddSoSel'); if (!sel) return;
+    var brand = (document.getElementById('brand') || {}).value || '';
+    sel.innerHTML = '<option value="">-- Ch\u1ecdn SO c\u00f9ng brand --</option>';
+    if (!brand) return;
+    var q = '/api/resource/GBS Sales Order?fields=' + encodeURIComponent('["name","so_title","gbs_status"]') +
+      '&filters=' + encodeURIComponent(JSON.stringify([["brand_code","=",brand],["status","=","Approved"],["gbs_status","in",["Approved","Completed"]]])) +
+      '&order_by=' + encodeURIComponent('creation desc') + '&limit_page_length=100';
+    fetch(q, {credentials: 'include', headers: {Accept: 'application/json'}}).then(function(r){ return r.json(); }).then(function(d){
+      var have = soInRows();
+      (d.data || []).forEach(function(x){
+        if (have.indexOf(x.name) >= 0) return;
+        var o = document.createElement('option'); o.value = x.name;
+        o.textContent = x.name + ' \u2014 ' + (x.so_title || '') + ' (' + (x.gbs_status || '') + ')';
+        sel.appendChild(o);
+      });
+    }).catch(function(){});
+  }
+  function addSo(){
+    var so = ((document.getElementById('ecAddSoSel') || {}).value || (document.getElementById('ecAddSoCode') || {}).value || '').trim();
+    if (!so) { alert('Ch\u1ecdn ho\u1eb7c g\u00f5 m\u00e3 SO tr\u01b0\u1edbc.'); return; }
+    if (soInRows().indexOf(so) >= 0) { alert('SO ' + so + ' \u0111\u00e3 c\u00f3 trong PO n\u00e0y.'); return; }
+    var btn = document.getElementById('btnAddSoGo'); if (btn) btn.disabled = true;
+    fetch('/api/method/gbs_so_create_po_helper', {method: 'POST', credentials: 'include',
+      headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ so_name: so })
+    }).then(function(r){ return r.json(); }).then(function(d){
+      var m = (d && d.message) || {};
+      if (!m.success) throw new Error(m.error || 'helper_failed');
+      var brand = (document.getElementById('brand') || {}).value || '';
+      var sb = (m.so || {}).brand_code || '';
+      if (brand && sb && sb !== brand) throw new Error('SO ' + so + ' thu\u1ed9c brand ' + sb + ', PO \u0111ang l\u00e0 ' + brand + '.');
+      var st = (m.so || {}).gbs_status || '';
+      if (st && st !== 'Approved' && st !== 'Completed') throw new Error('SO ' + so + ' ch\u01b0a \u0111\u01b0\u1ee3c GBS duy\u1ec7t (' + st + ').');
+      var n = appendSoItems(so, m.items || []);
+      var c = document.getElementById('ecAddSoCode'); if (c) c.value = '';
+      loadSoOptions();
+      if (!n) alert('SO ' + so + ' kh\u00f4ng c\u00f3 d\u00f2ng item n\u00e0o.');
+    }).catch(function(e){ alert('Kh\u00f4ng th\u00eam \u0111\u01b0\u1ee3c SO: ' + e.message); })
+      .then(function(){ if (btn) btn.disabled = false; });
+  }
+  (function bindAddSo(){
+    var b = document.getElementById('btnAddSo');
+    if (!b) return;
+    b.addEventListener('click', function(){
+      var p = document.getElementById('ecAddSoPanel');
+      if (p) { p.hidden = !p.hidden; if (!p.hidden) loadSoOptions(); }
+    });
+    var g = document.getElementById('btnAddSoGo'); if (g) g.addEventListener('click', addSo);
+    var tb = document.getElementById('itemsBody');
+    if (tb) tb.addEventListener('click', function(){ setTimeout(renderSoList, 0); });   // xoa dong -> cap nhat danh sach
+  })();
+  // ===== /PO gom nhieu SO =========================================================
+
   if (!fromSo) return;
   console.log('[ec-gbs-po-from-so] active for parent SO:', fromSo);
 
@@ -3012,6 +3139,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       var nm = tr.querySelector('.item-name');
       var qt = tr.querySelector('.item-qty');
       var rt = tr.querySelector('.item-rate');
+      if (window._ecPoTagRowSo) window._ecPoTagRowSo(tr, fromSo);
       if (cd) { cd.value = it.item_code || ''; try{cd.dispatchEvent(new Event('input', {bubbles:true}));}catch(e){} }
       if (nm) nm.value = it.item_name || '';
       if (qt) { qt.value = it.qty || 0; try{qt.dispatchEvent(new Event('input', {bubbles:true}));}catch(e){} }
@@ -5146,6 +5274,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       codeI.value = item.item_code || '';
       fireEvt(codeI, 'input'); // triggers _gbsItems lookup → fills .item-name
     }
+    if (item.sales_order && window._ecPoTagRowSo) window._ecPoTagRowSo(row, item.sales_order);
     setTimeout(function(){
       if (nameI && !nameI.value && item.item_name) nameI.value = item.item_name;
     }, 60);
@@ -5230,6 +5359,8 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       // UOM per-row (extra-fields inject .item-uom into each row)
       var uomEl = row.querySelector('.item-uom');
       if (uomEl && uomEl.value) it.uom = uomEl.value;
+      var soTag = row.getAttribute('data-so');   // 28/10: PO gom nhieu SO
+      if (soTag) it.sales_order = soTag;
       items.push(it);
     });
     return items;
