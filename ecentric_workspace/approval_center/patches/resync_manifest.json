@@ -204,8 +204,8 @@
   },
   "legacy_pages/gbs_po_form_v2/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p223_resync_gbs_form_nhieu_lop",
-    "sha256": "7423514b149877254cc01b9687b42b19b17995df67fbdad25e402208b06a40b1"
+    "last_resync_patch": "p227_gbs_po_nhieu_so",
+    "sha256": "31b36d547940bc59c17bbf3751e111f2c27b0badc57d4de7176fe708acd7db20"
   },
   "legacy_pages/gbs_so_form_v2/main_section.html": {
     "baseline": "2026-08-31",
