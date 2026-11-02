@@ -28,7 +28,10 @@ ATTEMPT_TIMEOUT = 20
 #: `employee`, `submitter` khong dua vao ngu canh - chi de xet quyen doc tung ban ghi.
 FIELDS = ("name, full_name, department, overall_status, mood, ai_tools_used, what_done, "
           "blockers_help, plan_next_week, ai_use_case, ai_summary, overall_ai_score, "
-          "structure_score, week_label, employee, submitter")
+          "structure_score, week_label, employee, submitter, status")
+#: Trang thai "da nop" cua WTU (nhu weekly_report.service.TERMINAL_STATES). Ban `Draft` do cron
+#: tao san cho moi nguoi phai nop moi tuan - rong, KHONG phai mot bao cao.
+SUBMITTED_STATES = ("Submitted", "Reviewed")
 
 
 def week_labels(now_dt):
@@ -109,11 +112,17 @@ def build_context(view, user, cur_week, recs, company_summary="", partial=False)
     lines = ["Ban la AI tro ly cua eCentric. Tra loi tieng Viet, ngan gon, dung Markdown "
              "(** bold, * bullet). Chi dua tren du lieu duoi day; khong co thi noi khong co.",
              "Tuan hien tai: " + cur_week, "Nguoi dang hoi: " + user,
-             "", "=== %s (%d bao cao, 2 tuan gan nhat) ===" % (label, len(recs))]
+             "", "=== %s (%d bao cao da nop, %d chua nop, 2 tuan gan nhat) ===" % (
+                 label, sum(1 for r in recs if r.get("status") in SUBMITTED_STATES),
+                 sum(1 for r in recs if r.get("status") not in SUBMITTED_STATES))]
     for r in recs:
         lines.append("")
-        lines.append("[%s - %s - %s]" % (r.get("full_name") or "?", r.get("department") or "",
-                                        r.get("week_label") or ""))
+        head = "[%s - %s - %s]" % (r.get("full_name") or "?", r.get("department") or "",
+                                   r.get("week_label") or "")
+        if r.get("status") not in SUBMITTED_STATES:
+            lines.append(head + " CHUA NOP")
+            continue
+        lines.append(head)
         lines.append("Status: %s | Mood: %s | AI Score: %s" % (
             r.get("overall_status") or "-", r.get("mood") or "-", r.get("overall_ai_score") or "-"))
         lines.append("AI Tools: " + (r.get("ai_tools_used") or "-"))

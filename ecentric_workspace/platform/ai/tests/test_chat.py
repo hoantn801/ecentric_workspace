@@ -190,5 +190,16 @@ class ChiDocBaoCaoDuocPhepDoc(unittest.TestCase):
         self.assertNotIn("=== Phong Sales - EC", ctx)
 
 
+class BanNhapChuaNop(unittest.TestCase):
+    def test_ban_nhap_cron_khong_tinh_la_bao_cao(self):
+        # Moi tuan cron tao ~30 ban Draft rong cho moi nguoi phai nop. Dem chung la "phong co
+        # 3 bao cao" trong khi moi nop 2.
+        w = World("lead@ec.vn", roles=("Employee",), managed=("Sales - EC",))
+        _, ctx = w.ask()
+        self.assertIn("2 bao cao da nop", ctx)
+        self.assertIn("[Ten E3 - Sales - EC - %s] CHUA NOP" % CUR, ctx)
+        self.assertNotIn("viec E3", ctx, "ban nhap khong dua noi dung vao")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)
