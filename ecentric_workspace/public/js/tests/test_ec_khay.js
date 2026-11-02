@@ -253,6 +253,33 @@ const shell='<aside data-ec-shell="1"></aside><main>trang</main>';
     ok("qua tai: luu phien giu co err", (st.msgs||[]).some(m=>m.err===true));
   }
 
+  {
+    // nghi om: nut chinh la "Dinh kem giay kham" (dien thoai khong keo-tha duoc) -> co tep thi thanh "Gui don"
+    let n=0;
+    const o=await open(null,Object.assign({},routes,{
+      "ecentric_workspace.platform.ai.khay.intent":()=>{n++;return {status:200,j:{message:{action:"leave",reply:"",options:[],
+        leave:{leave_type:"Sick Leave",from_date:"2026-11-03",to_date:"2026-11-03",half_day:0,half_day_date:"",half_day_part:"",reason:"sốt",past:false}}}};},
+      "upload_file":()=>({status:200,j:{message:{file_url:"/private/files/giaykham.pdf"}}}),
+      "ec_hr_leave_apply":()=>({status:200,j:{message:{name:"HR-LAP-2026-00100",days:1}}})}));
+    await o.send("mai minh nghi om");
+    const ab=o.R.querySelector('.card [data-act="attach"]');
+    ok("nghi om: co nut Dinh kem giay kham", !!ab && /Đính kèm giấy khám/.test(ab.textContent) && !o.R.querySelector('[data-act="leave-send"]'));
+    let picked=0; const inp=o.R.querySelector("input.file"); inp.click=()=>{picked++;};
+    ab.click(); ok("nghi om: bam nut mo chon tep", picked===1);
+    Object.defineProperty(inp,"files",{configurable:true,value:[new o.e.w.File(["%PDF"],"giaykham.pdf",{type:"application/pdf"})]});
+    inp.dispatchEvent(new o.e.w.Event("change")); await tick(120);
+    const sb=o.R.querySelector('[data-act="leave-send"]');
+    ok("nghi om: co tep thi hien Gui don (bat duoc)", !!sb && !sb.disabled && n===1);
+    sb.click(); await tick(80);
+    const ap=o.e.log.filter(x=>x.m==="ec_hr_leave_apply").pop();
+    ok("nghi om: gui kem giay kham", ap && ap.body.attachment==="/private/files/giaykham.pdf");
+  }
+  {
+    const o=await open(null,r8);
+    await o.send("tao phieu",120);
+    ok("phieu: nut phu ghi 'Dien tay' (khong nham la AI tu dien)", /Điền tay/.test(o.R.querySelector(".card .btn.s").textContent) && /bấm Điền tay/.test(o.R.querySelector(".card").textContent));
+  }
+
   let all=true; Object.keys(c).forEach(k=>{console.log((c[k]?"PASS":"FAIL")+" - "+k); if(!c[k]) all=false;});
   console.log(all?"ALL_PASS":"SOME_FAIL"); process.exit(all?0:1);
 })();

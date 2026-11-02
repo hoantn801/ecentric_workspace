@@ -499,13 +499,16 @@
       (bal && !sent ? "<dt>Phép còn lại</dt><dd>" + esc(bal) + "</dd>" : "") + "</dl>";
     if (m.error) h += '<div class="note bad">' + esc(m.error) + "</div>";
     else if (sent) h += '<div class="note good">Đơn ' + esc(m.name) + " đã gửi, đang chờ duyệt.</div>";
-    else if (needDoc) h += '<div class="note">Nghỉ ốm cần giấy khám hoặc đơn thuốc — bạn thả tệp vào đây rồi bấm gửi.</div>';
+    else if (needDoc) h += '<div class="note">Nghỉ ốm cần giấy khám hoặc đơn thuốc — bấm <b>Đính kèm giấy khám</b> (PDF hoặc ảnh), rồi Gửi đơn.</div>';
     else if (needOt) h += '<div class="note">Nghỉ bù cần chọn ngày đã OT — bạn làm ở trang Nghỉ phép nhé.</div>';
     else if (lv.past && lv.leave_type !== "Sick Leave") h += '<div class="note">Chỉ nghỉ ốm mới được xin lùi ngày.</div>';
     h += '<div class="acts">';
-    if (!sent && !needOt) {
+    if (!sent && needDoc) {
+      // Bước kế tiếp là đính kèm: điện thoại không kéo-thả được, nên phải có nút bấm.
+      h += '<button type="button" class="btn p" data-act="attach">' + I.clip + "Đính kèm giấy khám</button>";
+    } else if (!sent && !needOt) {
       h += '<button type="button" class="btn p" data-act="leave-send" data-i="' + idx + '"' +
-        (m.state === "sending" || needDoc ? " disabled" : "") + ">" + I.send +
+        (m.state === "sending" ? " disabled" : "") + ">" + I.send +
         (m.state === "sending" ? "Đang gửi…" : "Gửi đơn") + "</button>";
     }
     h += '<a class="btn s" href="/ec-hr/leave">' + (sent ? "Xem đơn" : "Trang nghỉ phép") + "</a></div></div>";
@@ -543,7 +546,7 @@
         (m.state === "saving" ? "Đang tạo nháp…" : m.draft ? "Mở nháp để gửi" : "Tạo nháp & mở") + "</button>";
     }
     h += '<a class="btn s" href="' + esc(m.route || S.boot.payment_route || "/approvals/payment-request") +
-      '">Tự điền</a></div></div>';
+      '">Điền tay</a></div></div>';
     if (m.by) h += '<div class="by">Điền bởi ' + esc(modelLabel(m.by)) + "</div>";
     return h;
   }
@@ -661,7 +664,7 @@
         res = res || {};
         m.state = "ready";
         if (!res.refused && !res.error && !Object.keys(res.fields || {}).length) {
-          m.error = "Mình chưa điền được ô nào từ câu này — bạn bấm Tự điền, hoặc kể rõ hơn nhé.";
+          m.error = "Mình chưa điền được ô nào từ câu này — bạn bấm Điền tay, hoặc kể rõ hơn nhé.";
         }
         if (res.refused || res.error) {
           m.error = res.refused === "refused_quota" ? "Bạn đã dùng hết lượt AI điền hộ hôm nay." :
@@ -882,6 +885,7 @@
       if (t.getAttribute("data-act") === "leave-send") sendLeave(i);
       if (t.getAttribute("data-act") === "pay-draft") payDraft(i);
       if (t.getAttribute("data-act") === "retry") retry(i);
+      if (t.getAttribute("data-act") === "attach") R.file.click();
     });
     R.pan.addEventListener("keydown", function (e) { if (e.key === "Escape") closePanel(); });
 
