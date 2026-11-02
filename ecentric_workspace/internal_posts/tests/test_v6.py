@@ -220,6 +220,14 @@ GOOD = {"title": "Ban hành Quy chế công tác phí, phiên bản 2.",
 
 
 class TestAIWrite(unittest.TestCase):
+    def test_items_la_CHUOI_khong_vo_thanh_tung_ky_tu(self):
+        """Ho GPT khong bi schema ep: `items` co the ve la mot chuoi. Lap tren chuoi = moi KY TU
+        mot gach dau dong ("<li>B</li><li>u</li>...") len thang ban xem truoc cua HR."""
+        a = W.build({"title": "T", "summary": "S",
+                     "sections": [{"heading": "H", "items": "Bước 1: mở app"}]})
+        self.assertIn("<li>Bước 1: mở app</li>", a["content"])
+        self.assertNotIn("<li>B</li>", a["content"])
+
     def test_build_escapes_and_structures(self):
         a = W.build(GOOD)
         self.assertEqual(a["title"], "Ban hành Quy chế công tác phí, phiên bản 2")
