@@ -216,6 +216,17 @@ def _uses_kwarg(node, kwarg):
     return False
 
 
+def _takes_row_lock(src, fn):
+    """Ham `fn` khoa hang: tu goi for_update, HOAC goi `_lock_and_read` (03/11/2026 - khoa va
+    doc trang thai bang CUNG mot locking read, xem test_engine_locking_read_rr.py) va chinh
+    `_lock_and_read` co for_update."""
+    node = _fn_node(src, fn)
+    if _uses_kwarg(node, "for_update"):
+        return True
+    return ("_lock_and_read" in _called_names(node)
+            and _uses_kwarg(_fn_node(src, "_lock_and_read"), "for_update"))
+
+
 def _module_consts(tree):
     """{ten: chuoi} cho mọi gán hằng chuỗi ở cấp module (kể cả gán nhiều tên)."""
     out = {}
@@ -572,13 +583,18 @@ class TestResubmitGuardsTheStateMachine(unittest.TestCase):
                       "phieu terminal, sinh ToDo + thong bao 'Can duyet' tren phieu da dong")
 
     def test_resubmit_takes_a_row_lock_like_its_siblings(self):
-        self.assertTrue(_uses_kwarg(_fn_node(self.SRC, "resubmit"), "for_update"),
+        self.assertTrue(_takes_row_lock(self.SRC, "resubmit"),
                         "resubmit doc trang thai truoc khoa - tin don, khong phai su that "
                         "(approve/reject/cancel deu da khoa hang tu vong 2)")
 
     def test_the_row_lock_detector_has_teeth(self):
         for fn in ("approve", "reject", "cancel"):
-            self.assertTrue(_uses_kwarg(_fn_node(self.SRC, fn), "for_update"), fn)
+            self.assertTrue(_takes_row_lock(self.SRC, fn), fn)
+        # Rang that: go khoa khoi resubmit thi phep do phai do.
+        go = self.SRC.replace("    _lock_and_read(req)\n    if req.approval_status not in",
+                              "    if req.approval_status not in", 1)
+        self.assertNotEqual(go, self.SRC, "dot bien khong ap dung duoc")
+        self.assertFalse(_takes_row_lock(go, "resubmit"))
 
     def test_the_facade_gates_resubmit_like_it_gates_cancel(self):
         """`command_service.cancel` kiểm `can_cancel`; `command_service.resubmit` thì không.
@@ -808,16 +824,15 @@ class TestMutationsProveTheGatesCanBeSatisfied(unittest.TestCase):
             lambda s: "notify" in _called_names(_fn_node(s, "complete_approval")))
 
     def test_resubmit_guard_is_fixable(self):
-        self._assert_mutated(
-            self.ENG,
-            '    req = frappe.get_doc("EC Approval Request", request_name)\n'
-            '    if req.approval_status not in ("Information Required",) and not restart:',
-            '    req = frappe.get_doc("EC Approval Request", request_name)\n'
-            '    _guard_open(req)\n'
-            '    frappe.db.get_value("EC Approval Request", request_name, "name", for_update=True)\n'
-            '    if req.approval_status not in ("Information Required",) and not restart:',
-            lambda s: ("_guard_open" in _called_names(_fn_node(s, "resubmit"))
-                       and _uses_kwarg(_fn_node(s, "resubmit"), "for_update")))
+        # 03/11/2026: resubmit khoa qua `_lock_and_read` (locking read) - ban va da nam trong
+        # nguon. Dot bien nguoc: go khoa + guard thi phep do phai do, giu nguyen thi xanh.
+        ok = lambda s: ("_guard_open" in _called_names(_fn_node(s, "resubmit"))
+                        and _takes_row_lock(s, "resubmit"))
+        self.assertTrue(ok(self.ENG))
+        go = self.ENG.replace("    _lock_and_read(req)\n    if req.approval_status not in",
+                              "    if req.approval_status not in", 1)
+        self.assertNotEqual(go, self.ENG, "dot bien khong ap dung duoc - phep do da mu")
+        self.assertFalse(ok(go))
 
     def test_esign_debt_notify_is_fixable(self):
         guard_src = _read("platform", "esign", "guard.py")
