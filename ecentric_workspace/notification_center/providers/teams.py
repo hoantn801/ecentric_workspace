@@ -226,6 +226,13 @@ def deliver(delivery_log):
     if outcome == "skip" and code == "NOT_INSTALLED" and _tung_nhan_teams(doc.get("recipient"), doc.name):
         outcome, err = "retry", "NOT_INSTALLED nhung nguoi nhan da tung nhan tin Teams - thu lai"
 
+    # 2c) Copilot 300 = nguoi nhan DANG chat voi agent nen flow bo qua tin chu dong (03/11/2026).
+    #     Day la trang thai TAM THOI theo dinh nghia - vai phut sau ho roi cuoc chat. Truoc day
+    #     coi la Skipped vinh vien: thong bao "Can duyet" mat han chi vi nguoi do vua hoi agent
+    #     mot cau. Thu lai theo _RETRY_BACKOFF_MIN (1/5/30 phut), toi da MAX_ATTEMPTS.
+    if outcome == "skip" and code == "SKIPPED_ACTIVE_CONVERSATION":
+        outcome, err = "retry", "Nguoi nhan dang chat voi agent - thu lai sau"
+
     # 3) not sent -> Skipped (bot not installed / blocked) or Failed+retry (transient)
     if outcome == "skip":
         doc.provider = provider or "teams_bot"

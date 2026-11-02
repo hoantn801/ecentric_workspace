@@ -3062,3 +3062,34 @@ class TestGioYenLangRiengTheoMuiGio(unittest.TestCase):
         finally:
             FR.utils.now_datetime = orig
             del FR.utils.get_system_timezone
+
+
+class TestCopilotDangChatThiThuLai(unittest.TestCase):
+    """Copilot 300 (nguoi nhan dang chat voi agent) la trang thai tam - phai thu lai, khong
+    duoc danh Skipped vinh vien (mat thong bao Can duyet)."""
+
+    def setUp(self):
+        _reset("boss@x.com")
+        FR._conf.update({"ec_teams_provider": "power_automate_copilot",
+                         "ec_pa_flow_url": "https://flow/x", "ec_pa_oauth_tenant_id": "TEN",
+                         "ec_pa_oauth_client_id": "SPID", "ec_pa_oauth_client_secret": "SPSEC"})
+        self._orig = tm.power_automate.send_event
+        tm.power_automate.send_event = lambda payload, cfg=None: (
+            "skip", "power_automate_copilot", "SKIPPED_ACTIVE_CONVERSATION", "x")
+
+    def tearDown(self):
+        tm.power_automate.send_event = self._orig
+
+    def test_300_thanh_failed_co_lich_thu_lai_va_co_tran(self):
+        nm = ev._delivery(ev._event_id("qa300"), "u@x.com", "teams", "Pending",
+                          event_type="approval_required", severity="action_required",
+                          title="Cần duyệt: X", message="m")
+        tm.deliver(nm)
+        d = FR.get_doc("EC Notification Delivery Log", nm)
+        self.assertEqual((d["status"], d["error_code"]), ("Failed", "SKIPPED_ACTIVE_CONVERSATION"))
+        self.assertIsNotNone(d["next_retry_at"])
+        for _ in range(tm.MAX_ATTEMPTS - 1):
+            tm.deliver(nm)
+        self.assertEqual(d["attempt_count"], tm.MAX_ATTEMPTS)
+        self.assertEqual(d["status"], "Failed")
+        self.assertIsNone(d["next_retry_at"])                 # het luot -> khong thu nua
