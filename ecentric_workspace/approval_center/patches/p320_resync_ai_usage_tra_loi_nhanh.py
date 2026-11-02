@@ -1,5 +1,5 @@
 # Copyright (c) 2026, eCentric and contributors
-"""p317_resync_ai_usage_tra_loi_nhanh (03/11/2026, QA UX mang AI): dong bo lai Web Page /ai-usage.
+"""p320_resync_ai_usage_tra_loi_nhanh (03/11/2026, QA UX mang AI): dong bo lai Web Page /ai-usage.
 Khoi "Tra loi nhanh" (ai dung / dung gi / co on khong / ton bao nhieu), bang thanh the tren dien
 thoai, danh sach nguoi gon 10 dong, tim kiem khong ve lai ca trang, sap xep bang ban phim, trang
 thai rong / loi 403 co huong di tiep. Hop dong usage_api.summary giu nguyen.
@@ -14,6 +14,6 @@ def execute():
         return
     try:
         res = page_sync.sync()
-        frappe.logger("ai_tools").info("p317_resync_ai_usage_tra_loi_nhanh: %s" % (res or {}))
+        frappe.logger("ai_tools").info("p320_resync_ai_usage_tra_loi_nhanh: %s" % (res or {}))
     except Exception:
-        frappe.log_error(title="p317_resync_ai_usage_tra_loi_nhanh")
+        frappe.log_error(title="p320_resync_ai_usage_tra_loi_nhanh")
