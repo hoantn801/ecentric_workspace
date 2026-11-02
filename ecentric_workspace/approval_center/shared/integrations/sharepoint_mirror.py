@@ -97,7 +97,14 @@ def _noi_dung_tep(file_url):
     name = frappe.db.get_value("File", {"file_url": file_url}, "name")
     if not name:
         raise SharePointChuaSan("Khong tim thay ban ghi File cho %s" % file_url)
-    return frappe.get_doc("File", name).get_content()
+    noi_dung = frappe.get_doc("File", name).get_content()
+    # File.get_content() cua Frappe tra CHUOI cho tep doc duoc bang UTF-8 (.txt, .csv, ca PDF
+    # thuan ASCII). Gui chuoi len Graph: Content-Length dem KY TU chu khong dem byte, va
+    # http.client ma hoa latin-1 -> tep tieng Viet hong / nem loi. Frappe vua giai ma UTF-8
+    # thanh cong nen ma hoa lai UTF-8 ra dung tung byte goc.
+    if isinstance(noi_dung, str):
+        noi_dung = noi_dung.encode("utf-8")
+    return noi_dung or b""
 
 
 def bam_noi_dung(noi_dung):

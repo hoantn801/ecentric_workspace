@@ -64,6 +64,7 @@ class Graph(object):
         self.goi = []
         self._phien = {}
         self._dem = 0
+        self.than = []
 
     def post(self, url, headers=None, json=None, timeout=None):
         self.goi.append(("POST", url, json))
@@ -88,6 +89,7 @@ class Graph(object):
 
     def put(self, url, headers=None, data=None, timeout=None):
         self.goi.append(("PUT", url, None))
+        self.than.append((headers, data))
         kieu, gia_tri = self._phien[url]
         if kieu == "path":
             self.co_san.add(gia_tri.lower())
@@ -370,3 +372,17 @@ def test_het_ten_thay_the_thi_bao_loi_khong_ghi_de():
     mod, W = _nap([_file()], {}, g)
     kq = mod.dong_bo_phieu(CTR, "CTR-1")
     assert kq["hong"] == ["HopDong.docx"] and g.tai_len() == []
+
+
+def test_tep_chu_utf8_duoc_gui_dung_byte():
+    """File.get_content() tra CHUOI cho tep doc duoc UTF-8 (.txt/.csv). Content-Length phai
+    dem byte, va than gui di phai la bytes goc - khong thi tep tieng Viet hong."""
+    url = "/private/files/ghichu.txt"
+    chu = "Điều khoản thanh toán: 30 ngày"
+    g = Graph()
+    mod, W = _nap([_file(url=url, ten="ghichu.txt")], {}, g, noi_dung={url: chu})
+    kq = mod.dong_bo_phieu(CTR, "CTR-1")
+    assert kq["hong"] == [], W.log
+    headers, data = g.than[-1]
+    assert data == chu.encode("utf-8")
+    assert headers["Content-Length"] == str(len(chu.encode("utf-8")))
