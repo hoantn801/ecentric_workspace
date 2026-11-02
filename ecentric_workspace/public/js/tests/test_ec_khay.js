@@ -320,6 +320,29 @@ const shell='<aside data-ec-shell="1"></aside><main>trang</main>';
     ok("css dien thoai: o nhap 16px chong phong to", /@media \(max-width:640px\)\{[^@]*\.in textarea\{font-size:16px\}/.test(R2.querySelector("style").textContent));
   }
 
+  {
+    // a11y: vung doc rieng, o nhap co ten, giu focus ban phim sau khi ve lai
+    const o=await open(null,Object.assign({},routes,{"ec_hr_leave_apply":()=>({status:200,j:{message:{name:"HR-LAP-2026-00101",days:1}}})}));
+    ok("a11y: .ms khong aria-live (ve lai toan bo)", !o.R.querySelector(".ms").hasAttribute("aria-live"));
+    ok("a11y: o nhap co ten doc duoc", /Nhắn cho eC Mate/.test(o.R.querySelector("textarea").getAttribute("aria-label")||""));
+    await o.send("nghi mai",150);
+    ok("a11y: doc thong bao da soan don", /Đã soạn đơn nghỉ phép/.test(o.R.querySelector(".sr").textContent));
+    const b=o.R.querySelector('[data-act="leave-send"]'); b.focus();
+    ok("a11y: focus dang o nut Gui don", o.R.activeElement===b);
+    b.click(); await tick(150);
+    ok("a11y: don gui xong, focus ve o nhap (khong rot ra ngoai)", o.R.activeElement===o.R.querySelector("textarea"));
+    ok("a11y: doc cau xac nhan da gui", /HR-LAP-2026-00101/.test(o.R.querySelector(".sr").textContent));
+  }
+  {
+    let release; const slow=new Promise(r=>{release=r;});
+    const o=await open(null,r5);
+    const f0=o.e.w.fetch; o.e.w.fetch=(u,opt)=>/khay.intent/.test(u)?slow.then(()=>f0(u,opt)):f0(u,opt);
+    await o.send("alo",30);
+    ok("dang cho: o nhap bao dang tra loi", /đang trả lời/.test(o.R.querySelector("textarea").placeholder));
+    release(); await tick(80);
+    ok("tra loi xong: o nhap ve binh thuong", /^Nhắn cho eC Mate/.test(o.R.querySelector("textarea").placeholder));
+  }
+
   let all=true; Object.keys(c).forEach(k=>{console.log((c[k]?"PASS":"FAIL")+" - "+k); if(!c[k]) all=false;});
   console.log(all?"ALL_PASS":"SOME_FAIL"); process.exit(all?0:1);
 })();

@@ -410,6 +410,7 @@
     ".drop svg{width:56px;height:56px}.drop b{display:block;color:var(--navy-700);font-size:15px;margin-top:6px}",
     ".drop span{font-size:12.5px;color:var(--g600)}.drop.on{background:var(--navy-50);box-shadow:0 0 0 6px rgba(44,61,166,.12)}",
     "[hidden]{display:none!important}",
+    ".sr{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}",
     "@media (max-width:640px){.pan,.pan.wide{inset:0;width:auto;height:auto;border-radius:0;border:0}.drop{left:16px;right:16px;width:auto}",
     /* điện thoại: chữ ô nhập 16px (iPhone tự phóng to trang khi < 16px), nút >= 44px cho ngón tay,
      * bỏ nút Mở rộng (đã toàn màn hình), chừa tai thỏ / thanh home */
@@ -432,11 +433,14 @@
       '<div class="t"><b>' + nm + '</b><span>Trợ lý của bạn trên ERP</span></div>' +
       '<button class="ib wide" type="button" aria-label="Mở rộng">' + I.wide + "</button>" +
       '<button class="ib close" type="button" aria-label="Đóng">' + I.x + "</button></header>" +
-      '<div class="ms" aria-live="polite"></div>' +
+      /* .ms vẽ lại toàn bộ mỗi lần nên KHÔNG đặt aria-live ở đó (trình đọc màn hình đọc lại
+       * cả cuộc trò chuyện hoặc im). Câu mới được đọc qua vùng .sr riêng. */
+      '<div class="ms" role="region" aria-label="Cuộc trò chuyện"></div>' +
+      '<div class="sr" role="status" aria-live="polite"></div>' +
       '<form class="in"><button class="ib attach" type="button" aria-label="Đính kèm tệp">' + I.clip + "</button>" +
       '<input type="file" class="file" multiple hidden accept=".pdf,.png,.jpg,.jpeg,.webp">' +
       '<label hidden for="ec-khay-q">Nhắn cho ' + nm + '</label>' +
-      '<textarea id="ec-khay-q" rows="1" placeholder="Nhắn cho ' + nm + '…"></textarea>' +
+      '<textarea id="ec-khay-q" rows="1" aria-label="Nhắn cho ' + nm + '" placeholder="Nhắn cho ' + nm + '…"></textarea>' +
       '<button class="ib send" type="submit" aria-label="Gửi">' + I.send + "</button></form>" +
       '<div class="fine">AI chỉ soạn sẵn, bạn bấm mới gửi.</div></section>' +
       '<div class="drop" hidden><div>' + FACE + "<b>Thả tệp vào đây</b>" +
@@ -451,6 +455,7 @@
     R.wideBtn = root.querySelector(".wide");
     R.drop = root.querySelector(".drop");
     R.send = root.querySelector(".send");
+    R.sr = root.querySelector(".sr");
   }
 
   /* ---------------------------------------------------------------- vẽ */
@@ -491,10 +496,36 @@
     if (m.role === "pay") return payCard(m, idx);
     return "";
   }
+  /* Nút đang được focus trong .ms (vd "Gửi đơn") -> khoá để tìm lại sau khi vẽ lại. */
+  function focusKey() {
+    var a = R.root.activeElement;
+    if (!a || !R.ms.contains(a)) return null;
+    return { act: a.getAttribute("data-act"), i: a.getAttribute("data-i"), say: a.getAttribute("data-say") };
+  }
+  function refocus(k) {
+    if (!k) return;
+    var sel = k.act ? '[data-act="' + k.act + '"]' + (k.i != null ? '[data-i="' + k.i + '"]' : "") :
+      k.say ? '[data-say="' + String(k.say).replace(/["\\]/g, "\\$&") + '"]' : "";
+    var el = null;
+    try { el = sel ? R.ms.querySelector(sel) : null; } catch (e) { el = null; }
+    if (el && !el.disabled) { try { el.focus(); } catch (e) { /* noop */ } return; }
+    // Nút đã biến mất (đơn đã gửi…): đưa con trỏ về ô nhập thay vì rơi ra ngoài trang.
+    // Màn cảm ứng thì thôi — không bật bàn phím khi người dùng chỉ chạm nút.
+    if (!touchOnly()) { try { R.q.focus(); } catch (e) { /* noop */ } }
+  }
+  function announce(text) {
+    if (!R.sr) return;
+    R.sr.textContent = "";
+    var t = String(text || "").replace(/\*\*/g, "");
+    setTimeout(function () { R.sr.textContent = t; }, 60);
+  }
   function paint() {
     var h = S.msgs.map(msgHtml).join("");
     if (!S.msgs.length) h = greet();
+    var fk = focusKey();
     R.ms.innerHTML = h;
+    refocus(fk);
+    R.q.placeholder = S.busy ? NAME() + " đang trả lời…" : "Nhắn cho " + NAME() + "…";
     R.ms.scrollTop = R.ms.scrollHeight;
     R.send.disabled = S.busy;
     R.pan.classList.toggle("wide", S.wide);
@@ -583,7 +614,13 @@
   }
 
   /* ---------------------------------------------------------------- hành động */
-  function push(m) { S.msgs.push(m); paint(); save(); return S.msgs.length - 1; }
+  function push(m) {
+    S.msgs.push(m); paint(); save();
+    if (m.role === "bot") announce(NAME() + ": " + m.text);
+    else if (m.role === "typing") announce(NAME() + " đang trả lời…");
+    else if (m.role === "leave") announce("Đã soạn đơn nghỉ phép, bạn xem lại rồi bấm Gửi đơn.");
+    return S.msgs.length - 1;
+  }
   var slowTimer = null;
   function typing() {
     clearTimeout(slowTimer);
@@ -676,7 +713,7 @@
         m.state = "sent"; m.name = (res && res.name) || ""; m.days = res && res.days;
         push({ role: "bot", text: "Xong! Đơn **" + m.name + "** đã gửi, mình sẽ không làm gì thêm với đơn này." });
       })
-      .catch(function (e) { m.state = "draft"; m.error = errText(e, "Gửi không được."); })
+      .catch(function (e) { m.state = "draft"; m.error = errText(e, "Gửi không được."); announce(m.error); })
       .then(function () { paint(); save(); });
   }
 
@@ -711,7 +748,11 @@
         });
       })
       .catch(function (e) { var m = S.msgs[idx]; m.state = "ready"; m.error = errText(e, "Đọc tệp không được."); })
-      .then(function () { paint(); });
+      .then(function () {
+        paint();
+        var m = S.msgs[idx];
+        announce(m.error ? m.error : "Đã điền sẵn phiếu " + (m.title || "") + ", bạn xem lại rồi bấm Tạo nháp.");
+      });
   }
 
   function payDraft(idx) {
@@ -731,7 +772,7 @@
         push({ role: "bot", text: "Đã tạo nháp **" + res.name + "**. Mình mở phiếu để bạn kiểm tra và bấm Gửi nhé." });
         setTimeout(function () { location.href = route + "?id=" + encodeURIComponent(res.name); }, 900);
       })
-      .catch(function (e) { m.state = "ready"; m.error = errText(e, "Không tạo được bản nháp."); })
+      .catch(function (e) { m.state = "ready"; m.error = errText(e, "Không tạo được bản nháp."); announce(m.error); })
       .then(function () { paint(); save(); });
   }
 
