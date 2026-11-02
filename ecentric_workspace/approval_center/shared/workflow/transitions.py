@@ -118,7 +118,11 @@ def decide_level(mode, minimum_approvals, statuses, groups=None):
         if approved >= 1:
             return ("approved", True)   # skip remaining pending
     elif mode == "All Required":
-        if total and approved == total:
+        # Dong Skipped = nguoi da bi RUT khoi cap (role_pool: mat role / co ghe rieng o cap
+        # sau) - ho khong con no phieu. Dem ca ho vao tong thi cap khong bao gio dong (03/11).
+        # role_pool luon giu lai it nhat mot nguoi, va "toan Skipped" van la pending.
+        con_lai = [s for s in statuses if s != "Skipped"]
+        if con_lai and approved == len(con_lai):
             return ("approved", False)
     elif mode == "Minimum Count":
         if approved >= (minimum_approvals or 0) and (minimum_approvals or 0) > 0:
@@ -340,6 +344,12 @@ def log_action(request_name, action, actor, level_no=None, level_name=None, comm
         "action": action, "comment": comment, "action_time": now_datetime(),
         "previous_status": previous_status, "new_status": new_status, "related_user": related_user,
     }).insert(ignore_permissions=True)
+    if action == "Restarted":
+        # So lan chay (`_sla_attempt`) suy tu CHINH nhat ky nay va duoc nho trong
+        # frappe.local. Vua ghi mot "Restarted" thi so da doi: bo ban nho, neu khong
+        # `_activate_level` ngay sau trong cung request mo nghia vu SLA cua vong MOI bang
+        # so lan CU (03/11/2026, test_engine_skipped_and_sla_attempt.py).
+        (getattr(frappe.local, "_ec_sla_attempt", None) or {}).pop(request_name, None)
     if action in _DECISION_ACTIONS:
         _notify_decision_observers(request_name, getattr(row, "name", None), action)
 
