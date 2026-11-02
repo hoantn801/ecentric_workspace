@@ -34,5 +34,25 @@ class LeaveOverlayVars(unittest.TestCase):
             self.assertIn(".lv-modal-bg *,#ec-lvd-back *{box-sizing:border-box}", h, f)
 
 
+
+class LeaveDates(unittest.TestCase):
+    """ec-lv-dates-v1: doi Tu ngay thi Den ngay di theo; chon nguoc ngay thi noi ro sai o dau."""
+
+    def test_den_ngay_di_theo_tu_ngay(self):
+        for f in FIELDS:
+            h = _page()[f]
+            self.assertIn("ec-lv-dates-v1", h, f)
+            # listener cua lv-from gan TRUOC vong forEach gan calc -> calc doc Den ngay moi
+            i = h.index("el('lv-from').addEventListener('change',function(){ var f=el('lv-from').value")
+            self.assertLess(i, h.index("['lv-from','lv-to','lv-type','lv-halfday','lv-hdate'].forEach"), f)
+            self.assertIn("el('lv-to').setAttribute('min',f)", h, f)
+
+    def test_loi_ngay_noi_ro(self):
+        for f in FIELDS:
+            h = _page()[f]
+            self.assertNotIn("Vui lòng chọn ngày hợp lệ", h, f)
+            self.assertIn("Đến ngày đang trước Từ ngày", h, f)
+            self.assertIn("Chọn Từ ngày và Đến ngày.", h, f)
+
 if __name__ == "__main__":
     unittest.main()
