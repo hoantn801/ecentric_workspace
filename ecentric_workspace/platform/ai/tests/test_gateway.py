@@ -703,6 +703,20 @@ class QaCongAi(unittest.TestCase):
         u = Env().mod["usage"]
         return u.build_row("t", out, "a@ecentric.vn", price_table={"grok-4-7": (160.0, 480.0)})
 
+    def test_ping_khong_tinh_loi_noi_dung_vao_suc_khoe(self):
+        # Cau ping tran 16 token: model co suy nghi tra RONG (finish=MAX_TOKENS) du van song.
+        # Gateway chi tinh loi SAP vao suc khoe; ping phai cung luat, neu khong 6 lan ping/gio
+        # keo ti le xuong 0% va gateway bo qua mot model dang song.
+        e = Env(settings=SucKhoeVaCheDoNhanh.FAST)
+        e.replies["gemini"] = (200, sse("", finish="MAX_TOKENS"))
+        e.replies["oai"] = (200, chat_body("ok"))
+        e.replies["grok"] = (200, KIE_500)
+        out = e.mod["health"].ping_models()
+        self.assertIn("rong", out["gemini-3-8-flash"])
+        self.assertEqual(e.gw.health._get("gemini-3-8-flash"), [], "song nhung tra rong: khong tinh hong")
+        self.assertEqual([x[1] for x in e.gw.health._get("grok-4-7")], [0], "sap that van tinh")
+        self.assertEqual([x[1] for x in e.gw.health._get("gemini-3-8-flash-openai")], [1])
+
     def test_ping_khong_tra_khoa_ra_ngoai(self):
         e = Env()
         e.replies["gemini"] = (401, json.dumps({"code": 401, "msg": "Invalid key " + KHOA}))
