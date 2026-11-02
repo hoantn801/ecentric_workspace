@@ -306,6 +306,20 @@ const shell='<aside data-ec-shell="1"></aside><main>trang</main>';
     ok("chip hoa don: co tep thi hoi kem cau + ten tep", calls.length===1 && /thanh toán/.test(calls[0].message) && calls[0].files[0]==="hd.pdf");
   }
 
+  {
+    // dien thoai: mo khung khong tu bat ban phim; may tinh van dat con tro vao o nhap
+    const e=mk("https://x/viec-cua-toi",shell,r5); await tick(50);
+    e.w.matchMedia=(q)=>({matches:/coarse/.test(q)});
+    const RR=e.w.document.getElementById("ec-khay-host").shadowRoot;
+    RR.querySelector(".fab").click(); await tick(60);
+    ok("dien thoai: khong tu focus o nhap", RR.activeElement!==RR.querySelector("textarea"));
+    const e2=mk("https://x/viec-cua-toi",shell,r5); await tick(50);
+    const R2=e2.w.document.getElementById("ec-khay-host").shadowRoot;
+    R2.querySelector(".fab").click(); await tick(60);
+    ok("may tinh: van focus o nhap", R2.activeElement===R2.querySelector("textarea"));
+    ok("css dien thoai: o nhap 16px chong phong to", /@media \(max-width:640px\)\{[^@]*\.in textarea\{font-size:16px\}/.test(R2.querySelector("style").textContent));
+  }
+
   let all=true; Object.keys(c).forEach(k=>{console.log((c[k]?"PASS":"FAIL")+" - "+k); if(!c[k]) all=false;});
   console.log(all?"ALL_PASS":"SOME_FAIL"); process.exit(all?0:1);
 })();

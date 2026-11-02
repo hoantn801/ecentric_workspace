@@ -358,7 +358,7 @@
     ".hd span{font-size:12px;color:var(--g500)}",
     ".ib{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;color:var(--g600);background:transparent;border:0;padding:0}",
     ".ib:hover{background:var(--g100)}",
-    ".ms{flex:1;min-height:0;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:10px}",
+    ".ms{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:14px;display:flex;flex-direction:column;gap:10px}",
     ".ms>*{flex-shrink:0}",
     ".m{max-width:86%;padding:9px 12px;border-radius:14px;font-size:13.5px;word-wrap:break-word}",
     ".u{align-self:flex-end;background:var(--navy);color:#fff;border-bottom-right-radius:4px}",
@@ -410,7 +410,12 @@
     ".drop svg{width:56px;height:56px}.drop b{display:block;color:var(--navy-700);font-size:15px;margin-top:6px}",
     ".drop span{font-size:12.5px;color:var(--g600)}.drop.on{background:var(--navy-50);box-shadow:0 0 0 6px rgba(44,61,166,.12)}",
     "[hidden]{display:none!important}",
-    "@media (max-width:640px){.pan,.pan.wide{inset:0;width:auto;height:auto;border-radius:0;border:0}.drop{left:16px;right:16px;width:auto}}",
+    "@media (max-width:640px){.pan,.pan.wide{inset:0;width:auto;height:auto;border-radius:0;border:0}.drop{left:16px;right:16px;width:auto}",
+    /* điện thoại: chữ ô nhập 16px (iPhone tự phóng to trang khi < 16px), nút >= 44px cho ngón tay,
+     * bỏ nút Mở rộng (đã toàn màn hình), chừa tai thỏ / thanh home */
+    ".in textarea{font-size:16px}.ib,.in .ib{width:44px;height:44px}.ib.wide{display:none}",
+    ".chip{padding:9px 13px;font-size:13.5px}.btn{padding:11px 14px;font-size:14px}",
+    ".hd{padding-top:calc(10px + env(safe-area-inset-top,0px))}.fine{padding-bottom:calc(10px + env(safe-area-inset-bottom,0px))}}",
     "@media (prefers-reduced-motion:reduce){.lid,.typing i,.fab.dizzy svg,.dz path{animation:none}}"
   ].join("");
 
@@ -777,7 +782,12 @@
     R.pan.hidden = false;
     R.fab.setAttribute("aria-expanded", "true");
     paint(); save();
+    // Điện thoại: không tự bật bàn phím — bàn phím che mất lời chào và gợi ý.
+    if (touchOnly()) return;
     setTimeout(function () { try { R.q.focus(); } catch (e) { /* noop */ } }, 30);
+  }
+  function touchOnly() {
+    try { return !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches); } catch (e) { return false; }
   }
   function closePanel() {
     S.open = false;
