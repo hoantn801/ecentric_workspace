@@ -70,5 +70,16 @@ class LeaveTiengViet(unittest.TestCase):
             # mot bang ten duy nhat cho ca form lan danh sach
             self.assertEqual(h.count("'Annual Leave':'Nghỉ phép năm'"), 1, f)
 
+
+class CamUng(unittest.TestCase):
+    """ec-hr-touch-v1: tren dien thoai o go chu >=16px (iPhone khong tu phong to), nut >=44px,
+    thong bao noi tren thanh tab. Do bang Chromium 390px: nut 35px -> 44px."""
+
+    def test_moc_cam_ung(self):
+        h = _page()["main_section_html"]
+        self.assertIn("ec-hr-touch-v1", h)
+        for c in ['.lv-modal select,.lv-modal input,.lv-modal textarea{font-size:16px', '.lv-btn-ok,.lv-btn-no,.lv-cancel,.lv-submit{min-height:44px}', '#lv-toast{bottom:calc(140px']:
+            self.assertIn(c, h, c)
+
 if __name__ == "__main__":
     unittest.main()

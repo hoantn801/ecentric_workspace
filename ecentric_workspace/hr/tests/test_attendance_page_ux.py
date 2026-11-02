@@ -66,5 +66,16 @@ class AttendanceNhanTiengViet(unittest.TestCase):
         # ten loai nghi day du trong chi tiet ngay - van escape
         self.assertIn("esc(LV_FULL[maps.leave[ds]] || maps.leave[ds])", h)
 
+
+class CamUng(unittest.TestCase):
+    """ec-hr-touch-v1: tren dien thoai o go chu >=16px (iPhone khong tu phong to), nut >=44px,
+    thong bao noi tren thanh tab. Do bang Chromium 390px: nut 35px -> 44px."""
+
+    def test_moc_cam_ung(self):
+        h = _page()["main_section_html"]
+        self.assertIn("ec-hr-touch-v1", h)
+        for c in ['.ha-modal textarea,.ha-mgr-cmt{font-size:16px}', '.ha-btn-ok,.ha-btn-no,.ha-modal-cancel{min-height:44px}', '#ha-toast{bottom:calc(140px']:
+            self.assertIn(c, h, c)
+
 if __name__ == "__main__":
     unittest.main()
