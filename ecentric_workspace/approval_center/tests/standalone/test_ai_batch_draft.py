@@ -372,6 +372,39 @@ class TestChiFormNguoiDoDuocTao(unittest.TestCase):
                          "EC-PAYR-2026-00232")
 
 
+class TestSuggestDauVaoRac(unittest.TestCase):
+    """`current` / `files` do CLIENT gui: mot mang JSON thay vi object khong duoc lam 500."""
+
+    def _m(self):
+        m = _load()
+        sv, gem = m.svc, m.gemini_api
+        sv.build_schema = lambda d: ()
+        sv.response_schema = lambda s: {}
+        sv.build_prompt = lambda *a, **k: "p"
+        sv.SYSTEM_INSTRUCTION = ""
+        sv.split_sources = lambda raw: (dict(raw or {}), {})
+        sv.verify_sources = lambda schema, v, src, note, f: (v, [])
+        sv.gate = lambda schema, v: (dict(v), [])
+        sv.probe = lambda d, merged: {"ok": True}
+        sv.write_log = lambda **kw: "AIF-1"
+        gem.generate_json = lambda **kw: {"ok": True, "data": {"payee_full_name": "A"},
+                                          "model": "m"}
+        return m
+
+    def test_current_la_mang_thi_coi_nhu_chua_go_gi(self):
+        m = self._m()
+        out = m.suggest("PAYMENT_REQUEST", note="tra 5 trieu cho A", current="[1, 2]")
+        self.assertEqual(out["fields"], {"payee_full_name": "A"})
+
+    def test_files_la_object_thi_khong_doc_tep_nao(self):
+        m = self._m()
+        seen = []
+        m.att.collect = lambda urls: (seen.append(urls) or ([], []))
+        out = m.suggest("PAYMENT_REQUEST", note="tra 5 trieu cho A", files='{"a": 1}')
+        self.assertEqual(seen, [])
+        self.assertEqual(out["fields"], {"payee_full_name": "A"})
+
+
 class TestMarks(unittest.TestCase):
     def _row(self, offered):
         return {"name": "AIF-1", "request_user": TOI,

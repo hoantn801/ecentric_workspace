@@ -108,6 +108,12 @@ def suggest(approval_code, note=None, current=None, files=None):
     note = (note or "").strip()
     current = frappe.parse_json(current) if isinstance(current, str) else (current or {})
     file_urls = frappe.parse_json(files) if isinstance(files, str) else (files or [])
+    # Hai thu nay do CLIENT gui. Mot mang thay vi object (hoac nguoc lai) truoc day lam
+    # `current.get` no 500 SAU khi da goi AI - mat luot ma khong co dong log nao.
+    if not isinstance(current, dict):
+        current = {}
+    if not isinstance(file_urls, list):
+        file_urls = []
     parts, rejected, files_note = [], [], ""
 
     def _refuse(kind, **extra):
