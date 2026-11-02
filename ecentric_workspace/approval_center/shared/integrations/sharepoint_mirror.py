@@ -382,14 +382,28 @@ def nguoi_trong_luong(business_doctype, business_name):
     ra = [row.get("requested_by")]
     req = row.get("approval_request") or _phieu_duyet_theo_tham_chieu(business_doctype, business_name)
     if req:
-        ra += frappe.get_all("EC Approval Request Approver",
-                             filters={"approval_request": req},
-                             pluck="approver")
+        # Dong kieu "Role: X" chi con tinh khi nguoi do VAN giu role X (03/11/2026): dong duyet
+        # chot luc gui, role thi song. Nguoi da bi go role (vd roi nhom Finance) khong duoc cap
+        # quyen SUA hop dong o lan dong bo / gui lai sau do - cung luat voi nut Duyet
+        # (`transitions.row_still_eligible`).
+        for r in frappe.get_all("EC Approval Request Approver",
+                                filters={"approval_request": req},
+                                fields=["approver", "source"]) or []:
+            if _dong_con_hieu_luc(r.get("source"), r.get("approver")):
+                ra.append(r.get("approver"))
     for e in (row.get("cc_to") or "").replace(";", ",").split(","):
         e = e.strip()
         if e:
             ra.append(e)
-    return [e for e in dict.fromkeys(ra) if e and "@" in e]
+    ra = [e for e in dict.fromkeys(ra) if e and "@" in e]
+    # Tai khoan ERP DA KHOA (nghi viec - job 00:30) thi khong cap quyen sua hop dong nua. Chi bo
+    # ai CO trong User va enabled = 0: email ngoai he thong (CC doi tac) giu nguyen nhu truoc.
+    return [e for e in ra if frappe.db.get_value("User", e, "enabled") != 0]
+
+
+def _dong_con_hieu_luc(source, user):
+    from ecentric_workspace.approval_center.shared.workflow.transitions import row_still_eligible
+    return row_still_eligible(source, user)
 
 
 def _phieu_duyet_theo_tham_chieu(business_doctype, business_name):
