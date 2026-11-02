@@ -203,6 +203,9 @@ def batch_flags(approval_code, rows=None):
         frappe.throw(_("Tính năng AI điền hộ đang tắt."))
     if not _pilot_allowed():
         frappe.throw(_("Bạn chưa được bật tính năng AI điền hộ."), frappe.PermissionError)
+    # Cung cong voi `suggest` / `create_draft`: `new_account` tra lich su TOAN cong ty, nen
+    # nguoi khong tao duoc form nay thi khong co ly do gi de hoi.
+    _require_form_open(approval_code)
 
     definition = get_definition(approval_code)
     flagger = definition.batch_flagger

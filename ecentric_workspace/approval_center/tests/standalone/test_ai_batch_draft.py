@@ -349,6 +349,23 @@ class TestChiFormNguoiDoDuocTao(unittest.TestCase):
             m.suggest("PAYMENT_REQUEST", note="thanh toan 5 trieu cho ABC")
         self.assertIn("không tạo được", str(cm.exception))
 
+    def test_dau_hieu_lo_cung_tu_choi_khi_the_an(self):
+        """`batch_flags` tra "so tai khoan nay da tung nhan tien chua" TOAN CONG TY - cung
+        cong "form mo cho nguoi nay" nhu `suggest` / `create_draft`, khong mo rieng."""
+        goi = []
+        m = _load(catalog=[])
+        m._dn.batch_flagger = lambda rows, user: goi.append(rows) or {"r1": {"new_account": True}}
+        with self.assertRaises(Exception) as cm:
+            m.batch_flags("PAYMENT_REQUEST", [{"key": "r1", "bank_account_number": "0123"}])
+        self.assertIn("không tạo được", str(cm.exception))
+        self.assertEqual(goi, [], "tu choi TRUOC khi tra DB")
+
+    def test_dau_hieu_lo_chay_khi_the_mo(self):
+        m = _load()
+        m._dn.batch_flagger = lambda rows, user: {"r1": {"new_account": True}}
+        self.assertEqual(m.batch_flags("PAYMENT_REQUEST", [{"key": "r1"}]),
+                         {"r1": {"new_account": True}})
+
     def test_the_mo_thi_tao_duoc(self):
         m = _load()
         self.assertEqual(m.create_draft("PAYMENT_REQUEST", {"payee_full_name": "A"})["name"],
