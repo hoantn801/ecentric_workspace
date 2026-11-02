@@ -177,6 +177,7 @@
                historyOf: historyOf, mdLite: mdLite, shouldRun: shouldRun, esc: esc,
                httpError: httpError, errText: errText,
                modelLabel: modelLabel, suggestions: suggestions, greetText: greetText,
+               keepMsg: function (m) { return keepMsg(m); },
                retireOldChat: retireOldChat };
   /* Cho test (jsdom) đọc các hàm PURE. KHÔNG dùng `module.exports`: esbuild thấy chữ
    * `module` sẽ gói file thành CommonJS, `module` có thật lúc chạy và widget tự thoát. */
@@ -268,21 +269,50 @@
             leaveData: null };
   var R = {};   // tham chiếu DOM trong shadow root
 
+  /* Một lượt -> bản lưu được qua chuyển trang (ERP nhiều trang: bấm "Trang nghỉ phép" trên thẻ
+   * là sang trang khác). Trước đây chỉ lưu lượt chữ nên thẻ đơn/phiếu biến mất, còn lại câu
+   * "bạn xem lại nhé" trỏ vào khoảng trống. Thẻ đang gửi dở lưu về nháp (server chặn trùng);
+   * thẻ phiếu đang đọc tệp thì bỏ (không đợi được kết quả ở trang sau). */
+  function keepMsg(m) {
+    if (!m) return null;
+    if (m.role === "user" || m.role === "bot") {
+      var o = { role: m.role, text: m.text, by: m.by || "" };
+      if (m.err) o.err = true;   // tải lại trang vẫn tô đỏ, và không lọt vào lịch sử gửi AI
+      return o;
+    }
+    if (m.role === "files") {
+      var items = (m.items || []).filter(function (f) { return f.url || f.err; }).map(function (f) {
+        return { name: f.name, url: f.url || "", err: f.err || "" };
+      });
+      return items.length ? { role: "files", items: items } : null;
+    }
+    if (m.role === "leave" && m.leave) {
+      return { role: "leave", leave: m.leave, state: m.state === "sent" ? "sent" : "draft",
+               name: m.name || "", days: m.days || "", error: m.error || "" };
+    }
+    if (m.role === "pay" && m.state !== "reading") {
+      return { role: "pay", state: "ready", code: m.code, title: m.title || "", route: m.route || "",
+               labels: m.labels || {}, urls: m.urls || [], fields: m.fields || {}, sources: m.sources || {},
+               probe: m.probe || null, log: m.log || "", by: m.by || "", draft: m.draft || "",
+               missing: m.missing || [], error: m.error || "" };
+    }
+    return null;
+  }
   function save() {
     try {
-      var keep = S.msgs.filter(function (m) { return m.role === "user" || m.role === "bot"; })
-        .slice(-MAX_KEEP).map(function (m) {
-          var o = { role: m.role, text: m.text, by: m.by || "" };
-          if (m.err) o.err = true;   // tải lại trang vẫn tô đỏ, và không lọt vào lịch sử gửi AI
-          return o;
-        });
+      var keep = S.msgs.map(keepMsg).filter(Boolean).slice(-MAX_KEEP);
       sessionStorage.setItem(STORE, JSON.stringify({ open: S.open, wide: S.wide, msgs: keep }));
     } catch (e) { /* trình duyệt chặn lưu trữ thì thôi */ }
   }
   function load() {
     try {
       var o = JSON.parse(sessionStorage.getItem(STORE) || "{}");
-      S.msgs = Array.isArray(o.msgs) ? o.msgs : [];
+      // Bản lưu hỏng / khác phiên bản thì bỏ lượt đó, không để thẻ vẽ ra lỗi.
+      S.msgs = (Array.isArray(o.msgs) ? o.msgs : []).filter(function (m) {
+        return m && (m.role === "user" || m.role === "bot" ? typeof m.text === "string" :
+          m.role === "leave" ? !!m.leave : m.role === "files" ? Array.isArray(m.items) :
+          m.role === "pay" ? !!m.code : false);
+      });
       S.open = !!o.open; S.wide = !!o.wide;
     } catch (e) { S.msgs = []; }
   }
@@ -314,7 +344,8 @@
     narrow: icon("M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"),
     cal: icon("M4 7h16v13H4zM4 11h16M9 3v4M15 3v4"),
     cash: icon("M3 6h18v12H3zM12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5"),
-    form: icon("M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6")
+    form: icon("M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6"),
+    fresh: icon("M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z")
   };
 
   var CSS = [
@@ -431,6 +462,7 @@
       '<section class="pan" role="dialog" aria-label="' + nm + '" hidden>' +
       '<header class="hd"><span class="av">' + FACE + '</span>' +
       '<div class="t"><b>' + nm + '</b><span>Trợ lý của bạn trên ERP</span></div>' +
+      '<button class="ib fresh" type="button" aria-label="Cuộc trò chuyện mới" title="Cuộc trò chuyện mới" hidden>' + I.fresh + "</button>" +
       '<button class="ib wide" type="button" aria-label="Mở rộng">' + I.wide + "</button>" +
       '<button class="ib close" type="button" aria-label="Đóng">' + I.x + "</button></header>" +
       /* .ms vẽ lại toàn bộ mỗi lần nên KHÔNG đặt aria-live ở đó (trình đọc màn hình đọc lại
@@ -456,6 +488,7 @@
     R.drop = root.querySelector(".drop");
     R.send = root.querySelector(".send");
     R.sr = root.querySelector(".sr");
+    R.fresh = root.querySelector(".fresh");
   }
 
   /* ---------------------------------------------------------------- vẽ */
@@ -526,6 +559,7 @@
     R.ms.innerHTML = h;
     refocus(fk);
     R.q.placeholder = S.busy ? NAME() + " đang trả lời…" : "Nhắn cho " + NAME() + "…";
+    R.fresh.hidden = !S.msgs.length;
     R.ms.scrollTop = R.ms.scrollHeight;
     R.send.disabled = S.busy;
     R.pan.classList.toggle("wide", S.wide);
@@ -937,6 +971,13 @@
       if (S.open) closePanel(); else openPanel(false);
     });
     R.root.querySelector(".close").addEventListener("click", closePanel);
+    // Bắt đầu lại: xoá cuộc trò chuyện (lịch sử cũ không còn kéo câu trả lời AI đi lệch).
+    R.fresh.addEventListener("click", function () {
+      if (S.busy) return;
+      S.msgs = []; S.files = []; S.pendingSay = ""; S.wide = false;
+      paint(); save(); announce("Đã bắt đầu cuộc trò chuyện mới.");
+      if (!touchOnly()) { try { R.q.focus(); } catch (e) { /* noop */ } }
+    });
     R.wideBtn.addEventListener("click", function () { S.wide = !S.wide; paint(); save(); });
     R.form.addEventListener("submit", function (e) {
       e.preventDefault();
@@ -1010,6 +1051,9 @@
       placeAboveTabbar(host);
       paint();
       if (S.open) openPanel(false);
+      if (S.msgs.some(function (m) { return m.role === "leave" && m.state !== "sent"; })) {
+        get(API.leaveData).then(function (d) { S.leaveData = d || {}; paint(); }).catch(function () { /* thêm thôi */ });
+      }
     }).catch(function () { /* không bật được thì im lặng: Khay là thứ thêm vào */ });
   }
 

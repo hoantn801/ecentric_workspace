@@ -343,6 +343,40 @@ const shell='<aside data-ec-shell="1"></aside><main>trang</main>';
     ok("tra loi xong: o nhap ve binh thuong", /^Nhắn cho eC Mate/.test(o.R.querySelector("textarea").placeholder));
   }
 
+  {
+    // the don nghi con nguyen khi chuyen trang (ERP nhieu trang) + nut Cuoc tro chuyen moi
+    const o=await open(null,routes);
+    await o.send("nghi mai",150);
+    ok("chuyen trang: co the don truoc khi di", !!o.R.querySelector(".card"));
+    const saved=o.e.w.sessionStorage.getItem("ec-khay-v1");
+    ok("chuyen trang: luu ca the don", /"role":"leave"/.test(saved));
+    // trang moi = jsdom moi voi cung sessionStorage
+    const dom2=new JSDOM(shell,{runScripts:"outside-only",pretendToBeVisual:true,url:"https://x/ec-hr/leave"});
+    dom2.window.sessionStorage.setItem("ec-khay-v1",saved);
+    dom2.window.fetch=(u)=>{ const m=String(u).replace(/^\/api\/method\//,"").split("?")[0]; const h=routes[m]; const r=h?h(null):{status:404,j:{}};
+      return Promise.resolve({ok:r.status<400,status:r.status,json:()=>Promise.resolve(r.j)}); };
+    dom2.window.eval(js); await tick(80);
+    const R2=dom2.window.document.getElementById("ec-khay-host").shadowRoot;
+    ok("chuyen trang: the don van con, van Gui duoc", !!R2.querySelector('.card [data-act="leave-send"]') && /Phép năm/.test(R2.querySelector(".card").textContent));
+    ok("chuyen trang: so du phep tai lai", /7,5 ngày/.test(R2.querySelector(".card").textContent));
+    const fr=R2.querySelector(".fresh");
+    ok("tro chuyen moi: nut hien khi co lich su", fr && !fr.hidden);
+    fr.click(); await tick(30);
+    ok("tro chuyen moi: xoa sach, hien lai loi chao", !R2.querySelector(".card") && /Chào Hoàn/.test(R2.querySelector(".ms").textContent) && fr.hidden);
+    const P4=dom2.window.__ecKhayPure;
+    ok("luu: the dang gui luu ve nhap", P4.keepMsg({role:"leave",leave:{leave_type:"x"},state:"sending"}).state==="draft");
+    ok("luu: phieu dang doc tep thi khong luu", P4.keepMsg({role:"pay",code:"A",state:"reading"})===null);
+    ok("luu: bo dong typing", P4.keepMsg({role:"typing"})===null);
+    // ban luu hong khong lam vo khung
+    const dom3=new JSDOM(shell,{runScripts:"outside-only",pretendToBeVisual:true,url:"https://x/"});
+    dom3.window.sessionStorage.setItem("ec-khay-v1",JSON.stringify({open:true,msgs:[{role:"leave"},{role:"files"},null,{role:"bot",text:"ok"}]}));
+    dom3.window.fetch=(u)=>{ const m=String(u).replace(/^\/api\/method\//,"").split("?")[0]; const h=routes[m]; const r=h?h(null):{status:404,j:{}};
+      return Promise.resolve({ok:r.status<400,status:r.status,json:()=>Promise.resolve(r.j)}); };
+    dom3.window.eval(js); await tick(80);
+    const R3=dom3.window.document.getElementById("ec-khay-host").shadowRoot;
+    ok("ban luu hong: van ve, bo luot hong", !R3.querySelector(".pan").hidden && /ok/.test(R3.querySelector(".ms").textContent));
+  }
+
   let all=true; Object.keys(c).forEach(k=>{console.log((c[k]?"PASS":"FAIL")+" - "+k); if(!c[k]) all=false;});
   console.log(all?"ALL_PASS":"SOME_FAIL"); process.exit(all?0:1);
 })();
