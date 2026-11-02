@@ -163,8 +163,12 @@ def build_schema(definition):
         elif df.fieldtype == "Link":
             item["link_doctype"] = df.options
             item["options"] = _candidates(df.options)
-        elif df.fieldtype in ("Data", "Small Text"):
+        elif df.fieldtype == "Data":
             item["maxlength"] = int(df.length or 0) or 140
+        elif df.fieldtype == "Small Text" and int(df.length or 0):
+            # Small Text la cot `text` - KHONG co tran 140 nhu Data. Ap 140 cho no thi moi
+            # "Ly do / Mo ta / Brief" dai hon mot dong bi bo `qua_dai`, AI khong bao gio dien.
+            item["maxlength"] = int(df.length)
         schema.append(item)
     return tuple(schema)
 

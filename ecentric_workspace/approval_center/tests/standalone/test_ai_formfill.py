@@ -659,5 +659,26 @@ class TestSoTienDangChuoi(unittest.TestCase):
                 self.assertEqual(self._gate(raw)[0], {"payment_amount": want})
 
 
+class TestSmallTextKhongBiTran140(unittest.TestCase):
+    FIELDS = [_F("reason", "Small Text"), _F("payee_full_name", "Data", length=140),
+              _F("ma_ngan", "Small Text", length=20)]
+
+    def _gate(self, raw):
+        m, _ = _load(meta_fields=self.FIELDS)
+        d = _definition(editable_fields=("reason", "payee_full_name", "ma_ngan"))
+        schema = _run(m, lambda: m.build_schema(d))
+        return _run(m, lambda: m.gate(schema, raw))
+
+    def test_ly_do_dai_hon_mot_dong_van_len_form(self):
+        ly_do = "Thanh toan chi phi livestream thang 10 cho brand FES-VN, " * 5
+        accepted, dropped = self._gate({"reason": ly_do})
+        self.assertEqual(dropped, [])
+        self.assertEqual(accepted["reason"], ly_do.strip())
+
+    def test_Data_va_Small_Text_co_khai_length_van_bi_tran(self):
+        _, dropped = self._gate({"payee_full_name": "x" * 141, "ma_ngan": "y" * 21})
+        self.assertEqual(sorted(d["field"] for d in dropped), ["ma_ngan", "payee_full_name"])
+
+
 if __name__ == "__main__":
     unittest.main()
