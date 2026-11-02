@@ -50,5 +50,21 @@ class AttendanceTruocNgayVaoLam(unittest.TestCase):
         self.assertIn("#ec-attm .c-out{", h)
 
 
+
+class AttendanceNhanTiengViet(unittest.TestCase):
+    """ec-att-vi-v1: nhan lich / chu thich / chi tiet ngay bang tieng Viet."""
+
+    def test_khong_con_nhan_tieng_anh(self):
+        h = _page()["main_section_html"]
+        self.assertIn("ec-att-vi-v1", h)
+        for raw in ("label:'Outside work'", ": 'Present';", "label:'Absent'", ">Present</span>",
+                    "Thiếu/Absent", "— Present ✓", 'tag="Outside work"', '"Nửa ngày":"Present"'):
+            self.assertNotIn(raw, h, raw)
+        c = _classify(h)
+        self.assertIn("label: hol.wo ? '' :", c)  # cuoi tuan: o xam, khong nhan "Saturd..."
+        self.assertIn("label:LV_SHORT[leave] || 'Nghỉ phép'", c)
+        # ten loai nghi day du trong chi tiet ngay - van escape
+        self.assertIn("esc(LV_FULL[maps.leave[ds]] || maps.leave[ds])", h)
+
 if __name__ == "__main__":
     unittest.main()
