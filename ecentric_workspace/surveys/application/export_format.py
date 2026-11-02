@@ -64,8 +64,16 @@ def table(form, rows, names, anonymous, quiz):
                         line.append(cl.get(x, x or ""))
             else:
                 line.append(cell(q, v))
-        out.append(line)
+        out.append([_safe(c) for c in line])
     return out
+
+
+def _safe(v):
+    """Chan cong thuc Excel tu cau tra loi (vd '=HYPERLINK(...)'): openpyxl ghi chuoi bat dau
+    bang '=' thanh o cong thuc. Cung cach voi internal_posts.ack._cell; so giu nguyen kieu."""
+    if isinstance(v, str) and v[:1] in ("=", "+", "-", "@"):
+        return "'" + v
+    return v
 
 
 def _n(v):
