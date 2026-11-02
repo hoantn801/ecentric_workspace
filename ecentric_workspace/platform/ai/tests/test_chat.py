@@ -190,6 +190,20 @@ class ChiDocBaoCaoDuocPhepDoc(unittest.TestCase):
         self.assertNotIn("=== Phong Sales - EC", ctx)
 
 
+class XetQuyenLoiThiDong(unittest.TestCase):
+    def test_can_read_nem_loi_thi_bo_ban_ghi(self):
+        # Review 03/11: _visible phai FAIL DONG - loi khi xet quyen thi khong dua ban ghi vao.
+        w = World("nv2@ec.vn", roles=("Employee",))
+
+        def hong(doc, user=None):
+            raise RuntimeError("db hong")
+        w.mod["permissions"].can_read = hong
+        r, ctx = w.ask()
+        self.assertTrue(r["success"])
+        self.assertNotIn("vuong cua E2", ctx)
+        self.assertNotIn("BI MAT CUA E1", ctx)
+
+
 class BanNhapChuaNop(unittest.TestCase):
     def test_ban_nhap_cron_khong_tinh_la_bao_cao(self):
         # Moi tuan cron tao ~30 ban Draft rong cho moi nguoi phai nop. Dem chung la "phong co

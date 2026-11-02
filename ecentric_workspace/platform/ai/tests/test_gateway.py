@@ -715,6 +715,19 @@ class QaCongAi(unittest.TestCase):
         self.assertEqual(r["usage"], {"total_tokens": 7}, "usage cua cau tra loi giu nguyen")
         row = self._usage_row(got[0])
         self.assertEqual(row["total_tokens"], 49, "42 token cua lan thu hong cung da bi tinh tien")
+        self.assertEqual(row["cost_source"], "", "co lan thu khong biet gia -> 'chua du gia', khong doan")
+
+    def test_nguon_chi_phi_gop_tung_lan_thu(self):
+        # Review 03/11: mot lan Kie bao + mot lan khong biet gia -> '' (trang bao "chua du gia").
+        bc = Env().mod["usage"].billed_cost
+        kie = {"model": "gemini-3-8-flash-openai", "usage": {"total_tokens": 5, "credits_consumed": 0.1}}
+        la = {"model": "model-la", "usage": {"total_tokens": 9}}
+        uoc = {"model": "grok-4-7", "usage": {"input_tokens": 1000, "output_tokens": 0}}
+        gia = {"grok-4-7": (160.0, 480.0)}
+        self.assertEqual(bc([kie, la], gia)[4], "")
+        self.assertEqual(bc([kie, uoc], gia)[4], "estimate")
+        self.assertEqual(bc([kie], gia)[4], "kie")
+        self.assertEqual(bc([], gia)[4], "")
 
     def test_ca_chuoi_hong_noi_dung_thi_chi_phi_khong_phai_0(self):
         e = Env(settings={"ec_llm_model_kie": "gemini-3-8-flash-openai",

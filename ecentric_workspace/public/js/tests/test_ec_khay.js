@@ -367,6 +367,8 @@ const shell='<aside data-ec-shell="1"></aside><main>trang</main>';
     ok("luu: the dang gui luu ve nhap", P4.keepMsg({role:"leave",leave:{leave_type:"x"},state:"sending"}).state==="draft");
     ok("luu: phieu dang doc tep thi khong luu", P4.keepMsg({role:"pay",code:"A",state:"reading"})===null);
     ok("luu: bo dong typing", P4.keepMsg({role:"typing"})===null);
+    const kp=P4.keepMsg({role:"pay",code:"A",state:"ready",fields:{payment_amount:5},draft:"D1"});
+    ok("luu: the phieu da doc xong duoc giu ca o AI dien", !!kp && kp.role==="pay" && kp.fields.payment_amount===5 && kp.draft==="D1");
     // ban luu hong khong lam vo khung
     const dom3=new JSDOM(shell,{runScripts:"outside-only",pretendToBeVisual:true,url:"https://x/"});
     dom3.window.sessionStorage.setItem("ec-khay-v1",JSON.stringify({open:true,msgs:[{role:"leave"},{role:"files"},null,{role:"bot",text:"ok"}]}));
