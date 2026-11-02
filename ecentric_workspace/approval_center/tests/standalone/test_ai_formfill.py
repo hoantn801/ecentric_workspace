@@ -564,5 +564,74 @@ class TestTrichDanPhaiNamTrongVanBan(unittest.TestCase):
         self.assertEqual(dropped, [])
 
 
+def _frappe_v16_getdate(fk):
+    """Ban sao HANH VI cua `frappe.utils.getdate` v16 (frappe/utils/data.py, 03/11/2026).
+
+    Gia lap cu (`date.fromisoformat`) qua hien lanh nen khong lo duoc bay nao duoi day.
+    """
+    from dateutil import parser
+
+    def getdate(string_date=None, parse_day_first=False):
+        if not string_date:
+            return date(2026, 9, 16)                 # = "hom nay" cua nowdate gia
+        if isinstance(string_date, date):
+            return string_date
+        if not isinstance(string_date, str) or string_date.startswith(("0001-01-01", "0000-00-00")):
+            return None
+        try:
+            return date.fromisoformat(string_date)
+        except ValueError:
+            try:
+                return parser.parse(string_date, dayfirst=parse_day_first).date()
+            except parser.ParserError:
+                fk.local.message_log.append("{} is not a valid date string.".format(string_date))
+                raise fk.ValidationError("not a valid date string")
+    return getdate
+
+
+class TestNgayThangTuModel(unittest.TestCase):
+    """03/11/2026: `_check` goi `getdate(value)` that tren chuoi cua model."""
+
+    def _gate(self, value):
+        m, fk = _load(meta_fields=_DEF_FIELDS)
+        m.getdate = _frappe_v16_getdate(fk)
+        schema = _run(m, lambda: m.build_schema(_definition()))
+        return _run(m, lambda: m.gate(schema, {"payment_date": value})), fk
+
+    def test_chuoi_rong_KHONG_thanh_ngay_hom_nay(self):
+        (accepted, dropped), _ = self._gate("")
+        self.assertNotIn("payment_date", accepted)
+        self.assertEqual(dropped, [{"field": "payment_date", "reason": "ngay_khong_hop_le"}])
+
+    def test_ngay_viet_kieu_VN_doc_NGAY_truoc_THANG(self):
+        (accepted, _), _ = self._gate("05/10/2026")
+        self.assertEqual(accepted, {"payment_date": "2026-10-05"})
+        (accepted, _), _ = self._gate("15.10.2026")
+        self.assertEqual(accepted, {"payment_date": "2026-10-15"})
+
+    def test_mot_con_so_KHONG_thanh_ngay_cua_thang_hien_tai(self):
+        (accepted, dropped), _ = self._gate("10")
+        self.assertEqual(accepted, {})
+        self.assertEqual(dropped[0]["reason"], "ngay_khong_hop_le")
+
+    def test_model_tra_SO_hoac_ngay_0001_khong_lam_sap_ca_luot(self):
+        for v in (20261005, "0001-01-01", 0):
+            (accepted, dropped), _ = self._gate(v)
+            with self.subTest(v=v):
+                self.assertEqual(accepted, {})
+                self.assertIn(dropped[0]["reason"], ("ngay_khong_hop_le", "ngay_ngoai_khoang"))
+
+    def test_chu_rac_KHONG_de_lai_hop_thoai_loi(self):
+        (accepted, _), fk = self._gate("dau thang sau")
+        self.assertEqual(accepted, {})
+        self.assertEqual(fk.local.message_log, [])
+
+    def test_dang_ISO_va_ngay_khong_ton_tai(self):
+        (accepted, _), _ = self._gate("2026-09-22T00:00:00Z")
+        self.assertEqual(accepted, {"payment_date": "2026-09-22"})
+        (accepted, dropped), _ = self._gate("31/02/2026")
+        self.assertEqual((accepted, dropped[0]["reason"]), ({}, "ngay_khong_hop_le"))
+
+
 if __name__ == "__main__":
     unittest.main()

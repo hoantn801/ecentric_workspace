@@ -24,6 +24,8 @@ nhung sai noi dung (so tien doc nham dong, payee la ben doi tac thay vi nguoi th
 Do la ly do giai doan 3 phai do ti le sua tay TUNG TRUONG.
 """
 import json
+import re
+from datetime import date as _date, datetime as _datetime
 
 import frappe
 from frappe import _
@@ -183,6 +185,37 @@ def _is_null_word(value):
     return isinstance(value, str) and value.strip().lower() in _NULL_WORDS
 
 
+_ISO_DATE = re.compile(r"^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T ][0-9:.]*(?:Z|[+-]\d{2}:?\d{2})?)?$")
+_VN_DATE = re.compile(r"^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?$")
+
+
+def _parse_date(value):
+    """PURE. -> date | None. Chi nhan HAI dang ro nghia, con lai la None (de trong).
+
+    ISO `YYYY-MM-DD` (prompt yeu cau dang nay) va `DD/MM/YYYY` doc NGAY TRUOC - kieu viet
+    cua van ban tieng Viet. Khong doan: "10", "thang 10", so nguyen deu la None.
+    """
+    if isinstance(value, _datetime):
+        return value.date()
+    if isinstance(value, _date):
+        return value
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    m = _ISO_DATE.match(text)
+    if m:
+        y, mo, d = m.groups()
+    else:
+        m = _VN_DATE.match(text)
+        if not m:
+            return None
+        d, mo, y = m.groups()
+    try:
+        return _date(int(y), int(mo), int(d))
+    except ValueError:
+        return None
+
+
 def _check(spec, value):
     """-> (ok, gia_tri_sach, ma_ly_do). Bo HAN khi truot; khong cat bot, khong sua cho vua."""
     fieldtype = spec["fieldtype"]
@@ -209,9 +242,14 @@ def _check(spec, value):
         return True, name, None
 
     if fieldtype in ("Date", "Datetime"):
-        try:
-            parsed = getdate(value)
-        except Exception:
+        # KHONG dung `getdate(value)` cho chuoi cua model (do 03/11 tren frappe v16 that):
+        #   ""           -> HOM NAY (nhanh `if not string_date`) - o ngay de trong thanh hom nay
+        #   "05/10/2026" -> 2026-05-10 (dateutil doc THANG truoc) - van ban VN la ngay 5/10
+        #   "10"         -> ngay 10 cua THANG HIEN TAI
+        #   so / "0001-01-01" -> None -> `None - today` no TypeError, sap ca luot goi
+        #   chu rac      -> frappe.throw: rot vao message_log, trang bat hop thoai loi
+        parsed = _parse_date(value)
+        if parsed is None:
             return False, None, "ngay_khong_hop_le"
         today = getdate(nowdate())
         if abs((parsed - today).days) > _DATE_WINDOW_DAYS:
