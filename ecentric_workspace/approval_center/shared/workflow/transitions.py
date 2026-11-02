@@ -118,7 +118,12 @@ def decide_level(mode, minimum_approvals, statuses, groups=None):
         if approved >= 1:
             return ("approved", True)   # skip remaining pending
     elif mode == "All Required":
-        if total and approved == total:
+        # Dong "Skipped" KHONG con nghia vu (role_pool.tidy_open_rows go nguoi mat role /
+        # co ghe rieng o cap sau, giu lai it nhat mot nguoi Pending). Tinh no vao mau so thi
+        # approved khong bao gio bang total: ca cap "All Required" ket vinh vien du moi nguoi
+        # con lai da duyet.
+        live = total - sum(1 for s in statuses if s == "Skipped")
+        if live and approved == live:
             return ("approved", False)
     elif mode == "Minimum Count":
         if approved >= (minimum_approvals or 0) and (minimum_approvals or 0) > 0:
