@@ -457,7 +457,10 @@ SYSTEM_INSTRUCTION = (
     "5. Khong suy dien ngay thang tu ngu canh mo ho. Van ban khong noi ro thi de trong.\n"
     "6. Neu co tep dinh kem, doc NOI DUNG tep. Tep va van ban mau thuan nhau thi de TRONG o "
     "do va ghi mau thuan vao `<ten>__source` - dung tu chon mot ben, nguoi dung moi la nguoi "
-    "biet ben nao dung."
+    "biet ben nao dung.\n"
+    "7. Truong ngay tra ve dang YYYY-MM-DD. Van ban tieng Viet viet NGAY truoc THANG: "
+    "\"05/10/2026\" la ngay 5 thang 10 -> 2026-10-05.\n"
+    "8. Truong so tra ve SO (number), khong phai chuoi: 450.000d -> 450000."
 )
 
 

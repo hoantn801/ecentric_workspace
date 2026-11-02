@@ -708,5 +708,12 @@ class TestGiaTriPhaiNamTrongTrichDan(unittest.TestCase):
         self.assertEqual(kept, {"payment_amount": 450000})
 
 
+class TestPromptNoiDinhDangNgay(unittest.TestCase):
+    def test_luat_ngay_VN_va_so_co_trong_system_instruction(self):
+        m, _ = _load()
+        self.assertIn("YYYY-MM-DD", m.SYSTEM_INSTRUCTION)
+        self.assertIn("2026-10-05", m.SYSTEM_INSTRUCTION)
+
+
 if __name__ == "__main__":
     unittest.main()
