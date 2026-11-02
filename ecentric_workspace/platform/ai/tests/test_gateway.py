@@ -817,6 +817,29 @@ class QaCongAi(unittest.TestCase):
             exec(compile(fh.read(), m.__file__, "exec"), m.__dict__)
         return m
 
+    def test_anh_kie_bao_loi_trong_than_khi_hoi_ket_qua(self):
+        img = self._images(Env())
+        st, urls, err = img.parse_record(200, '{"code": 404, "msg": "task not found", "data": null}')
+        self.assertEqual((st, urls), ("fail", []))
+        self.assertIn("404", err)
+        st, urls, err = img.parse_record(200, '{"code": 500, "msg": "Server exception"}')
+        self.assertEqual(st, "", "loi tam thoi -> hoi lai lan sau")
+        st, urls, err = img.parse_record(200, json.dumps({"code": 200, "data": {
+            "state": "success", "resultJson": json.dumps({"resultUrls": ["https://x/a.png"]})}}))
+        self.assertEqual((st, urls, err), ("success", ["https://x/a.png"], ""))
+
+    def test_anh_loi_vinh_vien_thi_khong_cho_het_gio(self):
+        e = Env()
+        img = self._images(e)
+        img._create = lambda key, body: ("t1", "")
+        img._record = lambda key, tid: img.parse_record(200, '{"code": 401, "msg": "bad key ' + KHOA + '"}')
+        clock = [0.0]
+        out = img.generate("p", n=1, timeout=180, poll=3,
+                           sleep=lambda s: clock.__setitem__(0, clock[0] + s), clock=lambda: clock[0])
+        self.assertLess(clock[0], 10, "khong ngoi cho 180s mot loi vinh vien")
+        self.assertIn("401", out["error"])
+        self.assertNotIn(KHOA, out["error"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)

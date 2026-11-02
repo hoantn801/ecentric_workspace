@@ -75,11 +75,26 @@ def parse_create(status, raw):
     return (tid, "") if tid else ("", "Kie khong tra taskId")
 
 
+def _code(j):
+    try:
+        return int(j.get("code"))
+    except (TypeError, ValueError):
+        return 0
+
+
 def parse_record(status, raw):
-    """-> (state, urls, error). state rong = chua biet (thu lai lan sau)."""
+    """-> (state, urls, error). state rong = chua biet (thu lai lan sau).
+
+    Kie bao loi bang HTTP 200 + `code` trong than (nhu parse_create): 5xx / 429 la tam thoi
+    -> hoi lai; ma khac (401 khoa sai, 404 khong co task, 422...) la VINH VIEN -> 'fail' ngay,
+    khong ngoi cho het `timeout` roi bao sai ly do "het 180s"."""
     j = _json(raw)
     if status != 200 or not isinstance(j, dict):
         return "", [], "HTTP %s" % status
+    code = _code(j) if "code" in j else 200
+    if code and code != 200:
+        why = "Kie code=%s %s" % (code, str(j.get("msg") or "")[:200])
+        return ("", [], why) if (code >= 500 or code == 429) else ("fail", [], why)
     data = j.get("data") or {}
     state = str(data.get("state") or "").lower()
     if state == "fail":
@@ -145,7 +160,7 @@ def generate(prompt, n=3, aspect_ratio="16:9", timeout=180, poll=3, sleep=time.s
                 pending.remove(tid)
                 out["urls"].extend(urls)
                 if err:
-                    errors.append(err)
+                    errors.append(config_scrub(err, key))
     if pending:
         errors.append("het %ss ma con %d anh chua xong" % (timeout, len(pending)))
     out["ok"] = bool(out["urls"])
