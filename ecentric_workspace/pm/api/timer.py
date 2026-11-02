@@ -9,6 +9,8 @@ Timesheet; PM Timer only holds the transient running state (survives refresh).
 Permission enforced in this service layer (require_pm_access + can_view_task).
 """
 
+import datetime
+
 import frappe
 from frappe import _
 
@@ -111,10 +113,14 @@ def stop(description=None):
         frappe.throw(_("No active timer."))
     total_secs = _elapsed(t)
     hours = round(total_secs / 3600.0, 4)
-    task, project, started = t.task, t.project, t.start_time
-    # Durable worktime -> native Timesheet (from_time = when the timer started).
+    task, project = t.task, t.project
+    # Durable worktime -> native Timesheet. The window ENDS at Stop: from_time = now - elapsed.
+    # NOT t.start_time - a paused timer has none (from_time = now -> to_time in the future) and a
+    # resumed one holds the resume time while `hours` also counts the time before the pause.
+    # For a timer never paused this is exactly when it started (unchanged).
+    started = _now() - datetime.timedelta(seconds=total_secs)
     ts_name = pmts._create_timesheet(user, task, project, hours, description,
-                                     from_time=started or _now())
+                                     from_time=started)
     frappe.delete_doc(TIMER_DT, t.name, ignore_permissions=True, force=True)
     frappe.db.commit()
     return {"timesheet": ts_name, "task": task, "hours": hours, "seconds": total_secs}
