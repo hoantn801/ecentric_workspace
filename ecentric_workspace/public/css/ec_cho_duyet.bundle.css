@@ -104,3 +104,16 @@
 .cd-tl b{color:var(--cd-ink); font-weight:650}
 .cd-tl-c{color:var(--cd-ink3); margin-top:2px}
 .cd-mt{margin-top:14px}
+
+/* 03/11 (UX quan ly): han noi bang loi + phieu qua han noi bat + so tien dam + xac nhan so tien lon. */
+.cd-due{white-space:nowrap}
+.cd-due-late{color:var(--cd-no)}
+.cd-due-soon{color:#B54708}
+.cd-due-ok{color:var(--cd-ink2); font-weight:600}
+.cd-card-late{border-color:#F3C1BC; box-shadow:inset 4px 0 0 var(--cd-no), 0 1px 2px rgba(20,26,46,.04)}
+.cd-late-sum{margin:0 0 12px; padding:10px 12px; border-radius:12px; background:#FDEEF0; color:var(--cd-no);
+  font-size:14px; font-weight:600}
+.cd-chip-money{color:var(--cd-ink); font-weight:700; background:#EAF0FB}
+.cd-chip-money i{font-weight:500}
+.cd-btn.cd-armed{background:#145C34; border-color:#145C34; box-shadow:0 0 0 3px #CDEBD8}
+.cd-msg.cd-msg-info{color:var(--cd-ink); font-weight:600}

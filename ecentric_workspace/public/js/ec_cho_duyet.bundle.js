@@ -35,6 +35,44 @@
     if (!m) return esc(s);
     return m[3] + "/" + m[2] + (m[4] ? " " + m[4] + ":" + m[5] : "");
   }
+  // 03/11 (UX quan ly): HAN noi bang loi ("Qua han 2 ngay", "Han hom nay 17:00") thay vi mot
+  // ngay tran - nguoi duyet nhin la biet phieu nao phai xu ly truoc. Gio cua server (site) va
+  // dien thoai nguoi duyet deu la gio VN nen so thang ngay gio dia phuong.
+  function pad2(n) { return (n < 10 ? "0" : "") + n; }
+  function parseDt(s) {
+    var m = String(s || "").match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/);
+    return m ? new Date(+m[1], +m[2] - 1, +m[3], m[4] ? +m[4] : 23, m[5] ? +m[5] : 59) : null;
+  }
+  function dueInfo(s) {
+    var d = parseDt(s);
+    if (!d) return null;
+    var now = new Date(), ms = d.getTime() - now.getTime();
+    if (ms < 0) {
+      var h = Math.floor(-ms / 3600000);
+      return { cls: "late", text: h >= 24 ? "Quá hạn " + Math.floor(h / 24) + " ngày" : (h >= 1 ? "Quá hạn " + h + " giờ" : "Vừa quá hạn") };
+    }
+    var day = function (x) { return new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime(); };
+    var dd = Math.round((day(d) - day(now)) / 86400000), hm = pad2(d.getHours()) + ":" + pad2(d.getMinutes());
+    if (dd === 0) return { cls: "soon", text: "Hạn hôm nay " + hm };
+    if (dd === 1) return { cls: "soon", text: "Hạn ngày mai " + hm };
+    return { cls: "ok", text: "Hạn " + fmtDate(s) };
+  }
+  // 03/11: SO TIEN cua phieu (nhan "So tien" / "Tong tien" / "Gia tri" / "Ngan sach" / "Chi phi" trong
+  // tom tat server da dinh dang 1.234.567). Tu BIG_AMOUNT tro len, nut Duyet phai bam HAI lan -
+  // lan dau doi thanh "Xac nhan duyet <so tien>" de khong lo tay duyet mot khoan lon.
+  var BIG_AMOUNT = 20000000;
+  var MONEY_LABEL = /(số tiền|tổng tiền|giá trị|ngân sách|chi phí)/i;
+  function moneyOf(r) {
+    var list = (r && r.summary) || [];
+    for (var i = 0; i < list.length; i++) {
+      var s = list[i], v = String(s.value == null ? "" : s.value).trim();
+      if (MONEY_LABEL.test(s.label || "") && /^\d{1,3}(\.\d{3})*(,\d+)?$/.test(v)) {
+        return { idx: i, label: s.label, value: v, n: Number(v.replace(/\./g, "").replace(",", ".")) };
+      }
+    }
+    return null;
+  }
+
   // Gia tri o mat "xem day du" den tu get_request_detail DANG THO (90500000, 2026-07-01) - cung
   // nguon popup trang "Tat ca yeu cau" dung, nen dinh dang o day theo fieldtype server gui kem.
   function fmtVal(v, t) {
@@ -120,6 +158,8 @@
       by[k].push(r);
     });
     var self = this, h = [];
+    var late = this.rows.filter(function (r) { var d = dueInfo(r.due_at); return d && d.cls === "late"; }).length;
+    if (late) h.push('<p class="cd-late-sum">' + late + " phiếu đã quá hạn - nằm ở đầu danh sách, xử lý trước.</p>");
     groups.forEach(function (g) {
       h.push('<div class="cd-group"><div class="cd-gh">' + esc(g) + ' <span>' + by[g].length + "</span></div>");
       by[g].forEach(function (r) { h.push(self.cardHTML(r)); });
@@ -130,16 +170,21 @@
 
   Inst.prototype.cardHTML = function (r) {
     var c = r.capabilities || {};
-    var chips = (r.summary || []).slice(0, 3).map(function (s) {
-      return '<span class="cd-chip"><i>' + esc(s.label) + "</i> " + esc(s.value) + "</span>";
+    var money = moneyOf(r), due = dueInfo(r.due_at);
+    // Tien luon nam trong 3 o tom tat cua the (ke ca khi form khai no o vi tri 4-5).
+    var sum = (r.summary || []).slice(0, 3);
+    if (money && money.idx >= 3) sum = sum.slice(0, 2).concat([r.summary[money.idx]]);
+    var chips = sum.map(function (s) {
+      var isMoney = money && s === r.summary[money.idx];
+      return '<span class="cd-chip' + (isMoney ? " cd-chip-money" : "") + '"><i>' + esc(s.label) + "</i> " + esc(s.value) + "</span>";
     }).join("");
     var meta = esc(r.requester_name || r.requested_by) + " · gửi " + fmtDate(r.submitted_at)
-      + (r.due_at ? ' · <b class="cd-due">hạn ' + fmtDate(r.due_at) + "</b>" : "");
+      + (due ? ' · <b class="cd-due cd-due-' + due.cls + '">' + esc(due.text) + "</b>" : "");
     var act = c.needs_input
       ? (r.detail_url ? '<a class="cd-btn" href="' + esc(r.detail_url) + '">Mở để duyệt</a>' : "")
       : (c.can_approve ? '<button type="button" class="cd-btn cd-ok" data-cd-quick="' + esc(r.request) + '">'
           + (c.sign_required ? "Duyệt &amp; Ký" : "Duyệt") + "</button>" : "");
-    return '<article class="cd-card" data-cd-open="' + esc(r.request) + '">'
+    return '<article class="cd-card' + (due && due.cls === "late" ? " cd-card-late" : "") + '" data-cd-open="' + esc(r.request) + '">'
       + '<div class="cd-main"><div class="cd-title">' + esc(r.title) + "</div>"
       + '<div class="cd-meta">' + meta + "</div>"
       + (chips ? '<div class="cd-chips">' + chips + "</div>" : "")
@@ -199,7 +244,7 @@
       + '<div class="cd-sh-head"><div><div class="cd-sh-type">' + esc(r.type_label) + " · " + esc(r.level_name || "") + "</div>"
       + '<div class="cd-sh-title">' + esc(r.title) + "</div>"
       + '<div class="cd-meta">' + esc(r.requester_name || r.requested_by) + " · gửi " + fmtDate(r.submitted_at)
-      + (r.due_at ? " · hạn " + fmtDate(r.due_at) : "") + "</div></div>"
+      + (dueInfo(r.due_at) ? ' · <b class="cd-due cd-due-' + dueInfo(r.due_at).cls + '">' + esc(dueInfo(r.due_at).text) + "</b>" : "") + "</div></div>"
       + '<button type="button" class="cd-x" data-cd-close aria-label="Đóng">&times;</button></div>'
       + (rows ? '<div class="cd-kvs">' + rows + "</div>" : "")
       + files
@@ -320,9 +365,17 @@
     var c = r.capabilities || {};
     var ta = ov.querySelector("#cd-cmt"), msg = ov.querySelector("[data-cd-msg]");
     var cmt = ta ? (ta.value || "").trim() : "";
-    var say = function (t) { if (msg) msg.textContent = t; };
+    var say = function (t, info) { if (msg) { msg.textContent = t; msg.classList.toggle("cd-msg-info", !!info); } };
     if ((action === "reject" || action === "request_information") && !cmt) { say(action === "reject" ? "Từ chối bắt buộc ghi lý do." : "Ghi rõ cần bổ sung gì."); if (ta) ta.focus(); return; }
     if ((action === "approve" || action === "approve_sign") && c.comment_required && !cmt) { say("Loại phiếu này bắt buộc nhập nhận xét khi duyệt."); if (ta) ta.focus(); return; }
+    var money = moneyOf(r);
+    if ((action === "approve" || action === "approve_sign") && money && money.n >= BIG_AMOUNT && ov.__armed !== action) {
+      ov.__armed = action;
+      var ab = ov.querySelector('[data-cd-do="' + action + '"]');
+      if (ab) { ab.textContent = "Xác nhận " + (action === "approve_sign" ? "duyệt & ký " : "duyệt ") + money.value; ab.classList.add("cd-armed"); }
+      say(money.label + " " + money.value + " - bấm nút xanh lần nữa để xác nhận.", true);
+      return;
+    }
     var self = this, btns = ov.querySelectorAll("[data-cd-do]");
     this.busy = true;
     Array.prototype.forEach.call(btns, function (b) { b.disabled = true; });
