@@ -52,7 +52,8 @@ def clean_history(history):
         except Exception:
             history = []
     out = []
-    for h in (history or [])[-MAX_HISTORY_TURNS:]:
+    # JSON hop le nhung khong phai danh sach ({...}, 5) -> truoc day dict[-10:] nem loi 500.
+    for h in (history if isinstance(history, list) else [])[-MAX_HISTORY_TURNS:]:
         if not isinstance(h, dict):
             continue
         text = str(h.get("text") or "").strip()[:MAX_TURN_CHARS]

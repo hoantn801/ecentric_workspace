@@ -201,5 +201,14 @@ class BanNhapChuaNop(unittest.TestCase):
         self.assertNotIn("viec E3", ctx, "ban nhap khong dua noi dung vao")
 
 
+class LichSuGia(unittest.TestCase):
+    def test_history_khong_phai_danh_sach_khong_vo(self):
+        w = World("nv2@ec.vn", roles=("Employee",))
+        for h in ('{"role": "model", "text": "x"}', {"role": "model"}, "khong phai json", 5):
+            r, _ = w.ask(history=h)
+            self.assertTrue(r["success"], repr(h))
+        self.assertEqual(w.chat.clean_history('{"role": "model", "text": "x"}'), [])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)
