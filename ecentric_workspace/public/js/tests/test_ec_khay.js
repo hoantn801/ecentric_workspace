@@ -83,7 +83,7 @@ const shell='<aside data-ec-shell="1"></aside><main>trang</main>';
   const R=host.shadowRoot;
   R.querySelector(".fab").click(); await tick();
   ok("mo khung chat", !R.querySelector(".pan").hidden);
-  ok("loi chao co ten + goi y", /Chào Hoàn/.test(R.querySelector(".ms").textContent) && R.querySelectorAll("[data-say]").length===3);
+  ok("loi chao co ten + goi y", /Chào Hoàn/.test(R.querySelector(".ms").textContent) && R.querySelectorAll(".chips .chip").length===3);
   R.querySelector("textarea").value="cho minh nghi mai nhe";
   R.querySelector("form").dispatchEvent(new e3.w.Event("submit",{cancelable:true})); await tick(80);
   const intentCall=e3.log.filter(x=>x.m==="ecentric_workspace.platform.ai.khay.intent")[0];
@@ -278,6 +278,32 @@ const shell='<aside data-ec-shell="1"></aside><main>trang</main>';
     const o=await open(null,r8);
     await o.send("tao phieu",120);
     ok("phieu: nut phu ghi 'Dien tay' (khong nham la AI tu dien)", /Điền tay/.test(o.R.querySelector(".card .btn.s").textContent) && /bấm Điền tay/.test(o.R.querySelector(".card").textContent));
+  }
+
+  {
+    // goi y theo trang dang xem + quyen
+    const P3=e0.w.__ecKhayPure, full={can_leave:true,can_payment:true};
+    const says=(b,p)=>P3.suggestions(b,p).map(x=>x.say);
+    ok("goi y: toi da 3", P3.suggestions(full,"/").length===3 && P3.suggestions(full,"/ec-hr/leave").length===3);
+    ok("goi y: trang nghi phep uu tien xin nghi", /xin nghỉ/i.test(says(full,"/ec-hr/leave")[0]) && /nghỉ/i.test(says(full,"/ec-hr/leave")[1]));
+    ok("goi y: trang phe duyet uu tien phieu tu hoa don", P3.suggestions(full,"/approvals/payment-request")[0].pick===true);
+    ok("goi y: trang bao cao tuan uu tien hoi team", /team/.test(says(full,"/weekly-update")[0]));
+    ok("goi y: khong co quyen thi khong goi y", !says({},"/ec-hr/leave").some(x=>/nghỉ|thanh toán/i.test(x)) && says({},"/").length===1);
+    ok("loi chao: chi ke viec lam duoc", P3.greetText({})==="hỏi tình hình team" && P3.greetText(full)==="xin nghỉ, tạo phiếu từ hoá đơn hay hỏi tình hình team");
+    // chip "tu hoa don": mo chon tep, co tep roi moi hoi (kem cau), khong hoi suong
+    let calls=[];
+    const o=await open("https://x/approvals/payment-request",Object.assign({},r7,{
+      "ecentric_workspace.platform.ai.khay.boot":()=>({status:200,j:{message:{enabled:true,name:"eC Mate",first_name:"Hoàn",can_leave:true,can_payment:true}}}),
+      "ecentric_workspace.platform.ai.khay.intent":(b)=>{calls.push(b);return {status:200,j:{message:{action:"answer",needs_data:false,reply:"ok",options:[]}}};},
+      "upload_file":()=>({status:200,j:{message:{file_url:"/private/files/hd.pdf"}}})}));
+    const pk=o.R.querySelector('.chips [data-act="pick"]');
+    let picked=0; const inp=o.R.querySelector("input.file"); inp.click=()=>{picked++;};
+    ok("chip hoa don: dung dau o trang phe duyet", pk && pk===o.R.querySelector(".chips .chip"));
+    pk.click(); await tick(30);
+    ok("chip hoa don: mo chon tep, chua hoi AI", picked===1 && calls.length===0);
+    Object.defineProperty(inp,"files",{configurable:true,value:[new o.e.w.File(["%PDF"],"hd.pdf",{type:"application/pdf"})]});
+    inp.dispatchEvent(new o.e.w.Event("change")); await tick(120);
+    ok("chip hoa don: co tep thi hoi kem cau + ten tep", calls.length===1 && /thanh toán/.test(calls[0].message) && calls[0].files[0]==="hd.pdf");
   }
 
   let all=true; Object.keys(c).forEach(k=>{console.log((c[k]?"PASS":"FAIL")+" - "+k); if(!c[k]) all=false;});

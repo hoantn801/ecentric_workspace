@@ -132,6 +132,33 @@
     return !!(doc.querySelector("[data-ec-shell]") || doc.querySelector(".ec-tabwrap"));
   }
 
+  /* Gợi ý ở lời chào, theo việc người này làm được VÀ trang đang xem (tối đa 3).
+   * Chỉ gợi ý những luồng eC Mate làm được thật: xin nghỉ, phiếu từ hoá đơn, hỏi báo cáo tuần.
+   * `pick`: mở chọn tệp trước, có tệp rồi mới hỏi — "tạo phiếu từ hoá đơn" mà chưa có hoá đơn
+   * thì AI không điền được ô nào. */
+  function suggestions(boot, path) {
+    var b = boot || {}, p = String(path || "");
+    var leave = b.can_leave ? [{ say: "Cho mình xin nghỉ ngày mai" }] : [];
+    var leave2 = b.can_leave ? [{ say: "Xin nghỉ chiều thứ Sáu này" }] : [];
+    var pay = b.can_payment ? [{ say: "Tạo đề nghị thanh toán từ hoá đơn này", label: "Tạo đề nghị thanh toán từ hoá đơn", pick: true }] : [];
+    var team = [{ say: "Tuần này team mình thế nào?" }];
+    var mine = [{ say: "Tóm tắt báo cáo tuần của mình" }];
+    var list;
+    if (/^\/(ec-hr|hrms)(\/|$)/.test(p)) list = leave.concat(leave2, pay, team);
+    else if (/^\/approvals(\/|$)/.test(p)) list = pay.concat(leave, team);
+    else if (/^\/(weekly-update|team-pulse)(\/|$)/.test(p)) list = team.concat(mine, leave, pay);
+    else list = leave.concat(pay, team);
+    return list.slice(0, 3);
+  }
+  function greetText(boot) {
+    var b = boot || {}, can = [];
+    if (b.can_leave) can.push("xin nghỉ");
+    if (b.can_payment) can.push("tạo phiếu từ hoá đơn");
+    can.push("hỏi tình hình team");
+    var last = can.pop();
+    return (can.length ? can.join(", ") + " hay " : "") + last;
+  }
+
   /* Trang chủ còn khung chat cũ "AI Trợ lý" (#ec-chat-fab, nằm trong Web Page trang chủ,
    * được áo linh vật bởi khối home v2). Hai con chồng ở cùng góc. Ai đã có eC Mate thì
    * ẩn con cũ; ai chưa có eC Mate vẫn giữ con cũ, không ai mất chỗ chat. Hoàn chốt 28/09. */
@@ -149,7 +176,7 @@
                fileRefuse: fileRefuse, fmtValue: fmtValue, serverError: serverError,
                historyOf: historyOf, mdLite: mdLite, shouldRun: shouldRun, esc: esc,
                httpError: httpError, errText: errText,
-               modelLabel: modelLabel,
+               modelLabel: modelLabel, suggestions: suggestions, greetText: greetText,
                retireOldChat: retireOldChat };
   /* Cho test (jsdom) đọc các hàm PURE. KHÔNG dùng `module.exports`: esbuild thấy chữ
    * `module` sẽ gói file thành CommonJS, `module` có thật lúc chạy và widget tự thoát. */
@@ -343,7 +370,7 @@
     ".chips{display:flex;flex-wrap:wrap;gap:6px;padding-left:33px}",
     ".by{font-size:11px;line-height:1.3;color:var(--g500);padding-left:33px;margin-top:-6px}",
     ".chip{font-size:12.5px;font-weight:600;color:var(--navy);background:#fff;border:1px solid var(--navy-100);border-radius:999px;padding:5px 11px}",
-    ".chip:hover{background:var(--navy-50)}",
+    ".chip:hover{background:var(--navy-50)}.chip .i{width:14px;height:14px;vertical-align:-2px;margin-right:4px}",
     ".fl{align-self:flex-end;display:flex;flex-direction:column;gap:6px;max-width:86%}",
     ".f{display:flex;align-items:center;gap:9px;background:#fff;border:1px solid var(--g200);border-radius:11px;padding:7px 11px 7px 7px}",
     ".f .fi{width:30px;height:36px;border-radius:6px;background:var(--navy-50);color:var(--navy);font-size:11px;font-weight:800;display:grid;place-items:center;flex:none}",
@@ -471,14 +498,13 @@
   }
   function greet() {
     var b = S.boot || {};
-    var opts = [];
-    if (b.can_leave) opts.push("Cho mình xin nghỉ ngày mai");
-    if (b.can_payment) opts.push("Tạo đề nghị thanh toán từ hoá đơn");
-    opts.push("Tuần này team mình thế nào?");
-    return botHtml("Chào " + esc(b.first_name || "bạn") + "! Mình là " + esc(NAME()) + ". Bạn cần xin nghỉ, " +
-      "tạo phiếu hay hỏi gì cứ nhắn nhé.") +
+    var opts = suggestions(b, location.pathname);
+    return botHtml("Chào " + esc(b.first_name || "bạn") + "! Mình là " + esc(NAME()) + ". Mình giúp bạn " +
+      esc(greetText(b)) + " — bạn bấm một gợi ý hoặc nhắn tự nhiên nhé.") +
       '<div class="chips">' + opts.map(function (o) {
-        return '<button type="button" class="chip" data-say="' + esc(o) + '">' + esc(o) + "</button>";
+        return o.pick ?
+          '<button type="button" class="chip" data-act="pick" data-pick="' + esc(o.say) + '">' + I.clip + esc(o.label || o.say) + "</button>" :
+          '<button type="button" class="chip" data-say="' + esc(o.say) + '">' + esc(o.label || o.say) + "</button>";
       }).join("") + "</div>";
   }
 
@@ -588,6 +614,7 @@
     text = String(text || "").trim();
     var urls = pendingUrls();
     if ((!text && !urls.length) || S.busy) return;
+    S.pendingSay = "";
     var hist = historyOf(S.msgs);
     if (text) push({ role: "user", text: text });
     S.busy = true; typing();
@@ -736,7 +763,10 @@
       S.files = S.files.filter(function (f) { return f.url; });
       paint();
       // Đơn nghỉ ốm đang chờ giấy khám thì tệp này là để gửi kèm đơn, không phải câu hỏi mới.
-      if (S.files.length && !R.q.value.trim() && !awaitingDoc()) ask("");
+      if (S.files.length && !R.q.value.trim() && !awaitingDoc()) {
+        var say = S.pendingSay || ""; S.pendingSay = "";
+        ask(say);
+      }
     });
   }
 
@@ -886,6 +916,7 @@
       if (t.getAttribute("data-act") === "pay-draft") payDraft(i);
       if (t.getAttribute("data-act") === "retry") retry(i);
       if (t.getAttribute("data-act") === "attach") R.file.click();
+      if (t.getAttribute("data-act") === "pick") { S.pendingSay = t.getAttribute("data-pick") || ""; R.file.click(); }
     });
     R.pan.addEventListener("keydown", function (e) { if (e.key === "Escape") closePanel(); });
 
