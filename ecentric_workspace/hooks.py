@@ -967,3 +967,19 @@ web_include_css.append("ec_addfile.bundle.css")
 # Tat khan cung giam sat live: site_config `ec_ai_live_monitor_disabled: 1`.
 scheduler_events["cron"].setdefault("*/1 * * * *", []).append(
     "ecentric_workspace.ai_tools.features.ai_live.jobs.watch_machines_job.run")
+
+# --------------------------------------------------------------------------- #
+# 02/11/2026 - Nhan vien moi vao /pm duoc ngay: Employee Active + co tai khoan -> tu cap role
+# PM Member (truoc chi cap bang patch mot lan p016/p023 nen nguoi vao sau bi "no access").
+# Xem pm/onboarding.py. Nuot moi loi.
+# --------------------------------------------------------------------------- #
+_PMON_HOOK = "ecentric_workspace.pm.onboarding.on_employee_update"
+_pmon_emp = doc_events.setdefault("Employee", {})
+_pmon_prev = _pmon_emp.get("on_update")
+if _pmon_prev is None:
+    _pmon_emp["on_update"] = [_PMON_HOOK]
+elif isinstance(_pmon_prev, str):
+    if _pmon_prev != _PMON_HOOK:
+        _pmon_emp["on_update"] = [_pmon_prev, _PMON_HOOK]
+elif _PMON_HOOK not in _pmon_prev:
+    _pmon_prev.append(_PMON_HOOK)

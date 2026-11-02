@@ -426,6 +426,13 @@ async function block(name, fn) {
     ok("việc cha: children_progress.people → “chưa mở” + ngày xong theo từng người", rowsP[1] === "chưa mở" && /^xong /.test(rowsP[0]));
     E.click(E.byText(".pmr-statusbar button", "Xong", sh)); await flush();
     ok("markDone(T-P) chạy qua tasks.mark_done (không popup giờ)", E.last("tasks.mark_done").args.name === "T-P" && !E.$(".pmr-pop"));
+    E.db.tasks["T-P"].task.exp_end_date = dayOff(3) + " 00:00:00"; E.db.tasks["T-P"].task.pm_end_time = "0:00:00";
+    await E.w.PMR.openTask("T-P", { tab: "people" }); await flush();
+    E.click(E.byText(".pmr-link", "+ Thêm người", E.$(".pmr-sub-list", sh))); await flush();
+    E.click(E.$$(".pmr-sub-list .pmr-picker [data-act=pick]", sh)[0]); await flush();
+    const ap = E.last("tasks.create");
+    ok("thêm người vào việc chung: hạn dạng Datetime “… 00:00:00” / giờ “0:00:00” được chuẩn hoá (lỗi 02/11)", ap && ap.args.parent_task === "T-P" && ap.args.exp_end_date === dayOff(3) && ap.args.pm_end_time == null, ap && JSON.stringify(ap.args));
+    E.db.tasks["T-P"].task.exp_end_date = dayOff(3); delete E.db.tasks["T-P"].task.pm_end_time;
     await E.w.PMR.openTask("T-S"); await flush();
     ok("việc con đặt tên (không chia người): tab “Việc con 1/2” mở sẵn, còn ô Người nhận", E.$(".pmr-stabs [aria-selected=true]", sh).textContent === "Việc con 1/2" && !E.byText(".pmr-stabs button", "Từng người", sh) && sh.textContent.includes("Người nhận") && E.$$(".pmr-srow", sh).length === 2);
     ok("việc con: dòng xong gạch ngang, dòng trễ cảnh báo, chưa có người → vòng trống", E.$$(".pmr-srow", sh)[0].classList.contains("pmr-done") && !!E.$(".pmr-srow-due.pmr-warn", sh) && !!E.$(".pmr-srow-noone", sh));
