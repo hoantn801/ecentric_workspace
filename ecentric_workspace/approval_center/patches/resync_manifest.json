@@ -8,8 +8,8 @@
     "sha256": "6e4e3164efcf90fa86981dba33bf1feef2890222c4f02bf6fedad50402398f72"
   },
   "ai_tools/pages/ai_usage/main_section.html": {
-    "last_resync_patch": "p313_ai_live_trang_rieng",
-    "sha256": "f1bbdb8e4029445c0ab6861ca225b98b0023d7f24732ae960d50a9a7f423c407"
+    "last_resync_patch": "p317_resync_ai_usage_tra_loi_nhanh",
+    "sha256": "aa0cedcebc823ad0b0573b912185b7c827bd3252cc643739c6e3e83a7728ab0f"
   },
   "approval_center/features/affiliate_bonus/ui/main_section.html": {
     "baseline": "2026-08-31",
