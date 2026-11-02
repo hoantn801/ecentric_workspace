@@ -216,6 +216,35 @@ def _parse_date(value):
         return None
 
 
+_NUM_PLAIN = re.compile(r"^-?\d+(?:\.\d+)?$")
+#: "450.000" / "1,500": MOT nhom 3 chu so sau dau -> nghin (VN) hay thap phan (EN)? Khong
+#: biet. Ban cu `float("450.000")` = 450 - so tien nho di 1000 lan ma van qua cong.
+_NUM_ONE_GROUP = re.compile(r"^-?[1-9]\d{0,2}[.,]\d{3}$")
+_NUM_EN = re.compile(r"^-?\d{1,3}(?:,\d{3})+(?:\.\d+)?$")
+_NUM_VN = re.compile(r"^-?\d{1,3}(?:\.\d{3})+(?:,\d+)?$")
+
+
+def _parse_number(value):
+    """PURE. -> (float | None, ma_ly_do). So JSON giu nguyen; chuoi chi nhan dang ro nghia.
+
+    "45.000.000" (VN) va "45,000,000" (EN) deu ro; "450.000" va "1,5" thi khong -> bo.
+    """
+    if isinstance(value, bool):
+        return None, "khong_phai_so"
+    if isinstance(value, (int, float)):
+        return float(value), None
+    text = str(value).strip().replace(" ", "").replace("\u00a0", "")
+    if _NUM_ONE_GROUP.match(text):
+        return None, "so_mo_ho"
+    if _NUM_PLAIN.match(text):
+        return float(text), None
+    if _NUM_EN.match(text):
+        return float(text.replace(",", "")), None
+    if _NUM_VN.match(text):
+        return float(text.replace(".", "").replace(",", ".")), None
+    return None, "khong_phai_so"
+
+
 def _check(spec, value):
     """-> (ok, gia_tri_sach, ma_ly_do). Bo HAN khi truot; khong cat bot, khong sua cho vua."""
     fieldtype = spec["fieldtype"]
@@ -257,10 +286,9 @@ def _check(spec, value):
         return True, str(parsed), None
 
     if fieldtype in ("Currency", "Float", "Int", "Percent"):
-        try:
-            number = float(str(value).replace(",", "").replace(" ", ""))
-        except (TypeError, ValueError):
-            return False, None, "khong_phai_so"
+        number, why = _parse_number(value)
+        if number is None:
+            return False, None, why
         if number != number or number in (float("inf"), float("-inf")):
             return False, None, "khong_phai_so"
         if number <= 0:

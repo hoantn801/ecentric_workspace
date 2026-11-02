@@ -633,5 +633,31 @@ class TestNgayThangTuModel(unittest.TestCase):
         self.assertEqual((accepted, dropped[0]["reason"]), ({}, "ngay_khong_hop_le"))
 
 
+class TestSoTienDangChuoi(unittest.TestCase):
+    """Ho GPT khong bi responseSchema ep: so tien co the ve dang CHUOI dinh dang VN."""
+
+    def _gate(self, value, field="payment_amount"):
+        m, _ = _load(meta_fields=_DEF_FIELDS)
+        schema = _run(m, lambda: m.build_schema(_definition()))
+        return _run(m, lambda: m.gate(schema, {field: value}))
+
+    def test_450_nghin_viet_kieu_VN_KHONG_thanh_450(self):
+        accepted, dropped = self._gate("450.000")
+        self.assertNotEqual(accepted.get("payment_amount"), 450.0)
+        self.assertEqual(dropped, [{"field": "payment_amount", "reason": "so_mo_ho"}])
+
+    def test_so_thap_phan_kieu_VN_KHONG_bi_doc_lech(self):
+        # Ban cu: "1.500.000,50" -> bo dau phay -> float("1.500.00050") no; "2,5" -> 25.
+        self.assertEqual(self._gate("1.500.000,50")[0], {"payment_amount": 1500000.5})
+        self.assertNotEqual(self._gate("2,5")[0].get("payment_amount"), 25.0)
+
+    def test_dang_ro_nghia_van_nhan(self):
+        for raw, want in (("45.000.000", 45000000.0), ("45,000,000", 45000000.0),
+                          ("45 000 000", 45000000.0), (45000000, 45000000.0),
+                          ("1,500.50", 1500.5), ("0.125", 0.125), ("2.5", 2.5)):
+            with self.subTest(raw=raw):
+                self.assertEqual(self._gate(raw)[0], {"payment_amount": want})
+
+
 if __name__ == "__main__":
     unittest.main()
