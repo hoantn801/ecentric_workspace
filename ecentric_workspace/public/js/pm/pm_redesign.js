@@ -921,8 +921,11 @@ function tickSubtask(b) {
 function addPersonChild(b) {
   const t = TS.d.t, have = [];
   TS.d.subs.forEach(s => have.push(...arr(s._assign)));
+  /* Task.exp_end_date về dạng "YYYY-MM-DD 00:00:00" (trường Datetime) và pm_end_time dạng "0:00:00":
+     server chỉ nhận "YYYY-MM-DD" / "HH:MM:SS" -> chuẩn hoá trước khi gửi (lỗi "Ngày kết thúc không hợp lệ" 02/11). */
+  const due = ymd10(t.exp_end_date) || null, tm = hm(t.pm_end_time), endTime = due && tm && tm !== "00:00" ? tm + ":00" : null;
   pickPeople(b.parentNode, u => call("tasks.create", { project: t.project || "", subject: `${String(t.subject || "").slice(0, 120)} — ${nameOf(u)}`, parent_task: t.name,
-    priority: t.priority, exp_end_date: t.exp_end_date, pm_end_time: t.pm_end_time, assignees: JSON.stringify([u]) }).then(() => {
+    priority: t.priority, exp_end_date: due, pm_end_time: endTime, assignees: JSON.stringify([u]) }).then(() => {
     toast(`Đã thêm ${nameOf(u)} vào việc chung`);
     changed({ task: t.name });
     openTask(t.name, { tab: "people" });
