@@ -77,5 +77,21 @@ class CamUng(unittest.TestCase):
         for c in ['.ha-modal textarea,.ha-mgr-cmt{font-size:16px}', '.ha-btn-ok,.ha-btn-no,.ha-modal-cancel{min-height:44px}', '#ha-toast{bottom:calc(140px']:
             self.assertIn(c, h, c)
 
+
+class AttendanceLoi403(unittest.TestCase):
+    """ec-att-403-v1: 403 do thieu quyen noi "Khong du quyen", chi het phien moi bao dang nhap lai."""
+
+    def test_khong_con_chi_toi_login_page(self):
+        for f in FIELDS:
+            h = _page()[f]
+            self.assertNotIn("Mở /login-page rồi thử lại", h, f)
+            self.assertIn("ec-att-403-v1", h, f)
+            self.assertIn("Không đủ quyền thực hiện: ", h, f)
+            self.assertIn("SessionExpired|AuthenticationError", h, f)
+
+    def test_ngay_chi_tiet_dang_dd_mm_yyyy(self):
+        for f in FIELDS:
+            self.assertNotIn("el('ha-modal-date').textContent = ds;", _page()[f], f)
+
 if __name__ == "__main__":
     unittest.main()
