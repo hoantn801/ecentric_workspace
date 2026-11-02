@@ -63,8 +63,10 @@ def thu_sharepoint(name=None, apply=0):
 
     kq = sp.dong_bo_phieu(_DT, name)
     _buoc(bao, "dua dinh kem len SharePoint", not kq["hong"],
-          "xong: %s | hong: %s" % (", ".join(kq["xong"]) or "(khong)",
-                                   ", ".join(kq["hong"]) or "(khong)"))
+          "xong: %s | giu ban song: %s | hong: %s" % (
+              ", ".join(kq["xong"]) or "(khong)",
+              ", ".join(kq.get("giu_ban_song") or []) or "(khong)",
+              ", ".join(kq["hong"]) or "(khong)"))
     lien = frappe.get_all(sp.LINK_DT, filters={"business_name": name},
                           fields=["sp_web_url", "sp_last_modified"], limit_page_length=1)
     if lien:
