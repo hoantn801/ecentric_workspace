@@ -617,7 +617,14 @@ class SucKhoeVaCheDoNhanh(unittest.TestCase):
     def test_song_song_hong_ca_thi_thu_grok_voi_tran_rieng(self):
         e = Env(settings=self.FAST)
         e.replies["oai"] = (200, KIE_500)
-        e.replies["grok"] = (200, gpt_body("GROK"))
+
+        def grok():
+            # Cho hai luong OpenAI goi xong truoc: khong co nhip nay Grok thang khi mot luong
+            # OpenAI chua kip goi -> len(calls) == 2 (test chap chon ~5/30 lan tren ma cu).
+            import time as _t
+            _t.sleep(0.05)
+            return (200, gpt_body("GROK"))
+        e.replies["grok"] = grok
         r = e.gw.generate("chao", fast=True, attempt_timeout=10, budget=60, opts={"effort": "none"})
         self.assertEqual((r["ok"], r["text"], r["model"]), (True, "GROK", "grok-4-7"))
         grok = [c for c in e.calls if "/grok/" in c["url"]][0]
