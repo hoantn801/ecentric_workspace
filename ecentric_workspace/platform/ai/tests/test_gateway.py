@@ -695,5 +695,49 @@ class GhiSoLieuDung(unittest.TestCase):
         self.assertEqual(usage["prompt_tokens"], 530)
 
 
+
+class QaCongAi(unittest.TestCase):
+    """QA dem 03/11 (qa-cong-ai): cac loi tim thay o cong AI chung - moi test DO tren ma cu."""
+
+    def _usage_row(self, out):
+        u = Env().mod["usage"]
+        return u.build_row("t", out, "a@ecentric.vn", price_table={"grok-4-7": (160.0, 480.0)})
+
+    def test_ping_khong_tra_khoa_ra_ngoai(self):
+        e = Env()
+        e.replies["gemini"] = (401, json.dumps({"code": 401, "msg": "Invalid key " + KHOA}))
+        e.replies["gpt"] = (200, json.dumps({"code": 401, "msg": "Invalid key " + KHOA}))
+        out = e.mod["health"].ping_models()
+        self.assertNotIn(KHOA, json.dumps(out))
+        self.assertNotIn(KHOA[:20], json.dumps(out))
+
+    def test_khoa_bi_escape_hoac_mot_nua_khoa_van_bi_che(self):
+        # requests nem InvalidHeader voi repr(gia tri header) -> "\n" thanh "\\n", replace
+        # nguyen khoa khong khop (do bang requests 2.34 ngay 03/11).
+        key = "kie-KHOA-BI\nMAT-0123456789abcdef"
+        e = Env(settings={"ec_kie_api_key": key})
+        e.replies["gemini"] = ValueError("Invalid ... header value: %r" % ("Bearer " + key))
+        e.replies["gpt"] = (200, json.dumps({"code": 401, "msg": "bad key ..." + key[-17:]}))
+        r = e.gw.generate("x")
+        dump = json.dumps([r, e.logs], ensure_ascii=False)
+        self.assertNotIn("0123456789abcdef", dump, "ca khoa escape lan mot nua khoa")
+        self.assertIn("bad key ...***", r["attempts"][1]["error"])
+        cfg = e.mod["config"]
+        loi = "header value: %r" % ("Bearer " + key)
+        self.assertNotIn("0123456789abcdef", cfg.scrub_key(loi, key, min_fragment=10 ** 6),
+                         "dang escape tu no cung phai bi che, khong nho vao che tung doan")
+        self.assertNotIn("MAT-01", cfg.scrub_key(json.dumps({"k": key}), key, min_fragment=10 ** 6))
+        self.assertEqual(e.mod["config"].scrub_key("abc", ""), "abc")
+        self.assertEqual(e.mod["config"].scrub_key("ma 0123456789abcdef1", "zz"), "ma 0123456789abcdef1",
+                         "khong che bua khi khong trung khoa")
+
+    def _images(self, e):
+        m = types.ModuleType("ecentric_workspace.platform.ai.images")
+        m.__file__ = os.path.join(AI, "images.py")
+        with open(m.__file__, encoding="utf-8") as fh:
+            exec(compile(fh.read(), m.__file__, "exec"), m.__dict__)
+        return m
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

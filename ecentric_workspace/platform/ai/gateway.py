@@ -67,8 +67,7 @@ def _post(url, body, key, read_timeout):
 
 
 def scrub(text, key):
-    t = str(text or "")
-    return t.replace(key, "***") if key else t
+    return config.scrub_key(text, key)
 
 
 def _log(title, message):
@@ -141,11 +140,14 @@ def _try_one(model, key, request, timeout):
 
 
 def timed_try(model, key, request, timeout):
-    """_try_one + do thoi gian. KHONG cham frappe: chay duoc trong luong phu."""
+    """_try_one + do thoi gian. KHONG cham frappe: chay duoc trong luong phu.
+
+    Loi duoc che khoa NGAY O DAY: moi nguoi doc ket qua (settle, cron ping suc khoe) deu
+    nhan chuoi sach - khong phu thuoc tung noi goi nho tu che."""
     t0 = time.time()
     text, data, usage, finish, err = _try_one(model, key, request, timeout)
     return {"model": model, "text": text, "data": data, "usage": usage, "finish": finish,
-            "error": err, "ms": int((time.time() - t0) * 1000)}
+            "error": scrub(err, key) if err else "", "ms": int((time.time() - t0) * 1000)}
 
 
 def _race(models, key, request, timeout):

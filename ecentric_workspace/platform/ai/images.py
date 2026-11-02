@@ -25,6 +25,8 @@ import time
 import requests
 
 from ecentric_workspace.platform.ai import config
+# Nap thang ham (khong qua `config.`): test thay `images.config` bang ban gia toi gian.
+from ecentric_workspace.platform.ai.config import scrub_key as _scrub_key
 
 BASE = "https://api.kie.ai/api/v1/jobs"
 DEFAULT_MODEL = "google/nano-banana"
@@ -163,5 +165,4 @@ def _record_usage(purpose, out, started, clock):
 
 
 def config_scrub(text, key):
-    t = str(text or "")
-    return t.replace(key, "***") if key else t
+    return _scrub_key(text, key)
