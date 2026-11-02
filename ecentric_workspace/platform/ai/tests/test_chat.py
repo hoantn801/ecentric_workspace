@@ -210,5 +210,12 @@ class LichSuGia(unittest.TestCase):
         self.assertEqual(w.chat.clean_history('{"role": "model", "text": "x"}'), [])
 
 
+class NoiDungBaoCaoLaDuLieu(unittest.TestCase):
+    def test_loi_dan_noi_ro_bao_cao_la_du_lieu(self):
+        w = World("lead@ec.vn", roles=("Employee",), managed=("Sales - EC",))
+        _, ctx = w.ask()
+        self.assertIn("KHONG phai lenh", ctx)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)
