@@ -203,6 +203,29 @@ const shell='<aside data-ec-shell="1"></aside><main>trang</main>';
   ok("chong mat: cam ung bi huy cung tinh lai", !fab8.classList.contains("dizzy") && !fab8.classList.contains("drag"));
   ok("keo nut: khong ra ngoai khung nhin", parseFloat(fab8.style.right)<=W8.innerWidth-84 && parseFloat(fab8.style.bottom)>=4);
 
+  // ================= UX 03/11 (ux-ec-mate) =================
+  async function open(url, r){
+    const e=mk(url||"https://x/viec-cua-toi",shell,r); await tick(50);
+    const RR=e.w.document.getElementById("ec-khay-host").shadowRoot;
+    RR.querySelector(".fab").click(); await tick();
+    const send=async(t,wait)=>{ RR.querySelector("textarea").value=t;
+      RR.querySelector("form").dispatchEvent(new e.w.Event("submit",{cancelable:true})); await tick(wait||80); };
+    return {e:e,R:RR,send:send};
+  }
+  {
+    // go tiep khi dang cho tra loi: chu KHONG bi xoa mat
+    let release; const slow=new Promise(r=>{release=r;});
+    const o=await open(null,Object.assign({},r5,{"ecentric_workspace.platform.ai.khay.intent":()=>({status:200,j:{message:{action:"answer",needs_data:false,reply:"OK",options:[]}}})}));
+    // lam intent treo: thay fetch cho rieng intent
+    const f0=o.e.w.fetch; o.e.w.fetch=(u,opt)=>/khay.intent/.test(u)?slow.then(()=>f0(u,opt)):f0(u,opt);
+    await o.send("cau thu nhat",30);
+    await o.send("cau thu hai quan trong",30);
+    ok("dang cho: chu go tiep van con trong o", o.R.querySelector("textarea").value==="cau thu hai quan trong");
+    ok("dang cho: khong gui chong cau thu hai", o.R.querySelectorAll(".m.u").length===1);
+    release(); await tick(80);
+    ok("dang cho: tra loi xong thi gui duoc", !o.R.querySelector(".send").disabled);
+  }
+
   let all=true; Object.keys(c).forEach(k=>{console.log((c[k]?"PASS":"FAIL")+" - "+k); if(!c[k]) all=false;});
   console.log(all?"ALL_PASS":"SOME_FAIL"); process.exit(all?0:1);
 })();

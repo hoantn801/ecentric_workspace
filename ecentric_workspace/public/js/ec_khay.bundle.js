@@ -820,6 +820,8 @@
     R.wideBtn.addEventListener("click", function () { S.wide = !S.wide; paint(); save(); });
     R.form.addEventListener("submit", function (e) {
       e.preventDefault();
+      // Đang chờ câu trước thì GIỮ chữ trong ô (trước đây ô bị xoá mà câu không gửi — mất chữ).
+      if (S.busy) return;
       var t = R.q.value; R.q.value = ""; R.q.style.height = ""; R.q.style.overflowY = "";
       ask(t);
     });
