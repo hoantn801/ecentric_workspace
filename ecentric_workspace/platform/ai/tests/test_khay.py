@@ -350,6 +350,13 @@ class Endpoint(unittest.TestCase):
         r = e.k.intent(message="nghi mai")
         self.assertEqual((r["action"], r["reply"]), ("error", e.k.BUSY))
 
+    def test_files_rac_khong_vo_500(self):
+        # Request tu tay: files la chuoi khong phai JSON -> truoc day parse_json nem loi 500.
+        e = Env()
+        for bad in ("hoa-don.pdf", "[", '{"a": 1}'):
+            r = e.k.intent(message="chao", files=bad)
+            self.assertEqual(r["action"], "answer", bad)
+
     def test_rong_thi_hoi_khong_goi_ai(self):
         e = Env()
         self.assertEqual(e.k.intent(message="  ")["action"], "clarify")
