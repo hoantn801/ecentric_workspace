@@ -1889,6 +1889,18 @@ def admin_override_current_level(request_name, actor=None, reason=None):
     if not level_no:
         frappe.throw(_("There is no current approval level to override."))
     frappe.db.get_value("EC Approval Request", request_name, "name", for_update=True)   # row lock
+    # DOC LAI sau khoa - cung lop loi da va o approve/reject/cancel/request_information.
+    # Trang thai cap (level_status) KHONG doi khi phieu bi Huy hoac bi "Yeu cau bo sung":
+    # cancel() va request_information() chi ghi approval_status. Nen chot "cap con In
+    # Progress" ben duoi KHONG bat duoc hai ca do: SM bam duyet thay dung luc nguoi de nghi
+    # bam Huy (hoac nguoi duyet tra lai) thi lenh ep duyet di tiep, kich hoat cap sau / goi
+    # complete_approval tren mot phieu da Cancelled -> phieu Cancelled bi ghi de thanh
+    # Approved, hoac phieu dang cho bo sung bi dong cap ma nguoi de nghi khong hay.
+    req.approval_status = frappe.db.get_value("EC Approval Request", request_name,
+                                              "approval_status")
+    _guard_open(req)
+    if req.approval_status != "Pending":
+        frappe.throw(_("Admin override is only allowed while the request is pending approval."))
     rl = _rl_for(request_name, level_no)
     if not rl or rl.level_status != "In Progress":
         frappe.throw(_("The current level is not pending; please refresh."))
