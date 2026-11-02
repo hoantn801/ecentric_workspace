@@ -54,6 +54,17 @@ def _sync_funding_aliases(doc):
     legacy = (doc.get("purchase_request") or "").strip()
     if src_dt and src_name:
         doc.purchase_request = src_name if src_dt == "EC Purchase Request" else None
+    elif legacy:
+        # Older client (or historical draft) only set the legacy field -> promote it.
+        #
+        # PHAI la `elif` cua `if src_dt and src_name` ngay tren. 09/09 khoi brand ben duoi
+        # bi chen VAO GIUA cap if/elif nay, nen nhanh nang cap bi dinh nham vao dieu kien
+        # "loai chi phi co gan brand": (1) phieu chi co truong cu khong bao gio duoc nang cap
+        # (test_legacy_only_record_is_promoted do tu do); (2) te hon - phieu DA chon nguon moi
+        # (vd doi sang PO-1) ma con gia tri cu PURR-1 trong `purchase_request` va loai chi phi
+        # co brand thi bi lat nguoc ve PURR-1: tru ngan sach sai chung tu nguon.
+        doc.funding_source_doctype = "EC Purchase Request"
+        doc.funding_source_name = legacy
     # Brand chi co nghia voi loai chi phi gan brand. Doi loai xong ma con gia tri cu thi bao
     # cao theo brand nhan mot khoan khong thuoc ve no - cung kieu bay voi funding_source khi
     # doi has_purchase_request sang "No".
@@ -64,10 +75,6 @@ def _sync_funding_aliases(doc):
         # thue van phong van co the tao ra mot ban ghi Brand rac luc gui di.
         doc.ec_brand_moi = 0
         doc.ec_brand_ten = None
-    elif legacy:
-        # Older client (or historical draft) only set the legacy field -> promote it.
-        doc.funding_source_doctype = "EC Purchase Request"
-        doc.funding_source_name = legacy
 
 BRAND_DT = "Brand"
 
