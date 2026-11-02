@@ -83,6 +83,9 @@ def resubmit(name, actor=None):
 
 # =============================================================================
 # Buoc "Data xu ly" sau khi duyet (01/10/2026, Hoan: "team data co linh.vuong va minh")
+# 02/11/2026 (Hoan): CHI phieu Consolidated / Total qua Data. Project level duyet xong la xong -
+#   process DAILY_TARGET_PROJECT-V1 khong con dong Fulfiller (p316), nen on_final_approval tu
+#   dung o "process nay khong cau hinh buoc xu ly". Linh Vuong bao bi day ca phieu project.
 # =============================================================================
 FULFILLER_ROLE = "EC Data Team"
 
