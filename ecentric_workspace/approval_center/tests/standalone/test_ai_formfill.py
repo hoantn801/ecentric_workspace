@@ -680,5 +680,33 @@ class TestSmallTextKhongBiTran140(unittest.TestCase):
         self.assertEqual(sorted(d["field"] for d in dropped), ["ma_ngan", "payee_full_name"])
 
 
+class TestGiaTriPhaiNamTrongTrichDan(unittest.TestCase):
+    """Trich dan CHEP DUNG tu ghi chu nhung gia tri lech mot chu so: ban cu cho qua."""
+    SCHEMA = [{"fieldname": "bank_account_number", "fieldtype": "Data"},
+              {"fieldname": "payment_amount", "fieldtype": "Currency"}]
+    NOTE = "Chuyen khoan vao STK 1903 4567 8901 23 Techcombank, so tien 450.000d."
+
+    def _verify(self, values, sources):
+        m, _ = _load()
+        return _run(m, lambda: m.verify_sources(self.SCHEMA, values, sources, self.NOTE, False))
+
+    def test_so_tai_khoan_lech_mot_chu_so_bi_bo(self):
+        kept, dropped = self._verify({"bank_account_number": "19034567890124"},
+                                     {"bank_account_number": "STK 1903 4567 8901 23"})
+        self.assertEqual(kept, {})
+        self.assertEqual(dropped, [{"field": "bank_account_number",
+                                    "reason": "gia_tri_khong_khop_trich_dan"}])
+
+    def test_so_tai_khoan_dung_du_trich_dan_co_dau_cach_van_giu(self):
+        kept, dropped = self._verify({"bank_account_number": "19034567890123"},
+                                     {"bank_account_number": "STK 1903 4567 8901 23"})
+        self.assertEqual(kept, {"bank_account_number": "19034567890123"})
+        self.assertEqual(dropped, [])
+
+    def test_so_tien_khong_bi_dung_toi_boi_luat_moi(self):
+        kept, dropped = self._verify({"payment_amount": 450000}, {"payment_amount": "450.000d"})
+        self.assertEqual(kept, {"payment_amount": 450000})
+
+
 if __name__ == "__main__":
     unittest.main()

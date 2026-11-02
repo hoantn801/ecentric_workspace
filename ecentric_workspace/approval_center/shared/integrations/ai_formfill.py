@@ -534,4 +534,16 @@ def verify_sources(schema, values, sources, note, has_files):
         if not src or src not in haystack:
             kept.pop(name)
             dropped.append({"field": name, "reason": "trich_dan_khong_co_trong_van_ban"})
+            continue
+        # Trich dan THAT chua chua du: model chep dung "STK 1903 4567 8901 23" tu ghi chu roi
+        # tra gia tri lech mot chu so. Truong chu (so tai khoan) thi GIA TRI phai nam NGUYEN
+        # trong trich dan cua chinh no - bo dau cach/cham/gach o ca hai dau roi moi so.
+        # So tien khong so duoc kieu nay ("45 trieu" vs 45000000) nen chua dung toi.
+        if spec.get("fieldtype") not in _JSON_TYPE and _alnum(value) not in _alnum(src):
+            kept.pop(name)
+            dropped.append({"field": name, "reason": "gia_tri_khong_khop_trich_dan"})
     return kept, dropped
+
+
+def _alnum(text):
+    return "".join(c for c in str(text or "").lower() if c.isalnum())
