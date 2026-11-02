@@ -42,7 +42,7 @@ def _validate_users(label, users, rep):
             rep["errors"].append("%s: %s" % (label, str(e)))
 
 
-def _upsert_single_level(code, title, level_name, approvers, rep):
+def _upsert_single_level(code, title, level_name, approvers, rep, fulfiller=True):
     if frappe.db.get_value("EC Approval Process", code, "status") == "Active":
         rep["notes"].append("ALREADY_ACTIVE %s (left unchanged)" % code)
         return
@@ -55,8 +55,9 @@ def _upsert_single_level(code, title, level_name, approvers, rep):
     proc.version_no = proc.version_no or 1
     proc.status = "Draft"
     # 01/10/2026: sau khi duyet -> team Data xu ly (Role EC Data Team, gan nguoi trong Desk).
+    # 02/11/2026 (Hoan): CHI Consolidated / Total qua Data; Project level duyet xong la xong.
     proc.set("participants", [{"participant_purpose": "Fulfiller", "source_type": "Role",
-                               "role": DATA_ROLE, "sort_order": 0}])
+                               "role": DATA_ROLE, "sort_order": 0}] if fulfiller else [])
     proc.save(ignore_permissions=True)
     existing = frappe.get_all("EC Approval Level",
                               filters={"approval_process": code, "level_no": 1}, pluck="name")
@@ -99,7 +100,8 @@ def setup_daily_target_v1(project_approvers=None, consolidated_approvers=None, d
     if dry:
         rep["result"] = "DRY_RUN_OK (no writes)"
         return rep
-    _upsert_single_level(PROCESS_PROJECT, "Daily Target Project V1", "Commercial Manager Review", proj, rep)
+    _upsert_single_level(PROCESS_PROJECT, "Daily Target Project V1", "Commercial Manager Review", proj, rep,
+                         fulfiller=False)
     _upsert_single_level(PROCESS_CONSOLIDATED, "Daily Target Consolidated V1", "CEO Review", cons, rep)
     frappe.db.commit()
     rep["result"] = "APPLIED (processes Draft; card inactive)" + (" | " + "; ".join(rep["notes"]) if rep["notes"] else "")
