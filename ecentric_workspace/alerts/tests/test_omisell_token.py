@@ -243,5 +243,43 @@ class TestTokenPersistence(_Base):
         self.assertEqual(bis.reloads, 2)            # exactly 2 attempts, no more
 
 
+class TestTokenExpirySiteTz(_Base):
+    """expired_time cua Omisell la epoch UTC. Server Frappe Cloud chay UTC con now_datetime()
+    la gio SITE (Asia/Ho_Chi_Minh): datetime.fromtimestamp() ra gio UTC -> han token luu som
+    7 tieng so voi that (token song < 7h thi lan goi nao cung bi coi la het han -> auth lai)."""
+
+    def setUp(self):
+        super().setUp()
+        import os
+        import time
+        self._tz = os.environ.get("TZ")
+        os.environ["TZ"] = "UTC"
+        time.tzset()
+
+    def tearDown(self):
+        import os
+        import time
+        if self._tz is None:
+            os.environ.pop("TZ", None)
+        else:
+            os.environ["TZ"] = self._tz
+        time.tzset()
+        super().tearDown()
+
+    def test_expired_time_epoch_stored_as_site_wall_time(self):
+        # 13:00 gio VN ngay 13/06/2026 = 06:00 UTC; now_datetime() (stub) = 12:00 gio VN.
+        epoch = int(datetime(2026, 6, 13, 6, 0, 0).timestamp())        # TZ=UTC o day
+        bis = FakeBis(token=None, exp=None)
+        oc.requests = FakeTransport([_Resp(body={"data": {"token": SECRET_TOKEN,
+                                                          "expired_time": epoch}})])
+        c = _client(bis)
+        self.assertEqual(c._ensure_token(), SECRET_TOKEN)
+        self.assertEqual(bis.token_expired_at, datetime(2026, 6, 13, 13, 0, 0))
+        t2 = FakeTransport([])
+        oc.requests = t2
+        self.assertEqual(c._ensure_token(), SECRET_TOKEN)   # con han 1h -> dung lai, khong auth
+        self.assertEqual(t2.calls, 0)
+
+
 if __name__ == "__main__":
     unittest.main()
