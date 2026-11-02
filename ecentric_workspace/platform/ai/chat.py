@@ -25,9 +25,10 @@ MAX_TURN_CHARS = 2000
 BUDGET = 90
 #: Che do nhanh: 2 model song song toi da 20s (ngu canh bao cao dai hon eC Mate), roi du phong.
 ATTEMPT_TIMEOUT = 20
+#: `employee`, `submitter` khong dua vao ngu canh - chi de xet quyen doc tung ban ghi.
 FIELDS = ("name, full_name, department, overall_status, mood, ai_tools_used, what_done, "
           "blockers_help, plan_next_week, ai_use_case, ai_summary, overall_ai_score, "
-          "structure_score, week_label")
+          "structure_score, week_label, employee, submitter")
 
 
 def week_labels(now_dt):
@@ -76,10 +77,35 @@ def _records(view, cur_week, prev_week):
         {"w": weeks, "e": view["employee"]}, as_dict=True)
 
 
-def build_context(view, user, cur_week, recs, company_summary=""):
-    """PURE. Ngu canh gui kem cau hoi."""
+def _visible(recs, user):
+    """Chi giu ban ghi `user` DOC DUOC theo luat doc cua `Weekly Team Update`.
+
+    `frappe.db.sql` khong qua lop quyen nao (xem dau weekly_report/permissions.py), ma pham vi
+    o scope.py rong hon luat do: nhan vien thuong duoc "ca phong" (luat WTU: chi minh + cap
+    duoi), quyen xem tro vao Management van lay Management. Giao voi `can_read` thi AI khong
+    bao gio doc nhieu hon nguoi hoi tu mo /weekly-update. Loi khi xet -> bo ban ghi (fail dong).
+    """
+    from ecentric_workspace.weekly_report import permissions as wtu_perm
+    out = []
+    for r in recs or []:
+        try:
+            if wtu_perm.can_read(r, user):
+                out.append(r)
+        except Exception:
+            frappe.log_error(title="ai_chat can_read")
+    return out
+
+
+def build_context(view, user, cur_week, recs, company_summary="", partial=False):
+    """PURE. Ngu canh gui kem cau hoi.
+
+    partial=True: mot phan ban ghi trong pham vi da bi bo vi nguoi hoi khong duoc doc - khong
+    goi la "Phong X" nua, keo AI noi "ca phong chi co N bao cao".
+    """
     label = {"all": "Toan cong ty", "dept": "Phong " + ", ".join(view["depts"]),
              "self": "Bao cao cua ban"}[view["scope"]]
+    if partial:
+        label = "Nhung bao cao ban duoc xem (KHONG phai ca phong)"
     lines = ["Ban la AI tro ly cua eCentric. Tra loi tieng Viet, ngan gon, dung Markdown "
              "(** bold, * bullet). Chi dua tren du lieu duoi day; khong co thi noi khong co.",
              "Tuan hien tai: " + cur_week, "Nguoi dang hoi: " + user,
@@ -111,15 +137,17 @@ def gemini_chat(message=None, history=None, **kwargs):
     view = scope.resolve(user)
     cur_week, prev_week = week_labels(frappe.utils.now_datetime())
     try:
-        recs = _records(view, cur_week, prev_week)
+        raw = _records(view, cur_week, prev_week)
     except Exception:
         frappe.log_error(title="ai_chat records")
-        recs = []
+        raw = []
+    recs = _visible(raw, user)
     summary = ""
     if view["scope"] == scope.ALL:
         summary = frappe.db.get_value("Company Weekly Summary", cur_week, "executive_summary") or ""
     res = gateway.generate(message[:MAX_MESSAGE],
-                           system=build_context(view, user, cur_week, recs, summary),
+                           system=build_context(view, user, cur_week, recs, summary,
+                                                partial=len(recs) < len(raw)),
                            history=clean_history(history), purpose="chat", budget=BUDGET,
                            fast=True, attempt_timeout=ATTEMPT_TIMEOUT, opts={"effort": "none"})
     if not res["ok"]:
