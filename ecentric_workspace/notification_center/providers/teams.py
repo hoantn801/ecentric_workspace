@@ -165,6 +165,8 @@ def deliver(delivery_log):
         return
     if doc.get("status") == "Sent":
         return
+    if bo_qua_nguoi_da_khoa(doc, "teams"):
+        return
 
     cfg = get_config()
     botcfg = teams_bot.bot_config()
@@ -234,6 +236,25 @@ def deliver(delivery_log):
     else:
         _mark_retry_or_fail(doc, provider, code, err)
     doc.save(ignore_permissions=True)
+
+
+def bo_qua_nguoi_da_khoa(doc, provider):
+    """Nguoi nhan da bi khoa tai khoan (nghi viec) -> Skipped USER_DISABLED, khong ban.
+    Dung chung cho teams + webpush (webpush import ham nay). Xem
+    events.nguoi_nhan_con_hoat_dong. Tra True neu da ghi Skipped."""
+    try:
+        from ecentric_workspace.notification_center import events as _ev
+        if _ev.nguoi_nhan_con_hoat_dong(doc.get("recipient")):
+            return False
+    except Exception:
+        return False
+    doc.provider = provider
+    doc.status = "Skipped"
+    doc.next_retry_at = None
+    doc.error_code = "USER_DISABLED"
+    doc.error_message = "Tai khoan nguoi nhan da bi khoa - khong ban tin ra ngoai app."
+    doc.save(ignore_permissions=True)
+    return True
 
 
 def _tung_nhan_teams(recipient, exclude=None):
