@@ -229,6 +229,19 @@
     return out;
   }
 
+  /* Ten cac o bat buoc con trong, dung NHAN tren form (bo dau * va dau "AI dien"). Dung de
+   * noi bang chu sau mot luot: chi to mau hong thi nguoi dung dien thoai phai cuon ca form moi
+   * biet con thieu gi. */
+  function gapLabels() {
+    return missingRequired().map(function (box) {
+      var lab = box.querySelector("label");
+      if (!lab) return "";
+      var c = lab.cloneNode(true);
+      Array.prototype.forEach.call(c.querySelectorAll(".req, .ec-aifill-badge"), function (n) { n.remove(); });
+      return (c.textContent || "").replace(/\s+/g, " ").trim();
+    }).filter(Boolean);
+  }
+
   function paint() {
     document.querySelectorAll(".ec-aifill-badge, .ec-aifill-src").forEach(function (n) {
       if (!S.filled[n.getAttribute("data-for")]) n.remove();
@@ -297,7 +310,7 @@
    * này trang mở tab thật. Dùng `aria-pressed` chứ không phải `role=tab`: nó KHÔNG phải
    * tab của trang, và nói dối trình đọc màn hình về cấu trúc là tệ hơn im lặng. */
   function modeHtml() {
-    return '<div class="ec-aifill-modes">' +
+    return '<div class="ec-aifill-modes" role="group" aria-label="Chế độ AI điền hộ">' +
       '<button type="button" class="ec-aifill-mode" data-mode="one" aria-pressed="' +
         (B.on ? "false" : "true") + '">Một phiếu</button>' +
       '<button type="button" class="ec-aifill-mode" data-mode="batch" aria-pressed="' +
@@ -358,7 +371,7 @@
           '<span class="ec-aifill-title">AI điền hộ</span>' + quota + '</div>' +
         modeHtml() +
         '<div class="ec-aifill-body"><div class="ec-aifill-batch"></div>' +
-          '<div class="ec-aifill-msg"></div></div>' +
+          '<div class="ec-aifill-msg" role="status" aria-live="polite"></div></div>' +
         '<div class="ec-aifill-progress"><i></i></div>';
       S.panel.classList.toggle("is-running", !!B.busy || !!B.rows.some(function (r) { return r.busy; }));
       wireModes();
@@ -372,6 +385,7 @@
       modeHtml() +
       '<div class="ec-aifill-body">' +
         '<textarea class="ec-aifill-note" rows="3" maxlength="' + S.maxChars + '" ' +
+          'aria-label="Nội dung cho AI đọc" aria-keyshortcuts="Control+Enter" ' +
           'placeholder="Dán nội dung hợp đồng, email, hay mô tả khoản chi vào đây — hoặc chỉ cần đính kèm tệp ở dưới. AI đọc và điền vào form, bạn xem lại rồi tự bấm Gửi."></textarea>' +
         '<div class="ec-aifill-files"></div>' +
         '<div class="ec-aifill-foot">' +
@@ -380,7 +394,7 @@
           (n ? '<button type="button" class="ec-aifill-undo">Hoàn tác</button>' : "") +
           '<span class="ec-aifill-hint">Không chắc thì AI để trống — ô trống rẻ hơn ô sai trông như đúng.</span>' +
         '</div>' +
-        '<div class="ec-aifill-msg"></div>' +
+        '<div class="ec-aifill-msg" role="status" aria-live="polite"></div>' +
       '</div>' +
       '<div class="ec-aifill-progress"><i></i></div>';
     S.panel.classList.toggle("is-running", !!S.busy);
@@ -390,6 +404,10 @@
       // Giữ lại những gì đang gõ: panel bị vẽ lại nhiều lần (xong lượt, hoàn tác), mất chữ
       // đang gõ giữa chừng là mất công người dùng.
       note.oninput = function () { S._note = note.value; };
+      // Ctrl/Cmd+Enter = bam "Dien vao form": go xong khoi phai voi chuot.
+      note.onkeydown = function (ev) {
+        if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); run(); }
+      };
     }
     S.panel.querySelector(".ec-aifill-run").onclick = run;
     var u = S.panel.querySelector(".ec-aifill-undo");
@@ -563,7 +581,11 @@
     if (!note && !picked.length) {
       say("Dán nội dung vào ô trên, hoặc thả một tệp vào ô bên dưới.", "warn"); return;
     }
-    S.busy = true; render(); say("");
+    S.busy = true; render();
+    // Luot doc that mat 10-30 giay (tep PDF lau hon). Noi truoc de nguoi dung khong tuong treo
+    // roi bam lai / roi trang giua chung.
+    say("AI đang đọc" + (picked.length ? " " + picked.length + " tệp" : "") +
+        "… thường mất 10–30 giây. Cứ để trang mở, xong sẽ tự điền vào form.", "info");
     call("suggest", { approval_code: code, note: note, current: JSON.stringify(draft()),
                       files: JSON.stringify(picked) })
       .then(function (res) {
@@ -577,7 +599,7 @@
           render(); say("Nội dung dài quá (tối đa " + res.max_chars + " ký tự).", "warn"); return;
         }
         if (res.refused === "refused_no_key") {
-          render(); say("Chưa cấu hình khoá Gemini — báo IT giúp nhé.", "warn"); return;
+          render(); say("AI chưa được cấu hình khoá kết nối — báo IT giúp nhé. Form vẫn điền tay bình thường.", "warn"); return;
         }
         if (res.refused === "empty") {
           render();
@@ -600,6 +622,12 @@
             msg += " Đã đọc <b>" + res.files_read.length + " tệp</b>.";
           }
           msg += filesNote(res);
+          var thieu = gapLabels();
+          msg += thieu.length
+            ? '<br><span class="ec-aifill-next">Còn <b>' + thieu.length + " ô bắt buộc</b> trống (tô hồng): " +
+              esc(thieu.slice(0, 4).join(", ")) + (thieu.length > 4 ? "…" : "") + ".</span>"
+            : "";
+          msg += '<br><span class="ec-aifill-next">Soát lại các ô tô vàng — nhất là số tiền và số tài khoản — rồi tự bấm Gửi.</span>';
           var probe = res.probe || {};
           if (probe.ok === false && probe.message) {
             msg += '<br><span class="ec-aifill-probe"><b>Chưa gửi được:</b> ' + esc(probe.message) + "</span>";
@@ -609,7 +637,9 @@
       })
       .catch(function (e) {
         S.busy = false; render();
-        say("<b>Không gọi được.</b> " + esc((e && e.message) || "Thử lại sau."), "err");
+        // Cau that cua server (vd "Ban chua duoc bat tinh nang AI dien ho") nam trong
+        // `_server_messages`, khong nam o e.message - xem `loiThat`.
+        say("<b>Không gọi được.</b> " + esc(loiThat(e, "Kiểm tra mạng rồi bấm lại nhé.")), "err");
       });
   }
 
@@ -726,7 +756,8 @@
     return '<div class="ec-aifill-row" data-row="' + esc(r.key) + '">' +
       '<div class="ec-aifill-row-top">' +
         '<button type="button" class="ec-aifill-row-x2" data-act="mo" aria-expanded="' +
-          (mo ? "true" : "false") + '">' + (mo ? "▾" : "▸") + "</button>" +
+          (mo ? "true" : "false") + '" aria-label="' + (mo ? "Thu gọn" : "Xem và sửa") + " dòng " +
+          esc(r.file.name) + '">' + (mo ? "▾" : "▸") + "</button>" +
         '<span class="ec-aifill-row-file" title="' + esc(r.file.name) + '">' + esc(r.file.name) + "</span>" +
         '<span class="ec-aifill-row-who">' + esc(fl.payee_full_name || "—") + "</span>" +
         '<span class="ec-aifill-row-amt">' + esc(money(fl.payment_amount)) + "</span>" +
@@ -1066,6 +1097,7 @@
                        money: money, rowState: rowState, batchRefuse: batchRefuse,
                        flagsHtml: flagsHtml, batchHtml: batchHtml, B: B, S: S,
                        loiThat: loiThat, draftId: draftId, detailHtml: detailHtml,
+                       gapLabels: gapLabels,
                        syncMode: syncMode, render: render,
                        setMode: setMode };
 })();
