@@ -284,6 +284,30 @@ class TestLegacyAlias(FundingTestBase):
         self.assertEqual(doc.funding_source_doctype, "EC Purchase Request")
         self.assertEqual(doc.funding_source_name, "PURR-1")
 
+    def test_new_source_wins_over_stale_legacy_with_brand_category(self):
+        """Doi nguon sang PO ma `purchase_request` con gia tri cu, loai chi phi CO brand:
+        nguon moi phai giu nguyen - khong duoc bi lat ve ĐNMH cu (tru ngan sach sai chung tu)."""
+        self.store["EC Loai Chi Phi"] = {"MKT": {"can_brand": 1}}
+        svc = self._service()
+        doc = _Doc({"funding_source_doctype": "Purchase Order", "funding_source_name": "PO-1",
+                    "purchase_request": "PURR-1", "ec_loai_chi_phi": "MKT", "ec_brand": "B1",
+                    "details_and_attachments_correct": "Yes"})
+        svc.normalize_payment(doc)
+        self.assertEqual(doc.funding_source_doctype, "Purchase Order")
+        self.assertEqual(doc.funding_source_name, "PO-1")
+        self.assertIsNone(doc.purchase_request)
+        self.assertEqual(doc.ec_brand, "B1")
+
+    def test_switch_between_purchase_requests_keeps_new_one(self):
+        self.store["EC Loai Chi Phi"] = {"MKT": {"can_brand": 1}}
+        svc = self._service()
+        doc = _Doc({"funding_source_doctype": "EC Purchase Request",
+                    "funding_source_name": "PURR-DRAFT", "purchase_request": "PURR-1",
+                    "ec_loai_chi_phi": "MKT", "details_and_attachments_correct": "Yes"})
+        svc.normalize_payment(doc)
+        self.assertEqual(doc.funding_source_name, "PURR-DRAFT")
+        self.assertEqual(doc.purchase_request, "PURR-DRAFT")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
