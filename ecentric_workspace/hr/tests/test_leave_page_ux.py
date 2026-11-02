@@ -54,5 +54,21 @@ class LeaveDates(unittest.TestCase):
             self.assertIn("Đến ngày đang trước Từ ngày", h, f)
             self.assertIn("Chọn Từ ngày và Đến ngày.", h, f)
 
+
+class LeaveTiengViet(unittest.TestCase):
+    """ec-lv-vi-v1: ten loai phep / trang thai tieng Viet o moi danh sach; dong co data-name."""
+
+    def test_danh_sach_khong_ghep_ten_loai_tho(self):
+        for f in FIELDS:
+            h = _page()[f]
+            self.assertIn("ec-lv-vi-v1", h, f)
+            for raw in ("<b>'+a.type+'</b>", "· '+p.type+' ·", "<span>'+r.type+' ·", "'\">'+r.st+'</span>"):
+                self.assertNotIn(raw, h, (f, raw))
+            self.assertIn("'<div class=\"lv-row\" data-name=\"'+escH(a.name)+'\">", h, f)
+            self.assertIn("'<div class=\"lv-trow\" data-name=\"'+escH(r.name)+'\">", h, f)
+            self.assertIn("(window.ecLvTypeVi||String)(m.leave_type", h, f)
+            # mot bang ten duy nhat cho ca form lan danh sach
+            self.assertEqual(h.count("'Annual Leave':'Nghỉ phép năm'"), 1, f)
+
 if __name__ == "__main__":
     unittest.main()
