@@ -174,8 +174,8 @@
     "sha256": "176f923979339da9140f34758e29671f90e33007e6c1c5b88bacdb42b979631d"
   },
   "hr/pages/tong_quan/main_section.html": {
-    "last_resync_patch": "p273_resync_tong_quan_file_cnb",
-    "sha256": "cfc9b0110818577e065a5334376ac3a29c69f0c20f4dd9ac2f9d44aae74a662d"
+    "last_resync_patch": "p318_resync_tong_quan_xuat_file",
+    "sha256": "f8caf66240c89d2086553d3876eeb761f77b2857d2c54d8aca786802fd3d6af5"
   },
   "legacy_pages/all_ticket/main_section.html": {
     "baseline": "2026-08-31",
