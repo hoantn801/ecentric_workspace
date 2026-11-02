@@ -703,6 +703,54 @@ class QaCongAi(unittest.TestCase):
         u = Env().mod["usage"]
         return u.build_row("t", out, "a@ecentric.vn", price_table={"grok-4-7": (160.0, 480.0)})
 
+    def test_luot_thu_hong_van_bi_tinh_tien_thi_phai_dem(self):
+        # Gemini tra JSON cut (da ton 42 token) roi GPT tra dung (7 token): Kie tinh tien CA HAI.
+        e = Env()
+        got = []
+        e.mod["usage"].record = lambda purpose, out, images=0: got.append(out)
+        e.replies["gemini"] = (200, sse('{"diem": 7, "ly_do": "'))
+        e.replies["gpt"] = (200, gpt_body('{"diem": 6}'))
+        r = e.gw.generate("cham", schema=SCHEMA)
+        self.assertTrue(r["ok"])
+        self.assertEqual(r["usage"], {"total_tokens": 7}, "usage cua cau tra loi giu nguyen")
+        row = self._usage_row(got[0])
+        self.assertEqual(row["total_tokens"], 49, "42 token cua lan thu hong cung da bi tinh tien")
+
+    def test_ca_chuoi_hong_noi_dung_thi_chi_phi_khong_phai_0(self):
+        e = Env(settings={"ec_llm_model_kie": "gemini-3-8-flash-openai",
+                          "ec_llm_model_kie_fallback": "grok-4-7"})
+        got = []
+        e.mod["usage"].record = lambda purpose, out, images=0: got.append(out)
+        e.replies["oai"] = (200, chat_body('{"khac": 1}'))     # credits_consumed 0.05
+        e.replies["grok"] = (200, json.dumps({"output": [{"type": "message", "content": [
+            {"type": "output_text", "text": "khong phai json"}]}],
+            "usage": {"input_tokens": 1000, "output_tokens": 1000}}))
+        r = e.gw.generate("cham", schema=SCHEMA)
+        self.assertFalse(r["ok"])
+        row = self._usage_row(got[0])
+        self.assertEqual(row["total_tokens"], 551 + 2000)
+        self.assertAlmostEqual(row["credits"], 0.05 + 0.64, places=4)
+        self.assertEqual(row["cost_source"], "estimate")
+
+    def test_dot_song_song_lan_thua_da_xong_cung_tinh_tien(self):
+        import time as _t
+        e = Env(settings=SucKhoeVaCheDoNhanh.FAST)
+        got = []
+        e.mod["usage"].record = lambda purpose, out, images=0: got.append(out)
+
+        def cham_dung():
+            _t.sleep(0.3)
+            return (200, chat_body('{"diem": 1}'))
+        e.replies["gemini-3-8-flash-openai"] = (200, chat_body("khong json"))   # xong truoc, hong
+        e.replies["gemini-3-6-flash-openai"] = cham_dung
+        e.replies["grok"] = (200, KIE_500)
+        r = e.gw.generate("cham", schema=SCHEMA, fast=True, attempt_timeout=5)
+        self.assertEqual((r["ok"], r["model"]), (True, "gemini-3-6-flash-openai"))
+        self.assertIn("JSON", r["attempts"][0]["error"])
+        row = self._usage_row(got[0])
+        self.assertAlmostEqual(row["credits"], 0.1, places=4, msg="0.05 lan hong + 0.05 lan thang")
+        self.assertEqual(row["cost_source"], "kie")
+
     def test_ping_khong_tinh_loi_noi_dung_vao_suc_khoe(self):
         # Cau ping tran 16 token: model co suy nghi tra RONG (finish=MAX_TOKENS) du van song.
         # Gateway chi tinh loi SAP vao suc khoe; ping phai cung luat, neu khong 6 lan ping/gio
