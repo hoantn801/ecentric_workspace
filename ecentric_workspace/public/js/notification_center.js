@@ -59,9 +59,14 @@
   function setMuted(v) {
     try { window.localStorage.setItem(MUTE_KEY, v ? '1' : '0'); } catch (e) {}
   }
+  // created_at la gio SITE (System Settings time_zone = Asia/Ho_Chi_Minh, khong gio mua he), KHONG
+  // phai UTC. Truoc 03/11/2026 doc nhu UTC ('Z') -> moi thong bao duoi 7 tieng deu hien "vua xong".
+  var SITE_UTC_OFFSET = '+07:00';
   function ago(s) {
     if (!s) return '';
-    var t = new Date(String(s).replace(' ', 'T') + 'Z');
+    var m = String(s).match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(?::\d{2})?)/);
+    if (!m) return '';
+    var t = new Date(m[1] + 'T' + (m[2].length === 5 ? m[2] + ':00' : m[2]) + SITE_UTC_OFFSET);
     if (isNaN(t)) return '';
     var d = (Date.now() - t.getTime()) / 1000;
     if (d < 60) return 'vừa xong';
@@ -85,7 +90,7 @@
     return document.querySelector(BELL_SELECTOR);
   }
 
-  var S = { items: [], unread: 0, open: false, interacted: false };
+  var S = { items: [], unread: 0, open: false, interacted: false, loaded: false, loadErr: false };
   var bell, badgeEl, pop, listEl, mo;
   // delivery v1 client state ------------------------------------------------
   var P = { sound_enabled: 1, desktop_enabled: 0, teams_enabled: 0, quiet_hours_enabled: 0,
@@ -228,7 +233,10 @@
     if (!S.items.length) {
       var em = document.createElement('div');
       em.className = 'ec-nc-empty';
-      em.textContent = 'Chưa có thông báo nào';
+      // Chua tai xong / tai loi KHONG duoc noi "Chua co thong bao nao" (sai su that).
+      em.textContent = !S.loaded ? 'Đang tải thông báo…'
+        : S.loadErr ? 'Chưa tải được thông báo - kiểm tra mạng rồi mở lại.'
+        : 'Chưa có thông báo nào';
       listEl.appendChild(em);
       return;
     }
@@ -257,25 +265,26 @@
   }
 
   // ---- API (http type MUST match the backend whitelist methods) ------------
-  function call(method, httpType, args, cb) {
+  function call(method, httpType, args, cb, errCb) {
     if (!(window.frappe && typeof window.frappe.call === 'function')) return;
     window.frappe.call({
       method: 'ecentric_workspace.notification_center.api.' + method,
       type: httpType,
       args: args || {},
       callback: function (r) { if (cb) cb(r && r.message); },
-      error: function () {}
+      error: function () { if (errCb) errCb(); }
     });
   }
 
   function refresh() {
     call('get_notifications', 'GET', { limit: LIST_LIMIT }, function (msg) {
-      if (!msg || !msg.success) return;
+      if (!msg || !msg.success) { S.loaded = true; S.loadErr = !S.items.length; if (S.open) renderList(); return; }
       S.items = msg.items || [];
       S.unread = msg.unread || 0;
+      S.loaded = true; S.loadErr = false;
       renderBadge();
       if (S.open) renderList();
-    });
+    }, function () { S.loaded = true; S.loadErr = !S.items.length; if (S.open) renderList(); });
   }
   /**
    * setInterval that skips ticks while the tab is hidden, and catches up once on re-focus.
@@ -329,7 +338,7 @@
   function toggle() { S.open ? close() : open(); }
   function open() {
     ensureBadge();
-    S.open = true; position(); pop.classList.add('on'); refresh();
+    S.open = true; position(); pop.classList.add('on'); renderList(); refresh();
     var first = pop.querySelector('.ec-nc-item, #ec-nc-allread');
     if (first && first.focus) { try { first.focus(); } catch (e) {} }
   }
@@ -695,6 +704,11 @@
     // looking at. Compute audit showed site-wide polling - not cron - was the main consumer.
     // On becoming visible again we refresh once, so the badge is never stale when it matters.
     startVisibilityAwarePoll(refreshCount, POLL_MS);
+    // Trang khac vua doc / doc het thong bao (vd /viec-cua-toi tab Thong bao) -> lay lai so chua
+    // doc NGAY, mot lan goi, khong doi vong poll 60s (UX 03/11/2026).
+    document.addEventListener('ec:notif-changed', function () {
+      try { if (S.open) refresh(); else refreshCount(); } catch (e) {}
+    });
     console.log('[ec-notification-center] installed (global delegated capture loader)');
   }
 
