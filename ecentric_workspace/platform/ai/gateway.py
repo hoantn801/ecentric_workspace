@@ -116,11 +116,15 @@ def _usable(model, files):
 
 
 def _try_one(model, key, request, timeout):
-    """-> (text, data, usage, finish, error). Khong nem."""
-    body = dialects.build(model, request["prompt"], request["system"], request["schema"],
-                          request["files"], request["history"], request["json_mode"],
-                          request["opts"])
+    """-> (text, data, usage, finish, error). Khong nem.
+
+    `build` nam TRONG try: opts den tu trang (livestream: max_tokens/thinking cua than
+    request) - "abc" lam int() nem ValueError; o dot song song no con thoat ra khoi
+    f.result() va lam sap ca luot goi thay vi tra ok=False."""
     try:
+        body = dialects.build(model, request["prompt"], request["system"], request["schema"],
+                              request["files"], request["history"], request["json_mode"],
+                              request["opts"])
         status, raw = _post(dialects.url_for(model), body, key, timeout)
         text, usage, finish, err = dialects.parse(model, status, raw)
     except Exception as exc:

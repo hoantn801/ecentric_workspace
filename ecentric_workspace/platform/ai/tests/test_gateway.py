@@ -731,6 +731,23 @@ class QaCongAi(unittest.TestCase):
         self.assertEqual(e.mod["config"].scrub_key("ma 0123456789abcdef1", "zz"), "ma 0123456789abcdef1",
                          "khong che bua khi khong trung khoa")
 
+    def test_tham_so_hong_khong_lam_cong_nem_loi(self):
+        # livestream.py chuyen thang max_tokens / thinking tu than request cua trang vao opts.
+        # Ma cu: ValueError thoat khoi generate() (ca o dot song song, qua f.result()).
+        for fast in (False, True):
+            e = Env(settings=SucKhoeVaCheDoNhanh.FAST if fast else None)
+            import time as _t
+
+            def tre():
+                _t.sleep(0.1)       # de luong Gemini (hong ngay) xong truoc trong dot song song
+                return (200, gpt_body("ok"))
+            e.replies["gpt"] = e.replies["grok"] = tre       # ho Responses bo qua max_tokens
+            r = e.gw.generate("x", opts={"max_tokens": "abc"}, fast=fast)
+            gem = [a for a in r["attempts"] if a["model"].startswith("gemini")]
+            self.assertTrue(gem and all("ValueError" in a["error"] for a in gem), (fast, r["attempts"]))
+            self.assertEqual(down(e), {}, "loi tham so khong phai model sap")
+            self.assertTrue(r["ok"], "model khong dung tham so do van tra loi duoc")
+
     def _images(self, e):
         m = types.ModuleType("ecentric_workspace.platform.ai.images")
         m.__file__ = os.path.join(AI, "images.py")
