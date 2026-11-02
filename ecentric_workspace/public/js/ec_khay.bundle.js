@@ -84,10 +84,25 @@
     if (j && j.exc_type === "PermissionError") return "Bạn chưa có quyền làm việc này.";
     return fallback || "Có lỗi, bạn thử lại nhé.";
   }
+  /* Lỗi HTTP -> câu tiếng Việt. 429/5xx không đưa chữ kỹ thuật của máy chủ ra cho người dùng. */
+  function httpError(status, j) {
+    if (status === 429) return "Bạn hỏi hơi dồn dập, chờ chút rồi thử lại nhé.";
+    if (status >= 500) return "Máy chủ đang bận, bạn thử lại sau ít phút nhé.";
+    return serverError(j);
+  }
+  /* fetch hỏng mạng ném TypeError tiếng Anh ("Failed to fetch", "Load failed"…) -> câu dễ hiểu. */
+  function errText(e, fallback) {
+    var msg = (e && e.message) || "";
+    if ((e && e.name === "TypeError") || /failed to fetch|networkerror|load failed|network request failed/i.test(msg)) {
+      return "Mất kết nối mạng — bạn kiểm tra mạng rồi bấm Thử lại nhé.";
+    }
+    return msg || fallback || "Có lỗi, bạn thử lại nhé.";
+  }
   /* Lịch sử gửi cho AI: chỉ lượt chữ, 10 lượt cuối. */
   function historyOf(msgs) {
     return (msgs || []).filter(function (m) {
-      return (m.role === "user" || m.role === "bot") && m.text;
+      // Câu báo lỗi ("AI đang bận…") là của giao diện, không phải lời AI — không gửi làm lịch sử.
+      return (m.role === "user" || m.role === "bot") && m.text && !m.err;
     }).slice(-10).map(function (m) {
       return { role: m.role === "user" ? "user" : "model", text: m.text };
     });
@@ -133,6 +148,7 @@
   var PURE = { viDate: viDate, leaveLabel: leaveLabel, leaveRange: leaveRange,
                fileRefuse: fileRefuse, fmtValue: fmtValue, serverError: serverError,
                historyOf: historyOf, mdLite: mdLite, shouldRun: shouldRun, esc: esc,
+               httpError: httpError, errText: errText,
                modelLabel: modelLabel,
                retireOldChat: retireOldChat };
   /* Cho test (jsdom) đọc các hàm PURE. KHÔNG dùng `module.exports`: esbuild thấy chữ
@@ -175,7 +191,7 @@
       if (!res.ok && res.j.exc_type === "CSRFTokenError" && !retried) {
         return post(method, body, true);
       }
-      if (!res.ok) throw new Error(serverError(res.j));
+      if (!res.ok) throw new Error(httpError(res.status, res.j));
       return res.j.message;
     });
   }
@@ -186,7 +202,7 @@
     return fetch("/api/method/" + method + q, { credentials: "same-origin",
                                                 headers: { "Accept": "application/json" } })
       .then(parse).then(function (res) {
-        if (!res.ok) throw new Error(serverError(res.j));
+        if (!res.ok) throw new Error(httpError(res.status, res.j));
         return res.j.message;
       });
   }
@@ -228,7 +244,11 @@
   function save() {
     try {
       var keep = S.msgs.filter(function (m) { return m.role === "user" || m.role === "bot"; })
-        .slice(-MAX_KEEP).map(function (m) { return { role: m.role, text: m.text, by: m.by || "" }; });
+        .slice(-MAX_KEEP).map(function (m) {
+          var o = { role: m.role, text: m.text, by: m.by || "" };
+          if (m.err) o.err = true;   // tải lại trang vẫn tô đỏ, và không lọt vào lịch sử gửi AI
+          return o;
+        });
       sessionStorage.setItem(STORE, JSON.stringify({ open: S.open, wide: S.wide, msgs: keep }));
     } catch (e) { /* trình duyệt chặn lưu trữ thì thôi */ }
   }
@@ -416,6 +436,10 @@
           return '<button type="button" class="chip" data-say="' + esc(o) + '">' + esc(o) + "</button>";
         }).join("") + "</div>";
       }
+      if (m.err && m.retry != null && idx === S.msgs.length - 1) {
+        h += '<div class="chips"><button type="button" class="chip" data-act="retry" data-i="' + idx + '">' +
+          "Thử lại</button></div>";
+      }
       return h;
     }
     if (m.role === "files") {
@@ -574,13 +598,25 @@
         if (r.action === "answer" && !r.needs_data && r.reply) return push({ role: "bot", text: r.reply, by: r.model });
         if (r.action === "answer") return onAnswer(text, hist);
         push({ role: "bot", text: r.reply || "Bạn nói rõ hơn giúp mình nhé.",
-               options: r.options || [], err: r.action === "error", by: r.reply ? r.model : "" });
+               options: r.options || [], err: r.action === "error", by: r.reply ? r.model : "",
+               retry: r.action === "error" ? text : null });
       })
       .catch(function (e) {
         dropTyping();
-        push({ role: "bot", text: (e && e.message) || "AI đang bận, bạn thử lại sau nhé.", err: true });
+        push({ role: "bot", text: errText(e, "AI đang bận, bạn thử lại sau nhé."), err: true, retry: text });
       })
       .then(function () { S.busy = false; paint(); });
+  }
+
+  /* Thử lại câu vừa lỗi: bỏ bong bóng lỗi (và câu hỏi cũ) rồi hỏi lại đúng câu đó. */
+  function retry(idx) {
+    var m = S.msgs[idx];
+    if (!m || !m.err || m.retry == null || S.busy) return;
+    var text = m.retry;
+    S.msgs.splice(idx, 1);
+    var prev = S.msgs[idx - 1];
+    if (prev && prev.role === "user" && prev.text === text) S.msgs.splice(idx - 1, 1);
+    ask(text);
   }
 
   function onLeave(r) {
@@ -605,7 +641,7 @@
         m.state = "sent"; m.name = (res && res.name) || ""; m.days = res && res.days;
         push({ role: "bot", text: "Xong! Đơn **" + m.name + "** đã gửi, mình sẽ không làm gì thêm với đơn này." });
       })
-      .catch(function (e) { m.state = "draft"; m.error = (e && e.message) || "Gửi không được."; })
+      .catch(function (e) { m.state = "draft"; m.error = errText(e, "Gửi không được."); })
       .then(function () { paint(); save(); });
   }
 
@@ -639,7 +675,7 @@
           push({ role: "bot", text: "Không đọc được " + x.file + ": " + x.message, err: true });
         });
       })
-      .catch(function (e) { var m = S.msgs[idx]; m.state = "ready"; m.error = (e && e.message) || "Đọc tệp không được."; })
+      .catch(function (e) { var m = S.msgs[idx]; m.state = "ready"; m.error = errText(e, "Đọc tệp không được."); })
       .then(function () { paint(); });
   }
 
@@ -660,7 +696,7 @@
         push({ role: "bot", text: "Đã tạo nháp **" + res.name + "**. Mình mở phiếu để bạn kiểm tra và bấm Gửi nhé." });
         setTimeout(function () { location.href = route + "?id=" + encodeURIComponent(res.name); }, 900);
       })
-      .catch(function (e) { m.state = "ready"; m.error = (e && e.message) || "Không tạo được bản nháp."; })
+      .catch(function (e) { m.state = "ready"; m.error = errText(e, "Không tạo được bản nháp."); })
       .then(function () { paint(); save(); });
   }
 
@@ -670,9 +706,9 @@
       .then(function (r) {
         dropTyping();
         if (r && r.success) push({ role: "bot", text: r.reply, by: r.model });
-        else push({ role: "bot", text: (r && r.error) || "AI đang bận, bạn thử lại sau nhé.", err: true });
+        else push({ role: "bot", text: (r && r.error) || "AI đang bận, bạn thử lại sau nhé.", err: true, retry: text });
       })
-      .catch(function (e) { dropTyping(); push({ role: "bot", text: (e && e.message) || "Có lỗi.", err: true }); });
+      .catch(function (e) { dropTyping(); push({ role: "bot", text: errText(e), err: true, retry: text }); });
   }
 
   function addFiles(list) {
@@ -690,7 +726,7 @@
     var jobs = items.filter(function (it) { return !it.err; }).map(function (it) {
       var file = arr.filter(function (f) { return f.name === it.name && f.size === it.size; })[0];
       return upload(file).then(function (url) { it.url = url; })
-        .catch(function (e) { it.err = (e && e.message) || "tải lên không được"; });
+        .catch(function (e) { it.err = errText(e, "tải lên không được"); });
     });
     Promise.all(jobs).then(function () {
       S.msgs[idx] = { role: "files", items: items };
@@ -845,6 +881,7 @@
       var i = +t.getAttribute("data-i");
       if (t.getAttribute("data-act") === "leave-send") sendLeave(i);
       if (t.getAttribute("data-act") === "pay-draft") payDraft(i);
+      if (t.getAttribute("data-act") === "retry") retry(i);
     });
     R.pan.addEventListener("keydown", function (e) { if (e.key === "Escape") closePanel(); });
 

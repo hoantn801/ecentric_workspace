@@ -226,6 +226,33 @@ const shell='<aside data-ec-shell="1"></aside><main>trang</main>';
     ok("dang cho: tra loi xong thi gui duoc", !o.R.querySelector(".send").disabled);
   }
 
+  {
+    // mat mang: cau tieng Viet (khong "Failed to fetch"), co nut Thu lai, bam thi hoi lai dung cau
+    let fail=true; let n=0;
+    const o=await open(null,Object.assign({},r5,{"ecentric_workspace.platform.ai.khay.intent":()=>{n++;return {status:200,j:{message:{action:"answer",needs_data:false,reply:"Đây rồi",options:[]}}};}}));
+    const f0=o.e.w.fetch; o.e.w.fetch=(u,opt)=>(fail&&/khay.intent/.test(u))?Promise.reject(new o.e.w.TypeError("Failed to fetch")):f0(u,opt);
+    await o.send("tuan nay the nao");
+    const bad=o.R.querySelector(".m.b.err");
+    ok("mat mang: bao bang tieng Viet", bad && /Mất kết nối mạng/.test(bad.textContent) && !/Failed to fetch/.test(o.R.querySelector(".ms").textContent));
+    const rb=o.R.querySelector('[data-act="retry"]');
+    ok("mat mang: co nut Thu lai", !!rb);
+    fail=false; rb.click(); await tick(80);
+    ok("thu lai: hoi lai dung cau, khong nhan doi bong bong", n===1 && o.R.querySelectorAll(".m.u").length===1 && /Đây rồi/.test(o.R.querySelector(".ms").textContent) && !o.R.querySelector(".m.b.err"));
+    const P2=o.e.w.__ecKhayPure;
+    ok("loi 429 tieng Viet", /dồn dập/.test(P2.httpError(429,{})));
+    ok("loi 502 khong lo chu ky thuat", /Máy chủ đang bận/.test(P2.httpError(502,{_server_messages:JSON.stringify(["Traceback ..."])})));
+    ok("loi 417 van hien cau nghiep vu cua server", /HR-LAP-1/.test(P2.httpError(417,{_server_messages:sm})));
+    ok("lich su gui AI bo cau bao loi", JSON.stringify(P2.historyOf([{role:"user",text:"a"},{role:"bot",text:"AI đang bận",err:true}]))===JSON.stringify([{role:"user",text:"a"}]));
+  }
+  {
+    // AI qua tai (action:error) cung co Thu lai; luu phien giu co err
+    const o=await open(null,Object.assign({},r5,{"ecentric_workspace.platform.ai.khay.intent":()=>({status:200,j:{message:{action:"error",reply:"AI đang quá tải, bạn thử lại sau ít phút nhé.",options:[]}}})}));
+    await o.send("tom tat tuan");
+    ok("qua tai: co nut Thu lai", !!o.R.querySelector('[data-act="retry"]'));
+    const st=JSON.parse(o.e.w.sessionStorage.getItem("ec-khay-v1")||"{}");
+    ok("qua tai: luu phien giu co err", (st.msgs||[]).some(m=>m.err===true));
+  }
+
   let all=true; Object.keys(c).forEach(k=>{console.log((c[k]?"PASS":"FAIL")+" - "+k); if(!c[k]) all=false;});
   console.log(all?"ALL_PASS":"SOME_FAIL"); process.exit(all?0:1);
 })();
