@@ -25,9 +25,22 @@
   cursor:pointer; box-shadow:0 1px 2px rgba(20,26,46,.04)}
 .cd-main{flex:1; min-width:0}
 .cd-title{font-weight:650; font-size:15px; color:var(--cd-ink); line-height:1.35;
-  overflow-wrap:anywhere}
+  overflow-wrap:anywhere; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden}
 .cd-meta{font-size:13px; color:var(--cd-ink3); margin-top:2px}
 .cd-due{color:#B54708; font-weight:650}
+/* UX 03/11/2026: han tuong doi + the qua han + so tien noi bat. */
+.cd-dueline{font-size:13px; margin-top:2px}
+.cd-due-od{color:var(--cd-no)}
+.cd-card-od{border-color:#F3C1BC; box-shadow:inset 3px 0 0 var(--cd-no)}
+.cd-gh-od{font-style:normal; color:var(--cd-no); font-weight:700; text-transform:none; letter-spacing:0}
+.cd-amt{font-size:16px; font-weight:750; color:var(--cd-ink); margin-top:2px; font-variant-numeric:tabular-nums}
+.cd-amt i{font-style:normal; font-size:12.5px; font-weight:600; color:var(--cd-ink3); margin-right:2px}
+.cd-sh-amt{display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin:12px 0 0;
+  padding:10px 12px; background:#F2F4F9; border-radius:12px}
+.cd-sh-amt span{font-size:13px; color:var(--cd-ink3)}
+.cd-sh-amt b{font-size:20px; font-weight:800; color:var(--cd-ink); font-variant-numeric:tabular-nums; overflow-wrap:anywhere; text-align:right}
+.cd-card:focus-visible,.cd-sheet:focus-visible{outline:2px solid var(--cd-navy); outline-offset:2px}
+.cd-sheet:focus{outline:none}
 .cd-chips{display:flex; flex-wrap:wrap; gap:4px 6px; margin-top:6px}
 .cd-chip{font-size:13px; color:var(--cd-ink2); background:#F2F4F9; border-radius:8px; padding:2px 8px;
   max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
@@ -75,9 +88,17 @@
   border-radius:12px; padding:10px 12px; font:inherit; font-size:16px; resize:vertical}
 .cd-msg{min-height:20px; font-size:14px; color:var(--cd-no); margin-top:6px}
 /* Nut quyet dinh luon trong tam ngon tay, ke ca khi tom tat dai phai cuon. */
-.cd-sh-btns{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;
+.cd-sh-btns{margin-top:8px;
   position:sticky; bottom:calc(-16px - env(safe-area-inset-bottom)); background:#fff; padding:8px 0 4px}
-.cd-sh-btns .cd-ok{grid-column:1 / -1}
+/* Duyet = nut chinh, rong ca hang; Yeu cau bo sung / Tu choi = hai nut phu ben duoi. */
+.cd-btnrow{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+.cd-btnrow .cd-ok{grid-column:1 / -1}
+.cd-btnrow[hidden],.cd-confirm[hidden]{display:none}
+/* Buoc xac nhan Tu choi / Tra ve bo sung (UX 03/11/2026). */
+.cd-confirm{border:1px solid #F3C1BC; background:#FEF3F2; border-radius:14px; padding:10px}
+.cd-confirm-q{margin:0 0 8px; font-size:14px; font-weight:600; color:var(--cd-ink)}
+.cd-no-solid{background:var(--cd-no); border-color:var(--cd-no); color:#fff}
+.cd-btn[aria-busy="true"]{cursor:progress}
 .cd-full{display:block; width:100%; text-align:center}
 .cd-toast{position:fixed; left:12px; right:12px; bottom:calc(16px + env(safe-area-inset-bottom));
   z-index:1200; background:var(--cd-ink); color:#fff; border-radius:12px; padding:12px 14px;
@@ -104,16 +125,3 @@
 .cd-tl b{color:var(--cd-ink); font-weight:650}
 .cd-tl-c{color:var(--cd-ink3); margin-top:2px}
 .cd-mt{margin-top:14px}
-
-/* 03/11 (UX quan ly): han noi bang loi + phieu qua han noi bat + so tien dam + xac nhan so tien lon. */
-.cd-due{white-space:nowrap}
-.cd-due-late{color:var(--cd-no)}
-.cd-due-soon{color:#B54708}
-.cd-due-ok{color:var(--cd-ink2); font-weight:600}
-.cd-card-late{border-color:#F3C1BC; box-shadow:inset 4px 0 0 var(--cd-no), 0 1px 2px rgba(20,26,46,.04)}
-.cd-late-sum{margin:0 0 12px; padding:10px 12px; border-radius:12px; background:#FDEEF0; color:var(--cd-no);
-  font-size:14px; font-weight:600}
-.cd-chip-money{color:var(--cd-ink); font-weight:700; background:#EAF0FB}
-.cd-chip-money i{font-weight:500}
-.cd-btn.cd-armed{background:#145C34; border-color:#145C34; box-shadow:0 0 0 3px #CDEBD8}
-.cd-msg.cd-msg-info{color:var(--cd-ink); font-weight:600}

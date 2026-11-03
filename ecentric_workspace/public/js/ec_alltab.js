@@ -82,8 +82,8 @@
   function dongHTML(v, cot) {
     var cho = (v.approvers || []).filter(function (a) { return a.status === "Pending"; })
       .map(function (a) { return a.name || a.user || ""; }).filter(Boolean);
-    var buoc = (v.current_level ? v.current_level : "") +
-      (v.total_levels ? "/" + v.total_levels : "");
+    // "Cap 3/7": goi ro la CAP duyet (cung cach goi voi thanh tien trinh + popup hub, 03/11).
+    var buoc = v.current_level ? ("Cấp " + v.current_level + (v.total_levels ? "/" + v.total_levels : "")) : "";
     var nhom = NHOM[v.status] || "cho";
     var quaHan = v.sla_breached && v.status === "Pending";
     return '<tr class="ec-at-row" data-open="' + esc(v.name) + '" tabindex="0">' +
@@ -584,7 +584,9 @@
     }).catch(function (e) {
       if (luot !== st.luot) return;
       st.dangTai = false;
-      st.loi = (e && e.message) ? e.message : "Không tải được danh sách.";
+      // 03/11: cau loi qua asset chung ec_approval_ui (che Traceback/NoneType...), co thi dung.
+      st.loi = window.EcApprovalUI ? window.EcApprovalUI.errorText(e, "Không tải được danh sách.")
+        : ((e && e.message) ? e.message : "Không tải được danh sách.");
       veThan(st);
     });
   }
@@ -660,7 +662,8 @@
       // Bao NGUYEN VAN cau server noi. Tran dong la mot loi CO THE SUA duoc - nguoi dung
       // chi sua duoc khi doc dung "vuot 5000, thu hep bo loc", khong phai "co loi xay ra".
       var box = st.el.querySelector(".ec-at-dem");
-      if (box) box.textContent = (e && e.message) || "Xuất tệp thất bại.";
+      if (box) box.textContent = window.EcApprovalUI ? window.EcApprovalUI.errorText(e, "Xuất tệp thất bại.")
+        : ((e && e.message) || "Xuất tệp thất bại.");
     }).then(function () {
       nut.disabled = false; nut.textContent = cu;
     });

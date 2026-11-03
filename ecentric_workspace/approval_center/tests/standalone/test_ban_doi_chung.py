@@ -495,11 +495,12 @@ class LoaiTru(unittest.TestCase):
                          "loai theo TEN ban ghi File: tep nguoi dung trung URL van phai con")
         tai = []
         ns = {"frappe": f, "wr_sp": types.SimpleNamespace(get_app_token=lambda: "T"),
-              "tai_len": lambda dt, url, name, bn, token=None: tai.append(name) or {"item_id": "I"},
+              "tai_len": lambda dt, url, name, bn, token=None, item_id=None: tai.append(name) or {"item_id": "I"},
               "cap_quyen": lambda *a, **k: {"da_cap": [], "link": None},
-              "ghi_lien_ket": lambda *a, **k: None, "nguoi_trong_luong": lambda *a: []}
+              "ghi_lien_ket": lambda *a, **k: None, "nguoi_trong_luong": lambda *a: [],
+              "_lien_ket_cua_phieu": lambda *a: None}
         ns.update({k: getattr(m, k) for k in ("duoc_soi_guong", "_dinh_kem")})
-        exec(compile(_doan(_MIRROR, "dong_bo_phieu"), "<m>", "exec"), ns)
+        exec(compile(_doan(_MIRROR, "dong_bo_phieu", "_dong_bo_tep"), "<m>", "exec"), ns)
         ns["dong_bo_phieu"](DT, "CTR-1")
         self.assertEqual(sorted(tai), ["Hop dong ABC.docx", "phu luc.pdf"])
 
@@ -575,6 +576,7 @@ class Hook(unittest.TestCase):
                 get_value=lambda dt, n, fields=None, as_dict=False: _Row(
                     reference_doctype=ref_dt, reference_name="CTR-1")),
             get_doc=lambda d: _Ins(d), session=types.SimpleNamespace(user="u"),
+            local=types.SimpleNamespace(),  # log_action doc frappe.local khi "Restarted" (QA t1 03/11)
             get_attr=lambda path: handler, log_error=lambda *a, **k: logs.append(a),
             get_traceback=lambda: "tb")
         ns = {"frappe": f, "now_datetime": lambda: None}

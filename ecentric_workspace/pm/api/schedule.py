@@ -72,9 +72,12 @@ def week(user=None, week_start=None):
     start_dt = "%s 00:00:00" % mon
     end_dt = "%s 00:00:00" % add_days(mon, 7)
 
+    # A block belongs to the week its START falls in (the grid draws it on its start day).
+    # Filtering on `end < next Monday 00:00` dropped blocks that end exactly at midnight of
+    # the following Monday (Sunday 23:00-24:00) or run past it: they vanished from BOTH weeks.
     blocks = frappe.get_all(
         BLOCK,
-        filters={"user": target, "start": [">=", start_dt], "end": ["<", end_dt]},
+        filters=[["user", "=", target], ["start", ">=", start_dt], ["start", "<", end_dt]],
         fields=["name", "task", "user", "start", "end", "hours", "state", "source_note"],
         order_by="start asc", ignore_permissions=True) or []
 
@@ -124,7 +127,9 @@ def week(user=None, week_start=None):
         "readonly": readonly,
         "detail_level": "own" if not readonly else ("manager" if manager_view else "busy"),
         "is_leader": leader,
-        "can_view_others": leader or bool(team),
+        # department heads (Department.manager_email) may open their staff's week even when
+        # they share no department themselves (e.g. no Employee record) -> keep the picker.
+        "can_view_others": leader or bool(team) or bool(_headed_staff_ids(caller)),
         "user": target,
         "week_start": str(mon),
         "blocks": blocks,
@@ -651,6 +656,7 @@ def confirm(names, hours_map=None):
     if isinstance(names, str):
         names = frappe.parse_json(names) or []
     hmap = frappe.parse_json(hours_map) if isinstance(hours_map, str) else (hours_map or {})
+    hmap = _clean_hours_map(hmap)   # validate EVERYTHING before the first write
     done = []
     for nm in names:
         b = frappe.db.get_value(
@@ -658,11 +664,8 @@ def confirm(names, hours_map=None):
         if not b or b.get("user") != caller:
             continue
         hrs = b.get("hours") or 0
-        if hmap and nm in hmap:
-            try:
-                hrs = round(float(hmap[nm]), 2)
-            except Exception:
-                pass
+        if nm in hmap:
+            hrs = hmap[nm]
         ts = _sync_timesheet(caller, b, hrs)
         vals = {"state": "Đã xác nhận", "hours": hrs}
         if ts:
@@ -676,6 +679,26 @@ def confirm(names, hours_map=None):
     except Exception:
         pass
     return {"confirmed": done}
+
+
+def _clean_hours_map(hmap):
+    """{block: hours} from the "Xác nhận giờ" dialog -> {block: float rounded to 2}. Blank /
+    unparsable entries are dropped (the block keeps its planned hours, as before); a negative or
+    non-finite value is refused up front, so nothing is half-confirmed and no negative Timesheet
+    hours are ever written."""
+    import math
+    out = {}
+    for k, v in (hmap if isinstance(hmap, dict) else {}).items():
+        if v is None or (isinstance(v, str) and not v.strip()):
+            continue
+        try:
+            f = float(v)
+        except Exception:
+            continue
+        if not math.isfinite(f) or f < 0:
+            frappe.throw(_("Số giờ không hợp lệ (phải là số không âm)."))
+        out[k] = round(f, 2)
+    return out
 
 
 def _sync_timesheet(user, block, hours):

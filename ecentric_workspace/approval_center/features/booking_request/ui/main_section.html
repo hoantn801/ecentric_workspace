@@ -790,7 +790,7 @@
   function stColor(s){ return {done:"var(--green)",current:"var(--navy)",rejected:"var(--red)",
     info:"var(--amber)",skipped:"var(--gray-400)",cancelled:"var(--red)",
     upcoming:"var(--gray-400)"}[s]||"var(--gray-400)"; }
-  function renderStepsHTML(steps){ var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
+  function renderStepsHTML(steps){ if(window.EcApprovalUI) return EcApprovalUI.stepsHTML(steps); var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
     var inner=steps.map(function(s,i){ return '<div class="step '+s.state+'"><div class="step-top"><div class="step-dot">'+(s.state==="done"?"✓":((s.state==="rejected"||s.state==="cancelled")?"✕":(i+1)))+'</div><div class="step-name">'+esc(s.name)+'</div><div class="step-state" style="color:'+stColor(s.state)+'">'+esc(s.statusLabel||_STEP_LBL[s.state]||s.state)+'</div></div><div class="step-meta">'+(s.meta||"")+'</div></div>'; }).join("");
     return '<div class="stepline" style="--n:'+n+';--k:'+k+'">'+inner+'</div>'; }
   function previewSteps(){
@@ -807,9 +807,9 @@
     return steps.map(function(s){
       if(s.state==="done"||s.state==="rejected") return s;
       if(!xong && (s.state==="current"||s.state==="info"||s.state==="upcoming")){
-        xong=true; return {name:s.name,state:"cancelled",meta:s.meta,statusLabel:"Đã hủy"};
+        xong=true; return {level:s.level,name:s.name,state:"cancelled",meta:s.meta,statusLabel:"Đã hủy"};
       }
-      if(xong && s.state==="upcoming") return {name:s.name,state:"skipped",meta:"",statusLabel:"Không thực hiện"};
+      if(xong && s.state==="upcoming") return {level:s.level,name:s.name,state:"skipped",meta:"",statusLabel:"Không thực hiện"};
       return s;
     });
   }
@@ -822,7 +822,7 @@
       else if(l.level_status==="Information Requested"||(ap.approval_status==="Information Required"&&ap.current_level===l.level_no)){ st="info"; meta="Cần bổ sung thông tin"; }
       else if(l.level_status==="Skipped"){ st="skipped"; var skw=rows.map(function(r){return esc(r.approver);}); meta=skw.join(", "); }
       else if(l.level_status==="In Progress"||ap.current_level===l.level_no){ st="current"; var elig=rows.filter(function(r){return r.status==="Pending";}).map(function(r){return esc(r.approver);}); meta=(elig.length?(l.approval_mode==="Any One"?elig.join(" hoặc "):elig.join(", ")):"Đang chờ"); }
-      steps.push({name:l.level_name||("Cấp "+l.level_no),state:st,meta:meta}); });
+      steps.push({level:l.level_no,name:l.level_name||("Cấp "+l.level_no),state:st,meta:meta}); });
     var biz=det.business||det.doc||{};
     var fs=biz.fulfillment_status||"Not Started";
     steps.push({name:"Booking xử lý",

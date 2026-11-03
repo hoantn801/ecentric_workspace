@@ -126,6 +126,9 @@ def _unopened(user, personal):
     seen = tflow.seen_pairs([r["name"] for r in rows])
     rows = [r for r in rows if (r["name"], user) not in seen]
     givers = tflow.givers_map(rows)
+    # "someone else gave me": a recurrence occurrence of MY OWN rule is owned by the scheduler
+    # (owner=Administrator) but its giver resolves to me -> not "chưa mở" noise in my inbox/badge.
+    rows = [r for r in rows if givers.get(r["name"]) != user]
     names = tflow.full_names(givers.values())
     pnames = _project_names(rows)
     return [{"task": r["name"], "subject": r.get("subject"),
@@ -149,10 +152,11 @@ def _my_deadline_requests(user):
         "Task", filters={"name": ["in", [r["task"] for r in rows] or [""]]},
         fields=["name", "subject", "exp_end_date"], limit_page_length=0)}
     seen = tflow.seen_pairs([r["task"] for r in rows])
+    first_old = _created_old_ends([r["name"] for r in rows])
     out = []
     for r in rows:
         t = tasks.get(r["task"]) or {}
-        old_end = _created_old_end(r["name"]) or tflow.d10(t.get("exp_end_date"))
+        old_end = first_old.get(r["name"]) or tflow.d10(t.get("exp_end_date"))
         last = seen.get((r["task"], user))
         unseen = (r["status"] == "Rejected" and
                   (not last or str(last) < str(r.get("decided_at") or "")))
@@ -170,6 +174,23 @@ def _created_old_end(request):
                           filters={"parent": request, "parenttype": REQ_DT},
                           fields=["old_end", "idx"], order_by="idx asc", limit_page_length=1)
     return tflow.d10(rows[0].get("old_end")) if rows else None
+
+
+def _created_old_ends(requests):
+    """request -> old_end of its FIRST event (the date at request time), ONE query for the whole
+    list (received() used to call _created_old_end once per request: N+1 on every badge load)."""
+    requests = [r for r in (requests or []) if r]
+    if not requests:
+        return {}
+    out, best = {}, {}
+    for e in frappe.get_all("PM Assignment Request Event",
+                            filters={"parent": ["in", requests], "parenttype": REQ_DT},
+                            fields=["parent", "old_end", "idx"], limit_page_length=0):
+        idx = int(e.get("idx") or 0)
+        if e["parent"] not in best or idx < best[e["parent"]]:
+            best[e["parent"]] = idx
+            out[e["parent"]] = tflow.d10(e.get("old_end"))
+    return out
 
 
 def received_data(user):
@@ -757,6 +778,8 @@ def _return_parts(doc, users, note, me):
         tflow.add_comment(k["name"], text, "Comment")
     if kids and doc.get("workflow_state") in ("Review", "Done"):
         tflow.write_state(doc.name, "In Progress", me, notify=False)
+    elif not kids:
+        tflow.reopen_parent(doc.name, me)   # returned ONE split part -> its parent is not done
     return {"task": doc.name, "state": frappe.db.get_value("Task", doc.name, "workflow_state"),
             "returned": [k["name"] for k in picked]}
 

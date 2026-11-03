@@ -135,6 +135,23 @@ def _dang_lam(users, day):
     return ngay_lam_viec.nguoi_di_lam(users, day)
 
 
+def _coordinating_split_parent(t):
+    """True for a split parent ("Mỗi người một việc", ec_split_parent=1) that still has open
+    parts. It is a coordination row assigned to the GIVER (same rule as pm_inbox.coordinate,
+    which leaves it out of every count): the doers are reminded through their own child tasks,
+    so also reminding the giver / followers about the parent doubled every overdue / due-soon
+    notice. Once no part is open the roll-up moves the parent to Review (the giver must act) and
+    it is reminded like any other task."""
+    from ecentric_workspace.pm import task_flow as tflow
+    if not tflow.truthy(t.get("ec_split_parent")):
+        return False
+    try:
+        prog = tflow.children_progress(t["name"])
+    except Exception:
+        return False
+    return bool(prog and prog.get("open"))
+
+
 @gop_tin_job
 def pm_overdue_scan():
     """09:00 hang ngay: notify assignees (or owner) of overdue tasks, once/day/task/user.
@@ -143,8 +160,11 @@ def pm_overdue_scan():
     tasks = frappe.get_all(
         "Task", filters={"exp_end_date": ["<", today_d],
                          "workflow_state": ["not in", ["Done", "Cancelled"]]},
-        fields=["name", "subject", "_assign", "owner", "exp_end_date"], limit_page_length=0)
+        fields=["name", "subject", "_assign", "owner", "exp_end_date", "ec_split_parent"],
+        limit_page_length=0)
     for t in tasks:
+        if _coordinating_split_parent(t):
+            continue
         users = []
         if t.get("_assign"):
             try:
@@ -173,8 +193,13 @@ def _notify_followers_overdue(t, today_d):
     suffix "cc-<due>"), not the daily reminder assignees get. Never breaks the scan."""
     try:
         from ecentric_workspace.pm import task_flow as tflow
-        row = frappe.db.get_value("Task", t["name"], ["name", "subject", "parent_task", "_assign"],
-                                  as_dict=True) or {}
+        row = frappe.db.get_value("Task", t["name"], ["name", "subject", "parent_task", "_assign",
+                                                     "ec_split_parent"], as_dict=True) or {}
+        # "Mỗi người một việc": every late PART already tells the parent's followers (scoped by
+        # for_users); the coordination parent itself (assigned to the giver) would be a second,
+        # misleading notice for the same lateness ("Trễ hạn ... · <người giao>").
+        if tflow.truthy(row.get("ec_split_parent")) and frappe.db.exists("Task", {"parent_task": t["name"]}):
+            return
         users = _dang_lam(tflow.relevant_followers(row), today_d)
         if not users:
             return
@@ -200,8 +225,11 @@ def pm_due_soon_scan(window_days=2):
     tasks = frappe.get_all(
         "Task", filters={"exp_end_date": ["between", [str(today_d), str(horizon)]],
                          "workflow_state": ["not in", ["Done", "Cancelled"]]},
-        fields=["name", "subject", "_assign", "owner", "exp_end_date"], limit_page_length=0)
+        fields=["name", "subject", "_assign", "owner", "exp_end_date", "ec_split_parent"],
+        limit_page_length=0)
     for t in tasks:
+        if _coordinating_split_parent(t):
+            continue
         users = []
         if t.get("_assign"):
             try:

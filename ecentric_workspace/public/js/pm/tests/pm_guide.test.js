@@ -34,6 +34,7 @@ ok("mọi ảnh có chú thích + alt", $$(".pmg-shot").every(f => f.querySelect
 ok("bảng “Ai được làm gì” có cột người nhận / giao / trưởng phòng", /Ai được làm gì/.test(c.textContent) && $$("#pmg-s9 th .pmg-r").length === 3);
 ok("nút mục lục cuộn tới mục (không đổi hash)", (() => { let hit = null; const t = c.querySelector("#pmg-s6"); t.scrollIntoView = () => { hit = "pmg-s6"; }; c.querySelector('[data-pmg-jump="pmg-s6"]').click(); return hit === "pmg-s6" && w.location.hash === "#guide"; })());
 ok("ảnh lỗi → ẩn khung (không hiện icon vỡ)", (() => { const im = c.querySelector(".pmg-shot img"); im.onerror(); return im.parentNode.classList.contains("pmg-shot-off"); })());
+ok("u2 03/11: hướng dẫn có ghi nhanh việc của tôi (hạn trong câu), nút trên dòng, lọc nhớ + Xoá lọc, KPI bấm được", ["Ghi việc của bạn", "Không đặt hạn", "Quá hạn / Hôm nay / Sắp tới", "Xoá lọc", "Bấm vào con số", "Việc nhỏ có cần ghi không?"].every(t => c.innerHTML.indexOf(t) >= 0));
 ok("không gọi server, không ký tự Jinja", calls === 0 && !/\{\{|\{%|\{#/.test(JS));
 ok("CSS có màu vai trò + làn + bản dọc màn hẹp", [".pmg-r-n", ".pmg-r-g", ".pmg-r-l", ".pmg-lanes", ".pmg-lanes-m", "@media (max-width:900px)"].every(x => CSS.indexOf(x) >= 0));
 ok("ngân sách: JS ≤ 24 KB, CSS ≤ 10 KB, ảnh ≤ 120 KB/ảnh", Buffer.byteLength(JS) <= 24 * 1024 && Buffer.byteLength(CSS) <= 10 * 1024 && fs.readdirSync(IMGDIR).every(f => fs.statSync(path.join(IMGDIR, f)).size <= 120 * 1024));

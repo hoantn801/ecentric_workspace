@@ -84,10 +84,25 @@
     if (j && j.exc_type === "PermissionError") return "Bạn chưa có quyền làm việc này.";
     return fallback || "Có lỗi, bạn thử lại nhé.";
   }
+  /* Lỗi HTTP -> câu tiếng Việt. 429/5xx không đưa chữ kỹ thuật của máy chủ ra cho người dùng. */
+  function httpError(status, j) {
+    if (status === 429) return "Bạn hỏi hơi dồn dập, chờ chút rồi thử lại nhé.";
+    if (status >= 500) return "Máy chủ đang bận, bạn thử lại sau ít phút nhé.";
+    return serverError(j);
+  }
+  /* fetch hỏng mạng ném TypeError tiếng Anh ("Failed to fetch", "Load failed"…) -> câu dễ hiểu. */
+  function errText(e, fallback) {
+    var msg = (e && e.message) || "";
+    if ((e && e.name === "TypeError") || /failed to fetch|networkerror|load failed|network request failed/i.test(msg)) {
+      return "Mất kết nối mạng — bạn kiểm tra mạng rồi bấm Thử lại nhé.";
+    }
+    return msg || fallback || "Có lỗi, bạn thử lại nhé.";
+  }
   /* Lịch sử gửi cho AI: chỉ lượt chữ, 10 lượt cuối. */
   function historyOf(msgs) {
     return (msgs || []).filter(function (m) {
-      return (m.role === "user" || m.role === "bot") && m.text;
+      // Câu báo lỗi ("AI đang bận…") là của giao diện, không phải lời AI — không gửi làm lịch sử.
+      return (m.role === "user" || m.role === "bot") && m.text && !m.err;
     }).slice(-10).map(function (m) {
       return { role: m.role === "user" ? "user" : "model", text: m.text };
     });
@@ -117,6 +132,33 @@
     return !!(doc.querySelector("[data-ec-shell]") || doc.querySelector(".ec-tabwrap"));
   }
 
+  /* Gợi ý ở lời chào, theo việc người này làm được VÀ trang đang xem (tối đa 3).
+   * Chỉ gợi ý những luồng eC Mate làm được thật: xin nghỉ, phiếu từ hoá đơn, hỏi báo cáo tuần.
+   * `pick`: mở chọn tệp trước, có tệp rồi mới hỏi — "tạo phiếu từ hoá đơn" mà chưa có hoá đơn
+   * thì AI không điền được ô nào. */
+  function suggestions(boot, path) {
+    var b = boot || {}, p = String(path || "");
+    var leave = b.can_leave ? [{ say: "Cho mình xin nghỉ ngày mai" }] : [];
+    var leave2 = b.can_leave ? [{ say: "Xin nghỉ chiều thứ Sáu này" }] : [];
+    var pay = b.can_payment ? [{ say: "Tạo đề nghị thanh toán từ hoá đơn này", label: "Tạo đề nghị thanh toán từ hoá đơn", pick: true }] : [];
+    var team = [{ say: "Tuần này team mình thế nào?" }];
+    var mine = [{ say: "Tóm tắt báo cáo tuần của mình" }];
+    var list;
+    if (/^\/(ec-hr|hrms)(\/|$)/.test(p)) list = leave.concat(leave2, pay, team);
+    else if (/^\/approvals(\/|$)/.test(p)) list = pay.concat(leave, team);
+    else if (/^\/(weekly-update|team-pulse)(\/|$)/.test(p)) list = team.concat(mine, leave, pay);
+    else list = leave.concat(pay, team);
+    return list.slice(0, 3);
+  }
+  function greetText(boot) {
+    var b = boot || {}, can = [];
+    if (b.can_leave) can.push("xin nghỉ");
+    if (b.can_payment) can.push("tạo phiếu từ hoá đơn");
+    can.push("hỏi tình hình team");
+    var last = can.pop();
+    return (can.length ? can.join(", ") + " hay " : "") + last;
+  }
+
   /* Trang chủ còn khung chat cũ "AI Trợ lý" (#ec-chat-fab, nằm trong Web Page trang chủ,
    * được áo linh vật bởi khối home v2). Hai con chồng ở cùng góc. Ai đã có eC Mate thì
    * ẩn con cũ; ai chưa có eC Mate vẫn giữ con cũ, không ai mất chỗ chat. Hoàn chốt 28/09. */
@@ -133,7 +175,9 @@
   var PURE = { viDate: viDate, leaveLabel: leaveLabel, leaveRange: leaveRange,
                fileRefuse: fileRefuse, fmtValue: fmtValue, serverError: serverError,
                historyOf: historyOf, mdLite: mdLite, shouldRun: shouldRun, esc: esc,
-               modelLabel: modelLabel,
+               httpError: httpError, errText: errText,
+               modelLabel: modelLabel, suggestions: suggestions, greetText: greetText,
+               keepMsg: function (m) { return keepMsg(m); },
                retireOldChat: retireOldChat };
   /* Cho test (jsdom) đọc các hàm PURE. KHÔNG dùng `module.exports`: esbuild thấy chữ
    * `module` sẽ gói file thành CommonJS, `module` có thật lúc chạy và widget tự thoát. */
@@ -175,7 +219,7 @@
       if (!res.ok && res.j.exc_type === "CSRFTokenError" && !retried) {
         return post(method, body, true);
       }
-      if (!res.ok) throw new Error(serverError(res.j));
+      if (!res.ok) throw new Error(httpError(res.status, res.j));
       return res.j.message;
     });
   }
@@ -186,7 +230,7 @@
     return fetch("/api/method/" + method + q, { credentials: "same-origin",
                                                 headers: { "Accept": "application/json" } })
       .then(parse).then(function (res) {
-        if (!res.ok) throw new Error(serverError(res.j));
+        if (!res.ok) throw new Error(httpError(res.status, res.j));
         return res.j.message;
       });
   }
@@ -225,17 +269,50 @@
             leaveData: null };
   var R = {};   // tham chiếu DOM trong shadow root
 
+  /* Một lượt -> bản lưu được qua chuyển trang (ERP nhiều trang: bấm "Trang nghỉ phép" trên thẻ
+   * là sang trang khác). Trước đây chỉ lưu lượt chữ nên thẻ đơn/phiếu biến mất, còn lại câu
+   * "bạn xem lại nhé" trỏ vào khoảng trống. Thẻ đang gửi dở lưu về nháp (server chặn trùng);
+   * thẻ phiếu đang đọc tệp thì bỏ (không đợi được kết quả ở trang sau). */
+  function keepMsg(m) {
+    if (!m) return null;
+    if (m.role === "user" || m.role === "bot") {
+      var o = { role: m.role, text: m.text, by: m.by || "" };
+      if (m.err) o.err = true;   // tải lại trang vẫn tô đỏ, và không lọt vào lịch sử gửi AI
+      return o;
+    }
+    if (m.role === "files") {
+      var items = (m.items || []).filter(function (f) { return f.url || f.err; }).map(function (f) {
+        return { name: f.name, url: f.url || "", err: f.err || "" };
+      });
+      return items.length ? { role: "files", items: items } : null;
+    }
+    if (m.role === "leave" && m.leave) {
+      return { role: "leave", leave: m.leave, state: m.state === "sent" ? "sent" : "draft",
+               name: m.name || "", days: m.days || "", error: m.error || "" };
+    }
+    if (m.role === "pay" && m.state !== "reading") {
+      return { role: "pay", state: "ready", code: m.code, title: m.title || "", route: m.route || "",
+               labels: m.labels || {}, urls: m.urls || [], fields: m.fields || {}, sources: m.sources || {},
+               probe: m.probe || null, log: m.log || "", by: m.by || "", draft: m.draft || "",
+               missing: m.missing || [], error: m.error || "" };
+    }
+    return null;
+  }
   function save() {
     try {
-      var keep = S.msgs.filter(function (m) { return m.role === "user" || m.role === "bot"; })
-        .slice(-MAX_KEEP).map(function (m) { return { role: m.role, text: m.text, by: m.by || "" }; });
+      var keep = S.msgs.map(keepMsg).filter(Boolean).slice(-MAX_KEEP);
       sessionStorage.setItem(STORE, JSON.stringify({ open: S.open, wide: S.wide, msgs: keep }));
     } catch (e) { /* trình duyệt chặn lưu trữ thì thôi */ }
   }
   function load() {
     try {
       var o = JSON.parse(sessionStorage.getItem(STORE) || "{}");
-      S.msgs = Array.isArray(o.msgs) ? o.msgs : [];
+      // Bản lưu hỏng / khác phiên bản thì bỏ lượt đó, không để thẻ vẽ ra lỗi.
+      S.msgs = (Array.isArray(o.msgs) ? o.msgs : []).filter(function (m) {
+        return m && (m.role === "user" || m.role === "bot" ? typeof m.text === "string" :
+          m.role === "leave" ? !!m.leave : m.role === "files" ? Array.isArray(m.items) :
+          m.role === "pay" ? !!m.code : false);
+      });
       S.open = !!o.open; S.wide = !!o.wide;
     } catch (e) { S.msgs = []; }
   }
@@ -267,7 +344,8 @@
     narrow: icon("M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"),
     cal: icon("M4 7h16v13H4zM4 11h16M9 3v4M15 3v4"),
     cash: icon("M3 6h18v12H3zM12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5"),
-    form: icon("M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6")
+    form: icon("M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6"),
+    fresh: icon("M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z")
   };
 
   var CSS = [
@@ -311,7 +389,7 @@
     ".hd span{font-size:12px;color:var(--g500)}",
     ".ib{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;color:var(--g600);background:transparent;border:0;padding:0}",
     ".ib:hover{background:var(--g100)}",
-    ".ms{flex:1;min-height:0;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:10px}",
+    ".ms{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:14px;display:flex;flex-direction:column;gap:10px}",
     ".ms>*{flex-shrink:0}",
     ".m{max-width:86%;padding:9px 12px;border-radius:14px;font-size:13.5px;word-wrap:break-word}",
     ".u{align-self:flex-end;background:var(--navy);color:#fff;border-bottom-right-radius:4px}",
@@ -323,7 +401,7 @@
     ".chips{display:flex;flex-wrap:wrap;gap:6px;padding-left:33px}",
     ".by{font-size:11px;line-height:1.3;color:var(--g500);padding-left:33px;margin-top:-6px}",
     ".chip{font-size:12.5px;font-weight:600;color:var(--navy);background:#fff;border:1px solid var(--navy-100);border-radius:999px;padding:5px 11px}",
-    ".chip:hover{background:var(--navy-50)}",
+    ".chip:hover{background:var(--navy-50)}.chip .i{width:14px;height:14px;vertical-align:-2px;margin-right:4px}",
     ".fl{align-self:flex-end;display:flex;flex-direction:column;gap:6px;max-width:86%}",
     ".f{display:flex;align-items:center;gap:9px;background:#fff;border:1px solid var(--g200);border-radius:11px;padding:7px 11px 7px 7px}",
     ".f .fi{width:30px;height:36px;border-radius:6px;background:var(--navy-50);color:var(--navy);font-size:11px;font-weight:800;display:grid;place-items:center;flex:none}",
@@ -363,7 +441,13 @@
     ".drop svg{width:56px;height:56px}.drop b{display:block;color:var(--navy-700);font-size:15px;margin-top:6px}",
     ".drop span{font-size:12.5px;color:var(--g600)}.drop.on{background:var(--navy-50);box-shadow:0 0 0 6px rgba(44,61,166,.12)}",
     "[hidden]{display:none!important}",
-    "@media (max-width:640px){.pan,.pan.wide{inset:0;width:auto;height:auto;border-radius:0;border:0}.drop{left:16px;right:16px;width:auto}}",
+    ".sr{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}",
+    "@media (max-width:640px){.pan,.pan.wide{inset:0;width:auto;height:auto;border-radius:0;border:0}.drop{left:16px;right:16px;width:auto}",
+    /* điện thoại: chữ ô nhập 16px (iPhone tự phóng to trang khi < 16px), nút >= 44px cho ngón tay,
+     * bỏ nút Mở rộng (đã toàn màn hình), chừa tai thỏ / thanh home */
+    ".in textarea{font-size:16px}.ib,.in .ib{width:44px;height:44px}.ib.wide{display:none}",
+    ".chip{padding:9px 13px;font-size:13.5px}.btn{padding:11px 14px;font-size:14px}",
+    ".hd{padding-top:calc(10px + env(safe-area-inset-top,0px))}.fine{padding-bottom:calc(10px + env(safe-area-inset-bottom,0px))}}",
     "@media (prefers-reduced-motion:reduce){.lid,.typing i,.fab.dizzy svg,.dz path{animation:none}}"
   ].join("");
 
@@ -378,13 +462,17 @@
       '<section class="pan" role="dialog" aria-label="' + nm + '" hidden>' +
       '<header class="hd"><span class="av">' + FACE + '</span>' +
       '<div class="t"><b>' + nm + '</b><span>Trợ lý của bạn trên ERP</span></div>' +
+      '<button class="ib fresh" type="button" aria-label="Cuộc trò chuyện mới" title="Cuộc trò chuyện mới" hidden>' + I.fresh + "</button>" +
       '<button class="ib wide" type="button" aria-label="Mở rộng">' + I.wide + "</button>" +
       '<button class="ib close" type="button" aria-label="Đóng">' + I.x + "</button></header>" +
-      '<div class="ms" aria-live="polite"></div>' +
+      /* .ms vẽ lại toàn bộ mỗi lần nên KHÔNG đặt aria-live ở đó (trình đọc màn hình đọc lại
+       * cả cuộc trò chuyện hoặc im). Câu mới được đọc qua vùng .sr riêng. */
+      '<div class="ms" role="region" aria-label="Cuộc trò chuyện"></div>' +
+      '<div class="sr" role="status" aria-live="polite"></div>' +
       '<form class="in"><button class="ib attach" type="button" aria-label="Đính kèm tệp">' + I.clip + "</button>" +
       '<input type="file" class="file" multiple hidden accept=".pdf,.png,.jpg,.jpeg,.webp">' +
       '<label hidden for="ec-khay-q">Nhắn cho ' + nm + '</label>' +
-      '<textarea id="ec-khay-q" rows="1" placeholder="Nhắn cho ' + nm + '…"></textarea>' +
+      '<textarea id="ec-khay-q" rows="1" aria-label="Nhắn cho ' + nm + '" placeholder="Nhắn cho ' + nm + '…"></textarea>' +
       '<button class="ib send" type="submit" aria-label="Gửi">' + I.send + "</button></form>" +
       '<div class="fine">AI chỉ soạn sẵn, bạn bấm mới gửi.</div></section>' +
       '<div class="drop" hidden><div>' + FACE + "<b>Thả tệp vào đây</b>" +
@@ -399,6 +487,8 @@
     R.wideBtn = root.querySelector(".wide");
     R.drop = root.querySelector(".drop");
     R.send = root.querySelector(".send");
+    R.sr = root.querySelector(".sr");
+    R.fresh = root.querySelector(".fresh");
   }
 
   /* ---------------------------------------------------------------- vẽ */
@@ -415,6 +505,10 @@
         h += '<div class="chips">' + m.options.map(function (o) {
           return '<button type="button" class="chip" data-say="' + esc(o) + '">' + esc(o) + "</button>";
         }).join("") + "</div>";
+      }
+      if (m.err && m.retry != null && idx === S.msgs.length - 1) {
+        h += '<div class="chips"><button type="button" class="chip" data-act="retry" data-i="' + idx + '">' +
+          "Thử lại</button></div>";
       }
       return h;
     }
@@ -435,10 +529,37 @@
     if (m.role === "pay") return payCard(m, idx);
     return "";
   }
+  /* Nút đang được focus trong .ms (vd "Gửi đơn") -> khoá để tìm lại sau khi vẽ lại. */
+  function focusKey() {
+    var a = R.root.activeElement;
+    if (!a || !R.ms.contains(a)) return null;
+    return { act: a.getAttribute("data-act"), i: a.getAttribute("data-i"), say: a.getAttribute("data-say") };
+  }
+  function refocus(k) {
+    if (!k) return;
+    var sel = k.act ? '[data-act="' + k.act + '"]' + (k.i != null ? '[data-i="' + k.i + '"]' : "") :
+      k.say ? '[data-say="' + String(k.say).replace(/["\\]/g, "\\$&") + '"]' : "";
+    var el = null;
+    try { el = sel ? R.ms.querySelector(sel) : null; } catch (e) { el = null; }
+    if (el && !el.disabled) { try { el.focus(); } catch (e) { /* noop */ } return; }
+    // Nút đã biến mất (đơn đã gửi…): đưa con trỏ về ô nhập thay vì rơi ra ngoài trang.
+    // Màn cảm ứng thì thôi — không bật bàn phím khi người dùng chỉ chạm nút.
+    if (!touchOnly()) { try { R.q.focus(); } catch (e) { /* noop */ } }
+  }
+  function announce(text) {
+    if (!R.sr) return;
+    R.sr.textContent = "";
+    var t = String(text || "").replace(/\*\*/g, "");
+    setTimeout(function () { R.sr.textContent = t; }, 60);
+  }
   function paint() {
     var h = S.msgs.map(msgHtml).join("");
     if (!S.msgs.length) h = greet();
+    var fk = focusKey();
     R.ms.innerHTML = h;
+    refocus(fk);
+    R.q.placeholder = S.busy ? NAME() + " đang trả lời…" : "Nhắn cho " + NAME() + "…";
+    R.fresh.hidden = !S.msgs.length;
     R.ms.scrollTop = R.ms.scrollHeight;
     R.send.disabled = S.busy;
     R.pan.classList.toggle("wide", S.wide);
@@ -447,14 +568,13 @@
   }
   function greet() {
     var b = S.boot || {};
-    var opts = [];
-    if (b.can_leave) opts.push("Cho mình xin nghỉ ngày mai");
-    if (b.can_payment) opts.push("Tạo đề nghị thanh toán từ hoá đơn");
-    opts.push("Tuần này team mình thế nào?");
-    return botHtml("Chào " + esc(b.first_name || "bạn") + "! Mình là " + esc(NAME()) + ". Bạn cần xin nghỉ, " +
-      "tạo phiếu hay hỏi gì cứ nhắn nhé.") +
+    var opts = suggestions(b, location.pathname);
+    return botHtml("Chào " + esc(b.first_name || "bạn") + "! Mình là " + esc(NAME()) + ". Mình giúp bạn " +
+      esc(greetText(b)) + " — bạn bấm một gợi ý hoặc nhắn tự nhiên nhé.") +
       '<div class="chips">' + opts.map(function (o) {
-        return '<button type="button" class="chip" data-say="' + esc(o) + '">' + esc(o) + "</button>";
+        return o.pick ?
+          '<button type="button" class="chip" data-act="pick" data-pick="' + esc(o.say) + '">' + I.clip + esc(o.label || o.say) + "</button>" :
+          '<button type="button" class="chip" data-say="' + esc(o.say) + '">' + esc(o.label || o.say) + "</button>";
       }).join("") + "</div>";
   }
 
@@ -475,13 +595,16 @@
       (bal && !sent ? "<dt>Phép còn lại</dt><dd>" + esc(bal) + "</dd>" : "") + "</dl>";
     if (m.error) h += '<div class="note bad">' + esc(m.error) + "</div>";
     else if (sent) h += '<div class="note good">Đơn ' + esc(m.name) + " đã gửi, đang chờ duyệt.</div>";
-    else if (needDoc) h += '<div class="note">Nghỉ ốm cần giấy khám hoặc đơn thuốc — bạn thả tệp vào đây rồi bấm gửi.</div>';
+    else if (needDoc) h += '<div class="note">Nghỉ ốm cần giấy khám hoặc đơn thuốc — bấm <b>Đính kèm giấy khám</b> (PDF hoặc ảnh), rồi Gửi đơn.</div>';
     else if (needOt) h += '<div class="note">Nghỉ bù cần chọn ngày đã OT — bạn làm ở trang Nghỉ phép nhé.</div>';
     else if (lv.past && lv.leave_type !== "Sick Leave") h += '<div class="note">Chỉ nghỉ ốm mới được xin lùi ngày.</div>';
     h += '<div class="acts">';
-    if (!sent && !needOt) {
+    if (!sent && needDoc) {
+      // Bước kế tiếp là đính kèm: điện thoại không kéo-thả được, nên phải có nút bấm.
+      h += '<button type="button" class="btn p" data-act="attach">' + I.clip + "Đính kèm giấy khám</button>";
+    } else if (!sent && !needOt) {
       h += '<button type="button" class="btn p" data-act="leave-send" data-i="' + idx + '"' +
-        (m.state === "sending" || needDoc ? " disabled" : "") + ">" + I.send +
+        (m.state === "sending" ? " disabled" : "") + ">" + I.send +
         (m.state === "sending" ? "Đang gửi…" : "Gửi đơn") + "</button>";
     }
     h += '<a class="btn s" href="/ec-hr/leave">' + (sent ? "Xem đơn" : "Trang nghỉ phép") + "</a></div></div>";
@@ -519,13 +642,19 @@
         (m.state === "saving" ? "Đang tạo nháp…" : m.draft ? "Mở nháp để gửi" : "Tạo nháp & mở") + "</button>";
     }
     h += '<a class="btn s" href="' + esc(m.route || S.boot.payment_route || "/approvals/payment-request") +
-      '">Tự điền</a></div></div>';
+      '">Điền tay</a></div></div>';
     if (m.by) h += '<div class="by">Điền bởi ' + esc(modelLabel(m.by)) + "</div>";
     return h;
   }
 
   /* ---------------------------------------------------------------- hành động */
-  function push(m) { S.msgs.push(m); paint(); save(); return S.msgs.length - 1; }
+  function push(m) {
+    S.msgs.push(m); paint(); save();
+    if (m.role === "bot") announce(NAME() + ": " + m.text);
+    else if (m.role === "typing") announce(NAME() + " đang trả lời…");
+    else if (m.role === "leave") announce("Đã soạn đơn nghỉ phép, bạn xem lại rồi bấm Gửi đơn.");
+    return S.msgs.length - 1;
+  }
   var slowTimer = null;
   function typing() {
     clearTimeout(slowTimer);
@@ -561,6 +690,7 @@
     text = String(text || "").trim();
     var urls = pendingUrls();
     if ((!text && !urls.length) || S.busy) return;
+    S.pendingSay = "";
     var hist = historyOf(S.msgs);
     if (text) push({ role: "user", text: text });
     S.busy = true; typing();
@@ -574,13 +704,25 @@
         if (r.action === "answer" && !r.needs_data && r.reply) return push({ role: "bot", text: r.reply, by: r.model });
         if (r.action === "answer") return onAnswer(text, hist);
         push({ role: "bot", text: r.reply || "Bạn nói rõ hơn giúp mình nhé.",
-               options: r.options || [], err: r.action === "error", by: r.reply ? r.model : "" });
+               options: r.options || [], err: r.action === "error", by: r.reply ? r.model : "",
+               retry: r.action === "error" ? text : null });
       })
       .catch(function (e) {
         dropTyping();
-        push({ role: "bot", text: (e && e.message) || "AI đang bận, bạn thử lại sau nhé.", err: true });
+        push({ role: "bot", text: errText(e, "AI đang bận, bạn thử lại sau nhé."), err: true, retry: text });
       })
       .then(function () { S.busy = false; paint(); });
+  }
+
+  /* Thử lại câu vừa lỗi: bỏ bong bóng lỗi (và câu hỏi cũ) rồi hỏi lại đúng câu đó. */
+  function retry(idx) {
+    var m = S.msgs[idx];
+    if (!m || !m.err || m.retry == null || S.busy) return;
+    var text = m.retry;
+    S.msgs.splice(idx, 1);
+    var prev = S.msgs[idx - 1];
+    if (prev && prev.role === "user" && prev.text === text) S.msgs.splice(idx - 1, 1);
+    ask(text);
   }
 
   function onLeave(r) {
@@ -605,7 +747,7 @@
         m.state = "sent"; m.name = (res && res.name) || ""; m.days = res && res.days;
         push({ role: "bot", text: "Xong! Đơn **" + m.name + "** đã gửi, mình sẽ không làm gì thêm với đơn này." });
       })
-      .catch(function (e) { m.state = "draft"; m.error = (e && e.message) || "Gửi không được."; })
+      .catch(function (e) { m.state = "draft"; m.error = errText(e, "Gửi không được."); announce(m.error); })
       .then(function () { paint(); save(); });
   }
 
@@ -625,7 +767,7 @@
         res = res || {};
         m.state = "ready";
         if (!res.refused && !res.error && !Object.keys(res.fields || {}).length) {
-          m.error = "Mình chưa điền được ô nào từ câu này — bạn bấm Tự điền, hoặc kể rõ hơn nhé.";
+          m.error = "Mình chưa điền được ô nào từ câu này — bạn bấm Điền tay, hoặc kể rõ hơn nhé.";
         }
         if (res.refused || res.error) {
           m.error = res.refused === "refused_quota" ? "Bạn đã dùng hết lượt AI điền hộ hôm nay." :
@@ -639,8 +781,12 @@
           push({ role: "bot", text: "Không đọc được " + x.file + ": " + x.message, err: true });
         });
       })
-      .catch(function (e) { var m = S.msgs[idx]; m.state = "ready"; m.error = (e && e.message) || "Đọc tệp không được."; })
-      .then(function () { paint(); });
+      .catch(function (e) { var m = S.msgs[idx]; m.state = "ready"; m.error = errText(e, "Đọc tệp không được."); })
+      .then(function () {
+        paint();
+        var m = S.msgs[idx];
+        announce(m.error ? m.error : "Đã điền sẵn phiếu " + (m.title || "") + ", bạn xem lại rồi bấm Tạo nháp.");
+      });
   }
 
   function payDraft(idx) {
@@ -660,7 +806,7 @@
         push({ role: "bot", text: "Đã tạo nháp **" + res.name + "**. Mình mở phiếu để bạn kiểm tra và bấm Gửi nhé." });
         setTimeout(function () { location.href = route + "?id=" + encodeURIComponent(res.name); }, 900);
       })
-      .catch(function (e) { m.state = "ready"; m.error = (e && e.message) || "Không tạo được bản nháp."; })
+      .catch(function (e) { m.state = "ready"; m.error = errText(e, "Không tạo được bản nháp."); announce(m.error); })
       .then(function () { paint(); save(); });
   }
 
@@ -670,9 +816,9 @@
       .then(function (r) {
         dropTyping();
         if (r && r.success) push({ role: "bot", text: r.reply, by: r.model });
-        else push({ role: "bot", text: (r && r.error) || "AI đang bận, bạn thử lại sau nhé.", err: true });
+        else push({ role: "bot", text: (r && r.error) || "AI đang bận, bạn thử lại sau nhé.", err: true, retry: text });
       })
-      .catch(function (e) { dropTyping(); push({ role: "bot", text: (e && e.message) || "Có lỗi.", err: true }); });
+      .catch(function (e) { dropTyping(); push({ role: "bot", text: errText(e), err: true, retry: text }); });
   }
 
   function addFiles(list) {
@@ -690,14 +836,17 @@
     var jobs = items.filter(function (it) { return !it.err; }).map(function (it) {
       var file = arr.filter(function (f) { return f.name === it.name && f.size === it.size; })[0];
       return upload(file).then(function (url) { it.url = url; })
-        .catch(function (e) { it.err = (e && e.message) || "tải lên không được"; });
+        .catch(function (e) { it.err = errText(e, "tải lên không được"); });
     });
     Promise.all(jobs).then(function () {
       S.msgs[idx] = { role: "files", items: items };
       S.files = S.files.filter(function (f) { return f.url; });
       paint();
       // Đơn nghỉ ốm đang chờ giấy khám thì tệp này là để gửi kèm đơn, không phải câu hỏi mới.
-      if (S.files.length && !R.q.value.trim() && !awaitingDoc()) ask("");
+      if (S.files.length && !R.q.value.trim() && !awaitingDoc()) {
+        var say = S.pendingSay || ""; S.pendingSay = "";
+        ask(say);
+      }
     });
   }
 
@@ -708,7 +857,12 @@
     R.pan.hidden = false;
     R.fab.setAttribute("aria-expanded", "true");
     paint(); save();
+    // Điện thoại: không tự bật bàn phím — bàn phím che mất lời chào và gợi ý.
+    if (touchOnly()) return;
     setTimeout(function () { try { R.q.focus(); } catch (e) { /* noop */ } }, 30);
+  }
+  function touchOnly() {
+    try { return !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches); } catch (e) { return false; }
   }
   function closePanel() {
     S.open = false;
@@ -817,9 +971,18 @@
       if (S.open) closePanel(); else openPanel(false);
     });
     R.root.querySelector(".close").addEventListener("click", closePanel);
+    // Bắt đầu lại: xoá cuộc trò chuyện (lịch sử cũ không còn kéo câu trả lời AI đi lệch).
+    R.fresh.addEventListener("click", function () {
+      if (S.busy) return;
+      S.msgs = []; S.files = []; S.pendingSay = ""; S.wide = false;
+      paint(); save(); announce("Đã bắt đầu cuộc trò chuyện mới.");
+      if (!touchOnly()) { try { R.q.focus(); } catch (e) { /* noop */ } }
+    });
     R.wideBtn.addEventListener("click", function () { S.wide = !S.wide; paint(); save(); });
     R.form.addEventListener("submit", function (e) {
       e.preventDefault();
+      // Đang chờ câu trước thì GIỮ chữ trong ô (trước đây ô bị xoá mà câu không gửi — mất chữ).
+      if (S.busy) return;
       var t = R.q.value; R.q.value = ""; R.q.style.height = ""; R.q.style.overflowY = "";
       ask(t);
     });
@@ -843,6 +1006,9 @@
       var i = +t.getAttribute("data-i");
       if (t.getAttribute("data-act") === "leave-send") sendLeave(i);
       if (t.getAttribute("data-act") === "pay-draft") payDraft(i);
+      if (t.getAttribute("data-act") === "retry") retry(i);
+      if (t.getAttribute("data-act") === "attach") R.file.click();
+      if (t.getAttribute("data-act") === "pick") { S.pendingSay = t.getAttribute("data-pick") || ""; R.file.click(); }
     });
     R.pan.addEventListener("keydown", function (e) { if (e.key === "Escape") closePanel(); });
 
@@ -885,6 +1051,9 @@
       placeAboveTabbar(host);
       paint();
       if (S.open) openPanel(false);
+      if (S.msgs.some(function (m) { return m.role === "leave" && m.state !== "sent"; })) {
+        get(API.leaveData).then(function (d) { S.leaveData = d || {}; paint(); }).catch(function () { /* thêm thôi */ });
+      }
     }).catch(function () { /* không bật được thì im lặng: Khay là thứ thêm vào */ });
   }
 

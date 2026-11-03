@@ -156,8 +156,9 @@ def _fmt(value, fieldtype):
     return str(value)
 
 
-def build_summary(definition, biz_dict, request=None):
-    """3-5 cap (nhan, gia tri) cua loai phieu. Ap redactor cua form (an luong) TRUOC khi lay."""
+def _summary_typed(definition, biz_dict, request=None):
+    """[(nhan, gia tri da dinh dang, fieldtype)] - mot lan duyet khai bao quick_summary, dung
+    chung cho build_summary (hop dong cu) va o "so tien" noi bat tren the."""
     if getattr(definition, "business_redactor", None):
         definition.business_redactor(biz_dict, request)
     try:
@@ -171,8 +172,24 @@ def build_summary(definition, biz_dict, request=None):
             continue
         value = _fmt(biz_dict.get(field), types.get(field))
         if value:
-            out.append({"label": label, "value": value})
+            out.append((label, value, types.get(field)))
     return out
+
+
+def build_summary(definition, biz_dict, request=None):
+    """3-5 cap (nhan, gia tri) cua loai phieu. Ap redactor cua form (an luong) TRUOC khi lay."""
+    return [{"label": label, "value": value}
+            for label, value, _t in _summary_typed(definition, biz_dict, request)]
+
+
+def _amount_of(typed):
+    """O so tien DAU TIEN (fieldtype Currency) trong tom tat da loc -> {"label","value"} | None.
+    Nguoi duyet tren dien thoai nhin so tien truoc tien (UX 03/11/2026); lay tu CHINH tom tat da
+    qua redactor + chan luong, nen khong lo them truong nao."""
+    for label, value, ftype in typed:
+        if ftype == "Currency":
+            return {"label": label, "value": value}
+    return None
 
 
 _TYPE_CACHE = {}
@@ -236,6 +253,7 @@ def list_my_pending(user=None):
         caps = _capabilities(definition, user, biz, req_doc)
         need, why = _needs_input(definition, caps, lv.level_name, biz)
         label, route = _type_meta(req.approval_type)
+        typed = _summary_typed(definition, biz.as_dict(), req_doc)
         who = req.requested_by
         if who not in names_cache:
             names_cache[who] = frappe.db.get_value("User", who, "full_name") or who
@@ -253,7 +271,8 @@ def list_my_pending(user=None):
             "level_no": req.current_level,
             "level_name": lv.level_name,
             "detail_url": ("/" + route.lstrip("/") + "?id=" + req.reference_name) if route else None,
-            "summary": build_summary(definition, biz.as_dict(), req_doc),
+            "summary": [{"label": lb, "value": v} for lb, v, _t in typed],
+            "amount": _amount_of(typed),
             "capabilities": {
                 "can_approve": bool(caps.get("can_approve")),
                 "can_reject": bool(caps.get("can_reject")),
@@ -330,8 +349,11 @@ def quick_decide(request_name, action, comment=None, user=None):
             raise QuickDecideError(_("Không đủ quyền thực hiện: {0}").format(msg))
         if isinstance(e, frappe.ValidationError):
             raise QuickDecideError(msg)
+        # Loi khong luong truoc (DB, mang, bug): chi tiet ky thuat vao Error Log, KHONG len man
+        # hinh nguoi duyet (UX 03/11/2026 - truoc day noi nguyen van "(1205, 'Lock wait...')").
         frappe.log_error(frappe.get_traceback(), "quick_decide %s %s" % (method, request_name))
-        raise QuickDecideError(_("Không thực hiện được ({0}). Đã hoàn tác, thử lại sau.").format(msg))
+        raise QuickDecideError(_("Hệ thống đang bận nên chưa xử lý được phiếu. Đã hoàn tác - "
+                                 "phiếu chưa thay đổi gì, thử lại sau ít phút."))
     return {"ok": True, "request": req.name, "action": method,
             "remaining": count_my_pending(user)}
 

@@ -106,6 +106,17 @@ def _labels(doctype, fields):
     return out
 
 
+def _file_names(files):
+    """Ten tep client gui (chi de dua vao prompt). Chuoi khong phai JSON / khong phai danh
+    sach -> [] thay vi de parse_json nem loi 500."""
+    if isinstance(files, str):
+        try:
+            files = frappe.parse_json(files) if files else []
+        except Exception:
+            files = []
+    return [str(n) for n in files] if isinstance(files, list) else []
+
+
 @frappe.whitelist(methods=["GET"])
 def boot():
     user = frappe.session.user
@@ -124,8 +135,7 @@ def intent(message=None, history=None, page=None, files=None):
     if not allowed(user):
         raise frappe.PermissionError
     message = str(message or "").strip()[:brain.MAX_MESSAGE]
-    names = frappe.parse_json(files) if isinstance(files, str) and files else (files or [])
-    names = [str(n) for n in names] if isinstance(names, list) else []
+    names = _file_names(files)
     if not message and not names:
         return {"action": brain.CLARIFY, "reply": "Bạn cần mình giúp gì?", "options": []}
 

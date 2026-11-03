@@ -146,12 +146,54 @@ def _now_minutes(tz=None):
             import pytz
             dt = frappe.utils.get_datetime(dt)
             try:
-                dt = dt.astimezone(pytz.timezone(tz)) if dt.tzinfo else pytz.utc.localize(dt).astimezone(pytz.timezone(tz))
+                # now_datetime() tra gio NGAY THUONG theo mui gio HE THONG (Asia/Ho_Chi_Minh),
+                # khong phai UTC. Truoc 03/11/2026 dong nay localize nhu UTC -> nguoi dat
+                # timezone "Asia/Ho_Chi_Minh" bi lech +7h: 22:00 doc thanh 05:00, gio yen lang
+                # rieng cua ho chay sai gio. Localize theo mui gio he thong roi moi doi.
+                if dt.tzinfo:
+                    dt = dt.astimezone(pytz.timezone(tz))
+                else:
+                    dt = pytz.timezone(_system_tz()).localize(dt).astimezone(pytz.timezone(tz))
             except Exception:
                 pass
         return dt.hour * 60 + dt.minute
     except Exception:
         return None
+
+
+def _system_tz():
+    """Mui gio he thong cua site (mac dinh UTC neu khong doc duoc)."""
+    try:
+        fn = getattr(frappe.utils, "get_system_timezone", None) or getattr(frappe.utils, "get_time_zone", None)
+        return (fn() if fn else None) or "UTC"
+    except Exception:
+        return "UTC"
+
+
+def nguoi_nhan_con_hoat_dong(user):
+    """Tai khoan nguoi nhan con bat (User.enabled) khong - provider Teams / web push hoi
+    TRUOC khi ban tin ra ngoai app.
+
+    VI SAO (03/11/2026): job khoa tai khoan nghi viec (hr/offboarding) chi tat User.enabled,
+    KHONG tat dang ky web push va KHONG go nguoi do khoi task PM / nhom Fulfiller. Moi job
+    nhac 09:00 coi nguoi khong con ho so Active la "di lam" (ngay_lam_viec.la_ngay_nghi),
+    nen tieu de phieu duyet / task van bi day len DIEN THOAI CA NHAN cua nguoi da nghi.
+    Chan o provider (khong o route) de phu ca tin don, tin gop luc 9:00 va lan thu lai.
+
+    Fail-open: khong tra cuu duoc / khong thay User -> coi la con hoat dong (gui nhu cu).
+    Chi `enabled` = 0 ro rang moi chan."""
+    if not user:
+        return False
+    try:
+        v = frappe.db.get_value("User", user, "enabled")
+    except Exception:
+        return True
+    if v is None or v == "":
+        return True
+    try:
+        return bool(int(v))
+    except (TypeError, ValueError):
+        return True
 
 
 def _to_minutes(t):

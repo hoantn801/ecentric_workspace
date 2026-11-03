@@ -146,13 +146,10 @@ def complete_fulfillment(name, user=None):
     doc = frappe.get_doc(BUSINESS_DT, name)
     if doc.fulfillment_owner != user and "System Manager" not in frappe.get_roles(user):
         frappe.throw(_("Only the claimed owner or a System Manager may complete this request."))
-    # Cung luat voi `_can_complete` (nut "Hoan tat") va payment_request.complete_fulfillment:
-    # chi hoan tat khi buoc xu ly DANG MO. Thieu chot nay thi goi lai endpoint tren phieu da
-    # Completed se chay lai _upsert_account (ghi de last_topup_at / plan cua EC AI Account)
-    # va ban lai thong bao "AI Topup completed" cho ba nguoi.
-    if doc.fulfillment_status not in ("Assigned", "In Progress"):
-        frappe.throw(_("This request is not in an open fulfillment step (status: {0}).").format(
-            doc.fulfillment_status or "-"))
+    # QA 03/11/2026: chi hoan tat khi buoc xu ly DANG MO - khong ghi de phieu da Completed,
+    # khong hoi sinh viec da huy, System Manager khong "hoan tat" phieu chua vao buoc xu ly.
+    if doc.get("fulfillment_status") not in ("Assigned", "In Progress"):
+        frappe.throw(_("Bước xử lý của yêu cầu này không còn mở (đã hoàn tất, đã huỷ hoặc chưa tới bước xử lý)."))
     if not doc.actual_tax_fee_basis:
         doc.actual_tax_fee_basis = doc.tax_fee_basis or "Included"   # safe default; no VAT calculation
     doc.fulfillment_status = "Completed"
