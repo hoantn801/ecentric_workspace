@@ -5,7 +5,7 @@
 // (Chờ nhận / Đang xử lý / Đã UNC / không áp dụng cho phiếu duyệt trước khi có bước này);
 // "Hoàn tất" chỉ xanh khi UNC xong; thẻ UNC: Nhận xử lý khi can_claim, form file + Hoàn tất khi
 // can_complete, link file khi Completed; Hoàn tất mà chưa tải file thì báo lỗi, KHÔNG gọi API;
-// preview 6 bước; stepLabel N = cấp + 3.
+// preview 6 bước; stepLabel theo DUNG so cap (03/11).
 import fs from "fs";
 import vm from "vm";
 import { fileURLToPath } from "url";
@@ -109,9 +109,11 @@ ok(!!t && /đính kèm file UNC/.test(t.textContent), "chưa tải file: toast n
 
 // --- 4. preview + stepLabel ---
 ok(/Finance xử lý UNC/.test(SRC.match(/function processPreviewHTML\(\)[\s\S]*?return /)[0]), "preview quy trình có bước 6");
-ok(PR.stepLabel({ total_levels: 4, approval_status: "Approved", fulfillment_status: "Assigned" }) === "Bước 6/7 · Finance xử lý UNC", "stepLabel Assigned = 6/7 UNC");
-ok(PR.stepLabel({ total_levels: 4, approval_status: "Approved", fulfillment_status: "Completed" }) === "Bước 7/7 · Hoàn tất", "stepLabel Completed = 7/7");
-ok(PR.stepLabel({ total_levels: 4, approval_status: "Pending", current_level: 2, current_level_name: "Finance review" }) === "Bước 3/7 · Finance review", "stepLabel Pending N=7");
+// 03/11: cot "Tien do" bo cach dem "Da gui" la buoc 1 (Cap 2 tung hien "Buoc 3/7" - lech so cap
+// engine, gay ho tro nham). Nay: cap duyet = "Cap X/<so cap>", buoc xu ly/hoan tat goi bang ten.
+ok(PR.stepLabel({ total_levels: 4, approval_status: "Approved", fulfillment_status: "Assigned" }) === "Finance xử lý UNC", "stepLabel Assigned = UNC");
+ok(PR.stepLabel({ total_levels: 4, approval_status: "Approved", fulfillment_status: "Completed" }) === "Hoàn tất", "stepLabel Completed = Hoan tat");
+ok(PR.stepLabel({ total_levels: 4, approval_status: "Pending", current_level: 2, current_level_name: "Finance review" }) === "Cấp 2/4 · Finance review", "stepLabel Pending = Cap 2/4");
 
 console.log(`${pass} đạt, ${fail} hỏng`);
 if (pass < 24) { console.log("HONG: so phep kiem thap bat thuong (" + pass + ")"); process.exit(1); }
