@@ -44,7 +44,9 @@ class PushOriginalsService:
         p = domain.plan([s["name"] for s in sources], box.list_files(bdt, target), resync,
                         box.api_user() if resync else "")
         have_local = self.repo.local_copy_names(doctype, name)
-        copy = [s["name"] for s in sources if s["kind"] == "sharepoint" and s["name"] not in have_local]
+        sp_names = [s["name"] for s in sources if s["kind"] == "sharepoint"]
+        have_copy = domain.present(sp_names, have_local)  # N21b: EC cung doi ten khi trung
+        copy = [n for n in sp_names if n not in have_copy]
         result = {"target": target, "resync": resync, "plan": p, "sources": len(sources),
                   "local_copy": copy, "uploaded": [], "copied": [], "deleted": 0, "errors": errors}
         if dry_run:

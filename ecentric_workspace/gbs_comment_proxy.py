@@ -39,6 +39,7 @@ Created: 2026-07-06 for GBS comment image sync (Nina paste-image bug + eCentric 
 
 import base64
 import binascii
+from urllib.parse import unquote
 
 import frappe
 import requests
@@ -51,6 +52,14 @@ import requests
 FETCH_TIMEOUT = 30   # seconds when fetching binary file from boxme
 UPLOAD_TIMEOUT = 60  # seconds when POSTing multipart to boxme /api/method/upload_file
 MAX_UPLOAD_MB = 10   # cap paste-image size to avoid abuse (10 MB)
+
+# QA 03/11/2026: chi 2 doctype GBS duoc doc docinfo ben boxme (truoc day nhan BAT KY doctype nao
+# -> moi user dang nhap doc duoc comment/lich su workflow cua moi chung tu ben boxme ma khoa EC thay).
+GBS_LOCAL_TO_BOXME = {"GBS Sales Order": "Sales Order", "GBS Purchase Order": "Purchase Order"}
+
+# Anh dan vao comment: chi nhan anh raster. SVG co the chua script -> khong nhan.
+PASTE_IMAGE_TYPES = {"image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif",
+                     "image/webp": ".webp", "image/bmp": ".bmp"}
 
 # Content-Type detection by extension (browsers use this to decide <img> vs download)
 _EXT_TO_CTYPE = {
@@ -101,6 +110,29 @@ def _detect_content_type(path_or_filename):
     return "application/octet-stream"
 
 
+def _safe_private_path(path):
+    """Tra lai path neu chi tro vao kho /private/files/ cua boxme, nguoc lai None.
+
+    QA 03/11/2026: truoc day chi kiem startswith("/private/files/"). requests/urllib3 chuan
+    hoa "/private/files/../../api/method/x" thanh "/api/method/x" truoc khi gui -> moi user
+    dang nhap goi duoc BAT KY API GET nao cua boxme bang khoa EC (SSRF). Chan ".." (ke ca
+    dang ma hoa %2e, ma hoa 2 lan), "\\" va "//" trong phan duong dan.
+    """
+    if not path or not path.startswith("/private/files/"):
+        return None
+    if any(ord(c) < 32 for c in path):
+        return None
+    route = path.split("?", 1)[0]
+    once = unquote(route)
+    twice = unquote(once)
+    for probe in (route, once, twice):
+        if "\\" in probe or "//" in probe[1:]:
+            return None
+        if ".." in probe.split("/"):
+            return None
+    return path
+
+
 def _extract_filename(path):
     """Extract filename from a URL path. Falls back to 'file'."""
     stem = path.split("?", 1)[0]
@@ -143,6 +175,8 @@ def proxy_boxme_file(path=None):
     # Whitelist: only proxy Frappe's private file store. Prevents arbitrary URL fetch abuse.
     if not path.startswith("/private/files/"):
         frappe.throw("Invalid path: must start with /private/files/")
+    if not _safe_private_path(path):
+        frappe.throw("Invalid path", frappe.PermissionError)
 
     base, key, secret = _get_gbs_credentials()
     url = base + path
@@ -243,11 +277,18 @@ def upload_image_to_boxme(base64_data=None, filename=None, doctype=None, docname
     # Determine filename + content type
     if not filename:
         # Extension by ctype hint from data URL
-        ext_map = {"image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif",
-                   "image/webp": ".webp", "image/svg+xml": ".svg"}
-        ext = ext_map.get(ctype_hint, ".png")
+        ext = PASTE_IMAGE_TYPES.get(ctype_hint, ".png")
         filename = "pasted_image" + ext
     ctype = ctype_hint or _detect_content_type(filename)
+    # QA 03/11/2026: endpoint nay chi phuc vu DAN ANH vao comment. Truoc day nhan moi loai
+    # file (ke ca SVG/HTML) va gan vao BAT KY doctype/docname nao ben boxme bang khoa EC.
+    if ctype not in PASTE_IMAGE_TYPES:
+        frappe.throw("Chi nhan anh PNG/JPEG/GIF/WEBP/BMP")
+    if _detect_content_type(filename) not in PASTE_IMAGE_TYPES:
+        # vd "anh.jfif" / "x.svg" mang du lieu image/jpeg: dat lai duoi theo loai that
+        filename = filename.rsplit(".", 1)[0] + PASTE_IMAGE_TYPES[ctype]
+    if (doctype or docname) and (doctype not in GBS_LOCAL_TO_BOXME.values() or not docname):
+        frappe.throw("doctype khong ho tro", frappe.PermissionError)
 
     # Upload to boxme /api/method/upload_file
     base, key, secret = _get_gbs_credentials()
@@ -347,7 +388,14 @@ def _breaker_reset():
 
 
 def _boxme_doc_name(doctype, name):
-    """Resolve the boxme-side docname for a local GBS record (falls back to `name`)."""
+    """Ten chung tu ben boxme cua phieu GBS phia EC ("" neu phieu chua sang boxme).
+
+    QA 03/11/2026: truoc day phieu khong ton tai / chua lien ket thi lui ve `name` nguoi
+    goi tu dua -> goi doctype="GBS Sales Order", name="SAL-ORD-..." la doc duoc comment
+    cua BAT KY don nao ben boxme. Gio phieu phai ton tai o EC; chua lien ket thi khong goi boxme.
+    """
+    if not frappe.db.exists(doctype, name):
+        frappe.throw("Khong thay phieu " + str(name), frappe.DoesNotExistError)
     try:
         local_doc = frappe.get_doc(doctype, name)
         linked = (local_doc.get("gbs_doc_name")
@@ -355,7 +403,7 @@ def _boxme_doc_name(doctype, name):
                   or local_doc.get("link_id") or "")
     except Exception:
         linked = ""
-    return linked or name
+    return linked
 
 
 @frappe.whitelist()
@@ -390,8 +438,14 @@ def fetch_boxme_docinfo(doctype=None, name=None):
     if not doctype or not name:
         frappe.throw("Missing 'doctype'/'name' parameter")
 
+    if doctype not in GBS_LOCAL_TO_BOXME:
+        frappe.throw("doctype khong ho tro", frappe.PermissionError)
+    boxme_dtype = GBS_LOCAL_TO_BOXME[doctype]
     boxme_name = _boxme_doc_name(doctype, name)
-    boxme_dtype = doctype[4:] if doctype.startswith("GBS ") else doctype
+    if not boxme_name:
+        # Phieu chua sang boxme: khong co gi de doc, khoi ton mot luot goi mang.
+        return {"success": True, "boxme_name": name, "boxme_dtype": boxme_dtype,
+                "docinfo": {k: [] for k in DOCINFO_KEYS}}
 
     if _breaker_failures() >= BREAKER_THRESHOLD:
         frappe.throw(
