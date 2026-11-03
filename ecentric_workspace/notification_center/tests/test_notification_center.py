@@ -2951,3 +2951,145 @@ class TestPushNotificationCard(unittest.TestCase):
         src = self._sw()
         for tok in ("{{", "{%", "{#"):
             self.assertNotIn(tok, src, "sw.js khong duoc chua token Jinja: " + tok)
+
+
+# =========================================================================== #
+# QA t2 (03/11/2026): nguoi da khoa tai khoan, tag web push, mui gio gio yen lang rieng
+# =========================================================================== #
+from ecentric_workspace.notification_center.providers import webpush as wp   # noqa: E402
+
+
+class TestKhongBanTinChoNguoiDaKhoa(unittest.TestCase):
+    """Job khoa tai khoan nghi viec chi tat User.enabled; dang ky web push + task PM + nhom
+    Fulfiller van con. Provider phai tu chan, neu khong tieu de phieu/task van len dien thoai
+    ca nhan cua nguoi da nghi."""
+
+    def setUp(self):
+        _reset("admin@x.com")
+        FR._conf.update({"ec_teams_provider": "power_automate_copilot"})
+        FR._docs[("User", "left@x.com")] = {"enabled": 0}
+        FR._docs[("User", "u@x.com")] = {"enabled": 1}
+
+    def _row(self, recipient, channel):
+        return ev._delivery(ev._event_id("qa|" + recipient + channel), recipient, channel,
+                            "Pending", title="Cần duyệt: Phiếu chi", message="M",
+                            event_type="approval_required", severity="action_required")
+
+    def test_teams_nguoi_da_khoa_bi_skipped_khong_goi_provider(self):
+        goi = []
+        orig = tm.power_automate.send_event
+        tm.power_automate.send_event = lambda payload, cfg=None: goi.append(payload) or ("sent", "pa", "200", "")
+        try:
+            nm = self._row("left@x.com", "teams")
+            tm.deliver(nm)
+        finally:
+            tm.power_automate.send_event = orig
+        doc = FR.get_doc("EC Notification Delivery Log", nm)
+        self.assertEqual((doc["status"], doc["error_code"]), ("Skipped", "USER_DISABLED"))
+        self.assertEqual(goi, [])
+
+    def test_webpush_nguoi_da_khoa_bi_skipped(self):
+        orig = wp.get_settings
+        wp.get_settings = lambda: (_ for _ in ()).throw(AssertionError("khong duoc toi buoc gui"))
+        try:
+            nm = self._row("left@x.com", "webpush")
+            wp.deliver(nm)
+        finally:
+            wp.get_settings = orig
+        doc = FR.get_doc("EC Notification Delivery Log", nm)
+        self.assertEqual((doc["status"], doc["error_code"]), ("Skipped", "USER_DISABLED"))
+
+    def test_nguoi_con_lam_van_di_tiep(self):
+        orig = wp.get_settings
+        wp.get_settings = lambda: {"enabled": 0, "public_key": "", "private_key": "", "subject": ""}
+        try:
+            nm = self._row("u@x.com", "webpush")
+            wp.deliver(nm)
+        finally:
+            wp.get_settings = orig
+        self.assertEqual(FR.get_doc("EC Notification Delivery Log", nm)["error_code"], "NOT_CONFIGURED")
+
+    def test_khong_tra_cuu_duoc_thi_gui_nhu_cu(self):
+        self.assertTrue(ev.nguoi_nhan_con_hoat_dong("chua-co@x.com"))   # khong thay User
+        self.assertFalse(ev.nguoi_nhan_con_hoat_dong("left@x.com"))
+        self.assertFalse(ev.nguoi_nhan_con_hoat_dong(""))
+
+
+class TestTagWebPushTheoChungTu(unittest.TestCase):
+    """Service worker dung `tag` + renotify: cung tag thi the sau THAY the truoc tren khay."""
+
+    def _tag(self, **kw):
+        return _json2.loads(wp._payload(kw))["tag"]
+
+    def test_hai_phieu_khac_nhau_khong_de_nhau(self):
+        a = self._tag(event_type="approval_required", event_id="e1",
+                      reference_doctype="EC Payment Request", reference_name="P1")
+        b = self._tag(event_type="approval_required", event_id="e2",
+                      reference_doctype="EC Payment Request", reference_name="P2")
+        self.assertNotEqual(a, b)
+
+    def test_cung_chung_tu_thi_thay_ban_moi(self):
+        a = self._tag(event_type="approval_required", event_id="e1",
+                      reference_doctype="EC Payment Request", reference_name="P1")
+        b = self._tag(event_type="task_overdue", event_id="e9",
+                      reference_doctype="EC Payment Request", reference_name="P1")
+        self.assertEqual(a, b)
+
+    def test_tin_gop_khong_de_tin_don(self):
+        don = self._tag(event_type="approval_required", event_id="e1",
+                        reference_doctype="EC Payment Request", reference_name="P1")
+        gop = self._tag(event_type="approval_required", event_id="g1",
+                        reference_doctype="", reference_name="")
+        self.assertNotEqual(don, gop)
+        self.assertEqual(gop, "ec:g1")
+
+
+class TestGioYenLangRiengTheoMuiGio(unittest.TestCase):
+    """now_datetime() la gio he thong (Asia/Ho_Chi_Minh), KHONG phai UTC."""
+
+    def test_cung_mui_gio_he_thong_khong_lech(self):
+        import datetime as _d
+        FR.utils.get_system_timezone = lambda: "Asia/Ho_Chi_Minh"
+        orig = FR.utils.now_datetime
+        FR.utils.now_datetime = lambda: _d.datetime(2026, 11, 3, 22, 0)
+        try:
+            self.assertEqual(ev._now_minutes("Asia/Ho_Chi_Minh"), 22 * 60)
+            self.assertEqual(ev._now_minutes("Asia/Bangkok"), 22 * 60)
+            self.assertEqual(ev._now_minutes("Asia/Tokyo"), 0)        # +2h -> 00:00
+            pref = {"quiet_hours_enabled": 1, "quiet_hours_start": "21:00",
+                    "quiet_hours_end": "07:00", "timezone": "Asia/Ho_Chi_Minh"}
+            self.assertTrue(ev.in_quiet_hours(pref))
+        finally:
+            FR.utils.now_datetime = orig
+            del FR.utils.get_system_timezone
+
+
+class TestCopilotDangChatThiThuLai(unittest.TestCase):
+    """Copilot 300 (nguoi nhan dang chat voi agent) la trang thai tam - phai thu lai, khong
+    duoc danh Skipped vinh vien (mat thong bao Can duyet)."""
+
+    def setUp(self):
+        _reset("boss@x.com")
+        FR._conf.update({"ec_teams_provider": "power_automate_copilot",
+                         "ec_pa_flow_url": "https://flow/x", "ec_pa_oauth_tenant_id": "TEN",
+                         "ec_pa_oauth_client_id": "SPID", "ec_pa_oauth_client_secret": "SPSEC"})
+        self._orig = tm.power_automate.send_event
+        tm.power_automate.send_event = lambda payload, cfg=None: (
+            "skip", "power_automate_copilot", "SKIPPED_ACTIVE_CONVERSATION", "x")
+
+    def tearDown(self):
+        tm.power_automate.send_event = self._orig
+
+    def test_300_thanh_failed_co_lich_thu_lai_va_co_tran(self):
+        nm = ev._delivery(ev._event_id("qa300"), "u@x.com", "teams", "Pending",
+                          event_type="approval_required", severity="action_required",
+                          title="Cần duyệt: X", message="m")
+        tm.deliver(nm)
+        d = FR.get_doc("EC Notification Delivery Log", nm)
+        self.assertEqual((d["status"], d["error_code"]), ("Failed", "SKIPPED_ACTIVE_CONVERSATION"))
+        self.assertIsNotNone(d["next_retry_at"])
+        for _ in range(tm.MAX_ATTEMPTS - 1):
+            tm.deliver(nm)
+        self.assertEqual(d["attempt_count"], tm.MAX_ATTEMPTS)
+        self.assertEqual(d["status"], "Failed")
+        self.assertIsNone(d["next_retry_at"])                 # het luot -> khong thu nua

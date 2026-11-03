@@ -983,3 +983,8 @@ elif isinstance(_pmon_prev, str):
         _pmon_emp["on_update"] = [_pmon_prev, _PMON_HOOK]
 elif _PMON_HOOK not in _pmon_prev:
     _pmon_prev.append(_PMON_HOOK)
+
+# 03/11/2026 - Hien thi dung chung cho trang phe duyet (31 form + hub "Tat ca yeu cau"): nhan
+# tieng Viet cho Lich su, thanh tien trinh danh so DUNG so cap (khong tinh "Da gui"), cau loi
+# than thien thay chu ky thuat. Chi hien thi, khong goi API. Xem public/js/ec_approval_ui.bundle.js.
+web_include_js.append("ec_approval_ui.bundle.js")

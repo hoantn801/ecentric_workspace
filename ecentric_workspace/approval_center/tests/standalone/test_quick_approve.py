@@ -322,3 +322,23 @@ def test_bat_buoc_nhan_xet_khi_loai_phieu_yeu_cau():
     with pytest.raises(m.QuickDecideError, match="nhận xét"):
         m.quick_decide("R1", "approve", "", user="me@x")
     assert W.calls == []
+
+
+# ---------------------------------------------------------------- UX 03/11/2026 (ux2)
+def test_loi_he_thong_khong_lo_chu_ky_thuat_len_man_hinh():
+    m, W = build(boom=RuntimeError("(1205, 'Lock wait timeout exceeded; try restarting transaction')"))
+    with pytest.raises(m.QuickDecideError) as ei:
+        m.quick_decide("R1", "approve", None, user="me@x")
+    msg = str(ei.value)
+    assert "1205" not in msg and "Lock wait" not in msg
+    assert "hoàn tác" in msg and "thử lại" in msg
+    assert W.rollbacks == ["ec_quick_decide"] and W.logs      # chi tiet van vao Error Log
+
+
+def test_the_co_o_so_tien_noi_bat_lay_tu_tom_tat_da_loc():
+    m, W = build()
+    rows = {r["request"]: r for r in m.list_my_pending("me@x")["rows"]}
+    assert rows["R5"]["amount"] == {"label": "Số tiền", "value": "12.500.000"}
+    # R1 chi co luong la Currency -> luong bi chan -> khong co o so tien (khong lo luong)
+    assert rows["R1"]["amount"] is None
+    assert rows["R1"]["summary"][0] == {"label": "Loại nghỉ", "value": "Annual"}

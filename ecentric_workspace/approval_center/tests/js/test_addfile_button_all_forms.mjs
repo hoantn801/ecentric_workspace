@@ -153,7 +153,9 @@ for (const f of feats) {
 {
   const html = readFileSync(join(ROOT, "approval_center", "ui", "all_requests", "main_section.html"), "utf8");
   ok(/if\(window\.EcAddFile\) acts\.push\(EcAddFile\.buttonHTML\(cap\)\)/.test(html), "hub: nut trong hang nut popup");
-  ok(/"Attachment Added":"Thêm tệp"/.test(html), "hub: nhan lich su tieng Viet");
+  // 03/11: nhan lich su chuyen sang asset dung chung ec_approval_ui.bundle.js (mot bang cho 31 form + hub).
+  ok(/timelineItemParts\(t\)/.test(html), "hub: lich su dung nhan dung chung");
+  ok(/"Attachment Added": "Đã thêm tệp đính kèm"/.test(readFileSync(join(ROOT, "public", "js", "ec_approval_ui.bundle.js"), "utf8")), "nhan lich su tieng Viet cho Attachment Added");
   const i = html.search(/<script[^>]*id="ec-approval-all"[^>]*>/);
   const markup = html.slice(0, i);
   const js = html.slice(i).match(/<script[^>]*>([\s\S]*?)<\/script>/)[1];

@@ -130,7 +130,7 @@ class TestEngineCungChan(unittest.TestCase):
         """Doc truoc khoa la tin don; sau khoa moi la su that (bai hoc 31/08 trong chinh file)."""
         for ten in ("approve", "reject", "request_information"):
             than = self._than(ten)
-            doc_lai = than.index('req.approval_status = frappe.db.get_value(')
+            doc_lai = than.index('_lock_and_read(req)')   # locking read (03/11/2026)
             chot = than.index('if req.approval_status == "Information Required":')
             self.assertGreater(chot, doc_lai,
                                "%s(): chot dat TRUOC luc doc lai trang thai co khoa" % ten)

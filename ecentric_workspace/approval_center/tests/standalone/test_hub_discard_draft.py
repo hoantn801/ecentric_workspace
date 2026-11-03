@@ -150,7 +150,7 @@ class TestHubHtml(unittest.TestCase):
 
     def test_dai_nhap_co_nut_huy_va_goi_dung_endpoint_bang_POST(self):
         i = self.h.index("function draftsHtml()")
-        block = self.h[i:self.h.index("function renderError()")]
+        block = self.h[i:self.h.index("function renderError(")]
         self.assertIn('data-discard="', block)
         self.assertIn("function discardDraft(", block)
         self.assertIn("reporting.actions.discard_draft", block)

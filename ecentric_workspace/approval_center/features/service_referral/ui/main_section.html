@@ -150,7 +150,7 @@
   function toast(m,err){ var t=$("svrf-toast"); if(!t)return; t.textContent=m; t.className="toast show"+(err?" err":""); clearTimeout(t._t); t._t=setTimeout(function(){t.className="toast";},3000); }
   function call(method,args){ var fr=window.frappe; if(!fr||!fr.call) return Promise.reject(new Error("no frappe"));
     return fr.call({method:NS+method,args:args||{},type:(/get_|list_|search_|check_/.test(method)?"GET":"POST")}).then(function(r){return r&&r.message;}); }
-  function fmt(d){ if(!d)return "—"; try{ return String(d).replace("T"," ").slice(0,16); }catch(e){ return String(d); } }
+  function fmt(d){ if(!d)return "—"; if(window.EcApprovalUI) return EcApprovalUI.fmtDateTime(d); try{ return String(d).replace("T"," ").slice(0,16); }catch(e){ return String(d); } }
   function fmtDT(v){ if(!v) return "—"; var s=(""+v).replace(" ","T"); var d=new Date(s); if(isNaN(d.getTime())) return esc(""+v); function p(n){return (n<10?"0":"")+n;} return p(d.getDate())+"/"+p(d.getMonth()+1)+"/"+d.getFullYear()+" "+p(d.getHours())+":"+p(d.getMinutes()); }
   function fmtVND(v){ if(v===undefined||v===null||v==="") return "—"; var n=Number(v); if(isNaN(n)) return String(v);
     var s=Math.abs(n).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,"."); return (n<0?"-":"")+s+" ₫"; }
@@ -277,7 +277,7 @@
     if(rj.message&&rj.message.message) return _strip(rj.message.message);
     var exc=rj.exception||e.exception||""; if(exc){ var p=String(exc).split(": "); return _strip(p.length>1?p.slice(1).join(": "):exc); }
     return ""; }
-  function mapErr(e){ var m=extractServerMsg(e);
+  function mapErr(e){ if(window.EcApprovalUI&&EcApprovalUI.isTechnical(e)) return EcApprovalUI.errorText(e); var m=extractServerMsg(e);
     if(/IntegrityError|pymysql|Duplicate entry|must be unique|OperationalError|ProgrammingError|Traceback|1062|1048/i.test(m)) return "Không thể thực hiện do dữ liệu không hợp lệ. Vui lòng kiểm tra lại hoặc liên hệ quản trị viên.";
     if(/pending approver|not a pending|không còn quyền/i.test(m)) return "Bạn không còn quyền thực hiện hành động này.";
     if(/no further action|is Approved|is Rejected|is Cancelled|vừa được cập nhật/i.test(m)) return "Yêu cầu vừa được cập nhật bởi người khác. Dữ liệu đã được làm mới.";
@@ -351,7 +351,7 @@
   function skeleton(n){ var s=""; for(var i=0;i<n;i++) s+='<div style="height:44px;border-bottom:1px solid var(--gray-100);background:var(--gray-50)"></div>'; return '<div class="card" style="padding:0;overflow:hidden">'+s+'</div>'; }
   function requesterOf(r){ return r.requester_name || (state.boot&&state.boot.context&&(state.boot.context.employee_name||state.boot.context.user)) || r.requested_by || "—"; }
   function titleOf(r){ return r.request_title || titlePreview(r) || "—"; }
-  function listHead(withAction){ return '<tr><th>Ngày request</th><th>Mã</th><th>Tiêu đề</th><th>Người request</th><th>Client</th><th>Brand</th><th>Giá trị</th><th>Trạng thái</th><th>Bước</th>'+(withAction?'<th></th>':'')+'</tr>'; }
+  function listHead(withAction){ return '<tr><th>Ngày request</th><th>Mã</th><th>Tiêu đề</th><th>Người request</th><th>Client</th><th>Brand</th><th>Giá trị</th><th>Trạng thái</th><th>Tiến độ</th>'+(withAction?'<th></th>':'')+'</tr>'; }
   function loadList(){ var host=$("svrf-list"); if(!host)return; host.innerHTML=skeleton(5);
     var f={ q:$("f-q")?$("f-q").value:"" }; state.listFilters=f;
     call("list_my_requests",{filters:JSON.stringify(f),start:state.page*state.PAGE,page_length:state.PAGE}).then(renderList).catch(function(){ host.innerHTML='<div class="card"><div class="state"><h4>Không tải được danh sách</h4><button type="button" class="btn" id="svrf-retry">Thử lại</button></div></div>'; var r=$("svrf-retry"); if(r)r.onclick=loadList; }); }
@@ -368,10 +368,10 @@
   }
   function stepLabel(r){ var L=Number(r.total_levels||0); var N=L?(L+2):0; var st=r.approval_status||"Draft";
     if(!N){ if(st==="Pending") return "Đang phê duyệt"; if(st==="Draft") return "Nháp"; if(st==="Rejected") return "Đã từ chối"; if(st==="Cancelled") return "Đã hủy"; if(st==="Information Required") return "Cần bổ sung"; return "—"; }
-    if(st==="Draft") return "Bước 1/"+N+" · Tạo yêu cầu";
+    if(st==="Draft") return "Nháp";
     if(st==="Rejected") return "Đã từ chối"; if(st==="Cancelled") return "Đã hủy"; if(st==="Information Required") return "Cần bổ sung";
-    if(st==="Approved") return "Bước "+N+"/"+N+" · Hoàn tất";
-    if(st==="Pending"&&r.current_level){ return "Bước "+(1+Number(r.current_level))+"/"+N+" · "+(r.current_level_name||("Cấp "+r.current_level)); }
+    if(st==="Approved") return "Hoàn tất";
+    if(st==="Pending"&&r.current_level){ return (window.EcApprovalUI?EcApprovalUI.levelText(r.current_level,r.current_level_name,L):("Cấp "+r.current_level+"/"+L+(r.current_level_name?(" · "+r.current_level_name):""))); }
     return "Đang phê duyệt"; }
   function badge(st){ var map={ "Draft":["b-gray","Nháp"],"Pending":["b-navy","Đang phê duyệt"],"Information Required":["b-amber","Cần bổ sung"],"Approved":["b-green","Đã duyệt"],"Rejected":["b-red","Bị từ chối"],"Cancelled":["b-gray","Đã hủy"] };
     var m=map[st]||["b-gray",st]; return '<span class="badge '+m[0]+'"><span class="dot"></span>'+esc(m[1])+'</span>'; }
@@ -396,7 +396,7 @@
   // ======================= DETAIL =======================
   function renderDetail(b){ b.innerHTML=skeleton(4);
     call("get_detail",{name:state.id}).then(function(det){ drawDetail(b,det); })
-    .catch(function(e){ var perm=/quyền|access|permission/i.test((e&&e.message)||""); b.innerHTML='<div class="card"><div class="state"><h4>'+(perm?"Bạn không có quyền xem yêu cầu này":"Không tải được yêu cầu")+'</h4><button type="button" class="btn" id="d-back">Quay lại</button></div></div>'; var bk=$("d-back"); if(bk)bk.onclick=function(){ window.location.href=hubHref(); }; }); }
+    .catch(function(e){ var perm=/quyền|access|permission/i.test(((e&&e.message)||"")+" "+(window.EcApprovalUI?EcApprovalUI.serverMessage(e)+" "+((e&&(e.exc_type||(e.responseJSON&&e.responseJSON.exc_type)))||""):"")); b.innerHTML='<div class="card"><div class="state"><h4>'+(perm?"Bạn không có quyền xem yêu cầu này":"Không tải được yêu cầu")+'</h4>'+(perm||!window.EcApprovalUI?'':'<div class="hint">'+esc(EcApprovalUI.errorText(e,"Vui lòng thử lại sau ít phút."))+'</div>')+'<button type="button" class="btn" id="d-back">Quay lại</button></div></div>'; var bk=$("d-back"); if(bk)bk.onclick=function(){ window.location.href=hubHref(); }; }); }
   function kv(k,v){ return '<div class="fld"><label>'+esc(k)+'</label><input class="ro" readonly value="'+esc(v==null||v===""?"—":v)+'"></div>'; }
   function drawDetail(b,det){ state.detail=det; var biz=det.business||{}, ap=det.approval||{};
     b.innerHTML='<div style="margin-bottom:12px"><button type="button" class="btn" id="d-back">‹ Danh sách</button></div>'
@@ -420,7 +420,7 @@
   // ---- stepper ----
   function buildDraftStepper(det){ var prev=det.process_preview||[];
     var steps=[{name:"Tạo yêu cầu",state:"current",statusLabel:"Đang thực hiện",meta:""}];
-    if(prev.length){ prev.forEach(function(l){ steps.push({name:l.level_name||("Cấp "+l.level_no),state:"upcoming",statusLabel:"Chờ",meta:""}); }); }
+    if(prev.length){ prev.forEach(function(l){ steps.push({level:l.level_no,name:l.level_name||("Cấp "+l.level_no),state:"upcoming",statusLabel:"Chờ",meta:""}); }); }
     else { steps.push({name:"Referral Review",state:"upcoming",statusLabel:"Chờ",meta:"Any One: Linh / Vinh"}); }
     steps.push({name:"Hoàn tất",state:"upcoming",statusLabel:"Chờ",meta:""});
     return renderStepsHTML(steps); }
@@ -434,16 +434,16 @@
       else if(l.level_status==="Information Requested"||(ap.approval_status==="Information Required"&&ap.current_level===l.level_no)){ st="info"; meta="Cần bổ sung thông tin"; }
       else if(l.level_status==="Skipped"){ st="skipped"; var skw=rows.map(function(r){return esc(r.approver);}); meta=skw.join(", "); }
       else if(l.level_status==="In Progress"||ap.current_level===l.level_no){ st="current"; var elig=rows.filter(function(r){return r.status==="Pending";}).map(function(r){return esc(r.approver);}); meta=(elig.length?(l.approval_mode==="Any One"?("Any One: "+elig.join(" / ")):elig.join(", ")):"Đang chờ"); }
-      steps.push({name:l.level_name||("Cấp "+l.level_no),state:st,meta:meta}); });
+      steps.push({level:l.level_no,name:l.level_name||("Cấp "+l.level_no),state:st,meta:meta}); });
     steps.push({name:"Hoàn tất",state:(ap.approval_status==="Approved"?"done":"upcoming"),meta:""});
     return renderStepsHTML(steps); }
   var _STEP_LBL={done:"Hoàn thành",current:"Đang xử lý",upcoming:"Chờ",rejected:"Từ chối",info:"Cần bổ sung",skipped:"Bỏ qua"};
   function stColor(s){ return {done:"var(--green)",current:"var(--navy)",rejected:"var(--red)",info:"var(--amber)",skipped:"var(--gray-400)",upcoming:"var(--gray-400)"}[s]||"var(--gray-400)"; }
-  function renderStepsHTML(steps){ var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
+  function renderStepsHTML(steps){ if(window.EcApprovalUI) return EcApprovalUI.stepsHTML(steps); var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
     var inner=steps.map(function(s,i){ return '<div class="step '+s.state+'"><div class="step-top"><div class="step-dot">'+(s.state==="done"?"✓":(s.state==="rejected"?"✕":(i+1)))+'</div><div class="step-name">'+esc(s.name)+'</div><div class="step-state" style="color:'+stColor(s.state)+'">'+esc(s.statusLabel||_STEP_LBL[s.state]||s.state)+'</div></div><div class="step-meta">'+(s.meta||"")+'</div></div>'; }).join("");
     return '<div class="stepline" style="--n:'+n+';--k:'+k+'">'+inner+'</div>'; }
 
-  function timelineHTML(items){ if(!items||!items.length) return '<div class="hint">Chưa có hoạt động.</div>';
+  function timelineHTML(items){ if(window.EcApprovalUI) return EcApprovalUI.timelineHTML(items); if(!items||!items.length) return '<div class="hint">Chưa có hoạt động.</div>';
     var LBL={Submitted:"Đã gửi",Approved:"Đã duyệt","Information Requested":"Yêu cầu bổ sung",Rejected:"Từ chối",Resubmitted:"Gửi lại",Restarted:"Duyệt lại từ đầu",Skipped:"Bỏ qua",Cancelled:"Đã hủy",Commented:"Ghi chú"};
     return items.map(function(a){ return '<div class="tl-item"><div class="tl-dot"></div><div><div class="tl-act">'+esc(LBL[a.action]||a.action)+(a.level_no?(' · Cấp '+a.level_no):'')+'</div><div class="tl-meta">'+esc(a.actor||"")+' · '+esc(fmt(a.action_time))+(a.previous_status&&a.new_status&&a.previous_status!==a.new_status?(' · '+esc(a.previous_status)+" → "+esc(a.new_status)):'')+'</div>'+(a.comment?('<div class="tl-cmt">'+esc(a.comment)+'</div>'):'')+'</div></div>'; }).join(""); }
 

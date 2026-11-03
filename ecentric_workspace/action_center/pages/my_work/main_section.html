@@ -40,6 +40,10 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
   transition:background .14s ease, color .14s ease;
 }
 .ecw .mw-switch button.on{background:var(--navy); color:#fff}
+/* Vung cham >= 44px ma khong doi hinh nut: mo rong vung bam bang lop gia. */
+.ecw .mw-switch button, .ecw .mw-nbar button{position:relative}
+.ecw .mw-switch button::after{content:""; position:absolute; inset:-7px -2px}
+.ecw .mw-nbar button::after{content:""; position:absolute; inset:-12px -8px}
 .ecw .mw-switch button:focus-visible{outline:2px solid var(--navy); outline-offset:2px}
 .ecw .mw-switch b{font-variant-numeric:tabular-nums; font-weight:700; font-size:12px; opacity:.72}
 .ecw .mw-dot{width:6px; height:6px; border-radius:50%; background:#D7263D; display:inline-block}
@@ -83,6 +87,9 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
 .ecw .ec-shell-rm-ic{width:36px; height:36px; border-radius:11px}
 .ecw .ec-shell-rm-ic svg{width:19px; height:19px}
 .ecw .ec-shell-rm-title{font-size:14px}
+/* Tieu de dai (390px): 2 dong roi moi cat, thay vi 1 dong "..." mat noi dung (UX 03/11/2026). */
+.ecw .ec-shell-rm-title{white-space:normal; display:-webkit-box; -webkit-line-clamp:2;
+  -webkit-box-orient:vertical; overflow-wrap:anywhere}
 .ecw .ec-shell-rm-meta{font-size:11.5px}
 .ecw .ec-shell-rm-due{font-size:12px; font-weight:600; color:var(--ink-3)}
 .ecw a.ec-shell-rm-item.ec-shell-rm-od .ec-shell-rm-due{color:var(--red)}
@@ -95,11 +102,13 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
 .ecw a.ec-shell-nc-item .ec-shell-nc-dot{margin-top:6px; width:7px; height:7px}
 .ecw .ec-shell-nc-title{font-size:13.5px; white-space:normal}
 .ecw .ec-shell-nc-when{font-size:11.5px}
+.ecw .ec-shell-nc-src{font-weight:650; color:var(--ink-2)}
 
 .ecw .mw-more{
   display:block; width:100%; margin-top:2px; padding:11px; text-align:center;
   border:1px dashed var(--line); border-radius:12px; background:transparent;
   font:inherit; font-size:13.5px; font-weight:650; color:var(--navy); cursor:pointer;
+  min-height:44px;
 }
 .ecw .mw-more:hover{background:var(--card); border-style:solid}
 .ecw .mw-more[disabled]{color:var(--ink-3); cursor:default}
@@ -119,6 +128,7 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
 .ecw .err button{
   margin-top:10px; border:0; background:var(--navy); color:#fff; font:inherit;
   font-size:13.5px; font-weight:650; padding:9px 17px; border-radius:9px; cursor:pointer;
+  min-height:44px;
 }
 .ecw .sk{display:flex; flex-direction:column; gap:8px}
 .ecw .sk div{
@@ -253,10 +263,57 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
   }
 
   /* Han hien theo NGAY. Server tra "" khi khong co han -> hien dung "Khong han"
-     thay vi bia ra mot ngay. */
-  function dueText(due) {
+     thay vi bia ra mot ngay. UX 03/11/2026: ngay gan thi noi bang chu ("Hôm nay",
+     "Ngày mai", "Quá 3 ngày") - nguoi doc khong phai tu tinh ngay. Gio site = gio VN. */
+  function dayDiff(raw, now) {
+    var m = String(raw || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return null;
+    var d = new Date(+m[1], +m[2] - 1, +m[3]);
+    var t = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return Math.round((d - t) / 86400000);
+  }
+  function dueText(due, now) {
     var raw = String(due || "");
-    return raw ? (raw.slice(8, 10) + "/" + raw.slice(5, 7)) : "Không hạn";
+    if (!raw) return "Không hạn";
+    var n = dayDiff(raw, now || new Date());
+    if (n === 0) return "Hôm nay";
+    if (n === 1) return "Ngày mai";
+    if (n !== null && n < 0) return "Quá " + (-n) + " ngày";
+    return raw.slice(8, 10) + "/" + raw.slice(5, 7);
+  }
+
+  /* Thong bao: tieu de server co the chua HTML (<b>Ten</b> ...) -> chu tron, khong hien the
+     tho. created_at la gio SITE (Asia/Ho_Chi_Minh, khong co gio mua he) -> doi ra "x phut truoc". */
+  var SITE_UTC_OFFSET = "+07:00";
+  function plainText(s) {
+    var str = String(s == null ? "" : s);
+    try {
+      var doc = new DOMParser().parseFromString(str, "text/html");
+      str = (doc && doc.body) ? doc.body.textContent : str.replace(/<[^>]*>/g, " ");
+    } catch (e) { str = str.replace(/<[^>]*>/g, " "); }
+    return str.replace(/\s+/g, " ").trim();
+  }
+  function agoText(s, now) {
+    var m = String(s || "").match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(?::\d{2})?)/);
+    if (!m) return "";
+    var t = new Date(m[1] + "T" + (m[2].length === 5 ? m[2] + ":00" : m[2]) + SITE_UTC_OFFSET);
+    if (isNaN(t)) return "";
+    var d = ((now || new Date()).getTime() - t.getTime()) / 1000;
+    if (d < 60) return "Vừa xong";
+    if (d < 3600) return Math.floor(d / 60) + " phút trước";
+    if (d < 86400) return Math.floor(d / 3600) + " giờ trước";
+    if (d < 7 * 86400) return Math.floor(d / 86400) + " ngày trước";
+    return m[1].slice(8, 10) + "/" + m[1].slice(5, 7) + "/" + m[1].slice(0, 4);
+  }
+
+  /* Loi tai danh sach: KHONG hien "HTTP 500" / "Failed to fetch". Mat mang -> noi ro, va tu
+     tai lai khi co mang (listener "online" o cuoi). */
+  function loadErrText(what, e) {
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      return "Bạn đang mất mạng nên chưa tải được " + what + ". Trang sẽ tự tải lại khi có mạng.";
+    }
+    if (e && e.offline) return "Không kết nối được máy chủ nên chưa tải được " + what + ". Kiểm tra mạng rồi thử lại.";
+    return "Chưa tải được " + what + " - hệ thống đang bận. Thử lại sau ít phút.";
   }
 
   function rowHtml(it) {
@@ -272,18 +329,23 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
       + '<span class="ec-shell-rm-title">' + esc(it.title || it.reference_name || "Việc cần làm") + "</span>"
       + (meta ? '<span class="ec-shell-rm-meta">' + esc(meta) + "</span>" : "")
       + "</span>"
-      + '<span class="ec-shell-rm-due">' + esc(dueText(it.due_at)) + "</span>"
+      + '<span class="ec-shell-rm-due">' + esc(dueText(it.due_at, NOW)) + "</span>"
       + '<span class="ec-shell-rm-chevr" aria-hidden="true">›</span></a>';
   }
 
+  // Truoc 03/11 doc it.age / it.creation_display - API get_notifications KHONG tra hai khoa
+  // do (chi co created_at) -> dong thoi gian luon trong. Tieu de HTML -> chu tron.
   function notiHtml(it) {
-    var when = esc(it.age || it.creation_display || "");
+    var src = plainText(it.source_label || "");
+    var when = [src, agoText(it.created_at, NOW)].filter(Boolean).join(" · ");
+    var title = plainText(it.title || it.subject || "") || "Thông báo";
     return '<a class="ec-shell-nc-item' + (it.is_read ? "" : " ec-shell-nc-unread")
-      + '" href="' + esc(it.action_url || "#") + '">'
+      + '" href="' + esc(/^\/(?!\/)/.test(String(it.action_url || "")) ? it.action_url : "#") + '"'
+      + (it.name ? ' data-nc="' + esc(it.name) + '"' : "") + ">"
       + '<span class="ec-shell-nc-dot" aria-hidden="true"></span>'
       + '<span class="ec-shell-nc-txt">'
-      + '<span class="ec-shell-nc-title">' + esc(it.title || it.subject || "") + "</span>"
-      + (when ? '<span class="ec-shell-nc-when">' + when + "</span>" : "")
+      + '<span class="ec-shell-nc-title">' + esc(title) + "</span>"
+      + (when ? '<span class="ec-shell-nc-when">' + esc(when) + "</span>" : "")
       + "</span></a>";
   }
 
@@ -355,7 +417,9 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
       + '<div class="mw-list">' + N.items.map(notiHtml).join("") + "</div></section>";
   }
 
+  var NOW = new Date();
   function paint() {
+    NOW = new Date();
     el("mw-body").innerHTML = (view === "work") ? renderWork() : renderNoti();
     var wn = el("mw-n-work");
     wn.textContent = W.loaded ? String(W.total) : "";
@@ -381,8 +445,10 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
     if (next === "noti" && !N.loaded && !N.loading) loadNoti();
   }
 
-  async function loadWork(more) {
-    if (W.loading) return;
+  async function loadWork(more, syncBadge) {
+    // Dang tai ma vua co quyet dinh moi -> lan tai dang bay co the da cu: xep MOT lan tai lai
+    // sau khi xong (khong bo qua nhu truoc, khong ban song song).
+    if (W.loading) { if (syncBadge) W.again = true; return; }
     W.loading = true; W.error = "";
     var btn = el("mw-more");
     if (btn) { btn.disabled = true; btn.textContent = "Đang tải…"; }
@@ -397,24 +463,27 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
       if (!res.ok) throw new Error("HTTP " + res.status);
       var data = (await res.json()).message || {};
       if (!data.success) throw new Error(data.error || "Không tải được danh sách.");
+      if (!more && syncBadge) syncHeaderBadge(data.attention_count);
       W.items  = more ? W.items.concat(data.items || []) : (data.items || []);
       W.counts = data.counts || {};
       W.total  = typeof data.total === "number" ? data.total : W.items.length;
       W.cursor = data.next_cursor || null;
       W.loaded = true;
     } catch (e) {
+      if (e && e.name === "TypeError") e.offline = true;   // fetch tu choi = khong toi duoc may chu
       if (more) {
         var b = el("mw-more");
         if (b) { b.disabled = false; b.textContent = "Tải thêm — thử lại"; }
         W.loading = false;
         return;
       }
-      W.error = "Không tải được danh sách việc. " + (e && e.message ? e.message : "");
+      W.error = loadErrText("danh sách việc", e);
       W.loaded = true;
     } finally {
       W.loading = false;
     }
-    if (view === "work") paint(); else paint();
+    paint();
+    if (W.again) { W.again = false; loadWork(false, true); }
   }
 
   async function loadNoti() {
@@ -429,7 +498,8 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
       N.items = m.items || [];
       N.unread = m.unread || 0;
     } catch (e) {
-      N.error = "Không tải được thông báo. " + (e && e.message ? e.message : "");
+      if (e && e.name === "TypeError") e.offline = true;
+      N.error = loadErrText("thông báo", e);
     } finally {
       N.loading = false;
       N.loaded = true;
@@ -441,22 +511,76 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
     var btn = el("mw-readall");
     if (btn) { btn.disabled = true; btn.textContent = "Đang xử lý…"; }
     try {
-      await fetch(NC + "mark_all_read", {
+      // Truoc 03/11: khong xem ket qua -> server loi (403/500/CSRF) van danh dau "da doc"
+      // tren man hinh, tai lai trang thi chua doc tro lai.
+      var res = await fetch(NC + "mark_all_read", {
         method: "POST", credentials: "same-origin",
         headers: { Accept: "application/json",
                    "X-Frappe-CSRF-Token": (window.frappe && window.frappe.csrf_token) || "" }
       });
+      var m = res.ok ? ((await res.json()).message || {}) : {};
+      if (!m.success) throw new Error("mark_all_read");
       N.items = N.items.map(function (it) { it.is_read = 1; return it; });
       N.unread = 0;
+      notifChanged();
     } catch (e) {
-      if (btn) { btn.disabled = false; btn.textContent = "Đọc hết — thử lại"; return; }
+      if (btn) { btn.disabled = false; btn.textContent = "Đọc hết — thử lại"; }
+      return;
     }
     paint();
   }
 
+  /* Bam mot thong bao chua doc -> danh dau da doc (giong chuong o header). keepalive: trang
+     dang chuyen sang action_url van gui xong. Khong chan dieu huong. */
+  function markRead(name) {
+    var it = null;
+    for (var i = 0; i < N.items.length; i++) if (N.items[i].name === name) it = N.items[i];
+    if (!it || it.is_read) return;
+    it.is_read = 1;
+    if (N.unread > 0) N.unread -= 1;
+    try {
+      fetch(NC + "mark_read", {
+        method: "POST", credentials: "same-origin", keepalive: true,
+        headers: { Accept: "application/json", "Content-Type": "application/json",
+                   "X-Frappe-CSRF-Token": (window.frappe && window.frappe.csrf_token) || "" },
+        body: JSON.stringify({ notification_name: name })
+      }).then(notifChanged, function () { /* lan sau tai lai se dung */ });
+    } catch (e) { /* trinh duyet cu */ }
+  }
+
+  // Chuong thong bao (notification_center.js) nghe su kien nay de lay lai so chua doc.
+  function notifChanged() {
+    try { document.dispatchEvent(new CustomEvent("ec:notif-changed")); } catch (e) { /* cu */ }
+  }
+
+  /* Huy hieu "Viec cua toi" o header + thanh tab duoi: so = attention_count server tinh
+   * (get_action_items va get_reminder_summary dung CHUNG action_center.api.attention_count).
+   * TEMP-WORKAROUND (03/11/2026, ux2 - ec_shell.js chua co cua "lam moi huy hieu" ma luat
+   * cam sua ec_shell.js tu nhanh module): trang ghi thang vao node mang hop dong
+   * [data-ec-shell-reminder-badge="1"], dung luat hien thi cua shell (0 -> an, >9 -> "9+").
+   * Rui ro: shell doi luat hien thi ma quen sua o day -> hai cach hien lech nhau.
+   * Sua goc: ec_shell nghe su kien "ec:action-feed-changed" (da phat ben duoi) va tu ve lai
+   * huy hieu; luc do xoa ham nay. */
+  function syncHeaderBadge(n) {
+    if (typeof n !== "number") return;
+    try { document.dispatchEvent(new CustomEvent("ec:action-feed-changed", { detail: { attention_count: n } })); } catch (e) { /* cu */ }
+    var nodes = document.querySelectorAll('[data-ec-shell-reminder-badge="1"]');
+    for (var i = 0; i < nodes.length; i++) {
+      if (n <= 0) { nodes[i].hidden = true; nodes[i].textContent = ""; }
+      else { nodes[i].textContent = n > 9 ? "9+" : String(n); nodes[i].hidden = false; }
+    }
+  }
+
   // Vua duyet / tu choi o "Cho toi duyet" -> so viec doi: tai lai lan Viec (cung nguon voi
   // badge "Viec cua toi" o header).
-  document.addEventListener("ec:cho-duyet-doi", function () { loadWork(false); });
+  // UX 03/11/2026: cung luc dong bo huy hieu header (truoc day van hien so cu toi khi tai lai trang).
+  document.addEventListener("ec:cho-duyet-doi", function () { loadWork(false, true); });
+
+  // Mat mang roi co lai -> tu tai lai phan dang loi.
+  window.addEventListener("online", function () {
+    if (W.error) loadWork(false);
+    if (N.error) { N.loaded = false; loadNoti(); }
+  });
 
   document.addEventListener("click", function (ev) {
     if (!ev.target.closest) return;
@@ -464,6 +588,12 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
     if (sw) { setView(sw.dataset.view); return; }
     if (ev.target.closest("#mw-more")) { loadWork(true); return; }
     if (ev.target.closest("#mw-readall")) { readAll(); return; }
+    var nc = ev.target.closest("a.ec-shell-nc-item[data-nc]");
+    if (nc) {
+      markRead(nc.getAttribute("data-nc"));
+      if (nc.getAttribute("href") === "#") { ev.preventDefault(); paint(); }
+      return;
+    }
     var rt = ev.target.closest(".mw-retry");
     if (rt) { if (rt.dataset.retry === "noti") { N.loaded = false; loadNoti(); } else { loadWork(false); } }
   });

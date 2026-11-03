@@ -165,6 +165,8 @@ def deliver(delivery_log):
         return
     if doc.get("status") == "Sent":
         return
+    if bo_qua_nguoi_da_khoa(doc, "teams"):
+        return
 
     cfg = get_config()
     botcfg = teams_bot.bot_config()
@@ -224,6 +226,13 @@ def deliver(delivery_log):
     if outcome == "skip" and code == "NOT_INSTALLED" and _tung_nhan_teams(doc.get("recipient"), doc.name):
         outcome, err = "retry", "NOT_INSTALLED nhung nguoi nhan da tung nhan tin Teams - thu lai"
 
+    # 2c) Copilot 300 = nguoi nhan DANG chat voi agent nen flow bo qua tin chu dong (03/11/2026).
+    #     Day la trang thai TAM THOI theo dinh nghia - vai phut sau ho roi cuoc chat. Truoc day
+    #     coi la Skipped vinh vien: thong bao "Can duyet" mat han chi vi nguoi do vua hoi agent
+    #     mot cau. Thu lai theo _RETRY_BACKOFF_MIN (1/5/30 phut), toi da MAX_ATTEMPTS.
+    if outcome == "skip" and code == "SKIPPED_ACTIVE_CONVERSATION":
+        outcome, err = "retry", "Nguoi nhan dang chat voi agent - thu lai sau"
+
     # 3) not sent -> Skipped (bot not installed / blocked) or Failed+retry (transient)
     if outcome == "skip":
         doc.provider = provider or "teams_bot"
@@ -234,6 +243,25 @@ def deliver(delivery_log):
     else:
         _mark_retry_or_fail(doc, provider, code, err)
     doc.save(ignore_permissions=True)
+
+
+def bo_qua_nguoi_da_khoa(doc, provider):
+    """Nguoi nhan da bi khoa tai khoan (nghi viec) -> Skipped USER_DISABLED, khong ban.
+    Dung chung cho teams + webpush (webpush import ham nay). Xem
+    events.nguoi_nhan_con_hoat_dong. Tra True neu da ghi Skipped."""
+    try:
+        from ecentric_workspace.notification_center import events as _ev
+        if _ev.nguoi_nhan_con_hoat_dong(doc.get("recipient")):
+            return False
+    except Exception:
+        return False
+    doc.provider = provider
+    doc.status = "Skipped"
+    doc.next_retry_at = None
+    doc.error_code = "USER_DISABLED"
+    doc.error_message = "Tai khoan nguoi nhan da bi khoa - khong ban tin ra ngoai app."
+    doc.save(ignore_permissions=True)
+    return True
 
 
 def _tung_nhan_teams(recipient, exclude=None):
