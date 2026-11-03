@@ -67,8 +67,16 @@ def _frappe(roles, store=None, log=None):
     def set_value(dt, name, f, v=None, update_modified=True):
         st[dt][name].update(f if isinstance(f, dict) else {f: v})
 
+    def get_value(dt, name, fieldname=None, as_dict=False, **k):
+        # 03/11/2026: engine doc lai dong nguoi duyet THEO TEN bang locking read
+        # (transitions._locked_rows); cac truy van khac cua bo test nay van tra None nhu cu.
+        row = st.get(dt, {}).get(name) if isinstance(name, str) else None
+        if row is None or not isinstance(fieldname, (list, tuple)):
+            return None
+        return Obj({f: row.get(f) for f in fieldname})
+
     fr.get_all = get_all
-    fr.db = types.SimpleNamespace(set_value=set_value, get_value=lambda *a, **k: None,
+    fr.db = types.SimpleNamespace(set_value=set_value, get_value=get_value,
                                   exists=lambda *a, **k: None, commit=lambda: None,
                                   rollback=lambda: None)
     return fr

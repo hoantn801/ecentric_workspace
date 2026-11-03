@@ -3,7 +3,26 @@ import frappe
 
 from ecentric_workspace.approval_center.shared.workflow import transitions
 from ecentric_workspace.approval_center.shared.workflow.permissions import is_eligible_fulfiller
+from ecentric_workspace.approval_center.shared.workflow.permissions import (
+    is_eligible_fulfiller_without_todo)
 from ecentric_workspace.approval_center.shared.workflow.permissions import is_system_manager
+
+
+def queue_scope(approval_type, business_doctype, user):
+    """Pham vi hang doi xu ly cua `user` (03/11/2026). None = CA hang doi; list = CHI nhung
+    phieu nay (co the rong).
+
+    Ca hang doi chi danh cho System Manager va Fulfiller DUOC CAU HINH tren quy trinh Active
+    (is_eligible_fulfiller_without_todo). Nguoi khac chi thay phieu ho DANG GIU ToDo mo -
+    vi ToDo DUYET cung nam tren chinh DocType nghiep vu: gac bang "co mot ToDo bat ky tren
+    loai nay" (is_eligible_fulfiller khong ten phieu) thi mot truong phong dang co mot phieu
+    cho duyet doc duoc toan bo hang doi Finance (nguoi thu huong, so tien). Dung lop loi da
+    siet o can_view_request (01/09) va reporting.queries (16/09)."""
+    if is_eligible_fulfiller_without_todo(user, approval_type):
+        return None
+    return sorted(set(frappe.get_all(
+        "ToDo", filters={"reference_type": business_doctype, "allocated_to": user,
+                         "status": "Open"}, pluck="reference_name") or []))
 
 
 def list_queue(definition, section, fields, order_by):
@@ -18,6 +37,11 @@ def list_queue(definition, section, fields, order_by):
                    "fulfillment_status": ["in", ["Assigned", "In Progress"]]}
     else:
         filters = {"fulfillment_status": "In Progress", "fulfillment_owner": ["!=", user]}
+    held = queue_scope(definition.code, definition.business_doctype, user)
+    if held is not None and section != "mine":      # "cua toi" da tu gioi han theo chu viec
+        if not held:
+            return {"rows": []}
+        filters["name"] = ["in", held]
     return {"rows": frappe.get_all(
         definition.business_doctype, filters=filters, fields=list(fields),
         order_by=order_by, limit_page_length=200)}

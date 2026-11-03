@@ -617,7 +617,14 @@ class SucKhoeVaCheDoNhanh(unittest.TestCase):
     def test_song_song_hong_ca_thi_thu_grok_voi_tran_rieng(self):
         e = Env(settings=self.FAST)
         e.replies["oai"] = (200, KIE_500)
-        e.replies["grok"] = (200, gpt_body("GROK"))
+
+        def grok():
+            # Cho hai luong OpenAI goi xong truoc: khong co nhip nay Grok thang khi mot luong
+            # OpenAI chua kip goi -> len(calls) == 2 (test chap chon ~5/30 lan tren ma cu).
+            import time as _t
+            _t.sleep(0.05)
+            return (200, gpt_body("GROK"))
+        e.replies["grok"] = grok
         r = e.gw.generate("chao", fast=True, attempt_timeout=10, budget=60, opts={"effort": "none"})
         self.assertEqual((r["ok"], r["text"], r["model"]), (True, "GROK", "grok-4-7"))
         grok = [c for c in e.calls if "/grok/" in c["url"]][0]
@@ -686,6 +693,165 @@ class GhiSoLieuDung(unittest.TestCase):
         text, usage, finish, err = d.parse("gemini-3-8-flash-openai", 200, body)
         self.assertEqual(usage["credits_consumed"], 0.05)
         self.assertEqual(usage["prompt_tokens"], 530)
+
+
+
+class QaCongAi(unittest.TestCase):
+    """QA dem 03/11 (qa-cong-ai): cac loi tim thay o cong AI chung - moi test DO tren ma cu."""
+
+    def _usage_row(self, out):
+        u = Env().mod["usage"]
+        return u.build_row("t", out, "a@ecentric.vn", price_table={"grok-4-7": (160.0, 480.0)})
+
+    def test_luot_thu_hong_van_bi_tinh_tien_thi_phai_dem(self):
+        # Gemini tra JSON cut (da ton 42 token) roi GPT tra dung (7 token): Kie tinh tien CA HAI.
+        e = Env()
+        got = []
+        e.mod["usage"].record = lambda purpose, out, images=0: got.append(out)
+        e.replies["gemini"] = (200, sse('{"diem": 7, "ly_do": "'))
+        e.replies["gpt"] = (200, gpt_body('{"diem": 6}'))
+        r = e.gw.generate("cham", schema=SCHEMA)
+        self.assertTrue(r["ok"])
+        self.assertEqual(r["usage"], {"total_tokens": 7}, "usage cua cau tra loi giu nguyen")
+        row = self._usage_row(got[0])
+        self.assertEqual(row["total_tokens"], 49, "42 token cua lan thu hong cung da bi tinh tien")
+        self.assertEqual(row["cost_source"], "", "co lan thu khong biet gia -> 'chua du gia', khong doan")
+
+    def test_nguon_chi_phi_gop_tung_lan_thu(self):
+        # Review 03/11: mot lan Kie bao + mot lan khong biet gia -> '' (trang bao "chua du gia").
+        bc = Env().mod["usage"].billed_cost
+        kie = {"model": "gemini-3-8-flash-openai", "usage": {"total_tokens": 5, "credits_consumed": 0.1}}
+        la = {"model": "model-la", "usage": {"total_tokens": 9}}
+        uoc = {"model": "grok-4-7", "usage": {"input_tokens": 1000, "output_tokens": 0}}
+        gia = {"grok-4-7": (160.0, 480.0)}
+        self.assertEqual(bc([kie, la], gia)[4], "")
+        self.assertEqual(bc([kie, uoc], gia)[4], "estimate")
+        self.assertEqual(bc([kie], gia)[4], "kie")
+        self.assertEqual(bc([], gia)[4], "")
+
+    def test_ca_chuoi_hong_noi_dung_thi_chi_phi_khong_phai_0(self):
+        e = Env(settings={"ec_llm_model_kie": "gemini-3-8-flash-openai",
+                          "ec_llm_model_kie_fallback": "grok-4-7"})
+        got = []
+        e.mod["usage"].record = lambda purpose, out, images=0: got.append(out)
+        e.replies["oai"] = (200, chat_body('{"khac": 1}'))     # credits_consumed 0.05
+        e.replies["grok"] = (200, json.dumps({"output": [{"type": "message", "content": [
+            {"type": "output_text", "text": "khong phai json"}]}],
+            "usage": {"input_tokens": 1000, "output_tokens": 1000}}))
+        r = e.gw.generate("cham", schema=SCHEMA)
+        self.assertFalse(r["ok"])
+        row = self._usage_row(got[0])
+        self.assertEqual(row["total_tokens"], 551 + 2000)
+        self.assertAlmostEqual(row["credits"], 0.05 + 0.64, places=4)
+        self.assertEqual(row["cost_source"], "estimate")
+
+    def test_dot_song_song_lan_thua_da_xong_cung_tinh_tien(self):
+        import time as _t
+        e = Env(settings=SucKhoeVaCheDoNhanh.FAST)
+        got = []
+        e.mod["usage"].record = lambda purpose, out, images=0: got.append(out)
+
+        def cham_dung():
+            _t.sleep(0.3)
+            return (200, chat_body('{"diem": 1}'))
+        e.replies["gemini-3-8-flash-openai"] = (200, chat_body("khong json"))   # xong truoc, hong
+        e.replies["gemini-3-6-flash-openai"] = cham_dung
+        e.replies["grok"] = (200, KIE_500)
+        r = e.gw.generate("cham", schema=SCHEMA, fast=True, attempt_timeout=5)
+        self.assertEqual((r["ok"], r["model"]), (True, "gemini-3-6-flash-openai"))
+        self.assertIn("JSON", r["attempts"][0]["error"])
+        row = self._usage_row(got[0])
+        self.assertAlmostEqual(row["credits"], 0.1, places=4, msg="0.05 lan hong + 0.05 lan thang")
+        self.assertEqual(row["cost_source"], "kie")
+
+    def test_ping_khong_tinh_loi_noi_dung_vao_suc_khoe(self):
+        # Cau ping tran 16 token: model co suy nghi tra RONG (finish=MAX_TOKENS) du van song.
+        # Gateway chi tinh loi SAP vao suc khoe; ping phai cung luat, neu khong 6 lan ping/gio
+        # keo ti le xuong 0% va gateway bo qua mot model dang song.
+        e = Env(settings=SucKhoeVaCheDoNhanh.FAST)
+        e.replies["gemini"] = (200, sse("", finish="MAX_TOKENS"))
+        e.replies["oai"] = (200, chat_body("ok"))
+        e.replies["grok"] = (200, KIE_500)
+        out = e.mod["health"].ping_models()
+        self.assertIn("rong", out["gemini-3-8-flash"])
+        self.assertEqual(e.gw.health._get("gemini-3-8-flash"), [], "song nhung tra rong: khong tinh hong")
+        self.assertEqual([x[1] for x in e.gw.health._get("grok-4-7")], [0], "sap that van tinh")
+        self.assertEqual([x[1] for x in e.gw.health._get("gemini-3-8-flash-openai")], [1])
+
+    def test_ping_khong_tra_khoa_ra_ngoai(self):
+        e = Env()
+        e.replies["gemini"] = (401, json.dumps({"code": 401, "msg": "Invalid key " + KHOA}))
+        e.replies["gpt"] = (200, json.dumps({"code": 401, "msg": "Invalid key " + KHOA}))
+        out = e.mod["health"].ping_models()
+        self.assertNotIn(KHOA, json.dumps(out))
+        self.assertNotIn(KHOA[:20], json.dumps(out))
+
+    def test_khoa_bi_escape_hoac_mot_nua_khoa_van_bi_che(self):
+        # requests nem InvalidHeader voi repr(gia tri header) -> "\n" thanh "\\n", replace
+        # nguyen khoa khong khop (do bang requests 2.34 ngay 03/11).
+        key = "kie-KHOA-BI\nMAT-0123456789abcdef"
+        e = Env(settings={"ec_kie_api_key": key})
+        e.replies["gemini"] = ValueError("Invalid ... header value: %r" % ("Bearer " + key))
+        e.replies["gpt"] = (200, json.dumps({"code": 401, "msg": "bad key ..." + key[-17:]}))
+        r = e.gw.generate("x")
+        dump = json.dumps([r, e.logs], ensure_ascii=False)
+        self.assertNotIn("0123456789abcdef", dump, "ca khoa escape lan mot nua khoa")
+        self.assertIn("bad key ...***", r["attempts"][1]["error"])
+        cfg = e.mod["config"]
+        loi = "header value: %r" % ("Bearer " + key)
+        self.assertNotIn("0123456789abcdef", cfg.scrub_key(loi, key, min_fragment=10 ** 6),
+                         "dang escape tu no cung phai bi che, khong nho vao che tung doan")
+        self.assertNotIn("MAT-01", cfg.scrub_key(json.dumps({"k": key}), key, min_fragment=10 ** 6))
+        self.assertEqual(e.mod["config"].scrub_key("abc", ""), "abc")
+        self.assertEqual(e.mod["config"].scrub_key("ma 0123456789abcdef1", "zz"), "ma 0123456789abcdef1",
+                         "khong che bua khi khong trung khoa")
+
+    def test_tham_so_hong_khong_lam_cong_nem_loi(self):
+        # livestream.py chuyen thang max_tokens / thinking tu than request cua trang vao opts.
+        # Ma cu: ValueError thoat khoi generate() (ca o dot song song, qua f.result()).
+        for fast in (False, True):
+            e = Env(settings=SucKhoeVaCheDoNhanh.FAST if fast else None)
+            import time as _t
+
+            def tre():
+                _t.sleep(0.1)       # de luong Gemini (hong ngay) xong truoc trong dot song song
+                return (200, gpt_body("ok"))
+            e.replies["gpt"] = e.replies["grok"] = tre       # ho Responses bo qua max_tokens
+            r = e.gw.generate("x", opts={"max_tokens": "abc"}, fast=fast)
+            gem = [a for a in r["attempts"] if a["model"].startswith("gemini")]
+            self.assertTrue(gem and all("ValueError" in a["error"] for a in gem), (fast, r["attempts"]))
+            self.assertEqual(down(e), {}, "loi tham so khong phai model sap")
+            self.assertTrue(r["ok"], "model khong dung tham so do van tra loi duoc")
+
+    def _images(self, e):
+        m = types.ModuleType("ecentric_workspace.platform.ai.images")
+        m.__file__ = os.path.join(AI, "images.py")
+        with open(m.__file__, encoding="utf-8") as fh:
+            exec(compile(fh.read(), m.__file__, "exec"), m.__dict__)
+        return m
+
+    def test_anh_kie_bao_loi_trong_than_khi_hoi_ket_qua(self):
+        img = self._images(Env())
+        st, urls, err = img.parse_record(200, '{"code": 404, "msg": "task not found", "data": null}')
+        self.assertEqual((st, urls), ("fail", []))
+        self.assertIn("404", err)
+        st, urls, err = img.parse_record(200, '{"code": 500, "msg": "Server exception"}')
+        self.assertEqual(st, "", "loi tam thoi -> hoi lai lan sau")
+        st, urls, err = img.parse_record(200, json.dumps({"code": 200, "data": {
+            "state": "success", "resultJson": json.dumps({"resultUrls": ["https://x/a.png"]})}}))
+        self.assertEqual((st, urls, err), ("success", ["https://x/a.png"], ""))
+
+    def test_anh_loi_vinh_vien_thi_khong_cho_het_gio(self):
+        e = Env()
+        img = self._images(e)
+        img._create = lambda key, body: ("t1", "")
+        img._record = lambda key, tid: img.parse_record(200, '{"code": 401, "msg": "bad key ' + KHOA + '"}')
+        clock = [0.0]
+        out = img.generate("p", n=1, timeout=180, poll=3,
+                           sleep=lambda s: clock.__setitem__(0, clock[0] + s), clock=lambda: clock[0])
+        self.assertLess(clock[0], 10, "khong ngoi cho 180s mot loi vinh vien")
+        self.assertIn("401", out["error"])
+        self.assertNotIn(KHOA, out["error"])
 
 
 if __name__ == "__main__":

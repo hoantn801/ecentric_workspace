@@ -42,8 +42,10 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "31b36d547940bc59c17bbf3751e111f2c27b0badc57d4de7176fe708acd7db20"
+BASELINE_SHA256 = "d118b5853cb8d92233df347e7448abc92dc554ee7d1451e24cdaf835c7c23c17"
 SUPERSEDES_SHA256 = (
+    # 03/11/2026 (p330, QA dem GBS): sua logic (t2_forms) + UX (ux_po): khoa loai PO khi tao tu SO/sua, nhap PO rieng, bao loi 1 lan, chong tao PO so EC trung, khung them SO de dung hon.
+    "31b36d547940bc59c17bbf3751e111f2c27b0badc57d4de7176fe708acd7db20",
     # 28/10/2026 (p227): PO gom NHIEU SO - khung "Them items tu SO khac", nhan SO tung dong,
     # gui items[].sales_order (Server Script submit/resubmit/update/sync v10_multi_so).
     "7423514b149877254cc01b9687b42b19b17995df67fbdad25e402208b06a40b1",  # 29/09 nhieu lop (p223)

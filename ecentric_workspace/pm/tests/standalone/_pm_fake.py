@@ -205,6 +205,7 @@ class FakeDB(object):
 
 # ----------------------------------------------------------------------------- documents
 CHILD_TABLES = {"events": "PM Assignment Request Event", "pm_checklist": "PM Task Checklist Item"}
+OPTIONAL_FIELDS = ("_assign", "_user_tags", "_comments", "_liked_by", "_seen")
 
 
 class FakeDoc(_dict):
@@ -262,6 +263,12 @@ class FakeDoc(_dict):
     def _store(self):
         dt = self.get("doctype")
         data = copy.deepcopy(dict(self))
+        # Like Frappe's db_update: optional system columns (_assign, ...) a doc does not carry
+        # are left as stored (assign_to writes them behind the doc's back).
+        stored = self._fk.db.t(dt).get(self.get("name")) or {}
+        for f in OPTIONAL_FIELDS:
+            if f not in data and f in stored:
+                data[f] = copy.deepcopy(stored[f])
         for table, cdt in CHILD_TABLES.items():
             if table in data:
                 self._fk.db.delete(cdt, {"parent": self.get("name")})

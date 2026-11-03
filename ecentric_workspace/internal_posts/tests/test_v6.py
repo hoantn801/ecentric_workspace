@@ -219,7 +219,37 @@ GOOD = {"title": "Ban hành Quy chế công tác phí, phiên bản 2.",
                      {"heading": "Các bước", "intro": "Làm như sau", "items": ["Mở ERP", "Tạo phiếu"], "ordered": True}]}
 
 
+class TestCoverInspectBoolean(unittest.TestCase):
+    """Soi anh bia: model tra "false" (CHUOI) thay vi false. `bool("false")` la True -> anh
+    sach bi coi la dinh chu; ca 4 anh thanh "dinh chu", job Failed va VAN mat luot."""
+
+    def _verdict(self, data):
+        gen = lambda *a, **k: {"ok": True, "data": data}
+        return AI.inspect(b"png", "image/png", gen)
+
+    def test_chuoi_false_la_anh_sach(self):
+        self.assertIs(self._verdict({"has_text": "false", "has_logo": "False"}), True)
+
+    def test_chuoi_true_van_la_dinh_chu(self):
+        self.assertIs(self._verdict({"has_text": "true", "has_logo": False}), False)
+        self.assertIs(self._verdict({"has_text": False, "has_logo": True}), False)
+
+    def test_gia_tri_la_thi_coi_nhu_chua_soi_duoc(self):
+        self.assertIsNone(self._verdict({"has_text": "maybe", "has_logo": False}))
+
+    def test_boolean_that_giu_nguyen(self):
+        self.assertIs(self._verdict({"has_text": False, "has_logo": False}), True)
+
+
 class TestAIWrite(unittest.TestCase):
+    def test_items_la_CHUOI_khong_vo_thanh_tung_ky_tu(self):
+        """Ho GPT khong bi schema ep: `items` co the ve la mot chuoi. Lap tren chuoi = moi KY TU
+        mot gach dau dong ("<li>B</li><li>u</li>...") len thang ban xem truoc cua HR."""
+        a = W.build({"title": "T", "summary": "S",
+                     "sections": [{"heading": "H", "items": "Bước 1: mở app"}]})
+        self.assertIn("<li>Bước 1: mở app</li>", a["content"])
+        self.assertNotIn("<li>B</li>", a["content"])
+
     def test_build_escapes_and_structures(self):
         a = W.build(GOOD)
         self.assertEqual(a["title"], "Ban hành Quy chế công tác phí, phiên bản 2")

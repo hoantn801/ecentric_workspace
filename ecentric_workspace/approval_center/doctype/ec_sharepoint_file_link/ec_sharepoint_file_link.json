@@ -8,7 +8,7 @@
  "engine": "InnoDB",
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-09-23 10:00:00.000000",
+ "modified": "2026-11-03 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "Approval Center",
  "name": "EC SharePoint File Link",
@@ -28,7 +28,8 @@
   "sp_uploaded_at",
   "sp_last_modified",
   "sp_synced_at",
-  "sp_granted_to"
+  "sp_granted_to",
+  "sp_content_hash"
  ],
  "fields": [
   {
@@ -101,6 +102,13 @@
    "label": "Da cap quyen cho",
    "read_only": 1,
    "description": "Danh sach email da duoc cap quyen sua, cach nhau dau phay."
+  },
+  {
+   "fieldname": "sp_content_hash",
+   "fieldtype": "Data",
+   "label": "SHA-256 noi dung da tai len",
+   "read_only": 1,
+   "description": "Ma bam noi dung tep Frappe o LAN TAI LEN gan nhat (03/11/2026). Gui lai phieu: ma bam trung thi KHONG tai lai - ban tren SharePoint la ban song nguoi duyet dang sua (track changes + comment), tai de len la xoa cong cua ho."
   }
  ],
  "permissions": [

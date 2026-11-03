@@ -396,6 +396,18 @@ class TestReminderSummary(unittest.TestCase):
         self.assertIn("bucket_has_more", r)
         self.assertEqual(set(r["bucket_items"]), {"overdue", "act_now", "upcoming", "undated"})
 
+    def test_action_items_carries_same_attention_as_header(self):
+        # UX 03/11/2026: /viec-cua-toi dong bo huy hieu header ngay sau khi duyet nhanh tu
+        # CHINH lan tai get_action_items -> so phai trung voi get_reminder_summary.
+        FK.db.todo_rows = [
+            _todo("a", "", "", date="2026-07-20", created="1"),   # overdue
+            _todo("b", "", "", date="2026-07-24", created="2"),   # today -> act_now
+            _todo("c", "", "", date="2026-07-30", created="3"),   # upcoming
+        ]
+        r = ac_api.get_action_items()
+        self.assertEqual(r["attention_count"], 2)
+        self.assertEqual(r["attention_count"], ac_api.get_reminder_summary()["attention_count"])
+
     def test_zero_and_guest(self):
         FK.db.todo_rows = []
         r = ac_api.get_reminder_summary()

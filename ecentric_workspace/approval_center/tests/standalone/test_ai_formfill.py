@@ -564,5 +564,156 @@ class TestTrichDanPhaiNamTrongVanBan(unittest.TestCase):
         self.assertEqual(dropped, [])
 
 
+def _frappe_v16_getdate(fk):
+    """Ban sao HANH VI cua `frappe.utils.getdate` v16 (frappe/utils/data.py, 03/11/2026).
+
+    Gia lap cu (`date.fromisoformat`) qua hien lanh nen khong lo duoc bay nao duoi day.
+    """
+    from dateutil import parser
+
+    def getdate(string_date=None, parse_day_first=False):
+        if not string_date:
+            return date(2026, 9, 16)                 # = "hom nay" cua nowdate gia
+        if isinstance(string_date, date):
+            return string_date
+        if not isinstance(string_date, str) or string_date.startswith(("0001-01-01", "0000-00-00")):
+            return None
+        try:
+            return date.fromisoformat(string_date)
+        except ValueError:
+            try:
+                return parser.parse(string_date, dayfirst=parse_day_first).date()
+            except parser.ParserError:
+                fk.local.message_log.append("{} is not a valid date string.".format(string_date))
+                raise fk.ValidationError("not a valid date string")
+    return getdate
+
+
+class TestNgayThangTuModel(unittest.TestCase):
+    """03/11/2026: `_check` goi `getdate(value)` that tren chuoi cua model."""
+
+    def _gate(self, value):
+        m, fk = _load(meta_fields=_DEF_FIELDS)
+        m.getdate = _frappe_v16_getdate(fk)
+        schema = _run(m, lambda: m.build_schema(_definition()))
+        return _run(m, lambda: m.gate(schema, {"payment_date": value})), fk
+
+    def test_chuoi_rong_KHONG_thanh_ngay_hom_nay(self):
+        (accepted, dropped), _ = self._gate("")
+        self.assertNotIn("payment_date", accepted)
+        self.assertEqual(dropped, [{"field": "payment_date", "reason": "ngay_khong_hop_le"}])
+
+    def test_ngay_viet_kieu_VN_doc_NGAY_truoc_THANG(self):
+        (accepted, _), _ = self._gate("05/10/2026")
+        self.assertEqual(accepted, {"payment_date": "2026-10-05"})
+        (accepted, _), _ = self._gate("15.10.2026")
+        self.assertEqual(accepted, {"payment_date": "2026-10-15"})
+
+    def test_mot_con_so_KHONG_thanh_ngay_cua_thang_hien_tai(self):
+        (accepted, dropped), _ = self._gate("10")
+        self.assertEqual(accepted, {})
+        self.assertEqual(dropped[0]["reason"], "ngay_khong_hop_le")
+
+    def test_model_tra_SO_hoac_ngay_0001_khong_lam_sap_ca_luot(self):
+        for v in (20261005, "0001-01-01", 0):
+            (accepted, dropped), _ = self._gate(v)
+            with self.subTest(v=v):
+                self.assertEqual(accepted, {})
+                self.assertIn(dropped[0]["reason"], ("ngay_khong_hop_le", "ngay_ngoai_khoang"))
+
+    def test_chu_rac_KHONG_de_lai_hop_thoai_loi(self):
+        (accepted, _), fk = self._gate("dau thang sau")
+        self.assertEqual(accepted, {})
+        self.assertEqual(fk.local.message_log, [])
+
+    def test_dang_ISO_va_ngay_khong_ton_tai(self):
+        (accepted, _), _ = self._gate("2026-09-22T00:00:00Z")
+        self.assertEqual(accepted, {"payment_date": "2026-09-22"})
+        (accepted, dropped), _ = self._gate("31/02/2026")
+        self.assertEqual((accepted, dropped[0]["reason"]), ({}, "ngay_khong_hop_le"))
+
+
+class TestSoTienDangChuoi(unittest.TestCase):
+    """Ho GPT khong bi responseSchema ep: so tien co the ve dang CHUOI dinh dang VN."""
+
+    def _gate(self, value, field="payment_amount"):
+        m, _ = _load(meta_fields=_DEF_FIELDS)
+        schema = _run(m, lambda: m.build_schema(_definition()))
+        return _run(m, lambda: m.gate(schema, {field: value}))
+
+    def test_450_nghin_viet_kieu_VN_KHONG_thanh_450(self):
+        accepted, dropped = self._gate("450.000")
+        self.assertNotEqual(accepted.get("payment_amount"), 450.0)
+        self.assertEqual(dropped, [{"field": "payment_amount", "reason": "so_mo_ho"}])
+
+    def test_so_thap_phan_kieu_VN_KHONG_bi_doc_lech(self):
+        # Ban cu: "1.500.000,50" -> bo dau phay -> float("1.500.00050") no; "2,5" -> 25.
+        self.assertEqual(self._gate("1.500.000,50")[0], {"payment_amount": 1500000.5})
+        self.assertNotEqual(self._gate("2,5")[0].get("payment_amount"), 25.0)
+
+    def test_dang_ro_nghia_van_nhan(self):
+        for raw, want in (("45.000.000", 45000000.0), ("45,000,000", 45000000.0),
+                          ("45 000 000", 45000000.0), (45000000, 45000000.0),
+                          ("1,500.50", 1500.5), ("0.125", 0.125), ("2.5", 2.5)):
+            with self.subTest(raw=raw):
+                self.assertEqual(self._gate(raw)[0], {"payment_amount": want})
+
+
+class TestSmallTextKhongBiTran140(unittest.TestCase):
+    FIELDS = [_F("reason", "Small Text"), _F("payee_full_name", "Data", length=140),
+              _F("ma_ngan", "Small Text", length=20)]
+
+    def _gate(self, raw):
+        m, _ = _load(meta_fields=self.FIELDS)
+        d = _definition(editable_fields=("reason", "payee_full_name", "ma_ngan"))
+        schema = _run(m, lambda: m.build_schema(d))
+        return _run(m, lambda: m.gate(schema, raw))
+
+    def test_ly_do_dai_hon_mot_dong_van_len_form(self):
+        ly_do = "Thanh toan chi phi livestream thang 10 cho brand FES-VN, " * 5
+        accepted, dropped = self._gate({"reason": ly_do})
+        self.assertEqual(dropped, [])
+        self.assertEqual(accepted["reason"], ly_do.strip())
+
+    def test_Data_va_Small_Text_co_khai_length_van_bi_tran(self):
+        _, dropped = self._gate({"payee_full_name": "x" * 141, "ma_ngan": "y" * 21})
+        self.assertEqual(sorted(d["field"] for d in dropped), ["ma_ngan", "payee_full_name"])
+
+
+class TestGiaTriPhaiNamTrongTrichDan(unittest.TestCase):
+    """Trich dan CHEP DUNG tu ghi chu nhung gia tri lech mot chu so: ban cu cho qua."""
+    SCHEMA = [{"fieldname": "bank_account_number", "fieldtype": "Data"},
+              {"fieldname": "payment_amount", "fieldtype": "Currency"}]
+    NOTE = "Chuyen khoan vao STK 1903 4567 8901 23 Techcombank, so tien 450.000d."
+
+    def _verify(self, values, sources):
+        m, _ = _load()
+        return _run(m, lambda: m.verify_sources(self.SCHEMA, values, sources, self.NOTE, False))
+
+    def test_so_tai_khoan_lech_mot_chu_so_bi_bo(self):
+        kept, dropped = self._verify({"bank_account_number": "19034567890124"},
+                                     {"bank_account_number": "STK 1903 4567 8901 23"})
+        self.assertEqual(kept, {})
+        self.assertEqual(dropped, [{"field": "bank_account_number",
+                                    "reason": "gia_tri_khong_khop_trich_dan"}])
+
+    def test_so_tai_khoan_dung_du_trich_dan_co_dau_cach_van_giu(self):
+        kept, dropped = self._verify({"bank_account_number": "19034567890123"},
+                                     {"bank_account_number": "STK 1903 4567 8901 23"})
+        self.assertEqual(kept, {"bank_account_number": "19034567890123"})
+        self.assertEqual(dropped, [])
+
+    def test_so_tien_khong_bi_dung_toi_boi_luat_moi(self):
+        kept, dropped = self._verify({"payment_amount": 450000}, {"payment_amount": "450.000d"})
+        self.assertEqual(kept, {"payment_amount": 450000})
+
+
+class TestPromptNoiDinhDangNgay(unittest.TestCase):
+    def test_luat_ngay_VN_va_so_co_trong_system_instruction(self):
+        m, _ = _load()
+        self.assertIn("YYYY-MM-DD", m.SYSTEM_INSTRUCTION)
+        self.assertIn("2026-10-05", m.SYSTEM_INSTRUCTION)
+
+
 if __name__ == "__main__":
     unittest.main()

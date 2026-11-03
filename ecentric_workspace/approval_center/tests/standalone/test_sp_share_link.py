@@ -93,6 +93,8 @@ def _moi_truong(ghi, docs=None, loi_tai=None, loi_cap=None, link="https://sp/sha
         "nguoi_trong_luong": lambda dt, n: ["huong.pham@e.c", "duyet@e.c"],
         "_dinh_kem": lambda dt, n: [_Row(file_url="/private/files/hd.docx", file_name="hd.docx")],
         "duoc_soi_guong": lambda dt: True,
+        # Tep CHUA co lien ket cua phieu nay -> nhanh "tai moi" (03/11/2026).
+        "_lien_ket_cua_phieu": lambda dt, n, url: None,
         "gio_he_thong": lambda x: x,
         "now_datetime": lambda: "2026-09-23 10:00:00",
         "wr_sp": types.SimpleNamespace(get_app_token=lambda: "TOKEN"),
@@ -108,7 +110,7 @@ class TestLuuVaDungLink(unittest.TestCase):
     def test_dong_bo_LUU_link_chia_se(self):
         ghi, docs = _ghi(), {}
         ns = _moi_truong(ghi, docs)
-        exec(_doan(_MIRROR, "ghi_lien_ket", "dong_bo_phieu"), ns)
+        exec(_doan(_MIRROR, "ghi_lien_ket", "dong_bo_phieu", "_dong_bo_tep"), ns)
         kq = ns["dong_bo_phieu"]("EC Contract Review Request", "EC-CTR-1")
         self.assertEqual(kq["hong"], [], "dong_bo_phieu nuot loi cua tung tep - phai kiem ro khong tep nao hong")
         self.assertEqual(docs["MOI"].sp_share_url, "https://sp/share/abc",
@@ -141,7 +143,7 @@ class TestCapBuKhongTaiLai(unittest.TestCase):
         docs = {"L1": _Doc(file_url="/f", sp_item_id="IT1", business_doctype="EC Contract Review Request",
                            business_name="EC-CTR-1", sp_share_url=None, sp_granted_to="")}
         ns = _moi_truong(ghi, docs)
-        exec(_doan(_MIRROR, "cap_bu_link"), ns)
+        exec(_doan(_MIRROR, "cap_bu_link", "_ghi_quyen"), ns)
         ns["cap_bu_link"]("L1", token="T")
         self.assertEqual(ghi["tai_len"], [],
                          "cap bu link da TAI TEP LEN LAI - ghi de ban song tren SharePoint")
@@ -153,7 +155,7 @@ class TestCapBuKhongTaiLai(unittest.TestCase):
         docs = {"L1": _Doc(file_url="/f", sp_item_id="IT1", business_doctype="X", business_name="Y",
                            sp_share_url=None, sp_granted_to="cu@e.c")}
         ns = _moi_truong(ghi, docs)
-        exec(_doan(_MIRROR, "cap_bu_link"), ns)
+        exec(_doan(_MIRROR, "cap_bu_link", "_ghi_quyen"), ns)
         ns["cap_bu_link"]("L1", token="T")
         self.assertIn("huong.pham@e.c", ghi["cap_quyen"][0][1])
 
@@ -161,7 +163,7 @@ class TestCapBuKhongTaiLai(unittest.TestCase):
         ghi = _ghi()
         docs = {"L1": _Doc(file_url="/f", sp_item_id=None, business_doctype="X", business_name="Y")}
         ns = _moi_truong(ghi, docs)
-        exec(_doan(_MIRROR, "cap_bu_link"), ns)
+        exec(_doan(_MIRROR, "cap_bu_link", "_ghi_quyen"), ns)
         ns["cap_bu_link"]("L1")
         self.assertEqual(ghi["cap_quyen"], [])
 
@@ -170,7 +172,7 @@ class TestCapBuKhongTaiLai(unittest.TestCase):
         docs = {n: _Doc(file_url="/" + n, sp_item_id=n, business_doctype="X", business_name="Y",
                         sp_share_url=None, sp_granted_to="") for n in ("L1", "L2", "L3")}
         ns = _moi_truong(ghi, docs, loi_cap={"L2"})
-        exec(_doan(_MIRROR, "cap_bu_link", "cap_bu_link_nen"), ns)
+        exec(_doan(_MIRROR, "cap_bu_link", "cap_bu_link_nen", "_ghi_quyen"), ns)
         ns["cap_bu_link_nen"]()
         self.assertEqual(docs["L1"].sp_share_url, "https://sp/share/abc")
         self.assertEqual(docs["L3"].sp_share_url, "https://sp/share/abc",
