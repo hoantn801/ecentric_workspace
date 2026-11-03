@@ -924,6 +924,11 @@ def update(name, subject=None, description=None, priority=None,
         parent_project = frappe.db.get_value("Task", doc.get("parent_task"), "project")
         if (parent_project or None) != (project or None):
             frappe.throw(_("Không thể đổi dự án của nhiệm vụ con khác với nhiệm vụ cha."))
+    # Moving a task INTO a project needs the same visibility tasks.create asks for (otherwise an
+    # editor could drop work into a project they cannot see). Clearing the project stays allowed.
+    if project and project != (doc.get("project") or None) \
+            and not pmperm.can_view_project(project, user):
+        frappe.throw(_("Not permitted to create a task in this project."), frappe.PermissionError)
 
     incoming = {
         "subject": subject, "description": description, "priority": priority,
@@ -962,6 +967,11 @@ def update(name, subject=None, description=None, priority=None,
             current = doc.get(field)
             if field in ("exp_start_date", "exp_end_date") and current:
                 return getdate(current).isoformat()
+            # A stored 00:00 time is the "date only" artifact of older assignment acceptances
+            # (assignment._split): treat it as absent for ORDERING so it never blocks a same-day
+            # start time. Untouched fields are not rewritten (value preserved).
+            if field in ("pm_start_time", "pm_end_time") and _normalize_time(current) == "00:00:00":
+                return None
             return current
         csd, cst, ced, cet = _clean_schedule(
             _eff("exp_start_date"), _eff("pm_start_time"), _eff("exp_end_date"), _eff("pm_end_time"))
@@ -1079,17 +1089,28 @@ def transitions_bulk(task_names):
             task_names = json.loads(task_names)
         except Exception:
             task_names = [task_names]
-    names = tuple(dict.fromkeys(t for t in (task_names or []) if t))[:500]
+    names = builtins.list(dict.fromkeys(t for t in (task_names or []) if t))[:500]
     out = {}
+    if not names:
+        return {"map": out}
+    # Batched (was exists + get_doc + can_view_task per name: ~6 queries x 500 on the board).
+    # visible_task_subset = one query for owner / assignee / project / follower visibility; the
+    # rest (e.g. department-head visibility) falls back to the canonical can_view_task per row.
+    rows = frappe.get_all("Task", filters={"name": ["in", names]},
+                          fields=["name", "owner", "project", "parent_task", "_assign",
+                                  "workflow_state", "status"], limit_page_length=0)
+    by_name = {r["name"]: r for r in rows}
+    visible = set(pmperm.visible_task_subset(builtins.list(by_name), user))
     for nm in names:
-        if not frappe.db.exists("Task", nm):
+        r = by_name.get(nm)
+        if not r or (nm not in visible and not pmperm.can_view_task(r, user)):
             continue
-        doc = frappe.get_doc("Task", nm)
-        if not pmperm.can_view_task(doc.as_dict(), user):
-            continue
-        cur = doc.get("workflow_state")
-        trans = [{"action": s, "next_state": s} for s in _VISIBLE_STATES if s != cur]
-        out[nm] = {"current": cur, "terminal": pmperm.is_task_terminal(doc),
+        cur = r.get("workflow_state")
+        # Xem duoc != sua duoc (PO 16/10): a viewer who may not edit gets NO transitions, so the
+        # Kanban card is locked instead of letting the drop fail on set_status (require_edit).
+        can_edit = tflow.can_edit_task(r, user)
+        trans = [{"action": s, "next_state": s} for s in _VISIBLE_STATES if s != cur] if can_edit else []
+        out[nm] = {"current": cur, "terminal": pmperm.is_task_terminal(r), "can_edit": bool(can_edit),
                    "states": builtins.list(_VISIBLE_STATES), "transitions": trans}
     return {"map": out}
 
@@ -1119,11 +1140,26 @@ def set_status(name, action):
     if target == "Done" and _needs_review(doc, user):
         frappe.throw(_("Việc này cần người giao kiểm tra. Hãy bấm Gửi kiểm tra."),
                      frappe.PermissionError)
+    # Same guard as mark_done (the segmented control / Kanban / fallback popup reach Done here):
+    # required checklist steps must be ticked first.
+    if target == "Done":
+        missing = tflow.missing_required_steps(doc)
+        if missing:
+            frappe.throw(_("Chưa xong được: còn {0} bước bắt buộc chưa tích.").format(missing))
     cur = doc.get("workflow_state")
     if cur != target:
+        if target == "Done":
+            _withdraw_on_done(name)   # same as mark_done: a pending "xin dời hạn" is withdrawn
         # Audited write: completed_on/completed_by, Version row, ToDo close, notify.
         tflow.write_state(name, target, user)
         _after_terminal(name, target, user)
+        if cur in tflow.FINISHED and target not in tflow.FINISHED:
+            _after_reopen(name, user)
+    # An assignee changing the state from a list ("Bắt đầu" in Việc của tôi / Được giao cho tôi)
+    # has acted on the task: count it as opened, so the giver no longer sees "chưa mở việc".
+    if user in (pmperm.assignees_of(doc.as_dict()) or pmperm.assignees_of(
+            {"_assign": frappe.db.get_value("Task", name, "_assign")})):
+        tflow.record_seen(name, user)
     return {"name": name, "workflow_state": target}
 
 
@@ -1143,6 +1179,15 @@ def _after_terminal(name, target, user):
         return tflow.rollup_parent(name, user)
     except Exception:
         frappe.log_error(frappe.get_traceback(), "PM rollup_parent " + str(name))
+        return None
+
+
+def _after_reopen(name, user):
+    """A split part left Done/Cancelled -> its rolled-up parent back to In Progress."""
+    try:
+        return tflow.reopen_parent(name, user)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "PM reopen_parent " + str(name))
         return None
 
 

@@ -340,6 +340,25 @@ def rollup_parent(child_name, user):
     return target
 
 
+def reopen_parent(child_name, user):
+    """Inverse of rollup_parent: a part of a split parent left Done/Cancelled again (reopened,
+    "Hoàn tác" right after Xong) -> a parent the roll-up had moved to Review/Done goes back to
+    In Progress, so it never shows "chờ duyệt"/"xong" while someone still works on a part.
+    Audited via write_state (Version) + an Info comment. Returns the new parent state or None."""
+    parent = frappe.db.get_value("Task", child_name, "parent_task")
+    if not parent:
+        return None
+    p = frappe.db.get_value("Task", parent, ["name", "workflow_state", "ec_split_parent"],
+                            as_dict=True)
+    if not p or not truthy(p.get("ec_split_parent")):
+        return None
+    if p.get("workflow_state") not in ("Review", "Done"):
+        return None
+    write_state(parent, "In Progress", user, notify=False)
+    add_comment(parent, _("Mở lại: còn phần việc chưa xong."))
+    return "In Progress"
+
+
 # --------------------------------------------------------------------------- deadline requests
 def deadline_keys(task, requester, is_open):
     """Open keys for a Deadline request: distinct namespace from assignment requests so a
