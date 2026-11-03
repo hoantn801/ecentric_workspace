@@ -66,7 +66,7 @@ function content() {
   h += sec("pmg-s1", 1, "Công việc gồm những gì", "Ai cũng đọc",
     '<div class="pmg-two">' + shot("menu", "Menu trái của Công việc") +
     '<div><ol class="pmg-menu-l">' +
-      "<li>" + b("Việc của tôi") + ": mọi việc bạn đang phải làm, xếp theo hạn. Mở mỗi sáng là đủ.</li>" +
+      "<li>" + b("Việc của tôi") + ": mọi việc bạn đang phải làm, chia <b>Quá hạn / Hôm nay / Sắp tới</b>. Mở mỗi sáng là đủ. Ô <b>Ghi việc của bạn</b> ở đầu trang để tự ghi việc mình làm.</li>" +
       "<li>" + b("Được giao cho tôi") + ": chỉ những gì <b>cần bạn trả lời</b>: nhận việc, việc mới giao, kết quả xin dời hạn. Có số đỏ là có việc chờ bạn.</li>" +
       "<li>" + b("Tôi đã giao") + ": việc bạn giao cho người khác, ai xong ai chưa.</li>" +
       "<li>" + b("Lịch làm việc") + ": xếp việc vào giờ trong tuần, xem lịch họp Outlook.</li>" +
@@ -100,7 +100,8 @@ function content() {
     shot("task_sheet_receiver", "Chi tiết việc: trái là việc, phải là Bình luận") +
     steps([
       ["n", "Dưới tên việc luôn ghi <b>ai giao cho bạn</b> và ngày giao."],
-      ["n", "Thanh trạng thái: bấm <b>Đang làm</b> khi bắt đầu, <b>Xong</b> khi xong."],
+      ["n", "Nút xanh cạnh thanh trạng thái là việc cần làm tiếp: <b>Bắt đầu làm</b>, rồi <b>Đánh dấu Xong</b> (hoặc <b>Gửi kiểm tra</b>)."],
+      ["n", "<b>Mô tả</b> nằm ngay dưới hạn; link trong mô tả bấm được."],
       ["n", "Các tab: <b>Việc con</b>, <b>Các bước</b>, <b>Thời gian</b>, <b>Lịch sử</b>."],
       ["n", "Cột phải là <b>Bình luận</b>: hỏi lại, báo tiến độ, gửi file. Ghi chú quan trọng được <b>ghim</b> lên đầu, nền vàng."]]));
 
@@ -119,11 +120,13 @@ function content() {
   /* 4 */
   h += sec("pmg-s4", 4, "Làm việc và bấm Xong", role("n") + " Dành cho người nhận việc",
     steps([
-      ["n", "Bắt đầu thì bấm " + st("s1", "Đang làm") + "."],
+      ["n", "Bắt đầu thì bấm <b>Bắt đầu làm</b> (việc sang " + st("s1", "Đang làm") + "). Ở <b>Việc của tôi</b> có sẵn nút <b>Bắt đầu</b>, <b>Xong</b>, <b>Xin dời hạn</b> trên từng dòng, không cần mở việc."],
       ["n", "Việc có <b>Các bước</b> thì tích từng bước khi làm xong."],
       ["n", "Việc lớn thì chia <b>Việc con</b>: tab Việc con, gõ tên rồi Enter. Bấm vòng tròn người nhận để giao luôn, bấm nút tròn bên trái để đánh Xong."],
       ["n", "Làm xong bấm <b>Xong</b>. Bấm nhầm thì chọn <b>Hoàn tác</b> trên thông báo."]]) +
     shot("done_toast", "Sau khi bấm Xong: có nút Ghi giờ (không bắt buộc) và Hoàn tác") +
+    "<h3>Tự ghi việc của mình</h3>" +
+    "<p>Việc ai người đó ghi, kể cả việc nhỏ. Ở đầu <b>Việc của tôi</b>, gõ tên việc vào ô <b>Ghi việc của bạn</b> rồi Enter. Có hạn thì viết luôn trong câu: <b>mai</b>, <b>thứ 6</b>, <b>t2 tuần sau</b>, <b>25/11</b>, <b>15h</b>. Ví dụ “Gọi khách mai 10h” thành việc “Gọi khách”, hạn ngày mai 10:00. Dưới ô luôn ghi hạn hệ thống hiểu; sai thì bấm <b>Không đặt hạn</b>.</p>" +
     "<h3>Khi nút là “Gửi kiểm tra” thay vì “Xong”</h3>" +
     "<p>Người giao đã bật <b>Cần tôi kiểm tra trước khi xong</b>.</p>" +
     lanes("Luồng cần kiểm tra", ["n", "s", "g"], [
@@ -144,7 +147,8 @@ function content() {
   h += sec("pmg-s6", 6, "Giao việc cho người khác", role("g") + " Dành cho người giao · cũng dùng để tạo việc cho chính mình",
     steps([
       ["g", "Bấm <b>+ Giao việc</b> trên menu."],
-      ["g", "Điền <b>tên việc</b> (bắt buộc), chọn <b>người nhận</b>, <b>hạn</b> và <b>dự án</b> (gõ để tìm)."],
+      ["g", "Điền <b>tên việc</b> (bắt buộc), chọn <b>người nhận</b>, <b>hạn</b> và <b>dự án</b> (gõ để tìm). Người nhận mặc định là <b>Tôi</b>: chọn người khác thì thay chỗ."],
+      ["g", "Ghi hạn ngay trong tên (<b>mai</b>, <b>thứ 6</b>, <b>25/11</b>, <b>17h</b>): form gợi ý <b>Đặt hạn</b>, bấm để dùng."],
       ["g", "Bật các tuỳ chọn cần thiết (bảng dưới), rồi bấm nút xanh ở góc dưới."],
       ["s", "Người nhận nhận tin Teams. Bạn vẫn ở màn đang làm."]]) +
     shot("new_task_sheet", "Form Giao việc") +
@@ -156,12 +160,14 @@ function content() {
       [b("Lặp lại"), "Việc định kỳ (ví dụ ngày 7 hằng tháng). Hệ thống tự giao lại cho cùng người."],
       [b("Theo dõi (CC)"), "Người cần nắm việc nhưng không phải làm. <b>Tự thêm</b> trưởng phòng của người nhận khi bạn giao cho người <b>phòng khác</b> (bỏ được). Giao cho chính trưởng phòng thì không CC lên trên."]]) +
     tip("<b>Giao cho cả trưởng phòng lẫn nhân viên của họ?</b> Form sẽ gợi ý <b>chuyển trưởng phòng sang Theo dõi</b>: nhân viên làm, trưởng phòng nắm tiến độ, không ai phải bấm Xong thay ai.") +
+    tip("<b>Ghi nhanh việc của mình:</b> bấm <b>+ Giao việc</b>, gõ tên rồi <b>Enter</b> là xong, việc vào thẳng <b>Việc của tôi</b>.") +
     tip("<b>Báo cáo hằng tháng cho cả nhóm:</b> chọn cả nhóm, bật <b>Mỗi người một việc</b> và <b>Lặp lại</b>. Từ tháng sau hệ thống tự giao, bạn không phải tạo tay."));
 
   /* 7 */
   h += sec("pmg-s7", 7, "Theo dõi việc đã giao", role("g") + " Dành cho người giao",
     shot("given", "Tôi đã giao: tiến độ từng người, đề xuất dời hạn ở đầu trang") +
     steps([
+      ["g", "Việc chờ bạn duyệt, việc có người trễ, việc người nhận chưa mở luôn nằm trên cùng. Giao một người thì ngay dòng đó ghi “chưa mở việc” hay “trễ N ngày”, kèm nút <b>Nhắc</b>."],
       ["g", "Mỗi dòng là một lần giao. Thanh màu: <span class=\"pmg-c-done\">xanh</span> xong, <span class=\"pmg-c-run\">navy</span> đang làm, <span class=\"pmg-c-late\">đỏ</span> trễ."],
       ["g", "<b>Nhắc</b> từng người, hoặc <b>Nhắc N người</b> chưa xong. Tin nhắc đi qua Teams."],
       ["g", "Đề xuất dời hạn hiện ở đầu trang: <b>Đồng ý</b> hoặc <b>Giữ hạn cũ</b>."],
@@ -176,9 +182,9 @@ function content() {
   /* 8 */
   h += sec("pmg-s8", 8, "Trưởng nhóm và trưởng phòng", role("l") + " Leader, trưởng phòng, người theo dõi dự án",
     table(["Màn", "Dùng để"], [
-      [b("Điều phối"), "Mở đầu ngày: việc đang mở, trễ hạn, chưa có người nhận. Mục <b>Cần xử lý</b> có nút làm ngay: Nhắc, Giao, Đặt hạn."],
+      [b("Điều phối"), "Mở đầu ngày: việc đang mở, trễ hạn, chưa có người nhận. Bấm vào con số để xem danh sách việc đó. Mục <b>Cần xử lý</b> có nút làm ngay: Nhắc, Giao, Đặt hạn."],
       [b("Dự án"), "Tiến độ từng dự án, số việc trễ và chưa giao. Bấm vào dự án để xem việc, Kanban, Gantt."],
-      [b("Tất cả việc"), "Mọi việc bạn được xem. Lọc nhanh <b>Trễ hạn / Chưa có người / Hạn tuần này</b>. Đổi kiểu xem: Danh sách, Kanban, Theo hạn, Gantt."],
+      [b("Tất cả việc"), "Mọi việc bạn được xem. Lọc nhanh <b>Của tôi / Trễ hạn / Chưa có người / Hạn tuần này</b> (có số đếm). Bộ lọc được nhớ cho lần sau; bấm <b>Xoá lọc</b> để bỏ. Đổi kiểu xem: Danh sách, Kanban, Theo hạn, Gantt."],
       [b("Lịch làm việc"), "Trưởng phòng chọn tên nhân viên để xem lịch tuần: thấy <b>tên việc và tên cuộc họp</b> (họp riêng tư hiện “Họp riêng”). Đồng nghiệp chỉ thấy “Bận”."]]) +
     shot("coordinate", "Điều phối: số liệu cả nhóm, việc cần xử lý, theo người, theo dự án") +
     shot("all_work", "Tất cả việc: lọc, nhóm theo dự án, đổi kiểu xem"));
@@ -204,6 +210,7 @@ function content() {
       ["Việc chung chưa đóng dù mọi người đã xong?", "Việc sang Chờ duyệt để người giao kiểm tra. Không cần kiểm tra thì khi giao bật <b>Tự đóng khi mọi người xong</b>."],
       ["Được CC thì phải làm gì?", "Không phải bấm Xong. Bạn chỉ theo dõi: xem ở <b>Tôi đã giao → Tôi theo dõi</b>, bình luận khi cần. Không muốn theo dõi nữa thì bấm × cạnh tên mình trong việc."],
       ["Muốn giao thêm người cho việc đã Xong?", "Chuyển việc về <b>Đang làm</b> trước, rồi thêm người."],
+      ["Việc nhỏ có cần ghi không?", "Nên ghi. Gõ vào ô <b>Ghi việc của bạn</b> ở Việc của tôi, vài giây là xong, khỏi quên, và người giao thấy bạn đang làm gì."],
       ["Có bắt buộc ghi giờ không?", "Tuỳ quy định của nhóm. Hệ thống không bắt buộc."],
       ["Việc nhật ký cá nhân (worklog) đi đâu?", "Mặc định ẩn khỏi các màn Công việc và không tính vào số đếm. Bấm <b>Hiện</b> ở dòng “Đang ẩn …” để xem."]]));
   return h;

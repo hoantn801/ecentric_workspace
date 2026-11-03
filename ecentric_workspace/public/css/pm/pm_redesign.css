@@ -161,8 +161,9 @@ button.pmr-st:hover{filter:brightness(.96)}
 
 /* -- Điều phối -- */
 .pmr-strip{display:flex;margin-bottom:16px}
-.pmr-strip>div{flex:1;padding:12px 16px;border-left:1px solid var(--pmr-soft)}
-.pmr-strip>div:first-child{border-left:0}
+.pmr-strip>*{flex:1;padding:12px 16px;border:0;border-left:1px solid var(--pmr-soft);background:none;text-align:left}
+.pmr-strip>:first-child{border-left:0}
+.pmr-strip>button:hover{background:var(--pmr-hover)}.pmr-strip>button .pmr-l{text-decoration:underline dotted;text-underline-offset:3px}
 .pmr-v{font-size:20px;font-weight:800;letter-spacing:-.3px}
 .pmr-l{color:var(--pmr-g600)}
 .pmr-strip .pmr-late .pmr-v{color:var(--pmr-red)}
@@ -351,7 +352,7 @@ tr.pmr-done .pmr-tname,.pmr-ck.pmr-done span{color:var(--pmr-g500);text-decorati
 }
 @media (max-width:900px){
   .pmr-grid2,.pmr-req{grid-template-columns:1fr}
-  .pmr-strip{flex-wrap:wrap}.pmr-strip>div{flex:1 1 33%}
+  .pmr-strip{flex-wrap:wrap}.pmr-strip>*{flex:1 1 33%}
   .pmr-rrow{grid-template-columns:minmax(0,1fr) auto;row-gap:6px}
   .pmr-acts{justify-content:flex-start}
   .pmr-people,.pmr-ready,.pmr-retform{margin-left:16px;padding-left:0}
@@ -377,6 +378,38 @@ tr.pmr-done .pmr-tname,.pmr-ck.pmr-done span{color:var(--pmr-g500);text-decorati
   .pmr-sheet.pmr-on{transform:none}
   .pmr-sheet[data-kind="task"]{background:var(--pmr-g100)}
   .pmr-sh-cols{padding:10px}
+}
+/* -- Việc của tôi: ghi nhanh + nhóm theo hạn; chip có số; điện thoại: bảng việc thành thẻ, bảng khác ghim cột đầu -- */
+.pmr-qa{margin-bottom:6px}
+.pmr-qa-box{display:flex;align-items:center;gap:10px;border:1.5px dashed var(--pmr-navy-100);border-radius:12px;padding:10px 14px;background:var(--pmr-surface);color:var(--pmr-navy)}
+.pmr-qa-box:focus-within{border-style:solid;border-color:var(--pmr-navy);box-shadow:0 0 0 3px var(--pmr-navy-50)}
+.pmr-qa-in{flex:1;min-width:0;border:0;outline:0;background:none;font:14px var(--pmr-font);color:var(--pmr-g900)}
+.pmr-qa-hint{font-size:12.5px;color:var(--pmr-g600);padding:5px 4px 0;min-height:24px}
+.pmr-md-row{display:grid;grid-template-columns:minmax(0,1fr) 110px 90px auto;gap:12px;align-items:center;padding:10px 16px;border-top:1px solid var(--pmr-soft)}
+.pmr-md-row:first-child{border-top:0}.pmr-md-row:hover{background:var(--pmr-hover)}
+.pmr-md-row.pmr-done .pmr-tname{color:var(--pmr-g500);text-decoration:line-through}
+.pmr-md-act{display:flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+.pmr-md-g[data-g="late"] .pmr-section-t{color:var(--pmr-red-ink)}
+details.pmr-md-g>summary{list-style:none;cursor:pointer}details.pmr-md-g>summary::-webkit-details-marker{display:none}
+details.pmr-md-g>summary .pmr-section-t::after{content:"";width:6px;height:6px;border:solid var(--pmr-g500);border-width:0 1.5px 1.5px 0;transform:rotate(-45deg)}
+details.pmr-md-g[open]>summary .pmr-section-t::after{transform:rotate(45deg)}
+.pmr-chip .pmr-cnt{margin-left:2px}.pmr-chip .pmr-cnt:empty{display:none}
+.pmr-solo .pmr-warn{color:var(--pmr-red);font-weight:600}
+@media (max-width:1024px){.pmr-bhead>div:nth-child(4){display:block}.pmr-bhead{grid-template-columns:24px minmax(0,1fr) 130px 110px auto}}
+@media (max-width:640px){
+  .pmr-bhead{grid-template-columns:24px minmax(0,1fr) auto;row-gap:4px}
+  .pmr-bhead>.pmr-minw{grid-column:2/-1}
+  .pmr-bhead>.pmr-prog,.pmr-bhead>.pmr-solo{display:flex;grid-column:2}
+  .pmr-bhead>.pmr-bact{grid-column:2/-1}
+  .pmr-qa-in{font-size:16px}
+  .pmr-md-row{grid-template-columns:minmax(0,1fr) auto;row-gap:6px;padding:10px 12px}
+  .pmr-md-act{grid-column:1/-1;justify-content:flex-start}
+  .pmr-tasks thead{display:none}
+  .pmr-tasks,.pmr-tasks tbody,.pmr-tasks tr,.pmr-tasks td{display:block}
+  .pmr-tasks tr[data-task]{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;padding:10px 12px;border-bottom:1px solid var(--pmr-soft)}
+  .pmr-tasks tr[data-task] td{padding:0;border:0}
+  .pmr-tasks tr[data-task] td:nth-child(4){grid-column:2;grid-row:1}
+  .pmr-tbw .pmr-tb:not(.pmr-tasks) td:first-child,.pmr-tbw .pmr-tb:not(.pmr-tasks) th:first-child{position:sticky;left:0;z-index:1;background:var(--pmr-surface)}
 }
 @media (prefers-reduced-motion:reduce){.pmr-root *,.pmr-scrim,.pmr-sheet,.pmr-toast{transition:none!important;animation:none!important}}
 
@@ -420,3 +453,16 @@ tr.pmr-done .pmr-tname,.pmr-ck.pmr-done span{color:var(--pmr-g500);text-decorati
 .pmr-cc-conf{display:flex;align-items:center;gap:8px;flex-wrap:wrap;width:100%;margin-top:6px;padding:7px 10px;border-radius:9px;background:var(--pmr-navy-50);color:var(--pmr-navy-700);font-size:12.5px}
 .pmr-cc-conf>span{flex:1;min-width:200px}
 .pmr-giver-s{color:var(--pmr-g700);font-weight:600}
+/* Giao việc + chi tiết việc dễ dùng hơn (u1, 03/11/2026): nút việc tiếp theo, gợi ý hạn từ tên, "Tôi" mặc định, điện thoại */
+.pmr-stw{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+.pmr-stw .pmr-statusbar{margin-top:0;flex:1 1 300px}
+.pmr-cta-wait{font-size:12.5px;font-weight:600;color:var(--pmr-amber)}
+.pmr-sh-h .pmr-sug{display:inline-flex;align-items:center;gap:6px;margin:0 0 4px;padding:5px 11px;border-radius:99px;border:1px dashed var(--pmr-navy-100);background:var(--pmr-navy-50);color:var(--pmr-navy);font-size:12.5px}
+.pmr-sug small{color:var(--pmr-g500);font-size:12px}
+.pmr-pc-self{background:none;box-shadow:inset 0 0 0 1px var(--pmr-hair)}
+@media (hover:none),(max-width:640px){.pmr-kbd{display:none}.pmr-compose .pmr-btn{margin-left:auto}}
+@media (max-width:640px){
+  .pmr-sheet .pmr-in,.pmr-sheet .pmr-ta,.pmr-sheet .pmr-sel{font-size:16px}
+  .pmr-sheet .pmr-qd button,.pmr-sheet .pmr-btn,.pmr-statusbar button{min-height:40px}
+  .pmr-sh-f .pmr-btn,.pmr-stw .pmr-cta{flex:1 1 auto;justify-content:center}
+}
