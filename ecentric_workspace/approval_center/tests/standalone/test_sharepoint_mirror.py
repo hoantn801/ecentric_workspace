@@ -98,9 +98,11 @@ def _nap_mirror(frappe_gia, tai_len=None, ghi=None, cap=None, nguoi=None):
     ns["ghi_lien_ket"] = ghi or (lambda *a, **k: None)
     ns["cap_quyen"] = cap or (lambda *a, **k: {"da_cap": ["a@x.vn"], "bo_qua": [], "link": "L"})
     ns["nguoi_trong_luong"] = nguoi or (lambda *a, **k: ["a@x.vn"])
+    # Tep CHUA co lien ket cua phieu nay -> nhanh "tai moi" (03/11/2026).
+    ns["_lien_ket_cua_phieu"] = lambda *a, **k: None
     exec(compile(_doan(_MIRROR, "THU_MUC_THEO_PHIEU", "SNAP_DT", "duoc_soi_guong",
                        "tep_doi_chung", "_dinh_kem",
-                       "dong_bo_phieu", "dong_bo_nen"), "<m>", "exec"), ns)
+                       "dong_bo_phieu", "_dong_bo_tep", "dong_bo_nen"), "<m>", "exec"), ns)
     return ns
 
 
@@ -127,7 +129,7 @@ class DanhSachChoPhep(unittest.TestCase):
 
 class MotTepHongKhongKeoCaPhieu(unittest.TestCase):
     def test_tep_loi_duoc_ghi_log_va_cac_tep_khac_van_len(self):
-        def tai(bdt, url, ten, name, token=None):
+        def tai(bdt, url, ten, name, token=None, item_id=None):
             if ten == "hd.pdf":
                 raise RuntimeError("Graph 500")
             return {"item_id": "I", "web_url": "U"}

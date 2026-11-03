@@ -105,6 +105,12 @@ def ping_models():
             r = f.result()
             out[r["model"]] = r
     for m, r in out.items():            # ghi cache o luong chinh, khong o luong phu
-        record(m, not r["error"], r["ms"])
+        # CUNG LUAT voi gateway.settle: chi loi SAP (5xx, 429, treo, mat ket noi) tinh la hong.
+        # Cau ping tran 16 token: model co suy nghi tra RONG (finish=MAX_TOKENS) du van song;
+        # tinh do la hong thi 6 lan ping/gio keo ti le ve 0% va gateway bo qua model dang song.
+        if not r["error"]:
+            record(m, True, r["ms"])
+        elif gateway.is_outage(r["error"]):
+            record(m, False, r["ms"])
     return {m: ("ok %dms" % r["ms"]) if not r["error"] else r["error"][:120]
             for m, r in out.items()}

@@ -318,6 +318,14 @@ def list_fulfillment_queue(section="unclaimed"):
         flt = {"fulfillment_status": "In Progress", "fulfillment_owner": ["!=", user]}
     else:
         return {"rows": []}
+    # Cung pham vi voi 8 form dung bind_fulfillment (03/11/2026): mot ToDo DUYET tren mot
+    # phieu khong mo ca hang doi (tai khoan, so tien da duyet) - xem fulfillment_service.queue_scope.
+    from ecentric_workspace.approval_center.shared.requests.fulfillment_service import queue_scope
+    held = queue_scope(APPROVAL_TYPE, BIZ, user)
+    if held is not None and section != "mine":
+        if not held:
+            return {"rows": []}
+        flt["name"] = ["in", held]
     rows = frappe.get_all(BIZ, filters=flt,
                           fields=["name", "requested_by", "ai_tool", "account_email", "approved_amount",
                                   "subscription_start_date", "subscription_end_date", "fulfillment_status",

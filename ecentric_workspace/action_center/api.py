@@ -26,6 +26,14 @@ from ecentric_workspace.action_center.resolvers import build_approval_url
 _MY_REQ_LIMIT = 10
 
 
+def attention_count(counts):
+    """So tren huy hieu "Viec cua toi" o header = overdue + act_now. MOT cho dinh nghia, dung
+    chung cho get_reminder_summary (header) va get_action_items (trang /viec-cua-toi) - de
+    trang dong bo huy hieu ngay sau khi duyet nhanh ma khong tu dem (UX 03/11/2026)."""
+    counts = counts or {}
+    return (counts.get("overdue") or 0) + (counts.get("act_now") or 0)
+
+
 def _require_user():
     if not frappe.session.user or frappe.session.user == "Guest":
         frappe.response["http_status_code"] = 401
@@ -59,6 +67,8 @@ def get_action_items(cursor=None, limit=None):
         "returned": res["returned"],
         "next_cursor": res["next_cursor"],
         "generated_at": res["generated_at"],
+        # additive: same derivation as the header badge (see attention_count)
+        "attention_count": attention_count(res["counts"]),
     }
 
 
@@ -82,11 +92,10 @@ def get_reminder_summary(limit=None):
     n = limit or ac_feed.PREVIEW_N
     res = ac_feed.bucket_previews(user, preview_n=n)
     counts = res["counts"]
-    attention_count = counts.get("overdue", 0) + counts.get("act_now", 0)
     return {
         "success": True,
         "total": res["total"],             # ALL open actions (badge on the widget)
-        "attention_count": attention_count,  # overdue + act_now (header badge)
+        "attention_count": attention_count(counts),  # overdue + act_now (header badge)
         "counts": counts,                  # full-feed bucket counts
         "source_counts": res["source_counts"],  # SAME per-source counts (no dup query)
         # PER-BUCKET previews (1b.1): each bucket independently populated from

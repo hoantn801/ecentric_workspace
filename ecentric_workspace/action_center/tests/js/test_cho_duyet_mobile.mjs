@@ -108,6 +108,9 @@ ok(/font-size:16px/.test(CSS.match(/\.cd-sheet textarea\{[^}]*\}/)[0]), "o nhap 
   $(w, '.cd-sheet [data-cd-do="reject"]').click(); await flush();
   ok(!calls.some((c) => c[0] === "quick_decide") && /lý do/.test($(w, "[data-cd-msg]").textContent), "tu choi khong ly do -> chan, khong goi server");
   $(w, "#cd-cmt").value = "Trung lich"; $(w, '.cd-sheet [data-cd-do="reject"]').click(); await flush();
+  // 03/11 (UX): tu choi co buoc xac nhan - bam lan 1 chi hien cau hoi, chua goi server
+  ok(!calls.some((c) => c[0] === "quick_decide") && !$(w, "[data-cd-confirm]").hidden, "tu choi: hien buoc xac nhan, chua goi server");
+  $(w, "[data-cd-confirm-go]").click(); await flush();
   const q = calls.find((c) => c[0] === "quick_decide");
   ok(q && q[1].action === "reject" && q[1].comment === "Trung lich", "tu choi co ly do -> quick_decide reject");
 }
@@ -118,6 +121,7 @@ ok(/font-size:16px/.test(CSS.match(/\.cd-sheet textarea\{[^}]*\}/)[0]), "o nhap 
   $(w, '.cd-sheet [data-cd-do="approve"]').click(); await flush();
   ok(!calls.some((c) => c[0] === "quick_decide") && /nhận xét/.test($(w, "[data-cd-msg]").textContent), "loai bat buoc nhan xet: duyet trong -> chan");
   $(w, "#cd-cmt").value = "Can them KPI"; $(w, '.cd-sheet [data-cd-do="request_information"]').click(); await flush();
+  $(w, "[data-cd-confirm-go]").click(); await flush();
   ok(calls.some((c) => c[0] === "quick_decide" && c[1].action === "request_information"), "yeu cau bo sung -> quick_decide request_information");
 }
 

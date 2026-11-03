@@ -24,6 +24,8 @@ nhung sai noi dung (so tien doc nham dong, payee la ben doi tac thay vi nguoi th
 Do la ly do giai doan 3 phai do ti le sua tay TUNG TRUONG.
 """
 import json
+import re
+from datetime import date as _date, datetime as _datetime
 
 import frappe
 from frappe import _
@@ -161,8 +163,12 @@ def build_schema(definition):
         elif df.fieldtype == "Link":
             item["link_doctype"] = df.options
             item["options"] = _candidates(df.options)
-        elif df.fieldtype in ("Data", "Small Text"):
+        elif df.fieldtype == "Data":
             item["maxlength"] = int(df.length or 0) or 140
+        elif df.fieldtype == "Small Text" and int(df.length or 0):
+            # Small Text la cot `text` - KHONG co tran 140 nhu Data. Ap 140 cho no thi moi
+            # "Ly do / Mo ta / Brief" dai hon mot dong bi bo `qua_dai`, AI khong bao gio dien.
+            item["maxlength"] = int(df.length)
         schema.append(item)
     return tuple(schema)
 
@@ -181,6 +187,66 @@ _NULL_WORDS = frozenset(("none", "null", "nil", "n/a", "undefined", "-", "\u2014
 
 def _is_null_word(value):
     return isinstance(value, str) and value.strip().lower() in _NULL_WORDS
+
+
+_ISO_DATE = re.compile(r"^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T ][0-9:.]*(?:Z|[+-]\d{2}:?\d{2})?)?$")
+_VN_DATE = re.compile(r"^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?$")
+
+
+def _parse_date(value):
+    """PURE. -> date | None. Chi nhan HAI dang ro nghia, con lai la None (de trong).
+
+    ISO `YYYY-MM-DD` (prompt yeu cau dang nay) va `DD/MM/YYYY` doc NGAY TRUOC - kieu viet
+    cua van ban tieng Viet. Khong doan: "10", "thang 10", so nguyen deu la None.
+    """
+    if isinstance(value, _datetime):
+        return value.date()
+    if isinstance(value, _date):
+        return value
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    m = _ISO_DATE.match(text)
+    if m:
+        y, mo, d = m.groups()
+    else:
+        m = _VN_DATE.match(text)
+        if not m:
+            return None
+        d, mo, y = m.groups()
+    try:
+        return _date(int(y), int(mo), int(d))
+    except ValueError:
+        return None
+
+
+_NUM_PLAIN = re.compile(r"^-?\d+(?:\.\d+)?$")
+#: "450.000" / "1,500": MOT nhom 3 chu so sau dau -> nghin (VN) hay thap phan (EN)? Khong
+#: biet. Ban cu `float("450.000")` = 450 - so tien nho di 1000 lan ma van qua cong.
+_NUM_ONE_GROUP = re.compile(r"^-?[1-9]\d{0,2}[.,]\d{3}$")
+_NUM_EN = re.compile(r"^-?\d{1,3}(?:,\d{3})+(?:\.\d+)?$")
+_NUM_VN = re.compile(r"^-?\d{1,3}(?:\.\d{3})+(?:,\d+)?$")
+
+
+def _parse_number(value):
+    """PURE. -> (float | None, ma_ly_do). So JSON giu nguyen; chuoi chi nhan dang ro nghia.
+
+    "45.000.000" (VN) va "45,000,000" (EN) deu ro; "450.000" va "1,5" thi khong -> bo.
+    """
+    if isinstance(value, bool):
+        return None, "khong_phai_so"
+    if isinstance(value, (int, float)):
+        return float(value), None
+    text = str(value).strip().replace(" ", "").replace("\u00a0", "")
+    if _NUM_ONE_GROUP.match(text):
+        return None, "so_mo_ho"
+    if _NUM_PLAIN.match(text):
+        return float(text), None
+    if _NUM_EN.match(text):
+        return float(text.replace(",", "")), None
+    if _NUM_VN.match(text):
+        return float(text.replace(".", "").replace(",", ".")), None
+    return None, "khong_phai_so"
 
 
 def _check(spec, value):
@@ -209,9 +275,14 @@ def _check(spec, value):
         return True, name, None
 
     if fieldtype in ("Date", "Datetime"):
-        try:
-            parsed = getdate(value)
-        except Exception:
+        # KHONG dung `getdate(value)` cho chuoi cua model (do 03/11 tren frappe v16 that):
+        #   ""           -> HOM NAY (nhanh `if not string_date`) - o ngay de trong thanh hom nay
+        #   "05/10/2026" -> 2026-05-10 (dateutil doc THANG truoc) - van ban VN la ngay 5/10
+        #   "10"         -> ngay 10 cua THANG HIEN TAI
+        #   so / "0001-01-01" -> None -> `None - today` no TypeError, sap ca luot goi
+        #   chu rac      -> frappe.throw: rot vao message_log, trang bat hop thoai loi
+        parsed = _parse_date(value)
+        if parsed is None:
             return False, None, "ngay_khong_hop_le"
         today = getdate(nowdate())
         if abs((parsed - today).days) > _DATE_WINDOW_DAYS:
@@ -219,10 +290,9 @@ def _check(spec, value):
         return True, str(parsed), None
 
     if fieldtype in ("Currency", "Float", "Int", "Percent"):
-        try:
-            number = float(str(value).replace(",", "").replace(" ", ""))
-        except (TypeError, ValueError):
-            return False, None, "khong_phai_so"
+        number, why = _parse_number(value)
+        if number is None:
+            return False, None, why
         if number != number or number in (float("inf"), float("-inf")):
             return False, None, "khong_phai_so"
         if number <= 0:
@@ -387,7 +457,10 @@ SYSTEM_INSTRUCTION = (
     "5. Khong suy dien ngay thang tu ngu canh mo ho. Van ban khong noi ro thi de trong.\n"
     "6. Neu co tep dinh kem, doc NOI DUNG tep. Tep va van ban mau thuan nhau thi de TRONG o "
     "do va ghi mau thuan vao `<ten>__source` - dung tu chon mot ben, nguoi dung moi la nguoi "
-    "biet ben nao dung."
+    "biet ben nao dung.\n"
+    "7. Truong ngay tra ve dang YYYY-MM-DD. Van ban tieng Viet viet NGAY truoc THANG: "
+    "\"05/10/2026\" la ngay 5 thang 10 -> 2026-10-05.\n"
+    "8. Truong so tra ve SO (number), khong phai chuoi: 450.000d -> 450000."
 )
 
 
@@ -464,4 +537,16 @@ def verify_sources(schema, values, sources, note, has_files):
         if not src or src not in haystack:
             kept.pop(name)
             dropped.append({"field": name, "reason": "trich_dan_khong_co_trong_van_ban"})
+            continue
+        # Trich dan THAT chua chua du: model chep dung "STK 1903 4567 8901 23" tu ghi chu roi
+        # tra gia tri lech mot chu so. Truong chu (so tai khoan) thi GIA TRI phai nam NGUYEN
+        # trong trich dan cua chinh no - bo dau cach/cham/gach o ca hai dau roi moi so.
+        # So tien khong so duoc kieu nay ("45 trieu" vs 45000000) nen chua dung toi.
+        if spec.get("fieldtype") not in _JSON_TYPE and _alnum(value) not in _alnum(src):
+            kept.pop(name)
+            dropped.append({"field": name, "reason": "gia_tri_khong_khop_trich_dan"})
     return kept, dropped
+
+
+def _alnum(text):
+    return "".join(c for c in str(text or "").lower() if c.isalnum())

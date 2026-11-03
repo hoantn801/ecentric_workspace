@@ -83,14 +83,40 @@ def prices():
     return out
 
 
+def billed_cost(parts, price_table):
+    """PURE. [{model, usage}] (moi lan thu da bi tinh tien) -> (vao, ra, tong, credit, nguon).
+
+    Nguon gop: mot lan khong biet gia -> '' (trang bao "chua du gia", khong doan); con lai co
+    lan uoc tinh -> 'estimate'; tat ca do Kie bao -> 'kie'."""
+    inp = out = tot = 0
+    credits, sources = 0.0, set()
+    for p in parts or []:
+        usage = (p or {}).get("usage") or {}
+        i, o, t = token_counts(usage)
+        c, src = credits_for((p or {}).get("model"), usage, i, o, price_table or {})
+        inp, out, tot, credits = inp + i, out + o, tot + t, credits + c
+        sources.add(src)
+    if not sources or "" in sources:
+        source = ""
+    else:
+        source = "estimate" if "estimate" in sources else "kie"
+    return inp, out, tot, round(credits, 4), source
+
+
 def build_row(purpose, result, user, department="", price_table=None, images=0):
-    """PURE. Ket qua gateway/images -> dict dong log. None neu khong can ghi."""
+    """PURE. Ket qua gateway/images -> dict dong log. None neu khong can ghi.
+
+    Ket qua gateway co `billed` (moi lan thu da tra token, ke ca lan hong): chi phi la TONG
+    cac lan do. Ket qua khong co `billed` (images) thi lay `usage` nhu cu."""
     if purpose in SKIP_PURPOSES:
         return None
     r = result if isinstance(result, dict) else {}
     usage = r.get("usage") or {}
-    inp, out, tot = token_counts(usage)
-    credits, source = credits_for(r.get("model"), usage, inp, out, price_table or {})
+    if isinstance(r.get("billed"), list):
+        inp, out, tot, credits, source = billed_cost(r["billed"], price_table)
+    else:
+        inp, out, tot = token_counts(usage)
+        credits, source = credits_for(r.get("model"), usage, inp, out, price_table or {})
     err = "" if r.get("ok") else str(r.get("error") or "")[:240]
     return {"user": user or "", "department": department or "", "purpose": purpose or "?",
             "model": r.get("model") or "", "ok": 1 if r.get("ok") else 0,

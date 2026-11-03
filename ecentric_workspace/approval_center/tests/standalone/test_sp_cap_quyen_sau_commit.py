@@ -29,10 +29,15 @@ class _Row(dict):
     __getattr__ = dict.get
 
 
-def _frappe(phieu, ar_theo_tham_chieu, nguoi_duyet):
+def _frappe(phieu, ar_theo_tham_chieu, nguoi_duyet, khoa=()):
     f = types.SimpleNamespace()
     f.get_meta = lambda dt: types.SimpleNamespace(has_field=lambda fn: False)
-    f.db = types.SimpleNamespace(get_value=lambda dt, n, fields, as_dict=False: _Row(phieu))
+
+    def get_value(dt, n, fields=None, as_dict=False):
+        if dt == "User":
+            return 0 if n in khoa else 1
+        return _Row(phieu)
+    f.db = types.SimpleNamespace(get_value=get_value)
 
     def get_all(dt, filters=None, **kw):
         if dt == "EC Approval Request":
@@ -40,15 +45,27 @@ def _frappe(phieu, ar_theo_tham_chieu, nguoi_duyet):
                                "reference_name": "EC-CTR-2026-00036"}
             return list(ar_theo_tham_chieu)
         if dt == "EC Approval Request Approver":
-            return list(nguoi_duyet.get(filters["approval_request"], []))
+            # Phan tu la email (dong User) hoac (email, "Role: X").
+            return [_Row(approver=x, source="User") if isinstance(x, str)
+                    else _Row(approver=x[0], source=x[1])
+                    for x in nguoi_duyet.get(filters["approval_request"], [])]
         return []
     f.get_all = get_all
     return f
 
 
+#: Role hien tai cua tung nguoi (mac dinh: con giu moi role).
+ROLE_HIEN_TAI = {}
+
+
 def _nap(f):
     ns = {"frappe": f}
     exec(compile(_doan(_MIRROR, "nguoi_trong_luong", "_phieu_duyet_theo_tham_chieu"), "<m>", "exec"), ns)
+
+    def _con(source, user):
+        role = source[len("Role: "):] if (source or "").startswith("Role: ") else None
+        return not role or role in ROLE_HIEN_TAI.get(user, (role,))
+    ns["_dong_con_hieu_luc"] = _con
     return ns["nguoi_trong_luong"]
 
 
@@ -71,6 +88,31 @@ class NguoiTrongLuong(unittest.TestCase):
         f = _frappe({"requested_by": "huong.pham@e.vn"}, [], DUYET)
         self.assertEqual(_nap(f)("EC Contract Review Request", "EC-CTR-2026-00036"),
                          ["huong.pham@e.vn"])
+
+
+class KhongCapChoNguoiDaRoiLuong(unittest.TestCase):
+    """03/11/2026 (QA t3): dong duyet chot luc gui, role va tai khoan thi song."""
+
+    def tearDown(self):
+        ROLE_HIEN_TAI.clear()
+
+    def test_mat_role_thi_khong_con_duoc_cap_quyen(self):
+        ROLE_HIEN_TAI["lam@e.vn"] = ()
+        f = _frappe({"requested_by": "huong.pham@e.vn", "approval_request": "APR-1"}, [],
+                    {"APR-1": [("lam@e.vn", "Role: EC Finance"), ("thu@e.vn", "Role: EC Finance"),
+                               "ceo@e.vn"]})
+        self.assertEqual(_nap(f)("EC Contract Review Request", "EC-CTR-2026-00036"),
+                         ["huong.pham@e.vn", "thu@e.vn", "ceo@e.vn"])
+
+    def test_tai_khoan_da_khoa_thi_khong_cap(self):
+        f = _frappe({"requested_by": "huong.pham@e.vn", "approval_request": "APR-1"}, [],
+                    {"APR-1": ["nghi@e.vn", "thu@e.vn"]}, khoa=("nghi@e.vn",))
+        self.assertEqual(_nap(f)("EC Contract Review Request", "EC-CTR-2026-00036"),
+                         ["huong.pham@e.vn", "thu@e.vn"])
+
+    def test_dong_that_dung_luat_cua_engine(self):
+        src = _doan(_MIRROR, "_dong_con_hieu_luc")
+        self.assertIn("row_still_eligible", src, "phai dung CHUNG luat voi nut Duyet")
 
 
 class JobDoiCommit(unittest.TestCase):
