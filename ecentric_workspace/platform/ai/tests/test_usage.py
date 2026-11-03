@@ -359,5 +359,24 @@ class PhamViXem(unittest.TestCase):
         self.assertEqual(d["period"]["from"], str(datetime.date(2026, 10, 7) - datetime.timedelta(days=365)))
 
 
+class QaCongAiNgay(unittest.TestCase):
+    """QA 03/11: tham so ngay rac tu URL /ai-usage khong duoc thanh loi 500 (OverflowError)."""
+
+    def api(self):
+        self.fk = FakeFrappe(user="c@ec.vn", employees=EMPS, depts=DEPTS, logs=LOGS)
+        sys.modules["frappe"] = self.fk
+        load("usage")
+        load("usage_report")
+        return load("usage_api")
+
+    def test_so_ngay_khong_lo_bi_kep(self):
+        d = self.api().summary(days="1000000000000")
+        self.assertEqual(d["period"]["from"], str(datetime.date(2026, 10, 7) - datetime.timedelta(days=365)))
+
+    def test_ngay_sat_nam_1_bao_ngay_khong_hop_le(self):
+        with self.assertRaises(ValueError):
+            self.api().summary(to_date="0001-01-05")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)
