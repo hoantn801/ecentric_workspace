@@ -576,6 +576,7 @@ class Hook(unittest.TestCase):
                 get_value=lambda dt, n, fields=None, as_dict=False: _Row(
                     reference_doctype=ref_dt, reference_name="CTR-1")),
             get_doc=lambda d: _Ins(d), session=types.SimpleNamespace(user="u"),
+            local=types.SimpleNamespace(),  # log_action doc frappe.local khi "Restarted" (QA t1 03/11)
             get_attr=lambda path: handler, log_error=lambda *a, **k: logs.append(a),
             get_traceback=lambda: "tb")
         ns = {"frappe": f, "now_datetime": lambda: None}
