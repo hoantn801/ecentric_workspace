@@ -12,6 +12,8 @@ KHONG con Google. Hoan chot 28/09: mot nguon Kie; model chinh loi thi thu model
 khac CUNG ben Kie. `ec_gemini_api_key`, `ec_llm_provider`, `ec_llm_model`,
 `ec_llm_model_summarizer`, `ec_llm_model_company_summary` khong con dong nao doc.
 """
+import json
+
 import frappe
 
 KEY_FIELD = "ec_kie_api_key"
@@ -54,6 +56,35 @@ def api_key():
     if not key:
         key = _single(KEY_FIELD)
     return "" if looks_masked(key) else key.strip()
+
+
+#: Doan khoa dai tu chung nay tro len ma lot vao chuoi loi thi cung bi che (Kie in lai mot
+#: phan khoa trong than loi 401). 12 ky tu ngau nhien trung tinh co: xac suat ~0.
+MIN_KEY_FRAGMENT = 12
+
+
+def scrub_key(text, key, min_fragment=MIN_KEY_FRAGMENT):
+    """PURE. Che khoa trong chuoi loi truoc khi no di vao Error Log / usage log / trang.
+
+    Ba dang: nguyen van; ban da escape (requests nem InvalidHeader voi repr(gia tri header)
+    -> xuong dong thanh "\\n", replace nguyen van truot - do bang requests 2.34 ngay 03/11);
+    va doan con >= `min_fragment` ky tu (than loi 401 in lai nua khoa).
+    """
+    t = str(text or "")
+    key = str(key or "")
+    if not key or not t:
+        return t
+    forms = {key, repr(key)[1:-1], json.dumps(key)[1:-1]}
+    for form in sorted(forms, key=len, reverse=True):
+        if form:
+            t = t.replace(form, "***")
+    if len(key) > min_fragment:
+        for size in range(len(key) - 1, min_fragment - 1, -1):
+            for start in range(0, len(key) - size + 1):
+                frag = key[start:start + size]
+                if frag in t:
+                    t = t.replace(frag, "***")
+    return t
 
 
 def parse_models(text):

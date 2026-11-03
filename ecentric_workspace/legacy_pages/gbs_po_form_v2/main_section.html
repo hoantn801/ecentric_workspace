@@ -107,6 +107,21 @@
   if (soIsEc) m = 'ecbuy';
   window.EC_PO_INIT_MODE = m;
   root.setAttribute('data-ec-po-mode', m);
+  // UX 03/11/2026 (ux_po): them vai co dat TRUOC khi ve de CSS hien dung ngay lan ve dau (A65):
+  //  - data-ec-po-mode-lock: tao tu SO / dang sua -> loai PO co dinh (doi luc nay se gui sai API).
+  //  - data-ec-po-flow: new | from_so | edit (an "Luu nhap" khi khong phai phieu moi).
+  //  - data-ec-po-draft: co ban nhap rieng cua form PO -> hien thanh "Khoi phuc nhap".
+  //  - data-ec-po-lastsup-<mode>: co NCC lan truoc -> hien nut "Dung lai".
+  var isEdit = /[?&]edit=/.test(s);
+  if (gbsFlow || soIsEc) root.setAttribute('data-ec-po-mode-lock', '1');
+  root.setAttribute('data-ec-po-flow', isEdit ? 'edit' : (fromSo ? 'from_so' : 'new'));
+  try {
+    if (!isEdit && !fromSo && localStorage.getItem('ec_gbs_po_draft_v1')) root.setAttribute('data-ec-po-draft', '1');
+    if (!isEdit) {
+      if (localStorage.getItem('ec_po_last_sup_gbsbuy')) root.setAttribute('data-ec-po-lastsup-gbsbuy', '1');
+      if (localStorage.getItem('ec_po_last_sup_ecbuy')) root.setAttribute('data-ec-po-lastsup-ecbuy', '1');
+    }
+  } catch (e) {}
   try { if (localStorage.getItem('cp_collapsed_mso') === '1') root.setAttribute('data-ec-cp-collapsed', '1'); } catch (e) {}
 })();
 </script>
@@ -206,7 +221,9 @@
 #submitBtn[data-ec-edit-relabel="1"]:hover { background:#d97706 !important; }
 /* tu ec-po-unified */
 .ec-uni-bar{margin:18px 28px 0;padding:12px 16px;background:#fff;border:1.5px solid #e2ded6;border-radius:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:13px}
-.ec-uni-btn{padding:9px 16px;border-radius:9px;border:1.5px solid #d5d0c6;background:#faf9f6;cursor:pointer;font-weight:600;font-size:13px}
+.ec-uni-btn{display:inline-flex;flex-direction:column;align-items:flex-start;gap:1px;text-align:left;padding:8px 14px;border-radius:9px;border:1.5px solid #d5d0c6;background:#faf9f6;cursor:pointer;font-weight:600;font-size:13px;color:#374151;line-height:1.3}
+.ec-uni-btn-s{font-size:11px;font-weight:500;opacity:.85}
+.ec-uni-btn:focus-visible{outline:2px solid #2C3DA6;outline-offset:2px}
 .ec-uni-btn.on{background:#7a4a1f;border-color:#7a4a1f;color:#fff}
 .ec-uni-note{flex-basis:100%;font-size:12px;color:#8a6d1a;background:#fdf6e3;border:1px solid #f0e2b6;border-radius:8px;padding:8px 10px}
 .ec-uni-badge{margin-left:auto;font-size:12px;color:#6b6b6b;max-width:420px}
@@ -216,10 +233,10 @@
    Khong co thuoc tinh (vd khong chay JS) = mac dinh lan dau: ecbuy. */
 html:not([data-ec-po-mode="gbsbuy"]) .ec-uni-btn[data-m="ecbuy"],
 html[data-ec-po-mode="gbsbuy"] .ec-uni-btn[data-m="gbsbuy"]{background:#7a4a1f;border-color:#7a4a1f;color:#fff}
-.ec-uni-note-m{opacity:.6}
+.ec-uni-note-m{display:none}
 .ec-uni-note-m + .ec-uni-note-m{margin-top:4px}
 html:not([data-ec-po-mode="gbsbuy"]) .ec-uni-note-m[data-m="ecbuy"],
-html[data-ec-po-mode="gbsbuy"] .ec-uni-note-m[data-m="gbsbuy"]{opacity:1}
+html[data-ec-po-mode="gbsbuy"] .ec-uni-note-m[data-m="gbsbuy"]{display:block}
 html[data-ec-po-mode="gbsbuy"] .ec-only-ecbuy{display:none !important}
 html:not([data-ec-po-mode="gbsbuy"]) .ec-only-gbsbuy{display:none !important}
 /* Khung chain thu gon: nho lua chon cu, dat truoc khi ve (thay cho them class sau khi tai) */
@@ -235,6 +252,64 @@ html[data-ec-cp-collapsed="1"] #chainPreview .cp-meta{display:none}
 #ecAddSoBox .ec-addso-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
 #ecAddSoBox select,#ecAddSoBox input{padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;min-width:220px}
 #ecSoList{font-size:12px;color:#374151;margin-top:6px}
+
+/* ===== UX 03/11/2026 (ux_po): form PO dung hang ngay. Trang thai ban dau doc tu thuoc tinh <html>
+   do script dau trang dat (A65) - JS chi doi noi dung khi nguoi dung thao tac. ===== */
+/* Thanh loai PO: khoa khi tao tu SO / dang sua */
+.ec-uni-lock{display:none;flex-basis:100%;font-size:12px;color:#6b7280}
+html[data-ec-po-mode-lock="1"] .ec-uni-lock{display:block}
+html[data-ec-po-mode-lock="1"]:not([data-ec-po-mode="gbsbuy"]) .ec-uni-btn[data-m="gbsbuy"],
+html[data-ec-po-mode-lock="1"][data-ec-po-mode="gbsbuy"] .ec-uni-btn[data-m="ecbuy"]{opacity:.45;cursor:not-allowed}
+/* Ban nhap */
+.ec-draft-bar{display:none;margin:12px 28px 0;padding:10px 14px;border:1px solid #c7d2fe;background:#eef2ff;border-radius:10px;font-size:13px;color:#312e81;align-items:center;gap:10px;flex-wrap:wrap}
+html[data-ec-po-draft="1"] .ec-draft-bar{display:flex}
+.ec-draft-bar span{flex:1;min-width:200px}
+.ec-draft-bar button,.ec-lastsup,.ec-so-rm{font:inherit;cursor:pointer}
+.ec-draft-bar button{padding:6px 12px;border-radius:7px;border:1px solid #6366f1;background:#fff;color:#3730a3;font-size:12.5px;font-weight:600}
+.ec-draft-bar button.ec-primary{background:#4f46e5;color:#fff;border-color:#4f46e5}
+html[data-ec-po-flow="edit"] #btnDraft,html[data-ec-po-flow="from_so"] #btnDraft{display:none}
+/* Dung lai NCC lan truoc */
+.ec-lastsup{display:none;margin-top:6px;align-self:flex-start;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;border:1px dashed #6366f1;background:#f8faff;color:#3730a3;font-size:11.5px;font-weight:600;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html[data-ec-po-lastsup-gbsbuy="1"] #ecLastSupGbs,html[data-ec-po-lastsup-ecbuy="1"] #ecLastSupEc{display:inline-flex}
+.ec-lastsup-name{font-weight:700}
+/* Loi canh truong */
+#ec-shell .field.has-error .f-control,#ec-shell .field.has-error .ec-cb-display,
+#ec-shell .ec-cb-display.ec-invalid,#ec-shell .f-control.ec-invalid{border-color:#c0392b !important;box-shadow:0 0 0 3px rgba(192,57,43,.1) !important}
+#ec-shell .field.has-error .field-label{color:#c0392b !important}
+.ec-err-inline{margin-top:8px;padding:8px 10px;border-radius:6px;background:#fff5f5;border:1px solid #f5c6c6;color:#c0392b;font-size:12px}
+/* Tong: thanh trang thai + link trong toast */
+.toast a{color:inherit;font-weight:700;text-decoration:underline;margin-left:6px}
+/* Khung them SO */
+#ecAddSoBox .ec-addso-row[hidden]{display:none}
+#ecAddSoBox .ec-addso-row label{font-size:12px;font-weight:600;color:#374151}
+#ecAddSoBox .ec-addso-or{font-size:12px;color:#6b7280}
+#ecAddSoMsg{font-size:12px;margin-top:6px}
+#ecAddSoMsg.ec-err{color:#c0392b}
+#ecAddSoMsg.ec-ok{color:#166534}
+.ec-so-chips{list-style:none;display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.ec-so-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 4px 3px 10px;border-radius:14px;background:#eef2ff;border:1px solid #c7d2fe;font-size:12px}
+.ec-so-chip a{color:#3730a3;font-weight:600;text-decoration:none}
+.ec-so-chip a:hover{text-decoration:underline}
+.ec-so-n{color:#6b7280}
+.ec-so-root{font-size:11px;color:#6b7280;padding:1px 8px}
+.ec-so-rm{border:0;background:#fff;color:#c0392b;border-radius:10px;padding:1px 8px;font-size:11.5px;font-weight:600}
+.ec-so-rm:hover{background:#fee2e2}
+/* Luong duyet theo loai PO */
+html:not([data-ec-po-mode="gbsbuy"]) #chainPreview .cp-meta,html:not([data-ec-po-mode="gbsbuy"]) #chainPreview .cp-body{display:none}
+#chainPreview .cp-ecbuy{font-size:12px;color:#374151;line-height:1.55}
+#chainPreview .cp-ecbuy li{margin:0 0 6px 16px}
+html[data-ec-cp-collapsed="1"] #chainPreview .cp-ecbuy{display:none}
+/* Ban phim + nut */
+#ec-shell .ec-pri-opt{border:0;border-right:1px solid #e5e7eb;font:inherit;font-size:12.5px}
+#ec-shell .ec-pri-opt:last-child{border-right:0}
+#ec-shell button:focus-visible,#ec-shell .ec-cb-display:focus-visible,#ec-shell a:focus-visible{outline:2px solid #2C3DA6;outline-offset:2px}
+/* Bang item: tren man hep thi cuon ngang thay vi bop nat o nhap */
+.ec-items-scroll{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+@media (max-width:900px){
+  .ec-items-scroll .items-table{min-width:760px}
+  .ec-uni-bar,.ec-draft-bar{margin-left:16px;margin-right:16px}
+  .ec-uni-badge{margin-left:0;flex-basis:100%}
+}
 </style>
 
 <!-- HIDE-NAVBAR-V1 -->
@@ -826,9 +901,9 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
 }
 </style>
 
-<div class="toast" id="toast">
+<div class="toast" id="toast" role="status" aria-live="polite">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-  <span id="toastText">MSO Request đã được gửi thành công!</span>
+  <span id="toastText"></span><a id="toastLink" href="#" hidden></a>
 </div>
 
 <div class="page-wrap">
@@ -843,18 +918,19 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
         <div></div>
         <div class="header-badge">
           <svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="#e8b84b"/></svg>
-          GBS PO
+          <span class="ec-only-gbsbuy">GBS PO</span><span class="ec-only-ecbuy">PO sổ EC</span>
         </div>
       </div>
-      <h1>GBS Purchase Order</h1>
-      <p>Tạo request gửi GBS — cần Finance duyệt trước khi sync</p>
+      <h1>Đơn mua (PO)</h1>
+      <p><span class="ec-only-gbsbuy">PO của GBS — duyệt nội bộ (Finance) xong, hệ thống tự đồng bộ sang boxme.</span><span class="ec-only-ecbuy">PO mua ngoài ghi sổ eCentric — không đẩy sang boxme.</span></p>
       <div class="id-display">
-        <span>Request ID</span>
-        <span id="msoIdDisplay">GBS-PO-yyyyMMdd-XXXXX</span>
+        <span>Mã phiếu</span>
+        <span id="msoIdDisplay">Tự cấp khi gửi</span>
       </div>
     </div>
 
-    <div class="ec-uni-bar"><strong>Lo&#7841;i PO:</strong><button type="button" class="ec-uni-btn" data-m="gbsbuy">GBS mua (&#273;&#7849;y boxme)</button><button type="button" class="ec-uni-btn" data-m="ecbuy">Mua ngo&#224;i (s&#7893; EC)</button><span class="ec-uni-badge" id="ecUniBadge"></span><div class="ec-uni-note" id="ecUniNote"><div class="ec-uni-note-m" data-m="gbsbuy">Ch&#7871; &#273;&#7897; <b>GBS mua (&#273;&#7849;y boxme)</b>: PO c&#7911;a GBS, duy&#7879;t xong h&#7879; th&#7889;ng &#273;&#7891;ng b&#7897; sang boxme.</div><div class="ec-uni-note-m" data-m="ecbuy">Ch&#7871; &#273;&#7897; <b>Mua ngo&#224;i (s&#7893; EC)</b>: PO native s&#7893; EC, KH&#212;NG &#273;&#7849;y boxme. <b>SO tham chi&#7871;u b&#7855;t bu&#7897;c</b> — trong t&#7893;ng SO &#8594; duy&#7879;t 2 c&#7845;p; v&#432;&#7907;t &#8594; gi&#7843;i tr&#236;nh + 4 c&#7845;p. Mua n&#7897;i b&#7897; (kh&#244;ng g&#7855;n doanh thu) &#273;i lu&#7891;ng &#272;NMH. PO mua t&#7915; ch&#237;nh eCentric b&#7883; ch&#7863;n (GBS t&#7921; t&#7841;o).</div></div></div>
+    <div class="ec-uni-bar" role="group" aria-label="Lo&#7841;i PO"><strong>Lo&#7841;i PO:</strong><button type="button" class="ec-uni-btn" data-m="gbsbuy"><span class="ec-uni-btn-t">GBS mua</span><span class="ec-uni-btn-s">duy&#7879;t xong &#273;&#7849;y sang boxme</span></button><button type="button" class="ec-uni-btn" data-m="ecbuy"><span class="ec-uni-btn-t">Mua ngo&#224;i (s&#7893; EC)</span><span class="ec-uni-btn-s">ghi s&#7893; eCentric, kh&#244;ng &#273;&#7849;y boxme</span></button><span class="ec-uni-badge" id="ecUniBadge" role="status" aria-live="polite"></span><div class="ec-uni-note" id="ecUniNote"><div class="ec-uni-note-m" data-m="gbsbuy"><b>GBS mua</b>: PO c&#7911;a GBS. Duy&#7879;t n&#7897;i b&#7897; xong, h&#7879; th&#7889;ng t&#7921; &#273;&#7891;ng b&#7897; sang boxme. C&#7847;n: Nh&#224; cung c&#7845;p, Project, Kho m&#7863;c &#273;&#7883;nh v&#224; &#237;t nh&#7845;t 1 file ch&#7913;ng t&#7915;. C&#243; th&#7875; gom items t&#7915; nhi&#7873;u SO c&#249;ng brand.</div><div class="ec-uni-note-m" data-m="ecbuy"><b>Mua ngo&#224;i (s&#7893; EC)</b>: PO ghi s&#7893; eCentric, KH&#212;NG &#273;&#7849;y boxme. <b>B&#7855;t bu&#7897;c g&#7855;n SO tham chi&#7871;u</b>: trong t&#7893;ng SO &#8594; duy&#7879;t 2 c&#7845;p; v&#432;&#7907;t &#8594; gi&#7843;i tr&#236;nh + 4 c&#7845;p. Mua n&#7897;i b&#7897; (kh&#244;ng g&#7855;n doanh thu) &#273;i lu&#7891;ng &#272;NMH. PO mua t&#7915; ch&#237;nh eCentric b&#7883; ch&#7863;n (GBS t&#7921; t&#7841;o).</div><div class="ec-uni-lock">Phi&#7871;u &#273;ang t&#7841;o t&#7915; SO ho&#7863;c &#273;ang s&#7917;a n&#234;n lo&#7841;i PO &#273;&#432;&#7907;c gi&#7919; c&#7889; &#273;&#7883;nh.</div></div></div>
+    <div class="ec-draft-bar" id="ecDraftBar" role="region" aria-label="B&#7843;n nh&#225;p"><span id="ecDraftText">B&#7841;n c&#243; m&#7897;t b&#7843;n nh&#225;p PO ch&#432;a g&#7917;i tr&#234;n m&#225;y n&#224;y.</span><button type="button" class="ec-primary" id="btnDraftRestore">Kh&#244;i ph&#7909;c nh&#225;p</button><button type="button" id="btnDraftDiscard">B&#7887; nh&#225;p</button></div>
 
     <p class="required-note">Các trường có dấu <span>*</span> là bắt buộc.</p>
 
@@ -866,14 +942,14 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       </div>
       <div class="grid-2">
         <div class="field col-full">
-          <label class="field-label">Title <span class="req">*</span></label>
-          <input class="f-control" id="title" placeholder="VD: Campaign Q2 2026 — Vitadairy Push"/>
-          <span class="field-hint">Mô tả ngắn gọn campaign / tháng</span>
-          <span class="error-msg">Vui lòng nhập title</span>
+          <label class="field-label" for="title" data-field-key="title">Tiêu đề <span class="req">*</span></label>
+          <input class="f-control" id="title" placeholder="VD: Thuê KOC review Friso tháng 11" autocomplete="off"/>
+          <span class="field-hint">Mô tả ngắn: mua gì, cho campaign / tháng nào</span>
+          <span class="error-msg">Vui lòng nhập tiêu đề</span>
         </div>
-        <div id="ec-pri-wrap" class="ec-pri-wrap"><div class="ec-pri-label">M&#7913;c &#432;u ti&#234;n</div><div class="ec-pri-row"><div class="ec-pri-opt ec-pri-selected" data-pri="Normal">Normal</div><div class="ec-pri-opt" data-pri="Urgent">Urgent</div></div><input type="hidden" id="priority" name="priority" value="Normal" /></div>
+        <div id="ec-pri-wrap" class="ec-pri-wrap"><div class="ec-pri-label" id="ecPriLabel">M&#7913;c &#432;u ti&#234;n</div><div class="ec-pri-row" role="group" aria-labelledby="ecPriLabel"><button type="button" class="ec-pri-opt ec-pri-selected" data-pri="Normal" aria-pressed="true">Normal</button><button type="button" class="ec-pri-opt" data-pri="Urgent" aria-pressed="false">Urgent</button></div><input type="hidden" id="priority" name="priority" value="Normal" /></div>
         <div class="field">
-          <label class="field-label">Department <span class="req">*</span></label>
+          <label class="field-label" data-field-key="department">Phòng ban <span class="req">*</span></label>
           <div class="select-wrap">
             <div class="ec-cb"><input type="text" readonly class="ec-cb-display ec-empty" placeholder="-- Ch&#7885;n department --"><span class="ec-cb-arrow">&#9660;</span><div class="ec-cb-panel" hidden><div class="ec-cb-search-wrap"><input class="ec-cb-search" placeholder="T&#236;m..."></div><div class="ec-cb-count" style="display:none"></div><div class="ec-cb-list"></div></div></div>
             <select class="f-control" id="department" style="display:none" data-ec-cb-hidden="1">
@@ -888,26 +964,26 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
               <option>Finance &amp; Accounting</option>
             </select>
           </div>
-          <span class="field-hint">Auto-fill từ user profile, có thể đổi</span>
-          <span class="error-msg">Vui lòng chọn department</span>
+          <span class="field-hint">Tự điền theo hồ sơ của bạn, có thể đổi</span>
+          <span class="error-msg">Vui lòng chọn phòng ban</span>
         </div>
         <div class="field">
-          <label class="field-label">Brand <span class="req">*</span></label>
+          <label class="field-label" data-field-key="brand">Brand <span class="req ec-only-gbsbuy">*</span></label>
           <div class="select-wrap">
             <div class="ec-cb"><input type="text" readonly class="ec-cb-display ec-empty" placeholder="-- Ch&#7885;n brand --"><span class="ec-cb-arrow">&#9660;</span><div class="ec-cb-panel" hidden><div class="ec-cb-search-wrap"><input class="ec-cb-search" placeholder="T&#236;m..."></div><div class="ec-cb-count" style="display:none"></div><div class="ec-cb-list"></div></div></div>
             <select class="f-control" id="brand" style="display:none" data-ec-cb-hidden="1">
               <option value="">-- Đang tải brand... --</option>
             </select>
           </div>
-          <span class="field-hint" id="brandHint">Brand liên quan campaign này</span>
+          <span class="field-hint" id="brandHint">Brand của đơn mua này</span>
           <span class="error-msg">Vui lòng chọn brand</span>
         </div>
         <div class="field">
-          <label class="field-label">Campaign No.</label>
+          <label class="field-label" for="campaignNo">Mã campaign</label>
           <input class="f-control" id="campaignNo" placeholder="VD: C001" maxlength="30"/>
-          <span class="field-hint">Mã campaign nội bộ (optional)</span>
+          <span class="field-hint">Mã campaign nội bộ (không bắt buộc)</span>
         </div>
-        <div class="field">
+        <div class="field" style="display:none">
           <label class="field-label">Status</label>
           <div class="status-readonly-wrap">
             <div class="status-dot"></div>
@@ -923,7 +999,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       </div>
     </div>
 
-    <div class="form-section"><div class="section-title"><div class="section-title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><span class="section-title-text">Nhà cung cấp &amp; Schedule</span><div class="section-title-line"></div></div><div class="grid-2"><div class="field ec-only-ecbuy" id="ecPoWrap"><label style="font-size:11px;font-weight:600;color:#6b7280;display:block;margin-bottom:4px">Nh&#224; cung c&#7845;p (EC) <span style="color:#dc2626">*</span></label><div class="ec-cb"><input type="text" readonly class="ec-cb-display ec-empty" placeholder="-- Ch&#7885;n nh&#224; cung c&#7845;p --"><span class="ec-cb-arrow">&#9660;</span><div class="ec-cb-panel" hidden><div class="ec-cb-search-wrap"><input class="ec-cb-search" placeholder="T&#236;m..."></div><div class="ec-cb-count" style="display:none"></div><div class="ec-cb-list"></div></div></div><select class="f-control" id="ecSupplier" style="display:none;width:100%;padding:9px 12px;border:1px solid #e5e7eb;border-radius:6px;font-size:13px"><option value=""></option></select><label style="font-size:11px;font-weight:600;color:#6b7280;display:block;margin:10px 0 4px">SO tham chi&#7871;u <span style="color:#dc2626">*</span></label><div class="ec-cb"><input type="text" readonly class="ec-cb-display ec-empty" placeholder="-- Ch&#7885;n SO tham chi&#7871;u --"><span class="ec-cb-arrow">&#9660;</span><div class="ec-cb-panel" hidden><div class="ec-cb-search-wrap"><input class="ec-cb-search" placeholder="T&#236;m..."></div><div class="ec-cb-count" style="display:none"></div><div class="ec-cb-list"></div></div></div><select class="f-control" id="ecSoRef" style="display:none;width:100%;padding:9px 12px;border:1px solid #e5e7eb;border-radius:6px;font-size:13px"><option value=""></option></select><div id="ecPoBudget" style="margin-top:10px;font-size:12px;color:#6b6b6b"><span style="color:#b45309;font-weight:600">Ch&#7885;n SO tham chi&#7871;u (b&#7855;t bu&#7897;c) &#273;&#7875; t&#237;nh h&#7841;n m&#7913;c</span></div><div id="ecJustWrap" style="display:none;margin-top:10px"><label style="font-size:11px;font-weight:600;color:#6b7280;display:block;margin-bottom:4px">L&#253; do gi&#7843;i tr&#236;nh (v&#432;&#7907;t/ngo&#224;i SO) <span style="color:#dc2626">*</span></label><textarea class="f-control" id="ecJustification" rows="2" style="width:100%;padding:9px 12px;border:1px solid #e5e7eb;border-radius:6px;font-size:13px"></textarea></div></div><div class="field ec-only-gbsbuy"><label class="field-label">Nhà cung cấp <span class="req">*</span></label><div class="select-wrap"><div class="ec-cb"><input type="text" readonly class="ec-cb-display ec-empty" placeholder="-- Ch&#7885;n supplier --"><span class="ec-cb-arrow">&#9660;</span><div class="ec-cb-panel" hidden><div class="ec-cb-search-wrap"><input class="ec-cb-search" placeholder="T&#236;m..."></div><div class="ec-cb-count" style="display:none"></div><div class="ec-cb-list"></div></div></div><select class="f-control" id="supplier" style="display:none" data-ec-cb-hidden="1"><option value="">-- Chọn supplier --</option></select></div></div><div class="field"><label class="field-label">Ngày giao dịch <span class="req">*</span></label><input class="f-control" type="date" id="transaction_date"/></div><div class="field"><label class="field-label">Ngày cần hàng <span class="req">*</span></label><input class="f-control" type="date" id="schedule_date"/></div><div class="field ec-only-gbsbuy"><label class="field-label">Project<span class="ec-req-star" style="color:#dc2626;margin-left:3px;font-weight:600;">*</span></label><div class="select-wrap"><div class="ec-cb"><input type="text" readonly class="ec-cb-display ec-empty" placeholder="-- Ch&#7885;n project --"><span class="ec-cb-arrow">&#9660;</span><div class="ec-cb-panel" hidden><div class="ec-cb-search-wrap"><input class="ec-cb-search" placeholder="T&#236;m..."></div><div class="ec-cb-count" style="display:none"></div><div class="ec-cb-list"></div></div></div><select class="f-control" id="project" required style="display:none" data-ec-cb-hidden="1"><option value="">-- Chọn project --</option></select></div><span class="field-hint">Project bên GBS (lấy từ team.boxme.asia)</span></div><div class="field ec-only-gbsbuy"><label class="field-label">Mã hợp đồng</label><div class="select-wrap"><div class="ec-cb"><input type="text" readonly class="ec-cb-display ec-empty" placeholder="-- Ch&#7885;n h&#7907;p &#273;&#7891;ng (optional) --"><span class="ec-cb-arrow">&#9660;</span><div class="ec-cb-panel" hidden><div class="ec-cb-search-wrap"><input class="ec-cb-search" placeholder="T&#236;m..."></div><div class="ec-cb-count" style="display:none"></div><div class="ec-cb-list"></div></div></div><select class="f-control" id="contract_approval" style="display:none" data-ec-cb-hidden="1"><option value="">-- Chọn hợp đồng (optional) --</option></select></div><span class="field-hint">Hợp đồng nhà cung cấp bên GBS. Chỉ hiện HĐ có party_type=Supplier.</span></div><div class="field ec-only-gbsbuy"><label class="field-label">Kho m&#7863;c &#273;&#7883;nh <span class="req">*</span></label><div class="select-wrap"><div class="ec-cb"><input type="text" readonly class="ec-cb-display ec-empty" placeholder="-- Ch&#7885;n warehouse --"><span class="ec-cb-arrow">&#9660;</span><div class="ec-cb-panel" hidden><div class="ec-cb-search-wrap"><input class="ec-cb-search" placeholder="T&#236;m..."></div><div class="ec-cb-count" style="display:none"></div><div class="ec-cb-list"></div></div></div><select class="f-control" id="set_warehouse" style="display:none" data-ec-cb-hidden="1"><option value="">-- &#272;ang t&#7843;i warehouse... --</option></select></div><span class="field-hint">Items s&#7869; d&#249;ng kho n&#224;y khi sync sang GBS</span></div></div></div><div class="form-section">
+    <div class="form-section"><div class="section-title"><div class="section-title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><span class="section-title-text">Nhà cung cấp &amp; thời gian</span><div class="section-title-line"></div></div><div class="grid-2"><div class="field ec-only-ecbuy" id="ecPoWrap"><label style="font-size:11px;font-weight:600;color:#6b7280;display:block;margin-bottom:4px">Nh&#224; cung c&#7845;p (EC) <span style="color:#dc2626">*</span></label><div class="ec-cb"><input type="text" readonly class="ec-cb-display ec-empty" placeholder="-- Ch&#7885;n nh&#224; cung c&#7845;p --"><span class="ec-cb-arrow">&#9660;</span><div class="ec-cb-panel" hidden><div class="ec-cb-search-wrap"><input class="ec-cb-search" placeholder="T&#236;m..."></div><div class="ec-cb-count" style="display:none"></div><div class="ec-cb-list"></div></div></div><select class="f-control" id="ecSupplier" style="display:none;width:100%;padding:9px 12px;border:1px solid #e5e7eb;border-radius:6px;font-size:13px"><option value=""></option></select><button type="button" class="ec-lastsup" id="ecLastSupEc" data-m="ecbuy" data-target="ecSupplier">D&#249;ng l&#7841;i NCC l&#7847;n tr&#432;&#7899;c: <span class="ec-lastsup-name"></span></button><label style="font-size:11px;font-weight:600;color:#6b7280;display:block;margin:10px 0 4px">SO tham chi&#7871;u <span style="color:#dc2626">*</span></label><div class="ec-cb"><input type="text" readonly class="ec-cb-display ec-empty" placeholder="-- Ch&#7885;n SO tham chi&#7871;u --"><span class="ec-cb-arrow">&#9660;</span><div class="ec-cb-panel" hidden><div class="ec-cb-search-wrap"><input class="ec-cb-search" placeholder="T&#236;m..."></div><div class="ec-cb-count" style="display:none"></div><div class="ec-cb-list"></div></div></div><select class="f-control" id="ecSoRef" style="display:none;width:100%;padding:9px 12px;border:1px solid #e5e7eb;border-radius:6px;font-size:13px"><option value=""></option></select><div id="ecPoBudget" style="margin-top:10px;font-size:12px;color:#6b6b6b"><span style="color:#b45309;font-weight:600">Ch&#7885;n SO tham chi&#7871;u (b&#7855;t bu&#7897;c) &#273;&#7875; t&#237;nh h&#7841;n m&#7913;c</span></div><div id="ecJustWrap" style="display:none;margin-top:10px"><label style="font-size:11px;font-weight:600;color:#6b7280;display:block;margin-bottom:4px">L&#253; do gi&#7843;i tr&#236;nh (v&#432;&#7907;t/ngo&#224;i SO) <span style="color:#dc2626">*</span></label><textarea class="f-control" id="ecJustification" rows="2" style="width:100%;padding:9px 12px;border:1px solid #e5e7eb;border-radius:6px;font-size:13px"></textarea></div></div><div class="field ec-only-gbsbuy"><label class="field-label" data-field-key="supplier">Nhà cung cấp <span class="req">*</span></label><div class="select-wrap"><div class="ec-cb"><input type="text" readonly class="ec-cb-display ec-empty" placeholder="-- Ch&#7885;n supplier --"><span class="ec-cb-arrow">&#9660;</span><div class="ec-cb-panel" hidden><div class="ec-cb-search-wrap"><input class="ec-cb-search" placeholder="T&#236;m..."></div><div class="ec-cb-count" style="display:none"></div><div class="ec-cb-list"></div></div></div><select class="f-control" id="supplier" style="display:none" data-ec-cb-hidden="1"><option value="">-- Chọn supplier --</option></select></div><button type="button" class="ec-lastsup" id="ecLastSupGbs" data-m="gbsbuy" data-target="supplier">D&#249;ng l&#7841;i NCC l&#7847;n tr&#432;&#7899;c: <span class="ec-lastsup-name"></span></button><span class="error-msg">Vui lòng chọn nhà cung cấp</span></div><div class="field"><label class="field-label" for="transaction_date" data-field-key="transaction_date">Ngày giao dịch <span class="req">*</span></label><input class="f-control" type="date" id="transaction_date"/><span class="error-msg">Vui lòng chọn ngày giao dịch</span></div><div class="field"><label class="field-label" for="schedule_date" data-field-key="schedule_date">Ngày cần hàng <span class="req">*</span></label><input class="f-control" type="date" id="schedule_date"/><span class="field-hint">Mặc định 7 ngày sau hôm nay</span><span class="error-msg">Ngày cần hàng không được trước ngày giao dịch</span></div><div class="field ec-only-gbsbuy"><label class="field-label" data-field-key="project">Project<span class="ec-req-star" style="color:#dc2626;margin-left:3px;font-weight:600;">*</span></label><div class="select-wrap"><div class="ec-cb"><input type="text" readonly class="ec-cb-display ec-empty" placeholder="-- Ch&#7885;n project --"><span class="ec-cb-arrow">&#9660;</span><div class="ec-cb-panel" hidden><div class="ec-cb-search-wrap"><input class="ec-cb-search" placeholder="T&#236;m..."></div><div class="ec-cb-count" style="display:none"></div><div class="ec-cb-list"></div></div></div><select class="f-control" id="project" required style="display:none" data-ec-cb-hidden="1"><option value="">-- Chọn project --</option></select></div><span class="field-hint">Project bên GBS (lấy từ boxme)</span><span class="error-msg">Vui lòng chọn project</span></div><div class="field ec-only-gbsbuy"><label class="field-label">Mã hợp đồng</label><div class="select-wrap"><div class="ec-cb"><input type="text" readonly class="ec-cb-display ec-empty" placeholder="-- Ch&#7885;n h&#7907;p &#273;&#7891;ng (optional) --"><span class="ec-cb-arrow">&#9660;</span><div class="ec-cb-panel" hidden><div class="ec-cb-search-wrap"><input class="ec-cb-search" placeholder="T&#236;m..."></div><div class="ec-cb-count" style="display:none"></div><div class="ec-cb-list"></div></div></div><select class="f-control" id="contract_approval" style="display:none" data-ec-cb-hidden="1"><option value="">-- Chọn hợp đồng (optional) --</option></select></div><span class="field-hint">Hợp đồng với nhà cung cấp bên GBS (không bắt buộc)</span></div><div class="field ec-only-gbsbuy"><label class="field-label" data-field-key="set_warehouse">Kho m&#7863;c &#273;&#7883;nh <span class="req">*</span></label><div class="select-wrap"><div class="ec-cb"><input type="text" readonly class="ec-cb-display ec-empty" placeholder="-- Ch&#7885;n warehouse --"><span class="ec-cb-arrow">&#9660;</span><div class="ec-cb-panel" hidden><div class="ec-cb-search-wrap"><input class="ec-cb-search" placeholder="T&#236;m..."></div><div class="ec-cb-count" style="display:none"></div><div class="ec-cb-list"></div></div></div><select class="f-control" id="set_warehouse" style="display:none" data-ec-cb-hidden="1"><option value="">-- &#272;ang t&#7843;i warehouse... --</option></select></div><span class="field-hint">Items s&#7869; d&#249;ng kho n&#224;y khi sync sang GBS</span></div></div></div><div class="form-section">
 <div class="section-title"><div class="section-title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 7l-8-4-8 4 8 4 8-4z"/><path d="M4 7v10l8 4 8-4V7"/><line x1="12" y1="11" x2="12" y2="21"/></svg></div><span class="section-title-text">Chi tiết hàng hóa <span class="req">*</span></span><div class="section-title-line"></div></div>
 
 <details style="margin-bottom:12px;border:1px solid #e5e7eb;border-radius:7px;padding:0;background:#f9fafb">
@@ -944,10 +1020,10 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
 
 
 
-<table class="items-table" style="width:100%;border-collapse:collapse;margin-top:8px">
+<div class="ec-items-scroll"><table class="items-table" style="width:100%;border-collapse:collapse;margin-top:8px">
   <thead>
     <tr style="background:#f9fafb">
-      <th style="padding:8px 10px;text-align:left;font-size:11.5px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.4px;width:25%">Item Code</th>
+      <th style="padding:8px 10px;text-align:left;font-size:11.5px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.4px;width:25%">Mã item</th>
       <th style="padding:8px 10px;text-align:left;font-size:11.5px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.4px;width:30%">Tên sản phẩm</th>
       <th style="padding:8px 10px;text-align:left;font-size:11.5px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.4px;width:10%">Số lượng</th>
       <th style="padding:8px 10px;text-align:left;font-size:11.5px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.4px;width:12%">Giá (chưa VAT)</th>
@@ -958,17 +1034,21 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     </tr>
   </thead>
   <tbody id="itemsBody"></tbody>
-</table>
+</table></div>
+<div class="ec-err-inline" id="ecItemsErr" role="alert" hidden></div>
 <button type="button" id="btnAddRow" style="background:rgba(44,61,166,0.08);color:#2C3DA6;border:1px dashed #2C3DA6;padding:8px 16px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;margin-top:10px;width:100%">+ Thêm dòng item</button>
-<button type="button" id="btnRefreshItems" class="ec-only-gbsbuy" style="background:#fff;color:#2C3DA6;border:1px solid #2C3DA6;padding:8px 16px;border-radius:7px;font-size:12.5px;font-weight:600;cursor:pointer;margin-top:10px;margin-left:10px">&#8635; Refresh items list</button>
+<button type="button" id="btnRefreshItems" class="ec-only-gbsbuy" style="background:#fff;color:#2C3DA6;border:1px solid #2C3DA6;padding:8px 16px;border-radius:7px;font-size:12.5px;font-weight:600;cursor:pointer;margin-top:10px;margin-left:10px">&#8635; T&#7843;i l&#7841;i danh m&#7909;c item</button>
 <div id="ecAddSoBox" class="ec-only-gbsbuy">
-  <button type="button" id="btnAddSo" style="background:#fff;color:#3730a3;border:1px solid #6366f1;padding:7px 14px;border-radius:7px;font-size:12.5px;font-weight:600;cursor:pointer">+ Th&#234;m items t&#7915; SO kh&#225;c</button>
+  <button type="button" id="btnAddSo" aria-expanded="false" aria-controls="ecAddSoPanel" style="background:#fff;color:#3730a3;border:1px solid #6366f1;padding:7px 14px;border-radius:7px;font-size:12.5px;font-weight:600;cursor:pointer">+ Th&#234;m items t&#7915; SO kh&#225;c</button>
   <span class="field-hint" style="margin-left:6px">M&#7897;t PO c&#243; th&#7875; g&#7897;p nhi&#7873;u SO c&#249;ng brand (&#273;&#227; duy&#7879;t tr&#234;n GBS). M&#7895;i d&#242;ng ghi r&#245; thu&#7897;c SO n&#224;o.</span>
   <div class="ec-addso-row" id="ecAddSoPanel" hidden>
+    <label for="ecAddSoSel">SO c&#249;ng brand</label>
     <select id="ecAddSoSel"><option value="">-- Ch&#7885;n SO c&#249;ng brand --</option></select>
-    <input id="ecAddSoCode" placeholder="ho&#7863;c g&#245; m&#227; GBS-SO-...">
+    <span class="ec-addso-or">ho&#7863;c</span>
+    <input id="ecAddSoCode" placeholder="g&#245; m&#227; GBS-SO-..." aria-label="M&#227; SO" autocomplete="off">
     <button type="button" id="btnAddSoGo" style="background:#4f46e5;color:#fff;border:0;padding:7px 14px;border-radius:7px;font-size:12.5px;font-weight:600;cursor:pointer">Th&#234;m</button>
   </div>
+  <div id="ecAddSoMsg" role="status" aria-live="polite"></div>
   <div id="ecSoList"></div>
 </div>
 <script id="ec-gbs-po-item-tax">
@@ -1089,8 +1169,9 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
   function ecItemTaxBoot(){
     window.ecLoadItemTaxTemplates();
     document.addEventListener('click', function(e){
-      var t = e.target;
-      if (t && t.classList && t.classList.contains('ec-uni-btn')) {
+      // UX 03/11: nut loai PO nay co 2 dong chu (span) -> bam trung chu thi e.target la span.
+      var t = e.target && e.target.closest ? e.target.closest('.ec-uni-btn') : null;
+      if (t) {
         setTimeout(window.ecToggleItemTaxColumn, 60);
       }
     });
@@ -1100,16 +1181,18 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
 })();
 </script>
 <datalist id="itemCodes"></datalist>
-<div style="display:flex;justify-content:flex-end;gap:14px;padding:16px 12px;background:#f9fafb;border-radius:7px;margin-top:14px">
+<!-- UX 03/11: o nay trung so voi dong "Tong (chua VAT)" cua khung VAT ngay duoi nen an; van giu de
+     ec-gbs-po-vat-summary doc tong tu #grandTotalDisplay. -->
+<div style="display:none;justify-content:flex-end;gap:14px;padding:16px 12px;background:#f9fafb;border-radius:7px;margin-top:14px">
   <span style="font-size:13px;color:#6b7280;align-self:center">Tổng cộng:</span>
   <span style="font-size:18px;font-weight:700;color:#2C3DA6" id="grandTotalDisplay">0 VND</span>
 </div>
-<div id="ec-tax-template-wrap" style="padding:14px 18px; margin-top:10px; background:#fff; border-radius:8px; border:1px solid #e5e7eb;"><div class="ec-po-extra-field" style="max-width: none;"><label for="ec-taxes-template" data-field-key="taxes_template">Sales Taxes &amp; Charges Template</label><div class="ec-cb"><input type="text" readonly class="ec-cb-display ec-empty" placeholder="-- Ch&#7885;n --"><span class="ec-cb-arrow">&#9660;</span><div class="ec-cb-panel" hidden><div class="ec-cb-search-wrap"><input class="ec-cb-search" placeholder="T&#236;m..."></div><div class="ec-cb-count" style="display:none"></div><div class="ec-cb-list"></div></div></div><select id="ec-taxes-template" name="ec-taxes-template" style="display:none" data-ec-cb-hidden="1"><option value="">-- Chọn --</option></select></div></div>
+<div id="ec-tax-template-wrap" style="padding:14px 18px; margin-top:10px; background:#fff; border-radius:8px; border:1px solid #e5e7eb;"><div class="ec-po-extra-field" style="max-width: none;"><label for="ec-taxes-template" data-field-key="taxes_template">Mẫu thuế VAT (cả PO)</label><div class="ec-cb"><input type="text" readonly class="ec-cb-display ec-empty" placeholder="-- Ch&#7885;n --"><span class="ec-cb-arrow">&#9660;</span><div class="ec-cb-panel" hidden><div class="ec-cb-search-wrap"><input class="ec-cb-search" placeholder="T&#236;m..."></div><div class="ec-cb-count" style="display:none"></div><div class="ec-cb-list"></div></div></div><select id="ec-taxes-template" name="ec-taxes-template" style="display:none" data-ec-cb-hidden="1"><option value="">-- Chọn --</option></select></div></div>
 <div id="ec-vat-summary"><div class="ec-vat-row subtotal"><span>Tổng (chưa VAT):</span><span class="ec-vat-amt">0 VND</span></div><div class="ec-vat-row vat"><span>VAT (0%):</span><span class="ec-vat-amt">0 VND</span></div><div class="ec-vat-row grand"><span>Tổng cộng (đã VAT):</span><span class="ec-vat-amt">0 VND</span></div></div>
 </div><div class="form-section">
       <div class="section-title">
         <div class="section-title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></div>
-        <span class="section-title-text">Chứng từ đính kèm <span class="req">*</span> (đề xuất / brief / kế hoạch — bắt buộc)</span>
+        <span class="section-title-text">Chứng từ đính kèm <span class="req ec-only-gbsbuy">*</span> <span class="ec-only-gbsbuy">(đề xuất / báo giá / kế hoạch — bắt buộc)</span><span class="ec-only-ecbuy">(không bắt buộc)</span></span>
         <div class="section-title-line"></div>
       </div>
       <div class="upload-zone" id="uploadZone">
@@ -1122,7 +1205,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       <div class="file-error" id="fileError"></div>
       <div class="file-list" id="fileList"></div>
       <div id="attachmentRequiredWarn" style="display:none;margin-top:10px;padding:10px;background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-border);border-radius:6px;font-size:12px;font-weight:500">
-        ⚠️ MSO bắt buộc đính kèm ít nhất 1 tài liệu (đề xuất, brief, kế hoạch...) trước khi submit.
+        Cần ít nhất 1 file chứng từ (đề xuất, báo giá, kế hoạch...) trước khi gửi.
       </div>
     </div>
 
@@ -1144,14 +1227,15 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
   <div class="cp-head">
     <span class="cp-title">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-      Approval Chain
+      Lu&#7891;ng duy&#7879;t
     </span>
-    <button type="button" class="cp-toggle" id="cpToggle" title="Collapse / expand">
+    <button type="button" class="cp-toggle" id="cpToggle" title="Thu gọn / mở rộng" aria-label="Thu gọn / mở rộng luồng duyệt">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
     </button>
   </div>
   <div class="cp-meta" id="cpMeta"></div>
-  <div class="cp-body" id="cpBody"><div style="padding:14px;text-align:center;color:#6b7280;font-size:12.5px">Chọn department và brand để xem chain.</div></div>
+  <div class="cp-body" id="cpBody"><div style="padding:14px;text-align:center;color:#6b7280;font-size:12.5px">Chọn phòng ban và brand để xem luồng duyệt.</div></div>
+  <div class="cp-ecbuy ec-only-ecbuy"><ul><li><b>Trong tổng SO tham chiếu</b>: duyệt 2 cấp.</li><li><b>Vượt / ngoài SO</b>: nhập lý do giải trình, duyệt 4 cấp.</li></ul><div style="color:#6b7280">Khung “SO tham chiếu” bên trái cho biết PO này đang trong hay vượt hạn mức.</div></div>
   </aside>
 </div>
 
@@ -1194,7 +1278,9 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     t.style.borderColor = type === 'error' ? 'var(--danger-border)' : 'var(--success-border)';
     t.style.color = type === 'error' ? 'var(--danger)' : 'var(--success)';
     t.classList.add('show');
-    setTimeout(function () { t.classList.remove('show'); }, 4500);
+    // UX 03/11: huy hen gio an cua toast truoc (truoc day toast moi bi an som theo hen cu).
+    if (t._ecHideT) clearTimeout(t._ecHideT);
+    t._ecHideT = setTimeout(function () { t.classList.remove('show'); }, type === 'error' ? 8000 : 4500);
   }
 
   function fmtNum(el) {
@@ -1577,6 +1663,10 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     };
   }
   function saveDraft() {
+    // UX 03/11/2026 (ux_po): nut "Luu nhap" cua form PO truoc day goi collectData() cua form MSO
+    // (doc #submittedBy, #pic... khong ton tai) -> LUON bao "Khong luu duoc draft". Nhap cua form PO
+    // nay do ec-po-unified luu (khoa rieng ec_gbs_po_draft_v1, ca bang item).
+    if (window.ecPoDraft && typeof window.ecPoDraft.save === 'function') { window.ecPoDraft.save(); return; }
     try {
       localStorage.setItem('mso_draft', JSON.stringify(collectData()));
       var btn = document.getElementById('btnDraft');
@@ -1588,6 +1678,10 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     }
   }
   function loadDraft() {
+    // UX 03/11/2026 (ux_po): KHONG doc 'mso_draft' tren form PO nua - khoa nay dung chung voi form MSO cu
+    // nen mo form PO bi dien san Tieu de / Phong ban cua mot ban nhap MSO cu. Khoi phuc nhap cua PO do
+    // thanh "Ban nhap" (ec-po-unified) lam, va chi khi nguoi dung bam.
+    if (document.getElementById('itemsBody')) return;
     try {
       var raw = localStorage.getItem('mso_draft');
       if (!raw) return;
@@ -1810,7 +1904,10 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     });
 
     var __bc=document.getElementById('btnCancel'); if (__bc) __bc.addEventListener('click', function () {
-      if (confirm('Huỷ thao tác? Dữ liệu chưa lưu sẽ mất.')) window.location.href = '/all-ticket';
+      if (confirm('Huỷ thao tác? Dữ liệu chưa lưu sẽ mất.')) {
+        if (window.ecPoLeaveGuard) window.ecPoLeaveGuard.clean();   // da xac nhan -> khong hoi lan hai
+        window.location.href = '/all-ticket';
+      }
     });
     var __bd=document.getElementById('btnDraft'); if (__bd) __bd.addEventListener('click', saveDraft);
     var __sb=document.getElementById('submitBtn'); if (__sb) __sb.addEventListener('click', submitForm);
@@ -1861,16 +1958,25 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     }
     return null;
   }
-  function showGbsToast(msg, type) {
+  // UX 03/11/2026 (ux_po): link tuy chon (vd "Mo phieu" sau khi tao); huy hen gio an cua toast truoc;
+  // loi hien 8 giay (truoc 4,5 giay - thong bao nhieu dong khong kip doc).
+  function showGbsToast(msg, type, link) {
     var t = _id('toast');
     if (!t) return;
     var span = _id('toastText') || t.querySelector('span');
     if (span) span.textContent = msg;
+    var a = _id('toastLink');
+    if (a) {
+      if (link && link.href) { a.href = link.href; a.textContent = link.text || 'M\u1edf'; a.hidden = false; }
+      else { a.hidden = true; a.removeAttribute('href'); a.textContent = ''; }
+    }
+    t.setAttribute('role', type === 'error' ? 'alert' : 'status');
     t.style.background = (type === 'error') ? '#fee2e2' : '#dcfce7';
     t.style.borderColor = (type === 'error') ? '#fecaca' : '#bbf7d0';
     t.style.color = (type === 'error') ? '#991b1b' : '#166534';
     t.classList.add('show');
-    setTimeout(function(){ t.classList.remove('show'); }, 4500);
+    if (t._ecHideT) clearTimeout(t._ecHideT);
+    t._ecHideT = setTimeout(function(){ t.classList.remove('show'); }, type === 'error' ? 8000 : 4500);
   }
   // FB#1 2026-08-04: showGbsToast nam trong IIFE nen cac script khac
   // (vd ec-po-unified, ec-gbs-po-item-tax) goi khong toi -> bao loi chi
@@ -1878,6 +1984,178 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
   window.showGbsToast = showGbsToast;
   function fmtVND(n) { return (Math.round(n)||0).toLocaleString('vi-VN') + ' VND'; }
   function todayISO() { return new Date().toISOString().slice(0, 10); }
+
+  /* QA 03/11/2026 (t2_forms): kiem tra + doc loi DUNG CHUNG cho nut Submit (tao moi) va nut
+     "Sua & Submit lai" (ec-gbs-form-edit-resubmit goi qua window.ecGbsFormCheck).
+     Chi chan nhung gi ERPNext ben boxme CHAC CHAN tu choi luc dong bo (SL <= 0; ngay giao/can
+     hang truoc ngay giao dich) - de nguoi tao sua ngay, khong phai doi Finance duyet xong roi
+     moi thay phieu ket o sync_error. */
+  function gbsRowProblems() {
+    var bad = [];
+    var body = _id('itemsBody');
+    if (!body) return bad;
+    body.querySelectorAll('tr').forEach(function(tr, i) {
+      var codeEl = tr.querySelector('.item-code');
+      var code = codeEl ? (codeEl.value || '').trim() : '';
+      if (!code) return;
+      var qty = parseFloat((tr.querySelector('.item-qty') || {}).value);
+      if (!(qty > 0)) bad.push('Dòng ' + (i + 1) + ' (' + code + '): số lượng phải lớn hơn 0');
+    });
+    return bad;
+  }
+  function gbsDateProblem() {
+    var t = (_id('transaction_date') || {}).value || '';
+    var d = (_id(DATE_FIELD) || {}).value || '';
+    if (t && d && d < t) return 'Ngày cần hàng' + ' (' + d + ') không được trước Ngày giao dịch (' + t + ')';
+    return '';
+  }
+  // Loi Frappe (HTTP 417/500) khong co {message:{success,error}} ma co _server_messages /
+  // exception. Truoc day nguoi dung chi thay "Loi: Submit failed".
+  function gbsErrText(d, status) {
+    try {
+      if (d && d._server_messages) {
+        var a = JSON.parse(d._server_messages);
+        for (var i = a.length - 1; i >= 0; i--) {
+          var m; try { m = JSON.parse(a[i]); } catch (e) { m = { message: String(a[i]) }; }
+          if (m && m.message) return String(m.message).replace(/<[^>]+>/g, '').trim();
+        }
+      }
+    } catch (e) {}
+    if (d && d.exception) return String(d.exception).split(':').slice(1).join(':').trim() || String(d.exception);
+    if (d && d.exc_type) return String(d.exc_type);
+    return status ? ('HTTP ' + status) : '';
+  }
+  // Doc than tra ve an toan: may chu tra HTML (502/403 trang loi) thi r.json() nem
+  // "Unexpected token <" kho hieu -> bao ro la loi may chu.
+  function gbsReadJson(r) {
+    return r.text().then(function(t) {
+      var j = null;
+      try { j = JSON.parse(t); } catch (e) {}
+      if (!j || typeof j !== 'object') throw new Error('Máy chủ trả về lỗi' + (r.status ? ' HTTP ' + r.status : '') + ' — thử lại sau ít phút hoặc báo admin.');
+      j.__httpStatus = r.status;
+      return j;
+    });
+  }
+  var GBS_ERR_LABEL = {
+    no_finance_approver_for_brand: 'Brand chưa có người duyệt Finance — báo admin cấu hình Brand',
+    parent_so_not_found: 'Không tìm thấy SO mẹ',
+    parent_so_not_approved_on_gbs: 'SO mẹ chưa được GBS duyệt (Approved/Completed)'
+  };
+  window.ecGbsFormCheck = { rows: gbsRowProblems, dates: gbsDateProblem, errText: gbsErrText };
+
+  /* UX 03/11/2026 (ux_po): bao loi CANH TRUONG + cuon toi loi dau tien. Dung chung cho nut Submit (GBS),
+     chot truoc-gui o ec-gbs-form-polish va nhanh "Mua ngoai (so EC)" o ec-po-unified
+     (qua window.ecPoFieldErrors). Chi DANH DAU nhung gi cac chot hien co da chan - khong them quy tac. */
+  var ERR_LABEL = { title: 'Tiêu đề', brand: 'Brand', supplier: 'Nhà cung cấp', project: 'Project',
+    items: 'ít nhất 1 dòng item', attachments: 'file chứng từ đính kèm', warehouse: 'Kho mặc định', customer: 'Khách hàng' };
+  // Phan tu nguoi dung NHIN THAY: <select> an sau combobox .ec-cb -> o hien thi cua combobox.
+  function ecFieldTarget(el) {
+    if (!el) return null;
+    var prev = el.previousElementSibling;
+    if (el.tagName === 'SELECT' && prev && prev.classList && prev.classList.contains('ec-cb')) {
+      return prev.querySelector('.ec-cb-display') || prev;
+    }
+    return el;
+  }
+  function ecClearFieldErr(el) {
+    if (!el) return;
+    var vis = ecFieldTarget(el);
+    if (vis && vis.classList) vis.classList.remove('ec-invalid');
+    if (el.classList) el.classList.remove('ec-invalid');
+    var f = el.closest ? el.closest('.field') : null;
+    if (f) f.classList.remove('has-error');
+  }
+  function ecClearAllErr() {
+    document.querySelectorAll('.ec-invalid').forEach(function(x){ x.classList.remove('ec-invalid'); });
+    document.querySelectorAll('.form-card .field.has-error').forEach(function(x){ x.classList.remove('has-error'); });
+    var ie = _id('ecItemsErr'); if (ie) { ie.hidden = true; ie.textContent = ''; }
+  }
+  // errs: [{id, el?, msg?}]. id 'itemsBody' = loi o bang item (el = o cu the); 'fileList' = thieu file.
+  function ecShowFieldErrors(errs, opts) {
+    opts = opts || {};
+    ecClearAllErr();
+    var targets = [], itemMsgs = [];
+    (errs || []).forEach(function(er){
+      var el = er.el || _id(er.id);
+      if (!el) return;
+      if (er.id === 'itemsBody') {
+        if (er.msg) itemMsgs.push(er.msg);
+        if (el.id !== 'itemsBody' && el.classList) el.classList.add('ec-invalid');
+        targets.push(el);
+        return;
+      }
+      if (er.id === 'fileList') {
+        var w = _id('attachmentRequiredWarn');
+        if (w) { w.style.display = 'block'; targets.push(w); } else { targets.push(el); }
+        return;
+      }
+      var vis = ecFieldTarget(el);
+      if (vis && vis.classList) vis.classList.add('ec-invalid');
+      var f = el.closest ? el.closest('.field') : null;
+      if (f && f.id !== 'ecPoWrap') {
+        f.classList.add('has-error');
+        var em = er.msg ? f.querySelector('.error-msg') : null;
+        if (em) em.textContent = er.msg;
+      }
+      targets.push(vis || el);
+    });
+    var ie = _id('ecItemsErr');
+    if (ie && itemMsgs.length) { ie.textContent = itemMsgs.join(' · '); ie.hidden = false; }
+    // Cuon toi loi DAU TIEN theo thu tu tren trang (khong theo thu tu kiem tra).
+    targets.sort(function(a, b){ return (a.compareDocumentPosition(b) & 2) ? 1 : -1; });
+    var first = targets[0];
+    if (first) {
+      try { first.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+      try { if (first.focus) first.focus({ preventScroll: true }); } catch (e) {}
+    }
+    if (opts.toast) showGbsToast(opts.toast, 'error');
+  }
+  // Go danh dau khi nguoi dung sua chinh o do (ke ca combobox: <select> an nhan 'change').
+  ['input', 'change'].forEach(function(evName){
+    document.addEventListener(evName, function(e){
+      var t = e.target;
+      if (!t || !t.classList) return;
+      if (t.classList.contains('ec-invalid')) t.classList.remove('ec-invalid');
+      if (t.id) ecClearFieldErr(t);
+      if (t.closest && t.closest('#itemsBody')) {
+        var ie = _id('ecItemsErr');
+        if (ie && !document.querySelector('#itemsBody .ec-invalid')) ie.hidden = true;
+      }
+    });
+  });
+  // Kiem MOT LAN nhung gi nut Submit (GBS mua) se chan: tieu de, brand, NCC, project, item, SL > 0,
+  // thu tu ngay, file dinh kem (cung cach dem cua ec-attachment-preflight).
+  function ecPoPrecheck() {
+    var errs = [], missing = [], problems = [];
+    function need(id, key) {
+      var el = _id(id);
+      if (el && !String(el.value || '').trim()) { errs.push({ id: id }); missing.push(ERR_LABEL[key || id] || id); }
+    }
+    need('title'); need('brand'); need(PARTY_FIELD, 'supplier'); need('project');
+    var body = _id('itemsBody'), hasCode = false;
+    if (body) body.querySelectorAll('tr').forEach(function(tr, i){
+      var code = ((tr.querySelector('.item-code') || {}).value || '').trim();
+      if (!code) return;
+      hasCode = true;
+      var q = tr.querySelector('.item-qty');
+      if (!(parseFloat((q || {}).value) > 0)) {
+        var m = 'Dòng ' + (i + 1) + ' (' + code + '): số lượng phải lớn hơn 0';
+        errs.push({ id: 'itemsBody', el: q, msg: m }); problems.push(m);
+      }
+    });
+    if (!hasCode) {
+      errs.push({ id: 'itemsBody', el: (body && body.querySelector('.item-code')) || body, msg: 'Nhập ít nhất 1 dòng item (mã item + số lượng).' });
+      missing.push(ERR_LABEL.items);
+    }
+    var dp = gbsDateProblem();
+    if (dp) { errs.push({ id: DATE_FIELD, msg: dp }); problems.push(dp); }
+    if (typeof window.ecAttachmentCount === 'function' && window.ecAttachmentCount() === 0) {
+      errs.push({ id: 'fileList' }); missing.push(ERR_LABEL.attachments);
+    }
+    var text = (missing.length ? 'Thiếu: ' + missing.join(', ') : '') + (missing.length && problems.length ? ' · ' : '') + problems.join(' · ');
+    return { errs: errs, text: text };
+  }
+  window.ecPoFieldErrors = { show: ecShowFieldErrors, clear: ecClearAllErr, precheck: ecPoPrecheck, label: ERR_LABEL };
 
   function loadGbsList(entity, cb) {
     var body = new URLSearchParams(); body.append('entity', entity); body.append('limit', '3000');
@@ -2103,7 +2381,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       '<td style="padding:6px 4px"><input class="f-control item-amount" readonly value="0" style="text-align:right"/></td>' +
       '<td style="padding:6px 4px"><select class="f-control item-tax">' + (window.ecItemTaxOptionsHtml ? window.ecItemTaxOptionsHtml() : '<option value=""></option>') + '</select></td>' +
       
-      '<td style="padding:6px 4px"><button class="btn-remove" type="button" style="background:none;border:none;color:#c0392b;cursor:pointer;font-size:16px;font-weight:700">x</button></td>';
+      '<td style="padding:6px 4px"><button class="btn-remove" type="button" aria-label="Xo\u00e1 d\u00f2ng" title="Xo\u00e1 d\u00f2ng" style="background:none;border:none;color:#c0392b;cursor:pointer;font-size:16px;font-weight:700">&times;</button></td>';
     _id('itemsBody').appendChild(tr);
     if (window.ecToggleItemTaxColumn) window.ecToggleItemTaxColumn();
 
@@ -2331,7 +2609,9 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       var data = {
         title: _id('title') ? _id('title').value.trim() : '',
         brand_code: brandSel ? brandSel.value : '',
-        brand_name: brandOpt && brandOpt.dataset ? (brandOpt.dataset.brandName || brandOpt.textContent.replace(/\s*\(.*\)\$/, '')) : '',
+        // QA 03/11: regex cu '\$' khop dau '$' that nen khong bao gio cat -> gui 'MA — Ten' lam brand_name.
+        // De trong thi submit_gbs_* tu tra ten brand theo brand_code.
+        brand_name: (brandOpt && brandOpt.dataset && brandOpt.dataset.brandName) || '',
         department: _id('department') ? _id('department').value : '',
         submitted_by: _id('submitted_by') ? _id('submitted_by').value : (em || ''),
         transaction_date: _id('transaction_date') ? _id('transaction_date').value : '',
@@ -2351,19 +2631,53 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       if (!data[PARTY_FIELD]) errs.push(PARTY_FIELD);
       if (!data.items.length) errs.push('items');
       if (HAS_SET_WH && !data.set_warehouse) errs.push('warehouse');
-      if (errs.length) { showGbsToast('Thi' + String.fromCharCode(0x1EBF) + 'u: ' + errs.join(', '), 'error'); return; }
+      if (errs.length) {
+        var ERR_VI = {title:'Tiêu đề', brand:'Brand', customer:'Khách hàng', supplier:'Nhà cung cấp', items:'ít nhất 1 dòng item', warehouse:'Kho mặc định'};
+        // UX 03/11: danh dau do canh tung truong + cuon toi truong dau tien (truoc chi co toast).
+        var ERR_ID = {title:'title', brand:'brand', customer:'customer', supplier:'supplier', warehouse:'set_warehouse'};
+        ecShowFieldErrors(errs.map(function(k){
+          if (k === 'items') return { id: 'itemsBody', el: _id('itemsBody').querySelector('.item-code') || _id('itemsBody'), msg: 'Nhập ít nhất 1 dòng item (mã item + số lượng).' };
+          return { id: ERR_ID[k] || k };
+        }), { toast: 'Thi' + String.fromCharCode(0x1EBF) + 'u: ' + errs.map(function(k){ return ERR_VI[k] || k; }).join(', ') });
+        return;
+      }
+      var rowBad = gbsRowProblems();
+      if (rowBad.length) {
+        ecShowFieldErrors(ecPoPrecheck().errs.filter(function(x){ return x.id === 'itemsBody'; }), { toast: rowBad.join(' · ') });
+        return;
+      }
+      var dateBad = gbsDateProblem();
+      if (dateBad) { ecShowFieldErrors([{ id: DATE_FIELD, msg: dateBad }], { toast: dateBad }); return; }
 
-      btn.disabled = true; btn.textContent = 'Submitting...';
+      var origBtnHtml = btn.innerHTML;   // QA 03/11: tra lai dung nhan + icon khi loi (truoc day ve 'Submit' tro)
+      // UX 03/11: trang thai dang gui ro rang (icon quay + chu tieng Viet), khoa nut chong bam 2 lan.
+      btn.disabled = true; btn.classList.add('loading'); btn.setAttribute('aria-busy', 'true');
+      btn.innerHTML = '<svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> \u0110ang g\u1eedi\u2026';
       fetch(GBS_SUBMIT_URL, {
         method: 'POST', headers: {'Content-Type':'application/json'},
         body: JSON.stringify(data)
-      }).then(function(r){return r.json();}).then(function(d){        var msg = (d && d.message) || d || {};
-        if (!msg.success) { var errMsg = msg.error || 'Submit failed'; if (msg.error === 'missing_fields' && Array.isArray(msg.fields)) { var labelMap = {title:'Tiêu đề', brand_code:'Brand', brand_name:'Brand', brand:'Brand', department:'Phòng ban', supplier:'Nhà cung cấp', customer:'Khách hàng', transaction_date:'Ngày đặt hàng', schedule_date:'Ngày giao hàng', delivery_date:'Ngày giao hàng', set_warehouse:'Kho mặc định', warehouse:'Kho', items:'Sản phẩm', attachment:'Chứng từ đính kèm', notes:'Ghi chú', grand_total:'Tổng tiền'}; errMsg = 'Thiếu các trường bắt buộc: ' + msg.fields.map(function(f){return labelMap[f]||f;}).join(', '); } throw new Error(errMsg); }
-        showGbsToast('Created: ' + (msg.name || 'OK'));
-        setTimeout(function(){ window.location.href = '/approval'; }, 1500);
+      }).then(gbsReadJson).then(function(d){
+        var msg = (d && d.message && typeof d.message === 'object') ? d.message : (d || {});
+        if (!msg.success) {
+          var errMsg = GBS_ERR_LABEL[msg.error] || msg.error || gbsErrText(d, d && d.__httpStatus) || 'Submit failed';
+          if (msg.hint) errMsg += ' — ' + msg.hint;
+          if (msg.error === 'missing_fields' && Array.isArray(msg.fields)) { var labelMap = {title:'Tiêu đề', brand_code:'Brand', brand_name:'Brand', brand:'Brand', department:'Phòng ban', supplier:'Nhà cung cấp', customer:'Khách hàng', transaction_date:'Ngày đặt hàng', schedule_date:'Ngày giao hàng', delivery_date:'Ngày giao hàng', set_warehouse:'Kho mặc định', warehouse:'Kho', items:'Sản phẩm', attachment:'Chứng từ đính kèm', notes:'Ghi chú', grand_total:'Tổng tiền'}; errMsg = 'Thiếu các trường bắt buộc: ' + msg.fields.map(function(f){return labelMap[f]||f;}).join(', '); }
+          throw new Error(errMsg);
+        }
+        // 2026-08-07 FIX 6a: mo thang phieu vua tao (/approval?id=<ten>&type=gbs_po). QA 03/11:
+        // form PO truoc day van nhay ve /approval TRONG -> nay dung chung cach cua form SO.
+        // UX 03/11: thong bao tieng Viet + link "Mo phieu" (phong khi trinh duyet chan chuyen trang),
+        // nho NCC vua dung, xoa ban nhap, bo chot "roi trang khi dang nhap do".
+        var nm = msg.name || msg.id || '';
+        var href = nm ? ('/approval?id=' + encodeURIComponent(nm) + '&type=gbs_po') : '/approval';
+        if (typeof window.ecPoOnSuccess === 'function') { try { window.ecPoOnSuccess(); } catch (e) {} }
+        btn.classList.remove('loading'); btn.removeAttribute('aria-busy');
+        btn.textContent = '\u2713 \u0110\u00e3 t\u1ea1o ' + (nm || 'PO');
+        showGbsToast('\u0110\u00e3 t\u1ea1o PO GBS ' + nm + ' \u2014 \u0111ang m\u1edf phi\u1ebfu\u2026', 'success', { href: href, text: 'M\u1edf phi\u1ebfu' });
+        setTimeout(function(){ window.location.href = href; }, 1500);
       }).catch(function(e){
         showGbsToast('L' + String.fromCharCode(0x1ED7) + 'i: ' + e.message, 'error');
-        btn.disabled = false; btn.textContent = 'Submit';
+        btn.disabled = false; btn.classList.remove('loading'); btn.removeAttribute('aria-busy'); btn.innerHTML = origBtnHtml;
       });
     });
   }
@@ -2472,12 +2786,12 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     btn._ecWired = true;
     btn.addEventListener('click', function() {
       btn.disabled = true;
-      btn.innerHTML = 'Loading...';
+      btn.innerHTML = '\u0110ang t\u1ea3i\u2026';
       loadItemsToCache(null, function(items) {
         refreshDatalist(items, false);
         btn.disabled = false;
-        btn.innerHTML = ARROW + ' Refreshed (' + items.length + ' items)';
-        setTimeout(function() { btn.innerHTML = ARROW + ' Refresh items list'; }, 3000);
+        btn.innerHTML = ARROW + ' \u0110\u00e3 t\u1ea3i ' + items.length + ' item';
+        setTimeout(function() { btn.innerHTML = ARROW + ' T\u1ea3i l\u1ea1i danh m\u1ee5c item'; }, 3000);
       });
     });
     if (!_inHtml) addRowBtn.parentNode.insertBefore(btn, addRowBtn.nextSibling);
@@ -2729,10 +3043,10 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     });
     var avg = up ? Math.round(p/up) : 0;
     var sum = [];
-    if (done) sum.push(done + ' uploaded');
-    if (up) sum.push(up + ' uploading (' + avg + '%)');
-    if (fail) sum.push(fail + ' failed');
-    el.innerHTML = '<div style="font-weight:600; margin-bottom:6px;">SharePoint upload: ' + sum.join(' - ') + '</div>' +
+    if (done) sum.push(done + ' xong');
+    if (up) sum.push(up + ' \u0111ang t\u1ea3i (' + avg + '%)');
+    if (fail) sum.push(fail + ' l\u1ed7i');
+    el.innerHTML = '<div style="font-weight:600; margin-bottom:6px;">T\u1ea3i file l\u00ean: ' + sum.join(' - ') + '</div>' +
                    '<div style="font-size:11px; color:#6b7280; max-height:140px; overflow-y:auto; font-family:monospace; white-space:pre;">' + detail.join('\n') + '</div>';
     el.style.display = 'block';
     el.style.borderLeftWidth = '4px';
@@ -2899,19 +3213,24 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
   // ----- Submit block if uploading -----
   function hookSubmitBlock() {
     document.addEventListener('click', function(e){
-      var t = e.target;
-      if (!t || !t.tagName) return;
-      if (t.tagName.toUpperCase() !== 'BUTTON') return;
+      // QA 03/11: bam trung ICON (svg) trong nut thi e.target la svg, khong phai BUTTON ->
+      // truoc day bo qua chan "dang tai len" va gui phieu thieu file. Nut "Sua & Submit lai"
+      // (che do sua) cung khong khop /^submit/ -> nhan dien them bang id.
+      var t = e.target && e.target.closest ? e.target.closest('button') : null;
+      if (!t) return;
       var label = (t.textContent || '').trim();
-      if (!/^submit/i.test(label)) return;
+      if (t.id !== 'submitBtn' && !/^submit/i.test(label)) return;
       var pending = Object.keys(window._gbsUploadedFiles).filter(function(k){
         return window._gbsUploadedFiles[k].status === 'uploading';
       });
       if (pending.length > 0) {
         e.preventDefault();
         e.stopPropagation();
+        e.stopImmediatePropagation();
         updateUI();
-        alert('SharePoint upload chua xong (' + pending.length + ' file). Vui long doi...');
+        // UX 03/11: tieng Viet co dau, dung toast cua form thay hop alert chan trang.
+        var _pm = '\u0110ang t\u1ea3i file l\u00ean (' + pending.length + ' file) \u2014 \u0111\u1ee3i t\u1ea3i xong r\u1ed3i b\u1ea5m l\u1ea1i.';
+        if (typeof window.showGbsToast === 'function') window.showGbsToast(_pm, 'error'); else alert(_pm);
         return false;
       }
     }, true);
@@ -2972,11 +3291,26 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     });
     return out;
   }
+  // UX 03/11/2026 (ux_po): danh sach "SO trong PO nay" thanh the (chip): ma SO (link), so dong, nut
+  // "Go" de bo ca SO khoi PO. SO goc (?from_so=) khong go o day vi parent_so van gan theo URL.
   function renderSoList(){
     var el = document.getElementById('ecSoList'); if (!el) return;
-    var l = soInRows();
-    el.innerHTML = l.length ? ('SO trong PO n&#224;y: ' + l.map(function(s){
-      return '<a href="/approval?id=' + encodeURIComponent(s) + '&type=gbs_so" target="_blank">' + soEsc(s) + '</a>'; }).join(', ')) : '';
+    var counts = {}, order = [];
+    document.querySelectorAll('#itemsBody tr[data-so]').forEach(function(tr){
+      var s = tr.getAttribute('data-so'); if (!s) return;
+      if (!counts[s]) { counts[s] = 0; order.push(s); }
+      counts[s]++;
+    });
+    if (!order.length) { el.innerHTML = ''; return; }
+    var h = '<div>PO n&#224;y &#273;ang gom <b>' + order.length + '</b> SO:</div><ul class="ec-so-chips">';
+    order.forEach(function(s){
+      h += '<li class="ec-so-chip"><a href="/approval?id=' + encodeURIComponent(s) + '&type=gbs_so" target="_blank" rel="noopener">' + soEsc(s) + '</a>' +
+        '<span class="ec-so-n">' + counts[s] + ' d&#242;ng</span>' +
+        (s === fromSo ? '<span class="ec-so-root">SO g&#7889;c</span>'
+                      : '<button type="button" class="ec-so-rm" data-so="' + soEsc(s) + '" aria-label="G&#7905; SO ' + soEsc(s) + ' kh&#7887;i PO">G&#7905;</button>') +
+        '</li>';
+    });
+    el.innerHTML = h + '</ul>';
   }
   function appendSoItems(so, items){
     var tbody = document.getElementById('itemsBody'), add = document.getElementById('btnAddRow');
@@ -3004,54 +3338,123 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     renderSoList();
     return n;
   }
+  function soMsg(text, kind){
+    var m = document.getElementById('ecAddSoMsg'); if (!m) return;
+    m.textContent = text || '';
+    m.className = kind === 'err' ? 'ec-err' : (kind === 'ok' ? 'ec-ok' : '');
+  }
+  var _soLoadSeq = 0;
   function loadSoOptions(){
     var sel = document.getElementById('ecAddSoSel'); if (!sel) return;
     var brand = (document.getElementById('brand') || {}).value || '';
-    sel.innerHTML = '<option value="">-- Ch\u1ecdn SO c\u00f9ng brand --</option>';
-    if (!brand) return;
+    var seq = ++_soLoadSeq;   // doi brand trong luc dang tai -> bo ket qua cu
+    sel.disabled = true;
+    if (!brand) {
+      sel.innerHTML = '<option value="">-- Chọn Brand ở trên trước (hoặc gõ mã SO) --</option>';
+      return;
+    }
+    sel.innerHTML = '<option value="">Đang tải SO của brand ' + soEsc(brand) + '…</option>';
     var q = '/api/resource/GBS Sales Order?fields=' + encodeURIComponent('["name","so_title","gbs_status"]') +
       '&filters=' + encodeURIComponent(JSON.stringify([["brand_code","=",brand],["status","=","Approved"],["gbs_status","in",["Approved","Completed"]]])) +
       '&order_by=' + encodeURIComponent('creation desc') + '&limit_page_length=100';
     fetch(q, {credentials: 'include', headers: {Accept: 'application/json'}}).then(function(r){ return r.json(); }).then(function(d){
+      if (seq !== _soLoadSeq) return;
       var have = soInRows();
-      (d.data || []).forEach(function(x){
-        if (have.indexOf(x.name) >= 0) return;
+      var list = (d.data || []).filter(function(x){ return have.indexOf(x.name) < 0; });
+      sel.innerHTML = '';
+      var ph = document.createElement('option'); ph.value = '';
+      ph.textContent = list.length
+        ? ('-- Chọn SO (' + list.length + ' SO cùng brand đã được GBS duyệt) --')
+        : '-- Không còn SO nào cùng brand đã được GBS duyệt --';
+      sel.appendChild(ph);
+      list.forEach(function(x){
         var o = document.createElement('option'); o.value = x.name;
-        o.textContent = x.name + ' \u2014 ' + (x.so_title || '') + ' (' + (x.gbs_status || '') + ')';
+        o.textContent = x.name + ' — ' + (x.so_title || '') + ' (' + (x.gbs_status || '') + ')';
         sel.appendChild(o);
       });
-    }).catch(function(){});
+      sel.disabled = !list.length;
+    }).catch(function(){
+      if (seq !== _soLoadSeq) return;
+      sel.innerHTML = '<option value="">-- Không tải được danh sách SO — gõ mã bên cạnh --</option>';
+      sel.disabled = true;
+    });
   }
   function addSo(){
-    var so = ((document.getElementById('ecAddSoSel') || {}).value || (document.getElementById('ecAddSoCode') || {}).value || '').trim();
-    if (!so) { alert('Ch\u1ecdn ho\u1eb7c g\u00f5 m\u00e3 SO tr\u01b0\u1edbc.'); return; }
-    if (soInRows().indexOf(so) >= 0) { alert('SO ' + so + ' \u0111\u00e3 c\u00f3 trong PO n\u00e0y.'); return; }
-    var btn = document.getElementById('btnAddSoGo'); if (btn) btn.disabled = true;
+    // UX 03/11: o go ma uu tien hon o chon (nguoi dung vua go la co y); loi hien ngay trong khung
+    // (thay alert); nut co trang thai dang them.
+    var codeEl = document.getElementById('ecAddSoCode');
+    var so = ((codeEl || {}).value || '').trim() || ((document.getElementById('ecAddSoSel') || {}).value || '').trim();
+    if (!so) { soMsg('Chọn SO trong danh sách hoặc gõ mã SO trước.', 'err'); return; }
+    if (soInRows().indexOf(so) >= 0) { soMsg('SO ' + so + ' đã có trong PO này.', 'err'); return; }
+    var btn = document.getElementById('btnAddSoGo');
+    if (btn) { btn.disabled = true; btn.textContent = 'Đang thêm…'; }
+    soMsg('Đang lấy items của SO ' + so + '…');
     fetch('/api/method/gbs_so_create_po_helper', {method: 'POST', credentials: 'include',
       headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ so_name: so })
     }).then(function(r){ return r.json(); }).then(function(d){
       var m = (d && d.message) || {};
-      if (!m.success) throw new Error(m.error || 'helper_failed');
-      var brand = (document.getElementById('brand') || {}).value || '';
+      if (!m.success) throw new Error(m.error === 'not_found' ? ('không tìm thấy SO ' + so) : (m.error || 'helper_failed'));
+      var bsel = document.getElementById('brand');
+      var brand = (bsel || {}).value || '';
       var sb = (m.so || {}).brand_code || '';
-      if (brand && sb && sb !== brand) throw new Error('SO ' + so + ' thu\u1ed9c brand ' + sb + ', PO \u0111ang l\u00e0 ' + brand + '.');
+      if (brand && sb && sb !== brand) throw new Error('SO ' + so + ' thuộc brand ' + sb + ', PO đang là ' + brand + '.');
       var st = (m.so || {}).gbs_status || '';
-      if (st && st !== 'Approved' && st !== 'Completed') throw new Error('SO ' + so + ' ch\u01b0a \u0111\u01b0\u1ee3c GBS duy\u1ec7t (' + st + ').');
+      if (st && st !== 'Approved' && st !== 'Completed') throw new Error('SO ' + so + ' chưa được GBS duyệt (' + st + ').');
+      var filledBrand = false;
+      if (!brand && sb && bsel) {   // PO chua chon brand -> dien theo SO (server van kiem cung brand)
+        bsel.value = sb;
+        if (bsel.value === sb) { filledBrand = true; try { bsel.dispatchEvent(new Event('change', {bubbles:true})); } catch(e){} }
+      }
       var n = appendSoItems(so, m.items || []);
-      var c = document.getElementById('ecAddSoCode'); if (c) c.value = '';
+      if (codeEl) codeEl.value = '';
       loadSoOptions();
-      if (!n) alert('SO ' + so + ' kh\u00f4ng c\u00f3 d\u00f2ng item n\u00e0o.');
-    }).catch(function(e){ alert('Kh\u00f4ng th\u00eam \u0111\u01b0\u1ee3c SO: ' + e.message); })
-      .then(function(){ if (btn) btn.disabled = false; });
+      if (!n) soMsg('SO ' + so + ' không có dòng item nào.', 'err');
+      else soMsg('Đã thêm ' + n + ' dòng từ SO ' + so + (filledBrand ? ' (đã điền Brand ' + sb + ' theo SO)' : '') + '. Kiểm tra SL / giá trước khi gửi.', 'ok');
+    }).catch(function(e){ soMsg('Không thêm được SO: ' + e.message, 'err'); })
+      .then(function(){ if (btn) { btn.disabled = false; btn.textContent = 'Thêm'; } });
+  }
+  function removeSo(so){
+    var rows = [];
+    document.querySelectorAll('#itemsBody tr[data-so]').forEach(function(tr){ if (tr.getAttribute('data-so') === so) rows.push(tr); });
+    if (!rows.length) return;
+    if (!confirm('Gỡ SO ' + so + ' khỏi PO? ' + rows.length + ' dòng item của SO này sẽ bị xoá.')) return;
+    rows.forEach(function(tr){
+      var rm = tr.querySelector('.btn-remove');
+      if (rm) rm.click(); else tr.remove();   // nut xoa dong tu tinh lai tong
+    });
+    var tbody = document.getElementById('itemsBody'), add = document.getElementById('btnAddRow');
+    if (tbody && add && !tbody.querySelector('tr')) add.click();   // giu 1 dong trong de nhap tiep
+    renderSoList();
+    var p = document.getElementById('ecAddSoPanel');
+    if (p && !p.hidden) loadSoOptions();
+    soMsg('Đã gỡ SO ' + so + ' (' + rows.length + ' dòng).', 'ok');
   }
   (function bindAddSo(){
     var b = document.getElementById('btnAddSo');
     if (!b) return;
     b.addEventListener('click', function(){
       var p = document.getElementById('ecAddSoPanel');
-      if (p) { p.hidden = !p.hidden; if (!p.hidden) loadSoOptions(); }
+      if (!p) return;
+      p.hidden = !p.hidden;
+      b.setAttribute('aria-expanded', p.hidden ? 'false' : 'true');
+      if (!p.hidden) {
+        loadSoOptions();
+        var c = document.getElementById('ecAddSoCode'); if (c) { try { c.focus(); } catch(e){} }
+      }
     });
     var g = document.getElementById('btnAddSoGo'); if (g) g.addEventListener('click', addSo);
+    var code = document.getElementById('ecAddSoCode');
+    if (code) code.addEventListener('keydown', function(e){ if (e.key === 'Enter') { e.preventDefault(); addSo(); } });
+    var bs = document.getElementById('brand');
+    if (bs) bs.addEventListener('change', function(){
+      var p = document.getElementById('ecAddSoPanel');
+      if (p && !p.hidden) loadSoOptions();
+    });
+    var list = document.getElementById('ecSoList');
+    if (list) list.addEventListener('click', function(e){
+      var rm = e.target && e.target.closest ? e.target.closest('.ec-so-rm') : null;
+      if (rm) removeSo(rm.getAttribute('data-so'));
+    });
     var tb = document.getElementById('itemsBody');
     if (tb) tb.addEventListener('click', function(){ setTimeout(renderSoList, 0); });   // xoa dong -> cap nhat danh sach
   })();
@@ -3069,6 +3472,9 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
 
   if (!payload || payload.parent_so !== fromSo) {
     console.warn('[ec-gbs-po-from-so] sessionStorage missing or mismatch — pre-fill will use SO REST fetch only');
+    // QA 03/11: truoc day chi GHI log roi van dung payload cu -> mo ?from_so=B trong tab vua tao PO
+    // tu SO A thi form dien tieu de/brand/items cua A nhung gan nhan + parent_so = B. Bo payload lech.
+    payload = null;
   }
 
   // CSS: nam trong <style> dau trang (A65: khong chen style luc chay).
@@ -3096,7 +3502,8 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     b.className = 'ec-from-so-banner';
     var soHref = '/approval?id=' + encodeURIComponent(fromSo) + '&type=gbs_so';
     var nItems = (payload && payload.items) ? payload.items.length : '?';
-    b.innerHTML = '<b>📋 Tạo từ Service Order:</b> <a href="' + soHref + '" target="_blank">' + fromSo + '</a><br>' +
+    // QA 03/11: fromSo lay tu URL (?from_so=) -> phai escape, truoc day chen tho vao innerHTML (XSS).
+    b.innerHTML = '<b>📋 Tạo từ Service Order:</b> <a href="' + soEsc(soHref) + '" target="_blank">' + soEsc(fromSo) + '</a><br>' +
       'Đang import <b>' + nItems + '</b> items + header (title, brand, dept, project, warehouse, dates, notes) từ SO mẹ. Bạn có thể chỉnh lại trước khi submit. <b>Supplier</b> để trống — chọn riêng cho PO này.';
     anchor.insertBefore(b, anchor.firstChild);
   }
@@ -3204,6 +3611,11 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       patchSubmit();
       // Wait for form initial addRow then prefill
       setTimeout(function(){ prefillForm(so, items); }, 600);
+    } else if (/^SAL-ORD/i.test(fromSo)) {
+      // QA 03/11: SO so EC (Sales Order native) - gbs_so_create_po_helper chi doc "GBS Sales Order"
+      // nen goi la luon bao "Loi load SO". ec-po-unified tu chuyen sang "Mua ngoai (so EC)" va dien
+      // o SO tham chieu; o day khong co gi de dien them.
+      console.log('[ec-gbs-po-from-so] from_so la SO so EC, khong co du lieu chon dong - bo qua prefill');
     } else {
       // Fallback: fetch via helper if sessionStorage missing (e.g. refresh)
       fetch('/api/method/gbs_so_create_po_helper', {
@@ -3255,10 +3667,10 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     });
     var avg = up ? Math.round(p/up) : 0;
     var sum = [];
-    if (done) sum.push(done + ' uploaded');
-    if (up) sum.push(up + ' uploading (' + avg + '%)');
-    if (fail) sum.push(fail + ' failed');
-    el.innerHTML = '<div style="font-weight:600; margin-bottom:6px;">SharePoint upload: ' + sum.join(' - ') + '</div>' +
+    if (done) sum.push(done + ' xong');
+    if (up) sum.push(up + ' \u0111ang t\u1ea3i (' + avg + '%)');
+    if (fail) sum.push(fail + ' l\u1ed7i');
+    el.innerHTML = '<div style="font-weight:600; margin-bottom:6px;">T\u1ea3i file l\u00ean: ' + sum.join(' - ') + '</div>' +
                    '<div style="font-size:11px; color:#6b7280; max-height:140px; overflow-y:auto; font-family:monospace; white-space:pre;">' + detail.join('\n') + '</div>';
   }
 
@@ -3338,8 +3750,10 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     if (!wrap) return currentValue;
     var opts = wrap.querySelectorAll('.ec-pri-opt');
     opts.forEach(function (x) {
-      if (x.getAttribute('data-pri') === currentValue) x.classList.add('ec-pri-selected');
+      var on = x.getAttribute('data-pri') === currentValue;
+      if (on) x.classList.add('ec-pri-selected');
       else x.classList.remove('ec-pri-selected');
+      x.setAttribute('aria-pressed', on ? 'true' : 'false');   // UX 03/11: nut that (ban phim + doc man hinh)
     });
     return currentValue;
   }
@@ -3771,6 +4185,21 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       var label = (btn.textContent || '').trim();
       // Only intercept main submit buttons (not "Add row" / "Save draft" / etc.)
       if (!/^submit\b|^gửi\b|^g[uư]i\s*y[eê]u\s*c[aâ]u/i.test(label)) return;
+      // UX 03/11/2026 (ux_po): kiem MOT LAN moi thu nut Submit (GBS) se chan, danh dau do canh tung
+      // truong va cuon toi loi dau tien - truoc day bao tung loi mot (alert Project -> file -> toast
+      // tieu de...). Che do "Mua ngoai" co chot rieng (ec-po-unified, chay truoc o window).
+      var _pc = window.ecPoFieldErrors && window.ecPoFieldErrors.precheck;
+      if (_pc && document.documentElement.getAttribute('data-ec-po-mode') === 'gbsbuy') {
+        var _r = _pc();
+        if (_r.errs.length) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          window.ecPoFieldErrors.show(_r.errs, { toast: _r.text });
+          return false;
+        }
+        return;
+      }
       var projEl = document.getElementById('project');
       if (projEl && !projEl.value) {
         e.preventDefault();
@@ -3889,7 +4318,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       var raw = sessionStorage.getItem('gbs_po_from_so');
       if (raw) {
         var payload = JSON.parse(raw);
-        if (payload && payload.so) {
+        if (payload && payload.so && payload.parent_so === fromSo) {   // QA 03/11: bo payload cua SO khac
           var sd = payload.so.service_start_date;
           var ed = payload.so.service_end_date;
           var sEl = $('ec-service-start-date');
@@ -3901,7 +4330,8 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
         }
       }
     } catch(e){ console.warn('[ec-gbs-svc-dates] session parse err', e); }
-    // Fallback: REST fetch parent SO
+    // Fallback: REST fetch parent SO (helper chi doc GBS Sales Order - bo qua SO so EC)
+    if (/^SAL-ORD/i.test(fromSo)) return;
     fetch('/api/method/gbs_so_create_po_helper', {
       method: 'POST', credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
@@ -3955,6 +4385,13 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
+        // UX 03/11: tren form PO 2 o ngay DV bi an va lay theo Ngay giao dich / Ngay can hang
+        // (ec-po-unified syncSvcDates) -> chi vao 2 o nguoi dung NHIN THAY, khong alert o an.
+        if (IS_PO && window.ecPoFieldErrors) {
+          window.ecPoFieldErrors.show([{ id: 'transaction_date' }, { id: 'schedule_date' }],
+            { toast: 'Chọn Ngày giao dịch và Ngày cần hàng (ngày cần hàng không được trước ngày giao dịch).' });
+          return false;
+        }
         alert('Vui lòng chọn Ngày bắt đầu DV và Ngày kết thúc DV (kết thúc >= bắt đầu).');
         var firstErr = document.querySelector('.ec-svc-dates-row .field.ec-has-err input');
         if (firstErr) {
@@ -5383,6 +5820,22 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     return urls;
   }
 
+  // QA 03/11: gui file moi dung dang {name, webUrl} nhu luong tao moi. Truoc day gui chuoi URL tro:
+  // resubmit_gbs_* chi dem dict la "co dinh kem" -> phieu cu chua tung co attachment_url ma
+  // nguoi sua tai file moi len van bi tra "missing_fields: attachment". Phan gop URL o server
+  // doc duoc ca dict (webUrl) lan chuoi nen doi dang khong lam mat gi.
+  function collectNewUploads(){
+    var uploaded = window._gbsUploadedFiles || {};
+    var out = [];
+    Object.keys(uploaded).forEach(function(k){
+      var u = uploaded[k];
+      if (!u) return;
+      var w = u.webUrl || u.url;
+      if (w && (u.status === 'done' || u.status === 'success' || !u.status)) out.push({ name: k, webUrl: w });
+    });
+    return out;
+  }
+
   function buildEditPayload(){
     var items = collectItems();
     var payload = {
@@ -5435,8 +5888,8 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     console.log('[ec-gbs-edit] kept urls (dom=' + keptFromDom.length + ', state=' + keptFromState.length + '):', kept);
 
     // New uploaded attachments (replicates ec-attachment-fix wrapper behavior)
-    var newUrls = collectNewUploadUrls();
-    console.log('[ec-gbs-edit] new upload urls (' + newUrls.length + '):', newUrls);
+    var newUrls = collectNewUploads();
+    console.log('[ec-gbs-edit] new uploads (' + newUrls.length + '):', newUrls);
     if (newUrls.length > 0) {
       payload.attachment_urls_v2 = newUrls;
       if (window._gbsSessionId) payload.attachment_session_id = window._gbsSessionId;
@@ -5448,16 +5901,36 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
   // ====== Validation ======
   function validateEdit(){
     var requiredTop = ['title','department','brand','transaction_date', DATE_FIELD, PARTY_FIELD,'set_warehouse'];
+    var LABEL = { title: 'Tiêu đề', department: 'Phòng ban', brand: 'Brand', transaction_date: 'Ngày giao dịch',
+                  delivery_date: 'Ngày giao hàng', schedule_date: 'Ngày cần hàng', customer: 'Khách hàng',
+                  supplier: 'Nhà cung cấp', set_warehouse: 'Kho mặc định' };
     for (var i=0; i<requiredTop.length; i++) {
       var el = document.getElementById(requiredTop[i]);
       if (!el || !(el.value || '').trim()) {
-        alert('Thiếu trường bắt buộc: ' + requiredTop[i]);
+        alert('Thiếu trường bắt buộc: ' + (LABEL[requiredTop[i]] || requiredTop[i]));
         if (el && el.focus) el.focus();
         return false;
       }
     }
     var items = collectItems();
     if (items.length === 0) { alert('Phải có ít nhất 1 item.'); return false; }
+    // QA 03/11: nut "Sua & Submit lai" khong qua cac chot cua nut Submit thuong (nhan khac) ->
+    // kiem lai SL > 0 + thu tu ngay (boxme tu choi khi dong bo) va file dang tai len.
+    var chk = window.ecGbsFormCheck;
+    if (chk) {
+      var rowBad = chk.rows();
+      if (rowBad.length) { alert(rowBad.join('\n')); return false; }
+      var dateBad = chk.dates();
+      if (dateBad) { alert(dateBad); return false; }
+    }
+    var up = window._gbsUploadedFiles || {};
+    var upPending = Object.keys(up).filter(function(k){ return up[k] && up[k].status === 'uploading'; });
+    if (upPending.length) {
+      alert('File đang tải lên chưa xong: ' + upPending.join(', ') + '. Đợi tải xong rồi bấm lại.');
+      return false;
+    }
+    var upFailed = Object.keys(up).filter(function(k){ return up[k] && up[k].status === 'error'; });
+    if (upFailed.length && !confirm('Các file sau tải lên LỖI và sẽ KHÔNG được gửi kèm: ' + upFailed.join(', ') + '\n\nVẫn gửi lại phiếu?')) return false;
     // Attachment: must have at least 1 kept OR newly-uploaded
     var keptCount = (window._gbsEditKeptUrls || []).length;
     var newCount  = collectNewUploadUrls().length;
@@ -5525,6 +5998,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
                 'Cấp duyệt hiện tại: ' + (msg.current_level || 1) + '\n' +
                 'Lần sửa thứ: ' + (msg.revision_count || '?'));
           // Navigate back to approval page so user sees fresh state
+          if (window.ecPoLeaveGuard) window.ecPoLeaveGuard.clean();   // UX 03/11: da gui xong, khong hoi "roi trang"
           location.href = '/approval?type=' + (isPO ? 'gbs_po' : 'gbs_so') + '&id=' + encodeURIComponent(editId);
         } else {
           var errMsg = (msg && msg.error) || ('HTTP ' + resp.status);
@@ -5784,6 +6258,8 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     return rows.length;
   }
 
+  window.ecAttachmentCount = getAttachmentCount;   // UX 03/11: chot truoc-gui (ec-gbs-form-polish) dem chung 1 cach
+
   function ensureWarnDiv() {
     // Reuse existing if present (GBS forms have #attachmentRequiredWarn baked in)
     var w = document.getElementById('attachmentRequiredWarn');
@@ -5826,6 +6302,15 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
+    // UX 03/11/2026 (ux_po): khoi nay dang ky som nhat nen truoc day khi thieu file nguoi dung chi thay
+    // loi file, sua xong moi lo tiep loi Tieu de / NCC / Project... Form PO GBS (tao moi): bao MOT LAN
+    // tat ca muc thieu, canh tung truong (ec-gbs-po: window.ecPoFieldErrors).
+    var _root = document.documentElement;
+    if (window.ecPoFieldErrors && _root.getAttribute('data-ec-po-mode') === 'gbsbuy' && _root.getAttribute('data-ec-po-flow') !== 'edit') {
+      var _r = window.ecPoFieldErrors.precheck();
+      window.ecPoFieldErrors.show(_r.errs, { toast: _r.text });
+      return;
+    }
     showWarn('Cần ít nhất 1 file đính kèm trước khi Submit (mới upload hoặc giữ lại từ lần trước). Vui lòng upload chứng từ (đề xuất / brief / kế hoạch) rồi thử lại.');
     console.log('[ec-attachment-preflight] blocked submit — no attachments');
   }, true);  // capture: true
@@ -6162,10 +6647,25 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
   // FB#1 2026-08-04: badge nam tren dinh .form-card nen sau khi bam Submit
   // (da cuon xuong cuoi form) nguoi dung khong thay gi. Van giu badge, them
   // toast noi len goc phai — dung dung ham showGbsToast san co cua form.
-  function notice(msg, bad){
+  function notice(msg, bad, link){
     var el = $id('ecUniBadge');
     if (el){ el.textContent = msg; el.style.color = bad ? '#c0392b' : '#166534'; el.style.fontWeight='700'; }
-    if (typeof window.showGbsToast === 'function') window.showGbsToast(msg, bad ? 'error' : 'success');
+    if (typeof window.showGbsToast === 'function') window.showGbsToast(msg, bad ? 'error' : 'success', link);
+  }
+  // UX 03/11/2026 (ux_po): danh dau do canh truong (nhanh Mua ngoai) - thong bao chu van qua notice().
+  function markErr(list){
+    if (window.ecPoFieldErrors) window.ecPoFieldErrors.show(list);
+  }
+  function ecbuyRowErrs(){
+    var out = [];
+    document.querySelectorAll('#itemsBody tr').forEach(function(tr, i){
+      var code=((tr.querySelector('.item-code')||{}).value||'').trim();
+      if (!code) return;
+      var q=tr.querySelector('.item-qty'), r=tr.querySelector('.item-rate');
+      if (!((parseFloat((q||{}).value)||0)>0)) out.push({id:'itemsBody', el:q, msg:'Dòng ' + (i+1) + ' (' + code + '): thiếu số lượng'});
+      else if (!(parseVN((r||{}).value)>0)) out.push({id:'itemsBody', el:r, msg:'Dòng ' + (i+1) + ' (' + code + '): thiếu giá'});
+    });
+    return out;
   }
 
   function syncSvcDates(){
@@ -6193,7 +6693,16 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       '<div class="ec-uni-note" id="ecUniNote"></div>';
     anchor.insertBefore(bar, _before);
     }
-    bar.querySelectorAll('.ec-uni-btn').forEach(function(b){ b.addEventListener('click', function(){ setMode(b.dataset.m); }); });
+    // UX 03/11: tao tu SO / dang sua -> khoa loai PO (doi luc nay se gui sai API: vd dang sua phieu GBS ma
+    // bam "Mua ngoai" thi nut Submit tao Purchase Order so EC moi). Co khoa dat tu dau trang (<html>).
+    var _locked = document.documentElement.getAttribute('data-ec-po-mode-lock') === '1';
+    bar.querySelectorAll('.ec-uni-btn').forEach(function(b){
+      if (_locked && b.dataset.m !== MODE) b.setAttribute('aria-disabled', 'true');
+      b.addEventListener('click', function(){
+        if (_locked && b.dataset.m !== MODE){ notice('Phiếu đang tạo từ SO hoặc đang sửa nên không đổi được loại PO.', true); return; }
+        setMode(b.dataset.m);
+      });
+    });
     injectEcFields();
     setMode(MODE);
   }
@@ -6227,7 +6736,8 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     // A65: CSS doc <html data-ec-po-mode> -> nut dang chon, dong ghi chu dam, phan chi thuoc tung
     // che do. Ghi chu ca hai che do nam san trong HTML, khong viet lai noi dung.
     document.documentElement.setAttribute('data-ec-po-mode', m);
-    document.querySelectorAll('.ec-uni-btn').forEach(function(b){ b.classList.toggle('on', b.dataset.m===m); });
+    document.querySelectorAll('.ec-uni-btn').forEach(function(b){ b.classList.toggle('on', b.dataset.m===m); b.setAttribute('aria-pressed', b.dataset.m===m ? 'true' : 'false'); });
+    if (window.ecPoFieldErrors) window.ecPoFieldErrors.clear();   // loi cua che do kia khong con dung
     if (m==='gbsbuy' && typeof window._ecLoadGbsLists === 'function') window._ecLoadGbsLists();   // danh sach boxme: nap khi can
     HIDE_ECBUY_IDS.forEach(function(fid){
       var w = fieldWrapOf($id(fid));
@@ -6250,7 +6760,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
         installEcItemPool(); syncItemUi();
         var s = $id('ecSupplier');
         if (s) s.innerHTML = '<option value=""></option>' + (LKI.suppliers||[]).filter(function(x){return !x.ec_is_internal;}).map(function(x){
-          return '<option value="'+x.name+'">'+(x.supplier_name||x.name)+'</option>';
+          return '<option value="'+escH(x.name)+'">'+escH(x.supplier_name||x.name)+'</option>';
         }).join('');
         var so = $id('ecSoRef');
         // FB#3 2026-08-04: chi hien SO kenh Direct. SO kenh GBS do GBS tu tao PO
@@ -6260,7 +6770,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
         if (so) so.innerHTML = '<option value=""></option>' + (LKI.recent_sos||[]).filter(function(x){
           return (x.ec_channel||'') !== 'GBS';
         }).map(function(x){
-          return '<option value="'+x.name+'" data-brand="'+(x.ec_brand||'')+'">'+x.name+' — '+(x.customer||'')+' ('+fmt(x.grand_total)+' đ)</option>';
+          return '<option value="'+escH(x.name)+'" data-brand="'+escH(x.ec_brand||'')+'">'+escH(x.name)+' — '+escH(x.customer||'')+' ('+fmt(x.grand_total)+' đ)</option>';
         }).join('');
         ecCb(s, '-- Chọn nhà cung cấp --');
         ecCb(so, '-- Chọn SO tham chiếu --');
@@ -6371,6 +6881,23 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     if (MODE==='ecbuy' && e.target.classList && (e.target.classList.contains('item-rate')||e.target.classList.contains('item-qty'))) refreshPoBudget();
   });
 
+  // QA 03/11: escape chuoi tu server truoc khi ghep vao innerHTML (ten NCC / khach co the chua & < ").
+  function escH(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  // QA 03/11: dong co ma item nhung SL/gia <= 0 truoc day bi readRows() BO QUA IM LANG -> PO tao ra
+  // thieu dong ma nguoi tao khong biet. Liet ke de chan + bao ro.
+  function incompleteRows(){
+    var bad = [];
+    document.querySelectorAll('#itemsBody tr').forEach(function(tr, i){
+      var code=((tr.querySelector('.item-code')||{}).value||'').trim();
+      if (!code) return;
+      var qty=parseFloat((tr.querySelector('.item-qty')||{}).value)||0;
+      var rate=parseVN((tr.querySelector('.item-rate')||{}).value);
+      if (!(qty>0) || !(rate>0)) bad.push('dòng ' + (i+1) + ' (' + code + ')');
+    });
+    return bad;
+  }
+  var _ecbuyCreated = null;   // PO da tao o lan bam truoc nhung trinh duyet loi -> lan sau chi trinh lai
+
   function readRows(){
     var rows = [];
     document.querySelectorAll('#itemsBody tr').forEach(function(tr){
@@ -6389,24 +6916,38 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       if (!btn) return;
       ev.preventDefault(); ev.stopImmediatePropagation(); ev.stopPropagation();
       var sup = ($id('ecSupplier')||{}).value;
-      if (!sup){ notice('Chọn Nhà cung cấp (EC)', true); return; }
+      if (!sup){ markErr([{id:'ecSupplier'}]); notice('Chọn Nhà cung cấp (EC)', true); return; }
       var soRefEl = $id('ecSoRef');
-      if (!soRefEl.value){ notice('PO Mua ngoài bắt buộc gắn SO tham chiếu — khoản mua nội bộ (không gắn doanh thu) đi luồng ĐNMH', true); return; }
+      if (!soRefEl.value){ markErr([{id:'ecSoRef'}]); notice('PO Mua ngoài bắt buộc gắn SO tham chiếu — khoản mua nội bộ (không gắn doanh thu) đi luồng ĐNMH', true); return; }
       // 2026-08-07 FIX 9: bat buoc Tieu de giong nhanh GBS.
       var _t0 = $id('title');
       if (!_t0 || !(_t0.value||'').trim()){
-        notice('Nhập Tiêu đề cho đơn mua (VD: "Thue KOC review Friso thang 8")', true);
-        if (_t0){ _t0.scrollIntoView({behavior:'smooth', block:'center'}); _t0.focus(); }
+        markErr([{id:'title'}]);
+        notice('Nhập Tiêu đề cho đơn mua (VD: "Thuê KOC review Friso tháng 8")', true);
         return;
       }
+      var _inc = incompleteRows();
+      if (_inc.length){ markErr(ecbuyRowErrs()); notice('Thiếu SL hoặc giá (phải > 0) ở ' + _inc.join(', ') + ' — nhập đủ hoặc xoá dòng', true); return; }
       var rows = readRows();
-      if (!rows.length){ notice('Nhập ít nhất 1 dòng item có SL + giá', true); return; }
+      if (!rows.length){ markErr([{id:'itemsBody', el: document.querySelector('#itemsBody .item-code') || $id('itemsBody'), msg:'Nhập ít nhất 1 dòng item có SL + giá.'}]); notice('Nhập ít nhất 1 dòng item có SL + giá', true); return; }
       var bad = rows.filter(function(r){ return !EC_ITEMS[r.item_code]; });
-      if (bad.length){ notice('Item chưa có trong master EC: '+bad.map(function(b){return b.item_code;}).join(', '), true); return; }
+      if (bad.length){
+        var _badEls = [];
+        document.querySelectorAll('#itemsBody .item-code').forEach(function(c){
+          var v=(c.value||'').trim(); if (v && !EC_ITEMS[v]) _badEls.push({id:'itemsBody', el:c, msg:'Item ' + v + ' chưa có trong danh mục sổ EC'});
+        });
+        markErr(_badEls);
+        notice('Item chưa có trong master EC: '+bad.map(function(b){return b.item_code;}).join(', '), true); return;
+      }
       var txn=($id('transaction_date')||{}).value, sched=($id('schedule_date')||{}).value;
-      if (!txn||!sched){ notice('Chọn ngày giao dịch + ngày nhận hàng', true); return; }
-      if (_poBudget==='out' && !(($id('ecJustification')||{}).value||'').trim()){ notice('PO vượt tổng SO tham chiếu — nhập Lý do giải trình (duyệt 4 cấp)', true); return; }
-      btn.disabled = true;
+      if (!txn||!sched){ markErr([!txn ? {id:'transaction_date'} : {id:'schedule_date', msg:'Vui lòng chọn ngày cần hàng'}]); notice('Chọn ngày giao dịch + ngày nhận hàng', true); return; }
+      if (sched < txn){ markErr([{id:'schedule_date'}]); notice('Ngày cần hàng (' + sched + ') không được trước Ngày giao dịch (' + txn + ')', true); return; }
+      if (_poBudget==='out' && !(($id('ecJustification')||{}).value||'').trim()){ markErr([{id:'ecJustification'}]); notice('PO vượt tổng SO tham chiếu — nhập Lý do giải trình (duyệt 4 cấp)', true); return; }
+      if (window.ecPoFieldErrors) window.ecPoFieldErrors.clear();
+      // UX 03/11: trang thai dang gui ro rang; tra lai nhan + icon goc khi loi.
+      var _origBtnHtml = btn.innerHTML;
+      btn.disabled = true; btn.classList.add('loading'); btn.setAttribute('aria-busy', 'true');
+      btn.innerHTML = '<svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> Đang tạo PO…';
       try{
         // 2026-08-07: gui ca TIEU DE nguoi tao go o o "Tieu de" (#title) vao truong
         // `title` cua Purchase Order, de danh sach /all-ticket khong phai tu ghep ten.
@@ -6429,17 +6970,37 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
                           rate: _vat, category: 'Total', add_deduct_tax: 'Add',
                           description: 'VAT ' + _vat + '%' }];
         }
-        var res = await fetch('/api/resource/Purchase Order', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
-        var txt = await res.text();
-        if (!res.ok) throw new Error(frappeErr(txt, 'Tao PO so EC loi'));
-        var doc = JSON.parse(txt).data;
+        // QA 03/11: tao PO va trinh duyet la 2 lan goi. Truoc day neu buoc 2 loi thi nut mo lai va
+        // bam lan nua TAO THEM mot PO nhap moi (trung). Nay nho PO da tao, lan sau chi trinh lai.
+        var doc = _ecbuyCreated;
+        if (!doc) {
+          var res = await fetch('/api/resource/Purchase Order', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+          var txt = await res.text();
+          if (!res.ok) throw new Error(frappeErr(txt, 'Tao PO so EC loi'));
+          doc = JSON.parse(txt).data;
+          _ecbuyCreated = doc;
+          // FIX 8: day file cua form vao chinh PO bang duong native (chi 1 lan, ngay sau khi tao).
+          try { await ecAttachRawFiles('Purchase Order', doc.name); } catch (_e) {}
+        } else {
+          try {   // lay ban moi nhat de apply_workflow khong vap "Document has been modified"
+            var rr = await fetch('/api/resource/Purchase Order/' + encodeURIComponent(doc.name), {headers:{'Accept':'application/json'}});
+            if (rr.ok) { var fresh = (JSON.parse(await rr.text()) || {}).data; if (fresh && fresh.name) doc = fresh; }
+          } catch (_e) {}
+        }
         var r2 = await fetch('/api/method/frappe.model.workflow.apply_workflow', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({doc: doc, action: 'Submit for Approval'})});
-        if (!r2.ok) throw new Error(frappeErr(await r2.text(), 'Trinh duyet PO loi'));
-        // FIX 8: day file cua form vao chinh PO bang duong native de trang /approval
-        // hien duoc (SharePoint van giu nguyen).
-        try { await ecAttachRawFiles('Purchase Order', doc.name); } catch (_e) {}
-        notice('✓ Đã tạo + gửi duyệt PO sổ EC: '+doc.name+' ('+(doc.ec_in_out_budget||'')+')', false);
-      }catch(e){ notice('Lỗi: '+e.message, true); btn.disabled=false; }
+        if (!r2.ok) {
+          var _wfErr = frappeErr(await r2.text(), 'Trinh duyet PO loi');
+          throw new Error('Đã tạo PO ' + doc.name + ' (nháp) nhưng chưa gửi duyệt được: ' + _wfErr + '. Bấm Submit lại để thử gửi duyệt lại đúng PO này (không tạo PO mới; sửa trên form lúc này sẽ không áp vào PO đã tạo).');
+        }
+        var _wf = {}; try { _wf = ((JSON.parse(await r2.text()) || {}).message) || {}; } catch (_e) {}
+        // QA 03/11: mo thang phieu vua tao giong form SO (truoc day dung yen voi nut bi khoa).
+        // UX 03/11: kem link "Mo phieu"; nho NCC, xoa nhap, bo chot roi trang.
+        var _href = '/approval?id=' + encodeURIComponent(doc.name) + '&type=po';
+        if (typeof window.ecPoOnSuccess === 'function') { try { window.ecPoOnSuccess(); } catch (_e) {} }
+        btn.classList.remove('loading'); btn.removeAttribute('aria-busy'); btn.textContent = '✓ Đã tạo ' + doc.name;
+        notice('✓ Đã tạo + gửi duyệt PO sổ EC: '+doc.name+' ('+(_wf.ec_in_out_budget||doc.ec_in_out_budget||'')+') — đang mở trang duyệt...', false, { href: _href, text: 'Mở phiếu' });
+        setTimeout(function(){ window.location.href = _href; }, 1100);
+      }catch(e){ notice('Lỗi: '+e.message, true); btn.disabled=false; btn.classList.remove('loading'); btn.removeAttribute('aria-busy'); btn.innerHTML = _origBtnHtml; }
     }, true);
   }
 
@@ -6466,6 +7027,177 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     });
     return chain.then(function(){ return done; });
   }
+
+
+  // ===== UX 03/11/2026 (ux_po): ban nhap that, chot "roi trang khi dang nhap do", nho NCC lan truoc =====
+  // Moi thu chi o trinh duyet (localStorage, co try/catch) - khong doi gi gui len may chu.
+  var DRAFT_KEY = 'ec_gbs_po_draft_v1';
+  var FLOW = document.documentElement.getAttribute('data-ec-po-flow') || 'new';
+  var DRAFT_FIELDS = ['title','priority','department','brand','campaignNo','supplier','project','contract_approval',
+    'set_warehouse','ecSupplier','ecSoRef','ecJustification','transaction_date','schedule_date','ec-taxes-template'];
+  var DRAFT_LABEL = { department:'Phòng ban', brand:'Brand', supplier:'Nhà cung cấp', project:'Project', contract_approval:'Mã hợp đồng',
+    set_warehouse:'Kho mặc định', ecSupplier:'Nhà cung cấp (EC)', ecSoRef:'SO tham chiếu', 'ec-taxes-template':'Mẫu thuế VAT' };
+  var _dirty = false;
+
+  // Dat gia tri cho <select> khi option da co (danh sach nap bat dong bo). done(true|false).
+  function whenOption(sel, val, done, n){
+    if (!sel || !val){ if (done) done(false); return; }
+    n = n || 0;
+    for (var i = 0; i < sel.options.length; i++){
+      if (sel.options[i].value === val){
+        sel.value = val;
+        try { sel.dispatchEvent(new Event('change', {bubbles:true})); } catch(e){}
+        if (sel._ecCbSync) sel._ecCbSync();
+        if (done) done(true);
+        return;
+      }
+    }
+    if (n > 80){ if (done) done(false); return; }   // ~20 giay
+    setTimeout(function(){ whenOption(sel, val, done, n + 1); }, 250);
+  }
+
+  function draftCollect(){
+    var f = {};
+    DRAFT_FIELDS.forEach(function(id){ var el = $id(id); if (el && el.value) f[id] = el.value; });
+    var items = [];
+    document.querySelectorAll('#itemsBody tr').forEach(function(tr){
+      function g(c){ var el = tr.querySelector(c); return el ? (el.value || '') : ''; }
+      var code = g('.item-code').trim();
+      if (!code) return;
+      items.push({ code: code, name: g('.item-name'), qty: g('.item-qty'), rate: g('.item-rate'), tax: g('.item-tax'), so: tr.getAttribute('data-so') || '' });
+    });
+    return { v: 1, ts: Date.now(), mode: MODE, f: f, items: items };
+  }
+  function draftRead(){
+    try { var d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); return (d && d.v === 1) ? d : null; } catch(e){ return null; }
+  }
+  function draftClear(){
+    try { localStorage.removeItem(DRAFT_KEY); } catch(e){}
+    document.documentElement.removeAttribute('data-ec-po-draft');
+  }
+  function draftSave(){
+    if (FLOW !== 'new'){ notice('Không lưu nháp khi đang tạo từ SO hoặc đang sửa phiếu.', true); return; }
+    var d = draftCollect();
+    if (!d.f.title && !d.items.length){ notice('Chưa có gì để lưu nháp — nhập Tiêu đề hoặc ít nhất 1 dòng item.', true); return; }
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify(d)); }
+    catch(e){ notice('Không lưu được nháp: ' + e.message, true); return; }
+    _dirty = false;
+    var b = $id('btnDraft');
+    if (b && !b._ecDraftT){
+      var o = b.innerHTML; b.textContent = '✓ Đã lưu nháp';
+      b._ecDraftT = setTimeout(function(){ b.innerHTML = o; b._ecDraftT = null; }, 1800);
+    }
+    notice('Đã lưu nháp trên máy này (' + d.items.length + ' dòng item). File đính kèm không lưu trong nháp.', false);
+  }
+  function draftRestore(){
+    var d = draftRead();
+    if (!d){ draftClear(); notice('Bản nháp không còn hoặc bị hỏng.', true); return; }
+    if (d.mode && d.mode !== MODE && document.documentElement.getAttribute('data-ec-po-mode-lock') !== '1') setMode(d.mode);
+    var f = d.f || {};
+    ['title','campaignNo','transaction_date','schedule_date','ecJustification'].forEach(function(id){
+      var el = $id(id); if (!el || f[id] == null) return;
+      el.value = f[id];
+      try { el.dispatchEvent(new Event('input', {bubbles:true})); el.dispatchEvent(new Event('change', {bubbles:true})); } catch(e){}
+    });
+    if (f.priority && typeof window.ecSetPriority === 'function') window.ecSetPriority(f.priority);
+    ['department','brand','supplier','project','contract_approval','set_warehouse','ecSupplier','ecSoRef','ec-taxes-template'].forEach(function(id){
+      if (!f[id]) return;
+      whenOption($id(id), f[id], function(ok){
+        if (!ok) notice('Không khôi phục được "' + (DRAFT_LABEL[id] || id) + '" từ nháp (không còn trong danh sách) — chọn lại.', true);
+      });
+    });
+    var tbody = $id('itemsBody'), add = $id('btnAddRow');
+    if (tbody && add && d.items && d.items.length){
+      tbody.innerHTML = '';
+      d.items.forEach(function(it){
+        add.click();
+        var trs = tbody.querySelectorAll('tr'), tr = trs[trs.length - 1];
+        if (!tr) return;
+        if (it.so && typeof window._ecPoTagRowSo === 'function') window._ecPoTagRowSo(tr, it.so);
+        var cd = tr.querySelector('.item-code'), nm = tr.querySelector('.item-name'), qt = tr.querySelector('.item-qty'), rt = tr.querySelector('.item-rate');
+        if (cd){ cd.value = it.code || ''; try { cd.dispatchEvent(new Event('input', {bubbles:true})); } catch(e){} }
+        if (nm && it.name) nm.value = it.name;
+        if (rt) rt.value = it.rate || '0';
+        if (qt){ qt.value = it.qty || ''; try { qt.dispatchEvent(new Event('input', {bubbles:true})); } catch(e){} }
+        if (it.tax) whenOption(tr.querySelector('.item-tax'), it.tax);
+      });
+    }
+    document.documentElement.removeAttribute('data-ec-po-draft');
+    notice('Đã khôi phục bản nháp — kiểm tra lại, tải lại file đính kèm rồi bấm Submit.', false);
+  }
+  window.ecPoDraft = { save: draftSave, restore: draftRestore, clear: draftClear, read: draftRead };
+  (function bindDraftBar(){
+    var d = (FLOW === 'new') ? draftRead() : null;
+    var t = $id('ecDraftText');
+    if (d && t){
+      var dt = new Date(d.ts || 0);
+      var p2 = function(n){ return (n < 10 ? '0' : '') + n; };
+      t.textContent = 'Bạn có bản nháp PO chưa gửi' + (d.f && d.f.title ? ' “' + d.f.title + '”' : '') +
+        ' — lưu lúc ' + p2(dt.getHours()) + ':' + p2(dt.getMinutes()) + ' ' + p2(dt.getDate()) + '/' + p2(dt.getMonth() + 1) +
+        ', ' + (d.items || []).length + ' dòng item.';
+    }
+    var r = $id('btnDraftRestore'); if (r) r.addEventListener('click', draftRestore);
+    var x = $id('btnDraftDiscard');
+    if (x) x.addEventListener('click', function(){ if (confirm('Bỏ bản nháp này? Không khôi phục lại được.')) { draftClear(); notice('Đã bỏ bản nháp.', false); } });
+  })();
+
+  // Chot roi trang: chi tinh thao tac THAT cua nguoi dung (dien tu SO / khoi phuc nhap / code khong tinh).
+  function markDirty(e){
+    if (!e || e.isTrusted === false) return;
+    var t = e.target;
+    if (t && t.closest && t.closest('.form-card')) _dirty = true;
+  }
+  document.addEventListener('input', markDirty, true);
+  document.addEventListener('change', markDirty, true);
+  document.addEventListener('click', function(e){
+    if (!e || !e.isTrusted) return;
+    var t = e.target;
+    if (t && t.closest && t.closest('.ec-cb-option, .btn-remove, .ec-pri-opt, .ec-so-rm, #btnAddSoGo, #btnBulkApply, #btnAddRow')) _dirty = true;
+  }, true);
+  window.addEventListener('beforeunload', function(e){
+    if (!_dirty) return;
+    e.preventDefault();
+    e.returnValue = '';
+    return '';
+  });
+  window.ecPoLeaveGuard = { isDirty: function(){ return _dirty; }, clean: function(){ _dirty = false; }, mark: function(){ _dirty = true; } };
+
+  // Nho NCC lan truoc (theo tung loai PO) - chi GOI Y bang nut "Dung lai", khong tu chon.
+  function lastSupRead(m){
+    try { return JSON.parse(localStorage.getItem('ec_po_last_sup_' + m) || 'null'); } catch(e){ return null; }
+  }
+  function rememberSupplier(){
+    var s = $id(MODE === 'ecbuy' ? 'ecSupplier' : 'supplier');
+    if (!s || !s.value) return;
+    var o = s.options[s.selectedIndex];
+    try { localStorage.setItem('ec_po_last_sup_' + MODE, JSON.stringify({ v: s.value, t: (o && o.text) || s.value })); } catch(e){}
+  }
+  (function bindLastSup(){
+    document.querySelectorAll('.ec-lastsup').forEach(function(b){
+      var rec = lastSupRead(b.getAttribute('data-m'));
+      if (!rec || !rec.v){ return; }
+      var nm = b.querySelector('.ec-lastsup-name');
+      if (nm) nm.textContent = rec.t || rec.v;
+      b.title = rec.t || rec.v;
+      b.addEventListener('click', function(){
+        var sel = $id(b.getAttribute('data-target'));
+        if (!sel || sel.value === rec.v) return;
+        b.disabled = true;
+        whenOption(sel, rec.v, function(ok){
+          b.disabled = false;
+          if (ok) _dirty = true;
+          else notice('Nhà cung cấp lần trước (' + (rec.t || rec.v) + ') không còn trong danh sách — chọn lại.', true);
+        }, 40);
+      });
+    });
+  })();
+
+  // Goi khi tao phieu THANH CONG (ca 2 loai PO): nho NCC, xoa nhap, khong hoi "roi trang" nua.
+  window.ecPoOnSuccess = function(){
+    rememberSupplier();
+    if (FLOW === 'new') draftClear();
+    _dirty = false;
+  };
 
   // capture upload session id (dùng chung SP session của form gốc)
   var origFetch = window.fetch;

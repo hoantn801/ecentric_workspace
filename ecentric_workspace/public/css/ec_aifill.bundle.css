@@ -32,7 +32,10 @@
 .ec-aifill-quota{ font-size:12px; color:var(--ec-af-ink-3); white-space:nowrap; }
 .ec-aifill-body{ padding:0 16px 14px; }
 .ec-aifill-note{
-  width:100%; min-height:82px; resize:vertical; padding:8px 11px;
+  /* border-box: khong co no thi width:100% + padding tran khoi panel 22px tren dien thoai
+   * (trang nao khong tu khai box-sizing cho toan cay). */
+  box-sizing:border-box;
+  width:100%; min-height:96px; resize:vertical; padding:8px 11px;
   border:1px solid var(--ec-af-line); border-radius:8px;
   font-size:13.5px; font-family:inherit; line-height:1.55; color:var(--ec-af-ink);
   background:var(--ec-af-surface);
@@ -119,6 +122,9 @@
 }
 .ec-aifill-note-ok{ background:var(--ec-af-ground); border:1px solid var(--ec-af-line); color:var(--ec-af-ink-2); }
 .ec-aifill-note-warn{ background:var(--ec-af-amber-wash); border:1px solid #fde68a; color:var(--ec-af-amber); }
+/* "Dang doc..." - cung ho xam voi note-ok: la thong tin, khong phai trang thai workflow (A58). */
+.ec-aifill-note-info{ background:var(--ec-af-ground); border:1px solid var(--ec-af-line); color:var(--ec-af-ink-2); }
+.ec-aifill-next{ display:inline-block; margin-top:4px; color:var(--ec-af-ink-2); }
 .ec-aifill-note-err{ background:var(--ec-af-red-wash); border:1px solid #fecaca; color:var(--ec-af-red); }
 .ec-aifill-probe{ display:inline-block; margin-top:4px; color:var(--ec-af-amber); }
 

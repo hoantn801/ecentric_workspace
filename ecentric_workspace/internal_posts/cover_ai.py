@@ -160,7 +160,27 @@ def inspect(buf, mime, generate):
     data = (res or {}).get("data") if (res or {}).get("ok") else None
     if not isinstance(data, dict) or "has_text" not in data:
         return None
-    return not (bool(data.get("has_text")) or bool(data.get("has_logo")))
+    # KHONG dung bool(): model tra CHUOI "false" thi bool("false") = True -> anh sach bi bo.
+    flags = (_flag(data.get("has_text")), _flag(data.get("has_logo", False)))
+    if True in flags:
+        return False
+    if None in flags:
+        return None
+    return True
+
+
+def _flag(value):
+    """True / False / None (khong hieu). Chap nhan boolean JSON va chuoi true/false."""
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    text = str(value).strip().lower()
+    if text in ("true", "yes", "1"):
+        return True
+    if text in ("false", "no", "0", ""):
+        return False
+    return None
 
 
 def pick(results, keep=C.AI_COVER_VARIANTS):

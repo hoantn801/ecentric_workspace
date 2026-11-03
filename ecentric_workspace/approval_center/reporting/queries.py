@@ -39,6 +39,18 @@ _OPEN = "('Pending','Information Required')"
 IN_MAX = 500
 
 
+def _vo_huong(v):
+    """Gia tri loc tu client -> chuoi / so, hoac None. dict / bool / list long nhau bi BO.
+
+    03/11/2026 (QA): `category` / `approver` / ... di thang tu `_parse_filters` vao tham so SQL
+    ma khong kiem kieu. Mot dict trong JSON loc lot xuong driver: PyMySQL <= 1.1.0 KHONG escape
+    khoa cua dict (CVE-2024-36039) - con ban da va thi nem TypeError thanh loi 500. Loc o day
+    la phong thu nhieu lop, khong dua vao phien ban driver."""
+    if isinstance(v, bool) or not isinstance(v, (str, int, float)):
+        return None
+    return v
+
+
 def _non_date_filters(filters, params):
     """Build filter fragments (excluding date range) into a list; mutate params."""
     frag = []
@@ -60,16 +72,19 @@ def _non_date_filters(filters, params):
             # MOI gia tri mot tham so. Khong bao gio truyen ca list vao mot %(x)s - driver se
             # noi no thanh "('a','b')" sau dau "=", vua sai vua tuy driver.
             khoa = []
-            for i, x in enumerate(list(val)[:IN_MAX]):
+            for i, x in enumerate([x for x in val if _vo_huong(x) is not None][:IN_MAX]):
                 k = "%s_%d" % (pk, i)
                 params[k] = x
                 khoa.append("%%(%s)s" % k)
-            frag.append("%s IN (%s)" % (col, ", ".join(khoa)))
+            if khoa:
+                frag.append("%s IN (%s)" % (col, ", ".join(khoa)))
+            continue
+        if _vo_huong(val) is None:
             continue
         params[pk] = val
         frag.append("%s = %%(%s)s" % (col, pk))
     # approver filter -> membership on the approver child
-    approver = (filters or {}).get("approver")
+    approver = _vo_huong((filters or {}).get("approver"))
     if approver:
         params["f_approver"] = approver
         frag.append("EXISTS (SELECT 1 FROM `tabEC Approval Request Approver` fa "

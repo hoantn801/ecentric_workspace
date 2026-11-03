@@ -218,6 +218,7 @@
   .ec-apl-tl li.ok:before{ background:#10b981; } .ec-apl-tl li.no:before{ background:#dc2626; }
   .ec-apl-tl b{ color:#111827; font-weight:600; }
   .ec-apl-tl .when{ color:#9ca3af; }
+  .ec-apl-tl li.more{ color:#9ca3af; font-size:12px; } .ec-apl-tl li.more a{ color:var(--navy); }
   .ec-apl-tl .cmt{ display:block; margin-top:2px; color:#4b5563; background:#f9fafb; border-radius:7px; padding:5px 9px; }
   /* ô nhập lý do hiện ngay trong popup — không dùng hộp thoại trình duyệt */
   .ec-apl-note{ border-top:1px solid #eef0f4; padding:14px 20px; background:#fbfbfd; }
@@ -368,7 +369,7 @@
 
   function load(){ $("apl-body").innerHTML='<div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div>';
     return call("list_requests",{ box:state.box, filters:JSON.stringify(filters()), start:state.start, page_length:state.page_length, search:$("f-search").value||"" })
-      .then(function(res){ state.total=(res&&res.total)||0; state.drafts=(res&&res.drafts)||[]; render((res&&res.rows)||[]); }).catch(function(){ renderError(); }); }
+      .then(function(res){ state.total=(res&&res.total)||0; state.drafts=(res&&res.drafts)||[]; render((res&&res.rows)||[]); }).catch(function(e){ renderError(e); }); }
   // Ban nhap cua toi: chi tab "Cho toi xu ly", trang dau. Luu nhap xong ma khong thay phieu
   // dau (Hoan 05/09) - vi khong co Approval Request nen khong o tab nao. Hien rieng mot dai,
   // gan nhan "Nhap", bam vao mo lai form de sua/gui.
@@ -394,9 +395,9 @@
     frappe.call({method:"ecentric_workspace.approval_center.reporting.actions.discard_draft",
                  args:{approval_type:type, name:name}, type:"POST"})
       .then(function(){ toast("Đã huỷ bản nháp "+name, "warn"); load(); })
-      .catch(function(e){ btn.disabled=false; btn.textContent="Huỷ"; toast(extractServerMsg(e)||"Không huỷ được bản nháp.","err"); });
+      .catch(function(e){ btn.disabled=false; btn.textContent="Huỷ"; toast(errText(e,"Không huỷ được bản nháp."),"err"); });
   }
-  function renderError(){ $("apl-body").innerHTML='<div class="state"><h4>Không tải được dữ liệu</h4><p>Vui lòng thử lại.</p><button type="button" class="btn primary" id="apl-retry">Thử lại</button></div>'; var r=$("apl-retry"); if(r) r.onclick=load; }
+  function renderError(e){ $("apl-body").innerHTML='<div class="state" role="alert"><h4>Không tải được danh sách yêu cầu</h4><p>'+esc(errText(e,"Vui lòng thử lại."))+'</p><button type="button" class="btn primary" id="apl-retry">Thử lại</button></div>'; var r=$("apl-retry"); if(r) r.onclick=load; }
 
   // So tien cua phieu. Trong va 0 la HAI chuyen khac nhau: form khong co truong tien thi de
   // trong, con 0 la mot con so that. Hien ma tien te khi khac VND - AI Topup co phieu tra bang
@@ -482,6 +483,8 @@
   // buoc hien tai chinh la buoc xu ly, khong phai mot cap duyet.
   function levelCell(r){
     if(ffActive(r)) return ffLabel(r);
+    // "Cap 1 · Truong phong duyet": cung cach goi voi thanh tien trinh trong popup (03/11).
+    var u=UI(); if(r.current_level && u) return u.levelText(r.current_level, r.current_level_name);
     return r.current_level_name || (r.current_level ? ("Cấp "+r.current_level) : "—"); }
 
   function statusCell(r){
@@ -504,12 +507,11 @@
   // mà không mất bộ lọc/vị trí cuộn. Nội dung lấy từ reporting.actions.get_request_detail
   // (router -> đúng facade của form, đã kiểm quyền), nên không cần biết form nào.
   var ACT="ecentric_workspace.approval_center.reporting.actions.";
-  // nhãn tiếng Việt cho mốc lịch sử — engine ghi bằng tiếng Anh
-  var ACT_VI={ Submitted:"Đã gửi", Approved:"Đã duyệt", Rejected:"Từ chối", Cancelled:"Đã huỷ",
-    Completed:"Hoàn tất", Resubmitted:"Gửi lại", "Information Requested":"Yêu cầu bổ sung",
-    Skipped:"Bỏ qua", Started:"Bắt đầu xử lý", Reopened:"Mở lại", Escalated:"Chuyển cấp trên",
-    "Information Provided":"Đã bổ sung", Claimed:"Nhận xử lý", Assigned:"Giao xử lý", Delegated:"Uỷ quyền",
-    "Attachment Added":"Thêm tệp" };
+  // Nhan tieng Viet cho moc lich su + cau loi: asset dung chung ec_approval_ui.bundle.js (03/11) -
+  // cung mot bang voi 31 trang form. Truoc day trang nay giu mot bang nhan rieng, thieu "Reminded",
+  // "System Transition", "Commented"... -> nguoi dung thay chu tieng Anh tho.
+  var UI=function(){ return window.EcApprovalUI||null; };
+  function errText(e, fb){ var u=UI(); return u ? u.errorText(e, fb) : (extractServerMsg(e)||fb); }
   var HL_KEYS=["số tiền","chi phí","giá trị","ngân sách","tổng","số lượng","ngày","thời gian","hạn"];
   function ovEl(){
     var ov=document.getElementById("ec-apl-ov");
@@ -641,7 +643,7 @@
         fillHeader(box, reqName, { title:"Không mở được yêu cầu", type_title:"", who:"" });
         box.querySelector('[data-h="body"]').classList.remove("loading");
         box.querySelector('[data-h="body"]').innerHTML=
-          '<div class="ec-apl-sec"><div class="ec-apl-empty">'+esc(extractServerMsg(e)||reqName)+'</div></div>';
+          '<div class="ec-apl-sec"><div class="ec-apl-empty">'+esc(errText(e,"Không mở được yêu cầu "+reqName+". Vui lòng thử lại."))+'</div></div>';
         box.querySelector('[data-h="foot"]').innerHTML='<span class="grow"></span>'
           +'<button type="button" class="btn" data-x="1">Đóng</button>';
         bindShell(box);
@@ -738,17 +740,17 @@
       .then(function(r){ return r&&r.message; }).then(function(res){
       if(state.openReq!==req) return;            // nguoi dung da chuyen sang ho so khac
       renderComments((res&&res.comments)||[], res&&res.me);
-    }).catch(function(e){ toast(mapErr(e),true); });
+    }).catch(function(e){ toast(errText(e,"Không tải được phần trao đổi."),"err"); });
   }
   function sendComment(aside, ta, btn){
     var req=state.openReq, tx=(ta&&ta.value||"").trim();
     if(!req) return;
-    if(!tx){ toast("Chưa nhập nội dung trao đổi.",true); ta&&ta.focus(); return; }
+    if(!tx){ toast("Chưa nhập nội dung trao đổi.","err"); ta&&ta.focus(); return; }
     btn.disabled=true;
     frappe.call({method:ACT+"add_comment", args:{request_name:req, content:tx}})
       .then(function(r){ return r&&r.message; }).then(function(res){
       ta.value=""; renderComments((res&&res.comments)||[], res&&res.me);
-    }).catch(function(e){ toast(mapErr(e),true); })
+    }).catch(function(e){ toast(errText(e,"Không gửi được tin nhắn. Vui lòng thử lại."),"err"); })
       .then(function(){ btn.disabled=false; });
   }
   // Khoá cuộn nền kèm bù bề rộng thanh cuộn: không bù thì trang co lại đúng lúc popup hiện ra,
@@ -818,7 +820,8 @@
       var s=String(l.level_status||"");
       var done = s==="Approved" || s==="Skipped" || approved || (l.level_no && cur && l.level_no<cur);
       var isCur = !approved && l.level_no===cur;
-      steps.push({lb:l.level_name||("Cấp "+(l.level_no||idx+1)),
+      var u=UI(), lvn=l.level_no||idx+1;
+      steps.push({lv:lvn, lb:u ? u.levelText(lvn, l.level_name) : ("Cấp "+lvn+(l.level_name?(" · "+l.level_name):"")),
                   st: (rejected&&isCur)?"rej":(done?"done":(isCur?"cur":"")),
                   skipped: s==="Skipped"});
     });
@@ -828,9 +831,11 @@
                   st: ffst==="Completed" ? "done" : (ffst==="Cancelled" ? "rej" : "cur")});
     }
     steps.push({lb:"Hoàn tất", st:(approved && (!ffst || ffst==="Completed" || ffst==="Not Started"))?"done":""});
-    return '<div class="ec-apl-steps">'+steps.map(function(x,i){
-      var mark = x.st==="done" ? "&#10003;" : (x.st==="rej" ? "&times;" : String(i+1));
-      return '<div class="ec-apl-step '+x.st+'"><div class="bul">'+mark+'</div>'
+    // Cham tron: cap duyet hien DUNG so cap (truoc 03/11 la vi tri i+1 ma vi tri 1 la "Da gui"
+    // -> Cap 1 hien so 2, gay mot lan ho tro nham). Buoc khong phai cap duyet khong danh so.
+    return '<div class="ec-apl-steps" role="list" aria-label="Tiến trình duyệt">'+steps.map(function(x){
+      var mark = x.st==="done" ? "&#10003;" : (x.st==="rej" ? "&times;" : (x.lv ? String(x.lv) : ""));
+      return '<div class="ec-apl-step '+x.st+'" role="listitem"'+(x.st==="cur"?' aria-current="step"':'')+'><div class="bul" aria-hidden="true">'+mark+'</div>'
            + '<div class="lb">'+esc(x.lb)+(x.skipped?' <span class="t-sub">(bỏ qua)</span>':'')+'</div></div>';
     }).join("")+'</div>';
   }
@@ -894,12 +899,21 @@
         return '<div class="ec-apl-stale">'+esc(a.file_name)+': sửa lúc '+esc(fmtDT(a.sp_last_modified))
              +' — SAU khi '+ai+' đã duyệt.</div>'; }).join("");
 
-    var tl=(d.timeline||[]).slice(0,8).map(function(t){
-      var raw=t.action||t.event||"", cls=/Approve|Duyệt|Complete/i.test(raw)?"ok":(/Reject|Từ chối/i.test(raw)?"no":"");
-      var act=ACT_VI[raw]||raw, when=fmtDT(t.creation||t.timestamp);
-      return '<li class="'+cls+'"><b>'+esc(act)+'</b> · '+esc(t.actor||t.user||"")
-           +(when&&when!=="—"?(' <span class="when">'+when+'</span>'):'')
-           +(t.comment?('<span class="cmt">'+esc(t.comment)+'</span>'):'')+'</li>'; }).join("");
+    // Lich su (03/11): truoc day lay `slice(0,8)` cua danh sach xep CU -> MOI (seq asc) nen phieu
+    // dai chi hien 8 viec DAU TIEN, mat dung nhung viec moi nhat; con gio doc `t.creation`
+    // trong khi engine tra `action_time` -> cot gio luon trong. Nay: moi nhat len dau, 8 dong,
+    // con nua thi bao "con N hoat dong cu hon" kem link trang day du.
+    var tlAll=(d.timeline||[]).slice().reverse(), TL_MAX=8;
+    var tl=tlAll.slice(0,TL_MAX).map(function(t){
+      var raw=t.action||t.event||"", cls=/Approve|Duyệt|Complete/i.test(raw)?"ok":(/Reject|Từ chối|Cancel/i.test(raw)?"no":"");
+      var u=UI(), pt=u ? u.timelineItemParts(t) : {label:raw, level:"", actor:t.actor||t.user||"",
+        when:fmtDT(t.action_time||t.creation||t.timestamp), transition:"", comment:t.comment||""};
+      return '<li class="'+cls+'"><b>'+esc(pt.label)+'</b>'+(pt.level?(' · '+esc(pt.level)):'')
+           +(pt.actor?(' · '+esc(pt.actor)):'')
+           +(pt.when&&pt.when!=="—"?(' <span class="when">'+esc(pt.when)+'</span>'):'')
+           +(pt.comment?('<span class="cmt">'+esc(pt.comment)+'</span>'):'')+'</li>'; }).join("");
+    if(tlAll.length>TL_MAX) tl+='<li class="more">Còn '+(tlAll.length-TL_MAX)+' hoạt động cũ hơn'
+      +(d.detail_route?(' — <a href="'+esc(withFrom(d.detail_route))+'">xem trên trang đầy đủ</a>'):'')+'</li>';
 
     var sent=fmtDT(biz.creation||ap.creation||biz.submitted_at).split(" ")[0];
     if(sent==="—") sent="";
@@ -1006,7 +1020,7 @@
       })
       .catch(function(e){
         if(btn){ btn.disabled=false; if(btn.dataset.lbl) btn.textContent=btn.dataset.lbl; }
-        toast(extractServerMsg(e)||"Không thực hiện được.","err");
+        toast(errText(e,"Không thực hiện được. Vui lòng thử lại."),"err");
       });
   }
   // Duyet & Ky tu popup: goi dung endpoint ky so (chinh dieu form Payment Request lam), server
@@ -1027,7 +1041,7 @@
       })
       .catch(function(e){
         if(btn){ btn.disabled=false; if(btn.dataset.lbl) btn.textContent=btn.dataset.lbl; }
-        toast(extractServerMsg(e)||"Không gửi được lệnh ký.","err");
+        toast(errText(e,"Không gửi được lệnh ký. Vui lòng thử lại."),"err");
       });
   }
   function wire(){

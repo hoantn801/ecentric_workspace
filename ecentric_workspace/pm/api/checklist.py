@@ -261,6 +261,12 @@ def complete_task(task):
     # G4.8: cannot complete while open sub-tasks remain (canonical shared guard).
     if pmperm.has_open_children(task):
         frappe.throw(_("Không thể hoàn thành nhiệm vụ khi vẫn còn nhiệm vụ con chưa đóng."))
+    # PM redesign: same rules as tasks.mark_done / set_status -- a review-required task is closed
+    # only by its giver / a leader (this endpoint used to bypass "Cần người giao kiểm tra").
+    from ecentric_workspace.pm.api import tasks as _pmtasks   # lazy: tasks does not import us
+    if _pmtasks._needs_review(doc, user):
+        frappe.throw(_("Việc này cần người giao kiểm tra. Hãy bấm Gửi kiểm tra."),
+                     frappe.PermissionError)
     # G4.8d: use the EXACT transition the workflow offers THIS task + user to reach Done —
     # never hard-code an action name. If none is valid (e.g. role has no Done transition),
     # return a friendly message instead of Frappe's raw "Not a valid Workflow Action".
@@ -272,5 +278,8 @@ def complete_task(task):
     if not done_tr:
         frappe.throw(_("Không có thao tác hợp lệ để hoàn thành nhiệm vụ này. "
                        "Hãy chuyển trạng thái bằng thao tác Workflow phù hợp."))
+    _pmtasks._withdraw_on_done(task)   # pending "xin dời hạn" withdrawn, like mark_done
     doc = apply_workflow(doc, done_tr.get("action"))  # governed + audited
+    if doc.get("workflow_state") == "Done":
+        _pmtasks._after_terminal(task, "Done", user)   # "Mỗi người một việc" roll-up
     return {"name": doc.name, "workflow_state": doc.get("workflow_state")}

@@ -26,6 +26,9 @@ duyet mo khong duoc tep, cach sua la them ho vao site. Lich su ham `cap_quyen` c
 Token: dung LAI `weekly_report.sharepoint.get_app_token` - app-only client_credentials, doc
 client_secret tu Social Login Key, khong hardcode. Khong dung MSAL phia trinh duyet.
 """
+import hashlib
+from datetime import timedelta
+
 import frappe
 from frappe.utils import now_datetime
 
@@ -46,6 +49,12 @@ LINK_DT = "EC SharePoint File Link"
 #: Xem `sharepoint_snapshot.py`. Khai o DAY vi chinh module nay la noi phai LOAI chung ra.
 SNAP_DT = "EC SharePoint Snapshot"
 TIMEOUT = 30
+#: Lech vai giay giua moc SharePoint tra ve luc ta tai len va moc doc lai sau do la do lam tron
+#: ve giay cua SharePoint, khong phai nguoi sua. Cung gia tri voi `query_service.DUNG_SAI_GIAY`.
+DUNG_SAI_GIAY = 5
+#: So ten thay the toi da ("HopDong (2).docx" ... "(20)") khi duong dan da co tep. Het ma van
+#: trung thi bao loi cho tep do - khong bao gio quay ve ghi de.
+SO_TEN_THAY_THE = 20
 
 
 class SharePointChuaSan(Exception):
@@ -88,32 +97,100 @@ def _noi_dung_tep(file_url):
     name = frappe.db.get_value("File", {"file_url": file_url}, "name")
     if not name:
         raise SharePointChuaSan("Khong tim thay ban ghi File cho %s" % file_url)
-    return frappe.get_doc("File", name).get_content()
+    noi_dung = frappe.get_doc("File", name).get_content()
+    # File.get_content() cua Frappe tra CHUOI cho tep doc duoc bang UTF-8 (.txt, .csv, ca PDF
+    # thuan ASCII). Gui chuoi len Graph: Content-Length dem KY TU chu khong dem byte, va
+    # http.client ma hoa latin-1 -> tep tieng Viet hong / nem loi. Frappe vua giai ma UTF-8
+    # thanh cong nen ma hoa lai UTF-8 ra dung tung byte goc.
+    if isinstance(noi_dung, str):
+        noi_dung = noi_dung.encode("utf-8")
+    return noi_dung or b""
 
 
-def tai_len(business_doctype, file_url, file_name, business_name, token=None):
-    """Dua MOT tep len SharePoint. Tra ve dict(item_id, web_url, last_modified).
+def bam_noi_dung(noi_dung):
+    """SHA-256 cua bytes tep - dau van tay noi dung da tai len (luu o `sp_content_hash`)."""
+    return hashlib.sha256(noi_dung or b"").hexdigest()
+
+
+def ten_thay_the(file_name, lan):
+    """Lan 1 -> giu nguyen ten; lan n>=2 -> "HopDong (n).docx". Dung khi duong dan da co tep."""
+    if not lan or lan <= 1:
+        return file_name
+    ten = str(file_name or "")
+    if "." in ten:
+        goc, duoi = ten.rsplit(".", 1)
+        return "%s (%d).%s" % (goc, lan, duoi)
+    return "%s (%d)" % (ten, lan)
+
+
+def _phien_tai_len(rel, token, item_id=None):
+    """Mo upload session. Tra ve uploadUrl, hoac None khi duong dan DA CO tep (409).
+
+    HAI che do, va day la cho chan mat du lieu (03/11/2026):
+      * `item_id` -> ghi de noi dung CHINH item do (giu id, lich su phien ban, link chia se).
+        Chi `dong_bo_phieu` goi, va chi sau khi da chac ban song CHUA ai sua.
+      * khong co `item_id` -> TAO MOI theo duong dan voi conflictBehavior=`fail`. Duong dan da
+        co tep (ban song nguoi duyet dang sua, tep trung ten khac hoa/thuong...) thi Graph tra
+        409 - ben goi doi sang ten thay the. KHONG BAO GIO `replace` theo duong dan: truoc day
+        `weekly_report.create_deck_upload_session` (replace) duoc dung o day, nen gui lai phieu
+        la tai de ban Frappe len ban song, xoa sach track changes + comment cua nguoi duyet."""
+    requests = _requests()
+    if item_id:
+        url = "%s/sites/%s/drive/items/%s/createUploadSession" % (_graph(), wr_sp.SITE_ID, item_id)
+        hanh_vi = "replace"
+    else:
+        url = _drive_url(rel) + ":/createUploadSession"
+        hanh_vi = "fail"
+    resp = requests.post(
+        url, headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"},
+        json={"item": {"@microsoft.graph.conflictBehavior": hanh_vi}}, timeout=TIMEOUT)
+    if resp.status_code == 409 and not item_id:
+        return None
+    if resp.status_code not in (200, 201):
+        raise SharePointChuaSan("Mo phien tai len that bai (%s): %s"
+                                % (resp.status_code, (resp.text or "")[:300]))
+    phien = (resp.json() or {}).get("uploadUrl")
+    if not phien:
+        raise SharePointChuaSan("Graph khong tra uploadUrl")
+    return phien
+
+
+def tai_len(business_doctype, file_url, file_name, business_name, token=None, item_id=None):
+    """Dua MOT tep len SharePoint. Tra ve dict(item_id, web_url, last_modified, content_hash).
+
+    Mac dinh TAO TEP MOI va KHONG BAO GIO ghi de tep dang co o duong dan do: trung thi lan luot
+    thu "ten (2)", "ten (3)"... (xem `_phien_tai_len`). `item_id` = ghi de dung item do - chi
+    dung khi ben goi da chac ban song chua ai sua (`dong_bo_phieu`).
 
     Dung upload session cho moi kich co - don gian hon la re nhanh theo dung luong, va
     hop dong .docx co the vuot nguong 4MB cua PUT truc tiep."""
     requests = _requests()
     token = token or wr_sp.get_app_token()
-    rel = duong_dan(business_doctype, business_name, file_name)
     noi_dung = _noi_dung_tep(file_url)
-
-    phien = wr_sp.create_deck_upload_session(rel, token)
     tong = len(noi_dung)
-    resp = requests.put(
-        phien,
-        headers={"Content-Length": str(tong),
-                 "Content-Range": "bytes 0-%d/%d" % (max(tong - 1, 0), tong)},
-        data=noi_dung, timeout=TIMEOUT)
-    if resp.status_code not in (200, 201):
-        raise SharePointChuaSan("Tai len that bai (%s): %s" % (resp.status_code, resp.text[:300]))
-    item = resp.json() or {}
-    return {"item_id": item.get("id"),
-            "web_url": item.get("webUrl"),
-            "last_modified": item.get("lastModifiedDateTime")}
+    for lan in ([1] if item_id else range(1, SO_TEN_THAY_THE + 1)):
+        rel = None if item_id else duong_dan(business_doctype, business_name,
+                                             ten_thay_the(file_name, lan))
+        phien = _phien_tai_len(rel, token, item_id=item_id)
+        if phien is None:
+            continue
+        resp = requests.put(
+            phien,
+            headers={"Content-Length": str(tong),
+                     "Content-Range": "bytes 0-%d/%d" % (max(tong - 1, 0), tong)},
+            data=noi_dung, timeout=TIMEOUT)
+        if resp.status_code == 409 and not item_id:
+            # Graph kiem trung ten ca o byte cuoi: ai do vua tao tep cung ten trong luc tai.
+            continue
+        if resp.status_code not in (200, 201):
+            raise SharePointChuaSan("Tai len that bai (%s): %s" % (resp.status_code, resp.text[:300]))
+        item = resp.json() or {}
+        return {"item_id": item.get("id"),
+                "web_url": item.get("webUrl"),
+                "last_modified": item.get("lastModifiedDateTime"),
+                "content_hash": bam_noi_dung(noi_dung)}
+    raise SharePointChuaSan("Thu %d ten cho %s deu da co tep tren SharePoint - khong ghi de"
+                            % (SO_TEN_THAY_THE, file_name))
 
 
 # --------------------------------------------------------------------------- #
@@ -286,6 +363,11 @@ def ghi_lien_ket(business_doctype, file_url, business_name, ket_qua, da_cap=None
     doc.sp_granted_to = ", ".join(da_cap or [])
     if share_url:
         doc.sp_share_url = share_url
+    # Dau van tay noi dung VUA tai len (03/11/2026) - lan gui lai sau so voi no de biet tep
+    # trong Frappe co doi that khong. Truoc migrate cot chua co: Document.save bo qua thuoc
+    # tinh ngoai meta, khong loi.
+    if ket_qua.get("content_hash"):
+        doc.sp_content_hash = ket_qua["content_hash"]
     doc.save(ignore_permissions=True)
     return doc.name
 
@@ -307,14 +389,28 @@ def nguoi_trong_luong(business_doctype, business_name):
     ra = [row.get("requested_by")]
     req = row.get("approval_request") or _phieu_duyet_theo_tham_chieu(business_doctype, business_name)
     if req:
-        ra += frappe.get_all("EC Approval Request Approver",
-                             filters={"approval_request": req},
-                             pluck="approver")
+        # Dong kieu "Role: X" chi con tinh khi nguoi do VAN giu role X (03/11/2026): dong duyet
+        # chot luc gui, role thi song. Nguoi da bi go role (vd roi nhom Finance) khong duoc cap
+        # quyen SUA hop dong o lan dong bo / gui lai sau do - cung luat voi nut Duyet
+        # (`transitions.row_still_eligible`).
+        for r in frappe.get_all("EC Approval Request Approver",
+                                filters={"approval_request": req},
+                                fields=["approver", "source"]) or []:
+            if _dong_con_hieu_luc(r.get("source"), r.get("approver")):
+                ra.append(r.get("approver"))
     for e in (row.get("cc_to") or "").replace(";", ",").split(","):
         e = e.strip()
         if e:
             ra.append(e)
-    return [e for e in dict.fromkeys(ra) if e and "@" in e]
+    ra = [e for e in dict.fromkeys(ra) if e and "@" in e]
+    # Tai khoan ERP DA KHOA (nghi viec - job 00:30) thi khong cap quyen sua hop dong nua. Chi bo
+    # ai CO trong User va enabled = 0: email ngoai he thong (CC doi tac) giu nguyen nhu truoc.
+    return [e for e in ra if frappe.db.get_value("User", e, "enabled") != 0]
+
+
+def _dong_con_hieu_luc(source, user):
+    from ecentric_workspace.approval_center.shared.workflow.transitions import row_still_eligible
+    return row_still_eligible(source, user)
 
 
 def _phieu_duyet_theo_tham_chieu(business_doctype, business_name):
@@ -357,10 +453,21 @@ def _dinh_kem(business_doctype, business_name):
     tep = frappe.get_all(
         "File",
         filters={"attached_to_doctype": business_doctype, "attached_to_name": business_name},
-        fields=["name", "file_name", "file_url"], order_by="creation asc")
+        fields=["name", "file_name", "file_url", "creation"], order_by="creation asc")
     loai = tep_doi_chung(business_doctype, business_name)
     if loai:
         tep = [t for t in tep if t.get("name") not in loai]
+    # MOT dong cho moi tep vat ly (03/11/2026): mot lan tai len tren form sinh HAI ban ghi File
+    # cung `file_url` (xem query_service.dedupe_attachments) -> truoc day moi tep bi day len
+    # SharePoint hai lan. Giu ban ghi SOM nhat (order_by creation asc).
+    da, gon = set(), []
+    for t in tep:
+        khoa = t.get("file_url") or ("name:%s" % t.get("name"))
+        if khoa in da:
+            continue
+        da.add(khoa)
+        gon.append(t)
+    tep = gon
     duoi = (".docx", ".doc", ".xlsx", ".xls", ".pptx", ".ppt")
     office = [t for t in tep if (t.file_name or "").lower().endswith(duoi)]
     khac = [t for t in tep if t not in office]
@@ -368,10 +475,19 @@ def _dinh_kem(business_doctype, business_name):
 
 
 def dong_bo_phieu(business_doctype, business_name):
-    """Dua MOI dinh kem cua mot phieu len SharePoint va ghi lien ket. Tra ve dict tong ket.
+    """Dong bo dinh kem cua mot phieu len SharePoint. Tra ve dict tong ket.
 
-    Idempotent: chay lai thi ghi de tep tren SharePoint va cap nhat ban ghi lien ket theo
-    `file_url`, khong sinh ban trung. Goi lai sau khi nguoi dung them tep la an toan.
+    Goi luc GUI va GUI LAI phieu. Ban tren SharePoint la ban SONG: nguoi duyet sua track
+    changes + comment truc tiep tren do (Hoan chot). Truoc 03/11/2026 ham nay tai lai MOI tep
+    voi conflictBehavior=replace, nen moi lan gui lai la ban Frappe (cu) de len ban song - xoa
+    sach cong cua nguoi duyet. Nay moi tep di qua `_dong_bo_tep`:
+      * chua co lien ket CUA PHIEU NAY      -> tai len tep MOI, trung ten thi doi ten, khong de;
+      * co lien ket, noi dung Frappe KHONG doi -> KHONG tai, chi lam tuoi quyen (createLink cho
+        nguoi trong luong HIEN TAI - nguoi duyet moi them sau lan dau van mo duoc);
+      * co lien ket, noi dung DOI, ban song CHUA ai sua -> ghi de DUNG item do (giu lich su);
+      * co lien ket, noi dung DOI, ban song DA bi sua (hoac khong doc duoc moc sua) -> tai ban
+        moi thanh tep RIENG canh ban song, ban song giu nguyen + ghi log.
+    Ban doi chung khong bao gio duoc day len (`_dinh_kem` loai ra).
 
     KHONG nem ra ngoai vi MOT tep hong: mot tep loi khong duoc keo theo ca phieu khong len duoc
     tep nao. Tra ve danh sach `hong` de ben goi ghi log.
@@ -384,22 +500,93 @@ def dong_bo_phieu(business_doctype, business_name):
         return {"xong": [], "hong": [], "so_tep": 0}
     token = wr_sp.get_app_token()
     nguoi = nguoi_trong_luong(business_doctype, business_name)
-    xong, hong = [], []
+    xong, giu, hong = [], [], []
     for t in tep:
         try:
-            kq = tai_len(business_doctype, t.file_url, t.file_name, business_name, token=token)
-            # Cap quyen TRUOC khi ghi lien ket: ghi lien ket la thu bao "tep nay mo online
-            # duoc", ma tep chua cap quyen thi nguoi bam vao se an 403 cua SharePoint. Tha
-            # chua co nut "Mo online" con hon co nut bam vao bi tu choi.
-            r = cap_quyen(kq["item_id"], nguoi, token=token)
-            ghi_lien_ket(business_doctype, t.file_url, business_name, kq, r["da_cap"],
-                         share_url=r.get("link"))
-            xong.append(t.file_name)
+            cach = _dong_bo_tep(business_doctype, business_name, t, nguoi, token)
+            (giu if cach == "giu_ban_song" else xong).append(t.file_name)
         except Exception:
             frappe.log_error(frappe.get_traceback(),
                              "SharePoint soi guong %s / %s" % (business_name, t.file_name))
             hong.append(t.file_name)
-    return {"xong": xong, "hong": hong, "so_tep": len(tep)}
+    return {"xong": xong, "giu_ban_song": giu, "hong": hong, "so_tep": len(tep)}
+
+
+def _lien_ket_cua_phieu(business_doctype, business_name, file_url):
+    """Ban ghi lien ket cua `file_url` THUOC CHINH phieu nay, hoac None.
+
+    Phai loc ca theo phieu: phieu tao lai tu phieu bi tu choi (`command_service.clone_request`)
+    dung CHUNG `file_url` voi phieu cu. Khop chi theo URL thi phieu moi se "lam tuoi quyen"
+    cho luong duyet MOI tren ban song cua phieu CU - mo hop dong cua ho so khac cho nguoi
+    khong lien quan."""
+    fields = ["name", "sp_item_id", "sp_uploaded_at", "sp_synced_at"]
+    if frappe.db.has_column(LINK_DT, "sp_content_hash"):
+        fields.append("sp_content_hash")
+    return frappe.db.get_value(
+        LINK_DT, {"file_url": file_url, "business_doctype": business_doctype,
+                  "business_name": business_name}, fields, as_dict=True)
+
+
+def _tep_da_doi(lien, tep):
+    """Noi dung tep trong Frappe co KHAC ban he thong da tai len lan truoc khong.
+
+    Co `sp_content_hash` -> so ma bam (dung tuyet doi). Ban ghi cu chua co ma bam (truoc
+    03/11/2026) -> chi coi la doi khi ban ghi File hien tai duoc tao SAU lan dong bo cuoi, tuc
+    tep da bi go ra roi tai lai cung ten. Khong du du kien -> KHONG doi: sai chieu nay chi lam
+    ban SharePoint cham mot nhip, sai chieu kia la xoa cong cua nguoi duyet."""
+    from frappe.utils import get_datetime
+    bam = lien.get("sp_content_hash")
+    if bam:
+        return bam_noi_dung(_noi_dung_tep(tep.get("file_url"))) != bam
+    tao, dong_bo = tep.get("creation"), lien.get("sp_synced_at")
+    if tao and dong_bo:
+        return get_datetime(tao) > get_datetime(dong_bo)
+    return False
+
+
+def _ban_song_da_sua(lien, token):
+    """Ban tren SharePoint co bi NGUOI sua sau lan he thong tai len khong. KHONG doc duoc moc
+    (tep bi xoa / Graph loi / thieu moc nen) -> coi nhu DA sua: khong chac thi khong ghi de."""
+    from frappe.utils import get_datetime
+    nen = lien.get("sp_uploaded_at")
+    if not nen:
+        return True
+    moc = doc_moc_sua(lien.get("sp_item_id"), token=token)
+    if not moc:
+        return True
+    return get_datetime(moc) > get_datetime(nen) + timedelta(seconds=DUNG_SAI_GIAY)
+
+
+def _dong_bo_tep(business_doctype, business_name, t, nguoi, token):
+    """Mot tep cua `dong_bo_phieu`. Tra ve "tai_moi" / "ghi_de" / "tach_rieng" / "giu_ban_song".
+    Nem loi ra ngoai - `dong_bo_phieu` ghi log tung tep."""
+    lien = _lien_ket_cua_phieu(business_doctype, business_name, t.file_url)
+    cach = "tai_moi"
+    item_id = None
+    if lien and lien.get("sp_item_id"):
+        if not _tep_da_doi(lien, t):
+            # Ban song giu nguyen; chi cap quyen cho nguoi trong luong hien tai.
+            r = cap_quyen(lien.get("sp_item_id"), nguoi, token=token)
+            _ghi_quyen(lien.get("name"), r)
+            return "giu_ban_song"
+        if _ban_song_da_sua(lien, token):
+            cach = "tach_rieng"
+        else:
+            cach, item_id = "ghi_de", lien.get("sp_item_id")
+    kq = tai_len(business_doctype, t.file_url, t.file_name, business_name, token=token,
+                 item_id=item_id)
+    # Cap quyen TRUOC khi ghi lien ket: ghi lien ket la thu bao "tep nay mo online duoc", ma
+    # tep chua cap quyen thi nguoi bam vao se an 403 cua SharePoint.
+    r = cap_quyen(kq["item_id"], nguoi, token=token)
+    ghi_lien_ket(business_doctype, t.file_url, business_name, kq, r["da_cap"],
+                 share_url=r.get("link"))
+    if cach == "tach_rieng":
+        frappe.log_error(
+            "Phieu %s gui lai voi tep %s DA DOI trong Frappe, nhung ban tren SharePoint (%s) da "
+            "co nguoi sua sau lan tai len truoc. Ban song GIU NGUYEN; ban moi tai len thanh tep "
+            "rieng %s." % (business_name, t.file_name, lien.get("sp_item_id"), kq.get("web_url")),
+            "SharePoint gui lai - giu ban song")
+    return cach
 
 
 def dong_bo_nen(business_doctype, business_name):
@@ -424,8 +611,9 @@ def dong_bo_mot_tep(business_doctype, business_name, file_url):
     la ban SONG, nguoi duyet sua/comment truc tiep - tai lai la xoa sach cong cua ho (cung ly do
     voi `cap_bu_link`). Hai lop chan:
       1. tep nay DA co lien ket SharePoint -> bo qua (goi lai / job chay hai lan khong ghi de);
-      2. mot dinh kem KHAC cua phieu trung ten sau khi lam sach -> bo qua + ghi log. Upload
-         session dung conflictBehavior=replace, trung ten la ghi de dung tep cua nguoi khac.
+      2. mot dinh kem KHAC cua phieu trung ten sau khi lam sach -> bo qua + ghi log. (Tu
+         03/11/2026 `tai_len` da khong bao gio ghi de theo duong dan - trung ten thi doi ten -
+         nhung van bo qua o day de khong sinh "HopDong (2).docx" canh ban dang duoc duyet.)
     """
     if not duoc_soi_guong(business_doctype):
         return {"bo_qua": "loai phieu khong nam trong danh sach cho phep"}
@@ -526,12 +714,19 @@ def cap_bu_link(ten_ban_ghi, token=None):
         return {"bo_qua": "khong co sp_item_id"}
     nguoi = nguoi_trong_luong(doc.business_doctype, doc.business_name)
     r = cap_quyen(doc.sp_item_id, nguoi, token=token)
+    _ghi_quyen(doc, r)
+    return {"link": bool(r.get("link")), "da_cap": len(r.get("da_cap") or [])}
+
+
+def _ghi_quyen(doc_or_name, r):
+    """Ghi ket qua `cap_quyen` vao ban ghi lien ket. KHONG dung toi moc nen / moc sua: day
+    khong phai mot lan tai len. Lan cap quyen khong tra link thi GIU link cu."""
+    doc = doc_or_name if hasattr(doc_or_name, "save") else frappe.get_doc(LINK_DT, doc_or_name)
     if r.get("link"):
         doc.sp_share_url = r["link"]
     if r.get("da_cap"):
         doc.sp_granted_to = ", ".join(r["da_cap"])
     doc.save(ignore_permissions=True)
-    return {"link": bool(r.get("link")), "da_cap": len(r.get("da_cap") or [])}
 
 
 def cap_bu_link_nen():

@@ -124,7 +124,11 @@ def build(data):
             continue
         head = _s(sec.get("heading"), 120)
         intro = _s(sec.get("intro"), 1200)
-        items = [_s(x, 600) for x in (sec.get("items") or [])[:15] if _s(x, 600)]
+        raw_items = sec.get("items") or []
+        if not isinstance(raw_items, list):
+            # Model tra mot CHUOI thay vi mang: lap tren chuoi la moi ky tu mot gach dau dong.
+            raw_items = [raw_items]
+        items = [_s(x, 600) for x in raw_items[:15] if _s(x, 600)]
         if not (head or intro or items):
             continue
         if head:

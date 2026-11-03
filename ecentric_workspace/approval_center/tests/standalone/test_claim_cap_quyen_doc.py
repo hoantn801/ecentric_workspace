@@ -28,6 +28,7 @@ def load(boom=False):
     tr._engine_grant_read = grant
     perm = types.ModuleType("ecentric_workspace.approval_center.shared.workflow.permissions")
     perm.is_eligible_fulfiller = lambda *a, **k: True
+    perm.is_eligible_fulfiller_without_todo = lambda *a, **k: True   # queue_scope (03/11)
     perm.is_system_manager = lambda *a, **k: False
     svc = types.ModuleType("ecentric_workspace.approval_center.features.daily_target.application.service")
     svc.claim_fulfillment = lambda name: W.claimed.append(name) or {"claimed": True}

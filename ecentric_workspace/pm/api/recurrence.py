@@ -314,16 +314,50 @@ def _as_dict(r):
     return out
 
 
-def _manage(name):
-    """Permission gate for a single rule: PM leader / owner / project viewer. No source_task."""
+def _view(name):
+    """READ gate for a single rule: PM leader / owner / project viewer, plus everyone who may
+    edit it (_can_edit_rule: e.g. a template assignee). No source_task."""
     pmperm.require_pm_access()
     r = frappe.get_doc(DT, name)
     me = frappe.session.user
     ok = (pmperm.can_see_all_pm_data(me) or r.owner == me
-          or (r.project and pmperm.can_view_project(r.project, me)))
+          or (r.project and pmperm.can_view_project(r.project, me))
+          or _can_edit_rule(r, me))
     if not ok:
         frappe.throw(_("Not permitted."), frappe.PermissionError)
     return r
+
+
+def _can_edit_rule(r, user):
+    """PO 16/10/2026 "xem được != sửa được", applied to a rule the way task_flow.can_edit_task
+    applies it to a task: PM leaders / PM Manager, the rule owner, its template assignees, the
+    Project's ec_manager, or the department head of the owner / assignees. A plain project
+    viewer (same department) may open the rule but not change, pause or cancel it."""
+    if pmperm.can_transition_any_task(user):
+        return True
+    if r.owner == user:
+        return True
+    people = [u for u in _load_list(r.get("template_assignees")) if u]
+    if user in people:
+        return True
+    if r.get("project") and frappe.db.get_value("Project", r.get("project"), "ec_manager") == user:
+        return True
+    return pmperm.is_department_head_of_any(user, people + [r.owner])
+
+
+def _manage(name):
+    """WRITE gate for a single rule (update / pause / resume / cancel): _view + _can_edit_rule."""
+    r = _view(name)
+    if not _can_edit_rule(r, frappe.session.user):
+        frappe.throw(_("Bạn chỉ xem được quy tắc lặp này. Chỉ người tạo, người nhận, quản lý dự án, "
+                       "trưởng phòng hoặc quản trị PM mới thay đổi được."), frappe.PermissionError)
+    return r
+
+
+def _assert_project_allowed(project):
+    """Occurrences land in `project`: same visibility tasks.create requires."""
+    if project and not pmperm.can_view_project(project, frappe.session.user):
+        frappe.throw(_("Not permitted to create a task in this project."), frappe.PermissionError)
 
 
 # --------------------------------------------------------------------------
@@ -350,6 +384,7 @@ def create(subject, frequency, description=None, priority=None, assignees=None, 
     if ed and ed < sd:
         frappe.throw(_("Ngày kết thúc không được trước ngày bắt đầu."))
     mo = _safe_max_occ(max_occurrences)
+    _assert_project_allowed(project)
     r = frappe.get_doc({
         "doctype": DT, "frequency": frequency,
         "start_date": sd,
@@ -380,6 +415,8 @@ def update_template(name, subject=None, description=None, priority=None, assigne
     """Edit a rule's template (fields + checklist + sub-tasks) AND/OR its schedule, inline. Only
     supplied arguments are changed. This is the 'sửa task/subtask ngay trong quy tắc' entry point."""
     r = _manage(name)
+    if project and project != (r.project or None):
+        _assert_project_allowed(project)
     if frequency is not None:
         if frequency not in _FREQ:
             frappe.throw(_("Tần suất không hợp lệ."))
@@ -410,13 +447,15 @@ def update_template(name, subject=None, description=None, priority=None, assigne
 
 @frappe.whitelist()
 def get(name):
-    """Full rule detail (template fields + checklist + sub-tasks + labels + meta) for the editor."""
-    r = _manage(name)
+    """Full rule detail (template fields + checklist + sub-tasks + labels + meta) for the editor.
+    `can_edit` tells the editor whether to open read-only (viewers)."""
+    r = _view(name)
     out = _as_dict(r)
     out["owner"] = r.owner
     out["creation"] = str(r.creation) if r.get("creation") else None
     out["modified"] = str(r.modified) if r.get("modified") else None
     out["modified_by"] = r.modified_by
+    out["can_edit"] = 1 if _can_edit_rule(r, frappe.session.user) else 0
     return out
 
 
@@ -596,6 +635,8 @@ def _clone(r, occ_date):
         fields["ec_split_parent"] = 1
     t = frappe.get_doc(fields)
     t.insert(ignore_permissions=True)  # active workflow sets workflow_state=Backlog on insert
+    if _own(t.name, r.get("owner")):
+        t.owner = r.get("owner")   # keep the in-memory doc in step: t.save() below rewrites owner
     if split:
         _clone_split_children(r, t, occ_date, users, fields)
     # assignees (notify=0 -> no daily assignment spam; recurring notice below goes to owner)
@@ -647,6 +688,7 @@ def _clone(r, occ_date):
                 "exp_start_date": occ_date,
             })
             child.insert(ignore_permissions=True)
+            _own(child.name, r.get("owner"))
             try:
                 cu = _clean_assignees(st.get("assignees")) or _load_list(r.get("template_assignees"))
                 if cu:
@@ -657,6 +699,19 @@ def _clone(r, occ_date):
     except Exception:
         frappe.log_error(frappe.get_traceback(), "Recurring subtask copy failed: " + t.name)
     return t.name
+
+
+def _own(task_name, rule_owner):
+    """An occurrence belongs to the person who set up the rule, whoever runs the generation
+    (the 00:00 scheduler runs as Administrator, "Tạo ngay" as the caller). Without this, every
+    occurrence except the rule's latest (PM Recurrence.last_task) resolved its giver to
+    Administrator: "Xin dời hạn" went to Administrator, review_required parts could not be
+    approved and the rule owner could no longer edit/see older open occurrences."""
+    if rule_owner and rule_owner not in ("Administrator", "Guest") \
+            and frappe.db.get_value("Task", task_name, "owner") != rule_owner:
+        frappe.db.set_value("Task", task_name, "owner", rule_owner, update_modified=False)
+        return True
+    return False
 
 
 def _clone_split_children(r, t, occ_date, users, fields):
@@ -680,6 +735,7 @@ def _clone_split_children(r, t, occ_date, users, fields):
                     "item_label": it.item_label, "is_required": it.is_required, "is_done": 0,
                     "source_template_item": (it.name or it.item_label)})
             child.insert(ignore_permissions=True)
+            _own(child.name, r.get("owner"))
             _assign_add({"doctype": "Task", "name": child.name, "assign_to": [em], "notify": 0})
         except Exception:
             frappe.log_error(frappe.get_traceback(), "Recurring split child failed: " + t.name)

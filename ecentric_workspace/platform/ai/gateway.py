@@ -67,8 +67,7 @@ def _post(url, body, key, read_timeout):
 
 
 def scrub(text, key):
-    t = str(text or "")
-    return t.replace(key, "***") if key else t
+    return config.scrub_key(text, key)
 
 
 def _log(title, message):
@@ -117,11 +116,15 @@ def _usable(model, files):
 
 
 def _try_one(model, key, request, timeout):
-    """-> (text, data, usage, finish, error). Khong nem."""
-    body = dialects.build(model, request["prompt"], request["system"], request["schema"],
-                          request["files"], request["history"], request["json_mode"],
-                          request["opts"])
+    """-> (text, data, usage, finish, error). Khong nem.
+
+    `build` nam TRONG try: opts den tu trang (livestream: max_tokens/thinking cua than
+    request) - "abc" lam int() nem ValueError; o dot song song no con thoat ra khoi
+    f.result() va lam sap ca luot goi thay vi tra ok=False."""
     try:
+        body = dialects.build(model, request["prompt"], request["system"], request["schema"],
+                              request["files"], request["history"], request["json_mode"],
+                              request["opts"])
         status, raw = _post(dialects.url_for(model), body, key, timeout)
         text, usage, finish, err = dialects.parse(model, status, raw)
     except Exception as exc:
@@ -141,11 +144,14 @@ def _try_one(model, key, request, timeout):
 
 
 def timed_try(model, key, request, timeout):
-    """_try_one + do thoi gian. KHONG cham frappe: chay duoc trong luong phu."""
+    """_try_one + do thoi gian. KHONG cham frappe: chay duoc trong luong phu.
+
+    Loi duoc che khoa NGAY O DAY: moi nguoi doc ket qua (settle, cron ping suc khoe) deu
+    nhan chuoi sach - khong phu thuoc tung noi goi nho tu che."""
     t0 = time.time()
     text, data, usage, finish, err = _try_one(model, key, request, timeout)
     return {"model": model, "text": text, "data": data, "usage": usage, "finish": finish,
-            "error": err, "ms": int((time.time() - t0) * 1000)}
+            "error": scrub(err, key) if err else "", "ms": int((time.time() - t0) * 1000)}
 
 
 def _race(models, key, request, timeout):
@@ -176,14 +182,19 @@ def generate(prompt, system=None, schema=None, files=None, history=None, json_mo
              budget=None, opts=None, fast=False, race=None):
     """-> dict:
         ok, text, data (dict khi co schema/json_mode), model, fell_back, error,
-        attempts [{model, ok, error, ms}], latency_ms, files_in_request, usage, finish
+        attempts [{model, ok, error, ms}], latency_ms, files_in_request, usage, finish,
+        billed [{model, usage}]
+
+    `usage` = cua cau tra loi duoc dung. `billed` = MOI lan thu da tra token ve (ke ca lan
+    hong vi JSON cut / thieu khoa / rong): Kie tinh tien ca nhung lan do - usage.py cong
+    tu day de /ai-usage khong dem thieu chi phi.
 
     `files` = [{'data': bytes, 'mime_type': str}]. `history` = [{'role': 'user'|'model',
     'text'}]. `purpose` chi de doc log (vd "weekly_score", "formfill").
     """
     out = {"ok": False, "text": "", "data": None, "model": "", "fell_back": False,
            "error": "", "attempts": [], "latency_ms": 0, "files_in_request": 0,
-           "usage": {}, "finish": ""}
+           "usage": {}, "finish": "", "billed": []}
     if config.disabled():
         out["error"] = "ai_disabled"
         return out
@@ -238,6 +249,8 @@ def generate(prompt, system=None, schema=None, files=None, history=None, json_mo
     def settle(r):
         a = attempts[r["model"]]
         a["ms"] = r["ms"]
+        if r["usage"]:
+            out["billed"].append({"model": r["model"], "usage": r["usage"]})
         if r["error"]:
             a["error"] = scrub(r["error"], key)[:600]
             if is_outage(r["error"]):

@@ -47,6 +47,31 @@ class PlanTest(unittest.TestCase):
         files = [{"name": "theirs", "file_name": "x.pdf", "file_url": "/files/x.pdf", "owner": "thuy@boxme"}]
         self.assertEqual(domain.plan([], files, resync=False, api_user="api@ec")["delete"], [])
 
+    # N21b (29/10/2026): boxme doi ten file trung ten thanh "X<6 hex>.ext" (Frappe
+    # get_file_name + content_hash[-6:]). Truoc day plan so ten tho -> chay lai se up them
+    # mot ban trung (gap o Screenshot_1.png cua SO 10-26-00001).
+    def test_boxme_renamed_duplicate_counts_as_same_file(self):
+        files = [{"name": "f", "file_name": "Screenshot_1a1b2c3.png",
+                  "file_url": "/private/files/Screenshot_1a1b2c3.png", "owner": "api@ec"}]
+        p = domain.plan(["Screenshot_1.png"], files, resync=False, api_user="api@ec")
+        self.assertEqual((p["upload"], p["keep"], p["delete"]), ([], ["Screenshot_1.png"], []))
+
+    def test_rename_match_is_one_to_one_and_exact_first(self):
+        # Ben boxme moi co "Report202611.pdf" (dung ten, khong phai ban doi ten).
+        # "Report202611.pdf" khop dung ten -> giu; "Report.pdf" van phai up.
+        files = [{"name": "f", "file_name": "Report202611.pdf", "file_url": "/private/files/r.pdf", "owner": "x"}]
+        p = domain.plan(["Report.pdf", "Report202611.pdf"], files, resync=False, api_user="")
+        self.assertEqual((p["upload"], p["keep"]), (["Report.pdf"], ["Report202611.pdf"]))
+
+    def test_strip_rename_suffix(self):
+        s = domain.strip_rename_suffix
+        self.assertEqual(s("Screenshot_1a1b2c3.png"), "Screenshot_1.png")
+        self.assertEqual(s("a.tar1a2b3c.gz"), "a.tar.gz")
+        self.assertEqual(s("Budget.png"), "Budget.png")
+        self.assertEqual(s("abcdef.png"), "abcdef.png", "khong de ten rong")
+        self.assertEqual(s("ABCDEF1.png"), "ABCDEF1.png", "Frappe chi sinh hex thuong")
+        self.assertEqual(s(""), "")
+
     def test_fragment_name_and_split(self):
         self.assertEqual(domain.fragment_name(SP1), "Email confirm.pdf")
         self.assertEqual(domain.split_attachment_urls(SP1 + " , ," + SP2), [SP1, SP2])
@@ -203,6 +228,16 @@ class ServiceTest(unittest.TestCase):
         self.assertEqual([u[2] for u in box.uploaded], ["Email confirm.pdf"])
         self.assertEqual([c[2] for c in repo.copies], ["Budget.png"])
         self.assertEqual(res["errors"], [])
+
+    def test_renamed_files_on_both_sides_not_pushed_or_copied_again(self):
+        # Ca boxme lan ban sao EC deu da bi Frappe doi ten vi trung ten voi phieu khac.
+        box = FakeBoxme([{"name": "a", "file_name": "Email confirm0a1b2c.pdf", "file_url": "/private/files/e.pdf", "owner": "api@ec"},
+                         {"name": "b", "file_name": "Budget.png", "file_url": "/private/files/b.png", "owner": "api@ec"}])
+        graph = FakeGraph()
+        svc, repo = make(self.DOC, box, graph, local={"Email confirm.pdf", "Budgetffee00.png"})
+        res = svc.execute("GBS Sales Order", "GBS-SO-1")
+        self.assertEqual((box.uploaded, repo.copies, graph.downloads), ([], [], []))
+        self.assertEqual(res["plan"]["keep"], ["Email confirm.pdf", "Budget.png"])
 
     def test_ec_copy_failure_does_not_mark_boxme_unsynced(self):
         box = FakeBoxme([])
