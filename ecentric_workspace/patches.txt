@@ -403,3 +403,4 @@ ecentric_workspace.approval_center.patches.p227_gbs_po_nhieu_so
 ecentric_workspace.pm.patches.p030_pm_member_onboarding_backfill
 ecentric_workspace.approval_center.patches.p314_resync_pm_hotfix6
 ecentric_workspace.approval_center.patches.p316_daily_target_project_khong_qua_data
+ecentric_workspace.hr.patches.p007_lich_livestream
