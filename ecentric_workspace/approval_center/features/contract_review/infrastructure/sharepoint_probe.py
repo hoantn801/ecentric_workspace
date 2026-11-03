@@ -21,6 +21,11 @@ def _chan_ngoai_sm():
         frappe.throw(frappe._("Chi System Manager duoc chay phep do nay."), frappe.PermissionError)
 
 
+def _phuong_thuc():
+    req = getattr(frappe.local, "request", None)
+    return (getattr(req, "method", None) or "").upper()
+
+
 def _bao(che_do):
     return {"che_do": che_do, "buoc": []}
 
@@ -37,6 +42,13 @@ def thu_sharepoint(name=None, apply=0):
     _chan_ngoai_sm()
     ghi = int(apply or 0) == 1
     bao = _bao("ghi that" if ghi else "chi doc")
+    if ghi and _phuong_thuc() != "POST":
+        # 03/11/2026: Frappe ROLLBACK cuoi moi request GET. `apply=1` qua GET (dan URL vao trinh
+        # duyet, hay mot <img src> tren trang khac khi SM dang dang nhap) = tep DA len SharePoint
+        # nhung ban ghi EC SharePoint File Link bi rollback -> lan dong bo sau tai them mot ban.
+        _buoc(bao, "apply=1 phai goi bang POST", False,
+              "GET bi rollback cuoi request - dung POST (vd fetch voi X-Frappe-CSRF-Token)")
+        return bao
 
     try:
         token = sp.wr_sp.get_app_token()
@@ -63,8 +75,10 @@ def thu_sharepoint(name=None, apply=0):
 
     kq = sp.dong_bo_phieu(_DT, name)
     _buoc(bao, "dua dinh kem len SharePoint", not kq["hong"],
-          "xong: %s | hong: %s" % (", ".join(kq["xong"]) or "(khong)",
-                                   ", ".join(kq["hong"]) or "(khong)"))
+          "xong: %s | giu ban song: %s | hong: %s" % (
+              ", ".join(kq["xong"]) or "(khong)",
+              ", ".join(kq.get("giu_ban_song") or []) or "(khong)",
+              ", ".join(kq["hong"]) or "(khong)"))
     lien = frappe.get_all(sp.LINK_DT, filters={"business_name": name},
                           fields=["sp_web_url", "sp_last_modified"], limit_page_length=1)
     if lien:

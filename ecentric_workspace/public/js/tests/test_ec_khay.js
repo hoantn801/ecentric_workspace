@@ -83,7 +83,7 @@ const shell='<aside data-ec-shell="1"></aside><main>trang</main>';
   const R=host.shadowRoot;
   R.querySelector(".fab").click(); await tick();
   ok("mo khung chat", !R.querySelector(".pan").hidden);
-  ok("loi chao co ten + goi y", /Chào Hoàn/.test(R.querySelector(".ms").textContent) && R.querySelectorAll("[data-say]").length===3);
+  ok("loi chao co ten + goi y", /Chào Hoàn/.test(R.querySelector(".ms").textContent) && R.querySelectorAll(".chips .chip").length===3);
   R.querySelector("textarea").value="cho minh nghi mai nhe";
   R.querySelector("form").dispatchEvent(new e3.w.Event("submit",{cancelable:true})); await tick(80);
   const intentCall=e3.log.filter(x=>x.m==="ecentric_workspace.platform.ai.khay.intent")[0];
@@ -202,6 +202,182 @@ const shell='<aside data-ec-shell="1"></aside><main>trang</main>';
   W8.dispatchEvent(new W8.MouseEvent("pointercancel",{bubbles:true})); await tick(1000);
   ok("chong mat: cam ung bi huy cung tinh lai", !fab8.classList.contains("dizzy") && !fab8.classList.contains("drag"));
   ok("keo nut: khong ra ngoai khung nhin", parseFloat(fab8.style.right)<=W8.innerWidth-84 && parseFloat(fab8.style.bottom)>=4);
+
+  // ================= UX 03/11 (ux-ec-mate) =================
+  async function open(url, r){
+    const e=mk(url||"https://x/viec-cua-toi",shell,r); await tick(50);
+    const RR=e.w.document.getElementById("ec-khay-host").shadowRoot;
+    RR.querySelector(".fab").click(); await tick();
+    const send=async(t,wait)=>{ RR.querySelector("textarea").value=t;
+      RR.querySelector("form").dispatchEvent(new e.w.Event("submit",{cancelable:true})); await tick(wait||80); };
+    return {e:e,R:RR,send:send};
+  }
+  {
+    // go tiep khi dang cho tra loi: chu KHONG bi xoa mat
+    let release; const slow=new Promise(r=>{release=r;});
+    const o=await open(null,Object.assign({},r5,{"ecentric_workspace.platform.ai.khay.intent":()=>({status:200,j:{message:{action:"answer",needs_data:false,reply:"OK",options:[]}}})}));
+    // lam intent treo: thay fetch cho rieng intent
+    const f0=o.e.w.fetch; o.e.w.fetch=(u,opt)=>/khay.intent/.test(u)?slow.then(()=>f0(u,opt)):f0(u,opt);
+    await o.send("cau thu nhat",30);
+    await o.send("cau thu hai quan trong",30);
+    ok("dang cho: chu go tiep van con trong o", o.R.querySelector("textarea").value==="cau thu hai quan trong");
+    ok("dang cho: khong gui chong cau thu hai", o.R.querySelectorAll(".m.u").length===1);
+    release(); await tick(80);
+    ok("dang cho: tra loi xong thi gui duoc", !o.R.querySelector(".send").disabled);
+  }
+
+  {
+    // mat mang: cau tieng Viet (khong "Failed to fetch"), co nut Thu lai, bam thi hoi lai dung cau
+    let fail=true; let n=0;
+    const o=await open(null,Object.assign({},r5,{"ecentric_workspace.platform.ai.khay.intent":()=>{n++;return {status:200,j:{message:{action:"answer",needs_data:false,reply:"Đây rồi",options:[]}}};}}));
+    const f0=o.e.w.fetch; o.e.w.fetch=(u,opt)=>(fail&&/khay.intent/.test(u))?Promise.reject(new o.e.w.TypeError("Failed to fetch")):f0(u,opt);
+    await o.send("tuan nay the nao");
+    const bad=o.R.querySelector(".m.b.err");
+    ok("mat mang: bao bang tieng Viet", bad && /Mất kết nối mạng/.test(bad.textContent) && !/Failed to fetch/.test(o.R.querySelector(".ms").textContent));
+    const rb=o.R.querySelector('[data-act="retry"]');
+    ok("mat mang: co nut Thu lai", !!rb);
+    fail=false; rb.click(); await tick(80);
+    ok("thu lai: hoi lai dung cau, khong nhan doi bong bong", n===1 && o.R.querySelectorAll(".m.u").length===1 && /Đây rồi/.test(o.R.querySelector(".ms").textContent) && !o.R.querySelector(".m.b.err"));
+    const P2=o.e.w.__ecKhayPure;
+    ok("loi 429 tieng Viet", /dồn dập/.test(P2.httpError(429,{})));
+    ok("loi 502 khong lo chu ky thuat", /Máy chủ đang bận/.test(P2.httpError(502,{_server_messages:JSON.stringify(["Traceback ..."])})));
+    ok("loi 417 van hien cau nghiep vu cua server", /HR-LAP-1/.test(P2.httpError(417,{_server_messages:sm})));
+    ok("lich su gui AI bo cau bao loi", JSON.stringify(P2.historyOf([{role:"user",text:"a"},{role:"bot",text:"AI đang bận",err:true}]))===JSON.stringify([{role:"user",text:"a"}]));
+  }
+  {
+    // AI qua tai (action:error) cung co Thu lai; luu phien giu co err
+    const o=await open(null,Object.assign({},r5,{"ecentric_workspace.platform.ai.khay.intent":()=>({status:200,j:{message:{action:"error",reply:"AI đang quá tải, bạn thử lại sau ít phút nhé.",options:[]}}})}));
+    await o.send("tom tat tuan");
+    ok("qua tai: co nut Thu lai", !!o.R.querySelector('[data-act="retry"]'));
+    const st=JSON.parse(o.e.w.sessionStorage.getItem("ec-khay-v1")||"{}");
+    ok("qua tai: luu phien giu co err", (st.msgs||[]).some(m=>m.err===true));
+  }
+
+  {
+    // nghi om: nut chinh la "Dinh kem giay kham" (dien thoai khong keo-tha duoc) -> co tep thi thanh "Gui don"
+    let n=0;
+    const o=await open(null,Object.assign({},routes,{
+      "ecentric_workspace.platform.ai.khay.intent":()=>{n++;return {status:200,j:{message:{action:"leave",reply:"",options:[],
+        leave:{leave_type:"Sick Leave",from_date:"2026-11-03",to_date:"2026-11-03",half_day:0,half_day_date:"",half_day_part:"",reason:"sốt",past:false}}}};},
+      "upload_file":()=>({status:200,j:{message:{file_url:"/private/files/giaykham.pdf"}}}),
+      "ec_hr_leave_apply":()=>({status:200,j:{message:{name:"HR-LAP-2026-00100",days:1}}})}));
+    await o.send("mai minh nghi om");
+    const ab=o.R.querySelector('.card [data-act="attach"]');
+    ok("nghi om: co nut Dinh kem giay kham", !!ab && /Đính kèm giấy khám/.test(ab.textContent) && !o.R.querySelector('[data-act="leave-send"]'));
+    let picked=0; const inp=o.R.querySelector("input.file"); inp.click=()=>{picked++;};
+    ab.click(); ok("nghi om: bam nut mo chon tep", picked===1);
+    Object.defineProperty(inp,"files",{configurable:true,value:[new o.e.w.File(["%PDF"],"giaykham.pdf",{type:"application/pdf"})]});
+    inp.dispatchEvent(new o.e.w.Event("change")); await tick(120);
+    const sb=o.R.querySelector('[data-act="leave-send"]');
+    ok("nghi om: co tep thi hien Gui don (bat duoc)", !!sb && !sb.disabled && n===1);
+    sb.click(); await tick(80);
+    const ap=o.e.log.filter(x=>x.m==="ec_hr_leave_apply").pop();
+    ok("nghi om: gui kem giay kham", ap && ap.body.attachment==="/private/files/giaykham.pdf");
+  }
+  {
+    const o=await open(null,r8);
+    await o.send("tao phieu",120);
+    ok("phieu: nut phu ghi 'Dien tay' (khong nham la AI tu dien)", /Điền tay/.test(o.R.querySelector(".card .btn.s").textContent) && /bấm Điền tay/.test(o.R.querySelector(".card").textContent));
+  }
+
+  {
+    // goi y theo trang dang xem + quyen
+    const P3=e0.w.__ecKhayPure, full={can_leave:true,can_payment:true};
+    const says=(b,p)=>P3.suggestions(b,p).map(x=>x.say);
+    ok("goi y: toi da 3", P3.suggestions(full,"/").length===3 && P3.suggestions(full,"/ec-hr/leave").length===3);
+    ok("goi y: trang nghi phep uu tien xin nghi", /xin nghỉ/i.test(says(full,"/ec-hr/leave")[0]) && /nghỉ/i.test(says(full,"/ec-hr/leave")[1]));
+    ok("goi y: trang phe duyet uu tien phieu tu hoa don", P3.suggestions(full,"/approvals/payment-request")[0].pick===true);
+    ok("goi y: trang bao cao tuan uu tien hoi team", /team/.test(says(full,"/weekly-update")[0]));
+    ok("goi y: khong co quyen thi khong goi y", !says({},"/ec-hr/leave").some(x=>/nghỉ|thanh toán/i.test(x)) && says({},"/").length===1);
+    ok("loi chao: chi ke viec lam duoc", P3.greetText({})==="hỏi tình hình team" && P3.greetText(full)==="xin nghỉ, tạo phiếu từ hoá đơn hay hỏi tình hình team");
+    // chip "tu hoa don": mo chon tep, co tep roi moi hoi (kem cau), khong hoi suong
+    let calls=[];
+    const o=await open("https://x/approvals/payment-request",Object.assign({},r7,{
+      "ecentric_workspace.platform.ai.khay.boot":()=>({status:200,j:{message:{enabled:true,name:"eC Mate",first_name:"Hoàn",can_leave:true,can_payment:true}}}),
+      "ecentric_workspace.platform.ai.khay.intent":(b)=>{calls.push(b);return {status:200,j:{message:{action:"answer",needs_data:false,reply:"ok",options:[]}}};},
+      "upload_file":()=>({status:200,j:{message:{file_url:"/private/files/hd.pdf"}}})}));
+    const pk=o.R.querySelector('.chips [data-act="pick"]');
+    let picked=0; const inp=o.R.querySelector("input.file"); inp.click=()=>{picked++;};
+    ok("chip hoa don: dung dau o trang phe duyet", pk && pk===o.R.querySelector(".chips .chip"));
+    pk.click(); await tick(30);
+    ok("chip hoa don: mo chon tep, chua hoi AI", picked===1 && calls.length===0);
+    Object.defineProperty(inp,"files",{configurable:true,value:[new o.e.w.File(["%PDF"],"hd.pdf",{type:"application/pdf"})]});
+    inp.dispatchEvent(new o.e.w.Event("change")); await tick(120);
+    ok("chip hoa don: co tep thi hoi kem cau + ten tep", calls.length===1 && /thanh toán/.test(calls[0].message) && calls[0].files[0]==="hd.pdf");
+  }
+
+  {
+    // dien thoai: mo khung khong tu bat ban phim; may tinh van dat con tro vao o nhap
+    const e=mk("https://x/viec-cua-toi",shell,r5); await tick(50);
+    e.w.matchMedia=(q)=>({matches:/coarse/.test(q)});
+    const RR=e.w.document.getElementById("ec-khay-host").shadowRoot;
+    RR.querySelector(".fab").click(); await tick(60);
+    ok("dien thoai: khong tu focus o nhap", RR.activeElement!==RR.querySelector("textarea"));
+    const e2=mk("https://x/viec-cua-toi",shell,r5); await tick(50);
+    const R2=e2.w.document.getElementById("ec-khay-host").shadowRoot;
+    R2.querySelector(".fab").click(); await tick(60);
+    ok("may tinh: van focus o nhap", R2.activeElement===R2.querySelector("textarea"));
+    ok("css dien thoai: o nhap 16px chong phong to", /@media \(max-width:640px\)\{[^@]*\.in textarea\{font-size:16px\}/.test(R2.querySelector("style").textContent));
+  }
+
+  {
+    // a11y: vung doc rieng, o nhap co ten, giu focus ban phim sau khi ve lai
+    const o=await open(null,Object.assign({},routes,{"ec_hr_leave_apply":()=>({status:200,j:{message:{name:"HR-LAP-2026-00101",days:1}}})}));
+    ok("a11y: .ms khong aria-live (ve lai toan bo)", !o.R.querySelector(".ms").hasAttribute("aria-live"));
+    ok("a11y: o nhap co ten doc duoc", /Nhắn cho eC Mate/.test(o.R.querySelector("textarea").getAttribute("aria-label")||""));
+    await o.send("nghi mai",150);
+    ok("a11y: doc thong bao da soan don", /Đã soạn đơn nghỉ phép/.test(o.R.querySelector(".sr").textContent));
+    const b=o.R.querySelector('[data-act="leave-send"]'); b.focus();
+    ok("a11y: focus dang o nut Gui don", o.R.activeElement===b);
+    b.click(); await tick(150);
+    ok("a11y: don gui xong, focus ve o nhap (khong rot ra ngoai)", o.R.activeElement===o.R.querySelector("textarea"));
+    ok("a11y: doc cau xac nhan da gui", /HR-LAP-2026-00101/.test(o.R.querySelector(".sr").textContent));
+  }
+  {
+    let release; const slow=new Promise(r=>{release=r;});
+    const o=await open(null,r5);
+    const f0=o.e.w.fetch; o.e.w.fetch=(u,opt)=>/khay.intent/.test(u)?slow.then(()=>f0(u,opt)):f0(u,opt);
+    await o.send("alo",30);
+    ok("dang cho: o nhap bao dang tra loi", /đang trả lời/.test(o.R.querySelector("textarea").placeholder));
+    release(); await tick(80);
+    ok("tra loi xong: o nhap ve binh thuong", /^Nhắn cho eC Mate/.test(o.R.querySelector("textarea").placeholder));
+  }
+
+  {
+    // the don nghi con nguyen khi chuyen trang (ERP nhieu trang) + nut Cuoc tro chuyen moi
+    const o=await open(null,routes);
+    await o.send("nghi mai",150);
+    ok("chuyen trang: co the don truoc khi di", !!o.R.querySelector(".card"));
+    const saved=o.e.w.sessionStorage.getItem("ec-khay-v1");
+    ok("chuyen trang: luu ca the don", /"role":"leave"/.test(saved));
+    // trang moi = jsdom moi voi cung sessionStorage
+    const dom2=new JSDOM(shell,{runScripts:"outside-only",pretendToBeVisual:true,url:"https://x/ec-hr/leave"});
+    dom2.window.sessionStorage.setItem("ec-khay-v1",saved);
+    dom2.window.fetch=(u)=>{ const m=String(u).replace(/^\/api\/method\//,"").split("?")[0]; const h=routes[m]; const r=h?h(null):{status:404,j:{}};
+      return Promise.resolve({ok:r.status<400,status:r.status,json:()=>Promise.resolve(r.j)}); };
+    dom2.window.eval(js); await tick(80);
+    const R2=dom2.window.document.getElementById("ec-khay-host").shadowRoot;
+    ok("chuyen trang: the don van con, van Gui duoc", !!R2.querySelector('.card [data-act="leave-send"]') && /Phép năm/.test(R2.querySelector(".card").textContent));
+    ok("chuyen trang: so du phep tai lai", /7,5 ngày/.test(R2.querySelector(".card").textContent));
+    const fr=R2.querySelector(".fresh");
+    ok("tro chuyen moi: nut hien khi co lich su", fr && !fr.hidden);
+    fr.click(); await tick(30);
+    ok("tro chuyen moi: xoa sach, hien lai loi chao", !R2.querySelector(".card") && /Chào Hoàn/.test(R2.querySelector(".ms").textContent) && fr.hidden);
+    const P4=dom2.window.__ecKhayPure;
+    ok("luu: the dang gui luu ve nhap", P4.keepMsg({role:"leave",leave:{leave_type:"x"},state:"sending"}).state==="draft");
+    ok("luu: phieu dang doc tep thi khong luu", P4.keepMsg({role:"pay",code:"A",state:"reading"})===null);
+    ok("luu: bo dong typing", P4.keepMsg({role:"typing"})===null);
+    const kp=P4.keepMsg({role:"pay",code:"A",state:"ready",fields:{payment_amount:5},draft:"D1"});
+    ok("luu: the phieu da doc xong duoc giu ca o AI dien", !!kp && kp.role==="pay" && kp.fields.payment_amount===5 && kp.draft==="D1");
+    // ban luu hong khong lam vo khung
+    const dom3=new JSDOM(shell,{runScripts:"outside-only",pretendToBeVisual:true,url:"https://x/"});
+    dom3.window.sessionStorage.setItem("ec-khay-v1",JSON.stringify({open:true,msgs:[{role:"leave"},{role:"files"},null,{role:"bot",text:"ok"}]}));
+    dom3.window.fetch=(u)=>{ const m=String(u).replace(/^\/api\/method\//,"").split("?")[0]; const h=routes[m]; const r=h?h(null):{status:404,j:{}};
+      return Promise.resolve({ok:r.status<400,status:r.status,json:()=>Promise.resolve(r.j)}); };
+    dom3.window.eval(js); await tick(80);
+    const R3=dom3.window.document.getElementById("ec-khay-host").shadowRoot;
+    ok("ban luu hong: van ve, bo luot hong", !R3.querySelector(".pan").hidden && /ok/.test(R3.querySelector(".ms").textContent));
+  }
 
   let all=true; Object.keys(c).forEach(k=>{console.log((c[k]?"PASS":"FAIL")+" - "+k); if(!c[k]) all=false;});
   console.log(all?"ALL_PASS":"SOME_FAIL"); process.exit(all?0:1);

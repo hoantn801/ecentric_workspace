@@ -143,11 +143,15 @@ def _existing_task_eligible(task_doc):
 
 
 def _split(dt):
-    """Datetime -> ('YYYY-MM-DD', 'HH:MM:SS') or (None, None)."""
+    """Datetime -> ('YYYY-MM-DD', 'HH:MM:SS' | None) or (None, None). parse_datetime_or_throw
+    turns a date-only value into 'YYYY-MM-DD 00:00:00', so an exact midnight means "no time":
+    it must NOT land in Task.pm_start_time / pm_end_time (a stored 00:00 end time made every
+    later same-day start time fail "kết thúc trước bắt đầu" and showed the task due at 00:00)."""
     if not dt:
         return None, None
     d = get_datetime(dt)
-    return d.date().isoformat(), d.strftime("%H:%M:%S")
+    t = d.strftime("%H:%M:%S")
+    return d.date().isoformat(), (None if t == "00:00:00" else t)
 
 
 def _clean_sched(start, end):

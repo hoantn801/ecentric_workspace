@@ -193,7 +193,8 @@ async function block(name, fn) {
     ok("nhãn ưu tiên Thấp/Bình thường/Cao/Gấp", P.priorityLabel("Low") === "Thấp" && P.priorityLabel("Medium") === "Bình thường" && P.priorityLabel("High") === "Cao" && P.priorityLabel("Urgent") === "Gấp");
     ok("không có '{{' '{%' '{#' trong JS/CSS (an toàn Jinja)", !/\{\{|\{%|\{#/.test(JS) && !/\{\{|\{%|\{#/.test(CSS));
     ok("không data: URI, không emoji trong JS/CSS", !/data:(image|text|application)/.test(JS + CSS) && !/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(JS + CSS));
-    ok("ngân sách: JS ≤ 144 KB, CSS ≤ 36 KB (nâng 20/10: + Theo dõi/CC; 16/10: tìm dự án, việc con, 2 card, ghim)", Buffer.byteLength(JS) <= 144 * 1024 && Buffer.byteLength(CSS) <= 36 * 1024, Buffer.byteLength(JS) + " / " + Buffer.byteLength(CSS));
+    ok("ngân sách: JS ≤ 165 KB, CSS ≤ 40 KB (nâng 03/11 rà soát 5 agent: gợi ý hạn, nút việc tiếp theo, ghi nhanh, Việc cần làm theo hạn, lọc nhớ, thẻ điện thoại, sửa race; xem đề xuất tách asset danh sách)", Buffer.byteLength(JS) <= 165 * 1024 && Buffer.byteLength(CSS) <= 40 * 1024, Buffer.byteLength(JS) + " / " + Buffer.byteLength(CSS));
+
     ok("mọi selector CSS có namespace .pmr- (trừ :root/@keyframes)", CSS.replace(/\/\*[\s\S]*?\*\//g, "").replace(/@keyframes[^{]+\{([^{}]*\{[^}]*\})*[^}]*\}/g, "").split("}").map(b => b.split("{")[0].trim()).filter(s => s && !/^@media|^:root$|^from|^to|^\d+%/.test(s))
       .every(sel => sel.split(",").every(x => /\.pmr-/.test(x))));
     let threw = false;
@@ -570,7 +571,114 @@ async function block(name, fn) {
     ok("Tôi đã giao → tab “Tôi theo dõi”: có người giao, chỉ nút Mở (không Nhắc/Đóng)", E.$('[data-act=gtab][data-tab=follow][aria-selected=true]', E.main) && E.main.textContent.includes("Lan Anh giao") && !E.byText(".pmr-btn", "Nhắc", E.main) && !E.byText(".pmr-btn", "Đóng việc", E.main) && !!E.byText(".pmr-btn", "Mở", E.main));
   });
 
+  /* ---------------- u1 03/11: giao việc nhanh + chi tiết việc dễ đọc ---------------- */
+  await block('Gợi ý hạn từ tên việc (parseDue) #14', async () => {
+    const E = makeEnv(), pd = E.w.PMR._pure.parseDue, B0 = new E.w.Date(2026, 10, 3, 9, 0);   /* thứ Ba 03/11/2026 09:00 */
+    const r = (s) => pd(s, B0) || {};
+    ok("“Báo cáo GMV thứ 6” → T6 06/11, tên còn “Báo cáo GMV”", r("Báo cáo GMV thứ 6").due === "2026-11-06" && r("Báo cáo GMV thứ 6").rest === "Báo cáo GMV" && r("Báo cáo GMV thứ 6").from === "thứ 6");
+    ok("“gửi file mai 17h” → 04/11 17:00, tên “gửi file”", r("gửi file mai 17h").due === "2026-11-04" && r("gửi file mai 17h").time === "17:00" && r("gửi file mai 17h").rest === "gửi file");
+    ok("“Nộp hợp đồng trước 25/11” → 25/11, bỏ cả chữ “trước”", r("Nộp hợp đồng trước 25/11").due === "2026-11-25" && r("Nộp hợp đồng trước 25/11").rest === "Nộp hợp đồng");
+    ok("“Họp 3h chiều t2 tuần sau” → T2 09/11 15:00", r("Họp 3h chiều t2 tuần sau").due === "2026-11-09" && r("Họp 3h chiều t2 tuần sau").time === "15:00" && r("Họp 3h chiều t2 tuần sau").rest === "Họp");
+    ok("cuối tuần → thứ Sáu, cuối tháng → 30/11, hôm nay, ngày kia", r("Chốt số cuối tuần").due === "2026-11-06" && r("Đối soát cuối tháng").due === "2026-11-30" && r("gửi hôm nay").due === "2026-11-03" && r("gọi ngày kia").due === "2026-11-05");
+    ok("chỉ có giờ: 15h → hôm nay (còn kịp), 8h → ngày mai (đã qua)", r("gọi brand 15h").due === "2026-11-03" && r("gọi brand 15h").time === "15:00" && r("gọi brand 8h30").due === "2026-11-04");
+    ok("chữ có dấu tách rời (NFD, gõ trên Mac) vẫn nhận", r("báo cáo thứ 6".normalize("NFD")).due === "2026-11-06");
+    ok("không gợi ý nhầm: ngày đã qua, tên người “Mai”, “T6/2026”, “làm 2h”, “Thu 2 triệu”, “thứ tự”",
+      ["Báo cáo 15/10", "Gửi chị Mai bảng giá", "Kiểm kho T6/2026", "làm 2h", "Thu 2 triệu tiền cọc", "Sắp thứ tự SKU", "Gia hạn Metric"].every(s => pd(s, B0) === null),
+      ["Báo cáo 15/10", "Gửi chị Mai bảng giá", "Kiểm kho T6/2026", "làm 2h", "Thu 2 triệu tiền cọc", "Sắp thứ tự SKU", "Gia hạn Metric"].filter(s => pd(s, B0) !== null).join(" | "));
+  });
+
+  await block('Một bộ đọc hạn cho form và ô ghi nhanh (parseDue tail) #14b', async () => {
+    const E = makeEnv(), pd = E.w.PMR._pure.parseDue, B0 = new E.w.Date(2026, 10, 3, 9, 0);
+    ok("“Chuẩn bị 11.11” / “Deal 12.12” (tên đợt sale) → không gợi ý", pd("Chuẩn bị 11.11", B0) === null && pd("Deal 12.12 Shopee", B0) === null);
+    ok("“Họp CN Hà Nội” (chi nhánh) → không gợi ý; “Dọn kho cn” ở cuối ô ghi nhanh → Chủ nhật", pd("Họp CN Hà Nội", B0) === null && pd("Dọn kho cn", { base: B0, tail: true }).due === "2026-11-08");
+    ok("“mai 3h” → 15:00, “sáng mai 6h” → 06:00, “lúc 2h” → 14:00", pd("gọi mai 3h", B0).time === "15:00" && pd("chạy sáng mai 6h", B0).time === "06:00" && pd("gọi lúc 2h", B0).time === "14:00");
+    ok("tail: “Báo cáo cuối tháng” giữ nguyên tên (tên việc định kỳ), form vẫn gợi ý", pd("Báo cáo cuối tháng", { base: B0, tail: true }) === null && pd("Báo cáo cuối tháng", B0).due === "2026-11-30");
+    ok("tail: “Báo cáo thu 6” (không dấu) → T6; giữa câu “Thu 2 triệu” vẫn không", pd("Báo cáo thu 6", { base: B0, tail: true }).due === "2026-11-06" && pd("Thu 2 triệu tiền cọc", { base: B0, tail: true }) === null);
+  });
+
+  await block('Giao việc nhanh: Tôi mặc định + Enter + gợi ý hạn #15', async () => {
+    const E = makeEnv();
+    E.w.PMR.newTask({}); await flush();
+    const sh = E.sheet(), ti = E.$(".pmr-title-in", sh), sb = () => E.$("[data-act=nt-submit]", sh);
+    ok("mở từ nút chung: Người nhận có sẵn chip “Tôi” (nằm trong markup), nút “Tạo việc cho tôi”", E.$(".pmr-chips .pmr-pc-self", sh).textContent.includes("Tôi") && sb().textContent === "Tạo việc cho tôi");
+    ok("ô tên có ví dụ cách ghi hạn", /thứ 6/.test(ti.getAttribute("placeholder")));
+    ok("chưa gõ gì: không có gợi ý hạn", !E.$(".pmr-sug", sh));
+    E.type(ti, "Báo cáo GMV thứ 6");
+    const sug = E.$(".pmr-sug", sh);
+    ok("gõ “… thứ 6” → hiện gợi ý “Đặt hạn …” (chưa tự đặt)", sug && sug.textContent.includes("thứ 6") && !E.$(".pmr-nt-date", sh).value);
+    E.click(sug); await flush();
+    let fri = 0; while (new Date(dayOff(fri) + "T00:00:00").getDay() !== 5) fri++;
+    ok("bấm gợi ý → đặt hạn T6, bỏ “thứ 6” khỏi tên, gợi ý biến mất", E.$(".pmr-nt-date", sh).value === dayOff(fri) && ti.value === "Báo cáo GMV" && !E.$(".pmr-sug", sh), E.$(".pmr-nt-date", sh).value + " / " + ti.value);
+    const kc = new E.w.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true, isComposing: true });
+    ti.dispatchEvent(kc); await flush();
+    ok("Enter khi đang gõ dấu (IME) → không gửi", !E.last("tasks.create"));
+    ti.dispatchEvent(new E.w.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })); await flush(10);
+    const cr = E.last("tasks.create");
+    ok("Enter ở ô tên → tạo ngay, giao cho chính mình, kèm hạn đã chọn", cr && cr.args.subject === "Báo cáo GMV" && JSON.parse(cr.args.assignees).join() === ME && cr.args.exp_end_date === dayOff(fri) && !E.last("assignment.create_with_task"), cr && JSON.stringify(cr.args));
+    ok("tạo xong: đóng form + toast “… cho bạn” có nút Mở", !sh.classList.contains("pmr-on") && E.toastText().includes("cho bạn") && !!E.byText(".pmr-toast-b", "Mở"));
+    E.w.PMR.newTask({}); await flush();
+    E.click(E.$("[data-act=nt-self-rm]", sh));
+    ok("bỏ chip “Tôi” → nút “Tạo việc (chưa giao ai)”", sb().textContent === "Tạo việc (chưa giao ai)" && !E.$(".pmr-pc-self", sh));
+    E.$(".pmr-title-in", sh).value = "Việc chung của dự án";
+    E.click(sb()); await flush(10);
+    ok("chưa giao ai → tasks.create không có assignees", E.last("tasks.create").args.subject === "Việc chung của dự án" && E.last("tasks.create").args.assignees === undefined);
+    E.w.PMR.newTask({}); await flush();
+    E.click(E.byText(".pmr-link", "+ Thêm người", sh)); await flush();
+    E.click(E.$('.pmr-picker [data-act=pick][data-u="' + U2 + '"]', sh)); await flush(8);
+    ok("chọn người khác → thay chỗ “Tôi” (không giao kèm mình), nút “Gửi yêu cầu cho Lan Anh”", !E.$(".pmr-pc-self", sh) && E.$$(".pmr-chips .pmr-pc", sh).length === 1 && sb().textContent === "Gửi yêu cầu cho Lan Anh");
+    E.click(E.$("[data-act=tog][data-k=ask]", sh));
+    ok("tắt Cần đồng ý, 1 người → nút “Giao cho Lan Anh”", sb().textContent === "Giao cho Lan Anh");
+    E.w.PMR.closeSheet();
+    E.w.PMR.newTask({ project: "P1" }); await flush();
+    ok("mở từ dự án: không tự giao cho mình (việc chung của dự án)", !E.$(".pmr-pc-self", sh) && sb().textContent === "Tạo việc (chưa giao ai)");
+    E.w.PMR.closeSheet();
+    const plan = E.w.PMR._pure.buildCreatePlan({ subject: "x", assignees: [], ask: false, split: false, steps: [], labels: [], due: "", time: "", rep: false, priority: "Medium", project: "", desc: "Dòng 1\nFile mẫu https://x.vn/m" });
+    ok("mô tả gõ thường → giữ xuống dòng + link bấm được khi lưu", /Dòng 1<br>File mẫu <a href="https:\/\/x\.vn\/m"/.test(plan.args.description), plan.args.description);
+    ok("CSS điện thoại: ô nhập 16px (iOS không tự phóng to), nút ≥40px, ẩn gợi ý phím tắt trên màn cảm ứng",
+      /@media \(max-width:640px\)\{[^}]*\.pmr-sheet \.pmr-in,[^}]*font-size:16px/.test(CSS) && /min-height:40px/.test(CSS) && /@media \(hover:none\),\(max-width:640px\)\{\.pmr-kbd\{display:none\}/.test(CSS));
+  });
+
+  await block('Chi tiết việc: nút việc tiếp theo + mô tả lên đầu #16', async () => {
+    const E = makeEnv(), sh0 = () => E.sheet(), cta = () => E.$(".pmr-cta", sh0());
+    E.db.tasks["T-1"].task.description = "<p>Dùng file mẫu https://x.vn/mau.xlsx. Gửi trước 17h</p>";
+    await E.w.PMR.openTask("T-1"); await flush();
+    const sh = sh0();
+    ok("người nhận, Đang làm → nút chính “Đánh dấu Xong” ngoài thanh trạng thái, được focus", cta() && cta().textContent === "Đánh dấu Xong" && !cta().closest(".pmr-statusbar") && E.w.document.activeElement === cta());
+    const fls = E.$$(".pmr-main .pmr-sh-b .pmr-fl > .pmr-lb", sh).map(x => x.textContent);
+    ok("Mô tả nằm ngay sau Hạn (trước Theo dõi / Dự án)", fls[0] === "Hạn" && fls[1] === "Mô tả", fls.join(","));
+    const a = E.$('.pmr-desc a[href="https://x.vn/mau.xlsx"]', sh);
+    ok("URL trong mô tả thành link mở tab mới, dấu chấm cuối câu không dính vào link", a && a.getAttribute("target") === "_blank" && /noopener/.test(a.getAttribute("rel")) && E.$(".pmr-desc", sh).textContent.includes("mau.xlsx. Gửi"));
+    E.click(cta()); await flush();
+    ok("bấm nút chính → tasks.mark_done(T-1), Xong thì nút chính biến mất", E.last("tasks.mark_done").args.name === "T-1" && !cta() && E.$(".pmr-statusbar .pmr-on", sh).textContent === "Xong");
+    delete E.db.tasks["T-1"].task.description;
+    E.db.tasks["T-1"].task.workflow_state = "To Do";
+    await E.w.PMR.openTask("T-1"); await flush();
+    ok("Chưa làm → nút “Bắt đầu làm”", cta() && cta().textContent === "Bắt đầu làm");
+    E.click(cta()); await flush();
+    ok("Bắt đầu làm → set_status(In Progress), nút đổi sang “Đánh dấu Xong”", E.last("tasks.set_status").args.action === "In Progress" && cta().textContent === "Đánh dấu Xong");
+    E.db.tasks["T-1"].task.workflow_state = "In Progress";
+    await E.w.PMR.openTask("T-R"); await flush();
+    ok("cần kiểm tra → nút chính “Gửi kiểm tra”", cta() && cta().textContent === "Gửi kiểm tra");
+    E.click(cta()); await flush();
+    ok("gửi kiểm tra xong → “Đang chờ Hương Lê kiểm tra”, không còn nút chính", !cta() && E.$(".pmr-cta-wait", sh).textContent === "Đang chờ Hương Lê kiểm tra");
+    await E.w.PMR.openTask("T-G"); await flush();
+    ok("người giao, việc Đang làm → không có nút chính (không bấm Xong thay người nhận)", !cta() && !E.$(".pmr-cta-wait", sh));
+    E.db.tasks["T-G"].task.workflow_state = "Review";
+    await E.w.PMR.openTask("T-G"); await flush();
+    ok("người giao, Chờ duyệt → “Duyệt và đóng việc”", cta() && cta().textContent === "Duyệt và đóng việc");
+    E.click(cta()); await flush();
+    ok("Duyệt và đóng → tasks.mark_done(T-G)", E.last("tasks.mark_done").args.name === "T-G");
+    E.db.tasks["T-G"].task.workflow_state = "In Progress";
+    E.db.tasks["T-1"].can_edit = 0;
+    await E.w.PMR.openTask("T-1"); await flush();
+    ok("chỉ xem → không có nút chính, dòng Chỉ xem ngắn gọn", !cta() && E.$(".pmr-ro-hint", sh).textContent.length < 110);
+    delete E.db.tasks["T-1"].can_edit;
+    const P = E.w.PMR._pure;
+    ok("sanitize: link có sẵn không bị bọc lần 2, javascript: không thành link", (P.sanitize('<a href="https://a.vn">https://a.vn</a>').match(/<a /g) || []).length === 1 && !/<a/.test(P.sanitize("javascript:alert(1)")));
+  });
+
   await block('Dự án + nhật ký cá nhân #10', async () => {
+
     const E = makeEnv();
     await E.w.PMR.render.projects(E.main); await flush();
     ok("projects: bảng Đang chạy, tiến độ dạng xong/tổng", E.$$("tbody tr", E.main).length === 2 && E.main.textContent.includes("5/8") && E.last("projects.list").args.include_personal === 0);
@@ -639,6 +747,233 @@ async function block(name, fn) {
       "pm_inbox.nudge", "pm_inbox.close_parent", "tasks.get", "tasks.mark_done", "tasks.create", "dashboard.rail_badges", "assignment.create_with_task", "recurrence.create_from_task+"].every(k => Array.isArray(CONTRACT[k])));
   });
 
+  /* ---------------- tester t2 (03/11): dữ liệu thật + race + chỉ xem + a11y ---------------- */
+  await block('t2: giờ "0:00:00" + đổi hạn xoá giờ #14', async () => {
+    const E = makeEnv(), P = E.w.PMR._pure;
+    ok("t2 hạn: pm_end_time “0:00:00” (Time trống) không hiện “00:00”", P.dueInfo(dayOff(0), "0:00:00").text === "Hôm nay" && P.dueInfo(dayOff(1) + " 00:00:00", "0:00:00").text === "Ngày mai", P.dueInfo(dayOff(0), "0:00:00").text);
+    E.db.tasks["T-G"].task.exp_end_date = dayOff(1) + " 00:00:00"; E.db.tasks["T-G"].task.pm_end_time = "0:00:00";
+    await E.w.PMR.openTask("T-G"); await flush();
+    const sh = E.sheet();
+    ok("t2 chi tiết: hạn Datetime + “0:00:00” → không có “· 00:00”", !/00:00/.test(E.$(".pmr-due-sec", sh).textContent), E.$(".pmr-due-sec", sh).textContent);
+    E.click(E.byText(".pmr-link", "Đổi hạn", sh)); await flush();
+    ok("t2 Đổi hạn: ô giờ trống khi “0:00:00”, ô ngày dạng YYYY-MM-DD", E.$(".pmr-due-t", sh).value === "" && E.$(".pmr-due-d", sh).value === dayOff(1));
+    E.db.tasks["T-G"].task.pm_end_time = "17:00:00";
+    await E.w.PMR.openTask("T-G"); await flush();
+    E.click(E.byText(".pmr-link", "Đổi hạn", sh)); await flush();
+    E.$(".pmr-due-t", sh).value = "";
+    E.click(E.byText(".pmr-btn", "Lưu hạn", sh)); await flush();
+    const up = E.last("tasks.update");
+    ok("t2 Đổi hạn: xoá ô giờ → gửi pm_end_time=\"\" (xoá giờ), hạn không còn 17:00", up && up.args.pm_end_time === "" && up.args.exp_end_date === dayOff(1) && !/17:00/.test(E.$(".pmr-due-sec", sh).textContent), up && JSON.stringify(up.args));
+  });
+  await block('t2: race phản hồi muộn sau khi đã chuyển việc #15', async () => {
+    const E = makeEnv(), sh = () => E.sheet();
+    let rej = null;
+    E.H["tasks.set_status"] = () => new Promise((_, r) => { rej = r; });
+    await E.w.PMR.openTask("T-1"); await flush();
+    E.click(E.byText(".pmr-statusbar button", "Chưa làm", sh())); await flush();
+    await E.w.PMR.openTask("T-S2"); await flush();
+    rej(smErr("Không có quyền")); await flush();
+    ok("t2 race trạng thái: lỗi của việc cũ không hoàn nguyên thanh trạng thái của việc đang mở", E.$(".pmr-statusbar .pmr-on", sh()).textContent === "Chưa làm" && E.$(".pmr-crumb2", sh()).textContent === "T-S2");
+    E.hold["comments.add"] = [];
+    await E.w.PMR.openTask("T-1"); await flush();
+    E.$(".pmr-cm-in", sh()).value = "Bình luận của T-1";
+    E.click(E.byText(".pmr-btn", "Gửi", sh())); await flush();
+    await E.w.PMR.openTask("T-R"); await flush();
+    E.hold["comments.add"].forEach(f => f()); delete E.hold["comments.add"]; await flush();
+    ok("t2 race bình luận: bình luận gửi ở T-1 không hiện trong T-R", !sh().textContent.includes("Bình luận của T-1") && E.$(".pmr-side-n", sh()).textContent === "1");
+    E.hold["checklist.set_item"] = [];
+    await E.w.PMR.openTask("T-1"); await flush();
+    const box = E.$$(".pmr-ck input", sh())[1]; box.checked = true; E.change(box); await flush();
+    await E.w.PMR.openTask("T-R"); await flush();
+    E.hold["checklist.set_item"].forEach(f => f()); delete E.hold["checklist.set_item"]; await flush();
+    ok("t2 race bước: tích bước ở T-1 không ghi đè số bước của T-R", E.byText(".pmr-stabs button", "Các bước", sh()).textContent === "Các bước");
+    E.db.tasks["T-1"].can_edit = 0; E.db.tasks["T-1"].task._assign = JSON.stringify([U2]);
+    E.hold["tasks.set_followers"] = [];
+    await E.w.PMR.openTask("T-1"); await flush();
+    E.click(E.byText(".pmr-link", "Theo dõi việc này", sh())); await flush();
+    await E.w.PMR.openTask("T-R"); await flush();
+    E.hold["tasks.set_followers"].forEach(f => f()); delete E.hold["tasks.set_followers"]; await flush();
+    ok("t2 race theo dõi: xong set_followers của T-1 không kéo ngăn kéo về T-1", E.$(".pmr-crumb2", sh()).textContent === "T-R" && E.last("tasks.get").args.name === "T-R");
+    delete E.db.tasks["T-1"].can_edit; E.db.tasks["T-1"].task._assign = JSON.stringify([ME]);
+    E.hold["tasks.create"] = [];
+    await E.w.PMR.openTask("T-S"); await flush();
+    E.$(".pmr-sub-in", sh()).value = "Việc con chậm";
+    E.click(E.$("[data-act=sub-add]", sh())); await flush();
+    E.w.PMR.closeSheet(); await flush();
+    E.hold["tasks.create"].forEach(f => f()); delete E.hold["tasks.create"]; await flush();
+    ok("t2 race việc con: thêm việc con xong sau khi đã đóng ngăn kéo → không tự mở lại", !sh().classList.contains("pmr-on"));
+    E.hold["comments.upload"] = []; E.H["comments.upload"] = () => ({ file_url: "/private/files/a.png", is_image: 1, file_name: "a.png" });
+    await E.w.PMR.openTask("T-1"); await flush();
+    const fin = E.$(".pmr-file", sh());
+    Object.defineProperty(fin, "files", { value: [new E.w.File(["x"], "a.png", { type: "image/png" })], configurable: true });
+    E.change(fin); await tick(20); await flush();
+    await E.w.PMR.openTask("T-R"); await flush();
+    E.hold["comments.upload"].forEach(f => f()); delete E.hold["comments.upload"]; await flush();
+    ok("t2 race đính kèm: file tải lên cho T-1 không gắn vào ô bình luận của T-R", E.$$(".pmr-atts .pmr-pc", sh()).length === 0);
+  });
+  await block('t2: onClose của host + Esc khi đang viết + focus chỉ xem #16', async () => {
+    const E = makeEnv(), sh = () => E.sheet();
+    let closed = 0;
+    await E.w.PMR.openTask("T-S2", { onClose: () => { closed++; } }); await flush();
+    E.click(E.$("[data-act=open-sub][data-task=T-S]", sh())); await flush();
+    E.w.document.dispatchEvent(new E.w.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    ok("t2 mở việc cha trong ngăn kéo rồi đóng → onClose của host vẫn được gọi (hash #task không kẹt)", closed === 1 && !sh().classList.contains("pmr-on"), "closed=" + closed);
+    await E.w.PMR.openTask("T-1"); await flush();
+    E.$(".pmr-cm-in", sh()).value = "đang viết dở";
+    E.w.document.dispatchEvent(new E.w.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    E.click(E.$(".pmr-scrim"));
+    ok("t2 Esc / bấm nền xám khi đang viết bình luận → không đóng, nhắc bấm ×", sh().classList.contains("pmr-on") && /viết dở/.test(E.toastText()) && E.$(".pmr-cm-in", sh()).value === "đang viết dở");
+    E.click(E.$("[data-act=close]", sh()));
+    ok("t2 bấm × vẫn đóng được", !sh().classList.contains("pmr-on"));
+    E.db.tasks["T-S"].can_edit = 0;
+    await E.w.PMR.openTask("T-S"); await flush();
+    const ae = E.w.document.activeElement;
+    ok("t2 chỉ xem: focus vào trong popup (nút trạng thái bị khoá không nhận focus)", sh().contains(ae) && !ae.disabled, ae && ae.outerHTML.slice(0, 60));
+    delete E.db.tasks["T-S"].can_edit;
+    E.db.tasks["T-P"].can_edit = 0;
+    await E.w.PMR.openTask("T-P", { tab: "people" }); await flush();
+    ok("t2 chỉ xem: tab Từng người không có “+ Thêm người” (server require_edit sẽ từ chối)", !E.byText(".pmr-link", "+ Thêm người", sh()));
+    delete E.db.tasks["T-P"].can_edit;
+  });
+  await block('t2: Giao việc — CC đang gợi ý + việc cha sau lỗi #17', async () => {
+    const E = makeEnv(), sh = () => E.sheet();
+    E.w.PMR.newTask({}); await flush();
+    E.$(".pmr-title-in", sh()).value = "Giao nhanh";
+    E.click(E.$("[data-act=tog][data-k=ask]", sh()));
+    E.click(E.byText(".pmr-link", "+ Thêm người", sh())); await flush();
+    E.click(E.$('.pmr-picker [data-act=pick][data-u="' + U2 + '"]', sh())); await flush(8);
+    E.hold["pm_inbox.cc_suggest"] = [];
+    E.click(E.$('.pmr-picker [data-act=pick][data-u="' + U3 + '"]', sh())); await flush();
+    E.click(E.$("[data-act=nt-submit]", sh())); await flush();
+    E.hold["pm_inbox.cc_suggest"].forEach(f => f()); delete E.hold["pm_inbox.cc_suggest"]; await flush(10);
+    const cr = E.last("tasks.create");
+    ok("t2 CC: bấm Giao khi gợi ý CC còn đang chạy → vẫn CC trưởng phòng (không gửi cc=[] cũ)", cr && cr.args.cc && JSON.parse(cr.args.cc).some(x => x.user === BOSS), cr && cr.args.cc);
+    E.w.PMR.newTask({}); await flush();
+    E.$(".pmr-title-in", sh()).value = "Có việc cha";
+    E.click(E.byText(".pmr-link", "+ Chọn việc cha", sh())); await flush();
+    const ps = E.$(".pmr-nt-parent", sh()); ps.value = "A4";
+    E.fail["tasks.create"] = "Lỗi tạm";
+    E.click(E.$("[data-act=nt-submit]", sh())); await flush();
+    ps.value = "";
+    E.click(E.$("[data-act=nt-submit]", sh())); await flush(10);
+    ok("t2 việc cha: lỗi rồi chọn lại “Không thuộc việc nào” → không còn gửi parent_task cũ", E.last("tasks.create") && !E.last("tasks.create").args.parent_task, E.last("tasks.create") && E.last("tasks.create").args.parent_task);
+  });
+  await block('t2: màn danh sách — phản hồi cũ về muộn không vẽ đè #18', async () => {
+    const E = makeEnv();
+    E.hold["pm_inbox.given"] = [];
+    E.w.PMR.render.given(E.main, "run"); E.w.PMR.render.given(E.main, "rep"); await flush();
+    const hs = E.hold["pm_inbox.given"]; delete E.hold["pm_inbox.given"];
+    hs[1](); await flush(); hs[0](); await flush();
+    ok("t2 Tôi đã giao: bấm tab nhanh, phản hồi tab cũ về sau không đè tab đang chọn", !!E.$('[data-act=gtab][data-tab=rep][aria-selected=true]', E.main) && !!E.$('tr[data-rule="REC-1"]', E.main));
+    E.hold["tasks.list"] = [];
+    E.w.PMR.render.allWork(E.main, "list"); await flush();
+    await E.w.PMR.render.allWork(E.main, "due", { renderDue: el => { el.innerHTML = "<p class=host-due>host</p>"; } });
+    E.hold["tasks.list"].forEach(f => f()); delete E.hold["tasks.list"]; await flush();
+    ok("t2 Tất cả việc: chuyển sang Theo hạn khi danh sách chưa tải xong → lịch của host không bị danh sách đè", !!E.$(".host-due", E.main) && !E.$("tbody tr[data-task]", E.main));
+  });
+  /* ---------------- u2 03/11: màn danh sách thân thiện hơn ---------------- */
+  await block('u2: ghi nhanh — hiểu hạn trong câu #u2a', async () => {
+    const E = makeEnv(), P = E.w.PMR._pure, wd = (n) => { const d = new Date(); return ymd(new Date(d.getFullYear(), d.getMonth(), d.getDate() + ((n - d.getDay() + 7) % 7))); };
+    const q = s => P.parseQuick(s), eq = (s, subject, due, time) => { const r = q(s); return r.subject === subject && r.due === due && r.time === time; };
+    ok("parseQuick: “Gọi khách mai 10h” → mai 10:00", eq("Gọi khách mai 10h", "Gọi khách", dayOff(1), "10:00"));
+    ok("parseQuick: “Báo cáo thứ 6” / “thu 6” / “t6” → thứ Sáu gần nhất", eq("Báo cáo thứ 6", "Báo cáo", wd(5), null) && eq("Báo cáo thu 6", "Báo cáo", wd(5), null) && eq("Báo cáo t6", "Báo cáo", wd(5), null));
+    ok("parseQuick: “Họp 3h chiều mai” / “Họp mai 3h” → 15:00; “làm 2h” (thời lượng) không đoán", eq("Họp 3h chiều mai", "Họp", dayOff(1), "15:00") && eq("Họp mai 3h", "Họp", dayOff(1), "15:00") && eq("làm 2h", "làm 2h", null, null));
+    ok("parseQuick: “Nộp hồ sơ trước thứ 2 lúc 9h30” → bỏ chữ “trước”", eq("Nộp hồ sơ trước thứ 2 lúc 9h30", "Nộp hồ sơ", wd(1), "09:30"));
+    const nx = new Date(), y = nx.getFullYear(), past = new Date(y, 10, 25) < new Date(nx.getFullYear(), nx.getMonth(), nx.getDate());
+    ok("parseQuick: “Báo giá 25/11” → 25/11 (đã qua thì không đoán, như form Giao việc), “ngày mốt” → +2", (past ? eq("Báo giá 25/11", "Báo giá 25/11", null, null) : eq("Báo giá 25/11", "Báo giá", y + "-11-25", null)) && eq("Đi ngân hàng ngày mốt", "Đi ngân hàng", dayOff(2), null));
+    ok("parseQuick dùng chung parseDue: cụm ngày giữa câu không tính (“Gửi mai cho chị Lan”), cùng câu cho cùng hạn", eq("Gửi mai cho chị Lan", "Gửi mai cho chị Lan", null, null) && P.parseDue("Gọi khách mai 10h").due === q("Gọi khách mai 10h").due);
+    ok("parseQuick: không đoán bừa — tên “Mai”, “một”, “này”, 31/02, 11.11, chỉ có hạn", ["Gửi file cho chị Mai", "Gửi thêm một", "Làm cái này", "Thanh toán 31/02", "Chuẩn bị 11.11", "mai"].every(s => { const r = q(s); return r.subject === s && r.due === null; }));
+  });
+
+  await block('u2: Việc của tôi — nhóm theo hạn + hành động trên dòng + ghi nhanh #u2b', async () => {
+    const E = makeEnv();
+    const rows = [
+      { name: "M1", subject: "Báo cáo trễ", workflow_state: "In Progress", exp_end_date: dayOff(-2), owner: BOSS, project_name: "ANDROS - SHOPEE" },
+      { name: "M2", subject: "Gọi khách", workflow_state: "To Do", exp_end_date: dayOff(0), pm_end_time: "15:00:00", owner: ME },
+      { name: "M3", subject: "Lên kế hoạch", workflow_state: "To Do", exp_end_date: dayOff(3), owner: BOSS },
+      { name: "M4", subject: "Đọc tài liệu", workflow_state: "To Do", exp_end_date: null, owner: ME },
+      { name: "M5", subject: "Chờ sếp duyệt", workflow_state: "Review", exp_end_date: dayOff(-1), owner: BOSS },
+      { name: "M6", subject: "Xong từ tuần trước", workflow_state: "Done", exp_end_date: dayOff(-5), owner: ME },
+      { name: "M7", subject: "Việc chia người", workflow_state: "In Progress", exp_end_date: dayOff(2), owner: ME, is_group: 1 }];
+    E.w.PMR.render.myDay(E.main, { rows }); await flush();
+    const grp = k => E.$(`.pmr-md-g[data-g="${k}"]`, E.main), inG = (k, t) => !!grp(k) && !!E.$(`.pmr-md-row[data-task="${t}"]`, grp(k));
+    ok("myDay: Quá hạn / Hôm nay / Sắp tới mở sẵn, đúng việc từng nhóm", inG("late", "M1") && inG("today", "M2") && inG("soon", "M3") && grp("late").tagName === "DIV" && grp("soon").tagName === "DIV");
+    ok("myDay: Chưa có hạn + Chờ duyệt thu gọn (details, có số), việc Xong cũ không hiện", grp("nodue").tagName === "DETAILS" && !grp("nodue").open && inG("wait", "M5") && grp("wait").textContent.includes("1") && !E.$('[data-task="M6"]', E.main));
+    const r1 = E.$('.pmr-md-row[data-task="M1"]', E.main), r2 = E.$('.pmr-md-row[data-task="M2"]', E.main), r5 = E.$('.pmr-md-row[data-task="M5"]', E.main);
+    ok("myDay: việc người khác giao có “Xin dời hạn” + tên người giao; việc tự ghi có “Đổi hạn”", !!E.byText(".pmr-link", "Xin dời hạn", r1) && E.$(".pmr-m", r1).textContent === "ANDROS - SHOPEE · Hương Lê giao" && !!E.byText(".pmr-link", "Đổi hạn", r2) && !E.$(".pmr-m", r2));
+    ok("myDay: Chưa làm có “Bắt đầu”, Đang làm không có; Chờ duyệt không có nút", !!E.byText(".pmr-btn", "Bắt đầu", r2) && !E.byText(".pmr-btn", "Bắt đầu", r1) && !!E.byText(".pmr-btn", "Xong", r1) && !E.$(".pmr-btn", r5));
+    ok("myDay: việc cha “mỗi người một việc” không có nút Xong (server sẽ chặn vì còn việc con)", !E.byText(".pmr-btn", "Xong", E.$('.pmr-md-row[data-task="M7"]', E.main)));
+    E.click(E.byText(".pmr-btn", "Bắt đầu", r2)); await flush();
+    ok("myDay: Bắt đầu → set_status(In Progress) + pill Đang làm (không mở popup)", E.last("tasks.set_status").args.name === "M2" && E.last("tasks.set_status").args.action === "In Progress" && E.$('.pmr-md-row[data-task="M2"] .pmr-st', E.main).textContent === "Đang làm" && !E.sheet());
+    E.click(E.byText(".pmr-btn", "Xong", E.$('.pmr-md-row[data-task="M1"]', E.main))); await flush();
+    ok("myDay: Xong → mark_done, dòng gạch ngang tại chỗ + toast Hoàn tác", E.last("tasks.mark_done").args.name === "M1" && E.$('.pmr-md-row[data-task="M1"]', E.main).classList.contains("pmr-done") && E.toastText().includes("Hoàn tác"));
+    E.click(E.byText(".pmr-link", "Xin dời hạn", E.$('.pmr-md-row[data-task="M3"]', E.main))); await flush();
+    ok("myDay: Xin dời hạn → mở việc ở form xin dời hạn", E.last("tasks.get").args.name === "M3" && !!E.sheet());
+    E.w.PMR.closeSheet(); await flush();
+    const inp = E.$(".pmr-qa-in", E.main);
+    E.type(inp, "Gửi báo giá mai 10h");
+    ok("ghi nhanh: gõ tới đâu báo hạn tới đó + nút Không đặt hạn", E.$(".pmr-qa-hint", E.main).textContent.includes("Hạn:") && E.$(".pmr-qa-hint", E.main).textContent.includes("10:00") && !!E.byText(".pmr-link", "Không đặt hạn", E.main));
+    inp.dispatchEvent(new E.w.KeyboardEvent("keydown", { key: "Enter", bubbles: true })); await flush();
+    const cr = E.last("tasks.create").args;
+    ok("ghi nhanh: Enter → tasks.create(tên đã bỏ hạn, hạn mai 10:00, giao cho chính mình)", cr.subject === "Gửi báo giá" && cr.exp_end_date === dayOff(1) && cr.pm_end_time === "10:00:00" && JSON.parse(cr.assignees)[0] === ME && cr.project === "");
+    ok("ghi nhanh: dòng mới hiện ngay, ô trống + vẫn focus để ghi tiếp, phát pmr:changed", E.$(".pmr-qa-in", E.main).value === "" && E.w.document.activeElement === E.$(".pmr-qa-in", E.main) && !!E.$('.pmr-md-row[data-task="NEW-1"]', E.main) && E.events.some(e => e.n === "pmr:changed" && e.d.created));
+    const inp2 = E.$(".pmr-qa-in", E.main); E.type(inp2, "Đặt lịch họp thứ 6");
+    E.click(E.byText(".pmr-link", "Không đặt hạn", E.main));
+    inp2.dispatchEvent(new E.w.KeyboardEvent("keydown", { key: "Enter", bubbles: true })); await flush();
+    ok("ghi nhanh: “Không đặt hạn” → giữ nguyên chữ, không gửi hạn", E.last("tasks.create").args.subject === "Đặt lịch họp thứ 6" && !E.last("tasks.create").args.exp_end_date);
+    E.fail["tasks.create"] = "Không có quyền tạo việc";
+    const inp3 = E.$(".pmr-qa-in", E.main); E.type(inp3, "Việc lỗi");
+    inp3.dispatchEvent(new E.w.KeyboardEvent("keydown", { key: "Enter", bubbles: true })); await flush();
+    ok("ghi nhanh: lỗi server → giữ chữ đã gõ + toast lỗi", inp3.value === "Việc lỗi" && !inp3.disabled && E.toastText().includes("Không có quyền tạo việc"));
+    const E2 = makeEnv(); E2.w.PMR.render.myDay(E2.main, { rows: [] }); await flush();
+    ok("myDay rỗng: lời mời ghi việc (khuyến khích), vẫn có ô ghi nhanh", E2.main.textContent.includes("Ghi việc định làm") && !!E2.$(".pmr-qa-in", E2.main));
+  });
+
+  await block('u2: Tôi đã giao — gom việc cần bạn lên đầu, giao 1 người thấy chưa mở #u2c', async () => {
+    const E = makeEnv(), base = E.H["pm_inbox.given"];
+    E.H["pm_inbox.given"] = (a) => a.tab !== "run" ? base(a) : { banner: [], rules: [], batches: [
+      { task: "S-OK", subject: "Bình thường", split: false, exp_end_date: dayOff(1), workflow_state: "In Progress", people: [{ user: U2, full_name: "Lan Anh", task: "S-OK", state: "In Progress", opened: true }], done_count: 0, total: 1 },
+      { task: "S-UN", subject: "Chưa mở", split: false, exp_end_date: dayOff(4), workflow_state: "To Do", people: [{ user: U3, full_name: "Phương Nga", task: "S-UN", state: "To Do", opened: false }], done_count: 0, total: 1 },
+      { task: "S-LATE", subject: "Trễ", split: false, exp_end_date: dayOff(-2), workflow_state: "In Progress", people: [{ user: U2, full_name: "Lan Anh", task: "S-LATE", state: "In Progress", opened: true, late: true }], done_count: 0, total: 1 },
+      { task: "S-RV", subject: "Chờ duyệt", split: false, exp_end_date: dayOff(5), workflow_state: "Review", people: [{ user: U2, full_name: "Lan Anh", task: "S-RV", state: "Review", opened: true }], done_count: 0, total: 1 }] };
+    await E.w.PMR.render.given(E.main, "run"); await flush();
+    ok("given: thứ tự Chờ bạn duyệt → trễ → chưa mở → còn lại", E.$$(".pmr-batch", E.main).map(b => b.getAttribute("data-task")).join() === "S-RV,S-LATE,S-UN,S-OK");
+    const un = E.$('.pmr-batch[data-task="S-UN"]', E.main), late = E.$('.pmr-batch[data-task="S-LATE"]', E.main), okb = E.$('.pmr-batch[data-task="S-OK"]', E.main);
+    ok("given: giao 1 người → hiện “chưa mở việc” / “trễ 2 ngày” ngay trên dòng", E.$(".pmr-solo .pmr-warn", un).textContent.includes("chưa mở việc") && E.$(".pmr-solo .pmr-warn", late).textContent.includes("trễ 2 ngày") && !E.$(".pmr-solo .pmr-warn", okb));
+    E.click(E.byText(".pmr-btn", "Nhắc", un)); await flush();
+    ok("given: giao 1 người chưa mở → nút Nhắc → nudge(task, đúng người)", E.last("pm_inbox.nudge").args.task === "S-UN" && JSON.parse(E.last("pm_inbox.nudge").args.users)[0] === U3 && !E.byText(".pmr-btn", "Nhắc", okb));
+  });
+
+  await block('u2: Tất cả việc / Điều phối / Dự án — lọc nhớ, số đếm, KPI bấm được #u2d', async () => {
+    const E = makeEnv();
+    await E.w.PMR.render.allWork(E.main, "list"); await flush();
+    const chip = t => E.byText(".pmr-aw-chip", t, E.main), cnt = t => +E.$(".pmr-cnt", chip(t)).textContent;
+    ok("allWork: chip có số đếm đúng (Trễ hạn 1, Chưa có người 2, Của tôi 1)", cnt("Trễ hạn") === 1 && cnt("Chưa có người") === 2 && cnt("Của tôi") === 1);
+    E.click(chip("Của tôi"));
+    ok("allWork: chip “Của tôi” chỉ còn việc giao cho mình + hiện nút Xoá lọc", E.$$("tbody tr[data-task]", E.main).map(t => t.getAttribute("data-task")).join() === "A1" && !E.$(".pmr-aw-clear", E.main).classList.contains("pmr-hide"));
+    E.change(E.$(".pmr-aw-grp", E.main), "none");
+    const c2 = E.w.document.createElement("div"); E.w.document.body.appendChild(c2);
+    await E.w.PMR.render.allWork(c2, "list"); await flush();
+    ok("allWork: mở lại (màn khác) vẫn nhớ chip + kiểu nhóm (localStorage)", E.byText(".pmr-aw-chip", "Của tôi", c2).classList.contains("pmr-on") && E.$(".pmr-aw-grp", c2).value === "none" && E.$$("tbody tr[data-task]", c2).length === 1);
+    E.click(E.$(".pmr-aw-clear", c2));
+    ok("allWork: Xoá lọc → đủ danh sách, nút Xoá lọc ẩn lại", E.$$("tbody tr[data-task]", c2).length === 4 && E.$(".pmr-aw-clear", c2).classList.contains("pmr-hide"));
+    E.w.localStorage.setItem("pmr.prefs", "{hỏng");
+    await E.w.PMR.render.allWork(E.w.document.createElement("div"), "list"); await flush();
+    ok("allWork: localStorage hỏng → không lỗi, như mặc định", true);
+    await E.w.PMR.render.coordinate(E.main); await flush();
+    const kpi = E.$$(".pmr-strip button[data-act=c-kpi]", E.main);
+    ok("coordinate: 3 ô KPI bấm được (đang mở / trễ / chưa có người)", kpi.length === 3);
+    E.click(E.$('.pmr-strip [data-f="late"]', E.main));
+    ok("coordinate: bấm “trễ hạn” → sang Tất cả việc", E.navs[E.navs.length - 1] === "#work/list");
+    await E.w.PMR.render.allWork(E.main, "list"); await flush();
+    ok("coordinate → allWork: chip Trễ hạn bật, bỏ lọc dự án đã nhớ", E.byText(".pmr-aw-chip", "Trễ hạn", E.main).classList.contains("pmr-on") && E.$(".pmr-aw-proj", E.main).value === "" && E.$$("tbody tr[data-task]", E.main).map(t => t.getAttribute("data-task")).join() === "A1");
+    await E.w.PMR.render.projects(E.main); await flush();
+    ok("projects: chip có số (Đang chạy 2, Hoàn thành 1, Của tôi 1)", ["Đang chạy 2", "Hoàn thành 1", "Của tôi 1"].every(t => !!E.$$("[data-act=p-filter]", E.main).find(b => b.textContent.replace(/\s+/g, " ").trim() === t)));
+    E.click(E.byText(".pmr-chip", "Hoàn thành", E.main));
+    await E.w.PMR.render.projects(E.main); await flush();
+    ok("projects: mở lại vẫn nhớ bộ lọc Hoàn thành", E.byText(".pmr-chip", "Hoàn thành", E.main).classList.contains("pmr-on") && E.$$("tbody tr", E.main).length === 1);
+  });
+
   /* ---------------- pure helpers ---------------- */
   await block('pure helpers #11', async () => {
     const E = makeEnv();
@@ -646,6 +981,7 @@ async function block(name, fn) {
     ok("ngày tiếng Việt: Hôm nay 17:00 / T? dd/mm / Trễ N ngày", P.dueInfo(dayOff(0), "17:00:00").text === "Hôm nay 17:00" && /^(CN|T[2-7]) \d\d\/\d\d$/.test(P.dayLabel(dayOff(9))) && P.dueInfo(dayOff(-2)).text === "Trễ 2 ngày");
     ok("errOf lấy đúng thông điệp server (_server_messages)", P.errOf(smErr("Bạn không có quyền <b>x</b>")) === "Bạn không có quyền x");
     ok("sanitize: bỏ script/on*/javascript:", !/script|onerror|javascript/i.test(P.sanitize('<a href="javascript:alert(1)">a</a><img src="/files/a.png" onerror="x()"><script>1</script>')));
+    ok("sanitize: chặn link/ảnh “//host” (ra ngoài không rõ giao thức), giữ “/files/…”", !/evil/.test(P.sanitize('<a href="//evil.example/x">a</a><img src="//evil.example/p.gif">')) && /src="\/files\/a.png"/.test(P.sanitize('<img src="/files/a.png">')));
   });
 
   const pass = results.filter(r => r.pass).length;

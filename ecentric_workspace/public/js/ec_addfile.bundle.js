@@ -168,7 +168,9 @@
         busy = false;
         ok.disabled = false; cancel.disabled = false;
         ok.textContent = "Thử lại";
-        err.textContent = (e && e.message) || "Không thêm được tệp. Thử lại sau.";
+        // 03/11: loi ky thuat (exception tho tu may chu) -> cau tieng Viet qua asset chung.
+        err.textContent = window.EcApprovalUI ? window.EcApprovalUI.errorText(e, "Không thêm được tệp. Thử lại sau.")
+          : ((e && e.message) || "Không thêm được tệp. Thử lại sau.");
         err.hidden = false;
       });
     };

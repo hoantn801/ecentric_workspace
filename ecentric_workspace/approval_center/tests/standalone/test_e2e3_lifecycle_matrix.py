@@ -162,9 +162,13 @@ class TestRequestInformationUnhardenedRace(unittest.TestCase):
         self.src = _read("approval_center", "shared", "workflow", "transitions.py")
 
     def _profile(self, name):
+        # 03/11/2026: khoa + doc lai gop vao `_lock_and_read` - MOT locking read (doc thuong
+        # sau khoa duoi REPEATABLE READ van tra anh chup cu, xem test_engine_locking_read_rr).
         seg = ast.get_source_segment(self.src, _funcdef(self.src, name))
-        return ("for_update=True" in seg,
-                'req.approval_status = frappe.db.get_value' in seg)
+        helper = ast.get_source_segment(self.src, _funcdef(self.src, "_lock_and_read"))
+        locked_read = "for_update=True" in helper and '"approval_status"' in helper
+        uses = "_lock_and_read(req)" in seg
+        return (uses and locked_read, uses and locked_read)
 
     def test_ba_ham_ghi_terminal_deu_da_khoa_va_doc_lai(self):
         # Sentinel chong hoi quy: neu ai go khoa khoi approve/reject/cancel, test do.

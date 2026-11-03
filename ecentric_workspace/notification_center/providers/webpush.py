@@ -171,13 +171,26 @@ def _payload(doc):
         "title": (doc.get("title") or "eCentric ERP")[:120],
         "body": _plain(doc.get("message"))[:240],
         "url": doc.get("action_url") or "/",
-        "tag": doc.get("event_type") or "ec",
+        # `tag` THEO CHUNG TU, khong theo loai su kien (03/11/2026). Service worker hien
+        # the voi tag nay + renotify: hai the CUNG tag thi the sau THAY the truoc. Truoc day
+        # tag = event_type -> moi the "Can duyet" moi xoa the "Can duyet" cu chua doc khoi
+        # khay dien thoai (phieu A bien mat khi phieu B toi), va the gop luc 9:00 xoa the
+        # don le gui ngay truoc do. Nay: cung chung tu -> thay (ban moi nhat), khac chung tu
+        # -> hien rieng; tin khong gan chung tu (tin gop) -> theo event_id.
+        "tag": _tag(doc),
         "event_id": doc.get("event_id") or "",
         # Gio SU KIEN (ms). Push co the den muon vai phut - dien thoai ngu, mang
         # chap chon - va neu khong gui moc nay thi the thong bao ghi "vua xong"
         # cho mot loi nhac tu 20 phut truoc, va xep sai thu tu trong khay.
         "ts": _ts_ms(doc.get("creation")),
     }, ensure_ascii=False)
+
+
+def _tag(doc):
+    rd, rn = doc.get("reference_doctype"), doc.get("reference_name")
+    if rd and rn:
+        return ("ec:%s:%s" % (rd, rn))[:200]
+    return "ec:" + (doc.get("event_id") or doc.get("name") or "x")
 
 
 def _ts_ms(dt):
@@ -229,6 +242,10 @@ def deliver(delivery_log):
     except Exception:
         return
     if doc.get("status") == "Sent":
+        return
+    # Nguoi da nghi viec (User.enabled = 0) van con dang ky push tren dien thoai ca nhan.
+    from ecentric_workspace.notification_center.providers.teams import bo_qua_nguoi_da_khoa
+    if bo_qua_nguoi_da_khoa(doc, "webpush"):
         return
 
     doc.attempt_count = (doc.attempt_count or 0) + 1

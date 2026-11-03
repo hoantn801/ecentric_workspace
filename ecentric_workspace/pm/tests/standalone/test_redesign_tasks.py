@@ -148,6 +148,18 @@ class TestSetStatusRollup(Base):
         self.assertIsNone(row["completed_on"])
         self.assertEqual(row["status"], "Open")
 
+    def test_assignee_start_from_list_counts_as_opened(self):
+        # u2 03/11: "Bắt đầu" on a list row (no popup) -> giver must not keep seeing "chưa mở việc".
+        inbox = self.fk.load("ecentric_workspace.pm.api.pm_inbox")
+        self.as_user(F.BOB)
+        self.assertIn("SP-B", [x["task"] for x in inbox.received()["unopened"]])
+        self.tasks.set_status("SP-B", "In Progress")
+        self.assertIsNotNone(self.fk.row("PM Task Seen", "SP-B::" + F.BOB))
+        self.assertNotIn("SP-B", [x["task"] for x in inbox.received()["unopened"]])
+        self.as_user(F.GIVER)  # a non-assignee (giver) changing state is not "opened by the assignee"
+        self.tasks.set_status("SP-A", "In Progress")
+        self.assertIsNone(self.fk.row("PM Task Seen", "SP-A::" + F.GIVER))
+
     def test_guards_kept(self):
         self.as_user(F.ALICE)
         with self.assertRaises(F.PermissionError):

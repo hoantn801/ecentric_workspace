@@ -57,16 +57,18 @@ def _people(scope, user, department):
 
 def _dates(from_date, to_date, days):
     today = datetime.date.fromisoformat(frappe.utils.nowdate())
+    # Tham so den tu URL: days kep vao [1, MAX_DAYS] TRUOC timedelta; ngay sat nam 1 thi phep
+    # tru ra OverflowError - ca hai tung thanh loi 500 thay vi "Ngay khong hop le".
     try:
         end = datetime.date.fromisoformat(str(to_date)[:10]) if to_date else today
         start = (datetime.date.fromisoformat(str(from_date)[:10]) if from_date
-                 else end - datetime.timedelta(days=max(1, int(days or 30)) - 1))
-    except ValueError:
+                 else end - datetime.timedelta(days=min(MAX_DAYS, max(1, int(days or 30))) - 1))
+        if start > end:
+            start, end = end, start
+        if (end - start).days >= MAX_DAYS:
+            start = end - datetime.timedelta(days=MAX_DAYS - 1)
+    except (ValueError, OverflowError):
         frappe.throw(_("Ngày không hợp lệ."))
-    if start > end:
-        start, end = end, start
-    if (end - start).days >= MAX_DAYS:
-        start = end - datetime.timedelta(days=MAX_DAYS - 1)
     return start, end
 
 

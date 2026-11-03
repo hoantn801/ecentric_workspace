@@ -118,12 +118,11 @@ def decide_level(mode, minimum_approvals, statuses, groups=None):
         if approved >= 1:
             return ("approved", True)   # skip remaining pending
     elif mode == "All Required":
-        # Dong "Skipped" KHONG con nghia vu (role_pool.tidy_open_rows go nguoi mat role /
-        # co ghe rieng o cap sau, giu lai it nhat mot nguoi Pending). Tinh no vao mau so thi
-        # approved khong bao gio bang total: ca cap "All Required" ket vinh vien du moi nguoi
-        # con lai da duyet.
-        live = total - sum(1 for s in statuses if s == "Skipped")
-        if live and approved == live:
+        # Dong Skipped = nguoi da bi RUT khoi cap (role_pool: mat role / co ghe rieng o cap
+        # sau) - ho khong con no phieu. Dem ca ho vao tong thi cap khong bao gio dong (03/11).
+        # role_pool luon giu lai it nhat mot nguoi, va "toan Skipped" van la pending.
+        con_lai = [s for s in statuses if s != "Skipped"]
+        if con_lai and approved == len(con_lai):
             return ("approved", False)
     elif mode == "Minimum Count":
         if approved >= (minimum_approvals or 0) and (minimum_approvals or 0) > 0:
@@ -345,6 +344,12 @@ def log_action(request_name, action, actor, level_no=None, level_name=None, comm
         "action": action, "comment": comment, "action_time": now_datetime(),
         "previous_status": previous_status, "new_status": new_status, "related_user": related_user,
     }).insert(ignore_permissions=True)
+    if action == "Restarted":
+        # So lan chay (`_sla_attempt`) suy tu CHINH nhat ky nay va duoc nho trong
+        # frappe.local. Vua ghi mot "Restarted" thi so da doi: bo ban nho, neu khong
+        # `_activate_level` ngay sau trong cung request mo nghia vu SLA cua vong MOI bang
+        # so lan CU (03/11/2026, test_engine_skipped_and_sla_attempt.py).
+        (getattr(frappe.local, "_ec_sla_attempt", None) or {}).pop(request_name, None)
     if action in _DECISION_ACTIONS:
         _notify_decision_observers(request_name, getattr(row, "name", None), action)
 
@@ -927,6 +932,61 @@ def _guard_open(req):
         frappe.throw(_("Request is {0}; no further action is allowed.").format(req.approval_status))
 
 
+def _lock_and_read(req):
+    """Khoa hang EC Approval Request VA doc trang thai bang CHINH lenh khoa (03/11/2026).
+
+    Ghi de `approval_status` / `current_level` / `information_requested_from_level` cua
+    `req` bang ban DA COMMIT moi nhat, roi tra `req`.
+
+    VI SAO KHONG "khoa roi doc lai bang lenh thuong" nhu ban va BOT D (31/08): duoi
+    REPEATABLE READ cua MariaDB, lenh doc THUONG tra ve anh chup lap o lan doc DAU cua giao
+    dich - tuc TRUOC khi cho khoa. Doc lai nhu vay cho dung trang thai cu ma ban va muon
+    loai bo: B dung cho khoa trong khi A Tu choi / Huy / dong cap, roi B van thay "Pending".
+    Chi LOCKING READ moi luon tra ban moi nhat da commit - cung ket luan voi
+    `platform/esign/events.current_status` (08/09). Test: test_engine_locking_read_rr.py.
+    """
+    row = frappe.db.get_value(
+        "EC Approval Request", req.name,
+        ["approval_status", "current_level", "information_requested_from_level"],
+        as_dict=True, for_update=True) or {}
+    for k in ("approval_status", "current_level", "information_requested_from_level"):
+        if k in row:
+            setattr(req, k, row.get(k))
+    return req
+
+
+def _locked_rows(filters, fields=None, pluck=None):
+    """Doc dong nguoi duyet cua phieu DANG KHOA bang locking read (xem `_lock_and_read`).
+
+    Moi ham goi day deu da giu khoa hang EC Approval Request, nen khong co tranh chap khoa
+    moi - chi la doc ban moi nhat thay vi anh chup cu. Thieu cai nay thi o cap All Required /
+    Each Group hai nguoi bam cung luc deu thay nguoi kia "Pending" -> cap khong bao gio dong.
+
+    KHOA THEO KHOA CHINH, tung dong - khong `SELECT ... WHERE approval_request=.. FOR UPDATE`:
+    bang nguoi duyet khong co index tren (approval_request, level_no), nen mot locking read
+    theo bo loc se quet va KHOA CA BANG duoi REPEATABLE READ (moi lan duyet cua moi phieu
+    khac phai cho, de deadlock). Tap dong cua mot phieu CO DINH tu luc nop (build_snapshot),
+    nen lay danh sach ten bang doc thuong la dung; chi TRANG THAI moi can doc khoa.
+    Cot bat bien (approval_request, level_no, approver) loc o SQL; cot doi duoc (status...)
+    loc lai tren ban vua doc khoa."""
+    fixed = ("approval_request", "level_no", "approver")
+    names = frappe.get_all("EC Approval Request Approver",
+                           filters={k: v for k, v in filters.items() if k in fixed},
+                           pluck="name") or []
+    live = {k: v for k, v in filters.items() if k not in fixed}
+    cols = list(dict.fromkeys(["name"] + ([pluck] if pluck else list(fields or []))
+                              + list(live)))
+    rows = []
+    for n in names:
+        r = frappe.db.get_value("EC Approval Request Approver", n, cols,
+                                as_dict=True, for_update=True)
+        if r and all(r.get(k) == v for k, v in live.items()):
+            rows.append(r)
+    if pluck:
+        return [r.get(pluck) for r in rows]
+    return rows
+
+
 def _no_approver_message(lvl, requester):
     """Actionable fail-closed message. The old text ("No approver resolved for level N") told
     the user nothing they could act on; in practice the cause is almost always one of two data
@@ -1403,10 +1463,8 @@ def _actor_pending_row(req_name, level_no, actor):
     Dong kieu "Role: X" chi con hieu luc khi actor VAN giu role X (25/09: anh Lam bam duyet
     cap Finance cua EC-CTR-2026-00023 sau khi da bi go EC Finance, vi dong duoc chot luc
     nop). Moi duong bam - duyet, tu choi, yeu cau bo sung - va nut tren UI deu qua day."""
-    rows = frappe.get_all("EC Approval Request Approver",
-                          filters={"approval_request": req_name, "level_no": level_no,
-                                   "approver": actor, "status": "Pending"},
-                          fields=["name", "source"])
+    rows = _locked_rows({"approval_request": req_name, "level_no": level_no,
+                         "approver": actor, "status": "Pending"}, fields=["name", "source"])
     if not rows:
         return None
     roles = frappe.get_roles(actor)
@@ -1472,15 +1530,14 @@ def approve(request_name, actor=None, comment=None):
     actor = actor or frappe.session.user
     req = frappe.get_doc("EC Approval Request", request_name)
     _guard_open(req)
-    frappe.db.get_value("EC Approval Request", request_name, "name", for_update=True)  # row lock
     # DOC LAI sau khi co khoa - guard truoc khoa chi la mang chan bui.
     #
     # Cua so that (BOT D tai hien duoc, 31/08): A bam Tu choi, B bam Duyet cung giay. B doc
     # trang thai Pending, dung cho khoa hang; A commit Rejected va nha khoa; B di tiep voi
     # ban doc CU va ghi mot dong "Approved" SAU dong "Rejected" tren cung phieu - ho so tu
     # mau thuan. Trang thai doc truoc khoa la tin don; sau khoa moi la su that.
-    req.approval_status = frappe.db.get_value("EC Approval Request", request_name,
-                                              "approval_status")
+    # Doc lai bang LOCKING READ (03/11) - doc thuong duoi RR van la tin don, xem _lock_and_read.
+    _lock_and_read(req)
     _guard_open(req)
     # "Information Required" khong terminal nen _guard_open cho qua - nhung phieu dang bi
     # tra lai thi nguoi duyet KHONG duoc dong cap. Truoc day duyet-va-ky (verify_and_complete)
@@ -1525,10 +1582,8 @@ def reject(request_name, actor=None, comment=None):
         frappe.throw(_("A rejection reason is mandatory."))
     req = frappe.get_doc("EC Approval Request", request_name)
     _guard_open(req)
-    frappe.db.get_value("EC Approval Request", request_name, "name", for_update=True)
     # Cung ly do voi approve(): trang thai doc truoc khoa co the da cu.
-    req.approval_status = frappe.db.get_value("EC Approval Request", request_name,
-                                              "approval_status")
+    _lock_and_read(req)
     _guard_open(req)
     # Cung ly do voi approve(): phieu dang cho nguoi de nghi bo sung thi cap duyet
     # khong duoc dong cap. `_guard_open` cho "Information Required" di qua vi no khong
@@ -1579,12 +1634,10 @@ def request_information(request_name, actor=None, comment=None):
         frappe.throw(_("A comment is mandatory when requesting information."))
     req = frappe.get_doc("EC Approval Request", request_name)
     _guard_open(req)
-    frappe.db.get_value("EC Approval Request", request_name, "name", for_update=True)  # row lock
     # Cung lop loi da va o approve/reject/cancel (BOT vong 2): doc lai trang thai SAU khoa.
     # request_information truoc day bi bo sot - dua voi reject/cancel/approve-ve-terminal thi
     # no ghi de, hoi sinh mot phieu da Rejected/Cancelled/Approved ve "Information Required".
-    req.approval_status = frappe.db.get_value("EC Approval Request", request_name,
-                                              "approval_status")
+    _lock_and_read(req)
     _guard_open(req)
     # Cung ly do voi approve(): phieu dang cho nguoi de nghi bo sung thi cap duyet
     # khong duoc dong cap. `_guard_open` cho "Information Required" di qua vi no khong
@@ -1636,12 +1689,13 @@ def _esign_on_reopen(request_name):
 
 
 def resubmit(request_name, actor=None, restart=False):
-    # Khoa hang TRUOC khi doc chung tu - ham cuoi cung trong nhom quyet dinh con thieu
+    # Khoa hang TRUOC khi tin trang thai - ham cuoi cung trong nhom quyet dinh con thieu
     # khoa (approve/reject/cancel vao vong 2, request_information vong 3). Doc truoc khi
     # khoa thi trang thai doc duoc chi la tin don: mot phieu vua bi Tu choi/Huy o request
-    # ben canh van duoc gui lai va song day.
-    frappe.db.get_value("EC Approval Request", request_name, "name", for_update=True)  # row lock
+    # ben canh van duoc gui lai va song day. Trang thai lay tu LOCKING READ (_lock_and_read):
+    # get_doc sau khoa duoi REPEATABLE READ van la anh chup cu (03/11).
     req = frappe.get_doc("EC Approval Request", request_name)
+    _lock_and_read(req)
     if req.approval_status not in ("Information Required",) and not restart:
         frappe.throw(_("Only an Information Required request can be resubmitted."))
     # Cua `restart` KHONG phai mot cong trang thai: moi service form truyen
@@ -1711,9 +1765,7 @@ def cancel(request_name, actor=None, reason=None):
     _guard_open(req)
     # cancel() truoc day KHONG khoa gi: mot phieu vua Approved xong van bi ghi de thanh
     # Cancelled neu hai request cham nhau (BOT D, 31/08). Khoa roi doc lai nhu approve().
-    frappe.db.get_value("EC Approval Request", request_name, "name", for_update=True)
-    req.approval_status = frappe.db.get_value("EC Approval Request", request_name,
-                                              "approval_status")
+    _lock_and_read(req)
     _guard_open(req)
     frappe.db.set_value("EC Approval Request", request_name,
                         {"approval_status": "Cancelled", "completed_at": now_datetime()})
@@ -1732,25 +1784,22 @@ def _evaluate(req, level_no, actor=None):
     rl = _rl_for(req.name, level_no)
     if rl.approval_mode == EACH_GROUP:
         _settle_groups(req, level_no)
-        rows = frappe.get_all("EC Approval Request Approver",
-                              filters={"approval_request": req.name, "level_no": level_no},
-                              fields=["status", "participant_group"])
+        rows = _locked_rows({"approval_request": req.name, "level_no": level_no},
+                            fields=["status", "participant_group"])
         decision, skip_remaining = decide_level(
             rl.approval_mode, rl.minimum_approvals, [r.status for r in rows],
             [r.participant_group for r in rows])
     else:
-        statuses = frappe.get_all("EC Approval Request Approver",
-                                  filters={"approval_request": req.name, "level_no": level_no},
-                                  pluck="status")
+        statuses = _locked_rows({"approval_request": req.name, "level_no": level_no},
+                                pluck="status")
         decision, skip_remaining = decide_level(rl.approval_mode, rl.minimum_approvals, statuses)
     if decision == "rejected":
         return  # reject() already handled the terminal transition
     if decision != "approved":
         return
     if skip_remaining:
-        for ap in frappe.get_all("EC Approval Request Approver",
-                                 filters={"approval_request": req.name, "level_no": level_no, "status": "Pending"},
-                                 fields=["name", "approver"]):
+        for ap in _locked_rows({"approval_request": req.name, "level_no": level_no,
+                                "status": "Pending"}, fields=["name", "approver"]):
             frappe.db.set_value("EC Approval Request Approver", ap.name,
                                 {"status": "Skipped", "decided_at": now_datetime()})
             log_action(req.name, "Skipped", "Administrator", level_no,
@@ -1788,9 +1837,8 @@ def _settle_groups(req, level_no):
       chua xong khi con nhom khac, nen neu doi toi luc ca cap xong moi dong thi viec da lam
       van nam trong hop "Can xu ly" cua ho may ngay.
     Ai con dai dien mot nhom CHUA xong thi khong dung toi - ho van con viec."""
-    rows = frappe.get_all("EC Approval Request Approver",
-                          filters={"approval_request": req.name, "level_no": level_no},
-                          fields=["name", "status", "approver", "participant_group"])
+    rows = _locked_rows({"approval_request": req.name, "level_no": level_no},
+                        fields=["name", "status", "approver", "participant_group"])
     xong = {r.participant_group for r in rows if r.status == "Approved"}
     bo = [r for r in rows if r.status == "Pending" and r.participant_group in xong]
     for r in bo:
@@ -1887,29 +1935,22 @@ def admin_override_current_level(request_name, actor=None, reason=None):
     if not (reason or "").strip():
         frappe.throw(_("A reason is mandatory for an admin override."))
     req = frappe.get_doc("EC Approval Request", request_name)
+    # Kiem SAU khoa, bang locking read (03/11). Truoc day ca ba dieu kien (trang thai, cap
+    # hien tai, trang thai cap) deu doc TRUOC khoa hoac bang lenh thuong: nguoi de nghi Huy /
+    # nguoi duyet Yeu cau bo sung dung luc quan tri bam "Duyet thay" thi phieu Cancelled bi
+    # hoi sinh thanh Approved (kem handler fulfillment), hoac lenh tra lai bi de len -
+    # vi request_information khong doi level_status, chot "cap con In Progress" khong bat duoc.
+    _lock_and_read(req)
     _guard_open(req)
     if req.approval_status != "Pending":
         frappe.throw(_("Admin override is only allowed while the request is pending approval."))
     level_no = req.current_level
     if not level_no:
         frappe.throw(_("There is no current approval level to override."))
-    frappe.db.get_value("EC Approval Request", request_name, "name", for_update=True)   # row lock
-    # DOC LAI sau khoa - cung lop loi da va o approve/reject/cancel/request_information.
-    # Trang thai cap (level_status) KHONG doi khi phieu bi Huy hoac bi "Yeu cau bo sung":
-    # cancel() va request_information() chi ghi approval_status. Nen chot "cap con In
-    # Progress" ben duoi KHONG bat duoc hai ca do: SM bam duyet thay dung luc nguoi de nghi
-    # bam Huy (hoac nguoi duyet tra lai) thi lenh ep duyet di tiep, kich hoat cap sau / goi
-    # complete_approval tren mot phieu da Cancelled -> phieu Cancelled bi ghi de thanh
-    # Approved, hoac phieu dang cho bo sung bi dong cap ma nguoi de nghi khong hay.
-    req.approval_status = frappe.db.get_value("EC Approval Request", request_name,
-                                              "approval_status")
-    _guard_open(req)
-    if req.approval_status != "Pending":
-        frappe.throw(_("Admin override is only allowed while the request is pending approval."))
     rl = _rl_for(request_name, level_no)
-    if not rl or rl.level_status != "In Progress":
+    if not rl or frappe.db.get_value("EC Approval Request Level", rl.name, "level_status",
+                                     for_update=True) != "In Progress":
         frappe.throw(_("The current level is not pending; please refresh."))
-    frappe.db.get_value("EC Approval Request Level", rl.name, "name", for_update=True)
     # [esign S2A] Admin override is NOT exempt: a signature-required level cannot be
     # force-approved by any role (no break-glass in S2A - user directive 2026-07-11).
     _signature_guard(req, level_no, actor)
