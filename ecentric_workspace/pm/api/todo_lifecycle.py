@@ -29,6 +29,13 @@ def pm_task_close_todos_on_terminal(doc, method=None):
     if before is not None and pmperm.is_task_terminal(before):
         return  # already terminal before this save -> not a transition
     close_open_task_todos(doc.name)
+    # 04/11/2026: generic save paths (Desk, apply_workflow) also close open "Cần đồng ý" requests
+    # (task_flow.write_state does the same for the PM API). Lazy import keeps this module light.
+    try:
+        from ecentric_workspace.pm.api import assignment as pmasg
+        pmasg.close_open_requests_on_terminal(doc.name)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "PM close requests on terminal " + str(doc.name))
 
 
 def close_open_task_todos(task_name):
