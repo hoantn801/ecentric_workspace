@@ -616,7 +616,7 @@ def gantt_all(project=None, assignee=None, status=None, priority=None, overdue=N
 # --------------------------------------------------------------------------
 # WRITE (PM1-T06) - permission validated in service layer; DocPerm + audit apply
 # --------------------------------------------------------------------------
-def _expand_ancestor_dates(parent_task, child_start, child_end, user):
+def _expand_ancestor_dates(parent_task, child_start, child_end, user, authority=None):
     """Widen the WHOLE ancestor chain (root -> direct parent) so it covers a child's
     date range. ERPNext validates a task's exp_end_date <= its parent's exp_end_date,
     so a nested subtask whose dates exceed an ancestor would be rejected. We expand the
@@ -655,11 +655,18 @@ def _expand_ancestor_dates(parent_task, child_start, child_end, user):
     if not chain:
         return
 
-    # 2. Permission pre-flight on every ancestor (same gate as other writes).
+    # 2. Permission pre-flight, ONLY on ancestors that actually have to widen (04/11/2026:
+    #    a split-part recipient who cannot open the parent got "Not permitted to adjust the
+    #    date range of parent task" on Nhận việc even though nothing needed to change).
+    #    `authority` = whose permission backs the widening (acceptance: the requester who
+    #    proposed the dates); default = the caller.
+    who = authority or user
     for anc in chain:
-        if not pmperm.can_view_task(anc.as_dict(), user):
+        if not _needs_widen(anc.get("exp_start_date"), anc.get("exp_end_date"), cs, ce):
+            continue
+        if not pmperm.can_view_task(anc.as_dict(), who):
             frappe.throw(
-                _("Not permitted to adjust the date range of parent task {0}.").format(anc.name),
+                _("Hạn mới vượt hạn của việc cha {0}, cần người có quyền với việc cha nới hạn trước.").format(anc.name),
                 frappe.PermissionError,
             )
 
@@ -681,7 +688,15 @@ def _expand_ancestor_dates(parent_task, child_start, child_end, user):
             anc.save()  # normal validated save -> audit/history intact
 
 
-def _expand_project_dates(project, child_start, child_end, user):
+def _needs_widen(cur_start, cur_end, cs, ce):
+    """True when [cur_start, cur_end] does not already cover the child's [cs, ce] (dates)."""
+    gd = frappe.utils.getdate
+    if cs is not None and (not cur_start or cs < gd(cur_start)):
+        return True
+    return ce is not None and (not cur_end or ce > gd(cur_end))
+
+
+def _expand_project_dates(project, child_start, child_end, user, authority=None):
     """Widen the Project's expected date range so it covers a task/subtask's dates.
     ERPNext validates Task.exp_end_date <= Project.expected_end_date, so a task whose
     dates exceed the project would be rejected -- and so would any ancestor task save.
@@ -697,9 +712,11 @@ def _expand_project_dates(project, child_start, child_end, user):
         proj = frappe.get_doc("Project", project)
     except frappe.DoesNotExistError:
         return  # missing project link -> stop gracefully
-    if not pmperm.can_open_project(project, user):
+    if not _needs_widen(proj.get("expected_start_date"), proj.get("expected_end_date"), cs, ce):
+        return  # already covers the child -> no write, so no permission needed
+    if not pmperm.can_open_project(project, authority or user):
         frappe.throw(
-            _("Not permitted to adjust the date range of project {0}.").format(project),
+            _("Hạn mới vượt hạn của dự án {0}, cần người có quyền với dự án nới hạn trước.").format(project),
             frappe.PermissionError,
         )
     changed = False
