@@ -98,7 +98,10 @@ def _needs_reply(user, pnames_cache):
     rows = [r for r in rows if (r.get("kind") or tflow.KIND_ASSIGNMENT) != tflow.KIND_DEADLINE]
     tasks = {t["name"]: t for t in frappe.get_all(
         "Task", filters={"name": ["in", [r["task"] for r in rows] or [""]]},
-        fields=["name", "subject", "project"], limit_page_length=0)}
+        fields=["name", "subject", "project", "workflow_state", "status"], limit_page_length=0)}
+    # 04/11/2026: a request whose task is already Done/Cancelled needs no answer (the state
+    # write closes it; this keeps old/racing rows out of "Cần bạn trả lời" and the badge).
+    rows = [r for r in rows if not (r["task"] in tasks and pmperm.is_task_terminal(tasks[r["task"]]))]
     pnames_cache.update(_project_names(tasks.values()))
     names = tflow.full_names([r.get("requested_by") for r in rows])
     out = []
