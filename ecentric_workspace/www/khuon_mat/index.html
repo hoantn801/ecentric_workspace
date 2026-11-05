@@ -1,0 +1,203 @@
+{#- /khuon-mat - gui anh khuon mat cho may cham cong Hikvision (ec-face-photo-v1, 05/11/2026). -#}
+{% extends base_template_path %}
+{% block title %}Ảnh khuôn mặt · eCentric{% endblock %}
+{% block navbar %}{% endblock %}
+{% block footer %}{% endblock %}
+{% block style %}{{ super() }}
+<style>
+.km-app{--navy:#2C3DA6;--navy50:#eef0fb;--bg:#f7f8fb;--line:#e5e7eb;--g500:#6b7280;--g700:#374151;--g900:#111827;--green:#047857;--green50:#ecfdf5;--red:#b91c1c;--red50:#fef2f2;--amber:#8a5a00;--amber50:#fff8e1;
+  display:grid;grid-template-columns:248px minmax(0,1fr);min-height:100vh;flex:0 0 auto;background:var(--bg);color:var(--g700);
+  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:14px;line-height:1.5;color-scheme:light}
+.km-app *,.km-app *::before,.km-app *::after{box-sizing:border-box}
+.km-app [hidden]{display:none !important}
+.km-main{min-width:0;max-width:100%;display:flex;flex-direction:column}
+.km-page{padding:22px 24px 48px;width:100%;max-width:880px;margin-inline:auto;display:grid;gap:16px}
+.km-h1{margin:0;font-size:22px;font-weight:700;color:var(--g900)}
+.km-sub{margin:4px 0 0;color:var(--g500)}
+.km-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px}
+.km-h2{margin:0 0 10px;font-size:15px;font-weight:700;color:var(--g900)}
+.km-tips{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.km-tips li{background:var(--navy50);border-radius:8px;padding:8px 10px}
+.km-tips b{color:var(--g900)}
+.km-status{display:flex;gap:14px;align-items:center}
+.km-thumb{width:96px;height:96px;border-radius:12px;object-fit:cover;background:#eef0f4;flex:none}
+.km-pill{display:inline-block;border-radius:999px;padding:2px 10px;font-size:12.5px;font-weight:600}
+.km-ok{background:var(--green50);color:var(--green)} .km-no{background:var(--amber50);color:var(--amber)}
+.km-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.km-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--g900);font:inherit;font-weight:600;cursor:pointer;text-decoration:none}
+.km-btn-pri{background:var(--navy);border-color:var(--navy);color:#fff}
+.km-btn[disabled]{opacity:.5;cursor:not-allowed}
+.km-btn:focus-visible,.km-chk input:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
+.km-chk{display:flex;gap:10px;align-items:flex-start;margin:12px 0;cursor:pointer}
+.km-chk input{width:20px;height:20px;margin-top:2px;flex:none}
+.km-prev{display:block;max-width:260px;width:100%;border-radius:12px;margin-top:12px;background:#eef0f4}
+.km-msg{margin-top:10px;font-weight:600} .km-msg.err{color:var(--red)} .km-msg.ok{color:var(--green)}
+.km-bar{height:10px;border-radius:999px;background:#eef0f4;overflow:hidden;margin:6px 0 12px}
+.km-bar i{display:block;height:100%;background:var(--navy)}
+.km-tbl{width:100%;border-collapse:collapse;font-size:13px}
+.km-tbl th,.km-tbl td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+.km-tbl th{color:var(--g500);font-weight:600}
+.km-tbl img{width:36px;height:36px;border-radius:8px;object-fit:cover}
+.km-scroll{overflow-x:auto}
+.km-help{color:var(--g500);font-size:12.5px}
+@media (max-width:900px){.km-app{grid-template-columns:minmax(0,1fr);overflow-x:hidden}.km-app .ec-shell-mount{display:none}.km-page{padding:16px 16px 40px}.km-tips{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block content %}
+<div class="km-app">
+  {{ km_shell_mount }}
+  <main class="km-main">
+    <div class="ec-shell-topbar" data-ec-shell-topbar="1">{{ km_topbar }}</div>
+    <div class="km-page">
+      <header>
+        <h1 class="km-h1">Ảnh khuôn mặt cho máy chấm công</h1>
+        <p class="km-sub">Văn phòng dùng máy nhận diện khuôn mặt để mở cửa và chấm công. Gửi 1 ảnh chính diện, mất khoảng 1 phút.</p>
+      </header>
+
+      {% if not km.employee %}
+      <section class="km-card"><p>Không tìm thấy hồ sơ nhân viên đang làm việc của tài khoản này. Liên hệ Nhân sự.</p></section>
+      {% else %}
+      <section class="km-card" aria-labelledby="km-st">
+        <h2 class="km-h2" id="km-st">Ảnh của bạn</h2>
+        <div class="km-status">
+          <img class="km-thumb" id="km-thumb" alt="Ảnh khuôn mặt đã gửi" {% if km.photo_url %}src="{{ km.photo_url|e }}"{% else %}hidden{% endif %}>
+          <div>
+            <div id="km-state">{% if km.has_photo %}<span class="km-pill km-ok">Đã gửi</span> lúc {{ km.uploaded_at|e }}{% else %}<span class="km-pill km-no">Chưa gửi</span>{% endif %}</div>
+            <div class="km-help">{{ km.employee_name|e }} · mã trên máy: <b>{{ km.device_no|e }}</b></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="km-card" aria-labelledby="km-how">
+        <h2 class="km-h2" id="km-how">Chụp sao cho máy nhận ra bạn</h2>
+        <ul class="km-tips">
+          <li><b>Nhìn thẳng</b> vào camera, mặt chiếm khoảng nửa khung hình.</li>
+          <li><b>Đủ sáng</b>: đứng quay mặt về phía cửa sổ / đèn, không ngược sáng.</li>
+          <li><b>Không</b> khẩu trang, kính râm, mũ; tóc không che mắt.</li>
+          <li><b>Nền trơn</b>, chỉ một mình bạn trong ảnh. Không dùng ảnh đã chỉnh / filter.</li>
+        </ul>
+        <label class="km-chk"><input type="checkbox" id="km-consent"> <span>{{ km.consent_text|e }}</span></label>
+        <div class="km-row">
+          <label class="km-btn km-btn-pri" id="km-cam-lbl">Chụp ảnh<input type="file" id="km-cam" accept="image/*" capture="user" hidden></label>
+          <label class="km-btn" id="km-pick-lbl">Chọn ảnh có sẵn<input type="file" id="km-pick" accept="image/*" hidden></label>
+        </div>
+        <img class="km-prev" id="km-prev" alt="Ảnh sắp gửi" hidden>
+        <div class="km-row" style="margin-top:12px">
+          <button type="button" class="km-btn km-btn-pri" id="km-send" disabled>Gửi ảnh</button>
+        </div>
+        <div class="km-msg" id="km-msg" role="status" aria-live="polite"></div>
+      </section>
+      {% endif %}
+
+      {% if km.is_hr %}
+      <section class="km-card" aria-labelledby="km-hr">
+        <h2 class="km-h2" id="km-hr">Tiến độ (Nhân sự)</h2>
+        <div id="km-hr-sum" class="km-help">Đang tải…</div>
+        <div class="km-bar" aria-hidden="true"><i id="km-hr-bar" style="width:0"></i></div>
+        <div class="km-row">
+          <button type="button" class="km-btn" id="km-remind">Nhắc người chưa gửi</button>
+          <a class="km-btn km-btn-pri" href="/api/method/ecentric_workspace.hr.face_photo.api.export_zip">Tải gói cho máy chấm công (.zip)</a>
+          <label class="km-chk" style="margin:0"><input type="checkbox" id="km-only-missing" checked> <span>Chỉ hiện người chưa gửi</span></label>
+        </div>
+        <div class="km-msg" id="km-hr-msg" role="status" aria-live="polite"></div>
+        <div class="km-scroll"><table class="km-tbl"><thead><tr><th>Ảnh</th><th>Nhân viên</th><th>Mã trên máy</th><th>Phòng ban</th><th>Trạng thái</th></tr></thead><tbody id="km-hr-rows"></tbody></table></div>
+        <p class="km-help">Gói .zip gồm thư mục ảnh đặt tên "Mã_Tên.jpg" (≤ 200 KB) + danh sách nhân viên + hướng dẫn nhập iVMS-4200.</p>
+      </section>
+      {% endif %}
+    </div>
+  </main>
+</div>
+{% endblock %}
+{% block script %}{{ super() }}
+<script>
+(function () {
+  'use strict';
+  var API = 'ecentric_workspace.hr.face_photo.api.';
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function errText(e) {
+    if (e && e.csrf) return 'Phiên đăng nhập vừa đổi. Tải lại trang rồi thử lại.';
+    return (e && e.message) || 'Có lỗi, thử lại sau.';
+  }
+  function api(kind, m, a) {
+    if (!window.ecApi) return Promise.reject(new Error('Trang chưa tải xong, thử lại sau giây lát.'));
+    return kind === 'get' ? window.ecApi.get(API + m, a || {}) : window.ecApi.post(API + m, a || {});
+  }
+  function say(el, t, cls) { if (!el) return; el.textContent = t || ''; el.className = 'km-msg' + (cls ? ' ' + cls : ''); }
+
+  // ---------------- nhan vien ----------------
+  var dataUrl = '', busy = false, msg = $('km-msg'), send = $('km-send');
+  function refreshSend() { if (send) send.disabled = busy || !dataUrl || !($('km-consent') && $('km-consent').checked); }
+  function shrink(file) {
+    return new Promise(function (ok, bad) {
+      var url = URL.createObjectURL(file), img = new Image();
+      img.onload = function () {
+        var max = 1280, w = img.naturalWidth, h = img.naturalHeight, k = Math.min(1, max / Math.max(w, h));
+        if (Math.min(w, h) < 240) { URL.revokeObjectURL(url); return bad(new Error('Ảnh quá nhỏ, hãy chụp rõ mặt hơn.')); }
+        var c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url); ok(c.toDataURL('image/jpeg', 0.9));
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); bad(new Error('Không đọc được ảnh này. Chụp lại hoặc chọn ảnh JPG/PNG.')); };
+      img.src = url;
+    });
+  }
+  function onPick(ev) {
+    var f = ev.target.files && ev.target.files[0]; ev.target.value = '';
+    if (!f) return;
+    say(msg, 'Đang chuẩn bị ảnh…');
+    shrink(f).then(function (d) {
+      dataUrl = d; var p = $('km-prev'); p.src = d; p.hidden = false;
+      say(msg, $('km-consent').checked ? 'Ảnh đã sẵn sàng. Bấm "Gửi ảnh".' : 'Tick ô đồng ý rồi bấm "Gửi ảnh".');
+      refreshSend();
+    }, function (e) { dataUrl = ''; refreshSend(); say(msg, errText(e), 'err'); });
+  }
+  if ($('km-cam')) $('km-cam').addEventListener('change', onPick);
+  if ($('km-pick')) $('km-pick').addEventListener('change', onPick);
+  if ($('km-consent')) $('km-consent').addEventListener('change', refreshSend);
+  if (send) send.addEventListener('click', function () {
+    if (busy || !dataUrl) return;
+    busy = true; refreshSend(); send.textContent = 'Đang gửi…'; say(msg, '');
+    api('post', 'upload', { image: dataUrl, consent: 1 }).then(function (r) {
+      say(msg, 'Đã gửi ảnh. Cảm ơn bạn!', 'ok');
+      $('km-state').innerHTML = '<span class="km-pill km-ok">Đã gửi</span> lúc ' + esc(r.uploaded_at);
+      var t = $('km-thumb'); t.src = dataUrl; t.hidden = false;
+      dataUrl = ''; $('km-prev').hidden = true; loadHr();
+    }, function (e) { say(msg, errText(e), 'err'); }).then(function () {
+      busy = false; send.textContent = 'Gửi ảnh'; refreshSend();
+    });
+  });
+
+  // ---------------- nhan su ----------------
+  var hrRows = [];
+  function drawHr() {
+    var tb = $('km-hr-rows'); if (!tb) return;
+    var only = $('km-only-missing') && $('km-only-missing').checked;
+    var list = hrRows.filter(function (r) { return !only || !r.has_photo; });
+    tb.innerHTML = list.length ? list.map(function (r) {
+      return '<tr><td>' + (r.photo_url ? '<img loading="lazy" alt="" src="' + esc(r.photo_url) + '">' : '') + '</td><td>' + esc(r.employee_name)
+        + (r.has_user ? '' : ' <span class="km-help">(chưa có tài khoản)</span>') + '</td><td>' + esc(r.device_no) + '</td><td>' + esc(r.department)
+        + '</td><td>' + (r.has_photo ? '<span class="km-pill km-ok">Đã gửi ' + esc(r.uploaded_at.slice(5)) + '</span>' : '<span class="km-pill km-no">Chưa gửi</span>') + '</td></tr>';
+    }).join('') : '<tr><td colspan="5" class="km-help">' + (only ? 'Mọi người đã gửi ảnh.' : 'Chưa có nhân viên.') + '</td></tr>';
+  }
+  function loadHr() {
+    if (!$('km-hr-sum')) return;
+    api('get', 'overview').then(function (r) {
+      hrRows = r.rows || [];
+      $('km-hr-sum').textContent = r.done + '/' + r.total + ' người đã gửi ảnh';
+      $('km-hr-bar').style.width = (r.total ? Math.round(100 * r.done / r.total) : 0) + '%';
+      drawHr();
+    }, function (e) { $('km-hr-sum').textContent = errText(e); });
+  }
+  if ($('km-only-missing')) $('km-only-missing').addEventListener('change', drawHr);
+  if ($('km-remind')) $('km-remind').addEventListener('click', function () {
+    var b = this; if (b.disabled) return;
+    if (!window.confirm('Gửi nhắc (chuông ERP + Teams) cho mọi người chưa gửi ảnh?')) return;
+    b.disabled = true; say($('km-hr-msg'), 'Đang gửi nhắc…');
+    api('post', 'remind').then(function (r) { say($('km-hr-msg'), 'Đã nhắc ' + r.sent + ' người.', 'ok'); },
+      function (e) { say($('km-hr-msg'), errText(e), 'err'); }).then(function () { b.disabled = false; });
+  });
+  loadHr();
+})();
+</script>
+{% endblock %}

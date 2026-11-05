@@ -988,3 +988,9 @@ elif _PMON_HOOK not in _pmon_prev:
 # tieng Viet cho Lich su, thanh tien trinh danh so DUNG so cap (khong tinh "Da gui"), cau loi
 # than thien thay chu ky thuat. Chi hien thi, khong goi API. Xem public/js/ec_approval_ui.bundle.js.
 web_include_js.append("ec_approval_ui.bundle.js")
+
+# 05/11/2026 (Hoan): /khuon-mat - nhan vien gui anh khuon mat cho may cham cong Hikvision (WFH
+# truoc ngay khai truong). HR/CnB tai goi ZIP "Ma_Ten.jpg" cho iVMS-4200. Xem hr/face_photo.
+website_route_rules = list(globals().get("website_route_rules") or []) + [
+    {"from_route": "/khuon-mat", "to_route": "khuon_mat"},
+]
