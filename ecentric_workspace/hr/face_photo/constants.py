@@ -5,6 +5,9 @@ ROUTE = "/khuon-mat"
 HR_ROLES = ("HR Manager", "HR User", "EC CnB", "System Manager")
 
 FILE_PREFIX = "ec_face_"          # File rieng tu gan vao Employee, ten ec_face_<HR-EMP-xxxxx>.jpg
+# v2 (05/11): ket qua AI soi anh nam o duoi ten tep (khong them truong). Khong duoi = chua kiem.
+SUFFIX_AI_OK = "__ai"             # AI kiem dat (da cat cho mat vao giua)
+SUFFIX_REVIEW = "__hrxem"         # AI che nhung nguoi gui xac nhan anh dung -> HR xem lai
 MAX_UPLOAD_BYTES = 12 * 1024 * 1024
 MIN_SIDE = 240                    # anh qua nho -> may khong nhan duoc mat
 MAX_SIDE = 720

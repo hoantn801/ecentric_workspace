@@ -9,8 +9,8 @@ class PhotoError(ValueError):
     """Loi nguoi dung sua duoc (anh hong, qua nho...). Thong diep tieng Viet."""
 
 
-def prepare(raw):
-    """bytes anh bat ky (JPG/PNG/HEIC da doi o trinh duyet) -> (jpeg_bytes, (w, h))."""
+def load(raw):
+    """bytes anh bat ky -> PIL RGB da xoay dung chieu. Loi nguoi dung sua duoc -> PhotoError."""
     from PIL import Image, ImageOps
     if not raw:
         raise PhotoError("Chưa có ảnh.")
@@ -27,6 +27,13 @@ def prepare(raw):
     w, h = img.size
     if min(w, h) < C.MIN_SIDE:
         raise PhotoError("Ảnh quá nhỏ (%dx%d). Cần ảnh rõ mặt, cạnh ngắn ít nhất %d px." % (w, h, C.MIN_SIDE))
+    return img
+
+
+def encode(img):
+    """PIL RGB -> (jpeg_bytes <= TARGET_BYTES, (w, h)), canh dai <= MAX_SIDE."""
+    from PIL import Image
+    w, h = img.size
     scale = min(1.0, float(C.MAX_SIDE) / max(w, h))
     for _ in range(6):
         cur = img if scale >= 1.0 else img.resize((max(1, int(w * scale)), max(1, int(h * scale))),
@@ -38,3 +45,8 @@ def prepare(raw):
                 return buf.getvalue(), cur.size
         scale *= 0.8
     raise PhotoError("Không nén được ảnh xuống dưới 200 KB. Hãy chụp lại.")
+
+
+def prepare(raw):
+    """bytes anh bat ky (JPG/PNG/HEIC da doi o trinh duyet) -> (jpeg_bytes, (w, h))."""
+    return encode(load(raw))

@@ -14,7 +14,7 @@ import zipfile
 import frappe
 
 from ecentric_workspace.hr.face_photo import constants as C
-from ecentric_workspace.hr.face_photo import imaging, naming
+from ecentric_workspace.hr.face_photo import ai_check, imaging, naming
 
 
 class Forbidden(Exception):
@@ -45,10 +45,20 @@ def _photos(employees=None):
         filters["attached_to_name"] = ("in", list(employees))
     out = {}
     for f in frappe.get_all("File", filters=filters,
-                            fields=["name", "attached_to_name", "file_url", "creation"],
+                            fields=["name", "attached_to_name", "file_url", "creation", "file_name"],
                             order_by="creation desc", limit_page_length=0):
         out.setdefault(f.attached_to_name, f)
     return out
+
+
+def check_of(file_name):
+    """Ket qua AI soi anh, doc tu ten tep (khong them truong): ok | review | unchecked."""
+    n = str(file_name or "")
+    if C.SUFFIX_REVIEW in n:
+        return "review"
+    if C.SUFFIX_AI_OK in n:
+        return "ok"
+    return "unchecked"      # AI loi luc gui, hoac anh gui truoc khi co AI soi
 
 
 def status(user):
@@ -60,25 +70,54 @@ def status(user):
             "device_no": naming.device_no(emp.name, emp.attendance_device_id),
             "has_photo": bool(p), "uploaded_at": str(p.creation)[:16] if p else "",
             "photo_url": p.file_url if p else "", "is_hr": is_hr(user),
+            "check": check_of(p.file_name) if p else "",
             "consent_text": C.CONSENT_TEXT}
 
 
-def save(user, raw, consent):
+def _generate(*args, **kwargs):
+    from ecentric_workspace.platform.ai import gateway
+    return gateway.generate(*args, **kwargs)
+
+
+def check_photo(img, force=False, generate=None):
+    """AI soi anh (PIL) -> (anh_da_cat, check, ghi_chu, problems).
+
+    problems khac rong va khong `force` -> nguoi goi phai CHAN, khong luu.
+    """
+    preview, _ = imaging.encode(img)
+    data = ai_check.ask(preview, generate or _generate)
+    if data is None:
+        return img, "unchecked", "AI chưa kiểm được (lỗi / quá chậm)", []
+    problems, box = ai_check.decide(data)
+    if box and not problems and ai_check.face_px(box, img.size[1]) < ai_check.MIN_FACE_PX:
+        problems.append(ai_check.MSG["small"])
+    out = img.crop(ai_check.crop_rect(box, img.size[0], img.size[1], C.MIN_SIDE)) if box else img
+    if problems:
+        return out, "review", "Người gửi xác nhận ảnh đúng dù AI báo: " + " ".join(problems), problems
+    return out, "ok", "AI kiểm: đạt" + ("" if box else " (không cắt)"), []
+
+
+def save(user, raw, consent, force=0, generate=None):
     if not int(consent or 0):
         raise imaging.PhotoError("Bạn cần tick đồng ý trước khi gửi ảnh.")
     emp = my_employee(user)
     if not emp:
         raise Forbidden("Không tìm thấy hồ sơ nhân viên đang làm việc của tài khoản này.")
-    jpg, size = imaging.prepare(raw)
-    f = frappe.get_doc({"doctype": "File", "file_name": "%s%s.jpg" % (C.FILE_PREFIX, emp.name),
+    force = bool(int(force or 0))
+    img, check, note, problems = check_photo(imaging.load(raw), force, generate)
+    if problems and not force:
+        return {"rejected": 1, "problems": problems[:3]}
+    jpg, size = imaging.encode(img)
+    suffix = {"ok": C.SUFFIX_AI_OK, "review": C.SUFFIX_REVIEW}.get(check, "")
+    f = frappe.get_doc({"doctype": "File", "file_name": "%s%s%s.jpg" % (C.FILE_PREFIX, emp.name, suffix),
                         "is_private": 1, "content": jpg, "attached_to_doctype": "Employee",
                         "attached_to_name": emp.name})
     f.flags.ignore_permissions = True
     f.insert(ignore_permissions=True)
     c = frappe.get_doc({"doctype": "Comment", "comment_type": "Info",
                         "reference_doctype": "Employee", "reference_name": emp.name,
-                        "content": "Gửi ảnh khuôn mặt cho máy chấm công (%dx%d, %d KB). Đồng ý: %s"
-                                   % (size[0], size[1], len(jpg) // 1024, C.CONSENT_TEXT)})
+                        "content": "Gửi ảnh khuôn mặt cho máy chấm công (%dx%d, %d KB). %s. Đồng ý: %s"
+                                   % (size[0], size[1], len(jpg) // 1024, note, C.CONSENT_TEXT)})
     c.flags.ignore_permissions = True
     c.insert(ignore_permissions=True)
     return status(user)
@@ -99,7 +138,8 @@ def overview(user):
     rows = [{"employee": e.name, "employee_name": e.employee_name, "department": e.department or "",
              "device_no": naming.device_no(e.name, e.attendance_device_id),
              "has_photo": e.name in ph, "uploaded_at": str(ph[e.name].creation)[:16] if e.name in ph else "",
-             "photo_url": ph[e.name].file_url if e.name in ph else "", "has_user": bool(e.user_id)}
+             "photo_url": ph[e.name].file_url if e.name in ph else "", "has_user": bool(e.user_id),
+             "check": check_of(ph[e.name].file_name) if e.name in ph else ""}
             for e in emps]
     return {"rows": rows, "done": sum(1 for r in rows if r["has_photo"]), "total": len(rows)}
 

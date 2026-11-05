@@ -22,7 +22,7 @@
 .km-status{display:flex;gap:14px;align-items:center}
 .km-thumb{width:96px;height:96px;border-radius:12px;object-fit:cover;background:#eef0f4;flex:none}
 .km-pill{display:inline-block;border-radius:999px;padding:2px 10px;font-size:12.5px;font-weight:600}
-.km-ok{background:var(--green50);color:var(--green)} .km-no{background:var(--amber50);color:var(--amber)}
+.km-ok{background:var(--green50);color:var(--green)} .km-no{background:var(--amber50);color:var(--amber)} .km-bad{background:var(--red50);color:var(--red)}
 .km-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .km-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--g900);font:inherit;font-weight:600;cursor:pointer;text-decoration:none}
 .km-btn-pri{background:var(--navy);border-color:var(--navy);color:#fff}
@@ -31,7 +31,7 @@
 .km-chk{display:flex;gap:10px;align-items:flex-start;margin:12px 0;cursor:pointer}
 .km-chk input{width:20px;height:20px;margin-top:2px;flex:none}
 .km-prev{display:block;max-width:260px;width:100%;border-radius:12px;margin-top:12px;background:#eef0f4}
-.km-msg{margin-top:10px;font-weight:600} .km-msg.err{color:var(--red)} .km-msg.ok{color:var(--green)}
+.km-msg{margin-top:10px;font-weight:600;white-space:pre-line} .km-msg.err{color:var(--red)} .km-msg.ok{color:var(--green)}
 .km-bar{height:10px;border-radius:999px;background:#eef0f4;overflow:hidden;margin:6px 0 12px}
 .km-bar i{display:block;height:100%;background:var(--navy)}
 .km-tbl{width:100%;border-collapse:collapse;font-size:13px}
@@ -93,6 +93,7 @@
         <img class="km-prev" id="km-prev" alt="Ảnh sắp gửi" hidden>
         <div class="km-row" style="margin-top:12px">
           <button type="button" class="km-btn km-btn-pri" id="km-send" disabled>Gửi ảnh</button>
+          <button type="button" class="km-btn" id="km-force" hidden>Ảnh đúng rồi, vẫn gửi để Nhân sự xem lại</button>
         </div>
         <div class="km-msg" id="km-msg" role="status" aria-live="polite"></div>
       </section>
@@ -212,21 +213,39 @@
   if ($('km-cam')) $('km-cam').addEventListener('change', onPick);
   if ($('km-pick')) $('km-pick').addEventListener('change', onPick);
   if ($('km-consent')) $('km-consent').addEventListener('change', refreshSend);
-  if (send) send.addEventListener('click', function () {
-    if (busy || !dataUrl) return;
-    busy = true; refreshSend(); send.textContent = 'Đang gửi…'; say(msg, '');
-    api('post', 'upload', { image: dataUrl, consent: 1 }).then(function (r) {
-      say(msg, 'Đã gửi ảnh. Cảm ơn bạn!', 'ok');
+  // v2: AI soi anh truoc khi luu. Che -> {rejected, problems}, KHONG luu. Bi che tu lan 2 ->
+  // hien nut "van gui" (force=1): luu + danh dau cho HR xem lai.
+  var rejects = 0, force = $('km-force');
+  var DONE = { ok: 'Đã gửi ảnh. AI đã kiểm và căn mặt vào giữa khung. Cảm ơn bạn!',
+    review: 'Đã gửi ảnh. Nhân sự sẽ xem lại ảnh này.',
+    unchecked: 'Đã gửi ảnh. AI chưa kiểm được lúc này, Nhân sự sẽ xem lại.' };
+  function submit(forced) {
+    if (busy || !dataUrl || !$('km-consent').checked) return;
+    busy = true; refreshSend(); if (force) force.disabled = true;
+    send.textContent = 'Đang kiểm tra…'; say(msg, 'AI đang kiểm tra ảnh, khoảng 5–15 giây…');
+    api('post', 'upload', { image: dataUrl, consent: 1, force: forced ? 1 : 0 }).then(function (r) {
+      if (r && r.rejected) {
+        rejects += 1;
+        say(msg, 'Ảnh chưa đạt, chưa gửi:\n• ' + (r.problems || []).join('\n• '), 'err');
+        if (force) force.hidden = rejects < 2;
+        return;
+      }
+      rejects = 0; if (force) force.hidden = true;
+      say(msg, DONE[r.check] || DONE.ok, 'ok');
       $('km-state').innerHTML = '<span class="km-pill km-ok">Đã gửi</span> lúc ' + esc(r.uploaded_at);
-      var t = $('km-thumb'); t.src = dataUrl; t.hidden = false;
+      var t = $('km-thumb'); t.src = r.photo_url ? r.photo_url + (r.photo_url.indexOf('?') < 0 ? '?' : '&') + 't=' + Date.now() : dataUrl; t.hidden = false;
       dataUrl = ''; $('km-prev').hidden = true; loadHr();
     }, function (e) { say(msg, errText(e), 'err'); }).then(function () {
-      busy = false; send.textContent = 'Gửi ảnh'; refreshSend();
+      busy = false; send.textContent = 'Gửi ảnh'; if (force) force.disabled = false; refreshSend();
     });
-  });
+  }
+  if (send) send.addEventListener('click', function () { submit(false); });
+  if (force) force.addEventListener('click', function () { submit(true); });
 
   // ---------------- nhan su ----------------
   var hrRows = [];
+  var CHECK = { ok: '<span class="km-pill km-ok">AI đạt</span>', review: '<span class="km-pill km-bad">Cần xem lại</span>',
+    unchecked: '<span class="km-pill km-no">Chưa kiểm AI</span>' };
   function drawHr() {
     var tb = $('km-hr-rows'); if (!tb) return;
     var only = $('km-only-missing') && $('km-only-missing').checked;
@@ -234,7 +253,7 @@
     tb.innerHTML = list.length ? list.map(function (r) {
       return '<tr><td>' + (r.photo_url ? '<img loading="lazy" alt="" src="' + esc(r.photo_url) + '">' : '') + '</td><td>' + esc(r.employee_name)
         + (r.has_user ? '' : ' <span class="km-help">(chưa có tài khoản)</span>') + '</td><td>' + esc(r.device_no) + '</td><td>' + esc(r.department)
-        + '</td><td>' + (r.has_photo ? '<span class="km-pill km-ok">Đã gửi ' + esc(r.uploaded_at.slice(5)) + '</span>' : '<span class="km-pill km-no">Chưa gửi</span>') + '</td></tr>';
+        + '</td><td>' + (r.has_photo ? '<span class="km-pill km-ok">Đã gửi ' + esc(r.uploaded_at.slice(5)) + '</span> ' + (CHECK[r.check] || '') : '<span class="km-pill km-no">Chưa gửi</span>') + '</td></tr>';
     }).join('') : '<tr><td colspan="5" class="km-help">' + (only ? 'Mọi người đã gửi ảnh.' : 'Chưa có nhân viên.') + '</td></tr>';
   }
   function loadHr() {

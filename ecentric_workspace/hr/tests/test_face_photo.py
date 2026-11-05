@@ -130,5 +130,79 @@ class TestGoiZip(unittest.TestCase):
             svc.build_zip("nv@x")
 
 
+def _ai(**kw):
+    d = {"faces": 1, "top": 550, "left": 400, "bottom": 900, "right": 600, "face_cut_off": False,
+         "frontal": True, "eyes_open": True, "mask": False, "sunglasses": False, "covered": False,
+         "blurry": False, "too_dark": False, "photo_of_screen": False, "heavy_filter": False}
+    d.update(kw)
+    return d
+
+
+class TestAiCheck(unittest.TestCase):
+    """v2: AI soi anh - chan anh hong, cat cho mat vao giua, AI loi van nhan."""
+
+    def test_anh_dat(self):
+        from ecentric_workspace.hr.face_photo import ai_check
+        problems, box = ai_check.decide(_ai())
+        self.assertEqual(problems, [])
+        self.assertEqual(box, (0.55, 0.4, 0.9, 0.6))
+
+    def test_cac_loi_chan(self):
+        from ecentric_workspace.hr.face_photo import ai_check as A
+        self.assertEqual(A.decide(_ai(faces=0))[0], [A.MSG["no_face"]])
+        self.assertIn(A.MSG["many"], A.decide(_ai(faces=2))[0])
+        self.assertIn(A.MSG["face_cut_off"], A.decide(_ai(face_cut_off=True))[0])
+        self.assertIn(A.MSG["frontal"], A.decide(_ai(frontal=False))[0])
+        self.assertIn(A.MSG["sunglasses"], A.decide(_ai(sunglasses=True))[0])
+        # model tra CHUOI: "false" khong duoc thanh True
+        self.assertEqual(A.decide(_ai(mask="false", frontal="true"))[0], [])
+        self.assertIn(A.MSG["mask"], A.decide(_ai(mask="true"))[0])
+
+    def test_khung_vo_ly_thi_khong_cat(self):
+        from ecentric_workspace.hr.face_photo import ai_check
+        self.assertIsNone(ai_check.box_of(_ai(top=500, bottom=505)))
+        self.assertIsNone(ai_check.box_of(_ai(top=0, left=0, bottom=1000, right=1000)))
+        self.assertIsNone(ai_check.box_of(_ai(top="abc")))
+
+    def test_cat_mat_vao_giua_anh_the(self):
+        from ecentric_workspace.hr.face_photo import ai_check
+        # anh 1280x960 (may tinh), mat lech xuong duoi (giong anh Hoan gui 05/11)
+        x0, y0, x1, y1 = ai_check.crop_rect((0.55, 0.4, 0.9, 0.6), 1280, 960, 240)
+        self.assertTrue(0 <= x0 < x1 <= 1280 and 0 <= y0 < y1 <= 960)
+        self.assertAlmostEqual((x1 - x0) / float(y1 - y0), 0.8, places=2)
+        fy0, fy1, fx0, fx1 = 0.55 * 960, 0.9 * 960, 0.4 * 1280, 0.6 * 1280
+        self.assertTrue(y0 <= fy0 and fy1 <= y1 and x0 <= fx0 and fx1 <= x1)   # ca mat nam trong
+        self.assertGreaterEqual(min(x1 - x0, y1 - y0), 240)
+
+    def test_ask_loi_tra_none(self):
+        from ecentric_workspace.hr.face_photo import ai_check
+
+        def boom(*a, **k):
+            raise RuntimeError("x")
+        self.assertIsNone(ai_check.ask(b"j", boom))
+        self.assertIsNone(ai_check.ask(b"j", lambda *a, **k: {"ok": False, "error": "no_key"}))
+        got = ai_check.ask(b"j", lambda *a, **k: {"ok": True, "data": _ai()})
+        self.assertEqual(got["faces"], 1)
+
+    def test_service_chan_cat_va_ai_loi(self):
+        from PIL import Image
+        svc = TestGoiZip._svc(TestGoiZip())
+        img = Image.new("RGB", (1280, 960), (120, 120, 120))
+        ok = lambda *a, **k: {"ok": True, "data": _ai()}
+        out, check, _, problems = svc.check_photo(img, generate=ok)
+        self.assertEqual((check, problems), ("ok", []))
+        self.assertAlmostEqual(out.size[0] / float(out.size[1]), 0.8, places=2)
+        bad = lambda *a, **k: {"ok": True, "data": _ai(face_cut_off=True)}
+        _, check, _, problems = svc.check_photo(img, generate=bad)
+        self.assertEqual(check, "review")
+        self.assertTrue(problems)
+        down = lambda *a, **k: {"ok": False, "error": "ai_disabled"}
+        out, check, _, problems = svc.check_photo(img, generate=down)
+        self.assertEqual((check, problems, out.size), ("unchecked", [], (1280, 960)))
+        self.assertEqual(svc.check_of("ec_face_HR-EMP-00070__ai.jpg"), "ok")
+        self.assertEqual(svc.check_of("ec_face_HR-EMP-00070__hrxem.jpg"), "review")
+        self.assertEqual(svc.check_of("ec_face_HR-EMP-00070.jpg"), "unchecked")
+
+
 if __name__ == "__main__":
     unittest.main()
