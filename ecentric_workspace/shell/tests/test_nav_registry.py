@@ -112,7 +112,8 @@ class TestRoleGatedItems(unittest.TestCase):
                                   "/ec-hr/huong-dan-cai-app",
                                   "/ec-hr/leave",
                                   "/ec-hr/phan-bo-cong-viec",
-                                  "/ec-hr/salary"])
+                                  "/ec-hr/salary",
+                                  "/khuon-mat"])
         # /ec-hr/performance (28/09) co trong registry nhung sidebar_hidden: dung ngu canh
         # Nhan su, KHONG them muc menu.
         self.assertEqual(nav.resolve_context("/ec-hr/performance"), "hr")

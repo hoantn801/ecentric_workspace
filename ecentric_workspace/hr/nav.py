@@ -62,6 +62,20 @@ HR_ITEMS = [
         "no_prerender": True,
     },
     {
+        # 05/11/2026 (Hoan): /khuon-mat - gui anh khuon mat cho may cham cong (hr/face_photo).
+        # Dang ky o day de trang nhan dung ngu canh Nhan su (truoc do roi ve menu Phe duyet).
+        "key": "hr.face_photo",
+        "label": "Ảnh khuôn mặt",
+        "route": "/khuon-mat",
+        "icon": "user",
+        "group": "Nhân sự",
+        "order": 25,
+        "active_patterns": ["/khuon-mat"],
+        "visible_when": "internal",
+        "keywords": ["khuon mat", "anh", "face", "may cham cong", "mo cua", "selfie"],
+        "owner": "hr",
+    },
+    {
         # /ec-hr/performance (28/09, NHIEU_LOP): trang co tu truoc nhung chua dang ky nen
         # shell roi ve ngu canh mac dinh va hien menu Phe duyet. sidebar_hidden: chi de
         # trang nay nhan dung ngu canh Nhan su - KHONG them muc moi vao menu.

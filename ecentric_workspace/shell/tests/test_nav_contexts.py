@@ -63,7 +63,7 @@ class TestRouteToContext(unittest.TestCase):
         # nằm giữa Nghỉ phép và Phiếu lương.
         self.assertEqual([i["label"] for i in hr if i["owner"] == "hr"],
                          ["Chấm công", "Nghỉ phép", "Phân bổ công việc", "Phiếu lương",
-                          "Cài app lên điện thoại"])
+                          "Ảnh khuôn mặt", "Cài app lên điện thoại"])
 
     def test_home_portal_preserves_restored_ia(self):
         def labels_route_of(items, label):
