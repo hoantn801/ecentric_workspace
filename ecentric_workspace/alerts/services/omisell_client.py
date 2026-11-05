@@ -24,12 +24,13 @@ EC Brand Integration Settings; either missing -> clean OmisellAuthError.
 """
 import json
 import time
-from datetime import datetime
 
 import frappe
 import requests
 from frappe import _
 from frappe.utils import add_to_date, get_datetime, now_datetime
+
+from ecentric_workspace.alerts.services.time_windows import DEFAULT_SITE_TZ, wall_time_in_tz
 
 ALLOWED_METHODS = frozenset({"GET"})
 DEFAULT_BASE = "https://api.omisell.com"
@@ -76,6 +77,14 @@ def read_timeout():
         return max(10, min(int(float(v)), 180))
     except Exception:
         return DEFAULT_READ_TIMEOUT
+
+
+def _site_tz():
+    """Mui gio SITE (System Settings), fail-safe Asia/Ho_Chi_Minh - cung cach api_omisell."""
+    try:
+        return frappe.db.get_single_value("System Settings", "time_zone") or DEFAULT_SITE_TZ
+    except Exception:
+        return DEFAULT_SITE_TZ
 
 SENSITIVE_KEYS = ("token", "refresh_token", "api_key", "api_secret",
                   "authorization", "password", "secret")
@@ -195,7 +204,9 @@ class OmisellClient:
         if not token:
             raise OmisellAuthError(_("Token exchange failed for {0}").format(self.bis.name))
         if data.get("expired_time"):
-            expired_at = datetime.fromtimestamp(int(data["expired_time"]))
+            # epoch UTC -> gio SITE (token_expired_at so voi now_datetime()). fromtimestamp() ra
+            # gio server (UTC tren Frappe Cloud) -> han luu som 7 tieng so voi that.
+            expired_at = wall_time_in_tz(int(data["expired_time"]), _site_tz())
             source = reason
         else:
             # Omisell omitted expired_time -> persist a conservative fallback
