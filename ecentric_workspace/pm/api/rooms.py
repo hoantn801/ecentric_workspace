@@ -570,6 +570,63 @@ def _series_instances(master_id, token, lo, hi):
             if not v.get("isCancelled") and _dt(v.get("start"))]
 
 
+_DESC_MAX = 4000
+_DESC_RX = re.compile(r'<div data-erp-desc="1">(.*?)</div><!--/erp-desc-->', re.S)
+# Teams/Outlook append the join block after a long underscore rule ("____") in the body
+_TEAMS_CUT = re.compile(r"_{20,}|Microsoft Teams (meeting|Need help)|Cuộc họp Microsoft Teams", re.I)
+
+
+def _clean_desc(description):
+    d = (description or "").replace("\r\n", "\n").strip()
+    if len(d) > _DESC_MAX:
+        frappe.throw(_("Mô tả tối đa {0} ký tự.").format(_DESC_MAX))
+    return d
+
+
+def _desc_html(text):
+    """Plain text -> our own marked block (so a later edit replaces ONLY this part and keeps the
+    Teams join block that Exchange appends to an online meeting's body)."""
+    import html as _h
+    inner = "<br>".join(_h.escape(line) for line in text.split("\n"))
+    return '<div data-erp-desc="1">%s</div><!--/erp-desc-->' % inner
+
+
+def _html_text(fragment):
+    import html as _h
+    t = re.sub(r"(?i)<br\s*/?>|</p>|</div>|</li>", "\n", fragment or "")
+    t = re.sub(r"<[^>]+>", "", t)
+    t = _h.unescape(t).replace("\xa0", " ")
+    return "\n".join(line.rstrip() for line in t.split("\n")).strip()
+
+
+def _split_desc(body_html):
+    """(description_text, editable, has_marker) from an event body."""
+    content = body_html or ""
+    m = _DESC_RX.search(content)
+    if m:
+        return _html_text(m.group(1)), True, True
+    body = re.search(r"(?is)<body[^>]*>(.*)</body>", content)
+    text = _html_text(body.group(1) if body else content)
+    cut = _TEAMS_CUT.search(text)
+    user = (text[:cut.start()] if cut else text).strip()
+    # written in Teams/Outlook (no marker): show it, but edit it there (we cannot cut it out of
+    # their HTML safely without risking the join block)
+    return user, not user, False
+
+
+def _with_desc(body_html, text):
+    content = body_html or ""
+    block = _desc_html(text) if text else ""
+    if _DESC_RX.search(content):
+        return _DESC_RX.sub(lambda _m: block, content, count=1)
+    if not block:
+        return content
+    mb = re.search(r"(?i)<body[^>]*>", content)
+    if mb:
+        return content[:mb.end()] + block + content[mb.end():]
+    return block + content
+
+
 def _clean_subject(subject):
     subject = (subject or "").strip()
     if not subject:
@@ -585,7 +642,8 @@ def _truthy(v):
 
 # ------------------------------------------------------------------ write
 @frappe.whitelist(methods=["POST"])
-def book(room, start, end, subject, attendees=None, teams=1, repeat="none", repeat_until=None, txn=None):
+def book(room, start, end, subject, attendees=None, teams=1, repeat="none", repeat_until=None, txn=None,
+         description=None):
     """Book a room = create a Teams/Outlook meeting on the CALLER'S calendar inviting the room
     (+ guests, internal or khách ngoài). repeat: none|daily|weekdays|weekly|biweekly|monthly
     until repeat_until (<= 180 days, the room's booking window). Re-checks EVERY occurrence
@@ -605,6 +663,9 @@ def book(room, start, end, subject, attendees=None, teams=1, repeat="none", repe
             "start": {"dateTime": _iso(s), "timeZone": TZ}, "end": {"dateTime": _iso(e), "timeZone": TZ},
             "location": _location(rm), "attendees": _attendee_rows(rm, people),
             "allowNewTimeProposals": True}
+    desc = _clean_desc(description)
+    if desc:
+        body["body"] = {"contentType": "HTML", "content": _desc_html(desc)}
     if rec:
         body["recurrence"] = rec
     if txn and re.match(r"^[A-Za-z0-9-]{8,64}$", str(txn)):
@@ -624,7 +685,8 @@ def book(room, start, end, subject, attendees=None, teams=1, repeat="none", repe
 
 
 @frappe.whitelist(methods=["POST"])
-def update(event_id, room=None, start=None, end=None, subject=None, attendees=None, scope="occurrence"):
+def update(event_id, room=None, start=None, end=None, subject=None, attendees=None, scope="occurrence",
+           description=None):
     """Change MY booking like in Teams: time, room, title, guests. Organiser only.
     scope=occurrence (this meeting / this one occurrence) | series (the whole recurring series:
     room, title, guests, time of day). The new room/time is re-checked against the room first;
@@ -673,6 +735,15 @@ def update(event_id, room=None, start=None, end=None, subject=None, attendees=No
     patch = {}
     if subject is not None:
         patch["subject"] = _clean_subject(subject)
+    if description is not None:
+        desc = _clean_desc(description)
+        cur = _own_event(target["id"], token, "body") or {}
+        cur_html = ((cur.get("body") or {}).get("content")) or ""
+        old_text, editable, _mk = _split_desc(cur_html)
+        if desc != old_text:
+            if not editable:
+                frappe.throw(_("Mô tả này được viết trên Teams/Outlook, hãy sửa ở đó."))
+            patch["body"] = {"contentType": "HTML", "content": _with_desc(cur_html, desc)}
     if (s, e) != (old_s, old_e):
         patch["start"] = {"dateTime": _iso(s), "timeZone": TZ}
         patch["end"] = {"dateTime": _iso(e), "timeZone": TZ}
@@ -713,6 +784,20 @@ def update(event_id, room=None, start=None, end=None, subject=None, attendees=No
     clear_cache()
     return {"ok": True, "event_id": target.get("id"), "scope": scope, "room": rm["name"],
             "label": rm["label"], "start": s, "end": e, "state": "pending" if (room_changed or "start" in patch) else None}
+
+
+@frappe.whitelist()
+def detail(event_id):
+    """Description of MY booking for the edit dialog: {description, editable}. Organiser only."""
+    pmperm.require_pm_access()
+    token = _graph_token(True)
+    ev = _own_event(event_id, token, "body,isOrganizer,isCancelled")
+    if ev is None or ev.get("isCancelled"):
+        frappe.throw(_("Cuộc họp này đã bị huỷ hoặc không còn."))
+    if not ev.get("isOrganizer"):
+        frappe.throw(_("Chỉ người đặt mới xem được chi tiết này."), frappe.PermissionError)
+    text, editable, _mk = _split_desc(((ev.get("body") or {}).get("content")) or "")
+    return {"description": text, "editable": editable}
 
 
 @frappe.whitelist()

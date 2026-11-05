@@ -83,7 +83,7 @@ function content() {
       "<div>" + st("s4", "Đã huỷ") + "<br>Chỉ quản lý huỷ được. Mặc định ẩn.</div></div>" +
     '<h3 id="pmg-rooms">Đặt phòng họp</h3>' + steps([
       "Mở " + b("Phòng họp") + ": mỗi phòng một dòng, khối xám là đã có người đặt, vạch đỏ là bây giờ.",
-      "Bấm vào chỗ trống, ghi tên cuộc họp, mời thêm người nếu cần, bấm " + b("Đặt phòng") + ". Họp định kỳ: chọn " + b("Lặp lại") + " và " + b("Đến ngày") + ".",
+      "Bấm vào chỗ trống, ghi tên cuộc họp (thêm mô tả, agenda nếu cần), mời thêm người, bấm " + b("Đặt phòng") + ". Họp định kỳ: chọn " + b("Lặp lại") + " và " + b("Đến ngày") + ".",
       "Phòng trống tự nhận. Lịch và link Teams vào Outlook / Teams của bạn và người được mời.",
       "Đổi giờ, đổi phòng, tên, người mời: bấm khối của bạn (hoặc " + b("Sửa") + "), sửa rồi " + b("Lưu thay đổi") + ". Kéo khối sang giờ / phòng khác cũng được. Họp lặp lại: chọn <b>Chỉ buổi này</b> hay <b>Cả chuỗi</b>."]) +
     tip("Đặt trên Teams / Outlook cũng hiện ở đây. Huỷ ở " + b("Phòng bạn đã đặt") + " hay trên Teams đều được. <b>Khách ngoài công ty</b>: gõ email rồi Enter, họ nhận lời mời Teams qua email."));

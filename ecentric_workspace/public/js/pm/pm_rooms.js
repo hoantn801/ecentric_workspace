@@ -425,6 +425,7 @@ function render(el, opts) {
       '<header><h2 id="' + idp + 'dt">' + (ed ? "Sửa cuộc họp" : "Đặt phòng họp") + '</h2><button type="button" class="pmrm-x" data-act="close" aria-label="Đóng">×</button></header>' +
       '<div class="pmrm-body">' +
       '<div class="pmrm-fld"><label for="' + idp + 't">Tên cuộc họp</label><input id="' + idp + 't" data-f="subject" maxlength="200" autocomplete="off" required placeholder="Ví dụ: Review kế hoạch tháng 12"></div>' +
+      '<div class="pmrm-fld"><label for="' + idp + 'd">Mô tả (không bắt buộc)</label><textarea id="' + idp + 'd" data-f="desc" rows="3" maxlength="4000" placeholder="Nội dung, agenda, tài liệu cần chuẩn bị…"></textarea><small class="pmrm-hint" data-desc-note hidden></small></div>' +
       '<div class="pmrm-fld"><label for="' + idp + 'r">Phòng</label><select id="' + idp + 'r" data-f="room">' + opt + "</select></div>" +
       '<div class="pmrm-row3"><div class="pmrm-fld"><label for="' + idp + 'd">Ngày</label><input id="' + idp + 'd" type="date" data-f="date" required></div>' +
       '<div class="pmrm-fld"><label for="' + idp + 's">Từ</label><input id="' + idp + 's" type="time" step="1800" data-f="start" required></div>' +
@@ -454,6 +455,15 @@ function render(el, opts) {
       D.who = (Array.isArray(ed.guests) ? ed.guests : []).filter(g => g && g.email).map(g => ({ email: g.email, full_name: g.name || g.full_name || g.email, external: g.external }));
       /* so với bản gốc để chỉ gửi trường đã đổi */
       D.orig = { subject: f("subject").value.trim(), room: f("room").value, date: f("date").value, start: f("start").value, end: f("end").value, who: D.who.map(p => p.email).sort().join(",") };
+      /* mô tả nằm trong nội dung lời mời (body): tải riêng, chưa tải xong thì khoá ô và không gửi */
+      const dEl = f("desc"), note = sc.querySelector("[data-desc-note]");
+      dEl.readOnly = true; dEl.placeholder = "Đang tải mô tả…"; D.orig.desc = null;
+      call("rooms.detail", { event_id: ed.event_id }).then(r => {
+        if (S.dlg !== D) return;
+        dEl.value = (r && r.description) || ""; D.orig.desc = dEl.value.trim(); dEl.placeholder = "Nội dung, agenda, tài liệu cần chuẩn bị…";
+        if (r && r.editable === false) { note.textContent = "Mô tả này được viết trên Teams/Outlook: sửa ở đó."; note.hidden = false; }
+        else dEl.readOnly = false;
+      }, () => { if (S.dlg !== D) return; dEl.placeholder = "Chưa tải được mô tả (sửa trên Teams/Outlook)."; });
       const skip = {};   /* chính cuộc này (+ các buổi khác cùng chuỗi) không tính là trùng */
       S.mine.concat(Object.keys(S.pending).map(k => S.pending[k])).forEach(x => {
         if (x.event_id === ed.event_id || (ed.series_id && x.series_id === ed.series_id)) { if (x.uid) skip["u" + x.uid] = 1; if (x.event_id) skip["e" + x.event_id] = 1; }
@@ -651,6 +661,7 @@ function render(el, opts) {
     const day = f("date").value, args = { room: f("room").value, start: day + " " + f("start").value.slice(0, 5) + ":00", end: day + " " + f("end").value.slice(0, 5) + ":00",
       subject, attendees: JSON.stringify(D.who.map(p => p.email)), teams: f("teams").checked ? 1 : 0,
       txn: D.txn || (D.txn = "erp-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10)) };   /* một id mỗi lần mở hộp: bấm lại sau timeout không tạo 2 cuộc họp */
+    if (f("desc").value.trim()) args.description = f("desc").value.trim();
     if (rp !== "none") { args.repeat = rp; args.repeat_until = f("until").value; }
     busyBtn(D, true);
     let res;
@@ -685,6 +696,7 @@ function render(el, opts) {
     }
     const emails = D.who.map(p => p.email);
     if (emails.slice().sort().join(",") !== o.who) args.attendees = JSON.stringify(emails);
+    if (o.desc != null && !f("desc").readOnly && f("desc").value.trim() !== o.desc) args.description = f("desc").value.trim();
     if (Object.keys(args).length === 1) { closeDlg(); toast("Không có gì thay đổi."); return; }
     if (ed.recurring) args.scope = series ? "series" : "occurrence";
     busyBtn(D, true);
