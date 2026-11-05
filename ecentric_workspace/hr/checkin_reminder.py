@@ -57,7 +57,7 @@ def _run(event_type, title, message):
     rows = frappe.get_all(
         "Employee",
         filters={"status": "Active"},
-        fields=["name", "employee_name", "user_id", "holiday_list", "date_of_joining"],
+        fields=["name", "employee_name", "user_id", "holiday_list", "date_of_joining", "company"],
         limit_page_length=0,
     )
 
@@ -132,7 +132,7 @@ def preview():
     today = frappe.utils.nowdate()
     rows = frappe.get_all(
         "Employee", filters={"status": "Active"},
-        fields=["name", "employee_name", "user_id", "holiday_list", "date_of_joining"],
+        fields=["name", "employee_name", "user_id", "holiday_list", "date_of_joining", "company"],
         limit_page_length=0,
     )
     would, skipped, no_user = [], 0, 0
@@ -149,6 +149,12 @@ def preview():
             "skipped": skipped, "would_notify": len(would), "people": would}
 
 
+def _company_holiday_list(company):
+    if not company:
+        return None
+    return frappe.db.get_value("Company", company, "default_holiday_list")
+
+
 def _should_skip(emp, today):
     """True khi khong duoc phep nhac nguoi nay hom nay."""
     # 0) "Mac dinh du cong" (hr/full_cong.py, 01/10/2026): khong cham cong nen khong nhac.
@@ -163,7 +169,10 @@ def _should_skip(emp, today):
     if doj and str(today) < str(doj):
         return True
     # 2) Ngay nghi theo lich nghi cua chinh ho (khong gia dinh thu 7/CN cho ca cong ty).
-    hl = emp.get("holiday_list")
+    #    Ho so chua gan lich rieng -> lich mac dinh cua cong ty, cung luat voi ec_hr_checkin
+    #    va sla/infrastructure/attendance_source._holidays_for. Thieu buoc nay thi nguoi moi
+    #    (13/75 ho so chua co holiday_list, do 17/09) bi nhac cham cong ca T7/CN va ngay le.
+    hl = emp.get("holiday_list") or _company_holiday_list(emp.get("company"))
     if hl and frappe.db.exists("Holiday", {"parent": hl, "holiday_date": today}):
         return True
     # 3) Da duoc duyet nghi phep hom nay.
