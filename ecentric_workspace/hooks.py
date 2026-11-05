@@ -994,3 +994,9 @@ web_include_js.append("ec_approval_ui.bundle.js")
 website_route_rules = list(globals().get("website_route_rules") or []) + [
     {"from_route": "/khuon-mat", "to_route": "khuon_mat"},
 ]
+
+# 05/11/2026 (Hoan): ERP tu day khuon mat xuong 2 may Hikvision (tang 1, tang 5) qua router van
+# phong, doi chieu moi 10 phut + xoa nguoi da nghi viec. Cau hinh ec_face_devices (Site Config).
+scheduler_events["cron"].setdefault("*/10 * * * *", []).append(
+    "ecentric_workspace.hr.face_photo.push.scheduled"
+)

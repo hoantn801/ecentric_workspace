@@ -70,3 +70,20 @@ def remind():
         return service.remind_missing(_user())
     except service.Forbidden as e:
         frappe.throw(str(e), frappe.PermissionError)
+
+
+@frappe.whitelist(methods=["GET"])
+def devices_status():
+    """HR: tinh trang day khuon mat xuong may + IP cua ERP (de mo tren router)."""
+    if not service.is_hr(_user()):
+        frappe.throw("Chỉ Nhân sự (HR/CnB) xem được.", frappe.PermissionError)
+    from ecentric_workspace.hr.face_photo import push
+    return push.status()
+
+
+@frappe.whitelist(methods=["POST"])
+def sync_now():
+    if not service.is_hr(_user()):
+        frappe.throw("Chỉ Nhân sự (HR/CnB) đồng bộ được.", frappe.PermissionError)
+    from ecentric_workspace.hr.face_photo import push
+    return {"queued": push.enqueue()}
