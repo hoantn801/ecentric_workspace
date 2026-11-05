@@ -30,12 +30,15 @@ def my_status():
 
 
 @frappe.whitelist(methods=["POST"])
-def upload(image="", consent=0):
-    """`image` = data URL / base64 JPEG (trinh duyet da thu nho bang canvas)."""
+def upload(image="", consent=0, force=0):
+    """`image` = data URL / base64 JPEG (trinh duyet da thu nho bang canvas).
+
+    AI che anh -> tra {"rejected": 1, "problems": [...]} (KHONG luu). `force=1` = nguoi gui
+    xac nhan anh dung -> luu, danh dau cho HR xem lai."""
     u = _user()
     raw = _b64(image)
     try:
-        return service.save(u, raw, consent)
+        return service.save(u, raw, consent, force)
     except PhotoError as e:
         frappe.throw(str(e))
     except service.Forbidden as e:
