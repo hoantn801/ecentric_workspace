@@ -259,8 +259,8 @@
   },
   "legacy_pages/home/main_section.html": {
     "baseline": "2026-09-29",
-    "last_resync_patch": "p345_resync_home_phong_hop_v2",
-    "sha256": "42522b54d07e622e8568be3ff1ff51c510ae7914e60bbd2500ef719a30f453f7"
+    "last_resync_patch": "p346_resync_home_lich_phong_ver",
+    "sha256": "35560c9cd73791df699488b313459b2db19c795ea1f01e2949d46fb14c9e4e12"
   },
   "alerts/site_pages/overview/main_section.html": {
     "baseline": "2026-09-29",

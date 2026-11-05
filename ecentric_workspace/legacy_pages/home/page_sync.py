@@ -39,8 +39,10 @@ NAME = "ecentric-workspace"
 TITLE = "eCentric Workspace"
 
 #: sha256 cua main_section.html commit nay ship (phep kiem `pagesync` cua CI doi chieu).
-BASELINE_SHA256 = "42522b54d07e622e8568be3ff1ff51c510ae7914e60bbd2500ef719a30f453f7"
+BASELINE_SHA256 = "35560c9cd73791df699488b313459b2db19c795ea1f01e2949d46fb14c9e4e12"
 SUPERSEDES_SHA256 = (
+    # 06/11/2026: trang chu truoc pm hotfix 12 (?v= cho pm_home_calendar.js).
+    "42522b54d07e622e8568be3ff1ff51c510ae7914e60bbd2500ef719a30f453f7",
     # 06/11/2026: trang chu truoc pm hotfix 11.
     "1ea0992f878e4bdebd24f75254e0d1cc09512e031ee78b7699ac52b03ac912f5",
     # 05/11/2026: trang chu truoc card "Phong hop" (pm hotfix 10).

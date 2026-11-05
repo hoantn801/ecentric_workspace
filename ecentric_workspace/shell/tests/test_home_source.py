@@ -288,16 +288,20 @@ class TestStaticLayout(unittest.TestCase):
     def test_scripts_and_loaders_kept(self):
         s = _src()
         for mk in ('src="/assets/ecentric_workspace/js/action_center_widget.js" defer',
-                   'src="/assets/ecentric_workspace/js/pm_home_calendar.js" defer',
                    'src="/assets/ecentric_workspace/js/sla_home_card.js" defer',
                    '"ec_hr_attendance_data"', '"/api/method/ec_hr_leave_data"',
                    '<script id="ec-csrf-fetch-patch">',
                    "<!-- CP_REDIRECT_GUARD_START -->",
                    "<script src=\"{{ bundled_asset('ec_home_v2.bundle.js') }}\" defer></script>"):
             self.assertIn(mk, s, mk)
+        # 06/11/2026: assets are served "max-age=31536000, immutable" -> the calendar/rooms widget
+        # MUST carry a content version (?v=sha10, stamped by the pm hotfix finalize) or browsers
+        # keep the old file for a year (card Phong hop stayed a skeleton after hotfix 10).
+        import re as _re
+        self.assertRegex(s, r'src="/assets/ecentric_workspace/js/pm_home_calendar\.js\?v=[0-9a-f]{10}" defer')
         self.assertIn('import "./ec_home_v2.js";', io.open(BUNDLE, encoding="utf-8").read())
         # hydrate chay SAU widget lich (defer theo thu tu tai lieu) de dat co truoc khi no ve
-        self.assertLess(s.index('src="/assets/ecentric_workspace/js/pm_home_calendar.js"'),
+        self.assertLess(s.index('src="/assets/ecentric_workspace/js/pm_home_calendar.js?v='),
                         s.index("bundled_asset('ec_home_v2.bundle.js')"))
 
     def test_no_global_counts_no_unused_queries(self):
