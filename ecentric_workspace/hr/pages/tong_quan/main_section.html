@@ -143,6 +143,10 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
 .ecq .sbbar{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:14px}
 .ecq .sbbar .muted{flex:1; font-size:12.5px}
 .ecq .sbbar select + a.btn{margin-left:auto}
+/* 03/11 (UX quan ly): nut xuat file bao "Dang tao file..." khi cho, loi hien ngay duoi hang nut. */
+.ecq a.btn[aria-busy="true"]{opacity:.7; cursor:progress; pointer-events:none}
+.ecq .xerr{flex:1 0 100%; padding:9px 12px; border-radius:10px; background:var(--red-bg); color:var(--red); font-size:13px}
+@media (max-width:640px){.ecq .sbbar .btn{min-height:40px}}
 .ecq .kpi.sbk-good .n{color:var(--green)} .ecq .kpi.sbk-warn{background:#FFFBEB; border-color:#FDE68A} .ecq .kpi.sbk-warn .n{color:var(--amber)}
 .ecq .kpi.sbk-bad{background:#FEF3F2; border-color:#FECDCA} .ecq .kpi.sbk-bad .n{color:var(--red)}
 .ecq .sbgroups{display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px}
@@ -440,9 +444,63 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
   function xlsxLink(kind, period) {
     /* ec-cnb-dashboard-v1 (07/10): them file tong hop thang CnB tu ghep (bang cong + SLA +
        phan bo cong viec + dashboard loc phong) - cung ky dang chon. */
-    return '<a class="btn" href="' + API + 'export_summary_xlsx?kind=' + kind + '&period=' + encodeURIComponent(period) + '" download>Xuất Excel</a>'
-      + '<a class="btn" href="' + API + 'export_summary_xlsx?kind=cnb&period=' + encodeURIComponent(period) + '" download title="Bảng công + SLA + Phân bổ công việc + Dashboard lọc phòng, cùng mẫu file CnB">File tổng hợp tháng</a>';
+    return '<a class="btn" data-xlsx href="' + API + 'export_summary_xlsx?kind=' + kind + '&period=' + encodeURIComponent(period) + '" download>Xuất Excel</a>'
+      + '<a class="btn" data-xlsx href="' + API + 'export_summary_xlsx?kind=cnb&period=' + encodeURIComponent(period) + '" download title="Bảng công + SLA + Phân bổ công việc + Dashboard lọc phòng, cùng mẫu file CnB">File tổng hợp tháng</a>';
   }
+  /* 03/11 (UX quan ly): tai file qua fetch thay vi de trinh duyet tu tai. File tong hop thang
+     mat vai giay de ghep - nut doi thanh "Dang tao file..." de nguoi dung khong bam lai; server
+     tu choi (thieu quyen / ky chua co du lieu) thi hien NGUYEN VAN cau cua server ngay duoi hang
+     nut, thay vi trinh duyet bao "Tai xuong that bai" khong ro vi sao. */
+  function xlsxServerMsg(j, status) {
+    var m = "";
+    try {
+      var sm = j && j._server_messages ? JSON.parse(j._server_messages) : [];
+      if (sm.length) m = JSON.parse(sm[sm.length - 1]).message || "";
+    } catch (e) { /* bo qua */ }
+    if (!m && j && j.exception) m = String(j.exception).replace(/^[\w.]+:\s*/, "");
+    m = String(m).replace(/<[^>]*>/g, "").trim();
+    if (status === 403) return "Bạn không có quyền xuất file này." + (m ? " (" + m + ")" : "");
+    return m ? "Không xuất được file: " + m : "Không xuất được file (lỗi " + status + "). Thử lại sau ít phút.";
+  }
+  function xlsxFileName(res) {
+    var cd = (res.headers && res.headers.get("Content-Disposition")) || "";
+    var m = cd.match(/filename\*=UTF-8''([^;]+)/i) || cd.match(/filename="?([^";]+)"?/i);
+    if (!m) return "tong-hop.xlsx";
+    try { return decodeURIComponent(m[1]); } catch (e) { return m[1]; }
+  }
+  async function xlsxDownload(a) {
+    if (a.getAttribute("aria-busy") === "true") return;
+    var bar = a.parentNode, old = bar && bar.querySelector(".xerr"), label = a.textContent;
+    if (old) old.parentNode.removeChild(old);
+    a.setAttribute("aria-busy", "true");
+    a.textContent = "Đang tạo file…";
+    try {
+      var res = await fetch(a.getAttribute("href"), { credentials: "same-origin" });
+      if (res.status === 401) { location.replace("/login?redirect-to=" + encodeURIComponent(location.pathname + location.hash)); return; }
+      if (!res.ok) { var j = await res.json().catch(function () { return {}; }); throw new Error(xlsxServerMsg(j, res.status)); }
+      var blob = await res.blob();
+      var url = URL.createObjectURL(blob), t = document.createElement("a");
+      t.href = url; t.download = xlsxFileName(res); t.hidden = true;
+      document.body.appendChild(t); t.click(); document.body.removeChild(t);
+      setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
+    } catch (e) {
+      if (bar) {
+        var x = document.createElement("div");
+        x.className = "xerr"; x.setAttribute("role", "alert");
+        x.textContent = (e && e.message) || "Không xuất được file. Kiểm tra mạng rồi thử lại.";
+        bar.appendChild(x);
+      }
+    } finally {
+      a.removeAttribute("aria-busy");
+      a.textContent = label;
+    }
+  }
+  root.addEventListener("click", function (ev) {
+    var a = ev.target && ev.target.closest ? ev.target.closest("a[data-xlsx]") : null;
+    if (!a || typeof fetch !== "function" || !window.URL || !URL.createObjectURL) return;
+    ev.preventDefault();
+    xlsxDownload(a);
+  });
   function sbLoading(box) { box.innerHTML = '<div class="sk" aria-hidden="true"><i></i><i></i><i></i></div>'; }
   function sbError(box, msg, again) {
     box.innerHTML = '<div class="err"><span>' + esc(msg) + '</span><button type="button" class="btn" id="sb-retry">Thử lại</button></div>';

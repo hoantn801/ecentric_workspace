@@ -68,6 +68,23 @@
   #ec-apc-root .apc-scts-pop .btn-go[disabled]{ opacity:.6; cursor:default; }
   #ec-apc-root .apc-scts-err{ color:#a40e26; background:#ffebe9; padding:6px 8px; border-radius:6px; font-size:12.5px; margin-top:8px; }
   #ec-apc-root .apc-scts-err[hidden]{ display:none; }
+  /* "Cho toi duyet" (03/11, UX quan ly): nguoi duyet mo /approvals la thay ngay viec CUA MINH
+     truoc danh muc tao moi. Khong co phieu nao cho -> dai nay khong ve gi (khong chiem cho). */
+  #ec-apc-root .apc-mine{ display:flex; align-items:center; gap:12px; margin:0 0 18px; padding:12px 16px; min-height:56px;
+    border-radius:14px; border:1px solid #c7cef0; background:var(--navy-50); color:var(--gray-900); text-decoration:none; }
+  #ec-apc-root .apc-mine[hidden]{ display:none; }
+  #ec-apc-root .apc-mine:hover{ border-color:var(--navy); }
+  #ec-apc-root .apc-mine:focus-visible{ outline:2px solid var(--navy); outline-offset:2px; }
+  #ec-apc-root .apc-mine-n{ flex:0 0 auto; min-width:36px; height:36px; padding:0 8px; border-radius:999px; background:var(--navy); color:#fff;
+    display:inline-flex; align-items:center; justify-content:center; font-weight:800; font-size:15px; font-variant-numeric:tabular-nums; }
+  #ec-apc-root .apc-mine-t{ flex:1; min-width:0; display:flex; flex-direction:column; }
+  #ec-apc-root .apc-mine-t b{ font-size:14.5px; font-weight:700; }
+  #ec-apc-root .apc-mine-t span{ font-size:13px; color:var(--gray-600); }
+  #ec-apc-root .apc-mine-go{ flex:0 0 auto; font-size:13.5px; font-weight:700; color:var(--navy); white-space:nowrap; }
+  #ec-apc-root .apc-mine.is-late{ background:var(--red-50); border-color:#f5c2c2; }
+  #ec-apc-root .apc-mine.is-late .apc-mine-n{ background:var(--red); }
+  #ec-apc-root .apc-mine.is-late .apc-mine-t span{ color:#b42318; font-weight:600; }
+  @media (max-width:420px){ #ec-apc-root .apc-mine-go{ display:none; } }
   /* category chips */
   #ec-apc-root .apc-cats{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px; }
   #ec-apc-root .chip{ padding:7px 14px; border-radius:999px; border:1px solid var(--gray-200); background:#fff; color:var(--gray-600); font-size:13px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:7px; }
@@ -203,6 +220,11 @@
         </div>
       </div>
 
+      <a class="apc-mine" id="apc-mine" href="/viec-cua-toi#mw-cho-duyet" hidden>
+        <span class="apc-mine-n" id="apc-mine-n" aria-hidden="true"></span>
+        <span class="apc-mine-t"><b id="apc-mine-t"></b><span id="apc-mine-s"></span></span>
+        <span class="apc-mine-go" aria-hidden="true">Duyệt ngay ›</span>
+      </a>
       <nav class="apc-cats" id="apc-cats" aria-label="Danh mục"></nav>
       <div id="apc-body"></div>
     </div>
@@ -354,12 +376,45 @@
     }
   }
 
+  // ---- "Cho toi duyet" (03/11, UX quan ly) ---------------------------------------------------
+  // Dung DUNG cua "Viec cua toi" (reporting.actions.list_my_pending - server chi tra phieu dang
+  // cho CHINH nguoi dang nhap o cap hien tai). Day chi DEM + dan sang /viec-cua-toi de duyet;
+  // khong co nut quyet dinh o hub. Loi / khong co phieu -> dai van an, danh muc khong bi anh huong.
+  var MINE_API = "/api/method/ecentric_workspace.approval_center.reporting.actions.list_my_pending";
+  function mineLate(rows, now){
+    now = now || new Date();
+    return rows.filter(function(r){
+      var m = String(r.due_at||"").match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/);
+      return m && new Date(+m[1], +m[2]-1, +m[3], m[4]?+m[4]:23, m[5]?+m[5]:59) < now;
+    }).length;
+  }
+  function mineRender(rows, now){
+    var a=$("apc-mine"); if(!a) return;
+    rows = rows || [];
+    if(!rows.length){ a.hidden=true; return; }
+    var late = mineLate(rows, now);
+    $("apc-mine-n").textContent = String(rows.length);
+    $("apc-mine-t").textContent = rows.length + " phiếu đang chờ bạn duyệt";
+    $("apc-mine-s").textContent = late ? (late + " phiếu đã quá hạn - xử lý ngay") : "Bấm để xem và duyệt nhanh";
+    a.setAttribute("aria-label", rows.length + " phiếu đang chờ bạn duyệt" + (late ? ", " + late + " phiếu quá hạn" : "") + ". Mở để duyệt.");
+    if(late) a.classList.add("is-late"); else a.classList.remove("is-late");
+    a.hidden=false;
+  }
+  function mineLoad(){
+    if(typeof window.fetch!=="function") return;
+    window.fetch(MINE_API, { credentials:"same-origin", headers:{ Accept:"application/json" } })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){ mineRender((j && j.message && j.message.rows) || []); })
+      .catch(function(){ mineRender([]); });
+  }
+
   function init(){
     var q=$("apc-q");
     if(q) q.addEventListener("input", function(){ state.q=q.value; render(); });
     var root=$("ec-apc-root");
     if(root) root.addEventListener("click", onClick);
     fetchCatalog();
+    mineLoad();
     sctsInit();
   }
 
@@ -437,7 +492,8 @@
 
   // expose for headless tests (no security logic here; visibility is server-side)
   window.ApprovalCenter = { state:state, fetchCatalog:fetchCatalog, render:render,
-    filtered:filtered, _esc:esc, _init:init, _cardHtml:cardHtml, _onClick:onClick };
+    filtered:filtered, _esc:esc, _init:init, _cardHtml:cardHtml, _onClick:onClick,
+    _mineRender:mineRender, _mineLate:mineLate };
 
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", init);
   else init();

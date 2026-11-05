@@ -40,8 +40,10 @@ def _html():
 # Deliberate update = edit ui/hub/main_section.html, bump
 # BASELINE_SHA256, move the value it replaced into SUPERSEDES_SHA256 -- all in
 # the same commit.
-BASELINE_SHA256 = "11f1ef0f5fbdf3d6523a152e9a0bb3e0c23ffc0ba94ed7946baa5a743ec46aef"
+BASELINE_SHA256 = "3ecbeb7a5478b63a85e316c39a7944567deebbb98842f17f9dbc3f76313da1f8"
 SUPERSEDES_SHA256 = (
+    # baseline truoc p317 (chua co dai "N phieu dang cho ban duyet" o dau hub). Doi 03/11.
+    "11f1ef0f5fbdf3d6523a152e9a0bb3e0c23ffc0ba94ed7946baa5a743ec46aef",
     # baseline truoc p189 (nhan tinh trang cong cu con dung cap mau xanh/navy cua
     # "Da duyet"/"Cho duyet"; chip va CTA con navy DAC). Doi 15/09.
     "4f5699d2eeeddbcc0346a7325ad395bd08c0cb69832534bde4a174e747767622",
