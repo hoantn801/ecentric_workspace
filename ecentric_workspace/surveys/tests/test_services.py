@@ -830,6 +830,17 @@ class TestResults(Base):
         with self.assertRaises(SurveyPermissionError):
             results_service.overview(A, name, repo=self.r)
 
+    def test_export_blocks_excel_formula(self):
+        """Cau tra loi '=HYPERLINK(...)' khong duoc thanh cong thuc khi HR mo file Excel
+        (openpyxl ghi chuoi bat dau bang '=' thanh o cong thuc)."""
+        name = self.make()
+        respond_service.submit(A, name, {"q1": {"sel": ["y"]}, "q2": '=HYPERLINK("http://x","bam")'},
+                               repo=self.r)
+        _f, rows = results_service.export(HR, name, repo=self.r)
+        cells = [c for row in rows for c in row if isinstance(c, str)]
+        self.assertFalse([c for c in cells if c[:1] in ("=", "+", "-", "@")], cells)
+        self.assertIn('\'=HYPERLINK("http://x","bam")', cells)
+
 
 if __name__ == "__main__":
     unittest.main()

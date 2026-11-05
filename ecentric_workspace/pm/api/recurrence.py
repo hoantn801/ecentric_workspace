@@ -466,19 +466,24 @@ def list(project=None):
     conds = {}
     if project:
         conds["project"] = project
-    rows = frappe.get_all(
-        DT, filters=conds,
-        fields=["name", "template_subject", "project", "frequency", "next_run_date",
-                "occurrences_done", "last_task", "status", "end_date", "max_occurrences",
-                "last_run_date", "owner"],
-        order_by="modified desc", limit_page_length=200)
-    owners = {x["name"]: x.pop("owner", None) for x in rows}   # response shape unchanged
+    fields = ["name", "template_subject", "project", "frequency", "next_run_date",
+              "occurrences_done", "last_task", "status", "end_date", "max_occurrences",
+              "last_run_date"]
     if pmperm.can_see_all_pm_data(me):
-        return {"rows": rows}
-    # same rule as _view, resolved ONCE (was can_view_project + get_value per row: N+1)
-    visible = set(pmperm.get_visible_project_names(me) or [])
-    out = [x for x in rows if (x.get("project") and x["project"] in visible)
-           or owners.get(x["name"]) == me]
+        return {"rows": frappe.get_all(DT, filters=conds, fields=fields,
+                                       order_by="modified desc", limit_page_length=200)}
+    # Loc theo quyen TRUOC roi moi cat 200: cat truoc thi quy tac cu hon top 200 cua ca cong ty
+    # bien mat voi chinh chu. Du an duoc xem tinh MOT lan (truoc la moi dong mot lan + get_value).
+    visible = pmperm.get_visible_project_names(me)
+    visible = None if visible is None else set(visible)
+    out = []
+    for x in frappe.get_all(DT, filters=conds, fields=fields + ["owner"],
+                            order_by="modified desc", limit_page_length=0):
+        owner = x.pop("owner", None)
+        if owner == me or (x.get("project") and (visible is None or x["project"] in visible)):
+            out.append(x)
+            if len(out) >= 200:
+                break
     return {"rows": out}
 
 

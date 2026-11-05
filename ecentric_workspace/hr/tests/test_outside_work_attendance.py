@@ -110,14 +110,14 @@ class TestLichHienChuOutsideWork(unittest.TestCase):
 
     def test_lich_co_nhan_va_mau_rieng(self):
         s = _page("ec-hr/attendance")
-        self.assertIn("cls:'outside', label:'Outside work'", s)
+        self.assertIn("cls:'outside', label:'Ngoài VP'", s)
         self.assertIn(".ha-day.outside{background:var(--sky)}", s)
         self.assertIn("--sky:#e0f2fe", s)
 
     def test_co_trong_chu_thich(self):
         s = _page("ec-hr/attendance")
         i = s.index('class="ha-legend"')
-        self.assertIn("Outside work", s[i:i + 900])
+        self.assertIn("Ngoài VP", s[i:i + 900])
 
     def test_xep_sau_ngay_le_nhung_truoc_moi_nhanh_thieu(self):
         # Ngay le / cuoi tuan von khong phai ngay lam viec nen phai thang; nhung
@@ -167,23 +167,23 @@ class TestCuaSoLichCuaNhom(unittest.TestCase):
     def test_modal_biet_outside_work(self):
         s = self._src()
         self.assertIn("var outDays={}", s)
-        self.assertIn('cls="c-out";tag="Outside work"', s)
+        self.assertIn('cls="c-out";tag="Ngoài VP"', s)
 
     def test_outside_chan_duoc_nhan_Tre(self):
         # Nguoi da duoc duyet lam viec ben ngoai thi moc 10:00 khong con y nghia.
         s = self._src()
-        i_out = s.index('cls="c-out";tag="Outside work"')
+        i_out = s.index('cls="c-out";tag="Ngoài VP"')
         i_late = s.index('tag="Trễ";tm=ciByDay[ds];')
         self.assertLess(i_out, i_late, "nhanh outside phai dung TRUOC nhanh Thieu/Tre")
 
     def test_modal_co_chu_thich_rieng(self):
         s = self._src()
         i = s.index("Thiếu/Vắng")
-        self.assertIn("Outside work", s[max(0, i - 400):i])
+        self.assertIn("Ngoài VP", s[max(0, i - 400):i])
 
     def test_ca_hai_lich_deu_co_nhan(self):
         # Chot lai ca hai bo dung trong mot ca test, de lan sau ai them lich thu ba
         # thi cung phai nghi toi cho nay.
         s = self._src()
-        self.assertEqual(s.count("Outside work") >= 3, True,
+        self.assertEqual(s.count("Ngoài VP") >= 3, True,
                          "lich chinh + cua so nhom + chu thich deu phai co nhan")

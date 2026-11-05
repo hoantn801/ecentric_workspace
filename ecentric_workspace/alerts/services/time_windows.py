@@ -33,6 +33,14 @@ def epoch_in_tz(dt, tz_name=None):
     return int(dt.timestamp())
 
 
+def wall_time_in_tz(epoch, tz_name=None):
+    """Nguoc cua epoch_in_tz: epoch UTC -> datetime NAIVE theo gio tuong cua `tz_name`
+    (mac dinh Asia/Ho_Chi_Minh) - cung he quy chieu voi now_datetime() / cot datetime trong DB.
+    KHONG dung datetime.fromtimestamp(): ham do ra gio cua SERVER (UTC tren Frappe Cloud)."""
+    utc = datetime.fromtimestamp(int(epoch), pytz.utc)
+    return utc.astimezone(pytz.timezone(tz_name or DEFAULT_SITE_TZ)).replace(tzinfo=None)
+
+
 def utc_str(epoch):
     """Human-readable UTC wall time of an epoch - for run summaries/logs."""
     return str(datetime.utcfromtimestamp(int(epoch)))
