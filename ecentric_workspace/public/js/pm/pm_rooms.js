@@ -111,7 +111,26 @@ function render(el, opts) {
   const S = { date: null, today: null, cache: {}, mine: [], mineErr: "", pending: {}, err: "", loading: false,
               nowMin: null, nowAt: 0, seq: 0, dead: false, stale: false, timers: [], people: null, peopleP: null,
               confirm: null, dlg: null, gone: {}, moving: null, noClick: false };   /* gone: event_id / uid vừa huỷ (Graph / lịch phòng có thể trễ vài giây) */
-  const call = (m, a) => (typeof opts.api === "function" ? opts.api(NS + m, a || {}) : fetchApi(NS + m, a));
+  const raw = (m, a) => (typeof opts.api === "function" ? opts.api(NS + m, a || {}) : fetchApi(NS + m, a));
+  /* 06/11/2026: mở thẳng /pm#rooms -> asset tải xong TRƯỚC khi trang tải hết, lúc đó frappe.csrf_token chưa có
+     (Frappe đặt ở cuối trang) -> server trả 400 "Invalid Request" và trang báo "Chưa tải được lịch phòng".
+     Chờ DOMContentLoaded rồi mới gọi; lỗi CSRF lần đầu thì thử lại một lần. */
+  const domReady = () => (typeof document === "undefined" || document.readyState !== "loading") ? Promise.resolve()
+    : new Promise(r => document.addEventListener("DOMContentLoaded", () => r(), { once: true }));
+  const isCsrf = e => {
+    if (!e) return false;
+    const j = e.responseJSON || {}, txt = [e.exc_type, j.exc_type, e.message, e._server_messages, j._server_messages, e.responseText].filter(Boolean).join(" ");
+    return /CSRFTokenError|Invalid Request/i.test(txt);
+  };
+  const call = async (m, a) => {
+    await domReady();
+    try { return await raw(m, a); }
+    catch (e) {
+      if (!isCsrf(e)) throw e;
+      await new Promise(r => setTimeout(r, 600));
+      return raw(m, a);
+    }
+  };
   function msgOf(e) {
     if (!e) return "Đã có lỗi, thử lại.";
     const sm = e._server_messages || (e.responseJSON && e.responseJSON._server_messages);
@@ -409,7 +428,7 @@ function render(el, opts) {
     const sc = document.createElement("div");
     sc.className = "pmrm-scrim";
     const opt = rooms.map(r => '<option value="' + esc(r.name) + '"' + (r.error ? " disabled" : "") + (r.name === roomName ? " selected" : "") + ">" + esc(r.label || r.code) +
-      ([r.floor, r.note].filter(Boolean).length ? " · " + esc([r.floor, r.note].filter(Boolean).join(", ")) : "") + (r.error ? " (chưa kết nối)" : "") + "</option>").join("");
+      ([r.floor, r.note].filter(Boolean).length ? " · " + esc([r.floor, r.note].filter(Boolean).join(", ")) : "") + (r.capacity ? " · " + (+r.capacity) + " người" : "") + (r.error ? " (chưa kết nối)" : "") + "</option>").join("");
     const scope = ed && ed.recurring
       ? '<fieldset class="pmrm-scope"><legend>Cuộc họp lặp lại, sửa:</legend>' +
         /* ed.master = dòng tạm của chuỗi vừa đặt (id là seriesMaster): chỉ sửa được cả chuỗi đến khi lịch đồng bộ */

@@ -470,6 +470,16 @@ function setup(o) {
   ok("sửa khi mô tả chưa tải xong: ô khoá, không gửi description (không xoá nhầm)", T.f && !("description" in (updates(T).pop() || { a: {} }).a));
   T.ctl.destroy();
 
+  /* ---------- 11. mở thẳng /pm#rooms khi trang chưa tải xong (06/11): lỗi CSRF lần đầu -> tự thử lại */
+  {
+    let n = 0;
+    const T3 = setup({ h: { "rooms.day": a => { n++; if (n === 1) { const e = new Error("Invalid Request"); e.status = 400; e.responseJSON = { exc_type: "CSRFTokenError" }; throw e; } return dayData(a.date); } } });
+    await tick(700); await flush();
+    ok("CSRF 'Invalid Request' lần đầu (trang chưa có csrf_token) -> tự thử lại, lịch phòng hiện đủ, không báo lỗi",
+      n >= 2 && T3.$$(".pmrm-lane[data-room]").length === 4 && !/Chưa tải được/.test(T3.$("#v").textContent), "day calls=" + n + " lanes=" + T3.$$(".pmrm-lane[data-room]").length + " txt=" + (T3.$("#v").textContent.match(/Chưa tải được.{0,60}/) || [""])[0]);
+    T3.ctl.destroy();
+  }
+
   /* ---------- 8. tĩnh */
   ok("asset: không ký tự Jinja, một global PMRooms, có esc", !/\{\{|\{%|\{#/.test(JS) && /root\.PMRooms = /.test(JS));
   ok("CSS: mobile ≤640px (ô nhập 16px), lưới cuộn ngang, namespace .pmrm-", /@media \(max-width:640px\)/.test(CSS) && /font-size:16px/.test(CSS) && /\.pmrm-tl\{overflow-x:auto/.test(CSS) && !/(^|\})\s*(body|html|\.panel)\s*\{/.test(CSS));
