@@ -411,3 +411,4 @@ ecentric_workspace.approval_center.patches.p320_resync_ai_usage_tra_loi_nhanh
 ecentric_workspace.pm.patches.p031_pm_close_requests_on_finished_tasks
 ecentric_workspace.approval_center.patches.p341_resync_pm_hotfix8
 ecentric_workspace.hr.patches.p007_lich_livestream
+ecentric_workspace.hr.patches.p008_rebuild_employee_tree
