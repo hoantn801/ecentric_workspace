@@ -1724,8 +1724,9 @@ function onReceived(c, a, b, nr) {
   const name = ga(req, "req"), form = $(".pmr-req-form", req), item = nr.filter(x => x.request === name)[0] || {}, from = item.from_name || nameOf(item.from_user) || "người giao";
   if (a === "rq-accept") {
     const restore = gone(req);
-    busy(b, call("assignment.respond", { name, decision: "accept" })).then(() => {
-      toast(`Đã nhận việc. ${from} được báo`, { actions: item.task ? [{ label: "Mở", run: () => openTask(item.task) }] : [] });
+    busy(b, call("assignment.respond", { name, decision: "accept" })).then(r => {
+      if (r && truthy(r.auto_closed)) toast(r.message || "Việc này đã xong hoặc đã huỷ, không cần trả lời nữa");   /* phần việc đã có người làm xong */
+      else toast(`Đã nhận việc. ${from} được báo`, { actions: item.task ? [{ label: "Mở", run: () => openTask(item.task) }] : [] });
       changed({ task: item.task }); renderReceived(c);
     }, e => { restore(); errToast(e, "Chưa nhận được việc"); });
   } else if (a === "rq-reject" || a === "rq-propose") {
@@ -1743,8 +1744,9 @@ function onReceived(c, a, b, nr) {
       if (!dd) return bad("Chọn hạn đề xuất");
       args.counter_end = `${dd} ${$(".pmr-rq-time", form).value || "18:00"}:00`;
     }
-    busy(b, call("assignment.respond", args)).then(() => {
-      toast(args.decision === "reject" ? `Đã từ chối và gửi lý do cho ${from}` : "Đã gửi đề xuất hạn " + dayLabel(args.counter_end));
+    busy(b, call("assignment.respond", args)).then(r => {
+      if (r && truthy(r.auto_closed)) toast(r.message || "Việc này đã xong hoặc đã huỷ, không cần trả lời nữa");
+      else toast(args.decision === "reject" ? `Đã từ chối và gửi lý do cho ${from}` : "Đã gửi đề xuất hạn " + dayLabel(args.counter_end));
       changed({ task: item.task }); renderReceived(c);
     }, e => errToast(e, "Chưa gửi được"));
   }

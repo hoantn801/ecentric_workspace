@@ -222,6 +222,11 @@ async function block(name, fn) {
     ok("received: Nhận việc → respond(accept)", E.calls.some(c => c.m === "assignment.respond" && c.args.decision === "accept"));
     E.click(E.byText(".pmr-link", "Rút lại", E.main)); await flush();
     ok("received: Rút lại đề xuất → pm_inbox.withdraw_deadline(DL-1)", E.last("pm_inbox.withdraw_deadline") && E.last("pm_inbox.withdraw_deadline").args.request === "DL-1");
+    const E3 = makeEnv();
+    E3.H["assignment.respond"] = () => ({ status: "Cancelled", auto_closed: 1, message: "Việc này đã xong hoặc đã huỷ, không cần trả lời nữa." });
+    await E3.w.PMR.render.received(E3.main); await flush();
+    E3.click(E3.byText(".pmr-btn", "Nhận việc", E3.main)); await flush();
+    ok("received 04/11: phần việc đã có người làm xong → server tự đóng yêu cầu, toast nói rõ (không báo “Đã nhận việc”)", /đã xong hoặc đã huỷ/.test(E3.toastText()) && !/Đã nhận việc/.test(E3.toastText()));
     const E2 = makeEnv({ receivedEmpty: true });
     await E2.w.PMR.render.received(E2.main); await flush();
     ok("received: trạng thái rỗng có hướng dẫn + link Việc của tôi", E2.main.textContent.includes("Không có gì cần bạn trả lời") && !!E2.byText(".pmr-link", "Việc của tôi", E2.main));
