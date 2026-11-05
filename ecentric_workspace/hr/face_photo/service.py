@@ -120,6 +120,11 @@ def save(user, raw, consent, force=0, generate=None):
                                    % (size[0], size[1], len(jpg) // 1024, note, C.CONSENT_TEXT)})
     c.flags.ignore_permissions = True
     c.insert(ignore_permissions=True)
+    try:    # v3: day ngay xuong may (job nen, sau commit). Loi o day KHONG lam hong viec gui anh.
+        from ecentric_workspace.hr.face_photo import push
+        push.enqueue()
+    except Exception:
+        frappe.log_error(title="ec_face_push enqueue")
     return status(user)
 
 
