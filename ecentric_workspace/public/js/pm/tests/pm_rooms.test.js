@@ -444,6 +444,32 @@ function setup(o) {
   ok("v2: không lỗi console", T.errs.length === 0, T.errs.join(" | "));
   T.ctl.destroy();
 
+  /* ---------- 10. mô tả (06/11) */
+  T = v2(); await flush();
+  T.$('[data-act="book"]').click(); await flush();
+  ok("hộp đặt có ô 'Mô tả (không bắt buộc)' (textarea, 4000 ký tự)", T.f("desc") && T.f("desc").tagName === "TEXTAREA" && T.f("desc").maxLength === 4000 && /Mô tả/.test(T.$('label[for="' + T.f("desc").id + '"]').textContent));
+  T.f("subject").value = "Review"; T.f("desc").value = "  Agenda:\n- KPI  ";
+  T.setv("start", "17:00"); T.setv("end", "17:30");
+  submitDlg(T); await flush();
+  const bkd = T.calls.filter(x => x.m === "rooms.book").pop();
+  ok("đặt: gửi description đã bỏ khoảng trắng đầu/cuối", bkd && bkd.a.description === "Agenda:\n- KPI", bkd && JSON.stringify(bkd.a));
+  T.ctl.destroy();
+  T = v2({ "rooms.detail": () => ({ description: "Cũ", editable: true }) }); await flush();
+  T.$('[data-act="edit"][data-ev="ev5"]').click(); await flush();
+  ok("sửa: tải mô tả qua rooms.detail rồi điền sẵn, cho sửa", T.calls.some(x => x.m === "rooms.detail" && x.a.event_id === "ev5") && T.f("desc").value === "Cũ" && !T.f("desc").readOnly);
+  T.f("desc").value = "Mới"; submitDlg(T); await flush();
+  ok("sửa: chỉ gửi description khi đổi", JSON.stringify(updates(T).pop().a) === JSON.stringify({ event_id: "ev5", description: "Mới" }), JSON.stringify(updates(T).map(x => x.a)));
+  T.ctl.destroy();
+  T = v2({ "rooms.detail": () => ({ description: "Viết trên Teams", editable: false }) }); await flush();
+  T.$('[data-act="edit"][data-ev="ev5"]').click(); await flush();
+  ok("sửa: mô tả viết trên Teams -> chỉ đọc + ghi chú sửa trên Teams, không gửi", T.f("desc").readOnly && /Teams\/Outlook/.test(T.$("[data-desc-note]").textContent) && !T.$("[data-desc-note]").hidden);
+  T.ctl.destroy();
+  T = v2({ "rooms.detail": () => new Promise(() => {}) }); await flush();
+  T.$('[data-act="edit"][data-ev="ev5"]').click(); await flush();
+  T.setv("start", "12:30"); T.setv("end", "13:30"); submitDlg(T); await flush();
+  ok("sửa khi mô tả chưa tải xong: ô khoá, không gửi description (không xoá nhầm)", T.f && !("description" in (updates(T).pop() || { a: {} }).a));
+  T.ctl.destroy();
+
   /* ---------- 8. tĩnh */
   ok("asset: không ký tự Jinja, một global PMRooms, có esc", !/\{\{|\{%|\{#/.test(JS) && /root\.PMRooms = /.test(JS));
   ok("CSS: mobile ≤640px (ô nhập 16px), lưới cuộn ngang, namespace .pmrm-", /@media \(max-width:640px\)/.test(CSS) && /font-size:16px/.test(CSS) && /\.pmrm-tl\{overflow-x:auto/.test(CSS) && !/(^|\})\s*(body|html|\.panel)\s*\{/.test(CSS));

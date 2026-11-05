@@ -385,6 +385,59 @@ class TestIntegratorFollowUps(Base):
         self.assertFalse(self.r.day()["rooms"][0].get("error"))
 
 
+class TestDescription(Base):
+    """06/11: mô tả cuộc họp - đặt có mô tả, sửa mô tả giữ khối Teams, mô tả viết trên Teams chỉ đọc."""
+    TEAMS = ("<html><body>%s<div>________________________________________________________________________________</div>"
+             "<div>Microsoft Teams meeting</div><a href='https://teams.microsoft.com/l/x'>Join</a></body></html>")
+
+    def test_book_with_description_escaped_and_marked(self):
+        self.r.book("1.2", DAY + " 15:00:00", DAY + " 16:00:00", "Hop", description="Dòng 1\n<b>x</b> & y")
+        body = [c[2] for c in self.g.calls if c[0] == "POST" and c[1].endswith("/events")][0]["body"]
+        self.assertEqual(body["contentType"], "HTML")
+        self.assertEqual(body["content"], '<div data-erp-desc="1">Dòng 1<br>&lt;b&gt;x&lt;/b&gt; &amp; y</div><!--/erp-desc-->')
+
+    def test_no_description_no_body(self):
+        self.r.book("1.2", DAY + " 15:00:00", DAY + " 16:00:00", "Hop", description="   ")
+        body = [c[2] for c in self.g.calls if c[0] == "POST" and c[1].endswith("/events")][0]
+        self.assertNotIn("body", body)
+
+    def test_detail_and_update_keep_teams_block(self):
+        eid = self.r.book("1.2", DAY + " 15:00:00", DAY + " 16:00:00", "Hop", description="Agenda cu")["event_id"]
+        ev = self.g.my_events[eid]
+        ev["body"] = {"content": self.TEAMS % ev["body"]["content"]}      # Exchange appends the join block
+        self.assertEqual(self.r.detail(eid), {"description": "Agenda cu", "editable": True})
+        self.r.update(eid, description="Agenda moi\n- muc 1")
+        new = [c for c in self.g.calls if c[0] == "PATCH"][-1][2]["body"]["content"]
+        self.assertIn("Agenda moi<br>- muc 1", new)
+        self.assertNotIn("Agenda cu", new)
+        self.assertIn("https://teams.microsoft.com/l/x", new)
+        self.assertEqual(self.r.detail(eid)["description"], "Agenda moi\n- muc 1")
+
+    def test_same_description_not_patched(self):
+        eid = self.r.book("1.2", DAY + " 15:00:00", DAY + " 16:00:00", "Hop", description="A")["event_id"]
+        out = self.r.update(eid, description="A")
+        self.assertTrue(out.get("unchanged"))
+
+    def test_teams_written_description_read_only(self):
+        eid = self.r.book("1.2", DAY + " 15:00:00", DAY + " 16:00:00", "Hop")["event_id"]
+        self.g.my_events[eid]["body"] = {"content": self.TEAMS % "<p>Viết trên Teams</p>"}
+        self.assertEqual(self.r.detail(eid), {"description": "Viết trên Teams", "editable": False})
+        with self.assertRaises(Exception):
+            self.r.update(eid, description="khác")
+
+    def test_add_description_to_meeting_without_one(self):
+        eid = self.r.book("1.2", DAY + " 15:00:00", DAY + " 16:00:00", "Hop")["event_id"]
+        self.g.my_events[eid]["body"] = {"content": self.TEAMS % ""}
+        self.assertEqual(self.r.detail(eid), {"description": "", "editable": True})
+        self.r.update(eid, description="Mới")
+        new = [c for c in self.g.calls if c[0] == "PATCH"][-1][2]["body"]["content"]
+        self.assertTrue(new.startswith('<html><body><div data-erp-desc="1">Mới</div><!--/erp-desc-->'))
+
+    def test_description_too_long(self):
+        with self.assertRaises(Exception):
+            self.r.book("1.2", DAY + " 15:00:00", DAY + " 16:00:00", "Hop", description="x" * 4001)
+
+
 class TestSeedPatch(unittest.TestCase):
     def test_p032_seeds_five_rooms_once_and_keeps_edits(self):
         fk = _pm_fake.install()
@@ -397,6 +450,16 @@ class TestSeedPatch(unittest.TestCase):
         p.execute()
         self.assertEqual(fk.row("EC Meeting Room", "5.2")["capacity"], 2)
         self.assertEqual(fk.row("EC Meeting Room", "1.1")["room_title"], "Hoả")
+
+
+class TestCapacityPatch(unittest.TestCase):
+    def test_p033_fills_empty_capacity_only(self):
+        fk = _pm_fake.install()
+        fk.doctypes.add("EC Meeting Room")
+        for code, cap in (("5.1", None), ("1.1", 10), ("5.2", 0)):
+            fk.add("EC Meeting Room", name=code, room_code=code, room_title="x", email=code + "@x.vn", capacity=cap, enabled=1)
+        fk.load("ecentric_workspace.pm.patches.p033_pm_meeting_rooms_capacity").execute()
+        self.assertEqual([fk.row("EC Meeting Room", c)["capacity"] for c in ("5.1", "1.1", "5.2")], [8, 10, 2])
 
 
 if __name__ == "__main__":

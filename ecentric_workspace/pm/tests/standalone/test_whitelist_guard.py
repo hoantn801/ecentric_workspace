@@ -9,7 +9,7 @@ MUST = {"schedule.py": {"week", "viewable_users", "today", "rsvp", "reschedule",
         "pm_inbox.py": {"received", "given", "coordinate", "request_deadline", "answer_deadline",
                         "withdraw_deadline", "nudge", "close_parent", "cc_suggest"},
         "tasks.py": {"create", "get", "assign", "set_status", "mark_done", "set_followers"},
-        "rooms.py": {"day", "mine", "book", "update", "booking_state", "cancel"}}
+        "rooms.py": {"day", "mine", "book", "update", "detail", "booking_state", "cancel"}}
 
 
 def whitelisted(path):

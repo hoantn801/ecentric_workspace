@@ -117,8 +117,8 @@
 .pmrm-dlg footer{display:flex;gap:8px;justify-content:flex-end;padding:11px 18px;border-top:1px solid var(--rm-g100)}
 .pmrm-fld{display:grid;gap:4px;min-width:0}
 .pmrm-fld label{font-size:11.5px;color:var(--rm-g600);font-weight:600}
-.pmrm-fld input,.pmrm-fld select{border:1px solid var(--rm-g300);border-radius:8px;padding:7px 10px;font:inherit;font-size:13px;width:100%;background:#fff;color:var(--rm-g900);min-width:0}
-.pmrm-fld input:focus,.pmrm-fld select:focus{outline:2px solid var(--rm-navy-50);border-color:var(--rm-navy)}
+.pmrm-fld input,.pmrm-fld select,.pmrm-fld textarea{border:1px solid var(--rm-g300);border-radius:8px;padding:7px 10px;font:inherit;font-size:13px;width:100%;background:#fff;color:var(--rm-g900);min-width:0}
+.pmrm-fld input:focus,.pmrm-fld select:focus,.pmrm-fld textarea:focus{outline:2px solid var(--rm-navy-50);border-color:var(--rm-navy)}
 .pmrm-row3{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:8px}
 .pmrm-dlg [hidden]{display:none}
 .pmrm-row2{display:grid;grid-template-columns:1.4fr 1fr;gap:8px}
@@ -128,6 +128,8 @@
 .pmrm-scope legend{font-size:11.5px;color:var(--rm-g600);font-weight:600;padding:0 4px}
 .pmrm-scope label{display:inline-flex;gap:6px;align-items:center;font-size:13px;cursor:pointer}
 .pmrm-scope .pmrm-sub{flex-basis:100%}
+.pmrm-fld textarea{resize:vertical;min-height:64px;line-height:1.45}
+.pmrm-fld textarea[readonly]{background:var(--rm-g50);color:var(--rm-g600)}
 .pmrm-fld input:disabled{background:var(--rm-g50);color:var(--rm-g500)}
 .pmrm-check{display:flex;gap:8px;align-items:center;font-size:13px}
 .pmrm-note{background:var(--rm-navy-50);color:var(--rm-navy-700);border-radius:8px;padding:8px 11px;font-size:12px}
@@ -159,7 +161,7 @@
   .pmrm-row3{grid-template-columns:1fr 1fr}
   .pmrm-row3 .pmrm-fld:first-child{grid-column:1/-1}
   .pmrm-row2{grid-template-columns:1fr}
-  .pmrm-fld input,.pmrm-fld select,.pmrm-pick input{font-size:16px}
+  .pmrm-fld input,.pmrm-fld select,.pmrm-fld textarea,.pmrm-pick input{font-size:16px}
   .pmrm-mrow{grid-template-columns:minmax(0,1fr) auto}
   .pmrm-mrow .pmrm-st{grid-column:1}
 }
