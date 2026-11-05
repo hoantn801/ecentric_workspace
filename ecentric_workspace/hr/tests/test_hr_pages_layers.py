@@ -26,8 +26,10 @@ def _pages():
 
 
 def _v(path):
+    # Bam tren noi dung LF (dung nhu git luu va server Linux phuc vu): ban checkout Windows co
+    # core.autocrlf=true doi file sang CRLF -> bam lech du asset khong doi gi.
     with open(path, "rb") as fh:
-        return hashlib.sha256(fh.read()).hexdigest()[:10]
+        return hashlib.sha256(fh.read().replace(b"\r\n", b"\n")).hexdigest()[:10]
 
 
 class TestKhongNhieuLop(unittest.TestCase):
