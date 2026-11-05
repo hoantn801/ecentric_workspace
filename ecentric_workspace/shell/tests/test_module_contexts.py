@@ -434,10 +434,10 @@ class TestPMTransform(unittest.TestCase):
         # PM lam lai (16/10/2026, _pm_redesign/SPEC.md diem 1): 9 muc khu Cong viec.
         self.assertEqual([i["label"] for i in views],
                          ["Việc của tôi", "Được giao cho tôi", "Tôi đã giao", "Lịch làm việc",
-                          "Điều phối", "Dự án", "Tất cả việc", "Timesheet", "Hướng dẫn"])
+                          "Phòng họp", "Điều phối", "Dự án", "Tất cả việc", "Timesheet", "Hướng dẫn"])
         self.assertEqual([i["route"] for i in views],
                          ["/pm#mywork", "/pm#received", "/pm#given", "/pm#schedule",
-                          "/pm#coordinate", "/pm#projects", "/pm#work/list", "/pm#timesheet",
+                          "/pm#rooms", "/pm#coordinate", "/pm#projects", "/pm#work/list", "/pm#timesheet",
                           "/pm#guide"])
         # /pm discoverable exactly once; NO hash route in discovery
         allr = [i["route"] for i in nav.compose_all()]

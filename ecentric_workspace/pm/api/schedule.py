@@ -31,6 +31,67 @@ _TERMINAL_WF = ("Done", "Cancelled")
 NUDGE_TAG = "[XNGIO]"
 #: same idea for the "you haven't answered these meeting invites" reminder.
 RSVP_TAG = "[RSVPHOP]"
+#: rsvp() action -> the Graph `responseStatus.response` value it produces.
+_RSVP_STATUS = {"accept": "accepted", "decline": "declined", "tentative": "tentativelyAccepted"}
+_RSVP_ACTION = {"accept": "accept", "decline": "decline", "tentative": "tentativelyAccept"}
+#: Graph values meaning "this invite still needs an answer".
+_UNANSWERED = ("notResponded", "none", None, "")
+#: How long an answer given from ERP overrides what Graph reports (seconds). Graph answers
+#: accept/decline/tentativelyAccept with 202 Accepted and applies it asynchronously, so a
+#: calendarView read straight after can still say "none"/"notResponded" -- the week view
+#: (reloaded right after the popover), the home widget and the [RSVPHOP] reminder then
+#: showed the invite as unanswered ("phan hoi roi ma khong luu"). 10 minutes is far longer
+#: than that propagation delay and short enough that a later change made in Outlook wins.
+_RSVP_OVERLAY_TTL = 600
+
+
+def _rsvp_cache_key(user):
+    return "ec_pm_rsvp_recent:" + (user or "")
+
+
+def _recent_rsvps(user):
+    """{event_id: graph_status} answered from ERP by `user` within _RSVP_OVERLAY_TTL.
+    Fail-safe: {} on any cache problem (the overlay is an accuracy aid, never required)."""
+    try:
+        raw = frappe.cache().get_value(_rsvp_cache_key(user))
+        data = json.loads(raw) if isinstance(raw, str) else (raw or {})
+        now = now_datetime()
+        out = {}
+        for ev_id, ent in (data.items() if isinstance(data, dict) else []):
+            try:
+                age = (now - get_datetime(ent.get("t"))).total_seconds()
+            except Exception:
+                continue
+            if 0 <= age < _RSVP_OVERLAY_TTL and ent.get("s"):
+                out[ev_id] = ent["s"]
+        return out
+    except Exception:
+        return {}
+
+
+def _remember_rsvp(user, event_id, status):
+    """Record an answer just sent to Graph so reads in the next few minutes reflect it."""
+    try:
+        raw = frappe.cache().get_value(_rsvp_cache_key(user))
+        data = json.loads(raw) if isinstance(raw, str) else (raw or {})
+        if not isinstance(data, dict):
+            data = {}
+        live = _recent_rsvps(user)
+        data = {k: v for k, v in data.items() if k in live}
+        data[event_id] = {"s": status, "t": str(now_datetime())[:19]}
+        frappe.cache().set_value(_rsvp_cache_key(user), json.dumps(data),
+                                 expires_in_sec=_RSVP_OVERLAY_TTL)
+    except Exception:
+        pass
+
+
+def _graph_response(ev, recent):
+    """The caller's response to `ev`: a fresh ERP answer (see _RSVP_OVERLAY_TTL) wins over
+    Graph's possibly not-yet-updated `responseStatus`; the organiser stays 'organizer'."""
+    resp = ((ev.get("responseStatus") or {}) or {}).get("response") or "none"
+    if resp != "organizer" and not ev.get("isOrganizer") and ev.get("id") in recent:
+        return recent[ev.get("id")]
+    return resp
 
 
 def _monday(d):
@@ -165,12 +226,13 @@ def _ms_meetings(email, start_dt, end_dt, mask=False, show_subject=False):
                "?startDateTime=" + start_dt.replace(" ", "T") + "%2B07:00"
                "&endDateTime=" + end_dt.replace(" ", "T") + "%2B07:00"
                "&$select=id,subject,start,end,showAs,isAllDay,onlineMeeting,location,"
-               "responseStatus,isOrganizer,type,sensitivity"
+               "responseStatus,isOrganizer,type,sensitivity,isCancelled"
                "&$top=100&$orderby=start/dateTime")
         r = requests.get(url, headers={"Authorization": "Bearer " + token,
                          "Prefer": 'outlook.timezone="Asia/Ho_Chi_Minh"'}, timeout=12)
         if r.status_code != 200:
             return []
+        recent = {} if mask else _recent_rsvps(email)
         out = []
         for ev in (r.json().get("value") or []):
             if ev.get("isAllDay") or (ev.get("showAs") or "busy") in ("free", "workingElsewhere"):
@@ -198,8 +260,9 @@ def _ms_meetings(email, start_dt, end_dt, mask=False, show_subject=False):
                 row["id"] = ev.get("id") or ""
                 row["join_url"] = ((ev.get("onlineMeeting") or {}) or {}).get("joinUrl") or ""
                 row["location"] = ((ev.get("location") or {}) or {}).get("displayName") or ""
-                row["response"] = ((ev.get("responseStatus") or {}) or {}).get("response") or "none"
+                row["response"] = _graph_response(ev, recent)
                 row["is_organizer"] = bool(ev.get("isOrganizer"))
+                row["is_cancelled"] = bool(ev.get("isCancelled"))
                 row["ev_type"] = ev.get("type") or "singleInstance"
             out.append(row)
         return out
@@ -300,6 +363,7 @@ def _ms_today_events(email):
                          "Prefer": 'outlook.timezone="Asia/Ho_Chi_Minh"'}, timeout=12)
         if r.status_code != 200:
             return []
+        recent = _recent_rsvps(email)
         out = []
         for ev in (r.json().get("value") or []):
             if ev.get("isAllDay") or (ev.get("showAs") or "busy") in ("free", "workingElsewhere"):
@@ -310,10 +374,12 @@ def _ms_today_events(email):
                 continue
             join = ((ev.get("onlineMeeting") or {}) or {}).get("joinUrl") or ""
             loc = ((ev.get("location") or {}) or {}).get("displayName") or ""
-            resp = ((ev.get("responseStatus") or {}) or {}).get("response") or "none"
             out.append({"id": ev.get("id") or "", "subject": ev.get("subject") or "Họp",
                         "start": st, "end": en, "join_url": join, "location": loc,
-                        "response": resp, "showAs": ev.get("showAs") or "busy"})
+                        "response": _graph_response(ev, recent),
+                        "is_organizer": bool(ev.get("isOrganizer")),
+                        "is_cancelled": bool(ev.get("isCancelled")),
+                        "showAs": ev.get("showAs") or "busy"})
         return out
     except Exception:
         return []
@@ -375,46 +441,88 @@ def today():
 def rsvp(event_id, response, comment=None):
     """Respond to a meeting invite from ERP — writes back to Outlook via Graph, on the
     CALLER'S OWN calendar only. `response` in accept|decline|tentative. Requires
-    ec_pm_calendar_sync + Calendars.ReadWrite (Application) consent on the Graph app."""
+    ec_pm_calendar_sync + Calendars.ReadWrite (Application) consent on the Graph app.
+
+    Returns {ok, response, status} on success (`status` = the Graph responseStatus value the
+    UI should now show). On failure {ok: False, code, graph_code?} and an Error Log entry
+    (status + Graph error code only, never meeting content) so failures are traceable."""
     pmperm.require_pm_access()
     caller = frappe.session.user
     if not event_id:
         frappe.throw(_("Thiếu sự kiện."))
-    action = {"accept": "accept", "decline": "decline",
-              "tentative": "tentativelyAccept"}.get((response or "").lower())
+    key = (response or "").lower()
+    action = _RSVP_ACTION.get(key)
     if not action:
         frappe.throw(_("Phản hồi không hợp lệ."))
     token = _graph_ready()
     from urllib.parse import quote
     import requests
+    base = ("https://graph.microsoft.com/v1.0/users/" + caller +
+            "/events/" + quote(event_id, safe=""))
+    hdr = {"Authorization": "Bearer " + token, "Content-Type": "application/json"}
     try:
-        url = ("https://graph.microsoft.com/v1.0/users/" + caller +
-               "/events/" + quote(event_id, safe="") + "/" + action)
-        body = {"sendResponse": True}
-        if comment:
+        # Pre-check (one cheap read): an invite whose organiser turned off "Request
+        # responses" (common for large / recurring / Teams-webinar meetings) rejects
+        # sendResponse=true with 400 -- the answer was never stored, and only for SOME
+        # meetings. Read responseRequested and only ask Graph to send a reply when the
+        # organiser wants one. Organiser / cancelled get a clear code instead of a bare 400.
+        # A failed read does not block the answer (default: send a reply, as before).
+        send = True
+        chk = requests.get(base + "?$select=responseRequested,isOrganizer,isCancelled",
+                           headers=hdr, timeout=12)
+        if chk.status_code == 200:
+            info = chk.json() or {}
+            if info.get("isOrganizer"):
+                return {"ok": False, "code": "RSVP_ORGANIZER"}
+            if info.get("isCancelled"):
+                return {"ok": False, "code": "RSVP_CANCELLED"}
+            if info.get("responseRequested") is False:
+                send = False
+        body = {"sendResponse": send}
+        if comment and send:
             body["comment"] = comment
-        r = requests.post(url, headers={"Authorization": "Bearer " + token,
-                          "Content-Type": "application/json"}, json=body, timeout=12)
-        if r.status_code in (200, 202, 204):
-            # Refresh the [RSVPHOP] reminder straight away instead of waiting for the
-            # scheduler, so answering here clears (or decrements) Nhắc việc immediately.
-            try:
-                left = _unanswered_invites(caller, want_times=True)
-                if left:
-                    _ensure_rsvp_todo(caller, len(left), left)
-                else:
-                    for n in frappe.get_all(
-                            "ToDo", filters={"allocated_to": caller, "status": "Open",
-                                             "description": ["like", "%" + RSVP_TAG + "%"]},
-                            pluck="name", ignore_permissions=True) or []:
-                        frappe.db.set_value("ToDo", n, "status", "Closed")
-            except Exception:
-                pass
-            return {"ok": True, "response": (response or "").lower()}
-        return {"ok": False, "code": "RSVP_" + str(r.status_code)}
+        r = requests.post(base + "/" + action, headers=hdr, json=body, timeout=12)
+        if r.status_code not in (200, 202, 204):
+            gcode = _graph_error_code(r)
+            frappe.log_error("RSVP_%s %s (action=%s)" % (r.status_code, gcode or "", action),
+                             "schedule rsvp")
+            res = {"ok": False, "code": "RSVP_" + str(r.status_code)}
+            if gcode:
+                res["graph_code"] = gcode
+            return res
     except Exception:
         frappe.log_error(frappe.get_traceback(), "schedule rsvp")
         return {"ok": False, "code": "RSVP_EXC"}
+    status = _RSVP_STATUS[key]
+    # Graph applied the answer asynchronously (202): remember it so the next reads (week
+    # view reload, home widget, the reminder refresh just below) don't show it unanswered.
+    _remember_rsvp(caller, event_id, status)
+    # Refresh the [RSVPHOP] reminder straight away instead of waiting for the scheduler,
+    # so answering here clears (or decrements) Nhắc việc immediately.
+    try:
+        left = _unanswered_invites(caller, want_times=True)
+        if left:
+            _ensure_rsvp_todo(caller, len(left), left)
+        else:
+            _close_rsvp_todo(caller)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "schedule rsvp todo refresh")
+    return {"ok": True, "response": key, "status": status, "sent": send}
+
+
+def _graph_error_code(r):
+    try:
+        return ((r.json().get("error") or {}) or {}).get("code") or ""
+    except Exception:
+        return ""
+
+
+def _close_rsvp_todo(user):
+    for n in frappe.get_all(
+            "ToDo", filters={"allocated_to": user, "status": "Open",
+                             "description": ["like", "%" + RSVP_TAG + "%"]},
+            pluck="name", ignore_permissions=True) or []:
+        frappe.db.set_value("ToDo", n, "status", "Closed")
 
 
 @frappe.whitelist()
@@ -807,20 +915,22 @@ def _unanswered_invites(email, days=7, want_times=False):
         url = ("https://graph.microsoft.com/v1.0/users/" + email + "/calendarView"
                "?startDateTime=" + str(day) + "T00:00:00%2B07:00"
                "&endDateTime=" + str(add_days(day, days)) + "T00:00:00%2B07:00"
-               "&$select=start,responseStatus,isOrganizer,isAllDay,showAs"
+               "&$select=id,start,responseStatus,isOrganizer,isAllDay,showAs,isCancelled"
                "&$top=100&$orderby=start/dateTime")
         r = requests.get(url, headers={"Authorization": "Bearer " + token,
                          "Prefer": 'outlook.timezone="Asia/Ho_Chi_Minh"'}, timeout=12)
         if r.status_code != 200:
             return empty
+        recent = _recent_rsvps(email)
         times = []
         for ev in (r.json().get("value") or []):
-            if ev.get("isOrganizer") or ev.get("isAllDay"):
+            # cancelled: the organiser called it off; Graph refuses an answer (400), so
+            # nagging about it would leave a reminder nobody can ever clear.
+            if ev.get("isOrganizer") or ev.get("isAllDay") or ev.get("isCancelled"):
                 continue
             if (ev.get("showAs") or "busy") in ("free", "workingElsewhere"):
                 continue
-            if ((ev.get("responseStatus") or {}) or {}).get("response") in (
-                    "notResponded", "none", None):
+            if _graph_response(ev, recent) in _UNANSWERED:
                 st = ((ev.get("start") or {}).get("dateTime") or "")[:16]
                 # 'YYYY-MM-DDTHH:MM' -> 'dd/mm HH:MM'
                 times.append((st[8:10] + "/" + st[5:7] + " " + st[11:16]) if len(st) >= 16 else "")

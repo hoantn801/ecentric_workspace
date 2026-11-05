@@ -71,6 +71,7 @@ function content() {
       "<li>" + b("Tôi đã giao") + ": việc bạn giao cho người khác, ai xong ai chưa.</li>" +
       "<li>" + b("Lịch làm việc") + ": xếp việc vào giờ trong tuần, xem lịch họp Outlook.</li>" +
       "<li>" + b("+ Giao việc") + ": tạo việc cho mình hoặc giao cho người khác.</li>" +
+      "<li>" + b("Phòng họp") + ": xem phòng trống và đặt phòng (cũng là tab trong Lịch làm việc).</li>" +
       "<li>Nhóm " + b("Quản lý") + " (Điều phối, Dự án, Tất cả việc, Timesheet) dành cho trưởng nhóm và người theo dõi dự án.</li>" +
     "</ol></div></div>" +
     "<h3>Một việc có 4 trạng thái</h3>" +
@@ -79,7 +80,12 @@ function content() {
       "<div>" + st("s1", "Đang làm") + "<br>Đã bắt đầu làm.</div>" +
       "<div>" + st("s2", "Chờ duyệt") + "<br>Đã làm xong, chờ người giao kiểm tra.</div>" +
       "<div>" + st("s3", "Xong") + "<br>Hoàn tất.</div>" +
-      "<div>" + st("s4", "Đã huỷ") + "<br>Chỉ quản lý huỷ được. Mặc định ẩn.</div></div>");
+      "<div>" + st("s4", "Đã huỷ") + "<br>Chỉ quản lý huỷ được. Mặc định ẩn.</div></div>" +
+    '<h3 id="pmg-rooms">Đặt phòng họp</h3>' + steps([
+      "Mở " + b("Phòng họp") + ": mỗi phòng một dòng, khối xám là đã có người đặt, vạch đỏ là bây giờ.",
+      "Bấm vào chỗ trống, ghi tên cuộc họp, mời thêm người nếu cần, bấm " + b("Đặt phòng") + ".",
+      "Phòng trống tự nhận. Lịch và link Teams vào Outlook / Teams của bạn và người được mời."]) +
+    tip("Đặt trên Teams / Outlook cũng hiện ở đây. Huỷ ở " + b("Phòng bạn đã đặt") + " hay trên Teams đều được."));
 
   /* 2 */
   h += sec("pmg-s2", 2, "Khi được giao việc", role("n") + " Dành cho người nhận việc",

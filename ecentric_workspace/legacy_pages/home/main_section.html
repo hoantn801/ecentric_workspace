@@ -569,6 +569,34 @@
   .ecentric-app .ec2-col>.panel .approval-list{padding:0}
   .ecentric-app .ec2-col>.panel .news-list,.ecentric-app .ec2-col>.panel ul{padding-left:0;padding-right:0}
   .ecentric-app .ec2-col .quick-grid{grid-template-columns:repeat(4,1fr)}
+  /* ---- v2: card Phong hop (05/11/2026, demo v2 PO duyet). CHI xem trong/ban, dat o /pm#rooms. Khung giu cho
+     5 dong xuong co san trong markup, cung chieu cao dong that (38px) -> du lieu ve khong lam nhay bo cuc.
+     pm_home_calendar.js chi dien noi dung vao [data-ec-rooms-list] va badge. ---- */
+  .ecentric-app .ec2-rooms .badge:empty{display:none}
+  .ecentric-app .ec2-col>.panel .ec2-rm-list{list-style:none;margin:0;padding:0}
+  .ecentric-app .ec2-rm-list>li{height:38px;border-top:1px solid #f3f4f6}
+  .ecentric-app .ec2-rm-list>li:first-child{border-top:0}
+  .ecentric-app .ec2-rm-row{display:grid;grid-template-columns:30px minmax(0,1fr) auto;grid-template-rows:auto 4px;column-gap:8px;row-gap:5px;align-content:center;height:100%;padding:0 4px;text-decoration:none;color:inherit;border-radius:6px}
+  .ecentric-app .ec2-rm-row:hover{background:#f9fafb}
+  .ecentric-app .ec2-rm-row:focus-visible{outline:2px solid var(--navy);outline-offset:-2px}
+  .ecentric-app .ec2-rm-code{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:11px;color:#6b7280;font-variant-numeric:tabular-nums}
+  .ecentric-app .ec2-rm-name{font-size:12.5px;font-weight:500;color:#111827;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ecentric-app .ec2-rm-st{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .ecentric-app .ec2-rm-st::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+  .ecentric-app .ec2-rm-st--free{color:#059669}
+  .ecentric-app .ec2-rm-st--busy{color:#dc2626}
+  .ecentric-app .ec2-rm-st--soon{color:#b45309}
+  .ecentric-app .ec2-rm-st--off{color:#9ca3af}
+  .ecentric-app .ec2-rm-bar{grid-column:2/4;position:relative;height:4px;border-radius:2px;background:#f3f4f6;overflow:hidden}
+  .ecentric-app .ec2-rm-bar i{position:absolute;top:0;bottom:0;background:#d1d5db}
+  .ecentric-app .ec2-rm-bar i.ec2-rm-cur{background:#dc2626}
+  .ecentric-app .ec2-rm-bar b{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:#111827}
+  .ecentric-app .ec2-rm-sk{display:grid;grid-template-columns:30px minmax(0,1fr) 84px;grid-template-rows:10px 4px;gap:8px;align-content:center;padding:0 4px}
+  .ecentric-app .ec2-rm-sk span{border-radius:4px;background:#f3f4f6}
+  .ecentric-app .ec2-rm-sk span:nth-child(4){grid-column:2/4}
+  .ecentric-app .ec2-rm-list>li.ec2-rm-note{height:auto;padding:10px 4px;font-size:12px;color:#9ca3af}
+  .ecentric-app .ec2-rm-foot{display:flex;justify-content:space-between;gap:8px;margin-top:6px;font-size:11px;color:#9ca3af}
+  .ecentric-app .ec2-rm-foot span:first-child,.ecentric-app .ec2-rm-foot span:last-child{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
   .ecentric-app .ec2-qn{display:inline-block;font-size:11px;font-weight:700;background:#eef0fb;color:#1f2d80;border-radius:8px;padding:1px 8px;margin-left:6px;vertical-align:1px}
   .ecentric-app .ec2-qn[hidden]{display:none}
   .ecentric-app .ec2-qg{font-size:9.5px;letter-spacing:.1em;font-weight:750;margin:10px 4px 3px;display:flex;align-items:center;gap:8px}
@@ -934,6 +962,21 @@
               <a href="/coming-soon?tool=kpi" class="quick-item"><div class="quick-icon"><svg class="icon"><use href="#i-target"/></svg></div><span class="quick-label">Mục tiêu KPI</span></a>
               <a href="/gop-y" class="quick-item"><div class="quick-icon"><svg class="icon"><use href="#i-bulb"/></svg></div><span class="quick-label">Góp ý công ty</span></a>
             </div>
+          </div>
+
+          <div class="panel ec2-rooms" data-ec-rooms aria-label="Phòng họp lúc này">
+            <div class="panel-header">
+              <div class="panel-title">Phòng họp <span class="badge" data-ec-rooms-badge></span></div>
+              <a class="panel-action" href="/pm#rooms">Xem lịch →</a>
+            </div>
+            <ul class="ec2-rm-list" data-ec-rooms-list aria-busy="true" aria-label="Trạng thái phòng họp">
+              <li class="ec2-rm-sk"><span></span><span></span><span></span><span></span></li>
+              <li class="ec2-rm-sk"><span></span><span></span><span></span><span></span></li>
+              <li class="ec2-rm-sk"><span></span><span></span><span></span><span></span></li>
+              <li class="ec2-rm-sk"><span></span><span></span><span></span><span></span></li>
+              <li class="ec2-rm-sk"><span></span><span></span><span></span><span></span></li>
+            </ul>
+            <div class="ec2-rm-foot" aria-hidden="true"><span>08:00</span><span>thanh xám = đã có người đặt hôm nay</span><span>19:00</span></div>
           </div>
 
           <div class="panel">

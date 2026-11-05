@@ -1,0 +1,44 @@
+{
+ "doctype": "DocType",
+ "name": "EC Meeting Room",
+ "module": "Ecentric Workspace",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "autoname": "field:room_code",
+ "naming_rule": "By fieldname",
+ "title_field": "room_title",
+ "sort_field": "sort_order",
+ "sort_order": "ASC",
+ "description": "Phòng họp văn phòng (05/11/2026). Mỗi phòng = một room mailbox Microsoft 365: ERP đọc lịch phòng qua Graph (đặt trên Teams cũng hiện) và đặt phòng bằng cách tạo lịch Teams trên Outlook người đặt, mời phòng. Thêm / đổi phòng ở đây, không sửa code.",
+ "field_order": [
+  "room_code",
+  "room_title",
+  "email",
+  "floor",
+  "note",
+  "capacity",
+  "sort_order",
+  "enabled"
+ ],
+ "fields": [
+  {"fieldname": "room_code", "fieldtype": "Data", "label": "Mã phòng", "description": "Ví dụ 5.1", "reqd": 1, "unique": 1, "in_list_view": 1},
+  {"fieldname": "room_title", "fieldtype": "Data", "label": "Tên phòng", "description": "Ví dụ Phong", "reqd": 1, "in_list_view": 1},
+  {"fieldname": "email", "fieldtype": "Data", "options": "Email", "label": "Email phòng (Microsoft 365)", "description": "Room mailbox, ví dụ room.phong@ecentric.vn", "reqd": 1, "unique": 1, "in_list_view": 1},
+  {"fieldname": "floor", "fieldtype": "Data", "label": "Tầng", "description": "Ví dụ Lầu 5"},
+  {"fieldname": "note", "fieldtype": "Data", "label": "Ghi chú ngắn", "description": "Hiện dưới tên phòng, ví dụ Phòng lớn / Cách âm"},
+  {"fieldname": "capacity", "fieldtype": "Int", "label": "Số chỗ ngồi", "non_negative": 1},
+  {"fieldname": "sort_order", "fieldtype": "Int", "label": "Thứ tự hiển thị", "default": "0"},
+  {"fieldname": "enabled", "fieldtype": "Check", "label": "Đang dùng", "default": "1", "in_list_view": 1}
+ ],
+ "permissions": [
+  {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1, "export": 1, "report": 1}
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}
