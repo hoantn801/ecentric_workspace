@@ -89,7 +89,8 @@ class Env(object):
         fk.cache = lambda: _Cache()
         utils = types.ModuleType("frappe.utils")
         pw = types.ModuleType("frappe.utils.password")
-        pw.get_decrypted_password = lambda *a, **k: env.settings.get("ec_kie_api_key", "")
+        pw.get_decrypted_password = lambda dt=None, name=None, field="ec_kie_api_key", **k: \
+            env.settings.get(field or "ec_kie_api_key", "")
         utils.password = pw
         fk.utils = utils
         sys.modules["frappe"] = fk
@@ -115,7 +116,9 @@ class Env(object):
 
     def _post(self, url, json=None, timeout=None, headers=None):
         self.calls.append({"url": url, "body": json, "timeout": timeout, "headers": headers})
-        if "/v1/chat/completions" in url:
+        if "api.anthropic.com" in url:
+            key, model = "claude", json["model"]
+        elif "/v1/chat/completions" in url:
             key, model = "oai", url.split("/")[3]
         elif "codex" in url or "/grok/" in url:
             key, model = ("gpt" if "codex" in url else "grok"), json["model"]
@@ -315,7 +318,7 @@ class NganSachVaCongTac(unittest.TestCase):
         self.assertEqual(e.models_called, ["gemini-3-8-flash"])
 
     def test_ho_model_la_bi_bo_qua_co_ly_do(self):
-        e = Env(settings={"ec_llm_model_kie_fallback": "claude-haiku-4-5"})
+        e = Env(settings={"ec_llm_model_kie_fallback": "llama-4-scout"})
         r = e.gw.generate("x")
         self.assertIn("chua ho tro", r["attempts"][1]["error"])
         self.assertEqual(len(e.calls), 1)
@@ -853,6 +856,142 @@ class QaCongAi(unittest.TestCase):
         self.assertIn("401", out["error"])
         self.assertNotIn(KHOA, out["error"])
 
+
+
+KHOA_CLAUDE = "sk-ant-KHOA-CLAUDE-BI-MAT-9876543210zyxw"
+
+
+def claude_body(text, stop="end_turn"):
+    """Hinh dang Messages API (platform.claude.com/docs/en/api/messages, 05/11/2026)."""
+    return json.dumps({"type": "message", "id": "msg_01", "role": "assistant",
+                       "model": "claude-haiku-5-5", "stop_reason": stop,
+                       "content": [{"type": "text", "text": text}],
+                       "usage": {"input_tokens": 1200, "output_tokens": 300}})
+
+
+CLAUDE_529 = json.dumps({"type": "error", "error": {"type": "overloaded_error",
+                                                    "message": "Overloaded"}})
+CLAUDE_HET_TIEN = json.dumps({"type": "error", "error": {
+    "type": "invalid_request_error",
+    "message": "Your credit balance is too low to access the Anthropic API."}})
+KIE_402 = '{"code":402,"msg":"Credits insufficient : Your current balance isn\u2019t enough"}'
+
+
+class ClaudeLinhHoat(unittest.TestCase):
+    """Hoan 05/11: them Claude, doi linh hoat chinh/du phong ngay trong System Settings."""
+
+    def env(self, **settings):
+        base = {"ec_anthropic_api_key": KHOA_CLAUDE}
+        base.update(settings)
+        return Env(settings=base)
+
+    def test_kie_het_tien_thi_roi_sang_claude_du_phong(self):
+        e = self.env(ec_llm_model_kie_fallback="gpt-5-5, claude-haiku-5-5")
+        e.replies.update({"gemini-3-8-flash": (200, KIE_402), "gpt-5-5": (200, KIE_402),
+                          "claude": (200, claude_body('{"diem": 7}'))})
+        out = e.gw.generate("cham", schema=SCHEMA, purpose="test")
+        self.assertTrue(out["ok"], out["error"])
+        self.assertEqual((out["model"], out["data"], out["fell_back"]), ("claude-haiku-5-5", {"diem": 7}, True))
+        call = [c for c in e.calls if "anthropic" in c["url"]][0]
+        self.assertEqual(call["headers"]["x-api-key"], KHOA_CLAUDE)
+        self.assertEqual(call["headers"]["anthropic-version"], "2026-10-21")
+        self.assertNotIn("Authorization", call["headers"], "khoa Kie khong duoc gui sang Anthropic")
+        kie_call = [c for c in e.calls if "kie.ai" in c["url"]][0]
+        self.assertNotIn(KHOA_CLAUDE, json.dumps(kie_call["headers"]), "khoa Claude khong sang Kie")
+        self.assertEqual(out["usage"], {"input_tokens": 1200, "output_tokens": 300})
+
+    def test_claude_lam_model_chinh(self):
+        e = self.env(ec_llm_model_kie="claude-sonnet-5-5")
+        e.replies["claude"] = (200, claude_body("xin chao"))
+        out = e.gw.generate("chao")
+        self.assertEqual((out["ok"], out["model"], out["fell_back"]), (True, "claude-sonnet-5-5", False))
+        self.assertEqual(e.models_called[0], "claude-sonnet-5-5")
+
+    def test_che_do_nhanh_giu_claude_dau_khi_la_model_chinh(self):
+        e = self.env(ec_llm_model_kie="claude-haiku-5-5",
+                     ec_llm_model_kie_fallback="gemini-3-8-flash-openai, grok-4-7")
+        self.assertEqual(e.mod["config"].fast_chain()[0], "claude-haiku-5-5")
+        e2 = self.env(ec_llm_model_kie_fallback="gemini-3-8-flash-openai, grok-4-7, claude-haiku-5-5")
+        self.assertEqual(e2.mod["config"].fast_chain()[-1], "claude-haiku-5-5",
+                         "Claude du phong o CUOI van o cuoi trong che do nhanh")
+
+    def test_than_request_claude(self):
+        d = Env().mod["dialects"]
+        body = d.build("claude-haiku-5-5", "doc phieu", system="Ban la tro ly",
+                       schema=SCHEMA, files=[{"data": b"%PDF-1", "mime_type": "application/pdf"},
+                                             {"data": b"\x89PNG", "mime_type": "image/png"}],
+                       history=[{"role": "model", "text": "chao truoc"},
+                                {"role": "user", "text": "cau 1"}, {"role": "model", "text": "tra loi 1"},
+                                {"role": "user", "text": "cau 2"}],
+                       opts={"temperature": 0, "effort": "none"})
+        self.assertEqual(body["system"], "Ban la tro ly")
+        self.assertNotIn("temperature", body, "API 2026-10-21 tra 400 neu gui temperature")
+        self.assertEqual(body["max_tokens"], 8192)
+        roles = [m["role"] for m in body["messages"]]
+        self.assertEqual(roles, ["user", "assistant", "user"], "bat dau bang user, xen ke")
+        last = body["messages"][-1]["content"]
+        self.assertEqual([c["type"] for c in last], ["text", "document", "image", "text"])
+        self.assertEqual(last[0]["text"], "cau 2")
+        self.assertEqual(last[1]["source"]["media_type"], "application/pdf")
+        self.assertIn("JSON", last[-1]["text"])
+
+    def test_tep_word_khong_gui_claude(self):
+        e = self.env(ec_llm_model_kie="claude-haiku-5-5", ec_llm_model_kie_fallback="gemini-3-8-flash")
+        e.replies["gemini"] = (200, sse("ok"))
+        out = e.gw.generate("doc", files=[{"data": b"PK", "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}])
+        self.assertEqual(out["model"], "gemini-3-8-flash")
+        self.assertNotIn("claude-haiku-5-5", e.models_called)
+        self.assertIn("khong nhan tep", out["attempts"][0]["error"])
+
+    def test_claude_qua_tai_la_sap_het_tien_khong_phai_sap(self):
+        gw = Env().gw
+        d = Env().mod["dialects"]
+        err529 = d.parse("claude-haiku-5-5", 529, CLAUDE_529)[3]
+        err400 = d.parse("claude-haiku-5-5", 400, CLAUDE_HET_TIEN)[3]
+        self.assertTrue(gw.is_outage(err529), err529)
+        self.assertFalse(gw.is_outage(err400), err400)
+        self.assertIn("credit balance", err400)
+
+    def test_chua_co_khoa_claude_thi_bo_qua_claude_van_chay_kie(self):
+        e = Env(settings={"ec_llm_model_kie": "claude-haiku-5-5",
+                          "ec_llm_model_kie_fallback": "gemini-3-8-flash"})
+        e.replies["gemini"] = (200, sse("ok"))
+        out = e.gw.generate("chao")
+        self.assertEqual(out["model"], "gemini-3-8-flash")
+        self.assertNotIn("claude-haiku-5-5", e.models_called)
+        self.assertIn("chua co khoa anthropic", out["attempts"][0]["error"])
+
+    def test_chi_co_khoa_claude_van_chay(self):
+        e = Env(settings={"ec_kie_api_key": "", "ec_anthropic_api_key": KHOA_CLAUDE,
+                          "ec_llm_model_kie_fallback": "claude-haiku-5-5"})
+        e.replies["claude"] = (200, claude_body("ok"))
+        out = e.gw.generate("chao")
+        self.assertEqual((out["ok"], out["model"]), (True, "claude-haiku-5-5"))
+
+    def test_khoa_claude_bi_che_trong_loi(self):
+        e = self.env(ec_llm_model_kie="claude-haiku-5-5", ec_llm_model_kie_fallback="")
+        e.settings["ec_llm_model_kie_fallback"] = "claude-haiku-5-5"
+        e.replies["claude"] = RuntimeError("bad header %r" % ("x" + KHOA_CLAUDE))
+        out = e.gw.generate("chao")
+        self.assertFalse(out["ok"])
+        self.assertNotIn(KHOA_CLAUDE, json.dumps(out) + json.dumps(e.logs))
+        self.assertNotIn(KHOA_CLAUDE[:20], json.dumps(e.logs))
+
+    def test_gia_claude_tinh_chi_phi(self):
+        Env()
+        u = sys.modules["ecentric_workspace.platform.ai.usage"]
+        cr, src = u.credits_for("claude-haiku-5-5", {"input_tokens": 1000000, "output_tokens": 0},
+                                1000000, 0, u.DEFAULT_PRICES)
+        self.assertEqual((round(cr * u.USD_PER_CREDIT, 4), src), (0.10, "estimate"))
+
+    def test_ping_dung_khoa_rieng_tung_nha(self):
+        e = self.env(ec_llm_model_kie_fallback="claude-haiku-5-5")
+        e.replies.update({"gemini": (200, sse("ok")), "claude": (200, claude_body("ok"))})
+        res = e.mod["health"].ping_models()
+        self.assertIn("claude-haiku-5-5", res)
+        hk = {c["url"].split("/")[2]: c["headers"] for c in e.calls}
+        self.assertEqual(hk["api.anthropic.com"]["x-api-key"], KHOA_CLAUDE)
+        self.assertIn(KHOA, hk["api.kie.ai"]["Authorization"])
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)

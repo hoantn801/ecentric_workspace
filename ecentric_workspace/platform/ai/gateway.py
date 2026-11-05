@@ -57,17 +57,20 @@ _OUTAGE_EXC = ("Timeout", "ReadTimeout", "ConnectTimeout", "ConnectionError", "T
                "ChunkedEncodingError", "ProtocolError", "RemoteDisconnected")
 
 
-def _post(url, body, key, read_timeout):
+def _post(url, body, key, read_timeout, headers=None):
     """Tach rieng de test thay the. -> (status, than_utf8)."""
     resp = requests.post(url, json=body, timeout=(CONNECT_TIMEOUT, read_timeout),
-                         headers={"Authorization": "Bearer %s" % key,
-                                  "Content-Type": "application/json"})
+                         headers=headers or {"Authorization": "Bearer %s" % key,
+                                             "Content-Type": "application/json"})
     # SSE cua Kie khong khai charset -> requests doan ISO-8859-1 va tieng Viet vo nat.
     return resp.status_code, (resp.content or b"").decode("utf-8", "replace")
 
 
 def scrub(text, key):
-    return config.scrub_key(text, key)
+    """Che MOT khoa hoac danh sach khoa (Kie + Claude)."""
+    for k in (key if isinstance(key, (list, tuple, set)) else [key]):
+        text = config.scrub_key(text, k)
+    return text
 
 
 def _log(title, message):
@@ -111,8 +114,7 @@ def _set_down(model, down):
 
 
 def _usable(model, files):
-    d = dialects.dialect_of(model)
-    return bool(d) and (not files or bool(dialects.ACCEPTS_FILES.get(d)))
+    return dialects.accepts(model, files)
 
 
 def _try_one(model, key, request, timeout):
@@ -121,11 +123,15 @@ def _try_one(model, key, request, timeout):
     `build` nam TRONG try: opts den tu trang (livestream: max_tokens/thinking cua than
     request) - "abc" lam int() nem ValueError; o dot song song no con thoat ra khoi
     f.result() va lam sap ca luot goi thay vi tra ok=False."""
+    if not key:
+        return "", None, {}, "", "chua co khoa %s trong System Settings" % (
+            dialects.provider_of(model) or "?")
     try:
         body = dialects.build(model, request["prompt"], request["system"], request["schema"],
                               request["files"], request["history"], request["json_mode"],
                               request["opts"])
-        status, raw = _post(dialects.url_for(model), body, key, timeout)
+        status, raw = _post(dialects.url_for(model), body, key, timeout,
+                            dialects.headers_for(model, key))
         text, usage, finish, err = dialects.parse(model, status, raw)
     except Exception as exc:
         return "", None, {}, "", "%s: %s" % (type(exc).__name__, exc)
@@ -155,13 +161,15 @@ def timed_try(model, key, request, timeout):
 
 
 def _race(models, key, request, timeout):
+    """`key`: mot khoa chung, hoac {model: khoa} khi chuoi tron Kie + Claude."""
     """Goi song song, tra (ket_qua_thang hoac None, [ket qua da xong], [model chua xong]).
 
     Luong phu chi goi HTTP; ghi cache/log de luong chinh lam. Khong doi luong thua: no tu
     het han theo tran thoi gian cua chinh no.
     """
     ex = cf.ThreadPoolExecutor(max_workers=len(models))
-    futs = {ex.submit(timed_try, m, key, request, timeout): m for m in models}
+    futs = {ex.submit(timed_try, m, key.get(m, "") if isinstance(key, dict) else key,
+                      request, timeout): m for m in models}
     winner, done = None, []
     try:
         for f in cf.as_completed(futs, timeout=timeout + CONNECT_TIMEOUT + 1):
@@ -198,10 +206,6 @@ def generate(prompt, system=None, schema=None, files=None, history=None, json_mo
     if config.disabled():
         out["error"] = "ai_disabled"
         return out
-    key = config.api_key()
-    if not key:
-        out["error"] = "no_key"
-        return out
     files = [dict(f) for f in (files or [])]
     if any(not f.get("data") for f in files):
         out["error"] = "co tep khong mang bytes - tu choi goi de khong gui thieu tep"
@@ -215,15 +219,21 @@ def generate(prompt, system=None, schema=None, files=None, history=None, json_mo
         chain = config.fast_chain()
     else:
         chain = config.chain(allow_fallback)
+    keys = config.keys_for(chain)
+    if not any(keys.values()):
+        out["error"] = "no_key"
+        return out
+    secrets = [k for k in set(keys.values()) if k]
     race = max(1, int(race if race is not None else (3 if fast else 1)))
     down = set()
     if not models:
-        down = {m for m in chain if _usable(m, files) and (_is_down(m) or health.unhealthy(m))}
-        if not any(_usable(m, files) and m not in down for m in chain):
+        ready = [m for m in chain if _usable(m, files) and keys.get(m)]
+        down = {m for m in ready if _is_down(m) or health.unhealthy(m)}
+        if not any(m not in down for m in ready):
             # Ca Kie dang sap (probe 28/09 chieu: moi model deu hong). Thu DUNG MOT model
             # dung duoc dau tien de biet da song chua - khong bat nguoi dung cho ca chuoi
             # 34s x N roi van nhan loi.
-            first = next((m for m in chain if _usable(m, files)), None)
+            first = next(iter(ready), None)
             down = {m for m in down if m != first}
     budget = float(budget or DEFAULT_BUDGET)
     per_try = float(attempt_timeout or DEFAULT_ATTEMPT_TIMEOUT)
@@ -237,8 +247,11 @@ def generate(prompt, system=None, schema=None, files=None, history=None, json_mo
         attempts[model] = attempt
         dialect = dialects.dialect_of(model)
         if not dialect:
-            attempt["error"] = "ho model nay chua ho tro (chi gemini-*, gpt-*, grok-*)"
-        elif files and not dialects.ACCEPTS_FILES.get(dialect):
+            attempt["error"] = "ho model nay chua ho tro (chi gemini-*, gpt-*, grok-*, claude-*)"
+        elif not keys.get(model):
+            attempt["error"] = "chua co khoa %s trong System Settings - bo qua" % (
+                dialects.provider_of(model))
+        elif files and not dialects.accepts(model, files):
             attempt["error"] = "model khong nhan tep - bo qua, khong gui thieu tep"
         elif model in down:
             attempt["error"] = ("vua sap (<%d phut) hoac ti le thanh cong 60 phut < %d%% - bo qua"
@@ -252,7 +265,7 @@ def generate(prompt, system=None, schema=None, files=None, history=None, json_mo
         if r["usage"]:
             out["billed"].append({"model": r["model"], "usage": r["usage"]})
         if r["error"]:
-            a["error"] = scrub(r["error"], key)[:600]
+            a["error"] = scrub(r["error"], secrets)[:600]
             if is_outage(r["error"]):
                 _set_down(r["model"], True)
                 # Chi loi SAP moi tinh vao suc khoe; JSON hong la loi cua cau hoi nay.
@@ -273,7 +286,7 @@ def generate(prompt, system=None, schema=None, files=None, history=None, json_mo
         # Dot song song co Grok (cham 9-25s nhung luon song) lam luoi: cho moi model den
         # TAIL_TIMEOUT. Gemini xong truoc thi tra ngay, khong doi Grok.
         wave_timeout = min(max(per_try, TAIL_TIMEOUT), remaining)
-        winner, done, pending = _race(wave, key, request, wave_timeout)
+        winner, done, pending = _race(wave, keys, request, wave_timeout)
         for r in done:
             if r is not winner:
                 settle(r)
@@ -295,7 +308,7 @@ def generate(prompt, system=None, schema=None, files=None, history=None, json_mo
             attempts[model]["error"] = "het ngan sach thoi gian (%.0fs)" % budget
             break
         cap = max(per_try, TAIL_TIMEOUT) if wave else per_try
-        settle(timed_try(model, key, request, min(cap, remaining)))
+        settle(timed_try(model, keys.get(model, ""), request, min(cap, remaining)))
 
     # Model khong duoc thu (da co ket qua / het ngan sach) khong nam trong vet - vet chi ke
     # nhung gi da xay ra.
