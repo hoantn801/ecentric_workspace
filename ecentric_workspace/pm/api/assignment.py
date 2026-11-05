@@ -74,6 +74,42 @@ def _assert_assignment_kind(doc):
         frappe.throw(_("Đây là đề xuất dời hạn. Hãy trả lời trong mục Tôi đã giao."))
 
 
+def _task_finished(task_name):
+    row = frappe.db.get_value("Task", task_name, ["workflow_state", "status"], as_dict=True)
+    return bool(row) and pmperm.is_task_terminal(row)
+
+
+def close_open_requests_on_terminal(task_name, detail=None):
+    """04/11/2026: a Task reached Done/Cancelled -> its open "Cần đồng ý" requests can no longer be
+    answered (accepting would re-assign / re-date a finished task, and they kept showing in the
+    recipient's "Cần bạn trả lời" + badge). Close every OPEN Assignment-kind request as Cancelled
+    with a Withdrawn event, clear the open keys and both parties' reminder ToDos.
+    Deadline-kind requests keep their own lifecycle (task_flow.withdraw_open_deadline).
+    Idempotent; never raises (callers are state writes that must not fail on this)."""
+    try:
+        rows = frappe.get_all(DT, filters={"task": task_name, "status": ["in", list(OPEN_STATUSES)]},
+                              fields=["name", "kind"], limit_page_length=0)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "PM close requests " + str(task_name))
+        return 0
+    n = 0
+    for r in rows:
+        if (r.get("kind") or "Assignment") == "Deadline":
+            continue
+        try:
+            doc = frappe.get_doc(DT, r["name"])
+            doc.status = "Cancelled"
+            _event(doc, "Withdrawn", detail=detail or _("Tự đóng vì việc đã xong hoặc đã huỷ."))
+            _set_open_keys(doc)
+            with _service():
+                doc.save(ignore_permissions=True)
+            _close_request_todos(doc.name)
+            n += 1
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "PM close request " + str(r.get("name")))
+    return n
+
+
 def _release_split_child(doc, reason):
     """PM redesign (PO point 7): "Cần đồng ý" + "Mỗi người một việc" - one person declining
     their part cancels only that child, so the split parent keeps running (and can roll up).
@@ -207,10 +243,14 @@ def _apply_acceptance(doc, agreed_start, agreed_end, actor):
         eff_ed = ed or tdoc.exp_end_date
         # B2: widen the linked Project + ancestor chain FIRST (exactly like tasks.create/update),
         # else ERPNext rejects an agreed schedule that runs past the Project's expected end date.
+        # 04/11/2026: the dates come from the requester's proposal (or a counter the requester
+        # accepted), so any widening of project / parent is backed by the REQUESTER's permission,
+        # not the recipient's (a split-part recipient usually cannot open the parent).
+        auth = doc.requested_by if not (doc.counter_start or doc.counter_end) else actor
         if tdoc.get("project") and (eff_sd or eff_ed):
-            pmtasks._expand_project_dates(tdoc.get("project"), eff_sd, eff_ed, actor)
+            pmtasks._expand_project_dates(tdoc.get("project"), eff_sd, eff_ed, actor, authority=auth)
         if tdoc.get("parent_task") and (eff_sd or eff_ed):
-            pmtasks._expand_ancestor_dates(tdoc.get("parent_task"), eff_sd, eff_ed, actor)
+            pmtasks._expand_ancestor_dates(tdoc.get("parent_task"), eff_sd, eff_ed, actor, authority=auth)
         tdoc.exp_start_date = eff_sd
         tdoc.exp_end_date = eff_ed
         tdoc.pm_start_time = st
@@ -459,6 +499,12 @@ def respond(name, decision, reason=None, counter_start=None, counter_end=None):
     _assert_assignment_kind(doc)
     if doc.status not in OPEN_STATUSES:
         frappe.throw(_("Yêu cầu này không còn mở."))
+    if _task_finished(doc.task):
+        # 04/11/2026: the part was finished/cancelled by someone else -> nothing to answer.
+        close_open_requests_on_terminal(doc.task)
+        out = _as_dict(frappe.get_doc(DT, name))
+        out.update({"auto_closed": 1, "message": _("Việc này đã xong hoặc đã huỷ, không cần trả lời nữa.")})
+        return out
 
     if decision == "accept":
         agreed_start = doc.counter_start or doc.proposed_start
@@ -522,6 +568,9 @@ def requester_action(name, action, proposed_start=None, proposed_end=None, messa
         frappe.throw(_("Bạn không có quyền quản lý yêu cầu này."), frappe.PermissionError)
     _assert_assignment_kind(doc)
 
+    if action in ("accept_counter", "resend") and _task_finished(doc.task):
+        close_open_requests_on_terminal(doc.task)
+        frappe.throw(_("Việc này đã xong hoặc đã huỷ, không cần giao lại."))
     if action == "accept_counter":
         if doc.status != "Reschedule Proposed":
             frappe.throw(_("Không có lịch đề xuất để chấp nhận."))

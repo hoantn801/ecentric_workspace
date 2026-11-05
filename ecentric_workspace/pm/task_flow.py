@@ -273,6 +273,8 @@ def write_state(name, target, user, notify=True):
     _version(name, changes)
     if target in FINISHED:
         _close_open_todos(name)
+        from ecentric_workspace.pm.api import assignment as pmasg   # lazy: assignment imports tasks
+        pmasg.close_open_requests_on_terminal(name)   # "Cần đồng ý" left open on a finished task
     if notify:
         try:
             d2 = frappe.get_doc("Task", name).as_dict()
