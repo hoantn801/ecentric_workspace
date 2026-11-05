@@ -40,6 +40,14 @@
 .km-tbl img{width:36px;height:36px;border-radius:8px;object-fit:cover}
 .km-scroll{overflow-x:auto}
 .km-help{color:var(--g500);font-size:12.5px}
+.km-cam{position:fixed;inset:0;z-index:2000;background:rgba(17,24,39,.92);display:flex;align-items:center;justify-content:center;padding:16px}
+.km-cam[hidden]{display:none !important}
+.km-cam-box{width:min(520px,100%);display:grid;gap:12px;justify-items:center;color:#fff;text-align:center}
+.km-cam-view{position:relative;width:100%;aspect-ratio:3/4;border-radius:16px;overflow:hidden;background:#000}
+.km-cam-view video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+.km-oval{position:absolute;left:50%;top:46%;width:62%;height:66%;transform:translate(-50%,-50%);border:3px dashed rgba(255,255,255,.85);border-radius:50%;box-shadow:0 0 0 2000px rgba(0,0,0,.25);pointer-events:none}
+.km-cam-hint{margin:0;font-size:14px}
+.km-cam .km-btn{min-width:120px}
 @media (max-width:900px){.km-app{grid-template-columns:minmax(0,1fr);overflow-x:hidden}.km-app .ec-shell-mount{display:none}.km-page{padding:16px 16px 40px}.km-tips{grid-template-columns:1fr}}
 </style>
 {% endblock %}
@@ -78,7 +86,8 @@
         </ul>
         <label class="km-chk"><input type="checkbox" id="km-consent"> <span>{{ km.consent_text|e }}</span></label>
         <div class="km-row">
-          <label class="km-btn km-btn-pri" id="km-cam-lbl">Chụp ảnh<input type="file" id="km-cam" accept="image/*" capture="user" hidden></label>
+          <button type="button" class="km-btn km-btn-pri" id="km-cam-btn">Chụp ảnh</button>
+          <input type="file" id="km-cam" accept="image/*" capture="user" hidden>
           <label class="km-btn" id="km-pick-lbl">Chọn ảnh có sẵn<input type="file" id="km-pick" accept="image/*" hidden></label>
         </div>
         <img class="km-prev" id="km-prev" alt="Ảnh sắp gửi" hidden>
@@ -106,6 +115,13 @@
       {% endif %}
     </div>
   </main>
+<div class="km-cam" id="km-camv" role="dialog" aria-modal="true" aria-label="Chụp ảnh khuôn mặt" hidden>
+    <div class="km-cam-box">
+      <div class="km-cam-view"><video id="km-video" playsinline muted autoplay></video><div class="km-oval" aria-hidden="true"></div></div>
+      <p class="km-cam-hint" id="km-cam-hint">Đưa mặt vào khung, nhìn thẳng rồi bấm Chụp.</p>
+      <div class="km-row"><button type="button" class="km-btn km-btn-pri" id="km-shot">Chụp</button><button type="button" class="km-btn" id="km-cam-close">Huỷ</button></div>
+    </div>
+  </div>
 </div>
 {% endblock %}
 {% block script %}{{ super() }}
@@ -142,16 +158,57 @@
       img.src = url;
     });
   }
+  function useImage(d) {
+    dataUrl = d; var p = $('km-prev'); p.src = d; p.hidden = false;
+    say(msg, $('km-consent').checked ? 'Ảnh đã sẵn sàng. Bấm "Gửi ảnh".' : 'Tick ô đồng ý rồi bấm "Gửi ảnh".');
+    refreshSend();
+  }
   function onPick(ev) {
     var f = ev.target.files && ev.target.files[0]; ev.target.value = '';
     if (!f) return;
     say(msg, 'Đang chuẩn bị ảnh…');
-    shrink(f).then(function (d) {
-      dataUrl = d; var p = $('km-prev'); p.src = d; p.hidden = false;
-      say(msg, $('km-consent').checked ? 'Ảnh đã sẵn sàng. Bấm "Gửi ảnh".' : 'Tick ô đồng ý rồi bấm "Gửi ảnh".');
-      refreshSend();
-    }, function (e) { dataUrl = ''; refreshSend(); say(msg, errText(e), 'err'); });
+    shrink(f).then(useImage, function (e) { dataUrl = ''; refreshSend(); say(msg, errText(e), 'err'); });
   }
+
+  // Camera truc tiep (getUserMedia). May tinh: <input capture> bi trinh duyet bo qua -> chi
+  // mo hop chon tep, nen mo camera ngay trong trang. Trinh duyet / app khong ho tro -> dung
+  // <input capture> (dien thoai mo app camera).
+  var stream = null;
+  function camStop() {
+    if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
+    var v = $('km-camv'); if (v) v.hidden = true;
+  }
+  function camOpen() {
+    var md = navigator.mediaDevices;
+    if (!md || !md.getUserMedia) { $('km-cam').click(); return; }
+    say(msg, 'Đang mở camera…');
+    md.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 1280 } }, audio: false })
+      .then(function (s) {
+        stream = s; var v = $('km-video'); v.srcObject = s;
+        var p = v.play(); if (p && p.catch) p.catch(function () {});
+        $('km-camv').hidden = false; say(msg, ''); $('km-shot').focus();
+      }, function (e) {
+        var n = (e && e.name) || '';
+        say(msg, n === 'NotAllowedError' || n === 'SecurityError'
+          ? 'Trình duyệt đang chặn camera. Bấm biểu tượng ổ khoá cạnh địa chỉ trang → cho phép Camera, rồi bấm "Chụp ảnh" lại. Hoặc dùng "Chọn ảnh có sẵn".'
+          : (n === 'NotFoundError' || n === 'OverconstrainedError'
+            ? 'Không tìm thấy camera trên thiết bị này. Dùng "Chọn ảnh có sẵn" hoặc mở trang trên điện thoại.'
+            : 'Không mở được camera. Dùng "Chọn ảnh có sẵn" hoặc mở trang trên điện thoại.'), 'err');
+      });
+  }
+  function camShot() {
+    var v = $('km-video'), w = v.videoWidth, h = v.videoHeight;
+    if (!w || !h) { $('km-cam-hint').textContent = 'Camera chưa sẵn sàng, đợi 1 giây rồi bấm lại.'; return; }
+    var k = Math.min(1, 1280 / Math.max(w, h)), c = document.createElement('canvas');
+    c.width = Math.round(w * k); c.height = Math.round(h * k);
+    c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+    camStop(); useImage(c.toDataURL('image/jpeg', 0.9));
+  }
+  if ($('km-cam-btn')) $('km-cam-btn').addEventListener('click', camOpen);
+  if ($('km-shot')) $('km-shot').addEventListener('click', camShot);
+  if ($('km-cam-close')) $('km-cam-close').addEventListener('click', function () { camStop(); say(msg, ''); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && stream) camStop(); });
+  window.addEventListener('pagehide', camStop);
   if ($('km-cam')) $('km-cam').addEventListener('change', onPick);
   if ($('km-pick')) $('km-pick').addEventListener('change', onPick);
   if ($('km-consent')) $('km-consent').addEventListener('change', refreshSend);

@@ -712,7 +712,7 @@ RAIL_LAYOUTS = {
     ],
     "hr": [
         {"t": "group", "label": "Của tôi", "items": [{"key": "hr.attendance"}, {"key": "hr.leave"},
-                                                     {"key": "hr.salary"}]},
+                                                     {"key": "hr.salary"}, {"key": "hr.face_photo"}]},
         {"t": "button", "item": {"key": "rail.hr.leave", "label": "Xin nghỉ phép", "route": "/ec-hr/leave",
                                  "icon": "plus", "noactive": True}},
         {"t": "group", "label": "Hiệu suất", "items": [
