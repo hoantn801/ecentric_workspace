@@ -47,8 +47,24 @@ class Graph(object):
         self.batch_status = 200
         self.create_status = 201
 
+    def patch(self, url, json=None, headers=None, timeout=None, **k):
+        self.calls.append(("PATCH", url, json))
+        eid = url.split("/events/")[1].split("?")[0]
+        ev = self.my_events.get(eid)
+        if not ev:
+            return _Resp(404)
+        for k2, v in json.items():
+            if k2 == "attendees":
+                v = [dict(a, status={"response": "none"}) for a in v]
+            if k2 in ("start", "end"):
+                v = {"dateTime": v["dateTime"] + ".0000000"}
+            ev[k2] = v
+        return _Resp(200, ev)
+
     def get(self, url, headers=None, timeout=None, **k):
         self.calls.append(("GET", url))
+        if "/instances" in url:
+            return _Resp(200, {"value": []})
         if "/calendarView" in url:
             return _Resp(200, {"value": list(self.my_events.values())})
         eid = url.split("/events/")[1].split("?")[0]
@@ -77,6 +93,7 @@ class Graph(object):
                 return _Resp(self.create_status, {"error": {"code": "ErrorAccessDenied"}})
             eid = "EV%d" % (len(self.my_events) + 1)
             ev = dict(json, id=eid, iCalUId="uid-" + eid, isOrganizer=True, isCancelled=False,
+                      type="seriesMaster" if json.get("recurrence") else "singleInstance",
                       onlineMeeting={"joinUrl": "https://teams/x"} if json.get("isOnlineMeeting") else None)
             ev["attendees"] = [dict(a, status={"response": "none"}) for a in json["attendees"]]
             ev["start"] = {"dateTime": json["start"]["dateTime"] + ".0000000"}
@@ -100,7 +117,7 @@ class Base(unittest.TestCase):
         g.get_app_token = lambda *a: (True, "tok")
         self.g = Graph()
         req = types.ModuleType("requests")
-        req.get, req.post = self.g.get, self.g.post
+        req.get, req.post, req.patch = self.g.get, self.g.post, self.g.patch
         sys.modules.update({"ecentric_workspace.pm.permissions": perm,
                             "ecentric_workspace.notification_center": types.ModuleType("x"),
                             "ecentric_workspace.notification_center.providers": types.ModuleType("y"),
@@ -113,6 +130,7 @@ class Base(unittest.TestCase):
             self.g.room_cal[email] = []
         fk.add("User", name="carol@ec.vn", enabled=1, user_type="System User")
         fk.add("User", name="web@ec.vn", enabled=1, user_type="Website User")
+        fk.add("User", name="old@ec.vn", enabled=0, user_type="System User")
         fk.set_user(ME)
         self.fk = fk
         self.r = fk.load("ecentric_workspace.pm.api.rooms")
@@ -190,8 +208,9 @@ class TestBook(Base):
                 self.r.book("1.2", s, e, "Hop")
         with self.assertRaises(Exception):
             self.r.book("1.2", DAY + " 15:00:00", DAY + " 16:00:00", "  ")
-        with self.assertRaises(Exception):
-            self.r.book("1.2", DAY + " 15:00:00", DAY + " 16:00:00", "Hop", attendees=json.dumps(["web@ec.vn"]))
+        for bad in (["old@ec.vn"], ["khong-phai-email"], ["a@b"]):
+            with self.assertRaises(Exception):
+                self.r.book("1.2", DAY + " 15:00:00", DAY + " 16:00:00", "Hop", attendees=json.dumps(bad))
         with self.assertRaises(Exception):
             self.r.book("9.9", DAY + " 15:00:00", DAY + " 16:00:00", "Hop")
 
@@ -244,6 +263,126 @@ class TestStateMineCancel(Base):
         self.assertEqual(self.r.cancel(eid)["state"], "cancelled")
         self.assertTrue(self.g.my_events[eid]["isCancelled"])
         self.assertEqual(self.r.booking_state(eid)["state"], "cancelled")
+
+
+class TestV2(Base):
+    """06/11/2026: đặt trên ERP đơn giản như Teams - khách ngoài, lặp lại, đổi giờ/phòng, huỷ chuỗi."""
+
+    def created(self):
+        return [c[2] for c in self.g.calls if c[0] == "POST" and c[1].endswith("/events")]
+
+    def test_external_guest_invited_and_counted(self):
+        out = self.r.book("1.2", DAY + " 15:00:00", DAY + " 16:00:00", "Gap brand",
+                          attendees=json.dumps(["Partner@Brand.com", "carol@ec.vn", "web@ec.vn"]))
+        mails = [a["emailAddress"]["address"] for a in self.created()[0]["attendees"][1:]]
+        self.assertEqual(mails, ["partner@brand.com", "carol@ec.vn", "web@ec.vn"])
+        self.assertEqual(out["external"], 2)
+        g = self.r.mine()["rows"][0]["guests"]
+        self.assertEqual([(x["email"], x["external"]) for x in g],
+                         [("partner@brand.com", True), ("carol@ec.vn", False), ("web@ec.vn", True)])   # Website User = khách ngoài, như book()
+
+    def test_weekly_series_body_and_every_occurrence_checked(self):
+        # 2026-10-16 is a Friday; a clash on the 3rd Friday must refuse the whole series
+        self.g.room_cal["room.tho@ecentric.vn"] = [
+            gev("x", "10:00", "11:00", start={"dateTime": "2026-10-30T10:30:00"}, end={"dateTime": "2026-10-30T11:30:00"})]
+        with self.assertRaises(Exception) as cm:
+            self.r.book("1.2", DAY + " 10:00:00", DAY + " 11:00:00", "Giao ban", repeat="weekly",
+                        repeat_until="2026-11-20")
+        self.assertIn("30/10", str(cm.exception))
+        self.assertFalse(self.created())
+        self.g.room_cal["room.tho@ecentric.vn"] = []
+        out = self.r.book("1.2", DAY + " 10:00:00", DAY + " 11:00:00", "Giao ban", repeat="weekly",
+                          repeat_until="2026-11-20")
+        rec = self.created()[0]["recurrence"]
+        self.assertEqual(rec["pattern"], {"type": "weekly", "interval": 1, "daysOfWeek": ["friday"],
+                                          "firstDayOfWeek": "monday"})
+        self.assertEqual(rec["range"], {"type": "endDate", "startDate": DAY, "endDate": "2026-11-20"})
+        self.assertTrue(out["recurring"])
+
+    def test_occurrences_patterns(self):
+        occ = self.r._occurrences
+        wk = self.r._recurrence("weekdays", "2026-10-23", DAY + " 09:00:00")
+        self.assertEqual([x[0][:10] for x in occ(DAY + " 09:00:00", DAY + " 10:00:00", wk)],
+                         ["2026-10-16", "2026-10-19", "2026-10-20", "2026-10-21", "2026-10-22", "2026-10-23"])
+        bi = self.r._recurrence("biweekly", "2026-11-30", DAY + " 09:00:00")
+        self.assertEqual([x[0][:10] for x in occ(DAY + " 09:00:00", DAY + " 10:00:00", bi)],
+                         ["2026-10-16", "2026-10-30", "2026-11-13", "2026-11-27"])
+        mo = self.r._recurrence("monthly", "2027-01-31", DAY + " 09:00:00")
+        self.assertEqual(len(occ(DAY + " 09:00:00", DAY + " 10:00:00", mo)), 4)
+
+    def test_repeat_guards(self):
+        for rep, until in (("weekly", None), ("weekly", "2026-10-01"), ("weekly", "2027-06-01"), ("hourly", "2026-11-01")):
+            with self.assertRaises(Exception):
+                self.r.book("1.2", DAY + " 15:00:00", DAY + " 16:00:00", "Hop", repeat=rep, repeat_until=until)
+
+    def test_update_time_same_room_ignores_own_meeting(self):
+        eid = self.r.book("1.2", DAY + " 15:00:00", DAY + " 16:00:00", "Hop")["event_id"]
+        # the room now carries my meeting (same uid) + someone else at 17:00
+        self.g.room_cal["room.tho@ecentric.vn"] = [gev("m", "15:00", "16:00", org=ME, name="Alice", iCalUId="uid-" + eid),
+                                                  gev("o", "17:00", "18:00")]
+        out = self.r.update(eid, start=DAY + " 15:30:00", end=DAY + " 16:30:00")
+        p = [c for c in self.g.calls if c[0] == "PATCH"][-1][2]
+        self.assertEqual((p["start"]["dateTime"], p["end"]["dateTime"]), (DAY + "T15:30:00", DAY + "T16:30:00"))
+        self.assertNotIn("attendees", p)
+        self.assertEqual(out["state"], "pending")
+        with self.assertRaises(Exception) as cm:
+            self.r.update(eid, start=DAY + " 16:30:00", end=DAY + " 17:30:00")
+        self.assertIn("17:00", str(cm.exception))
+
+    def test_update_room_swaps_resource_keeps_guests(self):
+        eid = self.r.book("1.2", DAY + " 15:00:00", DAY + " 16:00:00", "Hop",
+                          attendees=json.dumps(["carol@ec.vn", "x@partner.vn"]))["event_id"]
+        self.g.room_cal["room.phong@ecentric.vn"] = [gev("p", "15:30", "16:30")]
+        with self.assertRaises(Exception):
+            self.r.update(eid, room="5.1")
+        self.g.room_cal["room.phong@ecentric.vn"] = []
+        self.r.update(eid, room="5.1")
+        p = [c for c in self.g.calls if c[0] == "PATCH"][-1][2]
+        self.assertEqual([a["emailAddress"]["address"] for a in p["attendees"]],
+                         ["room.phong@ecentric.vn", "carol@ec.vn", "x@partner.vn"])
+        self.assertEqual(p["attendees"][0]["type"], "resource")
+        self.assertEqual(p["location"]["locationEmailAddress"], "room.phong@ecentric.vn")
+        self.assertEqual(self.r.mine()["rows"][0]["label"], "5.1 - Phong")
+
+    def test_update_only_organiser_and_title_only_patch(self):
+        eid = self.r.book("1.2", DAY + " 15:00:00", DAY + " 16:00:00", "Hop")["event_id"]
+        self.r.update(eid, subject="Hop moi")
+        p = [c for c in self.g.calls if c[0] == "PATCH"][-1][2]
+        self.assertEqual(p, {"subject": "Hop moi"})
+        self.g.my_events[eid]["isOrganizer"] = False
+        with self.assertRaises(Exception):
+            self.r.update(eid, subject="x")
+
+    def test_cancel_series_targets_master(self):
+        eid = self.r.book("1.2", DAY + " 15:00:00", DAY + " 16:00:00", "Hop", repeat="daily",
+                          repeat_until="2026-10-20")["event_id"]
+        self.g.my_events["OCC1"] = dict(self.g.my_events[eid], id="OCC1", type="occurrence", seriesMasterId=eid)
+        self.r.cancel("OCC1", scope="series")
+        self.assertTrue([c for c in self.g.calls if c[0] == "POST" and c[1].endswith("/events/" + eid + "/cancel")])
+        with self.assertRaises(Exception):
+            self.r.cancel(self.r.book("5.1", DAY + " 15:00:00", DAY + " 16:00:00", "Don")["event_id"], scope="series")
+
+
+class TestIntegratorFollowUps(Base):
+    """06/11: transactionId chống tạo trùng; lặp T2-T6 không bắt đầu cuối tuần; lỗi Graph không cache."""
+
+    def test_transaction_id_forwarded_only_when_safe(self):
+        self.r.book("1.2", DAY + " 15:00:00", DAY + " 16:00:00", "Hop", txn="erp-abc12345")
+        self.r.book("5.1", DAY + " 15:00:00", DAY + " 16:00:00", "Hop", txn="bad id; drop")
+        bodies = [c[2] for c in self.g.calls if c[0] == "POST" and c[1].endswith("/events")]
+        self.assertEqual(bodies[0].get("transactionId"), "erp-abc12345")
+        self.assertNotIn("transactionId", bodies[1])
+
+    def test_weekdays_series_cannot_start_on_weekend(self):
+        with self.assertRaises(Exception):   # 2026-10-17 = Saturday
+            self.r.book("1.2", "2026-10-17 09:00:00", "2026-10-17 10:00:00", "Hop", repeat="weekdays",
+                        repeat_until="2026-10-30")
+
+    def test_graph_error_not_cached(self):
+        self.g.batch_status = 429
+        self.assertTrue(self.r.day()["rooms"][0].get("error"))
+        self.g.batch_status = 200
+        self.assertFalse(self.r.day()["rooms"][0].get("error"))
 
 
 class TestSeedPatch(unittest.TestCase):

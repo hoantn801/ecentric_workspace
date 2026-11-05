@@ -480,15 +480,30 @@
       .then(function(x){
         _rmBusy=false;
         var m=x.j && x.j.message;
-        if(!x.ok || !m){ rmNote(card, x.status===403 ? 'Chưa có quyền xem lịch phòng' : 'Chưa kết nối lịch phòng'); return; }
+        if(!x.ok || !m){
+          if(x.status!==403 && rmKeep(card)) return;
+          rmNote(card, x.status===403 ? 'Chưa có quyền xem lịch phòng' : 'Chưa kết nối lịch phòng'); return; }
         m._at=Date.now(); card._ecRooms=m; rmPaint(card, m);
       })
-      .catch(function(){ _rmBusy=false; rmNote(card, 'Chưa kết nối lịch phòng'); });
+      .catch(function(){ _rmBusy=false; if(!rmKeep(card)) rmNote(card, 'Chưa kết nối lịch phòng'); });
+  }
+  // Loi thoang qua (mang / 5xx) khi da co du lieu < 10 phut: ve lai du lieu cu (gio "bay gio" van chay),
+  // khong sap card thanh mot dong "Chua ket noi" (nhay bo cuc, mat trang thai dang dung).
+  var RM_KEEP=600000;
+  function rmKeep(card){
+    var m=card._ecRooms; if(!m || Date.now()-(m._at||0)>RM_KEEP) return false;
+    rmPaint(card, m); return true;
   }
   function rmInit(){
     if(!document.querySelector('[data-ec-rooms]')) return;
     rmLoad();
     setInterval(function(){ if(!document.hidden) rmLoad(); }, RM_REFRESH);
+    // quay lai tab sau khi an: du lieu da qua 60 s thi tai lai ngay, khong doi chu ky ke tiep
+    document.addEventListener('visibilitychange', function(){
+      if(document.hidden) return;
+      var card=document.querySelector('[data-ec-rooms]'), m=card && card._ecRooms;
+      if(!m || Date.now()-(m._at||0)>=RM_REFRESH) rmLoad();
+    });
   }
   window._ecRoomsCard = { load: rmLoad, paint: rmPaint };
 

@@ -82,6 +82,24 @@ const okReply = data => () => Promise.resolve({ ok: true, status: 200, json: () 
   ok("không lỗi console", B.errors.length === 0, B.errors.join(" | "));
   B.w.close();
 
+  /* ---------- QC 05/11: quay lại tab sau khi ẩn lâu -> tải lại ngay (không đợi tới 60 s); lỗi thoáng qua sau khi đã có dữ liệu
+   * -> giữ các dòng đang có (không sập thành một dòng "Chưa kết nối", không nhảy bố cục) */
+  let fail = false;
+  B = boot(() => fail ? Promise.reject(new Error("net")) : okReply(day())()); await flush();
+  const nDay = () => B.calls.filter(c => /rooms\.day$/.test(c.url)).length;
+  const n0 = nDay();
+  const card3 = B.d.querySelector("[data-ec-rooms]");
+  card3._ecRooms._at -= 5 * 60000;   /* dữ liệu đã cũ 5 phút (tab ẩn) */
+  Object.defineProperty(B.d, "hidden", { configurable: true, get: () => false });
+  B.d.dispatchEvent(new B.w.Event("visibilitychange")); await flush();
+  ok("quay lại tab (dữ liệu > 60 s) → tải lại ngay", nDay() === n0 + 1, nDay() + " vs " + n0);
+  B.d.dispatchEvent(new B.w.Event("visibilitychange")); await flush();
+  ok("… vừa tải xong thì không tải lại lần nữa", nDay() === n0 + 1);
+  fail = true; B.ivs[0](); await flush();
+  const l3 = B.d.querySelector("[data-ec-rooms-list]");
+  ok("lỗi mạng thoáng qua sau khi đã có dữ liệu → vẫn 5 dòng phòng, badge giữ", l3.querySelectorAll(".ec2-rm-row").length === 5 && B.d.querySelector("[data-ec-rooms-badge]").textContent === "3/5 trống", l3.textContent);
+  B.w.close();
+
   /* ---------- lỗi / chưa kết nối */
   const off = day(); off.sync_on = false; off.rooms.forEach(r => { r.error = "SYNC_OFF"; r.bookings = []; });
   for (const [name, rep, want] of [

@@ -2,7 +2,10 @@
  * API giả (không mạng): day / mine / book / booking_state / cancel / list_assignable.
  * Kiểm: đủ phòng + trạng thái lúc này, khối bận / bạn đặt / chờ phòng nhận, kiểm trùng ở client, đặt -> POST rooms.book đúng
  * tham số -> hỏi booking_state -> đổi trạng thái, lỗi server hiện đúng thông điệp, chặn bấm 2 lần, huỷ có xác nhận,
- * Esc + trả focus, Enter trên làn, phòng ROOM_NOT_FOUND / SYNC_OFF không vỡ, tải lỗi có Thử lại, chế độ tab. */
+ * Esc + trả focus, Enter trên làn, phòng ROOM_NOT_FOUND / SYNC_OFF không vỡ, tải lỗi có Thử lại, chế độ tab.
+ * v2 (06/11): sửa từ khối & từ danh sách (chỉ gửi trường đổi), scope buổi / chuỗi, kiểm trùng bỏ qua chính mình, lặp lại
+ * (tham số, tóm tắt số buổi, giới hạn 180 ngày), khách ngoài (chip, email sai, dán nhiều email), huỷ buổi / chuỗi, kéo thả
+ * (trùng, thành công, họp lặp không kéo, server từ chối -> trả về chỗ cũ), lỗi server khi sửa. */
 "use strict";
 const fs = require("fs"), path = require("path");
 const { JSDOM } = require("jsdom");
@@ -134,7 +137,7 @@ function setup(o) {
   await flush(); await tick(2);
   const b1 = T.calls.filter(x => x.m === "rooms.book");
   ok("bấm 3 lần → chỉ 1 lần POST rooms.book", b1.length === 1);
-  ok("rooms.book đúng tham số (room, start/end đủ giây, subject, attendees JSON, teams=1)", b1[0] && JSON.stringify(b1[0].a) === JSON.stringify({ room: "phong", start: D0 + " 12:00:00", end: D0 + " 13:00:00", subject: "Họp <kế hoạch>", attendees: JSON.stringify(["lan.nguyen@ecentric.vn", "khach@doitac.vn"]), teams: 1 }), b1[0] && JSON.stringify(b1[0].a));
+  ok("rooms.book đúng tham số (room, start/end đủ giây, subject, attendees JSON, teams=1, txn chống tạo trùng)", b1[0] && /^erp-[a-z0-9]+-[a-z0-9]+$/.test(b1[0].a.txn || "") && JSON.stringify(Object.assign({}, b1[0].a, { txn: undefined })) === JSON.stringify({ room: "phong", start: D0 + " 12:00:00", end: D0 + " 13:00:00", subject: "Họp <kế hoạch>", attendees: JSON.stringify(["lan.nguyen@ecentric.vn", "khach@doitac.vn"]), teams: 1 }), b1[0] && JSON.stringify(b1[0].a));
   await flush();
   T = T; // giữ instance
   ok("đặt xong: đóng hộp + thông báo chờ phòng xác nhận", !T.$(".pmrm-scrim") && T.toasts.some(t => /chờ phòng xác nhận/.test(t.m)));
@@ -228,6 +231,218 @@ function setup(o) {
   const n0 = T.calls.length;
   T.c.innerHTML = ""; await T.ctl.refresh(); await flush();
   ok("gốc bị host thay → tự dừng (không gọi server, hộp đã gỡ)", T.calls.length === n0 && !T.$(".pmrm-scrim"));
+
+  /* ---------- 9. v2 (06/11): sửa / đổi giờ / đổi phòng, lặp lại, khách ngoài, kéo thả */
+  const LBL = { phong: "5.1 - Phong", hoa: "1.1 - Hoả", tho: "1.2 - Thổ", cabin: "5.2 - Cabin" };
+  const dayV2 = date => { const d = dayData(date); if (!date || date === D0) {
+    d.rooms[4].bookings.push(bk("12:00", "13:00", "Trần Hoàn", { mine: true, uid: "u-e5" }));
+    d.rooms[1].bookings.push(bk("16:00", "17:00", "Trần Hoàn", { mine: true, uid: "u-r1" })); } return d; };
+  const mineV2 = () => { const m = mineData(); m.rows.forEach(r => { r.guests = []; r.recurring = false; r.series_id = ""; }); m.rows.push(
+    { event_id: "ev5", uid: "u-e5", room: "cabin", label: "5.2 - Cabin", start: D0 + " 12:00:00", end: D0 + " 13:00:00", subject: "Sync dự án", state: "accepted", join_url: "https://teams.microsoft.com/l/5", recurring: false, series_id: "",
+      guests: [{ email: "lan.nguyen@ecentric.vn", name: "Nguyễn Lan", external: false }, { email: "khach@doitac.vn", name: "Khách <A>", external: true }] },
+    { event_id: "occ1", uid: "u-r1", room: "hoa", label: "1.1 - Hoả", start: D0 + " 16:00:00", end: D0 + " 17:00:00", subject: "Giao ban tuần", state: "accepted", join_url: "", recurring: true, series_id: "ser1", guests: [] }); return m; };
+  function v2(h, extra) {
+    const SV = { rows: mineV2().rows };
+    const T2 = setup(Object.assign({ h: Object.assign({
+      "rooms.day": a => dayV2(a.date),
+      "rooms.mine": () => ({ sync_on: true, rows: JSON.parse(JSON.stringify(SV.rows)) }),
+      "rooms.update": a => {
+        const x = SV.rows.find(r => r.event_id === a.event_id), series = a.scope === "series";
+        if (a.room) { x.room = a.room; x.label = LBL[a.room]; }
+        if (a.subject != null) x.subject = a.subject;
+        if (a.start) { x.start = a.start; x.end = a.end; }
+        if (a.room || a.start) x.state = "pending";
+        return { ok: true, event_id: series ? x.series_id : x.event_id, scope: a.scope || "occurrence", room: x.room, label: x.label, start: x.start, end: x.end, state: (a.room || a.start) ? "pending" : null };
+      },
+      "rooms.booking_state": () => ({ state: "pending" }),
+      "rooms.book": a => ({ ok: true, event_id: "evR", uid: "uR", room: a.room, label: LBL[a.room], start: a.start, end: a.end, subject: a.subject, state: "pending", recurring: !!a.repeat, external: 0, join_url: "" })
+    }, h || {}) }, extra || {}));
+    T2.SV = SV;
+    T2.w.HTMLElement.prototype.getBoundingClientRect = function () {
+      const ls = Array.from(T2.w.document.querySelectorAll(".pmrm-lane[data-room]")), i = ls.indexOf(this);
+      return i >= 0 ? { left: 0, top: i * 58, width: 1100, height: 58, right: 1100, bottom: i * 58 + 58 } : { left: 0, top: -999, width: 0, height: 0, right: 0, bottom: -999 };
+    };
+    return T2;
+  }
+  const blkOf = (T2, name, re) => Array.from(T2.lane(name).querySelectorAll(".pmrm-blk")).filter(b => re.test(b.textContent));
+  const lastToast = T2 => (T2.toasts[T2.toasts.length - 1] || {});
+  const submitDlg = T2 => T2.$(".pmrm-scrim form").dispatchEvent(new T2.w.Event("submit", { cancelable: true }));
+  const updates = T2 => T2.calls.filter(x => x.m === "rooms.update");
+
+  /* 9a. hiển thị */
+  T = v2(); await flush();
+  const r5 = T.$('[data-ev-row="ev5"]'), rr = T.$('[data-ev-row="occ1"]');
+  ok("v2 danh sách: số người mời + khách ngoài, nhãn Lặp lại, nút Sửa + Huỷ", /2 người mời \(1 khách ngoài\)/.test(r5.textContent) && /Lặp lại/.test(rr.textContent) && r5.querySelector('[data-act="edit"][data-ev="ev5"]') && r5.querySelector('[data-act="cancel"]'));
+  const b5 = blkOf(T, "cabin", /Sync dự án/);
+  ok("v2 khối Bạn đặt: bấm được (role=button, tabindex, aria-label Sửa…), có data-ev", b5.length === 1 && b5[0].getAttribute("data-ev") === "ev5" && b5[0].getAttribute("role") === "button" && b5[0].tabIndex === 0 && /^Sửa cuộc họp Sync dự án, 12:00–13:00/.test(b5[0].getAttribute("aria-label")));
+  const br = blkOf(T, "hoa", /Giao ban tuần/)[0];
+  ok("v2 khối họp lặp: biểu tượng ↻ + nhãn 'Lặp lại', đánh dấu data-rec", br && br.hasAttribute("data-rec") && br.querySelector(".pmrm-rep") && /Lặp lại/.test(br.querySelector("small").textContent));
+  ok("v2 khối người khác: không bấm sửa được", !T.lane("phong").querySelector(".pmrm-blk[data-ev]"));
+
+  /* 9b. mở sửa từ khối: cùng hộp, điền sẵn */
+  b5[0].click(); await flush();
+  ok("sửa từ khối: tiêu đề 'Sửa cuộc họp', nút 'Lưu thay đổi'", T.$(".pmrm-dlg h2").textContent === "Sửa cuộc họp" && T.$(".pmrm-scrim [data-submit]").textContent === "Lưu thay đổi");
+  ok("sửa: điền sẵn tên, phòng, ngày, giờ, Teams (khoá), không có ô Lặp lại / phạm vi", T.f("subject").value === "Sync dự án" && T.f("room").value === "cabin" && T.f("date").value === D0 && T.f("start").value === "12:00" && T.f("end").value === "13:00" && T.f("teams").checked && T.f("teams").disabled && !T.f("repeat") && !T.$(".pmrm-scope"));
+  const ch = T.$$(".pmrm-scrim .pmrm-chip");
+  ok("sửa: người mời thành chip, khách ngoài chip khác màu + 'Khách ngoài' + tooltip, tên esc", ch.length === 2 && !ch[0].classList.contains("pmrm-chip--ext") && ch[1].classList.contains("pmrm-chip--ext") && /Khách ngoài/.test(ch[1].textContent) && ch[1].getAttribute("title") === "Người ngoài công ty sẽ nhận lời mời Teams qua email" && /Khách <A>/.test(ch[1].textContent) && !ch[1].querySelector("a") && !T.$(".pmrm-scrim [data-exthint]").hidden);
+  ok("kiểm trùng bỏ qua chính cuộc đang sửa (không cảnh báo, nút Lưu bật)", T.$(".pmrm-scrim [data-warn]").hidden && !T.$(".pmrm-scrim [data-submit]").disabled);
+  T.setv("start", "14:30"); T.setv("end", "15:30");
+  ok("sửa: vẫn kiểm trùng với cuộc khác (lịch chờ nhận 15:00–15:30 cùng phòng)", /Bạn đã đặt phòng này 15:00–15:30/.test(T.$(".pmrm-scrim [data-warn]").textContent) && T.$(".pmrm-scrim [data-submit]").disabled);
+  T.setv("start", "12:00"); T.setv("end", "13:30");
+  T.$(".pmrm-scrim [data-submit]").click(); T.$(".pmrm-scrim [data-submit]").click(); submitDlg(T); await flush();
+  ok("đổi giờ: 1 lần POST rooms.update, CHỈ gửi start/end (không subject/room/attendees/scope)", updates(T).length === 1 && JSON.stringify(updates(T)[0].a) === JSON.stringify({ event_id: "ev5", start: D0 + " 12:00:00", end: D0 + " 13:30:00" }), JSON.stringify(updates(T).map(x => x.a)));
+  const nb = blkOf(T, "cabin", /Sync dự án/);
+  ok("lưu xong: hộp đóng, khối chuyển 'Chờ phòng nhận' ở giờ mới, khối cũ biến mất", !T.$(".pmrm-scrim") && nb.length === 1 && nb[0].classList.contains("pmrm-blk--pend") && /12:00–13:30/.test(nb[0].textContent) && /chờ phòng xác nhận/.test(lastToast(T).m));
+  await tick(40); await flush();
+  ok("lưu xong: hỏi booking_state(ev5) như khi đặt", T.calls.some(x => x.m === "rooms.booking_state" && x.a.event_id === "ev5"));
+  await T.ctl.refresh(); await flush();
+  ok("tải lại (lịch phòng còn giờ cũ, mine giờ mới): vẫn chỉ 1 khối ở giờ mới", blkOf(T, "cabin", /Sync dự án/).length === 1 && /12:00–13:30/.test(blkOf(T, "cabin", /Sync dự án/)[0].textContent));
+  T.ctl.destroy();
+
+  /* 9c. sửa từ danh sách: tên + người mời (khách ngoài, email sai), không đổi giờ -> không hỏi phòng */
+  T = v2(); await flush();
+  T.$('[data-act="edit"][data-ev="ev5"]').click(); await flush();
+  ok("sửa từ nút Sửa trong danh sách: cùng hộp, điền sẵn", T.$(".pmrm-dlg h2").textContent === "Sửa cuộc họp" && T.f("subject").value === "Sync dự án" && T.$$(".pmrm-scrim .pmrm-chip").length === 2);
+  T.setv("subject", "Sync dự án Q4");
+  T.$('.pmrm-scrim [data-rm="lan.nguyen@ecentric.vn"]').click();
+  T.f("who").dispatchEvent(new T.w.Event("focus")); await flush();
+  T.setv("who", "sai@email"); T.key(T.f("who"), "Enter"); await flush();
+  const badChip = T.$(".pmrm-scrim .pmrm-chip--bad");
+  ok("email sai: chip đỏ ngay + báo 'Email không hợp lệ', khoá nút Lưu", badChip && /sai@email/.test(badChip.textContent) && /Email không hợp lệ: sai@email/.test(T.$(".pmrm-scrim [data-warn]").textContent) && T.$(".pmrm-scrim [data-submit]").disabled);
+  badChip.querySelector("button").click(); await flush();
+  ok("bỏ chip sai → hết cảnh báo", T.$(".pmrm-scrim [data-warn]").hidden && !T.$(".pmrm-scrim [data-submit]").disabled);
+  T.setv("who", "ban@gmail.com"); T.key(T.f("who"), "Enter"); await flush();
+  T.setv("who", "vu.dang@ecentric.vn"); T.key(T.f("who"), "Enter"); await flush();
+  const cc = T.$$(".pmrm-scrim .pmrm-chip");
+  ok("gõ email ngoài + Enter → chip 'Khách ngoài'; email nội bộ → chip thường tên người", cc.length === 3 && cc[1].classList.contains("pmrm-chip--ext") && /ban@gmail\.com/.test(cc[1].textContent) && !cc[2].classList.contains("pmrm-chip--ext") && /Đặng Vũ/.test(cc[2].textContent));
+  submitDlg(T); await flush();
+  ok("chỉ gửi trường đổi: subject + attendees (không start/end/room)", updates(T).length === 1 && JSON.stringify(updates(T)[0].a) === JSON.stringify({ event_id: "ev5", subject: "Sync dự án Q4", attendees: JSON.stringify(["khach@doitac.vn", "ban@gmail.com", "vu.dang@ecentric.vn"]) }), JSON.stringify(updates(T).map(x => x.a)));
+  ok("đổi tên/người mời: khối vẫn 'Bạn đặt' (không chờ phòng), không hỏi booking_state, danh sách cập nhật", T.count("rooms.booking_state") === 0 && blkOf(T, "cabin", /Sync dự án Q4/)[0].classList.contains("pmrm-blk--mine") && /3 người mời \(2 khách ngoài\)/.test(T.$('[data-ev-row="ev5"]').textContent) && lastToast(T).m === "Đã lưu thay đổi.");
+  T.$('[data-act="edit"][data-ev="ev5"]').click(); await flush();
+  submitDlg(T); await flush();
+  ok("không đổi gì → không gọi server, báo 'Không có gì thay đổi.'", updates(T).length === 1 && !T.$(".pmrm-scrim") && lastToast(T).m === "Không có gì thay đổi.");
+  /* đổi phòng */
+  T.$('[data-act="edit"][data-ev="ev5"]').click(); await flush();
+  T.setv("room", "phong"); await flush();
+  ok("đổi phòng: kiểm trùng phòng mới (12:00–13:00 Phong trống)", T.$(".pmrm-scrim [data-warn]").hidden);
+  submitDlg(T); await flush();
+  ok("đổi phòng: chỉ gửi room; khối sang làn Phong 'chờ phòng nhận', làn Cabin hết khối", JSON.stringify(updates(T)[1].a) === JSON.stringify({ event_id: "ev5", room: "phong" }) && blkOf(T, "phong", /Sync dự án Q4/).length === 1 && blkOf(T, "phong", /Sync dự án Q4/)[0].classList.contains("pmrm-blk--pend") && !blkOf(T, "cabin", /Sync/).length && /5\.1 - Phong/.test(T.$('[data-ev-row="ev5"]').textContent));
+  T.ctl.destroy();
+
+  /* 9d. họp lặp: Chỉ buổi này / Cả chuỗi */
+  T = v2(); await flush();
+  const brk = blkOf(T, "hoa", /Giao ban tuần/)[0]; brk.focus(); T.key(brk, "Enter"); await flush();
+  const radios = T.$$('.pmrm-scrim [data-f="scope"]');
+  ok("sửa họp lặp (Enter trên khối): hỏi Chỉ buổi này / Cả chuỗi, mặc định Chỉ buổi này, ô ngày mở", radios.length === 2 && radios[0].value === "occurrence" && radios[0].checked && /Chỉ buổi này/.test(T.$(".pmrm-scope").textContent) && /Cả chuỗi/.test(T.$(".pmrm-scope").textContent) && !T.f("date").disabled);
+  T.setv("start", "11:30"); T.setv("end", "12:30");
+  ok("buổi này: kiểm trùng ở client (Đặng Vũ 11:00–12:00)", /Đặng Vũ/.test(T.$(".pmrm-scrim [data-warn]").textContent));
+  T.setv("start", "16:00"); T.setv("end", "17:00");
+  T.setv("subject", "Giao ban (dời)"); submitDlg(T); await flush();
+  ok("buổi này: gửi scope=occurrence + trường đổi", JSON.stringify(updates(T)[0].a) === JSON.stringify({ event_id: "occ1", subject: "Giao ban (dời)", scope: "occurrence" }), JSON.stringify(updates(T).map(x => x.a)));
+  ok("Esc/đóng sau khi mở bằng bàn phím → focus về khối", (() => { const b = blkOf(T, "hoa", /Giao ban/)[0]; b.focus(); T.key(b, "Enter"); return !!T.$(".pmrm-scrim"); })());
+  T.key(T.$(".pmrm-dlg"), "Escape"); await flush();
+  ok("… Esc đóng hộp sửa, focus trả về khối đã mở", !T.$(".pmrm-scrim") && T.w.document.activeElement && T.w.document.activeElement.getAttribute("data-ev") === "occ1");
+  T.$('[data-act="edit"][data-ev="occ1"]').click(); await flush();
+  T.$$('.pmrm-scrim [data-f="scope"]')[1].checked = true; T.$$('.pmrm-scrim [data-f="scope"]')[1].dispatchEvent(new T.w.Event("change", { bubbles: true }));
+  ok("Cả chuỗi: khoá ô ngày, hiện ghi chú chỉ đổi giờ trong ngày", T.f("date").disabled && !T.$(".pmrm-scrim [data-scope-note]").hidden);
+  T.setv("start", "16:30"); T.setv("end", "17:30"); submitDlg(T); await flush();
+  ok("Cả chuỗi: gửi start/end (giữ ngày) + scope=series", JSON.stringify(updates(T)[1].a) === JSON.stringify({ event_id: "occ1", start: D0 + " 16:30:00", end: D0 + " 17:30:00", scope: "series" }), JSON.stringify(updates(T)[1].a));
+  await tick(40); await flush();
+  ok("Cả chuỗi: khối chờ phòng nhận ở giờ mới, hỏi booking_state(id chuỗi), không vẽ thêm khối/dòng trùng", blkOf(T, "hoa", /Giao ban/).length === 1 && blkOf(T, "hoa", /Giao ban/)[0].classList.contains("pmrm-blk--pend") && /16:30–17:30/.test(blkOf(T, "hoa", /Giao ban/)[0].textContent) && T.calls.some(x => x.m === "rooms.booking_state" && x.a.event_id === "ser1") && T.$$('[data-ev-row="occ1"]').length === 1 && T.$$(".pmrm-mrow").length === 4 && /Đã lưu cả chuỗi/.test(T.toasts.map(t => t.m).join("|")));
+  T.ctl.destroy();
+
+  /* 9e. huỷ buổi / cả chuỗi */
+  T = v2(); await flush();
+  T.$('[data-act="cancel"][data-ev="occ1"]').click(); await flush();
+  ok("huỷ họp lặp: hỏi 'Huỷ buổi này' / 'Huỷ cả chuỗi' / Giữ", /Huỷ cuộc họp lặp lại\?/.test(T.$('[data-ev-row="occ1"]').textContent) && T.$('[data-act="cancel-yes"][data-scope="occurrence"]') && T.$('[data-act="cancel-yes"][data-scope="series"]') && T.$('[data-act="cancel-no"]'));
+  T.$('[data-act="cancel-yes"][data-scope="series"]').click(); T.$('[data-act="cancel-yes"][data-scope="occurrence"]').click(); await flush();
+  const cs = T.calls.filter(x => x.m === "rooms.cancel");
+  ok("Huỷ cả chuỗi: 1 lần POST cancel(event_id, scope=series), dòng + khối biến mất", cs.length === 1 && JSON.stringify(cs[0].a) === JSON.stringify({ event_id: "occ1", scope: "series" }) && !T.$('[data-ev-row="occ1"]') && !blkOf(T, "hoa", /Giao ban/).length && /Đã huỷ cả chuỗi/.test(lastToast(T).m));
+  T.ctl.destroy();
+  T = v2(); await flush();
+  T.$('[data-act="cancel"][data-ev="occ1"]').click(); await flush();
+  T.$('[data-act="cancel-yes"][data-scope="occurrence"]').click(); await flush();
+  ok("Huỷ buổi này: cancel(event_id, scope=occurrence)", JSON.stringify(T.calls.filter(x => x.m === "rooms.cancel")[0].a) === JSON.stringify({ event_id: "occ1", scope: "occurrence" }) && !T.$('[data-ev-row="occ1"]'));
+  T.$('[data-act="cancel"][data-ev="ev5"]').click(); await flush();
+  ok("họp không lặp: vẫn câu cũ 'Huỷ lịch này?'", /Huỷ lịch này\?/.test(T.$('[data-ev-row="ev5"]').textContent) && !T.$('[data-scope="series"]'));
+  T.ctl.destroy();
+
+  /* 9f. lặp lại khi đặt */
+  T = v2(); await flush();
+  T.clickAt("cabin", "17:00"); await flush();
+  const rpSel = T.f("repeat"), opts = Array.from(rpSel.options).map(o => o.textContent);
+  ok("ô Lặp lại: 6 lựa chọn theo ngày (thứ Năm 05/11), mặc định Không lặp lại, ẩn Đến ngày", rpSel.value === "none" && JSON.stringify(opts) === JSON.stringify(["Không lặp lại", "Hằng ngày", "Các ngày trong tuần (T2–T6)", "Hằng tuần vào thứ Năm", "2 tuần một lần vào thứ Năm", "Hằng tháng ngày 5"]) && T.$(".pmrm-scrim [data-until]").hidden && T.$(".pmrm-scrim [data-rsum]").hidden, JSON.stringify(opts));
+  T.setv("repeat", "weekly");
+  ok("chọn Hằng tuần: hiện Đến ngày (mặc định +4 tuần, tối đa +180 ngày) + tóm tắt số buổi", !T.$(".pmrm-scrim [data-until]").hidden && T.f("until").value === "2026-12-03" && T.f("until").max === "2027-05-04" && T.$(".pmrm-scrim [data-rsum]").textContent === "Lặp hằng tuần vào thứ Năm đến 03/12 · 5 buổi", T.$(".pmrm-scrim [data-rsum]").textContent);
+  T.setv("until", "2027-05-05");
+  ok("quá 180 ngày (tính từ hôm nay) → báo, khoá nút Đặt", /180 ngày/.test(T.$(".pmrm-scrim [data-warn]").textContent) && T.$(".pmrm-scrim [data-submit]").disabled && T.$(".pmrm-scrim [data-rsum]").hidden);
+  T.setv("until", "2026-11-01");
+  ok("Đến ngày trước ngày họp → báo", /phải sau ngày họp đầu tiên/.test(T.$(".pmrm-scrim [data-warn]").textContent));
+  T.setv("until", "2026-11-19"); T.setv("repeat", "weekdays");
+  ok("đổi kiểu lặp: tóm tắt đếm lại (T2–T6 05/11→19/11 = 11 buổi), giữ ngày người dùng chọn", T.f("until").value === "2026-11-19" && T.$(".pmrm-scrim [data-rsum]").textContent === "Lặp các ngày trong tuần (T2–T6) đến 19/11 · 11 buổi", T.$(".pmrm-scrim [data-rsum]").textContent);
+  T.setv("subject", "Daily standup"); submitDlg(T); await flush();
+  const bkR = T.calls.filter(x => x.m === "rooms.book")[0];
+  ok("đặt lặp lại: gửi repeat + repeat_until đúng", bkR && bkR.a.repeat === "weekdays" && bkR.a.repeat_until === "2026-11-19" && bkR.a.room === "cabin" && bkR.a.start === D0 + " 17:00:00", bkR && JSON.stringify(bkR.a));
+  ok("đặt lặp lại: thông báo số buổi, khối chờ nhận có nhãn Lặp lại", T.toasts.some(t => /lặp lại \(11 buổi\)/.test(t.m)) && blkOf(T, "cabin", /Daily standup/).some(b => /Lặp lại/.test(b.textContent)));
+  const occ = T.w.PMRooms._occurrences;
+  ok("đếm buổi khớp server: hằng ngày 7, 2 tuần một lần 3, hằng tháng ngày 31 rơi vào ngày cuối tháng ngắn (như Outlook), hằng ngày 180 ngày = 181 buổi", occ(D0, "daily", "2026-11-11").length === 7 && occ(D0, "biweekly", "2026-12-03").join() === "2026-11-05,2026-11-19,2026-12-03" && occ("2026-01-31", "monthly", "2026-06-30").join() === "2026-01-31,2026-02-28,2026-03-31,2026-04-30,2026-05-31,2026-06-30" && occ(D0, "daily", "2027-05-04").length === 181);
+  T.ctl.destroy();
+
+  /* 9g. khách ngoài khi đặt: dán nhiều email */
+  T = v2(); await flush();
+  T.clickAt("cabin", "17:00"); await flush();
+  T.f("who").dispatchEvent(new T.w.Event("focus")); await flush();
+  T.setv("who", "a@x.vn, lan.nguyen@ecentric.vn; b@y.com.vn");
+  const pc = T.$$(".pmrm-scrim .pmrm-chip");
+  ok("dán nhiều email (phẩy / chấm phẩy) → nhiều chip; người nội bộ nhận ra theo email", pc.length === 3 && pc[0].classList.contains("pmrm-chip--ext") && /Nguyễn Lan/.test(pc[1].textContent) && !pc[1].classList.contains("pmrm-chip--ext") && pc[2].classList.contains("pmrm-chip--ext"));
+  T.setv("who", "khach.moi@"); 
+  ok("gõ email chưa đủ: gợi ý nói rõ Enter để mời khách ngoài", /khách ngoài/.test(T.$(".pmrm-scrim .pmrm-opts").textContent));
+  T.setv("subject", "Gặp đối tác"); T.f("who").value = "doitac@abc.com"; submitDlg(T); await flush();
+  const bkE = T.calls.filter(x => x.m === "rooms.book")[0];
+  ok("email gõ dở chưa Enter vẫn được mời khi bấm Đặt, không gửi repeat khi không lặp", bkE && JSON.parse(bkE.a.attendees).join() === "a@x.vn,lan.nguyen@ecentric.vn,b@y.com.vn,doitac@abc.com" && !("repeat" in bkE.a));
+  T.ctl.destroy();
+
+  /* 9h. kéo thả */
+  T = v2(); await flush();
+  const yOf = name => T.$$(".pmrm-lane[data-room]").findIndex(l => l.getAttribute("data-room") === name) * 58 + 20;
+  const mouse = (elm, type, x, y) => elm.dispatchEvent(new T.w.MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0 }));
+  const x12 = 4 * 100 + 1;   /* 12:00 = 240' từ 08:00 = 400px */
+  let src = blkOf(T, "cabin", /Sync dự án/)[0];
+  mouse(src, "mousedown", x12, yOf("cabin")); mouse(T.w.document, "mousemove", x12 + 60, yOf("cabin")); mouse(T.w.document, "mousemove", x12 + 200, yOf("phong"));
+  const gh = T.lane("phong").querySelector(".pmrm-ghost");
+  ok("kéo sang Phong 14:00 (trùng Ban giám đốc): bóng đỏ báo trùng, khối gốc mờ", gh.style.display === "block" && gh.classList.contains("pmrm-ghost--bad") && /trùng 14:00–16:00/.test(gh.textContent) && src.classList.contains("pmrm-blk--drag"));
+  mouse(T.w.document, "mouseup", x12 + 200, yOf("phong")); src.click(); await flush();
+  ok("thả vào chỗ trùng → không gọi server, báo lỗi, không mở hộp", updates(T).length === 0 && /Không chuyển được: trùng/.test(lastToast(T).m) && !T.$(".pmrm-scrim"));
+  src = blkOf(T, "cabin", /Sync dự án/)[0];
+  mouse(src, "mousedown", x12, yOf("cabin")); mouse(T.w.document, "mousemove", x12 + 100, yOf("phong")); mouse(T.w.document, "mouseup", x12 + 100, yOf("phong"));
+  T.lane("phong").click(); await flush();
+  ok("kéo sang Phong +1 giờ → update(event_id, start 13:00, end 14:00, room=phong), click sau khi thả không mở hộp", updates(T).length === 1 && JSON.stringify(updates(T)[0].a) === JSON.stringify({ event_id: "ev5", start: D0 + " 13:00:00", end: D0 + " 14:00:00", room: "phong" }) && !T.$(".pmrm-scrim"), JSON.stringify(updates(T).map(x => x.a)));
+  ok("sau khi thả: khối ở làn Phong 13:00–14:00 'chờ phòng nhận', thông báo chuyển", blkOf(T, "phong", /Sync dự án/).length === 1 && /13:00–14:00/.test(blkOf(T, "phong", /Sync/)[0].textContent) && blkOf(T, "phong", /Sync/)[0].classList.contains("pmrm-blk--pend") && !blkOf(T, "cabin", /Sync/).length && /Đã chuyển sang 5\.1 - Phong 13:00–14:00/.test(lastToast(T).m));
+  const rb = blkOf(T, "hoa", /Giao ban/)[0];
+  mouse(rb, "mousedown", 8 * 100 + 1, yOf("hoa")); mouse(T.w.document, "mousemove", 8 * 100 + 120, yOf("hoa")); mouse(T.w.document, "mouseup", 8 * 100 + 120, yOf("hoa")); await flush();
+  ok("họp lặp: không kéo được (dùng hộp Sửa)", updates(T).length === 1 && !rb.classList.contains("pmrm-blk--drag"));
+  T.ctl.destroy();
+  let rej = null;
+  T = v2({ "rooms.update": () => new Promise((_, no) => { rej = no; }) }); await flush();
+  src = blkOf(T, "cabin", /Sync dự án/)[0];
+  mouse(src, "mousedown", x12, yOf("cabin")); mouse(T.w.document, "mousemove", x12 + 100, yOf("cabin")); mouse(T.w.document, "mouseup", x12 + 100, yOf("cabin")); await flush();
+  ok("đang lưu khi kéo: khối hiện ở chỗ mới (mờ, chặn kéo / bấm lần 2)", blkOf(T, "cabin", /Sync/).length === 1 && /13:00–14:00/.test(blkOf(T, "cabin", /Sync/)[0].textContent) && blkOf(T, "cabin", /Sync/)[0].classList.contains("pmrm-blk--busyop"));
+  blkOf(T, "cabin", /Sync/)[0].click(); await flush();
+  ok("… bấm khối đang lưu không mở hộp", !T.$(".pmrm-scrim"));
+  rej(smErr("Phòng 5.2 - Cabin đã có người đặt 13:00–14:00 (Lê Hương).")); await flush();
+  ok("server từ chối → khối về chỗ cũ 12:00–13:00 'Bạn đặt', báo đúng thông điệp server", blkOf(T, "cabin", /Sync/).length === 1 && /12:00–13:00/.test(blkOf(T, "cabin", /Sync/)[0].textContent) && blkOf(T, "cabin", /Sync/)[0].classList.contains("pmrm-blk--mine") && lastToast(T).bad && /Phòng 5\.2 - Cabin đã có người đặt 13:00–14:00 \(Lê Hương\)\./.test(lastToast(T).m) && /giữ nguyên/.test(lastToast(T).m));
+  T.ctl.destroy();
+
+  /* 9i. lỗi server khi sửa + xem ngày xa */
+  T = v2({ "rooms.update": () => Promise.reject(smErr("Chỉ người đặt mới sửa được cuộc họp này.")) }); await flush();
+  T.$('[data-act="edit"][data-ev="ev5"]').click(); await flush();
+  T.setv("subject", "Đổi tên"); submitDlg(T); await flush();
+  ok("sửa lỗi server → hiện nguyên văn trong hộp, hộp mở, nút 'Lưu thay đổi' bật lại", T.$(".pmrm-scrim") && T.$(".pmrm-scrim [data-warn]").textContent === "Chỉ người đặt mới sửa được cuộc họp này." && !T.$(".pmrm-scrim [data-submit]").disabled && T.$(".pmrm-scrim [data-submit]").textContent === "Lưu thay đổi");
+  T.key(T.$(".pmrm-dlg"), "Escape"); await flush();
+  T.$("[data-pick]").value = "2026-11-25"; T.$("[data-pick]").dispatchEvent(new T.w.Event("change", { bubbles: true })); await flush();
+  ok("xem ngày xa (25/11): mine() tải đủ xa (days=21) để khối của bạn ngày đó vẫn sửa được", T.calls.some(x => x.m === "rooms.mine" && x.a.days === 21));
+  ok("v2: không lỗi console", T.errs.length === 0, T.errs.join(" | "));
+  T.ctl.destroy();
 
   /* ---------- 8. tĩnh */
   ok("asset: không ký tự Jinja, một global PMRooms, có esc", !/\{\{|\{%|\{#/.test(JS) && /root\.PMRooms = /.test(JS));

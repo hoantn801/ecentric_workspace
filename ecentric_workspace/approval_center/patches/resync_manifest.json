@@ -259,8 +259,8 @@
   },
   "legacy_pages/home/main_section.html": {
     "baseline": "2026-09-29",
-    "last_resync_patch": "p343_resync_home_phong_hop",
-    "sha256": "1ea0992f878e4bdebd24f75254e0d1cc09512e031ee78b7699ac52b03ac912f5"
+    "last_resync_patch": "p345_resync_home_phong_hop_v2",
+    "sha256": "42522b54d07e622e8568be3ff1ff51c510ae7914e60bbd2500ef719a30f453f7"
   },
   "alerts/site_pages/overview/main_section.html": {
     "baseline": "2026-09-29",
@@ -313,8 +313,8 @@
     "sha256": "bcfec3a49e4da5715ff38db8cff485c5da8c3e8f2ab29349822eb3abd7d73bef"
   },
   "pm/frontend/pm_app.html": {
-    "last_resync_patch": "p342_resync_pm_hotfix10",
-    "sha256": "14f50c0a20982da64d5477c19eeab27a8359a172087744942dae5db907eb1aad"
+    "last_resync_patch": "p344_resync_pm_hotfix11",
+    "sha256": "9d96980861693e243edf88fdec4cd34ed265cbbfcc3c83d8ae923f12b3d65572"
   },
   "ai_tools/pages/ai_live/main_section.html": {
     "last_resync_patch": "p313_ai_live_trang_rieng",
