@@ -254,6 +254,12 @@
   .sch-nav button{ border:none; background:transparent; padding:6px 13px; font-size:13px; font-weight:500; color:var(--gray-600); cursor:pointer; font-family:inherit; display:flex; align-items:center; transition:background .12s,color .12s; }
   .sch-nav button+button{ border-left:1px solid var(--gray-200); }
   .sch-nav button:hover{ background:var(--gray-50); color:var(--navy); }
+  /* Lich lam viec: tab "Lich tuan | Phong hop" (05/11/2026, phong hop dung PMRooms) */
+  .sch-tabs{ display:flex; gap:2px; border-bottom:1px solid var(--gray-200); margin:0 0 12px; }
+  .sch-tabs button{ border:0; background:none; padding:8px 14px; font:inherit; font-size:13px; color:var(--gray-500); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; }
+  .sch-tabs button:hover{ color:var(--gray-800); }
+  .sch-tabs button[aria-selected="true"]{ color:var(--navy); border-bottom-color:var(--navy); font-weight:600; }
+  .sch-tabs button:focus-visible{ outline:2px solid var(--navy); outline-offset:-2px; border-radius:6px 6px 0 0; }
   .sch-nav button.accent{ color:var(--navy); font-weight:600; background:var(--navy-50); }
   .sch-nav .icon{ vertical-align:-2px; }
   /* Huong dan (.pmg-*): CSS + noi dung o asset rieng public/css/pm/pm_guide.css + public/js/pm/pm_guide.js (16/10/2026) */
@@ -874,15 +880,15 @@
 <script src="/assets/ecentric_workspace/charts/chart_common.js"></script>
 <script src="/assets/ecentric_workspace/charts/pm_charts.js"></script>
 <!-- PM lam lai (16/10/2026): asset dung chung window.PMR (man moi + ngan keo viec + luong Xong). Nap TRUOC script chinh; 404 -> script chinh tu fallback ve man cu. -->
-<link rel="stylesheet" href="/assets/ecentric_workspace/css/pm/pm_redesign.css?v=5e9c23d572">
-<script src="/assets/ecentric_workspace/js/pm/pm_redesign.js?v=5e9c23d572"></script>
+<link rel="stylesheet" href="/assets/ecentric_workspace/css/pm/pm_redesign.css?v=6d748e10ba">
+<script src="/assets/ecentric_workspace/js/pm/pm_redesign.js?v=6d748e10ba"></script>
 <script>
 (function(){
   var PM="ecentric_workspace.pm.api.";
   var COLS=["Backlog","To Do","In Progress","Blocked","Review","Done","Cancelled"];
   var BOARD_COLS=["To Do","In Progress","Review","Done"]; /* Kanban = 4 core cols; Backlog/Blocked fold into To Do, Cancelled hidden. */
   var FILTER_STATES=["Backlog","To Do","In Progress","Review","Done","Cancelled"] /* Backlog was missing: 32 tasks (the largest group) could not be filtered */; /* lean status filter (drop Backlog/Blocked) */
-  var CRUMB={mytasks:"Việc của tôi",received:"Được giao cho tôi",given:"Tôi đã giao",schedule:"Lịch làm việc",coordinate:"Điều phối",projects:"Dự án",work:"Tất cả việc",timesheet:"Timesheet",guide:"Hướng dẫn"};
+  var CRUMB={mytasks:"Việc của tôi",received:"Được giao cho tôi",given:"Tôi đã giao",schedule:"Lịch làm việc",coordinate:"Điều phối",projects:"Dự án",work:"Tất cả việc",timesheet:"Timesheet",guide:"Hướng dẫn",rooms:"Phòng họp"};
   var el=function(id){return document.getElementById(id);};
   function st(s){return "st-"+(s||"Backlog").replace(/\s/g,"");}
   function pst(s){return "pst-"+(s||"").replace(/\s/g,"");}
@@ -2856,17 +2862,44 @@
   // PM notif view retired -> Global NC
 
 
-  /* Huong dan: noi dung + CSS o asset rieng (pm_guide.js/.css), tai khi mo #guide, cung phien ban ?v= voi pm_redesign. */
-  var _pmGuideLoad=null;
-  function pmGuideAssets(){
-    if(_pmGuideLoad)return _pmGuideLoad;
+  /* Asset tai luoi (Huong dan #guide, Phong hop #rooms + tab Lich): public/js/pm/<name>.js + css/pm/<name>.css,
+     tai khi mo man, CUNG phien ban ?v= voi pm_redesign.js (nguoi tich hop dong dau mot lan). Loi tai -> lan sau thu lai. */
+  var _pmLazy={};
+  function pmLazyAsset(name,glob,cssAttr){
+    if(_pmLazy[name])return _pmLazy[name];
     var s0=document.querySelector('script[src*="/js/pm/pm_redesign.js"]'),v=s0&&s0.src.indexOf("?v=")>=0?s0.src.split("?v=")[1]:String(Date.now());
-    _pmGuideLoad=new Promise(function(res,rej){
-      if(!document.querySelector('link[data-pmg-css]')){var l=document.createElement("link");l.rel="stylesheet";l.href="/assets/ecentric_workspace/css/pm/pm_guide.css?v="+v;l.setAttribute("data-pmg-css","1");document.head.appendChild(l);}
-      if(window.PMGuide)return res();
-      var sc=document.createElement("script");sc.src="/assets/ecentric_workspace/js/pm/pm_guide.js?v="+v;sc.onload=function(){window.PMGuide?res():rej(new Error("PMGuide"));};sc.onerror=function(){_pmGuideLoad=null;rej(new Error("load"));};document.head.appendChild(sc);
+    _pmLazy[name]=new Promise(function(res,rej){
+      if(!document.querySelector('link['+cssAttr+']')){var l=document.createElement("link");l.rel="stylesheet";l.href="/assets/ecentric_workspace/css/pm/"+name+".css?v="+v;l.setAttribute(cssAttr,"1");document.head.appendChild(l);}
+      if(window[glob])return res();
+      var sc=document.createElement("script");sc.src="/assets/ecentric_workspace/js/pm/"+name+".js?v="+v;sc.onload=function(){window[glob]?res():rej(new Error(glob));};sc.onerror=function(){_pmLazy[name]=null;rej(new Error("load"));};document.head.appendChild(sc);
     });
-    return _pmGuideLoad;}
+    return _pmLazy[name];}
+  /* Huong dan: noi dung + CSS o asset rieng (pm_guide.js/.css). */
+  function pmGuideAssets(){return pmLazyAsset("pm_guide","PMGuide","data-pmg-css");}
+  /* Phong hop (05/11/2026): component dung chung window.PMRooms (pm_rooms.js/.css) cho trang #rooms va tab
+     "Phong hop" trong #schedule. Du lieu: pm.api.rooms.* (lich phong tren Exchange, server kiem trung lan cuoi). */
+  function pmRoomsAssets(){return pmLazyAsset("pm_rooms","PMRooms","data-pmrm-css");}
+  function pmRoomsStop(){var k=window._pmRoomsCtl;window._pmRoomsCtl=null;if(k){try{k.destroy();}catch(_){}}}
+  function pmRoomsMount(box,mode,ok){
+    box.innerHTML='<div class="pm-state">Đang tải lịch phòng họp…</div>';
+    pmRoomsAssets().then(function(){if(!ok()||!box.isConnected)return;pmRoomsStop();
+        window._pmRoomsCtl=window.PMRooms.render(box,{api:api,errOf:errOf,toast:toast,head:head,mode:mode});},
+      function(){if(!ok()||!box.isConnected)return;box.innerHTML='<div class="pm-state">Chưa tải được giao diện phòng họp. <button class="pm-btn" onclick="location.reload()">Tải lại</button></div>';});}
+  function showRooms(){var c=el("pm-view"),live=pmViewBegin();
+    pmRoomsMount(c,"page",function(){return window._curView==="rooms"&&live();});}
+  /* Tab trong Lich lam viec: "Lich tuan" (luoi tuan cu) | "Phong hop" (cung PMRooms, mode tab). Nho tab trong window._sch. */
+  function schTabs(cur){return '<div class="sch-tabs" role="tablist" aria-label="Chế độ xem lịch">'+
+    '<button type="button" role="tab" id="sch-tab-cal" aria-selected="'+(cur==="cal")+'" tabindex="'+(cur==="cal"?0:-1)+'">Lịch tuần</button>'+
+    '<button type="button" role="tab" id="sch-tab-rooms" aria-selected="'+(cur==="rooms")+'" tabindex="'+(cur==="rooms"?0:-1)+'">Phòng họp</button></div>';}
+  function schTabsWire(){var st=window._sch=window._sch||{};
+    function set(t){if((st.tab||"cal")===t)return;st.tab=t;showSchedule();var b=el(t==="rooms"?"sch-tab-rooms":"sch-tab-cal");if(b)b.focus();}
+    var a=el("sch-tab-cal"),b=el("sch-tab-rooms");if(!a||!b)return;
+    a.onclick=function(){set("cal");};b.onclick=function(){set("rooms");};
+    a.parentNode.onkeydown=function(e){if(e.key==="ArrowRight"||e.key==="ArrowLeft"){e.preventDefault();set((st.tab||"cal")==="rooms"?"cal":"rooms");}};}
+  function showScheduleRooms(c,live){
+    c.innerHTML=head("Lịch làm việc","Phòng họp: xem trống / bận, bấm chỗ trống để đặt")+schTabs("rooms")+'<div id="sch-rooms"></div>';
+    schTabsWire();
+    pmRoomsMount(el("sch-rooms"),"tab",function(){return window._curView==="schedule"&&(window._sch||{}).tab==="rooms"&&live();});}
   function showGuide(){var c=el("pm-view");
     c.innerHTML=head("Hướng dẫn quản lý công việc","")+'<div class="pm-state">Đang tải hướng dẫn…</div>';
     pmGuideAssets().then(function(){if(window._curView!=="guide")return;window.PMGuide.render(c,{head:head});},
@@ -2878,6 +2911,8 @@
     var Y_WS=WS*OFFHP, Y_WE=Y_WS+(WE-WS)*WORKHP, HH=Y_WE+(HN-WE)*OFFHP;
     var PAL=[["#E6EEFB","#1f2d80"],["#EAF3DE","#3B6D11"],["#FAEEDA","#854F0B"],["#FBEAF0","#993556"],["#EEEDFE","#3C3489"],["#E1F5EE","#0F6E56"]];
     var st=window._sch=window._sch||{};
+    pmRoomsStop();
+    if(st.tab==="rooms"){ if(st._detach){ try{st._detach();}catch(_){} st._detach=null; } showScheduleRooms(c,live); return; }
     if(!st.ws){ var t=new Date(); t.setHours(0,0,0,0); var wd=(t.getDay()+6)%7; t.setDate(t.getDate()-wd); st.ws=t; }
     if(st.sideCollapsed===undefined){ try{st.sideCollapsed=(localStorage.getItem("pm_sch_side")==="1");}catch(_){ st.sideCollapsed=false; } }
     function pad(n){return (n<10?"0":"")+n;}
@@ -2979,9 +3014,10 @@
       if(ti>=0){ var yn=minToY(now.getHours()*60+now.getMinutes()); body+='<div style="position:absolute;left:'+(ti*100/7)+'%;width:'+(100/7)+'%;top:'+yn+'px;height:2px;background:#D4537E;z-index:5"></div>'; }
       body+='</div></div>';
 
-      c.innerHTML=h+'<div class="sch-wrap" style="grid-template-columns:'+(_col?'38px':'168px')+' 1fr">'+side+'<div class="sch-cal">'+hdr+body+'</div></div>';
+      c.innerHTML=h+schTabs("cal")+'<div class="sch-wrap" style="grid-template-columns:'+(_col?'38px':'168px')+' 1fr">'+side+'<div class="sch-cal">'+hdr+body+'</div></div>';
       if(_sc){ try{_sc.scrollTop=_sp;}catch(_){} }
       st._ro=ro;
+      schTabsWire();
       wire();
       var bp=el("sch-prev"); if(bp)bp.onclick=function(){ st.ws=new Date(st.ws.getTime()-7*86400000); load(); };
       var bn=el("sch-next"); if(bn)bn.onclick=function(){ st.ws=new Date(st.ws.getTime()+7*86400000); load(); };
@@ -3211,7 +3247,7 @@
      Man moi (received / given / coordinate / projects / allWork) do window.PMR
      (public/js/pm/pm_redesign.js) ve vao #pm-view; host chi dinh tuyen.
      Route chuan: #mywork #received #given[/run|rep|done] #schedule #coordinate #projects
-       #work/list|board|due|gantt #timesheet #guide #new #task/<id> #project/<id>.
+       #work/list|board|due|gantt #timesheet #guide #rooms #new #task/<id> #project/<id>.
      Alias route cu (bookmark, tin Teams cu, link ngoai): #overview|#dashboard -> #coordinate,
        #assignments[/in] -> #received, #assignments/out -> #given, #recurring -> #given/rep,
        #work/calendar -> #work/due, #work/table -> #work/list; rong / la -> #mywork.
@@ -3230,7 +3266,7 @@
   function showCoordinate(){pmrRender("coordinate","Điều phối");}
   function showProjects(){if(pmrHas("projects"))pmrRender("projects","Dự án");else showProjectsLegacy();}
   function showAllWork(){var v=window._workView||"list";if(pmrHas("allWork"))pmrRender("allWork","Tất cả việc",[v]);else showWork();}
-  var VIEWS={mytasks:showMyTasks,received:showReceived,given:showGiven,schedule:showSchedule,coordinate:showCoordinate,projects:showProjects,work:showAllWork,timesheet:showTimesheet,guide:showGuide};
+  var VIEWS={mytasks:showMyTasks,received:showReceived,given:showGiven,schedule:showSchedule,coordinate:showCoordinate,projects:showProjects,work:showAllWork,timesheet:showTimesheet,guide:showGuide,rooms:showRooms};
   /* Breadcrumb (vo shell): server nuong san "Nhom / <muc khop dau tien> / <strong id=pm-crumb>" cho
      MOI hash cua /pm (server khong thay hash) -> muc giua luon la mot nhan sai (truoc day
      "Yeu cau giao viec"). Trang tu ghi lai: man cap 1 -> an muc giua, pm-crumb = ten man;
@@ -3240,7 +3276,7 @@
     var sep=link.nextElementSibling;if(sep&&!/(^|\s)ec-shell-crumb-sep(\s|$)/.test(sep.className||""))sep=null;
     if(parent){link.textContent=parent.label;link.setAttribute("href","/pm"+parent.hash);link.style.display="";if(sep)sep.style.display="";}
     else{link.style.display="none";if(sep)sep.style.display="none";}}catch(_){}}
-  function pmPrepView(navKey){_pmViewSeq++;if(window.PMCharts)PMCharts.disposeAll();window._pmOpenProject=null;window._curView=navKey;pmSetCrumb(CRUMB[navKey]||CRUMB.mytasks,null);}
+  function pmPrepView(navKey){_pmViewSeq++;pmRoomsStop();if(window.PMCharts)PMCharts.disposeAll();window._pmOpenProject=null;window._curView=navKey;pmSetCrumb(CRUMB[navKey]||CRUMB.mytasks,null);}
   function go(v){var isW=(v==="work")||Object.prototype.hasOwnProperty.call(WORK_ALIAS,v);
     var navKey=isW?"work":(VIEWS[v]?v:"mytasks");
     if(isW){if(v!=="work")window._workView=WORK_ALIAS[v];
@@ -3267,7 +3303,7 @@
     if(window._pmOpenProject)return "#project/"+encodeURIComponent(window._pmOpenProject);
     if(v==="work")return "#work/"+(window._workView||"list");
     if(v==="given")return "#given"+((window._givenTab&&window._givenTab!=="run")?"/"+window._givenTab:"");
-    var m={mytasks:"#mywork",received:"#received",schedule:"#schedule",coordinate:"#coordinate",projects:"#projects",timesheet:"#timesheet",guide:"#guide"};
+    var m={mytasks:"#mywork",received:"#received",schedule:"#schedule",coordinate:"#coordinate",projects:"#projects",timesheet:"#timesheet",guide:"#guide",rooms:"#rooms"};
     return m[v]||"#mywork";}
   function pmSyncHash(){if(!window._pmTaskOpen)pmSetHash(pmBaseHash());}
   function pmApplyRoute(){_pmRouteReplace=true;try{pmRoute();}finally{_pmRouteReplace=false;}}
@@ -3286,7 +3322,7 @@
     if(hd==="recurring"){window._givenTab="rep";go("given");return;}
     if(hd==="given"){window._givenTab=GIVEN_TABS[sub]?sub:"run";go("given");return;}
     if(hd==="work"){window._workView=WORK_ALIAS[sub]||"list";go("work");return;}
-    var VMAP={mywork:"mytasks",received:"received",schedule:"schedule",coordinate:"coordinate",projects:"projects",timesheet:"timesheet",guide:"guide"};
+    var VMAP={mywork:"mytasks",received:"received",schedule:"schedule",coordinate:"coordinate",projects:"projects",timesheet:"timesheet",guide:"guide",rooms:"rooms"};
     go(VMAP[hd]||"mytasks"); /* rong / route la -> Viec cua toi */
   }
   window.addEventListener("hashchange",function(){if(location.hash===_pmExpectedHash)return;pmApplyRoute();});

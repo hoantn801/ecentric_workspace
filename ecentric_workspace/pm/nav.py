@@ -29,6 +29,8 @@ VIEWS = [
     ("pm.view.assignments", "Được giao cho tôi", "/pm#received", "recv", 22),
     ("pm.view.given", "Tôi đã giao", "/pm#given", "send", 24),
     ("pm.view.schedule", "Lịch làm việc", "/pm#schedule", "calendar", 25),
+    # 05/11/2026: phòng họp văn phòng mới (lịch phòng từ Teams + đặt phòng) - pm.api.rooms
+    ("pm.view.rooms", "Phòng họp", "/pm#rooms", "users", 26),
     ("pm.view.overview", "Điều phối", "/pm#coordinate", "grid", 30),
     ("pm.view.projects", "Dự án", "/pm#projects", "folder", 35),
     ("pm.view.work", "Tất cả việc", "/pm#work/list", "list", 40),

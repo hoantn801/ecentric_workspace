@@ -702,7 +702,8 @@ RAIL_LAYOUTS = {
             {"key": "pm.view.mywork", "badge_source": "pm.mywork"},
             {"key": "pm.view.assignments", "badge_source": "pm.received"},
             {"key": "pm.view.given"},
-            {"key": "pm.view.schedule"}]},
+            {"key": "pm.view.schedule"},
+            {"key": "pm.view.rooms"}]},   # 05/11/2026 phong hop (PO duyet demo v2)
         {"t": "button", "item": {"key": "rail.pm.new", "label": "Giao việc", "route": "/pm#new",
                                  "icon": "plus", "noactive": True}},
         {"t": "group", "label": "Quản lý", "items": [
