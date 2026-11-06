@@ -81,13 +81,25 @@ def erp_snapshot():
     return {"active": active, "left": set(left) - {a["no"] for a in active}}
 
 
-def sync_device(cfg, erp, state, photo_bytes, http=None, cert_der=None):
-    """Mot may. -> (state_moi, status). Khong raise: loi ghi vao status."""
+FACE_GAP = 0.4          # giay nghi giua 2 anh: may dung mo hinh mat tung anh, day don dap -> "busy"
+BUSY_RETRY_WAIT = 3
+
+
+def sync_device(cfg, erp, state, photo_bytes, http=None, cert_der=None, sleep=None):
+    """Mot may. -> (state_moi, status). Khong raise: loi ghi vao status.
+
+    v2 (06/11): may bao numOfFace = 0 -> day lai (truoc day 1 lan loi la danh dau "fail" va
+    khong bao gio thu lai, danh sach loi chi hien 1 lan roi mat). Loi tam (ban / mat mang) ->
+    lan sau thu lai; may TU CHOI anh -> ghi "bad" + ly do, hien tren trang HR toi khi nguoi do
+    gui anh moi.
+    """
     from frappe.utils import now
+    sleep = sleep or time.sleep
     st = {"name": cfg.get("name"), "at": now(),
           "ok": False, "error": "", "on_device": 0, "added": 0, "faces": 0, "deleted": 0,
-          "failed": [], "fingerprint": ""}
+          "failed": [], "no_face": 0, "fingerprint": ""}
     names = {a["no"]: a["name"] for a in erp["active"]}
+    with_photo = {a["no"] for a in erp["active"] if a.get("photo")}
     try:
         dev = isapi.Device(cfg, http or _http(), cert_der=cert_der or _cert_der)
         users = dev.list_users()
@@ -96,20 +108,32 @@ def sync_device(cfg, erp, state, photo_bytes, http=None, cert_der=None):
         for no, name, exists in todo["user"]:
             try:
                 dev.upsert_user(no, name, exists)
-                users[no] = name
+                users.setdefault(no, {"name": name, "faces": 0})["name"] = name
                 st["added"] += 0 if exists else 1
             except isapi.DeviceError as e:
                 st["failed"].append({"no": no, "name": name, "why": str(e)})
-        for no, photo in todo["face"]:
+        for i, (no, photo) in enumerate(todo["face"]):
             if no not in users:
                 continue
+            if i:
+                sleep(FACE_GAP)
             try:
-                dev.set_face(no, photo_bytes(photo))
+                data = photo_bytes(photo)
+                try:
+                    dev.set_face(no, data)
+                except isapi.DeviceError as e:
+                    if not e.transient:
+                        raise
+                    sleep(BUSY_RETRY_WAIT)
+                    dev.set_face(no, data)
                 state[no] = photo
+                users[no]["faces"] = max(1, users[no].get("faces") or 0)
                 st["faces"] += 1
             except isapi.DeviceError as e:
-                state[no] = "fail:" + photo
-                st["failed"].append({"no": no, "name": names.get(no, ""), "why": str(e)})
+                if not e.transient:
+                    state[no] = isapi.bad_mark(photo, e)
+                else:
+                    st["failed"].append({"no": no, "name": names.get(no, ""), "why": str(e)})
         if todo["delete"]:
             dev.delete_users(todo["delete"])
             for no in todo["delete"]:
@@ -117,12 +141,18 @@ def sync_device(cfg, erp, state, photo_bytes, http=None, cert_der=None):
                 state.pop(no, None)
             st["deleted"] = len(todo["delete"])
         st["on_device"] = len(users)
+        st["no_face"] = sum(1 for no in with_photo if no in users and users[no].get("faces") == 0)
         st["ok"] = True
     except isapi.DeviceError as e:
         st["error"] = str(e)
     except Exception as e:      # khong de mot may hong lam hong ca job
         st["error"] = "Lỗi không mong đợi: %s" % type(e).__name__
         frappe.log_error(title="ec_face_push %s" % cfg.get("name"))
+    # Anh may DA tu choi: hien MOI lan (khong chi lan dau) toi khi nguoi do gui anh moi.
+    for a in erp["active"]:
+        mark = state.get(a["no"]) or ""
+        if a.get("photo") and isapi.is_bad(mark, a["photo"]):
+            st["failed"].append({"no": a["no"], "name": a["name"], "why": isapi.bad_reason(mark)})
     return state, st
 
 
@@ -195,6 +225,7 @@ def status():
         out.append({"name": cfg["name"], "host": host, "at": s.get("at", ""), "ok": s.get("ok"),
                     "error": s.get("error", ""), "on_device": s.get("on_device", 0),
                     "faces": s.get("faces", 0), "deleted": s.get("deleted", 0),
+                    "no_face": s.get("no_face", 0),
                     "failed": (s.get("failed") or [])[:20], "fingerprint": s.get("fingerprint", ""),
                     "pinned": bool(isapi.norm_fp(cfg.get("fingerprint")))})
     return {"devices": out, "configured": bool(out), "disabled": bool(frappe.conf.get(CONF_DISABLED)),

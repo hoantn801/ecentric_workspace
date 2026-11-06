@@ -22,9 +22,10 @@ class Resp(object):
 class FakeHttp(object):
     """Gia lap may: luu nguoi + mat, ghi lai moi lenh."""
 
-    def __init__(self, users=None, no_setup=False, reject_face=(), code=None):
+    def __init__(self, users=None, no_setup=False, reject_face=(), code=None, busy_once=(), faces=None):
         self.users = dict(users or {})
-        self.faces = {}
+        self.faces = dict(faces or {})
+        self.busy_once = set(busy_once)
         self.calls = []
         self.no_setup = no_setup
         self.reject_face = set(reject_face)
@@ -42,7 +43,8 @@ class FakeHttp(object):
             more = pos + 2 < len(self.users)
             return Resp(200, {"UserInfoSearch": {"numOfMatches": len(items),
                                                  "responseStatusStrg": "MORE" if more else "OK",
-                                                 "UserInfo": [{"employeeNo": k, "name": v} for k, v in items]}})
+                                                 "UserInfo": [{"employeeNo": k, "name": v, "numOfFace": 1 if k in self.faces else 0}
+                                                              for k, v in items]}})
         if path.startswith("/ISAPI/AccessControl/UserInfo/Record"):
             no = body["UserInfo"]["employeeNo"]
             if no in self.users:
@@ -61,6 +63,9 @@ class FakeHttp(object):
             return Resp(404, {"statusCode": 4, "statusString": "Invalid Operation", "subStatusCode": "notSupport"})
         if path.startswith("/ISAPI/Intelligent/FDLib/FDSetUp") or path.startswith("/ISAPI/Intelligent/FDLib/FaceDataRecord"):
             meta = json.loads(kw["files"]["FaceDataRecord"][1])
+            if meta["FPID"] in self.busy_once:
+                self.busy_once.discard(meta["FPID"])
+                return Resp(503, {"statusCode": 2, "statusString": "Device Busy", "subStatusCode": "deviceBusy"})
             if meta["FPID"] in self.reject_face:
                 return Resp(400, {"statusCode": 6, "statusString": "Invalid Content", "subStatusCode": "faceModelingFailed"})
             self.faces[meta["FPID"]] = kw["files"]["img"][1]
@@ -82,10 +87,18 @@ class TestPlan(unittest.TestCase):
         self.assertEqual(p["face"], [("70", "F1"), ("74", "F2")])
         self.assertEqual(p["delete"], ["5"])            # KHONG dung toi "999" (ERP khong biet)
 
-    def test_khong_lam_lai_viec_da_xong_hoac_da_hong(self):
+    def test_khong_lam_lai_viec_da_xong_hoac_anh_may_da_tu_choi(self):
         erp = ERP([("70", "A", "F1"), ("71", "B", "F2")])
-        p = isapi.plan(erp, {"70": "A", "71": "B"}, {"70": "F1", "71": "fail:F2"})
+        dev = {"70": {"name": "A", "faces": 1}, "71": {"name": "B", "faces": 0}}
+        p = isapi.plan(erp, dev, {"70": "F1", "71": isapi.bad_mark("F2", "x")})
         self.assertEqual(p, {"user": [], "face": [], "delete": []})
+
+    def test_may_bao_chua_co_mat_thi_day_lai(self):
+        # 06/11: T1 co 42 nguoi nhung nhieu nguoi "Credential 0" du ERP ghi da day
+        erp = ERP([("70", "A", "F1"), ("71", "B", "F2")])
+        dev = {"70": {"name": "A", "faces": 0}, "71": {"name": "B", "faces": 1}}
+        p = isapi.plan(erp, dev, {"70": "F1", "71": "fail:F2"})
+        self.assertEqual(p["face"], [("70", "F1"), ("71", "F2")])   # fail: (v1) cung thu lai
 
 
 class TestDevice(unittest.TestCase):
@@ -152,15 +165,37 @@ class TestSyncDevice(unittest.TestCase):
         sys.modules["frappe.utils"] = push.frappe.utils
         try:
             state, st = push.sync_device(CFG, erp, {}, lambda f: b"IMG-" + f.encode(), http=http,
-                                         cert_der=lambda h, p: b"c")
+                                         cert_der=lambda h, p: b"c", sleep=lambda s: None)
         finally:
             sys.modules.pop("frappe.utils", None)
         self.assertTrue(st["ok"], st)
         self.assertEqual(sorted(http.users), ["70", "71", "999"])   # 5 nghi viec bi xoa
         self.assertEqual(http.faces, {"70": b"IMG-F1"})
-        self.assertEqual(state, {"70": "F1", "71": "fail:F2"})
-        self.assertEqual((st["faces"], st["deleted"], st["on_device"]), (1, 1, 3))
+        self.assertEqual(state["70"], "F1")
+        self.assertTrue(isapi.is_bad(state["71"], "F2"))
+        self.assertEqual((st["faces"], st["deleted"], st["on_device"], st["no_face"]), (1, 1, 3, 1))
         self.assertEqual([f["no"] for f in st["failed"]], ["71"])
+        self.assertIn("faceModelingFailed", st["failed"][0]["why"])
+        # lan sau: KHONG day lai anh bi tu choi, nhung VAN hien trong danh sach loi
+        sys.modules["frappe.utils"] = push.frappe.utils
+        try:
+            state, st = push.sync_device(CFG, erp, state, lambda f: b"IMG-" + f.encode(), http=http,
+                                         cert_der=lambda h, p: b"c", sleep=lambda s: None)
+        finally:
+            sys.modules.pop("frappe.utils", None)
+        self.assertEqual(st["faces"], 0)
+        self.assertEqual([f["no"] for f in st["failed"]], ["71"])
+
+    def test_may_ban_thi_thu_lai(self):
+        push = self._push()
+        http = FakeHttp(busy_once={"70"})
+        sys.modules["frappe.utils"] = push.frappe.utils
+        try:
+            state, st = push.sync_device(CFG, ERP([("70", "A", "F1")]), {}, lambda f: b"I", http=http,
+                                         cert_der=lambda h, p: b"c", sleep=lambda s: None)
+        finally:
+            sys.modules.pop("frappe.utils", None)
+        self.assertEqual((state, st["faces"], st["failed"]), ({"70": "F1"}, 1, []))
 
     def test_may_tat_khong_raise(self):
         push = self._push()

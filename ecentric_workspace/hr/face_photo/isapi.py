@@ -19,7 +19,18 @@ NAME_MAX = 32
 
 
 class DeviceError(Exception):
-    """Loi doc duoc, tieng Viet, dua thang len trang HR."""
+    """Loi doc duoc, tieng Viet, dua thang len trang HR.
+
+    transient=True: loi tam (mat ket noi, may ban, 5xx) -> lan sau thu lai.
+    transient=False: may tu choi noi dung (vd khong dung duoc mo hinh mat) -> doi anh moi.
+    """
+
+    def __init__(self, msg, transient=True):
+        Exception.__init__(self, msg)
+        self.transient = transient
+
+
+BUSY_HINTS = ("busy", "Busy", "timeout", "Timeout", "HTTP 5")
 
 
 def fingerprint_of(der):
@@ -106,11 +117,14 @@ class Device(object):
         if r.status_code >= 400:
             ok2, why2 = _ok(text)
             why = why2 or ("HTTP %d" % r.status_code)
+            if r.status_code >= 500 and "HTTP 5" not in why:
+                why += " (HTTP %d)" % r.status_code
         return ok, why, text
 
     # ---------------- nguoi ----------------
     def list_users(self):
-        """-> {employeeNo: name}."""
+        """-> {employeeNo: {"name": str, "faces": int | None}}. faces = numOfFace may tra ve
+        (None = may khong bao) - dung de BU anh khi may bao "nhan" ma khong co mat."""
         out, pos = {}, 0
         for _ in range(200):
             ok, why, text = self.call("POST", "/ISAPI/AccessControl/UserInfo/Search?format=json", {
@@ -120,7 +134,12 @@ class Device(object):
                 raise DeviceError("Máy %s: không đọc được danh sách người (%s)" % (self.name, why))
             d = (json.loads(text or "{}").get("UserInfoSearch") or {})
             for u in d.get("UserInfo") or []:
-                out[str(u.get("employeeNo"))] = u.get("name") or ""
+                nf = u.get("numOfFace")
+                try:
+                    nf = int(nf) if nf is not None else None
+                except (TypeError, ValueError):
+                    nf = None
+                out[str(u.get("employeeNo"))] = {"name": u.get("name") or "", "faces": nf}
             n = int(d.get("numOfMatches") or 0)
             pos += n
             if n == 0 or str(d.get("responseStatusStrg")) != "MORE":
@@ -163,7 +182,9 @@ class Device(object):
             ok, why2, _ = self.call("POST", "/ISAPI/Intelligent/FDLib/FaceDataRecord?format=json",
                                     files=files())
         if not ok:
-            raise DeviceError("máy không nhận ảnh: %s" % (why2 or why))
+            why = why2 or why
+            raise DeviceError("máy không nhận ảnh: %s" % why,
+                              transient=any(h in why for h in BUSY_HINTS))
 
     def delete_users(self, nos):
         if not nos:
@@ -178,8 +199,13 @@ def plan(erp, device_users, state):
     """Tinh viec can lam cho MOT may.
 
     erp: {"active": [{no, name, photo}], "left": set(no)}  - photo = khoa anh (ten File) hoac ""
-    device_users: {no: name} tren may.  state: {no: photo da day thanh cong | "fail:<photo>"}.
+    device_users: {no: {"name", "faces"}} tren may (hoac {no: name} - kieu cu).
+    state: {no: photo da day thanh cong | "bad:<photo>|<ly do>" may tu choi anh nay}.
+      "fail:<photo>" (v1) = loi KHONG phan loai -> thu lai.
     -> {"user": [(no, name, exists)], "face": [(no, photo)], "delete": [no]}
+
+    Day mat khi: nguoi moi | anh doi | may bao numOfFace = 0 (may "nhan" ma khong luu,
+    hoac ai do xoa mat tren may). Bo qua anh may DA tu choi (doi nguoi do gui anh moi).
 
     CHI xoa nguoi ERP biet la DA NGHI. Nguoi tren may ma ERP khong biet (khach, bao ve, the
     tam...) -> KHONG dung toi. Nguoi chua co anh -> chua them (may khong mo cua cho ho duoc).
@@ -189,12 +215,29 @@ def plan(erp, device_users, state):
         no, name, photo = str(r["no"]), r["name"], r.get("photo") or ""
         if not photo:
             continue
-        exists = no in device_users
-        if not exists or (device_users.get(no) or "") != name[:NAME_MAX]:
+        dev = device_users.get(no)
+        if isinstance(dev, str):
+            dev = {"name": dev, "faces": None}
+        exists = dev is not None
+        if not exists or (dev.get("name") or "") != name[:NAME_MAX]:
             users.append((no, name, exists))
         last = state.get(no) or ""
-        if not exists or (last != photo and last != "fail:" + photo):
+        if is_bad(last, photo):
+            continue
+        if not exists or last != photo or dev.get("faces") == 0:
             faces.append((no, photo))
     left = {str(n) for n in (erp.get("left") or ())}
     delete = sorted(n for n in device_users if n in left)
     return {"user": users, "face": faces, "delete": delete}
+
+
+def is_bad(mark, photo):
+    return str(mark or "").startswith("bad:%s|" % photo)
+
+
+def bad_mark(photo, why):
+    return "bad:%s|%s" % (photo, str(why)[:200])
+
+
+def bad_reason(mark):
+    return str(mark).split("|", 1)[1] if "|" in str(mark) else ""

@@ -289,7 +289,7 @@
         var pill = !d.at ? '<span class="km-pill km-no">Chưa chạy</span>' : (d.ok ? '<span class="km-pill km-ok">Kết nối tốt</span>' : '<span class="km-pill km-bad">Lỗi</span>');
         var fails = (d.failed || []).map(function (f) { return esc(f.no + ' ' + f.name + ': ' + f.why); }).join('<br>');
         return '<div class="km-dev"><b>' + esc(d.name) + '</b> ' + pill + ' <span class="km-mono">' + esc(d.host) + '</span><br>'
-          + (d.at ? 'Lần chạy cuối ' + esc(String(d.at).slice(0, 16)) + ' · trên máy ' + esc(d.on_device) + ' người · lần này nạp ' + esc(d.faces) + ' ảnh, xoá ' + esc(d.deleted) + ' người nghỉ việc' : 'Tự đồng bộ mỗi ' + esc(r.every_min) + ' phút và ngay khi có ảnh mới.')
+          + (d.at ? 'Lần chạy cuối ' + esc(String(d.at).slice(0, 16)) + ' · trên máy ' + esc(d.on_device) + ' người' + (d.no_face ? ' (<b style="color:var(--amber)">' + esc(d.no_face) + ' người chưa có ảnh mặt</b>)' : '') + ' · lần này nạp ' + esc(d.faces) + ' ảnh, xoá ' + esc(d.deleted) + ' người nghỉ việc' : 'Tự đồng bộ mỗi ' + esc(r.every_min) + ' phút và ngay khi có ảnh mới.')
           + (d.error ? '<br><span style="color:var(--red)">' + esc(d.error) + '</span>' : '')
           + (fails ? '<br><span style="color:var(--amber)">Máy không nhận ảnh của:<br>' + fails + '</span>' : '')
           + (d.fingerprint && !d.pinned ? '<br>Vân tay chứng chỉ (dán vào cấu hình để ghim): <span class="km-mono">' + esc(d.fingerprint) + '</span>' : '')
