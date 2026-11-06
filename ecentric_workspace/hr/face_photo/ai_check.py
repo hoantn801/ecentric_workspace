@@ -11,6 +11,8 @@ Chi model Gemini nhan tep anh (dialects.ACCEPTS_FILES) - gateway tu bo qua model
 
 PURPOSE = "face_photo_check"
 BUDGET = 25            # nguoi dung dang doi tren trang
+# fast=True (06/11): goi SONG SONG cac model Gemini nhan anh, model nao xong truoc thi dung.
+# Truoc do goi lan luot: gemini-3-8-flash treo 15s -> het ngan sach -> ~45% anh "chua kiem".
 ATTEMPT_TIMEOUT = 15
 
 FACE_RATIO = 0.45      # chieu cao mat / chieu cao anh sau khi cat (anh the)
@@ -102,7 +104,7 @@ def ask(jpeg, generate):
     try:
         res = generate("Check this enrolment photo.", system=SYSTEM, schema=SCHEMA,
                        files=[{"data": jpeg, "mime_type": "image/jpeg"}], purpose=PURPOSE,
-                       budget=BUDGET, attempt_timeout=ATTEMPT_TIMEOUT)
+                       budget=BUDGET, attempt_timeout=ATTEMPT_TIMEOUT, fast=True)
     except Exception:
         return None
     data = (res or {}).get("data") if (res or {}).get("ok") else None
