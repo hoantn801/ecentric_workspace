@@ -1,0 +1,740 @@
+<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>T · eCentric</title>
+<link rel="stylesheet" href="/a.css">
+</head><body>
+<div class="edh-app">
+  <aside>MENU</aside>
+  <main class="edh-main">
+    <div class="ec-shell-topbar" data-ec-shell-topbar="1"><div>TOPBAR</div></div>
+    <div class="edh-page" id="edh" data-edh-page="">
+      <header class="edh-head">
+        <h1 class="edh-h1">Trung tâm Dữ liệu</h1>
+        <p class="edh-sub">Gửi yêu cầu Power BI, crawl data, xử lý dữ liệu và theo dõi tiến độ. Mọi team đều xem được.</p>
+      </header>
+      <nav class="edh-tabs" aria-label="Trung tâm Dữ liệu">
+        <a class="edh-tab" href="/du-lieu">Yêu cầu dữ liệu</a><a class="edh-tab is-on" href="/du-lieu/san-co" aria-current="page">Data availability</a><a class="edh-tab" href="/du-lieu/dieu-phoi">Điều phối</a><a class="edh-tab" href="/du-lieu/quy-tac">Quy tắc thời hạn</a>
+      </nav>
+      
+<div class="edh-avbar">
+  <div class="edh-seg" role="group" aria-label="Xem">
+    <button type="button" data-edh-sub="matrix" aria-pressed="false">Ma trận dữ liệu</button>
+    <button type="button" data-edh-sub="library" aria-pressed="true" class="is-on">Thư viện báo cáo <span class="edh-cnt">3</span></button>
+  </div>
+  <button type="button" class="edh-btn is-primary" data-edh-propose>+ Đề xuất data cần crawl</button>
+</div>
+
+<section data-edh-av="matrix" hidden aria-label="Ma trận dữ liệu">
+<div class="edh-kpis">
+  <div class="edh-kpi"><span>Có trên SharePoint</span><b>73%</b><em>52 dòng dữ liệu</em></div>
+  <div class="edh-kpi"><span>Có trong Data Warehouse</span><b>73%</b></div>
+  <div class="edh-kpi"><span>Đã dùng trong Power BI</span><b>40%</b></div>
+  <div class="edh-kpi is-warn"><span>Đề xuất chờ duyệt</span><b>1</b><em>hạn 1 ngày làm việc</em></div>
+  <div class="edh-kpi is-warn"><span>Trễ cập nhật</span><b>1</b><em>so với tần suất</em></div>
+</div>
+
+<div class="edh-filters" role="search">
+  <input class="edh-inp edh-grow" type="search" data-edh-af="q" placeholder="Tìm loại dữ liệu, sàn…" aria-label="Tìm loại dữ liệu">
+  <select class="edh-inp" data-edh-af="team" aria-label="Team"><option value="">Mọi team</option><option value="Commercial">Commercial</option><option value="Service">Service</option><option value="Media">Media</option><option value="Finance Data">Finance Data</option><option value="Boxme Data">Boxme Data</option></select>
+  <select class="edh-inp" data-edh-af="state" aria-label="Trạng thái"><option value="">Mọi trạng thái</option><option value="full">Đã đủ (SP + DW + BI)</option><option value="gap">Có chỗ chưa có</option><option value="plan">Đang bổ sung</option><option value="stale">Trễ cập nhật</option><option value="front">★ Front cần gấp</option></select>
+  <button type="button" class="edh-btn" data-edh-row-new>+ Thêm dòng</button>
+</div>
+
+<section class="edh-card" aria-labelledby="edh-gap-h">
+  <h2 class="edh-h3" id="edh-gap-h">Cần bổ sung (data chưa có) <span class="edh-badge is-navy">9 mục</span> <span class="edh-hint">· bấm “Lên kế hoạch” để đưa vào Gantt</span></h2>
+  
+  <div class="edh-scroll-x"><table class="edh-tbl edh-tbl-plain edh-gaps">
+    <thead><tr><th>Dữ liệu</th><th>Sàn còn thiếu</th><th>Kênh còn thiếu</th><th>Nguồn</th><th>Kế hoạch</th><th class="edh-c-act"><span class="edh-sr">Thao tác</span></th></tr></thead>
+    <tbody>
+    
+      <tr data-edh-gap="Service|Affiliate order" data-team="Service">
+        <td><b>Affiliate order</b><div class="edh-hint">Service</div></td>
+        <td>TikTok, Lazada</td>
+        <td>SharePoint · DW · Power BI</td>
+        <td><span class="edh-badge is-green"><span class="edh-dot" aria-hidden="true"></span>Đề xuất đã duyệt</span></td>
+        <td><span class="edh-hint">Chưa lên kế hoạch</span></td>
+        <td class="edh-c-act"><button type="button" class="edh-btn is-sm is-primary" data-edh-plan="Service|Affiliate order">Lên kế hoạch</button></td>
+      </tr>
+    
+      <tr data-edh-gap="Commercial|Product traffic" data-team="Commercial">
+        <td><b>Product traffic</b><div class="edh-hint">Commercial</div></td>
+        <td>Lazada</td>
+        <td>SharePoint · DW · Power BI</td>
+        <td><span class="edh-badge is-gray"><span class="edh-dot" aria-hidden="true"></span>Thiếu trong bảng</span></td>
+        <td><span class="edh-hint">Chưa lên kế hoạch</span></td>
+        <td class="edh-c-act"><button type="button" class="edh-btn is-sm is-primary" data-edh-plan="Commercial|Product traffic">Lên kế hoạch</button></td>
+      </tr>
+    
+      <tr data-edh-gap="Commercial|Product Rating" data-team="Commercial">
+        <td><b>Product Rating</b><div class="edh-hint">Commercial</div></td>
+        <td>Lazada</td>
+        <td>SharePoint · DW · Power BI</td>
+        <td><span class="edh-badge is-gray"><span class="edh-dot" aria-hidden="true"></span>Thiếu trong bảng</span></td>
+        <td><span class="edh-hint">Chưa lên kế hoạch</span></td>
+        <td class="edh-c-act"><button type="button" class="edh-btn is-sm is-primary" data-edh-plan="Commercial|Product Rating">Lên kế hoạch</button></td>
+      </tr>
+    
+      <tr data-edh-gap="Commercial|Live" data-team="Commercial">
+        <td><b>Live</b><div class="edh-hint">Commercial</div></td>
+        <td>Lazada</td>
+        <td>SharePoint · DW · Power BI</td>
+        <td><span class="edh-badge is-gray"><span class="edh-dot" aria-hidden="true"></span>Thiếu trong bảng</span></td>
+        <td><span class="edh-hint">Chưa lên kế hoạch</span></td>
+        <td class="edh-c-act"><button type="button" class="edh-btn is-sm is-primary" data-edh-plan="Commercial|Live">Lên kế hoạch</button></td>
+      </tr>
+    
+      <tr data-edh-gap="Service|Traffic affiliate" data-team="Service">
+        <td><b>Traffic affiliate</b><div class="edh-hint">Service</div></td>
+        <td>Lazada</td>
+        <td>SharePoint · DW · Power BI</td>
+        <td><span class="edh-badge is-gray"><span class="edh-dot" aria-hidden="true"></span>Thiếu trong bảng</span></td>
+        <td><span class="edh-hint">Chưa lên kế hoạch</span></td>
+        <td class="edh-c-act"><button type="button" class="edh-btn is-sm is-primary" data-edh-plan="Service|Traffic affiliate">Lên kế hoạch</button></td>
+      </tr>
+    
+      <tr data-edh-gap="Service|Affiliate partner orders" data-team="Service">
+        <td><b>Affiliate partner orders</b><div class="edh-hint">Service</div></td>
+        <td>TikTok</td>
+        <td>SharePoint · DW · Power BI</td>
+        <td><span class="edh-badge is-gray"><span class="edh-dot" aria-hidden="true"></span>Thiếu trong bảng</span></td>
+        <td><span class="edh-hint">Chưa lên kế hoạch</span></td>
+        <td class="edh-c-act"><button type="button" class="edh-btn is-sm is-primary" data-edh-plan="Service|Affiliate partner orders">Lên kế hoạch</button></td>
+      </tr>
+    
+      <tr data-edh-gap="Service|Affiliate creator orders" data-team="Service">
+        <td><b>Affiliate creator orders</b><div class="edh-hint">Service</div></td>
+        <td>TikTok</td>
+        <td>SharePoint · DW · Power BI</td>
+        <td><span class="edh-badge is-amber"><span class="edh-dot" aria-hidden="true"></span>Đề xuất chờ duyệt</span></td>
+        <td><span class="edh-hint">Chưa lên kế hoạch</span></td>
+        <td class="edh-c-act"><button type="button" class="edh-btn is-sm is-primary" data-edh-plan="Service|Affiliate creator orders">Lên kế hoạch</button></td>
+      </tr>
+    
+      <tr data-edh-gap="Commercial|Voucher &amp; Flashsale" data-team="Commercial">
+        <td><b>Voucher &amp; Flashsale</b><div class="edh-hint">Commercial</div></td>
+        <td>Shopee, TikTok, Lazada</td>
+        <td>SharePoint · DW · Power BI</td>
+        <td><span class="edh-badge is-green"><span class="edh-dot" aria-hidden="true"></span>Đề xuất đã duyệt</span></td>
+        <td><div><button type="button" class="edh-linkbtn" data-edh-open="DA-2026-0012">DA-2026-0012</button> · Hoàn Trần · 11/11 → 19/11</div></td>
+        <td class="edh-c-act"><button type="button" class="edh-btn is-sm" data-edh-open="DA-2026-0012">Sửa</button></td>
+      </tr>
+    
+      <tr data-edh-gap="Commercial|Video" data-team="Commercial">
+        <td><b>Video</b><div class="edh-hint">Commercial</div></td>
+        <td>Shopee, TikTok, Lazada</td>
+        <td>SharePoint · DW · Power BI</td>
+        <td><span class="edh-badge is-gray"><span class="edh-dot" aria-hidden="true"></span>Thiếu trong bảng</span></td>
+        <td><div><button type="button" class="edh-linkbtn" data-edh-open="DA-2026-0011">DA-2026-0011</button> · Linh Vương · 12/11 → 24/11</div></td>
+        <td class="edh-c-act"><button type="button" class="edh-btn is-sm" data-edh-open="DA-2026-0011">Sửa</button></td>
+      </tr>
+    
+    </tbody>
+  </table></div>
+  <p class="edh-hint">Cũng có thể bấm thẳng vào ô “Chưa có” trong bảng bên dưới. Ô đang có kế hoạch hiện “Đang làm · hạn …”; xong thì tự chuyển “Có”.</p>
+  
+</section>
+
+<div class="edh-legend" aria-label="Chú thích"><span class="edh-d is-sp"></span>SharePoint <span class="edh-d is-dw"></span>Data Warehouse <span class="edh-d is-bi"></span>Power BI <span class="edh-d is-no"></span>Chưa có <span class="edh-star">★</span> Front cần gấp <span class="edh-stale">trễ</span> trễ cập nhật so với tần suất</div>
+<section class="edh-card edh-listcard" aria-label="Ma trận Data availability">
+  <div class="edh-scroll-x"><table class="edh-tbl edh-mtx" data-edh-mtx>
+    <thead><tr><th>Loại dữ liệu</th><th>Shopee</th><th>TikTok</th><th>Lazada</th><th>Khác</th><th class="edh-c-fresh">Cập nhật · ghi chú</th></tr></thead>
+    <tbody>
+    
+      <tr class="edh-grp" data-edh-mteam="Commercial"><td colspan="6">Commercial</td></tr>
+      
+      <tr data-edh-mrow data-team="Commercial" data-search="commercial product shopee tiktok lazada" data-full="1" data-gap="0" data-plan="0" data-stale="0" data-front="0">
+        <td class="edh-c-dt"><b>Product</b></td>
+        <td><button type="button" class="edh-cell" data-edh-row-edit="AV-001" title="Shopee: SharePoint · Data Warehouse · Power BI · Hằng tuần · cập nhật 06/11 09:30 · phụ trách Dũng Phạm - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi"></span></span><span class="edh-sr">Shopee: SharePoint · Data Warehouse · Power BI · Hằng tuần · cập nhật 06/11 09:30 · phụ trách Dũng Phạm</span></button>
+</td>
+        <td><button type="button" class="edh-cell" data-edh-row-edit="AV-002" title="TikTok: SharePoint · Data Warehouse · Power BI - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi"></span></span><span class="edh-sr">TikTok: SharePoint · Data Warehouse · Power BI</span></button>
+</td>
+        <td><button type="button" class="edh-cell" data-edh-row-edit="AV-003" title="Lazada: SharePoint · Data Warehouse · Power BI - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi"></span></span><span class="edh-sr">Lazada: SharePoint · Data Warehouse · Power BI</span></button>
+</td>
+        <td><span class="edh-hint">—</span></td>
+        <td class="edh-c-fresh"><span class="edh-hint">cập nhật 06/11 · Hằng tuần · Dũng Phạm</span></td>
+      </tr>
+      
+      <tr data-edh-mrow data-team="Commercial" data-search="commercial orderline shopee tiktok lazada" data-full="1" data-gap="0" data-plan="0" data-stale="1" data-front="0">
+        <td class="edh-c-dt"><b>Orderline</b></td>
+        <td><button type="button" class="edh-cell" data-edh-row-edit="AV-004" title="Shopee: SharePoint · Data Warehouse · Power BI · Hằng ngày · cập nhật 08/11 23:30 · phụ trách Linh Vương - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi"></span></span><span class="edh-sr">Shopee: SharePoint · Data Warehouse · Power BI · Hằng ngày · cập nhật 08/11 23:30 · phụ trách Linh Vương</span></button>
+</td>
+        <td><button type="button" class="edh-cell is-stale" data-edh-row-edit="AV-005" title="TikTok: SharePoint · Data Warehouse · Power BI · Hằng ngày · trễ cập nhật · lần cuối 05/11 09:30 · phụ trách Linh Vương - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi"></span></span><span class="edh-sr">TikTok: SharePoint · Data Warehouse · Power BI · Hằng ngày · trễ cập nhật · lần cuối 05/11 09:30 · phụ trách Linh Vương</span><span class="edh-stale">trễ</span></button>
+</td>
+        <td><button type="button" class="edh-cell" data-edh-row-edit="AV-006" title="Lazada: SharePoint · Data Warehouse · Power BI - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi"></span></span><span class="edh-sr">Lazada: SharePoint · Data Warehouse · Power BI</span></button>
+</td>
+        <td><span class="edh-hint">—</span></td>
+        <td class="edh-c-fresh"><span class="edh-badge is-amber" title="Cập nhật lần cuối cũ hơn tần suất">Trễ cập nhật · TikTok</span> <span class="edh-hint">cập nhật 05/11 · Hằng ngày · Linh Vương</span><div class="edh-hint">Cập nhật 06:00 mỗi ngày</div></td>
+      </tr>
+      
+      <tr data-edh-mrow data-team="Commercial" data-search="commercial store shopee tiktok lazada" data-full="1" data-gap="0" data-plan="0" data-stale="0" data-front="0">
+        <td class="edh-c-dt"><b>Store</b></td>
+        <td><button type="button" class="edh-cell" data-edh-row-edit="AV-007" title="Shopee: SharePoint · Data Warehouse · Power BI - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi"></span></span><span class="edh-sr">Shopee: SharePoint · Data Warehouse · Power BI</span></button>
+</td>
+        <td><button type="button" class="edh-cell" data-edh-row-edit="AV-008" title="TikTok: SharePoint · Data Warehouse · Power BI - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi"></span></span><span class="edh-sr">TikTok: SharePoint · Data Warehouse · Power BI</span></button>
+</td>
+        <td><button type="button" class="edh-cell" data-edh-row-edit="AV-009" title="Lazada: SharePoint · Data Warehouse · Power BI - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi"></span></span><span class="edh-sr">Lazada: SharePoint · Data Warehouse · Power BI</span></button>
+</td>
+        <td><span class="edh-hint">—</span></td>
+        <td class="edh-c-fresh"></td>
+      </tr>
+      
+      <tr data-edh-mrow data-team="Commercial" data-search="commercial finance shopee tiktok lazada" data-full="0" data-gap="0" data-plan="0" data-stale="0" data-front="0">
+        <td class="edh-c-dt"><b>Finance</b></td>
+        <td><button type="button" class="edh-cell" data-edh-row-edit="AV-010" title="Shopee: SharePoint · Data Warehouse - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi is-off"></span></span><span class="edh-sr">Shopee: SharePoint · Data Warehouse</span></button>
+</td>
+        <td><button type="button" class="edh-cell" data-edh-row-edit="AV-011" title="TikTok: SharePoint · Data Warehouse - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi is-off"></span></span><span class="edh-sr">TikTok: SharePoint · Data Warehouse</span></button>
+</td>
+        <td><button type="button" class="edh-cell" data-edh-row-edit="AV-012" title="Lazada: SharePoint · Data Warehouse - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi is-off"></span></span><span class="edh-sr">Lazada: SharePoint · Data Warehouse</span></button>
+</td>
+        <td><span class="edh-hint">—</span></td>
+        <td class="edh-c-fresh"></td>
+      </tr>
+      
+      <tr data-edh-mrow data-team="Commercial" data-search="commercial product traffic shopee tiktok lazada" data-full="0" data-gap="1" data-plan="0" data-stale="0" data-front="0">
+        <td class="edh-c-dt"><b>Product traffic</b></td>
+        <td><button type="button" class="edh-cell" data-edh-row-edit="AV-013" title="Shopee: SharePoint · Data Warehouse · Power BI - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi"></span></span><span class="edh-sr">Shopee: SharePoint · Data Warehouse · Power BI</span></button>
+</td>
+        <td><button type="button" class="edh-cell" data-edh-row-edit="AV-014" title="TikTok: SharePoint · Data Warehouse · Power BI - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi"></span></span><span class="edh-sr">TikTok: SharePoint · Data Warehouse · Power BI</span></button>
+</td>
+        <td><button type="button" class="edh-cellno" data-edh-plan-cell="AV-015" title="Lazada: chưa có - bấm để lên kế hoạch bổ sung"><span class="edh-d is-no" aria-hidden="true"></span>Chưa có</button>
+</td>
+        <td><span class="edh-hint">—</span></td>
+        <td class="edh-c-fresh"></td>
+      </tr>
+      
+      <tr data-edh-mrow data-team="Commercial" data-search="commercial product rating shopee tiktok lazada" data-full="0" data-gap="1" data-plan="0" data-stale="0" data-front="0">
+        <td class="edh-c-dt"><b>Product Rating</b></td>
+        <td><button type="button" class="edh-cell" data-edh-row-edit="AV-016" title="Shopee: SharePoint · Data Warehouse - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi is-off"></span></span><span class="edh-sr">Shopee: SharePoint · Data Warehouse</span></button>
+</td>
+        <td><button type="button" class="edh-cell" data-edh-row-edit="AV-017" title="TikTok: SharePoint · Data Warehouse - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi is-off"></span></span><span class="edh-sr">TikTok: SharePoint · Data Warehouse</span></button>
+</td>
+        <td><button type="button" class="edh-cellno" data-edh-plan-cell="AV-018" title="Lazada: chưa có - bấm để lên kế hoạch bổ sung"><span class="edh-d is-no" aria-hidden="true"></span>Chưa có</button>
+</td>
+        <td><span class="edh-hint">—</span></td>
+        <td class="edh-c-fresh"></td>
+      </tr>
+      
+      <tr data-edh-mrow data-team="Commercial" data-search="commercial product assortment shopee tiktok lazada" data-full="1" data-gap="0" data-plan="0" data-stale="0" data-front="0">
+        <td class="edh-c-dt"><b>Product assortment</b></td>
+        <td><button type="button" class="edh-cell" data-edh-row-edit="AV-019" title="Shopee: SharePoint · Data Warehouse · Power BI - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi"></span></span><span class="edh-sr">Shopee: SharePoint · Data Warehouse · Power BI</span></button>
+</td>
+        <td><button type="button" class="edh-cell" data-edh-row-edit="AV-020" title="TikTok: SharePoint · Data Warehouse · Power BI - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi"></span></span><span class="edh-sr">TikTok: SharePoint · Data Warehouse · Power BI</span></button>
+</td>
+        <td><button type="button" class="edh-cell" data-edh-row-edit="AV-021" title="Lazada: SharePoint · Data Warehouse · Power BI - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi"></span></span><span class="edh-sr">Lazada: SharePoint · Data Warehouse · Power BI</span></button>
+</td>
+        <td><span class="edh-hint">—</span></td>
+        <td class="edh-c-fresh"></td>
+      </tr>
+      
+      <tr data-edh-mrow data-team="Commercial" data-search="commercial live shopee tiktok lazada" data-full="0" data-gap="1" data-plan="0" data-stale="0" data-front="0">
+        <td class="edh-c-dt"><b>Live</b></td>
+        <td><button type="button" class="edh-cell" data-edh-row-edit="AV-022" title="Shopee: SharePoint · Data Warehouse - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi is-off"></span></span><span class="edh-sr">Shopee: SharePoint · Data Warehouse</span></button>
+</td>
+        <td><button type="button" class="edh-cell" data-edh-row-edit="AV-023" title="TikTok: SharePoint · Data Warehouse - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi is-off"></span></span><span class="edh-sr">TikTok: SharePoint · Data Warehouse</span></button>
+</td>
+        <td><button type="button" class="edh-cellno" data-edh-plan-cell="AV-024" title="Lazada: chưa có - bấm để lên kế hoạch bổ sung"><span class="edh-d is-no" aria-hidden="true"></span>Chưa có</button>
+</td>
+        <td><span class="edh-hint">—</span></td>
+        <td class="edh-c-fresh"></td>
+      </tr>
+      
+      <tr data-edh-mrow data-team="Commercial" data-search="commercial video shopee tiktok lazada" data-full="0" data-gap="1" data-plan="1" data-stale="0" data-front="0">
+        <td class="edh-c-dt"><b>Video</b></td>
+        <td><button type="button" class="edh-cellplan" data-edh-open="DA-2026-0011" title="Shopee: chưa có · đang bổ sung DA-2026-0011 · hạn 24/11">Đang làm · hạn 24/11</button>
+</td>
+        <td><button type="button" class="edh-cellplan" data-edh-open="DA-2026-0011" title="TikTok: chưa có · đang bổ sung DA-2026-0011 · hạn 24/11">Đang làm · hạn 24/11</button>
+</td>
+        <td><button type="button" class="edh-cellplan" data-edh-open="DA-2026-0011" title="Lazada: chưa có · đang bổ sung DA-2026-0011 · hạn 24/11">Đang làm · hạn 24/11</button>
+</td>
+        <td><span class="edh-hint">—</span></td>
+        <td class="edh-c-fresh"></td>
+      </tr>
+      
+      <tr data-edh-mrow data-team="Commercial" data-search="commercial voucher &amp; flashsale shopee tiktok lazada" data-full="0" data-gap="1" data-plan="1" data-stale="0" data-front="0">
+        <td class="edh-c-dt"><b>Voucher &amp; Flashsale</b></td>
+        <td><button type="button" class="edh-cellplan" data-edh-open="DA-2026-0012" title="Shopee: chưa có · đang bổ sung DA-2026-0012 · hạn 19/11">Đang làm · hạn 19/11</button>
+</td>
+        <td><button type="button" class="edh-cellplan" data-edh-open="DA-2026-0012" title="TikTok: chưa có · đang bổ sung DA-2026-0012 · hạn 19/11">Đang làm · hạn 19/11</button>
+</td>
+        <td><button type="button" class="edh-cellplan" data-edh-open="DA-2026-0012" title="Lazada: chưa có · đang bổ sung DA-2026-0012 · hạn 19/11">Đang làm · hạn 19/11</button>
+</td>
+        <td><span class="edh-hint">—</span></td>
+        <td class="edh-c-fresh"></td>
+      </tr>
+      
+      <tr data-edh-mrow data-team="Commercial" data-search="commercial shipping fee lazada" data-full="0" data-gap="0" data-plan="0" data-stale="0" data-front="0">
+        <td class="edh-c-dt"><b>Shipping fee</b></td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><button type="button" class="edh-cell" data-edh-row-edit="AV-031" title="Lazada: SharePoint · Data Warehouse - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi is-off"></span></span><span class="edh-sr">Lazada: SharePoint · Data Warehouse</span></button>
+</td>
+        <td><span class="edh-hint">—</span></td>
+        <td class="edh-c-fresh"></td>
+      </tr>
+      
+      <tr data-edh-mrow data-team="Commercial" data-search="commercial boxme purchase order boxme" data-full="1" data-gap="0" data-plan="0" data-stale="0" data-front="0">
+        <td class="edh-c-dt"><b>Boxme Purchase Order</b></td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><div class="edh-other"><button type="button" class="edh-cell" data-edh-row-edit="AV-032" title="Boxme: SharePoint · Data Warehouse · Power BI - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi"></span></span><span class="edh-sr">Boxme: SharePoint · Data Warehouse · Power BI</span></button>
+ <span class="edh-hint">Boxme</span></div></td>
+        <td class="edh-c-fresh"></td>
+      </tr>
+      
+    
+      <tr class="edh-grp" data-edh-mteam="Service"><td colspan="6">Service</td></tr>
+      
+      <tr data-edh-mrow data-team="Service" data-search="service affiliate order shopee tiktok lazada" data-full="0" data-gap="1" data-plan="0" data-stale="0" data-front="0">
+        <td class="edh-c-dt"><b>Affiliate order</b></td>
+        <td><button type="button" class="edh-cell" data-edh-row-edit="AV-033" title="Shopee: SharePoint · Data Warehouse - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi is-off"></span></span><span class="edh-sr">Shopee: SharePoint · Data Warehouse</span></button>
+</td>
+        <td><button type="button" class="edh-cellno" data-edh-plan-cell="AV-034" title="TikTok: chưa có - bấm để lên kế hoạch bổ sung"><span class="edh-d is-no" aria-hidden="true"></span>Chưa có</button>
+</td>
+        <td><button type="button" class="edh-cellno" data-edh-plan-cell="AV-035" title="Lazada: chưa có - bấm để lên kế hoạch bổ sung"><span class="edh-d is-no" aria-hidden="true"></span>Chưa có</button>
+</td>
+        <td><span class="edh-hint">—</span></td>
+        <td class="edh-c-fresh"></td>
+      </tr>
+      
+      <tr data-edh-mrow data-team="Service" data-search="service traffic affiliate shopee tiktok lazada" data-full="0" data-gap="1" data-plan="0" data-stale="0" data-front="0">
+        <td class="edh-c-dt"><b>Traffic affiliate</b></td>
+        <td><button type="button" class="edh-cell" data-edh-row-edit="AV-036" title="Shopee: SharePoint · Data Warehouse · Power BI - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi"></span></span><span class="edh-sr">Shopee: SharePoint · Data Warehouse · Power BI</span></button>
+</td>
+        <td><button type="button" class="edh-cell" data-edh-row-edit="AV-037" title="TikTok: SharePoint · Data Warehouse · Power BI - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi"></span></span><span class="edh-sr">TikTok: SharePoint · Data Warehouse · Power BI</span></button>
+</td>
+        <td><button type="button" class="edh-cellno" data-edh-plan-cell="AV-038" title="Lazada: chưa có - bấm để lên kế hoạch bổ sung"><span class="edh-d is-no" aria-hidden="true"></span>Chưa có</button>
+</td>
+        <td><span class="edh-hint">—</span></td>
+        <td class="edh-c-fresh"></td>
+      </tr>
+      
+      <tr data-edh-mrow data-team="Service" data-search="service affiliate creator orders tiktok" data-full="0" data-gap="1" data-plan="0" data-stale="0" data-front="0">
+        <td class="edh-c-dt"><b>Affiliate creator orders</b></td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><button type="button" class="edh-cellno" data-edh-plan-cell="AV-039" title="TikTok: chưa có - bấm để lên kế hoạch bổ sung"><span class="edh-d is-no" aria-hidden="true"></span>Chưa có</button>
+</td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><span class="edh-hint">—</span></td>
+        <td class="edh-c-fresh"></td>
+      </tr>
+      
+      <tr data-edh-mrow data-team="Service" data-search="service affiliate partner orders tiktok" data-full="0" data-gap="1" data-plan="0" data-stale="0" data-front="0">
+        <td class="edh-c-dt"><b>Affiliate partner orders</b></td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><button type="button" class="edh-cellno" data-edh-plan-cell="AV-040" title="TikTok: chưa có - bấm để lên kế hoạch bổ sung"><span class="edh-d is-no" aria-hidden="true"></span>Chưa có</button>
+</td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><span class="edh-hint">—</span></td>
+        <td class="edh-c-fresh"></td>
+      </tr>
+      
+    
+      <tr class="edh-grp" data-edh-mteam="Media"><td colspan="6">Media</td></tr>
+      
+      <tr data-edh-mrow data-team="Media" data-search="media cpc ads shopee" data-full="0" data-gap="0" data-plan="0" data-stale="0" data-front="0">
+        <td class="edh-c-dt"><b>CPC Ads</b></td>
+        <td><button type="button" class="edh-cell" data-edh-row-edit="AV-041" title="Shopee: SharePoint · Data Warehouse - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi is-off"></span></span><span class="edh-sr">Shopee: SharePoint · Data Warehouse</span></button>
+</td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><span class="edh-hint">—</span></td>
+        <td class="edh-c-fresh"></td>
+      </tr>
+      
+      <tr data-edh-mrow data-team="Media" data-search="media gmv max tiktok" data-full="0" data-gap="0" data-plan="0" data-stale="0" data-front="0">
+        <td class="edh-c-dt"><b>GMV Max</b></td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><button type="button" class="edh-cell" data-edh-row-edit="AV-042" title="TikTok: SharePoint · Data Warehouse - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi is-off"></span></span><span class="edh-sr">TikTok: SharePoint · Data Warehouse</span></button>
+</td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><span class="edh-hint">—</span></td>
+        <td class="edh-c-fresh"></td>
+      </tr>
+      
+      <tr data-edh-mrow data-team="Media" data-search="media manual ads tiktok" data-full="0" data-gap="0" data-plan="0" data-stale="0" data-front="0">
+        <td class="edh-c-dt"><b>Manual Ads</b></td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><button type="button" class="edh-cell" data-edh-row-edit="AV-043" title="TikTok: SharePoint · Data Warehouse - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi is-off"></span></span><span class="edh-sr">TikTok: SharePoint · Data Warehouse</span></button>
+</td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><span class="edh-hint">—</span></td>
+        <td class="edh-c-fresh"></td>
+      </tr>
+      
+      <tr data-edh-mrow data-team="Media" data-search="media cpas ads shopee" data-full="0" data-gap="0" data-plan="0" data-stale="0" data-front="0">
+        <td class="edh-c-dt"><b>CPAS Ads</b></td>
+        <td><button type="button" class="edh-cell" data-edh-row-edit="AV-044" title="Shopee: SharePoint · Data Warehouse - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi is-off"></span></span><span class="edh-sr">Shopee: SharePoint · Data Warehouse</span></button>
+</td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><span class="edh-hint">—</span></td>
+        <td class="edh-c-fresh"></td>
+      </tr>
+      
+      <tr data-edh-mrow data-team="Media" data-search="media cpc ads group camp shopee" data-full="0" data-gap="0" data-plan="0" data-stale="0" data-front="0">
+        <td class="edh-c-dt"><b>CPC Ads Group Camp</b></td>
+        <td><button type="button" class="edh-cell" data-edh-row-edit="AV-045" title="Shopee: SharePoint · Data Warehouse - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi is-off"></span></span><span class="edh-sr">Shopee: SharePoint · Data Warehouse</span></button>
+</td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><span class="edh-hint">—</span></td>
+        <td class="edh-c-fresh"></td>
+      </tr>
+      
+      <tr data-edh-mrow data-team="Media" data-search="media sponsor max lazada" data-full="0" data-gap="0" data-plan="0" data-stale="0" data-front="0">
+        <td class="edh-c-dt"><b>Sponsor Max</b></td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><button type="button" class="edh-cell" data-edh-row-edit="AV-046" title="Lazada: SharePoint · Data Warehouse - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi is-off"></span></span><span class="edh-sr">Lazada: SharePoint · Data Warehouse</span></button>
+</td>
+        <td><span class="edh-hint">—</span></td>
+        <td class="edh-c-fresh"></td>
+      </tr>
+      
+    
+      <tr class="edh-grp" data-edh-mteam="Finance Data"><td colspan="6">Finance Data</td></tr>
+      
+      <tr data-edh-mrow data-team="Finance Data" data-search="finance data e-invoice gov gov" data-full="0" data-gap="0" data-plan="0" data-stale="0" data-front="0">
+        <td class="edh-c-dt"><b>e-Invoice GOV</b></td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><div class="edh-other"><button type="button" class="edh-cell" data-edh-row-edit="AV-047" title="GOV: SharePoint · Data Warehouse - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi is-off"></span></span><span class="edh-sr">GOV: SharePoint · Data Warehouse</span></button>
+ <span class="edh-hint">GOV</span></div></td>
+        <td class="edh-c-fresh"></td>
+      </tr>
+      
+      <tr data-edh-mrow data-team="Finance Data" data-search="finance data finance - misa misa" data-full="0" data-gap="0" data-plan="0" data-stale="0" data-front="0">
+        <td class="edh-c-dt"><b>Finance - Misa</b></td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><div class="edh-other"><button type="button" class="edh-cell" data-edh-row-edit="AV-048" title="Misa: SharePoint · Data Warehouse - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi is-off"></span></span><span class="edh-sr">Misa: SharePoint · Data Warehouse</span></button>
+ <span class="edh-hint">Misa</span></div></td>
+        <td class="edh-c-fresh"></td>
+      </tr>
+      
+    
+      <tr class="edh-grp" data-edh-mteam="Boxme Data"><td colspan="6">Boxme Data</td></tr>
+      
+      <tr data-edh-mrow data-team="Boxme Data" data-search="boxme data stock report oms boxme" data-full="1" data-gap="0" data-plan="0" data-stale="0" data-front="0">
+        <td class="edh-c-dt"><b>Stock Report</b></td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><div class="edh-other"><button type="button" class="edh-cell" data-edh-row-edit="AV-049" title="Oms Boxme: SharePoint · Data Warehouse · Power BI · Theo giờ · cập nhật 09/11 07:30 · phụ trách Hoàn Trần - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi"></span></span><span class="edh-sr">Oms Boxme: SharePoint · Data Warehouse · Power BI · Theo giờ · cập nhật 09/11 07:30 · phụ trách Hoàn Trần</span></button>
+ <span class="edh-hint">Oms Boxme</span></div></td>
+        <td class="edh-c-fresh"><span class="edh-hint">cập nhật 09/11 · Theo giờ · Hoàn Trần</span></td>
+      </tr>
+      
+      <tr data-edh-mrow data-team="Boxme Data" data-search="boxme data product oms boxme" data-full="1" data-gap="0" data-plan="0" data-stale="0" data-front="1">
+        <td class="edh-c-dt"><b>Product</b> <span class="edh-star" title="Front cần gấp">★</span></td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><div class="edh-other"><button type="button" class="edh-cell" data-edh-row-edit="AV-050" title="Oms Boxme: SharePoint · Data Warehouse · Power BI - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi"></span></span><span class="edh-sr">Oms Boxme: SharePoint · Data Warehouse · Power BI</span></button>
+ <span class="edh-hint">Oms Boxme</span></div></td>
+        <td class="edh-c-fresh"></td>
+      </tr>
+      
+      <tr data-edh-mrow data-team="Boxme Data" data-search="boxme data orderline omisell oms boxme" data-full="1" data-gap="0" data-plan="0" data-stale="0" data-front="1">
+        <td class="edh-c-dt"><b>Orderline</b> <span class="edh-star" title="Front cần gấp">★</span></td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><span class="edh-hint" aria-label="Không áp dụng">—</span>
+</td>
+        <td><div class="edh-other"><button type="button" class="edh-cell" data-edh-row-edit="AV-051" title="Omisell: SharePoint · Data Warehouse · Power BI - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi"></span></span><span class="edh-sr">Omisell: SharePoint · Data Warehouse · Power BI</span></button>
+ <span class="edh-hint">Omisell</span></div><div class="edh-other"><button type="button" class="edh-cell" data-edh-row-edit="AV-052" title="Oms Boxme: SharePoint · Data Warehouse · Power BI - bấm để sửa"><span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp"></span><span class="edh-d is-dw"></span><span class="edh-d is-bi"></span></span><span class="edh-sr">Oms Boxme: SharePoint · Data Warehouse · Power BI</span></button>
+ <span class="edh-hint">Oms Boxme</span></div></td>
+        <td class="edh-c-fresh"></td>
+      </tr>
+      
+    
+    </tbody>
+  </table></div>
+  <div class="edh-state" data-edh-mempty hidden><h4>Không có dòng nào khớp bộ lọc</h4><p>Đổi bộ lọc, hoặc bấm “+ Thêm dòng”.</p></div>
+</section>
+
+<section class="edh-card" aria-labelledby="edh-prop-h" id="de-xuat">
+  <h2 class="edh-h3" id="edh-prop-h">Đề xuất data mới <span class="edh-badge is-amber">1 chờ team Data duyệt</span></h2>
+  
+  <div class="edh-scroll-x"><table class="edh-tbl edh-tbl-plain edh-props">
+    <thead><tr><th>Đề xuất</th><th>Team</th><th>Người gửi</th><th>Gửi lúc</th><th>Trạng thái</th><th class="edh-c-act">Team Data</th></tr></thead>
+    <tbody>
+    
+      <tr data-edh-prop="DP-2026-0002">
+        <td><b>Affiliate creator orders</b> · TikTok<div class="edh-hint">Đối soát hoa hồng creator</div></td>
+        <td>Service</td>
+        <td>Hiền Nguyễn</td>
+        <td>09/11 09:05</td>
+        <td><span class="edh-badge is-amber"><span class="edh-dot" aria-hidden="true"></span>Chờ duyệt · còn 24h</span></td>
+        <td class="edh-c-act"><button type="button" class="edh-btn is-sm is-primary" data-edh-approve="DP-2026-0002">Duyệt</button> <button type="button" class="edh-btn is-sm" data-edh-reject="DP-2026-0002">Từ chối</button></td>
+      </tr>
+    
+      <tr data-edh-prop="DP-2026-0004">
+        <td><b>Affiliate order</b> · TikTok, Lazada <span class="edh-badge is-amber"><span class="edh-dot" aria-hidden="true"></span>Cao</span><div class="edh-hint">Báo cáo affiliate 3 sàn</div></td>
+        <td>Service</td>
+        <td>Hiền Nguyễn</td>
+        <td>09/11 09:05</td>
+        <td><span class="edh-badge is-green"><span class="edh-dot" aria-hidden="true"></span>Đã duyệt · chờ lên kế hoạch</span></td>
+        <td class="edh-c-act"><span class="edh-hint">—</span></td>
+      </tr>
+    
+      <tr data-edh-prop="DP-2026-0003">
+        <td><b>KOL booking</b> · Facebook<div class="edh-hint">Theo dõi chi phí KOL</div><div class="edh-hint"><b>Linh Vương:</b> Facebook chưa có API, dùng file tay của Media</div></td>
+        <td>Commercial</td>
+        <td>Duyên Lê</td>
+        <td>09/11 09:05</td>
+        <td><span class="edh-badge is-gray"><span class="edh-dot" aria-hidden="true"></span>Từ chối</span></td>
+        <td class="edh-c-act"><span class="edh-hint">—</span></td>
+      </tr>
+    
+      <tr data-edh-prop="DP-2026-0001">
+        <td><b>Voucher &amp; Flashsale</b> · Shopee, TikTok <span class="edh-badge is-amber"><span class="edh-dot" aria-hidden="true"></span>Cao</span><div class="edh-hint">Đo hiệu quả voucher theo ngày cho 12.12</div><div class="edh-hint"><b>Hoàn Trần:</b> Ưu tiên cho 12.12</div></td>
+        <td>Commercial</td>
+        <td>Thu Nguyễn</td>
+        <td>06/11 15:20</td>
+        <td><button type="button" class="edh-badge is-green edh-badge-btn" data-edh-open="DA-2026-0012"><span class="edh-dot" aria-hidden="true"></span>Đã duyệt → DA-2026-0012</button></td>
+        <td class="edh-c-act"><span class="edh-hint">—</span></td>
+      </tr>
+    
+    </tbody>
+  </table></div>
+  <p class="edh-hint">Duyệt xong: dữ liệu vào danh sách “Cần bổ sung”, team Data lên kế hoạch (hạn theo quy tắc crawl); người đề xuất được báo và nghiệm thu khi xong.</p>
+  
+</section>
+</section>
+
+<section data-edh-av="library" aria-label="Thư viện báo cáo">
+<div class="edh-filters" role="search">
+  <input class="edh-inp edh-grow" type="search" data-edh-lf="q" placeholder="Tìm báo cáo, dữ liệu nguồn, thẻ…" aria-label="Tìm báo cáo">
+  <select class="edh-inp" data-edh-lf="team" aria-label="Team"><option value="">Mọi team</option><option value="Commercial">Commercial</option><option value="Service">Service</option></select>
+  <button type="button" class="edh-btn is-primary" data-edh-lib-new>+ Thêm báo cáo</button>
+</div>
+<section class="edh-card edh-listcard">
+  <div class="edh-scroll-x"><table class="edh-tbl edh-lib">
+    <thead><tr><th>Báo cáo</th><th>Team</th><th>Người phụ trách</th><th>Dữ liệu nguồn</th><th>Từ yêu cầu</th><th class="edh-c-act"><span class="edh-sr">Thao tác</span></th></tr></thead>
+    <tbody>
+    
+      <tr data-edh-lrow="RL-00003" data-team="Service" data-search="affiliate tiktok theo creator service affiliate traffic affiliate dũng phạm ">
+        <td><a class="edh-link" href="https://app.powerbi.com/aff-creator" target="_blank" rel="noopener noreferrer">Affiliate TikTok theo creator ↗</a><div class="edh-hint">affiliate</div></td>
+        <td>Service</td>
+        <td>Dũng Phạm</td>
+        <td>Traffic affiliate</td>
+        <td><span class="edh-hint">—</span></td>
+        <td class="edh-c-act"><button type="button" class="edh-btn is-sm" data-edh-lib-edit="RL-00003">Sửa</button> <button type="button" class="edh-btn is-sm" data-edh-lib-toggle="RL-00003" data-active="0">Ẩn</button></td>
+      </tr>
+    
+      <tr data-edh-lrow="RL-00002" data-team="Commercial" data-search="dashboard pnl tổng hợp brand commercial pnl, brand orderline, finance linh vương ">
+        <td><a class="edh-link" href="https://app.powerbi.com/pnl-tong" target="_blank" rel="noopener noreferrer">Dashboard PnL tổng hợp brand ↗</a><div class="edh-hint">PnL, brand</div></td>
+        <td>Commercial</td>
+        <td>Linh Vương</td>
+        <td>Orderline, Finance</td>
+        <td><span class="edh-hint">—</span></td>
+        <td class="edh-c-act"><button type="button" class="edh-btn is-sm" data-edh-lib-edit="RL-00002">Sửa</button> <button type="button" class="edh-btn is-sm" data-edh-lib-toggle="RL-00002" data-active="0">Ẩn</button></td>
+      </tr>
+    
+      <tr data-edh-lrow="RL-00001" data-team="Commercial" data-search="dashboard stock boxme commercial power bi orderline linh vương dr-2026-0001">
+        <td><a class="edh-link" href="https://app.powerbi.com/stock" target="_blank" rel="noopener noreferrer">Dashboard Stock Boxme ↗</a><div class="edh-hint">Power BI</div></td>
+        <td>Commercial</td>
+        <td>Linh Vương</td>
+        <td>Orderline</td>
+        <td><button type="button" class="edh-linkbtn" data-edh-open="DR-2026-0001">DR-2026-0001</button></td>
+        <td class="edh-c-act"><button type="button" class="edh-btn is-sm" data-edh-lib-edit="RL-00001">Sửa</button> <button type="button" class="edh-btn is-sm" data-edh-lib-toggle="RL-00001" data-active="0">Ẩn</button></td>
+      </tr>
+    
+    </tbody>
+  </table></div>
+  <div class="edh-state" data-edh-lempty hidden><h4>Không có báo cáo nào khớp bộ lọc</h4><p>Yêu cầu Power BI nghiệm thu “Đạt” có link kết quả sẽ tự vào đây; hoặc bấm “+ Thêm báo cáo”.</p></div>
+</section>
+<p class="edh-hint">Khi tạo yêu cầu mới, gõ tiêu đề sẽ thấy gợi ý “đã có dashboard tương tự” từ thư viện này.</p>
+</section>
+
+<datalist id="edh-dl-team"><option value="Commercial"><option value="Service"><option value="Media"><option value="Finance Data"><option value="Boxme Data"></datalist>
+<datalist id="edh-dl-dtype"><option value="Affiliate creator orders"><option value="Affiliate order"><option value="Affiliate partner orders"><option value="Boxme Purchase Order"><option value="CPAS Ads"><option value="CPC Ads"><option value="CPC Ads Group Camp"><option value="e-Invoice GOV"><option value="Finance"><option value="Finance - Misa"><option value="GMV Max"><option value="Live"><option value="Manual Ads"><option value="Orderline"><option value="Product"><option value="Product assortment"><option value="Product Rating"><option value="Product traffic"><option value="Shipping fee"><option value="Sponsor Max"><option value="Stock Report"><option value="Store"><option value="Traffic affiliate"><option value="Video"><option value="Voucher &amp; Flashsale"></datalist>
+
+<div class="edh-ov" data-edh-prop-ov hidden>
+  <form class="edh-modal edh-modal-lg" data-edh-prop-form novalidate role="dialog" aria-modal="true" aria-labelledby="edh-prop-mh">
+    <h3 class="edh-modal-h" id="edh-prop-mh">Đề xuất data cần crawl</h3>
+    <div class="edh-modal-b">
+      <div class="edh-grid2">
+        <div class="edh-fld"><label for="edh-p-team">Team cần dữ liệu <span class="edh-req">*</span></label>
+          <input id="edh-p-team" name="team" list="edh-dl-team" maxlength="60" value="Data" required></div>
+        <div class="edh-fld"><label for="edh-p-dt">Loại dữ liệu <span class="edh-req">*</span></label>
+          <input id="edh-p-dt" name="data_type" list="edh-dl-dtype" maxlength="80" placeholder="VD: Voucher &amp; Flashsale" required></div>
+        <fieldset class="edh-fld edh-full edh-fs"><legend>Sàn <span class="edh-req">*</span></legend><div class="edh-chips">
+          <label><input type="checkbox" name="platforms" value="Shopee"> Shopee</label><label><input type="checkbox" name="platforms" value="TikTok"> TikTok</label><label><input type="checkbox" name="platforms" value="Lazada"> Lazada</label>
+          <label>Khác: <input name="other_platform" maxlength="80" placeholder="Misa, Facebook…" class="edh-inp-sm"></label></div></fieldset>
+        <div class="edh-fld edh-full"><label for="edh-p-purpose">Dùng để làm gì <span class="edh-req">*</span></label>
+          <textarea id="edh-p-purpose" name="purpose" rows="3" maxlength="1000" placeholder="Báo cáo nào, ai xem, quyết định gì…" required></textarea></div>
+        <div class="edh-fld"><label for="edh-p-urg">Mức cần gấp</label>
+          <select id="edh-p-urg" name="urgency"><option value="Bình thường">Bình thường</option><option value="Cao">Cao</option><option value="Khẩn">Khẩn</option></select></div>
+        <div class="edh-fld"><label for="edh-p-unote">Cần trước khi nào / vì sao</label>
+          <input id="edh-p-unote" name="urgency_note" maxlength="1000" placeholder="VD: trước 12.12"></div>
+      </div>
+      <p class="edh-banner is-info">Gửi xong ở trạng thái <b>Chờ duyệt</b>; team Data duyệt trong 1 ngày làm việc. Duyệt xong được đưa vào kế hoạch bổ sung, bạn được báo hạn và nghiệm thu khi xong.</p>
+      <p class="edh-err" data-edh-prop-err role="alert" hidden></p>
+    </div>
+    <div class="edh-modal-f"><button type="button" class="edh-btn" data-edh-close>Huỷ</button><button type="submit" class="edh-btn is-primary" data-edh-prop-submit>Gửi đề xuất</button></div>
+  </form>
+</div>
+
+
+<div class="edh-ov edh-ov-center" data-edh-plan-ov hidden>
+  <form class="edh-modal edh-modal-lg" data-edh-plan-form novalidate role="dialog" aria-modal="true" aria-labelledby="edh-plan-h">
+    <h3 class="edh-modal-h" id="edh-plan-h">Lên kế hoạch bổ sung dữ liệu <span class="edh-hint" data-edh-plan-what></span></h3>
+    <div class="edh-modal-b">
+      <input type="hidden" name="team"><input type="hidden" name="data_type"><input type="hidden" name="proposal"><input type="hidden" name="priority">
+      <p class="edh-banner is-warn" data-edh-plan-prop hidden></p>
+      <div class="edh-grid2">
+        <fieldset class="edh-fld edh-fs"><legend>Sàn <span class="edh-req">*</span></legend><div class="edh-chips">
+          <label><input type="checkbox" name="platforms" value="Shopee"> Shopee</label><label><input type="checkbox" name="platforms" value="TikTok"> TikTok</label><label><input type="checkbox" name="platforms" value="Lazada"> Lazada</label>
+          <label>Khác: <input name="other_platform" maxlength="80" class="edh-inp-sm" placeholder="Misa…"></label></div></fieldset>
+        <fieldset class="edh-fld edh-fs"><legend>Đưa vào kênh <span class="edh-req">*</span></legend><div class="edh-chips">
+          <label><input type="checkbox" name="channels" value="sharepoint" checked> SharePoint</label><label><input type="checkbox" name="channels" value="dw" checked> Data Warehouse</label><label><input type="checkbox" name="channels" value="powerbi" checked> Power BI</label></div></fieldset>
+        <div class="edh-fld"><label for="edh-pl-who">Người xử lý <span class="edh-req">*</span></label>
+          <select id="edh-pl-who" name="assignee" required><option value="">— Chọn —</option><option value="dung.pham@ecentric.vn">Dũng Phạm</option><option value="hoan.tran@ecentric.vn">Hoàn Trần</option><option value="linh.vuong@ecentric.vn" selected>Linh Vương</option></select></div>
+        <div class="edh-fld"><label for="edh-pl-method">Cách lấy</label>
+          <select id="edh-pl-method" name="method"><option value="Crawl">Crawl</option><option value="API sàn">API sàn</option><option value="Nhập tay / file">Nhập tay / file</option></select></div>
+        <div class="edh-fld"><label for="edh-pl-start">Bắt đầu <span class="edh-req">*</span></label><input id="edh-pl-start" name="start_date" type="date" required></div>
+        <div class="edh-fld"><label for="edh-pl-due">Kết thúc <span class="edh-req">*</span> <span class="edh-hint" data-edh-plan-rule></span></label><input id="edh-pl-due" name="due_date" type="date" required></div>
+        <div class="edh-fld edh-full"><label for="edh-pl-note">Ghi chú</label><textarea id="edh-pl-note" name="note" rows="2" maxlength="5000" placeholder="Phạm vi, tần suất cập nhật dự kiến…"></textarea></div>
+      </div>
+      <p class="edh-banner is-info">Lưu xong: hiện trên Gantt (thanh xanh ngọc “DA”), tạo task /pm cho người xử lý, ô tương ứng chuyển “Đang làm · hạn …”. Hoàn tất thì các ô đã chọn tự chuyển “Có” và ghi ngày cập nhật.</p>
+      <p class="edh-err" data-edh-plan-err role="alert" hidden></p>
+    </div>
+    <div class="edh-modal-f"><button type="button" class="edh-btn" data-edh-close>Huỷ</button><button type="submit" class="edh-btn is-primary" data-edh-plan-submit>Lưu kế hoạch</button></div>
+  </form>
+</div>
+
+<div class="edh-ov edh-ov-center" data-edh-rowf-ov hidden>
+  <form class="edh-modal edh-modal-lg" data-edh-rowf novalidate role="dialog" aria-modal="true" aria-labelledby="edh-rowf-h">
+    <h3 class="edh-modal-h" id="edh-rowf-h">Dòng dữ liệu</h3>
+    <div class="edh-modal-b">
+      <input type="hidden" name="name">
+      <div class="edh-grid3">
+        <div class="edh-fld"><label for="edh-r-team">Team <span class="edh-req">*</span></label><input id="edh-r-team" name="team" list="edh-dl-team" maxlength="60" required></div>
+        <div class="edh-fld"><label for="edh-r-dt">Loại dữ liệu <span class="edh-req">*</span></label><input id="edh-r-dt" name="data_type" list="edh-dl-dtype" maxlength="80" required></div>
+        <div class="edh-fld"><label for="edh-r-pl">Sàn / nguồn <span class="edh-req">*</span></label><input id="edh-r-pl" name="platform" maxlength="40" required placeholder="Shopee, TikTok, Misa…"></div>
+      </div>
+      <fieldset class="edh-fld edh-fs"><legend>Đã có trên</legend><div class="edh-chips">
+        <label><input type="checkbox" name="in_sharepoint" value="1"> SharePoint</label><label><input type="checkbox" name="in_dw" value="1"> Data Warehouse</label><label><input type="checkbox" name="in_powerbi" value="1"> Power BI</label>
+        <label><input type="checkbox" name="front_priority" value="1"> ★ Front cần gấp</label></div></fieldset>
+      <div class="edh-grid3">
+        <div class="edh-fld"><label for="edh-r-freq">Tần suất</label><select id="edh-r-freq" name="frequency"><option value="">—</option><option value="Theo giờ">Theo giờ</option><option value="Hằng ngày">Hằng ngày</option><option value="Hằng tuần">Hằng tuần</option><option value="Hằng tháng">Hằng tháng</option><option value="Không định kỳ">Không định kỳ</option></select></div>
+        <div class="edh-fld"><label for="edh-r-owner">Người phụ trách</label><select id="edh-r-owner" name="data_owner"><option value="">—</option><option value="dung.pham@ecentric.vn">Dũng Phạm</option><option value="hoan.tran@ecentric.vn">Hoàn Trần</option><option value="linh.vuong@ecentric.vn">Linh Vương</option></select></div>
+        <div class="edh-fld"><label for="edh-r-last">Cập nhật lần cuối <button type="button" class="edh-linkbtn" data-edh-r-now>Bây giờ</button></label><input id="edh-r-last" name="last_updated" type="datetime-local"></div>
+      </div>
+      <div class="edh-fld"><label for="edh-r-note">Ghi chú</label><input id="edh-r-note" name="note" maxlength="500"></div>
+      <p class="edh-err" data-edh-rowf-err role="alert" hidden></p>
+    </div>
+    <div class="edh-modal-f"><button type="button" class="edh-btn" data-edh-close>Huỷ</button><button type="submit" class="edh-btn is-primary" data-edh-rowf-submit>Lưu</button></div>
+  </form>
+</div>
+
+<div class="edh-ov edh-ov-center" data-edh-lib-ov hidden>
+  <form class="edh-modal edh-modal-lg" data-edh-lib-form novalidate role="dialog" aria-modal="true" aria-labelledby="edh-lib-h">
+    <h3 class="edh-modal-h" id="edh-lib-h">Báo cáo trong thư viện</h3>
+    <div class="edh-modal-b">
+      <input type="hidden" name="name">
+      <div class="edh-grid2">
+        <div class="edh-fld edh-full"><label for="edh-l-title">Tên báo cáo <span class="edh-req">*</span></label><input id="edh-l-title" name="title" maxlength="140" required></div>
+        <div class="edh-fld edh-full"><label for="edh-l-link">Link <span class="edh-req">*</span></label><input id="edh-l-link" name="link" type="url" maxlength="500" required placeholder="https://app.powerbi.com/…"></div>
+        <div class="edh-fld"><label for="edh-l-team">Team dùng</label><input id="edh-l-team" name="team" list="edh-dl-team" maxlength="60"></div>
+        <div class="edh-fld"><label for="edh-l-owner">Người phụ trách</label><select id="edh-l-owner" name="report_owner"><option value="">—</option><option value="dung.pham@ecentric.vn">Dũng Phạm</option><option value="hoan.tran@ecentric.vn">Hoàn Trần</option><option value="linh.vuong@ecentric.vn">Linh Vương</option></select></div>
+        <div class="edh-fld"><label for="edh-l-src">Dữ liệu nguồn</label><input id="edh-l-src" name="data_sources" maxlength="500" placeholder="Orderline, Finance…"></div>
+        <div class="edh-fld"><label for="edh-l-tk">Từ yêu cầu</label><input id="edh-l-tk" name="from_ticket" maxlength="20" placeholder="DR-2026-0001"></div>
+        <div class="edh-fld edh-full"><label for="edh-l-tags">Thẻ</label><input id="edh-l-tags" name="tags" maxlength="140" placeholder="PnL, brand, affiliate…"></div>
+      </div>
+      <p class="edh-err" data-edh-lib-err role="alert" hidden></p>
+    </div>
+    <div class="edh-modal-f"><button type="button" class="edh-btn" data-edh-close>Huỷ</button><button type="submit" class="edh-btn is-primary" data-edh-lib-submit>Lưu</button></div>
+  </form>
+</div>
+
+<div class="edh-ov edh-ov-center" data-edh-why-ov hidden>
+  <form class="edh-modal" data-edh-why-form novalidate role="dialog" aria-modal="true" aria-labelledby="edh-why-h">
+    <h3 class="edh-modal-h" id="edh-why-h">Từ chối đề xuất <span class="edh-hint" data-edh-why-what></span></h3>
+    <div class="edh-modal-b"><div class="edh-fld"><label for="edh-why-r">Lý do <span class="edh-req">*</span></label>
+      <textarea id="edh-why-r" name="reason" rows="3" maxlength="1000" placeholder="Người đề xuất sẽ thấy lý do này" required></textarea></div>
+      <p class="edh-err" data-edh-why-err role="alert" hidden></p></div>
+    <div class="edh-modal-f"><button type="button" class="edh-btn" data-edh-close>Huỷ</button><button type="submit" class="edh-btn is-danger" data-edh-why-submit>Từ chối</button></div>
+  </form>
+</div>
+
+
+    </div>
+  </main>
+</div>
+<div class="edh-ov edh-ov-center" data-edh-detail-ov hidden>
+  <div class="edh-dmodal" role="dialog" aria-modal="true" aria-label="Chi tiết yêu cầu" data-edh-detail tabindex="-1">
+    <div class="edh-dm-loading"><span class="edh-spin" aria-hidden="true"></span> Đang tải chi tiết…</div>
+  </div>
+</div>
+
+<div class="edh-ov edh-ov-center" data-edh-accept-ov hidden>
+  <form class="edh-modal" data-edh-accept-form novalidate role="dialog" aria-modal="true" aria-labelledby="edh-acc-h">
+    <h3 class="edh-modal-h" id="edh-acc-h">Nhận việc <span class="edh-hint" data-edh-acc-code></span></h3>
+    <div class="edh-modal-b">
+      <p class="edh-banner is-warn" data-edh-acc-urgent hidden></p>
+      <div class="edh-grid2">
+        <div class="edh-fld"><label for="edh-acc-who">Người xử lý <span class="edh-req">*</span></label>
+          <select id="edh-acc-who" name="assignee" required></select></div>
+        <div class="edh-fld"><label for="edh-acc-pri">Ưu tiên</label>
+          <select id="edh-acc-pri" name="priority"><option>Khẩn</option><option>Cao</option><option>Bình thường</option><option>Thấp</option></select></div>
+        <div class="edh-fld"><label for="edh-acc-start">Ngày bắt đầu <span class="edh-req">*</span></label>
+          <input id="edh-acc-start" name="start_date" type="date" required></div>
+        <div class="edh-fld"><label for="edh-acc-due">Hạn <span class="edh-hint" data-edh-acc-rule></span></label>
+          <input id="edh-acc-due" name="due_date" type="date" required></div>
+        <div class="edh-fld edh-full" data-edh-acc-reason-box hidden><label for="edh-acc-reason">Lý do đổi hạn so với quy tắc <span class="edh-req">*</span></label>
+          <input id="edh-acc-reason" name="reason" maxlength="1000" placeholder="Người gửi sẽ thấy lý do này"></div>
+      </div>
+      <p class="edh-err" data-edh-acc-err role="alert" hidden></p>
+      <p class="edh-hint">Nhận xong: tạo task /pm cho người xử lý (cùng ngày bắt đầu, hạn) và báo người gửi.</p>
+    </div>
+    <div class="edh-modal-f">
+      <button type="button" class="edh-btn" data-edh-close>Huỷ</button>
+      <button type="submit" class="edh-btn is-primary" data-edh-acc-submit>Nhận việc</button>
+    </div>
+  </form>
+</div>
+
+<div class="edh-toast" data-edh-toast role="status" aria-live="polite" hidden></div>
+<script type="application/json" id="edh-boot">{"page": "avail", "me": "linh.vuong@ecentric.vn", "today": "2026-11-09", "is_team": true, "sub": "library", "rows": {"AV-001": {"name": "AV-001", "team": "Commercial", "data_type": "Product", "platform": "Shopee", "frequency": "Hằng tuần", "data_owner": "dung.pham@ecentric.vn", "note": "", "front_priority": 0, "last_updated": "2026-11-06T09:30", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 1}, "AV-002": {"name": "AV-002", "team": "Commercial", "data_type": "Product", "platform": "TikTok", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 1}, "AV-003": {"name": "AV-003", "team": "Commercial", "data_type": "Product", "platform": "Lazada", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 1}, "AV-004": {"name": "AV-004", "team": "Commercial", "data_type": "Orderline", "platform": "Shopee", "frequency": "Hằng ngày", "data_owner": "linh.vuong@ecentric.vn", "note": "Cập nhật 06:00 mỗi ngày", "front_priority": 0, "last_updated": "2026-11-08T23:30", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 1}, "AV-005": {"name": "AV-005", "team": "Commercial", "data_type": "Orderline", "platform": "TikTok", "frequency": "Hằng ngày", "data_owner": "linh.vuong@ecentric.vn", "note": "", "front_priority": 0, "last_updated": "2026-11-05T09:30", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 1}, "AV-006": {"name": "AV-006", "team": "Commercial", "data_type": "Orderline", "platform": "Lazada", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 1}, "AV-007": {"name": "AV-007", "team": "Commercial", "data_type": "Store", "platform": "Shopee", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 1}, "AV-008": {"name": "AV-008", "team": "Commercial", "data_type": "Store", "platform": "TikTok", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 1}, "AV-009": {"name": "AV-009", "team": "Commercial", "data_type": "Store", "platform": "Lazada", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 1}, "AV-010": {"name": "AV-010", "team": "Commercial", "data_type": "Finance", "platform": "Shopee", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 0}, "AV-011": {"name": "AV-011", "team": "Commercial", "data_type": "Finance", "platform": "TikTok", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 0}, "AV-012": {"name": "AV-012", "team": "Commercial", "data_type": "Finance", "platform": "Lazada", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 0}, "AV-013": {"name": "AV-013", "team": "Commercial", "data_type": "Product traffic", "platform": "Shopee", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 1}, "AV-014": {"name": "AV-014", "team": "Commercial", "data_type": "Product traffic", "platform": "TikTok", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 1}, "AV-015": {"name": "AV-015", "team": "Commercial", "data_type": "Product traffic", "platform": "Lazada", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 0, "in_dw": 0, "in_powerbi": 0}, "AV-016": {"name": "AV-016", "team": "Commercial", "data_type": "Product Rating", "platform": "Shopee", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 0}, "AV-017": {"name": "AV-017", "team": "Commercial", "data_type": "Product Rating", "platform": "TikTok", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 0}, "AV-018": {"name": "AV-018", "team": "Commercial", "data_type": "Product Rating", "platform": "Lazada", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 0, "in_dw": 0, "in_powerbi": 0}, "AV-019": {"name": "AV-019", "team": "Commercial", "data_type": "Product assortment", "platform": "Shopee", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 1}, "AV-020": {"name": "AV-020", "team": "Commercial", "data_type": "Product assortment", "platform": "TikTok", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 1}, "AV-021": {"name": "AV-021", "team": "Commercial", "data_type": "Product assortment", "platform": "Lazada", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 1}, "AV-022": {"name": "AV-022", "team": "Commercial", "data_type": "Live", "platform": "Shopee", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 0}, "AV-023": {"name": "AV-023", "team": "Commercial", "data_type": "Live", "platform": "TikTok", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 0}, "AV-024": {"name": "AV-024", "team": "Commercial", "data_type": "Live", "platform": "Lazada", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 0, "in_dw": 0, "in_powerbi": 0}, "AV-025": {"name": "AV-025", "team": "Commercial", "data_type": "Video", "platform": "Shopee", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 0, "in_dw": 0, "in_powerbi": 0}, "AV-026": {"name": "AV-026", "team": "Commercial", "data_type": "Video", "platform": "TikTok", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 0, "in_dw": 0, "in_powerbi": 0}, "AV-027": {"name": "AV-027", "team": "Commercial", "data_type": "Video", "platform": "Lazada", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 0, "in_dw": 0, "in_powerbi": 0}, "AV-028": {"name": "AV-028", "team": "Commercial", "data_type": "Voucher & Flashsale", "platform": "Shopee", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 0, "in_dw": 0, "in_powerbi": 0}, "AV-029": {"name": "AV-029", "team": "Commercial", "data_type": "Voucher & Flashsale", "platform": "TikTok", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 0, "in_dw": 0, "in_powerbi": 0}, "AV-030": {"name": "AV-030", "team": "Commercial", "data_type": "Voucher & Flashsale", "platform": "Lazada", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 0, "in_dw": 0, "in_powerbi": 0}, "AV-031": {"name": "AV-031", "team": "Commercial", "data_type": "Shipping fee", "platform": "Lazada", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 0}, "AV-032": {"name": "AV-032", "team": "Commercial", "data_type": "Boxme Purchase Order", "platform": "Boxme", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 1}, "AV-033": {"name": "AV-033", "team": "Service", "data_type": "Affiliate order", "platform": "Shopee", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 0}, "AV-034": {"name": "AV-034", "team": "Service", "data_type": "Affiliate order", "platform": "TikTok", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 0, "in_dw": 0, "in_powerbi": 0}, "AV-035": {"name": "AV-035", "team": "Service", "data_type": "Affiliate order", "platform": "Lazada", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 0, "in_dw": 0, "in_powerbi": 0}, "AV-036": {"name": "AV-036", "team": "Service", "data_type": "Traffic affiliate", "platform": "Shopee", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 1}, "AV-037": {"name": "AV-037", "team": "Service", "data_type": "Traffic affiliate", "platform": "TikTok", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 1}, "AV-038": {"name": "AV-038", "team": "Service", "data_type": "Traffic affiliate", "platform": "Lazada", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 0, "in_dw": 0, "in_powerbi": 0}, "AV-039": {"name": "AV-039", "team": "Service", "data_type": "Affiliate creator orders", "platform": "TikTok", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 0, "in_dw": 0, "in_powerbi": 0}, "AV-040": {"name": "AV-040", "team": "Service", "data_type": "Affiliate partner orders", "platform": "TikTok", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 0, "in_dw": 0, "in_powerbi": 0}, "AV-041": {"name": "AV-041", "team": "Media", "data_type": "CPC Ads", "platform": "Shopee", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 0}, "AV-042": {"name": "AV-042", "team": "Media", "data_type": "GMV Max", "platform": "TikTok", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 0}, "AV-043": {"name": "AV-043", "team": "Media", "data_type": "Manual Ads", "platform": "TikTok", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 0}, "AV-044": {"name": "AV-044", "team": "Media", "data_type": "CPAS Ads", "platform": "Shopee", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 0}, "AV-045": {"name": "AV-045", "team": "Media", "data_type": "CPC Ads Group Camp", "platform": "Shopee", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 0}, "AV-046": {"name": "AV-046", "team": "Media", "data_type": "Sponsor Max", "platform": "Lazada", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 0}, "AV-047": {"name": "AV-047", "team": "Finance Data", "data_type": "e-Invoice GOV", "platform": "GOV", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 0}, "AV-048": {"name": "AV-048", "team": "Finance Data", "data_type": "Finance - Misa", "platform": "Misa", "frequency": "", "data_owner": "", "note": "", "front_priority": 0, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 0}, "AV-049": {"name": "AV-049", "team": "Boxme Data", "data_type": "Stock Report", "platform": "Oms Boxme", "frequency": "Theo giờ", "data_owner": "hoan.tran@ecentric.vn", "note": "", "front_priority": 0, "last_updated": "2026-11-09T07:30", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 1}, "AV-050": {"name": "AV-050", "team": "Boxme Data", "data_type": "Product", "platform": "Oms Boxme", "frequency": "", "data_owner": "", "note": "", "front_priority": 1, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 1}, "AV-051": {"name": "AV-051", "team": "Boxme Data", "data_type": "Orderline", "platform": "Omisell", "frequency": "", "data_owner": "", "note": "", "front_priority": 1, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 1}, "AV-052": {"name": "AV-052", "team": "Boxme Data", "data_type": "Orderline", "platform": "Oms Boxme", "frequency": "", "data_owner": "", "note": "", "front_priority": 1, "last_updated": "", "in_sharepoint": 1, "in_dw": 1, "in_powerbi": 1}}, "team": [{"user": "dung.pham@ecentric.vn", "name": "Dũng Phạm"}, {"user": "hoan.tran@ecentric.vn", "name": "Hoàn Trần"}, {"user": "linh.vuong@ecentric.vn", "name": "Linh Vương"}], "plan_defaults": {"start": "2026-11-09", "due": "2026-11-18", "sla_days": 7, "priority": "Bình thường"}, "gaps": {"Service|Affiliate order": {"team": "Service", "data_type": "Affiliate order", "platforms": ["TikTok", "Lazada"], "proposal": "DP-2026-0004", "urgency": "Cao"}, "Commercial|Product traffic": {"team": "Commercial", "data_type": "Product traffic", "platforms": ["Lazada"], "proposal": "", "urgency": ""}, "Commercial|Product Rating": {"team": "Commercial", "data_type": "Product Rating", "platforms": ["Lazada"], "proposal": "", "urgency": ""}, "Commercial|Live": {"team": "Commercial", "data_type": "Live", "platforms": ["Lazada"], "proposal": "", "urgency": ""}, "Service|Traffic affiliate": {"team": "Service", "data_type": "Traffic affiliate", "platforms": ["Lazada"], "proposal": "", "urgency": ""}, "Service|Affiliate partner orders": {"team": "Service", "data_type": "Affiliate partner orders", "platforms": ["TikTok"], "proposal": "", "urgency": ""}, "Service|Affiliate creator orders": {"team": "Service", "data_type": "Affiliate creator orders", "platforms": ["TikTok"], "proposal": "", "urgency": ""}, "Commercial|Voucher & Flashsale": {"team": "Commercial", "data_type": "Voucher & Flashsale", "platforms": [], "proposal": "", "urgency": ""}, "Commercial|Video": {"team": "Commercial", "data_type": "Video", "platforms": [], "proposal": "", "urgency": ""}}, "library": {"RL-00003": {"name": "RL-00003", "title": "Affiliate TikTok theo creator", "link": "https://app.powerbi.com/aff-creator", "team": "Service", "owner": "dung.pham@ecentric.vn", "data_sources": "Traffic affiliate", "from_ticket": "", "tags": "affiliate", "active": true}, "RL-00002": {"name": "RL-00002", "title": "Dashboard PnL tổng hợp brand", "link": "https://app.powerbi.com/pnl-tong", "team": "Commercial", "owner": "linh.vuong@ecentric.vn", "data_sources": "Orderline, Finance", "from_ticket": "", "tags": "PnL, brand", "active": true}, "RL-00001": {"name": "RL-00001", "title": "Dashboard Stock Boxme", "link": "https://app.powerbi.com/stock", "team": "Commercial", "owner": "linh.vuong@ecentric.vn", "data_sources": "Orderline", "from_ticket": "DR-2026-0001", "tags": "Power BI", "active": true}}}</script>
+
+<script src="/a.js" defer></script>
+</body></html>

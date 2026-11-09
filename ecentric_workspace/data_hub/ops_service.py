@@ -231,17 +231,34 @@ def apply_resume(repo, t, actor, source=C.SRC_HUB, pm=None, push=True, notify_no
     return warns
 
 
+def _avail():
+    from ecentric_workspace.data_hub import avail_service
+    return avail_service
+
+
 def apply_done(repo, t, actor, note="", source=C.SRC_HUB, pm=None, push=True):
-    """Team Data xong -> Cho nghiem thu (nguoi gui bam Dat / Chua dat; 3 ngay lam viec tu dong)."""
+    """Team Data xong -> Cho nghiem thu (nguoi gui bam Dat / Chua dat; 3 ngay lam viec tu dong).
+    Dot 2: ke hoach bo sung data (DA-) team Data tu len (khong tu de xuat) -> Hoan tat luon, khong cho
+    nghiem thu; o ma tran chuyen "Co" (avail_service.on_ticket_closed)."""
     warns = []
     if t.get("status") == C.ST_PAUSED:
         warns += apply_resume(repo, t, actor, source=source, pm=pm, push=push, notify_now=False)
-    _set(repo, t, {"status": C.ST_REVIEW, "done_at": repo.now(), "acceptance": "", "reminded_review_on": None})
-    S.log(repo, t["name"], C.EV_DONE, actor, source=source, from_value=C.ST_DOING, to_value=C.ST_REVIEW,
+    direct = t.get("kind") == C.KIND_AVAILABILITY and not _avail().needs_acceptance(repo, t)
+    now = repo.now()
+    values = {"status": C.ST_DONE if direct else C.ST_REVIEW, "done_at": now, "acceptance": "",
+              "reminded_review_on": None}
+    if direct:
+        values["closed_at"] = now
+    _set(repo, t, values)
+    S.log(repo, t["name"], C.EV_DONE, actor, source=source, from_value=C.ST_DOING, to_value=values["status"],
           note=note)
     if push:
         warns += _sync().push_state(repo, t, actor, "Done", pm=pm)
-    _notify().review(repo, t, actor, note)
+    if direct:
+        _avail().on_ticket_closed(repo, t, actor)
+        _avail().da_closed_notify(repo, t, actor)
+    else:
+        _notify().review(repo, t, actor, note)
     return warns
 
 
@@ -265,6 +282,7 @@ def apply_close(repo, t, actor, acceptance):
     S.log(repo, t["name"], ev, actor if acceptance != C.ACC_AUTO else C.SYSTEM_USER,
           source=C.SRC_SYSTEM if acceptance == C.ACC_AUTO else C.SRC_HUB, from_value=C.ST_REVIEW,
           to_value=C.ST_DONE)
+    _avail().on_ticket_closed(repo, t, actor)     # dot 2: DA -> o ma tran "Co"; Power BI Dat -> Thu vien
     _notify().closed(repo, t, actor, acceptance)
 
 

@@ -13,7 +13,7 @@ cùng mô hình — xem cuối file.
 | `/du-lieu` | mọi nhân viên | KPI · lọc (tìm, loại, team, đang mở/tất cả/đã xong, chỉ của tôi) · **Danh sách \| Gantt** (`?xem=gantt`) · `+ Tạo yêu cầu` · popup chi tiết giữa màn hình (`?ma=DR-2026-0001`) |
 | `/du-lieu/dieu-phoi` | team Data + System Manager | kanban: Chờ tiếp nhận (vị trí hàng đợi, nút **Nhận**) · Đang xử lý (+ chờ nghiệm thu) · Tạm dừng – chờ người gửi (**Tiếp tục**) · Xong 7 ngày |
 | `/du-lieu/quy-tac` | team Data + người duyệt quy tắc | bảng quy tắc đang áp dụng (chỉ đọc ở đợt 1) + lịch sử phiên bản |
-| `/du-lieu/san-co` | mọi nhân viên | “Sắp có” (đợt 2) — đã có chỗ trên menu / tab |
+| `/du-lieu/san-co` | mọi nhân viên | **Data availability** (đợt 2): KPI độ phủ, ma trận, độ tươi, “Cần bổ sung”, đề xuất data cần crawl; `?xem=thu-vien` Thư viện báo cáo — xem mục “Đợt 2” cuối file |
 
 Thư mục www không được có gạch ngang → `www/du_lieu/` + 4 `website_route_rules` (hooks.py, nối cuối file).
 Mọi trang `no_cache = 1`. Trạng thái đầu vẽ sẵn ở server (KPI, bảng đã sắp và đã lọc "Đang mở", kanban) — không chớp.
@@ -149,3 +149,100 @@ tải tệp private, `bench build` sinh `ec_data_hub.bundle.*` vào `assets.json
   nên quy tắc mới chỉ áp cho yêu cầu mới.
 - **Đợt 3 — Phiếu Data Request cũ**: `EC Data Ticket.legacy_ref` giữ mã phiếu `EC Data Request`; patch chuyển dữ liệu
   + thẻ "Data Request" trong Approval Center trỏ `/du-lieu`.
+
+## Đợt 2 — Data availability, đề xuất crawl, kế hoạch DA, độ tươi, Thư viện báo cáo (PO chốt 09/11/2026)
+
+Lớp riêng, cắm vào đợt 1 (không viết lại): `avail_domain` (thuần) → `avail_repository` (`from repository import *`
++ hàm `avail_* / proposal_* / library_*`, vẫn là chỗ DUY NHẤT chạm DB) → `avail_service` → `api.py` (mục “dot 2”
+cuối file) và `www/du_lieu/san_co.*` + `templates/includes/data_hub/avail_macros.html`. JS: IIFE thứ hai cuối
+`ec_data_hub.bundle.js` (`ECDataHub.avail`, dùng lại App đợt 1: popup, toast, overlay, khoá nút). CSS nối cuối bundle.
+
+DocTypes (module Data Hub, chỉ System Manager trên Desk, không create/delete): `EC Data Availability`
+(team, data_type, platform, in_sharepoint / in_dw / in_powerbi, front_priority, note, last_updated, frequency,
+data_owner, planned_ticket), `EC Data Proposal` (`DP-YYYY-####`: team, data_type, platforms JSON, purpose, urgency,
+urgency_note, proposer, status Chờ duyệt / Đã duyệt / Từ chối, due_at, decided_by/at, reason, resulting_ticket,
+rule_version), `EC Report Library` (`RL-#####`: title, link, report_owner — không dùng `owner` vì là trường hệ thống —,
+team, data_sources, from_ticket, tags, active, added_by). Patch `data_hub/patches/p002_seed_data_availability`:
+52 dòng Excel của PO; dòng (team, loại, sàn) đã có thì giữ nguyên; từng dòng trong try → Error Log; không chặn migrate.
+
+### Luật
+
+- **Tên sàn chuẩn**: Shopee / TikTok / Lazada là 3 cột ma trận (nhập “tiktok”, “Tiktok” → “TikTok”); sàn khác
+  (Boxme, Misa, GOV, Omisell, Oms Boxme…) vào cột **Khác** kèm tên — một nhóm có thể có nhiều sàn Khác.
+- **KPI**: % dòng có trên SharePoint / Data Warehouse / Power BI (trên mọi dòng — seed = 73% / 73% / 40% như mockup),
+  số đề xuất Chờ duyệt (và số quá hạn duyệt), số dòng trễ cập nhật.
+- **Độ tươi**: chỉ xét dòng ĐÃ có dữ liệu và có tần suất định kỳ. Trễ khi “cập nhật lần cuối” cũ hơn: Theo giờ 24h ·
+  Hằng ngày 48h · Hằng tuần 8 ngày · Hằng tháng 35 ngày (`C.FRESH_MAX_HOURS`, có biên độ vì ngày cập nhật do team
+  Data ghi / DA ghi). Không định kỳ → không cảnh báo. Có tần suất mà chưa ghi ngày → “chưa ghi ngày cập nhật”.
+- **Cần bổ sung** = data CHƯA CÓ: nhóm (team, loại) có ô không kênh nào (“Chưa có”) hoặc đang có kế hoạch, cộng đề
+  xuất Chờ duyệt chưa có dòng trong bảng. Thiếu riêng một kênh (vd chỉ chưa có Power BI) KHÔNG vào danh sách — xem
+  trên ma trận / lọc “Có chỗ chưa có”. Nguồn: Đề xuất đã duyệt > Đề xuất chờ duyệt > Thiếu trong bảng.
+- **Đề xuất data cần crawl** (mọi nhân viên, tối đa 10/ngày): team, loại, sàn (+ Khác), dùng để làm gì (bắt buộc),
+  mức cần gấp (Bình thường / Cao / Khẩn) + ghi chú → Chờ duyệt; **hạn duyệt = cùng giờ sau N ngày làm việc** (quy tắc
+  `proposal_review` của bộ đang áp dụng, mặc định 1); báo cả team Data (`approval_required`). Bảng hiện đếm ngược
+  “còn 4h” / “quá hạn 3h”. Job 09:00 ngày làm việc (`avail_service.daily`, `gop_tin_job`) nhắc team Data đề xuất quá hạn
+  (`task_overdue`, mỗi đề xuất / người / ngày một tin).
+- **Duyệt** (team Data): tạo dòng trống cho sàn đề xuất nếu chưa có → hiện trong “Cần bổ sung” với nguồn “Đề xuất đã
+  duyệt”; báo người đề xuất. **Từ chối** bắt buộc lý do (người đề xuất thấy trên bảng + nhận thông báo). Khoá dòng đề xuất
+  trước khi quyết; đề xuất đã xử lý thì người bấm sau nhận lỗi.
+- **Lên kế hoạch** (team Data, từ danh sách hoặc ô “Chưa có”): sàn, kênh đích, người xử lý (phải thuộc team), cách lấy
+  (Crawl / API sàn / Nhập tay – file), bắt đầu (≥ hôm nay), kết thúc (mặc định quy tắc **Crawl data mới** × hệ số mức;
+  mức = mức cần gấp của đề xuất nếu có), ghi chú. Tạo `EC Data Ticket` kind=`availability` (`DA-YYYY-####`,
+  request_type “Crawl data mới”, platforms / channels / method / availability_rows JSON) ở Chờ tiếp nhận rồi gọi
+  **`ops_service.accept`** của đợt 1 → task /pm, Gantt (thanh xanh ngọc “DA”, làn “N yêu cầu + M bổ sung data”),
+  thông báo. Dòng ma trận gắn `planned_ticket` (ô hiện “Đang làm · hạn dd/mm”, bấm mở popup DA). Kiểm hết TRƯỚC khi
+  tạo (không có ticket mồ côi); khoá dòng ma trận; ô đang có kế hoạch mở → từ chối kế hoạch thứ hai; các ô đã có đủ
+  kênh chọn → từ chối. DA không vào bảng / KPI / kanban của Yêu cầu dữ liệu.
+- **Người gửi của DA**: kế hoạch từ đề xuất đã duyệt → người đề xuất (`proposal.resulting_ticket` = mã DA);
+  team Data tự lên → chính người lên kế hoạch.
+- **Hoàn tất DA** (ở đây hoặc Task Done trên /pm): team Data tự lên → **Hoàn tất luôn**, không chờ nghiệm thu;
+  từ đề xuất → **Chờ nghiệm thu** như yêu cầu thường (người đề xuất Đạt / Chưa đạt; 3 ngày làm việc tự Đạt). Khi DA
+  sang Hoàn tất (`avail_service.on_ticket_closed`, gọi từ `ops_service.apply_done` / `apply_close`): các ô của DA bật
+  ĐÚNG các kênh đã chọn, `last_updated` = lúc đó, người xử lý thành người phụ trách nếu dòng chưa có. Huỷ DA → ô trở lại
+  “Chưa có” (kế hoạch chỉ “đang làm” khi ticket còn mở), lên kế hoạch lại được.
+- **Sửa dòng ma trận** (team Data, bấm ô có dữ liệu hoặc “+ Thêm dòng”): kênh, ★ Front cần gấp, tần suất, người phụ
+  trách, cập nhật lần cuối (nút “Bây giờ”), ghi chú. Không trùng (team, loại, sàn). Dòng vừa có dữ liệu lần đầu mà không
+  ghi ngày → ngày = bây giờ. Không xoá dòng (giữ lịch sử; Version qua `track_changes`).
+- **Thư viện báo cáo** (`?xem=thu-vien`): mọi người đọc mục đang dùng; team Data thêm / sửa / **ẩn – hiện lại**
+  (không xoá). Link phải http(s), không trùng link; `from_ticket` phải tồn tại. Yêu cầu loại *Power BI mới* / *Sửa
+  Power BI có sẵn* nghiệm thu **Đạt / Đạt (tự động)** có link kết quả → **tự thêm** (tiêu đề, link, người xử lý, team
+  người gửi, dữ liệu dùng, từ yêu cầu) nếu link / yêu cầu chưa có trong thư viện. Popup yêu cầu Power BI hiện mục thư viện;
+  đã đóng mà chưa có → team Data thấy “+ Thêm vào Thư viện báo cáo” (`?xem=thu-vien&tu=DR-…` mở form điền sẵn).
+- **Gợi ý “đã có dashboard tương tự”** (form tạo yêu cầu, gõ tiêu đề ≥ 3 ký tự, debounce 350 ms, API `suggest`):
+  bỏ dấu tiếng Việt + từ quá chung (dashboard, báo cáo, power bi, dữ liệu, theo, cho, brand…), giữ mục có ≥ 2 từ chung,
+  hoặc 1 từ (≥ 3 ký tự) khi câu chỉ có 1–2 từ có nghĩa; xếp theo Jaccard; tối đa 3 mục thư viện (đang dùng) + 3 yêu cầu
+  đang mở. Không dùng AI ngoài. Lỗi gợi ý → im lặng (gợi ý là phụ).
+
+### Quyền (đợt 2)
+
+| Việc | Ai |
+|---|---|
+| xem `/du-lieu/san-co` (ma trận, đề xuất, thư viện đang dùng), gửi đề xuất, gợi ý tiêu đề | nhân viên Active, team Data, System Manager |
+| duyệt / từ chối đề xuất, lên kế hoạch DA, sửa / thêm dòng ma trận, thêm / sửa / ẩn báo cáo, xem báo cáo đã ẩn | team Data (role trong Settings) + System Manager |
+
+Nút / hộp của team Data chỉ render cho team (boot JSON của nhân viên không có dữ liệu sửa); server vẫn kiểm từng API.
+
+### API (`ecentric_workspace.data_hub.api.*`, POST cho mọi ghi)
+
+`propose(data)` · `review_proposal(name, verdict, reason)` · `plan_availability(data)` · `plan_defaults(start_date,
+priority)` (GET) · `save_availability(data)` · `save_library(data)` · `library_active(name, active)` · `suggest(q)` (GET).
+
+### Test đợt 2
+
+    python -m unittest ecentric_workspace.data_hub.tests.test_avail
+    node ecentric_workspace/data_hub/tests/js/test_ec_data_hub_avail.mjs   # cũng chạy qua test_ec_data_hub.mjs
+
+- `test_avail`: domain (tên sàn, seed 52 dòng = KPI mockup, ma trận + cột Khác nhiều sàn, Cần bổ sung, độ tươi,
+  hạn duyệt + đếm ngược, kiểm nhập, gợi ý tiếng Việt), patch p002 (chạy lại không trùng, không ghi đè, dòng lỗi không
+  chặn), đề xuất (hạn, thông báo, duyệt tạo dòng, từ chối cần lý do, giới hạn ngày, job nhắc), kế hoạch DA (luồng
+  accept, Gantt, ô “Đang làm”, chặn trùng / ngày / người / đã đủ), hoàn tất (team tự lên đóng luôn, từ đề xuất chờ
+  nghiệm thu, tự đóng, /pm Done, huỷ trả ô), thư viện (tự thêm, CRUD, ẩn), sửa dòng, **ma trận quyền 7 việc × 4 vai**,
+  trang jinja (escape, vai, boot), hook / API POST / DocType khớp hằng số; fixture jsdom (`avail_*.html`,
+  `index_suggest.html`, `avail_api.json`; sinh lại `EDH_UPDATE_FIXTURES=1`).
+- jsdom: lọc ma trận / thư viện, đề xuất (kiểm nhập, chống bấm 2 lần, lỗi server), lên kế hoạch (từ danh sách + từ
+  ô, điền sẵn đề xuất, hạn mặc định), sửa dòng, duyệt / từ chối, thư viện, gợi ý có debounce, CSS 390px.
+- Bản xem thử PO: `python -m ecentric_workspace.data_hub.tests.build_preview data_hub_d2_preview.html` (bộ mẫu đợt 1 + 2).
+
+**Không kiểm được ngoài bench**: `SELECT … FOR UPDATE` trên `tabEC Data Availability` / `tabEC Data Proposal`,
+thứ tự `creation` (micro giây) của 52 dòng seed, kiểm `options: URL` của trường link Thư viện, Teams theo event type.
+

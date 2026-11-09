@@ -251,3 +251,57 @@ body.edh-noscroll{overflow:hidden}
   .edh-ov{padding:12px}
 }
 @media (prefers-reduced-motion:reduce){.edh-spin{animation:none}}
+
+/* ---------- dot 2: Data availability (/du-lieu/san-co) + Thu vien bao cao + goi y tuong tu ---------- */
+.edh-avbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin:0 0 14px}
+.edh-cnt{display:inline-block;min-width:18px;padding:0 6px;margin-left:4px;border-radius:999px;background:var(--edh-soft);color:var(--edh-g600);font-size:11.5px;font-weight:700}
+.edh-seg button.is-on .edh-cnt{background:rgba(255,255,255,.25);color:#fff}
+.edh-scroll-x{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.edh-c-act{width:1%;white-space:nowrap;text-align:right}
+.edh-c-fresh{width:26%}
+.edh-c-dt{white-space:nowrap}
+.edh-legend{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;font-size:12px;color:var(--edh-g500);margin:0 0 8px}
+.edh-dots{display:inline-flex;gap:3px;align-items:center}
+.edh-d{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none;vertical-align:-1px}
+.edh-d.is-sp{background:#60a5fa}.edh-d.is-dw{background:var(--edh-navy)}.edh-d.is-bi{background:#16a34a}
+.edh-d.is-off{background:var(--edh-line)}
+.edh-d.is-no{background:#fff;border:1.5px dashed var(--edh-g300)}
+.edh-star{color:#d97706}
+.edh-stale{display:inline-block;margin-left:4px;padding:0 5px;border-radius:5px;background:var(--edh-amber-50);color:var(--edh-amber);font-size:10.5px;font-weight:700;border:1px solid #fde68a}
+.edh-mtx td{padding:7px 12px;vertical-align:middle}
+.edh-mtx tr.edh-grp td{background:var(--edh-g50);font-weight:700;color:var(--edh-navy-700);font-size:12.5px;text-transform:none;letter-spacing:0}
+.edh-cell,.edh-cellno,.edh-cellplan{display:inline-flex;align-items:center;gap:4px;border:0;background:none;padding:2px 4px;border-radius:6px;font-size:12px;color:var(--edh-g500);min-height:24px;text-align:left}
+button.edh-cell:hover,button.edh-cellno:hover{background:var(--edh-navy-50)}
+button.edh-cellno{outline:1px dashed #c7cdf0;outline-offset:-1px;color:var(--edh-navy-700)}
+.edh-cell.is-stale .edh-dots{opacity:.75}
+.edh-cellplan{color:var(--edh-teal);font-weight:600;background:var(--edh-teal-50)}
+.edh-cellplan:hover{filter:brightness(.97)}
+.edh-cellplan.is-sub{display:flex;margin-top:2px;font-size:11px;min-height:0}
+.edh-other{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.edh-other+.edh-other{margin-top:4px}
+.edh-gaps td,.edh-props td,.edh-lib td{vertical-align:middle}
+.edh-lib tr.is-off td{opacity:.6}
+.edh-linkbtn{border:0;background:none;padding:0;color:var(--edh-navy);font-weight:600;cursor:pointer;font-size:inherit}
+.edh-linkbtn:hover{text-decoration:underline}
+.edh-badge-btn{border:0;cursor:pointer}
+.edh-fs{border:0;padding:0;margin:0 0 6px;min-width:0}
+.edh-fs legend{font-size:12.5px;font-weight:600;color:var(--edh-g600);padding:0;margin-bottom:5px}
+.edh-chips{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;font-size:13px}
+.edh-chips label{display:inline-flex;gap:5px;align-items:center;font-weight:500;color:var(--edh-g700)}
+.edh-chips input[type="checkbox"]{width:16px;height:16px;min-height:0;margin:0}
+.edh-inp-sm{width:130px;padding:4px 8px;border:1px solid var(--edh-line);border-radius:7px;font-size:13px;min-height:30px}
+.edh-similar{background:var(--edh-amber-50);border:1px solid #fde68a;border-radius:9px;padding:8px 12px;font-size:12.5px;color:var(--edh-g800)}
+.edh-similar p{margin:0 0 4px}.edh-similar ul{margin:0;padding-left:18px}.edh-similar li{margin:2px 0}
+@media (max-width:640px){
+  .edh-avbar .edh-btn{width:100%}
+  .edh-mtx{min-width:640px}
+  .edh-c-fresh{width:auto;min-width:160px}
+  .edh-gaps,.edh-props,.edh-lib{min-width:600px}
+  .edh-tbl.edh-mtx thead,.edh-tbl.edh-gaps thead,.edh-tbl.edh-props thead,.edh-tbl.edh-lib thead{display:table-header-group}
+  .edh-tbl.edh-mtx,.edh-tbl.edh-gaps,.edh-tbl.edh-props,.edh-tbl.edh-lib{display:table}
+  .edh-tbl.edh-mtx tbody,.edh-tbl.edh-gaps tbody,.edh-tbl.edh-props tbody,.edh-tbl.edh-lib tbody{display:table-row-group}
+  .edh-tbl.edh-mtx tr,.edh-tbl.edh-gaps tr,.edh-tbl.edh-props tr,.edh-tbl.edh-lib tr{display:table-row}
+  .edh-tbl.edh-mtx tr[hidden],.edh-tbl.edh-lib tr[hidden]{display:none}
+  .edh-tbl.edh-mtx td,.edh-tbl.edh-gaps td,.edh-tbl.edh-props td,.edh-tbl.edh-lib td{display:table-cell;padding:7px 10px;border-bottom:1px solid var(--edh-soft)}
+  .edh-chips{gap:8px 12px}
+}

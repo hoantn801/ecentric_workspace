@@ -14,6 +14,8 @@ import os
 import sys
 
 from ecentric_workspace.data_hub.tests import fake as F
+from ecentric_workspace.data_hub.tests import fake_avail as FA
+from ecentric_workspace.data_hub import avail_service as AS
 from ecentric_workspace.data_hub import service as S
 from ecentric_workspace.data_hub.tests import test_data_hub as T
 
@@ -63,10 +65,16 @@ STUB = r"""
     if (m === "gantt") return reply(q.start ? API.gantt_next : API.gantt);
     if (m === "preview_due") return reply(API.preview[q.code] || {});
     if (m === "people") return reply(API.people);
+    if (m === "suggest") return reply(API.suggest);
+    if (m === "plan_defaults") return reply(API.plan_defaults);
     setTimeout(function(){ window.parent.postMessage({toast: "Bản xem thử: “" + m + "” đã gửi đúng dữ liệu, nhưng không ghi gì."}, "*"); }, 50);
     if (m === "create") return reply({code: "DR-2026-0011"});
     if (m === "accept") return reply({status: "Đang xử lý", due: q.due_date, pm_task: "TASK-2026-00099", warning: ""});
     if (m === "update") return reply({changes: ["…"], warnings: [], status: ""});
+    if (m === "propose") return reply({name: "DP-2026-0009"});
+    if (m === "plan_availability") return reply({code: "DA-2026-0099", due: q.data ? JSON.parse(q.data).due_date : "", pm_task: "TASK-2026-00123", warning: ""});
+    if (m === "review_proposal") return reply({status: q.verdict, created: []});
+    if (m === "save_availability" || m === "save_library") return reply({name: "x", created: true});
     return reply({});
   };
   document.addEventListener("click", function(e){
@@ -82,11 +90,16 @@ STUB = r"""
 
 
 def build(out_path):
-    r, pm, c = F.sample()
+    r, pm, c = FA.sample_avail()      # bo mau dot 1 + dot 2 (ma tran, de xuat, DA tren Gantt, thu vien)
     css = _read("public", "css", "ec_data_hub.bundle.css")
     shell_css = _read("public", "css", "ec_shell.bundle.css")
     js = _read("public", "js", "ec_data_hub.bundle.js")
-    _, api = T.fixture_pages()
+    api = {"details": {code: {u: S.detail(u, code, repo=r) for u in (F.THU, F.LINH)} for code in c.values()
+                       if not str(code).startswith("DP-")},
+           "gantt": S.gantt_data(F.THU, repo=r), "gantt_next": S.gantt_data(F.THU, start="2026-11-16", repo=r),
+           "preview": {code: S.accept_defaults(r, r.get(code), start="2026-11-10") for code in (c["voucher"], c["tiktok"], c["clean"])},
+           "people": r.people(""), "suggest": AS.suggest(F.THU, "Dashboard PnL theo ngày Friso", repo=r),
+           "plan_defaults": AS.plan_defaults(r)}
     roles = {F.THU: ["Employee"], F.LINH: ["Employee", "EC Data Team"]}
     docs = {}
     for who in (F.THU, F.LINH):
@@ -101,7 +114,7 @@ def build(out_path):
             out = out.replace("NAVBAR", "").replace("FOOTER", "")
             docs["%s|%s" % ("user" if who == F.THU else "team", ROUTES[page])] = out
     shell = """<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Xem thử · Trung tâm Dữ liệu (đợt 1)</title><style>
+<title>Xem thử · Trung tâm Dữ liệu (đợt 1 + 2)</title><style>
 body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:#f7f8fb}
 .pv-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 14px;background:#fffbe6;border-bottom:1px solid #f1e3a6;font-size:13px;position:sticky;top:0;z-index:5}
 .pv-bar b{margin-right:8px}.pv-rb{border:1px solid #d1d5db;background:#fff;border-radius:999px;padding:4px 12px;cursor:pointer;font:inherit}
@@ -109,7 +122,7 @@ body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;back
 .pv-w{margin-left:auto;display:flex;gap:6px}iframe{display:block;border:0;width:100%%;height:calc(100vh - 44px);background:#fff;margin:0 auto}
 .pv-toast{position:fixed;left:50%%;bottom:20px;transform:translateX(-50%%);background:#111827;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;z-index:9;display:none}
 </style></head><body>
-<div class="pv-bar"><b>Xem thử · Trung tâm Dữ liệu (đợt 1)</b><span>Vai trò:</span>
+<div class="pv-bar"><b>Xem thử · Trung tâm Dữ liệu (đợt 1 + 2)</b><span>Vai trò:</span>
 <button class="pv-rb on" data-role="user">Nhân viên (Thu Nguyễn · Commercial)</button><button class="pv-rb" data-role="team">Team Data (Linh Vương)</button>
 <span class="pv-sep"></span><span class="pv-w"><button class="pv-rb on" data-w="100%%">Máy tính</button><button class="pv-rb" data-w="390px">Điện thoại 390px</button></span></div>
 <iframe id="pv" title="Trang xem thử"></iframe><div class="pv-toast" id="pvt"></div>
@@ -135,4 +148,4 @@ show();
 
 
 if __name__ == "__main__":
-    print(build(sys.argv[1] if len(sys.argv) > 1 else "data_hub_d1_preview.html"))
+    print(build(sys.argv[1] if len(sys.argv) > 1 else "data_hub_d2_preview.html"))

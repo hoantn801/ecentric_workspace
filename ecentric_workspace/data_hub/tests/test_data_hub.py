@@ -863,7 +863,8 @@ class TestPages(unittest.TestCase):
         self.assertIn("Chỉ team Data và người duyệt quy tắc", render("quy_tac", S.rules_page(F.THU, repo=self.r)))
         out = render("san_co", S.avail_page(F.THU, repo=self.r))
         self.clean(out)
-        self.assertIn("Sắp có", out)
+        self.assertNotIn("Sắp có", out)
+        self.assertIn("+ Đề xuất data cần crawl", out)   # chi tiet: test_avail.TestAvailPage
 
     def test_outsider_forbidden(self):
         for fn in (S.index_page, S.ops_page, S.rules_page, S.avail_page):
@@ -922,7 +923,9 @@ class TestHooksAppendOnly(unittest.TestCase):
 
     def test_patch_registered_and_module(self):
         pt = io.open(os.path.join(APP, "patches.txt"), encoding="utf-8").read().splitlines()
-        self.assertEqual(pt[-1], "ecentric_workspace.data_hub.patches.p001_seed_data_hub")
+        self.assertIn("ecentric_workspace.data_hub.patches.p001_seed_data_hub", pt)
+        self.assertLess(pt.index("ecentric_workspace.data_hub.patches.p001_seed_data_hub"),
+                        pt.index("ecentric_workspace.data_hub.patches.p002_seed_data_availability"), "dot 2 noi sau dot 1")
         self.assertIn("Data Hub", io.open(os.path.join(APP, "modules.txt"), encoding="utf-8").read().splitlines())
         src = io.open(os.path.join(APP, "data_hub", "patches", "p001_seed_data_hub.py"), encoding="utf-8").read()
         self.assertIn("def execute", src)
@@ -945,7 +948,7 @@ class TestDoctypes(unittest.TestCase):
             self.assertEqual({x["role"] for x in j["permissions"]} - {"System Manager"}, set(), j["name"])
             self.assertFalse(any(x.get("create") or x.get("delete") for x in j["permissions"]), j["name"])
         self.assertEqual(set(names), {C.TICKET_DT, C.LOG_DT, C.MSG_DT, C.FOLLOWER_DT, C.FILE_DT, C.SETTINGS_DT,
-                                      C.RULE_DT, C.RULE_ITEM_DT})
+                                      C.RULE_DT, C.RULE_ITEM_DT, C.AVAIL_DT, C.PROPOSAL_DT, C.LIBRARY_DT})
 
     def test_select_options_match_constants(self):
         j = json.load(io.open(os.path.join(APP, "data_hub", "doctype", "ec_data_ticket", "ec_data_ticket.json"), encoding="utf-8"))

@@ -199,3 +199,62 @@ def resume(code):
 @frappe.whitelist(methods=["POST"])
 def mark_done(code, output_link="", note=""):
     return _run(O.mark_done, _me(), _code(code), str(output_link or ""), str(note or ""))
+
+
+# ------------------------------------------------------------------ dot 2: Data availability --
+# Data availability (/du-lieu/san-co), de xuat data can crawl, ke hoach bo sung DA-, Thu vien bao cao,
+# goi y "da co dashboard tuong tu". Quyen kiem o avail_service (nhan vien / team Data).
+def _avail():
+    from ecentric_workspace.data_hub import avail_service
+    return avail_service
+
+
+@frappe.whitelist(methods=["POST"])
+def propose(data):
+    """Moi nhan vien: de xuat data can crawl. data = JSON {team, data_type, platforms[], other_platform,
+    purpose, urgency, urgency_note}."""
+    return _run(lambda: _avail().create_proposal(_me(), _json(data)))
+
+
+@frappe.whitelist(methods=["POST"])
+def review_proposal(name, verdict, reason=""):
+    """Team Data: verdict = "Đã duyệt" | "Từ chối" (+ ly do bat buoc)."""
+    return _run(_avail().review_proposal, _me(), str(name or "").strip(), str(verdict or ""), str(reason or ""))
+
+
+@frappe.whitelist(methods=["POST"])
+def plan_availability(data):
+    """Team Data: len ke hoach bo sung. data = JSON {team, data_type, platforms[], other_platform, channels[],
+    assignee, method, start_date, due_date, note, priority, proposal}."""
+    return _run(lambda: _avail().plan(_me(), _json(data)))
+
+
+@frappe.whitelist()
+def plan_defaults(start_date="", priority=""):
+    def run():
+        S.require_operate(S._repo(None), _me())
+        return _avail().plan_defaults(_avail()._repo(None), str(start_date or "") or None, str(priority or "") or None)
+    return _run(run)
+
+
+@frappe.whitelist(methods=["POST"])
+def save_availability(data):
+    """Team Data: them / sua mot dong ma tran (co `name` = sua)."""
+    return _run(lambda: _avail().save_row(_me(), _json(data)))
+
+
+@frappe.whitelist(methods=["POST"])
+def save_library(data):
+    """Team Data: them / sua muc Thu vien bao cao (co `name` = sua)."""
+    return _run(lambda: _avail().save_library(_me(), _json(data)))
+
+
+@frappe.whitelist(methods=["POST"])
+def library_active(name, active=1):
+    return _run(_avail().set_library_active, _me(), str(name or "").strip(), active)
+
+
+@frappe.whitelist()
+def suggest(q=""):
+    """Form tao yeu cau: goi y dashboard / yeu cau dang mo tuong tu theo tieu de."""
+    return _run(_avail().suggest, _me(), str(q or ""))

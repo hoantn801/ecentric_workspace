@@ -1,0 +1,12 @@
+{#- Trung tam Du lieu dot 2 - o ma tran Data availability (3 cham SharePoint / DW / Power BI). -#}
+{% macro dots(c) -%}
+<span class="edh-dots" aria-hidden="true"><span class="edh-d is-sp{% if not c.dots.sharepoint %} is-off{% endif %}"></span><span class="edh-d is-dw{% if not c.dots.dw %} is-off{% endif %}"></span><span class="edh-d is-bi{% if not c.dots.powerbi %} is-off{% endif %}"></span></span><span class="edh-sr">{{ c.title|e }}</span>
+{%- endmacro %}
+
+{% macro cell(c, team) -%}
+{% if not c %}<span class="edh-hint" aria-label="Không áp dụng">—</span>
+{% elif c.state == 'none' %}{% if team %}<button type="button" class="edh-cellno" data-edh-plan-cell="{{ c.name|e }}" title="{{ c.platform|e }}: chưa có - bấm để lên kế hoạch bổ sung"><span class="edh-d is-no" aria-hidden="true"></span>Chưa có</button>{% else %}<span class="edh-cellno" title="{{ c.platform|e }}: chưa có"><span class="edh-d is-no" aria-hidden="true"></span>Chưa có</span>{% endif %}
+{% elif c.state == 'plan' %}<button type="button" class="edh-cellplan" data-edh-open="{{ c.plan.code|e }}" title="{{ c.title|e }}">Đang làm · hạn {{ c.plan.due|e }}</button>
+{% else %}{% if team %}<button type="button" class="edh-cell{% if c.fresh == 'stale' %} is-stale{% endif %}" data-edh-row-edit="{{ c.name|e }}" title="{{ c.title|e }} - bấm để sửa">{% else %}<span class="edh-cell{% if c.fresh == 'stale' %} is-stale{% endif %}" title="{{ c.title|e }}">{% endif %}{{ dots(c) }}{% if c.fresh == 'stale' %}<span class="edh-stale">trễ</span>{% endif %}{% if team %}</button>{% else %}</span>{% endif %}{% if c.plan %}<button type="button" class="edh-cellplan is-sub" data-edh-open="{{ c.plan.code|e }}">bổ sung · hạn {{ c.plan.due|e }}</button>{% endif %}
+{% endif %}
+{%- endmacro %}

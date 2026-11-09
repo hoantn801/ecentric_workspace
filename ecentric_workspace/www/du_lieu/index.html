@@ -77,7 +77,8 @@
           <input id="edh-new-urgent" name="urgent_reason" maxlength="1000" placeholder="VD: cần số cho buổi họp BOD sáng thứ Năm">
           <span class="edh-hint">Bạn chỉ đề xuất; team Data xác nhận hoặc hạ mức (có ghi lịch sử).</span></div>
         <div class="edh-fld edh-full"><label for="edh-new-title">Tiêu đề <span class="edh-req">*</span></label>
-          <input id="edh-new-title" name="title" maxlength="140" required placeholder="VD: Dashboard PnL theo ngày cho brand Friso"></div>
+          <input id="edh-new-title" name="title" maxlength="140" required placeholder="VD: Dashboard PnL theo ngày cho brand Friso" aria-describedby="edh-similar">
+          <div class="edh-similar" id="edh-similar" data-edh-similar aria-live="polite" hidden></div></div>
         <div class="edh-fld edh-full"><label for="edh-new-desc">Mô tả / đầu ra mong muốn <span class="edh-req">*</span></label>
           <textarea id="edh-new-desc" name="description" rows="4" maxlength="5000" required placeholder="Dùng để làm gì, ai xem, dữ liệu nguồn nào, mẫu tham khảo…"></textarea></div>
         <div class="edh-fld"><label for="edh-new-used">Dữ liệu cần dùng</label>

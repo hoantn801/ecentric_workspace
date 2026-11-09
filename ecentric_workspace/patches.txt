@@ -424,3 +424,4 @@ ecentric_workspace.pm.patches.p033_pm_meeting_rooms_capacity
 ecentric_workspace.approval_center.patches.p347_resync_pm_hotfix13
 ecentric_workspace.approval_center.patches.p348_resync_pm_phong_hop_ver
 ecentric_workspace.data_hub.patches.p001_seed_data_hub
+ecentric_workspace.data_hub.patches.p002_seed_data_availability
