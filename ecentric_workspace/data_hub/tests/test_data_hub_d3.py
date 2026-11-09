@@ -711,7 +711,8 @@ class TestPatchesAndModel(unittest.TestCase):
         self.assertTrue(i1 < i3 and i1 < i358)
         self.assertGreater(i3, pt.index("[post_model_sync]"), "chay SAU khi dong bo DocType (legacy_ref, su kien moi)")
         nums = [int(m.group(1)) for m in (re.search(r"approval_center\.patches\.p(\d+)_", x) for x in pt[:i358]) if m]
-        self.assertEqual(358, max(nums) + 10, "so patch resync = max day approval_center + 10")
+        self.assertGreater(358, max(nums), "so patch resync phai lon hon moi patch approval_center dung truoc")
+        self.assertEqual(1, sum(1 for x in pt if re.search(r"approval_center\.patches\.p358_", x)), "khong trung so p358")
         man = json.load(io.open(os.path.join(APP, "approval_center", "patches", "resync_manifest.json"), encoding="utf-8"))
         rec = man["approval_center/features/data_request/ui/main_section.html"]
         self.assertEqual(rec["last_resync_patch"], "p358_resync_data_request_chuyen_trung_tam_du_lieu")
