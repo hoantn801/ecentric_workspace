@@ -102,6 +102,25 @@ async function fetchApi(method, args) {
   return j.message;
 }
 
+/* 09/11/2026: lần mở đầu trang /pm#rooms báo "Invalid Request" (HTTP 400). Đọc lịch đi POST kèm
+   CSRF, nhưng lúc trang vừa tải frappe chưa sẵn -> token rỗng -> Frappe từ chối; bấm "Thử lại" mới
+   được. Hàm CHỈ ĐỌC (server cho GET) hỏng thì tự thử lại bằng GET (không cần CSRF).
+   Ghi (book/update/cancel) giữ nguyên POST + CSRF. */
+const READ_GET = { "rooms.day": 1, "rooms.mine": 1, "rooms.detail": 1, "rooms.booking_state": 1 };
+async function getApi(method, args) {
+  const qs = Object.keys(args || {}).filter(k => args[k] != null)
+    .map(k => encodeURIComponent(k) + "=" + encodeURIComponent(args[k])).join("&");
+  const r = await fetch("/api/method/" + method + (qs ? "?" + qs : ""), { method: "GET", credentials: "include",
+    headers: { Accept: "application/json" } });
+  let j = {};
+  try { j = await r.json(); } catch (_) { /* thân rỗng */ }
+  if (!r.ok || j.exc_type) {
+    const e = new Error(j.exception || ("HTTP " + r.status));
+    e._server_messages = j._server_messages; e.status = r.status; throw e;
+  }
+  return j.message;
+}
+
 function render(el, opts) {
   opts = opts || {};
   if (el._pmrm) el._pmrm.destroy();
@@ -111,7 +130,12 @@ function render(el, opts) {
   const S = { date: null, today: null, cache: {}, mine: [], mineErr: "", pending: {}, err: "", loading: false,
               nowMin: null, nowAt: 0, seq: 0, dead: false, stale: false, timers: [], people: null, peopleP: null,
               confirm: null, dlg: null, gone: {}, moving: null, noClick: false };   /* gone: event_id / uid vừa huỷ (Graph / lịch phòng có thể trễ vài giây) */
-  const call = (m, a) => (typeof opts.api === "function" ? opts.api(NS + m, a || {}) : fetchApi(NS + m, a));
+  const call = (m, a) => {
+    const go = typeof opts.api === "function" ? () => opts.api(NS + m, a || {}) : () => fetchApi(NS + m, a);
+    if (!READ_GET[m]) return go();
+    /* đọc hỏng (vd 400 CSRF lúc trang vừa tải) -> thử lại một lần bằng GET; GET cũng hỏng thì báo lỗi gốc */
+    return Promise.resolve().then(go).catch(e => getApi(NS + m, a || {}).catch(() => { throw e; }));
+  };
   function msgOf(e) {
     if (!e) return "Đã có lỗi, thử lại.";
     const sm = e._server_messages || (e.responseJSON && e.responseJSON._server_messages);
