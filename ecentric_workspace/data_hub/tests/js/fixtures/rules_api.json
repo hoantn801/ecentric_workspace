@@ -1,0 +1,205 @@
+{
+ "validate": [
+  {
+   "changes": 1,
+   "days": {
+    "crawl_new": 7,
+    "data_processing": 3,
+    "intake": 1,
+    "other": 3,
+    "pbi_edit": 3,
+    "pbi_new": 10,
+    "proposal_review": 1
+   },
+   "input": {
+    "days": {
+     "pbi_new": "10"
+    },
+    "mult": {}
+   },
+   "mult": {
+    "Bình thường": 1.0,
+    "Cao": 0.8,
+    "Khẩn": 0.5,
+    "Thấp": 1.5
+   },
+   "ok": true
+  },
+  {
+   "errors": [
+    "“Power BI mới”: số ngày từ 1 đến 60."
+   ],
+   "input": {
+    "days": {
+     "pbi_new": "0"
+    },
+    "mult": {}
+   },
+   "ok": false
+  },
+  {
+   "errors": [
+    "“Power BI mới”: số ngày từ 1 đến 60."
+   ],
+   "input": {
+    "days": {
+     "pbi_new": "61"
+    },
+    "mult": {}
+   },
+   "ok": false
+  },
+  {
+   "errors": [
+    "“Power BI mới”: số ngày phải là số nguyên."
+   ],
+   "input": {
+    "days": {
+     "pbi_new": "7.5"
+    },
+    "mult": {}
+   },
+   "ok": false
+  },
+  {
+   "errors": [
+    "“Power BI mới”: số ngày phải là số nguyên."
+   ],
+   "input": {
+    "days": {
+     "pbi_new": "abc"
+    },
+    "mult": {}
+   },
+   "ok": false
+  },
+  {
+   "changes": 2,
+   "days": {
+    "crawl_new": 7,
+    "data_processing": 3,
+    "intake": 2,
+    "other": 3,
+    "pbi_edit": 3,
+    "pbi_new": 7,
+    "proposal_review": 1
+   },
+   "input": {
+    "days": {
+     "intake": "2"
+    },
+    "mult": {
+     "Khẩn": "0,6"
+    }
+   },
+   "mult": {
+    "Bình thường": 1.0,
+    "Cao": 0.8,
+    "Khẩn": 0.6,
+    "Thấp": 1.5
+   },
+   "ok": true
+  },
+  {
+   "errors": [
+    "Hệ số “Cao” từ 0,25 đến 3."
+   ],
+   "input": {
+    "days": {},
+    "mult": {
+     "Cao": "0,2"
+    }
+   },
+   "ok": false
+  },
+  {
+   "errors": [
+    "Hệ số “Cao” từ 0,25 đến 3."
+   ],
+   "input": {
+    "days": {},
+    "mult": {
+     "Cao": "3,5"
+    }
+   },
+   "ok": false
+  },
+  {
+   "errors": [
+    "Hệ số “Cao” tối đa 2 chữ số thập phân."
+   ],
+   "input": {
+    "days": {},
+    "mult": {
+     "Cao": "0,333"
+    }
+   },
+   "ok": false
+  },
+  {
+   "errors": [
+    "Hệ số “Cao” phải là số (ví dụ 0,5)."
+   ],
+   "input": {
+    "days": {},
+    "mult": {
+     "Cao": "x"
+    }
+   },
+   "ok": false
+  },
+  {
+   "changes": 1,
+   "days": {
+    "crawl_new": 7,
+    "data_processing": 3,
+    "intake": 1,
+    "other": 3,
+    "pbi_edit": 3,
+    "pbi_new": 7,
+    "proposal_review": 1
+   },
+   "input": {
+    "days": {},
+    "mult": {
+     "Thấp": "2"
+    }
+   },
+   "mult": {
+    "Bình thường": 1.0,
+    "Cao": 0.8,
+    "Khẩn": 0.5,
+    "Thấp": 2.0
+   },
+   "ok": true
+  },
+  {
+   "changes": 1,
+   "days": {
+    "crawl_new": 5,
+    "data_processing": 3,
+    "intake": 1,
+    "other": 3,
+    "pbi_edit": 3,
+    "pbi_new": 7,
+    "proposal_review": 1
+   },
+   "input": {
+    "days": {
+     "crawl_new": "5",
+     "pbi_new": ""
+    },
+    "mult": {
+     "Bình thường": "1"
+    }
+   },
+   "mult": {
+    "Bình thường": 1.0,
+    "Cao": 0.8,
+    "Khẩn": 0.5,
+    "Thấp": 1.5
+   },
+   "ok": true
+  }
+ ]
+}

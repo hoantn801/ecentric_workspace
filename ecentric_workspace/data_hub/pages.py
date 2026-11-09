@@ -100,3 +100,10 @@ def render(context, route, build, title, detail=""):
     context.title = title
     shell(context, route, detail=detail)
     return context
+
+
+# ====================================================================== DOT 3 (09/11/2026) ===
+# Asset RIENG cua trang /du-lieu/quy-tac (sua + duyet quy tac) - chi trang do nap, nap SAU
+# ec_data_hub.bundle.js (dung chung ECDataHub.call / busy). Tach file de khong dung vao bundle chung.
+ASSETS["rules_js"] = ("ec_data_hub_rules.bundle.js", "public/js/ec_data_hub_rules.bundle.js")
+ASSETS["rules_css"] = ("ec_data_hub_rules.bundle.css", "public/css/ec_data_hub_rules.bundle.css")

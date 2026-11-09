@@ -337,3 +337,8 @@ def sample(repo=None, pm=None):
     S.cancel(DUYEN, codes["dup"], "Trùng DR rating", repo=repo, pm=pm)
     repo.at(MON, 9, 30)
     return repo, pm, codes
+
+
+# Dot 3 (quy tac co phien ban + duyet, chuyen phieu cu): phuong thuc repo gia nam o fake_d3.py.
+from ecentric_workspace.data_hub.tests import fake_d3 as _fake_d3  # noqa: E402
+_fake_d3.install(FakeRepo)

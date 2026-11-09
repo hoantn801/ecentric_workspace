@@ -11,7 +11,7 @@
  "track_changes": 1,
  "sort_field": "version_no",
  "sort_order": "DESC",
- "description": "Bộ quy tắc thời hạn có phiên bản (Draft → Chờ duyệt → Đang áp dụng / Từ chối → Hết hiệu lực). Quy tắc mới chỉ áp cho yêu cầu mới.",
+ "description": "Bộ quy tắc thời hạn có phiên bản (Draft → Chờ duyệt → Đang áp dụng / Từ chối / Đã huỷ → Hết hiệu lực). Quy tắc mới chỉ áp cho yêu cầu mới.",
  "permissions": [
   {
    "role": "System Manager",
@@ -37,6 +37,7 @@
   "sb_flow",
   "proposed_by",
   "reason",
+  "submitted_at",
   "cb_flow",
   "decided_by",
   "decided_at",
@@ -55,7 +56,7 @@
    "fieldname": "status",
    "fieldtype": "Select",
    "label": "Trạng thái",
-   "options": "Draft\nChờ duyệt\nĐang áp dụng\nTừ chối\nHết hiệu lực",
+   "options": "Draft\nChờ duyệt\nĐang áp dụng\nTừ chối\nHết hiệu lực\nĐã huỷ",
    "default": "Draft",
    "reqd": 1,
    "in_list_view": 1
@@ -131,6 +132,12 @@
    "fieldname": "reason",
    "fieldtype": "Small Text",
    "label": "Lý do đề xuất"
+  },
+  {
+   "fieldname": "submitted_at",
+   "fieldtype": "Datetime",
+   "label": "Gửi duyệt lúc",
+   "read_only": 1
   },
   {
    "fieldname": "cb_flow",

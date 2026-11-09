@@ -246,3 +246,120 @@ priority)` (GET) · `save_availability(data)` · `save_library(data)` · `librar
 **Không kiểm được ngoài bench**: `SELECT … FOR UPDATE` trên `tabEC Data Availability` / `tabEC Data Proposal`,
 thứ tự `creation` (micro giây) của 52 dòng seed, kiểm `options: URL` của trường link Thư viện, Teams theo event type.
 
+---
+
+# Đợt 3 — Quy tắc thời hạn có người duyệt + chuyển phiếu Data Request cũ (09/11/2026)
+
+## Sửa + duyệt quy tắc (`/du-lieu/quy-tac`)
+
+Luồng: team Data **Sửa quy tắc** (bản nháp) → **Gửi <người duyệt> duyệt** (lý do bắt buộc) → người duyệt quy tắc
+**Duyệt** / **Từ chối** (lý do bắt buộc). Người đề xuất **rút lại** được bản nháp / bản đang chờ duyệt.
+
+| Trạng thái `EC Data SLA Rule Set` | Ý nghĩa |
+|---|---|
+| Draft | bản nháp của một người team Data (chỉ người đó / System Manager sửa, gửi, huỷ) |
+| Chờ duyệt | đã gửi, `submitted_at`; quy tắc cũ vẫn chạy |
+| Đang áp dụng | bản được duyệt (`effective_from` = ngày duyệt, `Settings.active_rule_set` trỏ tới) |
+| Hết hiệu lực | bản đang áp dụng trước đó, khi bản mới được duyệt |
+| Từ chối | `decided_by / decided_at / decision_note` = người duyệt + lý do |
+| Đã huỷ | người đề xuất rút lại (giữ bản ghi — không xoá) |
+
+- **Mỗi lúc MỘT thay đổi mở** (Draft hoặc Chờ duyệt). Người khác trong team thấy băng "X đang có bản nháp vN".
+- Phiên bản: `version_no` = lớn nhất + 1 (`unique` → DB chặn trùng), tên `SLA-vN`; bản bị từ chối / huỷ vẫn giữ số
+  (v2 từ chối → đề xuất sau là v3). `supersedes` = bản đang áp dụng lúc tạo nháp → lịch sử hiện **cũ → mới**.
+- Kiểm nhập (`rules_domain.normalize_input`, JS `ECDataHubRules.validate` — test khoá hai bên cùng kết quả qua
+  `fixtures/rules_api.json`): số ngày **nguyên 1..60** cho 7 mục; hệ số **0,25..3**, tối đa 2 chữ số thập phân
+  (nhận dấu phẩy); mục không gửi = giữ giá trị đang áp dụng; không đổi gì → báo lỗi.
+- **Người duyệt** = `EC Data Hub Settings.rule_approver` (dữ liệu, không có email trong code). Chưa cấu hình → chỉ
+  System Manager duyệt được, và không gửi duyệt được (báo "Chưa cấu hình người duyệt quy tắc"). Khi đã cấu hình,
+  System Manager **không** duyệt thay. Người duyệt đồng thời ở team Data tự đề xuất rồi tự duyệt được (PO là chủ quy tắc —
+  ghi đủ dấu vết).
+- **Chỉ áp cho yêu cầu MỚI**: yêu cầu lưu `rule_version` lúc gửi; `service.ticket_rules(t)` đọc đúng bộ đó cả khi team
+  Data **Nhận việc sau ngày đổi quy tắc** (đợt 1 lúc nhận dùng bộ đang áp dụng — đã sửa) và cả gợi ý hạn trong hộp Nhận.
+  Vị trí hàng đợi / ngày bắt đầu dự kiến vẫn ước tính bằng bộ đang áp dụng (chỉ là ước tính).
+- Khoá: mọi ghi gọi `repository.lock_rules()` (`SELECT … FOR UPDATE` trên dòng Singles của Settings) rồi mới đọc lại
+  trạng thái — hai người bấm cùng lúc thì người sau thấy trạng thái mới.
+- Dấu vết: `proposed_by / reason / submitted_at / decided_by / decided_at / decision_note` + Version (track_changes)
+  cho mọi lần sửa nháp.
+
+| Thông báo (`notification_center`, event có sẵn) | Ai |
+|---|---|
+| gửi duyệt → `approval_required` (ERP + Teams), link `/du-lieu/quy-tac` | người duyệt quy tắc (Settings) |
+| duyệt → `mention` ("áp dụng cho yêu cầu MỚI từ …") | người đề xuất + team Data |
+| từ chối → `mention` (kèm lý do) | người đề xuất |
+| rút lại bản đang chờ duyệt → `mention` | người duyệt quy tắc |
+
+Trang: server vẽ sẵn bảng **Loại | Đang áp dụng | Đề xuất mới | Ghi chú** (ô đổi tô vàng `.edh-chg`), băng chờ duyệt /
+bản nháp, nút theo vai, lịch sử v1, v2… (`<del>cũ</del> → <ins>mới</ins>`, người đề xuất / duyệt, lý do). Ô nhập số nằm
+sẵn trong markup, CSS chỉ hiện khi bấm "Sửa quy tắc" (`.is-editing`). Xác nhận Duyệt / Từ chối / Rút lại / Huỷ nháp
+bằng khung tại chỗ (không `confirm()`), chống bấm 2 lần. Người duyệt không có role team Data vẫn mở được trang
+(tab hiện, link trong thông báo); mục menu trái "Quy tắc thời hạn" vẫn chỉ hiện cho role team Data (registry không
+có điều kiện theo người dùng cụ thể).
+
+Asset **riêng** `public/js/ec_data_hub_rules.bundle.js` + `public/css/ec_data_hub_rules.bundle.css`, chỉ nạp ở trang này
+(`pages.ASSETS["rules_js" / "rules_css"]`, `www/du_lieu/quy_tac.py`), nạp SAU bundle chung và dùng `ECDataHub.call / busy`.
+
+API (`api.py`, POST, user từ phiên): `save_rule_draft(data)` · `submit_rule(name, reason)` ·
+`decide_rule(name, verdict=approve|reject, note)` · `cancel_rule(name, reason)`.
+
+## Chuyển phiếu Data Request cũ
+
+`migration.migrate_legacy(dry_run=1)` — bảng chuyển đổi ở `legacy.py` (thuần, test bảng):
+
+| Phiếu cũ | Trung tâm Dữ liệu |
+|---|---|
+| request_type: Data accuracy, visualization, retrieval / New BI report / Historical data crawling | Xử lý dữ liệu / Power BI mới / Crawl data mới |
+| Client onboarding, Client offboarding, Data training, Access, Other, (trống) | Khác (loại cũ ghi trong mô tả) |
+| ưu tiên = mức CAO hơn của: urgency U0 Khẩn · U1 Cao · U2 Bình thường · U3 Thấp; importance I0 Cao · I1 Bình thường · I2/I3 Thấp | `proposed_priority` (+ `priority` nếu đã có người xử lý) |
+| chưa gửi duyệt (không có EC Approval Request) | **bỏ qua** (nháp) |
+| Pending / Information Required; Approved + Not Started/Assigned | Chờ tiếp nhận (hạn nhận tính từ ngày chuyển) |
+| Approved + In Progress | Đang xử lý, người xử lý = `fulfillment_owner` (không có → Chờ tiếp nhận) |
+| Approved + Completed | Hoàn tất · Đạt, `done_at = closed_at = completed_at`, `output_link` |
+| Rejected / Cancelled | Huỷ, lý do = bình luận cuối của phiếu cũ |
+| trạng thái lạ | bỏ qua, có trong báo cáo |
+
+- Giữ: `legacy_ref` = mã cũ, tiêu đề, mô tả (+ khối "Thông tin từ phiếu cũ": loại, mức khẩn / quan trọng, ngày mong muốn,
+  kết quả xử lý), người gửi, phòng ban, **giờ tạo = giờ gửi cũ**. Hạn = ngày của `fulfillment_due_at`, không có thì
+  `expected_resolution_date` (không có cả hai → theo quy tắc từ ngày bắt đầu).
+- Tệp: dòng `attachments` trỏ **đúng File cũ** (`file_url`) — không chép nội dung. `repository.file_content` tải được
+  tệp đó chỉ khi File thuộc phiếu cũ mà ticket mang `legacy_ref` (không mở đường tải file bất kỳ).
+- Nhật ký: mỗi `EC Approval Action` → "Lịch sử phiếu cũ" (giữ giờ gốc, người làm, cấp, bình luận; "Submitted" → "Tạo")
+  + dòng "Chuyển từ phiếu cũ". Hai sự kiện mới được nối vào `LOG_EVENTS` + Select của `EC Data Ticket Log`.
+- /pm: chỉ phiếu **Đang xử lý**, đồng bộ bật, chưa có task: task /pm có sẵn ghi mã cũ trong tiêu đề → gắn; không có → tạo
+  qua `pm_sync.push_accept` (cổng của đợt 1). Phiếu đã đóng / chờ tiếp nhận: không tạo task.
+- Không gửi thông báo, không sửa / xoá phiếu cũ. Mỗi phiếu một savepoint; phiếu đã có ticket → bỏ qua (chạy lại an toàn).
+- Patch `data_hub/patches/p003_chuyen_phieu_data_request_cu` (post_model_sync): (1) `redirect_catalog()` (2) `migrate_legacy(dry_run=0)`.
+  Không bao giờ chặn migrate; báo cáo vào logger `data_hub` (+ Error Log nếu có phiếu lỗi).
+- System Manager: `api.legacy_migration_report` (GET, dry run — chỉ đọc) · `api.run_legacy_migration` (POST, chạy bù).
+
+## Thẻ "Data Request" trong Approval Center → `/du-lieu`
+
+- **Cấu hình, không phải code**: patch đổi `EC Approval Type DATA_REQUEST.route` → `/du-lieu` (chỉ khi route đang là route
+  cũ — không đè route đã chỉnh tay; ghi comment trên bản ghi). Catalog `/approvals` mở `/du-lieu`.
+- Link cũ dựng từ route (`<route>?id=EC-DATA-…`: Teams, chuông, Việc của tôi) thành `/du-lieu?id=…`; `/du-lieu` đọc
+  `?ma=` **hoặc** `?id=` và `service.detail` / `resolve_code` nhận cả mã cũ (tra `legacy_ref`) → mở đúng ticket.
+- Approval Center **từ chối gửi phiếu Data Request mới** khi thẻ trỏ ra ngoài `/approvals/`
+  (`features/data_request/application/service.moved_route`) — trả route về `/approvals/data-request` là mở lại form cũ.
+  Phiếu cũ đang "cần bổ sung" vẫn gửi lại được (resubmit không qua chốt này).
+- Trang `/approvals/data-request` (sửa nguồn `ui/main_section.html` — 3 bước: BASELINE_SHA256 + SUPERSEDES,
+  `resync_manifest.json`, patch `approval_center/patches/p358_resync_data_request_chuyen_trung_tam_du_lieu` = max dãy
+  approval_center p348 + 10): băng "Data Request đã chuyển sang Trung tâm Dữ liệu" có sẵn trong markup; tab "Tạo yêu cầu"
+  thành thẻ "Gửi Data Request mới tại Trung tâm Dữ liệu"; chi tiết phiếu cũ có "Xem trên Trung tâm Dữ liệu"
+  (`/du-lieu?ma=<mã cũ>`).
+
+## Test đợt 3
+
+    python -m unittest ecentric_workspace.data_hub.tests.test_data_hub_d3
+    node ecentric_workspace/data_hub/tests/js/test_ec_data_hub_rules.mjs          # cổng QC: approval_center/tests/js/test_data_hub_rules_bundle.mjs
+    node ecentric_workspace/approval_center/tests/js/test_data_request_moved.mjs
+
+- `test_data_hub_d3`: kiểm nhập (bảng giới hạn), diff, luồng nháp → gửi → duyệt / từ chối / rút lại, một thay đổi mở,
+  quyền (team / người duyệt / System Manager / nhân viên), người nhận thông báo theo Settings, quy tắc mới chỉ áp cho
+  yêu cầu mới (kể cả nhận việc sau ngày đổi), trang theo vai (jinja), bảng chuyển đổi phiếu cũ, dry run không ghi,
+  chạy thật + chạy lại, savepoint, /pm chỉ cho việc đang làm, deep link mã cũ, thẻ catalog, chốt gửi phiếu mới, patch
+  không bao giờ ném. Repo giả đợt 3: `tests/fake_d3.py` (gắn vào FakeRepo).
+- Sinh lại fixture: `EDH_UPDATE_FIXTURES=1 python -m unittest ecentric_workspace.data_hub.tests.test_data_hub_d3`.
+
+**Không kiểm được ngoài bench**: `SELECT … FOR UPDATE` trên `tabSingles`, `frappe.db.savepoint/rollback(save_point)`,
+`ignore_links` khi người dùng cũ đã bị xoá, backdate `creation` bằng `db.set_value(update_modified=False)`, tải tệp cũ
+qua `File.get_content()`, `bench build` sinh `ec_data_hub_rules.bundle.*`.
