@@ -373,5 +373,11 @@ async function page(name, { me = "thu.nguyen@ecentric.vn", url = "https://team.e
   ok(!/(^|\})\s*(body|html|\*|a|button|table)\s*[{,]/.test(CSS.replace(/body\.edh-noscroll/g, "")), "CSS khong dung selector tran");
 }
 
+// ------------------------------------------------------------------ dot 2 (file rieng) -----
+{
+  const r = (await import("./test_ec_data_hub_avail.mjs")).result;
+  oks += r.oks; fails += r.fails;
+}
+
 console.log(`${oks} dat, ${fails} hong`);
 process.exit(fails ? 1 : 0);

@@ -319,7 +319,8 @@ def _timeline(t, logs, names):
         elif ev == C.EV_RESUME:
             text = who + " tiếp tục" + (" · hạn mới " + D.fmt_date(b) if b else "")
         elif ev == C.EV_DONE:
-            text = who + " hoàn tất, chờ người gửi nghiệm thu"
+            text = who + (" hoàn tất bổ sung data, các ô đã chuyển “Có”" if b == C.ST_DONE
+                          else " hoàn tất, chờ người gửi nghiệm thu")
         elif ev == C.EV_ACCEPT_OK:
             text = who + " nghiệm thu: Đạt"
         elif ev == C.EV_ACCEPT_FAIL:
@@ -411,10 +412,21 @@ def detail(user, code, repo=None):
         if q:
             out["queue"] = {"position": q["position"], "expected_start": D.fmt_date_full(q["expected_start"]),
                             "expected_due": D.fmt_date_full(q["expected_due"]), "sla_days": q["sla_days"]}
+    if t.get("kind") == C.KIND_AVAILABILITY or t.get("request_type") in C.LIBRARY_TYPES:
+        # Dot 2: DA -> san / kenh / cach lay; Power BI -> muc Thu vien bao cao (avail_service).
+        from ecentric_workspace.data_hub import avail_service
+        out.update(avail_service.ticket_extra(repo, t))
+        if out.get("plan"):
+            out["type_short"] = C.DA_TYPE_LABEL
+            out["team"] = out["plan"].get("team") or out["team"]
     if operate:
         out["team_members"] = [{"user": u, "name": names.get(u) or u} for u in team]
         out["team_statuses"] = [{"value": s, "label": C.STATUS_LABEL.get(s, s)} for s in C.TEAM_SET_STATUSES
                                 if D.can_team_move(st, s)]
+        if out.get("plan") and not out["plan"].get("needs_acceptance"):
+            for s_ in out["team_statuses"]:
+                if s_["value"] == C.ST_REVIEW:
+                    s_["label"] = "Hoàn tất (ô chuyển “Có”)"
         out["priorities"] = list(C.PRIORITIES)
         if st == C.ST_WAITING:
             out["accept_defaults"] = accept_defaults(repo, t, today, hol)
@@ -572,9 +584,7 @@ def rules_page(user, repo=None):
     return ctx
 
 
-def avail_page(user, repo=None):
-    repo = _repo(repo)
-    require_internal(repo, user)
-    ctx = _base(repo, user, "avail")
-    ctx["boot_json"] = _boot({"page": "avail", "me": user})
-    return ctx
+def avail_page(user, view="", prefill_ticket="", repo=None):
+    """/du-lieu/san-co - dot 2: avail_service.page (ma tran, de xuat, ke hoach DA, Thu vien bao cao)."""
+    from ecentric_workspace.data_hub import avail_service
+    return avail_service.page(user, view=view, prefill_ticket=prefill_ticket, repo=repo)

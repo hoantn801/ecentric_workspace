@@ -23,6 +23,7 @@ except ImportError:
     sys.modules.setdefault("frappe", types.ModuleType("frappe"))
 
 from ecentric_workspace.data_hub import constants as C  # noqa: E402
+from ecentric_workspace.data_hub.tests.fake_avail import FakeAvailMixin  # noqa: E402  (ham dot 2)
 
 LINH = "linh.vuong@ecentric.vn"      # team Data
 HOAN = "hoan.tran@ecentric.vn"       # team Data + nguoi duyet quy tac
@@ -44,7 +45,7 @@ class Flags(object):
     pass
 
 
-class FakeRepo(object):
+class FakeRepo(FakeAvailMixin):
     def __init__(self, today=MON, team=(LINH, HOAN, DUNG), pm_project="PROJ-0042", sync=1):
         self.clock = dt.datetime.combine(today, dt.time(9, 30))
         self.team = list(team)

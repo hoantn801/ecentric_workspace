@@ -1,0 +1,114 @@
+{
+ "doctype": "DocType",
+ "name": "EC Report Library",
+ "module": "Data Hub",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "description": "Thư viện báo cáo (/du-lieu/san-co?xem=thu-vien): dashboard Power BI đã làm. Team Data thêm / sửa / ẩn; yêu cầu Power BI nghiệm thu Đạt có link kết quả tự thêm. Gợi ý “đã có dashboard tương tự” khi tạo yêu cầu. Ghi qua data_hub/avail_service.py.",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "report": 1,
+   "export": 1
+  }
+ ],
+ "field_order": [
+  "title",
+  "link",
+  "report_owner",
+  "team",
+  "cb_head",
+  "active",
+  "from_ticket",
+  "added_by",
+  "sb_more",
+  "data_sources",
+  "tags"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Tên báo cáo",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "link",
+   "fieldtype": "Data",
+   "label": "Link",
+   "reqd": 1,
+   "options": "URL"
+  },
+  {
+   "fieldname": "report_owner",
+   "fieldtype": "Link",
+   "label": "Người phụ trách",
+   "options": "User",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "team",
+   "fieldtype": "Data",
+   "label": "Team dùng",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "cb_head",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "label": "Đang dùng",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "from_ticket",
+   "fieldtype": "Link",
+   "label": "Từ yêu cầu",
+   "options": "EC Data Ticket",
+   "search_index": 1
+  },
+  {
+   "fieldname": "added_by",
+   "fieldtype": "Link",
+   "label": "Người thêm",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_more",
+   "fieldtype": "Section Break",
+   "label": ""
+  },
+  {
+   "fieldname": "data_sources",
+   "fieldtype": "Small Text",
+   "label": "Dữ liệu nguồn"
+  },
+  {
+   "fieldname": "tags",
+   "fieldtype": "Data",
+   "label": "Thẻ"
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "autoname": "RL-.#####",
+ "naming_rule": "Expression (old style)",
+ "title_field": "title",
+ "search_fields": "title,team,tags"
+}

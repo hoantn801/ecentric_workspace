@@ -1031,3 +1031,10 @@ for _edh_dt, _edh_ev, _edh_path in (
 ec_pm_task_state_listeners = list(globals().get("ec_pm_task_state_listeners") or []) + [
     "ecentric_workspace.data_hub.pm_sync.on_task_state"]
 scheduler_events["cron"].setdefault("0 9 * * *", []).append("ecentric_workspace.data_hub.notify.daily")
+
+# --------------------------------------------------------------------------- #
+# 09/11/2026 (Hoan chot) - Trung tam Du lieu DOT 2 (data_hub/avail_*): Data availability /du-lieu/san-co,
+# de xuat data can crawl, ke hoach bo sung DA-, Thu vien bao cao. Route /du-lieu/san-co da khai o dot 1.
+#  * 09:00 ngay lam viec: nhac team Data de xuat qua han duyet (gop_tin_job).
+# --------------------------------------------------------------------------- #
+scheduler_events["cron"].setdefault("0 9 * * *", []).append("ecentric_workspace.data_hub.avail_service.daily")

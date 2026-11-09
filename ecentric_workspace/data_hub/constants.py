@@ -158,3 +158,68 @@ GANTT_DAYS = 21
 GANTT_BACK_WEEKS = 1
 #: Danh sach toi da tren trang (moi nguoi doc duoc moi yeu cau; trang chi ve bay nhieu dong).
 LIST_LIMIT = 500
+
+
+# =========================================================================================
+# DOT 2 (PO Hoan chot 09/11/2026) - Data availability, de xuat data can crawl, ke hoach bo sung
+# (DA-), do tuoi du lieu, Thu vien bao cao. Code o avail_domain / avail_repository / avail_service.
+# =========================================================================================
+AVAIL_DT = "EC Data Availability"
+PROPOSAL_DT = "EC Data Proposal"
+LIBRARY_DT = "EC Report Library"
+
+#: Ba san chinh = ba cot cua ma tran (ten CHUAN luu trong DB; nhap "tiktok"/"Tiktok" -> "TikTok").
+#: San khac (Boxme, Misa, GOV, Omisell...) vao cot "Khac" kem ten.
+MAIN_PLATFORMS = ("Shopee", "TikTok", "Lazada")
+OTHER_PLATFORM = "Khác"
+#: Kenh dich (truong Check tren EC Data Availability) - thu tu = thu tu cham trong o ma tran.
+CHANNELS = (("sharepoint", "in_sharepoint", "SharePoint"), ("dw", "in_dw", "Data Warehouse"),
+            ("powerbi", "in_powerbi", "Power BI"))
+CHANNEL_KEYS = tuple(c[0] for c in CHANNELS)
+CHANNEL_FIELD = {c[0]: c[1] for c in CHANNELS}
+CHANNEL_LABEL = {c[0]: c[2] for c in CHANNELS}
+CHANNEL_SHORT = {"sharepoint": "SharePoint", "dw": "DW", "powerbi": "Power BI"}
+#: Cach lay du lieu (EC Data Ticket.method).
+METHODS = ("Crawl", "API sàn", "Nhập tay / file")
+
+FREQ_HOURLY = "Theo giờ"
+FREQ_DAILY = "Hằng ngày"
+FREQ_WEEKLY = "Hằng tuần"
+FREQ_MONTHLY = "Hằng tháng"
+FREQ_NONE = "Không định kỳ"
+FREQUENCIES = (FREQ_HOURLY, FREQ_DAILY, FREQ_WEEKLY, FREQ_MONTHLY, FREQ_NONE)
+#: Do tuoi: "cap nhat lan cuoi" cu hon bay nhieu GIO (lich) so voi tan suat -> canh bao "Trễ cập nhật".
+#: Co bien do (giờ: 1 ngay, ngày: 2 ngay, tuần: 8 ngay, tháng: 35 ngay) vi ngay cap nhat do team Data ghi
+#: tay / hoan tat DA ghi - khong phai nhip dong bo tu dong. Khong dinh ky -> khong canh bao.
+FRESH_MAX_HOURS = {FREQ_HOURLY: 24, FREQ_DAILY: 48, FREQ_WEEKLY: 8 * 24, FREQ_MONTHLY: 35 * 24}
+
+PROP_PENDING = "Chờ duyệt"
+PROP_APPROVED = "Đã duyệt"
+PROP_REJECTED = "Từ chối"
+PROP_STATUSES = (PROP_PENDING, PROP_APPROVED, PROP_REJECTED)
+#: Muc can gap cua de xuat = muc uu tien de xuat cho ke hoach DA (team Data xac nhan khi len ke hoach).
+PROP_URGENCIES = (PRI_NORMAL, PRI_HIGH, PRI_URGENT)
+RULE_PROPOSAL = "proposal_review"
+#: Chong spam: so de xuat mot nguoi gui trong mot ngay.
+PROPOSAL_DAILY_LIMIT = 10
+#: Bang de xuat tren trang: moi de xuat Cho duyet + bay nhieu de xuat da quyet gan nhat.
+PROPOSAL_RECENT = 30
+
+TEAM_MAX = 60
+DATA_TYPE_MAX = 80
+PLATFORM_MAX = 40
+NOTE_MAX = 500
+PURPOSE_MAX = 1000
+TAGS_MAX = 140
+SOURCES_MAX = 500
+#: Goi y "da co dashboard tuong tu" khi go tieu de (form tao yeu cau).
+SUGGEST_MIN_CHARS = 3
+SUGGEST_LIMIT = 3
+#: Loai yeu cau ma "Dat" + co link ket qua -> tu them vao Thu vien bao cao.
+LIBRARY_TYPES = ("Power BI mới", "Sửa Power BI có sẵn")
+#: Nhan hien thi cua ke hoach bo sung data (thay "Crawl data" o dau popup).
+DA_TYPE_LABEL = "Bổ sung data"
+#: DA-ticket tinh han theo quy tac nay (spec: "ket thuc mac dinh theo quy tac crawl").
+DA_REQUEST_TYPE = "Crawl data mới"
+ROUTE_LIBRARY = ROUTE_AVAIL + "?xem=thu-vien"
+EV_PROPOSAL = "approval_required"   # de xuat moi -> team Data (can duyet)

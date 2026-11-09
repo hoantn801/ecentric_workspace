@@ -1,0 +1,150 @@
+{
+ "doctype": "DocType",
+ "name": "EC Data Proposal",
+ "module": "Data Hub",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "description": "Đề xuất data cần crawl (/du-lieu/san-co): mọi nhân viên gửi, team Data duyệt (hạn theo quy tắc “Duyệt đề xuất data cần crawl”) hoặc từ chối kèm lý do; duyệt xong team Data lên kế hoạch DA-. Ghi qua data_hub/avail_service.py.",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "report": 1,
+   "export": 1
+  }
+ ],
+ "field_order": [
+  "team",
+  "data_type",
+  "platforms",
+  "purpose",
+  "urgency",
+  "urgency_note",
+  "cb_head",
+  "proposer",
+  "status",
+  "due_at",
+  "rule_version",
+  "sb_decision",
+  "decided_by",
+  "decided_at",
+  "reason",
+  "resulting_ticket"
+ ],
+ "fields": [
+  {
+   "fieldname": "team",
+   "fieldtype": "Data",
+   "label": "Team cần dữ liệu",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "data_type",
+   "fieldtype": "Data",
+   "label": "Loại dữ liệu",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "platforms",
+   "fieldtype": "Small Text",
+   "label": "Sàn (JSON)"
+  },
+  {
+   "fieldname": "purpose",
+   "fieldtype": "Small Text",
+   "label": "Dùng để làm gì",
+   "reqd": 1
+  },
+  {
+   "fieldname": "urgency",
+   "fieldtype": "Select",
+   "label": "Mức cần gấp",
+   "options": "Bình thường\nCao\nKhẩn",
+   "default": "Bình thường"
+  },
+  {
+   "fieldname": "urgency_note",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú mức gấp"
+  },
+  {
+   "fieldname": "cb_head",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "proposer",
+   "fieldtype": "Link",
+   "label": "Người đề xuất",
+   "options": "User",
+   "reqd": 1,
+   "in_list_view": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Trạng thái",
+   "options": "Chờ duyệt\nĐã duyệt\nTừ chối",
+   "default": "Chờ duyệt",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "due_at",
+   "fieldtype": "Datetime",
+   "label": "Hạn duyệt"
+  },
+  {
+   "fieldname": "rule_version",
+   "fieldtype": "Link",
+   "label": "Bộ quy tắc",
+   "options": "EC Data SLA Rule Set"
+  },
+  {
+   "fieldname": "sb_decision",
+   "fieldtype": "Section Break",
+   "label": "Quyết định"
+  },
+  {
+   "fieldname": "decided_by",
+   "fieldtype": "Link",
+   "label": "Người quyết định",
+   "options": "User"
+  },
+  {
+   "fieldname": "decided_at",
+   "fieldtype": "Datetime",
+   "label": "Lúc quyết định"
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Small Text",
+   "label": "Lý do / ghi chú"
+  },
+  {
+   "fieldname": "resulting_ticket",
+   "fieldtype": "Link",
+   "label": "Kế hoạch bổ sung (DA-)",
+   "options": "EC Data Ticket",
+   "search_index": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "autoname": "DP-.YYYY.-.####",
+ "naming_rule": "Expression (old style)",
+ "title_field": "data_type",
+ "search_fields": "team,data_type,proposer"
+}

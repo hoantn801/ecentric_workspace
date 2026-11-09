@@ -523,6 +523,7 @@
       sumItem("Gửi lúc", esc(d.created_fmt)) +
       sumItem(d.start ? "Bắt đầu" : "Dự kiến bắt đầu", d.start ? esc(d.start_fmt) : (d.queue ? esc(d.queue.expected_start) : "—")) +
       (d.data_used ? sumItem("Dữ liệu dùng", esc(d.data_used), true) : "") + "</div>";
+    h += extraHtml(d);
     if (d.queue) {
       h += '<p class="edh-banner is-info">Đang ở vị trí <b>' + d.queue.position + "</b> trong hàng đợi, dự kiến bắt đầu <b>" + esc(d.queue.expected_start) +
         "</b>, xong khoảng " + esc(d.queue.expected_due) + " (" + d.queue.sla_days + " ngày làm việc). Hạn nhận việc: " + esc(d.intake_due_fmt) + ".</p>";
@@ -558,6 +559,22 @@
       h += '<p class="edh-hint">Bấm “Theo dõi” để tham gia trao đổi và nhận thông báo.</p>';
     }
     h += "</section></div>";
+    return h;
+  }
+  /* Dot 2: ke hoach bo sung data (DA-) + muc Thu vien bao cao cua yeu cau Power BI. */
+  function extraHtml(d) {
+    var h = "";
+    if (d.plan) {
+      h += '<p class="edh-banner is-info">Bổ sung <b>' + esc(d.plan.data_type) + "</b> (" + esc(d.plan.team) + ") · sàn " + esc(d.plan.platforms) +
+        " → " + esc(d.plan.channels) + " · cách lấy " + esc(d.plan.method || "—") + ". " +
+        (d.plan.needs_acceptance ? "Từ đề xuất: người đề xuất nghiệm thu khi team Data hoàn tất." : "Hoàn tất thì các ô đã chọn tự chuyển “Có”.") +
+        ' <a class="edh-link" href="/du-lieu/san-co">Xem ma trận</a></p>';
+    }
+    if (d.library) {
+      h += '<p class="edh-banner is-info">Trong Thư viện báo cáo: <a class="edh-link" href="' + esc(d.library.link) + '" target="_blank" rel="noopener noreferrer">' + esc(d.library.title) + " ↗</a></p>";
+    } else if ("library" in d && d.status === ST.DONE && d.team_members) {
+      h += '<p class="edh-hint"><a class="edh-link" href="/du-lieu/san-co?xem=thu-vien&amp;tu=' + encodeURIComponent(d.code) + '">+ Thêm vào Thư viện báo cáo</a></p>';
+    }
     return h;
   }
   function sumItem(label, html, full) {
@@ -855,4 +872,401 @@
   };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { window.ECDataHub.app = boot(document); });
   else window.ECDataHub.app = boot(document);
+})();
+
+
+/* ===================================================================================================
+ * DOT 2 (PO Hoan chot 09/11/2026) - Data availability (/du-lieu/san-co) + goi y "da co dashboard tuong tu"
+ * tren form tao yeu cau (/du-lieu). Dung lai App cua dot 1 (popup chi tiet, toast, overlay, khoa nut).
+ * Server (data_hub/avail_service.py) ve san ma tran / KPI / Can bo sung / de xuat / thu vien; o day chi
+ * loc tai cho, mo hop, gui POST toi ecentric_workspace.data_hub.api.* roi tai lai trang.
+ * Ham thuan gan vao window.ECDataHub.avail de test jsdom (data_hub/tests/js/test_ec_data_hub_avail.mjs).
+ * =================================================================================================== */
+(function () {
+  "use strict";
+  if (typeof window === "undefined" || !window.ECDataHub || window.ECDataHub.avail) return;
+  var H = window.ECDataHub, esc = H.esc, call = H.call, busy = H.busy;
+  var MAIN = ["Shopee", "TikTok", "Lazada"];
+
+  /* Loc ma tran: f = {q, team, state (full|gap|plan|stale|front)}; row = dataset cua <tr data-edh-mrow>. */
+  function matrixMatch(row, f) {
+    if (f.team && row.team !== f.team) return false;
+    if (f.state && String(row[f.state]) !== "1") return false;
+    var q = (f.q || "").trim().toLowerCase();
+    return !q || (row.search || "").indexOf(q) >= 0;
+  }
+  function libMatch(row, f) {
+    if (f.team && row.team !== f.team) return false;
+    var q = (f.q || "").trim().toLowerCase();
+    return !q || (row.search || "").indexOf(q) >= 0;
+  }
+  /* Form -> du lieu gui (checkbox nhieu gia tri). */
+  function formData(form) {
+    var out = {};
+    Array.prototype.forEach.call(form.elements, function (el) {
+      if (!el.name || el.disabled) return;
+      if (el.type === "checkbox") {
+        if (el.name === "platforms" || el.name === "channels") { (out[el.name] = out[el.name] || []); if (el.checked) out[el.name].push(el.value); }
+        else out[el.name] = el.checked ? 1 : 0;
+      } else out[el.name] = typeof el.value === "string" ? el.value.trim() : el.value;
+    });
+    return out;
+  }
+  function checkPlatforms(data) {
+    return (data.platforms || []).length > 0 || !!(data.other_platform || "").trim();
+  }
+  /* Goi y tuong tu (form tao yeu cau) -> HTML. */
+  function suggestHtml(s) {
+    var lib = (s && s.library) || [], req = (s && s.requests) || [];
+    if (!lib.length && !req.length) return "";
+    var h = "";
+    lib.forEach(function (x) {
+      h += '<li>Đã có dashboard tương tự: <b>' + esc(x.title) + "</b>" + (x.team ? ' <span class="edh-hint">(' + esc(x.team) + ")</span>" : "") +
+        ' — <a class="edh-link" href="' + esc(x.link) + '" target="_blank" rel="noopener noreferrer">mở xem ↗</a></li>';
+    });
+    req.forEach(function (x) {
+      h += '<li>Đang có yêu cầu tương tự: <b>' + esc(x.code) + "</b> " + esc(x.title) + ' <span class="edh-hint">(' + esc(x.status) +
+        ')</span> — <a class="edh-link" href="' + esc(x.url) + '" target="_blank" rel="noopener">mở xem</a></li>';
+    });
+    return '<p><b>Có thể bạn không cần yêu cầu mới:</b></p><ul>' + h + "</ul>";
+  }
+  function debounce(fn, ms) {
+    var t = null;
+    return function () { var a = arguments, self = this; clearTimeout(t); t = setTimeout(function () { fn.apply(self, a); }, ms); };
+  }
+  function nowLocal(d) {
+    d = d || new Date();
+    var p = function (n) { return ("0" + n).slice(-2); };
+    return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + "T" + p(d.getHours()) + ":" + p(d.getMinutes());
+  }
+
+  function Avail(app) {
+    this.app = app;
+    this.boot = app.boot;
+    this.doc = app.doc;
+    this.$ = app.$.bind(app);
+    this.$$ = app.$$.bind(app);
+  }
+  Avail.prototype.init = function () {
+    this.bindSub();
+    this.bindFilters();
+    this.bindPropose();
+    if (this.boot.is_team) {
+      this.bindReview();
+      this.bindPlan();
+      this.bindRow();
+      this.bindLibrary();
+    }
+    if (this.boot.prefill) this.openLibrary(null, this.boot.prefill);
+    var self = this;
+    this.doc.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape" && e.key !== "Esc") return;
+      ["[data-edh-why-ov]", "[data-edh-plan-ov]", "[data-edh-rowf-ov]", "[data-edh-lib-ov]", "[data-edh-prop-ov]"].some(function (sel) {
+        var ov = self.$(sel);
+        if (ov && !ov.hidden) { self.app.closeOv(ov); return true; }
+        return false;
+      });
+    });
+    return this;
+  };
+  Avail.prototype.done = function (msg, warn) {
+    this.app.toast(msg, !!warn);
+    this.app.reload();
+  };
+  Avail.prototype.formOv = function (ovSel, formSel, errSel, submitSel, method, build, okMsg) {
+    var self = this, ov = this.$(ovSel), form = this.$(formSel);
+    if (!ov || !form) return null;
+    ov.addEventListener("click", function (e) { if (e.target === ov) self.app.closeOv(ov); });
+    this.$$("[data-edh-close]", form).forEach(function (b) { b.addEventListener("click", function () { self.app.closeOv(ov); }); });
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var err = self.$(errSel), args = build(form);
+      if (typeof args === "string") { err.textContent = args; err.hidden = false; return; }
+      err.hidden = true;
+      busy(self.$(submitSel), function () { return call(method, args, true); }).then(function (out) {
+        self.app.closeOv(ov);
+        var m = okMsg(out || {});
+        self.done(m[0], m[1]);
+      }, function (e2) {
+        if (e2 && e2.message === "__busy") return;
+        err.textContent = e2.message;
+        err.hidden = false;
+      });
+    });
+    return { ov: ov, form: form };
+  };
+
+  // ---- Ma tran | Thu vien
+  Avail.prototype.bindSub = function () {
+    var self = this;
+    this.$$("[data-edh-sub]").forEach(function (b) {
+      b.addEventListener("click", function () { self.setSub(b.dataset.edhSub); });
+    });
+  };
+  Avail.prototype.setSub = function (v) {
+    this.$$("[data-edh-sub]").forEach(function (b) {
+      var on = b.dataset.edhSub === v;
+      b.classList.toggle("is-on", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+    this.$$("[data-edh-av]").forEach(function (s) { s.hidden = s.dataset.edhAv !== v; });
+    this.app.setParam("xem", v === "library" ? "thu-vien" : "");
+  };
+
+  // ---- loc
+  Avail.prototype.bindFilters = function () {
+    var self = this;
+    this.$$("[data-edh-af]").forEach(function (el) {
+      el.addEventListener(el.type === "search" ? "input" : "change", function () { self.applyMatrix(); });
+    });
+    this.$$("[data-edh-lf]").forEach(function (el) {
+      el.addEventListener(el.type === "search" ? "input" : "change", function () { self.applyLibrary(); });
+    });
+  };
+  Avail.prototype.val = function (attr, k) { var el = this.$("[" + attr + '="' + k + '"]'); return el ? el.value : ""; };
+  Avail.prototype.applyMatrix = function () {
+    var f = { q: this.val("data-edh-af", "q"), team: this.val("data-edh-af", "team"), state: this.val("data-edh-af", "state") };
+    var shown = 0, perTeam = {};
+    this.$$("[data-edh-mrow]").forEach(function (tr) {
+      var ok = matrixMatch(tr.dataset, f);
+      tr.hidden = !ok;
+      if (ok) { shown++; perTeam[tr.dataset.team] = 1; }
+    });
+    this.$$("[data-edh-mteam]").forEach(function (tr) { tr.hidden = !perTeam[tr.dataset.edhMteam]; });
+    var empty = this.$("[data-edh-mempty]");
+    if (empty) empty.hidden = shown > 0;
+    return shown;
+  };
+  Avail.prototype.applyLibrary = function () {
+    var f = { q: this.val("data-edh-lf", "q"), team: this.val("data-edh-lf", "team") }, shown = 0;
+    this.$$("[data-edh-lrow]").forEach(function (tr) { var ok = libMatch(tr.dataset, f); tr.hidden = !ok; if (ok) shown++; });
+    var empty = this.$("[data-edh-lempty]");
+    if (empty) empty.hidden = shown > 0;
+    return shown;
+  };
+
+  // ---- de xuat (moi nhan vien)
+  Avail.prototype.bindPropose = function () {
+    var self = this;
+    var f = this.formOv("[data-edh-prop-ov]", "[data-edh-prop-form]", "[data-edh-prop-err]", "[data-edh-prop-submit]", "propose", function (form) {
+      var d = formData(form), errs = [];
+      if (!d.team) errs.push("Chọn team cần dữ liệu.");
+      if (!d.data_type) errs.push("Ghi loại dữ liệu cần crawl.");
+      if (!checkPlatforms(d)) errs.push("Chọn ít nhất một sàn.");
+      if (!d.purpose) errs.push("Ghi dữ liệu này dùng để làm gì.");
+      return errs.length ? errs.join(" ") : { data: JSON.stringify(d) };
+    }, function (out) { return ["Đã gửi đề xuất " + (out.name || "") + ". Team Data sẽ duyệt và báo bạn."]; });
+    if (!f) return;
+    this.$$("[data-edh-propose]").forEach(function (b) {
+      b.addEventListener("click", function () { self.app.openOv(f.ov, b); var x = f.form.elements.data_type; if (x) x.focus(); });
+    });
+  };
+
+  // ---- duyet / tu choi (team Data)
+  Avail.prototype.bindReview = function () {
+    var self = this;
+    this.$$("[data-edh-approve]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        busy(b, function () { return call("review_proposal", { name: b.dataset.edhApprove, verdict: "Đã duyệt" }, true); }).then(function (out) {
+          self.done("Đã duyệt " + b.dataset.edhApprove + ((out && out.created && out.created.length) ? " · thêm ô " + out.created.join(", ") : "") + ". Bấm “Lên kế hoạch” ở danh sách Cần bổ sung.");
+        }, function (e) { self.app.fail(e); });
+      });
+    });
+    var f = this.formOv("[data-edh-why-ov]", "[data-edh-why-form]", "[data-edh-why-err]", "[data-edh-why-submit]", "review_proposal", function (form) {
+      var r = form.elements.reason.value.trim();
+      if (!r) return "Từ chối cần ghi lý do (người đề xuất sẽ thấy).";
+      return { name: self._why, verdict: "Từ chối", reason: r };
+    }, function () { return ["Đã từ chối " + self._why + " và báo người đề xuất."]; });
+    this.$$("[data-edh-reject]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        self._why = b.dataset.edhReject;
+        self.$("[data-edh-why-what]").textContent = "· " + self._why;
+        f.form.elements.reason.value = "";
+        self.$("[data-edh-why-err]").hidden = true;
+        self.app.openOv(f.ov, b);
+        f.form.elements.reason.focus();
+      });
+    });
+  };
+
+  // ---- len ke hoach (team Data)
+  Avail.prototype.bindPlan = function () {
+    var self = this;
+    var f = this.formOv("[data-edh-plan-ov]", "[data-edh-plan-form]", "[data-edh-plan-err]", "[data-edh-plan-submit]", "plan_availability", function (form) {
+      var d = formData(form), errs = [];
+      if (!checkPlatforms(d)) errs.push("Chọn ít nhất một sàn.");
+      if (!(d.channels || []).length) errs.push("Chọn ít nhất một kênh đích.");
+      if (!d.assignee) errs.push("Chọn người xử lý.");
+      if (!d.start_date) errs.push("Chọn ngày bắt đầu.");
+      if (!d.due_date) errs.push("Chọn ngày kết thúc.");
+      if (d.start_date && d.due_date && d.due_date < d.start_date) errs.push("Ngày kết thúc không được trước ngày bắt đầu.");
+      return errs.length ? errs.join(" ") : { data: JSON.stringify(d) };
+    }, function (out) { return [out.warning || ("Đã lên kế hoạch " + out.code + " · hạn " + H.fmtDate(out.due) + (out.pm_task ? " · task /pm " + out.pm_task : "") + "."), !!out.warning]; });
+    if (!f) return;
+    this.plan = f;
+    this.$$("[data-edh-plan]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var g = (self.boot.gaps || {})[b.dataset.edhPlan];
+        if (g) self.openPlan(g, g.platforms, b);
+      });
+    });
+    this.$$("[data-edh-plan-cell]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var r = (self.boot.rows || {})[b.dataset.edhPlanCell];
+        if (!r) return;
+        var g = null;
+        Object.keys(self.boot.gaps || {}).forEach(function (k) {
+          var x = self.boot.gaps[k];
+          if (x.team === r.team && x.data_type === r.data_type) g = x;
+        });
+        self.openPlan(g || { team: r.team, data_type: r.data_type, proposal: "", urgency: "" }, [r.platform], b);
+      });
+    });
+    var el = f.form.elements;
+    el.start_date.addEventListener("change", function () { self.planDefaults(); });
+    el.due_date.addEventListener("change", function () { self._customDue = el.due_date.value !== self._ruleDue; });
+  };
+  Avail.prototype.openPlan = function (g, platforms, opener) {
+    var f = this.plan, el = f.form.elements, d = this.boot.plan_defaults || {};
+    el.team.value = g.team;
+    el.data_type.value = g.data_type;
+    el.proposal.value = g.proposal || "";
+    el.priority.value = g.urgency || "";
+    var other = [];
+    (platforms || []).forEach(function (p) { if (MAIN.indexOf(p) < 0) other.push(p); });
+    this.$$('input[name="platforms"]', f.form).forEach(function (c) { c.checked = (platforms || []).indexOf(c.value) >= 0; });
+    el.other_platform.value = other.join(", ");
+    this.$$('input[name="channels"]', f.form).forEach(function (c) { c.checked = true; });
+    el.note.value = "";
+    el.start_date.value = d.start || "";
+    el.due_date.value = d.due || "";
+    this._ruleDue = d.due;
+    this._customDue = false;
+    this.$("[data-edh-plan-what]").textContent = "· " + g.data_type + " (" + g.team + ")";
+    var pb = this.$("[data-edh-plan-prop]");
+    pb.hidden = !g.proposal;
+    if (g.proposal) pb.textContent = "Từ đề xuất " + g.proposal + (g.urgency ? " · mức " + g.urgency : "") + ": người đề xuất được báo hạn và nghiệm thu khi xong.";
+    this.$("[data-edh-plan-rule]").textContent = d.sla_days ? "(mặc định: crawl " + d.sla_days + " ngày làm việc)" : "";
+    this.$("[data-edh-plan-err]").hidden = true;
+    this.app.openOv(f.ov, opener);
+    if (g.urgency && g.urgency !== "Bình thường") this.planDefaults();
+    el.assignee.focus();
+  };
+  Avail.prototype.planDefaults = function () {
+    var self = this, el = this.plan.form.elements;
+    return call("plan_defaults", { start_date: el.start_date.value, priority: el.priority.value }).then(function (p) {
+      self._ruleDue = p.due;
+      if (!self._customDue) el.due_date.value = p.due;
+      self.$("[data-edh-plan-rule]").textContent = "(mặc định: crawl " + p.sla_days + " ngày làm việc → " + H.fmtDate(p.due) + ")";
+      return p;
+    }, function (e) { self.app.fail(e); return null; });
+  };
+
+  // ---- sua / them dong ma tran (team Data)
+  Avail.prototype.bindRow = function () {
+    var self = this;
+    var f = this.formOv("[data-edh-rowf-ov]", "[data-edh-rowf]", "[data-edh-rowf-err]", "[data-edh-rowf-submit]", "save_availability", function (form) {
+      var d = formData(form), errs = [];
+      if (!d.team) errs.push("Ghi team.");
+      if (!d.data_type) errs.push("Ghi loại dữ liệu.");
+      if (!d.platform) errs.push("Ghi sàn / nguồn.");
+      return errs.length ? errs.join(" ") : { data: JSON.stringify(d) };
+    }, function (out) { return [out.created ? "Đã thêm dòng dữ liệu." : "Đã lưu dòng dữ liệu."]; });
+    if (!f) return;
+    this.rowf = f;
+    this.$$("[data-edh-row-edit]").forEach(function (b) {
+      b.addEventListener("click", function () { self.openRow((self.boot.rows || {})[b.dataset.edhRowEdit], b); });
+    });
+    this.$$("[data-edh-row-new]").forEach(function (b) { b.addEventListener("click", function () { self.openRow(null, b); }); });
+    var now = this.$("[data-edh-r-now]", f.form);
+    if (now) now.addEventListener("click", function () { f.form.elements.last_updated.value = nowLocal(); });
+  };
+  Avail.prototype.openRow = function (r, opener) {
+    var f = this.rowf, el = f.form.elements;
+    r = r || {};
+    ["name", "team", "data_type", "platform", "frequency", "data_owner", "note", "last_updated"].forEach(function (k) { el[k].value = r[k] || ""; });
+    ["in_sharepoint", "in_dw", "in_powerbi", "front_priority"].forEach(function (k) { el[k].checked = !!r[k]; });
+    ["team", "data_type", "platform"].forEach(function (k) { el[k].readOnly = !!r.name; });
+    this.$("#edh-rowf-h").textContent = r.name ? "Sửa dòng · " + r.data_type + " · " + r.platform + " (" + r.team + ")" : "Thêm dòng dữ liệu";
+    this.$("[data-edh-rowf-err]").hidden = true;
+    this.app.openOv(f.ov, opener);
+    (r.name ? el.in_sharepoint : el.team).focus();
+  };
+
+  // ---- thu vien bao cao (team Data)
+  Avail.prototype.bindLibrary = function () {
+    var self = this;
+    var f = this.formOv("[data-edh-lib-ov]", "[data-edh-lib-form]", "[data-edh-lib-err]", "[data-edh-lib-submit]", "save_library", function (form) {
+      var d = formData(form), errs = [];
+      if (!d.title) errs.push("Chưa có tên báo cáo.");
+      if (!/^https?:\/\//i.test(d.link || "")) errs.push("Link báo cáo phải bắt đầu bằng http:// hoặc https://");
+      return errs.length ? errs.join(" ") : { data: JSON.stringify(d) };
+    }, function (out) { return [out.created ? "Đã thêm vào Thư viện báo cáo." : "Đã lưu báo cáo."]; });
+    if (!f) return;
+    this.lib = f;
+    this.$$("[data-edh-lib-new]").forEach(function (b) { b.addEventListener("click", function () { self.openLibrary(b, null); }); });
+    this.$$("[data-edh-lib-edit]").forEach(function (b) {
+      b.addEventListener("click", function () { self.openLibrary(b, (self.boot.library || {})[b.dataset.edhLibEdit]); });
+    });
+    this.$$("[data-edh-lib-toggle]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        busy(b, function () { return call("library_active", { name: b.dataset.edhLibToggle, active: b.dataset.active }, true); }).then(function () {
+          self.done(b.dataset.active === "1" ? "Đã hiện lại báo cáo." : "Đã ẩn báo cáo (vẫn giữ lịch sử).");
+        }, function (e) { self.app.fail(e); });
+      });
+    });
+  };
+  Avail.prototype.openLibrary = function (opener, x) {
+    if (!this.lib) return;
+    var el = this.lib.form.elements;
+    x = x || {};
+    el.name.value = x.name || "";
+    el.title.value = x.title || "";
+    el.link.value = x.link || "";
+    el.team.value = x.team || "";
+    el.report_owner.value = x.owner || "";
+    el.data_sources.value = x.data_sources || "";
+    el.from_ticket.value = x.from_ticket || "";
+    el.tags.value = x.tags || "";
+    this.$("#edh-lib-h").textContent = x.name ? "Sửa báo cáo" : "Thêm báo cáo vào thư viện";
+    this.$("[data-edh-lib-err]").hidden = true;
+    this.app.openOv(this.lib.ov, opener);
+    el.title.focus();
+  };
+
+  // ---- goi y "da co dashboard tuong tu" tren form tao yeu cau (/du-lieu)
+  function bindSuggest(app) {
+    var input = app.$("#edh-new-title"), box = app.$("[data-edh-similar]");
+    if (!input || !box) return null;
+    var last = "";
+    var run = function () {
+      var q = input.value.trim();
+      if (q === last) return Promise.resolve(null);
+      last = q;
+      if (q.length < 3) { box.hidden = true; box.innerHTML = ""; return Promise.resolve(null); }
+      return call("suggest", { q: q }).then(function (s) {
+        if (input.value.trim() !== q) return null;
+        var h = suggestHtml(s);
+        box.innerHTML = h;
+        box.hidden = !h;
+        return s;
+      }, function () { box.hidden = true; return null; });   // goi y la phu: loi thi im lang
+    };
+    input.addEventListener("input", debounce(run, 350));
+    return run;
+  }
+
+  function install(app) {
+    if (!app) return null;
+    var out = {};
+    if (app.boot.page === "avail") out.avail = new Avail(app).init();
+    if (app.boot.page === "index") out.suggest = bindSuggest(app);
+    return out;
+  }
+
+  H.avail = { matrixMatch: matrixMatch, libMatch: libMatch, formData: formData, suggestHtml: suggestHtml, debounce: debounce,
+              nowLocal: nowLocal, Avail: Avail, install: install };
+  var go = function () { H.avail.page = install(H.app); };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", go);
+  else go();
 })();

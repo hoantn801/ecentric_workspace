@@ -42,6 +42,12 @@
     "following": false,
     "intake_due_fmt": "28/10/2026",
     "kind": "request",
+    "library": {
+     "active": true,
+     "link": "https://app.powerbi.com/stock",
+     "name": "RL-00001",
+     "title": "Dashboard Stock Boxme"
+    },
     "messages": [],
     "mine": 0,
     "original_due_fmt": "",
@@ -145,6 +151,12 @@
     "following": false,
     "intake_due_fmt": "28/10/2026",
     "kind": "request",
+    "library": {
+     "active": true,
+     "link": "https://app.powerbi.com/stock",
+     "name": "RL-00001",
+     "title": "Dashboard Stock Boxme"
+    },
     "messages": [],
     "mine": 1,
     "original_due_fmt": "",
@@ -269,6 +281,12 @@
     "following": false,
     "intake_due_fmt": "28/10/2026",
     "kind": "request",
+    "library": {
+     "active": true,
+     "link": "https://app.powerbi.com/stock",
+     "name": "RL-00001",
+     "title": "Dashboard Stock Boxme"
+    },
     "messages": [],
     "mine": 0,
     "original_due_fmt": "",
@@ -374,6 +392,7 @@
     "following": false,
     "intake_due_fmt": "29/10/2026",
     "kind": "request",
+    "library": null,
     "messages": [
      {
       "author": "thu.nguyen@ecentric.vn",
@@ -490,6 +509,7 @@
     "following": false,
     "intake_due_fmt": "29/10/2026",
     "kind": "request",
+    "library": null,
     "messages": [
      {
       "author": "thu.nguyen@ecentric.vn",
@@ -640,6 +660,7 @@
     "following": false,
     "intake_due_fmt": "29/10/2026",
     "kind": "request",
+    "library": null,
     "messages": [
      {
       "author": "thu.nguyen@ecentric.vn",
@@ -1352,6 +1373,7 @@
     "following": false,
     "intake_due_fmt": "03/11/2026",
     "kind": "request",
+    "library": null,
     "messages": [
      {
       "author": "linh.vuong@ecentric.vn",
@@ -1458,6 +1480,7 @@
     "following": false,
     "intake_due_fmt": "03/11/2026",
     "kind": "request",
+    "library": null,
     "messages": [
      {
       "author": "linh.vuong@ecentric.vn",
@@ -1598,6 +1621,7 @@
     "following": false,
     "intake_due_fmt": "03/11/2026",
     "kind": "request",
+    "library": null,
     "messages": [
      {
       "author": "linh.vuong@ecentric.vn",
@@ -1706,6 +1730,7 @@
     "following": false,
     "intake_due_fmt": "03/11/2026",
     "kind": "request",
+    "library": null,
     "messages": [],
     "mine": 1,
     "original_due_fmt": "",
@@ -1801,6 +1826,7 @@
     "following": false,
     "intake_due_fmt": "03/11/2026",
     "kind": "request",
+    "library": null,
     "messages": [],
     "mine": 0,
     "original_due_fmt": "",
@@ -1926,6 +1952,7 @@
     "following": false,
     "intake_due_fmt": "03/11/2026",
     "kind": "request",
+    "library": null,
     "messages": [],
     "mine": 0,
     "original_due_fmt": "",
@@ -2547,6 +2574,7 @@
     "following": false,
     "intake_due_fmt": "06/11/2026",
     "kind": "request",
+    "library": null,
     "messages": [],
     "mine": 1,
     "original_due_fmt": "",
@@ -2632,6 +2660,7 @@
     "following": false,
     "intake_due_fmt": "06/11/2026",
     "kind": "request",
+    "library": null,
     "messages": [],
     "mine": 0,
     "original_due_fmt": "",
@@ -2730,6 +2759,7 @@
     "following": false,
     "intake_due_fmt": "06/11/2026",
     "kind": "request",
+    "library": null,
     "messages": [],
     "mine": 0,
     "original_due_fmt": "",
@@ -2809,6 +2839,7 @@
     "following": false,
     "intake_due_fmt": "05/11/2026",
     "kind": "request",
+    "library": null,
     "messages": [],
     "mine": 0,
     "original_due_fmt": "",
@@ -2888,6 +2919,7 @@
     "following": false,
     "intake_due_fmt": "05/11/2026",
     "kind": "request",
+    "library": null,
     "messages": [],
     "mine": 0,
     "original_due_fmt": "",
@@ -2988,6 +3020,7 @@
     "following": false,
     "intake_due_fmt": "05/11/2026",
     "kind": "request",
+    "library": null,
     "messages": [],
     "mine": 0,
     "original_due_fmt": "",
