@@ -72,6 +72,10 @@
   #ec-dreq-root .dreq-warn > .icon{ flex:0 0 18px;width:18px;height:18px;margin-top:1px; }
   #ec-dreq-root .dreq-warn > span{ flex:1 1 auto;text-align:left;min-width:0;overflow-wrap:anywhere; }
   #ec-dreq-root .ec-alert{ align-items:flex-start;text-align:left;width:100%; }
+  /* Data Request da chuyen sang Trung tam Du lieu (/du-lieu) - data_hub p003, 09/11/2026. */
+  #ec-dreq-root .dreq-moved a{ color:var(--navy-700);font-weight:700;text-decoration:underline; }
+  #ec-dreq-root .dreq-moved-card{ text-align:left; } #ec-dreq-root .dreq-moved-card p{ margin:0 0 12px;color:var(--gray-700); }
+  #ec-dreq-root a.btn{ text-decoration:none; }
   #ec-dreq-root .ec-alert > .icon{ margin-top:1px; }
   #ec-dreq-root .ec-alert-title{ font-weight:700;margin-bottom:2px;line-height:1.4; }
   #ec-dreq-root .btn{ display:inline-flex;align-items:center;gap:7px;padding:9px 15px;border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;border:1px solid var(--gray-200);background:#fff;color:var(--gray-700); }
@@ -138,6 +142,7 @@
     <div class="content">
       <h1 class="pg">Data Request</h1>
       <p class="pg-sub">Yêu cầu dữ liệu: độ chính xác, trực quan hóa, truy xuất, onboarding/offboarding khách hàng, crawl dữ liệu lịch sử, báo cáo BI mới, data training...</p>
+      <div class="banner info dreq-moved" id="dreq-moved" role="note"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><div><b>Data Request đã chuyển sang Trung tâm Dữ liệu.</b> Gửi yêu cầu mới, theo dõi tiến độ và trao đổi với team Data tại <a href="/du-lieu">Trung tâm Dữ liệu</a>. Các phiếu cũ đã được chuyển sang đó (giữ mã cũ); trang này chỉ còn để đối chiếu lịch sử.</div></div>
       <div class="tabs" id="dreq-tabs"></div>
       <div id="dreq-body"></div>
     </div>
@@ -239,6 +244,7 @@
   function renderCreate(b){
     var fo=state.boot&&state.boot.form_options||{}; var c=state.boot&&state.boot.context||{}; var d=state.draft||{};
     var editing=state.mode==="edit";
+    if(!editing){ b.innerHTML=movedCardHTML(); return; }
     var head = editing
       ? ('<div class="card"><h3>Tiến trình phê duyệt</h3><div class="stepper">'+buildStepper(state._editDet||{approval:{}})+'</div></div>'+infoRequiredBannerHTML())
       : '';
@@ -249,6 +255,15 @@
     if(editing) state._origMaterial=materialSnap(d);
     state.titleTouched = !!((d.request_title||"").toString().trim());
     maybeAutoTitle(); renderSummary(); wireCreate();
+  }
+  // Data Request moi gui tai Trung tam Du lieu (Approval Center tu choi gui phieu moi - service.submit).
+  function movedCardHTML(){
+    return '<div class="card dreq-moved-card" id="dreq-moved-card"><h3>Gửi Data Request mới tại Trung tâm Dữ liệu</h3>'
+      +'<p>Yêu cầu dữ liệu (Power BI, crawl data, xử lý dữ liệu…) nay gửi thẳng cho team Data trên Trung tâm Dữ liệu: có hạn xử lý theo quy tắc, vị trí trong hàng đợi, trao đổi trực tiếp và nghiệm thu kết quả.</p>'
+      +'<div class="actions"><a class="btn primary" href="/du-lieu">Mở Trung tâm Dữ liệu</a><a class="btn" href="?tab=my-requests">Xem phiếu cũ của tôi</a></div></div>';
+  }
+  function movedDetailHTML(id){
+    return '<div class="banner info dreq-moved" id="dreq-moved-detail"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><div>Phiếu này đã chuyển sang Trung tâm Dữ liệu - mọi xử lý, trao đổi tiếp theo làm ở đó. <a href="/du-lieu?ma='+encodeURIComponent(id||"")+'">Xem trên Trung tâm Dữ liệu</a></div></div>';
   }
   function renderSummary(){ var h=$("dreq-summary"); if(!h)return; var d=state.draft||{}; var c=state.boot.context||{};
     var rows=[["Tiêu đề",d.request_title],["Loại yêu cầu",d.request_type],["Ngày mong muốn hoàn thành",d.expected_resolution_date],
@@ -438,6 +453,7 @@
   function kv(k,v){ return '<div class="fld"><label>'+esc(k)+'</label><input class="ro" readonly value="'+esc(v==null||v===""?"—":v)+'"></div>'; }
   function drawDetail(b,det){ state.detail=det; var biz=det.business||{}, ap=det.approval||{}, ff=det.fulfillment||{};
     b.innerHTML='<div style="margin-bottom:12px"><button type="button" class="btn" id="d-back">‹ Danh sách</button></div>'
+      +movedDetailHTML(biz.name||state.id)
       +'<div class="card"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px"><div><h3 style="margin:0">'+esc(biz.request_title||biz.name||state.id)+'</h3><div class="hint">'+esc(biz.name||"")+' · '+esc(biz.request_type||"")+' · '+esc(biz.requested_by||"")+' · '+esc(biz.department||"")+'</div></div><div>'+badge({approval_status:ap.approval_status||"Draft",fulfillment_status:biz.fulfillment_status})+'</div></div></div>'
       +'<div class="card"><h3>Tiến trình xử lý</h3><div class="stepper" id="d-stepper"></div></div>'
       +'<div class="card"><h3>Thông tin yêu cầu</h3><div class="grid2">'+kv("Loại yêu cầu",biz.request_type)+kv("Ngày mong muốn hoàn thành",biz.expected_resolution_date)+kv("Mức độ khẩn cấp",biz.urgency)+kv("Mức độ quan trọng",biz.importance)+'</div><div class="fld" style="margin-top:10px"><label>Mô tả chi tiết</label><textarea class="ro" readonly rows="3">'+esc(biz.detailed_description||"")+'</textarea></div></div>'

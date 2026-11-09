@@ -199,3 +199,46 @@ def resume(code):
 @frappe.whitelist(methods=["POST"])
 def mark_done(code, output_link="", note=""):
     return _run(O.mark_done, _me(), _code(code), str(output_link or ""), str(note or ""))
+
+
+# ====================================================================== DOT 3 (09/11/2026) ===
+# Noi them cuoi file (dot 2 sua song song). Quy tac thoi han: rules_service; phieu cu: migration.
+def _rules():
+    from ecentric_workspace.data_hub import rules_service
+    return rules_service
+
+
+@frappe.whitelist(methods=["POST"])
+def save_rule_draft(data):
+    """Team Data luu ban nhap quy tac. data = JSON {days: {rule_key: n}, mult: {muc: x}, reason, submit}."""
+    return _run(lambda: _rules().save_draft(_me(), _json(data)))
+
+
+@frappe.whitelist(methods=["POST"])
+def submit_rule(name, reason=""):
+    return _run(lambda: _rules().submit(_me(), str(name or ""), str(reason or "")))
+
+
+@frappe.whitelist(methods=["POST"])
+def decide_rule(name, verdict, note=""):
+    """Nguoi duyet quy tac (Settings.rule_approver): verdict = "approve" | "reject" (+ ly do)."""
+    return _run(lambda: _rules().decide(_me(), str(name or ""), str(verdict or ""), str(note or "")))
+
+
+@frappe.whitelist(methods=["POST"])
+def cancel_rule(name, reason=""):
+    return _run(lambda: _rules().cancel(_me(), str(name or ""), str(reason or "")))
+
+
+@frappe.whitelist()
+def legacy_migration_report():
+    """System Manager: chay lai DRY RUN chuyen phieu Data Request cu - chi doc, tra bao cao."""
+    from ecentric_workspace.data_hub import migration
+    return _run(lambda: migration.run_for(_me(), dry_run=1))
+
+
+@frappe.whitelist(methods=["POST"])
+def run_legacy_migration():
+    """System Manager: chuyen THAT cac phieu chua chuyen (chay lai an toan - phieu da co ticket bo qua)."""
+    from ecentric_workspace.data_hub import migration
+    return _run(lambda: migration.run_for(_me(), dry_run=0))

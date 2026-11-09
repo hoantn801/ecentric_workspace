@@ -44,7 +44,7 @@
    "fieldname": "event",
    "fieldtype": "Select",
    "label": "Sự kiện",
-   "options": "Tạo\nNhận việc\nĐổi người xử lý\nĐổi hạn\nĐổi ngày bắt đầu\nĐổi ưu tiên\nTạm dừng\nTiếp tục\nHoàn tất\nNghiệm thu đạt\nNghiệm thu chưa đạt\nTự đóng\nHuỷ\nĐồng bộ /pm\nLỗi đồng bộ /pm",
+   "options": "Tạo\nNhận việc\nĐổi người xử lý\nĐổi hạn\nĐổi ngày bắt đầu\nĐổi ưu tiên\nTạm dừng\nTiếp tục\nHoàn tất\nNghiệm thu đạt\nNghiệm thu chưa đạt\nTự đóng\nHuỷ\nĐồng bộ /pm\nLỗi đồng bộ /pm\nChuyển từ phiếu cũ\nLịch sử phiếu cũ",
    "in_list_view": 1
   },
   {

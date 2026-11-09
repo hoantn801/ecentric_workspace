@@ -304,7 +304,7 @@ def file_content(code, row_name):
     rows = frappe.get_all("File", filters={"file_url": url, "attached_to_doctype": C.TICKET_DT,
                                            "attached_to_name": code}, pluck="name", limit=1)
     if not rows:
-        return None
+        return legacy_file_content(code, url)   # dot 3: tep cua phieu Data Request cu (khong chep)
     f = frappe.get_doc("File", rows[0])
     return f.file_name, f.get_content()
 
@@ -377,3 +377,262 @@ def notify(event, recipient, title, message, url, code, dedupe_key, actor=None):
 
 def flags():
     return frappe.flags
+
+
+# ====================================================================== DOT 3 (09/11/2026) ===
+# Noi them cuoi file (dot 2 sua song song): quy tac co phien ban + duyet, chuyen phieu Data Request cu.
+
+def _forget(*prefixes):
+    """Bo nho tam trong request (settings / rule_set) sau khi ghi."""
+    store = getattr(frappe.local, "ec_data_hub_memo", None)
+    if not store:
+        return
+    for k in list(store):
+        if any(k.startswith(p) for p in prefixes):
+            store.pop(k, None)
+
+
+# ------------------------------------------------------------------ quy tac (rules_service) --
+RULE_FIELDS = ["name", "version_no", "status", "effective_from", "supersedes", "proposed_by", "reason",
+               "submitted_at", "decided_by", "decided_at", "decision_note", "mult_urgent", "mult_high",
+               "mult_normal", "mult_low", "creation", "modified"]
+
+
+def lock_rules():
+    """Khoa ghi quy tac: SELECT ... FOR UPDATE tren cac dong cua Settings (Single) - moi thao tac
+    sua / gui / duyet / rut lai deu di qua day nen chay noi tiep."""
+    frappe.db.sql("select field from `tabSingles` where doctype = %s for update", (C.SETTINGS_DT,))
+    _forget("settings", "rule_set:")
+
+
+def _items(names):
+    out = {}
+    if not names:
+        return out
+    for r in frappe.get_all(C.RULE_ITEM_DT, filters={"parent": ["in", list(names)], "parenttype": C.RULE_DT},
+                            fields=["parent", "rule_key", "label", "days", "note"], order_by="idx asc",
+                            limit_page_length=0):
+        out.setdefault(r.parent, []).append({"rule_key": r.rule_key, "label": r.label, "days": r.days,
+                                             "note": r.note})
+    return out
+
+
+def rule_doc(name):
+    """Mot bo quy tac (dict + items). Nho trong request (khoa "rule_set:doc:" - moi lan ghi quy tac
+    va lock_rules deu xoa) - trang Dieu phoi goi cho tung yeu cau con giu ban quy tac cu."""
+    if not name:
+        return None
+
+    def load():
+        rows = frappe.get_all(C.RULE_DT, filters={"name": name}, fields=RULE_FIELDS, limit=1)
+        if not rows:
+            return None
+        d = dict(rows[0])
+        d["items"] = _items([name]).get(name, [])
+        return d
+    got = _memo("rule_set:doc:" + name, load)
+    return dict(got, items=[dict(i) for i in got["items"]]) if got else None
+
+
+def rule_versions(statuses=None, limit=30):
+    """Cac bo quy tac moi nhat truoc (kem items) - lich su + ban nhap / cho duyet dang mo."""
+    filters = {"status": ["in", list(statuses)]} if statuses else {}
+    rows = [dict(r) for r in frappe.get_all(C.RULE_DT, filters=filters, fields=RULE_FIELDS,
+                                            order_by="version_no desc", limit_page_length=limit)]
+    items = _items([r["name"] for r in rows])
+    for r in rows:
+        r["items"] = items.get(r["name"], [])
+    return rows
+
+
+def next_rule_version():
+    row = frappe.db.sql("select max(version_no) from `tabEC Data SLA Rule Set`")
+    return int((row and row[0][0]) or 0) + 1
+
+
+def insert_rule(values):
+    doc = frappe.get_doc(dict(values, doctype=C.RULE_DT))
+    doc.insert(ignore_permissions=True)
+    _forget("rule_set:")
+    return doc.name
+
+
+def update_rule(name, values):
+    """Qua doc.save() (Version / track_changes ghi lai moi lan sua). items -> thay ca bang con."""
+    doc = frappe.get_doc(C.RULE_DT, name)
+    values = dict(values)
+    items = values.pop("items", None)
+    doc.update(values)
+    if items is not None:
+        doc.set("items", [])
+        for it in items:
+            doc.append("items", it)
+    doc.flags.ignore_permissions = True
+    doc.save(ignore_permissions=True)
+    _forget("rule_set:")
+
+
+def set_settings(values):
+    s = frappe.get_single(C.SETTINGS_DT)
+    s.update(values)
+    s.flags.ignore_permissions = True
+    s.save(ignore_permissions=True)
+    _forget("settings", "rule_set:")
+
+
+def notify_ref(event, recipient, title, message, url, ref_doctype, ref_name, dedupe_key, actor=None):
+    from ecentric_workspace.notification_center.events import publish_notification_event
+    return publish_notification_event(event, recipient, title, message, action_url=url,
+                                      reference_doctype=ref_doctype, reference_name=ref_name,
+                                      actor=actor or C.SYSTEM_USER, from_user=actor or C.SYSTEM_USER,
+                                      dedupe_key=dedupe_key)
+
+
+# ------------------------------------------------------------------ phieu Data Request cu ----
+LEGACY_FIELDS = ["name", "request_title", "requested_by", "department", "detailed_description", "request_type",
+                 "urgency", "importance", "expected_resolution_date", "request_attachment", "submitted_at",
+                 "completed_at", "approval_request", "fulfillment_status", "assigned_fulfiller", "fulfillment_owner",
+                 "fulfillment_due_at", "fulfillment_summary", "output_link", "output_attachment", "completed_by",
+                 "creation"]
+
+
+def find_by_legacy(ref):
+    if not ref:
+        return None
+    return frappe.db.get_value(C.TICKET_DT, {"legacy_ref": ref}, "name")
+
+
+def legacy_ready():
+    return bool(frappe.db.exists("DocType", C.LEGACY_DT))
+
+
+def legacy_requests():
+    """Moi phieu EC Data Request (cu truoc) + approval_status / gio ket thuc cua EC Approval Request."""
+    rows = [dict(r) for r in frappe.get_all(C.LEGACY_DT, fields=LEGACY_FIELDS, order_by="creation asc",
+                                            limit_page_length=0)]
+    reqs = [r["approval_request"] for r in rows if r.get("approval_request")]
+    status = {}
+    if reqs:
+        for a in frappe.get_all(C.LEGACY_REQUEST_DT, filters={"name": ["in", reqs]},
+                                fields=["name", "approval_status", "completed_at"], limit_page_length=0):
+            status[a.name] = a
+    for r in rows:
+        a = status.get(r.get("approval_request"))
+        r["approval_status"] = a.approval_status if a else None
+        r["approval_completed_at"] = a.completed_at if a else None
+    return rows
+
+
+def legacy_actions(approval_request):
+    return [dict(r) for r in frappe.get_all(
+        C.LEGACY_ACTION_DT, filters={"approval_request": approval_request},
+        fields=["name", "seq", "actor", "action", "comment", "action_time", "new_status", "level_no", "level_name"],
+        order_by="action_time asc, seq asc", limit_page_length=0)]
+
+
+def legacy_files(ref, urls=()):
+    """File da gan vao phieu cu (+ cac o Attach) -> dong cho bang attachments. KHONG chep noi dung:
+    dong moi tro dung file_url cu (file_content tai qua phieu cu, xem duoi)."""
+    rows = frappe.get_all("File", filters={"attached_to_doctype": C.LEGACY_DT, "attached_to_name": ref,
+                                           "is_folder": 0},
+                          fields=["file_url", "file_name", "file_size", "owner"], order_by="creation asc",
+                          limit_page_length=0)
+    out, seen = [], set()
+    for f in rows:
+        if f.file_url and f.file_url not in seen:
+            seen.add(f.file_url)
+            out.append({"file_url": f.file_url, "file_name": f.file_name or f.file_url.rsplit("/", 1)[-1],
+                        "file_size": int(f.file_size or 0), "uploaded_by": f.owner, "message": ""})
+    for url in urls or ():
+        if url and url not in seen:
+            seen.add(url)
+            out.append({"file_url": url, "file_name": url.rsplit("/", 1)[-1], "file_size": 0, "uploaded_by": None,
+                        "message": ""})
+    return out
+
+
+def backdate(doctype, name, at):
+    """Gio tao goc (gio gui phieu cu / gio cua tung buoc duyet cu) - chi dung khi chuyen phieu cu."""
+    if at:
+        frappe.db.set_value(doctype, name, {"creation": at, "modified": at}, update_modified=False)
+
+
+def insert_migrated(values, created_at):
+    """Ticket tu phieu cu. ignore_links: nguoi gui / nguoi xu ly cu co the da nghi viec."""
+    doc = frappe.get_doc(dict(values, doctype=C.TICKET_DT))
+    doc.flags.ignore_links = True
+    doc.insert(ignore_permissions=True)
+    backdate(C.TICKET_DT, doc.name, created_at)
+    return doc.name
+
+
+def link_files(code, rows):
+    doc = _parent(code)
+    doc.flags.ignore_links = True
+    for r in rows:
+        doc.append("attachments", r)
+    doc.save(ignore_permissions=True)
+
+
+def insert_log_at(values, at):
+    doc = frappe.get_doc(dict(values, doctype=C.LOG_DT))
+    doc.flags.ignore_links = True
+    doc.insert(ignore_permissions=True)
+    backdate(C.LOG_DT, doc.name, at)
+    return doc.name
+
+
+def savepoint(name):
+    frappe.db.savepoint(name)
+    return name
+
+
+def rollback_savepoint(name):
+    try:
+        frappe.db.rollback(save_point=name)
+    except Exception:
+        pass
+
+
+def task_for_legacy(ref):
+    """Task /pm da nhac ma phieu cu trong tieu de (go tay truoc khi chuyen) - de gan, khong tao trung."""
+    if not ref:
+        return None
+    rows = frappe.get_all("Task", filters={"subject": ["like", "%" + ref.replace("%", "") + "%"]}, pluck="name",
+                          limit=1)
+    return rows[0] if rows else None
+
+
+def legacy_file_content(code, url):
+    """Tep cu (dong attachments tro file_url cua phieu cu): chi tra khi File do THUOC phieu cu ma
+    ticket nay mang legacy_ref - khong mo duong tai file bat ky qua file_url."""
+    ref = frappe.db.get_value(C.TICKET_DT, code, "legacy_ref")
+    if not ref or not url:
+        return None
+    rows = frappe.get_all("File", filters={"file_url": url, "attached_to_doctype": C.LEGACY_DT,
+                                           "attached_to_name": ref}, pluck="name", limit=1)
+    if not rows:
+        attach = frappe.db.get_value(C.LEGACY_DT, ref, ["request_attachment", "output_attachment"]) or ()
+        if url not in attach:
+            return None
+        rows = frappe.get_all("File", filters={"file_url": url}, pluck="name", limit=1)
+    if not rows:
+        return None
+    f = frappe.get_doc("File", rows[0])
+    return f.file_name, f.get_content()
+
+
+# ------------------------------------------------------------------ the Approval Center ------
+def approval_type_route(code):
+    """Route cua EC Approval Type; None neu khong co loai nay."""
+    if not frappe.db.exists("DocType", "EC Approval Type") or not frappe.db.exists("EC Approval Type", code):
+        return None
+    return frappe.db.get_value("EC Approval Type", code, "route") or ""
+
+
+def set_approval_type_route(code, route, note):
+    frappe.db.set_value("EC Approval Type", code, "route", route)
+    try:
+        frappe.get_doc("EC Approval Type", code).add_comment("Comment", note)
+    except Exception:
+        pass

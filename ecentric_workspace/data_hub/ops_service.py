@@ -56,7 +56,7 @@ def accept(user, code, assignee="", start_date="", due_date="", priority="", rea
         errs.append("Ngày bắt đầu không được trước hôm nay.")
     if errs:
         S._fail(errs)
-    r = S.rules(repo)
+    r = S.ticket_rules(repo, t)
     n = D.ticket_sla_days(r, t.get("request_type"), pri)
     default_due = D.due_from(start, n, hol)
     due = D.as_date(due_date) if due_date else default_due

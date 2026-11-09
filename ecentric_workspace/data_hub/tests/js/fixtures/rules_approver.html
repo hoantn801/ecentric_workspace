@@ -1,0 +1,96 @@
+<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>T · eCentric</title>
+<link rel="stylesheet" href="/a.css">
+
+<link rel="stylesheet" href="/r.css">
+</head><body>
+<div class="edh-app">
+  <aside>MENU</aside>
+  <main class="edh-main">
+    <div class="ec-shell-topbar" data-ec-shell-topbar="1"><div>TOPBAR</div></div>
+    <div class="edh-page" id="edh" data-edh-page="">
+      <header class="edh-head">
+        <h1 class="edh-h1">Trung tâm Dữ liệu</h1>
+        <p class="edh-sub">Gửi yêu cầu Power BI, crawl data, xử lý dữ liệu và theo dõi tiến độ. Mọi team đều xem được.</p>
+      </header>
+      <nav class="edh-tabs" aria-label="Trung tâm Dữ liệu">
+        <a class="edh-tab" href="/du-lieu">Yêu cầu dữ liệu</a><a class="edh-tab" href="/du-lieu/san-co">Data availability</a><a class="edh-tab is-on" href="/du-lieu/quy-tac" aria-current="page">Quy tắc thời hạn</a>
+      </nav>
+      
+
+  
+<p class="edh-banner is-info" data-edh-rules-banner="decide"><b>Có 1 thay đổi quy tắc (v2) chờ bạn duyệt</b> — gửi bởi Linh Vương lúc 09/11 09:30. Quy tắc cũ vẫn áp dụng tới khi duyệt.</p>
+  
+
+<section class="edh-card edh-rules" data-edh-rules aria-labelledby="edh-rules-h">
+  <h2 class="edh-h3" id="edh-rules-h">Thời hạn mặc định theo loại yêu cầu <span class="edh-hint">(ngày làm việc, bỏ T7/CN, ngày lễ)</span></h2>
+  <p class="edh-hint">Đang áp dụng: <b>v1</b> · từ 01/11/2026 · Đang áp dụng. Hạn = ngày bắt đầu + N ngày làm việc; N = số ngày theo loại × hệ số ưu tiên (làm tròn lên, tối thiểu 1). Quy tắc mới chỉ áp cho yêu cầu mới.</p>
+  <form data-edh-rules-form novalidate>
+  <table class="edh-tbl edh-tbl-plain edh-rules-tbl">
+    <thead><tr><th>Loại</th><th>Đang áp dụng</th><th>Đề xuất mới</th><th>Ghi chú</th></tr></thead>
+    <tbody>
+    <tr data-key="pbi_new"><td>Power BI mới</td><td><b>7</b> ngày</td><td class="edh-rules-prop"><span class="edh-rules-view"><span class="edh-chg">10 ngày</span></span></td><td class="edh-hint">Dashboard mới</td></tr><tr data-key="pbi_edit"><td>Sửa / thêm vào Power BI có sẵn</td><td><b>3</b> ngày</td><td class="edh-rules-prop"><span class="edh-rules-view"><span class="edh-hint">—</span></span></td><td class="edh-hint"></td></tr><tr data-key="crawl_new"><td>Crawl data mới</td><td><b>7</b> ngày</td><td class="edh-rules-prop"><span class="edh-rules-view"><span class="edh-hint">—</span></span></td><td class="edh-hint">Tính từ lúc đề xuất được duyệt</td></tr><tr data-key="data_processing"><td>Xử lý / làm sạch dữ liệu</td><td><b>3</b> ngày</td><td class="edh-rules-prop"><span class="edh-rules-view"><span class="edh-hint">—</span></span></td><td class="edh-hint"></td></tr><tr data-key="other"><td>Khác</td><td><b>3</b> ngày</td><td class="edh-rules-prop"><span class="edh-rules-view"><span class="edh-hint">—</span></span></td><td class="edh-hint"></td></tr><tr data-key="proposal_review"><td>Duyệt đề xuất data cần crawl</td><td><b>1</b> ngày</td><td class="edh-rules-prop"><span class="edh-rules-view"><span class="edh-hint">—</span></span></td><td class="edh-hint"></td></tr><tr data-key="intake"><td>Tiếp nhận yêu cầu mới</td><td><b>1</b> ngày</td><td class="edh-rules-prop"><span class="edh-rules-view"><span class="edh-hint">—</span></span></td><td class="edh-hint">Từ lúc gửi tới lúc có người nhận</td></tr>
+    <tr data-key="mult"><td>Hệ số theo ưu tiên</td><td>Khẩn ×0,5 · Cao ×0,8 · Bình thường ×1 · Thấp ×1,5</td><td class="edh-rules-prop"><span class="edh-rules-view"><span class="edh-hint">—</span></span></td><td class="edh-hint">Từ 0,25 đến 3</td></tr>
+    </tbody>
+  </table>
+  
+  <div class="edh-actions edh-rules-view" data-edh-rules-actions>
+    
+    
+    
+    <button type="button" class="edh-btn is-primary" data-edh-rules-ask="approve" data-name="SLA-v2">Duyệt thay đổi</button>
+    <button type="button" class="edh-btn" data-edh-rules-ask="reject" data-name="SLA-v2">Từ chối</button>
+    
+    <span class="edh-hint">Lý do của Linh Vương: “Dashboard mới hay cần 3+ nguồn”</span>
+    
+    
+  </div>
+  <div class="edh-rules-ask" data-edh-rules-panel hidden>
+    <div class="edh-fld"><label for="edh-rules-note" data-edh-rules-note-label>Ghi chú</label>
+      <textarea id="edh-rules-note" class="edh-inp" rows="2" maxlength="1000" data-edh-rules-note></textarea></div>
+    <p class="edh-err" data-edh-rules-panel-err role="alert" hidden></p>
+    <div class="edh-actions">
+      <button type="button" class="edh-btn" data-edh-rules-panel-close>Thôi</button>
+      <button type="button" class="edh-btn is-primary" data-edh-rules-panel-ok>Xác nhận</button>
+    </div>
+  </div>
+  </form>
+</section>
+<section class="edh-card" aria-labelledby="edh-rules-hist">
+  <h2 class="edh-h3" id="edh-rules-hist">Lịch sử quy tắc</h2>
+  
+  <div class="edh-tl-item edh-rules-h" data-version="SLA-v2"><span class="edh-tl-dot" aria-hidden="true"></span><div>
+    <div><b>v2 · 09/11 09:30</b> <span class="edh-badge is-amber"><span class="edh-dot" aria-hidden="true"></span>Chờ duyệt</span></div>
+    <ul class="edh-rules-diff"><li>Power BI mới: <del>7 ngày</del> → <ins class="edh-chg">10 ngày</ins></li></ul>
+    
+    <div class="edh-hint">Đề xuất: Linh Vương (09/11 09:30)</div>
+    <div class="edh-hint">Lý do: Dashboard mới hay cần 3+ nguồn</div>
+    
+  </div></div>
+  
+  <div class="edh-tl-item edh-rules-h" data-version="SLA-v1"><span class="edh-tl-dot" aria-hidden="true"></span><div>
+    <div><b>v1 · 01/11/2026</b> <span class="edh-badge is-green"><span class="edh-dot" aria-hidden="true"></span>Đang áp dụng</span></div>
+    <div>Bộ quy tắc đầu tiên</div>
+    <div class="edh-hint"></div>
+    
+    
+  </div></div>
+  
+</section>
+
+
+    </div>
+  </main>
+</div>
+<div class="edh-ov edh-ov-center" data-edh-detail-ov hidden>
+  <div class="edh-dmodal" role="dialog" aria-modal="true" aria-label="Chi tiết yêu cầu" data-edh-detail tabindex="-1">
+    <div class="edh-dm-loading"><span class="edh-spin" aria-hidden="true"></span> Đang tải chi tiết…</div>
+  </div>
+</div>
+
+<div class="edh-toast" data-edh-toast role="status" aria-live="polite" hidden></div>
+<script type="application/json" id="edh-boot">{"page": "rules", "me": "hoan.tran@ecentric.vn", "active": {"name": "SLA-v1", "days": {"pbi_new": 7, "pbi_edit": 3, "crawl_new": 7, "data_processing": 3, "other": 3, "proposal_review": 1, "intake": 1}, "mult": {"Khẩn": 0.5, "Cao": 0.8, "Bình thường": 1.0, "Thấp": 1.5}}, "draft": null, "pending": "SLA-v2", "can": {"propose": false, "edit": false, "submit": false, "cancel": false, "decide": true}, "limits": {"days_min": 1, "days_max": 60, "mult_min": 0.25, "mult_max": 3.0, "reason_max": 1000}, "approver_name": "Hoàn Trần", "labels": {"pbi_new": "Power BI mới", "pbi_edit": "Sửa / thêm vào Power BI có sẵn", "crawl_new": "Crawl data mới", "data_processing": "Xử lý / làm sạch dữ liệu", "other": "Khác", "proposal_review": "Duyệt đề xuất data cần crawl", "intake": "Tiếp nhận yêu cầu mới"}, "keys": ["pbi_new", "pbi_edit", "crawl_new", "data_processing", "other", "proposal_review", "intake"], "priorities": ["Khẩn", "Cao", "Bình thường", "Thấp"]}</script>
+
+<script src="/a.js" defer></script>
+
+<script src="/r.js" defer></script>
+</body></html>

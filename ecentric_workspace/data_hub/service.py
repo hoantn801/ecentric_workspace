@@ -333,7 +333,7 @@ def _timeline(t, logs, names):
         elif ev == C.EV_PM_ERROR:
             text = "Chưa đồng bộ được với /pm"
         else:
-            text = "%s %s" % (who, ev or "")
+            text = _extra_event_text(ev, who, a, b) or "%s %s" % (who, ev or "")
         if lg.get("source") == C.SRC_PM and ev not in (C.EV_PM, C.EV_PM_ERROR):
             text += " (từ /pm)"
         out.append({"when": D.fmt_dt(lg.get("creation")), "text": text, "note": lg.get("note") or "",
@@ -345,6 +345,7 @@ def detail(user, code, repo=None):
     """Du lieu popup chi tiet (card thong tin + card trao doi). Quyen thao tac tinh san o `can`."""
     repo = _repo(repo)
     require_internal(repo, user)
+    code = resolve_code(repo, code)
     t = load(repo, code)
     today, hol = repo.today(), repo.holidays()
     msgs = repo.messages(code)
@@ -424,7 +425,7 @@ def detail(user, code, repo=None):
 def accept_defaults(repo, t, today=None, hol=None, start=None, priority=None):
     today = today or repo.today()
     hol = repo.holidays() if hol is None else hol
-    r = rules(repo)
+    r = ticket_rules(repo, t)
     pri = priority if priority in C.PRIORITIES else D.queue_priority(t)
     s = D.as_date(start) or D.default_start(today, hol)
     n = D.ticket_sla_days(r, t.get("request_type"), pri)
@@ -550,7 +551,7 @@ def ops_page(user, repo=None):
 
 
 def rules_page(user, repo=None):
-    """/du-lieu/quy-tac - bang quy tac dang ap dung (chi doc o dot 1; sua + duyet o dot 3)."""
+    """/du-lieu/quy-tac - quy tac dang ap dung + de xuat moi + duyet + lich su (dot 3: rules_service)."""
     repo = _repo(repo)
     require_internal(repo, user)
     ctx = _base(repo, user, "rules")
@@ -558,17 +559,10 @@ def rules_page(user, repo=None):
         ctx["denied"] = True
         ctx["boot_json"] = _boot({"page": "rules", "denied": True})
         return ctx
-    rs = repo.rule_set() or {}
-    r = rules(repo)
-    ctx.update({
-        "rule_rows": [{"label": r["labels"][k], "days": r["days"][k], "note": r["notes"][k]}
-                      for k, *_x in C.RULE_DEFAULTS],
-        "mult": [{"label": p, "value": ("%g" % r["mult"][p]).replace(".", ",")} for p in C.PRIORITIES],
-        "rule_version": rs.get("name") or "v1 (mặc định)", "rule_status": rs.get("status") or C.RULE_ACTIVE,
-        "rule_from": D.fmt_date_full(rs.get("effective_from")),
-        "history": [dict(h, from_fmt=D.fmt_date_full(h.get("effective_from"))) for h in repo.rule_history()],
-    })
-    ctx["boot_json"] = _boot({"page": "rules", "me": user})
+    from ecentric_workspace.data_hub import rules_service
+    part, boot = rules_service.page_context(repo, user)
+    ctx.update(part)
+    ctx["boot_json"] = _boot(boot)
     return ctx
 
 
@@ -578,3 +572,31 @@ def avail_page(user, repo=None):
     ctx = _base(repo, user, "avail")
     ctx["boot_json"] = _boot({"page": "avail", "me": user})
     return ctx
+
+
+# ====================================================================== DOT 3 (09/11/2026) ===
+# Noi them cuoi file (dot 2 sua song song): bo quy tac theo yeu cau, ma phieu cu, nhat ky phieu cu.
+def ticket_rules(repo, t):
+    """Bo quy tac CUA yeu cau nay (rule_version luu luc gui) - quy tac moi duoc duyet chi ap cho yeu
+    cau MOI, ke ca khi team Data nhan viec sau ngay doi quy tac. Khong co / mat ban ghi -> dang ap dung."""
+    name = (t or {}).get("rule_version")
+    if name:
+        active = repo.settings().get("active_rule_set")
+        if name != active:
+            rs = repo.rule_doc(name)
+            if rs:
+                return D.rules_view(rs)
+    return rules(repo)
+
+
+def resolve_code(repo, code):
+    """Ma moi (DR-...) giu nguyen; ma phieu Data Request cu (EC-DATA-...) -> ma moi da chuyen."""
+    code = (code or "").strip()
+    if not code or repo.get(code):
+        return code
+    return repo.find_by_legacy(code) or code
+
+
+def _extra_event_text(ev, who, a, b):
+    from ecentric_workspace.data_hub import legacy
+    return legacy.timeline_text(ev, who, a, b)

@@ -332,6 +332,8 @@
    "fieldname": "legacy_ref",
    "fieldtype": "Data",
    "label": "Mã phiếu Data Request cũ",
+   "search_index": 1,
+   "read_only": 1,
    "description": "Đợt 3: phiếu EC Data Request chuyển sang (giữ mã cũ)."
   },
   {

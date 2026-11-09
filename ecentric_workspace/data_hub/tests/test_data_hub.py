@@ -922,7 +922,7 @@ class TestHooksAppendOnly(unittest.TestCase):
 
     def test_patch_registered_and_module(self):
         pt = io.open(os.path.join(APP, "patches.txt"), encoding="utf-8").read().splitlines()
-        self.assertEqual(pt[-1], "ecentric_workspace.data_hub.patches.p001_seed_data_hub")
+        self.assertIn("ecentric_workspace.data_hub.patches.p001_seed_data_hub", pt)
         self.assertIn("Data Hub", io.open(os.path.join(APP, "modules.txt"), encoding="utf-8").read().splitlines())
         src = io.open(os.path.join(APP, "data_hub", "patches", "p001_seed_data_hub.py"), encoding="utf-8").read()
         self.assertIn("def execute", src)

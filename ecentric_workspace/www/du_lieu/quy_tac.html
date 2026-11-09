@@ -1,26 +1,98 @@
 {%- extends "templates/includes/data_hub/layout.html" -%}
-{#- /du-lieu/quy-tac - Quy tac thoi han dang ap dung (chi doc o dot 1). -#}
+{#- /du-lieu/quy-tac - Quy tac thoi han (dot 3): dang ap dung · de xuat moi · gui duyet / duyet / tu choi
+    · lich su phien ban. Server ve SAN trang thai (bang, cot de xuat, nut theo vai); o nhap so nam san
+    trong markup, CSS chi hien khi bam "Sua quy tac" (.is-editing). JS: ec_data_hub_rules.bundle.js. -#}
+{% block style %}{{ super() }}
+{% if edh_rules_css is defined %}<link rel="stylesheet" href="{{ edh_rules_css }}">{% endif %}
+{% endblock %}
 {% block edh_page %}
 {% if denied %}
 <section class="edh-card edh-state"><h4>Chỉ team Data và người duyệt quy tắc xem được trang này</h4><p>Hạn của từng yêu cầu vẫn hiện trên <a class="edh-link" href="/du-lieu">Yêu cầu dữ liệu</a>.</p></section>
 {% else %}
-<section class="edh-card">
-  <h2 class="edh-h3">Thời hạn mặc định theo loại yêu cầu <span class="edh-hint">(ngày làm việc, bỏ T7/CN, ngày lễ)</span></h2>
-  <p class="edh-hint">Đang áp dụng: <b>{{ rule_version|e }}</b>{% if rule_from %} · từ {{ rule_from|e }}{% endif %} · {{ rule_status|e }}. Hạn = ngày bắt đầu + N ngày làm việc; N = số ngày theo loại × hệ số ưu tiên (làm tròn lên, tối thiểu 1). Quy tắc mới chỉ áp cho yêu cầu mới.</p>
-  <table class="edh-tbl edh-tbl-plain">
-    <thead><tr><th>Loại</th><th>Đang áp dụng</th><th>Ghi chú</th></tr></thead>
+{%- set p = pending -%}
+{%- set who = approver_name or "người duyệt quy tắc" -%}
+{% if p and p.status == "Chờ duyệt" %}
+  {% if rule_can.decide %}
+<p class="edh-banner is-info" data-edh-rules-banner="decide"><b>Có 1 thay đổi quy tắc ({{ p.label|e }}) chờ bạn duyệt</b> — gửi bởi {{ p.proposed_by_name|e }}{% if p.submitted %} lúc {{ p.submitted|e }}{% endif %}. Quy tắc cũ vẫn áp dụng tới khi duyệt.</p>
+  {% else %}
+<p class="edh-banner is-warn" data-edh-rules-banner="pending">Đang chờ {{ who|e }} duyệt 1 thay đổi quy tắc ({{ p.label|e }}, gửi bởi {{ p.proposed_by_name|e }}{% if p.submitted %} {{ p.submitted|e }}{% endif %}). Quy tắc cũ vẫn áp dụng tới khi duyệt.</p>
+  {% endif %}
+{% elif p %}
+<p class="edh-banner is-info" data-edh-rules-banner="draft">{% if p.mine %}Bạn đang có bản nháp {{ p.label|e }} — chưa gửi duyệt.{% else %}{{ p.proposed_by_name|e }} đang có bản nháp {{ p.label|e }} (chưa gửi duyệt) — mỗi lúc chỉ một thay đổi quy tắc.{% endif %}</p>
+{% endif %}
+<section class="edh-card edh-rules" data-edh-rules aria-labelledby="edh-rules-h">
+  <h2 class="edh-h3" id="edh-rules-h">Thời hạn mặc định theo loại yêu cầu <span class="edh-hint">(ngày làm việc, bỏ T7/CN, ngày lễ)</span></h2>
+  <p class="edh-hint">Đang áp dụng: <b>{{ rule_label|e }}</b>{% if rule_from %} · từ {{ rule_from|e }}{% endif %} · {{ rule_status|e }}. Hạn = ngày bắt đầu + N ngày làm việc; N = số ngày theo loại × hệ số ưu tiên (làm tròn lên, tối thiểu 1). Quy tắc mới chỉ áp cho yêu cầu mới.</p>
+  <form data-edh-rules-form novalidate>
+  <table class="edh-tbl edh-tbl-plain edh-rules-tbl">
+    <thead><tr><th>Loại</th><th>Đang áp dụng</th>{% if show_proposal %}<th>Đề xuất mới</th>{% endif %}<th>Ghi chú</th></tr></thead>
     <tbody>
-    {% for r in rule_rows %}<tr><td>{{ r.label|e }}</td><td><b>{{ r.days }}</b> ngày</td><td class="edh-hint">{{ r.note|e }}</td></tr>{% endfor %}
-    <tr><td>Hệ số theo ưu tiên</td><td colspan="2">{% for m in mult %}{{ m.label|e }} ×{{ m.value|e }}{% if not loop.last %} · {% endif %}{% endfor %}</td></tr>
+    {% for r in rule_rows %}<tr data-key="{{ r.key|e }}"><td>{{ r.label|e }}</td><td><b>{{ r.days }}</b> ngày</td>{% if show_proposal %}<td class="edh-rules-prop"><span class="edh-rules-view">{% if r.changed %}<span class="edh-chg">{{ r.proposed }} ngày</span>{% else %}<span class="edh-hint">—</span>{% endif %}</span>{% if rule_can.propose or rule_can.edit %}<label class="edh-rules-edit"><input class="edh-inp edh-rules-num" type="number" inputmode="numeric" name="days.{{ r.key|e }}" data-edh-rules-days="{{ r.key|e }}" min="{{ limits.days_min }}" max="{{ limits.days_max }}" step="1" value="{{ r.proposed if r.proposed is not none else r.days }}" data-active="{{ r.days }}" aria-label="Số ngày mới: {{ r.label|e }}"> ngày</label>{% endif %}</td>{% endif %}<td class="edh-hint">{{ r.note|e }}</td></tr>{% endfor %}
+    <tr data-key="mult"><td>Hệ số theo ưu tiên</td><td>{{ mult_text|e }}</td>{% if show_proposal %}<td class="edh-rules-prop"><span class="edh-rules-view">{% if mult_changed %}<span class="edh-chg">{{ proposal_mult_text|e }}</span>{% else %}<span class="edh-hint">—</span>{% endif %}</span>{% if rule_can.propose or rule_can.edit %}<span class="edh-rules-edit edh-rules-mults">{% for m in mult %}<label>{{ m.priority|e }} ×<input class="edh-inp edh-rules-num" type="text" inputmode="decimal" name="mult.{{ m.priority|e }}" data-edh-rules-mult="{{ m.priority|e }}" value="{{ m.proposed if m.proposed else m.value }}" data-active="{{ m.value }}" aria-label="Hệ số mới mức {{ m.priority|e }}"></label>{% endfor %}</span>{% endif %}</td>{% endif %}<td class="edh-hint">Từ {{ limits.mult_min|string|replace('.', ',') }} đến {{ limits.mult_max|int }}</td></tr>
     </tbody>
   </table>
-  <p class="edh-banner is-info">Sửa quy tắc → gửi người duyệt quy tắc → duyệt / từ chối: <b>sắp có (đợt 3)</b>. Quy tắc cũ vẫn chạy tới khi bản mới được duyệt.</p>
+  {% if rule_can.propose or rule_can.edit %}
+  <div class="edh-rules-edit edh-rules-editbox">
+    <div class="edh-fld"><label for="edh-rules-reason">Lý do thay đổi <span class="edh-req">*</span> <span class="edh-hint">(bắt buộc khi gửi duyệt; {{ who|e }} sẽ đọc)</span></label>
+      <textarea id="edh-rules-reason" class="edh-inp" name="reason" rows="2" maxlength="{{ limits.reason_max }}" data-edh-rules-reason placeholder="Ví dụ: Dashboard mới hay cần 3+ nguồn, 7 ngày thường trễ.">{{ p.reason|e if p and p.mine else "" }}</textarea></div>
+    <p class="edh-hint" data-edh-rules-count aria-live="polite"></p>
+    <p class="edh-err" data-edh-rules-err role="alert" hidden></p>
+    <div class="edh-actions">
+      <button type="button" class="edh-btn" data-edh-rules-cancel-edit>Thôi, không sửa</button>
+      <button type="button" class="edh-btn" data-edh-rules-save>Lưu nháp</button>
+      <button type="button" class="edh-btn is-primary" data-edh-rules-send="edit">Gửi {{ who|e }} duyệt</button>
+    </div>
+  </div>
+  {% endif %}
+  <div class="edh-actions edh-rules-view" data-edh-rules-actions>
+    {% if rule_can.propose %}
+    <button type="button" class="edh-btn is-primary" data-edh-rules-edit>Sửa quy tắc</button>
+    <span class="edh-hint">Lý do bắt buộc. Gửi xong {{ who|e }} nhận thông báo trên ERP + Teams.{% if not approver %} <b class="edh-red">Chưa cấu hình người duyệt quy tắc.</b>{% endif %}</span>
+    {% elif rule_can.edit %}
+    <button type="button" class="edh-btn" data-edh-rules-edit>Sửa bản nháp</button>
+    <button type="button" class="edh-btn is-primary" data-edh-rules-send="view" data-name="{{ p.name|e }}"{% if not p.reason %} data-need-reason="1"{% endif %}>Gửi {{ who|e }} duyệt</button>
+    <button type="button" class="edh-btn is-danger" data-edh-rules-ask="discard" data-name="{{ p.name|e }}">Huỷ bản nháp</button>
+    {% endif %}
+    {% if p and p.status == "Chờ duyệt" and rule_can.cancel and not rule_can.decide %}
+    <button type="button" class="edh-btn" data-edh-rules-ask="withdraw" data-name="{{ p.name|e }}">Rút lại đề xuất</button>
+    <span class="edh-hint">Đã gửi {{ who|e }}{% if p.submitted %} lúc {{ p.submitted|e }}{% endif %}. Lý do: “{{ p.reason|e }}”</span>
+    {% endif %}
+    {% if rule_can.decide %}
+    <button type="button" class="edh-btn is-primary" data-edh-rules-ask="approve" data-name="{{ p.name|e }}">Duyệt thay đổi</button>
+    <button type="button" class="edh-btn" data-edh-rules-ask="reject" data-name="{{ p.name|e }}">Từ chối</button>
+    {% if rule_can.cancel %}<button type="button" class="edh-btn" data-edh-rules-ask="withdraw" data-name="{{ p.name|e }}">Rút lại</button>{% endif %}
+    <span class="edh-hint">Lý do của {{ p.proposed_by_name|e }}: “{{ p.reason|e }}”</span>
+    {% endif %}
+    {% if not rule_can.propose and not rule_can.edit and not rule_can.decide and not (p and rule_can.cancel) %}
+    <span class="edh-hint">{% if p %}Chờ xử lý thay đổi {{ p.label|e }}.{% else %}Không có thay đổi nào chờ duyệt.{% endif %}</span>
+    {% endif %}
+  </div>
+  <div class="edh-rules-ask" data-edh-rules-panel hidden>
+    <div class="edh-fld"><label for="edh-rules-note" data-edh-rules-note-label>Ghi chú</label>
+      <textarea id="edh-rules-note" class="edh-inp" rows="2" maxlength="{{ limits.reason_max }}" data-edh-rules-note></textarea></div>
+    <p class="edh-err" data-edh-rules-panel-err role="alert" hidden></p>
+    <div class="edh-actions">
+      <button type="button" class="edh-btn" data-edh-rules-panel-close>Thôi</button>
+      <button type="button" class="edh-btn is-primary" data-edh-rules-panel-ok>Xác nhận</button>
+    </div>
+  </div>
+  </form>
 </section>
-<section class="edh-card">
-  <h2 class="edh-h3">Lịch sử quy tắc</h2>
+<section class="edh-card" aria-labelledby="edh-rules-hist">
+  <h2 class="edh-h3" id="edh-rules-hist">Lịch sử quy tắc</h2>
   {% for h in history %}
-  <div class="edh-tl-item"><span class="edh-tl-dot" aria-hidden="true"></span><div><b>{{ h.name|e }}{% if h.from_fmt %} · {{ h.from_fmt|e }}{% endif %}</b> {{ h.status|e }}{% if h.reason %} · {{ h.reason|e }}{% endif %}</div></div>
+  <div class="edh-tl-item edh-rules-h" data-version="{{ h.name|e }}"><span class="edh-tl-dot" aria-hidden="true"></span><div>
+    <div><b>{{ h.label|e }}{% if h.when %} · {{ h.when|e }}{% endif %}</b> <span class="edh-badge is-{{ h.status_css|e }}"><span class="edh-dot" aria-hidden="true"></span>{{ h.status_label|e }}</span></div>
+    {% if h.changes %}<ul class="edh-rules-diff">{% for c in h.changes %}<li>{{ c.label|e }}: <del>{{ c.old_fmt|e }}</del> → <ins class="edh-chg">{{ c.new_fmt|e }}</ins></li>{% endfor %}</ul>
+    {% elif h.first %}<div>{{ h.reason|e if h.reason else "Bộ quy tắc đầu tiên" }}</div>{% endif %}
+    <div class="edh-hint">{% if h.proposed_by_name %}Đề xuất: {{ h.proposed_by_name|e }}{% if h.submitted %} ({{ h.submitted|e }}){% endif %}{% endif %}{% if h.decided_by_name %} · {% if h.status == "Từ chối" %}Từ chối{% elif h.status == "Đã huỷ" %}Rút lại{% else %}Duyệt{% endif %}: {{ h.decided_by_name|e }}{% if h.decided %} ({{ h.decided|e }}){% endif %}{% endif %}</div>
+    {% if h.reason and not h.first %}<div class="edh-hint">Lý do: {{ h.reason|e }}</div>{% endif %}
+    {% if h.note %}<div class="edh-hint">Ghi chú: {{ h.note|e }}</div>{% endif %}
+  </div></div>
   {% else %}<p class="edh-hint">Chưa có lịch sử.</p>{% endfor %}
 </section>
 {% endif %}
+{% endblock %}
+{% block script %}{{ super() }}
+{% if edh_rules_js is defined %}<script src="{{ edh_rules_js }}" defer></script>{% endif %}
 {% endblock %}

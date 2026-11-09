@@ -158,3 +158,36 @@ GANTT_DAYS = 21
 GANTT_BACK_WEEKS = 1
 #: Danh sach toi da tren trang (moi nguoi doc duoc moi yeu cau; trang chi ve bay nhieu dong).
 LIST_LIMIT = 500
+
+
+# ====================================================================== DOT 3 (09/11/2026) ===
+# Phan noi them cua dot 3 - sua + duyet quy tac thoi han, chuyen phieu Data Request cu.
+# (Noi cuoi file thay vi chen vao cac khoi o tren: dot 2 sua song song cung file.)
+
+# ------------------------------------------------------------------ quy tac: sua + duyet ----
+#: Nguoi de xuat rut lai ban nhap / ban dang cho duyet (giu ban ghi de con dau vet, khong xoa).
+RULE_CANCELLED = "Đã huỷ"
+RULE_STATUSES = RULE_STATUSES + (RULE_CANCELLED,)
+#: Moi luc chi MOT thay doi quy tac dang mo (nhap hoac cho duyet).
+RULE_OPEN = (RULE_DRAFT, RULE_PENDING)
+RULE_STATUS_CSS = {RULE_DRAFT: "gray", RULE_PENDING: "amber", RULE_ACTIVE: "green", RULE_REJECTED: "red",
+                   RULE_EXPIRED: "muted", RULE_CANCELLED: "muted"}
+RULE_STATUS_LABEL = {RULE_DRAFT: "Bản nháp"}
+#: Gioi han nhap (PO chot): so ngay la so nguyen 1..60, he so 0,25..3.
+RULE_DAYS_MIN, RULE_DAYS_MAX = 1, 60
+RULE_MULT_MIN, RULE_MULT_MAX = 0.25, 3.0
+RULE_REASON_MAX = 1000
+EV_RULE_REVIEW = "approval_required"   # gui duyet -> nguoi duyet quy tac (ERP + Teams)
+EV_RULE_UPDATE = "mention"             # duyet / tu choi / rut lai -> nguoi lien quan
+
+# ------------------------------------------------------------------ phieu Data Request cu ---
+LEGACY_DT = "EC Data Request"
+LEGACY_APPROVAL_TYPE = "DATA_REQUEST"
+LEGACY_REQUEST_DT = "EC Approval Request"
+LEGACY_ACTION_DT = "EC Approval Action"
+#: Route cu cua the "Data Request" trong Approval Center - patch p003 chi doi route khi dang la mot
+#: trong cac gia tri nay (khong de len route ai do da chinh tay).
+LEGACY_ROUTES = ("", "/approvals/data-request", "approvals/data-request")
+EV_LEGACY = "Chuyển từ phiếu cũ"
+EV_LEGACY_HISTORY = "Lịch sử phiếu cũ"
+LOG_EVENTS = LOG_EVENTS + (EV_LEGACY, EV_LEGACY_HISTORY)

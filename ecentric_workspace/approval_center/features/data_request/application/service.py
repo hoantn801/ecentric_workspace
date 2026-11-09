@@ -32,11 +32,26 @@ def _requester_context(user):
                                ["name", "department", "company"], as_dict=True)
 
 
+def moved_route():
+    """Data Request da chuyen sang Trung tam Du lieu (data_hub p003, 09/11/2026): the DATA_REQUEST
+    trong catalog tro ra NGOAI /approvals (vd /du-lieu) -> tra route moi; con o /approvals -> None.
+    CAU HINH, khong phai co trong code: tra route the ve /approvals/data-request la mo lai form cu."""
+    route = (frappe.db.get_value("EC Approval Type", APPROVAL_TYPE, "route") or "").strip()
+    if not route:
+        return None
+    route = "/" + route.lstrip("/")
+    return None if route.startswith("/approvals/") else route
+
+
 @frappe.whitelist(methods=["POST"])
 def submit(name):
     doc = frappe.get_doc(BUSINESS_DT, name)
     if doc.approval_request:
         frappe.throw(_("Yeu cau nay da duoc gui."))
+    moved = moved_route()
+    if moved:
+        # Khong nhan phieu MOI; phieu cu dang cho bo sung van gui lai duoc (resubmit, khong qua day).
+        frappe.throw(_("Data Request đã chuyển sang Trung tâm Dữ liệu. Gửi yêu cầu mới tại {0}").format(moved))
     if doc.requested_by and doc.requested_by != frappe.session.user \
             and "System Manager" not in frappe.get_roles(frappe.session.user):
         frappe.throw(_("Ban chi co the gui yeu cau cua chinh minh."))
