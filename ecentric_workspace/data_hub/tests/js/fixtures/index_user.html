@@ -1,0 +1,224 @@
+<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>T · eCentric</title>
+<link rel="stylesheet" href="/a.css">
+</head><body>
+<div class="edh-app">
+  <aside>MENU</aside>
+  <main class="edh-main">
+    <div class="ec-shell-topbar" data-ec-shell-topbar="1"><div>TOPBAR</div></div>
+    <div class="edh-page" id="edh" data-edh-page="">
+      <header class="edh-head">
+        <h1 class="edh-h1">Trung tâm Dữ liệu</h1>
+        <p class="edh-sub">Gửi yêu cầu Power BI, crawl data, xử lý dữ liệu và theo dõi tiến độ. Mọi team đều xem được.</p>
+      </header>
+      <nav class="edh-tabs" aria-label="Trung tâm Dữ liệu">
+        <a class="edh-tab is-on" href="/du-lieu" aria-current="page">Yêu cầu dữ liệu</a><a class="edh-tab" href="/du-lieu/san-co">Data availability</a>
+      </nav>
+      
+<div class="edh-kpis" data-edh-kpis>
+  <div class="edh-kpi"><span>Đang xử lý</span><b>3</b></div>
+  <div class="edh-kpi"><span>Chờ tiếp nhận</span><b>3</b></div>
+  <div class="edh-kpi is-warn"><span>Quá hạn</span><b>2</b></div>
+  <div class="edh-kpi"><span>Tạm dừng</span><b>1</b></div>
+  <div class="edh-kpi is-ok"><span>Xong tháng này</span><b>1</b><em>100% đúng hạn</em></div>
+</div>
+
+<div class="edh-filters" role="search">
+  <input class="edh-inp edh-grow" type="search" data-edh-f="q" placeholder="Tìm mã, tiêu đề, người gửi…" aria-label="Tìm yêu cầu">
+  <select class="edh-inp" data-edh-f="type" aria-label="Loại yêu cầu"><option value="">Tất cả loại</option><option value="Power BI mới">Power BI mới</option><option value="Sửa Power BI có sẵn">Sửa Power BI có sẵn</option><option value="Crawl data mới">Crawl data mới</option><option value="Xử lý dữ liệu">Xử lý dữ liệu</option><option value="Khác">Khác</option></select>
+  <select class="edh-inp" data-edh-f="team" aria-label="Team người gửi"><option value="">Mọi team</option><option value="Commercial">Commercial</option><option value="Service">Service</option></select>
+  <select class="edh-inp" data-edh-f="scope" aria-label="Trạng thái"><option value="open" selected>Đang mở</option><option value="all">Tất cả</option><option value="done">Đã xong</option></select>
+  <label class="edh-mine"><input type="checkbox" data-edh-f="mine"> Chỉ của tôi</label>
+  <div class="edh-seg" role="group" aria-label="Kiểu xem">
+    <button type="button" data-edh-view="list" aria-pressed="true" class="is-on">Danh sách</button>
+    <button type="button" data-edh-view="gantt" aria-pressed="false">Gantt</button>
+  </div>
+  <button type="button" class="edh-btn is-primary" data-edh-new>+ Tạo yêu cầu</button>
+</div>
+
+<section class="edh-card edh-gantt" data-edh-gantt hidden aria-label="Gantt team Data">
+  <div class="edh-g-head">
+    <h2 class="edh-h3">Team Data đang làm gì</h2>
+    <span class="edh-hint" data-edh-g-range>mỗi hàng là một người, thanh là một yêu cầu</span>
+    <div class="edh-g-nav">
+      <button type="button" class="edh-btn is-sm" data-edh-g-shift="-7" aria-label="Tuần trước">‹</button>
+      <button type="button" class="edh-btn is-sm" data-edh-g-shift="0">Hôm nay</button>
+      <button type="button" class="edh-btn is-sm" data-edh-g-shift="7" aria-label="Tuần sau">›</button>
+    </div>
+  </div>
+  <div class="edh-g-leg"><span class="edh-gl is-run"></span>Đang xử lý <span class="edh-gl is-wait"></span>Chờ tiếp nhận <span class="edh-gl is-hold"></span>Tạm dừng <span class="edh-gl is-late"></span>Quá hạn <span class="edh-gl is-done"></span>Xong <span class="edh-gl is-da"></span>Bổ sung data (DA)</div>
+  <div class="edh-g-scroll" data-edh-gantt-body><p class="edh-state"><span class="edh-spin" aria-hidden="true"></span> Đang tải Gantt…</p></div>
+  <p class="edh-hint">Bấm vào thanh để mở chi tiết. Đường đỏ là hôm nay, cột xám là ngày nghỉ. Phần gạch chéo là thời gian đã dời hạn.</p>
+</section>
+
+<section class="edh-card edh-listcard" data-edh-list>
+  <table class="edh-tbl">
+    <thead><tr><th class="edh-c-code">Mã</th><th>Yêu cầu</th><th class="edh-c-type">Loại</th><th class="edh-c-pri">Ưu tiên</th><th class="edh-c-who">Người xử lý</th><th class="edh-c-due">Hạn</th><th class="edh-c-st">Trạng thái</th></tr></thead>
+    <tbody data-edh-rows>
+    
+      <tr class="edh-row" tabindex="0" data-code="DR-2026-0007" data-type="Crawl data mới" data-team="Commercial" data-scope="open" data-mine="1" data-search="dr-2026-0007 crawl voucher &amp; flashsale shopee thu nguyễn thu.nguyen@ecentric.vn ">
+        <td class="edh-c-code"><b>DR-2026-0007</b></td>
+        <td><span class="edh-row-t">Crawl Voucher &amp; Flashsale Shopee</span><div class="edh-hint">Commercial · Thu Nguyễn</div></td>
+        <td class="edh-c-type">Crawl data</td>
+        <td class="edh-c-pri"><span class="edh-badge is-red is-proposed" title="Mức người gửi đề xuất, team Data chưa xác nhận"><span class="edh-dot" aria-hidden="true"></span>Khẩn<small> đề xuất</small></span></td>
+        <td class="edh-c-who">—</td>
+        <td class="edh-c-due"><span class="edh-sla-l">hạn nhận 10/11</span>
+<div class="edh-sla is-ok" aria-hidden="true"><i style="width:10%"></i></div></td>
+        <td class="edh-c-st"><span class="edh-badge is-gray"><span class="edh-dot" aria-hidden="true"></span>Chờ tiếp nhận</span></td>
+      </tr>
+    
+      <tr class="edh-row is-late" tabindex="0" data-code="DR-2026-0002" data-type="Power BI mới" data-team="Commercial" data-scope="open" data-mine="1" data-search="dr-2026-0002 power bi pnl cho brand mới (friso) thu nguyễn thu.nguyen@ecentric.vn linh vương">
+        <td class="edh-c-code"><b>DR-2026-0002</b></td>
+        <td><span class="edh-row-t">Power BI PnL cho brand mới (Friso)</span><div class="edh-hint">Commercial · Thu Nguyễn</div></td>
+        <td class="edh-c-type">Power BI</td>
+        <td class="edh-c-pri"><span class="edh-badge is-amber"><span class="edh-dot" aria-hidden="true"></span>Cao</span></td>
+        <td class="edh-c-who">Linh Vương</td>
+        <td class="edh-c-due"><span class="edh-sla-l is-late">06/11 · quá hạn 1 ngày</span>
+<div class="edh-sla is-late" aria-hidden="true"><i style="width:100%"></i></div></td>
+        <td class="edh-c-st"><span class="edh-badge is-navy"><span class="edh-dot" aria-hidden="true"></span>Đang xử lý</span></td>
+      </tr>
+    
+      <tr class="edh-row is-late" tabindex="0" data-code="DR-2026-0009" data-type="Power BI mới" data-team="Service" data-scope="open" data-mine="0" data-search="dr-2026-0009 dashboard affiliate partner tiktok hiền nguyễn hien.nguyen@ecentric.vn ">
+        <td class="edh-c-code"><b>DR-2026-0009</b></td>
+        <td><span class="edh-row-t">Dashboard Affiliate partner TikTok</span><div class="edh-hint">Service · Hiền Nguyễn</div></td>
+        <td class="edh-c-type">Power BI</td>
+        <td class="edh-c-pri"><span class="edh-badge is-gray is-proposed" title="Mức người gửi đề xuất, team Data chưa xác nhận"><span class="edh-dot" aria-hidden="true"></span>Bình thường<small> đề xuất</small></span></td>
+        <td class="edh-c-who">—</td>
+        <td class="edh-c-due"><span class="edh-sla-l is-late">hạn nhận 06/11 · trễ</span>
+<div class="edh-sla is-late" aria-hidden="true"><i style="width:100%"></i></div></td>
+        <td class="edh-c-st"><span class="edh-badge is-gray"><span class="edh-dot" aria-hidden="true"></span>Chờ tiếp nhận</span></td>
+      </tr>
+    
+      <tr class="edh-row" tabindex="0" data-code="DR-2026-0008" data-type="Xử lý dữ liệu" data-team="Service" data-scope="open" data-mine="0" data-search="dr-2026-0008 làm sạch file khách hàng hiền nguyễn hien.nguyen@ecentric.vn ">
+        <td class="edh-c-code"><b>DR-2026-0008</b></td>
+        <td><span class="edh-row-t">Làm sạch file khách hàng</span><div class="edh-hint">Service · Hiền Nguyễn</div></td>
+        <td class="edh-c-type">Xử lý dữ liệu</td>
+        <td class="edh-c-pri"><span class="edh-badge is-gray is-proposed" title="Mức người gửi đề xuất, team Data chưa xác nhận"><span class="edh-dot" aria-hidden="true"></span>Thấp<small> đề xuất</small></span></td>
+        <td class="edh-c-who">—</td>
+        <td class="edh-c-due"><span class="edh-sla-l">hạn nhận 09/11</span>
+<div class="edh-sla is-ok" aria-hidden="true"><i style="width:10%"></i></div></td>
+        <td class="edh-c-st"><span class="edh-badge is-gray"><span class="edh-dot" aria-hidden="true"></span>Chờ tiếp nhận</span></td>
+      </tr>
+    
+      <tr class="edh-row" tabindex="0" data-code="DR-2026-0004" data-type="Xử lý dữ liệu" data-team="Service" data-scope="open" data-mine="0" data-search="dr-2026-0004 ghép data misa + e-invoice hiền nguyễn hien.nguyen@ecentric.vn hoàn trần">
+        <td class="edh-c-code"><b>DR-2026-0004</b></td>
+        <td><span class="edh-row-t">Ghép data Misa + e-Invoice</span><div class="edh-hint">Service · Hiền Nguyễn</div></td>
+        <td class="edh-c-type">Xử lý dữ liệu</td>
+        <td class="edh-c-pri"><span class="edh-badge is-gray"><span class="edh-dot" aria-hidden="true"></span>Bình thường</span></td>
+        <td class="edh-c-who">Hoàn Trần</td>
+        <td class="edh-c-due"><span class="edh-sla-l">11/11 · còn 2 ngày</span>
+<div class="edh-sla is-ok" aria-hidden="true"><i style="width:33%"></i></div></td>
+        <td class="edh-c-st"><span class="edh-badge is-navy"><span class="edh-dot" aria-hidden="true"></span>Đang xử lý</span></td>
+      </tr>
+    
+      <tr class="edh-row" tabindex="0" data-code="DR-2026-0005" data-type="Power BI mới" data-team="Commercial" data-scope="open" data-mine="1" data-search="dr-2026-0005 báo cáo live tiktok thu nguyễn thu.nguyen@ecentric.vn linh vương">
+        <td class="edh-c-code"><b>DR-2026-0005</b></td>
+        <td><span class="edh-row-t">Báo cáo Live TikTok</span><div class="edh-hint">Commercial · Thu Nguyễn</div></td>
+        <td class="edh-c-type">Power BI</td>
+        <td class="edh-c-pri"><span class="edh-badge is-gray"><span class="edh-dot" aria-hidden="true"></span>Bình thường</span></td>
+        <td class="edh-c-who">Linh Vương</td>
+        <td class="edh-c-due"><span class="edh-sla-l">12/11 · SLA tạm dừng</span>
+<div class="edh-sla is-hold" aria-hidden="true"><i style="width:57%"></i></div></td>
+        <td class="edh-c-st"><span class="edh-badge is-amber"><span class="edh-dot" aria-hidden="true"></span>Tạm dừng – chờ người gửi</span></td>
+      </tr>
+    
+      <tr class="edh-row" tabindex="0" data-code="DR-2026-0003" data-type="Crawl data mới" data-team="Commercial" data-scope="open" data-mine="0" data-search="dr-2026-0003 crawl product rating lazada duyên lê duyen.le@ecentric.vn linh vương">
+        <td class="edh-c-code"><b>DR-2026-0003</b></td>
+        <td><span class="edh-row-t">Crawl Product Rating Lazada</span><div class="edh-hint">Commercial · Duyên Lê</div></td>
+        <td class="edh-c-type">Crawl data</td>
+        <td class="edh-c-pri"><span class="edh-badge is-gray"><span class="edh-dot" aria-hidden="true"></span>Bình thường</span></td>
+        <td class="edh-c-who">Linh Vương</td>
+        <td class="edh-c-due"><span class="edh-sla-l">13/11 · còn 4 ngày</span>
+<div class="edh-sla is-ok" aria-hidden="true"><i style="width:43%"></i></div></td>
+        <td class="edh-c-st"><span class="edh-badge is-navy"><span class="edh-dot" aria-hidden="true"></span>Đang xử lý</span></td>
+      </tr>
+    
+      <tr class="edh-row" tabindex="0" data-code="DR-2026-0006" data-type="Sửa Power BI có sẵn" data-team="Service" data-scope="open" data-mine="0" data-search="dr-2026-0006 dashboard affiliate tiktok hiền nguyễn hien.nguyen@ecentric.vn dũng phạm">
+        <td class="edh-c-code"><b>DR-2026-0006</b></td>
+        <td><span class="edh-row-t">Dashboard Affiliate TikTok</span><div class="edh-hint">Service · Hiền Nguyễn</div></td>
+        <td class="edh-c-type">Power BI</td>
+        <td class="edh-c-pri"><span class="edh-badge is-gray"><span class="edh-dot" aria-hidden="true"></span>Bình thường</span></td>
+        <td class="edh-c-who">Dũng Phạm</td>
+        <td class="edh-c-due"><span class="edh-sla-l">xong 06/11 · chờ nghiệm thu</span>
+<div class="edh-sla is-done" aria-hidden="true"><i style="width:100%"></i></div></td>
+        <td class="edh-c-st"><span class="edh-badge is-teal"><span class="edh-dot" aria-hidden="true"></span>Chờ nghiệm thu</span></td>
+      </tr>
+    
+      <tr class="edh-row" tabindex="0" data-code="DR-2026-0010" data-type="Power BI mới" data-team="Commercial" data-scope="cancel" data-mine="0" data-search="dr-2026-0010 trùng yêu cầu rating duyên lê duyen.le@ecentric.vn " hidden>
+        <td class="edh-c-code"><b>DR-2026-0010</b></td>
+        <td><span class="edh-row-t">Trùng yêu cầu rating</span><div class="edh-hint">Commercial · Duyên Lê</div></td>
+        <td class="edh-c-type">Power BI</td>
+        <td class="edh-c-pri"><span class="edh-badge is-gray is-proposed" title="Mức người gửi đề xuất, team Data chưa xác nhận"><span class="edh-dot" aria-hidden="true"></span>Bình thường<small> đề xuất</small></span></td>
+        <td class="edh-c-who">—</td>
+        <td class="edh-c-due"><span class="edh-sla-l">đã huỷ</span>
+<div class="edh-sla is-off" aria-hidden="true"><i style="width:0%"></i></div></td>
+        <td class="edh-c-st"><span class="edh-badge is-muted"><span class="edh-dot" aria-hidden="true"></span>Huỷ</span></td>
+      </tr>
+    
+      <tr class="edh-row" tabindex="0" data-code="DR-2026-0001" data-type="Sửa Power BI có sẵn" data-team="Commercial" data-scope="done" data-mine="0" data-search="dr-2026-0001 dashboard stock boxme duyên lê duyen.le@ecentric.vn linh vương" hidden>
+        <td class="edh-c-code"><b>DR-2026-0001</b></td>
+        <td><span class="edh-row-t">Dashboard Stock Boxme</span><div class="edh-hint">Commercial · Duyên Lê</div></td>
+        <td class="edh-c-type">Power BI</td>
+        <td class="edh-c-pri"><span class="edh-badge is-amber"><span class="edh-dot" aria-hidden="true"></span>Cao</span></td>
+        <td class="edh-c-who">Linh Vương</td>
+        <td class="edh-c-due"><span class="edh-sla-l">xong 30/10 · đúng hạn</span>
+<div class="edh-sla is-done" aria-hidden="true"><i style="width:100%"></i></div></td>
+        <td class="edh-c-st"><span class="edh-badge is-green"><span class="edh-dot" aria-hidden="true"></span>Hoàn tất</span></td>
+      </tr>
+    
+    </tbody>
+  </table>
+  <div class="edh-state" data-edh-empty hidden>
+    <h4>Không có yêu cầu nào khớp bộ lọc</h4>
+    <p>Đổi bộ lọc, hoặc bấm “+ Tạo yêu cầu” để gửi team Data.</p>
+  </div>
+</section>
+<p class="edh-hint">Sắp theo: Khẩn trước → quá hạn → hạn gần nhất. Bấm một dòng để xem chi tiết.</p>
+
+
+<div class="edh-ov" data-edh-new-ov hidden>
+  <form class="edh-modal edh-modal-lg" data-edh-new-form novalidate role="dialog" aria-modal="true" aria-labelledby="edh-new-h">
+    <h3 class="edh-modal-h" id="edh-new-h">Tạo yêu cầu dữ liệu</h3>
+    <div class="edh-modal-b">
+      <div class="edh-grid2">
+        <div class="edh-fld"><label for="edh-new-type">Loại <span class="edh-req">*</span></label>
+          <select id="edh-new-type" name="request_type" required><option value="">— Chọn loại —</option><option value="Power BI mới">Power BI mới</option><option value="Sửa Power BI có sẵn">Sửa Power BI có sẵn</option><option value="Crawl data mới">Crawl data mới</option><option value="Xử lý dữ liệu">Xử lý dữ liệu</option><option value="Khác">Khác</option></select></div>
+        <div class="edh-fld"><label for="edh-new-pri">Mức độ đề xuất</label>
+          <select id="edh-new-pri" name="proposed_priority"><option value="Khẩn">Khẩn (cần lý do)</option><option value="Cao">Cao</option><option value="Bình thường" selected>Bình thường</option><option value="Thấp">Thấp</option></select></div>
+        <div class="edh-fld edh-full" data-edh-urgent-box hidden><label for="edh-new-urgent">Vì sao Khẩn? <span class="edh-req">*</span></label>
+          <input id="edh-new-urgent" name="urgent_reason" maxlength="1000" placeholder="VD: cần số cho buổi họp BOD sáng thứ Năm">
+          <span class="edh-hint">Bạn chỉ đề xuất; team Data xác nhận hoặc hạ mức (có ghi lịch sử).</span></div>
+        <div class="edh-fld edh-full"><label for="edh-new-title">Tiêu đề <span class="edh-req">*</span></label>
+          <input id="edh-new-title" name="title" maxlength="140" required placeholder="VD: Dashboard PnL theo ngày cho brand Friso"></div>
+        <div class="edh-fld edh-full"><label for="edh-new-desc">Mô tả / đầu ra mong muốn <span class="edh-req">*</span></label>
+          <textarea id="edh-new-desc" name="description" rows="4" maxlength="5000" required placeholder="Dùng để làm gì, ai xem, dữ liệu nguồn nào, mẫu tham khảo…"></textarea></div>
+        <div class="edh-fld"><label for="edh-new-used">Dữ liệu cần dùng</label>
+          <input id="edh-new-used" name="data_used" maxlength="500" placeholder="VD: Orderline, Finance (Shopee, TikTok)"></div>
+        <div class="edh-fld"><label for="edh-new-link">Link mẫu</label>
+          <input id="edh-new-link" name="reference_link" type="url" maxlength="500" placeholder="https://…"></div>
+        <div class="edh-fld edh-full"><label>Tệp đính kèm <span class="edh-hint">(tối đa 5 tệp, 10 MB/tệp)</span></label>
+          <div class="edh-files"><label class="edh-btn is-sm edh-file-btn">📎 Chọn tệp<input type="file" data-edh-new-files multiple hidden></label><span class="edh-file-list" data-edh-new-filelist></span></div></div>
+      </div>
+      <p class="edh-banner is-info" data-edh-sla-hint>Chọn loại để xem hạn dự kiến. Hạn tính theo ngày làm việc (bỏ T7/CN, ngày lễ) sau khi team Data nhận việc.</p>
+      <p class="edh-err" data-edh-new-err role="alert" hidden></p>
+    </div>
+    <div class="edh-modal-f">
+      <button type="button" class="edh-btn" data-edh-close>Huỷ</button>
+      <button type="submit" class="edh-btn is-primary" data-edh-new-submit>Gửi yêu cầu</button>
+    </div>
+  </form>
+</div>
+
+    </div>
+  </main>
+</div>
+<div class="edh-ov edh-ov-center" data-edh-detail-ov hidden>
+  <div class="edh-dmodal" role="dialog" aria-modal="true" aria-label="Chi tiết yêu cầu" data-edh-detail tabindex="-1">
+    <div class="edh-dm-loading"><span class="edh-spin" aria-hidden="true"></span> Đang tải chi tiết…</div>
+  </div>
+</div>
+
+<div class="edh-toast" data-edh-toast role="status" aria-live="polite" hidden></div>
+<script type="application/json" id="edh-boot">{"page": "index", "me": "thu.nguyen@ecentric.vn", "today": "2026-11-09", "is_team": false, "type_hints": {"Power BI mới": {"Khẩn": 4, "Cao": 6, "Bình thường": 7, "Thấp": 11}, "Sửa Power BI có sẵn": {"Khẩn": 2, "Cao": 3, "Bình thường": 3, "Thấp": 5}, "Crawl data mới": {"Khẩn": 4, "Cao": 6, "Bình thường": 7, "Thấp": 11}, "Xử lý dữ liệu": {"Khẩn": 2, "Cao": 3, "Bình thường": 3, "Thấp": 5}, "Khác": {"Khẩn": 2, "Cao": 3, "Bình thường": 3, "Thấp": 5}}, "rows": [{"code": "DR-2026-0007", "title": "Crawl Voucher & Flashsale Shopee", "kind": "request", "type": "Crawl data mới", "type_short": "Crawl data", "requester": "thu.nguyen@ecentric.vn", "requester_name": "Thu Nguyễn", "team": "Commercial", "priority": "Khẩn", "priority_css": "red", "priority_confirmed": false, "proposed_priority": "Khẩn", "assignee": "", "assignee_name": "", "status": "Chờ tiếp nhận", "status_label": "Chờ tiếp nhận", "status_css": "gray", "sla_label": "hạn nhận 10/11", "sla_pct": 10, "sla_css": "", "overdue": false, "due": "2026-11-10", "created": "2026-11-09 08:30:00", "closed": "", "scope": "open", "mine": 1, "search": "dr-2026-0007 crawl voucher & flashsale shopee thu nguyễn thu.nguyen@ecentric.vn "}, {"code": "DR-2026-0002", "title": "Power BI PnL cho brand mới (Friso)", "kind": "request", "type": "Power BI mới", "type_short": "Power BI", "requester": "thu.nguyen@ecentric.vn", "requester_name": "Thu Nguyễn", "team": "Commercial", "priority": "Cao", "priority_css": "amber", "priority_confirmed": true, "proposed_priority": "Cao", "assignee": "linh.vuong@ecentric.vn", "assignee_name": "Linh Vương", "status": "Đang xử lý", "status_label": "Đang xử lý", "status_css": "navy", "sla_label": "06/11 · quá hạn 1 ngày", "sla_pct": 100, "sla_css": "late", "overdue": true, "due": "2026-11-06", "created": "2026-10-28 16:30:00", "closed": "", "scope": "open", "mine": 1, "search": "dr-2026-0002 power bi pnl cho brand mới (friso) thu nguyễn thu.nguyen@ecentric.vn linh vương"}, {"code": "DR-2026-0009", "title": "Dashboard Affiliate partner TikTok", "kind": "request", "type": "Power BI mới", "type_short": "Power BI", "requester": "hien.nguyen@ecentric.vn", "requester_name": "Hiền Nguyễn", "team": "Service", "priority": "Bình thường", "priority_css": "gray", "priority_confirmed": false, "proposed_priority": "Bình thường", "assignee": "", "assignee_name": "", "status": "Chờ tiếp nhận", "status_label": "Chờ tiếp nhận", "status_css": "gray", "sla_label": "hạn nhận 06/11 · trễ", "sla_pct": 100, "sla_css": "late", "overdue": true, "due": "2026-11-06", "created": "2026-11-05 11:30:00", "closed": "", "scope": "open", "mine": 0, "search": "dr-2026-0009 dashboard affiliate partner tiktok hiền nguyễn hien.nguyen@ecentric.vn "}, {"code": "DR-2026-0008", "title": "Làm sạch file khách hàng", "kind": "request", "type": "Xử lý dữ liệu", "type_short": "Xử lý dữ liệu", "requester": "hien.nguyen@ecentric.vn", "requester_name": "Hiền Nguyễn", "team": "Service", "priority": "Thấp", "priority_css": "gray", "priority_confirmed": false, "proposed_priority": "Thấp", "assignee": "", "assignee_name": "", "status": "Chờ tiếp nhận", "status_label": "Chờ tiếp nhận", "status_css": "gray", "sla_label": "hạn nhận 09/11", "sla_pct": 10, "sla_css": "", "overdue": false, "due": "2026-11-09", "created": "2026-11-06 15:30:00", "closed": "", "scope": "open", "mine": 0, "search": "dr-2026-0008 làm sạch file khách hàng hiền nguyễn hien.nguyen@ecentric.vn "}, {"code": "DR-2026-0004", "title": "Ghép data Misa + e-Invoice", "kind": "request", "type": "Xử lý dữ liệu", "type_short": "Xử lý dữ liệu", "requester": "hien.nguyen@ecentric.vn", "requester_name": "Hiền Nguyễn", "team": "Service", "priority": "Bình thường", "priority_css": "gray", "priority_confirmed": true, "proposed_priority": "Bình thường", "assignee": "hoan.tran@ecentric.vn", "assignee_name": "Hoàn Trần", "status": "Đang xử lý", "status_label": "Đang xử lý", "status_css": "navy", "sla_label": "11/11 · còn 2 ngày", "sla_pct": 33, "sla_css": "", "overdue": false, "due": "2026-11-11", "created": "2026-11-04 10:30:00", "closed": "", "scope": "open", "mine": 0, "search": "dr-2026-0004 ghép data misa + e-invoice hiền nguyễn hien.nguyen@ecentric.vn hoàn trần"}, {"code": "DR-2026-0005", "title": "Báo cáo Live TikTok", "kind": "request", "type": "Power BI mới", "type_short": "Power BI", "requester": "thu.nguyen@ecentric.vn", "requester_name": "Thu Nguyễn", "team": "Commercial", "priority": "Bình thường", "priority_css": "gray", "priority_confirmed": true, "proposed_priority": "Bình thường", "assignee": "linh.vuong@ecentric.vn", "assignee_name": "Linh Vương", "status": "Tạm dừng", "status_label": "Tạm dừng – chờ người gửi", "status_css": "amber", "sla_label": "12/11 · SLA tạm dừng", "sla_pct": 57, "sla_css": "hold", "overdue": false, "due": "2026-11-12", "created": "2026-11-02 10:30:00", "closed": "", "scope": "open", "mine": 1, "search": "dr-2026-0005 báo cáo live tiktok thu nguyễn thu.nguyen@ecentric.vn linh vương"}, {"code": "DR-2026-0003", "title": "Crawl Product Rating Lazada", "kind": "request", "type": "Crawl data mới", "type_short": "Crawl data", "requester": "duyen.le@ecentric.vn", "requester_name": "Duyên Lê", "team": "Commercial", "priority": "Bình thường", "priority_css": "gray", "priority_confirmed": true, "proposed_priority": "Bình thường", "assignee": "linh.vuong@ecentric.vn", "assignee_name": "Linh Vương", "status": "Đang xử lý", "status_label": "Đang xử lý", "status_css": "navy", "sla_label": "13/11 · còn 4 ngày", "sla_pct": 43, "sla_css": "", "overdue": false, "due": "2026-11-13", "created": "2026-11-03 10:30:00", "closed": "", "scope": "open", "mine": 0, "search": "dr-2026-0003 crawl product rating lazada duyên lê duyen.le@ecentric.vn linh vương"}, {"code": "DR-2026-0006", "title": "Dashboard Affiliate TikTok", "kind": "request", "type": "Sửa Power BI có sẵn", "type_short": "Power BI", "requester": "hien.nguyen@ecentric.vn", "requester_name": "Hiền Nguyễn", "team": "Service", "priority": "Bình thường", "priority_css": "gray", "priority_confirmed": true, "proposed_priority": "Bình thường", "assignee": "dung.pham@ecentric.vn", "assignee_name": "Dũng Phạm", "status": "Chờ nghiệm thu", "status_label": "Chờ nghiệm thu", "status_css": "teal", "sla_label": "xong 06/11 · chờ nghiệm thu", "sla_pct": 100, "sla_css": "done", "overdue": false, "due": "2026-11-06", "created": "2026-11-02 10:30:00", "closed": "", "scope": "open", "mine": 0, "search": "dr-2026-0006 dashboard affiliate tiktok hiền nguyễn hien.nguyen@ecentric.vn dũng phạm"}, {"code": "DR-2026-0010", "title": "Trùng yêu cầu rating", "kind": "request", "type": "Power BI mới", "type_short": "Power BI", "requester": "duyen.le@ecentric.vn", "requester_name": "Duyên Lê", "team": "Commercial", "priority": "Bình thường", "priority_css": "gray", "priority_confirmed": false, "proposed_priority": "Bình thường", "assignee": "", "assignee_name": "", "status": "Huỷ", "status_label": "Huỷ", "status_css": "muted", "sla_label": "đã huỷ", "sla_pct": 0, "sla_css": "off", "overdue": false, "due": "", "created": "2026-11-04 10:30:00", "closed": "2026-11-04 11:30:00", "scope": "cancel", "mine": 0, "search": "dr-2026-0010 trùng yêu cầu rating duyên lê duyen.le@ecentric.vn "}, {"code": "DR-2026-0001", "title": "Dashboard Stock Boxme", "kind": "request", "type": "Sửa Power BI có sẵn", "type_short": "Power BI", "requester": "duyen.le@ecentric.vn", "requester_name": "Duyên Lê", "team": "Commercial", "priority": "Cao", "priority_css": "amber", "priority_confirmed": true, "proposed_priority": "Cao", "assignee": "linh.vuong@ecentric.vn", "assignee_name": "Linh Vương", "status": "Hoàn tất", "status_label": "Hoàn tất", "status_css": "green", "sla_label": "xong 30/10 · đúng hạn", "sla_pct": 100, "sla_css": "done", "overdue": false, "due": "2026-11-02", "created": "2026-10-27 10:30:00", "closed": "2026-11-02 09:30:00", "scope": "done", "mine": 0, "search": "dr-2026-0001 dashboard stock boxme duyên lê duyen.le@ecentric.vn linh vương"}], "open": null, "gantt": null, "missing": ""}</script>
+
+<script src="/a.js" defer></script>
+</body></html>

@@ -1,0 +1,3634 @@
+{
+ "codes": {
+  "aff": "DR-2026-0006",
+  "clean": "DR-2026-0008",
+  "dup": "DR-2026-0010",
+  "live": "DR-2026-0005",
+  "misa": "DR-2026-0004",
+  "pnl": "DR-2026-0002",
+  "rating": "DR-2026-0003",
+  "stock": "DR-2026-0001",
+  "tiktok": "DR-2026-0009",
+  "voucher": "DR-2026-0007"
+ },
+ "details": {
+  "DR-2026-0001": {
+   "hien.nguyen@ecentric.vn": {
+    "acceptance": "Đạt",
+    "assignee": "linh.vuong@ecentric.vn",
+    "assignee_name": "Linh Vương",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": false,
+     "cancel_needs_reason": false,
+     "follow": true,
+     "message": false,
+     "operate": false,
+     "respond": false
+    },
+    "cancel_reason": "",
+    "closed": "2026-11-02 09:30:00",
+    "code": "DR-2026-0001",
+    "created": "2026-10-27 10:30:00",
+    "created_fmt": "27/10 10:30",
+    "data_used": "Orderline",
+    "description": "Cần dashboard PnL theo ngày cho brand Friso trên Shopee + TikTok.",
+    "due": "2026-11-02",
+    "due_change_count": 0,
+    "due_date": "2026-11-02",
+    "due_fmt": "02/11/2026",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "28/10/2026",
+    "kind": "request",
+    "messages": [],
+    "mine": 0,
+    "original_due_fmt": "",
+    "output_link": "https://app.powerbi.com/stock",
+    "overdue": false,
+    "paused_since_fmt": "",
+    "pm_task": "TASK-2026-00001",
+    "pm_url": "/pm#task/TASK-2026-00001",
+    "priority": "Cao",
+    "priority_confirmed": true,
+    "priority_css": "amber",
+    "proposed_priority": "Cao",
+    "reference_link": "",
+    "requester": "duyen.le@ecentric.vn",
+    "requester_name": "Duyên Lê",
+    "scope": "done",
+    "search": "dr-2026-0001 dashboard stock boxme duyên lê duyen.le@ecentric.vn linh vương",
+    "sla_css": "done",
+    "sla_days": 3,
+    "sla_label": "xong 30/10 · đúng hạn",
+    "sla_pct": 100,
+    "start": "2026-10-28",
+    "start_fmt": "28/10/2026",
+    "status": "Hoàn tất",
+    "status_css": "green",
+    "status_label": "Hoàn tất",
+    "team": "Commercial",
+    "timeline": [
+     {
+      "event": "Nghiệm thu đạt",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Duyên Lê nghiệm thu: Đạt",
+      "warn": false,
+      "when": "02/11 09:30"
+     },
+     {
+      "event": "Hoàn tất",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Linh Vương hoàn tất, chờ người gửi nghiệm thu",
+      "warn": false,
+      "when": "30/10 16:30"
+     },
+     {
+      "event": "Đồng bộ /pm",
+      "note": "",
+      "source": "/pm",
+      "text": "Tạo task /pm TASK-2026-00001",
+      "warn": false,
+      "when": "28/10 09:30"
+     },
+     {
+      "event": "Nhận việc",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Linh Vương nhận việc · giao Linh Vương · bắt đầu 28/10 · hạn 02/11 (3 ngày làm việc)",
+      "warn": false,
+      "when": "28/10 09:30"
+     },
+     {
+      "event": "Tạo",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Duyên Lê gửi yêu cầu · đề xuất Cao",
+      "warn": false,
+      "when": "27/10 10:30"
+     }
+    ],
+    "title": "Dashboard Stock Boxme",
+    "type": "Sửa Power BI có sẵn",
+    "type_short": "Power BI",
+    "urgent_reason": ""
+   },
+   "linh.vuong@ecentric.vn": {
+    "acceptance": "Đạt",
+    "assignee": "linh.vuong@ecentric.vn",
+    "assignee_name": "Linh Vương",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": false,
+     "cancel_needs_reason": true,
+     "follow": true,
+     "message": true,
+     "operate": false,
+     "respond": false
+    },
+    "cancel_reason": "",
+    "closed": "2026-11-02 09:30:00",
+    "code": "DR-2026-0001",
+    "created": "2026-10-27 10:30:00",
+    "created_fmt": "27/10 10:30",
+    "data_used": "Orderline",
+    "description": "Cần dashboard PnL theo ngày cho brand Friso trên Shopee + TikTok.",
+    "due": "2026-11-02",
+    "due_change_count": 0,
+    "due_date": "2026-11-02",
+    "due_fmt": "02/11/2026",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "28/10/2026",
+    "kind": "request",
+    "messages": [],
+    "mine": 1,
+    "original_due_fmt": "",
+    "output_link": "https://app.powerbi.com/stock",
+    "overdue": false,
+    "paused_since_fmt": "",
+    "pm_task": "TASK-2026-00001",
+    "pm_url": "/pm#task/TASK-2026-00001",
+    "priorities": [
+     "Khẩn",
+     "Cao",
+     "Bình thường",
+     "Thấp"
+    ],
+    "priority": "Cao",
+    "priority_confirmed": true,
+    "priority_css": "amber",
+    "proposed_priority": "Cao",
+    "reference_link": "",
+    "requester": "duyen.le@ecentric.vn",
+    "requester_name": "Duyên Lê",
+    "scope": "done",
+    "search": "dr-2026-0001 dashboard stock boxme duyên lê duyen.le@ecentric.vn linh vương",
+    "sla_css": "done",
+    "sla_days": 3,
+    "sla_label": "xong 30/10 · đúng hạn",
+    "sla_pct": 100,
+    "start": "2026-10-28",
+    "start_fmt": "28/10/2026",
+    "status": "Hoàn tất",
+    "status_css": "green",
+    "status_label": "Hoàn tất",
+    "team": "Commercial",
+    "team_members": [
+     {
+      "name": "Dũng Phạm",
+      "user": "dung.pham@ecentric.vn"
+     },
+     {
+      "name": "Hoàn Trần",
+      "user": "hoan.tran@ecentric.vn"
+     },
+     {
+      "name": "Linh Vương",
+      "user": "linh.vuong@ecentric.vn"
+     }
+    ],
+    "team_statuses": [],
+    "timeline": [
+     {
+      "event": "Nghiệm thu đạt",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Duyên Lê nghiệm thu: Đạt",
+      "warn": false,
+      "when": "02/11 09:30"
+     },
+     {
+      "event": "Hoàn tất",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Linh Vương hoàn tất, chờ người gửi nghiệm thu",
+      "warn": false,
+      "when": "30/10 16:30"
+     },
+     {
+      "event": "Đồng bộ /pm",
+      "note": "",
+      "source": "/pm",
+      "text": "Tạo task /pm TASK-2026-00001",
+      "warn": false,
+      "when": "28/10 09:30"
+     },
+     {
+      "event": "Nhận việc",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Linh Vương nhận việc · giao Linh Vương · bắt đầu 28/10 · hạn 02/11 (3 ngày làm việc)",
+      "warn": false,
+      "when": "28/10 09:30"
+     },
+     {
+      "event": "Tạo",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Duyên Lê gửi yêu cầu · đề xuất Cao",
+      "warn": false,
+      "when": "27/10 10:30"
+     }
+    ],
+    "title": "Dashboard Stock Boxme",
+    "type": "Sửa Power BI có sẵn",
+    "type_short": "Power BI",
+    "urgent_reason": ""
+   },
+   "thu.nguyen@ecentric.vn": {
+    "acceptance": "Đạt",
+    "assignee": "linh.vuong@ecentric.vn",
+    "assignee_name": "Linh Vương",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": false,
+     "cancel_needs_reason": false,
+     "follow": true,
+     "message": false,
+     "operate": false,
+     "respond": false
+    },
+    "cancel_reason": "",
+    "closed": "2026-11-02 09:30:00",
+    "code": "DR-2026-0001",
+    "created": "2026-10-27 10:30:00",
+    "created_fmt": "27/10 10:30",
+    "data_used": "Orderline",
+    "description": "Cần dashboard PnL theo ngày cho brand Friso trên Shopee + TikTok.",
+    "due": "2026-11-02",
+    "due_change_count": 0,
+    "due_date": "2026-11-02",
+    "due_fmt": "02/11/2026",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "28/10/2026",
+    "kind": "request",
+    "messages": [],
+    "mine": 0,
+    "original_due_fmt": "",
+    "output_link": "https://app.powerbi.com/stock",
+    "overdue": false,
+    "paused_since_fmt": "",
+    "pm_task": "TASK-2026-00001",
+    "pm_url": "/pm#task/TASK-2026-00001",
+    "priority": "Cao",
+    "priority_confirmed": true,
+    "priority_css": "amber",
+    "proposed_priority": "Cao",
+    "reference_link": "",
+    "requester": "duyen.le@ecentric.vn",
+    "requester_name": "Duyên Lê",
+    "scope": "done",
+    "search": "dr-2026-0001 dashboard stock boxme duyên lê duyen.le@ecentric.vn linh vương",
+    "sla_css": "done",
+    "sla_days": 3,
+    "sla_label": "xong 30/10 · đúng hạn",
+    "sla_pct": 100,
+    "start": "2026-10-28",
+    "start_fmt": "28/10/2026",
+    "status": "Hoàn tất",
+    "status_css": "green",
+    "status_label": "Hoàn tất",
+    "team": "Commercial",
+    "timeline": [
+     {
+      "event": "Nghiệm thu đạt",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Duyên Lê nghiệm thu: Đạt",
+      "warn": false,
+      "when": "02/11 09:30"
+     },
+     {
+      "event": "Hoàn tất",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Linh Vương hoàn tất, chờ người gửi nghiệm thu",
+      "warn": false,
+      "when": "30/10 16:30"
+     },
+     {
+      "event": "Đồng bộ /pm",
+      "note": "",
+      "source": "/pm",
+      "text": "Tạo task /pm TASK-2026-00001",
+      "warn": false,
+      "when": "28/10 09:30"
+     },
+     {
+      "event": "Nhận việc",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Linh Vương nhận việc · giao Linh Vương · bắt đầu 28/10 · hạn 02/11 (3 ngày làm việc)",
+      "warn": false,
+      "when": "28/10 09:30"
+     },
+     {
+      "event": "Tạo",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Duyên Lê gửi yêu cầu · đề xuất Cao",
+      "warn": false,
+      "when": "27/10 10:30"
+     }
+    ],
+    "title": "Dashboard Stock Boxme",
+    "type": "Sửa Power BI có sẵn",
+    "type_short": "Power BI",
+    "urgent_reason": ""
+   }
+  },
+  "DR-2026-0002": {
+   "hien.nguyen@ecentric.vn": {
+    "acceptance": "",
+    "assignee": "linh.vuong@ecentric.vn",
+    "assignee_name": "Linh Vương",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": false,
+     "cancel_needs_reason": false,
+     "follow": true,
+     "message": false,
+     "operate": false,
+     "respond": false
+    },
+    "cancel_reason": "",
+    "closed": "",
+    "code": "DR-2026-0002",
+    "created": "2026-10-28 16:30:00",
+    "created_fmt": "28/10 16:30",
+    "data_used": "Orderline · Finance (Shopee, TikTok)",
+    "description": "Cần dashboard PnL theo ngày cho brand Friso trên Shopee + TikTok.",
+    "due": "2026-11-06",
+    "due_change_count": 1,
+    "due_date": "2026-11-06",
+    "due_fmt": "06/11/2026",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "29/10/2026",
+    "kind": "request",
+    "messages": [
+     {
+      "author": "thu.nguyen@ecentric.vn",
+      "author_name": "Thu Nguyễn",
+      "body": "Mẫu giống Abbott nha em, thêm cột voucher nếu được.",
+      "files": [],
+      "id": "MSG-1",
+      "me": false,
+      "mentions": [],
+      "when": "29/10 09:30"
+     },
+     {
+      "author": "linh.vuong@ecentric.vn",
+      "author_name": "Linh Vương",
+      "body": "Đã xong 70%, còn trang Chi phí.",
+      "files": [],
+      "id": "MSG-2",
+      "me": false,
+      "mentions": [],
+      "when": "03/11 10:30"
+     }
+    ],
+    "mine": 0,
+    "original_due_fmt": "03/11/2026",
+    "output_link": "",
+    "overdue": true,
+    "paused_since_fmt": "",
+    "pm_task": "TASK-2026-00002",
+    "pm_url": "/pm#task/TASK-2026-00002",
+    "priority": "Cao",
+    "priority_confirmed": true,
+    "priority_css": "amber",
+    "proposed_priority": "Cao",
+    "reference_link": "https://example.com/mau-pnl",
+    "requester": "thu.nguyen@ecentric.vn",
+    "requester_name": "Thu Nguyễn",
+    "scope": "open",
+    "search": "dr-2026-0002 power bi pnl cho brand mới (friso) thu nguyễn thu.nguyen@ecentric.vn linh vương",
+    "sla_css": "late",
+    "sla_days": 6,
+    "sla_label": "06/11 · quá hạn 1 ngày",
+    "sla_pct": 100,
+    "start": "2026-10-29",
+    "start_fmt": "29/10/2026",
+    "status": "Đang xử lý",
+    "status_css": "navy",
+    "status_label": "Đang xử lý",
+    "team": "Commercial",
+    "timeline": [
+     {
+      "event": "Đổi hạn",
+      "note": "Chờ brand gửi file mapping SKU",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Linh Vương dời hạn 03/11 → 06/11",
+      "warn": false,
+      "when": "03/11 10:30"
+     },
+     {
+      "event": "Đồng bộ /pm",
+      "note": "",
+      "source": "/pm",
+      "text": "Tạo task /pm TASK-2026-00002",
+      "warn": false,
+      "when": "29/10 09:30"
+     },
+     {
+      "event": "Nhận việc",
+      "note": "Người gửi cần trước 03/11 để họp brand",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Linh Vương nhận việc · giao Linh Vương · bắt đầu 29/10 · hạn 03/11 (6 ngày làm việc, hạn quy tắc 06/11)",
+      "warn": false,
+      "when": "29/10 09:30"
+     },
+     {
+      "event": "Tạo",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Thu Nguyễn gửi yêu cầu · đề xuất Cao",
+      "warn": false,
+      "when": "28/10 16:30"
+     }
+    ],
+    "title": "Power BI PnL cho brand mới (Friso)",
+    "type": "Power BI mới",
+    "type_short": "Power BI",
+    "urgent_reason": ""
+   },
+   "linh.vuong@ecentric.vn": {
+    "acceptance": "",
+    "assignee": "linh.vuong@ecentric.vn",
+    "assignee_name": "Linh Vương",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": true,
+     "cancel_needs_reason": true,
+     "follow": true,
+     "message": true,
+     "operate": true,
+     "respond": false
+    },
+    "cancel_reason": "",
+    "closed": "",
+    "code": "DR-2026-0002",
+    "created": "2026-10-28 16:30:00",
+    "created_fmt": "28/10 16:30",
+    "data_used": "Orderline · Finance (Shopee, TikTok)",
+    "description": "Cần dashboard PnL theo ngày cho brand Friso trên Shopee + TikTok.",
+    "due": "2026-11-06",
+    "due_change_count": 1,
+    "due_date": "2026-11-06",
+    "due_fmt": "06/11/2026",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "29/10/2026",
+    "kind": "request",
+    "messages": [
+     {
+      "author": "thu.nguyen@ecentric.vn",
+      "author_name": "Thu Nguyễn",
+      "body": "Mẫu giống Abbott nha em, thêm cột voucher nếu được.",
+      "files": [],
+      "id": "MSG-1",
+      "me": false,
+      "mentions": [],
+      "when": "29/10 09:30"
+     },
+     {
+      "author": "linh.vuong@ecentric.vn",
+      "author_name": "Linh Vương",
+      "body": "Đã xong 70%, còn trang Chi phí.",
+      "files": [],
+      "id": "MSG-2",
+      "me": true,
+      "mentions": [],
+      "when": "03/11 10:30"
+     }
+    ],
+    "mine": 1,
+    "original_due_fmt": "03/11/2026",
+    "output_link": "",
+    "overdue": true,
+    "paused_since_fmt": "",
+    "pm_task": "TASK-2026-00002",
+    "pm_url": "/pm#task/TASK-2026-00002",
+    "priorities": [
+     "Khẩn",
+     "Cao",
+     "Bình thường",
+     "Thấp"
+    ],
+    "priority": "Cao",
+    "priority_confirmed": true,
+    "priority_css": "amber",
+    "proposed_priority": "Cao",
+    "reference_link": "https://example.com/mau-pnl",
+    "requester": "thu.nguyen@ecentric.vn",
+    "requester_name": "Thu Nguyễn",
+    "scope": "open",
+    "search": "dr-2026-0002 power bi pnl cho brand mới (friso) thu nguyễn thu.nguyen@ecentric.vn linh vương",
+    "sla_css": "late",
+    "sla_days": 6,
+    "sla_label": "06/11 · quá hạn 1 ngày",
+    "sla_pct": 100,
+    "start": "2026-10-29",
+    "start_fmt": "29/10/2026",
+    "status": "Đang xử lý",
+    "status_css": "navy",
+    "status_label": "Đang xử lý",
+    "team": "Commercial",
+    "team_members": [
+     {
+      "name": "Dũng Phạm",
+      "user": "dung.pham@ecentric.vn"
+     },
+     {
+      "name": "Hoàn Trần",
+      "user": "hoan.tran@ecentric.vn"
+     },
+     {
+      "name": "Linh Vương",
+      "user": "linh.vuong@ecentric.vn"
+     }
+    ],
+    "team_statuses": [
+     {
+      "label": "Đang xử lý",
+      "value": "Đang xử lý"
+     },
+     {
+      "label": "Tạm dừng – chờ người gửi",
+      "value": "Tạm dừng"
+     },
+     {
+      "label": "Chờ nghiệm thu",
+      "value": "Chờ nghiệm thu"
+     }
+    ],
+    "timeline": [
+     {
+      "event": "Đổi hạn",
+      "note": "Chờ brand gửi file mapping SKU",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Linh Vương dời hạn 03/11 → 06/11",
+      "warn": false,
+      "when": "03/11 10:30"
+     },
+     {
+      "event": "Đồng bộ /pm",
+      "note": "",
+      "source": "/pm",
+      "text": "Tạo task /pm TASK-2026-00002",
+      "warn": false,
+      "when": "29/10 09:30"
+     },
+     {
+      "event": "Nhận việc",
+      "note": "Người gửi cần trước 03/11 để họp brand",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Linh Vương nhận việc · giao Linh Vương · bắt đầu 29/10 · hạn 03/11 (6 ngày làm việc, hạn quy tắc 06/11)",
+      "warn": false,
+      "when": "29/10 09:30"
+     },
+     {
+      "event": "Tạo",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Thu Nguyễn gửi yêu cầu · đề xuất Cao",
+      "warn": false,
+      "when": "28/10 16:30"
+     }
+    ],
+    "title": "Power BI PnL cho brand mới (Friso)",
+    "type": "Power BI mới",
+    "type_short": "Power BI",
+    "urgent_reason": ""
+   },
+   "thu.nguyen@ecentric.vn": {
+    "acceptance": "",
+    "assignee": "linh.vuong@ecentric.vn",
+    "assignee_name": "Linh Vương",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": false,
+     "cancel_needs_reason": false,
+     "follow": true,
+     "message": true,
+     "operate": false,
+     "respond": false
+    },
+    "cancel_reason": "",
+    "closed": "",
+    "code": "DR-2026-0002",
+    "created": "2026-10-28 16:30:00",
+    "created_fmt": "28/10 16:30",
+    "data_used": "Orderline · Finance (Shopee, TikTok)",
+    "description": "Cần dashboard PnL theo ngày cho brand Friso trên Shopee + TikTok.",
+    "due": "2026-11-06",
+    "due_change_count": 1,
+    "due_date": "2026-11-06",
+    "due_fmt": "06/11/2026",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "29/10/2026",
+    "kind": "request",
+    "messages": [
+     {
+      "author": "thu.nguyen@ecentric.vn",
+      "author_name": "Thu Nguyễn",
+      "body": "Mẫu giống Abbott nha em, thêm cột voucher nếu được.",
+      "files": [],
+      "id": "MSG-1",
+      "me": true,
+      "mentions": [],
+      "when": "29/10 09:30"
+     },
+     {
+      "author": "linh.vuong@ecentric.vn",
+      "author_name": "Linh Vương",
+      "body": "Đã xong 70%, còn trang Chi phí.",
+      "files": [],
+      "id": "MSG-2",
+      "me": false,
+      "mentions": [],
+      "when": "03/11 10:30"
+     }
+    ],
+    "mine": 1,
+    "original_due_fmt": "03/11/2026",
+    "output_link": "",
+    "overdue": true,
+    "paused_since_fmt": "",
+    "pm_task": "TASK-2026-00002",
+    "pm_url": "/pm#task/TASK-2026-00002",
+    "priority": "Cao",
+    "priority_confirmed": true,
+    "priority_css": "amber",
+    "proposed_priority": "Cao",
+    "reference_link": "https://example.com/mau-pnl",
+    "requester": "thu.nguyen@ecentric.vn",
+    "requester_name": "Thu Nguyễn",
+    "scope": "open",
+    "search": "dr-2026-0002 power bi pnl cho brand mới (friso) thu nguyễn thu.nguyen@ecentric.vn linh vương",
+    "sla_css": "late",
+    "sla_days": 6,
+    "sla_label": "06/11 · quá hạn 1 ngày",
+    "sla_pct": 100,
+    "start": "2026-10-29",
+    "start_fmt": "29/10/2026",
+    "status": "Đang xử lý",
+    "status_css": "navy",
+    "status_label": "Đang xử lý",
+    "team": "Commercial",
+    "timeline": [
+     {
+      "event": "Đổi hạn",
+      "note": "Chờ brand gửi file mapping SKU",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Linh Vương dời hạn 03/11 → 06/11",
+      "warn": false,
+      "when": "03/11 10:30"
+     },
+     {
+      "event": "Đồng bộ /pm",
+      "note": "",
+      "source": "/pm",
+      "text": "Tạo task /pm TASK-2026-00002",
+      "warn": false,
+      "when": "29/10 09:30"
+     },
+     {
+      "event": "Nhận việc",
+      "note": "Người gửi cần trước 03/11 để họp brand",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Linh Vương nhận việc · giao Linh Vương · bắt đầu 29/10 · hạn 03/11 (6 ngày làm việc, hạn quy tắc 06/11)",
+      "warn": false,
+      "when": "29/10 09:30"
+     },
+     {
+      "event": "Tạo",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Thu Nguyễn gửi yêu cầu · đề xuất Cao",
+      "warn": false,
+      "when": "28/10 16:30"
+     }
+    ],
+    "title": "Power BI PnL cho brand mới (Friso)",
+    "type": "Power BI mới",
+    "type_short": "Power BI",
+    "urgent_reason": ""
+   }
+  },
+  "DR-2026-0003": {
+   "hien.nguyen@ecentric.vn": {
+    "acceptance": "",
+    "assignee": "linh.vuong@ecentric.vn",
+    "assignee_name": "Linh Vương",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": false,
+     "cancel_needs_reason": false,
+     "follow": true,
+     "message": false,
+     "operate": false,
+     "respond": false
+    },
+    "cancel_reason": "",
+    "closed": "",
+    "code": "DR-2026-0003",
+    "created": "2026-11-03 10:30:00",
+    "created_fmt": "03/11 10:30",
+    "data_used": "Orderline",
+    "description": "Cần dashboard PnL theo ngày cho brand Friso trên Shopee + TikTok.",
+    "due": "2026-11-13",
+    "due_change_count": 0,
+    "due_date": "2026-11-13",
+    "due_fmt": "13/11/2026",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "04/11/2026",
+    "kind": "request",
+    "messages": [],
+    "mine": 0,
+    "original_due_fmt": "",
+    "output_link": "",
+    "overdue": false,
+    "paused_since_fmt": "",
+    "pm_task": "TASK-2026-00003",
+    "pm_url": "/pm#task/TASK-2026-00003",
+    "priority": "Bình thường",
+    "priority_confirmed": true,
+    "priority_css": "gray",
+    "proposed_priority": "Bình thường",
+    "reference_link": "",
+    "requester": "duyen.le@ecentric.vn",
+    "requester_name": "Duyên Lê",
+    "scope": "open",
+    "search": "dr-2026-0003 crawl product rating lazada duyên lê duyen.le@ecentric.vn linh vương",
+    "sla_css": "",
+    "sla_days": 7,
+    "sla_label": "13/11 · còn 4 ngày",
+    "sla_pct": 43,
+    "start": "2026-11-04",
+    "start_fmt": "04/11/2026",
+    "status": "Đang xử lý",
+    "status_css": "navy",
+    "status_label": "Đang xử lý",
+    "team": "Commercial",
+    "timeline": [
+     {
+      "event": "Đồng bộ /pm",
+      "note": "",
+      "source": "/pm",
+      "text": "Tạo task /pm TASK-2026-00003",
+      "warn": false,
+      "when": "04/11 09:30"
+     },
+     {
+      "event": "Nhận việc",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Linh Vương nhận việc · giao Linh Vương · bắt đầu 04/11 · hạn 13/11 (7 ngày làm việc)",
+      "warn": false,
+      "when": "04/11 09:30"
+     },
+     {
+      "event": "Tạo",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Duyên Lê gửi yêu cầu",
+      "warn": false,
+      "when": "03/11 10:30"
+     }
+    ],
+    "title": "Crawl Product Rating Lazada",
+    "type": "Crawl data mới",
+    "type_short": "Crawl data",
+    "urgent_reason": ""
+   },
+   "linh.vuong@ecentric.vn": {
+    "acceptance": "",
+    "assignee": "linh.vuong@ecentric.vn",
+    "assignee_name": "Linh Vương",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": true,
+     "cancel_needs_reason": true,
+     "follow": true,
+     "message": true,
+     "operate": true,
+     "respond": false
+    },
+    "cancel_reason": "",
+    "closed": "",
+    "code": "DR-2026-0003",
+    "created": "2026-11-03 10:30:00",
+    "created_fmt": "03/11 10:30",
+    "data_used": "Orderline",
+    "description": "Cần dashboard PnL theo ngày cho brand Friso trên Shopee + TikTok.",
+    "due": "2026-11-13",
+    "due_change_count": 0,
+    "due_date": "2026-11-13",
+    "due_fmt": "13/11/2026",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "04/11/2026",
+    "kind": "request",
+    "messages": [],
+    "mine": 1,
+    "original_due_fmt": "",
+    "output_link": "",
+    "overdue": false,
+    "paused_since_fmt": "",
+    "pm_task": "TASK-2026-00003",
+    "pm_url": "/pm#task/TASK-2026-00003",
+    "priorities": [
+     "Khẩn",
+     "Cao",
+     "Bình thường",
+     "Thấp"
+    ],
+    "priority": "Bình thường",
+    "priority_confirmed": true,
+    "priority_css": "gray",
+    "proposed_priority": "Bình thường",
+    "reference_link": "",
+    "requester": "duyen.le@ecentric.vn",
+    "requester_name": "Duyên Lê",
+    "scope": "open",
+    "search": "dr-2026-0003 crawl product rating lazada duyên lê duyen.le@ecentric.vn linh vương",
+    "sla_css": "",
+    "sla_days": 7,
+    "sla_label": "13/11 · còn 4 ngày",
+    "sla_pct": 43,
+    "start": "2026-11-04",
+    "start_fmt": "04/11/2026",
+    "status": "Đang xử lý",
+    "status_css": "navy",
+    "status_label": "Đang xử lý",
+    "team": "Commercial",
+    "team_members": [
+     {
+      "name": "Dũng Phạm",
+      "user": "dung.pham@ecentric.vn"
+     },
+     {
+      "name": "Hoàn Trần",
+      "user": "hoan.tran@ecentric.vn"
+     },
+     {
+      "name": "Linh Vương",
+      "user": "linh.vuong@ecentric.vn"
+     }
+    ],
+    "team_statuses": [
+     {
+      "label": "Đang xử lý",
+      "value": "Đang xử lý"
+     },
+     {
+      "label": "Tạm dừng – chờ người gửi",
+      "value": "Tạm dừng"
+     },
+     {
+      "label": "Chờ nghiệm thu",
+      "value": "Chờ nghiệm thu"
+     }
+    ],
+    "timeline": [
+     {
+      "event": "Đồng bộ /pm",
+      "note": "",
+      "source": "/pm",
+      "text": "Tạo task /pm TASK-2026-00003",
+      "warn": false,
+      "when": "04/11 09:30"
+     },
+     {
+      "event": "Nhận việc",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Linh Vương nhận việc · giao Linh Vương · bắt đầu 04/11 · hạn 13/11 (7 ngày làm việc)",
+      "warn": false,
+      "when": "04/11 09:30"
+     },
+     {
+      "event": "Tạo",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Duyên Lê gửi yêu cầu",
+      "warn": false,
+      "when": "03/11 10:30"
+     }
+    ],
+    "title": "Crawl Product Rating Lazada",
+    "type": "Crawl data mới",
+    "type_short": "Crawl data",
+    "urgent_reason": ""
+   },
+   "thu.nguyen@ecentric.vn": {
+    "acceptance": "",
+    "assignee": "linh.vuong@ecentric.vn",
+    "assignee_name": "Linh Vương",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": false,
+     "cancel_needs_reason": false,
+     "follow": true,
+     "message": false,
+     "operate": false,
+     "respond": false
+    },
+    "cancel_reason": "",
+    "closed": "",
+    "code": "DR-2026-0003",
+    "created": "2026-11-03 10:30:00",
+    "created_fmt": "03/11 10:30",
+    "data_used": "Orderline",
+    "description": "Cần dashboard PnL theo ngày cho brand Friso trên Shopee + TikTok.",
+    "due": "2026-11-13",
+    "due_change_count": 0,
+    "due_date": "2026-11-13",
+    "due_fmt": "13/11/2026",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "04/11/2026",
+    "kind": "request",
+    "messages": [],
+    "mine": 0,
+    "original_due_fmt": "",
+    "output_link": "",
+    "overdue": false,
+    "paused_since_fmt": "",
+    "pm_task": "TASK-2026-00003",
+    "pm_url": "/pm#task/TASK-2026-00003",
+    "priority": "Bình thường",
+    "priority_confirmed": true,
+    "priority_css": "gray",
+    "proposed_priority": "Bình thường",
+    "reference_link": "",
+    "requester": "duyen.le@ecentric.vn",
+    "requester_name": "Duyên Lê",
+    "scope": "open",
+    "search": "dr-2026-0003 crawl product rating lazada duyên lê duyen.le@ecentric.vn linh vương",
+    "sla_css": "",
+    "sla_days": 7,
+    "sla_label": "13/11 · còn 4 ngày",
+    "sla_pct": 43,
+    "start": "2026-11-04",
+    "start_fmt": "04/11/2026",
+    "status": "Đang xử lý",
+    "status_css": "navy",
+    "status_label": "Đang xử lý",
+    "team": "Commercial",
+    "timeline": [
+     {
+      "event": "Đồng bộ /pm",
+      "note": "",
+      "source": "/pm",
+      "text": "Tạo task /pm TASK-2026-00003",
+      "warn": false,
+      "when": "04/11 09:30"
+     },
+     {
+      "event": "Nhận việc",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Linh Vương nhận việc · giao Linh Vương · bắt đầu 04/11 · hạn 13/11 (7 ngày làm việc)",
+      "warn": false,
+      "when": "04/11 09:30"
+     },
+     {
+      "event": "Tạo",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Duyên Lê gửi yêu cầu",
+      "warn": false,
+      "when": "03/11 10:30"
+     }
+    ],
+    "title": "Crawl Product Rating Lazada",
+    "type": "Crawl data mới",
+    "type_short": "Crawl data",
+    "urgent_reason": ""
+   }
+  },
+  "DR-2026-0004": {
+   "hien.nguyen@ecentric.vn": {
+    "acceptance": "",
+    "assignee": "hoan.tran@ecentric.vn",
+    "assignee_name": "Hoàn Trần",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": false,
+     "cancel_needs_reason": false,
+     "follow": true,
+     "message": true,
+     "operate": false,
+     "respond": false
+    },
+    "cancel_reason": "",
+    "closed": "",
+    "code": "DR-2026-0004",
+    "created": "2026-11-04 10:30:00",
+    "created_fmt": "04/11 10:30",
+    "data_used": "Orderline",
+    "description": "Cần dashboard PnL theo ngày cho brand Friso trên Shopee + TikTok.",
+    "due": "2026-11-11",
+    "due_change_count": 0,
+    "due_date": "2026-11-11",
+    "due_fmt": "11/11/2026",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "05/11/2026",
+    "kind": "request",
+    "messages": [],
+    "mine": 1,
+    "original_due_fmt": "",
+    "output_link": "",
+    "overdue": false,
+    "paused_since_fmt": "",
+    "pm_task": "TASK-2026-00004",
+    "pm_url": "/pm#task/TASK-2026-00004",
+    "priority": "Bình thường",
+    "priority_confirmed": true,
+    "priority_css": "gray",
+    "proposed_priority": "Bình thường",
+    "reference_link": "",
+    "requester": "hien.nguyen@ecentric.vn",
+    "requester_name": "Hiền Nguyễn",
+    "scope": "open",
+    "search": "dr-2026-0004 ghép data misa + e-invoice hiền nguyễn hien.nguyen@ecentric.vn hoàn trần",
+    "sla_css": "",
+    "sla_days": 3,
+    "sla_label": "11/11 · còn 2 ngày",
+    "sla_pct": 33,
+    "start": "2026-11-06",
+    "start_fmt": "06/11/2026",
+    "status": "Đang xử lý",
+    "status_css": "navy",
+    "status_label": "Đang xử lý",
+    "team": "Service",
+    "timeline": [
+     {
+      "event": "Đồng bộ /pm",
+      "note": "",
+      "source": "/pm",
+      "text": "Tạo task /pm TASK-2026-00004",
+      "warn": false,
+      "when": "06/11 09:30"
+     },
+     {
+      "event": "Nhận việc",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Hoàn Trần nhận việc · giao Hoàn Trần · bắt đầu 06/11 · hạn 11/11 (3 ngày làm việc)",
+      "warn": false,
+      "when": "06/11 09:30"
+     },
+     {
+      "event": "Tạo",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Hiền Nguyễn gửi yêu cầu",
+      "warn": false,
+      "when": "04/11 10:30"
+     }
+    ],
+    "title": "Ghép data Misa + e-Invoice",
+    "type": "Xử lý dữ liệu",
+    "type_short": "Xử lý dữ liệu",
+    "urgent_reason": ""
+   },
+   "linh.vuong@ecentric.vn": {
+    "acceptance": "",
+    "assignee": "hoan.tran@ecentric.vn",
+    "assignee_name": "Hoàn Trần",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": true,
+     "cancel_needs_reason": true,
+     "follow": true,
+     "message": true,
+     "operate": true,
+     "respond": false
+    },
+    "cancel_reason": "",
+    "closed": "",
+    "code": "DR-2026-0004",
+    "created": "2026-11-04 10:30:00",
+    "created_fmt": "04/11 10:30",
+    "data_used": "Orderline",
+    "description": "Cần dashboard PnL theo ngày cho brand Friso trên Shopee + TikTok.",
+    "due": "2026-11-11",
+    "due_change_count": 0,
+    "due_date": "2026-11-11",
+    "due_fmt": "11/11/2026",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "05/11/2026",
+    "kind": "request",
+    "messages": [],
+    "mine": 0,
+    "original_due_fmt": "",
+    "output_link": "",
+    "overdue": false,
+    "paused_since_fmt": "",
+    "pm_task": "TASK-2026-00004",
+    "pm_url": "/pm#task/TASK-2026-00004",
+    "priorities": [
+     "Khẩn",
+     "Cao",
+     "Bình thường",
+     "Thấp"
+    ],
+    "priority": "Bình thường",
+    "priority_confirmed": true,
+    "priority_css": "gray",
+    "proposed_priority": "Bình thường",
+    "reference_link": "",
+    "requester": "hien.nguyen@ecentric.vn",
+    "requester_name": "Hiền Nguyễn",
+    "scope": "open",
+    "search": "dr-2026-0004 ghép data misa + e-invoice hiền nguyễn hien.nguyen@ecentric.vn hoàn trần",
+    "sla_css": "",
+    "sla_days": 3,
+    "sla_label": "11/11 · còn 2 ngày",
+    "sla_pct": 33,
+    "start": "2026-11-06",
+    "start_fmt": "06/11/2026",
+    "status": "Đang xử lý",
+    "status_css": "navy",
+    "status_label": "Đang xử lý",
+    "team": "Service",
+    "team_members": [
+     {
+      "name": "Dũng Phạm",
+      "user": "dung.pham@ecentric.vn"
+     },
+     {
+      "name": "Hoàn Trần",
+      "user": "hoan.tran@ecentric.vn"
+     },
+     {
+      "name": "Linh Vương",
+      "user": "linh.vuong@ecentric.vn"
+     }
+    ],
+    "team_statuses": [
+     {
+      "label": "Đang xử lý",
+      "value": "Đang xử lý"
+     },
+     {
+      "label": "Tạm dừng – chờ người gửi",
+      "value": "Tạm dừng"
+     },
+     {
+      "label": "Chờ nghiệm thu",
+      "value": "Chờ nghiệm thu"
+     }
+    ],
+    "timeline": [
+     {
+      "event": "Đồng bộ /pm",
+      "note": "",
+      "source": "/pm",
+      "text": "Tạo task /pm TASK-2026-00004",
+      "warn": false,
+      "when": "06/11 09:30"
+     },
+     {
+      "event": "Nhận việc",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Hoàn Trần nhận việc · giao Hoàn Trần · bắt đầu 06/11 · hạn 11/11 (3 ngày làm việc)",
+      "warn": false,
+      "when": "06/11 09:30"
+     },
+     {
+      "event": "Tạo",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Hiền Nguyễn gửi yêu cầu",
+      "warn": false,
+      "when": "04/11 10:30"
+     }
+    ],
+    "title": "Ghép data Misa + e-Invoice",
+    "type": "Xử lý dữ liệu",
+    "type_short": "Xử lý dữ liệu",
+    "urgent_reason": ""
+   },
+   "thu.nguyen@ecentric.vn": {
+    "acceptance": "",
+    "assignee": "hoan.tran@ecentric.vn",
+    "assignee_name": "Hoàn Trần",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": false,
+     "cancel_needs_reason": false,
+     "follow": true,
+     "message": false,
+     "operate": false,
+     "respond": false
+    },
+    "cancel_reason": "",
+    "closed": "",
+    "code": "DR-2026-0004",
+    "created": "2026-11-04 10:30:00",
+    "created_fmt": "04/11 10:30",
+    "data_used": "Orderline",
+    "description": "Cần dashboard PnL theo ngày cho brand Friso trên Shopee + TikTok.",
+    "due": "2026-11-11",
+    "due_change_count": 0,
+    "due_date": "2026-11-11",
+    "due_fmt": "11/11/2026",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "05/11/2026",
+    "kind": "request",
+    "messages": [],
+    "mine": 0,
+    "original_due_fmt": "",
+    "output_link": "",
+    "overdue": false,
+    "paused_since_fmt": "",
+    "pm_task": "TASK-2026-00004",
+    "pm_url": "/pm#task/TASK-2026-00004",
+    "priority": "Bình thường",
+    "priority_confirmed": true,
+    "priority_css": "gray",
+    "proposed_priority": "Bình thường",
+    "reference_link": "",
+    "requester": "hien.nguyen@ecentric.vn",
+    "requester_name": "Hiền Nguyễn",
+    "scope": "open",
+    "search": "dr-2026-0004 ghép data misa + e-invoice hiền nguyễn hien.nguyen@ecentric.vn hoàn trần",
+    "sla_css": "",
+    "sla_days": 3,
+    "sla_label": "11/11 · còn 2 ngày",
+    "sla_pct": 33,
+    "start": "2026-11-06",
+    "start_fmt": "06/11/2026",
+    "status": "Đang xử lý",
+    "status_css": "navy",
+    "status_label": "Đang xử lý",
+    "team": "Service",
+    "timeline": [
+     {
+      "event": "Đồng bộ /pm",
+      "note": "",
+      "source": "/pm",
+      "text": "Tạo task /pm TASK-2026-00004",
+      "warn": false,
+      "when": "06/11 09:30"
+     },
+     {
+      "event": "Nhận việc",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Hoàn Trần nhận việc · giao Hoàn Trần · bắt đầu 06/11 · hạn 11/11 (3 ngày làm việc)",
+      "warn": false,
+      "when": "06/11 09:30"
+     },
+     {
+      "event": "Tạo",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Hiền Nguyễn gửi yêu cầu",
+      "warn": false,
+      "when": "04/11 10:30"
+     }
+    ],
+    "title": "Ghép data Misa + e-Invoice",
+    "type": "Xử lý dữ liệu",
+    "type_short": "Xử lý dữ liệu",
+    "urgent_reason": ""
+   }
+  },
+  "DR-2026-0005": {
+   "hien.nguyen@ecentric.vn": {
+    "acceptance": "",
+    "assignee": "linh.vuong@ecentric.vn",
+    "assignee_name": "Linh Vương",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": false,
+     "cancel_needs_reason": false,
+     "follow": true,
+     "message": false,
+     "operate": false,
+     "respond": false
+    },
+    "cancel_reason": "",
+    "closed": "",
+    "code": "DR-2026-0005",
+    "created": "2026-11-02 10:30:00",
+    "created_fmt": "02/11 10:30",
+    "data_used": "Orderline",
+    "description": "Cần dashboard PnL theo ngày cho brand Friso trên Shopee + TikTok.",
+    "due": "2026-11-12",
+    "due_change_count": 0,
+    "due_date": "2026-11-12",
+    "due_fmt": "12/11/2026",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "03/11/2026",
+    "kind": "request",
+    "messages": [
+     {
+      "author": "linh.vuong@ecentric.vn",
+      "author_name": "Linh Vương",
+      "body": "Chờ Commercial gửi quyền truy cập TikTok Shop.",
+      "files": [],
+      "id": "MSG-3",
+      "me": false,
+      "mentions": [],
+      "when": "05/11 14:30"
+     }
+    ],
+    "mine": 0,
+    "original_due_fmt": "",
+    "output_link": "",
+    "overdue": false,
+    "paused_since_fmt": "05/11 14:30",
+    "pm_task": "TASK-2026-00005",
+    "pm_url": "/pm#task/TASK-2026-00005",
+    "priority": "Bình thường",
+    "priority_confirmed": true,
+    "priority_css": "gray",
+    "proposed_priority": "Bình thường",
+    "reference_link": "",
+    "requester": "thu.nguyen@ecentric.vn",
+    "requester_name": "Thu Nguyễn",
+    "scope": "open",
+    "search": "dr-2026-0005 báo cáo live tiktok thu nguyễn thu.nguyen@ecentric.vn linh vương",
+    "sla_css": "hold",
+    "sla_days": 7,
+    "sla_label": "12/11 · SLA tạm dừng",
+    "sla_pct": 57,
+    "start": "2026-11-03",
+    "start_fmt": "03/11/2026",
+    "status": "Tạm dừng",
+    "status_css": "amber",
+    "status_label": "Tạm dừng – chờ người gửi",
+    "team": "Commercial",
+    "timeline": [
+     {
+      "event": "Tạm dừng",
+      "note": "Chờ Commercial gửi quyền truy cập TikTok Shop.",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Linh Vương tạm dừng – chờ người gửi (đồng hồ hạn dừng)",
+      "warn": false,
+      "when": "05/11 14:30"
+     },
+     {
+      "event": "Đồng bộ /pm",
+      "note": "",
+      "source": "/pm",
+      "text": "Tạo task /pm TASK-2026-00005",
+      "warn": false,
+      "when": "03/11 09:30"
+     },
+     {
+      "event": "Nhận việc",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Linh Vương nhận việc · giao Linh Vương · bắt đầu 03/11 · hạn 12/11 (7 ngày làm việc)",
+      "warn": false,
+      "when": "03/11 09:30"
+     },
+     {
+      "event": "Tạo",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Thu Nguyễn gửi yêu cầu",
+      "warn": false,
+      "when": "02/11 10:30"
+     }
+    ],
+    "title": "Báo cáo Live TikTok",
+    "type": "Power BI mới",
+    "type_short": "Power BI",
+    "urgent_reason": ""
+   },
+   "linh.vuong@ecentric.vn": {
+    "acceptance": "",
+    "assignee": "linh.vuong@ecentric.vn",
+    "assignee_name": "Linh Vương",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": true,
+     "cancel_needs_reason": true,
+     "follow": true,
+     "message": true,
+     "operate": true,
+     "respond": false
+    },
+    "cancel_reason": "",
+    "closed": "",
+    "code": "DR-2026-0005",
+    "created": "2026-11-02 10:30:00",
+    "created_fmt": "02/11 10:30",
+    "data_used": "Orderline",
+    "description": "Cần dashboard PnL theo ngày cho brand Friso trên Shopee + TikTok.",
+    "due": "2026-11-12",
+    "due_change_count": 0,
+    "due_date": "2026-11-12",
+    "due_fmt": "12/11/2026",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "03/11/2026",
+    "kind": "request",
+    "messages": [
+     {
+      "author": "linh.vuong@ecentric.vn",
+      "author_name": "Linh Vương",
+      "body": "Chờ Commercial gửi quyền truy cập TikTok Shop.",
+      "files": [],
+      "id": "MSG-3",
+      "me": true,
+      "mentions": [],
+      "when": "05/11 14:30"
+     }
+    ],
+    "mine": 1,
+    "original_due_fmt": "",
+    "output_link": "",
+    "overdue": false,
+    "paused_since_fmt": "05/11 14:30",
+    "pm_task": "TASK-2026-00005",
+    "pm_url": "/pm#task/TASK-2026-00005",
+    "priorities": [
+     "Khẩn",
+     "Cao",
+     "Bình thường",
+     "Thấp"
+    ],
+    "priority": "Bình thường",
+    "priority_confirmed": true,
+    "priority_css": "gray",
+    "proposed_priority": "Bình thường",
+    "reference_link": "",
+    "requester": "thu.nguyen@ecentric.vn",
+    "requester_name": "Thu Nguyễn",
+    "scope": "open",
+    "search": "dr-2026-0005 báo cáo live tiktok thu nguyễn thu.nguyen@ecentric.vn linh vương",
+    "sla_css": "hold",
+    "sla_days": 7,
+    "sla_label": "12/11 · SLA tạm dừng",
+    "sla_pct": 57,
+    "start": "2026-11-03",
+    "start_fmt": "03/11/2026",
+    "status": "Tạm dừng",
+    "status_css": "amber",
+    "status_label": "Tạm dừng – chờ người gửi",
+    "team": "Commercial",
+    "team_members": [
+     {
+      "name": "Dũng Phạm",
+      "user": "dung.pham@ecentric.vn"
+     },
+     {
+      "name": "Hoàn Trần",
+      "user": "hoan.tran@ecentric.vn"
+     },
+     {
+      "name": "Linh Vương",
+      "user": "linh.vuong@ecentric.vn"
+     }
+    ],
+    "team_statuses": [
+     {
+      "label": "Đang xử lý",
+      "value": "Đang xử lý"
+     },
+     {
+      "label": "Tạm dừng – chờ người gửi",
+      "value": "Tạm dừng"
+     },
+     {
+      "label": "Chờ nghiệm thu",
+      "value": "Chờ nghiệm thu"
+     }
+    ],
+    "timeline": [
+     {
+      "event": "Tạm dừng",
+      "note": "Chờ Commercial gửi quyền truy cập TikTok Shop.",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Linh Vương tạm dừng – chờ người gửi (đồng hồ hạn dừng)",
+      "warn": false,
+      "when": "05/11 14:30"
+     },
+     {
+      "event": "Đồng bộ /pm",
+      "note": "",
+      "source": "/pm",
+      "text": "Tạo task /pm TASK-2026-00005",
+      "warn": false,
+      "when": "03/11 09:30"
+     },
+     {
+      "event": "Nhận việc",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Linh Vương nhận việc · giao Linh Vương · bắt đầu 03/11 · hạn 12/11 (7 ngày làm việc)",
+      "warn": false,
+      "when": "03/11 09:30"
+     },
+     {
+      "event": "Tạo",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Thu Nguyễn gửi yêu cầu",
+      "warn": false,
+      "when": "02/11 10:30"
+     }
+    ],
+    "title": "Báo cáo Live TikTok",
+    "type": "Power BI mới",
+    "type_short": "Power BI",
+    "urgent_reason": ""
+   },
+   "thu.nguyen@ecentric.vn": {
+    "acceptance": "",
+    "assignee": "linh.vuong@ecentric.vn",
+    "assignee_name": "Linh Vương",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": false,
+     "cancel_needs_reason": false,
+     "follow": true,
+     "message": true,
+     "operate": false,
+     "respond": false
+    },
+    "cancel_reason": "",
+    "closed": "",
+    "code": "DR-2026-0005",
+    "created": "2026-11-02 10:30:00",
+    "created_fmt": "02/11 10:30",
+    "data_used": "Orderline",
+    "description": "Cần dashboard PnL theo ngày cho brand Friso trên Shopee + TikTok.",
+    "due": "2026-11-12",
+    "due_change_count": 0,
+    "due_date": "2026-11-12",
+    "due_fmt": "12/11/2026",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "03/11/2026",
+    "kind": "request",
+    "messages": [
+     {
+      "author": "linh.vuong@ecentric.vn",
+      "author_name": "Linh Vương",
+      "body": "Chờ Commercial gửi quyền truy cập TikTok Shop.",
+      "files": [],
+      "id": "MSG-3",
+      "me": false,
+      "mentions": [],
+      "when": "05/11 14:30"
+     }
+    ],
+    "mine": 1,
+    "original_due_fmt": "",
+    "output_link": "",
+    "overdue": false,
+    "paused_since_fmt": "05/11 14:30",
+    "pm_task": "TASK-2026-00005",
+    "pm_url": "/pm#task/TASK-2026-00005",
+    "priority": "Bình thường",
+    "priority_confirmed": true,
+    "priority_css": "gray",
+    "proposed_priority": "Bình thường",
+    "reference_link": "",
+    "requester": "thu.nguyen@ecentric.vn",
+    "requester_name": "Thu Nguyễn",
+    "scope": "open",
+    "search": "dr-2026-0005 báo cáo live tiktok thu nguyễn thu.nguyen@ecentric.vn linh vương",
+    "sla_css": "hold",
+    "sla_days": 7,
+    "sla_label": "12/11 · SLA tạm dừng",
+    "sla_pct": 57,
+    "start": "2026-11-03",
+    "start_fmt": "03/11/2026",
+    "status": "Tạm dừng",
+    "status_css": "amber",
+    "status_label": "Tạm dừng – chờ người gửi",
+    "team": "Commercial",
+    "timeline": [
+     {
+      "event": "Tạm dừng",
+      "note": "Chờ Commercial gửi quyền truy cập TikTok Shop.",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Linh Vương tạm dừng – chờ người gửi (đồng hồ hạn dừng)",
+      "warn": false,
+      "when": "05/11 14:30"
+     },
+     {
+      "event": "Đồng bộ /pm",
+      "note": "",
+      "source": "/pm",
+      "text": "Tạo task /pm TASK-2026-00005",
+      "warn": false,
+      "when": "03/11 09:30"
+     },
+     {
+      "event": "Nhận việc",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Linh Vương nhận việc · giao Linh Vương · bắt đầu 03/11 · hạn 12/11 (7 ngày làm việc)",
+      "warn": false,
+      "when": "03/11 09:30"
+     },
+     {
+      "event": "Tạo",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Thu Nguyễn gửi yêu cầu",
+      "warn": false,
+      "when": "02/11 10:30"
+     }
+    ],
+    "title": "Báo cáo Live TikTok",
+    "type": "Power BI mới",
+    "type_short": "Power BI",
+    "urgent_reason": ""
+   }
+  },
+  "DR-2026-0006": {
+   "hien.nguyen@ecentric.vn": {
+    "acceptance": "",
+    "assignee": "dung.pham@ecentric.vn",
+    "assignee_name": "Dũng Phạm",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": false,
+     "cancel_needs_reason": false,
+     "follow": true,
+     "message": true,
+     "operate": false,
+     "respond": true
+    },
+    "cancel_reason": "",
+    "closed": "",
+    "code": "DR-2026-0006",
+    "created": "2026-11-02 10:30:00",
+    "created_fmt": "02/11 10:30",
+    "data_used": "Orderline",
+    "description": "Cần dashboard PnL theo ngày cho brand Friso trên Shopee + TikTok.",
+    "due": "2026-11-06",
+    "due_change_count": 0,
+    "due_date": "2026-11-06",
+    "due_fmt": "06/11/2026",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "03/11/2026",
+    "kind": "request",
+    "messages": [],
+    "mine": 1,
+    "original_due_fmt": "",
+    "output_link": "https://app.powerbi.com/aff",
+    "overdue": false,
+    "paused_since_fmt": "",
+    "pm_task": "TASK-2026-00006",
+    "pm_url": "/pm#task/TASK-2026-00006",
+    "priority": "Bình thường",
+    "priority_confirmed": true,
+    "priority_css": "gray",
+    "proposed_priority": "Bình thường",
+    "reference_link": "",
+    "requester": "hien.nguyen@ecentric.vn",
+    "requester_name": "Hiền Nguyễn",
+    "scope": "open",
+    "search": "dr-2026-0006 dashboard affiliate tiktok hiền nguyễn hien.nguyen@ecentric.vn dũng phạm",
+    "sla_css": "done",
+    "sla_days": 3,
+    "sla_label": "xong 06/11 · chờ nghiệm thu",
+    "sla_pct": 100,
+    "start": "2026-11-03",
+    "start_fmt": "03/11/2026",
+    "status": "Chờ nghiệm thu",
+    "status_css": "teal",
+    "status_label": "Chờ nghiệm thu",
+    "team": "Service",
+    "timeline": [
+     {
+      "event": "Hoàn tất",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Dũng Phạm hoàn tất, chờ người gửi nghiệm thu",
+      "warn": false,
+      "when": "06/11 17:30"
+     },
+     {
+      "event": "Đồng bộ /pm",
+      "note": "",
+      "source": "/pm",
+      "text": "Tạo task /pm TASK-2026-00006",
+      "warn": false,
+      "when": "03/11 09:30"
+     },
+     {
+      "event": "Nhận việc",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Dũng Phạm nhận việc · giao Dũng Phạm · bắt đầu 03/11 · hạn 06/11 (3 ngày làm việc)",
+      "warn": false,
+      "when": "03/11 09:30"
+     },
+     {
+      "event": "Tạo",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Hiền Nguyễn gửi yêu cầu",
+      "warn": false,
+      "when": "02/11 10:30"
+     }
+    ],
+    "title": "Dashboard Affiliate TikTok",
+    "type": "Sửa Power BI có sẵn",
+    "type_short": "Power BI",
+    "urgent_reason": ""
+   },
+   "linh.vuong@ecentric.vn": {
+    "acceptance": "",
+    "assignee": "dung.pham@ecentric.vn",
+    "assignee_name": "Dũng Phạm",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": true,
+     "cancel_needs_reason": true,
+     "follow": true,
+     "message": true,
+     "operate": true,
+     "respond": false
+    },
+    "cancel_reason": "",
+    "closed": "",
+    "code": "DR-2026-0006",
+    "created": "2026-11-02 10:30:00",
+    "created_fmt": "02/11 10:30",
+    "data_used": "Orderline",
+    "description": "Cần dashboard PnL theo ngày cho brand Friso trên Shopee + TikTok.",
+    "due": "2026-11-06",
+    "due_change_count": 0,
+    "due_date": "2026-11-06",
+    "due_fmt": "06/11/2026",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "03/11/2026",
+    "kind": "request",
+    "messages": [],
+    "mine": 0,
+    "original_due_fmt": "",
+    "output_link": "https://app.powerbi.com/aff",
+    "overdue": false,
+    "paused_since_fmt": "",
+    "pm_task": "TASK-2026-00006",
+    "pm_url": "/pm#task/TASK-2026-00006",
+    "priorities": [
+     "Khẩn",
+     "Cao",
+     "Bình thường",
+     "Thấp"
+    ],
+    "priority": "Bình thường",
+    "priority_confirmed": true,
+    "priority_css": "gray",
+    "proposed_priority": "Bình thường",
+    "reference_link": "",
+    "requester": "hien.nguyen@ecentric.vn",
+    "requester_name": "Hiền Nguyễn",
+    "scope": "open",
+    "search": "dr-2026-0006 dashboard affiliate tiktok hiền nguyễn hien.nguyen@ecentric.vn dũng phạm",
+    "sla_css": "done",
+    "sla_days": 3,
+    "sla_label": "xong 06/11 · chờ nghiệm thu",
+    "sla_pct": 100,
+    "start": "2026-11-03",
+    "start_fmt": "03/11/2026",
+    "status": "Chờ nghiệm thu",
+    "status_css": "teal",
+    "status_label": "Chờ nghiệm thu",
+    "team": "Service",
+    "team_members": [
+     {
+      "name": "Dũng Phạm",
+      "user": "dung.pham@ecentric.vn"
+     },
+     {
+      "name": "Hoàn Trần",
+      "user": "hoan.tran@ecentric.vn"
+     },
+     {
+      "name": "Linh Vương",
+      "user": "linh.vuong@ecentric.vn"
+     }
+    ],
+    "team_statuses": [
+     {
+      "label": "Đang xử lý",
+      "value": "Đang xử lý"
+     },
+     {
+      "label": "Chờ nghiệm thu",
+      "value": "Chờ nghiệm thu"
+     }
+    ],
+    "timeline": [
+     {
+      "event": "Hoàn tất",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Dũng Phạm hoàn tất, chờ người gửi nghiệm thu",
+      "warn": false,
+      "when": "06/11 17:30"
+     },
+     {
+      "event": "Đồng bộ /pm",
+      "note": "",
+      "source": "/pm",
+      "text": "Tạo task /pm TASK-2026-00006",
+      "warn": false,
+      "when": "03/11 09:30"
+     },
+     {
+      "event": "Nhận việc",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Dũng Phạm nhận việc · giao Dũng Phạm · bắt đầu 03/11 · hạn 06/11 (3 ngày làm việc)",
+      "warn": false,
+      "when": "03/11 09:30"
+     },
+     {
+      "event": "Tạo",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Hiền Nguyễn gửi yêu cầu",
+      "warn": false,
+      "when": "02/11 10:30"
+     }
+    ],
+    "title": "Dashboard Affiliate TikTok",
+    "type": "Sửa Power BI có sẵn",
+    "type_short": "Power BI",
+    "urgent_reason": ""
+   },
+   "thu.nguyen@ecentric.vn": {
+    "acceptance": "",
+    "assignee": "dung.pham@ecentric.vn",
+    "assignee_name": "Dũng Phạm",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": false,
+     "cancel_needs_reason": false,
+     "follow": true,
+     "message": false,
+     "operate": false,
+     "respond": false
+    },
+    "cancel_reason": "",
+    "closed": "",
+    "code": "DR-2026-0006",
+    "created": "2026-11-02 10:30:00",
+    "created_fmt": "02/11 10:30",
+    "data_used": "Orderline",
+    "description": "Cần dashboard PnL theo ngày cho brand Friso trên Shopee + TikTok.",
+    "due": "2026-11-06",
+    "due_change_count": 0,
+    "due_date": "2026-11-06",
+    "due_fmt": "06/11/2026",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "03/11/2026",
+    "kind": "request",
+    "messages": [],
+    "mine": 0,
+    "original_due_fmt": "",
+    "output_link": "https://app.powerbi.com/aff",
+    "overdue": false,
+    "paused_since_fmt": "",
+    "pm_task": "TASK-2026-00006",
+    "pm_url": "/pm#task/TASK-2026-00006",
+    "priority": "Bình thường",
+    "priority_confirmed": true,
+    "priority_css": "gray",
+    "proposed_priority": "Bình thường",
+    "reference_link": "",
+    "requester": "hien.nguyen@ecentric.vn",
+    "requester_name": "Hiền Nguyễn",
+    "scope": "open",
+    "search": "dr-2026-0006 dashboard affiliate tiktok hiền nguyễn hien.nguyen@ecentric.vn dũng phạm",
+    "sla_css": "done",
+    "sla_days": 3,
+    "sla_label": "xong 06/11 · chờ nghiệm thu",
+    "sla_pct": 100,
+    "start": "2026-11-03",
+    "start_fmt": "03/11/2026",
+    "status": "Chờ nghiệm thu",
+    "status_css": "teal",
+    "status_label": "Chờ nghiệm thu",
+    "team": "Service",
+    "timeline": [
+     {
+      "event": "Hoàn tất",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Dũng Phạm hoàn tất, chờ người gửi nghiệm thu",
+      "warn": false,
+      "when": "06/11 17:30"
+     },
+     {
+      "event": "Đồng bộ /pm",
+      "note": "",
+      "source": "/pm",
+      "text": "Tạo task /pm TASK-2026-00006",
+      "warn": false,
+      "when": "03/11 09:30"
+     },
+     {
+      "event": "Nhận việc",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Dũng Phạm nhận việc · giao Dũng Phạm · bắt đầu 03/11 · hạn 06/11 (3 ngày làm việc)",
+      "warn": false,
+      "when": "03/11 09:30"
+     },
+     {
+      "event": "Tạo",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Hiền Nguyễn gửi yêu cầu",
+      "warn": false,
+      "when": "02/11 10:30"
+     }
+    ],
+    "title": "Dashboard Affiliate TikTok",
+    "type": "Sửa Power BI có sẵn",
+    "type_short": "Power BI",
+    "urgent_reason": ""
+   }
+  },
+  "DR-2026-0007": {
+   "hien.nguyen@ecentric.vn": {
+    "acceptance": "",
+    "assignee": "",
+    "assignee_name": "",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": false,
+     "cancel_needs_reason": false,
+     "follow": true,
+     "message": false,
+     "operate": false,
+     "respond": false
+    },
+    "cancel_reason": "",
+    "closed": "",
+    "code": "DR-2026-0007",
+    "created": "2026-11-09 08:30:00",
+    "created_fmt": "09/11 08:30",
+    "data_used": "Orderline",
+    "description": "Cần dashboard PnL theo ngày cho brand Friso trên Shopee + TikTok.",
+    "due": "2026-11-10",
+    "due_change_count": 0,
+    "due_date": "",
+    "due_fmt": "",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "10/11/2026",
+    "kind": "request",
+    "messages": [],
+    "mine": 0,
+    "original_due_fmt": "",
+    "output_link": "",
+    "overdue": false,
+    "paused_since_fmt": "",
+    "pm_task": "",
+    "pm_url": "",
+    "priority": "Khẩn",
+    "priority_confirmed": false,
+    "priority_css": "red",
+    "proposed_priority": "Khẩn",
+    "queue": {
+     "expected_due": "13/11/2026",
+     "expected_start": "09/11/2026",
+     "position": 1,
+     "sla_days": 4
+    },
+    "reference_link": "",
+    "requester": "thu.nguyen@ecentric.vn",
+    "requester_name": "Thu Nguyễn",
+    "scope": "open",
+    "search": "dr-2026-0007 crawl voucher & flashsale shopee thu nguyễn thu.nguyen@ecentric.vn ",
+    "sla_css": "",
+    "sla_days": 4,
+    "sla_label": "hạn nhận 10/11",
+    "sla_pct": 10,
+    "start": "",
+    "start_fmt": "",
+    "status": "Chờ tiếp nhận",
+    "status_css": "gray",
+    "status_label": "Chờ tiếp nhận",
+    "team": "Commercial",
+    "timeline": [
+     {
+      "event": "Tạo",
+      "note": "Đề xuất Khẩn: Cần số cho 12.12, họp BOD thứ Năm",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Thu Nguyễn gửi yêu cầu · đề xuất Khẩn",
+      "warn": false,
+      "when": "09/11 08:30"
+     }
+    ],
+    "title": "Crawl Voucher & Flashsale Shopee",
+    "type": "Crawl data mới",
+    "type_short": "Crawl data",
+    "urgent_reason": "Cần số cho 12.12, họp BOD thứ Năm"
+   },
+   "linh.vuong@ecentric.vn": {
+    "accept_defaults": {
+     "due": "2026-11-13",
+     "priority": "Khẩn",
+     "proposed_priority": "Khẩn",
+     "sla_days": 4,
+     "start": "2026-11-09",
+     "urgent_reason": "Cần số cho 12.12, họp BOD thứ Năm"
+    },
+    "acceptance": "",
+    "assignee": "",
+    "assignee_name": "",
+    "attachments": [],
+    "can": {
+     "accept": true,
+     "cancel": true,
+     "cancel_needs_reason": true,
+     "follow": true,
+     "message": true,
+     "operate": false,
+     "respond": false
+    },
+    "cancel_reason": "",
+    "closed": "",
+    "code": "DR-2026-0007",
+    "created": "2026-11-09 08:30:00",
+    "created_fmt": "09/11 08:30",
+    "data_used": "Orderline",
+    "description": "Cần dashboard PnL theo ngày cho brand Friso trên Shopee + TikTok.",
+    "due": "2026-11-10",
+    "due_change_count": 0,
+    "due_date": "",
+    "due_fmt": "",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "10/11/2026",
+    "kind": "request",
+    "messages": [],
+    "mine": 0,
+    "original_due_fmt": "",
+    "output_link": "",
+    "overdue": false,
+    "paused_since_fmt": "",
+    "pm_task": "",
+    "pm_url": "",
+    "priorities": [
+     "Khẩn",
+     "Cao",
+     "Bình thường",
+     "Thấp"
+    ],
+    "priority": "Khẩn",
+    "priority_confirmed": false,
+    "priority_css": "red",
+    "proposed_priority": "Khẩn",
+    "queue": {
+     "expected_due": "13/11/2026",
+     "expected_start": "09/11/2026",
+     "position": 1,
+     "sla_days": 4
+    },
+    "reference_link": "",
+    "requester": "thu.nguyen@ecentric.vn",
+    "requester_name": "Thu Nguyễn",
+    "scope": "open",
+    "search": "dr-2026-0007 crawl voucher & flashsale shopee thu nguyễn thu.nguyen@ecentric.vn ",
+    "sla_css": "",
+    "sla_days": 4,
+    "sla_label": "hạn nhận 10/11",
+    "sla_pct": 10,
+    "start": "",
+    "start_fmt": "",
+    "status": "Chờ tiếp nhận",
+    "status_css": "gray",
+    "status_label": "Chờ tiếp nhận",
+    "team": "Commercial",
+    "team_members": [
+     {
+      "name": "Dũng Phạm",
+      "user": "dung.pham@ecentric.vn"
+     },
+     {
+      "name": "Hoàn Trần",
+      "user": "hoan.tran@ecentric.vn"
+     },
+     {
+      "name": "Linh Vương",
+      "user": "linh.vuong@ecentric.vn"
+     }
+    ],
+    "team_statuses": [],
+    "timeline": [
+     {
+      "event": "Tạo",
+      "note": "Đề xuất Khẩn: Cần số cho 12.12, họp BOD thứ Năm",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Thu Nguyễn gửi yêu cầu · đề xuất Khẩn",
+      "warn": false,
+      "when": "09/11 08:30"
+     }
+    ],
+    "title": "Crawl Voucher & Flashsale Shopee",
+    "type": "Crawl data mới",
+    "type_short": "Crawl data",
+    "urgent_reason": "Cần số cho 12.12, họp BOD thứ Năm"
+   },
+   "thu.nguyen@ecentric.vn": {
+    "acceptance": "",
+    "assignee": "",
+    "assignee_name": "",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": true,
+     "cancel_needs_reason": false,
+     "follow": true,
+     "message": true,
+     "operate": false,
+     "respond": false
+    },
+    "cancel_reason": "",
+    "closed": "",
+    "code": "DR-2026-0007",
+    "created": "2026-11-09 08:30:00",
+    "created_fmt": "09/11 08:30",
+    "data_used": "Orderline",
+    "description": "Cần dashboard PnL theo ngày cho brand Friso trên Shopee + TikTok.",
+    "due": "2026-11-10",
+    "due_change_count": 0,
+    "due_date": "",
+    "due_fmt": "",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "10/11/2026",
+    "kind": "request",
+    "messages": [],
+    "mine": 1,
+    "original_due_fmt": "",
+    "output_link": "",
+    "overdue": false,
+    "paused_since_fmt": "",
+    "pm_task": "",
+    "pm_url": "",
+    "priority": "Khẩn",
+    "priority_confirmed": false,
+    "priority_css": "red",
+    "proposed_priority": "Khẩn",
+    "queue": {
+     "expected_due": "13/11/2026",
+     "expected_start": "09/11/2026",
+     "position": 1,
+     "sla_days": 4
+    },
+    "reference_link": "",
+    "requester": "thu.nguyen@ecentric.vn",
+    "requester_name": "Thu Nguyễn",
+    "scope": "open",
+    "search": "dr-2026-0007 crawl voucher & flashsale shopee thu nguyễn thu.nguyen@ecentric.vn ",
+    "sla_css": "",
+    "sla_days": 4,
+    "sla_label": "hạn nhận 10/11",
+    "sla_pct": 10,
+    "start": "",
+    "start_fmt": "",
+    "status": "Chờ tiếp nhận",
+    "status_css": "gray",
+    "status_label": "Chờ tiếp nhận",
+    "team": "Commercial",
+    "timeline": [
+     {
+      "event": "Tạo",
+      "note": "Đề xuất Khẩn: Cần số cho 12.12, họp BOD thứ Năm",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Thu Nguyễn gửi yêu cầu · đề xuất Khẩn",
+      "warn": false,
+      "when": "09/11 08:30"
+     }
+    ],
+    "title": "Crawl Voucher & Flashsale Shopee",
+    "type": "Crawl data mới",
+    "type_short": "Crawl data",
+    "urgent_reason": "Cần số cho 12.12, họp BOD thứ Năm"
+   }
+  },
+  "DR-2026-0008": {
+   "hien.nguyen@ecentric.vn": {
+    "acceptance": "",
+    "assignee": "",
+    "assignee_name": "",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": true,
+     "cancel_needs_reason": false,
+     "follow": true,
+     "message": true,
+     "operate": false,
+     "respond": false
+    },
+    "cancel_reason": "",
+    "closed": "",
+    "code": "DR-2026-0008",
+    "created": "2026-11-06 15:30:00",
+    "created_fmt": "06/11 15:30",
+    "data_used": "Orderline",
+    "description": "Cần dashboard PnL theo ngày cho brand Friso trên Shopee + TikTok.",
+    "due": "2026-11-09",
+    "due_change_count": 0,
+    "due_date": "",
+    "due_fmt": "",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "09/11/2026",
+    "kind": "request",
+    "messages": [],
+    "mine": 1,
+    "original_due_fmt": "",
+    "output_link": "",
+    "overdue": false,
+    "paused_since_fmt": "",
+    "pm_task": "",
+    "pm_url": "",
+    "priority": "Thấp",
+    "priority_confirmed": false,
+    "priority_css": "gray",
+    "proposed_priority": "Thấp",
+    "queue": {
+     "expected_due": "23/11/2026",
+     "expected_start": "13/11/2026",
+     "position": 3,
+     "sla_days": 5
+    },
+    "reference_link": "",
+    "requester": "hien.nguyen@ecentric.vn",
+    "requester_name": "Hiền Nguyễn",
+    "scope": "open",
+    "search": "dr-2026-0008 làm sạch file khách hàng hiền nguyễn hien.nguyen@ecentric.vn ",
+    "sla_css": "",
+    "sla_days": 5,
+    "sla_label": "hạn nhận 09/11",
+    "sla_pct": 10,
+    "start": "",
+    "start_fmt": "",
+    "status": "Chờ tiếp nhận",
+    "status_css": "gray",
+    "status_label": "Chờ tiếp nhận",
+    "team": "Service",
+    "timeline": [
+     {
+      "event": "Tạo",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Hiền Nguyễn gửi yêu cầu · đề xuất Thấp",
+      "warn": false,
+      "when": "06/11 15:30"
+     }
+    ],
+    "title": "Làm sạch file khách hàng",
+    "type": "Xử lý dữ liệu",
+    "type_short": "Xử lý dữ liệu",
+    "urgent_reason": ""
+   },
+   "linh.vuong@ecentric.vn": {
+    "accept_defaults": {
+     "due": "2026-11-16",
+     "priority": "Thấp",
+     "proposed_priority": "Thấp",
+     "sla_days": 5,
+     "start": "2026-11-09",
+     "urgent_reason": ""
+    },
+    "acceptance": "",
+    "assignee": "",
+    "assignee_name": "",
+    "attachments": [],
+    "can": {
+     "accept": true,
+     "cancel": true,
+     "cancel_needs_reason": true,
+     "follow": true,
+     "message": true,
+     "operate": false,
+     "respond": false
+    },
+    "cancel_reason": "",
+    "closed": "",
+    "code": "DR-2026-0008",
+    "created": "2026-11-06 15:30:00",
+    "created_fmt": "06/11 15:30",
+    "data_used": "Orderline",
+    "description": "Cần dashboard PnL theo ngày cho brand Friso trên Shopee + TikTok.",
+    "due": "2026-11-09",
+    "due_change_count": 0,
+    "due_date": "",
+    "due_fmt": "",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "09/11/2026",
+    "kind": "request",
+    "messages": [],
+    "mine": 0,
+    "original_due_fmt": "",
+    "output_link": "",
+    "overdue": false,
+    "paused_since_fmt": "",
+    "pm_task": "",
+    "pm_url": "",
+    "priorities": [
+     "Khẩn",
+     "Cao",
+     "Bình thường",
+     "Thấp"
+    ],
+    "priority": "Thấp",
+    "priority_confirmed": false,
+    "priority_css": "gray",
+    "proposed_priority": "Thấp",
+    "queue": {
+     "expected_due": "23/11/2026",
+     "expected_start": "13/11/2026",
+     "position": 3,
+     "sla_days": 5
+    },
+    "reference_link": "",
+    "requester": "hien.nguyen@ecentric.vn",
+    "requester_name": "Hiền Nguyễn",
+    "scope": "open",
+    "search": "dr-2026-0008 làm sạch file khách hàng hiền nguyễn hien.nguyen@ecentric.vn ",
+    "sla_css": "",
+    "sla_days": 5,
+    "sla_label": "hạn nhận 09/11",
+    "sla_pct": 10,
+    "start": "",
+    "start_fmt": "",
+    "status": "Chờ tiếp nhận",
+    "status_css": "gray",
+    "status_label": "Chờ tiếp nhận",
+    "team": "Service",
+    "team_members": [
+     {
+      "name": "Dũng Phạm",
+      "user": "dung.pham@ecentric.vn"
+     },
+     {
+      "name": "Hoàn Trần",
+      "user": "hoan.tran@ecentric.vn"
+     },
+     {
+      "name": "Linh Vương",
+      "user": "linh.vuong@ecentric.vn"
+     }
+    ],
+    "team_statuses": [],
+    "timeline": [
+     {
+      "event": "Tạo",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Hiền Nguyễn gửi yêu cầu · đề xuất Thấp",
+      "warn": false,
+      "when": "06/11 15:30"
+     }
+    ],
+    "title": "Làm sạch file khách hàng",
+    "type": "Xử lý dữ liệu",
+    "type_short": "Xử lý dữ liệu",
+    "urgent_reason": ""
+   },
+   "thu.nguyen@ecentric.vn": {
+    "acceptance": "",
+    "assignee": "",
+    "assignee_name": "",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": false,
+     "cancel_needs_reason": false,
+     "follow": true,
+     "message": false,
+     "operate": false,
+     "respond": false
+    },
+    "cancel_reason": "",
+    "closed": "",
+    "code": "DR-2026-0008",
+    "created": "2026-11-06 15:30:00",
+    "created_fmt": "06/11 15:30",
+    "data_used": "Orderline",
+    "description": "Cần dashboard PnL theo ngày cho brand Friso trên Shopee + TikTok.",
+    "due": "2026-11-09",
+    "due_change_count": 0,
+    "due_date": "",
+    "due_fmt": "",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "09/11/2026",
+    "kind": "request",
+    "messages": [],
+    "mine": 0,
+    "original_due_fmt": "",
+    "output_link": "",
+    "overdue": false,
+    "paused_since_fmt": "",
+    "pm_task": "",
+    "pm_url": "",
+    "priority": "Thấp",
+    "priority_confirmed": false,
+    "priority_css": "gray",
+    "proposed_priority": "Thấp",
+    "queue": {
+     "expected_due": "23/11/2026",
+     "expected_start": "13/11/2026",
+     "position": 3,
+     "sla_days": 5
+    },
+    "reference_link": "",
+    "requester": "hien.nguyen@ecentric.vn",
+    "requester_name": "Hiền Nguyễn",
+    "scope": "open",
+    "search": "dr-2026-0008 làm sạch file khách hàng hiền nguyễn hien.nguyen@ecentric.vn ",
+    "sla_css": "",
+    "sla_days": 5,
+    "sla_label": "hạn nhận 09/11",
+    "sla_pct": 10,
+    "start": "",
+    "start_fmt": "",
+    "status": "Chờ tiếp nhận",
+    "status_css": "gray",
+    "status_label": "Chờ tiếp nhận",
+    "team": "Service",
+    "timeline": [
+     {
+      "event": "Tạo",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Hiền Nguyễn gửi yêu cầu · đề xuất Thấp",
+      "warn": false,
+      "when": "06/11 15:30"
+     }
+    ],
+    "title": "Làm sạch file khách hàng",
+    "type": "Xử lý dữ liệu",
+    "type_short": "Xử lý dữ liệu",
+    "urgent_reason": ""
+   }
+  },
+  "DR-2026-0009": {
+   "hien.nguyen@ecentric.vn": {
+    "acceptance": "",
+    "assignee": "",
+    "assignee_name": "",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": true,
+     "cancel_needs_reason": false,
+     "follow": true,
+     "message": true,
+     "operate": false,
+     "respond": false
+    },
+    "cancel_reason": "",
+    "closed": "",
+    "code": "DR-2026-0009",
+    "created": "2026-11-05 11:30:00",
+    "created_fmt": "05/11 11:30",
+    "data_used": "Orderline",
+    "description": "Cần dashboard PnL theo ngày cho brand Friso trên Shopee + TikTok.",
+    "due": "2026-11-06",
+    "due_change_count": 0,
+    "due_date": "",
+    "due_fmt": "",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "06/11/2026",
+    "kind": "request",
+    "messages": [],
+    "mine": 1,
+    "original_due_fmt": "",
+    "output_link": "",
+    "overdue": true,
+    "paused_since_fmt": "",
+    "pm_task": "",
+    "pm_url": "",
+    "priority": "Bình thường",
+    "priority_confirmed": false,
+    "priority_css": "gray",
+    "proposed_priority": "Bình thường",
+    "queue": {
+     "expected_due": "23/11/2026",
+     "expected_start": "11/11/2026",
+     "position": 2,
+     "sla_days": 7
+    },
+    "reference_link": "",
+    "requester": "hien.nguyen@ecentric.vn",
+    "requester_name": "Hiền Nguyễn",
+    "scope": "open",
+    "search": "dr-2026-0009 dashboard affiliate partner tiktok hiền nguyễn hien.nguyen@ecentric.vn ",
+    "sla_css": "late",
+    "sla_days": 7,
+    "sla_label": "hạn nhận 06/11 · trễ",
+    "sla_pct": 100,
+    "start": "",
+    "start_fmt": "",
+    "status": "Chờ tiếp nhận",
+    "status_css": "gray",
+    "status_label": "Chờ tiếp nhận",
+    "team": "Service",
+    "timeline": [
+     {
+      "event": "Tạo",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Hiền Nguyễn gửi yêu cầu",
+      "warn": false,
+      "when": "05/11 11:30"
+     }
+    ],
+    "title": "Dashboard Affiliate partner TikTok",
+    "type": "Power BI mới",
+    "type_short": "Power BI",
+    "urgent_reason": ""
+   },
+   "linh.vuong@ecentric.vn": {
+    "accept_defaults": {
+     "due": "2026-11-18",
+     "priority": "Bình thường",
+     "proposed_priority": "Bình thường",
+     "sla_days": 7,
+     "start": "2026-11-09",
+     "urgent_reason": ""
+    },
+    "acceptance": "",
+    "assignee": "",
+    "assignee_name": "",
+    "attachments": [],
+    "can": {
+     "accept": true,
+     "cancel": true,
+     "cancel_needs_reason": true,
+     "follow": true,
+     "message": true,
+     "operate": false,
+     "respond": false
+    },
+    "cancel_reason": "",
+    "closed": "",
+    "code": "DR-2026-0009",
+    "created": "2026-11-05 11:30:00",
+    "created_fmt": "05/11 11:30",
+    "data_used": "Orderline",
+    "description": "Cần dashboard PnL theo ngày cho brand Friso trên Shopee + TikTok.",
+    "due": "2026-11-06",
+    "due_change_count": 0,
+    "due_date": "",
+    "due_fmt": "",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "06/11/2026",
+    "kind": "request",
+    "messages": [],
+    "mine": 0,
+    "original_due_fmt": "",
+    "output_link": "",
+    "overdue": true,
+    "paused_since_fmt": "",
+    "pm_task": "",
+    "pm_url": "",
+    "priorities": [
+     "Khẩn",
+     "Cao",
+     "Bình thường",
+     "Thấp"
+    ],
+    "priority": "Bình thường",
+    "priority_confirmed": false,
+    "priority_css": "gray",
+    "proposed_priority": "Bình thường",
+    "queue": {
+     "expected_due": "23/11/2026",
+     "expected_start": "11/11/2026",
+     "position": 2,
+     "sla_days": 7
+    },
+    "reference_link": "",
+    "requester": "hien.nguyen@ecentric.vn",
+    "requester_name": "Hiền Nguyễn",
+    "scope": "open",
+    "search": "dr-2026-0009 dashboard affiliate partner tiktok hiền nguyễn hien.nguyen@ecentric.vn ",
+    "sla_css": "late",
+    "sla_days": 7,
+    "sla_label": "hạn nhận 06/11 · trễ",
+    "sla_pct": 100,
+    "start": "",
+    "start_fmt": "",
+    "status": "Chờ tiếp nhận",
+    "status_css": "gray",
+    "status_label": "Chờ tiếp nhận",
+    "team": "Service",
+    "team_members": [
+     {
+      "name": "Dũng Phạm",
+      "user": "dung.pham@ecentric.vn"
+     },
+     {
+      "name": "Hoàn Trần",
+      "user": "hoan.tran@ecentric.vn"
+     },
+     {
+      "name": "Linh Vương",
+      "user": "linh.vuong@ecentric.vn"
+     }
+    ],
+    "team_statuses": [],
+    "timeline": [
+     {
+      "event": "Tạo",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Hiền Nguyễn gửi yêu cầu",
+      "warn": false,
+      "when": "05/11 11:30"
+     }
+    ],
+    "title": "Dashboard Affiliate partner TikTok",
+    "type": "Power BI mới",
+    "type_short": "Power BI",
+    "urgent_reason": ""
+   },
+   "thu.nguyen@ecentric.vn": {
+    "acceptance": "",
+    "assignee": "",
+    "assignee_name": "",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": false,
+     "cancel_needs_reason": false,
+     "follow": true,
+     "message": false,
+     "operate": false,
+     "respond": false
+    },
+    "cancel_reason": "",
+    "closed": "",
+    "code": "DR-2026-0009",
+    "created": "2026-11-05 11:30:00",
+    "created_fmt": "05/11 11:30",
+    "data_used": "Orderline",
+    "description": "Cần dashboard PnL theo ngày cho brand Friso trên Shopee + TikTok.",
+    "due": "2026-11-06",
+    "due_change_count": 0,
+    "due_date": "",
+    "due_fmt": "",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "06/11/2026",
+    "kind": "request",
+    "messages": [],
+    "mine": 0,
+    "original_due_fmt": "",
+    "output_link": "",
+    "overdue": true,
+    "paused_since_fmt": "",
+    "pm_task": "",
+    "pm_url": "",
+    "priority": "Bình thường",
+    "priority_confirmed": false,
+    "priority_css": "gray",
+    "proposed_priority": "Bình thường",
+    "queue": {
+     "expected_due": "23/11/2026",
+     "expected_start": "11/11/2026",
+     "position": 2,
+     "sla_days": 7
+    },
+    "reference_link": "",
+    "requester": "hien.nguyen@ecentric.vn",
+    "requester_name": "Hiền Nguyễn",
+    "scope": "open",
+    "search": "dr-2026-0009 dashboard affiliate partner tiktok hiền nguyễn hien.nguyen@ecentric.vn ",
+    "sla_css": "late",
+    "sla_days": 7,
+    "sla_label": "hạn nhận 06/11 · trễ",
+    "sla_pct": 100,
+    "start": "",
+    "start_fmt": "",
+    "status": "Chờ tiếp nhận",
+    "status_css": "gray",
+    "status_label": "Chờ tiếp nhận",
+    "team": "Service",
+    "timeline": [
+     {
+      "event": "Tạo",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Hiền Nguyễn gửi yêu cầu",
+      "warn": false,
+      "when": "05/11 11:30"
+     }
+    ],
+    "title": "Dashboard Affiliate partner TikTok",
+    "type": "Power BI mới",
+    "type_short": "Power BI",
+    "urgent_reason": ""
+   }
+  },
+  "DR-2026-0010": {
+   "hien.nguyen@ecentric.vn": {
+    "acceptance": "",
+    "assignee": "",
+    "assignee_name": "",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": false,
+     "cancel_needs_reason": false,
+     "follow": true,
+     "message": false,
+     "operate": false,
+     "respond": false
+    },
+    "cancel_reason": "Trùng DR rating",
+    "closed": "2026-11-04 11:30:00",
+    "code": "DR-2026-0010",
+    "created": "2026-11-04 10:30:00",
+    "created_fmt": "04/11 10:30",
+    "data_used": "Orderline",
+    "description": "Cần dashboard PnL theo ngày cho brand Friso trên Shopee + TikTok.",
+    "due": "",
+    "due_change_count": 0,
+    "due_date": "",
+    "due_fmt": "",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "05/11/2026",
+    "kind": "request",
+    "messages": [],
+    "mine": 0,
+    "original_due_fmt": "",
+    "output_link": "",
+    "overdue": false,
+    "paused_since_fmt": "",
+    "pm_task": "",
+    "pm_url": "",
+    "priority": "Bình thường",
+    "priority_confirmed": false,
+    "priority_css": "gray",
+    "proposed_priority": "Bình thường",
+    "reference_link": "",
+    "requester": "duyen.le@ecentric.vn",
+    "requester_name": "Duyên Lê",
+    "scope": "cancel",
+    "search": "dr-2026-0010 trùng yêu cầu rating duyên lê duyen.le@ecentric.vn ",
+    "sla_css": "off",
+    "sla_days": 7,
+    "sla_label": "đã huỷ",
+    "sla_pct": 0,
+    "start": "",
+    "start_fmt": "",
+    "status": "Huỷ",
+    "status_css": "muted",
+    "status_label": "Huỷ",
+    "team": "Commercial",
+    "timeline": [
+     {
+      "event": "Huỷ",
+      "note": "Trùng DR rating",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Duyên Lê huỷ yêu cầu",
+      "warn": false,
+      "when": "04/11 11:30"
+     },
+     {
+      "event": "Tạo",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Duyên Lê gửi yêu cầu",
+      "warn": false,
+      "when": "04/11 10:30"
+     }
+    ],
+    "title": "Trùng yêu cầu rating",
+    "type": "Power BI mới",
+    "type_short": "Power BI",
+    "urgent_reason": ""
+   },
+   "linh.vuong@ecentric.vn": {
+    "acceptance": "",
+    "assignee": "",
+    "assignee_name": "",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": false,
+     "cancel_needs_reason": true,
+     "follow": true,
+     "message": true,
+     "operate": false,
+     "respond": false
+    },
+    "cancel_reason": "Trùng DR rating",
+    "closed": "2026-11-04 11:30:00",
+    "code": "DR-2026-0010",
+    "created": "2026-11-04 10:30:00",
+    "created_fmt": "04/11 10:30",
+    "data_used": "Orderline",
+    "description": "Cần dashboard PnL theo ngày cho brand Friso trên Shopee + TikTok.",
+    "due": "",
+    "due_change_count": 0,
+    "due_date": "",
+    "due_fmt": "",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "05/11/2026",
+    "kind": "request",
+    "messages": [],
+    "mine": 0,
+    "original_due_fmt": "",
+    "output_link": "",
+    "overdue": false,
+    "paused_since_fmt": "",
+    "pm_task": "",
+    "pm_url": "",
+    "priorities": [
+     "Khẩn",
+     "Cao",
+     "Bình thường",
+     "Thấp"
+    ],
+    "priority": "Bình thường",
+    "priority_confirmed": false,
+    "priority_css": "gray",
+    "proposed_priority": "Bình thường",
+    "reference_link": "",
+    "requester": "duyen.le@ecentric.vn",
+    "requester_name": "Duyên Lê",
+    "scope": "cancel",
+    "search": "dr-2026-0010 trùng yêu cầu rating duyên lê duyen.le@ecentric.vn ",
+    "sla_css": "off",
+    "sla_days": 7,
+    "sla_label": "đã huỷ",
+    "sla_pct": 0,
+    "start": "",
+    "start_fmt": "",
+    "status": "Huỷ",
+    "status_css": "muted",
+    "status_label": "Huỷ",
+    "team": "Commercial",
+    "team_members": [
+     {
+      "name": "Dũng Phạm",
+      "user": "dung.pham@ecentric.vn"
+     },
+     {
+      "name": "Hoàn Trần",
+      "user": "hoan.tran@ecentric.vn"
+     },
+     {
+      "name": "Linh Vương",
+      "user": "linh.vuong@ecentric.vn"
+     }
+    ],
+    "team_statuses": [],
+    "timeline": [
+     {
+      "event": "Huỷ",
+      "note": "Trùng DR rating",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Duyên Lê huỷ yêu cầu",
+      "warn": false,
+      "when": "04/11 11:30"
+     },
+     {
+      "event": "Tạo",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Duyên Lê gửi yêu cầu",
+      "warn": false,
+      "when": "04/11 10:30"
+     }
+    ],
+    "title": "Trùng yêu cầu rating",
+    "type": "Power BI mới",
+    "type_short": "Power BI",
+    "urgent_reason": ""
+   },
+   "thu.nguyen@ecentric.vn": {
+    "acceptance": "",
+    "assignee": "",
+    "assignee_name": "",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": false,
+     "cancel_needs_reason": false,
+     "follow": true,
+     "message": false,
+     "operate": false,
+     "respond": false
+    },
+    "cancel_reason": "Trùng DR rating",
+    "closed": "2026-11-04 11:30:00",
+    "code": "DR-2026-0010",
+    "created": "2026-11-04 10:30:00",
+    "created_fmt": "04/11 10:30",
+    "data_used": "Orderline",
+    "description": "Cần dashboard PnL theo ngày cho brand Friso trên Shopee + TikTok.",
+    "due": "",
+    "due_change_count": 0,
+    "due_date": "",
+    "due_fmt": "",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "05/11/2026",
+    "kind": "request",
+    "messages": [],
+    "mine": 0,
+    "original_due_fmt": "",
+    "output_link": "",
+    "overdue": false,
+    "paused_since_fmt": "",
+    "pm_task": "",
+    "pm_url": "",
+    "priority": "Bình thường",
+    "priority_confirmed": false,
+    "priority_css": "gray",
+    "proposed_priority": "Bình thường",
+    "reference_link": "",
+    "requester": "duyen.le@ecentric.vn",
+    "requester_name": "Duyên Lê",
+    "scope": "cancel",
+    "search": "dr-2026-0010 trùng yêu cầu rating duyên lê duyen.le@ecentric.vn ",
+    "sla_css": "off",
+    "sla_days": 7,
+    "sla_label": "đã huỷ",
+    "sla_pct": 0,
+    "start": "",
+    "start_fmt": "",
+    "status": "Huỷ",
+    "status_css": "muted",
+    "status_label": "Huỷ",
+    "team": "Commercial",
+    "timeline": [
+     {
+      "event": "Huỷ",
+      "note": "Trùng DR rating",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Duyên Lê huỷ yêu cầu",
+      "warn": false,
+      "when": "04/11 11:30"
+     },
+     {
+      "event": "Tạo",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Duyên Lê gửi yêu cầu",
+      "warn": false,
+      "when": "04/11 10:30"
+     }
+    ],
+    "title": "Trùng yêu cầu rating",
+    "type": "Power BI mới",
+    "type_short": "Power BI",
+    "urgent_reason": ""
+   }
+  }
+ },
+ "gantt": {
+  "days": [
+   {
+    "date": "2026-11-02",
+    "label": "2/11",
+    "off": false,
+    "today": false
+   },
+   {
+    "date": "2026-11-03",
+    "label": "3/11",
+    "off": false,
+    "today": false
+   },
+   {
+    "date": "2026-11-04",
+    "label": "4/11",
+    "off": false,
+    "today": false
+   },
+   {
+    "date": "2026-11-05",
+    "label": "5/11",
+    "off": false,
+    "today": false
+   },
+   {
+    "date": "2026-11-06",
+    "label": "6/11",
+    "off": false,
+    "today": false
+   },
+   {
+    "date": "2026-11-07",
+    "label": "7/11",
+    "off": true,
+    "today": false
+   },
+   {
+    "date": "2026-11-08",
+    "label": "8/11",
+    "off": true,
+    "today": false
+   },
+   {
+    "date": "2026-11-09",
+    "label": "9/11",
+    "off": false,
+    "today": true
+   },
+   {
+    "date": "2026-11-10",
+    "label": "10/11",
+    "off": false,
+    "today": false
+   },
+   {
+    "date": "2026-11-11",
+    "label": "11/11",
+    "off": false,
+    "today": false
+   },
+   {
+    "date": "2026-11-12",
+    "label": "12/11",
+    "off": false,
+    "today": false
+   },
+   {
+    "date": "2026-11-13",
+    "label": "13/11",
+    "off": false,
+    "today": false
+   },
+   {
+    "date": "2026-11-14",
+    "label": "14/11",
+    "off": true,
+    "today": false
+   },
+   {
+    "date": "2026-11-15",
+    "label": "15/11",
+    "off": true,
+    "today": false
+   },
+   {
+    "date": "2026-11-16",
+    "label": "16/11",
+    "off": false,
+    "today": false
+   },
+   {
+    "date": "2026-11-17",
+    "label": "17/11",
+    "off": false,
+    "today": false
+   },
+   {
+    "date": "2026-11-18",
+    "label": "18/11",
+    "off": false,
+    "today": false
+   },
+   {
+    "date": "2026-11-19",
+    "label": "19/11",
+    "off": false,
+    "today": false
+   },
+   {
+    "date": "2026-11-20",
+    "label": "20/11",
+    "off": true,
+    "today": false
+   },
+   {
+    "date": "2026-11-21",
+    "label": "21/11",
+    "off": true,
+    "today": false
+   },
+   {
+    "date": "2026-11-22",
+    "label": "22/11",
+    "off": true,
+    "today": false
+   }
+  ],
+  "end": "2026-11-22",
+  "lanes": [
+   {
+    "bars": [
+     {
+      "code": "DR-2026-0006",
+      "css": "done",
+      "due": "2026-11-06",
+      "kind": "request",
+      "original_due": "2026-11-06",
+      "priority": "Bình thường",
+      "start": "2026-11-03",
+      "status": "Chờ nghiệm thu",
+      "title": "Dashboard Affiliate TikTok"
+     }
+    ],
+    "key": "dung.pham@ecentric.vn",
+    "label": "Dũng Phạm",
+    "n_da": 0,
+    "n_req": 1,
+    "sub": "1 yêu cầu"
+   },
+   {
+    "bars": [
+     {
+      "code": "DR-2026-0004",
+      "css": "run",
+      "due": "2026-11-11",
+      "kind": "request",
+      "original_due": "2026-11-11",
+      "priority": "Bình thường",
+      "start": "2026-11-06",
+      "status": "Đang xử lý",
+      "title": "Ghép data Misa + e-Invoice"
+     }
+    ],
+    "key": "hoan.tran@ecentric.vn",
+    "label": "Hoàn Trần",
+    "n_da": 0,
+    "n_req": 1,
+    "sub": "1 yêu cầu"
+   },
+   {
+    "bars": [
+     {
+      "code": "DR-2026-0002",
+      "css": "late",
+      "due": "2026-11-06",
+      "kind": "request",
+      "late_to": "2026-11-09",
+      "original_due": "2026-11-03",
+      "priority": "Cao",
+      "start": "2026-10-29",
+      "status": "Đang xử lý",
+      "title": "Power BI PnL cho brand mới (Friso)"
+     },
+     {
+      "code": "DR-2026-0005",
+      "css": "hold",
+      "due": "2026-11-12",
+      "kind": "request",
+      "original_due": "2026-11-12",
+      "priority": "Bình thường",
+      "start": "2026-11-03",
+      "status": "Tạm dừng",
+      "title": "Báo cáo Live TikTok"
+     },
+     {
+      "code": "DR-2026-0003",
+      "css": "run",
+      "due": "2026-11-13",
+      "kind": "request",
+      "original_due": "2026-11-13",
+      "priority": "Bình thường",
+      "start": "2026-11-04",
+      "status": "Đang xử lý",
+      "title": "Crawl Product Rating Lazada"
+     }
+    ],
+    "key": "linh.vuong@ecentric.vn",
+    "label": "Linh Vương",
+    "n_da": 0,
+    "n_req": 3,
+    "sub": "3 yêu cầu"
+   },
+   {
+    "bars": [
+     {
+      "code": "DR-2026-0007",
+      "css": "wait",
+      "due": "2026-11-13",
+      "kind": "request",
+      "original_due": "",
+      "priority": "Khẩn",
+      "start": "2026-11-09",
+      "status": "Chờ tiếp nhận",
+      "title": "Crawl Voucher & Flashsale Shopee"
+     },
+     {
+      "code": "DR-2026-0009",
+      "css": "wait",
+      "due": "2026-11-23",
+      "kind": "request",
+      "original_due": "",
+      "priority": "Bình thường",
+      "start": "2026-11-11",
+      "status": "Chờ tiếp nhận",
+      "title": "Dashboard Affiliate partner TikTok"
+     },
+     {
+      "code": "DR-2026-0008",
+      "css": "wait",
+      "due": "2026-11-23",
+      "kind": "request",
+      "original_due": "",
+      "priority": "Thấp",
+      "start": "2026-11-13",
+      "status": "Chờ tiếp nhận",
+      "title": "Làm sạch file khách hàng"
+     }
+    ],
+    "key": "__none",
+    "label": "Chưa phân công",
+    "n_da": 0,
+    "n_req": 3,
+    "sub": "3 chờ nhận"
+   },
+   {
+    "bars": [
+     {
+      "code": "DR-2026-0001",
+      "css": "done",
+      "due": "2026-11-02",
+      "kind": "request",
+      "original_due": "2026-11-02",
+      "priority": "Cao",
+      "start": "2026-10-28",
+      "status": "Hoàn tất",
+      "title": "Dashboard Stock Boxme"
+     }
+    ],
+    "key": "__done",
+    "label": "Đã xong (7 ngày)",
+    "n_da": 0,
+    "n_req": 1,
+    "sub": "1 việc"
+   }
+  ],
+  "start": "2026-11-02",
+  "today": "2026-11-09"
+ },
+ "gantt_next": {
+  "days": [
+   {
+    "date": "2026-11-09",
+    "label": "9/11",
+    "off": false,
+    "today": true
+   },
+   {
+    "date": "2026-11-10",
+    "label": "10/11",
+    "off": false,
+    "today": false
+   },
+   {
+    "date": "2026-11-11",
+    "label": "11/11",
+    "off": false,
+    "today": false
+   },
+   {
+    "date": "2026-11-12",
+    "label": "12/11",
+    "off": false,
+    "today": false
+   },
+   {
+    "date": "2026-11-13",
+    "label": "13/11",
+    "off": false,
+    "today": false
+   },
+   {
+    "date": "2026-11-14",
+    "label": "14/11",
+    "off": true,
+    "today": false
+   },
+   {
+    "date": "2026-11-15",
+    "label": "15/11",
+    "off": true,
+    "today": false
+   },
+   {
+    "date": "2026-11-16",
+    "label": "16/11",
+    "off": false,
+    "today": false
+   },
+   {
+    "date": "2026-11-17",
+    "label": "17/11",
+    "off": false,
+    "today": false
+   },
+   {
+    "date": "2026-11-18",
+    "label": "18/11",
+    "off": false,
+    "today": false
+   },
+   {
+    "date": "2026-11-19",
+    "label": "19/11",
+    "off": false,
+    "today": false
+   },
+   {
+    "date": "2026-11-20",
+    "label": "20/11",
+    "off": true,
+    "today": false
+   },
+   {
+    "date": "2026-11-21",
+    "label": "21/11",
+    "off": true,
+    "today": false
+   },
+   {
+    "date": "2026-11-22",
+    "label": "22/11",
+    "off": true,
+    "today": false
+   },
+   {
+    "date": "2026-11-23",
+    "label": "23/11",
+    "off": false,
+    "today": false
+   },
+   {
+    "date": "2026-11-24",
+    "label": "24/11",
+    "off": false,
+    "today": false
+   },
+   {
+    "date": "2026-11-25",
+    "label": "25/11",
+    "off": false,
+    "today": false
+   },
+   {
+    "date": "2026-11-26",
+    "label": "26/11",
+    "off": false,
+    "today": false
+   },
+   {
+    "date": "2026-11-27",
+    "label": "27/11",
+    "off": false,
+    "today": false
+   },
+   {
+    "date": "2026-11-28",
+    "label": "28/11",
+    "off": true,
+    "today": false
+   },
+   {
+    "date": "2026-11-29",
+    "label": "29/11",
+    "off": true,
+    "today": false
+   }
+  ],
+  "end": "2026-11-29",
+  "lanes": [
+   {
+    "bars": [],
+    "key": "dung.pham@ecentric.vn",
+    "label": "Dũng Phạm",
+    "n_da": 0,
+    "n_req": 1,
+    "sub": "1 yêu cầu"
+   },
+   {
+    "bars": [
+     {
+      "code": "DR-2026-0004",
+      "css": "run",
+      "due": "2026-11-11",
+      "kind": "request",
+      "original_due": "2026-11-11",
+      "priority": "Bình thường",
+      "start": "2026-11-06",
+      "status": "Đang xử lý",
+      "title": "Ghép data Misa + e-Invoice"
+     }
+    ],
+    "key": "hoan.tran@ecentric.vn",
+    "label": "Hoàn Trần",
+    "n_da": 0,
+    "n_req": 1,
+    "sub": "1 yêu cầu"
+   },
+   {
+    "bars": [
+     {
+      "code": "DR-2026-0002",
+      "css": "late",
+      "due": "2026-11-06",
+      "kind": "request",
+      "late_to": "2026-11-09",
+      "original_due": "2026-11-03",
+      "priority": "Cao",
+      "start": "2026-10-29",
+      "status": "Đang xử lý",
+      "title": "Power BI PnL cho brand mới (Friso)"
+     },
+     {
+      "code": "DR-2026-0005",
+      "css": "hold",
+      "due": "2026-11-12",
+      "kind": "request",
+      "original_due": "2026-11-12",
+      "priority": "Bình thường",
+      "start": "2026-11-03",
+      "status": "Tạm dừng",
+      "title": "Báo cáo Live TikTok"
+     },
+     {
+      "code": "DR-2026-0003",
+      "css": "run",
+      "due": "2026-11-13",
+      "kind": "request",
+      "original_due": "2026-11-13",
+      "priority": "Bình thường",
+      "start": "2026-11-04",
+      "status": "Đang xử lý",
+      "title": "Crawl Product Rating Lazada"
+     }
+    ],
+    "key": "linh.vuong@ecentric.vn",
+    "label": "Linh Vương",
+    "n_da": 0,
+    "n_req": 3,
+    "sub": "3 yêu cầu"
+   },
+   {
+    "bars": [
+     {
+      "code": "DR-2026-0007",
+      "css": "wait",
+      "due": "2026-11-13",
+      "kind": "request",
+      "original_due": "",
+      "priority": "Khẩn",
+      "start": "2026-11-09",
+      "status": "Chờ tiếp nhận",
+      "title": "Crawl Voucher & Flashsale Shopee"
+     },
+     {
+      "code": "DR-2026-0009",
+      "css": "wait",
+      "due": "2026-11-23",
+      "kind": "request",
+      "original_due": "",
+      "priority": "Bình thường",
+      "start": "2026-11-11",
+      "status": "Chờ tiếp nhận",
+      "title": "Dashboard Affiliate partner TikTok"
+     },
+     {
+      "code": "DR-2026-0008",
+      "css": "wait",
+      "due": "2026-11-23",
+      "kind": "request",
+      "original_due": "",
+      "priority": "Thấp",
+      "start": "2026-11-13",
+      "status": "Chờ tiếp nhận",
+      "title": "Làm sạch file khách hàng"
+     }
+    ],
+    "key": "__none",
+    "label": "Chưa phân công",
+    "n_da": 0,
+    "n_req": 3,
+    "sub": "3 chờ nhận"
+   }
+  ],
+  "start": "2026-11-09",
+  "today": "2026-11-09"
+ },
+ "people": [
+  {
+   "dept": "Management - EC",
+   "name": "Quản trị",
+   "user": "admin@ecentric.vn"
+  },
+  {
+   "dept": "Data - EC",
+   "name": "Dũng Phạm",
+   "user": "dung.pham@ecentric.vn"
+  },
+  {
+   "dept": "Commercial - EC",
+   "name": "Duyên Lê",
+   "user": "duyen.le@ecentric.vn"
+  },
+  {
+   "dept": "Service - EC",
+   "name": "Hiền Nguyễn",
+   "user": "hien.nguyen@ecentric.vn"
+  },
+  {
+   "dept": "Data - EC",
+   "name": "Hoàn Trần",
+   "user": "hoan.tran@ecentric.vn"
+  },
+  {
+   "dept": "Data - EC",
+   "name": "Linh Vương",
+   "user": "linh.vuong@ecentric.vn"
+  },
+  {
+   "dept": "Commercial - EC",
+   "name": "Thu Nguyễn",
+   "user": "thu.nguyen@ecentric.vn"
+  }
+ ],
+ "preview": {
+  "DR-2026-0007": {
+   "due": "2026-11-16",
+   "priority": "Khẩn",
+   "proposed_priority": "Khẩn",
+   "sla_days": 4,
+   "start": "2026-11-10",
+   "urgent_reason": "Cần số cho 12.12, họp BOD thứ Năm"
+  },
+  "DR-2026-0008": {
+   "due": "2026-11-17",
+   "priority": "Thấp",
+   "proposed_priority": "Thấp",
+   "sla_days": 5,
+   "start": "2026-11-10",
+   "urgent_reason": ""
+  },
+  "DR-2026-0009": {
+   "due": "2026-11-19",
+   "priority": "Bình thường",
+   "proposed_priority": "Bình thường",
+   "sla_days": 7,
+   "start": "2026-11-10",
+   "urgent_reason": ""
+  }
+ }
+}

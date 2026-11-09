@@ -1,0 +1,160 @@
+{
+ "doctype": "DocType",
+ "name": "EC Data SLA Rule Set",
+ "module": "Data Hub",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "sort_field": "version_no",
+ "sort_order": "DESC",
+ "description": "Bộ quy tắc thời hạn có phiên bản (Draft → Chờ duyệt → Đang áp dụng / Từ chối → Hết hiệu lực). Quy tắc mới chỉ áp cho yêu cầu mới.",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "report": 1,
+   "export": 1
+  }
+ ],
+ "field_order": [
+  "version_no",
+  "status",
+  "effective_from",
+  "supersedes",
+  "sb_items",
+  "items",
+  "sb_mult",
+  "mult_urgent",
+  "mult_high",
+  "cb_mult",
+  "mult_normal",
+  "mult_low",
+  "sb_flow",
+  "proposed_by",
+  "reason",
+  "cb_flow",
+  "decided_by",
+  "decided_at",
+  "decision_note"
+ ],
+ "fields": [
+  {
+   "fieldname": "version_no",
+   "fieldtype": "Int",
+   "label": "Phiên bản",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Trạng thái",
+   "options": "Draft\nChờ duyệt\nĐang áp dụng\nTừ chối\nHết hiệu lực",
+   "default": "Draft",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "effective_from",
+   "fieldtype": "Date",
+   "label": "Áp dụng từ",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "supersedes",
+   "fieldtype": "Link",
+   "label": "Thay bộ",
+   "options": "EC Data SLA Rule Set"
+  },
+  {
+   "fieldname": "sb_items",
+   "fieldtype": "Section Break",
+   "label": "Số ngày theo loại"
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "label": "Quy tắc",
+   "options": "EC Data SLA Rule Item"
+  },
+  {
+   "fieldname": "sb_mult",
+   "fieldtype": "Section Break",
+   "label": "Hệ số theo ưu tiên"
+  },
+  {
+   "fieldname": "mult_urgent",
+   "fieldtype": "Float",
+   "label": "Khẩn ×",
+   "default": "0.5"
+  },
+  {
+   "fieldname": "mult_high",
+   "fieldtype": "Float",
+   "label": "Cao ×",
+   "default": "0.8"
+  },
+  {
+   "fieldname": "cb_mult",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "mult_normal",
+   "fieldtype": "Float",
+   "label": "Bình thường ×",
+   "default": "1"
+  },
+  {
+   "fieldname": "mult_low",
+   "fieldtype": "Float",
+   "label": "Thấp ×",
+   "default": "1.5"
+  },
+  {
+   "fieldname": "sb_flow",
+   "fieldtype": "Section Break",
+   "label": "Đề xuất & duyệt (đợt 3)"
+  },
+  {
+   "fieldname": "proposed_by",
+   "fieldtype": "Link",
+   "label": "Người đề xuất",
+   "options": "User"
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Small Text",
+   "label": "Lý do đề xuất"
+  },
+  {
+   "fieldname": "cb_flow",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "decided_by",
+   "fieldtype": "Link",
+   "label": "Người duyệt",
+   "options": "User"
+  },
+  {
+   "fieldname": "decided_at",
+   "fieldtype": "Datetime",
+   "label": "Duyệt lúc"
+  },
+  {
+   "fieldname": "decision_note",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú duyệt / từ chối"
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "autoname": "format:SLA-v{version_no}",
+ "naming_rule": "Expression"
+}

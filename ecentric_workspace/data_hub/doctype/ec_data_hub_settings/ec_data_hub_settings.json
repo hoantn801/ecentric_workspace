@@ -1,0 +1,66 @@
+{
+ "doctype": "DocType",
+ "name": "EC Data Hub Settings",
+ "module": "Data Hub",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 1,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "description": "Cấu hình Trung tâm Dữ liệu (patch data_hub p001 seed).",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1
+  }
+ ],
+ "field_order": [
+  "data_team_role",
+  "rule_approver",
+  "pm_project",
+  "pm_sync_enabled",
+  "active_rule_set"
+ ],
+ "fields": [
+  {
+   "fieldname": "data_team_role",
+   "fieldtype": "Link",
+   "label": "Role team Data",
+   "options": "Role",
+   "default": "EC Data Team",
+   "reqd": 1,
+   "description": "Người có role này: điều phối, nhận việc, đổi hạn. Đổi tên role thì đổi cả DEFAULT_DATA_TEAM_ROLE (menu)."
+  },
+  {
+   "fieldname": "rule_approver",
+   "fieldtype": "Link",
+   "label": "Người duyệt quy tắc thời hạn",
+   "options": "User"
+  },
+  {
+   "fieldname": "pm_project",
+   "fieldtype": "Link",
+   "label": "Project /pm chứa task",
+   "options": "Project"
+  },
+  {
+   "fieldname": "pm_sync_enabled",
+   "fieldtype": "Check",
+   "label": "Đồng bộ /pm",
+   "default": "1"
+  },
+  {
+   "fieldname": "active_rule_set",
+   "fieldtype": "Link",
+   "label": "Bộ quy tắc đang áp dụng",
+   "options": "EC Data SLA Rule Set"
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}

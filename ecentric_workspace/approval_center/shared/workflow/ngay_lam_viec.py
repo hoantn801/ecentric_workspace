@@ -53,3 +53,57 @@ def nguoi_di_lam(users, day=None):
         if u and u not in out and not la_ngay_nghi(u, day, cache):
             out.append(u)
     return out
+
+
+# --------------------------------------------------------------------------- dem ngay lam viec
+# 09/11/2026 (Trung tam Du lieu, data_hub/): han tinh theo NGAY LAM VIEC cua cong ty. Ba ham
+# thuan duoi day KHONG cham DB (ngay le truyen vao) de module nao cung test duoc; ngay_le_cong_ty()
+# la cho duy nhat doc Holiday List mac dinh cua cong ty (cung nguon voi la_ngay_nghi).
+# "Ngay lam viec" o day = khong phai T7/CN va khong nam trong ngay_le (KHONG xet nghi phep tung
+# nguoi - han cua mot yeu cau khong doi theo lich nghi cua nguoi nhan).
+
+def la_ngay_lam_viec(d, ngay_le=()):
+    return d.weekday() < 5 and d not in ngay_le
+
+
+def cong_ngay_lam_viec(tu_ngay, so_ngay, ngay_le=()):
+    """Ngay lam viec thu `so_ngay` SAU `tu_ngay` (khong tinh chinh tu_ngay). so_ngay <= 0 ->
+    tu_ngay neu la ngay lam viec, khong thi ngay lam viec ke tiep."""
+    import datetime as _dt
+    d = tu_ngay
+    n = int(so_ngay or 0)
+    if n <= 0:
+        while not la_ngay_lam_viec(d, ngay_le):
+            d += _dt.timedelta(days=1)
+        return d
+    while n > 0:
+        d += _dt.timedelta(days=1)
+        if la_ngay_lam_viec(d, ngay_le):
+            n -= 1
+    return d
+
+
+def dem_ngay_lam_viec(tu_ngay, den_ngay, ngay_le=()):
+    """So ngay lam viec d voi tu_ngay < d <= den_ngay (den_ngay <= tu_ngay -> 0)."""
+    import datetime as _dt
+    n, d = 0, tu_ngay
+    while d < den_ngay:
+        d += _dt.timedelta(days=1)
+        if la_ngay_lam_viec(d, ngay_le):
+            n += 1
+    return n
+
+
+def ngay_le_cong_ty(company=None):
+    """Tap ngay le trong Holiday List mac dinh cua cong ty (rong neu chua cau hinh / loi tra cuu -
+    loi thi ghi Error Log va coi nhu khong co ngay le: han tinh thieu ngay le con hon han khong tinh duoc)."""
+    try:
+        from frappe.utils import getdate
+        from ecentric_workspace.approval_center.shared.workflow import holidays as _hol
+        company = company or frappe.defaults.get_global_default("company") or frappe.db.get_single_value(
+            "Global Defaults", "default_company")
+        hl = _hol.resolve_holiday_list(company=company)
+        return {getdate(x) for x in _hol.holiday_dates(hl)} if hl else set()
+    except Exception:
+        frappe.log_error(title="ngay_lam_viec.ngay_le_cong_ty", message=frappe.get_traceback())
+        return set()

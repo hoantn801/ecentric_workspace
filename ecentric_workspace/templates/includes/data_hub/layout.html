@@ -1,0 +1,66 @@
+{#- Trung tam Du lieu - khung chung: vo shell ERP (menu trai + thanh tren tu registry) + dau trang + tab.
+    Bo navbar / footer cua Frappe bang block rong. Popup chi tiet / hop Nhan viec / toast dung chung cho
+    moi trang; noi dung popup do ec_data_hub.bundle.js ve tu du lieu API (mot cho ve duy nhat). -#}
+{% extends base_template_path %}
+{% block title %}{{ title|e }} · eCentric{% endblock %}
+{% block navbar %}{% endblock %}
+{% block footer %}{% endblock %}
+{% block style %}{{ super() }}
+<link rel="stylesheet" href="{{ edh_css }}">
+{% endblock %}
+{% block content %}
+<div class="edh-app">
+  {{ edh_shell_mount }}
+  <main class="edh-main">
+    <div class="ec-shell-topbar" data-ec-shell-topbar="1">{{ edh_topbar }}</div>
+    <div class="edh-page" id="edh" data-edh-page="{{ edh_page_key|default('') }}">
+      <header class="edh-head">
+        <h1 class="edh-h1">Trung tâm Dữ liệu</h1>
+        <p class="edh-sub">Gửi yêu cầu Power BI, crawl data, xử lý dữ liệu và theo dõi tiến độ. Mọi team đều xem được.</p>
+      </header>
+      <nav class="edh-tabs" aria-label="Trung tâm Dữ liệu">
+        {% for t in tabs %}<a class="edh-tab{% if t.active %} is-on{% endif %}" href="{{ t.href }}"{% if t.active %} aria-current="page"{% endif %}>{{ t.label|e }}</a>{% endfor %}
+      </nav>
+      {% block edh_page %}{% endblock %}
+    </div>
+  </main>
+</div>
+<div class="edh-ov edh-ov-center" data-edh-detail-ov{% if not open_code %} hidden{% endif %}>
+  <div class="edh-dmodal" role="dialog" aria-modal="true" aria-label="Chi tiết yêu cầu" data-edh-detail tabindex="-1">
+    <div class="edh-dm-loading"><span class="edh-spin" aria-hidden="true"></span> Đang tải chi tiết…</div>
+  </div>
+</div>
+{% if is_team %}
+<div class="edh-ov edh-ov-center" data-edh-accept-ov hidden>
+  <form class="edh-modal" data-edh-accept-form novalidate role="dialog" aria-modal="true" aria-labelledby="edh-acc-h">
+    <h3 class="edh-modal-h" id="edh-acc-h">Nhận việc <span class="edh-hint" data-edh-acc-code></span></h3>
+    <div class="edh-modal-b">
+      <p class="edh-banner is-warn" data-edh-acc-urgent hidden></p>
+      <div class="edh-grid2">
+        <div class="edh-fld"><label for="edh-acc-who">Người xử lý <span class="edh-req">*</span></label>
+          <select id="edh-acc-who" name="assignee" required></select></div>
+        <div class="edh-fld"><label for="edh-acc-pri">Ưu tiên</label>
+          <select id="edh-acc-pri" name="priority">{% for p in ['Khẩn', 'Cao', 'Bình thường', 'Thấp'] %}<option>{{ p }}</option>{% endfor %}</select></div>
+        <div class="edh-fld"><label for="edh-acc-start">Ngày bắt đầu <span class="edh-req">*</span></label>
+          <input id="edh-acc-start" name="start_date" type="date" required></div>
+        <div class="edh-fld"><label for="edh-acc-due">Hạn <span class="edh-hint" data-edh-acc-rule></span></label>
+          <input id="edh-acc-due" name="due_date" type="date" required></div>
+        <div class="edh-fld edh-full" data-edh-acc-reason-box hidden><label for="edh-acc-reason">Lý do đổi hạn so với quy tắc <span class="edh-req">*</span></label>
+          <input id="edh-acc-reason" name="reason" maxlength="1000" placeholder="Người gửi sẽ thấy lý do này"></div>
+      </div>
+      <p class="edh-err" data-edh-acc-err role="alert" hidden></p>
+      <p class="edh-hint">Nhận xong: tạo task /pm cho người xử lý (cùng ngày bắt đầu, hạn) và báo người gửi.</p>
+    </div>
+    <div class="edh-modal-f">
+      <button type="button" class="edh-btn" data-edh-close>Huỷ</button>
+      <button type="submit" class="edh-btn is-primary" data-edh-acc-submit>Nhận việc</button>
+    </div>
+  </form>
+</div>
+{% endif %}
+<div class="edh-toast" data-edh-toast role="status" aria-live="polite" hidden></div>
+<script type="application/json" id="edh-boot">{{ boot_json }}</script>
+{% endblock %}
+{% block script %}{{ super() }}
+<script src="{{ edh_js }}" defer></script>
+{% endblock %}

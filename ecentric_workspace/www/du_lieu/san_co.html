@@ -1,0 +1,10 @@
+{%- extends "templates/includes/data_hub/layout.html" -%}
+{#- /du-lieu/san-co - Data availability: dot 2. -#}
+{% block edh_page %}
+<section class="edh-card edh-soon">
+  <span class="edh-badge is-amber"><span class="edh-dot" aria-hidden="true"></span>Sắp có</span>
+  <h2 class="edh-h3">Data availability công khai</h2>
+  <p>Bảng dữ liệu nào đã có trên SharePoint, Data Warehouse, Power BI theo từng team và sàn; độ tươi dữ liệu; đề xuất data cần crawl và kế hoạch bổ sung của team Data (thanh “DA” trên Gantt).</p>
+  <p class="edh-hint">Trong lúc chờ: cần dữ liệu chưa có thì <a class="edh-link" href="/du-lieu">tạo yêu cầu “Crawl data mới”</a>.</p>
+</section>
+{% endblock %}

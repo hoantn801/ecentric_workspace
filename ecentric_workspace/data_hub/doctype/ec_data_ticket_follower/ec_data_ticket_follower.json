@@ -1,0 +1,41 @@
+{
+ "doctype": "DocType",
+ "name": "EC Data Ticket Follower",
+ "module": "Data Hub",
+ "custom": 0,
+ "istable": 1,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "description": "Người theo dõi một yêu cầu dữ liệu (nhận thông báo, tham gia trao đổi).",
+ "permissions": [],
+ "field_order": [
+  "user",
+  "added_by"
+ ],
+ "fields": [
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "Người theo dõi",
+   "options": "User",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "added_by",
+   "fieldtype": "Link",
+   "label": "Thêm bởi",
+   "options": "User",
+   "in_list_view": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "autoname": "hash",
+ "naming_rule": "Random"
+}

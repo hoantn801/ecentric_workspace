@@ -1000,3 +1000,34 @@ website_route_rules = list(globals().get("website_route_rules") or []) + [
 scheduler_events["cron"].setdefault("*/10 * * * *", []).append(
     "ecentric_workspace.hr.face_photo.push.scheduled"
 )
+
+# --------------------------------------------------------------------------- #
+# 09/11/2026 (Hoan chot) - Trung tam Du lieu (/du-lieu, data_hub/): yeu cau du lieu gui thang team Data,
+# Gantt, dieu phoi, nghiem thu, dong bo HAI CHIEU voi /pm. Xem data_hub/README.md.
+#  * route: www/du_lieu/ + 4 luat (thu muc www khong duoc co gach ngang). Asset ec_data_hub.bundle.*
+#    CHI nap tren 4 trang nay (data_hub/pages.py) - khong vao web_include_js.
+#  * /pm -> ticket: Task on_update + ToDo after_insert (noi them, khong de hook cu) va listener
+#    `ec_pm_task_state_listeners` (pm/task_flow.write_state ghi bang db.set_value nen on_update khong chay).
+#    Ca ba nuot moi loi + chong vong lap bang frappe.flags.ec_data_hub_pm_sync.
+#  * 09:00: nhac han nguoi xu ly + nhac / tu dong nghiem thu (bo ngay nghi, gop_tin_job).
+# --------------------------------------------------------------------------- #
+website_route_rules = list(globals().get("website_route_rules") or []) + [
+    {"from_route": "/du-lieu", "to_route": "du_lieu"},
+    {"from_route": "/du-lieu/dieu-phoi", "to_route": "du_lieu/dieu_phoi"},
+    {"from_route": "/du-lieu/san-co", "to_route": "du_lieu/san_co"},
+    {"from_route": "/du-lieu/quy-tac", "to_route": "du_lieu/quy_tac"},
+]
+for _edh_dt, _edh_ev, _edh_path in (
+        ("Task", "on_update", "ecentric_workspace.data_hub.pm_sync.on_task_update"),
+        ("ToDo", "after_insert", "ecentric_workspace.data_hub.pm_sync.on_todo_insert")):
+    _edh_events = doc_events.setdefault(_edh_dt, {})
+    _edh_prev = _edh_events.get(_edh_ev)
+    if _edh_prev is None:
+        _edh_events[_edh_ev] = [_edh_path]
+    elif isinstance(_edh_prev, str):
+        _edh_events[_edh_ev] = [_edh_prev, _edh_path] if _edh_prev != _edh_path else [_edh_prev]
+    elif _edh_path not in _edh_prev:
+        _edh_events[_edh_ev] = list(_edh_prev) + [_edh_path]
+ec_pm_task_state_listeners = list(globals().get("ec_pm_task_state_listeners") or []) + [
+    "ecentric_workspace.data_hub.pm_sync.on_task_state"]
+scheduler_events["cron"].setdefault("0 9 * * *", []).append("ecentric_workspace.data_hub.notify.daily")

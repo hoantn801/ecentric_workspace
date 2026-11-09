@@ -1,0 +1,26 @@
+{%- extends "templates/includes/data_hub/layout.html" -%}
+{#- /du-lieu/quy-tac - Quy tac thoi han dang ap dung (chi doc o dot 1). -#}
+{% block edh_page %}
+{% if denied %}
+<section class="edh-card edh-state"><h4>Chỉ team Data và người duyệt quy tắc xem được trang này</h4><p>Hạn của từng yêu cầu vẫn hiện trên <a class="edh-link" href="/du-lieu">Yêu cầu dữ liệu</a>.</p></section>
+{% else %}
+<section class="edh-card">
+  <h2 class="edh-h3">Thời hạn mặc định theo loại yêu cầu <span class="edh-hint">(ngày làm việc, bỏ T7/CN, ngày lễ)</span></h2>
+  <p class="edh-hint">Đang áp dụng: <b>{{ rule_version|e }}</b>{% if rule_from %} · từ {{ rule_from|e }}{% endif %} · {{ rule_status|e }}. Hạn = ngày bắt đầu + N ngày làm việc; N = số ngày theo loại × hệ số ưu tiên (làm tròn lên, tối thiểu 1). Quy tắc mới chỉ áp cho yêu cầu mới.</p>
+  <table class="edh-tbl edh-tbl-plain">
+    <thead><tr><th>Loại</th><th>Đang áp dụng</th><th>Ghi chú</th></tr></thead>
+    <tbody>
+    {% for r in rule_rows %}<tr><td>{{ r.label|e }}</td><td><b>{{ r.days }}</b> ngày</td><td class="edh-hint">{{ r.note|e }}</td></tr>{% endfor %}
+    <tr><td>Hệ số theo ưu tiên</td><td colspan="2">{% for m in mult %}{{ m.label|e }} ×{{ m.value|e }}{% if not loop.last %} · {% endif %}{% endfor %}</td></tr>
+    </tbody>
+  </table>
+  <p class="edh-banner is-info">Sửa quy tắc → gửi người duyệt quy tắc → duyệt / từ chối: <b>sắp có (đợt 3)</b>. Quy tắc cũ vẫn chạy tới khi bản mới được duyệt.</p>
+</section>
+<section class="edh-card">
+  <h2 class="edh-h3">Lịch sử quy tắc</h2>
+  {% for h in history %}
+  <div class="edh-tl-item"><span class="edh-tl-dot" aria-hidden="true"></span><div><b>{{ h.name|e }}{% if h.from_fmt %} · {{ h.from_fmt|e }}{% endif %}</b> {{ h.status|e }}{% if h.reason %} · {{ h.reason|e }}{% endif %}</div></div>
+  {% else %}<p class="edh-hint">Chưa có lịch sử.</p>{% endfor %}
+</section>
+{% endif %}
+{% endblock %}
