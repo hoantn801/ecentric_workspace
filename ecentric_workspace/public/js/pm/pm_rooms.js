@@ -107,6 +107,23 @@ async function fetchApi(method, args) {
    hộp thoại. Hàm CHỈ ĐỌC (server cho GET) nay đi window.ecApi.get (ec_api.js, GET, không cần CSRF) khi có;
    lỗi thì đi đường cũ để báo lỗi. Ghi (book / update / cancel) giữ nguyên đường cũ. */
 const READ_GET = { "rooms.day": 1, "rooms.mine": 1, "rooms.detail": 1, "rooms.booking_state": 1 };
+/* Tải lại trang (F5): pm_rooms chạy TRƯỚC ec_api.bundle.js (web_include_js, cuối body) -> chưa có ecApi
+   -> đi frappe.call token cũ -> lại "Invalid Request" + hộp thoại. Nên chờ ecApi (tối đa ~3 giây)
+   nếu trang còn đang tải hoặc có thẻ script ec_api; không có thì đi đường cũ ngay. */
+function waitEcApi() {
+  if (root.ecApi) return Promise.resolve(root.ecApi);
+  const later = () => {
+    if (root.ecApi || !document.querySelector('script[src*="ec_api"]')) return Promise.resolve(root.ecApi || null);
+    return new Promise(res => {
+      let n = 0;
+      const t = setInterval(() => { if (root.ecApi || ++n > 40) { clearInterval(t); res(root.ecApi || null); } }, 75);
+    });
+  };
+  if (document.readyState === "loading") {
+    return new Promise(r => document.addEventListener("DOMContentLoaded", r, { once: true })).then(later);
+  }
+  return later();
+}
 
 function render(el, opts) {
   opts = opts || {};
@@ -119,9 +136,9 @@ function render(el, opts) {
               confirm: null, dlg: null, gone: {}, moving: null, noClick: false };   /* gone: event_id / uid vừa huỷ (Graph / lịch phòng có thể trễ vài giây) */
   const call = (m, a) => {
     const go = typeof opts.api === "function" ? () => opts.api(NS + m, a || {}) : () => fetchApi(NS + m, a);
-    const ec = root.ecApi;
-    if (!READ_GET[m] || !ec || typeof ec.get !== "function") return go();
-    return Promise.resolve().then(() => ec.get(NS + m, a || {})).catch(() => go());
+    if (!READ_GET[m]) return go();
+    return waitEcApi().then(ec => (ec && typeof ec.get === "function"
+      ? Promise.resolve().then(() => ec.get(NS + m, a || {})).catch(() => go()) : go()));
   };
   function msgOf(e) {
     if (!e) return "Đã có lỗi, thử lại.";
