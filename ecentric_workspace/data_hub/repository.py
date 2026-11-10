@@ -154,7 +154,10 @@ def rule_set(name=None):
             return None
         doc = frappe.get_doc(C.RULE_DT, n)
         d = doc.as_dict()
-        d["items"] = [dict(i) for i in doc.get("items") or []]
+        # as_dict() da doi bang con thanh dict; KHONG dict(child_doc) - Document khong iterable
+        # (loi 500 /du-lieu 10/11/2026: 'ECDataSLARuleItem' object is not iterable).
+        d["items"] = [{"rule_key": i.get("rule_key"), "label": i.get("label"), "days": i.get("days"),
+                       "note": i.get("note")} for i in (d.get("items") or [])]
         return d
     return _memo("rule_set:" + (name or ""), load)
 
