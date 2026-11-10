@@ -15,7 +15,10 @@ AVAIL_FIELDS = ["name", "team", "data_type", "platform", "in_sharepoint", "in_dw
                 "note", "last_updated", "frequency", "data_owner", "planned_ticket", "creation", "modified"]
 PROPOSAL_FIELDS = ["name", "team", "data_type", "platforms", "purpose", "urgency", "urgency_note", "proposer",
                    "status", "due_at", "decided_by", "decided_at", "reason", "resulting_ticket", "rule_version",
-                   "creation", "modified"]
+                   "creation", "modified",
+                   # 10/11/2026: chi tiet cho team Data
+                   "department", "frequency", "needed_by", "urgency_reason", "data_from", "data_to", "channels",
+                   "source_links", "scope"]
 LIBRARY_FIELDS = ["name", "title", "link", "report_owner", "team", "data_sources", "from_ticket", "tags", "active",
                   "added_by", "creation", "modified"]
 
@@ -104,6 +107,70 @@ def proposal_insert(values):
 
 def proposal_set(name, values):
     _save(C.PROPOSAL_DT, name, values)
+
+
+def proposal_add_files(name, files, by):
+    """Anh / file huong dan crawl: File private gan vao de xuat + dong bang con attachments (EC Data Ticket
+    File - cung bang con voi yeu cau). -> [ten dong]."""
+    if not files:
+        return []
+    doc = frappe.get_doc(C.PROPOSAL_DT, name)
+    doc.flags.ignore_permissions = True
+    for f in files:
+        fd = frappe.get_doc({"doctype": "File", "file_name": f["name"], "content": f["content"], "is_private": 1,
+                             "attached_to_doctype": C.PROPOSAL_DT, "attached_to_name": name})
+        fd.flags.ignore_existing_file_check = True
+        fd.insert(ignore_permissions=True)
+        doc.append("attachments", {"file_url": fd.file_url, "file_name": fd.file_name, "file_size": fd.file_size,
+                                   "message": "", "uploaded_by": by})
+    doc.save(ignore_permissions=True)
+    return [r.name for r in doc.get("attachments")[-len(files):]]
+
+
+def proposal_files(names):
+    """-> {ten de xuat: [{name, file_name, file_size}]} (KHONG tra file_url - tai qua api)."""
+    names = [n for n in names or () if n]
+    out = {}
+    if not names:
+        return out
+    for r in frappe.get_all(C.FILE_DT, filters={"parent": ["in", names], "parenttype": C.PROPOSAL_DT},
+                            fields=["name", "parent", "file_name", "file_size"], order_by="idx asc",
+                            limit_page_length=0):
+        out.setdefault(r.parent, []).append({"name": r.name, "file_name": r.file_name,
+                                             "file_size": int(r.file_size or 0)})
+    return out
+
+
+def proposal_file_content(name, row_name):
+    """-> (ten tep, bytes) cua tep thuoc DUNG de xuat nay, hoac None."""
+    url = frappe.db.get_value(C.FILE_DT, {"name": row_name, "parent": name, "parenttype": C.PROPOSAL_DT},
+                              "file_url")
+    if not url:
+        return None
+    rows = frappe.get_all("File", filters={"file_url": url, "attached_to_doctype": C.PROPOSAL_DT,
+                                           "attached_to_name": name}, pluck="name", limit=1)
+    if not rows:
+        return None
+    f = frappe.get_doc("File", rows[0])
+    return f.file_name, f.get_content()
+
+
+def departments():
+    """Phong ban ERP dang dung (khong phai nhom) -> [{name, label}] theo ten. label = department_name."""
+    fields = ["name", "department_name"]
+    try:
+        rows = frappe.get_all("Department", filters={"is_group": 0, "disabled": 0}, fields=fields,
+                              order_by="department_name asc", limit_page_length=0)
+    except Exception:
+        # ban ERPNext khong co cot disabled
+        rows = frappe.get_all("Department", filters={"is_group": 0}, fields=fields,
+                              order_by="department_name asc", limit_page_length=0)
+    out = []
+    for r in rows:
+        if r.name in ("All Departments",):
+            continue
+        out.append({"name": r.name, "label": r.department_name or r.name})
+    return out
 
 
 # ------------------------------------------------------------------ thu vien bao cao ------

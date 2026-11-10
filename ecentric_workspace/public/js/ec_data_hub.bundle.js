@@ -868,7 +868,7 @@
   window.ECDataHub = {
     __installed: true, App: App, boot: boot, sortKey: sortKey, sortRows: sortRows, filterMatch: filterMatch,
     slaDays: slaDays, ganttLayout: ganttLayout, mentionsIn: mentionsIn, linkify: linkify, renderDetail: renderDetail,
-    esc: esc, fmtDate: fmtDate, addDays: addDays, call: call, busy: busy,
+    esc: esc, fmtDate: fmtDate, addDays: addDays, call: call, busy: busy, readFiles: readFiles, fmtSize: fmtSize,
   };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { window.ECDataHub.app = boot(document); });
   else window.ECDataHub.app = boot(document);
@@ -904,7 +904,7 @@
   function formData(form) {
     var out = {};
     Array.prototype.forEach.call(form.elements, function (el) {
-      if (!el.name || el.disabled) return;
+      if (!el.name || el.disabled || el.type === "file") return;
       if (el.type === "checkbox") {
         if (el.name === "platforms" || el.name === "channels") { (out[el.name] = out[el.name] || []); if (el.checked) out[el.name].push(el.value); }
         else out[el.name] = el.checked ? 1 : 0;
@@ -951,6 +951,7 @@
     this.bindSub();
     this.bindFilters();
     this.bindPropose();
+    this.bindProposalDetail();
     if (this.boot.is_team) {
       this.bindReview();
       this.bindPlan();
@@ -961,7 +962,7 @@
     var self = this;
     this.doc.addEventListener("keydown", function (e) {
       if (e.key !== "Escape" && e.key !== "Esc") return;
-      ["[data-edh-why-ov]", "[data-edh-plan-ov]", "[data-edh-rowf-ov]", "[data-edh-lib-ov]", "[data-edh-prop-ov]"].some(function (sel) {
+      ["[data-edh-why-ov]", "[data-edh-plan-ov]", "[data-edh-rowf-ov]", "[data-edh-lib-ov]", "[data-edh-prop-ov]", "[data-edh-pdet-ov]"].some(function (sel) {
         var ov = self.$(sel);
         if (ov && !ov.hidden) { self.app.closeOv(ov); return true; }
         return false;
@@ -983,7 +984,10 @@
       var err = self.$(errSel), args = build(form);
       if (typeof args === "string") { err.textContent = args; err.hidden = false; return; }
       err.hidden = true;
-      busy(self.$(submitSel), function () { return call(method, args, true); }).then(function (out) {
+      busy(self.$(submitSel), function () {
+        // args.__prep: buoc chuan bi bat dong bo (doc tep -> base64) TRONG khoa nut, roi moi goi API
+        return Promise.resolve(typeof args.__prep === "function" ? args.__prep() : args).then(function (a) { return call(method, a, true); });
+      }).then(function (out) {
         self.app.closeOv(ov);
         var m = okMsg(out || {});
         self.done(m[0], m[1]);
@@ -1045,20 +1049,131 @@
     return shown;
   };
 
-  // ---- de xuat (moi nhan vien)
+  // ---- de xuat (moi nhan vien) - 10/11/2026: phong ban ERP, loai du lieu chon / them moi, link nguon, anh huong
+  // dan, tan suat, khoang du lieu, kenh nhan, can truoc (ngay gio); Cao / Khan bat buoc ly do.
+  var URL_RE = /^https?:\/\/[^\s<>"']+$/i;
+  function splitLinks(raw) {
+    return String(raw || "").split(/[\s,]+/).filter(function (x) { return x; });
+  }
+  /* Kiem form de xuat (giong server - server van kiem lai). d = formData; needReason = ["Cao","Khẩn"]. */
+  function proposalErrors(d, needReason, now) {
+    var errs = [];
+    if (!d.department) errs.push("Chọn phòng ban cần dữ liệu.");
+    if (!d.data_type) errs.push("Chọn hoặc ghi loại dữ liệu cần crawl.");
+    if (!checkPlatforms(d)) errs.push("Chọn ít nhất một sàn.");
+    var links = splitLinks(d.source_links);
+    if (links.some(function (x) { return !URL_RE.test(x); })) errs.push("Link nguồn phải bắt đầu bằng http:// hoặc https://");
+    else if (links.length > 20) errs.push("Tối đa 20 link nguồn.");
+    if (!d.frequency) errs.push("Chọn tần suất cập nhật.");
+    if (d.data_from && d.data_to && d.data_to < d.data_from) errs.push("Khoảng dữ liệu: “đến ngày” không được trước “từ ngày”.");
+    if (d.needed_by && now && d.needed_by <= now) errs.push("“Cần trước” phải là thời điểm trong tương lai.");
+    if (!d.purpose) errs.push("Ghi dữ liệu này dùng để làm gì.");
+    if ((needReason || []).indexOf(d.urgency) >= 0 && !d.urgency_reason) errs.push("Mức “" + d.urgency + "” cần ghi lý do cần gấp.");
+    return errs;
+  }
   Avail.prototype.bindPropose = function () {
-    var self = this;
+    var self = this, need = this.boot.need_reason || [], NEW = this.boot.dtype_new || "__new__";
     var f = this.formOv("[data-edh-prop-ov]", "[data-edh-prop-form]", "[data-edh-prop-err]", "[data-edh-prop-submit]", "propose", function (form) {
-      var d = formData(form), errs = [];
-      if (!d.team) errs.push("Chọn team cần dữ liệu.");
-      if (!d.data_type) errs.push("Ghi loại dữ liệu cần crawl.");
-      if (!checkPlatforms(d)) errs.push("Chọn ít nhất một sàn.");
-      if (!d.purpose) errs.push("Ghi dữ liệu này dùng để làm gì.");
-      return errs.length ? errs.join(" ") : { data: JSON.stringify(d) };
+      var d = formData(form);
+      d.data_type = d.data_type_pick === NEW ? (d.data_type_new || "") : (d.data_type_pick || "");
+      delete d.data_type_pick;
+      delete d.data_type_new;
+      var errs = proposalErrors(d, need, nowLocal());
+      if (errs.length) return errs.join(" ");
+      var inp = self.$("[data-edh-prop-files]", form);
+      var list = inp ? inp.files : [];
+      return { __prep: function () {
+        return H.readFiles(list).then(function (files) {
+          if (files.length) d.files = files;
+          return { data: JSON.stringify(d) };
+        });
+      } };
     }, function (out) { return ["Đã gửi đề xuất " + (out.name || "") + ". Team Data sẽ duyệt và báo bạn."]; });
     if (!f) return;
+    this.prop = f;
+    var el = f.form.elements;
+    var dt = this.$("[data-edh-dtype]", f.form), dtNew = this.$("[data-edh-dtype-new]", f.form);
+    var syncType = function () {
+      var on = dt && dt.value === NEW;
+      if (!dtNew) return;
+      dtNew.hidden = !on;
+      dtNew.required = !!on;
+      if (on) dtNew.focus();
+    };
+    if (dt) dt.addEventListener("change", syncType);
+    var urg = this.$("[data-edh-urg]", f.form), why = this.$("[data-edh-urg-why]", f.form);
+    var syncUrg = function () {
+      var on = !!urg && need.indexOf(urg.value) >= 0;
+      if (!why) return;
+      why.hidden = !on;
+      el.urgency_reason.disabled = !on;
+      el.urgency_reason.required = on;
+    };
+    if (urg) urg.addEventListener("change", function () { syncUrg(); if (!why.hidden) el.urgency_reason.focus(); });
     this.$$("[data-edh-propose]").forEach(function (b) {
-      b.addEventListener("click", function () { self.app.openOv(f.ov, b); var x = f.form.elements.data_type; if (x) x.focus(); });
+      b.addEventListener("click", function () {
+        var nb = self.$("[data-edh-need]", f.form);
+        if (nb) nb.min = nowLocal();
+        syncType();
+        syncUrg();
+        self.app.openOv(f.ov, b);
+        (el.department && !el.department.value ? el.department : el.data_type_pick).focus();
+      });
+    });
+  };
+
+  // ---- chi tiet de xuat (moi nguoi xem bang; tep tai duoc khi la nguoi de xuat / team Data)
+  function proposalDetailHtml(p, labels) {
+    if (!p) return '<p class="edh-state">Không tìm thấy đề xuất.</p>';
+    var row = function (label, html, full) { return html ? '<div' + (full ? ' class="edh-full"' : "") + "><span>" + esc(label) + "</span>" + html + "</div>" : ""; };
+    var t = function (v) { return v ? esc(v) : ""; };
+    var pre = function (v) { return v ? '<div class="edh-pre">' + esc(v) + "</div>" : ""; };
+    var links = (p.links || []).filter(function (x) { return URL_RE.test(x); }).map(function (x) {
+      return '<li><a class="edh-link" href="' + esc(x) + '" target="_blank" rel="noopener noreferrer">' + esc(x) + " ↗</a></li>";
+    }).join("");
+    var files = (p.files || []).map(function (x) {
+      var size = ' <span class="edh-hint">' + H.fmtSize(x.size || 0) + "</span>";
+      if (x.url && x.url.indexOf("/api/method/") === 0) return '<li><a class="edh-link" href="' + esc(x.url) + '">' + esc(x.name) + "</a>" + size + "</li>";
+      return "<li>" + esc(x.name) + size + "</li>";
+    }).join("");
+    var urgent = p.urgency && p.urgency !== "Bình thường";
+    var urgHtml = urgent ? '<span class="edh-badge is-' + (p.urgency === "Khẩn" ? "red" : "amber") + '">' + esc(p.urgency) + "</span>" + (p.urgency_reason ? '<div class="edh-urgwhy">' + esc(p.urgency_reason) + "</div>" : "") : t(p.urgency);
+    var h = '<div class="edh-summary">';
+    h += row("Phòng ban", t(p.team) + (p.department && p.department !== p.team ? ' <span class="edh-hint">' + esc(p.department) + "</span>" : ""));
+    h += row("Loại dữ liệu", "<b>" + t(p.data_type) + "</b>");
+    h += row("Sàn", t(p.platform_text));
+    h += row("Tần suất cập nhật", t(p.frequency) || '<span class="edh-hint">—</span>');
+    h += row("Khoảng dữ liệu", t(p.range_text));
+    h += row("Muốn nhận ở", t(p.channel_text));
+    h += row("Mức cần gấp", urgHtml, urgent && p.urgency_reason);
+    h += row("Cần trước", p.needed_by_fmt ? "<b>" + esc(p.needed_by_fmt) + "</b>" : "");
+    h += row("Phạm vi", pre(p.scope), true);
+    h += row("Link nguồn", links ? '<ul class="edh-ul">' + links + "</ul>" : "", true);
+    h += row("Ảnh / file hướng dẫn", files ? '<ul class="edh-ul">' + files + "</ul>" : "", true);
+    h += row("Dùng để làm gì", pre(p.purpose), true);
+    h += row("Ghi chú cũ", pre(p.urgency_note), true);
+    h += row("Người gửi", t(p.proposer_name) + (p.created_fmt ? ' <span class="edh-hint">· ' + esc(p.created_fmt) + "</span>" : ""));
+    h += row("Trạng thái", p.label ? '<span class="edh-badge is-' + esc(p.css || "gray") + '">' + esc(p.label) + "</span>" : "");
+    h += row("Ghi chú team Data", p.reason ? "<b>" + t(p.decided_by_name) + ":</b> " + esc(p.reason) : "", true);
+    return h + "</div>";
+  }
+  Avail.prototype.bindProposalDetail = function () {
+    var self = this, ov = this.$("[data-edh-pdet-ov]");
+    if (!ov) return;
+    ov.addEventListener("click", function (e) { if (e.target === ov) self.app.closeOv(ov); });
+    this.$$("[data-edh-close]", ov).forEach(function (b) { b.addEventListener("click", function () { self.app.closeOv(ov); }); });
+    var tbl = this.$(".edh-props");
+    if (!tbl) return;
+    tbl.addEventListener("click", function (e) {
+      var b = e.target.closest ? e.target.closest("[data-edh-pdet-open]") : null;
+      if (!b) return;
+      var name = b.getAttribute("data-edh-pdet-open");
+      var p = (self.boot.proposals || {})[name];
+      self.$("[data-edh-pdet-what]").textContent = "· " + name;
+      self.$("[data-edh-pdet]").innerHTML = proposalDetailHtml(p, self.boot.channel_labels);
+      self.app.openOv(ov, b);
+      var dlg = ov.querySelector("[role=dialog]");
+      if (dlg) dlg.focus();
     });
   };
 
@@ -1136,8 +1251,10 @@
     (platforms || []).forEach(function (p) { if (MAIN.indexOf(p) < 0) other.push(p); });
     this.$$('input[name="platforms"]', f.form).forEach(function (c) { c.checked = (platforms || []).indexOf(c.value) >= 0; });
     el.other_platform.value = other.join(", ");
-    this.$$('input[name="channels"]', f.form).forEach(function (c) { c.checked = true; });
-    el.note.value = "";
+    var prop = g.proposal ? (this.boot.proposals || {})[g.proposal] : null;
+    var want = (prop && prop.channels && prop.channels.length) ? prop.channels : null;
+    this.$$('input[name="channels"]', f.form).forEach(function (c) { c.checked = !want || want.indexOf(c.value) >= 0; });
+    el.note.value = prop && prop.brief ? "Từ đề xuất " + g.proposal + ": " + prop.brief : "";
     el.start_date.value = d.start || "";
     el.due_date.value = d.due || "";
     this._ruleDue = d.due;
@@ -1145,7 +1262,11 @@
     this.$("[data-edh-plan-what]").textContent = "· " + g.data_type + " (" + g.team + ")";
     var pb = this.$("[data-edh-plan-prop]");
     pb.hidden = !g.proposal;
-    if (g.proposal) pb.textContent = "Từ đề xuất " + g.proposal + (g.urgency ? " · mức " + g.urgency : "") + ": người đề xuất được báo hạn và nghiệm thu khi xong.";
+    if (g.proposal) {
+      pb.textContent = "Từ đề xuất " + g.proposal + (g.urgency ? " · mức " + g.urgency : "") +
+        (prop && prop.urgency_reason ? " (" + prop.urgency_reason + ")" : "") + (prop && prop.brief ? " · " + prop.brief : "") +
+        ". Người đề xuất được báo hạn và nghiệm thu khi xong.";
+    }
     this.$("[data-edh-plan-rule]").textContent = d.sla_days ? "(mặc định: crawl " + d.sla_days + " ngày làm việc)" : "";
     this.$("[data-edh-plan-err]").hidden = true;
     this.app.openOv(f.ov, opener);
@@ -1265,7 +1386,8 @@
   }
 
   H.avail = { matrixMatch: matrixMatch, libMatch: libMatch, formData: formData, suggestHtml: suggestHtml, debounce: debounce,
-              nowLocal: nowLocal, Avail: Avail, install: install };
+              nowLocal: nowLocal, Avail: Avail, install: install, proposalErrors: proposalErrors,
+              proposalDetailHtml: proposalDetailHtml, splitLinks: splitLinks };
   var go = function () { H.avail.page = install(H.app); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", go);
   else go();

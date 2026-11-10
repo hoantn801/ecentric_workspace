@@ -67,6 +67,13 @@ const posted = (calls, m) => calls.filter((c) => c.method === m && c.post);
   ok(h.indexOf("Đã có dashboard tương tự") > 0, "goi y: cau chu dung mockup");
   eq(A.suggestHtml({ library: [], requests: [] }), "", "khong co goi y -> rong");
   eq(A.nowLocal(new Date(2026, 10, 9, 8, 5)), "2026-11-09T08:05", "datetime-local");
+  const ev = A.proposalDetailHtml({ data_type: "<img src=x onerror=alert(1)>", links: ["javascript:alert(1)", "https://ok.vn/a\"b"],
+    files: [{ name: "<b>x</b>.png", url: "javascript:alert(1)", size: 10 }], urgency: "Khẩn", urgency_reason: "<script>" });
+  ok(ev.indexOf("<img") < 0 && ev.indexOf("<script>") < 0 && ev.indexOf("<b>x") < 0, "chi tiet: escape moi gia tri");
+  ok(ev.indexOf("javascript:") < 0, "chi tiet: khong tao link javascript:");
+  eq(A.proposalErrors({ department: "D", data_type: "T", platforms: ["Shopee"], frequency: "Một lần", purpose: "p", urgency: "Khẩn" },
+     ["Cao", "Khẩn"], "2026-11-09T08:00"), ["Mức “Khẩn” cần ghi lý do cần gấp."], "kiem form: Khan can ly do");
+  eq(A.splitLinks(" https://a.vn\n\nhttps://b.vn, https://c.vn "), ["https://a.vn", "https://b.vn", "https://c.vn"], "tach link");
 }
 
 // ------------------------------------------------------------------ nhan vien ------------
@@ -96,29 +103,74 @@ const posted = (calls, m) => calls.filter((c) => c.method === m && c.post);
   ok(box.indexOf("Bổ sung <b>Video</b>") >= 0 && box.indexOf("Hoàn tất thì các ô đã chọn tự chuyển") >= 0, "popup DA: san / kenh / luat dong");
   ok(box.indexOf("Bổ sung data") >= 0, "popup DA: nhan loai");
   d.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-  // de xuat
+  // de xuat (10/11/2026: phong ban ERP, loai chon / them moi, chip san, tan suat, ly do Cao / Khan, can truoc, tep)
   d.querySelector("[data-edh-propose]").click();
   const pf = d.querySelector("[data-edh-prop-form]");
   ok(!d.querySelector("[data-edh-prop-ov]").hidden, "mo hop de xuat");
-  eq(pf.elements.team.value, "Commercial", "team mac dinh = phong ban nguoi gui");
+  eq(pf.elements.department.tagName, "SELECT", "phong ban = dropdown ERP (khong go tay)");
+  eq(pf.elements.department.value, "Commercial - EC", "phong ban mac dinh = phong ban nguoi gui");
+  eq(Array.from(pf.elements.department.options).map((o) => o.textContent).filter((x) => x.indexOf("Service") >= 0),
+     ["Service - BM", "Service - EC"], "trung ten giua cong ty -> hien ten day du");
+  ok(!pf.querySelector("datalist") && !pf.querySelector("[list]"), "khong con datalist trong hop de xuat");
+  eq(pf.querySelectorAll(".edh-chip > input[type=checkbox] + span").length, 6, "san + kenh = chip (input an + span)");
+  ok(pf.elements.data_type_new.hidden, "o loai moi an khi chua chon");
+  ok(d.querySelector("[data-edh-urg-why]").hidden && pf.elements.urgency_reason.disabled, "ly do gap an khi Binh thuong");
+  ok(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(pf.elements.needed_by.min), "Can truoc: min = bay gio");
   pf.dispatchEvent(new w.Event("submit", { cancelable: true }));
   await flush();
+  const e0 = d.querySelector("[data-edh-prop-err]").textContent;
   ok(!d.querySelector("[data-edh-prop-err]").hidden && posted(calls, "propose").length === 0, "thieu truong -> bao loi, khong gui");
-  pf.elements.data_type.value = "Video";
-  pf.querySelector('input[name="platforms"][value="TikTok"]').checked = true;
+  ok(e0.indexOf("loại dữ liệu") >= 0 && e0.indexOf("tần suất") >= 0 && e0.indexOf("sàn") >= 0, "bao dung truong thieu");
+  // loai moi
+  pf.elements.data_type_pick.value = "__new__"; pf.elements.data_type_pick.dispatchEvent(new w.Event("change"));
+  ok(!pf.elements.data_type_new.hidden && pf.elements.data_type_new.required, "chon 'Loại mới…' -> hien o nhap, bat buoc");
+  pf.elements.data_type_new.value = "Livestream session";
+  // chip: bam vao input (nhu bam chip)
+  pf.querySelector('input[name="platforms"][value="TikTok"]').click();
+  ok(pf.querySelector('input[name="platforms"][value="TikTok"]').checked, "bam chip -> chon");
   pf.elements.other_platform.value = "Facebook";
+  pf.elements.frequency.value = "Hằng ngày";
+  pf.querySelector('input[name="channels"][value="powerbi"]').click();
+  pf.elements.source_links.value = "https://seller.shopee.vn/a\nshopee.vn/b";
   pf.elements.purpose.value = "Đo video";
-  pf.elements.urgency.value = "Cao";
+  pf.elements.urgency.value = "Cao"; pf.elements.urgency.dispatchEvent(new w.Event("change"));
+  ok(!d.querySelector("[data-edh-urg-why]").hidden && !pf.elements.urgency_reason.disabled, "muc Cao -> hien o ly do");
+  pf.dispatchEvent(new w.Event("submit", { cancelable: true }));
+  await flush();
+  const e1 = d.querySelector("[data-edh-prop-err]").textContent;
+  ok(e1.indexOf("http://") >= 0 && e1.indexOf("lý do cần gấp") >= 0 && posted(calls, "propose").length === 0, "link sai + thieu ly do -> chan");
+  pf.elements.source_links.value = "https://seller.shopee.vn/a\nhttps://seller.shopee.vn/b";
+  pf.elements.urgency_reason.value = "Chốt ngân sách 12.12";
+  pf.elements.needed_by.value = "2020-01-01T08:00";
+  pf.dispatchEvent(new w.Event("submit", { cancelable: true }));
+  await flush();
+  ok(d.querySelector("[data-edh-prop-err]").textContent.indexOf("tương lai") >= 0, "Can truoc trong qua khu -> chan");
+  pf.elements.needed_by.value = "2099-12-01T17:00";
+  pf.elements.data_from.value = "2026-10-01";
   pf.dispatchEvent(new w.Event("submit", { cancelable: true }));
   pf.dispatchEvent(new w.Event("submit", { cancelable: true }));     // bam 2 lan
   await flush();
   const pc = posted(calls, "propose");
   eq(pc.length, 1, "chong bam 2 lan");
   const pd = JSON.parse(pc[0].args.data);
-  eq([pd.team, pd.data_type, pd.platforms, pd.other_platform, pd.urgency], ["Commercial", "Video", ["TikTok"], "Facebook", "Cao"], "du lieu de xuat");
+  eq([pd.department, pd.data_type, pd.platforms, pd.other_platform, pd.urgency, pd.urgency_reason, pd.frequency, pd.channels, pd.needed_by, pd.data_from],
+     ["Commercial - EC", "Livestream session", ["TikTok"], "Facebook", "Cao", "Chốt ngân sách 12.12", "Hằng ngày", ["powerbi"], "2099-12-01T17:00", "2026-10-01"], "du lieu de xuat");
+  ok(!("data_type_pick" in pd) && !("data_type_new" in pd) && !("guide_files" in pd) && !("files" in pd), "khong gui truong phu / tep rong");
   eq(pc[0].csrf, "tok", "POST kem CSRF");
   ok(d.querySelector("[data-edh-prop-ov]").hidden && w.__edhReloaded !== undefined, "gui xong dong hop + tai lai");
   ok(d.querySelector("[data-edh-toast]").textContent.indexOf("DP-2026-0009") >= 0, "toast co ma de xuat");
+  // chi tiet de xuat (nhan vien khac: thay ten tep, khong co link tai)
+  const boot = JSON.parse(d.getElementById("edh-boot").textContent);
+  d.querySelector(`[data-edh-pdet-open="${C.p_voucher}"]`).click();
+  ok(!d.querySelector("[data-edh-pdet-ov]").hidden, "mo hop Chi tiet");
+  const det = d.querySelector("[data-edh-pdet]").innerHTML;
+  ok(det.indexOf("Cần số trước khi chốt ngân sách 12.12") >= 0 && det.indexOf("edh-urgwhy") >= 0, "chi tiet: ly do gap noi bat");
+  ok(det.indexOf('href="https://seller.shopee.vn/portal/marketing/vouchers" target="_blank" rel="noopener noreferrer"') >= 0, "chi tiet: link nguon mo tab moi");
+  ok(det.indexOf("17:00 01/12/2026") >= 0 && det.indexOf("Hằng ngày") >= 0 && det.indexOf("01/10/2026 – nay") >= 0, "chi tiet: can truoc / tan suat / khoang");
+  ok(det.indexOf("huong-dan-voucher.png") >= 0, "chi tiet: ten tep");
+  eq(boot.proposals[C.p_voucher].files[0].url === "" , false, "nguoi de xuat (Thu) co link tai tep cua minh");
+  d.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  ok(d.querySelector("[data-edh-pdet-ov]").hidden, "Esc dong Chi tiet");
   // thu vien
   d.querySelector('[data-edh-sub="library"]').click();
   ok(!d.querySelector("[data-edh-av=library]").hidden && d.querySelector("[data-edh-av=matrix]").hidden, "chuyen Thu vien");
@@ -134,8 +186,9 @@ const posted = (calls, m) => calls.filter((c) => c.method === m && c.post);
   const { w, d } = await page("avail_user", { failOn: { propose: "Hôm nay bạn đã gửi 10 đề xuất." } });
   d.querySelector("[data-edh-propose]").click();
   const pf = d.querySelector("[data-edh-prop-form]");
-  pf.elements.data_type.value = "Video";
+  pf.elements.data_type_pick.value = "Video";
   pf.querySelector('input[name="platforms"][value="Shopee"]').checked = true;
+  pf.elements.frequency.value = "Một lần";
   pf.elements.purpose.value = "x";
   pf.dispatchEvent(new w.Event("submit", { cancelable: true }));
   await flush();
@@ -157,7 +210,9 @@ const posted = (calls, m) => calls.filter((c) => c.method === m && c.post);
   eq([f.elements.team.value, f.elements.data_type.value, f.elements.proposal.value, f.elements.priority.value],
      ["Service", "Affiliate order", C.p_gmv, "Cao"], "dien san tu de xuat da duyet");
   eq(Array.from(f.querySelectorAll('input[name="platforms"]:checked')).map((x) => x.value), ["TikTok", "Lazada"], "san con thieu da chon");
-  eq(Array.from(f.querySelectorAll('input[name="channels"]:checked')).length, 3, "mac dinh ca 3 kenh");
+  eq(Array.from(f.querySelectorAll('input[name="channels"]:checked')).map((x) => x.value), ["sharepoint", "powerbi"], "kenh lay tu de xuat");
+  ok(f.elements.note.value.indexOf("Tần suất: Hằng ngày") >= 0 && f.elements.note.value.indexOf("1 link nguồn") >= 0, "ghi chu = tom tat de xuat");
+  ok(d.querySelector("[data-edh-plan-prop]").textContent.indexOf("QBR tuần sau") >= 0, "bang de xuat: ly do gap");
   eq(f.elements.assignee.value, me, "nguoi xu ly mac dinh = minh");
   ok(!d.querySelector("[data-edh-plan-prop]").hidden, "bang 'tu de xuat' hien");
   eq(calls.filter((c) => c.method === "plan_defaults").map((c) => c.args.priority), ["Cao"], "muc Cao -> hoi lai han mac dinh");
@@ -184,6 +239,8 @@ const posted = (calls, m) => calls.filter((c) => c.method === m && c.post);
   d.querySelector(`[data-edh-plan-cell="${live.name}"]`).click();
   eq(Array.from(f.querySelectorAll('input[name="platforms"]:checked')).map((x) => x.value), ["Lazada"], "o 'Chua co' -> chi san do");
   eq([f.elements.proposal.value, f.elements.data_type.value], ["", "Live"], "o khong tu de xuat");
+  eq(Array.from(f.querySelectorAll('input[name="channels"]:checked')).length, 3, "khong tu de xuat -> mac dinh ca 3 kenh");
+  eq(f.elements.note.value, "", "khong tu de xuat -> ghi chu trong");
   d.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
   ok(d.querySelector("[data-edh-plan-ov]").hidden, "Esc dong hop ke hoach");
   // sua dong

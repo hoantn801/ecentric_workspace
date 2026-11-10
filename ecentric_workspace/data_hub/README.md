@@ -363,3 +363,13 @@ API (`api.py`, POST, user từ phiên): `save_rule_draft(data)` · `submit_rule(
 **Không kiểm được ngoài bench**: `SELECT … FOR UPDATE` trên `tabSingles`, `frappe.db.savepoint/rollback(save_point)`,
 `ignore_links` khi người dùng cũ đã bị xoá, backdate `creation` bằng `db.set_value(update_modified=False)`, tải tệp cũ
 qua `File.get_content()`, `bench build` sinh `ec_data_hub_rules.bundle.*`.
+
+## Đề xuất data cần crawl — bản chi tiết (10/11/2026)
+
+PO Hoàn góp ý form đề xuất:
+- Phòng ban lấy từ ERP (`Department`, không phải nhóm, đang dùng), mặc định phòng ban của người gửi. Lưu `department`; `team` = `department_name` để ma trận / duyệt giữ nguyên.
+- Loại dữ liệu chọn từ ma trận, hoặc "+ Loại mới…" để gõ.
+- Thêm: link nguồn (mỗi dòng một link http/https, tối đa 20), phạm vi, ảnh / file hướng dẫn (bảng con `attachments` dùng lại `EC Data Ticket File`; tải qua `api.download_proposal_file`, chỉ người đề xuất / team Data / System Manager), tần suất (bắt buộc), khoảng dữ liệu, kênh muốn nhận, "Cần trước" (ngày giờ, phải ở tương lai).
+- Mức Cao / Khẩn bắt buộc lý do (`urgency_reason`). `urgency_note` cũ giữ trong DocType, form không dùng nữa.
+- Bảng đề xuất có nút "Chi tiết"; "Lên kế hoạch" từ đề xuất điền sẵn kênh + tóm tắt vào ghi chú.
+- Checkbox sàn / kênh đổi thành chip (ô checkbox ẩn + `<span>`), không còn bị CSS checkbox toàn cục của Frappe vẽ thành "cục đen".

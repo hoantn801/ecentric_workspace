@@ -166,8 +166,8 @@ body.edh-noscroll{overflow:hidden}
 .edh-fld{display:flex;flex-direction:column;gap:5px;margin-bottom:6px}
 .edh-fld label{font-size:12.5px;font-weight:600;color:var(--edh-g600)}
 .edh-req{color:var(--edh-red)}
-.edh-fld input,.edh-fld select,.edh-fld textarea,.edh-compose textarea{width:100%;padding:8px 11px;border:1px solid var(--edh-line);border-radius:8px;font-size:13.5px;background:#fff;min-height:36px}
-.edh-fld input:focus,.edh-fld select:focus,.edh-fld textarea:focus,.edh-compose textarea:focus{outline:none;border-color:var(--edh-navy);box-shadow:0 0 0 3px var(--edh-navy-50)}
+.edh-fld input:not([type="checkbox"]):not([type="radio"]),.edh-fld select,.edh-fld textarea,.edh-compose textarea{width:100%;padding:8px 11px;border:1px solid var(--edh-line);border-radius:8px;font-size:13.5px;background:#fff;min-height:36px}
+.edh-fld input:not([type="checkbox"]):not([type="radio"]):focus,.edh-fld select:focus,.edh-fld textarea:focus,.edh-compose textarea:focus{outline:none;border-color:var(--edh-navy);box-shadow:0 0 0 3px var(--edh-navy-50)}
 .edh-files{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .edh-file-btn{position:relative}
 .edh-file-list{font-size:12px;color:var(--edh-g600);overflow-wrap:anywhere}
@@ -288,7 +288,27 @@ button.edh-cellno{outline:1px dashed #c7cdf0;outline-offset:-1px;color:var(--edh
 .edh-fs legend{font-size:12.5px;font-weight:600;color:var(--edh-g600);padding:0;margin-bottom:5px}
 .edh-chips{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;font-size:13px}
 .edh-chips label{display:inline-flex;gap:5px;align-items:center;font-weight:500;color:var(--edh-g700)}
-.edh-chips input[type="checkbox"]{width:16px;height:16px;min-height:0;margin:0}
+/* Chip bat / tat (10/11/2026): o checkbox that bi an (van nhan ban phim + doc man hinh), <span> ke ben ve vien
+   tron - khong de CSS checkbox toan cuc cua Frappe ve "cuc den" nhu truoc. */
+.edh-chip{position:relative;cursor:pointer}
+.edh-chips .edh-chip input[type="checkbox"]{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer;
+  -webkit-appearance:none;appearance:none;background:none;border:0;box-shadow:none;z-index:1}
+.edh-chip span{display:inline-flex;align-items:center;gap:7px;min-height:34px;padding:6px 13px;border:1px solid var(--edh-g300);
+  border-radius:999px;background:#fff;color:var(--edh-g700);font-weight:500;font-size:13px;line-height:1.2;user-select:none;
+  transition:background .12s,border-color .12s,color .12s}
+.edh-chip span::before{content:"";flex:0 0 auto;width:14px;height:14px;border:1.5px solid var(--edh-g400);border-radius:4px;background:#fff center/10px 10px no-repeat}
+.edh-chip:hover span{border-color:var(--edh-navy)}
+.edh-chip input:checked+span{background:var(--edh-navy-50);border-color:var(--edh-navy);color:var(--edh-navy-700)}
+.edh-chip input:checked+span::before{border-color:var(--edh-navy);background-color:var(--edh-navy);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+.edh-chip input:focus-visible+span{outline:2px solid var(--edh-navy);outline-offset:2px}
+.edh-chip input:disabled+span{opacity:.5;cursor:not-allowed}
+.edh-chip-other{gap:8px;color:var(--edh-g600)}
+.edh-fh{margin:6px 0 10px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--edh-g500)}
+.edh-fh:not(:first-child){margin-top:16px;padding-top:14px;border-top:1px solid var(--edh-soft)}
+.edh-pre{white-space:pre-wrap;word-break:break-word}
+.edh-ul{margin:2px 0 0;padding-left:18px}.edh-ul li{margin:2px 0;word-break:break-all}
+.edh-urgwhy{margin-top:6px;padding:7px 10px;border-left:3px solid var(--edh-amber);background:var(--edh-amber-50);border-radius:0 7px 7px 0;color:var(--edh-g800)}
 .edh-inp-sm{width:130px;padding:4px 8px;border:1px solid var(--edh-line);border-radius:7px;font-size:13px;min-height:30px}
 .edh-similar{background:var(--edh-amber-50);border:1px solid #fde68a;border-radius:9px;padding:8px 12px;font-size:12.5px;color:var(--edh-g800)}
 .edh-similar p{margin:0 0 4px}.edh-similar ul{margin:0;padding-left:18px}.edh-similar li{margin:2px 0}

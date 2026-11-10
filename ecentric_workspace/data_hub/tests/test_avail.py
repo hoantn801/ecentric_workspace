@@ -49,8 +49,8 @@ def row(r, team, dtype, plat):
 
 
 def prop(**kw):
-    x = {"team": "Commercial", "data_type": "Video", "platforms": ["Shopee"], "purpose": "Đo hiệu quả video",
-         "urgency": C.PRI_NORMAL}
+    x = {"department": "Commercial - EC", "data_type": "Video", "platforms": ["Shopee"], "purpose": "Đo hiệu quả video",
+         "urgency": C.PRI_NORMAL, "frequency": C.FREQ_DAILY}
     x.update(kw)
     return x
 
@@ -146,11 +146,51 @@ class TestDomain(unittest.TestCase):
         self.assertEqual(A.countdown(dt.datetime(2026, 11, 12, 9, 30), now), ("còn 3 ngày", False))
         self.assertEqual(A.countdown(dt.datetime(2026, 11, 9, 6, 30), now), ("quá hạn 3h", True))
 
+    def test_proposal_detail_fields(self):
+        depts = {"Commercial - EC": "Commercial", "Service - EC": "Service"}
+        now = dt.datetime(2026, 11, 9, 9, 30)
+        ok = A.normalize_proposal(prop(source_links="https://a.vn/x\n https://b.vn/y , https://a.vn/x",
+                                       scope="12 brand", data_from="2026-10-01", data_to="2026-10-31",
+                                       channels=["powerbi", "xx", "dw"], needed_by="2026-12-01T17:00",
+                                       urgency=C.PRI_HIGH, urgency_reason="Chốt ngân sách"), 0, depts, now)
+        self.assertEqual((ok["department"], ok["team"]), ("Commercial - EC", "Commercial"), "team = department_name")
+        self.assertEqual(ok["source_links"], ["https://a.vn/x", "https://b.vn/y"], "link: tach dong, bo trung")
+        self.assertEqual(ok["channels"], ["dw", "powerbi"], "kenh: chi khoa hop le, theo thu tu chuan")
+        self.assertEqual((D.iso(ok["data_from"]), D.iso(ok["data_to"])), ("2026-10-01", "2026-10-31"))
+        self.assertEqual(ok["needed_by"], dt.datetime(2026, 12, 1, 17, 0))
+        self.assertEqual(ok["urgency_reason"], "Chốt ngân sách")
+        self.assertEqual(A.normalize_proposal(prop(urgency_reason="bo qua"), 0, depts, now)["urgency_reason"], "",
+                         "muc Binh thuong khong luu ly do")
+        bad = (
+            (dict(department=""), "Chọn phòng ban"),
+            (dict(department="Ma - EC"), "không có trong ERP"),
+            (dict(frequency=""), "tần suất"),
+            (dict(frequency="Mỗi phút"), "Tần suất không hợp lệ"),
+            (dict(urgency=C.PRI_HIGH), "cần ghi lý do"),
+            (dict(urgency=C.PRI_URGENT, urgency_reason="  "), "cần ghi lý do"),
+            (dict(source_links="shopee.vn/abc"), "http://"),
+            (dict(source_links="javascript:alert(1)"), "http://"),
+            (dict(source_links="\n".join("https://x.vn/%d" % i for i in range(C.SOURCE_LINKS_MAX + 1))), "Tối đa"),
+            (dict(data_from="2026-10-31", data_to="2026-10-01"), "không được trước"),
+            (dict(data_from="31/10/2026"), "ngày không hợp lệ"),
+            (dict(needed_by="2026-11-09T09:00"), "tương lai"),
+            (dict(needed_by="mai"), "không hợp lệ"),
+            (dict(scope="x" * (C.SCOPE_MAX + 1)), "Phạm vi dài"),
+        )
+        for kw, msg in bad:
+            with self.assertRaises(D.Invalid, msg=str(kw)) as cm:
+                A.normalize_proposal(prop(**kw), 0, depts, now)
+            self.assertIn(msg, " ".join(cm.exception.errors), kw)
+        brief = A.proposal_brief({"frequency": "Hằng ngày", "scope": "12 brand", "range_text": "01/10/2026 – nay",
+                                  "links": ["a", "b"], "files": [1], "needed_by_fmt": "17:00 01/12/2026"})
+        self.assertEqual(brief, "Tần suất: Hằng ngày · Phạm vi: 12 brand · Dữ liệu 01/10/2026 – nay · 2 link nguồn · "
+                                "1 tệp hướng dẫn · cần trước 17:00 01/12/2026")
+
     def test_validation(self):
         with self.assertRaises(D.Invalid) as cm:
             A.normalize_proposal({"platforms": [], "urgency": "?"})
         e = " ".join(cm.exception.errors)
-        for s in ("Chọn team", "loại dữ liệu", "ít nhất một sàn", "dùng để làm gì", "Mức cần gấp"):
+        for s in ("Chọn phòng ban", "loại dữ liệu", "ít nhất một sàn", "tần suất", "dùng để làm gì", "Mức cần gấp"):
             self.assertIn(s, e)
         with self.assertRaises(D.Invalid):
             A.normalize_proposal(prop(), sent_today=C.PROPOSAL_DAILY_LIMIT)
@@ -255,6 +295,55 @@ class TestProposals(unittest.TestCase):
         with self.assertRaises(S.DataHubError):
             AS.create_proposal(F.THU, prop(purpose=""), repo=self.r)
 
+    def test_create_stores_detail_and_files(self):
+        out = AS.create_proposal(F.THU, prop(department="Commercial - EC", frequency=C.FREQ_WEEKLY, urgency=C.PRI_URGENT,
+                                             urgency_reason="Sự kiện 12.12", needed_by="2026-11-20T17:00",
+                                             source_links="https://shopee.vn/a", channels=["powerbi"]),
+                                 files=[{"name": "buoc-1.png", "content": b"PNG", "size": 3}], repo=self.r)
+        p = self.r.proposal_get(out["name"])
+        self.assertEqual((p["department"], p["team"], p["frequency"], p["urgency_reason"]),
+                         ("Commercial - EC", "Commercial", C.FREQ_WEEKLY, "Sự kiện 12.12"))
+        self.assertEqual((json.loads(p["source_links"]), json.loads(p["channels"])), (["https://shopee.vn/a"], ["powerbi"]))
+        self.assertEqual(p["needed_by"], dt.datetime(2026, 11, 20, 17, 0))
+        self.assertEqual([f["file_name"] for f in self.r.proposal_files([out["name"]])[out["name"]]], ["buoc-1.png"])
+        msg = self.r.sent(C.EV_PROPOSAL)[0]["message"]
+        for bit in (C.FREQ_WEEKLY, "Khẩn (Sự kiện 12.12)", "cần trước 17:00 20/11/2026"):
+            self.assertIn(bit, msg)
+
+    def test_create_rejects_bad_dept_and_files(self):
+        with self.assertRaises(S.DataHubError) as cm:
+            AS.create_proposal(F.THU, prop(department="Không có - EC"), repo=self.r)
+        self.assertIn("không có trong ERP", str(cm.exception))
+        for files, msg in (([{"name": "x.exe", "content": b"x", "size": 1}], "Không nhận loại tệp"),
+                           ([{"name": "a%d.png" % i, "content": b"x", "size": 1} for i in range(C.MAX_FILES + 1)], "Tối đa"),
+                           ([{"name": "big.png", "content": b"x", "size": C.FILE_MAX_BYTES + 1}], "Tệp quá")):
+            with self.assertRaises(S.DataHubError) as cm:
+                AS.create_proposal(F.THU, prop(), files=files, repo=self.r)
+            self.assertIn(msg, str(cm.exception))
+        self.assertEqual(self.r.proposal_rows(), [], "loi tep -> khong tao de xuat")
+
+    def test_download_permission(self):
+        name = AS.create_proposal(F.THU, prop(), files=[{"name": "b.png", "content": b"PNG", "size": 3}], repo=self.r)["name"]
+        row = self.r.proposal_files([name])[name][0]["name"]
+        for u in (F.THU, F.LINH, F.ADMIN):
+            self.assertEqual(AS.download_proposal_file(u, name, row, repo=self.r), ("b.png", b"PNG"), u)
+        with self.assertRaises(S.Forbidden):
+            AS.download_proposal_file(F.HIEN, name, row, repo=self.r)
+        with self.assertRaises(S.Forbidden):
+            AS.download_proposal_file(F.OUTSIDER, name, row, repo=self.r)
+        with self.assertRaises(S.NotFound):
+            AS.download_proposal_file(F.THU, name, "PF-999", repo=self.r)
+        other = AS.create_proposal(F.DUYEN, prop(), repo=self.r)["name"]
+        with self.assertRaises(S.NotFound):
+            AS.download_proposal_file(F.DUYEN, other, row, repo=self.r)   # dong tep cua de xuat khac
+        # trang: link tai chi co voi nguoi duoc tai
+        def files_of(user):
+            v = AS.view_data(self.r, user)
+            return next(p for p in v["proposals"] if p["name"] == name)["files"]
+        self.assertTrue(files_of(F.LINH)[0]["url"].startswith("/api/method/ecentric_workspace.data_hub.api.download_proposal_file?"))
+        self.assertTrue(files_of(F.THU)[0]["url"])
+        self.assertEqual(files_of(F.HIEN)[0]["url"], "", "nguoi khac thay ten tep, khong co link tai")
+
     def test_team_member_proposal_not_self_notified(self):
         AS.create_proposal(F.LINH, prop(), repo=self.r)
         self.assertNotIn(F.LINH, [n["to"] for n in self.r.sent(C.EV_PROPOSAL)])
@@ -354,7 +443,7 @@ class TestPlan(unittest.TestCase):
         self.assertEqual(D.kpis(self.r.list_rows(), self.r.today())["doing"], 0, "KPI chi tinh yeu cau")
 
     def test_plan_custom_due_and_proposal_priority(self):
-        name = AS.create_proposal(F.THU, prop(urgency=C.PRI_URGENT, platforms=["Lazada"]), repo=self.r)["name"]
+        name = AS.create_proposal(F.THU, prop(urgency=C.PRI_URGENT, urgency_reason="Sự kiện 11.11", platforms=["Lazada"]), repo=self.r)["name"]
         AS.review_proposal(F.HOAN, name, C.PROP_APPROVED, repo=self.r)
         out = AS.plan(F.HOAN, plan(platforms=["Lazada"], assignee=F.DUNG, proposal=name, start_date="2026-11-09"),
                       repo=self.r, pm=self.pm)
@@ -709,7 +798,7 @@ class TestWiring(unittest.TestCase):
         for name in ("propose", "review_proposal", "plan_availability", "save_availability", "save_library", "library_active"):
             dec = ast.dump(fns[name].decorator_list[0])
             self.assertIn("POST", dec, name)
-        for name in ("plan_defaults", "suggest"):
+        for name in ("plan_defaults", "suggest", "download_proposal_file"):
             self.assertIn("whitelist", ast.dump(fns[name].decorator_list[0]))
         for n in fns.values():
             self.assertNotIn("user", [a.arg for a in n.args.args], n.name)

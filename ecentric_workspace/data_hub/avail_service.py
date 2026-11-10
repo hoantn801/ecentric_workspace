@@ -16,6 +16,7 @@ Khi DA Hoan tat: cac o da chon bat kenh da chon + "cap nhat lan cuoi" = luc do (
 Yeu cau Power BI (moi / sua) "Đạt" co link ket qua -> tu them vao Thu vien bao cao (cung on_ticket_closed).
 """
 import json
+from urllib.parse import quote
 
 from ecentric_workspace.data_hub import avail_domain as A
 from ecentric_workspace.data_hub import constants as C
@@ -94,17 +95,32 @@ def view_data(repo, user):
     teams = A.matrix(rows, plans, now, names)
     pending = [p for p in props if p.get("status") == C.PROP_PENDING]
     shown = pending + [p for p in props if p.get("status") != C.PROP_PENDING][:C.PROPOSAL_RECENT]
+    files = repo.proposal_files([p["name"] for p in shown])
     cov = A.coverage(rows, now)
     cov["pending"] = len(pending)
     cov["pending_late"] = sum(1 for p in pending if A.countdown(p.get("due_at"), now)[1])
     return {
         "today": today, "now": now, "rows": rows, "names": names, "teams": teams, "coverage": cov,
         "gaps": A.gaps(teams, props, tickets, names),
-        "proposals": [A.proposal_view(p, now, names, tickets) for p in shown],
+        "proposals": [A.proposal_view(p, now, names, tickets, _files_view(files.get(p["name"]), p["name"],
+                                                                     can_see_proposal_files(repo, user, p)))
+                      for p in shown],
         "library": [library_view(x, names) for x in lib],
         "team_members": [{"user": u, "name": names.get(u) or u} for u in team],
         "operate": operate, "tickets": tickets,
     }
+
+
+def _files_view(rows, name, can):
+    """Tep cua de xuat -> [{name, size, url}]; url chi co khi nguoi xem duoc tai."""
+    out = []
+    for f in rows or ():
+        url = ""
+        if can:
+            url = "/api/method/ecentric_workspace.data_hub.api.download_proposal_file?name=%s&file=%s" % (
+                quote(name), quote(f["name"]))
+        out.append({"name": f["file_name"], "size": int(f.get("file_size") or 0), "url": url})
+    return out
 
 
 def library_view(x, names):
@@ -127,6 +143,15 @@ def plan_defaults(repo, start=None, priority=None):
     return {"start": s.isoformat(), "due": D.due_from(s, n, hol).isoformat(), "sla_days": n, "priority": pri}
 
 
+def _prop_boot(p):
+    """Chi tiet de xuat cho hop "Chi tiết" + "Lên kế hoạch" (JS ve, moi gia tri escape o JS)."""
+    keys = ("name", "team", "department", "data_type", "platforms", "platform_text", "purpose", "urgency",
+            "urgency_reason", "urgency_note", "frequency", "scope", "links", "channels", "channel_text", "range_text",
+            "needed_by_fmt", "files", "proposer_name", "created_fmt", "label", "css", "reason", "decided_by_name",
+            "ticket", "brief", "status")
+    return {k: p.get(k) for k in keys}
+
+
 def page(user, view="", prefill_ticket="", repo=None):
     """/du-lieu/san-co - ma tran + KPI + Can bo sung + de xuat (?xem=thu-vien: Thu vien bao cao)."""
     repo = _repo(repo)
@@ -134,6 +159,7 @@ def page(user, view="", prefill_ticket="", repo=None):
     ctx = S._base(repo, user, "avail")
     v = view_data(repo, user)
     me = repo.employee(user) or {}
+    dopts, _depts = dept_options(repo)
     teams_all = [t["team"] for t in v["teams"]]
     dtypes = sorted({g["data_type"] for g in A.groups_flat(v["teams"])}, key=lambda s: s.lower())
     others = sorted({c["platform"] for g in A.groups_flat(v["teams"]) for c in g["others"]})
@@ -146,11 +172,17 @@ def page(user, view="", prefill_ticket="", repo=None):
             {"key": k, "field": C.CHANNEL_FIELD[k], "label": C.CHANNEL_LABEL[k]} for k in C.CHANNEL_KEYS],
         "methods": list(C.METHODS), "frequencies": list(C.FREQUENCIES), "urgencies": list(C.PROP_URGENCIES),
         "team_members": v["team_members"], "my_team": S.dept_label(me.get("department")),
+        "departments": dopts, "my_department": me.get("department") or "",
+        "prop_frequencies": list(C.PROP_FREQUENCIES), "dtype_new": C.DTYPE_NEW,
+        "urgency_need_reason": list(C.PROP_URGENCY_NEED_REASON),
         "pending_count": v["coverage"]["pending"],
         "proposal_days": S.rules(repo)["days"][C.RULE_PROPOSAL],
         "lib_count": sum(1 for x in v["library"] if x["active"]),
     })
-    boot = {"page": "avail", "me": user, "today": ctx["today"], "is_team": ctx["is_team"], "sub": ctx["sub"]}
+    boot = {"page": "avail", "me": user, "today": ctx["today"], "is_team": ctx["is_team"], "sub": ctx["sub"],
+            "need_reason": list(C.PROP_URGENCY_NEED_REASON), "dtype_new": C.DTYPE_NEW,
+            "channel_labels": {k: C.CHANNEL_SHORT[k] for k in C.CHANNEL_KEYS},
+            "proposals": {p["name"]: _prop_boot(p) for p in v["proposals"]}}
     if ctx["is_team"]:
         rows = {}
         for r in v["rows"]:
@@ -181,24 +213,70 @@ def page(user, view="", prefill_ticket="", repo=None):
 
 
 # ------------------------------------------------------------------ de xuat ---------------
-def create_proposal(user, data, repo=None):
+def dept_options(repo):
+    """Phong ban ERP cho o "Phòng ban cần dữ liệu" -> ([{name, label}], {name: department_name}).
+    Trung department_name giua cac cong ty -> hien ten day du ("Service - EC") de khong nham."""
+    rows = repo.departments() or []
+    count = {}
+    for r in rows:
+        count[r["label"]] = count.get(r["label"], 0) + 1
+    opts = [{"name": r["name"], "label": r["label"] if count[r["label"]] == 1 else r["name"]} for r in rows]
+    return opts, {r["name"]: r["label"] for r in rows}
+
+
+def create_proposal(user, data, files=None, repo=None):
     """Moi nhan vien: "+ Đề xuất data cần crawl" -> Chờ duyệt, han = N ngay lam viec (quy tac
-    "Duyệt đề xuất data cần crawl"), bao team Data. -> {name, due_at}."""
+    "Duyệt đề xuất data cần crawl"), bao team Data. files = [{name, content, size}] (anh / file huong dan,
+    da giai base64 o api). -> {name, due_at}."""
     repo = _repo(repo)
     S.require_internal(repo, user)
     now = repo.now()
-    v = _validate(A.normalize_proposal, data or {}, repo.proposal_sent_today(user, repo.today()))
+    _opts, depts = dept_options(repo)
+    v = _validate(A.normalize_proposal, data or {}, repo.proposal_sent_today(user, repo.today()), depts, now)
+    errs = D.check_files(files or ())
+    if errs:
+        _fail(errs)
     r = S.rules(repo)
     due = A.proposal_due(now, r, repo.holidays())
     name = repo.proposal_insert({
-        "team": v["team"], "data_type": v["data_type"], "platforms": json.dumps(v["platforms"], ensure_ascii=False),
-        "purpose": v["purpose"], "urgency": v["urgency"], "urgency_note": v["urgency_note"], "proposer": user,
-        "status": C.PROP_PENDING, "due_at": due, "rule_version": r["version"]})
+        "team": v["team"], "department": v["department"], "data_type": v["data_type"],
+        "platforms": json.dumps(v["platforms"], ensure_ascii=False), "purpose": v["purpose"],
+        "urgency": v["urgency"], "urgency_reason": v["urgency_reason"], "urgency_note": v["urgency_note"],
+        "frequency": v["frequency"], "scope": v["scope"],
+        "source_links": json.dumps(v["source_links"], ensure_ascii=False) if v["source_links"] else "",
+        "channels": json.dumps(v["channels"]) if v["channels"] else "",
+        "data_from": v["data_from"], "data_to": v["data_to"], "needed_by": v["needed_by"],
+        "proposer": user, "status": C.PROP_PENDING, "due_at": due, "rule_version": r["version"]})
+    if files:
+        repo.proposal_add_files(name, files, user)
     who = repo.full_names([user]).get(user) or user
+    bits = [who + " đề xuất", A.platform_label(v["platforms"]), v["frequency"], v["urgency"]]
+    if v["urgency_reason"]:
+        bits[-1] += " (" + D.one_line(v["urgency_reason"], 80) + ")"
+    if v["needed_by"]:
+        bits.append("cần trước " + A.fmt_need(v["needed_by"]))
     _send(repo, C.EV_PROPOSAL, S.members(repo), "Đề xuất data cần crawl: %s (%s)" % (v["data_type"], v["team"]),
-          "%s đề xuất · %s · %s. Hạn duyệt %s." % (who, A.platform_label(v["platforms"]), v["urgency"],
-                                                   D.fmt_dt(due)), "proposal|" + name, user)
+          "%s. Hạn duyệt %s." % (" · ".join(b for b in bits if b), D.fmt_dt(due)), "proposal|" + name, user)
     return {"name": name, "due_at": str(due)}
+
+
+def can_see_proposal_files(repo, user, p):
+    return bool(p) and (user == p.get("proposer") or S.can_operate(repo, user) or repo.is_admin(user))
+
+
+def download_proposal_file(user, name, row, repo=None):
+    """Tai anh / file huong dan cua de xuat: nguoi de xuat, team Data, System Manager."""
+    repo = _repo(repo)
+    S.require_internal(repo, user)
+    p = repo.proposal_get(name)
+    if not p:
+        raise S.NotFound(name)
+    if not can_see_proposal_files(repo, user, p):
+        raise S.Forbidden("Chỉ người đề xuất và team Data tải được tệp này.")
+    got = repo.proposal_file_content(name, str(row or ""))
+    if not got:
+        raise S.NotFound(name)
+    return got
 
 
 def _ensure_rows(repo, team, data_type, platforms, user=None):
