@@ -16,7 +16,7 @@ Mo dan bang Role `EC Khay Pilot` (khong phai `if user == ...`). Tat khan: site_c
 """
 import frappe
 
-from ecentric_workspace.platform.ai import config, gateway, khay_intent as brain
+from ecentric_workspace.platform.ai import config, gateway, khay_intent as brain, knowledge
 
 ROLE = "EC Khay Pilot"
 DISABLED_FLAG = "ec_khay_disabled"
@@ -139,6 +139,11 @@ def intent(message=None, history=None, page=None, files=None):
     if not message and not names:
         return {"action": brain.CLARIFY, "reply": "Bạn cần mình giúp gì?", "options": []}
 
+    if knowledge.salary_question(message):
+        # Luong / thu nhap cua bat ky ai: khong goi AI, khong tra cuu (Hoan 10/11).
+        return {"action": brain.ANSWER, "reply": knowledge.SALARY_REPLY, "options": [],
+                "needs_data": False, "model": ""}
+
     quick = brain.quick_reply(message, ASSISTANT_NAME, has_files=bool(names))
     if quick:
         quick["model"] = ""           # khong co AI nao tra loi -> khong hien "Tra loi boi"
@@ -156,9 +161,24 @@ def intent(message=None, history=None, page=None, files=None):
     if not res["ok"]:
         return {"action": "error", "reply": BUSY, "options": []}
     out = brain.normalize(res["data"], leave_types, today, has_files=bool(names), forms=forms)
+    out = lookup_override(out, message, has_files=bool(names))
     out = _enrich(out, user, forms)
     out["model"] = res["model"]      # dong "Tra loi boi ..." duoi cau tra loi (Hoan 28/09)
     return out
+
+
+def lookup_override(out, message, has_files=False):
+    """PURE. Cau hoi ve khao sat / tin noi bo / tai lieu / phep con / viec cua minh ma model lai
+    doi tao phieu hoac hoi "AI Topup hay System Request?" (10/11, anh cua Hoan) -> di tra cuu.
+    Khong dung khi co tep (tha tep la de tao phieu) hay khi cau la XIN nghi."""
+    if has_files or out.get("action") not in (brain.APPROVAL, brain.CLARIFY):
+        return out
+    folded = knowledge.fold(message)
+    if "xin" in folded and ("nghi" in folded or "phep" in folded):
+        return out
+    if not knowledge.is_lookup(message):
+        return out
+    return {"action": brain.ANSWER, "reply": "", "options": [], "needs_data": True}
 
 
 def _enrich(out, user, forms=()):
