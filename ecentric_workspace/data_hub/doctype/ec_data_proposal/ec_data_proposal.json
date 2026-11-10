@@ -37,7 +37,20 @@
   "decided_by",
   "decided_at",
   "reason",
-  "resulting_ticket"
+  "resulting_ticket",
+  "sb_detail",
+  "department",
+  "frequency",
+  "needed_by",
+  "urgency_reason",
+  "cb_detail",
+  "data_from",
+  "data_to",
+  "channels",
+  "sb_source",
+  "source_links",
+  "scope",
+  "attachments"
  ],
  "fields": [
   {
@@ -139,6 +152,74 @@
    "label": "Kế hoạch bổ sung (DA-)",
    "options": "EC Data Ticket",
    "search_index": 1
+  },
+  {
+   "fieldname": "sb_detail",
+   "fieldtype": "Section Break",
+   "label": "Chi tiết cho team Data"
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "label": "Phòng ban cần dữ liệu",
+   "options": "Department",
+   "in_list_view": 0
+  },
+  {
+   "fieldname": "frequency",
+   "fieldtype": "Select",
+   "label": "Tần suất cập nhật",
+   "options": "\nMột lần\nTheo giờ\nHằng ngày\nHằng tuần\nHằng tháng"
+  },
+  {
+   "fieldname": "needed_by",
+   "fieldtype": "Datetime",
+   "label": "Cần trước"
+  },
+  {
+   "fieldname": "urgency_reason",
+   "fieldtype": "Small Text",
+   "label": "Lý do cần gấp"
+  },
+  {
+   "fieldname": "cb_detail",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "data_from",
+   "fieldtype": "Date",
+   "label": "Dữ liệu từ ngày"
+  },
+  {
+   "fieldname": "data_to",
+   "fieldtype": "Date",
+   "label": "Dữ liệu đến ngày"
+  },
+  {
+   "fieldname": "channels",
+   "fieldtype": "Small Text",
+   "label": "Muốn nhận ở (JSON)"
+  },
+  {
+   "fieldname": "sb_source",
+   "fieldtype": "Section Break",
+   "label": "Nguồn và hướng dẫn"
+  },
+  {
+   "fieldname": "source_links",
+   "fieldtype": "Small Text",
+   "label": "Link nguồn / trang cần crawl"
+  },
+  {
+   "fieldname": "scope",
+   "fieldtype": "Small Text",
+   "label": "Phạm vi (shop, brand, ngành hàng, SKU…)"
+  },
+  {
+   "fieldname": "attachments",
+   "fieldtype": "Table",
+   "label": "Ảnh / file hướng dẫn",
+   "options": "EC Data Ticket File"
   }
  ],
  "links": [],

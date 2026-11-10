@@ -209,11 +209,33 @@ def _avail():
     return avail_service
 
 
+def _propose(data):
+    data = _json(data)
+    files = _files(data.pop("files", None))
+    return _avail().create_proposal(_me(), data, files)
+
+
 @frappe.whitelist(methods=["POST"])
 def propose(data):
-    """Moi nhan vien: de xuat data can crawl. data = JSON {team, data_type, platforms[], other_platform,
-    purpose, urgency, urgency_note}."""
-    return _run(lambda: _avail().create_proposal(_me(), _json(data)))
+    """Moi nhan vien: de xuat data can crawl. data = JSON {department, data_type, platforms[], other_platform,
+    source_links, scope, frequency, data_from, data_to, channels[], needed_by, purpose, urgency, urgency_reason,
+    files: [{name, data(base64)}]}."""
+    return _run(_propose, data)
+
+
+@frappe.whitelist()
+def download_proposal_file(name, file):
+    """Tai anh / file huong dan cua de xuat (private): nguoi de xuat, team Data, System Manager."""
+    try:
+        fname, content = _avail().download_proposal_file(_me(), str(name or "").strip(), str(file or ""))
+    except (S.Forbidden, frappe.PermissionError):
+        return _fail(_("Bạn không có quyền tải tệp này."), 403)
+    except S.NotFound:
+        return _fail(_("Không tìm thấy tệp."), 404)
+    frappe.local.response.filename = fname
+    frappe.local.response.filecontent = content
+    frappe.local.response.type = "download"
+    frappe.local.response.display_content_as = "attachment"
 
 
 @frappe.whitelist(methods=["POST"])

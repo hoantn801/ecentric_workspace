@@ -73,7 +73,9 @@ class FakeAvailMixin(object):
 
     def proposal_insert(self, values):
         name = "DP-%d-%04d" % (self.today().year, next(self._av()["pseq"]))
-        p = {"decided_by": None, "decided_at": None, "reason": "", "resulting_ticket": None, "urgency_note": ""}
+        p = {"decided_by": None, "decided_at": None, "reason": "", "resulting_ticket": None, "urgency_note": "",
+             "department": "", "frequency": "", "needed_by": None, "urgency_reason": "", "data_from": None,
+             "data_to": None, "channels": "", "source_links": "", "scope": ""}
         p.update(copy.deepcopy(values))
         p.update({"name": name, "creation": self._stamp_av(), "modified": self._stamp_av()})
         self._av()["props"][name] = p
@@ -81,6 +83,35 @@ class FakeAvailMixin(object):
 
     def proposal_set(self, name, values):
         self._av()["props"][name].update(copy.deepcopy(values))
+
+    def proposal_add_files(self, name, files, by):
+        out = []
+        store = self._av().setdefault("pfiles", {})
+        for f in files or ():
+            n = "PF-%d" % (len(store) + 1)
+            store[n] = {"name": n, "parent": name, "file_name": f["name"], "file_size": f.get("size") or 0,
+                        "content": f.get("content") or b"x", "uploaded_by": by}
+            out.append(n)
+        return out
+
+    def proposal_files(self, names):
+        out = {}
+        for f in self._av().get("pfiles", {}).values():
+            if f["parent"] in (names or ()):
+                out.setdefault(f["parent"], []).append({"name": f["name"], "file_name": f["file_name"],
+                                                        "file_size": f["file_size"]})
+        return out
+
+    def proposal_file_content(self, name, row):
+        f = self._av().get("pfiles", {}).get(row)
+        if not f or f["parent"] != name:
+            return None
+        return f["file_name"], f["content"]
+
+    def departments(self):
+        """Phong ban ERP gia: moi phong ban cua nhan vien mau + Media (chua ai) + mot phong trung ten khac cong ty."""
+        names = sorted(set(self.emps.values()) | {"Media - EC", "Service - BM"})
+        return [{"name": n, "label": n.rsplit(" - ", 1)[0]} for n in names]
 
     # ---- thu vien
     def library_rows(self, include_inactive=False):
@@ -148,19 +179,28 @@ def sample_avail(repo=None, pm=None):
     repo.avail_set(repo.avail_find("Commercial", "Orderline", "Shopee")["name"], {"note": "Cập nhật 06:00 mỗi ngày"})
     # de xuat: cho duyet (con han / qua han), da duyet -> ke hoach, tu choi
     repo.at(dt.date(2026, 11, 6), 15, 20)
-    codes["p_voucher"] = AS.create_proposal(F.THU, {"team": "Commercial", "data_type": "Voucher & Flashsale",
+    codes["p_voucher"] = AS.create_proposal(F.THU, {"department": "Commercial - EC", "data_type": "Voucher & Flashsale",
                                                     "platforms": ["Shopee", "TikTok"], "purpose": "Đo hiệu quả voucher theo ngày cho 12.12",
-                                                    "urgency": C.PRI_HIGH}, repo=repo)["name"]
+                                                    "urgency": C.PRI_HIGH, "urgency_reason": "Cần số trước khi chốt ngân sách 12.12",
+                                                    "frequency": C.FREQ_DAILY, "needed_by": "2026-12-01T17:00",
+                                                    "source_links": "https://seller.shopee.vn/portal/marketing/vouchers\nhttps://seller-vn.tiktok.com/promotion",
+                                                    "scope": "12 brand Commercial, toàn bộ voucher shop + flashsale",
+                                                    "data_from": "2026-10-01", "channels": ["dw", "powerbi"]},
+                                    files=[{"name": "huong-dan-voucher.png", "content": b"PNG", "size": 3}], repo=repo)["name"]
     repo.at(dt.date(2026, 11, 9), 9, 5)
-    codes["p_creator"] = AS.create_proposal(F.HIEN, {"team": "Service", "data_type": "Affiliate creator orders",
+    codes["p_creator"] = AS.create_proposal(F.HIEN, {"department": "Service - EC", "data_type": "Affiliate creator orders",
                                                      "platforms": ["TikTok"], "purpose": "Đối soát hoa hồng creator",
-                                                     "urgency": C.PRI_NORMAL}, repo=repo)["name"]
-    codes["p_kol"] = AS.create_proposal(F.DUYEN, {"team": "Commercial", "data_type": "KOL booking",
+                                                     "urgency": C.PRI_NORMAL, "frequency": C.FREQ_WEEKLY}, repo=repo)["name"]
+    codes["p_kol"] = AS.create_proposal(F.DUYEN, {"department": "Commercial - EC", "data_type": "KOL booking",
                                                   "platforms": [], "other_platform": "Facebook",
-                                                  "purpose": "Theo dõi chi phí KOL", "urgency": C.PRI_NORMAL}, repo=repo)["name"]
-    codes["p_gmv"] = AS.create_proposal(F.HIEN, {"team": "Service", "data_type": "Affiliate order",
+                                                  "purpose": "Theo dõi chi phí KOL", "urgency": C.PRI_NORMAL,
+                                                  "frequency": C.PROP_FREQ_ONCE}, repo=repo)["name"]
+    codes["p_gmv"] = AS.create_proposal(F.HIEN, {"department": "Service - EC", "data_type": "Affiliate order",
                                                  "platforms": ["TikTok", "Lazada"], "purpose": "Báo cáo affiliate 3 sàn",
-                                                 "urgency": C.PRI_HIGH}, repo=repo)["name"]
+                                                 "urgency": C.PRI_HIGH, "urgency_reason": "Khách hỏi số affiliate trong QBR tuần sau",
+                                                 "frequency": C.FREQ_DAILY, "channels": ["sharepoint", "powerbi"],
+                                                 "source_links": "https://affiliate.tiktok.com/connection/orders",
+                                                 "scope": "Shop Friso, Enfa", "data_from": "2026-09-01", "data_to": "2026-11-30"}, repo=repo)["name"]
     AS.review_proposal(F.LINH, codes["p_kol"], C.PROP_REJECTED, "Facebook chưa có API, dùng file tay của Media", repo=repo)
     AS.review_proposal(F.LINH, codes["p_gmv"], C.PROP_APPROVED, repo=repo)
     # ke hoach DA: Video (team tu len), Voucher (tu de xuat cua Thu - duyet roi len ke hoach)

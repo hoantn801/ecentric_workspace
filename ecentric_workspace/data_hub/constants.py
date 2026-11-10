@@ -255,3 +255,16 @@ LEGACY_ROUTES = ("", "/approvals/data-request", "approvals/data-request")
 EV_LEGACY = "Chuyển từ phiếu cũ"
 EV_LEGACY_HISTORY = "Lịch sử phiếu cũ"
 LOG_EVENTS = LOG_EVENTS + (EV_LEGACY, EV_LEGACY_HISTORY)
+
+# ------------------------------------------------------------------ de xuat chi tiet (10/11/2026) --
+# PO Hoan gop y form "Đề xuất data cần crawl": phong ban lay tu ERP, them link nguon / anh huong dan /
+# tan suat / khoang du lieu / kenh nhan / can truoc (ngay gio); muc Cao / Khan bat buoc ly do.
+PROP_FREQ_ONCE = "Một lần"
+#: Tan suat cap nhat mong muon (dung lai nhan cua ma tran + "Một lần").
+PROP_FREQUENCIES = (PROP_FREQ_ONCE, FREQ_HOURLY, FREQ_DAILY, FREQ_WEEKLY, FREQ_MONTHLY)
+#: Muc can gap bat buoc ghi ly do.
+PROP_URGENCY_NEED_REASON = (PRI_HIGH, PRI_URGENT)
+SOURCE_LINKS_MAX = 20
+SCOPE_MAX = 500
+#: Gia tri dac biet cua o "Loại dữ liệu" (chon -> hien o nhap loai moi).
+DTYPE_NEW = "__new__"

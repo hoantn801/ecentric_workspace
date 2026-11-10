@@ -285,7 +285,7 @@ def countdown(due_at, now):
     return "quá hạn " + span, True
 
 
-def proposal_view(p, now, names, tickets=None):
+def proposal_view(p, now, names, tickets=None, files=None):
     st = p.get("status")
     out = {"name": p["name"], "team": p.get("team") or "", "data_type": p.get("data_type") or "",
            "platforms": load_list(p.get("platforms")), "purpose": p.get("purpose") or "",
@@ -309,6 +309,21 @@ def proposal_view(p, now, names, tickets=None):
     else:
         out.update({"label": "Từ chối", "css": "gray"})
     out["search"] = " ".join([out["data_type"], out["team"], out["platform_text"], out["proposer_name"]]).lower()
+    # chi tiet cho team Data (10/11/2026)
+    d_from, d_to = D.as_date(p.get("data_from")), D.as_date(p.get("data_to"))
+    rng = ""
+    if d_from or d_to:
+        rng = "%s – %s" % (D.fmt_date_full(d_from) or "…", D.fmt_date_full(d_to) or "nay")
+    chans = [k for k in C.CHANNEL_KEYS if k in load_list(p.get("channels"))]
+    out.update({
+        "department": p.get("department") or "", "frequency": p.get("frequency") or "",
+        "scope": p.get("scope") or "", "links": [x for x in load_list(p.get("source_links")) if isinstance(x, str)],
+        "channels": chans, "channel_text": ", ".join(C.CHANNEL_SHORT.get(k, k) for k in chans),
+        "range_text": rng, "needed_by": str(p.get("needed_by") or "")[:16],
+        "needed_by_fmt": fmt_need(p.get("needed_by")),
+        "urgency_reason": p.get("urgency_reason") or "", "files": list(files or ()),
+    })
+    out["brief"] = proposal_brief(out)
     return out
 
 
@@ -326,41 +341,125 @@ def parse_platforms(raw, other=""):
     return out
 
 
-def normalize_proposal(data, sent_today=0):
+def dept_team(dept, departments=None):
+    """Phong ban ERP -> ten team hien tren ma tran: department_name ("Commercial"), khong co thi bo hau to
+    cong ty ("Commercial - EC" -> "Commercial")."""
+    d = (dept or "").strip()
+    lab = (departments or {}).get(d) or ""
+    if lab:
+        return D.one_line(lab, C.TEAM_MAX)
+    return D.one_line(d.rsplit(" - ", 1)[0] if " - " in d else d, C.TEAM_MAX)
+
+
+_URL_RE = re.compile(r"^https?://[^\s<>\"']+$", re.I)
+
+
+def parse_links(raw):
+    """O "Link nguồn" (moi dong mot link, cho phep cach bang dau phay / khoang trang) -> (links, loi)."""
+    items = [x.strip() for x in re.split(r"[\s,]+", raw or "") if x.strip()]
+    out, bad = [], []
+    for x in items:
+        if len(x) > C.LINK_MAX or not _URL_RE.match(x):
+            bad.append(x[:60])
+        elif x not in out:
+            out.append(x)
+    return out, bad
+
+
+def normalize_proposal(data, sent_today=0, departments=None, now=None):
+    """Form "Đề xuất data cần crawl" -> dict sach (truong DocType). departments = {ten Department ERP: ten
+    hien thi} (service doc tu DB; None = khong kiem ton tai - chi test thuan). now = gio server (kiem "Cần
+    trước" phai o tuong lai)."""
     errs = []
-    team = D.one_line(data.get("team"), C.TEAM_MAX + 1)
+    dept = D.one_line(data.get("department"), 140)
     dtype = D.one_line(data.get("data_type"), C.DATA_TYPE_MAX + 1)
     plats = parse_platforms(data.get("platforms") if isinstance(data.get("platforms"), list) else [],
                             data.get("other_platform") or "")
     purpose = D.clean_text(data.get("purpose"), C.PURPOSE_MAX + 1)
     urgency = (data.get("urgency") or C.PRI_NORMAL).strip()
+    ureason = D.clean_text(data.get("urgency_reason"), C.REASON_MAX + 1)
     unote = D.clean_text(data.get("urgency_note"), C.REASON_MAX + 1)
+    freq = (data.get("frequency") or "").strip()
+    scope = D.clean_text(data.get("scope"), C.SCOPE_MAX + 1)
+    links, bad_links = parse_links(data.get("source_links"))
+    chans = data.get("channels") if isinstance(data.get("channels"), list) else []
+    chans = [k for k in C.CHANNEL_KEYS if k in chans]
+    d_from, d_to = D.as_date(data.get("data_from")), D.as_date(data.get("data_to"))
+    raw_need = str(data.get("needed_by") or "").strip()
+    need = D.as_datetime(raw_need.replace("T", " ")) if raw_need else None
     if sent_today >= C.PROPOSAL_DAILY_LIMIT:
         errs.append("Hôm nay bạn đã gửi {0} đề xuất. Mai gửi tiếp nhé.".format(C.PROPOSAL_DAILY_LIMIT))
-    if not team:
-        errs.append("Chọn team cần dữ liệu.")
-    elif len(team) > C.TEAM_MAX:
-        errs.append("Tên team dài quá {0} ký tự.".format(C.TEAM_MAX))
+    if not dept:
+        errs.append("Chọn phòng ban cần dữ liệu.")
+    elif departments is not None and dept not in departments:
+        errs.append("Phòng ban không có trong ERP (hoặc đã ngừng dùng). Chọn lại trong danh sách.")
     if not dtype:
-        errs.append("Ghi loại dữ liệu cần crawl.")
+        errs.append("Chọn hoặc ghi loại dữ liệu cần crawl.")
     elif len(dtype) > C.DATA_TYPE_MAX:
         errs.append("Loại dữ liệu dài quá {0} ký tự.".format(C.DATA_TYPE_MAX))
     if not plats:
         errs.append("Chọn ít nhất một sàn.")
     if any(len(p) > C.PLATFORM_MAX for p in plats):
         errs.append("Tên sàn dài quá {0} ký tự.".format(C.PLATFORM_MAX))
+    if bad_links:
+        errs.append("Link nguồn phải bắt đầu bằng http:// hoặc https:// (sai: {0}).".format(", ".join(bad_links[:3])))
+    if len(links) > C.SOURCE_LINKS_MAX:
+        errs.append("Tối đa {0} link nguồn.".format(C.SOURCE_LINKS_MAX))
+    if len(scope) > C.SCOPE_MAX:
+        errs.append("Phạm vi dài quá {0} ký tự.".format(C.SCOPE_MAX))
+    if not freq:
+        errs.append("Chọn tần suất cập nhật.")
+    elif freq not in C.PROP_FREQUENCIES:
+        errs.append("Tần suất không hợp lệ.")
+    if (data.get("data_from") and not d_from) or (data.get("data_to") and not d_to):
+        errs.append("Khoảng dữ liệu: ngày không hợp lệ.")
+    elif d_from and d_to and d_to < d_from:
+        errs.append("Khoảng dữ liệu: “đến ngày” không được trước “từ ngày”.")
+    if raw_need and not need:
+        errs.append("“Cần trước” không hợp lệ.")
+    elif need and now and need <= now:
+        errs.append("“Cần trước” phải là thời điểm trong tương lai.")
     if not purpose:
         errs.append("Ghi dữ liệu này dùng để làm gì (team Data cần để ưu tiên).")
     elif len(purpose) > C.PURPOSE_MAX:
         errs.append("Mục đích dài quá {0} ký tự.".format(C.PURPOSE_MAX))
     if urgency not in C.PROP_URGENCIES:
         errs.append("Mức cần gấp không hợp lệ.")
-    if len(unote) > C.REASON_MAX:
-        errs.append("Ghi chú mức gấp dài quá {0} ký tự.".format(C.REASON_MAX))
+    elif urgency in C.PROP_URGENCY_NEED_REASON and not ureason:
+        errs.append("Mức “{0}” cần ghi lý do cần gấp.".format(urgency))
+    if len(ureason) > C.REASON_MAX or len(unote) > C.REASON_MAX:
+        errs.append("Lý do cần gấp dài quá {0} ký tự.".format(C.REASON_MAX))
     if errs:
         raise D.Invalid(errs)
-    return {"team": team, "data_type": dtype, "platforms": plats, "purpose": purpose, "urgency": urgency,
-            "urgency_note": unote}
+    return {"department": dept, "team": dept_team(dept, departments), "data_type": dtype, "platforms": plats,
+            "purpose": purpose, "urgency": urgency,
+            "urgency_reason": ureason if urgency in C.PROP_URGENCY_NEED_REASON else "",
+            "urgency_note": unote, "frequency": freq, "scope": scope, "source_links": links, "channels": chans,
+            "data_from": d_from, "data_to": d_to, "needed_by": need}
+
+
+def fmt_need(v):
+    """"Cần trước" -> "17:00 12/12/2026"."""
+    x = D.as_datetime(v)
+    return x.strftime("%H:%M %d/%m/%Y") if x else ""
+
+
+def proposal_brief(p):
+    """Tom tat ngan cho team Data (bang "Lên kế hoạch" + ghi chu ke hoach). p = proposal_view."""
+    bits = []
+    if p.get("frequency"):
+        bits.append("Tần suất: " + p["frequency"])
+    if p.get("scope"):
+        bits.append("Phạm vi: " + D.one_line(p["scope"], 120))
+    if p.get("range_text"):
+        bits.append("Dữ liệu " + p["range_text"])
+    if p.get("links"):
+        bits.append("%d link nguồn" % len(p["links"]))
+    if p.get("files"):
+        bits.append("%d tệp hướng dẫn" % len(p["files"]))
+    if p.get("needed_by_fmt"):
+        bits.append("cần trước " + p["needed_by_fmt"])
+    return " · ".join(bits)
 
 
 # ------------------------------------------------------------------ dong availability -----
