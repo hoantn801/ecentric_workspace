@@ -260,6 +260,7 @@ def _providers():
     from ecentric_workspace.guides import nav as guides_nav
     from ecentric_workspace.ai_tools import nav as ai_tools_nav
     from ecentric_workspace.surveys import nav as surveys_nav
+    from ecentric_workspace.data_hub import nav as data_hub_nav
     return [
         ("core", lambda: list(CORE_ITEMS)),
         ("approval_center", approval_nav.items),
@@ -280,6 +281,8 @@ def _providers():
         ("ai_tools", ai_tools_nav.items),
         # Khao sat noi bo: hub cho moi nguoi + trang quan ly cho nguoi tao.
         ("surveys", surveys_nav.items),
+        # Trung tam Du lieu (09/11/2026, PO Hoan chot): /du-lieu - nhom "Dữ liệu" trong khu Bao cao.
+        ("data_hub", data_hub_nav.items),
         ("home_portal", lambda: list(HOME_PORTAL_ITEMS)),
     ]
 
@@ -342,11 +345,17 @@ CONTEXTS = {
         "entry": {"key": "ctx.pnl", "label": "Doanh thu (PnL)",
                   "route": "/pnl-dashboard", "icon": "wallet"},
     },
+    # 09/11/2026: Trung tam Du lieu (/du-lieu, data_hub/) - ngu canh rieng, thuoc khu "Bao cao".
+    "data_hub": {
+        "providers": ["core", "data_hub"],
+        "entry": {"key": "ctx.data_hub", "label": "Trung tâm Dữ liệu",
+                  "route": "/du-lieu", "icon": "list"},
+    },
 }
 #: order in which specialized contexts are probed for route resolution and in
 #: which launcher entries render.
 CONTEXT_ORDER = ["approval_document", "hr", "alert_center", "reporting", "pnl", "pm",
-                 "ai_tools", "surveys"]
+                 "ai_tools", "surveys", "data_hub"]
 #: `pnl` dung TRUOC `reporting`? Khong can: /pnl-dashboard khong khop mau nao
 #: cua reporting (/reports, /reports/*), nen hai ngu canh khong tranh nhau.
 DEFAULT_CONTEXT = "approval_document"
@@ -609,7 +618,7 @@ RAIL = [
      "contexts": ["hr"], "keys": [], "group": "",
      "labels": {"hr.install_guide": "Cài app"}},
     {"key": "reports", "label": "Báo cáo", "icon": "chart", "route": "/reports",
-     "contexts": ["reporting", "pnl", "alert_center"],
+     "contexts": ["reporting", "pnl", "alert_center", "data_hub"],
      "keys": ["home.portal.reports", "home.portal.weekly", "home.portal.pulse", "home.portal.alerts"],
      "group": "Báo cáo & Phân tích"},
     {"key": "company", "label": "Công ty", "icon": "building", "route": "/tai-lieu",
@@ -730,6 +739,12 @@ RAIL_LAYOUTS = {
              "caption": "Theo quyền", "children": [
                  {"key": "pnl.view.tong_quan"}, {"key": "pnl.view.brand"}, {"key": "pnl.view.nhan_su"},
                  {"key": "pnl.view.du_bao"}, {"key": "pnl.view.bao_cao"}]}]},
+        # 09/11/2026 (PO Hoan chot): Trung tam Du lieu - nhom "Dữ liệu". Dieu phoi + Quy tac la muc
+        # registry co visible_when role team Data (data_hub/nav.py) -> nguoi khac khong thay.
+        {"t": "group", "label": "Dữ liệu", "items": [
+            {"key": "data_hub.requests"}, {"key": "data_hub.availability"},
+            {"key": "data_hub.ops", "caption": "Team Data"},
+            {"key": "data_hub.rules", "caption": "Team Data"}]},
         {"t": "group", "label": "Cảnh báo", "items": [
             {"key": "rail.rep.alerts", "label": "Alert Center", "route": "/alerts", "icon": "bell", "children": [
                 {"key": "alerts.dashboard", "label": "Tổng quan"}, {"key": "alerts.policies", "label": "Chính sách"},

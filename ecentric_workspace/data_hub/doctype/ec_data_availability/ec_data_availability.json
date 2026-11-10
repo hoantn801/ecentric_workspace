@@ -1,0 +1,144 @@
+{
+ "doctype": "DocType",
+ "name": "EC Data Availability",
+ "module": "Data Hub",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "description": "Một dòng ma trận Data availability (/du-lieu/san-co): team × loại dữ liệu × sàn, đã có trên SharePoint / Data Warehouse / Power BI chưa, độ tươi. Seed 52 dòng từ Excel (patch data_hub p002). Ghi qua data_hub/avail_service.py.",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "report": 1,
+   "export": 1
+  }
+ ],
+ "field_order": [
+  "team",
+  "data_type",
+  "platform",
+  "cb_head",
+  "in_sharepoint",
+  "in_dw",
+  "in_powerbi",
+  "front_priority",
+  "sb_fresh",
+  "last_updated",
+  "frequency",
+  "data_owner",
+  "cb_fresh",
+  "planned_ticket",
+  "note"
+ ],
+ "fields": [
+  {
+   "fieldname": "team",
+   "fieldtype": "Data",
+   "label": "Team",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "data_type",
+   "fieldtype": "Data",
+   "label": "Loại dữ liệu",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "platform",
+   "fieldtype": "Data",
+   "label": "Sàn / nguồn",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "Shopee / TikTok / Lazada hoặc nguồn khác (Misa, GOV, Oms Boxme…)"
+  },
+  {
+   "fieldname": "cb_head",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "in_sharepoint",
+   "fieldtype": "Check",
+   "label": "Có trên SharePoint",
+   "default": "0",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "in_dw",
+   "fieldtype": "Check",
+   "label": "Có trong Data Warehouse",
+   "default": "0",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "in_powerbi",
+   "fieldtype": "Check",
+   "label": "Đã dùng trong Power BI",
+   "default": "0",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "front_priority",
+   "fieldtype": "Check",
+   "label": "Front cần gấp",
+   "default": "0"
+  },
+  {
+   "fieldname": "sb_fresh",
+   "fieldtype": "Section Break",
+   "label": "Độ tươi"
+  },
+  {
+   "fieldname": "last_updated",
+   "fieldtype": "Datetime",
+   "label": "Cập nhật lần cuối"
+  },
+  {
+   "fieldname": "frequency",
+   "fieldtype": "Select",
+   "label": "Tần suất",
+   "options": "\nTheo giờ\nHằng ngày\nHằng tuần\nHằng tháng\nKhông định kỳ"
+  },
+  {
+   "fieldname": "data_owner",
+   "fieldtype": "Link",
+   "label": "Người phụ trách",
+   "options": "User"
+  },
+  {
+   "fieldname": "cb_fresh",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "planned_ticket",
+   "fieldtype": "Link",
+   "label": "Kế hoạch bổ sung (DA-)",
+   "options": "EC Data Ticket",
+   "read_only": 1
+  },
+  {
+   "fieldname": "note",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú"
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "autoname": "hash",
+ "title_field": "data_type",
+ "search_fields": "team,data_type,platform"
+}

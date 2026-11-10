@@ -1,0 +1,53 @@
+{%- extends "templates/includes/data_hub/layout.html" -%}
+{%- from "templates/includes/data_hub/macros.html" import badge, prio -%}
+{#- /du-lieu/dieu-phoi - kanban cua team Data (mockup). Chi team Data / System Manager. -#}
+{% block edh_page %}
+{% if denied %}
+<section class="edh-card edh-state"><h4>Chỉ team Data xem được trang này</h4><p>Bạn vẫn xem được mọi yêu cầu ở <a class="edh-link" href="/du-lieu">Yêu cầu dữ liệu</a>.</p></section>
+{% else %}
+<p class="edh-banner is-info">Chỉ team Data thấy tab này. Mọi thay đổi (ưu tiên, hạn, trạng thái) đều hiện cho người gửi và ghi vào lịch sử; task /pm đổi theo.</p>
+<div class="edh-kanban">
+  <section class="edh-col" aria-label="Chờ tiếp nhận">
+    <h2 class="edh-col-h">Chờ tiếp nhận <span>{{ cols.waiting|length }}</span></h2>
+    {% for r in cols.waiting %}
+    <article class="edh-kc{% if r.overdue %} is-late{% endif %}" data-code="{{ r.code|e }}">
+      <button type="button" class="edh-kc-t" data-edh-open="{{ r.code|e }}"><b>{{ r.code|e }}</b> {{ r.title|e }}</button>
+      <div class="edh-hint">{{ r.team|e }}{% if r.team %} · {% endif %}{{ r.requester_name|e }} · {{ r.type_short|e }}</div>
+      <div class="edh-hint">Hàng đợi #{{ r.queue_pos }} · dự kiến bắt đầu {{ r.expected_start|e }} · {{ r.sla_label|e }}</div>
+      {% if r.urgent_reason and not r.priority_confirmed %}<div class="edh-kc-why" title="Lý do Khẩn">“{{ r.urgent_reason|e }}”</div>{% endif %}
+      <div class="edh-kc-f">{{ prio(r) }}<button type="button" class="edh-btn is-sm is-primary" data-edh-accept="{{ r.code|e }}">Nhận</button></div>
+    </article>
+    {% else %}<p class="edh-col-empty">Không có yêu cầu chờ nhận.</p>{% endfor %}
+  </section>
+  <section class="edh-col" aria-label="Đang xử lý">
+    <h2 class="edh-col-h">Đang xử lý <span>{{ cols.doing|length }}</span></h2>
+    {% for r in cols.doing %}
+    <article class="edh-kc{% if r.overdue %} is-late{% endif %}" data-code="{{ r.code|e }}">
+      <button type="button" class="edh-kc-t" data-edh-open="{{ r.code|e }}"><b>{{ r.code|e }}</b> {{ r.title|e }}</button>
+      <div class="edh-hint">{{ r.assignee_name|e }} · <span{% if r.overdue %} class="edh-red"{% endif %}>{{ r.sla_label|e }}</span></div>
+      <div class="edh-kc-f">{{ prio(r) }}{% if r.status == 'Chờ nghiệm thu' %}{{ badge('Chờ nghiệm thu', 'teal') }}{% else %}<button type="button" class="edh-btn is-sm" data-edh-open="{{ r.code|e }}">Cập nhật</button>{% endif %}</div>
+    </article>
+    {% else %}<p class="edh-col-empty">Chưa có việc đang làm.</p>{% endfor %}
+  </section>
+  <section class="edh-col" aria-label="Tạm dừng – chờ người gửi">
+    <h2 class="edh-col-h">Chờ người gửi / Tạm dừng <span>{{ cols.paused|length }}</span></h2>
+    {% for r in cols.paused %}
+    <article class="edh-kc" data-code="{{ r.code|e }}">
+      <button type="button" class="edh-kc-t" data-edh-open="{{ r.code|e }}"><b>{{ r.code|e }}</b> {{ r.title|e }}</button>
+      <div class="edh-hint">{{ r.assignee_name|e }} · dừng từ {{ r.paused_since|e }} · đồng hồ hạn tạm dừng</div>
+      <div class="edh-kc-f">{{ badge('Tạm dừng', 'amber') }}<button type="button" class="edh-btn is-sm" data-edh-resume="{{ r.code|e }}">Tiếp tục</button></div>
+    </article>
+    {% else %}<p class="edh-col-empty">Không có việc tạm dừng.</p>{% endfor %}
+  </section>
+  <section class="edh-col" aria-label="Xong 7 ngày">
+    <h2 class="edh-col-h">Xong (7 ngày) <span>{{ cols.done|length }}</span></h2>
+    {% for r in cols.done %}
+    <article class="edh-kc is-done" data-code="{{ r.code|e }}">
+      <button type="button" class="edh-kc-t" data-edh-open="{{ r.code|e }}"><b>{{ r.code|e }}</b> {{ r.title|e }}</button>
+      <div class="edh-hint">{{ r.done_label|e }}</div>
+    </article>
+    {% else %}<p class="edh-col-empty">Chưa có việc xong trong 7 ngày.</p>{% endfor %}
+  </section>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,740 @@
+{
+ "codes": {
+  "aff": "DR-2026-0006",
+  "clean": "DR-2026-0008",
+  "da_video": "DA-2026-0011",
+  "da_voucher": "DA-2026-0012",
+  "dup": "DR-2026-0010",
+  "live": "DR-2026-0005",
+  "misa": "DR-2026-0004",
+  "p_creator": "DP-2026-0002",
+  "p_gmv": "DP-2026-0004",
+  "p_kol": "DP-2026-0003",
+  "p_voucher": "DP-2026-0001",
+  "pnl": "DR-2026-0002",
+  "rating": "DR-2026-0003",
+  "stock": "DR-2026-0001",
+  "tiktok": "DR-2026-0009",
+  "voucher": "DR-2026-0007"
+ },
+ "details": {
+  "DA-2026-0011": {
+   "linh.vuong@ecentric.vn": {
+    "acceptance": "",
+    "assignee": "linh.vuong@ecentric.vn",
+    "assignee_name": "Linh Vương",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": true,
+     "cancel_needs_reason": true,
+     "follow": true,
+     "message": true,
+     "operate": true,
+     "respond": false
+    },
+    "cancel_reason": "",
+    "closed": "",
+    "code": "DA-2026-0011",
+    "created": "2026-11-09 09:15:00",
+    "created_fmt": "09/11 09:15",
+    "data_used": "",
+    "description": "Bổ sung dữ liệu Video cho team Commercial.\nSàn: Shopee, TikTok, Lazada.\nĐưa vào: SharePoint · Data Warehouse · Power BI.\nCách lấy: Crawl.",
+    "due": "2026-11-24",
+    "due_change_count": 0,
+    "due_date": "2026-11-24",
+    "due_fmt": "24/11/2026",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "09/11/2026",
+    "kind": "availability",
+    "messages": [],
+    "mine": 1,
+    "original_due_fmt": "",
+    "output_link": "",
+    "overdue": false,
+    "paused_since_fmt": "",
+    "plan": {
+     "channels": "SharePoint · Data Warehouse · Power BI",
+     "data_type": "Video",
+     "method": "Crawl",
+     "needs_acceptance": false,
+     "platforms": "Shopee, TikTok, Lazada",
+     "team": "Commercial"
+    },
+    "pm_task": "TASK-2026-00007",
+    "pm_url": "/pm#task/TASK-2026-00007",
+    "priorities": [
+     "Khẩn",
+     "Cao",
+     "Bình thường",
+     "Thấp"
+    ],
+    "priority": "Bình thường",
+    "priority_confirmed": true,
+    "priority_css": "gray",
+    "proposed_priority": "Bình thường",
+    "reference_link": "",
+    "requester": "linh.vuong@ecentric.vn",
+    "requester_name": "Linh Vương",
+    "scope": "open",
+    "search": "da-2026-0011 video (commercial) · shopee/tiktok/lazada linh vương linh.vuong@ecentric.vn linh vương",
+    "sla_css": "",
+    "sla_days": 7,
+    "sla_label": "24/11 · còn 10 ngày",
+    "sla_pct": 0,
+    "start": "2026-11-12",
+    "start_fmt": "12/11/2026",
+    "status": "Đang xử lý",
+    "status_css": "navy",
+    "status_label": "Đang xử lý",
+    "team": "Commercial",
+    "team_members": [
+     {
+      "name": "Dũng Phạm",
+      "user": "dung.pham@ecentric.vn"
+     },
+     {
+      "name": "Hoàn Trần",
+      "user": "hoan.tran@ecentric.vn"
+     },
+     {
+      "name": "Linh Vương",
+      "user": "linh.vuong@ecentric.vn"
+     }
+    ],
+    "team_statuses": [
+     {
+      "label": "Đang xử lý",
+      "value": "Đang xử lý"
+     },
+     {
+      "label": "Tạm dừng – chờ người gửi",
+      "value": "Tạm dừng"
+     },
+     {
+      "label": "Hoàn tất (ô chuyển “Có”)",
+      "value": "Chờ nghiệm thu"
+     }
+    ],
+    "timeline": [
+     {
+      "event": "Đồng bộ /pm",
+      "note": "",
+      "source": "/pm",
+      "text": "Tạo task /pm TASK-2026-00007",
+      "warn": false,
+      "when": "09/11 09:15"
+     },
+     {
+      "event": "Nhận việc",
+      "note": "Theo kế hoạch bổ sung data",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Linh Vương nhận việc · giao Linh Vương · bắt đầu 12/11 · hạn 24/11 (7 ngày làm việc)",
+      "warn": false,
+      "when": "09/11 09:15"
+     },
+     {
+      "event": "Tạo",
+      "note": "Kế hoạch bổ sung data",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Linh Vương gửi yêu cầu",
+      "warn": false,
+      "when": "09/11 09:15"
+     }
+    ],
+    "title": "Video (Commercial) · Shopee/TikTok/Lazada",
+    "type": "Crawl data mới",
+    "type_short": "Bổ sung data",
+    "urgent_reason": ""
+   },
+   "thu.nguyen@ecentric.vn": {
+    "acceptance": "",
+    "assignee": "linh.vuong@ecentric.vn",
+    "assignee_name": "Linh Vương",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": false,
+     "cancel_needs_reason": false,
+     "follow": true,
+     "message": false,
+     "operate": false,
+     "respond": false
+    },
+    "cancel_reason": "",
+    "closed": "",
+    "code": "DA-2026-0011",
+    "created": "2026-11-09 09:15:00",
+    "created_fmt": "09/11 09:15",
+    "data_used": "",
+    "description": "Bổ sung dữ liệu Video cho team Commercial.\nSàn: Shopee, TikTok, Lazada.\nĐưa vào: SharePoint · Data Warehouse · Power BI.\nCách lấy: Crawl.",
+    "due": "2026-11-24",
+    "due_change_count": 0,
+    "due_date": "2026-11-24",
+    "due_fmt": "24/11/2026",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "09/11/2026",
+    "kind": "availability",
+    "messages": [],
+    "mine": 0,
+    "original_due_fmt": "",
+    "output_link": "",
+    "overdue": false,
+    "paused_since_fmt": "",
+    "plan": {
+     "channels": "SharePoint · Data Warehouse · Power BI",
+     "data_type": "Video",
+     "method": "Crawl",
+     "needs_acceptance": false,
+     "platforms": "Shopee, TikTok, Lazada",
+     "team": "Commercial"
+    },
+    "pm_task": "TASK-2026-00007",
+    "pm_url": "/pm#task/TASK-2026-00007",
+    "priority": "Bình thường",
+    "priority_confirmed": true,
+    "priority_css": "gray",
+    "proposed_priority": "Bình thường",
+    "reference_link": "",
+    "requester": "linh.vuong@ecentric.vn",
+    "requester_name": "Linh Vương",
+    "scope": "open",
+    "search": "da-2026-0011 video (commercial) · shopee/tiktok/lazada linh vương linh.vuong@ecentric.vn linh vương",
+    "sla_css": "",
+    "sla_days": 7,
+    "sla_label": "24/11 · còn 10 ngày",
+    "sla_pct": 0,
+    "start": "2026-11-12",
+    "start_fmt": "12/11/2026",
+    "status": "Đang xử lý",
+    "status_css": "navy",
+    "status_label": "Đang xử lý",
+    "team": "Commercial",
+    "timeline": [
+     {
+      "event": "Đồng bộ /pm",
+      "note": "",
+      "source": "/pm",
+      "text": "Tạo task /pm TASK-2026-00007",
+      "warn": false,
+      "when": "09/11 09:15"
+     },
+     {
+      "event": "Nhận việc",
+      "note": "Theo kế hoạch bổ sung data",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Linh Vương nhận việc · giao Linh Vương · bắt đầu 12/11 · hạn 24/11 (7 ngày làm việc)",
+      "warn": false,
+      "when": "09/11 09:15"
+     },
+     {
+      "event": "Tạo",
+      "note": "Kế hoạch bổ sung data",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Linh Vương gửi yêu cầu",
+      "warn": false,
+      "when": "09/11 09:15"
+     }
+    ],
+    "title": "Video (Commercial) · Shopee/TikTok/Lazada",
+    "type": "Crawl data mới",
+    "type_short": "Bổ sung data",
+    "urgent_reason": ""
+   }
+  },
+  "DA-2026-0012": {
+   "linh.vuong@ecentric.vn": {
+    "acceptance": "",
+    "assignee": "hoan.tran@ecentric.vn",
+    "assignee_name": "Hoàn Trần",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": true,
+     "cancel_needs_reason": true,
+     "follow": true,
+     "message": true,
+     "operate": true,
+     "respond": false
+    },
+    "cancel_reason": "",
+    "closed": "",
+    "code": "DA-2026-0012",
+    "created": "2026-11-09 09:20:00",
+    "created_fmt": "09/11 09:20",
+    "data_used": "",
+    "description": "Bổ sung dữ liệu Voucher & Flashsale cho team Commercial.\nSàn: Shopee, TikTok, Lazada.\nĐưa vào: SharePoint · Data Warehouse · Power BI.\nCách lấy: API sàn.\nTừ đề xuất DP-2026-0001: Đo hiệu quả voucher theo ngày cho 12.12",
+    "due": "2026-11-19",
+    "due_change_count": 0,
+    "due_date": "2026-11-19",
+    "due_fmt": "19/11/2026",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "09/11/2026",
+    "kind": "availability",
+    "messages": [],
+    "mine": 0,
+    "original_due_fmt": "",
+    "output_link": "",
+    "overdue": false,
+    "paused_since_fmt": "",
+    "plan": {
+     "channels": "SharePoint · Data Warehouse · Power BI",
+     "data_type": "Voucher & Flashsale",
+     "method": "API sàn",
+     "needs_acceptance": true,
+     "platforms": "Shopee, TikTok, Lazada",
+     "team": "Commercial"
+    },
+    "pm_task": "TASK-2026-00008",
+    "pm_url": "/pm#task/TASK-2026-00008",
+    "priorities": [
+     "Khẩn",
+     "Cao",
+     "Bình thường",
+     "Thấp"
+    ],
+    "priority": "Cao",
+    "priority_confirmed": true,
+    "priority_css": "amber",
+    "proposed_priority": "Cao",
+    "reference_link": "",
+    "requester": "thu.nguyen@ecentric.vn",
+    "requester_name": "Thu Nguyễn",
+    "scope": "open",
+    "search": "da-2026-0012 voucher & flashsale (commercial) · shopee/tiktok/lazada thu nguyễn thu.nguyen@ecentric.vn hoàn trần",
+    "sla_css": "",
+    "sla_days": 6,
+    "sla_label": "19/11 · còn 8 ngày",
+    "sla_pct": 0,
+    "start": "2026-11-11",
+    "start_fmt": "11/11/2026",
+    "status": "Đang xử lý",
+    "status_css": "navy",
+    "status_label": "Đang xử lý",
+    "team": "Commercial",
+    "team_members": [
+     {
+      "name": "Dũng Phạm",
+      "user": "dung.pham@ecentric.vn"
+     },
+     {
+      "name": "Hoàn Trần",
+      "user": "hoan.tran@ecentric.vn"
+     },
+     {
+      "name": "Linh Vương",
+      "user": "linh.vuong@ecentric.vn"
+     }
+    ],
+    "team_statuses": [
+     {
+      "label": "Đang xử lý",
+      "value": "Đang xử lý"
+     },
+     {
+      "label": "Tạm dừng – chờ người gửi",
+      "value": "Tạm dừng"
+     },
+     {
+      "label": "Chờ nghiệm thu",
+      "value": "Chờ nghiệm thu"
+     }
+    ],
+    "timeline": [
+     {
+      "event": "Đồng bộ /pm",
+      "note": "",
+      "source": "/pm",
+      "text": "Tạo task /pm TASK-2026-00008",
+      "warn": false,
+      "when": "09/11 09:20"
+     },
+     {
+      "event": "Nhận việc",
+      "note": "Theo kế hoạch bổ sung data",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Hoàn Trần nhận việc · giao Hoàn Trần · bắt đầu 11/11 · hạn 19/11 (6 ngày làm việc)",
+      "warn": false,
+      "when": "09/11 09:20"
+     },
+     {
+      "event": "Tạo",
+      "note": "Kế hoạch bổ sung data từ đề xuất DP-2026-0001",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Hoàn Trần gửi yêu cầu · đề xuất Cao",
+      "warn": false,
+      "when": "09/11 09:20"
+     }
+    ],
+    "title": "Voucher & Flashsale (Commercial) · Shopee/TikTok/Lazada",
+    "type": "Crawl data mới",
+    "type_short": "Bổ sung data",
+    "urgent_reason": ""
+   },
+   "thu.nguyen@ecentric.vn": {
+    "acceptance": "",
+    "assignee": "hoan.tran@ecentric.vn",
+    "assignee_name": "Hoàn Trần",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": false,
+     "cancel_needs_reason": false,
+     "follow": true,
+     "message": true,
+     "operate": false,
+     "respond": false
+    },
+    "cancel_reason": "",
+    "closed": "",
+    "code": "DA-2026-0012",
+    "created": "2026-11-09 09:20:00",
+    "created_fmt": "09/11 09:20",
+    "data_used": "",
+    "description": "Bổ sung dữ liệu Voucher & Flashsale cho team Commercial.\nSàn: Shopee, TikTok, Lazada.\nĐưa vào: SharePoint · Data Warehouse · Power BI.\nCách lấy: API sàn.\nTừ đề xuất DP-2026-0001: Đo hiệu quả voucher theo ngày cho 12.12",
+    "due": "2026-11-19",
+    "due_change_count": 0,
+    "due_date": "2026-11-19",
+    "due_fmt": "19/11/2026",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "09/11/2026",
+    "kind": "availability",
+    "messages": [],
+    "mine": 1,
+    "original_due_fmt": "",
+    "output_link": "",
+    "overdue": false,
+    "paused_since_fmt": "",
+    "plan": {
+     "channels": "SharePoint · Data Warehouse · Power BI",
+     "data_type": "Voucher & Flashsale",
+     "method": "API sàn",
+     "needs_acceptance": true,
+     "platforms": "Shopee, TikTok, Lazada",
+     "team": "Commercial"
+    },
+    "pm_task": "TASK-2026-00008",
+    "pm_url": "/pm#task/TASK-2026-00008",
+    "priority": "Cao",
+    "priority_confirmed": true,
+    "priority_css": "amber",
+    "proposed_priority": "Cao",
+    "reference_link": "",
+    "requester": "thu.nguyen@ecentric.vn",
+    "requester_name": "Thu Nguyễn",
+    "scope": "open",
+    "search": "da-2026-0012 voucher & flashsale (commercial) · shopee/tiktok/lazada thu nguyễn thu.nguyen@ecentric.vn hoàn trần",
+    "sla_css": "",
+    "sla_days": 6,
+    "sla_label": "19/11 · còn 8 ngày",
+    "sla_pct": 0,
+    "start": "2026-11-11",
+    "start_fmt": "11/11/2026",
+    "status": "Đang xử lý",
+    "status_css": "navy",
+    "status_label": "Đang xử lý",
+    "team": "Commercial",
+    "timeline": [
+     {
+      "event": "Đồng bộ /pm",
+      "note": "",
+      "source": "/pm",
+      "text": "Tạo task /pm TASK-2026-00008",
+      "warn": false,
+      "when": "09/11 09:20"
+     },
+     {
+      "event": "Nhận việc",
+      "note": "Theo kế hoạch bổ sung data",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Hoàn Trần nhận việc · giao Hoàn Trần · bắt đầu 11/11 · hạn 19/11 (6 ngày làm việc)",
+      "warn": false,
+      "when": "09/11 09:20"
+     },
+     {
+      "event": "Tạo",
+      "note": "Kế hoạch bổ sung data từ đề xuất DP-2026-0001",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Hoàn Trần gửi yêu cầu · đề xuất Cao",
+      "warn": false,
+      "when": "09/11 09:20"
+     }
+    ],
+    "title": "Voucher & Flashsale (Commercial) · Shopee/TikTok/Lazada",
+    "type": "Crawl data mới",
+    "type_short": "Bổ sung data",
+    "urgent_reason": ""
+   }
+  },
+  "DR-2026-0001": {
+   "linh.vuong@ecentric.vn": {
+    "acceptance": "Đạt",
+    "assignee": "linh.vuong@ecentric.vn",
+    "assignee_name": "Linh Vương",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": false,
+     "cancel_needs_reason": true,
+     "follow": true,
+     "message": true,
+     "operate": false,
+     "respond": false
+    },
+    "cancel_reason": "",
+    "closed": "2026-11-02 09:30:00",
+    "code": "DR-2026-0001",
+    "created": "2026-10-27 10:30:00",
+    "created_fmt": "27/10 10:30",
+    "data_used": "Orderline",
+    "description": "Cần dashboard PnL theo ngày cho brand Friso trên Shopee + TikTok.",
+    "due": "2026-11-02",
+    "due_change_count": 0,
+    "due_date": "2026-11-02",
+    "due_fmt": "02/11/2026",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "28/10/2026",
+    "kind": "request",
+    "library": {
+     "active": true,
+     "link": "https://app.powerbi.com/stock",
+     "name": "RL-00001",
+     "title": "Dashboard Stock Boxme"
+    },
+    "messages": [],
+    "mine": 1,
+    "original_due_fmt": "",
+    "output_link": "https://app.powerbi.com/stock",
+    "overdue": false,
+    "paused_since_fmt": "",
+    "pm_task": "TASK-2026-00001",
+    "pm_url": "/pm#task/TASK-2026-00001",
+    "priorities": [
+     "Khẩn",
+     "Cao",
+     "Bình thường",
+     "Thấp"
+    ],
+    "priority": "Cao",
+    "priority_confirmed": true,
+    "priority_css": "amber",
+    "proposed_priority": "Cao",
+    "reference_link": "",
+    "requester": "duyen.le@ecentric.vn",
+    "requester_name": "Duyên Lê",
+    "scope": "done",
+    "search": "dr-2026-0001 dashboard stock boxme duyên lê duyen.le@ecentric.vn linh vương",
+    "sla_css": "done",
+    "sla_days": 3,
+    "sla_label": "xong 30/10 · đúng hạn",
+    "sla_pct": 100,
+    "start": "2026-10-28",
+    "start_fmt": "28/10/2026",
+    "status": "Hoàn tất",
+    "status_css": "green",
+    "status_label": "Hoàn tất",
+    "team": "Commercial",
+    "team_members": [
+     {
+      "name": "Dũng Phạm",
+      "user": "dung.pham@ecentric.vn"
+     },
+     {
+      "name": "Hoàn Trần",
+      "user": "hoan.tran@ecentric.vn"
+     },
+     {
+      "name": "Linh Vương",
+      "user": "linh.vuong@ecentric.vn"
+     }
+    ],
+    "team_statuses": [],
+    "timeline": [
+     {
+      "event": "Nghiệm thu đạt",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Duyên Lê nghiệm thu: Đạt",
+      "warn": false,
+      "when": "02/11 09:30"
+     },
+     {
+      "event": "Hoàn tất",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Linh Vương hoàn tất, chờ người gửi nghiệm thu",
+      "warn": false,
+      "when": "30/10 16:30"
+     },
+     {
+      "event": "Đồng bộ /pm",
+      "note": "",
+      "source": "/pm",
+      "text": "Tạo task /pm TASK-2026-00001",
+      "warn": false,
+      "when": "28/10 09:30"
+     },
+     {
+      "event": "Nhận việc",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Linh Vương nhận việc · giao Linh Vương · bắt đầu 28/10 · hạn 02/11 (3 ngày làm việc)",
+      "warn": false,
+      "when": "28/10 09:30"
+     },
+     {
+      "event": "Tạo",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Duyên Lê gửi yêu cầu · đề xuất Cao",
+      "warn": false,
+      "when": "27/10 10:30"
+     }
+    ],
+    "title": "Dashboard Stock Boxme",
+    "type": "Sửa Power BI có sẵn",
+    "type_short": "Power BI",
+    "urgent_reason": ""
+   },
+   "thu.nguyen@ecentric.vn": {
+    "acceptance": "Đạt",
+    "assignee": "linh.vuong@ecentric.vn",
+    "assignee_name": "Linh Vương",
+    "attachments": [],
+    "can": {
+     "accept": false,
+     "cancel": false,
+     "cancel_needs_reason": false,
+     "follow": true,
+     "message": false,
+     "operate": false,
+     "respond": false
+    },
+    "cancel_reason": "",
+    "closed": "2026-11-02 09:30:00",
+    "code": "DR-2026-0001",
+    "created": "2026-10-27 10:30:00",
+    "created_fmt": "27/10 10:30",
+    "data_used": "Orderline",
+    "description": "Cần dashboard PnL theo ngày cho brand Friso trên Shopee + TikTok.",
+    "due": "2026-11-02",
+    "due_change_count": 0,
+    "due_date": "2026-11-02",
+    "due_fmt": "02/11/2026",
+    "followers": [],
+    "following": false,
+    "intake_due_fmt": "28/10/2026",
+    "kind": "request",
+    "library": {
+     "active": true,
+     "link": "https://app.powerbi.com/stock",
+     "name": "RL-00001",
+     "title": "Dashboard Stock Boxme"
+    },
+    "messages": [],
+    "mine": 0,
+    "original_due_fmt": "",
+    "output_link": "https://app.powerbi.com/stock",
+    "overdue": false,
+    "paused_since_fmt": "",
+    "pm_task": "TASK-2026-00001",
+    "pm_url": "/pm#task/TASK-2026-00001",
+    "priority": "Cao",
+    "priority_confirmed": true,
+    "priority_css": "amber",
+    "proposed_priority": "Cao",
+    "reference_link": "",
+    "requester": "duyen.le@ecentric.vn",
+    "requester_name": "Duyên Lê",
+    "scope": "done",
+    "search": "dr-2026-0001 dashboard stock boxme duyên lê duyen.le@ecentric.vn linh vương",
+    "sla_css": "done",
+    "sla_days": 3,
+    "sla_label": "xong 30/10 · đúng hạn",
+    "sla_pct": 100,
+    "start": "2026-10-28",
+    "start_fmt": "28/10/2026",
+    "status": "Hoàn tất",
+    "status_css": "green",
+    "status_label": "Hoàn tất",
+    "team": "Commercial",
+    "timeline": [
+     {
+      "event": "Nghiệm thu đạt",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Duyên Lê nghiệm thu: Đạt",
+      "warn": false,
+      "when": "02/11 09:30"
+     },
+     {
+      "event": "Hoàn tất",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Linh Vương hoàn tất, chờ người gửi nghiệm thu",
+      "warn": false,
+      "when": "30/10 16:30"
+     },
+     {
+      "event": "Đồng bộ /pm",
+      "note": "",
+      "source": "/pm",
+      "text": "Tạo task /pm TASK-2026-00001",
+      "warn": false,
+      "when": "28/10 09:30"
+     },
+     {
+      "event": "Nhận việc",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Linh Vương nhận việc · giao Linh Vương · bắt đầu 28/10 · hạn 02/11 (3 ngày làm việc)",
+      "warn": false,
+      "when": "28/10 09:30"
+     },
+     {
+      "event": "Tạo",
+      "note": "",
+      "source": "Trung tâm Dữ liệu",
+      "text": "Duyên Lê gửi yêu cầu · đề xuất Cao",
+      "warn": false,
+      "when": "27/10 10:30"
+     }
+    ],
+    "title": "Dashboard Stock Boxme",
+    "type": "Sửa Power BI có sẵn",
+    "type_short": "Power BI",
+    "urgent_reason": ""
+   }
+  }
+ },
+ "plan_defaults": {
+  "due": "2026-11-23",
+  "priority": "Cao",
+  "sla_days": 6,
+  "start": "2026-11-12"
+ },
+ "suggest": {
+  "library": [
+   {
+    "link": "https://app.powerbi.com/pnl-tong",
+    "score": 0.1667,
+    "team": "Commercial",
+    "title": "Dashboard PnL tổng hợp brand"
+   }
+  ],
+  "requests": [
+   {
+    "code": "DR-2026-0002",
+    "score": 1.0,
+    "status": "Đang xử lý",
+    "title": "Power BI PnL cho brand mới (Friso)",
+    "url": "/du-lieu?ma=DR-2026-0002"
+   }
+  ]
+ }
+}

@@ -285,7 +285,26 @@ def write_state(name, target, user, notify=True):
             pass
         if target == "Done":
             notify_followers_done(name, user)   # người theo dõi (CC) biết việc đã xong
+    _state_listeners(name, cur, target, user)
     return cur
+
+
+def _state_listeners(name, cur, target, user):
+    """09/11/2026: write_state ghi bang db.set_value nen Task on_update KHONG chay - module khac can
+    biet trang thai task doi (vd Trung tam Du lieu, data_hub/pm_sync) khai ham trong hook
+    `ec_pm_task_state_listeners` (ham(name, cur, target, user)). PM khong biet ai nghe. Nuot moi loi."""
+    try:
+        paths = frappe.get_hooks("ec_pm_task_state_listeners") or []
+    except Exception:
+        return
+    for path in paths:
+        try:
+            frappe.get_attr(path)(name, cur, target, user)
+        except Exception:
+            try:
+                frappe.log_error(frappe.get_traceback(), "PM state listener " + str(path))
+            except Exception:
+                pass
 
 
 def add_comment(name, text, comment_type="Info"):

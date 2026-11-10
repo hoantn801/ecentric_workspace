@@ -54,8 +54,8 @@
     "sha256": "ae06f18031aa4c5dec6d4ca2d6bfa0c2e7d9f57522445ef0167b9fb49d63cef3"
   },
   "approval_center/features/data_request/ui/main_section.html": {
-    "last_resync_patch": "p335_resync_ux_lich_su_tien_trinh",
-    "sha256": "1d1df5653e0e52c02ba85cc30f7facfbfc7bb59d8e1ad1608e6223055ee078dc"
+    "last_resync_patch": "p358_resync_data_request_chuyen_trung_tam_du_lieu",
+    "sha256": "a30f2b84b381aecf1b41e67ddd28c2915cebd49e263b3b340a0cb695aa2e03ae"
   },
   "approval_center/features/document_request/ui/main_section.html": {
     "last_resync_patch": "p335_resync_ux_lich_su_tien_trinh",

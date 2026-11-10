@@ -1,0 +1,120 @@
+<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>T · eCentric</title>
+<link rel="stylesheet" href="/a.css">
+
+<link rel="stylesheet" href="/r.css">
+</head><body>
+<div class="edh-app">
+  <aside>MENU</aside>
+  <main class="edh-main">
+    <div class="ec-shell-topbar" data-ec-shell-topbar="1"><div>TOPBAR</div></div>
+    <div class="edh-page" id="edh" data-edh-page="">
+      <header class="edh-head">
+        <h1 class="edh-h1">Trung tâm Dữ liệu</h1>
+        <p class="edh-sub">Gửi yêu cầu Power BI, crawl data, xử lý dữ liệu và theo dõi tiến độ. Mọi team đều xem được.</p>
+      </header>
+      <nav class="edh-tabs" aria-label="Trung tâm Dữ liệu">
+        <a class="edh-tab" href="/du-lieu">Yêu cầu dữ liệu</a><a class="edh-tab" href="/du-lieu/san-co">Data availability</a><a class="edh-tab" href="/du-lieu/dieu-phoi">Điều phối</a><a class="edh-tab is-on" href="/du-lieu/quy-tac" aria-current="page">Quy tắc thời hạn</a>
+      </nav>
+      
+
+<section class="edh-card edh-rules" data-edh-rules aria-labelledby="edh-rules-h">
+  <h2 class="edh-h3" id="edh-rules-h">Thời hạn mặc định theo loại yêu cầu <span class="edh-hint">(ngày làm việc, bỏ T7/CN, ngày lễ)</span></h2>
+  <p class="edh-hint">Đang áp dụng: <b>v1</b> · từ 01/11/2026 · Đang áp dụng. Hạn = ngày bắt đầu + N ngày làm việc; N = số ngày theo loại × hệ số ưu tiên (làm tròn lên, tối thiểu 1). Quy tắc mới chỉ áp cho yêu cầu mới.</p>
+  <form data-edh-rules-form novalidate>
+  <table class="edh-tbl edh-tbl-plain edh-rules-tbl">
+    <thead><tr><th>Loại</th><th>Đang áp dụng</th><th>Đề xuất mới</th><th>Ghi chú</th></tr></thead>
+    <tbody>
+    <tr data-key="pbi_new"><td>Power BI mới</td><td><b>7</b> ngày</td><td class="edh-rules-prop"><span class="edh-rules-view"><span class="edh-hint">—</span></span><label class="edh-rules-edit"><input class="edh-inp edh-rules-num" type="number" inputmode="numeric" name="days.pbi_new" data-edh-rules-days="pbi_new" min="1" max="60" step="1" value="7" data-active="7" aria-label="Số ngày mới: Power BI mới"> ngày</label></td><td class="edh-hint">Dashboard mới</td></tr><tr data-key="pbi_edit"><td>Sửa / thêm vào Power BI có sẵn</td><td><b>3</b> ngày</td><td class="edh-rules-prop"><span class="edh-rules-view"><span class="edh-hint">—</span></span><label class="edh-rules-edit"><input class="edh-inp edh-rules-num" type="number" inputmode="numeric" name="days.pbi_edit" data-edh-rules-days="pbi_edit" min="1" max="60" step="1" value="3" data-active="3" aria-label="Số ngày mới: Sửa / thêm vào Power BI có sẵn"> ngày</label></td><td class="edh-hint"></td></tr><tr data-key="crawl_new"><td>Crawl data mới</td><td><b>7</b> ngày</td><td class="edh-rules-prop"><span class="edh-rules-view"><span class="edh-hint">—</span></span><label class="edh-rules-edit"><input class="edh-inp edh-rules-num" type="number" inputmode="numeric" name="days.crawl_new" data-edh-rules-days="crawl_new" min="1" max="60" step="1" value="7" data-active="7" aria-label="Số ngày mới: Crawl data mới"> ngày</label></td><td class="edh-hint">Tính từ lúc đề xuất được duyệt</td></tr><tr data-key="data_processing"><td>Xử lý / làm sạch dữ liệu</td><td><b>3</b> ngày</td><td class="edh-rules-prop"><span class="edh-rules-view"><span class="edh-hint">—</span></span><label class="edh-rules-edit"><input class="edh-inp edh-rules-num" type="number" inputmode="numeric" name="days.data_processing" data-edh-rules-days="data_processing" min="1" max="60" step="1" value="3" data-active="3" aria-label="Số ngày mới: Xử lý / làm sạch dữ liệu"> ngày</label></td><td class="edh-hint"></td></tr><tr data-key="other"><td>Khác</td><td><b>3</b> ngày</td><td class="edh-rules-prop"><span class="edh-rules-view"><span class="edh-hint">—</span></span><label class="edh-rules-edit"><input class="edh-inp edh-rules-num" type="number" inputmode="numeric" name="days.other" data-edh-rules-days="other" min="1" max="60" step="1" value="3" data-active="3" aria-label="Số ngày mới: Khác"> ngày</label></td><td class="edh-hint"></td></tr><tr data-key="proposal_review"><td>Duyệt đề xuất data cần crawl</td><td><b>1</b> ngày</td><td class="edh-rules-prop"><span class="edh-rules-view"><span class="edh-hint">—</span></span><label class="edh-rules-edit"><input class="edh-inp edh-rules-num" type="number" inputmode="numeric" name="days.proposal_review" data-edh-rules-days="proposal_review" min="1" max="60" step="1" value="1" data-active="1" aria-label="Số ngày mới: Duyệt đề xuất data cần crawl"> ngày</label></td><td class="edh-hint"></td></tr><tr data-key="intake"><td>Tiếp nhận yêu cầu mới</td><td><b>1</b> ngày</td><td class="edh-rules-prop"><span class="edh-rules-view"><span class="edh-hint">—</span></span><label class="edh-rules-edit"><input class="edh-inp edh-rules-num" type="number" inputmode="numeric" name="days.intake" data-edh-rules-days="intake" min="1" max="60" step="1" value="1" data-active="1" aria-label="Số ngày mới: Tiếp nhận yêu cầu mới"> ngày</label></td><td class="edh-hint">Từ lúc gửi tới lúc có người nhận</td></tr>
+    <tr data-key="mult"><td>Hệ số theo ưu tiên</td><td>Khẩn ×0,5 · Cao ×0,8 · Bình thường ×1 · Thấp ×1,5</td><td class="edh-rules-prop"><span class="edh-rules-view"><span class="edh-hint">—</span></span><span class="edh-rules-edit edh-rules-mults"><label>Khẩn ×<input class="edh-inp edh-rules-num" type="text" inputmode="decimal" name="mult.Khẩn" data-edh-rules-mult="Khẩn" value="0,5" data-active="0,5" aria-label="Hệ số mới mức Khẩn"></label><label>Cao ×<input class="edh-inp edh-rules-num" type="text" inputmode="decimal" name="mult.Cao" data-edh-rules-mult="Cao" value="0,8" data-active="0,8" aria-label="Hệ số mới mức Cao"></label><label>Bình thường ×<input class="edh-inp edh-rules-num" type="text" inputmode="decimal" name="mult.Bình thường" data-edh-rules-mult="Bình thường" value="1" data-active="1" aria-label="Hệ số mới mức Bình thường"></label><label>Thấp ×<input class="edh-inp edh-rules-num" type="text" inputmode="decimal" name="mult.Thấp" data-edh-rules-mult="Thấp" value="1,5" data-active="1,5" aria-label="Hệ số mới mức Thấp"></label></span></td><td class="edh-hint">Từ 0,25 đến 3</td></tr>
+    </tbody>
+  </table>
+  
+  <div class="edh-rules-edit edh-rules-editbox">
+    <div class="edh-fld"><label for="edh-rules-reason">Lý do thay đổi <span class="edh-req">*</span> <span class="edh-hint">(bắt buộc khi gửi duyệt; Hoàn Trần sẽ đọc)</span></label>
+      <textarea id="edh-rules-reason" class="edh-inp" name="reason" rows="2" maxlength="1000" data-edh-rules-reason placeholder="Ví dụ: Dashboard mới hay cần 3+ nguồn, 7 ngày thường trễ."></textarea></div>
+    <p class="edh-hint" data-edh-rules-count aria-live="polite"></p>
+    <p class="edh-err" data-edh-rules-err role="alert" hidden></p>
+    <div class="edh-actions">
+      <button type="button" class="edh-btn" data-edh-rules-cancel-edit>Thôi, không sửa</button>
+      <button type="button" class="edh-btn" data-edh-rules-save>Lưu nháp</button>
+      <button type="button" class="edh-btn is-primary" data-edh-rules-send="edit">Gửi Hoàn Trần duyệt</button>
+    </div>
+  </div>
+  
+  <div class="edh-actions edh-rules-view" data-edh-rules-actions>
+    
+    <button type="button" class="edh-btn is-primary" data-edh-rules-edit>Sửa quy tắc</button>
+    <span class="edh-hint">Lý do bắt buộc. Gửi xong Hoàn Trần nhận thông báo trên ERP + Teams.</span>
+    
+    
+    
+    
+  </div>
+  <div class="edh-rules-ask" data-edh-rules-panel hidden>
+    <div class="edh-fld"><label for="edh-rules-note" data-edh-rules-note-label>Ghi chú</label>
+      <textarea id="edh-rules-note" class="edh-inp" rows="2" maxlength="1000" data-edh-rules-note></textarea></div>
+    <p class="edh-err" data-edh-rules-panel-err role="alert" hidden></p>
+    <div class="edh-actions">
+      <button type="button" class="edh-btn" data-edh-rules-panel-close>Thôi</button>
+      <button type="button" class="edh-btn is-primary" data-edh-rules-panel-ok>Xác nhận</button>
+    </div>
+  </div>
+  </form>
+</section>
+<section class="edh-card" aria-labelledby="edh-rules-hist">
+  <h2 class="edh-h3" id="edh-rules-hist">Lịch sử quy tắc</h2>
+  
+  <div class="edh-tl-item edh-rules-h" data-version="SLA-v1"><span class="edh-tl-dot" aria-hidden="true"></span><div>
+    <div><b>v1 · 01/11/2026</b> <span class="edh-badge is-green"><span class="edh-dot" aria-hidden="true"></span>Đang áp dụng</span></div>
+    <div>Bộ quy tắc đầu tiên</div>
+    <div class="edh-hint"></div>
+    
+    
+  </div></div>
+  
+</section>
+
+
+    </div>
+  </main>
+</div>
+<div class="edh-ov edh-ov-center" data-edh-detail-ov hidden>
+  <div class="edh-dmodal" role="dialog" aria-modal="true" aria-label="Chi tiết yêu cầu" data-edh-detail tabindex="-1">
+    <div class="edh-dm-loading"><span class="edh-spin" aria-hidden="true"></span> Đang tải chi tiết…</div>
+  </div>
+</div>
+
+<div class="edh-ov edh-ov-center" data-edh-accept-ov hidden>
+  <form class="edh-modal" data-edh-accept-form novalidate role="dialog" aria-modal="true" aria-labelledby="edh-acc-h">
+    <h3 class="edh-modal-h" id="edh-acc-h">Nhận việc <span class="edh-hint" data-edh-acc-code></span></h3>
+    <div class="edh-modal-b">
+      <p class="edh-banner is-warn" data-edh-acc-urgent hidden></p>
+      <div class="edh-grid2">
+        <div class="edh-fld"><label for="edh-acc-who">Người xử lý <span class="edh-req">*</span></label>
+          <select id="edh-acc-who" name="assignee" required></select></div>
+        <div class="edh-fld"><label for="edh-acc-pri">Ưu tiên</label>
+          <select id="edh-acc-pri" name="priority"><option>Khẩn</option><option>Cao</option><option>Bình thường</option><option>Thấp</option></select></div>
+        <div class="edh-fld"><label for="edh-acc-start">Ngày bắt đầu <span class="edh-req">*</span></label>
+          <input id="edh-acc-start" name="start_date" type="date" required></div>
+        <div class="edh-fld"><label for="edh-acc-due">Hạn <span class="edh-hint" data-edh-acc-rule></span></label>
+          <input id="edh-acc-due" name="due_date" type="date" required></div>
+        <div class="edh-fld edh-full" data-edh-acc-reason-box hidden><label for="edh-acc-reason">Lý do đổi hạn so với quy tắc <span class="edh-req">*</span></label>
+          <input id="edh-acc-reason" name="reason" maxlength="1000" placeholder="Người gửi sẽ thấy lý do này"></div>
+      </div>
+      <p class="edh-err" data-edh-acc-err role="alert" hidden></p>
+      <p class="edh-hint">Nhận xong: tạo task /pm cho người xử lý (cùng ngày bắt đầu, hạn) và báo người gửi.</p>
+    </div>
+    <div class="edh-modal-f">
+      <button type="button" class="edh-btn" data-edh-close>Huỷ</button>
+      <button type="submit" class="edh-btn is-primary" data-edh-acc-submit>Nhận việc</button>
+    </div>
+  </form>
+</div>
+
+<div class="edh-toast" data-edh-toast role="status" aria-live="polite" hidden></div>
+<script type="application/json" id="edh-boot">{"page": "rules", "me": "linh.vuong@ecentric.vn", "active": {"name": "SLA-v1", "days": {"pbi_new": 7, "pbi_edit": 3, "crawl_new": 7, "data_processing": 3, "other": 3, "proposal_review": 1, "intake": 1}, "mult": {"Khẩn": 0.5, "Cao": 0.8, "Bình thường": 1.0, "Thấp": 1.5}}, "draft": null, "pending": "", "can": {"propose": true, "edit": false, "submit": false, "cancel": false, "decide": false}, "limits": {"days_min": 1, "days_max": 60, "mult_min": 0.25, "mult_max": 3.0, "reason_max": 1000}, "approver_name": "Hoàn Trần", "labels": {"pbi_new": "Power BI mới", "pbi_edit": "Sửa / thêm vào Power BI có sẵn", "crawl_new": "Crawl data mới", "data_processing": "Xử lý / làm sạch dữ liệu", "other": "Khác", "proposal_review": "Duyệt đề xuất data cần crawl", "intake": "Tiếp nhận yêu cầu mới"}, "keys": ["pbi_new", "pbi_edit", "crawl_new", "data_processing", "other", "proposal_review", "intake"], "priorities": ["Khẩn", "Cao", "Bình thường", "Thấp"]}</script>
+
+<script src="/a.js" defer></script>
+
+<script src="/r.js" defer></script>
+</body></html>

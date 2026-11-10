@@ -1,0 +1,54 @@
+{
+ "doctype": "DocType",
+ "name": "EC Data SLA Rule Item",
+ "module": "Data Hub",
+ "custom": 0,
+ "istable": 1,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "description": "Một dòng quy tắc thời hạn (số ngày làm việc theo loại).",
+ "permissions": [],
+ "field_order": [
+  "rule_key",
+  "label",
+  "days",
+  "note"
+ ],
+ "fields": [
+  {
+   "fieldname": "rule_key",
+   "fieldtype": "Data",
+   "label": "Mã",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "label",
+   "fieldtype": "Data",
+   "label": "Loại",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "days",
+   "fieldtype": "Int",
+   "label": "Số ngày làm việc",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "note",
+   "fieldtype": "Data",
+   "label": "Ghi chú",
+   "in_list_view": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "autoname": "hash",
+ "naming_rule": "Random"
+}

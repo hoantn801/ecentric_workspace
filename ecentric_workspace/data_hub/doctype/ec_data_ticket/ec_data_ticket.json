@@ -1,0 +1,387 @@
+{
+ "doctype": "DocType",
+ "name": "EC Data Ticket",
+ "module": "Data Hub",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "description": "Một work item của Trung tâm Dữ liệu (/du-lieu): yêu cầu dữ liệu (DR-) hoặc kế hoạch bổ sung data (DA-, đợt 2). Ghi bởi data_hub/service.py + ops_service.py; mọi nhân viên đọc qua trang, Desk chỉ System Manager.",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "report": 1,
+   "export": 1
+  }
+ ],
+ "field_order": [
+  "naming_series",
+  "kind",
+  "title",
+  "request_type",
+  "status",
+  "cb_head",
+  "requester",
+  "requester_department",
+  "assignee",
+  "proposed_priority",
+  "urgent_reason",
+  "priority",
+  "priority_confirmed_by",
+  "sb_content",
+  "description",
+  "data_used",
+  "reference_link",
+  "output_link",
+  "attachments",
+  "sb_sla",
+  "intake_due_date",
+  "start_date",
+  "due_date",
+  "original_due_date",
+  "due_change_count",
+  "cb_sla",
+  "sla_days",
+  "rule_version",
+  "paused_since",
+  "paused_seconds",
+  "paused_days",
+  "sb_flow",
+  "accepted_at",
+  "accepted_by",
+  "done_at",
+  "closed_at",
+  "cb_flow",
+  "acceptance",
+  "reject_count",
+  "reminded_review_on",
+  "cancel_reason",
+  "pm_task",
+  "legacy_ref",
+  "sb_avail",
+  "platforms",
+  "channels",
+  "method",
+  "availability_rows",
+  "sb_people",
+  "followers"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Dãy mã",
+   "options": "DR-.YYYY.-.####\nDA-.YYYY.-.####",
+   "default": "DR-.YYYY.-.####",
+   "hidden": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "kind",
+   "fieldtype": "Select",
+   "label": "Loại work item",
+   "options": "request\navailability",
+   "default": "request",
+   "reqd": 1,
+   "in_standard_filter": 1,
+   "search_index": 1,
+   "description": "request = yêu cầu dữ liệu (DR-); availability = kế hoạch bổ sung data (DA-, đợt 2)."
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Tiêu đề",
+   "reqd": 1,
+   "in_list_view": 1,
+   "length": 200
+  },
+  {
+   "fieldname": "request_type",
+   "fieldtype": "Select",
+   "label": "Loại yêu cầu",
+   "options": "\nPower BI mới\nSửa Power BI có sẵn\nCrawl data mới\nXử lý dữ liệu\nKhác",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Trạng thái",
+   "options": "Chờ tiếp nhận\nĐang xử lý\nTạm dừng\nChờ nghiệm thu\nHoàn tất\nHuỷ",
+   "default": "Chờ tiếp nhận",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "cb_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "requester",
+   "fieldtype": "Link",
+   "label": "Người gửi",
+   "options": "User",
+   "search_index": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "requester_department",
+   "fieldtype": "Link",
+   "label": "Phòng người gửi",
+   "options": "Department"
+  },
+  {
+   "fieldname": "assignee",
+   "fieldtype": "Link",
+   "label": "Người xử lý",
+   "options": "User",
+   "search_index": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "proposed_priority",
+   "fieldtype": "Select",
+   "label": "Mức người gửi đề xuất",
+   "options": "Khẩn\nCao\nBình thường\nThấp",
+   "default": "Bình thường"
+  },
+  {
+   "fieldname": "urgent_reason",
+   "fieldtype": "Small Text",
+   "label": "Lý do Khẩn (người gửi)"
+  },
+  {
+   "fieldname": "priority",
+   "fieldtype": "Select",
+   "label": "Ưu tiên (team Data chốt)",
+   "options": "\nKhẩn\nCao\nBình thường\nThấp"
+  },
+  {
+   "fieldname": "priority_confirmed_by",
+   "fieldtype": "Link",
+   "label": "Người chốt ưu tiên",
+   "options": "User"
+  },
+  {
+   "fieldname": "sb_content",
+   "fieldtype": "Section Break",
+   "label": "Nội dung"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Text",
+   "label": "Mô tả / đầu ra mong muốn"
+  },
+  {
+   "fieldname": "data_used",
+   "fieldtype": "Small Text",
+   "label": "Dữ liệu cần dùng"
+  },
+  {
+   "fieldname": "reference_link",
+   "fieldtype": "Data",
+   "label": "Link mẫu",
+   "length": 500
+  },
+  {
+   "fieldname": "output_link",
+   "fieldtype": "Data",
+   "label": "Link kết quả",
+   "length": 500
+  },
+  {
+   "fieldname": "attachments",
+   "fieldtype": "Table",
+   "label": "Tệp",
+   "options": "EC Data Ticket File"
+  },
+  {
+   "fieldname": "sb_sla",
+   "fieldtype": "Section Break",
+   "label": "Hạn (ngày làm việc)"
+  },
+  {
+   "fieldname": "intake_due_date",
+   "fieldtype": "Date",
+   "label": "Hạn nhận việc"
+  },
+  {
+   "fieldname": "start_date",
+   "fieldtype": "Date",
+   "label": "Ngày bắt đầu"
+  },
+  {
+   "fieldname": "due_date",
+   "fieldtype": "Date",
+   "label": "Hạn",
+   "in_list_view": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "original_due_date",
+   "fieldtype": "Date",
+   "label": "Hạn lúc nhận việc"
+  },
+  {
+   "fieldname": "due_change_count",
+   "fieldtype": "Int",
+   "label": "Số lần dời hạn",
+   "default": "0"
+  },
+  {
+   "fieldname": "cb_sla",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sla_days",
+   "fieldtype": "Int",
+   "label": "Số ngày làm việc theo quy tắc"
+  },
+  {
+   "fieldname": "rule_version",
+   "fieldtype": "Link",
+   "label": "Bộ quy tắc",
+   "options": "EC Data SLA Rule Set"
+  },
+  {
+   "fieldname": "paused_since",
+   "fieldtype": "Datetime",
+   "label": "Tạm dừng từ"
+  },
+  {
+   "fieldname": "paused_seconds",
+   "fieldtype": "Int",
+   "label": "Tổng giây tạm dừng",
+   "default": "0"
+  },
+  {
+   "fieldname": "paused_days",
+   "fieldtype": "Int",
+   "label": "Tổng ngày làm việc tạm dừng (đã cộng vào hạn)",
+   "default": "0"
+  },
+  {
+   "fieldname": "sb_flow",
+   "fieldtype": "Section Break",
+   "label": "Tiến trình"
+  },
+  {
+   "fieldname": "accepted_at",
+   "fieldtype": "Datetime",
+   "label": "Nhận việc lúc"
+  },
+  {
+   "fieldname": "accepted_by",
+   "fieldtype": "Link",
+   "label": "Người bấm Nhận",
+   "options": "User"
+  },
+  {
+   "fieldname": "done_at",
+   "fieldtype": "Datetime",
+   "label": "Team Data hoàn tất lúc"
+  },
+  {
+   "fieldname": "closed_at",
+   "fieldtype": "Datetime",
+   "label": "Đóng lúc"
+  },
+  {
+   "fieldname": "cb_flow",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "acceptance",
+   "fieldtype": "Select",
+   "label": "Nghiệm thu",
+   "options": "\nĐạt\nChưa đạt\nĐạt (tự động)"
+  },
+  {
+   "fieldname": "reject_count",
+   "fieldtype": "Int",
+   "label": "Số lần Chưa đạt",
+   "default": "0"
+  },
+  {
+   "fieldname": "reminded_review_on",
+   "fieldtype": "Date",
+   "label": "Nhắc nghiệm thu gần nhất"
+  },
+  {
+   "fieldname": "cancel_reason",
+   "fieldtype": "Small Text",
+   "label": "Lý do huỷ"
+  },
+  {
+   "fieldname": "pm_task",
+   "fieldtype": "Link",
+   "label": "Task /pm",
+   "options": "Task",
+   "search_index": 1
+  },
+  {
+   "fieldname": "legacy_ref",
+   "fieldtype": "Data",
+   "label": "Mã phiếu Data Request cũ",
+   "search_index": 1,
+   "read_only": 1,
+   "description": "Đợt 3: phiếu EC Data Request chuyển sang (giữ mã cũ)."
+  },
+  {
+   "fieldname": "sb_avail",
+   "fieldtype": "Section Break",
+   "label": "Bổ sung data (kind = availability, đợt 2)"
+  },
+  {
+   "fieldname": "platforms",
+   "fieldtype": "Small Text",
+   "label": "Sàn",
+   "description": "JSON list: Shopee / TikTok / Lazada / Khác:<tên>"
+  },
+  {
+   "fieldname": "channels",
+   "fieldtype": "Small Text",
+   "label": "Kênh đích",
+   "description": "JSON list: SharePoint / Data Warehouse / Power BI"
+  },
+  {
+   "fieldname": "method",
+   "fieldtype": "Select",
+   "label": "Cách lấy",
+   "options": "\nCrawl\nAPI sàn\nNhập tay / file"
+  },
+  {
+   "fieldname": "availability_rows",
+   "fieldtype": "Long Text",
+   "label": "Ô availability",
+   "description": "JSON list tên EC Data Availability (đợt 2)"
+  },
+  {
+   "fieldname": "sb_people",
+   "fieldtype": "Section Break",
+   "label": "Người theo dõi"
+  },
+  {
+   "fieldname": "followers",
+   "fieldtype": "Table",
+   "label": "Người theo dõi",
+   "options": "EC Data Ticket Follower"
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "autoname": "naming_series:",
+ "naming_rule": "By \"Naming Series\" field",
+ "title_field": "title",
+ "search_fields": "title,requester,assignee",
+ "show_title_field_in_link": 1
+}

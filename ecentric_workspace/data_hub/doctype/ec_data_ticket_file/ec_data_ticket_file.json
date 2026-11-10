@@ -1,0 +1,58 @@
+{
+ "doctype": "DocType",
+ "name": "EC Data Ticket File",
+ "module": "Data Hub",
+ "custom": 0,
+ "istable": 1,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "description": "Tệp của yêu cầu dữ liệu. Luôn private; tải qua data_hub.api.download (kiểm quyền).",
+ "permissions": [],
+ "field_order": [
+  "file_url",
+  "file_name",
+  "file_size",
+  "message",
+  "uploaded_by"
+ ],
+ "fields": [
+  {
+   "fieldname": "file_url",
+   "fieldtype": "Data",
+   "label": "Đường dẫn",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "file_name",
+   "fieldtype": "Data",
+   "label": "Tên tệp",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "file_size",
+   "fieldtype": "Int",
+   "label": "Dung lượng"
+  },
+  {
+   "fieldname": "message",
+   "fieldtype": "Data",
+   "label": "Tin nhắn",
+   "description": "Trống = tệp gửi kèm yêu cầu"
+  },
+  {
+   "fieldname": "uploaded_by",
+   "fieldtype": "Link",
+   "label": "Người tải lên",
+   "options": "User"
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "autoname": "hash",
+ "naming_rule": "Random"
+}

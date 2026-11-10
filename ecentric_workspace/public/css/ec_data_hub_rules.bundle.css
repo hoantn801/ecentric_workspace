@@ -1,0 +1,34 @@
+/* Trung tam Du lieu - trang /du-lieu/quy-tac (dot 3): sua + duyet quy tac thoi han.
+ * Chi nap tren trang nay (www/du_lieu/quy_tac.html), SAU ec_data_hub.bundle.css (dung bien --edh-*).
+ * O nhap so nam san trong markup; .edh-rules.is-editing moi hien (bam "Sua quy tac"). */
+.edh-chg{background:#fef3c7;color:#92400e;border-radius:6px;padding:1px 8px;font-weight:600;text-decoration:none}
+.edh-rules .edh-rules-edit{display:none}
+.edh-rules.is-editing .edh-rules-edit{display:revert}
+.edh-rules.is-editing .edh-rules-view{display:none}
+.edh-rules.is-editing label.edh-rules-edit{display:inline-flex;align-items:center;gap:6px}
+.edh-rules.is-editing .edh-rules-mults{display:flex;flex-wrap:wrap;gap:6px 12px}
+.edh-rules-mults label{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;white-space:nowrap}
+.edh-rules-num{width:72px;min-height:32px;padding:5px 8px;text-align:right;font-variant-numeric:tabular-nums}
+.edh-rules-mults .edh-rules-num{width:58px}
+.edh-rules-num.is-changed{border-color:#f59e0b;background:#fffbeb}
+.edh-rules-num[aria-invalid="true"]{border-color:var(--edh-red);background:var(--edh-red-50)}
+.edh-rules-editbox{margin-top:6px}
+.edh-rules-editbox textarea,.edh-rules-ask textarea{width:100%;resize:vertical;font-family:inherit}
+.edh-rules-ask{margin-top:10px;padding:12px 14px;border:1px solid var(--edh-line);border-radius:10px;background:var(--edh-g50)}
+.edh-rules-ask.is-reject{border-color:#fecaca;background:var(--edh-red-50)}
+.edh-rules-diff{margin:4px 0 2px;padding-left:18px;font-size:13px}
+.edh-rules-diff del{color:var(--edh-g500)}
+.edh-rules-diff ins{margin-left:2px}
+.edh-rules-h .edh-badge{margin-left:6px;vertical-align:1px}
+.edh-rules-prop{min-width:150px}
+@media (max-width:640px){
+  .edh-rules-tbl tr{display:grid !important;grid-template-columns:1fr 1fr;gap:4px 10px;padding:10px 12px;border-bottom:1px solid var(--edh-soft)}
+  .edh-rules-tbl td:first-child{grid-column:1 / -1;font-weight:600;color:var(--edh-g900)}
+  .edh-rules-tbl td:nth-child(2){grid-column:auto;order:0}
+  .edh-rules-tbl td:nth-child(2)::before,.edh-rules-tbl td.edh-rules-prop::before{display:block;font-size:11px;color:var(--edh-g500);text-transform:uppercase;letter-spacing:.3px}
+  .edh-rules-tbl td:nth-child(2)::before{content:"Đang áp dụng"}
+  .edh-rules-tbl td.edh-rules-prop::before{content:"Đề xuất mới"}
+  .edh-rules-tbl td:last-child{grid-column:1 / -1}
+  .edh-rules-tbl tr[data-key="mult"] td:nth-child(2),.edh-rules-tbl tr[data-key="mult"] td.edh-rules-prop{grid-column:1 / -1}
+  .edh-rules .edh-actions .edh-btn{flex:1 1 auto}
+}

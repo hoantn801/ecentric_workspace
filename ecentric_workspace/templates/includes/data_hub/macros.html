@@ -1,0 +1,13 @@
+{#- Trung tam Du lieu - macro hien thi dung chung (bang, kanban). -#}
+{% macro badge(text, css) -%}
+<span class="edh-badge is-{{ css|e }}"><span class="edh-dot" aria-hidden="true"></span>{{ text|e }}</span>
+{%- endmacro %}
+
+{% macro prio(r) -%}
+{% if r.priority_confirmed %}{{ badge(r.priority, r.priority_css) }}{% else %}<span class="edh-badge is-{{ r.priority_css|e }} is-proposed" title="Mức người gửi đề xuất, team Data chưa xác nhận"><span class="edh-dot" aria-hidden="true"></span>{{ r.priority|e }}<small> đề xuất</small></span>{% endif %}
+{%- endmacro %}
+
+{% macro sla(r) -%}
+<span class="edh-sla-l{% if r.sla_css == 'late' %} is-late{% endif %}">{{ r.sla_label|e }}</span>
+<div class="edh-sla is-{{ r.sla_css|default('ok', true)|e }}" aria-hidden="true"><i style="width:{{ r.sla_pct|int }}%"></i></div>
+{%- endmacro %}
