@@ -531,6 +531,21 @@ class SctsClient(object):
         return self._request("GET", "/api/Workflow/%s?userid=%s" % (instance_id, user_id),
                              token=token, _label="get_workflow_instance")
 
+    def get_instance_history_by_document(self, document_id, user_id, token):
+        """GET /api/Workflow/instance/history/document/{documentId}?userId={userId}.
+
+        Chi DOC. Tim ra 30/09/2026 tren cong: tra `instanceId`, `currentStateId`, `history`,
+        `availableTransitions` cua tai lieu - tra theo MA TAI LIEU, la ma ERP da co san.
+
+        Day la mieng con thieu cua `get_workflow_instance`: ham do can MA WORKFLOW INSTANCE,
+        ma ERP chua bao gio co (0/546 goi tren prod, 11/11/2026) vi AddDocument khong tra va
+        `GET /api/Document/{id}` khong chua no. Thieu ma -> 404 -> kham pha canh chuyen
+        khong chay -> moi luot ky deu roi ve dem chu ky.
+        """
+        return self._request(
+            "GET", "/api/Workflow/instance/history/document/%s?userId=%s" % (document_id, user_id),
+            token=token, _label="instance_history_by_document")
+
     def get_document(self, document_id, token):
         """GET /api/Document/{documentId} -> raw document payload (status/signers/files)."""
         try:

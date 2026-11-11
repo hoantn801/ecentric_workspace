@@ -603,7 +603,12 @@ def process_signing_request(dsr_name):
                                               plan.get("dropped_not_eligible"),
                                           "recipients_unverified":
                                               plan.get("recipients_unverified"),
-                                          "stage": stage})
+                                          "stage": stage,
+                                          # Chang 2 (11/11): buoc lay tu dau, va cong noi gi.
+                                          "transition_source": plan.get("transition_source"),
+                                          "transition_id":
+                                              (plan.get("config") or {}).get("transition_id"),
+                                          "discovery_probe": plan.get("discovery_probe")})
                 sent_attempted = True
                 try:
                     res = adapter.transition_with_recipients(
@@ -626,7 +631,8 @@ def process_signing_request(dsr_name):
                     events.emit("HandoverPoolFallback", signature_request=dsr_name,
                                 package=dsr.package,
                                 error_summary="next handler not named: %s" % plan.get("reason"),
-                                request_meta={"stage": stage, "reason": plan.get("reason")})
+                                request_meta={"stage": stage, "reason": plan.get("reason"),
+                                              "discovery_probe": plan.get("discovery_probe")})
                 # `bulk-process` nhan `instanceIds`. Gui document id vao day chinh la hinh
                 # dang that bai kho chan doan nhat cua ca vu: SCTS tra 2xx kem
                 # bulkJobTransactionId roi khong ky gi ca, vi cong viec khong tro vao instance
