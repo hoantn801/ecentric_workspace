@@ -743,13 +743,16 @@
   var KOL_TPL_EC="Template from EC / Mẫu theo khung EC", KOL_TPL_PARTNER="Template from partner / Mẫu theo khung đối tác";
   var KOL={
     isKol:function(d){ return ((d||{}).contract_type||"")===KOL_TYPE; },
+    // Dau ngoac kep doi cua placeholder. KHONG viet lien hai dau ngoac nhon trong trang: Frappe thay
+    // chuoi do thi render trang bang Jinja -> "417 Illegal template" (su co 11/11/2026 22:00).
+    BR:["{"+"{","}"+"}"],
     needsGenerate:function(d){ d=d||{}; return KOL.isKol(d)&&(d.request_type||KOL_TPL_EC)===KOL_TPL_EC&&!d.contract_file; },
     KEYS:["sales_order","so_label","so_revenue","creator","creator_name","creator_type","service_type","platform","quantity","duration","air_dates","commission_rate","amount_type","amount_input","pit_rate","vat_rate","payment_schedule","advance_percent","payment_term_days","contract_template","contract_date"],
     clearKol:function(d){ KOL.KEYS.forEach(function(k){ delete d[k]; }); state.kolCreator=null; },
     seedDefaults:function(d){ if(d.pit_rate==null||d.pit_rate==="") d.pit_rate=10; if(d.vat_rate==null||d.vat_rate==="") d.vat_rate=8; if(!d.payment_term_days) d.payment_term_days=30; },
     PH_LABELS:{cccd:"CCCD",ngay_cap:"ngày cấp CCCD",noi_cap:"nơi cấp CCCD",ngay_sinh:"ngày sinh",dia_chi:"địa chỉ",mst:"MST",so_tai_khoan:"số tài khoản",ngan_hang:"ngân hàng",chi_nhanh:"chi nhánh ngân hàng",chu_tai_khoan:"chủ tài khoản",dien_thoai:"số điện thoại",email:"email",nguoi_dai_dien:"người đại diện",chuc_vu:"chức vụ",tiktok_id:"TikTok ID",link_kenh:"link kênh",shopee_id:"Shopee ID",ma_brand:"mã brand",so:"SO",ngay_bat_dau:"ngày bắt đầu",ngay_ket_thuc:"ngày kết thúc",ngay_thuc_hien:"ngày thực hiện",so_luong:"số buổi / video",thoi_luong:"thời lượng",ty_le_hoa_hong:"tỷ lệ hoa hồng"},
     CREATOR_PH:["cccd","ngay_cap","noi_cap","ngay_sinh","dia_chi","mst","so_tai_khoan","ngan_hang","chi_nhanh","chu_tai_khoan","dien_thoai","email","nguoi_dai_dien","chuc_vu","tiktok_id","link_kenh","shopee_id"],
-    missingText:function(list){ if(typeof list==="string") list=list.split(/\s*,\s*/); return (list||[]).filter(Boolean).map(function(k){ k=String(k); var bad=/\(không điền được\)/.test(k); k=k.replace(/\(.*\)/,"").replace(/[{}\s]/g,""); return (KOL.PH_LABELS[k]||("{{"+k+"}}"))+(bad?" (không điền được - kiểm lại mẫu)":""); }).join(", "); },
+    missingText:function(list){ if(typeof list==="string") list=list.split(/\s*,\s*/); return (list||[]).filter(Boolean).map(function(k){ k=String(k); var bad=/\(không điền được\)/.test(k); k=k.replace(/\(.*\)/,"").replace(/[{}\s]/g,""); return (KOL.PH_LABELS[k]||(KOL.BR[0]+k+KOL.BR[1]))+(bad?" (không điền được - kiểm lại mẫu)":""); }).join(", "); },
     missingCreator:function(list){ if(typeof list==="string") list=list.split(/\s*,\s*/); return (list||[]).some(function(k){ return KOL.CREATOR_PH.indexOf(String(k).replace(/[{}\s]/g,""))>=0; }); },
     money:function(v){ return (v==null||v==="")?"—":Number(v).toLocaleString("vi-VN")+"\u00a0đ"; },
     day:function(v){ var m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(v||"")); return m?(m[3]+"/"+m[2]+"/"+m[1]):(v||"—"); },
