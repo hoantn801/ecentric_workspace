@@ -14,6 +14,7 @@ Chot voi anh Hoan 11/11/2026 (plan "Hop dong KOL/KOC len ERP"):
 """
 import datetime as _dt
 import math
+import re
 from decimal import ROUND_HALF_UP, Decimal
 
 from ecentric_workspace.approval_center.features.contract_review.domain.vn_words import amount_in_words
@@ -48,13 +49,18 @@ DEFAULT_PAYMENT_DAYS = 30
 
 # Trang thai ky (tam thoi ky tren cong roi tai ban da ky; giai doan 4 thay bang SCTS).
 SIGN_PENDING = "Chưa ký"
+SIGN_REVIEW = "Chờ kiểm tra"
 SIGN_DONE = "Đã ký đủ"
+AUTO_VERIFIER = "Tự động (máy kiểm)"
+# Hop dong / BBNT ky du = it nhat 2 chu ky so (eCentric + creator).
+MIN_SIGNATURES = 2
 
 # Trang thai mot dot nghiem thu (BBNT).
 BBNT_DRAFT = "Nháp"
 BBNT_SENT = "Đã gửi ký"
+BBNT_REVIEW = "Chờ kiểm tra"
 BBNT_DONE = "Hoàn tất"
-BBNT_STATUSES = (BBNT_DRAFT, BBNT_SENT, BBNT_DONE)
+BBNT_STATUSES = (BBNT_DRAFT, BBNT_SENT, BBNT_REVIEW, BBNT_DONE)
 
 
 def is_kol(doc):
@@ -381,3 +387,38 @@ def values_day(v):
 
 
 PLACEHOLDER_HELP = sorted(acceptance_placeholders({}, {}, {}).keys())
+
+
+def count_signatures(pdf_bytes):
+    """So chu ky so trong PDF: moi chu ky co mot tu dien /ByteRange (PAdES / chuan Adobe)."""
+    return len(re.findall(rb"/ByteRange\s*\[", bytes(pdf_bytes or b"")))
+
+
+def signed_pdf_findings(pdf_bytes, text_tokens, text, contract_no, amount=None,
+                        min_signatures=MIN_SIGNATURES):
+    """May kiem ban da ky (anh Hoan 11/11: 'can ke toan hoac AI check'). Rong = dat, tu xac
+    nhan; co dong nao thi chuyen Ke toan xem.
+
+      * dung la PDF;
+      * co >= 2 chu ky so (eCentric + creator) - ban scan ky tay se khong co -> Ke toan xem;
+      * co so hop dong trong van ban (dung hop dong nay, khong phai tep khac);
+      * BBNT: co so tien cua dot.
+    Chu ky so khong doc duoc bang mat / AI nen dem bang may, khong hoi AI."""
+    data = bytes(pdf_bytes or b"")
+    out = []
+    if not data.startswith(b"%PDF"):
+        return ["Tệp không phải PDF."]
+    n = count_signatures(data)
+    if n < min_signatures:
+        out.append("Tìm thấy %d chữ ký số, cần ít nhất %d (eCentric + creator). Bản scan ký tay "
+                   "thì Kế toán xem và xác nhận." % (n, min_signatures))
+    flat = " ".join((text or "").split()).lower()
+    if not text:
+        out.append("Không đọc được chữ trong tệp (PDF dạng ảnh).")
+    elif contract_no and contract_no.lower() not in flat:
+        out.append("Không thấy số hợp đồng %s trong tệp." % contract_no)
+    if amount and text:
+        digits = str(int(round(_f(amount))))
+        if digits not in (text_tokens or set()):
+            out.append("Không thấy số tiền %s trong tệp." % fmt_money(amount))
+    return out

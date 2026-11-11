@@ -100,6 +100,8 @@ def complete_acceptance(name, user, row_name, signed_file):
     row = _row(doc, row_name)
     if row.status == kol.BBNT_DONE:
         frappe.throw(_("Đợt này đã hoàn tất."))
+    if not is_signed(doc):
+        frappe.throw(_("Hợp đồng chưa được xác nhận ký đủ."))
     if not (signed_file or "").lower().endswith(".pdf"):
         frappe.throw(_("Tải lên BBNT đã ký (PDF) trước khi hoàn tất."))
     used = {r.signed_file for r in (doc.acceptances or []) if r.name != row.name and r.signed_file}
@@ -107,14 +109,20 @@ def complete_acceptance(name, user, row_name, signed_file):
         frappe.throw(_("Tệp này đã dùng cho hợp đồng hoặc đợt nghiệm thu khác. Tải BBNT đã ký của đợt này."))
     from ecentric_workspace.approval_center.features.contract_review.application.kol_files import claim_upload
     row.signed_file = claim_upload(doc, signed_file, user)
-    row.status = kol.BBNT_DONE
     row.completed_at = now_datetime()
     row.completed_by = user
+    # Han thanh toan tinh tu NGAY KY XONG (ngay tai ban ky), ke ca khi Ke toan xac nhan sau.
     row.due_date = kol.due_date(row.completed_at.date(), doc.payment_term_days)
+    from ecentric_workspace.approval_center.features.contract_review.application import kol_verify
+    findings = kol_verify.apply_acceptance_check(doc, row)
     doc.save(ignore_permissions=True)
-    doc.add_comment("Info", _("BBNT đợt {0} hoàn tất, hạn thanh toán {1}.").format(
-        row.idx, row.due_date.strftime("%d/%m/%Y")))
-    return {"status": row.status, "due_date": str(row.due_date)}
+    if findings:
+        doc.add_comment("Info", _("BBNT đợt {0}: tải bản ký - chờ Kế toán kiểm: {1}").format(
+            row.idx, "; ".join(findings)))
+    else:
+        doc.add_comment("Info", _("BBNT đợt {0} hoàn tất (máy kiểm đạt), hạn thanh toán {1}.").format(
+            row.idx, row.due_date.strftime("%d/%m/%Y")))
+    return {"status": row.status, "due_date": str(row.due_date), "findings": findings}
 
 
 def payable_cap(doc):
@@ -129,7 +137,8 @@ def rows_view(doc):
     return [{"name": r.name, "idx": r.idx, "description": r.description,
              "acceptance_date": str(r.acceptance_date or ""), "amount": flt(r.amount),
              "status": r.status, "bbnt_file": r.bbnt_file, "signed_file": r.signed_file,
-             "completed_at": str(r.completed_at or ""), "due_date": str(r.due_date or "")}
+             "completed_at": str(r.completed_at or ""), "due_date": str(r.due_date or ""),
+             "check_note": r.get("check_note") or "", "verified_by": r.get("verified_by") or ""}
             for r in (doc.acceptances or [])]
 
 

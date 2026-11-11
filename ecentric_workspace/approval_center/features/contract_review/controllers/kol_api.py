@@ -19,7 +19,8 @@ __all__ = ["kol_me", "kol_search_sales_orders", "kol_list_templates", "kol_place
            "kol_preview_amounts", "kol_generate_contract", "kol_mark_signed",
            "kol_add_acceptance", "kol_send_acceptance", "kol_delete_acceptance", "kol_complete_acceptance",
            "kol_ai_extract", "kol_ai_qc", "kol_search_creators", "kol_get_creator",
-           "kol_create_creator", "kol_update_creator", "kol_missing_misa", "kol_set_misa_code"]
+           "kol_create_creator", "kol_update_creator", "kol_missing_misa", "kol_set_misa_code",
+           "kol_verify_signed", "kol_verify_acceptance", "kol_pending_checks"]
 
 
 def _app(module):
@@ -155,3 +156,22 @@ def kol_missing_misa():
 @frappe.whitelist(methods=["POST"])
 def kol_set_misa_code(name, code):
     return _creator(CreatorService().set_misa_code, name, code)
+
+
+def _flag(v):
+    return str(v).strip().lower() in ("1", "true", "yes")
+
+
+@frappe.whitelist(methods=["POST"])
+def kol_verify_signed(name, ok, note=None):
+    return _app("kol_verify").verify_contract(name, _me(), _flag(ok), note)
+
+
+@frappe.whitelist(methods=["POST"])
+def kol_verify_acceptance(name, row, ok, note=None):
+    return _app("kol_verify").verify_acceptance(name, _me(), row, _flag(ok), note)
+
+
+@frappe.whitelist()
+def kol_pending_checks():
+    return {"rows": _app("kol_verify").pending_checks(_me())}

@@ -79,6 +79,9 @@
   "signed_file",
   "signed_at",
   "signed_marked_by",
+  "sign_check_note",
+  "signed_verified_by",
+  "signed_verified_at",
   "sb_kol_ai",
   "ai_qc_status",
   "ai_qc_at",
@@ -500,7 +503,7 @@
    "fieldname": "signing_status",
    "fieldtype": "Select",
    "label": "Tình trạng ký",
-   "options": "Chưa ký\nĐã ký đủ",
+   "options": "Chưa ký\nChờ kiểm tra\nĐã ký đủ",
    "default": "Chưa ký",
    "read_only": 1,
    "no_copy": 1
@@ -515,15 +518,37 @@
   {
    "fieldname": "signed_at",
    "fieldtype": "Datetime",
-   "label": "Ký đủ lúc",
+   "label": "Tải bản ký lúc",
    "read_only": 1,
    "no_copy": 1
   },
   {
    "fieldname": "signed_marked_by",
    "fieldtype": "Link",
-   "label": "Người xác nhận ký",
+   "label": "Người tải bản ký",
    "options": "User",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "sign_check_note",
+   "fieldtype": "Small Text",
+   "label": "Kết quả kiểm bản ký",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "signed_verified_by",
+   "fieldtype": "Data",
+   "label": "Xác nhận ký đủ bởi",
+   "read_only": 1,
+   "no_copy": 1,
+   "description": "\"Tự động\" khi máy kiểm đạt; tên Kế toán khi xác nhận tay."
+  },
+  {
+   "fieldname": "signed_verified_at",
+   "fieldtype": "Datetime",
+   "label": "Xác nhận ký đủ lúc",
    "read_only": 1,
    "no_copy": 1
   },
@@ -572,7 +597,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-11-11 18:00:00.000000",
+ "modified": "2026-11-11 19:00:00.000000",
  "modified_by": "Administrator",
  "module": "Approval Center",
  "name": "EC Contract Review Request",

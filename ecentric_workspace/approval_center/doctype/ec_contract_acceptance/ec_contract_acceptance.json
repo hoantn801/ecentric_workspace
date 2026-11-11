@@ -9,7 +9,7 @@
  "is_child_table": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-11-11 15:30:00.000000",
+ "modified": "2026-11-11 19:00:00.000000",
  "modified_by": "Administrator",
  "module": "Approval Center",
  "name": "EC Contract Acceptance",
@@ -28,7 +28,9 @@
   "signed_file",
   "completed_at",
   "completed_by",
-  "due_date"
+  "due_date",
+  "check_note",
+  "verified_by"
  ],
  "fields": [
   {
@@ -55,7 +57,7 @@
    "fieldname": "status",
    "fieldtype": "Select",
    "label": "Trạng thái",
-   "options": "Nháp\nĐã gửi ký\nHoàn tất",
+   "options": "Nháp\nĐã gửi ký\nChờ kiểm tra\nHoàn tất",
    "default": "Nháp",
    "in_list_view": 1,
    "read_only": 1
@@ -95,6 +97,18 @@
    "label": "Hạn thanh toán",
    "read_only": 1,
    "in_list_view": 1
+  },
+  {
+   "fieldname": "check_note",
+   "fieldtype": "Small Text",
+   "label": "Kết quả kiểm bản ký",
+   "read_only": 1
+  },
+  {
+   "fieldname": "verified_by",
+   "fieldtype": "Data",
+   "label": "Xác nhận bởi",
+   "read_only": 1
   }
  ],
  "permissions": []

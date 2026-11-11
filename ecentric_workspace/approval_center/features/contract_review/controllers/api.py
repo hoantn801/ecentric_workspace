@@ -14,7 +14,8 @@ from ecentric_workspace.approval_center.features.contract_review.controllers.kol
     kol_add_acceptance, kol_ai_extract, kol_ai_qc, kol_complete_acceptance, kol_create_creator,
     kol_delete_acceptance, kol_generate_contract, kol_get_creator, kol_list_templates, kol_mark_signed,
     kol_me, kol_missing_misa, kol_placeholder_help, kol_preview_amounts, kol_search_creators,
-    kol_search_sales_orders, kol_send_acceptance, kol_set_misa_code, kol_update_creator)
+    kol_pending_checks, kol_search_sales_orders, kol_send_acceptance, kol_set_misa_code,
+    kol_update_creator, kol_verify_acceptance, kol_verify_signed)
 
 _DT = "EC Contract Review Request"
 _CODE = "CONTRACT_REVIEW"

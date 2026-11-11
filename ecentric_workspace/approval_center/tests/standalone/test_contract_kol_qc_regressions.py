@@ -81,6 +81,39 @@ class Round2(unittest.TestCase):
         self.assertNotIn("tax_id", cdomain.public_view(row, False))
 
 
+class SignedCopyCheck(unittest.TestCase):
+    """Anh Hoan 11/11: tai ban ky len KHONG tu thanh 'ky du' - may kiem, khong dat thi Ke toan."""
+    PDF2 = b"%PDF-1.7 ... /ByteRange [0 1 2 3] ... /ByteRange [0 4 5 6] ..."
+
+    def test_dat_khi_du_2_chu_ky_dung_so_hd_va_so_tien(self):
+        text = "BIÊN BẢN NGHIỆM THU số 11112026/HDDV/ECENTRIC-NTP.FCV - số tiền 6.300.000 đồng"
+        self.assertEqual(kol.signed_pdf_findings(self.PDF2, {"6300000", "11112026"}, text,
+                                                 "11112026/HDDV/ECENTRIC-NTP.FCV", 6_300_000), [])
+
+    def test_scan_ky_tay_thieu_chu_ky_so_chuyen_ke_toan(self):
+        f = kol.signed_pdf_findings(b"%PDF-1.4 scan", set(), "", "X/HDDV", None)
+        self.assertTrue(any("0 chữ ký số" in x for x in f))
+        self.assertTrue(any("dạng ảnh" in x for x in f))
+
+    def test_sai_hop_dong_hoac_sai_so_tien(self):
+        f = kol.signed_pdf_findings(self.PDF2, {"5000000"}, "hợp đồng khác 5.000.000", "11112026/HDDV/A.B", 6_300_000)
+        self.assertEqual(len(f), 2)
+
+    def test_khong_phai_pdf(self):
+        self.assertEqual(kol.signed_pdf_findings(b"\x89PNG", set(), "", "X", None), ["Tệp không phải PDF."])
+
+    def test_tai_ban_ky_khong_con_tu_dat_ky_du(self):
+        src = (AC / "features/contract_review/application/kol_service.py").read_text(encoding="utf-8")
+        body = src[src.index("def mark_signed"):src.index("def detail_extra")]
+        self.assertNotIn("SIGN_DONE", body)
+        self.assertIn("apply_contract_check", body)
+        acc = (AC / "features/contract_review/application/kol_acceptance.py").read_text(encoding="utf-8")
+        body = acc[acc.index("def complete_acceptance"):acc.index("def payable_cap")]
+        self.assertNotIn("row.status = kol.BBNT_DONE", body)
+        ver = (AC / "features/contract_review/application/kol_verify.py").read_text(encoding="utf-8")
+        self.assertIn("is_finance(user)", ver[ver.index("def _finance_doc"):ver.index("def _who")])
+
+
 class NumberAndPlaceholders(unittest.TestCase):
     def test_so_hop_dong_con_khop_hay_phai_cap_lai(self):
         base = kol.number_base("2026-11-11", "ntp", "fcv")

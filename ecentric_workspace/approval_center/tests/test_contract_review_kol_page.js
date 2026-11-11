@@ -32,6 +32,7 @@ function make(url){
     if(m==="kol_generate_contract"&&genFail) return Promise.reject({message:"Mẫu HD lỗi"});
     if(m==="kol_get_creator") return Promise.resolve({message:{name:"SUP-2",supplier_name:"Trần B",ec_cr_type:"Công ty",misa_label:"Đang cập nhật",can_see_pii:true,tax_id:"0101234567",ec_phone:"0912345678",ec_cr_email:"b@x.vn",ec_cr_party_code:"TB",ec_bank_account_no:"0011",ec_bank_name:"VCB"}});
     if(m==="kol_missing_misa") return Promise.resolve({message:{rows:[{name:"SUP-2",supplier_name:"Trần B",ec_cr_type:"Công ty",tax_id:"0101",owner:"vy@e.c",creation:"2026-11-11"}]}});
+    if(m==="kol_pending_checks") return Promise.resolve({message:{rows:[{kind:"Hợp đồng",name:"EC-CTR-2026-00101",contract_no:"X/HDDV",creator_name:"Trần B",requested_by:"vy@e.c",at:"2026-11-11 10:00:00"}]}});
     if(m==="get_detail") return Promise.resolve({message:curDetail||detail});
     return Promise.resolve({message:{}});
   }};
@@ -123,6 +124,7 @@ function creatorsTab(){
   wait(w3,function(){ return /Trần B/.test((w3.document.getElementById("ctr-body")||{}).innerHTML||""); },function(){
     const b=w3.document.getElementById("ctr-body").innerHTML;
     chk("tab Creator: danh sach chua co ma + o nhap ma + xuat CSV", /Trần B/.test(b)&&/data-misa="SUP-2"/.test(b)&&/kol-csv/.test(b));
+    chk("tab Creator: hang cho kiem ban ky cho ke toan", /Chờ kiểm tra bản ký/.test(b)&&/EC-CTR-2026-00101/.test(b));
     draftPart();
   });
 }
@@ -149,9 +151,35 @@ function draftPart(){
         setTimeout(function(){
           const up=calls.filter(x=>/^kol_update_creator/.test(x)).pop()||"";
           chk("sua creator: chi gui truong da doi", /"data":"\{\\"ec_phone\\":\\"0988000111\\"\}"/.test(up));
-          done();
+          reviewPart();
         },150);
       },150);
+    },150);
+  });
+}
+
+// Ban ky cho kiem (anh Hoan 11/11: can ke toan hoac may kiem): ke toan thay nut xac nhan / tra lai,
+// chua mo nghiem thu; nguoi tao thuong khong thay nut xac nhan.
+function reviewPart(){
+  genFail=false;
+  curDetail=JSON.parse(JSON.stringify(detail));
+  curDetail.business.signing_status="Chờ kiểm tra"; curDetail.business.signed_file="/private/files/ky.pdf";
+  curDetail.business.sign_check_note="- Tìm thấy 0 chữ ký số, cần ít nhất 2";
+  curDetail.extra.kol.signed=false; curDetail.extra.kol.is_finance=true;
+  const w5=make("https://x/approvals/contract-review?id=EC-CTR-2026-00100");
+  wait(w5,function(){ return /Chờ Kế toán kiểm/.test((w5.document.getElementById("ctr-body")||{}).innerHTML||""); },function(){
+    const b=w5.document.getElementById("ctr-body").innerHTML;
+    chk("ban ky cho kiem: ke toan co nut xac nhan + tra lai, ly do may kiem", /data-kol="vsignok"/.test(b)&&/data-kol="vsignno"/.test(b)&&/0 chữ ký số/.test(b));
+    chk("ban ky cho kiem: chua mo nghiem thu / tran chi", !/Được phép chi/.test(b));
+    w5.document.querySelector('[data-kol="vsignok"]').click();
+    setTimeout(function(){
+      chk("ke toan xac nhan: goi kol_verify_signed ok=1", calls.some(x=>/^kol_verify_signed .*"ok":1/.test(x)));
+      curDetail.extra.kol.is_finance=false;
+      const w6=make("https://x/approvals/contract-review?id=EC-CTR-2026-00100");
+      wait(w6,function(){ return /Chờ Kế toán kiểm/.test((w6.document.getElementById("ctr-body")||{}).innerHTML||""); },function(){
+        chk("nguoi tao: khong co nut xac nhan ban ky", !/data-kol="vsignok"/.test(w6.document.getElementById("ctr-body").innerHTML));
+        done();
+      });
     },150);
   });
 }

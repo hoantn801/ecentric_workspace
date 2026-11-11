@@ -159,22 +159,27 @@ def is_signed(doc):
 
 
 def mark_signed(name, signed_file, user):
-    """Tam thoi (truoc giai doan 4 SCTS): ky tren cong roi tai ban da ky len, xac nhan ky du."""
+    """Tam thoi (truoc giai doan 4 SCTS): ky tren cong roi tai ban da ky len. KHONG tu nhan la
+    ky du: may kiem ban ky (kol_verify), khong dat thi cho Ke toan xac nhan (anh Hoan 11/11)."""
     doc = frappe.get_doc(kol_lookup.CR_DT, name)
     if not kol.is_kol(doc) or not can_manage(doc, user):
-        frappe.throw(_("Chỉ người tạo hợp đồng hoặc Kế toán được xác nhận ký."), frappe.PermissionError)
+        frappe.throw(_("Chỉ người tạo hợp đồng hoặc Kế toán được tải bản ký."), frappe.PermissionError)
     if approval_status(doc) != APPROVED:
-        frappe.throw(_("Hợp đồng phải được duyệt xong trước khi xác nhận đã ký."))
+        frappe.throw(_("Hợp đồng phải được duyệt xong trước khi tải bản đã ký."))
+    if is_signed(doc):
+        frappe.throw(_("Hợp đồng đã được xác nhận ký đủ."))
     if not (signed_file or "").lower().endswith(".pdf"):
         frappe.throw(_("Bản đã ký phải là tệp PDF."))
+    from ecentric_workspace.approval_center.features.contract_review.application import kol_verify
     from ecentric_workspace.approval_center.features.contract_review.application.kol_files import claim_upload
     doc.signed_file = claim_upload(doc, signed_file, user)
-    doc.signing_status = kol.SIGN_DONE
     doc.signed_at = now_datetime()
     doc.signed_marked_by = user
+    findings = kol_verify.apply_contract_check(doc)
     doc.save(ignore_permissions=True)
-    doc.add_comment("Info", _("Xác nhận hợp đồng đã ký đủ hai bên."))
-    return {"signing_status": doc.signing_status}
+    doc.add_comment("Info", _("Tải bản hợp đồng đã ký. Máy kiểm: đạt, xác nhận ký đủ.") if not findings
+                    else _("Tải bản hợp đồng đã ký - chờ Kế toán kiểm: {0}").format("; ".join(findings)))
+    return {"signing_status": doc.signing_status, "findings": findings}
 
 
 def detail_extra(business, request):
