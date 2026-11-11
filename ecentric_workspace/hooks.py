@@ -418,6 +418,23 @@ fixtures = [
             "Quality Procedure-ec_cb_scope", "Quality Procedure-ec_notify_home",
             "Quality Procedure-ec_notify_summary", "Quality Procedure-ec_home_announcement",
             "Quality Procedure-ec_sb_history", "Quality Procedure-ec_revisions",
+            # Creator master KOL/KOC (11/11/2026, plan "Hop dong KOL/KOC len ERP"): creator la
+            # Supplier nhom "KOL/KOC Creator". 4 field ec_* dau da co tren site tu 06/2026 (form
+            # PO) nhung chua tung vao fixtures -> dua vao, giu nguyen dinh nghia. ec_cr_* la moi;
+            # nhom ec_cr_cccd.. permlevel 1, chi doc qua API shared.creators (co kiem quyen).
+            "Supplier-ec_is_internal", "Supplier-ec_phone", "Supplier-ec_bank_account_no",
+            "Supplier-ec_bank_name", "Supplier-ec_cr_section", "Supplier-ec_cr_type",
+            "Supplier-ec_cr_tiktok_id", "Supplier-ec_cr_channel_url", "Supplier-ec_cr_shopee_id",
+            "Supplier-ec_cr_shopee_url", "Supplier-ec_cr_email", "Supplier-ec_cr_cb1",
+            "Supplier-ec_cr_misa_code", "Supplier-ec_cr_representative_name", "Supplier-ec_cr_representative_title",
+            "Supplier-ec_cr_dup_ack", "Supplier-ec_cr_pii_section", "Supplier-ec_cr_cccd",
+            "Supplier-ec_cr_cccd_issue_date", "Supplier-ec_cr_cccd_issue_place", "Supplier-ec_cr_dob",
+            "Supplier-ec_cr_cb2", "Supplier-ec_cr_address", "Supplier-ec_cr_account_holder",
+            "Supplier-ec_cr_bank_branch", "Supplier-ec_cr_cccd_front", "Supplier-ec_cr_cccd_back",
+            "Supplier-ec_cr_party_code",
+            "Supplier-ec_cr_end_section",
+            # DNTT gan hop dong KOL/KOC: SO doanh thu tu dien tu hop dong (doi chieu chi phi - doanh thu).
+            "EC Payment Request-ec_sales_order",
 ]]],
     },
     # Ba DocType custom cua PnL dashboard (09-10/09/2026). Truoc day chi ton tai tren

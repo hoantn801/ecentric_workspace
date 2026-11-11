@@ -28,6 +28,8 @@ from ecentric_workspace.approval_center.shared.requests.capabilities import OPEN
 #: Rejected/Cancelled release it; a Draft (no approval request yet) has not committed.
 CONSUMING_STATUSES = tuple(OPEN_STATUSES) + ("Approved",)
 
+_KOL = "ecentric_workspace.approval_center.features.contract_review.application.kol_funding."
+
 #: Registry of supported commitment types. `total` is the field holding the committed amount.
 #: `approved_via` says how to tell the commitment itself is approved:
 #:   "approval_request" -> Approval Center engine (EC * Request doctypes)
@@ -51,6 +53,27 @@ _SOURCES = {
         # Only the eCentric book. The Boxme flow uses its own doctype, never this one.
         "extra_filters": {"company": "eCentric", "docstatus": ["<", 2]},
     },
+    # Hop dong KOL/KOC (11/11/2026, plan "Hop dong KOL/KOC len ERP"). Khac hai nguon tren o
+    # cho tran chi KHONG phai mot truong: coc chi khi creator da ky, phan con lai theo BBNT
+    # da hoan tat (kol_acceptance.payable_cap). Danh sach chon hien hop dong cua minh VA cung
+    # phong ban (anh Hoan: "filter theo ma contract ma ban do hoac team ban do tao").
+    "EC Contract Review Request": {
+        "label": "Hợp đồng KOL/KOC",
+        "total": "payable_amount",
+        "title": "request_title",
+        "payee": "creator_name",
+        "approved_via": "custom",
+        "total_fn": _KOL + "funding_total",
+        "approved_fn": _KOL + "funding_approved",
+        "owner_fn": _KOL + "funding_owner_filters",
+        "explain_fn": _KOL + "funding_explain",
+        # Kiem LAI quyen dung hop dong luc nop (danh sach chon da loc team, nhung API nhan thang
+        # ten hop dong) va KHOA dong hop dong khi tinh phan con lai: hai DNTT nop cung luc khong
+        # cung lot qua tran (QC 11/11).
+        "access_fn": _KOL + "funding_can_use",
+        "lock_source": True,
+        "extra_filters": {"contract_type": "KOL/KOC / Creator (EC)"},
+    },
 }
 
 
@@ -68,6 +91,8 @@ def _meta(source_doctype):
 
 def _is_approved(source_doctype, row, meta):
     """True when the commitment itself has cleared its own approval chain. Fail-closed."""
+    if meta["approved_via"] == "custom":
+        return bool(frappe.get_attr(meta["approved_fn"])(row.get("name")))
     if meta["approved_via"] == "approval_request":
         req = row.get("approval_request")
         if not req:
@@ -77,7 +102,7 @@ def _is_approved(source_doctype, row, meta):
     return state in meta.get("approved_states", ())
 
 
-def consumed_amount(source_doctype, source_name, exclude_request=None):
+def consumed_amount(source_doctype, source_name, exclude_request=None, for_update=False):
     """Sum of Payment Requests charged against this commitment.
 
     `exclude_request` leaves out the request being edited, so re-saving a draft does not
@@ -88,13 +113,16 @@ def consumed_amount(source_doctype, source_name, exclude_request=None):
         return 0.0
     filters = {"funding_source_doctype": source_doctype, "funding_source_name": source_name}
     total = 0.0
+    # for_update: doc KHOA (doc ban moi nhat da commit). Doc thuong trong REPEATABLE READ dung
+    # anh chup tu dau giao dich -> khong thay DNTT vua nop cung luc, khoa dong nguon la vo ich.
+    kw = {"for_update": True} if for_update else {}
     for row in frappe.get_all("EC Payment Request", filters=filters,
                               fields=["name", "payment_amount", "approval_request"],
-                              ignore_permissions=True, limit_page_length=0):
+                              ignore_permissions=True, limit_page_length=0, **kw):
         if exclude_request and row.name == exclude_request:
             continue
         status = row.approval_request and frappe.db.get_value(
-            "EC Approval Request", row.approval_request, "approval_status")
+            "EC Approval Request", row.approval_request, "approval_status", **kw)
         if status in CONSUMING_STATUSES:
             total += float(row.payment_amount or 0)
     return total
@@ -102,14 +130,16 @@ def consumed_amount(source_doctype, source_name, exclude_request=None):
 
 def source_total(source_doctype, source_name):
     meta = _meta(source_doctype)
+    if meta.get("total_fn"):
+        return float(frappe.get_attr(meta["total_fn"])(source_name) or 0)
     value = frappe.db.get_value(source_doctype, source_name, meta["total"])
     return float(value or 0)
 
 
-def remaining_for_source(source_doctype, source_name, exclude_request=None):
+def remaining_for_source(source_doctype, source_name, exclude_request=None, for_update=False):
     """committed - already charged. Never negative in the UI sense; callers compare against it."""
     return source_total(source_doctype, source_name) - consumed_amount(
-        source_doctype, source_name, exclude_request)
+        source_doctype, source_name, exclude_request, for_update=for_update)
 
 
 def describe_source(source_doctype, source_name, exclude_request=None):
@@ -130,7 +160,10 @@ def list_sources(source_doctype, user=None):
     meta = _meta(source_doctype)
     user = user or frappe.session.user
     fields = ["name", meta["total"], meta["title"], meta["payee"]]
-    if meta["approved_via"] == "approval_request":
+    if meta.get("owner_fn"):
+        fields.append("approval_request")
+        owner_filters = frappe.get_attr(meta["owner_fn"])(user)
+    elif meta["approved_via"] == "approval_request":
         fields.append("approval_request")
         owner_filters = {"requested_by": user}
     else:
@@ -145,7 +178,7 @@ def list_sources(source_doctype, user=None):
     for row in rows:
         if not _is_approved(source_doctype, row, meta):
             continue
-        total = float(row.get(meta["total"]) or 0)
+        total = source_total(source_doctype, row.name) if meta.get("total_fn") else float(row.get(meta["total"]) or 0)
         used = consumed_amount(source_doctype, row.name)
         remaining = total - used
         title = row.get(meta["title"]) or row.name
@@ -175,18 +208,28 @@ def validate_funding(doc):
         frappe.throw(_("Chứng từ nguồn không tồn tại: {0} {1}").format(source_doctype, source_name))
 
     check_fields = ["name"]
-    check_fields.append("approval_request" if meta["approved_via"] == "approval_request"
-                       else "workflow_state")
-    row = frappe.db.get_value(source_doctype, source_name, check_fields, as_dict=True)
+    if meta["approved_via"] != "custom":
+        check_fields.append("approval_request" if meta["approved_via"] == "approval_request"
+                           else "workflow_state")
+    if meta.get("access_fn"):
+        user = doc.get("requested_by") or frappe.session.user
+        if not frappe.get_attr(meta["access_fn"])(user, source_name):
+            frappe.throw(_("Bạn không dùng được chứng từ nguồn {0}: chỉ hợp đồng của bạn hoặc "
+                           "cùng phòng ban.").format(source_name), frappe.PermissionError)
+    row = frappe.db.get_value(source_doctype, source_name, check_fields, as_dict=True,
+                              for_update=bool(meta.get("lock_source")))
     if not _is_approved(source_doctype, row, meta):
         frappe.throw(_("Chứng từ nguồn {0} chưa được duyệt nên chưa thể tạo đề nghị thanh toán."
                        ).format(source_name))
 
     amount = float(doc.get("payment_amount") or 0)
-    remaining = remaining_for_source(source_doctype, source_name, exclude_request=doc.get("name"))
+    remaining = remaining_for_source(source_doctype, source_name, exclude_request=doc.get("name"),
+                                     for_update=bool(meta.get("lock_source")))
     # Epsilon must stay BELOW the smallest real unit: VND has no subunit, so a tolerance of
     # 1 would let someone overspend by exactly one dong (caught by test_one_over_is_refused).
     # 0.5 absorbs float noise on Currency (stored decimal(21,9)) without hiding a real overspend.
+    if amount > remaining + 0.5 and meta.get("explain_fn"):
+        frappe.throw(frappe.get_attr(meta["explain_fn"])(source_name, amount, remaining))
     if amount > remaining + 0.5:
         frappe.throw(_(
             "Số tiền {0} vượt quá phần còn lại của {1}. Tổng: {2} — đã thanh toán: {3} — còn lại: {4}."

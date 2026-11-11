@@ -35,7 +35,59 @@
   "sb_detail",
   "request_details",
   "cc_to",
-  "request_attachment"
+  "request_attachment",
+  "sb_kol",
+  "sales_order",
+  "so_label",
+  "so_revenue",
+  "revenue_warning",
+  "creator",
+  "creator_name",
+  "creator_type",
+  "cb_kol1",
+  "service_type",
+  "platform",
+  "quantity",
+  "duration",
+  "air_dates",
+  "commission_rate",
+  "sb_kol_money",
+  "amount_type",
+  "amount_input",
+  "pit_rate",
+  "vat_rate",
+  "cb_kol2",
+  "gross_amount",
+  "pit_amount",
+  "vat_amount",
+  "payable_amount",
+  "cb_kol3",
+  "payment_schedule",
+  "advance_percent",
+  "advance_amount",
+  "payment_term_days",
+  "sb_kol_doc",
+  "contract_template",
+  "generated_template",
+  "contract_date",
+  "contract_no",
+  "contract_file",
+  "missing_placeholders",
+  "contract_fingerprint",
+  "cb_kol4",
+  "signing_status",
+  "signed_file",
+  "signed_at",
+  "signed_marked_by",
+  "sign_check_note",
+  "signed_verified_by",
+  "signed_verified_at",
+  "sb_kol_ai",
+  "ai_qc_status",
+  "ai_qc_at",
+  "ai_qc_result",
+  "sb_kol_bbnt",
+  "acceptances"
  ],
  "fields": [
   {
@@ -146,7 +198,7 @@
    "fieldname": "contract_type",
    "fieldtype": "Select",
    "label": "Contract Type",
-   "options": "Purchase / Mua vào (EC)\nSales / Bán ra (EC)\nService / Dịch vụ (GBSxBrand)"
+   "options": "Purchase / Mua vào (EC)\nSales / Bán ra (EC)\nService / Dịch vụ (GBSxBrand)\nKOL/KOC / Creator (EC)"
   },
   {
    "fieldname": "request_type",
@@ -214,11 +266,338 @@
    "fieldname": "request_attachment",
    "fieldtype": "Attach",
    "label": "Attachment"
+  },
+  {
+   "fieldname": "sb_kol",
+   "fieldtype": "Section Break",
+   "label": "KOL/KOC",
+   "depends_on": "eval:doc.contract_type==\"KOL/KOC / Creator (EC)\""
+  },
+  {
+   "fieldname": "sales_order",
+   "fieldtype": "Link",
+   "label": "SO cung cấp dịch vụ",
+   "options": "Sales Order",
+   "description": "SO doanh thu EC của brand. SO GBS thì chọn qua SO đối ứng."
+  },
+  {
+   "fieldname": "so_label",
+   "fieldtype": "Data",
+   "label": "SO (hiển thị)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "so_revenue",
+   "fieldtype": "Currency",
+   "label": "Doanh thu EC của SO",
+   "read_only": 1
+  },
+  {
+   "fieldname": "revenue_warning",
+   "fieldtype": "Small Text",
+   "label": "Cảnh báo doanh thu",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "creator",
+   "fieldtype": "Link",
+   "label": "Creator",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "creator_name",
+   "fieldtype": "Data",
+   "label": "Tên creator",
+   "read_only": 1
+  },
+  {
+   "fieldname": "creator_type",
+   "fieldtype": "Data",
+   "label": "Loại creator",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb_kol1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "service_type",
+   "fieldtype": "Select",
+   "label": "Dịch vụ",
+   "options": "\nLivestream\nVideo\nLivestream + Video\nHoa hồng affiliate"
+  },
+  {
+   "fieldname": "platform",
+   "fieldtype": "Select",
+   "label": "Nền tảng",
+   "options": "\nTikTok\nShopee\nFacebook\nKhác"
+  },
+  {
+   "fieldname": "quantity",
+   "fieldtype": "Int",
+   "label": "Số lượng (buổi / video)"
+  },
+  {
+   "fieldname": "duration",
+   "fieldtype": "Data",
+   "label": "Thời lượng"
+  },
+  {
+   "fieldname": "air_dates",
+   "fieldtype": "Small Text",
+   "label": "Ngày thực hiện / ngày air"
+  },
+  {
+   "fieldname": "commission_rate",
+   "fieldtype": "Percent",
+   "label": "Tỷ lệ hoa hồng",
+   "description": "Chỉ dùng cho hợp đồng hoa hồng affiliate."
+  },
+  {
+   "fieldname": "sb_kol_money",
+   "fieldtype": "Section Break",
+   "label": "Số tiền & thanh toán",
+   "depends_on": "eval:doc.contract_type==\"KOL/KOC / Creator (EC)\""
+  },
+  {
+   "fieldname": "amount_type",
+   "fieldtype": "Select",
+   "label": "Kiểu nhập số tiền",
+   "options": "\nThực nhận sau TNCN\nGross trước TNCN\nChưa VAT\nĐã VAT\nTổng đã gồm thuế HKD"
+  },
+  {
+   "fieldname": "amount_input",
+   "fieldtype": "Currency",
+   "label": "Số tiền nhập"
+  },
+  {
+   "fieldname": "pit_rate",
+   "fieldtype": "Percent",
+   "label": "Thuế TNCN (%)",
+   "default": "10"
+  },
+  {
+   "fieldname": "vat_rate",
+   "fieldtype": "Percent",
+   "label": "VAT (%)",
+   "default": "8"
+  },
+  {
+   "fieldname": "cb_kol2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "gross_amount",
+   "fieldtype": "Currency",
+   "label": "Giá trị trước thuế",
+   "read_only": 1
+  },
+  {
+   "fieldname": "pit_amount",
+   "fieldtype": "Currency",
+   "label": "TNCN khấu trừ",
+   "read_only": 1
+  },
+  {
+   "fieldname": "vat_amount",
+   "fieldtype": "Currency",
+   "label": "VAT",
+   "read_only": 1
+  },
+  {
+   "fieldname": "payable_amount",
+   "fieldtype": "Currency",
+   "label": "Số tiền trả creator",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb_kol3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "payment_schedule",
+   "fieldtype": "Select",
+   "label": "Hình thức thanh toán",
+   "options": "\nThanh toán sau nghiệm thu\nCọc trước"
+  },
+  {
+   "fieldname": "advance_percent",
+   "fieldtype": "Percent",
+   "label": "Tỷ lệ cọc"
+  },
+  {
+   "fieldname": "advance_amount",
+   "fieldtype": "Currency",
+   "label": "Tiền cọc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "payment_term_days",
+   "fieldtype": "Int",
+   "label": "Số ngày thanh toán sau BBNT",
+   "default": "30",
+   "description": "Tính ngày lịch từ ngày BBNT hoàn tất; rơi vào T7/CN thì dời sang thứ Hai."
+  },
+  {
+   "fieldname": "sb_kol_doc",
+   "fieldtype": "Section Break",
+   "label": "Hồ sơ hợp đồng",
+   "depends_on": "eval:doc.contract_type==\"KOL/KOC / Creator (EC)\""
+  },
+  {
+   "fieldname": "contract_template",
+   "fieldtype": "Link",
+   "label": "Mẫu hợp đồng",
+   "options": "EC Contract Template"
+  },
+  {
+   "fieldname": "generated_template",
+   "fieldtype": "Link",
+   "options": "EC Contract Template",
+   "label": "Mẫu đã dùng",
+   "read_only": 1,
+   "no_copy": 1,
+   "description": "Mẫu hệ thống dùng lần tạo hợp đồng gần nhất (tự chọn hoặc theo ô Mẫu hợp đồng)."
+  },
+  {
+   "fieldname": "contract_date",
+   "fieldtype": "Date",
+   "label": "Ngày ký trên hợp đồng"
+  },
+  {
+   "fieldname": "contract_no",
+   "fieldtype": "Data",
+   "label": "Số hợp đồng",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "contract_file",
+   "fieldtype": "Attach",
+   "label": "Tệp hợp đồng (.docx)",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "missing_placeholders",
+   "fieldtype": "Small Text",
+   "label": "Trường mẫu chưa có dữ liệu",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "contract_fingerprint",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "read_only": 1,
+   "no_copy": 1,
+   "label": "Contract Fingerprint",
+   "description": "Dấu vân tay mẫu + dữ liệu lúc sinh hợp đồng; lệch thì gửi/gửi lại sẽ sinh lại tệp."
+  },
+  {
+   "fieldname": "cb_kol4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "signing_status",
+   "fieldtype": "Select",
+   "label": "Tình trạng ký",
+   "options": "Chưa ký\nChờ kiểm tra\nĐã ký đủ",
+   "default": "Chưa ký",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "signed_file",
+   "fieldtype": "Attach",
+   "label": "Bản đã ký (PDF)",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "signed_at",
+   "fieldtype": "Datetime",
+   "label": "Tải bản ký lúc",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "signed_marked_by",
+   "fieldtype": "Link",
+   "label": "Người tải bản ký",
+   "options": "User",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "sign_check_note",
+   "fieldtype": "Small Text",
+   "label": "Kết quả kiểm bản ký",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "signed_verified_by",
+   "fieldtype": "Data",
+   "label": "Xác nhận ký đủ bởi",
+   "read_only": 1,
+   "no_copy": 1,
+   "description": "\"Tự động\" khi máy kiểm đạt; tên Kế toán khi xác nhận tay."
+  },
+  {
+   "fieldname": "signed_verified_at",
+   "fieldtype": "Datetime",
+   "label": "Xác nhận ký đủ lúc",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "sb_kol_ai",
+   "fieldtype": "Section Break",
+   "label": "AI QC",
+   "depends_on": "eval:doc.contract_type==\"KOL/KOC / Creator (EC)\"",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "ai_qc_status",
+   "fieldtype": "Select",
+   "label": "Kết quả AI QC",
+   "options": "\nĐạt\nCần xem\nLỗi",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "ai_qc_at",
+   "fieldtype": "Datetime",
+   "label": "AI QC lúc",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "ai_qc_result",
+   "fieldtype": "Long Text",
+   "label": "Chi tiết AI QC",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "sb_kol_bbnt",
+   "fieldtype": "Section Break",
+   "label": "Nghiệm thu (BBNT)",
+   "depends_on": "eval:doc.contract_type==\"KOL/KOC / Creator (EC)\""
+  },
+  {
+   "fieldname": "acceptances",
+   "fieldtype": "Table",
+   "label": "Các đợt nghiệm thu",
+   "options": "EC Contract Acceptance",
+   "no_copy": 1
   }
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-09-28 12:00:00.000000",
+ "modified": "2026-11-11 19:00:00.000000",
  "modified_by": "Administrator",
  "module": "Approval Center",
  "name": "EC Contract Review Request",
