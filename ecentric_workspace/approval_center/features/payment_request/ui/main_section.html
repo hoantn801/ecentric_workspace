@@ -828,7 +828,7 @@
   function renderDetail(b){ b.innerHTML=skeleton(4); var seq=++state._detailSeq;
     call("get_detail",{name:state.id}).then(function(det){ if(seq!==state._detailSeq) return; drawDetail(b,det); })
     .catch(function(e){ if(seq!==state._detailSeq) return; var m=extractServerMsg(e); var perm=/quyền|access|permission/i.test(m); b.innerHTML='<div class="card"><div class="state"><h4>'+(perm?"Bạn không có quyền xem yêu cầu này":"Không tải được yêu cầu")+'</h4>'+(perm?'':'<div class="hint">'+esc(mapErr(e))+'</div>')+'<button type="button" class="btn" id="d-back">Quay lại</button></div></div>'; var bk=$("d-back"); if(bk)bk.onclick=function(){ window.location.href=hubHref(); }; }); }
-  // Doi chieu SO doanh thu cho nguoi duyet / Ke toan (server tinh, extra.so_check) - QC3 12/11.
+  // Doi chieu SO doanh thu cho nguoi lap / Ke toan (server tinh + loc nguoi xem, extra.so_check) - QC3/QC4 12/11.
   function soCheckHTML(det,biz){ if(!biz.ec_sales_order) return "";
     var c=((det||{}).extra||{}).so_check; if(!c) return kv("SO doanh thu",biz.ec_sales_order);
     var out=kv("SO doanh thu",c.label||biz.ec_sales_order), note="";

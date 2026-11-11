@@ -329,7 +329,7 @@ class TestRevenueSo(TestLegacyAlias):
         self._payr("P1", 7.0, status="Approved")
         self.store["EC Payment Request"]["P1"]["ec_sales_order"] = "SO-1"
         self.store["EC Approval Request"]["AR-P1"]["name"] = "AR-P1"
-        sys.modules["frappe"].get_attr = lambda path: (
+        sys.modules["frappe"].get_attr = lambda path: (lambda pr, u: True) if path.endswith("funding_so_can_view") else (
             lambda so: {"label": so + " · B", "brand": "B", "revenue": 10.0} if so == "SO-1" else None)
         doc = _Doc({"name": "P2", "funding_source_doctype": "EC Contract Review Request", "ec_sales_order": "SO-1",
                     "payment_amount": 5.0})
@@ -354,6 +354,8 @@ class TestRevenueSo(TestLegacyAlias):
         self.assertEqual((c["after"], c["over"]), (0.0, 0.0))          # phieu bi tu choi khong chiem SO
         self.assertIsNotNone(self.funding.so_check(doc, "ke.toan@ec"))
         self.assertIsNone(self.funding.so_check(doc, "nguoi.duyet@ec"))  # doanh thu SO: chi nguoi lap + Ke toan
+        sys.modules["frappe"].session.user = "nguoi.duyet@ec"
+        self.assertIsNone(self.funding.so_check(doc))                   # khong truyen nguoi xem: dung session
 
     def test_non_kol_source_has_no_so_picker(self):
         self.assertEqual(self.funding.search_revenue_so("EC Purchase Request", "x"), {"rows": [], "missing": []})

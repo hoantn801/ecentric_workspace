@@ -99,7 +99,7 @@ def parse_service_dates(text, today):
     # Dan cot tu Sheets = moi ngay mot dong: xuong dong coi nhu dau phay (truoc QC3 bi gop thanh dau cach -> loi).
     raw = re.sub(r"\s+", " ", re.sub(r"\s*[\r\n]+\s*", ", ", str(text or "").strip()))
     # O nhap mot dong bien xuong dong thanh dau cach: "05/12 06/12" = hai ngay (QC4).
-    raw = re.sub(r"(\d)\s+(?=\d{1,2}\s*[/.]\s*\d)", r"\1, ", raw)
+    raw = re.sub(r"(\d)\s+(?=\d{1,2}\s*[/.]\s*\d|\d{4}-\d{1,2}-\d{1,2})", r"\1, ", raw)
     if not raw:
         return []
     if _RANGE.search(raw):

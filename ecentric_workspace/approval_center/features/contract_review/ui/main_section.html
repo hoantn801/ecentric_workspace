@@ -862,7 +862,7 @@
     preview:function(){ var host=$("kol-amounts"); if(!host) return; var d=state.draft||{}; var ct=KOL.creatorType(); var key=KOL.amtKey(d);
       var hit=key&&KOL._cache&&KOL._cache.amt&&KOL._cache.amt.key===key?KOL._cache.amt:null;
       if(hit){ clearTimeout(KOL._pt); KOL._ps=(KOL._ps||0)+1;   // huy lan tinh dang cho cua so tien KHAC (QC4)
-        if(!host.innerHTML) host.innerHTML=hit.html;
+        if(host.innerHTML!==hit.html) host.innerHTML=hit.html;   // o dang hien goi y / loi cu thi thay (QC5)
         if(d.contract_value!==hit.cv){ d.contract_value=hit.cv; var cvh=$("kol-cv"); if(cvh) cvh.value=Number(hit.cv||0).toLocaleString("vi-VN"); renderSummary(); } return; }
       if(!ct||!d.amount_type||!d.amount_input){ host.innerHTML='<div class="hint">Chọn creator, kiểu nhập và số tiền để xem số tiền trên hợp đồng.</div>';
         clearTimeout(KOL._pt); KOL._ps=(KOL._ps||0)+1; if(state.draft.contract_value){ state.draft.contract_value=null; var cv1=$("kol-cv"); if(cv1) cv1.value="Tự tính từ số tiền bên dưới"; renderSummary(); } return; }
