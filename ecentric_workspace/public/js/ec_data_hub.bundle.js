@@ -956,13 +956,14 @@
       this.bindReview();
       this.bindPlan();
       this.bindRow();
+      this.bindAdd();
       this.bindLibrary();
     }
     if (this.boot.prefill) this.openLibrary(null, this.boot.prefill);
     var self = this;
     this.doc.addEventListener("keydown", function (e) {
       if (e.key !== "Escape" && e.key !== "Esc") return;
-      ["[data-edh-why-ov]", "[data-edh-plan-ov]", "[data-edh-rowf-ov]", "[data-edh-lib-ov]", "[data-edh-prop-ov]", "[data-edh-pdet-ov]"].some(function (sel) {
+      ["[data-edh-why-ov]", "[data-edh-plan-ov]", "[data-edh-rowf-ov]", "[data-edh-lib-ov]", "[data-edh-prop-ov]", "[data-edh-pdet-ov]", "[data-edh-add-ov]"].some(function (sel) {
         var ov = self.$(sel);
         if (ov && !ov.hidden) { self.app.closeOv(ov); return true; }
         return false;
@@ -1314,6 +1315,152 @@
     (r.name ? el.in_sharepoint : el.team).focus();
   };
 
+  // ---- them du lieu da co (team Data, 11/11/2026): nut "+" tren ma tran, nhieu san mot lan, khong qua de xuat
+  /* Kiem form "Thêm dữ liệu đã có" (server kiem lai). d da gop team / data_type tu o chon + o "mới…". */
+  function addErrors(d) {
+    var errs = [];
+    if (!d.team) errs.push("Chọn team (hoặc ghi tên team mới).");
+    if (!d.data_type) errs.push("Chọn loại dữ liệu (hoặc ghi tên loại mới).");
+    if (!checkPlatforms(d)) errs.push("Chọn ít nhất một sàn / nguồn.");
+    return errs;
+  }
+  function lowerList(xs) { return (xs || []).map(function (x) { return String(x || "").trim().toLowerCase(); }); }
+  Avail.prototype.addPick = function (sel, inp) {
+    var NEW = this.boot.dtype_new || "__new__";
+    if (!sel) return "";
+    return sel.value === NEW ? String((inp && inp.value) || "").trim() : sel.value;
+  };
+  /* Gia tri gui di: formData bo qua o bi khoa (disabled) -> doc thang team / loai tu o chon. */
+  Avail.prototype.addData = function (form) {
+    var a = this.add, d = formData(form);
+    d.team = this.addPick(a.team, a.teamNew);
+    d.data_type = this.addPick(a.dtype, a.dtypeNew);
+    ["team_pick", "team_new", "data_type_pick", "data_type_new"].forEach(function (k) { delete d[k]; });
+    d.platforms = d.platforms || [];
+    return d;
+  };
+  Avail.prototype.bindAdd = function () {
+    var self = this, NEW = this.boot.dtype_new || "__new__";
+    var f = this.formOv("[data-edh-add-ov]", "[data-edh-addf]", "[data-edh-add-err]", "[data-edh-add-submit]", "add_availability", function (form) {
+      var d = self.addData(form), errs = addErrors(d);
+      return errs.length ? errs.join(" ") : { data: JSON.stringify(d) };
+    }, function (out) {
+      var n = (out.created || []).length, sk = out.skipped || [];
+      return ["Đã thêm " + n + " dòng dữ liệu" + (sk.length ? " (bỏ qua " + sk.length + " đã có: " + sk.join(", ") + ")" : "") + "."];
+    });
+    if (!f) return;
+    var form = f.form;
+    this.add = {
+      f: f, team: this.$("[data-edh-add-team]", form), teamNew: this.$("[data-edh-add-team-new]", form),
+      dtype: this.$("[data-edh-add-dtype]", form), dtypeNew: this.$("[data-edh-add-dtype-new]", form),
+      other: this.$("[data-edh-add-other]", form), has: this.$("[data-edh-add-has]", form),
+      what: this.$("[data-edh-add-what]", form), plats: this.$$("[data-edh-add-plat]", form)
+    };
+    var a = this.add;
+    a.team.addEventListener("change", function () { self.syncAddTeam(true); });
+    a.dtype.addEventListener("change", function () { self.syncAddType(true); });
+    if (a.teamNew) a.teamNew.addEventListener("input", function () { self.syncAddHas(); });
+    if (a.dtypeNew) a.dtypeNew.addEventListener("input", function () { self.syncAddHas(); });
+    var now = this.$("[data-edh-a-now]", form);
+    if (now) now.addEventListener("click", function () { form.elements.last_updated.value = nowLocal(); });
+    // uy quyen su kien: nut "+" o ma tran (nhieu, ve tu server) + nut tren thanh loc + "Thêm team mới"
+    this.doc.addEventListener("click", function (e) {
+      var b = e.target && e.target.closest ? e.target.closest("[data-edh-add]") : null;
+      if (!b || form.contains(b)) return;
+      e.preventDefault();
+      var ds = b.dataset || {};
+      self.openAdd(b, { team: ds.team || "", dtype: ds.dtype || "", plat: ds.plat, newTeam: ds.newTeam === "1",
+                        fromCell: ds.dtype !== undefined });
+    });
+  };
+  /* O chon loai du lieu: loai cua team dang chon len dau (nhom "Đang có ở <team>"), con lai "Loại khác". */
+  Avail.prototype.fillTypes = function (team, keep) {
+    var a = this.add, NEW = this.boot.dtype_new || "__new__", doc = this.doc;
+    var mine = (this.boot.team_types || {})[team] || [], all = [];
+    Array.prototype.forEach.call(a.dtype.options, function (o) { if (o.value && o.value !== NEW && all.indexOf(o.value) < 0) all.push(o.value); });
+    Object.keys(this.boot.team_types || {}).forEach(function (t) {
+      (this.boot.team_types[t] || []).forEach(function (x) { if (all.indexOf(x) < 0) all.push(x); });
+    }, this);
+    var rest = all.filter(function (x) { return mine.indexOf(x) < 0; }).sort(function (x, y) { return x.toLowerCase() < y.toLowerCase() ? -1 : 1; });
+    a.dtype.textContent = "";
+    var opt = function (v, label, parent) { var o = doc.createElement("option"); o.value = v; o.textContent = label; (parent || a.dtype).appendChild(o); return o; };
+    opt("", "— Chọn loại dữ liệu —");
+    var grp = function (label, xs) {
+      if (!xs.length) return;
+      var g = doc.createElement("optgroup");
+      g.label = label;
+      xs.forEach(function (x) { opt(x, x, g); });
+      a.dtype.appendChild(g);
+    };
+    grp(team && mine.length ? "Đang có ở " + team : "Loại đã có", mine.length ? mine : rest);
+    if (mine.length) grp("Loại khác", rest);
+    opt(NEW, "+ Loại mới…");
+    a.dtype.value = keep && all.indexOf(keep) >= 0 ? keep : "";
+  };
+  Avail.prototype.syncAddTeam = function (focus) {
+    var a = this.add, NEW = this.boot.dtype_new || "__new__", on = a.team.value === NEW;
+    a.teamNew.hidden = !on;
+    a.teamNew.required = on;
+    if (on && focus) a.teamNew.focus();
+    var keep = a.dtype.value;
+    this.fillTypes(on ? "" : a.team.value, keep === NEW ? "" : keep);
+    if (keep === NEW) a.dtype.value = NEW;
+    this.syncAddType(false);
+  };
+  Avail.prototype.syncAddType = function (focus) {
+    var a = this.add, NEW = this.boot.dtype_new || "__new__", on = a.dtype.value === NEW;
+    a.dtypeNew.hidden = !on;
+    a.dtypeNew.required = on;
+    if (on && focus) a.dtypeNew.focus();
+    this.syncAddHas();
+  };
+  /* San da co dong cho (team, loai) -> khoa chip + ghi chu "Đã có: …" (server van bo qua neu lot). */
+  Avail.prototype.syncAddHas = function () {
+    var a = this.add;
+    var team = this.addPick(a.team, a.teamNew), dt = this.addPick(a.dtype, a.dtypeNew);
+    var have = (this.boot.group_plats || {})[(team + "|" + dt).toLowerCase()] || [];
+    var low = lowerList(have);
+    a.plats.forEach(function (c) {
+      var on = low.indexOf(c.value.toLowerCase()) >= 0;
+      c.disabled = on;
+      if (on) c.checked = false;
+      var chip = c.closest(".edh-chip");
+      if (chip) { chip.classList.toggle("is-has", on); chip.title = on ? c.value + ": đã có trong bảng - bấm ô trong bảng để sửa" : ""; }
+    });
+    a.has.hidden = !have.length;
+    a.has.textContent = have.length ? "Đã có trong bảng: " + have.join(", ") + ". Muốn sửa thì bấm vào ô đó trong bảng." : "";
+  };
+  /* pre: {team, dtype, plat, newTeam, fromCell}. Tu nut nhom: khoa team. Tu o "—": khoa team + loai, tich san. */
+  Avail.prototype.openAdd = function (opener, pre) {
+    var a = this.add, NEW = this.boot.dtype_new || "__new__", form = a.f.form;
+    pre = pre || {};
+    form.reset();
+    this.$("[data-edh-add-err]", form).hidden = true;
+    a.team.disabled = false;
+    a.dtype.disabled = false;
+    var teams = Array.prototype.map.call(a.team.options, function (o) { return o.value; });
+    if (pre.newTeam) a.team.value = NEW;
+    else a.team.value = pre.team && teams.indexOf(pre.team) >= 0 ? pre.team : "";
+    this.syncAddTeam(false);
+    if (pre.dtype) { a.dtype.value = pre.dtype; this.syncAddType(false); }
+    var lockTeam = !!pre.team && a.team.value === pre.team, lockType = lockTeam && !!pre.dtype && a.dtype.value === pre.dtype;
+    a.team.disabled = lockTeam;
+    a.dtype.disabled = lockType;
+    var target = null;
+    if (pre.fromCell && pre.plat) {
+      a.plats.forEach(function (c) { if (c.value === pre.plat && !c.disabled) { c.checked = true; target = c; } });
+    }
+    a.what.textContent = lockTeam ? "· " + pre.team + (lockType ? " · " + pre.dtype : "") : "";
+    this.app.openOv(a.f.ov, opener);
+    var first;
+    if (pre.newTeam) first = a.teamNew;
+    else if (pre.fromCell && !pre.plat) first = a.other;
+    else if (target) first = form.elements[form.elements.in_sharepoint ? "in_sharepoint" : "frequency"];
+    else if (lockTeam) first = a.dtype;
+    else first = a.team;
+    if (first && first.focus) first.focus();
+  };
+
   // ---- thu vien bao cao (team Data)
   Avail.prototype.bindLibrary = function () {
     var self = this;
@@ -1387,7 +1534,7 @@
 
   H.avail = { matrixMatch: matrixMatch, libMatch: libMatch, formData: formData, suggestHtml: suggestHtml, debounce: debounce,
               nowLocal: nowLocal, Avail: Avail, install: install, proposalErrors: proposalErrors,
-              proposalDetailHtml: proposalDetailHtml, splitLinks: splitLinks };
+              proposalDetailHtml: proposalDetailHtml, splitLinks: splitLinks, addErrors: addErrors };
   var go = function () { H.avail.page = install(H.app); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", go);
   else go();

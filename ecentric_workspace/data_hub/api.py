@@ -266,6 +266,12 @@ def save_availability(data):
 
 
 @frappe.whitelist(methods=["POST"])
+def add_availability(data):
+    """Team Data: "+ Thêm dữ liệu đã có" tren ma tran - nhieu san mot lan, khong qua de xuat."""
+    return _run(lambda: _avail().add_rows(_me(), _json(data)))
+
+
+@frappe.whitelist(methods=["POST"])
 def save_library(data):
     """Team Data: them / sua muc Thu vien bao cao (co `name` = sua)."""
     return _run(lambda: _avail().save_library(_me(), _json(data)))

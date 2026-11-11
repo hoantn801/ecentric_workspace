@@ -41,6 +41,7 @@ async function page(name, { me = "thu.nguyen@ecentric.vn", url = "https://team.e
     else if (method === "plan_availability") data = { code: "DA-2026-0099", due: "2026-11-20", pm_task: "TASK-2026-00123", warning: "" };
     else if (method === "review_proposal") data = { status: args.verdict, created: [] };
     else if (method === "save_availability") data = { name: "AV-001", created: false };
+    else if (method === "add_availability") data = { created: ["AV-901", "AV-902"], skipped: ["Lazada"] };
     else if (method === "save_library") data = { name: "RL-00009", created: true };
     else data = {};
     return Promise.resolve({ ok: success, status: success ? 200 : 417, json: () => Promise.resolve({ message: { success, message, data } }) });
@@ -74,6 +75,8 @@ const posted = (calls, m) => calls.filter((c) => c.method === m && c.post);
   eq(A.proposalErrors({ department: "D", data_type: "T", platforms: ["Shopee"], frequency: "Một lần", purpose: "p", urgency: "Khẩn" },
      ["Cao", "Khẩn"], "2026-11-09T08:00"), ["Mức “Khẩn” cần ghi lý do cần gấp."], "kiem form: Khan can ly do");
   eq(A.splitLinks(" https://a.vn\n\nhttps://b.vn, https://c.vn "), ["https://a.vn", "https://b.vn", "https://c.vn"], "tach link");
+  eq(A.addErrors({ team: "", data_type: "X", platforms: [] }), ["Chọn team (hoặc ghi tên team mới).", "Chọn ít nhất một sàn / nguồn."], "kiem hop them: team + san");
+  eq(A.addErrors({ team: "T", data_type: "X", platforms: [], other_platform: "Misa" }), [], "kiem hop them: san khac du");
 }
 
 // ------------------------------------------------------------------ nhan vien ------------
@@ -81,6 +84,7 @@ const posted = (calls, m) => calls.filter((c) => c.method === m && c.post);
   const { w, d, calls } = await page("avail_user");
   eq(visible(d, "[data-edh-mrow]").length, 27, "ma tran 27 nhom (52 dong) ve san o server");
   ok(!d.querySelector("[data-edh-plan-cell]") && !d.querySelector("[data-edh-plan-ov]"), "nhan vien: khong co Len ke hoach");
+  ok(!d.querySelector("[data-edh-add]") && !d.querySelector("[data-edh-addf]") && !d.querySelector(".edh-celladd"), "nhan vien: khong co nut + / hop them");
   ok(d.querySelector("[data-edh-av=library]").hidden, "mac dinh xem ma tran");
   // loc
   const st = d.querySelector('[data-edh-af="state"]');
@@ -255,8 +259,79 @@ const posted = (calls, m) => calls.filter((c) => c.method === m && c.post);
   await flush();
   const rd = JSON.parse(posted(calls, "save_availability")[0].args.data);
   eq([rd.name, rd.in_sharepoint, rd.in_powerbi, rd.frequency], [prod.name, 1, 1, "Hằng ngày"], "luu dong");
-  d.querySelector("[data-edh-row-new]").click();
-  eq([rf.elements.name.value, rf.elements.team.readOnly], ["", false], "them dong moi: form trong");
+  ok(!d.querySelector("[data-edh-row-new]"), "thanh loc: nut cu '+ Them dong' da thay bang '+ Them du lieu'");
+  // ---- + them du lieu da co (11/11/2026)
+  const af = d.querySelector("[data-edh-addf]"), aov = d.querySelector("[data-edh-add-ov]");
+  const sel = (n) => af.querySelector(n);
+  const NEW = boot.dtype_new;
+  ok(af && aov.hidden, "co hop them du lieu (an)");
+  ok(!af.querySelector("[list]"), "hop them khong dung datalist");
+  // tu o "—" (Boxme Purchase Order · Shopee)
+  const cellBtn = d.querySelector('.edh-celladd[data-dtype="Boxme Purchase Order"][data-plat="Shopee"]');
+  ok(cellBtn && /Thêm Boxme Purchase Order · Shopee \(Commercial\)/.test(cellBtn.getAttribute("aria-label")), "o — co nut + co nhan doc man hinh");
+  cellBtn.click();
+  ok(!aov.hidden, "bam + o -> mo hop");
+  eq([sel("[data-edh-add-team]").value, sel("[data-edh-add-team]").disabled, sel("[data-edh-add-dtype]").value, sel("[data-edh-add-dtype]").disabled],
+     ["Commercial", true, "Boxme Purchase Order", true], "o —: khoa team + loai");
+  eq(Array.from(af.querySelectorAll('input[name="platforms"]:checked')).map((x) => x.value), ["Shopee"], "o —: tich san cua o");
+  ok(af.querySelector('input[name="platforms"][value="Lazada"]').disabled === false, "san chua co -> chon duoc");
+  ok(/Commercial · Boxme Purchase Order/.test(sel("[data-edh-add-what]").textContent), "tieu de hop ghi team + loai");
+  af.querySelector('input[name="platforms"][value="TikTok"]').checked = true;
+  af.elements.in_sharepoint.checked = true;
+  af.elements.frequency.value = "Hằng ngày";
+  af.elements.note.value = "Bảng DW boxme_po";
+  af.dispatchEvent(new w.Event("submit", { cancelable: true }));
+  await flush();
+  const ad = JSON.parse(posted(calls, "add_availability")[0].args.data);
+  eq([ad.team, ad.data_type, ad.platforms, ad.in_sharepoint, ad.in_dw, ad.frequency, ad.note, ad.data_owner],
+     ["Commercial", "Boxme Purchase Order", ["Shopee", "TikTok"], 1, 0, "Hằng ngày", "Bảng DW boxme_po", me], "gui them: team/loai tu o khoa + moi thong tin");
+  ok(!("team_pick" in ad) && !("data_type_new" in ad), "khong gui truong phu");
+  ok(aov.hidden, "luu xong dong hop");
+  // tu hang team (Commercial): khoa team, loai tu chon; san da co bi khoa
+  d.querySelector('.edh-grp-add[data-team="Commercial"]').click();
+  eq([sel("[data-edh-add-team]").disabled, sel("[data-edh-add-dtype]").disabled, sel("[data-edh-add-dtype]").value], [true, false, ""], "hang team: khoa team, loai trong");
+  const og = sel("[data-edh-add-dtype]").querySelector("optgroup");
+  ok(og && og.label === "Đang có ở Commercial" && og.querySelector('option[value="Product"]'), "loai cua team len dau");
+  sel("[data-edh-add-dtype]").value = "Product";
+  sel("[data-edh-add-dtype]").dispatchEvent(new w.Event("change"));
+  ok(["Shopee", "TikTok", "Lazada"].every((p) => af.querySelector(`input[name="platforms"][value="${p}"]`).disabled), "san da co -> khoa chip");
+  ok(!sel("[data-edh-add-has]").hidden && /Đã có trong bảng: /.test(sel("[data-edh-add-has]").textContent), "bao san da co");
+  af.dispatchEvent(new w.Event("submit", { cancelable: true }));
+  await flush();
+  ok(!sel("[data-edh-add-err]").hidden && /Chọn ít nhất một sàn/.test(sel("[data-edh-add-err]").textContent) && posted(calls, "add_availability").length === 1,
+     "khong chon san -> bao loi, khong goi API");
+  sel("[data-edh-add-dtype]").value = NEW;
+  sel("[data-edh-add-dtype]").dispatchEvent(new w.Event("change"));
+  ok(!sel("[data-edh-add-dtype-new]").hidden && sel("[data-edh-add-dtype-new]").required, "+ Loai moi -> hien o go");
+  ok(["Shopee", "TikTok", "Lazada"].every((p) => !af.querySelector(`input[name="platforms"][value="${p}"]`).disabled), "loai moi -> mo lai chip");
+  sel("[data-edh-add-dtype-new]").value = "Livestream session";
+  af.querySelector('input[name="platforms"][value="Lazada"]').checked = true;
+  af.dispatchEvent(new w.Event("submit", { cancelable: true }));
+  await flush();
+  const ad2 = JSON.parse(posted(calls, "add_availability")[1].args.data);
+  eq([ad2.team, ad2.data_type, ad2.platforms], ["Commercial", "Livestream session", ["Lazada"]], "loai moi gui ten go");
+  ok(/Đã thêm 2 dòng dữ liệu \(bỏ qua 1 đã có: Lazada\)\./.test(d.body.textContent), "toast so dong + bo qua");
+  // cot Khac: tich khong san nao, focus o "Khac"
+  d.querySelector('.edh-celladd[data-dtype="Boxme Purchase Order"][data-plat=""]').click();
+  eq([Array.from(af.querySelectorAll('input[name="platforms"]:checked')).length, d.activeElement === sel("[data-edh-add-other]")], [0, true], "cot Khac: focus o Khac");
+  d.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  ok(aov.hidden, "Esc dong hop them");
+  // team moi (duoi bang) + nut thanh loc
+  d.querySelector('[data-edh-add][data-new-team="1"]').click();
+  eq([sel("[data-edh-add-team]").value, sel("[data-edh-add-team]").disabled, sel("[data-edh-add-team-new]").hidden, d.activeElement === sel("[data-edh-add-team-new]")],
+     [NEW, false, false, true], "team moi: hien o go + focus");
+  sel("[data-edh-add-team-new]").value = "Media";
+  sel("[data-edh-add-dtype]").value = NEW;
+  sel("[data-edh-add-dtype]").dispatchEvent(new w.Event("change"));
+  sel("[data-edh-add-dtype-new]").value = "Meta Ads";
+  sel("[data-edh-add-other]").value = "Facebook, Google";
+  af.dispatchEvent(new w.Event("submit", { cancelable: true }));
+  await flush();
+  const ad3 = JSON.parse(posted(calls, "add_availability")[2].args.data);
+  eq([ad3.team, ad3.data_type, ad3.platforms, ad3.other_platform], ["Media", "Meta Ads", [], "Facebook, Google"], "team moi + san khac");
+  d.querySelector(".edh-filters [data-edh-add]").click();
+  eq([sel("[data-edh-add-team]").value, sel("[data-edh-add-team]").disabled, sel("[data-edh-add-team-new]").hidden, af.elements.note.value],
+     ["", false, true, ""], "nut thanh loc: hop trong (reset)");
   d.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
   // duyet / tu choi
   d.querySelector(`[data-edh-approve="${C.p_creator}"]`).click();
