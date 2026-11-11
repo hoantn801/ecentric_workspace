@@ -69,6 +69,9 @@ class ServiceDates(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.parse("05/01/2027, 28/12/2027")
 
+    def test_moi_ngay_mot_dong_dan_tu_sheets(self):
+        self.assertEqual(self.parse("05/12\n06/12\r\n12/12"), [D(2026, 12, 5), D(2026, 12, 6), D(2026, 12, 12)])
+
     def test_ngay_khong_ton_tai(self):
         with self.assertRaises(ValueError):
             self.parse("31/02/2027")
@@ -87,6 +90,31 @@ class CompanyDepositRounds(unittest.TestCase):
         b = V.round_money("Công ty", 3_400_000, None, 8, self.DOC)
         self.assertEqual(a["pre_vat"] + b["pre_vat"] + 4_000_000, 10_000_000)
         self.assertEqual(a["vat"] + b["vat"], 800_000)
+
+
+class NoDatesStillDescribed(unittest.TestCase):
+    """QC3: khong doc duoc ngay (affiliate / phieu cu chu tu do) van phai co mo ta cong viec + thanh toan."""
+
+    def values(self, **kw):
+        doc = dict({"creator_type": "Cá nhân", "service_type": "Hoa hồng affiliate", "brand": "FCV",
+                    "payable_amount": 9_000_000, "gross_amount": 10_000_000}, **kw)
+        return V.contract_values(doc, {"supplier_name": "A"}, "FCV", D(2026, 11, 12), [])
+
+    def test_bbnt_va_hop_dong_khong_trong_mo_ta(self):
+        v = self.values()
+        for k in ("BBNT_WORK_DESCRIPTION_SHORT", "BBNT_PAYMENT_DESCRIPTION", "OBJECT_PARAGRAPH",
+                  "WORK_CONTENT_PARAGRAPH"):
+            self.assertTrue(v[k].strip(), k)
+
+    def test_dong_ngay_lay_nguyen_van_chu(self):
+        v = self.values(service_type="Livestream", air_dates="cuối tháng 12")
+        self.assertIn("cuối tháng 12", v["DETAIL_PARAGRAPH"])
+        self.assertNotIn(": .", v["DETAIL_PARAGRAPH"])
+
+    def test_affiliate_khong_doi_ngay_bbnt_tren_hop_dong(self):
+        v = self.values()
+        self.assertEqual(V.empty_required(v, ["BBNT_DAY", "SERVICE_START_SLASH"], "Cá nhân", "Hoa hồng affiliate"), [])
+        self.assertEqual(V.empty_required(v, ["BBNT_DAY"], "Cá nhân", "Livestream"), ["BBNT_DAY"])
 
 
 class PartyCodeAndLabels(unittest.TestCase):
@@ -137,7 +165,13 @@ class PatchP365(unittest.TestCase):
             row(name="B", creation="2026-11-11 22:00:00", contract_date="2026-12-04", creator_type="Công ty",
                 payment_term_days=30),
             row(name="C", creation="2026-11-11 22:00:00", contract_date=None, creator_type="Cá nhân",
-                payment_term_days=45)]
+                payment_term_days=45),
+            row(name="D", creation="2026-11-11 22:00:00", contract_date=None, creator_type="Công ty",
+                platform="Shopee", payment_term_days=30)]
+        for x in self.rows:
+            x.platform = getattr(x, "platform", "TikTok")
+        self.comments = []
+        fk.get_doc = lambda d: types.SimpleNamespace(insert=lambda **k: self.comments.append(d["reference_name"]))
         self.filters = []
         fk.get_all = lambda dt_, filters=None, **kw: (self.filters.append(filters), self.rows)[1]
         fk.logger = lambda *a, **k: types.SimpleNamespace(info=lambda *a, **k: None)
@@ -158,7 +192,9 @@ class PatchP365(unittest.TestCase):
     def test_chi_sua_dung_hai_gia_tri_cua_phieu_nhap(self):
         self.mod.execute()
         self.assertEqual(self.filters[0]["approval_request"], ["is", "not set"])
-        self.assertEqual(self.calls, [("A", {"contract_date": None, "payment_term_days": 35}, False)])
+        self.assertEqual(self.calls, [("A", {"contract_date": None, "payment_term_days": 35}, False),
+                                      ("D", {"payment_term_days": 15}, False)])
+        self.assertEqual(self.comments, ["A", "D"])           # vet tren tung phieu bi sua
 
 
 if __name__ == "__main__":

@@ -93,9 +93,8 @@ def kol_preview_amounts(creator_type=None, amount_type=None, amount_input=None, 
 
 @frappe.whitelist()
 def kol_preview_dates(air_dates=None, contract_date=None, creator=None, brand=None, name=None):
-    _me()
     return _app("kol_service").preview_dates(air_dates, contract_date or None, creator or None, brand or None,
-                                             name or None)
+                                             name or None, _me())
 
 
 @frappe.whitelist()

@@ -324,6 +324,24 @@ class TestRevenueSo(TestLegacyAlias):
         self.assertEqual(self.funding.so_spent(["SO-1"], exclude_request="P1"), {"SO-1": 5.0})
         self.assertEqual(self.funding.so_spent([]), {})
 
+    def test_so_check_for_approver(self):
+        """Trang chi tiet: doanh thu SO, de nghi KHAC tren SO (khong tinh chinh no), phan vuot (QC3)."""
+        self._payr("P1", 7.0, status="Approved")
+        self.store["EC Payment Request"]["P1"]["ec_sales_order"] = "SO-1"
+        self.store["EC Approval Request"]["AR-P1"]["name"] = "AR-P1"
+        sys.modules["frappe"].get_attr = lambda path: (
+            lambda so: {"label": so + " · B", "brand": "B", "revenue": 10.0} if so == "SO-1" else None)
+        doc = _Doc({"name": "P2", "funding_source_doctype": "EC Contract Review Request", "ec_sales_order": "SO-1",
+                    "payment_amount": 5.0})
+        c = self.funding.so_check(doc)
+        self.assertEqual((c["spent"], c["after"], c["over"], c["revenue"]), (7.0, 12.0, 2.0, 10.0))
+        doc["name"] = "P1"
+        self.assertEqual(self.funding.so_check(doc)["spent"], 0.0)          # khong tu tinh minh
+        doc["ec_sales_order"] = "SO-GONE"
+        self.assertTrue(self.funding.so_check(doc)["missing"])
+        self.assertIsNone(self.funding.so_check(_Doc({"funding_source_doctype": "EC Purchase Request",
+                                                       "ec_sales_order": "SO-1"})))
+
     def test_non_kol_source_has_no_so_picker(self):
         self.assertEqual(self.funding.search_revenue_so("EC Purchase Request", "x"), {"rows": [], "missing": []})
 

@@ -74,7 +74,8 @@
   #ec-payr-root .so-pick{ position:relative; }
   #ec-payr-root .so-list{ position:absolute; top:100%; left:0; right:0; z-index:30; background:#fff; border:1px solid #e5e7eb; border-radius:10px; box-shadow:0 8px 24px rgba(17,24,39,.08); max-height:260px; overflow:auto; margin-top:2px; }
   #ec-payr-root .so-row{ display:block; width:100%; text-align:left; padding:8px 12px; border:0; border-bottom:1px solid #f3f4f6; background:#fff; cursor:pointer; font:inherit; }
-  #ec-payr-root .so-row:hover,#ec-payr-root .so-row:focus,#ec-payr-root .so-row.on{ background:var(--navy-50); outline:none; }
+  #ec-payr-root .so-row.off{ cursor:default; }
+  #ec-payr-root .so-row:not(.off):hover,#ec-payr-root .so-row:focus,#ec-payr-root .so-row.on{ background:var(--navy-50); outline:none; }
   #ec-payr-root .hint{ font-size:12px;color:var(--gray-500); }
   #ec-payr-root .banner{ padding:11px 14px;border-radius:9px;font-size:13px;display:flex;gap:9px;align-items:flex-start;margin-bottom:14px; }
   #ec-payr-root .banner.warn{ background:var(--yellow-50);color:var(--amber);border:1px solid #fde68a; }
@@ -271,29 +272,33 @@
     return '<div class="hint" id="payr-so-cur">Đã chọn: <b>'+esc(r.label)+'</b> · doanh thu EC '+fmtVnd(r.revenue)+'đ · đã đề nghị chi '+fmtVnd(r.spent)+'đ</div>'
       +brWarn+(over>0.5?'<div class="banner warn" style="margin-top:6px"><div>Cộng đề nghị này, chi phí trên SO là '+fmtVnd(after)+'đ, vượt doanh thu EC '+fmtVnd(over)+'đ. Chỉ cảnh báo, vẫn gửi được; Kế toán sẽ xem.</div></div>':''); }
   function soFieldHTML(d){
-    return fld("ec_sales_order","SO doanh thu (để Kế toán đối chiếu chi phí)",'<div class="so-pick"><input id="payr-so-q" placeholder="Gõ mã SO, mã GBS SO hoặc brand…" autocomplete="off" aria-label="Tìm SO doanh thu" role="combobox" aria-expanded="false" aria-controls="payr-so-list"><div id="payr-so-list" class="so-list" role="listbox" hidden></div></div><div id="payr-so-box">'+soHintHTML(d)+'</div>',true).replace('class="fld','class="fld full'); }
+    return fld("ec_sales_order","SO doanh thu (để Kế toán đối chiếu chi phí)",'<div class="so-pick"><input id="payr-so-q" placeholder="Gõ mã SO, mã GBS SO hoặc brand…" autocomplete="off" aria-label="Tìm SO doanh thu" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="payr-so-list"><div id="payr-so-list" class="so-list" role="listbox" hidden></div></div><div id="payr-so-box">'+soHintHTML(d)+'</div>',true).replace('class="fld','class="fld full'); }
   function refreshSoHint(){ var box=$("payr-so-box"); if(box) box.innerHTML=soHintHTML(state.draft||{}); }
   var _soDocClick=false;
   function wireSoPicker(){ var q=$("payr-so-q"), list=$("payr-so-list"); if(!q||!list) return; var seq=0, t=null, act=-1;
-    function close(){ list.hidden=true; q.setAttribute("aria-expanded","false"); act=-1; }
+    function close(){ list.hidden=true; q.setAttribute("aria-expanded","false"); q.removeAttribute("aria-activedescendant"); act=-1; }
+    // Ket qua cu khong con khop chu dang go: Enter khong duoc chon dong cu (QC3 - go "SO-12" + Enter ra SO-01).
+    function stale(){ act=-1; q.removeAttribute("aria-activedescendant"); list.hidden=false; q.setAttribute("aria-expanded","true");
+      list.innerHTML='<div class="hint" style="padding:8px 12px">Đang tìm…</div>'; }
     function opts(){ return list.querySelectorAll("button.so-row"); }
     function mark(i){ var o=opts(); if(!o.length) return; act=(i+o.length)%o.length;
       for(var j=0;j<o.length;j++){ o[j].classList.toggle("on",j===act); o[j].setAttribute("aria-selected",j===act?"true":"false"); }
-      o[act].scrollIntoView({block:"nearest"}); }
-    function choose(r){ clearTimeout(t); seq++; state._so=r; setModel("ec_sales_order",r.value); clearFieldError("ec_sales_order"); close(); q.value=""; refreshSoHint(); q.focus(); }
+      q.setAttribute("aria-activedescendant",o[act].id); o[act].scrollIntoView({block:"nearest"}); }
+    function choose(r){ clearTimeout(t); seq++; state._so=r; state._soMiss=null; setModel("ec_sales_order",r.value); clearFieldError("ec_sales_order"); close(); q.value=""; refreshSoHint(); q.focus(); }
     function search(){ var my=++seq; var dt=(state.draft||{}).funding_source_doctype||""; act=-1;
       list.hidden=false; q.setAttribute("aria-expanded","true"); list.innerHTML='<div class="hint" style="padding:8px 12px">Đang tìm…</div>';
       call("search_funding_so",{source_doctype:dt,query:q.value||"",exclude_request:state.id||""}).then(function(res){ if(my!==seq) return;
-        var rows=(res&&res.rows)||[], miss=(res&&res.missing)||[]; list.innerHTML="";
-        rows.forEach(function(r){ var b=document.createElement("button"); b.type="button"; b.className="so-row"; b.setAttribute("role","option"); b.tabIndex=-1;
+        var rows=(res&&res.rows)||[], miss=(res&&res.missing)||[]; list.innerHTML=""; q.removeAttribute("aria-activedescendant");
+        rows.forEach(function(r,i){ var b=document.createElement("button"); b.type="button"; b.className="so-row"; b.setAttribute("role","option"); b.tabIndex=-1; b.id="payr-so-opt-"+i;
           b.innerHTML='<b>'+esc(r.label)+'</b><div class="hint">'+esc(r.brand||"—")+' · '+esc(r.date||"")+' · doanh thu EC '+fmtVnd(r.revenue)+'đ · đã đề nghị chi '+fmtVnd(r.spent)+'đ</div>';
           b.onmousedown=function(e){ e.preventDefault(); }; b.onclick=function(){ choose(r); };
           list.appendChild(b); });
-        miss.forEach(function(m){ var x=document.createElement("div"); x.className="so-row"; x.style.cursor="default"; x.innerHTML='<b>'+esc(m.gbs)+'</b> · không chọn được<div class="hint">'+esc(m.reason)+'</div>'; list.appendChild(x); });
+        miss.forEach(function(m){ var x=document.createElement("div"); x.className="so-row off"; x.setAttribute("role","option"); x.setAttribute("aria-disabled","true"); x.innerHTML='<b>'+esc(m.gbs)+'</b> · không chọn được<div class="hint">'+esc(m.reason)+'</div>'; list.appendChild(x); });
         if(!rows.length&&!miss.length) list.innerHTML='<div class="hint" style="padding:8px 12px">Không có SO phù hợp (chỉ hiện SO của bạn / cùng phòng ban).</div>'; })
       .catch(function(e){ if(my!==seq) return; list.innerHTML='<div class="hint" style="padding:8px 12px;color:var(--red)">'+esc(mapErr(e)||"Không tải được SO.")+'</div>'; }); }
     q.addEventListener("focus",function(){ if(list.hidden) search(); });
-    q.addEventListener("input",function(){ clearTimeout(t); t=setTimeout(search,250); });
+    q.addEventListener("input",function(){ clearTimeout(t); stale(); t=setTimeout(search,250); });
+    q.addEventListener("blur",function(){ setTimeout(function(){ if(document.activeElement!==q) close(); },150); });
     q.addEventListener("keydown",function(e){
       if(e.key==="Escape"){ close(); return; }
       if(e.key==="ArrowDown"||e.key==="ArrowUp"){ e.preventDefault(); if(list.hidden){ search(); return; } mark(act<0&&e.key==="ArrowUp"?-1:act+(e.key==="ArrowDown"?1:-1)); return; }
@@ -303,9 +308,12 @@
       if(l&&!l.hidden&&!l.contains(e.target)&&e.target!==qq){ l.hidden=true; if(qq) qq.setAttribute("aria-expanded","false"); } }); }
     // Sua lai de nghi da co SO: lay doanh thu / da chi de hien canh bao nhu luc chon.
     var cur=((state.draft||{}).ec_sales_order||"").toString().trim();
-    if(cur&&!(state._so&&state._so.value===cur)){ var my0=++seq;
-      call("search_funding_so",{source_doctype:(state.draft||{}).funding_source_doctype||"",query:cur,exclude_request:state.id||""}).then(function(res){ if(my0!==seq) return;
-        var rows=(res&&res.rows)||[]; for(var i=0;i<rows.length;i++){ if(rows[i].value===cur){ state._so=rows[i]; refreshSoHint(); break; } } }).catch(function(){ /* doc SO dang gan o nen: loi thi chi thieu dong doanh thu */ }); } }
+    if(cur&&!(state._so&&state._so.value===cur)&&state._soMiss!==cur){ var my0=++seq;
+      call("search_funding_so",{source_doctype:(state.draft||{}).funding_source_doctype||"",query:cur,exclude_request:state.id||""}).then(function(res){
+        // Ve lai form tao picker moi (seq moi) - doi chieu theo SO DANG chon, khong theo seq (QC3).
+        if(my0!==seq||((state.draft||{}).ec_sales_order||"").toString().trim()!==cur) return;
+        var rows=(res&&res.rows)||[], hit=null; for(var i=0;i<rows.length;i++){ if(rows[i].value===cur){ hit=rows[i]; break; } }
+        if(hit){ state._so=hit; refreshSoHint(); } else state._soMiss=cur; }).catch(function(){ /* doc SO dang gan o nen: loi thi chi thieu dong doanh thu */ }); } }
   function srcNameSelectHTML(d){
     var dt=d.funding_source_doctype||"";
     if(!dt) return '<select data-model="funding_source_name" disabled><option value="">— Chọn loại nguồn trước —</option></select>';
@@ -587,6 +595,9 @@
   function resubmitErr(e){ var m=extractServerMsg(e);
     if(/no further action|is Approved|is Rejected|is Cancelled|moved|next level|vừa được cập nhật/i.test(m)) return "Yêu cầu vừa được cập nhật bởi người khác. Vui lòng tải lại.";
     if(/Information Required|is mandatory|is required|bắt buộc|Vui lòng|permission|quyền|Purchase Request/i.test(m)) return m;
+    // Loi nghiep vu cua nguon chi phi (vuot muc duoc chi hop dong KOL, hop dong chua ky, SO khac phong
+    // ban...) la cau tieng Viet cua server: hien nguyen van, giong form hop dong (QC3 12/11).
+    if(m && !(window.EcApprovalUI&&EcApprovalUI.isTechnical&&EcApprovalUI.isTechnical(e)) && !/Traceback|Error:|Exception/.test(m)) return m;
     return "Không thể gửi lại yêu cầu. Vui lòng thử lại hoặc liên hệ quản trị viên."; }
   function friendlyErr(e){ var m=extractServerMsg(e); if(/Quản lý trực tiếp|manager/i.test(m)) return "Bạn chưa có Quản lý trực tiếp trong hệ thống. Vui lòng liên hệ HR/Admin để cập nhật trước khi gửi yêu cầu."; return mapErr(e); }
   function applyBackendError(e){ var m=extractServerMsg(e);
@@ -817,6 +828,17 @@
   function renderDetail(b){ b.innerHTML=skeleton(4); var seq=++state._detailSeq;
     call("get_detail",{name:state.id}).then(function(det){ if(seq!==state._detailSeq) return; drawDetail(b,det); })
     .catch(function(e){ if(seq!==state._detailSeq) return; var m=extractServerMsg(e); var perm=/quyền|access|permission/i.test(m); b.innerHTML='<div class="card"><div class="state"><h4>'+(perm?"Bạn không có quyền xem yêu cầu này":"Không tải được yêu cầu")+'</h4>'+(perm?'':'<div class="hint">'+esc(mapErr(e))+'</div>')+'<button type="button" class="btn" id="d-back">Quay lại</button></div></div>'; var bk=$("d-back"); if(bk)bk.onclick=function(){ window.location.href=hubHref(); }; }); }
+  // Doi chieu SO doanh thu cho nguoi duyet / Ke toan (server tinh, extra.so_check) - QC3 12/11.
+  function soCheckHTML(det,biz){ if(!biz.ec_sales_order) return "";
+    var c=((det||{}).extra||{}).so_check; if(!c) return kv("SO doanh thu",biz.ec_sales_order);
+    var out=kv("SO doanh thu",c.label||biz.ec_sales_order), note="";
+    if(c.missing) note='<div class="banner warn"><div>SO này không còn (đã huỷ hoặc bị xoá). Kế toán kiểm lại.</div></div>';
+    else if(!(Number(c.revenue)>0)) note='<div class="hint">Chưa ghi doanh thu EC nên chưa đối chiếu được · đề nghị khác trên SO: '+fmtVnd(c.spent)+'đ</div>';
+    else { note='<div class="hint">Doanh thu EC '+fmtVnd(c.revenue)+'đ · đề nghị khác trên SO '+fmtVnd(c.spent)+'đ · cộng đề nghị này '+fmtVnd(c.after)+'đ</div>';
+      if(Number(c.over)>0.5) note+='<div class="banner warn" style="margin-top:6px"><div>Chi phí trên SO vượt doanh thu EC '+fmtVnd(c.over)+'đ.</div></div>'; }
+    var br=(biz.ec_brand||"").toString().trim(), sb=(c.brand||"").toString().trim();
+    if(br&&sb&&br.toLowerCase()!==sb.toLowerCase()) note+='<div class="banner warn" style="margin-top:6px"><div>SO của brand <b>'+esc(sb)+'</b>, khác brand của đề nghị (<b>'+esc(br)+'</b>).</div></div>';
+    return out+'<div class="fld full">'+note+'</div>'; }
   function kv(k,v){ return '<div class="fld"><label>'+esc(k)+'</label><input class="ro" readonly value="'+esc(v==null||v===""?"—":v)+'"></div>'; }
   function drawDetail(b,det){ state.detail=det; var biz=det.business||{}, ap=det.approval||{};
     // Chi hoi trang thai ky khi nguoi dung THUC SU la nguoi duyet dang cho - tranh goi thua.
@@ -824,7 +846,7 @@
     b.innerHTML='<div style="margin-bottom:12px"><button type="button" class="btn" id="d-back">‹ Danh sách</button></div>'
       +'<div class="card"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px"><div><h3 style="margin:0">'+esc(biz.request_title||biz.name||state.id)+'</h3><div class="hint">'+esc(biz.name||"")+' · '+esc(biz.payee_full_name||"")+' · '+esc(biz.requested_by||"")+' · '+esc(biz.department||"")+'</div></div><div>'+badge(ap.approval_status||"Draft")+'</div></div></div>'
       +'<div class="card"><h3>Tiến trình phê duyệt</h3>'+instChainHTML(det)+instStepperWrapOpen(det)+'<div class="stepper" id="d-stepper"></div>'+instStepperWrapClose(det)+'</div>'
-      +'<div class="card"><h3>Thông tin thanh toán</h3><div class="grid2">'+kv("Người nhận",biz.payee_full_name)+kv("Số tiền (VND)",biz.payment_amount!=null?fmtMoney(biz.payment_amount):"")+kv("Ngày thanh toán",biz.payment_date)+kv("Ngân hàng",biz.account_bank)+kv("Số tài khoản",biz.bank_account_number)+kv("Loại chi phí",catLabel((state.boot&&state.boot.form_options)||{},biz.ec_loai_chi_phi))+(biz.ec_brand?kv("Brand liên quan",biz.ec_brand):"")+kv("Kỳ ghi nhận chi phí",biz.ec_ky_chi_phi)+kv("Thuế VAT",(String(biz.ec_vat_pct||"0")==="0"?"Không có VAT":String(Number(biz.ec_vat_pct))+"%"))+kv("Có Purchase Request?",biz.has_purchase_request)+kv("Purchase Request",biz.purchase_request)+(biz.ec_sales_order?kv("SO doanh thu",biz.ec_sales_order):"")+kv("Chi phí hợp lệ?",biz.is_cost_valid)+kv("Xác nhận thông tin & tệp",biz.details_and_attachments_correct==="Yes"?"Đã xác nhận":"Chưa xác nhận")+'</div><div class="fld" style="margin-top:10px"><label>Lý do / nội dung thanh toán</label><textarea class="ro" readonly rows="3">'+esc(biz.reason||"")+'</textarea></div>'+(biz.has_purchase_request==="No"?'<div class="fld" style="margin-top:10px"><label>Lý do không có Purchase Request</label><textarea class="ro" readonly rows="2">'+esc(biz.no_purchase_request_reason||"")+'</textarea></div>':'')+'</div>'
+      +'<div class="card"><h3>Thông tin thanh toán</h3><div class="grid2">'+kv("Người nhận",biz.payee_full_name)+kv("Số tiền (VND)",biz.payment_amount!=null?fmtMoney(biz.payment_amount):"")+kv("Ngày thanh toán",biz.payment_date)+kv("Ngân hàng",biz.account_bank)+kv("Số tài khoản",biz.bank_account_number)+kv("Loại chi phí",catLabel((state.boot&&state.boot.form_options)||{},biz.ec_loai_chi_phi))+(biz.ec_brand?kv("Brand liên quan",biz.ec_brand):"")+kv("Kỳ ghi nhận chi phí",biz.ec_ky_chi_phi)+kv("Thuế VAT",(String(biz.ec_vat_pct||"0")==="0"?"Không có VAT":String(Number(biz.ec_vat_pct))+"%"))+kv("Có Purchase Request?",biz.has_purchase_request)+kv("Purchase Request",biz.purchase_request)+soCheckHTML(det,biz)+kv("Chi phí hợp lệ?",biz.is_cost_valid)+kv("Xác nhận thông tin & tệp",biz.details_and_attachments_correct==="Yes"?"Đã xác nhận":"Chưa xác nhận")+'</div><div class="fld" style="margin-top:10px"><label>Lý do / nội dung thanh toán</label><textarea class="ro" readonly rows="3">'+esc(biz.reason||"")+'</textarea></div>'+(biz.has_purchase_request==="No"?'<div class="fld" style="margin-top:10px"><label>Lý do không có Purchase Request</label><textarea class="ro" readonly rows="2">'+esc(biz.no_purchase_request_reason||"")+'</textarea></div>':'')+'</div>'
       +instCardHTML(det)
       +'<div class="card"><h3>Đính kèm</h3>'+renderAttachments(det.attachments)+'</div>'
       +(uncCardVisible(det)?('<div class="card" id="d-unc"><h3>Xử lý UNC (Finance)</h3>'+uncSectionHTML(det)+'</div>'):'')
@@ -1312,7 +1334,17 @@
   // -> "Gui" bao thieu tep du da tai (Hoan 07/09).
   function startEditDraft(det){ var name=((det&&det.business)||{}).name; if(!name){ return _startEditDraftWith(det); }
     call("get_detail",{name:name}).then(function(fresh){ _startEditDraftWith(fresh||det); }).catch(function(e){ toast("Không tải được bản mới nhất: "+mapErr(e)+" — mở bản đang có.",true); _startEditDraftWith(det); }); }
-  function _startEditDraftWith(det){ state.draft=Object.assign({}, det.business||{}); state.id=(det.business||{}).name; state.mode="create";
+  // Mo phieu khac de sua: so du nguon / SO cua phieu truoc khong duoc dung lai (QC3 12/11).
+  function _resetSourceInfo(){ state._fundSummary=null; state._so=null; state._soMiss=null; var d=state.draft||{};
+    if(!(d.funding_source_doctype&&d.funding_source_name)) return;
+    var id=state.id;
+    call("funding_source_summary",{source_doctype:d.funding_source_doctype,source_name:d.funding_source_name,exclude_request:id||""})
+      .then(function(res){ if(!res||state.id!==id) return; state._fundSummary=res;
+        var h=$("payr-fund-hint"), box=document.createElement("div"); box.innerHTML=fundingHintHTML();
+        if(h&&box.firstChild) h.replaceWith(box.firstChild);
+        else { var sel=document.querySelector('#ec-payr-root [data-model="funding_source_name"]'); if(sel&&box.firstChild&&sel.parentNode) sel.parentNode.appendChild(box.firstChild); } })
+      .catch(function(){ /* doc so du nguon o nen khi mo sua: loi thi server van chan luc gui */ }); }
+  function _startEditDraftWith(det){ state.draft=Object.assign({}, det.business||{}); state.id=(det.business||{}).name; state.mode="create"; _resetSourceInfo();
     // dot ke: phan da de nghi o cac dot truoc do server tinh (extra.installments) -> form biet "con lai"
     var ib=instBlock(det); if(ib){ var me=Number(ib.installment_no)||1; state.draft._paid_before=(ib.chain||[]).filter(function(r){ return !r.is_current && Number(r.installment_no)<me && r.approval_status!=="Rejected" && r.approval_status!=="Cancelled"; }).reduce(function(a,r){ return a+(Number(r.payment_amount)||0); },0); } if(state.draft.has_purchase_request==="Yes"){ promoteLegacySource(state.draft); ensurePROptions(function(){ renderCreate($("payr-body")); }); } else { renderCreate($("payr-body")); } }
   function doSubmitDraft(name){ if(state.busy)return; state.busy=true; var btns=Array.prototype.slice.call(document.querySelectorAll('[data-act="submitdraft"],[data-act="editdraft"]')); btns.forEach(function(b){ b.disabled=true; });
@@ -1321,14 +1353,14 @@
     var ia=(det.approvers||[]).filter(function(a){return a.status==="Information Requested";})[0]||{};
     state._infoCtx={ level:(lvl?lvl.level_name:ap.information_requested_from_level), approver:ia.approver, comment:ia.comment };
     state._editDet=det; state.draft=Object.assign({}, det.business||{}); state.id=det.business.name; state.mode="edit";
-    _setEditingFlag(true);
+    _setEditingFlag(true); _resetSourceInfo();
     if(state.draft.has_purchase_request==="Yes"){ promoteLegacySource(state.draft); ensurePROptions(function(){ renderCreate($("payr-body")); }); } else { renderCreate($("payr-body")); } }
 
   function boot(){ ensureActionHandlers(); var t=$("payr-tabs"); if(t){ t.addEventListener("click",function(e){ var b=e.target.closest("[data-tab]"); if(b&&!b.disabled){ state.page=0; go({tab:b.getAttribute("data-tab")}); } }); }
     call("get_bootstrap").then(function(bd){ state.boot=bd||{tabs:{},context:{},form_options:{}}; route(); })
     .catch(function(e){ var bd=$("payr-body"); if(bd) bd.innerHTML='<div class="card"><div class="state"><h4>Không tải được trang</h4><div class="hint">'+esc(mapErr(e))+'</div><button type="button" class="btn" id="b-retry">Thử lại</button></div></div>'; var r=$("b-retry"); if(r)r.onclick=boot; }); }
 
-  window.PaymentRequest={ state:state, soHintHTML:soHintHTML, fundingHintHTML:fundingHintHTML, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, ensurePROptions:ensurePROptions, renderCreate:renderCreate, doApproveAndSign:doApproveAndSign, loadSignReady:loadSignReady, callEsign:callEsign, handleHPRChange:handleHPRChange, handleSrcTypeChange:handleSrcTypeChange, handleSrcPick:handleSrcPick, promoteLegacySource:promoteLegacySource, fmtVnd:fmtVnd, startSignWait:startSignWait, stopSignWait:stopSignWait, signWaitActive:signWaitActive, uncStep:uncStep, uncSectionHTML:uncSectionHTML, uncCardVisible:uncCardVisible, doUncComplete:doUncComplete, instChainHTML:instChainHTML, instCardHTML:instCardHTML, instFolded:instFolded, installmentRemaining:installmentRemaining, formCardsHTML:formCardsHTML };
+  window.PaymentRequest={ state:state, soHintHTML:soHintHTML, soCheckHTML:soCheckHTML, fundingHintHTML:fundingHintHTML, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, ensurePROptions:ensurePROptions, renderCreate:renderCreate, doApproveAndSign:doApproveAndSign, loadSignReady:loadSignReady, callEsign:callEsign, handleHPRChange:handleHPRChange, handleSrcTypeChange:handleSrcTypeChange, handleSrcPick:handleSrcPick, promoteLegacySource:promoteLegacySource, fmtVnd:fmtVnd, startSignWait:startSignWait, stopSignWait:stopSignWait, signWaitActive:signWaitActive, uncStep:uncStep, uncSectionHTML:uncSectionHTML, uncCardVisible:uncCardVisible, doUncComplete:doUncComplete, instChainHTML:instChainHTML, instCardHTML:instCardHTML, instFolded:instFolded, installmentRemaining:installmentRemaining, formCardsHTML:formCardsHTML };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
 </script>

@@ -157,6 +157,8 @@ class TestMoiNhanhLoiDeuBocThongDiepMayChu(unittest.TestCase):
                                    "picker, loi thi giu so tam, khong lam phien nguoi dung"),
         ("doc SO dang gan o nen", "sua DNTT da co SO: doc doanh thu / da chi o nen; loi thi o SO van "
                                   "hien ma SO, chi thieu dong doi chieu - khong chan nguoi dung"),
+        ("doc so du nguon o nen khi mo sua", "mo sua DNTT: doc lai so du nguon o nen; loi thi chi thieu dong "
+                                             "goi y, server van chan vuot muc luc gui"),
         ("ok.disabled=false", "modal: onConfirm da toast loi cua chinh no; day chi mo lai nut OK"),
         ("state._signReady=null", "loadSignReady: tham do readiness o nen; loi thi actionPanelHTML "
                                   "hien CA HAI nut, nguoi duyet khong bi ket"),

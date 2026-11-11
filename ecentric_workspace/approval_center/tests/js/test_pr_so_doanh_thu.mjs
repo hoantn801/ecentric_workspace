@@ -92,6 +92,22 @@ ok(!v.ec_sales_order, "nguon khac: khong doi SO");
 // --- 4. o loi SO co trong danh sach truong de cuon / to do ---
 ok(/var FIELD_IDS=\[[^\]]*"ec_sales_order"/.test(SRC), "FIELD_IDS co ec_sales_order (loi SO duoc to do / cuon toi)");
 
+// --- 5. trang chi tiet: doi chieu SO cho nguoi duyet / Ke toan (QC3) ---
+const biz = { ec_sales_order: "SO-1", ec_brand: "Brand A" };
+h = PR.soCheckHTML({ extra: { so_check: { value: "SO-1", label: "SO-1 · Brand A", brand: "Brand A", revenue: 10000000, spent: 6000000, after: 11000000, over: 1000000 } } }, biz);
+ok(/Doanh thu EC 10\.000\.000đ/.test(h) && /vượt doanh thu EC 1\.000\.000đ/.test(h), "chi tiet: hien doanh thu + phan vuot");
+h = PR.soCheckHTML({ extra: { so_check: { value: "SO-1", label: "SO-1", brand: "Brand B", revenue: 0, spent: 0, after: 1, over: 0 } } }, biz);
+ok(/Chưa ghi doanh thu EC/.test(h) && /khác brand/.test(h) && !/vượt/.test(h), "chi tiet: SO chua co doanh thu + lech brand");
+h = PR.soCheckHTML({ extra: { so_check: { value: "SO-1", label: "SO-1", missing: true } } }, biz);
+ok(/không còn/.test(h), "chi tiet: SO da huy");
+ok(PR.soCheckHTML({}, {}) === "", "khong co SO: khong hien gi");
+
+// --- 6. gui lai: loi nghiep vu tieng Viet cua server hien nguyen van (QC3) ---
+const em = (m) => ({ _server_messages: JSON.stringify([JSON.stringify({ message: m })]) });
+const msg = "Số tiền 9.000.000đ vượt mức được chi của hợp đồng EC-CTR-1 (còn 4.000.000đ).";
+const got = PR.resubmitErr(em(msg));
+ok(got.indexOf("vượt mức được chi") >= 0, "resubmit: loi vuot muc hop dong KOL hien nguyen van (" + got + ")");
+
 console.log(`${pass} dat, ${fail} hong`);
-if (pass < 13) { console.log("HONG: so phep kiem thap bat thuong (" + pass + ")"); process.exit(1); }
+if (pass < 18) { console.log("HONG: so phep kiem thap bat thuong (" + pass + ")"); process.exit(1); }
 process.exit(fail ? 1 : 0);

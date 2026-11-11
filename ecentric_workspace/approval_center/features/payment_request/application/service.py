@@ -601,5 +601,13 @@ def detail_extra(business, request):
     """detail_extender cua phieu thanh toan: chuoi chia dot + duong thay file UNC."""
     out = dict(installments_block(business, request))
     out.update(unc_fix_block(business, request))
+    # Canh bao "vuot doanh thu SO" luc lap phieu noi "Ke toan se xem": day la cho Ke toan xem (QC3).
+    try:
+        chk = funding.so_check(business)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "payment_request so_check")
+        chk = None
+    if chk:
+        out["so_check"] = chk
     return out
 

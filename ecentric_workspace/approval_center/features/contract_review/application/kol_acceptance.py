@@ -49,8 +49,9 @@ def add_acceptance(name, user, description, acceptance_date=None, amount=None):
     if planned + amount > flt(doc.payable_amount) + 0.5:
         frappe.throw(_("Tổng các đợt nghiệm thu và tiền cọc vượt số tiền trả creator ({0}).")
                      .format(kol.fmt_money(doc.payable_amount)))
+    acceptance_date = _check_acceptance_date(doc, acceptance_date or nowdate())
     row = doc.append("acceptances", {"description": (description or "").strip()[:140] or "Nghiệm thu",
-                                     "acceptance_date": acceptance_date or nowdate(),
+                                     "acceptance_date": acceptance_date,
                                      "amount": amount, "status": kol.BBNT_DRAFT})
     doc.save(ignore_permissions=True)
     row = _row(doc, row.name)
@@ -61,6 +62,23 @@ def add_acceptance(name, user, description, acceptance_date=None, amount=None):
     from ecentric_workspace.approval_center.features.contract_review.domain import kol_values
     return {"row": row.name, "bbnt_file": url, "missing": missing,
             "missing_labels": kol_values.missing_labels(missing)}
+
+
+def _check_acceptance_date(doc, value):
+    """Ngay in tren BBNT: khong truoc ngay ky hop dong, khong o tuong lai (QC3 12/11 - truoc do nhan
+    bat ky ngay nao, BBNT co the ghi nghiem thu truoc khi ky hop dong)."""
+    import datetime as _dt
+    try:
+        day = _dt.date.fromisoformat(str(value)[:10])
+    except ValueError:
+        frappe.throw(_("Ngày nghiệm thu không hợp lệ."))
+    if day > _dt.date.fromisoformat(str(nowdate())[:10]):
+        frappe.throw(_("Ngày nghiệm thu không được ở tương lai."))
+    signed = str(doc.get("contract_date") or "")[:10]
+    if signed and day < _dt.date.fromisoformat(signed):
+        frappe.throw(_("Ngày nghiệm thu ({0}) trước ngày ký hợp đồng ({1}).").format(
+            day.strftime("%d/%m/%Y"), _dt.date.fromisoformat(signed).strftime("%d/%m/%Y")))
+    return str(day)
 
 
 def delete_acceptance(name, user, row_name):
@@ -102,12 +120,18 @@ def send_acceptance(name, user, row_name):
                        "lại - hệ thống tạo lại BBNT theo dữ liệu mới.").format(
             row.idx, ", ".join(kol_values.missing_labels(missing))))
     # Tep gui ky = tep sinh tu du lieu HIEN TAI (creator co the vua duoc bo sung sau khi tao dot):
-    # kiem mot ban ma gui ban khac la chinh loi QC 12/11.
+    # kiem mot ban ma gui ban khac la chinh loi QC 12/11. Frappe gop tep trung noi dung -> du lieu
+    # khong doi thi URL giu nguyen. URL DOI = noi dung khac ban nguoi dung da tai / gui creator:
+    # KHONG danh dau da gui (ban creator dang cam khong phai ban nay), giu ca tep cu lam vet (QC3).
     old = row.bbnt_file
-    row.bbnt_file = kol_files.attach(doc, "BBNT_%s_dot%s.docx" % (kol_files._safe(doc.contract_no), row.idx),
-                                     content)
-    if old and old != row.bbnt_file:
-        kol_files._drop_generated(doc, old, prefix="BBNT_", keep_if_sent=False)
+    new = kol_files.attach(doc, "BBNT_%s_dot%s.docx" % (kol_files._safe(doc.contract_no), row.idx), content)
+    if old and new != old:
+        row.bbnt_file = new
+        doc.save(ignore_permissions=True)
+        doc.add_comment("Info", _("BBNT đợt {0} được tạo lại theo dữ liệu mới (bản cũ vẫn đính kèm: {1}).")
+                        .format(row.idx, old))
+        return {"status": row.status, "regenerated": True, "bbnt_file": new}
+    row.bbnt_file = new
     row.status = kol.BBNT_SENT
     doc.save(ignore_permissions=True)
     return {"status": row.status}
@@ -118,6 +142,12 @@ def complete_acceptance(name, user, row_name, signed_file):
     row = _row(doc, row_name)
     if row.status == kol.BBNT_DONE:
         frappe.throw(_("Đợt này đã hoàn tất."))
+    if row.status == kol.BBNT_REVIEW:
+        frappe.throw(_("Đợt này đang chờ Kế toán kiểm bản ký."))
+    if row.status != kol.BBNT_SENT:
+        # Bo qua buoc gui ky = bo qua kiem thieu thong tin + tao lai BBNT (QC3).
+        frappe.throw(_("Bấm \"Đánh dấu đã gửi ký\" trước (hệ thống kiểm và tạo lại BBNT theo dữ liệu "
+                       "mới), rồi mới tải bản ký."))
     if not is_signed(doc):
         frappe.throw(_("Hợp đồng chưa được xác nhận ký đủ."))
     if not (signed_file or "").lower().endswith(".pdf"):

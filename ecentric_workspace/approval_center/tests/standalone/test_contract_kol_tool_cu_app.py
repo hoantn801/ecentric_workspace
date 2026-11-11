@@ -258,6 +258,44 @@ class AppTests(unittest.TestCase):
                                                          self._tpl("HD-CN", "Hợp đồng", "Cá nhân")]
         self.assertEqual(self.lookup.pick_template("Hợp đồng", "Cá nhân", None, False, "TikTok"), "HD-CN")
 
+    # ---------------------------------------------------------- QC vong 3
+    def test_hoan_tat_bbnt_phai_qua_buoc_gui_ky(self):
+        acc = importlib.import_module(PKG + ".kol_acceptance")
+        row = FakeDoc(name="r1", idx=1, status=acc.kol.BBNT_DRAFT)
+        self._patch(acc, _load=lambda n, u: FakeDoc(), _row=lambda d, r: row)
+        for st, word in ((acc.kol.BBNT_DRAFT, "Đánh dấu đã gửi ký"), (acc.kol.BBNT_REVIEW, "Kế toán")):
+            row.status = st
+            with self.assertRaises(_Throw) as cm:
+                acc.complete_acceptance("CR-1", "a@ecentric.vn", "r1", "/s.pdf")
+            self.assertIn(word, str(cm.exception))
+
+    def test_ngay_nghiem_thu_khong_truoc_ngay_ky_khong_o_tuong_lai(self):
+        acc = importlib.import_module(PKG + ".kol_acceptance")
+        doc = FakeDoc(contract_date="2026-11-05")
+        self.assertEqual(acc._check_acceptance_date(doc, "2026-11-10"), "2026-11-10")
+        for bad in ("2026-11-01", "2026-11-13", "10/11/2026"):
+            with self.assertRaises(_Throw):
+                acc._check_acceptance_date(doc, bad)
+
+    def test_xem_truoc_khong_doc_phieu_nguoi_khac(self):
+        self.state["stored"]["CR-X"] = {"requested_by": "b@ecentric.vn", "creation": "2025-01-10 09:00:00"}
+        self._patch(self.svc.kol_lookup, is_finance=lambda u: False)
+        # Phieu cua nguoi khac tao 01/2025: neu dung moc cua no thi "05/01" ra 2025; bo qua -> moc hom nay.
+        r = self.svc.preview_dates("05/01", None, None, None, "CR-X", "a@ecentric.vn")
+        self.assertEqual(r["dates"], ["05/01/2027"])
+        r = self.svc.preview_dates("05/01", None, None, None, "CR-X", "b@ecentric.vn")
+        self.assertEqual(r["dates"], ["05/01/2025"])
+        r = self.svc.preview_dates("05/12/2026", "12-11-2026", None, None)       # ngay ky sai dang: khong 500
+        self.assertTrue(r["ok"])
+
+    def test_chua_co_mau_bbnt_khong_khuyen_dung_mau_creator(self):
+        self.state["get_all"]["EC Contract Template"] = []
+        with self.assertRaises(_Throw) as cm:
+            self.files.template_for(FakeDoc(creator_type="Cá nhân", service_type="Video", platform="TikTok"),
+                                    self.files.KIND_BBNT)
+        self.assertNotIn("mẫu của creator", str(cm.exception))
+        self.assertIn("mẫu BBNT", str(cm.exception))
+
     # ---------------------------------------------------------- QC vong 2
     def _patch(self, obj, **kw):
         olds = {k: getattr(obj, k) for k in kw}
@@ -288,8 +326,17 @@ class AppTests(unittest.TestCase):
         self._patch(self.files, acceptance_content=lambda d, r, c, tpl=None: (b"new", []),
                     attach=lambda d, fn, c: "/new.docx",
                     _drop_generated=lambda d, url, prefix="", keep_if_sent=True: dropped.append(url))
-        acc.send_acceptance("CR-1", "a@ecentric.vn", "r1")
-        self.assertEqual((row.bbnt_file, row.status, dropped, saved), ("/new.docx", acc.kol.BBNT_SENT, ["/old.docx"], [1]))
+        comments = []
+        doc.add_comment = lambda kind, text: comments.append(text)
+        # Noi dung DOI (URL moi): KHONG danh dau da gui - ban creator dang cam khong phai ban nay; giu
+        # tep cu lam vet, ghi chu (QC3).
+        r = acc.send_acceptance("CR-1", "a@ecentric.vn", "r1")
+        self.assertEqual((row.bbnt_file, row.status, dropped, r.get("regenerated")),
+                         ("/new.docx", acc.kol.BBNT_DRAFT, [], True))
+        self.assertTrue(comments and "/old.docx" in comments[0])
+        # Bam lai (noi dung khong doi -> cung URL): moi danh dau da gui.
+        r = acc.send_acceptance("CR-1", "a@ecentric.vn", "r1")
+        self.assertEqual((row.status, r.get("regenerated")), (acc.kol.BBNT_SENT, None))
         # Con thieu (creator chua co CCCD): chan, bao nhan tieng Viet, khong doi tep.
         row.status, row.bbnt_file = acc.kol.BBNT_DRAFT, "/old.docx"
         self._patch(self.files, acceptance_content=lambda d, r, c, tpl=None: (b"x", ["PERSON_ID_NO"]))

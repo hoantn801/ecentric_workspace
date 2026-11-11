@@ -96,7 +96,8 @@ def parse_service_dates(text, today):
 
     `today` = ngay moc (ngay tao phieu). Ngay ghi du nam thi giu nguyen (kiem nam hop ly); ngay khong
     ghi nam thi lay lan gan nhat voi moc (xem _nearest)."""
-    raw = re.sub(r"\s+", " ", str(text or "").strip())
+    # Dan cot tu Sheets = moi ngay mot dong: xuong dong coi nhu dau phay (truoc QC3 bi gop thanh dau cach -> loi).
+    raw = re.sub(r"\s+", " ", re.sub(r"\s*[\r\n]+\s*", ", ", str(text or "").strip()))
     if not raw:
         return []
     if _RANGE.search(raw):

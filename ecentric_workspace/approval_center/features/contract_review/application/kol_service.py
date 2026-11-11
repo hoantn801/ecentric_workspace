@@ -95,7 +95,7 @@ def _stored(doc, fields):
     is_new = getattr(doc, "is_new", None)
     if not doc.get("name") or (callable(is_new) and is_new()):
         return {}
-    return frappe.db.get_value(kol_lookup.CR_DT, doc.name, fields, as_dict=True) or {}
+    return frappe.db.get_value(kol_lookup.CR_DT, doc.get("name"), fields, as_dict=True) or {}
 
 
 def _default_payment_days(doc):
@@ -177,11 +177,22 @@ def expected_bbnt_date(doc):
     return kol_texts.business_day_after(None, dates[-1], kol_lookup.holidays()) if dates else None
 
 
-def preview_dates(air_dates, contract_date=None, creator=None, brand=None, name=None):
+def preview_dates(air_dates, contract_date=None, creator=None, brand=None, name=None, user=None):
     """Form goi khi go "Ngay thuc hien": ngay doc duoc, ngay ky du kien, so HD du kien - de
-    nguoi dung thay ngay he thong hieu sai (vd thieu nam) TRUOC khi tao hop dong (QC 12/11)."""
-    created = frappe.db.get_value(kol_lookup.CR_DT, name, "creation") if name else None
+    nguoi dung thay ngay he thong hieu sai (vd thieu nam) TRUOC khi tao hop dong (QC 12/11).
+
+    `name` chi dung khi `user` quan ly duoc phieu do (nguoi lap / Ke toan): khong cho doc lich /
+    ngay ky cua phieu nguoi khac qua endpoint nay (QC3)."""
+    if name:
+        own = frappe.db.get_value(kol_lookup.CR_DT, name, ["requested_by", "creation"], as_dict=True)
+        if not own or (user and own.get("requested_by") != user and not kol_lookup.is_finance(user)):
+            name = None
+    created = own.get("creation") if name else None
     ref = datetime.date.fromisoformat(str(created)[:10]) if created else _today()
+    try:
+        picked = datetime.date.fromisoformat(str(contract_date)[:10]) if contract_date else None
+    except ValueError:
+        picked, contract_date = None, None
     try:
         dates = kol.service_dates({"air_dates": air_dates}, ref)
     except ValueError as e:
@@ -189,8 +200,7 @@ def preview_dates(air_dates, contract_date=None, creator=None, brand=None, name=
     if not dates:
         return {"ok": True, "dates": []}
     # Cung luat voi luc luu (set_sign_date): ngay dang la ngay tu tinh thi xem truoc theo lich moi.
-    chosen = _user_sign_date({"name": name, "creation": created}, contract_date) if name else (
-        datetime.date.fromisoformat(str(contract_date)[:10]) if contract_date else None)
+    chosen = _user_sign_date({"name": name, "creation": created}, contract_date) if name else picked
     sign = kol_texts.business_day_before(chosen, dates[0], kol_lookup.holidays())
     out = {"ok": True, "dates": [d.strftime("%d/%m/%Y") for d in dates], "sign_date": sign.strftime("%d/%m/%Y")}
     row = creator_row(creator) if creator else None

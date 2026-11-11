@@ -46,7 +46,7 @@
   },
   "approval_center/features/contract_review/ui/main_section.html": {
     "last_resync_patch": "p364_resync_contract_review_mau_tool_cu",
-    "sha256": "3e8c917f6863ffc0f4fc53ae91d128f56bdd0f69b4ae5df9dab2fcd5b5dd61b7"
+    "sha256": "1e2633a7f69a91a4af5c0bc4c936787118cc0c2fbb254a7f00b783e667c1a0cc"
   },
   "approval_center/features/daily_target/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -113,7 +113,7 @@
   },
   "approval_center/features/payment_request/ui/main_section.html": {
     "last_resync_patch": "p364_resync_contract_review_mau_tool_cu",
-    "sha256": "370231ed20f32980683a4b508f0dd3d74ce7ea6e91044e8377a02a1c89c61df9"
+    "sha256": "ef32725bc6a483380cdd47de27cd891e17da265d15b64c6de0ab0c0156206d32"
   },
   "approval_center/features/promotion/ui/main_section.html": {
     "baseline": "2026-08-31",

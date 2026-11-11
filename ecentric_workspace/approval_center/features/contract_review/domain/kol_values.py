@@ -9,6 +9,7 @@ Thuan Python, khong goi frappe. `creator` la ban ghi day du (co PII): chi goi tu
 sinh tep, khong tra ra client.
 """
 import datetime as _dt
+import re
 
 from ecentric_workspace.approval_center.features.contract_review.domain import kol_texts as T
 from ecentric_workspace.approval_center.features.contract_review.domain.kol_work_texts import (
@@ -128,7 +129,12 @@ def contract_values(doc, creator, brand_code, sign_date, service_dates, bbnt_dat
     # "Yeu cau bo sung" (service_detail cua tool cu): form 27 chua co o rieng -> de trong, dong
     # ADVANCE_CUSTOM_DETAIL_LINE bi xoa ca doan nhu tool cu khi rong.
     duration, custom = doc.get("duration") or "", doc.get("service_detail") or ""
-    work = work_texts(kind, brand, channel_url, dates, quantity, duration, custom, shopee) if dates else {}
+    # Mo ta cong viec / thanh toan KHONG phu thuoc ngay: phai co ca khi khong doc duoc ngay (affiliate, phieu
+    # cu ghi chu tu do) - truoc QC3 bo trong, BBNT di ky voi dong mo ta trang ma khong ai bao.
+    work = dict(work_texts(kind, brand, channel_url, dates, quantity, duration, custom, shopee))
+    if not dates and work.get("detailParagraph"):
+        when = re.sub(r"\s+", " ", str(doc.get("air_dates") or "")).strip() or "theo thỏa thuận giữa hai bên"
+        work["detailParagraph"] = work["detailParagraph"].replace(": .", ": " + when + ".")
     adv = advance_texts(kind, brand, channel_url, dates, quantity, duration, custom) if dates else {}
     rep = (creator.get("ec_cr_representative_name") or "").strip()
     signatory = T.strip_honorific(rep) if ctype in ("Công ty", "Hộ kinh doanh") else name
@@ -301,7 +307,9 @@ DATE_FIELDS = ("SERVICE_START_SLASH", "SERVICE_DATES_DISPLAY")
 def empty_required(values, used, creator_type, service_type=None):
     need = set(REQUIRED_WHEN_USED["_all"]) | set(REQUIRED_WHEN_USED.get(creator_type, ())) | set(ADVANCE_REQUIRED)
     if service_type == "Hoa hồng affiliate":
-        need -= set(DATE_FIELDS)
+        # Affiliate khong co ngay thuc hien -> khong co ngay BBNT du kien tren hop dong (BBNT that thi
+        # mang ngay nghiem thu cua dot, luon co).
+        need -= set(DATE_FIELDS) | {"BBNT_DAY"}
     return [k for k in used if k in need and not str(values.get(k) or "").strip()]
 
 

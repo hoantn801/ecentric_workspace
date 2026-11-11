@@ -75,6 +75,7 @@ _SOURCES = {
         # SO doanh thu chon tren DNTT (anh Hoan 12/11) - tim SO + kiem luc nop thuoc hop dong.
         "so_fn": _KOL + "funding_so_search",
         "validate_fn": _KOL + "funding_validate",
+        "so_info_fn": _KOL + "funding_so_info",
         "extra_filters": {"contract_type": "KOL/KOC / Creator (EC)"},
     },
 }
@@ -165,6 +166,23 @@ def search_revenue_so(source_doctype, query=None, exclude_request=None, user=Non
     for r in rows:
         r["spent"] = spent.get(r["value"], 0.0)
     return {"rows": rows, "missing": out.get("missing") or []}
+
+
+def so_check(doc):
+    """Doi chieu SO doanh thu cua MOT DNTT cho nguoi duyet / Ke toan (trang chi tiet): doanh thu
+    EC, da de nghi chi tren SO (khong tinh DNTT nay) va phan vuot. None = nguon khong co SO."""
+    meta = _SOURCES.get(doc.get("funding_source_doctype") or "") or {}
+    so = (doc.get("ec_sales_order") or "").strip()
+    if not (meta.get("so_info_fn") and so):
+        return None
+    info = frappe.get_attr(meta["so_info_fn"])(so)
+    if not info:
+        return {"value": so, "label": so, "missing": True}
+    others = so_spent([so], doc.get("name")).get(so, 0.0)
+    after = others + float(doc.get("payment_amount") or 0)
+    revenue = float(info.get("revenue") or 0)
+    return dict(info, value=so, spent=others, after=after,
+                over=(after - revenue) if revenue > 0 else 0.0)
 
 
 def so_spent(names, exclude_request=None):

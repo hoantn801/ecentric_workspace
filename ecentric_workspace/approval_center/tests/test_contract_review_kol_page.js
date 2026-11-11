@@ -155,7 +155,9 @@ function detailPart(){
     const b=w2.document.getElementById("ctr-body").innerHTML;
     chk("chi tiet: khoi KOL + canh bao doanh thu + so HD", /Hợp đồng KOL\/KOC/.test(b)&&/vượt doanh thu EC/.test(b)&&/15032026\/HDDV/.test(b));
     chk("chi tiet: AI QC hien so lieu lech + dieu khoan rui ro", /Không thấy trong tệp/.test(b)&&/Bỏ điều khoản phạt/.test(b)&&/Thanh toán 100% trước/.test(b));
-    chk("chi tiet: BBNT + tran chi + nut tao BBNT", /Livestream T12/.test(b)&&/Được phép chi/.test(b)&&/Đánh dấu đã gửi ký|Hoàn tất…/.test(b)&&!/kol-accf-/.test(b)&&/data-kol="addacc"/.test(b)&&/data-kol="doneacc"/.test(b));
+    chk("chi tiet: BBNT + tran chi + nut tao BBNT", /Livestream T12/.test(b)&&/Được phép chi/.test(b)&&/data-kol="sendacc"/.test(b)&&!/kol-accf-/.test(b)&&/data-kol="addacc"/.test(b));
+    // QC3: dot NHAP chua co nut Hoan tat - phai qua "Danh dau da gui ky" (kiem thieu + tao lai BBNT) truoc.
+    chk("BBNT nhap: chua cho Hoan tat (bo qua buoc kiem)", !/data-kol="doneacc"/.test(b));
     chk("da duyet: khong con nut tao lai hop dong", !/data-kol="gen"/.test(b));
     chk("BBNT: nut Hoan tat mo modal (khong o tep trong bang) + nut Xoa dot nhap", /data-kol="delacc"/.test(b));
     creatorsTab();

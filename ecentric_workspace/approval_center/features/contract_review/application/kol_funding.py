@@ -83,6 +83,16 @@ def funding_so_search(user, query=None):
             "missing": kol_lookup.gbs_without_counterpart(user, query)}
 
 
+def funding_so_info(name):
+    """SO dang gan tren DNTT (trang chi tiet - nguoi xem da duoc quyen xem DNTT): nhan, brand,
+    doanh thu EC. None = SO khong con / da huy."""
+    row = kol_lookup.so_row(name)
+    if not row:
+        return None
+    return {"label": kol_lookup.so_label(row), "brand": row.get("ec_brand") or "",
+            "revenue": float(row.get("net_total") or 0)}
+
+
 def funding_validate(pr, user):
     """Luc nop DNTT tu hop dong KOL: bat buoc SO doanh thu va nguoi lap duoc dung SO do."""
     so = (pr.get("ec_sales_order") or "").strip()

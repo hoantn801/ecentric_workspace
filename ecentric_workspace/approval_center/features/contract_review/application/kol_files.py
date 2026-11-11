@@ -82,11 +82,13 @@ def template_for(doc, kind):
     name = kol_lookup.pick_template(kind, doc.get("creator_type"), doc.get("service_type"),
                                     doc.get("payment_schedule") == kol.PAY_ADVANCE, doc.get("platform"))
     if not name:
-        frappe.throw(_("Chưa có mẫu {0} đang dùng cho creator {1} / {2}{3}{4}. Nhờ Kế toán thêm mẫu, "
-                       "hoặc dùng mẫu của creator.").format(
+        # BBNT khong co duong "mau cua creator": chi Ke toan them mau moi go duoc (QC3).
+        tail = _("Nhờ Kế toán thêm mẫu, hoặc dùng mẫu của creator.") if kind == KIND_CONTRACT else _(
+            "Nhờ Kế toán thêm mẫu BBNT phù hợp rồi tạo lại đợt nghiệm thu.")
+        frappe.throw(_("Chưa có mẫu {0} đang dùng cho creator {1} / {2}{3}{4}. ").format(
             kind, doc.get("creator_type") or "?", doc.get("service_type") or "?",
             " / Shopee" if doc.get("platform") == "Shopee" else "",
-            " / có cọc" if kind == KIND_CONTRACT and doc.get("payment_schedule") == kol.PAY_ADVANCE else ""))
+            " / có cọc" if kind == KIND_CONTRACT and doc.get("payment_schedule") == kol.PAY_ADVANCE else "") + tail)
     return name
 
 
