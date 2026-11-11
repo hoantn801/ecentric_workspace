@@ -252,6 +252,52 @@ class AppTests(unittest.TestCase):
         self.assertEqual(pick(H, "Cá nhân", "Livestream", False, "TikTok"), "HD-CN-LIVE")
 
 
+    def test_chon_mau_khi_chua_chon_dich_vu_khong_loi(self):
+        # QC2: service_type rong tung lam want.index() nem ValueError.
+        self.state["get_all"]["EC Contract Template"] = [self._tpl("HD-CN-VIDEO", "Hợp đồng", "Cá nhân", "Video"),
+                                                         self._tpl("HD-CN", "Hợp đồng", "Cá nhân")]
+        self.assertEqual(self.lookup.pick_template("Hợp đồng", "Cá nhân", None, False, "TikTok"), "HD-CN")
+
+    # ---------------------------------------------------------- QC vong 2
+    def _patch(self, obj, **kw):
+        olds = {k: getattr(obj, k) for k in kw}
+        for k, v in kw.items():
+            setattr(obj, k, v)
+        self.addCleanup(lambda: [setattr(obj, k, v) for k, v in olds.items()])
+
+    def test_doi_sang_mau_creator_xoa_ket_qua_dien_mau_ec(self):
+        s = self.svc
+        self._patch(s, creator_row=lambda n: {"ec_cr_type": "Cá nhân", "supplier_name": "A"},
+                    prepare_draft=lambda d: None, apply_amounts=lambda d, strict=False: None,
+                    assign_number=lambda d, c: None)
+        self._patch(s.kol, validate_kol=lambda d, t, today=None: [])
+        doc = FakeDoc(name="CR-5", creator="SUP-1", request_type=s.kol.TEMPLATE_PARTNER, request_attachment="/f.pdf",
+                      missing_placeholders="CONTRACT_NO", contract_fingerprint="x", generated_template="T")
+        s.validate_submit(doc)            # khong nem "con thieu" vi ket qua mau EC cu
+        self.assertEqual((doc.missing_placeholders, doc.contract_fingerprint, doc.generated_template),
+                         (None, None, None))
+        self.assertIsNone(doc.revenue_warning)
+
+    def test_gui_bbnt_sinh_lai_tep_theo_du_lieu_moi(self):
+        acc = importlib.import_module(PKG + ".kol_acceptance")
+        row = FakeDoc(idx=1, status=acc.kol.BBNT_DRAFT, bbnt_file="/old.docx")
+        saved, dropped = [], []
+        doc = FakeDoc(contract_no="X/1", creator="SUP-1")
+        doc.save = lambda ignore_permissions=False: saved.append(1)
+        self._patch(acc, _load=lambda n, u: doc, _row=lambda d, r: row, creator_row=lambda n: {"ec_cr_type": "Cá nhân"})
+        self._patch(self.files, acceptance_content=lambda d, r, c, tpl=None: (b"new", []),
+                    attach=lambda d, fn, c: "/new.docx",
+                    _drop_generated=lambda d, url, prefix="", keep_if_sent=True: dropped.append(url))
+        acc.send_acceptance("CR-1", "a@ecentric.vn", "r1")
+        self.assertEqual((row.bbnt_file, row.status, dropped, saved), ("/new.docx", acc.kol.BBNT_SENT, ["/old.docx"], [1]))
+        # Con thieu (creator chua co CCCD): chan, bao nhan tieng Viet, khong doi tep.
+        row.status, row.bbnt_file = acc.kol.BBNT_DRAFT, "/old.docx"
+        self._patch(self.files, acceptance_content=lambda d, r, c, tpl=None: (b"x", ["PERSON_ID_NO"]))
+        with self.assertRaises(_Throw) as cm:
+            acc.send_acceptance("CR-1", "a@ecentric.vn", "r1")
+        self.assertNotIn("PERSON_ID_NO", str(cm.exception))
+        self.assertEqual(row.bbnt_file, "/old.docx")
+
 class FillRealTemplate(unittest.TestCase):
     """Dien mau BBNT ca nhan that cua Ke toan (van ban lay tu Google Docs 12/11, giu nguyen ten <<...>>)."""
     BBNT_PERSON = [

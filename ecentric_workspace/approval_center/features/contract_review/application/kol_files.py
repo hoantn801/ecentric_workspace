@@ -144,7 +144,7 @@ def build_contract(doc):
         return {"contract_file": doc.contract_file, "contract_no": doc.contract_no, "missing": miss,
                 "missing_labels": kol_values.missing_labels(miss), "template": tpl.name, "regenerated": False}
     data = file_bytes(tpl.template_file)
-    content, missing = _fill(data, values, doc.get("creator_type"))
+    content, missing = _fill(data, values, doc)
     old = doc.get("contract_file")
     # Mau he thong tu chon thi KHONG ghi vao contract_template (do la o NGUOI DUNG chon): ghi
     # vao thi lan sau doi coc / dich vu van dung mau cu (QC 11/11). Ghi mau da dung rieng.
@@ -195,16 +195,14 @@ def _drop_generated(doc, file_url, prefix="HDDV_", keep_if_sent=True):
         hook.add(_go)
 
 
-def _acceptance_content(doc, row, creator, tpl=None):
+def acceptance_content(doc, row, creator, tpl=None):
+    """(bytes .docx BBNT dot nay, danh sach con thieu) tu du lieu HIEN TAI."""
+    if not creator:
+        frappe.throw(_("Creator của hợp đồng không còn trong danh sách creator - nhờ Kế toán kiểm lại."))
     tpl = tpl or frappe.get_doc("EC Contract Template", template_for(doc, KIND_BBNT))
     values = kol_values.acceptance_values(_values(doc, creator, row.get("acceptance_date")), row.as_dict(),
                                           doc.as_dict())
-    return _fill(file_bytes(tpl.template_file), values, doc.get("creator_type"))
-
-
-def acceptance_missing(doc, row, creator):
-    """Thong tin con thieu cua BBNT dot nay voi DU LIEU HIEN TAI (kiem lai luc gui ky)."""
-    return _acceptance_content(doc, row, creator)[1]
+    return _fill(file_bytes(tpl.template_file), values, doc)
 
 
 def _values(doc, creator, bbnt_date):
@@ -217,17 +215,18 @@ def _values(doc, creator, bbnt_date):
         shopee_hddv_days=kol.SHOPEE_HDDV_PAYMENT_DAYS)
 
 
-def _fill(data, values, creator_type):
+def _fill(data, values, doc):
     content, unknown = docx_fill.fill_docx(data, values, kol_values.CONDITIONAL_LINES)
     used = docx_fill.find_placeholders(data)
-    missing = set(unknown) | set(kol_values.empty_required(values, used, creator_type))
+    missing = set(unknown) | set(kol_values.empty_required(values, used, doc.get("creator_type"),
+                                                           doc.get("service_type")))
     return content, sorted(missing)
 
 
 def generate_acceptance(doc, row, creator):
     tpl = frappe.get_doc("EC Contract Template", template_for(doc, KIND_BBNT))
     # Ngay tren BBNT = ngay nghiem thu cua dot (ERP lam BBNT SAU khi thuc hien xong).
-    content, missing = _acceptance_content(doc, row, creator, tpl)
+    content, missing = acceptance_content(doc, row, creator, tpl)
     url = attach(doc, "BBNT_%s_dot%s.docx" % (_safe(doc.contract_no), row.idx), content)
     return url, missing
 

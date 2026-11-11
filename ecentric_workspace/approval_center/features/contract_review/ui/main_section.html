@@ -32,7 +32,7 @@
   #ec-ctr-root .kol-steps li.done{ color:#047857; }
   #ec-ctr-root .kol-steps li.now{ font-weight:600; }
   #ec-ctr-root .kol-pop-warn{ background:#fff8e1; cursor:default; }
-  #ec-ctr-root [data-fld="sales_order"], #ec-ctr-root [data-fld="creator"]{ position:relative; }
+  #ec-ctr-root [data-fld="creator"]{ position:relative; }
 </style>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -131,8 +131,8 @@
   #ec-ctr-root .step-meta .ov{ color:var(--red);font-weight:600; }
   #ec-ctr-root .summary-row{ display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--gray-200);font-size:13px; }
   #ec-ctr-root .summary-row b{ color:var(--gray-900);overflow-wrap:anywhere; }
-  #ec-ctr-root .toast{ position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--gray-900);color:#fff;padding:11px 18px;border-radius:10px;font-size:13.5px;opacity:0;pointer-events:none;transition:.2s;z-index:10000; }
-  #ec-ctr-root .toast.show{ opacity:1;transform:translateX(-50%) translateY(0); }
+  #ec-ctr-root .toast{ position:fixed;left:16px;right:16px;margin:0 auto;width:fit-content;max-width:560px;bottom:26px;transform:translateY(20px);background:var(--gray-900);color:#fff;padding:11px 18px;border-radius:10px;font-size:13.5px;opacity:0;pointer-events:none;transition:.2s;z-index:10000; }
+  #ec-ctr-root .toast.show{ opacity:1;transform:translateY(0); }
   #ec-ctr-root .toast.err{ background:var(--red); }
   #ec-ctr-root .ec-ctr-overlay{ position:fixed;inset:0;background:rgba(17,24,39,.45);display:flex !important;align-items:center;justify-content:center;z-index:9999;padding:16px; }
   #ec-ctr-root .ec-ctr-modal{ display:flex !important;flex-direction:column;background:#fff;border-radius:14px;width:min(560px, calc(100vw - 32px));max-width:560px;max-height:calc(100vh - 48px);box-shadow:0 20px 50px rgba(0,0,0,.25);overflow:hidden; }
@@ -384,7 +384,7 @@
   function setFieldError(id,msg){ var f=document.querySelector('[data-fld="'+id+'"]'); if(!f)return; f.classList.toggle("invalid",!!msg);
     var e=f.querySelector(".err"); if(msg){ if(!e){ e=document.createElement("div"); e.className="err"; f.appendChild(e);} e.textContent=msg; } else if(e){ e.textContent=""; } }
   function clearFieldError(id){ setFieldError(id,null); }
-  var FIELD_IDS=["request_title","request_kind","previous_request","contract_type","request_type","brand","justification","contract_value","contract_end_date","request_details","sales_order","creator","service_type","amount_type","amount_input","payment_schedule","advance_percent"];
+  var FIELD_IDS=["request_title","request_kind","previous_request","contract_type","request_type","brand","justification","contract_value","contract_end_date","request_details","creator","service_type","platform","air_dates","amount_type","amount_input","payment_schedule","advance_percent"];
   function showFieldErrors(errs){ FIELD_IDS.forEach(function(id){ setFieldError(id,(errs&&errs[id])||null); });
     var first=errs&&Object.keys(errs)[0]; if(first){ var el=document.querySelector('[data-fld="'+first+'"] input,[data-fld="'+first+'"] select,[data-fld="'+first+'"] textarea'); if(el&&el.focus){ try{el.focus();}catch(e){} } } }
   function validateSubmit(){ var d=state.draft||{}; var errs={};
@@ -752,15 +752,19 @@
     clearKol:function(d){ KOL.KEYS.forEach(function(k){ delete d[k]; }); state.kolCreator=null; },
     defaultDaysText:function(ct,pf){ var n=(pf==="Shopee"&&ct==="Công ty")?15:(ct==="Cá nhân"?35:(ct?30:null)); return n?("Mặc định "+n+" ngày"):"Mặc định theo loại creator"; },
     // Loc mau giong luat server (kol_lookup.template_mismatch) - server van kiem lai luc tao.
-    templateOptions:function(d,ct){ var adv=d.payment_schedule==="Cọc trước", shopee=d.platform==="Shopee", sv=d.service_type||"";
+    templateOptions:function(d,ct){ KOL._tplReset=false; var adv=d.payment_schedule==="Cọc trước", shopee=d.platform==="Shopee", sv=d.service_type||"";
       var want=sv==="Hoa hồng affiliate"?[sv]:(sv==="Video"?["Video","Tất cả"]:[sv,"Livestream","Tất cả"]);
-      return (state.kolTemplates||[]).filter(function(t){ return t.kind==="Hợp đồng"&&(!ct||t.creator_type===ct)&&((t.platform||"Tất cả")==="Shopee")===shopee
-          &&(!!t.has_advance)===adv&&(!sv||want.indexOf(t.service_type||"Tất cả")>=0); })
-        .map(function(t){ return '<option value="'+esc(t.name)+'"'+(t.name===d.contract_template?" selected":"")+'>'+esc(t.name)+'</option>'; }).join("")
-        +(d.contract_template&&!(state.kolTemplates||[]).some(function(t){ return t.name===d.contract_template; })?'<option value="'+esc(d.contract_template)+'" selected>'+esc(d.contract_template)+'</option>':''); },
+      var ok=(state.kolTemplates||[]).filter(function(t){ return t.kind==="Hợp đồng"&&(!ct||t.creator_type===ct)&&((t.platform||"Tất cả")==="Shopee")===shopee
+          &&(!!t.has_advance)===adv&&(!sv||want.indexOf(t.service_type||"Tất cả")>=0); });
+      var known=(state.kolTemplates||[]).length&&(state.kolTemplates||[]).some(function(t){ return t.name===d.contract_template; });
+      // Mau da chon khong con hop (doi coc / loai creator / nen tang): bo chon, he thong tu chon lai -
+      // khong de gia tri an van gui len roi bi server chan ma man hinh hien "Tu chon" (QC 12/11).
+      if(d.contract_template&&known&&!ok.some(function(t){ return t.name===d.contract_template; })){ d.contract_template=""; KOL._tplReset=true; }
+      return ok.map(function(t){ return '<option value="'+esc(t.name)+'"'+(t.name===d.contract_template?" selected":"")+'>'+esc(t.name)+'</option>'; }).join("")
+        +(d.contract_template&&!known?'<option value="'+esc(d.contract_template)+'" selected>'+esc(d.contract_template)+'</option>':''); },
     // Xem truoc ngay doc duoc / ngay ky / so HD ngay duoi o ngay thuc hien (server doc, khong doan o JS).
     previewDates:function(){ var host=$("kol-dates-pv"); if(!host) return; var d=state.draft||{}; var raw=String(d.air_dates||"").trim();
-      if(!raw){ host.innerHTML=""; KOL._pdKey=""; return; }
+      if(!raw){ clearTimeout(KOL._pdt); KOL._pds=(KOL._pds||0)+1; host.innerHTML=""; KOL._pdKey=""; return; }
       var key=[raw,d.contract_date||"",d.creator||"",d.brand||""].join("|"); if(key===KOL._pdKey&&host.innerHTML) return; KOL._pdKey=key;
       clearTimeout(KOL._pdt); var seq=KOL._pds=(KOL._pds||0)+1; KOL._pdt=setTimeout(function(){
         call("kol_preview_dates",{air_dates:raw,contract_date:d.contract_date||"",creator:d.creator||"",brand:d.brand||"",name:state.id||""}).then(function(r){
@@ -793,14 +797,14 @@
       var noAdv=ct==="Hộ kinh doanh"||(ec&&d.platform==="Shopee"); var schedules=(fo.kol_payment_schedules||[]).filter(function(x){ return !(noAdv&&x==="Cọc trước"); });
       if(noAdv&&d.payment_schedule==="Cọc trước"){ d.payment_schedule="Thanh toán sau nghiệm thu"; d.advance_percent=""; adv=false; }
       return '<div class="card" id="kol-card-cr"><h3>Creator</h3><div class="grid2">'
-        + fld("creator","Creator",'<div class="kol-anchor"><div style="display:flex;gap:8px"><input id="kol-cr-q" placeholder="Gõ tên, TikTok ID, mã MISA…" autocomplete="off" style="flex:1" aria-label="Tìm creator" role="combobox" aria-expanded="false" aria-controls="kol-cr-list"><button type="button" class="btn" id="kol-cr-new">+ Creator mới</button></div><div id="kol-cr-list" class="kol-pop" role="listbox" hidden></div></div><div class="hint" id="kol-cr-cur">'+(crCur?('Đã chọn: <b>'+esc(crCur)+'</b>'+(ct?(' · '+esc(ct)):'')+' · <a href="#" id="kol-cr-edit">Sửa thông tin creator</a>'):'Chưa chọn.')+'</div><div id="kol-cr-gaps"></div>',true)
+        + fld("creator","Creator",'<div class="kol-anchor"><div style="display:flex;gap:8px"><input id="kol-cr-q" placeholder="Tên, TikTok ID, mã MISA" autocomplete="off" style="flex:1" aria-label="Tìm creator" role="combobox" aria-expanded="false" aria-controls="kol-cr-list"><button type="button" class="btn" id="kol-cr-new">+ Creator mới</button></div><div id="kol-cr-list" class="kol-pop" role="listbox" hidden></div></div><div class="hint" id="kol-cr-cur">'+(crCur?('Đã chọn: <b>'+esc(crCur)+'</b>'+(ct?(' · '+esc(ct)):'')+' · <a href="#" id="kol-cr-edit">Sửa thông tin creator</a>'):'Chưa chọn.')+'</div><div id="kol-cr-gaps"></div>',true)
         + '</div></div>'
         + '<div class="card"><h3>Dịch vụ</h3><div class="grid2">'
         + fld("service_type","Dịch vụ",'<select data-model="service_type"><option value="">—</option>'+opt(fo.kol_service_types||[],d.service_type)+'</select>',true)
         + fld("platform","Nền tảng",'<select data-model="platform"><option value="">—</option>'+opt(fo.kol_platforms||[],d.platform)+'</select>'+(ec?'<div class="hint">Mẫu EC có TikTok và Shopee (Shopee: chỉ công ty - livestream, không cọc). Nền tảng khác: dùng mẫu của creator.</div>':''))
         + fld("quantity","Số buổi / video",'<input type="number" min="0" data-model="quantity" value="'+esc(d.quantity||"")+'">')
         + fld("duration","Thời lượng",'<input data-model="duration" placeholder="Vd 120 phút / 60 giây" value="'+esc(d.duration||"")+'">')
-        + fld("air_dates","Ngày thực hiện / ngày air",'<input data-model="air_dates" placeholder="Ví dụ 05/12, 12/12/2026 hoặc 05,06/12" value="'+esc(d.air_dates||"")+'"><div class="hint">Nhiều ngày thì cách nhau dấu phẩy. Không ghi năm thì lấy lần sắp tới. Số hợp đồng lấy ngày đầu tiên.</div><div id="kol-dates-pv"></div>',ec&&d.service_type!=="Hoa hồng affiliate")
+        + fld("air_dates","Ngày thực hiện / ngày air",'<input data-model="air_dates" placeholder="Ví dụ 05/12, 12/12/2026 hoặc 05,06/12" value="'+esc(d.air_dates||"")+'"><div class="hint">Nhiều ngày thì cách nhau dấu phẩy. Không ghi năm thì lấy ngày gần nhất (có thể lùi vài ngày). Số hợp đồng lấy ngày đầu tiên.</div><div id="kol-dates-pv"></div>',ec&&d.service_type!=="Hoa hồng affiliate")
         + (d.service_type==="Hoa hồng affiliate"?fld("commission_rate","Tỷ lệ hoa hồng (%)",'<input type="number" step="0.1" data-model="commission_rate" value="'+esc(d.commission_rate||"")+'"><div class="hint">Để Kế toán / người duyệt tham khảo; không tự in vào hợp đồng (mẫu affiliate do Kế toán soạn).</div>'):'')
         + '</div></div>'
         + '<div class="card"><h3>Số tiền &amp; thanh toán</h3><div class="grid2">'
@@ -813,7 +817,7 @@
         + fld("payment_term_days","Số ngày thanh toán sau BBNT",'<input type="number" min="0" data-model="payment_term_days" placeholder="'+esc(KOL.defaultDaysText(ct,d.platform))+'" value="'+esc(d.payment_term_days==null?"":d.payment_term_days)+'"><div class="hint">Để trống để dùng mặc định: cá nhân 35 ngày, công ty / hộ KD 30 ngày, công ty Shopee 15 ngày. Tính theo ngày lịch; hạn rơi vào T7/CN thì dời sang thứ Hai.</div>')
         + '</div><div id="kol-amounts" class="kol-amounts" style="margin-top:12px"></div></div>'
         + '<div class="card"><h3>Hồ sơ hợp đồng</h3><div class="grid2">'
-        + fld("contract_template","Mẫu hợp đồng (mẫu EC)",'<select data-model="contract_template" id="kol-tpl"><option value="">Tự chọn theo loại creator / dịch vụ / cọc</option>'+KOL.templateOptions(d,ct)+'</select><div class="hint">Chỉ hiện mẫu hợp với loại creator, nền tảng, dịch vụ và có/không cọc.</div>')
+        + fld("contract_template","Mẫu hợp đồng (mẫu EC)",'<select data-model="contract_template" id="kol-tpl"><option value="">Tự chọn theo loại creator / dịch vụ / cọc</option>'+KOL.templateOptions(d,ct)+'</select><div class="hint">'+(KOL._tplReset?'Mẫu đã chọn không còn hợp với loại creator / nền tảng / cọc - hệ thống sẽ tự chọn lại. ':'')+'Chỉ hiện mẫu hợp với loại creator, nền tảng, dịch vụ và có/không cọc.</div>')
         + fld("contract_date","Ngày ký trên hợp đồng",'<input type="date" data-model="contract_date" value="'+esc(d.contract_date||"")+'"><div class="hint">Để trống: tự lấy 1 ngày làm việc trước buổi đầu. Chọn từ ngày buổi đầu trở đi sẽ bị lùi lại.</div>')
         + '</div><div class="hint" style="margin-top:8px">'
         + (d.request_type===KOL_TPL_PARTNER?'Mẫu của creator: tải hợp đồng creator gửi ở ô <b>Tệp đính kèm</b> bên trên. Lưu nháp xong, ở trang chi tiết bấm <b>AI đọc hợp đồng</b> để điền nhanh các trường.'
@@ -825,6 +829,7 @@
       if(!d.brand) errs.brand="Chọn brand (mã brand nằm trong số hợp đồng).";
       if(ecT&&d.service_type!=="Hoa hồng affiliate"&&!String(d.air_dates||"").trim()) errs.air_dates="Nhập ngày thực hiện, ví dụ 05/12 hoặc 05,06/12/2026.";
       if(ecT&&d.platform&&["TikTok","Shopee"].indexOf(d.platform)<0) errs.platform="Mẫu EC chỉ có TikTok / Shopee. Nền tảng khác: chọn Mẫu của creator.";
+      else if(ecT&&d.platform==="Shopee"&&(KOL.creatorType()&&KOL.creatorType()!=="Công ty"||(d.service_type&&d.service_type!=="Livestream"))) errs.platform="Mẫu EC trên Shopee chỉ có Công ty - Livestream. Creator / dịch vụ khác: chọn TikTok hoặc Mẫu của creator.";
       if(!d.service_type) errs.service_type="Chọn dịch vụ.";
       if(!d.amount_type) errs.amount_type="Chọn kiểu nhập số tiền.";
       if(!d.amount_input||Number(d.amount_input)<=0) errs.amount_input="Nhập số tiền.";
@@ -833,7 +838,8 @@
       if(d.request_type&&d.request_type!==KOL_TPL_EC&&d.request_type!==KOL_TPL_PARTNER) errs.request_type="Hợp đồng KOL/KOC dùng mẫu EC hoặc mẫu của creator.";
       return errs; },
     preview:function(){ var host=$("kol-amounts"); if(!host) return; var d=state.draft||{}; var ct=KOL.creatorType();
-      if(!ct||!d.amount_type||!d.amount_input){ host.innerHTML='<div class="hint">Chọn creator, kiểu nhập và số tiền để xem số tiền trên hợp đồng.</div>'; return; }
+      if(!ct||!d.amount_type||!d.amount_input){ host.innerHTML='<div class="hint">Chọn creator, kiểu nhập và số tiền để xem số tiền trên hợp đồng.</div>';
+        clearTimeout(KOL._pt); KOL._ps=(KOL._ps||0)+1; if(state.draft.contract_value){ state.draft.contract_value=null; var cv1=$("kol-cv"); if(cv1) cv1.value="Tự tính từ số tiền bên dưới"; renderSummary(); } return; }
       clearTimeout(KOL._pt); var seq=KOL._ps=(KOL._ps||0)+1; KOL._pt=setTimeout(function(){
         call("kol_preview_amounts",{creator_type:ct,amount_type:d.amount_type,amount_input:d.amount_input,pit_rate:d.pit_rate,vat_rate:d.vat_rate,payment_schedule:d.payment_schedule,advance_percent:d.advance_percent}).then(function(r){
           if(seq!==KOL._ps) return;
@@ -954,7 +960,7 @@
       if(x.approved&&x.signed){ var f=x.funding||{};
         h+='<div class="card"><h3>Nghiệm thu (BBNT) &amp; thanh toán</h3>'
           +'<div class="summary-row"><span>Được phép chi (cọc + BBNT đã hoàn tất)</span><b class="kol-money">'+KOL.money(f.cap)+'</b></div><div class="summary-row"><span>Đã lập ĐNTT</span><b class="kol-money">'+KOL.money(f.used)+'</b></div><div class="summary-row"><span>Còn có thể đề nghị thanh toán</span><b class="kol-money">'+KOL.money(f.remaining)+'</b></div>'
-          +'<div class="hint" style="margin:6px 0 10px">Tạo ĐNTT ở form Đề nghị thanh toán: mục <b>Khoản chi này có chứng từ mua hàng?</b> chọn Có → <b>Loại nguồn chi phí</b> = Hợp đồng KOL/KOC → <b>Chứng từ nguồn</b> = hợp đồng này.</div>'
+          +'<div class="hint" style="margin:6px 0 10px">Tạo ĐNTT ở form Đề nghị thanh toán: mục <b>Khoản chi này có chứng từ mua hàng?</b> chọn <b>Yes</b> → <b>Loại nguồn chi phí</b> = Hợp đồng KOL/KOC → <b>Chứng từ nguồn</b> = hợp đồng này → <b>SO doanh thu</b> = SO của brand (bắt buộc).</div>'
           +KOL.acceptanceTable(x)
           +(x.can_manage?'<h4 style="margin:16px 0 6px">Thêm đợt nghiệm thu</h4>'+(x.acceptance_remaining!=null?'<div class="hint">Còn chưa nghiệm thu: <b class="kol-money">'+KOL.money(x.acceptance_remaining)+'</b></div>':'')+'<div class="grid2" style="margin-top:8px"><div class="fld"><label for="kol-acc-desc">Nội dung đợt nghiệm thu <span class="req">*</span></label><input id="kol-acc-desc" placeholder="Vd Livestream 3 buổi tháng 12 / Hoa hồng tháng 11"></div><div class="fld"><label for="kol-acc-date">Ngày nghiệm thu <span class="req">*</span></label><input type="date" id="kol-acc-date"></div><div class="fld"><label for="kol-acc-amt">Số tiền trả creator đợt này <span class="req">*</span></label><input type="text" inputmode="numeric" data-money id="kol-acc-amt"></div></div><div class="actions" style="margin-top:8px"><button type="button" class="btn primary" data-kol="addacc">Tạo BBNT</button></div>':'')
           +'</div>'; }

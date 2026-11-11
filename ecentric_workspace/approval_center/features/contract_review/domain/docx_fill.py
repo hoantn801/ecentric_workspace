@@ -74,7 +74,10 @@ def _fill_paragraph(xml, values, missing, drop_if_empty=()):
     if any(m.group(1) in drop_if_empty and not str(values.get(m.group(1)) or "").strip() for m in matches):
         # Xoa ca doan (removeBlankConditionalParagraphs_). Doan chua khung van ban / ngat section
         # thi KHONG xoa (xoa la mat ngat trang hoac cat doi XML) - chi de trong gia tri.
-        if "<w:txbxContent" not in xml and "<w:sectPr" not in xml:
+        # Doan con chu khac (vd "Giu dong nay" + xuong dong mem <w:br/> + dong tuy chon trong CUNG
+        # mot doan - Google Docs xuat Shift+Enter nhu vay) thi chi de trong gia tri, khong mat chu.
+        rest = PLACEHOLDER.sub("", joined).strip(" \t\r\n\u00a0-–•.:;,")
+        if "<w:txbxContent" not in xml and "<w:sectPr" not in xml and not rest:
             return ""
     starts, pos = [], 0
     for t in texts:

@@ -46,7 +46,8 @@ def prepare_draft(doc):
     if so:
         doc.so_label = kol_lookup.so_label(so)
         doc.so_revenue = so.net_total
-        if so.ec_brand:
+        # Phieu cu (truoc 12/11) da gan SO: brand chon tay tren phieu la chinh, SO chi dien khi trong.
+        if so.ec_brand and not doc.get("brand"):
             doc.brand = so.ec_brand
     else:
         doc.so_label = doc.so_revenue = None
@@ -104,12 +105,16 @@ def _default_payment_days(doc):
     moi; nguoi dung da go so khac thi giu nguyen."""
     current = doc.get("payment_term_days")
     want = kol.default_payment_days(doc.get("creator_type"), doc.get("platform"))
-    if current in (None, ""):
+    try:
+        current = None if current in (None, "") else int(float(current))
+    except (TypeError, ValueError):
+        frappe.throw(_("Số ngày thanh toán phải là số."))
+    if current is None:
         doc.payment_term_days = want
         return
     old = _stored(doc, ["creator_type", "platform"])
     if old and (old.get("creator_type"), old.get("platform")) != (doc.get("creator_type"), doc.get("platform")):
-        if int(float(current)) == kol.default_payment_days(old.get("creator_type"), old.get("platform")):
+        if current == kol.default_payment_days(old.get("creator_type"), old.get("platform")):
             doc.payment_term_days = want
 
 
@@ -147,16 +152,22 @@ def set_sign_date(doc):
         if not doc.get("contract_date"):
             doc.contract_date = today()
         return
-    chosen = str(doc.get("contract_date") or "")[:10] or None
+    chosen = _user_sign_date(doc, doc.get("contract_date"))
+    doc.contract_date = str(kol_texts.business_day_before(chosen, dates[0], kol_lookup.holidays()))
+
+
+def _user_sign_date(doc, chosen):
+    """Ngay ky NGUOI DUNG tu chon (date) hoac None = de he thong tu tinh.
+
+    Gia tri dang luu ma lan truoc la ngay TU TINH (hoac phieu chua co lich / lich doc khong duoc,
+    khi do ngay ky la ngay mac dinh hom nay) thi coi la tu dong - doi lich la tinh lai (QC 12/11)."""
+    chosen = str(chosen or "")[:10] or None
     old = _stored(doc, ["air_dates", "contract_date", "creation"])
     if chosen and old and chosen == str(old.get("contract_date") or "")[:10]:
-        # Nguoi dung khong dong vao o ngay ky lan nay: neu lan truoc ngay do la ngay tu tinh (hoac
-        # phieu chua co lich) thi coi la tu dong - tinh lai theo lich moi.
-        was_auto = not old.get("air_dates") or chosen == _auto_sign(old.get("air_dates"), doc)
-        if was_auto:
+        auto = _auto_sign(old.get("air_dates"), doc) if old.get("air_dates") else None
+        if auto is None or chosen == auto:
             chosen = None
-    chosen = datetime.date.fromisoformat(chosen) if chosen else None
-    doc.contract_date = str(kol_texts.business_day_before(chosen, dates[0], kol_lookup.holidays()))
+    return datetime.date.fromisoformat(chosen) if chosen else None
 
 
 def expected_bbnt_date(doc):
@@ -177,9 +188,10 @@ def preview_dates(air_dates, contract_date=None, creator=None, brand=None, name=
         return {"ok": False, "error": str(e)}
     if not dates:
         return {"ok": True, "dates": []}
-    chosen = datetime.date.fromisoformat(str(contract_date)[:10]) if contract_date else None
-    sign = kol_texts.business_day_before(chosen if chosen and chosen < dates[0] else None, dates[0],
-                                         kol_lookup.holidays())
+    # Cung luat voi luc luu (set_sign_date): ngay dang la ngay tu tinh thi xem truoc theo lich moi.
+    chosen = _user_sign_date({"name": name, "creation": created}, contract_date) if name else (
+        datetime.date.fromisoformat(str(contract_date)[:10]) if contract_date else None)
+    sign = kol_texts.business_day_before(chosen, dates[0], kol_lookup.holidays())
     out = {"ok": True, "dates": [d.strftime("%d/%m/%Y") for d in dates], "sign_date": sign.strftime("%d/%m/%Y")}
     row = creator_row(creator) if creator else None
     if row and brand:
@@ -231,6 +243,8 @@ def validate_submit(doc):
         from ecentric_workspace.approval_center.features.contract_review.application import kol_files
         kol_files.build_contract(doc)
     else:
+        # Doi tu mau EC sang mau creator: ket qua dien mau EC cu khong con ap dung (QC 12/11).
+        doc.missing_placeholders = doc.contract_fingerprint = doc.generated_template = None
         assign_number(doc, creator)
     if doc.get("missing_placeholders"):
         names = _split(doc.missing_placeholders)

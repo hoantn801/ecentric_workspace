@@ -53,24 +53,27 @@ def _make(year, month, day, raw):
         raise ValueError("Ngày thực hiện '%s' không hợp lệ." % raw)
 
 
-# Ngay khong ghi nam: lay lan GAN NHAT SAP TOI tinh tu hom nay (cho lui toi da 60 ngay - booking
-# nhap bu sau khi da live). Tool cu dung nam co dinh trong CONFIG nen thang 12 nhap "05/01" ra
-# ngay da qua; doan theo ngay ky thi ngay ky lui sang nam truoc keo ca ngay thuc hien troi theo.
-PAST_GRACE_DAYS = 60
+# Ngay khong ghi nam: lay lan GAN NHAT voi moc - moc la cac ngay ghi du nam trong cung o (neu co),
+# khong co thi la ngay tao phieu. Tool cu dung nam co dinh trong CONFIG nen thang 12 nhap "05/01"
+# ra ngay da qua; doan theo ngay ky thi ngay ky lui sang nam truoc keo ca ngay thuc hien troi theo.
+# Moi ngay doan DOC LAP (nguoi go khong nhat thiet theo thu tu thoi gian) roi moi sap xep.
 YEAR_RANGE = 2                      # chi nhan nam trong [nam nay - 1, nam nay + 2]
+MAX_SPAN_DAYS = 200                 # cac buoi cua MOT hop dong cach nhau qua xa = doan sai nam
 
 
-def _guess(month, day, today, raw, after=None):
-    """Nam cho ngay khong ghi nam. `after` = ngay lien truoc trong danh sach: '28/12, 02/01'
-    thi 02/01 sang nam sau."""
-    for year in (today.year - 1, today.year, today.year + 1, today.year + 2):
+def _nearest(month, day, anchors, raw):
+    best = None
+    for y in sorted({a.year + k for a in anchors for k in (-1, 0, 1)}):
         try:
-            d = _dt.date(year, int(month), int(day))
+            d = _dt.date(y, int(month), int(day))
         except ValueError:
             continue
-        if d >= today - _dt.timedelta(days=PAST_GRACE_DAYS) and (after is None or d >= after):
-            return d
-    raise ValueError("Ngày thực hiện '%s' không hợp lệ." % raw)
+        dist = min(abs((d - a).days) for a in anchors)
+        if best is None or dist < best[0] or (dist == best[0] and d > best[1]):
+            best = (dist, d)
+    if not best:
+        raise ValueError("Ngày thực hiện '%s' không hợp lệ." % raw)
+    return best[1]
 
 
 def _check_year(d, today, raw):
@@ -80,11 +83,19 @@ def _check_year(d, today, raw):
     return d
 
 
+def _check_span(dates, raw):
+    if dates and (dates[-1] - dates[0]).days > MAX_SPAN_DAYS:
+        raise ValueError("Các ngày thực hiện '%s' cách nhau quá xa (%s - %s). Ghi rõ năm cho từng ngày, "
+                         "vd 28/12/2026, 05/01/2027." % (raw, dates[0].strftime("%d/%m/%Y"),
+                                                          dates[-1].strftime("%d/%m/%Y")))
+    return dates
+
+
 def parse_service_dates(text, today):
     """'05,06/12' | '05/12, 12/12/2026' | '2026-12-05' -> list date da sap xep (rong -> []).
 
-    `today` = ngay hien tai cua site (date). Ngay ghi du nam thi giu nguyen (kiem nam hop ly);
-    ngay khong ghi nam thi doan lan sap toi (xem _guess)."""
+    `today` = ngay moc (ngay tao phieu). Ngay ghi du nam thi giu nguyen (kiem nam hop ly); ngay khong
+    ghi nam thi lay lan gan nhat voi moc (xem _nearest)."""
     raw = re.sub(r"\s+", " ", str(text or "").strip())
     if not raw:
         return []
@@ -96,38 +107,24 @@ def parse_service_dates(text, today):
         days = [d.strip() for d in m.group(1).split(",")]
         if m.group(3):
             year = _year(m.group(3))
-            return sorted(_check_year(_make(year, m.group(2), d, raw), today, raw) for d in days)
-        out, prev = [], None
-        for d in days:
-            prev = _guess(m.group(2), d, today, raw, prev)
-            out.append(prev)
-        return sorted(out)
+            return _check_span(sorted(_check_year(_make(year, m.group(2), d, raw), today, raw) for d in days), raw)
+        return _check_span(sorted(_nearest(m.group(2), d, [today], raw) for d in days), raw)
     parts = [p.strip() for p in re.split(r"[;,\n]+", raw) if p.strip()]
-    # Co ngay ghi du nam ("12/12/2026; 05/12") thi ngay khong ghi nam lay CUNG nam do - nguoi go
-    # khong nhat thiet theo thu tu thoi gian.
-    explicit = None
-    for part in parts:
-        iso, one = _ISO.match(part), _ONE.match(part)
-        if iso or (one and one.group(3)):
-            explicit = int(iso.group(1)) if iso else _year(one.group(3))
-            break
-    out, prev = [], None
+    fixed, loose = [], []
     for part in parts:
         iso, one = _ISO.match(part), _ONE.match(part)
         if iso:
-            d = _check_year(_make(iso.group(1), iso.group(2), iso.group(3), part), today, part)
+            fixed.append(_check_year(_make(iso.group(1), iso.group(2), iso.group(3), part), today, part))
         elif one and one.group(3):
-            d = _check_year(_make(_year(one.group(3)), one.group(2), one.group(1), part), today, part)
-        elif one and explicit:
-            d = _check_year(_make(explicit, one.group(2), one.group(1), part), today, part)
+            fixed.append(_check_year(_make(_year(one.group(3)), one.group(2), one.group(1), part), today, part))
         elif one:
-            d = _guess(one.group(2), one.group(1), today, part, prev)
+            loose.append((one.group(2), one.group(1), part))
         else:
             raise ValueError("Không đọc được ngày thực hiện '%s' (vd 05/12 hoặc 05,06/12/2026). "
                              "Nhiều ngày thì cách nhau bằng dấu phẩy, không dùng dấu gạch." % part)
-        prev = d
-        out.append(d)
-    return sorted(out)
+    anchors = fixed or [today]
+    out = fixed + [_check_year(_nearest(mo, d, anchors, part), today, part) for mo, d, part in loose]
+    return _check_span(sorted(out), raw)
 
 
 def _business(d, step, holidays):
@@ -176,7 +173,7 @@ def company_code(name):
 
 def party_code(creator_type, name, manual=""):
     """Ma doi tac trong so hop dong: Ke toan dien tay thi dung, khong thi suy tu ten (nhu tool cu)."""
-    code = (manual or "").strip().upper()
+    code = re.sub(r"\s+", "", manual or "").upper()   # ma cu luu truoc khi chuan hoa co the con dau cach
     if creator_type == "Hộ kinh doanh":
         ok = re.fullmatch(r"[A-Z0-9]{2,8}", code) and code != "HKD"
         bare = re.sub(r"^\s*HỘ\s+KINH\s+DOANH\s*[-:]?\s*", "", str(name or ""), flags=re.I)

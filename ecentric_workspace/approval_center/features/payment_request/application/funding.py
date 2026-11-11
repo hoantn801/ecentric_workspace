@@ -154,11 +154,36 @@ def describe_source(source_doctype, source_name, exclude_request=None):
 
 
 def search_revenue_so(source_doctype, query=None, exclude_request=None, user=None):
-    """SO doanh thu cho nguon co khai `so_fn` (hop dong KOL). Nguon khac: khong co o SO."""
+    """SO doanh thu cho nguon co khai `so_fn` (hop dong KOL). Nguon khac: khong co o SO.
+    Nguon tra danh sach SO; "da de nghi chi" tren tung SO thi tinh o day (DNTT la cua module nay)."""
     meta = _SOURCES.get(source_doctype) or {}
     if not meta.get("so_fn"):
         return {"rows": [], "missing": []}
-    return frappe.get_attr(meta["so_fn"])(user or frappe.session.user, query, exclude_request)
+    out = frappe.get_attr(meta["so_fn"])(user or frappe.session.user, query)
+    rows = out.get("rows") or []
+    spent = so_spent([r["value"] for r in rows], exclude_request)
+    for r in rows:
+        r["spent"] = spent.get(r["value"], 0.0)
+    return {"rows": rows, "missing": out.get("missing") or []}
+
+
+def so_spent(names, exclude_request=None):
+    """Tong DNTT dang chay / da duyet gan vao tung SO (doi chieu chi phi voi doanh thu SO)."""
+    if not names:
+        return {}
+    rows = frappe.get_all("EC Payment Request", filters={"ec_sales_order": ["in", list(names)]},
+                          fields=["name", "ec_sales_order", "payment_amount", "approval_request"],
+                          ignore_permissions=True, limit_page_length=0)
+    reqs = [r.approval_request for r in rows if r.approval_request]
+    status = {r.name: r.approval_status for r in frappe.get_all(
+        "EC Approval Request", filters={"name": ["in", reqs]}, fields=["name", "approval_status"],
+        ignore_permissions=True, limit_page_length=0)} if reqs else {}
+    out = {}
+    for r in rows:
+        if r.name == exclude_request or status.get(r.approval_request) not in CONSUMING_STATUSES:
+            continue
+        out[r.ec_sales_order] = out.get(r.ec_sales_order, 0.0) + float(r.payment_amount or 0)
+    return out
 
 
 def list_sources(source_doctype, user=None):

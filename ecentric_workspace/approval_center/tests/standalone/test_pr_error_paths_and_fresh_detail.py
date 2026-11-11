@@ -155,6 +155,8 @@ class TestMoiNhanhLoiDeuBocThongDiepMayChu(unittest.TestCase):
     NGOAI_LE = (
         ("da co so tam tu picker", "funding_source_summary: doc lai so du o nen; da co so tam tu "
                                    "picker, loi thi giu so tam, khong lam phien nguoi dung"),
+        ("doc SO dang gan o nen", "sua DNTT da co SO: doc doanh thu / da chi o nen; loi thi o SO van "
+                                  "hien ma SO, chi thieu dong doi chieu - khong chan nguoi dung"),
         ("ok.disabled=false", "modal: onConfirm da toast loi cua chinh no; day chi mo lai nut OK"),
         ("state._signReady=null", "loadSignReady: tham do readiness o nen; loi thi actionPanelHTML "
                                   "hien CA HAI nut, nguoi duyet khong bi ket"),

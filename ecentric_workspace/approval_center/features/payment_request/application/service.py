@@ -40,6 +40,13 @@ def normalize_payment(doc):
     doc.details_and_attachments_correct = ("Yes" if doc.details_and_attachments_correct is True
         or str(doc.details_and_attachments_correct or "").strip().lower() in ("yes", "1", "true") else "No")
     _sync_funding_aliases(doc)
+    if doc.get("has_purchase_request") == "No":
+        doc.ec_sales_order = None          # khong co nguon thi khong gan SO (khong cong vao "da chi" cua SO)
+    # Phieu DA GUI dang sua de gui lai (Can bo sung): duong gui lai khong chay validate_payment, nen
+    # voi nguon hop dong KOL (tran chi + SO doanh thu) kiem ngay luc luu - khong de sua payload vuot
+    # tran / gan SO team khac (QC 12/11). Chi nguon KOL: cac nguon khac giu nguyen hanh vi cu.
+    if doc.get("approval_request") and doc.get("funding_source_doctype") == "EC Contract Review Request":
+        funding.validate_funding(doc)
 
 
 def _sync_funding_aliases(doc):

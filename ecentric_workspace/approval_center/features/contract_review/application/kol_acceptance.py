@@ -96,10 +96,18 @@ def send_acceptance(name, user, row_name):
     # vua duoc bo sung) - thieu thi chan, kem nhan tieng Viet (QC 12/11).
     from ecentric_workspace.approval_center.features.contract_review.application import kol_files
     from ecentric_workspace.approval_center.features.contract_review.domain import kol_values
-    missing = kol_files.acceptance_missing(doc, row, creator_row(doc.creator))
+    content, missing = kol_files.acceptance_content(doc, row, creator_row(doc.creator))
     if missing:
-        frappe.throw(_("BBNT đợt {0} còn thiếu: {1}. Bổ sung rồi xoá đợt này và tạo lại BBNT.").format(
+        frappe.throw(_("BBNT đợt {0} còn thiếu: {1}. Bổ sung (thường là thông tin creator) rồi bấm gửi "
+                       "lại - hệ thống tạo lại BBNT theo dữ liệu mới.").format(
             row.idx, ", ".join(kol_values.missing_labels(missing))))
+    # Tep gui ky = tep sinh tu du lieu HIEN TAI (creator co the vua duoc bo sung sau khi tao dot):
+    # kiem mot ban ma gui ban khac la chinh loi QC 12/11.
+    old = row.bbnt_file
+    row.bbnt_file = kol_files.attach(doc, "BBNT_%s_dot%s.docx" % (kol_files._safe(doc.contract_no), row.idx),
+                                     content)
+    if old and old != row.bbnt_file:
+        kol_files._drop_generated(doc, old, prefix="BBNT_", keep_if_sent=False)
     row.status = kol.BBNT_SENT
     doc.save(ignore_permissions=True)
     return {"status": row.status}

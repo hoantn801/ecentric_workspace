@@ -74,7 +74,7 @@
   #ec-payr-root .so-pick{ position:relative; }
   #ec-payr-root .so-list{ position:absolute; top:100%; left:0; right:0; z-index:30; background:#fff; border:1px solid #e5e7eb; border-radius:10px; box-shadow:0 8px 24px rgba(17,24,39,.08); max-height:260px; overflow:auto; margin-top:2px; }
   #ec-payr-root .so-row{ display:block; width:100%; text-align:left; padding:8px 12px; border:0; border-bottom:1px solid #f3f4f6; background:#fff; cursor:pointer; font:inherit; }
-  #ec-payr-root .so-row:hover,#ec-payr-root .so-row:focus{ background:var(--navy-50); outline:none; }
+  #ec-payr-root .so-row:hover,#ec-payr-root .so-row:focus,#ec-payr-root .so-row.on{ background:var(--navy-50); outline:none; }
   #ec-payr-root .hint{ font-size:12px;color:var(--gray-500); }
   #ec-payr-root .banner{ padding:11px 14px;border-radius:9px;font-size:13px;display:flex;gap:9px;align-items:flex-start;margin-bottom:14px; }
   #ec-payr-root .banner.warn{ background:var(--yellow-50);color:var(--amber);border:1px solid #fde68a; }
@@ -137,7 +137,7 @@
   #ec-payr-root .step-meta .ov{ color:var(--red);font-weight:600; }
   #ec-payr-root .summary-row{ display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--gray-200);font-size:13px; }
   #ec-payr-root .summary-row b{ color:var(--gray-900);overflow-wrap:anywhere; }
-  #ec-payr-root .toast{ position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--gray-900);color:#fff;padding:11px 18px;border-radius:10px;font-size:13.5px;opacity:0;pointer-events:none;transition:.2s;z-index:60; }
+  #ec-payr-root .toast{ position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--gray-900);color:#fff;padding:11px 18px;border-radius:10px;font-size:13.5px;opacity:0;pointer-events:none;transition:.2s;z-index:60;max-width:min(560px,calc(100vw - 32px));text-align:center;line-height:1.45; }
   #ec-payr-root .toast.show{ opacity:1;transform:translateX(-50%) translateY(0); }
   #ec-payr-root .toast.err{ background:var(--red); }
   #ec-payr-root .ec-payr-overlay{ position:fixed;inset:0;background:rgba(17,24,39,.45);display:flex !important;align-items:center;justify-content:center;z-index:9999;padding:16px; }
@@ -176,7 +176,7 @@
   var state={ boot:null, tab:"create", id:null, mode:"create", draft:null, dirty:false, busy:false, page:0, PAGE:20, listFilters:{}, detail:null, _detailSeq:0, _editDet:null, _prOptions:[], _prLoaded:false };
   function $(id){ return document.getElementById(id); }
   function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];}); }
-  function toast(m,err){ var t=$("payr-toast"); if(!t)return; t.textContent=m; t.className="toast show"+(err?" err":""); clearTimeout(t._t); t._t=setTimeout(function(){t.className="toast";},3000); }
+  function toast(m,err){ var t=$("payr-toast"); if(!t)return; t.textContent=m; t.className="toast show"+(err?" err":""); clearTimeout(t._t); t._t=setTimeout(function(){t.className="toast";},err?8000:3000); }
   function call(method,args){ var fr=window.frappe; if(!fr||!fr.call) return Promise.reject(new Error("no frappe"));
     return fr.call({method:NS+method,args:args||{},type:(/get_|list_|search_|check_/.test(method)?"GET":"POST")}).then(function(r){return r&&r.message;}); }
   function fmt(d){ if(!d)return "—"; if(window.EcApprovalUI) return EcApprovalUI.fmtDateTime(d); try{ return String(d).replace("T"," ").slice(0,16); }catch(e){ return String(d); } }
@@ -263,29 +263,49 @@
   function soHintHTML(d){ var r=state._so; var v=d.ec_sales_order||"";
     if(!v) return '<div class="hint" id="payr-so-cur">Chưa chọn. SO bên GBS thì gõ mã GBS SO, hệ thống lấy SO đối ứng (doanh thu EC).</div>';
     if(!r||r.value!==v) return '<div class="hint" id="payr-so-cur">Đã chọn: <b>'+esc(v)+'</b></div>';
-    var amt=Number(d.payment_amount)||0, after=Number(r.spent||0)+amt, over=after-Number(r.revenue||0);
+    var amt=Number(d.payment_amount)||0, rev=Number(r.revenue||0), after=Number(r.spent||0)+amt, over=after-rev;
+    var br=(d.ec_brand||"").toString().trim(), sb=(r.brand||"").toString().trim();
+    var brWarn=(br&&sb&&br.toLowerCase()!==sb.toLowerCase())?'<div class="banner warn" style="margin-top:6px"><div>SO này của brand <b>'+esc(sb)+'</b>, khác brand của đề nghị (<b>'+esc(br)+'</b>). Kiểm tra lại đã chọn đúng SO chưa.</div></div>':'';
+    if(!(rev>0)) return '<div class="hint" id="payr-so-cur">Đã chọn: <b>'+esc(r.label)+'</b> · đã đề nghị chi '+fmtVnd(r.spent)+'đ</div>'
+      +'<div class="banner warn" style="margin-top:6px"><div>SO này chưa ghi doanh thu EC nên chưa đối chiếu được. Vẫn gửi được; Kế toán sẽ xem.</div></div>'+brWarn;
     return '<div class="hint" id="payr-so-cur">Đã chọn: <b>'+esc(r.label)+'</b> · doanh thu EC '+fmtVnd(r.revenue)+'đ · đã đề nghị chi '+fmtVnd(r.spent)+'đ</div>'
-      +(over>0.5?'<div class="banner warn" style="margin-top:6px"><div>Cộng đề nghị này, chi phí trên SO là '+fmtVnd(after)+'đ, vượt doanh thu EC '+fmtVnd(over)+'đ. Chỉ cảnh báo, vẫn gửi được; Kế toán sẽ xem.</div></div>':''); }
+      +brWarn+(over>0.5?'<div class="banner warn" style="margin-top:6px"><div>Cộng đề nghị này, chi phí trên SO là '+fmtVnd(after)+'đ, vượt doanh thu EC '+fmtVnd(over)+'đ. Chỉ cảnh báo, vẫn gửi được; Kế toán sẽ xem.</div></div>':''); }
   function soFieldHTML(d){
-    return fld("ec_sales_order","SO doanh thu (để Kế toán đối chiếu chi phí)",'<div class="so-pick"><input id="payr-so-q" placeholder="Gõ mã SO, mã GBS SO hoặc brand…" autocomplete="off" aria-label="Tìm SO doanh thu" role="combobox" aria-expanded="false" aria-controls="payr-so-list"><div id="payr-so-list" class="so-list" role="listbox" hidden></div></div>'+soHintHTML(d),true).replace('class="fld','class="fld full'); }
-  function wireSoPicker(){ var q=$("payr-so-q"), list=$("payr-so-list"); if(!q||!list) return; var seq=0, t=null;
-    function close(){ list.hidden=true; q.setAttribute("aria-expanded","false"); }
-    function search(){ var my=++seq; var dt=(state.draft||{}).funding_source_doctype||"";
+    return fld("ec_sales_order","SO doanh thu (để Kế toán đối chiếu chi phí)",'<div class="so-pick"><input id="payr-so-q" placeholder="Gõ mã SO, mã GBS SO hoặc brand…" autocomplete="off" aria-label="Tìm SO doanh thu" role="combobox" aria-expanded="false" aria-controls="payr-so-list"><div id="payr-so-list" class="so-list" role="listbox" hidden></div></div><div id="payr-so-box">'+soHintHTML(d)+'</div>',true).replace('class="fld','class="fld full'); }
+  function refreshSoHint(){ var box=$("payr-so-box"); if(box) box.innerHTML=soHintHTML(state.draft||{}); }
+  var _soDocClick=false;
+  function wireSoPicker(){ var q=$("payr-so-q"), list=$("payr-so-list"); if(!q||!list) return; var seq=0, t=null, act=-1;
+    function close(){ list.hidden=true; q.setAttribute("aria-expanded","false"); act=-1; }
+    function opts(){ return list.querySelectorAll("button.so-row"); }
+    function mark(i){ var o=opts(); if(!o.length) return; act=(i+o.length)%o.length;
+      for(var j=0;j<o.length;j++){ o[j].classList.toggle("on",j===act); o[j].setAttribute("aria-selected",j===act?"true":"false"); }
+      o[act].scrollIntoView({block:"nearest"}); }
+    function choose(r){ clearTimeout(t); seq++; state._so=r; setModel("ec_sales_order",r.value); clearFieldError("ec_sales_order"); close(); q.value=""; refreshSoHint(); q.focus(); }
+    function search(){ var my=++seq; var dt=(state.draft||{}).funding_source_doctype||""; act=-1;
       list.hidden=false; q.setAttribute("aria-expanded","true"); list.innerHTML='<div class="hint" style="padding:8px 12px">Đang tìm…</div>';
       call("search_funding_so",{source_doctype:dt,query:q.value||"",exclude_request:state.id||""}).then(function(res){ if(my!==seq) return;
         var rows=(res&&res.rows)||[], miss=(res&&res.missing)||[]; list.innerHTML="";
-        rows.forEach(function(r){ var b=document.createElement("button"); b.type="button"; b.className="so-row"; b.setAttribute("role","option");
+        rows.forEach(function(r){ var b=document.createElement("button"); b.type="button"; b.className="so-row"; b.setAttribute("role","option"); b.tabIndex=-1;
           b.innerHTML='<b>'+esc(r.label)+'</b><div class="hint">'+esc(r.brand||"—")+' · '+esc(r.date||"")+' · doanh thu EC '+fmtVnd(r.revenue)+'đ · đã đề nghị chi '+fmtVnd(r.spent)+'đ</div>';
-          b.onclick=function(){ state._so=r; setModel("ec_sales_order",r.value); clearFieldError("ec_sales_order"); close(); q.value="";
-            var h=$("payr-so-cur"); if(h){ var box=document.createElement("div"); box.innerHTML=soHintHTML(state.draft||{}); var p=h.parentNode; while(h.nextSibling) p.removeChild(h.nextSibling); p.replaceChild(box,h); } };
+          b.onmousedown=function(e){ e.preventDefault(); }; b.onclick=function(){ choose(r); };
           list.appendChild(b); });
         miss.forEach(function(m){ var x=document.createElement("div"); x.className="so-row"; x.style.cursor="default"; x.innerHTML='<b>'+esc(m.gbs)+'</b> · không chọn được<div class="hint">'+esc(m.reason)+'</div>'; list.appendChild(x); });
         if(!rows.length&&!miss.length) list.innerHTML='<div class="hint" style="padding:8px 12px">Không có SO phù hợp (chỉ hiện SO của bạn / cùng phòng ban).</div>'; })
       .catch(function(e){ if(my!==seq) return; list.innerHTML='<div class="hint" style="padding:8px 12px;color:var(--red)">'+esc(mapErr(e)||"Không tải được SO.")+'</div>'; }); }
     q.addEventListener("focus",function(){ if(list.hidden) search(); });
     q.addEventListener("input",function(){ clearTimeout(t); t=setTimeout(search,250); });
-    q.addEventListener("keydown",function(e){ if(e.key==="Escape") close(); });
-    document.addEventListener("click",function(e){ if(!list.contains(e.target)&&e.target!==q) close(); }); }
+    q.addEventListener("keydown",function(e){
+      if(e.key==="Escape"){ close(); return; }
+      if(e.key==="ArrowDown"||e.key==="ArrowUp"){ e.preventDefault(); if(list.hidden){ search(); return; } mark(act<0&&e.key==="ArrowUp"?-1:act+(e.key==="ArrowDown"?1:-1)); return; }
+      if(e.key==="Enter"){ var o=opts(); if(!list.hidden&&o.length){ e.preventDefault(); (o[act<0?0:act]).click(); } } });
+    // Mot listener cho ca trang: form ve lai nhieu lan, gan moi lan se chong listener.
+    if(!_soDocClick){ _soDocClick=true; document.addEventListener("click",function(e){ var l=$("payr-so-list"), qq=$("payr-so-q");
+      if(l&&!l.hidden&&!l.contains(e.target)&&e.target!==qq){ l.hidden=true; if(qq) qq.setAttribute("aria-expanded","false"); } }); }
+    // Sua lai de nghi da co SO: lay doanh thu / da chi de hien canh bao nhu luc chon.
+    var cur=((state.draft||{}).ec_sales_order||"").toString().trim();
+    if(cur&&!(state._so&&state._so.value===cur)){ var my0=++seq;
+      call("search_funding_so",{source_doctype:(state.draft||{}).funding_source_doctype||"",query:cur,exclude_request:state.id||""}).then(function(res){ if(my0!==seq) return;
+        var rows=(res&&res.rows)||[]; for(var i=0;i<rows.length;i++){ if(rows[i].value===cur){ state._so=rows[i]; refreshSoHint(); break; } } }).catch(function(){ /* doc SO dang gan o nen: loi thi chi thieu dong doanh thu */ }); } }
   function srcNameSelectHTML(d){
     var dt=d.funding_source_doctype||"";
     if(!dt) return '<select data-model="funding_source_name" disabled><option value="">— Chọn loại nguồn trước —</option></select>';
@@ -318,7 +338,8 @@
 
   function fundingHintHTML(){ var f=state._fundSummary; if(!f) return "";
     var over=(Number((state.draft||{}).payment_amount)||0) > (Number(f.remaining)||0)+0.5;
-    return '<div class="hint'+(over?' err':'')+'" id="payr-fund-hint">Tổng: <b>'+fmtVnd(f.total)+'đ</b> · đã thanh toán: <b>'+fmtVnd(f.used)+'đ</b> · còn lại: <b>'+fmtVnd(f.remaining)+'đ</b>'+(over?' — số tiền đang vượt phần còn lại.':'')+'</div>'; }
+    var lbl=(state.draft||{}).funding_source_doctype===KOL_SRC?"Được chi hiện tại (cọc + BBNT hoàn tất)":"Tổng";
+    return '<div class="hint'+(over?' err':'')+'" id="payr-fund-hint">'+lbl+': <b>'+fmtVnd(f.total)+'đ</b> · đã thanh toán: <b>'+fmtVnd(f.used)+'đ</b> · còn lại: <b>'+fmtVnd(f.remaining)+'đ</b>'+(over?' — số tiền đang vượt phần còn lại.':'')+'</div>'; }
 
   // ---- o tien: hien co dau cham ngan cach (Hoan 08/09: "khong co dau cham kho doc qua") ----
   // <input type=number> khong cho dau phan cach, nen o tien la type=text inputmode=numeric:
@@ -449,7 +470,7 @@
   function setFieldError(id,msg){ var f=document.querySelector('[data-fld="'+id+'"]'); if(!f)return; f.classList.toggle("invalid",!!msg);
     var e=f.querySelector(".err"); if(msg){ if(!e){ e=document.createElement("div"); e.className="err"; f.appendChild(e);} e.textContent=msg; } else if(e){ e.textContent=""; } }
   function clearFieldError(id){ setFieldError(id,null); }
-  var FIELD_IDS=["reason","payment_amount","payment_date","payee_full_name","account_bank","bank_account_number","has_purchase_request","purchase_request","no_purchase_request_reason","is_cost_valid","details_and_attachments_correct","request_attachment","payment_mode","total_amount","next_installment_amount","next_installment_date"];
+  var FIELD_IDS=["reason","payment_amount","payment_date","payee_full_name","account_bank","bank_account_number","has_purchase_request","purchase_request","no_purchase_request_reason","is_cost_valid","details_and_attachments_correct","request_attachment","payment_mode","total_amount","next_installment_amount","next_installment_date","ec_sales_order","funding_source_doctype","funding_source_name","ec_loai_chi_phi"];
   function showFieldErrors(errs){ FIELD_IDS.forEach(function(id){ setFieldError(id,(errs&&errs[id])||null); });
     var first=errs&&Object.keys(errs)[0];
     if(first){
@@ -598,6 +619,8 @@
       renderCreate($("payr-body")); return; }
     if(k==="payment_mode"){ if(v!=="Installment"){ setModel("total_amount",null); setModel("next_installment_amount",null); setModel("next_installment_date",""); } renderCreate($("payr-body")); return; }
     if(k==="total_amount"||k==="payment_amount"){ if((state.draft||{}).payment_mode==="Installment"){ refreshInstallmentHints(); } }
+    if(k==="payment_amount"){ refreshSoHint(); var fh=$("payr-fund-hint"); if(fh){ var fb=document.createElement("div"); fb.innerHTML=fundingHintHTML(); if(fb.firstChild) fh.replaceWith(fb.firstChild); } }
+    if(k==="ec_brand") refreshSoHint();
     renderSummary(); clearFieldError(k); }
   // Doi tong / so tien dot nay -> cap nhat goi y dot ke tai cho (khong ve lai ca form de khong mat focus).
   // Ve lai RIENG khoi ke hoach khi tong / so tien dot nay doi. O "Tong gia tri" nam TRONG khoi
@@ -1305,7 +1328,7 @@
     call("get_bootstrap").then(function(bd){ state.boot=bd||{tabs:{},context:{},form_options:{}}; route(); })
     .catch(function(e){ var bd=$("payr-body"); if(bd) bd.innerHTML='<div class="card"><div class="state"><h4>Không tải được trang</h4><div class="hint">'+esc(mapErr(e))+'</div><button type="button" class="btn" id="b-retry">Thử lại</button></div></div>'; var r=$("b-retry"); if(r)r.onclick=boot; }); }
 
-  window.PaymentRequest={ state:state, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, ensurePROptions:ensurePROptions, renderCreate:renderCreate, doApproveAndSign:doApproveAndSign, loadSignReady:loadSignReady, callEsign:callEsign, handleHPRChange:handleHPRChange, handleSrcTypeChange:handleSrcTypeChange, handleSrcPick:handleSrcPick, promoteLegacySource:promoteLegacySource, fmtVnd:fmtVnd, startSignWait:startSignWait, stopSignWait:stopSignWait, signWaitActive:signWaitActive, uncStep:uncStep, uncSectionHTML:uncSectionHTML, uncCardVisible:uncCardVisible, doUncComplete:doUncComplete, instChainHTML:instChainHTML, instCardHTML:instCardHTML, instFolded:instFolded, installmentRemaining:installmentRemaining, formCardsHTML:formCardsHTML };
+  window.PaymentRequest={ state:state, soHintHTML:soHintHTML, fundingHintHTML:fundingHintHTML, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, ensurePROptions:ensurePROptions, renderCreate:renderCreate, doApproveAndSign:doApproveAndSign, loadSignReady:loadSignReady, callEsign:callEsign, handleHPRChange:handleHPRChange, handleSrcTypeChange:handleSrcTypeChange, handleSrcPick:handleSrcPick, promoteLegacySource:promoteLegacySource, fmtVnd:fmtVnd, startSignWait:startSignWait, stopSignWait:stopSignWait, signWaitActive:signWaitActive, uncStep:uncStep, uncSectionHTML:uncSectionHTML, uncCardVisible:uncCardVisible, doUncComplete:doUncComplete, instChainHTML:instChainHTML, instCardHTML:instCardHTML, instFolded:instFolded, installmentRemaining:installmentRemaining, formCardsHTML:formCardsHTML };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
 </script>

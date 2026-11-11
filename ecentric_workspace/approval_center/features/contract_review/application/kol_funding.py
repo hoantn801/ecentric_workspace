@@ -76,35 +76,11 @@ def fill_payment(pr, name):
 
 
 # --------------------------------------------------------------------------- SO tren DNTT
-def _so_spent(names, exclude_request=None):
-    """Tong DNTT dang chay / da duyet gan vao tung SO (doi chieu chi phi voi doanh thu)."""
-    if not names:
-        return {}
-    from ecentric_workspace.approval_center.features.payment_request.application.funding import (
-        CONSUMING_STATUSES)
-    rows = frappe.get_all("EC Payment Request", filters={"ec_sales_order": ["in", list(names)]},
-                          fields=["name", "ec_sales_order", "payment_amount", "approval_request"],
-                          ignore_permissions=True, limit_page_length=0)
-    reqs = [r.approval_request for r in rows if r.approval_request]
-    status = dict(frappe.get_all("EC Approval Request", filters={"name": ["in", reqs]},
-                                 fields=["name", "approval_status"], as_list=True,
-                                 ignore_permissions=True, limit_page_length=0)) if reqs else {}
-    out = {}
-    for r in rows:
-        if r.name == exclude_request or status.get(r.approval_request) not in CONSUMING_STATUSES:
-            continue
-        out[r.ec_sales_order] = out.get(r.ec_sales_order, 0.0) + float(r.payment_amount or 0)
-    return out
-
-
-def funding_so_search(user, query=None, exclude_request=None):
+def funding_so_search(user, query=None):
     """SO cho o "SO doanh thu" cua DNTT: cung bo loc voi form hop dong cu (SO cua minh / team,
-    SO doi ung cua GBS SO team tao; Ke toan thay het) + so da de nghi chi tren SO."""
-    rows = kol_lookup.search_sales_orders(user, query)
-    spent = _so_spent([r["value"] for r in rows], exclude_request)
-    for r in rows:
-        r["spent"] = spent.get(r["value"], 0.0)
-    return {"rows": rows, "missing": kol_lookup.gbs_without_counterpart(user, query)}
+    SO doi ung cua GBS SO team tao; Ke toan thay het). "Da de nghi chi" do payment_request tinh."""
+    return {"rows": kol_lookup.search_sales_orders(user, query),
+            "missing": kol_lookup.gbs_without_counterpart(user, query)}
 
 
 def funding_validate(pr, user):

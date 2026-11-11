@@ -309,5 +309,47 @@ class TestLegacyAlias(FundingTestBase):
         self.assertEqual(doc.purchase_request, "PURR-DRAFT")
 
 
+
+class TestRevenueSo(TestLegacyAlias):
+    """SO doanh thu tren DNTT nguon hop dong KOL (12/11): 'da de nghi chi' tinh o module DNTT."""
+
+    def test_so_spent_only_counts_consuming_and_excludes_self(self):
+        for name, amt, st in (("P1", 10.0, "Approved"), ("P2", 5.0, "Pending"), ("P3", 7.0, "Rejected"),
+                              ("P4", 3.0, None)):
+            self._payr(name, amt, status=st)
+            self.store["EC Payment Request"][name]["ec_sales_order"] = "SO-1"
+            if st:                                   # stub get_all loc "name in" theo truong name
+                self.store["EC Approval Request"]["AR-" + name]["name"] = "AR-" + name
+        self.assertEqual(self.funding.so_spent(["SO-1"]), {"SO-1": 15.0})
+        self.assertEqual(self.funding.so_spent(["SO-1"], exclude_request="P1"), {"SO-1": 5.0})
+        self.assertEqual(self.funding.so_spent([]), {})
+
+    def test_non_kol_source_has_no_so_picker(self):
+        self.assertEqual(self.funding.search_revenue_so("EC Purchase Request", "x"), {"rows": [], "missing": []})
+
+    def test_no_source_clears_so(self):
+        svc = self._service()
+        doc = _Doc({"has_purchase_request": "No", "ec_sales_order": "SO-1",
+                    "details_and_attachments_correct": "Yes"})
+        svc.normalize_payment(doc)
+        self.assertIsNone(doc.ec_sales_order)
+
+    def test_resubmit_of_kol_source_is_revalidated(self):
+        """Sua lai DNTT da gui (co approval_request) di qua normalize_payment, khong qua submit:
+        phai kiem lai nguon hop dong (SO bat buoc / quyen SO) - truoc QC2 duong nay lot."""
+        svc = self._service()
+        seen = []
+        svc.funding.validate_funding = lambda d: seen.append(d.get("funding_source_name"))
+        svc.frappe.get_attr = lambda path: (lambda d, n: None)
+        doc = _Doc({"funding_source_doctype": "EC Contract Review Request", "funding_source_name": "CR-1",
+                    "approval_request": "AR-X", "details_and_attachments_correct": "Yes"})
+        svc.normalize_payment(doc)
+        self.assertEqual(seen, ["CR-1"])
+        seen.clear()
+        doc = _Doc({"funding_source_doctype": "EC Contract Review Request", "funding_source_name": "CR-1",
+                    "details_and_attachments_correct": "Yes"})
+        svc.normalize_payment(doc)          # phieu nhap: kiem o luc gui, khong o day
+        self.assertEqual(seen, [])
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

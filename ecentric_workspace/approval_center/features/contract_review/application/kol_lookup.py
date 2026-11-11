@@ -197,7 +197,9 @@ def pick_template(kind, creator_type, service_type, has_advance, platform=None):
         t = dict(t, is_active=1)          # list_templates da loc is_active
         if template_mismatch(t, kind, creator_type, has_advance, platform, service_type):
             continue
-        score = len(want) - want.index(t.get("service_type") or "Tất cả")
+        svc = t.get("service_type") or "Tất cả"
+        # service_type rong (phieu nhap chua chon dich vu, vd AI QC mau creator): moi mau cung diem.
+        score = (len(want) - want.index(svc)) if svc in want else 0
         if score > best_score:
             best, best_score = t["name"], score
     return best

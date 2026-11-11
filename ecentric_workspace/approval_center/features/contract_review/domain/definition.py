@@ -15,7 +15,8 @@ CONTRACT_REVIEW_DEFINITION = ApprovalDefinition(
                      "cc_to", "request_attachment", "department", "company",
                      # Hop dong KOL/KOC (11/11/2026). So tien tinh san (gross/thue/so tra), so
                      # HD, tep sinh ra, trang thai ky KHONG nam day: chi server ghi.
-                     "sales_order", "creator", "service_type", "platform", "quantity",
+                     # `sales_order` bo 12/11: SO doanh thu chon o DNTT (phieu cu giu gia tri).
+                     "creator", "service_type", "platform", "quantity",
                      "duration", "air_dates", "commission_rate", "amount_type", "amount_input",
                      "pit_rate", "vat_rate", "payment_schedule", "advance_percent",
                      "payment_term_days", "contract_template", "contract_date"),
@@ -38,6 +39,9 @@ CONTRACT_REVIEW_DEFINITION = ApprovalDefinition(
                            "New contract template / Hợp đồng mới")),
     )),
     filter_builder=ExactAndDateFilters(("contract_type", "request_kind")),
+    # Ngay ky cua phieu goc la ngay tu tinh theo lich CU: chep sang phieu moi thi bi coi la ngay
+    # nguoi dung chon va "dinh" lai (QC 12/11). De trong - server tinh lai theo lich cua phieu moi.
+    clone_exclude_fields=("contract_date",),
     draft_preparer=ServiceMethod(_KOL, "prepare_draft"),
     detail_extender=ServiceMethod(_KOL, "detail_extra"),
     **service_callbacks("contract_review"))
