@@ -667,6 +667,90 @@ class TestRowEdit(unittest.TestCase):
             self.assertIn(msg, str(cm.exception))
 
 
+class TestAddRows(unittest.TestCase):
+    """+ Them du lieu da co (team Data, 11/11/2026): nhieu san mot lan, khong qua de xuat."""
+
+    def setUp(self):
+        self.r, self.pm = fresh()
+
+    def test_multi_platform_create(self):
+        before = len(self.r.avail_rows())
+        out = AS.add_rows(F.LINH, {"team": "Commercial", "data_type": "Livestream session", "platforms": ["Shopee", "tiktok"],
+                                   "other_platform": "Misa, facebook ; Misa", "in_sharepoint": "1", "in_dw": 1,
+                                   "frequency": C.FREQ_DAILY, "data_owner": F.DUNG, "note": "Crawl API", "front_priority": "1"},
+                          repo=self.r)
+        self.assertEqual(len(out["created"]), 4, "Shopee, TikTok, Misa, facebook (trung Misa bo)")
+        self.assertEqual(out["skipped"], [])
+        self.assertEqual(len(self.r.avail_rows()), before + 4)
+        plats = sorted(self.r.avail_get(n)["platform"] for n in out["created"])
+        self.assertEqual(plats, ["Misa", "Shopee", "TikTok", "facebook"])
+        for n in out["created"]:
+            x = self.r.avail_get(n)
+            self.assertEqual((x["team"], x["data_type"], x["in_sharepoint"], x["in_dw"], x["in_powerbi"], x["frequency"],
+                              x["data_owner"], x["note"], x["front_priority"]),
+                             ("Commercial", "Livestream session", 1, 1, 0, C.FREQ_DAILY, F.DUNG, "Crawl API", 1))
+            self.assertEqual(x["last_updated"], self.r.now(), "co kenh, chua ghi ngay -> bay gio")
+
+    def test_no_channel_keeps_empty_date_and_owner_none(self):
+        out = AS.add_rows(F.HOAN, {"team": "Media", "data_type": "Meta Ads", "platforms": [], "other_platform": "Facebook"},
+                          repo=self.r)
+        x = self.r.avail_get(out["created"][0])
+        self.assertEqual((x["platform"], x["last_updated"], x["data_owner"], x["in_sharepoint"]), ("Facebook", None, None, 0))
+
+    def test_skip_existing_and_all_exist(self):
+        self.assertTrue(row(self.r, "Commercial", "Product", "Shopee"))
+        out = AS.add_rows(F.LINH, {"team": "commercial", "data_type": "product", "platforms": ["Shopee", "Lazada"],
+                                   "other_platform": "Tiki"}, repo=self.r)
+        self.assertEqual(out["skipped"], ["Shopee", "Lazada"], "san da co -> bo qua, bao lai")
+        self.assertEqual([self.r.avail_get(n)["platform"] for n in out["created"]], ["Tiki"])
+        before = len(self.r.avail_rows())
+        with self.assertRaises(S.DataHubError) as cm:
+            AS.add_rows(F.LINH, {"team": "Commercial", "data_type": "Product", "platforms": ["Shopee", "TikTok"]}, repo=self.r)
+        self.assertIn("Đã có đủ các dòng này", str(cm.exception))
+        self.assertEqual(len(self.r.avail_rows()), before, "loi -> khong ghi gi")
+
+    def test_validation(self):
+        before = len(self.r.avail_rows())
+        cases = (({"team": "Commercial", "data_type": "X", "platforms": []}, "Chọn ít nhất một sàn"),
+                 ({"team": "Commercial", "data_type": "X", "platforms": "Shopee"}, "Chọn ít nhất một sàn"),
+                 ({"team": "", "data_type": "X", "platforms": ["Shopee"]}, "Team không hợp lệ"),
+                 ({"team": "Commercial", "data_type": " ", "platforms": ["Shopee"]}, "Loại dữ liệu không hợp lệ"),
+                 ({"team": "Commercial", "data_type": "X", "platforms": ["Shopee"], "frequency": "Mỗi phút"}, "Tần suất"),
+                 ({"team": "Commercial", "data_type": "X", "platforms": ["Shopee"], "last_updated": "hôm qua"}, "Ngày cập nhật"),
+                 ({"team": "Commercial", "data_type": "X", "platforms": ["Shopee"], "data_owner": "ma@x.vn"}, "Người phụ trách"))
+        for bad, msg in cases:
+            with self.assertRaises(S.DataHubError, msg=msg) as cm:
+                AS.add_rows(F.LINH, bad, repo=self.r)
+            self.assertIn(msg, str(cm.exception))
+        with self.assertRaises(S.DataHubError) as cm:
+            AS.add_rows(F.LINH, {"team": "", "data_type": "", "platforms": ["Shopee", "TikTok"]}, repo=self.r)
+        self.assertEqual(str(cm.exception).count("Team không hợp lệ"), 1, "loi trung cua nhieu san chi bao mot lan")
+        self.assertEqual(len(self.r.avail_rows()), before)
+
+    def test_permission(self):
+        for u in (F.THU, F.OUTSIDER, "Guest"):
+            with self.assertRaises(S.Forbidden):
+                AS.add_rows(u, {"team": "Commercial", "data_type": "X", "platforms": ["Shopee"]}, repo=self.r)
+        AS.add_rows(F.ADMIN, {"team": "Commercial", "data_type": "X", "platforms": ["Shopee"]}, repo=self.r)
+
+    def test_team_page_buttons_and_boot(self):
+        r, _pm, _c = FA.sample_avail()
+        out = T.render("san_co", S.avail_page(F.LINH, repo=r))
+        self.assertIn('class="edh-grp-add" data-edh-add data-team="Commercial"', out)
+        self.assertIn('data-edh-add data-new-team="1"', out)
+        self.assertIn('aria-label="Thêm Boxme Purchase Order · Shopee (Commercial)"', out, "o — co nut +")
+        self.assertIn('data-edh-addf', out)
+        self.assertNotIn('list="edh-dl', out.split("data-edh-addf")[1].split("</form>")[0], "hop them khong dung datalist")
+        b = TestAvailPage.boot(None, out)
+        self.assertIn("Product", b["team_types"]["Commercial"])
+        self.assertEqual(sorted(b["group_plats"]["commercial|product"]), ["Lazada", "Shopee", "TikTok"])
+
+    def test_api_wired(self):
+        src = io.open(os.path.join(APP, "data_hub", "api.py"), encoding="utf-8").read()
+        self.assertIn('@frappe.whitelist(methods=["POST"])\ndef add_availability(data):', src)
+        self.assertIn("_avail().add_rows(_me(), _json(data))", src)
+
+
 # ====================================================================== quyen =============
 class TestPermissions(unittest.TestCase):
     """Moi viec dot 2 x moi vai: nhan vien / team Data / System Manager / nguoi ngoai."""
@@ -679,12 +763,13 @@ class TestPermissions(unittest.TestCase):
             "review": lambda u: AS.review_proposal(u, name, C.PROP_REJECTED, "x", repo=r),
             "plan": lambda u: AS.plan(u, plan(data_type="Live", platforms=["Lazada"], assignee=F.HOAN), repo=r, pm=pm),
             "save_row": lambda u: AS.save_row(u, {"team": "Z", "data_type": u, "platform": "Shopee"}, repo=r),
+            "add_rows": lambda u: AS.add_rows(u, {"team": "Z", "data_type": u, "platforms": ["Shopee"]}, repo=r),
             "library": lambda u: AS.save_library(u, {"title": "x", "link": "https://x.vn/" + u}, repo=r),
         }
 
     def test_matrix(self):
         expect = {F.THU: {"page", "propose", "suggest"}, F.LINH: None, F.ADMIN: None, F.OUTSIDER: set()}
-        everything = {"page", "propose", "suggest", "review", "plan", "save_row", "library"}
+        everything = {"page", "propose", "suggest", "review", "plan", "save_row", "add_rows", "library"}
         for user, allowed in expect.items():
             allowed = everything if allowed is None else allowed
             for act in sorted(everything):
@@ -723,7 +808,7 @@ class TestAvailPage(unittest.TestCase):
         self.assertRegex(out, r"Trễ cập nhật</span><b>1</b>")
         self.assertIn("data-edh-propose", out)
         for team_only in ("data-edh-plan=", "data-edh-plan-cell", "data-edh-approve", "data-edh-row-edit", "data-edh-lib-new",
-                          "data-edh-plan-ov", "data-edh-row-new"):
+                          "data-edh-plan-ov", "data-edh-row-new", "data-edh-add", "edh-celladd", "edh-grp-add"):
             self.assertNotIn(team_only, out, team_only)
         self.assertIn('<span class="edh-cellno" title="Lazada: chưa có">', out)
         self.assertIn('data-edh-open="%s"' % self.c["da_video"], out, "o dang lam mo popup DA")

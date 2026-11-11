@@ -193,6 +193,13 @@ def page(user, view="", prefill_ticket="", repo=None):
                                "last_updated": str(r.get("last_updated") or "")[:16].replace(" ", "T")}
             for k in C.CHANNEL_KEYS:
                 rows[r["name"]][C.CHANNEL_FIELD[k]] = int(r.get(C.CHANNEL_FIELD[k]) or 0)
+        # hop "Thêm dữ liệu đã có": loai du lieu theo team + san da co cua tung (team, loai) -> JS khoa chip trung
+        team_types, group_plats = {}, {}
+        for g in A.groups_flat(v["teams"]):
+            team_types.setdefault(g["team"], []).append(g["data_type"])
+            group_plats[(g["team"] + "|" + g["data_type"]).lower()] = [
+                c["platform"] for c in list(g["cells"].values()) + g["others"] if c]
+        boot.update({"team_types": team_types, "group_plats": group_plats})
         boot.update({"rows": rows, "team": v["team_members"], "plan_defaults": plan_defaults(repo),
                      "gaps": {g["key"]: {"team": g["team"], "data_type": g["data_type"], "platforms": g["unplanned"],
                                          "proposal": g["proposal"] if g.get("proposal_open") else "",
@@ -526,6 +533,49 @@ def save_row(user, data, repo=None):
     if not v["last_updated"] and any(v[C.CHANNEL_FIELD[k]] for k in C.CHANNEL_KEYS):
         v["last_updated"] = repo.now()
     return {"name": repo.avail_insert(v), "created": True}
+
+
+def add_rows(user, data, repo=None):
+    """Team Data "+ Thêm dữ liệu đã có" ngay tren ma tran (11/11/2026, PO Hoan): mot lan nhieu san cho
+    cung (team, loai du lieu), KHONG qua de xuat / duyet. Moi thong tin (kenh, tan suat, nguoi phu trach,
+    cap nhat lan cuoi, ghi chu, Front) ap cho moi san. Kiem het truoc khi ghi; san da co dong -> bo qua
+    (bao lai), tat ca da co -> loi. -> {created: [ten dong], skipped: [san]}."""
+    repo = _repo(repo)
+    S.require_operate(repo, user)
+    data = dict(data or {})
+    raw = data.get("platforms") if isinstance(data.get("platforms"), list) else []
+    plats = A.parse_platforms(raw, data.get("other_platform") or "")
+    errs, vals = [], []
+    for p in plats or [""]:
+        try:
+            vals.append(A.normalize_row(dict(data, platform=p, name="")))
+        except D.Invalid as e:
+            errs += [x for x in e.errors if x not in errs]
+    if not plats:
+        errs = [x for x in errs if not x.startswith("Ghi tên sàn")]
+        errs.insert(0, "Chọn ít nhất một sàn / nguồn.")
+    if errs:
+        _fail(errs)
+    owner = vals[0]["data_owner"]
+    if owner and not repo.enabled_users([owner]):
+        _fail("Người phụ trách không hợp lệ.")
+    rows = repo.avail_rows()
+    todo, skipped = [], []
+    for v in vals:
+        hit = next((r for r in rows if A.same(r.get("team"), v["team"]) and A.same(r.get("data_type"), v["data_type"])
+                    and A.same(A.norm_platform(r.get("platform")), v["platform"])), None)
+        (skipped if hit else todo).append(v["platform"] if hit else v)
+    if not todo:
+        _fail("Đã có đủ các dòng này ({0} · {1} · {2}). Bấm vào ô trong bảng để sửa.".format(
+            vals[0]["team"], vals[0]["data_type"], ", ".join(skipped)))
+    now = repo.now()
+    created = []
+    for v in todo:
+        v["data_owner"] = v["data_owner"] or None
+        if not v["last_updated"] and any(v[C.CHANNEL_FIELD[k]] for k in C.CHANNEL_KEYS):
+            v["last_updated"] = now
+        created.append(repo.avail_insert(v))
+    return {"created": created, "skipped": skipped}
 
 
 # ------------------------------------------------------------------ thu vien bao cao ------
