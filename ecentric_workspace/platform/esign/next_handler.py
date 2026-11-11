@@ -140,7 +140,7 @@ def provider_ids_for(users, environment):
 _APPROVE_TYPES = ("approve",)
 
 
-def discover_transition(adapter, instance_id, provider_user_id):
+def discover_transition(adapter, instance_id, provider_user_id, quick=False):
     """Ask the PROVIDER which transition applies right now, instead of configuring one.
 
     Captured from the portal 2026-08-28:
@@ -159,7 +159,9 @@ def discover_transition(adapter, instance_id, provider_user_id):
     if not hasattr(adapter, "available_transitions"):
         return None, "adapter_cannot_discover_transitions"
     try:
-        avail = adapter.available_transitions(instance_id, provider_user_id) or []
+        # `quick` chi khi shadow hoi: duong chinh giu nguyen loi goi cu tung chu.
+        avail = (adapter.available_transitions(instance_id, provider_user_id, quick=True)
+                 if quick else adapter.available_transitions(instance_id, provider_user_id)) or []
     except Exception as exc:
         # Ghi CA noi dung loi, khong chi ten loai. Ban dau chi ghi type(exc).__name__ va lan
         # chay that 28/08 tra ve dung mot chu "SctsHttpError" - biet la hong nhung khong biet
@@ -397,7 +399,7 @@ def shadow_probe(dsr, adapter, document_id, known_instance_id=None):
             src = "provider_lookup"
             if not iid:
                 return {"ok": False, "why": why}
-        cfg, why = discover_transition(adapter, iid, user)
+        cfg, why = discover_transition(adapter, iid, user, quick=True)
         out = {"ok": cfg is not None, "instance_id": iid, "instance_source": src, "why": why}
         if cfg is not None:
             out.update({"transition_id": cfg.get("transition_id"),
@@ -432,6 +434,8 @@ def plan_handover(dsr, profile_name, environment, stage=None, adapter=None, inst
     try:
         if transition_discovery_mode() != DISCOVERY_SHADOW:
             return plan
+        if plan.get("reason") == "targeted_handover_disabled":
+            return plan         # duong chinh da tat: khong ton them lenh goi nao
         doc_id = document_id or instance_id
         # instance_id khac document_id = goi da co ma instance that (nhap tay). Bang nhau = chua co.
         known = instance_id if (instance_id and document_id and instance_id != document_id) else None

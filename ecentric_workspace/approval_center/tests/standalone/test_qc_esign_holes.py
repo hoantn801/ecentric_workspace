@@ -120,7 +120,7 @@ class TestEveryReadEndpointChecksPermission(unittest.TestCase):
 
     def test_the_signature_image_endpoint_specifically(self):
         body = _fn(self.src, "document_signature_overlay")
-        self.assertIn('perms.assert_can_view_business("EC Payment Request"', body)
+        self.assertIn('perms.assert_can_view_business(biz_dt, biz_name)', body)  # chang 3
 
     def test_system_manager_endpoints_really_are_gated(self):
         for name in ("list_scts_signatures", "provider_document_shape", "esign_document_state"):

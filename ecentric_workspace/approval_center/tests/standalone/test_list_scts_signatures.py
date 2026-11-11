@@ -153,7 +153,10 @@ class TestSignatureOverlayStaysNarrow(unittest.TestCase):
                          "khong duoc suy tu danh sach ung vien cua o ky")
 
     def test_requires_business_view_permission(self):
-        self.assertIn('_business_args("EC Payment Request"', self.body,
+        # 11/11 (chang 3): chon chung tu qua _target thay cho _business_args viet cung DNTT.
+        self.assertIn("_target(payment_request_name, business_doctype, business_name)",
+                      self.body)
+        self.assertIn("perms.assert_can_view_business(biz_dt, biz_name)", self.body,
                       "phai gioi han o nguoi da duoc xem chinh yeu cau nay")
 
     def test_uses_the_accessor_that_actually_returns_an_image(self):
