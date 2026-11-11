@@ -71,6 +71,10 @@
   #ec-payr-root .fld .err{ font-size:12px;color:var(--red); }
   #ec-payr-root .fld.invalid input,#ec-payr-root .fld.invalid select,#ec-payr-root .fld.invalid textarea{ border-color:var(--red); }
   #ec-payr-root .full{ grid-column:1/-1; }
+  #ec-payr-root .so-pick{ position:relative; }
+  #ec-payr-root .so-list{ position:absolute; top:100%; left:0; right:0; z-index:30; background:#fff; border:1px solid #e5e7eb; border-radius:10px; box-shadow:0 8px 24px rgba(17,24,39,.08); max-height:260px; overflow:auto; margin-top:2px; }
+  #ec-payr-root .so-row{ display:block; width:100%; text-align:left; padding:8px 12px; border:0; border-bottom:1px solid #f3f4f6; background:#fff; cursor:pointer; font:inherit; }
+  #ec-payr-root .so-row:hover,#ec-payr-root .so-row:focus{ background:var(--navy-50); outline:none; }
   #ec-payr-root .hint{ font-size:12px;color:var(--gray-500); }
   #ec-payr-root .banner{ padding:11px 14px;border-radius:9px;font-size:13px;display:flex;gap:9px;align-items:flex-start;margin-bottom:14px; }
   #ec-payr-root .banner.warn{ background:var(--yellow-50);color:var(--amber);border:1px solid #fde68a; }
@@ -252,6 +256,36 @@
     for(var i=0;i<types.length;i++){ var t=types[i];
       o+='<option value="'+esc(t.value)+'"'+(d.funding_source_doctype===t.value?' selected':'')+'>'+esc(t.label)+'</option>'; }
     return '<select data-model="funding_source_doctype">'+o+'</select>'; }
+  // ---- SO doanh thu (12/11, Hoan: "SO se duoc gan vao payment request de ke toan kiem tra") ----
+  // Chi hien khi nguon la hop dong KOL/KOC. Server tim SO (cua minh / team; SO GBS -> SO doi ung) va
+  // tinh "da de nghi chi"; vuot doanh thu chi CANH BAO.
+  var KOL_SRC="EC Contract Review Request";
+  function soHintHTML(d){ var r=state._so; var v=d.ec_sales_order||"";
+    if(!v) return '<div class="hint" id="payr-so-cur">Chưa chọn. SO bên GBS thì gõ mã GBS SO, hệ thống lấy SO đối ứng (doanh thu EC).</div>';
+    if(!r||r.value!==v) return '<div class="hint" id="payr-so-cur">Đã chọn: <b>'+esc(v)+'</b></div>';
+    var amt=Number(d.payment_amount)||0, after=Number(r.spent||0)+amt, over=after-Number(r.revenue||0);
+    return '<div class="hint" id="payr-so-cur">Đã chọn: <b>'+esc(r.label)+'</b> · doanh thu EC '+fmtVnd(r.revenue)+'đ · đã đề nghị chi '+fmtVnd(r.spent)+'đ</div>'
+      +(over>0.5?'<div class="banner warn" style="margin-top:6px"><div>Cộng đề nghị này, chi phí trên SO là '+fmtVnd(after)+'đ, vượt doanh thu EC '+fmtVnd(over)+'đ. Chỉ cảnh báo, vẫn gửi được; Kế toán sẽ xem.</div></div>':''); }
+  function soFieldHTML(d){
+    return fld("ec_sales_order","SO doanh thu (để Kế toán đối chiếu chi phí)",'<div class="so-pick"><input id="payr-so-q" placeholder="Gõ mã SO, mã GBS SO hoặc brand…" autocomplete="off" aria-label="Tìm SO doanh thu" role="combobox" aria-expanded="false" aria-controls="payr-so-list"><div id="payr-so-list" class="so-list" role="listbox" hidden></div></div>'+soHintHTML(d),true).replace('class="fld','class="fld full'); }
+  function wireSoPicker(){ var q=$("payr-so-q"), list=$("payr-so-list"); if(!q||!list) return; var seq=0, t=null;
+    function close(){ list.hidden=true; q.setAttribute("aria-expanded","false"); }
+    function search(){ var my=++seq; var dt=(state.draft||{}).funding_source_doctype||"";
+      list.hidden=false; q.setAttribute("aria-expanded","true"); list.innerHTML='<div class="hint" style="padding:8px 12px">Đang tìm…</div>';
+      call("search_funding_so",{source_doctype:dt,query:q.value||"",exclude_request:state.id||""}).then(function(res){ if(my!==seq) return;
+        var rows=(res&&res.rows)||[], miss=(res&&res.missing)||[]; list.innerHTML="";
+        rows.forEach(function(r){ var b=document.createElement("button"); b.type="button"; b.className="so-row"; b.setAttribute("role","option");
+          b.innerHTML='<b>'+esc(r.label)+'</b><div class="hint">'+esc(r.brand||"—")+' · '+esc(r.date||"")+' · doanh thu EC '+fmtVnd(r.revenue)+'đ · đã đề nghị chi '+fmtVnd(r.spent)+'đ</div>';
+          b.onclick=function(){ state._so=r; setModel("ec_sales_order",r.value); clearFieldError("ec_sales_order"); close(); q.value="";
+            var h=$("payr-so-cur"); if(h){ var box=document.createElement("div"); box.innerHTML=soHintHTML(state.draft||{}); var p=h.parentNode; while(h.nextSibling) p.removeChild(h.nextSibling); p.replaceChild(box,h); } };
+          list.appendChild(b); });
+        miss.forEach(function(m){ var x=document.createElement("div"); x.className="so-row"; x.style.cursor="default"; x.innerHTML='<b>'+esc(m.gbs)+'</b> · không chọn được<div class="hint">'+esc(m.reason)+'</div>'; list.appendChild(x); });
+        if(!rows.length&&!miss.length) list.innerHTML='<div class="hint" style="padding:8px 12px">Không có SO phù hợp (chỉ hiện SO của bạn / cùng phòng ban).</div>'; })
+      .catch(function(e){ if(my!==seq) return; list.innerHTML='<div class="hint" style="padding:8px 12px;color:var(--red)">'+esc(mapErr(e)||"Không tải được SO.")+'</div>'; }); }
+    q.addEventListener("focus",function(){ if(list.hidden) search(); });
+    q.addEventListener("input",function(){ clearTimeout(t); t=setTimeout(search,250); });
+    q.addEventListener("keydown",function(e){ if(e.key==="Escape") close(); });
+    document.addEventListener("click",function(e){ if(!list.contains(e.target)&&e.target!==q) close(); }); }
   function srcNameSelectHTML(d){
     var dt=d.funding_source_doctype||"";
     if(!dt) return '<select data-model="funding_source_name" disabled><option value="">— Chọn loại nguồn trước —</option></select>';
@@ -323,6 +357,7 @@
     var prField=(hpr==="Yes")?(
         fld("funding_source_doctype","Loại nguồn chi phí",srcTypeSelectHTML(d),true)
       + fld("funding_source_name","Chứng từ nguồn",srcNameSelectHTML(d)+fundingHintHTML(),true).replace('class="fld','class="fld full')
+      + (d.funding_source_doctype===KOL_SRC?soFieldHTML(d):"")
       ):"";
     var noPrField=(hpr==="No")?fld("no_purchase_request_reason","Lý do không có Purchase Request",'<textarea data-model="no_purchase_request_reason" rows="2" placeholder="Nêu lý do không có Purchase Request.">'+esc(d.no_purchase_request_reason||"")+'</textarea>',true).replace('class="fld','class="fld full'):"";
     return '<div class="card"><h3>Người yêu cầu</h3><div class="grid2">'
@@ -451,6 +486,7 @@
     if(d.has_purchase_request==="Yes"){
       if(!((d.funding_source_doctype||"").toString().trim())) errs.funding_source_doctype="Vui lòng chọn loại nguồn chi phí.";
       if(!((d.funding_source_name||"").toString().trim())) errs.funding_source_name="Vui lòng chọn chứng từ nguồn.";
+      if(d.funding_source_doctype===KOL_SRC&&!((d.ec_sales_order||"").toString().trim())) errs.ec_sales_order="Chọn SO doanh thu (SO cung cấp dịch vụ cho brand) để Kế toán đối chiếu.";
       var f=state._fundSummary;
       if(f && Number(d.payment_amount)>Number(f.remaining)+0.5) errs.payment_amount="Số tiền vượt phần còn lại của chứng từ nguồn (còn "+fmtVnd(f.remaining)+"đ).";
     }
@@ -600,6 +636,7 @@
       toast(mapErr(e)||"Không tải được danh sách nguồn chi phí.",true); cb&&cb(); }); }
 
   function handleSrcTypeChange(v){ clearFieldError("funding_source_doctype");
+    if(v!==KOL_SRC&&(state.draft||{}).ec_sales_order){ setModel("ec_sales_order",""); state._so=null; }
     setModel("funding_source_name",""); state._fundRows=[]; state._fundSummary=null;
     if(!v){ renderCreate($("payr-body")); return; }
     state._fundLoading=true; renderCreate($("payr-body"));
@@ -664,7 +701,7 @@
         setModel(field, (state.draft._attachments[0]||{}).url||"");
         renderFileList(field, labelId); }; }); }
 
-  function wireCreate(){ var b=$("payr-body"); var editing=state.mode==="edit"; wireModels(b);
+  function wireCreate(){ var b=$("payr-body"); var editing=state.mode==="edit"; wireModels(b); wireSoPicker();
     var att=document.querySelector('[data-upload="request_attachment"]'); if(att) att.addEventListener("change",function(){ uploadFile(att,"request_attachment","payr-att-name"); }); if(att) renderFileList("request_attachment","payr-att-name");
     if(editing){
       $("payr-edit-cancel").onclick=function(){ state._editDet=null; state.mode="create"; _setEditingFlag(false); renderDetail($("payr-body")); };
@@ -764,7 +801,7 @@
     b.innerHTML='<div style="margin-bottom:12px"><button type="button" class="btn" id="d-back">‹ Danh sách</button></div>'
       +'<div class="card"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px"><div><h3 style="margin:0">'+esc(biz.request_title||biz.name||state.id)+'</h3><div class="hint">'+esc(biz.name||"")+' · '+esc(biz.payee_full_name||"")+' · '+esc(biz.requested_by||"")+' · '+esc(biz.department||"")+'</div></div><div>'+badge(ap.approval_status||"Draft")+'</div></div></div>'
       +'<div class="card"><h3>Tiến trình phê duyệt</h3>'+instChainHTML(det)+instStepperWrapOpen(det)+'<div class="stepper" id="d-stepper"></div>'+instStepperWrapClose(det)+'</div>'
-      +'<div class="card"><h3>Thông tin thanh toán</h3><div class="grid2">'+kv("Người nhận",biz.payee_full_name)+kv("Số tiền (VND)",biz.payment_amount!=null?fmtMoney(biz.payment_amount):"")+kv("Ngày thanh toán",biz.payment_date)+kv("Ngân hàng",biz.account_bank)+kv("Số tài khoản",biz.bank_account_number)+kv("Loại chi phí",catLabel((state.boot&&state.boot.form_options)||{},biz.ec_loai_chi_phi))+(biz.ec_brand?kv("Brand liên quan",biz.ec_brand):"")+kv("Kỳ ghi nhận chi phí",biz.ec_ky_chi_phi)+kv("Thuế VAT",(String(biz.ec_vat_pct||"0")==="0"?"Không có VAT":String(Number(biz.ec_vat_pct))+"%"))+kv("Có Purchase Request?",biz.has_purchase_request)+kv("Purchase Request",biz.purchase_request)+kv("Chi phí hợp lệ?",biz.is_cost_valid)+kv("Xác nhận thông tin & tệp",biz.details_and_attachments_correct==="Yes"?"Đã xác nhận":"Chưa xác nhận")+'</div><div class="fld" style="margin-top:10px"><label>Lý do / nội dung thanh toán</label><textarea class="ro" readonly rows="3">'+esc(biz.reason||"")+'</textarea></div>'+(biz.has_purchase_request==="No"?'<div class="fld" style="margin-top:10px"><label>Lý do không có Purchase Request</label><textarea class="ro" readonly rows="2">'+esc(biz.no_purchase_request_reason||"")+'</textarea></div>':'')+'</div>'
+      +'<div class="card"><h3>Thông tin thanh toán</h3><div class="grid2">'+kv("Người nhận",biz.payee_full_name)+kv("Số tiền (VND)",biz.payment_amount!=null?fmtMoney(biz.payment_amount):"")+kv("Ngày thanh toán",biz.payment_date)+kv("Ngân hàng",biz.account_bank)+kv("Số tài khoản",biz.bank_account_number)+kv("Loại chi phí",catLabel((state.boot&&state.boot.form_options)||{},biz.ec_loai_chi_phi))+(biz.ec_brand?kv("Brand liên quan",biz.ec_brand):"")+kv("Kỳ ghi nhận chi phí",biz.ec_ky_chi_phi)+kv("Thuế VAT",(String(biz.ec_vat_pct||"0")==="0"?"Không có VAT":String(Number(biz.ec_vat_pct))+"%"))+kv("Có Purchase Request?",biz.has_purchase_request)+kv("Purchase Request",biz.purchase_request)+(biz.ec_sales_order?kv("SO doanh thu",biz.ec_sales_order):"")+kv("Chi phí hợp lệ?",biz.is_cost_valid)+kv("Xác nhận thông tin & tệp",biz.details_and_attachments_correct==="Yes"?"Đã xác nhận":"Chưa xác nhận")+'</div><div class="fld" style="margin-top:10px"><label>Lý do / nội dung thanh toán</label><textarea class="ro" readonly rows="3">'+esc(biz.reason||"")+'</textarea></div>'+(biz.has_purchase_request==="No"?'<div class="fld" style="margin-top:10px"><label>Lý do không có Purchase Request</label><textarea class="ro" readonly rows="2">'+esc(biz.no_purchase_request_reason||"")+'</textarea></div>':'')+'</div>'
       +instCardHTML(det)
       +'<div class="card"><h3>Đính kèm</h3>'+renderAttachments(det.attachments)+'</div>'
       +(uncCardVisible(det)?('<div class="card" id="d-unc"><h3>Xử lý UNC (Finance)</h3>'+uncSectionHTML(det)+'</div>'):'')

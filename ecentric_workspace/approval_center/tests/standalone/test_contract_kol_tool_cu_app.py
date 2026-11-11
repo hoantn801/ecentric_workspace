@@ -21,6 +21,7 @@ sys.path.insert(0, _HERE)
 from test_contract_kol_domain import doc_xml, make_docx  # noqa: E402
 
 PKG = "ecentric_workspace.approval_center.features.contract_review.application"
+MODS = ("kol_lookup", "kol_service", "kol_files", "kol_ai", "kol_acceptance", "kol_funding", "kol_verify")
 
 
 class _Throw(Exception):
@@ -74,11 +75,13 @@ class AppTests(unittest.TestCase):
         fk = _fake_frappe(cls.state)
         cls._saved = {k: sys.modules.get(k) for k in ("frappe", "frappe.utils")}
         sys.modules["frappe"], sys.modules["frappe.utils"] = fk, fk.utils
-        for m in ("kol_lookup", "kol_service", "kol_files"):
+        for m in MODS:
             sys.modules.pop(PKG + "." + m, None)
         cls.lookup = importlib.import_module(PKG + ".kol_lookup")
         cls.svc = importlib.import_module(PKG + ".kol_service")
         cls.files = importlib.import_module(PKG + ".kol_files")
+        cls.ai = importlib.import_module(PKG + ".kol_ai")
+        cls.funding = importlib.import_module(PKG + ".kol_funding")
         cls.lookup.brand_code = lambda brand: "FCV" if brand else ""
 
     @classmethod
@@ -88,7 +91,7 @@ class AppTests(unittest.TestCase):
                 sys.modules.pop(k, None)
             else:
                 sys.modules[k] = v
-        for m in ("kol_lookup", "kol_service", "kol_files"):
+        for m in MODS:
             sys.modules.pop(PKG + "." + m, None)
 
     def setUp(self):
@@ -143,6 +146,84 @@ class AppTests(unittest.TestCase):
                                      "ec_cr_party_code": "CONGTY"})
         self.assertEqual(doc.contract_no, "21072026/HDDV/ECENTRIC-AM.FCV")
 
+    def test_ngay_ky_tu_tinh_chay_theo_lich_moi_ngay_tu_chon_thi_giu(self):
+        # Lan truoc: lich 20/11, ngay ky TU TINH 19/11. Doi lich sang 15/12 ma khong dong vao o ngay
+        # ky -> tinh lai 14/12 (truoc: dinh 19/11 vi coi la ngay nguoi dung chon - QC 12/11).
+        self.state["stored"]["CR-9"] = {"air_dates": "20/11/2026", "contract_date": "2026-11-19",
+                                        "creation": "2026-11-12 09:00:00"}
+        doc = FakeDoc(name="CR-9", air_dates="15/12/2026", contract_date="2026-11-19", creation="2026-11-12")
+        self.svc.set_sign_date(doc)
+        self.assertEqual(doc.contract_date, "2026-12-14")
+        # Nguoi dung sua tay sang 01/12 (khac ngay da luu) -> giu.
+        doc = FakeDoc(name="CR-9", air_dates="15/12/2026", contract_date="2026-12-01", creation="2026-11-12")
+        self.svc.set_sign_date(doc)
+        self.assertEqual(doc.contract_date, "2026-12-01")
+        # Nhap tu hom tao phieu (chua co lich, ngay ky = hom nay) roi moi nhap lich -> tinh theo lich.
+        self.state["stored"]["CR-9"] = {"air_dates": "", "contract_date": "2026-11-12", "creation": "2026-11-12"}
+        doc = FakeDoc(name="CR-9", air_dates="15/12/2026", contract_date="2026-11-12", creation="2026-11-12")
+        self.svc.set_sign_date(doc)
+        self.assertEqual(doc.contract_date, "2026-12-14")
+
+    def test_xem_truoc_ngay_va_so_hd(self):
+        old = self.svc.creator_row
+        self.svc.creator_row = lambda n: {"ec_cr_type": "Cá nhân", "supplier_name": "Nguyễn Thị Phương"} if n else None
+        try:
+            r = self.svc.preview_dates("05,06/12/2026", None, "SUP-1", "FCV")
+            self.assertEqual((r["dates"], r["sign_date"], r["contract_no"]),
+                             (["05/12/2026", "06/12/2026"], "04/12/2026", "05122026/HDDV/ECENTRIC-NTP.FCV"))
+            self.assertFalse(self.svc.preview_dates("05-06/12", None, None, None)["ok"])
+            gaps = self.svc.creator_gaps("SUP-1")["labels"]
+            self.assertIn("địa chỉ", gaps)
+            self.assertIn("CCCD", gaps)
+        finally:
+            self.svc.creator_row = old
+
+    def test_so_tien_dau_phay_van_khop_may_kiem(self):
+        # Mau tool cu in "9,000,000": may kiem phai thay so tien (truoc: tach 9/000/000 -> "Loi").
+        self.assertIn("9000000", self.ai.number_tokens("thực nhận 9,000,000 VNĐ"))
+        checks = self.ai.data_checks("Số 05122026/HDDV/ECENTRIC-NTP.FCV · 9,000,000 VNĐ",
+                                     {"payable_amount": 9_000_000, "contract_no": "05122026/HDDV/ECENTRIC-NTP.FCV"}, {})
+        self.assertTrue(all(c["value_present"] for c in checks))
+
+    def test_dntt_bat_buoc_so_va_kiem_quyen_so(self):
+        f = self.funding
+        old = f.kol_lookup.so_allowed
+        try:
+            with self.assertRaises(_Throw):
+                f.funding_validate(FakeDoc(ec_sales_order=""), "a@ecentric.vn")
+            f.kol_lookup.so_allowed = lambda u, so: (None, "SO %s không thuộc team" % so)
+            with self.assertRaises(_Throw):
+                f.funding_validate(FakeDoc(ec_sales_order="SO-X"), "a@ecentric.vn")
+            f.kol_lookup.so_allowed = lambda u, so: ({"name": so}, None)
+            f.funding_validate(FakeDoc(ec_sales_order="SO-1"), "a@ecentric.vn")
+        finally:
+            f.kol_lookup.so_allowed = old
+
+    def test_dntt_khong_ghi_de_so_nguoi_lap_da_chon(self):
+        f = self.funding
+        olds = (f._doc, f.funding_can_use)
+        f._doc = lambda n: FakeDoc(contract_type="KOL/KOC / Creator (EC)", sales_order="SO-CU", brand=None,
+                                   creator_name="A")
+        f.funding_can_use = lambda u, n: True
+        try:
+            pr = FakeDoc(ec_sales_order="SO-MOI", requested_by="a@ecentric.vn")
+            f.fill_payment(pr, "CR-1")
+            self.assertEqual(pr.ec_sales_order, "SO-MOI")
+            pr = FakeDoc(requested_by="a@ecentric.vn")
+            f.fill_payment(pr, "CR-1")
+            self.assertEqual(pr.ec_sales_order, "SO-CU")         # phieu cu da gan SO: chi goi y
+        finally:
+            f._doc, f.funding_can_use = olds
+
+    def test_mau_chon_tay_phai_hop_coc_va_nen_tang(self):
+        m = self.lookup.template_mismatch
+        t = {"is_active": 1, "kind": "Hợp đồng", "creator_type": "Cá nhân", "has_advance": 0, "platform": "Tất cả",
+             "service_type": "Tất cả"}
+        self.assertEqual(m(t, "Hợp đồng", "Cá nhân", False, "TikTok", "Video"), "")
+        self.assertIn("cọc", m(t, "Hợp đồng", "Cá nhân", True, "TikTok", "Video"))
+        self.assertIn("Shopee", m(t, "Hợp đồng", "Cá nhân", False, "Shopee", "Livestream"))
+        self.assertIn("dịch vụ", m(t, "Hợp đồng", "Cá nhân", False, "TikTok", "Hoa hồng affiliate"))
+
     # ---------------------------------------------------------- chon mau
     def _tpl(self, name, kind, ctype, service="Tất cả", platform="Tất cả", adv=0):
         return FakeDoc(name=name, kind=kind, creator_type=ctype, service_type=service, platform=platform,
@@ -164,6 +245,11 @@ class AppTests(unittest.TestCase):
         self.assertEqual(pick(H, "Công ty", "Livestream", False, "Shopee"), "HD-CT-SHOPEE")
         self.assertEqual(pick(B, "Cá nhân", "Video", True, "TikTok"), None)               # BBNT video chua co
         self.assertEqual(pick(B, "Cá nhân", "Livestream", True, "TikTok"), "BB-CN-LIVE")  # BBNT khong xet coc
+        # Hoa hong affiliate: KHONG lay mau livestream / "Tat ca" (van ban sai), chi mau dung dich vu.
+        self.assertIsNone(pick(H, "Cá nhân", "Hoa hồng affiliate", False, "TikTok"))
+        self.state["get_all"]["EC Contract Template"].append(self._tpl("HD-CN-AFF", H, "Cá nhân", "Hoa hồng affiliate"))
+        self.assertEqual(pick(H, "Cá nhân", "Hoa hồng affiliate", False, "TikTok"), "HD-CN-AFF")
+        self.assertEqual(pick(H, "Cá nhân", "Livestream", False, "TikTok"), "HD-CN-LIVE")
 
 
 class FillRealTemplate(unittest.TestCase):
@@ -237,7 +323,7 @@ class FillRealTemplate(unittest.TestCase):
     def test_nhan_thieu_tieng_viet(self):
         from ecentric_workspace.approval_center.features.contract_review.domain import kol_values
         self.assertEqual(kol_values.missing_labels(["PERSON_ID_NO", "PARTY_ADDRESS (không điền được)", "LA"]),
-                         ["CCCD", "địa chỉ (không điền được - kiểm lại mẫu)", "<<LA>>"])
+                         ["CCCD", "địa chỉ (mẫu bị lỗi định dạng ở chỗ này - báo Kế toán sửa mẫu)", "<<LA>>"])
         self.assertTrue(kol_values.missing_is_creator(["BRAND", "PERSON_DOB"]))
         self.assertFalse(kol_values.missing_is_creator(["BRAND"]))
 

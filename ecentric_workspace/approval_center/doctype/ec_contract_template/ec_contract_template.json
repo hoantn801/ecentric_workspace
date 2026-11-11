@@ -99,7 +99,7 @@
    "fieldtype": "Attach",
    "label": "Tệp mẫu (.docx)",
    "reqd": 1,
-   "description": "Dùng {{ten_truong}} cho chỗ cần điền. Danh sách tên trường xem ở ô bên dưới sau khi lưu."
+   "description": "Tệp .docx tải từ Google Docs của tool cũ (File > Tải xuống > Microsoft Word). Chỗ cần điền viết <<TÊN_IN_HOA>> như tool cũ, vd <<CONTRACT_NO>>. Sau khi lưu, ô bên dưới liệt kê các tên đọc được và tên hệ thống không hiểu."
   },
   {
    "fieldname": "version",

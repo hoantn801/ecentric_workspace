@@ -8,6 +8,12 @@ Thuan Python, khong goi frappe. Quy tac doc theo cach van ban hanh chinh thuong 
   - "lăm" cho don vi 5 khi hang chuc >= 1 (15 -> mười lăm, 25 -> hai mươi lăm)
   - nhom 3 chu so dung giua (1.005.000) doc du "không trăm"
 """
+def _round(n):
+    """.5 len (nhu tool cu); round() cua Python lam tron chan: 2.5 -> 2."""
+    from decimal import ROUND_HALF_UP, Decimal
+    return int(Decimal(repr(float(n or 0))).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+
+
 _DIGITS = ("không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín")
 
 
@@ -57,7 +63,7 @@ def _below_billion(n, full_first):
 
 def number_to_words(n):
     """Doc so nguyen thanh chu (khong viet hoa, khong 'đồng')."""
-    n = int(round(float(n or 0)))
+    n = _round(n)
     if n < 0:
         return "âm " + number_to_words(-n)
     if n == 0:
@@ -76,6 +82,6 @@ def amount_in_words(n):
 
     Khop tool Google Sheet cu (numberToVietnamese_): khong them 'chẵn', 24 -> 'hai mươi tư' -
     cung cach viet voi cac hop dong da ky (anh Hoan chot 12/11 dung lai mau cua Ke toan)."""
-    n = int(round(float(n or 0)))
+    n = _round(n)
     text = number_to_words(n) + " đồng"
     return text[:1].upper() + text[1:]

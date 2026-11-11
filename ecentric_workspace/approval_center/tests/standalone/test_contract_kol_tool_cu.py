@@ -140,15 +140,26 @@ class GiongToolCu(unittest.TestCase):
 
 class NgayThucHien(unittest.TestCase):
     def test_cac_kieu_nhap(self):
-        self.assertEqual(T.parse_service_dates("05,06/12", 2026), [dt.date(2026, 12, 5), dt.date(2026, 12, 6)])
-        self.assertEqual(T.parse_service_dates("12/12/2026; 05/12", 2026), [dt.date(2026, 12, 5), dt.date(2026, 12, 12)])
-        self.assertEqual(T.parse_service_dates("2026-12-05", 2025), [dt.date(2026, 12, 5)])
-        self.assertEqual(T.parse_service_dates("5.1.27", 2026), [dt.date(2027, 1, 5)])
-        self.assertEqual(T.parse_service_dates("", 2026), [])
+        today = dt.date(2026, 11, 12)
+        self.assertEqual(T.parse_service_dates("05,06/12", today), [dt.date(2026, 12, 5), dt.date(2026, 12, 6)])
+        self.assertEqual(T.parse_service_dates("12/12/2026; 05/12", today), [dt.date(2026, 12, 5), dt.date(2026, 12, 12)])
+        self.assertEqual(T.parse_service_dates("2026-12-05", today), [dt.date(2026, 12, 5)])
+        self.assertEqual(T.parse_service_dates("5.1.27", today), [dt.date(2027, 1, 5)])
+        self.assertEqual(T.parse_service_dates("", today), [])
         with self.assertRaises(ValueError):
-            T.parse_service_dates("31/02", 2026)
+            T.parse_service_dates("31/02", today)
         with self.assertRaises(ValueError):
-            T.parse_service_dates("tuần sau", 2026)
+            T.parse_service_dates("tuần sau", today)
+
+    def test_khong_ghi_nam_lay_lan_sap_toi(self):
+        today = dt.date(2026, 11, 12)
+        # Thang 11 nhap "05,06/01" -> thang 1 NAM SAU (tool cu dung nam co dinh -> ngay da qua).
+        self.assertEqual(T.parse_service_dates("05,06/01", today), [dt.date(2027, 1, 5), dt.date(2027, 1, 6)])
+        self.assertEqual(T.parse_service_dates("28/12, 02/01", today), [dt.date(2026, 12, 28), dt.date(2027, 1, 2)])
+        self.assertEqual(T.parse_service_dates("01/10", today), [dt.date(2026, 10, 1)])   # nhap bu < 60 ngay
+        for bad in ("05-06/12", "05 - 10/12", "05/12/202", "05/12/1999"):
+            with self.assertRaises(ValueError):
+                T.parse_service_dates(bad, today)
 
     def test_so_hop_dong_theo_buoi_dau_va_quy_tac_mau(self):
         doc = {"air_dates": "21,22/07/2026", "contract_date": "2026-07-01", "request_type": kol.TEMPLATE_EC,
@@ -158,6 +169,10 @@ class NgayThucHien(unittest.TestCase):
         self.assertTrue(any("Công ty - Livestream" in e for e in errs))
         self.assertTrue(any("cọc" in e for e in errs))
         self.assertEqual(kol.ec_template_errors(dict(doc, air_dates="x/y"), "Công ty")[-1][:18], "Không đọc được ngà")
+        self.assertTrue(any("TikTok và Shopee" in e for e in kol.ec_template_errors(dict(doc, platform="Facebook"), "Công ty")))
+        # Hoa hong affiliate khong bat buoc ngay buoi live.
+        self.assertEqual(kol.ec_template_errors({"service_type": "Hoa hồng affiliate", "platform": "TikTok"},
+                                                "Cá nhân", dt.date(2026, 11, 12)), [])
 
 
 if __name__ == "__main__":

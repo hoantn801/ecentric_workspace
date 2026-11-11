@@ -1,7 +1,7 @@
 # Copyright (c) 2026, eCentric and contributors
 """EC Contract Template - mau .docx cho hop dong / BBNT KOL/KOC (Finance tu quan).
 
-Luc luu: liet ke {{placeholder}} trong mau va bao ten ERP khong hieu, de mau sai ten bi bat
+Luc luu: liet ke <<TEN>> trong mau va bao ten ERP khong hieu, de mau sai ten bi bat
 NGAY khi tai len chu khong phai luc hop dong da gui di ky. Logic o kol_files.inspect_template."""
 from frappe.model.document import Document
 

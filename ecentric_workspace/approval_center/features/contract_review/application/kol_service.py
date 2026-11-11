@@ -113,23 +113,49 @@ def _default_payment_days(doc):
             doc.payment_term_days = want
 
 
-def service_dates_or_none(doc):
+def _today():
+    return datetime.date.fromisoformat(str(today())[:10])
+
+
+def service_dates_or_none(doc, ref=None):
+    """Ngay thuc hien. Nam doan theo ngay TAO phieu (on dinh qua cac lan luu / gui lai), khong
+    theo hom nay va khong theo ngay ky."""
     try:
-        return kol.service_dates(doc)
+        return kol.service_dates(doc, ref or ref_day(doc))
     except ValueError:
         return []
 
 
+def ref_day(doc):
+    created = doc.get("creation")
+    return datetime.date.fromisoformat(str(created)[:10]) if created else _today()
+
+
+def _auto_sign(air_dates, doc):
+    dates = service_dates_or_none({"air_dates": air_dates}, ref_day(doc))
+    return str(kol_texts.business_day_before(None, dates[0], kol_lookup.holidays())) if dates else None
+
+
 def set_sign_date(doc):
-    """Ngay ky = 1 ngay lam viec TRUOC buoi thuc hien dau (tool cu, bo T7/CN/ngay nghi). Nguoi
-    dung chon ngay som hon thi giu; chon ngay >= buoi dau thi lui ve truoc buoi dau."""
+    """Ngay ky = 1 ngay lam viec TRUOC buoi thuc hien dau (tool cu, bo T7/CN/ngay nghi).
+
+    Nguoi dung TU CHON ngay (khac ngay he thong tu tinh lan truoc) va ngay do truoc buoi dau thi
+    giu; chon ngay >= buoi dau thi lui ve truoc buoi dau. Ngay dang la ngay TU TINH (hoac ngay mac
+    dinh hom nay khi chua co lich) thi doi lich la tinh lai - khong "dinh" ngay cu (QC 12/11)."""
     dates = service_dates_or_none(doc)
     if not dates:
         if not doc.get("contract_date"):
             doc.contract_date = today()
         return
-    chosen = doc.get("contract_date")
-    chosen = datetime.date.fromisoformat(str(chosen)[:10]) if chosen else None
+    chosen = str(doc.get("contract_date") or "")[:10] or None
+    old = _stored(doc, ["air_dates", "contract_date", "creation"])
+    if chosen and old and chosen == str(old.get("contract_date") or "")[:10]:
+        # Nguoi dung khong dong vao o ngay ky lan nay: neu lan truoc ngay do la ngay tu tinh (hoac
+        # phieu chua co lich) thi coi la tu dong - tinh lai theo lich moi.
+        was_auto = not old.get("air_dates") or chosen == _auto_sign(old.get("air_dates"), doc)
+        if was_auto:
+            chosen = None
+    chosen = datetime.date.fromisoformat(chosen) if chosen else None
     doc.contract_date = str(kol_texts.business_day_before(chosen, dates[0], kol_lookup.holidays()))
 
 
@@ -138,6 +164,45 @@ def expected_bbnt_date(doc):
     BBNT that thi dung ngay nghiem thu cua tung dot."""
     dates = service_dates_or_none(doc)
     return kol_texts.business_day_after(None, dates[-1], kol_lookup.holidays()) if dates else None
+
+
+def preview_dates(air_dates, contract_date=None, creator=None, brand=None, name=None):
+    """Form goi khi go "Ngay thuc hien": ngay doc duoc, ngay ky du kien, so HD du kien - de
+    nguoi dung thay ngay he thong hieu sai (vd thieu nam) TRUOC khi tao hop dong (QC 12/11)."""
+    created = frappe.db.get_value(kol_lookup.CR_DT, name, "creation") if name else None
+    ref = datetime.date.fromisoformat(str(created)[:10]) if created else _today()
+    try:
+        dates = kol.service_dates({"air_dates": air_dates}, ref)
+    except ValueError as e:
+        return {"ok": False, "error": str(e)}
+    if not dates:
+        return {"ok": True, "dates": []}
+    chosen = datetime.date.fromisoformat(str(contract_date)[:10]) if contract_date else None
+    sign = kol_texts.business_day_before(chosen if chosen and chosen < dates[0] else None, dates[0],
+                                         kol_lookup.holidays())
+    out = {"ok": True, "dates": [d.strftime("%d/%m/%Y") for d in dates], "sign_date": sign.strftime("%d/%m/%Y")}
+    row = creator_row(creator) if creator else None
+    if row and brand:
+        party = kol_texts.party_code(row.get("ec_cr_type"), row.get("supplier_name"), row.get("ec_cr_party_code"))
+        try:
+            out["contract_no"] = kol.number_base(dates[0], party, kol_lookup.brand_code(brand))
+        except ValueError as e:
+            out["number_note"] = str(e)
+    return out
+
+
+def creator_gaps(creator, platform=None):
+    """Thong tin creator con thieu cho hop dong (nhan tieng Viet, KHONG tra gia tri)."""
+    row = creator_row(creator)
+    if not row:
+        return {"labels": []}
+    ctype = row.get("ec_cr_type")
+    values = kol_values.contract_values({"creator_type": ctype, "platform": platform or "TikTok",
+                                         "service_type": "Livestream"}, row, "", None, [_today()])
+    need = (set(kol_values.REQUIRED_WHEN_USED["_all"]) | set(kol_values.REQUIRED_WHEN_USED.get(ctype, ()))) \
+        & set(kol_values.CREATOR_FIELDS)
+    missing = sorted(k for k in need if not str(values.get(k) or "").strip())
+    return {"labels": kol_values.missing_labels(missing)}
 
 
 def summary_text(doc):
@@ -153,7 +218,7 @@ def validate_submit(doc):
     Mau EC: sinh lai hop dong neu du lieu da doi tu lan tao tep (dau van tay lech), de van ban
     gui ky luon khop so tien / creator / SO dang duyet."""
     creator = creator_row(doc.get("creator"))
-    errors = kol.validate_kol(doc, creator and creator.get("ec_cr_type"))
+    errors = kol.validate_kol(doc, creator and creator.get("ec_cr_type"), ref_day(doc))
     if not creator:
         errors.append("Creator không tồn tại hoặc không thuộc danh sách creator.")
     if doc.get("request_type") == kol.TEMPLATE_PARTNER and not doc.get("request_attachment"):
@@ -168,10 +233,17 @@ def validate_submit(doc):
     else:
         assign_number(doc, creator)
     if doc.get("missing_placeholders"):
-        frappe.throw(_("Hợp đồng còn thiếu thông tin: {0}. Bổ sung (thường là thông tin creator) "
-                       "rồi gửi lại.").format(doc.missing_placeholders))
-    committed = kol_lookup.committed_on_so(doc.sales_order, exclude=doc.name)
-    doc.revenue_warning = kol.revenue_warning(doc.so_revenue, committed, doc.contract_value) or None
+        names = _split(doc.missing_placeholders)
+        hint = (_("Bấm Sửa thông tin creator để bổ sung (hoặc nhờ người tạo creator / Kế toán)")
+                if kol_values.missing_is_creator(names) else _("Bổ sung trên phiếu"))
+        frappe.throw(_("Hợp đồng còn thiếu: {0}. {1} rồi gửi lại.").format(
+            ", ".join(kol_values.missing_labels(names)), hint))
+    # Doi chieu doanh thu SO chuyen sang DNTT (12/11). Phieu cu da gan SO thi van canh bao.
+    if doc.get("sales_order"):
+        committed = kol_lookup.committed_on_so(doc.sales_order, exclude=doc.name)
+        doc.revenue_warning = kol.revenue_warning(doc.so_revenue, committed, doc.contract_value) or None
+    else:
+        doc.revenue_warning = None
 
 
 def assign_number(doc, creator):

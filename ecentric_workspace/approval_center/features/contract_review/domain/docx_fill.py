@@ -32,7 +32,14 @@ PLACEHOLDER = re.compile(r"<<\s*([A-Z0-9_]+)\s*>>")
 # Moi cap <<...>> - de bat ten sai khuon (<<tên>>, <<TEN-CREATOR>>) thay vi bo sot im lang.
 ANY_BRACES = re.compile(r"<<([^<>\n]*)>>")
 OPEN = "<<"
-_PARA = re.compile(r"<w:p[ >].*?</w:p>", re.S)
+# Ten kieu cu {{ten}} (truoc 12/11): mau con sot thi BAO, khong im lang gui di ky.
+LEGACY = re.compile(r"\{\{([^{}\n]*)\}\}")
+# Ky tu dieu khien trong gia tri (go/dan tu Excel) lam document.xml hong.
+_CTRL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+# Mo doan that su: <w:p> / <w:p w14:paraId=".."> - KHONG khop doan rong tu dong <w:p .../> (khop
+# thi tran sang ranh gioi o bang / hang ke tiep, xoa doan tuy chon la xoa luon o - QC 12/11).
+_PARA = re.compile(r"<w:p(?:\s[^>]*)?(?<!/)>.*?</w:p>", re.S)
+_CELL = re.compile(r"(<w:tc(?:\s[^>]*)?>)(.*?)(</w:tc>)", re.S)
 # Khong bat <w:t/> tu dong: [^>]* nuot ca dau "/" se noi sang </w:t> cua run sau va lam hong doan.
 _TEXT = re.compile(r"(<w:t(?:\s[^>]*)?(?<!/)>)(.*?)(</w:t>)", re.S)
 _TEXT_OR_PARA_END = re.compile(r"</w:p>|(<w:t(?:\s[^>]*)?(?<!/)>)(.*?)(</w:t>)", re.S)
@@ -45,25 +52,30 @@ def unescape(text):
 
 def _bad_names(joined):
     return ["<<%s>>" % m.group(1).strip() for m in ANY_BRACES.finditer(joined)
-            if not PLACEHOLDER.fullmatch(m.group(0))]
+            if not PLACEHOLDER.fullmatch(m.group(0))] + [
+        "{{%s}}" % m.group(1).strip() for m in LEGACY.finditer(joined)]
 _PARTS = re.compile(r"^word/(document|header\d*|footer\d*|footnotes|endnotes)\.xml$")
 
 
-def _fill_paragraph(xml, values, missing, drop_if_empty=(), in_cell_end=False):
+def _fill_paragraph(xml, values, missing, drop_if_empty=()):
     runs = list(_TEXT.finditer(xml))
     if not runs:
         return xml
     texts = [unescape(m.group(2)) for m in runs]
     joined = "".join(texts)
     if OPEN not in joined:
+        if "{{" in joined:
+            missing.update(_bad_names(joined))
         return xml
     missing.update(_bad_names(joined))
     matches = list(PLACEHOLDER.finditer(joined))
     if not matches:
         return xml
     if any(m.group(1) in drop_if_empty and not str(values.get(m.group(1)) or "").strip() for m in matches):
-        # O bang (w:tc) phai con it nhat mot doan van, khong thi Word bao tep hong.
-        return "<w:p/>" if in_cell_end else ""
+        # Xoa ca doan (removeBlankConditionalParagraphs_). Doan chua khung van ban / ngat section
+        # thi KHONG xoa (xoa la mat ngat trang hoac cat doi XML) - chi de trong gia tri.
+        if "<w:txbxContent" not in xml and "<w:sectPr" not in xml:
+            return ""
     starts, pos = [], 0
     for t in texts:
         starts.append(pos)
@@ -82,7 +94,7 @@ def _fill_paragraph(xml, values, missing, drop_if_empty=(), in_cell_end=False):
         if key not in values:
             missing.add(key)
             continue
-        value = "" if values[key] is None else str(values[key])
+        value = "" if values[key] is None else _CTRL.sub("", str(values[key]))
         a, b = m.start(), m.end()
         first, last = run_at(a), run_at(b - 1)
         for i in range(last, first - 1, -1):
@@ -124,6 +136,7 @@ def _leftover(xml, values):
     joined = "".join("\n" if m.group(0) == "</w:p>" else unescape(m.group(2))
                      for m in _TEXT_OR_PARA_END.finditer(xml))
     out = set()
+    out.update("{{%s}}" % m.group(1).strip() for m in LEGACY.finditer(joined))
     for m in ANY_BRACES.finditer(joined):
         ok = PLACEHOLDER.fullmatch(m.group(0))
         if not ok:
@@ -135,14 +148,22 @@ def _leftover(xml, values):
     return out
 
 
-def _cell_end(m):
-    return m.string[m.end():m.end() + 16].lstrip().startswith("</w:tc>")
+def _keep_cells_valid(xml):
+    """Moi o bang (w:tc) phai con it nhat mot doan van - Word bao tep hong neu khong. Xoa dong
+    tuy chon la doan duy nhat cua o thi chen lai mot doan rong."""
+    def fix(m):
+        body = m.group(2)
+        if re.search(r"<w:p[\s>/]", body):
+            return m.group(0)
+        return m.group(1) + body + "<w:p/>" + m.group(3)
+    return _CELL.sub(fix, xml) if "<w:tc" in xml else xml
 
 
 def fill_xml(xml, values, missing=None, drop_if_empty=()):
     missing = set() if missing is None else missing
     drop = frozenset(drop_if_empty or ())
-    return _PARA.sub(lambda m: _fill_paragraph(m.group(0), values, missing, drop, _cell_end(m)), xml), missing
+    out = _PARA.sub(lambda m: _fill_paragraph(m.group(0), values, missing, drop), xml)
+    return (_keep_cells_valid(out) if drop else out), missing
 
 
 def fill_docx(data, values, drop_if_empty=()):

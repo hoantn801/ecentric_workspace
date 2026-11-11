@@ -183,7 +183,8 @@ def advance_amount(amounts, creator_type, schedule, percent):
 
 
 def default_payment_days(creator_type, platform=None):
-    if platform == SHOPEE:
+    # Tool cu: 15 ngay chi co o mau Cong ty - Shopee (PAYMENT_DAYS_COMPANY_SHOPEE_BBNT).
+    if platform == SHOPEE and creator_type == "Công ty":
         return SHOPEE_BBNT_PAYMENT_DAYS
     return PAYMENT_DAYS_BY_CREATOR.get(creator_type, DEFAULT_PAYMENT_DAYS)
 
@@ -282,11 +283,12 @@ def acceptance_cap(signed, advance, done_rows_amount, contract_payable):
     return min(cap, payable) if payable else cap
 
 
-def validate_kol(doc, creator_type):
+def validate_kol(doc, creator_type, today=None):
     """Loi nhap lieu cua phieu KOL truoc khi gui -> danh sach thong bao."""
     errors = []
-    if not doc.get("sales_order"):
-        errors.append("Chọn SO cung cấp dịch vụ cho brand trước khi gửi hợp đồng.")
+    # SO KHONG chon tren hop dong (anh Hoan 12/11: SO gan o DNTT de ke toan doi chieu doanh thu).
+    if not doc.get("brand"):
+        errors.append("Chọn brand (mã brand nằm trong số hợp đồng).")
     if not doc.get("creator"):
         errors.append("Chọn creator.")
     if doc.get("service_type") not in SERVICE_TYPES:
@@ -300,33 +302,42 @@ def validate_kol(doc, creator_type):
     if creator_type == "Hộ kinh doanh" and doc.get("payment_schedule") == PAY_ADVANCE:
         errors.append("Hộ kinh doanh chỉ thanh toán sau nghiệm thu, không cọc.")
     if doc.get("request_type") == TEMPLATE_EC:
-        errors.extend(ec_template_errors(doc, creator_type))
+        errors.extend(ec_template_errors(doc, creator_type, today))
     return errors
 
 
-def ec_template_errors(doc, creator_type):
+EC_TEMPLATE_PLATFORMS = ("TikTok", SHOPEE)
+AFFILIATE = "Hoa hồng affiliate"
+
+
+def ec_template_errors(doc, creator_type, today=None):
     """Gioi han cua bo mau EC (giong resolveTemplateId_ cua tool cu)."""
     errors = []
+    if doc.get("platform") and doc.get("platform") not in EC_TEMPLATE_PLATFORMS:
+        errors.append("Mẫu EC chỉ viết cho TikTok và Shopee. Nền tảng %s: dùng mẫu của creator."
+                      % doc.get("platform"))
     if doc.get("platform") == SHOPEE:
         if creator_type != "Công ty" or doc.get("service_type") != "Livestream":
             errors.append("Shopee hiện chỉ có mẫu Công ty - Livestream.")
         if doc.get("payment_schedule") == PAY_ADVANCE:
             errors.append("Mẫu Shopee chưa hỗ trợ cọc trước.")
     try:
-        if not service_dates(doc):
+        # Hoa hong affiliate tinh theo ky, khong bat buoc ngay buoi live (so HD lay ngay ky).
+        if not service_dates(doc, today) and doc.get("service_type") != AFFILIATE:
             errors.append("Nhập ngày thực hiện / ngày air (vd 05/12 hoặc 05,06/12/2026).")
     except ValueError as e:
         errors.append(str(e))
     return errors
 
 
-def service_dates(doc):
-    """Ngay thuc hien da doc tu o 'air_dates' (nam mac dinh = nam cua ngay ky / nam nay)."""
+def service_dates(doc, today=None):
+    """Ngay thuc hien doc tu o 'air_dates'. Khong ghi nam = lan sap toi tinh tu `today` (ngay cua
+    site) - KHONG doan theo ngay ky (ngay ky tu lui ve truoc buoi dau, doan theo no thi troi nam)."""
     from ecentric_workspace.approval_center.features.contract_review.domain.kol_texts import (
         parse_service_dates)
-    hint = doc.get("contract_date")
-    year = int(str(hint)[:4]) if hint else _dt.date.today().year
-    return parse_service_dates(doc.get("air_dates"), year)
+    if isinstance(today, str):
+        today = _dt.date.fromisoformat(today[:10])
+    return parse_service_dates(doc.get("air_dates"), today or _dt.date.today())
 
 
 def count_signatures(pdf_bytes):

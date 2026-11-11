@@ -37,11 +37,11 @@ def strip_accents(text):
 _SHORTHAND = re.compile(r"^(\d{1,2}(?:\s*,\s*\d{1,2})+)\s*[/.-]\s*(\d{1,2})(?:\s*[/.-]\s*(\d{2,4}))?$")
 _ONE = re.compile(r"^(\d{1,2})\s*[/.-]\s*(\d{1,2})(?:\s*[/.-]\s*(\d{2,4}))?$")
 _ISO = re.compile(r"^(\d{4})-(\d{1,2})-(\d{1,2})$")
+# "05-06/12", "05 - 10/12": khoang ngay (rat hay go) - khong doan, bao ro cach viet.
+_RANGE = re.compile(r"(?<![\d/.-])\d{1,2}\s*[-–]\s*\d{1,2}\s*[/.]\s*\d{1,2}(?![\d-])")
 
 
-def _year(y, hint):
-    if y is None:
-        return hint
+def _year(y):
     y = int(y)
     return 2000 + y if y < 100 else y
 
@@ -53,24 +53,80 @@ def _make(year, month, day, raw):
         raise ValueError("Ngày thực hiện '%s' không hợp lệ." % raw)
 
 
-def parse_service_dates(text, year_hint):
-    """'05,06/12' | '05/12, 12/12/2026' | '2026-12-05' -> list date da sap xep (rong -> [])."""
+# Ngay khong ghi nam: lay lan GAN NHAT SAP TOI tinh tu hom nay (cho lui toi da 60 ngay - booking
+# nhap bu sau khi da live). Tool cu dung nam co dinh trong CONFIG nen thang 12 nhap "05/01" ra
+# ngay da qua; doan theo ngay ky thi ngay ky lui sang nam truoc keo ca ngay thuc hien troi theo.
+PAST_GRACE_DAYS = 60
+YEAR_RANGE = 2                      # chi nhan nam trong [nam nay - 1, nam nay + 2]
+
+
+def _guess(month, day, today, raw, after=None):
+    """Nam cho ngay khong ghi nam. `after` = ngay lien truoc trong danh sach: '28/12, 02/01'
+    thi 02/01 sang nam sau."""
+    for year in (today.year - 1, today.year, today.year + 1, today.year + 2):
+        try:
+            d = _dt.date(year, int(month), int(day))
+        except ValueError:
+            continue
+        if d >= today - _dt.timedelta(days=PAST_GRACE_DAYS) and (after is None or d >= after):
+            return d
+    raise ValueError("Ngày thực hiện '%s' không hợp lệ." % raw)
+
+
+def _check_year(d, today, raw):
+    if not (today.year - 1 <= d.year <= today.year + YEAR_RANGE):
+        raise ValueError("Năm của ngày thực hiện '%s' không hợp lý (%d). Ghi đủ 4 số, vd 05/12/%d."
+                         % (raw, d.year, today.year))
+    return d
+
+
+def parse_service_dates(text, today):
+    """'05,06/12' | '05/12, 12/12/2026' | '2026-12-05' -> list date da sap xep (rong -> []).
+
+    `today` = ngay hien tai cua site (date). Ngay ghi du nam thi giu nguyen (kiem nam hop ly);
+    ngay khong ghi nam thi doan lan sap toi (xem _guess)."""
     raw = re.sub(r"\s+", " ", str(text or "").strip())
     if not raw:
         return []
+    if _RANGE.search(raw):
+        raise ValueError("'%s' là khoảng ngày: ghi từng ngày, cách nhau dấu phẩy (vd 05,06/12 hoặc "
+                         "05/12, 06/12)." % raw)
     m = _SHORTHAND.match(raw)
     if m:
-        year = _year(m.group(3), year_hint)
-        return sorted(_make(year, m.group(2), d.strip(), raw) for d in m.group(1).split(","))
-    out = []
-    for part in filter(None, (p.strip() for p in re.split(r"[;,\n]+", raw))):
+        days = [d.strip() for d in m.group(1).split(",")]
+        if m.group(3):
+            year = _year(m.group(3))
+            return sorted(_check_year(_make(year, m.group(2), d, raw), today, raw) for d in days)
+        out, prev = [], None
+        for d in days:
+            prev = _guess(m.group(2), d, today, raw, prev)
+            out.append(prev)
+        return sorted(out)
+    parts = [p.strip() for p in re.split(r"[;,\n]+", raw) if p.strip()]
+    # Co ngay ghi du nam ("12/12/2026; 05/12") thi ngay khong ghi nam lay CUNG nam do - nguoi go
+    # khong nhat thiet theo thu tu thoi gian.
+    explicit = None
+    for part in parts:
+        iso, one = _ISO.match(part), _ONE.match(part)
+        if iso or (one and one.group(3)):
+            explicit = int(iso.group(1)) if iso else _year(one.group(3))
+            break
+    out, prev = [], None
+    for part in parts:
         iso, one = _ISO.match(part), _ONE.match(part)
         if iso:
-            out.append(_make(iso.group(1), iso.group(2), iso.group(3), part))
+            d = _check_year(_make(iso.group(1), iso.group(2), iso.group(3), part), today, part)
+        elif one and one.group(3):
+            d = _check_year(_make(_year(one.group(3)), one.group(2), one.group(1), part), today, part)
+        elif one and explicit:
+            d = _check_year(_make(explicit, one.group(2), one.group(1), part), today, part)
         elif one:
-            out.append(_make(_year(one.group(3), year_hint), one.group(2), one.group(1), part))
+            d = _guess(one.group(2), one.group(1), today, part, prev)
         else:
-            raise ValueError("Không đọc được ngày thực hiện '%s' (vd 05/12 hoặc 05,06/12/2026)." % part)
+            raise ValueError("Không đọc được ngày thực hiện '%s' (vd 05/12 hoặc 05,06/12/2026). "
+                             "Nhiều ngày thì cách nhau bằng dấu phẩy, không dùng dấu gạch." % part)
+        prev = d
+        out.append(d)
     return sorted(out)
 
 
@@ -132,9 +188,15 @@ def party_code(creator_type, name, manual=""):
 
 
 # ---------------------------------------------------------------- dinh dang
+def round_half_up(value):
+    """Lam tron toi dong, .5 len (Math.round cua tool cu). format()/round() cua Python lam tron chan."""
+    from decimal import ROUND_HALF_UP, Decimal
+    return int(Decimal(repr(float(value or 0))).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+
+
 def money(value):
     """1234567 -> '1,234,567' (dau phay - dung nhu cac hop dong da ky bang tool cu)."""
-    return "{:,.0f}".format(float(value or 0))
+    return "{:,}".format(round_half_up(value))
 
 
 def rate_pct(value):

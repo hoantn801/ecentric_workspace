@@ -48,6 +48,9 @@ LABELS = {
     "SHOPEE_ID_DISPLAY": "Shopee ID", "BRAND": "brand", "CONTRACT_NO": "số hợp đồng",
     "SERVICE_START_SLASH": "ngày thực hiện", "SERVICE_DATES_DISPLAY": "ngày thực hiện",
     "SIGN_DAY": "ngày ký", "SIGN_DATE_DOT": "ngày ký", "SIGN_DATE_SLASH": "ngày ký", "BBNT_DAY": "ngày BBNT",
+    "ADVANCE_PERCENT": "tỷ lệ cọc (mẫu có cọc nhưng phiếu không cọc - chọn lại mẫu)",
+    "ADVANCE_AMOUNT_NUM": "tiền cọc", "ADVANCE_AMOUNT_WORDS": "tiền cọc", "BALANCE_AMOUNT_NUM": "phần còn lại",
+    "BALANCE_AMOUNT_WORDS": "phần còn lại",
 }
 CREATOR_FIELDS = ("PERSON_FULL_NAME", "PERSON_ID_NO", "PERSON_DOB", "PERSON_EMAIL", "PERSON_PHONE",
                   "PARTY_ADDRESS", "PARTY_TAX_ID", "COMPANY_LEGAL_NAME", "COMPANY_REPRESENTATIVE_DISPLAY",
@@ -108,6 +111,8 @@ def contract_values(doc, creator, brand_code, sign_date, service_dates, bbnt_dat
     dates = list(service_dates or [])
     first, last = (dates[0], dates[-1]) if dates else (None, None)
     quantity = int(float(doc.get("quantity") or len(dates) or 1))
+    # "Yeu cau bo sung" (service_detail cua tool cu): form 27 chua co o rieng -> de trong, dong
+    # ADVANCE_CUSTOM_DETAIL_LINE bi xoa ca doan nhu tool cu khi rong.
     duration, custom = doc.get("duration") or "", doc.get("service_detail") or ""
     work = work_texts(kind, brand, channel_url, dates, quantity, duration, custom, shopee) if dates else {}
     adv = advance_texts(kind, brand, channel_url, dates, quantity, duration, custom) if dates else {}
@@ -159,8 +164,10 @@ def contract_values(doc, creator, brand_code, sign_date, service_dates, bbnt_dat
         "PAYMENT_DAYS": str(payment_days),
         "PAYMENT_DAYS_PERSONAL": str(days_by_type["PERSONAL"]),
         "PAYMENT_DAYS_HOUSEHOLD": str(days_by_type["HOUSEHOLD"]),
-        "PAYMENT_DAYS_HDDV": str(shopee_hddv_days if shopee else payment_days),
-        "PAYMENT_DAYS_BBNT": str(payment_days),
+        # Tool cu: ngoai Shopee hai ten nay lay so ngay CONG TY (mau cong ty dung) - phieu cong ty
+        # sua so ngay thi theo phieu, loai khac giu 30 nhu tool cu.
+        "PAYMENT_DAYS_HDDV": str(shopee_hddv_days if shopee else (payment_days if is_company else 30)),
+        "PAYMENT_DAYS_BBNT": str(payment_days if (shopee or is_company) else 30),
         "ADVANCE_PERCENT": T.rate_pct(doc.get("advance_percent")) if doc.get("advance_amount") else "",
     }
     _num_words("GROSS_AMOUNT", m["gross"], out)
@@ -192,13 +199,55 @@ def contract_values(doc, creator, brand_code, sign_date, service_dates, bbnt_dat
     return out
 
 
-def acceptance_values(contract, row):
-    """BBNT mot dot = gia tri hop dong + thong tin dot (ngay BBNT = ngay nghiem thu cua dot)."""
+def round_money(creator_type, payable, pit_rate, vat_rate):
+    """So tien cua MOT DOT nghiem thu: `payable` = so tra creator cua dot (nhu tran chi DNTT).
+    Quy nguoc theo dung cong thuc tool cu (ca nhan: thuc nhan -> gross; cong ty: da VAT ->
+    truoc VAT)."""
+    pay = T.round_half_up(payable)
+    if creator_type == "Công ty":
+        vr = float(8 if vat_rate in (None, "") else vat_rate) / 100.0
+        pre = T.round_half_up(pay / (1 + vr))
+        return {"gross": pay, "net": pay, "pre_vat": pre, "vat": pay - pre, "total": pay}
+    if creator_type == "Hộ kinh doanh":
+        return {"gross": pay, "net": pay, "pre_vat": pay, "vat": 0, "total": pay}
+    pr = float(10 if pit_rate in (None, "") else pit_rate) / 100.0
+    gross = T.round_half_up(pay / (1 - pr)) if pr < 1 else pay
+    return {"gross": gross, "net": pay, "pre_vat": gross, "vat": 0, "total": pay}
+
+
+def is_whole_round(doc, amount):
+    """Mot dot duy nhat phu het hop dong (ke ca hop dong coc: dot = phan con lai sau coc) -> BBNT
+    xac nhan 100% hop dong nhu tool cu, in so cua CA hop dong."""
+    payable = float(doc.get("payable_amount") or 0)
+    advance = float(doc.get("advance_amount") or 0)
+    rows = doc.get("acceptances") or []
+    amount = float(amount or 0)
+    return abs(amount - payable) <= 0.5 or (len(rows) <= 1 and abs(amount + advance - payable) <= 0.5)
+
+
+def printed_amount(doc, amount):
+    """So tien tra creator IN tren BBNT cua dot (de may kiem ban ky tim dung con so)."""
+    return float(doc.get("payable_amount") or 0) if is_whole_round(doc, amount) else float(amount or 0)
+
+
+def acceptance_values(contract, row, doc=None):
+    """BBNT mot dot = gia tri hop dong + thong tin dot (ngay BBNT = ngay nghiem thu cua dot).
+
+    18 mau BBNT cua tool cu in GROSS/NET/TOTAL... (khong co ten rieng cho dot): dot nghiem thu
+    KHONG phai toan bo hop dong (hoa hong nhieu dot, nghiem thu tung phan) thi cac so do tinh lai
+    theo so tien cua dot - mot BBNT khong duoc xac nhan / cam ket tra ca hop dong (QC 12/11)."""
     out = dict(contract)
     amount = float(row.get("amount") or 0)
     out.update({"ACCEPTANCE_ROUND": str(row.get("idx") or ""),
                 "ACCEPTANCE_DESCRIPTION": row.get("description") or ""})
     _num_words("ACCEPTANCE_AMOUNT", amount, out, blank_zero=True)
+    doc = doc or {}
+    payable = float(doc.get("payable_amount") or 0)
+    if amount and payable and not is_whole_round(doc, amount):
+        m = round_money(doc.get("creator_type"), amount, doc.get("pit_rate"), doc.get("vat_rate"))
+        for key, val in (("GROSS_AMOUNT", m["gross"]), ("NET_AMOUNT", m["net"]), ("PRE_VAT_AMOUNT", m["pre_vat"]),
+                         ("VAT_AMOUNT", m["vat"]), ("TOTAL_AMOUNT", m["total"])):
+            _num_words(key, val, out)
     return out
 
 
@@ -215,18 +264,27 @@ def known(kind_is_bbnt):
     return keys if kind_is_bbnt else keys - set(BBNT_ONLY)
 
 
+# Mau CO COC: tien coc / con lai rong = phieu khong coc dung nham mau coc (QC 12/11).
+ADVANCE_REQUIRED = ("ADVANCE_PERCENT", "ADVANCE_AMOUNT_NUM", "ADVANCE_AMOUNT_WORDS",
+                    "BALANCE_AMOUNT_NUM", "BALANCE_AMOUNT_WORDS")
+
+
 def empty_required(values, used, creator_type):
-    need = set(REQUIRED_WHEN_USED["_all"]) | set(REQUIRED_WHEN_USED.get(creator_type, ()))
+    need = set(REQUIRED_WHEN_USED["_all"]) | set(REQUIRED_WHEN_USED.get(creator_type, ())) | set(ADVANCE_REQUIRED)
     return [k for k in used if k in need and not str(values.get(k) or "").strip()]
 
 
 def missing_labels(names):
     out = []
     for n in names or ():
-        bare = n.split(" (")[0].strip().strip("<>")
-        label = LABELS.get(bare, "<<%s>>" % bare)
-        if "(" in n:
-            label += " (không điền được - kiểm lại mẫu)"
+        bare = n.split(" (")[0].strip()
+        if bare.startswith("{{"):
+            label = bare + " (tên kiểu cũ trong mẫu - báo Kế toán đổi sang <<TÊN>>)"
+        else:
+            bare = bare.strip("<>")
+            label = LABELS.get(bare, "<<%s>>" % bare)
+        if "(không điền được)" in n:
+            label += " (mẫu bị lỗi định dạng ở chỗ này - báo Kế toán sửa mẫu)"
         if label not in out:
             out.append(label)
     return out

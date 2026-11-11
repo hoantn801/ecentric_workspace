@@ -92,6 +92,14 @@ def send_acceptance(name, user, row_name):
     row = _row(doc, row_name)
     if row.status != kol.BBNT_DRAFT:
         frappe.throw(_("Đợt này đã gửi ký."))
+    # Tool cu khong cho BBNT con cho trong di ky; kiem lai voi du lieu HIEN TAI (creator co the
+    # vua duoc bo sung) - thieu thi chan, kem nhan tieng Viet (QC 12/11).
+    from ecentric_workspace.approval_center.features.contract_review.application import kol_files
+    from ecentric_workspace.approval_center.features.contract_review.domain import kol_values
+    missing = kol_files.acceptance_missing(doc, row, creator_row(doc.creator))
+    if missing:
+        frappe.throw(_("BBNT đợt {0} còn thiếu: {1}. Bổ sung rồi xoá đợt này và tạo lại BBNT.").format(
+            row.idx, ", ".join(kol_values.missing_labels(missing))))
     row.status = kol.BBNT_SENT
     doc.save(ignore_permissions=True)
     return {"status": row.status}

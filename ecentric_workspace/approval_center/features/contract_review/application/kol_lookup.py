@@ -156,28 +156,50 @@ def list_templates(kind=None):
                           order_by="template_name asc", limit_page_length=200)
 
 
+AFFILIATE = "Hoa hồng affiliate"
+
+
+def _want_service(service_type):
+    """Dich vu cua mau can dung: tool cu chi co mau Video va Livestream - "Livestream + Video" dung
+    mau Livestream. Hoa hong affiliate KHONG co mau o tool cu: chi nhan mau dung dich vu do."""
+    if service_type == AFFILIATE:
+        return (AFFILIATE,)
+    if service_type == "Video":
+        return ("Video", "Tất cả")
+    return tuple(dict.fromkeys((service_type, "Livestream", "Tất cả")))
+
+
+def template_mismatch(t, kind, creator_type, has_advance, platform, service_type=None):
+    """Ly do mau `t` KHONG dung duoc cho phieu (rong = dung duoc). Mot noi duy nhat cho ca luc he
+    thong tu chon lan luc nguoi dung chon tay (QC 12/11: chon tay tung bo qua coc / Shopee)."""
+    if not t or not t.get("is_active"):
+        return "mẫu đã ngừng dùng"
+    if t.get("kind") != kind:
+        return "mẫu là %s, không phải %s" % (t.get("kind"), kind)
+    if t.get("creator_type") != creator_type:
+        return "mẫu cho creator %s, phiếu là %s" % (t.get("creator_type"), creator_type or "?")
+    if ((t.get("platform") or "Tất cả") == "Shopee") != (platform == "Shopee"):
+        return "mẫu Shopee chỉ dùng cho phiếu Shopee" if platform != "Shopee" else "phiếu Shopee cần mẫu Shopee"
+    if kind == "Hợp đồng" and bool(t.get("has_advance")) != bool(has_advance):
+        return ("phiếu có cọc nhưng mẫu không có điều khoản cọc" if has_advance
+                else "mẫu có điều khoản cọc nhưng phiếu không cọc")
+    if service_type and (t.get("service_type") or "Tất cả") not in _want_service(service_type):
+        return "mẫu cho dịch vụ %s" % t.get("service_type")
+    return ""
+
+
 def pick_template(kind, creator_type, service_type, has_advance, platform=None):
-    """Chon mau giong resolveTemplateId_ cua tool cu:
-      * Shopee chi co mau rieng (nen tang = Shopee); TikTok/khac khong dung mau Shopee.
-      * Hop dong co coc PHAI dung mau co coc (va nguoc lai) - khong lay mau thuong thay the:
-        dieu khoan thanh toan khac nhau. BBNT khong co ban coc rieng.
-      * "Livestream + Video" / hoa hong dung mau Livestream (tool cu: khong phai Video la Livestream);
-        mau dung dich vu hon mau "Tất cả"."""
-    want = "Video" if service_type == "Video" else "Livestream"
-    shopee = platform == "Shopee"
+    """Mau khop nhat (giong resolveTemplateId_ cua tool cu): dung luat template_mismatch; dung
+    dich vu hon "Livestream" (cho Livestream + Video) hon "Tất cả"."""
+    want = _want_service(service_type)
     best, best_score = None, -1
     for t in list_templates(kind):
-        if t.creator_type != creator_type:
+        t = dict(t, is_active=1)          # list_templates da loc is_active
+        if template_mismatch(t, kind, creator_type, has_advance, platform, service_type):
             continue
-        if ((t.get("platform") or "Tất cả") == "Shopee") != shopee:
-            continue
-        if kind == "Hợp đồng" and bool(t.has_advance) != bool(has_advance):
-            continue
-        if t.service_type not in ("Tất cả", want, service_type):
-            continue
-        score = 2 if t.service_type in (service_type, want) else 0
+        score = len(want) - want.index(t.get("service_type") or "Tất cả")
         if score > best_score:
-            best, best_score = t.name, score
+            best, best_score = t["name"], score
     return best
 
 

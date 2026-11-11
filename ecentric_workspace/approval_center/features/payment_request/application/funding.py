@@ -72,6 +72,9 @@ _SOURCES = {
         # cung lot qua tran (QC 11/11).
         "access_fn": _KOL + "funding_can_use",
         "lock_source": True,
+        # SO doanh thu chon tren DNTT (anh Hoan 12/11) - tim SO + kiem luc nop thuoc hop dong.
+        "so_fn": _KOL + "funding_so_search",
+        "validate_fn": _KOL + "funding_validate",
         "extra_filters": {"contract_type": "KOL/KOC / Creator (EC)"},
     },
 }
@@ -150,6 +153,14 @@ def describe_source(source_doctype, source_name, exclude_request=None):
             "total": total, "used": used, "remaining": total - used}
 
 
+def search_revenue_so(source_doctype, query=None, exclude_request=None, user=None):
+    """SO doanh thu cho nguon co khai `so_fn` (hop dong KOL). Nguon khac: khong co o SO."""
+    meta = _SOURCES.get(source_doctype) or {}
+    if not meta.get("so_fn"):
+        return {"rows": [], "missing": []}
+    return frappe.get_attr(meta["so_fn"])(user or frappe.session.user, query, exclude_request)
+
+
 def list_sources(source_doctype, user=None):
     """Approved commitments of `user`, each with its remaining balance, for the picker.
 
@@ -216,6 +227,8 @@ def validate_funding(doc):
         if not frappe.get_attr(meta["access_fn"])(user, source_name):
             frappe.throw(_("Bạn không dùng được chứng từ nguồn {0}: chỉ hợp đồng của bạn hoặc "
                            "cùng phòng ban.").format(source_name), frappe.PermissionError)
+    if meta.get("validate_fn"):
+        frappe.get_attr(meta["validate_fn"])(doc, doc.get("requested_by") or frappe.session.user)
     row = frappe.db.get_value(source_doctype, source_name, check_fields, as_dict=True,
                               for_update=bool(meta.get("lock_source")))
     if not _is_approved(source_doctype, row, meta):
