@@ -71,6 +71,8 @@ class ServiceDates(unittest.TestCase):
 
     def test_moi_ngay_mot_dong_dan_tu_sheets(self):
         self.assertEqual(self.parse("05/12\n06/12\r\n12/12"), [D(2026, 12, 5), D(2026, 12, 6), D(2026, 12, 12)])
+        # O nhap mot dong bien xuong dong thanh dau cach
+        self.assertEqual(self.parse("05/12 06/12"), [D(2026, 12, 5), D(2026, 12, 6)])
 
     def test_ngay_khong_ton_tai(self):
         with self.assertRaises(ValueError):

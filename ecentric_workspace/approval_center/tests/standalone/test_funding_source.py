@@ -342,6 +342,19 @@ class TestRevenueSo(TestLegacyAlias):
         self.assertIsNone(self.funding.so_check(_Doc({"funding_source_doctype": "EC Purchase Request",
                                                        "ec_sales_order": "SO-1"})))
 
+    def test_so_check_rejected_request_not_counted_and_viewers_limited(self):
+        self.store["EC Approval Request"]["AR-R"] = {"approval_status": "Rejected"}
+        fr = sys.modules["frappe"]
+        fr.get_attr = lambda path: (
+            (lambda pr, u: u in ("ke.toan@ec", pr.get("requested_by"))) if path.endswith("funding_so_can_view")
+            else (lambda so: {"label": so, "brand": "", "revenue": 10.0}))
+        doc = _Doc({"name": "P9", "funding_source_doctype": "EC Contract Review Request", "ec_sales_order": "SO-1",
+                    "payment_amount": 50.0, "approval_request": "AR-R", "requested_by": "nv@ec"})
+        c = self.funding.so_check(doc, "nv@ec")
+        self.assertEqual((c["after"], c["over"]), (0.0, 0.0))          # phieu bi tu choi khong chiem SO
+        self.assertIsNotNone(self.funding.so_check(doc, "ke.toan@ec"))
+        self.assertIsNone(self.funding.so_check(doc, "nguoi.duyet@ec"))  # doanh thu SO: chi nguoi lap + Ke toan
+
     def test_non_kol_source_has_no_so_picker(self):
         self.assertEqual(self.funding.search_revenue_so("EC Purchase Request", "x"), {"rows": [], "missing": []})
 

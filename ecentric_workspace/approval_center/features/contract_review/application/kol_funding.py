@@ -93,6 +93,11 @@ def funding_so_info(name):
             "revenue": float(row.get("net_total") or 0)}
 
 
+def funding_so_can_view(pr, user):
+    """Ai thay doi chieu doanh thu SO tren DNTT: nguoi lap (da thay luc chon SO) + Ke toan."""
+    return user == pr.get("requested_by") or kol_lookup.is_finance(user)
+
+
 def funding_validate(pr, user):
     """Luc nop DNTT tu hop dong KOL: bat buoc SO doanh thu va nguoi lap duoc dung SO do."""
     so = (pr.get("ec_sales_order") or "").strip()

@@ -76,6 +76,7 @@ _SOURCES = {
         "so_fn": _KOL + "funding_so_search",
         "validate_fn": _KOL + "funding_validate",
         "so_info_fn": _KOL + "funding_so_info",
+        "so_view_fn": _KOL + "funding_so_can_view",
         "extra_filters": {"contract_type": "KOL/KOC / Creator (EC)"},
     },
 }
@@ -168,21 +169,28 @@ def search_revenue_so(source_doctype, query=None, exclude_request=None, user=Non
     return {"rows": rows, "missing": out.get("missing") or []}
 
 
-def so_check(doc):
+def so_check(doc, viewer=None):
     """Doi chieu SO doanh thu cua MOT DNTT cho nguoi duyet / Ke toan (trang chi tiet): doanh thu
     EC, da de nghi chi tren SO (khong tinh DNTT nay) va phan vuot. None = nguon khong co SO."""
     meta = _SOURCES.get(doc.get("funding_source_doctype") or "") or {}
     so = (doc.get("ec_sales_order") or "").strip()
     if not (meta.get("so_info_fn") and so):
         return None
+    # Doanh thu SO la so lieu nhay cam: chi nguoi lap + Ke toan (nguon tu khai) thay doi chieu (QC4).
+    if viewer and meta.get("so_view_fn") and not frappe.get_attr(meta["so_view_fn"])(doc, viewer):
+        return None
     info = frappe.get_attr(meta["so_info_fn"])(so)
     if not info:
         return {"value": so, "label": so, "missing": True}
     others = so_spent([so], doc.get("name")).get(so, 0.0)
-    after = others + float(doc.get("payment_amount") or 0)
+    # DNTT da bi tu choi / huy thi khong con chiem SO: khong cong chinh no (QC4).
+    status = frappe.db.get_value("EC Approval Request", doc.get("approval_request"), "approval_status") \
+        if doc.get("approval_request") else None
+    mine = float(doc.get("payment_amount") or 0) if (not status or status in CONSUMING_STATUSES) else 0.0
+    after = others + mine
     revenue = float(info.get("revenue") or 0)
     return dict(info, value=so, spent=others, after=after,
-                over=(after - revenue) if revenue > 0 else 0.0)
+                over=max(after - revenue, 0.0) if revenue > 0 else 0.0)
 
 
 def so_spent(names, exclude_request=None):

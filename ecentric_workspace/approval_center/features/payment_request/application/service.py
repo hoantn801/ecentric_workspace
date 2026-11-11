@@ -603,7 +603,7 @@ def detail_extra(business, request):
     out.update(unc_fix_block(business, request))
     # Canh bao "vuot doanh thu SO" luc lap phieu noi "Ke toan se xem": day la cho Ke toan xem (QC3).
     try:
-        chk = funding.so_check(business)
+        chk = funding.so_check(business, frappe.session.user)
     except Exception:
         frappe.log_error(frappe.get_traceback(), "payment_request so_check")
         chk = None
