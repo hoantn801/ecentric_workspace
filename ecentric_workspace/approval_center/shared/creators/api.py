@@ -8,6 +8,7 @@ import json
 import frappe
 from frappe import _
 
+from ecentric_workspace.approval_center.shared.creators import import_service
 from ecentric_workspace.approval_center.shared.creators.service import (
     CreatorError, CreatorPermissionError, CreatorService)
 
@@ -59,3 +60,14 @@ def list_missing_misa():
 @frappe.whitelist(methods=["POST"])
 def set_misa_code(name, code):
     return _run(CreatorService().set_misa_code, name, code)
+
+
+@frappe.whitelist(methods=["POST"])
+def import_creators(rows, apply=0):
+    """Nhap creator tu sheet cu. Mac dinh chay thu; apply=1 moi ghi. Chi EC Finance."""
+    if isinstance(rows, str):
+        rows = json.loads(rows or "[]")
+    if not isinstance(rows, list):
+        frappe.throw(_("Danh sách dòng không hợp lệ."))
+    do_apply = str(apply) in ("1", "true")
+    return _run(lambda user: import_service.import_rows(user, rows, apply=do_apply))

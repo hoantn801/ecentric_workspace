@@ -28,6 +28,8 @@ from ecentric_workspace.approval_center.shared.requests.capabilities import OPEN
 #: Rejected/Cancelled release it; a Draft (no approval request yet) has not committed.
 CONSUMING_STATUSES = tuple(OPEN_STATUSES) + ("Approved",)
 
+_KOL = "ecentric_workspace.approval_center.features.contract_review.application.kol_funding."
+
 #: Registry of supported commitment types. `total` is the field holding the committed amount.
 #: `approved_via` says how to tell the commitment itself is approved:
 #:   "approval_request" -> Approval Center engine (EC * Request doctypes)
@@ -51,6 +53,22 @@ _SOURCES = {
         # Only the eCentric book. The Boxme flow uses its own doctype, never this one.
         "extra_filters": {"company": "eCentric", "docstatus": ["<", 2]},
     },
+    # Hop dong KOL/KOC (11/11/2026, plan "Hop dong KOL/KOC len ERP"). Khac hai nguon tren o
+    # cho tran chi KHONG phai mot truong: coc chi khi creator da ky, phan con lai theo BBNT
+    # da hoan tat (kol_acceptance.payable_cap). Danh sach chon hien hop dong cua minh VA cung
+    # phong ban (anh Hoan: "filter theo ma contract ma ban do hoac team ban do tao").
+    "EC Contract Review Request": {
+        "label": "Hợp đồng KOL/KOC",
+        "total": "payable_amount",
+        "title": "request_title",
+        "payee": "creator_name",
+        "approved_via": "custom",
+        "total_fn": _KOL + "funding_total",
+        "approved_fn": _KOL + "funding_approved",
+        "owner_fn": _KOL + "funding_owner_filters",
+        "explain_fn": _KOL + "funding_explain",
+        "extra_filters": {"contract_type": "KOL/KOC / Creator (EC)"},
+    },
 }
 
 
@@ -68,6 +86,8 @@ def _meta(source_doctype):
 
 def _is_approved(source_doctype, row, meta):
     """True when the commitment itself has cleared its own approval chain. Fail-closed."""
+    if meta["approved_via"] == "custom":
+        return bool(frappe.get_attr(meta["approved_fn"])(row.get("name")))
     if meta["approved_via"] == "approval_request":
         req = row.get("approval_request")
         if not req:
@@ -102,6 +122,8 @@ def consumed_amount(source_doctype, source_name, exclude_request=None):
 
 def source_total(source_doctype, source_name):
     meta = _meta(source_doctype)
+    if meta.get("total_fn"):
+        return float(frappe.get_attr(meta["total_fn"])(source_name) or 0)
     value = frappe.db.get_value(source_doctype, source_name, meta["total"])
     return float(value or 0)
 
@@ -130,7 +152,10 @@ def list_sources(source_doctype, user=None):
     meta = _meta(source_doctype)
     user = user or frappe.session.user
     fields = ["name", meta["total"], meta["title"], meta["payee"]]
-    if meta["approved_via"] == "approval_request":
+    if meta.get("owner_fn"):
+        fields.append("approval_request")
+        owner_filters = frappe.get_attr(meta["owner_fn"])(user)
+    elif meta["approved_via"] == "approval_request":
         fields.append("approval_request")
         owner_filters = {"requested_by": user}
     else:
@@ -145,7 +170,7 @@ def list_sources(source_doctype, user=None):
     for row in rows:
         if not _is_approved(source_doctype, row, meta):
             continue
-        total = float(row.get(meta["total"]) or 0)
+        total = source_total(source_doctype, row.name) if meta.get("total_fn") else float(row.get(meta["total"]) or 0)
         used = consumed_amount(source_doctype, row.name)
         remaining = total - used
         title = row.get(meta["title"]) or row.name
@@ -175,8 +200,9 @@ def validate_funding(doc):
         frappe.throw(_("Chứng từ nguồn không tồn tại: {0} {1}").format(source_doctype, source_name))
 
     check_fields = ["name"]
-    check_fields.append("approval_request" if meta["approved_via"] == "approval_request"
-                       else "workflow_state")
+    if meta["approved_via"] != "custom":
+        check_fields.append("approval_request" if meta["approved_via"] == "approval_request"
+                           else "workflow_state")
     row = frappe.db.get_value(source_doctype, source_name, check_fields, as_dict=True)
     if not _is_approved(source_doctype, row, meta):
         frappe.throw(_("Chứng từ nguồn {0} chưa được duyệt nên chưa thể tạo đề nghị thanh toán."
@@ -187,6 +213,8 @@ def validate_funding(doc):
     # Epsilon must stay BELOW the smallest real unit: VND has no subunit, so a tolerance of
     # 1 would let someone overspend by exactly one dong (caught by test_one_over_is_refused).
     # 0.5 absorbs float noise on Currency (stored decimal(21,9)) without hiding a real overspend.
+    if amount > remaining + 0.5 and meta.get("explain_fn"):
+        frappe.throw(frappe.get_attr(meta["explain_fn"])(source_name, amount, remaining))
     if amount > remaining + 0.5:
         frappe.throw(_(
             "Số tiền {0} vượt quá phần còn lại của {1}. Tổng: {2} — đã thanh toán: {3} — còn lại: {4}."

@@ -1,0 +1,101 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-11-11 15:30:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "index_web_pages_for_search": 0,
+ "is_child_table": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-11-11 15:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "Approval Center",
+ "name": "EC Contract Acceptance",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0,
+ "field_order": [
+  "description",
+  "acceptance_date",
+  "amount",
+  "status",
+  "cb0",
+  "bbnt_file",
+  "signed_file",
+  "completed_at",
+  "completed_by",
+  "due_date"
+ ],
+ "fields": [
+  {
+   "fieldname": "description",
+   "fieldtype": "Data",
+   "label": "Nội dung nghiệm thu",
+   "in_list_view": 1,
+   "description": "Vd: Livestream 3 buổi tháng 3, hoặc Hoa hồng tháng 11/2025."
+  },
+  {
+   "fieldname": "acceptance_date",
+   "fieldtype": "Date",
+   "label": "Ngày nghiệm thu",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "label": "Số tiền đợt này",
+   "in_list_view": 1,
+   "description": "Số tiền trả creator của đợt (sau thuế)."
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Trạng thái",
+   "options": "Nháp\nĐã gửi ký\nHoàn tất",
+   "default": "Nháp",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb0",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "bbnt_file",
+   "fieldtype": "Attach",
+   "label": "Tệp BBNT (.docx)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "signed_file",
+   "fieldtype": "Attach",
+   "label": "BBNT đã ký",
+   "read_only": 1
+  },
+  {
+   "fieldname": "completed_at",
+   "fieldtype": "Datetime",
+   "label": "Hoàn tất lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "completed_by",
+   "fieldtype": "Link",
+   "label": "Người xác nhận",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "due_date",
+   "fieldtype": "Date",
+   "label": "Hạn thanh toán",
+   "read_only": 1,
+   "in_list_view": 1
+  }
+ ],
+ "permissions": []
+}

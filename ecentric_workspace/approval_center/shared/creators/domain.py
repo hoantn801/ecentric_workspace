@@ -24,11 +24,11 @@ PII_FIELDS = ("ec_cr_cccd", "ec_cr_cccd_issue_date", "ec_cr_cccd_issue_place", "
               "ec_cr_address", "ec_cr_cccd_front", "ec_cr_cccd_back",
               "ec_bank_account_no", "ec_cr_bank_branch", "ec_cr_account_holder")
 # Truong ai cung doc duoc (de tim va chon creator tren form hop dong).
-PUBLIC_FIELDS = ("name", "supplier_name", "ec_cr_type", "ec_cr_tiktok_id", "ec_cr_channel_url",
+PUBLIC_FIELDS = ("name", "supplier_name", "ec_cr_type", "ec_cr_party_code", "ec_cr_tiktok_id", "ec_cr_channel_url",
                  "ec_cr_shopee_id", "ec_cr_shopee_url", "ec_cr_misa_code", "ec_bank_name",
                  "ec_cr_representative_name", "ec_cr_representative_title")
 # Truong nguoi tao duoc ghi (ngoai ten va loai). Ma MISA KHONG nam day: chi ke toan ghi.
-WRITABLE_FIELDS = ("tax_id", "ec_phone", "ec_cr_email", "ec_cr_tiktok_id", "ec_cr_channel_url",
+WRITABLE_FIELDS = ("tax_id", "ec_phone", "ec_cr_email", "ec_cr_party_code", "ec_cr_tiktok_id", "ec_cr_channel_url",
                    "ec_cr_shopee_id", "ec_cr_shopee_url", "ec_cr_representative_name",
                    "ec_cr_representative_title", "ec_bank_name") + PII_FIELDS
 
@@ -71,6 +71,7 @@ NORMALIZERS = {"ec_cr_cccd": _digits, "tax_id": _digits, "ec_bank_account_no": _
 
 # Luu dang chuan hoa (chi so) de lan sau so trung va dien vao hop dong khong lech dinh dang.
 STORE_NORMALIZED = {"ec_cr_cccd": _digits, "tax_id": _digits, "ec_bank_account_no": _digits,
+                    "ec_cr_party_code": lambda v: str(v).strip().upper(),
                     "ec_phone": _phone}
 
 

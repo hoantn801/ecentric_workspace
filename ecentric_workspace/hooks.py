@@ -431,6 +431,9 @@ fixtures = [
             "Supplier-ec_cr_cccd_issue_date", "Supplier-ec_cr_cccd_issue_place", "Supplier-ec_cr_dob",
             "Supplier-ec_cr_cb2", "Supplier-ec_cr_address", "Supplier-ec_cr_account_holder",
             "Supplier-ec_cr_bank_branch", "Supplier-ec_cr_cccd_front", "Supplier-ec_cr_cccd_back",
+            "Supplier-ec_cr_party_code",
+            # DNTT gan hop dong KOL/KOC: SO doanh thu tu dien tu hop dong (doi chieu chi phi - doanh thu).
+            "EC Payment Request-ec_sales_order",
 ]]],
     },
     # Ba DocType custom cua PnL dashboard (09-10/09/2026). Truoc day chi ton tai tren

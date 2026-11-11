@@ -1525,5 +1525,29 @@
   "insert_after": "ec_cr_cccd_front",
   "module": "Ecentric Workspace",
   "permlevel": 1
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Supplier-ec_cr_party_code",
+  "dt": "Supplier",
+  "fieldname": "ec_cr_party_code",
+  "label": "Mã viết tắt trong số hợp đồng",
+  "fieldtype": "Data",
+  "insert_after": "ec_cr_email",
+  "module": "Ecentric Workspace",
+  "description": "Vd NTP, DOOMI, KBTC. Số HĐ: ddmmyyyy/HDDV/ECENTRIC-<mã này>.<mã brand>."
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "EC Payment Request-ec_sales_order",
+  "dt": "EC Payment Request",
+  "fieldname": "ec_sales_order",
+  "label": "SO doanh thu",
+  "fieldtype": "Link",
+  "options": "Sales Order",
+  "insert_after": "funding_source_name",
+  "read_only": 1,
+  "module": "Ecentric Workspace",
+  "description": "Tự điền từ hợp đồng KOL/KOC khi nguồn chi là hợp đồng."
  }
 ]

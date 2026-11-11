@@ -65,6 +65,13 @@ def _sync_funding_aliases(doc):
         # co brand thi bi lat nguoc ve PURR-1: tru ngan sach sai chung tu nguon.
         doc.funding_source_doctype = "EC Purchase Request"
         doc.funding_source_name = legacy
+    # Hop dong KOL/KOC (11/11/2026): dien san SO, brand, loai chi phi, nguoi nhan tu hop dong.
+    # Dat TRUOC khoi brand ben duoi de loai chi phi TT_KOL (co brand) giu duoc ec_brand.
+    if src_dt == "EC Contract Review Request" and src_name:
+        frappe.get_attr("ecentric_workspace.approval_center.features.contract_review."
+                        "application.kol_funding.fill_payment")(doc, src_name)
+    elif src_dt and doc.get("ec_sales_order"):
+        doc.ec_sales_order = None
     # Brand chi co nghia voi loai chi phi gan brand. Doi loai xong ma con gia tri cu thi bao
     # cao theo brand nhan mot khoan khong thuoc ve no - cung kieu bay voi funding_source khi
     # doi has_purchase_request sang "No".

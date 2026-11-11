@@ -102,6 +102,24 @@ ADAPTER_NAMES = {name for name in _dict_literal_keys(_ADAPTER_SRC, None)
 FULFIL_NAMES = _dict_literal_keys(_FULFIL_SRC, None) | {"set_operation_fields"}
 
 
+def _star_import_names(feature, tree):
+    """`from ...features.<feature>.controllers.<mod> import *` (vd kol_api cua contract_review):
+    lay dung `__all__` cua file do - ten khong co trong __all__ thi `import *` cung khong mang sang."""
+    prefix = "ecentric_workspace.approval_center.features.%s.controllers." % feature
+    names = set()
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.ImportFrom) and node.module
+                and node.module.startswith(prefix) and any(a.name == "*" for a in node.names)):
+            continue
+        sub = ast.parse(_read(_feature_file(feature, "controllers",
+                                            node.module[len(prefix):] + ".py")))
+        for item in sub.body:
+            if (isinstance(item, ast.Assign) and any(getattr(t, "id", "") == "__all__"
+                                                     for t in item.targets)):
+                names |= set(ast.literal_eval(item.value))
+    return names
+
+
 def _api_surface(feature):
     """Ten ma UI cua feature nay co the goi qua namespace api.<feature>.*"""
     source = _read(_feature_file(feature, "controllers", "api.py"))
@@ -114,6 +132,7 @@ def _api_surface(feature):
             for target in node.targets:
                 if isinstance(target, ast.Name):
                     names.add(target.id)
+    names |= _star_import_names(feature, tree)
     if "bind_fulfillment(" in source:
         names |= ADAPTER_NAMES | FULFIL_NAMES
     elif "bind(" in source and "api_adapter" in source:

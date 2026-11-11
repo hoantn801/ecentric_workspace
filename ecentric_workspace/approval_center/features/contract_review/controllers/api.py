@@ -8,6 +8,9 @@ from ecentric_workspace.approval_center.shared.workflow.permissions import can_v
 
 globals().update(bind("CONTRACT_REVIEW"))
 
+# Hop dong KOL/KOC (11/11/2026): cac ham kol_* (xem kol_api.py).
+from ecentric_workspace.approval_center.features.contract_review.controllers.kol_api import *  # noqa: E402,F401,F403
+
 _DT = "EC Contract Review Request"
 _CODE = "CONTRACT_REVIEW"
 _FILL_FIELDS = ["name", "request_title", "contract_type", "request_type", "brand",

@@ -49,20 +49,29 @@ class CreatorService:
 
     # ---- ghi -------------------------------------------------------------------
     def create(self, user, data, confirm_soft=False):
-        values = self._clean(data, with_identity=True)
-        self._validate(values)
+        values = self.prepare(data)
         dup = self.check_duplicates(values)
         self._refuse_hard(dup)
         if dup["soft"] and not confirm_soft:
             return {"needs_confirm": True, "matches": dup["soft"],
                     "message": self._soft_message(dup["soft"])}
-        values.update({
-            "supplier_group": domain.CREATOR_GROUP,
-            "supplier_type": domain.SUPPLIER_TYPE_BY_CREATOR[values["ec_cr_type"]],
-            "ec_cr_dup_ack": self._ack_note(dup["soft"]) if dup["soft"] else None,
-        })
-        name = self.repo.insert(values)
-        return {"needs_confirm": False, "name": name}
+        return {"needs_confirm": False, "name": self.insert_prepared(values, dup["soft"])}
+
+    def prepare(self, data):
+        """Lam sach + kiem loi nhap lieu. Dung chung cho form va nhap tu sheet."""
+        values = self._clean(data, with_identity=True)
+        self._validate(values)
+        return values
+
+    def insert_prepared(self, values, soft_matches):
+        """Ghi creator da qua prepare() va da do trung CUNG. soft_matches = nguoi tao da xac nhan."""
+        row = dict(values, supplier_group=domain.CREATOR_GROUP,
+                   supplier_type=domain.SUPPLIER_TYPE_BY_CREATOR[values["ec_cr_type"]],
+                   ec_cr_dup_ack=self._ack_note(soft_matches) if soft_matches else None)
+        return self.repo.insert(row)
+
+    def require_finance(self, user):
+        self._require_finance(user)
 
     def update(self, user, name, data):
         row = self.repo.get(name)
