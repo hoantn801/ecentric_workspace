@@ -27,6 +27,57 @@ def _business_args(business_doctype, business_name):
     return business_doctype, business_name
 
 
+#: Chung tu mac dinh khi goi theo kieu cu (`payment_request_name=`).
+LEGACY_BUSINESS_DOCTYPE = "EC Payment Request"
+PROFILE = "EC Digital Signature Profile"
+
+
+def _target(payment_request_name=None, business_doctype=None, business_name=None):
+    """(doctype, name) cua chung tu endpoint dang phuc vu. CHANG 3 (11/11/2026).
+
+    Truoc day ~26 endpoint chi nhan `payment_request_name` va viet cung "EC Payment Request"
+    ben trong, du lop ben duoi (document_setup, placement_service, signer_plan, requester,
+    ui_state, signed_files) da nhan (business_doctype, business_name) tu lau. Hop dong - va moi
+    loai chung tu sau - khong goi duoc chung.
+
+    Hai cach goi, KHONG tron:
+      * cu:  `payment_request_name=X`                 -> ("EC Payment Request", X). Giao dien
+             DNTT dang goi kieu nay; giu nguyen de khong phai sua trang nao.
+      * moi: `business_doctype=D, business_name=N`    -> (D, N), voi D BAT BUOC co it nhat
+             mot ho so ky. Khong co ho so = loai chung tu chua duoc dua vao ky so, va endpoint
+             khong duoc tro thanh cua sau de doc/ghi mot DocType bat ky.
+
+    Quyen VAN do lop ben duoi kiem nhu cu (assert_can_view_business, requester-only...). Ham
+    nay chi chon chung tu, khong cap them quyen nao.
+
+    Ho so ky DANG TAT van du (co chu dich, QC 11/11): bat ho so = engine duyet bat dau doi chu
+    ky cho loai chung tu do, nen ho so phai TAT trong luc dung va thu giao dien ky cua loai
+    moi. Cac endpoint dung chung cu (upload_package_file, signing_ui_state...) chi qua
+    `_business_args` - pham vi cua chot "phai co ho so" la 26 endpoint di qua ham nay.
+    """
+    # Body JSON co the mang list/dict (vd ["like", "%"] lot qua bo loc ho so) - chi nhan chuoi.
+    for v in (payment_request_name, business_doctype, business_name):
+        if v is not None and not isinstance(v, str):
+            frappe.throw(_("Tham số không hợp lệ."))
+    if business_doctype or business_name:
+        if payment_request_name:
+            frappe.throw(_("Chỉ truyền một kiểu tham số: payment_request_name HOẶC "
+                           "business_doctype + business_name."))
+        if not business_doctype or not frappe.db.exists(PROFILE,
+                                                        {"business_doctype": business_doctype}):
+            frappe.throw(_("Loại chứng từ này chưa được cấu hình ký số."))
+        return _business_args(business_doctype, business_name)
+    return _business_args(LEGACY_BUSINESS_DOCTYPE, payment_request_name)
+
+
+def _need(**params):
+    """Tham so bat buoc. Endpoint nhan ca hai kieu goi nen tham so sau `payment_request_name`
+    phai co mac dinh None - kiem lai o day de thieu thi bao ro, khong chay voi None."""
+    thieu = [k for k, v in params.items() if v is None or v == ""]
+    if thieu:
+        frappe.throw(_("Thiếu tham số: {0}").format(", ".join(thieu)))
+
+
 def _settings_of(pkg_or_dsr):
     """Provider Settings DUNG CAP provider/environment cua goi/chan ky nay.
 
@@ -345,7 +396,7 @@ def list_scts_signatures(scts_user_id, environment=None):
 
 
 @frappe.whitelist()
-def provider_document_shape(payment_request_name):
+def provider_document_shape(payment_request_name=None, business_doctype=None, business_name=None):
     """READ-ONLY, System Manager only: WHICH FIELDS eContract returns for this document.
 
     Written to end a specific guessing loop. `POST /api/Workflow/transition` is rejected with
@@ -359,10 +410,10 @@ def provider_document_shape(payment_request_name):
     names, no comments, no file content - so a diagnostic call can never become a data dump.
     """
     perms.assert_system_manager()
-    _business_args("EC Payment Request", payment_request_name)
+    biz_dt, biz_name = _target(payment_request_name, business_doctype, business_name)
     pkg_name = frappe.db.get_value(
         "EC Digital Signature Package",
-        {"business_doctype": "EC Payment Request", "business_name": payment_request_name,
+        {"business_doctype": biz_dt, "business_name": biz_name,
          "status": ["not in", ("Cancelled", "Superseded")]},
         "name", order_by="creation desc")
     if not pkg_name:
@@ -612,7 +663,8 @@ def _source_level_of(request_level_name):
 
 
 @frappe.whitelist()
-def document_signature_overlay(payment_request_name):
+def document_signature_overlay(payment_request_name=None, business_doctype=None,
+                               business_name=None):
     """Who has ACTUALLY signed this document at the provider, and what their signature looks
     like - so the screen can show the real thing instead of a tick mark.
 
@@ -624,15 +676,15 @@ def document_signature_overlay(payment_request_name):
 
     Read-only. Never returns certificate or HSM material.
     """
-    _business_args("EC Payment Request", payment_request_name)
+    biz_dt, biz_name = _target(payment_request_name, business_doctype, business_name)
     # _business_args CHI kiem ban ghi co ton tai - no khong phai mot phep kiem quyen. Moi
     # endpoint doc khac trong file nay deu goi assert_can_view_business; ban dau tien cua ham
     # nay thi khong, va no tra ve ANH CHU KY. Bat ky ai dang nhap doan duoc ten mot yeu cau
     # deu lay duoc email nguoi ky, gio ky va anh chu ky cua ho.
-    perms.assert_can_view_business("EC Payment Request", payment_request_name)
+    perms.assert_can_view_business(biz_dt, biz_name)
     pkg_name = frappe.db.get_value(
         "EC Digital Signature Package",
-        {"business_doctype": "EC Payment Request", "business_name": payment_request_name,
+        {"business_doctype": biz_dt, "business_name": biz_name,
          "status": ["not in", ("Cancelled", "Superseded")]},
         "name", order_by="creation desc")
     if not pkg_name:
@@ -779,10 +831,10 @@ def clear_create_ambiguity(package, reason):
 
 
 @frappe.whitelist()
-def signing_readiness(payment_request_name):
+def signing_readiness(payment_request_name=None, business_doctype=None, business_name=None):
     """Backend-computed Duyệt & Ký readiness for the Payment Request panel (read-only)."""
-    _business_args("EC Payment Request", payment_request_name)
-    return svc.signing_readiness("EC Payment Request", payment_request_name)
+    biz_dt, biz_name = _target(payment_request_name, business_doctype, business_name)
+    return svc.signing_readiness(biz_dt, biz_name)
 
 
 # ------------------------------ UAT pilot (S2B-C1) ------------------------------ #
@@ -802,7 +854,7 @@ def run_scts_uat_pilot_probe(payment_request_name, apply=0):
 
 
 @frappe.whitelist()
-def esign_document_state(payment_request_name):
+def esign_document_state(payment_request_name=None, business_doctype=None, business_name=None):
     """READ-ONLY diagnosis: what the provider actually says, and why verification decides
     what it decides.
 
@@ -818,11 +870,11 @@ def esign_document_state(payment_request_name):
     from ecentric_workspace.platform.esign.providers import get_adapter
     from ecentric_workspace.platform.esign.sanitize import safe_error
     perms.assert_system_manager()
-    _business_args("EC Payment Request", payment_request_name)
+    biz_dt, biz_name = _target(payment_request_name, business_doctype, business_name)
 
     pkg_name = frappe.db.get_value(
         "EC Digital Signature Package",
-        {"business_doctype": "EC Payment Request", "business_name": payment_request_name,
+        {"business_doctype": biz_dt, "business_name": biz_name,
          "status": ["not in", ("Cancelled", "Superseded")]},
         "name", order_by="creation desc")
     if not pkg_name:
@@ -883,12 +935,12 @@ def esign_document_state(payment_request_name):
 
 
 @frappe.whitelist(methods=["POST"])
-def retrieve_signed_files(payment_request_name):
+def retrieve_signed_files(payment_request_name=None, business_doctype=None, business_name=None):
     """SM-gated manual retrieval of the signed PDF(s) for a Payment Request's active
     package (safe read; idempotent; never resends AddDocument/bulk-process)."""
     perms.assert_system_manager()
-    _business_args("EC Payment Request", payment_request_name)
-    ar = perms.business_approval_request("EC Payment Request", payment_request_name)
+    biz_dt, biz_name = _target(payment_request_name, business_doctype, business_name)
+    ar = perms.business_approval_request(biz_dt, biz_name)
     pkg = pkgsvc.active_package_for_request(ar) if ar else None
     if not pkg:
         frappe.throw(_("Không có gói tài liệu đang hoạt động."))
@@ -897,12 +949,13 @@ def retrieve_signed_files(payment_request_name):
 
 
 @frappe.whitelist(methods=["POST"])
-def restore_missing_signed_files(payment_request_name, dry_run=1):
+def restore_missing_signed_files(payment_request_name=None, dry_run=1, business_doctype=None,
+                                 business_name=None):
     """SM-gated: file ky da luu nhung MAT TREN DIA -> tai lai tu SCTS, doi chieu SHA da luu, ghi
     lai dung duong dan cu (08/09, 00046). dry_run=1 chi bao cao."""
     perms.assert_system_manager()
-    _business_args("EC Payment Request", payment_request_name)
-    ar = perms.business_approval_request("EC Payment Request", payment_request_name)
+    biz_dt, biz_name = _target(payment_request_name, business_doctype, business_name)
+    ar = perms.business_approval_request(biz_dt, biz_name)
     pkg = pkgsvc.active_package_for_request(ar) if ar else None
     if not pkg:
         frappe.throw(_("Không có gói tài liệu đang hoạt động."))
@@ -965,14 +1018,14 @@ def resolve_signed_file_review(dsf_name, action, reason=None):
 
 
 @frappe.whitelist()
-def placement_editor_config(payment_request_name):
+def placement_editor_config(payment_request_name=None, business_doctype=None, business_name=None):
     """Backend-computed EC_PPH_CONFIG for the bundled placement editor. Permission-checked;
     the client supplies ONLY the PR name and receives package/files/version/locked resolved
     server-side (never a raw private-file URL)."""
-    _business_args("EC Payment Request", payment_request_name)
-    perms.assert_can_view_business("EC Payment Request", payment_request_name)
+    biz_dt, biz_name = _target(payment_request_name, business_doctype, business_name)
+    perms.assert_can_view_business(biz_dt, biz_name)
     from ecentric_workspace.platform.esign import ui_state
-    st = ui_state.signing_ui_state("EC Payment Request", payment_request_name)
+    st = ui_state.signing_ui_state(biz_dt, biz_name)
     pkg = st.get("package") or {}
     files = [{"name": f.get("name"), "file_name": f.get("file_name"),
               "is_pdf": f.get("is_pdf"), "requires_signature": f.get("requires_signature")}
@@ -983,115 +1036,132 @@ def placement_editor_config(payment_request_name):
 
 
 @frappe.whitelist()
-def document_setup_state(payment_request_name):
+def document_setup_state(payment_request_name=None, business_doctype=None, business_name=None):
     """Phase A1 read model for the future 'Tài liệu & ký số' UI. Permission-safe; ZERO writes /
     side effects; no SCTS call."""
-    _business_args("EC Payment Request", payment_request_name)
+    biz_dt, biz_name = _target(payment_request_name, business_doctype, business_name)
     from ecentric_workspace.platform.esign import document_setup as ds
-    return ds.get_document_setup_state("EC Payment Request", payment_request_name)
+    return ds.get_document_setup_state(biz_dt, biz_name)
 
 
 @frappe.whitelist(methods=["POST"])
-def set_document_requires_signature(payment_request_name, document_ref, requires_signature,
-                                    confirm=0):
+def set_document_requires_signature(payment_request_name=None, document_ref=None,
+                                    requires_signature=None, confirm=0, business_doctype=None,
+                                    business_name=None):
     """Phase A1 governed classification write (requester-scoped; package-Draft-only; idempotent;
     no provider/DSR/SCTS/approval side effects). requires_signature canonical; supporting mirror
     written server-side."""
-    _business_args("EC Payment Request", payment_request_name)
+    biz_dt, biz_name = _target(payment_request_name, business_doctype, business_name)
+    _need(document_ref=document_ref, requires_signature=requires_signature)
     from ecentric_workspace.platform.esign import document_setup as ds
-    return ds.set_document_requires_signature("EC Payment Request", payment_request_name,
+    return ds.set_document_requires_signature(biz_dt, biz_name,
                                               document_ref, requires_signature, confirm=confirm)
 
 
 @frappe.whitelist(methods=["POST"])
-def attach_uploaded_file(payment_request_name, file_url):
+def attach_uploaded_file(payment_request_name=None, file_url=None, business_doctype=None,
+                         business_name=None):
     """Gan tep vua tai len vao phieu (khoi Tai lieu & Ky so).
 
     Trang tai len bang `upload_file` KHONG kem doctype/docname - vi endpoint do cua Frappe
     kiem quyen bang DocPerm chuan, ma he nay khong cap DocPerm chuan cho DocType yeu cau.
     Roi goi day de gan, va CHINH DAY tu kiem quyen. Xem document_setup.attach_uploaded_file.
     """
-    _business_args("EC Payment Request", payment_request_name)
+    biz_dt, biz_name = _target(payment_request_name, business_doctype, business_name)
+    _need(file_url=file_url)
     from ecentric_workspace.platform.esign import document_setup as ds
-    return ds.attach_uploaded_file("EC Payment Request", payment_request_name, file_url)
+    return ds.attach_uploaded_file(biz_dt, biz_name, file_url)
 
 
 @frappe.whitelist(methods=["POST"])
-def remove_attachment(payment_request_name, document_ref):
+def remove_attachment(payment_request_name=None, document_ref=None, business_doctype=None,
+                      business_name=None):
     """Go mot tep khoi phieu DANG LAP (chua gui): to trinh hay bo chung tu. Chi nguoi de
     nghi, chi khi thiet lap tai lieu con sua duoc. Xem document_setup.remove_attachment."""
-    _business_args("EC Payment Request", payment_request_name)
+    biz_dt, biz_name = _target(payment_request_name, business_doctype, business_name)
+    _need(document_ref=document_ref)
     from ecentric_workspace.platform.esign import document_setup as ds
-    return ds.remove_attachment("EC Payment Request", payment_request_name, document_ref)
+    return ds.remove_attachment(biz_dt, biz_name, document_ref)
 
 
 @frappe.whitelist(methods=["POST"])
-def remove_supporting_attachment(payment_request_name, document_ref):
+def remove_supporting_attachment(payment_request_name=None, document_ref=None,
+                                 business_doctype=None, business_name=None):
     """Go mot chung tu BO SUNG vua dinh kem nham, khi phieu dang o "Cần bổ sung".
 
     Tu choi neu tep nam trong bat ky goi ky nao cua phieu - tep do da/dang duoc ky len.
     Chi nguoi de nghi. Co ghi vet vao lich su phieu. Xem document_setup de biet luat day du.
     """
-    _business_args("EC Payment Request", payment_request_name)
+    biz_dt, biz_name = _target(payment_request_name, business_doctype, business_name)
+    _need(document_ref=document_ref)
     from ecentric_workspace.platform.esign import document_setup as ds
-    return ds.remove_supporting_attachment("EC Payment Request", payment_request_name,
+    return ds.remove_supporting_attachment(biz_dt, biz_name,
                                            document_ref)
 
 
 @frappe.whitelist(methods=["POST"])
-def set_representative_attachment(payment_request_name, file_url):
+def set_representative_attachment(payment_request_name=None, file_url=None, business_doctype=None,
+                                  business_name=None):
     """Phase A2: set the backward-compatible request_attachment pointer to an uploaded File only
     when currently empty (requester-scoped; never overwrites; no other field touched)."""
-    _business_args("EC Payment Request", payment_request_name)
+    biz_dt, biz_name = _target(payment_request_name, business_doctype, business_name)
+    _need(file_url=file_url)
     from ecentric_workspace.platform.esign import document_setup as ds
-    return ds.set_representative_attachment("EC Payment Request", payment_request_name, file_url)
+    return ds.set_representative_attachment(biz_dt, biz_name, file_url)
 
 
 @frappe.whitelist()
-def placement_state(payment_request_name, document_ref):
+def placement_state(payment_request_name=None, document_ref=None, business_doctype=None,
+                    business_name=None):
     """Phase C read-only placement + progress state for one document (permission-checked)."""
-    _business_args("EC Payment Request", payment_request_name)
+    biz_dt, biz_name = _target(payment_request_name, business_doctype, business_name)
+    _need(document_ref=document_ref)
     from ecentric_workspace.platform.esign import placement_service as ps
-    return ps.placement_state("EC Payment Request", payment_request_name, document_ref)
+    return ps.placement_state(biz_dt, biz_name, document_ref)
 
 
 @frappe.whitelist(methods=["POST"])
-def save_placement(payment_request_name, document_ref, box):
+def save_placement(payment_request_name=None, document_ref=None, box=None, business_doctype=None,
+                   business_name=None):
     """Phase C: create/update one signer-slot signature box (requester-scoped; slot-validated;
     document-scoped; editable Draft only; no provider/freeze)."""
-    _business_args("EC Payment Request", payment_request_name)
+    biz_dt, biz_name = _target(payment_request_name, business_doctype, business_name)
+    _need(document_ref=document_ref, box=box)
     from ecentric_workspace.platform.esign import placement_service as ps
-    return ps.save_placement("EC Payment Request", payment_request_name, document_ref, box)
+    return ps.save_placement(biz_dt, biz_name, document_ref, box)
 
 
 @frappe.whitelist(methods=["POST"])
-def delete_placement(payment_request_name, document_ref, placement_name):
+def delete_placement(payment_request_name=None, document_ref=None, placement_name=None,
+                     business_doctype=None, business_name=None):
     """Phase C: delete one signature box (requester-scoped; document-scoped)."""
-    _business_args("EC Payment Request", payment_request_name)
+    biz_dt, biz_name = _target(payment_request_name, business_doctype, business_name)
+    _need(document_ref=document_ref, placement_name=placement_name)
     from ecentric_workspace.platform.esign import placement_service as ps
-    return ps.delete_placement("EC Payment Request", payment_request_name, document_ref, placement_name)
+    return ps.delete_placement(biz_dt, biz_name, document_ref, placement_name)
 
 
 @frappe.whitelist()
-def signer_plan(payment_request_name):
+def signer_plan(payment_request_name=None, business_doctype=None, business_name=None):
     """Read-only signer plan for the Payment Request signing UI (Phase B1). Permission-safe
     (business view permission required); no writes / side effects; no SCTS call."""
-    _business_args("EC Payment Request", payment_request_name)
+    biz_dt, biz_name = _target(payment_request_name, business_doctype, business_name)
     from ecentric_workspace.platform.esign import signer_plan as sp
-    return sp.resolve_signer_plan("EC Payment Request", payment_request_name)
+    return sp.resolve_signer_plan(biz_dt, biz_name)
 
 
 @frappe.whitelist()
-def my_signature_preview(payment_request_name):
+def my_signature_preview(payment_request_name=None, business_doctype=None, business_name=None):
     """Self-service SIZE PREVIEW: the CURRENT session user's own mapped SCTS signature image
     (base64 PNG) for the placement drawer's 'Ky thu'. Governed: viewer of the business doc +
     their OWN verified mapping only; provider integration gate must be open; image only -
     no ids/secrets; nothing is stored."""
+    biz_dt, biz_name = _target(payment_request_name, business_doctype, business_name)
     from ecentric_workspace.platform.esign import signer_plan as sp
-    perms.assert_can_view_business("EC Payment Request", payment_request_name)
+    perms.assert_can_view_business(biz_dt, biz_name)
     at, prof, err = sp._resolve_type_and_profile(
-        "EC Payment Request", payment_request_name,
-        perms.business_approval_request("EC Payment Request", payment_request_name))
+        biz_dt, biz_name,
+        perms.business_approval_request(biz_dt, biz_name))
     if err or not prof:
         return {"image_base64": None, "reason": err or "profile_not_configured"}
     pmeta = frappe.db.get_value("EC Digital Signature Profile", prof,
@@ -1115,20 +1185,22 @@ def my_signature_preview(payment_request_name):
 
 
 @frappe.whitelist()
-def requester_signing_readiness(payment_request_name):
+def requester_signing_readiness(payment_request_name=None, business_doctype=None,
+                                business_name=None):
     """Read-only requester Submit & Sign readiness (fail-closed)."""
-    _business_args("EC Payment Request", payment_request_name)
+    biz_dt, biz_name = _target(payment_request_name, business_doctype, business_name)
     from ecentric_workspace.platform.esign import requester
-    return requester.requester_signing_readiness("EC Payment Request", payment_request_name)
+    return requester.requester_signing_readiness(biz_dt, biz_name)
 
 
 @frappe.whitelist(methods=["POST"])
-def requester_submit_and_sign(payment_request_name, comment=None):
+def requester_submit_and_sign(payment_request_name=None, comment=None, business_doctype=None,
+                              business_name=None):
     """Governed requester Submit & Sign. Session user must be the authoritative requester
     (no Administrator/System Manager bypass); creates/reuses one requester-scoped DSR."""
-    _business_args("EC Payment Request", payment_request_name)
+    biz_dt, biz_name = _target(payment_request_name, business_doctype, business_name)
     from ecentric_workspace.platform.esign import requester
-    return requester.requester_submit_and_sign("EC Payment Request", payment_request_name,
+    return requester.requester_submit_and_sign(biz_dt, biz_name,
                                                comment=comment)
 
 
@@ -1137,30 +1209,33 @@ def requester_submit_and_sign(payment_request_name, comment=None):
 # di qua link_scts_account -> user_link.link -> client.login, khong luu, khong log.
 
 @frappe.whitelist()
-def scts_link_status(payment_request_name):
+def scts_link_status(payment_request_name=None, business_doctype=None, business_name=None):
     """Trang thai ket noi (khong co token) cua nguoi dang dang nhap, theo moi truong cua phieu."""
-    _business_args("EC Payment Request", payment_request_name)
+    biz_dt, biz_name = _target(payment_request_name, business_doctype, business_name)
     from ecentric_workspace.platform.esign import requester, user_link
-    st, env = requester.link_context("EC Payment Request", payment_request_name)
+    st, env = requester.link_context(biz_dt, biz_name)
     return user_link.link_status(frappe.session.user, st, env)
 
 
 @frappe.whitelist(methods=["POST"])
-def link_scts_account(payment_request_name, password, username=None):
+def link_scts_account(payment_request_name=None, password=None, username=None,
+                      business_doctype=None, business_name=None):
     """Nguoi dung tu dang nhap SCTS mot lan; ERP giu TOKEN, bo mat khau ngay."""
-    _business_args("EC Payment Request", payment_request_name)
+    # Bo mat khau khoi request data TRUOC moi phep kiem co the nem loi.
     frappe.local.form_dict.pop("password", None)      # khong de mat khau nam trong request data
+    biz_dt, biz_name = _target(payment_request_name, business_doctype, business_name)
+    # Mat khau trong: de user_link.link bao "Vui long nhap mat khau SCTS." nhu truoc (QC 11/11).
     from ecentric_workspace.platform.esign import requester, user_link
-    st, env = requester.link_context("EC Payment Request", payment_request_name)
+    st, env = requester.link_context(biz_dt, biz_name)
     return user_link.link(frappe.session.user, st, env, password, username=username)
 
 
 @frappe.whitelist(methods=["POST"])
-def unlink_scts_account(payment_request_name):
+def unlink_scts_account(payment_request_name=None, business_doctype=None, business_name=None):
     """Go token cua chinh minh."""
-    _business_args("EC Payment Request", payment_request_name)
+    biz_dt, biz_name = _target(payment_request_name, business_doctype, business_name)
     from ecentric_workspace.platform.esign import requester, user_link
-    st, env = requester.link_context("EC Payment Request", payment_request_name)
+    st, env = requester.link_context(biz_dt, biz_name)
     return user_link.unlink(frappe.session.user, st, env)
 
 
@@ -1191,31 +1266,34 @@ def unlink_scts_account_me():
 
 
 @frappe.whitelist(methods=["POST"])
-def prepare_requester_signing_package(payment_request_name):
+def prepare_requester_signing_package(payment_request_name=None, business_doctype=None,
+                                      business_name=None):
     """Requester 'Prepare Signing Package': create/reuse the package + add eligible PDFs +
     return the editor config. No SCTS call, no DSR. Requester-only (no admin bypass)."""
-    _business_args("EC Payment Request", payment_request_name)
+    biz_dt, biz_name = _target(payment_request_name, business_doctype, business_name)
     from ecentric_workspace.platform.esign import requester
-    return requester.prepare_requester_signing_package("EC Payment Request", payment_request_name)
+    return requester.prepare_requester_signing_package(biz_dt, biz_name)
 
 
 @frappe.whitelist(methods=["POST"])
-def requester_lock_signing_package(payment_request_name):
+def requester_lock_signing_package(payment_request_name=None, business_doctype=None,
+                                   business_name=None):
     """Requester-local package lock (freezes hash; no SCTS). Requester-only; idempotent."""
-    _business_args("EC Payment Request", payment_request_name)
+    biz_dt, biz_name = _target(payment_request_name, business_doctype, business_name)
     from ecentric_workspace.platform.esign import requester
-    return requester.requester_lock_signing_package("EC Payment Request", payment_request_name)
+    return requester.requester_lock_signing_package(biz_dt, biz_name)
 
 
 @frappe.whitelist(methods=["POST"])
-def requester_reset_invalid_package(payment_request_name):
+def requester_reset_invalid_package(payment_request_name=None, business_doctype=None,
+                                    business_name=None):
     """Governed recovery of an INVALID locked requester package (Locked/Active with zero
     requester placements). Authorized STRICTLY for the actual requester (no Administrator /
     System Manager / role bypass); audited; no provider/SCTS/DSR mutation; cancels the invalid
     local package so a fresh Draft can be prepared."""
-    _business_args("EC Payment Request", payment_request_name)
+    biz_dt, biz_name = _target(payment_request_name, business_doctype, business_name)
     from ecentric_workspace.platform.esign import requester
-    return requester.requester_reset_invalid_package("EC Payment Request", payment_request_name)
+    return requester.requester_reset_invalid_package(biz_dt, biz_name)
 
 
 @frappe.whitelist()

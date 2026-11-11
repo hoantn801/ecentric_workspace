@@ -115,12 +115,14 @@ class _Adapter(object):
         self.signed = signed
         self.lookups = []
         self.asked = []
+        self.quick = []
 
     def poll_status(self, document_id):
         return _Doc(self.signed)
 
-    def available_transitions(self, instance_id, user):
+    def available_transitions(self, instance_id, user, quick=False):
         self.asked.append(instance_id)
+        self.quick.append((instance_id, quick))
         if instance_id != INST:
             raise RuntimeError("SctsHttpError: http_404")
         return [self.discovered] if self.discovered else []
@@ -229,6 +231,22 @@ class TestGhiNhan(unittest.TestCase):
         p = _plan(_nh(), _Adapter(discovered=_approve("-9", pa="WfFunctionRunSignedA",
                                                        st="ky-chinh")))["discovery_probe"]
         self.assertFalse(p["agree"])
+
+    def test_shadow_hoi_NHANH_duong_chinh_giu_nguyen(self):
+        """QC 11/11 (Fable + Opus): shadow chay TRUOC lenh ky trong job 180s. Hoi bang client
+        thuong = 30s x 3 lan x 2 GET. Shadow phai hoi kieu nhanh; duong chinh KHONG doi."""
+        a = _Adapter(discovered=_approve("-9"))
+        _plan(_nh(), a)
+        self.assertIn((INST, True), a.quick, "shadow phai hoi quick=True")
+        self.assertIn((DOC, False), a.quick, "duong chinh van goi y het cu (khong quick)")
+
+    def test_tat_duong_chinh_thi_shadow_khong_goi_gi(self):
+        nh = _nh({"ec_esign_targeted_handover": 0})
+        a = _Adapter(discovered=_approve("-9"))
+        plan = _plan(nh, a)
+        self.assertEqual(plan["reason"], "targeted_handover_disabled")
+        self.assertEqual(a.lookups, [])
+        self.assertEqual(a.asked, [])
 
     def test_hoi_bang_MA_INSTANCE_khong_bang_ma_tai_lieu(self):
         a = _Adapter(discovered=_approve("-9"))
@@ -361,3 +379,46 @@ class TestAdapterTraMaInstance(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestClientHoiNhanh(unittest.TestCase):
+    """Lenh doc shadow: 1 lan thu, 5 giay. Lenh khac giu mac dinh."""
+
+    def _client(self, statuses):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "_scts_client_quick", os.path.join(_ESIGN, "providers", "scts_client.py"))
+        m = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(m)
+        calls = []
+
+        class R(object):
+            def __init__(self, st):
+                self.status_code = st
+
+            def json(self):
+                return {"instanceId": INST}
+
+        def transport(method, url, headers=None, json_body=None, timeout=None, verify_tls=True):
+            calls.append((url, timeout))
+            return R(statuses[min(len(calls) - 1, len(statuses) - 1)])
+        c = m.SctsClient("https://x.example", transport=transport, sleeper=lambda s: None)
+        return c, calls, m
+
+    def test_history_mot_lan_thu_5_giay(self):
+        c, calls, m = self._client([502, 502, 502])
+        with self.assertRaises(Exception):
+            c.get_instance_history_by_document(DOC, SIGNER, "tok")
+        self.assertEqual(len(calls), 1, "5xx khong duoc thu lai o lenh shadow")
+        self.assertEqual(calls[0][1], 5)
+
+    def test_workflow_instance_quick_va_thuong(self):
+        c, calls, m = self._client([502, 502, 502])
+        with self.assertRaises(Exception):
+            c.get_workflow_instance(INST, SIGNER, "tok", quick=True)
+        self.assertEqual(len(calls), 1)
+        del calls[:]
+        with self.assertRaises(Exception):
+            c.get_workflow_instance(INST, SIGNER, "tok")
+        self.assertEqual(len(calls), 3, "duong chinh giu 1 + 2 lan thu lai nhu cu")
+        self.assertEqual(calls[0][1], 30)

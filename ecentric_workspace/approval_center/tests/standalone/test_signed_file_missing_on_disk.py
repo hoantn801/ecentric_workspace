@@ -175,8 +175,8 @@ class TestSetupStateSurvives(unittest.TestCase):
         ui = _read("platform", "esign", "ui", "document_signing_section.html")
         self.assertIn("d.file_missing", ui)
         api = _read("platform", "esign", "api.py")
-        self.assertIn("def restore_missing_signed_files(payment_request_name, dry_run=1)", api)
-        self.assertIn("perms.assert_system_manager()", api[api.index("def restore_missing_signed_files("):][:400])
+        self.assertIn("def restore_missing_signed_files(payment_request_name=None, dry_run=1", api)
+        self.assertIn("perms.assert_system_manager()", api[api.index("def restore_missing_signed_files("):][:600])
 
 
 if __name__ == "__main__":

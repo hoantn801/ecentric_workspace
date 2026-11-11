@@ -501,12 +501,13 @@ class SctsAdapter(SignatureProviderAdapter):
         return self._with_auth(lambda t: self._client.get_document(document_id, t))
 
     # -- live workflow state --------------------------------------------------
-    def available_transitions(self, instance_id, provider_user_id):
+    def available_transitions(self, instance_id, provider_user_id, quick=False):
         """What this user can actually do on this document RIGHT NOW, straight from the
         provider. Returns [] when the call fails - the caller keeps its old path and records
         why, rather than acting on a guess."""
         raw = self._with_auth(
-            lambda t: self._client.get_workflow_instance(instance_id, provider_user_id, t))
+            lambda t: self._client.get_workflow_instance(instance_id, provider_user_id, t,
+                                                         quick=quick))
         data = raw.get("data") if isinstance(raw, dict) and isinstance(raw.get("data"), dict) else raw
         if not isinstance(data, dict):
             return []

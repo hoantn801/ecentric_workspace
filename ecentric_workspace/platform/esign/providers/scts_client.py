@@ -50,6 +50,11 @@ def _default_transport(method, url, headers=None, json_body=None, timeout=30, ve
     return resp
 
 
+#: Lenh DOC chi de quan sat (shadow, chang 2): mot lan thu, 5 giay. Hong thi bao "khong hoi
+#: duoc", KHONG duoc dat cuoc thoi gian cua lenh ky that.
+QUICK_READ = {"timeout": 5, "retry_limit": 0}
+
+
 class SctsClient(object):
     """Stateful only in that it holds the last obtained bearer token in-process. Token
     PERSISTENCE across workers is the adapter's job (encrypted settings cache); this
@@ -83,24 +88,31 @@ class SctsClient(object):
         return "%s/%s" % (self.base_url, path.lstrip("/"))
 
     # -- core request with bounded retry -------------------------------------
-    def _request(self, method, path, token=None, json_body=None, _label="request"):
+    def _request(self, method, path, token=None, json_body=None, _label="request",
+                 timeout=None, retry_limit=None):
         """One logical call with bounded retry. Retries ONLY transport errors and 5xx;
-        4xx (validation/auth/security) raise immediately. Returns parsed JSON."""
+        4xx (validation/auth/security) raise immediately. Returns parsed JSON.
+
+        `timeout` / `retry_limit` ghi de mac dinh cho MOT lan goi (11/11/2026): lenh doc chi de
+        quan sat (shadow) khong duoc an het thoi gian cua job ky - 30s x 3 lan thu x 2 GET la
+        ~3 phut trong mot job 180s."""
+        retries = self.retry_limit if retry_limit is None else max(0, int(retry_limit))
+        tmo = self.timeout if timeout is None else int(timeout)
         headers = {"Accept": "application/json", "Content-Type": "application/json"}
         if token:
             headers["Authorization"] = "Bearer %s" % token
         attempt = 0
         last_exc = None
-        while attempt <= self.retry_limit:
+        while attempt <= retries:
             try:
                 resp = self._transport(method, self._url(path), headers=headers,
-                                       json_body=json_body, timeout=self.timeout,
+                                       json_body=json_body, timeout=tmo,
                                        verify_tls=self.verify_tls)
             except Exception as e:  # transport-level (connection/timeout/DNS): retryable
                 last_exc = ProviderError("scts_network_error",
                                          "network error during %s" % _label, retryable=True)
                 attempt += 1
-                if attempt > self.retry_limit:
+                if attempt > retries:
                     raise last_exc
                 self._sleep(self._backoff_base * attempt)
                 continue
@@ -112,7 +124,7 @@ class SctsClient(object):
                                          "SCTS server error (%s) during %s" % (status, _label),
                                          retryable=True)
                 attempt += 1
-                if attempt > self.retry_limit:
+                if attempt > retries:
                     raise last_exc
                 self._sleep(self._backoff_base * attempt)
                 continue
@@ -514,7 +526,7 @@ class SctsClient(object):
             % (instance_id, transition_id, user_id),
             token=token, _label="users_for_transition")
 
-    def get_workflow_instance(self, instance_id, user_id, token):
+    def get_workflow_instance(self, instance_id, user_id, token, quick=False):
         """GET /api/Workflow/{instanceId}?userid={userId} -> the LIVE workflow state.
 
         Captured from the portal on 2026-08-28. This is what ends three nights of guessing:
@@ -528,8 +540,9 @@ class SctsClient(object):
         ky-tham-gia. Any scheme that configures one value per stage - which is what we were
         doing - is wrong on at least one step of every document.
         """
+        kw = QUICK_READ if quick else {}
         return self._request("GET", "/api/Workflow/%s?userid=%s" % (instance_id, user_id),
-                             token=token, _label="get_workflow_instance")
+                             token=token, _label="get_workflow_instance", **kw)
 
     def get_instance_history_by_document(self, document_id, user_id, token):
         """GET /api/Workflow/instance/history/document/{documentId}?userId={userId}.
@@ -544,7 +557,7 @@ class SctsClient(object):
         """
         return self._request(
             "GET", "/api/Workflow/instance/history/document/%s?userId=%s" % (document_id, user_id),
-            token=token, _label="instance_history_by_document")
+            token=token, _label="instance_history_by_document", **QUICK_READ)
 
     def get_document(self, document_id, token):
         """GET /api/Document/{documentId} -> raw document payload (status/signers/files)."""
