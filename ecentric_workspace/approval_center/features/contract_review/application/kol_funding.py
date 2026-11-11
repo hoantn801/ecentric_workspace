@@ -35,6 +35,14 @@ def funding_owner_filters(user):
     return {"requested_by": ["in", sorted(kol_lookup.team_users(user))]}
 
 
+def funding_can_use(user, name):
+    """Nguoi lap DNTT duoc dung hop dong nay: cua minh / cung phong ban / Ke toan."""
+    if kol_lookup.is_finance(user):
+        return True
+    owner = frappe.db.get_value(kol_lookup.CR_DT, name, "requested_by")
+    return bool(owner) and owner in kol_lookup.team_users(user)
+
+
 def funding_explain(name, amount, remaining):
     doc = _doc(name)
     if not is_signed(doc):
@@ -50,6 +58,11 @@ def funding_explain(name, amount, remaining):
 def fill_payment(pr, name):
     """Dien san tren DNTT tu hop dong: SO, brand, loai chi phi Booking KOL/KOC, nguoi nhan."""
     doc = _doc(name)
+    # Chi dien tu hop dong KOL nguoi lap duoc dung - khong de luu nhap DNTT thanh duong doc SO /
+    # brand / ten creator cua hop dong team khac. Sai thi bo trong, validate_funding bao loi luc nop.
+    if not kol.is_kol(doc) or not funding_can_use(pr.get("requested_by") or frappe.session.user, name):
+        pr.ec_sales_order = None
+        return
     pr.ec_sales_order = doc.get("sales_order")
     if not pr.get("ec_loai_chi_phi"):
         pr.ec_loai_chi_phi = KOL_EXPENSE_CATEGORY

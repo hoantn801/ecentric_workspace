@@ -17,7 +17,7 @@ from ecentric_workspace.approval_center.shared.creators.service import (
 
 __all__ = ["kol_me", "kol_search_sales_orders", "kol_list_templates", "kol_placeholder_help",
            "kol_preview_amounts", "kol_generate_contract", "kol_mark_signed",
-           "kol_add_acceptance", "kol_send_acceptance", "kol_complete_acceptance",
+           "kol_add_acceptance", "kol_send_acceptance", "kol_delete_acceptance", "kol_complete_acceptance",
            "kol_ai_extract", "kol_ai_qc", "kol_search_creators", "kol_get_creator",
            "kol_create_creator", "kol_update_creator", "kol_missing_misa", "kol_set_misa_code"]
 
@@ -100,6 +100,11 @@ def kol_mark_signed(name, signed_file):
 @frappe.whitelist(methods=["POST"])
 def kol_add_acceptance(name, description=None, acceptance_date=None, amount=None):
     return _app("kol_acceptance").add_acceptance(name, _me(), description, acceptance_date, amount)
+
+
+@frappe.whitelist(methods=["POST"])
+def kol_delete_acceptance(name, row):
+    return _app("kol_acceptance").delete_acceptance(name, _me(), row)
 
 
 @frappe.whitelist(methods=["POST"])

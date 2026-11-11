@@ -32,11 +32,20 @@ WRITABLE_FIELDS = ("tax_id", "ec_phone", "ec_cr_email", "ec_cr_party_code", "ec_
                    "ec_cr_shopee_id", "ec_cr_shopee_url", "ec_cr_representative_name",
                    "ec_cr_representative_title", "ec_bank_name") + PII_FIELDS
 
+# Truong Data cua Frappe gioi han 140 ky tu: vuot thi insert loi giua chung, kiem truoc.
+DATA_MAX = 140
+LONG_FIELDS = ("ec_cr_address", "ec_cr_dup_ack")
+EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
 HARD_KEYS = ("ec_cr_cccd", "tax_id", "ec_bank_account_no")
 SOFT_KEYS = ("supplier_name", "ec_phone", "ec_cr_tiktok_id", "ec_cr_shopee_id")
 KEY_LABELS = {"ec_cr_cccd": "CCCD", "tax_id": "MST", "ec_bank_account_no": "số tài khoản",
               "supplier_name": "tên", "ec_phone": "số điện thoại",
-              "ec_cr_tiktok_id": "TikTok ID", "ec_cr_shopee_id": "Shopee ID"}
+              "ec_cr_tiktok_id": "TikTok ID", "ec_cr_shopee_id": "Shopee ID",
+              "ec_cr_channel_url": "link kênh TikTok", "ec_cr_shopee_url": "link Shopee",
+              "ec_cr_email": "email", "ec_cr_cccd_issue_place": "nơi cấp CCCD",
+              "ec_cr_representative_name": "người đại diện", "ec_cr_account_holder": "chủ tài khoản",
+              "ec_cr_bank_branch": "chi nhánh", "ec_bank_name": "ngân hàng"}
 
 
 def _digits(value):
@@ -51,16 +60,26 @@ def _fold(value):
 
 
 def _handle(value):
-    """TikTok/Shopee ID: bo '@', khoang trang, phan duong dan; ha chu."""
+    """TikTok/Shopee ID: bo '@', khoang trang, ?query, #, phan duong dan; ha chu.
+    'https://www.tiktok.com/@abc/?lang=vi' -> 'abc' (truoc 11/11 thanh chuoi rong: khong so trung duoc)."""
     text = str(value or "").strip().lower()
-    text = re.sub(r"^https?://\S*/@?", "", text)
-    return text.lstrip("@").strip().rstrip("/")
+    text = re.split(r"[?#]", text, maxsplit=1)[0].rstrip("/")
+    if "://" in text or text.startswith("www.") or "/" in text:
+        at = re.search(r"/@([^/]+)", text)
+        text = at.group(1) if at else text.rsplit("/", 1)[-1]
+    return text.lstrip("@").strip()
 
 
 def _phone(value):
+    """So VN ve dang 0xxxxxxxxx: +84 / 84 / 0084 / '+84 (0)912...'."""
     digits = _digits(value)
+    if digits.startswith("00"):
+        digits = digits[2:]
     if digits.startswith("84") and len(digits) > 9:
-        digits = "0" + digits[2:]
+        digits = digits[2:]
+        if not digits.startswith("0"):
+            digits = "0" + digits
+        digits = re.sub(r"^00", "0", digits)
     return digits
 
 
@@ -108,6 +127,10 @@ def classify_duplicates(candidate, existing_rows):
     for row in existing_rows:
         theirs = identity_keys(row)
         hit_hard = [f for f in HARD_KEYS if f in mine and mine[f] == theirs.get(f)]
+        # MST ca nhan = so CCCD (tu 07/2025): CCCD cua nguoi nay la MST cua ban ghi kia = cung nguoi.
+        for mine_f, their_f in (("ec_cr_cccd", "tax_id"), ("tax_id", "ec_cr_cccd")):
+            if mine.get(mine_f) and mine[mine_f] == theirs.get(their_f) and mine_f not in hit_hard:
+                hit_hard.append(mine_f)
         hit_soft = [f for f in SOFT_KEYS if f in mine and mine[f] == theirs.get(f)]
         if not (hit_hard or hit_soft):
             continue
@@ -140,6 +163,16 @@ def validate_payload(data):
         errors.append("Creator là công ty thì phải có MST.")
     if data.get("ec_cr_type") == "Cá nhân" and not cccd:
         errors.append("Creator là cá nhân thì phải có CCCD.")
+    if data.get("ec_cr_type") == "Hộ kinh doanh" and not (tax or cccd):
+        errors.append("Hộ kinh doanh phải có MST (hoặc CCCD chủ hộ).")
+    email = str(data.get("ec_cr_email") or "").strip()
+    if email and not EMAIL.match(email):
+        errors.append("Email không hợp lệ: %s." % email)
+    long = [KEY_LABELS.get(f, f) for f, v in data.items()
+            if f not in LONG_FIELDS and isinstance(v, str) and len(v) > DATA_MAX]
+    if long:
+        errors.append("Quá %d ký tự: %s (dán link rút gọn hoặc bỏ tham số sau dấu ?)."
+                      % (DATA_MAX, ", ".join(sorted(long))))
     return errors
 
 

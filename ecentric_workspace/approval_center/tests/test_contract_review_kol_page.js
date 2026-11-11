@@ -81,13 +81,23 @@ wait(w,function(){ return w.ContractReview&&w.document.querySelector('[data-mode
           const ov=w.document.querySelector(".ec-ctr-overlay");
           ov.querySelector("#kc-supplier_name").value="Trần B"; ov.querySelector("#kc-ec_cr_party_code").value="TB";
           ov.querySelector("[data-ok]").click();
+          chk("thieu CCCD / STK: bao loi NGAY TRONG modal, khong goi server", /Còn thiếu: CCCD, số tài khoản, ngân hàng/.test(ov.querySelector("#kc-msg").innerHTML) && !calls.some(x=>/^kol_create_creator/.test(x)));
+          ov.querySelector("#kc-ec_cr_cccd").value="079123456789"; ov.querySelector("#kc-ec_bank_account_no").value="0011"; ov.querySelector("#kc-ec_bank_name").value="VCB";
+          setTimeout(function(){ ov.querySelector("[data-ok]").click(); },20);
           setTimeout(function(){
-            chk("tao creator trung mem: hoi lai, chua dong", !!w.document.querySelector(".ec-ctr-overlay") && /trùng tên/.test(ov.innerHTML));
+            chk("tao creator trung mem: hoi lai, chua dong, nut doi thanh 'Vẫn tạo creator mới'", !!w.document.querySelector(".ec-ctr-overlay") && /trùng tên/.test(ov.querySelector("#kc-msg").innerHTML) && /Vẫn tạo creator mới/.test(ov.querySelector("[data-ok]").textContent));
+            // sua du lieu sau canh bao -> phai hoi lai tu dau
+            const pc=ov.querySelector("#kc-ec_cr_party_code"); pc.value="TB2"; fire(w,pc,"input");
+            chk("sua du lieu sau canh bao: bo xac nhan", /^Tạo creator$/.test(ov.querySelector("[data-ok]").textContent));
+            pc.value="TB"; createTries=0;
             ov.querySelector("[data-ok]").click();
+            setTimeout(function(){ chk("sau khi sua: hoi lai lan nua", /Vẫn tạo creator mới/.test(ov.querySelector("[data-ok]").textContent)); ov.querySelector("[data-ok]").click();
             setTimeout(function(){
               chk("xac nhan lan hai: goi confirm_soft=1 va chon creator moi", calls.some(x=>/kol_create_creator .*"confirm_soft":1/.test(x)) && w.ContractReview.state.draft.creator==="SUP-2");
+              chk("tieu de tu dong KOL theo brand + creator", /^HĐ KOL\/KOC - FCV - /.test(w.ContractReview.state.draft.request_title||""));
+              chk("nut gui doi thanh 'Tạo hợp đồng & gửi' (mau EC)", /Tạo hợp đồng &amp; gửi|Tạo hợp đồng & gửi/.test(w.document.getElementById("ctr-submit").innerHTML));
               detailPart();
-            },150);
+            },150); },150);
           },150);
         },400);
       },100);
@@ -101,7 +111,7 @@ function detailPart(){
     const b=w2.document.getElementById("ctr-body").innerHTML;
     chk("chi tiet: khoi KOL + canh bao doanh thu + so HD", /Hợp đồng KOL\/KOC/.test(b)&&/vượt doanh thu EC/.test(b)&&/15032026\/HDDV/.test(b));
     chk("chi tiet: AI QC hien so lieu lech + dieu khoan rui ro", /Không thấy trong tệp/.test(b)&&/Bỏ điều khoản phạt/.test(b)&&/Thanh toán 100% trước/.test(b));
-    chk("chi tiet: BBNT + tran chi + nut tao BBNT", /Livestream T12/.test(b)&&/Đang chi được/.test(b)&&/data-kol="addacc"/.test(b)&&/data-kol="doneacc"/.test(b));
+    chk("chi tiet: BBNT + tran chi + nut tao BBNT", /Livestream T12/.test(b)&&/Được phép chi/.test(b)&&/Đánh dấu đã gửi ký|Hoàn tất…/.test(b)&&!/kol-accf-/.test(b)&&/data-kol="addacc"/.test(b)&&/data-kol="doneacc"/.test(b));
     chk("da duyet: khong con nut tao lai hop dong", !/data-kol="gen"/.test(b));
     creatorsTab();
   });

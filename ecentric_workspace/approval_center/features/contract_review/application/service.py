@@ -28,7 +28,8 @@ MATERIAL_FIELDS = ["request_kind", "previous_request", "contract_type", "request
 # cua phieu KOL - cong cho moi phieu thi chu ky cua phieu cu dang "Can bo sung" doi theo va
 # bi duyet lai tu dau du khong ai sua gi.
 KOL_MATERIAL_FIELDS = ["sales_order", "creator", "payable_amount", "advance_amount",
-                       "payment_schedule", "contract_file"]
+                       "payment_schedule", "contract_file", "request_attachment",
+                       "payment_term_days", "amount_type", "pit_rate", "vat_rate", "contract_date"]
 REQUIRED_AT_SUBMIT = ["request_title", "request_kind", "contract_type", "request_type",
                       "brand", "justification", "contract_value", "request_details"]
 # Trường được phép lệch so với hợp đồng gốc mà vẫn coi là "chỉ điều chỉnh" (bỏ cấp CEO).
@@ -222,6 +223,12 @@ def resubmit(name, actor=None):
     if not doc.approval_request:
         frappe.throw(_("Yêu cầu chưa được gửi."))
     _guard_resubmit_needs_ceo(doc)
+    if kol.is_kol(doc):
+        # Gui lai sau "Can bo sung" cung qua DUNG phep chot nhu luc gui: tinh lai tien, sinh lai
+        # hop dong neu du lieu doi, canh bao doanh thu SO (QC 11/11 - truoc do bo qua het).
+        from ecentric_workspace.approval_center.features.contract_review.application import kol_service
+        kol_service.validate_submit(doc)
+        doc.save(ignore_permissions=True)
     new_sig = _signature(doc)
     material_changed = new_sig != (doc.material_signature or "")
     engine.resubmit(doc.approval_request, actor=actor or frappe.session.user, restart=material_changed)

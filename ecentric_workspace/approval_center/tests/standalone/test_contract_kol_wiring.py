@@ -50,7 +50,7 @@ class AiPureTests(unittest.TestCase):
         inject = _fake_frappe()
         for mod in ("kol_lookup", "kol_files", "kol_service"):
             m = types.ModuleType("ecentric_workspace.approval_center.features.contract_review.application." + mod)
-            m.file_bytes = m.can_manage = m.creator_row = lambda *a, **k: None
+            m.file_bytes = m.doc_file_bytes = m.can_manage = m.creator_row = lambda *a, **k: None
             inject[m.__name__] = m
         app = types.ModuleType("ecentric_workspace.approval_center.features.contract_review.application")
         for mod in ("kol_lookup", "kol_files", "kol_service"):
@@ -144,7 +144,12 @@ class WiringTests(unittest.TestCase):
         self.assertEqual(set(funcs), exported)
         for fn in funcs.values():
             self.assertFalse({"user", "actor"} & {a.arg for a in fn.args.args}, fn.name)
-        self.assertIn("kol_api import *", self.src("features/contract_review/controllers/api.py"))
+        # api.py phai mang sang DU moi ham kol_* (thieu mot ten = nut tren trang goi 404).
+        imported = set()
+        for node in ast.parse(self.src("features/contract_review/controllers/api.py")).body:
+            if isinstance(node, ast.ImportFrom) and (node.module or "").endswith(".kol_api"):
+                imported |= {a.asname or a.name for a in node.names}
+        self.assertEqual(imported, exported)
 
     def test_mau_hop_dong_co_doctype_va_quyen_finance(self):
         meta = json.loads(self.src("doctype/ec_contract_template/ec_contract_template.json"))

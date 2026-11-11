@@ -8,8 +8,13 @@ from ecentric_workspace.approval_center.shared.workflow.permissions import can_v
 
 globals().update(bind("CONTRACT_REVIEW"))
 
-# Hop dong KOL/KOC (11/11/2026): cac ham kol_* (xem kol_api.py).
-from ecentric_workspace.approval_center.features.contract_review.controllers.kol_api import *  # noqa: E402,F401,F403
+# Hop dong KOL/KOC (11/11/2026): cac ham kol_* (xem kol_api.py). Liet ke TUNG ten - `import *`
+# lam pyflakes khong kiem duoc ten chua dinh nghia trong file nay (test_no_undefined_names).
+from ecentric_workspace.approval_center.features.contract_review.controllers.kol_api import (  # noqa: E402,F401
+    kol_add_acceptance, kol_ai_extract, kol_ai_qc, kol_complete_acceptance, kol_create_creator,
+    kol_delete_acceptance, kol_generate_contract, kol_get_creator, kol_list_templates, kol_mark_signed,
+    kol_me, kol_missing_misa, kol_placeholder_help, kol_preview_amounts, kol_search_creators,
+    kol_search_sales_orders, kol_send_acceptance, kol_set_misa_code, kol_update_creator)
 
 _DT = "EC Contract Review Request"
 _CODE = "CONTRACT_REVIEW"

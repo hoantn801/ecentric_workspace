@@ -13,6 +13,8 @@ Chot voi anh Hoan 11/11/2026 (plan "Hop dong KOL/KOC len ERP"):
   * Hoa hong affiliate cung di luong nay: mot hop dong nhan nhieu dot BBNT / nhieu DNTT.
 """
 import datetime as _dt
+import math
+from decimal import ROUND_HALF_UP, Decimal
 
 from ecentric_workspace.approval_center.features.contract_review.domain.vn_words import amount_in_words
 
@@ -66,6 +68,37 @@ def _f(value):
         return 0.0
 
 
+def _num(value, label):
+    """So nguoi dung nhap: rong = 0; chu / inf / nan -> ValueError (khong am tham thanh 0)."""
+    if value in (None, ""):
+        return 0.0
+    try:
+        out = float(value)
+    except (TypeError, ValueError):
+        raise ValueError("%s không phải là số." % label)
+    if math.isnan(out) or math.isinf(out):
+        raise ValueError("%s không hợp lệ." % label)
+    return out
+
+
+def _r(value):
+    """Lam tron toi dong, nua len (0,5 -> 1) - round() cua Python lam tron chan (banker's)."""
+    return float(Decimal(repr(float(value))).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+
+
+# Gioi han thue suat: TNCN luy tien cao nhat 35%, VAT cao nhat 10%. Ngoai khoang = go nham.
+PIT_RATE_RANGE = (0.0, 35.0)
+VAT_RATE_RANGE = (0.0, 10.0)
+MAX_AMOUNT = 1e12
+
+
+def _rate(value, default, bounds, label):
+    rate = default if value in (None, "") else _num(value, label)
+    if not bounds[0] <= rate <= bounds[1]:
+        raise ValueError("%s phải từ %g%% đến %g%%." % (label, bounds[0], bounds[1]))
+    return rate
+
+
 def compute_amounts(creator_type, amount_type, amount_input, pit_rate=None, vat_rate=None):
     """Quy doi so tien nhap ve cac con so ghi tren hop dong va DNTT.
 
@@ -79,30 +112,32 @@ def compute_amounts(creator_type, amount_type, amount_input, pit_rate=None, vat_
     """
     if amount_type not in AMOUNT_TYPES_BY_CREATOR.get(creator_type, ()):
         raise ValueError("Kiểu nhập tiền '%s' không dùng cho creator %s." % (amount_type, creator_type))
-    amount = _f(amount_input)
+    amount = _num(amount_input, "Số tiền")
     if amount <= 0:
         raise ValueError("Số tiền phải lớn hơn 0.")
-    pit_rate = DEFAULT_PIT_RATE if pit_rate in (None, "") else _f(pit_rate)
-    vat_rate = DEFAULT_VAT_RATE if vat_rate in (None, "") else _f(vat_rate)
+    if amount > MAX_AMOUNT:
+        raise ValueError("Số tiền quá lớn, kiểm tra lại.")
+    pit_rate = _rate(pit_rate, DEFAULT_PIT_RATE, PIT_RATE_RANGE, "Thuế TNCN")
+    vat_rate = _rate(vat_rate, DEFAULT_VAT_RATE, VAT_RATE_RANGE, "VAT")
     pit = vat = 0.0
     if amount_type == NET_AFTER_PIT:
-        gross = round(amount / (1 - pit_rate / 100.0))
-        pit = gross - round(amount)
-        payable = round(amount)
+        gross = _r(amount / (1 - pit_rate / 100.0))
+        pit = gross - _r(amount)
+        payable = _r(amount)
     elif amount_type == GROSS_BEFORE_PIT:
-        gross = round(amount)
-        pit = round(gross * pit_rate / 100.0)
+        gross = _r(amount)
+        pit = _r(gross * pit_rate / 100.0)
         payable = gross - pit
     elif amount_type == BEFORE_VAT:
-        gross = round(amount)
-        vat = round(gross * vat_rate / 100.0)
+        gross = _r(amount)
+        vat = _r(gross * vat_rate / 100.0)
         payable = gross + vat
     elif amount_type == WITH_VAT:
-        payable = round(amount)
-        gross = round(payable / (1 + vat_rate / 100.0))
+        payable = _r(amount)
+        gross = _r(payable / (1 + vat_rate / 100.0))
         vat = payable - gross
     else:  # HOUSEHOLD_TOTAL
-        gross = payable = round(amount)
+        gross = payable = _r(amount)
     return {"gross": float(gross), "pit": float(pit), "vat": float(vat),
             "payable": float(payable), "contract_value": float(gross + vat)}
 
@@ -110,10 +145,23 @@ def compute_amounts(creator_type, amount_type, amount_input, pit_rate=None, vat_
 def advance_amount(payable, schedule, percent):
     if schedule != PAY_ADVANCE:
         return 0.0
-    pct = _f(percent)
-    if pct <= 0 or pct >= 100:
-        raise ValueError("Tỷ lệ cọc phải lớn hơn 0 và nhỏ hơn 100%.")
-    return float(round(_f(payable) * pct / 100.0))
+    pct = _num(percent, "Tỷ lệ cọc")
+    if pct not in ADVANCE_PERCENTS:
+        raise ValueError("Tỷ lệ cọc phải là %s%%." % "/".join(str(p) for p in ADVANCE_PERCENTS))
+    return _r(_f(payable) * pct / 100.0)
+
+
+def payment_days(days):
+    """So ngay thanh toan sau BBNT: rong = mac dinh 30; 0 = trong ngay; am -> ValueError."""
+    if days in (None, ""):
+        return DEFAULT_PAYMENT_DAYS
+    try:
+        out = int(float(days))
+    except (TypeError, ValueError):
+        raise ValueError("Số ngày thanh toán không phải là số.")
+    if out < 0 or out > 365:
+        raise ValueError("Số ngày thanh toán phải từ 0 đến 365.")
+    return out
 
 
 def due_date(acceptance_date, days):
@@ -124,10 +172,24 @@ def due_date(acceptance_date, days):
         acceptance_date = _dt.date.fromisoformat(acceptance_date[:10])
     if isinstance(acceptance_date, _dt.datetime):
         acceptance_date = acceptance_date.date()
-    d = acceptance_date + _dt.timedelta(days=int(days or DEFAULT_PAYMENT_DAYS))
+    d = acceptance_date + _dt.timedelta(days=payment_days(days))
     while d.weekday() >= 5:
         d += _dt.timedelta(days=1)
     return d
+
+
+def number_base(sign_date, party_code, brand_code):
+    return contract_number(sign_date, party_code, brand_code, ())
+
+
+def number_fits(number, base):
+    """So hop dong hien co van dung voi ngay ky / doi tac / brand hien tai (ke ca hau to -n)?"""
+    if not number:
+        return False
+    if number == base:
+        return True
+    head, _sep, tail = number.rpartition("-")
+    return head == base and tail.isdigit()
 
 
 def contract_number(sign_date, party_code, brand_code, existing=()):
@@ -248,9 +310,9 @@ def placeholders(doc, creator, brand_code="", so_label=""):
         "chi_nhanh": creator.get("ec_cr_bank_branch") or "",
         "gia_tri_truoc_thue": money(doc.get("gross_amount")),
         "thue_tncn": money(doc.get("pit_amount")),
-        "thue_suat_tncn": "%g%%" % _f(doc.get("pit_rate")),
+        "thue_suat_tncn": "%g%%" % (DEFAULT_PIT_RATE if doc.get("pit_rate") in (None, "") else _f(doc.get("pit_rate"))),
         "vat": money(doc.get("vat_amount")),
-        "thue_suat_vat": "%g%%" % _f(doc.get("vat_rate")),
+        "thue_suat_vat": "%g%%" % (DEFAULT_VAT_RATE if doc.get("vat_rate") in (None, "") else _f(doc.get("vat_rate"))),
         "so_tien_thanh_toan": money(payable),
         "so_tien_bang_chu": amount_in_words(payable) if payable else "",
         "gia_tri_hop_dong": money(doc.get("contract_value")),
@@ -259,9 +321,35 @@ def placeholders(doc, creator, brand_code="", so_label=""):
         "ty_le_coc": ("%g%%" % _f(doc.get("advance_percent"))) if doc.get("advance_percent") else "",
         "tien_coc": money(doc.get("advance_amount")),
         "tien_coc_bang_chu": amount_in_words(doc.get("advance_amount")) if doc.get("advance_amount") else "",
-        "so_ngay_thanh_toan": str(doc.get("payment_term_days") or ""),
+        "so_ngay_thanh_toan": str(payment_days(doc.get("payment_term_days"))),
         "ty_le_hoa_hong": ("%g%%" % _f(doc.get("commission_rate"))) if doc.get("commission_rate") else "",
     }
+
+
+# Placeholder chi co o BBNT (mau hop dong dung toi = mau sai, bao khi luu mau).
+BBNT_ONLY_PLACEHOLDERS = ("dot_nghiem_thu", "noi_dung_nghiem_thu", "ngay_nghiem_thu",
+                          "so_tien_nghiem_thu", "so_tien_nghiem_thu_bang_chu")
+# Mau DUNG toi ma gia tri RONG = hop dong co cho trong -> bao thieu, khong cho gui.
+# Truong tuy chon (TikTok/Shopee ID, email, hoa hong, coc...) rong la binh thuong.
+REQUIRED_WHEN_USED = {
+    "_all": ("so_hop_dong", "ngay_ky", "ten_creator", "dia_chi", "so_tai_khoan", "ngan_hang",
+             "chu_tai_khoan", "dich_vu", "so_tien_thanh_toan", "so_tien_bang_chu",
+             "gia_tri_hop_dong", "gia_tri_truoc_thue", "brand", "ma_brand"),
+    "Cá nhân": ("cccd", "ngay_cap", "noi_cap"),
+    "Công ty": ("mst", "nguoi_dai_dien", "chuc_vu"),
+    "Hộ kinh doanh": ("mst",),
+}
+
+
+def empty_required(values, used, creator_type):
+    """Placeholder mau co dung ma gia tri dang rong (va bat buoc voi loai creator nay)."""
+    need = set(REQUIRED_WHEN_USED["_all"]) | set(REQUIRED_WHEN_USED.get(creator_type, ()))
+    return [k for k in used if k in need and not str(values.get(k) or "").strip()]
+
+
+def known_placeholders(kind_is_bbnt):
+    keys = set(PLACEHOLDER_HELP)
+    return keys if kind_is_bbnt else keys - set(BBNT_ONLY_PLACEHOLDERS)
 
 
 def acceptance_placeholders(doc, creator, row, brand_code="", so_label=""):

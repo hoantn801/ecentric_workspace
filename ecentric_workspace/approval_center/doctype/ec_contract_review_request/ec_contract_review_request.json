@@ -72,6 +72,7 @@
   "contract_no",
   "contract_file",
   "missing_placeholders",
+  "contract_fingerprint",
   "cb_kol4",
   "signing_status",
   "signed_file",
@@ -291,7 +292,8 @@
    "fieldname": "revenue_warning",
    "fieldtype": "Small Text",
    "label": "Cảnh báo doanh thu",
-   "read_only": 1
+   "read_only": 1,
+   "no_copy": 1
   },
   {
    "fieldname": "creator",
@@ -454,19 +456,31 @@
    "fieldname": "contract_no",
    "fieldtype": "Data",
    "label": "Số hợp đồng",
-   "read_only": 1
+   "read_only": 1,
+   "no_copy": 1
   },
   {
    "fieldname": "contract_file",
    "fieldtype": "Attach",
    "label": "Tệp hợp đồng (.docx)",
-   "read_only": 1
+   "read_only": 1,
+   "no_copy": 1
   },
   {
    "fieldname": "missing_placeholders",
    "fieldtype": "Small Text",
    "label": "Trường mẫu chưa có dữ liệu",
-   "read_only": 1
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "contract_fingerprint",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "read_only": 1,
+   "no_copy": 1,
+   "label": "Contract Fingerprint",
+   "description": "Dấu vân tay mẫu + dữ liệu lúc sinh hợp đồng; lệch thì gửi/gửi lại sẽ sinh lại tệp."
   },
   {
    "fieldname": "cb_kol4",
@@ -478,26 +492,30 @@
    "label": "Tình trạng ký",
    "options": "Chưa ký\nĐã ký đủ",
    "default": "Chưa ký",
-   "read_only": 1
+   "read_only": 1,
+   "no_copy": 1
   },
   {
    "fieldname": "signed_file",
    "fieldtype": "Attach",
    "label": "Bản đã ký (PDF)",
-   "read_only": 1
+   "read_only": 1,
+   "no_copy": 1
   },
   {
    "fieldname": "signed_at",
    "fieldtype": "Datetime",
    "label": "Ký đủ lúc",
-   "read_only": 1
+   "read_only": 1,
+   "no_copy": 1
   },
   {
    "fieldname": "signed_marked_by",
    "fieldtype": "Link",
    "label": "Người xác nhận ký",
    "options": "User",
-   "read_only": 1
+   "read_only": 1,
+   "no_copy": 1
   },
   {
    "fieldname": "sb_kol_ai",
@@ -511,19 +529,22 @@
    "fieldtype": "Select",
    "label": "Kết quả AI QC",
    "options": "\nĐạt\nCần xem\nLỗi",
-   "read_only": 1
+   "read_only": 1,
+   "no_copy": 1
   },
   {
    "fieldname": "ai_qc_at",
    "fieldtype": "Datetime",
    "label": "AI QC lúc",
-   "read_only": 1
+   "read_only": 1,
+   "no_copy": 1
   },
   {
    "fieldname": "ai_qc_result",
    "fieldtype": "Long Text",
    "label": "Chi tiết AI QC",
-   "read_only": 1
+   "read_only": 1,
+   "no_copy": 1
   },
   {
    "fieldname": "sb_kol_bbnt",
@@ -535,12 +556,13 @@
    "fieldname": "acceptances",
    "fieldtype": "Table",
    "label": "Các đợt nghiệm thu",
-   "options": "EC Contract Acceptance"
+   "options": "EC Contract Acceptance",
+   "no_copy": 1
   }
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-11-11 15:30:00.000000",
+ "modified": "2026-11-11 17:00:00.000000",
  "modified_by": "Administrator",
  "module": "Approval Center",
  "name": "EC Contract Review Request",

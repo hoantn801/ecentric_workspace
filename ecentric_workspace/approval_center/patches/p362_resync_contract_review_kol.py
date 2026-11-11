@@ -8,21 +8,24 @@ xac nhan ky, cac dot BBNT va tran chi cho DNTT.
 Landmark = dieu PHAI CO tren ban song sau khi sync."""
 import frappe
 
-from ecentric_workspace.approval_center.features.contract_review.infrastructure import page_sync
-
-_LANDMARKS = ("ContractReviewKOL", "kol_preview_amounts", "Creator (mã MISA)")
+_LANDMARKS = ("ContractReviewKOL", "kol_preview_amounts", "Creator (mã MISA)", "kol_delete_acceptance")
 
 
 def execute():
-    res = page_sync.sync()
-    action = (res or {}).get("action")
-    frappe.log_error("p362 contract-review sync=%s" % action, "p362 resync")
-    if action == "refused":
-        frappe.log_error("p362: upsert TU CHOI GHI - trang KHONG duoc cap nhat.", "p362 REFUSED")
+    """Chi RESYNC trang. Thanh cong ghi logger (khong ghi Error Log); lech / loi -> Error Log,
+    KHONG BAO GIO nem (patch nem = ca lan migrate dung lai)."""
+    if not frappe.db.exists("DocType", "Web Page"):
         return
-    html = frappe.db.get_value("Web Page", {"route": "approvals/contract-review"},
-                               "main_section_html") or ""
-    thieu = [m for m in _LANDMARKS if m not in html]
-    if thieu:
-        frappe.log_error("p362: trang contract-review thieu dau moc %s" % thieu,
-                         "p362 KHONG toi noi")
+    try:
+        from ecentric_workspace.approval_center.features.contract_review.infrastructure import page_sync
+        res = page_sync.sync() or {}
+        html = frappe.db.get_value("Web Page", {"route": "approvals/contract-review"},
+                                   "main_section_html") or ""
+        thieu = [m for m in _LANDMARKS if m not in html]
+        frappe.logger("approval_center").info("p362 contract_review resync: %s (thieu moc: %s)"
+                                              % (res.get("action"), thieu or "khong"))
+        if res.get("action") == "refused" or thieu:
+            frappe.log_error(title="p362 resync contract_review",
+                             message="action=%r thieu=%r" % (res.get("action"), thieu))
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "p362 resync contract_review")

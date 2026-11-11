@@ -4,7 +4,8 @@
 Chay thu mac dinh (apply=False): kiem tung dong, khong ghi gi. apply=True moi tao.
 Moi dong di qua DUNG CreatorService.prepare + do trung + insert_prepared nhu tren form:
   * trung CUNG (CCCD/MST/STK da co tren ERP hoac o dong truoc trong file) -> bo qua;
-  * trung MEM (ten/SDT/TikTok/Shopee)  -> van tao, ghi vet "da xac nhan khac voi ...";
+  * trung MEM (ten/SDT/TikTok/Shopee)  -> BO QUA, bao lai (QC 11/11: tao luon thi chay lai
+    lan hai la nhan doi moi creator khong co CCCD/MST/STK). Nguoi khac that thi tao tay tren form;
   * thieu du lieu bat buoc             -> bao loi, khong tao.
 Chi EC Finance / System Manager duoc chay. Ket qua KHONG chua CCCD/STK.
 """
@@ -121,14 +122,18 @@ def import_rows(user, rows, apply=False, service=None):
                 continue
             if dup["soft"]:
                 out["soft_duplicate"] += 1
-                item["soft"] = [m["name"] or "(dòng trước)" for m in dup["soft"]]
+                item.update(status="trung_mem", soft=[m["name"] or "(dòng trước)" for m in dup["soft"]],
+                            message="Có thể đã có: " + "; ".join(domain.describe_match(m) for m in dup["soft"])
+                            + ". Bỏ qua; nếu đúng là người khác, tạo tay trên form.")
+                out["rows"].append(item)
+                continue
             if misa:
                 if misa in used_misa or service.repo.misa_owner(misa, ""):
                     raise CreatorError("Mã MISA %s đã gán cho creator khác." % misa)
                 used_misa.add(misa)
                 values["ec_cr_misa_code"] = misa
             if apply:
-                item["creator"] = service.insert_prepared(values, dup["soft"])
+                item["creator"] = service.insert_prepared(values, [])
                 out["created"] += 1
                 item["status"] = "da_tao"
             else:

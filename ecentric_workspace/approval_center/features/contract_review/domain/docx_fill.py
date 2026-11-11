@@ -18,11 +18,25 @@ de lai "{{...}}" tren hop dong gui di ky.
 import io
 import re
 import zipfile
-from xml.sax.saxutils import escape, unescape
+from xml.sax.saxutils import escape
+from xml.sax.saxutils import unescape as _unescape
 
 PLACEHOLDER = re.compile(r"\{\{\s*([a-zA-Z0-9_]+)\s*\}\}")
+# Moi cap {{...}} - de bat ten sai khuon ({{tên}}, {{ten-creator}}) thay vi bo sot im lang.
+ANY_BRACES = re.compile(r"\{\{([^{}]*)\}\}")
 _PARA = re.compile(r"<w:p[ >].*?</w:p>", re.S)
-_TEXT = re.compile(r"(<w:t(?:\s[^>]*)?>)(.*?)(</w:t>)", re.S)
+# Khong bat <w:t/> tu dong: [^>]* nuot ca dau "/" se noi sang </w:t> cua run sau va lam hong doan.
+_TEXT = re.compile(r"(<w:t(?:\s[^>]*)?(?<!/)>)(.*?)(</w:t>)", re.S)
+_BREAK = '</w:t><w:br/><w:t xml:space="preserve">'
+
+
+def unescape(text):
+    return _unescape(text, {"&quot;": '"', "&apos;": "'"})
+
+
+def _bad_names(joined):
+    return ["{{%s}}" % m.group(1).strip() for m in ANY_BRACES.finditer(joined)
+            if not PLACEHOLDER.fullmatch(m.group(0))]
 _PARTS = re.compile(r"^word/(document|header\d*|footer\d*|footnotes|endnotes)\.xml$")
 
 
@@ -34,6 +48,7 @@ def _fill_paragraph(xml, values, missing):
     joined = "".join(texts)
     if "{{" not in joined:
         return xml
+    missing.update(_bad_names(joined))
     matches = list(PLACEHOLDER.finditer(joined))
     if not matches:
         return xml
@@ -78,10 +93,32 @@ def _fill_paragraph(xml, values, missing):
         if text != text.strip() and "xml:space" not in open_tag:
             open_tag = open_tag[:-1] + ' xml:space="preserve">'
         out.append(xml[last_end:m.start()])
-        out.append(open_tag + escape(text) + m.group(3))
+        body = escape(text)
+        if "\n" in body:   # dia chi nhieu dong: xuong dong that trong Word, khong de ky tu tho
+            body = body.replace("\r\n", "\n").replace("\n", _BREAK)
+            if "xml:space" not in open_tag:
+                open_tag = open_tag[:-1] + ' xml:space="preserve">'
+        out.append(open_tag + body + m.group(3))
         last_end = m.end()
     out.append(xml[last_end:])
     return "".join(out)
+
+
+def _leftover(xml, values):
+    """Placeholder con sot sau khi dien (vd doan van co khung van ban long ben trong: regex doan
+    van dung o </w:p> cua khung, phan sau khung khong duoc xu ly). Quet ca phan, bao thieu -
+    khong de '{{...}}' lot vao hop dong gui ky. Cung dang ten voi bao thieu thuong (gop trung)."""
+    joined = "".join(unescape(m.group(2)) for m in _TEXT.finditer(xml))
+    out = set()
+    for m in ANY_BRACES.finditer(joined):
+        ok = PLACEHOLDER.fullmatch(m.group(0))
+        if not ok:
+            out.add("{{%s}}" % m.group(1).strip())
+        elif ok.group(1) in values:
+            out.add("{{%s}} (không điền được)" % ok.group(1))
+        else:
+            out.add(ok.group(1))
+    return out
 
 
 def fill_xml(xml, values, missing=None):
@@ -99,6 +136,7 @@ def fill_docx(data, values):
             raw = src.read(item.filename)
             if _PARTS.match(item.filename):
                 xml, _ = fill_xml(raw.decode("utf-8"), values, missing)
+                missing.update(_leftover(xml, values))
                 raw = xml.encode("utf-8")
             dst.writestr(item, raw)
     return buf.getvalue(), sorted(missing)
@@ -115,6 +153,7 @@ def find_placeholders(data):
         for p in _PARA.finditer(xml):
             joined = "".join(unescape(m.group(2)) for m in _TEXT.finditer(p.group(0)))
             found.update(PLACEHOLDER.findall(joined))
+            found.update(_bad_names(joined))
     return sorted(found)
 
 

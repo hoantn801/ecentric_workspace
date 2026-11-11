@@ -67,6 +67,11 @@ _SOURCES = {
         "approved_fn": _KOL + "funding_approved",
         "owner_fn": _KOL + "funding_owner_filters",
         "explain_fn": _KOL + "funding_explain",
+        # Kiem LAI quyen dung hop dong luc nop (danh sach chon da loc team, nhung API nhan thang
+        # ten hop dong) va KHOA dong hop dong khi tinh phan con lai: hai DNTT nop cung luc khong
+        # cung lot qua tran (QC 11/11).
+        "access_fn": _KOL + "funding_can_use",
+        "lock_source": True,
         "extra_filters": {"contract_type": "KOL/KOC / Creator (EC)"},
     },
 }
@@ -203,7 +208,13 @@ def validate_funding(doc):
     if meta["approved_via"] != "custom":
         check_fields.append("approval_request" if meta["approved_via"] == "approval_request"
                            else "workflow_state")
-    row = frappe.db.get_value(source_doctype, source_name, check_fields, as_dict=True)
+    if meta.get("access_fn"):
+        user = doc.get("requested_by") or frappe.session.user
+        if not frappe.get_attr(meta["access_fn"])(user, source_name):
+            frappe.throw(_("Bạn không dùng được chứng từ nguồn {0}: chỉ hợp đồng của bạn hoặc "
+                           "cùng phòng ban.").format(source_name), frappe.PermissionError)
+    row = frappe.db.get_value(source_doctype, source_name, check_fields, as_dict=True,
+                              for_update=bool(meta.get("lock_source")))
     if not _is_approved(source_doctype, row, meta):
         frappe.throw(_("Chứng từ nguồn {0} chưa được duyệt nên chưa thể tạo đề nghị thanh toán."
                        ).format(source_name))

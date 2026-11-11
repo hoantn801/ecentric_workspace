@@ -103,13 +103,16 @@ FULFIL_NAMES = _dict_literal_keys(_FULFIL_SRC, None) | {"set_operation_fields"}
 
 
 def _star_import_names(feature, tree):
-    """`from ...features.<feature>.controllers.<mod> import *` (vd kol_api cua contract_review):
-    lay dung `__all__` cua file do - ten khong co trong __all__ thi `import *` cung khong mang sang."""
+    """Ten api.py lay tu controller con cung feature (vd kol_api cua contract_review): import
+    tung ten thi lay dung ten do; `import *` thi lay `__all__` cua file con."""
     prefix = "ecentric_workspace.approval_center.features.%s.controllers." % feature
     names = set()
     for node in ast.walk(tree):
-        if not (isinstance(node, ast.ImportFrom) and node.module
-                and node.module.startswith(prefix) and any(a.name == "*" for a in node.names)):
+        if not (isinstance(node, ast.ImportFrom) and node.module and node.module.startswith(prefix)):
+            continue
+        explicit = [a.asname or a.name for a in node.names if a.name != "*"]
+        if explicit:
+            names |= set(explicit)
             continue
         sub = ast.parse(_read(_feature_file(feature, "controllers",
                                             node.module[len(prefix):] + ".py")))

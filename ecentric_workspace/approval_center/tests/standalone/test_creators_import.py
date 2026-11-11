@@ -60,12 +60,22 @@ class ImportTests(unittest.TestCase):
         out = import_service.import_rows("ketoan@ec", [ROW_OK, dict(ROW_OK)], service=svc())
         self.assertEqual((out["would_create"], out["duplicate"]), (1, 1))
 
-    def test_soft_duplicate_created_with_ack(self):
+    def test_soft_duplicate_skipped_so_rerun_is_idempotent(self):
         s = svc()
         row = dict(ROW_OK, **{"Họ tên": "nguyen thi hao"})
         out = import_service.import_rows("ketoan@ec", [row], apply=True, service=s)
-        self.assertEqual((out["created"], out["soft_duplicate"]), (1, 1))
-        self.assertIn("Nguyễn Thị Hảo", s.repo.inserted[0]["ec_cr_dup_ack"])
+        self.assertEqual((out["created"], out["soft_duplicate"]), (0, 1))
+        self.assertEqual(out["rows"][0]["status"], "trung_mem")
+        self.assertIn("Nguyễn Thị Hảo", out["rows"][0]["message"])
+
+    def test_rerun_after_apply_creates_nothing(self):
+        s = svc()
+        hkd = {"Họ tên": "Hộ KD Minh", "Loại": "Hộ kinh doanh", "MST": "0101234567",
+               "Số tài khoản": "999", "Ngân hàng": "ACB"}
+        first = import_service.import_rows("ketoan@ec", [ROW_OK, hkd], apply=True, service=s)
+        again = import_service.import_rows("ketoan@ec", [ROW_OK, hkd], apply=True, service=s)
+        self.assertEqual(first["created"], 2)
+        self.assertEqual(again["created"], 0)
 
     def test_errors_reported_not_raised(self):
         bad = [{"Họ tên": "X", "Loại": "cá nhân"}, dict(ROW_OK, **{"Ngày sinh": "abc"})]

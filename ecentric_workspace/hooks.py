@@ -432,6 +432,7 @@ fixtures = [
             "Supplier-ec_cr_cb2", "Supplier-ec_cr_address", "Supplier-ec_cr_account_holder",
             "Supplier-ec_cr_bank_branch", "Supplier-ec_cr_cccd_front", "Supplier-ec_cr_cccd_back",
             "Supplier-ec_cr_party_code",
+            "Supplier-ec_cr_end_section",
             # DNTT gan hop dong KOL/KOC: SO doanh thu tu dien tu hop dong (doi chieu chi phi - doanh thu).
             "EC Payment Request-ec_sales_order",
 ]]],

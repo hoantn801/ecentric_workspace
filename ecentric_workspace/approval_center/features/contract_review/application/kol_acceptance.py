@@ -61,6 +61,25 @@ def add_acceptance(name, user, description, acceptance_date=None, amount=None):
     return {"row": row.name, "bbnt_file": url, "missing": missing}
 
 
+def delete_acceptance(name, user, row_name):
+    """Xoa dot nghiem thu NHAP (nhap sai so tien / noi dung). Dot da gui ky / hoan tat thi giu."""
+    doc = _load(name, user)
+    row = _row(doc, row_name)
+    if row.status != kol.BBNT_DRAFT:
+        frappe.throw(_("Chỉ xoá được đợt nghiệm thu còn nháp (chưa gửi ký)."))
+    idx, amount = row.idx, flt(row.amount)
+    doc.remove(row)
+    doc.save(ignore_permissions=True)
+    doc.add_comment("Info", _("Xoá đợt nghiệm thu nháp {0} ({1}).").format(idx, kol.fmt_money(amount)))
+    return {"deleted": row_name}
+
+
+def acceptance_remaining(doc):
+    """So tien con chua dua vao dot nghiem thu nao (sau coc)."""
+    planned = sum(flt(r.amount) for r in (doc.acceptances or [])) + flt(doc.get("advance_amount"))
+    return max(flt(doc.get("payable_amount")) - planned, 0.0)
+
+
 def send_acceptance(name, user, row_name):
     doc = _load(name, user)
     row = _row(doc, row_name)
@@ -78,6 +97,9 @@ def complete_acceptance(name, user, row_name, signed_file):
         frappe.throw(_("Đợt này đã hoàn tất."))
     if not (signed_file or "").lower().endswith(".pdf"):
         frappe.throw(_("Tải lên BBNT đã ký (PDF) trước khi hoàn tất."))
+    used = {r.signed_file for r in (doc.acceptances or []) if r.name != row.name and r.signed_file}
+    if signed_file in used or signed_file == doc.get("signed_file"):
+        frappe.throw(_("Tệp này đã dùng cho hợp đồng hoặc đợt nghiệm thu khác. Tải BBNT đã ký của đợt này."))
     from ecentric_workspace.approval_center.features.contract_review.application.kol_files import claim_upload
     row.signed_file = claim_upload(doc, signed_file, user)
     row.status = kol.BBNT_DONE

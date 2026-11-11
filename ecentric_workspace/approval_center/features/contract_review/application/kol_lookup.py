@@ -37,35 +37,77 @@ def so_label(row):
     return "%s (GBS %s)" % (row["name"], ref) if ref else row["name"]
 
 
+SO_FIELDS = ["name", "ec_channel", "ec_brand", "ec_gbs_so_ref", "net_total", "transaction_date",
+             "owner", "workflow_state", "docstatus"]
+SO_CHANNELS = ("Direct", "GBS")
+
+
+def _team_gbs_sos(team):
+    """GBS SO do nguoi trong team tao - SO doi ung cua chung la SO cua team."""
+    return frappe.get_all("GBS Sales Order", filters={"owner": ["in", list(team)]}, pluck="name",
+                          order_by="creation desc", limit_page_length=2000, ignore_permissions=True)
+
+
 def search_sales_orders(user, query=None):
-    fields = ["name", "ec_channel", "ec_brand", "ec_gbs_so_ref", "net_total", "transaction_date",
-              "owner", "workflow_state"]
-    filters = {"docstatus": ["<", 2], "ec_channel": ["in", ["Direct", "GBS"]]}
+    filters = {"docstatus": ["<", 2], "ec_channel": ["in", list(SO_CHANNELS)]}
     or_filters = None
     q = (query or "").strip()[:60]
     if q:
         like = "%%%s%%" % q
         or_filters = [["name", "like", like], ["ec_gbs_so_ref", "like", like],
                       ["ec_brand", "like", like]]
-    rows = frappe.get_all("Sales Order", filters=filters, or_filters=or_filters, fields=fields,
-                          order_by="transaction_date desc", limit_page_length=300,
-                          ignore_permissions=True)
-    if not is_finance(user):
+
+    def fetch(extra):
+        return frappe.get_all("Sales Order", filters=dict(filters, **extra), or_filters=or_filters,
+                              fields=SO_FIELDS, order_by="transaction_date desc",
+                              limit_page_length=SO_LIMIT, ignore_permissions=True)
+
+    if is_finance(user):
+        rows = fetch({})
+    else:
+        # Loc team NGAY TRONG truy van (khong lay 300 SO moi nhat roi loc sau - SO cu cua team
+        # se bi mat). Hai nhom: SO team tao, va SO doi ung cua GBS SO team tao.
         team = team_users(user)
-        gbs_owner = _gbs_owners([r.ec_gbs_so_ref for r in rows if r.get("ec_gbs_so_ref")])
-        rows = [r for r in rows if r.owner in team or gbs_owner.get(r.get("ec_gbs_so_ref")) in team]
+        rows = fetch({"owner": ["in", list(team)]})
+        gbs = _team_gbs_sos(team)
+        if gbs:
+            seen = {r.name for r in rows}
+            rows += [r for r in fetch({"ec_gbs_so_ref": ["in", gbs]}) if r.name not in seen]
+        rows.sort(key=lambda r: str(r.get("transaction_date") or ""), reverse=True)
     return [{"value": r.name, "label": so_label(r), "brand": r.get("ec_brand") or "",
              "revenue": float(r.get("net_total") or 0), "channel": r.get("ec_channel"),
              "date": str(r.get("transaction_date") or ""), "state": r.get("workflow_state") or ""}
             for r in rows[:SO_LIMIT]]
 
 
+def so_allowed(user, name):
+    """Kiem lai tren server SO nguoi dung gui len (khong tin bo chon tren trang).
+    Tra (row, loi): row la SO hop le; loi la thong bao neu khong dung duoc."""
+    row = frappe.db.get_value("Sales Order", name, SO_FIELDS, as_dict=True) if name else None
+    if not row or row.docstatus == 2:
+        return None, "SO %s không tồn tại hoặc đã huỷ." % name
+    if row.ec_channel not in SO_CHANNELS:
+        return None, "SO %s không phải SO doanh thu EC (Direct / đối ứng GBS)." % name
+    if is_finance(user):
+        return row, None
+    team = team_users(user)
+    if row.owner in team:
+        return row, None
+    if row.ec_gbs_so_ref and frappe.db.get_value("GBS Sales Order", row.ec_gbs_so_ref, "owner") in team:
+        return row, None
+    return None, "SO %s không thuộc phòng ban của bạn. Nhờ Kế toán nếu cần dùng SO này." % name
+
+
 def gbs_without_counterpart(user, query):
-    """GBS SO khop tu khoa nhung CHUA co SO doi ung - de form bao ly do thay vi im lang."""
+    """GBS SO khop tu khoa nhung CHUA co SO doi ung - de form bao ly do thay vi im lang.
+    Nguoi khong phai ke toan chi thay GBS SO cua team minh."""
     q = (query or "").strip()[:60]
     if not q:
         return []
-    gbs = frappe.get_all("GBS Sales Order", filters=[["name", "like", "%%%s%%" % q]],
+    flt = [["name", "like", "%%%s%%" % q]]
+    if not is_finance(user):
+        flt.append(["owner", "in", list(team_users(user))])
+    gbs = frappe.get_all("GBS Sales Order", filters=flt,
                          fields=["name", "owner"], limit_page_length=10, ignore_permissions=True)
     have = set(frappe.get_all("Sales Order", filters={"ec_gbs_so_ref": ["in", [g.name for g in gbs] or [""]],
                                                       "docstatus": ["<", 2]},
@@ -74,14 +116,6 @@ def gbs_without_counterpart(user, query):
              "reason": "GBS SO này chưa có dòng phí EC nên chưa có SO đối ứng (doanh thu EC). "
                        "Thêm dòng phí EC trên GBS SO, đợi tối đa 15 phút rồi chọn lại."}
             for g in gbs if g.name not in have]
-
-
-def sales_order_info(name):
-    row = frappe.db.get_value("Sales Order", name, ["name", "ec_brand", "ec_gbs_so_ref", "net_total",
-                                                    "docstatus", "ec_channel"], as_dict=True)
-    if not row or row.docstatus == 2:
-        return None
-    return row
 
 
 def committed_on_so(sales_order, exclude=None):

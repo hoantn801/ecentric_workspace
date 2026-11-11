@@ -27,7 +27,13 @@ def prepare_draft(doc):
     creator = creator_row(doc.get("creator"))
     doc.creator_name = creator.get("supplier_name") if creator else None
     doc.creator_type = creator.get("ec_cr_type") if creator else None
-    so = kol_lookup.sales_order_info(doc.get("sales_order")) if doc.get("sales_order") else None
+    so = None
+    if doc.get("sales_order"):
+        # Kiem lai SO tren server: bo chon tren trang loc theo team, nhung save_draft nhan
+        # thang ten SO - khong kiem thi doc duoc doanh thu SO cua team khac (QC 11/11).
+        so, err = kol_lookup.so_allowed(frappe.session.user, doc.sales_order)
+        if err:
+            frappe.throw(_(err), frappe.PermissionError)
     if so:
         doc.so_label = kol_lookup.so_label(so)
         doc.so_revenue = so.net_total
@@ -35,7 +41,7 @@ def prepare_draft(doc):
             doc.brand = so.ec_brand
     else:
         doc.so_label = doc.so_revenue = None
-    if not doc.get("payment_term_days"):
+    if doc.get("payment_term_days") in (None, ""):
         doc.payment_term_days = kol.DEFAULT_PAYMENT_DAYS
     if not doc.get("contract_date"):
         doc.contract_date = today()
@@ -53,11 +59,13 @@ def apply_amounts(doc, strict):
                                       doc.get("amount_input"), doc.get("pit_rate"), doc.get("vat_rate"))
         advance = kol.advance_amount(amounts["payable"], doc.get("payment_schedule"),
                                      doc.get("advance_percent"))
+        kol.payment_days(doc.get("payment_term_days"))
     except ValueError as e:
         if strict:
             frappe.throw(_(str(e)))
+        # Nhap do: xoa HET so da tinh, ke ca gia tri hop dong - khong de lai so cu lech voi tien.
         doc.gross_amount = doc.pit_amount = doc.vat_amount = doc.payable_amount = None
-        doc.advance_amount = None
+        doc.advance_amount = doc.contract_value = None
         return
     doc.gross_amount, doc.pit_amount = amounts["gross"], amounts["pit"]
     doc.vat_amount, doc.payable_amount = amounts["vat"], amounts["payable"]
@@ -75,36 +83,47 @@ def summary_text(doc):
 
 
 def validate_submit(doc):
-    """Chot truoc khi vao luong duyet. Goi tu service.submit, chi voi phieu KOL."""
+    """Chot truoc khi vao luong duyet - goi tu service.submit VA service.resubmit (phieu KOL).
+
+    Mau EC: sinh lai hop dong neu du lieu da doi tu lan tao tep (dau van tay lech), de van ban
+    gui ky luon khop so tien / creator / SO dang duyet."""
     creator = creator_row(doc.get("creator"))
     errors = kol.validate_kol(doc, creator and creator.get("ec_cr_type"))
     if not creator:
         errors.append("Creator không tồn tại hoặc không thuộc danh sách creator.")
-    if doc.get("request_type") == kol.TEMPLATE_EC and not doc.get("contract_file"):
-        errors.append("Bấm \"Tạo hợp đồng từ mẫu\" trước khi gửi.")
     if doc.get("request_type") == kol.TEMPLATE_PARTNER and not doc.get("request_attachment"):
         errors.append("Tải lên hợp đồng theo mẫu của creator trước khi gửi.")
-    if doc.get("missing_placeholders"):
-        errors.append("Mẫu còn trường chưa có dữ liệu: %s." % doc.missing_placeholders)
     if errors:
         frappe.throw(_(" ".join(errors)))
     prepare_draft(doc)
     apply_amounts(doc, strict=True)
-    if not doc.get("contract_no"):
+    if doc.get("request_type") == kol.TEMPLATE_EC:
+        from ecentric_workspace.approval_center.features.contract_review.application import kol_files
+        kol_files.build_contract(doc)
+    else:
         assign_number(doc, creator)
+    if doc.get("missing_placeholders"):
+        frappe.throw(_("Hợp đồng còn thiếu thông tin: {0}. Bổ sung (thường là thông tin creator) "
+                       "rồi gửi lại.").format(doc.missing_placeholders))
     committed = kol_lookup.committed_on_so(doc.sales_order, exclude=doc.name)
     doc.revenue_warning = kol.revenue_warning(doc.so_revenue, committed, doc.contract_value) or None
 
 
 def assign_number(doc, creator):
-    existing = set(frappe.get_all(kol_lookup.CR_DT, filters={"contract_no": ["is", "set"]},
-                                  pluck="contract_no", limit_page_length=0, ignore_permissions=True))
+    """Cap / cap lai so hop dong. So dang co ma khong con khop ngay ky / ma doi tac / ma brand
+    (doi creator, brand, ngay sau lan tao dau) thi cap lai - so sai di vao van ban phap ly."""
     try:
-        doc.contract_no = kol.contract_number(doc.contract_date or today(),
-                                              creator.get("ec_cr_party_code"),
-                                              kol_lookup.brand_code(doc.get("brand")), existing)
+        base = kol.number_base(doc.contract_date or today(), creator.get("ec_cr_party_code"),
+                               kol_lookup.brand_code(doc.get("brand")))
     except ValueError as e:
         frappe.throw(_(str(e)))
+    if kol.number_fits(doc.get("contract_no"), base):
+        return
+    existing = set(frappe.get_all(kol_lookup.CR_DT,
+                                  filters={"contract_no": ["like", base + "%"], "name": ["!=", doc.name]},
+                                  pluck="contract_no", limit_page_length=0, ignore_permissions=True))
+    doc.contract_no = kol.contract_number(doc.contract_date or today(), creator.get("ec_cr_party_code"),
+                                          kol_lookup.brand_code(doc.get("brand")), existing)
 
 
 def can_manage(doc, user):
@@ -153,5 +172,6 @@ def detail_extra(business, request):
         "approved": status == APPROVED,
         "signed": is_signed(business),
         "acceptances": kol_acceptance.rows_view(business),
+        "acceptance_remaining": kol_acceptance.acceptance_remaining(business),
         "funding": kol_acceptance.funding_view(business),
     }}

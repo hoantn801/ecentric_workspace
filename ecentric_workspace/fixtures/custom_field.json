@@ -1305,7 +1305,7 @@
   "fieldname": "ec_cr_tiktok_id",
   "label": "TikTok ID",
   "fieldtype": "Data",
-  "insert_after": "ec_cr_type",
+  "insert_after": "ec_cr_party_code",
   "module": "Ecentric Workspace"
  },
  {
@@ -1533,7 +1533,7 @@
   "fieldname": "ec_cr_party_code",
   "label": "Mã viết tắt trong số hợp đồng",
   "fieldtype": "Data",
-  "insert_after": "ec_cr_email",
+  "insert_after": "ec_cr_type",
   "module": "Ecentric Workspace",
   "description": "Vd NTP, DOOMI, KBTC. Số HĐ: ddmmyyyy/HDDV/ECENTRIC-<mã này>.<mã brand>."
  },
@@ -1549,5 +1549,16 @@
   "read_only": 1,
   "module": "Ecentric Workspace",
   "description": "Tự điền từ hợp đồng KOL/KOC khi nguồn chi là hợp đồng."
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Supplier-ec_cr_end_section",
+  "dt": "Supplier",
+  "fieldname": "ec_cr_end_section",
+  "label": "",
+  "fieldtype": "Section Break",
+  "insert_after": "ec_cr_cccd_back",
+  "module": "Ecentric Workspace",
+  "description": "Dong khoi creator: cac truong chuan sau tax_id (Tax Category...) khong bi an theo khoi PII."
  }
 ]

@@ -7,7 +7,7 @@ Quyen (chot 11/11/2026):
 - Chi EC Finance / System Manager: nhap ma khach hang MISA.
 """
 from ecentric_workspace.approval_center.shared.creators import domain
-from ecentric_workspace.approval_center.shared.creators.repository import CreatorRepository
+from ecentric_workspace.approval_center.shared.creators.repository import CreatorRepository, InsertError
 
 FINANCE_ROLES = {"EC Finance", "System Manager"}
 SEARCH_LIMIT = 20
@@ -68,7 +68,10 @@ class CreatorService:
         row = dict(values, supplier_group=domain.CREATOR_GROUP,
                    supplier_type=domain.SUPPLIER_TYPE_BY_CREATOR[values["ec_cr_type"]],
                    ec_cr_dup_ack=self._ack_note(soft_matches) if soft_matches else None)
-        return self.repo.insert(row)
+        try:
+            return self.repo.insert(row)
+        except InsertError as e:
+            raise CreatorError("Không lưu được creator: %s" % e)
 
     def require_finance(self, user):
         self._require_finance(user)
