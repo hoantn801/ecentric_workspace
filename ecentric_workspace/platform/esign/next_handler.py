@@ -341,8 +341,112 @@ def provider_step_index(adapter, instance_id):
                 if str(s.get("status") or "").strip().lower() == "signed"]), None
 
 
+#: Buoc chuyen cua luot ky lay tu dau. Ghi vao su kien de dem duoc, khong phai doan.
+SOURCE_DISCOVERED = "discovered"            # hoi cong (availableTransitions)
+SOURCE_STEP_INDEX = "step_index"            # dem chu ky tren tai lieu -> dong cau hinh theo vi tri
+SOURCE_PROFILE_DEFAULT = "profile_default"  # dong mac dinh theo stage tren ho so
+
+DISCOVERY_OFF = "off"
+DISCOVERY_SHADOW = "shadow"
+
+
+def transition_discovery_mode():
+    """'shadow' (mac dinh) | 'off'. `bench set-config ec_esign_transition_discovery off`.
+
+    CHANG 2 (11/11/2026): doc buoc hien tai tu cong thay vi dem chu ky.
+
+    Do tren prod 11/11: 0/546 goi co ma workflow instance, nen `discover_transition` - viet
+    tu 28/08 - CHUA CHAY THAT LAN NAO; moi luot ky tu thang 8 deu lay buoc bang dem chu ky.
+    Dem chu ky dung voi DNTT (5/5 buoc deu ky) va sai voi hop dong (ke toan duyet khong ky),
+    va sai ca voi DNTT khi co nguoi ky tay tren cong (00295, 29/09).
+
+    'shadow' = hanh vi gui lenh GIU NGUYEN tung chu; chi them mot lan HOI (GET) song song va
+    ghi lai cong noi gi, cong co dong y voi cach dem khong. Chuyen sang dung ket qua hoi cong
+    la mot buoc RIENG, sau khi so lieu shadow sach - khong lam trong ban nay.
+    'off' = khong hoi them gi (cong tat neu buoc hoi lam cham hoac gay loi).
+
+    Gia tri la thi KHONG am tham tat: van 'shadow', vi shadow khong doi hanh vi gui.
+    """
+    # KHONG `or ""`: `bench set-config ... 0` luu so 0, va `0 or ""` la "" -> cong tat khong tat.
+    raw = frappe.conf.get("ec_esign_transition_discovery")
+    v = "" if raw is None else str(raw).strip().lower()
+    if v in ("0", "false", "no", DISCOVERY_OFF):
+        return DISCOVERY_OFF
+    return DISCOVERY_SHADOW
+
+
+def shadow_probe(dsr, adapter, document_id, known_instance_id=None):
+    """Hoi cong buoc chuyen hien tai cua tai lieu - CHI DOC, khong bao gio nem loi.
+
+    Hai lan GET: (1) ma tai lieu -> ma workflow instance (khi goi chua co), (2) ma instance ->
+    availableTransitions cua nguoi ky. Tra dict de ghi vao su kien.
+
+    KHONG ghi ma instance vao goi: `workflow_instance_id()` doc truong do cho CA lenh ghi
+    (`transition`, `bulk-process`), nen luu no = doi duong gui lenh ky cua moi phieu ngay lap
+    tuc. Viec do thuoc buoc sau, khi da co so lieu.
+    """
+    if adapter is None or not document_id:
+        return {"ok": False, "why": "no_adapter_or_document"}
+    user = dsr.get("effective_scts_user_id")
+    try:
+        iid, src = known_instance_id, "package"
+        if not iid:
+            if not hasattr(adapter, "workflow_instance_for_document"):
+                return {"ok": False, "why": "adapter_cannot_lookup_instance"}
+            iid, why = adapter.workflow_instance_for_document(document_id, user)
+            src = "provider_lookup"
+            if not iid:
+                return {"ok": False, "why": why}
+        cfg, why = discover_transition(adapter, iid, user)
+        out = {"ok": cfg is not None, "instance_id": iid, "instance_source": src, "why": why}
+        if cfg is not None:
+            out.update({"transition_id": cfg.get("transition_id"),
+                        "process_action": cfg.get("process_action"),
+                        "sign_type": cfg.get("sign_type")})
+        return out
+    except Exception as exc:
+        from ecentric_workspace.platform.esign.sanitize import safe_error
+        return {"ok": False, "why": "probe_failed:%s" % safe_error(exc)}
+
+
+def _same_transition(probe, cfg):
+    """Cong va cach dem co chon CUNG mot canh khong. So ca ba truong: cung id ma khac
+    processAction / signType van la ky sai o (ca 28/08: o 'Ky chinh' bo trong)."""
+    def norm(v):
+        return str(v if v is not None else "").strip().lower()
+    return all(norm(probe.get(k)) == norm(cfg.get(k))
+               for k in ("transition_id", "process_action", "sign_type"))
+
+
 def plan_handover(dsr, profile_name, environment, stage=None, adapter=None, instance_id=None,
                   document_id=None):
+    """Ke hoach gui cho luot ky nay + (shadow) cong noi gi. Xem `_plan_handover_core`.
+
+    Lop boc nay KHONG doi ke hoach: `mode`, `to_users`, `config` la cua `_plan_handover_core`
+    nguyen ven. No chi gan them `discovery_probe` de su kien ghi lai duoc.
+    """
+    plan = _plan_handover_core(dsr, profile_name, environment, stage=stage, adapter=adapter,
+                               instance_id=instance_id, document_id=document_id)
+    # Moi loi o phan quan sat dung lai O DAY. tasks.py boc lenh goi nay trong try va roi ve
+    # POOL khi co loi - de mot loi quan sat lot ra la doi duong gui, dung dieu shadow cam lam.
+    try:
+        if transition_discovery_mode() != DISCOVERY_SHADOW:
+            return plan
+        doc_id = document_id or instance_id
+        # instance_id khac document_id = goi da co ma instance that (nhap tay). Bang nhau = chua co.
+        known = instance_id if (instance_id and document_id and instance_id != document_id) else None
+        probe = shadow_probe(dsr, adapter, doc_id, known_instance_id=known)
+        if probe.get("ok") and plan.get("mode") == "transition" and plan.get("config"):
+            probe["agree"] = _same_transition(probe, plan["config"])
+        plan["discovery_probe"] = probe
+    except Exception as exc:
+        plan["discovery_probe"] = {"ok": False, "why": "shadow_wrapper_failed:%s"
+                                   % type(exc).__name__}
+    return plan
+
+
+def _plan_handover_core(dsr, profile_name, environment, stage=None, adapter=None,
+                        instance_id=None, document_id=None):
     """What to send for this leg: {mode, ...}.
 
     mode == "transition" -> name the next handler explicitly (the governed path).
@@ -380,12 +484,18 @@ def plan_handover(dsr, profile_name, environment, stage=None, adapter=None, inst
             return {"mode": "pool",
                     "reason": "signature_type_mismatch:need=%s have=%s" % (want, have or "?")}
     buoc = None
+    source = SOURCE_DISCOVERED if cfg is not None else None
     if cfg is None:
         buoc, vi_sao_buoc = provider_step_index(adapter, document_id or instance_id)
         if buoc is None and vi_sao_buoc:
             discovery_note = "%s; vi tri buoc: %s" % (discovery_note or "-", vi_sao_buoc)
         cfg = resolve_transition_config(profile_name, dsr.get("action") or "Sign",
                                         stage=stage, step_index=buoc)
+        # Dong theo vi tri buoc mang khoa `step_index`; dong mac dinh theo stage thi khong.
+        source = (SOURCE_STEP_INDEX
+                  if cfg and buoc is not None and cfg.get("step_index") is not None
+                  and int(cfg["step_index"]) == int(buoc)
+                  else SOURCE_PROFILE_DEFAULT)
     if not cfg:
         # Biet vi tri buoc ma khong co dong cau hinh => day la buoc NGOAI day da chup duoc.
         # Voi mau "5 chu ky" thi buoc do la KY CHINH: `signToken=1`, `hsmId=null`, tuc ky
@@ -405,7 +515,8 @@ def plan_handover(dsr, profile_name, environment, stage=None, adapter=None, inst
     if not users:
         if cfg.get("terminal"):
             # Final step: nobody comes after, and the config says so explicitly.
-            return {"mode": "transition", "to_users": [], "config": cfg}
+            return {"mode": "transition", "to_users": [], "config": cfg,
+                    "transition_source": source}
         return {"mode": "pool", "reason": "no_next_level_approver"}
 
     ids, unmapped = provider_ids_for(users, environment)
@@ -447,6 +558,7 @@ def plan_handover(dsr, profile_name, environment, stage=None, adapter=None, inst
         # Dung duong lui thi phai NOI RA, khong de no trong nhu duong chinh dang chay tot.
         out["fallback_config"] = True
         out["discovery_error"] = discovery_note
+    out["transition_source"] = source
     return out
 
 

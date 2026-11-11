@@ -527,6 +527,25 @@ class SctsAdapter(SignatureProviderAdapter):
             })
         return out
 
+    def workflow_instance_for_document(self, document_id, provider_user_id):
+        """Ma WORKFLOW INSTANCE cua mot tai lieu, hoi thang cong. (instance_id, None) hoac
+        (None, ly_do). Chi DOC, khong bao gio nem loi ra ngoai.
+
+        Cong tra phan than co khi boc trong `data`, co khi khong (do tren trang cong 09/11:
+        `data` khong co, cac khoa nam ngay goc) - doc ca hai, khong doan them dang thu ba.
+        """
+        try:
+            raw = self._with_auth(lambda t: self._client.get_instance_history_by_document(
+                document_id, provider_user_id, t))
+        except Exception as exc:
+            from ecentric_workspace.platform.esign.sanitize import safe_error
+            return None, "instance_lookup_failed:%s" % safe_error(exc)
+        data = raw.get("data") if isinstance(raw, dict) and isinstance(raw.get("data"), dict) else raw
+        iid = data.get("instanceId") if isinstance(data, dict) else None
+        if not iid:
+            return None, "instance_lookup_empty"
+        return str(iid), None
+
     def eligible_recipients(self, instance_id, transition_id, provider_user_id):
         """ID cua nhung nguoi eContract CHAP NHAN cho buoc nay. None = khong hoi duoc.
 

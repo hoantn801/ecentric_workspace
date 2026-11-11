@@ -93,7 +93,9 @@ class TestChonTheoViTriBuoc(unittest.TestCase):
                         "stage xet truoc thi dong `-9` mac dinh van thang")
 
     def test_plan_handover_truyen_vi_tri_buoc_xuong(self):
-        than = _than("plan_handover")
+        # 11/11: than ke hoach chuyen vao `_plan_handover_core`; `plan_handover` chi con la lop
+        # boc gan ket qua hoi cong (shadow). Kiem dung cho logic dang nam.
+        than = _than("_plan_handover_core")
         self.assertIn("provider_step_index", than,
                       "khong hoi vi tri buoc thi resolve khong bao gio co gi de dung")
         self.assertIn("step_index=", than, "quen truyen xuong resolve_transition_config")
@@ -137,14 +139,14 @@ class TestKhongDemDuocThiPhaiLaKhongBiet(unittest.TestCase):
 
 class TestKhongBiaBuocChuaChupDuoc(unittest.TestCase):
     def test_khong_co_dong_cau_hinh_thi_khong_gui_bua(self):
-        than = _than("plan_handover")
+        than = _than("_plan_handover_core")   # 11/11: logic chuyen vao ham loi
         i = than.find("if not cfg:")
         self.assertNotEqual(i, -1)
         self.assertIn("no_transition_config", than[i:i + 700],
                       "phai noi ro la khong co cau hinh cho buoc nay")
 
     def test_ly_do_co_kem_so_buoc(self):
-        than = _than("plan_handover")
+        than = _than("_plan_handover_core")
         self.assertIn('buoc=%s', than,
                       "khong ghi so buoc vao ly do thi lan sau lai phai do tay lai tu dau")
 
