@@ -3,7 +3,7 @@
 
 Chay TRUC TIEP code JS goc cua tool cu (fixtures/tool_cu_hddv_v503.js, trich nguyen van tu Apps
 Script V5.0.3) bang node, roi so voi ban port Python tren cung bo dau vao: cau chu dien vao hop
-dong, so tien, chu so, ma doi tac, ngay ky phai GIONG HET. Khong co node thi bo qua (CI co node).
+dong, so tien, chu so, ma doi tac, ngay ky phai GIONG HET. Can node (cac test JS cua repo da dung).
 
     python -m pytest ecentric_workspace/approval_center/tests/standalone/test_contract_kol_tool_cu.py
 """
@@ -73,10 +73,12 @@ def _d(s):
     return dt.date.fromisoformat(s) if s else None
 
 
-@unittest.skipUnless(shutil.which("node"), "can node de chay code goc cua tool cu")
 class GiongToolCu(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        # Khong skip (gate test_e2e3_test_quality cam skip): thieu node thi bao loi ro rang.
+        if not shutil.which("node"):
+            raise RuntimeError("Can node (da co san cho cac test JS) de chay code goc cua tool cu.")
         cls.case = _cases()
         res = subprocess.run(["node", JS], input=json.dumps(cls.case), capture_output=True, text=True, timeout=60)
         if res.returncode:
