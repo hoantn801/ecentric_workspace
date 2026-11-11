@@ -23,10 +23,11 @@ from xml.sax.saxutils import unescape as _unescape
 
 PLACEHOLDER = re.compile(r"\{\{\s*([a-zA-Z0-9_]+)\s*\}\}")
 # Moi cap {{...}} - de bat ten sai khuon ({{tên}}, {{ten-creator}}) thay vi bo sot im lang.
-ANY_BRACES = re.compile(r"\{\{([^{}]*)\}\}")
+ANY_BRACES = re.compile(r"\{\{([^{}\n]*)\}\}")
 _PARA = re.compile(r"<w:p[ >].*?</w:p>", re.S)
 # Khong bat <w:t/> tu dong: [^>]* nuot ca dau "/" se noi sang </w:t> cua run sau va lam hong doan.
 _TEXT = re.compile(r"(<w:t(?:\s[^>]*)?(?<!/)>)(.*?)(</w:t>)", re.S)
+_TEXT_OR_PARA_END = re.compile(r"</w:p>|(<w:t(?:\s[^>]*)?(?<!/)>)(.*?)(</w:t>)", re.S)
 _BREAK = '</w:t><w:br/><w:t xml:space="preserve">'
 
 
@@ -108,7 +109,9 @@ def _leftover(xml, values):
     """Placeholder con sot sau khi dien (vd doan van co khung van ban long ben trong: regex doan
     van dung o </w:p> cua khung, phan sau khung khong duoc xu ly). Quet ca phan, bao thieu -
     khong de '{{...}}' lot vao hop dong gui ky. Cung dang ten voi bao thieu thuong (gop trung)."""
-    joined = "".join(unescape(m.group(2)) for m in _TEXT.finditer(xml))
+    # Moi doan van mot dong ('\n' tai </w:p>): {{ o doan nay va }} o doan khac khong ghep thanh mot.
+    joined = "".join("\n" if m.group(0) == "</w:p>" else unescape(m.group(2))
+                     for m in _TEXT_OR_PARA_END.finditer(xml))
     out = set()
     for m in ANY_BRACES.finditer(joined):
         ok = PLACEHOLDER.fullmatch(m.group(0))

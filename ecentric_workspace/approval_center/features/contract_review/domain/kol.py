@@ -117,8 +117,12 @@ def compute_amounts(creator_type, amount_type, amount_input, pit_rate=None, vat_
         raise ValueError("Số tiền phải lớn hơn 0.")
     if amount > MAX_AMOUNT:
         raise ValueError("Số tiền quá lớn, kiểm tra lại.")
-    pit_rate = _rate(pit_rate, DEFAULT_PIT_RATE, PIT_RATE_RANGE, "Thuế TNCN")
-    vat_rate = _rate(vat_rate, DEFAULT_VAT_RATE, VAT_RATE_RANGE, "VAT")
+    # Chi kiem thue suat DUNG TOI: ca nhan khong xet VAT, cong ty khong xet TNCN (o kia co the con
+    # gia tri cu ngoai khoang tu luc doi loai creator).
+    uses_pit = amount_type in (NET_AFTER_PIT, GROSS_BEFORE_PIT)
+    uses_vat = amount_type in (BEFORE_VAT, WITH_VAT)
+    pit_rate = _rate(pit_rate, DEFAULT_PIT_RATE, PIT_RATE_RANGE, "Thuế TNCN") if uses_pit else 0.0
+    vat_rate = _rate(vat_rate, DEFAULT_VAT_RATE, VAT_RATE_RANGE, "VAT") if uses_vat else 0.0
     pit = vat = 0.0
     if amount_type == NET_AFTER_PIT:
         gross = _r(amount / (1 - pit_rate / 100.0))
@@ -138,6 +142,8 @@ def compute_amounts(creator_type, amount_type, amount_input, pit_rate=None, vat_
         vat = payable - gross
     else:  # HOUSEHOLD_TOTAL
         gross = payable = _r(amount)
+    if payable < 1:
+        raise ValueError("Số tiền phải lớn hơn 0.")
     return {"gross": float(gross), "pit": float(pit), "vat": float(vat),
             "payable": float(payable), "contract_value": float(gross + vat)}
 

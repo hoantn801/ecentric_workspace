@@ -57,6 +57,30 @@ class MoneyGuards(unittest.TestCase):
             kol.due_date(fri, -10)
 
 
+class Round2(unittest.TestCase):
+    """QC vong 2 (sau ban sua dau)."""
+
+    def test_chi_kiem_thue_suat_dung_toi(self):
+        a = kol.compute_amounts("Cá nhân", kol.GROSS_BEFORE_PIT, 10_000_000, pit_rate=10, vat_rate=999)
+        self.assertEqual(a["pit"], 1_000_000)
+        c = kol.compute_amounts("Công ty", kol.BEFORE_VAT, 10_000_000, pit_rate=999, vat_rate=8)
+        self.assertEqual(c["vat"], 800_000)
+
+    def test_so_tien_lam_tron_ve_0_bi_chan(self):
+        with self.assertRaises(ValueError):
+            kol.compute_amounts("Cá nhân", kol.GROSS_BEFORE_PIT, 0.4)
+
+    def test_dau_ngoac_o_hai_doan_khac_nhau_khong_bao_nham(self):
+        body = '<w:p><w:r><w:t>a {{</w:t></w:r></w:p><w:p><w:r><w:t>}} b {{ten_creator}}</w:t></w:r></w:p>'
+        _out, missing = docx_fill.fill_docx(make_docx(body), {"ten_creator": "X"})
+        self.assertEqual(missing, [])
+
+    def test_sua_creator_thay_mst_sdt_email(self):
+        row = {"name": "S", "supplier_name": "A", "tax_id": "0101", "ec_phone": "09", "ec_cr_email": "a@b.c"}
+        self.assertEqual(cdomain.public_view(row, True)["tax_id"], "0101")
+        self.assertNotIn("tax_id", cdomain.public_view(row, False))
+
+
 class NumberAndPlaceholders(unittest.TestCase):
     def test_so_hop_dong_con_khop_hay_phai_cap_lai(self):
         base = kol.number_base("2026-11-11", "ntp", "fcv")

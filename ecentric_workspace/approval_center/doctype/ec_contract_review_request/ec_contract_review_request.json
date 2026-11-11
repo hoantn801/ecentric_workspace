@@ -68,6 +68,7 @@
   "payment_term_days",
   "sb_kol_doc",
   "contract_template",
+  "generated_template",
   "contract_date",
   "contract_no",
   "contract_file",
@@ -448,6 +449,15 @@
    "options": "EC Contract Template"
   },
   {
+   "fieldname": "generated_template",
+   "fieldtype": "Link",
+   "options": "EC Contract Template",
+   "label": "Mẫu đã dùng",
+   "read_only": 1,
+   "no_copy": 1,
+   "description": "Mẫu hệ thống dùng lần tạo hợp đồng gần nhất (tự chọn hoặc theo ô Mẫu hợp đồng)."
+  },
+  {
    "fieldname": "contract_date",
    "fieldtype": "Date",
    "label": "Ngày ký trên hợp đồng"
@@ -562,7 +572,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-11-11 17:00:00.000000",
+ "modified": "2026-11-11 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "Approval Center",
  "name": "EC Contract Review Request",

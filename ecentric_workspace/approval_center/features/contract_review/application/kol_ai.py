@@ -25,7 +25,7 @@ from ecentric_workspace.approval_center.features.contract_review.application imp
 from ecentric_workspace.approval_center.features.contract_review.application.kol_files import (
     doc_file_bytes, file_bytes)
 from ecentric_workspace.approval_center.features.contract_review.application.kol_service import (
-    can_manage, creator_row)
+    can_manage, creator_row, is_approver)
 from ecentric_workspace.approval_center.features.contract_review.domain import docx_fill, kol
 
 QC_PASS, QC_REVIEW, QC_ERROR = "Đạt", "Cần xem", "Lỗi"
@@ -55,21 +55,53 @@ QC_SCHEMA = {"type": "object", "properties": {
 _NUMBER_RUN = re.compile(r"(?<![\d])\d(?:[\d]|[ \u00a0.\-/](?=\d))*")
 # Tien viet kieu 1.000.000 / 1,000,000: GIU (AI can doc so tien), khong phai so dinh danh.
 _MONEY = re.compile(r"^\d{1,3}(?:[.,]\d{3})+$")
-_DATE = re.compile(r"^\d{1,2}[/.\-]\d{1,2}[/.\-]\d{4}$")
+_DATE = re.compile(r"^(?:\d{1,2}[/.\-]\d{1,2}[/.\-]\d{4}|\d{4}-\d{2}-\d{2})$")
 MIN_ID_DIGITS = 8
+
+
+def _mask_token(token):
+    if _DATE.match(token):
+        return token
+    # Tien: nhom nghin, khong bat dau bang 0 (CCCD / STK hay co so 0 dau), duoi 100 ty.
+    if _MONEY.match(token) and token[0] != "0" and len(re.sub(r"\D", "", token)) <= 11:
+        return token
+    return "[SỐ-ĐÃ-CHE]" if len(re.sub(r"\D", "", token)) >= MIN_ID_DIGITS else token
+
+
+def _parts(token):
+    """Day so co dau cach: neu moi phan deu chi la nhom chu so tran (vd '079 123 456 789') thi la
+    MOT so; con co phan mang dau cham / phay / cheo (vd '2 13.500.000 27.000.000' - mot dong
+    bang) thi la NHIEU so dung canh nhau - tach ra, khong noi lai."""
+    pieces = re.split(r"[ \u00a0]+", token)
+    if len(pieces) > 1 and any(re.search(r"[.,/\-]", p) for p in pieces):
+        return pieces
+    return [token]
+
+
+# Ngay truoc con so co nhan dinh danh thi CHE ke ca khi trong giong tien ('STK 1.903.456.789',
+# 'CMND 271.234.567') - mot so co cham nghin khong phan biet duoc tien hay so TK neu khong nhin nhan.
+_ID_LABEL = re.compile(r"(stk|tài khoản|tai khoan|tk|account|cmnd|cccd|căn cước|can cuoc|mst|mã số thuế|"
+                       r"ma so thue|sđt|sdt|điện thoại|dien thoai|phone|hộ chiếu|ho chieu)\W{0,4}$", re.I)
 
 
 def redact(text):
     """Che day so dinh danh (CCCD, MST, STK, SDT >= 8 chu so) truoc khi gui ra ngoai."""
+    text = text or ""
+
     def sub(m):
         token = m.group(0)
-        if _DATE.match(token):
-            return token
-        # Tien: nhom nghin, khong bat dau bang 0 (CCCD / STK hay co so 0 dau), duoi 100 ty.
-        if _MONEY.match(token) and token[0] != "0" and len(re.sub(r"\D", "", token)) <= 11:
-            return token
-        return "[SỐ-ĐÃ-CHE]" if len(re.sub(r"\D", "", token)) >= MIN_ID_DIGITS else token
-    return _NUMBER_RUN.sub(sub, text or "")
+        if _ID_LABEL.search(text[max(0, m.start() - 20):m.start()]) and len(_digits(token)) >= 6:
+            return "[SỐ-ĐÃ-CHE]"
+        parts = _parts(token)
+        if len(parts) == 1:
+            return _mask_token(token)
+        out, rest = [], token
+        for p in parts:   # giu nguyen khoang trang goc giua cac phan
+            i = rest.index(p)
+            out.append(rest[:i] + _mask_token(p))
+            rest = rest[i + len(p):]
+        return "".join(out) + rest
+    return _NUMBER_RUN.sub(sub, text)
 
 
 def _digits(v):
@@ -78,7 +110,7 @@ def _digits(v):
 
 def number_tokens(text):
     """Moi con so trong van ban (da bo dau phan cach) - so khop NGUYEN con so, khong noi chuoi."""
-    return {_digits(m.group(0)) for m in _NUMBER_RUN.finditer(text or "")}
+    return {_digits(p) for m in _NUMBER_RUN.finditer(text or "") for p in _parts(m.group(0))}
 
 
 def data_checks(text, doc, creator):
@@ -133,14 +165,9 @@ def _load(name, user):
     doc = frappe.get_doc(kol_lookup.CR_DT, name)
     if not kol.is_kol(doc):
         frappe.throw(_("Phiếu này không phải hợp đồng KOL/KOC."))
-    if not (can_manage(doc, user) or _is_approver(doc, user)):
+    if not (can_manage(doc, user) or is_approver(doc, user)):
         frappe.throw(_("Bạn không có quyền chạy AI trên phiếu này."), frappe.PermissionError)
     return doc
-
-
-def _is_approver(doc, user):
-    return bool(doc.get("approval_request") and frappe.db.exists(
-        "EC Approval Request Approver", {"approval_request": doc.approval_request, "approver": user}))
 
 
 def _file_payload(doc, file_url):

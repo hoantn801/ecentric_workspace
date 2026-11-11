@@ -29,11 +29,17 @@ def prepare_draft(doc):
     doc.creator_type = creator.get("ec_cr_type") if creator else None
     so = None
     if doc.get("sales_order"):
-        # Kiem lai SO tren server: bo chon tren trang loc theo team, nhung save_draft nhan
-        # thang ten SO - khong kiem thi doc duoc doanh thu SO cua team khac (QC 11/11).
-        so, err = kol_lookup.so_allowed(frappe.session.user, doc.sales_order)
-        if err:
-            frappe.throw(_(err), frappe.PermissionError)
+        # Kiem lai SO tren server KHI SO DOI: bo chon tren trang loc theo team, nhung save_draft
+        # nhan thang ten SO - khong kiem thi doc duoc doanh thu SO cua team khac (QC 11/11).
+        # SO khong doi thi khong kiem lai: nguoi da chuyen phong van gui lai / sao chep duoc.
+        is_new = getattr(doc, "is_new", None)
+        stored = frappe.db.get_value(kol_lookup.CR_DT, doc.name, "sales_order") \
+            if doc.get("name") and not (callable(is_new) and is_new()) else None
+        if doc.sales_order != stored:
+            so, err = kol_lookup.so_allowed(frappe.session.user, doc.sales_order)
+            if err:
+                frappe.throw(_(err), frappe.PermissionError)
+        so = so or kol_lookup.so_row(doc.sales_order)
     if so:
         doc.so_label = kol_lookup.so_label(so)
         doc.so_revenue = so.net_total
@@ -43,6 +49,12 @@ def prepare_draft(doc):
         doc.so_label = doc.so_revenue = None
     if doc.get("payment_term_days") in (None, ""):
         doc.payment_term_days = kol.DEFAULT_PAYMENT_DAYS
+    # O thue suat de trong: dung mac dinh NGAY TU LUC LUU. De "" thi Frappe luu thanh 0 va luc
+    # gui tinh lai voi 0% - nhap thay 10% ma hop dong khong khau tru TNCN (QC 11/11).
+    if doc.get("pit_rate") in (None, ""):
+        doc.pit_rate = kol.DEFAULT_PIT_RATE
+    if doc.get("vat_rate") in (None, ""):
+        doc.vat_rate = kol.DEFAULT_VAT_RATE
     if not doc.get("contract_date"):
         doc.contract_date = today()
     if not (doc.get("justification") or "").strip():
@@ -117,7 +129,8 @@ def assign_number(doc, creator):
                                kol_lookup.brand_code(doc.get("brand")))
     except ValueError as e:
         frappe.throw(_(str(e)))
-    if kol.number_fits(doc.get("contract_no"), base):
+    if kol.number_fits(doc.get("contract_no"), base) and not frappe.db.exists(
+            kol_lookup.CR_DT, {"contract_no": doc.contract_no, "name": ["!=", doc.name]}):
         return
     existing = set(frappe.get_all(kol_lookup.CR_DT,
                                   filters={"contract_no": ["like", base + "%"], "name": ["!=", doc.name]},
@@ -128,6 +141,11 @@ def assign_number(doc, creator):
 
 def can_manage(doc, user):
     return doc.requested_by == user or kol_lookup.is_finance(user)
+
+
+def is_approver(doc, user):
+    return bool(doc.get("approval_request") and frappe.db.exists(
+        "EC Approval Request Approver", {"approval_request": doc.approval_request, "approver": user}))
 
 
 def approval_status(doc):
@@ -168,6 +186,7 @@ def detail_extra(business, request):
     status = (request or {}).get("approval_status") if isinstance(request, dict) else getattr(request, "approval_status", None)
     return {"kol": {
         "can_manage": can_manage(business, user),
+        "can_ai": can_manage(business, user) or is_approver(business, user),
         "is_finance": kol_lookup.is_finance(user),
         "approved": status == APPROVED,
         "signed": is_signed(business),

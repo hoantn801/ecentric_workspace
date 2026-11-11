@@ -61,11 +61,15 @@ class CreatorRepository:
         frappe = _frappe()
         sp = "ec_creator_insert"
         frappe.db.savepoint(sp)
+        log = getattr(frappe.local, "message_log", None)
+        keep = len(log) if isinstance(log, list) else None
         try:
             doc = frappe.get_doc(dict(values, doctype=DT))
             doc.insert(ignore_permissions=True, set_name=self._free_name(values.get("supplier_name")))
         except (frappe.ValidationError, frappe.DuplicateEntryError) as e:
             frappe.db.rollback(save_point=sp)
+            if keep is not None:   # bo popup loi cua dong nay: da tra ve trong ket qua tung dong
+                del frappe.local.message_log[keep:]
             raise InsertError(_clean_msg(e))
         return doc.name
 

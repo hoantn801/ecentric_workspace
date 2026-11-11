@@ -102,7 +102,7 @@ def generate_contract(name, user):
     from ecentric_workspace.approval_center.features.contract_review.application import kol_service
     kol_service.prepare_draft(doc)
     kol_service.apply_amounts(doc, strict=True)
-    out = build_contract(doc, force=True)
+    out = build_contract(doc)
     doc.save(ignore_permissions=True)
     return out
 
@@ -113,7 +113,7 @@ def _fingerprint(tpl, values):
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()
 
 
-def build_contract(doc, force=False):
+def build_contract(doc):
     """Sinh (lai) hop dong tu DU LIEU HIEN TAI cua phieu. Khong luu - nguoi goi luu.
 
     Dau van tay (`contract_fingerprint`) = mau + moi gia tri dien vao. Luc gui / gui lai, dau
@@ -128,7 +128,9 @@ def build_contract(doc, force=False):
     values = kol.placeholders(doc.as_dict(), creator, kol_lookup.brand_code(doc.get("brand")),
                               doc.get("so_label"))
     fp = _fingerprint(tpl, values)
-    if not force and doc.get("contract_file") and doc.get("contract_fingerprint") == fp:
+    # Du lieu khong doi = tep hien tai van dung: khong sinh ban trung byte (Frappe gop theo noi
+    # dung -> hai File cung URL, lan go sau chi go mot ban - QC 11/11).
+    if doc.get("contract_file") and doc.get("contract_fingerprint") == fp:
         return {"contract_file": doc.contract_file, "contract_no": doc.contract_no,
                 "missing": _missing_list(doc), "template": tpl.name, "regenerated": False}
     data = file_bytes(tpl.template_file)
@@ -136,10 +138,14 @@ def build_contract(doc, force=False):
     used = docx_fill.find_placeholders(data)
     missing = sorted(set(unknown) | set(kol.empty_required(values, used, doc.get("creator_type"))))
     old = doc.get("contract_file")
-    doc.contract_template = tpl.name
+    # Mau he thong tu chon thi KHONG ghi vao contract_template (do la o NGUOI DUNG chon): ghi
+    # vao thi lan sau doi coc / dich vu van dung mau cu (QC 11/11). Ghi mau da dung rieng.
+    doc.generated_template = tpl.name
     doc.contract_file = attach(doc, "HDDV_%s.docx" % _safe(doc.contract_no), content)
-    # Dinh kem chinh = hop dong moi; bo ban sinh truoc (khong de nguoi duyet thay hai phien ban).
-    if not doc.get("request_attachment") or doc.get("request_attachment") == old:
+    # Dinh kem chinh = hop dong moi neu dang trong / dang tro vao mot ban HE THONG sinh (ke ca ban
+    # cua phieu goc khi "Sao chep" phieu bi tu choi - contract_file khong chep nhung tep thi co).
+    if not doc.get("request_attachment") or doc.get("request_attachment") == old \
+            or _is_generated(doc.get("request_attachment")):
         doc.request_attachment = doc.contract_file
     if old and old != doc.contract_file:
         _drop_generated(doc, old)
@@ -149,20 +155,36 @@ def build_contract(doc, force=False):
             "missing": missing, "template": tpl.name, "regenerated": True}
 
 
+def _is_generated(file_url):
+    name = frappe.db.get_value("File", {"file_url": file_url}, "file_name") if file_url else None
+    return bool(name and name.startswith("HDDV_"))
+
+
 def _missing_list(doc):
     return [x.strip() for x in (doc.get("missing_placeholders") or "").split(",") if x.strip()]
 
 
-def _drop_generated(doc, file_url):
-    """Go ban hop dong do HE THONG sinh truoc do (chi tep HDDV_ gan vao chinh phieu nay)."""
-    name = frappe.db.get_value("File", {"file_url": file_url, "attached_to_doctype": doc.doctype,
-                                        "attached_to_name": doc.name}, "name")
+def _drop_generated(doc, file_url, prefix="HDDV_", keep_if_sent=True):
+    """Go ban do HE THONG sinh truoc do (chi tep `prefix` gan vao chinh phieu nay), SAU KHI
+    commit: xoa File la xoa luon byte tren dia - giao dich loi roi rollback thi ban ghi quay lai
+    ma tep thi mat (link 404). Moi ban ghi File cung URL deu go (Frappe gop tep trung noi dung)."""
     # Phieu da tung gui (co approval_request): GIU tep cu lam vet - ban do co the da len
     # SharePoint / da duoc chup doi chung. Chi don ban nhap chua ai thay.
-    if doc.get("approval_request"):
+    if (keep_if_sent and doc.get("approval_request")) or not file_url:
         return
-    if name and (frappe.db.get_value("File", name, "file_name") or "").startswith("HDDV_"):
-        frappe.delete_doc("File", name, ignore_permissions=True, force=True)
+    names = frappe.get_all("File", filters={"file_url": file_url, "attached_to_doctype": doc.doctype,
+                                            "attached_to_name": doc.name,
+                                            "file_name": ["like", prefix + "%"]}, pluck="name")
+    if not names:
+        return
+
+    def _go():
+        for n in names:
+            if frappe.db.exists("File", n):
+                frappe.delete_doc("File", n, ignore_permissions=True, force=True)
+    hook = getattr(frappe.db, "after_commit", None)
+    if hook is not None:
+        hook.add(_go)
 
 
 def generate_acceptance(doc, row, creator):

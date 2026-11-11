@@ -67,10 +67,15 @@ def delete_acceptance(name, user, row_name):
     row = _row(doc, row_name)
     if row.status != kol.BBNT_DRAFT:
         frappe.throw(_("Chỉ xoá được đợt nghiệm thu còn nháp (chưa gửi ký)."))
-    idx, amount = row.idx, flt(row.amount)
+    if row.idx != len(doc.acceptances or []):
+        # Xoa dot giua thi cac dot sau bi danh so lai, ma tep BBNT cua chung da in "dot n" cu.
+        frappe.throw(_("Chỉ xoá được đợt nghiệm thu cuối cùng."))
+    idx, amount, bbnt = row.idx, flt(row.amount), row.bbnt_file
     doc.remove(row)
     doc.save(ignore_permissions=True)
     doc.add_comment("Info", _("Xoá đợt nghiệm thu nháp {0} ({1}).").format(idx, kol.fmt_money(amount)))
+    from ecentric_workspace.approval_center.features.contract_review.application import kol_files
+    kol_files._drop_generated(doc, bbnt, prefix="BBNT_", keep_if_sent=False)
     return {"deleted": row_name}
 
 

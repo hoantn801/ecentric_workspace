@@ -80,6 +80,11 @@ def search_sales_orders(user, query=None):
             for r in rows[:SO_LIMIT]]
 
 
+def so_row(name):
+    row = frappe.db.get_value("Sales Order", name, SO_FIELDS, as_dict=True) if name else None
+    return row if row and row.docstatus != 2 else None
+
+
 def so_allowed(user, name):
     """Kiem lai tren server SO nguoi dung gui len (khong tin bo chon tren trang).
     Tra (row, loi): row la SO hop le; loi la thong bao neu khong dung duoc."""
@@ -95,7 +100,7 @@ def so_allowed(user, name):
         return row, None
     if row.ec_gbs_so_ref and frappe.db.get_value("GBS Sales Order", row.ec_gbs_so_ref, "owner") in team:
         return row, None
-    return None, "SO %s không thuộc phòng ban của bạn. Nhờ Kế toán nếu cần dùng SO này." % name
+    return None, "SO %s không thuộc phòng ban của bạn. Chọn SO do bạn hoặc phòng ban bạn tạo." % name
 
 
 def gbs_without_counterpart(user, query):

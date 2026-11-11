@@ -50,7 +50,7 @@ class AiPureTests(unittest.TestCase):
         inject = _fake_frappe()
         for mod in ("kol_lookup", "kol_files", "kol_service"):
             m = types.ModuleType("ecentric_workspace.approval_center.features.contract_review.application." + mod)
-            m.file_bytes = m.doc_file_bytes = m.can_manage = m.creator_row = lambda *a, **k: None
+            m.file_bytes = m.doc_file_bytes = m.can_manage = m.creator_row = m.is_approver = lambda *a, **k: None
             inject[m.__name__] = m
         app = types.ModuleType("ecentric_workspace.approval_center.features.contract_review.application")
         for mod in ("kol_lookup", "kol_files", "kol_service"):
@@ -68,6 +68,16 @@ class AiPureTests(unittest.TestCase):
         self.assertNotIn("789", out)
         self.assertNotIn("4455", out)
         self.assertIn("3 buổi", out)
+
+    def test_che_so_vong_2(self):
+        out = self.ai.redact("CCCD 079 123 456 789; dòng 2 13.500.000 27.000.000; ngày 2026-11-11; "
+                             "STK: 1.903.456.789; CMND 271.234.567; phí 271.234.567 đồng")
+        self.assertIn("2 13.500.000 27.000.000", out)       # dong bang: khong noi so thanh mot
+        self.assertIn("2026-11-11", out)
+        self.assertNotIn("1.903.456.789", out)              # co nhan STK -> che du giong tien
+        self.assertNotIn("CMND 271", out)
+        self.assertIn("phí 271.234.567", out)               # tien that thi giu
+        self.assertIn("27000000", self.ai.number_tokens("2 13.500.000 27.000.000"))
 
     def test_kiem_so_lieu_bang_may(self):
         text = "Bên B: Nguyễn Văn A, CCCD 079123456789. Tổng thanh toán 9.000.000 đồng."

@@ -102,7 +102,7 @@ def _is_approved(source_doctype, row, meta):
     return state in meta.get("approved_states", ())
 
 
-def consumed_amount(source_doctype, source_name, exclude_request=None):
+def consumed_amount(source_doctype, source_name, exclude_request=None, for_update=False):
     """Sum of Payment Requests charged against this commitment.
 
     `exclude_request` leaves out the request being edited, so re-saving a draft does not
@@ -113,13 +113,16 @@ def consumed_amount(source_doctype, source_name, exclude_request=None):
         return 0.0
     filters = {"funding_source_doctype": source_doctype, "funding_source_name": source_name}
     total = 0.0
+    # for_update: doc KHOA (doc ban moi nhat da commit). Doc thuong trong REPEATABLE READ dung
+    # anh chup tu dau giao dich -> khong thay DNTT vua nop cung luc, khoa dong nguon la vo ich.
+    kw = {"for_update": True} if for_update else {}
     for row in frappe.get_all("EC Payment Request", filters=filters,
                               fields=["name", "payment_amount", "approval_request"],
-                              ignore_permissions=True, limit_page_length=0):
+                              ignore_permissions=True, limit_page_length=0, **kw):
         if exclude_request and row.name == exclude_request:
             continue
         status = row.approval_request and frappe.db.get_value(
-            "EC Approval Request", row.approval_request, "approval_status")
+            "EC Approval Request", row.approval_request, "approval_status", **kw)
         if status in CONSUMING_STATUSES:
             total += float(row.payment_amount or 0)
     return total
@@ -133,10 +136,10 @@ def source_total(source_doctype, source_name):
     return float(value or 0)
 
 
-def remaining_for_source(source_doctype, source_name, exclude_request=None):
+def remaining_for_source(source_doctype, source_name, exclude_request=None, for_update=False):
     """committed - already charged. Never negative in the UI sense; callers compare against it."""
     return source_total(source_doctype, source_name) - consumed_amount(
-        source_doctype, source_name, exclude_request)
+        source_doctype, source_name, exclude_request, for_update=for_update)
 
 
 def describe_source(source_doctype, source_name, exclude_request=None):
@@ -220,7 +223,8 @@ def validate_funding(doc):
                        ).format(source_name))
 
     amount = float(doc.get("payment_amount") or 0)
-    remaining = remaining_for_source(source_doctype, source_name, exclude_request=doc.get("name"))
+    remaining = remaining_for_source(source_doctype, source_name, exclude_request=doc.get("name"),
+                                     for_update=bool(meta.get("lock_source")))
     # Epsilon must stay BELOW the smallest real unit: VND has no subunit, so a tolerance of
     # 1 would let someone overspend by exactly one dong (caught by test_one_over_is_refused).
     # 0.5 absorbs float noise on Currency (stored decimal(21,9)) without hiding a real overspend.
