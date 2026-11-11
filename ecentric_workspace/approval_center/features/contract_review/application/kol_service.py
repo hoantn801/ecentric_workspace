@@ -5,12 +5,15 @@ Moi con so (gross, TNCN, VAT, so tien tra, tien coc, gia tri hop dong) do SERVER
 `domain.kol.compute_amounts` - form chi hien lai. Nguoi dung sua DOM cung khong doi duoc so
 tien di vao hop dong va DNTT.
 """
+import datetime
+
 import frappe
 from frappe import _
 from frappe.utils import now_datetime, today
 
 from ecentric_workspace.approval_center.features.contract_review.application import kol_lookup
 from ecentric_workspace.approval_center.features.contract_review.domain import kol
+from ecentric_workspace.approval_center.features.contract_review.domain import kol_texts, kol_values
 from ecentric_workspace.approval_center.shared.creators.repository import CreatorRepository
 
 APPROVED = "Approved"
@@ -47,16 +50,16 @@ def prepare_draft(doc):
             doc.brand = so.ec_brand
     else:
         doc.so_label = doc.so_revenue = None
-    if doc.get("payment_term_days") in (None, ""):
-        doc.payment_term_days = kol.DEFAULT_PAYMENT_DAYS
+    _default_payment_days(doc)
+    if doc.get("payment_schedule") == kol.PAY_ADVANCE and not doc.get("advance_percent"):
+        doc.advance_percent = kol.DEFAULT_ADVANCE_PERCENT
     # O thue suat de trong: dung mac dinh NGAY TU LUC LUU. De "" thi Frappe luu thanh 0 va luc
     # gui tinh lai voi 0% - nhap thay 10% ma hop dong khong khau tru TNCN (QC 11/11).
     if doc.get("pit_rate") in (None, ""):
         doc.pit_rate = kol.DEFAULT_PIT_RATE
     if doc.get("vat_rate") in (None, ""):
         doc.vat_rate = kol.DEFAULT_VAT_RATE
-    if not doc.get("contract_date"):
-        doc.contract_date = today()
+    set_sign_date(doc)
     if not (doc.get("justification") or "").strip():
         doc.justification = ("Hoa hồng affiliate" if doc.get("service_type") == "Hoa hồng affiliate"
                              else "Booking KOL/KOC")
@@ -69,9 +72,9 @@ def apply_amounts(doc, strict):
     try:
         amounts = kol.compute_amounts(doc.get("creator_type"), doc.get("amount_type"),
                                       doc.get("amount_input"), doc.get("pit_rate"), doc.get("vat_rate"))
-        advance = kol.advance_amount(amounts["payable"], doc.get("payment_schedule"),
+        advance = kol.advance_amount(amounts, doc.get("creator_type"), doc.get("payment_schedule"),
                                      doc.get("advance_percent"))
-        kol.payment_days(doc.get("payment_term_days"))
+        kol.payment_days(doc.get("payment_term_days"), doc.get("creator_type"), doc.get("platform"))
     except ValueError as e:
         if strict:
             frappe.throw(_(str(e)))
@@ -85,6 +88,56 @@ def apply_amounts(doc, strict):
     doc.advance_amount = advance
     if doc.get("payment_schedule") != kol.PAY_ADVANCE:
         doc.advance_percent = None
+
+
+def _stored(doc, fields):
+    is_new = getattr(doc, "is_new", None)
+    if not doc.get("name") or (callable(is_new) and is_new()):
+        return {}
+    return frappe.db.get_value(kol_lookup.CR_DT, doc.name, fields, as_dict=True) or {}
+
+
+def _default_payment_days(doc):
+    """So ngay thanh toan mac dinh theo tool cu (ca nhan 35, cong ty / HKD 30, Shopee 15).
+
+    Doi loai creator / nen tang ma o nay van dang la MAC DINH cua lua chon cu -> doi theo mac dinh
+    moi; nguoi dung da go so khac thi giu nguyen."""
+    current = doc.get("payment_term_days")
+    want = kol.default_payment_days(doc.get("creator_type"), doc.get("platform"))
+    if current in (None, ""):
+        doc.payment_term_days = want
+        return
+    old = _stored(doc, ["creator_type", "platform"])
+    if old and (old.get("creator_type"), old.get("platform")) != (doc.get("creator_type"), doc.get("platform")):
+        if int(float(current)) == kol.default_payment_days(old.get("creator_type"), old.get("platform")):
+            doc.payment_term_days = want
+
+
+def service_dates_or_none(doc):
+    try:
+        return kol.service_dates(doc)
+    except ValueError:
+        return []
+
+
+def set_sign_date(doc):
+    """Ngay ky = 1 ngay lam viec TRUOC buoi thuc hien dau (tool cu, bo T7/CN/ngay nghi). Nguoi
+    dung chon ngay som hon thi giu; chon ngay >= buoi dau thi lui ve truoc buoi dau."""
+    dates = service_dates_or_none(doc)
+    if not dates:
+        if not doc.get("contract_date"):
+            doc.contract_date = today()
+        return
+    chosen = doc.get("contract_date")
+    chosen = datetime.date.fromisoformat(str(chosen)[:10]) if chosen else None
+    doc.contract_date = str(kol_texts.business_day_before(chosen, dates[0], kol_lookup.holidays()))
+
+
+def expected_bbnt_date(doc):
+    """Ngay BBNT du kien tren HDDV = 1 ngay lam viec SAU buoi thuc hien cuoi (tool cu AFTER_SERVICE).
+    BBNT that thi dung ngay nghiem thu cua tung dot."""
+    dates = service_dates_or_none(doc)
+    return kol_texts.business_day_after(None, dates[-1], kol_lookup.holidays()) if dates else None
 
 
 def summary_text(doc):
@@ -122,11 +175,17 @@ def validate_submit(doc):
 
 
 def assign_number(doc, creator):
-    """Cap / cap lai so hop dong. So dang co ma khong con khop ngay ky / ma doi tac / ma brand
-    (doi creator, brand, ngay sau lan tao dau) thi cap lai - so sai di vao van ban phap ly."""
+    """Cap / cap lai so hop dong. So dang co ma khong con khop ngay thuc hien dau / ma doi tac /
+    ma brand (doi creator, brand, ngay sau lan tao dau) thi cap lai - so sai di vao van ban phap ly.
+
+    Ma doi tac: Ke toan dien tay (ec_cr_party_code) thi dung, khong thi suy tu ten nhu tool cu
+    (ca nhan = chu cai dau, cong ty / HKD = viet tat bo "Cong ty TNHH..."); ngay = buoi dau tien."""
+    dates = service_dates_or_none(doc)
+    number_date = dates[0] if dates else (doc.contract_date or today())
+    party = kol_texts.party_code(creator.get("ec_cr_type"), creator.get("supplier_name"),
+                                 creator.get("ec_cr_party_code"))
     try:
-        base = kol.number_base(doc.contract_date or today(), creator.get("ec_cr_party_code"),
-                               kol_lookup.brand_code(doc.get("brand")))
+        base = kol.number_base(number_date, party, kol_lookup.brand_code(doc.get("brand")))
     except ValueError as e:
         frappe.throw(_(str(e)))
     if kol.number_fits(doc.get("contract_no"), base) and not frappe.db.exists(
@@ -135,8 +194,7 @@ def assign_number(doc, creator):
     existing = set(frappe.get_all(kol_lookup.CR_DT,
                                   filters={"contract_no": ["like", base + "%"], "name": ["!=", doc.name]},
                                   pluck="contract_no", limit_page_length=0, ignore_permissions=True))
-    doc.contract_no = kol.contract_number(doc.contract_date or today(), creator.get("ec_cr_party_code"),
-                                          kol_lookup.brand_code(doc.get("brand")), existing)
+    doc.contract_no = kol.contract_number(number_date, party, kol_lookup.brand_code(doc.get("brand")), existing)
 
 
 def can_manage(doc, user):
@@ -198,4 +256,10 @@ def detail_extra(business, request):
         "acceptances": kol_acceptance.rows_view(business),
         "acceptance_remaining": kol_acceptance.acceptance_remaining(business),
         "funding": kol_acceptance.funding_view(business),
+        "missing_labels": kol_values.missing_labels(_split(business.get("missing_placeholders"))),
+        "missing_creator": kol_values.missing_is_creator(_split(business.get("missing_placeholders"))),
     }}
+
+
+def _split(text):
+    return [x.strip() for x in (text or "").split(",") if x.strip()]

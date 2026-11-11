@@ -151,20 +151,41 @@ def list_templates(kind=None):
     if kind:
         filters["kind"] = kind
     return frappe.get_all(TEMPLATE_DT, filters=filters,
-                          fields=["name", "kind", "creator_type", "service_type", "has_advance",
+                          fields=["name", "kind", "creator_type", "service_type", "platform", "has_advance",
                                   "version", "unknown_placeholders"],
                           order_by="template_name asc", limit_page_length=200)
 
 
-def pick_template(kind, creator_type, service_type, has_advance):
-    """Mau khop nhat: dung loai creator; dich vu dung hon 'Tất cả'; co/khong coc dung hon."""
+def pick_template(kind, creator_type, service_type, has_advance, platform=None):
+    """Chon mau giong resolveTemplateId_ cua tool cu:
+      * Shopee chi co mau rieng (nen tang = Shopee); TikTok/khac khong dung mau Shopee.
+      * Hop dong co coc PHAI dung mau co coc (va nguoc lai) - khong lay mau thuong thay the:
+        dieu khoan thanh toan khac nhau. BBNT khong co ban coc rieng.
+      * "Livestream + Video" / hoa hong dung mau Livestream (tool cu: khong phai Video la Livestream);
+        mau dung dich vu hon mau "Tất cả"."""
+    want = "Video" if service_type == "Video" else "Livestream"
+    shopee = platform == "Shopee"
     best, best_score = None, -1
     for t in list_templates(kind):
         if t.creator_type != creator_type:
             continue
-        if t.service_type not in ("Tất cả", service_type):
+        if ((t.get("platform") or "Tất cả") == "Shopee") != shopee:
             continue
-        score = (2 if t.service_type == service_type else 0) + (1 if bool(t.has_advance) == bool(has_advance) else 0)
+        if kind == "Hợp đồng" and bool(t.has_advance) != bool(has_advance):
+            continue
+        if t.service_type not in ("Tất cả", want, service_type):
+            continue
+        score = 2 if t.service_type in (service_type, want) else 0
         if score > best_score:
             best, best_score = t.name, score
     return best
+
+
+def holidays():
+    """Ngay nghi le cua cong ty mac dinh (Holiday List) - de lui ngay ky ve ngay lam viec."""
+    company = frappe.defaults.get_global_default("company")
+    hl = frappe.get_cached_value("Company", company, "default_holiday_list") if company else None
+    if not hl:
+        return set()
+    return set(frappe.get_all("Holiday", filters={"parent": hl}, pluck="holiday_date",
+                              limit_page_length=0, ignore_permissions=True))

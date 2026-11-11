@@ -58,7 +58,9 @@ def add_acceptance(name, user, description, acceptance_date=None, amount=None):
     url, missing = kol_files.generate_acceptance(doc, row, creator_row(doc.creator))
     row.bbnt_file = url
     doc.save(ignore_permissions=True)
-    return {"row": row.name, "bbnt_file": url, "missing": missing}
+    from ecentric_workspace.approval_center.features.contract_review.domain import kol_values
+    return {"row": row.name, "bbnt_file": url, "missing": missing,
+            "missing_labels": kol_values.missing_labels(missing)}
 
 
 def delete_acceptance(name, user, row_name):
@@ -112,7 +114,8 @@ def complete_acceptance(name, user, row_name, signed_file):
     row.completed_at = now_datetime()
     row.completed_by = user
     # Han thanh toan tinh tu NGAY KY XONG (ngay tai ban ky), ke ca khi Ke toan xac nhan sau.
-    row.due_date = kol.due_date(row.completed_at.date(), doc.payment_term_days)
+    row.due_date = kol.due_date(row.completed_at.date(), doc.payment_term_days, doc.get("creator_type"),
+                                doc.get("platform"))
     from ecentric_workspace.approval_center.features.contract_review.application import kol_verify
     findings = kol_verify.apply_acceptance_check(doc, row)
     doc.save(ignore_permissions=True)

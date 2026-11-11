@@ -71,7 +71,8 @@ def kol_list_templates(kind=None):
 @frappe.whitelist()
 def kol_placeholder_help():
     _me()
-    return {"placeholders": list(kol.PLACEHOLDER_HELP)}
+    from ecentric_workspace.approval_center.features.contract_review.domain import kol_values
+    return {"placeholders": ["<<%s>>" % k for k in kol_values.PLACEHOLDER_HELP]}
 
 
 @frappe.whitelist()
@@ -81,8 +82,9 @@ def kol_preview_amounts(creator_type=None, amount_type=None, amount_input=None, 
     _me()
     try:
         out = kol.compute_amounts(creator_type, amount_type, amount_input, pit_rate, vat_rate)
-        out["advance"] = kol.advance_amount(out["payable"], payment_schedule, advance_percent)
-        out["payable_words"] = kol.amount_in_words(out["payable"])
+        out["advance"] = kol.advance_amount(out, creator_type, payment_schedule, advance_percent)
+        from ecentric_workspace.approval_center.features.contract_review.domain.vn_words import amount_in_words
+        out["payable_words"] = amount_in_words(out["payable"])
         return {"ok": True, "amounts": out}
     except ValueError as e:
         return {"ok": False, "error": str(e)}

@@ -8,7 +8,7 @@
  "engine": "InnoDB",
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-11-11 15:30:00.000000",
+ "modified": "2026-11-12 03:00:00.000000",
  "modified_by": "Administrator",
  "module": "Approval Center",
  "name": "EC Contract Template",
@@ -24,6 +24,7 @@
   "kind",
   "creator_type",
   "service_type",
+  "platform",
   "has_advance",
   "is_active",
   "cb0",
@@ -67,6 +68,15 @@
    "options": "Tất cả\nLivestream\nVideo\nLivestream + Video\nHoa hồng affiliate",
    "default": "Tất cả",
    "in_list_view": 1
+  },
+  {
+   "fieldname": "platform",
+   "fieldtype": "Select",
+   "label": "Nền tảng",
+   "options": "Tất cả\nShopee",
+   "default": "Tất cả",
+   "in_list_view": 1,
+   "description": "Shopee: mẫu riêng của tool cũ (chỉ Công ty - Livestream). Mọi nền tảng khác dùng mẫu 'Tất cả'."
   },
   {
    "fieldname": "has_advance",

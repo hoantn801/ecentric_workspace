@@ -20,7 +20,7 @@ sys.path.insert(0, str(_HERE))
 
 from test_contract_kol_domain import doc_xml, make_docx  # noqa: E402
 
-from ecentric_workspace.approval_center.features.contract_review.domain import docx_fill, kol  # noqa: E402
+from ecentric_workspace.approval_center.features.contract_review.domain import docx_fill, kol, kol_values  # noqa: E402
 from ecentric_workspace.approval_center.shared.creators import domain as cdomain  # noqa: E402
 
 
@@ -44,10 +44,11 @@ class MoneyGuards(unittest.TestCase):
         self.assertEqual(b["pit"], 100_002)
 
     def test_ty_le_coc_chi_trong_danh_sach(self):
-        self.assertEqual(kol.advance_amount(10_000_000, kol.PAY_ADVANCE, "30"), 3_000_000)
+        amounts = {"gross": 11_111_111, "payable": 10_000_000}
+        self.assertEqual(kol.advance_amount(amounts, "Cá nhân", kol.PAY_ADVANCE, "30"), 3_000_000)
         for pct in (33, 99, 0):
             with self.assertRaises(ValueError):
-                kol.advance_amount(10_000_000, kol.PAY_ADVANCE, pct)
+                kol.advance_amount(amounts, "Cá nhân", kol.PAY_ADVANCE, pct)
 
     def test_so_ngay_thanh_toan_0_hop_le_am_bi_chan(self):
         fri = dt.date(2026, 11, 13)
@@ -71,8 +72,9 @@ class Round2(unittest.TestCase):
             kol.compute_amounts("Cá nhân", kol.GROSS_BEFORE_PIT, 0.4)
 
     def test_dau_ngoac_o_hai_doan_khac_nhau_khong_bao_nham(self):
-        body = '<w:p><w:r><w:t>a {{</w:t></w:r></w:p><w:p><w:r><w:t>}} b {{ten_creator}}</w:t></w:r></w:p>'
-        _out, missing = docx_fill.fill_docx(make_docx(body), {"ten_creator": "X"})
+        body = ('<w:p><w:r><w:t>a &lt;&lt;</w:t></w:r></w:p>'
+                '<w:p><w:r><w:t>&gt;&gt; b &lt;&lt;PERSON_FULL_NAME&gt;&gt;</w:t></w:r></w:p>')
+        _out, missing = docx_fill.fill_docx(make_docx(body), {"PERSON_FULL_NAME": "X"})
         self.assertEqual(missing, [])
 
     def test_sua_creator_thay_mst_sdt_email(self):
@@ -123,51 +125,57 @@ class NumberAndPlaceholders(unittest.TestCase):
         self.assertFalse(kol.number_fits(None, base))
 
     def test_truong_bat_buoc_rong_bi_bao_thieu(self):
-        vals = kol.placeholders({"contract_no": "X", "contract_date": "2026-11-11"},
-                                {"supplier_name": "A", "ec_cr_type": "Cá nhân"})
-        miss = kol.empty_required(vals, ["ten_creator", "cccd", "so_tai_khoan", "tiktok_id"], "Cá nhân")
-        self.assertEqual(sorted(miss), ["cccd", "so_tai_khoan"])   # tiktok_id rong la binh thuong
+        vals = kol_values.contract_values({"contract_no": "X", "creator_type": "Cá nhân"},
+                                          {"supplier_name": "A", "ec_cr_type": "Cá nhân"}, "B",
+                                          "2026-11-11", [dt.date(2026, 11, 12)])
+        miss = kol_values.empty_required(
+            vals, ["PERSON_FULL_NAME", "PERSON_ID_NO", "BANK_ACCOUNT_NO", "TIKTOK_ID_DISPLAY"], "Cá nhân")
+        self.assertEqual(sorted(miss), ["BANK_ACCOUNT_NO", "PERSON_ID_NO"])   # TikTok ID rong la binh thuong
 
     def test_mau_hop_dong_dung_khoa_bbnt_la_khoa_la(self):
-        self.assertNotIn("so_tien_nghiem_thu", kol.known_placeholders(False))
-        self.assertIn("so_tien_nghiem_thu", kol.known_placeholders(True))
+        self.assertNotIn("ACCEPTANCE_AMOUNT_NUM", kol_values.known(False))
+        self.assertIn("ACCEPTANCE_AMOUNT_NUM", kol_values.known(True))
 
     def test_thue_suat_mac_dinh_khi_phieu_chua_co(self):
-        vals = kol.placeholders({}, {})
-        self.assertEqual(vals["thue_suat_tncn"], "10%")
-        self.assertEqual(vals["so_ngay_thanh_toan"], "30")
+        vals = kol_values.contract_values({"creator_type": "Cá nhân"}, {}, "", None, [dt.date(2026, 1, 5)],
+                                          payment_days=35)
+        self.assertEqual(vals["TNCN_RATE_PCT"], "10")
+        self.assertEqual(vals["VAT_RATE_PCT"], "8")
+        self.assertEqual(vals["PAYMENT_DAYS_PERSONAL"], "35")
 
 
 class DocxEdges(unittest.TestCase):
     def test_ten_sai_khuon_bi_bao_khong_bo_sot(self):
-        _out, missing = docx_fill.fill_docx(make_docx('<w:p><w:r><w:t>{{tên}} {{ten-creator}}</w:t></w:r></w:p>'), {})
-        self.assertIn("{{tên}}", missing)
-        self.assertIn("{{ten-creator}}", missing)
+        _out, missing = docx_fill.fill_docx(
+            make_docx('<w:p><w:r><w:t>&lt;&lt;tên&gt;&gt; &lt;&lt;TEN-CREATOR&gt;&gt;</w:t></w:r></w:p>'), {})
+        self.assertIn("<<tên>>", missing)
+        self.assertIn("<<TEN-CREATOR>>", missing)
 
     def test_dau_ngoac_kep_khong_bi_escape_hai_lan(self):
-        body = '<w:p><w:r><w:t>&quot;Bên B&quot;: {{ten_creator}}</w:t></w:r></w:p>'
-        out, _m = docx_fill.fill_docx(make_docx(body), {"ten_creator": "A"})
+        body = '<w:p><w:r><w:t>&quot;Bên B&quot;: &lt;&lt;PERSON_FULL_NAME&gt;&gt;</w:t></w:r></w:p>'
+        out, _m = docx_fill.fill_docx(make_docx(body), {"PERSON_FULL_NAME": "A"})
         self.assertNotIn("&amp;quot;", doc_xml(out))
 
     def test_w_t_tu_dong_khong_lam_hong_doan(self):
-        body = ('<w:p><w:r><w:t xml:space="preserve"/></w:r><w:r><w:t>{{ten_creator}}</w:t></w:r>'
+        body = ('<w:p><w:r><w:t xml:space="preserve"/></w:r><w:r><w:t>&lt;&lt;PERSON_FULL_NAME&gt;&gt;</w:t></w:r>'
                 '<w:r><w:t>đuôi</w:t></w:r></w:p>')
-        out, _m = docx_fill.fill_docx(make_docx(body), {"ten_creator": "A"})
+        out, _m = docx_fill.fill_docx(make_docx(body), {"PERSON_FULL_NAME": "A"})
         xml = doc_xml(out)
         self.assertIn('<w:t xml:space="preserve"/>', xml)
         self.assertIn("<w:t>A</w:t>", xml)
         self.assertIn("<w:t>đuôi</w:t>", xml)
 
     def test_placeholder_sau_khung_van_ban_bi_bao_khong_lot_qua(self):
-        body = ('<w:p><w:r><w:t>A {{ten_creator}}</w:t></w:r><w:r><w:pict><w:txbxContent><w:p><w:r>'
-                '<w:t>box {{cccd}}</w:t></w:r></w:p></w:txbxContent></w:pict></w:r>'
-                '<w:r><w:t>sau {{dia_chi}}</w:t></w:r></w:p>')
-        _out, missing = docx_fill.fill_docx(make_docx(body), {"ten_creator": "X", "cccd": "1", "dia_chi": "Y"})
-        self.assertEqual(missing, ["{{dia_chi}} (không điền được)"])
+        body = ('<w:p><w:r><w:t>A &lt;&lt;PERSON_FULL_NAME&gt;&gt;</w:t></w:r><w:r><w:pict><w:txbxContent><w:p><w:r>'
+                '<w:t>box &lt;&lt;PERSON_ID_NO&gt;&gt;</w:t></w:r></w:p></w:txbxContent></w:pict></w:r>'
+                '<w:r><w:t>sau &lt;&lt;PARTY_ADDRESS&gt;&gt;</w:t></w:r></w:p>')
+        _out, missing = docx_fill.fill_docx(make_docx(body), {"PERSON_FULL_NAME": "X", "PERSON_ID_NO": "1",
+                                                              "PARTY_ADDRESS": "Y"})
+        self.assertEqual(missing, ["PARTY_ADDRESS (không điền được)"])
 
     def test_dia_chi_nhieu_dong_thanh_xuong_dong_word(self):
-        out, _m = docx_fill.fill_docx(make_docx('<w:p><w:r><w:t>{{dia_chi}}</w:t></w:r></w:p>'),
-                                      {"dia_chi": "Số 1\nQuận 1"})
+        out, _m = docx_fill.fill_docx(make_docx('<w:p><w:r><w:t>&lt;&lt;PARTY_ADDRESS&gt;&gt;</w:t></w:r></w:p>'),
+                                      {"PARTY_ADDRESS": "Số 1\nQuận 1"})
         self.assertIn("<w:br/>", doc_xml(out))
 
 
