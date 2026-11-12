@@ -13,7 +13,8 @@ from frappe.utils import now_datetime, today
 
 from ecentric_workspace.approval_center.features.contract_review.application import kol_lookup
 from ecentric_workspace.approval_center.features.contract_review.domain import kol
-from ecentric_workspace.approval_center.features.contract_review.domain import kol_calc, kol_texts, kol_values
+from ecentric_workspace.approval_center.features.contract_review.domain import (
+    esign_flow, kol_calc, kol_texts, kol_values)
 from ecentric_workspace.approval_center.shared.creators.repository import CreatorRepository
 
 APPROVED = "Approved"
@@ -24,7 +25,9 @@ def creator_row(name):
 
 
 def prepare_draft(doc):
-    """`draft_preparer` cua form 27: chi lam viec voi phieu KOL, nuot loi tinh tien (nhap do)."""
+    """`draft_preparer` cua form 27: quy trinh ky mac dinh cho MOI loai; phan con lai chi lam
+    viec voi phieu KOL, nuot loi tinh tien (nhap do)."""
+    esign_flow.apply_default(doc)
     if not kol.is_kol(doc):
         return
     creator = creator_row(doc.get("creator"))

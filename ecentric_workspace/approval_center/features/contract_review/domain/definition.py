@@ -5,6 +5,8 @@ from ecentric_workspace.approval_center.shared.definition_support import (
     BrandAndDepartmentOptions, ExactAndDateFilters, ServiceMethod, service_callbacks,
 )
 
+from ecentric_workspace.approval_center.features.contract_review.domain import esign_flow as _esign_flow
+
 _KOL = "ecentric_workspace.approval_center.features.contract_review.application.kol_service"
 
 CONTRACT_REVIEW_DEFINITION = ApprovalDefinition(
@@ -19,7 +21,9 @@ CONTRACT_REVIEW_DEFINITION = ApprovalDefinition(
                      "creator", "service_type", "platform", "quantity",
                      "duration", "air_dates", "commission_rate", "amount_type", "amount_input",
                      "pit_rate", "vat_rate", "payment_schedule", "advance_percent",
-                     "payment_term_days", "contract_template", "contract_date"),
+                     "payment_term_days", "contract_template", "contract_date",
+                     # Quy trinh ky tren cong (12/11, chot voi chat Ky so) - xem domain/esign_flow.py.
+                     "esign_flow"),
     my_request_fields=("name", "request_title", "request_kind", "contract_type", "brand",
                        "contract_value", "expected_response_date", "approval_request",
                        "creation", "modified"),
@@ -29,7 +33,11 @@ CONTRACT_REVIEW_DEFINITION = ApprovalDefinition(
     options_provider=BrandAndDepartmentOptions((
         ("request_kinds", ("Existing", "New")),
         ("contract_types", ("Purchase / Mua vào (EC)", "Sales / Bán ra (EC)",
-                            "Service / Dịch vụ (GBSxBrand)", "KOL/KOC / Creator (EC)")),
+                            "Service / Dịch vụ (GBSxBrand)", "KOL/KOC / Creator (EC)",
+                            "Labor / Hợp đồng lao động (EC)")),
+        ("esign_flows", _esign_flow.FLOWS),
+        # "loai HD|quy trinh mac dinh" - trang chi HIEN goi y, server dien that (esign_flow.apply_default).
+        ("esign_flow_defaults", tuple("%s|%s" % kv for kv in _esign_flow.DEFAULTS.items())),
         ("kol_service_types", ("Livestream", "Video", "Livestream + Video", "Hoa hồng affiliate")),
         ("kol_platforms", ("TikTok", "Shopee", "Facebook", "Khác")),
         ("kol_payment_schedules", ("Thanh toán sau nghiệm thu", "Cọc trước")),

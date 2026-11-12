@@ -14,7 +14,7 @@ import frappe
 from frappe import _
 from frappe.utils import now_datetime
 
-from ecentric_workspace.approval_center.features.contract_review.domain import kol
+from ecentric_workspace.approval_center.features.contract_review.domain import esign_flow, kol
 from ecentric_workspace.approval_center.shared.workflow import transitions as engine
 
 BUSINESS_DT = "EC Contract Review Request"
@@ -23,7 +23,7 @@ CEO_LEVEL_NO = 4
 
 MATERIAL_FIELDS = ["request_kind", "previous_request", "contract_type", "request_type",
                    "brand", "justification", "contract_value", "contract_start_date",
-                   "contract_end_date", "request_details"]
+                   "contract_end_date", "request_details", "esign_flow"]
 # KOL/KOC: doi creator / SO / tien / coc khi gui lai = duyet lai tu dau. CHI cong vao chu ky
 # cua phieu KOL - cong cho moi phieu thi chu ky cua phieu cu dang "Can bo sung" doi theo va
 # bi duyet lai tu dau du khong ai sua gi.
@@ -108,7 +108,12 @@ def submit(name):
         # Nap tre: module KOL keo creator repository + lookup, phieu thuong khong can.
         from ecentric_workspace.approval_center.features.contract_review.application import kol_service
         kol_service.validate_submit(doc)
-    missing = [f for f in REQUIRED_AT_SUBMIT if not doc.get(f)]
+    esign_flow.apply_default(doc)
+    # Hop dong lao dong (12/11): khong gan brand, khong bat nhap gia tri (luong nam trong tep).
+    need = [f for f in REQUIRED_AT_SUBMIT
+            if not (f == "brand" and not esign_flow.needs_brand(doc.get("contract_type")))
+            and not (f == "contract_value" and not esign_flow.needs_value(doc.get("contract_type")))]
+    missing = [f for f in need if not doc.get(f)]
     if missing:
         frappe.throw(_("Vui lòng nhập đầy đủ các trường bắt buộc trước khi gửi."))
     if doc.request_kind == "Existing" and not doc.previous_request:

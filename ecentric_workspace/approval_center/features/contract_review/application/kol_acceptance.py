@@ -165,22 +165,30 @@ def complete_acceptance(name, user, row_name, signed_file):
     if signed_file in used or signed_file == doc.get("signed_file"):
         frappe.throw(_("Tệp này đã dùng cho hợp đồng hoặc đợt nghiệm thu khác. Tải BBNT đã ký của đợt này."))
     from ecentric_workspace.approval_center.features.contract_review.application.kol_files import claim_upload
-    row.signed_file = claim_upload(doc, signed_file, user)
-    row.completed_at = now_datetime()
-    row.completed_by = user
+    findings = finish_round(doc, row, claim_upload(doc, signed_file, user), now_datetime(), user)
+    return {"status": row.status, "due_date": str(row.due_date), "findings": findings}
+
+
+def finish_round(doc, row, signed_file, when, by):
+    """Ghi ban BBNT ky xong cua mot dot (nguoi tai len, hoac nen tang ky so qua esign_hooks): han
+    thanh toan + may kiem + vet. `by` = user (Link) hoac nhan nguon (vd "Ky so (cong)")."""
+    row.signed_file = signed_file
+    row.completed_at = when
+    row.completed_by = by if (by and ("@" in by or by == "Administrator")) else None
     # Han thanh toan tinh tu NGAY KY XONG (ngay tai ban ky), ke ca khi Ke toan xac nhan sau.
     row.due_date = kol.due_date(row.completed_at.date(), doc.payment_term_days, doc.get("creator_type"),
                                 doc.get("platform"), kol_lookup.holidays())
     from ecentric_workspace.approval_center.features.contract_review.application import kol_verify
     findings = kol_verify.apply_acceptance_check(doc, row)
     doc.save(ignore_permissions=True)
+    src = "" if row.completed_by else (" (%s)" % by if by else "")
     if findings:
-        doc.add_comment("Info", _("BBNT đợt {0}: tải bản ký - chờ Kế toán kiểm: {1}").format(
-            row.idx, "; ".join(findings)))
+        doc.add_comment("Info", _("BBNT đợt {0}{1}: bản ký - chờ Kế toán kiểm: {2}").format(
+            row.idx, src, "; ".join(findings)))
     else:
-        doc.add_comment("Info", _("BBNT đợt {0} hoàn tất (máy kiểm đạt), hạn thanh toán {1}.").format(
-            row.idx, row.due_date.strftime("%d/%m/%Y")))
-    return {"status": row.status, "due_date": str(row.due_date), "findings": findings}
+        doc.add_comment("Info", _("BBNT đợt {0}{1} hoàn tất (máy kiểm đạt), hạn thanh toán {2}.").format(
+            row.idx, src, row.due_date.strftime("%d/%m/%Y")))
+    return findings
 
 
 def payable_cap(doc):

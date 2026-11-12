@@ -25,6 +25,7 @@
   "sb_form",
   "contract_type",
   "request_type",
+  "esign_flow",
   "brand",
   "justification",
   "cb1",
@@ -198,13 +199,20 @@
    "fieldname": "contract_type",
    "fieldtype": "Select",
    "label": "Contract Type",
-   "options": "Purchase / Mua vào (EC)\nSales / Bán ra (EC)\nService / Dịch vụ (GBSxBrand)\nKOL/KOC / Creator (EC)"
+   "options": "Purchase / Mua vào (EC)\nSales / Bán ra (EC)\nService / Dịch vụ (GBSxBrand)\nKOL/KOC / Creator (EC)\nLabor / Hợp đồng lao động (EC)"
   },
   {
    "fieldname": "request_type",
    "fieldtype": "Select",
    "label": "Request Type",
    "options": "Template from EC / Mẫu theo khung EC\nTemplate from partner / Mẫu theo khung đối tác\nNew contract template / Hợp đồng mới"
+  },
+  {
+   "description": "Quy trình ký trên cổng ký số. Để trống: KOL/KOC tự lấy \"KOL/KOC - CEO ký rồi đối tác ký\" (WF09), hợp đồng lao động lấy \"Hợp đồng lao động\"; loại khác chọn trước khi gửi ký.",
+   "fieldname": "esign_flow",
+   "fieldtype": "Select",
+   "label": "Quy trình ký",
+   "options": "\nKOL/KOC - CEO ký rồi đối tác ký\nKOL/KOC - đối tác đã ký\nQĐ/HĐ - đối tác đã ký\nBiên bản nghiệm thu 3 bên\nHợp đồng lao động\nKhông ký trên cổng"
   },
   {
    "fieldname": "brand",
@@ -596,7 +604,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-11-12 10:30:00.000000",
+ "modified": "2026-11-12 11:00:00.000000",
  "modified_by": "Administrator",
  "module": "Approval Center",
  "name": "EC Contract Review Request",

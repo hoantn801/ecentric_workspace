@@ -22,7 +22,7 @@ from test_contract_kol_domain import doc_xml, make_docx  # noqa: E402
 
 PKG = "ecentric_workspace.approval_center.features.contract_review.application"
 MODS = ("kol_lookup", "kol_service", "kol_files", "kol_ai", "kol_acceptance", "kol_funding", "kol_verify",
-        "kol_preview")
+        "kol_preview", "esign_hooks")
 
 
 class _Throw(Exception):
@@ -364,6 +364,47 @@ class AppTests(unittest.TestCase):
         amounts = [r["amount"] for r in rows]
         self.assertIn(2621905, amounts)                               # = so in tren BBNT (so hop dong)
         self.assertIn(262191, amounts)
+
+    def test_nen_tang_ky_so_bao_ky_du(self):
+        """Chot 12/11 voi chat Ky so: cong ky du -> goi esign_hooks.on_signed, phia Hop dong tu ghi."""
+        h = importlib.import_module(PKG + ".esign_hooks")
+        k = self.svc.kol
+        comments = []
+        doc = FakeDoc(name="CR-1", contract_type="Purchase / Mua vào (EC)", signing_status=k.SIGN_PENDING)
+        doc.save = lambda ignore_permissions=False: None
+        doc.add_comment = lambda kind, text: comments.append(text)
+        self._patch(h.frappe, get_doc=lambda dt_, n: doc)
+        r = h.on_signed("CR-1", "contract", "/private/files/HD_ky.pdf")
+        self.assertEqual((r["changed"], doc.signing_status, doc.signed_file), (True, k.SIGN_DONE, "/private/files/HD_ky.pdf"))
+        self.assertFalse(h.on_signed("CR-1", "contract", "/private/files/HD_ky.pdf")["changed"])   # goi lai: khong doi
+        # BBNT dot r1 -> finish_round (han thanh toan, may kiem) voi nguon "Ky so (cong)".
+        acc = importlib.import_module(PKG + ".kol_acceptance")
+        row = FakeDoc(name="r1", idx=1, status=k.BBNT_SENT)
+        doc.acceptances = [row]
+        seen = []
+        self._patch(acc, finish_round=lambda d, r, f, w, by: (seen.append((r.name, f, by)), r.update(status=k.BBNT_DONE))[0] and [])
+        r = h.on_signed("CR-1", "bbnt:r1", "/private/files/BBNT_ky.pdf")
+        self.assertEqual(seen, [("r1", "/private/files/BBNT_ky.pdf", h.ESIGN_ACTOR)])
+        self.assertFalse(h.on_signed("CR-1", "bbnt:r1", "/private/files/BBNT_ky.pdf")["changed"])
+        for bad in (("CR-1", "bbnt:r9", "/a.pdf"), ("CR-1", "khac", "/a.pdf"), ("CR-1", "contract", "/a.docx")):
+            with self.assertRaises(ValueError):
+                h.on_signed(*bad)
+
+    def test_finish_round_nguon_cong_khong_ghi_link_user(self):
+        acc = importlib.import_module(PKG + ".kol_acceptance")
+        k = self.svc.kol
+        comments = []
+        doc = FakeDoc(name="CR-1", payment_term_days=30, creator_type="Cá nhân", platform="TikTok")
+        doc.save = lambda ignore_permissions=False: None
+        doc.add_comment = lambda kind, text: comments.append(text)
+        verify = importlib.import_module(PKG + ".kol_verify")
+        self._patch(verify, apply_acceptance_check=lambda d, r: r.update(status=k.BBNT_DONE) or [])
+        self._patch(acc.kol_lookup, holidays=lambda: set())
+        row = FakeDoc(name="r1", idx=1, status=k.BBNT_SENT)
+        acc.finish_round(doc, row, "/b.pdf", dt.datetime(2026, 11, 12, 9), "Ký số (cổng)")
+        self.assertIsNone(row.completed_by)
+        self.assertEqual(row.due_date, dt.date(2026, 12, 14))            # 12/11 + 30 = 12/12 (T7) -> 14/12
+        self.assertIn("Ký số (cổng)", comments[0])
 
     # ---------------------------------------------------------- QC vong 3
     def test_hoan_tat_bbnt_phai_qua_buoc_gui_ky(self):

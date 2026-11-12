@@ -246,6 +246,36 @@ class PreviewHardening(unittest.TestCase):
         self.assertIn('Target="styles.xml"', rels)
 
 
+class EsignFlow(unittest.TestCase):
+    """Chot 12/11 voi chat Ky so: truong esign_flow chon ho so ky; KOL mac dinh WF09, HD lao dong."""
+
+    def test_mac_dinh_va_giu_lua_chon(self):
+        from ecentric_workspace.approval_center.features.contract_review.domain import esign_flow as E
+        d = types.SimpleNamespace(contract_type=E.KOL_CONTRACT_TYPE, esign_flow=None)
+        d.get = lambda k: getattr(d, k, None)
+        self.assertEqual(E.apply_default(d), E.KOL_CEO_THEN_PARTNER)
+        d.esign_flow = E.KOL_PARTNER_SIGNED
+        self.assertEqual(E.apply_default(d), E.KOL_PARTNER_SIGNED)            # nguoi dung chon: giu
+        d.contract_type, d.esign_flow = E.LABOR_CONTRACT_TYPE, ""
+        self.assertEqual(E.apply_default(d), E.LABOR)
+        d.contract_type, d.esign_flow = "Purchase / Mua vào (EC)", "rac"
+        self.assertIsNone(E.apply_default(d))                                 # gia tri la: bo, bat chon lai
+        self.assertFalse(E.needs_brand(E.LABOR_CONTRACT_TYPE) or E.needs_value(E.LABOR_CONTRACT_TYPE))
+
+    def test_doctype_va_definition_khop(self):
+        import json
+        from ecentric_workspace.approval_center.features.contract_review.domain import esign_flow as E
+        from ecentric_workspace.approval_center.features.contract_review.domain.definition import (
+            CONTRACT_REVIEW_DEFINITION as D)
+        meta = json.load(open(os.path.join(_HERE, "..", "..", "doctype", "ec_contract_review_request",
+                                           "ec_contract_review_request.json"), encoding="utf-8"))
+        f = {x["fieldname"]: x for x in meta["fields"]}
+        self.assertEqual(tuple(o for o in f["esign_flow"]["options"].split("\n") if o), E.FLOWS)
+        self.assertIn(E.LABOR_CONTRACT_TYPE, f["contract_type"]["options"].split("\n"))
+        self.assertIn("esign_flow", meta["field_order"])
+        self.assertIn("esign_flow", D.editable_fields)
+
+
 class VendoredViewer(unittest.TestCase):
     """Trinh xem .docx vendored (khong CDN), dung ban da ghim."""
 

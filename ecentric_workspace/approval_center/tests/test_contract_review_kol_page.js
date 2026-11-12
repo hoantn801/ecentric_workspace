@@ -160,12 +160,22 @@ wait(w,function(){ return w.ContractReview&&w.document.querySelector('[data-mode
 
 function detailPart(){
   const w2=make("https://x/approvals/contract-review?id=EC-CTR-2026-00100");
+  let evt=null; w2.document.addEventListener("ctr:detail-rendered",function(e){ evt=e.detail; });
   wait(w2,function(){ return w2.document.getElementById("kol-detail"); },function(){
     const b=w2.document.getElementById("ctr-body").innerHTML;
     chk("chi tiet: khoi KOL + canh bao doanh thu + so HD", /Hợp đồng KOL\/KOC/.test(b)&&/vượt doanh thu EC/.test(b)&&/15032026\/HDDV/.test(b));
     chk("chi tiet: AI QC hien so lieu lech + dieu khoan rui ro", /Không thấy trong tệp/.test(b)&&/Bỏ điều khoản phạt/.test(b)&&/Thanh toán 100% trước/.test(b));
     chk("chi tiet: BBNT + tran chi + nut tao BBNT", /Livestream T12/.test(b)&&/Được phép chi/.test(b)&&/data-kol="sendacc"/.test(b)&&!/kol-accf-/.test(b)&&/data-kol="addacc"/.test(b));
     // PO 12/11: bang tinh tung buoc cho Ke toan (hop dong + tung dot), nhan duoc esc.
+    // Chang 3b ky so (chot 12/11): cho gan khoi ky so + su kien cho thanh phan dung chung.
+    const slot=w2.document.getElementById("ctr-esign-slot");
+    chk("chi tiet: co cho gan khoi Ky so, dat truoc the BBNT", !!slot&&slot.getAttribute("data-business-name")==="EC-CTR-2026-00100"&&b.indexOf('id="ctr-esign-slot"')<b.indexOf("Nghiệm thu (BBNT)"));
+    { const CR=w2.ContractReview, keep=CR.state.draft;
+      CR.state.draft={request_title:"HĐ LĐ",request_kind:"New",contract_type:"Labor / Hợp đồng lao động (EC)",request_type:"Template from EC / Mẫu theo khung EC",justification:"Tuyển dụng",request_details:"x"};
+      const e1=CR.validateSubmit()||{}; CR.state.draft.contract_type="Purchase / Mua vào (EC)"; const e2=CR.validateSubmit()||{};
+      chk("HD lao dong: khong bat brand / gia tri (loai khac van bat)", !e1.brand&&!e1.contract_value&&!!e2.brand&&!!e2.contract_value);
+      CR.state.draft=keep; }
+    chk("chi tiet: phat su kien ctr:detail-rendered", !!evt&&evt.business_doctype==="EC Contract Review Request"&&evt.business_name==="EC-CTR-2026-00100");
     chk("chi tiet: bang tinh hop dong + dot", /Bảng tính chi tiết/.test(b)&&/9\.000\.000 ÷ \(1 − 10%\)/.test(b)&&/Bảng tính đợt này/.test(b)&&b.indexOf("<b>x</b>")<0);
     // QC3: dot NHAP chua co nut Hoan tat - phai qua "Danh dau da gui ky" (kiem thieu + tao lai BBNT) truoc.
     chk("BBNT nhap: chua cho Hoan tat (bo qua buoc kiem)", !/data-kol="doneacc"/.test(b));

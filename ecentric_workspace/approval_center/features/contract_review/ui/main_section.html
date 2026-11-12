@@ -334,7 +334,8 @@
       + '</div></div><div class="card"><h3>Thông tin hợp đồng</h3>'+changedNote+'<div class="grid2">'
       + fld("contract_type","Loại hợp đồng",'<select data-model="contract_type" class="'+hlCls("contract_type")+'"><option value="">—</option>'+opt(fo.contract_types||[],d.contract_type)+'</select>',true)
       + fld("request_type","Loại mẫu",'<select data-model="request_type" class="'+hlCls("request_type")+'"><option value="">—</option>'+opt(fo.request_types||[],d.request_type)+'</select>',true)
-      + fld("brand","Legal entity / Brand",brandSelectHTML(d)+(KOL.isKol(d)?'<div class="hint">Brand của booking - mã brand nằm trong số hợp đồng. SO doanh thu chọn ở đề nghị thanh toán.</div>':''),true)
+      + fld("esign_flow","Quy trình ký",'<select data-model="esign_flow" class="'+hlCls("esign_flow")+'"><option value="">'+esc(esignDefault(d.contract_type)?("Mặc định: "+esignDefault(d.contract_type)):"— Chọn trước khi gửi ký —")+'</option>'+opt(fo.esign_flows||[],d.esign_flow)+'</select><div class="hint">Quy trình ký trên cổng ký số sau khi duyệt xong trên ERP.</div>')
+      + fld("brand","Legal entity / Brand",brandSelectHTML(d)+(KOL.isKol(d)?'<div class="hint">Brand của booking - mã brand nằm trong số hợp đồng. SO doanh thu chọn ở đề nghị thanh toán.</div>':(isLabor(d)?'<div class="hint">Không bắt buộc với hợp đồng lao động.</div>':'')),!isLabor(d))
       + fld("justification","Mục đích",'<input data-model="justification" class="'+hlCls("justification")+'" placeholder="Booking KOL/KOC, Mua tài sản, Phụ lục dịch vụ..." value="'+esc(d.justification||"")+'">'+(KOL.isKol(d)?'<div class="hint">Để trống: hệ thống tự điền từ dịch vụ và creator.</div>':''),!KOL.isKol(d))
       + (KOL.isKol(d) ? fld("contract_value","Giá trị hợp đồng (VND)",'<input class="ro" readonly id="kol-cv" value="'+esc(d.contract_value?Number(d.contract_value).toLocaleString("vi-VN"):"Tự tính từ số tiền bên dưới")+'">')
         : fld("contract_value","Giá trị hợp đồng (VND)",'<input type="text" inputmode="numeric" autocomplete="off" data-money data-model="contract_value" class="'+hlCls("contract_value")+'" value="'+esc(window.EcMoney?EcMoney.fmt((d.contract_value||"")):(d.contract_value||""))+'"><div class="hint">Không có giá trị cụ thể thì ước tính ngân sách trong thời hạn hợp đồng.</div>',true))
@@ -404,14 +405,19 @@
   var FIELD_IDS=["request_title","request_kind","previous_request","contract_type","request_type","brand","justification","contract_value","contract_end_date","request_details","creator","service_type","platform","air_dates","amount_type","amount_input","payment_schedule","advance_percent"];
   function showFieldErrors(errs){ FIELD_IDS.forEach(function(id){ setFieldError(id,(errs&&errs[id])||null); });
     var first=errs&&Object.keys(errs)[0]; if(first){ var el=document.querySelector('[data-fld="'+first+'"] input,[data-fld="'+first+'"] select,[data-fld="'+first+'"] textarea'); if(el&&el.focus){ try{el.focus();}catch(e){} } } }
+  var LABOR_TYPE="Labor / Hợp đồng lao động (EC)";
+  function isLabor(d){ return (d||{}).contract_type===LABOR_TYPE; }
+  function esignDefault(ct){ var l=((state.boot||{}).form_options||{}).esign_flow_defaults||[];
+    for(var i=0;i<l.length;i++){ var p=String(l[i]).split("|"); if(p[0]===ct) return p.slice(1).join("|"); } return ""; }
   function validateSubmit(){ var d=state.draft||{}; var errs={};
     if(!((d.request_title||"").toString().trim())) errs.request_title="Vui lòng nhập tiêu đề yêu cầu.";
     if(d.request_kind==="Existing" && !d.previous_request) errs.previous_request="Vui lòng chọn hợp đồng gốc cần điều chỉnh.";
     if(!((d.contract_type||"").toString().trim())) errs.contract_type="Vui lòng chọn loại hợp đồng.";
     if(!((d.request_type||"").toString().trim())) errs.request_type="Vui lòng chọn loại mẫu.";
-    if(!((d.brand||"").toString().trim())) errs.brand="Vui lòng chọn legal entity / brand.";
+    // Hop dong lao dong (12/11): khong gan brand, khong bat gia tri (luong nam trong tep) - server kiem giong.
+    if(!isLabor(d)&&!((d.brand||"").toString().trim())) errs.brand="Vui lòng chọn legal entity / brand.";
     if(!((d.justification||"").toString().trim())) errs.justification="Vui lòng nhập mục đích.";
-    if(!d.contract_value || Number(d.contract_value)<=0) errs.contract_value="Vui lòng nhập giá trị hợp đồng (ước tính nếu chưa có số chính xác).";
+    if(!isLabor(d)&&(!d.contract_value || Number(d.contract_value)<=0)) errs.contract_value="Vui lòng nhập giá trị hợp đồng (ước tính nếu chưa có số chính xác).";
     if(d.contract_start_date && d.contract_end_date && d.contract_end_date<d.contract_start_date)
       errs.contract_end_date="Ngày kết thúc phải sau ngày bắt đầu.";
     if(!((d.request_details||"").toString().trim())) errs.request_details="Vui lòng nhập yêu cầu chi tiết cho Finance.";
@@ -595,6 +601,7 @@
             +'<div class="grid2">'
             +kvh("contract_type","Loại hợp đồng",biz.contract_type)
             +kvh("request_type","Loại mẫu",biz.request_type)
+            +kvh("esign_flow","Quy trình ký",biz.esign_flow||"Chưa chọn")
             +kvh("brand","Legal entity / Brand",biz.brand)
             +kvh("justification","Mục đích",biz.justification)
             +kvh("contract_value","Giá trị hợp đồng",vnd)
@@ -603,6 +610,7 @@
             +kv("CC To",biz.cc_to)
             +'</div><div class="fld'+(ch.indexOf("request_details")>=0?' hl-changed-box':'')+'" style="margin-top:10px"><label>Yêu cầu chi tiết'+(ch.indexOf("request_details")>=0?' <span class="badge b-amber" style="font-size:10px">Đã sửa</span>':'')+'</label><textarea class="ro" readonly rows="4">'+esc(biz.request_details||"")+'</textarea></div></div>';
         })()
+      +(KOL.isKol(biz)?"":esignSlotHTML(biz))
       +KOL.detailHTML(det)
       +'<div class="card"><h3>Đính kèm</h3>'+renderAttachments(det.attachments)+'</div>'
       +renderDoiChung(det.doi_chung)
@@ -612,7 +620,18 @@
     $("ctr-d-stepper").innerHTML=buildStepper(det);
     ensureActionHandlers();
     KOL.wireDetail(det);
+    announceDetail(det);
   }
+  // Diem gan khoi "Tai lieu & Ky so" cua nen tang ky so (chat Ky so, chang 3b - chot 12/11). Trang chi
+  // dat cho trong + bao su kien; thanh phan dung chung tu gan vao, khong phu thuoc DOM khac cua trang.
+  // KOL: sau the Hop dong KOL/KOC + AI QC, truoc Ky hop dong / Nghiem thu. Loai khac: sau the thong tin.
+  function esignSlotHTML(biz){ return '<div id="ctr-esign-slot" data-business-doctype="EC Contract Review Request" data-business-name="'+esc(biz.name||"")+'"></div>'; }
+  function announceDetail(det){ var biz=det.business||{}, ap=det.approval||{};
+    var x=((det.extra||{}).kol)||{};
+    try{ document.dispatchEvent(new CustomEvent("ctr:detail-rendered",{detail:{business_doctype:"EC Contract Review Request",
+      business_name:biz.name||state.id, approval_status:ap.approval_status||"Draft", esign_flow:biz.esign_flow||"",
+      can_manage:!!(x.can_manage||biz.requested_by===((state.boot||{}).context||{}).user)}})); }
+    catch(e){ /* trinh duyet cu khong co CustomEvent: chi mat khoi ky so, trang van dung */ } }
   function renderAttachments(list){ if(!list||!list.length) return '<div class="hint">Chưa có tệp đính kèm.</div>';
     return '<table class="tbl"><tbody>'+list.map(function(f){
       // Co ban tren SharePoint thi tro sang do: Word Online CHI mo duoc tep nam tren
@@ -1067,6 +1086,7 @@
         +(b.ai_qc_at?'<div class="hint">Chạy lúc '+esc(fmt(b.ai_qc_at))+'</div>':'<div class="hint">Chưa chạy. AI QC kiểm số liệu form khớp tệp, so với mẫu chuẩn, điều khoản rủi ro, và tệp có ký được không.</div>')
         +KOL.qcHTML(qc)
         +((b.contract_file||b.request_attachment)&&x.can_ai&&(apSt==="Draft"||apSt==="Information Required"||apSt==="Pending")?'<div class="actions" style="margin-top:10px"><button type="button" class="btn" data-kol="qc">'+(b.ai_qc_at?'Chạy lại AI QC':'Chạy AI QC')+'</button></div><div class="hint" style="margin-top:6px">AI QC chỉ để tham khảo, không chặn việc gửi hay duyệt.</div>':'')+'</div>';
+      h+=esignSlotHTML(b);
       if(x.approved){ h+='<div class="card"><h3>Ký hợp đồng</h3>'+KOL.signHTML(b,x)+'</div>'; }
       if(x.approved&&x.signed){ var f=x.funding||{};
         h+='<div class="card"><h3>Nghiệm thu (BBNT) &amp; thanh toán</h3>'
