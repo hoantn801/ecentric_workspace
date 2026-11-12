@@ -174,7 +174,7 @@ def finish_round(doc, row, signed_file, when, by):
     thanh toan + may kiem + vet. `by` = user (Link) hoac nhan nguon (vd "Ky so (cong)")."""
     row.signed_file = signed_file
     row.completed_at = when
-    row.completed_by = by if (by and ("@" in by or by == "Administrator")) else None
+    row.completed_by = by if (by and frappe.db.exists("User", by)) else None
     # Han thanh toan tinh tu NGAY KY XONG (ngay tai ban ky), ke ca khi Ke toan xac nhan sau.
     row.due_date = kol.due_date(row.completed_at.date(), doc.payment_term_days, doc.get("creator_type"),
                                 doc.get("platform"), kol_lookup.holidays())

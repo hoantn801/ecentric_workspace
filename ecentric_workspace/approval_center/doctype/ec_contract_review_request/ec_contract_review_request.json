@@ -26,6 +26,9 @@
   "contract_type",
   "request_type",
   "esign_flow",
+  "partner_signer_name",
+  "partner_signer_email",
+  "partner_signer_phone",
   "brand",
   "justification",
   "cb1",
@@ -208,11 +211,28 @@
    "options": "Template from EC / Mẫu theo khung EC\nTemplate from partner / Mẫu theo khung đối tác\nNew contract template / Hợp đồng mới"
   },
   {
-   "description": "Quy trình ký trên cổng ký số. Để trống: KOL/KOC tự lấy \"KOL/KOC - CEO ký rồi đối tác ký\" (WF09), hợp đồng lao động lấy \"Hợp đồng lao động\"; loại khác chọn trước khi gửi ký.",
+   "description": "Mã quy trình ký trên cổng (nhãn: domain/esign_flow.py). Để trống: KOL/KOC = kol_wf09, hợp đồng lao động = hd_lao_dong; loại khác chọn khi gửi duyệt.",
    "fieldname": "esign_flow",
    "fieldtype": "Select",
    "label": "Quy trình ký",
-   "options": "\nKOL/KOC - CEO ký rồi đối tác ký\nKOL/KOC - đối tác đã ký\nQĐ/HĐ - đối tác đã ký\nBiên bản nghiệm thu 3 bên\nHợp đồng lao động\nKhông ký trên cổng"
+   "options": "\nkol_wf09\nkol_doi_tac_da_ky\nqd_hd_doi_tac_da_ky\nbbnt_3_ben\nhd_lao_dong\nkhong_ky_cong"
+  },
+  {
+   "description": "Người ký phía đối tác (cổng ký số gửi email mời ký). KOL/KOC: tự lấy từ creator nếu để trống.",
+   "fieldname": "partner_signer_name",
+   "fieldtype": "Data",
+   "label": "Người ký phía đối tác"
+  },
+  {
+   "fieldname": "partner_signer_email",
+   "fieldtype": "Data",
+   "label": "Email người ký phía đối tác",
+   "options": "Email"
+  },
+  {
+   "fieldname": "partner_signer_phone",
+   "fieldtype": "Data",
+   "label": "Điện thoại người ký phía đối tác"
   },
   {
    "fieldname": "brand",
@@ -604,7 +624,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-11-12 11:00:00.000000",
+ "modified": "2026-11-12 11:30:00.000000",
  "modified_by": "Administrator",
  "module": "Approval Center",
  "name": "EC Contract Review Request",

@@ -365,30 +365,71 @@ class AppTests(unittest.TestCase):
         self.assertIn(2621905, amounts)                               # = so in tren BBNT (so hop dong)
         self.assertIn(262191, amounts)
 
-    def test_nen_tang_ky_so_bao_ky_du(self):
-        """Chot 12/11 voi chat Ky so: cong ky du -> goi esign_hooks.on_signed, phia Hop dong tu ghi."""
+    def _hooks(self, doc, approved=True, signed=True):
         h = importlib.import_module(PKG + ".esign_hooks")
-        k = self.svc.kol
         comments = []
-        doc = FakeDoc(name="CR-1", contract_type="Purchase / Mua vào (EC)", signing_status=k.SIGN_PENDING)
         doc.save = lambda ignore_permissions=False: None
         doc.add_comment = lambda kind, text: comments.append(text)
         self._patch(h.frappe, get_doc=lambda dt_, n: doc)
-        r = h.on_signed("CR-1", "contract", "/private/files/HD_ky.pdf")
+        self._patch(h.frappe.db, exists=lambda *a, **k: True)
+        self._patch(self.svc, approval_status=lambda d: "Approved" if approved else "Pending",
+                    is_signed=lambda d: signed)
+        return h, comments
+
+    def test_nen_tang_ky_so_bao_ket_qua_hop_dong(self):
+        """Chot 12/11 voi chat Ky so: cong ket thuc goi -> on_signing_outcome, phia Hop dong tu ghi."""
+        k = self.svc.kol
+        doc = FakeDoc(name="CR-1", contract_type="Purchase / Mua vào (EC)", signing_status=k.SIGN_PENDING)
+        h, comments = self._hooks(doc)
+        r = h.on_signing_outcome("CR-1", "contract", "rejected", detail={"reason": "Sai địa chỉ"})
+        self.assertEqual((r["changed"], doc.signing_status), (True, k.SIGN_PENDING))
+        self.assertIn("Sai địa chỉ", comments[-1])
+        r = h.on_signing_outcome("CR-1", "contract", "signed", "/private/files/HD_ky.pdf")
         self.assertEqual((r["changed"], doc.signing_status, doc.signed_file), (True, k.SIGN_DONE, "/private/files/HD_ky.pdf"))
-        self.assertFalse(h.on_signed("CR-1", "contract", "/private/files/HD_ky.pdf")["changed"])   # goi lai: khong doi
-        # BBNT dot r1 -> finish_round (han thanh toan, may kiem) voi nguon "Ky so (cong)".
-        acc = importlib.import_module(PKG + ".kol_acceptance")
-        row = FakeDoc(name="r1", idx=1, status=k.BBNT_SENT)
-        doc.acceptances = [row]
-        seen = []
-        self._patch(acc, finish_round=lambda d, r, f, w, by: (seen.append((r.name, f, by)), r.update(status=k.BBNT_DONE))[0] and [])
-        r = h.on_signed("CR-1", "bbnt:r1", "/private/files/BBNT_ky.pdf")
-        self.assertEqual(seen, [("r1", "/private/files/BBNT_ky.pdf", h.ESIGN_ACTOR)])
-        self.assertFalse(h.on_signed("CR-1", "bbnt:r1", "/private/files/BBNT_ky.pdf")["changed"])
-        for bad in (("CR-1", "bbnt:r9", "/a.pdf"), ("CR-1", "khac", "/a.pdf"), ("CR-1", "contract", "/a.docx")):
+        self.assertFalse(h.on_signing_outcome("CR-1", "contract", "signed", "/private/files/HD_ky.pdf")["changed"])
+        self.assertFalse(h.on_signing_outcome("CR-1", "contract", "destroyed")["changed"])   # da ky du: khong lui
+        for bad in (("CR-1", "khac", "signed", "/a.pdf"), ("CR-1", "contract", "signed", "/a.docx"),
+                    ("CR-1", "contract", "ok", "/a.pdf")):
             with self.assertRaises(ValueError):
-                h.on_signed(*bad)
+                h.on_signing_outcome(*bad)
+        h2, _c = self._hooks(FakeDoc(name="CR-2", signing_status=k.SIGN_PENDING), approved=False)
+        with self.assertRaises(ValueError):                                     # chua duyet xong tren ERP
+            h2.on_signing_outcome("CR-2", "contract", "signed", "/a.pdf")
+
+    def test_nen_tang_ky_so_bao_ket_qua_bbnt(self):
+        k = self.svc.kol
+        acc = importlib.import_module(PKG + ".kol_acceptance")
+        row = FakeDoc(name="r1", idx=1, status=k.BBNT_DRAFT)
+        doc = FakeDoc(name="CR-1", contract_no="X/1", acceptances=[row], signed_file="/hd.pdf")
+        h, comments = self._hooks(doc)
+        with self.assertRaises(ValueError):                                     # Nhap: chua qua buoc gui ky
+            h.on_signing_outcome("CR-1", "bbnt:r1", "signed", "/b.pdf")
+        row.status = k.BBNT_SENT
+        r = h.on_signing_outcome("CR-1", "bbnt:r1", "returned", detail="Sửa số buổi")
+        self.assertEqual((r["changed"], row.status), (True, k.BBNT_DRAFT))   # ve Nhap de tao lai BBNT
+        row.status = k.BBNT_SENT
+        with self.assertRaises(ValueError):                                     # tep trung ban hop dong
+            h.on_signing_outcome("CR-1", "bbnt:r1", "signed", "/hd.pdf")
+        seen = []
+        self._patch(acc, finish_round=lambda d, r, f, w, by: (seen.append((r.name, f, by)), r.update(status=k.BBNT_DONE)) and [])
+        h.on_signing_outcome("CR-1", "bbnt:r1", "signed", "/b.pdf")
+        self.assertEqual(seen, [("r1", "/b.pdf", h.ESIGN_ACTOR)])
+        self.assertFalse(h.on_signing_outcome("CR-1", "bbnt:r1", "signed", "/b.pdf")["changed"])
+        self.assertEqual(h.package_title("CR-1", "bbnt:r1"), "BBNT đợt 1 - X/1")
+        h3, _c = self._hooks(FakeDoc(name="CR-3", acceptances=[FakeDoc(name="r9", idx=1, status=k.BBNT_SENT)]),
+                             signed=False)
+        with self.assertRaises(ValueError):                                     # hop dong chua ky du
+            h3.on_signing_outcome("CR-3", "bbnt:r9", "signed", "/c.pdf")
+
+    def test_nguoi_ky_doi_tac_lay_tu_creator(self):
+        s = self.svc
+        d = FakeDoc(esign_flow="kol_wf09", partner_signer_email="tay@x.vn")
+        s.fill_partner_signer(d, {"ec_cr_type": "Công ty", "supplier_name": "Cty A", "ec_cr_representative_name": "Bà B",
+                                  "ec_cr_email": "a@x.vn", "ec_phone": "090"})
+        self.assertEqual((d.partner_signer_name, d.partner_signer_email, d.partner_signer_phone), ("Bà B", "tay@x.vn", "090"))
+        d2 = FakeDoc(esign_flow="qd_hd_doi_tac_da_ky")
+        s.fill_partner_signer(d2, {"ec_cr_type": "Cá nhân", "supplier_name": "C"})
+        self.assertIsNone(d2.partner_signer_name)                               # quy trinh khong co doi tac
 
     def test_finish_round_nguon_cong_khong_ghi_link_user(self):
         acc = importlib.import_module(PKG + ".kol_acceptance")

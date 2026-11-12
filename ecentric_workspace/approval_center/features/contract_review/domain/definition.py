@@ -23,7 +23,7 @@ CONTRACT_REVIEW_DEFINITION = ApprovalDefinition(
                      "pit_rate", "vat_rate", "payment_schedule", "advance_percent",
                      "payment_term_days", "contract_template", "contract_date",
                      # Quy trinh ky tren cong (12/11, chot voi chat Ky so) - xem domain/esign_flow.py.
-                     "esign_flow"),
+                     "esign_flow", "partner_signer_name", "partner_signer_email", "partner_signer_phone"),
     my_request_fields=("name", "request_title", "request_kind", "contract_type", "brand",
                        "contract_value", "expected_response_date", "approval_request",
                        "creation", "modified"),
@@ -35,7 +35,9 @@ CONTRACT_REVIEW_DEFINITION = ApprovalDefinition(
         ("contract_types", ("Purchase / Mua vào (EC)", "Sales / Bán ra (EC)",
                             "Service / Dịch vụ (GBSxBrand)", "KOL/KOC / Creator (EC)",
                             "Labor / Hợp đồng lao động (EC)")),
-        ("esign_flows", _esign_flow.FLOWS),
+        # [ma, nhan] - luu ma, hien nhan.
+        ("esign_flows", tuple((k, v) for k, v in _esign_flow.LABELS.items())),
+        ("esign_flows_with_partner", _esign_flow.WITH_PARTNER),
         # "loai HD|quy trinh mac dinh" - trang chi HIEN goi y, server dien that (esign_flow.apply_default).
         ("esign_flow_defaults", tuple("%s|%s" % kv for kv in _esign_flow.DEFAULTS.items())),
         ("kol_service_types", ("Livestream", "Video", "Livestream + Video", "Hoa hồng affiliate")),

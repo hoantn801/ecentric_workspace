@@ -28,6 +28,7 @@ def prepare_draft(doc):
     """`draft_preparer` cua form 27: quy trinh ky mac dinh cho MOI loai; phan con lai chi lam
     viec voi phieu KOL, nuot loi tinh tien (nhap do)."""
     esign_flow.apply_default(doc)
+    esign_flow.clean_labor(doc)
     if not kol.is_kol(doc):
         return
     creator = creator_row(doc.get("creator"))
@@ -237,6 +238,21 @@ def summary_text(doc):
     return "Creator %s - %s" % (doc.get("creator_name") or "?", ", ".join(p for p in parts if p))
 
 
+def fill_partner_signer(doc, creator):
+    """Nguoi ky phia doi tac (cong ky so gui email moi ky - THIETKE K6): o nao trong thi lay tu
+    creator. Ca nhan: chinh creator; cong ty / ho KD: nguoi dai dien (khong co thi ten don vi).
+    Chi dien voi quy trinh co doi tac ky tren cong; nguoi lap sua tay duoc."""
+    if not creator or not esign_flow.needs_partner(doc.get("esign_flow")):
+        return
+    person = creator.get("ec_cr_type") == "Cá nhân"
+    name = creator.get("supplier_name") if person else (
+        creator.get("ec_cr_representative_name") or creator.get("supplier_name"))
+    for field, value in (("partner_signer_name", name), ("partner_signer_email", creator.get("ec_cr_email")),
+                         ("partner_signer_phone", creator.get("ec_phone"))):
+        if not (doc.get(field) or "").strip() and value:
+            doc.set(field, str(value).strip()[:140])
+
+
 def validate_submit(doc):
     """Chot truoc khi vao luong duyet - goi tu service.submit VA service.resubmit (phieu KOL).
 
@@ -252,6 +268,7 @@ def validate_submit(doc):
         frappe.throw(_(" ".join(errors)))
     prepare_draft(doc)
     apply_amounts(doc, strict=True)
+    fill_partner_signer(doc, creator)
     if doc.get("request_type") == kol.TEMPLATE_EC:
         from ecentric_workspace.approval_center.features.contract_review.application import kol_files
         kol_files.build_contract(doc)

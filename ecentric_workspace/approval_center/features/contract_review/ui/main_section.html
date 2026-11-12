@@ -80,9 +80,8 @@
   #ec-ctr-root .hint{ font-size:12px;color:var(--gray-500); }
   #ec-ctr-root .kol-calc-wrap{ overflow-x:auto; }
   #ec-ctr-root .ec-ctr-modal.kol-pv-modal{ width:min(1000px, calc(100vw - 24px));max-width:1000px; }
-  #ec-ctr-root .kol-pv-doc{ margin-top:8px;max-height:calc(100vh - 230px);overflow:auto;background:#eef0f3;border-radius:8px; }
-  #ec-ctr-root .kol-pv-doc .docx-wrapper{ background:#eef0f3;padding:16px; }
-  @media (max-width:640px){ #ec-ctr-root .kol-pv-doc .docx-wrapper{ align-items:flex-start;padding:8px; } }
+  #ec-ctr-root .kol-pv-doc{ margin-top:8px;background:#eef0f3;border-radius:8px; }
+  #ec-ctr-root .kol-pv-frame{ display:block;width:100%;height:calc(100vh - 260px);min-height:320px;border:0;border-radius:8px; }
   #ec-ctr-root .kol-pv-legend{ font-size:12px;color:var(--gray-500); }
   #ec-ctr-root .kol-pv-y{ background:#fef08a;color:#111;padding:0 4px;border-radius:3px; }
   #ec-ctr-root .kol-pv-r{ background:#ef4444;color:#fff;padding:0 4px;border-radius:3px; }
@@ -334,10 +333,12 @@
       + '</div></div><div class="card"><h3>Thông tin hợp đồng</h3>'+changedNote+'<div class="grid2">'
       + fld("contract_type","Loại hợp đồng",'<select data-model="contract_type" class="'+hlCls("contract_type")+'"><option value="">—</option>'+opt(fo.contract_types||[],d.contract_type)+'</select>',true)
       + fld("request_type","Loại mẫu",'<select data-model="request_type" class="'+hlCls("request_type")+'"><option value="">—</option>'+opt(fo.request_types||[],d.request_type)+'</select>',true)
-      + fld("esign_flow","Quy trình ký",'<select data-model="esign_flow" class="'+hlCls("esign_flow")+'"><option value="">'+esc(esignDefault(d.contract_type)?("Mặc định: "+esignDefault(d.contract_type)):"— Chọn trước khi gửi ký —")+'</option>'+opt(fo.esign_flows||[],d.esign_flow)+'</select><div class="hint">Quy trình ký trên cổng ký số sau khi duyệt xong trên ERP.</div>')
+      + fld("esign_flow","Quy trình ký",'<select data-model="esign_flow" class="'+hlCls("esign_flow")+'"><option value="">'+esc(esignDefault(d.contract_type)?("Mặc định: "+esignDefault(d.contract_type)):"— Chọn trước khi gửi ký —")+'</option>'+opt(esignOpts(),d.esign_flow)+'</select><div class="hint">Quy trình ký trên cổng ký số sau khi duyệt xong trên ERP.</div>')
+      + partnerSignerHTML(d)
       + fld("brand","Legal entity / Brand",brandSelectHTML(d)+(KOL.isKol(d)?'<div class="hint">Brand của booking - mã brand nằm trong số hợp đồng. SO doanh thu chọn ở đề nghị thanh toán.</div>':(isLabor(d)?'<div class="hint">Không bắt buộc với hợp đồng lao động.</div>':'')),!isLabor(d))
       + fld("justification","Mục đích",'<input data-model="justification" class="'+hlCls("justification")+'" placeholder="Booking KOL/KOC, Mua tài sản, Phụ lục dịch vụ..." value="'+esc(d.justification||"")+'">'+(KOL.isKol(d)?'<div class="hint">Để trống: hệ thống tự điền từ dịch vụ và creator.</div>':''),!KOL.isKol(d))
       + (KOL.isKol(d) ? fld("contract_value","Giá trị hợp đồng (VND)",'<input class="ro" readonly id="kol-cv" value="'+esc(d.contract_value?Number(d.contract_value).toLocaleString("vi-VN"):"Tự tính từ số tiền bên dưới")+'">')
+        : isLabor(d) ? ''
         : fld("contract_value","Giá trị hợp đồng (VND)",'<input type="text" inputmode="numeric" autocomplete="off" data-money data-model="contract_value" class="'+hlCls("contract_value")+'" value="'+esc(window.EcMoney?EcMoney.fmt((d.contract_value||"")):(d.contract_value||""))+'"><div class="hint">Không có giá trị cụ thể thì ước tính ngân sách trong thời hạn hợp đồng.</div>',true))
       + fld("contract_start_date","Ngày bắt đầu",'<input type="date" data-model="contract_start_date" class="'+hlCls("contract_start_date")+'" value="'+esc(d.contract_start_date||"")+'">')
       + fld("contract_end_date","Ngày kết thúc",'<input type="date" data-model="contract_end_date" class="'+hlCls("contract_end_date")+'" value="'+esc(d.contract_end_date||"")+'">')
@@ -407,8 +408,19 @@
     var first=errs&&Object.keys(errs)[0]; if(first){ var el=document.querySelector('[data-fld="'+first+'"] input,[data-fld="'+first+'"] select,[data-fld="'+first+'"] textarea'); if(el&&el.focus){ try{el.focus();}catch(e){} } } }
   var LABOR_TYPE="Labor / Hợp đồng lao động (EC)";
   function isLabor(d){ return (d||{}).contract_type===LABOR_TYPE; }
+  function esignOpts(){ return (((state.boot||{}).form_options||{}).esign_flows||[]).map(function(x){ return Array.isArray(x)?{value:x[0],label:x[1]}:x; }); }
+  function esignLabel(code){ var l=esignOpts(); for(var i=0;i<l.length;i++){ if(l[i].value===code) return l[i].label; } return code||""; }
   function esignDefault(ct){ var l=((state.boot||{}).form_options||{}).esign_flow_defaults||[];
+    for(var i=0;i<l.length;i++){ var p=String(l[i]).split("|"); if(p[0]===ct) return esignLabel(p.slice(1).join("|")); } return ""; }
+  function esignDefaultCode(ct){ var l=((state.boot||{}).form_options||{}).esign_flow_defaults||[];
     for(var i=0;i<l.length;i++){ var p=String(l[i]).split("|"); if(p[0]===ct) return p.slice(1).join("|"); } return ""; }
+  // Nguoi ky phia doi tac (cong gui email moi ky): chi hien voi quy trinh co doi tac ky tren cong.
+  function partnerSignerHTML(d){ var code=d.esign_flow||esignDefaultCode(d.contract_type);
+    var wp=((state.boot||{}).form_options||{}).esign_flows_with_partner||[]; if(wp.indexOf(code)<0) return "";
+    var kolHint=KOL.isKol(d)?'<div class="hint">Để trống: lấy từ thông tin creator khi gửi duyệt.</div>':'';
+    return fld("partner_signer_name","Người ký phía đối tác",'<input data-model="partner_signer_name" value="'+esc(d.partner_signer_name||"")+'" placeholder="Họ tên">'+kolHint)
+      + fld("partner_signer_email","Email người ký",'<input type="email" data-model="partner_signer_email" value="'+esc(d.partner_signer_email||"")+'" placeholder="Cổng gửi email mời ký tới đây">')
+      + fld("partner_signer_phone","Điện thoại người ký",'<input data-model="partner_signer_phone" value="'+esc(d.partner_signer_phone||"")+'">'); }
   function validateSubmit(){ var d=state.draft||{}; var errs={};
     if(!((d.request_title||"").toString().trim())) errs.request_title="Vui lòng nhập tiêu đề yêu cầu.";
     if(d.request_kind==="Existing" && !d.previous_request) errs.previous_request="Vui lòng chọn hợp đồng gốc cần điều chỉnh.";
@@ -465,7 +477,7 @@
       if(k==="contract_type"&&KOL.isKol(state.draft)){ if(!state.draft.request_type) state.draft.request_type=KOL_TPL_EC; KOL.seedDefaults(state.draft); }
       else if(k==="contract_type"){ KOL.clearKol(state.draft); }
       if(k==="payment_schedule"&&KOL.isKol(state.draft)&&v==="Cọc trước"&&!state.draft.advance_percent) state.draft.advance_percent="40";
-      if(k==="contract_type"||k==="payment_schedule"||k==="service_type"||k==="request_type"||(k==="platform"&&KOL.isKol(state.draft))){ renderCreate($("ctr-body"));
+      if(k==="contract_type"||k==="esign_flow"||k==="payment_schedule"||k==="service_type"||k==="request_type"||(k==="platform"&&KOL.isKol(state.draft))){ renderCreate($("ctr-body"));
         // Ve lai ca form lam mat focus: tra focus ve o vua doi (ban phim: mui ten tren select) - QC3.
         var fe=$("ctr-body")&&$("ctr-body").querySelector('[data-model="'+k+'"]'); if(fe&&fe.focus) fe.focus(); return; }
       if(KOL.isKol(state.draft)&&["amount_type","amount_input","pit_rate","vat_rate","advance_percent"].indexOf(k)>=0) KOL.preview();
@@ -601,7 +613,8 @@
             +'<div class="grid2">'
             +kvh("contract_type","Loại hợp đồng",biz.contract_type)
             +kvh("request_type","Loại mẫu",biz.request_type)
-            +kvh("esign_flow","Quy trình ký",biz.esign_flow||"Chưa chọn")
+            +kvh("esign_flow","Quy trình ký",biz.esign_flow?esignLabel(biz.esign_flow):"Chưa chọn")
+            +(biz.partner_signer_name||biz.partner_signer_email?kv("Người ký phía đối tác",[biz.partner_signer_name,biz.partner_signer_email,biz.partner_signer_phone].filter(Boolean).join(" · ")):"")
             +kvh("brand","Legal entity / Brand",biz.brand)
             +kvh("justification","Mục đích",biz.justification)
             +kvh("contract_value","Giá trị hợp đồng",vnd)
@@ -848,16 +861,28 @@
     // Server dien mau tu du lieu dang go, to vang cho ERP dien / do cho thieu, tra .docx (base64);
     // trinh duyet ve trang bang docx-preview (vendored, khong CDN). Khong luu gi.
     PV_BASE:"/assets/ecentric_workspace/vendor/docx_preview/",
-    // Man hinh hep (dien thoai): thu nho ca trang cho vua be ngang, khong phai cuon ngang.
-    fitPreview:function(box){ var w=box.querySelector(".docx-wrapper"), pg=box.querySelector("section.docx"); if(!w||!pg) return;
-      w.style.zoom=""; var sc=Math.min(1,(box.clientWidth-8)/(pg.offsetWidth+32)); if(sc>0&&sc<1) w.style.zoom=String(Math.round(sc*100)/100); },
-    loadScript:function(src){ return new Promise(function(ok,no){ var s=document.createElement("script"); s.src=src; s.async=true;
-      s.onload=function(){ ok(); }; s.onerror=function(){ no(new Error("Không tải được trình xem.")); }; document.head.appendChild(s); }); },
-    loadViewer:function(){ if(window.docx&&window.docx.renderAsync) return Promise.resolve(window.docx);
-      if(!KOL._pvLoad) KOL._pvLoad=(window.JSZip?Promise.resolve():KOL.loadScript(KOL.PV_BASE+"jszip.min.js"))
-        .then(function(){ return KOL.loadScript(KOL.PV_BASE+"docx-preview.min.js"); }).then(function(){ return window.docx; })
-        .catch(function(e){ KOL._pvLoad=null; throw e; });
-      return KOL._pvLoad; },
+    // Trinh xem chay trong <iframe sandbox="allow-scripts"> (KHONG allow-same-origin): mau .docx do
+    // Ke toan tai len co the chua the HTML / link javascript (docx-preview ghi thang mot so thuoc tinh
+    // vao trang - QC6/QC7); trong khung nguon goc rong, ma do khong cham duoc cookie, trang hay API
+    // cua ERP. Trang chi gui byte .docx qua postMessage va nhan lai "xong / loi".
+    pvFrameHTML:function(base){
+      // CSP trong khung: chi chay script tu thu muc trinh xem + doan co nonce; the HTML trong mau
+      // (onerror=...) bi chan ngay ca trong khung, khong tai gi ra ngoai.
+      var n=String(Math.random()).slice(2)+String(Date.now());
+      return '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">'
+        +'<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'nonce-'+n+'\' '+base+'; style-src \'unsafe-inline\'; img-src data: blob:; font-src data:">'
+        +'<style>html,body{margin:0;background:#eef0f3}.docx-wrapper{background:#eef0f3!important;padding:16px!important}'
+        +'@media (max-width:640px){.docx-wrapper{align-items:flex-start!important;padding:8px!important}}</style>'
+        +'<script src="'+base+'jszip.min.js"><\/script><script src="'+base+'docx-preview.min.js"><\/script></head><body><div id="d"></div><script nonce="'+n+'">'
+        +'(function(){var P=parent;function say(m){P.postMessage(m,"*");}'
+        +'function fit(){var w=document.querySelector(".docx-wrapper"),g=document.querySelector("section.docx");if(!w||!g)return;w.style.zoom="";'
+        +'var s=Math.min(1,(document.documentElement.clientWidth-8)/(g.offsetWidth+32));if(s>0&&s<1)w.style.zoom=String(Math.round(s*100)/100);}'
+        +'window.addEventListener("resize",fit);'
+        +'window.addEventListener("message",function(e){if(e.source!==P||!e.data||e.data.t!=="kolpv")return;'
+        +'if(!window.docx||!window.docx.renderAsync){say({t:"kolpv",ok:false,load:true});return;}'
+        +'window.docx.renderAsync(e.data.b,document.getElementById("d"),null,{className:"docx",inWrapper:true,breakPages:true,ignoreLastRenderedPageBreak:true,useBase64URL:true})'
+        +'.then(function(){fit();say({t:"kolpv",ok:true});},function(err){say({t:"kolpv",ok:false,msg:String(err&&err.message||err)});});});'
+        +'say({t:"kolpv",ready:true});})();<\/script></body></html>'; },
     previewContract:function(fields,name){
       if(document.querySelector(".kol-pv-modal")) return;   // bam hai lan: khong mo hai hop thoai
       var ov=document.createElement("div"); ov.className="ec-ctr-overlay"; var prevFocus=document.activeElement;
@@ -866,29 +891,33 @@
         +'<div id="kol-pv-info" class="hint"></div><div id="kol-pv-doc" class="kol-pv-doc" aria-busy="true"><div class="hint" style="padding:16px">Đang điền mẫu…</div></div></div>'
         +'<div class="ec-ctr-modal-f"><button type="button" class="btn" data-x>Đóng</button></div></div>';
       (document.getElementById("ec-ctr-root")||document.body).appendChild(ov);
-      var refit=function(){ KOL.fitPreview(box); };
-      function close(){ window.removeEventListener("resize",refit); if(ov.parentNode) ov.parentNode.removeChild(ov); if(prevFocus&&prevFocus.focus) try{ prevFocus.focus(); }catch(e){} }
+      var frame=null, timer=null;
+      function onMsg(e){ if(!frame||e.source!==frame.contentWindow||!e.data||e.data.t!=="kolpv") return;
+        if(e.data.ready){ if(frame._bytes) frame.contentWindow.postMessage({t:"kolpv",b:frame._bytes},"*"); return; }
+        clearTimeout(timer); box.setAttribute("aria-busy","false");
+        if(e.data.ok){ var w=box.querySelector(".kol-pv-wait"); if(w&&w.parentNode) w.parentNode.removeChild(w); frame.style.visibility="visible"; return; }
+        if(window.console&&console.error) console.error("kol preview", e.data.msg||"viewer load");
+        fail(e.data.load?"Không tải được trình xem. Tải lại trang rồi thử lại.":"Trình xem không đọc được mẫu này. Bấm Tạo hợp đồng để tải tệp thật và mở bằng Word."); }
+      function close(){ window.removeEventListener("message",onMsg); clearTimeout(timer); if(ov.parentNode) ov.parentNode.removeChild(ov); if(prevFocus&&prevFocus.focus) try{ prevFocus.focus(); }catch(e){} }
+      window.addEventListener("message",onMsg);
       ov.querySelector("[data-x]").onclick=close; ov.addEventListener("keydown",function(e){ if(e.key==="Escape") close(); });
       ov.addEventListener("click",function(e){ if(e.target===ov) close(); }); try{ ov.querySelector("[data-x]").focus(); }catch(e){}
       var box=ov.querySelector("#kol-pv-doc"), info=ov.querySelector("#kol-pv-info");
       function fail(msg){ box.setAttribute("aria-busy","false"); box.innerHTML='<div class="banner warn" style="margin:12px"><div>'+esc(msg)+'</div></div>'; }
       var args={name:name||""}; if(fields) args.fields=JSON.stringify(fields);
-      var viewer=KOL.loadViewer(); viewer.catch(function(){ /* bao o duoi khi can ve */ });
       call("kol_preview_contract",args).then(function(r){
         if(!ov.parentNode) return;
         if(!r||!r.ok){ fail((r&&r.error)||"Chưa xem trước được."); return; }
-        return viewer.then(function(dx){ if(!ov.parentNode) return;
         info.innerHTML='Mẫu: <b>'+esc(r.template_title||r.template||"")+'</b>'+(r.contract_no?(' · Số HĐ: <b>'+esc(r.contract_no)+'</b>'):'')
           +(r.missing_labels&&r.missing_labels.length?('<div class="banner warn" style="margin-top:6px"><div>Còn thiếu: <b>'+esc(r.missing_labels.join(", "))+'</b></div></div>'):'');
         var bin=atob(r.docx), u8=new Uint8Array(bin.length); for(var i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i);
-        box.innerHTML="";
-        return dx.renderAsync(u8, box, null, {className:"docx", inWrapper:true, breakPages:true, ignoreLastRenderedPageBreak:true, useBase64URL:true, renderHeaders:true, renderFooters:true})
-          .then(function(){ box.setAttribute("aria-busy","false"); KOL.fitPreview(box); window.addEventListener("resize",refit); }); }); })
-        .catch(function(e){ if(!ov.parentNode) return;
-          // Loi cua trinh xem / thu vien (tieng Anh, ky thuat) khong dua cho nguoi dung - QC6.
-          if(e&&(e._server_messages||e.responseJSON)){ fail(mapErr(e)); return; }
-          if(window.console&&console.error) console.error("kol preview", e);
-          fail(e&&e.message==="Không tải được trình xem."?e.message:"Trình xem không đọc được mẫu này. Bấm Tạo hợp đồng để tải tệp thật và mở bằng Word."); }); },
+        box.innerHTML='<div class="hint kol-pv-wait" style="padding:16px">Đang vẽ trang…</div>';
+        frame=document.createElement("iframe"); frame._bytes=u8; frame.className="kol-pv-frame"; frame.title="Xem trước hợp đồng";
+        frame.setAttribute("sandbox","allow-scripts"); frame.setAttribute("referrerpolicy","no-referrer"); frame.style.visibility="hidden";
+        frame.srcdoc=KOL.pvFrameHTML(window.location.origin+KOL.PV_BASE);
+        box.appendChild(frame);
+        timer=setTimeout(function(){ if(ov.parentNode&&box.getAttribute("aria-busy")==="true") fail("Trình xem chạy quá lâu. Bấm Tạo hợp đồng để tải tệp thật và mở bằng Word."); },20000); })
+        .catch(function(e){ if(!ov.parentNode) return; fail(mapErr(e)); }); },
     todayIso:function(){ var t=new Date(); return t.getFullYear()+"-"+("0"+(t.getMonth()+1)).slice(-2)+"-"+("0"+t.getDate()).slice(-2); },
     day:function(v){ var m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(v||"")); return m?(m[3]+"/"+m[2]+"/"+m[1]):(v||"—"); },
     roText:function(k,v){ return '<div class="fld"><label>'+esc(k)+'</label><div class="ro" style="padding:8px 10px;border:1px solid var(--gray-200);border-radius:8px;background:var(--gray-50);min-height:38px;white-space:normal;word-break:break-word">'+esc(v==null||v===""?"—":v)+'</div></div>'; },

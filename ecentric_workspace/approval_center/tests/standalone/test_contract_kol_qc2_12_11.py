@@ -247,22 +247,40 @@ class PreviewHardening(unittest.TestCase):
 
 
 class EsignFlow(unittest.TestCase):
-    """Chot 12/11 voi chat Ky so: truong esign_flow chon ho so ky; KOL mac dinh WF09, HD lao dong."""
+    """Chot 12/11 voi chat Ky so: esign_flow la MA ngan (nhan tieng Viet de hien), KOL mac dinh kol_wf09."""
 
-    def test_mac_dinh_va_giu_lua_chon(self):
-        from ecentric_workspace.approval_center.features.contract_review.domain import esign_flow as E
-        d = types.SimpleNamespace(contract_type=E.KOL_CONTRACT_TYPE, esign_flow=None)
+    def doc(self, **kw):
+        d = types.SimpleNamespace(**dict({"contract_type": None, "esign_flow": None, "contract_value": None}, **kw))
         d.get = lambda k: getattr(d, k, None)
-        self.assertEqual(E.apply_default(d), E.KOL_CEO_THEN_PARTNER)
-        d.esign_flow = E.KOL_PARTNER_SIGNED
-        self.assertEqual(E.apply_default(d), E.KOL_PARTNER_SIGNED)            # nguoi dung chon: giu
+        return d
+
+    def test_ma_va_mac_dinh(self):
+        from ecentric_workspace.approval_center.features.contract_review.domain import esign_flow as E
+        self.assertEqual(E.FLOWS, ("kol_wf09", "kol_doi_tac_da_ky", "qd_hd_doi_tac_da_ky", "bbnt_3_ben",
+                                   "hd_lao_dong", "khong_ky_cong"))
+        self.assertIn("WF09", E.label("kol_wf09"))
+        d = self.doc(contract_type=E.KOL_CONTRACT_TYPE)
+        self.assertEqual(E.apply_default(d), "kol_wf09")
+        d.esign_flow = "kol_doi_tac_da_ky"
+        self.assertEqual(E.apply_default(d), "kol_doi_tac_da_ky")              # nguoi dung chon: giu
         d.contract_type, d.esign_flow = E.LABOR_CONTRACT_TYPE, ""
-        self.assertEqual(E.apply_default(d), E.LABOR)
+        self.assertEqual(E.apply_default(d), "hd_lao_dong")
         d.contract_type, d.esign_flow = "Purchase / Mua vào (EC)", "rac"
-        self.assertIsNone(E.apply_default(d))                                 # gia tri la: bo, bat chon lai
+        self.assertIsNone(E.apply_default(d))                                   # gia tri la: bo
+        d.esign_flow = "kol_wf09"                                               # doi loai sau khi luu KOL
+        self.assertIsNone(E.apply_default(d))
+        d.esign_flow = "qd_hd_doi_tac_da_ky"
+        self.assertEqual(E.apply_default(d), "qd_hd_doi_tac_da_ky")
+        self.assertTrue(E.needs_partner("kol_wf09") and not E.needs_partner("qd_hd_doi_tac_da_ky"))
+
+    def test_hd_lao_dong_khong_luu_luong(self):
+        from ecentric_workspace.approval_center.features.contract_review.domain import esign_flow as E
+        d = self.doc(contract_type=E.LABOR_CONTRACT_TYPE, contract_value=25_000_000)
+        E.clean_labor(d)
+        self.assertIsNone(d.contract_value)
         self.assertFalse(E.needs_brand(E.LABOR_CONTRACT_TYPE) or E.needs_value(E.LABOR_CONTRACT_TYPE))
 
-    def test_doctype_va_definition_khop(self):
+    def test_doctype_definition_hooks_khop(self):
         import json
         from ecentric_workspace.approval_center.features.contract_review.domain import esign_flow as E
         from ecentric_workspace.approval_center.features.contract_review.domain.definition import (
@@ -272,8 +290,23 @@ class EsignFlow(unittest.TestCase):
         f = {x["fieldname"]: x for x in meta["fields"]}
         self.assertEqual(tuple(o for o in f["esign_flow"]["options"].split("\n") if o), E.FLOWS)
         self.assertIn(E.LABOR_CONTRACT_TYPE, f["contract_type"]["options"].split("\n"))
-        self.assertIn("esign_flow", meta["field_order"])
-        self.assertIn("esign_flow", D.editable_fields)
+        for fn in ("esign_flow", "partner_signer_name", "partner_signer_email", "partner_signer_phone"):
+            self.assertIn(fn, meta["field_order"])
+            self.assertIn(fn, D.editable_fields)
+        hooks = open(os.path.join(_HERE, "..", "..", "..", "hooks.py"), encoding="utf-8").read()
+        self.assertIn("esign_hooks.on_signing_outcome", hooks)
+        self.assertIn("ec_esign_outcome_handlers", hooks)
+
+    def test_esign_flow_khong_vao_chu_ky_duyet_lai(self):
+        """QC7: them truong vao chu ky = moi phieu dang 'Can bo sung' gui lai bi duyet lai tu dau."""
+        import ast
+        src = open(os.path.join(_HERE, "..", "..", "features", "contract_review", "application", "service.py"),
+                   encoding="utf-8").read()
+        vals = {t.id: ast.literal_eval(n.value) for n in ast.parse(src).body if isinstance(n, ast.Assign)
+                for t in n.targets if isinstance(t, ast.Name) and t.id in ("MATERIAL_FIELDS", "KOL_MATERIAL_FIELDS")}
+        self.assertEqual(len(vals), 2)
+        for v in vals.values():
+            self.assertNotIn("esign_flow", v)
 
 
 class VendoredViewer(unittest.TestCase):

@@ -1,37 +1,39 @@
 # Copyright (c) 2026, eCentric and contributors
 """Quy trinh ky cua mot phieu Contract Review (truong `esign_flow`, chot 12/11/2026 voi anh Hoan
-+ chat Ky so).
++ chat Ky so, xem ERP Website/THIETKE_ky_so_hop_dong.md).
 
-Gia tri la NHAN nghiep vu (khong phai id quy trinh tren cong): moi gia tri ung voi mot
-`EC Digital Signature Profile` ben nen tang ky so, ho so giu id quy trinh / loai chung tu
-(cong sap chuyen SCTS -> CMC; ERP khong ghi cung id hay dia chi cong).
+Gia tri la MA ngan (luu tren phieu, ho so ky chon theo `selector_value`); nhan tieng Viet chi de
+hien thi. Id quy trinh / loai chung tu tren cong nam o ho so ky ben nen tang ky so - ERP khong ghi
+cung id hay dia chi cong (cong sap chuyen SCTS -> CMC). KHONG dung quy trinh "HD KOL/KOC NEW"
+(6DF7FE12): anh Hoan chot 11/11 KOL/KOC va BBNT di WF09.
 
-  KOL/KOC - CEO ky roi doi tac ky   -> WF09 (anh Hoan chot 11/11; KHONG dung "HD KOL/KOC NEW")
-  KOL/KOC - doi tac da ky           -> trinh ky HD KOL/KOC doi tac da ky
-  QD/HD - doi tac da ky             -> ky QD/HD, file doi tac da ky
-  Bien ban nghiem thu 3 ben          -> BBNT 3 ben
-  Hop dong lao dong                  -> HD lao dong (CnB tao -> doi tac ky -> CnB trinh -> CEO ky)
-  Khong ky tren cong                 -> ky ngoai, tai ban ky len nhu hien nay
-
-BBNT tung dot cua hop dong KOL luon di WF09 (khong theo truong nay): ho so rieng BBNT_FLOW.
+BBNT tung dot cua hop dong KOL luon di WF09; ho so ky BBNT chon theo `purpose` ("bbnt:<row>"),
+khong theo truong nay.
 """
-
 from ecentric_workspace.approval_center.features.contract_review.domain.kol import KOL_CONTRACT_TYPE
 
 LABOR_CONTRACT_TYPE = "Labor / Hợp đồng lao động (EC)"
 
-KOL_CEO_THEN_PARTNER = "KOL/KOC - CEO ký rồi đối tác ký"
-KOL_PARTNER_SIGNED = "KOL/KOC - đối tác đã ký"
-PARTNER_SIGNED = "QĐ/HĐ - đối tác đã ký"
-ACCEPTANCE_3_PARTIES = "Biên bản nghiệm thu 3 bên"
-LABOR = "Hợp đồng lao động"
-OFFLINE = "Không ký trên cổng"
+KOL_WF09 = "kol_wf09"
+KOL_PARTNER_SIGNED = "kol_doi_tac_da_ky"
+PARTNER_SIGNED = "qd_hd_doi_tac_da_ky"
+ACCEPTANCE_3_PARTIES = "bbnt_3_ben"
+LABOR = "hd_lao_dong"
+OFFLINE = "khong_ky_cong"
 
-FLOWS = (KOL_CEO_THEN_PARTNER, KOL_PARTNER_SIGNED, PARTNER_SIGNED, ACCEPTANCE_3_PARTIES, LABOR, OFFLINE)
-# Ho so ky cho BBNT tung dot (WF09, chung loai chung tu "Hop Dong KOL/KOC"); khong phai lua chon tren phieu.
-BBNT_FLOW = "BBNT KOL/KOC"
+LABELS = {
+    KOL_WF09: "KOL/KOC – CEO ký rồi đối tác ký (WF09)",
+    KOL_PARTNER_SIGNED: "KOL/KOC – đối tác đã ký (WF07)",
+    PARTNER_SIGNED: "QĐ/HĐ – đối tác đã ký (WF05)",
+    ACCEPTANCE_3_PARTIES: "Biên bản nghiệm thu 3 bên (WF08)",
+    LABOR: "Hợp đồng lao động (WF03)",
+    OFFLINE: "Không ký trên cổng",
+}
+FLOWS = tuple(LABELS)
+# Quy trinh co doi tac ky tren cong (can ho ten / email / dien thoai nguoi ky phia doi tac).
+WITH_PARTNER = (KOL_WF09, ACCEPTANCE_3_PARTIES, LABOR)
 
-DEFAULTS = {KOL_CONTRACT_TYPE: KOL_CEO_THEN_PARTNER, LABOR_CONTRACT_TYPE: LABOR}
+DEFAULTS = {KOL_CONTRACT_TYPE: KOL_WF09, LABOR_CONTRACT_TYPE: LABOR}
 
 
 def default_flow(contract_type):
@@ -40,20 +42,35 @@ def default_flow(contract_type):
 
 
 def apply_default(doc):
-    """Dien mac dinh khi o con trong. Gia tri nguoi dung da chon thi giu. Gia tri la (vd sua tay
-    qua API) thi xoa de bat chon lai, khong de ho so ky bi chon theo chuoi rac."""
+    """Dien mac dinh khi o con trong. Gia tri nguoi dung da chon thi giu, TRU KHI no la mac dinh cua
+    mot loai hop dong KHAC (doi loai sau khi luu: KOL -> Mua vao thi khong giu WF09 - QC7). Gia tri
+    la (sua tay qua API) thi xoa de bat chon lai."""
     cur = doc.get("esign_flow")
-    if cur and cur not in FLOWS:
+    mine = default_flow(doc.get("contract_type"))
+    if cur and (cur not in FLOWS or (cur in DEFAULTS.values() and cur != mine)):
         cur = None
-    if not cur:
-        cur = default_flow(doc.get("contract_type"))
-    doc.esign_flow = cur
-    return cur
+    doc.esign_flow = cur or mine
+    return doc.esign_flow
+
+
+def label(code):
+    return LABELS.get(code or "", code or "")
+
+
+def needs_partner(code):
+    return code in WITH_PARTNER
 
 
 def needs_brand(contract_type):
     """Hop dong lao dong khong gan brand."""
     return contract_type != LABOR_CONTRACT_TYPE
+
+
+def clean_labor(doc):
+    """Hop dong lao dong: khong luu gia tri (luong) tren phieu - phieu hien o danh sach / tab Tat ca /
+    tom tat cho nguoi duyet; luong chi nam trong tep (QC7)."""
+    if doc.get("contract_type") == LABOR_CONTRACT_TYPE:
+        doc.contract_value = None
 
 
 def needs_value(contract_type):
