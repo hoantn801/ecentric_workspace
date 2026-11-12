@@ -225,13 +225,14 @@ def update_session(name, values):
 
 _PLAYER_FIELDS = ["name", "session", "user", "nickname", "avatar_json", "department", "score",
                   "correct_count", "correct_ms", "streak", "best_streak", "answered", "first_rank",
-                  "device", "kicked", "flags_json", "joined_at"]
+                  "device", "kicked", "flags_json", "powers_json", "joined_at"]
 
 
 def _player(r):
     d = dict(r)
     d["avatar"] = _j(d.pop("avatar_json", None), {})
     d["flags"] = _j(d.pop("flags_json", None), [])
+    d["powers"] = _j(d.pop("powers_json", None), {})
     d["kicked"] = int(d.get("kicked") or 0)
     d["joined_at"] = str(d.get("joined_at") or "")
     for k in ("score", "correct_count", "correct_ms", "streak", "best_streak", "answered", "first_rank"):
@@ -286,6 +287,8 @@ def update_player(session, user, values):
         vals["avatar_json"] = _d(vals.pop("avatar"))
     if "flags" in vals:
         vals["flags_json"] = _d(vals.pop("flags"))
+    if "powers" in vals:
+        vals["powers_json"] = _d(vals.pop("powers"))
     frappe.db.set_value(C.PLAYER, player_name(session, user), vals, update_modified=False)
 
 

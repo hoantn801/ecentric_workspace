@@ -1,6 +1,6 @@
 {
  "title": "Claude buổi 1 · Quiz sau buổi học",
- "description": "21 câu, 8 kiểu câu. Seed từ bộ quiz buổi đào tạo Claude Team đầu tiên (13/11/2026).",
+ "description": "23 câu, 9 kiểu câu. Bộ quiz buổi đào tạo Claude Team đầu tiên (13/11/2026).",
  "template": "after_class",
  "settings": {
   "mode": "team",
@@ -12,7 +12,8 @@
   "last_double": true,
   "allow_nick": true,
   "allow_avatar": true,
-  "same_order": true
+  "same_order": true,
+  "power_ups": true
  },
  "prizes": null,
  "questions": [
@@ -21,6 +22,29 @@
    "text": "Khởi động: bạn muốn Claude giúp mình việc gì nhất? (gõ 1-2 từ)",
    "time": 30,
    "explain": "Câu khởi động, không tính điểm. Các từ được nhiều người gõ nhất sẽ hiện to nhất trên màn chiếu - Ban đào tạo dùng để chọn chủ đề cho các bài học tuần tới."
+  },
+  {
+   "type": "poll",
+   "text": "Phòng bạn muốn làm skill cho việc gì trong thử thách 2 tuần?",
+   "time": 30,
+   "options": [
+    {
+     "text": "Báo cáo tuần"
+    },
+    {
+     "text": "Hợp đồng / biểu mẫu"
+    },
+    {
+     "text": "Phân tích số liệu brand"
+    },
+    {
+     "text": "Kịch bản livestream"
+    },
+    {
+     "text": "Email khách hàng"
+    }
+   ],
+   "explain": "Không tính điểm - kết quả bình chọn giúp Ban đào tạo chuẩn bị bài hướng dẫn phù hợp cho từng phòng."
   },
   {
    "type": "single",
@@ -390,27 +414,38 @@
    "explain": "Mỗi phòng ban làm ra MỘT skill cho công việc của mình: tuần 1 chọn một việc hay lặp lại, tuần 2 cùng Claude dựng thành skill, cuối thử thách lên chia sẻ (show & tell) cho cả công ty."
   },
   {
-   "type": "poll",
-   "text": "Phòng bạn muốn làm skill cho việc gì trong thử thách 2 tuần?",
-   "time": 30,
-   "options": [
-    {
-     "text": "Báo cáo tuần"
-    },
-    {
-     "text": "Hợp đồng / biểu mẫu"
-    },
-    {
-     "text": "Phân tích số liệu brand"
-    },
-    {
-     "text": "Kịch bản livestream"
-    },
-    {
-     "text": "Email khách hàng"
-    }
-   ],
-   "explain": "Không tính điểm - kết quả bình chọn giúp Ban đào tạo chuẩn bị bài hướng dẫn phù hợp cho từng phòng."
+   "type": "pin",
+   "text": "Ở tab Phần thưởng của kênh Đào tạo: chạm vào nút để máy chọn giúp bạn một số may mắn.",
+   "time": 20,
+   "media": {
+    "kind": "image",
+    "url": "https://team.ecentric.vn/assets/ecentric_workspace/dao_tao/img/pin-phan-thuong.png"
+   },
+   "zone": {
+    "shape": "rect",
+    "x": 0.25,
+    "y": 0.596,
+    "w": 0.14,
+    "h": 0.092
+   },
+   "explain": "Nút “Chọn ngẫu nhiên”. Mỗi vé là một lượt quay: bạn tự chọn số trong bảng, hoặc để máy chọn giúp. Chưa chọn kịp thì đến 15:55 thứ Sáu máy tự chọn cho bạn."
+  },
+  {
+   "type": "pin",
+   "text": "Câu cuối! Trên trang Đào tạo (team.ecentric.vn/dao-tao): chạm vào nút để vào chơi Quiz trực tiếp.",
+   "time": 20,
+   "media": {
+    "kind": "image",
+    "url": "https://team.ecentric.vn/assets/ecentric_workspace/dao_tao/img/pin-dao-tao.png"
+   },
+   "zone": {
+    "shape": "rect",
+    "x": 0.02,
+    "y": 0.27,
+    "w": 0.145,
+    "h": 0.17
+   },
+   "explain": "Nút vàng “Quiz trực tiếp”. Từ tuần này mỗi tuần có bài học mới trên kênh Đào tạo: học bài, làm quiz là có vé quay số thứ Sáu. Vào Công ty › Đào tạo trên menu là thấy."
   }
  ]
 }

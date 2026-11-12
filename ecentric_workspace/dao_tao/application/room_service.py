@@ -11,7 +11,7 @@ import secrets
 from ecentric_workspace.dao_tao import constants as C
 from ecentric_workspace.dao_tao.application import ticket_service, views
 from ecentric_workspace.dao_tao.application.access import require_found, require_host
-from ecentric_workspace.dao_tao.domain import board, prizes, questions as Q, room, scoring, settings as S
+from ecentric_workspace.dao_tao.domain import board, powers as PW, prizes, questions as Q, room, scoring, settings as S
 from ecentric_workspace.dao_tao.domain.errors import QuizError
 
 
@@ -129,13 +129,25 @@ def _lock_question(repo, s):
     ans = {a["user"]: a for a in repo.answers(s["name"], idx, locking=True) if not a.get("applied")}
     plist = repo.players(s["name"], locking=True)
     fast = dict(s["state"].get("fast") or {})
+    pw_on = PW.enabled(s["settings"])
+    thieves = []
     for p in plist:
         if p.get("kicked"):
             continue
         a = ans.get(p["user"])
         upd = {}
+        pw, pw_ids = None, []
+        if pw_on:
+            try:
+                pw = PW.clean_state(p.get("powers"))
+                pw_ids = PW.effective(pw, idx)
+                if scored and "steal" in pw_ids:
+                    thieves.append(p["user"])
+            except Exception:
+                repo.log_error("dao_tao power lock %s %s" % (s["name"], p["user"]))
+                pw, pw_ids = None, []
         if a:
-            upd["score"] = p["score"] + int(a["points"] or 0)
+            upd["score"] = max(0, p["score"] + int(a["points"] or 0))   # "Lieu an nhieu" sai co the am
             upd["answered"] = p["answered"] + 1
             if scored:
                 upd["streak"] = int(a["streak"] or 0)
@@ -149,18 +161,36 @@ def _lock_question(repo, s):
                 if run >= C.FAST_STREAK and C.FLAG_FAST not in p["flags"]:
                     upd["flags"] = p["flags"] + [C.FLAG_FAST]
         elif scored:
-            upd["streak"] = 0
+            upd["streak"] = p["streak"] if "shield" in pw_ids else 0
+            if PW.miss_points(pw_ids):
+                upd["score"] = p["score"] + PW.miss_points(pw_ids)
             fast[p["user"]] = 0
+        if pw is not None and scored and pw_ids:
+            upd["powers"] = PW.consume(pw, idx)
         if upd:
             repo.update_player(s["name"], p["user"], upd)
             p.update(upd)
     repo.mark_answers_applied(s["name"], idx)
     ranked = board.rank_players(plist)
+    steals = []
+    if thieves:
+        try:                                         # loi danh cap khong duoc chan viec khoa cau
+            salt = s["state"].get("salt") or ""
+            changed, steals = PW.apply_steals(
+                ranked, thieves, lambda u: PW.steal_amount(Q.secret_seed(salt, s["name"], "steal", u, idx)))
+            byu = {p["user"]: p for p in plist}
+            for user, upd in changed.items():
+                repo.update_player(s["name"], user, upd)
+                byu[user].update(upd)
+            ranked = board.rank_players(plist)       # bang xep hang sau khi trom
+        except Exception:
+            repo.log_error("dao_tao power steal %s" % s["name"])
+            steals = []
     if idx == 0:
         for p in ranked:
             repo.update_player(s["name"], p["user"], {"first_rank": p["rank"]})
     teams = board.rank_teams(plist)
-    state = dict(s["state"], fast=fast, **views.board_state(ranked, teams, len(ranked)))
+    state = dict(s["state"], fast=fast, steals=steals, **views.board_state(ranked, teams, len(ranked)))
     v = repo.update_session(s["name"], {"phase": C.PHASE_LOCKED, "state": state})
     repo.publish_room(s["name"], v)
     return dict(s, phase=C.PHASE_LOCKED, state=state, version=v)

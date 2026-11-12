@@ -9,7 +9,7 @@ May CHIEU (nguoi dan) cung khong nhan dap an truoc pha reveal - man hinh chieu n
 ai cung nhin duoc tab dev tools cua laptop nguoi dan neu de ho.
 """
 from ecentric_workspace.dao_tao import constants as C
-from ecentric_workspace.dao_tao.domain import board, questions as Q, room, settings as S
+from ecentric_workspace.dao_tao.domain import board, powers as PW, questions as Q, room, settings as S
 
 TOP_N = 5
 
@@ -52,9 +52,42 @@ def common(s, now_ms):
            "is_last": s["index"] + 1 >= total, "server_ms": now_ms,
            "rules": {"mode": st.get("mode"), "show_on_phone": st.get("show_on_phone", True),
                      "allow_nick": st.get("allow_nick", True), "allow_avatar": st.get("allow_avatar", True),
-                     "guard": st.get("guard"), "strict": S.strict(st), "one_device": S.one_device(st)}}
+                     "guard": st.get("guard"), "strict": S.strict(st), "one_device": S.one_device(st),
+                     "last_double": st.get("last_double", True), "power_ups": PW.enabled(st)}}
     if s["phase"] in (C.PHASE_QUESTION, C.PHASE_LOCKED, C.PHASE_REVEAL, C.PHASE_BOARD):
         out.update(_timing(s, now_ms))
+    return out
+
+
+def offer_index(s, answered):
+    """Luot moi power-up dang mo (chi so cau vua cong bo) hoac None. Mo trong luc cong bo / bang
+    xep hang cua cau 5, 10, ... va ca cau ke tiep (truoc khi tra loi) cho ai chua kip chon."""
+    if not PW.enabled(s["settings"]):
+        return None
+    total, i = len(s["questions"]), s["index"]
+    if s["phase"] in (C.PHASE_REVEAL, C.PHASE_BOARD) and PW.offer_at(i, total):
+        return i
+    if s["phase"] == C.PHASE_QUESTION and not answered and i >= 1 and PW.offer_at(i - 1, total):
+        return i - 1
+    return None
+
+
+def offer_ids(s, user, k):
+    return PW.offer(Q.secret_seed(s["state"].get("salt") or "", s["name"], "power", user, k))
+
+
+def _power_view(s, player, answered):
+    st = PW.clean_state(player.get("powers"))
+    k = offer_index(s, answered)
+    out = {"bag": [dict(PW.info(i), auto=i in PW.AUTO) for i in st["bag"]], "bag_max": PW.BAG_MAX,
+           "active": [PW.info(i) for i in PW.effective(st, s["index"])] if s["phase"] == C.PHASE_QUESTION else [],
+           "offer": None, "picked": None, "full": len(st["bag"]) >= PW.BAG_MAX}
+    if k is not None:
+        got = st["picked"].get(str(k))
+        if got:
+            out["picked"] = PW.info(got) if got != PW.SKIP else {"id": PW.SKIP, "label": "Bỏ qua"}
+        elif not out["full"]:
+            out["offer"] = [PW.info(i) for i in offer_ids(s, player["user"], k)]
     return out
 
 
@@ -86,6 +119,14 @@ def player_view(s, player, answer, now_ms):
         out["answered"] = bool(answer)
         if not answer:
             out["question"] = _q_for_player(s, player["user"])
+            if PW.enabled(s["settings"]):
+                gone = PW.eliminated(s["questions"][s["index"]],
+                                     PW.effective(PW.clean_state(player.get("powers")), s["index"]),
+                                     seed_for(s, "elim|" + player["user"]))
+                if gone and out["question"].get("options"):
+                    # Giu dung vi tri (cung mau / chu cai voi may chieu), chi danh dau o bi loai.
+                    out["question"]["options"] = [dict(o, gone=True) if o["id"] == gone else o
+                                                  for o in out["question"]["options"]]
     elif ph == C.PHASE_LOCKED:
         out["answered"] = bool(answer)
     elif ph in (C.PHASE_REVEAL, C.PHASE_BOARD):
@@ -102,7 +143,18 @@ def player_view(s, player, answer, now_ms):
             out["my_answer"] = answer.get("answer") if answer else None
         else:
             out["board"] = board_rows(s)
-    elif ph == C.PHASE_ENDED:
+    if PW.enabled(s["settings"]) and ph in (C.PHASE_QUESTION, C.PHASE_REVEAL, C.PHASE_BOARD):
+        out["power"] = _power_view(s, player, bool(answer))
+    if PW.enabled(s["settings"]) and ph in (C.PHASE_REVEAL, C.PHASE_BOARD):
+        mine = []
+        for e in s["state"].get("steals") or []:
+            if e.get("thief") == player["user"]:
+                mine.append({"role": "thief", "other": e.get("victim_nick"), "amount": e.get("amount"), "blocked": e.get("blocked")})
+            elif e.get("victim") == player["user"]:
+                mine.append({"role": "victim", "other": e.get("thief_nick"), "amount": e.get("amount"), "blocked": e.get("blocked")})
+        if mine:
+            out["steals"] = mine
+    if ph == C.PHASE_ENDED:
         res = s.get("results") or {}
         out["final"] = {"podium": res.get("podium") or [], "teams": (res.get("teams") or [])[:6],
                         "my_rank": (res.get("ranks") or {}).get(player["user"]),
@@ -136,6 +188,12 @@ def host_view(s, players, answered_count, now_ms):
         out["board"] = board_rows(s)
         if st.get("mode") == C.MODE_TEAM:
             out["teams"] = (s["state"].get("teams") or [])[:6]
+    if s["phase"] in (C.PHASE_REVEAL, C.PHASE_BOARD) and PW.enabled(st) and s["state"].get("steals"):
+        out["steals"] = [{"thief_nick": e.get("thief_nick"), "victim_nick": e.get("victim_nick"),
+                          "amount": e.get("amount"), "blocked": bool(e.get("blocked"))} for e in s["state"]["steals"]]
+    if s["phase"] in (C.PHASE_REVEAL, C.PHASE_BOARD) and PW.enabled(st) and PW.offer_at(s["index"], len(s["questions"])):
+        k = str(s["index"])
+        out["power_open"] = {"picked": sum(1 for p in active if k in ((p.get("powers") or {}).get("picked") or {}))}
     if s["phase"] == C.PHASE_ENDED:
         out["final"] = s.get("results") or {}
     return out

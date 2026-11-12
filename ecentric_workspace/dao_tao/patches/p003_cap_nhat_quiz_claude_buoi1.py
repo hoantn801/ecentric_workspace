@@ -1,7 +1,7 @@
 # Copyright (c) 2026, eCentric and contributors
 """Cap nhat bo quiz "Claude buoi 1 · Quiz sau buoi hoc" theo gop y Hoan 13/11/2026 truoc buoi hoc:
 cau hoi viet de hieu hon, giai thich chi tiet hon, thay cau Booking KOC (it nguoi biet) va cau
-QC skill KOC; bat "dien thoai cung thu tu + cung mau voi man chieu".
+QC skill KOC; bat "dien thoai cung thu tu + cung mau voi man chieu" va power-up moi 5 cau.
 
 Ghi de noi dung bo seed (Hoan duyet 13/11, bo nay chi moi duoc choi thu). Phong da mo truoc do giu
 nguyen cau hoi cu (phong chot ban sao luc mo)."""
@@ -29,7 +29,7 @@ def execute():
         store.save_quiz(name, {"title": q["title"], "description": seed.get("description") or q.get("description") or "",
                                "status": q.get("status") or C.QUIZ_READY, "template": q.get("template") or "",
                                "questions": questions.require_valid(seed["questions"]),
-                               "settings": settings.clean_settings(dict(q.get("settings") or {}, same_order=True)),
+                               "settings": settings.clean_settings(dict(q.get("settings") or {}, same_order=True, power_ups=True)),
                                "prizes": q["prizes"] if q.get("prizes") is not None
                                else prizes.clean_prizes(seed.get("prizes"))})
     except Exception:
