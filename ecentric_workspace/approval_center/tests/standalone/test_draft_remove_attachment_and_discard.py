@@ -297,7 +297,7 @@ class TestWiring(unittest.TestCase):
         api = _read("platform", "esign", "api.py")
         i = api.index("def remove_attachment(")
         self.assertIn('@frappe.whitelist(methods=["POST"])', api[i - 60:i])
-        self.assertIn("ds.remove_attachment(", api[i:i + 500])
+        self.assertIn("ds.remove_attachment(", api[i:i + 900])  # 11/11: chu ky ham dai hon (chang 3)
         h = _read("platform", "esign", "ui", "document_signing_section.html")
         self.assertIn('data-remove-any="1"', h)
         self.assertIn('call("remove_attachment", { payment_request_name: name, document_ref: ref }, "POST")', h)

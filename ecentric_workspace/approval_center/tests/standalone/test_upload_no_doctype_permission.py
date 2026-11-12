@@ -137,7 +137,8 @@ class TestEndpointWhitelistDungKieu(unittest.TestCase):
         self.assertTrue(any('methods=["POST"]' in d for d in decos), "lenh GHI phai la POST")
         goi = {getattr(c.func, "attr", None) or getattr(c.func, "id", None)
                for c in ast.walk(fn) if isinstance(c, ast.Call)}
-        self.assertIn("_business_args", goi)
+        # 11/11 (chang 3): _target goi _business_args ben trong.
+        self.assertTrue("_business_args" in goi or "_target" in goi, goi)
 
 
 class TestKhongTaiPham(unittest.TestCase):

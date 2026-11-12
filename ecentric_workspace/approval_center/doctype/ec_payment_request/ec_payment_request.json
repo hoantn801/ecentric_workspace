@@ -198,7 +198,7 @@
    "fieldname": "funding_source_doctype",
    "label": "Loại nguồn chi phí",
    "fieldtype": "Select",
-   "options": "\nEC Purchase Request\nPurchase Order",
+   "options": "\nEC Purchase Request\nPurchase Order\nEC Contract Review Request",
    "description": "Chứng từ cam kết chi mà khoản thanh toán này trừ vào. Bỏ trống = chi độc lập."
   },
   {
@@ -391,7 +391,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-09-28 12:00:00.000000",
+ "modified": "2026-11-11 17:00:00.000000",
  "module": "Approval Center",
  "name": "EC Payment Request",
  "naming_rule": "Expression",

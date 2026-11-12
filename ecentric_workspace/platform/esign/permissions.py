@@ -73,9 +73,13 @@ def can_view_business(business_doctype, business_name, user=None):
         frappe.log_error(frappe.get_traceback(), "esign can_view_business: khong nap duoc luat goc")
         return False
     ar = business_approval_request(business_doctype, business_name)
-    row = frappe.db.get_value(business_doctype, business_name,
-                              ["requested_by", "fulfillment_owner", "approval_type"],
-                              as_dict=True) or {}
+    # Chi doc cot CO THAT tren DocType. `fulfillment_owner` chi co o mot so form (DNTT co,
+    # Hop dong khong): doc mu thi nguoi KHONG phai requester/SM/nguoi duyet - vd CEO duoc CC
+    # hop dong - nhan loi DB thay vi cau tra loi co/khong (QC 11/11, chang 3).
+    cols = [c for c in ("requested_by", "fulfillment_owner", "approval_type")
+            if frappe.db.has_column(business_doctype, c)]
+    row = (frappe.db.get_value(business_doctype, business_name, cols, as_dict=True)
+           if cols else None) or {}
     return bool(can_view_request(
         ar, user,
         business_doctype=business_doctype,

@@ -1,0 +1,145 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:template_name",
+ "creation": "2026-11-11 15:30:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-11 15:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "Approval Center",
+ "name": "EC Contract Template",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "title_field": "template_name",
+ "field_order": [
+  "template_name",
+  "kind",
+  "creator_type",
+  "service_type",
+  "has_advance",
+  "is_active",
+  "cb0",
+  "template_file",
+  "version",
+  "placeholders",
+  "unknown_placeholders",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "template_name",
+   "fieldtype": "Data",
+   "label": "Tên mẫu",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "kind",
+   "fieldtype": "Select",
+   "label": "Loại tài liệu",
+   "options": "Hợp đồng\nBBNT",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "creator_type",
+   "fieldtype": "Select",
+   "label": "Loại creator",
+   "options": "Cá nhân\nCông ty\nHộ kinh doanh",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "service_type",
+   "fieldtype": "Select",
+   "label": "Dịch vụ",
+   "options": "Tất cả\nLivestream\nVideo\nLivestream + Video\nHoa hồng affiliate",
+   "default": "Tất cả",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "has_advance",
+   "fieldtype": "Check",
+   "label": "Mẫu có điều khoản cọc"
+  },
+  {
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Đang dùng",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "cb0",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "template_file",
+   "fieldtype": "Attach",
+   "label": "Tệp mẫu (.docx)",
+   "reqd": 1,
+   "description": "Dùng {{ten_truong}} cho chỗ cần điền. Danh sách tên trường xem ở ô bên dưới sau khi lưu."
+  },
+  {
+   "fieldname": "version",
+   "fieldtype": "Int",
+   "label": "Phiên bản",
+   "default": "1"
+  },
+  {
+   "fieldname": "placeholders",
+   "fieldtype": "Small Text",
+   "label": "Trường tìm thấy trong mẫu",
+   "read_only": 1
+  },
+  {
+   "fieldname": "unknown_placeholders",
+   "fieldtype": "Small Text",
+   "label": "Trường ERP không hiểu",
+   "read_only": 1,
+   "description": "Sửa lại tên trong mẫu cho khớp danh sách trường ERP hỗ trợ."
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú"
+  }
+ ],
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "EC Finance",
+   "share": 1,
+   "write": 1
+  }
+ ]
+}

@@ -380,7 +380,7 @@ class TestDiagnosticEndpointExists(unittest.TestCase):
 
     def test_endpoint_is_whitelisted_and_read_only(self):
         src = self._api_src()
-        self.assertIn("def esign_document_state(payment_request_name):", src)
+        self.assertIn("def esign_document_state(payment_request_name=None", src)  # chang 3
         idx = src.index("def esign_document_state")
         head = src[max(0, idx - 200):idx]
         self.assertIn("@frappe.whitelist()", head, "phai la lenh DOC, khong methods=POST")

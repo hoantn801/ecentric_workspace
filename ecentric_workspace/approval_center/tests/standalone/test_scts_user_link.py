@@ -448,7 +448,8 @@ class TestApiEndpoints(unittest.TestCase):
     def test_moi_endpoint_kiem_phieu_ton_tai(self):
         for name in ("link_scts_account", "unlink_scts_account", "scts_link_status"):
             fn, _ = self._ep(name)
-            self.assertTrue(_calls(fn, "_business_args"), name)
+            # 11/11 (chang 3): _target goi _business_args ben trong.
+            self.assertTrue(_calls(fn, "_business_args") or _calls(fn, "_target"), name)
 
 
 class TestPanelHtml(unittest.TestCase):

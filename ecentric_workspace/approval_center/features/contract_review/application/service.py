@@ -14,6 +14,7 @@ import frappe
 from frappe import _
 from frappe.utils import now_datetime
 
+from ecentric_workspace.approval_center.features.contract_review.domain import kol
 from ecentric_workspace.approval_center.shared.workflow import transitions as engine
 
 BUSINESS_DT = "EC Contract Review Request"
@@ -23,6 +24,12 @@ CEO_LEVEL_NO = 4
 MATERIAL_FIELDS = ["request_kind", "previous_request", "contract_type", "request_type",
                    "brand", "justification", "contract_value", "contract_start_date",
                    "contract_end_date", "request_details"]
+# KOL/KOC: doi creator / SO / tien / coc khi gui lai = duyet lai tu dau. CHI cong vao chu ky
+# cua phieu KOL - cong cho moi phieu thi chu ky cua phieu cu dang "Can bo sung" doi theo va
+# bi duyet lai tu dau du khong ai sua gi.
+KOL_MATERIAL_FIELDS = ["sales_order", "creator", "payable_amount", "advance_amount",
+                       "payment_schedule", "contract_file", "request_attachment",
+                       "payment_term_days", "amount_type", "pit_rate", "vat_rate", "contract_date"]
 REQUIRED_AT_SUBMIT = ["request_title", "request_kind", "contract_type", "request_type",
                       "brand", "justification", "contract_value", "request_details"]
 # Trường được phép lệch so với hợp đồng gốc mà vẫn coi là "chỉ điều chỉnh" (bỏ cấp CEO).
@@ -36,7 +43,8 @@ RESPONSE_DAYS = {"Existing": 1, "New": 3}
 
 
 def _signature(doc):
-    vals = {f: str(doc.get(f) or "") for f in MATERIAL_FIELDS}
+    fields = MATERIAL_FIELDS + (KOL_MATERIAL_FIELDS if kol.is_kol(doc) else [])
+    vals = {f: str(doc.get(f) or "") for f in fields}
     return hashlib.sha1(json.dumps(vals, sort_keys=True).encode("utf-8")).hexdigest()
 
 
@@ -95,6 +103,11 @@ def submit(name):
         doc.employee = emp.name
         doc.department = doc.department or emp.department
         doc.company = doc.company or emp.company
+    if kol.is_kol(doc):
+        # Hop dong KOL/KOC (11/11/2026): tinh lai tien, chot so HD, canh bao doanh thu SO.
+        # Nap tre: module KOL keo creator repository + lookup, phieu thuong khong can.
+        from ecentric_workspace.approval_center.features.contract_review.application import kol_service
+        kol_service.validate_submit(doc)
     missing = [f for f in REQUIRED_AT_SUBMIT if not doc.get(f)]
     if missing:
         frappe.throw(_("Vui lòng nhập đầy đủ các trường bắt buộc trước khi gửi."))
@@ -210,6 +223,12 @@ def resubmit(name, actor=None):
     if not doc.approval_request:
         frappe.throw(_("Yêu cầu chưa được gửi."))
     _guard_resubmit_needs_ceo(doc)
+    if kol.is_kol(doc):
+        # Gui lai sau "Can bo sung" cung qua DUNG phep chot nhu luc gui: tinh lai tien, sinh lai
+        # hop dong neu du lieu doi, canh bao doanh thu SO (QC 11/11 - truoc do bo qua het).
+        from ecentric_workspace.approval_center.features.contract_review.application import kol_service
+        kol_service.validate_submit(doc)
+        doc.save(ignore_permissions=True)
     new_sig = _signature(doc)
     material_changed = new_sig != (doc.material_signature or "")
     engine.resubmit(doc.approval_request, actor=actor or frappe.session.user, restart=material_changed)
