@@ -96,7 +96,7 @@ def auto_lock(repo, s):
         return s
     fresh = repo.lock_session(s["name"])
     if fresh and fresh["phase"] == C.PHASE_QUESTION and fresh["index"] == s["index"]:
-        return _lock_question(repo, fresh)
+        return _reveal(repo, _lock_question(repo, fresh))      # het gio -> cong bo luon (Hoan 13/11)
     return fresh or s                                # ban doc co khoa = moi nhat; KHONG nap lai Redis
 
 
@@ -106,8 +106,18 @@ def lock_if_all_answered(repo, s):
         return s
     # Chi dem cau tra loi cua nguoi CON trong phong (nguoi bi moi ra ma da tra loi khong tinh).
     if repo.count_active_answers(s["name"], s["index"]) >= max(1, repo.count_players(s["name"])):
-        return _lock_question(repo, s)
+        return _reveal(repo, _lock_question(repo, s))          # ai cung tra loi -> cong bo luon
     return s
+
+
+def _reveal(repo, s):
+    """PHAI dang giu khoa phong, cau da khoa: cong bo dap an + dem tung lua chon. Nguoi dan chi
+    con bam Bang xep hang / Cau tiep (Hoan 13/11: het gio tu cong bo)."""
+    q = s["questions"][s["index"]]
+    state = dict(s["state"], tally=Q.tally(q, [a["answer"] for a in repo.answers(s["name"], s["index"])]))
+    v = repo.update_session(s["name"], {"phase": C.PHASE_REVEAL, "state": state})
+    repo.publish_room(s["name"], v)
+    return dict(s, phase=C.PHASE_REVEAL, state=state, version=v)
 
 
 def _lock_question(repo, s):

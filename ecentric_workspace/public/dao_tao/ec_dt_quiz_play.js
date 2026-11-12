@@ -208,7 +208,7 @@
     var h = '<div class="dt-opts' + (q.tiles_only ? " tiles" : "") + (long ? " long" : "") + '">';
     q.options.forEach(function (o, i) {
       h += '<button class="dt-opt dt-ans c' + i + '" data-o="' + D.esc(o.id) + '" aria-pressed="false"><span class="dt-shape">' + D.LETTERS[i] +
-        "</span><span>" + D.esc(o.text) + "</span></button>";
+        "</span><span>" + D.esc(o.text) + "</span>" + (multi ? '<span class="dt-tick" aria-hidden="true"></span>' : "") + "</button>";
     });
     return h + "</div>" + (multi ? '<p style="text-align:center">Chọn ' + (q.pick || "các") + ' đáp án rồi bấm Gửi</p><button class="dt-b gold lg dt-ans" id="dt-send">Gửi</button>' : "");
   }
@@ -269,7 +269,13 @@
     if (t === "multi") {
       draft.sel = {};
       D.qsa(root, ".dt-opt").forEach(function (b) {
-        b.onclick = function () { var on = !draft.sel[b.dataset.o]; draft.sel[b.dataset.o] = on; b.setAttribute("aria-pressed", String(on)); };
+        b.onclick = function (ev) {
+          if (ev) ev.preventDefault();
+          var on = !draft.sel[b.dataset.o]; draft.sel[b.dataset.o] = on; b.setAttribute("aria-pressed", String(on));
+          var tk = b.querySelector(".dt-tick"); if (tk) tk.textContent = on ? "✓" : "";
+          var n = Object.keys(draft.sel).filter(function (k) { return draft.sel[k]; }).length, sb = D.byId("dt-send");
+          if (sb) sb.textContent = n ? "Gửi (" + n + " đáp án)" : "Gửi";
+        };
       });
     }
     if (t === "slider") {

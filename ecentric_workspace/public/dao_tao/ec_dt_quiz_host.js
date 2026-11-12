@@ -45,7 +45,7 @@
     var top = '<div class="dt-ptop"><b style="font-size:18px">' + D.esc(st.title) + '</b><span class="dt-pill" style="background:rgba(255,255,255,.16);border-radius:999px;padding:4px 12px">Mã <b>' +
       D.esc(st.code) + '</b></span><span class="dt-sp"></span><span title="Mức bảo vệ">' + D.icon("shield") + " " + (GUARD[st.settings.guard] || "") +
       '</span><span>👥 <b id="dt-np">' + st.players + "</b></span>" +
-      '<button class="dt-b sm ghost" style="color:#fff" id="dt-fs">Toàn màn hình</button></div>';
+      '<span id="dt-mus"></span><button class="dt-b sm ghost" style="color:#fff" id="dt-fs">Toàn màn hình</button></div>';
     var main = "";
     if (st.phase === "lobby") main = lobby();
     else if (st.phase === "question" || st.phase === "locked") main = question();
@@ -55,7 +55,6 @@
     else main = '<div class="dt-center"><h1>Phòng đã huỷ</h1><a class="dt-b gold" href="/quiz">Về trang Quiz</a></div>';
     var na = st.next_action;
     var bar = '<div class="dt-pbar">' + (na ? '<button class="dt-b gold lg" id="dt-main" data-a="' + na + '">' + ACT[na] + (na === "next" ? " (" + (st.index + 2) + "/" + st.total + ")" : "") + "</button>" : "") +
-      (st.phase === "question" ? '<button class="dt-b lg" data-a="reveal">Khoá + công bố</button>' : "") +
       '<span class="dt-sp"></span>' + (st.flags && st.flags.length ? '<span class="dt-chip warn">' + D.icon("flag") + " " + st.flags.length + " cờ</span>" : "") +
       (st.phase !== "ended" && st.phase !== "cancelled" ? '<button class="dt-b" id="dt-panel">' + (panel ? "Ẩn người chơi" : "Người chơi") + "</button>" : "") +
       (["lobby", "question", "locked", "reveal", "board"].indexOf(st.phase) >= 0 ? (st.phase !== "lobby" ? '<button class="dt-b" data-a="end">Kết thúc sớm</button>' : "") +
@@ -66,6 +65,7 @@
     D.byId("dt-fs").onclick = function () { var el = document.documentElement; if (!document.fullscreenElement && el.requestFullscreen) el.requestFullscreen(); else if (document.exitFullscreen) document.exitFullscreen(); };
     if (st.phase === "lobby") qr();
     if (panel) bindPlayers();
+    if (window.ECDtMusic) { try { window.ECDtMusic.attach(D.byId("dt-mus"), st.phase); } catch (e) { /* nhac hong khong duoc lam hong man chieu */ } }
     updateLive();
   }
 
@@ -175,8 +175,8 @@
   function teamRows(list) {
     var mx = Math.max.apply(null, [1].concat((list || []).map(function (t) { return t.score; })));
     return '<div class="dt-board" style="max-width:820px;width:100%;align-self:center">' + (list || []).map(function (t) {
-      return '<div class="dt-brow"><span class="dt-rk">' + t.rank + '</span><span style="min-width:160px">' + D.esc(t.team) + ' <span class="dt-mail">' + t.members +
-        ' người</span></span><span class="dt-bar" style="background:rgba(255,255,255,.12)"><i style="width:' + (100 * t.score / mx) + '%;background:var(--gold)"></i></span><span class="dt-sc">' +
+      return '<div class="dt-brow"><span class="dt-rk">' + t.rank + '</span><span class="dt-tname">' + D.esc(t.team) + "<small>" + t.members +
+        " người</small></span>" + '<span class="dt-bar" style="background:rgba(255,255,255,.12)"><i style="width:' + (100 * t.score / mx) + '%;background:var(--gold)"></i></span><span class="dt-sc">' +
         D.fmtNum(t.score) + "</span></div>";
     }).join("") + "</div>";
   }

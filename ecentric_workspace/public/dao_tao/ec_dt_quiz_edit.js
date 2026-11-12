@@ -255,10 +255,12 @@
   }
   function drawRules() {
     var box = D.byId("dt-rules");
+    if (quiz.settings.same_order == null) quiz.settings.same_order = true;   // bo quiz cu chua co khoa nay
     box.innerHTML = '<h2 class="dt-h2">Luật chơi</h2><div class="dt-row" style="margin:10px 0"><span class="dt-lbl" style="width:120px">Kiểu thi</span>' +
       seg("mode", [["solo", "Cá nhân"], ["team", "Cá nhân + đường đua phòng ban"]]) + '</div><p class="dt-small dt-muted">Kết thúc game luôn hiện cả top người chơi và top phòng ban. Điểm đội = trung bình mỗi người; phòng dưới 4 người gộp vào “Văn phòng”.</p>' +
       '<div class="dt-row" style="margin:10px 0"><span class="dt-lbl" style="width:120px">Bảng xếp hạng</span>' + seg("board", [["each", "Mỗi câu"], ["five", "Mỗi 5 câu"], ["end", "Cuối game"]]) + "</div>" +
       sw("show_on_phone", "Hiện câu hỏi trên điện thoại", "Bật = kiểu Quizizz. Tắt = điện thoại chỉ có ô màu, mọi người nhìn màn chiếu.") +
+      sw("same_order", "Điện thoại cùng thứ tự + cùng màu với màn chiếu", "Bật (khuyên dùng) = đọc trên màn chiếu bấm đúng ô cùng màu, không nhầm. Tắt = mỗi máy xáo riêng, khó nhìn bài nhau hơn.") +
       sw("by_speed", "Tính điểm theo tốc độ", "Trả lời ngay = 1.000, sát hết giờ = 500.") +
       sw("streak", "Thưởng chuỗi đúng", "+100 mỗi câu đúng liên tiếp, tối đa +500.") +
       sw("last_double", "Câu cuối nhân đôi", "") +

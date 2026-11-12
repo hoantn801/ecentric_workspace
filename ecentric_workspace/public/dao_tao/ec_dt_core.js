@@ -110,19 +110,25 @@
   };
   function avIdx(av, k) { var v = parseInt((av || {})[k], 10); return v >= 0 && v < AV[k].length ? v : 0; }
   function avatarSvg(av) {
-    var b = AV.b[avIdx(av, "b")], g = AV.g[avIdx(av, "g")], e = avIdx(av, "e"), a = avIdx(av, "a");
+    // Ve lai 13/11 (Hoan: "trong hoi ki"): dau tron to + vai, ma hong, mat co diem sang.
+    var b = AV.b[avIdx(av, "b")], g = AV.g[avIdx(av, "g")], e = avIdx(av, "e"), a = avIdx(av, "a"), ink = "#231942";
     var s = '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" fill="' + g + '"/>' +
-      '<path d="M18 100 C18 60 30 34 50 34 C70 34 82 60 82 100Z" fill="' + b + '"/>' +
-      '<circle cx="50" cy="46" r="26" fill="' + b + '"/>';
-    if (e === 0) s += '<circle cx="41" cy="45" r="5" fill="#fff"/><circle cx="59" cy="45" r="5" fill="#fff"/><circle cx="42" cy="46" r="2.4" fill="#111"/><circle cx="60" cy="46" r="2.4" fill="#111"/>';
-    else if (e === 1) s += '<path d="M35 46 q6 -6 12 0 M53 46 q6 -6 12 0" stroke="#111" stroke-width="3" fill="none" stroke-linecap="round"/>';
-    else if (e === 2) s += '<circle cx="41" cy="45" r="7" fill="#fff" stroke="#111" stroke-width="2.5"/><circle cx="59" cy="45" r="7" fill="#fff" stroke="#111" stroke-width="2.5"/><path d="M48 45h4" stroke="#111" stroke-width="2.5"/><circle cx="41" cy="46" r="2.2" fill="#111"/><circle cx="59" cy="46" r="2.2" fill="#111"/>';
-    else s += '<path d="M35 47h12 M53 47h12" stroke="#111" stroke-width="3" stroke-linecap="round"/>';
-    s += '<path d="M43 57 q7 6 14 0" stroke="#111" stroke-width="2.6" fill="none" stroke-linecap="round"/>';
-    if (a === 1) s += '<path d="M26 30 q24 -22 48 0 z" fill="#111827"/><rect x="22" y="28" width="56" height="5" rx="2" fill="#111827"/>';
-    else if (a === 2) s += '<path d="M24 46 a26 26 0 0 1 52 0" stroke="#111827" stroke-width="5" fill="none"/><rect x="18" y="40" width="10" height="16" rx="4" fill="#111827"/><rect x="72" y="40" width="10" height="16" rx="4" fill="#111827"/>';
-    else if (a === 3) s += '<path d="M32 26 l6 -12 l6 8 l6 -12 l6 12 l6 -8 l6 12 z" fill="#F5B800" stroke="#a87b00" stroke-width="1.5"/>';
-    else if (a === 4) s += '<path d="M50 24 l-14 -8 v16 z M50 24 l14 -8 v16 z" fill="#EC4899"/><circle cx="50" cy="24" r="4" fill="#be185d"/>';
+      '<path d="M16 100 C16 80 31 70 50 70 C69 70 84 80 84 100Z" fill="' + b + '"/>' +
+      '<ellipse cx="50" cy="90" rx="15" ry="11" fill="#fff" opacity=".22"/>' +
+      '<circle cx="50" cy="45" r="28" fill="' + b + '"/>' +
+      '<ellipse cx="40" cy="30" rx="11" ry="7" fill="#fff" opacity=".2"/>' +
+      '<ellipse cx="33" cy="54" rx="5.5" ry="3.4" fill="#ff7aa2" opacity=".5"/><ellipse cx="67" cy="54" rx="5.5" ry="3.4" fill="#ff7aa2" opacity=".5"/>';
+    if (e === 0) s += '<circle cx="40" cy="45" r="6.5" fill="#fff"/><circle cx="60" cy="45" r="6.5" fill="#fff"/><circle cx="41" cy="46" r="3.4" fill="' + ink +
+      '"/><circle cx="61" cy="46" r="3.4" fill="' + ink + '"/><circle cx="42.3" cy="44.6" r="1.2" fill="#fff"/><circle cx="62.3" cy="44.6" r="1.2" fill="#fff"/>';
+    else if (e === 1) s += '<path d="M34 47 q6 -7 12 0 M54 47 q6 -7 12 0" stroke="' + ink + '" stroke-width="3.2" fill="none" stroke-linecap="round"/>';
+    else if (e === 2) s += '<circle cx="40" cy="45" r="8" fill="#fff" stroke="' + ink + '" stroke-width="2.6"/><circle cx="60" cy="45" r="8" fill="#fff" stroke="' + ink +
+      '" stroke-width="2.6"/><path d="M48 45h4" stroke="' + ink + '" stroke-width="2.6"/><circle cx="41" cy="46" r="2.8" fill="' + ink + '"/><circle cx="61" cy="46" r="2.8" fill="' + ink + '"/>';
+    else s += '<path d="M34 45 q6 5 12 0 M54 45 q6 5 12 0" stroke="' + ink + '" stroke-width="3.2" fill="none" stroke-linecap="round"/>';
+    s += '<path d="M42 57 q8 7 16 0" stroke="' + ink + '" stroke-width="2.8" fill="none" stroke-linecap="round"/>';
+    if (a === 1) s += '<path d="M25 27 q25 -24 50 0 z" fill="#1f2937"/><rect x="20" y="24" width="60" height="6" rx="3" fill="#1f2937"/>';
+    else if (a === 2) s += '<path d="M21 46 a29 29 0 0 1 58 0" stroke="#1f2937" stroke-width="5" fill="none"/><rect x="15" y="38" width="11" height="18" rx="5" fill="#1f2937"/><rect x="74" y="38" width="11" height="18" rx="5" fill="#1f2937"/>';
+    else if (a === 3) s += '<path d="M33 23 l5 -13 l7 8 l5 -12 l5 12 l7 -8 l5 13 z" fill="#F5B800" stroke="#a87b00" stroke-width="1.5" stroke-linejoin="round"/>';
+    else if (a === 4) s += '<g transform="translate(66 22) rotate(18)"><path d="M0 0 l-12 -7 v14 z M0 0 l12 -7 v14 z" fill="#EC4899"/><circle r="3.6" fill="#be185d"/></g>';
     return s + "</svg>";
   }
   function avatar(av, size) {
