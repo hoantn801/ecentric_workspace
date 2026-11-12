@@ -114,10 +114,14 @@ def release(ctx, repo, number):
     return _view(repo, d, ctx.user)
 
 
-def run(repo, name, rng=None):
-    """Chot ket qua (duoi khoa, mot lan). -> ket qua, hoac None neu da quay / da huy."""
+def run(repo, name, rng=None, auto=False):
+    """Chot ket qua (duoi khoa, mot lan). -> ket qua, hoac None neu da quay / da huy.
+    auto=True (job): luot CHUA dat qua thi KHONG quay - giu mo, ve khong mat; Ban dao tao dat qua
+    roi bam "Quay ngay" hoac doi gio quay."""
     d = repo.lock_draw(name)
     if not d or d["status"] != C.DRAW_OPEN:
+        return None
+    if auto and not d["prizes"]:
         return None
     rng = rng or random.SystemRandom()
     have = repo.week_tickets(d["week_start"])
@@ -157,7 +161,7 @@ def tick(repo=default_repo):
     done = 0
     for name in repo.due_draws(repo.now()):
         try:
-            if run(repo, name) is not None:
+            if run(repo, name, auto=True) is not None:
                 done += 1
             repo.commit()
         except Exception:
@@ -206,6 +210,8 @@ def admin_save(ctx, repo, payload):
 def draw_now(ctx, repo):
     require_host(ctx)
     d = require_found(current(repo), "lượt quay")
+    if d["status"] == C.DRAW_OPEN and not d["prizes"]:
+        raise QuizError("Chưa đặt quà cho tuần này - thêm quà rồi bấm Lưu trước.")
     if run(repo, d["name"]) is None:
         raise QuizError("Tuần này đã quay rồi.")
     return admin_get(ctx, repo)

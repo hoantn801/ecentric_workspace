@@ -45,7 +45,9 @@ def host_state(ctx, repo, name):
     s = _host_session(ctx, repo, name)
     s = auto_lock(repo, s)
     players = repo.players(s["name"])
-    answered = repo.count_active_answers(s["name"], s["index"]) if s["phase"] == C.PHASE_QUESTION else 0
+    # Ca luc da khoa / cong bo van hien "x/y da tra loi" (truoc day ve 0 ngay khi khoa - de hieu nham).
+    answered = (repo.count_active_answers(s["name"], s["index"], locking=False)
+                if s["phase"] in (C.PHASE_QUESTION, C.PHASE_LOCKED, C.PHASE_REVEAL) else 0)
     return views.host_view(s, players, answered, repo.now_ms())
 
 

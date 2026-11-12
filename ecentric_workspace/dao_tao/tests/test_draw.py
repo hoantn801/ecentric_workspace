@@ -67,6 +67,16 @@ class DrawTest(unittest.TestCase):
         v = draw_service.hub(A, self.repo)
         self.assertEqual(len(v["results"]), 8)
 
+    def test_no_prize_keeps_draw_open(self):
+        draw_service.hub(A, self.repo)
+        self.repo.clock = datetime.datetime(2026, 11, 13, 16, 0, 30)
+        self.assertEqual(draw_service.tick(self.repo)["drawn"], 0)     # chua dat qua -> khong quay
+        self.assertEqual(self.repo.get_draw(draw_service.current(self.repo)["name"])["status"], "Open")
+        with self.assertRaises(QuizError):
+            draw_service.draw_now(HOST, self.repo)
+        draw_service.admin_save(HOST, self.repo, {"range": 100, "prizes": [{"label": "Áo", "quantity": 1}]})
+        self.assertEqual(draw_service.tick(self.repo)["drawn"], 1)
+
     def test_admin_rules(self):
         with self.assertRaises(QuizPermissionError):
             draw_service.admin_save(A, self.repo, {"range": 50})
