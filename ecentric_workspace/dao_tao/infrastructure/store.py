@@ -330,12 +330,13 @@ def count_answers(session, index):
     return int(r[0][0] or 0)
 
 
-def count_active_answers(session, index):
-    """So cau tra loi cua nguoi CON trong phong (khong tinh nguoi da bi moi ra)."""
+def count_active_answers(session, index, locking=True):
+    """So cau tra loi cua nguoi CON trong phong (khong tinh nguoi da bi moi ra).
+    locking=False cho man nguoi dan (chi hien so): doc thuong, khong chan nguoi choi dang ghi."""
     r = frappe.db.sql("select count(*) from `tabEC Quiz Answer` a join `tabEC Quiz Player` p "
                       "on p.session = a.session and p.user = a.user "
-                      "where a.session=%s and a.q_index=%s and p.kicked=0 lock in share mode",
-                      (session, int(index)))
+                      "where a.session=%%s and a.q_index=%%s and p.kicked=0%s"
+                      % (" lock in share mode" if locking else ""), (session, int(index)))
     return int(r[0][0] or 0)
 
 

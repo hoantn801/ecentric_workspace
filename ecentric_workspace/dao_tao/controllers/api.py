@@ -53,6 +53,16 @@ def _b(v):
     return str(v).lower() in ("1", "true", "yes")
 
 
+def _obj(v):
+    """Tham so dict/list: may goi bang form-encoded (app cu, curl) gui chuoi JSON -> doi lai."""
+    if isinstance(v, str):
+        try:
+            return frappe.parse_json(v) or {}
+        except Exception:
+            return {}
+    return v or {}
+
+
 # ------------------------------------------------------------------- nguoi choi quiz --
 
 @frappe.whitelist(methods=["GET"])
@@ -93,7 +103,7 @@ def result(session):
 
 @frappe.whitelist(methods=["POST"])
 def answer(code, qid=None, payload=None, device=""):
-    return _run(lambda c: play_service.answer(c, repo, code, qid, payload or {}, device))
+    return _run(lambda c: play_service.answer(c, repo, code, qid, _obj(payload), device))
 
 
 @frappe.whitelist(methods=["POST"])
@@ -115,7 +125,7 @@ def quiz_get(name=None, template=None):
 
 @frappe.whitelist(methods=["POST"])
 def quiz_save(quiz=None):
-    return _run(lambda c: quiz_service.save(c, repo, quiz or {}))
+    return _run(lambda c: quiz_service.save(c, repo, _obj(quiz)))
 
 
 @frappe.whitelist(methods=["POST"])
@@ -162,7 +172,7 @@ def lesson(name):
 
 @frappe.whitelist(methods=["POST"])
 def lesson_quiz(name, answers=None):
-    return _run(lambda c: learn_service.submit_quiz(c, repo, name, answers or {}))
+    return _run(lambda c: learn_service.submit_quiz(c, repo, name, _obj(answers)))
 
 
 @frappe.whitelist(methods=["POST"])
@@ -172,7 +182,7 @@ def lesson_practice(name, text="", link=""):
 
 @frappe.whitelist(methods=["POST"])
 def topic_propose(topic=None):
-    return _run(lambda c: learn_service.propose_topic(c, repo, topic or {}))
+    return _run(lambda c: learn_service.propose_topic(c, repo, _obj(topic)))
 
 
 @frappe.whitelist(methods=["POST"])
@@ -202,7 +212,7 @@ def draw_admin():
 
 @frappe.whitelist(methods=["POST"])
 def draw_save(draw=None):
-    return _run(lambda c: draw_service.admin_save(c, repo, draw or {}))
+    return _run(lambda c: draw_service.admin_save(c, repo, _obj(draw)))
 
 
 @frappe.whitelist(methods=["POST"])
@@ -222,7 +232,7 @@ def lesson_admin_get(name):
 
 @frappe.whitelist(methods=["POST"])
 def lesson_save(lesson=None):
-    return _run(lambda c: learn_service.admin_save(c, repo, lesson or {}))
+    return _run(lambda c: learn_service.admin_save(c, repo, _obj(lesson)))
 
 
 @frappe.whitelist(methods=["GET"])

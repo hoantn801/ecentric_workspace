@@ -200,7 +200,7 @@ class FakeRepo:
     def count_answers(self, session, index):
         return len(self.answers(session, index))
 
-    def count_active_answers(self, session, index):
+    def count_active_answers(self, session, index, locking=True):
         return sum(1 for a in self.answers(session, index)
                    if not (self.get_player(session, a["user"]) or {}).get("kicked"))
 
