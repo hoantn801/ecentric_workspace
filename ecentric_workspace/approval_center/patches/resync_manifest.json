@@ -338,14 +338,14 @@
   },
   "dao_tao/pages/edit/main_section.html": {
     "last_resync_patch": "p366_dao_tao_quiz_trang",
-    "sha256": "95c8f928acc27ff0516e995ee09fdcd7152a111b583adddf12a0c13a89a1b402"
+    "sha256": "6962f0893268b61386da52e723ac2ccfa17ddb447a2672e3b276440ed8f054ad"
   },
   "dao_tao/pages/play/main_section.html": {
     "last_resync_patch": "p366_dao_tao_quiz_trang",
-    "sha256": "dab8e654b8d53dcce89a2c8dede58cf296ca412a5b1cf49ad806d79364105027"
+    "sha256": "20ebc9a8ebf45b970e952dbe3186d8f48ec771ffb769c99d3a4ff68329f59e40"
   },
   "dao_tao/pages/host/main_section.html": {
     "last_resync_patch": "p366_dao_tao_quiz_trang",
-    "sha256": "cc470592007e939a8421e4bf7d95dc924e1b0406f80b6f1ea975f14fbfb84dd9"
+    "sha256": "4565f1a8806cf4b90d6b78ebe9d1ea338afc58af38f6bd2a717300c5dfc22c79"
   }
 }

@@ -6,6 +6,7 @@ ban moi nhat) - hai nguoi dan bam cung luc, hay het gio dung luc nguoi dan bam "
 thao tac thang; thao tac kia gap pha moi va bao loi nhe (hoac bo qua neu da dung pha).
 """
 import random
+import secrets
 
 from ecentric_workspace.dao_tao import constants as C
 from ecentric_workspace.dao_tao.application import ticket_service, views
@@ -29,7 +30,8 @@ def open_room(ctx, repo, quiz_name, rng=None):
                                 "phase": C.PHASE_LOBBY, "q_index": 0, "version": 1,
                                 "opened_ms": "0", "deadline_ms": "0", "questions": qs, "settings": st,
                                 "prizes": prizes.clean_prizes(quiz["prizes"]),
-                                "state": {"player_count": 0}})
+                                # muoi cho hat giong xao - CHI nam o state_json, khong gui xuong may
+                                "state": {"player_count": 0, "salt": secrets.token_hex(16)}})
     repo.touch_quiz_played(quiz_name)
     return {"session": name, "code": code}
 
@@ -43,7 +45,7 @@ def host_state(ctx, repo, name):
     s = _host_session(ctx, repo, name)
     s = auto_lock(repo, s)
     players = repo.players(s["name"])
-    answered = repo.count_answers(s["name"], s["index"]) if s["phase"] == C.PHASE_QUESTION else 0
+    answered = repo.count_active_answers(s["name"], s["index"]) if s["phase"] == C.PHASE_QUESTION else 0
     return views.host_view(s, players, answered, repo.now_ms())
 
 
@@ -93,14 +95,15 @@ def auto_lock(repo, s):
     fresh = repo.lock_session(s["name"])
     if fresh and fresh["phase"] == C.PHASE_QUESTION and fresh["index"] == s["index"]:
         return _lock_question(repo, fresh)
-    return repo.get_session(s["name"], fresh=True) or s
+    return fresh or s                                # ban doc co khoa = moi nhat; KHONG nap lai Redis
 
 
 def lock_if_all_answered(repo, s):
     """Goi sau khi chen cau tra loi (da giu khoa phong): ai cung tra loi roi thi khoa luon."""
     if s["phase"] != C.PHASE_QUESTION:
         return s
-    if repo.count_answers(s["name"], s["index"]) >= max(1, repo.count_players(s["name"])):
+    # Chi dem cau tra loi cua nguoi CON trong phong (nguoi bi moi ra ma da tra loi khong tinh).
+    if repo.count_active_answers(s["name"], s["index"]) >= max(1, repo.count_players(s["name"])):
         return _lock_question(repo, s)
     return s
 

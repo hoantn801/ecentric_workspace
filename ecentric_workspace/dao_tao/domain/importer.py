@@ -32,7 +32,7 @@ def _idx_list(v):
 def _time(v):
     try:
         t = int(float(_s(v)))
-    except ValueError:
+    except (ValueError, OverflowError):
         return C.TIME_DEFAULT
     return min(C.TIME_CHOICES, key=lambda c: abs(c - t))
 

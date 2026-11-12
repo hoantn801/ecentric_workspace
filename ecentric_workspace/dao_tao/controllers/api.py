@@ -26,9 +26,14 @@ def _ctx():
     return Ctx(user, frappe.get_roles(user))
 
 
-def _run(fn):
+def _run(fn, write=False):
+    """write=True cho cac ham GET co the GHI (tu khoa cau het gio, danh dau "da xem bai"): Frappe
+    chi tu commit sau POST, nen GET phai tu commit - khong thi lan khoa bi bo khi het request."""
     try:
-        return {"success": True, "message": "", "data": fn(_ctx())}
+        data = fn(_ctx())
+        if write:
+            frappe.db.commit()
+        return {"success": True, "message": "", "data": data}
     except FieldErrors as e:
         frappe.db.rollback()
         return {"success": False, "message": str(e), "data": {"errors": e.errors}}
@@ -73,7 +78,7 @@ def set_profile(code, nickname=None, avatar=None):
 
 @frappe.whitelist(methods=["GET"])
 def state(code, device=""):
-    return _run(lambda c: play_service.state(c, repo, code, device))
+    return _run(lambda c: play_service.state(c, repo, code, device), write=True)
 
 
 @frappe.whitelist(methods=["GET"])
@@ -125,7 +130,7 @@ def room_open(quiz):
 
 @frappe.whitelist(methods=["GET"])
 def room_state(session):
-    return _run(lambda c: room_service.host_state(c, repo, session))
+    return _run(lambda c: room_service.host_state(c, repo, session), write=True)
 
 
 @frappe.whitelist(methods=["POST"])
@@ -147,7 +152,7 @@ def learn_hub():
 
 @frappe.whitelist(methods=["GET"])
 def lesson(name):
-    return _run(lambda c: learn_service.lesson_detail(c, repo, name))
+    return _run(lambda c: learn_service.lesson_detail(c, repo, name), write=True)
 
 
 @frappe.whitelist(methods=["POST"])

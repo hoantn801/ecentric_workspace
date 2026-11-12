@@ -43,6 +43,12 @@ def commit():
     frappe.db.commit()
 
 
+def secret():
+    """Bi mat cua site (khong bao gio gui xuong trinh duyet) - lam khoa HMAC cho hat giong xao."""
+    conf = frappe.local.conf or {}
+    return conf.get("encryption_key") or conf.get("secret") or frappe.local.site
+
+
 # ------------------------------------------------------------------------------- quiz --
 
 def _quiz(d):
@@ -143,7 +149,8 @@ def get_session(name, fresh=False):
     if not rows:
         return None
     s = _session(rows[0])
-    frappe.cache().set_value(key, s, expires_in_sec=C.CACHE_TTL)  # TTL ngan: chan ban cu ket lai
+    if not fresh:          # ban "fresh" doc trong transaction dang mo - khong nap vao Redis
+        frappe.cache().set_value(key, s, expires_in_sec=C.CACHE_TTL)  # TTL ngan: chan ban cu ket lai
     return s
 
 
@@ -200,8 +207,10 @@ def update_session(name, values):
     for k in ("opened_ms", "deadline_ms"):
         if k in vals:
             vals[k] = str(int(vals[k]))
-    cur = frappe.db.get_value(C.SESSION, name, "version") or 0
-    vals["version"] = int(cur) + 1
+    # Tang phien ban ngay trong SQL (khong doc-roi-ghi theo snapshot cu), roi doc lai co khoa.
+    frappe.db.sql("update `tabEC Quiz Session` set version = coalesce(version, 0) + 1 where name=%s", (name,))
+    vals["version"] = int(frappe.db.sql("select version from `tabEC Quiz Session` where name=%s for update",
+                                        (name,))[0][0])
     frappe.db.set_value(C.SESSION, name, vals, update_modified=True)
     key = C.CACHE_PREFIX + name
     frappe.cache().delete_value(key)
@@ -231,7 +240,7 @@ def _player(r):
 
 
 def player_name(session, user):
-    return "%s|%s" % (session, uhash(user))
+    return "%s-%s" % (session, uhash(user))
 
 
 def get_player(session, user):
@@ -283,7 +292,7 @@ def update_player(session, user, values):
 # --------------------------------------------------------------------------- tra loi --
 
 def answer_name(session, index, user):
-    return "%s|%d|%s" % (session, int(index), uhash(user))
+    return "%s-%d-%s" % (session, int(index), uhash(user))
 
 
 def insert_answer(fields):
@@ -318,6 +327,15 @@ def answers(session, index=None, locking=False):
 def count_answers(session, index):
     r = frappe.db.sql("select count(*) from `tabEC Quiz Answer` where session=%s and q_index=%s "
                       "lock in share mode", (session, int(index)))
+    return int(r[0][0] or 0)
+
+
+def count_active_answers(session, index):
+    """So cau tra loi cua nguoi CON trong phong (khong tinh nguoi da bi moi ra)."""
+    r = frappe.db.sql("select count(*) from `tabEC Quiz Answer` a join `tabEC Quiz Player` p "
+                      "on p.session = a.session and p.user = a.user "
+                      "where a.session=%s and a.q_index=%s and p.kicked=0 lock in share mode",
+                      (session, int(index)))
     return int(r[0][0] or 0)
 
 
@@ -366,7 +384,7 @@ def full_names(users):
 # ------------------------------------------------------------------------------- ve --
 
 def ticket_name(source, ref, user):
-    return "%s|%s|%s" % (source, ref, uhash(user))
+    return "%s-%s-%s" % (source, ref, uhash(user))
 
 
 def tickets_in_week(user, week_start):
@@ -446,7 +464,7 @@ def save_lesson(name, fields):
 
 
 def progress_name(lesson, user):
-    return "%s|%s" % (lesson, uhash(user))
+    return "%s-%s" % (lesson, uhash(user))
 
 
 _PROGRESS_FIELDS = ["name", "lesson", "user", "viewed_at", "quiz_score", "quiz_scored", "quiz_at",
@@ -517,7 +535,7 @@ def update_topic(name, values):
 
 
 def vote_name(topic, user):
-    return "%s|%s" % (topic, uhash(user))
+    return "%s-%s" % (topic, uhash(user))
 
 
 def my_votes(user):

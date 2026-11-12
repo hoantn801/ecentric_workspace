@@ -11,7 +11,7 @@ from ecentric_workspace.dao_tao import constants as C
 from ecentric_workspace.dao_tao.application import ticket_service
 from ecentric_workspace.dao_tao.application.access import require_found, require_host
 from ecentric_workspace.dao_tao.domain import lesson as L, questions as Q, tickets
-from ecentric_workspace.dao_tao.domain.errors import QuizError
+from ecentric_workspace.dao_tao.domain.errors import FieldErrors, QuizError
 
 
 def _card(les, prog):
@@ -55,9 +55,13 @@ def lesson_detail(ctx, repo, name):
     quiz = None
     if les.get("quiz"):
         qz = repo.get_quiz(les["quiz"])
-        if qz and qz["questions"]:
-            qs = Q.require_valid(qz["questions"], rid=_stable_rid(qz["questions"]))
-            quiz = {"title": qz["title"], "questions": [Q.public_view(q, None) for q in qs]}
+        try:
+            qs = Q.require_valid(qz["questions"]) if qz and qz["questions"] else []
+        except FieldErrors:                          # bo quiz dang sua do: an quiz, khong lam hong trang
+            qs = []
+        if qs:
+            seed = Q.secret_seed(repo.secret(), "lesson", name, ctx.user)
+            quiz = {"title": qz["title"], "questions": [Q.public_view(q, seed, False) for q in qs]}
     out = dict(les)
     out["step"] = L.step(les, prog)
     out["step_label"] = L.STEP_LABELS[out["step"]]
@@ -67,20 +71,6 @@ def lesson_detail(ctx, repo, name):
     out["can_manage"] = ctx.can_host
     out["practice_open"] = _practice_open(les, repo)
     return out
-
-
-def _stable_rid(stored):
-    """Quiz bai hoc: id phai ON DINH giua luc gui de va luc cham (nguoi hoc nop sau vai phut).
-    Dung lai dung id da luu theo thu tu sinh trong clean_question."""
-    ids = []
-    for q in stored:
-        ids.append(q.get("id") or "")
-        for k in ("options", "items"):
-            ids.extend(i.get("id") or "" for i in (q.get(k) or []) if q.get("type") != C.Q_TRUEFALSE)
-        for p in q.get("pairs") or []:
-            ids.extend([p.get("id") or "", p.get("rid") or ""])
-    it = iter(ids)
-    return lambda: next(it, None) or Q.default_rid()
 
 
 def _practice_open(les, repo):
@@ -93,14 +83,19 @@ def submit_quiz(ctx, repo, name, answers):
     if les["status"] != C.LESSON_PUBLISHED or not les.get("quiz"):
         raise QuizError("Bài này không có quiz.")
     qz = require_found(repo.get_quiz(les["quiz"]), "quiz bài học")
-    qs = Q.require_valid(qz["questions"], rid=_stable_rid(qz["questions"]))
+    try:
+        qs = Q.require_valid(qz["questions"])       # id da luu duoc GIU nguyen -> khop luc gui de
+    except FieldErrors:
+        raise QuizError("Quiz bài này đang được Ban đào tạo sửa, bạn quay lại sau nhé.")
     g = L.grade_self_quiz(qs, answers)
     prog = repo.progress_of(ctx.user, [name]).get(name) or {}
+    first = not prog.get("quiz_at")
     best = max(g["score"], int(prog.get("quiz_score") or 0)) if prog.get("quiz_at") else g["score"]
     repo.upsert_progress(name, ctx.user, {"quiz_score": best, "quiz_scored": g["scored"], "quiz_at": repo.now(),
                                           "viewed_at": prog.get("viewed_at") or repo.now()})
     got = 0
-    if L.passed(g["ratio"]):
+    # Ve chi khi DAT NGAY LAN NOP DAU: nop xong la thay dap an, lan sau dat khong tinh (QA 12/11).
+    if first and L.passed(g["ratio"]):
         got = ticket_service.grant(repo, ctx.user, C.TICKET_LESSON_QUIZ, name, 1,
                                    "Quiz bài “%s” đạt %d/%d" % (les["title"], g["score"], g["scored"]))
     g["ticket"] = got
@@ -150,7 +145,7 @@ def propose_topic(ctx, repo, payload):
 def vote(ctx, repo, topic, on=True):
     repo.lock_user_votes(ctx.user)
     t = require_found(repo.get_topic(topic), "chủ đề")
-    if t["status"] != C.TOPIC_OPEN:
+    if on and t["status"] != C.TOPIC_OPEN:          # bo phieu thi luc nao cung duoc
         raise QuizError("Chủ đề này không còn mở bình chọn.")
     mine = repo.my_votes(ctx.user)
     if on:
@@ -194,9 +189,13 @@ def admin_save(ctx, repo, payload):
     require_host(ctx)
     payload = payload if isinstance(payload, dict) else {}
     fields = L.clean_lesson(payload)
-    if fields["quiz"] and not repo.get_quiz(fields["quiz"]):
-        raise QuizError("Không tìm thấy bộ quiz đã chọn.")
     status = payload.get("status") if payload.get("status") in C.LESSON_STATUSES else C.LESSON_DRAFT
+    if fields["quiz"]:
+        qz = repo.get_quiz(fields["quiz"])
+        if not qz:
+            raise QuizError("Không tìm thấy bộ quiz đã chọn.")
+        if status == C.LESSON_PUBLISHED and qz["status"] != C.QUIZ_READY:
+            raise QuizError("Bộ quiz “%s” còn là Nháp - lưu nó ở trạng thái Sẵn sàng trước khi đăng bài." % qz["title"])
     fields["status"] = status
     name = payload.get("name")
     if name:
@@ -236,9 +235,12 @@ def admin_review(ctx, repo, name, user, verdict):
 
 def admin_topic(ctx, repo, topic, status, lesson=None):
     require_host(ctx)
-    require_found(repo.get_topic(topic), "chủ đề")
+    cur = require_found(repo.get_topic(topic), "chủ đề")
     if status not in C.TOPIC_STATUSES:
         raise QuizError("Trạng thái không hợp lệ.")
+    if cur["status"] in C.TOPIC_RELEASED and status not in C.TOPIC_RELEASED:
+        # Phieu da tra lai cho nguoi bau - mo lai se thanh 4 phieu / nguoi.
+        raise QuizError("Chủ đề đã đóng (phiếu đã trả lại). Muốn bình chọn lại thì tạo chủ đề mới.")
     vals = {"status": status}
     if lesson:
         require_found(repo.get_lesson(lesson), "bài học")

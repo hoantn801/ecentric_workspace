@@ -26,11 +26,15 @@ def _timing(s, now_ms):
     return {"remaining_ms": remaining_ms(s, now_ms), "lead_ms": lead, "limit_ms": q["time"] * 1000}
 
 
+def seed_for(s, who):
+    """Hat giong xao BI MAT: HMAC(muoi luu trong state_json - khong bao gio gui xuong may)."""
+    return Q.secret_seed(s["state"].get("salt") or "", s["name"], who)
+
+
 def _q_for_player(s, user):
     q = s["questions"][s["index"]]
     st = s["settings"]
-    seed = "%s|%s" % (s["name"], user) if S.shuffles_options(st) else None
-    v = Q.public_view(q, seed)
+    v = Q.public_view(q, seed_for(s, user), S.shuffles_options(st))
     if not st.get("show_on_phone", True) and q["type"] in (C.Q_SINGLE, C.Q_MULTI, C.Q_TRUEFALSE, C.Q_POLL):
         # Che do "chi o mau": may chi co o mau + chu cai, nhin cau hoi tren may chieu.
         v["text"] = ""
@@ -67,11 +71,17 @@ def player_view(s, player, answer, now_ms):
     ranks = s["state"].get("ranks") or {}
     out["joined"] = True
     out["kicked"] = bool(player.get("kicked"))
-    out["me"] = {"nickname": player["nickname"], "avatar": player["avatar"], "email": player["user"],
-                 "department": player.get("department") or "", "score": player["score"],
-                 "streak": player["streak"], "rank": ranks.get(player["user"]),
-                 "players": s["state"].get("player_count") or 0}
     ph = s["phase"]
+    score, streak, rank = player["score"], player["streak"], ranks.get(player["user"])
+    if ph in (C.PHASE_QUESTION, C.PHASE_LOCKED):
+        # Diem / chuoi / hang da cong luc khoa cau - chua cong bo thi hien so CU (khong lo dung sai).
+        if answer and answer.get("applied"):
+            score -= int(answer.get("points") or 0)
+        if ph == C.PHASE_LOCKED:
+            streak, rank = None, None
+    out["me"] = {"nickname": player["nickname"], "avatar": player["avatar"], "email": player["user"],
+                 "department": player.get("department") or "", "score": score,
+                 "streak": streak, "rank": rank, "players": s["state"].get("player_count") or 0}
     if ph == C.PHASE_QUESTION:
         out["answered"] = bool(answer)
         if not answer:
@@ -87,8 +97,7 @@ def player_view(s, player, answer, now_ms):
                          "points": int(answer["points"]) if answer else 0,
                          "streak": player["streak"]}
         if ph == C.PHASE_REVEAL:
-            out["question"] = Q.public_view(q, "%s|%s" % (s["name"], player["user"])
-                                            if S.shuffles_options(s["settings"]) else None)
+            out["question"] = Q.public_view(q, seed_for(s, player["user"]), S.shuffles_options(s["settings"]))
             out["reveal"] = Q.reveal_view(q)
             out["my_answer"] = answer.get("answer") if answer else None
         else:
@@ -119,12 +128,10 @@ def host_view(s, players, answered_count, now_ms):
                     for p in players if p.get("flags")]
     if s["phase"] in (C.PHASE_QUESTION, C.PHASE_LOCKED, C.PHASE_REVEAL, C.PHASE_BOARD):
         q = s["questions"][s["index"]]
-        out["question"] = Q.public_view(q, None)
-        out["question"]["explain"] = ""
+        out["question"] = Q.public_view(q, seed_for(s, "__host__"), False)
         if s["phase"] in (C.PHASE_REVEAL, C.PHASE_BOARD):
             out["reveal"] = Q.reveal_view(q)
             out["tally"] = s["state"].get("tally") or {}
-            out["question"]["text_full"] = q["text"]
     if s["phase"] in (C.PHASE_REVEAL, C.PHASE_BOARD):
         out["board"] = board_rows(s)
         if st.get("mode") == C.MODE_TEAM:

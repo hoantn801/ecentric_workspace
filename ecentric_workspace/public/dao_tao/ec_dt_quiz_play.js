@@ -105,7 +105,11 @@
     if (document.hidden && delay == null) wait = 5000;
     pollT = setTimeout(function () {
       D.api("state", { code: code, device: device }).then(function (s) {
-        apply(s); if (!editing) render(false); poll();
+        apply(s);
+        // Nguoi dan bam Bat dau khi minh con o man Tao nhan vat -> dong man do, vao cau hoi ngay.
+        if (editing && s.phase !== "lobby") { editing = false; render(true); }
+        else if (!editing) render(false);
+        poll();
       }, function (e) {
         if (e && e.dtMessage && /không có phòng|đã mời|thiết bị khác/i.test(e.dtMessage)) {
           var stop = function () {
@@ -179,7 +183,8 @@
     var left = Math.max(0, (st.remaining_ms || 0) - passed);
     var lock = D.byId("dt-leadin");
     if (lock) lock.hidden = lead <= 0;
-    D.qsa(root, ".dt-ans").forEach(function (b) { b.disabled = lead > 0; });
+    // [data-keep]: nut tu quan trang thai (Len/Xuong o mep, Gui cua cau ghim truoc khi ghim).
+    D.qsa(root, ".dt-ans").forEach(function (b) { if (!b.hasAttribute("data-keep")) b.disabled = lead > 0; });
     if (num) num.textContent = lead > 0 ? "Chuẩn bị " + Math.ceil(lead / 1000) : Math.ceil(left / 1000) + "s";
     if (bar) bar.style.width = (lead > 0 ? 100 : Math.min(100, 100 * left / Math.max(1, st.limit_ms))) + "%";
     if (left > 0) tickT = setTimeout(timer, 250);
@@ -221,7 +226,7 @@
         '<button class="dt-b gold lg dt-ans" id="dt-send">Gửi</button>';
     } else if (t === "pin") {
       h += '<div class="dt-pinbox" id="dt-pinbox"><img src="' + D.esc(D.safeUrl(q.media && q.media.url)) + '" alt="Ảnh để ghim"></div>' +
-        '<p style="text-align:center">Chạm vào ảnh để ghim</p><button class="dt-b gold lg dt-ans" id="dt-send" disabled>Gửi</button>';
+        '<p style="text-align:center">Chạm vào ảnh để ghim</p><button class="dt-b gold lg dt-ans" id="dt-send" data-keep disabled>Gửi</button>';
     } else if (t === "order") {
       draft.order = q.items.map(function (i) { return i.id; });
       h += '<div class="dt-olist" id="dt-ol"></div><button class="dt-b gold lg dt-ans" id="dt-send">Gửi thứ tự</button>';
@@ -243,13 +248,14 @@
     var txt = {};
     q.items.forEach(function (i) { txt[i.id] = i.text; });
     box.innerHTML = draft.order.map(function (id, i) {
-      return '<div class="dt-oitem"><b>' + (i + 1) + '</b><span class="dt-sp">' + D.esc(txt[id]) + '</span><button class="dt-b sm dt-ans" data-up="' + i +
-        '" aria-label="Lên"' + (i === 0 ? " disabled" : "") + ">" + D.icon("up") + '</button><button class="dt-b sm dt-ans" data-dn="' + i + '" aria-label="Xuống"' +
+      return '<div class="dt-oitem"><b>' + (i + 1) + '</b><span class="dt-sp">' + D.esc(txt[id]) + '</span><button class="dt-b sm dt-ans" data-keep data-up="' + i +
+        '" aria-label="Lên"' + (i === 0 ? " disabled" : "") + ">" + D.icon("up") + '</button><button class="dt-b sm dt-ans" data-keep data-dn="' + i + '" aria-label="Xuống"' +
         (i === draft.order.length - 1 ? " disabled" : "") + ">" + D.icon("down") + "</button></div>";
     }).join("");
     D.qsa(box, "[data-up],[data-dn]").forEach(function (b) {
       b.onclick = function () {
         var i = parseInt(b.dataset.up != null ? b.dataset.up : b.dataset.dn, 10), j = b.dataset.up != null ? i - 1 : i + 1;
+        if (j < 0 || j >= draft.order.length) return;
         var tmp = draft.order[i]; draft.order[i] = draft.order[j]; draft.order[j] = tmp; drawOrder();
       };
     });
@@ -336,7 +342,7 @@
       (mine ? '<p class="dt-muted" style="text-align:center">Bạn chọn ' + mine.v + "</p>" : "");
     if (t === "pin") {
       var z = rv.zone || {}, zs = z.shape === "circle" ?
-        "left:" + (z.x - z.r) * 100 + "%;top:" + (z.y - z.r) * 100 + "%;width:" + z.r * 200 + "%;aspect-ratio:1" :
+        "left:" + (z.x - z.r) * 100 + "%;top:" + (z.y - z.r / (z.ar || 1)) * 100 + "%;width:" + z.r * 200 + "%;aspect-ratio:1" :
         "left:" + z.x * 100 + "%;top:" + z.y * 100 + "%;width:" + z.w * 100 + "%;height:" + z.h * 100 + "%";
       return '<div class="dt-pinbox" style="margin-top:10px"><img src="' + D.esc(D.safeUrl(q.media && q.media.url)) + '" alt=""><span class="dt-zone' +
         (z.shape === "circle" ? " circle" : "") + '" style="' + zs + '"></span>' +

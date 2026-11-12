@@ -57,7 +57,7 @@ class QuestionsTest(unittest.TestCase):
 
     def test_order_public_never_in_correct_order(self):
         q = self.qs[5]
-        for seed in ("a", "b", "c", None, "x|y"):
+        for seed in ("a", "b", "c", "x|y"):
             v = Q.public_view(q, seed=seed)
             self.assertNotEqual([i["id"] for i in v["items"]], [i["id"] for i in q["items"]])
 
@@ -113,6 +113,38 @@ class QuestionsTest(unittest.TestCase):
                              {"type": "slider", "text": "y", "min": 5, "max": 1, "answer": 3},
                              {"type": "pin", "text": "z"}, {"type": "nope", "text": "q"}])
         self.assertEqual(set(cm.exception.errors), {"q1", "q2", "q3", "q4"})
+
+    def test_ids_kept_on_resave_and_temp_ids_replaced(self):
+        real = Q.require_valid(SAMPLE[:1])
+        kept = Q.require_valid(real)
+        self.assertEqual([o["id"] for o in kept[0]["options"]], [o["id"] for o in real[0]["options"]])
+        self.assertEqual(kept[0]["correct"], real[0]["correct"])
+        tmp = Q.require_valid([dict(SAMPLE[0], options=[{"id": "n1", "text": "A"}, {"id": "n2", "text": "B"}],
+                                    correct=["n2"])])
+        self.assertNotIn("n1", [o["id"] for o in tmp[0]["options"]])
+        self.assertEqual(tmp[0]["correct"], [tmp[0]["options"][1]["id"]])
+
+    def test_pin_circle_uses_aspect_ratio(self):
+        q = Q.require_valid([{"type": "pin", "text": "x", "media": {"url": "/files/a.png"},
+                              "zone": {"shape": "circle", "x": 0.5, "y": 0.5, "r": 0.1, "ar": 0.5625}}])[0]
+        # anh 1600x900: diem lech 150px theo truc doc = 150/900 = 0.1667 (<= 160px ban kinh)
+        self.assertEqual(Q.grade(q, {"x": 0.5, "y": 0.5 + 150 / 900.0}), 1.0)
+        self.assertEqual(Q.grade(q, {"x": 0.5, "y": 0.5 + 170 / 900.0}), 0.0)
+
+    def test_public_view_requires_secret_seed(self):
+        with self.assertRaises(QuizError):
+            Q.public_view(self.qs[0], None)
+        a = Q.public_view(self.qs[5], Q.secret_seed("s1", "room", "u"))
+        b = Q.public_view(self.qs[5], Q.secret_seed("s2", "room", "u"))
+        self.assertTrue(a["items"] and b["items"])
+
+    def test_garbage_answer_types(self):
+        s, m, tf, sl, pin, order, match, typ = self.qs[:8]
+        for q, bad in ((s, {"o": {"x": 1}}), (m, {"o": [{"a": 1}]}), (order, {"o": [1, "a", None]}),
+                       (match, {"m": {match["pairs"][0]["id"]: {"x": 1}}}), (typ, {"t": {"x": 1}}),
+                       (sl, {"v": float("inf")}), (sl, {"v": "nan"})):
+            with self.assertRaises(QuizError, msg=str(bad)):
+                Q.clean_answer(q, bad)
 
     def test_media_url_rejects_javascript(self):
         q = make([dict(SAMPLE[0], media={"url": "javascript:alert(1)"})])[0]
@@ -204,7 +236,7 @@ class BoardPrizeTest(unittest.TestCase):
         passed = {a["user"] for a in aw if a["rank"] == "pass60"}
         self.assertEqual(passed, {"a3", "a4", "b0", "b1", "b2", "b3", "c0"})
         t1 = {a["user"] for a in aw if a["rank"] == "team1"}
-        self.assertEqual(t1, {"c0", "z"})
+        self.assertEqual(t1, {"c0"})                     # z 0 diem: khong nhan giai doi
         self.assertNotIn("z", {a["user"] for a in aw if a["rank"] in ("rank1", "rank2", "rank3")})
 
     def test_bad_prize_rows(self):

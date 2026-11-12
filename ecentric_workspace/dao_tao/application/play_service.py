@@ -51,7 +51,12 @@ def my_profile(ctx, repo):
 
 
 def join(ctx, repo, code, device="", automation=False):
-    s = _session_by_code(repo, code)
+    s0 = _session_by_code(repo, code)
+    # Khoa phong TRUOC moi doc/ghi khac: cung thu tu khoa voi answer / auto_lock (chong deadlock)
+    # va lay state_json moi nhat (khong ghi de bang ban cu trong Redis).
+    s = repo.lock_session(s0["name"])
+    if not s or s["phase"] not in C.LIVE_PHASES:
+        raise QuizNotFound(MSG_NO_ROOM)
     st = s["settings"]
     if automation and S.block_automation(st):
         raise QuizError(MSG_AUTOMATION)
@@ -90,7 +95,8 @@ def join(ctx, repo, code, device="", automation=False):
 
 def set_profile(ctx, repo, code, nickname=None, avatar=None):
     """Doi ten / nhan vat. Luu theo tai khoan (dung lai lan sau) + cap nhat trong phong."""
-    s = _session_by_code(repo, code)
+    s0 = _session_by_code(repo, code)
+    s = repo.lock_session(s0["name"])
     st = s["settings"]
     p = require_found(repo.get_player(s["name"], ctx.user), "người chơi")
     cur = my_profile(ctx, repo)
@@ -99,7 +105,7 @@ def set_profile(ctx, repo, code, nickname=None, avatar=None):
     repo.update_player(s["name"], ctx.user, {"nickname": nick, "avatar": av})
     repo.save_profile(ctx.user, nick if st.get("allow_nick", True) else cur["nickname"],
                       av if st.get("allow_avatar", True) else cur["avatar"])
-    v = repo.update_session(s["name"], {"state": dict(s["state"])})
+    v = repo.update_session(s["name"], {})          # chi tang phien ban - khong ghi lai state
     repo.publish_room(s["name"], v)
     return state(ctx, repo, s["code"])
 
@@ -130,11 +136,11 @@ def answer(ctx, repo, code, qid, payload, device=""):
     if s["phase"] != C.PHASE_QUESTION or not s["questions"]:
         raise QuizError("Câu này đã khoá.")
     q = s["questions"][s["index"]]
-    if qid and qid != q["id"]:
+    if qid != q["id"]:
         raise QuizError("Câu này đã qua, màn hình sẽ tự chuyển.")
     if not room.accepting(s["phase"], now, s["deadline_ms"]):
         raise QuizError("Hết giờ rồi.")              # lan doc ke tiep se tu khoa (auto_lock)
-    if now < s["opened_ms"] + C.LEAD_IN_SEC * 1000 - C.GRACE_MS:
+    if now < s["opened_ms"] + C.LEAD_IN_SEC * 1000:
         raise QuizError("Chưa tới lúc trả lời.")
     p = repo.get_player(s["name"], ctx.user)
     if not p:

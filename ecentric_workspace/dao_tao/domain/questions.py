@@ -39,6 +39,15 @@ TYPE_LABELS = {C.Q_SINGLE: "Trắc nghiệm", C.Q_MULTI: "Chọn nhiều", C.Q_T
                C.Q_CLOUD: "Đám mây từ"}
 
 
+_RID = re.compile(r"^[0-9a-f]{6}$")
+
+
+def _keep(v, rid):
+    """Giu id cu neu la id do server sinh (6 ky tu hex) - luu lai bo quiz khong lam hong bai
+    nguoi hoc dang lam do (QA 12/11). Id moi / id tam cua trinh soan ("n1") -> sinh moi."""
+    return v if isinstance(v, str) and _RID.match(v) else rid()
+
+
 def default_rid():
     return "%06x" % random.SystemRandom().getrandbits(24)
 
@@ -77,7 +86,8 @@ def _clean_items(raw, limit, rid, key="text"):
     for it in raw or []:
         t = _text(it.get(key) if isinstance(it, dict) else it, C.MAX_OPTION_TEXT)
         if t:
-            out.append({"id": rid(), "text": t, "_src": it.get("id") if isinstance(it, dict) else None})
+            src = it.get("id") if isinstance(it, dict) else None
+            out.append({"id": _keep(src, rid), "text": t, "_src": src})
     return out[:limit]
 
 
@@ -107,7 +117,7 @@ def clean_question(raw, rid=default_rid):
         return None, "Chưa chọn kiểu câu."
     text = _text(raw.get("text"), C.MAX_TEXT)
     t = int(_num(raw.get("time"), C.TIME_DEFAULT))
-    q = {"id": rid(), "type": qt, "text": text,
+    q = {"id": _keep(raw.get("id"), rid), "type": qt, "text": text,
          "time": t if t in C.TIME_CHOICES else C.TIME_DEFAULT,
          "media": _clean_media(raw.get("media")), "explain": _text(raw.get("explain"), C.MAX_EXPLAIN)}
     if not text:
@@ -159,8 +169,12 @@ def clean_question(raw, rid=default_rid):
         z = raw.get("zone") if isinstance(raw.get("zone"), dict) else {}
         shape = z.get("shape") if z.get("shape") in (C.PIN_RECT, C.PIN_CIRCLE) else C.PIN_RECT
         f = lambda k, d=0.0: min(max(_num(z.get(k), d), 0.0), 1.0)  # noqa: E731
+        ar = _num(z.get("ar"), 1.0) or 1.0
         zone = ({"shape": shape, "x": f("x"), "y": f("y"), "w": f("w"), "h": f("h")}
-                if shape == C.PIN_RECT else {"shape": shape, "x": f("x"), "y": f("y"), "r": f("r")})
+                if shape == C.PIN_RECT else {"shape": shape, "x": f("x"), "y": f("y"), "r": f("r"),
+                                             # ar = cao / ngang cua anh: r tinh theo be NGANG, truc doc
+                                             # phai nhan ar thi vong tron moi tron that tren anh.
+                                             "ar": min(max(ar, 0.05), 20.0)})
         q["zone"] = zone
         if not q["media"] or q["media"]["kind"] != C.MEDIA_IMAGE:
             return q, "Ghim trên ảnh cần một ảnh."
@@ -181,7 +195,8 @@ def clean_question(raw, rid=default_rid):
                 continue
             left, right = _text(p.get("left"), C.MAX_OPTION_TEXT), _text(p.get("right"), C.MAX_OPTION_TEXT)
             if left and right:
-                pairs.append({"id": rid(), "left": left, "rid": rid(), "right": right})
+                pairs.append({"id": _keep(p.get("id"), rid), "left": left, "rid": _keep(p.get("rid"), rid),
+                              "right": right})
         q["pairs"] = pairs
         if len(pairs) < 2:
             return q, "Ghép cặp cần ít nhất 2 cặp."
@@ -240,17 +255,27 @@ def _shuffled(items, seed):
     return [items[i] for i in perm(seed, len(items))]
 
 
-def public_view(q, seed=None):
-    """Cau hoi cho may nguoi choi - KHONG chua dap an. seed=None -> khong xao (che do "chi o mau",
-    moi nguoi nhin cung thu tu tren may chieu)."""
+def secret_seed(secret, *parts):
+    """Hat giong xao = HMAC(bi mat phia server, ...). PHAI bi mat: perm() tat dinh, biet hat giong
+    la dao nguoc duoc hoan vi -> ra thu tu dung cua cau Sap xep / cap dung cua Ghep cap (QA 12/11)."""
+    import hmac
+    msg = "|".join(str(p) for p in parts).encode("utf-8")
+    return hmac.new(str(secret or "").encode("utf-8"), msg, hashlib.sha256).hexdigest()
+
+
+def public_view(q, seed, shuffle_options=True):
+    """Cau hoi cho may nguoi choi / may chieu - KHONG chua dap an.
+    seed: hat giong BI MAT (secret_seed). Sap xep + Ghep cap LUON xao theo seed (thu tu goc chinh
+    la dap an). shuffle_options=False: lua chon giu thu tu goc (che do "chi o mau" / may chieu -
+    moi nguoi nhin cung thu tu)."""
+    if not seed:
+        raise QuizError("Thiếu hạt giống xáo.")
     v = {"id": q["id"], "type": q["type"], "text": q["text"], "time": q["time"],
          "media": q.get("media"), "label": TYPE_LABELS.get(q["type"], "")}
     qt = q["type"]
-    sh = (lambda items, k: _shuffled(items, "%s|%s" % (seed, k))) if seed else (lambda items, k: items)
+    sh = (lambda items, k: _shuffled(items, "%s|%s" % (seed, k))) if shuffle_options else (lambda items, k: items)
     if qt in C.OPTION_TYPES:
         v["options"] = [{"id": o["id"], "text": o["text"]} for o in sh(q["options"], "o")]
-        if qt == C.Q_MULTI:
-            v["pick"] = len(q.get("correct") or [])
     elif qt == C.Q_TRUEFALSE:
         v["options"] = [dict(o) for o in TF_OPTIONS]
     elif qt == C.Q_SLIDER:
@@ -258,13 +283,13 @@ def public_view(q, seed=None):
     elif qt == C.Q_ORDER:
         # Luon xao (ke ca khong co seed): thu tu goc CHINH LA dap an.
         v["items"] = [{"id": i["id"], "text": i["text"]}
-                      for i in _shuffled(q["items"], "%s|i|%s" % (seed or "", q["id"]))]
+                      for i in _shuffled(q["items"], "%s|i|%s" % (seed, q["id"]))]
         if [i["id"] for i in v["items"]] == [i["id"] for i in q["items"]]:
             v["items"] = v["items"][1:] + v["items"][:1]
     elif qt == C.Q_MATCH:
         v["lefts"] = [{"id": p["id"], "text": p["left"]} for p in q["pairs"]]
         v["rights"] = [{"id": p["rid"], "text": p["right"]}
-                       for p in _shuffled(q["pairs"], "%s|r|%s" % (seed or "", q["id"]))]
+                       for p in _shuffled(q["pairs"], "%s|r|%s" % (seed, q["id"]))]
     elif qt == C.Q_TYPE:
         v["maxlen"] = C.MAX_TYPE_ANSWER
     elif qt == C.Q_CLOUD:
@@ -312,13 +337,13 @@ def clean_answer(q, raw):
     qt = q["type"]
     if qt in (C.Q_SINGLE, C.Q_POLL, C.Q_TRUEFALSE):
         ids = [o["id"] for o in q["options"]]
-        if raw.get("o") not in ids:
+        if not isinstance(raw.get("o"), str) or raw.get("o") not in ids:
             raise QuizError("Chưa chọn đáp án.")
         return {"o": raw["o"]}
     if qt == C.Q_MULTI:
         ids = [o["id"] for o in q["options"]]
         got = raw.get("o")
-        if not isinstance(got, list) or not got or any(x not in ids for x in got):
+        if not isinstance(got, list) or not got or any(not isinstance(x, str) or x not in ids for x in got):
             raise QuizError("Chưa chọn đáp án.")
         return {"o": sorted(set(got))}
     if qt == C.Q_SLIDER:
@@ -334,7 +359,7 @@ def clean_answer(q, raw):
     if qt == C.Q_ORDER:
         ids = [i["id"] for i in q["items"]]
         got = raw.get("o")
-        if not isinstance(got, list) or sorted(got) != sorted(ids):
+        if not isinstance(got, list) or any(not isinstance(x, str) for x in got) or sorted(got) != sorted(ids):
             raise QuizError("Thứ tự không hợp lệ.")
         return {"o": list(got)}
     if qt == C.Q_MATCH:
@@ -345,7 +370,7 @@ def clean_answer(q, raw):
             raise QuizError("Chưa ghép cặp nào.")
         out = {}
         for k, val in m.items():
-            if k not in lefts or val not in rights:
+            if k not in lefts or not isinstance(val, str) or val not in rights:
                 raise QuizError("Ghép cặp không hợp lệ.")
             out[k] = val
         if len(set(out.values())) != len(out):
@@ -353,7 +378,7 @@ def clean_answer(q, raw):
         return {"m": out}
     if qt in (C.Q_TYPE, C.Q_CLOUD):
         limit = C.MAX_TYPE_ANSWER if qt == C.Q_TYPE else C.MAX_CLOUD_ANSWER
-        t = _text(raw.get("t"), limit)
+        t = _text(raw.get("t"), limit) if isinstance(raw.get("t"), str) else ""
         if not t:
             raise QuizError("Chưa nhập câu trả lời.")
         return {"t": t}
@@ -400,7 +425,8 @@ def grade(q, ans):
 
 def in_zone(zone, x, y):
     if zone.get("shape") == C.PIN_CIRCLE:
-        return (x - zone["x"]) ** 2 + (y - zone["y"]) ** 2 <= zone["r"] ** 2 + 1e-9
+        ar = float(zone.get("ar") or 1.0)
+        return (x - zone["x"]) ** 2 + ((y - zone["y"]) * ar) ** 2 <= zone["r"] ** 2 + 1e-9
     return zone["x"] - 1e-9 <= x <= zone["x"] + zone["w"] + 1e-9 and \
         zone["y"] - 1e-9 <= y <= zone["y"] + zone["h"] + 1e-9
 

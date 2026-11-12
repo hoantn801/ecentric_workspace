@@ -315,6 +315,38 @@ class QuizFlowTest(unittest.TestCase):
         flags = room_service.host_state(HOST, self.repo, self.sess)["flags"]
         self.assertEqual([f["email"] for f in flags], [STAFF[0].user])
 
+    def test_kicked_answer_does_not_lock_early(self):
+        self.join_all(3)
+        self.act("start")
+        self.answer(STAFF[0], self.correct_payload(STAFF[0].user))
+        room_service.manage_player(HOST, self.repo, self.sess, STAFF[0].user, "kick")
+        self.answer(STAFF[1], self.correct_payload(STAFF[1].user), wait_ms=10)
+        self.assertEqual(self.repo.get_session(self.sess)["phase"], "question")   # p2 chua tra loi
+        self.answer(STAFF[2], self.correct_payload(STAFF[2].user), wait_ms=10)
+        self.assertEqual(self.repo.get_session(self.sess)["phase"], "locked")
+
+    def test_late_join_keeps_board_and_salt(self):
+        self.join_all(2)
+        self.act("start")
+        self.answer(STAFF[0], self.correct_payload(STAFF[0].user))
+        self.act("reveal")
+        salt = self.repo.get_session(self.sess)["state"]["salt"]
+        play_service.join(STAFF[5], self.repo, self.code, device="z")
+        st = self.repo.get_session(self.sess)["state"]
+        self.assertTrue(st["board"])
+        self.assertEqual(st["salt"], salt)
+        self.assertNotIn("salt", json.dumps(play_service.state(STAFF[5], self.repo, self.code)))
+        self.assertNotIn(salt, json.dumps(room_service.host_state(HOST, self.repo, self.sess)))
+
+    def test_locked_phase_hides_new_score(self):
+        self.join_all(2)
+        self.act("start")
+        self.answer(STAFF[0], self.correct_payload(STAFF[0].user))
+        self.repo.tick(30000)
+        ps = play_service.state(STAFF[0], self.repo, self.code)
+        self.assertEqual(ps["phase"], "locked")
+        self.assertEqual((ps["me"]["score"], ps["me"]["rank"]), (0, None))
+
     def test_unknown_code(self):
         with self.assertRaises(QuizError):
             play_service.join(STAFF[0], self.repo, "123")
@@ -398,6 +430,21 @@ class LearnTest(unittest.TestCase):
         self.assertTrue(r["ticket_revoked"])
         from ecentric_workspace.dao_tao.domain import tickets
         self.assertEqual(self.repo.tickets_in_week(u.user, tickets.week_start(self.repo.now())), 1)
+
+    def test_quiz_ticket_only_first_submission(self):
+        u = STAFF[1]
+        learn_service.lesson_detail(u, self.repo, self.les)
+        g = learn_service.submit_quiz(u, self.repo, self.les, {})          # nop trang -> xem dap an
+        self.assertEqual(g["ticket"], 0)
+        qz = self.repo.get_quiz(self.quiz)
+        ans = {q["id"]: {"o": q["correct"][0]} for q in qz["questions"] if q["type"] in ("single", "truefalse")}
+        self.assertEqual(learn_service.submit_quiz(u, self.repo, self.les, ans)["ticket"], 0)
+
+    def test_publish_needs_ready_quiz(self):
+        draft = quiz_service.save(HOST, self.repo, {"title": "Nháp", "questions": [{"type": "single", "text": ""}]})["quiz"]["name"]
+        with self.assertRaises(QuizError):
+            learn_service.admin_save(HOST, self.repo, {"title": "B", "status": "Published", "quiz": draft})
+        self.assertTrue(learn_service.admin_save(HOST, self.repo, {"title": "B", "quiz": draft})["name"])
 
     def test_draft_lesson_hidden(self):
         d = learn_service.admin_save(HOST, self.repo, {"title": "Nháp"})

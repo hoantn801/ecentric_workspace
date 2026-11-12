@@ -98,7 +98,7 @@
         return '<div class="dt-pc">' + D.pcard(p, 38) + "</div>";
       }).join("") + "</div>";
   }
-  function qText() { return st.question.text_full || st.question.text; }
+  function qText() { return st.question.text; }
   function media() {
     var m = st.question.media, u = m && D.safeUrl(m.url);
     if (!u) return "";
@@ -143,7 +143,7 @@
       h += '<p class="dt-big">Đáp án: ' + rv.answer + (rv.tolerance ? " ± " + rv.tolerance : "") + " " + D.esc(q.unit || "") + "</p>" +
         '<p style="text-align:center">' + (t.values || []).length + " câu trả lời</p>";
     } else if (q.type === "pin") {
-      var z = rv.zone || {}, zs = z.shape === "circle" ? "left:" + (z.x - z.r) * 100 + "%;top:" + (z.y - z.r) * 100 + "%;width:" + z.r * 200 + "%;aspect-ratio:1" :
+      var z = rv.zone || {}, zs = z.shape === "circle" ? "left:" + (z.x - z.r) * 100 + "%;top:" + (z.y - z.r / (z.ar || 1)) * 100 + "%;width:" + z.r * 200 + "%;aspect-ratio:1" :
         "left:" + z.x * 100 + "%;top:" + z.y * 100 + "%;width:" + z.w * 100 + "%;height:" + z.h * 100 + "%";
       h += '<div class="dt-pinbox" style="max-width:min(900px,70vh*1.5);align-self:center"><img src="' + D.esc(D.safeUrl(q.media && q.media.url)) + '" alt=""><span class="dt-zone' +
         (z.shape === "circle" ? " circle" : "") + '" style="' + zs + '"></span>' + (t.pins || []).map(function (p) {

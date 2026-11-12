@@ -41,6 +41,9 @@ class FakeRepo:
     def now_ms(self):
         return self.ms
 
+    def secret(self):
+        return "site-secret-test"
+
     def commit(self):
         pass
 
@@ -186,6 +189,10 @@ class FakeRepo:
 
     def count_answers(self, session, index):
         return len(self.answers(session, index))
+
+    def count_active_answers(self, session, index):
+        return sum(1 for a in self.answers(session, index)
+                   if not (self.get_player(session, a["user"]) or {}).get("kicked"))
 
     def get_answer(self, session, index, user):
         return copy.deepcopy(self.answers_.get(self._ak(session, index, user)))

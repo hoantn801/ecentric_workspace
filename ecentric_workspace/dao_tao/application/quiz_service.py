@@ -91,7 +91,7 @@ def save(ctx, repo, payload, rid=Q.default_rid):
     name = payload.get("name")
     if name:
         cur = require_found(repo.get_quiz(name), "bộ quiz")
-        if payload.get("modified") and cur["modified"] and payload["modified"] != cur["modified"]:
+        if payload.get("modified") != cur["modified"]:
             raise QuizError("Bộ quiz vừa được người khác sửa. Tải lại trang để lấy bản mới.")
         repo.save_quiz(name, fields)
     else:

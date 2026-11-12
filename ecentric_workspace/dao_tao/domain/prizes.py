@@ -54,6 +54,7 @@ def allocate(prizes, ranked, teams, scored_total, climbs=None):
     climbs = climbs or {}
     out = []
     by_rank = {p["rank"]: p for p in ranked}
+    by_user = {p["user"]: p for p in ranked}
     for row in prizes:
         r = row["rank"]
         if row["scope"] == C.SCOPE_PLAYER:
@@ -74,7 +75,7 @@ def allocate(prizes, ranked, teams, scored_total, climbs=None):
                 best = None
                 for p in ranked:                         # ranked da sap: hoa thi hang cao hon
                     c = climbs.get(p["user"], 0)
-                    if c > 0 and (best is None or c > best[1]):
+                    if c > 0 and int(p.get("score") or 0) > 0 and (best is None or c > best[1]):
                         best = (p["user"], c)
                 if best:
                     out.append(_award(row, best[0], {"climb": best[1]}))
@@ -82,8 +83,9 @@ def allocate(prizes, ranked, teams, scored_total, climbs=None):
             if r in (C.TEAM_1, C.TEAM_2):
                 t = next((t for t in teams if t["rank"] == (1 if r == C.TEAM_1 else 2)), None)
                 if t and t["score"] > 0:
-                    for u in t["users"]:
-                        out.append(_award(row, u, {"team": t["team"]}))
+                    for u in t["users"]:                 # thanh vien 0 diem (vao roi ngoi im) khong nhan
+                        if int((by_user.get(u) or {}).get("score") or 0) > 0:
+                            out.append(_award(row, u, {"team": t["team"]}))
             elif r == C.TEAM_MVP:
                 for t in teams:
                     if t.get("mvp") and t["score"] > 0:

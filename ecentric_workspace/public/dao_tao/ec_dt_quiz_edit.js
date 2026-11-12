@@ -223,7 +223,7 @@
     function show() {
       var z = q.zone;
       zEl.className = "dt-zone" + (z.shape === "circle" ? " circle" : "");
-      if (z.shape === "circle") { zEl.style.cssText = "left:" + (z.x - z.r) * 100 + "%;top:" + (z.y - z.r) * pe.offsetWidth / pe.offsetHeight * 100 + "%;width:" + z.r * 200 + "%;aspect-ratio:1"; }
+      if (z.shape === "circle") { zEl.style.cssText = "left:" + (z.x - z.r) * 100 + "%;top:" + (z.y - z.r / (z.ar || 1)) * 100 + "%;width:" + z.r * 200 + "%;aspect-ratio:1"; }
       else zEl.style.cssText = "left:" + z.x * 100 + "%;top:" + z.y * 100 + "%;width:" + z.w * 100 + "%;height:" + z.h * 100 + "%";
     }
     function pt(e) { var r = pe.getBoundingClientRect(); return { x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) }; }
@@ -233,13 +233,16 @@
       var p = pt(e);
       if (q.zone.shape === "circle") {
         var r = pe.getBoundingClientRect(), dx = (p.x - start.x), dy = (p.y - start.y) * r.height / r.width;
-        q.zone = { shape: "circle", x: start.x, y: start.y, r: Math.max(0.01, Math.sqrt(dx * dx + dy * dy)) };
+        // ar = cao/ngang anh: server cham vong tron theo dung ti le nay (questions.in_zone).
+        q.zone = { shape: "circle", x: start.x, y: start.y, r: Math.max(0.01, Math.sqrt(dx * dx + dy * dy)), ar: ratio() };
       } else q.zone = { shape: "rect", x: Math.min(start.x, p.x), y: Math.min(start.y, p.y), w: Math.max(0.01, Math.abs(p.x - start.x)), h: Math.max(0.01, Math.abs(p.y - start.y)) };
       dirty = true; show();
     };
     pe.onpointerup = function () { start = null; };
     var img = pe.querySelector("img");
-    if (img.complete) show(); else img.onload = show;
+    function ratio() { return img.naturalWidth ? img.naturalHeight / img.naturalWidth : 1; }
+    function ready() { if (q.zone.shape === "circle") q.zone.ar = ratio(); show(); }
+    if (img.complete) ready(); else img.onload = ready;
   }
 
   // ---------------------------------------------------------------- luat / bao ve --
