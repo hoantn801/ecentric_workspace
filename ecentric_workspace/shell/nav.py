@@ -261,6 +261,7 @@ def _providers():
     from ecentric_workspace.ai_tools import nav as ai_tools_nav
     from ecentric_workspace.surveys import nav as surveys_nav
     from ecentric_workspace.data_hub import nav as data_hub_nav
+    from ecentric_workspace.dao_tao import nav as dao_tao_nav
     return [
         ("core", lambda: list(CORE_ITEMS)),
         ("approval_center", approval_nav.items),
@@ -283,6 +284,8 @@ def _providers():
         ("surveys", surveys_nav.items),
         # Trung tam Du lieu (09/11/2026, PO Hoan chot): /du-lieu - nhom "Dữ liệu" trong khu Bao cao.
         ("data_hub", data_hub_nav.items),
+        # Dao tao + Quiz truc tiep (12/11/2026): Hoc · Quiz truc tiep · Quan ly bai hoc.
+        ("dao_tao", dao_tao_nav.items),
         ("home_portal", lambda: list(HOME_PORTAL_ITEMS)),
     ]
 
@@ -351,11 +354,17 @@ CONTEXTS = {
         "entry": {"key": "ctx.data_hub", "label": "Trung tâm Dữ liệu",
                   "route": "/du-lieu", "icon": "list"},
     },
+    # 12/11/2026: Dao tao + Quiz truc tiep (/dao-tao, /quiz, dao_tao/) - thuoc khu "Cong ty".
+    "dao_tao": {
+        "providers": ["core", "dao_tao"],
+        "entry": {"key": "ctx.dao_tao", "label": "Đào tạo",
+                  "route": "/dao-tao", "icon": "book"},
+    },
 }
 #: order in which specialized contexts are probed for route resolution and in
 #: which launcher entries render.
 CONTEXT_ORDER = ["approval_document", "hr", "alert_center", "reporting", "pnl", "pm",
-                 "ai_tools", "surveys", "data_hub"]
+                 "ai_tools", "surveys", "data_hub", "dao_tao"]
 #: `pnl` dung TRUOC `reporting`? Khong can: /pnl-dashboard khong khop mau nao
 #: cua reporting (/reports, /reports/*), nen hai ngu canh khong tranh nhau.
 DEFAULT_CONTEXT = "approval_document"
@@ -622,7 +631,7 @@ RAIL = [
      "keys": ["home.portal.reports", "home.portal.weekly", "home.portal.pulse", "home.portal.alerts"],
      "group": "Báo cáo & Phân tích"},
     {"key": "company", "label": "Công ty", "icon": "building", "route": "/tai-lieu",
-     "contexts": ["ai_tools", "surveys"],
+     "contexts": ["ai_tools", "surveys", "dao_tao"],
      "keys": ["home.portal.iso_docs", "home.portal.feedback", "home.portal.surveys", "home.portal.hall",
               "home.portal.ai_tools", "home.portal.hiring", "home.portal.training"],
      "group": "Công ty"},

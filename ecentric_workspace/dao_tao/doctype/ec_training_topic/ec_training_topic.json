@@ -1,0 +1,83 @@
+{
+ "doctype": "DocType",
+ "name": "EC Training Topic",
+ "module": "Dao Tao",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "description": "Chủ đề đề xuất cho bài học tới - mọi người bình chọn (mỗi người 3 phiếu, trả lại khi chủ đề thành bài).",
+ "autoname": "hash",
+ "title_field": "title",
+ "field_order": [
+  "title",
+  "description",
+  "status",
+  "votes",
+  "lesson",
+  "proposed_by"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Chủ đề",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Mô tả"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Trạng thái",
+   "options": "Open\nPlanned\nDone\nRejected",
+   "default": "Open",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "votes",
+   "fieldtype": "Int",
+   "label": "Số phiếu",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "lesson",
+   "fieldtype": "Link",
+   "label": "Bài học",
+   "options": "EC Training Lesson"
+  },
+  {
+   "fieldname": "proposed_by",
+   "fieldtype": "Link",
+   "label": "Người đề xuất",
+   "options": "User"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "modified": "2026-11-12 18:00:00.000000"
+}

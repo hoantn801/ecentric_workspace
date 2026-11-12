@@ -712,7 +712,7 @@ def page_route_map(repo):
     # bytes predate the repo are NOT here on purpose: those are governed by a
     # server-side transform (e.g. hr/pages/shell_boundary.py) that regenerates
     # the same two zones under a byte-preservation proof.
-    for mod in ("hr", "action_center", "guides", "sla", "ai_tools", "surveys"):
+    for mod in ("hr", "action_center", "guides", "sla", "ai_tools", "surveys", "dao_tao"):
         mp = os.path.join(repo, "ecentric_workspace", mod, "pages")
         if not os.path.isdir(mp):
             continue

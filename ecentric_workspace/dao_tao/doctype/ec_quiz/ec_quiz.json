@@ -1,0 +1,99 @@
+{
+ "doctype": "DocType",
+ "name": "EC Quiz",
+ "module": "Dao Tao",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "description": "Bộ câu hỏi quiz trực tiếp (Đào tạo). Câu hỏi + luật chơi + phần thưởng lưu JSON, sửa qua /quiz/soan. DocType chỉ cấp quyền System Manager - người dùng đi qua dao_tao/controllers/api.py.",
+ "autoname": "hash",
+ "title_field": "title",
+ "field_order": [
+  "title",
+  "description",
+  "status",
+  "template",
+  "n_questions",
+  "last_played",
+  "questions_json",
+  "settings_json",
+  "prizes_json"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Tên bộ quiz",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Mô tả"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Trạng thái",
+   "options": "Draft\nReady\nArchived",
+   "default": "Draft",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "template",
+   "fieldtype": "Data",
+   "label": "Mẫu"
+  },
+  {
+   "fieldname": "n_questions",
+   "fieldtype": "Int",
+   "label": "Số câu",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "last_played",
+   "fieldtype": "Datetime",
+   "label": "Chơi lần cuối"
+  },
+  {
+   "fieldname": "questions_json",
+   "fieldtype": "Long Text",
+   "label": "Câu hỏi (JSON)"
+  },
+  {
+   "fieldname": "settings_json",
+   "fieldtype": "Long Text",
+   "label": "Luật chơi (JSON)"
+  },
+  {
+   "fieldname": "prizes_json",
+   "fieldtype": "Long Text",
+   "label": "Phần thưởng (JSON)"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "modified": "2026-11-12 18:00:00.000000"
+}

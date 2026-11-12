@@ -1,0 +1,416 @@
+{
+ "title": "Claude buổi 1 · Quiz sau buổi học",
+ "description": "21 câu, 8 kiểu câu. Seed từ bộ quiz buổi đào tạo Claude Team đầu tiên (13/11/2026).",
+ "template": "after_class",
+ "settings": {
+  "mode": "team",
+  "board": "five",
+  "guard": "standard",
+  "show_on_phone": true,
+  "by_speed": true,
+  "streak": true,
+  "last_double": true,
+  "allow_nick": true,
+  "allow_avatar": true
+ },
+ "prizes": null,
+ "questions": [
+  {
+   "type": "cloud",
+   "text": "Khởi động: một từ thôi - bạn muốn Claude giúp việc gì nhất?",
+   "time": 30,
+   "explain": "Câu khởi động, không tính điểm."
+  },
+  {
+   "type": "single",
+   "text": "Điều nào KHÔNG nên đưa cho Claude?",
+   "time": 20,
+   "options": [
+    {
+     "text": "Mật khẩu, số thẻ ngân hàng"
+    },
+    {
+     "text": "File số liệu brand cần phân tích"
+    },
+    {
+     "text": "Email cần tóm tắt"
+    },
+    {
+     "text": "Dàn ý slide tuần này"
+    }
+   ],
+   "correct": [
+    0
+   ],
+   "explain": "Nguyên tắc 1: đưa vừa đủ. Không mật khẩu, số thẻ, thông tin cá nhân không liên quan."
+  },
+  {
+   "type": "truefalse",
+   "text": "Claude có thể sai. Số liệu Claude đưa ra cần đối chiếu với file gốc trước khi gửi.",
+   "time": 10,
+   "correct": true,
+   "explain": "Nguyên tắc 2: kiểm tra lại số, tên, điều khoản với nguồn. Claude có thể sai."
+  },
+  {
+   "type": "single",
+   "text": "Ai là người duyệt cuối và ký?",
+   "time": 20,
+   "options": [
+    {
+     "text": "Claude"
+    },
+    {
+     "text": "Admin IT"
+    },
+    {
+     "text": "Chính bạn"
+    },
+    {
+     "text": "Không cần ai duyệt"
+    }
+   ],
+   "correct": [
+    2
+   ],
+   "explain": "Nguyên tắc 3: Claude soạn và rà nhanh, quyết định và chữ ký vẫn là của bạn."
+  },
+  {
+   "type": "order",
+   "text": "Xếp 4 phần của công thức giao việc theo đúng thứ tự",
+   "time": 30,
+   "items": [
+    {
+     "text": "Bối cảnh"
+    },
+    {
+     "text": "Việc cần làm"
+    },
+    {
+     "text": "Định dạng"
+    },
+    {
+     "text": "Ví dụ mẫu"
+    }
+   ],
+   "explain": "4 phần: Bối cảnh · Việc cần làm · Định dạng · Ví dụ mẫu."
+  },
+  {
+   "type": "single",
+   "text": "Claude trả lời chưa ưng ý. Nên làm gì?",
+   "time": 20,
+   "options": [
+    {
+     "text": "Mở chat mới, gõ lại từ đầu"
+    },
+    {
+     "text": "Góp ý tiếp ngay trong chat đó"
+    },
+    {
+     "text": "Bỏ, tự làm cho nhanh"
+    },
+    {
+     "text": "Đợi mai hỏi lại"
+    }
+   ],
+   "correct": [
+    1
+   ],
+   "explain": "Chưa ưng thì góp ý tiếp: “ngắn hơn”, “đổi giọng”, “dùng số trong file”."
+  },
+  {
+   "type": "multi",
+   "text": "Prompt “Viết email báo cáo cho brand.” còn thiếu những gì? (chọn 3)",
+   "time": 30,
+   "options": [
+    {
+     "text": "Bối cảnh"
+    },
+    {
+     "text": "Định dạng"
+    },
+    {
+     "text": "Ví dụ mẫu"
+    },
+    {
+     "text": "Dấu chấm than"
+    },
+    {
+     "text": "Thật nhiều emoji"
+    }
+   ],
+   "correct": [
+    0,
+    1,
+    2
+   ],
+   "explain": "Prompt mơ hồ cho ra bài đúng ngữ pháp nhưng phải viết lại gần hết."
+  },
+  {
+   "type": "match",
+   "text": "Ghép mỗi tính năng với việc nó làm",
+   "time": 45,
+   "pairs": [
+    {
+     "left": "Skill",
+     "right": "Quy trình chuẩn đóng gói, ai chạy cũng ra giống nhau"
+    },
+    {
+     "left": "Connector",
+     "right": "Đọc dữ liệu Outlook, SharePoint, Power BI"
+    },
+    {
+     "left": "Project",
+     "right": "Giữ hướng dẫn + file để dùng lại nhiều lần"
+    },
+    {
+     "left": "Claude in Chrome",
+     "right": "Đọc và tổng hợp trang web đang mở"
+    }
+   ],
+   "explain": "Skill = quy trình chuẩn · Connector = đọc dữ liệu công cụ khác · Project = hướng dẫn + file dùng lại · Claude in Chrome = đọc web."
+  },
+  {
+   "type": "single",
+   "text": "Qua connector, Claude xem được dữ liệu nào?",
+   "time": 20,
+   "options": [
+    {
+     "text": "Toàn bộ dữ liệu công ty"
+    },
+    {
+     "text": "Dữ liệu của sếp bạn"
+    },
+    {
+     "text": "Dữ liệu của mọi phòng ban"
+    },
+    {
+     "text": "Chỉ dữ liệu bạn có quyền xem"
+    }
+   ],
+   "correct": [
+    3
+   ],
+   "explain": "Claude chỉ thấy những gì tài khoản của bạn được phép thấy."
+  },
+  {
+   "type": "truefalse",
+   "text": "Dữ liệu công ty trên Claude Team được dùng để huấn luyện model.",
+   "time": 10,
+   "correct": false,
+   "explain": "Dữ liệu công ty không dùng để huấn luyện model."
+  },
+  {
+   "type": "single",
+   "text": "Cách nào giúp đỡ chạm giới hạn sử dụng?",
+   "time": 20,
+   "options": [
+    {
+     "text": "Dùng một chat cho cả tháng"
+    },
+    {
+     "text": "Đính kèm thật nhiều file"
+    },
+    {
+     "text": "Gõ toàn chữ in hoa"
+    },
+    {
+     "text": "Mỗi chủ đề một chat mới"
+    }
+   ],
+   "correct": [
+    3
+   ],
+   "explain": "Chat dài tốn lượt nhanh. Mỗi chủ đề một chat, dùng Project, chỉ đính kèm file cần."
+  },
+  {
+   "type": "single",
+   "text": "File hợp đồng scan 30MB, quá nặng để gửi mail. Cách nhanh nhất?",
+   "time": 20,
+   "options": [
+    {
+     "text": "Cài phần mềm nén ngoài"
+    },
+    {
+     "text": "Nhờ Claude nén ngay trong chat"
+    },
+    {
+     "text": "Chụp màn hình từng trang"
+    },
+    {
+     "text": "In ra rồi scan lại"
+    }
+   ],
+   "correct": [
+    1
+   ],
+   "explain": "Claude nén, gộp, tách, chuyển định dạng file ngay trong chat. Nhớ mở file kiểm tra trước khi gửi."
+  },
+  {
+   "type": "type",
+   "text": "Đang dùng GPT / Gem tự dựng. Sang Claude thì chuyển thành một … (gõ 1 từ)",
+   "time": 20,
+   "accept": [
+    "Project",
+    "Claude Project",
+    "Projects",
+    "Dự án"
+   ],
+   "explain": "Chép hướng dẫn và tải lại file vào một Project."
+  },
+  {
+   "type": "truefalse",
+   "text": "Claude tự vẽ được ảnh minh hoạ cho slide.",
+   "time": 10,
+   "correct": false,
+   "explain": "Claude không tạo ảnh. Nhờ Claude viết brief và prompt cho công cụ tạo ảnh."
+  },
+  {
+   "type": "single",
+   "text": "Muốn dùng Claude ngay trong Excel, Word, PowerPoint thì cài gì?",
+   "time": 20,
+   "options": [
+    {
+     "text": "Add-in Claude cho Microsoft 365"
+    },
+    {
+     "text": "Extension Claude cho Chrome"
+    },
+    {
+     "text": "App ChatGPT"
+    },
+    {
+     "text": "Không cần cài gì"
+    }
+   ],
+   "correct": [
+    0
+   ],
+   "explain": "Cài add-in Claude cho Office một lần, dùng được cả ba."
+  },
+  {
+   "type": "single",
+   "text": "Tổng hợp giá, combo đối thủ trên web thành bảng: dùng gì?",
+   "time": 20,
+   "options": [
+    {
+     "text": "Claude trong Word"
+    },
+    {
+     "text": "Power BI"
+    },
+    {
+     "text": "Claude in Chrome"
+    },
+    {
+     "text": "Outlook"
+    }
+   ],
+   "correct": [
+    2
+   ],
+   "explain": "Claude in Chrome đọc trang web đang mở và tổng hợp giúp bạn."
+  },
+  {
+   "type": "slider",
+   "text": "Trước khi có skill, mỗi hợp đồng Booking KOC cần bao nhiêu bước làm tay?",
+   "time": 20,
+   "min": 0,
+   "max": 20,
+   "step": 1,
+   "answer": 8,
+   "tolerance": 0,
+   "unit": "bước",
+   "explain": "Trước: 8 bước làm tay mỗi KOC. Giờ: 1 câu cho cả đợt."
+  },
+  {
+   "type": "multi",
+   "text": "QC của skill KOC đã chặn những lỗi nào? (chọn tất cả lỗi đúng)",
+   "time": 30,
+   "options": [
+    {
+     "text": "CCCD lệch năm sinh"
+    },
+    {
+     "text": "KOC mới 17 tuổi"
+    },
+    {
+     "text": "Trùng booking"
+    },
+    {
+     "text": "Chưa đủ video"
+    },
+    {
+     "text": "Font chữ chưa đẹp"
+    },
+    {
+     "text": "Thiếu emoji"
+    }
+   ],
+   "correct": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "explain": "QC chặn 4/7 dòng lỗi: CCCD lệch năm sinh, KOC 17 tuổi, trùng booking, chưa đủ video."
+  },
+  {
+   "type": "slider",
+   "text": "Một việc làm đến lần thứ mấy thì nên biến thành skill?",
+   "time": 20,
+   "min": 1,
+   "max": 10,
+   "step": 1,
+   "answer": 3,
+   "tolerance": 0,
+   "unit": "",
+   "explain": "Làm đến lần thứ 3 thì biến thành skill."
+  },
+  {
+   "type": "single",
+   "text": "Thử thách 2 tuần: mỗi phòng ban làm gì?",
+   "time": 20,
+   "options": [
+    {
+     "text": "Một skill"
+    },
+    {
+     "text": "Một bài thuyết trình"
+    },
+    {
+     "text": "Một khoá học online"
+    },
+    {
+     "text": "Một video TikTok"
+    }
+   ],
+   "correct": [
+    0
+   ],
+   "explain": "Tuần 1 chọn việc lặp lại, tuần 2 làm skill cùng Claude, rồi show & tell."
+  },
+  {
+   "type": "poll",
+   "text": "Phòng bạn muốn làm skill gì trong thử thách 2 tuần?",
+   "time": 30,
+   "options": [
+    {
+     "text": "Báo cáo tuần"
+    },
+    {
+     "text": "Hợp đồng / biểu mẫu"
+    },
+    {
+     "text": "Phân tích số liệu brand"
+    },
+    {
+     "text": "Kịch bản livestream"
+    },
+    {
+     "text": "Email khách hàng"
+    }
+   ],
+   "explain": "Không tính điểm - ý kiến để Ban đào tạo lên kế hoạch."
+  }
+ ]
+}
