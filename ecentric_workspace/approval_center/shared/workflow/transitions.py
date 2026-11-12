@@ -1059,7 +1059,7 @@ def _luong_co_ky_so(req, boi_canh):
     try:
         from ecentric_workspace.platform.esign import guard as _esign_guard
         return bool(_esign_guard.get_enabled_profile(
-            req.reference_doctype, req.get("approval_type")))
+            req.reference_doctype, req.get("approval_type"), req.get("reference_name")))
     except Exception:
         frappe.log_error(frappe.get_traceback(),
                          "%s: khong doc duoc ho so ky so %s" % (boi_canh, req.name))

@@ -41,36 +41,117 @@ def _gates_open(provider, environment):
     return True
 
 
-def get_active_profile(reference_doctype, approval_type):
-    """Enabled profile whose provider gates are open, or None. None => signing layer
-    inert for this type (existing behavior, bit-identical)."""
-    rows = frappe.get_all("EC Digital Signature Profile",
+PROFILE = "EC Digital Signature Profile"
+#: Goi da qua Draft (da khoa / da gui cong / da xong): ho so cua goi la ho so cua phieu.
+_FROZEN_PACKAGE_STATES = ("Locked", "Provider Creating", "Provider Created",
+                          "Provider Create Failed", "Active", "Completed")
+
+
+def _frozen_profile(reference_doctype, business_name):
+    """Ho so cua goi ky DA KHOA moi nhat cua phieu, hoac None (QC2 12/11).
+
+    Goi khoa giu profile/provider/environment; worker tao tai lieu tren cong theo do. Neu guard
+    doc lai `esign_flow` sau luc khoa ma truong da doi -> ERP tinh cap ky / cai dat theo ho so B
+    trong khi cong chay ho so A (lop "chuoi ERP lech chuoi cong"). Nen: co goi khoa thi theo goi.
+    CHI goi khi loai dung selector - DNTT khong ton them truy van nao.
+    TODO PR-C (nhieu goi / phieu theo `purpose`): loc them theo purpose."""
+    rows = frappe.get_all("EC Digital Signature Package",
                           filters={"business_doctype": reference_doctype,
-                                   "approval_type": approval_type, "enabled": 1},
-                          fields=["name", "provider", "environment"], limit_page_length=5)
+                                   "business_name": business_name,
+                                   "status": ["in", list(_FROZEN_PACKAGE_STATES)]},
+                          fields=["profile"], order_by="creation desc", limit_page_length=1)
+    return (rows[0].get("profile") if rows else None) or None
+
+
+def _profile_rows(reference_doctype, approval_type, business_name=None):
+    """Ho so DANG BAT cho (doctype, loai yeu cau), da LOC theo phieu cu the neu co.
+
+    Hop dong (12/11/2026): MOT loai chung tu co NHIEU ho so ky - moi quy trinh tren cong
+    (KOL/KOC WF09, HD lao dong WF03...) mot ho so - va phieu chon quy trinh qua mot truong
+    (`esign_flow`). Ho so khai `selector_field` + `selector_value`; ham nay doc gia tri truong
+    do tren phieu `business_name` va giu ho so khop.
+
+      * Khong ho so nao khai selector (DNTT hien nay) -> tra nguyen danh sach: Y HET truoc.
+      * Co `business_name`: ho so co selector khop gia tri tren phieu; khong ho so nao khop thi
+        ho so KHONG khai selector la mac dinh. Gia tri trong / khong khop + khong co mac dinh
+        -> rong = phieu nay khong ky so (vd `khong_ky_cong`).
+      * Khong co `business_name` ma co ho so khai selector -> tra nguyen danh sach; nguoi goi
+        thay >1 thi bao "khong chon duoc" (get_enabled_profile) - KHONG doan.
+    """
+    rows = frappe.get_all(PROFILE, filters={"business_doctype": reference_doctype,
+                                            "approval_type": approval_type, "enabled": 1},
+                          fields=["name", "provider", "environment", "selector_field",
+                                  "selector_value"],
+                          order_by="name asc", limit_page_length=20)
+    if not business_name or not any(r.get("selector_field") for r in rows):
+        return rows
+    frozen = _frozen_profile(reference_doctype, business_name)
+    if frozen:
+        # Ho so cua goi da tat thi coi nhu tat (y het truoc PR: tat ho so = khong ky) - KHONG
+        # roi xuong chon theo truong, vi se ra ho so khac voi cai cong dang chay.
+        return [r for r in rows if r.get("name") == frozen]
+    values = {}
+    picked = []
+    for r in rows:
+        field = (r.get("selector_field") or "").strip()
+        if not field:
+            continue
+        if field not in values:
+            values[field] = (frappe.db.get_value(reference_doctype, business_name, field)
+                             if frappe.db.has_column(reference_doctype, field) else None)
+        have = values[field]
+        if have not in (None, "") and str(have) == str(r.get("selector_value") or ""):
+            picked.append(r)
+    if picked:
+        return picked
+    return [r for r in rows if not (r.get("selector_field") or "").strip()]
+
+
+def get_active_profile(reference_doctype, approval_type, business_name=None):
+    """Enabled profile whose provider gates are open, or None. None => signing layer
+    inert for this type (existing behavior, bit-identical). `business_name`: chon ho so theo
+    phieu khi mot loai co nhieu ho so (xem _profile_rows)."""
+    rows = _profile_rows(reference_doctype, approval_type, business_name)
+    if len(rows) > 1 and any((r.get("selector_field") or "").strip() for r in rows):
+        # Con nhieu ho so co selector = nguoi goi quen truyen ten phieu (hoac cau hinh hai truong
+        # chon khac nhau cung khop). KHONG doan (QC 12/11): tra None o day lai la "khong can ky"
+        # cho assert_level_completable - con te hon. Nem nhu get_enabled_profile.
+        frappe.throw(_("Cấu hình sai: nhiều Hồ sơ ký số khớp {0} / {1}{2} - không chọn được.")
+                     .format(reference_doctype, approval_type,
+                             (" " + business_name) if business_name else ""))
     for r in rows:
         if _gates_open(r.provider, r.environment):
             return r.name
     return None
 
 
-def get_enabled_profile(reference_doctype, approval_type):
+def selector_in_use(reference_doctype, approval_type):
+    """Co ho so DANG BAT nao cua cap nay chon theo truong tren phieu khong. Dung de nguoi goi
+    biet ket qua chinh sach co phu thuoc TUNG PHIEU hay chi phu thuoc loai (nho dem theo loai
+    duoc thi nho, vd reporting)."""
+    return bool(frappe.db.exists(PROFILE, {"business_doctype": reference_doctype,
+                                           "approval_type": approval_type, "enabled": 1,
+                                           "selector_field": ["is", "set"]}))
+
+
+def get_enabled_profile(reference_doctype, approval_type, business_name=None):
     """The exact ENABLED Digital Signature Profile for (business_doctype, approval_type),
     resolved INDEPENDENTLY of provider execution gates (integration / document-creation /
     signing / bulk / callback / production). Profile POLICY (e.g. requester_signature_required
     and approver signature policy intent) is a configuration question and must not depend on
     whether the external write gate is open - the gates only govern the actual provider call.
     Fails closed if MORE THAN ONE enabled profile exists for the exact pair (ambiguous config);
-    never silently picks an arbitrary row."""
-    rows = frappe.get_all("EC Digital Signature Profile",
-                          filters={"business_doctype": reference_doctype,
-                                   "approval_type": approval_type, "enabled": 1},
-                          fields=["name"], limit_page_length=5)
+    never silently picks an arbitrary row. `business_name`: chon ho so theo phieu khi mot loai
+    co nhieu ho so (xem _profile_rows)."""
+    rows = _profile_rows(reference_doctype, approval_type, business_name)
     if not rows:
         return None
     if len(rows) > 1:
-        frappe.throw(_("Cấu hình sai: có nhiều hơn một Hồ sơ ký số đang bật cho {0} / {1}. "
-                       "Vui lòng chỉ bật đúng một hồ sơ.").format(reference_doctype, approval_type))
+        frappe.throw(_("Cấu hình sai: có nhiều hơn một Hồ sơ ký số đang bật cho {0} / {1} "
+                       "mà không chọn được theo phiếu{2}. Mỗi hồ sơ cần 'Trường chọn' + 'Giá trị "
+                       "chọn' khác nhau, hoặc chỉ bật đúng một hồ sơ.").format(
+            reference_doctype, approval_type,
+            (" " + business_name) if business_name else ""))
     return rows[0].name
 
 
@@ -93,12 +174,12 @@ def _approver_signature_policy(profile):
                                 "approver_signature_policy") or "Selected Approval Levels")
 
 
-def requester_signature_required(reference_doctype, approval_type):
+def requester_signature_required(reference_doctype, approval_type, business_name=None):
     """Whether the requester must Submit & Sign before Level 1 (policy flag on the profile).
     Uses the gate-INDEPENDENT enabled-profile lookup: the requester-signature policy defers
     Level 1 even while provider write gates are OFF (the actual signing write stays fenced by
     the gates in the worker/binding). Requester signing is NOT an approval level."""
-    profile = get_enabled_profile(reference_doctype, approval_type)
+    profile = get_enabled_profile(reference_doctype, approval_type, business_name)
     if not profile:
         return False
     return bool(frappe.db.get_value("EC Digital Signature Profile", profile,
@@ -138,7 +219,7 @@ def derive_role_title(profile, level_no=None, is_requester=False, process_role_t
 
 
 def level_requires_signature(reference_doctype, approval_type, level_no, final_level=None,
-                             ignore_gates=False):
+                             ignore_gates=False, business_name=None):
     """True when the active profile's Approver Signature Policy makes THIS Approval Engine
     level require a digital signature. Policy-driven so admins need not recreate every level:
       * None                     -> no level requires signing;
@@ -153,8 +234,9 @@ def level_requires_signature(reference_doctype, approval_type, level_no, final_l
     # chu ky can biet cap nay LE RA co phai ky khong, ke ca khi cong dang tat. Dung chung mot
     # than de hai cau tra loi khong the troi khoi nhau - ban dau viet thanh mot ham song song
     # va do dung la cach hai luat bat dau lech nhau.
-    profile = (get_enabled_profile(reference_doctype, approval_type) if ignore_gates
-               else get_active_profile(reference_doctype, approval_type))
+    profile = (get_enabled_profile(reference_doctype, approval_type, business_name)
+               if ignore_gates
+               else get_active_profile(reference_doctype, approval_type, business_name))
     if not profile:
         return False
     policy = _approver_signature_policy(profile)
@@ -261,7 +343,8 @@ def assert_level_completable(req, level_no, actor):
     # service.py va inbox.py deu truyen final_level.
     # Cung ho voi allow_production_signing: cong nhin chat nhung khong kiem duoc gi.
     if not level_requires_signature(req.reference_doctype, req.approval_type, level_no,
-                                    final_level=request_final_level(req.name)):
+                                    final_level=request_final_level(req.name),
+                                    business_name=req.reference_name):
         # Cong DONG nhung CHINH SACH van doi chu ky o cap nay -> khong chan, nhung GHI NO.
         #
         # Truoc 31/08 nhanh nay im hoan toan: tat `allow_signing` la nut "Duyet" thuong hoan
@@ -295,12 +378,13 @@ def _record_signature_debt(req, level_no, actor):
     cong mo" - mot loi hua khong co gi dang sau; da sua cho dung su that.
     """
     try:
-        profile = get_enabled_profile(req.reference_doctype, req.approval_type)
+        profile = get_enabled_profile(req.reference_doctype, req.approval_type,
+                                      req.reference_name)
         if not profile:
             return                                    # loai nay khong dung ky so
         if not level_requires_signature(req.reference_doctype, req.approval_type, level_no,
                                         final_level=request_final_level(req.name),
-                                        ignore_gates=True):
+                                        ignore_gates=True, business_name=req.reference_name):
             return                                    # chinh sach khong doi ky o cap nay
         rl = frappe.db.get_value("EC Approval Request Level",
                                  {"approval_request": req.name, "level_no": level_no}, "name")

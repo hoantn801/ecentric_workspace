@@ -25,17 +25,28 @@ LONGEST_PENDING_LIMIT = 10
 BOTTLENECK_LIMIT = 10
 
 
-def _requires_signature(reference_doctype, approval_type, level_no, final_level, memo):
+def _requires_signature(reference_doctype, approval_type, level_no, final_level, memo,
+                        business_name=None):
     """Chinh sach ky so cho (loai yeu cau, cap) - hoi esign.guard, nho ket qua. Hoi hong thi
     False: nut nhanh chi la goi y, duong ghi (approve/approve_and_sign) tu kiem lai."""
     if not (reference_doctype and approval_type and level_no):
         return False
-    key = (reference_doctype, approval_type, level_no, final_level)
+    from ecentric_workspace.platform.esign import guard
+    # Ten phieu CHI vao khoa khi loai nay chon ho so theo phieu (hop dong, 12/11). DNTT va moi
+    # loai khac van nho theo LOAI - mot lan hoi cho N dong nhu truoc (QC 12/11).
+    sel_key = ("selector", reference_doctype, approval_type)
+    if sel_key not in memo:
+        try:
+            memo[sel_key] = guard.selector_in_use(reference_doctype, approval_type)
+        except Exception:
+            memo[sel_key] = False
+    key = (reference_doctype, approval_type, level_no, final_level,
+           business_name if memo[sel_key] else None)
     if key not in memo:
         try:
-            from ecentric_workspace.platform.esign import guard
             memo[key] = bool(guard.level_requires_signature(
-                reference_doctype, approval_type, level_no, final_level=final_level))
+                reference_doctype, approval_type, level_no, final_level=final_level,
+                business_name=business_name))
         except Exception:
             memo[key] = False
     return memo[key]
@@ -609,7 +620,8 @@ def _enrich_list_rows(views):
         # sach de N dong cung loai yeu cau chi hoi guard mot lan.
         v["requires_signature"] = bool(v["can_approve"] and _requires_signature(
             v.get("reference_doctype"), v.get("approval_type"), v.get("current_level"),
-            max([a.get("level_no") or 0 for a in by_req.get(v["name"], [])] or [0]), _sig_memo))
+            max([a.get("level_no") or 0 for a in by_req.get(v["name"], [])] or [0]), _sig_memo,
+            business_name=v.get("reference_name")))
         ff = ff_status.get(v["name"]) or (None, None)
         v["fulfillment_status"], v["fulfillment_owner"] = ff[0], ff[1]
         v["can_claim"] = bool(v.get("status") not in ("Cancelled", "Rejected") and ff[0] == "Assigned"

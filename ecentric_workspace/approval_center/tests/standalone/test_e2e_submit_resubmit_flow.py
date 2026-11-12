@@ -159,7 +159,7 @@ def _load_finance(doc, signature_required, resubmit_result=None, resubmit_raises
     engine_mod.resubmit = _resubmit
 
     guard_mod = types.ModuleType("guard")
-    guard_mod.requester_signature_required = lambda dt, code: signature_required
+    guard_mod.requester_signature_required = lambda dt, code, name=None: signature_required  # 12/11: + ten phieu
 
     requester_mod = types.ModuleType("requester")
 

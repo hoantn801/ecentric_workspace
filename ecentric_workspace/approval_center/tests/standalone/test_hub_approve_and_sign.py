@@ -41,7 +41,8 @@ def _capabilities(guard_result=True, guard_raises=False):
     guard = types.ModuleType("ecentric_workspace.platform.esign.guard")
     guard.calls = []
 
-    def level_requires_signature(dt, at, lvl, final_level=None, ignore_gates=False):
+    def level_requires_signature(dt, at, lvl, final_level=None, ignore_gates=False,
+                                 business_name=None):  # 12/11: chon ho so theo phieu
         guard.calls.append((dt, at, lvl, final_level))
         if guard_raises:
             raise RuntimeError("boom")
@@ -88,7 +89,7 @@ class TestCapabilities(unittest.TestCase):
                                      approval_status="Pending")
 
     def _biz(self):
-        return types.SimpleNamespace(doctype="EC Payment Request")
+        return types.SimpleNamespace(doctype="EC Payment Request", name="EC-PAYR-1")
 
     def test_dang_duoc_duyet_va_cap_ky_so(self):
         c = _capabilities(True)

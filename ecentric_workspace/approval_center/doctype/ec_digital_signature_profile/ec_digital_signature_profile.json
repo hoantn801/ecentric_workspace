@@ -36,6 +36,8 @@
   "title",
   "business_doctype",
   "approval_type",
+  "selector_field",
+  "selector_value",
   "provider",
   "environment",
   "enabled",
@@ -91,6 +93,19 @@
    "options": "EC Approval Type",
    "reqd": 1,
    "in_standard_filter": 1
+  },
+  {
+   "fieldname": "selector_field",
+   "fieldtype": "Data",
+   "label": "Trường chọn hồ sơ",
+   "description": "Tên trường trên phiếu dùng để chọn hồ sơ khi một loại chứng từ có nhiều hồ sơ ký (vd esign_flow). Để trống nếu loại chứng từ chỉ có một hồ sơ."
+  },
+  {
+   "fieldname": "selector_value",
+   "fieldtype": "Data",
+   "label": "Giá trị chọn",
+   "depends_on": "eval:doc.selector_field",
+   "description": "Hồ sơ này được dùng khi trường chọn trên phiếu có đúng giá trị này (vd kol_wf09)."
   },
   {
    "fieldname": "provider",
