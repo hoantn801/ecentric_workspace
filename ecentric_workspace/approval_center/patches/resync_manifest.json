@@ -112,8 +112,8 @@
     "sha256": "c6e10501f260ed196abbfea2f24e480b8fc31a105fc7f0de8a90fe64cb520785"
   },
   "approval_center/features/payment_request/ui/main_section.html": {
-    "last_resync_patch": "p335_resync_ux_lich_su_tien_trinh",
-    "sha256": "63861e53c3c01d5456bd0ceafe189720ec8e150a2fbbe1949f8feeb9adfd85c9"
+    "last_resync_patch": "p360_resync_payment_request_con_lai_khi_gui_lai",
+    "sha256": "bbf24465737534e647ad7a09cf5d1a7c4d37c534c7b2880b5482fef1a5cf5a7b"
   },
   "approval_center/features/promotion/ui/main_section.html": {
     "baseline": "2026-08-31",
