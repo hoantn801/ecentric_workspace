@@ -219,9 +219,16 @@ HOME_PORTAL_ITEMS = [
      "owner": "home_portal",
      "keywords": ["tai lieu", "iso", "quy trinh", "quy dinh", "chinh sach", "huong dan", "bieu mau",
                   "quy che", "so tay chat luong", "thu vien"]},
-    {"key": "home.portal.training", "label": "Đào tạo", "route": "/coming-soon?tool=dao-tao",
-     "icon": "book", "group": "Tài nguyên", "order": 20, "active_patterns": ["/coming-soon?tool=dao-tao"],
-     "visible_when": "internal", "owner": "home_portal", "discoverable": False, "soon": True},
+    # Dao tao (12/11/2026, Hoan chot huong D): het "Sap co". /dao-tao va /quiz thuoc ngu canh
+    # `dao_tao` (dao_tao/nav.py); hai dong o day la alias cho trang chu + rail "Cong ty".
+    {"key": "home.portal.training", "label": "Đào tạo", "route": "/dao-tao",
+     "icon": "book", "group": "Tài nguyên", "order": 20, "active_patterns": ["/dao-tao"],
+     "visible_when": "internal", "owner": "home_portal", "alias": True,
+     "keywords": ["dao tao", "hoc", "training", "bai hoc"]},
+    {"key": "home.portal.quiz", "label": "Quiz trực tiếp", "route": "/quiz",
+     "icon": "target", "group": "Tài nguyên", "order": 21, "active_patterns": ["/quiz"],
+     "visible_when": "internal", "owner": "home_portal", "alias": True,
+     "keywords": ["quiz", "kahoot", "ma phong", "do vui"]},
     # Trang THẬT, do app `ecentric_app` phục vụ từ file www/ec-app/hr/recruitment
     # (TemplatePage), không phải Web Page của app này. Tiền tố "/ec-app" là ranh giới
     # sở hữu route của app đó và KHÔNG được rút gọn thành "/hr/recruitment": hrms khai
@@ -633,7 +640,7 @@ RAIL = [
     {"key": "company", "label": "Công ty", "icon": "building", "route": "/tai-lieu",
      "contexts": ["ai_tools", "surveys", "dao_tao"],
      "keys": ["home.portal.iso_docs", "home.portal.feedback", "home.portal.surveys", "home.portal.hall",
-              "home.portal.ai_tools", "home.portal.hiring", "home.portal.training"],
+              "home.portal.ai_tools", "home.portal.hiring", "home.portal.training", "home.portal.quiz"],
      "group": "Công ty"},
 ]
 

@@ -93,7 +93,9 @@ class TestRouteToContext(unittest.TestCase):
         # +1 (04/10/2026, PO Hoan duyet mockup v2): "Bảng tin" /bang-tin trong nhom Workspace.
         # +1 (05/10/2026, PO Hoan): "Thư viện tài liệu" /tai-lieu (iso_docs) trong nhom Tai nguyen.
         # +1 (05/10/2026, PO Hoan chot A + C): "Chat nội bộ" /chat (chat/) trong nhom Workspace.
-        self.assertEqual(len(home), 23)
+        # +1 (12/11/2026, PO Hoan): "Quiz trực tiếp" /quiz (alias, ngu canh dao_tao) trong nhom
+        # Tai nguyen; "Đào tạo" het "Sap co" -> /dao-tao (tong khong doi vi dong do da co).
+        self.assertEqual(len(home), 24)
         self.assertEqual(labels_route_of(home, "Chat nội bộ"), "/chat")
         self.assertEqual(labels_route_of(home, "Thư viện tài liệu"), "/tai-lieu")
         self.assertEqual(labels_route_of(home, "Bảng tin"), "/bang-tin")

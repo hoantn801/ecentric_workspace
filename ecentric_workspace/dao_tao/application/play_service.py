@@ -178,6 +178,18 @@ def report(ctx, repo, code, kind):
     return {"ok": True}
 
 
+def live_card(ctx, repo):
+    """The noi "Quiz dang mo" (ec_quiz_live.bundle.js, moi trang ERP + app HR). Danh sach phong
+    giong nhau cho moi nguoi -> cache 15 giay chung; tat bang site_config ec_quiz_card_disabled."""
+    if repo.flag("ec_quiz_card_disabled"):
+        return {"rooms": []}
+    rows = repo.cache_get(C.CACHE_CARD)
+    if rows is None:
+        rows = [{"code": r["code"], "title": r["title"], "phase": r["phase"]} for r in lobby_rooms(ctx, repo)][:3]
+        repo.cache_set(C.CACHE_CARD, rows, C.CACHE_CARD_TTL)
+    return {"rooms": rows}
+
+
 def lobby_rooms(ctx, repo):
     """Phong dang mo cho trang /quiz (ai cung thay - ma phong von hien cong khai tren man chieu)."""
     import datetime

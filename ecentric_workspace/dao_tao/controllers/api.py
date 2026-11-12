@@ -62,6 +62,11 @@ def quiz_home():
 
 
 @frappe.whitelist(methods=["GET"])
+def live_card():
+    return _run(lambda c: play_service.live_card(c, repo))
+
+
+@frappe.whitelist(methods=["GET"])
 def my_profile():
     return _run(lambda c: play_service.my_profile(c, repo))
 

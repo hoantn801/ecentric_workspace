@@ -1062,3 +1062,10 @@ ec_esign_outcome_handlers = {
     "EC Contract Review Request":
         "ecentric_workspace.approval_center.features.contract_review.application.esign_hooks.on_signing_outcome",
 }
+
+# --------------------------------------------------------------------------- #
+# 12/11/2026 - Dao tao + Quiz truc tiep (dao_tao/): the noi "Quiz dang mo" tren moi trang co vo
+# shell va tren app nhan su (phia tren thanh tab, thanh tab KHONG doi). Chi hien khi co phong
+# dang mo. Tat: site_config ec_quiz_card_disabled, hoac trang gan data-ec-no-quizcard.
+# --------------------------------------------------------------------------- #
+web_include_js.append("ec_quiz_live.bundle.js")

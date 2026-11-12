@@ -216,6 +216,9 @@ NOTIFY_EVENT = "announcement"
 CACHE_PREFIX = "ecq:room:"
 #: Ngan CO CHU Y: neu mot ban cu lot vao Redis (dua giua 2 request) thi chi ket toi da 3 giay.
 CACHE_TTL = 3
+#: The noi "Quiz dang mo": danh sach phong song, chung cho moi nguoi.
+CACHE_CARD = "ecq:livecard"
+CACHE_CARD_TTL = 15
 
 
 def play_url(code):

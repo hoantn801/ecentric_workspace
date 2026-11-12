@@ -1,7 +1,7 @@
 {
   "action_center/pages/my_work/main_section.html": {
-    "last_resync_patch": "p340_resync_my_work_ux_dien_thoai",
-    "sha256": "896cc23f0b2a54cc7013ebd40409c4d86241d22b674de882f7e3bee33ab48cb6"
+    "last_resync_patch": "p367_resync_menu_dao_tao",
+    "sha256": "df9a5edc977279989693e4a02a65229871d8ddd6503c74a069c5f2aee19d2d9f"
   },
   "ai_tools/pages/ai_video/main_section.html": {
     "last_resync_patch": "p313_ai_live_trang_rieng",
@@ -174,8 +174,8 @@
     "sha256": "176f923979339da9140f34758e29671f90e33007e6c1c5b88bacdb42b979631d"
   },
   "hr/pages/tong_quan/main_section.html": {
-    "last_resync_patch": "p318_resync_tong_quan_xuat_file",
-    "sha256": "f8caf66240c89d2086553d3876eeb761f77b2857d2c54d8aca786802fd3d6af5"
+    "last_resync_patch": "p367_resync_menu_dao_tao",
+    "sha256": "1ad22b1b9c9b894891f1b4dbff9b4ec848d3dbf0cab34e2d81e6781453dda50b"
   },
   "legacy_pages/all_ticket/main_section.html": {
     "baseline": "2026-08-31",
@@ -259,8 +259,8 @@
   },
   "legacy_pages/home/main_section.html": {
     "baseline": "2026-09-29",
-    "last_resync_patch": "p346_resync_home_lich_phong_ver",
-    "sha256": "35560c9cd73791df699488b313459b2db19c795ea1f01e2949d46fb14c9e4e12"
+    "last_resync_patch": "p367_resync_menu_dao_tao",
+    "sha256": "2e8509b727af34deec28d6f169c18dca754650bacfdec6bcf574c0e38397c5df"
   },
   "alerts/site_pages/overview/main_section.html": {
     "baseline": "2026-09-29",
@@ -322,30 +322,30 @@
   },
   "dao_tao/pages/learn/main_section.html": {
     "last_resync_patch": "p366_dao_tao_quiz_trang",
-    "sha256": "6e6511219189d917ec479185409390b4bf350c348f678b066aee20f99f32093b"
+    "sha256": "4a89a30a3181839841179d775ec441e6d148449af215917d966b7f7290092dec"
   },
   "dao_tao/pages/lesson/main_section.html": {
     "last_resync_patch": "p366_dao_tao_quiz_trang",
-    "sha256": "1f6d547227304cfaaec7592a3026c5356d7724c3ee6ee94fdcd0800638a219e6"
+    "sha256": "e672a87bebe700c9d39cde4fb44111179fb6941540117f393b01b648f0d5bfd0"
   },
   "dao_tao/pages/admin/main_section.html": {
     "last_resync_patch": "p366_dao_tao_quiz_trang",
-    "sha256": "640699c964206e79abd46107bead6d1169465a6f9425b30b8da0a28bfc194a0f"
+    "sha256": "abfe4f30492b43e96b51c8d52f99bff58807dc766025fe5a0db173ba19123a1a"
   },
   "dao_tao/pages/quiz/main_section.html": {
     "last_resync_patch": "p366_dao_tao_quiz_trang",
-    "sha256": "1509bfa9bd2731cd60939ce002bfd73255c659e0c4947fcbd1b4e86214b9cf7b"
+    "sha256": "15fa4b8760bfd2125c9cb6c76983b5a706c761de8fa784b206398c8caab4e59a"
   },
   "dao_tao/pages/edit/main_section.html": {
     "last_resync_patch": "p366_dao_tao_quiz_trang",
-    "sha256": "6962f0893268b61386da52e723ac2ccfa17ddb447a2672e3b276440ed8f054ad"
+    "sha256": "74b890a7d6e391c763b8a885b32f375811f6c4c3f4116fe83990dd7e3c55f631"
   },
   "dao_tao/pages/play/main_section.html": {
     "last_resync_patch": "p366_dao_tao_quiz_trang",
-    "sha256": "20ebc9a8ebf45b970e952dbe3186d8f48ec771ffb769c99d3a4ff68329f59e40"
+    "sha256": "514eba2bc56fe42b8fe9018634d0a293c90f021df3bada7b734b226e1ca0ea54"
   },
   "dao_tao/pages/host/main_section.html": {
     "last_resync_patch": "p366_dao_tao_quiz_trang",
-    "sha256": "4565f1a8806cf4b90d6b78ebe9d1ea338afc58af38f6bd2a717300c5dfc22c79"
+    "sha256": "23d2c992db8592fc478e945f22ef7d4fd7548750dff89bf4f2666e97b127e207"
   }
 }

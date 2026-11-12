@@ -347,6 +347,14 @@ class QuizFlowTest(unittest.TestCase):
         self.assertEqual(ps["phase"], "locked")
         self.assertEqual((ps["me"]["score"], ps["me"]["rank"]), (0, None))
 
+    def test_live_card_and_kill_switch(self):
+        rooms = play_service.live_card(STAFF[0], self.repo)["rooms"]
+        self.assertEqual(rooms[0]["code"], self.code)
+        self.assertNotIn("host", rooms[0])
+        self.repo.cache.clear()
+        self.repo.flags["ec_quiz_card_disabled"] = 1
+        self.assertEqual(play_service.live_card(STAFF[0], self.repo)["rooms"], [])
+
     def test_unknown_code(self):
         with self.assertRaises(QuizError):
             play_service.join(STAFF[0], self.repo, "123")
@@ -445,6 +453,15 @@ class LearnTest(unittest.TestCase):
         with self.assertRaises(QuizError):
             learn_service.admin_save(HOST, self.repo, {"title": "B", "status": "Published", "quiz": draft})
         self.assertTrue(learn_service.admin_save(HOST, self.repo, {"title": "B", "quiz": draft})["name"])
+
+    def test_capped_week_does_not_regrant_later(self):
+        from ecentric_workspace.dao_tao.application import ticket_service
+        u = STAFF[2].user
+        self.assertEqual(ticket_service.grant(self.repo, u, "manual", "a", 3, "x"), 3)
+        self.assertEqual(ticket_service.grant(self.repo, u, "practice", "L1", 1, "bai"), 0)
+        self.repo.tick(8 * 24 * 3600 * 1000)                      # sang tuan sau
+        self.assertEqual(ticket_service.grant(self.repo, u, "practice", "L1", 1, "bai"), 0)
+        self.assertEqual(ticket_service.grant(self.repo, u, "practice", "L2", 1, "bai 2"), 1)
 
     def test_draft_lesson_hidden(self):
         d = learn_service.admin_save(HOST, self.repo, {"title": "Nháp"})

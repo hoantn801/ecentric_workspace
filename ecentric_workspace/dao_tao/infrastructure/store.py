@@ -588,6 +588,18 @@ def notify(user, title, message, url, ref, dedupe_key):
                                       dedupe_key=dedupe_key)
 
 
+def cache_get(key):
+    return frappe.cache().get_value(key)
+
+
+def cache_set(key, value, ttl):
+    frappe.cache().set_value(key, value, expires_in_sec=ttl)
+
+
+def flag(name):
+    return bool((frappe.local.conf or {}).get(name))
+
+
 def log_error(title):
     frappe.log_error(frappe.get_traceback(), title)
 

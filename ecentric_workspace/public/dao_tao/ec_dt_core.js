@@ -47,6 +47,15 @@
       throw e;
     });
   }
+  // Quet QR bang camera -> trinh duyet chua dang nhap ERP: dua ve trang dang nhap roi quay lai.
+  function loginRedirect(e) {
+    var m = (e && e.dtMessage) || "";
+    if ((e && (e.status === 403 || e.status === 401)) || /đăng nhập/i.test(m)) {
+      location.href = "/login?redirect-to=" + encodeURIComponent(location.pathname + location.search);
+      return true;
+    }
+    return false;
+  }
   function msg(e) { return (e && e.dtMessage) || "Không thực hiện được. Thử lại sau ít phút, nếu vẫn lỗi thì báo IT."; }
 
   var toastT;
@@ -172,7 +181,7 @@
   }
 
   window.ECDt = { api: api, msg: msg, esc: esc, byId: byId, qsa: qsa, param: param, clone: clone, icon: icon,
-    toast: toast, busy: busy, modal: modal, AV: AV, avatar: avatar, avatarSvg: avatarSvg, pcard: pcard,
+    toast: toast, busy: busy, loginRedirect: loginRedirect, modal: modal, AV: AV, avatar: avatar, avatarSvg: avatarSvg, pcard: pcard,
     fmtNum: fmtNum, fmtDate: fmtDate, richText: richText, safeUrl: safeUrl, embedVideo: embedVideo,
     upload: upload, onRoom: onRoom, skel: skel, LETTERS: ["A", "B", "C", "D", "E", "F"] };
 })();

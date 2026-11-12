@@ -11,10 +11,11 @@ def grant(repo, user, source, ref, want, label):
         return 0
     ws = tickets.week_start(repo.now())
     n = tickets.grant(repo.tickets_in_week(user, ws), want)
-    if n <= 0:
-        return 0
+    # Du tran tuan -> van ghi dong 0 ve: nguon nay da "dung" roi, tuan sau nop lai bai cu khong
+    # duoc cap bu (de xuat 12/11, cho Hoan chot - doi y thi bo dong nay).
     repo.insert_ticket({"user": user, "week_start": ws, "source": source, "ref": ref,
-                        "label": label[:140], "count": n})
+                        "label": (label if n > 0 else label + " (đã đủ %d vé tuần này)" % C.TICKETS_PER_WEEK)[:140],
+                        "count": n})
     return n
 
 

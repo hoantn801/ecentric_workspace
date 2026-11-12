@@ -25,6 +25,7 @@ class FakeRepo:
         self.topics_, self.votes, self.files, self.xlsx = {}, {}, {}, {}
         self.emps = {}
         self.realtime, self.errors, self.seq = [], [], 0
+        self.cache, self.flags = {}, {}
 
     # ---------------------------------------------------------------- tien ich test --
     def tick(self, ms):
@@ -40,6 +41,15 @@ class FakeRepo:
 
     def now_ms(self):
         return self.ms
+
+    def cache_get(self, key):
+        return self.cache.get(key) if hasattr(self, "cache") else None
+
+    def cache_set(self, key, value, ttl):
+        self.cache[key] = value
+
+    def flag(self, name):
+        return bool(self.flags.get(name))
 
     def secret(self):
         return "site-secret-test"

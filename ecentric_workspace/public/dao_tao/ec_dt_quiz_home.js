@@ -12,7 +12,7 @@
     D.api("quiz_home").then(function (d) {
       render(d);
       if (d.can_host) D.api("quiz_list").then(hostPart, function (e) { D.toast(D.msg(e), true); });
-    }, function (e) { root.innerHTML = '<div class="dt-wrap"><p class="dt-err">' + D.esc(D.msg(e)) + "</p></div>"; });
+    }, function (e) { if (D.loginRedirect(e)) return; root.innerHTML = '<div class="dt-wrap"><p class="dt-err">' + D.esc(D.msg(e)) + "</p></div>"; });
   }
 
   function render(d) {

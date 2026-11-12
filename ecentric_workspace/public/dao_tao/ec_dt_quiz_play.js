@@ -50,7 +50,7 @@
       else render(true);
       D.onRoom(s.session, function () { poll(0); });
       poll();
-    }, function (e) { D.busy(btn, false); codeScreen(D.msg(e)); });
+    }, function (e) { if (D.loginRedirect(e)) return; D.busy(btn, false); codeScreen(D.msg(e)); });
   }
   function seenCreator() { try { return localStorage.getItem("ecq_cr_" + code) === "1"; } catch (e) { return true; } }
 
