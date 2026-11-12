@@ -991,6 +991,27 @@ def sweep_stale():
         except Exception:
             frappe.log_error(frappe.get_traceback(), "esign.tasks.sweep_stale %s" % r.name)
         _commit_step()
+    _cleanup_closed_requests()
+
+
+def _cleanup_closed_requests():
+    """Moi gio: phieu da Huy / Tu choi ma con chan ky treo hoac ToDo mo -> ERP tu don
+    (lifecycle.on_request_closed). Chay o day chu khong goi tu engine.cancel()/reject(): khong
+    cham loi duyet dung chung cua moi loai phieu, va bat ca chan roi Manual Review SAU khi phieu
+    da dong (chinh sweep_stale o tren dua chan dang chay vao Manual Review). Do tre toi da ~1 gio.
+    Moi phieu mot lan commit; mot phieu loi khong chan phieu khac."""
+    try:
+        from ecentric_workspace.platform.esign import lifecycle
+        ars = lifecycle.closed_requests_needing_cleanup()
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "esign.tasks._cleanup_closed_requests")
+        return
+    for ar in ars:
+        try:
+            lifecycle.on_request_closed(ar)
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "esign.tasks._cleanup_closed_requests %s" % ar)
+        _commit_step()
 
 
 def _dead_letter_todo(dsr_name):

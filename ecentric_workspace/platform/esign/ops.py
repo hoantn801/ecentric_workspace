@@ -77,7 +77,7 @@ def _retrieval_rounds(package_name):
     return signed_files.retrieval_rounds(package_name)
 
 
-def stuck_legs(limit=100):
+def stuck_legs(limit=100, hidden=None):
     """Chan ky dang cho nguoi quyet dinh, kem VIEC LAM DUOC voi tung cai.
 
     `actions` la hop dong voi giao dien: no chi ve nut nao duoc ve. Suy ra tu may trang thai
@@ -88,8 +88,16 @@ def stuck_legs(limit=100):
     # hai truong do lam MySQL nem 1054 Unknown column -> ca inbox() 500 -> trang chi hien mot
     # dong "Can quyen System Manager" hoan toan sai su that. Test khong bat duoc vi chung gia
     # lap frappe.get_all, ma ban gia lap thi tra ve bat cu truong nao minh hoi.
+    # Chan cua phieu DA DONG nam yen o Permanent Failure / Verification Mismatch: khong con
+    # nut nao co nghia (moi lenh deu bi chot binding chan), ToDo da duoc lifecycle dong. Loc
+    # TRUOC khi cat limit. Chan Manual Review cua phieu da dong KHONG an o day: cron moi gio tu
+    # huy no (lifecycle.on_request_closed) - trong luc cho, nut huy / doi soat van con.
+    filters = {"status": ["in", _NEEDS_HUMAN]}
+    hidden = _closed_legs() if hidden is None else hidden
+    if hidden:
+        filters["name"] = ["not in", hidden]
     rows = frappe.get_all(
-        DSR, filters={"status": ["in", _NEEDS_HUMAN]},
+        DSR, filters=filters,
         fields=["name", "status", "actor_type", "actor_user", "approver", "package",
                 "request_attempt", "accepted_at", "bulk_job_transaction_id", "modified"],
         order_by="modified desc", limit_page_length=limit)
@@ -319,7 +327,25 @@ def provider_drift(limit=100):
     return out
 
 
-def summary(legs=None, bundles=None, mismatches=None, debts=None, drift=None):
+def _closed_legs():
+    """Chan can-nguoi cua phieu DA DONG ma nam yen (Permanent Failure / Verification Mismatch -
+    khong co canh huy): khong con nut nao co nghia, ToDo da duoc cron don (lifecycle.
+    on_request_closed). Hai truy van cho ca trang, khong N+1."""
+    from ecentric_workspace.platform.esign import state as sm
+    legs = frappe.get_all(DSR, filters={"status": ["in", sm.PARK_ON_CLOSE],
+                                        "approval_request": ["is", "set"]},
+                          fields=["name", "approval_request"], limit_page_length=0)
+    ars = sorted({leg.get("approval_request") for leg in legs if leg.get("approval_request")})
+    if not ars:
+        return []
+    closed = set(frappe.get_all(AR, filters={"name": ["in", ars],
+                                             "approval_status": ["in", sm.CLOSED_REQUEST]},
+                                pluck="name"))
+    return [leg.get("name") for leg in legs if leg.get("approval_request") in closed]
+
+
+def summary(legs=None, bundles=None, mismatches=None, debts=None, drift=None,
+            closed_legs=None):
     """Con so cho the dau trang. Dem rieng cai DA CHET voi cai dang cho.
 
     Nhan san danh sach de KHONG truy van lai. Ban dau `inbox()` goi `summary()` roi goi LAI
@@ -333,6 +359,10 @@ def summary(legs=None, bundles=None, mismatches=None, debts=None, drift=None):
     drift = provider_drift(limit=500) if drift is None else drift
     return {
         "stuck_legs": len(legs),
+        # Chan cua phieu da huy / tu choi, nam yen, khong hien trong danh sach - van dem de con
+        # dau vet. Truyen `closed_legs` vao khi da tinh (inbox) de khong truy van lai.
+        "closed_request_legs": (len(closed_legs) if closed_legs is not None
+                                else len(_closed_legs())),
         "dead_end_legs": len([x for x in legs if x["dead_end"]]),
         "unretrieved": len(bundles),
         # Goi da ngung KHONG con la viec dang treo: da co nguoi ket luan va ky ten. Dem no
@@ -354,12 +384,13 @@ def inbox():
 
     Moi ham chay dung mot lan; `summary` dem tren chinh ket qua do.
     """
-    legs = stuck_legs()
+    closed = _closed_legs()
+    legs = stuck_legs(hidden=closed)
     bundles = unretrieved_bundles()
     mismatches = hash_mismatch_reviews()
     debts = signature_debts()
     drift = provider_drift()
-    return {"summary": summary(legs, bundles, mismatches, debts, drift),
+    return {"summary": summary(legs, bundles, mismatches, debts, drift, closed_legs=closed),
             "stuck_legs": legs, "unretrieved": bundles, "hash_mismatch": mismatches,
             "signature_debts": debts, "provider_drift": drift,
             "retrieval_alert_after": RETRIEVAL_ALERT_AFTER}
