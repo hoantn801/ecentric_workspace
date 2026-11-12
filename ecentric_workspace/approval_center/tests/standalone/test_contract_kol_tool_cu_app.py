@@ -395,6 +395,12 @@ class AppTests(unittest.TestCase):
         h2, _c = self._hooks(FakeDoc(name="CR-2", signing_status=k.SIGN_PENDING), approved=False)
         with self.assertRaises(ValueError):                                     # chua duyet xong tren ERP
             h2.on_signing_outcome("CR-2", "contract", "signed", "/a.pdf")
+        # Thiet ke ban 2 (12/11 11:49): khoi ky hien tu luc lap phieu -> tu choi / tra lai co the den GIUA
+        # luong duyet. Ket qua khong thanh nhan o moi trang thai, chi ghi vet; ky du van doi duyet xong.
+        h4, c4 = self._hooks(FakeDoc(name="CR-4", signing_status=k.SIGN_PENDING), approved=False)
+        r = h4.on_signing_outcome("CR-4", "contract", "returned", detail="Sửa điều khoản 5")
+        self.assertTrue(r["changed"])
+        self.assertIn("Sửa điều khoản 5", c4[-1])
 
     def test_nen_tang_ky_so_bao_ket_qua_bbnt(self):
         k = self.svc.kol

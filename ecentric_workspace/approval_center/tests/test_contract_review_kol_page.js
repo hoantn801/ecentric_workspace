@@ -176,6 +176,8 @@ function detailPart(){
       chk("HD lao dong: khong bat brand / gia tri (loai khac van bat)", !e1.brand&&!e1.contract_value&&!!e2.brand&&!!e2.contract_value);
       CR.state.draft=keep; }
     chk("chi tiet: phat su kien ctr:detail-rendered", !!evt&&evt.business_doctype==="EC Contract Review Request"&&evt.business_name==="EC-CTR-2026-00100");
+    // Thiet ke ban 2 (12/11 11:49): khoi hien tu luc lap phieu; chi sua duoc khi phieu con o nguoi lap.
+    chk("su kien: phieu da duyet -> can_edit=false", !!evt&&evt.can_edit===false&&evt.approval_status!=="Draft");
     chk("chi tiet: bang tinh hop dong + dot", /Bảng tính chi tiết/.test(b)&&/9\.000\.000 ÷ \(1 − 10%\)/.test(b)&&/Bảng tính đợt này/.test(b)&&b.indexOf("<b>x</b>")<0);
     // QC3: dot NHAP chua co nut Hoan tat - phai qua "Danh dau da gui ky" (kiem thieu + tao lai BBNT) truoc.
     chk("BBNT nhap: chua cho Hoan tat (bo qua buoc kiem)", !/data-kol="doneacc"/.test(b));

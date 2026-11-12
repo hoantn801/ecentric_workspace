@@ -635,15 +635,18 @@
     KOL.wireDetail(det);
     announceDetail(det);
   }
-  // Diem gan khoi "Tai lieu & Ky so" cua nen tang ky so (chat Ky so, chang 3b - chot 12/11). Trang chi
-  // dat cho trong + bao su kien; thanh phan dung chung tu gan vao, khong phu thuoc DOM khac cua trang.
+  // Diem gan khoi "Tai lieu & Ky so" cua nen tang ky so (chat Ky so, chang 3b - chot 12/11, ban 2 11:49).
+  // Trang chi dat cho trong + bao su kien; thanh phan dung chung tu gan vao. Khoi hien TU LUC LAP PHIEU
+  // (nguoi lap tai PDF cuoi ngay khi lap; duyet tren ERP = duyet tren cong): sua duoc khi phieu con o
+  // nguoi lap (Nhap / Can bo sung), con lai chi doc - thanh phan tu quyet theo `can_edit`.
   // KOL: sau the Hop dong KOL/KOC + AI QC, truoc Ky hop dong / Nghiem thu. Loai khac: sau the thong tin.
   function esignSlotHTML(biz){ return '<div id="ctr-esign-slot" data-business-doctype="EC Contract Review Request" data-business-name="'+esc(biz.name||"")+'"></div>'; }
   function announceDetail(det){ var biz=det.business||{}, ap=det.approval||{};
-    var x=((det.extra||{}).kol)||{};
+    var x=((det.extra||{}).kol)||{}, st=ap.approval_status||"Draft";
+    var mine=!!(x.can_manage||biz.requested_by===((state.boot||{}).context||{}).user);
     try{ document.dispatchEvent(new CustomEvent("ctr:detail-rendered",{detail:{business_doctype:"EC Contract Review Request",
-      business_name:biz.name||state.id, approval_status:ap.approval_status||"Draft", esign_flow:biz.esign_flow||"",
-      can_manage:!!(x.can_manage||biz.requested_by===((state.boot||{}).context||{}).user)}})); }
+      business_name:biz.name||state.id, approval_status:st, esign_flow:biz.esign_flow||"",
+      can_manage:mine, can_edit:mine&&(st==="Draft"||st==="Information Required")}})); }
     catch(e){ /* trinh duyet cu khong co CustomEvent: chi mat khoi ky so, trang van dung */ } }
   function renderAttachments(list){ if(!list||!list.length) return '<div class="hint">Chưa có tệp đính kèm.</div>';
     return '<table class="tbl"><tbody>'+list.map(function(f){

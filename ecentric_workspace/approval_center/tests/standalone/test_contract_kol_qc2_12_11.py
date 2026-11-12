@@ -331,6 +331,13 @@ class VendoredViewer(unittest.TestCase):
         self.assertIn('"/assets/ecentric_workspace/vendor/docx_preview/"', page)
         self.assertNotRegex(page, r"(unpkg|jsdelivr|cdnjs)\.")
 
+    def test_su_kien_ky_so_bao_can_edit_theo_nguoi_lap(self):
+        """Thiet ke ban 2 (12/11 11:49): khoi Ky so sua duoc chi khi phieu con o nguoi lap."""
+        page = open(os.path.join(_HERE, "..", "..", "features", "contract_review", "ui", "main_section.html"),
+                    encoding="utf-8").read()
+        self.assertIn('can_edit:mine&&(st==="Draft"||st==="Information Required")', page)
+        self.assertEqual(page.count('id="ctr-esign-slot"'), 1)          # mot cho gan duy nhat, moi trang thai
+
 
 class PatchP365(unittest.TestCase):
     def setUp(self):

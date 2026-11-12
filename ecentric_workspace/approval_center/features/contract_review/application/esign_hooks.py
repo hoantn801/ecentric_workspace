@@ -14,8 +14,10 @@ Nen tang KHONG import module nay: no doc `ec_esign_outcome_handlers` trong hooks
     -> {"changed": bool, ...}. Goi lai nhieu lan an toan. Sai tham so / trang thai -> ValueError
     (nen tang ghi log, khong nuot im).
 
-Khi khong thanh, phieu GIU "Da duyet" (khong mo lai luong duyet ERP): hop dong ve "Chua ky" de
-nguoi lap sua tep va Gui ky lai; dot BBNT ve "Nhap" de tao lai BBNT (THIETKE Q2).
+"signed" chi nhan khi phieu da duyet xong tren ERP. Ket qua khong thanh nhan o MOI trang thai (ban
+thiet ke 2, 12/11 11:49: khoi ky hien tu luc lap phieu, tu choi / tra lai co the den giua luong duyet):
+chi ghi vet + dua trang thai ky ve - hop dong ve "Chua ky", dot BBNT ve "Nhap" (THIETKE Q2). Module
+nay KHONG mo lai / doi trang thai luong duyet ERP; viec do do luong duyet tu lam.
 
 `package_title(business_name, purpose)`: tieu de tai lieu tren cong (phia Hop dong truyen vao).
 Khong whitelist - chi goi tu server.
@@ -45,7 +47,10 @@ def on_signing_outcome(business_name, purpose, outcome, signed_file=None, detail
     doc = frappe.get_doc(kol_lookup.CR_DT, business_name)
     from ecentric_workspace.approval_center.features.contract_review.application.kol_service import (
         APPROVED, approval_status)
-    if approval_status(doc) != APPROVED:
+    # Ky du chi den sau khi ERP duyet xong (CEO ky o cap cuoi, doi tac ky sau). Ket qua KHONG thanh
+    # (tu choi / tra lai / huy) co the den GIUA luong duyet (ban thiet ke 2, 12/11 11:49): nhan o moi
+    # trang thai, chi ghi vet + dua trang thai ky ve cho lam lai.
+    if outcome == SIGNED and approval_status(doc) != APPROVED:
         raise ValueError("phieu %s chua duyet xong tren ERP" % business_name)
     if purpose == CONTRACT:
         return _contract(doc, outcome, signed_file, detail)
