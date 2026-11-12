@@ -36,7 +36,9 @@
     }, function (e) { acting = false; D.busy(btn, false); D.toast(D.msg(e), true); load(0); });
   }
 
-  function key() { return [st.phase, st.index, st.players, st.phase === "lobby" ? st.lobby.length : "", panel ? 1 : 0, (st.flags || []).length, st.power_open ? st.power_open.picked : ""].join("|"); }
+  // Sanh cho: ve lai khi ai do doi ten / nhan vat (truoc chi so dem nguoi -> doi nhan vat khong hien).
+  function lobbySig() { return (st.lobby || []).map(function (p) { return [p.email, p.nickname, JSON.stringify(p.avatar || {}), p.kicked ? 1 : 0].join("~"); }).join("|"); }
+  function key() { return [st.phase, st.index, st.players, st.phase === "lobby" ? lobbySig() : "", panel ? 1 : 0, (st.flags || []).length, st.power_open ? st.power_open.picked : ""].join("|"); }
 
   function render(force) {
     var k = key();
