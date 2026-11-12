@@ -21,7 +21,7 @@ __all__ = ["kol_me", "kol_search_sales_orders", "kol_list_templates", "kol_place
            "kol_ai_extract", "kol_ai_qc", "kol_search_creators", "kol_get_creator",
            "kol_create_creator", "kol_update_creator", "kol_missing_misa", "kol_set_misa_code",
            "kol_verify_signed", "kol_verify_acceptance", "kol_pending_checks", "kol_preview_dates",
-           "kol_creator_gaps"]
+           "kol_creator_gaps", "kol_preview_contract"]
 
 
 def _app(module):
@@ -101,6 +101,14 @@ def kol_preview_dates(air_dates=None, contract_date=None, creator=None, brand=No
 def kol_creator_gaps(creator=None, platform=None):
     _me()
     return _app("kol_service").creator_gaps(creator, platform or None)
+
+
+@frappe.whitelist(methods=["POST"])
+def kol_preview_contract(fields=None, name=None):
+    """Ban xem truoc (to vang cho ERP dien) tu du lieu dang go - khong luu gi."""
+    if isinstance(fields, str):
+        fields = json.loads(fields or "{}")
+    return _app("kol_files").preview_contract(fields or {}, name or None, _me())
 
 
 @frappe.whitelist(methods=["POST"])

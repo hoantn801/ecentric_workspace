@@ -202,8 +202,9 @@ def payment_days(days, creator_type=None, platform=None):
     return out
 
 
-def due_date(acceptance_date, days, creator_type=None, platform=None):
-    """Han thanh toan = ngay BBNT hoan tat + `days` ngay lich; T7/CN doi sang thu Hai."""
+def due_date(acceptance_date, days, creator_type=None, platform=None, holidays=()):
+    """Han thanh toan = ngay BBNT hoan tat + `days` ngay lich; roi vao T7/CN hoac ngay le
+    (Holiday List cong ty) thi doi sang ngay lam viec lien sau (PO 12/11)."""
     if not acceptance_date:
         return None
     if isinstance(acceptance_date, str):
@@ -211,7 +212,8 @@ def due_date(acceptance_date, days, creator_type=None, platform=None):
     if isinstance(acceptance_date, _dt.datetime):
         acceptance_date = acceptance_date.date()
     d = acceptance_date + _dt.timedelta(days=payment_days(days, creator_type, platform))
-    while d.weekday() >= 5:
+    off = set(holidays or ())
+    while d.weekday() >= 5 or d in off:
         d += _dt.timedelta(days=1)
     return d
 

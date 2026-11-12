@@ -120,6 +120,39 @@ class NoDatesStillDescribed(unittest.TestCase):
         self.assertEqual(V.empty_required(v, ["BBNT_DAY"], "Cá nhân", "Livestream"), ["BBNT_DAY"])
 
 
+class CalcTable(unittest.TestCase):
+    """PO 12/11: bang tinh tung buoc cho Ke toan - phai khop dung so da luu tren phieu."""
+
+    def doc(self, ct, at, amount, schedule=""):
+        from ecentric_workspace.approval_center.features.contract_review.domain import kol
+        a = kol.compute_amounts(ct, getattr(kol, at), amount, 10, 8)
+        adv = kol.advance_amount(a, ct, schedule, 40) if schedule else 0
+        return {"creator_type": ct, "amount_type": getattr(kol, at), "gross_amount": a["gross"],
+                "pit_amount": a["pit"], "vat_amount": a["vat"], "payable_amount": a["payable"], "pit_rate": 10,
+                "vat_rate": 8, "advance_amount": adv, "advance_percent": 40}
+
+    def test_ca_nhan_net_co_coc(self):
+        from ecentric_workspace.approval_center.features.contract_review.domain import kol_calc
+        rows = kol_calc.contract_steps(self.doc("Cá nhân", "NET_AFTER_PIT", 9_000_000, "Cọc trước"))
+        got = {r["label"].split(" (")[0]: r["amount"] for r in rows}
+        self.assertEqual(got["Giá trị trước thuế"], 10_000_000)
+        self.assertEqual(got["Thuế TNCN 10%"], 1_000_000)
+        self.assertEqual(got["Cọc 40% trên thực nhận"], 3_600_000)
+        self.assertEqual(got["Còn lại trả sau nghiệm thu"], 5_400_000)
+        self.assertIn("9.000.000 ÷ (1 − 10%)", [r["how"] for r in rows])
+
+    def test_cong_ty_coc_dot_bbnt_khop_hoa_don(self):
+        from ecentric_workspace.approval_center.features.contract_review.domain import kol_calc
+        d = self.doc("Công ty", "BEFORE_VAT", 10_000_000, "Cọc trước")
+        rows = kol_calc.round_steps("Công ty", 6_800_000, 10, 8, d)
+        self.assertEqual([r["amount"] for r in rows], [6_800_000, 6_000_000, 800_000])
+        self.assertIn("6.000.000 (trước VAT còn lại)", rows[1]["how"])
+
+    def test_chua_co_so_tien_thi_khong_co_bang(self):
+        from ecentric_workspace.approval_center.features.contract_review.domain import kol_calc
+        self.assertEqual(kol_calc.contract_steps({"amount_type": "Chưa VAT"}), [])
+
+
 class PartyCodeAndLabels(unittest.TestCase):
     def test_ma_tay_co_dau_cach(self):
         self.assertEqual(T.party_code("Cá nhân", "Nguyễn Thị Phương", " n tp "), "NTP")
@@ -152,6 +185,53 @@ class DropRule(unittest.TestCase):
         body = p(r("Số: " + L + "CONTRACT_NO" + G))
         out, _m = docx_fill.fill_docx(make_docx(body), {"CONTRACT_NO": "X1"}, self.DROP)
         self.assertIn("Số: X1", doc_xml(out))
+
+
+class PreviewMarks(unittest.TestCase):
+    """PO 12/11: ban xem truoc to vang cho ERP dien, do cho thieu; ban that khong to."""
+    BODY = ('<w:p><w:r><w:rPr><w:b/><w:sz w:val="24"/><w:u w:val="single"/></w:rPr>'
+            '<w:t xml:space="preserve">Ông/Bà: ' + L + 'NAME' + G + ' - CCCD ' + L + 'CCCD' + G + '</w:t></w:r></w:p>'
+            '<w:p><w:r><w:t>Địa chỉ: ' + L + 'ADDR' + G + '</w:t></w:r></w:p>')
+
+    def test_tach_run_giu_dinh_dang_va_thu_tu_schema(self):
+        out, missing = docx_fill.fill_docx(make_docx(self.BODY), {"NAME": "Nguyễn A", "ADDR": "Dòng 1\nDòng 2"},
+                                           mark=True, missing_text=lambda k: "[Thiếu: %s]" % k)
+        x = doc_xml(out)
+        self.assertIn('<w:rPr><w:b/><w:sz w:val="24"/><w:highlight w:val="yellow"/><w:u w:val="single"/></w:rPr>'
+                      '<w:t xml:space="preserve">Nguyễn A</w:t>', x)
+        self.assertIn('<w:highlight w:val="red"/>', x)
+        self.assertIn("[Thiếu: CCCD]", x)
+        self.assertIn('Dòng 1</w:t><w:br/><w:t xml:space="preserve">Dòng 2', x)
+        self.assertNotRegex(x, "[\ue000-\ue003]")
+        self.assertEqual(missing, ["CCCD"])
+
+    def test_ban_that_khong_to_mau(self):
+        out, _m = docx_fill.fill_docx(make_docx(self.BODY), {"NAME": "Nguyễn A", "ADDR": "x"})
+        self.assertNotIn("highlight", doc_xml(out))
+        self.assertIn(L + "CCCD" + G, doc_xml(out))           # ban that: de nguyen, bao thieu nhu cu
+
+
+class VendoredViewer(unittest.TestCase):
+    """Trinh xem .docx vendored (khong CDN), dung ban da ghim."""
+
+    def test_sha_khop_ban_ghim(self):
+        import hashlib
+        base = os.path.abspath(os.path.join(_HERE, "..", "..", "..", "public", "vendor", "docx_preview"))
+        pinned = {}
+        for line in open(os.path.join(base, "PINNED.sha256"), encoding="utf-8"):
+            parts = line.split()
+            if len(parts) == 2 and len(parts[0]) == 64:
+                pinned[parts[1]] = parts[0]
+        self.assertEqual(set(pinned), {"docx-preview.min.js", "jszip.min.js"})
+        for name, sha in pinned.items():
+            with open(os.path.join(base, name), "rb") as fh:
+                self.assertEqual(hashlib.sha256(fh.read()).hexdigest(), sha, name)
+
+    def test_trang_chi_tai_tu_assets(self):
+        page = open(os.path.join(_HERE, "..", "..", "features", "contract_review", "ui", "main_section.html"),
+                    encoding="utf-8").read()
+        self.assertIn('"/assets/ecentric_workspace/vendor/docx_preview/"', page)
+        self.assertNotRegex(page, r"(unpkg|jsdelivr|cdnjs)\.")
 
 
 class PatchP365(unittest.TestCase):

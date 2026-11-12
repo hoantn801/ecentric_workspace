@@ -32,6 +32,7 @@ function make(url){
     if(m==="kol_search_creators") return Promise.resolve({message:{rows:[{name:"SUP-1",supplier_name:"Nguyễn Thanh Phụng",ec_cr_type:"Cá nhân",misa_label:"KH01"}]}});
     if(m==="kol_preview_amounts") return Promise.resolve({message:{ok:true,amounts:{gross:10000000,pit:1000000,vat:0,payable:9000000,contract_value:10000000,advance:0,payable_words:"Chín triệu đồng"}}});
     if(m==="kol_preview_dates") return Promise.resolve({message:(o.args||{}).air_dates==="05-06/12"?{ok:false,error:"'05-06/12' là khoảng ngày: ghi từng ngày"}:{ok:true,dates:["05/12/2026"],sign_date:"04/12/2026",contract_no:"05122026/HDDV/ECENTRIC-NTP.FCV"}});
+    if(m==="kol_preview_contract") return Promise.resolve({message:{ok:false,error:"Chọn creator để xem trước <b>x</b>"}});
     if(m==="kol_creator_gaps") return Promise.resolve({message:{labels:["địa chỉ"]}});
     if(m==="kol_create_creator"){ createTries++; return Promise.resolve({message:createTries===1?{needs_confirm:true,message:"Có thể đã có creator này: A (mã KH KH01) trùng tên."}:{needs_confirm:false,name:"SUP-2"}}); }
     if(m==="kol_generate_contract"&&genFail) return Promise.reject({message:"Mẫu HD lỗi"});
@@ -51,7 +52,9 @@ const detail={business:{name:"EC-CTR-2026-00100",contract_type:KOL,request_type:
   ai_qc_result:JSON.stringify({data_checks:[{field:"CCCD",value_present:false}],signable:"OK",ai:{template_deviations:["Bỏ điều khoản phạt"],risky_clauses:[{clause:"Thanh toán 100% trước",risk:"rủi ro",severity:"Cao"}],summary:"x"}})},
   approval:{approval_status:"Approved"},capabilities:{},levels:[],approvers:[],timeline:[],attachments:[],
   extra:{kol:{can_manage:true,can_ai:true,approved:true,signed:true,funding:{cap:2700000,used:0,remaining:2700000},
-    acceptances:[{name:"r1",idx:1,description:"Livestream T12",acceptance_date:"2026-12-05",amount:6300000,status:"Nháp",bbnt_file:"/private/files/BBNT.docx"}]}}};
+    calc:[{label:"Giá trị trước thuế (gross)",how:"9.000.000 ÷ (1 − 10%)",amount:10000000,strong:true},{label:"<b>x</b>",how:"",amount:1}],
+    acceptances:[{name:"r1",idx:1,description:"Livestream T12",acceptance_date:"2026-12-05",amount:6300000,status:"Nháp",bbnt_file:"/private/files/BBNT.docx",
+      calc:[{label:"Thực nhận đợt này",how:"",amount:6300000}]}]}}};
 const c={}; let failed=0;
 function chk(k,v){ c[k]=!!v; if(!v) failed++; }
 // Luat mau tool cu tren form (12/11): HKD / Shopee khong coc, chon coc tu dien 40%, danh sach mau loc theo
@@ -140,7 +143,13 @@ wait(w,function(){ return w.ContractReview&&w.document.querySelector('[data-mode
               chk("xac nhan lan hai: goi confirm_soft=1 va chon creator moi", calls.some(x=>/kol_create_creator .*"confirm_soft":1/.test(x)) && w.ContractReview.state.draft.creator==="SUP-2");
               chk("tieu de tu dong KOL theo brand + creator", /^HĐ KOL\/KOC - FCV - /.test(w.ContractReview.state.draft.request_title||""));
               chk("nut gui doi thanh 'Tạo hợp đồng & gửi' (mau EC)", /Tạo hợp đồng &amp; gửi|Tạo hợp đồng & gửi/.test(w.document.getElementById("ctr-submit").innerHTML));
-              detailPart();
+              // PO 12/11: nut xem truoc (mau EC) mo hop thoai, loi server hien ra (esc), khong tai trinh xem tu CDN.
+              var pvb=w.document.getElementById("kol-pv-btn"); chk("co nut Xem truoc hop dong (mau EC)", !!pvb);
+              if(pvb){ pvb.click(); setTimeout(function(){ var mo=w.document.querySelector(".kol-pv-modal");
+                chk("xem truoc: hop thoai + bao loi server da esc", !!mo&&/Chọn creator để xem trước/.test(mo.textContent)&&!mo.querySelector("#kol-pv-doc b"));
+                chk("xem truoc: goi kol_preview_contract kem du lieu dang go", calls.some(x=>/kol_preview_contract .*fields/.test(x)));
+                var x=mo&&mo.querySelector("[data-x]"); if(x) x.click();
+                detailPart(); },120); } else detailPart();
             },150); },150);
           },150);
         },400);
@@ -156,6 +165,8 @@ function detailPart(){
     chk("chi tiet: khoi KOL + canh bao doanh thu + so HD", /Hợp đồng KOL\/KOC/.test(b)&&/vượt doanh thu EC/.test(b)&&/15032026\/HDDV/.test(b));
     chk("chi tiet: AI QC hien so lieu lech + dieu khoan rui ro", /Không thấy trong tệp/.test(b)&&/Bỏ điều khoản phạt/.test(b)&&/Thanh toán 100% trước/.test(b));
     chk("chi tiet: BBNT + tran chi + nut tao BBNT", /Livestream T12/.test(b)&&/Được phép chi/.test(b)&&/data-kol="sendacc"/.test(b)&&!/kol-accf-/.test(b)&&/data-kol="addacc"/.test(b));
+    // PO 12/11: bang tinh tung buoc cho Ke toan (hop dong + tung dot), nhan duoc esc.
+    chk("chi tiet: bang tinh hop dong + dot", /Bảng tính chi tiết/.test(b)&&/9\.000\.000 ÷ \(1 − 10%\)/.test(b)&&/Bảng tính đợt này/.test(b)&&b.indexOf("<b>x</b>")<0);
     // QC3: dot NHAP chua co nut Hoan tat - phai qua "Danh dau da gui ky" (kiem thieu + tao lai BBNT) truoc.
     chk("BBNT nhap: chua cho Hoan tat (bo qua buoc kiem)", !/data-kol="doneacc"/.test(b));
     chk("da duyet: khong con nut tao lai hop dong", !/data-kol="gen"/.test(b));

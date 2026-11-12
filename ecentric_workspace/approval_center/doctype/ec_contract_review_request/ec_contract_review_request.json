@@ -436,7 +436,7 @@
    "fieldname": "payment_term_days",
    "fieldtype": "Int",
    "label": "Số ngày thanh toán sau BBNT",
-   "description": "Để trống = mặc định theo loại creator (cá nhân 35, công ty / hộ KD 30, công ty Shopee 15). Tính ngày lịch từ ngày BBNT hoàn tất; rơi vào T7/CN thì dời sang thứ Hai."
+   "description": "Để trống = mặc định theo loại creator (cá nhân 35, công ty / hộ KD 30, công ty Shopee 15). Tính ngày lịch từ ngày BBNT hoàn tất; rơi vào T7, CN hoặc ngày lễ thì dời sang ngày làm việc liền sau."
   },
   {
    "fieldname": "sb_kol_doc",
@@ -596,7 +596,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-11-12 04:00:00.000000",
+ "modified": "2026-11-12 10:30:00.000000",
  "modified_by": "Administrator",
  "module": "Approval Center",
  "name": "EC Contract Review Request",

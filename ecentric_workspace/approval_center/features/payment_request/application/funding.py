@@ -170,7 +170,7 @@ def search_revenue_so(source_doctype, query=None, exclude_request=None, user=Non
 
 
 def so_check(doc, viewer=None, status=None):
-    """Doi chieu SO doanh thu cua MOT DNTT cho nguoi lap / Ke toan (trang chi tiet): doanh thu
+    """Doi chieu SO doanh thu cua MOT DNTT cho nguoi lap / nguoi duyet / Ke toan (trang chi tiet): doanh thu
     EC, da de nghi chi tren SO (khong tinh DNTT nay) va phan vuot. None = nguon khong co SO."""
     meta = _SOURCES.get(doc.get("funding_source_doctype") or "") or {}
     so = (doc.get("ec_sales_order") or "").strip()

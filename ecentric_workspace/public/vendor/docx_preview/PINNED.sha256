@@ -1,0 +1,6 @@
+# Ban vendored cho xem truoc hop dong (chat Hop dong, 12/11/2026). Khong CDN: trang tai tu /assets.
+# Nguon: npm pack docx-preview@0.3.7 (Apache-2.0), jszip@3.10.1 (MIT). Doi ban = cap nhat file nay.
+docx-preview: 0.3.7
+jszip: 3.10.1
+a011a499016a269eb048b8558a3eefc94bc33568ef434235943948ff24a40005  docx-preview.min.js
+acc7e41455a80765b5fd9c7ee1b8078a6d160bbbca455aeae854de65c947d59e  jszip.min.js

@@ -44,6 +44,10 @@ _CELL = re.compile(r"(<w:tc(?:\s[^>]*)?>)(.*?)(</w:tc>)", re.S)
 _TEXT = re.compile(r"(<w:t(?:\s[^>]*)?(?<!/)>)(.*?)(</w:t>)", re.S)
 _TEXT_OR_PARA_END = re.compile(r"</w:p>|(<w:t(?:\s[^>]*)?(?<!/)>)(.*?)(</w:t>)", re.S)
 _BREAK = '</w:t><w:br/><w:t xml:space="preserve">'
+# Ban XEM TRUOC (PO 12/11): gia tri ERP dien to vang, cho con thieu to do. Danh dau bang ky tu
+# vung rieng (Private Use) trong van ban roi tach run o buoc cuoi - ban tai ve KHONG di qua day.
+MARK_ON, MARK_OFF, MISS_ON, MISS_OFF = "\ue000", "\ue001", "\ue002", "\ue003"
+_MARKS = MARK_ON + MARK_OFF + MISS_ON + MISS_OFF
 
 
 def unescape(text):
@@ -57,7 +61,7 @@ def _bad_names(joined):
 _PARTS = re.compile(r"^word/(document|header\d*|footer\d*|footnotes|endnotes)\.xml$")
 
 
-def _fill_paragraph(xml, values, missing, drop_if_empty=()):
+def _fill_paragraph(xml, values, missing, drop_if_empty=(), mark=False, missing_text=None):
     runs = list(_TEXT.finditer(xml))
     if not runs:
         return xml
@@ -96,8 +100,13 @@ def _fill_paragraph(xml, values, missing, drop_if_empty=()):
         key = m.group(1)
         if key not in values:
             missing.add(key)
-            continue
-        value = "" if values[key] is None else _CTRL.sub("", str(values[key]))
+            if not (mark and missing_text):
+                continue
+            value = MISS_ON + _CTRL.sub("", str(missing_text(key))) + MISS_OFF
+        else:
+            value = "" if values[key] is None else _CTRL.sub("", str(values[key]))
+            if mark and value:
+                value = MARK_ON + value + MARK_OFF
         a, b = m.start(), m.end()
         first, last = run_at(a), run_at(b - 1)
         for i in range(last, first - 1, -1):
@@ -162,15 +171,87 @@ def _keep_cells_valid(xml):
     return _CELL.sub(fix, xml) if "<w:tc" in xml else xml
 
 
-def fill_xml(xml, values, missing=None, drop_if_empty=()):
+def fill_xml(xml, values, missing=None, drop_if_empty=(), mark=False, missing_text=None):
     missing = set() if missing is None else missing
     drop = frozenset(drop_if_empty or ())
-    out = _PARA.sub(lambda m: _fill_paragraph(m.group(0), values, missing, drop), xml)
-    return (_keep_cells_valid(out) if drop else out), missing
+    out = _PARA.sub(lambda m: _fill_paragraph(m.group(0), values, missing, drop, mark, missing_text), xml)
+    out = _keep_cells_valid(out) if drop else out
+    return (_apply_marks(out) if mark else out), missing
 
 
-def fill_docx(data, values, drop_if_empty=()):
-    """bytes .docx -> (bytes .docx da dien, sorted(placeholder khong co gia tri))."""
+_RUN_OPEN = re.compile(r"<w:r(?:\s[^>]*)?>")
+_RPR = re.compile(r"^\s*(<w:rPr>.*?</w:rPr>|<w:rPr/>)", re.S)
+_TOKEN = re.compile(r"(<w:t(?:\s[^>]*)?(?<!/)>)(.*?)</w:t>|<[^>]+/>|<[^>]+>.*?</[^>]+>", re.S)
+# Thu tu phan tu trong w:rPr theo schema: highlight dung truoc cac the nay.
+_AFTER_HL = ("<w:u ", "<w:u>", "<w:u/", "<w:effect", "<w:bdr", "<w:shd", "<w:fitText", "<w:vertAlign",
+             "<w:rtl", "<w:cs", "<w:em", "<w:lang", "<w:eastAsianLayout", "<w:specVanish", "<w:oMath")
+
+
+def _rpr_with(rpr, color):
+    if not color:
+        return rpr
+    hl = '<w:highlight w:val="%s"/>' % color
+    if not rpr or rpr == "<w:rPr/>":
+        return "<w:rPr>" + hl + "</w:rPr>"
+    body = re.sub(r"<w:highlight [^>]*/>", "", rpr[len("<w:rPr>"):-len("</w:rPr>")])
+    cut = min([i for i in (body.find(t) for t in _AFTER_HL) if i >= 0] or [len(body)])
+    return "<w:rPr>" + body[:cut] + hl + body[cut:] + "</w:rPr>"
+
+
+def _split_run(open_tag, inner):
+    """Mot run co ky tu danh dau -> nhieu run: doan thuong giu rPr goc, doan danh dau them highlight."""
+    m = _RPR.match(inner)
+    rpr = m.group(1) if m else ""
+    rest = inner[m.end():] if m else inner
+    out, state, cur = [], None, []
+
+    def flush():
+        if cur:
+            out.append(open_tag + _rpr_with(rpr, state) + "".join(cur) + "</w:r>")
+            cur[:] = []
+
+    for tok in _TOKEN.finditer(rest):
+        if tok.group(1) is None:              # w:br, w:tab... di theo trang thai hien tai
+            cur.append(tok.group(0))
+            continue
+        for piece in re.split("([%s])" % _MARKS, tok.group(2)):
+            if piece in (MARK_ON, MISS_ON, MARK_OFF, MISS_OFF):
+                flush()
+                state = {MARK_ON: "yellow", MISS_ON: "red"}.get(piece)
+                continue
+            if piece:
+                cur.append('<w:t xml:space="preserve">' + piece + "</w:t>")
+    flush()
+    return "".join(out)
+
+
+def _apply_marks(xml):
+    if not any(c in xml for c in _MARKS):
+        return xml
+    out, pos = [], 0
+    for m in _RUN_OPEN.finditer(xml):
+        if m.start() < pos:
+            continue
+        end = xml.find("</w:r>", m.end())
+        if end < 0:
+            break
+        inner = xml[m.end():end]
+        # Run long nhau (khung van ban / hinh ve) bo qua: chi xem truoc, giu nguyen con hon tach sai.
+        if _RUN_OPEN.search(inner) or not any(c in inner for c in _MARKS):
+            continue
+        out.append(xml[pos:m.start()])
+        out.append(_split_run(m.group(0), inner))
+        pos = end + len("</w:r>")
+    out.append(xml[pos:])
+    # Con sot ky tu danh dau (run phuc tap bi bo qua): xoa cho van ban sach.
+    return re.sub("[%s]" % _MARKS, "", "".join(out))
+
+
+def fill_docx(data, values, drop_if_empty=(), mark=False, missing_text=None):
+    """bytes .docx -> (bytes .docx da dien, sorted(placeholder khong co gia tri)).
+
+    mark=True: ban XEM TRUOC - gia tri dien to vang, placeholder thieu thay bang
+    missing_text(ten) to do. Ban luu / tai ve luon goi mark=False."""
     src = zipfile.ZipFile(io.BytesIO(data))
     buf = io.BytesIO()
     missing = set()
@@ -178,7 +259,7 @@ def fill_docx(data, values, drop_if_empty=()):
         for item in src.infolist():
             raw = src.read(item.filename)
             if _PARTS.match(item.filename):
-                xml, _ = fill_xml(raw.decode("utf-8"), values, missing, drop_if_empty)
+                xml, _ = fill_xml(raw.decode("utf-8"), values, missing, drop_if_empty, mark, missing_text)
                 missing.update(_leftover(xml, values))
                 raw = xml.encode("utf-8")
             dst.writestr(item, raw)

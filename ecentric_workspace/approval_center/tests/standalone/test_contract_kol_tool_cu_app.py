@@ -38,11 +38,17 @@ class FakeDoc(dict):
     def as_dict(self):
         return dict(self)
 
+    def set(self, k, v):            # Document.set
+        self[k] = v
+
 
 def _fake_frappe(state):
     fk = types.ModuleType("frappe")
     fk._ = lambda s: s
     fk.PermissionError = type("PermissionError", (Exception,), {})
+    fk.ValidationError = type("ValidationError", (Exception,), {})
+    fk.new_doc = lambda dt_: FakeDoc(doctype=dt_)
+    fk.get_doc = lambda *a, **k: FakeDoc()
 
     def throw(msg, exc=None):
         raise _Throw(msg)
@@ -258,6 +264,51 @@ class AppTests(unittest.TestCase):
                                                          self._tpl("HD-CN", "Hợp đồng", "Cá nhân")]
         self.assertEqual(self.lookup.pick_template("Hợp đồng", "Cá nhân", None, False, "TikTok"), "HD-CN")
 
+    # ---------------------------------------------------------- PO 12/11 10:00
+    def test_nguoi_duyet_xem_duoc_doanh_thu_so(self):
+        f = self.funding
+        self._patch(f.kol_lookup, is_finance=lambda u: u == "kt@ec")
+        rows = {("AR-1", "duyet@ec")}
+        self._patch(f.frappe.db, exists=lambda dt, flt=None: (flt or {}).get("approval_request") and
+                    ((flt["approval_request"], flt["approver"]) in rows))
+        pr = {"requested_by": "nv@ec", "approval_request": "AR-1"}
+        self.assertEqual([f.funding_so_can_view(pr, u) for u in ("nv@ec", "kt@ec", "duyet@ec", "khac@ec")],
+                         [True, True, True, False])
+        self.assertFalse(f.funding_so_can_view({"requested_by": "nv@ec"}, "duyet@ec"))   # phieu nhap
+
+    def test_xem_truoc_hop_dong_to_mau_khong_luu_gi(self):
+        import base64
+        import zipfile
+        from test_contract_kol_domain import make_docx
+        f, s = self.files, self.svc
+        tpl_bytes = make_docx('<w:p><w:r><w:t xml:space="preserve">Ông/Bà: &lt;&lt;PERSON_FULL_NAME&gt;&gt; '
+                              'CCCD &lt;&lt;PERSON_ID_NO&gt;&gt;</w:t></w:r></w:p>')
+        saved = []
+        self._patch(s, prepare_draft=lambda d: d.update(creator_type="Cá nhân"), apply_amounts=lambda d, strict=False: None,
+                    assign_number=lambda d, c: d.update(contract_no="X/1"), ref_day=lambda d: dt.date(2026, 11, 12),
+                    expected_bbnt_date=lambda d: None)
+        self._patch(s.kol, validate_kol=lambda d, t, today=None: [])
+        self._patch(f, creator_row=lambda n: {"supplier_name": "A"}, template_for=lambda d, k: "T1",
+                    file_bytes=lambda u: tpl_bytes, attach=lambda *a: saved.append(a),
+                    _values=lambda d, c, b: {"PERSON_FULL_NAME": "Nguyễn A", "PERSON_ID_NO": ""})
+        self._patch(f.frappe, new_doc=lambda dt_: FakeDoc(doctype=dt_),
+                    get_doc=lambda *a: FakeDoc(name="T1", template_name="HĐ cá nhân", template_file="/f.docx"))
+        r = f.preview_contract({"contract_type": s.kol.KOL_CONTRACT_TYPE, "request_type": s.kol.TEMPLATE_EC, "creator": "SUP-1",
+                                "requested_by": "hacker@x"}, None, "a@ecentric.vn")
+        self.assertTrue(r["ok"], r)
+        xml = zipfile.ZipFile(__import__("io").BytesIO(base64.b64decode(r["docx"]))).read("word/document.xml").decode()
+        self.assertIn('<w:highlight w:val="yellow"/></w:rPr><w:t xml:space="preserve">Nguyễn A', xml)
+        self.assertIn("[Thiếu: CCCD]", xml)
+        self.assertIn("CCCD", r["missing_labels"][0])
+        self.assertEqual(saved, [])                                   # khong dinh kem / luu gi
+        r = f.preview_contract({"contract_type": "KOL/KOC / Creator (EC)", "request_type": s.kol.TEMPLATE_PARTNER},
+                               None, "a@ecentric.vn")
+        self.assertFalse(r["ok"])
+        self._patch(f.frappe, get_doc=lambda *a: FakeDoc(name="CR-9", requested_by="b@ecentric.vn"))
+        self._patch(f, can_manage=lambda d, u: False)
+        with self.assertRaises(_Throw):                                # phieu nguoi khac: khong xem truoc
+            f.preview_contract({}, "CR-9", "a@ecentric.vn")
+
     # ---------------------------------------------------------- QC vong 3
     def test_hoan_tat_bbnt_phai_qua_buoc_gui_ky(self):
         acc = importlib.import_module(PKG + ".kol_acceptance")
@@ -276,6 +327,13 @@ class AppTests(unittest.TestCase):
         for bad in ("2026-11-01", "2026-11-13", "10/11/2026"):
             with self.assertRaises(_Throw):
                 acc._check_acceptance_date(doc, bad)
+        with self.assertRaises(_Throw) as cm:
+            acc._check_acceptance_date(doc, "2026-11-01")
+        self.assertIn("không cần trùng ngày live", str(cm.exception))
+        # Live lam som hon lich, hop dong ghi ngay ky sau hom nay: noi ro doi / phu luc (PO 12/11).
+        with self.assertRaises(_Throw) as cm:
+            acc._check_acceptance_date(FakeDoc(contract_date="2026-11-20"), "2026-11-10")
+        self.assertIn("phụ lục", str(cm.exception))
 
     def test_xem_truoc_khong_doc_phieu_nguoi_khac(self):
         self.state["stored"]["CR-X"] = {"requested_by": "b@ecentric.vn", "creation": "2025-01-10 09:00:00"}

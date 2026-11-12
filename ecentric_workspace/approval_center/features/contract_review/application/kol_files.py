@@ -225,6 +225,61 @@ def _fill(data, values, doc):
     return content, sorted(missing)
 
 
+def preview_contract(fields, name, user):
+    """Ban XEM TRUOC hop dong tu du lieu DANG GO tren form (chua luu), PO 12/11: gia tri ERP dien
+    to vang, cho con thieu to do. KHONG ghi gi: khong luu phieu, khong dinh kem tep. Ban tai ve /
+    gui ky van la tep generate_contract sinh ra (khong to mau).
+
+    -> {"ok": True, "docx": base64, ...} hoac {"ok": False, "error": cau tieng Viet}."""
+    import base64
+    from ecentric_workspace.approval_center.features.contract_review.application import kol_service
+    from ecentric_workspace.approval_center.features.contract_review.domain.definition import (
+        CONTRACT_REVIEW_DEFINITION)
+    if name:
+        doc = frappe.get_doc(kol_lookup.CR_DT, name)
+        if not can_manage(doc, user):
+            frappe.throw(_("Bạn không xem trước được hợp đồng của phiếu này."), frappe.PermissionError)
+    else:
+        doc = frappe.new_doc(kol_lookup.CR_DT)
+    allowed = set(CONTRACT_REVIEW_DEFINITION.editable_fields)
+    for k, v in (fields or {}).items():
+        if k in allowed:
+            doc.set(k, v)
+    if not kol.is_kol(doc):
+        return {"ok": False, "error": _("Chỉ hợp đồng KOL/KOC có bản xem trước từ mẫu.")}
+    if doc.get("request_type") != kol.TEMPLATE_EC:
+        return {"ok": False, "error": _("Phiếu dùng mẫu của creator: mở tệp đã tải lên để xem.")}
+    try:
+        kol_service.prepare_draft(doc)
+        errors = kol.validate_kol(doc, doc.get("creator_type"), kol_service.ref_day(doc))
+        if errors:
+            return {"ok": False, "error": " ".join(errors)}
+        kol_service.apply_amounts(doc, strict=True)
+        creator = creator_row(doc.get("creator"))
+        if not creator:
+            return {"ok": False, "error": _("Chọn creator để xem trước hợp đồng.")}
+        kol_service.assign_number(doc, creator)
+        tpl = frappe.get_doc("EC Contract Template", template_for(doc, KIND_CONTRACT))
+    except frappe.PermissionError:
+        raise
+    except (frappe.ValidationError, ValueError) as e:
+        return {"ok": False, "error": _strip_html(str(e)) or _("Chưa đủ thông tin để xem trước.")}
+    values = _values(doc, creator, kol_service.expected_bbnt_date(doc))
+    data = file_bytes(tpl.template_file)
+    _content, missing = _fill(data, values, doc)
+    shown = {k: v for k, v in values.items() if k not in set(missing)}
+    content, _m = docx_fill.fill_docx(data, shown, kol_values.CONDITIONAL_LINES, mark=True,
+                                      missing_text=lambda k: "[Thiếu: %s]" % (kol_values.LABELS.get(k) or k))
+    return {"ok": True, "docx": base64.b64encode(content).decode("ascii"), "template": tpl.name,
+            "template_title": tpl.get("template_name") or tpl.name, "contract_no": doc.get("contract_no"),
+            "missing_labels": kol_values.missing_labels(missing)}
+
+
+def _strip_html(text):
+    import re
+    return re.sub(r"<[^>]+>", "", text or "").strip()
+
+
 def generate_acceptance(doc, row, creator):
     tpl = frappe.get_doc("EC Contract Template", template_for(doc, KIND_BBNT))
     # Ngay tren BBNT = ngay nghiem thu cua dot (ERP lam BBNT SAU khi thuc hien xong).

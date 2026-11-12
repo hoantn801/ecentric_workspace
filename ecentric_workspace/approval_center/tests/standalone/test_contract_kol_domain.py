@@ -93,6 +93,11 @@ class DateAndNumberTests(unittest.TestCase):
         # 05/11 + 30 = 05/12 la T7 -> 07/12 thu Hai.
         self.assertEqual(kol.due_date("2026-11-05", 30), dt.date(2026, 12, 7))
         self.assertIsNone(kol.due_date(None, 30))
+        # PO 12/11: ngay le (Holiday List) cung doi sang ngay lam viec lien sau. 01/01/2027 thu Sau
+        # la le -> 02, 03 la T7/CN -> 04/01 thu Hai; le noi tiep ngay thuong cung bo qua.
+        self.assertEqual(kol.due_date("2026-12-02", 30, holidays={dt.date(2027, 1, 1)}), dt.date(2027, 1, 4))
+        self.assertEqual(kol.due_date("2026-11-03", 30, holidays={dt.date(2026, 12, 3), dt.date(2026, 12, 4)}),
+                         dt.date(2026, 12, 7))
         # Mac dinh theo tool cu: ca nhan 35, cong ty / HKD 30, Shopee 15.
         self.assertEqual(kol.due_date("2026-11-03", None, "Cá nhân"), dt.date(2026, 12, 8))
         self.assertEqual(kol.due_date("2026-11-03", "", "Công ty"), dt.date(2026, 12, 3))

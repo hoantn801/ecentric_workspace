@@ -94,8 +94,12 @@ def funding_so_info(name):
 
 
 def funding_so_can_view(pr, user):
-    """Ai thay doi chieu doanh thu SO tren DNTT: nguoi lap (da thay luc chon SO) + Ke toan."""
-    return user == pr.get("requested_by") or kol_lookup.is_finance(user)
+    """Ai thay doi chieu doanh thu SO tren DNTT: nguoi lap (da thay luc chon SO), Ke toan va
+    nguoi duyet cua chinh phieu do (PO 12/11). Nguoi chi xem duoc phieu (vd theo doi) thi khong."""
+    if user == pr.get("requested_by") or kol_lookup.is_finance(user):
+        return True
+    ar = pr.get("approval_request")
+    return bool(ar and frappe.db.exists("EC Approval Request Approver", {"approval_request": ar, "approver": user}))
 
 
 def funding_validate(pr, user):

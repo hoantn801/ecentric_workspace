@@ -16,7 +16,7 @@ from frappe.utils import flt, now_datetime, nowdate
 from ecentric_workspace.approval_center.features.contract_review.application import kol_lookup
 from ecentric_workspace.approval_center.features.contract_review.application.kol_service import (
     APPROVED, approval_status, can_manage, creator_row, is_signed)
-from ecentric_workspace.approval_center.features.contract_review.domain import kol
+from ecentric_workspace.approval_center.features.contract_review.domain import kol, kol_calc
 
 
 def _load(name, user):
@@ -72,12 +72,21 @@ def _check_acceptance_date(doc, value):
         day = _dt.date.fromisoformat(str(value)[:10])
     except ValueError:
         frappe.throw(_("Ngày nghiệm thu không hợp lệ."))
-    if day > _dt.date.fromisoformat(str(nowdate())[:10]):
+    today = _dt.date.fromisoformat(str(nowdate())[:10])
+    if day > today:
         frappe.throw(_("Ngày nghiệm thu không được ở tương lai."))
     signed = str(doc.get("contract_date") or "")[:10]
     if signed and day < _dt.date.fromisoformat(signed):
-        frappe.throw(_("Ngày nghiệm thu ({0}) trước ngày ký hợp đồng ({1}).").format(
-            day.strftime("%d/%m/%Y"), _dt.date.fromisoformat(signed).strftime("%d/%m/%Y")))
+        sd = _dt.date.fromisoformat(signed)
+        # Live lam som hon lich (PO 12/11): BBNT ghi tu ngay ky tro di; chua toi ngay ky thi doi
+        # hoac lam phu luc - KHONG cho nghiem thu truoc khi co hop dong.
+        if sd > today:
+            frappe.throw(_("Hợp đồng ghi ngày ký {0}, sau hôm nay nên chưa lập BBNT được. Buổi làm sớm hơn "
+                           "lịch: đợi tới ngày ký, hoặc nhờ Kế toán làm phụ lục chỉnh ngày.").format(
+                               sd.strftime("%d/%m/%Y")))
+        frappe.throw(_("Ngày nghiệm thu ({0}) trước ngày ký hợp đồng ({1}). Chọn từ {1} tới hôm nay; "
+                       "ngày BBNT không cần trùng ngày live.").format(day.strftime("%d/%m/%Y"),
+                                                                      sd.strftime("%d/%m/%Y")))
     return str(day)
 
 
@@ -161,7 +170,7 @@ def complete_acceptance(name, user, row_name, signed_file):
     row.completed_by = user
     # Han thanh toan tinh tu NGAY KY XONG (ngay tai ban ky), ke ca khi Ke toan xac nhan sau.
     row.due_date = kol.due_date(row.completed_at.date(), doc.payment_term_days, doc.get("creator_type"),
-                                doc.get("platform"))
+                                doc.get("platform"), kol_lookup.holidays())
     from ecentric_workspace.approval_center.features.contract_review.application import kol_verify
     findings = kol_verify.apply_acceptance_check(doc, row)
     doc.save(ignore_permissions=True)
@@ -187,8 +196,17 @@ def rows_view(doc):
              "acceptance_date": str(r.acceptance_date or ""), "amount": flt(r.amount),
              "status": r.status, "bbnt_file": r.bbnt_file, "signed_file": r.signed_file,
              "completed_at": str(r.completed_at or ""), "due_date": str(r.due_date or ""),
-             "check_note": r.get("check_note") or "", "verified_by": r.get("verified_by") or ""}
+             "check_note": r.get("check_note") or "", "verified_by": r.get("verified_by") or "",
+             "calc": _round_calc(doc, r)}
             for r in (doc.acceptances or [])]
+
+
+def _round_calc(doc, row):
+    try:
+        return kol_calc.round_steps(doc.get("creator_type"), flt(row.amount), doc.get("pit_rate"),
+                                    doc.get("vat_rate"), doc)
+    except Exception:
+        return []                 # bang tinh chi de soat: loi du lieu cu khong lam hong trang chi tiet
 
 
 def funding_view(doc):

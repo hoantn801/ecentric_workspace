@@ -13,7 +13,7 @@ from frappe.utils import now_datetime, today
 
 from ecentric_workspace.approval_center.features.contract_review.application import kol_lookup
 from ecentric_workspace.approval_center.features.contract_review.domain import kol
-from ecentric_workspace.approval_center.features.contract_review.domain import kol_texts, kol_values
+from ecentric_workspace.approval_center.features.contract_review.domain import kol_calc, kol_texts, kol_values
 from ecentric_workspace.approval_center.shared.creators.repository import CreatorRepository
 
 APPROVED = "Approved"
@@ -354,6 +354,8 @@ def detail_extra(business, request):
         "funding": kol_acceptance.funding_view(business),
         "missing_labels": kol_values.missing_labels(_split(business.get("missing_placeholders"))),
         "missing_creator": kol_values.missing_is_creator(_split(business.get("missing_placeholders"))),
+        # Bang tinh tung buoc cho Ke toan soat (PO 12/11) - dien giai so da luu, khong tinh khac.
+        "calc": kol_calc.contract_steps(business),
     }}
 
 
