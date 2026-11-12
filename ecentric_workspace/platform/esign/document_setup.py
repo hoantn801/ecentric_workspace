@@ -635,6 +635,10 @@ def set_document_requires_signature(business_doctype, business_name, document_re
             pkgsvc.set_file_flags(dsf_name,
                                   requires_signature=1 if requested else 0,
                                   is_supporting_document=0 if requested else 1)
+    except pkgsvc.UnsignableProducer as e:
+        # Tep LA PDF hop le nhung cong khong ky duoc (ReportLab) - noi dung cau bao co cach sua,
+        # dung nuot thanh "dinh dang chua ho tro" (QC 12/11).
+        return {"ok": False, "reason": "unsignable_producer", "message": str(e)}
     except frappe.ValidationError as e:
         if "PDF" in str(e):
             return {"ok": False, "reason": "unsupported_signable_format"}
