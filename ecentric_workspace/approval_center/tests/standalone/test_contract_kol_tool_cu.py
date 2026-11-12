@@ -80,9 +80,11 @@ class GiongToolCu(unittest.TestCase):
         if not shutil.which("node"):
             raise RuntimeError("Can node (da co san cho cac test JS) de chay code goc cua tool cu.")
         cls.case = _cases()
-        res = subprocess.run(["node", JS], input=json.dumps(cls.case), capture_output=True, text=True, timeout=60)
-        if res.returncode:
-            raise RuntimeError(res.stderr)
+        # encoding utf-8: tren Windows text=True giai ma bang cp1252 -> vo khi gap tieng Viet, stdout thanh None.
+        res = subprocess.run(["node", JS], input=json.dumps(cls.case), capture_output=True,
+                             encoding="utf-8", errors="strict", timeout=60)
+        if res.returncode or res.stdout is None:
+            raise RuntimeError(res.stderr or "node khong tra ket qua")
         cls.js = json.loads(res.stdout)
 
     def test_doan_van_cong_viec(self):

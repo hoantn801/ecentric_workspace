@@ -322,8 +322,10 @@ class VendoredViewer(unittest.TestCase):
                 pinned[parts[1]] = parts[0]
         self.assertEqual(set(pinned), {"docx-preview.min.js", "jszip.min.js"})
         for name, sha in pinned.items():
+            # Clone Windows (core.autocrlf) doi LF -> CRLF luc checkout; ma ghim la cua blob git (LF),
+            # dung ban server Linux phuc vu. Chuan hoa nhu test_html_change_needs_resync.
             with open(os.path.join(base, name), "rb") as fh:
-                self.assertEqual(hashlib.sha256(fh.read()).hexdigest(), sha, name)
+                self.assertEqual(hashlib.sha256(fh.read().replace(b"\r\n", b"\n")).hexdigest(), sha, name)
 
     def test_trang_chi_tai_tu_assets(self):
         page = open(os.path.join(_HERE, "..", "..", "features", "contract_review", "ui", "main_section.html"),
