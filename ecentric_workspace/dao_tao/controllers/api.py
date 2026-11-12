@@ -107,6 +107,16 @@ def answer(code, qid=None, payload=None, device=""):
 
 
 @frappe.whitelist(methods=["POST"])
+def power_pick(code, power="", device=""):
+    return _run(lambda c: play_service.pick_power(c, repo, code, power, device))
+
+
+@frappe.whitelist(methods=["POST"])
+def power_use(code, power="", device=""):
+    return _run(lambda c: play_service.use_power(c, repo, code, power, device))
+
+
+@frappe.whitelist(methods=["POST"])
 def report(code, kind=""):
     return _run(lambda c: play_service.report(c, repo, code, kind))
 

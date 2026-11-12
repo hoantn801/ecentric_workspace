@@ -261,6 +261,7 @@
       '<div class="dt-row" style="margin:10px 0"><span class="dt-lbl" style="width:120px">Bảng xếp hạng</span>' + seg("board", [["each", "Mỗi câu"], ["five", "Mỗi 5 câu"], ["end", "Cuối game"]]) + "</div>" +
       sw("show_on_phone", "Hiện câu hỏi trên điện thoại", "Bật = kiểu Quizizz. Tắt = điện thoại chỉ có ô màu, mọi người nhìn màn chiếu.") +
       sw("same_order", "Điện thoại cùng thứ tự + cùng màu với màn chiếu", "Bật (khuyên dùng) = đọc trên màn chiếu bấm đúng ô cùng màu, không nhầm. Tắt = mỗi máy xáo riêng, khó nhìn bài nhau hơn.") +
+      sw("power_ups", "Power-up mỗi 5 câu", "Sau câu 5, 10, 15, 20 mỗi người bốc 3 skill (x2 điểm, loại 1 đáp án sai, khiên chuỗi…), chọn 1 bỏ túi rồi tự bấm dùng ở câu muốn.") +
       sw("by_speed", "Tính điểm theo tốc độ", "Trả lời ngay = 1.000, sát hết giờ = 500.") +
       sw("streak", "Thưởng chuỗi đúng", "+100 mỗi câu đúng liên tiếp, tối đa +500.") +
       sw("last_double", "Câu cuối nhân đôi", "") +

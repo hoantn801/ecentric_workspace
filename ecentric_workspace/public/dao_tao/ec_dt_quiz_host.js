@@ -36,7 +36,7 @@
     }, function (e) { acting = false; D.busy(btn, false); D.toast(D.msg(e), true); load(0); });
   }
 
-  function key() { return [st.phase, st.index, st.players, st.phase === "lobby" ? st.lobby.length : "", panel ? 1 : 0, (st.flags || []).length].join("|"); }
+  function key() { return [st.phase, st.index, st.players, st.phase === "lobby" ? st.lobby.length : "", panel ? 1 : 0, (st.flags || []).length, st.power_open ? st.power_open.picked : ""].join("|"); }
 
   function render(force) {
     var k = key();
@@ -78,6 +78,7 @@
       var passed = Date.now() - gotAt, lead = Math.max(0, st.lead_ms - passed), left = Math.max(0, st.remaining_ms - passed);
       ring.style.setProperty("--p", (lead > 0 ? 100 : 100 * left / Math.max(1, st.limit_ms)) + "%");
       ring.querySelector("span").textContent = lead > 0 ? "…" : Math.ceil(left / 1000);
+      var x2 = D.byId("dt-x2"); if (x2) x2.hidden = lead <= 0;
       if (left > 0) tickT = setTimeout(updateLive, 250);
     }
   }
@@ -128,7 +129,18 @@
       D.esc(qText()) + '</div><div class="dt-side" style="text-align:center"><b style="font-size:34px" id="dt-ans">' + (locked ? "—" : st.answered + "/" + st.players) +
       "</b><span>đã trả lời</span><span>Câu " + (st.index + 1) + "/" + st.total + "</span></div></div>" +
       (st.question.type !== "pin" ? media() : "") + (st.question.options ? opts(null, null) : otherPrompt()) +
-      (locked ? '<p class="dt-big">Đã khoá - bấm Công bố đáp án</p>' : "");
+      (locked ? '<p class="dt-big">Đã khoá - bấm Công bố đáp án</p>' : "") +
+      (lastX2() && !locked ? '<div class="dt-x2" id="dt-x2" hidden><div><b>×2</b><span>CÂU CUỐI · NHÂN ĐÔI ĐIỂM</span><small>Cả điểm thưởng chuỗi cũng nhân đôi</small></div></div>' : "");
+  }
+  // Cau cuoi nhan doi (Hoan 13/11): bao truoc tren man chieu + dien thoai.
+  function lastX2() { return st.is_last && st.settings && st.settings.last_double !== false; }
+  function nextNotes() {
+    var h = "";
+    if (st.settings && st.settings.last_double !== false && st.index + 2 === st.total)
+      h += '<div class="dt-note x2">×2 · Câu tiếp theo là câu cuối - nhân đôi điểm (cả thưởng chuỗi)</div>';
+    if (st.power_open)
+      h += '<div class="dt-note pw">🎁 Power-up đã mở trên điện thoại - mọi người chọn trước khi bấm Câu tiếp (' + st.power_open.picked + "/" + st.players + " đã chọn)</div>";
+    return h;
   }
   function reveal() {
     var q = st.question, rv = st.reveal || {}, t = st.tally || {}, h = '<div class="dt-qtitle">' + D.esc(qText()) + "</div>";
@@ -165,7 +177,7 @@
         return '<span style="font-size:' + (18 + 42 * w[1] / mx) + "px;color:var(--c" + (i % 6 + 1) + ')">' + D.esc(w[0]) + "</span>"; }).join("") + "</div>";
     }
     if (rv.explain) h += '<div class="dt-side">💡 ' + D.esc(rv.explain) + "</div>";
-    return h;
+    return h + nextNotes();
   }
   function rows(list) {
     return '<div class="dt-board" style="max-width:820px;width:100%;align-self:center">' + (list || []).map(function (p) {
@@ -181,7 +193,7 @@
     }).join("") + "</div>";
   }
   function board() {
-    return '<h1 style="text-align:center">Bảng xếp hạng</h1>' + rows(st.board) + (st.teams ? '<h2 style="text-align:center">Đường đua phòng ban</h2>' + teamRows(st.teams) : "");
+    return '<h1 style="text-align:center">Bảng xếp hạng</h1>' + nextNotes() + rows(st.board) + (st.teams ? '<h2 style="text-align:center">Đường đua phòng ban</h2>' + teamRows(st.teams) : "");
   }
   function final() {
     var f = st.final || {}, pod = f.podium || [];

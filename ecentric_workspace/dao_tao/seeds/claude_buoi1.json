@@ -12,7 +12,8 @@
   "last_double": true,
   "allow_nick": true,
   "allow_avatar": true,
-  "same_order": true
+  "same_order": true,
+  "power_ups": true
  },
  "prizes": null,
  "questions": [

@@ -162,7 +162,7 @@ class FakeRepo:
         if k in self.players_:
             raise Duplicate(k)
         p = {"name": k, "score": 0, "correct_count": 0, "correct_ms": 0, "streak": 0, "best_streak": 0,
-             "answered": 0, "first_rank": 0, "kicked": 0, "flags": [], "device": ""}
+             "answered": 0, "first_rank": 0, "kicked": 0, "flags": [], "powers": {}, "device": ""}
         p.update(copy.deepcopy(f))
         p["joined_at"] = str(f.get("joined_at"))
         self.tick(1)

@@ -13,7 +13,7 @@ Chong gian lan o day (muc bao ve - xem constants GUARD_*):
 from ecentric_workspace.dao_tao import constants as C
 from ecentric_workspace.dao_tao.application import room_service, views
 from ecentric_workspace.dao_tao.application.access import require_found
-from ecentric_workspace.dao_tao.domain import profile, questions as Q, room, scoring, settings as S
+from ecentric_workspace.dao_tao.domain import powers as PW, profile, questions as Q, room, scoring, settings as S
 from ecentric_workspace.dao_tao.domain.errors import QuizError, QuizNotFound
 
 MSG_NO_ROOM = "Không có phòng nào đang mở với mã này. Kiểm tra lại 6 số trên màn chiếu."
@@ -154,6 +154,16 @@ def answer(ctx, repo, code, qid, payload, device=""):
     elapsed = room.elapsed_ms(s["opened_ms"], now)
     is_last = s["index"] + 1 >= len(s["questions"])
     sc = scoring.score_answer(ratio, elapsed, q["time"] * 1000, p["streak"], is_last, s["settings"])
+    if PW.enabled(s["settings"]):
+        try:                                        # loi power-up khong duoc chan viec tra loi
+            ids = PW.effective(PW.clean_state(p.get("powers")), s["index"])
+            if ids:
+                sc = scoring.score_answer(ratio, PW.elapsed_for_score(ids, elapsed), q["time"] * 1000,
+                                          p["streak"], is_last, s["settings"])
+                sc = PW.adjust(ids, sc, ratio, p["streak"], q["type"])
+        except Exception:
+            repo.log_error("dao_tao power answer %s %s" % (s["name"], ctx.user))
+            sc = scoring.score_answer(ratio, elapsed, q["time"] * 1000, p["streak"], is_last, s["settings"])
     try:
         repo.insert_answer({"session": s["name"], "user": ctx.user, "q_index": s["index"], "qid": q["id"],
                             "answer": clean, "received_ms": now, "elapsed_ms": elapsed,
@@ -216,3 +226,65 @@ def history(ctx, repo):
                      "awards": [{"label": a["label"], "gift": a["gift"], "tickets": a["tickets"]}
                                 for a in (res or {}).get("awards") or [] if a.get("user") == ctx.user]})
     return {"played": rows, "tickets": ticket_service.summary(repo, ctx.user)}
+
+
+# ------------------------------------------------------------------- power-up --
+
+def _power_ctx(ctx, repo, code, device):
+    s0 = _session_by_code(repo, code)
+    s = repo.lock_session(s0["name"])               # moi thay doi tui / diem duoi khoa phong
+    if not PW.enabled(s["settings"]):
+        raise QuizError("Phòng này không bật power-up.")
+    p = repo.get_player(s["name"], ctx.user)
+    if not p:
+        raise QuizError("Bạn chưa vào phòng.")
+    if p.get("kicked"):
+        raise QuizError(MSG_KICKED)
+    if not _device_ok(s, p, device):
+        raise QuizError(MSG_OTHER_DEVICE)
+    return s, p
+
+
+def pick_power(ctx, repo, code, power, device=""):
+    """Chon 1 trong 3 skill duoc moi (hoac "skip"). Tui vang cong diem ngay."""
+    s, p = _power_ctx(ctx, repo, code, device)
+    answered = bool(repo.get_answer(s["name"], s["index"], ctx.user)) if s["phase"] == C.PHASE_QUESTION else False
+    k = views.offer_index(s, answered)
+    if k is None:
+        raise QuizError("Chưa tới lúc chọn power-up.")
+    st = PW.clean_state(p.get("powers"))
+    if str(k) in st["picked"]:
+        raise QuizError("Bạn đã chọn power-up lượt này rồi.")
+    power = str(power or "")
+    if power != PW.SKIP:
+        if len(st["bag"]) >= PW.BAG_MAX:
+            raise QuizError("Túi đã đủ %d skill - dùng bớt rồi chọn tiếp nhé." % PW.BAG_MAX)
+        if power not in views.offer_ids(s, ctx.user, k):
+            raise QuizError("Skill này không có trong lượt mời của bạn.")
+    st["picked"][str(k)] = power
+    upd = {}
+    if power == "gold":
+        st["used"].append(power)
+        upd["score"] = p["score"] + PW.GOLD_POINTS
+    elif power != PW.SKIP:
+        st["bag"].append(power)
+    upd["powers"] = st
+    repo.update_player(s["name"], ctx.user, upd)
+    return state(ctx, repo, s["code"], device)
+
+
+def use_power(ctx, repo, code, power, device=""):
+    """Kich hoat skill trong tui cho CAU DANG MO (truoc khi tra loi)."""
+    s, p = _power_ctx(ctx, repo, code, device)
+    if s["phase"] != C.PHASE_QUESTION:
+        raise QuizError("Chỉ dùng skill khi câu hỏi đang mở.")
+    q = s["questions"][s["index"]]
+    if q["type"] in C.UNSCORED_TYPES:
+        raise QuizError("Câu này không tính điểm - để dành skill cho câu sau nhé.")
+    if repo.get_answer(s["name"], s["index"], ctx.user):
+        raise QuizError("Bạn đã trả lời câu này rồi.")
+    st = PW.clean_state(p.get("powers"))
+    if power not in st["bag"]:
+        raise QuizError("Skill này không có trong túi của bạn.")
+    repo.update_player(s["name"], ctx.user, {"powers": PW.activate(st, power, s["index"])})
+    return state(ctx, repo, s["code"], device)

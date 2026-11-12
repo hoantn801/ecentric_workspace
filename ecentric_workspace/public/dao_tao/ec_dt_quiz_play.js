@@ -133,7 +133,9 @@
   });
 
   function key() {
-    return [st.phase, st.index, st.answered ? 1 : 0, st.kicked ? 1 : 0, st.me ? st.me.rank : "", st.version > 0 && st.phase === "lobby" ? (st.me && st.me.players) : ""].join("|");
+    var pw = st.power ? [st.power.offer ? 1 : 0, st.power.picked ? st.power.picked.id : "", (st.power.bag || []).map(function (b) { return b.id; }).join(","),
+      (st.power.active || []).map(function (b) { return b.id; }).join(",")].join("/") : "";
+    return [st.phase, st.index, st.answered ? 1 : 0, st.kicked ? 1 : 0, st.me ? st.me.rank : "", st.version > 0 && st.phase === "lobby" ? (st.me && st.me.players) : "", pw].join("|");
   }
 
   function render(force) {
@@ -146,14 +148,15 @@
     if (ph === "lobby") h = lobby();
     else if (ph === "question") h = st.answered ? waitBox("Đã chốt!", "Chờ mọi người trả lời…") : questionHtml();
     else if (ph === "locked") h = st.answered ? waitBox("Đã chốt!", "Chờ công bố đáp án…") : waitBox("Hết giờ", "Câu này bạn chưa kịp trả lời.");
-    else if (ph === "reveal") h = revealHtml();
-    else if (ph === "board") h = boardHtml();
+    else if (ph === "reveal") h = powerOffer() + revealHtml();
+    else if (ph === "board") h = powerOffer() + boardHtml();
     else if (ph === "ended") h = finalHtml();
     else h = waitBox("Phòng đã đóng", "");
     root.innerHTML = shell(h);
     if (st.rules && st.rules.strict) { root.style.userSelect = "none"; root.oncopy = function (e) { e.preventDefault(); }; }
     if (ph === "lobby") { var eb = D.byId("dt-edit"); if (eb) eb.onclick = creator; }
     if (ph === "question" && !st.answered) bindQuestion();
+    bindPower();
     timer();
   }
 
@@ -192,10 +195,55 @@
   function qHead(q) {
     var t = '<div class="dt-timer"><span class="dt-pill" style="background:rgba(255,255,255,.16);border-radius:999px;padding:3px 10px;font-weight:700">Câu ' +
       (st.index + 1) + "/" + st.total + '</span><div class="dt-bar"><i id="dt-tbar"></i></div><b id="dt-tnum"></b></div>';
-    if (q.tiles_only) return t + '<p style="text-align:center">Nhìn câu hỏi trên màn chiếu</p>';
+    if (lastX2()) t = t.replace("</span>", ' <b class="dt-x2chip">×2</b></span>');
+    t += powerOffer() + powerBag();
+    if (q.tiles_only) return t + '<p style="text-align:center">Nhìn câu hỏi trên màn chiếu</p>' + leadIn();
     return t + '<div class="dt-qcard"><span class="dt-chip nv">' + D.esc(q.label) + "</span><h2 style=\"margin-top:6px\">" + D.esc(q.text) + "</h2>" +
       (q.media && q.media.url && q.type !== "pin" ? mediaHtml(q.media) : "") + "</div>" +
-      '<p id="dt-leadin" class="dt-big" hidden>Chuẩn bị…</p>';
+      leadIn();
+  }
+  function leadIn() {
+    return lastX2() ? '<p id="dt-leadin" class="dt-x2lead" hidden><b>×2</b> Câu cuối · nhân đôi điểm!</p>' : '<p id="dt-leadin" class="dt-big" hidden>Chuẩn bị…</p>';
+  }
+  function lastX2() { return st.is_last && st.rules && st.rules.last_double !== false; }
+
+  // ---------------------------------------------------------------- power-up --
+  function powerOffer() {
+    var pw = st.power;
+    if (!pw) return "";
+    if (pw.offer) return '<div class="dt-pwcard"><b>🎁 Chọn 1 power-up</b><span class="dt-small">Skill vào túi (tối đa ' + pw.bag_max +
+      ") - câu nào muốn dùng thì bấm Dùng trước khi trả lời.</span>" + pw.offer.map(function (o) {
+        return '<button class="dt-pwbtn" data-pick="' + D.esc(o.id) + '"><span class="dt-pwic">' + D.esc(o.icon) + "</span><span><b>" + D.esc(o.label) +
+          "</b><small>" + D.esc(o.desc) + "</small></span></button>";
+      }).join("") + '<button class="dt-b sm" data-pick="skip" style="align-self:center">Bỏ qua</button></div>';
+    if (pw.picked && st.phase !== "question") return '<div class="dt-pwcard done">' + (pw.picked.id === "skip" ? "Bạn đã bỏ qua lượt power-up này." :
+      "Đã chọn: <b>" + D.esc(pw.picked.label) + "</b>" + (pw.picked.id === "gold" ? " · +300 điểm" : " · nằm trong túi")) + "</div>";
+    return "";
+  }
+  function powerBag() {
+    var pw = st.power;
+    if (!pw || st.answered) return "";
+    var h = "";
+    if ((pw.active || []).length) h += '<div class="dt-pwbar">' + pw.active.map(function (a) { return '<span class="dt-pwchip">' + D.esc(a.icon) + " " + D.esc(a.label) + " · đang dùng</span>"; }).join("") + "</div>";
+    if ((pw.bag || []).length) h += '<div class="dt-pwbar">' + pw.bag.map(function (b) {
+      return '<button class="dt-pwuse" data-use="' + D.esc(b.id) + '" data-keep>' + D.esc(b.icon) + " Dùng: " + D.esc(b.label) + "</button>";
+    }).join("") + "</div>";
+    return h;
+  }
+  function bindPower() {
+    D.qsa(root, "[data-pick]").forEach(function (b) {
+      b.onclick = function () { powerCall("power_pick", b.dataset.pick, b); };
+    });
+    D.qsa(root, "[data-use]").forEach(function (b) {
+      b.onclick = function () { powerCall("power_use", b.dataset.use, b); };
+    });
+  }
+  function powerCall(method, id, btn) {
+    if (sending) return;
+    sending = true; D.busy(btn, true);
+    D.api(method, { code: code, power: id, device: device }, true).then(function (s) {
+      sending = false; apply(s); render(true);
+    }, function (e) { sending = false; D.busy(btn, false); D.toast(D.msg(e), true); poll(0); });
   }
   function mediaHtml(m) {
     var u = D.safeUrl(m.url);
@@ -207,6 +255,11 @@
     var long = q.options.some(function (o) { return (o.text || "").length > 24; });
     var h = '<div class="dt-opts' + (q.tiles_only ? " tiles" : "") + (long ? " long" : "") + '">';
     q.options.forEach(function (o, i) {
+      if (o.gone) {                                   // power-up "Loai 1 dap an sai": giu dung vi tri / mau
+        h += '<button class="dt-opt c' + i + ' gone" disabled data-keep aria-label="Đã loại"><span class="dt-shape">' + D.LETTERS[i] +
+          "</span><span>✂️ Đã loại</span></button>";
+        return;
+      }
       h += '<button class="dt-opt dt-ans c' + i + '" data-o="' + D.esc(o.id) + '" aria-pressed="false"><span class="dt-shape">' + D.LETTERS[i] +
         "</span><span>" + D.esc(o.text) + "</span>" + (multi ? '<span class="dt-tick" aria-hidden="true"></span>' : "") + "</button>";
     });

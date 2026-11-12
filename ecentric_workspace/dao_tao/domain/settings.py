@@ -13,6 +13,7 @@ DEFAULTS = {
     "guard": C.GUARD_STANDARD,      # muc bao ve
     "allow_nick": True,             # cho dat ten trong game
     "allow_avatar": True,           # cho trang tri nhan vat
+    "power_ups": False,             # power-up moi 5 cau (Hoan 13/11) - domain/powers.py
 }
 
 
@@ -33,7 +34,7 @@ def clean_settings(raw):
         out["board"] = raw["board"]
     if raw.get("guard") in C.GUARD_LEVELS:
         out["guard"] = raw["guard"]
-    for k in ("show_on_phone", "same_order", "by_speed", "streak", "last_double", "allow_nick", "allow_avatar"):
+    for k in ("show_on_phone", "same_order", "by_speed", "streak", "last_double", "allow_nick", "allow_avatar", "power_ups"):
         out[k] = _bool(raw.get(k), DEFAULTS[k])
     return out
 

@@ -321,31 +321,31 @@
     "sha256": "c798fb5341c93a69942b929fcd6b6f5c7b7803f5329d44ad6cd168c9521a3f16"
   },
   "dao_tao/pages/learn/main_section.html": {
-    "last_resync_patch": "p370_dao_tao_gop_y_13_11",
-    "sha256": "a5e507c43e900fcee43bc9f336a5f24b0ef3a07963241e9470cbc5faddfe14e1"
+    "last_resync_patch": "p371_dao_tao_power_up",
+    "sha256": "866831e11dab7fb4a81ff9c93f112f4a50cdefc4e55a9a775fa7168d42291af7"
   },
   "dao_tao/pages/lesson/main_section.html": {
-    "last_resync_patch": "p370_dao_tao_gop_y_13_11",
-    "sha256": "faf9b66c0e8ada765090a5b7a93bdc21e931db145e303b421ec6211616de2e95"
+    "last_resync_patch": "p371_dao_tao_power_up",
+    "sha256": "8c5957a51060cfa0ea836635a35d7e31845572a24f0e7ddf521643639ae28484"
   },
   "dao_tao/pages/admin/main_section.html": {
-    "last_resync_patch": "p370_dao_tao_gop_y_13_11",
-    "sha256": "5da3de23e9906a0ce4efbee0ced14df6e34bd2d34507d5be4bbe66bc6d753784"
+    "last_resync_patch": "p371_dao_tao_power_up",
+    "sha256": "d0c4f6db1b71c29dc07b438bdd045ac3db6a900fd165cca8aaa8cb58762293b5"
   },
   "dao_tao/pages/quiz/main_section.html": {
-    "last_resync_patch": "p370_dao_tao_gop_y_13_11",
-    "sha256": "e46475daef1a51e1fb9b8491586be0dfb905b097c1b7eb26780ba2174154e8f7"
+    "last_resync_patch": "p371_dao_tao_power_up",
+    "sha256": "f3ca65567a26b8e80930733b182deb292b91969d6c659eef6e8d408f69b1f519"
   },
   "dao_tao/pages/edit/main_section.html": {
-    "last_resync_patch": "p370_dao_tao_gop_y_13_11",
-    "sha256": "7f6e348836c481d8ece24be7a530959121ac6e966989828da22083881d7c0fc7"
+    "last_resync_patch": "p371_dao_tao_power_up",
+    "sha256": "7cb222fb9eb6080b1dd3b98280fff17e9bef7ec5b44bf260d57a49c29c62f40d"
   },
   "dao_tao/pages/play/main_section.html": {
-    "last_resync_patch": "p370_dao_tao_gop_y_13_11",
-    "sha256": "eef974c15de8222d5a341b688ab561487dfcb3094866986657eef54547e80201"
+    "last_resync_patch": "p371_dao_tao_power_up",
+    "sha256": "824e9a8fac101727df24405ed470905a4a579fe8e245ada2f18165ca3fc763d5"
   },
   "dao_tao/pages/host/main_section.html": {
-    "last_resync_patch": "p370_dao_tao_gop_y_13_11",
-    "sha256": "62ad95025f7fdb40747444383be9d3a04a4c7888c3356185f1188e8993976553"
+    "last_resync_patch": "p371_dao_tao_power_up",
+    "sha256": "3cecb8acfc5340451f6486bcaf1c57503edcdc07f1cfdb108e69fc0bfa2b279b"
   }
 }

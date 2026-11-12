@@ -30,6 +30,7 @@
   "device",
   "kicked",
   "flags_json",
+  "powers_json",
   "joined_at"
  ],
  "fields": [
@@ -119,6 +120,11 @@
    "label": "Cờ (JSON)"
   },
   {
+   "fieldname": "powers_json",
+   "fieldtype": "Long Text",
+   "label": "Power-up (JSON)"
+  },
+  {
    "fieldname": "joined_at",
    "fieldtype": "Datetime",
    "label": "Vào lúc"
@@ -140,5 +146,5 @@
  ],
  "links": [],
  "index_web_pages_for_search": 0,
- "modified": "2026-11-12 18:00:00.000000"
+ "modified": "2026-11-13 03:30:00.000000"
 }
