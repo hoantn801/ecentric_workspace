@@ -170,7 +170,7 @@ class QuizFlowTest(unittest.TestCase):
         final = st["final"]
         self.assertEqual(final["podium"][0]["email"], STAFF[0].user)
         self.assertEqual(len(final["teams"]), 2)            # Ops (4) + Fin (2 -> Van phong)
-        self.assertIn(C.TEAM_MERGED, [t["team"] for t in final["teams"]])
+        self.assertNotIn(C.TEAM_MERGED, [t["team"] for t in final["teams"]])   # doi = phong ban that
         r1 = [a for a in final["awards"] if a["rank"] == "rank1"]
         self.assertEqual(r1[0]["user"], STAFF[0].user)
         self.assertEqual(r1[0]["granted"], 3)                # 3 ve hang 1 (+1 ve 60%) -> tran 3

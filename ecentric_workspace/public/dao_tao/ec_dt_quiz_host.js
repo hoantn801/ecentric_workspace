@@ -67,6 +67,7 @@
     D.byId("dt-fs").onclick = function () { var el = document.documentElement; if (!document.fullscreenElement && el.requestFullscreen) el.requestFullscreen(); else if (document.exitFullscreen) document.exitFullscreen(); };
     if (st.phase === "lobby") qr();
     if (panel) bindPlayers();
+    var csv = D.byId("dt-csv"); if (csv) csv.onclick = downloadAwards;
     if (window.ECDtMusic) { try { window.ECDtMusic.attach(D.byId("dt-mus"), st.phase); } catch (e) { /* nhac hong khong duoc lam hong man chieu */ } }
     updateLive();
   }
@@ -216,14 +217,32 @@
       }).join("") + "</div>" + ((f.teams || []).length ? '<div class="dt-side" style="min-width:300px"><b>Top phòng ban</b>' + (f.teams || []).slice(0, 6).map(function (t) {
         return '<div class="dt-row"><b>' + t.rank + "</b><span>" + D.esc(t.team) + '</span><span class="dt-sp"></span><b>' + D.fmtNum(t.score) + "</b></div>";
       }).join("") + "</div>" : "") + "</div>";
-    var others = (f.awards || []).filter(function (a) { return ["rank1", "rank2", "rank3"].indexOf(a.rank) < 0; });
-    if (others.length) {
-      h += '<div class="dt-side"><b>Giải khác</b><div class="dt-lobby">' + others.map(function (a) {
-        return '<div class="dt-pc">' + D.pcard({ nickname: a.nickname, email: a.user, avatar: a.avatar }, 32) + '<span class="dt-small">' + D.esc(a.label) +
-          (a.gift ? " · " + D.esc(a.gift) : "") + (a.tickets ? " · " + a.tickets + " vé" : "") + "</span></div>";
-      }).join("") + "</div></div>";
+    // Danh sach nhan giai day du (Hoan 13/11): ten, email, phong ban, giai, qua, ve + tai CSV de phat qua.
+    var aw = f.awards || [], dept = {};
+    (st.lobby || []).forEach(function (p) { dept[p.email] = p.department; });
+    if (aw.length) {
+      h += '<div class="dt-side dt-awards"><div class="dt-row"><b>Danh sách nhận giải (' + aw.length + ')</b><span class="dt-sp"></span>' +
+        '<button class="dt-b sm" id="dt-csv">Tải danh sách (CSV)</button></div><table class="dt-table" style="color:#fff"><thead><tr><th>Giải</th><th>Người chơi</th><th>Email</th><th>Phòng ban</th><th>Quà</th><th>Vé</th></tr></thead><tbody>' +
+        aw.map(function (a) {
+          return "<tr><td><b>" + D.esc(a.label) + "</b></td><td>" + D.esc(a.nickname) + "</td><td>" + D.esc(a.user) + "</td><td>" + D.esc(a.department || dept[a.user] || "") +
+            "</td><td>" + D.esc(a.gift || "") + "</td><td>" + (a.tickets || 0) + "</td></tr>";
+        }).join("") + "</tbody></table></div>";
     }
     return h;
+  }
+
+  function downloadAwards() {
+    var f = st.final || {}, dept = {};
+    (st.lobby || []).forEach(function (p) { dept[p.email] = p.department; });
+    var q = function (v) { v = String(v == null ? "" : v); return '"' + v.replace(/"/g, '""') + '"'; };
+    var rows = [["Giải", "Tên trong game", "Email", "Phòng ban", "Quà", "Vé"]].concat((f.awards || []).map(function (a) {
+      return [a.label, a.nickname, a.user, a.department || dept[a.user] || "", a.gift || "", a.tickets || 0];
+    }));
+    var blob = new Blob(["\ufeff" + rows.map(function (r) { return r.map(q).join(","); }).join("\r\n")], { type: "text/csv;charset=utf-8" });
+    var link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "giai-quiz-" + (st.code || "phong") + ".csv";
+    document.body.appendChild(link); link.click(); link.remove();
   }
 
   // ----------------------------------------------------------- quan ly nguoi choi --

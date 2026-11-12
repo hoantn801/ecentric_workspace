@@ -216,7 +216,8 @@ class BoardPrizeTest(unittest.TestCase):
         self.assertEqual(tie[0]["user"], "y")
 
     def test_teams_average_and_merge(self):
-        teams = board.rank_teams(self.players)
+        self.assertIn("IT", [t["team"] for t in board.rank_teams(self.players)])   # mac dinh: dung phong ban
+        teams = board.rank_teams(self.players, min_size=4)
         names = [t["team"] for t in teams]
         self.assertIn(C.TEAM_MERGED, names)              # IT (1) + chua co phong (1) -> gop
         self.assertNotIn("IT", names)

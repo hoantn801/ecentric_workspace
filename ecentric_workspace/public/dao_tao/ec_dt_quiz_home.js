@@ -50,8 +50,12 @@
     var box = D.byId("dt-host");
     if (!box) return;
     var live = (d.rooms || []).filter(function (r) { return r.live; });
+    var ended = (d.rooms || []).filter(function (r) { return r.phase === "ended"; }).slice(0, 6);
     box.innerHTML = '<div class="dt-panel dt-pad"><div class="dt-row"><h2 class="dt-h2">Ban đào tạo · Bộ quiz</h2><span class="dt-sp"></span>' +
       '<a class="dt-b pri" href="/quiz/soan">' + D.icon("plus") + " Tạo bộ quiz</a></div>" +
+      (ended.length ? '<div style="margin:10px 0"><b>Kết quả phòng đã kết thúc</b><div class="dt-row" style="margin-top:6px;flex-wrap:wrap">' + ended.map(function (r) {
+        return '<a class="dt-b" href="/quiz/chieu?s=' + encodeURIComponent(r.name) + '">' + D.icon("flag") + " " + D.esc(r.title) + " · " + D.fmtDate(r.ended_at || r.created) + "</a>";
+      }).join("") + "</div></div>" : "") +
       (live.length ? '<div class="dt-row" style="margin:10px 0">' + live.map(function (r) {
         return '<a class="dt-b gold" href="/quiz/chieu?s=' + encodeURIComponent(r.name) + '">' + D.icon("play") + " Màn chiếu " + D.esc(r.title) + " · " + D.esc(r.code) + "</a>";
       }).join("") + "</div>" : "") +
