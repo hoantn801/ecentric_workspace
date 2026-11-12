@@ -609,6 +609,113 @@ def _plan_handover_core(dsr, profile_name, environment, stage=None, adapter=None
     return out
 
 
+def portal_stage_for(dsr):
+    """Khoa `stage` cua dong cau hinh buoc cho chan nay o che do LAY BUOC TU CONG:
+    "requester" cho chan nguoi lap, "level:<n>" cho cap duyet n cua ERP."""
+    if dsr.get("actor_type") == "Requester":
+        return "requester"
+    level = dsr.get("request_level_no")
+    if level is None:
+        level = _level_of(dsr)
+    return "level:%s" % int(level or 0)
+
+
+def _configured_step(profile_name, action, stage):
+    """Dong cau hinh buoc (action, stage) CHINH XAC tren ho so, hoac None. Khac
+    resolve_transition_config: khong co dong mac dinh, va buoc KHONG KY khong co processAction
+    van hop le (cong gui processAction null)."""
+    if not profile_name:
+        return None
+    try:
+        profile = frappe.get_doc("EC Digital Signature Profile", profile_name)
+    except Exception:
+        return None
+    rows = [r for r in (profile.get("transitions") or [])
+            if r.action == action and (r.stage or "").strip() == stage
+            and r.transition_id is not None]
+    if len(rows) != 1:
+        return None
+    r = rows[0]
+    return {"transition_id": r.transition_id, "transition_name": r.transition_name or "",
+            "process_action": r.process_action or "", "sign_type": r.sign_type or "",
+            "terminal": bool(r.terminal)}
+
+
+#: action cua dong cau hinh buoc theo action cua chan ky.
+STEP_ACTION = {"Sign": "Sign", "Approve": "Forward"}
+
+
+def plan_portal_step(dsr, state, profile_name, environment, adapter=None, instance_id=None):
+    """Ke hoach gui buoc o che do LAY BUOC TU CONG (ho so bat `trust_portal_transitions`,
+    12/11/2026, hop dong WF09).
+
+    Buoc gui = dong cau hinh (action, stage "requester" | "level:<n>") tren ho so - transition
+    id cua quy trinh la HANG SO theo quy trinh (WF09: -2 trinh KT, -3 KTTH, -4 KTT, -5 CEO
+    chuyen doi tac; doc dinh nghia quy trinh tren cong 12/11). Cong chi dung de XAC NHAN: canh
+    do PHAI dang mo trong availableTransitions; processAction / signType / co ky / buoc dich
+    lay tu canh cua cong. KHONG doan theo transitionType: WF09 canh tu choi va canh doi tac ky
+    deu la RETURN_CREATOR, canh duyet khong ky khong co loai rieng - luat "canh di tiep" cua
+    DNTT khong dung o day.
+
+    KHONG BAO GIO tra "pool", khong dem chu ky.
+    Tra {mode: "transition", to_users, erp_users, config, state_before, to_state}
+      | {mode: "wait", reason}   - cong chua toi buoc nay (canh chua mo): hoi lai sau
+      | {mode: "stop", reason}   - can nguoi sua cau hinh / anh xa.
+    """
+    stage = portal_stage_for(dsr)
+    action = STEP_ACTION.get(dsr.get("action") or "Sign")
+    want = _configured_step(profile_name, action, stage)
+    if not want:
+        return {"mode": "stop", "reason": "no_step_config:%s/%s" % (action, stage)}
+    edges = (state or {}).get("transitions") or []
+    open_ = [t for t in edges if str(t.get("transition_id")) == str(want["transition_id"])]
+    if not open_:
+        return {"mode": "wait", "reason": "step_not_open:%s (dang mo: %s)" % (
+            want["transition_id"], ",".join(str(t.get("transition_id")) for t in edges) or "-")}
+    edge = open_[0]
+    cfg = {"transition_id": want["transition_id"],
+           "transition_name": edge.get("transition_name") or want["transition_name"],
+           "process_action": edge.get("process_action") or want["process_action"],
+           "sign_type": edge.get("sign_type") or want["sign_type"],
+           "terminal": bool(edge.get("terminal")) or want["terminal"],
+           "requires_signature": bool(edge.get("requires_signature"))}
+    out = {"config": cfg, "state_before": str(state.get("current_state_id") or ""),
+           "to_state": str(edge.get("to_state") or ""),
+           "transition_source": SOURCE_DISCOVERED, "stage": stage}
+    ar = dsr.get("approval_request")
+    if stage == "requester":
+        # Nguoi lap trinh cho cap cong DAU TIEN - chinh la cap dang mo (portal_steps), khong
+        # phai cap 1 (vd Truong phong chi duyet tren ERP).
+        level = int(frappe.db.get_value(AR, ar, "current_level") or 0) - 1
+    else:
+        level = int(stage.split(":")[1])
+    users = next_level_approvers(ar, level)
+    if not users:
+        if cfg["terminal"]:
+            out.update({"mode": "transition", "to_users": [], "erp_users": []})
+            return out
+        # Buoc ke tiep tren cong khong co nguoi ERP (vd CEO `-5` sang DOI TAC). Chua lam (PR-D):
+        # DUNG, khong gui toUsers rong (= ca nhom vai tro). Ho so WF09 KHONG duoc bat truoc PR-D.
+        return {"mode": "stop", "reason": "no_next_level_approver:partner_step_not_supported"}
+    ids, unmapped = provider_ids_for(users, environment)
+    if unmapped or not ids:
+        # Thieu anh xa mot nguoi = cong giao buoc cho thieu nguoi. Dung lai, noi ro ai.
+        return {"mode": "stop", "reason": "next_handler_unmapped:%s" % ",".join(unmapped)}
+    if adapter is not None and instance_id and hasattr(adapter, "eligible_recipients"):
+        eligible = adapter.eligible_recipients(instance_id, cfg.get("transition_id"),
+                                               dsr.get("effective_scts_user_id"))
+        if eligible is not None:
+            dropped = [i for i in ids if str(i) not in eligible]
+            if dropped:
+                # Chuoi ERP va quy trinh cong lech nhau: nguoi ERP chon khong nhan duoc buoc nay.
+                return {"mode": "stop", "reason": "recipient_not_eligible:%s"
+                                                  % ",".join(str(i) for i in dropped)}
+        else:
+            out["recipients_unverified"] = True
+    out.update({"mode": "transition", "to_users": ids, "erp_users": users})
+    return out
+
+
 def _level_of(dsr):
     rl = dsr.get("request_level")
     if not rl:

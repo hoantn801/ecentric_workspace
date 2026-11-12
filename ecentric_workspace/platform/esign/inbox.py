@@ -89,7 +89,8 @@ def _derive_row(ar, user, is_sm):
         return None
     # final_level bat buoc: thieu no thi chinh sach "Final Approval Level Only" luon tra False
     # va hop thu khong bao gio danh dau la cap can ky.
-    sig_level = bool(ar.current_level and guard.level_requires_signature(
+    # Cap "Approve" (duyet KHONG KY tren cong, 12/11/2026) cung la viec cua hop thu nay.
+    sig_level = bool(ar.current_level and guard.level_portal_action(
         ar.reference_doctype, ar.approval_type, ar.current_level,
         final_level=guard.request_final_level(ar.name),
         business_name=ar.reference_name)) \

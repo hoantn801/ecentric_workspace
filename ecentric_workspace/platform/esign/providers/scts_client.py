@@ -244,9 +244,13 @@ class SctsClient(object):
             # khong the tao chu ky, khop dung hien tuong "2xx roi im, khong ky" cua ca 5
             # lenh transition tu ERP. Cac truong nay adapter doc tu GetSignatures va truyen
             # xuong qua signature_extra; client khong tu bia gia tri.
-            "signatureInfo": dict({"id": signature_id, "name": signature_name,
-                                   "image": signature_image or ""},
-                                  **(signature_extra or {})),
+            # Buoc KHONG KY (12/11/2026): cong tu gui `signatureInfo: null, signType: null`
+            # (tasks.js -> processTransition, doc ma cong 12/11). Khong chu ky = khong bia mot
+            # signatureInfo rong.
+            "signatureInfo": (None if signature_id is None else
+                              dict({"id": signature_id, "name": signature_name,
+                                    "image": signature_image or ""},
+                                   **(signature_extra or {}))),
             "comment": comment or "",
         }
         headers = {"Accept": "application/json", "Content-Type": "application/json"}

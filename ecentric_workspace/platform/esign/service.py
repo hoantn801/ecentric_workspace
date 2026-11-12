@@ -191,10 +191,28 @@ def approve_and_sign(business_doctype, business_name, comment=None, bulk_batch_k
 
     # Policy-driven (Approver Signature Policy) so admins need not recreate every level; the
     # final level is resolved dynamically from the request's frozen runtime approvers.
-    if not guard.level_requires_signature(business_doctype, req.approval_type, req.current_level,
-                                          final_level=guard.request_final_level(req.name),
-                                          business_name=business_name):
+    # "Sign" | "Approve" (duyet KHONG KY tren cong - hop dong WF09, 12/11/2026) | None.
+    action = guard.level_portal_action(business_doctype, req.approval_type, req.current_level,
+                                       final_level=guard.request_final_level(req.name),
+                                       business_name=business_name)
+    if not action:
         frappe.throw(_("Cấp duyệt hiện tại không yêu cầu ký số - dùng nút Duyệt thường."))
+    trust = int(profile.get("trust_portal_transitions") or 0)
+    if action == "Approve" and not trust:
+        # Buoc khong ky KHONG dem duoc bang chu ky -> chi gui khi lay buoc tu cong.
+        frappe.throw(_("Hồ sơ ký số có bước duyệt không ký nhưng chưa bật 'Lấy bước từ cổng' "
+                       "- liên hệ quản trị."))
+    if trust:
+        _assert_single_portal_approval(req)
+        from ecentric_workspace.platform.esign import portal_steps
+        if portal_steps.skipped_portal_levels(req):
+            frappe.throw(_("Phiếu có cấp duyệt trên cổng ký số bị bỏ qua - chuỗi ký trên cổng "
+                           "sẽ kẹt. Liên hệ quản trị."))
+        # Buoc nguoi lap chua xong -> tai lieu chua toi buoc cua nguoi nay. Xep hang lai buoc
+        # nguoi lap (luoi an toan khi lan mo cap bi lo) roi bao cho (QC 12/11).
+        waiting = portal_steps.requester_step_pending(req)
+        if waiting:
+            frappe.throw(waiting)
 
     mapping = perms.verified_mapping(actor, profile.environment)
     if not mapping:
@@ -222,7 +240,7 @@ def approve_and_sign(business_doctype, business_name, comment=None, bulk_batch_k
     request_level = _level_row(req)
     idem = hashing.idempotency_key(
         profile.provider, profile.environment, req.name, request_level, approver_row,
-        "Sign", pkg.package_hash, "%s@%s" % (mapping.name, mapping.modified))
+        action, pkg.package_hash, "%s@%s" % (mapping.name, mapping.modified))
 
     existing = frappe.db.get_value(DSR, {"idempotency_key": idem},
                                    ["name", "status"], as_dict=True)
@@ -257,10 +275,12 @@ def approve_and_sign(business_doctype, business_name, comment=None, bulk_batch_k
                 "doctype": DSR, "provider": profile.provider,
                 "environment": profile.environment, "package": pkg_name,
                 "approval_request": req.name, "request_level": request_level,
-                "approver_row": approver_row, "action": "Sign",
+                "approver_row": approver_row, "action": action,
                 "requested_by": actor, "approver": actor,
                 "effective_scts_user_id": mapping.scts_user_id,
-                "effective_signature_id": mapping.signature_id,
+                # Duyet khong ky: khong gui chu ky nao -> khong ghi chu ky.
+                "effective_signature_id": (mapping.signature_id if action == "Sign"
+                                           else None),
                 "idempotency_key": idem, "status": "Draft",
                 "package_version": pkg.package_version, "package_hash": pkg.package_hash,
                 "bulk_batch_key": bulk_batch_key,
@@ -284,6 +304,113 @@ def approve_and_sign(business_doctype, business_name, comment=None, bulk_batch_k
 # --------------------------------------------------------------------------- #
 # verification + completion (worker side)
 # --------------------------------------------------------------------------- #
+def _assert_single_portal_approval(req):
+    """Ho so LAY BUOC TU CONG: moi cap tren cong la MOT buoc. Cap can nhieu nguoi duyet (All
+    Required / Minimum Count > 1) thi nguoi dau gui buoc, cong di tiep, nguoi sau doi mot canh
+    khong bao gio mo lai (QC 12/11). Chan ngay tu luc bam, noi ro."""
+    lv = frappe.db.get_value("EC Approval Request Level",
+                             {"approval_request": req.name, "level_no": req.current_level},
+                             ["approval_mode", "minimum_approvals"], as_dict=True) or {}
+    mode = (lv.get("approval_mode") or "").strip()
+    if mode in ("", "Any One"):
+        return
+    if mode == "Minimum Count" and int(lv.get("minimum_approvals") or 0) <= 1:
+        return
+    people = frappe.db.count("EC Approval Request Approver",
+                             {"approval_request": req.name, "level_no": req.current_level,
+                              "status": ["!=", "Skipped"]})
+    if people <= 1:
+        return
+    frappe.throw(_("Cấp duyệt này cần nhiều người cùng duyệt ({0}) nhưng trên cổng ký số chỉ là "
+                   "MỘT bước - không gửi được. Liên hệ quản trị đổi cấp thành 'Any One'.")
+                 .format(mode))
+
+
+#: Ly do doi soat toi thieu (cung nguong voi cac nut xac nhan khac cua trang van hanh).
+MIN_PORTAL_RECONCILE_REASON = 10
+
+
+def _reconcile_portal_step(dsr, settings, doc_id, reason, observed_state_id=None):
+    """Doi soat chan DUYET KHONG KY (QC 12/11/2026). CHI DOC cong. Hai duong, ca hai can ly do:
+
+    1. Chan DA GUI (co moc `provider_state_before` = "<truoc>|<dich>"): xac nhan khi cong dang o
+       DUNG buoc dich (so sanh duoc). Khong "canh khong con mo" - dieu do cung dung khi tai
+       lieu bi tra lai / tu choi tren cong, va xac nhan luc do la ghi DUYET cho nguoi da tu
+       choi (QC vong 2 tai hien duoc).
+    2. Chan CHUA GUI (nguoi duyet bam thang tren cong, ERP khong co moc): KHONG tu suy. Nguoi
+       truc phai xem lich su tren cong va go lai MA BUOC hien tai (`observed_state_id`); khop
+       buoc cong dang dung + canh cua chan nay khong con mo -> xac nhan, ghi ro la khai cua ai.
+    """
+    from ecentric_workspace.platform.esign import next_handler
+    from ecentric_workspace.platform.esign import tasks
+    from ecentric_workspace.platform.esign.providers import get_adapter
+    from ecentric_workspace.platform.esign.providers.base import ProviderError
+    if len((reason or "").strip()) < MIN_PORTAL_RECONCILE_REASON:
+        return {"ok": False, "reason": "can_ly_do_toi_thieu_%s_ky_tu" % MIN_PORTAL_RECONCILE_REASON}
+    adapter = get_adapter(settings)
+    try:
+        doc_state = adapter.poll_status(doc_id)
+        state, why = adapter.workflow_state_for_document(doc_id, dsr.effective_scts_user_id)
+    except ProviderError as exc:
+        return {"ok": False, "reason": "provider_error:%s" % safe_error(exc)}
+    canon = str(getattr(doc_state, "status", "") or "").lower()
+    if canon in ("cancelled", "rejected"):
+        return {"ok": False, "reason": "provider_document_%s" % canon}
+    if state is None:
+        return {"ok": False, "reason": why}
+    cur = str(state.get("current_state_id") or "")
+    before_to = dsr.get("provider_state_before")
+    moved, why_moved = (tasks._portal_moved(before_to, cur) if before_to
+                        else (False, "leg_never_sent"))
+    if moved is True:
+        why_ok = "sm_confirmed_portal_step:%s" % why_moved
+    else:
+        # Khong chung minh tu dong duoc (chua gui / cong da di qua buoc dich vi nguoi sau bam
+        # thang tren cong / ma buoc khong so duoc). Nguoi truc XEM lich su tren cong va go ma
+        # buoc hien tai; ERP kiem: (a) canh cua chan nay khong con mo, (b) cong khong con o
+        # buoc ma canh nay mo (moc cua chan TRUOC, hoac moc "truoc" cua chinh chan nay),
+        # (c) ma go khop buoc cong dang dung.
+        want = next_handler._configured_step(
+            frappe.db.get_value("EC Digital Signature Package", dsr.package, "profile"),
+            next_handler.STEP_ACTION.get("Approve"), next_handler.portal_stage_for(dsr))
+        if not want:
+            return {"ok": False, "reason": "no_step_config"}
+        if any(str(t.get("transition_id")) == str(want["transition_id"])
+               for t in (state.get("transitions") or [])):
+            return {"ok": False, "reason": "portal_still_waiting_for_this_step"}
+        opens_at = (str(before_to).partition("|")[0] if before_to
+                    else _previous_portal_target(dsr))
+        if opens_at and cur == opens_at:
+            # Cong van o buoc cua chan nay (canh khong mo voi nguoi nay vi ly do khac) - hoac
+            # chua toi. Khong xac nhan.
+            return {"ok": False, "reason": "portal_still_at_this_step:%s" % cur}
+        if not observed_state_id or str(observed_state_id).strip() != cur:
+            return {"ok": False, "reason": "need_observed_state:%s (%s)" % (cur, why_moved)}
+        why_ok = "sm_declared_portal_step_done:%s (%s)" % (cur, why_moved)
+    events.emit("PollTick", signature_request=dsr.name, package=dsr.package,
+                verification_result=why_ok,
+                request_meta={"source": "manual_reconcile", "boi": frappe.session.user,
+                              "ly_do": reason, "observed_state_id": observed_state_id})
+    mark_verified(dsr.name, why_ok)
+    tasks._complete_dsr(dsr.name, dsr)
+    final = frappe.db.get_value(DSR, dsr.name, "status")
+    return {"ok": final == "Approval Completed", "reason": why_ok, "status": final}
+
+
+def _previous_portal_target(dsr):
+    """Buoc dich ma chan cong TRUOC tren cung goi da dua tai lieu toi (= buoc ma canh cua chan
+    nay mo). None neu khong biet."""
+    rows = frappe.get_all(DSR, filters={"package": dsr.get("package"),
+                                        "status": "Approval Completed",
+                                        "provider_state_before": ["is", "set"],
+                                        "name": ["!=", dsr.get("name")]},
+                          fields=["provider_state_before"], order_by="completed_at desc",
+                          limit_page_length=1)
+    if not rows:
+        return None
+    return str(rows[0].get("provider_state_before") or "").partition("|")[2] or None
+
+
 def _completed_legs_of_same_signer(dsr):
     """SO chan ky da hoan tat cua CUNG NGUOI nay tren cung goi, khong ke chan dang xet.
 
@@ -305,6 +432,8 @@ def _completed_legs_of_same_signer(dsr):
             {"package": dsr.get("package"),
              "effective_scts_user_id": dsr.get("effective_scts_user_id"),
              "name": ["!=", dsr.get("name")],
+             # Chan duyet KHONG KY (Approve, 12/11/2026) khong de chu ky nao.
+             "action": "Sign",
              "status": ["in", ("Signed", "Approval Completed")]})
     except Exception:
         return None
@@ -440,7 +569,8 @@ def _guarded_dsr_transition(dsr_name, from_status, to_status, extra=None,
     return changed
 
 
-def reconcile_manual_review(dsr_name, accept_predating=False, reason=None):
+def reconcile_manual_review(dsr_name, accept_predating=False, reason=None,
+                            observed_state_id=None):
     """Re-verify a leg parked in Manual Review against the provider's CURRENT state.
 
     Reads only. If the signature the leg was waiting for is now really there - the signer
@@ -460,6 +590,8 @@ def reconcile_manual_review(dsr_name, accept_predating=False, reason=None):
     doc_id = frappe.db.get_value("EC Digital Signature Package", dsr.package, "scts_document_id")
     if not doc_id:
         return {"ok": False, "reason": "no_provider_document"}
+    if dsr.action == "Approve":
+        return _reconcile_portal_step(dsr, settings, doc_id, reason, observed_state_id)
 
     from ecentric_workspace.platform.esign.providers import get_adapter
     from ecentric_workspace.platform.esign.providers.base import SignatureProviderAdapter
@@ -512,7 +644,8 @@ def verify_and_complete(dsr_name, comment=None):
     no-ops; terminal states are never downgraded)."""
     # Locking read in ONE statement (see events.current_status).
     dsr = frappe.db.get_value(DSR, dsr_name,
-                              ["name", "status", "approval_request", "approver", "package"],
+                              ["name", "status", "approval_request", "approver", "package",
+                               "action"],
                               as_dict=True, for_update=True)
     if not dsr or dsr.status != "Signed":
         return {"completed": False, "reason": "not_in_signed_state"}
@@ -532,8 +665,11 @@ def verify_and_complete(dsr_name, comment=None):
         # `comment` do nguoi goi dat khi ban chat viec khac di (vi du dong bo chu ky da co
         # tren cong, khong phai mot lan bam "Duyet & Ky"). Binh luan nay nam trong LICH SU
         # PHIEU - cho nguoi dung doc - nen no phai noi dung chuyen da xay ra.
+        default_comment = (_("Duyệt (đã chuyển bước trên cổng ký số: {0})").format(dsr.name)
+                           if dsr.get("action") == "Approve"
+                           else _("Duyệt & Ký (ký số đã xác minh: {0})").format(dsr.name))
         engine.approve(dsr.approval_request, actor=dsr.approver,
-                       comment=comment or _("Duyệt & Ký (ký số đã xác minh: {0})").format(dsr.name))
+                       comment=comment or default_comment)
     except Exception as e:
         # R2 (2026-07-12): rollback the savepoint FIRST, then let the CURRENT
         # persisted DB state decide. Manual Review is stamped only when this
@@ -925,7 +1061,7 @@ def _audit_drift(limit=200):
         if not ky:
             continue
         xong = {}
-        for leg in frappe.get_all(DSR, filters={"package": pkg_name,
+        for leg in frappe.get_all(DSR, filters={"package": pkg_name, "action": "Sign",
                                                 "status": ["in", ("Signed",
                                                                   "Approval Completed")]},
                                   fields=["approver"]) or []:
@@ -1028,6 +1164,7 @@ def sync_signatures_from_provider(business_doctype, business_name, reason):
             # KHONG co `signed_after`: dinh nghia cua tinh huong nay la ky TRUOC khi ERP hoi.
             "prior_signatures": frappe.db.count(
                 DSR, {"package": pkg_name, "effective_scts_user_id": mapping.scts_user_id,
+                      "action": "Sign",
                       "status": ["in", ("Signed", "Approval Completed")]}),
         }
         vr = SignatureProviderAdapter.verify_signed_result(doc_state, expected)
@@ -1193,10 +1330,14 @@ def signing_readiness(business_doctype, business_name):
     is_approver = bool(req.approval_status == "Pending" and req.current_level
                        and perms.pending_approver_row(ar, req.current_level, user))
     checks["active_approver"] = is_approver
-    checks["level_requires_signature"] = bool(
-        req.current_level and guard.level_requires_signature(
-            business_doctype, req.approval_type, req.current_level,
-            final_level=guard.request_final_level(ar), business_name=business_name))
+    # Cap "Approve" (duyet KHONG KY tren cong, 12/11/2026) cung di nut "Duyet & Ky": ERP gui
+    # buoc cua nguoi nay sang cong. Ten khoa giu nguyen cho giao dien cu.
+    portal_action = (guard.level_portal_action(
+        business_doctype, req.approval_type, req.current_level,
+        final_level=guard.request_final_level(ar), business_name=business_name)
+        if req.current_level else None)
+    checks["level_requires_signature"] = bool(portal_action)
+    checks["portal_action"] = portal_action
     pkg_name = pkgsvc.active_package_for_request(ar)
     pkg = frappe.db.get_value("EC Digital Signature Package", pkg_name,
                               ["status", "package_hash", "error_code"], as_dict=True) if pkg_name else None

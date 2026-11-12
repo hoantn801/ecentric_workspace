@@ -48,6 +48,9 @@ def _capabilities(guard_result=True, guard_raises=False):
             raise RuntimeError("boom")
         return guard_result
     guard.level_requires_signature = level_requires_signature
+    # 12/11 (PR-B): capabilities hoi level_portal_action ("Sign" | "Approve" | None).
+    guard.level_portal_action = lambda *a, **k: ("Sign" if level_requires_signature(*a, **k)
+                                                 else None)
     guard.request_final_level = lambda name: 4
     perms = types.ModuleType("ecentric_workspace.approval_center.shared.workflow.permissions")
     perms.can_view_request = lambda *a, **k: True
@@ -118,7 +121,8 @@ class TestListRowsAndDetail(unittest.TestCase):
         helper = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)
                   and n.name == "_requires_signature"][0]
         hs = ast.unparse(helper)
-        self.assertIn("level_requires_signature(", hs)
+        # 12/11 (PR-B): cap "Approve" (duyet khong ky tren cong) cung di nut "Duyet & Ky".
+        self.assertIn("level_portal_action(", hs)
         self.assertIn("except Exception", hs)
         self.assertIn("memo[key] = False", hs)
         self.assertIn("v['requires_signature'] = bool(v['can_approve'] and _requires_signature(", ast.unparse(tree))

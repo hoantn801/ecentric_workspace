@@ -1455,6 +1455,19 @@ def _activate_level(req, level_no):
         request_doctype=req.reference_doctype, request_name=req.reference_name,
         level_no=level_no, approvers=approvers, opened_at=rl.activated_at,
         sla_policy_code=rl.sla_policy, attempt=_sla_attempt(req.name))
+    _esign_on_level_activated(req.name, level_no)
+
+
+def _esign_on_level_activated(request_name, level_no):
+    """Declared cross-module call into platform.esign (12/11/2026): quy trinh ky "lay buoc tu
+    cong" (hop dong WF09) gui buoc cua NGUOI LAP sang cong khi cap cong dau tien mo. Ben esign
+    tu nuot loi; boc them o day de mot ImportError cung khong chan duoc viec mo cap."""
+    try:
+        from ecentric_workspace.platform.esign import portal_steps as esign_portal_steps
+        esign_portal_steps.on_level_activated(request_name, level_no)
+    except Exception:
+        # title= : Frappe tu dinh kem traceback hien tai.
+        frappe.log_error(title="engine._esign_on_level_activated")
 
 
 def _actor_pending_row(req_name, level_no, actor):

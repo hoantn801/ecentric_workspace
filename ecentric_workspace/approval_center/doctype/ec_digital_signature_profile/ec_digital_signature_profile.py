@@ -24,6 +24,7 @@ class ECDigitalSignatureProfile(Document):
                 frappe.throw(_("Duplicate signing level {0} in profile.").format(row.level_no))
             seen.add(row.level_no)
         # An ENABLED profile must have a governed signing actor consistent with its policy.
+        self._validate_portal_approve_levels()
         if self.enabled:
             self._validate_enabled_signing_actor()
             self._validate_selector()
@@ -32,6 +33,62 @@ class ECDigitalSignatureProfile(Document):
             frappe.throw(_("deadline_days required for Fixed Days rule."))
         if self.deadline_rule == "From Field" and not (self.deadline_source or "").strip():
             frappe.throw(_("deadline_source required for From Field rule."))
+
+    def _validate_portal_approve_levels(self):
+        """Dong cap 'Approve' (duyet KHONG KY tren cong, 12/11/2026) chi co nghia khi:
+          * cap do KHONG ky (requires_signature = 0) - ky thi la buoc ky;
+          * chinh sach la 'Selected Approval Levels' - 'All' / 'Final' bat ky theo cap, de
+            dong Approve bi lan im lang;
+          * ho so bat 'Lay buoc tu cong' - buoc khong ky khong dem duoc bang chu ky."""
+        rows = [r for r in (self.levels or []) if (r.get("provider_action") or "") == "Approve"]
+        if int(self.get("trust_portal_transitions") or 0):
+            self._validate_trusted_steps()
+        if not rows:
+            return
+        for r in rows:
+            if int(r.get("requires_signature") or 0):
+                frappe.throw(_("Cấp {0}: 'Bước trên cổng' = Approve (duyệt không ký) thì phải "
+                               "bỏ chọn 'Requires Signature'.").format(r.level_no))
+        if (self.approver_signature_policy or "Selected Approval Levels") != \
+                "Selected Approval Levels":
+            frappe.throw(_("Có cấp 'Approve' (duyệt không ký) thì Approver Signature Policy phải "
+                           "là 'Selected Approval Levels'."))
+        if not int(self.get("trust_portal_transitions") or 0):
+            frappe.throw(_("Có cấp 'Approve' (duyệt không ký) thì phải bật 'Lấy bước từ cổng'."))
+        for r in rows:
+            stage = "level:%s" % int(r.level_no or 0)
+            steps = [t for t in (self.transitions or [])
+                     if t.action == "Forward" and (t.stage or "").strip() == stage
+                     and t.transition_id not in (None, 0)]
+            if len(steps) != 1:
+                frappe.throw(_("Cấp {0} (Approve) cần ĐÚNG MỘT dòng Transitions: Action = "
+                               "Forward, Stage = '{1}', có Transition Id (vd WF09: -3 / -4).")
+                             .format(r.level_no, stage))
+
+    def _validate_trusted_steps(self):
+        """'Lay buoc tu cong' (QC 12/11): moi buoc ERP gui di phai khai san - thieu thi chan ky dung
+        luc chay (no_step_config). Ky nguoi de nghi kieu DNTT + buoc nguoi lap kieu cong = hai chan
+        nguoi lap tranh nhau mot buoc -> cam."""
+        if int(self.requester_signature_required or 0):
+            frappe.throw(_("'Lấy bước từ cổng' không đi cùng 'Requester Signature Required' - "
+                           "người lập trình trên cổng bằng bước Forward / stage 'requester'."))
+        if (self.approver_signature_policy or "Selected Approval Levels") != \
+                "Selected Approval Levels":
+            # 'All' / 'Final' bat ky theo cap luc chay - khong khai buoc cong tung cap duoc.
+            frappe.throw(_("'Lấy bước từ cổng' cần Approver Signature Policy = 'Selected "
+                           "Approval Levels' (khai từng cấp)."))
+        def one(action, stage):
+            return len([t for t in (self.transitions or []) if t.action == action
+                        and (t.stage or "").strip() == stage
+                        and t.transition_id not in (None, 0)]) == 1
+        if not one("Forward", "requester"):
+            frappe.throw(_("'Lấy bước từ cổng' cần ĐÚNG MỘT dòng Transitions: Action = Forward, "
+                           "Stage = 'requester' (bước người lập trình, vd WF09: -2)."))
+        for r in (self.levels or []):
+            if int(r.get("requires_signature") or 0) and not one("Sign", "level:%s"
+                                                                  % int(r.level_no or 0)):
+                frappe.throw(_("Cấp {0} (ký) cần ĐÚNG MỘT dòng Transitions: Action = Sign, "
+                               "Stage = 'level:{0}'.").format(r.level_no))
 
     def _validate_selector(self):
         """Nhieu ho so DANG BAT cho cung (doctype, loai yeu cau) phai phan biet duoc theo phieu

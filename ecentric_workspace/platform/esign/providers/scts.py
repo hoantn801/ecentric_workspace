@@ -471,6 +471,15 @@ class SctsAdapter(SignatureProviderAdapter):
         neu SCTS nhan - la chung thu cua nguoi trinh, khong phai cua tai khoan tich hop.
         Tra cuu chu ky luon theo `provider_user_id` (chu chu ky), khong theo actor.
         """
+        if signature_id is None:
+            # Buoc DUYET KHONG KY (12/11/2026): dung payload cong gui - signatureInfo null,
+            # signType null. Khong tra cuu chu ky.
+            acting_user = actor_user_id or provider_user_id
+            raw = self._with_auth(lambda t: self._client.transition(
+                instance_id, acting_user, to_users,
+                config.get("transition_id"), config.get("transition_name"),
+                config.get("process_action") or None, None, None, None, comment, t))
+            return {"bulk_job_transaction_id": self._extract_txn_id(raw)}
         # Anh chu ky la truong BAT BUOC cua eContract o buoc nay. Lay hong thi van gui di
         # va de provider tu tu choi, chu khong tu suy ra ket luan thay no.
         rec = None

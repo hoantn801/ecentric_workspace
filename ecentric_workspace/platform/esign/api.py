@@ -271,6 +271,11 @@ def authorize_resend(dsr_name, reason):
     dsr = frappe.db.get_value("EC Digital Signature Request", dsr_name, "*", as_dict=True)
     if not dsr:
         frappe.throw(_("Không tìm thấy chân ký."))
+    if dsr.action == "Approve":
+        # Buoc duyet KHONG KY (12/11/2026): phep kiem duoi day doc CHU KY - vo nghia o day.
+        # Chan nay dung "Doi soat" (kiem buoc tren cong). Gui lai buoc khong ky: chua lam.
+        frappe.throw(_("Chân duyệt không ký trên cổng: dùng 'Đối soát' (kiểm bước trên cổng), "
+                       "không dùng 'Gửi lại'."))
     if dsr.status != "Manual Review":
         frappe.throw(_("Chỉ gửi lại được chân ký đang ở Manual Review (hiện: {0}).")
                      .format(dsr.status))
@@ -594,7 +599,8 @@ def provider_workflow_view(dsr_name, transition_id=None, provider_user_id=None,
 # camelCase la quy uoc cua eContract ("workflowInstanceId", "fileId"), nen KHONG the doi hoi
 # mot ranh gioi truoc "Id" - lan dau viet the va tuot mat dung cai field dang di tim.
 @frappe.whitelist(methods=["POST"])
-def reconcile_signature_request(dsr_name, accept_predating=0, reason=None):
+def reconcile_signature_request(dsr_name, accept_predating=0, reason=None,
+                                observed_state_id=None):
     """System Manager: re-verify a leg parked in Manual Review against what the provider says
     NOW. Completes it when the signature really is there. NEVER sends anything.
 
@@ -639,8 +645,12 @@ def reconcile_signature_request(dsr_name, accept_predating=0, reason=None):
         frappe.throw(_("Không tìm thấy yêu cầu ký."))
     if dsr.status != "Manual Review":
         return {"ok": False, "reason": "not_in_manual_review:%s" % dsr.status}
+    # `observed_state_id` (12/11/2026): chan DUYET KHONG KY - ma buoc nguoi truc DOC tren cong
+    # (xem service._reconcile_portal_step). Chan ky bo qua tham so nay.
     return svc.reconcile_manual_review(dsr_name, accept_predating=bat_co,
-                                       reason=ly_do or None)
+                                       reason=ly_do or None,
+                                       observed_state_id=(str(observed_state_id).strip()
+                                                          if observed_state_id else None))
 
 
 
