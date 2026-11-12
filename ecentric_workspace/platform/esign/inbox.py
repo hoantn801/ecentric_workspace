@@ -91,7 +91,8 @@ def _derive_row(ar, user, is_sm):
     # va hop thu khong bao gio danh dau la cap can ky.
     sig_level = bool(ar.current_level and guard.level_requires_signature(
         ar.reference_doctype, ar.approval_type, ar.current_level,
-        final_level=guard.request_final_level(ar.name))) \
+        final_level=guard.request_final_level(ar.name),
+        business_name=ar.reference_name)) \
         if ar.approval_status == "Pending" else False
     completed = ar.approval_status == "Approved"
     if not sig_level and not completed:
@@ -161,7 +162,13 @@ def signing_inbox(filters=None, start=0, page_length=20):
     truncated = scope_count > _CANDIDATE_CAP
     rows = []
     for ar in cands:
-        r = _derive_row(ar, user, is_sm)
+        try:
+            r = _derive_row(ar, user, is_sm)
+        except Exception:
+            # Mot phieu cau hinh ky sai (vd hai ho so cung khop - QC2 12/11) khong duoc lam
+            # 500 ca hop thu, ke ca dong DNTT. Ghi log, bo dong do.
+            frappe.log_error(frappe.get_traceback(), "esign inbox: %s" % ar.name)
+            continue
         if r is not None:
             rows.append(r)
     b = filters.get("bucket")

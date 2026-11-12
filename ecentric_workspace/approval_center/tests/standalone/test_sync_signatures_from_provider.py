@@ -141,7 +141,7 @@ def _run(pending=(_HOF,), mapping=True, vr_ok=True, vr_reason="verified", status
         "_req_for_business": lambda dt, n: _D({"name": "EC-APR-1", "approval_status": status,
                                                "current_level": level,
                                                "approval_type": "PAYMENT_REQUEST"}),
-        "_profile_doc": lambda dt, at: _D({"provider": "SCTS", "environment": "UAT"}),
+        "_profile_doc": lambda dt, at, name=None: _D({"provider": "SCTS", "environment": "UAT"}),
         "_settings_for": lambda p: _D({"environment": "UAT"}),
         "pkgsvc": types.SimpleNamespace(active_package_for_request=lambda r: "EC-DSP-1"),
         "get_adapter": lambda s: _Adapter,

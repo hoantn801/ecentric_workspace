@@ -121,7 +121,7 @@ def upload_package_file(business_doctype, business_name, requires_signature=0,
     # khong co ly do gi de dung goi tai lieu ky so.
     perms.assert_can_setup_package(business_doctype, business_name)
     at = frappe.db.get_value(business_doctype, business_name, "approval_type")
-    profile = guard.get_active_profile(business_doctype, at)
+    profile = guard.get_active_profile(business_doctype, at, business_name)
     if not profile:
         frappe.throw(_("Ký số chưa được bật cho loại yêu cầu này."))
     file_name, content = _file_bytes()

@@ -135,7 +135,7 @@ def _resolve_type_and_profile(business_doctype, business_name, ar):
     if not at:
         return None, None, "approval_type_missing"
     try:
-        profile = guard.get_enabled_profile(business_doctype, at)
+        profile = guard.get_enabled_profile(business_doctype, at, business_name)
     except frappe.ValidationError:
         return at, None, "ambiguous_profile"   # >1 enabled profile for the exact pair
     if not profile:

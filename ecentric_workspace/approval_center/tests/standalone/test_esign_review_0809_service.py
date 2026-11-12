@@ -327,13 +327,14 @@ class TestOneDraftPerBusinessUnderLock(unittest.TestCase):
                 return "PKG-EXISTING"
             return "EC-PAYR-1"
         fk.db = types.SimpleNamespace(get_value=get_value)
-        g = {"frappe": fk, "_": fk._, "get_package": lambda n: {"name": n},
+        # 12/11: goi nhap that luon co `profile`; cung ho so -> khong tro lai (PR-A).
+        g = {"frappe": fk, "_": fk._, "get_package": lambda n: {"name": n, "profile": "PROF"},
              "perms": types.SimpleNamespace(business_approval_request=lambda *a: None),
              "events": types.SimpleNamespace(emit=lambda *a, **k: None)}
         body = [_fn(src, "draft_package_for_business"), _fn(src, "get_or_create_draft")]
         exec(compile(ast.Module(body=body, type_ignores=[]), "pkg.py", "exec"), g)
         out = g["get_or_create_draft"]("EC Payment Request", "EC-PAYR-1", "PROF")
-        self.assertEqual(out, {"name": "PKG-EXISTING"})
+        self.assertEqual(out, {"name": "PKG-EXISTING", "profile": "PROF"})
         self.assertEqual(fk.calls[0], ("EC Payment Request", "name", True), "khoa hang phieu TRUOC")
         self.assertEqual(fk.calls[1][0], "EC Digital Signature Package")
         self.assertTrue(fk.calls[1][2], "tim Draft phai la locking read (thay Draft vua commit)")

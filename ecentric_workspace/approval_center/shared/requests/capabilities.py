@@ -146,7 +146,8 @@ def _requires_signature(can_act, business_doc, approval_request):
         from ecentric_workspace.platform.esign import guard
         return bool(guard.level_requires_signature(
             business_doc.doctype, approval_request.approval_type, approval_request.current_level,
-            final_level=guard.request_final_level(approval_request.name)))
+            final_level=guard.request_final_level(approval_request.name),
+            business_name=business_doc.name))
     except Exception:
         frappe.log_error(frappe.get_traceback(), "capabilities.requires_signature")
         return False

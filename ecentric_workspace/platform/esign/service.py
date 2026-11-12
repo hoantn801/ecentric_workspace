@@ -115,8 +115,8 @@ def _settings_for(profile_row):
     return s
 
 
-def _profile_doc(reference_doctype, approval_type):
-    name = guard.get_active_profile(reference_doctype, approval_type)
+def _profile_doc(reference_doctype, approval_type, business_name=None):
+    name = guard.get_active_profile(reference_doctype, approval_type, business_name)
     if not name:
         frappe.throw(_("Ký số chưa được bật cho loại yêu cầu này."))
     return frappe.db.get_value("EC Digital Signature Profile", name, "*", as_dict=True)
@@ -181,7 +181,7 @@ def approve_and_sign(business_doctype, business_name, comment=None, bulk_batch_k
     transition are all resolved server-side."""
     actor = frappe.session.user
     req = _req_for_business(business_doctype, business_name)
-    profile = _profile_doc(business_doctype, req.approval_type)
+    profile = _profile_doc(business_doctype, req.approval_type, business_name)
     settings = _settings_for(profile)
 
     binding.assert_provider_environment(settings)  # fail fast: nhan la + Production chua bat
@@ -192,7 +192,8 @@ def approve_and_sign(business_doctype, business_name, comment=None, bulk_batch_k
     # Policy-driven (Approver Signature Policy) so admins need not recreate every level; the
     # final level is resolved dynamically from the request's frozen runtime approvers.
     if not guard.level_requires_signature(business_doctype, req.approval_type, req.current_level,
-                                          final_level=guard.request_final_level(req.name)):
+                                          final_level=guard.request_final_level(req.name),
+                                          business_name=business_name):
         frappe.throw(_("Cấp duyệt hiện tại không yêu cầu ký số - dùng nút Duyệt thường."))
 
     mapping = perms.verified_mapping(actor, profile.environment)
@@ -574,7 +575,7 @@ def reject_with_transition(business_doctype, business_name, comment):
     reason). Provider transition is best-effort afterwards; failure never un-rejects."""
     actor = frappe.session.user
     req = _req_for_business(business_doctype, business_name)
-    profile = _profile_doc(business_doctype, req.approval_type)
+    profile = _profile_doc(business_doctype, req.approval_type, business_name)
     prev_mute = frappe.flags.mute_messages
     frappe.flags.mute_messages = True
     try:
@@ -651,14 +652,14 @@ def get_signing_status(business_doctype, business_name):
     if not at and ar:
         at = frappe.db.get_value("EC Approval Request", ar, "approval_type")
     if at:
-        profile = guard.get_active_profile(business_doctype, at)
+        profile = guard.get_active_profile(business_doctype, at, business_name)
     else:
         # draft with empty approval_type field (per-form APIs don't populate it):
         # any enabled+gated profile for this DocType decides visibility
         for r in frappe.get_all("EC Digital Signature Profile",
                                  filters={"business_doctype": business_doctype, "enabled": 1},
                                  fields=["name", "approval_type"], limit_page_length=5):
-            profile = guard.get_active_profile(business_doctype, r.approval_type)
+            profile = guard.get_active_profile(business_doctype, r.approval_type, business_name)
             if profile:
                 break
     out["enabled"] = bool(profile)
@@ -908,7 +909,8 @@ def _audit_drift(limit=200):
         try:
             prof = _profile_doc(r["reference_doctype"],
                                 frappe.db.get_value("EC Approval Request", r["name"],
-                                                    "approval_type"))
+                                                    "approval_type"),
+                                r.get("reference_name"))
             state = get_adapter(_settings_for(prof)).poll_status(doc_id)
         except Exception as exc:
             unreadable.append({"business_name": r["reference_name"],
@@ -991,7 +993,7 @@ def sync_signatures_from_provider(business_doctype, business_name, reason):
     req = _req_for_business(business_doctype, business_name)
     if req.approval_status != "Pending" or not req.current_level:
         return {"synced": [], "skipped": [], "reason": "not_pending:%s" % req.approval_status}
-    profile = _profile_doc(business_doctype, req.approval_type)
+    profile = _profile_doc(business_doctype, req.approval_type, business_name)
     settings = _settings_for(profile)
     pkg_name = pkgsvc.active_package_for_request(req.name)
     doc_id = frappe.db.get_value("EC Digital Signature Package", pkg_name,
@@ -1179,7 +1181,7 @@ def signing_readiness(business_doctype, business_name):
     if not ar:
         return {"ready": False, "reasons": ["not_submitted"], "checks": {}}
     req = frappe.get_doc("EC Approval Request", ar)
-    profile_name = guard.get_active_profile(business_doctype, req.approval_type)
+    profile_name = guard.get_active_profile(business_doctype, req.approval_type, business_name)
     checks["signing_enabled"] = bool(profile_name)
     if not profile_name:
         return {"ready": False, "reasons": ["signing_not_enabled"], "checks": checks}
@@ -1194,7 +1196,7 @@ def signing_readiness(business_doctype, business_name):
     checks["level_requires_signature"] = bool(
         req.current_level and guard.level_requires_signature(
             business_doctype, req.approval_type, req.current_level,
-            final_level=guard.request_final_level(ar)))
+            final_level=guard.request_final_level(ar), business_name=business_name))
     pkg_name = pkgsvc.active_package_for_request(ar)
     pkg = frappe.db.get_value("EC Digital Signature Package", pkg_name,
                               ["status", "package_hash", "error_code"], as_dict=True) if pkg_name else None
