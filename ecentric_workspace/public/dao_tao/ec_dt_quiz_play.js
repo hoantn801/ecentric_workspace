@@ -216,6 +216,7 @@
         return '<button class="dt-pwbtn" data-pick="' + D.esc(o.id) + '"><span class="dt-pwic">' + D.esc(o.icon) + "</span><span><b>" + D.esc(o.label) +
           "</b><small>" + D.esc(o.desc) + "</small></span></button>";
       }).join("") + '<button class="dt-b sm" data-pick="skip" style="align-self:center">Bỏ qua</button></div>';
+    if (pw.window && pw.full && !pw.picked && st.phase !== "question") return '<div class="dt-pwcard done">🎒 Túi đã đầy (' + pw.bag_max + " skill) - dùng bớt skill để nhận lượt power-up sau.</div>";
     if (pw.picked && st.phase !== "question") return '<div class="dt-pwcard done">' + (pw.picked.id === "skip" ? "Bạn đã bỏ qua lượt power-up này." :
       "Đã chọn: <b>" + D.esc(pw.picked.label) + "</b>" + (pw.picked.id === "gold" ? " · +300 điểm" : " · nằm trong túi")) + "</div>";
     return "";
@@ -324,7 +325,7 @@
   function bindQuestion() {
     var q = st.question, t = q.type;
     if (t === "single" || t === "truefalse" || t === "poll") {
-      D.qsa(root, ".dt-opt").forEach(function (b) { b.onclick = function () { b.setAttribute("aria-pressed", "true"); send({ o: b.dataset.o }); }; });
+      D.qsa(root, ".dt-opt").forEach(function (b) { b.onclick = function () { if (sending) return; b.setAttribute("aria-pressed", "true"); send({ o: b.dataset.o }); }; });
       return;
     }
     if (t === "multi") {
@@ -389,7 +390,7 @@
     var r = st.result || {}, q = st.question, rv = st.reveal || {};
     var cls = !r.scored ? "none" : (r.correct ? "ok" : (r.partial ? "part" : (st.answered ? "bad" : "none")));
     var title = !r.scored ? "Cảm ơn bạn!" : (r.correct ? "Chính xác!" : (r.partial ? "Gần đúng!" : (st.answered ? "Chưa đúng" : "Hết giờ")));
-    var h = '<div class="dt-res ' + cls + '">' + title + "<small>" + (r.scored ? "+" + D.fmtNum(r.points) + " điểm" +
+    var h = '<div class="dt-res ' + cls + '">' + title + "<small>" + (r.scored ? (r.points < 0 ? "" : "+") + D.fmtNum(r.points) + " điểm" +
       (r.correct && r.streak > 1 ? " · chuỗi " + r.streak + " 🔥" : "") : "Câu này không tính điểm") + "</small></div>";
     h += '<div class="dt-qcard"><h2>' + D.esc(q.text) + "</h2>" + answerKey(q, rv, st.my_answer) +
       (rv.explain ? '<p class="dt-muted" style="margin-top:10px">💡 ' + D.esc(rv.explain) + "</p>" : "") + "</div>";

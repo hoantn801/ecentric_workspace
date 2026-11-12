@@ -321,31 +321,31 @@
     "sha256": "c798fb5341c93a69942b929fcd6b6f5c7b7803f5329d44ad6cd168c9521a3f16"
   },
   "dao_tao/pages/learn/main_section.html": {
-    "last_resync_patch": "p375_dao_tao_sanh_cap_nhat_ten",
-    "sha256": "afcdd5f5334e3393d38b08347b9e25460cf7b5a729da3f96eeb74fda4e0737a3"
+    "last_resync_patch": "p376_dao_tao_qc_truoc_buoi",
+    "sha256": "6ef6ff891d6bab0f0e8071e7191915ce892c5bf8701928d706b24f5e1bdefc9d"
   },
   "dao_tao/pages/lesson/main_section.html": {
-    "last_resync_patch": "p375_dao_tao_sanh_cap_nhat_ten",
-    "sha256": "fb2cc74c673f5fb183fde5a9caa753bb2d604c7d7e77707408227b9403e0e8a8"
+    "last_resync_patch": "p376_dao_tao_qc_truoc_buoi",
+    "sha256": "ccf41cb3d6bc14a5b4bf42182f25f7c28533499ee12372acaea203d9a493fc3b"
   },
   "dao_tao/pages/admin/main_section.html": {
-    "last_resync_patch": "p375_dao_tao_sanh_cap_nhat_ten",
-    "sha256": "5cba0a39aba915a7b0b6d26fa32a27c690b26ebb9bf31d1f55962034a2e60ced"
+    "last_resync_patch": "p376_dao_tao_qc_truoc_buoi",
+    "sha256": "1f11a1b8f08408b777f0311cadd12a6701faf760dda338c9a3302d98fee477ea"
   },
   "dao_tao/pages/quiz/main_section.html": {
-    "last_resync_patch": "p375_dao_tao_sanh_cap_nhat_ten",
-    "sha256": "5ce91853d0fd60426bafdcf7bf1a27e316528c9cea2100fda0d89d964762bd69"
+    "last_resync_patch": "p376_dao_tao_qc_truoc_buoi",
+    "sha256": "658f8bcf1b520e919d704eb2bb44b74e00a2855f0062387e5ae329c666da9e52"
   },
   "dao_tao/pages/edit/main_section.html": {
-    "last_resync_patch": "p375_dao_tao_sanh_cap_nhat_ten",
-    "sha256": "1dc6517ff5c5dfb5d1a4a1c9ba4705fbb9ff1aea025ee476c910cfc88ce48c3f"
+    "last_resync_patch": "p376_dao_tao_qc_truoc_buoi",
+    "sha256": "4baf5c48efa2e2ccbb0be3937b6e1c6c232b4b5da2d55d651bdcba8c2f31b290"
   },
   "dao_tao/pages/play/main_section.html": {
-    "last_resync_patch": "p375_dao_tao_sanh_cap_nhat_ten",
-    "sha256": "91cf5eac1e9e6e5b26abb7e356cfbe83b775df79b3f538b322ee37b4e4fb7af7"
+    "last_resync_patch": "p376_dao_tao_qc_truoc_buoi",
+    "sha256": "a5a0dadd6bf9e9d21f493da1ff0ce1ca937b85baa69e93eff66ca3cd89c5ec07"
   },
   "dao_tao/pages/host/main_section.html": {
-    "last_resync_patch": "p375_dao_tao_sanh_cap_nhat_ten",
-    "sha256": "502de9562959450bb1166188e89d6a32195cd322fcf17b69f75714a488d82ebe"
+    "last_resync_patch": "p376_dao_tao_qc_truoc_buoi",
+    "sha256": "d70c4ccb20b866bf08b3c93bb50fac78edc08a2e267f05a9b378ec762585c7e5"
   }
 }

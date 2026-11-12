@@ -205,7 +205,7 @@
   }
   function final() {
     var f = st.final || {}, pod = f.podium || [];
-    var order = [1, 0, 2], hts = ["26vh", "34vh", "20vh"];
+    var order = [1, 0, 2], hts = ["34vh", "26vh", "20vh"];   // hts theo hang: hang 1 cao nhat
     var h = '<h1 style="text-align:center">🏁 Về đích!</h1><div class="dt-row" style="align-items:flex-end;gap:24px;justify-content:center"><div class="dt-podium">' +
       order.map(function (i) {
         var p = pod[i]; if (!p) return "";
