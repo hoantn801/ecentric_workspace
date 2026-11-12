@@ -140,7 +140,7 @@ def provider_ids_for(users, environment):
 _APPROVE_TYPES = ("approve",)
 
 
-def discover_transition(adapter, instance_id, provider_user_id, quick=False):
+def discover_transition(adapter, instance_id, provider_user_id):
     """Ask the PROVIDER which transition applies right now, instead of configuring one.
 
     Captured from the portal 2026-08-28:
@@ -159,9 +159,7 @@ def discover_transition(adapter, instance_id, provider_user_id, quick=False):
     if not hasattr(adapter, "available_transitions"):
         return None, "adapter_cannot_discover_transitions"
     try:
-        # `quick` chi khi shadow hoi: duong chinh giu nguyen loi goi cu tung chu.
-        avail = (adapter.available_transitions(instance_id, provider_user_id, quick=True)
-                 if quick else adapter.available_transitions(instance_id, provider_user_id)) or []
+        avail = adapter.available_transitions(instance_id, provider_user_id) or []
     except Exception as exc:
         # Ghi CA noi dung loi, khong chi ten loai. Ban dau chi ghi type(exc).__name__ va lan
         # chay that 28/08 tra ve dung mot chu "SctsHttpError" - biet la hong nhung khong biet
@@ -189,7 +187,11 @@ def discover_transition(adapter, instance_id, provider_user_id, quick=False):
 #: Nhung ly do nghia la "nha cung cap noi KHONG duoc di" - phai dung lai, khong duoc lay cau
 #: hinh cu ra dung thay. Khac han voi "khong hoi duoc" (mang loi, 4xx, adapter cu).
 _REFUSALS = ("no_available_transition", "no_approve_transition",
-             "ambiguous_approve_transition", "incomplete_transition")
+             "ambiguous_approve_transition", "incomplete_transition",
+             # pick_forward_edge (chang 2b). Khai SAN o day: ngay chuyen sang tin cong ma quen
+             # dong nay thi "cong noi khong duoc di" bi coi nhu "khong hoi duoc" -> gui cau
+             # hinh cu bat chap (QC 12/11).
+             "no_forward_transition", "ambiguous_forward_transition")
 
 
 def why_is_refusal(why):
@@ -377,34 +379,78 @@ def transition_discovery_mode():
     return DISCOVERY_SHADOW
 
 
-def shadow_probe(dsr, adapter, document_id, known_instance_id=None):
-    """Hoi cong buoc chuyen hien tai cua tai lieu - CHI DOC, khong bao gio nem loi.
+def pick_forward_edge(transitions):
+    """Canh DI TIEP (khong phai tu choi / huy) trong availableTransitions. (canh, None) hoac
+    (None, ly_do).
 
-    Hai lan GET: (1) ma tai lieu -> ma workflow instance (khi goi chua co), (2) ma instance ->
-    availableTransitions cua nguoi ky. Tra dict de ghi vao su kien.
+    Khong chi dua vao `transitionType == "approve"`. Do tren cong 12/11/2026, quy trinh DNTT
+    5 chu ky, buoc Ke toan truong (state -7): canh "Phe duyet" `-11` mang transitionType
+    "normal" - CUNG kieu voi canh "Tu choi" `-12`. Khac nhau o cho canh di tiep KY
+    (isSigned + processAction), canh tu choi khong. Luat cu (`_APPROVE_TYPES`) se tra
+    "no_approve_transition" dung o buoc do.
 
-    KHONG ghi ma instance vao goi: `workflow_instance_id()` doc truong do cho CA lenh ghi
-    (`transition`, `bulk-process`), nen luu no = doi duong gui lenh ky cua moi phieu ngay lap
-    tuc. Viec do thuoc buoc sau, khi da co so lieu.
+    Nen: canh di tiep = transitionType approve, HOAC (isSigned va co processAction). Hai canh
+    thoa -> khong chon thay ai, tra ly do. Khong canh nao -> tra ly do kem ten cac canh co.
+    """
+    rows = [t for t in (transitions or []) if isinstance(t, dict)]
+    if not rows:
+        return None, "no_available_transition"
+    picks = [t for t in rows
+             if (t.get("transition_type") or "") in _APPROVE_TYPES
+             or (t.get("requires_signature") and t.get("process_action"))]
+    if not picks:
+        return None, "no_forward_transition:%s" % ",".join(
+            str(t.get("transition_name") or t.get("transition_id") or "?") for t in rows)
+    if len(picks) > 1:
+        return None, "ambiguous_forward_transition:%s" % ",".join(
+            str(t.get("transition_id")) for t in picks)
+    t = picks[0]
+    if t.get("transition_id") is None:
+        return None, "incomplete_transition"
+    return t, None
+
+
+def shadow_probe(dsr, adapter, document_id):
+    """Hoi cong buoc hien tai cua tai lieu - CHI DOC, MOT lan GET, khong bao gio nem loi.
+
+    `GET /api/Workflow/instance/{ma tai lieu}?userId=` (xem SctsClient.
+    get_workflow_instance_by_document): tra `currentStateId` + canh chuyen dang mo. Tra dict de
+    ghi vao su kien.
+
+    KHONG ghi gi vao goi: `workflow_instance_id()` doc `scts_workflow_instance_id` cho CA lenh
+    ghi, nen luu no = doi duong gui lenh ky. Do 11-12/11: ma instance TRUNG ma tai lieu tren
+    moi tai lieu da hoi, nen cung khong co gi de luu.
     """
     if adapter is None or not document_id:
         return {"ok": False, "why": "no_adapter_or_document"}
-    user = dsr.get("effective_scts_user_id")
+    if not hasattr(adapter, "workflow_state_for_document"):
+        return {"ok": False, "why": "adapter_cannot_read_state"}
     try:
-        iid, src = known_instance_id, "package"
-        if not iid:
-            if not hasattr(adapter, "workflow_instance_for_document"):
-                return {"ok": False, "why": "adapter_cannot_lookup_instance"}
-            iid, why = adapter.workflow_instance_for_document(document_id, user)
-            src = "provider_lookup"
-            if not iid:
-                return {"ok": False, "why": why}
-        cfg, why = discover_transition(adapter, iid, user, quick=True)
-        out = {"ok": cfg is not None, "instance_id": iid, "instance_source": src, "why": why}
-        if cfg is not None:
-            out.update({"transition_id": cfg.get("transition_id"),
-                        "process_action": cfg.get("process_action"),
-                        "sign_type": cfg.get("sign_type")})
+        state, why = adapter.workflow_state_for_document(document_id,
+                                                         dsr.get("effective_scts_user_id"))
+        if not state:
+            return {"ok": False, "why": why}
+        edge, why = pick_forward_edge(state.get("transitions"))
+        out = {"ok": edge is not None, "why": why,
+               "current_state_id": state.get("current_state_id"),
+               "instance_is_document": (str(state.get("instance_id")).lower()
+                                        == str(document_id).lower())
+               if state.get("instance_id") else None,
+               # Du truong cua MOI canh dang mo - de kiem luat chon canh tren quy trinh hop
+               # dong (duyet khong ky, buoc doi tac, buoc cuoi) truoc khi tin no (QC 12/11).
+               "edges": [{"id": t.get("transition_id"), "type": t.get("transition_type"),
+                          "signed": bool(t.get("requires_signature")),
+                          "pa": t.get("process_action"), "st": t.get("sign_type"),
+                          "to": t.get("to_state"), "term": bool(t.get("terminal"))}
+                         for t in (state.get("transitions") or [])][:10]}
+        if edge is not None:
+            out.update({"transition_id": edge.get("transition_id"),
+                        "process_action": edge.get("process_action"),
+                        "sign_type": edge.get("sign_type"),
+                        # Duong chinh (discover_transition) tu choi canh thieu processAction
+                        # ("incomplete_transition"). "ok" chi la cong TRA LOI duoc; "sendable"
+                        # moi la gui duoc - so lieu shadow phai tach hai cai (QC 12/11).
+                        "sendable": bool(edge.get("process_action"))})
         return out
     except Exception as exc:
         from ecentric_workspace.platform.esign.sanitize import safe_error
@@ -436,10 +482,7 @@ def plan_handover(dsr, profile_name, environment, stage=None, adapter=None, inst
             return plan
         if plan.get("reason") == "targeted_handover_disabled":
             return plan         # duong chinh da tat: khong ton them lenh goi nao
-        doc_id = document_id or instance_id
-        # instance_id khac document_id = goi da co ma instance that (nhap tay). Bang nhau = chua co.
-        known = instance_id if (instance_id and document_id and instance_id != document_id) else None
-        probe = shadow_probe(dsr, adapter, doc_id, known_instance_id=known)
+        probe = shadow_probe(dsr, adapter, document_id or instance_id)
         if probe.get("ok") and plan.get("mode") == "transition" and plan.get("config"):
             probe["agree"] = _same_transition(probe, plan["config"])
         plan["discovery_probe"] = probe
