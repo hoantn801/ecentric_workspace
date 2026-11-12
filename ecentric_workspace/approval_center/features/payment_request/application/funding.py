@@ -176,7 +176,7 @@ def so_check(doc, viewer=None, status=None):
     so = (doc.get("ec_sales_order") or "").strip()
     if not (meta.get("so_info_fn") and so):
         return None
-    # Doanh thu SO la so lieu nhay cam: chi nguoi lap + Ke toan (nguon tu khai) thay doi chieu (QC4).
+    # Doanh thu SO la so lieu nhay cam: nguoi lap, Ke toan, nguoi duyet cua phieu (nguon tu khai) - PO 12/11.
     viewer = viewer or frappe.session.user          # khong truyen nguoi xem thi KHONG mo cho tat ca (QC5)
     if meta.get("so_view_fn") and not frappe.get_attr(meta["so_view_fn"])(doc, viewer):
         return None

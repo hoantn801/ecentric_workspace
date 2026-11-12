@@ -16,7 +16,7 @@ from frappe.utils import flt, now_datetime, nowdate
 from ecentric_workspace.approval_center.features.contract_review.application import kol_lookup
 from ecentric_workspace.approval_center.features.contract_review.application.kol_service import (
     APPROVED, approval_status, can_manage, creator_row, is_signed)
-from ecentric_workspace.approval_center.features.contract_review.domain import kol, kol_calc
+from ecentric_workspace.approval_center.features.contract_review.domain import kol, kol_calc, kol_values
 
 
 def _load(name, user):
@@ -203,6 +203,10 @@ def rows_view(doc):
 
 def _round_calc(doc, row):
     try:
+        # Dot phu het hop dong: BBNT in so cua CA hop dong (kol_values.is_whole_round) -> bang tinh
+        # cung lay so da luu cua hop dong, khong quy nguoc tu so dot (lech 1d - QC6 12/11).
+        if kol_values.is_whole_round(doc, flt(row.amount)):
+            return kol_calc.contract_steps(doc)
         return kol_calc.round_steps(doc.get("creator_type"), flt(row.amount), doc.get("pit_rate"),
                                     doc.get("vat_rate"), doc)
     except Exception:

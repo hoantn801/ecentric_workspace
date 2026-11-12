@@ -211,6 +211,41 @@ class PreviewMarks(unittest.TestCase):
         self.assertIn(L + "CCCD" + G, doc_xml(out))           # ban that: de nguyen, bao thieu nhu cu
 
 
+class PreviewHardening(unittest.TestCase):
+    """QC6: rPr co theo doi thay doi; mau chua the HTML / link javascript khong chay trong trinh xem."""
+
+    def test_rpr_change_van_la_xml_hop_le(self):
+        import xml.dom.minidom as M
+        body = ('<w:p><w:r><w:rPr><w:b/><w:emboss/><w:rPrChange w:id="1" w:author="a"><w:rPr><w:i/></w:rPr>'
+                '</w:rPrChange></w:rPr><w:t>X ' + L + 'A' + G + '</w:t></w:r></w:p>')
+        out, _m = docx_fill.fill_docx(make_docx(body), {"A": "v"}, mark=True)
+        x = doc_xml(out)
+        M.parseString(x.encode("utf-8"))
+        self.assertIn('<w:emboss/><w:highlight w:val="yellow"/><w:rPrChange', x)
+
+    def test_lam_sach_ky_hieu_va_lien_ket(self):
+        import io
+        import zipfile
+        from ecentric_workspace.approval_center.features.contract_review.domain import docx_safe
+        body = ('<w:p><w:r><w:sym w:font="Wingdings" w:char="F0FC"/><w:sym w:font="x" '
+                'w:char="41;&lt;img src=x onerror=alert(1)&gt;"/></w:r></w:p>')
+        buf = io.BytesIO(make_docx(body))
+        z = zipfile.ZipFile(buf, "a")
+        z.writestr("word/_rels/document.xml.rels",
+                   '<Relationships><Relationship Id="r1" Type="h" Target="javascript:alert(1)" TargetMode="External"/>'
+                   '<Relationship Id="r2" Type="h" Target="https://ecentric.vn" TargetMode="External"/>'
+                   '<Relationship Id="r3" Type="s" Target="styles.xml"/></Relationships>')
+        z.close()
+        out = zipfile.ZipFile(io.BytesIO(docx_safe.sanitize_for_viewer(buf.getvalue())))
+        x = out.read("word/document.xml").decode()
+        rels = out.read("word/_rels/document.xml.rels").decode()
+        self.assertIn('w:char="F0FC"', x)
+        self.assertNotIn("onerror", x)
+        self.assertNotIn("javascript:", rels)
+        self.assertIn('Target="https://ecentric.vn"', rels)
+        self.assertIn('Target="styles.xml"', rels)
+
+
 class VendoredViewer(unittest.TestCase):
     """Trinh xem .docx vendored (khong CDN), dung ban da ghim."""
 

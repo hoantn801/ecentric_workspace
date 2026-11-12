@@ -106,9 +106,8 @@ def kol_creator_gaps(creator=None, platform=None):
 @frappe.whitelist(methods=["POST"])
 def kol_preview_contract(fields=None, name=None):
     """Ban xem truoc (to vang cho ERP dien) tu du lieu dang go - khong luu gi."""
-    if isinstance(fields, str):
-        fields = json.loads(fields or "{}")
-    return _app("kol_files").preview_contract(fields or {}, name or None, _me())
+    mod = _app("kol_preview")
+    return mod.preview_contract(mod.parse_fields(fields), name or None, _me())
 
 
 @frappe.whitelist(methods=["POST"])

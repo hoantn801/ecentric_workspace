@@ -356,6 +356,8 @@ def detail_extra(business, request):
         "missing_creator": kol_values.missing_is_creator(_split(business.get("missing_placeholders"))),
         # Bang tinh tung buoc cho Ke toan soat (PO 12/11) - dien giai so da luu, khong tinh khac.
         "calc": kol_calc.contract_steps(business),
+        # Ngay theo gio site (khong theo dong ho may nguoi dung) cho o ngay BBNT - QC6.
+        "today": str(today()),
     }}
 
 

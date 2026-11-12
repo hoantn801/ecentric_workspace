@@ -818,8 +818,8 @@
     money:function(v){ return (v==null||v==="")?"—":Number(v).toLocaleString("vi-VN")+"\u00a0đ"; },
     // Ngay BBNT: tu ngay ky in tren HD toi hom nay. Live lam som hon lich (PO 12/11): ngay BBNT la
     // ngay nghiem thu, khong bat buoc trung ngay live -> dien san ngay hop le; chua toi ngay ky thi noi ro.
-    accDateDefault:function(b){ var t=KOL.todayIso(), s=String(b.contract_date||"").slice(0,10); return (s&&s>t)?"":t; },
-    accDateHint:function(b){ var t=KOL.todayIso(), s=String(b.contract_date||"").slice(0,10); if(!s) return "";
+    accDateDefault:function(b,t){ t=t||KOL.todayIso(); var s=String(b.contract_date||"").slice(0,10); return (s&&s>t)?"":t; },
+    accDateHint:function(b,t){ t=t||KOL.todayIso(); var s=String(b.contract_date||"").slice(0,10); if(!s) return "";
       if(s>t) return '<div class="hint err">Hợp đồng ghi ngày ký '+esc(KOL.day(s))+', sau hôm nay nên chưa lập BBNT được. Buổi làm sớm hơn lịch: đợi tới ngày ký, hoặc nhờ Kế toán làm phụ lục chỉnh ngày.</div>';
       return '<div class="hint">Từ ngày ký '+esc(KOL.day(s))+' tới hôm nay. Không cần trùng ngày live.</div>'; },
     // Bang tinh tung buoc cho Ke toan soat (PO 12/11): server dien giai so da luu (kol_calc).
@@ -831,7 +831,7 @@
     PV_BASE:"/assets/ecentric_workspace/vendor/docx_preview/",
     // Man hinh hep (dien thoai): thu nho ca trang cho vua be ngang, khong phai cuon ngang.
     fitPreview:function(box){ var w=box.querySelector(".docx-wrapper"), pg=box.querySelector("section.docx"); if(!w||!pg) return;
-      var sc=Math.min(1,(box.clientWidth-8)/(pg.offsetWidth+32)); if(sc>0&&sc<1) w.style.zoom=String(Math.round(sc*100)/100); },
+      w.style.zoom=""; var sc=Math.min(1,(box.clientWidth-8)/(pg.offsetWidth+32)); if(sc>0&&sc<1) w.style.zoom=String(Math.round(sc*100)/100); },
     loadScript:function(src){ return new Promise(function(ok,no){ var s=document.createElement("script"); s.src=src; s.async=true;
       s.onload=function(){ ok(); }; s.onerror=function(){ no(new Error("Không tải được trình xem.")); }; document.head.appendChild(s); }); },
     loadViewer:function(){ if(window.docx&&window.docx.renderAsync) return Promise.resolve(window.docx);
@@ -840,13 +840,15 @@
         .catch(function(e){ KOL._pvLoad=null; throw e; });
       return KOL._pvLoad; },
     previewContract:function(fields,name){
+      if(document.querySelector(".kol-pv-modal")) return;   // bam hai lan: khong mo hai hop thoai
       var ov=document.createElement("div"); ov.className="ec-ctr-overlay"; var prevFocus=document.activeElement;
       ov.innerHTML='<div class="ec-ctr-modal kol-pv-modal" role="dialog" aria-modal="true" aria-labelledby="kol-pv-t"><div class="ec-ctr-modal-h" id="kol-pv-t">Xem trước hợp đồng</div>'
-        +'<div class="ec-ctr-modal-b"><div class="kol-pv-legend"><span class="kol-pv-y">Vàng</span> ERP đã điền · <span class="kol-pv-r">Đỏ</span> còn thiếu · Tệp tải về / gửi ký không tô màu.</div>'
+        +'<div class="ec-ctr-modal-b"><div class="kol-pv-legend"><span class="kol-pv-y">Vàng</span> ERP đã điền · <span class="kol-pv-r">Đỏ</span> còn thiếu · Tệp tải về / gửi ký không tô màu. Dòng tuỳ chọn để trống (vd dòng cọc khi không cọc) bị bỏ như tệp thật.</div>'
         +'<div id="kol-pv-info" class="hint"></div><div id="kol-pv-doc" class="kol-pv-doc" aria-busy="true"><div class="hint" style="padding:16px">Đang điền mẫu…</div></div></div>'
         +'<div class="ec-ctr-modal-f"><button type="button" class="btn" data-x>Đóng</button></div></div>';
       (document.getElementById("ec-ctr-root")||document.body).appendChild(ov);
-      function close(){ if(ov.parentNode) ov.parentNode.removeChild(ov); if(prevFocus&&prevFocus.focus) try{ prevFocus.focus(); }catch(e){} }
+      var refit=function(){ KOL.fitPreview(box); };
+      function close(){ window.removeEventListener("resize",refit); if(ov.parentNode) ov.parentNode.removeChild(ov); if(prevFocus&&prevFocus.focus) try{ prevFocus.focus(); }catch(e){} }
       ov.querySelector("[data-x]").onclick=close; ov.addEventListener("keydown",function(e){ if(e.key==="Escape") close(); });
       ov.addEventListener("click",function(e){ if(e.target===ov) close(); }); try{ ov.querySelector("[data-x]").focus(); }catch(e){}
       var box=ov.querySelector("#kol-pv-doc"), info=ov.querySelector("#kol-pv-info");
@@ -862,8 +864,12 @@
         var bin=atob(r.docx), u8=new Uint8Array(bin.length); for(var i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i);
         box.innerHTML="";
         return dx.renderAsync(u8, box, null, {className:"docx", inWrapper:true, breakPages:true, ignoreLastRenderedPageBreak:true, useBase64URL:true, renderHeaders:true, renderFooters:true})
-          .then(function(){ box.setAttribute("aria-busy","false"); KOL.fitPreview(box); }); }); })
-        .catch(function(e){ if(!ov.parentNode) return; fail((e&&e.message&&!e._server_messages&&!e.responseJSON)?e.message:mapErr(e)); }); },
+          .then(function(){ box.setAttribute("aria-busy","false"); KOL.fitPreview(box); window.addEventListener("resize",refit); }); }); })
+        .catch(function(e){ if(!ov.parentNode) return;
+          // Loi cua trinh xem / thu vien (tieng Anh, ky thuat) khong dua cho nguoi dung - QC6.
+          if(e&&(e._server_messages||e.responseJSON)){ fail(mapErr(e)); return; }
+          if(window.console&&console.error) console.error("kol preview", e);
+          fail(e&&e.message==="Không tải được trình xem."?e.message:"Trình xem không đọc được mẫu này. Bấm Tạo hợp đồng để tải tệp thật và mở bằng Word."); }); },
     todayIso:function(){ var t=new Date(); return t.getFullYear()+"-"+("0"+(t.getMonth()+1)).slice(-2)+"-"+("0"+t.getDate()).slice(-2); },
     day:function(v){ var m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(v||"")); return m?(m[3]+"/"+m[2]+"/"+m[1]):(v||"—"); },
     roText:function(k,v){ return '<div class="fld"><label>'+esc(k)+'</label><div class="ro" style="padding:8px 10px;border:1px solid var(--gray-200);border-radius:8px;background:var(--gray-50);min-height:38px;white-space:normal;word-break:break-word">'+esc(v==null||v===""?"—":v)+'</div></div>'; },
@@ -1067,7 +1073,7 @@
           +'<div class="summary-row"><span>Được phép chi (cọc + BBNT đã hoàn tất)</span><b class="kol-money">'+KOL.money(f.cap)+'</b></div><div class="summary-row"><span>Đã lập ĐNTT</span><b class="kol-money">'+KOL.money(f.used)+'</b></div><div class="summary-row"><span>Còn có thể đề nghị thanh toán</span><b class="kol-money">'+KOL.money(f.remaining)+'</b></div>'
           +'<div class="hint" style="margin:6px 0 10px">Tạo ĐNTT ở form Đề nghị thanh toán: mục <b>Khoản chi này có chứng từ mua hàng?</b> chọn <b>Yes</b> → <b>Loại nguồn chi phí</b> = Hợp đồng KOL/KOC → <b>Chứng từ nguồn</b> = hợp đồng này → <b>SO doanh thu</b> = SO của brand (bắt buộc).</div>'
           +KOL.acceptanceTable(x)
-          +(x.can_manage?'<h4 style="margin:16px 0 6px">Thêm đợt nghiệm thu</h4>'+(x.acceptance_remaining!=null?'<div class="hint">Còn chưa nghiệm thu: <b class="kol-money">'+KOL.money(x.acceptance_remaining)+'</b></div>':'')+'<div class="grid2" style="margin-top:8px"><div class="fld"><label for="kol-acc-desc">Nội dung đợt nghiệm thu <span class="req">*</span></label><input id="kol-acc-desc" placeholder="Vd Livestream 3 buổi tháng 12 / Hoa hồng tháng 11"></div><div class="fld"><label for="kol-acc-date">Ngày nghiệm thu <span class="req">*</span></label><input type="date" id="kol-acc-date" max="'+esc(KOL.todayIso())+'"'+(b.contract_date?(' min="'+esc(String(b.contract_date).slice(0,10))+'"'):'')+' value="'+esc(KOL.accDateDefault(b))+'">'+KOL.accDateHint(b)+'</div><div class="fld"><label for="kol-acc-amt">Số tiền trả creator đợt này <span class="req">*</span></label><input type="text" inputmode="numeric" data-money id="kol-acc-amt"></div></div><div class="actions" style="margin-top:8px"><button type="button" class="btn primary" data-kol="addacc">Tạo BBNT</button></div>':'')
+          +(x.can_manage?'<h4 style="margin:16px 0 6px">Thêm đợt nghiệm thu</h4>'+(x.acceptance_remaining!=null?'<div class="hint">Còn chưa nghiệm thu: <b class="kol-money">'+KOL.money(x.acceptance_remaining)+'</b></div>':'')+'<div class="grid2" style="margin-top:8px"><div class="fld"><label for="kol-acc-desc">Nội dung đợt nghiệm thu <span class="req">*</span></label><input id="kol-acc-desc" placeholder="Vd Livestream 3 buổi tháng 12 / Hoa hồng tháng 11"></div><div class="fld"><label for="kol-acc-date">Ngày nghiệm thu <span class="req">*</span></label><input type="date" id="kol-acc-date" max="'+esc(x.today||KOL.todayIso())+'"'+(b.contract_date?(' min="'+esc(String(b.contract_date).slice(0,10))+'"'):'')+' value="'+esc(KOL.accDateDefault(b,x.today))+'">'+KOL.accDateHint(b,x.today)+'</div><div class="fld"><label for="kol-acc-amt">Số tiền trả creator đợt này <span class="req">*</span></label><input type="text" inputmode="numeric" data-money id="kol-acc-amt"></div></div><div class="actions" style="margin-top:8px"><button type="button" class="btn primary" data-kol="addacc">Tạo BBNT</button></div>':'')
           +'</div>'; }
       return h; },
     qcHTML:function(qc){ if(!qc||(!qc.data_checks&&!qc.ai)) return "";

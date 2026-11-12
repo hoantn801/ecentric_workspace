@@ -21,7 +21,8 @@ sys.path.insert(0, _HERE)
 from test_contract_kol_domain import doc_xml, make_docx  # noqa: E402
 
 PKG = "ecentric_workspace.approval_center.features.contract_review.application"
-MODS = ("kol_lookup", "kol_service", "kol_files", "kol_ai", "kol_acceptance", "kol_funding", "kol_verify")
+MODS = ("kol_lookup", "kol_service", "kol_files", "kol_ai", "kol_acceptance", "kol_funding", "kol_verify",
+        "kol_preview")
 
 
 class _Throw(Exception):
@@ -48,6 +49,8 @@ def _fake_frappe(state):
     fk.PermissionError = type("PermissionError", (Exception,), {})
     fk.ValidationError = type("ValidationError", (Exception,), {})
     fk.new_doc = lambda dt_: FakeDoc(doctype=dt_)
+    fk.log_error = lambda *a, **k: None
+    fk.get_traceback = lambda: ""
     fk.get_doc = lambda *a, **k: FakeDoc()
 
     def throw(msg, exc=None):
@@ -276,38 +279,91 @@ class AppTests(unittest.TestCase):
                          [True, True, True, False])
         self.assertFalse(f.funding_so_can_view({"requested_by": "nv@ec"}, "duyet@ec"))   # phieu nhap
 
-    def test_xem_truoc_hop_dong_to_mau_khong_luu_gi(self):
-        import base64
-        import zipfile
+    def _preview_setup(self, values, pii=True):
         from test_contract_kol_domain import make_docx
+        pv = importlib.import_module(PKG + ".kol_preview")
         f, s = self.files, self.svc
-        tpl_bytes = make_docx('<w:p><w:r><w:t xml:space="preserve">Ông/Bà: &lt;&lt;PERSON_FULL_NAME&gt;&gt; '
-                              'CCCD &lt;&lt;PERSON_ID_NO&gt;&gt;</w:t></w:r></w:p>')
+        body = ('<w:p><w:r><w:t xml:space="preserve">Ông/Bà: &lt;&lt;PERSON_FULL_NAME&gt;&gt; '
+                'CCCD &lt;&lt;PERSON_ID_NO&gt;&gt; STK &lt;&lt;BANK_ACCOUNT_NO&gt;&gt;</w:t></w:r></w:p>')
         saved = []
         self._patch(s, prepare_draft=lambda d: d.update(creator_type="Cá nhân"), apply_amounts=lambda d, strict=False: None,
                     assign_number=lambda d, c: d.update(contract_no="X/1"), ref_day=lambda d: dt.date(2026, 11, 12),
                     expected_bbnt_date=lambda d: None)
         self._patch(s.kol, validate_kol=lambda d, t, today=None: [])
-        self._patch(f, creator_row=lambda n: {"supplier_name": "A"}, template_for=lambda d, k: "T1",
-                    file_bytes=lambda u: tpl_bytes, attach=lambda *a: saved.append(a),
-                    _values=lambda d, c, b: {"PERSON_FULL_NAME": "Nguyễn A", "PERSON_ID_NO": ""})
-        self._patch(f.frappe, new_doc=lambda dt_: FakeDoc(doctype=dt_),
+        self._patch(pv, creator_row=lambda n: {"supplier_name": "A", "owner": "nguoi.tao@ec"},
+                    _can_see_pii=lambda u, c: pii)
+        self._patch(f, template_for=lambda d, k: "T1", file_bytes=lambda u: make_docx(body),
+                    attach=lambda *a: saved.append(a), _values=lambda d, c, b: dict(values))
+        self._patch(pv.frappe, new_doc=lambda dt_: FakeDoc(doctype=dt_),
                     get_doc=lambda *a: FakeDoc(name="T1", template_name="HĐ cá nhân", template_file="/f.docx"))
-        r = f.preview_contract({"contract_type": s.kol.KOL_CONTRACT_TYPE, "request_type": s.kol.TEMPLATE_EC, "creator": "SUP-1",
-                                "requested_by": "hacker@x"}, None, "a@ecentric.vn")
+        return pv, saved
+
+    def _xml(self, r):
+        import base64
+        import io
+        import zipfile
+        return zipfile.ZipFile(io.BytesIO(base64.b64decode(r["docx"]))).read("word/document.xml").decode()
+
+    def test_xem_truoc_hop_dong_to_mau_khong_luu_gi(self):
+        pv, saved = self._preview_setup({"PERSON_FULL_NAME": "Nguyễn A", "PERSON_ID_NO": "", "BANK_ACCOUNT_NO": "0011"})
+        s = self.svc
+        r = pv.preview_contract({"contract_type": s.kol.KOL_CONTRACT_TYPE, "request_type": s.kol.TEMPLATE_EC,
+                                 "creator": "SUP-1", "requested_by": "hacker@x"}, None, "a@ecentric.vn")
         self.assertTrue(r["ok"], r)
-        xml = zipfile.ZipFile(__import__("io").BytesIO(base64.b64decode(r["docx"]))).read("word/document.xml").decode()
+        xml = self._xml(r)
         self.assertIn('<w:highlight w:val="yellow"/></w:rPr><w:t xml:space="preserve">Nguyễn A', xml)
         self.assertIn("[Thiếu: CCCD]", xml)
+        self.assertIn("0011", xml)                                    # nguoi xem duoc PII: thay so that
         self.assertIn("CCCD", r["missing_labels"][0])
         self.assertEqual(saved, [])                                   # khong dinh kem / luu gi
-        r = f.preview_contract({"contract_type": "KOL/KOC / Creator (EC)", "request_type": s.kol.TEMPLATE_PARTNER},
-                               None, "a@ecentric.vn")
+        r = pv.preview_contract({"contract_type": s.kol.KOL_CONTRACT_TYPE, "request_type": s.kol.TEMPLATE_PARTNER},
+                                None, "a@ecentric.vn")
         self.assertFalse(r["ok"])
-        self._patch(f.frappe, get_doc=lambda *a: FakeDoc(name="CR-9", requested_by="b@ecentric.vn"))
-        self._patch(f, can_manage=lambda d, u: False)
+
+    def test_xem_truoc_an_pii_khi_khong_co_quyen(self):
+        pv, _s = self._preview_setup({"PERSON_FULL_NAME": "Nguyễn A", "PERSON_ID_NO": "079123456789",
+                                      "BANK_ACCOUNT_NO": "0011"}, pii=False)
+        r = pv.preview_contract({"contract_type": self.svc.kol.KOL_CONTRACT_TYPE,
+                                 "request_type": self.svc.kol.TEMPLATE_EC, "creator": "SUP-1"}, None, "x@ec")
+        xml = self._xml(r)
+        self.assertNotIn("079123456789", xml)
+        self.assertNotIn("0011", xml)
+        self.assertIn(pv.MASK, xml)
+        self.assertIn("Nguyễn A", xml)                                # ten khong phai PII an
+
+    def test_xem_truoc_mau_hong_va_phieu_khong_co(self):
+        pv, _s = self._preview_setup({"PERSON_FULL_NAME": "A"})
+        logged = []
+        self._patch(self.files, file_bytes=lambda u: b"khong phai zip")
+        self._patch(pv.frappe, log_error=lambda *a, **k: logged.append(a), get_traceback=lambda: "tb")
+        r = pv.preview_contract({"contract_type": self.svc.kol.KOL_CONTRACT_TYPE,
+                                 "request_type": self.svc.kol.TEMPLATE_EC, "creator": "SUP-1"}, None, "a@ec")
+        self.assertFalse(r["ok"])
+        self.assertIn("lỗi định dạng", r["error"])
+        self.assertTrue(logged)
+        self._patch(pv.frappe.db, exists=lambda *a, **k: False)
+        r = pv.preview_contract({}, "CR-XOA", "a@ec")
+        self.assertFalse(r["ok"])
+        self.assertIn("Không tìm thấy", r["error"])
+        self._patch(pv.frappe.db, exists=lambda *a, **k: True)
+        self._patch(pv.frappe, get_doc=lambda *a: FakeDoc(name="CR-9", requested_by="b@ecentric.vn"))
+        self._patch(pv, can_manage=lambda d, u: False)
         with self.assertRaises(_Throw):                                # phieu nguoi khac: khong xem truoc
-            f.preview_contract({}, "CR-9", "a@ecentric.vn")
+            pv.preview_contract({}, "CR-9", "a@ecentric.vn")
+        self.assertEqual([pv.parse_fields(x) for x in ('{"a": 1}', "[1]", "{hong", None, {"b": 2})],
+                         [{"a": 1}, {}, {}, {}, {"b": 2}])
+
+    def test_bang_tinh_dot_phu_het_hop_dong_lay_so_da_luu(self):
+        acc = importlib.import_module(PKG + ".kol_acceptance")
+        k = self.svc.kol
+        a = k.compute_amounts("Cá nhân", k.GROSS_BEFORE_PIT, 2621905, 10)
+        doc = FakeDoc(creator_type="Cá nhân", amount_type=k.GROSS_BEFORE_PIT, gross_amount=a["gross"],
+                      pit_amount=a["pit"], vat_amount=0, payable_amount=a["payable"], pit_rate=10,
+                      acceptances=[1])
+        rows = acc._round_calc(doc, FakeDoc(amount=a["payable"]))
+        amounts = [r["amount"] for r in rows]
+        self.assertIn(2621905, amounts)                               # = so in tren BBNT (so hop dong)
+        self.assertIn(262191, amounts)
 
     # ---------------------------------------------------------- QC vong 3
     def test_hoan_tat_bbnt_phai_qua_buoc_gui_ky(self):

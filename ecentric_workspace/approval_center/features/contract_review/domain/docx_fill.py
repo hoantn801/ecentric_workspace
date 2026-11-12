@@ -180,11 +180,32 @@ def fill_xml(xml, values, missing=None, drop_if_empty=(), mark=False, missing_te
 
 
 _RUN_OPEN = re.compile(r"<w:r(?:\s[^>]*)?>")
-_RPR = re.compile(r"^\s*(<w:rPr>.*?</w:rPr>|<w:rPr/>)", re.S)
 _TOKEN = re.compile(r"(<w:t(?:\s[^>]*)?(?<!/)>)(.*?)</w:t>|<[^>]+/>|<[^>]+>.*?</[^>]+>", re.S)
 # Thu tu phan tu trong w:rPr theo schema: highlight dung truoc cac the nay.
 _AFTER_HL = ("<w:u ", "<w:u>", "<w:u/", "<w:effect", "<w:bdr", "<w:shd", "<w:fitText", "<w:vertAlign",
-             "<w:rtl", "<w:cs", "<w:em", "<w:lang", "<w:eastAsianLayout", "<w:specVanish", "<w:oMath")
+             "<w:rtl", "<w:cs ", "<w:cs/", "<w:cs>", "<w:em ", "<w:em/", "<w:em>", "<w:lang", "<w:eastAsianLayout",
+             "<w:specVanish", "<w:oMath", "<w:rPrChange")
+
+
+def _leading_rpr(inner):
+    """(rPr dau run, phan con lai). rPr co the chua <w:rPrChange><w:rPr>..</w:rPr></w:rPrChange> (theo doi
+    thay doi dinh dang) - khong cat o </w:rPr> long ben trong (QC6: cat sai = XML hong)."""
+    lead = len(inner) - len(inner.lstrip())
+    body = inner[lead:]
+    if body.startswith("<w:rPr/>"):
+        return "<w:rPr/>", body[len("<w:rPr/>"):]
+    if not body.startswith("<w:rPr>"):
+        return "", inner
+    start = len("<w:rPr>")
+    change = body.find("<w:rPrChange", start)
+    close = body.find("</w:rPr>", start)
+    if change >= 0 and (close < 0 or change < close):
+        end_change = body.find("</w:rPrChange>", change)
+        close = body.find("</w:rPr>", end_change) if end_change >= 0 else -1
+    if close < 0:
+        return "", inner
+    end = close + len("</w:rPr>")
+    return body[:end], body[end:]
 
 
 def _rpr_with(rpr, color):
@@ -200,9 +221,7 @@ def _rpr_with(rpr, color):
 
 def _split_run(open_tag, inner):
     """Mot run co ky tu danh dau -> nhieu run: doan thuong giu rPr goc, doan danh dau them highlight."""
-    m = _RPR.match(inner)
-    rpr = m.group(1) if m else ""
-    rest = inner[m.end():] if m else inner
+    rpr, rest = _leading_rpr(inner)
     out, state, cur = [], None, []
 
     def flush():
