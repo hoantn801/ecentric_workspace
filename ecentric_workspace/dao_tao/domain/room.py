@@ -65,9 +65,7 @@ def next_action(phase, index, total, board_mode):
     """Nut chinh cua bang nguoi dan."""
     if phase == C.PHASE_LOBBY:
         return C.ACT_START
-    if phase == C.PHASE_QUESTION:
-        return C.ACT_LOCK
-    if phase == C.PHASE_LOCKED:
+    if phase in (C.PHASE_QUESTION, C.PHASE_LOCKED):
         return C.ACT_REVEAL
     if phase == C.PHASE_REVEAL:
         if show_board(index, total, board_mode):

@@ -321,31 +321,31 @@
     "sha256": "c798fb5341c93a69942b929fcd6b6f5c7b7803f5329d44ad6cd168c9521a3f16"
   },
   "dao_tao/pages/learn/main_section.html": {
-    "last_resync_patch": "p369_dao_tao_nhac_may_chieu",
-    "sha256": "e0580753c4ea566784195b8438872ddfd8387d68f402f0d9da6451ae451e3559"
+    "last_resync_patch": "p370_dao_tao_gop_y_13_11",
+    "sha256": "a5e507c43e900fcee43bc9f336a5f24b0ef3a07963241e9470cbc5faddfe14e1"
   },
   "dao_tao/pages/lesson/main_section.html": {
-    "last_resync_patch": "p369_dao_tao_nhac_may_chieu",
-    "sha256": "a07016a658f4d0eea431bf09edb0eeead2f93e47e8a9bb87a4eafc51c3b3b5da"
+    "last_resync_patch": "p370_dao_tao_gop_y_13_11",
+    "sha256": "faf9b66c0e8ada765090a5b7a93bdc21e931db145e303b421ec6211616de2e95"
   },
   "dao_tao/pages/admin/main_section.html": {
-    "last_resync_patch": "p369_dao_tao_nhac_may_chieu",
-    "sha256": "d04402d78c2f6412f516efd95cb40f8fb3de9226a86e376d4f1df7088ecba54d"
+    "last_resync_patch": "p370_dao_tao_gop_y_13_11",
+    "sha256": "5da3de23e9906a0ce4efbee0ced14df6e34bd2d34507d5be4bbe66bc6d753784"
   },
   "dao_tao/pages/quiz/main_section.html": {
-    "last_resync_patch": "p369_dao_tao_nhac_may_chieu",
-    "sha256": "d7e5977ff8c31cbe127215c21648389f784d1eac651e818d7b5a371969dcb1e0"
+    "last_resync_patch": "p370_dao_tao_gop_y_13_11",
+    "sha256": "e46475daef1a51e1fb9b8491586be0dfb905b097c1b7eb26780ba2174154e8f7"
   },
   "dao_tao/pages/edit/main_section.html": {
-    "last_resync_patch": "p369_dao_tao_nhac_may_chieu",
-    "sha256": "a754c530f28e6a1249df17604429ab2093fe92500012a2721bfec9038d497e0f"
+    "last_resync_patch": "p370_dao_tao_gop_y_13_11",
+    "sha256": "7f6e348836c481d8ece24be7a530959121ac6e966989828da22083881d7c0fc7"
   },
   "dao_tao/pages/play/main_section.html": {
-    "last_resync_patch": "p369_dao_tao_nhac_may_chieu",
-    "sha256": "f5c302b00343b6c41d78ca366d2df59aeae83a9d0dd90807a916eeb61b88482f"
+    "last_resync_patch": "p370_dao_tao_gop_y_13_11",
+    "sha256": "eef974c15de8222d5a341b688ab561487dfcb3094866986657eef54547e80201"
   },
   "dao_tao/pages/host/main_section.html": {
-    "last_resync_patch": "p369_dao_tao_nhac_may_chieu",
-    "sha256": "5225f9f5b94336cc7197eb37f990f12c36f5672776624f6dd878e0d62939543a"
+    "last_resync_patch": "p370_dao_tao_gop_y_13_11",
+    "sha256": "62ad95025f7fdb40747444383be9d3a04a4c7888c3356185f1188e8993976553"
   }
 }

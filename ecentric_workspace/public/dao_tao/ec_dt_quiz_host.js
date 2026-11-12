@@ -55,7 +55,6 @@
     else main = '<div class="dt-center"><h1>Phòng đã huỷ</h1><a class="dt-b gold" href="/quiz">Về trang Quiz</a></div>';
     var na = st.next_action;
     var bar = '<div class="dt-pbar">' + (na ? '<button class="dt-b gold lg" id="dt-main" data-a="' + na + '">' + ACT[na] + (na === "next" ? " (" + (st.index + 2) + "/" + st.total + ")" : "") + "</button>" : "") +
-      (st.phase === "question" ? '<button class="dt-b lg" data-a="reveal">Khoá + công bố</button>' : "") +
       '<span class="dt-sp"></span>' + (st.flags && st.flags.length ? '<span class="dt-chip warn">' + D.icon("flag") + " " + st.flags.length + " cờ</span>" : "") +
       (st.phase !== "ended" && st.phase !== "cancelled" ? '<button class="dt-b" id="dt-panel">' + (panel ? "Ẩn người chơi" : "Người chơi") + "</button>" : "") +
       (["lobby", "question", "locked", "reveal", "board"].indexOf(st.phase) >= 0 ? (st.phase !== "lobby" ? '<button class="dt-b" data-a="end">Kết thúc sớm</button>' : "") +
@@ -176,8 +175,8 @@
   function teamRows(list) {
     var mx = Math.max.apply(null, [1].concat((list || []).map(function (t) { return t.score; })));
     return '<div class="dt-board" style="max-width:820px;width:100%;align-self:center">' + (list || []).map(function (t) {
-      return '<div class="dt-brow"><span class="dt-rk">' + t.rank + '</span><span style="min-width:160px">' + D.esc(t.team) + ' <span class="dt-mail">' + t.members +
-        ' người</span></span><span class="dt-bar" style="background:rgba(255,255,255,.12)"><i style="width:' + (100 * t.score / mx) + '%;background:var(--gold)"></i></span><span class="dt-sc">' +
+      return '<div class="dt-brow"><span class="dt-rk">' + t.rank + '</span><span class="dt-tname">' + D.esc(t.team) + "<small>" + t.members +
+        " người</small></span>" + '<span class="dt-bar" style="background:rgba(255,255,255,.12)"><i style="width:' + (100 * t.score / mx) + '%;background:var(--gold)"></i></span><span class="dt-sc">' +
         D.fmtNum(t.score) + "</span></div>";
     }).join("") + "</div>";
   }

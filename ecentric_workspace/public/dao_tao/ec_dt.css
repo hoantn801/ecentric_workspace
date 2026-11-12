@@ -243,3 +243,24 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 @media (max-width:700px) { .dt-prize { grid-template-columns:1fr 1fr; } }
 .dt-pinedit { position:relative; max-width:520px; user-select:none; touch-action:none; }
 .dt-pinedit img { width:100%; display:block; border-radius:10px; }
+
+/* 13/11 (Hoan): o nhap tren nen tim cua man nguoi choi bi chu trang tren nen trang */
+.dt-qz .dt-in, .dt-qz .dt-sel, .dt-qz .dt-ta { color:var(--ink); }
+/* Bang xep hang tren may chieu - de doc tu xa */
+.dt-proj :where(h1) { font-size:clamp(30px,4vw,56px); margin:6px 0 10px; text-align:center; }
+.dt-proj .dt-board { display:flex; flex-direction:column; gap:10px; }
+.dt-proj .dt-brow { background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.14); border-radius:16px; padding:12px 18px; color:#fff; font-size:20px; }
+.dt-proj .dt-brow .dt-nick { font-size:22px; }
+.dt-proj .dt-brow .dt-mail { color:#d6c8ff; opacity:1; font-size:13px; }
+.dt-proj .dt-brow .dt-rk { width:40px; height:40px; flex:none; border-radius:50%; background:rgba(255,255,255,.18); display:grid; place-items:center; font-size:18px; }
+.dt-proj .dt-board .dt-brow:nth-child(1) .dt-rk { background:#ffc21a; color:#2a1600; }
+.dt-proj .dt-board .dt-brow:nth-child(2) .dt-rk { background:#dfe5f0; color:#1f2937; }
+.dt-proj .dt-board .dt-brow:nth-child(3) .dt-rk { background:#e9a66b; color:#3b1d06; }
+.dt-proj .dt-brow .dt-sc { color:#ffd45c; font-size:26px; }
+.dt-proj .dt-brow .dt-tname { min-width:200px; font-weight:700; }
+.dt-proj .dt-brow .dt-tname small { display:block; font-weight:500; font-size:13px; color:#d6c8ff; }
+/* Chon nhieu dap an: o da chon phai thay ro (truoc chi co vien mong) */
+.dt-opt[aria-pressed="true"] { outline:5px solid #fff; outline-offset:-5px; box-shadow:0 0 0 3px rgba(255,255,255,.35); }
+.dt-opt .dt-tick { margin-left:auto; width:30px; height:30px; flex:none; border-radius:50%; border:3px solid rgba(255,255,255,.75); display:grid; place-items:center; font-size:18px; line-height:1; }
+.dt-opt[aria-pressed="true"] .dt-tick { background:#fff; color:#26890c; border-color:#fff; }
+.dt-opt { touch-action:manipulation; -webkit-tap-highlight-color:transparent; }

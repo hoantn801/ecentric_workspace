@@ -67,6 +67,8 @@ class QuizFlowTest(unittest.TestCase):
 
     def act(self, action):
         s = self.repo.get_session(self.sess)
+        if action == "reveal" and s["phase"] == "reveal":     # het gio / du nguoi da tu cong bo
+            return room_service.host_state(HOST, self.repo, self.sess)
         return room_service.act(HOST, self.repo, self.sess, action, s["version"])["state"]
 
     def join_all(self, n=6):
@@ -137,8 +139,8 @@ class QuizFlowTest(unittest.TestCase):
         with self.assertRaises(QuizError):
             self.answer(STAFF[3], self.correct_payload(STAFF[3].user), wait_ms=10)
         ps = play_service.state(STAFF[3], self.repo, self.code)
-        self.assertEqual(ps["phase"], "locked")
-        self.assertNotIn("result", ps)
+        self.assertEqual(ps["phase"], "reveal")
+        self.assertIn("result", ps)               # het gio -> cong bo luon
         st = self.act("reveal")
         self.assertEqual(st["phase"], "reveal")
         self.assertIn("reveal", st)
@@ -160,7 +162,7 @@ class QuizFlowTest(unittest.TestCase):
             for c in STAFF:
                 self.answer(c, self.correct_payload(c.user), wait_ms=200)
             # moi nguoi tra loi -> khoa ngay
-            self.assertEqual(self.repo.get_session(self.sess)["phase"], "locked")
+            self.assertEqual(self.repo.get_session(self.sess)["phase"], "reveal")
             st = self.act("reveal")
         self.assertEqual(st["next_action"], "end")
         st = self.act("end")
@@ -256,14 +258,15 @@ class QuizFlowTest(unittest.TestCase):
 
     def test_shuffle_differs_per_player(self):
         qs = [{"type": "single", "text": "x", "options": [{"text": str(i)} for i in range(6)], "correct": [0]}]
-        qid = build_quiz(self.repo, qs=qs)
-        r = room_service.open_room(HOST, self.repo, qid)
-        self.code, self.sess = r["code"], r["session"]
-        self.join_all(6)
-        self.act("start")
-        orders = {tuple(o["id"] for o in play_service.state(c, self.repo, self.code)["question"]["options"])
-                  for c in STAFF}
-        self.assertGreater(len(orders), 1)
+        for same, want_many in ((False, True), (True, False)):
+            qid = build_quiz(self.repo, qs=qs, settings={"same_order": same})
+            r = room_service.open_room(HOST, self.repo, qid)
+            self.code, self.sess = r["code"], r["session"]
+            self.join_all(6)
+            self.act("start")
+            orders = {tuple(o["id"] for o in play_service.state(c, self.repo, self.code)["question"]["options"])
+                      for c in STAFF}
+            self.assertEqual(len(orders) > 1, want_many)      # mac dinh: cung thu tu nhu may chieu
 
     def test_start_needs_player_and_stale_version(self):
         with self.assertRaises(QuizError):
@@ -323,7 +326,7 @@ class QuizFlowTest(unittest.TestCase):
         self.answer(STAFF[1], self.correct_payload(STAFF[1].user), wait_ms=10)
         self.assertEqual(self.repo.get_session(self.sess)["phase"], "question")   # p2 chua tra loi
         self.answer(STAFF[2], self.correct_payload(STAFF[2].user), wait_ms=10)
-        self.assertEqual(self.repo.get_session(self.sess)["phase"], "locked")
+        self.assertEqual(self.repo.get_session(self.sess)["phase"], "reveal")
 
     def test_late_join_keeps_board_and_salt(self):
         self.join_all(2)
@@ -342,10 +345,12 @@ class QuizFlowTest(unittest.TestCase):
         self.join_all(2)
         self.act("start")
         self.answer(STAFF[0], self.correct_payload(STAFF[0].user))
-        self.repo.tick(30000)
+        self.act("lock")                                      # nguoi dan khoa tay (chua cong bo)
         ps = play_service.state(STAFF[0], self.repo, self.code)
         self.assertEqual(ps["phase"], "locked")
         self.assertEqual((ps["me"]["score"], ps["me"]["rank"]), (0, None))
+        self.repo.tick(30000)
+        self.assertEqual(play_service.state(STAFF[1], self.repo, self.code)["phase"], "locked")
 
     def test_live_card_and_kill_switch(self):
         rooms = play_service.live_card(STAFF[0], self.repo)["rooms"]
