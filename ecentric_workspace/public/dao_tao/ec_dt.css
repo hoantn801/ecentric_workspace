@@ -108,7 +108,7 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 /* ---- toast / modal ---- */
 .dt-toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:#111827; color:#fff; padding:10px 16px;
   border-radius:10px; z-index:9999; max-width:92vw; box-shadow:0 8px 24px rgba(0,0,0,.2); font-size:14px; }
-.dt-toast.bad { background:var(--bad); }
+.dt-toast.bad { background:#c0262d; }   /* toast nam ngoai #ec-dt: khong dung bien --bad */
 .dt-modal-bg { position:fixed; inset:0; background:rgba(17,24,39,.45); z-index:9000; display:flex; align-items:center; justify-content:center; padding:16px; }
 .dt-modal { background:#fff; border-radius:16px; max-width:560px; width:100%; max-height:90vh; overflow:auto; padding:20px; }
 
