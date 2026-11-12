@@ -1,6 +1,6 @@
 {%- extends "templates/includes/data_hub/layout.html" -%}
 {%- from "templates/includes/data_hub/macros.html" import badge -%}
-{%- from "templates/includes/data_hub/avail_macros.html" import cell -%}
+{%- from "templates/includes/data_hub/avail_macros.html" import cell, add_btn -%}
 {#- /du-lieu/san-co - Data availability (dot 2, mockup PO duyet 09/11/2026): KPI do phu, loc, "Can bo sung",
     ma tran 3 cham / o (SharePoint / DW / Power BI), do tuoi, de xuat data can crawl; ?xem=thu-vien: Thu vien
     bao cao. Moi thu ve san o server (khong chop); JS chi loc / mo hop / gui POST. -#}
@@ -26,7 +26,7 @@
   <input class="edh-inp edh-grow" type="search" data-edh-af="q" placeholder="Tìm loại dữ liệu, sàn…" aria-label="Tìm loại dữ liệu">
   <select class="edh-inp" data-edh-af="team" aria-label="Team"><option value="">Mọi team</option>{% for t in team_options %}<option value="{{ t|e }}">{{ t|e }}</option>{% endfor %}</select>
   <select class="edh-inp" data-edh-af="state" aria-label="Trạng thái"><option value="">Mọi trạng thái</option><option value="full">Đã đủ (SP + DW + BI)</option><option value="gap">Có chỗ chưa có</option><option value="plan">Đang bổ sung</option><option value="stale">Trễ cập nhật</option><option value="front">★ Front cần gấp</option></select>
-  {% if is_team %}<button type="button" class="edh-btn" data-edh-row-new>+ Thêm dòng</button>{% endif %}
+  {% if is_team %}<button type="button" class="edh-btn" data-edh-add>+ Thêm dữ liệu</button>{% endif %}
 </div>
 
 <section class="edh-card" aria-labelledby="edh-gap-h">
@@ -57,21 +57,22 @@
     <thead><tr><th>Loại dữ liệu</th><th>Shopee</th><th>TikTok</th><th>Lazada</th><th>Khác</th><th class="edh-c-fresh">Cập nhật · ghi chú</th></tr></thead>
     <tbody>
     {% for t in mteams %}
-      <tr class="edh-grp" data-edh-mteam="{{ t.team|e }}"><td colspan="6">{{ t.team|e }}</td></tr>
+      <tr class="edh-grp" data-edh-mteam="{{ t.team|e }}"><td colspan="6"><div class="edh-grp-in"><span>{{ t.team|e }}</span>{% if is_team %}<button type="button" class="edh-grp-add" data-edh-add data-team="{{ t.team|e }}" aria-label="Thêm loại dữ liệu cho {{ t.team|e }}">+ Thêm loại dữ liệu</button>{% endif %}</div></td></tr>
       {% for g in t.groups %}
       <tr data-edh-mrow data-team="{{ g.team|e }}" data-search="{{ g.search|e }}" data-full="{{ 1 if g.full else 0 }}" data-gap="{{ 1 if g.gap else 0 }}" data-plan="{{ 1 if g.planned else 0 }}" data-stale="{{ 1 if g.stale else 0 }}" data-front="{{ 1 if g.front else 0 }}">
         <td class="edh-c-dt"><b>{{ g.data_type|e }}</b>{% if g.front %} <span class="edh-star" title="Front cần gấp">★</span>{% endif %}</td>
-        <td>{{ cell(g.cells['Shopee'], is_team) }}</td>
-        <td>{{ cell(g.cells['TikTok'], is_team) }}</td>
-        <td>{{ cell(g.cells['Lazada'], is_team) }}</td>
-        <td>{% for c in g.others %}<div class="edh-other">{{ cell(c, is_team) }} <span class="edh-hint">{{ c.platform|e }}</span></div>{% else %}<span class="edh-hint">—</span>{% endfor %}</td>
+        <td>{{ cell(g.cells['Shopee'], is_team, g, 'Shopee') }}</td>
+        <td>{{ cell(g.cells['TikTok'], is_team, g, 'TikTok') }}</td>
+        <td>{{ cell(g.cells['Lazada'], is_team, g, 'Lazada') }}</td>
+        <td>{% for c in g.others %}<div class="edh-other">{{ cell(c, is_team) }} <span class="edh-hint">{{ c.platform|e }}</span></div>{% else %}<span class="edh-hint">—</span>{% endfor %}{% if is_team %}{{ add_btn(g, '') }}{% endif %}</td>
         <td class="edh-c-fresh">{% if g.stale %}<span class="edh-badge is-amber" title="Cập nhật lần cuối cũ hơn tần suất">Trễ cập nhật · {{ g.stale|join(', ')|e }}</span> {% endif %}{% if g.last_fmt or g.freq %}<span class="edh-hint">{% if g.last_fmt %}cập nhật {{ g.last_fmt|e }}{% endif %}{% if g.freq %}{% if g.last_fmt %} · {% endif %}{{ g.freq|e }}{% endif %}{% if g.owner_names %} · {{ g.owner_names|e }}{% endif %}</span>{% endif %}{% if g.note %}<div class="edh-hint">{{ g.note|e }}</div>{% endif %}</td>
       </tr>
       {% endfor %}
     {% endfor %}
     </tbody>
   </table></div>
-  <div class="edh-state" data-edh-mempty{% if mteams %} hidden{% endif %}><h4>Không có dòng nào khớp bộ lọc</h4><p>Đổi bộ lọc{% if is_team %}, hoặc bấm “+ Thêm dòng”{% endif %}.</p></div>
+  <div class="edh-state" data-edh-mempty{% if mteams %} hidden{% endif %}><h4>Không có dòng nào khớp bộ lọc</h4><p>Đổi bộ lọc{% if is_team %}, hoặc bấm “+ Thêm dữ liệu”{% endif %}.</p></div>
+  {% if is_team %}<div class="edh-mtx-foot"><button type="button" class="edh-linkbtn" data-edh-add data-new-team="1">+ Thêm team / nhóm mới</button> <span class="edh-hint">· Team Data đã có dữ liệu thì thêm thẳng vào bảng (nút “+” ở từng ô / từng team), không cần đề xuất.</span></div>{% endif %}
 </section>
 
 <section class="edh-card" aria-labelledby="edh-prop-h" id="de-xuat">
@@ -234,6 +235,38 @@
       <p class="edh-err" data-edh-rowf-err role="alert" hidden></p>
     </div>
     <div class="edh-modal-f"><button type="button" class="edh-btn" data-edh-close>Huỷ</button><button type="submit" class="edh-btn is-primary" data-edh-rowf-submit>Lưu</button></div>
+  </form>
+</div>
+
+<div class="edh-ov edh-ov-center" data-edh-add-ov hidden>
+  <form class="edh-modal edh-modal-lg" data-edh-addf novalidate role="dialog" aria-modal="true" aria-labelledby="edh-add-h">
+    <h3 class="edh-modal-h" id="edh-add-h">Thêm dữ liệu đã có <span class="edh-hint" data-edh-add-what></span></h3>
+    <div class="edh-modal-b">
+      <p class="edh-banner is-info">Dành cho team Data: dữ liệu đã làm xong thì thêm thẳng vào bảng, không qua đề xuất / duyệt. Chọn nhiều sàn để thêm một lần.</p>
+      <div class="edh-grid2">
+        <div class="edh-fld"><label for="edh-a-team">Team <span class="edh-req">*</span></label>
+          <select id="edh-a-team" name="team_pick" required data-edh-add-team><option value="">— Chọn team —</option>{% for t in team_options %}<option value="{{ t|e }}">{{ t|e }}</option>{% endfor %}<option value="{{ dtype_new|e }}">+ Team mới…</option></select>
+          <input name="team_new" maxlength="60" placeholder="Tên team mới, VD: Media" aria-label="Tên team mới" data-edh-add-team-new hidden></div>
+        <div class="edh-fld"><label for="edh-a-dt">Loại dữ liệu <span class="edh-req">*</span></label>
+          <select id="edh-a-dt" name="data_type_pick" required data-edh-add-dtype><option value="">— Chọn loại dữ liệu —</option>{% for t in dtype_options %}<option value="{{ t|e }}">{{ t|e }}</option>{% endfor %}<option value="{{ dtype_new|e }}">+ Loại mới…</option></select>
+          <input name="data_type_new" maxlength="80" placeholder="Tên loại dữ liệu mới, VD: Livestream session" aria-label="Tên loại dữ liệu mới" data-edh-add-dtype-new hidden></div>
+      </div>
+      <fieldset class="edh-fld edh-fs"><legend>Sàn / nguồn <span class="edh-req">*</span></legend><div class="edh-chips">
+        {% for p in platforms %}<label class="edh-chip"><input type="checkbox" name="platforms" value="{{ p|e }}" data-edh-add-plat><span>{{ p|e }}</span></label>{% endfor %}
+        <label class="edh-chip-other">Khác <input name="other_platform" maxlength="120" placeholder="Misa, Facebook…" class="edh-inp-sm" aria-label="Sàn / nguồn khác (cách nhau dấu phẩy)" data-edh-add-other></label></div>
+        <p class="edh-hint" data-edh-add-has hidden></p></fieldset>
+      <fieldset class="edh-fld edh-fs"><legend>Đã có trên <span class="edh-hint">(chưa chọn kênh nào thì ô hiện “Chưa có”)</span></legend><div class="edh-chips">
+        {% for c in channels %}<label class="edh-chip"><input type="checkbox" name="{{ c.field }}" value="1"><span>{{ c.label|e }}</span></label>{% endfor %}
+        <label class="edh-chip"><input type="checkbox" name="front_priority" value="1"><span>★ Front cần gấp</span></label></div></fieldset>
+      <div class="edh-grid3">
+        <div class="edh-fld"><label for="edh-a-freq">Tần suất</label><select id="edh-a-freq" name="frequency"><option value="">—</option>{% for f in frequencies %}<option value="{{ f|e }}">{{ f|e }}</option>{% endfor %}</select></div>
+        <div class="edh-fld"><label for="edh-a-owner">Người phụ trách</label><select id="edh-a-owner" name="data_owner"><option value="">—</option>{% for m in team_members %}<option value="{{ m.user|e }}"{% if m.user == me %} selected{% endif %}>{{ m.name|e }}</option>{% endfor %}</select></div>
+        <div class="edh-fld"><label for="edh-a-last">Cập nhật lần cuối <button type="button" class="edh-linkbtn" data-edh-a-now>Bây giờ</button></label><input id="edh-a-last" name="last_updated" type="datetime-local"></div>
+      </div>
+      <div class="edh-fld"><label for="edh-a-note">Ghi chú</label><input id="edh-a-note" name="note" maxlength="500" placeholder="Nguồn lấy, link SharePoint / bảng DW…"></div>
+      <p class="edh-err" data-edh-add-err role="alert" hidden></p>
+    </div>
+    <div class="edh-modal-f"><button type="button" class="edh-btn" data-edh-close>Huỷ</button><button type="submit" class="edh-btn is-primary" data-edh-add-submit>Thêm vào bảng</button></div>
   </form>
 </div>
 

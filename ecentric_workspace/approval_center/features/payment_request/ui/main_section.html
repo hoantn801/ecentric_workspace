@@ -1344,15 +1344,20 @@
         if(h&&box.firstChild) h.replaceWith(box.firstChild);
         else { var sel=document.querySelector('#ec-payr-root [data-model="funding_source_name"]'); if(sel&&box.firstChild&&sel.parentNode) sel.parentNode.appendChild(box.firstChild); } })
       .catch(function(){ /* doc so du nguon o nen khi mo sua: loi thi server van chan luc gui */ }); }
+  // So tien cac dot TRUOC dot nay (server tinh trong extra.installments) -> form biet "con lai".
+  // Dung cho CA sua nhap (startEditDraft) LAN bo sung & gui lai (startEditResubmit): thieu o nhanh
+  // gui lai thi dot 2 tuong da tra 0d -> doi nhap them dot 3 (EC-PAYR-2026-00652, 12/11).
+  function setPaidBefore(det){ var ib=instBlock(det); if(!ib) return; var me=Number(ib.installment_no)||1; state.draft._paid_before=(ib.chain||[]).filter(function(r){ return !r.is_current && Number(r.installment_no)<me && r.approval_status!=="Rejected" && r.approval_status!=="Cancelled"; }).reduce(function(a,r){ return a+(Number(r.payment_amount)||0); },0); }
   function _startEditDraftWith(det){ state.draft=Object.assign({}, det.business||{}); state.id=(det.business||{}).name; state.mode="create"; _resetSourceInfo();
     // dot ke: phan da de nghi o cac dot truoc do server tinh (extra.installments) -> form biet "con lai"
-    var ib=instBlock(det); if(ib){ var me=Number(ib.installment_no)||1; state.draft._paid_before=(ib.chain||[]).filter(function(r){ return !r.is_current && Number(r.installment_no)<me && r.approval_status!=="Rejected" && r.approval_status!=="Cancelled"; }).reduce(function(a,r){ return a+(Number(r.payment_amount)||0); },0); } if(state.draft.has_purchase_request==="Yes"){ promoteLegacySource(state.draft); ensurePROptions(function(){ renderCreate($("payr-body")); }); } else { renderCreate($("payr-body")); } }
+    setPaidBefore(det); if(state.draft.has_purchase_request==="Yes"){ promoteLegacySource(state.draft); ensurePROptions(function(){ renderCreate($("payr-body")); }); } else { renderCreate($("payr-body")); } }
   function doSubmitDraft(name){ if(state.busy)return; state.busy=true; var btns=Array.prototype.slice.call(document.querySelectorAll('[data-act="submitdraft"],[data-act="editdraft"]')); btns.forEach(function(b){ b.disabled=true; });
     call("submit_request",{name:name}).then(function(){ toast("Gửi yêu cầu thành công. Yêu cầu đã được chuyển đến Quản lý trực tiếp phê duyệt."); refreshDetail(); }).catch(function(e){ if(!applyBackendError(e)){ if(window.console&&console.error) console.error("Payment Request submit error:",e); toast(friendlyErr(e),true); } btns.forEach(function(b){ b.disabled=false; }); }).then(function(){ state.busy=false; }); }
   function startEditResubmit(det){ var ap=det.approval||{}; var lvl=(det.levels||[]).find(function(l){return l.level_no===ap.information_requested_from_level;});
     var ia=(det.approvers||[]).filter(function(a){return a.status==="Information Requested";})[0]||{};
     state._infoCtx={ level:(lvl?lvl.level_name:ap.information_requested_from_level), approver:ia.approver, comment:ia.comment };
     state._editDet=det; state.draft=Object.assign({}, det.business||{}); state.id=det.business.name; state.mode="edit";
+    setPaidBefore(det);
     _setEditingFlag(true); _resetSourceInfo();
     if(state.draft.has_purchase_request==="Yes"){ promoteLegacySource(state.draft); ensurePROptions(function(){ renderCreate($("payr-body")); }); } else { renderCreate($("payr-body")); } }
 

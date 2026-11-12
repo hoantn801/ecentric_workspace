@@ -38,6 +38,16 @@ DSR_STATES = (
 )
 DSR_TERMINAL = ("Approval Completed", "Permanent Failure", "Cancelled", "Rejected", "Superseded")
 
+#: Phieu (EC Approval Request) DA DONG: phan ky so cua no khong con viec gi (12/11/2026).
+CLOSED_REQUEST = ("Cancelled", "Rejected")
+#: Chan ky ERP tu HUY khi phieu da dong - moi trang thai deu co canh -> Cancelled o duoi.
+#: KHONG gom chan dang chay (Queued / Provider Accepted / Verifying / Signed).
+CANCEL_ON_CLOSE = ("Draft", "Prepared", "Mapping Required", "Placement Required",
+                   "Retryable Failure", "Manual Review")
+#: Chan cua phieu da dong nam yen o trang thai cuoi (khong co canh -> Cancelled): chi dong ToDo,
+#: trang van hanh an.
+PARK_ON_CLOSE = ("Permanent Failure", "Verification Mismatch")
+
 #: Hang doi cho LENH KY - "short", KHONG PHAI "default".
 #:
 #: 03/09 00:00, EC-DSR-2026-00033: nguoi duyet bam xong, chan ky nam trong hang 49,7 giay

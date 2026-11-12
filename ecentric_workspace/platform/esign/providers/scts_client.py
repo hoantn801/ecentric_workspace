@@ -526,7 +526,7 @@ class SctsClient(object):
             % (instance_id, transition_id, user_id),
             token=token, _label="users_for_transition")
 
-    def get_workflow_instance(self, instance_id, user_id, token, quick=False):
+    def get_workflow_instance(self, instance_id, user_id, token):
         """GET /api/Workflow/{instanceId}?userid={userId} -> the LIVE workflow state.
 
         Captured from the portal on 2026-08-28. This is what ends three nights of guessing:
@@ -540,24 +540,26 @@ class SctsClient(object):
         ky-tham-gia. Any scheme that configures one value per stage - which is what we were
         doing - is wrong on at least one step of every document.
         """
-        kw = QUICK_READ if quick else {}
         return self._request("GET", "/api/Workflow/%s?userid=%s" % (instance_id, user_id),
-                             token=token, _label="get_workflow_instance", **kw)
+                             token=token, _label="get_workflow_instance")
 
-    def get_instance_history_by_document(self, document_id, user_id, token):
-        """GET /api/Workflow/instance/history/document/{documentId}?userId={userId}.
+    def get_workflow_instance_by_document(self, document_id, user_id, token):
+        """GET /api/Workflow/instance/{documentId}?userId={userId} -> trang thai quy trinh SONG.
 
-        Chi DOC. Tim ra 30/09/2026 tren cong: tra `instanceId`, `currentStateId`, `history`,
-        `availableTransitions` cua tai lieu - tra theo MA TAI LIEU, la ma ERP da co san.
-
-        Day la mieng con thieu cua `get_workflow_instance`: ham do can MA WORKFLOW INSTANCE,
-        ma ERP chua bao gio co (0/546 goi tren prod, 11/11/2026) vi AddDocument khong tra va
-        `GET /api/Document/{id}` khong chua no. Thieu ma -> 404 -> kham pha canh chuyen
-        khong chay -> moi luot ky deu roi ve dem chu ky.
+        Chi DOC. Do tren cong 12/11/2026 (tai khoan admin, 4 tai lieu DNTT o cap 1-4):
+          * tra `instance` (co `currentStateId`, `history`) + `availableTransitions` (du
+            transitionId, processAction, signType, isSigned, transitionType);
+          * `userId` nao cung 200 (nguoi dang giu buoc, nguoi trinh, 'admin', GUID bia) - canh
+            chuyen tra ve theo TRANG THAI tai lieu, khong theo nguoi hoi;
+          * thieu `userId` -> 400.
+        Hai duong cu deu hong: `/api/Workflow/{id}` 404 voi moi tham so (ke ca ma tai lieu ==
+        ma instance), `/api/Workflow/instance/history/document/{id}` 500 khi userId la GUID cua
+        nguoi KHAC tai khoan dang dang nhap (6/8 luot nguoi duyet trong shadow 11/11).
+        Lenh quan sat: 5 giay, khong thu lai (QUICK_READ).
         """
         return self._request(
-            "GET", "/api/Workflow/instance/history/document/%s?userId=%s" % (document_id, user_id),
-            token=token, _label="instance_history_by_document", **QUICK_READ)
+            "GET", "/api/Workflow/instance/%s?userId=%s" % (document_id, user_id),
+            token=token, _label="workflow_instance_by_document", **QUICK_READ)
 
     def get_document(self, document_id, token):
         """GET /api/Document/{documentId} -> raw document payload (status/signers/files)."""

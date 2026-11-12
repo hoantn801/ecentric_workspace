@@ -113,7 +113,7 @@
   },
   "approval_center/features/payment_request/ui/main_section.html": {
     "last_resync_patch": "p364_resync_contract_review_mau_tool_cu",
-    "sha256": "bc3ed35b5488a705ce89fe51d3044a22aa029ef3c19c37cfb250b5a5ea39c0d5"
+    "sha256": "64ef8ff00fc4c6a5f858b5caf2557d9eea77c193fbe4eb790c615f81bb873d4e"
   },
   "approval_center/features/promotion/ui/main_section.html": {
     "baseline": "2026-08-31",
