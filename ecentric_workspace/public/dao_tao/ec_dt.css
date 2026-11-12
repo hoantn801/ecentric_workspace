@@ -292,3 +292,12 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 .dt-note.x2 { background:#ffbf00; color:#2a1600; }
 .dt-note.pw { background:rgba(255,255,255,.14); color:#fff; border:1px solid rgba(255,255,255,.25); }
 .dt-steals { align-self:center; display:flex; flex-direction:column; gap:6px; background:rgba(226,27,60,.22); border:1px solid rgba(255,255,255,.25); border-radius:14px; padding:10px 18px; color:#fff; font-size:clamp(16px,1.6vw,24px); animation:dtx2pop .5s cubic-bezier(.2,1.6,.4,1) both; }
+/* 13/11 (Hoan): the nguoi choi o sanh cho may chieu to hon, email khong tran ra ngoai */
+.dt-proj .dt-lobby { grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px; }
+.dt-proj .dt-lobby .dt-pc { padding:12px 16px; border-radius:16px; background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.18); gap:12px; overflow:hidden; }
+.dt-proj .dt-lobby .dt-pcard { flex:1; min-width:0; overflow:hidden; }
+.dt-proj .dt-lobby .dt-pcard > span:last-child { flex:1; min-width:0; overflow:hidden; }
+.dt-proj .dt-lobby .dt-nick { display:block; font-size:20px; color:#fff; }
+.dt-proj .dt-lobby .dt-mail { display:block; font-size:13px; color:#d6c8ff; }
+.dt-proj .dt-lobby .dt-pcard br { display:none; }
+.dt-proj .dt-lobby .dt-av { width:56px !important; height:56px !important; }
