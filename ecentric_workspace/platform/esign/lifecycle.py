@@ -36,6 +36,7 @@ from frappe import _
 from ecentric_workspace.platform.esign import events
 from ecentric_workspace.platform.esign import hashing
 from ecentric_workspace.platform.esign import package as pkgsvc
+from ecentric_workspace.platform.esign import state as sm
 
 #: Package states that hold a frozen file list. A Draft package still picks up new
 #: attachments by itself, so it needs no revision.
@@ -259,3 +260,100 @@ def on_draft_discarded(business_doctype, business_name):
                           delete_permanently=False)
         discarded.append(p.name)
     return {"discarded": discarded}
+
+
+# --------------------------------------------------------------------------------------------
+# Phieu DA DONG (huy / tu choi): ERP tu don phan ky so cua no.
+# --------------------------------------------------------------------------------------------
+# Danh sach trang thai: xem state.CLOSED_REQUEST / CANCEL_ON_CLOSE / PARK_ON_CLOSE. Moi trang thai
+# trong CANCEL_ON_CLOSE deu co canh -> Cancelled trong may trang thai - khong them canh moi nao.
+# Chan DANG CHAY khong bi huy: job co the dang gui lenh. Moi lenh moi deu bi chot binding chan
+# (`request_not_pending`, thay that tren 00641 ngay 11/11); neu no roi Manual Review thi lan
+# quet sau don.
+CLOSED_REQUEST = sm.CLOSED_REQUEST
+_CANCEL_ON_CLOSE = sm.CANCEL_ON_CLOSE
+_PARK_ON_CLOSE = sm.PARK_ON_CLOSE
+
+# GOI KY KHONG bi huy (QC 12/11): moi duong doc cua trang chi tiet (document_setup.
+# _current_package, service.get_signing_status, api.document_signature_overlay) bo qua goi
+# Cancelled -> phieu da dong mat het phan ky so tren man hinh, ke ca chu ky da co. Huy goi cung
+# khong chan them gi: moi lenh moi da bi chot binding (`request_not_pending`) chan.
+
+
+def on_request_closed(approval_request, reason=None):
+    """Phieu `approval_request` da Huy / Tu choi: huy chan ky + goi con treo, dong viec mo.
+
+    11/11/2026, EC-PAYR-2026-00641: Thu tu huy phieu luc 15:02 ngay 10/11. Chan ky nguoi de
+    nghi van nam o Manual Review, ToDo "esign: signing request needs manual review" van mo, trang
+    van hanh van bao "can xu ly". Bam "Gui lai co kiem" thi bi chan `request_not_pending:
+    Cancelled` - dung, nhung la mot viec khong ai can lam nua. Hoan chot 12/11: "ERP tu huy va
+    dong luon viec".
+
+    CHI phia ERP. Tai lieu ben cong eContract KHONG bi dong vao (huy ben cong la lenh ghi khong
+    dao nguoc duoc len he ngoai - viec rieng, can quyet rieng).
+
+    Trang thai chan ky doc LAI CO KHOA (events.current_status) truoc khi quyet: worker co the
+    vua dua chan Retryable Failure sang Provider Accepted, hoac binding vua dua no sang
+    Permanent Failure, sau lan get_all (QC 12/11 tai hien ca hai).
+
+    Idempotent, an toan khi chay lai. Khong bao gio cham chan da `Approval Completed` (chu ky
+    that). Khong huy goi ky (xem tren). Tra dict dem de nguoi goi ghi vet.
+    """
+    status = frappe.db.get_value("EC Approval Request", approval_request, "approval_status")
+    if status not in CLOSED_REQUEST:
+        return {"skipped": "request_not_closed", "status": status}
+    why = reason or ("request_closed:%s" % status)
+    out = {"cancelled_legs": [], "parked_legs": [], "closed_todos": 0}
+    legs = frappe.get_all("EC Digital Signature Request",
+                          filters={"approval_request": approval_request,
+                                   "status": ["in", _CANCEL_ON_CLOSE + _PARK_ON_CLOSE]},
+                          pluck="name")
+    for name in legs:
+        cur = events.current_status("EC Digital Signature Request", name)
+        if cur in _CANCEL_ON_CLOSE:
+            events.set_dsr_status(name, "Cancelled", event_type="Cancelled",
+                                  request_meta={"reason": why, "was": cur})
+            out["cancelled_legs"].append(name)
+        elif cur in _PARK_ON_CLOSE:
+            out["parked_legs"].append(name)
+        else:
+            continue          # vua chay sang trang thai khac - de lan quet sau
+        out["closed_todos"] += _close_leg_todos(name)
+    return out
+
+
+def _close_leg_todos(dsr_name):
+    """Dong ToDo dead-letter cua mot chan ky (tasks._dead_letter_todo tao, moi chan mot cai)."""
+    n = 0
+    for td in frappe.get_all("ToDo", filters={"reference_type": "EC Digital Signature Request",
+                                              "reference_name": dsr_name, "status": "Open"},
+                             pluck="name"):
+        frappe.db.set_value("ToDo", td, "status", "Cancelled", update_modified=False)
+        n += 1
+    return n
+
+
+def closed_requests_needing_cleanup(limit=200):
+    """Phieu da dong ma con chan ky treo hoac ToDo mo. Dung cho cron quet (tasks)."""
+    legs = frappe.get_all("EC Digital Signature Request",
+                          filters={"status": ["in", _CANCEL_ON_CLOSE + _PARK_ON_CLOSE],
+                                   "approval_request": ["is", "set"]},
+                          fields=["name", "status", "approval_request"], limit_page_length=0)
+    ars = sorted({leg.approval_request for leg in legs})
+    if not ars:
+        return []
+    closed = set(frappe.get_all("EC Approval Request",
+                                filters={"name": ["in", ars],
+                                         "approval_status": ["in", CLOSED_REQUEST]},
+                                pluck="name"))
+    mine = [leg for leg in legs if leg.approval_request in closed]
+    if not mine:
+        return []
+    todo_open = set(frappe.get_all("ToDo", filters={
+        "reference_type": "EC Digital Signature Request",
+        "reference_name": ["in", [leg.name for leg in mine]], "status": "Open"},
+        pluck="reference_name"))
+    need = sorted({leg.approval_request for leg in mine
+                   if leg.status in _CANCEL_ON_CLOSE or leg.name in todo_open})
+    return need[:limit]
+
