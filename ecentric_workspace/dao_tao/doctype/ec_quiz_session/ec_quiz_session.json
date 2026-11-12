@@ -1,0 +1,145 @@
+{
+ "doctype": "DocType",
+ "name": "EC Quiz Session",
+ "module": "Dao Tao",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "description": "Một phòng chơi quiz trực tiếp. snapshot_json = câu hỏi CHỐT lúc mở phòng (sửa bộ quiz sau đó không ảnh hưởng phòng). Mốc giờ lưu mili-giây dạng chuỗi (Int của Frappe 32-bit).",
+ "autoname": "hash",
+ "title_field": "title",
+ "field_order": [
+  "quiz",
+  "title",
+  "code",
+  "host",
+  "phase",
+  "q_index",
+  "version",
+  "opened_ms",
+  "deadline_ms",
+  "started_at",
+  "ended_at",
+  "snapshot_json",
+  "settings_json",
+  "prizes_json",
+  "state_json",
+  "results_json"
+ ],
+ "fields": [
+  {
+   "fieldname": "quiz",
+   "fieldtype": "Link",
+   "label": "Bộ quiz",
+   "options": "EC Quiz",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Tên",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "code",
+   "fieldtype": "Data",
+   "label": "Mã phòng",
+   "search_index": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "host",
+   "fieldtype": "Link",
+   "label": "Người dẫn",
+   "options": "User",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "phase",
+   "fieldtype": "Data",
+   "label": "Pha",
+   "in_list_view": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "q_index",
+   "fieldtype": "Int",
+   "label": "Câu hiện tại"
+  },
+  {
+   "fieldname": "version",
+   "fieldtype": "Int",
+   "label": "Phiên bản"
+  },
+  {
+   "fieldname": "opened_ms",
+   "fieldtype": "Data",
+   "label": "Mở câu lúc (ms)"
+  },
+  {
+   "fieldname": "deadline_ms",
+   "fieldtype": "Data",
+   "label": "Hết giờ lúc (ms)"
+  },
+  {
+   "fieldname": "started_at",
+   "fieldtype": "Datetime",
+   "label": "Bắt đầu"
+  },
+  {
+   "fieldname": "ended_at",
+   "fieldtype": "Datetime",
+   "label": "Kết thúc"
+  },
+  {
+   "fieldname": "snapshot_json",
+   "fieldtype": "Long Text",
+   "label": "Câu hỏi chốt (JSON)"
+  },
+  {
+   "fieldname": "settings_json",
+   "fieldtype": "Long Text",
+   "label": "Luật chơi (JSON)"
+  },
+  {
+   "fieldname": "prizes_json",
+   "fieldtype": "Long Text",
+   "label": "Phần thưởng (JSON)"
+  },
+  {
+   "fieldname": "state_json",
+   "fieldtype": "Long Text",
+   "label": "Trạng thái phụ (JSON)"
+  },
+  {
+   "fieldname": "results_json",
+   "fieldtype": "Long Text",
+   "label": "Kết quả (JSON)"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "modified": "2026-11-12 18:00:00.000000"
+}

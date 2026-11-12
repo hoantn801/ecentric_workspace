@@ -1062,3 +1062,16 @@ ec_esign_outcome_handlers = {
     "EC Contract Review Request":
         "ecentric_workspace.approval_center.features.contract_review.application.esign_hooks.on_signing_outcome",
 }
+
+# --------------------------------------------------------------------------- #
+# 12/11/2026 - Dao tao + Quiz truc tiep (dao_tao/): the noi "Quiz dang mo" tren moi trang co vo
+# shell va tren app nhan su (phia tren thanh tab, thanh tab KHONG doi). Chi hien khi co phong
+# dang mo. Tat: site_config ec_quiz_card_disabled, hoac trang gan data-ec-no-quizcard.
+# --------------------------------------------------------------------------- #
+web_include_js.append("ec_quiz_live.bundle.js")
+
+# 12/11/2026 - Dao tao: quay so tuan (mac dinh 16:00 thu Sau, Ban dao tao doi duoc). Moi ve = mot
+# luot; so khong ai giu -> qua de lai. Mot truy van nho moi phut, gan nhu luon rong.
+# Tat khan cap: site_config ec_training_draw_disabled: 1.
+scheduler_events["cron"].setdefault("*/1 * * * *", []).append(
+    "ecentric_workspace.dao_tao.application.draw_service.tick")

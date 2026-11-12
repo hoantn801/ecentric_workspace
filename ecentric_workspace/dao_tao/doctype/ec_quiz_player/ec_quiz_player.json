@@ -1,0 +1,144 @@
+{
+ "doctype": "DocType",
+ "name": "EC Quiz Player",
+ "module": "Dao Tao",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "allow_rename": 0,
+ "sort_field": "joined_at",
+ "sort_order": "DESC",
+ "description": "Người chơi trong một phòng. name = phòng + băm email (autoname=Prompt CÓ CHỦ Ý: chống vào trùng ở tầng khoá chính).",
+ "autoname": "Prompt",
+ "field_order": [
+  "session",
+  "user",
+  "nickname",
+  "avatar_json",
+  "department",
+  "score",
+  "correct_count",
+  "correct_ms",
+  "streak",
+  "best_streak",
+  "answered",
+  "first_rank",
+  "device",
+  "kicked",
+  "flags_json",
+  "joined_at"
+ ],
+ "fields": [
+  {
+   "fieldname": "session",
+   "fieldtype": "Link",
+   "label": "Phòng",
+   "options": "EC Quiz Session",
+   "reqd": 1,
+   "search_index": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "Người chơi",
+   "options": "User",
+   "reqd": 1,
+   "search_index": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "nickname",
+   "fieldtype": "Data",
+   "label": "Tên trong game",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "avatar_json",
+   "fieldtype": "Small Text",
+   "label": "Nhân vật (JSON)"
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Data",
+   "label": "Phòng ban"
+  },
+  {
+   "fieldname": "score",
+   "fieldtype": "Int",
+   "label": "Điểm",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "correct_count",
+   "fieldtype": "Int",
+   "label": "Số câu đúng"
+  },
+  {
+   "fieldname": "correct_ms",
+   "fieldtype": "Int",
+   "label": "Tổng thời gian câu đúng (ms)"
+  },
+  {
+   "fieldname": "streak",
+   "fieldtype": "Int",
+   "label": "Chuỗi đúng"
+  },
+  {
+   "fieldname": "best_streak",
+   "fieldtype": "Int",
+   "label": "Chuỗi dài nhất"
+  },
+  {
+   "fieldname": "answered",
+   "fieldtype": "Int",
+   "label": "Số câu đã trả lời"
+  },
+  {
+   "fieldname": "first_rank",
+   "fieldtype": "Int",
+   "label": "Hạng sau câu 1"
+  },
+  {
+   "fieldname": "device",
+   "fieldtype": "Data",
+   "label": "Thiết bị"
+  },
+  {
+   "fieldname": "kicked",
+   "fieldtype": "Check",
+   "label": "Đã mời ra"
+  },
+  {
+   "fieldname": "flags_json",
+   "fieldtype": "Small Text",
+   "label": "Cờ (JSON)"
+  },
+  {
+   "fieldname": "joined_at",
+   "fieldtype": "Datetime",
+   "label": "Vào lúc"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "modified": "2026-11-12 18:00:00.000000"
+}
