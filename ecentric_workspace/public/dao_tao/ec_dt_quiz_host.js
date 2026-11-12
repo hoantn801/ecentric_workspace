@@ -45,7 +45,7 @@
     var top = '<div class="dt-ptop"><b style="font-size:18px">' + D.esc(st.title) + '</b><span class="dt-pill" style="background:rgba(255,255,255,.16);border-radius:999px;padding:4px 12px">Mã <b>' +
       D.esc(st.code) + '</b></span><span class="dt-sp"></span><span title="Mức bảo vệ">' + D.icon("shield") + " " + (GUARD[st.settings.guard] || "") +
       '</span><span>👥 <b id="dt-np">' + st.players + "</b></span>" +
-      '<button class="dt-b sm ghost" style="color:#fff" id="dt-fs">Toàn màn hình</button></div>';
+      '<span id="dt-mus"></span><button class="dt-b sm ghost" style="color:#fff" id="dt-fs">Toàn màn hình</button></div>';
     var main = "";
     if (st.phase === "lobby") main = lobby();
     else if (st.phase === "question" || st.phase === "locked") main = question();
@@ -66,6 +66,7 @@
     D.byId("dt-fs").onclick = function () { var el = document.documentElement; if (!document.fullscreenElement && el.requestFullscreen) el.requestFullscreen(); else if (document.exitFullscreen) document.exitFullscreen(); };
     if (st.phase === "lobby") qr();
     if (panel) bindPlayers();
+    if (window.ECDtMusic) { try { window.ECDtMusic.attach(D.byId("dt-mus"), st.phase); } catch (e) { /* nhac hong khong duoc lam hong man chieu */ } }
     updateLive();
   }
 

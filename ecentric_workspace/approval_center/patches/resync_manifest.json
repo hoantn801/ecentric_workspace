@@ -321,31 +321,31 @@
     "sha256": "c798fb5341c93a69942b929fcd6b6f5c7b7803f5329d44ad6cd168c9521a3f16"
   },
   "dao_tao/pages/learn/main_section.html": {
-    "last_resync_patch": "p368_resync_dao_tao_cho_ecapi",
-    "sha256": "f92d02e9588ae2fc0eff0a86de29f9ac0858df20a0d5449c3c395cc64cab3b36"
+    "last_resync_patch": "p369_dao_tao_nhac_may_chieu",
+    "sha256": "e0580753c4ea566784195b8438872ddfd8387d68f402f0d9da6451ae451e3559"
   },
   "dao_tao/pages/lesson/main_section.html": {
-    "last_resync_patch": "p368_resync_dao_tao_cho_ecapi",
-    "sha256": "12889d0fbd7305f5a2734c73dfc9056587c7bbf6042c983235e2bfe160f7eaa6"
+    "last_resync_patch": "p369_dao_tao_nhac_may_chieu",
+    "sha256": "a07016a658f4d0eea431bf09edb0eeead2f93e47e8a9bb87a4eafc51c3b3b5da"
   },
   "dao_tao/pages/admin/main_section.html": {
-    "last_resync_patch": "p368_resync_dao_tao_cho_ecapi",
-    "sha256": "345e273e3434043234c97e6f1a9cd9e8f1af439191f8963ff5770335d3fe1aea"
+    "last_resync_patch": "p369_dao_tao_nhac_may_chieu",
+    "sha256": "d04402d78c2f6412f516efd95cb40f8fb3de9226a86e376d4f1df7088ecba54d"
   },
   "dao_tao/pages/quiz/main_section.html": {
-    "last_resync_patch": "p368_resync_dao_tao_cho_ecapi",
-    "sha256": "44d2af0cfeb1fb9e79efff926a0c5b68f4c5022388145921dd8c98a6e83559c7"
+    "last_resync_patch": "p369_dao_tao_nhac_may_chieu",
+    "sha256": "d7e5977ff8c31cbe127215c21648389f784d1eac651e818d7b5a371969dcb1e0"
   },
   "dao_tao/pages/edit/main_section.html": {
-    "last_resync_patch": "p368_resync_dao_tao_cho_ecapi",
-    "sha256": "a0366c6c9a954e0070f2b4e96c67cde889611b15446654a6a428cbe44313930e"
+    "last_resync_patch": "p369_dao_tao_nhac_may_chieu",
+    "sha256": "a754c530f28e6a1249df17604429ab2093fe92500012a2721bfec9038d497e0f"
   },
   "dao_tao/pages/play/main_section.html": {
-    "last_resync_patch": "p368_resync_dao_tao_cho_ecapi",
-    "sha256": "de21f7d4a5b56bc4f97170bfef691ae0421ad870238329eaa6c5dec195c5f3cb"
+    "last_resync_patch": "p369_dao_tao_nhac_may_chieu",
+    "sha256": "f5c302b00343b6c41d78ca366d2df59aeae83a9d0dd90807a916eeb61b88482f"
   },
   "dao_tao/pages/host/main_section.html": {
-    "last_resync_patch": "p368_resync_dao_tao_cho_ecapi",
-    "sha256": "dc5b864e7f9974ad1325d571aa662232e7aadb1d2b119b7d68fe3e8d11693a97"
+    "last_resync_patch": "p369_dao_tao_nhac_may_chieu",
+    "sha256": "5225f9f5b94336cc7197eb37f990f12c36f5672776624f6dd878e0d62939543a"
   }
 }

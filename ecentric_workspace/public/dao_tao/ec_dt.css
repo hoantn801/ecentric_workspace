@@ -200,6 +200,7 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 
 /* ---- may chieu ---- */
 .dt-proj { min-height:100vh; display:flex; flex-direction:column; background:linear-gradient(160deg,#46178f 0%,#2f0f62 100%); color:#fff; }
+.dt-proj :where(h1,h2,h3) { color:#fff; }   /* tieu de tren nen tim (truoc ra mau muc - kho doc tren may chieu) */
 .dt-proj .dt-ptop { display:flex; align-items:center; gap:14px; padding:14px 22px; }
 .dt-proj .dt-pmain { flex:1; display:flex; flex-direction:column; gap:18px; padding:8px 28px 18px; min-height:0; }
 .dt-proj .dt-pbar { display:flex; align-items:center; gap:10px; padding:12px 22px; background:rgba(0,0,0,.25); flex-wrap:wrap; }
