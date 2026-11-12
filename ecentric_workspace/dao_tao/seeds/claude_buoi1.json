@@ -415,37 +415,37 @@
   },
   {
    "type": "pin",
-   "text": "Ở tab Phần thưởng của kênh Đào tạo: chạm vào nút để máy chọn giúp bạn một số may mắn.",
-   "time": 20,
+   "text": "Bạn muốn xem, thêm hoặc sửa những gì Claude đang nhớ về mình. Trong phần Cài đặt này, chạm vào nút cần bấm.",
+   "time": 25,
    "media": {
     "kind": "image",
-    "url": "https://team.ecentric.vn/assets/ecentric_workspace/dao_tao/img/pin-phan-thuong.png"
+    "url": "https://team.ecentric.vn/assets/ecentric_workspace/dao_tao/img/pin-claude-memory.png"
    },
    "zone": {
     "shape": "rect",
-    "x": 0.25,
-    "y": 0.596,
-    "w": 0.14,
-    "h": 0.092
+    "x": 0.88,
+    "y": 0.7,
+    "w": 0.115,
+    "h": 0.09
    },
-   "explain": "Nút “Chọn ngẫu nhiên”. Mỗi vé là một lượt quay: bạn tự chọn số trong bảng, hoặc để máy chọn giúp. Chưa chọn kịp thì đến 15:55 thứ Sáu máy tự chọn cho bạn."
+   "explain": "Nút “Manage” ở dòng Your memory (Cài đặt › Your Claude). Ở đây bạn xem, thêm, sửa hoặc xoá những gì Claude nhớ về bạn - ví dụ “mình là KAM brand X, báo cáo luôn gửi BOD” để lần sau không phải dặn lại."
   },
   {
    "type": "pin",
-   "text": "Câu cuối! Trên trang Đào tạo (team.ecentric.vn/dao-tao): chạm vào nút để vào chơi Quiz trực tiếp.",
+   "text": "Câu cuối! Bạn muốn tạo một Project mới cho việc lặp lại hằng tuần. Chạm vào mục cần bấm ở menu bên trái của Claude.",
    "time": 20,
    "media": {
     "kind": "image",
-    "url": "https://team.ecentric.vn/assets/ecentric_workspace/dao_tao/img/pin-dao-tao.png"
+    "url": "https://team.ecentric.vn/assets/ecentric_workspace/dao_tao/img/pin-claude-project.png"
    },
    "zone": {
     "shape": "rect",
-    "x": 0.02,
-    "y": 0.27,
-    "w": 0.145,
-    "h": 0.17
+    "x": 0.0,
+    "y": 0.39,
+    "w": 1.0,
+    "h": 0.13
    },
-   "explain": "Nút vàng “Quiz trực tiếp”. Từ tuần này mỗi tuần có bài học mới trên kênh Đào tạo: học bài, làm quiz là có vé quay số thứ Sáu. Vào Công ty › Đào tạo trên menu là thấy."
+   "explain": "Mục “Projects”. Vào đây bấm New project, dán hướng dẫn và tải file tham khảo một lần - mỗi chat trong Project là Claude đã biết sẵn bối cảnh, như weekly report hằng tuần."
   }
  ]
 }

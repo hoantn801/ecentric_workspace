@@ -214,6 +214,7 @@ def _finalize(repo, s):
         p = nick.get(a["user"]) or {}
         a["nickname"] = p.get("nickname") or ""
         a["avatar"] = p.get("avatar") or {}
+        a["department"] = p.get("department") or ""
     for user, rows in per_user.items():
         want = sum(int(r["tickets"]) for r in rows)
         label = "Quiz “%s”: %s" % (s["title"], ", ".join(r["label"] for r in rows))

@@ -93,7 +93,7 @@ MODE_SOLO = "solo"           # ca nhan
 MODE_TEAM = "team"           # ca nhan + duong dua phong ban
 MODES = (MODE_SOLO, MODE_TEAM)
 #: Phong duoi 4 nguoi gop vao "Van phong" (Hoan chot).
-TEAM_MIN_SIZE = 4
+TEAM_MIN_SIZE = 1          # Hoan 13/11: doi = dung phong ban cua nguoi choi, khong gop "Van phong"
 TEAM_MERGED = "Văn phòng"
 TEAM_UNKNOWN = "Chưa có phòng ban"
 
