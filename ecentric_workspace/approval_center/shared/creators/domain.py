@@ -92,7 +92,10 @@ NORMALIZERS = {"ec_cr_cccd": _digits, "tax_id": _digits, "ec_bank_account_no": _
 
 # Luu dang chuan hoa (chi so) de lan sau so trung va dien vao hop dong khong lech dinh dang.
 STORE_NORMALIZED = {"ec_cr_cccd": _digits, "tax_id": _digits, "ec_bank_account_no": _digits,
-                    "ec_cr_party_code": lambda v: str(v).strip().upper(),
+                    # Ma viet tat trong so HD: bo moi khoang trang ("ntp vn" -> "NTPVN") - so HD khong
+                    # duoc co dau cach. Ma sai khuon (cong ty > 6 ky tu...) thi so HD tu suy tu ten
+                    # nhu tool cu (kol_texts.party_code), form ghi ro luat nay.
+                    "ec_cr_party_code": lambda v: re.sub(r"\s+", "", str(v)).upper(),
                     "ec_phone": _phone}
 
 

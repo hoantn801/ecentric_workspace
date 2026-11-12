@@ -1,12 +1,19 @@
 # Copyright (c) 2026, eCentric and contributors
-"""Doc so tien thanh chu tieng Viet cho hop dong ("Ba mươi triệu đồng chẵn").
+"""Doc so tien thanh chu tieng Viet cho hop dong ("Ba mươi triệu đồng").
 
 Thuan Python, khong goi frappe. Quy tac doc theo cach van ban hanh chinh thuong viet:
   - "lẻ" khi hang chuc = 0 va hang don vi != 0 (105 -> một trăm lẻ năm)
   - "mốt" cho don vi 1 khi hang chuc >= 2 (21 -> hai mươi mốt), "mười một" giu nguyen
+  - "tư" cho don vi 4 khi hang chuc >= 2 (24 -> hai mươi tư), "mười bốn" giu nguyen
   - "lăm" cho don vi 5 khi hang chuc >= 1 (15 -> mười lăm, 25 -> hai mươi lăm)
   - nhom 3 chu so dung giua (1.005.000) doc du "không trăm"
 """
+def _round(n):
+    """.5 len (nhu tool cu); round() cua Python lam tron chan: 2.5 -> 2."""
+    from decimal import ROUND_HALF_UP, Decimal
+    return int(Decimal(repr(float(n or 0))).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+
+
 _DIGITS = ("không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín")
 
 
@@ -21,6 +28,8 @@ def _three(n, full):
         words += [_DIGITS[ten], "mươi"]
         if one == 1:
             words.append("mốt")
+        elif one == 4:
+            words.append("tư")
         elif one == 5:
             words.append("lăm")
         elif one:
@@ -54,7 +63,7 @@ def _below_billion(n, full_first):
 
 def number_to_words(n):
     """Doc so nguyen thanh chu (khong viet hoa, khong 'đồng')."""
-    n = int(round(float(n or 0)))
+    n = _round(n)
     if n < 0:
         return "âm " + number_to_words(-n)
     if n == 0:
@@ -69,9 +78,10 @@ def number_to_words(n):
 
 
 def amount_in_words(n):
-    """'Ba mươi triệu đồng chẵn' / 'Một triệu hai trăm năm mươi nghìn đồng'."""
-    n = int(round(float(n or 0)))
+    """'Ba mươi triệu đồng' / 'Một triệu hai trăm năm mươi nghìn đồng'.
+
+    Khop tool Google Sheet cu (numberToVietnamese_): khong them 'chẵn', 24 -> 'hai mươi tư' -
+    cung cach viet voi cac hop dong da ky (anh Hoan chot 12/11 dung lai mau cua Ke toan)."""
+    n = _round(n)
     text = number_to_words(n) + " đồng"
-    if n and n % 1000 == 0:
-        text += " chẵn"
     return text[:1].upper() + text[1:]

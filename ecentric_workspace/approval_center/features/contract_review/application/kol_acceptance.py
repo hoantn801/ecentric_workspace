@@ -16,7 +16,7 @@ from frappe.utils import flt, now_datetime, nowdate
 from ecentric_workspace.approval_center.features.contract_review.application import kol_lookup
 from ecentric_workspace.approval_center.features.contract_review.application.kol_service import (
     APPROVED, approval_status, can_manage, creator_row, is_signed)
-from ecentric_workspace.approval_center.features.contract_review.domain import kol
+from ecentric_workspace.approval_center.features.contract_review.domain import kol, kol_calc, kol_values
 
 
 def _load(name, user):
@@ -49,8 +49,9 @@ def add_acceptance(name, user, description, acceptance_date=None, amount=None):
     if planned + amount > flt(doc.payable_amount) + 0.5:
         frappe.throw(_("Tổng các đợt nghiệm thu và tiền cọc vượt số tiền trả creator ({0}).")
                      .format(kol.fmt_money(doc.payable_amount)))
+    acceptance_date = _check_acceptance_date(doc, acceptance_date or nowdate())
     row = doc.append("acceptances", {"description": (description or "").strip()[:140] or "Nghiệm thu",
-                                     "acceptance_date": acceptance_date or nowdate(),
+                                     "acceptance_date": acceptance_date,
                                      "amount": amount, "status": kol.BBNT_DRAFT})
     doc.save(ignore_permissions=True)
     row = _row(doc, row.name)
@@ -58,7 +59,35 @@ def add_acceptance(name, user, description, acceptance_date=None, amount=None):
     url, missing = kol_files.generate_acceptance(doc, row, creator_row(doc.creator))
     row.bbnt_file = url
     doc.save(ignore_permissions=True)
-    return {"row": row.name, "bbnt_file": url, "missing": missing}
+    from ecentric_workspace.approval_center.features.contract_review.domain import kol_values
+    return {"row": row.name, "bbnt_file": url, "missing": missing,
+            "missing_labels": kol_values.missing_labels(missing)}
+
+
+def _check_acceptance_date(doc, value):
+    """Ngay in tren BBNT: khong truoc ngay ky hop dong, khong o tuong lai (QC3 12/11 - truoc do nhan
+    bat ky ngay nao, BBNT co the ghi nghiem thu truoc khi ky hop dong)."""
+    import datetime as _dt
+    try:
+        day = _dt.date.fromisoformat(str(value)[:10])
+    except ValueError:
+        frappe.throw(_("Ngày nghiệm thu không hợp lệ."))
+    today = _dt.date.fromisoformat(str(nowdate())[:10])
+    if day > today:
+        frappe.throw(_("Ngày nghiệm thu không được ở tương lai."))
+    signed = str(doc.get("contract_date") or "")[:10]
+    if signed and day < _dt.date.fromisoformat(signed):
+        sd = _dt.date.fromisoformat(signed)
+        # Live lam som hon lich (PO 12/11): BBNT ghi tu ngay ky tro di; chua toi ngay ky thi doi
+        # hoac lam phu luc - KHONG cho nghiem thu truoc khi co hop dong.
+        if sd > today:
+            frappe.throw(_("Hợp đồng ghi ngày ký {0}, sau hôm nay nên chưa lập BBNT được. Buổi làm sớm hơn "
+                           "lịch: đợi tới ngày ký, hoặc nhờ Kế toán làm phụ lục chỉnh ngày.").format(
+                               sd.strftime("%d/%m/%Y")))
+        frappe.throw(_("Ngày nghiệm thu ({0}) trước ngày ký hợp đồng ({1}). Chọn từ {1} tới hôm nay; "
+                       "ngày BBNT không cần trùng ngày live.").format(day.strftime("%d/%m/%Y"),
+                                                                      sd.strftime("%d/%m/%Y")))
+    return str(day)
 
 
 def delete_acceptance(name, user, row_name):
@@ -90,6 +119,28 @@ def send_acceptance(name, user, row_name):
     row = _row(doc, row_name)
     if row.status != kol.BBNT_DRAFT:
         frappe.throw(_("Đợt này đã gửi ký."))
+    # Tool cu khong cho BBNT con cho trong di ky; kiem lai voi du lieu HIEN TAI (creator co the
+    # vua duoc bo sung) - thieu thi chan, kem nhan tieng Viet (QC 12/11).
+    from ecentric_workspace.approval_center.features.contract_review.application import kol_files
+    from ecentric_workspace.approval_center.features.contract_review.domain import kol_values
+    content, missing = kol_files.acceptance_content(doc, row, creator_row(doc.creator))
+    if missing:
+        frappe.throw(_("BBNT đợt {0} còn thiếu: {1}. Bổ sung (thường là thông tin creator) rồi bấm gửi "
+                       "lại - hệ thống tạo lại BBNT theo dữ liệu mới.").format(
+            row.idx, ", ".join(kol_values.missing_labels(missing))))
+    # Tep gui ky = tep sinh tu du lieu HIEN TAI (creator co the vua duoc bo sung sau khi tao dot):
+    # kiem mot ban ma gui ban khac la chinh loi QC 12/11. Frappe gop tep trung noi dung -> du lieu
+    # khong doi thi URL giu nguyen. URL DOI = noi dung khac ban nguoi dung da tai / gui creator:
+    # KHONG danh dau da gui (ban creator dang cam khong phai ban nay), giu ca tep cu lam vet (QC3).
+    old = row.bbnt_file
+    new = kol_files.attach(doc, "BBNT_%s_dot%s.docx" % (kol_files._safe(doc.contract_no), row.idx), content)
+    if old and new != old:
+        row.bbnt_file = new
+        doc.save(ignore_permissions=True)
+        doc.add_comment("Info", _("BBNT đợt {0} được tạo lại theo dữ liệu mới (bản cũ vẫn đính kèm: {1}).")
+                        .format(row.idx, old))
+        return {"status": row.status, "regenerated": True, "bbnt_file": new}
+    row.bbnt_file = new
     row.status = kol.BBNT_SENT
     doc.save(ignore_permissions=True)
     return {"status": row.status}
@@ -100,6 +151,12 @@ def complete_acceptance(name, user, row_name, signed_file):
     row = _row(doc, row_name)
     if row.status == kol.BBNT_DONE:
         frappe.throw(_("Đợt này đã hoàn tất."))
+    if row.status == kol.BBNT_REVIEW:
+        frappe.throw(_("Đợt này đang chờ Kế toán kiểm bản ký."))
+    if row.status != kol.BBNT_SENT:
+        # Bo qua buoc gui ky = bo qua kiem thieu thong tin + tao lai BBNT (QC3).
+        frappe.throw(_("Bấm \"Đánh dấu đã gửi ký\" trước (hệ thống kiểm và tạo lại BBNT theo dữ liệu "
+                       "mới), rồi mới tải bản ký."))
     if not is_signed(doc):
         frappe.throw(_("Hợp đồng chưa được xác nhận ký đủ."))
     if not (signed_file or "").lower().endswith(".pdf"):
@@ -108,21 +165,30 @@ def complete_acceptance(name, user, row_name, signed_file):
     if signed_file in used or signed_file == doc.get("signed_file"):
         frappe.throw(_("Tệp này đã dùng cho hợp đồng hoặc đợt nghiệm thu khác. Tải BBNT đã ký của đợt này."))
     from ecentric_workspace.approval_center.features.contract_review.application.kol_files import claim_upload
-    row.signed_file = claim_upload(doc, signed_file, user)
-    row.completed_at = now_datetime()
-    row.completed_by = user
+    findings = finish_round(doc, row, claim_upload(doc, signed_file, user), now_datetime(), user)
+    return {"status": row.status, "due_date": str(row.due_date), "findings": findings}
+
+
+def finish_round(doc, row, signed_file, when, by):
+    """Ghi ban BBNT ky xong cua mot dot (nguoi tai len, hoac nen tang ky so qua esign_hooks): han
+    thanh toan + may kiem + vet. `by` = user (Link) hoac nhan nguon (vd "Ky so (cong)")."""
+    row.signed_file = signed_file
+    row.completed_at = when
+    row.completed_by = by if (by and frappe.db.exists("User", by)) else None
     # Han thanh toan tinh tu NGAY KY XONG (ngay tai ban ky), ke ca khi Ke toan xac nhan sau.
-    row.due_date = kol.due_date(row.completed_at.date(), doc.payment_term_days)
+    row.due_date = kol.due_date(row.completed_at.date(), doc.payment_term_days, doc.get("creator_type"),
+                                doc.get("platform"), kol_lookup.holidays())
     from ecentric_workspace.approval_center.features.contract_review.application import kol_verify
     findings = kol_verify.apply_acceptance_check(doc, row)
     doc.save(ignore_permissions=True)
+    src = "" if row.completed_by else (" (%s)" % by if by else "")
     if findings:
-        doc.add_comment("Info", _("BBNT đợt {0}: tải bản ký - chờ Kế toán kiểm: {1}").format(
-            row.idx, "; ".join(findings)))
+        doc.add_comment("Info", _("BBNT đợt {0}{1}: bản ký - chờ Kế toán kiểm: {2}").format(
+            row.idx, src, "; ".join(findings)))
     else:
-        doc.add_comment("Info", _("BBNT đợt {0} hoàn tất (máy kiểm đạt), hạn thanh toán {1}.").format(
-            row.idx, row.due_date.strftime("%d/%m/%Y")))
-    return {"status": row.status, "due_date": str(row.due_date), "findings": findings}
+        doc.add_comment("Info", _("BBNT đợt {0}{1} hoàn tất (máy kiểm đạt), hạn thanh toán {2}.").format(
+            row.idx, src, row.due_date.strftime("%d/%m/%Y")))
+    return findings
 
 
 def payable_cap(doc):
@@ -138,8 +204,21 @@ def rows_view(doc):
              "acceptance_date": str(r.acceptance_date or ""), "amount": flt(r.amount),
              "status": r.status, "bbnt_file": r.bbnt_file, "signed_file": r.signed_file,
              "completed_at": str(r.completed_at or ""), "due_date": str(r.due_date or ""),
-             "check_note": r.get("check_note") or "", "verified_by": r.get("verified_by") or ""}
+             "check_note": r.get("check_note") or "", "verified_by": r.get("verified_by") or "",
+             "calc": _round_calc(doc, r)}
             for r in (doc.acceptances or [])]
+
+
+def _round_calc(doc, row):
+    try:
+        # Dot phu het hop dong: BBNT in so cua CA hop dong (kol_values.is_whole_round) -> bang tinh
+        # cung lay so da luu cua hop dong, khong quy nguoc tu so dot (lech 1d - QC6 12/11).
+        if kol_values.is_whole_round(doc, flt(row.amount)):
+            return kol_calc.contract_steps(doc)
+        return kol_calc.round_steps(doc.get("creator_type"), flt(row.amount), doc.get("pit_rate"),
+                                    doc.get("vat_rate"), doc)
+    except Exception:
+        return []                 # bang tinh chi de soat: loi du lieu cu khong lam hong trang chi tiet
 
 
 def funding_view(doc):

@@ -15,7 +15,7 @@ from frappe import _
 from ecentric_workspace.approval_center.features.contract_review.application import kol_lookup
 from ecentric_workspace.approval_center.features.contract_review.application.kol_service import (
     can_manage, creator_row)
-from ecentric_workspace.approval_center.features.contract_review.domain import docx_fill, kol
+from ecentric_workspace.approval_center.features.contract_review.domain import docx_fill, kol, kol_values
 
 KIND_CONTRACT = "Hợp đồng"
 KIND_BBNT = "BBNT"
@@ -70,18 +70,25 @@ def template_for(doc, kind):
     chosen = doc.get("contract_template") if kind == KIND_CONTRACT else None
     if chosen:
         t = frappe.db.get_value("EC Contract Template", chosen,
-                                ["kind", "is_active", "creator_type"], as_dict=True)
-        if not t or not t.is_active or t.kind != KIND_CONTRACT \
-                or t.creator_type != doc.get("creator_type"):
-            frappe.throw(_("Mẫu {0} không dùng được cho creator {1} (mẫu ngừng dùng hoặc khác loại). "
-                           "Chọn lại mẫu hoặc để trống cho hệ thống tự chọn.")
-                         .format(chosen, doc.get("creator_type") or "?"))
+                                ["kind", "is_active", "creator_type", "has_advance", "platform", "service_type"],
+                                as_dict=True)
+        why = kol_lookup.template_mismatch(t, kind, doc.get("creator_type"),
+                                           doc.get("payment_schedule") == kol.PAY_ADVANCE, doc.get("platform"),
+                                           doc.get("service_type"))
+        if why:
+            frappe.throw(_("Mẫu {0} không dùng được cho phiếu này: {1}. Chọn lại mẫu hoặc để trống cho "
+                           "hệ thống tự chọn.").format(chosen, why))
         return chosen
     name = kol_lookup.pick_template(kind, doc.get("creator_type"), doc.get("service_type"),
-                                    doc.get("payment_schedule") == kol.PAY_ADVANCE)
+                                    doc.get("payment_schedule") == kol.PAY_ADVANCE, doc.get("platform"))
     if not name:
-        frappe.throw(_("Chưa có mẫu {0} đang dùng cho creator {1} / {2}. Nhờ Kế toán thêm mẫu.")
-                     .format(kind, doc.get("creator_type") or "?", doc.get("service_type") or "?"))
+        # BBNT khong co duong "mau cua creator": chi Ke toan them mau moi go duoc (QC3).
+        tail = _("Nhờ Kế toán thêm mẫu, hoặc dùng mẫu của creator.") if kind == KIND_CONTRACT else _(
+            "Nhờ Kế toán thêm mẫu BBNT phù hợp rồi tạo lại đợt nghiệm thu.")
+        frappe.throw(_("Chưa có mẫu {0} đang dùng cho creator {1} / {2}{3}{4}. ").format(
+            kind, doc.get("creator_type") or "?", doc.get("service_type") or "?",
+            " / Shopee" if doc.get("platform") == "Shopee" else "",
+            " / có cọc" if kind == KIND_CONTRACT and doc.get("payment_schedule") == kol.PAY_ADVANCE else "") + tail)
     return name
 
 
@@ -101,6 +108,11 @@ def generate_contract(name, user):
         frappe.throw(_("Phiếu dùng mẫu của creator: tải tệp lên thay vì tạo từ mẫu."))
     from ecentric_workspace.approval_center.features.contract_review.application import kol_service
     kol_service.prepare_draft(doc)
+    # Kiem luat mau EC TRUOC khi sinh tep (Shopee/HKD/nen tang/ngay) - khong de nguoi dung nhan
+    # "chua co mau, nho Ke toan them" trong khi loi that la phieu sai luat (QC 12/11).
+    errors = kol.validate_kol(doc, doc.get("creator_type"), kol_service.ref_day(doc))
+    if errors:
+        frappe.throw(_(" ".join(errors)))
     kol_service.apply_amounts(doc, strict=True)
     out = build_contract(doc)
     doc.save(ignore_permissions=True)
@@ -125,18 +137,16 @@ def build_contract(doc):
     from ecentric_workspace.approval_center.features.contract_review.application import kol_service
     kol_service.assign_number(doc, creator)
     tpl = frappe.get_doc("EC Contract Template", template_for(doc, KIND_CONTRACT))
-    values = kol.placeholders(doc.as_dict(), creator, kol_lookup.brand_code(doc.get("brand")),
-                              doc.get("so_label"))
+    values = _values(doc, creator, kol_service.expected_bbnt_date(doc))
     fp = _fingerprint(tpl, values)
     # Du lieu khong doi = tep hien tai van dung: khong sinh ban trung byte (Frappe gop theo noi
     # dung -> hai File cung URL, lan go sau chi go mot ban - QC 11/11).
     if doc.get("contract_file") and doc.get("contract_fingerprint") == fp:
-        return {"contract_file": doc.contract_file, "contract_no": doc.contract_no,
-                "missing": _missing_list(doc), "template": tpl.name, "regenerated": False}
+        miss = _missing_list(doc)
+        return {"contract_file": doc.contract_file, "contract_no": doc.contract_no, "missing": miss,
+                "missing_labels": kol_values.missing_labels(miss), "template": tpl.name, "regenerated": False}
     data = file_bytes(tpl.template_file)
-    content, unknown = docx_fill.fill_docx(data, values)
-    used = docx_fill.find_placeholders(data)
-    missing = sorted(set(unknown) | set(kol.empty_required(values, used, doc.get("creator_type"))))
+    content, missing = _fill(data, values, doc)
     old = doc.get("contract_file")
     # Mau he thong tu chon thi KHONG ghi vao contract_template (do la o NGUOI DUNG chon): ghi
     # vao thi lan sau doi coc / dich vu van dung mau cu (QC 11/11). Ghi mau da dung rieng.
@@ -151,8 +161,8 @@ def build_contract(doc):
         _drop_generated(doc, old)
     doc.contract_fingerprint = fp
     doc.missing_placeholders = ", ".join(missing) or None
-    return {"contract_file": doc.contract_file, "contract_no": doc.contract_no,
-            "missing": missing, "template": tpl.name, "regenerated": True}
+    return {"contract_file": doc.contract_file, "contract_no": doc.contract_no, "missing": missing,
+            "missing_labels": kol_values.missing_labels(missing), "template": tpl.name, "regenerated": True}
 
 
 def _is_generated(file_url):
@@ -187,14 +197,38 @@ def _drop_generated(doc, file_url, prefix="HDDV_", keep_if_sent=True):
         hook.add(_go)
 
 
+def acceptance_content(doc, row, creator, tpl=None):
+    """(bytes .docx BBNT dot nay, danh sach con thieu) tu du lieu HIEN TAI."""
+    if not creator:
+        frappe.throw(_("Creator của hợp đồng không còn trong danh sách creator - nhờ Kế toán kiểm lại."))
+    tpl = tpl or frappe.get_doc("EC Contract Template", template_for(doc, KIND_BBNT))
+    values = kol_values.acceptance_values(_values(doc, creator, row.get("acceptance_date")), row.as_dict(),
+                                          doc.as_dict())
+    return _fill(file_bytes(tpl.template_file), values, doc)
+
+
+def _values(doc, creator, bbnt_date):
+    """Gia tri dien mau (bo ten <<...>> cua tool cu) tu du lieu HIEN TAI cua phieu."""
+    from ecentric_workspace.approval_center.features.contract_review.application import kol_service
+    return kol_values.contract_values(
+        doc.as_dict(), creator, kol_lookup.brand_code(doc.get("brand")), doc.get("contract_date"),
+        kol_service.service_dates_or_none(doc), bbnt_date,
+        payment_days=kol.payment_days(doc.get("payment_term_days"), doc.get("creator_type"), doc.get("platform")),
+        shopee_hddv_days=kol.SHOPEE_HDDV_PAYMENT_DAYS)
+
+
+def _fill(data, values, doc):
+    content, unknown = docx_fill.fill_docx(data, values, kol_values.CONDITIONAL_LINES)
+    used = docx_fill.find_placeholders(data)
+    missing = set(unknown) | set(kol_values.empty_required(values, used, doc.get("creator_type"),
+                                                           doc.get("service_type")))
+    return content, sorted(missing)
+
+
 def generate_acceptance(doc, row, creator):
     tpl = frappe.get_doc("EC Contract Template", template_for(doc, KIND_BBNT))
-    values = kol.acceptance_placeholders(doc.as_dict(), creator, row.as_dict(),
-                                         kol_lookup.brand_code(doc.get("brand")), doc.get("so_label"))
-    data = file_bytes(tpl.template_file)
-    content, unknown = docx_fill.fill_docx(data, values)
-    used = docx_fill.find_placeholders(data)
-    missing = sorted(set(unknown) | set(kol.empty_required(values, used, doc.get("creator_type"))))
+    # Ngay tren BBNT = ngay nghiem thu cua dot (ERP lam BBNT SAU khi thuc hien xong).
+    content, missing = acceptance_content(doc, row, creator, tpl)
     url = attach(doc, "BBNT_%s_dot%s.docx" % (_safe(doc.contract_no), row.idx), content)
     return url, missing
 
@@ -206,6 +240,9 @@ def inspect_template(tpl):
     if not tpl.template_file.lower().endswith(".docx"):
         frappe.throw(_("Mẫu phải là tệp .docx."))
     found = docx_fill.find_placeholders(file_bytes(tpl.template_file))
-    known = kol.known_placeholders(tpl.get("kind") == KIND_BBNT)
+    known = kol_values.known(tpl.get("kind") == KIND_BBNT)
     tpl.placeholders = ", ".join(found) or None
-    tpl.unknown_placeholders = ", ".join(p for p in found if p not in known) or None
+    unknown = [p for p in found if p not in known]
+    if not found:
+        unknown = ["Mẫu chưa có chỗ điền <<TÊN>> nào - kiểm lại tệp (đúng mẫu đã gắn tên chưa?)"]
+    tpl.unknown_placeholders = ", ".join(unknown) or None

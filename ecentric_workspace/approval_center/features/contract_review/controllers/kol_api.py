@@ -20,7 +20,8 @@ __all__ = ["kol_me", "kol_search_sales_orders", "kol_list_templates", "kol_place
            "kol_add_acceptance", "kol_send_acceptance", "kol_delete_acceptance", "kol_complete_acceptance",
            "kol_ai_extract", "kol_ai_qc", "kol_search_creators", "kol_get_creator",
            "kol_create_creator", "kol_update_creator", "kol_missing_misa", "kol_set_misa_code",
-           "kol_verify_signed", "kol_verify_acceptance", "kol_pending_checks"]
+           "kol_verify_signed", "kol_verify_acceptance", "kol_pending_checks", "kol_preview_dates",
+           "kol_creator_gaps", "kol_preview_contract"]
 
 
 def _app(module):
@@ -71,7 +72,8 @@ def kol_list_templates(kind=None):
 @frappe.whitelist()
 def kol_placeholder_help():
     _me()
-    return {"placeholders": list(kol.PLACEHOLDER_HELP)}
+    from ecentric_workspace.approval_center.features.contract_review.domain import kol_values
+    return {"placeholders": ["<<%s>>" % k for k in kol_values.PLACEHOLDER_HELP]}
 
 
 @frappe.whitelist()
@@ -81,11 +83,31 @@ def kol_preview_amounts(creator_type=None, amount_type=None, amount_input=None, 
     _me()
     try:
         out = kol.compute_amounts(creator_type, amount_type, amount_input, pit_rate, vat_rate)
-        out["advance"] = kol.advance_amount(out["payable"], payment_schedule, advance_percent)
-        out["payable_words"] = kol.amount_in_words(out["payable"])
+        out["advance"] = kol.advance_amount(out, creator_type, payment_schedule, advance_percent)
+        from ecentric_workspace.approval_center.features.contract_review.domain.vn_words import amount_in_words
+        out["payable_words"] = amount_in_words(out["payable"])
         return {"ok": True, "amounts": out}
     except ValueError as e:
         return {"ok": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def kol_preview_dates(air_dates=None, contract_date=None, creator=None, brand=None, name=None):
+    return _app("kol_service").preview_dates(air_dates, contract_date or None, creator or None, brand or None,
+                                             name or None, _me())
+
+
+@frappe.whitelist()
+def kol_creator_gaps(creator=None, platform=None):
+    _me()
+    return _app("kol_service").creator_gaps(creator, platform or None)
+
+
+@frappe.whitelist(methods=["POST"])
+def kol_preview_contract(fields=None, name=None):
+    """Ban xem truoc (to vang cho ERP dien) tu du lieu dang go - khong luu gi."""
+    mod = _app("kol_preview")
+    return mod.preview_contract(mod.parse_fields(fields), name or None, _me())
 
 
 @frappe.whitelist(methods=["POST"])

@@ -72,6 +72,11 @@ _SOURCES = {
         # cung lot qua tran (QC 11/11).
         "access_fn": _KOL + "funding_can_use",
         "lock_source": True,
+        # SO doanh thu chon tren DNTT (anh Hoan 12/11) - tim SO + kiem luc nop thuoc hop dong.
+        "so_fn": _KOL + "funding_so_search",
+        "validate_fn": _KOL + "funding_validate",
+        "so_info_fn": _KOL + "funding_so_info",
+        "so_view_fn": _KOL + "funding_so_can_view",
         "extra_filters": {"contract_type": "KOL/KOC / Creator (EC)"},
     },
 }
@@ -150,6 +155,64 @@ def describe_source(source_doctype, source_name, exclude_request=None):
             "total": total, "used": used, "remaining": total - used}
 
 
+def search_revenue_so(source_doctype, query=None, exclude_request=None, user=None):
+    """SO doanh thu cho nguon co khai `so_fn` (hop dong KOL). Nguon khac: khong co o SO.
+    Nguon tra danh sach SO; "da de nghi chi" tren tung SO thi tinh o day (DNTT la cua module nay)."""
+    meta = _SOURCES.get(source_doctype) or {}
+    if not meta.get("so_fn"):
+        return {"rows": [], "missing": []}
+    out = frappe.get_attr(meta["so_fn"])(user or frappe.session.user, query)
+    rows = out.get("rows") or []
+    spent = so_spent([r["value"] for r in rows], exclude_request)
+    for r in rows:
+        r["spent"] = spent.get(r["value"], 0.0)
+    return {"rows": rows, "missing": out.get("missing") or []}
+
+
+def so_check(doc, viewer=None, status=None):
+    """Doi chieu SO doanh thu cua MOT DNTT cho nguoi lap / nguoi duyet / Ke toan (trang chi tiet): doanh thu
+    EC, da de nghi chi tren SO (khong tinh DNTT nay) va phan vuot. None = nguon khong co SO."""
+    meta = _SOURCES.get(doc.get("funding_source_doctype") or "") or {}
+    so = (doc.get("ec_sales_order") or "").strip()
+    if not (meta.get("so_info_fn") and so):
+        return None
+    # Doanh thu SO la so lieu nhay cam: nguoi lap, Ke toan, nguoi duyet cua phieu (nguon tu khai) - PO 12/11.
+    viewer = viewer or frappe.session.user          # khong truyen nguoi xem thi KHONG mo cho tat ca (QC5)
+    if meta.get("so_view_fn") and not frappe.get_attr(meta["so_view_fn"])(doc, viewer):
+        return None
+    info = frappe.get_attr(meta["so_info_fn"])(so)
+    if not info:
+        return {"value": so, "label": so, "missing": True}
+    others = so_spent([so], doc.get("name")).get(so, 0.0)
+    # DNTT da bi tu choi / huy thi khong con chiem SO: khong cong chinh no (QC4).
+    if status is None and doc.get("approval_request"):
+        status = frappe.db.get_value("EC Approval Request", doc.get("approval_request"), "approval_status")
+    mine = float(doc.get("payment_amount") or 0) if (not status or status in CONSUMING_STATUSES) else 0.0
+    after = others + mine
+    revenue = float(info.get("revenue") or 0)
+    return dict(info, value=so, spent=others, after=after,
+                over=max(after - revenue, 0.0) if revenue > 0 else 0.0)
+
+
+def so_spent(names, exclude_request=None):
+    """Tong DNTT dang chay / da duyet gan vao tung SO (doi chieu chi phi voi doanh thu SO)."""
+    if not names:
+        return {}
+    rows = frappe.get_all("EC Payment Request", filters={"ec_sales_order": ["in", list(names)]},
+                          fields=["name", "ec_sales_order", "payment_amount", "approval_request"],
+                          ignore_permissions=True, limit_page_length=0)
+    reqs = [r.approval_request for r in rows if r.approval_request]
+    status = {r.name: r.approval_status for r in frappe.get_all(
+        "EC Approval Request", filters={"name": ["in", reqs]}, fields=["name", "approval_status"],
+        ignore_permissions=True, limit_page_length=0)} if reqs else {}
+    out = {}
+    for r in rows:
+        if r.name == exclude_request or status.get(r.approval_request) not in CONSUMING_STATUSES:
+            continue
+        out[r.ec_sales_order] = out.get(r.ec_sales_order, 0.0) + float(r.payment_amount or 0)
+    return out
+
+
 def list_sources(source_doctype, user=None):
     """Approved commitments of `user`, each with its remaining balance, for the picker.
 
@@ -216,6 +279,8 @@ def validate_funding(doc):
         if not frappe.get_attr(meta["access_fn"])(user, source_name):
             frappe.throw(_("Bạn không dùng được chứng từ nguồn {0}: chỉ hợp đồng của bạn hoặc "
                            "cùng phòng ban.").format(source_name), frappe.PermissionError)
+    if meta.get("validate_fn"):
+        frappe.get_attr(meta["validate_fn"])(doc, doc.get("requested_by") or frappe.session.user)
     row = frappe.db.get_value(source_doctype, source_name, check_fields, as_dict=True,
                               for_update=bool(meta.get("lock_source")))
     if not _is_approved(source_doctype, row, meta):

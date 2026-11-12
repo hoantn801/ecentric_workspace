@@ -14,7 +14,7 @@ import frappe
 from frappe import _
 from frappe.utils import now_datetime
 
-from ecentric_workspace.approval_center.features.contract_review.domain import kol
+from ecentric_workspace.approval_center.features.contract_review.domain import esign_flow, kol
 from ecentric_workspace.approval_center.shared.workflow import transitions as engine
 
 BUSINESS_DT = "EC Contract Review Request"
@@ -24,6 +24,8 @@ CEO_LEVEL_NO = 4
 MATERIAL_FIELDS = ["request_kind", "previous_request", "contract_type", "request_type",
                    "brand", "justification", "contract_value", "contract_start_date",
                    "contract_end_date", "request_details"]
+# `esign_flow` (quy trinh ky) KHONG nam trong chu ky: no khong doi noi dung da duyet, va them vao thi
+# moi phieu cu (chu ky tinh khi chua co truong) gui lai deu bi duyet lai tu dau.
 # KOL/KOC: doi creator / SO / tien / coc khi gui lai = duyet lai tu dau. CHI cong vao chu ky
 # cua phieu KOL - cong cho moi phieu thi chu ky cua phieu cu dang "Can bo sung" doi theo va
 # bi duyet lai tu dau du khong ai sua gi.
@@ -108,7 +110,17 @@ def submit(name):
         # Nap tre: module KOL keo creator repository + lookup, phieu thuong khong can.
         from ecentric_workspace.approval_center.features.contract_review.application import kol_service
         kol_service.validate_submit(doc)
-    missing = [f for f in REQUIRED_AT_SUBMIT if not doc.get(f)]
+    esign_flow.apply_default(doc)
+    esign_flow.clean_labor(doc)
+    if not doc.get("esign_flow"):
+        # Nen tang ky so chon ho so theo truong nay (chot 12/11): loai khong co mac dinh phai chon
+        # luc gui duyet - sau khi duyet xong phieu khoa, khong con cho chon (QC7).
+        frappe.throw(_("Chọn Quy trình ký (chọn \"Không ký trên cổng\" nếu ký ngoài)."))
+    # Hop dong lao dong (12/11): khong gan brand, khong bat nhap gia tri (luong nam trong tep).
+    need = [f for f in REQUIRED_AT_SUBMIT
+            if not (f == "brand" and not esign_flow.needs_brand(doc.get("contract_type")))
+            and not (f == "contract_value" and not esign_flow.needs_value(doc.get("contract_type")))]
+    missing = [f for f in need if not doc.get(f)]
     if missing:
         frappe.throw(_("Vui lòng nhập đầy đủ các trường bắt buộc trước khi gửi."))
     if doc.request_kind == "Existing" and not doc.previous_request:
@@ -152,6 +164,8 @@ def _soi_guong_sharepoint(name):
 
     Cung la ly do dung `enqueue` chu khong goi thang: tai mot tep .docx vai MB len Graph co the
     mat vai giay, nhan len so tep thi man hinh gui phieu treo bang do."""
+    if _is_labor(name):
+        return
     try:
         frappe.enqueue(
             "ecentric_workspace.approval_center.shared.integrations.sharepoint_mirror.dong_bo_nen",
@@ -162,6 +176,15 @@ def _soi_guong_sharepoint(name):
             enqueue_after_commit=True)
     except Exception:
         frappe.log_error(frappe.get_traceback(), "enqueue soi guong SharePoint %s" % name)
+
+
+def _is_labor(name):
+    """Hop dong lao dong mang luong: KHONG dua len thu vien SharePoint chung (nhom Operation Members
+    ghi duoc) - QC7, cho PO chon thu muc rieng cua HR. Nguoi duyet mo tep tren ERP."""
+    try:
+        return frappe.db.get_value(BUSINESS_DT, name, "contract_type") == esign_flow.LABOR_CONTRACT_TYPE
+    except Exception:
+        return False
 
 
 def on_decision(name, approval_request, approval_action, action):
@@ -175,6 +198,8 @@ def on_decision(name, approval_request, approval_action, action):
     Microsoft khong duoc lam hong lan duyet. SAU commit: job doc dong EC Approval Action vua ghi
     - chay truoc commit thi dong do chua ton tai. Giao dich rollback thi Frappe huy luon viec
     da xep, khong co ban chup ma."""
+    if _is_labor(name):
+        return
     try:
         frappe.enqueue(
             "ecentric_workspace.approval_center.shared.integrations.sharepoint_snapshot.chup_nen",

@@ -76,6 +76,12 @@ def list_funding_sources(source_doctype=None):
 
 
 @frappe.whitelist()
+def search_funding_so(source_doctype=None, query=None, exclude_request=None):
+    """SO doanh thu cho DNTT tu hop dong KOL (loc theo team; Ke toan thay het)."""
+    return funding.search_revenue_so(source_doctype, query, exclude_request or None)
+
+
+@frappe.whitelist()
 def funding_source_summary(source_doctype, source_name, exclude_request=None):
     """Fresh total/paid/remaining for one commitment.
 

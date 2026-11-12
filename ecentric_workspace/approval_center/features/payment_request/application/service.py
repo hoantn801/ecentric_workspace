@@ -40,6 +40,13 @@ def normalize_payment(doc):
     doc.details_and_attachments_correct = ("Yes" if doc.details_and_attachments_correct is True
         or str(doc.details_and_attachments_correct or "").strip().lower() in ("yes", "1", "true") else "No")
     _sync_funding_aliases(doc)
+    if doc.get("has_purchase_request") == "No":
+        doc.ec_sales_order = None          # khong co nguon thi khong gan SO (khong cong vao "da chi" cua SO)
+    # Phieu DA GUI dang sua de gui lai (Can bo sung): duong gui lai khong chay validate_payment, nen
+    # voi nguon hop dong KOL (tran chi + SO doanh thu) kiem ngay luc luu - khong de sua payload vuot
+    # tran / gan SO team khac (QC 12/11). Chi nguon KOL: cac nguon khac giu nguyen hanh vi cu.
+    if doc.get("approval_request") and doc.get("funding_source_doctype") == "EC Contract Review Request":
+        funding.validate_funding(doc)
 
 
 def _sync_funding_aliases(doc):
@@ -594,5 +601,13 @@ def detail_extra(business, request):
     """detail_extender cua phieu thanh toan: chuoi chia dot + duong thay file UNC."""
     out = dict(installments_block(business, request))
     out.update(unc_fix_block(business, request))
+    # Canh bao "vuot doanh thu SO" luc lap phieu noi "Ke toan se xem": day la cho Ke toan xem (QC3).
+    try:
+        chk = funding.so_check(business, frappe.session.user, getattr(request, "approval_status", None))
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "payment_request so_check")
+        chk = None
+    if chk:
+        out["so_check"] = chk
     return out
 

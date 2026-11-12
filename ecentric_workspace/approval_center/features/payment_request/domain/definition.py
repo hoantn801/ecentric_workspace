@@ -52,7 +52,10 @@ PAYMENT_REQUEST_DEFINITION = _make(
      # 12/09, Hoan: brand ngoai danh muc (theo dung khuon Booking Request), ky ghi nhan chi
      # phi = thang HOAT DONG, va thue suat VAT nam trong so tien. Thieu o day thi form gui
      # len bao nhieu cung bi bo im lang - client sua duoc dung nhung gi liet ke trong nay.
-     "ec_brand_moi", "ec_brand_ten", "ec_ky_chi_phi", "ec_vat_pct"),
+     "ec_brand_moi", "ec_brand_ten", "ec_ky_chi_phi", "ec_vat_pct",
+     # 12/11 (Hoan): SO doanh thu gan vao DNTT nguon hop dong KOL - nguoi lap chon, server kiem
+     # quyen SO luc nop (kol_funding.funding_validate).
+     "ec_sales_order"),
     ("name", "request_title", "payee_full_name", "payment_amount", "payment_date",
      "approval_request", "fulfillment_status", "payment_mode", "installment_no", "installment_of",
      "creation", "modified"),
@@ -81,7 +84,7 @@ PAYMENT_REQUEST_DEFINITION = _make(
         # Chon "Yes" la keo theo chung tu nguon; AI khong chon duoc nguon (co phan quyen,
         # chi hien chung tu DA DUYET cua chinh nguoi do) nen phieu se khong gui duoc.
         "has_purchase_request", "funding_source_doctype", "funding_source_name",
-        "purchase_request",
+        "purchase_request", "ec_sales_order",
         # Gui di la TAO mot ban ghi Brand moi (chot_brand_ngoai). Khong de AI dat ten danh muc.
         "ec_brand_ten",
         # Chia dot la quyet dinh ve dong tien, khong doc ra tu ho so.

@@ -1546,9 +1546,9 @@
   "fieldtype": "Link",
   "options": "Sales Order",
   "insert_after": "funding_source_name",
-  "read_only": 1,
+  "read_only": 0,
   "module": "Ecentric Workspace",
-  "description": "Tự điền từ hợp đồng KOL/KOC khi nguồn chi là hợp đồng."
+  "description": "Người lập chọn khi nguồn chi là hợp đồng KOL/KOC (SO đối ứng nếu là SO GBS) - Kế toán đối chiếu chi phí với doanh thu SO."
  },
  {
   "doctype": "Custom Field",

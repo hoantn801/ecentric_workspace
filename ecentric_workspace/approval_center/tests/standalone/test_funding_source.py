@@ -309,5 +309,80 @@ class TestLegacyAlias(FundingTestBase):
         self.assertEqual(doc.purchase_request, "PURR-DRAFT")
 
 
+
+class TestRevenueSo(TestLegacyAlias):
+    """SO doanh thu tren DNTT nguon hop dong KOL (12/11): 'da de nghi chi' tinh o module DNTT."""
+
+    def test_so_spent_only_counts_consuming_and_excludes_self(self):
+        for name, amt, st in (("P1", 10.0, "Approved"), ("P2", 5.0, "Pending"), ("P3", 7.0, "Rejected"),
+                              ("P4", 3.0, None)):
+            self._payr(name, amt, status=st)
+            self.store["EC Payment Request"][name]["ec_sales_order"] = "SO-1"
+            if st:                                   # stub get_all loc "name in" theo truong name
+                self.store["EC Approval Request"]["AR-" + name]["name"] = "AR-" + name
+        self.assertEqual(self.funding.so_spent(["SO-1"]), {"SO-1": 15.0})
+        self.assertEqual(self.funding.so_spent(["SO-1"], exclude_request="P1"), {"SO-1": 5.0})
+        self.assertEqual(self.funding.so_spent([]), {})
+
+    def test_so_check_for_approver(self):
+        """Trang chi tiet: doanh thu SO, de nghi KHAC tren SO (khong tinh chinh no), phan vuot (QC3)."""
+        self._payr("P1", 7.0, status="Approved")
+        self.store["EC Payment Request"]["P1"]["ec_sales_order"] = "SO-1"
+        self.store["EC Approval Request"]["AR-P1"]["name"] = "AR-P1"
+        sys.modules["frappe"].get_attr = lambda path: (lambda pr, u: True) if path.endswith("funding_so_can_view") else (
+            lambda so: {"label": so + " · B", "brand": "B", "revenue": 10.0} if so == "SO-1" else None)
+        doc = _Doc({"name": "P2", "funding_source_doctype": "EC Contract Review Request", "ec_sales_order": "SO-1",
+                    "payment_amount": 5.0})
+        c = self.funding.so_check(doc)
+        self.assertEqual((c["spent"], c["after"], c["over"], c["revenue"]), (7.0, 12.0, 2.0, 10.0))
+        doc["name"] = "P1"
+        self.assertEqual(self.funding.so_check(doc)["spent"], 0.0)          # khong tu tinh minh
+        doc["ec_sales_order"] = "SO-GONE"
+        self.assertTrue(self.funding.so_check(doc)["missing"])
+        self.assertIsNone(self.funding.so_check(_Doc({"funding_source_doctype": "EC Purchase Request",
+                                                       "ec_sales_order": "SO-1"})))
+
+    def test_so_check_rejected_request_not_counted_and_viewers_limited(self):
+        self.store["EC Approval Request"]["AR-R"] = {"approval_status": "Rejected"}
+        fr = sys.modules["frappe"]
+        fr.get_attr = lambda path: (
+            (lambda pr, u: u in ("ke.toan@ec", pr.get("requested_by"))) if path.endswith("funding_so_can_view")
+            else (lambda so: {"label": so, "brand": "", "revenue": 10.0}))
+        doc = _Doc({"name": "P9", "funding_source_doctype": "EC Contract Review Request", "ec_sales_order": "SO-1",
+                    "payment_amount": 50.0, "approval_request": "AR-R", "requested_by": "nv@ec"})
+        c = self.funding.so_check(doc, "nv@ec")
+        self.assertEqual((c["after"], c["over"]), (0.0, 0.0))          # phieu bi tu choi khong chiem SO
+        self.assertIsNotNone(self.funding.so_check(doc, "ke.toan@ec"))
+        self.assertIsNone(self.funding.so_check(doc, "nguoi.duyet@ec"))  # doanh thu SO: chi nguoi lap + Ke toan
+        sys.modules["frappe"].session.user = "nguoi.duyet@ec"
+        self.assertIsNone(self.funding.so_check(doc))                   # khong truyen nguoi xem: dung session
+
+    def test_non_kol_source_has_no_so_picker(self):
+        self.assertEqual(self.funding.search_revenue_so("EC Purchase Request", "x"), {"rows": [], "missing": []})
+
+    def test_no_source_clears_so(self):
+        svc = self._service()
+        doc = _Doc({"has_purchase_request": "No", "ec_sales_order": "SO-1",
+                    "details_and_attachments_correct": "Yes"})
+        svc.normalize_payment(doc)
+        self.assertIsNone(doc.ec_sales_order)
+
+    def test_resubmit_of_kol_source_is_revalidated(self):
+        """Sua lai DNTT da gui (co approval_request) di qua normalize_payment, khong qua submit:
+        phai kiem lai nguon hop dong (SO bat buoc / quyen SO) - truoc QC2 duong nay lot."""
+        svc = self._service()
+        seen = []
+        svc.funding.validate_funding = lambda d: seen.append(d.get("funding_source_name"))
+        svc.frappe.get_attr = lambda path: (lambda d, n: None)
+        doc = _Doc({"funding_source_doctype": "EC Contract Review Request", "funding_source_name": "CR-1",
+                    "approval_request": "AR-X", "details_and_attachments_correct": "Yes"})
+        svc.normalize_payment(doc)
+        self.assertEqual(seen, ["CR-1"])
+        seen.clear()
+        doc = _Doc({"funding_source_doctype": "EC Contract Review Request", "funding_source_name": "CR-1",
+                    "details_and_attachments_correct": "Yes"})
+        svc.normalize_payment(doc)          # phieu nhap: kiem o luc gui, khong o day
+        self.assertEqual(seen, [])
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

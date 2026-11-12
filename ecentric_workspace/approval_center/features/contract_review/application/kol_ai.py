@@ -51,8 +51,10 @@ QC_SCHEMA = {"type": "object", "properties": {
     "required": ["template_deviations", "risky_clauses", "summary"]}
 
 
-# Day so co the co dau cach / cham / gach / gach cheo / khoang trang khong ngat giua cac nhom.
-_NUMBER_RUN = re.compile(r"(?<![\d])\d(?:[\d]|[ \u00a0.\-/](?=\d))*")
+# Day so co the co dau cach / cham / PHAY / gach / gach cheo / khoang trang khong ngat giua cac nhom.
+# Dau phay: tien tren hop dong mau tool cu in "13,500,000" (12/11) - thieu phay thi may kiem tach
+# thanh 13 / 500 / 000 va bao "khong thay so tien" o MOI hop dong / BBNT (QC 12/11).
+_NUMBER_RUN = re.compile(r"(?<![\d])\d(?:[\d]|[ \u00a0.,\-/](?=\d))*")
 # Tien viet kieu 1.000.000 / 1,000,000: GIU (AI can doc so tien), khong phai so dinh danh.
 _MONEY = re.compile(r"^\d{1,3}(?:[.,]\d{3})+$")
 _DATE = re.compile(r"^(?:\d{1,2}[/.\-]\d{1,2}[/.\-]\d{4}|\d{4}-\d{2}-\d{2})$")
@@ -221,7 +223,7 @@ def run_qc(name, user):
     template_text = ""
     if doc.get("request_type") == kol.TEMPLATE_PARTNER:
         tpl = kol_lookup.pick_template("Hợp đồng", doc.get("creator_type"), doc.get("service_type"),
-                                       doc.get("payment_schedule") == kol.PAY_ADVANCE)
+                                       doc.get("payment_schedule") == kol.PAY_ADVANCE, doc.get("platform"))
         if tpl:
             tpl_url = frappe.db.get_value("EC Contract Template", tpl, "template_file")
             template_text = redact(docx_fill.docx_text(file_bytes(tpl_url), MAX_TEXT // 2))

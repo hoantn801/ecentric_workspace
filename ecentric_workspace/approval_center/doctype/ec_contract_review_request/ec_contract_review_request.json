@@ -25,6 +25,10 @@
   "sb_form",
   "contract_type",
   "request_type",
+  "esign_flow",
+  "partner_signer_name",
+  "partner_signer_email",
+  "partner_signer_phone",
   "brand",
   "justification",
   "cb1",
@@ -198,13 +202,37 @@
    "fieldname": "contract_type",
    "fieldtype": "Select",
    "label": "Contract Type",
-   "options": "Purchase / Mua vào (EC)\nSales / Bán ra (EC)\nService / Dịch vụ (GBSxBrand)\nKOL/KOC / Creator (EC)"
+   "options": "Purchase / Mua vào (EC)\nSales / Bán ra (EC)\nService / Dịch vụ (GBSxBrand)\nKOL/KOC / Creator (EC)\nLabor / Hợp đồng lao động (EC)"
   },
   {
    "fieldname": "request_type",
    "fieldtype": "Select",
    "label": "Request Type",
    "options": "Template from EC / Mẫu theo khung EC\nTemplate from partner / Mẫu theo khung đối tác\nNew contract template / Hợp đồng mới"
+  },
+  {
+   "description": "Mã quy trình ký trên cổng (nhãn: domain/esign_flow.py). Để trống: KOL/KOC = kol_wf09, hợp đồng lao động = hd_lao_dong; loại khác chọn khi gửi duyệt.",
+   "fieldname": "esign_flow",
+   "fieldtype": "Select",
+   "label": "Quy trình ký",
+   "options": "\nkol_wf09\nkol_doi_tac_da_ky\nqd_hd_doi_tac_da_ky\nbbnt_3_ben\nhd_lao_dong\nkhong_ky_cong"
+  },
+  {
+   "description": "Người ký phía đối tác (cổng ký số gửi email mời ký). KOL/KOC: tự lấy từ creator nếu để trống.",
+   "fieldname": "partner_signer_name",
+   "fieldtype": "Data",
+   "label": "Người ký phía đối tác"
+  },
+  {
+   "fieldname": "partner_signer_email",
+   "fieldtype": "Data",
+   "label": "Email người ký phía đối tác",
+   "options": "Email"
+  },
+  {
+   "fieldname": "partner_signer_phone",
+   "fieldtype": "Data",
+   "label": "Điện thoại người ký phía đối tác"
   },
   {
    "fieldname": "brand",
@@ -436,8 +464,7 @@
    "fieldname": "payment_term_days",
    "fieldtype": "Int",
    "label": "Số ngày thanh toán sau BBNT",
-   "default": "30",
-   "description": "Tính ngày lịch từ ngày BBNT hoàn tất; rơi vào T7/CN thì dời sang thứ Hai."
+   "description": "Để trống = mặc định theo loại creator (cá nhân 35, công ty / hộ KD 30, công ty Shopee 15). Tính ngày lịch từ ngày BBNT hoàn tất; rơi vào T7, CN hoặc ngày lễ thì dời sang ngày làm việc liền sau."
   },
   {
    "fieldname": "sb_kol_doc",
@@ -597,7 +624,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-11-11 19:00:00.000000",
+ "modified": "2026-11-12 11:30:00.000000",
  "modified_by": "Administrator",
  "module": "Approval Center",
  "name": "EC Contract Review Request",

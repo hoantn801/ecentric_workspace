@@ -612,8 +612,10 @@ class Hook(unittest.TestCase):
     def test_contract_review_chi_xep_viec_sau_commit(self):
         w = _World()
         f = _frappe(w)
-        ns = {"frappe": f}
-        exec(compile(_doan(_SERVICE, "on_decision"), "<s>", "exec"), ns)
+        import types as _types
+        ns = {"frappe": f, "BUSINESS_DT": "EC Contract Review Request",
+              "esign_flow": _types.SimpleNamespace(LABOR_CONTRACT_TYPE="Labor / Hợp đồng lao động (EC)")}
+        exec(compile(_doan(_SERVICE, "_is_labor", "on_decision"), "<s>", "exec"), ns)
         ns["on_decision"]("CTR-1", "AR-1", "ACT-9", "Approved")
         ((method, kw),) = w.enqueued
         self.assertEqual(method, "ecentric_workspace.approval_center.shared.integrations."
@@ -625,6 +627,12 @@ class Hook(unittest.TestCase):
         f.enqueue = lambda *a, **k: 1 / 0
         ns["on_decision"]("CTR-1", "AR-1", "ACT-9", "Approved")   # khong nem
         self.assertTrue(w.logs)
+        # Hop dong lao dong (luong): khong chup len thu vien SharePoint chung (QC7 12/11).
+        n0 = len(w.enqueued)
+        f.enqueue = lambda *a, **k: w.enqueued.append((a, k))
+        f.db = _types.SimpleNamespace(get_value=lambda *a, **k: "Labor / Hợp đồng lao động (EC)")
+        ns["on_decision"]("CTR-2", "AR-2", "ACT-10", "Approved")
+        self.assertEqual(len(w.enqueued), n0)
 
 
 class Quyen(unittest.TestCase):

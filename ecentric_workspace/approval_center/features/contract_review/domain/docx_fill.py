@@ -1,5 +1,9 @@
 # Copyright (c) 2026, eCentric and contributors
-"""Dien {{placeholder}} vao tep .docx - thuan Python (zipfile + regex), khong thu vien ngoai.
+"""Dien <<PLACEHOLDER>> vao tep .docx - thuan Python (zipfile + regex), khong thu vien ngoai.
+
+Cu phap <<TEN_IN_HOA>> la cua 18 mau HDDV/BBNT Ke toan dang dung tren tool Google Sheet cu
+(anh Hoan chot 12/11/2026 dung lai nguyen ven). Trong XML, "<<" nam o dang "&lt;&lt;" - doc
+qua `unescape` truoc khi tim.
 
 Vi sao khong dung python-docx / ElementTree:
   * Frappe Cloud chi cai dung `pyproject.toml`; them thu vien = them rui ro build.
@@ -7,13 +11,16 @@ Vi sao khong dung python-docx / ElementTree:
     `mc:Ignorable` tro toi tien to khong con ton tai.
 Nen sua THANG chuoi XML, chi o noi dung <w:t>, giu nguyen moi the khac.
 
-Word hay xe mot placeholder ra nhieu run ("{{ten_" + "creator}}") khi nguoi soan go tung
+Word hay xe mot placeholder ra nhieu run ("<<PERSON_" + "FULL_NAME>>") khi nguoi soan go tung
 doan hoac sua chinh ta. Ham nay noi van ban cua ca doan van (<w:p>), tim placeholder tren
 chuoi da noi, roi ghi gia tri vao run DAU TIEN ma placeholder cham toi va xoa phan con lai
 o cac run sau - dinh dang cua cac run KHONG chua placeholder giu nguyen.
 
 Tra them danh sach placeholder khong co gia tri: mau dung sai ten thi phai bao, khong im lang
-de lai "{{...}}" tren hop dong gui di ky.
+de lai "<<...>>" tren hop dong gui di ky.
+
+Dong tuy chon (`drop_if_empty`): gia tri rong -> xoa CA DOAN van (nhu removeBlankConditionalParagraphs_
+cua tool cu), de mau co coc khong con dong trong / dau gach treo.
 """
 import io
 import re
@@ -21,14 +28,26 @@ import zipfile
 from xml.sax.saxutils import escape
 from xml.sax.saxutils import unescape as _unescape
 
-PLACEHOLDER = re.compile(r"\{\{\s*([a-zA-Z0-9_]+)\s*\}\}")
-# Moi cap {{...}} - de bat ten sai khuon ({{tên}}, {{ten-creator}}) thay vi bo sot im lang.
-ANY_BRACES = re.compile(r"\{\{([^{}\n]*)\}\}")
-_PARA = re.compile(r"<w:p[ >].*?</w:p>", re.S)
+PLACEHOLDER = re.compile(r"<<\s*([A-Z0-9_]+)\s*>>")
+# Moi cap <<...>> - de bat ten sai khuon (<<tên>>, <<TEN-CREATOR>>) thay vi bo sot im lang.
+ANY_BRACES = re.compile(r"<<([^<>\n]*)>>")
+OPEN = "<<"
+# Ten kieu cu {{ten}} (truoc 12/11): mau con sot thi BAO, khong im lang gui di ky.
+LEGACY = re.compile(r"\{\{([^{}\n]*)\}\}")
+# Ky tu dieu khien trong gia tri (go/dan tu Excel) lam document.xml hong.
+_CTRL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+# Mo doan that su: <w:p> / <w:p w14:paraId=".."> - KHONG khop doan rong tu dong <w:p .../> (khop
+# thi tran sang ranh gioi o bang / hang ke tiep, xoa doan tuy chon la xoa luon o - QC 12/11).
+_PARA = re.compile(r"<w:p(?:\s[^>]*)?(?<!/)>.*?</w:p>", re.S)
+_CELL = re.compile(r"(<w:tc(?:\s[^>]*)?>)(.*?)(</w:tc>)", re.S)
 # Khong bat <w:t/> tu dong: [^>]* nuot ca dau "/" se noi sang </w:t> cua run sau va lam hong doan.
 _TEXT = re.compile(r"(<w:t(?:\s[^>]*)?(?<!/)>)(.*?)(</w:t>)", re.S)
 _TEXT_OR_PARA_END = re.compile(r"</w:p>|(<w:t(?:\s[^>]*)?(?<!/)>)(.*?)(</w:t>)", re.S)
 _BREAK = '</w:t><w:br/><w:t xml:space="preserve">'
+# Ban XEM TRUOC (PO 12/11): gia tri ERP dien to vang, cho con thieu to do. Danh dau bang ky tu
+# vung rieng (Private Use) trong van ban roi tach run o buoc cuoi - ban tai ve KHONG di qua day.
+MARK_ON, MARK_OFF, MISS_ON, MISS_OFF = "\ue000", "\ue001", "\ue002", "\ue003"
+_MARKS = MARK_ON + MARK_OFF + MISS_ON + MISS_OFF
 
 
 def unescape(text):
@@ -36,23 +55,34 @@ def unescape(text):
 
 
 def _bad_names(joined):
-    return ["{{%s}}" % m.group(1).strip() for m in ANY_BRACES.finditer(joined)
-            if not PLACEHOLDER.fullmatch(m.group(0))]
+    return ["<<%s>>" % m.group(1).strip() for m in ANY_BRACES.finditer(joined)
+            if not PLACEHOLDER.fullmatch(m.group(0))] + [
+        "{{%s}}" % m.group(1).strip() for m in LEGACY.finditer(joined)]
 _PARTS = re.compile(r"^word/(document|header\d*|footer\d*|footnotes|endnotes)\.xml$")
 
 
-def _fill_paragraph(xml, values, missing):
+def _fill_paragraph(xml, values, missing, drop_if_empty=(), mark=False, missing_text=None):
     runs = list(_TEXT.finditer(xml))
     if not runs:
         return xml
     texts = [unescape(m.group(2)) for m in runs]
     joined = "".join(texts)
-    if "{{" not in joined:
+    if OPEN not in joined:
+        if "{{" in joined:
+            missing.update(_bad_names(joined))
         return xml
     missing.update(_bad_names(joined))
     matches = list(PLACEHOLDER.finditer(joined))
     if not matches:
         return xml
+    if any(m.group(1) in drop_if_empty and not str(values.get(m.group(1)) or "").strip() for m in matches):
+        # Xoa ca doan (removeBlankConditionalParagraphs_). Doan chua khung van ban / ngat section
+        # thi KHONG xoa (xoa la mat ngat trang hoac cat doi XML) - chi de trong gia tri.
+        # Doan con chu khac (vd "Giu dong nay" + xuong dong mem <w:br/> + dong tuy chon trong CUNG
+        # mot doan - Google Docs xuat Shift+Enter nhu vay) thi chi de trong gia tri, khong mat chu.
+        rest = PLACEHOLDER.sub("", joined).strip(" \t\r\n\u00a0-–•.:;,")
+        if "<w:txbxContent" not in xml and "<w:sectPr" not in xml and not rest:
+            return ""
     starts, pos = [], 0
     for t in texts:
         starts.append(pos)
@@ -70,8 +100,13 @@ def _fill_paragraph(xml, values, missing):
         key = m.group(1)
         if key not in values:
             missing.add(key)
-            continue
-        value = "" if values[key] is None else str(values[key])
+            if not (mark and missing_text):
+                continue
+            value = MISS_ON + _CTRL.sub("", str(missing_text(key))) + MISS_OFF
+        else:
+            value = "" if values[key] is None else _CTRL.sub("", str(values[key]))
+            if mark and value:
+                value = MARK_ON + value + MARK_OFF
         a, b = m.start(), m.end()
         first, last = run_at(a), run_at(b - 1)
         for i in range(last, first - 1, -1):
@@ -108,29 +143,134 @@ def _fill_paragraph(xml, values, missing):
 def _leftover(xml, values):
     """Placeholder con sot sau khi dien (vd doan van co khung van ban long ben trong: regex doan
     van dung o </w:p> cua khung, phan sau khung khong duoc xu ly). Quet ca phan, bao thieu -
-    khong de '{{...}}' lot vao hop dong gui ky. Cung dang ten voi bao thieu thuong (gop trung)."""
-    # Moi doan van mot dong ('\n' tai </w:p>): {{ o doan nay va }} o doan khac khong ghep thanh mot.
+    khong de '<<...>>' lot vao hop dong gui ky. Cung dang ten voi bao thieu thuong (gop trung)."""
+    # Moi doan van mot dong ('\n' tai </w:p>): << o doan nay va >> o doan khac khong ghep thanh mot.
     joined = "".join("\n" if m.group(0) == "</w:p>" else unescape(m.group(2))
                      for m in _TEXT_OR_PARA_END.finditer(xml))
     out = set()
+    out.update("{{%s}}" % m.group(1).strip() for m in LEGACY.finditer(joined))
     for m in ANY_BRACES.finditer(joined):
         ok = PLACEHOLDER.fullmatch(m.group(0))
         if not ok:
-            out.add("{{%s}}" % m.group(1).strip())
+            out.add("<<%s>>" % m.group(1).strip())
         elif ok.group(1) in values:
-            out.add("{{%s}} (không điền được)" % ok.group(1))
+            out.add("%s (không điền được)" % ok.group(1))
         else:
             out.add(ok.group(1))
     return out
 
 
-def fill_xml(xml, values, missing=None):
+def _keep_cells_valid(xml):
+    """Moi o bang (w:tc) phai con it nhat mot doan van - Word bao tep hong neu khong. Xoa dong
+    tuy chon la doan duy nhat cua o thi chen lai mot doan rong."""
+    def fix(m):
+        body = m.group(2)
+        if re.search(r"<w:p[\s>/]", body):
+            return m.group(0)
+        return m.group(1) + body + "<w:p/>" + m.group(3)
+    return _CELL.sub(fix, xml) if "<w:tc" in xml else xml
+
+
+def fill_xml(xml, values, missing=None, drop_if_empty=(), mark=False, missing_text=None):
     missing = set() if missing is None else missing
-    return _PARA.sub(lambda m: _fill_paragraph(m.group(0), values, missing), xml), missing
+    drop = frozenset(drop_if_empty or ())
+    out = _PARA.sub(lambda m: _fill_paragraph(m.group(0), values, missing, drop, mark, missing_text), xml)
+    out = _keep_cells_valid(out) if drop else out
+    return (_apply_marks(out) if mark else out), missing
 
 
-def fill_docx(data, values):
-    """bytes .docx -> (bytes .docx da dien, sorted(placeholder khong co gia tri))."""
+_RUN_OPEN = re.compile(r"<w:r(?:\s[^>]*)?>")
+_TOKEN = re.compile(r"(<w:t(?:\s[^>]*)?(?<!/)>)(.*?)</w:t>|<[^>]+/>|<[^>]+>.*?</[^>]+>", re.S)
+# Thu tu phan tu trong w:rPr theo schema: highlight dung truoc cac the nay.
+_AFTER_HL = ("<w:u ", "<w:u>", "<w:u/", "<w:effect", "<w:bdr", "<w:shd", "<w:fitText", "<w:vertAlign",
+             "<w:rtl", "<w:cs ", "<w:cs/", "<w:cs>", "<w:em ", "<w:em/", "<w:em>", "<w:lang", "<w:eastAsianLayout",
+             "<w:specVanish", "<w:oMath", "<w:rPrChange")
+
+
+def _leading_rpr(inner):
+    """(rPr dau run, phan con lai). rPr co the chua <w:rPrChange><w:rPr>..</w:rPr></w:rPrChange> (theo doi
+    thay doi dinh dang) - khong cat o </w:rPr> long ben trong (QC6: cat sai = XML hong)."""
+    lead = len(inner) - len(inner.lstrip())
+    body = inner[lead:]
+    if body.startswith("<w:rPr/>"):
+        return "<w:rPr/>", body[len("<w:rPr/>"):]
+    if not body.startswith("<w:rPr>"):
+        return "", inner
+    start = len("<w:rPr>")
+    change = body.find("<w:rPrChange", start)
+    close = body.find("</w:rPr>", start)
+    if change >= 0 and (close < 0 or change < close):
+        end_change = body.find("</w:rPrChange>", change)
+        close = body.find("</w:rPr>", end_change) if end_change >= 0 else -1
+    if close < 0:
+        return "", inner
+    end = close + len("</w:rPr>")
+    return body[:end], body[end:]
+
+
+def _rpr_with(rpr, color):
+    if not color:
+        return rpr
+    hl = '<w:highlight w:val="%s"/>' % color
+    if not rpr or rpr == "<w:rPr/>":
+        return "<w:rPr>" + hl + "</w:rPr>"
+    body = re.sub(r"<w:highlight [^>]*/>", "", rpr[len("<w:rPr>"):-len("</w:rPr>")])
+    cut = min([i for i in (body.find(t) for t in _AFTER_HL) if i >= 0] or [len(body)])
+    return "<w:rPr>" + body[:cut] + hl + body[cut:] + "</w:rPr>"
+
+
+def _split_run(open_tag, inner):
+    """Mot run co ky tu danh dau -> nhieu run: doan thuong giu rPr goc, doan danh dau them highlight."""
+    rpr, rest = _leading_rpr(inner)
+    out, state, cur = [], None, []
+
+    def flush():
+        if cur:
+            out.append(open_tag + _rpr_with(rpr, state) + "".join(cur) + "</w:r>")
+            cur[:] = []
+
+    for tok in _TOKEN.finditer(rest):
+        if tok.group(1) is None:              # w:br, w:tab... di theo trang thai hien tai
+            cur.append(tok.group(0))
+            continue
+        for piece in re.split("([%s])" % _MARKS, tok.group(2)):
+            if piece in (MARK_ON, MISS_ON, MARK_OFF, MISS_OFF):
+                flush()
+                state = {MARK_ON: "yellow", MISS_ON: "red"}.get(piece)
+                continue
+            if piece:
+                cur.append('<w:t xml:space="preserve">' + piece + "</w:t>")
+    flush()
+    return "".join(out)
+
+
+def _apply_marks(xml):
+    if not any(c in xml for c in _MARKS):
+        return xml
+    out, pos = [], 0
+    for m in _RUN_OPEN.finditer(xml):
+        if m.start() < pos:
+            continue
+        end = xml.find("</w:r>", m.end())
+        if end < 0:
+            break
+        inner = xml[m.end():end]
+        # Run long nhau (khung van ban / hinh ve) bo qua: chi xem truoc, giu nguyen con hon tach sai.
+        if _RUN_OPEN.search(inner) or not any(c in inner for c in _MARKS):
+            continue
+        out.append(xml[pos:m.start()])
+        out.append(_split_run(m.group(0), inner))
+        pos = end + len("</w:r>")
+    out.append(xml[pos:])
+    # Con sot ky tu danh dau (run phuc tap bi bo qua): xoa cho van ban sach.
+    return re.sub("[%s]" % _MARKS, "", "".join(out))
+
+
+def fill_docx(data, values, drop_if_empty=(), mark=False, missing_text=None):
+    """bytes .docx -> (bytes .docx da dien, sorted(placeholder khong co gia tri)).
+
+    mark=True: ban XEM TRUOC - gia tri dien to vang, placeholder thieu thay bang
+    missing_text(ten) to do. Ban luu / tai ve luon goi mark=False."""
     src = zipfile.ZipFile(io.BytesIO(data))
     buf = io.BytesIO()
     missing = set()
@@ -138,7 +278,7 @@ def fill_docx(data, values):
         for item in src.infolist():
             raw = src.read(item.filename)
             if _PARTS.match(item.filename):
-                xml, _ = fill_xml(raw.decode("utf-8"), values, missing)
+                xml, _ = fill_xml(raw.decode("utf-8"), values, missing, drop_if_empty, mark, missing_text)
                 missing.update(_leftover(xml, values))
                 raw = xml.encode("utf-8")
             dst.writestr(item, raw)

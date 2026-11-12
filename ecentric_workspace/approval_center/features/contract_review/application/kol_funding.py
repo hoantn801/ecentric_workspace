@@ -56,17 +56,58 @@ def funding_explain(name, amount, remaining):
 
 
 def fill_payment(pr, name):
-    """Dien san tren DNTT tu hop dong: SO, brand, loai chi phi Booking KOL/KOC, nguoi nhan."""
+    """Dien san tren DNTT tu hop dong: brand, loai chi phi Booking KOL/KOC, nguoi nhan.
+
+    SO do NGUOI LAP DNTT chon (anh Hoan 12/11: "SO se duoc gan vao payment request de ke toan
+    kiem tra"). Hop dong cu tung gan SO thi chi goi y khi DNTT chua chon."""
     doc = _doc(name)
-    # Chi dien tu hop dong KOL nguoi lap duoc dung - khong de luu nhap DNTT thanh duong doc SO /
-    # brand / ten creator cua hop dong team khac. Sai thi bo trong, validate_funding bao loi luc nop.
+    # Chi dien tu hop dong KOL nguoi lap duoc dung - khong de luu nhap DNTT thanh duong doc brand /
+    # ten creator cua hop dong team khac. Sai thi bo trong, validate_funding bao loi luc nop.
     if not kol.is_kol(doc) or not funding_can_use(pr.get("requested_by") or frappe.session.user, name):
-        pr.ec_sales_order = None
         return
-    pr.ec_sales_order = doc.get("sales_order")
+    if not pr.get("ec_sales_order") and doc.get("sales_order"):
+        pr.ec_sales_order = doc.get("sales_order")
     if not pr.get("ec_loai_chi_phi"):
         pr.ec_loai_chi_phi = KOL_EXPENSE_CATEGORY
     if doc.get("brand") and not pr.get("ec_brand") and frappe.db.exists("Brand", doc.brand):
         pr.ec_brand = doc.brand
     if not pr.get("payee_full_name"):
         pr.payee_full_name = doc.get("creator_name")
+
+
+# --------------------------------------------------------------------------- SO tren DNTT
+def funding_so_search(user, query=None):
+    """SO cho o "SO doanh thu" cua DNTT: cung bo loc voi form hop dong cu (SO cua minh / team,
+    SO doi ung cua GBS SO team tao; Ke toan thay het). "Da de nghi chi" do payment_request tinh."""
+    return {"rows": kol_lookup.search_sales_orders(user, query),
+            "missing": kol_lookup.gbs_without_counterpart(user, query)}
+
+
+def funding_so_info(name):
+    """SO dang gan tren DNTT (trang chi tiet - nguoi xem da duoc quyen xem DNTT): nhan, brand,
+    doanh thu EC. None = SO khong con / da huy."""
+    row = kol_lookup.so_row(name)
+    if not row:
+        return None
+    return {"label": kol_lookup.so_label(row), "brand": row.get("ec_brand") or "",
+            "revenue": float(row.get("net_total") or 0)}
+
+
+def funding_so_can_view(pr, user):
+    """Ai thay doi chieu doanh thu SO tren DNTT: nguoi lap (da thay luc chon SO), Ke toan va
+    nguoi duyet cua chinh phieu do (PO 12/11). Nguoi chi xem duoc phieu (vd theo doi) thi khong."""
+    if user == pr.get("requested_by") or kol_lookup.is_finance(user):
+        return True
+    ar = pr.get("approval_request")
+    return bool(ar and frappe.db.exists("EC Approval Request Approver", {"approval_request": ar, "approver": user}))
+
+
+def funding_validate(pr, user):
+    """Luc nop DNTT tu hop dong KOL: bat buoc SO doanh thu va nguoi lap duoc dung SO do."""
+    so = (pr.get("ec_sales_order") or "").strip()
+    if not so:
+        frappe.throw(_("Chọn SO doanh thu (SO cung cấp dịch vụ cho brand) để Kế toán đối chiếu chi phí "
+                       "với doanh thu."))
+    _row, err = kol_lookup.so_allowed(user, so)
+    if err:
+        frappe.throw(_(err), frappe.PermissionError)

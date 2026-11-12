@@ -1055,3 +1055,10 @@ scheduler_events["cron"].setdefault("0 9 * * *", []).append("ecentric_workspace.
 #  * 09:00 ngay lam viec: nhac team Data de xuat qua han duyet (gop_tin_job).
 # --------------------------------------------------------------------------- #
 scheduler_events["cron"].setdefault("0 9 * * *", []).append("ecentric_workspace.data_hub.avail_service.daily")
+
+# Ky so hop dong (chat Hop dong + chat Ky so, 12/11/2026): nen tang ky so goi ham nay khi mot goi
+# ky cua phieu ket thuc (signed / rejected / returned / destroyed). Xem ERP Website/THIETKE_ky_so_hop_dong.md K5.
+ec_esign_outcome_handlers = {
+    "EC Contract Review Request":
+        "ecentric_workspace.approval_center.features.contract_review.application.esign_hooks.on_signing_outcome",
+}

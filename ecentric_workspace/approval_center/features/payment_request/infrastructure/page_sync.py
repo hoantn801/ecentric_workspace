@@ -123,9 +123,10 @@ def _html():
 # ba viec giao dien (badge huy do + co chu hub). File sau merge mang CA HAI, nen compose cua no
 # khac ca hai gia tri dang choi nhau. So duoi day duoc TINH LAI tu file da gop, khong lay cua
 # ben nao; ca hai gia tri cu deu xuong SUPERSEDES vi ban nao cung co the dang nam o live.
-BASELINE_SHA256 = "f15c1339432e21132ac2bbc32a078578ada0b6dd4347e2c6cc7b305c38f00aa9"
+BASELINE_SHA256 = "6ba952991c6cb2bf91f1790be5e0926dff2877cd5e1d875f52cbeba0d534fa56"
 SUPERSEDES_SHA256 = (
-    "760032ff4710ff5bd2528c55e17053d8542788f085d14dd1a1619b309b8bc1a5",  # ban truoc sua "con lai" khi bo sung & gui lai dot 2 (12/11, p360)
+    "f15c1339432e21132ac2bbc32a078578ada0b6dd4347e2c6cc7b305c38f00aa9",  # ban main sua "con lai" khi gui lai dot 2 (p360, 12/11) - co the dang o live
+    "760032ff4710ff5bd2528c55e17053d8542788f085d14dd1a1619b309b8bc1a5",  # ban truoc o "SO doanh thu" cho nguon hop dong KOL 12/11
     "3b97c41bd1924aa0b9eb3764a0f34de11967a7373a28629e60ca55ea2945e554",  # ban truoc dot UX lich su/tien trinh/loi 03/11
     "26483d5cee4061bcfa8483b8e03b45bf350cd8da106b0b94a76ebfd68d47866a",  # ban truoc dot VAT 0% (13/10, p297)
     "7859386502e947ab2996a744c0a4d3c1ad5530c12fabf5831e38f9ad558455bd",  # ban truoc dot nut Nhac nguoi xu ly 01/10

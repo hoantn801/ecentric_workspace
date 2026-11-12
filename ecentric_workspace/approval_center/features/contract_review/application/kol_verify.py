@@ -47,7 +47,8 @@ def apply_contract_check(doc):
 
 
 def apply_acceptance_check(doc, row):
-    findings = check(doc, row.signed_file, row.amount)
+    from ecentric_workspace.approval_center.features.contract_review.domain import kol_values
+    findings = check(doc, row.signed_file, kol_values.printed_amount(doc.as_dict(), row.amount))
     row.check_note = _note(findings)
     if findings:
         row.status = kol.BBNT_REVIEW

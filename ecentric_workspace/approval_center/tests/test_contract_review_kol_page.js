@@ -23,11 +23,17 @@ function make(url){
     const m=o.method.split(".").pop();
     if(m==="get_bootstrap") return Promise.resolve({message:boot});
     if(m==="kol_me") return Promise.resolve({message:{is_finance:true}});
-    if(m==="kol_list_templates") return Promise.resolve({message:{rows:[{name:"HDDV ca nhan",kind:"Hợp đồng"}]}});
+    if(m==="kol_list_templates") return Promise.resolve({message:{rows:[{name:"HDDV ca nhan",kind:"Hợp đồng",creator_type:"Cá nhân",service_type:"Tất cả",platform:"Tất cả",has_advance:0},
+      {name:"HDDV ca nhan coc",kind:"Hợp đồng",creator_type:"Cá nhân",service_type:"Tất cả",platform:"Tất cả",has_advance:1},
+      {name:"HDDV cong ty Shopee",kind:"Hợp đồng",creator_type:"Công ty",service_type:"Livestream",platform:"Shopee",has_advance:0},
+      {name:"HDDV HKD video",kind:"Hợp đồng",creator_type:"Hộ kinh doanh",service_type:"Video",platform:"Tất cả",has_advance:0}]}});
     if(m==="kol_search_sales_orders") return Promise.resolve({message:{rows:[{value:"SAL-ORD-2026-00156",label:"SAL-ORD-2026-00156 (GBS GBS-SO-1)",brand:"FCV",revenue:50000000,date:"2026-11-01"}],
       missing:[{gbs:"GBS-SO-9",reason:"GBS SO này chưa có dòng phí EC nên chưa có SO đối ứng"}]}});
     if(m==="kol_search_creators") return Promise.resolve({message:{rows:[{name:"SUP-1",supplier_name:"Nguyễn Thanh Phụng",ec_cr_type:"Cá nhân",misa_label:"KH01"}]}});
-    if(m==="kol_preview_amounts") return Promise.resolve({message:{ok:true,amounts:{gross:10000000,pit:1000000,vat:0,payable:9000000,contract_value:10000000,advance:0,payable_words:"Chín triệu đồng chẵn"}}});
+    if(m==="kol_preview_amounts") return Promise.resolve({message:{ok:true,amounts:{gross:10000000,pit:1000000,vat:0,payable:9000000,contract_value:10000000,advance:0,payable_words:"Chín triệu đồng"}}});
+    if(m==="kol_preview_dates") return Promise.resolve({message:(o.args||{}).air_dates==="05-06/12"?{ok:false,error:"'05-06/12' là khoảng ngày: ghi từng ngày"}:{ok:true,dates:["05/12/2026"],sign_date:"04/12/2026",contract_no:"05122026/HDDV/ECENTRIC-NTP.FCV"}});
+    if(m==="kol_preview_contract") return Promise.resolve({message:{ok:false,error:"Chọn creator để xem trước <b>x</b>"}});
+    if(m==="kol_creator_gaps") return Promise.resolve({message:{labels:["địa chỉ"]}});
     if(m==="kol_create_creator"){ createTries++; return Promise.resolve({message:createTries===1?{needs_confirm:true,message:"Có thể đã có creator này: A (mã KH KH01) trùng tên."}:{needs_confirm:false,name:"SUP-2"}}); }
     if(m==="kol_generate_contract"&&genFail) return Promise.reject({message:"Mẫu HD lỗi"});
     if(m==="kol_get_creator") return Promise.resolve({message:{name:"SUP-2",supplier_name:"Trần B",ec_cr_type:"Công ty",misa_label:"Đang cập nhật",can_see_pii:true,tax_id:"0101234567",ec_phone:"0912345678",ec_cr_email:"b@x.vn",ec_cr_party_code:"TB",ec_bank_account_no:"0011",ec_bank_name:"VCB"}});
@@ -46,9 +52,47 @@ const detail={business:{name:"EC-CTR-2026-00100",contract_type:KOL,request_type:
   ai_qc_result:JSON.stringify({data_checks:[{field:"CCCD",value_present:false}],signable:"OK",ai:{template_deviations:["Bỏ điều khoản phạt"],risky_clauses:[{clause:"Thanh toán 100% trước",risk:"rủi ro",severity:"Cao"}],summary:"x"}})},
   approval:{approval_status:"Approved"},capabilities:{},levels:[],approvers:[],timeline:[],attachments:[],
   extra:{kol:{can_manage:true,can_ai:true,approved:true,signed:true,funding:{cap:2700000,used:0,remaining:2700000},
-    acceptances:[{name:"r1",idx:1,description:"Livestream T12",acceptance_date:"2026-12-05",amount:6300000,status:"Nháp",bbnt_file:"/private/files/BBNT.docx"}]}}};
+    calc:[{label:"Giá trị trước thuế (gross)",how:"9.000.000 ÷ (1 − 10%)",amount:10000000,strong:true},{label:"<b>x</b>",how:"",amount:1}],
+    acceptances:[{name:"r1",idx:1,description:"Livestream T12",acceptance_date:"2026-12-05",amount:6300000,status:"Nháp",bbnt_file:"/private/files/BBNT.docx",
+      calc:[{label:"Thực nhận đợt này",how:"",amount:6300000}]}]}}};
 const c={}; let failed=0;
 function chk(k,v){ c[k]=!!v; if(!v) failed++; }
+// Luat mau tool cu tren form (12/11): HKD / Shopee khong coc, chon coc tu dien 40%, danh sach mau loc theo
+// loai creator + nen tang + coc, nen tang ngoai TikTok/Shopee bi chan voi mau EC.
+function rulesPart(){
+  const w7=make("https://x/approvals/contract-review");
+  wait(w7,function(){ return w7.ContractReview&&w7.document.querySelector('[data-model="contract_type"]'); },function(){
+    const ct=w7.document.querySelector('[data-model="contract_type"]'); ct.value=KOL; fire(w7,ct,"change");
+    setTimeout(function(){
+      w7.ContractReviewKOL.pickCreator({name:"SUP-H",supplier_name:"Hộ KD A",ec_cr_type:"Hộ kinh doanh"});
+      setTimeout(function(){
+        const ps=w7.document.querySelector('[data-model="payment_schedule"]');
+        chk("HKD: khong co lua chon Coc truoc", !Array.from(ps.options).some(o=>o.value==="Cọc trước")&&/không cọc/.test(w7.document.getElementById("ctr-body").innerHTML));
+        const tpl=Array.from(w7.document.querySelectorAll("#kol-tpl option")).map(o=>o.value).filter(Boolean);
+        chk("mau: chi hien mau cua loai creator dang chon", tpl.join("|")==="HDDV HKD video");
+        w7.ContractReviewKOL.pickCreator({name:"SUP-1",supplier_name:"Nguyễn A",ec_cr_type:"Cá nhân"});
+        setTimeout(function(){
+          const ps2=w7.document.querySelector('[data-model="payment_schedule"]'); ps2.value="Cọc trước"; fire(w7,ps2,"change");
+          setTimeout(function(){
+            chk("chon Coc truoc: tu dien 40% + ghi co so tinh coc", w7.ContractReview.state.draft.advance_percent==="40"&&w7.document.querySelector('[data-model="advance_percent"]').value==="40"&&/số creator thực nhận/.test(w7.document.getElementById("ctr-body").innerHTML));
+            const tpl2=Array.from(w7.document.querySelectorAll("#kol-tpl option")).map(o=>o.value).filter(Boolean);
+            chk("mau: coc thi chi mau co coc", tpl2.join("|")==="HDDV ca nhan coc");
+            const pf=w7.document.querySelector('[data-model="platform"]'); pf.innerHTML+='<option>Facebook</option>'; pf.value="Facebook"; fire(w7,pf,"change");
+            setTimeout(function(){
+              const errs=w7.ContractReview.validateSubmit()||{};
+              chk("nen tang Facebook + mau EC: bao dung mau creator", /Mẫu EC chỉ có TikTok/.test(errs.platform||""));
+              const ad=w7.document.querySelector('[data-model="air_dates"]'); ad.value="05-06/12"; fire(w7,ad,"input");
+              setTimeout(function(){
+                chk("ngay dang khoang '05-06/12': bao loi ro tu server", /khoảng ngày/.test(w7.document.getElementById("kol-dates-pv").innerHTML));
+                done();
+              },450);
+            },120);
+          },120);
+        },150);
+      },150);
+    },100);
+  });
+}
 function done(){ Object.keys(c).forEach(k=>console.log((c[k]?"PASS":"FAIL")+" - "+k)); console.log(failed?"SOME_FAIL":"ALL_PASS"); process.exit(failed?1:0); }
 function wait(w,cond,cb,n){ n=n||0; if(cond()||n>80) return cb(); setTimeout(function(){ wait(w,cond,cb,n+1); },25); }
 function fire(w,el,ev){ el.dispatchEvent(new w.Event(ev,{bubbles:true})); }
@@ -58,26 +102,27 @@ wait(w,function(){ return w.ContractReview&&w.document.querySelector('[data-mode
   const ct=w.document.querySelector('[data-model="contract_type"]'); ct.value=KOL; fire(w,ct,"change");
   setTimeout(function(){
     const b=w.document.getElementById("ctr-body").innerHTML;
-    chk("chon KOL hien the SO + creator + dich vu + so tien + ho so", /kol-so-q/.test(b)&&/kol-cr-q/.test(b)&&/data-model="service_type"/.test(b)&&/data-model="amount_input"/.test(b)&&/Hồ sơ hợp đồng/.test(b));
+    chk("chon KOL hien the creator + dich vu + so tien + ho so, KHONG con o SO (SO chon o DNTT)", !/kol-so-q/.test(b)&&/kol-cr-q/.test(b)&&/data-model="service_type"/.test(b)&&/data-model="amount_input"/.test(b)&&/Hồ sơ hợp đồng/.test(b)&&/chọn ở đề nghị thanh toán/.test(b));
     chk("gia tri hop dong khong nhap tay", !w.document.querySelector('[data-model="contract_value"]'));
     const errs=w.ContractReview.validateSubmit()||{};
-    chk("validate KOL: doi SO/creator/dich vu/tien, khong doi gia tri/muc dich", errs.sales_order&&errs.creator&&errs.service_type&&errs.amount_input&&!errs.contract_value&&!errs.justification);
+    chk("validate KOL: doi brand/creator/dich vu/tien/ngay thuc hien, khong doi SO/gia tri/muc dich", !errs.sales_order&&errs.brand&&errs.creator&&errs.service_type&&errs.amount_input&&errs.air_dates&&!errs.contract_value&&!errs.justification);
     chk("ke toan thay tab Creator (ma MISA)", /Creator \(mã MISA\)/.test(w.document.getElementById("ctr-tabs").innerHTML));
-    const q=w.document.getElementById("kol-so-q"); q.value="GBS"; fire(w,q,"input");
+    const br=w.document.querySelector('[data-model="brand"]'); br.value="FCV"; fire(w,br,"change");
     setTimeout(function(){
-      const list=w.document.getElementById("kol-so-list");
-      chk("tim SO: hien SO doi ung + GBS SO chua co SO doi ung kem ly do", !list.hidden&&/SAL-ORD-2026-00156/.test(list.innerHTML)&&/chưa có dòng phí EC/.test(list.innerHTML));
-      list.querySelector("[data-i]").click();
-      chk("chon SO: luu SO doi ung + brand theo SO", w.ContractReview.state.draft.sales_order==="SAL-ORD-2026-00156"&&w.ContractReview.state.draft.brand==="FCV");
+      chk("chon brand truc tiep tren hop dong", w.ContractReview.state.draft.brand==="FCV");
       w.ContractReviewKOL.pickCreator({name:"SUP-1",supplier_name:"Nguyễn Thanh Phụng",ec_cr_type:"Cá nhân"});
       setTimeout(function(){
+        chk("chon creator: bao creator con thieu gi cho hop dong (nhan, khong gia tri)", /Creator còn thiếu cho hợp đồng: <b>địa chỉ<\/b>/.test(w.document.getElementById("ctr-body").innerHTML));
+        const ad=w.document.querySelector('[data-model="air_dates"]'); ad.value="05/12"; fire(w,ad,"input");
         const at=w.document.querySelector('[data-model="amount_type"]');
         const opts=Array.from(at.options).map(o=>o.value).filter(Boolean);
         chk("creator ca nhan chi cho kieu nhap ca nhan", opts.join("|")==="Thực nhận sau TNCN|Gross trước TNCN" && !!w.document.querySelector('[data-model="pit_rate"]'));
+        chk("so ngay thanh toan: o trong, goi y mac dinh 35 cho ca nhan", w.document.querySelector('[data-model="payment_term_days"]').value===""&&/Mặc định 35 ngày/.test(w.document.querySelector('[data-model="payment_term_days"]').placeholder));
         at.value="Thực nhận sau TNCN"; fire(w,at,"change");
         const am=w.document.querySelector('[data-model="amount_input"]'); am.value="9000000"; fire(w,am,"input");
         setTimeout(function(){
-          chk("so tien lay tu server (kol_preview_amounts)", calls.some(x=>/^kol_preview_amounts .*"creator_type":"Cá nhân"/.test(x)) && /Chín triệu đồng chẵn/.test(w.document.getElementById("kol-amounts").innerHTML));
+          chk("so tien lay tu server (kol_preview_amounts)", calls.some(x=>/^kol_preview_amounts .*"creator_type":"Cá nhân"/.test(x)) && /Chín triệu đồng/.test(w.document.getElementById("kol-amounts").innerHTML));
+          chk("ngay thuc hien: xem truoc ngay doc duoc + ngay ky + so HD (tu server)", /Đọc được: <b>05\/12\/2026<\/b>/.test(w.document.getElementById("kol-dates-pv").innerHTML)&&/04\/12\/2026/.test(w.document.getElementById("kol-dates-pv").innerHTML)&&/05122026\/HDDV/.test(w.document.getElementById("kol-dates-pv").innerHTML));
           // tao creator: lan dau bi hoi lai, lan hai moi tao
           w.ContractReviewKOL.creatorModal();
           const ov=w.document.querySelector(".ec-ctr-overlay");
@@ -98,7 +143,13 @@ wait(w,function(){ return w.ContractReview&&w.document.querySelector('[data-mode
               chk("xac nhan lan hai: goi confirm_soft=1 va chon creator moi", calls.some(x=>/kol_create_creator .*"confirm_soft":1/.test(x)) && w.ContractReview.state.draft.creator==="SUP-2");
               chk("tieu de tu dong KOL theo brand + creator", /^HĐ KOL\/KOC - FCV - /.test(w.ContractReview.state.draft.request_title||""));
               chk("nut gui doi thanh 'Tạo hợp đồng & gửi' (mau EC)", /Tạo hợp đồng &amp; gửi|Tạo hợp đồng & gửi/.test(w.document.getElementById("ctr-submit").innerHTML));
-              detailPart();
+              // PO 12/11: nut xem truoc (mau EC) mo hop thoai, loi server hien ra (esc), khong tai trinh xem tu CDN.
+              var pvb=w.document.getElementById("kol-pv-btn"); chk("co nut Xem truoc hop dong (mau EC)", !!pvb);
+              if(pvb){ pvb.click(); setTimeout(function(){ var mo=w.document.querySelector(".kol-pv-modal");
+                chk("xem truoc: hop thoai + bao loi server da esc", !!mo&&/Chọn creator để xem trước/.test(mo.textContent)&&!mo.querySelector("#kol-pv-doc b"));
+                chk("xem truoc: goi kol_preview_contract kem du lieu dang go", calls.some(x=>/kol_preview_contract .*fields/.test(x)));
+                var x=mo&&mo.querySelector("[data-x]"); if(x) x.click();
+                detailPart(); },120); } else detailPart();
             },150); },150);
           },150);
         },400);
@@ -109,11 +160,27 @@ wait(w,function(){ return w.ContractReview&&w.document.querySelector('[data-mode
 
 function detailPart(){
   const w2=make("https://x/approvals/contract-review?id=EC-CTR-2026-00100");
+  let evt=null; w2.document.addEventListener("ctr:detail-rendered",function(e){ evt=e.detail; });
   wait(w2,function(){ return w2.document.getElementById("kol-detail"); },function(){
     const b=w2.document.getElementById("ctr-body").innerHTML;
     chk("chi tiet: khoi KOL + canh bao doanh thu + so HD", /Hợp đồng KOL\/KOC/.test(b)&&/vượt doanh thu EC/.test(b)&&/15032026\/HDDV/.test(b));
     chk("chi tiet: AI QC hien so lieu lech + dieu khoan rui ro", /Không thấy trong tệp/.test(b)&&/Bỏ điều khoản phạt/.test(b)&&/Thanh toán 100% trước/.test(b));
-    chk("chi tiet: BBNT + tran chi + nut tao BBNT", /Livestream T12/.test(b)&&/Được phép chi/.test(b)&&/Đánh dấu đã gửi ký|Hoàn tất…/.test(b)&&!/kol-accf-/.test(b)&&/data-kol="addacc"/.test(b)&&/data-kol="doneacc"/.test(b));
+    chk("chi tiet: BBNT + tran chi + nut tao BBNT", /Livestream T12/.test(b)&&/Được phép chi/.test(b)&&/data-kol="sendacc"/.test(b)&&!/kol-accf-/.test(b)&&/data-kol="addacc"/.test(b));
+    // PO 12/11: bang tinh tung buoc cho Ke toan (hop dong + tung dot), nhan duoc esc.
+    // Chang 3b ky so (chot 12/11): cho gan khoi ky so + su kien cho thanh phan dung chung.
+    const slot=w2.document.getElementById("ctr-esign-slot");
+    chk("chi tiet: co cho gan khoi Ky so, dat truoc the BBNT", !!slot&&slot.getAttribute("data-business-name")==="EC-CTR-2026-00100"&&b.indexOf('id="ctr-esign-slot"')<b.indexOf("Nghiệm thu (BBNT)"));
+    { const CR=w2.ContractReview, keep=CR.state.draft;
+      CR.state.draft={request_title:"HĐ LĐ",request_kind:"New",contract_type:"Labor / Hợp đồng lao động (EC)",request_type:"Template from EC / Mẫu theo khung EC",justification:"Tuyển dụng",request_details:"x"};
+      const e1=CR.validateSubmit()||{}; CR.state.draft.contract_type="Purchase / Mua vào (EC)"; const e2=CR.validateSubmit()||{};
+      chk("HD lao dong: khong bat brand / gia tri (loai khac van bat)", !e1.brand&&!e1.contract_value&&!!e2.brand&&!!e2.contract_value);
+      CR.state.draft=keep; }
+    chk("chi tiet: phat su kien ctr:detail-rendered", !!evt&&evt.business_doctype==="EC Contract Review Request"&&evt.business_name==="EC-CTR-2026-00100");
+    // Thiet ke ban 2 (12/11 11:49): khoi hien tu luc lap phieu; chi sua duoc khi phieu con o nguoi lap.
+    chk("su kien: phieu da duyet -> can_edit=false", !!evt&&evt.can_edit===false&&evt.approval_status!=="Draft");
+    chk("chi tiet: bang tinh hop dong + dot", /Bảng tính chi tiết/.test(b)&&/9\.000\.000 ÷ \(1 − 10%\)/.test(b)&&/Bảng tính đợt này/.test(b)&&b.indexOf("<b>x</b>")<0);
+    // QC3: dot NHAP chua co nut Hoan tat - phai qua "Danh dau da gui ky" (kiem thieu + tao lai BBNT) truoc.
+    chk("BBNT nhap: chua cho Hoan tat (bo qua buoc kiem)", !/data-kol="doneacc"/.test(b));
     chk("da duyet: khong con nut tao lai hop dong", !/data-kol="gen"/.test(b));
     chk("BBNT: nut Hoan tat mo modal (khong o tep trong bang) + nut Xoa dot nhap", /data-kol="delacc"/.test(b));
     creatorsTab();
@@ -178,7 +245,7 @@ function reviewPart(){
       const w6=make("https://x/approvals/contract-review?id=EC-CTR-2026-00100");
       wait(w6,function(){ return /Chờ Kế toán kiểm/.test((w6.document.getElementById("ctr-body")||{}).innerHTML||""); },function(){
         chk("nguoi tao: khong co nut xac nhan ban ky", !/data-kol="vsignok"/.test(w6.document.getElementById("ctr-body").innerHTML));
-        done();
+        rulesPart();
       });
     },150);
   });

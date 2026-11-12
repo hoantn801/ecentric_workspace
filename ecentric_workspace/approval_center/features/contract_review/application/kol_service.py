@@ -5,12 +5,16 @@ Moi con so (gross, TNCN, VAT, so tien tra, tien coc, gia tri hop dong) do SERVER
 `domain.kol.compute_amounts` - form chi hien lai. Nguoi dung sua DOM cung khong doi duoc so
 tien di vao hop dong va DNTT.
 """
+import datetime
+
 import frappe
 from frappe import _
 from frappe.utils import now_datetime, today
 
 from ecentric_workspace.approval_center.features.contract_review.application import kol_lookup
 from ecentric_workspace.approval_center.features.contract_review.domain import kol
+from ecentric_workspace.approval_center.features.contract_review.domain import (
+    esign_flow, kol_calc, kol_texts, kol_values)
 from ecentric_workspace.approval_center.shared.creators.repository import CreatorRepository
 
 APPROVED = "Approved"
@@ -21,7 +25,10 @@ def creator_row(name):
 
 
 def prepare_draft(doc):
-    """`draft_preparer` cua form 27: chi lam viec voi phieu KOL, nuot loi tinh tien (nhap do)."""
+    """`draft_preparer` cua form 27: quy trinh ky mac dinh cho MOI loai; phan con lai chi lam
+    viec voi phieu KOL, nuot loi tinh tien (nhap do)."""
+    esign_flow.apply_default(doc)
+    esign_flow.clean_labor(doc)
     if not kol.is_kol(doc):
         return
     creator = creator_row(doc.get("creator"))
@@ -43,20 +50,21 @@ def prepare_draft(doc):
     if so:
         doc.so_label = kol_lookup.so_label(so)
         doc.so_revenue = so.net_total
-        if so.ec_brand:
+        # Phieu cu (truoc 12/11) da gan SO: brand chon tay tren phieu la chinh, SO chi dien khi trong.
+        if so.ec_brand and not doc.get("brand"):
             doc.brand = so.ec_brand
     else:
         doc.so_label = doc.so_revenue = None
-    if doc.get("payment_term_days") in (None, ""):
-        doc.payment_term_days = kol.DEFAULT_PAYMENT_DAYS
+    _default_payment_days(doc)
+    if doc.get("payment_schedule") == kol.PAY_ADVANCE and not doc.get("advance_percent"):
+        doc.advance_percent = kol.DEFAULT_ADVANCE_PERCENT
     # O thue suat de trong: dung mac dinh NGAY TU LUC LUU. De "" thi Frappe luu thanh 0 va luc
     # gui tinh lai voi 0% - nhap thay 10% ma hop dong khong khau tru TNCN (QC 11/11).
     if doc.get("pit_rate") in (None, ""):
         doc.pit_rate = kol.DEFAULT_PIT_RATE
     if doc.get("vat_rate") in (None, ""):
         doc.vat_rate = kol.DEFAULT_VAT_RATE
-    if not doc.get("contract_date"):
-        doc.contract_date = today()
+    set_sign_date(doc)
     if not (doc.get("justification") or "").strip():
         doc.justification = ("Hoa hồng affiliate" if doc.get("service_type") == "Hoa hồng affiliate"
                              else "Booking KOL/KOC")
@@ -69,9 +77,9 @@ def apply_amounts(doc, strict):
     try:
         amounts = kol.compute_amounts(doc.get("creator_type"), doc.get("amount_type"),
                                       doc.get("amount_input"), doc.get("pit_rate"), doc.get("vat_rate"))
-        advance = kol.advance_amount(amounts["payable"], doc.get("payment_schedule"),
+        advance = kol.advance_amount(amounts, doc.get("creator_type"), doc.get("payment_schedule"),
                                      doc.get("advance_percent"))
-        kol.payment_days(doc.get("payment_term_days"))
+        kol.payment_days(doc.get("payment_term_days"), doc.get("creator_type"), doc.get("platform"))
     except ValueError as e:
         if strict:
             frappe.throw(_(str(e)))
@@ -87,11 +95,162 @@ def apply_amounts(doc, strict):
         doc.advance_percent = None
 
 
+def _stored(doc, fields):
+    is_new = getattr(doc, "is_new", None)
+    if not doc.get("name") or (callable(is_new) and is_new()):
+        return {}
+    return frappe.db.get_value(kol_lookup.CR_DT, doc.get("name"), fields, as_dict=True) or {}
+
+
+def _default_payment_days(doc):
+    """So ngay thanh toan mac dinh theo tool cu (ca nhan 35, cong ty / HKD 30, Shopee 15).
+
+    Doi loai creator / nen tang ma o nay van dang la MAC DINH cua lua chon cu -> doi theo mac dinh
+    moi; nguoi dung da go so khac thi giu nguyen."""
+    current = doc.get("payment_term_days")
+    want = kol.default_payment_days(doc.get("creator_type"), doc.get("platform"))
+    try:
+        current = None if current in (None, "") else int(float(current))
+    except (TypeError, ValueError):
+        frappe.throw(_("Số ngày thanh toán phải là số."))
+    if current is None:
+        doc.payment_term_days = want
+        return
+    old = _stored(doc, ["creator_type", "platform"])
+    if old and (old.get("creator_type"), old.get("platform")) != (doc.get("creator_type"), doc.get("platform")):
+        if current == kol.default_payment_days(old.get("creator_type"), old.get("platform")):
+            doc.payment_term_days = want
+
+
+def _today():
+    return datetime.date.fromisoformat(str(today())[:10])
+
+
+def service_dates_or_none(doc, ref=None):
+    """Ngay thuc hien. Nam doan theo ngay TAO phieu (on dinh qua cac lan luu / gui lai), khong
+    theo hom nay va khong theo ngay ky."""
+    try:
+        return kol.service_dates(doc, ref or ref_day(doc))
+    except ValueError:
+        return []
+
+
+def ref_day(doc):
+    created = doc.get("creation")
+    return datetime.date.fromisoformat(str(created)[:10]) if created else _today()
+
+
+def _auto_sign(air_dates, doc):
+    dates = service_dates_or_none({"air_dates": air_dates}, ref_day(doc))
+    return str(kol_texts.business_day_before(None, dates[0], kol_lookup.holidays())) if dates else None
+
+
+def set_sign_date(doc):
+    """Ngay ky = 1 ngay lam viec TRUOC buoi thuc hien dau (tool cu, bo T7/CN/ngay nghi).
+
+    Nguoi dung TU CHON ngay (khac ngay he thong tu tinh lan truoc) va ngay do truoc buoi dau thi
+    giu; chon ngay >= buoi dau thi lui ve truoc buoi dau. Ngay dang la ngay TU TINH (hoac ngay mac
+    dinh hom nay khi chua co lich) thi doi lich la tinh lai - khong "dinh" ngay cu (QC 12/11)."""
+    dates = service_dates_or_none(doc)
+    if not dates:
+        if not doc.get("contract_date"):
+            doc.contract_date = today()
+        return
+    chosen = _user_sign_date(doc, doc.get("contract_date"))
+    doc.contract_date = str(kol_texts.business_day_before(chosen, dates[0], kol_lookup.holidays()))
+
+
+def _user_sign_date(doc, chosen):
+    """Ngay ky NGUOI DUNG tu chon (date) hoac None = de he thong tu tinh.
+
+    Gia tri dang luu ma lan truoc la ngay TU TINH (hoac phieu chua co lich / lich doc khong duoc,
+    khi do ngay ky la ngay mac dinh hom nay) thi coi la tu dong - doi lich la tinh lai (QC 12/11)."""
+    chosen = str(chosen or "")[:10] or None
+    old = _stored(doc, ["air_dates", "contract_date", "creation"])
+    if chosen and old and chosen == str(old.get("contract_date") or "")[:10]:
+        auto = _auto_sign(old.get("air_dates"), doc) if old.get("air_dates") else None
+        if auto is None or chosen == auto:
+            chosen = None
+    return datetime.date.fromisoformat(chosen) if chosen else None
+
+
+def expected_bbnt_date(doc):
+    """Ngay BBNT du kien tren HDDV = 1 ngay lam viec SAU buoi thuc hien cuoi (tool cu AFTER_SERVICE).
+    BBNT that thi dung ngay nghiem thu cua tung dot."""
+    dates = service_dates_or_none(doc)
+    return kol_texts.business_day_after(None, dates[-1], kol_lookup.holidays()) if dates else None
+
+
+def preview_dates(air_dates, contract_date=None, creator=None, brand=None, name=None, user=None):
+    """Form goi khi go "Ngay thuc hien": ngay doc duoc, ngay ky du kien, so HD du kien - de
+    nguoi dung thay ngay he thong hieu sai (vd thieu nam) TRUOC khi tao hop dong (QC 12/11).
+
+    `name` chi dung khi `user` quan ly duoc phieu do (nguoi lap / Ke toan): khong cho doc lich /
+    ngay ky cua phieu nguoi khac qua endpoint nay (QC3)."""
+    if name:
+        own = frappe.db.get_value(kol_lookup.CR_DT, name, ["requested_by", "creation"], as_dict=True)
+        if not own or (user and own.get("requested_by") != user and not kol_lookup.is_finance(user)):
+            name = None
+    created = own.get("creation") if name else None
+    ref = datetime.date.fromisoformat(str(created)[:10]) if created else _today()
+    try:
+        picked = datetime.date.fromisoformat(str(contract_date)[:10]) if contract_date else None
+    except ValueError:
+        picked, contract_date = None, None
+    try:
+        dates = kol.service_dates({"air_dates": air_dates}, ref)
+    except ValueError as e:
+        return {"ok": False, "error": str(e)}
+    if not dates:
+        return {"ok": True, "dates": []}
+    # Cung luat voi luc luu (set_sign_date): ngay dang la ngay tu tinh thi xem truoc theo lich moi.
+    chosen = _user_sign_date({"name": name, "creation": created}, contract_date) if name else picked
+    sign = kol_texts.business_day_before(chosen, dates[0], kol_lookup.holidays())
+    out = {"ok": True, "dates": [d.strftime("%d/%m/%Y") for d in dates], "sign_date": sign.strftime("%d/%m/%Y")}
+    row = creator_row(creator) if creator else None
+    if row and brand:
+        party = kol_texts.party_code(row.get("ec_cr_type"), row.get("supplier_name"), row.get("ec_cr_party_code"))
+        try:
+            out["contract_no"] = kol.number_base(dates[0], party, kol_lookup.brand_code(brand))
+        except ValueError as e:
+            out["number_note"] = str(e)
+    return out
+
+
+def creator_gaps(creator, platform=None):
+    """Thong tin creator con thieu cho hop dong (nhan tieng Viet, KHONG tra gia tri)."""
+    row = creator_row(creator)
+    if not row:
+        return {"labels": []}
+    ctype = row.get("ec_cr_type")
+    values = kol_values.contract_values({"creator_type": ctype, "platform": platform or "TikTok",
+                                         "service_type": "Livestream"}, row, "", None, [_today()])
+    need = (set(kol_values.REQUIRED_WHEN_USED["_all"]) | set(kol_values.REQUIRED_WHEN_USED.get(ctype, ()))) \
+        & set(kol_values.CREATOR_FIELDS)
+    missing = sorted(k for k in need if not str(values.get(k) or "").strip())
+    return {"labels": kol_values.missing_labels(missing)}
+
+
 def summary_text(doc):
     parts = [doc.get("service_type") or "", doc.get("platform") or "",
              ("%s buổi/video" % doc.quantity) if doc.get("quantity") else "",
              doc.get("duration") or "", doc.get("air_dates") or ""]
     return "Creator %s - %s" % (doc.get("creator_name") or "?", ", ".join(p for p in parts if p))
+
+
+def fill_partner_signer(doc, creator):
+    """Nguoi ky phia doi tac (cong ky so gui email moi ky - THIETKE K6): o nao trong thi lay tu
+    creator. Ca nhan: chinh creator; cong ty / ho KD: nguoi dai dien (khong co thi ten don vi).
+    Chi dien voi quy trinh co doi tac ky tren cong; nguoi lap sua tay duoc."""
+    if not creator or not esign_flow.needs_partner(doc.get("esign_flow")):
+        return
+    person = creator.get("ec_cr_type") == "Cá nhân"
+    name = creator.get("supplier_name") if person else (
+        creator.get("ec_cr_representative_name") or creator.get("supplier_name"))
+    for field, value in (("partner_signer_name", name), ("partner_signer_email", creator.get("ec_cr_email")),
+                         ("partner_signer_phone", creator.get("ec_phone"))):
+        if not (doc.get(field) or "").strip() and value:
+            doc.set(field, str(value).strip()[:140])
 
 
 def validate_submit(doc):
@@ -100,7 +259,7 @@ def validate_submit(doc):
     Mau EC: sinh lai hop dong neu du lieu da doi tu lan tao tep (dau van tay lech), de van ban
     gui ky luon khop so tien / creator / SO dang duyet."""
     creator = creator_row(doc.get("creator"))
-    errors = kol.validate_kol(doc, creator and creator.get("ec_cr_type"))
+    errors = kol.validate_kol(doc, creator and creator.get("ec_cr_type"), ref_day(doc))
     if not creator:
         errors.append("Creator không tồn tại hoặc không thuộc danh sách creator.")
     if doc.get("request_type") == kol.TEMPLATE_PARTNER and not doc.get("request_attachment"):
@@ -109,24 +268,40 @@ def validate_submit(doc):
         frappe.throw(_(" ".join(errors)))
     prepare_draft(doc)
     apply_amounts(doc, strict=True)
+    fill_partner_signer(doc, creator)
     if doc.get("request_type") == kol.TEMPLATE_EC:
         from ecentric_workspace.approval_center.features.contract_review.application import kol_files
         kol_files.build_contract(doc)
     else:
+        # Doi tu mau EC sang mau creator: ket qua dien mau EC cu khong con ap dung (QC 12/11).
+        doc.missing_placeholders = doc.contract_fingerprint = doc.generated_template = None
         assign_number(doc, creator)
     if doc.get("missing_placeholders"):
-        frappe.throw(_("Hợp đồng còn thiếu thông tin: {0}. Bổ sung (thường là thông tin creator) "
-                       "rồi gửi lại.").format(doc.missing_placeholders))
-    committed = kol_lookup.committed_on_so(doc.sales_order, exclude=doc.name)
-    doc.revenue_warning = kol.revenue_warning(doc.so_revenue, committed, doc.contract_value) or None
+        names = _split(doc.missing_placeholders)
+        hint = (_("Bấm Sửa thông tin creator để bổ sung (hoặc nhờ người tạo creator / Kế toán)")
+                if kol_values.missing_is_creator(names) else _("Bổ sung trên phiếu"))
+        frappe.throw(_("Hợp đồng còn thiếu: {0}. {1} rồi gửi lại.").format(
+            ", ".join(kol_values.missing_labels(names)), hint))
+    # Doi chieu doanh thu SO chuyen sang DNTT (12/11). Phieu cu da gan SO thi van canh bao.
+    if doc.get("sales_order"):
+        committed = kol_lookup.committed_on_so(doc.sales_order, exclude=doc.name)
+        doc.revenue_warning = kol.revenue_warning(doc.so_revenue, committed, doc.contract_value) or None
+    else:
+        doc.revenue_warning = None
 
 
 def assign_number(doc, creator):
-    """Cap / cap lai so hop dong. So dang co ma khong con khop ngay ky / ma doi tac / ma brand
-    (doi creator, brand, ngay sau lan tao dau) thi cap lai - so sai di vao van ban phap ly."""
+    """Cap / cap lai so hop dong. So dang co ma khong con khop ngay thuc hien dau / ma doi tac /
+    ma brand (doi creator, brand, ngay sau lan tao dau) thi cap lai - so sai di vao van ban phap ly.
+
+    Ma doi tac: Ke toan dien tay (ec_cr_party_code) thi dung, khong thi suy tu ten nhu tool cu
+    (ca nhan = chu cai dau, cong ty / HKD = viet tat bo "Cong ty TNHH..."); ngay = buoi dau tien."""
+    dates = service_dates_or_none(doc)
+    number_date = dates[0] if dates else (doc.contract_date or today())
+    party = kol_texts.party_code(creator.get("ec_cr_type"), creator.get("supplier_name"),
+                                 creator.get("ec_cr_party_code"))
     try:
-        base = kol.number_base(doc.contract_date or today(), creator.get("ec_cr_party_code"),
-                               kol_lookup.brand_code(doc.get("brand")))
+        base = kol.number_base(number_date, party, kol_lookup.brand_code(doc.get("brand")))
     except ValueError as e:
         frappe.throw(_(str(e)))
     if kol.number_fits(doc.get("contract_no"), base) and not frappe.db.exists(
@@ -135,8 +310,7 @@ def assign_number(doc, creator):
     existing = set(frappe.get_all(kol_lookup.CR_DT,
                                   filters={"contract_no": ["like", base + "%"], "name": ["!=", doc.name]},
                                   pluck="contract_no", limit_page_length=0, ignore_permissions=True))
-    doc.contract_no = kol.contract_number(doc.contract_date or today(), creator.get("ec_cr_party_code"),
-                                          kol_lookup.brand_code(doc.get("brand")), existing)
+    doc.contract_no = kol.contract_number(number_date, party, kol_lookup.brand_code(doc.get("brand")), existing)
 
 
 def can_manage(doc, user):
@@ -198,4 +372,14 @@ def detail_extra(business, request):
         "acceptances": kol_acceptance.rows_view(business),
         "acceptance_remaining": kol_acceptance.acceptance_remaining(business),
         "funding": kol_acceptance.funding_view(business),
+        "missing_labels": kol_values.missing_labels(_split(business.get("missing_placeholders"))),
+        "missing_creator": kol_values.missing_is_creator(_split(business.get("missing_placeholders"))),
+        # Bang tinh tung buoc cho Ke toan soat (PO 12/11) - dien giai so da luu, khong tinh khac.
+        "calc": kol_calc.contract_steps(business),
+        # Ngay theo gio site (khong theo dong ho may nguoi dung) cho o ngay BBNT - QC6.
+        "today": str(today()),
     }}
+
+
+def _split(text):
+    return [x.strip() for x in (text or "").split(",") if x.strip()]

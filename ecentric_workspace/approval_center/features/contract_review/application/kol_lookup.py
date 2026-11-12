@@ -151,20 +151,65 @@ def list_templates(kind=None):
     if kind:
         filters["kind"] = kind
     return frappe.get_all(TEMPLATE_DT, filters=filters,
-                          fields=["name", "kind", "creator_type", "service_type", "has_advance",
+                          fields=["name", "kind", "creator_type", "service_type", "platform", "has_advance",
                                   "version", "unknown_placeholders"],
                           order_by="template_name asc", limit_page_length=200)
 
 
-def pick_template(kind, creator_type, service_type, has_advance):
-    """Mau khop nhat: dung loai creator; dich vu dung hon 'Tất cả'; co/khong coc dung hon."""
+AFFILIATE = "Hoa hồng affiliate"
+
+
+def _want_service(service_type):
+    """Dich vu cua mau can dung: tool cu chi co mau Video va Livestream - "Livestream + Video" dung
+    mau Livestream. Hoa hong affiliate KHONG co mau o tool cu: chi nhan mau dung dich vu do."""
+    if service_type == AFFILIATE:
+        return (AFFILIATE,)
+    if service_type == "Video":
+        return ("Video", "Tất cả")
+    return tuple(dict.fromkeys((service_type, "Livestream", "Tất cả")))
+
+
+def template_mismatch(t, kind, creator_type, has_advance, platform, service_type=None):
+    """Ly do mau `t` KHONG dung duoc cho phieu (rong = dung duoc). Mot noi duy nhat cho ca luc he
+    thong tu chon lan luc nguoi dung chon tay (QC 12/11: chon tay tung bo qua coc / Shopee)."""
+    if not t or not t.get("is_active"):
+        return "mẫu đã ngừng dùng"
+    if t.get("kind") != kind:
+        return "mẫu là %s, không phải %s" % (t.get("kind"), kind)
+    if t.get("creator_type") != creator_type:
+        return "mẫu cho creator %s, phiếu là %s" % (t.get("creator_type"), creator_type or "?")
+    if ((t.get("platform") or "Tất cả") == "Shopee") != (platform == "Shopee"):
+        return "mẫu Shopee chỉ dùng cho phiếu Shopee" if platform != "Shopee" else "phiếu Shopee cần mẫu Shopee"
+    if kind == "Hợp đồng" and bool(t.get("has_advance")) != bool(has_advance):
+        return ("phiếu có cọc nhưng mẫu không có điều khoản cọc" if has_advance
+                else "mẫu có điều khoản cọc nhưng phiếu không cọc")
+    if service_type and (t.get("service_type") or "Tất cả") not in _want_service(service_type):
+        return "mẫu cho dịch vụ %s" % t.get("service_type")
+    return ""
+
+
+def pick_template(kind, creator_type, service_type, has_advance, platform=None):
+    """Mau khop nhat (giong resolveTemplateId_ cua tool cu): dung luat template_mismatch; dung
+    dich vu hon "Livestream" (cho Livestream + Video) hon "Tất cả"."""
+    want = _want_service(service_type)
     best, best_score = None, -1
     for t in list_templates(kind):
-        if t.creator_type != creator_type:
+        t = dict(t, is_active=1)          # list_templates da loc is_active
+        if template_mismatch(t, kind, creator_type, has_advance, platform, service_type):
             continue
-        if t.service_type not in ("Tất cả", service_type):
-            continue
-        score = (2 if t.service_type == service_type else 0) + (1 if bool(t.has_advance) == bool(has_advance) else 0)
+        svc = t.get("service_type") or "Tất cả"
+        # service_type rong (phieu nhap chua chon dich vu, vd AI QC mau creator): moi mau cung diem.
+        score = (len(want) - want.index(svc)) if svc in want else 0
         if score > best_score:
-            best, best_score = t.name, score
+            best, best_score = t["name"], score
     return best
+
+
+def holidays():
+    """Ngay nghi le cua cong ty mac dinh (Holiday List) - de lui ngay ky ve ngay lam viec."""
+    company = frappe.defaults.get_global_default("company")
+    hl = frappe.get_cached_value("Company", company, "default_holiday_list") if company else None
+    if not hl:
+        return set()
+    return set(frappe.get_all("Holiday", filters={"parent": hl}, pluck="holiday_date",
+                              limit_page_length=0, ignore_permissions=True))

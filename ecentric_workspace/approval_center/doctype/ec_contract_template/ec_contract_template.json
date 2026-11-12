@@ -8,7 +8,7 @@
  "engine": "InnoDB",
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-11-11 15:30:00.000000",
+ "modified": "2026-11-12 03:00:00.000000",
  "modified_by": "Administrator",
  "module": "Approval Center",
  "name": "EC Contract Template",
@@ -24,6 +24,7 @@
   "kind",
   "creator_type",
   "service_type",
+  "platform",
   "has_advance",
   "is_active",
   "cb0",
@@ -69,6 +70,15 @@
    "in_list_view": 1
   },
   {
+   "fieldname": "platform",
+   "fieldtype": "Select",
+   "label": "Nền tảng",
+   "options": "Tất cả\nShopee",
+   "default": "Tất cả",
+   "in_list_view": 1,
+   "description": "Shopee: mẫu riêng của tool cũ (chỉ Công ty - Livestream). Mọi nền tảng khác dùng mẫu 'Tất cả'."
+  },
+  {
    "fieldname": "has_advance",
    "fieldtype": "Check",
    "label": "Mẫu có điều khoản cọc"
@@ -89,7 +99,7 @@
    "fieldtype": "Attach",
    "label": "Tệp mẫu (.docx)",
    "reqd": 1,
-   "description": "Dùng {{ten_truong}} cho chỗ cần điền. Danh sách tên trường xem ở ô bên dưới sau khi lưu."
+   "description": "Tệp .docx tải từ Google Docs của tool cũ (File > Tải xuống > Microsoft Word). Chỗ cần điền viết <<TÊN_IN_HOA>> như tool cũ, vd <<CONTRACT_NO>>. Sau khi lưu, ô bên dưới liệt kê các tên đọc được và tên hệ thống không hiểu."
   },
   {
    "fieldname": "version",
