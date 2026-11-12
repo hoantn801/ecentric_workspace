@@ -138,6 +138,12 @@
     var h = "";
     if (st.settings && st.settings.last_double !== false && st.index + 2 === st.total)
       h += '<div class="dt-note x2">×2 · Câu tiếp theo là câu cuối - nhân đôi điểm (cả thưởng chuỗi)</div>';
+    if ((st.steals || []).length) {
+      h += '<div class="dt-steals">' + st.steals.slice(0, 5).map(function (e) {
+        return "<div>" + (e.blocked ? "🛡️ <b>" + D.esc(e.victim_nick) + "</b> đã chặn cú đánh cắp của <b>" + D.esc(e.thief_nick) + "</b>!" :
+          "😈 <b>" + D.esc(e.thief_nick) + "</b> vừa đánh cắp " + D.fmtNum(e.amount) + " điểm của <b>" + D.esc(e.victim_nick) + "</b>!") + "</div>";
+      }).join("") + (st.steals.length > 5 ? "<div>+" + (st.steals.length - 5) + " vụ khác</div>" : "") + "</div>";
+    }
     if (st.power_open)
       h += '<div class="dt-note pw">🎁 Power-up đã mở trên điện thoại - mọi người chọn trước khi bấm Câu tiếp (' + st.power_open.picked + "/" + st.players + " đã chọn)</div>";
     return h;

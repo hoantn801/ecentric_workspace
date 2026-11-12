@@ -291,3 +291,4 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 .dt-note { align-self:center; border-radius:14px; padding:10px 18px; font-weight:800; font-size:clamp(16px,1.6vw,24px); }
 .dt-note.x2 { background:#ffbf00; color:#2a1600; }
 .dt-note.pw { background:rgba(255,255,255,.14); color:#fff; border:1px solid rgba(255,255,255,.25); }
+.dt-steals { align-self:center; display:flex; flex-direction:column; gap:6px; background:rgba(226,27,60,.22); border:1px solid rgba(255,255,255,.25); border-radius:14px; padding:10px 18px; color:#fff; font-size:clamp(16px,1.6vw,24px); animation:dtx2pop .5s cubic-bezier(.2,1.6,.4,1) both; }

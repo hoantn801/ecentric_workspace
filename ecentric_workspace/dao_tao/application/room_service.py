@@ -130,6 +130,7 @@ def _lock_question(repo, s):
     plist = repo.players(s["name"], locking=True)
     fast = dict(s["state"].get("fast") or {})
     pw_on = PW.enabled(s["settings"])
+    thieves = []
     for p in plist:
         if p.get("kicked"):
             continue
@@ -140,6 +141,8 @@ def _lock_question(repo, s):
             try:
                 pw = PW.clean_state(p.get("powers"))
                 pw_ids = PW.effective(pw, idx)
+                if scored and "steal" in pw_ids:
+                    thieves.append(p["user"])
             except Exception:
                 repo.log_error("dao_tao power lock %s %s" % (s["name"], p["user"]))
                 pw, pw_ids = None, []
@@ -169,11 +172,25 @@ def _lock_question(repo, s):
             p.update(upd)
     repo.mark_answers_applied(s["name"], idx)
     ranked = board.rank_players(plist)
+    steals = []
+    if thieves:
+        try:                                         # loi danh cap khong duoc chan viec khoa cau
+            salt = s["state"].get("salt") or ""
+            changed, steals = PW.apply_steals(
+                ranked, thieves, lambda u: PW.steal_amount(Q.secret_seed(salt, s["name"], "steal", u, idx)))
+            byu = {p["user"]: p for p in plist}
+            for user, upd in changed.items():
+                repo.update_player(s["name"], user, upd)
+                byu[user].update(upd)
+            ranked = board.rank_players(plist)       # bang xep hang sau khi trom
+        except Exception:
+            repo.log_error("dao_tao power steal %s" % s["name"])
+            steals = []
     if idx == 0:
         for p in ranked:
             repo.update_player(s["name"], p["user"], {"first_rank": p["rank"]})
     teams = board.rank_teams(plist)
-    state = dict(s["state"], fast=fast, **views.board_state(ranked, teams, len(ranked)))
+    state = dict(s["state"], fast=fast, steals=steals, **views.board_state(ranked, teams, len(ranked)))
     v = repo.update_session(s["name"], {"phase": C.PHASE_LOCKED, "state": state})
     repo.publish_room(s["name"], v)
     return dict(s, phase=C.PHASE_LOCKED, state=state, version=v)

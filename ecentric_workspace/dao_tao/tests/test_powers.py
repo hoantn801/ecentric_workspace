@@ -20,7 +20,7 @@ FLAT = {"by_speed": False, "streak": False, "last_double": False, "power_ups": T
 
 class PowersDomainTest(unittest.TestCase):
     def test_offer_and_catalog(self):
-        self.assertEqual(len(PW.IDS), 10)
+        self.assertEqual(len(PW.IDS), 12)
         o = PW.offer("seed-1")
         self.assertEqual(len(set(o)), 3)
         self.assertEqual(o, PW.offer("seed-1"))
@@ -50,6 +50,27 @@ class PowersDomainTest(unittest.TestCase):
             st = PW.consume(st, i)
         self.assertEqual(st["active"], [])
         self.assertIn("boost5", st["used"])
+
+
+class StealDomainTest(unittest.TestCase):
+    def rows(self, *scores, guard=()):
+        return [{"user": "u%d" % i, "score": sc, "rank": i + 1, "nickname": "N%d" % i,
+                 "powers": {"bag": ["guard"]} if i in guard else {}} for i, sc in enumerate(scores)]
+
+    def test_steal_cases(self):
+        ch, ev = PW.apply_steals(self.rows(1000, 800, 500), ["u2"], lambda u: 200)
+        self.assertEqual((ch["u1"]["score"], ch["u2"]["score"]), (600, 700))
+        self.assertEqual((ev[0]["victim_nick"], ev[0]["amount"], ev[0]["blocked"]), ("N1", 200, False))
+        ch, ev = PW.apply_steals(self.rows(1000, 800, guard=(0,)), ["u1"], lambda u: 300)
+        self.assertTrue(ev[0]["blocked"])
+        self.assertEqual(ch["u0"]["powers"]["bag"], [])
+        self.assertNotIn("score", ch.get("u1", {}))
+        ch, ev = PW.apply_steals(self.rows(1000, 50), ["u0"], lambda u: 300)   # hang 1 lay cua hang 2, khong am
+        self.assertEqual((ch["u1"]["score"], ch["u0"]["score"], ev[0]["amount"]), (0, 1050, 50))
+        ch, ev = PW.apply_steals(self.rows(1000, 800, 700), ["u1", "u2"], lambda u: 300)
+        self.assertEqual([e["thief"] for e in ev], ["u1", "u2"])              # tuan tu theo hang
+        self.assertEqual(PW.apply_steals(self.rows(500), ["u0"], lambda u: 100), ({}, []))
+        self.assertIn(PW.steal_amount("x"), PW.STEAL_AMOUNTS)
 
 
 class PowersFlowTest(unittest.TestCase):
@@ -162,10 +183,41 @@ class PowersFlowTest(unittest.TestCase):
         self.state(STAFF[1])                                            # het gio -> khoa + cong bo
         self.assertEqual(self.score(STAFF[0]) - before, 500)
 
+    def test_steal_flow(self):
+        self.play_to_offer()
+        self.repo.update_player(self.sess, STAFF[0].user, {"score": 3000, "powers": {"picked": {"4": "steal"}}})
+        self.repo.update_player(self.sess, STAFF[1].user, {"score": 5000, "powers": {"bag": ["guard"], "picked": {"4": "guard"}}})
+        self.act("next")
+        with self.assertRaises(QuizError):
+            play_service.use_power(STAFF[1], self.repo, self.code, "guard", "d-" + STAFF[1].user)
+        self.repo.update_player(self.sess, STAFF[0].user, {"powers": {"bag": ["steal"], "picked": {"4": "steal"}}})
+        play_service.use_power(STAFF[0], self.repo, self.code, "steal", "d-" + STAFF[0].user)
+        for c in STAFF[:2]:
+            self.ans(c)
+        host = room_service.host_state(HOST, self.repo, self.sess)
+        self.assertTrue(host["steals"][0]["blocked"])
+        self.assertEqual(self.score(STAFF[1]), 6000)
+        self.assertEqual(self.state(STAFF[1])["steals"][0]["role"], "victim")
+        # lan 2: het khien -> mat diem, bang xep hang da tinh lai
+        self.act("next")
+        self.repo.update_player(self.sess, STAFF[0].user, {"powers": {"bag": ["steal"], "picked": {"4": "steal"}}})
+        play_service.use_power(STAFF[0], self.repo, self.code, "steal", "d-" + STAFF[0].user)
+        for c in STAFF[:2]:
+            self.ans(c)
+        ev = room_service.host_state(HOST, self.repo, self.sess)["steals"][0]
+        self.assertFalse(ev["blocked"])
+        self.assertEqual(self.score(STAFF[1]), 7000 - ev["amount"])
+        self.assertEqual(self.score(STAFF[0]), 5000 + ev["amount"])
+        board = {r["email"]: r["score"] for r in self.repo.get_session(self.sess)["state"]["board"]}
+        self.assertEqual(board[STAFF[0].user], 5000 + ev["amount"])
+        me = self.state(STAFF[0])["steals"][0]
+        self.assertEqual((me["role"], me["amount"]), ("thief", ev["amount"]))
+
     def test_setting_off(self):
         self.setUp(settings=dict(FLAT, power_ups=False))
         self.play_to_offer()
         self.assertNotIn("power", self.state(STAFF[0]))
+        self.assertNotIn("steals", room_service.host_state(HOST, self.repo, self.sess))
         with self.assertRaises(QuizError):
             play_service.pick_power(STAFF[0], self.repo, self.code, "skip", "d-" + STAFF[0].user)
 

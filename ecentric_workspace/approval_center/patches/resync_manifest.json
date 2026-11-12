@@ -321,31 +321,31 @@
     "sha256": "c798fb5341c93a69942b929fcd6b6f5c7b7803f5329d44ad6cd168c9521a3f16"
   },
   "dao_tao/pages/learn/main_section.html": {
-    "last_resync_patch": "p371_dao_tao_power_up",
-    "sha256": "866831e11dab7fb4a81ff9c93f112f4a50cdefc4e55a9a775fa7168d42291af7"
+    "last_resync_patch": "p372_dao_tao_power_up_trom",
+    "sha256": "ea38503b6ec6731f5cbb65a81708c4ba89b5a24e2062cbca652f6d147438ea12"
   },
   "dao_tao/pages/lesson/main_section.html": {
-    "last_resync_patch": "p371_dao_tao_power_up",
-    "sha256": "8c5957a51060cfa0ea836635a35d7e31845572a24f0e7ddf521643639ae28484"
+    "last_resync_patch": "p372_dao_tao_power_up_trom",
+    "sha256": "8b18f8218b16754c4a1c4db5b25784113af963ab5a37caa118966890dc4c660e"
   },
   "dao_tao/pages/admin/main_section.html": {
-    "last_resync_patch": "p371_dao_tao_power_up",
-    "sha256": "d0c4f6db1b71c29dc07b438bdd045ac3db6a900fd165cca8aaa8cb58762293b5"
+    "last_resync_patch": "p372_dao_tao_power_up_trom",
+    "sha256": "a23e32ed7cfe4d06414dcf1912bacb05af4f49cbddd20ec6c41ba969898d364c"
   },
   "dao_tao/pages/quiz/main_section.html": {
-    "last_resync_patch": "p371_dao_tao_power_up",
-    "sha256": "f3ca65567a26b8e80930733b182deb292b91969d6c659eef6e8d408f69b1f519"
+    "last_resync_patch": "p372_dao_tao_power_up_trom",
+    "sha256": "2c37da810c25df0501611798f95e96d2a9a80c8dc3c48f5702a2ce3929eba898"
   },
   "dao_tao/pages/edit/main_section.html": {
-    "last_resync_patch": "p371_dao_tao_power_up",
-    "sha256": "7cb222fb9eb6080b1dd3b98280fff17e9bef7ec5b44bf260d57a49c29c62f40d"
+    "last_resync_patch": "p372_dao_tao_power_up_trom",
+    "sha256": "3e07afe88069eac63efd407aa147d9ebb63bd0b1790b16b32bc8368bc0b900c3"
   },
   "dao_tao/pages/play/main_section.html": {
-    "last_resync_patch": "p371_dao_tao_power_up",
-    "sha256": "824e9a8fac101727df24405ed470905a4a579fe8e245ada2f18165ca3fc763d5"
+    "last_resync_patch": "p372_dao_tao_power_up_trom",
+    "sha256": "1c6307a24ea2481c83ee936170ec33ffdcafd674abba886ae6c6f7ffd898455f"
   },
   "dao_tao/pages/host/main_section.html": {
-    "last_resync_patch": "p371_dao_tao_power_up",
-    "sha256": "3cecb8acfc5340451f6486bcaf1c57503edcdc07f1cfdb108e69fc0bfa2b279b"
+    "last_resync_patch": "p372_dao_tao_power_up_trom",
+    "sha256": "d4146278556debaac301d0b4e884e3c306fb7d4a74c6920afaf6fbc6969334bf"
   }
 }

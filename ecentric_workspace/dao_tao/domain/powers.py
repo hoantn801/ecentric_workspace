@@ -37,7 +37,11 @@ CATALOG = {
     "time": ("Thêm giờ", "Tính điểm như trả lời sớm hơn 3 giây", "⏱️", 1),
     "streak2": ("Chuỗi +2", "Đúng thì chuỗi tăng thêm 2", "🔥", 1),
     "x15": ("x1,5 hai câu", "x1,5 điểm cho 2 câu, tính từ câu dùng", "⚡", 2),
+    "steal": ("Đánh cắp", "Lấy 100-300 điểm của người đứng ngay trên bạn", "😈", 1),
+    "guard": ("Khiên chặn", "Nằm trong túi là tự chặn 1 lần bị đánh cắp", "🛡️", 0),
 }
+STEAL_AMOUNTS = (100, 200, 300)
+AUTO = ("guard",)                    # skill tu bat khi nam trong tui - khong co nut Dung
 IDS = tuple(CATALOG)
 SKIP = "skip"
 # Loai dap an sai chi co nghia voi cau nhieu lua chon (dung/sai chi co 2 o -> loai 1 la lo dap an).
@@ -87,7 +91,7 @@ def effective(st, index):
 def activate(st, pid, index):
     """Lay skill khoi tui, kich hoat tu cau `index`. -> state moi (khong sua ban vao)."""
     st = clean_state(st)
-    if pid not in st["bag"]:
+    if pid not in st["bag"] or pid in AUTO:
         raise ValueError(pid)
     st["bag"].remove(pid)
     st["active"].append({"id": pid, "from": int(index), "left": CATALOG[pid][3]})
@@ -159,3 +163,40 @@ def eliminated(q, ids, seed):
     if not wrong:
         return None
     return sorted(wrong, key=lambda i: hashlib.sha256(("%s|%s" % (seed, i)).encode("utf-8")).hexdigest())[0]
+
+
+def steal_amount(seed):
+    return STEAL_AMOUNTS[int(hashlib.sha256(seed.encode("utf-8")).hexdigest()[:8], 16) % len(STEAL_AMOUNTS)]
+
+
+def apply_steals(ranked, thieves, amount_for):
+    """Danh cap luc khoa cau. ranked = nguoi choi da xep hang (sau khi cong diem cau nay; moi dong
+    co user, score, rank, nickname, powers). thieves = user dung "Danh cap" o cau nay. Xu ly tuan tu
+    theo hang; nan nhan = nguoi ngay tren (hang 1 thi lay cua hang 2). Khien chan trong tui tu chan
+    lan dau. Diem khong am. -> (doi: {user: {"score", "powers"?}}, su kien)."""
+    by_rank = {p["rank"]: p for p in ranked}
+    rows = {p["user"]: {"score": int(p["score"] or 0), "powers": clean_state(p.get("powers")),
+                        "nickname": p.get("nickname") or "", "rank": p["rank"]} for p in ranked}
+    changed, events = {}, []
+    for user in sorted((u for u in set(thieves) if u in rows), key=lambda u: rows[u]["rank"]):
+        me = rows[user]
+        tgt = by_rank.get(me["rank"] - 1 if me["rank"] > 1 else 2)
+        if not tgt or tgt["user"] == user:
+            continue
+        vic = rows[tgt["user"]]
+        ev = {"thief": user, "victim": tgt["user"], "thief_nick": me["nickname"],
+              "victim_nick": vic["nickname"], "amount": 0, "blocked": False}
+        if "guard" in vic["powers"]["bag"]:
+            vic["powers"]["bag"].remove("guard")
+            vic["powers"]["used"].append("guard")
+            ev["blocked"] = True
+            changed.setdefault(tgt["user"], {})["powers"] = vic["powers"]
+        else:
+            take = min(int(amount_for(user)), vic["score"])
+            vic["score"] -= take
+            me["score"] += take
+            ev["amount"] = take
+            changed.setdefault(tgt["user"], {})["score"] = vic["score"]
+            changed.setdefault(user, {})["score"] = me["score"]
+        events.append(ev)
+    return changed, events

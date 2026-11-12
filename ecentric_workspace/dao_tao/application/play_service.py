@@ -286,5 +286,7 @@ def use_power(ctx, repo, code, power, device=""):
     st = PW.clean_state(p.get("powers"))
     if power not in st["bag"]:
         raise QuizError("Skill này không có trong túi của bạn.")
+    if power in PW.AUTO:
+        raise QuizError("Khiên chặn tự bật khi có người đánh cắp bạn - không cần bấm dùng.")
     repo.update_player(s["name"], ctx.user, {"powers": PW.activate(st, power, s["index"])})
     return state(ctx, repo, s["code"], device)

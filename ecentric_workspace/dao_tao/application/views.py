@@ -79,7 +79,7 @@ def offer_ids(s, user, k):
 def _power_view(s, player, answered):
     st = PW.clean_state(player.get("powers"))
     k = offer_index(s, answered)
-    out = {"bag": [PW.info(i) for i in st["bag"]], "bag_max": PW.BAG_MAX,
+    out = {"bag": [dict(PW.info(i), auto=i in PW.AUTO) for i in st["bag"]], "bag_max": PW.BAG_MAX,
            "active": [PW.info(i) for i in PW.effective(st, s["index"])] if s["phase"] == C.PHASE_QUESTION else [],
            "offer": None, "picked": None, "full": len(st["bag"]) >= PW.BAG_MAX}
     if k is not None:
@@ -145,6 +145,15 @@ def player_view(s, player, answer, now_ms):
             out["board"] = board_rows(s)
     if PW.enabled(s["settings"]) and ph in (C.PHASE_QUESTION, C.PHASE_REVEAL, C.PHASE_BOARD):
         out["power"] = _power_view(s, player, bool(answer))
+    if PW.enabled(s["settings"]) and ph in (C.PHASE_REVEAL, C.PHASE_BOARD):
+        mine = []
+        for e in s["state"].get("steals") or []:
+            if e.get("thief") == player["user"]:
+                mine.append({"role": "thief", "other": e.get("victim_nick"), "amount": e.get("amount"), "blocked": e.get("blocked")})
+            elif e.get("victim") == player["user"]:
+                mine.append({"role": "victim", "other": e.get("thief_nick"), "amount": e.get("amount"), "blocked": e.get("blocked")})
+        if mine:
+            out["steals"] = mine
     if ph == C.PHASE_ENDED:
         res = s.get("results") or {}
         out["final"] = {"podium": res.get("podium") or [], "teams": (res.get("teams") or [])[:6],
@@ -179,6 +188,9 @@ def host_view(s, players, answered_count, now_ms):
         out["board"] = board_rows(s)
         if st.get("mode") == C.MODE_TEAM:
             out["teams"] = (s["state"].get("teams") or [])[:6]
+    if s["phase"] in (C.PHASE_REVEAL, C.PHASE_BOARD) and PW.enabled(st) and s["state"].get("steals"):
+        out["steals"] = [{"thief_nick": e.get("thief_nick"), "victim_nick": e.get("victim_nick"),
+                          "amount": e.get("amount"), "blocked": bool(e.get("blocked"))} for e in s["state"]["steals"]]
     if s["phase"] in (C.PHASE_REVEAL, C.PHASE_BOARD) and PW.enabled(st) and PW.offer_at(s["index"], len(s["questions"])):
         k = str(s["index"])
         out["power_open"] = {"picked": sum(1 for p in active if k in ((p.get("powers") or {}).get("picked") or {}))}

@@ -148,8 +148,8 @@
     if (ph === "lobby") h = lobby();
     else if (ph === "question") h = st.answered ? waitBox("Đã chốt!", "Chờ mọi người trả lời…") : questionHtml();
     else if (ph === "locked") h = st.answered ? waitBox("Đã chốt!", "Chờ công bố đáp án…") : waitBox("Hết giờ", "Câu này bạn chưa kịp trả lời.");
-    else if (ph === "reveal") h = powerOffer() + revealHtml();
-    else if (ph === "board") h = powerOffer() + boardHtml();
+    else if (ph === "reveal") h = stealLines() + powerOffer() + revealHtml();
+    else if (ph === "board") h = stealLines() + powerOffer() + boardHtml();
     else if (ph === "ended") h = finalHtml();
     else h = waitBox("Phòng đã đóng", "");
     root.innerHTML = shell(h);
@@ -220,12 +220,20 @@
       "Đã chọn: <b>" + D.esc(pw.picked.label) + "</b>" + (pw.picked.id === "gold" ? " · +300 điểm" : " · nằm trong túi")) + "</div>";
     return "";
   }
+  function stealLines() {
+    return (st.steals || []).map(function (e) {
+      var t = e.role === "thief" ? (e.blocked ? "🛡️ " + D.esc(e.other) + " đã chặn cú đánh cắp của bạn!" : "😈 Bạn lấy được " + D.fmtNum(e.amount) + " điểm từ " + D.esc(e.other))
+        : (e.blocked ? "🛡️ Khiên đã chặn cú đánh cắp của " + D.esc(e.other) + "!" : "😈 " + D.esc(e.other) + " vừa lấy của bạn " + D.fmtNum(e.amount) + " điểm");
+      return '<div class="dt-pwcard done">' + t + "</div>";
+    }).join("");
+  }
   function powerBag() {
     var pw = st.power;
     if (!pw || st.answered) return "";
     var h = "";
     if ((pw.active || []).length) h += '<div class="dt-pwbar">' + pw.active.map(function (a) { return '<span class="dt-pwchip">' + D.esc(a.icon) + " " + D.esc(a.label) + " · đang dùng</span>"; }).join("") + "</div>";
     if ((pw.bag || []).length) h += '<div class="dt-pwbar">' + pw.bag.map(function (b) {
+      if (b.auto) return '<span class="dt-pwchip">' + D.esc(b.icon) + " " + D.esc(b.label) + " · tự bật</span>";
       return '<button class="dt-pwuse" data-use="' + D.esc(b.id) + '" data-keep>' + D.esc(b.icon) + " Dùng: " + D.esc(b.label) + "</button>";
     }).join("") + "</div>";
     return h;
