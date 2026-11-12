@@ -439,3 +439,4 @@ ecentric_workspace.dao_tao.patches.p001_create_host_role
 ecentric_workspace.dao_tao.patches.p002_seed_quiz_claude_buoi1
 ecentric_workspace.approval_center.patches.p366_dao_tao_quiz_trang
 ecentric_workspace.approval_center.patches.p367_resync_menu_dao_tao
+ecentric_workspace.approval_center.patches.p368_resync_dao_tao_cho_ecapi

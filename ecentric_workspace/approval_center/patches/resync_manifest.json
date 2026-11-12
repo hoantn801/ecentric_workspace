@@ -321,31 +321,31 @@
     "sha256": "c798fb5341c93a69942b929fcd6b6f5c7b7803f5329d44ad6cd168c9521a3f16"
   },
   "dao_tao/pages/learn/main_section.html": {
-    "last_resync_patch": "p366_dao_tao_quiz_trang",
-    "sha256": "10fe2a177b7974ac2528f6af7d8d1a19236858af5b12f5952ab91efb19303a85"
+    "last_resync_patch": "p368_resync_dao_tao_cho_ecapi",
+    "sha256": "f92d02e9588ae2fc0eff0a86de29f9ac0858df20a0d5449c3c395cc64cab3b36"
   },
   "dao_tao/pages/lesson/main_section.html": {
-    "last_resync_patch": "p366_dao_tao_quiz_trang",
-    "sha256": "e672a87bebe700c9d39cde4fb44111179fb6941540117f393b01b648f0d5bfd0"
+    "last_resync_patch": "p368_resync_dao_tao_cho_ecapi",
+    "sha256": "12889d0fbd7305f5a2734c73dfc9056587c7bbf6042c983235e2bfe160f7eaa6"
   },
   "dao_tao/pages/admin/main_section.html": {
-    "last_resync_patch": "p366_dao_tao_quiz_trang",
-    "sha256": "0295f9419f8a3f7745833822737d377580471e08a7796fba7b62965be27cd179"
+    "last_resync_patch": "p368_resync_dao_tao_cho_ecapi",
+    "sha256": "345e273e3434043234c97e6f1a9cd9e8f1af439191f8963ff5770335d3fe1aea"
   },
   "dao_tao/pages/quiz/main_section.html": {
-    "last_resync_patch": "p366_dao_tao_quiz_trang",
-    "sha256": "15fa4b8760bfd2125c9cb6c76983b5a706c761de8fa784b206398c8caab4e59a"
+    "last_resync_patch": "p368_resync_dao_tao_cho_ecapi",
+    "sha256": "44d2af0cfeb1fb9e79efff926a0c5b68f4c5022388145921dd8c98a6e83559c7"
   },
   "dao_tao/pages/edit/main_section.html": {
-    "last_resync_patch": "p366_dao_tao_quiz_trang",
-    "sha256": "74b890a7d6e391c763b8a885b32f375811f6c4c3f4116fe83990dd7e3c55f631"
+    "last_resync_patch": "p368_resync_dao_tao_cho_ecapi",
+    "sha256": "a0366c6c9a954e0070f2b4e96c67cde889611b15446654a6a428cbe44313930e"
   },
   "dao_tao/pages/play/main_section.html": {
-    "last_resync_patch": "p366_dao_tao_quiz_trang",
-    "sha256": "514eba2bc56fe42b8fe9018634d0a293c90f021df3bada7b734b226e1ca0ea54"
+    "last_resync_patch": "p368_resync_dao_tao_cho_ecapi",
+    "sha256": "de21f7d4a5b56bc4f97170bfef691ae0421ad870238329eaa6c5dec195c5f3cb"
   },
   "dao_tao/pages/host/main_section.html": {
-    "last_resync_patch": "p366_dao_tao_quiz_trang",
-    "sha256": "23d2c992db8592fc478e945f22ef7d4fd7548750dff89bf4f2666e97b127e207"
+    "last_resync_patch": "p368_resync_dao_tao_cho_ecapi",
+    "sha256": "dc5b864e7f9974ad1325d571aa662232e7aadb1d2b119b7d68fe3e8d11693a97"
   }
 }

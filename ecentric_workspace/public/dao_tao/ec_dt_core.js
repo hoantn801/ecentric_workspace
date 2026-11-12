@@ -31,8 +31,24 @@
   };
   function icon(n) { return '<svg class="dt-ico" viewBox="0 0 24 24" aria-hidden="true">' + (ICONS[n] || "") + "</svg>"; }
 
+  // window.ecApi nap qua hooks web_include_js - Frappe chen cac bundle do o CUOI <body>, SAU noi
+  // dung trang, nen luc script trang chay lan dau ecApi CHUA co (loi deploy 12/11: trang trong
+  // "Trang chua tai xong"). Doi toi khi co (toi da ~8 giay) roi moi goi.
+  function whenApi() {
+    if (window.ecApi) return Promise.resolve(window.ecApi);
+    return new Promise(function (resolve, reject) {
+      var n = 0;
+      (function wait() {
+        if (window.ecApi) return resolve(window.ecApi);
+        if (++n > 160) return reject(Object.assign(new Error("noapi"), { dtMessage: "Trang chưa tải xong - bấm Ctrl+Shift+R." }));
+        setTimeout(wait, 50);
+      })();
+    });
+  }
   function api(method, args, post) {
-    if (!window.ecApi) return Promise.reject(Object.assign(new Error("noapi"), { dtMessage: "Trang chưa tải xong - bấm Ctrl+Shift+R." }));
+    return whenApi().then(function () { return call(method, args, post); });
+  }
+  function call(method, args, post) {
     var p = post ? window.ecApi.post(PREFIX + method, args || {}) : window.ecApi.get(PREFIX + method, args || {});
     return p.then(function (env) {
       if (env && env.success) return env.data;
@@ -149,7 +165,7 @@
     fd.append("file", file, file.name);
     fd.append("is_private", isPrivate ? "1" : "0");
     fd.append("folder", "Home/Attachments");
-    var tokP = window.ecApi && window.ecApi.csrfToken ? window.ecApi.csrfToken(false) : Promise.resolve("");
+    var tokP = whenApi().then(function (ea) { return ea.csrfToken ? ea.csrfToken(false) : ""; }, function () { return ""; });
     return tokP.then(function (tok) {
       return fetch("/api/method/upload_file", { method: "POST", credentials: "same-origin",
         headers: { "X-Frappe-CSRF-Token": tok || "", Accept: "application/json" }, body: fd });
