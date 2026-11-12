@@ -9,6 +9,7 @@ transaction (any failure rolls both back). The esign UI never calls the native
 /api/method/upload_file.
 """
 import io
+import re
 import mimetypes
 import os
 
@@ -167,7 +168,48 @@ def _validate_content(pkg, profile, file_name, content, requires_signature):
         frappe.throw(_("Tệp PDF không hợp lệ (thiếu EOF) - có thể tải lên chưa hoàn tất."))
     if requires_signature and int(profile.get("require_signable_pdf") or 0) and not is_pdf:
         frappe.throw(_("Tệp cần ký phải là PDF hợp lệ."))
+    if requires_signature and is_pdf:
+        assert_signable_producer(content, file_name)
     return is_pdf
+
+
+#: Nha san xuat PDF ma cong eContract KHONG ky duoc. 30/09/2026, 00316-00321: 0/6 tep sinh bang
+#: ReportLab ky duoc, trong khi 135/135 tep khac ky duoc cung giai doan. Cong nhan lenh (2xx)
+#: roi im - phieu ket "Cho gui di" va chi lo ra sau 20 phut. In lai ra PDF tu Word / trinh xem
+#: PDF thi ky binh thuong.
+_UNSIGNABLE_PRODUCERS = (b"reportlab",)
+
+
+class UnsignableProducer(getattr(frappe, "ValidationError", Exception)):
+    """Loi RIENG de nguoi goi (document_setup) khong nham voi "khong phai PDF". `getattr`: cac
+    bo test standalone nap file nay voi frappe gia khong co ValidationError."""
+_PRODUCER_RE = re.compile(rb"/(?:Producer|Creator)\s*\(((?:\\.|[^\\)]){0,200})\)", re.I)
+
+
+def unsignable_producer(content):
+    """Ten nha san xuat PDF ma cong khong ky duoc, hoac None. Doc /Producer va /Creator dang
+    chuoi thuong trong toan tep - khong doan tu noi dung trang hay ten tep.
+
+    La phep NHAN DIEN THEO KINH NGHIEM, du cho dau ra MAC DINH cua ReportLab (Info khong nen,
+    ASCII, "ReportLab PDF Library - www.reportlab.com" / "- \\(opensource\\)"). KHONG bat: chuoi
+    hex / UTF-16, Info nam trong object stream, Producer bi ghi de (setProducer, qpdf/pikepdf luu
+    lai voi Producer khac). Bo sot thi tep van di toi cong nhu truoc - khong te hon hien nay."""
+    for m in _PRODUCER_RE.finditer(content or b""):
+        val = m.group(1).lower()
+        for bad in _UNSIGNABLE_PRODUCERS:
+            if bad in val:
+                return bad.decode("ascii")
+    return None
+
+
+def assert_signable_producer(content, file_name=None):
+    bad = unsignable_producer(content)
+    if bad:
+        frappe.throw(_("Tệp \"{0}\" được tạo bằng ReportLab - cổng ký số không ký được loại tệp "
+                       "này. Nếu tệp cần ký: mở tệp gốc (Word) và xuất lại ra PDF, hoặc mở PDF rồi "
+                       "in ra \"Microsoft Print to PDF\", sau đó tải lên lại. Nếu tệp không cần "
+                       "ký: chuyển nó sang \"Bộ chứng từ\".").format(file_name or "PDF"),
+                     UnsignableProducer)
 
 
 def _guess_mime(file_name, is_pdf):
@@ -234,6 +276,9 @@ def set_file_flags(dsf_name, requires_signature=None, is_supporting_document=Non
         if int(requires_signature) and not row.is_pdf and frappe.db.get_value(
                 "EC Digital Signature Profile", pkg.profile, "require_signable_pdf"):
             frappe.throw(_("Tệp cần ký phải là PDF hợp lệ."))
+        if int(requires_signature) and row.is_pdf:
+            # Tep da nam trong goi (tai len luc chua can ky) roi moi danh dau can ky.
+            assert_signable_producer(file_bytes(dsf_name), row.file_name)
         vals["requires_signature"] = 1 if int(requires_signature) else 0
     if is_supporting_document is not None:
         vals["is_supporting_document"] = 1 if int(is_supporting_document) else 0
@@ -442,6 +487,34 @@ def _payload_copies_for_profile(profile_name):
         return 2
 
 
+def _unsignable_cached(f):
+    """unsignable_producer cua mot dong DSF, nho theo sha256. preflight_for_lock chay ca o
+    duong DOC (requester_signing_readiness moi lan mo panel) - khong doc lai bytes moi lan.
+    Cung noi dung = cung ket qua, nen khoa theo sha la dung; khong co sha thi doc thang."""
+    key = getattr(f, "sha256", None)
+    cache = None
+    if key:
+        try:
+            cache = frappe.cache()
+            hit = cache.hget("ec_esign_unsignable_producer", key)
+            if hit is not None:
+                return hit or None
+        except Exception:
+            cache = None
+    try:
+        bad = unsignable_producer(file_bytes(f.name))
+    except Exception:
+        # Tep doc khong duoc (mat tren dia...) la viec cua cac phep kiem khac (incomplete_upload,
+        # file_missing) - phep kiem nay khong duoc lam sap ca preflight.
+        return None
+    if cache is not None:
+        try:
+            cache.hset("ec_esign_unsignable_producer", key, bad or "")
+        except Exception:
+            pass
+    return bad
+
+
 def preflight_for_lock(pkg_name):
     """Blocking checks before lock/provider creation (§18 preflight, S2A backend part).
     Returns list of error strings (empty = OK)."""
@@ -455,6 +528,10 @@ def preflight_for_lock(pkg_name):
     for f in signable:
         if not f.is_pdf:
             errs.append("signable_not_pdf:%s" % f.file_name)
+        elif _unsignable_cached(f):
+            # Chot cuoi truoc khi toi cong: bat ca tep vao goi qua create_revision va goi Draft
+            # co tu truoc ban nay (QC 12/11).
+            errs.append("unsignable_producer:%s" % f.file_name)
         if not f.sha256:
             errs.append("missing_hash:%s" % f.file_name)
     if any(not f.sha256 or not (f.size_bytes or 0) for f in files):

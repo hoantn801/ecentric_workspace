@@ -194,6 +194,9 @@ def _preflight_vi(code):
         return "thiếu vị trí ký của cấp %s trên tệp %s" % (lvl.lstrip("L"), fname)
     if head == "signable_not_pdf":
         return "tệp %s không phải PDF nên không ký trực tiếp được" % code.split(":", 1)[-1]
+    if head == "unsignable_producer":
+        return ("tệp %s được tạo bằng ReportLab, cổng không ký được - xuất lại PDF từ Word "
+                "(hoặc chuyển sang Bộ chứng từ nếu không cần ký)" % code.split(":", 1)[-1])
     if head == "signable_too_large":
         from ecentric_workspace.platform.esign import limits
         return ("tổng tệp cần ký %s vượt mức cổng ký nhận (~%s) - hãy nén PDF hoặc tách bớt"
@@ -442,15 +445,24 @@ def _set_req_status(ar, status):
     return False
 
 
+#: Phieu o trang thai nay thi chu ky nguoi de nghi den muon KHONG duoc mo cap duyet nao.
+_NOT_ACTIVATABLE = ("Approved", "Rejected", "Cancelled")
+
+
 def activate_level_one_after_requester_signature(request_name, dsr_name):
     """Idempotent atomic Level-1 activation. Level 1 activates ONLY when: requester signature
     is required, the confirmed requester DSR belongs to the authoritative requester, and the
     request is still in pre-approval (current_level == 0). Concurrent calls return the
     already-activated result without activating (or creating ToDos) twice."""
-    frappe.db.get_value(AR, request_name, "name", for_update=True)  # lock
+    # MOT lenh doc CO KHOA cho moi truong (QC 12/11). Truoc day: khoa `name` roi doc cac truong
+    # bang lenh THUONG - duoi REPEATABLE READ lenh thuong tra snapshot cua lan doc DAU trong
+    # transaction (nguoi goi da doc DSR truoc do), nen mot engine.cancel() vua commit van bi
+    # thay la "Pending" va cap 1 van mo; kiem `current_level > 0` cung doc cu y het. Cung lop loi
+    # voi events.current_status / transitions._lock_and_read.
     req = frappe.db.get_value(AR, request_name,
                               ["approval_type", "reference_doctype", "current_level",
-                               "requester_signature_status", "requested_by"], as_dict=True)
+                               "requester_signature_status", "requested_by", "approval_status"],
+                              as_dict=True, for_update=True)
     if not req:
         return {"activated": False, "reason": "request_missing"}
     if not guard.requester_signature_required(req.reference_doctype, req.approval_type):
@@ -460,9 +472,15 @@ def activate_level_one_after_requester_signature(request_name, dsr_name):
             or d.actor_user != req.requested_by:
         return {"activated": False, "reason": "requester_dsr_not_confirmed"}
     if req.requester_signature_status != "Signed":
+        # Ghi ca khi phieu da dong: nguoi de nghi DA ky that tren cong - ho so phai noi dung su that.
         frappe.db.set_value(AR, request_name, {
             "requester_signature_status": "Signed", "requester_signed_at": now_datetime(),
             "requester_signed_by": req.requested_by})
+    # Phieu DA DONG thi khong mo cap nao (QC 12/11): chan ky nguoi de nghi dang chay dung luc
+    # phieu bi huy van co the ky xong; truoc day ham nay van mo cap 1 -> nguoi duyet nhan ToDo,
+    # thong bao va bi tinh SLA tren mot phieu da huy.
+    if req.approval_status in _NOT_ACTIVATABLE:
+        return {"activated": False, "reason": "request_closed:%s" % req.approval_status}
     if req.current_level and int(req.current_level) > 0:  # already activated -> idempotent
         return {"activated": False, "reason": "already_activated", "level": req.current_level}
     from ecentric_workspace.approval_center.shared.workflow import transitions as engine
