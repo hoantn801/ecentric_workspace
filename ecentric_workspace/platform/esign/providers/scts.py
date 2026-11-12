@@ -114,6 +114,26 @@ def _sval(settings, key, default=None):
     return getattr(settings, key, default)
 
 
+def _norm_transitions(rows):
+    """availableTransitions cua eContract -> dang chuan hoa dung chung cho moi duong doc."""
+    out = []
+    for t in (rows or []):
+        if not isinstance(t, dict):
+            continue
+        out.append({
+            "transition_id": t.get("transitionId"),
+            "transition_name": t.get("transitionName"),
+            "process_action": t.get("processAction"),
+            "sign_type": t.get("signType"),
+            "requires_signature": bool(t.get("isSigned")),
+            "transition_type": t.get("transitionType"),
+            "to_state": t.get("toState"),
+            "terminal": bool(t.get("forceStop")) or str(t.get("toState") or "") == "STOP",
+            "all_required": bool(t.get("isAllRequired")),
+        })
+    return out
+
+
 class SctsAdapter(SignatureProviderAdapter):
     def __init__(self, settings, transport=None, sleeper=None):
         super().__init__(settings)
@@ -501,51 +521,43 @@ class SctsAdapter(SignatureProviderAdapter):
         return self._with_auth(lambda t: self._client.get_document(document_id, t))
 
     # -- live workflow state --------------------------------------------------
-    def available_transitions(self, instance_id, provider_user_id, quick=False):
+    def available_transitions(self, instance_id, provider_user_id):
         """What this user can actually do on this document RIGHT NOW, straight from the
         provider. Returns [] when the call fails - the caller keeps its old path and records
         why, rather than acting on a guess."""
         raw = self._with_auth(
-            lambda t: self._client.get_workflow_instance(instance_id, provider_user_id, t,
-                                                         quick=quick))
+            lambda t: self._client.get_workflow_instance(instance_id, provider_user_id, t))
         data = raw.get("data") if isinstance(raw, dict) and isinstance(raw.get("data"), dict) else raw
         if not isinstance(data, dict):
             return []
-        out = []
-        for t in (data.get("availableTransitions") or []):
-            if not isinstance(t, dict):
-                continue
-            out.append({
-                "transition_id": t.get("transitionId"),
-                "transition_name": t.get("transitionName"),
-                "process_action": t.get("processAction"),
-                "sign_type": t.get("signType"),
-                "requires_signature": bool(t.get("isSigned")),
-                "transition_type": t.get("transitionType"),
-                "to_state": t.get("toState"),
-                "terminal": bool(t.get("forceStop")) or str(t.get("toState") or "") == "STOP",
-                "all_required": bool(t.get("isAllRequired")),
-            })
-        return out
+        return _norm_transitions(data.get("availableTransitions"))
 
-    def workflow_instance_for_document(self, document_id, provider_user_id):
-        """Ma WORKFLOW INSTANCE cua mot tai lieu, hoi thang cong. (instance_id, None) hoac
-        (None, ly_do). Chi DOC, khong bao gio nem loi ra ngoai.
-
-        Cong tra phan than co khi boc trong `data`, co khi khong (do tren trang cong 09/11:
-        `data` khong co, cac khoa nam ngay goc) - doc ca hai, khong doan them dang thu ba.
-        """
+    def workflow_state_for_document(self, document_id, provider_user_id):
+        """Trang thai quy trinh SONG cua mot tai lieu: (state, None) hoac (None, ly_do).
+        state = {instance_id, current_state_id, transitions[...chuan hoa...]}. Chi DOC, khong
+        bao gio nem loi ra ngoai. Xem SctsClient.get_workflow_instance_by_document."""
+        from ecentric_workspace.platform.esign.sanitize import safe_error
         try:
-            raw = self._with_auth(lambda t: self._client.get_instance_history_by_document(
+            raw = self._with_auth(lambda t: self._client.get_workflow_instance_by_document(
                 document_id, provider_user_id, t))
         except Exception as exc:
-            from ecentric_workspace.platform.esign.sanitize import safe_error
-            return None, "instance_lookup_failed:%s" % safe_error(exc)
-        data = raw.get("data") if isinstance(raw, dict) and isinstance(raw.get("data"), dict) else raw
-        iid = data.get("instanceId") if isinstance(data, dict) else None
-        if not iid:
-            return None, "instance_lookup_empty"
-        return str(iid), None
+            return None, "state_lookup_failed:%s" % safe_error(exc)
+        try:
+            data = (raw.get("data") if isinstance(raw, dict) and isinstance(raw.get("data"), dict)
+                    else raw)
+            if not isinstance(data, dict):
+                return None, "state_lookup_empty"
+            inst = data.get("instance") if isinstance(data.get("instance"), dict) else {}
+            cur = inst.get("currentStateId")
+            if cur in (None, ""):
+                return None, "state_lookup_no_current_state"
+            edges = data.get("availableTransitions")
+            return {"instance_id": inst.get("instanceId") or None,
+                    "current_state_id": str(cur),
+                    "transitions": _norm_transitions(edges if isinstance(edges, list) else [])
+                    }, None
+        except Exception as exc:          # hinh dang la -> noi ro, khong nem (QC 12/11)
+            return None, "state_lookup_bad_shape:%s" % safe_error(exc)
 
     def eligible_recipients(self, instance_id, transition_id, provider_user_id):
         """ID cua nhung nguoi eContract CHAP NHAN cho buoc nay. None = khong hoi duoc.
