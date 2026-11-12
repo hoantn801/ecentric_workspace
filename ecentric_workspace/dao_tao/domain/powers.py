@@ -117,6 +117,9 @@ def elapsed_for_score(ids, elapsed_ms):
     return max(0, int(elapsed_ms) - TIME_BONUS_MS) if "time" in ids else elapsed_ms
 
 
+MULT_MAX = 3.0
+
+
 def adjust(ids, sc, ratio, prev_streak, qtype):
     """Ap skill vao ket qua scoring.score_answer `sc` (diem, dung, chuoi). -> dict moi.
     ratio None = cau khong cham: khong doi."""
@@ -134,11 +137,11 @@ def adjust(ids, sc, ratio, prev_streak, qtype):
         mult *= 1.5
     if "gamble" in ids:
         mult *= 3 if correct else 1
-    pts = pts * mult
-    if "eliminate" in ids and qtype not in ELIM_TYPES:
-        pts += ELIM_BONUS                       # kieu cau khong loai duoc dap an -> doi ra +150
-    if "gamble" in ids and not correct:
-        pts = -GAMBLE_PENALTY
+    pts = pts * min(mult, MULT_MAX)             # nhieu skill nhan chong nhau: toi da x3 (QC 13/11)
+    if "eliminate" in ids and qtype not in ELIM_TYPES and correct:
+        pts += ELIM_BONUS                       # kieu cau khong loai duoc dap an -> doi ra +150 (khi dung)
+    if "gamble" in ids and not correct and not ratio:
+        pts = -GAMBLE_PENALTY                   # sai han moi tru; dung mot phan giu diem mot phan
     if "insure" in ids and not correct:
         pts = max(pts, INSURE_POINTS)
     if "shield" in ids and not correct:

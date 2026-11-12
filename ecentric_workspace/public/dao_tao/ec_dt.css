@@ -292,3 +292,38 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 .dt-note.x2 { background:#ffbf00; color:#2a1600; }
 .dt-note.pw { background:rgba(255,255,255,.14); color:#fff; border:1px solid rgba(255,255,255,.25); }
 .dt-steals { align-self:center; display:flex; flex-direction:column; gap:6px; background:rgba(226,27,60,.22); border:1px solid rgba(255,255,255,.25); border-radius:14px; padding:10px 18px; color:#fff; font-size:clamp(16px,1.6vw,24px); animation:dtx2pop .5s cubic-bezier(.2,1.6,.4,1) both; }
+/* 13/11 (Hoan): the nguoi choi o sanh cho may chieu to hon, email khong tran ra ngoai */
+.dt-proj .dt-lobby { grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:10px; }
+.dt-proj .dt-lobby .dt-pc { padding:8px 12px; border-radius:16px; background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.18); gap:12px; overflow:hidden; }
+.dt-proj .dt-lobby .dt-pcard { flex:1; min-width:0; overflow:hidden; }
+.dt-proj .dt-lobby .dt-pcard > span:last-child { flex:1; min-width:0; overflow:hidden; }
+.dt-proj .dt-lobby .dt-nick { display:block; font-size:18px; color:#fff; }
+.dt-proj .dt-lobby .dt-mail { display:block; font-size:13px; color:#d6c8ff; }
+.dt-proj .dt-lobby .dt-pcard br { display:none; }
+.dt-proj .dt-lobby .dt-av { width:44px !important; height:44px !important; }
+/* === UX hotfix 13/11 truoc 10:00 === */
+#ec-dt .dt-proj { height:100vh; min-height:0; font-size:clamp(16px,1.15vw,22px); }
+#ec-dt .dt-proj .dt-pmain { overflow-y:auto; }
+.dt-proj .dt-small { font-size:.8em; }
+.dt-proj .dt-b.ghost:hover { background:rgba(255,255,255,.16); }
+.dt-proj .dt-lobby { grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:10px; }
+.dt-proj .dt-lobby .dt-pc { padding:8px 12px; }
+.dt-proj .dt-lobby .dt-av { width:44px !important; height:44px !important; }
+.dt-proj .dt-lobby .dt-nick { font-size:18px; }
+.dt-proj .dt-ring { width:120px; height:120px; font-size:48px; }
+.dt-proj .dt-ring::before { inset:10px; }
+.dt-proj .dt-hbars { height:22vh; }
+.dt-proj .dt-hbars b, .dt-proj .dt-hbars span { font-size:26px; font-weight:800; }
+.dt-proj .dt-board .dt-brow { padding:8px 18px; }
+.dt-proj .dt-brow .dt-pcard br { display:none; }
+.dt-proj .dt-brow .dt-mail { display:inline; margin-left:10px; }
+.dt-proj .dt-table .dt-mail { color:#d6c8ff; }
+.dt-opt.right { padding-right:44px; }
+.dt-opt.right::after { top:50%; transform:translateY(-50%); }
+.dt-qcard .dt-opt[aria-pressed="true"] { outline:4px solid #111827; outline-offset:2px; box-shadow:none; }
+.dt-qcard .dt-opt.dim[aria-pressed="true"] { opacity:.75; }
+.dt-qcard .dt-opt[aria-pressed="true"]::before { content:"Bạn chọn"; position:absolute; left:8px; top:-10px; background:#111827; color:#fff; font-size:11px; font-weight:700; padding:1px 8px; border-radius:999px; }
+.dt-pwcard.done { display:block; }
+.dt-qz .dt-b.sm, .dt-pwuse { min-height:44px; }
+.dt-pwcard [data-pick="skip"] { min-width:140px; }
+.dt-opt { text-shadow:0 1px 2px rgba(0,0,0,.35); }

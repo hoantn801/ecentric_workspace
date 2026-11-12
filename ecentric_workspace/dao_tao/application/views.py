@@ -81,7 +81,7 @@ def _power_view(s, player, answered):
     k = offer_index(s, answered)
     out = {"bag": [dict(PW.info(i), auto=i in PW.AUTO) for i in st["bag"]], "bag_max": PW.BAG_MAX,
            "active": [PW.info(i) for i in PW.effective(st, s["index"])] if s["phase"] == C.PHASE_QUESTION else [],
-           "offer": None, "picked": None, "full": len(st["bag"]) >= PW.BAG_MAX}
+           "offer": None, "picked": None, "full": len(st["bag"]) >= PW.BAG_MAX, "window": k is not None}
     if k is not None:
         got = st["picked"].get(str(k))
         if got:

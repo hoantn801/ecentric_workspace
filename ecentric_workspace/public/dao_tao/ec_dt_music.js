@@ -184,6 +184,7 @@
     master.gain.setTargetAtTime(synthGain(), ac.currentTime, 0.3);
     if (synthOn) return;
     synthOn = true; step = 0; nextT = ac.currentTime + 0.08;
+    clearInterval(timer);
     timer = setInterval(sched, 25);
   }
   function synthStop() {

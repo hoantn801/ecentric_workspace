@@ -321,31 +321,31 @@
     "sha256": "c798fb5341c93a69942b929fcd6b6f5c7b7803f5329d44ad6cd168c9521a3f16"
   },
   "dao_tao/pages/learn/main_section.html": {
-    "last_resync_patch": "p373_dao_tao_mau_thong_bao",
-    "sha256": "5b32725242a992e328ddeaad8b06341db651aca4630e5a08ac4a9eb26b944bc9"
+    "last_resync_patch": "p376_dao_tao_qc_truoc_buoi",
+    "sha256": "6ef6ff891d6bab0f0e8071e7191915ce892c5bf8701928d706b24f5e1bdefc9d"
   },
   "dao_tao/pages/lesson/main_section.html": {
-    "last_resync_patch": "p373_dao_tao_mau_thong_bao",
-    "sha256": "abeb8b62f3867ef7221f49347465bfde2e248f947d7afc4a21c6fa3e5abbed28"
+    "last_resync_patch": "p376_dao_tao_qc_truoc_buoi",
+    "sha256": "ccf41cb3d6bc14a5b4bf42182f25f7c28533499ee12372acaea203d9a493fc3b"
   },
   "dao_tao/pages/admin/main_section.html": {
-    "last_resync_patch": "p373_dao_tao_mau_thong_bao",
-    "sha256": "cc841620376a53303bd542cb6f906e16eebbb2d3c233600fb5b981ea1e244d7a"
+    "last_resync_patch": "p376_dao_tao_qc_truoc_buoi",
+    "sha256": "1f11a1b8f08408b777f0311cadd12a6701faf760dda338c9a3302d98fee477ea"
   },
   "dao_tao/pages/quiz/main_section.html": {
-    "last_resync_patch": "p373_dao_tao_mau_thong_bao",
-    "sha256": "639241f2386c19b899c4298896e48bffb1e9e416c1d4741541a42731f905b9ab"
+    "last_resync_patch": "p376_dao_tao_qc_truoc_buoi",
+    "sha256": "658f8bcf1b520e919d704eb2bb44b74e00a2855f0062387e5ae329c666da9e52"
   },
   "dao_tao/pages/edit/main_section.html": {
-    "last_resync_patch": "p373_dao_tao_mau_thong_bao",
-    "sha256": "9948e195ece303686e8fd5f8552517d48c2c2e1211c553bc1b512762589f412d"
+    "last_resync_patch": "p376_dao_tao_qc_truoc_buoi",
+    "sha256": "4baf5c48efa2e2ccbb0be3937b6e1c6c232b4b5da2d55d651bdcba8c2f31b290"
   },
   "dao_tao/pages/play/main_section.html": {
-    "last_resync_patch": "p373_dao_tao_mau_thong_bao",
-    "sha256": "885a572712f969afe8042792c502ba7722afd37045016e0c4bb2c279e15072c4"
+    "last_resync_patch": "p376_dao_tao_qc_truoc_buoi",
+    "sha256": "a5a0dadd6bf9e9d21f493da1ff0ce1ca937b85baa69e93eff66ca3cd89c5ec07"
   },
   "dao_tao/pages/host/main_section.html": {
-    "last_resync_patch": "p373_dao_tao_mau_thong_bao",
-    "sha256": "9c5d76d042fa757acf3434693ee97d38e743a39541185951f6d261dfb61559aa"
+    "last_resync_patch": "p376_dao_tao_qc_truoc_buoi",
+    "sha256": "d70c4ccb20b866bf08b3c93bb50fac78edc08a2e267f05a9b378ec762585c7e5"
   }
 }

@@ -114,7 +114,8 @@ def _reveal(repo, s):
     """PHAI dang giu khoa phong, cau da khoa: cong bo dap an + dem tung lua chon. Nguoi dan chi
     con bam Bang xep hang / Cau tiep (Hoan 13/11: het gio tu cong bo)."""
     q = s["questions"][s["index"]]
-    state = dict(s["state"], tally=Q.tally(q, [a["answer"] for a in repo.answers(s["name"], s["index"])]))
+    # Doc CO KHOA: request nay co the da chup snapshot truoc khi cho khoa phong -> thieu cau tra loi.
+    state = dict(s["state"], tally=Q.tally(q, [a["answer"] for a in repo.answers(s["name"], s["index"], locking=True)]))
     v = repo.update_session(s["name"], {"phase": C.PHASE_REVEAL, "state": state})
     repo.publish_room(s["name"], v)
     return dict(s, phase=C.PHASE_REVEAL, state=state, version=v)
