@@ -140,10 +140,15 @@ def committed_on_so(sales_order, exclude=None):
     return total
 
 
+# Ma brand TRONG SO HOP DONG (tab BRAND CODE cua tool cu: DL, FRISO, VITA...). KHONG dung
+# Brand.ec_brand_code: truong do la ma cua bao cao NMV / alerts (AND-VN, DUT...), doi no la vo bao cao.
+CONTRACT_CODE_FIELD = "ec_contract_code"
+
+
 def brand_code(brand):
     if not brand:
         return ""
-    return frappe.db.get_value("Brand", brand, "ec_brand_code") or ""
+    return (frappe.db.get_value("Brand", brand, CONTRACT_CODE_FIELD) or "").strip()
 
 
 def list_templates(kind=None):

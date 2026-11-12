@@ -162,7 +162,10 @@ _COMPANY_STOP = {"CONG", "TY", "CO", "PHAN", "TNHH", "TRACH", "NHIEM", "HUU", "H
 
 
 def initials(name):
-    return "".join(w[0] for w in strip_accents(name).split() if w).upper() or "CREATOR"
+    # Nhu tool cu (chu dau moi tu, giu "-" : "HKD - B M D" -> "HKD-BMD"), nhung bo ky tu la khac
+    # ("(", ".", "/"...): thu luong 12/11 ten "TEST Claude - Hoan Tran (thu luong)" ra so HD co "(".
+    raw = "".join(w[0] for w in strip_accents(name).split() if w).upper()
+    return re.sub(r"[^A-Z0-9-]", "", raw) or "CREATOR"
 
 
 def company_code(name):

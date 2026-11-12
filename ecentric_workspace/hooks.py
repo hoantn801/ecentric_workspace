@@ -435,6 +435,8 @@ fixtures = [
             "Supplier-ec_cr_end_section",
             # DNTT gan hop dong KOL/KOC: SO doanh thu tu dien tu hop dong (doi chieu chi phi - doanh thu).
             "EC Payment Request-ec_sales_order",
+            # Ma brand trong so hop dong KOL/KOC (12/11/2026, p366): tach khoi ec_brand_code cua bao cao.
+            "Brand-ec_contract_code",
 ]]],
     },
     # Ba DocType custom cua PnL dashboard (09-10/09/2026). Truoc day chi ton tai tren

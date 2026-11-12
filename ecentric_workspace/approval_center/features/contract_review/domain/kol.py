@@ -244,7 +244,7 @@ def contract_number(number_date, party_code, brand_code, existing=()):
     if not party:
         raise ValueError("Creator chưa có mã viết tắt trong số hợp đồng.")
     if not brand:
-        raise ValueError("Brand chưa có mã brand (Brand code).")
+        raise ValueError("Brand chưa có mã trong số hợp đồng: Kế toán điền ô \"Mã trong số HĐ\" của brand này.")
     if isinstance(number_date, str):
         number_date = _dt.date.fromisoformat(number_date[:10])
     base = "%s/HDDV/ECENTRIC-%s.%s" % (number_date.strftime("%d%m%Y"), party, brand)

@@ -387,5 +387,87 @@ class PatchP365(unittest.TestCase):
         self.assertEqual(self.comments, ["A", "D"])           # vet tren tung phieu bi sua
 
 
+
+
+class MaBrandSoHopDong(unittest.TestCase):
+    """Thu luong tren site 12/11: so HD lay ma bao cao (AND-VN, DUT) thay vi ma tool cu (AND, DL)."""
+    PATCH = "ecentric_workspace.approval_center.patches.p366_brand_ma_so_hop_dong"
+
+    def setUp(self):
+        self.brands = {"DUT-VN": {"ec_contract_code": None}, "VEY-VN": {"ec_contract_code": None},
+                       "VNS-VN": {"ec_contract_code": "NCDD-OLD"}, "Tempo": {"ec_contract_code": ""}}
+        self.has_field, self.created_field, self.inserted, self.logs = False, [], [], []
+        fk = types.ModuleType("frappe")
+        test = self
+
+        def set_value(dt_, name, field, value):
+            test.brands[name][field] = value
+        fk.db = types.SimpleNamespace(
+            exists=lambda dt_, name: name in test.brands,
+            get_value=lambda dt_, name, field: test.brands[name].get(field),
+            set_value=set_value)
+        fk.get_meta = lambda dt_: types.SimpleNamespace(has_field=lambda f: test.has_field if f == "ec_contract_code" else True)
+
+        class NewDoc(types.SimpleNamespace):
+            def insert(self, **k):
+                test.inserted.append(self.brand)
+                test.brands[self.brand] = {"ec_contract_code": None, "ec_status": self.ec_status}
+        fk.new_doc = lambda dt_: NewDoc()
+        fk.clear_cache = lambda **k: None
+        fk.log_error = lambda msg, title=None: test.logs.append(title or "")
+        fk.get_traceback = lambda: "tb"
+        cf = types.ModuleType("frappe.custom.doctype.custom_field.custom_field")
+        cf.create_custom_field = lambda dt_, df: test.created_field.append((dt_, df["fieldname"], df["insert_after"]))
+        self._saved = {k: sys.modules.get(k) for k in ("frappe", cf.__name__)}
+        sys.modules["frappe"], sys.modules[cf.__name__] = fk, cf
+        sys.modules.pop(self.PATCH, None)
+        self.mod = importlib.import_module(self.PATCH)
+
+    def tearDown(self):
+        for k, v in self._saved.items():
+            if v is None:
+                sys.modules.pop(k, None)
+            else:
+                sys.modules[k] = v
+        sys.modules.pop(self.PATCH, None)
+
+    def test_tao_truong_tao_brand_dien_ma_chi_khi_trong(self):
+        self.mod.execute()
+        self.assertEqual(self.created_field, [("Brand", "ec_contract_code", "ec_brand_name")])
+        self.assertEqual(self.inserted, ["FRL-VN", "DLC-VN"])
+        self.assertEqual(self.brands["FRL-VN"]["ec_status"], "Active")
+        self.assertEqual(self.brands["DUT-VN"]["ec_contract_code"], "DL")      # ma tool cu, khong phai DUT
+        self.assertEqual(self.brands["VEY-VN"]["ec_contract_code"], "VEYO")    # PO 12/11: VEYO/VEYONS -> VEY-VN
+        self.assertEqual(self.brands["VNS-VN"]["ec_contract_code"], "NCDD-OLD")  # Ke toan da sua tay: giu
+        self.assertEqual(self.brands["Tempo"]["ec_contract_code"], "TEMPO")
+        self.assertEqual([t for t in self.logs if "bao cao" not in t], [])   # khong co loi
+        self.mod.execute()                                                    # chay lai: khong tao them
+        self.assertEqual(self.inserted, ["FRL-VN", "DLC-VN"])
+
+    def test_map_po_chot(self):
+        codes = dict(self.mod.CODES)
+        self.assertEqual((codes["VNS-VN"], codes["VEY-VN"], codes["AND-VN"], codes["FRI-VN"]), ("NCDD", "VEYO", "AND", "FRISO"))
+        self.assertEqual(len(self.mod.CODES), 19)          # 20 dong BRAND CODE, VEYONS + VEYO chung VEY-VN
+
+    def test_lookup_doc_truong_moi_va_fixture_khai_du(self):
+        import json
+        root = os.path.join(_HERE, "..", "..", "..")
+        src = open(os.path.join(root, "approval_center", "features", "contract_review", "application",
+                                "kol_lookup.py"), encoding="utf-8").read()
+        self.assertIn('CONTRACT_CODE_FIELD = "ec_contract_code"', src)
+        self.assertNotIn('"Brand", brand, "ec_brand_code"', src)
+        names = [f["name"] for f in json.load(open(os.path.join(root, "fixtures", "custom_field.json"), encoding="utf-8"))]
+        self.assertIn("Brand-ec_contract_code", names)
+        self.assertIn('"Brand-ec_contract_code"', open(os.path.join(root, "hooks.py"), encoding="utf-8").read())
+        patches = open(os.path.join(root, "patches.txt"), encoding="utf-8").read()
+        self.assertIn("approval_center.patches.p366_brand_ma_so_hop_dong", patches)
+
+    def test_ma_viet_tat_bo_ky_tu_la(self):
+        self.assertEqual(T.initials("TEST Claude - Hoàn Trần (thử luồng)"), "TC-HTL")
+        self.assertEqual(T.initials("Nguyễn Thị Hảo"), "NTH")              # ten thuong: nhu tool cu
+        self.assertEqual(T.party_code("Cá nhân", "Đỗ Văn (Tiktoker) A"), "DVA")
+        self.assertEqual(T.initials("Bùi - Minh Đức"), "B-MD")                 # giu "-" nhu tool cu
+
+
 if __name__ == "__main__":
     unittest.main()
