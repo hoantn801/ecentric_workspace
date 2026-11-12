@@ -220,7 +220,8 @@ class TestDongBangTheoGoi(unittest.TestCase):
 #: "EC Payment Request").
 _MIEN = {"flow/drift.py", "pilot.py"}
 _HAM = {"get_enabled_profile": 2, "get_active_profile": 2, "requester_signature_required": 2,
-        "level_requires_signature": None, "_profile_doc": 2, "_profile_and_settings": 2}
+        "level_requires_signature": None, "_profile_doc": 2, "_profile_and_settings": 2,
+        "level_portal_action": None}
 
 
 def _calls_missing_name(src, rel):
@@ -392,7 +393,7 @@ class TestNhoDemReporting(unittest.TestCase):
         calls = []
         guard = types.ModuleType("ecentric_workspace.platform.esign.guard")
         guard.selector_in_use = lambda dt, at: selector
-        guard.level_requires_signature = lambda *a, **k: calls.append(k.get("business_name")) or True
+        guard.level_portal_action = lambda *a, **k: calls.append(k.get("business_name")) or "Sign"
         import sys
         pkg = types.ModuleType("ecentric_workspace.platform.esign")
         pkg.guard = guard

@@ -144,7 +144,9 @@ def _requires_signature(can_act, business_doc, approval_request):
         return False
     try:
         from ecentric_workspace.platform.esign import guard
-        return bool(guard.level_requires_signature(
+        # "Approve" (duyet KHONG KY tren cong - hop dong WF09, 12/11/2026) cung phai di nut
+        # "Duyet & Ky": nut "Duyet" thuong bi guard chan o cap do.
+        return bool(guard.level_portal_action(
             business_doc.doctype, approval_request.approval_type, approval_request.current_level,
             final_level=guard.request_final_level(approval_request.name),
             business_name=business_doc.name))

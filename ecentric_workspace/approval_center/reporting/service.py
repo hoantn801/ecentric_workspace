@@ -44,7 +44,7 @@ def _requires_signature(reference_doctype, approval_type, level_no, final_level,
            business_name if memo[sel_key] else None)
     if key not in memo:
         try:
-            memo[key] = bool(guard.level_requires_signature(
+            memo[key] = bool(guard.level_portal_action(
                 reference_doctype, approval_type, level_no, final_level=final_level,
                 business_name=business_name))
         except Exception:

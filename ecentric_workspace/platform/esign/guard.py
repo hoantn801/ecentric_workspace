@@ -218,8 +218,11 @@ def derive_role_title(profile, level_no=None, is_requester=False, process_role_t
     return ("Cap duyet %s" % level_no) if level_no is not None else None
 
 
+_UNSET = object()
+
+
 def level_requires_signature(reference_doctype, approval_type, level_no, final_level=None,
-                             ignore_gates=False, business_name=None):
+                             ignore_gates=False, business_name=None, _profile=_UNSET):
     """True when the active profile's Approver Signature Policy makes THIS Approval Engine
     level require a digital signature. Policy-driven so admins need not recreate every level:
       * None                     -> no level requires signing;
@@ -234,9 +237,13 @@ def level_requires_signature(reference_doctype, approval_type, level_no, final_l
     # chu ky can biet cap nay LE RA co phai ky khong, ke ca khi cong dang tat. Dung chung mot
     # than de hai cau tra loi khong the troi khoi nhau - ban dau viet thanh mot ham song song
     # va do dung la cach hai luat bat dau lech nhau.
-    profile = (get_enabled_profile(reference_doctype, approval_type, business_name)
-               if ignore_gates
-               else get_active_profile(reference_doctype, approval_type, business_name))
+    # `_profile`: level_portal_action da resolve ho so roi thi truyen vao - khong hoi lai.
+    if _profile is not _UNSET:
+        profile = _profile
+    else:
+        profile = (get_enabled_profile(reference_doctype, approval_type, business_name)
+                   if ignore_gates
+                   else get_active_profile(reference_doctype, approval_type, business_name))
     if not profile:
         return False
     policy = _approver_signature_policy(profile)
@@ -252,16 +259,51 @@ def level_requires_signature(reference_doctype, approval_type, level_no, final_l
                                   "requires_signature": 1}))
 
 
-def _deny(reason_code):
-    frappe.throw(_(_MSG_SIGN_REQUIRED) + " [%s]" % reason_code, frappe.PermissionError)
+_MSG_PORTAL_APPROVE = ("Cấp duyệt này duyệt qua cổng ký số (không ký) - dùng nút 'Duyệt & Ký' "
+                       "để ERP chuyển luôn bước của bạn trên cổng (không đặt chữ ký).")
 
 
-def validate_completion(dsr_name, req, level_no, actor):
+def _deny(reason_code, msg=None):
+    frappe.throw(_(msg or _MSG_SIGN_REQUIRED) + " [%s]" % reason_code, frappe.PermissionError)
+
+
+def _approve_level_row(profile, level_no):
+    """Ho so khai cap nay la buoc DUYET KHONG KY tren cong (`provider_action` = Approve)."""
+    if not profile or level_no is None:
+        return False
+    return bool(frappe.db.exists("EC Digital Signature Profile Level",
+                                 {"parent": profile, "level_no": level_no,
+                                  "provider_action": "Approve"}))
+
+
+def level_portal_action(reference_doctype, approval_type, level_no, final_level=None,
+                        ignore_gates=False, business_name=None):
+    """Cap nay lam gi tren cong: "Sign" (ky) | "Approve" (chuyen buoc, khong ky) | None (chi
+    ERP). 12/11/2026, hop dong WF09: Ke toan bam Duyet tren ERP = ERP gui buoc cua ho tren
+    cong, khong ky. "Sign" thang "Approve" (cap da bat ky thi ky). Ho so khong co dong
+    Approve nao (DNTT) -> y het level_requires_signature."""
+    profile = (get_enabled_profile(reference_doctype, approval_type, business_name)
+               if ignore_gates
+               else get_active_profile(reference_doctype, approval_type, business_name))
+    if not profile:
+        return None
+    if level_requires_signature(reference_doctype, approval_type, level_no,
+                                final_level=final_level, ignore_gates=ignore_gates,
+                                business_name=business_name, _profile=profile):
+        return "Sign"
+    return "Approve" if _approve_level_row(profile, level_no) else None
+
+
+def validate_completion(dsr_name, req, level_no, actor, expected_action="Sign"):
     """Persisted-DB validation of a verified signing request. Every check reads the
     database; the in-process flag only NAMES the candidate row. Throws on the first
-    failure with a short reason code (safe to surface)."""
+    failure with a short reason code (safe to surface).
+
+    `expected_action` "Approve" (12/11/2026): cap duyet KHONG KY tren cong. Cung moi phep kiem;
+    "Signed" + verified_at o day nghia la cong DA ROI buoc cua nguoi nay (tasks)."""
+    msg = _MSG_PORTAL_APPROVE if expected_action == "Approve" else None
     if not dsr_name:
-        _deny("no_completion_marker")
+        _deny("no_completion_marker", msg)
 
     # Freshness + concurrency: locking read in ONE statement (lock-then-plain-read returns
     # the transaction's stale snapshot under REPEATABLE READ - see events.current_status).
@@ -272,8 +314,8 @@ def validate_completion(dsr_name, req, level_no, actor):
         as_dict=True, for_update=True)
     if not dsr:
         _deny("dsr_missing")
-    if dsr.action != "Sign":
-        _deny("dsr_wrong_action")
+    if dsr.action != expected_action:
+        _deny("dsr_wrong_action", msg)
     if dsr.status != "Signed":
         # Also covers 'completion already occurred' (status would be Approval Completed)
         _deny("dsr_not_in_signed_state:%s" % dsr.status)
@@ -355,10 +397,36 @@ def assert_level_completable(req, level_no, actor):
         # Chu y su bat doi xung: `requester_signature_required` dung duong tra cuu KHONG phu
         # thuoc cong, con duong cap duyet thi phu thuoc. Nen nguoi de nghi van bi bat ky trong
         # khi cap duyet thi khong.
+        if _portal_approve_level(req, level_no, actor):
+            return
         _record_signature_debt(req, level_no, actor)
         return
     dsr_name = getattr(frappe.flags, FLAG_KEY, None)  # call marker ONLY (see module docstring)
     validate_completion(dsr_name, req, level_no, actor)
+
+
+def _portal_approve_level(req, level_no, actor):
+    """Cap DUYET KHONG KY tren cong (12/11/2026): chi hoan tat qua chan "Approve" da xac minh
+    (cong da roi buoc cua nguoi nay). Tra True = da kiem xong o day (nguoi goi dung lai).
+
+    Cong ky so TAT ma chinh sach van la buoc tren cong -> CHAN, khong ghi no nhu cap ky: duyet
+    tren ERP ma cong dung yen thi moi buoc sau tren cong lech mot nac (nguoi sau gui buoc cua
+    minh khi cong con cho nguoi truoc) - khong co duong "duyet bu" nhu "ky bu"."""
+    dt, at, bn = req.reference_doctype, req.approval_type, req.reference_name
+    try:
+        profile = get_enabled_profile(dt, at, bn)
+    except Exception:
+        # Cau hinh mo ho cu (hai ho so khong selector): truoc day nhanh nay chi ghi no va NUOT
+        # loi. Khong de no thanh duong nem moi cho moi cap khong ky (QC 12/11).
+        return False
+    if not _approve_level_row(profile, level_no):
+        return False
+    if not get_active_profile(dt, at, bn):
+        _deny("portal_gates_closed", "Cổng ký số đang tắt - cấp này phải duyệt qua cổng, "
+                                     "vui lòng chờ cổng mở lại.")
+    dsr_name = getattr(frappe.flags, FLAG_KEY, None)
+    validate_completion(dsr_name, req, level_no, actor, expected_action="Approve")
+    return True
 
 
 def _record_signature_debt(req, level_no, actor):

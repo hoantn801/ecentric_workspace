@@ -18,6 +18,7 @@
  "field_order": [
   "level_no",
   "requires_signature",
+  "provider_action",
   "scts_role_title",
   "signature_type",
   "mandatory_placements_per_file"
@@ -36,6 +37,14 @@
    "label": "Requires Signature",
    "default": "1",
    "in_list_view": 1
+  },
+  {
+   "fieldname": "provider_action",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "options": "\nApprove",
+   "label": "Bước trên cổng",
+   "description": "Trống = theo 'Requires Signature' (ký hoặc chỉ duyệt trên ERP). Approve = người duyệt bấm Duyệt trên ERP thì ERP chuyển luôn bước của họ trên cổng, KHÔNG ký (vd Kế toán ở WF09). Hồ sơ phải bật 'Lấy bước từ cổng'."
   },
   {
    "fieldname": "scts_role_title",
