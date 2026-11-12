@@ -17,6 +17,8 @@ PROGRESS = "EC Training Progress"
 TOPIC = "EC Training Topic"
 VOTE = "EC Training Vote"
 TICKET = "EC Training Ticket"
+DRAW = "EC Training Draw"
+DRAW_NUMBER = "EC Training Draw Number"
 
 EMPLOYEE = "Employee"
 DEPARTMENT = "Department"
@@ -180,6 +182,12 @@ TICKET_PRACTICE = "practice"
 TICKET_LESSON_QUIZ = "lesson_quiz"
 TICKET_MANUAL = "manual"
 TICKET_SOURCES = (TICKET_QUIZ, TICKET_PRACTICE, TICKET_LESSON_QUIZ, TICKET_MANUAL)
+
+DRAW_OPEN = "Open"
+DRAW_DONE = "Done"
+DRAW_CANCELLED = "Cancelled"
+#: Tat job quay so tuan khan cap.
+DRAW_KILL_SWITCH = "ec_training_draw_disabled"
 
 # ------------------------------------------------------------------------- Bai hoc --
 LESSON_DRAFT = "Draft"

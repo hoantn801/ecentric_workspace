@@ -9,8 +9,8 @@ Bat loi thi rollback (Frappe khong tu rollback khi ham whitelist tu bat exceptio
 import frappe
 from frappe.utils import strip_html
 
-from ecentric_workspace.dao_tao.application import (learn_service, play_service, quiz_service,
-                                                    room_service)
+from ecentric_workspace.dao_tao.application import (draw_service, learn_service, play_service,
+                                                    quiz_service, room_service)
 from ecentric_workspace.dao_tao.application.access import Ctx
 from ecentric_workspace.dao_tao.domain.errors import FieldErrors, QuizError
 from ecentric_workspace.dao_tao.infrastructure import store as repo
@@ -178,6 +178,36 @@ def topic_propose(topic=None):
 @frappe.whitelist(methods=["POST"])
 def topic_vote(topic, on=1):
     return _run(lambda c: learn_service.vote(c, repo, topic, _b(on)))
+
+
+@frappe.whitelist(methods=["GET"])
+def draw_hub():
+    return _run(lambda c: draw_service.hub(c, repo), write=True)
+
+
+@frappe.whitelist(methods=["POST"])
+def draw_pick(number=None):
+    return _run(lambda c: draw_service.pick(c, repo, number))
+
+
+@frappe.whitelist(methods=["POST"])
+def draw_release(number):
+    return _run(lambda c: draw_service.release(c, repo, number))
+
+
+@frappe.whitelist(methods=["GET"])
+def draw_admin():
+    return _run(lambda c: draw_service.admin_get(c, repo), write=True)
+
+
+@frappe.whitelist(methods=["POST"])
+def draw_save(draw=None):
+    return _run(lambda c: draw_service.admin_save(c, repo, draw or {}))
+
+
+@frappe.whitelist(methods=["POST"])
+def draw_now():
+    return _run(lambda c: draw_service.draw_now(c, repo))
 
 
 @frappe.whitelist(methods=["GET"])

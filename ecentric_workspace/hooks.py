@@ -1069,3 +1069,9 @@ ec_esign_outcome_handlers = {
 # dang mo. Tat: site_config ec_quiz_card_disabled, hoac trang gan data-ec-no-quizcard.
 # --------------------------------------------------------------------------- #
 web_include_js.append("ec_quiz_live.bundle.js")
+
+# 12/11/2026 - Dao tao: quay so tuan (mac dinh 16:00 thu Sau, Ban dao tao doi duoc). Moi ve = mot
+# luot; so khong ai giu -> qua de lai. Mot truy van nho moi phut, gan nhu luon rong.
+# Tat khan cap: site_config ec_training_draw_disabled: 1.
+scheduler_events["cron"].setdefault("*/1 * * * *", []).append(
+    "ecentric_workspace.dao_tao.application.draw_service.tick")

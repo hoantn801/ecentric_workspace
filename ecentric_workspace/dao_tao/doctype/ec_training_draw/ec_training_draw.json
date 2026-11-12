@@ -1,0 +1,95 @@
+{
+ "doctype": "DocType",
+ "name": "EC Training Draw",
+ "module": "Dao Tao",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "week_start",
+ "sort_order": "DESC",
+ "description": "Quay số tuần (Đào tạo). Mỗi vé = một lượt; số không ai giữ thì quà để lại. name = draw-<thứ Hai của tuần>.",
+ "autoname": "Prompt",
+ "field_order": [
+  "title",
+  "week_start",
+  "draw_at",
+  "number_range",
+  "status",
+  "prizes_json",
+  "results_json",
+  "drawn_at"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Tên",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "week_start",
+   "fieldtype": "Date",
+   "label": "Tuần (thứ Hai)",
+   "reqd": 1,
+   "in_list_view": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "draw_at",
+   "fieldtype": "Datetime",
+   "label": "Giờ quay",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "number_range",
+   "fieldtype": "Int",
+   "label": "Dải số 1..N"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Trạng thái",
+   "options": "Open\nDone\nCancelled",
+   "default": "Open",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "prizes_json",
+   "fieldtype": "Long Text",
+   "label": "Quà (JSON)"
+  },
+  {
+   "fieldname": "results_json",
+   "fieldtype": "Long Text",
+   "label": "Kết quả (JSON)"
+  },
+  {
+   "fieldname": "drawn_at",
+   "fieldtype": "Datetime",
+   "label": "Quay lúc"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "modified": "2026-11-12 20:00:00.000000",
+ "title_field": "title"
+}

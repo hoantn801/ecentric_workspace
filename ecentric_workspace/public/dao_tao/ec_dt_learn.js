@@ -91,14 +91,64 @@
     };
   }
 
+  // ------------------------------------------------------------- quay so tuan --
+  function fmtN(n, top) { var w = Math.max(2, String(top || 100).length); n = String(n); while (n.length < w) n = "0" + n; return n; }
+  function drawBox(box) {
+    box.innerHTML = D.skel(1);
+    D.api("draw_hub").then(function (d) { drawRender(box, d); }, function (e) { box.innerHTML = '<p class="dt-err">' + D.esc(D.msg(e)) + "</p>"; });
+  }
+  function drawRender(box, d) {
+    var prizes = (d.prizes || []).map(function (p) { return '<span class="dt-chip nv">' + D.icon("gift") + " " + D.esc(p.label) + " × " + p.quantity + "</span>"; }).join(" ");
+    var mine = d.mine.filter(function (m) { return m.active; });
+    var left = Math.max(0, d.tickets - mine.length);
+    var h = '<div class="dt-row"><h2 class="dt-h2">🎟️ ' + D.esc(d.title) + '</h2><span class="dt-sp"></span><span class="dt-chip ' + (d.status === "Done" ? "ok" : "warn") + '">' +
+      (d.status === "Done" ? "Đã quay" : "Quay lúc " + D.esc(d.draw_at.slice(11, 16)) + " · " + D.fmtDate(d.draw_at)) + "</span></div>" +
+      '<p class="dt-small dt-muted" style="margin:6px 0">Mỗi vé = một lượt: mỗi vé giữ một số trong dải 1–' + d.range + '. Số không ai giữ thì quà để lại. Chưa chọn kịp thì máy chọn giúp lúc ' +
+      D.esc(d.lock_at.slice(11, 16)) + ".</p>" + (prizes ? '<div class="dt-row" style="margin:8px 0">' + prizes + "</div>" : '<p class="dt-muted">Ban đào tạo chưa cài quà tuần này.</p>') +
+      '<div class="dt-row" style="margin:10px 0"><b>Số của bạn:</b>' + (mine.length ? mine.map(function (m) {
+        return '<span class="dt-chip ok" style="font-size:15px">' + fmtN(m.number, d.range) + (m.auto ? " (máy chọn)" : "") +
+          (d.open ? ' <button class="dt-b sm ghost" data-rel="' + m.number + '" aria-label="Bỏ số" style="padding:0 4px">×</button>' : "") + "</span>";
+      }).join(" ") : '<span class="dt-muted">chưa có</span>') + '<span class="dt-sp"></span><span class="dt-small dt-muted">' + d.tickets + " vé · còn " + left + " vé chưa chọn số</span></div>";
+    if (d.open && left > 0) {
+      h += '<div class="dt-row"><input class="dt-in" id="dt-num" type="number" min="1" max="' + d.range + '" style="max-width:140px" placeholder="Số 1–' + d.range + '">' +
+        '<button class="dt-b pri" id="dt-pick">Chọn số này</button><button class="dt-b" id="dt-rand">Chọn ngẫu nhiên</button></div>';
+      if ((d.taken || []).length || d.range <= 300) {
+        var taken = {}; (d.taken || []).forEach(function (n) { taken[n] = 1; });
+        h += '<div class="dt-small dt-muted" style="margin-top:8px">Bảng số (' + d.taken_count + "/" + d.range + ' đã có người giữ) - bấm số trống để chọn:</div><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">';
+        for (var n = 1; n <= d.range; n++) {
+          h += '<button class="dt-b sm" data-n="' + n + '"' + (taken[n] ? ' disabled style="opacity:.35"' : "") + ">" + fmtN(n, d.range) + "</button>";
+        }
+        h += "</div>";
+      }
+    } else if (d.status !== "Done" && !d.tickets) {
+      h += '<p class="dt-muted">Bạn chưa có vé tuần này - làm quiz bài học, nộp bài thực hành hoặc đạt giải ở Quiz trực tiếp để có vé.</p>';
+    }
+    if (d.results) {
+      h += '<h3 style="margin-top:12px">Kết quả</h3>' + (d.results.length ? '<table class="dt-table"><tbody>' + d.results.map(function (r) {
+        return '<tr' + (r.me ? ' style="background:var(--ok-bg)"' : "") + "><td><b>" + fmtN(r.number, d.range) + "</b></td><td>" + D.esc(r.prize) + "</td><td>" +
+          (r.winner ? D.esc(r.winner) + (r.me ? " 🎉" : "") : '<span class="dt-muted">Số không ai giữ - quà để lại</span>') + "</td></tr>";
+      }).join("") + "</tbody></table>" : '<p class="dt-muted">Tuần này không có quà.</p>');
+    }
+    box.innerHTML = h;
+    function act(method, args, btn) {
+      D.busy(btn, true);
+      D.api(method, args, true).then(function (v) { drawRender(box, v); D.toast("Đã cập nhật số của bạn."); }, function (e) { D.busy(btn, false); D.toast(D.msg(e), true); });
+    }
+    var pk = D.byId("dt-pick"); if (pk) pk.onclick = function () { act("draw_pick", { number: D.byId("dt-num").value }, pk); };
+    var rd = D.byId("dt-rand"); if (rd) rd.onclick = function () { act("draw_pick", {}, rd); };
+    D.qsa(box, "[data-n]").forEach(function (b) { b.onclick = function () { act("draw_pick", { number: b.dataset.n }, b); }; });
+    D.qsa(box, "[data-rel]").forEach(function (b) { b.onclick = function () { act("draw_release", { number: b.dataset.rel }, b); }; });
+  }
+
   function rewards(body) {
     var t = data.tickets;
-    body.innerHTML = '<div class="dt-grid2"><div class="dt-panel dt-pad"><h2 class="dt-h2">' + D.icon("ticket") + " Vé tuần này: " + t.this_week + "/" + t.cap + "</h2>" +
+    body.innerHTML = '<div class="dt-panel dt-pad" id="dt-draw" style="margin-bottom:14px"></div><div class="dt-grid2"><div class="dt-panel dt-pad"><h2 class="dt-h2">' + D.icon("ticket") + " Vé tuần này: " + t.this_week + "/" + t.cap + "</h2>" +
       '<p class="dt-muted" style="margin-top:6px">' + D.esc(t.week) + ". Nhận vé khi: làm quiz bài học đạt từ 60% (1 vé), nộp bài thực hành đúng hạn (1 vé), đạt giải ở Quiz trực tiếp. Tối đa " + t.cap +
-      ' vé / người / tuần.</p><p class="dt-small dt-muted" style="margin-top:8px">Quay số tuần: Ban đào tạo sẽ thông báo giờ quay.</p></div><div class="dt-panel dt-pad"><h2 class="dt-h2">Lịch sử vé</h2>' +
+      ' vé / người / tuần.</p></div><div class="dt-panel dt-pad"><h2 class="dt-h2">Lịch sử vé</h2>' +
       ((t.history || []).length ? "<ul>" + t.history.map(function (x) {
         return "<li>" + D.esc(x.label) + " · <b>" + x.count + " vé</b> · " + D.fmtDate(x.week_start) + (x.revoked ? ' <span class="dt-chip bad">đã thu hồi</span>' : "") + "</li>";
       }).join("") + "</ul>" : '<p class="dt-muted">Chưa có vé.</p>') + "</div></div>";
+    drawBox(D.byId("dt-draw"));
   }
 
   load();

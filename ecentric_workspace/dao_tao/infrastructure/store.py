@@ -581,11 +581,15 @@ def publish_room(session, version):
     frappe.publish_realtime(C.REALTIME_ROOM, {"s": session, "v": version}, after_commit=True)
 
 
-def notify(user, title, message, url, ref, dedupe_key):
+def notify(user, title, message, url, ref, dedupe_key, reference_doctype=C.SESSION):
     from ecentric_workspace.notification_center.events import publish_notification_event
     return publish_notification_event(C.NOTIFY_EVENT, user, title, message, action_url=url,
-                                      reference_doctype=C.SESSION, reference_name=ref,
+                                      reference_doctype=reference_doctype, reference_name=ref,
                                       dedupe_key=dedupe_key)
+
+
+def rollback():
+    frappe.db.rollback()
 
 
 def cache_get(key):
@@ -613,3 +617,89 @@ def read_xlsx_rows(file_url):
 def file_owner(file_url):
     r = frappe.get_all("File", filters={"file_url": file_url}, fields=["owner"], limit_page_length=1)
     return r[0].owner if r else None
+
+
+# ------------------------------------------------------------------------ quay so tuan --
+
+def draw_name(week_start):
+    return "draw-%s" % str(week_start)[:10]
+
+
+def _draw(r):
+    return {"name": r["name"], "title": r.get("title") or "", "week_start": str(r.get("week_start") or ""),
+            "draw_at": r.get("draw_at"), "range": int(r.get("number_range") or 0), "status": r.get("status"),
+            "prizes": _j(r.get("prizes_json"), []), "results": _j(r.get("results_json"), None),
+            "drawn_at": str(r.get("drawn_at") or "")}
+
+
+_DRAW_FIELDS = ["name", "title", "week_start", "draw_at", "number_range", "status", "prizes_json",
+                "results_json", "drawn_at"]
+
+
+def get_draw(name):
+    rows = frappe.get_all(C.DRAW, filters={"name": name}, fields=_DRAW_FIELDS, limit_page_length=1)
+    return _draw(rows[0]) if rows else None
+
+
+def lock_draw(name):
+    rows = frappe.db.sql("select %s from `tabEC Training Draw` where name=%%s for update"
+                         % ", ".join("`%s`" % f for f in _DRAW_FIELDS), (name,), as_dict=True)
+    return _draw(rows[0]) if rows else None
+
+
+def insert_draw(fields):
+    vals = dict(fields)
+    vals["prizes_json"] = _d(vals.pop("prizes", []))
+    vals["number_range"] = vals.pop("range")
+    doc = frappe.get_doc(dict(vals, doctype=C.DRAW))
+    doc.name = draw_name(fields["week_start"])
+    doc.insert(ignore_permissions=True)
+    return doc.name
+
+
+def update_draw(name, values):
+    vals = dict(values)
+    if "prizes" in vals:
+        vals["prizes_json"] = _d(vals.pop("prizes"))
+    if "results" in vals:
+        vals["results_json"] = _d(vals.pop("results"))
+    if "range" in vals:
+        vals["number_range"] = vals.pop("range")
+    doc = frappe.get_doc(C.DRAW, name)          # qua doc.save -> Version (ai doi qua / gio quay)
+    doc.update(vals)
+    doc.save(ignore_permissions=True)
+
+
+def due_draws(now):
+    return [r.name for r in frappe.get_all(C.DRAW, filters={"status": C.DRAW_OPEN, "draw_at": ["<=", now]},
+                                           fields=["name"], limit_page_length=20)]
+
+
+def week_tickets(week_start):
+    """{user: so ve con hieu luc trong tuan}."""
+    rows = frappe.db.sql("select user, sum(`count`) from `tabEC Training Ticket` where week_start=%s "
+                         "and revoked=0 group by user", (week_start,))
+    return {r[0]: int(r[1] or 0) for r in rows if int(r[1] or 0) > 0}
+
+
+def draw_numbers(draw, user=None, locking=False):
+    sql = "select user, slot, number, auto from `tabEC Training Draw Number` where draw=%s"
+    args = [draw]
+    if user:
+        sql += " and user=%s"
+        args.append(user)
+    sql += " order by number" + (" lock in share mode" if locking else "")
+    return [dict(r) for r in frappe.db.sql(sql, tuple(args), as_dict=True)]
+
+
+def insert_draw_number(draw, user, slot, number, auto=0):
+    doc = frappe.get_doc({"doctype": C.DRAW_NUMBER, "draw": draw, "user": user, "slot": int(slot),
+                          "number": int(number), "auto": int(auto)})
+    doc.name = "%s-%s-%d" % (draw, uhash(user), int(slot))
+    doc.insert(ignore_permissions=True)
+
+
+def delete_draw_number(draw, user, slot):
+    name = "%s-%s-%d" % (draw, uhash(user), int(slot))
+    if frappe.db.exists(C.DRAW_NUMBER, name):
+        frappe.delete_doc(C.DRAW_NUMBER, name, ignore_permissions=True, force=True)

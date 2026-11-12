@@ -15,13 +15,14 @@
   function render() {
     var h = '<div class="dt-wrap"><div class="dt-row"><h1 style="font-size:22px">Quản lý bài học</h1><span class="dt-sp"></span><a class="dt-b" href="/dao-tao">Xem trang Học</a>' +
       '<a class="dt-b" href="/quiz">Quiz trực tiếp</a><button class="dt-b pri" id="dt-new">' + D.icon("plus") + ' Bài mới</button></div><div class="dt-tabs">' +
-      [["bai", "Bài học"], ["thuc-hanh", "Bài thực hành"], ["chu-de", "Chủ đề bình chọn"]].map(function (x) {
+      [["bai", "Bài học"], ["thuc-hanh", "Bài thực hành"], ["chu-de", "Chủ đề bình chọn"], ["quay-so", "Quay số tuần"]].map(function (x) {
         return '<button class="dt-tab" data-tab="' + x[0] + '" aria-selected="' + (tab === x[0]) + '">' + x[1] + "</button>"; }).join("") + '</div><div id="dt-body"></div></div>';
     root.innerHTML = h;
     D.byId("dt-new").onclick = function () { editor(null); };
     D.qsa(root, "[data-tab]").forEach(function (b) { b.onclick = function () { tab = b.dataset.tab; render(); }; });
     var body = D.byId("dt-body");
-    if (tab === "thuc-hanh") practice(body);
+    if (tab === "quay-so") draw(body);
+    else if (tab === "thuc-hanh") practice(body);
     else if (tab === "chu-de") topics(body);
     else lessons(body);
   }
@@ -115,6 +116,54 @@
     }
     D.byId("dt-pl").onchange = show;
     show();
+  }
+
+  function draw(body) {
+    body.innerHTML = D.skel(2);
+    D.api("draw_admin").then(function (d) { drawForm(body, d); }, function (e) { body.innerHTML = '<p class="dt-err">' + D.esc(D.msg(e)) + "</p>"; });
+  }
+  function drawForm(body, d) {
+    var done = d.status === "Done";
+    var rows = (d.prizes || []).length ? d.prizes : [{ label: "", quantity: 1 }];
+    function prizeRows() {
+      return rows.map(function (p, i) {
+        return '<div class="dt-row" style="margin-bottom:6px"><input class="dt-in" data-pl="' + i + '" style="flex:1" maxlength="60" placeholder="Tên quà (dòng đầu = giải lớn nhất)" value="' + D.esc(p.label) +
+          '"' + (done ? " disabled" : "") + '><input class="dt-in" type="number" min="1" max="50" data-pq="' + i + '" style="width:90px" value="' + (p.quantity || 1) + '"' + (done ? " disabled" : "") + ">" +
+          (done ? "" : '<button class="dt-b sm ghost" data-px="' + i + '">' + D.icon("x") + "</button>") + "</div>";
+      }).join("");
+    }
+    var at = (d.draw_at || "").slice(0, 16).replace(" ", "T");
+    body.innerHTML = '<div class="dt-grid2"><div class="dt-panel dt-pad" style="display:grid;gap:10px"><h2 class="dt-h2">' + D.esc(d.title) + "</h2>" +
+      '<p class="dt-small dt-muted">Mỗi vé = một lượt (một số). Quay không lặp trong cả dải, giải nhỏ trước; số không ai giữ thì quà để lại. Khoá chọn số 5 phút trước giờ quay, vé chưa chọn số thì máy chọn giúp.</p>' +
+      '<div class="dt-row"><div class="dt-f"><label>Giờ quay</label><input class="dt-in" type="datetime-local" id="dt-at" value="' + D.esc(at) + '"' + (done ? " disabled" : "") + '></div>' +
+      '<div class="dt-f"><label>Dải số 1..N</label><input class="dt-in" type="number" id="dt-range" min="10" max="999" value="' + d.range + '" style="width:110px"' + (done ? " disabled" : "") + "></div></div>" +
+      (d.range_warning ? '<p class="dt-err">Tổng vé (' + d.total_tickets + ") lớn hơn dải số (" + d.range + ") - một số vé sẽ không có số. Nới dải số lên.</p>" : "") +
+      '<div><div class="dt-lbl">Quà (giống /khao-sat: tên + số lượng)</div><div id="dt-prz" style="margin-top:6px">' + prizeRows() + "</div>" +
+      (done ? "" : '<button class="dt-b sm" id="dt-addp">' + D.icon("plus") + " Thêm quà</button>") + "</div>" +
+      (done ? "" : '<div class="dt-row"><span class="dt-sp"></span><button class="dt-b danger" id="dt-now">Quay ngay</button><button class="dt-b pri" id="dt-save">Lưu</button></div>') +
+      '</div><div class="dt-panel dt-pad"><h2 class="dt-h2">Tình hình tuần này</h2><ul><li>' + d.holders + " người có vé, tổng " + d.total_tickets + " vé</li><li>" + d.picked + " số đã chọn</li><li>Trạng thái: " +
+      (done ? "Đã quay " + D.esc(d.drawn_at || "") : "Chờ quay") + "</li></ul>" + (d.results ? "<h3>Kết quả</h3><ul>" + d.results.map(function (r) {
+        return "<li><b>" + r.number + "</b> · " + D.esc(r.prize) + " · " + (r.winner ? D.esc(r.winner) : '<span class="dt-muted">để lại</span>') + "</li>";
+      }).join("") + "</ul>" : "") + "</div></div>";
+    function sync() {
+      D.qsa(body, "[data-pl]").forEach(function (x) { rows[+x.dataset.pl].label = x.value; });
+      D.qsa(body, "[data-pq]").forEach(function (x) { rows[+x.dataset.pq].quantity = +x.value; });
+    }
+    function redraw() { D.byId("dt-prz").innerHTML = prizeRows(); bindRows(); }
+    function bindRows() { D.qsa(body, "[data-px]").forEach(function (b) { b.onclick = function () { sync(); rows.splice(+b.dataset.px, 1); if (!rows.length) rows.push({ label: "", quantity: 1 }); redraw(); }; }); }
+    bindRows();
+    if (done) return;
+    D.byId("dt-addp").onclick = function () { sync(); rows.push({ label: "", quantity: 1 }); redraw(); };
+    D.byId("dt-save").onclick = function () {
+      var b = this; sync(); D.busy(b, true);
+      D.api("draw_save", { draw: { draw_at: D.byId("dt-at").value, range: D.byId("dt-range").value, prizes: rows } }, true)
+        .then(function (v) { D.toast("Đã lưu."); drawForm(body, v); }, function (e) { D.busy(b, false); D.toast(D.msg(e), true); });
+    };
+    D.byId("dt-now").onclick = function () {
+      if (!window.confirm("Quay số tuần này ngay bây giờ? Không quay lại được.")) return;
+      var b = this; D.busy(b, true);
+      D.api("draw_now", {}, true).then(function (v) { D.toast("Đã quay."); drawForm(body, v); }, function (e) { D.busy(b, false); D.toast(D.msg(e), true); });
+    };
   }
 
   function topics(body) {

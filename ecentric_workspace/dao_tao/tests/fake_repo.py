@@ -312,6 +312,60 @@ class FakeRepo:
     def lock_user_votes(self, user):
         pass
 
+    # ------------------------------------------------------------------- quay so tuan --
+    def draw_name(self, ws):
+        return "draw-%s" % str(ws)[:10]
+
+    def get_draw(self, name):
+        return copy.deepcopy(getattr(self, "draws", {}).get(name))
+
+    def lock_draw(self, name):
+        return self.get_draw(name)
+
+    def insert_draw(self, f):
+        self.draws = getattr(self, "draws", {})
+        name = self.draw_name(f["week_start"])
+        if name in self.draws:
+            raise Duplicate(name)
+        self.draws[name] = {"name": name, "title": f["title"], "week_start": str(f["week_start"]),
+                            "draw_at": f["draw_at"], "range": f["range"], "status": f["status"],
+                            "prizes": copy.deepcopy(f["prizes"]), "results": None, "drawn_at": ""}
+        return name
+
+    def update_draw(self, name, values):
+        self.draws[name].update(copy.deepcopy(values))
+
+    def due_draws(self, now):
+        return [n for n, d in getattr(self, "draws", {}).items() if d["status"] == "Open" and d["draw_at"] <= now]
+
+    def week_tickets(self, ws):
+        out = {}
+        for (s, r, u), t in self.tickets.items():
+            if str(t["week_start"]) == str(ws) and not t.get("revoked") and t["count"] > 0:
+                out[u] = out.get(u, 0) + t["count"]
+        return out
+
+    def draw_numbers(self, draw, user=None, locking=False):
+        self.dnums = getattr(self, "dnums", {})
+        return sorted([dict(v) for (d, u, s), v in self.dnums.items() if d == draw and (user is None or u == user)],
+                      key=lambda r: r["number"])
+
+    def insert_draw_number(self, draw, user, slot, number, auto=0):
+        self.dnums = getattr(self, "dnums", {})
+        if (draw, user, slot) in self.dnums:
+            raise Duplicate(slot)
+        self.dnums[(draw, user, slot)] = {"user": user, "slot": slot, "number": number, "auto": auto}
+
+    def delete_draw_number(self, draw, user, slot):
+        getattr(self, "dnums", {}).pop((draw, user, slot), None)
+
+    def notify(self, user, title, message, url, ref, dedupe_key, reference_doctype=None):
+        self.notified = getattr(self, "notified", [])
+        self.notified.append((user, title))
+
+    def rollback(self):
+        pass
+
     # ---------------------------------------------------------------------------- tep --
     def file_owner(self, url):
         return self.files.get(url)
