@@ -166,3 +166,5 @@
   .pmrm-mrow .pmrm-st{grid-column:1}
 }
 @media (prefers-reduced-motion:reduce){.pmrm-tl--loading .pmrm-in{transition:none}}
+/* 13/11/2026: Microsoft 365 lỗi -> chế độ đặt tạm */
+.pmrm-offline{margin:0 0 12px;padding:10px 14px;border-radius:10px;background:#fff8e1;color:#7a4b00;border:1px solid #f3d38a;font-size:13px;line-height:1.5}

@@ -27,6 +27,7 @@ from frappe import _
 from frappe.utils import get_datetime, getdate, add_days, nowdate, now_datetime
 
 from ecentric_workspace.pm import permissions as pmperm
+from ecentric_workspace.pm.api import rooms_hold as HOLD
 
 DT = "EC Meeting Room"
 TZ = "Asia/Ho_Chi_Minh"
@@ -243,20 +244,28 @@ def day(date=None):
     d = str(getdate(date)) if date else nowdate()
     rooms = _rooms()
     token = _graph_token(False)
-    data = _day_data(d, rooms, token) if (token and rooms) else {}
+    offline = bool(token) and HOLD.is_down()
+    data = _day_data(d, rooms, token) if (token and rooms and not offline) else {}
+    if token and rooms and not offline and data and all(
+            HOLD.transient((data.get(r["email"]) or {}).get("error")) for r in rooms):
+        HOLD.set_down(True)          # 13/11: Microsoft loi -> che do dat tam, khong cho 15 s moi lan
+        offline, data = True, {}
     out = []
     for r in rooms:
         x = data.get(r["email"]) or {}
         row = {k: r[k] for k in ("name", "code", "title", "label", "floor", "note", "capacity")}
         if not token:
             row["error"] = "SYNC_OFF"
-        elif x.get("error"):
+        elif x.get("error") and not offline:
             row["error"] = x["error"]
         row["bookings"] = [{"start": b["start"], "end": b["end"], "who": b["who"],
                             "mine": b["org"] == caller, "uid": b["uid"], "all_day": b["all_day"]}
                            for b in (x.get("rows") or [])]
+        # lich dat tam (Microsoft loi) chua len Teams: van chiem phong
+        row["bookings"] += [HOLD.as_booking(h, caller) for h in HOLD.for_room_day(r["name"], d)]
         out.append(row)
-    return {"date": d, "now": str(now_datetime())[:19], "sync_on": bool(token), "rooms": out}
+    return {"date": d, "now": str(now_datetime())[:19], "sync_on": bool(token), "rooms": out,
+            "offline": offline}
 
 
 def _room_state(ev, room_emails):
@@ -301,6 +310,11 @@ def mine(days=14):
     token = _graph_token(False)
     if not token:
         return {"rows": [], "sync_on": False}
+    labels = {r["name"]: r["label"] for r in _rooms(enabled_only=False)}
+    held = [HOLD.as_mine_row(h, labels.get(h["room"], h["room"])) for h in HOLD.all_holds()
+            if h["org"] == caller and h["end"] > str(now_datetime())[:19]]
+    if HOLD.is_down():
+        return {"rows": sorted(held, key=lambda x: x["start"]), "sync_on": True, "offline": True}
     by_email = {r["email"]: r for r in _rooms()}
     from urllib.parse import quote
     start = str(now_datetime())[:19]
@@ -314,7 +328,10 @@ def mine(days=14):
            "&$top=200&$orderby=start/dateTime")
     evs, err = _get_list(url, token)
     if err and not evs:
-        return {"rows": [], "error": err}
+        if HOLD.transient(err):
+            HOLD.set_down(True)
+            return {"rows": sorted(held, key=lambda x: x["start"]), "sync_on": True, "offline": True}
+        return {"rows": held, "error": err}
     rows = []
     for ev in evs:
         if ev.get("isCancelled") or not ev.get("isOrganizer"):
@@ -330,6 +347,8 @@ def mine(days=14):
                      "recurring": ev.get("type") in ("occurrence", "exception", "seriesMaster"),
                      "series_id": ev.get("seriesMasterId") or (ev.get("id") if ev.get("type") == "seriesMaster" else ""),
                      "guests": _guests(ev, by_email)})
+    rows += held
+    rows.sort(key=lambda x: x["start"] or "")
     return {"rows": rows, "sync_on": True}
 
 
@@ -489,10 +508,16 @@ def _check_free(rm, slots, token, own_uids=(), own_slots=()):
     if fresh.get("error") == "ROOM_NOT_FOUND":
         frappe.throw(_("Phòng {0} chưa có trên Microsoft 365.").format(rm["label"]))
     if fresh.get("error"):
+        if HOLD.transient(fresh["error"]):
+            raise HOLD.GraphDown(fresh["error"])
         frappe.throw(_("Chưa đọc được lịch phòng ({0}), thử lại sau.").format(fresh["error"]))
     caller = (frappe.session.user or "").lower()
     busy = [b for b in fresh.get("rows") or []
             if b["uid"] not in own_uids and not (b["org"] == caller and (b["start"], b["end"]) in own_slots)]
+    # lich dat tam (luc Microsoft loi) chua len Teams cung chiem phong
+    busy += [{"start": h["start"], "end": h["end"], "who": (h.get("org_name") or h["org"]) + " - đặt tạm",
+              "uid": HOLD.PREFIX + h["id"], "org": h["org"]}
+             for h in HOLD.all_holds() if h["room"] == rm["name"]]
     hits = []
     for s, e in slots:
         for b in busy:
@@ -510,7 +535,8 @@ def _check_free(rm, slots, token, own_uids=(), own_slots=()):
                  .format(rm["label"], len(hits), days))
 
 
-def _graph_write(method, url, token, body=None):
+def _graph_write(method, url, token, body=None, soft=False):
+    """soft=True: loi tam (mat ket noi / 5xx) -> GraphDown thay vi bao loi (book dat tam)."""
     import requests
     try:
         fn = getattr(requests, method)
@@ -519,7 +545,11 @@ def _graph_write(method, url, token, body=None):
                                                     "Prefer": _PREFER})
     except Exception:
         frappe.log_error(frappe.get_traceback(), "rooms " + method)
+        if soft:
+            raise HOLD.GraphDown("GRAPH_EXC")
         frappe.throw(_("Không kết nối được Microsoft 365, thử lại sau."))
+    if soft and r.status_code >= 500:
+        raise HOLD.GraphDown("GRAPH_%s" % r.status_code)
     if r.status_code not in (200, 201, 202, 204):
         code = ""
         try:
@@ -641,6 +671,18 @@ def _truthy(v):
 
 
 # ------------------------------------------------------------------ write
+def _book_held(rm, s, e, subject, people, desc, teams, txn, rec):
+    """Microsoft 365 dang loi: giu phong TAM tren ERP, tu len Teams khi Microsoft chay lai."""
+    if rec:
+        frappe.throw(_("Microsoft 365 đang lỗi: tạm thời chỉ đặt được một buổi, chưa đặt lặp lại được."))
+    hid = HOLD.create(rm, s, e, subject, people, desc, _truthy(teams), txn)
+    clear_cache()
+    return {"ok": True, "event_id": HOLD.PREFIX + hid, "uid": HOLD.PREFIX + hid, "room": rm["name"],
+            "label": rm["label"], "start": s, "end": e, "subject": subject, "state": "held",
+            "offline": True, "recurring": False, "external": len([p for p in people if p["external"]]),
+            "join_url": ""}
+
+
 @frappe.whitelist(methods=["POST"])
 def book(room, start, end, subject, attendees=None, teams=1, repeat="none", repeat_until=None, txn=None,
          description=None):
@@ -658,14 +700,20 @@ def book(room, start, end, subject, attendees=None, teams=1, repeat="none", repe
     people = _clean_attendees(attendees, caller, [r["email"] for r in _rooms(enabled_only=False)])
     rec = _recurrence(repeat, repeat_until, s)
     token = _graph_token(True)
-    _check_free(rm, _occurrences(s, e, rec), token)
+    desc0 = _clean_desc(description)
+    if HOLD.is_down():
+        return _book_held(rm, s, e, subject, people, desc0, teams, txn, rec)
+    try:
+        _check_free(rm, _occurrences(s, e, rec), token)
+    except HOLD.GraphDown:
+        HOLD.set_down(True)
+        return _book_held(rm, s, e, subject, people, desc0, teams, txn, rec)
     body = {"subject": subject,
             "start": {"dateTime": _iso(s), "timeZone": TZ}, "end": {"dateTime": _iso(e), "timeZone": TZ},
             "location": _location(rm), "attendees": _attendee_rows(rm, people),
             "allowNewTimeProposals": True}
-    desc = _clean_desc(description)
-    if desc:
-        body["body"] = {"contentType": "HTML", "content": _desc_html(desc)}
+    if desc0:
+        body["body"] = {"contentType": "HTML", "content": _desc_html(desc0)}
     if rec:
         body["recurrence"] = rec
     if txn and re.match(r"^[A-Za-z0-9-]{8,64}$", str(txn)):
@@ -675,7 +723,13 @@ def book(room, start, end, subject, attendees=None, teams=1, repeat="none", repe
     if _truthy(teams):
         body.update({"isOnlineMeeting": True, "onlineMeetingProvider": "teamsForBusiness"})
     from urllib.parse import quote
-    ev = _graph_write("post", GRAPH + "/users/" + quote(caller) + "/events", token, body)
+    try:
+        ev = _graph_write("post", GRAPH + "/users/" + quote(caller) + "/events", token, body, soft=True)
+    except HOLD.GraphDown:
+        # Graph co the DA tao lich roi moi het gio: lich dat tam dung CUNG transactionId -> khi dong bo
+        # Graph khong tao them lich thu hai
+        HOLD.set_down(True)
+        return _book_held(rm, s, e, subject, people, desc0, teams, body.get("transactionId"), rec)
     clear_cache()
     return {"ok": True, "event_id": ev.get("id"), "uid": ev.get("iCalUId") or "",
             "room": rm["name"], "label": rm["label"], "start": s, "end": e, "subject": subject,
@@ -693,6 +747,8 @@ def update(event_id, room=None, start=None, end=None, subject=None, attendees=No
     moving rooms swaps the resource attendee so the old room is freed and the new one answers."""
     pmperm.require_pm_access()
     caller = frappe.session.user
+    if HOLD.is_hold_id(event_id):
+        frappe.throw(_("Đây là lịch đặt tạm (lúc Microsoft 365 lỗi): muốn đổi thì Huỷ rồi đặt lại."))
     token = _graph_token(True)
     ev = _own_event(event_id, token, "id,iCalUId,subject,start,end,attendees,isOrganizer,isCancelled,"
                                      "type,seriesMasterId,recurrence")
@@ -790,6 +846,9 @@ def update(event_id, room=None, start=None, end=None, subject=None, attendees=No
 def detail(event_id):
     """Description of MY booking for the edit dialog: {description, editable}. Organiser only."""
     pmperm.require_pm_access()
+    if HOLD.is_hold_id(event_id):
+        h = HOLD.get(event_id) or {}
+        return {"description": h.get("description") or "", "editable": False}
     token = _graph_token(True)
     ev = _own_event(event_id, token, "body,isOrganizer,isCancelled")
     if ev is None or ev.get("isCancelled"):
@@ -804,6 +863,10 @@ def detail(event_id):
 def booking_state(event_id):
     """{state: accepted|declined|pending|cancelled} - the room's answer to one of MY bookings."""
     pmperm.require_pm_access()
+    if HOLD.is_hold_id(event_id):
+        h = HOLD.get(event_id) or {}
+        st = h.get("status")
+        return {"state": {"held": "held", "synced": "pending", "declined": "declined"}.get(st, "cancelled")}
     token = _graph_token(True)
     ev = _own_event(event_id, token, "attendees,isCancelled")
     if ev is None or ev.get("isCancelled"):
@@ -819,6 +882,12 @@ def cancel(event_id, comment=None, scope="occurrence"):
     """Cancel MY booking (organiser only): Graph sends the cancellation to the room + guests.
     scope=series cancels the whole recurring series."""
     pmperm.require_pm_access()
+    if HOLD.is_hold_id(event_id):
+        real = HOLD.cancel(event_id)
+        clear_cache()
+        if not real:
+            return {"ok": True, "state": "cancelled", "scope": "occurrence"}
+        event_id = real            # da len Teams roi: huy that ben duoi
     token = _graph_token(True)
     ev = _own_event(event_id, token, "isOrganizer,isCancelled,type,seriesMasterId")
     if ev is None or ev.get("isCancelled"):

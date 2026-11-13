@@ -462,5 +462,92 @@ class TestCapacityPatch(unittest.TestCase):
         self.assertEqual([fk.row("EC Meeting Room", c)["capacity"] for c in ("5.1", "1.1", "5.2")], [8, 10, 2])
 
 
+class TestDatTam(Base):
+    """13/11/2026: Microsoft 365 loi (Graph timeout) -> dat tam tren ERP, tu len Teams khi chay lai."""
+
+    def setUp(self):
+        Base.setUp(self)
+        store = {}
+        self.fk.module.db.get_global = lambda k, *a, **kw: store.get(k)
+        self.fk.module.db.set_global = lambda k, v, *a, **kw: store.__setitem__(k, v)
+        cache = self.fk.module.cache()
+        cache.delete_value = lambda k: cache.d.pop(k, None)
+        self.cache = cache
+        self.down = True
+        real_post = self.g.post
+
+        def post(url, json=None, headers=None, timeout=None, **k):
+            if self.down:
+                raise IOError("Read timed out")       # Graph treo nhu sang 13/11
+            return real_post(url, json=json, headers=headers, timeout=timeout, **k)
+        sys.modules["requests"].post = post
+        self.H = sys.modules["ecentric_workspace.pm.api.rooms_hold"]
+
+    def up(self):
+        self.down = False
+        self.cache.d.pop(self.H.DOWN_KEY, None)
+
+    def test_microsoft_loi_day_khong_bao_loi_va_bat_dat_tam(self):
+        d = self.r.day(DAY)
+        self.assertTrue(d["offline"])
+        self.assertFalse(any(r.get("error") for r in d["rooms"]))
+        n = len(self.g.calls)
+        self.assertTrue(self.r.day(DAY)["offline"])          # lan sau: khong goi Graph (khong cho 15 s)
+        self.assertEqual(len(self.g.calls), n)
+
+    def test_dat_tam_chan_trung_hien_tren_luoi_va_mine(self):
+        self.r.day(DAY)
+        res = self.r.book("1.2", DAY + " 15:00:00", DAY + " 16:00:00", "Hop gap", txn="abcdefgh-1234")
+        self.assertEqual(res["state"], "held")
+        self.assertTrue(res["event_id"].startswith("hold:"))
+        self.assertFalse([c for c in self.g.calls if c[0] == "POST" and c[1].endswith("/events")])
+        self.fk.set_user("carol@ec.vn")
+        with self.assertRaises(Exception) as cm:
+            self.r.book("1.2", DAY + " 15:30:00", DAY + " 16:30:00", "Trung")
+        self.assertIn("đặt tạm", str(cm.exception))
+        self.r.book("1.2", DAY + " 16:00:00", DAY + " 17:00:00", "Sat gio")      # sat gio: duoc
+        self.fk.set_user(ME)
+        room = [r for r in self.r.day(DAY)["rooms"] if r["name"] == "1.2"][0]
+        self.assertEqual(len(room["bookings"]), 2)
+        self.assertTrue(any(b["mine"] and "đặt tạm" in b["who"] for b in room["bookings"]))
+        rows = self.r.mine()["rows"]
+        self.assertEqual([x["state"] for x in rows], ["held"])
+        with self.assertRaises(Exception):
+            self.r.update(res["event_id"], subject="Doi")
+        with self.assertRaises(Exception):
+            self.r.book("5.1", DAY + " 15:00:00", DAY + " 16:00:00", "Lap", repeat="daily",
+                        repeat_until="2026-10-20")
+
+    def test_huy_dat_tam(self):
+        self.r.day(DAY)
+        res = self.r.book("1.2", DAY + " 15:00:00", DAY + " 16:00:00", "Hop")
+        self.assertEqual(self.r.cancel(res["event_id"])["state"], "cancelled")
+        room = [r for r in self.r.day(DAY)["rooms"] if r["name"] == "1.2"][0]
+        self.assertEqual(room["bookings"], [])
+
+    def test_microsoft_chay_lai_tu_len_teams(self):
+        self.r.day(DAY)
+        res = self.r.book("1.2", DAY + " 15:00:00", DAY + " 16:00:00", "Hop", attendees=["carol@ec.vn"],
+                          txn="abcdefgh-1234")
+        self.fk.set_user("carol@ec.vn")
+        res2 = self.r.book("5.1", DAY + " 15:00:00", DAY + " 16:00:00", "Bi trung")
+        self.fk.set_user(ME)
+        self.g.room_cal["room.phong@ecentric.vn"] = [gev("T1", "15:30", "16:30")]   # dat tren Teams luc dang loi
+        self.H.sync_holds()                       # van loi: khong lam gi
+        self.assertEqual(self.H.get(res["event_id"])["status"], "held")
+        self.up()
+        self.H.sync_holds()
+        h = self.H.get(res["event_id"])
+        self.assertEqual(h["status"], "synced")
+        post = [c for c in self.g.calls if c[0] == "POST" and c[1].endswith("/events")]
+        self.assertEqual(len(post), 1)
+        self.assertIn("alice%40ec.vn/events", post[0][1].replace("@", "%40"))
+        self.assertEqual(post[0][2]["transactionId"], "abcdefgh-1234")
+        self.assertTrue(post[0][2]["isOnlineMeeting"])
+        self.assertEqual(self.H.get(res2["event_id"])["status"], "declined")
+        room = [r for r in self.r.day(DAY)["rooms"] if r["name"] == "1.2"][0]
+        self.assertFalse(any("đặt tạm" in b["who"] for b in room["bookings"]))
+
+
 if __name__ == "__main__":
     unittest.main()
