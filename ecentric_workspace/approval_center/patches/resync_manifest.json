@@ -313,8 +313,8 @@
     "sha256": "bcfec3a49e4da5715ff38db8cff485c5da8c3e8f2ab29349822eb3abd7d73bef"
   },
   "pm/frontend/pm_app.html": {
-    "last_resync_patch": "p349_resync_pm_phong_hop_f5",
-    "sha256": "1f77a89265eeb96d442fe7471e416ddd0b45fbf9295ef7433c76fc9aa4305925"
+    "last_resync_patch": "p378_resync_pm_phong_hop_dat_tam",
+    "sha256": "a97ef1ff9c7b72f51078355f0943d8e33b321e9c118f8bc59be8fcda7f5d8c8c"
   },
   "ai_tools/pages/ai_live/main_section.html": {
     "last_resync_patch": "p313_ai_live_trang_rieng",

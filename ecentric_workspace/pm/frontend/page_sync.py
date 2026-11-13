@@ -30,8 +30,10 @@ NAME = "project-management"
 TITLE = "Project Management"
 
 #: sha256 cua pm_app.html commit nay ship (cong QC `pagesync` doi chieu manifest).
-BASELINE_SHA256 = "1f77a89265eeb96d442fe7471e416ddd0b45fbf9295ef7433c76fc9aa4305925"
+BASELINE_SHA256 = "a97ef1ff9c7b72f51078355f0943d8e33b321e9c118f8bc59be8fcda7f5d8c8c"
 SUPERSEDES_SHA256 = (
+    # 13/11/2026: ban truoc che do dat tam Phong hop (p378_resync_pm_phong_hop_dat_tam).
+    "1f77a89265eeb96d442fe7471e416ddd0b45fbf9295ef7433c76fc9aa4305925",
     # 09/11/2026: ban bump ?v= lan 1 (p348) truoc ban cho ecApi khi F5 (p349).
     "d277f372804c3dda92a3a87bf565f0fc93aa8331cda840598065955add17a1e7",
     # 09/11/2026: ban /pm hotfix 13 truoc bump ?v= (pm_rooms.js sua Invalid Request bi cache 1 nam).

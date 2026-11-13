@@ -310,7 +310,8 @@ function render(el, opts) {
     Object.keys(S.pending).forEach(k => { const p = S.pending[k]; if (!p.series && !inMine(p) && !rows.some(x => x.event_id === p.event_id || (p.uid && x.uid === p.uid))) rows.push(p); });
     return rows.sort((a, b) => String(a.start).localeCompare(String(b.start)));
   }
-  const PILL = { accepted: ["ok", "Phòng đã nhận"], pending: ["wait", "Chờ phòng nhận"], declined: ["no", "Phòng từ chối"] };
+  const PILL = { accepted: ["ok", "Phòng đã nhận"], pending: ["wait", "Chờ phòng nhận"], declined: ["no", "Phòng từ chối"],
+    held: ["wait", "Đặt tạm · chờ Microsoft"] };   /* 13/11: Microsoft 365 lỗi -> giữ phòng tạm trên ERP (rooms_hold) */
   function paintMine() {
     if (mode !== "page") return;
     const box = $("[data-mine]"); if (!box) return;
@@ -340,6 +341,13 @@ function render(el, opts) {
   }
   function paintBar() {
     const dd = dayData(S.date) || dayData(S.today), off = !!dd && !dd.sync_on;
+    /* 13/11: Microsoft 365 lỗi -> băng thông báo chế độ đặt tạm */
+    const root = el.querySelector(".pmrm") || el;
+    let bn = el.querySelector(".pmrm-offline");
+    if (dd && dd.offline) {
+      if (!bn) { bn = document.createElement("div"); bn.className = "pmrm-offline"; bn.setAttribute("role", "status"); root.insertBefore(bn, root.firstChild); }
+      bn.textContent = "Microsoft 365 đang lỗi nên chưa xem được lịch đặt trên Teams. Đặt phòng lúc này là ĐẶT TẠM trên ERP (vẫn chặn trùng giữa các lịch đặt trên ERP). Khi Microsoft chạy lại, lịch tự vào Outlook/Teams và ERP báo cho bạn.";
+    } else if (bn) bn.remove();
     $$('[data-act="book"]').forEach(b => { b.disabled = off || !dayData(S.date) || !roomsOf(S.date).some(r => !r.error); });
     const off0 = S.today ? [0, 1, 2].map(i => ymdAdd(S.today, i)) : [];
     let any = false;
@@ -710,6 +718,11 @@ function render(el, opts) {
     closeDlg();
     if (p.start && String(p.start).slice(0, 10) !== S.date) S.date = String(p.start).slice(0, 10);
     paint();
+    if (p.state === "held") {   /* Microsoft 365 lỗi: đã giữ phòng tạm, không hỏi booking_state */
+      toast("Microsoft 365 đang lỗi: đã giữ phòng TẠM trên ERP. Khi Microsoft chạy lại, lịch tự vào Outlook/Teams.");
+      refresh();
+      return;
+    }
     toast(rp !== "none" ? "Đã gửi lịch lặp lại (" + (D.count || 1) + " buổi), chờ phòng xác nhận…" : "Đã gửi lịch, chờ phòng xác nhận…");
     poll(p, 0);
   }

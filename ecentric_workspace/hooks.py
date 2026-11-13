@@ -1075,3 +1075,8 @@ web_include_js.append("ec_quiz_live.bundle.js")
 # Tat khan cap: site_config ec_training_draw_disabled: 1.
 scheduler_events["cron"].setdefault("*/1 * * * *", []).append(
     "ecentric_workspace.dao_tao.application.draw_service.tick")
+
+# 13/11/2026 (Hoan): Phong hop - che do DAT TAM khi Microsoft 365 loi; 5 phut dua lich dat tam len Teams.
+scheduler_events["cron"].setdefault("*/5 * * * *", []).append(
+    "ecentric_workspace.pm.api.rooms_hold.sync_holds"
+)
