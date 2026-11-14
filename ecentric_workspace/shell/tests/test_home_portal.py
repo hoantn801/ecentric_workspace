@@ -38,7 +38,8 @@ class TestThreeTierModel(unittest.TestCase):
         # 2026-08-11 (trang thật /ec-app/hr/recruitment); "Tổng quan" rời 2026-09-28
         # (trang thật /tong-quan); "Intranet" thành "Tin nội bộ" 2026-10-01 (/tin-noi-bo).
         # "Góp ý BGD" thành "Góp ý công ty" 2026-10-04 (/gop-y).
-        self.assertEqual(len(soon), 2)
+        # "Đào tạo" thành trang thật /dao-tao 2026-11-12 (dao_tao/) - còn lại KPI.
+        self.assertEqual(len(soon), 1)
         allr = {i["route"] for i in nav.compose_all()}
         for i in soon:
             self.assertNotIn(i["route"], allr, i["key"])

@@ -148,7 +148,7 @@ def _run_skip(levels, approvers, co_ky_so=False, guard_loi=False, from_level=Non
     # Ban gia cua tang ky so. `get_enabled_profile` tra ten ho so khi luong CO ky so.
     guard_mod = types.ModuleType("ecentric_workspace.platform.esign.guard")
 
-    def _profile(ref_dt, atype):
+    def _profile(ref_dt, atype, business_name=None):  # 12/11: + ten phieu
         if guard_loi:
             raise RuntimeError("khong doc duoc cau hinh")
         return "EC-DSPROF-1" if co_ky_so else None
@@ -340,7 +340,7 @@ def _moi_truong_ky_so(co_ky_so, guard_loi, dem):
     """Ban gia tang ky so + bo nho dem so lan bi hoi. Tra ve (dict modules, guard_mod)."""
     guard_mod = types.ModuleType("ecentric_workspace.platform.esign.guard")
 
-    def _profile(ref_dt, atype):
+    def _profile(ref_dt, atype, business_name=None):  # 12/11: + ten phieu
         dem["hoi_ky_so"] += 1
         if guard_loi:
             raise RuntimeError("khong doc duoc cau hinh")

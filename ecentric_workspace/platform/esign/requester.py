@@ -30,8 +30,8 @@ _LIVE_OR_DONE = ("Draft", "Prepared", "Queued", "Provider Accepted", "Verifying"
                  "Signed", "Approval Completed")
 
 
-def _profile_and_settings(business_doctype, approval_type):
-    pname = guard.get_enabled_profile(business_doctype, approval_type)
+def _profile_and_settings(business_doctype, approval_type, business_name=None):
+    pname = guard.get_enabled_profile(business_doctype, approval_type, business_name)
     if not pname:
         return None, None, None
     prof = frappe.db.get_value("EC Digital Signature Profile", pname,
@@ -52,9 +52,11 @@ def _draft_approval_type(business_doctype, business_name):
         if frappe.db.has_column(business_doctype, "approval_type") else None
     if at:
         return at
-    rows = frappe.get_all("EC Digital Signature Profile",
-                          filters={"business_doctype": business_doctype, "enabled": 1},
-                          pluck="approval_type", limit_page_length=2)
+    # DISTINCT: hop dong co nhieu ho so (moi quy trinh mot ho so) nhung cung MOT loai yeu cau -
+    # dem dong ho so thi luon >1 va panel nhap khong bao gio hien (12/11).
+    rows = sorted(set(frappe.get_all("EC Digital Signature Profile",
+                                     filters={"business_doctype": business_doctype, "enabled": 1},
+                                     pluck="approval_type", limit_page_length=20)))
     return rows[0] if len(rows) == 1 else None
 
 
@@ -67,7 +69,8 @@ def link_context(business_doctype, business_name):
         at = frappe.db.get_value(AR, ar, "approval_type")
     else:
         at = _draft_approval_type(business_doctype, business_name)
-    _p, prof, st = _profile_and_settings(business_doctype, at) if at else (None, None, None)
+    _p, prof, st = (_profile_and_settings(business_doctype, at, business_name) if at
+                    else (None, None, None))
     if not prof or not st:
         frappe.throw(_("Loại yêu cầu này chưa cấu hình ký số."))
     return st, prof.environment
@@ -88,11 +91,11 @@ def requester_signing_readiness(business_doctype, business_name):
         checks["not_submitted"] = True
         checks["is_owner"] = (frappe.session.user == owner)
         checks["requester_signature_required"] = bool(
-            at and guard.requester_signature_required(business_doctype, at))
+            at and guard.requester_signature_required(business_doctype, at, business_name))
         # Cho chu phieu ket noi tai khoan SCTS NGAY TU TRUOC KHI GUI - de luc bam Gui khong
         # bi chan quay lai. Chi tinh khi da biet loai yeu cau (co profile/settings).
         if checks["is_owner"] and checks["requester_signature_required"]:
-            _p, prof0, st0 = _profile_and_settings(business_doctype, at)
+            _p, prof0, st0 = _profile_and_settings(business_doctype, at, business_name)
             if prof0 and st0:
                 from ecentric_workspace.platform.esign import user_link
                 ls = user_link.link_status(owner, st0, prof0.environment)
@@ -103,10 +106,11 @@ def requester_signing_readiness(business_doctype, business_name):
                 "stage": "Not Submitted"}
     req = frappe.db.get_value(AR, ar, ["approval_type", "current_level", "approval_status",
                                        "requester_signature_status", "requested_by"], as_dict=True)
-    pname, prof, st = _profile_and_settings(business_doctype, req.approval_type)
+    pname, prof, st = _profile_and_settings(business_doctype, req.approval_type, business_name)
     checks["signing_enabled"] = bool(pname)
     checks["requester_signature_required"] = bool(
-        pname and guard.requester_signature_required(business_doctype, req.approval_type))
+        pname and guard.requester_signature_required(business_doctype, req.approval_type,
+                                                     business_name))
     checks["is_requester"] = frappe.session.user == req.requested_by
     checks["pending_requester_signature"] = req.requester_signature_status in _START_STATES
     # Dang cho nha cung cap xac nhan. Phai bao ra rieng: panel truoc day chi hien khi trang
@@ -279,8 +283,9 @@ def requester_submit_and_sign(business_doctype, business_name, comment=None):
     requester = req.requested_by
     if actor != requester:  # authoritative requester only; role is never a bypass
         frappe.throw(_("Chỉ người đề nghị mới được thực hiện Gửi & Ký."), frappe.PermissionError)
-    pname, prof, st = _profile_and_settings(business_doctype, req.approval_type)
-    if not pname or not guard.requester_signature_required(business_doctype, req.approval_type):
+    pname, prof, st = _profile_and_settings(business_doctype, req.approval_type, business_name)
+    if not pname or not guard.requester_signature_required(business_doctype, req.approval_type,
+                                                           business_name):
         frappe.throw(_("Loại yêu cầu này không yêu cầu chữ ký của người đề nghị."))
     if req.requester_signature_status == "Signed":
         frappe.throw(_("Người đề nghị đã ký cho yêu cầu này."))
@@ -461,11 +466,13 @@ def activate_level_one_after_requester_signature(request_name, dsr_name):
     # voi events.current_status / transitions._lock_and_read.
     req = frappe.db.get_value(AR, request_name,
                               ["approval_type", "reference_doctype", "current_level",
-                               "requester_signature_status", "requested_by", "approval_status"],
+                               "requester_signature_status", "requested_by", "approval_status",
+                               "reference_name"],
                               as_dict=True, for_update=True)
     if not req:
         return {"activated": False, "reason": "request_missing"}
-    if not guard.requester_signature_required(req.reference_doctype, req.approval_type):
+    if not guard.requester_signature_required(req.reference_doctype, req.approval_type,
+                                              req.reference_name):
         return {"activated": False, "reason": "requester_signature_not_required"}
     d = frappe.db.get_value(DSR, dsr_name, ["actor_type", "actor_user", "status"], as_dict=True)
     if not d or d.actor_type != "Requester" or d.status != "Approval Completed" \
@@ -553,8 +560,9 @@ def prepare_requester_signing_package(business_doctype, business_name):
         frappe.throw(_("Chỉ người đề nghị mới được chuẩn bị gói ký."), frappe.PermissionError)
     if req.requester_signature_status not in _START_STATES + ("Processing",):
         frappe.throw(_("Yêu cầu không ở giai đoạn chờ người đề nghị ký."))
-    pname = guard.get_enabled_profile(req.reference_doctype, req.approval_type)
-    if not pname or not guard.requester_signature_required(req.reference_doctype, req.approval_type):
+    pname = guard.get_enabled_profile(req.reference_doctype, req.approval_type, business_name)
+    if not pname or not guard.requester_signature_required(req.reference_doctype, req.approval_type,
+                                                           business_name):
         frappe.throw(_("Loại yêu cầu này không yêu cầu chữ ký của người đề nghị."))
     mapping = perms.verified_mapping(req.requested_by,
                                      frappe.db.get_value("EC Digital Signature Profile", pname,

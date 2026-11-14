@@ -1,0 +1,119 @@
+{
+ "doctype": "DocType",
+ "name": "EC Quiz Answer",
+ "module": "Dao Tao",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "description": "Một câu trả lời. name = phòng|câu|băm email: mỗi người trả lời một câu MỘT lần (khoá chính). Điểm tính lúc nhận, cộng vào người chơi lúc câu khoá.",
+ "autoname": "Prompt",
+ "field_order": [
+  "session",
+  "user",
+  "q_index",
+  "qid",
+  "answer_json",
+  "received_ms",
+  "elapsed_ms",
+  "ratio",
+  "correct",
+  "points",
+  "streak",
+  "applied"
+ ],
+ "fields": [
+  {
+   "fieldname": "session",
+   "fieldtype": "Link",
+   "label": "Phòng",
+   "options": "EC Quiz Session",
+   "reqd": 1,
+   "search_index": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "Người chơi",
+   "options": "User",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "q_index",
+   "fieldtype": "Int",
+   "label": "Câu",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "qid",
+   "fieldtype": "Data",
+   "label": "Mã câu"
+  },
+  {
+   "fieldname": "answer_json",
+   "fieldtype": "Small Text",
+   "label": "Trả lời (JSON)"
+  },
+  {
+   "fieldname": "received_ms",
+   "fieldtype": "Data",
+   "label": "Server nhận lúc (ms)"
+  },
+  {
+   "fieldname": "elapsed_ms",
+   "fieldtype": "Int",
+   "label": "Thời gian (ms)"
+  },
+  {
+   "fieldname": "ratio",
+   "fieldtype": "Float",
+   "label": "Tỉ lệ đúng"
+  },
+  {
+   "fieldname": "correct",
+   "fieldtype": "Check",
+   "label": "Đúng"
+  },
+  {
+   "fieldname": "points",
+   "fieldtype": "Int",
+   "label": "Điểm",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "streak",
+   "fieldtype": "Int",
+   "label": "Chuỗi sau câu"
+  },
+  {
+   "fieldname": "applied",
+   "fieldtype": "Check",
+   "label": "Đã cộng điểm"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "modified": "2026-11-12 18:00:00.000000"
+}

@@ -1,0 +1,116 @@
+{
+ "doctype": "DocType",
+ "name": "EC Training Progress",
+ "module": "Dao Tao",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "description": "Tiến độ một người với một bài. name = bài + băm email.",
+ "autoname": "Prompt",
+ "field_order": [
+  "lesson",
+  "user",
+  "viewed_at",
+  "quiz_score",
+  "quiz_scored",
+  "quiz_at",
+  "practice_text",
+  "practice_link",
+  "practice_at",
+  "review",
+  "reviewed_by"
+ ],
+ "fields": [
+  {
+   "fieldname": "lesson",
+   "fieldtype": "Link",
+   "label": "Bài học",
+   "options": "EC Training Lesson",
+   "reqd": 1,
+   "search_index": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "Người học",
+   "options": "User",
+   "reqd": 1,
+   "search_index": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "viewed_at",
+   "fieldtype": "Datetime",
+   "label": "Xem bài lúc"
+  },
+  {
+   "fieldname": "quiz_score",
+   "fieldtype": "Int",
+   "label": "Điểm quiz"
+  },
+  {
+   "fieldname": "quiz_scored",
+   "fieldtype": "Int",
+   "label": "Số câu chấm"
+  },
+  {
+   "fieldname": "quiz_at",
+   "fieldtype": "Datetime",
+   "label": "Làm quiz lúc"
+  },
+  {
+   "fieldname": "practice_text",
+   "fieldtype": "Long Text",
+   "label": "Bài thực hành"
+  },
+  {
+   "fieldname": "practice_link",
+   "fieldtype": "Data",
+   "label": "Link bài thực hành"
+  },
+  {
+   "fieldname": "practice_at",
+   "fieldtype": "Datetime",
+   "label": "Nộp lúc",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "review",
+   "fieldtype": "Select",
+   "label": "Kiểm tra",
+   "options": "\nOK\nRevoked",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "reviewed_by",
+   "fieldtype": "Link",
+   "label": "Người kiểm tra",
+   "options": "User"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "modified": "2026-11-12 18:00:00.000000"
+}

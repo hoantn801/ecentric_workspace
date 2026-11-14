@@ -68,7 +68,8 @@ class Submitter:
         signature_required = False
         if self.requester_esign:
             from ecentric_workspace.platform.esign import guard
-            signature_required = guard.requester_signature_required(self.doctype, self.code)
+            signature_required = guard.requester_signature_required(self.doctype, self.code,
+                                                                     document.name)
         if signature_required:
             # Tu choi TRUOC khi ghi bat cu thu gi. Xem assert_ready_to_submit: chan sau khi
             # engine.submit() chay thi mot lan commit o bat cu dau trong duong do se bien loi

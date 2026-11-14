@@ -1,0 +1,130 @@
+{
+ "doctype": "DocType",
+ "name": "EC Training Lesson",
+ "module": "Dao Tao",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "description": "Bài học AI (trang /dao-tao). Nội dung là CHỮ THUẦN, trang tự thoát ký tự - không HTML.",
+ "autoname": "hash",
+ "title_field": "title",
+ "field_order": [
+  "title",
+  "status",
+  "week_start",
+  "summary",
+  "body",
+  "topic",
+  "level",
+  "tool",
+  "video_url",
+  "slide_url",
+  "quiz",
+  "practice_prompt",
+  "practice_due",
+  "published_at"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Tiêu đề",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Trạng thái",
+   "options": "Draft\nPublished",
+   "default": "Draft",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "week_start",
+   "fieldtype": "Date",
+   "label": "Tuần (thứ Hai)",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "summary",
+   "fieldtype": "Small Text",
+   "label": "Tóm tắt"
+  },
+  {
+   "fieldname": "body",
+   "fieldtype": "Long Text",
+   "label": "Nội dung"
+  },
+  {
+   "fieldname": "topic",
+   "fieldtype": "Data",
+   "label": "Chủ đề"
+  },
+  {
+   "fieldname": "level",
+   "fieldtype": "Data",
+   "label": "Cấp độ"
+  },
+  {
+   "fieldname": "tool",
+   "fieldtype": "Data",
+   "label": "Công cụ"
+  },
+  {
+   "fieldname": "video_url",
+   "fieldtype": "Data",
+   "label": "Video"
+  },
+  {
+   "fieldname": "slide_url",
+   "fieldtype": "Data",
+   "label": "Slide / tài liệu"
+  },
+  {
+   "fieldname": "quiz",
+   "fieldtype": "Link",
+   "label": "Quiz bài học",
+   "options": "EC Quiz"
+  },
+  {
+   "fieldname": "practice_prompt",
+   "fieldtype": "Small Text",
+   "label": "Đề bài thực hành"
+  },
+  {
+   "fieldname": "practice_due",
+   "fieldtype": "Datetime",
+   "label": "Hạn nộp thực hành"
+  },
+  {
+   "fieldname": "published_at",
+   "fieldtype": "Datetime",
+   "label": "Đăng lúc"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "modified": "2026-11-12 18:00:00.000000"
+}

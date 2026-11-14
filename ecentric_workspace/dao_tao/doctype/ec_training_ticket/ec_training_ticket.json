@@ -1,0 +1,95 @@
+{
+ "doctype": "DocType",
+ "name": "EC Training Ticket",
+ "module": "Dao Tao",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "description": "Vé quay số tuần (tối đa 3 vé / người / tuần, tính chung quiz + thực hành). ref = phòng quiz / bài học; một nguồn chỉ cấp một lần (name = nguồn + ref + băm email).",
+ "autoname": "Prompt",
+ "field_order": [
+  "user",
+  "week_start",
+  "source",
+  "ref",
+  "label",
+  "count",
+  "revoked",
+  "revoked_by"
+ ],
+ "fields": [
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "Người nhận",
+   "options": "User",
+   "reqd": 1,
+   "search_index": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "week_start",
+   "fieldtype": "Date",
+   "label": "Tuần",
+   "search_index": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "source",
+   "fieldtype": "Data",
+   "label": "Nguồn",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "ref",
+   "fieldtype": "Data",
+   "label": "Tham chiếu"
+  },
+  {
+   "fieldname": "label",
+   "fieldtype": "Data",
+   "label": "Lý do"
+  },
+  {
+   "fieldname": "count",
+   "fieldtype": "Int",
+   "label": "Số vé",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "revoked",
+   "fieldtype": "Check",
+   "label": "Đã thu hồi"
+  },
+  {
+   "fieldname": "revoked_by",
+   "fieldtype": "Link",
+   "label": "Thu hồi bởi",
+   "options": "User"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "modified": "2026-11-12 18:00:00.000000"
+}

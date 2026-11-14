@@ -1,0 +1,58 @@
+{
+ "doctype": "DocType",
+ "name": "EC Training Vote",
+ "module": "Dao Tao",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "description": "Một phiếu bầu. name = chủ đề + băm email (mỗi người 1 phiếu / chủ đề).",
+ "autoname": "Prompt",
+ "field_order": [
+  "topic",
+  "user"
+ ],
+ "fields": [
+  {
+   "fieldname": "topic",
+   "fieldtype": "Link",
+   "label": "Chủ đề",
+   "options": "EC Training Topic",
+   "reqd": 1,
+   "search_index": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "Người bầu",
+   "options": "User",
+   "reqd": 1,
+   "search_index": 1,
+   "in_list_view": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "modified": "2026-11-12 18:00:00.000000"
+}

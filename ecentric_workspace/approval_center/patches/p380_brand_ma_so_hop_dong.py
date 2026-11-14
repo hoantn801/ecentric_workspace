@@ -58,7 +58,7 @@ def execute():
     try:
         _ensure_field()
     except Exception:
-        frappe.log_error(frappe.get_traceback(), "p366 tao truong Brand.ec_contract_code")
+        frappe.log_error(frappe.get_traceback(), "p380 tao truong Brand.ec_contract_code")
         return
     made, filled, kept, missing = [], [], [], []
     for name, full in NEW_BRANDS:
@@ -66,7 +66,7 @@ def execute():
             if _ensure_brand(name, full):
                 made.append(name)
         except Exception:
-            frappe.log_error(frappe.get_traceback(), "p366 tao brand %s" % name)
+            frappe.log_error(frappe.get_traceback(), "p380 tao brand %s" % name)
     for name, code in CODES:
         try:
             if not frappe.db.exists("Brand", name):
@@ -79,8 +79,8 @@ def execute():
             frappe.db.set_value("Brand", name, FIELD, code)
             filled.append("%s=%s" % (name, code))
         except Exception:
-            frappe.log_error(frappe.get_traceback(), "p366 ma so HD brand %s" % name)
+            frappe.log_error(frappe.get_traceback(), "p380 ma so HD brand %s" % name)
     frappe.log_error(
         "tao brand: %s\ndien ma: %s\ngiu ma da co: %s\nkhong thay brand: %s"
         % (", ".join(made) or "-", ", ".join(filled) or "-", ", ".join(kept) or "-", ", ".join(missing) or "-"),
-        "p366_brand_ma_so_hop_dong (bao cao, khong phai loi)")
+        "p380_brand_ma_so_hop_dong (bao cao, khong phai loi)")

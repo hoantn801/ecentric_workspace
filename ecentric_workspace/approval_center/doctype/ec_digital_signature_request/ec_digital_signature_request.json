@@ -38,6 +38,7 @@
   "request_level",
   "approver_row",
   "action",
+  "provider_state_before",
   "transition_id",
   "requested_by",
   "approver",
@@ -122,9 +123,16 @@
    "fieldname": "action",
    "fieldtype": "Select",
    "label": "Action",
-   "options": "Sign\nReject\nCancel",
+   "options": "Sign\nReject\nCancel\nApprove",
    "default": "Sign",
    "reqd": 1
+  },
+  {
+   "fieldname": "provider_state_before",
+   "fieldtype": "Data",
+   "read_only": 1,
+   "label": "Bước cổng trước khi gửi",
+   "description": "Chân duyệt không ký: '<bước trước>|<bước đích>' ghi NGAY trước khi gửi. Xác minh = cổng đã rời bước trước."
   },
   {
    "fieldname": "transition_id",

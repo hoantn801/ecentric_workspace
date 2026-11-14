@@ -207,7 +207,8 @@ class TestDuongGoiTuTrenXuong(unittest.TestCase):
 
     def test_mac_dinh_la_TAT(self):
         src = _read("platform", "esign", "service.py")
-        self.assertIn("def reconcile_manual_review(dsr_name, accept_predating=False, reason=None)", src)
+        # 12/11 (PR-B): them `observed_state_id` (doi soat buoc khong ky) - mac dinh van TAT.
+        self.assertIn("def reconcile_manual_review(dsr_name, accept_predating=False, reason=None,", src)
         self.assertIn("def _expected_for(dsr, allow_predating=False)", src)
 
     def test_expected_lay_co_TU_THAM_SO_chu_khong_phai_hang_so(self):
@@ -277,7 +278,8 @@ class TestBatCoThiBAT_BUOC_LY_DO(unittest.TestCase):
             MIN_CLEAR_REASON_LEN = 10
 
             @staticmethod
-            def reconcile_manual_review(dsr_name, accept_predating=False, reason=None):
+            def reconcile_manual_review(dsr_name, accept_predating=False, reason=None,
+                                        observed_state_id=None):  # 12/11 PR-B
                 seen.update({"dsr": dsr_name, "co": accept_predating, "ly_do": reason})
                 return {"ok": True}
 

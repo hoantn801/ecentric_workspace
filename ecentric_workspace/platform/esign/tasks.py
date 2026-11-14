@@ -389,6 +389,11 @@ def _complete_dsr(dsr_name, dsr):
     (activation, never engine.approve()); Approval-Level DSRs use the unchanged approver
     completion."""
     if (dsr or {}).get("actor_type") == "Requester":
+        action = (dsr or {}).get("action") or frappe.db.get_value(DSR, dsr_name, "action")
+        if action == "Approve":
+            # Buoc nguoi lap tren cong (portal_steps) - khong dung luong ky cua nguoi de nghi.
+            from ecentric_workspace.platform.esign import portal_steps
+            return portal_steps.complete_requester_step(dsr_name)
         from ecentric_workspace.platform.esign import requester
         return requester.reconcile_and_complete_requester(dsr_name)
     return svc.verify_and_complete(dsr_name)
@@ -468,6 +473,15 @@ def process_signing_request(dsr_name):
         doc_state = _poll_or_stop(dsr_name, dsr, adapter, doc_id)
         if doc_state is None:
             return                              # chung tu ben SCTS da bi huy/xoa - da ghi
+        if dsr.action == "Approve":
+            # Buoc DUYET KHONG KY (12/11/2026). Duong rieng: xac minh bang BUOC tren cong, khong
+            # bang chu ky. `sent_box` bao cho nhanh except ben duoi lenh ghi da roi ERP chua.
+            sent_box = {}
+            try:
+                return _process_portal_approve(dsr_name, dsr, settings, adapter, doc_id,
+                                               sent_box)
+            finally:
+                sent_attempted = bool(sent_box.get("sent"))
 
         # POLL-FIRST chi danh cho chan ky CO THE da gui roi.
         #
@@ -570,15 +584,25 @@ def process_signing_request(dsr_name):
             # chay duoc va moi lenh ky deu roi ve pool.
             from ecentric_workspace.platform.esign.package import workflow_instance_id
             inst_id = workflow_instance_id(dsr.package) or doc_id
-            try:
-                plan = next_handler.plan_handover(dsr, _profile_of(dsr),
-                                                  settings.get("environment"), stage=stage,
-                                                  adapter=adapter, instance_id=inst_id,
-                                                  document_id=doc_id)
-            except Exception as exc:
-                plan = {"mode": "pool", "reason": "handover_planning_failed:%s"
-                                                  % type(exc).__name__}
-                frappe.log_error(frappe.get_traceback(), "esign handover planning failed")
+            trust = _trusts_portal(dsr)
+            if trust:
+                # Ho so LAY BUOC TU CONG (12/11/2026): buoc = dong cau hinh theo cap, cong xac
+                # nhan dang mo. Khong pool, khong dem chu ky, khong lui (xem plan_portal_step).
+                plan = _trusted_plan(dsr_name, dsr, settings, adapter, doc_id, inst_id)
+                if not hasattr(adapter, "transition_with_recipients"):
+                    raise ProviderError("adapter_cannot_transition",
+                                        "lay buoc tu cong can transition_with_recipients",
+                                        retryable=False)
+            else:
+                try:
+                    plan = next_handler.plan_handover(dsr, _profile_of(dsr),
+                                                      settings.get("environment"), stage=stage,
+                                                      adapter=adapter, instance_id=inst_id,
+                                                      document_id=doc_id)
+                except Exception as exc:
+                    plan = {"mode": "pool", "reason": "handover_planning_failed:%s"
+                                                      % type(exc).__name__}
+                    frappe.log_error(frappe.get_traceback(), "esign handover planning failed")
             res = None
             # TACH NGUOI GIU TASK / NGUOI KY (04/09). Chi chan nguoi trinh, chi khi nguoi
             # trinh KHONG phai tai khoan tich hop. Ly do o next_handler.requester_actor.
@@ -621,6 +645,9 @@ def process_signing_request(dsr_name):
                     # resend that one. Naming the next handler is an improvement layered on a
                     # path that already worked; it must never stop signing altogether.
                     if getattr(exc, "ambiguous", False):
+                        raise
+                    if trust:
+                        # Lay buoc tu cong: cong tu choi = dung (khong co duong pool).
                         raise
                     events.emit("HandoverPoolFallback", signature_request=dsr_name,
                                 package=dsr.package, error_summary=safe_error(exc),
@@ -755,6 +782,187 @@ def process_signing_request(dsr_name):
             frappe.log_error(frappe.get_traceback(), "esign.tasks.process_signing_request.state")
     except Exception:
         frappe.log_error(frappe.get_traceback(), "esign.tasks.process_signing_request")
+
+
+def _trusts_portal(dsr):
+    """Ho so cua goi bat 'Lay buoc tu cong' khong."""
+    prof = _profile_of(dsr)
+    return bool(prof and int(frappe.db.get_value("EC Digital Signature Profile", prof,
+                                                 "trust_portal_transitions") or 0))
+
+
+def _trusted_plan(dsr_name, dsr, settings, adapter, doc_id, inst_id):
+    """plan_portal_step cho chan KY. Cho / dung -> ProviderError (khong bao gio pool)."""
+    from ecentric_workspace.platform.esign import next_handler
+    state, why = adapter.workflow_state_for_document(doc_id, dsr.effective_scts_user_id)
+    if state is None:
+        raise ProviderError("portal_state_unreadable", "khong doc duoc buoc tren cong: %s" % why,
+                            retryable=True)
+    plan = next_handler.plan_portal_step(dsr, state, _profile_of(dsr),
+                                         settings.get("environment"),
+                                         adapter=adapter, instance_id=inst_id)
+    if plan["mode"] == "wait":
+        events.emit("PortalStepWaiting", signature_request=dsr_name, package=dsr.package,
+                    verification_result=plan["reason"],
+                    request_meta={"current_state_id": state.get("current_state_id")})
+        raise ProviderError("portal_not_at_step", "cong chua toi buoc cua nguoi nay: %s"
+                            % plan["reason"], retryable=True)
+    if plan["mode"] != "transition":
+        raise ProviderError("portal_step_blocked", plan["reason"], retryable=False)
+    if not plan["config"].get("requires_signature"):
+        raise ProviderError("portal_step_not_signed",
+                            "buoc %s tren cong KHONG ky ma cap nay la cap ky"
+                            % plan["config"].get("transition_id"), retryable=False)
+    return plan
+
+
+def _portal_moved(state_before, cur):
+    """(da_roi_buoc, ly_do). `state_before` = "<buoc truoc>|<buoc dich>" ghi truoc khi gui."""
+    before, _sep, target = str(state_before or "").partition("|")
+    cur = str(cur or "")
+    if not before or not cur or cur == before:
+        return False, "portal_still_at:%s" % cur
+    if not target or not _same_shape(cur, target):
+        # Khong biet buoc dich, hoac hai ma khong so duoc: cong da roi buoc nhung KHONG chung
+        # minh duoc la sang dung cho (co the la tra lai / tu choi). Giao nguoi (QC vong 2).
+        return None, "portal_moved_unverifiable:%s->%s(muon %s)" % (before, cur, target or "?")
+    if cur != target:
+        # Cong da roi buoc nhung SANG CHO KHAC buoc minh gui (vd ai do tu choi / tra lai tren
+        # cong cung luc). Khong duoc coi la "da duyet".
+        return None, "portal_moved_elsewhere:%s->%s(muon %s)" % (before, cur, target)
+    return True, "portal_advanced:%s->%s" % (before, cur)
+
+
+def _same_shape(a, b):
+    """Hai ma buoc so sanh duoc khong (cung la so, hoac cung la chu). toState cua canh co the
+    la ten ("STOP") trong khi currentStateId la so - khi do khong ket luan "sang cho khac"."""
+    def num(x):
+        try:
+            int(str(x))
+            return True
+        except ValueError:
+            return False
+    return num(a) == num(b)
+
+
+def _process_portal_approve(dsr_name, dsr, settings, adapter, doc_id, sent_box):
+    """Chan "Approve": gui buoc KHONG KY dang mo tren cong cho nguoi nay, xac minh = cong da roi
+    buoc do. Cung cac chot cua chan ky: gui DUNG MOT LAN tu Queued, co the da gui thi khong gui
+    lai (Manual Review), ket qua khong ro thi poll. KHONG BAO GIO roi ve pool (bulk-process ky).
+    """
+    from ecentric_workspace.platform.esign import next_handler
+    from ecentric_workspace.platform.esign.package import workflow_instance_id
+    may_have_sent = sm.may_have_sent(dsr)
+    state, why = adapter.workflow_state_for_document(doc_id, dsr.effective_scts_user_id)
+    if state is None:
+        raise ProviderError("portal_state_unreadable", "khong doc duoc buoc tren cong: %s" % why,
+                            retryable=True)
+    cur = state.get("current_state_id")
+    if may_have_sent or dsr.status in ("Provider Accepted", "Verifying"):
+        moved, reason = _portal_moved(dsr.get("provider_state_before"), cur)
+        if moved:
+            svc.mark_verified(dsr_name, reason)
+            return _complete_dsr(dsr_name, dsr)
+        if moved is None:
+            events.set_dsr_status(dsr_name, "Manual Review", event_type="ManualReview",
+                                  verification_result=reason,
+                                  extra_fields={"manual_review_reason": reason[:140]})
+            _dead_letter_todo(dsr_name)
+            _leg_stopped(dsr_name, dsr)
+            return None
+        if dsr.status == "Queued" and not int(dsr.get("resend_authorized") or 0):
+            # Da co the gui roi ma cong chua roi buoc: khong gui lan hai (cung luat chan ky).
+            events.set_dsr_status(dsr_name, "Manual Review", event_type="ManualReview",
+                                  verification_result=reason,
+                                  extra_fields={"manual_review_reason":
+                                                "prior_portal_step_uncertain"})
+            _dead_letter_todo(dsr_name)
+            _leg_stopped(dsr_name, dsr)
+            return None
+        if dsr.status in ("Provider Accepted", "Verifying"):
+            if dsr.status == "Provider Accepted":
+                events.set_dsr_status(dsr_name, "Verifying", event_type="PollTick",
+                                      verification_result=reason)
+                _enqueue_fast_verify(dsr_name)
+            else:
+                events.emit("PollTick", signature_request=dsr_name, package=dsr.package,
+                            verification_result=reason)
+            return None
+        # Queued + resend_authorized: ops da xac nhan cong CHUA nhan -> gui lai mot lan.
+        frappe.db.set_value(DSR, dsr_name, "resend_authorized", 0)
+        events.emit("ResendExecuted", signature_request=dsr_name, package=dsr.package,
+                    request_meta={"last_verify": reason})
+    if dsr.status != "Queued":
+        return None
+    inst_id = workflow_instance_id(dsr.package) or doc_id
+    plan = next_handler.plan_portal_step(dsr, state, _profile_of(dsr),
+                                         settings.get("environment"),
+                                         adapter=adapter, instance_id=inst_id)
+    if plan["mode"] == "wait":
+        events.emit("PortalStepWaiting", signature_request=dsr_name, package=dsr.package,
+                    verification_result=plan["reason"],
+                    request_meta={"current_state_id": cur})
+        raise ProviderError("portal_not_at_step", "cong chua toi buoc cua nguoi nay: %s"
+                            % plan["reason"], retryable=True)
+    if plan["mode"] != "transition":
+        raise ProviderError("portal_step_blocked", plan["reason"], retryable=False)
+    cfg = plan["config"]
+    if cfg.get("requires_signature"):
+        # Ho so noi cap nay KHONG ky, cong noi buoc nay KY: cau hinh lech, khong gui.
+        raise ProviderError("portal_step_requires_signature",
+                            "buoc %s tren cong doi ky ma ho so khai 'Approve'"
+                            % cfg.get("transition_id"), retryable=False)
+    # Nguoi GIU TASK tren cong (tach khoi nguoi duyet - 04/09, next_handler.requester_actor):
+    # chan nguoi lap ma tai lieu do tai khoan tich hop tao thi task "Khoi tao" thuoc tai khoan
+    # do. Hong thi gui bang chinh nguoi nay, nhu duong ky.
+    actor_uid = None
+    try:
+        actor_uid = next_handler.requester_actor(
+            dsr, settings, "requester" if dsr.get("actor_type") == "Requester" else "approval")
+    except Exception:
+        actor_uid = None
+        frappe.log_error(frappe.get_traceback(), "esign requester actor lookup failed")
+    # Moc buoc: cung transaction voi lenh gui (khong commit rieng). Cai chan gui hai lan that
+    # su la (1) may_have_sent va (2) canh phai DANG MO - lenh truoc da chay thi canh da dong.
+    frappe.db.set_value(DSR, dsr_name, "provider_state_before",
+                        "%s|%s" % (plan["state_before"], plan["to_state"]))
+    dsr["provider_state_before"] = "%s|%s" % (plan["state_before"], plan["to_state"])
+    events.emit("HandoverTargeted", signature_request=dsr_name, package=dsr.package,
+                request_meta={"to_users": plan.get("to_users"),
+                              "erp_users": plan.get("erp_users"),
+                              "signer_user_id": dsr.effective_scts_user_id,
+                              "stage": "approve_no_sign",
+                              "transition_source": plan.get("transition_source"),
+                              "transition_id": cfg.get("transition_id"),
+                              "state_before": plan["state_before"],
+                              "to_state": plan["to_state"],
+                              "actor_user_id": actor_uid,
+                              # Khong co "shadow": buoc LAY tu cong, day la cong da xac nhan.
+                              "discovery_probe": {"ok": True, "why": "trusted_portal_step",
+                                                  "current_state_id": plan["state_before"]},
+                              "recipients_unverified": plan.get("recipients_unverified")})
+    sent_box["sent"] = True
+    res = adapter.transition_with_recipients(inst_id, dsr.effective_scts_user_id,
+                                             plan["to_users"], cfg, None,
+                                             actor_user_id=actor_uid)
+    events.set_dsr_status(
+        dsr_name, "Provider Accepted",
+        extra_fields={"accepted_at": now_datetime(),
+                      "bulk_job_transaction_id": (res or {}).get("bulk_job_transaction_id")},
+        event_type="ProviderAccepted",
+        provider_txn_id=(res or {}).get("bulk_job_transaction_id"),
+        scts_effective_user=dsr.effective_scts_user_id)
+    dsr["status"] = "Provider Accepted"
+    state2, _w = adapter.workflow_state_for_document(doc_id, dsr.effective_scts_user_id)
+    moved, reason = _portal_moved(dsr["provider_state_before"],
+                                  (state2 or {}).get("current_state_id"))
+    if moved:
+        svc.mark_verified(dsr_name, reason)
+        return _complete_dsr(dsr_name, dsr)
+    events.set_dsr_status(dsr_name, "Verifying", event_type="PollTick",
+                          verification_result=reason)
+    _enqueue_fast_verify(dsr_name)
+    return None
 
 
 #: Bao nhieu luot poll bao "chu ky co TRUOC lenh" thi thoi cho va giao cho nguoi.
@@ -992,6 +1200,16 @@ def sweep_stale():
             frappe.log_error(frappe.get_traceback(), "esign.tasks.sweep_stale %s" % r.name)
         _commit_step()
     _cleanup_closed_requests()
+    _sweep_requester_steps()
+
+
+def _sweep_requester_steps():
+    """Luoi an toan buoc nguoi lap tren cong (portal_steps). Nuot loi: sweep_stale con viec khac."""
+    try:
+        from ecentric_workspace.platform.esign import portal_steps
+        portal_steps.sweep_missing_requester_steps()
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "esign.tasks._sweep_requester_steps")
 
 
 def _cleanup_closed_requests():

@@ -83,7 +83,7 @@ def _run(signers, legs, pending=("hof@ec.vn",), level=3, doc_id="doc-1", poll_ra
     ns = {"frappe": _FK, "_": lambda s: s,
           "perms": types.SimpleNamespace(assert_system_manager=lambda: None),
           "pkgsvc": types.SimpleNamespace(active_package_for_request=lambda r: "EC-DSP-1"),
-          "_profile_doc": lambda dt, at: {"x": 1}, "_settings_for": lambda p: {"y": 1},
+          "_profile_doc": lambda dt, at, name=None: {"x": 1}, "_settings_for": lambda p: {"y": 1},
           "get_adapter": lambda s: _Adapter,
           "DSR": "EC Digital Signature Request"}
     saved = {k: sys.modules.get(k) for k in (_BASE, _SAN)}

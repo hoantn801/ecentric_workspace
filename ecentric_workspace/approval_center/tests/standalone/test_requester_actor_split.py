@@ -230,7 +230,12 @@ class TestTasksDayDung(unittest.TestCase):
 
     def test_transition_with_recipients_mang_actor_user_id_tu_requester_actor(self):
         calls = self._calls("transition_with_recipients")
-        self.assertEqual(len(calls), 1, "dung mot loi goi de kiem")
+        # 12/11/2026: hai cho goi - chan ky (process_signing_request) va buoc duyet KHONG ky
+        # (_process_portal_approve). CA HAI phai mang actor_user_id tu requester_actor.
+        self.assertEqual(len(calls), 2, "dung hai loi goi de kiem")
+        for c in calls[1:]:
+            kw2 = {k.arg: k.value for k in c.keywords}
+            self.assertIn("actor_user_id", kw2)
         kws = {k.arg: k.value for k in calls[0].keywords}
         self.assertIn("actor_user_id", kws)
         self.assertIsInstance(kws["actor_user_id"], ast.Name)
