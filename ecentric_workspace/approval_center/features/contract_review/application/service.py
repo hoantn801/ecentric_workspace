@@ -67,6 +67,10 @@ def skip_ceo(doc, changed):
     """CEO chỉ CC khi là hợp đồng sẵn có VÀ mọi thay đổi đều thuộc nhóm điều chỉnh."""
     if doc.get("request_kind") != "Existing" or not doc.get("previous_request"):
         return False
+    if kol.is_kol(doc):
+        # KOL: doi creator / so tien tra / coc nam ngoai DIFF_FIELDS -> "chi dieu chinh" lach CEO
+        # duoc (QC 15/11 R1). Phu luc KOL chua co thiet ke rieng: luon du 4 cap.
+        return False
     return all(f in ADJUST_ONLY_FIELDS for f in changed)
 
 
@@ -82,15 +86,23 @@ def business_deadline(kind, start=None):
     return d
 
 
-def _require_approved_previous(previous_request):
+def _require_approved_previous(previous_request, user=None):
     """Hợp đồng gốc phải là bản ĐÃ DUYỆT — chốt ở server (BUG-4, E2E 01/09).
 
     Ô tìm kiếm trên form chỉ trả bản Approved, nhưng API nhận chuỗi bất kỳ: trỏ vào
     bản nháp tự tạo là ghép được luồng 3 cấp không CEO cho nội dung chưa ai duyệt."""
-    req = frappe.db.get_value(BUSINESS_DT, previous_request, "approval_request")
+    row = frappe.db.get_value(BUSINESS_DT, previous_request, ["approval_request", "requested_by"],
+                              as_dict=True) or {}
+    req = row.get("approval_request")
     status = req and frappe.db.get_value("EC Approval Request", req, "approval_status")
     if status != "Approved":
         frappe.throw(_("Hợp đồng gốc phải là yêu cầu đã được duyệt xong."))
+    # Cung luat xem voi get_previous_contract: goi thang API khong lay duoc HD phong khac lam goc (R1).
+    from ecentric_workspace.approval_center.shared.workflow.permissions import can_view_request
+    if not can_view_request(req, user=user or frappe.session.user, business_doctype=BUSINESS_DT,
+                            requested_by=row.get("requested_by"), approval_type=APPROVAL_TYPE,
+                            business_name=previous_request):
+        frappe.throw(_("Bạn không có quyền dùng hợp đồng gốc này."), frappe.PermissionError)
 
 
 def _check_submittable(doc):

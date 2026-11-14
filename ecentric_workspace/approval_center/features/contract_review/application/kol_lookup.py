@@ -213,6 +213,17 @@ def pick_template(kind, creator_type, service_type, has_advance, platform=None):
     return best
 
 
+def holidays_cover(day):
+    """Lich nghi le mac dinh co phu toi `day` khong. Thieu lich nam sau (vd 2027) thi han thanh toan /
+    ngay ky LANG LE bo qua ngay le (QC 15/11 R5) - ben goi bao cho Ke toan."""
+    company = frappe.defaults.get_global_default("company")
+    hl = frappe.get_cached_value("Company", company, "default_holiday_list") if company else None
+    end = frappe.db.get_value("Holiday List", hl, "to_date") if hl else None
+    if not end:
+        return False
+    return str(day)[:10] <= str(end)[:10]
+
+
 def holidays():
     """Ngay nghi le cua cong ty mac dinh (Holiday List) - de lui ngay ky ve ngay lam viec."""
     company = frappe.defaults.get_global_default("company")

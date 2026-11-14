@@ -191,6 +191,10 @@ def finish_round(doc, row, signed_file, when, by):
     else:
         doc.add_comment("Info", _("BBNT đợt {0}{1} hoàn tất (máy kiểm đạt), hạn thanh toán {2}.").format(
             row.idx, src, row.due_date.strftime("%d/%m/%Y")))
+    if not kol_lookup.holidays_cover(row.due_date):
+        doc.add_comment("Info", _("Hạn thanh toán BBNT đợt {0} ({1}) chưa tính ngày lễ: chưa có lịch nghỉ lễ năm {2} "
+                                  "- Kế toán cập nhật Holiday List rồi kiểm lại hạn.").format(
+            row.idx, row.due_date.strftime("%d/%m/%Y"), row.due_date.year))
     return findings
 
 

@@ -99,6 +99,10 @@ def install(today="2026-11-15", user="a@ec"):
     utils.today = lambda: today
     utils.now_datetime = lambda: dt.datetime.fromisoformat(today + " 10:00:00")
     utils.getdate = lambda v: dt.date.fromisoformat(str(v)[:10])
+    utils.get_datetime = lambda v=None: dt.datetime.fromisoformat(str(v)) if v else utils.now_datetime()
+    utils.cint = lambda v: int(float(v or 0))
+    utils.cstr = lambda v: "" if v is None else str(v)
+    utils.now = lambda: today + " 10:00:00"
     fk.utils = utils
     sys.modules["frappe"], sys.modules["frappe.utils"] = fk, utils
     return fk
@@ -487,6 +491,91 @@ class HopDongLaoDongKhongLenSharePoint(unittest.TestCase):
         self.assertFalse(sp.duoc_soi_guong_phieu(CR, "CR-L"))
         self.assertTrue(sp.duoc_soi_guong_phieu(CR, "CR-K"))
         self.assertIn("bo_qua", sp.dong_bo_mot_tep(CR, "CR-L", "/private/files/hd.pdf"))
+
+
+def _service():
+    eng = types.ModuleType("ecentric_workspace.approval_center.shared.workflow.transitions")
+    eng.resubmit = lambda *a, **k: {}
+    sys.modules[eng.__name__] = eng
+    import ecentric_workspace.approval_center.shared.workflow as wf
+    wf.transitions = eng
+    sys.modules.pop(P + "service", None)
+    return importlib.import_module(P + "service")
+
+
+class HopDongDieuChinhKol(unittest.TestCase):
+    def test_kol_san_co_khong_bao_gio_bo_cap_ceo(self):
+        # R1: doi creator / tien tra nam ngoai DIFF_FIELDS -> "chi dieu chinh" lach CEO
+        _fresh("a@ec")
+        service = _service()
+        base = dict(request_kind="Existing", previous_request="CR-0")
+        self.assertFalse(service.skip_ceo(Doc(base, contract_type=kol.KOL_CONTRACT_TYPE), ["contract_value"]))
+        self.assertTrue(service.skip_ceo(Doc(base, contract_type="Purchase / Mua vào (EC)"), ["contract_value"]))
+
+    def test_hop_dong_goc_phong_khac_bi_chan(self):
+        _fresh("x@ec")
+        service = _service()
+        STATE["values"][(CR, "CR-0")] = lambda f, d: Row(approval_request="AR-0", requested_by="khac@ec")
+        STATE["values"][("EC Approval Request", "AR-0")] = "Approved"
+        perms = types.ModuleType("ecentric_workspace.approval_center.shared.workflow.permissions")
+        perms.can_view_request = lambda req, user=None, **k: user == k.get("requested_by")
+        sys.modules[perms.__name__] = perms
+        try:
+            with self.assertRaises(Throw):
+                service._require_approved_previous("CR-0")
+            STATE["values"][(CR, "CR-0")] = lambda f, d: Row(approval_request="AR-0", requested_by="x@ec")
+            service._require_approved_previous("CR-0")
+        finally:
+            sys.modules.pop(perms.__name__, None)
+
+
+class SaoChepPhieu(unittest.TestCase):
+    def test_khong_chep_hd_bbnt_sinh_tu_phieu_cu(self):
+        # R2
+        _fresh("a@ec")
+        cs = importlib.import_module("ecentric_workspace.approval_center.shared.requests.command_service")
+        self.assertTrue(cs._is_system_artefact("HDDV_05122026_HDDV.docx", CR))
+        self.assertTrue(cs._is_system_artefact("BBNT_x_dot1.docx", CR))
+        self.assertFalse(cs._is_system_artefact("HDDV_x.docx", "EC Payment Request"))
+        self.assertTrue(cs._is_system_artefact("SIGNED-a.pdf"))
+
+
+class DnttGuiLaiDoiNguon(unittest.TestCase):
+    """R4: DNTT da gui theo HD KOL, luc bo sung doi sang PO chua duyet / bo nguon -> truoc lot chot."""
+
+    def setUp(self):
+        _fresh("acc@ec")
+        self.ps = importlib.import_module("ecentric_workspace.approval_center.features.payment_request.application.service")
+        self.calls = []
+        self.ps.funding.validate_funding = lambda d: self.calls.append(d.funding_source_name)
+        STATE["values"][("EC Payment Request", "PR-1")] = "EC Contract Review Request"   # nguon da luu
+
+    def _pr(self, **kw):
+        d = Doc(doctype="EC Payment Request", name="PR-1", approval_request="AR-9", requested_by="acc@ec",
+                has_purchase_request="Yes", payment_amount=5)
+        d.update(kw)
+        return d
+
+    def test_doi_sang_po_van_kiem_nguon(self):
+        self.ps.normalize_payment(self._pr(funding_source_doctype="Purchase Order", funding_source_name="PO-1"))
+        self.assertEqual(self.calls, ["PO-1"])
+
+    def test_bo_nguon_bi_chan(self):
+        with self.assertRaises(Throw):
+            self.ps.normalize_payment(self._pr(has_purchase_request="No", funding_source_doctype="",
+                                               funding_source_name=""))
+
+
+class LichNghiLe(unittest.TestCase):
+    def test_thieu_lich_nam_sau_thi_bao(self):
+        # R5
+        fk = _fresh("a@ec") and sys.modules["frappe"]
+        lk = importlib.import_module(P + "kol_lookup")
+        fk.defaults = types.SimpleNamespace(get_global_default=lambda k: "EC")
+        fk.get_cached_value = lambda *a, **k: "HL-2026"
+        STATE["values"][("Holiday List", "HL-2026")] = "2026-12-31"
+        self.assertTrue(lk.holidays_cover(dt.date(2026, 12, 20)))
+        self.assertFalse(lk.holidays_cover(dt.date(2027, 1, 4)))
 
 
 class ChonMau(unittest.TestCase):
