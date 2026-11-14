@@ -46,7 +46,7 @@
   },
   "approval_center/features/contract_review/ui/main_section.html": {
     "last_resync_patch": "p381_resync_contract_review_tien_trinh_kol",
-    "sha256": "7392a87161eb26fb1a2578f679d62cce9b9c56f82ac6cae0ed258b9b9ed22752"
+    "sha256": "d3cb999a8a52af86617a6c9fc5304a4e52429bb73a360f448b0da2531eef468c"
   },
   "approval_center/features/daily_target/ui/main_section.html": {
     "baseline": "2026-08-31",

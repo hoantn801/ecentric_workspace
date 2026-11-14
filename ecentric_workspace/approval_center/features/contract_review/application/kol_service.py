@@ -275,9 +275,10 @@ def partner_signer_errors(doc):
         return []
     email = (doc.get("partner_signer_email") or "").strip().lower()
     if not (doc.get("partner_signer_name") or "").strip() or not email:
-        return [_("Nhập tên và email người ký phía creator (hoặc bổ sung email trong thông tin creator).")]
+        return [_("Nhập tên và email người ký phía đối tác (ô \"Người ký phía đối tác\") - creator chưa có email, "
+                  "hoặc bổ sung email trong thông tin creator.")]
     if frappe.db.exists("User", {"name": email, "user_type": "System User"}):
-        return [_("Email người ký phía creator đang là tài khoản nội bộ - nhập email của creator.")]
+        return [_("Email người ký phía đối tác đang là tài khoản nội bộ - nhập email của creator.")]
     return []
 
 

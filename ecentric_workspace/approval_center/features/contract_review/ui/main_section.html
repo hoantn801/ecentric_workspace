@@ -996,7 +996,8 @@
       if(!d.creator) errs.creator="Chọn creator.";
       if(!d.brand) errs.brand="Chọn brand (mã brand nằm trong số hợp đồng).";
       if(ecT&&d.service_type!=="Hoa hồng affiliate"&&!String(d.air_dates||"").trim()) errs.air_dates="Nhập ngày thực hiện, ví dụ 05/12 hoặc 05,06/12/2026.";
-      if(ecT&&d.platform&&["TikTok","Shopee"].indexOf(d.platform)<0) errs.platform="Mẫu EC chỉ có TikTok / Shopee. Nền tảng khác: chọn Mẫu của creator.";
+      if(ecT&&!d.platform) errs.platform="Chọn nền tảng (TikTok / Shopee).";
+      else if(ecT&&d.platform&&["TikTok","Shopee"].indexOf(d.platform)<0) errs.platform="Mẫu EC chỉ có TikTok / Shopee. Nền tảng khác: chọn Mẫu của creator.";
       else if(ecT&&d.platform==="Shopee"&&(KOL.creatorType()&&KOL.creatorType()!=="Công ty"||(d.service_type&&d.service_type!=="Livestream"))) errs.platform="Mẫu EC trên Shopee chỉ có Công ty - Livestream. Creator / dịch vụ khác: chọn TikTok hoặc Mẫu của creator.";
       if(!d.service_type) errs.service_type="Chọn dịch vụ.";
       if(!d.amount_type) errs.amount_type="Chọn kiểu nhập số tiền.";

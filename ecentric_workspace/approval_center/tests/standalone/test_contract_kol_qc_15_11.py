@@ -583,6 +583,32 @@ class GuiLaiKhongDoiModified(unittest.TestCase):
         self.assertIsNotNone(d.changed_fields)
 
 
+class PatchChuKyDuyet(unittest.TestCase):
+    def test_p383_tinh_lai_chu_ky_phieu_kol_chua_sua(self):
+        # vong 3 (R3-01): them partner_signer_email vao chu ky -> phieu KOL dang chay khong bi duyet lai oan
+        _fresh("a@ec")
+        service = _service()
+        fk = sys.modules["frappe"]
+        fk.get_module = lambda path: service
+        fk.logger = lambda *a, **k: types.SimpleNamespace(info=lambda *a, **k: None)
+        sys.modules.pop("ecentric_workspace.approval_center.patches.p383_chu_ky_duyet_kol_email_nguoi_ky", None)
+        p383 = importlib.import_module("ecentric_workspace.approval_center.patches.p383_chu_ky_duyet_kol_email_nguoi_ky")
+        old_fields = [f for f in service.MATERIAL_FIELDS + service.KOL_MATERIAL_FIELDS if f != "partner_signer_email"]
+        base = dict(contract_type=kol.KOL_CONTRACT_TYPE, partner_signer_email="c@gmail.com", creator="CR-A",
+                    payable_amount=10_000_000.0)
+        chua_sua = Row(base, name="K1", approval_request="AR-1")
+        chua_sua.material_signature = p383._sig(chua_sua, old_fields)
+        da_sua = Row(base, name="K2", approval_request="AR-2", material_signature="khac")
+        STATE["get_all"][CR] = [chua_sua, da_sua]
+        STATE["values"][("EC Approval Request", "AR-1")] = "Information Required"
+        STATE["values"][("EC Approval Request", "AR-2")] = "Pending"
+        STATE["exists"].add(("DocType", CR))
+        writes = []
+        fk.db.set_value = lambda dt_, name, field, value=None, **k: writes.append((name, value))
+        p383.execute()
+        self.assertEqual(writes, [("K1", service._signature(Doc(chua_sua)))])
+
+
 class SaoChepPhieu(unittest.TestCase):
     def test_khong_chep_hd_bbnt_sinh_tu_phieu_cu(self):
         # R2
