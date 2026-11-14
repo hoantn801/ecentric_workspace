@@ -34,6 +34,7 @@ def prepare_draft(doc):
     creator = creator_row(doc.get("creator"))
     doc.creator_name = creator.get("supplier_name") if creator else None
     doc.creator_type = creator.get("ec_cr_type") if creator else None
+    _reset_partner_on_creator_change(doc)
     so = None
     if doc.get("sales_order"):
         # Kiem lai SO tren server KHI SO DOI: bo chon tren trang loc theo team, nhung save_draft
@@ -253,6 +254,33 @@ def fill_partner_signer(doc, creator):
             doc.set(field, str(value).strip()[:140])
 
 
+PARTNER_FIELDS = ("partner_signer_name", "partner_signer_email", "partner_signer_phone")
+
+
+def _reset_partner_on_creator_change(doc):
+    """Doi creator (bo sung / sao chep phieu): xoa nguoi ky phia doi tac cua creator CU de luc gui
+    dien lai theo creator moi (QC 15/11 B-05). O nao nguoi lap vua sua tay trong lan luu nay thi giu."""
+    stored = _stored(doc, ["creator"] + list(PARTNER_FIELDS))
+    if not stored or stored.get("creator") == doc.get("creator"):
+        return
+    for field in PARTNER_FIELDS:
+        if (doc.get(field) or "") == (stored.get(field) or ""):
+            doc.set(field, None)
+
+
+def partner_signer_errors(doc):
+    """Quy trinh co doi tac ky tren cong: thieu ten / email thi cong khong gui duoc link (QC 15/11
+    A13, B-05); email la tai khoan noi bo = nhan vien ky thay creator (B-04)."""
+    if not esign_flow.needs_partner(doc.get("esign_flow")):
+        return []
+    email = (doc.get("partner_signer_email") or "").strip().lower()
+    if not (doc.get("partner_signer_name") or "").strip() or not email:
+        return [_("Nhập tên và email người ký phía creator (hoặc bổ sung email trong thông tin creator).")]
+    if frappe.db.exists("User", {"name": email, "user_type": "System User"}):
+        return [_("Email người ký phía creator đang là tài khoản nội bộ - nhập email của creator.")]
+    return []
+
+
 def validate_submit(doc):
     """Chot truoc khi vao luong duyet - goi tu service.submit VA service.resubmit (phieu KOL).
 
@@ -262,6 +290,9 @@ def validate_submit(doc):
     errors = kol.validate_kol(doc, creator and creator.get("ec_cr_type"), ref_day(doc))
     if not creator:
         errors.append("Creator không tồn tại hoặc không thuộc danh sách creator.")
+    elif creator.get("disabled"):
+        # Danh sach chon da an creator ngung dung, nhung phieu nhap cu / goi API van mang ten (QC 15/11 A10).
+        errors.append("Creator này đã ngừng sử dụng - chọn creator khác.")
     if doc.get("request_type") == kol.TEMPLATE_PARTNER and not doc.get("request_attachment"):
         errors.append("Tải lên hợp đồng theo mẫu của creator trước khi gửi.")
     if errors:
@@ -269,6 +300,9 @@ def validate_submit(doc):
     prepare_draft(doc)
     apply_amounts(doc, strict=True)
     fill_partner_signer(doc, creator)
+    signer_errors = partner_signer_errors(doc)
+    if signer_errors:
+        frappe.throw(" ".join(signer_errors))
     if doc.get("request_type") == kol.TEMPLATE_EC:
         from ecentric_workspace.approval_center.features.contract_review.application import kol_files
         kol_files.build_contract(doc)

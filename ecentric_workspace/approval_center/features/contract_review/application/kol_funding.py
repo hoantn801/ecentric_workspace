@@ -108,6 +108,17 @@ def funding_validate(pr, user):
     if not so:
         frappe.throw(_("Chọn SO doanh thu (SO cung cấp dịch vụ cho brand) để Kế toán đối chiếu chi phí "
                        "với doanh thu."))
-    _row, err = kol_lookup.so_allowed(user, so)
+    row, err = kol_lookup.so_allowed(user, so)
     if err:
         frappe.throw(_(err), frappe.PermissionError)
+    # Chi phi phai ve DUNG brand cua hop dong (PnL theo brand), SO doanh thu cung brand do (QC 15/11 C5:
+    # truoc do DNTT doi sang brand B + SO cua B van qua, khong canh bao nao).
+    contract_brand = frappe.db.get_value(kol_lookup.CR_DT, pr.get("funding_source_name"), "brand") \
+        if pr.get("funding_source_name") else None
+    if contract_brand:
+        if pr.get("ec_brand") and pr.ec_brand != contract_brand:
+            frappe.throw(_("Brand trên đề nghị thanh toán phải trùng brand của hợp đồng ({0}).").format(contract_brand))
+        so_brand = row.get("ec_brand") if row else None
+        if so_brand and so_brand != contract_brand:
+            frappe.throw(_("SO {0} thuộc brand {1}, hợp đồng thuộc brand {2}: chọn SO của brand {2}.").format(
+                so, so_brand, contract_brand))

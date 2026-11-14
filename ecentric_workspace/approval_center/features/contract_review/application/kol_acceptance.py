@@ -43,8 +43,11 @@ def add_acceptance(name, user, description, acceptance_date=None, amount=None):
     if approval_status(doc) != APPROVED or not is_signed(doc):
         frappe.throw(_("Chỉ tạo BBNT khi hợp đồng đã duyệt xong và đã ký đủ hai bên."))
     amount = flt(amount)
-    if amount <= 0:
+    if not amount > 0:                     # "not >" bat ca nan
         frappe.throw(_("Số tiền đợt nghiệm thu phải lớn hơn 0."))
+    if abs(amount - round(amount)) > 1e-6:
+        # QC 15/11 (C7): 3 x 333.333,5 qua san 0,5 nhung moi BBNT in 333.334 -> tong in 1.000.002.
+        frappe.throw(_("Số tiền đợt nghiệm thu phải là số đồng chẵn (không có phần lẻ)."))
     planned = sum(flt(r.amount) for r in (doc.acceptances or [])) + flt(doc.advance_amount)
     if planned + amount > flt(doc.payable_amount) + 0.5:
         frappe.throw(_("Tổng các đợt nghiệm thu và tiền cọc vượt số tiền trả creator ({0}).")

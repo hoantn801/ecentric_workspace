@@ -31,7 +31,10 @@ MATERIAL_FIELDS = ["request_kind", "previous_request", "contract_type", "request
 # bi duyet lai tu dau du khong ai sua gi.
 KOL_MATERIAL_FIELDS = ["sales_order", "creator", "payable_amount", "advance_amount",
                        "payment_schedule", "contract_file", "request_attachment",
-                       "payment_term_days", "amount_type", "pit_rate", "vat_rate", "contract_date"]
+                       "payment_term_days", "amount_type", "pit_rate", "vat_rate", "contract_date",
+                       # Nguoi nhan link ky phia doi tac: doi email sau khi duyet = ky boi nguoi khac
+                       # (QC 15/11 B-04). Chi phieu KOL (moi chay tu 12/11) nen khong lam phieu cu duyet lai.
+                       "partner_signer_email"]
 REQUIRED_AT_SUBMIT = ["request_title", "request_kind", "contract_type", "request_type",
                       "brand", "justification", "contract_value", "request_details"]
 # Trường được phép lệch so với hợp đồng gốc mà vẫn coi là "chỉ điều chỉnh" (bỏ cấp CEO).
@@ -90,6 +93,29 @@ def _require_approved_previous(previous_request):
         frappe.throw(_("Hợp đồng gốc phải là yêu cầu đã được duyệt xong."))
 
 
+def _check_submittable(doc):
+    """Chot chung cua submit VA resubmit (QC 15/11 B-02: truoc do gui lai sau "Can bo sung" bo qua
+    het - xoa trang ly do / quy trinh ky / brand, hay doi KOL -> Mua vao van qua)."""
+    esign_flow.apply_default(doc)
+    esign_flow.clean_labor(doc)
+    if not doc.get("esign_flow"):
+        # Nen tang ky so chon ho so theo truong nay (chot 12/11): loai khong co mac dinh phai chon
+        # luc gui duyet - sau khi duyet xong phieu khoa, khong con cho chon (QC7).
+        frappe.throw(_("Chọn Quy trình ký (chọn \"Không ký trên cổng\" nếu ký ngoài)."))
+    # Hop dong lao dong (12/11): khong gan brand, khong bat nhap gia tri (luong nam trong tep).
+    need = [f for f in REQUIRED_AT_SUBMIT
+            if not (f == "brand" and not esign_flow.needs_brand(doc.get("contract_type")))
+            and not (f == "contract_value" and not esign_flow.needs_value(doc.get("contract_type")))]
+    missing = [f for f in need if not doc.get(f)]
+    if missing:
+        frappe.throw(_("Vui lòng nhập đầy đủ các trường bắt buộc trước khi gửi."))
+    if doc.request_kind == "Existing" and not doc.previous_request:
+        frappe.throw(_("Vui lòng chọn hợp đồng sẵn có cần điều chỉnh."))
+    if doc.contract_start_date and doc.contract_end_date \
+            and str(doc.contract_end_date) < str(doc.contract_start_date):
+        frappe.throw(_("Ngày kết thúc hợp đồng phải sau ngày bắt đầu."))
+
+
 @frappe.whitelist(methods=["POST"])
 def submit(name):
     doc = frappe.get_doc(BUSINESS_DT, name)
@@ -110,24 +136,7 @@ def submit(name):
         # Nap tre: module KOL keo creator repository + lookup, phieu thuong khong can.
         from ecentric_workspace.approval_center.features.contract_review.application import kol_service
         kol_service.validate_submit(doc)
-    esign_flow.apply_default(doc)
-    esign_flow.clean_labor(doc)
-    if not doc.get("esign_flow"):
-        # Nen tang ky so chon ho so theo truong nay (chot 12/11): loai khong co mac dinh phai chon
-        # luc gui duyet - sau khi duyet xong phieu khoa, khong con cho chon (QC7).
-        frappe.throw(_("Chọn Quy trình ký (chọn \"Không ký trên cổng\" nếu ký ngoài)."))
-    # Hop dong lao dong (12/11): khong gan brand, khong bat nhap gia tri (luong nam trong tep).
-    need = [f for f in REQUIRED_AT_SUBMIT
-            if not (f == "brand" and not esign_flow.needs_brand(doc.get("contract_type")))
-            and not (f == "contract_value" and not esign_flow.needs_value(doc.get("contract_type")))]
-    missing = [f for f in need if not doc.get(f)]
-    if missing:
-        frappe.throw(_("Vui lòng nhập đầy đủ các trường bắt buộc trước khi gửi."))
-    if doc.request_kind == "Existing" and not doc.previous_request:
-        frappe.throw(_("Vui lòng chọn hợp đồng sẵn có cần điều chỉnh."))
-    if doc.contract_start_date and doc.contract_end_date \
-            and str(doc.contract_end_date) < str(doc.contract_start_date):
-        frappe.throw(_("Ngày kết thúc hợp đồng phải sau ngày bắt đầu."))
+    _check_submittable(doc)
 
     changed = []
     if doc.previous_request:
@@ -253,15 +262,17 @@ def resubmit(name, actor=None):
         # hop dong neu du lieu doi, canh bao doanh thu SO (QC 11/11 - truoc do bo qua het).
         from ecentric_workspace.approval_center.features.contract_review.application import kol_service
         kol_service.validate_submit(doc)
-        doc.save(ignore_permissions=True)
+    _check_submittable(doc)
+    doc.save(ignore_permissions=True)
     new_sig = _signature(doc)
     material_changed = new_sig != (doc.material_signature or "")
-    engine.resubmit(doc.approval_request, actor=actor or frappe.session.user, restart=material_changed)
+    res = engine.resubmit(doc.approval_request, actor=actor or frappe.session.user, restart=material_changed)
     frappe.db.set_value(BUSINESS_DT, doc.name, "material_signature", new_sig)
     # Gui lai thuong di kem THAY tep dinh kem - phai soi guong lai, neu khong nguoi duyet se
     # mo ra ban cu tren SharePoint trong khi ERP da co ban moi.
     _soi_guong_sharepoint(doc.name)
-    return {"restarted": material_changed}
+    # Tra ca ket qua ky so cua engine cho lop tren (QC 15/11 B-12 - truoc do bo mat).
+    return {"restarted": material_changed, "esign": res.get("esign") if isinstance(res, dict) else None}
 
 
 def _guard_resubmit_needs_ceo(doc):

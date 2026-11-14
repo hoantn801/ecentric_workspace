@@ -51,10 +51,10 @@ class CreatorService:
     def create(self, user, data, confirm_soft=False):
         values = self.prepare(data)
         dup = self.check_duplicates(values)
-        self._refuse_hard(dup)
+        self._refuse_hard(self._shown(user, dup["hard"]))
         if dup["soft"] and not confirm_soft:
-            return {"needs_confirm": True, "matches": dup["soft"],
-                    "message": self._soft_message(dup["soft"])}
+            shown = self._shown(user, dup["soft"])
+            return {"needs_confirm": True, "matches": shown, "message": self._soft_message(shown)}
         return {"needs_confirm": False, "name": self.insert_prepared(values, dup["soft"])}
 
     def prepare(self, data):
@@ -85,8 +85,11 @@ class CreatorService:
         values = self._clean(data, with_identity=False)
         merged = dict(row, **values)
         self._validate(merged)
-        self._refuse_hard(self.check_duplicates(merged, exclude=name))
-        self.repo.update(name, values)
+        self._refuse_hard(self._shown(user, self.check_duplicates(merged, exclude=name)["hard"]))
+        changed = domain.payment_changes(row, values)
+        note = ("Đổi thông tin nhận tiền (%s) bởi %s - Kế toán đối chiếu trước khi chi cho hợp đồng đã ký."
+                % (", ".join(changed), user)) if changed else None
+        self.repo.update(name, values, note=note)
         return {"name": name}
 
     def missing_misa(self, user):
@@ -128,11 +131,15 @@ class CreatorService:
         if errors:
             raise CreatorError(" ".join(errors))
 
+    def _shown(self, user, matches):
+        finance = self.is_finance(user)
+        return [domain.mask_match(m, finance or m.get("owner") == user) for m in matches]
+
     @staticmethod
-    def _refuse_hard(dup):
-        if dup["hard"]:
+    def _refuse_hard(hard):
+        if hard:
             raise CreatorError("Creator này đã có trong hệ thống: %s. Hãy chọn creator có sẵn."
-                               % "; ".join(domain.describe_match(m) for m in dup["hard"]))
+                               % "; ".join(domain.describe_match(m) for m in hard))
 
     @staticmethod
     def _soft_message(matches):

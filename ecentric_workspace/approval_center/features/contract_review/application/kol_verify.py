@@ -28,6 +28,25 @@ def check(doc, file_url, amount=None):
     return kol.signed_pdf_findings(data, number_tokens(text), text, doc.get("contract_no"), amount)
 
 
+def _same_file_as_other_round(doc, row):
+    import hashlib
+    try:
+        mine = hashlib.sha256(doc_file_bytes(doc, row.signed_file)).hexdigest()
+    except Exception:
+        return None
+    for other in (doc.acceptances or []):
+        if other.name == row.name or not other.get("signed_file"):
+            continue
+        if other.signed_file == row.signed_file:
+            return other.idx
+        try:
+            if hashlib.sha256(doc_file_bytes(doc, other.signed_file)).hexdigest() == mine:
+                return other.idx
+        except Exception:
+            continue
+    return None
+
+
 def _note(findings):
     return "\n".join("- " + f for f in findings) or None
 
@@ -49,6 +68,10 @@ def apply_contract_check(doc):
 def apply_acceptance_check(doc, row):
     from ecentric_workspace.approval_center.features.contract_review.domain import kol_values
     findings = check(doc, row.signed_file, kol_values.printed_amount(doc.as_dict(), row.amount))
+    dup = _same_file_as_other_round(doc, row)
+    if dup:
+        # QC 15/11 (C3): may khong biet tep la cua dot nao - cung so tien thi BBNT dot truoc lot qua.
+        findings = list(findings) + [_("Tệp trùng bản ký của đợt {0}.").format(dup)]
     row.check_note = _note(findings)
     if findings:
         row.status = kol.BBNT_REVIEW
@@ -68,6 +91,14 @@ def _finance_doc(name, user):
     return doc
 
 
+def _not_own(doc, user, *also):
+    """Tach nhiem vu (QC 15/11): nguoi lap / nguoi tai ban ky khong tu xac nhan ban ky cua chinh
+    minh, ke ca khi la Ke toan / System Manager - nho Ke toan khac."""
+    if user and user in {doc.get("requested_by"), doc.get("owner")} | {x for x in also if x}:
+        frappe.throw(_("Bạn là người lập phiếu / người tải bản ký nên không tự xác nhận được. "
+                       "Nhờ một Kế toán khác kiểm."), frappe.PermissionError)
+
+
 def _who(user):
     return frappe.db.get_value("User", user, "full_name") or user
 
@@ -75,6 +106,7 @@ def _who(user):
 def verify_contract(name, user, ok, note=None):
     """Ke toan xac nhan / tra lai ban hop dong da ky dang 'Chờ kiểm tra'."""
     doc = _finance_doc(name, user)
+    _not_own(doc, user, doc.get("signed_marked_by"))
     if doc.get("signing_status") != kol.SIGN_REVIEW:
         frappe.throw(_("Bản ký không ở trạng thái chờ kiểm tra."))
     note = (note or "").strip()
@@ -103,6 +135,7 @@ def verify_acceptance(name, user, row_name, ok, note=None):
         frappe.throw(_("Không tìm thấy đợt nghiệm thu."))
     if row.status != kol.BBNT_REVIEW:
         frappe.throw(_("Đợt này không ở trạng thái chờ kiểm tra."))
+    _not_own(doc, user, row.get("completed_by"))
     note = (note or "").strip()
     if ok:
         row.status = kol.BBNT_DONE

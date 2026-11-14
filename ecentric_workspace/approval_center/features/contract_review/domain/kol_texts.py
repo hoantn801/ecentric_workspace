@@ -83,7 +83,13 @@ def _check_year(d, today, raw):
     return d
 
 
-def _check_span(dates, raw):
+def _check_span(dates, raw, explicit=False):
+    if dates and (dates[-1] - dates[0]).days > MAX_SPAN_DAYS and explicit:
+        # Ngay da ghi du nam: van chan (go nham nam 28/12/2027 thay 2026 hay gap) nhung khong bao
+        # "ghi ro nam" nua - nguoi dung da ghi (QC 15/11 A6). HD dai hon 200 ngay: PO quyet.
+        raise ValueError("Các ngày thực hiện '%s' cách nhau hơn %d ngày (%s - %s). Kiểm lại năm; hợp đồng "
+                         "dài hơn thì dùng mẫu của creator." % (raw, MAX_SPAN_DAYS, dates[0].strftime("%d/%m/%Y"),
+                                                                dates[-1].strftime("%d/%m/%Y")))
     if dates and (dates[-1] - dates[0]).days > MAX_SPAN_DAYS:
         raise ValueError("Các ngày thực hiện '%s' cách nhau quá xa (%s - %s). Ghi rõ năm cho từng ngày, "
                          "vd 28/12/2026, 05/01/2027." % (raw, dates[0].strftime("%d/%m/%Y"),
@@ -110,7 +116,8 @@ def parse_service_dates(text, today):
         days = [d.strip() for d in m.group(1).split(",")]
         if m.group(3):
             year = _year(m.group(3))
-            return _check_span(sorted(_check_year(_make(year, m.group(2), d, raw), today, raw) for d in days), raw)
+            return _check_span(sorted(_check_year(_make(year, m.group(2), d, raw), today, raw) for d in days),
+                               raw, explicit=True)
         return _check_span(sorted(_nearest(m.group(2), d, [today], raw) for d in days), raw)
     parts = [p.strip() for p in re.split(r"[;,\n]+", raw) if p.strip()]
     fixed, loose = [], []
@@ -127,7 +134,7 @@ def parse_service_dates(text, today):
                              "Nhiều ngày thì cách nhau bằng dấu phẩy, không dùng dấu gạch." % part)
     anchors = fixed or [today]
     out = fixed + [_check_year(_nearest(mo, d, anchors, part), today, part) for mo, d, part in loose]
-    return _check_span(sorted(out), raw)
+    return _check_span(sorted(out), raw, explicit=not loose)
 
 
 def _business(d, step, holidays):
@@ -187,7 +194,9 @@ def party_code(creator_type, name, manual=""):
     if creator_type == "Công ty":
         ok = re.fullmatch(r"[A-Z0-9]{2,6}", code) and code != "CONGTY"
         return code if ok else company_code(name)
-    return code or initials(name)
+    # Ca nhan: ma tay di thang vao so HD -> chi nhan chu/so/"-" (QC 15/11 A3: "A/B", "N.V.A", "ĐỨC").
+    code = strip_accents(code).upper()
+    return code if re.fullmatch(r"[A-Z0-9-]{1,10}", code) else initials(name)
 
 
 # ---------------------------------------------------------------- dinh dang
@@ -220,6 +229,9 @@ def address(value):
 
 def bank_branch(bank, branch):
     b, br = str(bank or "").strip(), str(branch or "").strip()
+    if not b:
+        # Chi co chi nhanh ma khong co ngan hang = thieu (QC 15/11 A8): de trong cho chot "con thieu" bat.
+        return ""
     if not br:
         return b
     if re.search(r"\b(cn|chi nhánh)\b", br, re.I):

@@ -15,6 +15,7 @@ from ecentric_workspace.approval_center.features.contract_review.domain import k
 from ecentric_workspace.approval_center.features.contract_review.domain.kol_work_texts import (
     advance_texts, work_texts)
 from ecentric_workspace.approval_center.features.contract_review.domain.vn_words import amount_in_words
+from ecentric_workspace.approval_center.shared.creators.domain import display_handle
 
 # Dong tuy chon cua mau co coc: gia tri rong -> XOA CA DOAN (removeBlankConditionalParagraphs_).
 # Anh CCCD: ERP chua luu anh CCCD -> doan anh bi xoa, khong de lai <<...>> tren hop dong.
@@ -114,8 +115,8 @@ def contract_values(doc, creator, brand_code, sign_date, service_dates, bbnt_dat
     kind = T.service_kind(doc.get("service_type"))
     brand = doc.get("brand") or ""
     name = creator.get("supplier_name") or ""
-    tiktok = (creator.get("ec_cr_tiktok_id") or "").lstrip("@")
-    shopee_id = creator.get("ec_cr_shopee_id") or ""
+    tiktok = display_handle(creator.get("ec_cr_tiktok_id"))
+    shopee_id = display_handle(creator.get("ec_cr_shopee_id"))
     channel_url = (creator.get("ec_cr_shopee_url") if shopee else creator.get("ec_cr_channel_url")) or (
         ("https://shopee.vn/" + shopee_id if shopee_id else "") if shopee
         else ("https://www.tiktok.com/@" + tiktok if tiktok else ""))
@@ -245,6 +246,46 @@ def round_money(creator_type, payable, pit_rate, vat_rate, doc=None):
     return {"gross": gross, "net": pay, "pre_vat": gross, "vat": 0, "total": pay}
 
 
+_MONEY_KEYS = ("gross", "net", "pre_vat", "vat", "total")
+
+
+def _round_totals(doc):
+    """Tong cac dot nghiem thu phai cong ra (theo so cua hop dong). None = khong co dinh nghia ro
+    (ca nhan co coc: gross cua phan coc chua tach) -> khong dieu chinh."""
+    ct = doc.get("creator_type")
+    pay, gross = float(doc.get("payable_amount") or 0), float(doc.get("gross_amount") or 0)
+    vat, adv = float(doc.get("vat_amount") or 0), float(doc.get("advance_amount") or 0)
+    if ct == "Công ty":
+        rest = pay - adv
+        return {"gross": rest, "net": rest, "pre_vat": gross - adv, "vat": vat, "total": rest}
+    if adv:
+        return None
+    if ct == "Hộ kinh doanh":
+        return {"gross": pay, "net": pay, "pre_vat": pay, "vat": 0, "total": pay}
+    return {"gross": gross, "net": pay, "pre_vat": gross, "vat": 0, "total": pay}
+
+
+def _closing_adjust(doc, row, m):
+    """Dot CUOI (dua phan con lai ve 0) lay tong hop dong tru cac dot truoc thay vi quy nguoc tu so
+    tien cua dot: quy nguoc tung dot lam tron rieng nen cong cac BBNT lech hop dong 1d (QC 15/11 A2/C4)."""
+    rows = doc.get("acceptances") or []
+    try:
+        idx = int(row.get("idx") or 0)
+        prev = [r for r in rows if int(r.get("idx") or 0) < idx]
+    except (TypeError, ValueError):
+        return m
+    covered = sum(float(r.get("amount") or 0) for r in prev) + float(row.get("amount") or 0) \
+        + float(doc.get("advance_amount") or 0)
+    totals = _round_totals(doc)
+    if not prev or totals is None or abs(covered - float(doc.get("payable_amount") or 0)) > 0.5:
+        return m
+    before = [round_money(doc.get("creator_type"), r.get("amount"), doc.get("pit_rate"), doc.get("vat_rate"), doc)
+              for r in prev]
+    out = {k: T.round_half_up(totals[k]) - sum(b[k] for b in before) for k in _MONEY_KEYS}
+    # An toan: dieu chinh chi duoc xe dich vai dong; lech lon = du lieu la -> giu cach tinh thuong.
+    return out if all(abs(out[k] - m[k]) <= 2 for k in _MONEY_KEYS) else m
+
+
 def is_whole_round(doc, amount):
     """Mot dot duy nhat phu het hop dong (ke ca hop dong coc: dot = phan con lai sau coc) -> BBNT
     xac nhan 100% hop dong nhu tool cu, in so cua CA hop dong."""
@@ -275,6 +316,7 @@ def acceptance_values(contract, row, doc=None):
     payable = float(doc.get("payable_amount") or 0)
     if amount and payable and not is_whole_round(doc, amount):
         m = round_money(doc.get("creator_type"), amount, doc.get("pit_rate"), doc.get("vat_rate"), doc)
+        m = _closing_adjust(doc, row, m)
         for key, val in (("GROSS_AMOUNT", m["gross"]), ("NET_AMOUNT", m["net"]), ("PRE_VAT_AMOUNT", m["pre_vat"]),
                          ("VAT_AMOUNT", m["vat"]), ("TOTAL_AMOUNT", m["total"])):
             _num_words(key, val, out)

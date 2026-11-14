@@ -53,14 +53,25 @@ def claim_upload(doc, file_url, user):
 
     Chi nhan tep CUA CHINH nguoi do tai len (hoac Ke toan): khong cho tro vao tep rieng tu cua
     nguoi khac bang cach go URL."""
-    row = frappe.db.get_value("File", {"file_url": file_url}, ["name", "owner", "attached_to_name"],
-                              as_dict=True)
-    if not row:
+    if not str(file_url or "").startswith("/private/files/"):
+        # Ban ky co PII: chi nhan tep rieng tu (QC 15/11 D5 - truoc do nhan ca /files cong khai).
+        frappe.throw(_("Tải tệp lên lại (tệp phải ở chế độ riêng tư)."))
+    rows = frappe.get_all("File", filters={"file_url": file_url},
+                          fields=["name", "owner", "attached_to_doctype", "attached_to_name"],
+                          limit_page_length=0, ignore_permissions=True)
+    if not rows:
         frappe.throw(_("Không tìm thấy tệp vừa tải lên."))
-    if row.owner != user and not kol_lookup.is_finance(user):
-        frappe.throw(_("Tệp này không phải do bạn tải lên."), frappe.PermissionError)
-    if row.attached_to_name and row.attached_to_name != doc.name:
+    # Frappe gop tep trung noi dung: cung URL co the co nhieu ban ghi File -> chon ban da gan phieu nay,
+    # roi ban chua gan cua chinh nguoi tai. So ca doctype, khong chi ten (D5).
+    mine = [r for r in rows if r.attached_to_doctype == doc.doctype and r.attached_to_name == doc.name]
+    free = [r for r in rows if not r.attached_to_name and (r.owner == user or kol_lookup.is_finance(user))]
+    if mine:
+        return file_url
+    if not free:
+        if not any(r.owner == user for r in rows) and not kol_lookup.is_finance(user):
+            frappe.throw(_("Tệp này không phải do bạn tải lên."), frappe.PermissionError)
         frappe.throw(_("Tệp này đang gắn với chứng từ khác."))
+    row = free[0]
     frappe.db.set_value("File", row.name, {"attached_to_doctype": doc.doctype,
                                            "attached_to_name": doc.name})
     return file_url
@@ -111,6 +122,9 @@ def generate_contract(name, user):
     # Kiem luat mau EC TRUOC khi sinh tep (Shopee/HKD/nen tang/ngay) - khong de nguoi dung nhan
     # "chua co mau, nho Ke toan them" trong khi loi that la phieu sai luat (QC 12/11).
     errors = kol.validate_kol(doc, doc.get("creator_type"), kol_service.ref_day(doc))
+    creator = kol_service.creator_row(doc.get("creator"))
+    if creator and creator.get("disabled"):
+        errors.append("Creator này đã ngừng sử dụng - chọn creator khác.")
     if errors:
         frappe.throw(_(" ".join(errors)))
     kol_service.apply_amounts(doc, strict=True)

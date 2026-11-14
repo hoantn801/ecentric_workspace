@@ -347,7 +347,7 @@
   function fundingHintHTML(){ var f=state._fundSummary; if(!f) return "";
     var over=(Number((state.draft||{}).payment_amount)||0) > (Number(f.remaining)||0)+0.5;
     var lbl=(state.draft||{}).funding_source_doctype===KOL_SRC?"Được chi hiện tại (cọc + BBNT hoàn tất)":"Tổng";
-    return '<div class="hint'+(over?' err':'')+'" id="payr-fund-hint">'+lbl+': <b>'+fmtVnd(f.total)+'đ</b> · đã thanh toán: <b>'+fmtVnd(f.used)+'đ</b> · còn lại: <b>'+fmtVnd(f.remaining)+'đ</b>'+(over?' — số tiền đang vượt phần còn lại.':'')+'</div>'; }
+    return '<div class="hint'+(over?' err':'')+'" id="payr-fund-hint">'+lbl+': <b>'+fmtVnd(f.total)+'đ</b> · đã đề nghị chi: <b>'+fmtVnd(f.used)+'đ</b> · còn lại: <b>'+fmtVnd(f.remaining)+'đ</b>'+(over?' — số tiền đang vượt phần còn lại.':'')+'</div>'; }
 
   // ---- o tien: hien co dau cham ngan cach (Hoan 08/09: "khong co dau cham kho doc qua") ----
   // <input type=number> khong cho dau phan cach, nen o tien la type=text inputmode=numeric:
@@ -661,21 +661,24 @@
     if(!d.funding_source_name && d.purchase_request){ d.funding_source_doctype="EC Purchase Request"; d.funding_source_name=d.purchase_request; } }
 
   // Nap danh muc LOAI nguon (va rows neu da chon san loai) - goi 1 lan.
-  function ensurePROptions(cb){ if(state._fundTypesLoaded){ cb&&cb(); return; }
-    var dt=(state.draft||{}).funding_source_doctype||"";
+  // Rows nho theo LOAI nguon (_fundRowsFor): mo sua phieu A (DNMH) roi phieu B (hop dong KOL) trong
+  // cung trang thi nap lai rows cua B - truoc do giu rows cua A (QC 15/11 C6).
+  function ensurePROptions(cb){ var dt=(state.draft||{}).funding_source_doctype||"";
+    if(state._fundTypesLoaded&&state._fundRowsFor===dt){ cb&&cb(); return; }
     call("list_funding_sources",{source_doctype:dt}).then(function(res){
-      state._fundTypes=(res&&res.types)||[]; state._fundRows=(res&&res.rows)||[];
+      if(((state.draft||{}).funding_source_doctype||"")!==dt){ cb&&cb(); return; }
+      state._fundTypes=(res&&res.types)||[]; state._fundRows=(res&&res.rows)||[]; state._fundRowsFor=dt;
       state._fundTypesLoaded=true; cb&&cb();
-    }).catch(function(e){ state._fundTypes=[]; state._fundRows=[]; state._fundTypesLoaded=true;
+    }).catch(function(e){ state._fundTypes=[]; state._fundRows=[]; state._fundRowsFor=null; state._fundTypesLoaded=true;
       toast(mapErr(e)||"Không tải được danh sách nguồn chi phí.",true); cb&&cb(); }); }
 
   function handleSrcTypeChange(v){ clearFieldError("funding_source_doctype");
     if(v!==KOL_SRC&&(state.draft||{}).ec_sales_order){ setModel("ec_sales_order",""); state._so=null; }
-    setModel("funding_source_name",""); state._fundRows=[]; state._fundSummary=null;
+    setModel("funding_source_name",""); state._fundRows=[]; state._fundRowsFor=null; state._fundSummary=null;
     if(!v){ renderCreate($("payr-body")); return; }
     state._fundLoading=true; renderCreate($("payr-body"));
     call("list_funding_sources",{source_doctype:v}).then(function(res){
-      state._fundRows=(res&&res.rows)||[]; state._fundLoading=false; renderCreate($("payr-body"));
+      state._fundRows=(res&&res.rows)||[]; state._fundRowsFor=v; state._fundLoading=false; renderCreate($("payr-body"));
     }).catch(function(e){ state._fundRows=[]; state._fundLoading=false; renderCreate($("payr-body"));
       toast(mapErr(e)||"Không tải được chứng từ nguồn.",true); }); }
 
