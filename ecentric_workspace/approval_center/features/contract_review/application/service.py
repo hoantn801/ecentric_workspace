@@ -300,7 +300,8 @@ def _guard_resubmit_needs_ceo(doc):
         prev = frappe.db.get_value(BUSINESS_DT, doc.previous_request, DIFF_FIELDS, as_dict=True)
         if prev:
             changed = changed_vs_previous(doc, prev)
-        frappe.db.set_value(BUSINESS_DT, doc.name, "changed_fields", json.dumps(changed))
+        # Chi gan len doc: resubmit luu doc ngay sau. Ghi thang DB o day doi `modified` -> doc.save() sau do
+        # nem TimestampMismatchError (QC 15/11 vong 2).
         doc.changed_fields = json.dumps(changed)
     needs_ceo = not skip_ceo(doc, changed)
     if not needs_ceo:

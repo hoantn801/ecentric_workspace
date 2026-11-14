@@ -378,6 +378,9 @@ def mark_signed(name, signed_file, user):
         frappe.throw(_("Hợp đồng đã được xác nhận ký đủ."))
     if not (signed_file or "").lower().endswith(".pdf"):
         frappe.throw(_("Bản đã ký phải là tệp PDF."))
+    if signed_file in {doc.get("request_attachment"), doc.get("contract_file")}:
+        # Cung chot voi hook ky so: ban CHUA ky dem di ky khong phai ban ky (vong 2).
+        frappe.throw(_("Đây là bản hợp đồng chưa ký - tải lên bản đã ký đủ chữ ký."))
     from ecentric_workspace.approval_center.features.contract_review.application import kol_verify
     from ecentric_workspace.approval_center.features.contract_review.application.kol_files import claim_upload
     doc.signed_file = claim_upload(doc, signed_file, user)

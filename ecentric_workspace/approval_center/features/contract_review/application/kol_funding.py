@@ -116,7 +116,11 @@ def funding_validate(pr, user):
     contract_brand = frappe.db.get_value(kol_lookup.CR_DT, pr.get("funding_source_name"), "brand") \
         if pr.get("funding_source_name") else None
     if contract_brand:
-        if pr.get("ec_brand") and pr.ec_brand != contract_brand:
+        if not pr.get("ec_brand"):
+            # Doi sang loai chi phi khong gan brand thi normalize xoa ec_brand -> lach chot duoi (vong 2).
+            frappe.throw(_("Đề nghị thanh toán theo hợp đồng KOL phải gắn brand {0}: chọn loại chi phí có brand "
+                           "(vd Booking KOL/KOC) và brand {0}.").format(contract_brand))
+        if pr.ec_brand != contract_brand:
             frappe.throw(_("Brand trên đề nghị thanh toán phải trùng brand của hợp đồng ({0}).").format(contract_brand))
         so_brand = row.get("ec_brand") if row else None
         if so_brand and so_brand != contract_brand:

@@ -8,46 +8,60 @@ docx-preview 0.3.7 ghi thang mot so thuoc tinh cua tep vao trang (QC6 12/11/2026
 Mau do Ke toan tai len, nhung trang xem truoc mo trong phien cua MOI nguoi lap phieu, nen lam
 sach o server truoc khi tra ve. Tep tai ve / gui ky KHONG di qua day.
 """
+import html
 import io
 import re
 import zipfile
 
-# Khop theo TEN CUC BO voi moi tien to (w:, x:...), thuoc tinh nhay don / kep, dau cach quanh "=",
-# va ">" nam trong gia tri thuoc tinh (QC 15/11 D7 / A16: ban regex cu lot 5 kieu).
-_ATTRS = r"""(?:[^>"']|"[^"]*"|'[^']*')*"""
-_SYM = re.compile(r"<((?:[\w.-]+:)?)sym\b" + _ATTRS + r"(?:/>|(?<!/)>.*?</\1sym\s*>)", re.S)
-_SYM_CHAR = re.compile(r"""(?:[\w.-]+:)?char\s*=\s*(["'])(.*?)\1""", re.S)
+# Doc tung THE MO va tung THUOC TINH (ten bat ky tien to, nhay don / kep, dau cach quanh "="), giai
+# thuc the (&#69;xternal) roi moi kiem - docx-preview lay thuoc tinh DAU TIEN co ten cuc bo "char" /
+# "Target" sau khi trinh duyet giai thuc the (QC 15/11 D7 / A16 / vong 2). Khong khop than phan tu:
+# chi sua GIA TRI thuoc tinh trong the mo -> XML luon con hop le, khong backtracking tren tep hong.
+_TAG = re.compile(r"<([^\s<>/!?]+)((?:\s+[^\s<>=/]+\s*=\s*(?:\"[^\"<]*\"|'[^'<]*'))*)\s*(/?)>")
+_ATTR = re.compile(r"""(\s+)([^\s<>=/]+)(\s*=\s*)(?:"([^"<]*)"|'([^'<]*)')""")
 _HEX = re.compile(r"^[0-9A-Fa-f]{1,4}$")
-_REL = re.compile(r"<((?:[\w.-]+:)?)Relationship\b" + _ATTRS + r"(?:/>|(?<!/)>.*?</\1Relationship\s*>)", re.S)
-_EXTERNAL = re.compile(r"""\bTargetMode\s*=\s*(["'])\s*External\s*\1""", re.I)
-_TARGET = re.compile(r"""\bTarget\s*=\s*(["'])(.*?)\1""", re.S)
 _SAFE_SCHEMES = ("http://", "https://", "mailto:")
 _XML_PART = re.compile(r"^word/.*\.xml$")
 _RELS_PART = re.compile(r"^word/_rels/.*\.rels$")
 
 
-def _open_tag(text):
-    """Phan the mo (den dau ">" dau tien NGOAI gia tri thuoc tinh)."""
-    m = re.match(r"<[^\s/>]+" + _ATTRS + r">", text, re.S)
-    return m.group(0) if m else text
+def _local(name):
+    return name.rsplit(":", 1)[-1]
 
 
-def _clean_sym(m):
-    c = _SYM_CHAR.search(_open_tag(m.group(0)))
-    return m.group(0) if c and _HEX.match(c.group(2).strip()) else ""
+def _attrs(attr_text):
+    """[(match, ten cuc bo, gia tri DA giai thuc the)]"""
+    out = []
+    for m in _ATTR.finditer(attr_text):
+        raw = m.group(4) if m.group(4) is not None else m.group(5)
+        out.append((m, _local(m.group(2)), html.unescape(raw or "")))
+    return out
 
 
-def _clean_rel(m):
-    tag = m.group(0)
-    head = _open_tag(tag)
-    if not _EXTERNAL.search(head):
-        return tag
-    t = _TARGET.search(head)
-    target = (t.group(2) if t else "").strip().lower()
-    if target.startswith(_SAFE_SCHEMES):
-        return tag
-    new_head = _TARGET.sub('Target="#"', head, count=1) if t else head
-    return new_head + tag[len(head):]
+def _rewrite(tag_m, names, value):
+    """The mo voi MOI thuoc tinh co ten cuc bo trong `names` doi gia tri thanh `value`."""
+    attr_text = tag_m.group(2)
+    new_attrs = _ATTR.sub(lambda m: (m.group(1) + m.group(2) + m.group(3) + '"%s"' % value)
+                          if _local(m.group(2)) in names else m.group(0), attr_text)
+    return "<" + tag_m.group(1) + new_attrs + (" /" if tag_m.group(3) else "") + ">"
+
+
+def _clean_tag(m):
+    local = _local(m.group(1))
+    if local == "sym":
+        chars = [v for _m, n, v in _attrs(m.group(2)) if n == "char"]
+        if chars and not all(_HEX.match(v.strip()) for v in chars):
+            return _rewrite(m, {"char"}, "25A1")
+        return m.group(0)
+    if local == "Relationship":
+        attrs = _attrs(m.group(2))
+        if not any(n == "TargetMode" and v.strip().lower() == "external" for _m, n, v in attrs):
+            return m.group(0)
+        targets = [v for _m, n, v in attrs if n == "Target"]
+        if targets and all(v.strip().lower().startswith(_SAFE_SCHEMES) for v in targets):
+            return m.group(0)
+        return _rewrite(m, {"Target"}, "#")
+    return m.group(0)
 
 
 def sanitize_for_viewer(data):
@@ -57,9 +71,7 @@ def sanitize_for_viewer(data):
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as dst:
         for item in src.infolist():
             raw = src.read(item.filename)
-            if _XML_PART.match(item.filename) and b"sym" in raw:
-                raw = _SYM.sub(_clean_sym, raw.decode("utf-8")).encode("utf-8")
-            elif _RELS_PART.match(item.filename) and b"External" in raw:
-                raw = _REL.sub(_clean_rel, raw.decode("utf-8")).encode("utf-8")
+            if (_XML_PART.match(item.filename) and b"sym" in raw) or _RELS_PART.match(item.filename):
+                raw = _TAG.sub(_clean_tag, raw.decode("utf-8")).encode("utf-8")
             dst.writestr(item, raw)
     return buf.getvalue()

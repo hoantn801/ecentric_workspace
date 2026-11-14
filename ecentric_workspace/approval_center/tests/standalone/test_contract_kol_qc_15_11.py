@@ -292,6 +292,21 @@ class DotCuoiKhopHopDong(unittest.TestCase):
                               lambda r: [2_600_000, 2_600_000, r - 5_200_000], kol.PAY_ADVANCE, 30)
         self.assertEqual((t["pre_vat"] + adv, t["vat"]), (a["gross"], a["vat"]))
 
+    def test_muoi_hai_dot_van_khop(self):
+        # vong 2: nguong 2d qua chat tu ~8 dot
+        a, _adv, t = self._sum("Cá nhân", kol.NET_AFTER_PIT, 1_200_060, 10, lambda r: [100_005] * 11 + [r - 100_005 * 11])
+        self.assertEqual((t["gross"], t["net"]), (a["gross"], a["payable"]))
+
+    def test_bang_tinh_dot_cuoi_cung_so_voi_bbnt(self):
+        from ecentric_workspace.approval_center.features.contract_review.domain import kol_calc
+        a = kol.compute_amounts("Cá nhân", kol.NET_AFTER_PIT, 1_000_003, 10)
+        doc = {"creator_type": "Cá nhân", "payable_amount": a["payable"], "gross_amount": a["gross"], "advance_amount": 0,
+               "pit_rate": 10, "acceptances": [{"idx": 1, "amount": 500_001}, {"idx": 2, "amount": 500_002}]}
+        last = doc["acceptances"][1]
+        m = V._closing_adjust(doc, last, V.round_money("Cá nhân", 500_002, 10, None, doc))
+        rows = kol_calc.round_steps("Cá nhân", 500_002, 10, None, doc, last)
+        self.assertIn(m["gross"], [r["amount"] for r in rows])
+
     def test_dot_chua_phai_cuoi_giu_cach_tinh_thuong(self):
         doc = {"creator_type": "Cá nhân", "payable_amount": 1_000_003, "gross_amount": 1_111_114, "advance_amount": 0,
                "acceptances": [{"idx": 1, "amount": 500_001}, {"idx": 2, "amount": 100}]}
@@ -326,6 +341,15 @@ class DocxSafe(unittest.TestCase):
                 '<Relationship Id="r4" Target="https://ok.vn" TargetMode="External"/>'
                 '<Relationship Id="r5" Target="media/a.png"/></Relationships>')
         out = zipfile.ZipFile(io.BytesIO(docx_safe.sanitize_for_viewer(_docx(doc, rels))))
+        # vong 2: them 5 kieu lach cua ban regex 4daea89d
+        doc2 = ('<w:document><w:r><w:sym w:xchar="41" w:char="&lt;img onerror=alert(6)&gt;"/></w:r>'
+                '<w:r><w:sym w:font="char=\'41\'" w:char="&lt;img onerror=alert(7)&gt;"/></w:r>'
+                '<w:r><w\u00b7x:sym w\u00b7x:char="&lt;img onerror=alert(8)&gt;"/></w:r></w:document>')
+        rels2 = ('<Relationships><Relationship Id="Target=\'https://a\'" Target="javascript:alert(9)" TargetMode="External"/>'
+                 '<Relationship Id="r2" Target="javascript:alert(10)" TargetMode="&#69;xternal"/></Relationships>')
+        out2 = zipfile.ZipFile(io.BytesIO(docx_safe.sanitize_for_viewer(_docx(doc2, rels2))))
+        self.assertNotIn("onerror", out2.read("word/document.xml").decode())
+        self.assertNotIn("javascript:", out2.read("word/_rels/document.xml.rels").decode())
         d = out.read("word/document.xml").decode()
         r = out.read("word/_rels/document.xml.rels").decode()
         for bad in ("alert(1)", "alert(2)"):
@@ -422,6 +446,14 @@ class TepBanKy(unittest.TestCase):
         STATE["get_all"]["File"] = [Row(name="F1", owner="a@ec", attached_to_doctype=None, attached_to_name=None)]
         self.assertEqual(files.claim_upload(d, "/private/files/ban_ky.pdf", "a@ec"), "/private/files/ban_ky.pdf")
 
+    def test_tai_tay_ban_chua_ky_bi_chan(self):
+        # vong 2 (R2-09)
+        svc = _fresh("fin@ec")[0]
+        _doc(contract_file="/private/files/HDDV.pdf")
+        with self.assertRaises(Throw) as cm:
+            svc.mark_signed("CR-1", "/private/files/HDDV.pdf", "fin@ec")
+        self.assertIn("chưa ký", str(cm.exception))
+
     def test_hook_signed_tu_choi_ban_chua_ky_va_tep_chua_gan(self):
         _fresh("a@ec")
         hooks = importlib.import_module(P + "esign_hooks")
@@ -459,6 +491,12 @@ class DnttTheoBrandHopDong(unittest.TestCase):
         with self.assertRaises(Throw):
             self.fund.funding_validate(Doc(funding_source_name="CR-1", ec_brand="Brand-B", ec_sales_order="SO-1"), "a@ec")
         self.fund.funding_validate(Doc(funding_source_name="CR-1", ec_brand="Brand-A", ec_sales_order="SO-1"), "a@ec")
+
+    def test_bo_brand_qua_loai_chi_phi_khong_brand_bi_chan(self):
+        # vong 2: doi loai chi phi -> normalize xoa ec_brand -> truoc do lach chot brand
+        self.so_brand = None
+        with self.assertRaises(Throw):
+            self.fund.funding_validate(Doc(funding_source_name="CR-1", ec_brand=None, ec_sales_order="SO-1"), "a@ec")
 
     def test_so_brand_khac_bi_chan(self):
         self.so_brand = "Brand-C"
@@ -527,6 +565,22 @@ class HopDongDieuChinhKol(unittest.TestCase):
             service._require_approved_previous("CR-0")
         finally:
             sys.modules.pop(perms.__name__, None)
+
+
+class GuiLaiKhongDoiModified(unittest.TestCase):
+    def test_guard_khong_ghi_thang_db_truoc_khi_luu(self):
+        # vong 2: guard ghi db.set_value (doi modified) roi resubmit doc.save() -> TimestampMismatchError
+        _fresh("a@ec")
+        service = _service()
+        writes = []
+        sys.modules["frappe"].db.set_value = lambda *a, **k: writes.append(a)
+        STATE["values"][(CR, "CR-0")] = lambda f, d: Row(contract_type="Purchase / Mua vào (EC)")
+        STATE["exists"].add(("EC Approval Request Level", (("approval_request", "AR-9"), ("level_no", 4))))
+        d = Doc(doctype=CR, name="CR-9", approval_request="AR-9", request_kind="Existing", previous_request="CR-0",
+                contract_type="Purchase / Mua vào (EC)")
+        service._guard_resubmit_needs_ceo(d)
+        self.assertEqual(writes, [])
+        self.assertIsNotNone(d.changed_fields)
 
 
 class SaoChepPhieu(unittest.TestCase):

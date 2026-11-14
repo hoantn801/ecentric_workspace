@@ -222,8 +222,10 @@ def _round_calc(doc, row):
         # cung lay so da luu cua hop dong, khong quy nguoc tu so dot (lech 1d - QC6 12/11).
         if kol_values.is_whole_round(doc, flt(row.amount)):
             return kol_calc.contract_steps(doc)
+        d = doc.as_dict() if hasattr(doc, "as_dict") else doc
+        r = row.as_dict() if hasattr(row, "as_dict") else row
         return kol_calc.round_steps(doc.get("creator_type"), flt(row.amount), doc.get("pit_rate"),
-                                    doc.get("vat_rate"), doc)
+                                    doc.get("vat_rate"), d, r)
     except Exception:
         return []                 # bang tinh chi de soat: loi du lieu cu khong lam hong trang chi tiet
 

@@ -283,7 +283,9 @@ def _closing_adjust(doc, row, m):
               for r in prev]
     out = {k: T.round_half_up(totals[k]) - sum(b[k] for b in before) for k in _MONEY_KEYS}
     # An toan: dieu chinh chi duoc xe dich vai dong; lech lon = du lieu la -> giu cach tinh thuong.
-    return out if all(abs(out[k] - m[k]) <= 2 for k in _MONEY_KEYS) else m
+    # Moi dot lam tron lech toi da ~0.5d -> cho phep (so dot + 1)d (vong 2: tu ~8 dot nguong 2d qua chat).
+    limit = max(2, len(prev) + 1)
+    return out if all(abs(out[k] - m[k]) <= limit for k in _MONEY_KEYS) else m
 
 
 def is_whole_round(doc, amount):
