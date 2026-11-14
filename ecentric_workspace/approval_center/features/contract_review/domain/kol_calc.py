@@ -74,7 +74,9 @@ def round_steps(creator_type, amount, pit_rate, vat_rate, doc, row=None):
     from ecentric_workspace.approval_center.features.contract_review.domain import kol_values as V
     raw = V.round_money(creator_type, amount, pit_rate, vat_rate, doc)
     m = V._closing_adjust(doc, row, raw) if row is not None else raw
-    if m is not raw:
+    if m != raw and creator_type == "Hộ kinh doanh":
+        return [_row("Đợt cuối (tổng hợp đồng trừ các đợt trước, hộ kinh doanh)", "", m["total"], True)]
+    if m != raw:
         return [_row("Đợt cuối: lấy tổng hợp đồng trừ các đợt trước (để cộng các BBNT khớp hợp đồng)", "", m["total"]
                      if creator_type in ("Công ty", "Hộ kinh doanh") else m["net"]),
                 _row("Giá trị trước thuế (gross)" if creator_type == "Cá nhân" else "Giá trước VAT", "",

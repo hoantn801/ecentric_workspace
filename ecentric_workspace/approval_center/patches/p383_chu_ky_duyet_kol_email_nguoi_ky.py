@@ -1,7 +1,7 @@
 # Copyright (c) 2026, eCentric and contributors
 """15/11/2026: QC dem - `partner_signer_email` vao chu ky duyet cua phieu KOL (service.KOL_MATERIAL_FIELDS).
 
-Phieu KOL dang chay (gui tu 12/11, dang cho duyet / can bo sung) luu chu ky tinh theo danh sach CU:
+Phieu KOL dang chay (gui tu 12/11, dang cho duyet) luu chu ky tinh theo danh sach CU:
 khong co patch nay thi gui lai sau bo sung luon "doi noi dung" -> duyet lai tu cap 1 du khong ai sua.
 Tinh lai CHI khi chu ky dang luu khop dung du lieu hien tai theo danh sach cu (nghia la chua ai sua
 tu luc gui) - khop thi ghi chu ky moi (co email). Khong khop thi giu nguyen (de duyet lai, an toan).
@@ -12,7 +12,10 @@ import json
 import frappe
 
 _DT = "EC Contract Review Request"
-_OPEN = ("Pending", "Information Required")
+# CHI phieu dang cho duyet: phieu "Can bo sung" co the vua bi nguoi lap doi email nguoi ky truoc khi patch
+# chay - chu ky cu van khop -> ghi chu ky moi = chap nhan email moi khong duyet lai (QC vong 4). Phieu do
+# gui lai thi duyet lai tu cap 1 (chieu an toan).
+_OPEN = ("Pending",)
 _NEW_FIELD = "partner_signer_email"
 
 

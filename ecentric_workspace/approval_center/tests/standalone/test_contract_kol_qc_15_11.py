@@ -348,6 +348,15 @@ class DocxSafe(unittest.TestCase):
         rels2 = ('<Relationships><Relationship Id="Target=\'https://a\'" Target="javascript:alert(9)" TargetMode="External"/>'
                  '<Relationship Id="r2" Target="javascript:alert(10)" TargetMode="&#69;xternal"/></Relationships>')
         out2 = zipfile.ZipFile(io.BytesIO(docx_safe.sanitize_for_viewer(_docx(doc2, rels2))))
+        # vong 4 (N4): U+1680 trong ten thuoc tinh (ky tu ten hop le voi XML, khoang trang voi Python)
+        doc3 = '<w:document><w:r><w:sym x\u1680y="1" w:char="&lt;img onerror=alert(11)&gt;"/></w:r></w:document>'
+        try:
+            o3 = zipfile.ZipFile(io.BytesIO(docx_safe.sanitize_for_viewer(_docx(doc3, "<Relationships/>"))))
+            self.assertNotIn("onerror", o3.read("word/document.xml").decode())
+        except ValueError:
+            pass                                            # tu choi xem truoc cung dat
+        with self.assertRaises(ValueError):                 # the sym sai khuon -> tu choi, khong de lot
+            docx_safe.sanitize_for_viewer(_docx('<w:document><w:sym w:char="a="b"/></w:document>', "<Relationships/>"))
         self.assertNotIn("onerror", out2.read("word/document.xml").decode())
         self.assertNotIn("javascript:", out2.read("word/_rels/document.xml.rels").decode())
         d = out.read("word/document.xml").decode()
@@ -567,6 +576,18 @@ class HopDongDieuChinhKol(unittest.TestCase):
             sys.modules.pop(perms.__name__, None)
 
 
+class GuiLaiDoiHopDongGoc(unittest.TestCase):
+    def test_bo_sung_doi_hop_dong_goc_sang_phieu_chua_duyet_bi_chan(self):
+        # vong 4 (N1): previous_request sua duoc luc bo sung -> guard phai kiem lai nhu luc gui
+        _fresh("a@ec")
+        service = _service()
+        STATE["values"][(CR, "CR-NHAP")] = lambda f, d: Row(approval_request=None, requested_by="a@ec")
+        d = Doc(doctype=CR, name="CR-9", approval_request="AR-9", request_kind="Existing", previous_request="CR-NHAP",
+                contract_type="Purchase / Mua vào (EC)")
+        with self.assertRaises(Throw):
+            service._guard_resubmit_needs_ceo(d)
+
+
 class GuiLaiKhongDoiModified(unittest.TestCase):
     def test_guard_khong_ghi_thang_db_truoc_khi_luu(self):
         # vong 2: guard ghi db.set_value (doi modified) roi resubmit doc.save() -> TimestampMismatchError
@@ -574,7 +595,13 @@ class GuiLaiKhongDoiModified(unittest.TestCase):
         service = _service()
         writes = []
         sys.modules["frappe"].db.set_value = lambda *a, **k: writes.append(a)
-        STATE["values"][(CR, "CR-0")] = lambda f, d: Row(contract_type="Purchase / Mua vào (EC)")
+        STATE["values"][(CR, "CR-0")] = lambda f, d: Row(contract_type="Purchase / Mua vào (EC)",
+                                                         approval_request="AR-0", requested_by="a@ec")
+        STATE["values"][("EC Approval Request", "AR-0")] = "Approved"
+        perms = types.ModuleType("ecentric_workspace.approval_center.shared.workflow.permissions")
+        perms.can_view_request = lambda *a, **k: True
+        sys.modules[perms.__name__] = perms
+        self.addCleanup(sys.modules.pop, perms.__name__, None)
         STATE["exists"].add(("EC Approval Request Level", (("approval_request", "AR-9"), ("level_no", 4))))
         d = Doc(doctype=CR, name="CR-9", approval_request="AR-9", request_kind="Existing", previous_request="CR-0",
                 contract_type="Purchase / Mua vào (EC)")
@@ -599,9 +626,12 @@ class PatchChuKyDuyet(unittest.TestCase):
         chua_sua = Row(base, name="K1", approval_request="AR-1")
         chua_sua.material_signature = p383._sig(chua_sua, old_fields)
         da_sua = Row(base, name="K2", approval_request="AR-2", material_signature="khac")
-        STATE["get_all"][CR] = [chua_sua, da_sua]
-        STATE["values"][("EC Approval Request", "AR-1")] = "Information Required"
+        # vong 4: "Can bo sung" co the vua doi email truoc khi patch chay -> KHONG tinh lai (duyet lai, an toan)
+        can_bo_sung = Row(base, name="K3", approval_request="AR-3", material_signature=chua_sua.material_signature)
+        STATE["get_all"][CR] = [chua_sua, da_sua, can_bo_sung]
+        STATE["values"][("EC Approval Request", "AR-1")] = "Pending"
         STATE["values"][("EC Approval Request", "AR-2")] = "Pending"
+        STATE["values"][("EC Approval Request", "AR-3")] = "Information Required"
         STATE["exists"].add(("DocType", CR))
         writes = []
         fk.db.set_value = lambda dt_, name, field, value=None, **k: writes.append((name, value))
@@ -611,11 +641,12 @@ class PatchChuKyDuyet(unittest.TestCase):
 
 class SaoChepPhieu(unittest.TestCase):
     def test_khong_chep_hd_bbnt_sinh_tu_phieu_cu(self):
-        # R2
+        # R2 + vong 4: chi phieu KOL; phieu Mua vao giu tep nguoi dung tu dat ten HDDV_...
         _fresh("a@ec")
         cs = importlib.import_module("ecentric_workspace.approval_center.shared.requests.command_service")
-        self.assertTrue(cs._is_system_artefact("HDDV_05122026_HDDV.docx", CR))
-        self.assertTrue(cs._is_system_artefact("BBNT_x_dot1.docx", CR))
+        self.assertTrue(cs._is_system_artefact("HDDV_05122026_HDDV.docx", CR, kol.KOL_CONTRACT_TYPE))
+        self.assertTrue(cs._is_system_artefact("BBNT_x_dot1.docx", CR, kol.KOL_CONTRACT_TYPE))
+        self.assertFalse(cs._is_system_artefact("HDDV_CongTy.pdf", CR, "Purchase / Mua vào (EC)"))
         self.assertFalse(cs._is_system_artefact("HDDV_x.docx", "EC Payment Request"))
         self.assertTrue(cs._is_system_artefact("SIGNED-a.pdf"))
 

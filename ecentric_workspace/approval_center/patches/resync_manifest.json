@@ -113,7 +113,7 @@
   },
   "approval_center/features/payment_request/ui/main_section.html": {
     "last_resync_patch": "p382_resync_payment_request_nguon_chi",
-    "sha256": "0ee3c798902c304c2d2c203f2d54e4adb517a6c04ee00df434764035cbb51ec1"
+    "sha256": "7941b7b3e9c881a640bd17645eecd5b1f404eeb59b3f67efefa306e85bb5b475"
   },
   "approval_center/features/promotion/ui/main_section.html": {
     "baseline": "2026-08-31",

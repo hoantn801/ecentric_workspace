@@ -297,6 +297,9 @@ def _guard_resubmit_needs_ceo(doc):
     Chiều ngược (snapshot có CEO nhưng giờ hết cần) vô hại — CEO duyệt thừa còn hơn thiếu."""
     changed = []
     if doc.previous_request:
+        # previous_request sua duoc luc bo sung: doi sang phieu nhap / phong khac co noi dung giong het la
+        # "khong doi gi" -> lach CEO (QC 15/11 vong 4). Cung chot voi luc gui.
+        _require_approved_previous(doc.previous_request)
         prev = frappe.db.get_value(BUSINESS_DT, doc.previous_request, DIFF_FIELDS, as_dict=True)
         if prev:
             changed = changed_vs_previous(doc, prev)
@@ -309,6 +312,9 @@ def _guard_resubmit_needs_ceo(doc):
     has_ceo_level = bool(frappe.db.exists(
         "EC Approval Request Level",
         {"approval_request": doc.approval_request, "level_no": CEO_LEVEL_NO}))
+    if not has_ceo_level and kol.is_kol(doc):
+        frappe.throw(_("Hợp đồng KOL/KOC điều chỉnh nay phải qua CEO duyệt, nhưng yêu cầu này đã gửi theo luồng "
+                       "không có cấp CEO. Vui lòng hủy yêu cầu này và tạo yêu cầu mới."))
     if not has_ceo_level:
         frappe.throw(_(
             "Thay đổi này đụng đến nội dung hợp đồng (loại hợp đồng / brand / mục đích) nên "

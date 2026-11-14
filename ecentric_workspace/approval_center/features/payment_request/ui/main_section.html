@@ -676,8 +676,9 @@
   function handleSrcTypeChange(v){ clearFieldError("funding_source_doctype");
     if(v!==KOL_SRC&&(state.draft||{}).ec_sales_order){ setModel("ec_sales_order",""); state._so=null; }
     setModel("funding_source_name",""); state._fundRows=[]; state._fundRowsFor=null; state._fundSummary=null;
+    var seq=state._fundSeq=(state._fundSeq||0)+1; state._fundLoading=false;
     if(!v){ renderCreate($("payr-body")); return; }
-    state._fundLoading=true; renderCreate($("payr-body")); var seq=state._fundSeq=(state._fundSeq||0)+1;
+    state._fundLoading=true; renderCreate($("payr-body"));
     call("list_funding_sources",{source_doctype:v}).then(function(res){
       if(seq!==state._fundSeq){ return; }   // phan hoi cu: da doi loai lan nua / mo phieu khac (QC 15/11 vong 3)
       state._fundRows=(res&&res.rows)||[]; state._fundRowsFor=v; state._fundLoading=false; renderCreate($("payr-body"));
