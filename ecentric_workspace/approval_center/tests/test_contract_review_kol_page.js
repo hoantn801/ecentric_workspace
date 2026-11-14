@@ -186,6 +186,13 @@ function detailPart(){
     { const CR=w2.ContractReview, d2=JSON.parse(JSON.stringify(detail)); d2.approval={name:"R0",approval_status:"Approved"};
       const hs=CR.buildStepper(d2);
       chk("tien trinh KOL: co 3 buoc sau duyet, trang thai dung", /Ký hợp đồng[\s\S]*Đã ký đủ/.test(hs)&&/Nghiệm thu \(BBNT\)[\s\S]*Hoàn tất 0\/1 đợt/.test(hs)&&/Thanh toán \(ĐNTT\)[\s\S]*Đã lập ĐNTT/.test(hs)&&/Hoàn tất<\/div>[\s\S]*Chờ/.test(hs));
+      // QC 15/11 vong 3: "con X" chi khi con tien CHUA LEN DOT (khong phai chua nghiem thu); thieu du lieu KOL thi khong "Hoan tat".
+      const d3=JSON.parse(JSON.stringify(d2)); d3.extra.kol.acceptance_remaining=0;
+      chk("tien trinh KOL: het tien chua len dot thi khong ghi 'con 0'", !/còn 0/.test(CR.buildStepper(d3)));
+      d3.extra.kol.acceptance_remaining=500000;
+      chk("tien trinh KOL: con tien chua len dot thi ghi ro", /chưa lên đợt/.test(CR.buildStepper(d3)));
+      const d4=JSON.parse(JSON.stringify(d2)); delete d4.extra.kol;
+      chk("tien trinh KOL: thieu du lieu vong doi thi Hoan tat chua xong", /Hoàn tất<\/div>[\s\S]*Chờ/.test(CR.buildStepper(d4)));
       d2.approval.approval_status="Rejected"; chk("tien trinh KOL: phieu tu choi khong ve buoc sau duyet", !/Ký hợp đồng/.test(CR.buildStepper(d2))); }
     { const CR=w2.ContractReview;
       const h=CR.buildStepper({business:{contract_type:"Purchase / Mua vào (EC)"},approval:{name:"R1",approval_status:"Approved"},

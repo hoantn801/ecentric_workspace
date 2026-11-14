@@ -131,7 +131,7 @@
   #ec-ctr-root .pager{ display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:12px;font-size:13px;color:var(--gray-600); }
   #ec-ctr-root .state{ padding:44px 20px;text-align:center;color:var(--gray-500); } #ec-ctr-root .state h4{ color:var(--gray-700);margin:0 0 6px; }
   #ec-ctr-root .stepper{ position:relative;overflow-x:auto;padding:6px 2px 12px; }
-  #ec-ctr-root .stepline{ position:relative;display:flex;gap:0;min-width:100%; }
+  #ec-ctr-root .stepline{ position:relative;display:flex;gap:0;min-width:max(100%, calc(var(--n, 1) * 170px)); }
   #ec-ctr-root .stepline::before{ content:"";position:absolute;top:16px;left:calc(50% / var(--n));width:calc(100% - 100% / var(--n));height:2px;background:var(--gray-200);z-index:0; }
   #ec-ctr-root .stepline::after{ content:"";position:absolute;top:16px;left:calc(50% / var(--n));width:calc(100% / var(--n) * var(--k));height:2px;background:var(--navy);z-index:0;transition:width .3s ease; }
   #ec-ctr-root .step{ min-width:150px;flex:1;position:relative;padding:0 10px;z-index:1; }
@@ -725,7 +725,9 @@
     // Hop dong KOL/KOC (PO 12/11): duyet xong moi di duoc nua duong - noi them Ky HD -> Nghiem thu ->
     // Thanh toan de nguoi dung thay ca vong doi. Chi phieu KOL; form khac giu nguyen.
     var kol=KOL.lifeSteps(det); kol.forEach(function(k){ steps.push(k); });
-    var allDone=ap.approval_status==="Approved"&&kol.every(function(k){ return k.state==="done"; });
+    // KOL ma thieu du lieu vong doi (detail_extender loi) thi KHONG coi la xong (QC 15/11 vong 3).
+    var kolMissing=KOL.isKol(det.business||{})&&!((det.extra||{}).kol);
+    var allDone=ap.approval_status==="Approved"&&!kolMissing&&kol.every(function(k){ return k.state==="done"; });
     steps.push({name:"Hoàn tất",state:(allDone?"done":"upcoming"),meta:""});
     return renderStepsHTML(steps); }
   // Duyet thay (admin) khong doi trang thai dong nguoi duyet -> lay nguoi bam tu lich su.
@@ -819,7 +821,7 @@
         : {state:"upcoming",meta:"Sau khi duyệt xong"};
       var acc= !x.signed?{state:"upcoming",meta:"Sau khi ký đủ"}
         : (rows.length&&nDone===rows.length&&rem<=0)?{state:"done",meta:"Hoàn tất "+nDone+"/"+rows.length+" đợt"}
-        : {state:"current",meta:rows.length?("Hoàn tất "+nDone+"/"+rows.length+" đợt · còn "+KOL.money(rem)):"Chưa có đợt nào"};
+        : {state:"current",meta:rows.length?("Hoàn tất "+nDone+"/"+rows.length+" đợt"+(rem>0?(" · còn "+KOL.money(rem)+" chưa lên đợt"):"")):"Chưa có đợt nào"};
       var used=Number(f.used||0), payable=Number(f.payable||0);
       var pay= (x.signed&&payable>0&&used>=payable)?{state:"done",meta:"Đã lập ĐNTT "+KOL.money(used)}
         : (x.signed&&(Number(f.cap||0)>0||used>0))?{state:"current",meta:"Đã lập ĐNTT "+KOL.money(used)+" / "+KOL.money(payable)}

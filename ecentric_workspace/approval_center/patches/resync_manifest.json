@@ -46,7 +46,7 @@
   },
   "approval_center/features/contract_review/ui/main_section.html": {
     "last_resync_patch": "p381_resync_contract_review_tien_trinh_kol",
-    "sha256": "4a7877425f7387a5928692b0f68dc1fa8fa111fa708e68ad911c611aa600fd34"
+    "sha256": "7392a87161eb26fb1a2578f679d62cce9b9c56f82ac6cae0ed258b9b9ed22752"
   },
   "approval_center/features/daily_target/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -113,7 +113,7 @@
   },
   "approval_center/features/payment_request/ui/main_section.html": {
     "last_resync_patch": "p382_resync_payment_request_nguon_chi",
-    "sha256": "511f5f7ba430b12bddf2f2a98fe66909b3e92251da3ce04f6da00bd929f3a609"
+    "sha256": "0ee3c798902c304c2d2c203f2d54e4adb517a6c04ee00df434764035cbb51ec1"
   },
   "approval_center/features/promotion/ui/main_section.html": {
     "baseline": "2026-08-31",

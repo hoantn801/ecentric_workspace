@@ -665,6 +665,7 @@
   // cung trang thi nap lai rows cua B - truoc do giu rows cua A (QC 15/11 C6).
   function ensurePROptions(cb){ var dt=(state.draft||{}).funding_source_doctype||"";
     if(state._fundTypesLoaded&&state._fundRowsFor===dt){ cb&&cb(); return; }
+    state._fundSeq=(state._fundSeq||0)+1; state._fundLoading=false;   // bo phan hoi doi loai nguon dang cho
     call("list_funding_sources",{source_doctype:dt}).then(function(res){
       if(((state.draft||{}).funding_source_doctype||"")!==dt){ cb&&cb(); return; }
       state._fundTypes=(res&&res.types)||[]; state._fundRows=(res&&res.rows)||[]; state._fundRowsFor=dt;
@@ -676,10 +677,11 @@
     if(v!==KOL_SRC&&(state.draft||{}).ec_sales_order){ setModel("ec_sales_order",""); state._so=null; }
     setModel("funding_source_name",""); state._fundRows=[]; state._fundRowsFor=null; state._fundSummary=null;
     if(!v){ renderCreate($("payr-body")); return; }
-    state._fundLoading=true; renderCreate($("payr-body"));
+    state._fundLoading=true; renderCreate($("payr-body")); var seq=state._fundSeq=(state._fundSeq||0)+1;
     call("list_funding_sources",{source_doctype:v}).then(function(res){
+      if(seq!==state._fundSeq){ return; }   // phan hoi cu: da doi loai lan nua / mo phieu khac (QC 15/11 vong 3)
       state._fundRows=(res&&res.rows)||[]; state._fundRowsFor=v; state._fundLoading=false; renderCreate($("payr-body"));
-    }).catch(function(e){ state._fundRows=[]; state._fundLoading=false; renderCreate($("payr-body"));
+    }).catch(function(e){ if(seq!==state._fundSeq){ return; } state._fundRows=[]; state._fundLoading=false; renderCreate($("payr-body"));
       toast(mapErr(e)||"Không tải được chứng từ nguồn.",true); }); }
 
   // Chon chung tu -> tu dien nguoi nhan + so tien CON LAI (nguoi dung sua duoc de tra tung dot).
