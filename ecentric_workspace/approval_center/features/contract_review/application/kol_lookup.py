@@ -157,7 +157,7 @@ def list_templates(kind=None):
         filters["kind"] = kind
     return frappe.get_all(TEMPLATE_DT, filters=filters,
                           fields=["name", "kind", "creator_type", "service_type", "platform", "has_advance",
-                                  "version", "unknown_placeholders"],
+                                  "version", "unknown_placeholders", "modified"],
                           order_by="template_name asc", limit_page_length=200)
 
 
@@ -197,7 +197,7 @@ def pick_template(kind, creator_type, service_type, has_advance, platform=None):
     """Mau khop nhat (giong resolveTemplateId_ cua tool cu): dung luat template_mismatch; dung
     dich vu hon "Livestream" (cho Livestream + Video) hon "Tất cả"."""
     want = _want_service(service_type)
-    best, best_score = None, -1
+    best, best_score, best_mod = None, -1, ""
     for t in list_templates(kind):
         t = dict(t, is_active=1)          # list_templates da loc is_active
         if template_mismatch(t, kind, creator_type, has_advance, platform, service_type):
@@ -205,8 +205,11 @@ def pick_template(kind, creator_type, service_type, has_advance, platform=None):
         svc = t.get("service_type") or "Tất cả"
         # service_type rong (phieu nhap chua chon dich vu, vd AI QC mau creator): moi mau cung diem.
         score = (len(want) - want.index(svc)) if svc in want else 0
-        if score > best_score:
-            best, best_score = t["name"], score
+        # Hai mau cung diem (Ke toan tai ban moi ma chua tat ban cu): lay ban SUA GAN NHAT, khong lay
+        # theo ten (QC 15/11 A20 - truoc do co the ra ban cu).
+        mod = str(t.get("modified") or "")
+        if score > best_score or (score == best_score and mod > best_mod):
+            best, best_score, best_mod = t["name"], score, mod
     return best
 
 

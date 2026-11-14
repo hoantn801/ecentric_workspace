@@ -239,6 +239,13 @@ def bank_branch(bank, branch):
     return b + " - CN " + br
 
 
+def tax_id_text(value):
+    """MST in tren HD: MST chi nhanh 13 so luu dang so tran -> in lai '0123456789-001' (QC 15/11 A9)."""
+    raw = str(value or "").strip()
+    digits = re.sub(r"\D", "", raw)
+    return digits[:10] + "-" + digits[10:] if len(digits) == 13 else raw
+
+
 def strip_honorific(name):
     return re.sub(r"^\s*(ông|bà|anh|chị)\s+", "", str(name or ""), flags=re.I).strip()
 

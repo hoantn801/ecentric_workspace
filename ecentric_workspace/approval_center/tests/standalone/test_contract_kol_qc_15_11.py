@@ -228,6 +228,11 @@ class NgayVaKenh(unittest.TestCase):
         self.assertEqual(T.bank_branch("", "Hà Nội"), "")
         self.assertEqual(T.bank_branch("ACB", "Hà Nội"), "ACB - CN Hà Nội")
 
+    def test_mst_chi_nhanh_in_co_gach(self):
+        # A9
+        self.assertEqual(T.tax_id_text("0123456789001"), "0123456789-001")
+        self.assertEqual(T.tax_id_text("0123456789"), "0123456789")
+
     def test_ky_tu_cam_trong_xml_bi_bo(self):
         # A17
         self.assertEqual(docx_fill._CTRL.sub("", "A￾B￿C\ud800D"), "ABCD")
@@ -455,6 +460,46 @@ class DnttTheoBrandHopDong(unittest.TestCase):
         self.so_brand = "Brand-C"
         with self.assertRaises(Throw):
             self.fund.funding_validate(Doc(funding_source_name="CR-1", ec_brand="Brand-A", ec_sales_order="SO-1"), "a@ec")
+
+
+class QuyTrinhKy(unittest.TestCase):
+    def test_doi_kol_sang_mua_vao_bo_quy_trinh_rieng_kol(self):
+        # A21
+        from ecentric_workspace.approval_center.features.contract_review.domain import esign_flow as ef
+        d = Doc(contract_type="Purchase / Mua vào (EC)", esign_flow=ef.KOL_PARTNER_SIGNED)
+        self.assertIsNone(ef.apply_default(d))
+        d = Doc(contract_type=kol.KOL_CONTRACT_TYPE, esign_flow=ef.KOL_PARTNER_SIGNED)
+        self.assertEqual(ef.apply_default(d), ef.KOL_PARTNER_SIGNED)
+        d = Doc(contract_type="Purchase / Mua vào (EC)", esign_flow=ef.PARTNER_SIGNED)
+        self.assertEqual(ef.apply_default(d), ef.PARTNER_SIGNED)
+
+
+class HopDongLaoDongKhongLenSharePoint(unittest.TestCase):
+    def test_them_tep_o_buoc_duyet_bo_qua_hd_lao_dong(self):
+        # B-09: "Them tep" (shared add_file -> dong_bo_mot_tep) truoc do dua ca HD lao dong len thu vien chung.
+        _fresh("a@ec")
+        wr = types.ModuleType("ecentric_workspace.weekly_report.sharepoint")
+        sys.modules[wr.__name__] = wr
+        sys.modules.pop("ecentric_workspace.approval_center.shared.integrations.sharepoint_mirror", None)
+        sp = importlib.import_module("ecentric_workspace.approval_center.shared.integrations.sharepoint_mirror")
+        STATE["values"][(CR, (("name", "CR-L"),))] = "Labor / Hợp đồng lao động (EC)"
+        STATE["values"][(CR, (("name", "CR-K"),))] = kol.KOL_CONTRACT_TYPE
+        self.assertFalse(sp.duoc_soi_guong_phieu(CR, "CR-L"))
+        self.assertTrue(sp.duoc_soi_guong_phieu(CR, "CR-K"))
+        self.assertIn("bo_qua", sp.dong_bo_mot_tep(CR, "CR-L", "/private/files/hd.pdf"))
+
+
+class ChonMau(unittest.TestCase):
+    def test_hai_mau_cung_diem_lay_ban_sua_gan_nhat(self):
+        # A20
+        _fresh("a@ec")
+        lk = importlib.import_module(P + "kol_lookup")
+        lk.list_templates = lambda kind=None: [
+            {"name": "A-cu", "service_type": "Livestream", "modified": "2026-11-01 10:00:00"},
+            {"name": "B-moi", "service_type": "Livestream", "modified": "2026-11-14 10:00:00"},
+            {"name": "C-cu-hon", "service_type": "Livestream", "modified": "2026-10-01 10:00:00"}]
+        lk.template_mismatch = lambda *a, **k: None
+        self.assertEqual(lk.pick_template("Hợp đồng", "Cá nhân", "Livestream", False, "TikTok"), "B-moi")
 
 
 class CheTruocKhiGuiAi(unittest.TestCase):

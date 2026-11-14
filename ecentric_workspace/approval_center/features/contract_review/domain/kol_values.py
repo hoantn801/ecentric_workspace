@@ -174,7 +174,7 @@ def contract_values(doc, creator, brand_code, sign_date, service_dates, bbnt_dat
         "HOUSEHOLD_REPRESENTATIVE_TITLE": (creator.get("ec_cr_representative_title") or "Chủ hộ kinh doanh")
         if is_hkd else "",
         "PARTY_ADDRESS": T.address(creator.get("ec_cr_address")),
-        "PARTY_TAX_ID": creator.get("tax_id") or "",
+        "PARTY_TAX_ID": T.tax_id_text(creator.get("tax_id")),
         "BANK_ACCOUNT_HOLDER": creator.get("ec_cr_account_holder") or name,
         "BANK_ACCOUNT_NO": creator.get("ec_bank_account_no") or "",
         "BANK_NAME_SHORT": (creator.get("ec_bank_name") or "").strip(),
