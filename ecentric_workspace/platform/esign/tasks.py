@@ -33,6 +33,13 @@ EVT = "EC Digital Signature Event"
 # transition_id which is reserved for Workflow/transition reject/cancel operations).
 _PROVIDER_TRANSITION = {"Sign": "approve"}
 
+#: HET HAN MUC TAI LIEU ben nha cung cap (16/11/2026, CMC 1132/1100 luot): AddDocument bi chan
+#: truoc khi tao, nen chan ky CHUA tao tai lieu va CHUA gui lenh ky nao - thu lai an toan.
+#: poll_pending khong tinh loi nay vao tran max_poll_attempts va chi thu lai moi
+#: QUOTA_RETRY_MINUTES phut (xem poll_pending).
+QUOTA_ERROR = "scts_create_quota_exceeded"
+QUOTA_RETRY_MINUTES = 10
+
 
 def _disabled():
     try:
@@ -1030,7 +1037,8 @@ def poll_pending():
                                                           "Verifying", "Retryable Failure",
                                                           "Signed"]]},
                           fields=["name", "status", "provider", "environment",
-                                  "request_attempt"], limit_page_length=200)
+                                  "request_attempt", "error_code", "modified"],
+                          limit_page_length=200)
     for r in rows:
         if not _integration_open(r.provider, r.environment):
             continue  # gate OFF -> no adapter, no SCTS network call
@@ -1053,7 +1061,18 @@ def poll_pending():
                 out = _complete_dsr(r.name, full)
                 _enqueue_signed_retrieval(full.get("package"), out)
                 continue
-            if r.status == "Retryable Failure":
+            if r.status == "Retryable Failure" and r.get("error_code") == QUOTA_ERROR:
+                # HET HAN MUC (16/11): cho nha cung cap cap them luot co the mat nua ngay. Tinh
+                # vao tran thi sau ~15 phut moi phieu moi sang Manual Review va phai bam tay
+                # tung cai. Khong tinh tran; thu thua (QUOTA_RETRY_MINUTES) de khong goi cong
+                # moi phut. An toan: loi nay chi phat sinh o AddDocument - chua gui lenh ky.
+                # Chua den luot: bo qua, chua ghi gi. Den luot: roi xuong process_signing_request
+                # chung ben duoi (khong `continue` - de _commit_step sau vong van chay).
+                if r.get("modified") and r.modified > add_to_date(
+                        now_datetime(), minutes=-QUOTA_RETRY_MINUTES):
+                    continue
+                events.set_dsr_status(r.name, "Queued", event_type="RetryScheduled")
+            elif r.status == "Retryable Failure":
                 cap = frappe.db.get_value("EC Digital Signature Provider Settings",
                                           {"provider": r.provider, "environment": r.environment},
                                           "max_poll_attempts") or 30

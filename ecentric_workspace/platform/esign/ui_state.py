@@ -36,6 +36,7 @@ _DSR_STAGE = {
 
 _SAFE_ERROR = {  # provider error_code -> safe, actionable Vietnamese message
     "create_outcome_unknown": "Kết quả tạo tài liệu chưa xác định - chờ đối soát (không gửi lại).",
+    "scts_create_quota_exceeded": "Nhà cung cấp ký số (CMC) báo hết hạn mức tài liệu - chưa tạo được tài liệu; hệ thống tự tạo lại khi được cấp thêm lượt.",
     "scts_bulk_outcome_unknown": "Kết quả ký chưa xác định - hệ thống sẽ dò trạng thái, không gửi lại.",
     "binding_refused": "Ràng buộc chữ ký bị từ chối - cần kiểm tra ánh xạ người ký.",
     "package_hash_drift": "Gói tài liệu đã thay đổi - cần tạo phiên bản mới.",
