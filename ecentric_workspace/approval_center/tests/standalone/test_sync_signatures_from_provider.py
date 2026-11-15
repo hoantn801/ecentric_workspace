@@ -321,7 +321,7 @@ class TestKHONG_GUI_GI_VA_GHI_LAI(unittest.TestCase):
     def test_binh_luan_di_vao_lich_su_phieu_noi_ro_la_DONG_BO(self):
         """Nguoi doc lich su phieu phai phan biet duoc voi mot lan bam "Duyet & Ky" that."""
         src = ast.unparse(_fn_src("_adopt_provider_signature"))
-        self.assertIn("Đồng bộ chữ ký từ cổng SCTS", src)
+        self.assertIn("Đồng bộ chữ ký từ cổng CMC", src)
         self.assertIn("comment=", src)
 
     def test_KHONG_tao_them_khi_da_co_chan_dang_song(self):
@@ -423,7 +423,7 @@ class TestChanKyDongBoMangLyDoRIENG(unittest.TestCase):
         Ghi "verified" vao cau tieng Viet la ghi mot tu vo nghia voi ho."""
         seen, _ = _chay_adopt(self._vr())
         self.assertIn("10/09/2026 14:26", seen["comment"])
-        self.assertIn("Đồng bộ chữ ký từ cổng SCTS", seen["comment"])
+        self.assertIn("Đồng bộ chữ ký từ cổng CMC", seen["comment"])
         self.assertNotIn("verified", seen["comment"])
 
     def test_ly_do_cua_nguoi_bam_van_vao_binh_luan(self):

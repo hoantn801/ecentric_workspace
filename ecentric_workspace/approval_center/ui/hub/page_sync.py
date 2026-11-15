@@ -40,8 +40,11 @@ def _html():
 # Deliberate update = edit ui/hub/main_section.html, bump
 # BASELINE_SHA256, move the value it replaced into SUPERSEDES_SHA256 -- all in
 # the same commit.
-BASELINE_SHA256 = "3ecbeb7a5478b63a85e316c39a7944567deebbb98842f17f9dbc3f76313da1f8"
+BASELINE_SHA256 = "2d6ce1faa6df434bf8ebeddd924e4d6e3fbe20efe82c46efed28b0ee43751526"
 SUPERSEDES_SHA256 = (
+    # baseline truoc p381 (nut "Ket noi SCTS" -> "Ket noi CMC", 15/11 chuyen nha cung cap).
+    # DO tren prod 15/11: live = dung gia tri nay.
+    "3ecbeb7a5478b63a85e316c39a7944567deebbb98842f17f9dbc3f76313da1f8",
     # baseline truoc p317 (chua co dai "N phieu dang cho ban duyet" o dau hub). Doi 03/11.
     "11f1ef0f5fbdf3d6523a152e9a0bb3e0c23ffc0ba94ed7946baa5a743ec46aef",
     # baseline truoc p189 (nhan tinh trang cong cu con dung cap mau xanh/navy cua

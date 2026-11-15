@@ -306,7 +306,7 @@ def requester_submit_and_sign(business_doctype, business_name, comment=None):
     if not mapping:
         events.emit("MappingRequired", erp_actor=requester,
                     request_meta={"business": business_name})
-        frappe.throw(_("Người đề nghị chưa có ánh xạ chữ ký SCTS được xác minh."))
+        frappe.throw(_("Người đề nghị chưa có ánh xạ chữ ký CMC được xác minh."))
     # Chung tu phai do CHINH nguoi de nghi tao (token cua ho) thi ho moi giu task Trinh ky.
     # Chan o day, TRUOC khi tao DSR - khong de lai chung tu rac ben SCTS (00046/47/48/50).
     from ecentric_workspace.platform.esign import user_link
@@ -568,7 +568,7 @@ def prepare_requester_signing_package(business_doctype, business_name):
                                      frappe.db.get_value("EC Digital Signature Profile", pname,
                                                          "environment"))
     if not mapping:
-        frappe.throw(_("Người đề nghị chưa có ánh xạ chữ ký SCTS được xác minh."))
+        frappe.throw(_("Người đề nghị chưa có ánh xạ chữ ký CMC được xác minh."))
     frappe.db.get_value(AR, ar, "name", for_update=True)  # idempotency lock
     pkg = pkgsvc.get_or_create_draft(business_doctype, business_name, pname, allow_submitted=True)
     if pkg.status == "Draft":

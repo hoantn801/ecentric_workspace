@@ -153,8 +153,8 @@
     "sha256": "347f7ad43edc901cbd42da98f89580c64d86d4d403e2f981408abf9a9163c740"
   },
   "approval_center/ui/hub/main_section.html": {
-    "last_resync_patch": "p317_resync_hub_cho_toi_duyet",
-    "sha256": "3ecbeb7a5478b63a85e316c39a7944567deebbb98842f17f9dbc3f76313da1f8"
+    "last_resync_patch": "p381_resync_ten_cong_cmc",
+    "sha256": "2d6ce1faa6df434bf8ebeddd924e4d6e3fbe20efe82c46efed28b0ee43751526"
   },
   "guides/pages/dnmh_dntt/main_section.html": {
     "last_resync_patch": "p161_publish_guides_and_shell_drift",
@@ -218,20 +218,20 @@
     "sha256": "60df026a79048ebbef516cedc0462c386733159882b74f4bc2b80e60f6104424"
   },
   "platform/esign/ui/document_signing_section.html": {
-    "last_resync_patch": "p160_resync_pdf_render_cancel",
-    "sha256": "7011abc816c9dd96a7e4d42096a26399399d578658d154ff2bded1691a53eab9"
+    "last_resync_patch": "p381_resync_ten_cong_cmc",
+    "sha256": "2dea68104973d3dab8db8f6dfedf323a6f79d27afaa8e6b86525103e58af79f3"
   },
   "platform/esign/ui/ops_page.html": {
     "last_resync_patch": "p195_resync_esign_ops_sync_drift_button",
     "sha256": "672eb85b5942ccc67a8cf4f2bde72d2968030106e24f6ec227a33ec86b4fcdd5"
   },
   "platform/esign/ui/payment_request_signing.html": {
-    "last_resync_patch": "p159_resync_esign_review_stopped_leg_drawer_token",
-    "sha256": "bd93a055184fb6918f8392740aee9e5ec67bb5fa97fe469a5a2d839e1380d3a6"
+    "last_resync_patch": "p381_resync_ten_cong_cmc",
+    "sha256": "b3499d751d5cf50ad81fd892564bf74dd467bb50853f9e6cdf61c6ba10dce7de"
   },
   "platform/esign/ui/requester_signing_panel.html": {
-    "last_resync_patch": "p159_resync_esign_review_stopped_leg_drawer_token",
-    "sha256": "4aa7b29bac83023432ed92af04d9393efb7c74d157acec9473008df4aa86aecd"
+    "last_resync_patch": "p381_resync_ten_cong_cmc",
+    "sha256": "591a05665c839e114c1048ad7c6fe84634dde3b59526c8421a71f0882a045660"
   },
   "reporting/frontend/pnl_dashboard.main_section.html": {
     "last_resync_patch": "p245_resync_pnl_popup_chi_phi",
