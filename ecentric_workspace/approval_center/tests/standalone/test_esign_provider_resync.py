@@ -86,7 +86,11 @@ class _Adapter(object):
     def list_user_signatures(self, uid):
         if self.w.get("token_rejected") and self.token:
             raise PE("scts_user_token_rejected")
-        return []
+        out = []
+        for u, (pid, sig, typ) in MAPS.items():
+            if pid == uid:
+                out.append({"id": sig, "type": self.w.get("provider_types", {}).get(u, typ)})
+        return out
 
     def transition_with_recipients(self, inst, uid, to, cfg, sig, actor_user_id=None):
         self.w["sent"].append({"uid": uid, "to": list(to), "tid": cfg.get("transition_id"),
@@ -258,7 +262,11 @@ def _load(world):
         if user in world.get("map_changed", ()):
             return _D(scts_user_id="OTHER", signature_id="OTHER", signature_type="ky-tham-gia")
         m = MAPS.get(user)
-        return _D(scts_user_id=m[0], signature_id=m[1], signature_type=m[2]) if m else None
+        if not m:
+            return None
+        # Prod 15/11: anh xa KHONG ghi loai chu ky (signature_type rong) - mac dinh nhu prod.
+        return _D(scts_user_id=m[0], signature_id=m[1],
+                  signature_type=m[2] if world.get("map_has_type") else None)
     pm.verified_mapping = vm
     pv = types.ModuleType("ecentric_workspace.platform.esign.providers")
     pv.get_adapter = lambda s: _Adapter(world)
@@ -440,6 +448,20 @@ class TestChotGui(Base):
         r = self._stop(prior={"DSR-3": [{"name": "EV-9", "creation": "t9"}]},
                        prior_ok={"DSR-3": [{"name": "EV-10"}]})
         self.assertEqual(r["result"], "would_send")
+
+    def test_loai_chu_ky_doc_tu_cong_khi_anh_xa_trong(self):
+        self.assertEqual(self._stop()["result"], "would_send")
+        r = self._stop(provider_types={"phuong@x": "ky-chinh"})
+        self.assertEqual(r["reason"], "signature_type_mismatch:ky-tham-gia/ky-chinh")
+
+    def test_khong_biet_loai_chu_ky_thi_dung(self):
+        self.assertEqual(self._stop(provider_types={"phuong@x": None})["reason"],
+                         "signature_type_unknown")
+
+    def test_anh_xa_co_loai_thi_dung_loai_anh_xa(self):
+        self.assertEqual(self._stop(map_has_type=True,
+                                    provider_types={"phuong@x": "ky-chinh"})["result"],
+                         "would_send")
 
     def test_anh_xa_doi(self):
         self.assertEqual(self._stop(map_changed={"phuong@x"})["reason"],

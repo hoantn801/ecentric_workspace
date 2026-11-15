@@ -369,9 +369,18 @@ def _send_plan(leg, legs, pkg, settings, adapter, ack_prior_attempt=False):
                                                  step_index=buoc)
     if not cfg or cfg.get("step_index") is None or int(cfg["step_index"]) != int(buoc):
         raise _Stop("no_step_config:%s/%s" % (stage, buoc))
-    if not next_handler.signature_type_matches(cfg.get("sign_type"), m.get("signature_type")):
-        raise _Stop("signature_type_mismatch:%s/%s" % (cfg.get("sign_type"),
-                                                       m.get("signature_type")))
+    # Loai chu ky (ky-tham-gia / ky-chinh): anh xa tren prod KHONG ghi loai (15/11: moi anh xa
+    # deu trong) -> doc tu CHINH chu ky do tren cong (GetSignatures da chuan hoa: "type").
+    have = m.get("signature_type")
+    if not have:
+        own = next((x for x in (adapter.list_user_signatures(
+            leg.get("effective_scts_user_id")) or [])
+            if str(x.get("id")) == str(leg.get("effective_signature_id"))), None)
+        have = (own or {}).get("type")
+    if not have:
+        raise _Stop("signature_type_unknown")
+    if not next_handler.signature_type_matches(cfg.get("sign_type"), have):
+        raise _Stop("signature_type_mismatch:%s/%s" % (cfg.get("sign_type"), have))
     if targeted.get("transition_id") not in (None, "") \
             and str(targeted.get("transition_id")) != str(cfg.get("transition_id")):
         raise _Stop("differs_from_original:%s!=%s" % (cfg.get("transition_id"),
