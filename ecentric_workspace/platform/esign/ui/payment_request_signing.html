@@ -119,7 +119,7 @@
       var panel = el("ec-esign-panel"); if(!panel) return;
       if(!this.RENDER_LEGACY_UI){ panel.innerHTML = ""; return; }
       var s = this.state, pkg = s.pkg || {}, locked = pkg.status && pkg.status !== "Draft";
-      var h = ['<h4>Tệp ký số (SCTS)</h4>'];
+      var h = ['<h4>Tệp ký số (CMC)</h4>'];
       h.push('<div>Gói: <b>'+esc(pkg.status||"Chưa có")+'</b>'+
              (pkg.package_version?(' · phiên bản '+esc(pkg.package_version)):'')+'</div>');
       h.push('<table class="table table-bordered"><thead><tr><th>#</th><th>Tệp</th>'+

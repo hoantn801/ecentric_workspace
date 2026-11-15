@@ -123,9 +123,10 @@ def _html():
 # ba viec giao dien (badge huy do + co chu hub). File sau merge mang CA HAI, nen compose cua no
 # khac ca hai gia tri dang choi nhau. So duoi day duoc TINH LAI tu file da gop, khong lay cua
 # ben nao; ca hai gia tri cu deu xuong SUPERSEDES vi ban nao cung co the dang nam o live.
-BASELINE_SHA256 = "46690eeb21d04a64a0fbffe8665947e4cfdb5f9849c430fbc0cb1ca576f761ff"
+BASELINE_SHA256 = "625db73bbaa2f8704c8b3e1617a3720253fd3011b51c43d245e7c078906a01b4"
 SUPERSEDES_SHA256 = (
-    "6ba952991c6cb2bf91f1790be5e0926dff2877cd5e1d875f52cbeba0d534fa56",  # ban truoc QC dem 15/11 (p382) - dang o live sau #829
+    "12982f58af9e5719857ea24532f1bb97d6e95cb962e4de92ac7030de01f334b0",  # ban main #841 (chu SCTS -> CMC, p381) - live sau deploy 15/11
+    "6ba952991c6cb2bf91f1790be5e0926dff2877cd5e1d875f52cbeba0d534fa56",  # ban truoc p381 (chu SCTS -> CMC, 15/11) - DO tren prod 15/11: live = ban nay
     "f15c1339432e21132ac2bbc32a078578ada0b6dd4347e2c6cc7b305c38f00aa9",  # ban main sua "con lai" khi gui lai dot 2 (p360, 12/11) - co the dang o live
     "760032ff4710ff5bd2528c55e17053d8542788f085d14dd1a1619b309b8bc1a5",  # ban truoc o "SO doanh thu" cho nguon hop dong KOL 12/11
     "3b97c41bd1924aa0b9eb3764a0f34de11967a7373a28629e60ca55ea2945e554",  # ban truoc dot UX lich su/tien trinh/loi 03/11

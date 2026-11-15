@@ -1,0 +1,282 @@
+{
+ "actions": [],
+ "creation": "2026-11-15 06:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "editable_grid": 1,
+ "field_order": [
+  "title",
+  "status",
+  "voice_label",
+  "voice_key",
+  "voice_profile",
+  "col_a",
+  "quality",
+  "speed",
+  "language",
+  "breath",
+  "audio_file",
+  "sec_text",
+  "text",
+  "chars",
+  "sec_run",
+  "progress",
+  "position",
+  "seconds",
+  "gen_seconds",
+  "error",
+  "col_r",
+  "evoice_job_id",
+  "submitted_at",
+  "started_at",
+  "finished_at",
+  "last_polled_at",
+  "attempts",
+  "fetch_attempts",
+  "cancel_requested",
+  "last_error",
+  "callback_url"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Tiêu đề",
+   "in_list_view": 1,
+   "length": 140
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Trạng thái",
+   "options": "pending\nqueued\nrunning\ndone\nerror\ncancelled",
+   "default": "pending",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "voice_label",
+   "fieldtype": "Data",
+   "label": "Giọng",
+   "in_list_view": 1,
+   "length": 140
+  },
+  {
+   "fieldname": "voice_key",
+   "fieldtype": "Data",
+   "label": "Mã giọng gửi máy",
+   "read_only": 1,
+   "length": 140
+  },
+  {
+   "fieldname": "voice_profile",
+   "fieldtype": "Link",
+   "label": "Hồ sơ giọng",
+   "options": "EC AI Voice Profile",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_a",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "quality",
+   "fieldtype": "Data",
+   "label": "Chất lượng",
+   "read_only": 1
+  },
+  {
+   "fieldname": "speed",
+   "fieldtype": "Float",
+   "label": "Tốc độ",
+   "read_only": 1,
+   "precision": "2"
+  },
+  {
+   "fieldname": "language",
+   "fieldtype": "Data",
+   "label": "Ngôn ngữ",
+   "read_only": 1
+  },
+  {
+   "fieldname": "breath",
+   "fieldtype": "Check",
+   "label": "Lấy hơi tự nhiên",
+   "default": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "audio_file",
+   "fieldtype": "Attach",
+   "label": "File MP3",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sec_text",
+   "fieldtype": "Section Break",
+   "label": "Nội dung"
+  },
+  {
+   "fieldname": "text",
+   "fieldtype": "Long Text",
+   "label": "Nội dung đọc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "chars",
+   "fieldtype": "Int",
+   "label": "Số ký tự",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sec_run",
+   "fieldtype": "Section Break",
+   "label": "Tiến độ"
+  },
+  {
+   "fieldname": "progress",
+   "fieldtype": "Data",
+   "label": "Tiến độ (đoạn đã đọc / tổng)",
+   "read_only": 1,
+   "length": 20
+  },
+  {
+   "fieldname": "position",
+   "fieldtype": "Int",
+   "label": "Vị trí hàng đợi",
+   "read_only": 1
+  },
+  {
+   "fieldname": "seconds",
+   "fieldtype": "Float",
+   "label": "Độ dài (giây)",
+   "read_only": 1,
+   "precision": "1"
+  },
+  {
+   "fieldname": "gen_seconds",
+   "fieldtype": "Float",
+   "label": "Thời gian tạo (giây)",
+   "read_only": 1,
+   "precision": "1"
+  },
+  {
+   "fieldname": "error",
+   "fieldtype": "Small Text",
+   "label": "Lỗi",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_r",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "evoice_job_id",
+   "fieldtype": "Data",
+   "label": "Mã phiếu trên máy",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "submitted_at",
+   "fieldtype": "Datetime",
+   "label": "Gửi lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "started_at",
+   "fieldtype": "Datetime",
+   "label": "Bắt đầu đọc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "finished_at",
+   "fieldtype": "Datetime",
+   "label": "Xong lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_polled_at",
+   "fieldtype": "Datetime",
+   "label": "Hỏi máy lần cuối",
+   "read_only": 1
+  },
+  {
+   "fieldname": "attempts",
+   "fieldtype": "Int",
+   "label": "Số lần gửi",
+   "read_only": 1,
+   "default": "0"
+  },
+  {
+   "fieldname": "fetch_attempts",
+   "fieldtype": "Int",
+   "label": "Số lần tải file",
+   "read_only": 1,
+   "default": "0"
+  },
+  {
+   "fieldname": "cancel_requested",
+   "fieldtype": "Check",
+   "label": "Đã bấm huỷ",
+   "read_only": 1,
+   "default": "0"
+  },
+  {
+   "fieldname": "last_error",
+   "fieldtype": "Small Text",
+   "label": "Lỗi kỹ thuật gần nhất",
+   "read_only": 1
+  },
+  {
+   "fieldname": "callback_url",
+   "fieldtype": "Data",
+   "label": "Callback URL",
+   "read_only": 1,
+   "length": 255
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-15 06:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC AI Voice Job",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "autoname": "hash",
+ "title_field": "title",
+ "track_changes": 0,
+ "description": "Phiếu đọc giọng AI (tạo từ trang /ai-voice, máy eVoice đọc, MP3 lưu về ERP).",
+ "permissions": [
+  {
+   "read": 1,
+   "write": 1,
+   "create": 0,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0,
+   "role": "System Manager"
+  },
+  {
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0,
+   "role": "EC AI Video Admin"
+  }
+ ]
+}

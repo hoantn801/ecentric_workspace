@@ -123,6 +123,22 @@ AI_TOOL_ITEMS = [
         ],
     },
     {
+        # 15/11/2026 (Hoan): Giong doc AI - dan van ban, chon giong (thu vien ERP / giong dang dung cua brand),
+        # may eVoice doc ra MP3 luu tren ERP. Quyen do SERVER kep (EC AI Voice User / Manager, EC AI Content,
+        # EC AI Video Admin) - muc menu "internal" giong cac cong cu AI khac.
+        "key": "ai_tools.voice",
+        "label": "Giọng đọc AI",
+        "route": "/ai-voice",
+        "icon": "message",
+        "group": "",
+        "order": 24,
+        "active_patterns": ["/ai-voice"],
+        "visible_when": "internal",
+        "keywords": ["giong doc", "giọng đọc", "evoice", "voice", "tts", "doc van ban", "thu am", "mp3",
+                     "long tieng", "clone giong"],
+        "owner": "ai_tools",
+    },
+    {
         # Thong ke dung AI (07/10): ai dung AI, dung gi, on khong, ton bao nhieu. Pham vi xem
         # do SERVER kep (platform/ai/usage_api.py): lanh dao toan cty, truong phong phong minh,
         # con lai chi chinh minh - nen muc menu de "internal" cho moi nguoi.
@@ -131,7 +147,7 @@ AI_TOOL_ITEMS = [
         "route": "/ai-usage",
         "icon": "chart",
         "group": "",
-        "order": 24,
+        "order": 25,
         "active_patterns": ["/ai-usage"],
         "visible_when": "internal",
         "keywords": ["usage", "thong ke ai", "su dung ai", "chi phi ai", "credit", "kie",

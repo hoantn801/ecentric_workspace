@@ -43,6 +43,6 @@ def execute():
             if r.material_signature == _sig(r, old_fields):
                 frappe.db.set_value(_DT, r.name, "material_signature", _sig(r, new_fields), update_modified=False)
                 doi += 1
-        frappe.logger("approval_center").info("p383: tinh lai chu ky duyet %s / %s phieu KOL" % (doi, len(rows)))
+        frappe.logger("approval_center").info("p387: tinh lai chu ky duyet %s / %s phieu KOL" % (doi, len(rows)))
     except Exception:
-        frappe.log_error(frappe.get_traceback(), "p383 chu ky duyet KOL")
+        frappe.log_error(frappe.get_traceback(), "p387 chu ky duyet KOL")

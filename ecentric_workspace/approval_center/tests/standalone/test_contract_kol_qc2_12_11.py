@@ -391,7 +391,7 @@ class PatchP365(unittest.TestCase):
 
 class MaBrandSoHopDong(unittest.TestCase):
     """Thu luong tren site 12/11: so HD lay ma bao cao (AND-VN, DUT) thay vi ma tool cu (AND, DL)."""
-    PATCH = "ecentric_workspace.approval_center.patches.p380_brand_ma_so_hop_dong"
+    PATCH = "ecentric_workspace.approval_center.patches.p384_brand_ma_so_hop_dong"
 
     def setUp(self):
         self.brands = {"DUT-VN": {"ec_contract_code": None}, "VEY-VN": {"ec_contract_code": None},
@@ -460,7 +460,7 @@ class MaBrandSoHopDong(unittest.TestCase):
         self.assertIn("Brand-ec_contract_code", names)
         self.assertIn('"Brand-ec_contract_code"', open(os.path.join(root, "hooks.py"), encoding="utf-8").read())
         patches = open(os.path.join(root, "patches.txt"), encoding="utf-8").read()
-        self.assertIn("approval_center.patches.p380_brand_ma_so_hop_dong", patches)
+        self.assertIn("approval_center.patches.p384_brand_ma_so_hop_dong", patches)
 
     def test_ma_viet_tat_bo_ky_tu_la(self):
         self.assertEqual(T.initials("TEST Claude - Hoàn Trần (thử luồng)"), "TC-HTL")

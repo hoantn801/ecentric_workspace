@@ -218,7 +218,7 @@ def approve_and_sign(business_doctype, business_name, comment=None, bulk_batch_k
     if not mapping:
         events.emit("MappingRequired", erp_actor=actor,
                     request_meta={"business": business_name, "level": req.current_level})
-        frappe.throw(_("Bạn chưa có ánh xạ chữ ký SCTS được xác minh - liên hệ quản trị."))
+        frappe.throw(_("Bạn chưa có ánh xạ chữ ký CMC được xác minh - liên hệ quản trị."))
 
     pkg_name = pkgsvc.active_package_for_request(req.name)
     if not pkg_name:
@@ -230,7 +230,7 @@ def approve_and_sign(business_doctype, business_name, comment=None, bulk_batch_k
     if str(pkg.error_code or "").startswith("provider_document_"):
         # Chung tu ben SCTS da bi huy/xoa (tasks._mark_document_dead). Khong xep hang mot
         # lenh ky vao mot chung tu khong con ton tai.
-        frappe.throw(pkg.error_message or _("Chứng từ trên SCTS không còn ký được."))
+        frappe.throw(pkg.error_message or _("Chứng từ trên CMC không còn ký được."))
     recomputed = pkgsvc.compute_hash(pkg_name)
     if recomputed != pkg.package_hash:
         events.emit("VerificationMismatch", package=pkg_name, erp_actor=actor,
@@ -849,7 +849,7 @@ def reconcile_document_creation(package_name, scts_document_id):
       * bulk-process may already have occurred (a transaction id is recorded) -> remain in
         Verifying and poll only."""
     if not (scts_document_id or "").strip():
-        frappe.throw(_("Cần cung cấp mã tài liệu SCTS để đối soát."))
+        frappe.throw(_("Cần cung cấp mã tài liệu CMC để đối soát."))
     pkg = frappe.db.get_value(
         "EC Digital Signature Package", package_name,
         ["name", "error_code", "scts_document_id", "provider", "environment",
@@ -873,7 +873,7 @@ def reconcile_document_creation(package_name, scts_document_id):
     if not doc_state or str(doc_state.document_id) != str(scts_document_id):
         events.emit("CreateReconcileRejected", package=package_name,
                     verification_result="document_not_found")
-        frappe.throw(_("Không xác minh được tài liệu SCTS theo mã đã nhập."))
+        frappe.throw(_("Không xác minh được tài liệu CMC theo mã đã nhập."))
 
     pkg_files = frappe.get_all("EC Digital Signature File", filters={"package": package_name},
                                fields=["name", "file_name"],
@@ -883,7 +883,7 @@ def reconcile_document_creation(package_name, scts_document_id):
         events.emit("CreateReconcileRejected", package=package_name,
                     verification_result="file_count_mismatch:%s!=%s"
                     % (len(doc_state.files), expected_files))
-        frappe.throw(_("Số tệp của tài liệu SCTS không khớp với gói."))
+        frappe.throw(_("Số tệp của tài liệu CMC không khớp với gói."))
 
     # --- FAIL-CLOSED IDENTITY: prove the SCTS document belongs to THIS package ---
     ident = doc_state.identity or {}
@@ -900,14 +900,14 @@ def reconcile_document_creation(package_name, scts_document_id):
     if provider_code != expected_code:
         events.emit("CreateReconcileRejected", package=package_name,
                     verification_result="document_code_mismatch")
-        frappe.throw(_("Mã tài liệu SCTS không khớp với gói - từ chối đối soát."))
+        frappe.throw(_("Mã tài liệu CMC không khớp với gói - từ chối đối soát."))
     # file names / order when the provider returns them
     prov_names = [f.get("name") for f in doc_state.files]
     if any(prov_names):
         if prov_names != [f.file_name for f in pkg_files]:
             events.emit("CreateReconcileRejected", package=package_name,
                         verification_result="file_names_mismatch")
-            frappe.throw(_("Tên/thứ tự tệp của tài liệu SCTS không khớp với gói."))
+            frappe.throw(_("Tên/thứ tự tệp của tài liệu CMC không khớp với gói."))
     # workflow / document type / company / department identifiers when returned
     prof = frappe.db.get_value(
         "EC Digital Signature Profile", pkg.profile,
@@ -919,7 +919,7 @@ def reconcile_document_creation(package_name, scts_document_id):
         if pv not in (None, "") and ev and str(pv) != str(ev):
             events.emit("CreateReconcileRejected", package=package_name,
                         verification_result="identity_mismatch:%s" % key)
-            frappe.throw(_("Định danh tài liệu SCTS không khớp hồ sơ - từ chối đối soát."))
+            frappe.throw(_("Định danh tài liệu CMC không khớp hồ sơ - từ chối đối soát."))
 
     # identity VERIFIED -> bind id, clear the unknown marker, immutable sanitized event
     frappe.db.set_value("EC Digital Signature Package", package_name,
@@ -1123,7 +1123,7 @@ def sync_signatures_from_provider(business_doctype, business_name, reason):
     perms.assert_system_manager()
     ly_do = (reason or "").strip()
     if len(ly_do) < MIN_CLEAR_REASON_LEN:
-        frappe.throw(_("Bắt buộc nêu rõ căn cứ đồng bộ (đã xem gì trên cổng SCTS) - "
+        frappe.throw(_("Bắt buộc nêu rõ căn cứ đồng bộ (đã xem gì trên cổng CMC) - "
                        "tối thiểu {0} ký tự.").format(MIN_CLEAR_REASON_LEN))
 
     req = _req_for_business(business_doctype, business_name)
@@ -1249,7 +1249,7 @@ def _adopt_provider_signature(req, profile, pkg_name, row, who, mapping, vr, ly_
         # day khong phai mot lan bam "Duyet & Ky", ma la cong nhan chu ky da co tren cong.
         # Ghi GIO KY chu khong ghi ma may ("verified"): nguoi doc so can doi chieu voi man
         # hinh cong SCTS, ma tren do chi co gio.
-        comment=_("Đồng bộ chữ ký từ cổng SCTS: {0} đã ký trên cổng lúc {1}. "
+        comment=_("Đồng bộ chữ ký từ cổng CMC: {0} đã ký trên cổng lúc {1}. "
                   "Căn cứ: {2}").format(who, vr.signed_at or _("không rõ giờ"), ly_do))
     return dict(out, signature_request=dsr.name, verification=ly_do_xac_minh)
 
@@ -1291,7 +1291,7 @@ def clear_create_ambiguity(package_name, reason):
         frappe.throw(_("Gói này không ở trạng thái cần đối soát tạo tài liệu."))
     if (pkg.scts_document_id or "").strip():
         # Da co tai lieu that -> go co nghia la cho phep tao them mot tai lieu nua.
-        frappe.throw(_("Gói đã có mã tài liệu SCTS - không được gỡ cờ."))
+        frappe.throw(_("Gói đã có mã tài liệu CMC - không được gỡ cờ."))
     frappe.db.set_value("EC Digital Signature Package", package_name,
                         {"error_code": None, "error_message": None})
     if pkg.status == "Provider Creating":

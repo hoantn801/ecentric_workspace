@@ -618,8 +618,8 @@ class PatchChuKyDuyet(unittest.TestCase):
         fk = sys.modules["frappe"]
         fk.get_module = lambda path: service
         fk.logger = lambda *a, **k: types.SimpleNamespace(info=lambda *a, **k: None)
-        sys.modules.pop("ecentric_workspace.approval_center.patches.p383_chu_ky_duyet_kol_email_nguoi_ky", None)
-        p383 = importlib.import_module("ecentric_workspace.approval_center.patches.p383_chu_ky_duyet_kol_email_nguoi_ky")
+        sys.modules.pop("ecentric_workspace.approval_center.patches.p387_chu_ky_duyet_kol_email_nguoi_ky", None)
+        p383 = importlib.import_module("ecentric_workspace.approval_center.patches.p387_chu_ky_duyet_kol_email_nguoi_ky")
         old_fields = [f for f in service.MATERIAL_FIELDS + service.KOL_MATERIAL_FIELDS if f != "partner_signer_email"]
         base = dict(contract_type=kol.KOL_CONTRACT_TYPE, partner_signer_email="c@gmail.com", creator="CR-A",
                     payable_amount=10_000_000.0)

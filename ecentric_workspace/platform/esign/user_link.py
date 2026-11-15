@@ -54,7 +54,7 @@ def default_context():
     rows = frappe.get_all(SETTINGS_DT, filters={"provider": "SCTS", "integration_enabled": 1},
                           pluck="name", limit_page_length=2)
     if len(rows) != 1:
-        frappe.throw(_("Cổng ký số SCTS chưa cấu hình (hoặc cấu hình nhiều môi trường)."))
+        frappe.throw(_("Cổng ký số CMC chưa cấu hình (hoặc cấu hình nhiều môi trường)."))
     st = frappe.db.get_value(SETTINGS_DT, rows[0], "*", as_dict=True)
     return st, st.get("environment")
 
@@ -215,13 +215,13 @@ def _auto_create_mapping(user, environment, adapter, raw, token, login_name):
         events.emit("UserMappingAutoCreateFailed", erp_actor=user,
                     request_meta={"environment": environment, "ly_do": "khong_thay_user_id",
                                   "cac_khoa": co})
-        frappe.throw(_("Đăng nhập SCTS thành công nhưng không đọc được mã người dùng từ phản "
+        frappe.throw(_("Đăng nhập CMC thành công nhưng không đọc được mã người dùng từ phản "
                        "hồi (các khoá nhận được: {0}). Nhờ quản trị tạo ánh xạ thủ công và "
                        "báo lại thông tin này.").format(", ".join(co) or "không có"))
     try:
         sigs = adapter.list_user_signatures(uid)
     except Exception:
-        frappe.throw(_("Không đọc được danh sách chữ ký của bạn từ SCTS. Thử lại sau."))
+        frappe.throw(_("Không đọc được danh sách chữ ký của bạn từ CMC. Thử lại sau."))
     usable = _usable_signatures(sigs)
     doc = frappe.get_doc({
         "doctype": MAPPING_DT, "frappe_user": user, "environment": environment,
@@ -240,10 +240,10 @@ def _auto_create_mapping(user, environment, adapter, raw, token, login_name):
                                   "ly_do": "khong_chon_duoc_chu_ky",
                                   "so_mau": len(sigs or []), "so_mau_ky_duoc": len(usable)})
         if not usable:
-            frappe.throw(_("Tài khoản SCTS của bạn chưa có mẫu chữ ký ký được từ hệ thống "
+            frappe.throw(_("Tài khoản CMC của bạn chưa có mẫu chữ ký ký được từ hệ thống "
                            "(chưa gán chứng thư, hoặc chỉ ký bằng token cắm tại máy). "
-                           "Liên hệ SCTS để cấp chứng thư, rồi kết nối lại."))
-        frappe.throw(_("Tài khoản SCTS của bạn có {0} mẫu chữ ký ký được — hệ thống không tự "
+                           "Liên hệ CMC để cấp chứng thư, rồi kết nối lại."))
+        frappe.throw(_("Tài khoản CMC của bạn có {0} mẫu chữ ký ký được — hệ thống không tự "
                        "chọn hộ. Nhờ quản trị chọn mẫu đúng trong ánh xạ {1}.")
                      .format(len(usable), doc.name))
     meta = usable[0]
@@ -278,7 +278,7 @@ def link(user, settings, environment, password, username=None):
     chinh SCTS cho ta moi thu can de tu dung anh xa.
     """
     if not password:
-        frappe.throw(_("Vui lòng nhập mật khẩu SCTS."))
+        frappe.throw(_("Vui lòng nhập mật khẩu CMC."))
     row = _token_row(user, environment)
     login_name = (username or user or "").strip()
     site = _settings_value(settings, "site")
@@ -288,10 +288,10 @@ def link(user, settings, environment, password, username=None):
     except ProviderError:
         events.emit("UserTokenLinkFailed", erp_actor=user,
                     request_meta={"environment": environment, "username": login_name})
-        frappe.throw(_("Đăng nhập SCTS không thành công. Kiểm tra lại tên đăng nhập và mật khẩu."))
+        frappe.throw(_("Đăng nhập CMC không thành công. Kiểm tra lại tên đăng nhập và mật khẩu."))
     token = adapter._extract_token(raw)
     if not token:
-        frappe.throw(_("SCTS không trả về token. Thử lại sau hoặc báo quản trị."))
+        frappe.throw(_("CMC không trả về token. Thử lại sau hoặc báo quản trị."))
     if not row:
         # Chua co anh xa -> dung chinh phan hoi cua SCTS de tao. Nem loi co noi dung neu
         # khong chac chan; khong bao gio tao mot anh xa "Verified" ma chua chac ky duoc.
@@ -335,7 +335,7 @@ def assert_requester_linked(user, settings, environment):
     if not tok:
         events.emit("RequesterNotLinked", erp_actor=user,
                     request_meta={"environment": environment})
-        frappe.throw(_("Bạn chưa kết nối tài khoản ký số SCTS (hoặc kết nối đã hết hạn). "
-                       "Mở mục 'Ký của người đề nghị' trên phiếu, nhập mật khẩu SCTS để kết nối, "
+        frappe.throw(_("Bạn chưa kết nối tài khoản ký số CMC (hoặc kết nối đã hết hạn). "
+                       "Mở mục 'Ký của người đề nghị' trên phiếu, nhập mật khẩu CMC để kết nối, "
                        "rồi gửi lại."), frappe.PermissionError)
     return tok

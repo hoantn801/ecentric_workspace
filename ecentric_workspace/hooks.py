@@ -435,7 +435,7 @@ fixtures = [
             "Supplier-ec_cr_end_section",
             # DNTT gan hop dong KOL/KOC: SO doanh thu tu dien tu hop dong (doi chieu chi phi - doanh thu).
             "EC Payment Request-ec_sales_order",
-            # Ma brand trong so hop dong KOL/KOC (12/11/2026, p380): tach khoi ec_brand_code cua bao cao.
+            # Ma brand trong so hop dong KOL/KOC (12/11/2026, p384): tach khoi ec_brand_code cua bao cao.
             "Brand-ec_contract_code",
 ]]],
     },
@@ -465,9 +465,11 @@ fixtures = [
         # EC AI Formfill Pilot da nam trong role.json tu 16/09 nhung thieu o day -> export lai
         # se lam roi mat. EC Khay Pilot (28/09): mo dan tro ly Khay o goc moi trang.
         # EC AI Video Admin (05/10): quan tri prompt trang /ai-video (prompt chung + theo nhom SP).
+        # EC AI Voice User / Manager (15/11): trang /ai-voice - tao giong doc AI / quan ly thu vien giong.
         "filters": [["name", "in", ["PM Manager", "PM Member", "EC AI Formfill Pilot",
                                     "EC Khay Pilot", "EC AI Video Admin",
-                                    "EC AI Usage Viewer"]]],
+                                    "EC AI Usage Viewer", "EC AI Voice User",
+                                    "EC AI Voice Manager"]]],
     },
     # HR MVP (2026-09): cac Server Script `ec_hr_*` va cac trang `/ec-hr/*` truoc
     # day chi song trong DB, khong co ban trong git -- rebuild site la mat sach
@@ -1082,3 +1084,9 @@ scheduler_events["cron"].setdefault("*/1 * * * *", []).append(
 scheduler_events["cron"].setdefault("*/5 * * * *", []).append(
     "ecentric_workspace.pm.api.rooms_hold.sync_holds"
 )
+
+# 15/11/2026 (Hoan) - Giong doc AI /ai-voice (eVoice tren may GPU qua Cloudflare Tunnel): moi 2 phut hoi lai
+# phieu chua nhan callback, gui lai phieu PENDING, tai MP3 con thieu, doi chieu giong dang tao. Khong co phieu
+# dang chay -> 1 truy van rong. Tat khan: site_config `ec_ai_voice_disabled: 1`.
+scheduler_events["cron"].setdefault("*/2 * * * *", []).append(
+    "ecentric_workspace.ai_tools.features.ai_voice.jobs.poll_jobs_job.run")

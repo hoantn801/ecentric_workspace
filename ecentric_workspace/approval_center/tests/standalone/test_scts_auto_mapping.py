@@ -269,7 +269,7 @@ class TestThuTuTrongLink(unittest.TestCase):
         src = _read(*_UL)
         fn = next(ast.unparse(n) for n in ast.walk(ast.parse(src))
                   if isinstance(n, ast.FunctionDef) and n.name == "link")
-        self.assertNotIn("Bạn chưa có ánh xạ chữ ký SCTS được xác minh", fn,
+        self.assertNotIn("Bạn chưa có ánh xạ chữ ký CMC được xác minh", fn,
                          "cau tu choi cu phai bien mat, khong thi nguoi moi van bi chan")
         i_login = fn.index("adapter._client.login")
         i_auto = fn.index("_auto_create_mapping")
