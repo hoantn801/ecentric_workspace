@@ -129,7 +129,8 @@ def consumed_amount(source_doctype, source_name, exclude_request=None, for_updat
         status = row.approval_request and frappe.db.get_value(
             "EC Approval Request", row.approval_request, "approval_status", **kw)
         if status in CONSUMING_STATUSES:
-            total += float(row.payment_amount or 0)
+            # max(.., 0): mot DNTT so am (sua payload) khong duoc "tra lai" ngan sach cho nguon (QC 15/11).
+            total += max(float(row.payment_amount or 0), 0.0)
     return total
 
 
@@ -209,7 +210,7 @@ def so_spent(names, exclude_request=None):
     for r in rows:
         if r.name == exclude_request or status.get(r.approval_request) not in CONSUMING_STATUSES:
             continue
-        out[r.ec_sales_order] = out.get(r.ec_sales_order, 0.0) + float(r.payment_amount or 0)
+        out[r.ec_sales_order] = out.get(r.ec_sales_order, 0.0) + max(float(r.payment_amount or 0), 0.0)
     return out
 
 
@@ -288,6 +289,10 @@ def validate_funding(doc):
                        ).format(source_name))
 
     amount = float(doc.get("payment_amount") or 0)
+    if not amount > 0:
+        # Duong gui lai (Can bo sung) khong chay validate_payment: so 0 / am qua API lam phan con
+        # lai cua nguon phinh ra roi chi vuot tran (QC 15/11, C1).
+        frappe.throw(_("Số tiền thanh toán phải lớn hơn 0."))
     remaining = remaining_for_source(source_doctype, source_name, exclude_request=doc.get("name"),
                                      for_update=bool(meta.get("lock_source")))
     # Epsilon must stay BELOW the smallest real unit: VND has no subunit, so a tolerance of
@@ -297,7 +302,7 @@ def validate_funding(doc):
         frappe.throw(frappe.get_attr(meta["explain_fn"])(source_name, amount, remaining))
     if amount > remaining + 0.5:
         frappe.throw(_(
-            "Số tiền {0} vượt quá phần còn lại của {1}. Tổng: {2} — đã thanh toán: {3} — còn lại: {4}."
+            "Số tiền {0} vượt quá phần còn lại của {1}. Tổng: {2} — đã đề nghị chi: {3} — còn lại: {4}."
         ).format(_fmt(amount), source_name,
                  _fmt(source_total(source_doctype, source_name)),
                  _fmt(consumed_amount(source_doctype, source_name, exclude_request=doc.get("name"))),

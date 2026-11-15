@@ -1560,5 +1560,21 @@
   "insert_after": "ec_cr_cccd_back",
   "module": "Ecentric Workspace",
   "description": "Dong khoi creator: cac truong chuan sau tax_id (Tax Category...) khong bi an theo khoi PII."
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Brand-ec_contract_code",
+  "dt": "Brand",
+  "module": "Ecentric Workspace",
+  "fieldname": "ec_contract_code",
+  "label": "Mã trong số HĐ",
+  "fieldtype": "Data",
+  "insert_after": "ec_brand_name",
+  "reqd": 0,
+  "in_list_view": 0,
+  "in_standard_filter": 0,
+  "allow_in_quick_entry": 0,
+  "translatable": 0,
+  "description": "Ma brand in trong so hop dong KOL/KOC (vd DL, FRISO). Khac Brand Code cua bao cao."
  }
 ]

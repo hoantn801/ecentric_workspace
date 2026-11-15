@@ -43,8 +43,11 @@ def add_acceptance(name, user, description, acceptance_date=None, amount=None):
     if approval_status(doc) != APPROVED or not is_signed(doc):
         frappe.throw(_("Chỉ tạo BBNT khi hợp đồng đã duyệt xong và đã ký đủ hai bên."))
     amount = flt(amount)
-    if amount <= 0:
+    if not amount > 0:                     # "not >" bat ca nan
         frappe.throw(_("Số tiền đợt nghiệm thu phải lớn hơn 0."))
+    if abs(amount - round(amount)) > 1e-6:
+        # QC 15/11 (C7): 3 x 333.333,5 qua san 0,5 nhung moi BBNT in 333.334 -> tong in 1.000.002.
+        frappe.throw(_("Số tiền đợt nghiệm thu phải là số đồng chẵn (không có phần lẻ)."))
     planned = sum(flt(r.amount) for r in (doc.acceptances or [])) + flt(doc.advance_amount)
     if planned + amount > flt(doc.payable_amount) + 0.5:
         frappe.throw(_("Tổng các đợt nghiệm thu và tiền cọc vượt số tiền trả creator ({0}).")
@@ -188,6 +191,10 @@ def finish_round(doc, row, signed_file, when, by):
     else:
         doc.add_comment("Info", _("BBNT đợt {0}{1} hoàn tất (máy kiểm đạt), hạn thanh toán {2}.").format(
             row.idx, src, row.due_date.strftime("%d/%m/%Y")))
+    if not kol_lookup.holidays_cover(row.due_date):
+        doc.add_comment("Info", _("Hạn thanh toán BBNT đợt {0} ({1}) chưa tính ngày lễ: chưa có lịch nghỉ lễ năm {2} "
+                                  "- Kế toán cập nhật Holiday List rồi kiểm lại hạn.").format(
+            row.idx, row.due_date.strftime("%d/%m/%Y"), row.due_date.year))
     return findings
 
 
@@ -215,8 +222,10 @@ def _round_calc(doc, row):
         # cung lay so da luu cua hop dong, khong quy nguoc tu so dot (lech 1d - QC6 12/11).
         if kol_values.is_whole_round(doc, flt(row.amount)):
             return kol_calc.contract_steps(doc)
+        d = doc.as_dict() if hasattr(doc, "as_dict") else doc
+        r = row.as_dict() if hasattr(row, "as_dict") else row
         return kol_calc.round_steps(doc.get("creator_type"), flt(row.amount), doc.get("pit_rate"),
-                                    doc.get("vat_rate"), doc)
+                                    doc.get("vat_rate"), d, r)
     except Exception:
         return []                 # bang tinh chi de soat: loi du lieu cu khong lam hong trang chi tiet
 

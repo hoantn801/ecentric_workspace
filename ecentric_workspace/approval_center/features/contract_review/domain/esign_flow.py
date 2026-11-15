@@ -34,6 +34,8 @@ FLOWS = tuple(LABELS)
 WITH_PARTNER = (KOL_WF09, ACCEPTANCE_3_PARTIES, LABOR)
 
 DEFAULTS = {KOL_CONTRACT_TYPE: KOL_WF09, LABOR_CONTRACT_TYPE: LABOR}
+# Ho so ky rieng cua KOL: phieu doi sang loai khac khong duoc giu (QC 15/11 A21).
+KOL_ONLY = (KOL_WF09, KOL_PARTNER_SIGNED)
 
 
 def default_flow(contract_type):
@@ -47,7 +49,8 @@ def apply_default(doc):
     la (sua tay qua API) thi xoa de bat chon lai."""
     cur = doc.get("esign_flow")
     mine = default_flow(doc.get("contract_type"))
-    if cur and (cur not in FLOWS or (cur in DEFAULTS.values() and cur != mine)):
+    if cur and (cur not in FLOWS or (cur in DEFAULTS.values() and cur != mine)
+                or (cur in KOL_ONLY and doc.get("contract_type") != KOL_CONTRACT_TYPE)):
         cur = None
     doc.esign_flow = cur or mine
     return doc.esign_flow

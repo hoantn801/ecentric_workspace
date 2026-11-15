@@ -24,6 +24,8 @@ import math
 import re
 from decimal import ROUND_HALF_UP, Decimal
 
+from ecentric_workspace.approval_center.features.contract_review.domain.kol_texts import strip_accents
+
 
 KOL_CONTRACT_TYPE = "KOL/KOC / Creator (EC)"
 TEMPLATE_EC = "Template from EC / Mẫu theo khung EC"
@@ -240,11 +242,16 @@ def contract_number(number_date, party_code, brand_code, existing=()):
     Thieu ma doi tac hoac ma brand -> ValueError: so hop dong sai di vao van ban phap ly va
     lech voi so ke toan, nen khong tu bia."""
     party = (party_code or "").strip().upper()
-    brand = (brand_code or "").strip().upper()
+    # Ma brand do Ke toan go tay tren Brand: bo dau + dau cach (" frl vn " -> "FRLVN"), con ky tu la thi
+    # bao loi thay vi in vao so HD (QC 15/11 A4).
+    brand = re.sub(r"\s+", "", strip_accents(brand_code or "")).upper()
+    if brand and not re.fullmatch(r"[A-Z0-9-]{1,12}", brand):
+        raise ValueError("Mã trong số HĐ của brand chỉ gồm chữ không dấu, số và dấu '-' (đang là '%s')."
+                         % (brand_code or "").strip())
     if not party:
         raise ValueError("Creator chưa có mã viết tắt trong số hợp đồng.")
     if not brand:
-        raise ValueError("Brand chưa có mã brand (Brand code).")
+        raise ValueError("Brand chưa có mã trong số hợp đồng: Kế toán điền ô \"Mã trong số HĐ\" của brand này.")
     if isinstance(number_date, str):
         number_date = _dt.date.fromisoformat(number_date[:10])
     base = "%s/HDDV/ECENTRIC-%s.%s" % (number_date.strftime("%d%m%Y"), party, brand)
@@ -303,6 +310,11 @@ def validate_kol(doc, creator_type, today=None):
         errors.append("Hợp đồng KOL/KOC chỉ dùng mẫu EC hoặc mẫu của creator.")
     if creator_type == "Hộ kinh doanh" and doc.get("payment_schedule") == PAY_ADVANCE:
         errors.append("Hộ kinh doanh chỉ thanh toán sau nghiệm thu, không cọc.")
+    try:
+        if float(doc.get("quantity") or 0) < 0:
+            errors.append("Số buổi / video không được âm.")
+    except (TypeError, ValueError):
+        errors.append("Số buổi / video phải là số.")
     if doc.get("request_type") == TEMPLATE_EC:
         errors.extend(ec_template_errors(doc, creator_type, today))
     return errors
@@ -315,7 +327,10 @@ AFFILIATE = "Hoa hồng affiliate"
 def ec_template_errors(doc, creator_type, today=None):
     """Gioi han cua bo mau EC (giong resolveTemplateId_ cua tool cu)."""
     errors = []
-    if doc.get("platform") and doc.get("platform") not in EC_TEMPLATE_PLATFORMS:
+    if not doc.get("platform"):
+        # Bo trong thi mau van in "TikTok" (QC 15/11 A18): bat chon.
+        errors.append("Chọn nền tảng (TikTok / Shopee).")
+    elif doc.get("platform") not in EC_TEMPLATE_PLATFORMS:
         errors.append("Mẫu EC chỉ viết cho TikTok và Shopee. Nền tảng %s: dùng mẫu của creator."
                       % doc.get("platform"))
     if doc.get("platform") == SHOPEE:
@@ -342,9 +357,35 @@ def service_dates(doc, today=None):
     return parse_service_dates(doc.get("air_dates"), today or _dt.date.today())
 
 
+_BYTE_RANGE = re.compile(rb"/ByteRange\s*\[\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*\]")
+# OID 1.2.840.113549.1.7.2 (PKCS#7 signedData) dang DER - chu ky CMS nao cung bat dau bang no.
+_SIGNED_DATA_OID = bytes.fromhex("06092a864886f70d010702")
+_MIN_SIG_HEX = 2000          # chu ky that (CMS + chung thu) > 1KB; chuoi gia ngan thi loai
+
+
 def count_signatures(pdf_bytes):
-    """So chu ky so trong PDF: moi chu ky co mot tu dien /ByteRange (PAdES / chuan Adobe)."""
-    return len(re.findall(rb"/ByteRange\s*\[", bytes(pdf_bytes or b"")))
+    """So chu ky so HOP LE VE CAU TRUC trong PDF (PAdES / chuan Adobe).
+
+    QC 15/11: ban cu dem chuoi "/ByteRange [" - them hai dong comment la "ky du". Gio moi chu ky
+    phai: ByteRange [0 b c d] that (b < c, c + d <= kich thuoc tep), giua b..c la <hex> du dai va
+    giai ra CMS signedData. Chua kiem mat ma (chung thu, ai ky) - van co the gia cong phu, nen
+    nguoi lap / nguoi tai len KHONG duoc tu xac nhan khi may khong dat (kol_verify)."""
+    data = bytes(pdf_bytes or b"")
+    seen = set()
+    for m in _BYTE_RANGE.finditer(data):
+        a, b, c, d = (int(x) for x in m.groups())
+        if a != 0 or not (0 < b < c) or c + d > len(data) or (b, c) in seen:
+            continue
+        blob = data[b:c].strip()
+        if not (blob.startswith(b"<") and blob.endswith(b">")) or len(blob) - 2 < _MIN_SIG_HEX:
+            continue
+        try:
+            der = bytes.fromhex(blob[1:-1].decode("ascii"))
+        except (ValueError, UnicodeDecodeError):
+            continue
+        if der[:1] == b"\x30" and _SIGNED_DATA_OID in der[:64]:
+            seen.add((b, c))
+    return len(seen)
 
 
 def signed_pdf_findings(pdf_bytes, text_tokens, text, contract_no, amount=None,
@@ -371,7 +412,7 @@ def signed_pdf_findings(pdf_bytes, text_tokens, text, contract_no, amount=None,
     elif contract_no and contract_no.lower() not in flat:
         out.append("Không thấy số hợp đồng %s trong tệp." % contract_no)
     if amount and text:
-        digits = str(int(round(_f(amount))))
+        digits = str(int(_r(_f(amount))))        # in tren BBNT lam tron nua len (_r), khong phai round()
         if digits not in (text_tokens or set()):
             out.append("Không thấy số tiền %s trong tệp." % fmt_money(amount))
     return out

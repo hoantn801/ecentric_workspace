@@ -45,8 +45,21 @@ def normalize_payment(doc):
     # Phieu DA GUI dang sua de gui lai (Can bo sung): duong gui lai khong chay validate_payment, nen
     # voi nguon hop dong KOL (tran chi + SO doanh thu) kiem ngay luc luu - khong de sua payload vuot
     # tran / gan SO team khac (QC 12/11). Chi nguon KOL: cac nguon khac giu nguyen hanh vi cu.
-    if doc.get("approval_request") and doc.get("funding_source_doctype") == "EC Contract Review Request":
+    # Ca khi nguon CU (da luu) la hop dong KOL: doi sang PO / DNMH chua duyet hoac bo nguon luc bo sung
+    # truoc do lot het chot (QC 15/11 R4).
+    stored_kol = doc.get("approval_request") and _stored_source(doc) == "EC Contract Review Request"
+    if stored_kol and not (doc.get("funding_source_doctype") or "").strip():
+        frappe.throw(_("Đề nghị này đã gửi theo hợp đồng KOL: không bỏ chứng từ nguồn khi bổ sung. "
+                       "Cần đổi hẳn thì huỷ đề nghị này và lập đề nghị mới."))
+    if doc.get("approval_request") and (doc.get("funding_source_doctype") == "EC Contract Review Request"
+                                        or stored_kol):
         funding.validate_funding(doc)
+
+
+def _stored_source(doc):
+    if not doc.get("name"):
+        return None
+    return frappe.db.get_value(doc.doctype or "EC Payment Request", doc.name, "funding_source_doctype")
 
 
 def _sync_funding_aliases(doc):

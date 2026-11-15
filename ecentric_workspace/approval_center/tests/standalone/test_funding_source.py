@@ -186,6 +186,20 @@ class TestSubmitGuard(FundingTestBase):
         self.assertIn("còn lại", msg)
         self.assertIn("PURR-1", msg)
 
+    def test_zero_or_negative_amount_is_refused(self):
+        """QC 15/11 C1: gui lai (Can bo sung) khong chay validate_payment - so 0 / am qua API bi chan."""
+        for amt in (0, -40):
+            with self.assertRaises(_ThrowErr) as ctx:
+                self.funding.validate_funding(self._doc(amt))
+            self.assertIn("lớn hơn 0", str(ctx.exception))
+
+    def test_negative_request_does_not_free_budget(self):
+        """Mot DNTT am dang chay khong 'tra lai' ngan sach cho DNTT khac."""
+        self._payr("PAY-NEG", -40, status="Pending")
+        self._payr("PAY-A", 70, status="Approved")
+        with self.assertRaises(_ThrowErr):
+            self.funding.validate_funding(self._doc(31))
+
     def test_two_pending_requests_cannot_both_slip_through(self):
         """The second one sees the first one's in-flight amount, so they cannot overspend."""
         self._payr("PAY-A", 60, status="Pending")

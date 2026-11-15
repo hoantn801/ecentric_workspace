@@ -68,10 +68,21 @@ def contract_steps(doc):
     return rows
 
 
-def round_steps(creator_type, amount, pit_rate, vat_rate, doc):
-    """Bang tinh cua MOT dot nghiem thu (so tra creator cua dot -> so in tren BBNT)."""
+def round_steps(creator_type, amount, pit_rate, vat_rate, doc, row=None):
+    """Bang tinh cua MOT dot nghiem thu (so tra creator cua dot -> so in tren BBNT). `row` = dot dang
+    xem: dot CUOI dung cung so voi BBNT (tong HD tru cac dot truoc - QC 15/11 vong 2)."""
     from ecentric_workspace.approval_center.features.contract_review.domain import kol_values as V
-    m = V.round_money(creator_type, amount, pit_rate, vat_rate, doc)
+    raw = V.round_money(creator_type, amount, pit_rate, vat_rate, doc)
+    m = V._closing_adjust(doc, row, raw) if row is not None else raw
+    if m != raw and creator_type == "Hộ kinh doanh":
+        return [_row("Đợt cuối (tổng hợp đồng trừ các đợt trước, hộ kinh doanh)", "", m["total"], True)]
+    if m != raw:
+        return [_row("Đợt cuối: lấy tổng hợp đồng trừ các đợt trước (để cộng các BBNT khớp hợp đồng)", "", m["total"]
+                     if creator_type in ("Công ty", "Hộ kinh doanh") else m["net"]),
+                _row("Giá trị trước thuế (gross)" if creator_type == "Cá nhân" else "Giá trước VAT", "",
+                     m["gross"] if creator_type == "Cá nhân" else m["pre_vat"], True),
+                _row("Thuế TNCN" if creator_type == "Cá nhân" else "VAT", "",
+                     (m["gross"] - m["net"]) if creator_type == "Cá nhân" else m["vat"])]
     pay = m["total"] if creator_type in ("Công ty", "Hộ kinh doanh") else m["net"]
     if creator_type == "Cá nhân":
         pr = 10 if pit_rate in (None, "") else pit_rate

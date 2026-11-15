@@ -243,8 +243,14 @@ def _copy_to_new_draft(definition, source, user, prepare=None):
 _SYSTEM_FILE_PREFIXES = ("SIGNED-", "REVIEW-")
 
 
-def _is_system_artefact(file_name):
-    return str(file_name or "").startswith(_SYSTEM_FILE_PREFIXES)
+def _is_system_artefact(file_name, doctype=None, contract_type=None):
+    # Rieng phieu hop dong KOL (QC 15/11 R2 / vong 4): HDDV_ / BBNT_ do he thong sinh theo du lieu phieu
+    # cu (so HD cu, tien cu, co the creator cu + PII) - phieu moi tu sinh lai khi gui. Phieu loai khac
+    # (Mua vao, Lao dong...) giu nguyen tep nguoi dung tu dat ten nhu vay. Khai trong ham de cac test
+    # nap rieng ham nay van chay.
+    kol = doctype == "EC Contract Review Request" and contract_type == "KOL/KOC / Creator (EC)"
+    prefixes = _SYSTEM_FILE_PREFIXES + (("HDDV_", "BBNT_") if kol else ())
+    return str(file_name or "").startswith(prefixes)
 
 
 def _tep_doi_chung(doctype, name):
@@ -271,7 +277,8 @@ def _copy_attachments(source, target):
                                    "attached_to_name": source.name},
                           fields=["name", "file_url", "file_name", "is_private"],
                           limit_page_length=0)
-    rows = [r for r in rows if not _is_system_artefact(r.get("file_name"))]
+    ctype = getattr(source, "contract_type", None) or (source.get("contract_type") if hasattr(source, "get") else None)
+    rows = [r for r in rows if not _is_system_artefact(r.get("file_name"), source.doctype, ctype)]
     # Ban doi chung (16/10/2026) cua phieu cu KHONG duoc thanh dinh kem cua phieu moi: chep
     # sang thi lan gui toi no bi soi guong len SharePoint va thanh "tep hop dong" moi.
     doi_chung = _tep_doi_chung(source.doctype, source.name)

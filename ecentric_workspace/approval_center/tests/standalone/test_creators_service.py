@@ -46,9 +46,10 @@ class FakeRepo:
         self.inserted.append(values)
         return name
 
-    def update(self, name, values):
+    def update(self, name, values, note=None):
         self.rows[name].update(values)
         self.updated.append((name, values))
+        self.notes = getattr(self, "notes", []) + ([note] if note else [])
         return name
 
     def missing_misa(self):
@@ -84,8 +85,12 @@ class DuplicateTests(unittest.TestCase):
     def test_trung_cccd_sau_chuan_hoa_bi_chan(self):
         with self.assertRaises(CreatorError) as cm:
             svc().create("b@ec", payload(ec_cr_cccd="079123456789"))
-        self.assertIn("KH0001", str(cm.exception))
+        # QC 15/11 D3: nguoi khong xem duoc PII cua ban ghi kia -> khong neu ten / ma KH (do nguoc CCCD).
+        self.assertNotIn("KH0001", str(cm.exception))
         self.assertIn("CCCD", str(cm.exception))
+        with self.assertRaises(CreatorError) as cm:
+            svc().create("ke.toan@ec", payload(ec_cr_cccd="079123456789"))
+        self.assertIn("KH0001", str(cm.exception))       # Ke toan / nguoi tao van thay
 
     def test_trung_so_tai_khoan_bi_chan(self):
         with self.assertRaises(CreatorError):
@@ -182,6 +187,16 @@ class PermissionTests(unittest.TestCase):
         s = svc()
         s.update("an@ec", "SUP-001", {"ec_phone": "0900000000"})
         self.assertEqual(s.repo.rows["SUP-001"]["ec_phone"], "0900000000")
+        self.assertEqual(getattr(s.repo, "notes", []), [])          # doi SDT: khong phai truong nhan tien
+
+    def test_doi_stk_de_lai_vet_khong_ghi_gia_tri(self):
+        # QC 15/11 D9: doi so tai khoan sau khi co hop dong -> ghi vet (ten truong, nguoi sua), khong ghi so.
+        s = svc()
+        s.update("an@ec", "SUP-001", {"ec_bank_account_no": "9988776655"})
+        self.assertEqual(len(s.repo.notes), 1)
+        self.assertIn("số tài khoản", s.repo.notes[0])
+        self.assertIn("an@ec", s.repo.notes[0])
+        self.assertNotIn("9988776655", s.repo.notes[0])
 
 
 class MisaTests(unittest.TestCase):

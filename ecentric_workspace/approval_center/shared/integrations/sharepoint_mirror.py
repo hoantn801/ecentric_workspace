@@ -61,8 +61,30 @@ class SharePointChuaSan(Exception):
     """Graph chua dung duoc (chua cau hinh / mat mang). Goi ben ngoai TU quyet dinh xu ly."""
 
 
+#: Phieu cu the KHONG duoc dua len thu vien chung du loai phieu duoc phep: loai phieu -> (truong, gia tri)
+#: (vd hop dong lao dong mang luong - QC7). Khai bang du lieu, shared khong import nguoc feature.
+#: QC 15/11 B-09: nut "Them tep" o buoc duyet truoc do bo qua chot nay.
+BO_QUA_PHIEU = {
+    "EC Contract Review Request": ("contract_type", "Labor / Hợp đồng lao động (EC)"),
+}
+
+
 def duoc_soi_guong(business_doctype):
     return business_doctype in THU_MUC_THEO_PHIEU
+
+
+def duoc_soi_guong_phieu(business_doctype, business_name):
+    """Loai phieu duoc phep VA phieu nay khong bi loai rieng (BO_QUA_PHIEU)."""
+    if not duoc_soi_guong(business_doctype):
+        return False
+    rule = BO_QUA_PHIEU.get(business_doctype)
+    if not rule:
+        return True
+    try:
+        return frappe.db.get_value(business_doctype, {"name": business_name}, rule[0]) != rule[1]
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "SharePoint: khong hoi duoc phieu %s co bi loai" % business_name)
+        return False
 
 
 def _requests():
@@ -615,8 +637,8 @@ def dong_bo_mot_tep(business_doctype, business_name, file_url):
          03/11/2026 `tai_len` da khong bao gio ghi de theo duong dan - trung ten thi doi ten -
          nhung van bo qua o day de khong sinh "HopDong (2).docx" canh ban dang duoc duyet.)
     """
-    if not duoc_soi_guong(business_doctype):
-        return {"bo_qua": "loai phieu khong nam trong danh sach cho phep"}
+    if not duoc_soi_guong_phieu(business_doctype, business_name):
+        return {"bo_qua": "loai phieu / phieu nay khong duoc dua len SharePoint"}
     if frappe.db.get_value(LINK_DT, {"file_url": file_url, "business_doctype": business_doctype,
                                      "business_name": business_name}, "sp_item_id"):
         return {"bo_qua": "tep da co tren SharePoint - khong tai lai"}

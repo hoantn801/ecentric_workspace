@@ -31,7 +31,10 @@ MATERIAL_FIELDS = ["request_kind", "previous_request", "contract_type", "request
 # bi duyet lai tu dau du khong ai sua gi.
 KOL_MATERIAL_FIELDS = ["sales_order", "creator", "payable_amount", "advance_amount",
                        "payment_schedule", "contract_file", "request_attachment",
-                       "payment_term_days", "amount_type", "pit_rate", "vat_rate", "contract_date"]
+                       "payment_term_days", "amount_type", "pit_rate", "vat_rate", "contract_date",
+                       # Nguoi nhan link ky phia doi tac: doi email sau khi duyet = ky boi nguoi khac
+                       # (QC 15/11 B-04). Chi phieu KOL (moi chay tu 12/11) nen khong lam phieu cu duyet lai.
+                       "partner_signer_email"]
 REQUIRED_AT_SUBMIT = ["request_title", "request_kind", "contract_type", "request_type",
                       "brand", "justification", "contract_value", "request_details"]
 # Trường được phép lệch so với hợp đồng gốc mà vẫn coi là "chỉ điều chỉnh" (bỏ cấp CEO).
@@ -64,6 +67,10 @@ def skip_ceo(doc, changed):
     """CEO chỉ CC khi là hợp đồng sẵn có VÀ mọi thay đổi đều thuộc nhóm điều chỉnh."""
     if doc.get("request_kind") != "Existing" or not doc.get("previous_request"):
         return False
+    if kol.is_kol(doc):
+        # KOL: doi creator / so tien tra / coc nam ngoai DIFF_FIELDS -> "chi dieu chinh" lach CEO
+        # duoc (QC 15/11 R1). Phu luc KOL chua co thiet ke rieng: luon du 4 cap.
+        return False
     return all(f in ADJUST_ONLY_FIELDS for f in changed)
 
 
@@ -79,15 +86,46 @@ def business_deadline(kind, start=None):
     return d
 
 
-def _require_approved_previous(previous_request):
+def _require_approved_previous(previous_request, user=None):
     """Hợp đồng gốc phải là bản ĐÃ DUYỆT — chốt ở server (BUG-4, E2E 01/09).
 
     Ô tìm kiếm trên form chỉ trả bản Approved, nhưng API nhận chuỗi bất kỳ: trỏ vào
     bản nháp tự tạo là ghép được luồng 3 cấp không CEO cho nội dung chưa ai duyệt."""
-    req = frappe.db.get_value(BUSINESS_DT, previous_request, "approval_request")
+    row = frappe.db.get_value(BUSINESS_DT, previous_request, ["approval_request", "requested_by"],
+                              as_dict=True) or {}
+    req = row.get("approval_request")
     status = req and frappe.db.get_value("EC Approval Request", req, "approval_status")
     if status != "Approved":
         frappe.throw(_("Hợp đồng gốc phải là yêu cầu đã được duyệt xong."))
+    # Cung luat xem voi get_previous_contract: goi thang API khong lay duoc HD phong khac lam goc (R1).
+    from ecentric_workspace.approval_center.shared.workflow.permissions import can_view_request
+    if not can_view_request(req, user=user or frappe.session.user, business_doctype=BUSINESS_DT,
+                            requested_by=row.get("requested_by"), approval_type=APPROVAL_TYPE,
+                            business_name=previous_request):
+        frappe.throw(_("Bạn không có quyền dùng hợp đồng gốc này."), frappe.PermissionError)
+
+
+def _check_submittable(doc):
+    """Chot chung cua submit VA resubmit (QC 15/11 B-02: truoc do gui lai sau "Can bo sung" bo qua
+    het - xoa trang ly do / quy trinh ky / brand, hay doi KOL -> Mua vao van qua)."""
+    esign_flow.apply_default(doc)
+    esign_flow.clean_labor(doc)
+    if not doc.get("esign_flow"):
+        # Nen tang ky so chon ho so theo truong nay (chot 12/11): loai khong co mac dinh phai chon
+        # luc gui duyet - sau khi duyet xong phieu khoa, khong con cho chon (QC7).
+        frappe.throw(_("Chọn Quy trình ký (chọn \"Không ký trên cổng\" nếu ký ngoài)."))
+    # Hop dong lao dong (12/11): khong gan brand, khong bat nhap gia tri (luong nam trong tep).
+    need = [f for f in REQUIRED_AT_SUBMIT
+            if not (f == "brand" and not esign_flow.needs_brand(doc.get("contract_type")))
+            and not (f == "contract_value" and not esign_flow.needs_value(doc.get("contract_type")))]
+    missing = [f for f in need if not doc.get(f)]
+    if missing:
+        frappe.throw(_("Vui lòng nhập đầy đủ các trường bắt buộc trước khi gửi."))
+    if doc.request_kind == "Existing" and not doc.previous_request:
+        frappe.throw(_("Vui lòng chọn hợp đồng sẵn có cần điều chỉnh."))
+    if doc.contract_start_date and doc.contract_end_date \
+            and str(doc.contract_end_date) < str(doc.contract_start_date):
+        frappe.throw(_("Ngày kết thúc hợp đồng phải sau ngày bắt đầu."))
 
 
 @frappe.whitelist(methods=["POST"])
@@ -110,24 +148,7 @@ def submit(name):
         # Nap tre: module KOL keo creator repository + lookup, phieu thuong khong can.
         from ecentric_workspace.approval_center.features.contract_review.application import kol_service
         kol_service.validate_submit(doc)
-    esign_flow.apply_default(doc)
-    esign_flow.clean_labor(doc)
-    if not doc.get("esign_flow"):
-        # Nen tang ky so chon ho so theo truong nay (chot 12/11): loai khong co mac dinh phai chon
-        # luc gui duyet - sau khi duyet xong phieu khoa, khong con cho chon (QC7).
-        frappe.throw(_("Chọn Quy trình ký (chọn \"Không ký trên cổng\" nếu ký ngoài)."))
-    # Hop dong lao dong (12/11): khong gan brand, khong bat nhap gia tri (luong nam trong tep).
-    need = [f for f in REQUIRED_AT_SUBMIT
-            if not (f == "brand" and not esign_flow.needs_brand(doc.get("contract_type")))
-            and not (f == "contract_value" and not esign_flow.needs_value(doc.get("contract_type")))]
-    missing = [f for f in need if not doc.get(f)]
-    if missing:
-        frappe.throw(_("Vui lòng nhập đầy đủ các trường bắt buộc trước khi gửi."))
-    if doc.request_kind == "Existing" and not doc.previous_request:
-        frappe.throw(_("Vui lòng chọn hợp đồng sẵn có cần điều chỉnh."))
-    if doc.contract_start_date and doc.contract_end_date \
-            and str(doc.contract_end_date) < str(doc.contract_start_date):
-        frappe.throw(_("Ngày kết thúc hợp đồng phải sau ngày bắt đầu."))
+    _check_submittable(doc)
 
     changed = []
     if doc.previous_request:
@@ -253,15 +274,17 @@ def resubmit(name, actor=None):
         # hop dong neu du lieu doi, canh bao doanh thu SO (QC 11/11 - truoc do bo qua het).
         from ecentric_workspace.approval_center.features.contract_review.application import kol_service
         kol_service.validate_submit(doc)
-        doc.save(ignore_permissions=True)
+    _check_submittable(doc)
+    doc.save(ignore_permissions=True)
     new_sig = _signature(doc)
     material_changed = new_sig != (doc.material_signature or "")
-    engine.resubmit(doc.approval_request, actor=actor or frappe.session.user, restart=material_changed)
+    res = engine.resubmit(doc.approval_request, actor=actor or frappe.session.user, restart=material_changed)
     frappe.db.set_value(BUSINESS_DT, doc.name, "material_signature", new_sig)
     # Gui lai thuong di kem THAY tep dinh kem - phai soi guong lai, neu khong nguoi duyet se
     # mo ra ban cu tren SharePoint trong khi ERP da co ban moi.
     _soi_guong_sharepoint(doc.name)
-    return {"restarted": material_changed}
+    # Tra ca ket qua ky so cua engine cho lop tren (QC 15/11 B-12 - truoc do bo mat).
+    return {"restarted": material_changed, "esign": res.get("esign") if isinstance(res, dict) else None}
 
 
 def _guard_resubmit_needs_ceo(doc):
@@ -274,10 +297,14 @@ def _guard_resubmit_needs_ceo(doc):
     Chiều ngược (snapshot có CEO nhưng giờ hết cần) vô hại — CEO duyệt thừa còn hơn thiếu."""
     changed = []
     if doc.previous_request:
+        # previous_request sua duoc luc bo sung: doi sang phieu nhap / phong khac co noi dung giong het la
+        # "khong doi gi" -> lach CEO (QC 15/11 vong 4). Cung chot voi luc gui.
+        _require_approved_previous(doc.previous_request)
         prev = frappe.db.get_value(BUSINESS_DT, doc.previous_request, DIFF_FIELDS, as_dict=True)
         if prev:
             changed = changed_vs_previous(doc, prev)
-        frappe.db.set_value(BUSINESS_DT, doc.name, "changed_fields", json.dumps(changed))
+        # Chi gan len doc: resubmit luu doc ngay sau. Ghi thang DB o day doi `modified` -> doc.save() sau do
+        # nem TimestampMismatchError (QC 15/11 vong 2).
         doc.changed_fields = json.dumps(changed)
     needs_ceo = not skip_ceo(doc, changed)
     if not needs_ceo:
@@ -285,6 +312,9 @@ def _guard_resubmit_needs_ceo(doc):
     has_ceo_level = bool(frappe.db.exists(
         "EC Approval Request Level",
         {"approval_request": doc.approval_request, "level_no": CEO_LEVEL_NO}))
+    if not has_ceo_level and kol.is_kol(doc):
+        frappe.throw(_("Hợp đồng KOL/KOC điều chỉnh nay phải qua CEO duyệt, nhưng yêu cầu này đã gửi theo luồng "
+                       "không có cấp CEO. Vui lòng hủy yêu cầu này và tạo yêu cầu mới."))
     if not has_ceo_level:
         frappe.throw(_(
             "Thay đổi này đụng đến nội dung hợp đồng (loại hợp đồng / brand / mục đích) nên "

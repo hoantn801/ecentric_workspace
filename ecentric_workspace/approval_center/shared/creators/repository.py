@@ -9,7 +9,7 @@ from importlib import import_module
 from ecentric_workspace.approval_center.shared.creators import domain
 
 DT = "Supplier"
-_IDENTITY_FIELDS = ["name", "supplier_name", "ec_cr_misa_code"] + list(domain.HARD_KEYS) + [
+_IDENTITY_FIELDS = ["name", "owner", "supplier_name", "ec_cr_misa_code"] + list(domain.HARD_KEYS) + [
     f for f in domain.SOFT_KEYS if f != "supplier_name"]
 
 
@@ -51,7 +51,7 @@ class CreatorRepository:
 
     def get(self, name):
         fields = list(dict.fromkeys(list(domain.PUBLIC_FIELDS) + list(domain.WRITABLE_FIELDS)
-                                    + ["owner", "supplier_group", "creation"]))
+                                    + ["owner", "supplier_group", "creation", "disabled"]))
         row = _frappe().db.get_value(DT, name, fields, as_dict=True)
         return row if row and row.get("supplier_group") == domain.CREATOR_GROUP else None
 
@@ -85,10 +85,12 @@ class CreatorRepository:
         from frappe.model.naming import append_number_if_name_exists
         return append_number_if_name_exists(DT, supplier_name)
 
-    def update(self, name, values):
+    def update(self, name, values, note=None):
         doc = _frappe().get_doc(DT, name)
         doc.update(values)
         doc.save(ignore_permissions=True)
+        if note:
+            doc.add_comment("Info", note)
         return doc.name
 
     def missing_misa(self):

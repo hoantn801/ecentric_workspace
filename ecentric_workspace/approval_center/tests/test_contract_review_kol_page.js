@@ -182,6 +182,24 @@ function detailPart(){
     // QC3: dot NHAP chua co nut Hoan tat - phai qua "Danh dau da gui ky" (kiem thieu + tao lai BBNT) truoc.
     chk("BBNT nhap: chua cho Hoan tat (bo qua buoc kiem)", !/data-kol="doneacc"/.test(b));
     chk("da duyet: khong con nut tao lai hop dong", !/data-kol="gen"/.test(b));
+    // PO 12/11: thanh tien trinh HD KOL noi them Ky HD -> Nghiem thu -> Thanh toan; duyet thay ghi ten.
+    { const CR=w2.ContractReview, d2=JSON.parse(JSON.stringify(detail)); d2.approval={name:"R0",approval_status:"Approved"};
+      const hs=CR.buildStepper(d2);
+      chk("tien trinh KOL: co 3 buoc sau duyet, trang thai dung", /Ký hợp đồng[\s\S]*Đã ký đủ/.test(hs)&&/Nghiệm thu \(BBNT\)[\s\S]*Hoàn tất 0\/1 đợt/.test(hs)&&/Thanh toán \(ĐNTT\)[\s\S]*Đã lập ĐNTT/.test(hs)&&/Hoàn tất<\/div>[\s\S]*Chờ/.test(hs));
+      // QC 15/11 vong 3: "con X" chi khi con tien CHUA LEN DOT (khong phai chua nghiem thu); thieu du lieu KOL thi khong "Hoan tat".
+      const d3=JSON.parse(JSON.stringify(d2)); d3.extra.kol.acceptance_remaining=0;
+      chk("tien trinh KOL: het tien chua len dot thi khong ghi 'con 0'", !/còn 0/.test(CR.buildStepper(d3)));
+      d3.extra.kol.acceptance_remaining=500000;
+      chk("tien trinh KOL: con tien chua len dot thi ghi ro", /chưa lên đợt/.test(CR.buildStepper(d3)));
+      const d4=JSON.parse(JSON.stringify(d2)); delete d4.extra.kol;
+      chk("tien trinh KOL: thieu du lieu vong doi thi Hoan tat chua xong", /Hoàn tất<\/div>[\s\S]*Chờ/.test(CR.buildStepper(d4)));
+      d2.approval.approval_status="Rejected"; chk("tien trinh KOL: phieu tu choi khong ve buoc sau duyet", !/Ký hợp đồng/.test(CR.buildStepper(d2))); }
+    { const CR=w2.ContractReview;
+      const h=CR.buildStepper({business:{contract_type:"Purchase / Mua vào (EC)"},approval:{name:"R1",approval_status:"Approved"},
+        levels:[{level_no:4,level_name:"CEO Review",level_status:"Approved"}],approvers:[{level_no:4,approver:"lam@e.c",status:"Pending"}],
+        timeline:[{action:"Approved",level_no:4,actor:"hoan<b>@e.c"}]});
+      chk("duyet thay: ghi ten nguoi bam (escape), form khac khong co buoc KOL", /Duyệt thay bởi hoan&lt;b&gt;@e\.c/.test(h)&&!/Ký hợp đồng/.test(h)); }
+    chk("da duyet + da ky: khong con the mo (kol-later)", !/kol-later/.test(b));
     chk("BBNT: nut Hoan tat mo modal (khong o tep trong bang) + nut Xoa dot nhap", /data-kol="delacc"/.test(b));
     creatorsTab();
   });
@@ -209,6 +227,8 @@ function draftPart(){
     setTimeout(function(){
       const g2=w4.document.querySelector('[data-kol="gen"]');
       chk("tao hop dong loi: nut mo lai, chu tra ve, co bao loi", g2&&!g2.disabled&&/Tạo hợp đồng từ mẫu/.test(g2.textContent));
+      { const bd=w4.document.getElementById("ctr-body").innerHTML;
+        chk("nhap: the Ky HD + Nghiem thu hien mo truoc (kol-later)", (bd.match(/card kol-later/g)||[]).length===2&&/Mở sau khi phiếu duyệt xong/.test(bd)); }
       w4.document.querySelector('[data-kol="editcr"]').click();
       setTimeout(function(){
         const ov=w4.document.querySelector(".ec-ctr-overlay");

@@ -52,11 +52,23 @@ def on_signing_outcome(business_name, purpose, outcome, signed_file=None, detail
     # trang thai, chi ghi vet + dua trang thai ky ve cho lam lai.
     if outcome == SIGNED and approval_status(doc) != APPROVED:
         raise ValueError("phieu %s chua duyet xong tren ERP" % business_name)
+    if outcome == SIGNED:
+        _check_signed_file(doc, signed_file)
     if purpose == CONTRACT:
         return _contract(doc, outcome, signed_file, detail)
     if str(purpose or "").startswith(BBNT_PREFIX):
         return _round(doc, str(purpose)[len(BBNT_PREFIX):], outcome, signed_file, detail)
     raise ValueError("purpose khong hop le: %r" % (purpose,))
+
+
+def _check_signed_file(doc, signed_file):
+    """Ban ky du phai la tep DA GAN phieu nay va khong phai ban chua ky dem di ky (QC 15/11 B-06:
+    phieu thuong khong qua may kiem, truoc do nhan bat ky URL .pdf -> 'Da ky du' ngay)."""
+    if signed_file in {doc.get("request_attachment"), doc.get("contract_file")}:
+        raise ValueError("signed_file %s la ban chua ky cua phieu" % signed_file)
+    if not frappe.db.exists("File", {"file_url": signed_file, "attached_to_doctype": doc.doctype,
+                                     "attached_to_name": doc.name}):
+        raise ValueError("signed_file %s chua dinh kem vao phieu %s" % (signed_file, doc.name))
 
 
 def package_title(business_name, purpose):
@@ -79,6 +91,13 @@ def _why(detail):
 def _contract(doc, outcome, signed_file, detail):
     if outcome != SIGNED:
         if doc.get("signing_status") == kol.SIGN_DONE:
+            return {"changed": False, "signing_status": doc.signing_status}
+        if doc.get("signing_status") == kol.SIGN_REVIEW:
+            # Ban ky (tai tay) dang cho Ke toan kiem: giu nguyen nhu nhanh BBNT, chi ghi vet de Ke toan
+            # can nhac (QC 15/11 B-07 - truoc do ve "Chua ky" ma van giu signed_file).
+            doc.add_comment("Info", _("{0}: hợp đồng {1}{2} trong khi bản ký tải lên đang chờ Kế toán kiểm "
+                                      "- Kế toán xem lại trước khi xác nhận.").format(
+                ESIGN_ACTOR, _OUTCOME_TEXT[outcome], (": " + _why(detail)) if _why(detail) else ""))
             return {"changed": False, "signing_status": doc.signing_status}
         doc.signing_status = kol.SIGN_PENDING
         doc.save(ignore_permissions=True)

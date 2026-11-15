@@ -106,6 +106,43 @@ def redact(text):
     return _NUMBER_RUN.sub(sub, text)
 
 
+_EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+_KNOWN_PII = ("ec_cr_address", "ec_cr_cccd_issue_place", "ec_cr_account_holder")
+_KNOWN_DATES = ("ec_cr_dob", "ec_cr_cccd_issue_date")
+
+
+def _date_forms(value):
+    """Ngay sinh / ngay cap trong moi kieu viet thuong gap: 05/01/1995, 5/1/1995, 05-01-1995, 1995-01-05."""
+    m = re.match(r"(\d{4})-(\d{1,2})-(\d{1,2})", str(value or "")) or None
+    if not m:
+        return []
+    y, mo, d = m.group(1), int(m.group(2)), int(m.group(3))
+    out = {"%s-%02d-%02d" % (y, mo, d)}
+    for dd, mm in (("%02d" % d, "%02d" % mo), (str(d), str(mo))):
+        for sep in "/.-":
+            out.add(sep.join((dd, mm, y)))
+    return sorted(out, key=len, reverse=True)
+
+
+def redact_known(text, creator):
+    """Sau redact(): che them email va PII DA BIET cua creator (ngay sinh, ngay / noi cap, dia chi, chu
+    tai khoan) - redact() chi che day so >= 8 chu so (QC 15/11 D4 / A15)."""
+    text = _EMAIL.sub("[EMAIL-ĐÃ-CHE]", text or "")
+    creator = creator or {}
+    for field in _KNOWN_DATES:
+        for form in _date_forms(creator.get(field)):
+            text = text.replace(form, "[NGÀY-ĐÃ-CHE]")
+    for field in ("ec_bank_account_no", "ec_cr_cccd", "tax_id", "ec_phone"):
+        digits = _digits(creator.get(field))
+        if len(digits) >= 6:   # "1.903.456.789" giong tien nen redact() giu - so DA BIET thi che
+            text = re.sub(r"(?<!\d)" + r"[ .,\-]?".join(digits) + r"(?!\d)", "[SỐ-ĐÃ-CHE]", text)
+    for field in _KNOWN_PII:
+        value = re.sub(r"\s+", " ", str(creator.get(field) or "")).strip()
+        if len(value) >= 6:
+            text = re.sub(r"\s+".join(re.escape(w) for w in value.split(" ")), "[ĐÃ-CHE]", text, flags=re.I)
+    return text
+
+
 def _digits(v):
     return re.sub(r"\D", "", str(v or ""))
 
@@ -174,6 +211,7 @@ def _load(name, user):
 
 def _file_payload(doc, file_url):
     """-> (bytes, van ban THO cho may kiem, van ban DA CHE cho AI). Khong bao gio gui tep nguyen."""
+    creator = creator_row(doc.get("creator")) or {}
     data = doc_file_bytes(doc, file_url)
     if file_url.lower().endswith(".docx"):
         raw = docx_fill.docx_text(data, MAX_TEXT)
@@ -181,7 +219,7 @@ def _file_payload(doc, file_url):
         raw = pdf_text(data)
     else:
         frappe.throw(_("AI chỉ đọc được tệp .docx hoặc .pdf."))
-    return data, raw, redact(raw)
+    return data, raw, redact_known(redact(raw), creator)
 
 
 NO_TEXT = ("Tệp PDF dạng ảnh (không có chữ để đọc) - AI không đọc được và không gửi tệp ra "

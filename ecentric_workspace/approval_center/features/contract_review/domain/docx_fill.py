@@ -35,7 +35,8 @@ OPEN = "<<"
 # Ten kieu cu {{ten}} (truoc 12/11): mau con sot thi BAO, khong im lang gui di ky.
 LEGACY = re.compile(r"\{\{([^{}\n]*)\}\}")
 # Ky tu dieu khien trong gia tri (go/dan tu Excel) lam document.xml hong.
-_CTRL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+# Ca U+FFFE/U+FFFF va nua cap surrogate: XML khong cho, Word bao tep hong (QC 15/11 A17).
+_CTRL = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff\ufffe\uffff]")
 # Mo doan that su: <w:p> / <w:p w14:paraId=".."> - KHONG khop doan rong tu dong <w:p .../> (khop
 # thi tran sang ranh gioi o bang / hang ke tiep, xoa doan tuy chon la xoa luon o - QC 12/11).
 _PARA = re.compile(r"<w:p(?:\s[^>]*)?(?<!/)>.*?</w:p>", re.S)
