@@ -4,12 +4,12 @@
     "sha256": "df9a5edc977279989693e4a02a65229871d8ddd6503c74a069c5f2aee19d2d9f"
   },
   "ai_tools/pages/ai_video/main_section.html": {
-    "last_resync_patch": "p313_ai_live_trang_rieng",
-    "sha256": "6e4e3164efcf90fa86981dba33bf1feef2890222c4f02bf6fedad50402398f72"
+    "last_resync_patch": "p380_ai_voice_trang_moi",
+    "sha256": "e45cf056e3908a11f11c38df09d817345224ff59959a9af93559f9e049563390"
   },
   "ai_tools/pages/ai_usage/main_section.html": {
-    "last_resync_patch": "p320_resync_ai_usage_tra_loi_nhanh",
-    "sha256": "aa0cedcebc823ad0b0573b912185b7c827bd3252cc643739c6e3e83a7728ab0f"
+    "last_resync_patch": "p380_ai_voice_trang_moi",
+    "sha256": "ee5e2ec7249337be8fb9d76dad6035f6535c7c64e907c18c917ff6c9fd88e623"
   },
   "approval_center/features/affiliate_bonus/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -317,8 +317,8 @@
     "sha256": "35a77cc9c2199986921a2e3a0c0f4c1fff05c507d87ebc0769243a9b5c65e97e"
   },
   "ai_tools/pages/ai_live/main_section.html": {
-    "last_resync_patch": "p313_ai_live_trang_rieng",
-    "sha256": "c798fb5341c93a69942b929fcd6b6f5c7b7803f5329d44ad6cd168c9521a3f16"
+    "last_resync_patch": "p380_ai_voice_trang_moi",
+    "sha256": "3e9fb3fe5a48499232856ac993794486b19e26a8a56a29f2fac15b11bf82c90a"
   },
   "dao_tao/pages/learn/main_section.html": {
     "last_resync_patch": "p377_dao_tao_ket_qua_giai",
@@ -347,5 +347,9 @@
   "dao_tao/pages/host/main_section.html": {
     "last_resync_patch": "p377_dao_tao_ket_qua_giai",
     "sha256": "dcf4d6c7c0fd0ad1f2da55f38d46faadeb90f96613ae543dd2f6bb3e6e36dfa0"
+  },
+  "ai_tools/pages/ai_voice/main_section.html": {
+    "last_resync_patch": "p380_ai_voice_trang_moi",
+    "sha256": "5dc370c2c632a14977000d0ae5ff544459ba9248f8652275031d2e5978da765f"
   }
 }
