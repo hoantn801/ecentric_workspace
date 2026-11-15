@@ -1090,3 +1090,8 @@ scheduler_events["cron"].setdefault("*/5 * * * *", []).append(
 # dang chay -> 1 truy van rong. Tat khan: site_config `ec_ai_voice_disabled: 1`.
 scheduler_events["cron"].setdefault("*/2 * * * *", []).append(
     "ecentric_workspace.ai_tools.features.ai_voice.jobs.poll_jobs_job.run")
+
+# Viec can lam (15/11/2026): tin Teams 08:30 (T2-T7) - top 3 viec + so viec qua han / hom nay
+# cho tung nguoi. TAT mac dinh: bat bang site_config ec_pm_morning_digest = 1.
+scheduler_events["cron"].setdefault("30 8 * * 1-6", []).append(
+    "ecentric_workspace.pm.api.queue.morning_digest")

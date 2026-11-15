@@ -643,6 +643,31 @@ async function block(name, fn) {
       /@media \(max-width:640px\)\{[^}]*\.pmr-sheet \.pmr-in,[^}]*font-size:16px/.test(CSS) && /min-height:40px/.test(CSS) && /@media \(hover:none\),\(max-width:640px\)\{\.pmr-kbd\{display:none\}/.test(CSS));
   });
 
+  await block('newTask điền sẵn từ "Thêm chi tiết" (Việc cần làm): priority + split #15c', async () => {
+    const E = makeEnv();
+    let made = null;
+    E.w.PMR.newTask({ subject: "Báo cáo tuần", assignees: [U2, U3], due: dayOff(3), time: "15:00", priority: "High", split: true, requestMode: false, onCreated: r => { made = r || {}; } }); await flush(8);
+    const sh = E.sheet(), sb = () => E.$("[data-act=nt-submit]", sh);
+    ok("điền sẵn: tên, 2 chip người nhận, hạn + giờ, Cần đồng ý tắt", E.$(".pmr-title-in", sh).value === "Báo cáo tuần" && E.$$(".pmr-chips .pmr-pc", sh).length === 2 && E.$(".pmr-nt-date", sh).value === dayOff(3) && E.$(".pmr-nt-time", sh).value === "15:00" && E.$("[data-k=ask]", sh).getAttribute("aria-checked") === "false");
+    ok("o.split -> công tắc Mỗi người một việc bật", E.$("[data-k=split]", sh).getAttribute("aria-checked") === "true" && E.$('.pmr-opt[data-o="split"]', sh).classList.contains("pmr-open"));
+    ok("o.priority High -> nút Cao được chọn, phần mở rộng (chứa ưu tiên) mở sẵn", E.$('[data-act=nt-pri][data-p="High"]', sh).classList.contains("pmr-on") && E.$(".pmr-extra", sh).classList.contains("pmr-on") && E.$("[data-act=disc]", sh).getAttribute("aria-expanded") === "true");
+    E.click(sb()); await flush(10);
+    const cr = E.last("tasks.create");
+    ok("gửi: tasks.create mang priority High + split_per_assignee 1 + 2 người", cr && cr.args.priority === "High" && cr.args.split_per_assignee === 1 && JSON.parse(cr.args.assignees).join() === [U2, U3].join() && cr.args.exp_end_date === dayOff(3), cr && JSON.stringify(cr.args));
+    ok("tạo xong gọi o.onCreated (hàng đợi làm mới)", !!made);
+    E.w.PMR.newTask({ subject: "Làm chung", assignees: [U2, U3], priority: "Nope", split: false, requestMode: false }); await flush(8);
+    ok("priority lạ -> Bình thường, phần mở rộng đóng; split false -> công tắc tắt", E.$('[data-act=nt-pri][data-p="Medium"]', sh).classList.contains("pmr-on") && !E.$(".pmr-extra", sh).classList.contains("pmr-on") && E.$("[data-k=split]", sh).getAttribute("aria-checked") === "false");
+    E.click(sb()); await flush(10);
+    ok("làm chung: tasks.create không chia người", E.last("tasks.create").args.subject === "Làm chung" && E.last("tasks.create").args.split_per_assignee == null);
+    E.w.PMR.newTask({ subject: "Cần đồng ý 2 người", assignees: [U2, U3], priority: "Low", split: true, requestMode: true }); await flush(8);
+    E.click(sb()); await flush(10);
+    const cw = E.last("assignment.create_with_task");
+    ok("Cần đồng ý + 2 người: create_with_task(recipients, split_per_assignee 1, priority Low)", cw && cw.args.split_per_assignee === 1 && JSON.parse(cw.args.recipients).length === 2 && cw.args.priority === "Low", cw && JSON.stringify(cw.args));
+    E.w.PMR.newTask({}); await flush();
+    ok("mở trống (như nút menu): ưu tiên Bình thường, không chia người, Tôi mặc định", E.$('[data-act=nt-pri][data-p="Medium"]', sh).classList.contains("pmr-on") && E.$("[data-k=split]", sh).getAttribute("aria-checked") === "false" && !!E.$(".pmr-pc-self", sh));
+    E.w.PMR.closeSheet();
+  });
+
   await block('Chi tiết việc: nút việc tiếp theo + mô tả lên đầu #16', async () => {
     const E = makeEnv(), sh0 = () => E.sheet(), cta = () => E.$(".pmr-cta", sh0());
     E.db.tasks["T-1"].task.description = "<p>Dùng file mẫu https://x.vn/mau.xlsx. Gửi trước 17h</p>";

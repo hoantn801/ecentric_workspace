@@ -9,6 +9,7 @@ MUST = {"schedule.py": {"week", "viewable_users", "today", "rsvp", "reschedule",
         "pm_inbox.py": {"received", "given", "coordinate", "request_deadline", "answer_deadline",
                         "withdraw_deadline", "nudge", "close_parent", "cc_suggest"},
         "tasks.py": {"create", "get", "assign", "set_status", "mark_done", "set_followers"},
+        "queue.py": {"list"},
         "rooms.py": {"day", "mine", "book", "update", "detail", "booking_state", "cancel"}}
 
 

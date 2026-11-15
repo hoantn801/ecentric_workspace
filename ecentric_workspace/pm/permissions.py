@@ -164,9 +164,14 @@ def assignees_of(task):
     """Canonical parse of a Task's native _assign into a list of user emails. Single source of
     truth for assignee membership (avoids the substring-match footgun). `task` is a dict/doc."""
     try:
-        return [u for u in (frappe.parse_json(task.get("_assign") or "[]") or []) if u]
+        raw = frappe.parse_json(task.get("_assign") or "[]") or []
     except Exception:
         return []
+    # QC2 15/11/2026: a damaged _assign that parses to a bare string / object (e.g. '"a@x.vn"')
+    # used to be iterated character by character -> never a list of single letters.
+    if not isinstance(raw, (list, tuple)):
+        return []
+    return [u for u in raw if u and isinstance(u, str)]
 
 
 def can_view_task(task, user=None):

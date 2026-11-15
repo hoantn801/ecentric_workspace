@@ -433,7 +433,7 @@ class TestPMTransform(unittest.TestCase):
         views = [i for i in pm if i.get("view")]
         # PM lam lai (16/10/2026, _pm_redesign/SPEC.md diem 1): 9 muc khu Cong viec.
         self.assertEqual([i["label"] for i in views],
-                         ["Việc của tôi", "Được giao cho tôi", "Tôi đã giao", "Lịch làm việc",
+                         ["Việc cần làm", "Được giao cho tôi", "Tôi đã giao", "Lịch làm việc",
                           "Phòng họp", "Điều phối", "Dự án", "Tất cả việc", "Timesheet", "Hướng dẫn"])
         self.assertEqual([i["route"] for i in views],
                          ["/pm#mywork", "/pm#received", "/pm#given", "/pm#schedule",

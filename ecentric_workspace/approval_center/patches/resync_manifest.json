@@ -313,8 +313,8 @@
     "sha256": "bcfec3a49e4da5715ff38db8cff485c5da8c3e8f2ab29349822eb3abd7d73bef"
   },
   "pm/frontend/pm_app.html": {
-    "last_resync_patch": "p379_resync_pm_phong_hop_ver_cdn",
-    "sha256": "35a77cc9c2199986921a2e3a0c0f4c1fff05c507d87ebc0769243a9b5c65e97e"
+    "last_resync_patch": "p388_resync_pm_hotfix15",
+    "sha256": "398cbcca2b73ebf696ad79aa6514a622c74789887afc35a4824cc309786b1e2f"
   },
   "ai_tools/pages/ai_live/main_section.html": {
     "last_resync_patch": "p380_ai_voice_trang_moi",

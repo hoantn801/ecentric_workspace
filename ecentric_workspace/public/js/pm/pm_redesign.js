@@ -1201,6 +1201,7 @@ function parseDue(text, o) {
   if (o.tail && !rest) return null;
   return { due: ymdOf(due), time, from, rest: rest || raw.trim() };
 }
+const PRIO = ["Low", "Medium", "High", "Urgent"];   /* newTask nhận o.priority + o.split (16/11, "Thêm chi tiết" ở Việc cần làm) */
 const FREQ = [["Daily", "Hằng ngày"], ["Weekly", "Hằng tuần"], ["Biweekly", "2 tuần một lần"], ["Monthly", "Hằng tháng"]];
 function newTask(o) {
   o = o || {};
@@ -1208,7 +1209,7 @@ function newTask(o) {
   /* self: mở từ nút chung -> Người nhận mặc định "Tôi" (gõ tên + Enter = việc của mình); chọn người khác thì thay chỗ, × = chưa giao ai */
   NT = { o, subject: o.subject || "", assignees: (o.assignees || []).slice(), due: o.due || "", time: o.time || "", project: o.project || "", parent: o.parent || null,
     self: !o.project && !o.parent && !(o.assignees || []).length && !!cfg.user,
-    split: false, auto: false, review: false, rep: false, ask: o.requestMode === undefined ? true : !!o.requestMode, freq: "Monthly", mday: "", desc: "", steps: [], priority: "Medium", labels: [], disc: false, projects: null, labelsAll: null,
+    split: !!o.split, auto: false, review: false, rep: false, ask: o.requestMode === undefined ? true : !!o.requestMode, freq: "Monthly", mday: "", desc: "", steps: [], priority: PRIO.indexOf(o.priority) >= 0 ? o.priority : "Medium", labels: [], disc: PRIO.indexOf(o.priority) >= 0 && o.priority !== "Medium", projects: null, labelsAll: null,
     cc: [], ccOff: [], ccReady: false, conflicts: [], ccSeq: 0 };
   paintNew();
   focusFirst(sh, ".pmr-title-in");

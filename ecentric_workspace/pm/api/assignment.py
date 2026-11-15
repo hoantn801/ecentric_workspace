@@ -147,9 +147,10 @@ def _recipient_eligible(recipient):
     """Enabled System User who can enter PM (not disabled, not Website User)."""
     u = frappe.db.get_value("User", recipient, ["enabled", "user_type"], as_dict=True)
     if not u or not u.get("enabled") or u.get("user_type") == "Website User":
-        frappe.throw(_("Người nhận không hợp lệ (tài khoản bị khoá hoặc không phải người dùng hệ thống)."))
+        frappe.throw(_("Người nhận {0} không hợp lệ (tài khoản bị khoá hoặc không phải người dùng hệ thống).").format(recipient))
     if not pmperm.has_pm_module_access(recipient):
-        frappe.throw(_("Người nhận không có quyền truy cập PM."))
+        # 16/11/2026: giao nhiều người -> nói rõ là ai
+        frappe.throw(_("Người nhận {0} không có quyền truy cập PM.").format(recipient))
 
 
 def _eligibility(task_doc):
@@ -543,6 +544,7 @@ def respond(name, decision, reason=None, counter_start=None, counter_end=None):
     # reminder hand-off: recipient's reminder closes; if B rejects or proposes a new schedule, A (requester) gets one.
     if decision == "accept":
         _close_request_todos(doc.name)
+        _mark_opened(doc.task, user)
     elif decision == "reject":
         _close_request_todos(doc.name, doc.recipient)
         _req_todo(doc.name, doc.task, doc.requested_by, _task_subject(doc.task),
@@ -553,6 +555,17 @@ def respond(name, decision, reason=None, counter_start=None, counter_end=None):
         _req_todo(doc.name, doc.task, doc.requested_by, _task_subject(doc.task),
                   "Có ĐỀ XUẤT LỊCH MỚI — duyệt hoặc phản hồi")
     return _as_dict(doc)
+
+
+def _mark_opened(task, user):
+    """QC2 15/11/2026: "Nhận việc" on Cần đồng ý means the recipient has read the task, so the
+    giver's "Chưa mở việc" tag must clear (PM Task Seen, the same row tasks.get writes). Last
+    write of respond(); a tracking failure never undoes the acceptance."""
+    try:
+        from ecentric_workspace.pm import task_flow as tflow
+        tflow.record_seen(task, user)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "PM respond record_seen " + str(task))
 
 
 # --------------------------------------------------------------------------
