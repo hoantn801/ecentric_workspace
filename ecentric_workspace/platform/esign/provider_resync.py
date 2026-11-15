@@ -105,9 +105,26 @@ def _completed_legs(pkg_name):
     return rows
 
 
-def _live_legs(pkg_name):
-    return frappe.get_all(DSR, filters={"package": pkg_name, "status": ["in", list(_LIVE)]},
-                          fields=["name", "status"], limit_page_length=20)
+def _live_legs(pkg_name, replay_level=None):
+    """Chan ky ERP chan viec ban lai tren goi nay.
+
+    Chan dang bay (Queued / Provider Accepted / Verifying / ...) luon chan: worker cua no dem
+    buoc tren cung tai lieu. Chan Manual Review KHONG co worker chay; no chi chan khi o CUNG
+    cap hoac cap TRUOC chan dang ban lai (16/11: CEO bam Duyet & Ky ca 11 phieu chieu 15/11 khi
+    CMC con thieu chu ky KTT -> 11 chan CEO o Manual Review; chan KTT phai ban lai duoc truoc,
+    roi chan CEO moi gui lai qua "Gui lai co kiem")."""
+    rows = frappe.get_all(DSR, filters={"package": pkg_name, "status": ["in", list(_LIVE)]},
+                          fields=["name", "status", "actor_type", "request_level"],
+                          limit_page_length=20)
+    out = []
+    for x in rows:
+        if x.status == "Manual Review" and replay_level is not None:
+            lvl = (0 if x.get("actor_type") == "Requester"
+                   else int(frappe.db.get_value(LEVEL, x.get("request_level"), "level_no") or 0))
+            if lvl > int(replay_level):
+                continue
+        out.append(x)
+    return out
 
 
 def _signed_rows(state):
@@ -462,7 +479,7 @@ def _replay_one(pkg, legs, leg, reason, dry_run, ack_prior_attempt=False):
                 to_users=sp["to_users"], erp_users=sp["erp_users"], stage=sp["stage"])
     if dry_run:
         return dict(view, result="would_send")
-    live = _live_legs(pkg.name)
+    live = _live_legs(pkg.name, leg.get("level_no"))
     if live:            # ai do vua bam Duyet & Ky trong luc lap ke hoach
         return dict(view, result="stop", reason="live_legs:%s" % ",".join(x.name for x in live))
     events.emit("ResendExecuted", signature_request=leg.get("name"), package=pkg.name,
@@ -505,7 +522,7 @@ def replay(business_doctype, business_name, reason, dry_run=True, ack_prior_atte
     if p.get("document_missing"):
         return dict(p, ok=False, reason="document_missing:dung recreate_document", results=[])
     pkg = _package(business_doctype, business_name)
-    live = _live_legs(pkg.name)
+    live = _live_legs(pkg.name, (p["missing"][0] or {}).get("level_no"))
     if live:
         return dict(p, ok=False, reason="live_legs:%s" % ",".join(
             "%s(%s)" % (x.name, x.status) for x in live), results=[])
@@ -530,9 +547,20 @@ def recreate_document(business_doctype, business_name, reason, dry_run=True):
     lieu (ma cu, ma instance cu, ma tep cu vao su kien cap goi).""" 
     _require_reason(reason)
     p = plan(business_doctype, business_name)
+    pkg = _package(business_doctype, business_name)
+    prior_old = None
+    if p.get("reason") == "no_provider_document" and pkg \
+            and not pkg_error_code(pkg.name):
+        # Lan tao lai truoc ket thuc MO HO (vd CMC tra 500 cho AddDocument) va SM da doi soat:
+        # xac nhan KHONG co tai lieu nao duoc tao (clear_create_ambiguity) -> goi khong con ma
+        # tai lieu. Cho tao lai, lay ma cu tu su kien tao lai truoc (16/11, 00675).
+        prior_old = _prior_recreate_old_id(pkg.name)
+        if prior_old:
+            p = dict(p, ok=True, document_missing=True, provider_signed=0,
+                     missing=p.get("legs") or [], action="recreate", document_id=prior_old,
+                     reason=None)
     if not p.get("ok") or not p.get("document_missing"):
         return dict(p, ok=False, reason=p.get("reason") or "document_not_missing")
-    pkg = _package(business_doctype, business_name)
     legs = _completed_legs(pkg.name)
     if not legs or legs[0].get("actor_type") != "Requester":
         return dict(p, ok=False, reason="no_completed_requester_leg")
@@ -553,7 +581,7 @@ def recreate_document(business_doctype, business_name, reason, dry_run=True):
         # nguoi tao tai lieu cung khong thay no (QC 15/11 - neu khong se tao trung tai lieu).
         adapter.list_user_signatures(legs[0].get("effective_scts_user_id"))
         try:
-            adapter.poll_status(pkg.scts_document_id)
+            adapter.poll_status(pkg.scts_document_id or prior_old)
             return dict(p, ok=False, reason="document_visible_to_requester")
         except ProviderError as e:
             if e.code != "scts_document_not_found":
@@ -596,7 +624,7 @@ def recreate_document(business_doctype, business_name, reason, dry_run=True):
                                                              "doi soat tren cong truoc"})
         events.emit("ResendExecuted", package=pkg.name, erp_actor=frappe.session.user,
                     request_meta={"source": SOURCE + "_recreate", "ly_do": reason,
-                                  "old_document_id": old.scts_document_id,
+                                  "old_document_id": old.scts_document_id or prior_old,
                                   "old_instance_id": old.scts_workflow_instance_id,
                                   "old_file_ids": old_files,
                                   "requester_leg": legs[0]["name"]})
@@ -626,6 +654,18 @@ def recreate_document(business_doctype, business_name, reason, dry_run=True):
     return dict(p, ok=True, created=True, old_document_id=old.scts_document_id,
                 new_document_id=new_id,
                 next_step="goi resync_replay cho tung chan (%d chan)" % len(legs))
+
+
+def _prior_recreate_old_id(pkg_name):
+    """Ma tai lieu CU ghi trong su kien tao lai (cap goi) gan nhat, hoac None."""
+    rows = frappe.get_all(EVENT, filters={"package": pkg_name, "event_type": "ResendExecuted",
+                                          "request_meta": ["like", '%"source": "' + SOURCE
+                                                           + '_recreate"%']},
+                          fields=["request_meta"], order_by="creation desc", limit_page_length=1)
+    if not rows:
+        return None
+    meta = frappe.parse_json(rows[0].request_meta) if rows[0].request_meta else {}
+    return (meta or {}).get("old_document_id") or None
 
 
 def pkg_error_code(pkg_name):
