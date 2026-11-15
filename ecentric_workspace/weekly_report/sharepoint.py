@@ -9,6 +9,10 @@ Public API:
   get_app_token() -> str
       App-only client_credentials token from Social Login Key "microsoft".
 
+  deck_filename(filename, stamp) -> str
+      ASCII, no spaces, plus a per-upload stamp: never collides with a deck
+      already sitting in the folder (409 nameAlreadyExists, 15/11).
+
   build_deck_path(week_label, emp_code, dept_clean, filename) -> str
       "Weekly Reports/<dept>/<week>_<emp>_<file>" (NOT url-encoded).
 
@@ -18,6 +22,9 @@ Public API:
   delete_by_web_url(web_url, token) -> bool
       Removes a deck the user deleted from the form. True when gone.
 """
+
+import re
+import unicodedata
 
 import frappe
 import requests
@@ -108,6 +115,45 @@ def safe_filename(filename):
         cleaned.append("_" if ch in ILLEGAL_NAME_CHARS else ch)
     name = "".join(cleaned).strip().strip(".").strip()
     return name or "deck.pdf"
+
+
+# Base name cap: SharePoint allows 400 chars for the whole path; keep decks far
+# below that so "<week>_<emp>_" + stamp never pushes a long title over.
+DECK_BASE_MAX = 80
+
+
+def _ascii_fold(text):
+    """"Báo cáo tuần Đ" -> "Bao cao tuan D". NFKD drops the tone marks but leaves
+    d-stroke alone, so map it explicitly."""
+    text = (text or "").replace("\u0111", "d").replace("\u0110", "D")
+    text = unicodedata.normalize("NFKD", text)
+    return "".join(ch for ch in text if not unicodedata.combining(ch))
+
+
+def deck_filename(filename, stamp):
+    """Name a deck so the upload can never hit an existing file.
+
+    WHY (15/11/2026): createUploadSession with conflictBehavior=replace still
+    answered 409 nameAlreadyExists for "Weekly_Report_VitaDairy_MTD_14-11 (2).pptx"
+    -- a file of that name was already in the folder and SharePoint refused to
+    overwrite it (most likely held open in PowerPoint Online via the edit link
+    we store). Renaming by hand fixed it. So every upload gets its own name:
+      * ASCII only, spaces and punctuation -> "_" (what fixed it by hand)
+      * `stamp` (time + short random, built by the caller) before the extension
+    Old decks are not orphaned: submit_service._reconcile_decks deletes the ones
+    the user removed, and keeps the ones still listed.
+
+    Pure: no frappe, no clock -- the caller passes the stamp.
+    """
+    name = _ascii_fold(filename or "")
+    base, dot, ext = name.rpartition(".")
+    if not dot or not base or not re.fullmatch(r"[A-Za-z0-9]{1,8}", ext):
+        base, ext = name, ""
+    base = re.sub(r"[^A-Za-z0-9._-]+", "_", base)
+    base = re.sub(r"_+", "_", base).strip("._-")[:DECK_BASE_MAX].rstrip("._-") or "deck"
+    stamp = re.sub(r"[^A-Za-z0-9]+", "", stamp or "")
+    out = base + ("_" + stamp if stamp else "")
+    return out + ("." + ext.lower() if ext else "")
 
 
 def build_deck_path(week_label, emp_code, dept_clean, filename):
