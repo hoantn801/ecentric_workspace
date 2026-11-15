@@ -373,7 +373,7 @@ def _poll_or_stop(dsr_name, dsr, adapter, doc_id):
 
 def _mark_document_dead(dsr_name, dsr, how, detail):
     code = _DEAD_DOC_PREFIX + how
-    msg = ("Chứng từ trên SCTS đã bị huỷ (thao tác trên cổng eContract). Không thể ký tiếp; "
+    msg = ("Chứng từ trên CMC đã bị huỷ (thao tác trên cổng eContract). Không thể ký tiếp; "
            "cần tạo phiếu mới.")
     frappe.db.set_value("EC Digital Signature Package", dsr.package,
                         {"error_code": code, "error_message": msg})
@@ -1455,7 +1455,7 @@ def sweep_provider_signature_drift():
         try:
             engine.notify(
                 nguoi,
-                _("Chữ ký đã có bên SCTS mà ERP chưa dùng — {0} đã ký {1} chữ ký, "
+                _("Chữ ký đã có bên CMC mà ERP chưa dùng — {0} đã ký {1} chữ ký, "
                   "phiếu vẫn chờ ở cấp {2}. Mở phiếu rồi đồng bộ chữ ký về.").format(
                       d.get("approver") or "?", d.get("surplus") or 0,
                       d.get("current_level") or "?"),

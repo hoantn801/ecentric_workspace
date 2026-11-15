@@ -106,7 +106,7 @@ def multi_select_sequential_sign(items, comment=None):
                 frappe.throw(_("Tất cả mục phải cùng môi trường nhà cung cấp."),
                              frappe.ValidationError)
             if ctx["scts_user_id"] != scts_user:
-                frappe.throw(_("Tất cả mục phải cùng người ký SCTS đã ánh xạ."),
+                frappe.throw(_("Tất cả mục phải cùng người ký CMC đã ánh xạ."),
                              frappe.ValidationError)
         validated.append(it)
 

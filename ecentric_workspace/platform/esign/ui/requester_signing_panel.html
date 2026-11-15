@@ -47,14 +47,14 @@
       .ec-req-sign .ec-link-err{color:#a40e26;background:#ffebe9;padding:6px 8px;border-radius:6px;margin-top:6px}
       .ec-req-sign .ec-link-ok{color:#1a7f37;margin-top:6px}
     </style>
-    <div class="ec-link-title">Kết nối tài khoản ký số SCTS</div>
+    <div class="ec-link-title">Kết nối tài khoản ký số CMC</div>
     <div class="ec-link-help">Để chữ ký người đề nghị là của chính bạn, ERP cần tạo chứng từ
-      bằng tài khoản SCTS của bạn. Nhập mật khẩu SCTS <b>một lần</b>; ERP chỉ giữ mã kết nối
+      bằng tài khoản CMC (signx.cmc.vn) của bạn. Nhập mật khẩu CMC <b>một lần</b>; ERP chỉ giữ mã kết nối
       (1 năm), <b>không lưu mật khẩu</b>.</div>
     <form id="ecReqLinkForm" class="ec-link-row" autocomplete="off">
       <label for="ecReqLinkUser">Tài khoản</label>
-      <input id="ecReqLinkUser" type="text" autocomplete="username" placeholder="email SCTS (mặc định = email ERP)">
-      <label for="ecReqLinkPass">Mật khẩu SCTS</label>
+      <input id="ecReqLinkUser" type="text" autocomplete="username" placeholder="email CMC (mặc định = email ERP)">
+      <label for="ecReqLinkPass">Mật khẩu CMC</label>
       <input id="ecReqLinkPass" type="password" autocomplete="current-password" required>
       <button id="ecReqLinkBtn" type="submit" class="btn btn-sm btn-primary">Kết nối</button>
     </form>
@@ -97,7 +97,7 @@
     var days = (c && typeof c.scts_link_days_left === "number") ? c.scts_link_days_left : null;
     elLink.style.display = (need && !linked) ? "block" : "none";
     if (need && linked) {
-      elLinked.textContent = "Đã kết nối tài khoản ký số SCTS"
+      elLinked.textContent = "Đã kết nối tài khoản ký số CMC"
         + (days !== null ? " (còn " + days + " ngày)" : "") + ".";
       elLinked.style.display = "block";
     } else {
@@ -297,7 +297,7 @@
         } else if (!b(c, "verified_mapping")) {
           msg("Người đề nghị chưa có ánh xạ chữ ký đã xác minh.", true);
         } else if (b(c, "scts_link_required") && !b(c, "scts_linked")) {
-          msg("Cần kết nối tài khoản ký số SCTS của bạn trước khi gửi.", true);
+          msg("Cần kết nối tài khoản ký số CMC của bạn trước khi gửi.", true);
         } else {
           msg("");
         }
@@ -392,7 +392,7 @@
     if (!name || !callReady()) return;
     var pw = inLinkPass.value;
     var user = (inLinkUser.value || "").trim();
-    if (!pw) { linkErr("Nhập mật khẩu SCTS."); return; }
+    if (!pw) { linkErr("Nhập mật khẩu CMC."); return; }
     linkErr("");
     btnLink.disabled = true; btnLink.textContent = "Đang kết nối…";
     inLinkPass.value = "";
@@ -402,7 +402,7 @@
         pw = null;
         var m = (r && r.message) || {};
         if (!m.linked) { linkErr("Chưa kết nối được. Thử lại."); return; }
-        frappe.show_alert({ message: "Đã kết nối tài khoản ký số SCTS.", indicator: "green" });
+        frappe.show_alert({ message: "Đã kết nối tài khoản ký số CMC.", indicator: "green" });
         refresh();
       })
       .catch(function (e) {

@@ -151,8 +151,8 @@ def assert_allowed_signer(settings, user=None):
     user = user or frappe.session.user
     env = settings.get("environment") if hasattr(settings, "get") else getattr(settings, "environment", None)
     if not verified_mapping(user, env):
-        frappe.throw(_("Bạn chưa kết nối tài khoản ký số SCTS (hoặc ánh xạ chữ ký chưa được "
-                       "xác minh). Mở Approval Center và bấm \"Kết nối SCTS\"."),
+        frappe.throw(_("Bạn chưa kết nối tài khoản ký số CMC (hoặc ánh xạ chữ ký chưa được "
+                       "xác minh). Mở Approval Center và bấm \"Kết nối CMC\"."),
                      frappe.PermissionError)
 
 
