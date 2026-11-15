@@ -119,7 +119,7 @@ LEGS = [_leg("DSR-R", "Requester", "huong@x", "U-H", "S-H", None, "1"),
         _leg("DSR-1", "Approval Level", "tuan@x", "U-T", "S-T", "RL-1", "2"),
         _leg("DSR-2", "Approval Level", "lien@x", "U-L", "S-L", "RL-2", "3"),
         _leg("DSR-3", "Approval Level", "phuong@x", "U-P", "S-P", "RL-3", "4")]
-LEVEL_OF = {"RL-1": 1, "RL-2": 2, "RL-3": 3}
+LEVEL_OF = {"RL-1": 1, "RL-2": 2, "RL-3": 3, "RL-4": 4}
 MAPS = {"huong@x": ("U-H", "S-H", "ky-tham-gia"), "tuan@x": ("U-T", "S-T", "ky-tham-gia"),
         "lien@x": ("U-L", "S-L", "ky-tham-gia"), "phuong@x": ("U-P", "S-P", "ky-tham-gia"),
         "lam@x": ("U-CEO", "S-CEO", "ky-chinh")}
@@ -210,6 +210,10 @@ def _load(world):
         if dt == "EC SCTS User Mapping":
             return [_D(frappe_user=u, scts_user_id=MAPS[u][0]) for u in world.get("tokens", {})]
         if dt == "EC Digital Signature Event":
+            if f.get("package") and not f.get("signature_request"):
+                return [_D(request_meta=json.dumps({"source": "provider_resync_recreate",
+                                                    "old_document_id": x}))
+                        for x in world.get("prior_recreate", [])]
             leg = f.get("signature_request")
             emitted = [(i, et, k) for i, (et, k, _n) in enumerate(world["events"])
                        if k.get("signature_request") == leg]
@@ -492,6 +496,23 @@ class TestChotGui(Base):
     def test_chu_ky_khong_con_hieu_luc(self):
         self.assertTrue(self._stop(owner_ok=False)["reason"].startswith("signature_owner"))
 
+    def test_chan_ceo_manual_review_khong_chan_ban_lai_cap_3(self):
+        """16/11: CEO bam Duyet & Ky khi CMC con thieu chu ky KTT -> chan CEO Manual Review.
+        Chan KTT (cap 3) van ban lai duoc; chan CEO gui lai sau qua "Gui lai co kiem"."""
+        r = self._stop(live=[{"name": "DSR-CEO", "status": "Manual Review",
+                              "actor_type": "Approval Level", "request_level": "RL-4"}])
+        self.assertEqual(r["result"], "would_send")
+
+    def test_manual_review_cung_cap_thi_dung(self):
+        r = self._stop(live=[{"name": "DSR-X", "status": "Manual Review",
+                              "actor_type": "Approval Level", "request_level": "RL-3"}])
+        self.assertTrue(r["reason"].startswith("live_legs"))
+
+    def test_chan_cap_sau_dang_bay_van_dung(self):
+        r = self._stop(live=[{"name": "DSR-CEO", "status": "Queued",
+                              "actor_type": "Approval Level", "request_level": "RL-4"}])
+        self.assertTrue(r["reason"].startswith("live_legs"))
+
     def test_chan_dang_bay_thi_dung(self):
         r = self._stop(live=[{"name": "DSR-CEO", "status": "Queued"}])
         self.assertTrue(r["reason"].startswith("live_legs"))
@@ -697,6 +718,23 @@ class TestTaoLai(Base):
         r = m.recreate_document("EC Payment Request", "PR-1", R, dry_run=False)
         self.assertTrue(r["ambiguous"])
         self.assertEqual(len(self.pkg_writes(w)), 2, "khong tra ma cu; doi soat")
+
+    def test_tao_lai_lan_hai_sau_khi_doi_soat_mo_ho(self):
+        """16/11 00675: CMC tra 500 cho AddDocument -> mo ho; SM doi soat xong (go moc) -> goi
+        khong con ma tai lieu. Tao lai lan hai phai duoc, lay ma cu tu su kien truoc."""
+        m, w = self.mk(**self.kw(doc=None, prior_recreate=["DOC-1"]))
+        r = m.recreate_document("EC Payment Request", "PR-1", R, dry_run=False)
+        self.assertTrue(r["ok"], r)
+        self.assertEqual(r["new_document_id"], "DOC-NEW")
+        ev = [e for e in w["events"] if (e[1].get("request_meta") or {}).get("old_document_id")]
+        self.assertEqual(ev[0][1]["request_meta"]["old_document_id"], "DOC-1")
+
+    def test_tao_lai_lan_hai_khi_con_moc_mo_ho_thi_khong(self):
+        m, w = self.mk(**self.kw(doc=None, prior_recreate=["DOC-1"],
+                                 err_code="create_outcome_unknown"))
+        r = m.recreate_document("EC Payment Request", "PR-1", R, dry_run=False)
+        self.assertFalse(r["ok"])
+        self.assertNotIn("created", w)
 
     def test_tao_lai_khong_ky_trong_cung_request_roi_ban_lai_tung_chan(self):
         m, w = self.mk(**self.kw())
