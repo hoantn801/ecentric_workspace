@@ -1,0 +1,242 @@
+{
+ "actions": [],
+ "creation": "2026-11-15 06:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "editable_grid": 1,
+ "field_order": [
+  "voice_name",
+  "status",
+  "gender",
+  "brand",
+  "col_a",
+  "voice_id",
+  "source",
+  "owner_user",
+  "restricted",
+  "description",
+  "sec_consent",
+  "consent_by",
+  "consent_date",
+  "col_c",
+  "consent_file",
+  "consent_note",
+  "sec_tech",
+  "ref_text",
+  "clip_seconds",
+  "upload_file",
+  "sample_file",
+  "col_t",
+  "upload_started_at",
+  "upload_error",
+  "missing_on_server",
+  "last_synced"
+ ],
+ "fields": [
+  {
+   "fieldname": "voice_name",
+   "fieldtype": "Data",
+   "label": "Tên giọng",
+   "reqd": 1,
+   "in_list_view": 1,
+   "length": 80
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Trạng thái",
+   "options": "disabled\nactive\nprocessing\nfailed",
+   "default": "disabled",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "gender",
+   "fieldtype": "Select",
+   "label": "Giới tính",
+   "options": "Nữ\nNam\nKhác",
+   "default": "Nữ",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "brand",
+   "fieldtype": "Data",
+   "label": "Brand",
+   "length": 80,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "col_a",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "voice_id",
+   "fieldtype": "Data",
+   "label": "Mã giọng trên máy",
+   "read_only": 1,
+   "search_index": 1,
+   "length": 80
+  },
+  {
+   "fieldname": "source",
+   "fieldtype": "Select",
+   "label": "Nguồn",
+   "options": "erp\nmachine",
+   "default": "erp",
+   "read_only": 1
+  },
+  {
+   "fieldname": "owner_user",
+   "fieldtype": "Link",
+   "label": "Chủ giọng",
+   "options": "User"
+  },
+  {
+   "fieldname": "restricted",
+   "fieldtype": "Check",
+   "label": "Chỉ chủ giọng / quản lý được dùng",
+   "default": "0"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Mô tả"
+  },
+  {
+   "fieldname": "sec_consent",
+   "fieldtype": "Section Break",
+   "label": "Bằng chứng đồng ý"
+  },
+  {
+   "fieldname": "consent_by",
+   "fieldtype": "Data",
+   "label": "Người cho giọng",
+   "length": 140
+  },
+  {
+   "fieldname": "consent_date",
+   "fieldtype": "Date",
+   "label": "Ngày đồng ý"
+  },
+  {
+   "fieldname": "col_c",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "consent_file",
+   "fieldtype": "Attach",
+   "label": "File đồng ý (ảnh / PDF)"
+  },
+  {
+   "fieldname": "consent_note",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú đồng ý"
+  },
+  {
+   "fieldname": "sec_tech",
+   "fieldtype": "Section Break",
+   "label": "Kỹ thuật",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "ref_text",
+   "fieldtype": "Small Text",
+   "label": "Lời mẫu (máy chép)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "clip_seconds",
+   "fieldtype": "Float",
+   "label": "Độ dài mẫu (giây)",
+   "read_only": 1,
+   "precision": "1"
+  },
+  {
+   "fieldname": "upload_file",
+   "fieldtype": "Attach",
+   "label": "File mẫu đã tải lên",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sample_file",
+   "fieldtype": "Attach",
+   "label": "Mẫu nghe thử (cache)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_t",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "upload_started_at",
+   "fieldtype": "Datetime",
+   "label": "Bắt đầu gửi lên máy",
+   "read_only": 1
+  },
+  {
+   "fieldname": "upload_error",
+   "fieldtype": "Small Text",
+   "label": "Lỗi tạo giọng",
+   "read_only": 1
+  },
+  {
+   "fieldname": "missing_on_server",
+   "fieldtype": "Check",
+   "label": "Không còn trên máy",
+   "read_only": 1,
+   "default": "0"
+  },
+  {
+   "fieldname": "last_synced",
+   "fieldtype": "Datetime",
+   "label": "Đồng bộ lần cuối",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-15 06:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC AI Voice Profile",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "autoname": "hash",
+ "title_field": "voice_name",
+ "show_title_field_in_link": 1,
+ "search_fields": "voice_id,brand",
+ "track_changes": 1,
+ "description": "Thư viện giọng đọc trên ERP (gắn với giọng trên máy eVoice) + bằng chứng đồng ý của người cho giọng.",
+ "permissions": [
+  {
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0,
+   "role": "System Manager"
+  },
+  {
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0,
+   "role": "EC AI Video Admin"
+  }
+ ]
+}
