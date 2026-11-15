@@ -727,6 +727,14 @@
   .pm-state .spin{ display:inline-block; width:22px; height:22px; border:3px solid var(--gray-200); border-top-color:var(--navy); border-radius:50%; animation:pmsp .9s linear infinite; }
   @keyframes pmsp{ to{ transform:rotate(360deg); } }
   .pm-state .em-ic{ width:40px; height:40px; color:var(--gray-300); margin-bottom:10px; }
+  /* Viec can lam (15/11/2026): xuong luc dang tai asset pm_queue (cung kich thuoc khung that -> khong nhay bo cuc) */
+  .pmq-boot-qa{ height:100px; background:#fff; border:1px solid var(--gray-200); border-radius:10px; }
+  .pmq-boot-bar{ height:30px; margin:14px 0 10px; width:min(520px,70%); border-radius:8px; background:var(--gray-100); }
+  .pmq-boot-list{ background:#fff; border:1px solid var(--gray-200); border-radius:10px; padding-top:34px; overflow:hidden; }
+  .pmq-boot-row{ display:grid; grid-template-columns:40px minmax(0,1fr) 132px; gap:10px; align-items:center; height:54px; padding:0 12px 0 8px; border-top:1px solid #eceef2; }
+  .pmq-boot-row i,.pmq-boot-row b{ display:block; height:10px; border-radius:6px; background:var(--gray-100); animation:tgpulse 1.4s ease-in-out infinite; }
+  .pmq-boot-row i:first-child{ width:22px; height:22px; border-radius:50%; margin-left:8px; }
+  .pmq-boot-row b{ width:58%; height:12px; }
   .pm-err{ margin:0; padding:16px 20px; background:#fcebeb; color:#a32d2d; border:1px solid #f5c1c1; border-radius:10px; font-size:13px; }
 
   .pm-dbg{ position:fixed; inset:0; background:rgba(17,24,39,.42); opacity:0; visibility:hidden; transition:.18s; z-index:80; }
@@ -850,11 +858,11 @@
 </defs></svg>
 
 <div class="ecentric-app" id="ec-pm-root">
-  <aside class="ec-shell-mount" data-ec-shell="1" aria-label="Điều hướng eCentric"><div class="ec-shell-head"><a class="ec-shell-brand" href="/"><img class="ec-shell-logoimg" src="/files/eCentric%20logo%20-%20mini.png" alt="eCentric"><span class="ec-shell-logo" hidden>eC</span><span class="ec-shell-brandname">eCentric</span></a></div><div class="ec-shell-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input class="ec-shell-search-in" type="text" placeholder="Tìm chức năng…" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-label="Tìm chức năng" autocomplete="off" spellcheck="false"><button type="button" class="ec-shell-search-clear" data-ec-shell-search-clear="1" hidden aria-label="Xóa tìm kiếm">&times;</button></div><div class="ec-shell-search-results" role="listbox" hidden></div><nav class="ec-shell-nav ec-shell-fallback" aria-label="Điều hướng chính"><a class="ec-shell-item" href="/home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg><span>Trang chủ</span></a><div class="ec-shell-grouplabel">Quản lý dự án</div><a class="ec-shell-item" href="/pm#mywork"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h4l2 3h4l2-3h4"/><path d="M4 13V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7"/><path d="M4 13v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></svg><span>Việc của tôi</span></a><a class="ec-shell-item" href="/pm#received"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11M7.5 9.5 12 14l4.5-4.5"/><path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg><span>Được giao cho tôi</span></a><a class="ec-shell-item" href="/pm#given"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg><span>Tôi đã giao</span></a><a class="ec-shell-item" href="/pm#schedule"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg><span>Lịch làm việc</span></a><a class="ec-shell-item ec-shell-active" href="/pm#coordinate" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Điều phối</span></a><a class="ec-shell-item" href="/pm#projects"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Dự án</span></a><a class="ec-shell-item" href="/pm#work/list"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span>Tất cả việc</span></a><a class="ec-shell-item" href="/pm#timesheet"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg><span>Timesheet</span></a><a class="ec-shell-item" href="/pm#guide"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19a2 2 0 0 1 2-2h14V3H6a2 2 0 0 0-2 2z"/><path d="M4 19a2 2 0 0 0 2 2h14v-4"/></svg><span>Hướng dẫn</span></a></nav><div class="ec-shell-foot"><a class="ec-shell-usercard" href="/app/user"><span class="ec-shell-avatar">•</span><span class="ec-shell-username">Tài khoản</span></a></div></aside>
+  <aside class="ec-shell-mount" data-ec-shell="1" aria-label="Điều hướng eCentric"><div class="ec-shell-head"><a class="ec-shell-brand" href="/"><img class="ec-shell-logoimg" src="/files/eCentric%20logo%20-%20mini.png" alt="eCentric"><span class="ec-shell-logo" hidden>eC</span><span class="ec-shell-brandname">eCentric</span></a></div><div class="ec-shell-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input class="ec-shell-search-in" type="text" placeholder="Tìm chức năng…" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-label="Tìm chức năng" autocomplete="off" spellcheck="false"><button type="button" class="ec-shell-search-clear" data-ec-shell-search-clear="1" hidden aria-label="Xóa tìm kiếm">&times;</button></div><div class="ec-shell-search-results" role="listbox" hidden></div><nav class="ec-shell-nav ec-shell-fallback" aria-label="Điều hướng chính"><a class="ec-shell-item" href="/home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg><span>Trang chủ</span></a><div class="ec-shell-grouplabel">Quản lý dự án</div><a class="ec-shell-item" href="/pm#mywork"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h4l2 3h4l2-3h4"/><path d="M4 13V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7"/><path d="M4 13v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></svg><span>Việc cần làm</span></a><a class="ec-shell-item" href="/pm#received"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11M7.5 9.5 12 14l4.5-4.5"/><path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg><span>Được giao cho tôi</span></a><a class="ec-shell-item" href="/pm#given"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg><span>Tôi đã giao</span></a><a class="ec-shell-item" href="/pm#schedule"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg><span>Lịch làm việc</span></a><a class="ec-shell-item ec-shell-active" href="/pm#coordinate" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Điều phối</span></a><a class="ec-shell-item" href="/pm#projects"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Dự án</span></a><a class="ec-shell-item" href="/pm#work/list"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span>Tất cả việc</span></a><a class="ec-shell-item" href="/pm#timesheet"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg><span>Timesheet</span></a><a class="ec-shell-item" href="/pm#guide"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19a2 2 0 0 1 2-2h14V3H6a2 2 0 0 0-2 2z"/><path d="M4 19a2 2 0 0 0 2 2h14v-4"/></svg><span>Hướng dẫn</span></a></nav><div class="ec-shell-foot"><a class="ec-shell-usercard" href="/app/user"><span class="ec-shell-avatar">•</span><span class="ec-shell-username">Tài khoản</span></a></div></aside>
 
   <div class="ec-main">
     <div class="topbar">
-      <div class="breadcrumb ec-shell-crumbs" data-ec-shell-crumbs="1"><span class="ec-shell-crumb-group">Quản lý dự án</span><span class="sep ec-shell-crumb-sep">/</span><a class="ec-shell-crumblink" href="/pm#projects" style="display:none">Dự án</a><span class="sep ec-shell-crumb-sep" style="display:none">/</span><strong class="ec-shell-crumb-current ec-shell-crumb-detail" data-ec-shell-crumb-detail="1" id="pm-crumb">Việc của tôi</strong></div>
+      <div class="breadcrumb ec-shell-crumbs" data-ec-shell-crumbs="1"><span class="ec-shell-crumb-group">Quản lý dự án</span><span class="sep ec-shell-crumb-sep">/</span><a class="ec-shell-crumblink" href="/pm#projects" style="display:none">Dự án</a><span class="sep ec-shell-crumb-sep" style="display:none">/</span><strong class="ec-shell-crumb-current ec-shell-crumb-detail" data-ec-shell-crumb-detail="1" id="pm-crumb">Việc cần làm</strong></div>
       <div class="ec-pm-topsearch"><div class="sidebar-search">
       <svg class="icon icon-sm search-icon"><use href="#p-search"/></svg>
       <input type="text" id="pm-search" placeholder="Tìm dự án, việc...">
@@ -880,15 +888,15 @@
 <script src="/assets/ecentric_workspace/charts/chart_common.js"></script>
 <script src="/assets/ecentric_workspace/charts/pm_charts.js"></script>
 <!-- PM lam lai (16/10/2026): asset dung chung window.PMR (man moi + ngan keo viec + luong Xong). Nap TRUOC script chinh; 404 -> script chinh tu fallback ve man cu. -->
-<link rel="stylesheet" href="/assets/ecentric_workspace/css/pm/pm_redesign.css?v=2dbd08284f">
-<script src="/assets/ecentric_workspace/js/pm/pm_redesign.js?v=2dbd08284f"></script>
+<link rel="stylesheet" href="/assets/ecentric_workspace/css/pm/pm_redesign.css?v=f019df46d2">
+<script src="/assets/ecentric_workspace/js/pm/pm_redesign.js?v=f019df46d2"></script>
 <script>
 (function(){
   var PM="ecentric_workspace.pm.api.";
   var COLS=["Backlog","To Do","In Progress","Blocked","Review","Done","Cancelled"];
   var BOARD_COLS=["To Do","In Progress","Review","Done"]; /* Kanban = 4 core cols; Backlog/Blocked fold into To Do, Cancelled hidden. */
   var FILTER_STATES=["Backlog","To Do","In Progress","Review","Done","Cancelled"] /* Backlog was missing: 32 tasks (the largest group) could not be filtered */; /* lean status filter (drop Backlog/Blocked) */
-  var CRUMB={mytasks:"Việc của tôi",received:"Được giao cho tôi",given:"Tôi đã giao",schedule:"Lịch làm việc",coordinate:"Điều phối",projects:"Dự án",work:"Tất cả việc",timesheet:"Timesheet",guide:"Hướng dẫn",rooms:"Phòng họp"};
+  var CRUMB={mytasks:"Việc cần làm",received:"Được giao cho tôi",given:"Tôi đã giao",schedule:"Lịch làm việc",coordinate:"Điều phối",projects:"Dự án",work:"Tất cả việc",timesheet:"Timesheet",guide:"Hướng dẫn",rooms:"Phòng họp"};
   var el=function(id){return document.getElementById(id);};
   function st(s){return "st-"+(s||"Backlog").replace(/\s/g,"");}
   function pst(s){return "pst-"+(s||"").replace(/\s/g,"");}
@@ -1078,7 +1086,28 @@
     if(p&&typeof p.personalToggle==="function"){try{host.innerHTML="";host.classList.add("mw-wlnote-pmr");p.personalToggle(host,function(){showMyTasks();},{count:n});return;}catch(_){}}
     host.innerHTML='<svg class="icon icon-sm" style="flex:0 0 auto"><use href="#p-eye"/></svg><span>'+(show?"Đang hiện ":"Đang ẩn ")+n+' việc nhật ký cá nhân</span><span aria-hidden="true">·</span><button type="button" class="mw-wlbtn">'+(show?"Ẩn":"Hiện")+'</button>';
     host.querySelector(".mw-wlbtn").onclick=function(){pmSetShowPersonal(!show);showMyTasks();};}
-  function showMyTasks(){var c=el("pm-view");spin(c);var live=pmViewBegin();
+  /* Viec can lam (15/11/2026, demo A PO duyet): #mywork = hang doi window.PMQueue (public/js/pm/pm_queue.js + css/pm/pm_queue.css),
+     tai luoi cung ?v= voi pm_redesign.js. Quy tac xep o server (pm.api.queue.list), client chi ve theo rank.
+     Can PMR (openTask + _pure.parseDue). Thieu PMR / tai asset loi / qua 10 giay / render nem loi -> man cu
+     (showMyTasksLegacy) cho het phien (window._pmQueueOff). Lam moi (pmRefreshCurrent) khi hang doi dang song = ctl.refresh, khong ve lai. */
+  function pmQueueAssets(){return pmLazyAsset("pm_queue","PMQueue","data-pmq-css");}
+  function pmQueueUsable(){var p=pmr();return !window._pmQueueOff&&!!(p&&typeof p.openTask==="function"&&p._pure&&typeof p._pure.parseDue==="function");}
+  function pmQueueStop(){var k=window._pmQueueCtl;window._pmQueueCtl=null;if(k){try{k.destroy();}catch(_){}}}
+  function pmQueueFallback(why){window._pmQueueOff=true;pmQueueStop();try{console.warn("[pm] PMQueue unavailable ("+why+") - legacy #mywork");}catch(_){}showMyTasksLegacy();}
+  function pmQueueBoot(){var r="",i;for(i=0;i<6;i++)r+='<div class="pmq-boot-row"><i></i><b></b><i></i></div>';
+    return head("Việc cần làm","Đang tải…")+'<div class="pmq-boot" aria-busy="true" aria-label="Đang tải việc cần làm"><div class="pmq-boot-qa"></div><div class="pmq-boot-bar"></div><div class="pmq-boot-list">'+r+'</div></div>';}
+  function showMyTasks(){
+    if(!pmQueueUsable())return showMyTasksLegacy();
+    var c=el("pm-view"),k=window._pmQueueCtl;
+    if(k&&k.root&&c.contains(k.root)){try{k.refresh({soft:true});}catch(_){}return;}
+    var live=pmViewBegin(),ok=function(){return live()&&window._curView==="mytasks";},settled=false;
+    c.innerHTML=pmQueueBoot();
+    var tm=setTimeout(function(){if(!settled&&ok()){settled=true;pmQueueFallback("timeout");}},10000);
+    pmQueueAssets().then(function(){if(settled)return;settled=true;clearTimeout(tm);if(!ok())return;pmQueueStop();
+        try{window._pmQueueCtl=window.PMQueue.render(c,{api:api,head:head,openTask:openTask,user:window._pmUser||pmCurUser()});}
+        catch(e){try{console.error("[pm] PMQueue.render",e);}catch(_){}pmQueueFallback("render");}},
+      function(){if(settled)return;settled=true;clearTimeout(tm);if(ok())pmQueueFallback("load");});}
+  function showMyTasksLegacy(){var c=el("pm-view");spin(c);var live=pmViewBegin();
     Promise.all([api(PM+"dashboard.my_tasklist"),api(PM+"dashboard.control_center"),api(PM+"recurrence.list").catch(function(){return {rows:[]};}),api(PM+"tasks.list",{page_length:2000,include_personal:1}).catch(function(){return {rows:[]};}),api(PM+"timer.get_active").catch(function(){return {active:false};}),pmPersonalProjects()]).then(function(res){if(!live())return;
       var d=res[0]||{};var cc=res[1]||{};if(cc.is_leader!==undefined)window._isLeader=!!cc.is_leader;
       var recRules=(res[2]&&res[2].rows)||[];var vTasks=(res[3]&&res[3].rows)||[];var ac=res[4]||{active:false};var pset=res[5]||{};
@@ -3255,7 +3284,7 @@
      Thieu asset PMR: projects/work ve man cu; received/given/coordinate bao tai lai trang. */
   var WORK_ALIAS={tasks:"list",list:"list",board:"board",calendar:"due",due:"due",gantt:"gantt",table:"list"};
   var GIVEN_TABS={run:1,rep:1,done:1,follow:1};   /* follow = Toi theo doi (CC, 20/10/2026) */
-  function pmrMissing(c,label){c.innerHTML=head(label,"")+'<div class="pm-err">Chưa tải được giao diện mới của Công việc. Bấm Ctrl+Shift+R để tải lại trang. <a href="/pm#mywork">Về Việc của tôi</a></div>';}
+  function pmrMissing(c,label){c.innerHTML=head(label,"")+'<div class="pm-err">Chưa tải được giao diện mới của Công việc. Bấm Ctrl+Shift+R để tải lại trang. <a href="/pm#mywork">Về Việc cần làm</a></div>';}
   function pmrRender(fn,label,args){var c=el("pm-view");var p=pmr();
     if(!p||!p.render||typeof p.render[fn]!=="function"){pmrMissing(c,label);return false;}
     try{p.render[fn].apply(p.render,[c].concat(args||[]));}catch(e){try{console.error("[pm] PMR.render."+fn,e);}catch(_){}errBox(c,e);}
@@ -3276,7 +3305,7 @@
     var sep=link.nextElementSibling;if(sep&&!/(^|\s)ec-shell-crumb-sep(\s|$)/.test(sep.className||""))sep=null;
     if(parent){link.textContent=parent.label;link.setAttribute("href","/pm"+parent.hash);link.style.display="";if(sep)sep.style.display="";}
     else{link.style.display="none";if(sep)sep.style.display="none";}}catch(_){}}
-  function pmPrepView(navKey){_pmViewSeq++;pmRoomsStop();if(window.PMCharts)PMCharts.disposeAll();window._pmOpenProject=null;window._curView=navKey;pmSetCrumb(CRUMB[navKey]||CRUMB.mytasks,null);}
+  function pmPrepView(navKey){_pmViewSeq++;pmRoomsStop();pmQueueStop();if(window.PMCharts)PMCharts.disposeAll();window._pmOpenProject=null;window._curView=navKey;pmSetCrumb(CRUMB[navKey]||CRUMB.mytasks,null);}
   function go(v){var isW=(v==="work")||Object.prototype.hasOwnProperty.call(WORK_ALIAS,v);
     var navKey=isW?"work":(VIEWS[v]?v:"mytasks");
     if(isW){if(v!=="work")window._workView=WORK_ALIAS[v];
@@ -3428,7 +3457,7 @@
   if(el("tb-timer"))el("tb-timer").onclick=function(){if(window._activeTimer&&window._activeTimer.task)openTask(window._activeTimer.task);};
   /* window._isLeader (menu xoa viec / sua du an cua leader) truoc day chi duoc dat o man Tong quan
      (da bo). #mywork dat lai tu control_center; cac man khac hoi mot lan luc vao trang. */
-  function pmEnsureLeader(){if(window._isLeader!==undefined||window._curView==="mytasks")return;api(PM+"dashboard.control_center").then(function(cc){if(cc&&cc.is_leader!==undefined)window._isLeader=!!cc.is_leader;}).catch(function(){});}
+  function pmEnsureLeader(){if(window._isLeader!==undefined||(window._curView==="mytasks"&&!pmQueueUsable()))return;api(PM+"dashboard.control_center").then(function(cc){if(cc&&cc.is_leader!==undefined)window._isLeader=!!cc.is_leader;}).catch(function(){});}
   /* Su kien cua PMR: bam gio trong ngan keo -> chip timer topbar; so "Duoc giao cho toi" moi -> huy hieu menu trai. */
   document.addEventListener("pmr:timer",function(){refreshTimerChip();});
   document.addEventListener("pmr:badge",function(e){try{var d=(e&&e.detail)||{};var k={received:"pm.received",mywork:"pm.mywork"}[d.key];if(!k)return;var n=+d.count||0;

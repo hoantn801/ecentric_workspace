@@ -25,7 +25,7 @@ VIEWS = [
     # tham chieu (RAIL_LAYOUTS, test, ban ghi cu): pm.view.assignments = "Duoc giao cho toi",
     # pm.view.overview = "Dieu phoi", pm.view.work = "Tat ca viec". Bo pm.view.recurring
     # (trang Recurring -> tab Lap lai cua "Toi da giao"; route cu #recurring la alias).
-    ("pm.view.mywork", "Việc của tôi", "/pm#mywork", "inbox", 20),
+    ("pm.view.mywork", "Việc cần làm", "/pm#mywork", "inbox", 20),
     ("pm.view.assignments", "Được giao cho tôi", "/pm#received", "recv", 22),
     ("pm.view.given", "Tôi đã giao", "/pm#given", "send", 24),
     ("pm.view.schedule", "Lịch làm việc", "/pm#schedule", "calendar", 25),
