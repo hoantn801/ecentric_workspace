@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gửi tệp cho Claude · eCentric</title>
+<style>
+  :root { --ink:#1f2937; --mute:#6b7280; --line:#e5e7eb; --brand:#4f46e5; --ok:#047857; --bad:#b91c1c; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:var(--ink); background:#f8fafc; }
+  main { max-width:720px; margin:40px auto; padding:0 20px; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  p.sub { color:var(--mute); margin:0 0 20px; }
+  .zone { border:2px dashed #c7d2fe; border-radius:14px; background:#fff; padding:40px 20px; text-align:center; cursor:pointer; }
+  .zone.over { background:#eef2ff; border-color:var(--brand); }
+  .zone strong { display:block; font-size:17px; margin-bottom:6px; }
+  .zone input { display:none; }
+  .btn { display:inline-block; margin-top:12px; padding:9px 18px; border-radius:10px; background:var(--brand); color:#fff; font-weight:600; min-height:40px; }
+  ul { list-style:none; padding:0; margin:20px 0 0; }
+  li { display:flex; justify-content:space-between; gap:12px; padding:10px 14px; background:#fff; border:1px solid var(--line); border-radius:10px; margin-bottom:8px; }
+  li .st { white-space:nowrap; font-size:13px; }
+  .ok { color:var(--ok); } .bad { color:var(--bad); } .mute { color:var(--mute); }
+  .done { margin-top:20px; padding:14px 16px; border-radius:12px; background:#ecfdf5; color:var(--ok); display:none; }
+  h2 { font-size:15px; margin:28px 0 8px; color:var(--mute); font-weight:600; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Gửi tệp cho Claude</h1>
+  <p class="sub">Thả hợp đồng, hoá đơn, chứng từ vào đây. Tệp là tệp riêng tư của bạn trên ERP; Claude chỉ đọc và gắn vào phiếu bạn nhờ. Xong thì quay lại khung chat Claude.</p>
+
+  <label class="zone" id="zone">
+    <input type="file" id="pick" multiple>
+    <strong>Kéo thả tệp vào đây</strong>
+    <span class="mute">PDF, Word, Excel, ảnh · tối đa ~25MB mỗi tệp</span><br>
+    <span class="btn">Chọn tệp</span>
+  </label>
+
+  <ul id="list" aria-live="polite"></ul>
+  <div class="done" id="done">Đã tải xong. Quay lại Claude và nói "mình đã thả tệp rồi".</div>
+
+  {% if recent %}
+  <h2>Đã tải trong 24 giờ qua (chưa gắn vào phiếu)</h2>
+  <ul>
+    {% for f in recent %}<li><span>{{ f.file_name }}</span><span class="st mute">{{ frappe.utils.format_datetime(f.creation, "HH:mm dd/MM") }}</span></li>{% endfor %}
+  </ul>
+  {% endif %}
+</main>
+<script>
+(function () {
+  "use strict";
+  var CSRF = {{ csrf | tojson }};
+  var BLOCKED = [".exe", ".msi", ".bat", ".cmd", ".com", ".scr", ".ps1", ".vbs", ".js", ".jar", ".sh",
+                 ".php", ".py", ".html", ".htm", ".svg", ".hta", ".dll"];
+  var zone = document.getElementById("zone"), pick = document.getElementById("pick");
+  var list = document.getElementById("list"), done = document.getElementById("done");
+  function row(name) {
+    var li = document.createElement("li");
+    var a = document.createElement("span"); a.textContent = name;
+    var s = document.createElement("span"); s.className = "st mute"; s.textContent = "Đang tải…";
+    li.appendChild(a); li.appendChild(s); list.appendChild(li); return s;
+  }
+  function ext(n) { var m = /\.[^.\/\\]+$/.exec(String(n || "").toLowerCase()); return m ? m[0] : ""; }
+  function put(f) {
+    var st = row(f.name);
+    if (BLOCKED.indexOf(ext(f.name)) >= 0) { st.className = "st bad"; st.textContent = "Loại tệp không cho phép"; return Promise.resolve(false); }
+    var fd = new FormData(); fd.append("file", f); fd.append("is_private", "1");
+    return fetch("/api/method/upload_file", { method: "POST", headers: { "X-Frappe-CSRF-Token": CSRF }, body: fd })
+      .then(function (r) {
+        if (r.status === 413) throw new Error("Tệp quá lớn");
+        return r.json().then(function (j) { if (!(j && j.message && j.message.file_url)) throw new Error("Không tải được"); });
+      })
+      .then(function () { st.className = "st ok"; st.textContent = "Đã tải ✓"; return true; },
+            function (e) { st.className = "st bad"; st.textContent = e.message || "Lỗi"; return false; });
+  }
+  function go(files) {
+    files = Array.prototype.slice.call(files || []); if (!files.length) return;
+    done.style.display = "none";
+    files.reduce(function (p, f) { return p.then(function (ok) { return put(f).then(function (x) { return ok && x; }); }); }, Promise.resolve(true))
+      .then(function (allOk) { if (allOk) done.style.display = "block"; });
+  }
+  pick.addEventListener("change", function () { go(pick.files); pick.value = ""; });
+  ["dragenter", "dragover"].forEach(function (t) { zone.addEventListener(t, function (e) { e.preventDefault(); zone.classList.add("over"); }); });
+  ["dragleave", "drop"].forEach(function (t) { zone.addEventListener(t, function (e) { e.preventDefault(); zone.classList.remove("over"); }); });
+  zone.addEventListener("drop", function (e) { go(e.dataTransfer && e.dataTransfer.files); });
+})();
+</script>
+</body>
+</html>
