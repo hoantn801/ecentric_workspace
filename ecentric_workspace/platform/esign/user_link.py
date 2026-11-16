@@ -327,6 +327,38 @@ def unlink(user, settings, environment):
     return link_status(user, settings, environment)
 
 
+def signer_token_needed(dsr, settings):
+    """User ERP phai ky bang TOKEN RIENG cho chan ky nay, hoac None (= tai khoan tich hop).
+
+    16/11/2026 (chuyen SCTS -> CMC): CMC chi NHUNG chu ky so vao PDF khi nguoi gui lenh chinh
+    la nguoi ky. Tai khoan tich hop gui thay nguoi duyet (userId + chu ky cua ho) thi CMC van
+    chuyen buoc va ghi "Da ky" nhung PDF KHONG co chu ky (00672: 5 dong "Da ky", PDF 2 chu ky;
+    00676: Hoan - chinh la tai khoan tich hop - ky cap 1 thi CO). Nen: chan KY (action Sign)
+    cua nguoi de nghi VA nguoi duyet deu di bang token cua chinh ho; chi tai khoan tich hop
+    tu ky cho minh moi dung token tich hop. Buoc duyet KHONG ky (action Approve) giu nguyen."""
+    if (dsr.get("actor_type") or "") == "Requester":
+        user = dsr.get("actor_user")
+    elif (dsr.get("action") or "Sign") == "Sign":
+        user = dsr.get("approver")
+    else:
+        return None
+    if not user or not needs_own_token(user, settings):
+        return None
+    return user
+
+
+def assert_signer_linked(user, settings, environment):
+    """Chot truoc khi xep hang chan KY cua nguoi duyet. Fail-closed, noi ro phai lam gi."""
+    if not needs_own_token(user, settings):
+        return None
+    tok = token_for(user, environment)
+    if not tok:
+        frappe.throw(_("Bạn chưa kết nối tài khoản ký số CMC (hoặc kết nối đã hết hạn). "
+                       "Bấm nút 'Kết nối CMC' trên trang Phê duyệt, nhập mật khẩu CMC, rồi "
+                       "bấm Duyệt & Ký lại."))
+    return tok
+
+
 def assert_requester_linked(user, settings, environment):
     """Chot truoc khi tao DSR / tao chung tu. Fail-closed, thong diep noi ro phai lam gi."""
     if not needs_own_token(user, settings):

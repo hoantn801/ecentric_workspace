@@ -477,18 +477,34 @@ def process_signing_request(dsr_name):
         # gio roi ve tai khoan tich hop trong im lang (do la loi dang sua). Poll (doc) thi
         # token nao cung duoc - khong giet mot chan da ky chi vi token bi go sau do.
         from ecentric_workspace.platform.esign import user_link
-        if dsr.actor_type == "Requester" and user_link.needs_own_token(dsr.actor_user, settings):
-            user_tok = user_link.token_for(dsr.actor_user, dsr.environment)
+        # NGUOI DUYET CUNG KY BANG TOKEN CUA CHINH HO (16/11/2026, CMC). CMC khong nhung chu ky
+        # so khi tai khoan tich hop ky thay nguoi khac - xem user_link.signer_token_needed.
+        own_user = user_link.signer_token_needed(dsr, settings)
+        if own_user and dsr.actor_type != "Requester" and dsr.status != "Queued":
+            # Chan duyet DA GUI (Provider Accepted / Verifying): chi con DOC. Doc bang tai khoan
+            # tich hop - token nguoi duyet bi CMC thu hoi giua chung (doi mat khau...) se thanh
+            # scts_user_token_rejected (khong retry) -> Permanent Failure tren mot chan co the da
+            # ky (QC 16/11). Nguoi de nghi giu nguyen hanh vi cu.
+            own_user = None
+        if own_user:
+            user_tok = user_link.token_for(own_user, dsr.environment)
             if user_tok:
                 adapter.use_user_token(user_tok)
-                if dsr.status == "Queued":
+                if dsr.status == "Queued" and dsr.actor_type == "Requester":
+                    # (nguoi duyet: ghi o request_meta.auth_as cua HandoverTargeted - event_type
+                    # la Select, them loai moi can migrate)
                     events.emit("ProviderAuthAsRequester", signature_request=dsr_name,
-                                package=dsr.package, erp_actor=dsr.actor_user)
+                                package=dsr.package, erp_actor=own_user)
             elif dsr.status == "Queued":
-                raise ProviderError("requester_not_linked",
-                                    "nguoi de nghi chua ket noi tai khoan SCTS (hoac token "
-                                    "het han) - khong tao chung tu bang tai khoan tich hop",
-                                    retryable=False)
+                if dsr.actor_type == "Requester":
+                    raise ProviderError("requester_not_linked",
+                                        "nguoi de nghi chua ket noi tai khoan SCTS (hoac token "
+                                        "het han) - khong tao chung tu bang tai khoan tich hop",
+                                        retryable=False)
+                raise ProviderError("signer_not_linked",
+                                    "nguoi duyet chua ket noi tai khoan CMC (hoac token het "
+                                    "han) - khong ky thay bang tai khoan tich hop (CMC khong "
+                                    "nhung chu ky vao PDF)", retryable=False)
         if dsr.status == "Queued":
             # PRE-WRITE GATE (S2B-A): the FULL ERP-side signer binding must hold BEFORE
             # any SCTS write on this run - document assembly (AddDocument) AND bulk-process.
@@ -647,6 +663,8 @@ def process_signing_request(dsr_name):
                                           "erp_users": plan.get("erp_users"),
                                           "actor_user_id": actor_uid,
                                           "signer_user_id": dsr.effective_scts_user_id,
+                                          # token cua ai (None = tai khoan tich hop) - 16/11
+                                          "auth_as": own_user,
                                           # Ai bi eContract tu choi nhan, va co hoi duoc
                                           # khong. Thieu hai truong nay thi dsr_trace chi
                                           # thay danh sach cuoi cung, khong thay vi sao no
@@ -679,7 +697,7 @@ def process_signing_request(dsr_name):
                         raise
                     events.emit("HandoverPoolFallback", signature_request=dsr_name,
                                 package=dsr.package, error_summary=safe_error(exc),
-                                request_meta={"stage": stage,
+                                request_meta={"stage": stage, "auth_as": own_user,
                                               "reason": "transition_rejected_falling_back"})
             if res is None:
                 if plan["mode"] != "transition":
@@ -687,6 +705,7 @@ def process_signing_request(dsr_name):
                                 package=dsr.package,
                                 error_summary="next handler not named: %s" % plan.get("reason"),
                                 request_meta={"stage": stage, "reason": plan.get("reason"),
+                                              "auth_as": own_user,
                                               "discovery_probe": plan.get("discovery_probe")})
                 # `bulk-process` nhan `instanceIds`. Gui document id vao day chinh la hinh
                 # dang that bai kho chan doan nhat cua ca vu: SCTS tra 2xx kem

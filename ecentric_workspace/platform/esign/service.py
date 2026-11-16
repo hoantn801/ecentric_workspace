@@ -219,6 +219,11 @@ def approve_and_sign(business_doctype, business_name, comment=None, bulk_batch_k
         events.emit("MappingRequired", erp_actor=actor,
                     request_meta={"business": business_name, "level": req.current_level})
         frappe.throw(_("Bạn chưa có ánh xạ chữ ký CMC được xác minh - liên hệ quản trị."))
+    if action == "Sign":
+        # Ky bang token cua chinh nguoi duyet (16/11, CMC) - chua ket noi thi bao ngay, khong
+        # de chan ky hong o worker (xem user_link.signer_token_needed).
+        from ecentric_workspace.platform.esign import user_link
+        user_link.assert_signer_linked(actor, settings, profile.environment)
 
     pkg_name = pkgsvc.active_package_for_request(req.name)
     if not pkg_name:

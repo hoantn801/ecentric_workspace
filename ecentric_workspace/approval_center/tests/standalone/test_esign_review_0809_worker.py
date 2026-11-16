@@ -122,6 +122,7 @@ def _harness(row, adapter, create_raises=None):
     nh.plan_handover = lambda *a, **k: nh.plans.append(k) or {"mode": "pool", "reason": "test"}
     nh.requester_actor = lambda *a, **k: None
     ul = types.ModuleType("user_link"); ul.needs_own_token = lambda *a, **k: False
+    ul.signer_token_needed = lambda *a, **k: None
     req = types.ModuleType("requester"); req.reconciled = []
     req.reconcile_and_complete_requester = lambda n: req.reconciled.append(n) or {"completed": False}
     mods = {"frappe": fk, "frappe.utils": utils,
