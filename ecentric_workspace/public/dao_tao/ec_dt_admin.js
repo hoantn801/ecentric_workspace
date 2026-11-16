@@ -52,7 +52,10 @@
         '"><label class="dt-b sm">' + D.icon("upload") + ' Tải lên<input type="file" id="dt-vf" accept="video/mp4" hidden></label></div><span class="dt-ferr" data-e="video_url"></span></div>' +
         '<div class="dt-f"><label>Slide / tài liệu</label><div class="dt-row"><input class="dt-in" id="dt-slide" style="flex:1" value="' + D.esc(l.slide_url || "") +
         '"><label class="dt-b sm">' + D.icon("upload") + ' Tải lên<input type="file" id="dt-sf" hidden></label></div><span class="dt-ferr" data-e="slide_url"></span></div>' +
-        '<div class="dt-f"><label>Nội dung bài (chữ thường; link https tự bấm được)</label><textarea class="dt-ta" id="dt-body2" style="min-height:220px">' + D.esc(l.body || "") + "</textarea></div>" +
+        '<div class="dt-f"><div class="dt-row"><label for="dt-body2">Nội dung bài</label><span class="dt-sp"></span><label class="dt-b sm">' + D.icon("upload") + ' Chèn ảnh / video<input type="file" id="dt-mf" accept="image/*,video/mp4" hidden></label>' +
+        '<button class="dt-b sm" id="dt-pv" type="button">Xem trước</button></div>' +
+        '<details class="dt-small dt-muted"><summary>Cách trình bày cho trực quan</summary><div class="dt-body" style="font-size:12.5px">## Tiêu đề phần (tự đánh số + mục lục)\n> Lời khuyên (hộp xanh)      !> Lưu ý (hộp vàng)\n- gạch đầu dòng      1. bước đánh số      **chữ đậm**\n[the] Tiêu đề | mô tả   (nhiều dòng liền nhau thành lưới thẻ)\n[so] 47/54 | chú thích   (nhiều dòng liền nhau thành hàng số liệu)\n[sai] cách chưa tốt   [dung] cách nên làm   (đặt liền nhau thành 2 cột so sánh)\n[anh] link ảnh | chú thích\n[video] link .mp4 hoặc YouTube | chú thích | link ảnh bìa\n---   kẻ ngang</div></details>' +
+        '<textarea class="dt-ta" id="dt-body2" style="min-height:320px">' + D.esc(l.body || "") + '</textarea><div id="dt-pvbox" class="dt-panel dt-pad" hidden></div></div>' +
         '<div class="dt-f"><label>Quiz bài học (tự luyện - chọn từ bộ quiz đã soạn)</label><select class="dt-sel" id="dt-quiz"><option value="">— Không có quiz —</option>' +
         data.quizzes.map(function (q) { return '<option value="' + D.esc(q.name) + '"' + (l.quiz === q.name ? " selected" : "") + ">" + D.esc(q.title) + "</option>"; }).join("") + "</select></div>" +
         '<div class="dt-f"><label>Đề bài thực hành (để trống = không có)</label><textarea class="dt-ta" id="dt-pp" maxlength="1000">' + D.esc(l.practice_prompt || "") + "</textarea></div>" +
@@ -66,6 +69,21 @@
           D.upload(f, false).then(function (u) { D.byId(x[1]).value = u; D.toast("Đã tải lên."); }, function (e) { D.toast(D.msg(e), true); });
         };
       });
+      D.byId("dt-mf").onchange = function () {
+        var f = this.files[0], ta = D.byId("dt-body2"); if (!f) return;
+        D.toast("Đang tải lên…");
+        D.upload(f, false).then(function (u) {
+          var line = (/^video\//.test(f.type) ? "[video] " : "[anh] ") + u + " | ", at = ta.selectionStart || ta.value.length;
+          var pre = ta.value.slice(0, at), sep = pre && !/\n$/.test(pre) ? "\n" : "";
+          ta.value = pre + sep + line + "\n" + ta.value.slice(at);
+          D.toast("Đã chèn - gõ chú thích sau dấu |");
+        }, function (e) { D.toast(D.msg(e), true); });
+      };
+      D.byId("dt-pv").onclick = function () {
+        var box = D.byId("dt-pvbox"), on = box.hidden;
+        box.hidden = !on; this.textContent = on ? "Ẩn xem trước" : "Xem trước";
+        if (on) box.innerHTML = window.ECDtRich ? window.ECDtRich.render(D.byId("dt-body2").value) : D.esc(D.byId("dt-body2").value);
+      };
       function save(status, btn) {
         var due = D.byId("dt-due").value;
         var p = { name: l.name, status: status, title: D.byId("dt-title").value, summary: D.byId("dt-summary").value, week_start: D.byId("dt-week").value,

@@ -22,7 +22,7 @@
       '</span><span class="dt-chip">' + D.esc(L.tool) + "</span>" + (L.status !== "Published" ? '<span class="dt-chip warn">Nháp</span>' : "") + "</div><h1>" + D.esc(L.title) + "</h1>" +
       (L.summary ? '<p class="dt-muted" style="font-size:15px">' + D.esc(L.summary) + "</p>" : "") + (L.video_url ? D.embedVideo(L.video_url) : "") +
       (L.slide_url && D.safeUrl(L.slide_url) ? '<a class="dt-b" href="' + D.esc(D.safeUrl(L.slide_url)) + '" target="_blank" rel="noopener noreferrer">' + D.icon("book") + " Mở slide / tài liệu</a>" : "") +
-      (L.body ? '<div class="dt-body">' + D.richText(L.body) + "</div>" : "") + "</div>";
+      (L.body ? (window.ECDtRich ? window.ECDtRich.render(L.body) : '<div class="dt-body">' + D.richText(L.body) + "</div>") : "") + "</div>";
     if (L.quiz) h += '<div class="dt-panel dt-pad" id="dt-quiz"></div>';
     if (L.practice_prompt) {
       var rv = p.review === "Revoked";
