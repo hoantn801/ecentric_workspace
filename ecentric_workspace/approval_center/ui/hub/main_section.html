@@ -196,14 +196,14 @@
         </div>
         <div class="h-actions">
           <div class="apc-scts" id="apc-scts" hidden>
-            <button type="button" id="apc-scts-btn" class="apc-scts-btn" aria-haspopup="dialog" aria-expanded="false">Kết nối SCTS</button>
-            <div id="apc-scts-pop" class="apc-scts-pop" role="dialog" aria-label="Kết nối tài khoản ký số SCTS" hidden>
-              <h4>Kết nối tài khoản ký số SCTS</h4>
-              <p>Để chữ ký người đề nghị là của chính bạn, ERP tạo chứng từ bằng tài khoản SCTS của bạn. Nhập mật khẩu SCTS <b>một lần</b>; ERP chỉ giữ mã kết nối (1 năm), <b>không lưu mật khẩu</b>.</p>
+            <button type="button" id="apc-scts-btn" class="apc-scts-btn" aria-haspopup="dialog" aria-expanded="false">Kết nối CMC</button>
+            <div id="apc-scts-pop" class="apc-scts-pop" role="dialog" aria-label="Kết nối tài khoản ký số CMC" hidden>
+              <h4>Kết nối tài khoản ký số CMC</h4>
+              <p>Để chữ ký người đề nghị là của chính bạn, ERP tạo chứng từ bằng tài khoản CMC (signx.cmc.vn) của bạn. Nhập mật khẩu CMC <b>một lần</b>; ERP chỉ giữ mã kết nối (1 năm), <b>không lưu mật khẩu</b>.</p>
               <form id="apc-scts-form" autocomplete="off">
-                <label for="apc-scts-user">Tài khoản SCTS</label>
+                <label for="apc-scts-user">Tài khoản CMC</label>
                 <input id="apc-scts-user" type="text" autocomplete="username" placeholder="mặc định = email ERP của bạn">
-                <label for="apc-scts-pass">Mật khẩu SCTS</label>
+                <label for="apc-scts-pass">Mật khẩu CMC</label>
                 <input id="apc-scts-pass" type="password" autocomplete="current-password" required>
                 <div id="apc-scts-err" class="apc-scts-err" hidden></div>
                 <div class="row">
@@ -435,12 +435,12 @@
     if(!show) return;
     if(st.linked){
       btn.className="apc-scts-btn is-linked";
-      btn.textContent="SCTS đã kết nối"+(typeof st.days_left==="number"?" · còn "+st.days_left+" ngày":"");
+      btn.textContent="CMC đã kết nối"+(typeof st.days_left==="number"?" · còn "+st.days_left+" ngày":"");
       btn.title="Bấm để kết nối lại bằng mật khẩu mới";
     } else {
       btn.className="apc-scts-btn";
-      btn.textContent="Kết nối SCTS";
-      btn.title="Kết nối tài khoản ký số SCTS của bạn (một lần)";
+      btn.textContent="Kết nối CMC";
+      btn.title="Kết nối tài khoản ký số CMC của bạn (một lần)";
     }
   }
   function sctsErr(t){ var e=$("apc-scts-err"); if(!e) return; e.textContent=t||""; e.hidden=!t; }
@@ -473,7 +473,7 @@
     form.onsubmit=function(ev){
       ev.preventDefault();
       var pw=$("apc-scts-pass").value, user=($("apc-scts-user").value||"").trim(), go=$("apc-scts-go");
-      if(!pw){ sctsErr("Nhập mật khẩu SCTS."); return; }
+      if(!pw){ sctsErr("Nhập mật khẩu CMC."); return; }
       sctsErr(""); go.disabled=true; go.textContent="Đang kết nối…";
       $("apc-scts-pass").value="";
       frappe.call({ method:"ecentric_workspace.platform.esign.api.link_scts_account_me", type:"POST",
@@ -482,7 +482,7 @@
           pw=null; var m=(r&&r.message)||{};
           if(!m.linked){ sctsErr("Chưa kết nối được. Thử lại."); return; }
           SCTS.st=m; sctsRender(); sctsToggle(false);
-          toast("Đã kết nối tài khoản ký số SCTS.");
+          toast("Đã kết nối tài khoản ký số CMC.");
         })
         .catch(function(e){ pw=null; sctsErr(sctsMsg(e)||"Không kết nối được. Kiểm tra tài khoản/mật khẩu."); })
         .then(function(){ go.disabled=false; go.textContent="Kết nối"; });

@@ -136,7 +136,10 @@ def get_or_create_draft(business_doctype, business_name, profile_name, allow_sub
         frappe.throw(_("Vui lòng lưu nháp yêu cầu trước khi tải tệp."))
     existing = draft_package_for_business(business_doctype, business_name, for_update=True)
     if existing:
-        return get_package(existing)
+        pkg = get_package(existing)
+        if profile_name and pkg.get("profile") != profile_name:
+            _repoint_profile(pkg, profile_name)
+        return pkg
     if not allow_submitted and perms.business_approval_request(business_doctype, business_name):
         frappe.throw(_("Yêu cầu đã gửi duyệt - gói tài liệu không thể tạo mới ở trạng thái này."))
     prof = frappe.db.get_value("EC Digital Signature Profile", profile_name,
@@ -573,12 +576,42 @@ def lock_package(pkg_name, approval_request):
     return h
 
 
+def _repoint_profile(pkg, profile_name):
+    """Goi NHAP tro sang ho so khac vi phieu vua doi quy trinh ky (`esign_flow`).
+
+    QC 12/11: guard chon ho so theo phieu HIEN TAI moi lan goi, con goi giu ho so luc tao. Doi
+    quy trinh khi da co goi nhap -> worker tao tai lieu tren cong theo quy trinh CU trong khi ERP
+    tinh cap ky theo quy trinh MOI - dung lop "chuoi ERP lech chuoi cong" da gay
+    provider_accepted_but_silent. Chi goi Draft (chua co gi tren cong) moi doi duoc."""
+    if pkg.status != "Draft" or pkg.get("scts_document_id"):
+        frappe.throw(_("Gói ký đã gửi đi - không đổi quy trình ký được nữa."))
+    prof = frappe.db.get_value("EC Digital Signature Profile", profile_name,
+                               ["provider", "environment"], as_dict=True)
+    before = pkg.profile
+    # db_set: ghi + cap nhat `modified` cua chinh doc trong bo nho (QC2 - set_value roi gan tay
+    # de doc cu `modified` -> save() sau do bao lech thoi diem).
+    pkg.db_set({"profile": profile_name, "provider": prof.provider,
+                "environment": prof.environment})
+    # O ky dat theo quy trinh CU: cap ky / o "Don vi ky" co the khac. Worker gui moi o khong
+    # Invalid sang cong -> phai dat lai theo quy trinh moi (QC2 12/11).
+    stale = [p.name for p in package_placements(pkg.name) if (p.status or "") != "Invalid"]
+    for n in stale:
+        frappe.db.set_value("EC Digital Signature Placement", n, "status", "Invalid")
+    events.emit("PackageProfileChanged", package=pkg.name,
+                request_meta={"truoc": before, "sau": profile_name,
+                              "o_ky_huy": len(stale)})
+
+
 def create_revision(old_pkg_name):
     """New Draft v(N+1): copies file rows (same underlying Files) + placements; old
     package Superseded; live DSRs Superseded (audited). Used by resubmit cycles."""
     old = get_package(old_pkg_name)
     if old.status not in ("Locked", "Active", "Provider Create Failed", "Provider Created"):
         frappe.throw(_("Chỉ tạo phiên bản mới từ gói đã khóa."))
+    # GHI CHU (12/11, PR-A): ham nay khong con ai goi (lifecycle, tu 31/08). Neu hoi sinh cho
+    # loai co NHIEU ho so (hop dong): ban sua phai chon lai ho so theo phieu hien tai
+    # (guard.get_enabled_profile(..., business_name)) + kiem lai o ky + emit
+    # PackageProfileChanged - xem _repoint_profile. Hien giu ho so cu nhu truoc.
     new = frappe.get_doc({
         "doctype": "EC Digital Signature Package",
         "business_doctype": old.business_doctype, "business_name": old.business_name,

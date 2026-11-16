@@ -31,6 +31,7 @@ import json
 
 import frappe
 from frappe import _
+from frappe.utils import now_datetime
 
 from ecentric_workspace.weekly_report import (
     ai_retrigger,
@@ -113,13 +114,55 @@ def create_deck_upload_session(filename=None, week_label=None, employee=None, de
         frappe.throw(_("filename and week_label are required."))
     emp_code = frappe.db.get_value("Employee", employee, "employee_number") or "unknown"
     rel_path = sharepoint.build_deck_path(
-        week_label, emp_code, _dept_clean(department), filename
+        week_label, emp_code, _dept_clean(department),
+        sharepoint.deck_filename(filename, _upload_stamp()),
     )
-    token = sharepoint.get_app_token()
-    return {
-        "success": True,
-        "upload_url": sharepoint.create_deck_upload_session(rel_path, token),
-    }
+    try:
+        token = sharepoint.get_app_token()
+        upload_url = sharepoint.create_deck_upload_session(rel_path, token)
+    except sharepoint.GraphError as exc:
+        _report_upload_failure(employee, week_label, filename, exc)
+    return {"success": True, "upload_url": upload_url}
+
+
+def _upload_stamp():
+    """mmddHHMM + 4 random chars: unique per upload, readable in the folder.
+    The random part covers two files with the same name in ONE submit."""
+    return now_datetime().strftime("%m%d%H%M") + frappe.generate_hash(length=4)
+
+
+# Error Log title for a failed deck upload session. One title -> one filter.
+UPLOAD_FAIL_LOG = "wr_upload_session_fail"
+
+
+def _report_upload_failure(employee, week_label, filename, exc):
+    """Leave a trace WITH the person, then tell them in plain Vietnamese.
+
+    08/11/2026: the Microsoft secret expired and ~every submit failed for four
+    hours, yet Error Log could not say who -- the raw GraphError rolled the
+    request back (and the log row with it). Commit the log row first: nothing
+    else in this endpoint writes, so the commit only persists the log.
+    """
+    frappe.log_error(
+        title=UPLOAD_FAIL_LOG,
+        message="user={0} employee={1} week={2} file={3}\n{4}".format(
+            frappe.session.user, employee, week_label, filename, str(exc)[:600]
+        ),
+    )
+    frappe.db.commit()  # nosemgrep: only the Error Log row above is pending
+    text = str(exc)
+    if "invalid_client" in text or "token failed" in text:
+        reason = _("Hệ thống tải tệp tạm lỗi kết nối Microsoft.")
+    elif "nameAlreadyExists" in text:
+        reason = _("Tệp cùng tên đang bị khoá trên SharePoint.")
+    else:
+        reason = _("Không tạo được phiên tải tệp lên SharePoint.")
+    frappe.throw(
+        reason + " " + _(
+            "Nháp của bạn vẫn được giữ. "
+            "Vui lòng thử lại sau ít phút hoặc báo admin."
+        )
+    )
 
 
 @frappe.whitelist(methods=["POST"])

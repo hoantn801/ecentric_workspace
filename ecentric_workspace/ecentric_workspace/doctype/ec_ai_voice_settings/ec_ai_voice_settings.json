@@ -1,0 +1,110 @@
+{
+ "actions": [],
+ "creation": "2026-11-15 06:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "editable_grid": 1,
+ "field_order": [
+  "base_url",
+  "token",
+  "callback_base_url",
+  "sec_def",
+  "default_quality",
+  "default_speed",
+  "timeout",
+  "sec_check",
+  "last_check_at",
+  "last_check_result"
+ ],
+ "fields": [
+  {
+   "fieldname": "base_url",
+   "fieldtype": "Data",
+   "label": "Địa chỉ eVoice API",
+   "default": "https://voice.ecentric.asia",
+   "description": "Tên miền Cloudflare Tunnel trỏ vào máy GPU (cổng 7895)."
+  },
+  {
+   "fieldname": "token",
+   "fieldtype": "Password",
+   "label": "Token (Bearer)",
+   "length": 255,
+   "description": "Giống EVOICE_API_TOKEN trên máy. Dùng cả để ký callback (HMAC)."
+  },
+  {
+   "fieldname": "callback_base_url",
+   "fieldtype": "Data",
+   "label": "Địa chỉ ERP cho callback",
+   "description": "Để trống = địa chỉ site hiện tại."
+  },
+  {
+   "fieldname": "sec_def",
+   "fieldtype": "Section Break",
+   "label": "Mặc định"
+  },
+  {
+   "fieldname": "default_quality",
+   "fieldtype": "Select",
+   "label": "Chất lượng mặc định",
+   "options": "quality_lightning\nquality_fast\nquality_standard\nquality_ultra",
+   "default": "quality_fast"
+  },
+  {
+   "fieldname": "default_speed",
+   "fieldtype": "Float",
+   "label": "Tốc độ mặc định",
+   "default": "1.1",
+   "precision": "2"
+  },
+  {
+   "fieldname": "timeout",
+   "fieldtype": "Int",
+   "label": "Timeout (giây)",
+   "default": "30"
+  },
+  {
+   "fieldname": "sec_check",
+   "fieldtype": "Section Break",
+   "label": "Kiểm tra kết nối"
+  },
+  {
+   "fieldname": "last_check_at",
+   "fieldtype": "Datetime",
+   "label": "Lần kiểm tra cuối",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_check_result",
+   "fieldtype": "Small Text",
+   "label": "Kết quả",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-15 06:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC AI Voice Settings",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "issingle": 1,
+ "track_changes": 1,
+ "description": "Kết nối máy giọng đọc eVoice (trang /ai-voice). Chỉ System Manager.",
+ "permissions": [
+  {
+   "read": 1,
+   "write": 1,
+   "create": 0,
+   "delete": 0,
+   "report": 0,
+   "export": 0,
+   "print": 0,
+   "email": 0,
+   "share": 0,
+   "role": "System Manager"
+  }
+ ]
+}

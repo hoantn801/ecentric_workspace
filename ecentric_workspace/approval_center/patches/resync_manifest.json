@@ -4,12 +4,12 @@
     "sha256": "df9a5edc977279989693e4a02a65229871d8ddd6503c74a069c5f2aee19d2d9f"
   },
   "ai_tools/pages/ai_video/main_section.html": {
-    "last_resync_patch": "p313_ai_live_trang_rieng",
-    "sha256": "6e4e3164efcf90fa86981dba33bf1feef2890222c4f02bf6fedad50402398f72"
+    "last_resync_patch": "p380_ai_voice_trang_moi",
+    "sha256": "e45cf056e3908a11f11c38df09d817345224ff59959a9af93559f9e049563390"
   },
   "ai_tools/pages/ai_usage/main_section.html": {
-    "last_resync_patch": "p320_resync_ai_usage_tra_loi_nhanh",
-    "sha256": "aa0cedcebc823ad0b0573b912185b7c827bd3252cc643739c6e3e83a7728ab0f"
+    "last_resync_patch": "p380_ai_voice_trang_moi",
+    "sha256": "ee5e2ec7249337be8fb9d76dad6035f6535c7c64e907c18c917ff6c9fd88e623"
   },
   "approval_center/features/affiliate_bonus/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -45,8 +45,8 @@
     "sha256": "dbd1db94baaf0705e299029848263cbe1e00e00704cde244c1d65eb26c338d7c"
   },
   "approval_center/features/contract_review/ui/main_section.html": {
-    "last_resync_patch": "p364_resync_contract_review_mau_tool_cu",
-    "sha256": "c70bd37f19be9dc17ec5d42620cbd40dd2538be94a4a4f81a03c4f5a2001293d"
+    "last_resync_patch": "p385_resync_contract_review_tien_trinh_kol",
+    "sha256": "d3cb999a8a52af86617a6c9fc5304a4e52429bb73a360f448b0da2531eef468c"
   },
   "approval_center/features/daily_target/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -112,8 +112,8 @@
     "sha256": "c6e10501f260ed196abbfea2f24e480b8fc31a105fc7f0de8a90fe64cb520785"
   },
   "approval_center/features/payment_request/ui/main_section.html": {
-    "last_resync_patch": "p364_resync_contract_review_mau_tool_cu",
-    "sha256": "64ef8ff00fc4c6a5f858b5caf2557d9eea77c193fbe4eb790c615f81bb873d4e"
+    "last_resync_patch": "p386_resync_payment_request_nguon_chi",
+    "sha256": "7941b7b3e9c881a640bd17645eecd5b1f404eeb59b3f67efefa306e85bb5b475"
   },
   "approval_center/features/promotion/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -153,8 +153,8 @@
     "sha256": "347f7ad43edc901cbd42da98f89580c64d86d4d403e2f981408abf9a9163c740"
   },
   "approval_center/ui/hub/main_section.html": {
-    "last_resync_patch": "p317_resync_hub_cho_toi_duyet",
-    "sha256": "3ecbeb7a5478b63a85e316c39a7944567deebbb98842f17f9dbc3f76313da1f8"
+    "last_resync_patch": "p381_resync_ten_cong_cmc",
+    "sha256": "2d6ce1faa6df434bf8ebeddd924e4d6e3fbe20efe82c46efed28b0ee43751526"
   },
   "guides/pages/dnmh_dntt/main_section.html": {
     "last_resync_patch": "p161_publish_guides_and_shell_drift",
@@ -218,20 +218,20 @@
     "sha256": "60df026a79048ebbef516cedc0462c386733159882b74f4bc2b80e60f6104424"
   },
   "platform/esign/ui/document_signing_section.html": {
-    "last_resync_patch": "p160_resync_pdf_render_cancel",
-    "sha256": "7011abc816c9dd96a7e4d42096a26399399d578658d154ff2bded1691a53eab9"
+    "last_resync_patch": "p381_resync_ten_cong_cmc",
+    "sha256": "2dea68104973d3dab8db8f6dfedf323a6f79d27afaa8e6b86525103e58af79f3"
   },
   "platform/esign/ui/ops_page.html": {
     "last_resync_patch": "p195_resync_esign_ops_sync_drift_button",
     "sha256": "672eb85b5942ccc67a8cf4f2bde72d2968030106e24f6ec227a33ec86b4fcdd5"
   },
   "platform/esign/ui/payment_request_signing.html": {
-    "last_resync_patch": "p159_resync_esign_review_stopped_leg_drawer_token",
-    "sha256": "bd93a055184fb6918f8392740aee9e5ec67bb5fa97fe469a5a2d839e1380d3a6"
+    "last_resync_patch": "p381_resync_ten_cong_cmc",
+    "sha256": "b3499d751d5cf50ad81fd892564bf74dd467bb50853f9e6cdf61c6ba10dce7de"
   },
   "platform/esign/ui/requester_signing_panel.html": {
-    "last_resync_patch": "p159_resync_esign_review_stopped_leg_drawer_token",
-    "sha256": "4aa7b29bac83023432ed92af04d9393efb7c74d157acec9473008df4aa86aecd"
+    "last_resync_patch": "p381_resync_ten_cong_cmc",
+    "sha256": "591a05665c839e114c1048ad7c6fe84634dde3b59526c8421a71f0882a045660"
   },
   "reporting/frontend/pnl_dashboard.main_section.html": {
     "last_resync_patch": "p245_resync_pnl_popup_chi_phi",
@@ -313,39 +313,43 @@
     "sha256": "bcfec3a49e4da5715ff38db8cff485c5da8c3e8f2ab29349822eb3abd7d73bef"
   },
   "pm/frontend/pm_app.html": {
-    "last_resync_patch": "p349_resync_pm_phong_hop_f5",
-    "sha256": "1f77a89265eeb96d442fe7471e416ddd0b45fbf9295ef7433c76fc9aa4305925"
+    "last_resync_patch": "p388_resync_pm_hotfix15",
+    "sha256": "398cbcca2b73ebf696ad79aa6514a622c74789887afc35a4824cc309786b1e2f"
   },
   "ai_tools/pages/ai_live/main_section.html": {
-    "last_resync_patch": "p313_ai_live_trang_rieng",
-    "sha256": "c798fb5341c93a69942b929fcd6b6f5c7b7803f5329d44ad6cd168c9521a3f16"
+    "last_resync_patch": "p380_ai_voice_trang_moi",
+    "sha256": "3e9fb3fe5a48499232856ac993794486b19e26a8a56a29f2fac15b11bf82c90a"
   },
   "dao_tao/pages/learn/main_section.html": {
-    "last_resync_patch": "p378_dao_tao_bai_hoc_truc_quan",
+    "last_resync_patch": "p389_dao_tao_bai_hoc_truc_quan",
     "sha256": "3b97ea4c8813dbc1d5057fa3b1625d9ff8addced9c990e14dff8b3beeca2081d"
   },
   "dao_tao/pages/lesson/main_section.html": {
-    "last_resync_patch": "p378_dao_tao_bai_hoc_truc_quan",
+    "last_resync_patch": "p389_dao_tao_bai_hoc_truc_quan",
     "sha256": "5412640b006aafffa68c64b4b5d79fb0367cce64cd8ebf55e10fb0a1871ec929"
   },
   "dao_tao/pages/admin/main_section.html": {
-    "last_resync_patch": "p378_dao_tao_bai_hoc_truc_quan",
+    "last_resync_patch": "p389_dao_tao_bai_hoc_truc_quan",
     "sha256": "bc455b4f393db7d0b30e00a816bd3104db17f1943a2f2a79e7fad9d2cf198ae8"
   },
   "dao_tao/pages/quiz/main_section.html": {
-    "last_resync_patch": "p378_dao_tao_bai_hoc_truc_quan",
+    "last_resync_patch": "p389_dao_tao_bai_hoc_truc_quan",
     "sha256": "3a678967e334107de9ba2ef1046d80d8c63ffe1cd22a0e81a2d4f76d2bde1843"
   },
   "dao_tao/pages/edit/main_section.html": {
-    "last_resync_patch": "p378_dao_tao_bai_hoc_truc_quan",
+    "last_resync_patch": "p389_dao_tao_bai_hoc_truc_quan",
     "sha256": "9496631720ad2c772aee5b49bd3e3f47dc394c3ddc3828662fa2a5c6cb3e6217"
   },
   "dao_tao/pages/play/main_section.html": {
-    "last_resync_patch": "p378_dao_tao_bai_hoc_truc_quan",
+    "last_resync_patch": "p389_dao_tao_bai_hoc_truc_quan",
     "sha256": "afd6748d2bf576fe002a66c619e73362cc616c2b09cd3945dcd63750f2e72a44"
   },
   "dao_tao/pages/host/main_section.html": {
-    "last_resync_patch": "p378_dao_tao_bai_hoc_truc_quan",
+    "last_resync_patch": "p389_dao_tao_bai_hoc_truc_quan",
     "sha256": "63c45e2558732b3bd5bb5049249337cbe12621324760ce06bad7440909bdb5c4"
+  },
+  "ai_tools/pages/ai_voice/main_section.html": {
+    "last_resync_patch": "p380_ai_voice_trang_moi",
+    "sha256": "5dc370c2c632a14977000d0ae5ff544459ba9248f8652275031d2e5978da765f"
   }
 }

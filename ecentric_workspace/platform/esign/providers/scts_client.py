@@ -244,9 +244,13 @@ class SctsClient(object):
             # khong the tao chu ky, khop dung hien tuong "2xx roi im, khong ky" cua ca 5
             # lenh transition tu ERP. Cac truong nay adapter doc tu GetSignatures va truyen
             # xuong qua signature_extra; client khong tu bia gia tri.
-            "signatureInfo": dict({"id": signature_id, "name": signature_name,
-                                   "image": signature_image or ""},
-                                  **(signature_extra or {})),
+            # Buoc KHONG KY (12/11/2026): cong tu gui `signatureInfo: null, signType: null`
+            # (tasks.js -> processTransition, doc ma cong 12/11). Khong chu ky = khong bia mot
+            # signatureInfo rong.
+            "signatureInfo": (None if signature_id is None else
+                              dict({"id": signature_id, "name": signature_name,
+                                    "image": signature_image or ""},
+                                   **(signature_extra or {}))),
             "comment": comment or "",
         }
         headers = {"Accept": "application/json", "Content-Type": "application/json"}
@@ -405,11 +409,48 @@ class SctsClient(object):
                                 "SCTS rejected credentials on AddDocument (HTTP %s)" % status,
                                 retryable=False)
         if status >= 500:
+            quota = self._quota_exceeded_message(resp)
+            if quota:
+                # HET HAN MUC (16/11/2026, CMC): cong tra 500 kem {"success": false,
+                # "message": "Loi he thong: Da vuot han muc su dung ... 1132/1100 luot ..."}.
+                # Day KHONG phai ket qua mo ho: han muc bi chan TRUOC moi buoc kiem du lieu
+                # (thu tren cong 16/11: payload thieu tep van nhan dung cau nay) nen tai lieu
+                # chac chan CHUA duoc tao. Coi la tu choi chac chan + THU LAI DUOC: khong
+                # dat moc create_outcome_unknown (phai doi soat tay tung phieu), va worker
+                # tu tao lai khi nha cung cap mo them luot.
+                raise ProviderError("scts_create_quota_exceeded",
+                                    "Nha cung cap ky so bao het han muc tai lieu: %s" % quota,
+                                    retryable=True)
             raise ProviderError("scts_create_outcome_unknown",
                                 "AddDocument outcome unknown (HTTP %s)" % status,
                                 retryable=False, ambiguous=True)
         raise ProviderError("scts_create_rejected_%s" % status,
                             "SCTS rejected AddDocument (HTTP %s)" % status, retryable=False)
+
+    # Dau hieu "het han muc" trong `message` cua cong (so khop khong phan biet hoa thuong,
+    # co dau va khong dau). Chi khop khi body la JSON {"success": false, "message": ...}.
+    _QUOTA_MARKERS = ("v\u01b0\u1ee3t h\u1ea1n m\u1ee9c", "vuot han muc",
+                      "h\u1ea1n m\u1ee9c s\u1eed d\u1ee5ng", "han muc su dung")
+
+    @classmethod
+    def _quota_exceeded_message(cls, resp):
+        """Cau bao het han muc cua cong (cat 200 ky tu) hoac None. Chi doc `message` -
+        body nay khong mang token / tep; van chan neu co dau hieu nhay cam."""
+        try:
+            data = resp.json()
+        except Exception:
+            return None
+        if not isinstance(data, dict) or data.get("success") is not False:
+            return None
+        import unicodedata
+        msg = unicodedata.normalize(
+            "NFC", " ".join(str(data.get("message") or "").split()))
+        low = msg.casefold()
+        if not any(m in low for m in cls._QUOTA_MARKERS):
+            return None
+        if any(s in low for s in ("token", "bearer", "authorization", "password", "base64")):
+            return "(an noi dung)"
+        return msg[:200]
 
     # Candidate JSON field names that may carry a base64-encoded PDF. The exact SCTS V1
     # Document/pdf response shape is UNCONFIRMED [UAT] - this list is tried in order and

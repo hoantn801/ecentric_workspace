@@ -303,7 +303,7 @@ class TestWiring(unittest.TestCase):
         self.assertIn('call("remove_attachment", { payment_request_name: name, document_ref: ref }, "POST")', h)
         self.assertIn("STATE._can_remove_any = !!(STATE.editable && STATE.can_classify)", h)
         self.assertIn("Các vị trí ký đã đặt trên tệp này sẽ bị xoá.", h)
-        self.assertIn("chỉ lưu trên ERP, không gửi SCTS", h)
+        self.assertIn("chỉ lưu trên ERP, không gửi CMC", h)
         self.assertIn('"payr:attachments-changed"', h)
         pr = _read("approval_center", "features", "payment_request", "ui", "main_section.html")
         self.assertIn('window.addEventListener("payr:attachments-changed"', pr)

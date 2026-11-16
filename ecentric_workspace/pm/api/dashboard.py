@@ -14,6 +14,7 @@ import frappe
 
 from ecentric_workspace.pm import permissions as pmperm
 from ecentric_workspace.pm import task_flow as tflow
+from ecentric_workspace.pm.api import queue as pmqueue
 
 # PM workflow terminal states (PM1-T07). PM status is workflow_state, NOT native
 # Task.status (which ERPNext manages on its own).
@@ -295,8 +296,11 @@ def rail_badges():
     another person's numbers. Called once per pageview by ec_shell.js bindBadges()
     (BADGE_SOURCES keys pm.mywork / pm.assignments share this one request).
 
-      mywork      - open tasks assigned to me (_assign), workflow_state not in _FINISHED;
-                    same population my_tasklist() shows (overdue is a subset of open).
+      mywork      - "Việc cần làm" = queue.main_count(user): exactly the rows /pm#mywork lists
+                    (pm.api.queue, the ONE rule): my open tasks minus the ones I sent for review
+                    that wait for someone else, minus my own "Mỗi người một việc" parents (they
+                    live in "Việc tôi giao"); personal-log projects hidden. QC3 15/11/2026 -
+                    before, every open assigned task was counted and the number never matched.
       assignments - PM Assignment Request rows waiting for MY answer (recipient = me,
                     status still open: Pending / Reschedule Proposed).
       received    - PM redesign: "Được giao cho tôi" badge = pm_inbox.received().badge.
@@ -312,12 +316,11 @@ def rail_badges():
         pmperm.require_pm_access()
     except Exception:
         return zero
-    mywork = len(tflow.drop_personal(frappe.get_all(
-        "Task",
-        filters=[_mine_filter(user),
-                 ["workflow_state", "not in", _FINISHED]],
-        fields=["name", "project"], limit_page_length=0,
-    )))
+    mywork = 0
+    try:
+        mywork = pmqueue.main_count(user)   # same rule as /pm#mywork (pm.api.queue)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "PM rail_badges mywork")
     assignments = len([r for r in frappe.get_all(
         "PM Assignment Request",
         filters=[["recipient", "=", user],

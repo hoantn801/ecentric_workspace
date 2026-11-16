@@ -41,12 +41,16 @@ def _capabilities(guard_result=True, guard_raises=False):
     guard = types.ModuleType("ecentric_workspace.platform.esign.guard")
     guard.calls = []
 
-    def level_requires_signature(dt, at, lvl, final_level=None, ignore_gates=False):
+    def level_requires_signature(dt, at, lvl, final_level=None, ignore_gates=False,
+                                 business_name=None):  # 12/11: chon ho so theo phieu
         guard.calls.append((dt, at, lvl, final_level))
         if guard_raises:
             raise RuntimeError("boom")
         return guard_result
     guard.level_requires_signature = level_requires_signature
+    # 12/11 (PR-B): capabilities hoi level_portal_action ("Sign" | "Approve" | None).
+    guard.level_portal_action = lambda *a, **k: ("Sign" if level_requires_signature(*a, **k)
+                                                 else None)
     guard.request_final_level = lambda name: 4
     perms = types.ModuleType("ecentric_workspace.approval_center.shared.workflow.permissions")
     perms.can_view_request = lambda *a, **k: True
@@ -88,7 +92,7 @@ class TestCapabilities(unittest.TestCase):
                                      approval_status="Pending")
 
     def _biz(self):
-        return types.SimpleNamespace(doctype="EC Payment Request")
+        return types.SimpleNamespace(doctype="EC Payment Request", name="EC-PAYR-1")
 
     def test_dang_duoc_duyet_va_cap_ky_so(self):
         c = _capabilities(True)
@@ -117,7 +121,8 @@ class TestListRowsAndDetail(unittest.TestCase):
         helper = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)
                   and n.name == "_requires_signature"][0]
         hs = ast.unparse(helper)
-        self.assertIn("level_requires_signature(", hs)
+        # 12/11 (PR-B): cap "Approve" (duyet khong ky tren cong) cung di nut "Duyet & Ky".
+        self.assertIn("level_portal_action(", hs)
         self.assertIn("except Exception", hs)
         self.assertIn("memo[key] = False", hs)
         self.assertIn("v['requires_signature'] = bool(v['can_approve'] and _requires_signature(", ast.unparse(tree))

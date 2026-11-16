@@ -112,34 +112,56 @@ def _accepted_requesters(task_names):
     return out
 
 
-def _recurrence_owner(task_name):
+def _recurrence_owners(task_names):
+    """{PM Recurrence.last_task: rule owner} for many tasks in ONE query (fail-safe -> {}).
+    QC3 15/11/2026: replaces the per-task _recurrence_owner lookup (no caller left)."""
+    task_names = [t for t in set(task_names or []) if t]
+    if not task_names:
+        return {}
+    out = {}
     try:
-        return frappe.db.get_value("PM Recurrence", {"last_task": task_name}, "owner")
+        for r in frappe.get_all("PM Recurrence", filters={"last_task": ["in", task_names]},
+                                fields=["last_task", "owner"], limit_page_length=0):
+            out.setdefault(r.get("last_task"), r.get("owner"))
     except Exception:
-        return None
+        return {}
+    return out
 
 
 def givers_map(tasks):
     """Batch giver resolution for task dicts (name, owner, parent_task). Rules, in order:
     1. requester of the accepted assignment request (task went through "Cần đồng ý");
     2. Task.owner when it is a real person;
-    3. system-owned (recurrence scheduler) -> parent's owner, else the recurrence rule owner."""
+    3. system-owned (recurrence scheduler) -> parent's owner, else the recurrence rule owner.
+    QC 15/11/2026: rule 3 is batched (parent owners + rule owners = 2 queries for the whole
+    list) - Việc cần làm lists up to 500 recurrence occurrences owned by Administrator."""
     tasks = [t for t in (tasks or []) if t and t.get("name")]
     req = _accepted_requesters([t["name"] for t in tasks])
-    out = {}
+    out, system = {}, []
     for t in tasks:
         g = req.get(t["name"])
         if not g:
             g = t.get("owner") or ""
         if g in _SYSTEM_USERS:
-            parent = t.get("parent_task")
-            g = (frappe.db.get_value("Task", parent, "owner") if parent else None) or ""
-            if g in _SYSTEM_USERS:
-                # recurrence occurrence: the rule owner; a split child of a recurring parent
-                # resolves through its parent (only the parent is the rule's last_task).
-                g = (_recurrence_owner(t["name"])
-                     or (_recurrence_owner(parent) if parent else None)
-                     or t.get("owner") or "")
+            system.append(t)
+        out[t["name"]] = g or None
+    if not system:
+        return out
+    parents = [t.get("parent_task") for t in system if t.get("parent_task")]
+    powner = {}
+    if parents:
+        for r in frappe.get_all("Task", filters={"name": ["in", sorted(set(parents))]},
+                                fields=["name", "owner"], limit_page_length=0):
+            powner[r["name"]] = r.get("owner") or ""
+    rec = _recurrence_owners([t["name"] for t in system] + parents)
+    for t in system:
+        parent = t.get("parent_task")
+        g = (powner.get(parent) if parent else None) or ""
+        if g in _SYSTEM_USERS:
+            # recurrence occurrence: the rule owner; a split child of a recurring parent
+            # resolves through its parent (only the parent is the rule's last_task).
+            g = (rec.get(t["name"]) or (rec.get(parent) if parent else None)
+                 or t.get("owner") or "")
         out[t["name"]] = g or None
     return out
 

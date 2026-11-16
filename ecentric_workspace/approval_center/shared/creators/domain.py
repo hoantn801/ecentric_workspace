@@ -40,6 +40,15 @@ LONG_FIELDS = ("ec_cr_address", "ec_cr_dup_ack")
 EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 HARD_KEYS = ("ec_cr_cccd", "tax_id", "ec_bank_account_no")
+# Truong nhan tien: doi sau khi da co hop dong = rui ro chuyen tien sai nguoi -> ghi vet tren ban ghi
+# (ten truong + nguoi sua, KHONG ghi gia tri) de Ke toan thay (QC 15/11 D9 / A12).
+PAYMENT_FIELDS = ("ec_bank_account_no", "ec_bank_name", "ec_cr_bank_branch", "ec_cr_account_holder", "tax_id")
+
+
+def payment_changes(old, new):
+    """Ten nhan (tieng Viet) cac truong nhan tien bi doi."""
+    return [KEY_LABELS.get(f, f) for f in PAYMENT_FIELDS
+            if f in new and str(new.get(f) or "").strip() != str(old.get(f) or "").strip()]
 SOFT_KEYS = ("supplier_name", "ec_phone", "ec_cr_tiktok_id", "ec_cr_shopee_id")
 KEY_LABELS = {"ec_cr_cccd": "CCCD", "tax_id": "MST", "ec_bank_account_no": "số tài khoản",
               "supplier_name": "tên", "ec_phone": "số điện thoại",
@@ -61,15 +70,21 @@ def _fold(value):
     return re.sub(r"\s+", " ", text).strip().lower()
 
 
-def _handle(value):
-    """TikTok/Shopee ID: bo '@', khoang trang, ?query, #, phan duong dan; ha chu.
-    'https://www.tiktok.com/@abc/?lang=vi' -> 'abc' (truoc 11/11 thanh chuoi rong: khong so trung duoc)."""
-    text = str(value or "").strip().lower()
+def display_handle(value):
+    """TikTok/Shopee ID de IN (giu hoa thuong): bo '@', khoang trang, ?query, #, phan duong dan.
+    Hop dong dung ham nay - ID luu dang URL tung in ra link hong '@https://...' (QC 15/11 A7)."""
+    text = str(value or "").strip()
     text = re.split(r"[?#]", text, maxsplit=1)[0].rstrip("/")
-    if "://" in text or text.startswith("www.") or "/" in text:
+    if "://" in text or text.lower().startswith("www.") or "/" in text:
         at = re.search(r"/@([^/]+)", text)
         text = at.group(1) if at else text.rsplit("/", 1)[-1]
-    return text.lstrip("@").strip()
+    return re.sub(r"\s+", "", text).lstrip("@")
+
+
+def _handle(value):
+    """Ban ha chu cua display_handle de so trung.
+    'https://www.tiktok.com/@abc/?lang=vi' -> 'abc' (truoc 11/11 thanh chuoi rong: khong so trung duoc)."""
+    return display_handle(value).lower()
 
 
 def _phone(value):
@@ -141,14 +156,26 @@ def classify_duplicates(candidate, existing_rows):
             continue
         item = {"name": row.get("name"), "supplier_name": row.get("supplier_name"),
                 "ec_cr_misa_code": row.get("ec_cr_misa_code") or MISA_PENDING_LABEL,
-                "matched": hit_hard or hit_soft}
+                "matched": hit_hard or hit_soft, "owner": row.get("owner")}
         (hard if hit_hard else soft).append(item)
     return {"hard": hard, "soft": soft}
 
 
 def describe_match(item):
     labels = ", ".join(KEY_LABELS.get(f, f) for f in item["matched"])
+    if not item.get("supplier_name"):
+        return "một creator đã có (hỏi Kế toán để biết là ai) trùng %s" % labels
     return "%s (mã KH %s) trùng %s" % (item["supplier_name"], item["ec_cr_misa_code"], labels)
+
+
+def mask_match(item, reveal):
+    """Ban tra ve nguoi dung. Trung theo CCCD / STK / dien thoai ma nguoi do khong xem duoc PII cua
+    ban ghi kia thi KHONG neu ten + ma KH: go thu so CCCD la do nguoc ra chu so (QC 15/11 D3).
+    Trung theo ten (cong khai) van neu ten de nguoi lap chon dung creator co san."""
+    out = {k: v for k, v in item.items() if k != "owner"}
+    if not reveal and any(f != "supplier_name" for f in item.get("matched") or ()):
+        out.update(name=None, supplier_name=None, ec_cr_misa_code=None)
+    return out
 
 
 def validate_payload(data):

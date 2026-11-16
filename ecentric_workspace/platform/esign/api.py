@@ -121,7 +121,7 @@ def upload_package_file(business_doctype, business_name, requires_signature=0,
     # khong co ly do gi de dung goi tai lieu ky so.
     perms.assert_can_setup_package(business_doctype, business_name)
     at = frappe.db.get_value(business_doctype, business_name, "approval_type")
-    profile = guard.get_active_profile(business_doctype, at)
+    profile = guard.get_active_profile(business_doctype, at, business_name)
     if not profile:
         frappe.throw(_("Ký số chưa được bật cho loại yêu cầu này."))
     file_name, content = _file_bytes()
@@ -271,6 +271,11 @@ def authorize_resend(dsr_name, reason):
     dsr = frappe.db.get_value("EC Digital Signature Request", dsr_name, "*", as_dict=True)
     if not dsr:
         frappe.throw(_("Không tìm thấy chân ký."))
+    if dsr.action == "Approve":
+        # Buoc duyet KHONG KY (12/11/2026): phep kiem duoi day doc CHU KY - vo nghia o day.
+        # Chan nay dung "Doi soat" (kiem buoc tren cong). Gui lai buoc khong ky: chua lam.
+        frappe.throw(_("Chân duyệt không ký trên cổng: dùng 'Đối soát' (kiểm bước trên cổng), "
+                       "không dùng 'Gửi lại'."))
     if dsr.status != "Manual Review":
         frappe.throw(_("Chỉ gửi lại được chân ký đang ở Manual Review (hiện: {0}).")
                      .format(dsr.status))
@@ -594,7 +599,8 @@ def provider_workflow_view(dsr_name, transition_id=None, provider_user_id=None,
 # camelCase la quy uoc cua eContract ("workflowInstanceId", "fileId"), nen KHONG the doi hoi
 # mot ranh gioi truoc "Id" - lan dau viet the va tuot mat dung cai field dang di tim.
 @frappe.whitelist(methods=["POST"])
-def reconcile_signature_request(dsr_name, accept_predating=0, reason=None):
+def reconcile_signature_request(dsr_name, accept_predating=0, reason=None,
+                                observed_state_id=None):
     """System Manager: re-verify a leg parked in Manual Review against what the provider says
     NOW. Completes it when the signature really is there. NEVER sends anything.
 
@@ -639,8 +645,12 @@ def reconcile_signature_request(dsr_name, accept_predating=0, reason=None):
         frappe.throw(_("Không tìm thấy yêu cầu ký."))
     if dsr.status != "Manual Review":
         return {"ok": False, "reason": "not_in_manual_review:%s" % dsr.status}
+    # `observed_state_id` (12/11/2026): chan DUYET KHONG KY - ma buoc nguoi truc DOC tren cong
+    # (xem service._reconcile_portal_step). Chan ky bo qua tham so nay.
     return svc.reconcile_manual_review(dsr_name, accept_predating=bat_co,
-                                       reason=ly_do or None)
+                                       reason=ly_do or None,
+                                       observed_state_id=(str(observed_state_id).strip()
+                                                          if observed_state_id else None))
 
 
 
@@ -1450,3 +1460,47 @@ def set_workflow_instance_id(package, instance_id):
                 request_meta={"truoc": truoc or None, "sau": iid,
                               "boi": frappe.session.user})
     return {"ok": True, "package": package, "truoc": truoc or None, "sau": iid}
+
+
+# --------------------- dong bo lai ERP -> nha cung cap (15/11/2026, chuyen SCTS -> CMC) ------ #
+# Xem provider_resync.py. System Manager. Hai lenh dau CHI DOC; hai lenh sau mac dinh chay thu.
+@frappe.whitelist()
+def resync_probe_user_tokens(environment=None):
+    """CHI DOC: token "Ket noi SCTS" cua tung nguoi con dung duoc tren cong hien tai khong."""
+    perms.assert_system_manager()
+    from ecentric_workspace.platform.esign import provider_resync
+    return provider_resync.probe_user_tokens(environment)
+
+
+@frappe.whitelist()
+def resync_plan(business_doctype, business_name):
+    """CHI DOC: chan ky ERP da hoan tat nao chua co tren tai lieu ben nha cung cap."""
+    perms.assert_system_manager()
+    from ecentric_workspace.platform.esign import provider_resync
+    return provider_resync.plan(business_doctype, business_name)
+
+
+def _live_flag(v):
+    """CHI chay that khi gui dung "0". Rong / null / "2" / "abc" -> chay thu (QC 15/11)."""
+    return str(v if v is not None else "").strip() != "0"
+
+
+@frappe.whitelist(methods=["POST"])
+def resync_replay(business_doctype, business_name, reason, dry_run=1, ack_prior_attempt=0):
+    """Ban lai MOT chan ky ERP da hoan tat (ke tiep) sang tai lieu ben nha cung cap. Chay thu la
+    mac dinh; chay that chi khi dry_run="0". ack_prior_attempt=1 chi sau khi da xem cong."""
+    perms.assert_system_manager()
+    from ecentric_workspace.platform.esign import provider_resync
+    return provider_resync.replay(business_doctype, business_name, reason,
+                                  dry_run=_live_flag(dry_run),
+                                  ack_prior_attempt=str(ack_prior_attempt).strip() == "1")
+
+
+@frappe.whitelist(methods=["POST"])
+def resync_recreate_document(business_doctype, business_name, reason, dry_run=1):
+    """Tai lieu khong con ben nha cung cap: tao lai bang dung tep da khoa roi ban lai chan nguoi
+    de nghi. Chay thu la mac dinh; chay that chi khi dry_run="0"."""
+    perms.assert_system_manager()
+    from ecentric_workspace.platform.esign import provider_resync
+    return provider_resync.recreate_document(business_doctype, business_name, reason,
+                                             dry_run=_live_flag(dry_run))

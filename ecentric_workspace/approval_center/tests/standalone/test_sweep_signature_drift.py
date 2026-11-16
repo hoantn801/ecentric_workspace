@@ -140,7 +140,7 @@ class TestSoiLechDinhKy(unittest.TestCase):
         self.assertEqual(users, ["sm@ec.vn"])
         self.assertEqual((dt, name), ("EC Payment Request", "EC-PAYR-2026-00051"))
         self.assertIn("hof@ec.vn", subject)
-        self.assertIn("SCTS", subject)
+        self.assertIn("CMC", subject)  # 15/11: chuyen nha cung cap SCTS -> CMC
 
     def test_KHONG_bao_chu_ky_cua_cap_chua_toi_luot(self):
         """Ho ky truoc cho mot cap chua toi luot - de yen, no se dung khi toi luot. Bao ca

@@ -85,7 +85,37 @@ class Round2(unittest.TestCase):
 
 class SignedCopyCheck(unittest.TestCase):
     """Anh Hoan 11/11: tai ban ky len KHONG tu thanh 'ky du' - may kiem, khong dat thi Ke toan."""
-    PDF2 = b"%PDF-1.7 ... /ByteRange [0 1 2 3] ... /ByteRange [0 4 5 6] ..."
+    @staticmethod
+    def _signed_pdf(n):
+        """PDF co n chu ky dung CAU TRUC (ByteRange that + <hex> CMS signedData du dai)."""
+        cms = bytes.fromhex("3082") + b"\x10\x00" + bytes.fromhex("06092a864886f70d010702") + b"\x00" * 1200
+        data = bytearray(b"%PDF-1.7\n")
+        for _i in range(n):
+            pre = b"<< /Type /Sig /ByteRange [0 %010d %010d %010d] /Contents "
+            start = len(data) + len(pre % (0, 0, 0))
+            hexs = b"<" + cms.hex().encode() + b">"
+            b_, c_ = start, start + len(hexs)
+            data += pre % (b_, c_, 0) + hexs + b" >>\n"
+        data += b"%%EOF\n"
+        out = bytes(data)
+        # sua d = phan con lai cua tep sau chu ky (c + d = len)
+        import re as _re
+        def fix(m):
+            b_, c_ = int(m.group(1)), int(m.group(2))
+            return b"/ByteRange [0 %010d %010d %010d]" % (b_, c_, len(out) - c_)
+        return _re.sub(rb"/ByteRange \[0 (\d{10}) (\d{10}) \d{10}\]", fix, out)
+
+    PDF2 = None
+
+    def setUp(self):
+        self.PDF2 = self._signed_pdf(2)
+
+    def test_byterange_gia_trong_comment_khong_tinh(self):
+        """QC 15/11: chen chuoi '/ByteRange [' (comment) vao PDF khong ky khong con duoc tinh."""
+        fake = b"%PDF-1.7\n% /ByteRange [0 0 0 0]\n% /ByteRange [0 1 2 3]\n%%EOF"
+        self.assertEqual(kol.count_signatures(fake), 0)
+        self.assertEqual(kol.count_signatures(self._signed_pdf(2)), 2)
+        self.assertEqual(kol.count_signatures(self._signed_pdf(1)), 1)
 
     def test_dat_khi_du_2_chu_ky_dung_so_hd_va_so_tien(self):
         text = "BIÊN BẢN NGHIỆM THU số 11112026/HDDV/ECENTRIC-NTP.FCV - số tiền 6.300.000 đồng"

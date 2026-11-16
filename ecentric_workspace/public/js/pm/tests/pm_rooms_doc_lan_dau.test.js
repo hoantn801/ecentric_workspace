@@ -48,6 +48,21 @@ function setup(ecOk, withEc) {
     await tick(900); await flush();
     ok("F5: ecApi tới muộn -> chờ, hiện đủ phòng, không gọi frappe.call (không hộp thoại)", w.document.querySelectorAll(".pmrm-row").length === 2 && viaApi.length === 0);
   }
+  /* 13/11: Microsoft 365 lỗi -> băng "đặt tạm" + danh sách hiện "Đặt tạm · chờ Microsoft" */
+  {
+    const dom = new JSDOM("<!doctype html><body><div id=v></div></body>", { runScripts: "outside-only", url: "https://team.ecentric.vn/pm#rooms", pretendToBeVisual: true });
+    const w = dom.window;
+    w.fetch = () => Promise.reject(new Error("x"));
+    const OFF = Object.assign({}, DAY, { offline: true });
+    w.ecApi = { get: (m) => Promise.resolve(/rooms\.day/.test(m) ? OFF : { sync_on: true, offline: true, rows: [
+      { event_id: "hold:abc", uid: "hold:abc", room: "1.1", label: "1.1 - Hoả", start: D0 + " 15:00:00", end: D0 + " 16:00:00", subject: "Họp gấp", state: "held", join_url: "", recurring: false, guests: [] }] }) };
+    w.eval(JS);
+    w.PMRooms.render(w.document.getElementById("v"), { api: () => Promise.reject(new Error("x")), toast: () => {}, head: (t) => "<h1>" + t + "</h1>", mode: "page", pollMs: [100000] });
+    await flush();
+    const bn = w.document.querySelector(".pmrm-offline");
+    ok("Microsoft lỗi: hiện băng ĐẶT TẠM, phòng vẫn bấm đặt được", bn && /ĐẶT TẠM/.test(bn.textContent) && w.document.querySelectorAll(".pmrm-lane[data-room]").length === 2);
+    ok("Phòng bạn đã đặt: 'Đặt tạm · chờ Microsoft'", /Đặt tạm · chờ Microsoft/.test(w.document.body.textContent));
+  }
   let pass = 0;
   for (const r of res) { console.log((r.c ? "ok  " : "FAIL") + " " + r.n); if (r.c) pass++; }
   console.log(pass + "/" + res.length + " passed");

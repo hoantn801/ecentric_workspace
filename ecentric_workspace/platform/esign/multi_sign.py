@@ -57,7 +57,7 @@ def _item_eligibility(bd, bn, caller):
         return False, "not_ready:%s" % ",".join(readiness.get("reasons") or []), {}
     req = frappe.db.get_value("EC Approval Request", ar,
                               ["approval_type", "current_level"], as_dict=True)
-    profile_name = guard.get_active_profile(bd, req.approval_type)
+    profile_name = guard.get_active_profile(bd, req.approval_type, bn)
     profile = frappe.db.get_value("EC Digital Signature Profile", profile_name,
                                   ["provider", "environment"], as_dict=True)
     mapping = perms.verified_mapping(caller, profile.environment)
@@ -106,7 +106,7 @@ def multi_select_sequential_sign(items, comment=None):
                 frappe.throw(_("Tất cả mục phải cùng môi trường nhà cung cấp."),
                              frappe.ValidationError)
             if ctx["scts_user_id"] != scts_user:
-                frappe.throw(_("Tất cả mục phải cùng người ký SCTS đã ánh xạ."),
+                frappe.throw(_("Tất cả mục phải cùng người ký CMC đã ánh xạ."),
                              frappe.ValidationError)
         validated.append(it)
 

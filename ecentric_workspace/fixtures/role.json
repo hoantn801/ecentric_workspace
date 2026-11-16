@@ -52,5 +52,23 @@
   "disabled": 0,
   "two_factor_auth": 0,
   "restrict_to_domain": ""
+ },
+ {
+  "doctype": "Role",
+  "name": "EC AI Voice User",
+  "role_name": "EC AI Voice User",
+  "desk_access": 0,
+  "disabled": 0,
+  "two_factor_auth": 0,
+  "restrict_to_domain": ""
+ },
+ {
+  "doctype": "Role",
+  "name": "EC AI Voice Manager",
+  "role_name": "EC AI Voice Manager",
+  "desk_access": 0,
+  "disabled": 0,
+  "two_factor_auth": 0,
+  "restrict_to_domain": ""
  }
 ]

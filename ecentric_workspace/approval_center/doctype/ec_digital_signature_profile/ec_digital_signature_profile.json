@@ -36,12 +36,15 @@
   "title",
   "business_doctype",
   "approval_type",
+  "selector_field",
+  "selector_value",
   "provider",
   "environment",
   "enabled",
   "bulk_enabled",
   "allow_external_signers",
   "provider_creation_trigger",
+  "trust_portal_transitions",
   "company_id",
   "department_id",
   "document_type_id",
@@ -91,6 +94,19 @@
    "options": "EC Approval Type",
    "reqd": 1,
    "in_standard_filter": 1
+  },
+  {
+   "fieldname": "selector_field",
+   "fieldtype": "Data",
+   "label": "Trường chọn hồ sơ",
+   "description": "Tên trường trên phiếu dùng để chọn hồ sơ khi một loại chứng từ có nhiều hồ sơ ký (vd esign_flow). Để trống nếu loại chứng từ chỉ có một hồ sơ."
+  },
+  {
+   "fieldname": "selector_value",
+   "fieldtype": "Data",
+   "label": "Giá trị chọn",
+   "depends_on": "eval:doc.selector_field",
+   "description": "Hồ sơ này được dùng khi trường chọn trên phiếu có đúng giá trị này (vd kol_wf09)."
   },
   {
    "fieldname": "provider",
@@ -154,6 +170,13 @@
    "options": "On Business Submit\nBefore First Signing Level",
    "default": "Before First Signing Level",
    "reqd": 1
+  },
+  {
+   "fieldname": "trust_portal_transitions",
+   "fieldtype": "Check",
+   "default": "0",
+   "label": "Lấy bước từ cổng",
+   "description": "Bước gửi đi lấy từ chính cổng (bước đang mở), không đếm chữ ký. Bắt buộc khi quy trình có bước duyệt không ký. Hỏi cổng không được thì CHỜ, không đoán, không gửi cả nhóm."
   },
   {
    "fieldname": "company_id",

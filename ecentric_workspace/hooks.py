@@ -435,6 +435,8 @@ fixtures = [
             "Supplier-ec_cr_end_section",
             # DNTT gan hop dong KOL/KOC: SO doanh thu tu dien tu hop dong (doi chieu chi phi - doanh thu).
             "EC Payment Request-ec_sales_order",
+            # Ma brand trong so hop dong KOL/KOC (12/11/2026, p384): tach khoi ec_brand_code cua bao cao.
+            "Brand-ec_contract_code",
 ]]],
     },
     # Ba DocType custom cua PnL dashboard (09-10/09/2026). Truoc day chi ton tai tren
@@ -463,9 +465,11 @@ fixtures = [
         # EC AI Formfill Pilot da nam trong role.json tu 16/09 nhung thieu o day -> export lai
         # se lam roi mat. EC Khay Pilot (28/09): mo dan tro ly Khay o goc moi trang.
         # EC AI Video Admin (05/10): quan tri prompt trang /ai-video (prompt chung + theo nhom SP).
+        # EC AI Voice User / Manager (15/11): trang /ai-voice - tao giong doc AI / quan ly thu vien giong.
         "filters": [["name", "in", ["PM Manager", "PM Member", "EC AI Formfill Pilot",
                                     "EC Khay Pilot", "EC AI Video Admin",
-                                    "EC AI Usage Viewer"]]],
+                                    "EC AI Usage Viewer", "EC AI Voice User",
+                                    "EC AI Voice Manager"]]],
     },
     # HR MVP (2026-09): cac Server Script `ec_hr_*` va cac trang `/ec-hr/*` truoc
     # day chi song trong DB, khong co ban trong git -- rebuild site la mat sach
@@ -1075,3 +1079,19 @@ web_include_js.append("ec_quiz_live.bundle.js")
 # Tat khan cap: site_config ec_training_draw_disabled: 1.
 scheduler_events["cron"].setdefault("*/1 * * * *", []).append(
     "ecentric_workspace.dao_tao.application.draw_service.tick")
+
+# 13/11/2026 (Hoan): Phong hop - che do DAT TAM khi Microsoft 365 loi; 5 phut dua lich dat tam len Teams.
+scheduler_events["cron"].setdefault("*/5 * * * *", []).append(
+    "ecentric_workspace.pm.api.rooms_hold.sync_holds"
+)
+
+# 15/11/2026 (Hoan) - Giong doc AI /ai-voice (eVoice tren may GPU qua Cloudflare Tunnel): moi 2 phut hoi lai
+# phieu chua nhan callback, gui lai phieu PENDING, tai MP3 con thieu, doi chieu giong dang tao. Khong co phieu
+# dang chay -> 1 truy van rong. Tat khan: site_config `ec_ai_voice_disabled: 1`.
+scheduler_events["cron"].setdefault("*/2 * * * *", []).append(
+    "ecentric_workspace.ai_tools.features.ai_voice.jobs.poll_jobs_job.run")
+
+# Viec can lam (15/11/2026): tin Teams 08:30 (T2-T7) - top 3 viec + so viec qua han / hom nay
+# cho tung nguoi. TAT mac dinh: bat bang site_config ec_pm_morning_digest = 1.
+scheduler_events["cron"].setdefault("30 8 * * 1-6", []).append(
+    "ecentric_workspace.pm.api.queue.morning_digest")
