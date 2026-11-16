@@ -40,6 +40,10 @@ _PROVIDER_TRANSITION = {"Sign": "approve"}
 QUOTA_ERROR = "scts_create_quota_exceeded"
 QUOTA_RETRY_MINUTES = 10
 
+#: Goi CHUA co tai lieu ben nha cung cap trong khi nguoi de nghi DA ky tren ERP (16/11, 00675):
+#: khong duoc tu tao bang tai khoan cua chan dang chay (tich hop) - xem _ensure_provider_document.
+DOC_MISSING_AFTER_REQUESTER = "provider_document_missing_after_requester"
+
 
 def _disabled():
     try:
@@ -174,6 +178,17 @@ def _ensure_provider_document(dsr, settings, adapter):
         raise ProviderError("scts_awaiting_create_reconciliation",
                             "AddDocument outcome unknown - awaiting manual reconciliation",
                             retryable=True)
+    if (dsr.get("actor_type") or "") != "Requester" and _requester_leg_done(pkg.name):
+        # SU CO 16/11 (EC-PAYR-2026-00675). Goi bi trong ma tai lieu (lan tao lai truoc bi CMC
+        # chan vi het han muc); cap 1 bam duyet -> nhanh "lazy" nay TAO tai lieu bang tai khoan
+        # tich hop. eContract giao buoc nguoi de nghi cho TAI KHOAN TAO, nen chu ky nguoi de
+        # nghi (da ky tren ERP) khong bao gio vao duoc tai lieu do (400 "khong co quyen") va
+        # lenh cua cap 1 roi vao im lang. Nguoi de nghi DA ky = tai lieu tung ton tai: tai lieu
+        # moi phai tao bang token NGUOI DE NGHI (provider_resync.recreate_document). Dung lai.
+        raise ProviderError(DOC_MISSING_AFTER_REQUESTER,
+                            "goi chua co tai lieu ben nha cung cap nhung nguoi de nghi da ky "
+                            "tren ERP - khong tu tao bang tai khoan tich hop; tao lai bang "
+                            "resync_recreate_document", retryable=False)
     if not int(settings.get("allow_document_creation") or 0):
         raise ProviderError("document_creation_gated",
                             "allow_document_creation is OFF", retryable=True)
@@ -255,6 +270,12 @@ def _ensure_provider_document(dsr, settings, adapter):
     else:  # Active (lazy mode): attribute update only
         events.emit("ProviderCreated", package=pkg.name, provider_txn_id=res["document_id"])
     return res["document_id"]
+
+
+def _requester_leg_done(pkg_name):
+    """Chan NGUOI DE NGHI cua goi da ky xong tren ERP chua."""
+    return bool(frappe.db.exists(DSR, {"package": pkg_name, "actor_type": "Requester",
+                                       "status": ["in", ["Signed", "Approval Completed"]]}))
 
 
 def _resolve_doc_meta(pkg, prof):
@@ -770,6 +791,20 @@ def process_signing_request(dsr_name):
                     _enqueue_fast_verify(dsr_name)
             except Exception:
                 frappe.log_error(frappe.get_traceback(), "esign.tasks.poll_transient")
+            return
+        if e.code == DOC_MISSING_AFTER_REQUESTER:
+            # Manual Review (khong Permanent Failure): sau khi ops tao lai tai lieu bang token
+            # nguoi de nghi, chan nay gui lai duoc qua "Gui lai co kiem" - chua gui gi bao gio.
+            try:
+                events.set_dsr_status(dsr_name, "Manual Review", event_type="ManualReview",
+                                      extra_fields={"manual_review_reason": e.code,
+                                                    "error_code": e.code,
+                                                    "error_message": safe_error(e)},
+                                      error_summary=safe_error(e))
+                _dead_letter_todo(dsr_name)
+                _leg_stopped(dsr_name, dsr)
+            except Exception:
+                frappe.log_error(frappe.get_traceback(), "esign.tasks.doc_missing_after_requester")
             return
         target = "Retryable Failure" if e.retryable else "Permanent Failure"
         try:

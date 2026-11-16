@@ -540,7 +540,36 @@ def replay(business_doctype, business_name, reason, dry_run=True, ack_prior_atte
     return dict(p, dry_run=bool(dry_run), results=[res], remaining=remaining)
 
 
-def recreate_document(business_doctype, business_name, reason, dry_run=True):
+def _foreign_doc_check(pkg, legs, settings):
+    """Tai lieu CON tren cong nhung tao NHAM tai khoan (16/11, 00675). (creator, ly do loi).
+
+    Cho phep thay khi VA CHI KHI: tai lieu dang xu ly (khong huy / tu choi / xong), KHONG co chu
+    ky nao, nguoi tao doc duoc va KHONG phai nguoi de nghi (moi ten goi cua ho), va ma chung tu
+    tren cong khop ma goi da gui (dung la tai lieu cua goi nay)."""
+    adapter = get_adapter(settings)
+    try:
+        state = adapter.poll_status(pkg.scts_document_id)
+    except ProviderError as e:
+        return None, "foreign_poll:%s" % e.code
+    status = str(getattr(state, "status", "") or "").lower()
+    if status in _DEAD_DOC or status in ("completed", "rejected", "cancelled"):
+        return None, "foreign_doc_status:%s" % status
+    if _signed_rows(state):
+        return None, "foreign_doc_has_signatures"
+    ident = getattr(state, "identity", None) or {}
+    creator = str(ident.get("creator_email") or "").strip().casefold()
+    if not creator:
+        return None, "foreign_doc_creator_unknown"
+    if creator in {a.casefold() for a in _aliases(legs[0])}:
+        return None, "foreign_doc_created_by_requester"
+    sent_code = frappe.db.get_value(PKG, pkg.name, "doc_code_sent") or pkg.business_name
+    if str(ident.get("doc_code") or "").strip() != str(sent_code or "").strip():
+        return None, "foreign_doc_code_mismatch"
+    return creator, None
+
+
+def recreate_document(business_doctype, business_name, reason, dry_run=True,
+                      replace_foreign=False):
     """Tai lieu KHONG CON ben nha cung cap (404): tao lai bang dung tep + o ky da khoa cua goi,
     bang dung tai khoan luc dau (token nguoi de nghi). CHI TAO - cac chan ky (nguoi de nghi truoc)
     ban lai bang `replay`, moi lan goi mot chan. Goi giu nguyen ma bam / phien ban; chi doi ma tai
@@ -559,12 +588,26 @@ def recreate_document(business_doctype, business_name, reason, dry_run=True):
             p = dict(p, ok=True, document_missing=True, provider_signed=0,
                      missing=p.get("legs") or [], action="recreate", document_id=prior_old,
                      reason=None)
-    if not p.get("ok") or not p.get("document_missing"):
+    foreign_creator = None
+    if replace_foreign:
+        # Thay tai lieu tao NHAM tai khoan: tai lieu PHAI con (khong 404) - 404 thi dung duong
+        # tao lai thuong. Kiem chi tiet o _foreign_doc_check (sau khi co legs/settings).
+        if not p.get("ok") or p.get("document_missing") or not pkg or not pkg.scts_document_id:
+            return dict(p, ok=False, reason=p.get("reason") or "replace_foreign_needs_existing_doc")
+    elif not p.get("ok") or not p.get("document_missing"):
         return dict(p, ok=False, reason=p.get("reason") or "document_not_missing")
     legs = _completed_legs(pkg.name)
     if not legs or legs[0].get("actor_type") != "Requester":
         return dict(p, ok=False, reason="no_completed_requester_leg")
-    live = _live_legs(pkg.name)
+    if replace_foreign:
+        foreign_creator, why_f = _foreign_doc_check(pkg, legs,
+                                                     _settings(pkg.provider, pkg.environment))
+        if why_f:
+            return dict(p, ok=False, reason=why_f)
+        p = dict(p, replace_foreign=True, foreign_creator=foreign_creator)
+    # Thay tai lieu nham: chan cap duyet o Manual Review (vd lenh cua cap 1 roi vao tai lieu
+    # nham) KHONG chan - gui lai sau qua "Gui lai co kiem". Chan dang bay van chan.
+    live = _live_legs(pkg.name, replay_level=0 if replace_foreign else None)
     if live:
         return dict(p, ok=False, reason="live_legs:%s" % ",".join(x.name for x in live))
     _t, why_orig = _original_send(legs[0]["name"])
@@ -580,12 +623,13 @@ def recreate_document(business_doctype, business_name, reason, dry_run=True):
         # (a) token nguoi de nghi con dung tren cong hien tai; (b) 404 KHONG phai do quyen xem:
         # nguoi tao tai lieu cung khong thay no (QC 15/11 - neu khong se tao trung tai lieu).
         adapter.list_user_signatures(legs[0].get("effective_scts_user_id"))
-        try:
-            adapter.poll_status(pkg.scts_document_id or prior_old)
-            return dict(p, ok=False, reason="document_visible_to_requester")
-        except ProviderError as e:
-            if e.code != "scts_document_not_found":
-                return dict(p, ok=False, reason="requester_poll:%s" % e.code)
+        if not replace_foreign:
+            try:
+                adapter.poll_status(pkg.scts_document_id or prior_old)
+                return dict(p, ok=False, reason="document_visible_to_requester")
+            except ProviderError as e:
+                if e.code != "scts_document_not_found":
+                    return dict(p, ok=False, reason="requester_poll:%s" % e.code)
         m = perms.verified_mapping(legs[0].get("actor_user"), settings.get("environment"))
         if not m or str(m.get("scts_user_id")) != str(legs[0].get("effective_scts_user_id")) \
                 or str(m.get("signature_id")) != str(legs[0].get("effective_signature_id")):
@@ -606,7 +650,7 @@ def recreate_document(business_doctype, business_name, reason, dry_run=True):
             then_replay=[_leg_view(x) for x in legs])
     key = _lock(pkg.name)
     try:
-        if _live_legs(pkg.name):
+        if _live_legs(pkg.name, replay_level=0 if replace_foreign else None):
             return dict(p, ok=False, reason="live_legs")
         req_leg = frappe.db.get_value(DSR, legs[0]["name"], "*", as_dict=True)
         old = frappe.db.get_value(PKG, pkg.name, ["scts_document_id",
@@ -627,7 +671,10 @@ def recreate_document(business_doctype, business_name, reason, dry_run=True):
                                   "old_document_id": old.scts_document_id or prior_old,
                                   "old_instance_id": old.scts_workflow_instance_id,
                                   "old_file_ids": old_files,
-                                  "requester_leg": legs[0]["name"]})
+                                  "requester_leg": legs[0]["name"],
+                                  # thay tai lieu tao nham tai khoan: ai da tao ban cu (ban cu
+                                  # KHONG bi huy tren cong - de nguyen cho ops tu xu ly)
+                                  "replaced_foreign_creator": foreign_creator})
         frappe.db.commit()
         # Pha 2: go moc (chua commit) -> tao -> commit cung luc voi ma moi.
         frappe.db.set_value(PKG, pkg.name, {"error_code": None, "error_message": None})
@@ -636,9 +683,12 @@ def recreate_document(business_doctype, business_name, reason, dry_run=True):
             new_id = tasks._ensure_provider_document(req_leg, settings, adapter)
         except ProviderError as e:
             if not getattr(e, "ambiguous", False):
-                # Chac chan KHONG tao: tra lai nhu cu, goi khong mo coi.
+                # Chac chan KHONG tao: tra lai nhu cu, goi khong mo coi. KHONG BAO GIO de trong
+                # ma tai lieu: goi trong ma + nguoi de nghi da ky = lan bam duyet ke tiep tu tao
+                # tai lieu bang tai khoan tich hop (16/11, 00675). Lan truoc da xoa ma (prior_old)
+                # thi tra ma cu do (tai lieu da chet -> worker gap 404 va dung lai an toan).
                 frappe.db.set_value(PKG, pkg.name, {
-                    "scts_document_id": old.scts_document_id,
+                    "scts_document_id": old.scts_document_id or prior_old,
                     "scts_workflow_instance_id": old.scts_workflow_instance_id,
                     "error_code": None, "error_message": None})
             # mo ho: _ensure da dat create_outcome_unknown -> doi soat, khong tao lai
