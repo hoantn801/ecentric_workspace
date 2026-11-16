@@ -1498,16 +1498,22 @@ def resync_replay(business_doctype, business_name, reason, dry_run=1, ack_prior_
 
 @frappe.whitelist(methods=["POST"])
 def resync_recreate_document(business_doctype, business_name, reason, dry_run=1,
-                             replace_foreign_document=0):
+                             replace_foreign_document=0, rebuild_unembedded=0):
     """Tai lieu khong con ben nha cung cap: tao lai bang dung tep da khoa roi ban lai chan nguoi
     de nghi. Chay thu la mac dinh; chay that chi khi dry_run="0".
 
     replace_foreign_document="1" (16/11, 00675): tai lieu CON tren cong nhung do NGUOI KHAC tao
     (khong phai nguoi de nghi) va CHUA co chu ky nao -> tao ban moi bang token nguoi de nghi,
-    goi tro sang ban moi. Ban cu de nguyen tren cong (khong huy). Chi bat khi gui dung "1"."""
+    goi tro sang ban moi. Ban cu de nguyen tren cong (khong huy). Chi bat khi gui dung "1".
+
+    rebuild_unembedded="1" (16/11, CMC): tai lieu da dong bo nhung PDF ben cong THIEU chu ky so
+    (tai khoan tich hop ky thay) -> tao ban moi bang token nguoi de nghi; moi chan ky lai bang
+    token cua chinh ho qua resync_replay. Chi bat khi gui dung "1"."""
     perms.assert_system_manager()
     from ecentric_workspace.platform.esign import provider_resync
     return provider_resync.recreate_document(
         business_doctype, business_name, reason, dry_run=_live_flag(dry_run),
         replace_foreign=str(replace_foreign_document if replace_foreign_document is not None
-                            else "").strip() == "1")
+                            else "").strip() == "1",
+        rebuild_unembedded=str(rebuild_unembedded if rebuild_unembedded is not None
+                               else "").strip() == "1")

@@ -337,20 +337,37 @@ def retrieve_and_store_for_package(package_name, force=False):
     # eContract (2026-08): Document/Submit does NOT return per-file ids, so DSF rows may have an
     # empty scts_document_file_id. Backfill from the Document detail (poll) by exact fileName
     # match, then persist. Fail-closed: no match -> the per-file retrieval errors as before.
-    if any(not f.scts_document_file_id for f in files):
-        try:
-            doc = adapter.poll_status(pkg.scts_document_id)
-            by_name = {}
-            for df in (getattr(doc, "files", None) or []):
-                if df.get("name") and df.get("file_id"):
-                    by_name.setdefault(df["name"], df["file_id"])
-            for f in files:
-                if not f.scts_document_file_id and by_name.get(f.file_name):
-                    f.scts_document_file_id = by_name[f.file_name]
-                    frappe.db.set_value(DSF, f.name, "scts_document_file_id",
-                                        f.scts_document_file_id)
-        except ProviderError:
-            pass                                  # per-file path will surface the error
+    # 16/11 (CMC): ma tep CU cua tai lieu da tao lai (AddDocument khong tra ma tep) cung phai
+    # thay - ma do khong nam trong tai lieu hien tai. Doi bang ten tep, nhu ma rong.
+    try:
+        doc = adapter.poll_status(pkg.scts_document_id)
+        doc_files = getattr(doc, "files", None) or []
+    except ProviderError:
+        doc_files = []
+    ids = {str(df.get("file_id")) for df in doc_files if df.get("file_id")}
+    names = {}
+    for df in doc_files:
+        if df.get("name") and df.get("file_id"):
+            names.setdefault(df["name"], set()).add(str(df["file_id"]))
+    for f in files:
+        cur = str(f.scts_document_file_id or "")
+        if cur and (not ids or cur in ids):
+            continue                              # ma hop le (hoac khong doc duoc danh sach)
+        hit = names.get(f.file_name) or set()
+        if len(hit) == 1:
+            new = next(iter(hit))
+            f.scts_document_file_id = new
+            frappe.db.set_value(DSF, f.name, "scts_document_file_id", new)
+            if cur:
+                events.emit("PollTick", package=pkg.name,
+                            verification_result="file_id_rebound",
+                            request_meta={"file": f.file_name, "old_file_id": cur,
+                                          "new_file_id": new})
+        elif cur:
+            # Ma CU khong thuoc tai lieu hien tai va khong doi duoc chac chan (khong co / trung
+            # ten) - KHONG tai bang ma cu (co the tra PDF cua tai lieu cu).
+            f.scts_document_file_id = None
+            f["stale_file_id"] = cur
     results = []
     all_done = bool(files)
     for f in files:
@@ -372,6 +389,13 @@ def _retrieve_one(pkg, adapter, f, force=False):
                     request_meta={"file": f.file_name, "sha256": f.signed_file_sha256})
         return {"file": f.name, "duplicate": True, "sha256": f.signed_file_sha256}
 
+    if not f.scts_document_file_id and f.get("stale_file_id"):
+        # Ma tep cu khong thuoc tai lieu HIEN TAI (16/11): khong goi tai bang ma cu. (Ma rong tu
+        # dau giu hanh vi cu.)
+        events.emit("SignedFileRetrievalFailed", package=pkg.name,
+                    error_summary="file_id_unknown", request_meta={"file": f.file_name})
+        frappe.db.set_value(PKG, pkg.name, "signed_bundle_complete", 0)
+        return {"file": f.name, "stored": False, "error": "file_id_unknown", "retryable": True}
     events.emit("SignedFileRetrievalStarted", package=pkg.name,
                 request_meta={"file": f.file_name})
     try:
@@ -385,6 +409,7 @@ def _retrieve_one(pkg, adapter, f, force=False):
     sha = res["sha256"]
     events.emit("SignedFileRetrieved", package=pkg.name,
                 request_meta={"file": f.file_name, "sha256": sha, "size": res["size"]})
+    _check_embedded_signatures(pkg, f, res["content"])
 
     # concurrency-safe commit: locking read in ONE statement (see events.current_status).
     cur = frappe.db.get_value(DSF, f.name, ["signed_file", "signed_file_sha256"], as_dict=True,
@@ -409,6 +434,45 @@ def _retrieve_one(pkg, adapter, f, force=False):
     events.emit("SignedFileStored", package=pkg.name,
                 request_meta={"file": "SIGNED-%s" % f.file_name, "sha256": sha, "size": res["size"]})
     return {"file": f.name, "stored": True, "sha256": sha, "signed_file": fdoc.name}
+
+
+def _check_embedded_signatures(pkg, f, content):
+    """PDF ky co DU chu ky so (/ByteRange) bang so o ky cua tep khong (16/11, CMC: tai khoan
+    tich hop ky thay -> cong ghi "Da ky" nhung PDF khong co chu ky, ERP van danh dau xong).
+    Thieu: VAN luu (PDF van la ban cong tra ve) nhung ghi VerificationMismatch + ToDo ra soat.
+    Khong bao gio nem loi - day la phep kiem them, khong duoc chan luong tai."""
+    try:
+        levels = set()
+        for r in frappe.get_all(DSR, filters={"package": pkg.name, "action": "Sign",
+                                              "status": "Approval Completed"},
+                                fields=["actor_type", "request_level"]):
+            levels.add(0 if r.get("actor_type") == "Requester" else int(frappe.db.get_value(
+                "EC Approval Request Level", r.get("request_level"), "level_no") or 0))
+        want = len([pl for pl in frappe.get_all(
+            "EC Digital Signature Placement", filters={"package": pkg.name,
+                                                       "signature_file": f.name},
+            fields=["status", "level_no"], limit_page_length=200)
+            if str(pl.get("status") or "") != "Invalid"
+            and int(pl.get("level_no") or 0) in levels])
+        base = 0
+        if f.get("file"):
+            src = frappe.get_doc("File", f.get("file")).get_content()
+            if isinstance(src, str):
+                src = src.encode("latin-1", "ignore")
+            base = bytes(src or b"").count(b"/ByteRange")     # tep goc co san chu ky so
+        have = max(0, bytes(content or b"").count(b"/ByteRange") - base)
+        if want and have < want:
+            events.emit("VerificationMismatch", package=pkg.name,
+                        verification_result="signed_pdf_signatures_missing:%d/%d"
+                                            % (have, want),
+                        request_meta={"file": f.file_name, "pdf_signatures": have,
+                                      "placements": want})
+            _dead_letter_review(pkg, "signed_pdf_signatures_missing:%s:%d/%d"
+                                % (f.file_name, have, want))
+        return have, want
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "esign signed pdf signature count")
+        return None, None
 
 
 def _store_hash_mismatch(pkg, f, sha, content, size):

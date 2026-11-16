@@ -92,6 +92,7 @@ class TestWorkerManualReview(unittest.TestCase):
         m._ensure_provider_document = boom
         ul = types.ModuleType("user_link")
         ul.needs_own_token = lambda *a, **k: False
+        ul.signer_token_needed = lambda *a, **k: None
         pkgmod = types.ModuleType("ecentric_workspace.platform.esign")
         pkgmod.user_link = ul
         saved = sys.modules.get("ecentric_workspace.platform.esign")

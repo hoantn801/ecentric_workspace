@@ -167,15 +167,18 @@ def _require_reason(reason):
 
 
 def _user_token_adapter(leg, settings):
-    """Adapter cho chan ky nay: token rieng cua nguoi de nghi khi ERP luc dau cung dung token do
-    (tasks.process_signing_request), con lai tai khoan tich hop. (adapter, ly_do_dung)."""
+    """Adapter cho chan ky nay - CUNG quy tac voi worker (user_link.signer_token_needed): chan KY
+    cua nguoi de nghi VA nguoi duyet di bang token cua chinh ho (16/11: CMC khong nhung chu ky so
+    khi tai khoan tich hop ky thay); chi tai khoan tich hop tu ky moi dung token tich hop.
+    (adapter, ly_do_dung)."""
     from ecentric_workspace.platform.esign import user_link
     adapter = get_adapter(settings)
-    if leg.get("actor_type") == "Requester" and user_link.needs_own_token(leg.get("actor_user"),
-                                                                           settings):
-        tok = user_link.token_for(leg.get("actor_user"), leg.get("environment"))
+    own = user_link.signer_token_needed(leg, settings)
+    if own:
+        tok = user_link.token_for(own, leg.get("environment"))
         if not tok:
-            return None, "requester_token_missing:%s" % leg.get("actor_user")
+            kind = "requester" if leg.get("actor_type") == "Requester" else "signer"
+            return None, "%s_token_missing:%s" % (kind, own)
         adapter.use_user_token(tok)
     return adapter, None
 
@@ -568,8 +571,136 @@ def _foreign_doc_check(pkg, legs, settings):
     return creator, None
 
 
+DSF = "EC Digital Signature File"
+PLACEMENT = "EC Digital Signature Placement"
+#: Con tro PDF ky cua tep (go khi dung lai, tra lai khi tao hong) - ca truong ra soat (QC 16/11).
+_SIGNED_PTR_FIELDS = ("signed_file", "signed_file_sha256", "provider_status",
+                      "signed_retrieved_at", "signed_review_candidate", "signed_review_sha256")
+
+
+def _unembedded_check(pkg, settings):
+    """PDF ky ben cong THIEU chu ky so (16/11, CMC). (chi_tiet, ly do loi).
+
+    Moi tep can ky: tai PDF hien tai tu cong (tai khoan tich hop, CHI DOC), dem chu ky so
+    (/ByteRange) so voi so o ky (placement khong Invalid) cua tep do. Chi cho dung lai khi IT NHAT
+    mot tep thieu. Khong doc duoc / khong biet ma tep -> dung, khong doan."""
+    adapter = get_adapter(settings)
+    files = frappe.get_all(DSF, filters={"package": pkg.name, "requires_signature": 1},
+                           fields=["name", "file", "file_name", "scts_document_file_id"],
+                           limit_page_length=20)
+    if not files:
+        return None, "no_signable_files"
+    # Chi dem o ky cua cap DA KY XONG tren ERP (nguoi de nghi = cap 0) - cap bi bo qua / chua toi
+    # khong duoc tinh la "thieu" (QC 16/11).
+    done_levels = {int(x.get("level_no") or 0) for x in _completed_legs(pkg.name)}
+    want = {}
+    for pl in frappe.get_all(PLACEMENT, filters={"package": pkg.name},
+                             fields=["signature_file", "status", "level_no"],
+                             limit_page_length=200):
+        if str(pl.get("status") or "") != "Invalid" \
+                and int(pl.get("level_no") or 0) in done_levels:
+            want[pl.get("signature_file")] = want.get(pl.get("signature_file"), 0) + 1
+    out, short = [], False
+    for f in files:
+        if not f.get("scts_document_file_id"):
+            return None, "file_id_missing:%s" % f.get("name")
+        try:
+            res = adapter.get_signed_document(pkg.scts_document_id, f.get("scts_document_file_id"))
+        except ProviderError as e:
+            return None, "pdf_read:%s" % e.code
+        # Tep goc CO SAN chu ky so (hoa don / hop dong da ky) -> tru ra, khong thi che mat thieu.
+        base = _source_signature_count(f.get("file"))
+        if base is None:
+            return None, "source_unreadable:%s" % f.get("name")
+        have = max(0, bytes(res.get("content") or b"").count(b"/ByteRange") - base)
+        need = int(want.get(f.get("name")) or 0)
+        out.append({"file": f.get("name"), "pdf_signatures": have, "placements": need,
+                    "source_signatures": base})
+        if need and have < need:
+            short = True
+    if not short:
+        return None, "pdf_signatures_complete"
+    return out, None
+
+
+def _source_signature_count(file_name):
+    """So chu ky so CO SAN trong tep goc (File cua ERP), hoac None khi khong doc duoc."""
+    if not file_name:
+        return None
+    try:
+        content = frappe.get_doc("File", file_name).get_content()
+    except Exception:
+        return None
+    if isinstance(content, str):
+        content = content.encode("latin-1", "ignore")
+    return bytes(content or b"").count(b"/ByteRange")
+
+
+def _static_leg_check(leg, pos, pkg, settings):
+    """Phan TINH cua _send_plan cho MOT chan (khong can tai lieu moi). Ly do dung, hoac None.
+
+    Dung lai tai lieu chi duoc bat dau khi MOI chan deu ban lai duoc: hong o chan thu k SAU khi
+    da tao ban moi = phieu mat ca con tro PDF cu lan ban moi chua ky xong (QC 16/11)."""
+    env = settings.get("environment")
+    adapter, why = _user_token_adapter(leg, settings)
+    if adapter is None:
+        return why
+    targeted, why = _original_send(leg.get("name"))
+    if why:
+        return why
+    prior = _prior_unverified(leg.get("name"))
+    if prior:
+        return "prior_resync_unverified:%s" % prior.name
+    if not leg.get("effective_scts_user_id") or not leg.get("effective_signature_id"):
+        return "leg_missing_identity"
+    m = perms.verified_mapping(leg.get("actor_user") or leg.get("approver"), env)
+    if not m or str(m.get("scts_user_id")) != str(leg.get("effective_scts_user_id")) \
+            or str(m.get("signature_id")) != str(leg.get("effective_signature_id")):
+        return "mapping_changed_since_signing"
+    try:
+        vr = adapter.validate_signature_owner(leg.get("effective_scts_user_id"),
+                                              leg.get("effective_signature_id"))
+        if not vr:
+            return "signature_owner:%s" % getattr(vr, "reason", "?")
+        stage = "requester" if leg.get("actor_type") == "Requester" else "approval"
+        cfg = next_handler.resolve_transition_config(pkg.profile, "Sign", stage=stage,
+                                                     step_index=pos)
+        if not cfg or cfg.get("step_index") is None or int(cfg["step_index"]) != int(pos):
+            return "no_step_config:%s/%s" % (stage, pos)
+        have = m.get("signature_type")
+        if not have:
+            own = next((x for x in (adapter.list_user_signatures(
+                leg.get("effective_scts_user_id")) or [])
+                if str(x.get("id")) == str(leg.get("effective_signature_id"))), None)
+            have = (own or {}).get("type")
+        if not have:
+            return "signature_type_unknown"
+        if not next_handler.signature_type_matches(cfg.get("sign_type"), have):
+            return "signature_type_mismatch:%s/%s" % (cfg.get("sign_type"), have)
+    except ProviderError as e:
+        return "provider_error:%s" % e.code
+    if targeted.get("transition_id") not in (None, "") \
+            and str(targeted.get("transition_id")) != str(cfg.get("transition_id")):
+        return "differs_from_original:%s!=%s" % (cfg.get("transition_id"),
+                                                 targeted.get("transition_id"))
+    if targeted.get("signer_user_id") not in (None, "") \
+            and str(targeted.get("signer_user_id")) != str(leg.get("effective_scts_user_id")):
+        return "signer_differs_from_original"
+    users = _next_users(leg.get("approval_request"), leg.get("level_no") or 0)
+    if users:
+        ids, unmapped = next_handler.provider_ids_for(users, env)
+        if unmapped or not ids:
+            return "next_handler_unmapped:%s" % ",".join(unmapped)
+        orig_to = [str(x) for x in (targeted.get("to_users") or [])]
+        if orig_to and not set(str(i) for i in ids) <= set(orig_to):
+            return "recipients_differ_from_original"
+    elif not cfg.get("terminal"):
+        return "no_next_level_user"
+    return None
+
+
 def recreate_document(business_doctype, business_name, reason, dry_run=True,
-                      replace_foreign=False):
+                      replace_foreign=False, rebuild_unembedded=False):
     """Tai lieu KHONG CON ben nha cung cap (404): tao lai bang dung tep + o ky da khoa cua goi,
     bang dung tai khoan luc dau (token nguoi de nghi). CHI TAO - cac chan ky (nguoi de nghi truoc)
     ban lai bang `replay`, moi lan goi mot chan. Goi giu nguyen ma bam / phien ban; chi doi ma tai
@@ -589,7 +720,23 @@ def recreate_document(business_doctype, business_name, reason, dry_run=True,
                      missing=p.get("legs") or [], action="recreate", document_id=prior_old,
                      reason=None)
     foreign_creator = None
-    if replace_foreign:
+    unembedded = None
+    if replace_foreign and rebuild_unembedded:
+        return dict(p, ok=False, reason="one_mode_only")
+    if rebuild_unembedded:
+        # DUNG LAI tai lieu ma PDF thieu chu ky so (16/11, CMC: tai khoan tich hop ky thay ->
+        # cong ghi "Da ky" nhung PDF khong co chu ky). Tai lieu PHAI con va DA DONG BO (moi chan
+        # ERP deu co tren cong) - con thieu thi ban lai truoc.
+        if not p.get("ok") or p.get("document_missing") or not pkg or not pkg.scts_document_id:
+            return dict(p, ok=False, reason=p.get("reason") or "rebuild_needs_existing_doc")
+        if not p.get("in_sync"):
+            return dict(p, ok=False, reason="rebuild_needs_in_sync")
+        # Chi phieu DA DUYET XONG: phieu con dang duyet thi nguoi duyet ke tiep co the bam
+        # "Duyet & Ky" vao tai lieu moi giua luc ban lai -> ky sai buoc (QC 16/11).
+        if (frappe.db.get_value("EC Approval Request", pkg.approval_request,
+                                "approval_status") or "") != "Approved":
+            return dict(p, ok=False, reason="rebuild_needs_approved_request")
+    elif replace_foreign:
         # Thay tai lieu tao NHAM tai khoan: tai lieu PHAI con (khong 404) - 404 thi dung duong
         # tao lai thuong. Kiem chi tiet o _foreign_doc_check (sau khi co legs/settings).
         if not p.get("ok") or p.get("document_missing") or not pkg or not pkg.scts_document_id:
@@ -605,6 +752,11 @@ def recreate_document(business_doctype, business_name, reason, dry_run=True,
         if why_f:
             return dict(p, ok=False, reason=why_f)
         p = dict(p, replace_foreign=True, foreign_creator=foreign_creator)
+    if rebuild_unembedded:
+        unembedded, why_u = _unembedded_check(pkg, _settings(pkg.provider, pkg.environment))
+        if why_u:
+            return dict(p, ok=False, reason=why_u)
+        p = dict(p, rebuild_unembedded=True, unembedded=unembedded)
     # Thay tai lieu nham: chan cap duyet o Manual Review (vd lenh cua cap 1 roi vao tai lieu
     # nham) KHONG chan - gui lai sau qua "Gui lai co kiem". Chan dang bay van chan.
     live = _live_legs(pkg.name, replay_level=0 if replace_foreign else None)
@@ -623,7 +775,7 @@ def recreate_document(business_doctype, business_name, reason, dry_run=True,
         # (a) token nguoi de nghi con dung tren cong hien tai; (b) 404 KHONG phai do quyen xem:
         # nguoi tao tai lieu cung khong thay no (QC 15/11 - neu khong se tao trung tai lieu).
         adapter.list_user_signatures(legs[0].get("effective_scts_user_id"))
-        if not replace_foreign:
+        if not (replace_foreign or rebuild_unembedded):
             try:
                 adapter.poll_status(pkg.scts_document_id or prior_old)
                 return dict(p, ok=False, reason="document_visible_to_requester")
@@ -639,6 +791,17 @@ def recreate_document(business_doctype, business_name, reason, dry_run=True,
             return dict(p, ok=False, reason="signature_owner")
     except ProviderError as e:
         return dict(p, ok=False, reason="requester_token:%s" % e.code)
+    if rebuild_unembedded:
+        # Dung lai = moi chan phai ky LAI bang token cua chinh ho. Thieu token o chan nao thi dung
+        # ngay tu dau - dung lai roi ket giua chung thi phieu mat ca ban PDF cu lan ban moi.
+        missing_tok = [why for why in (_user_token_adapter(x, settings)[1] for x in legs) if why]
+        if missing_tok:
+            return dict(p, ok=False, reason="tokens_missing:%s" % ",".join(missing_tok))
+        for i, x in enumerate(legs):
+            why_l = _static_leg_check(x, i, pkg, settings)
+            if why_l:
+                return dict(p, ok=False, reason="leg_not_replayable:%s:%s" % (x.get("name"),
+                                                                               why_l))
     from ecentric_workspace.platform.esign import package as pkgsvc
     files = pkgsvc.package_files(pkg.name)
     if not int(settings.get("allow_document_creation") or 0):
@@ -657,9 +820,27 @@ def recreate_document(business_doctype, business_name, reason, dry_run=True,
                                                   "scts_workflow_instance_id"],
                                   as_dict=True, for_update=True)
         old_files = {f.name: f.get("scts_document_file_id") for f in files}
+        old_signed = {}
+        if rebuild_unembedded:
+            for f in frappe.get_all(DSF, filters={"package": pkg.name},
+                                    fields=["name"] + list(_SIGNED_PTR_FIELDS),
+                                    limit_page_length=50):
+                if any(f.get(k) for k in _SIGNED_PTR_FIELDS):
+                    old_signed[f.name] = {k: f.get(k) for k in _SIGNED_PTR_FIELDS}
+        old_bundle = frappe.db.get_value(PKG, pkg.name, "signed_bundle_complete")
         # Pha 1 (commit rieng): xoa ma cu + CAM tu tao (create_outcome_unknown). Request chet
         # giua chung thi worker khac gap moc nay se CHO doi soat, khong tao tai lieu thu hai
         # (QC 15/11). Su kien o cap GOI (khong gan chan ky): khong lan voi "lan gui truoc".
+        # Ma tep cu (cua tai lieu cu) PHAI xoa: eContract AddDocument khong tra ma tep, nen ma
+        # cu se nam lai va lan tai PDF ky sau nay doi tai lieu MOI bang ma tep CU (16/11).
+        # Dung lai: con tro PDF ky cu cung go (ban PDF cu van dinh tren phieu, khong xoa).
+        for fname in old_files:
+            vals = {"scts_document_file_id": None}
+            if fname in old_signed:
+                vals.update({k: None for k in _SIGNED_PTR_FIELDS})
+            frappe.db.set_value(DSF, fname, vals)
+        if rebuild_unembedded:
+            frappe.db.set_value(PKG, pkg.name, "signed_bundle_complete", 0)
         frappe.db.set_value(PKG, pkg.name, {"scts_document_id": None,
                                             "scts_workflow_instance_id": None,
                                             "error_code": "create_outcome_unknown",
@@ -674,7 +855,10 @@ def recreate_document(business_doctype, business_name, reason, dry_run=True,
                                   "requester_leg": legs[0]["name"],
                                   # thay tai lieu tao nham tai khoan: ai da tao ban cu (ban cu
                                   # KHONG bi huy tren cong - de nguyen cho ops tu xu ly)
-                                  "replaced_foreign_creator": foreign_creator})
+                                  "replaced_foreign_creator": foreign_creator,
+                                  # dung lai vi PDF thieu chu ky so: so do + con tro PDF cu
+                                  "rebuild_unembedded": unembedded,
+                                  "old_signed_files": old_signed or None})
         frappe.db.commit()
         # Pha 2: go moc (chua commit) -> tao -> commit cung luc voi ma moi.
         frappe.db.set_value(PKG, pkg.name, {"error_code": None, "error_message": None})
@@ -687,6 +871,12 @@ def recreate_document(business_doctype, business_name, reason, dry_run=True,
                 # ma tai lieu: goi trong ma + nguoi de nghi da ky = lan bam duyet ke tiep tu tao
                 # tai lieu bang tai khoan tich hop (16/11, 00675). Lan truoc da xoa ma (prior_old)
                 # thi tra ma cu do (tai lieu da chet -> worker gap 404 va dung lai an toan).
+                for fname, fid in old_files.items():
+                    vals = {"scts_document_file_id": fid}
+                    vals.update(old_signed.get(fname) or {})
+                    frappe.db.set_value(DSF, fname, vals)
+                if rebuild_unembedded:
+                    frappe.db.set_value(PKG, pkg.name, "signed_bundle_complete", old_bundle)
                 frappe.db.set_value(PKG, pkg.name, {
                     "scts_document_id": old.scts_document_id or prior_old,
                     "scts_workflow_instance_id": old.scts_workflow_instance_id,

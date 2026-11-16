@@ -106,6 +106,12 @@ class _Adapter(object):
                 self.w["signed"].append(e)
         return {}
 
+    def get_signed_document(self, doc_id, file_id):
+        if self.w.get("pdf_fail"):
+            raise PE("scts_signed_pdf_empty")
+        n = int((self.w.get("pdf_sigs") or {}).get(file_id, 0))
+        return {"content": b"%PDF-1.7 " + b"/ByteRange [0 1 2 3] " * n}
+
     def approve_and_sign(self, *a, **k):
         raise AssertionError("POOL bi goi - cam")
 
@@ -187,6 +193,8 @@ def _load(world):
                 return "PKG-1"
             if fields == "doc_code_sent":
                 return world.get("doc_code_sent")
+            if fields == "signed_bundle_complete":
+                return "BUNDLE-WAS"
             if fields == "error_code":
                 return world.get("err_code")
             if isinstance(fields, list) and "scts_workflow_instance_id" in fields \
@@ -199,6 +207,8 @@ def _load(world):
                       business_name="PR-1")
         if dt == "EC Approval Request Level":
             return LEVEL_OF.get(name)
+        if dt == "EC Approval Request":
+            return world.get("approval_status", "Approved")
         if dt == "EC Digital Signature Request":
             return _D([l for l in LEGS if l.name == name][0])
         return None
@@ -209,6 +219,10 @@ def _load(world):
             if f.get("status") == "Approval Completed":
                 return [_D(l) for l in world.get("legs", LEGS)]
             return [_D(x) for x in world.get("live", [])]
+        if dt == "EC Digital Signature File":
+            return [_D(x) for x in world.get("dsf", [])]
+        if dt == "EC Digital Signature Placement":
+            return [_D(x) for x in world.get("placements", [])]
         if dt == "EC Approval Request Approver":
             return [_D(x) for x in world.get("next", []) if x["level_no"] == f["level_no"]]
         if dt == "EC SCTS User Mapping":
@@ -244,6 +258,17 @@ def _load(world):
         world["commits"] += 1
     fk.db = types.SimpleNamespace(get_value=get_value, set_value=set_value, commit=commit)
     fk.get_all = get_all
+
+    class _File(object):
+        def __init__(self, name):
+            self.name = name
+
+        def get_content(self):
+            if world.get("source_fail"):
+                raise IOError("missing")
+            return b"%PDF " + b"/ByteRange " * int((world.get("source_sigs") or {}).get(
+                self.name, 0))
+    fk.get_doc = lambda dt, name: _File(name)
 
     ev = types.ModuleType("ecentric_workspace.platform.esign.events")
     ev.emit = lambda et, **k: world["events"].append((et, k, len(world["sent"])))
@@ -292,7 +317,20 @@ def _load(world):
     pk.package_placements = lambda n: [1]
     ul = types.ModuleType("ecentric_workspace.platform.esign.user_link")
     ul.needs_own_token = lambda user, s: user != "hoan@x"
-    ul.token_for = lambda user, env: world.get("tokens", {}).get(user)
+    # 16/11 (CMC): nguoi duyet cung ky bang token rieng. Mac dinh moi nguoi duyet CO token
+    # ("T-<email>"); nguoi de nghi chi co khi test cho. no_approver_tokens -> khong ai co.
+    ul.token_for = lambda user, env: world.get("tokens", {}).get(user, None if (
+        user == "huong@x" or world.get("no_approver_tokens")) else "T-" + str(user))
+
+    def stn(leg, s):
+        if leg.get("actor_type") == "Requester":
+            u = leg.get("actor_user")
+        elif (leg.get("action") or "Sign") == "Sign":
+            u = leg.get("approver")
+        else:
+            return None
+        return u if (u and ul.needs_own_token(u, s)) else None
+    ul.signer_token_needed = stn
     ul.default_context = lambda: (_D(provider="SCTS", environment="UAT",
                                      base_url="https://api-signx.cmc.vn"), "UAT")
     tk = types.ModuleType("ecentric_workspace.platform.esign.tasks")
@@ -555,13 +593,31 @@ class TestGuiThat(Base):
         self.assertEqual(r["results"][0]["result"], "verified")
         s = w["sent"][0]
         self.assertEqual((s["uid"], s["sig"], s["tid"], s["to"]), ("U-P", "S-P", -11, ["U-CEO"]))
-        self.assertIsNone(s["token"], "chan duyet: tai khoan tich hop")
+        self.assertEqual(s["token"], "T-phuong@x",
+                         "chan duyet: token cua CHINH nguoi duyet (16/11 CMC khong nhung chu ky "
+                         "khi tai khoan tich hop ky thay)")
         first = [e for e in w["events"] if e[0] == "ResendExecuted"][0]
         self.assertEqual(first[2], 0, "vet ghi TRUOC khi gui")
         self.assertGreaterEqual(s["commits_before"], 1, "vet da COMMIT truoc khi gui")
         self.assertEqual(first[1]["request_meta"]["source"], "provider_resync")
         self.assertEqual(w["writes"], [], "khong dong vao trang thai ERP")
         self.assertEqual(r["remaining"], 0)
+
+    def test_nguoi_duyet_khong_co_token_thi_dung_khong_ky_thay(self):
+        m, w = self.mk(no_approver_tokens=True)
+        r = self.run1(m)
+        self.assertEqual(r["results"][0]["result"], "stop")
+        self.assertEqual(r["results"][0]["reason"], "signer_token_missing:phuong@x")
+        self.assertEqual(w["sent"], [])
+
+    def test_tai_khoan_tich_hop_tu_ky_dung_token_tich_hop(self):
+        m, w = self.mk(no_approver_tokens=True)
+        leg = _leg("DSR-3", "Approval Level", "hoan@x", "U-X", "S-X", "RL-3", "4")
+        ad, why = m._user_token_adapter(leg, {"environment": "UAT"})
+        self.assertIsNone(why)
+        self.assertIsNone(ad.token, "tai khoan tich hop tu ky: khong doi token")
+        ad2, why2 = m._user_token_adapter(dict(LEGS[2], action="Approve"), {"environment": "UAT"})
+        self.assertIsNone(ad2.token, "buoc duyet KHONG ky giu tai khoan tich hop")
 
     def test_mot_chan_moi_lan_goi(self):
         m, w = self.mk(signed=["huong@x", "tuan@x"], open=[-10, -11],
@@ -759,7 +815,8 @@ class TestTaoLai(Base):
         w["sign_as"] = [["tuan@x"]]
         w["next"] = [{"level_no": 2, "approver": "lien@x", "status": "Pending"}]
         self.run1(m)
-        self.assertIsNone(w["sent"][1]["token"], "chan duyet: tai khoan tich hop")
+        self.assertEqual(w["sent"][1]["token"], "T-tuan@x",
+                         "chan duyet: token cua CHINH nguoi duyet (16/11 CMC)")
 
 
 class TestThayTaiLieuNham(Base):
@@ -841,6 +898,124 @@ class TestThayTaiLieuNham(Base):
     def test_404_thi_phai_dung_duong_thuong(self):
         m, w = self.mk(**self.kw(missing=True))
         self.assertEqual(self.go(m)["reason"], "replace_foreign_needs_existing_doc")
+
+
+class TestDungLaiPdfThieuChuKy(Base):
+    """16/11 CMC: tai khoan tich hop ky thay -> cong ghi 'Da ky' nhung PDF thieu chu ky so.
+    rebuild_unembedded: tao ban moi bang token nguoi de nghi, moi chan ky lai bang token rieng."""
+    def kw(self, **extra):
+        k = dict(missing=False, tokens={"huong@x": "T-H"}, signed=["huong@x", "tuan@x"],
+                 open=[-2], legs=[LEGS[0], LEGS[1]], sign_as=[["huong@x"]], live=[],
+                 pdf_sigs={"OLDF": 1},
+                 placements=[{"signature_file": "F1", "status": "Placed", "level_no": 0},
+                             {"signature_file": "F1", "status": "Placed", "level_no": 1},
+                             {"signature_file": "F1", "status": "Placed", "level_no": 2}],
+                 dsf=[{"name": "F1", "file": "SRC-1", "file_name": "a.pdf",
+                       "scts_document_file_id": "OLDF",
+                       "signed_file": "FILE-OLD", "signed_file_sha256": "abc",
+                       "provider_status": "Signed"}],
+                 next=[{"level_no": 1, "approver": "tuan@x", "status": "Approved"},
+                       {"level_no": 2, "approver": "lien@x", "status": "Approved"}])
+        k.update(extra)
+        return k
+
+    def go(self, m, dry=False, **kw):
+        return m.recreate_document("EC Payment Request", "PR-1", R, dry_run=dry,
+                                   rebuild_unembedded=True, **kw)
+
+    def writes(self, w, dt):
+        return [a for a in w["writes"] if a[0] == dt]
+
+    def test_chay_thu(self):
+        m, w = self.mk(**self.kw())
+        r = self.go(m, dry=True)
+        self.assertTrue(r.get("dry_run"), r)
+        self.assertEqual(r["unembedded"], [{"file": "F1", "pdf_signatures": 1, "placements": 2,
+                                            "source_signatures": 0}],
+                         "cap 2 chua ky tren ERP -> khong tinh")
+        self.assertEqual((w["writes"], w["commits"]), ([], 0))
+
+    def test_pdf_du_chu_ky_thi_khong(self):
+        m, w = self.mk(**self.kw(pdf_sigs={"OLDF": 2}))
+        self.assertEqual(self.go(m)["reason"], "pdf_signatures_complete")
+        self.assertNotIn("created", w)
+
+    def test_chua_dong_bo_thi_ban_lai_truoc(self):
+        m, w = self.mk(**self.kw(signed=["huong@x"]))
+        self.assertEqual(self.go(m)["reason"], "rebuild_needs_in_sync")
+
+    def test_thieu_token_bat_ky_chan_nao_thi_dung_tu_dau(self):
+        m, w = self.mk(**self.kw(no_approver_tokens=True))
+        r = self.go(m)
+        self.assertEqual(r["reason"], "tokens_missing:signer_token_missing:tuan@x")
+        self.assertEqual(w["writes"], [])
+
+    def test_khong_doc_duoc_pdf_thi_dung(self):
+        m, w = self.mk(**self.kw(pdf_fail=True))
+        self.assertEqual(self.go(m)["reason"], "pdf_read:scts_signed_pdf_empty")
+
+    def test_hai_che_do_cung_luc_thi_khong(self):
+        m, w = self.mk(**self.kw())
+        self.assertEqual(self.go(m, replace_foreign=True)["reason"], "one_mode_only")
+
+    def test_chay_that_go_con_tro_pdf_cu_va_ma_tep_cu(self):
+        m, w = self.mk(**self.kw())
+        r = self.go(m)
+        self.assertTrue(r["ok"], r)
+        self.assertEqual(w["created"]["by_token"], "T-H")
+        dsf = self.writes(w, "EC Digital Signature File")
+        self.assertEqual(dsf[0][1], "F1")
+        self.assertIsNone(dsf[0][2]["scts_document_file_id"])
+        for k in ("signed_file", "signed_file_sha256", "provider_status", "signed_retrieved_at",
+                  "signed_review_candidate", "signed_review_sha256"):
+            self.assertIn(k, dsf[0][2])
+            self.assertIsNone(dsf[0][2][k])
+        pk = [a[2] for a in self.writes(w, "EC Digital Signature Package")]
+        self.assertIn("signed_bundle_complete", pk)
+        ev = [e for e in w["events"] if (e[1].get("request_meta") or {}).get("old_document_id")]
+        meta = ev[0][1]["request_meta"]
+        self.assertEqual(meta["old_signed_files"]["F1"]["signed_file"], "FILE-OLD")
+        self.assertEqual(meta["rebuild_unembedded"][0]["pdf_signatures"], 1)
+
+    def test_tao_hong_chac_chan_thi_tra_lai_ca_con_tro_pdf(self):
+        m, w = self.mk(**self.kw(create_fail=True))
+        r = self.go(m)
+        self.assertFalse(r["ok"])
+        dsf = self.writes(w, "EC Digital Signature File")
+        last = dsf[-1][2]
+        self.assertEqual((last["scts_document_file_id"], last["signed_file"],
+                          last["signed_file_sha256"], last["provider_status"]),
+                         ("OLDF", "FILE-OLD", "abc", "Signed"))
+        pk = self.writes(w, "EC Digital Signature Package")
+        self.assertIn(("EC Digital Signature Package", "PKG-1", "signed_bundle_complete",
+                       "BUNDLE-WAS"), pk, "tra lai DUNG gia tri cu, khong ep 1")
+
+    def test_phieu_chua_duyet_xong_thi_khong(self):
+        m, w = self.mk(**self.kw(approval_status="Pending"))
+        self.assertEqual(self.go(m)["reason"], "rebuild_needs_approved_request")
+
+    def test_tep_goc_co_san_chu_ky_thi_tru(self):
+        # PDF 2 /ByteRange nhung 1 cai co san tu tep goc -> that ra chi 1 chu ky / can 2
+        m, w = self.mk(**self.kw(pdf_sigs={"OLDF": 2}, source_sigs={"SRC-1": 1}))
+        r = self.go(m, dry=True)
+        self.assertEqual(r["unembedded"][0]["pdf_signatures"], 1)
+        self.assertEqual(r["unembedded"][0]["source_signatures"], 1)
+        m, w = self.mk(**self.kw(pdf_sigs={"OLDF": 2}, source_sigs={"SRC-1": 0}))
+        self.assertEqual(self.go(m, dry=True)["reason"], "pdf_signatures_complete")
+
+    def test_khong_doc_duoc_tep_goc_thi_dung(self):
+        m, w = self.mk(**self.kw(source_fail=True))
+        self.assertEqual(self.go(m)["reason"], "source_unreadable:F1")
+
+    def test_chan_sau_khong_ban_lai_duoc_thi_dung_truoc_khi_tao(self):
+        # chan cap 1 khong do ERP gui (vd nhan ve tu cong) -> dung NGAY, khong tao
+        m, w = self.mk(**self.kw(orig={"DSR-R": _orig(), "DSR-1": []}))
+        r = self.go(m)
+        self.assertEqual(r["reason"], "leg_not_replayable:DSR-1:leg_not_sent_by_erp")
+        self.assertEqual(w["writes"], [])
+        m, w = self.mk(**self.kw(map_changed={"tuan@x"}))
+        self.assertTrue(self.go(m, dry=True)["reason"].startswith(
+            "leg_not_replayable:DSR-1:mapping_changed"))
 
 
 class TestKhongDeTrongMaTaiLieu(Base):

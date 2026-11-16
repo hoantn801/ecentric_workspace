@@ -366,14 +366,16 @@ class TestTasksWorker(unittest.TestCase):
         self.assertLess(_line(use[0]), _line(ens[0]),
                         "token nguoi dung phai duoc dat TRUOC khi tao chung tu")
 
-    def test_chi_Requester_moi_dung_token_nguoi_dung(self):
-        # loi goi use_user_token phai nam trong mot nhanh if kiem actor_type == "Requester"
+    def test_token_nguoi_dung_theo_signer_token_needed(self):
+        # 16/11/2026 (CMC): nguoi duyet CUNG ky bang token rieng (CMC khong nhung chu ky so khi
+        # tai khoan tich hop ky thay). use_user_token nam trong nhanh `if own_user:` voi
+        # own_user = user_link.signer_token_needed(...) - mot quy tac duy nhat cho ca hai vai.
+        self.assertIn("own_user = user_link.signer_token_needed(dsr, settings)", self.src)
         for n in ast.walk(self.fn):
-            if isinstance(n, ast.If) and 'actor_type == \'Requester\'' in ast.unparse(n.test):
+            if isinstance(n, ast.If) and ast.unparse(n.test) == "own_user":
                 self.assertTrue(_calls(n, "use_user_token"))
-                self.assertIn("needs_own_token", ast.unparse(n.test))
                 return
-        self.fail("khong thay nhanh if actor_type == 'Requester' and needs_own_token")
+        self.fail("khong thay nhanh if own_user")
 
     def test_khong_token_khi_Queued_thi_nem_requester_not_linked_khong_retry(self):
         raises = [n for n in ast.walk(self.fn) if isinstance(n, ast.Raise)
