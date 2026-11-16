@@ -649,6 +649,9 @@ class SctsAdapter(SignatureProviderAdapter):
             "document_type_id": raw.get("documentTypeId"),
             "company_id": raw.get("companyId"),
             "department_id": raw.get("departmentId"),
+            # Ai TAO tai lieu (eContract giao buoc nguoi de nghi cho tai khoan tao). Dung de
+            # nhan ra tai lieu tao nham tai khoan (16/11, 00675). Chi email, khong bi mat.
+            "creator_email": raw.get("creatorEmail"),
         }
         return NormalizedDocState(str(doc_id), status, signers=signers, files=files, raw={},
                                   identity=identity)

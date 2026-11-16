@@ -69,7 +69,9 @@ class _Adapter(object):
         if self.w.get("late_land") and self.w["sent"] == [] and self.w.get("polls", 0) >= 1:
             self.w["signed"].append(self.w.pop("late_land"))
         self.w["polls"] = self.w.get("polls", 0) + 1
-        return _State(list(self.w["signed"]), self.w.get("doc_status", "processing"))
+        st = _State(list(self.w["signed"]), self.w.get("doc_status", "processing"))
+        st.identity = dict(self.w.get("identity") or {})
+        return st
 
     def workflow_state_for_document(self, doc_id, uid):
         if self.w.get("state_none"):
@@ -183,6 +185,8 @@ def _load(world):
         if dt == "EC Digital Signature Package":
             if isinstance(name, dict) or fields == "name":
                 return "PKG-1"
+            if fields == "doc_code_sent":
+                return world.get("doc_code_sent")
             if fields == "error_code":
                 return world.get("err_code")
             if isinstance(fields, list) and "scts_workflow_instance_id" in fields \
@@ -756,6 +760,101 @@ class TestTaoLai(Base):
         w["next"] = [{"level_no": 2, "approver": "lien@x", "status": "Pending"}]
         self.run1(m)
         self.assertIsNone(w["sent"][1]["token"], "chan duyet: tai khoan tich hop")
+
+
+class TestThayTaiLieuNham(Base):
+    """16/11 00675: goi trong ma tai lieu, cap 1 bam duyet -> worker tao tai lieu bang TAI KHOAN
+    TICH HOP. eContract giao buoc nguoi de nghi cho tai khoan tao -> chu ky nguoi de nghi khong
+    vao duoc (400). replace_foreign: tao ban moi bang token nguoi de nghi khi ban cu 0 chu ky
+    va do nguoi khac tao."""
+    MR_L1 = {"name": "DSR-1B", "status": "Manual Review", "actor_type": "Approval Level",
+             "request_level": "RL-1"}
+
+    def kw(self, **extra):
+        k = dict(missing=False, tokens={"huong@x": "T-H"}, signed=[], open=[-2],
+                 legs=[LEGS[0]], sign_as=[["huong@x"]], live=[dict(self.MR_L1)],
+                 identity={"creator_email": "Hoan@X", "doc_code": "PR-1"},
+                 next=[{"level_no": 1, "approver": "tuan@x", "status": "Pending"}])
+        k.update(extra)
+        return k
+
+    def go(self, m, dry=False):
+        return m.recreate_document("EC Payment Request", "PR-1", R, dry_run=dry,
+                                   replace_foreign=True)
+
+    def test_khong_bat_co_thi_nhu_cu(self):
+        m, w = self.mk(**self.kw())
+        r = m.recreate_document("EC Payment Request", "PR-1", R, dry_run=False)
+        self.assertEqual(r["reason"], "document_not_missing")
+        self.assertNotIn("created", w)
+
+    def test_chay_thu_khong_ghi(self):
+        m, w = self.mk(**self.kw())
+        r = self.go(m, dry=True)
+        self.assertTrue(r.get("dry_run"), r)
+        self.assertEqual(r["foreign_creator"], "hoan@x")
+        self.assertEqual((w["writes"], w["commits"]), ([], 0))
+
+    def test_thay_bang_token_nguoi_de_nghi_mr_cap_sau_khong_chan(self):
+        m, w = self.mk(**self.kw())
+        r = self.go(m)
+        self.assertTrue(r["ok"], r)
+        self.assertEqual(w["created"]["by_token"], "T-H")
+        self.assertEqual((r["old_document_id"], r["new_document_id"]), ("DOC-1", "DOC-NEW"))
+        ev = [e for e in w["events"] if (e[1].get("request_meta") or {}).get("old_document_id")]
+        self.assertEqual(ev[0][1]["request_meta"]["replaced_foreign_creator"], "hoan@x")
+        self.assertEqual(w["sent"], [])
+
+    def test_co_chu_ky_thi_khong(self):
+        m, w = self.mk(**self.kw(signed=["huong@x"]))
+        self.assertEqual(self.go(m)["reason"], "foreign_doc_has_signatures")
+        self.assertNotIn("created", w)
+
+    def test_nguoi_de_nghi_tao_thi_khong(self):
+        for who in ("huong@x", "CNB@x"):
+            m, w = self.mk(**self.kw(identity={"creator_email": who, "doc_code": "PR-1"}))
+            self.assertEqual(self.go(m)["reason"], "foreign_doc_created_by_requester", who)
+            self.assertNotIn("created", w)
+
+    def test_khong_biet_nguoi_tao_thi_khong(self):
+        m, w = self.mk(**self.kw(identity={"doc_code": "PR-1"}))
+        self.assertEqual(self.go(m)["reason"], "foreign_doc_creator_unknown")
+
+    def test_ma_chung_tu_lech_thi_khong(self):
+        m, w = self.mk(**self.kw(identity={"creator_email": "hoan@x", "doc_code": "PR-9"}))
+        self.assertEqual(self.go(m)["reason"], "foreign_doc_code_mismatch")
+        m, w = self.mk(**self.kw(doc_code_sent="EC-X-1",
+                                 identity={"creator_email": "hoan@x", "doc_code": "EC-X-1"}))
+        self.assertTrue(self.go(m)["ok"], "doc_code_sent uu tien hon ten phieu")
+
+    def test_tai_lieu_huy_hoac_xong_thi_khong(self):
+        for st in ("cancelled", "completed"):
+            m, w = self.mk(**self.kw(doc_status=st))
+            self.assertFalse(self.go(m)["ok"], st)
+            self.assertNotIn("created", w)
+
+    def test_chan_dang_bay_van_chan(self):
+        live = dict(self.MR_L1, status="Queued")
+        m, w = self.mk(**self.kw(live=[live]))
+        self.assertTrue(self.go(m)["reason"].startswith("live_legs"))
+
+    def test_404_thi_phai_dung_duong_thuong(self):
+        m, w = self.mk(**self.kw(missing=True))
+        self.assertEqual(self.go(m)["reason"], "replace_foreign_needs_existing_doc")
+
+
+class TestKhongDeTrongMaTaiLieu(Base):
+    def test_tao_hong_khi_goi_da_trong_ma_thi_tra_ma_cu_tu_su_kien(self):
+        """03:57 16/11 00675: lan tao lai thu hai bi CMC chan (het han muc) - goi bi de TRONG ma
+        -> 09:22 cap 1 bam duyet, worker tao tai lieu bang tai khoan tich hop. Phai tra ma cu."""
+        m, w = self.mk(missing=True, tokens={"huong@x": "T-H"}, signed=[], open=[-2],
+                       legs=[LEGS[0]], doc=None, prior_recreate=["DOC-1"], create_fail=True,
+                       next=[{"level_no": 1, "approver": "tuan@x", "status": "Pending"}])
+        r = m.recreate_document("EC Payment Request", "PR-1", R, dry_run=False)
+        self.assertFalse(r["ok"])
+        last = [a[2] for a in w["writes"] if a[0] == "EC Digital Signature Package"][-1]
+        self.assertEqual(last["scts_document_id"], "DOC-1")
+        self.assertIsNone(last["error_code"])
 
 
 class TestKiemTokenVaApi(Base):
