@@ -593,6 +593,11 @@
   .wu-counter { position: absolute; right: 4px; bottom: -18px; font-size: 11px; color: var(--gray-400); }
   .wu-counter.warn { color: var(--yellow); }
   .wu-counter.over { color: var(--red); }
+
+  /* 17/11/2026: goi y tuan (tuan truoc chua nop). Trang thai ban dau nam trong markup (hidden). */
+  .wu-week-hint { margin: 0 0 16px; padding: 12px 16px; border-radius: 10px; font-size: 14px; line-height: 1.5;
+    background: var(--yellow-50); border: 1px solid var(--yellow); color: var(--gray-800); }
+  .wu-week-hint a { color: var(--navy); font-weight: 600; text-decoration: underline; white-space: nowrap; }
   .wu-mt-8 { margin-top: 8px !important; }
 
   .wu-chip-group { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -779,6 +784,8 @@
             </div>
           </div>
         </div>
+
+        <div class="wu-week-hint" id="wu-week-hint" role="status" hidden></div>
 
         <form id="weekly-update-form" autocomplete="off" onsubmit="return false;">
 
@@ -1057,24 +1064,18 @@
   function fmtDateFull(d) { return pad2(d.getDate()) + '/' + pad2(d.getMonth()+1) + '/' + d.getFullYear(); }
 
   // ============== WEEK CALC (client-side) ==============
-  function calculateCurrentWeek() {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    // JS getDay(): Sun=0, Mon=1...Sat=6. We want Mon=0.
-    const weekdayMon0 = (today.getDay() + 6) % 7;
-    const monday = new Date(today);
-    monday.setDate(monday.getDate() - weekdayMon0);
+  // 17/11/2026: tuan mac dinh = TUAN LICH chua hom nay (T2-CN). Truoc day trang tu nhay sang
+  // tuan SAU tu T6 18:00 -> ai nop cuoi tuan / sang T2 ma khong chon lai tuan thi bao cao roi
+  // vao tuan sau (15-16/11: 2 ban W46 vao W47), va han CN cua phong DOS khong dung duoc.
+  // Han nop tung phong van do applyDeptWindow() doc tu Department Reporting Window.
+  // Bo sinh ban ghi phia server (week_calendar.compute_week_for) VAN tao truoc ban nhap tuan
+  // sau tu T6 18:00 - viec do vo hai, khong lien quan tuan trang MO mac dinh.
+  function weekFromMonday(mondayIn) {
+    const monday = new Date(mondayIn.getFullYear(), mondayIn.getMonth(), mondayIn.getDate());
     const friday = new Date(monday);
     friday.setDate(friday.getDate() + 4);
     const deadline = new Date(friday);
     deadline.setHours(18, 0, 0, 0);
-
-    // Rollover sau deadline T6 18:00 → tuần sau
-    if (now > deadline && weekdayMon0 >= 4) {
-      monday.setDate(monday.getDate() + 7);
-      friday.setDate(friday.getDate() + 7);
-      deadline.setDate(deadline.getDate() + 7);
-    }
 
     // ISO week number
     const tmp = new Date(monday);
@@ -1098,6 +1099,69 @@
       monday: monday,
       friday: friday
     };
+  }
+  function mondayFromLabel(label) {
+    const p = String(label || '').split('-W');
+    const yr = parseInt(p[0]), wk = parseInt(p[1]);
+    const jan4 = new Date(yr, 0, 4);
+    const w1m = new Date(jan4);
+    w1m.setDate(jan4.getDate() - (jan4.getDay() + 6) % 7);
+    const mon = new Date(w1m);
+    mon.setDate(w1m.getDate() + (wk - 1) * 7);
+    return mon;
+  }
+  function weekFromLabel(label) { return weekFromMonday(mondayFromLabel(label)); }
+  function calculateCurrentWeek(nowIn) {
+    const now = nowIn || new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    // JS getDay(): Sun=0, Mon=1...Sat=6. We want Mon=0.
+    const monday = new Date(today);
+    monday.setDate(monday.getDate() - (today.getDay() + 6) % 7);
+    return weekFromMonday(monday);
+  }
+
+  // Tuan truoc con ban nhap (Draft, do bo sinh tao) = nguoi nay chua nop tuan truoc.
+  // T2-T4: mo thang tuan truoc (nop tre van la nop dung tuan). T5-CN: mo tuan nay, chi nhac.
+  // Luon co duong chuyen tuan trong dong goi y. Loi mang -> giu tuan nay, khong chan trang.
+  async function pickDefaultWeek(cur, nowIn) {
+    const now = nowIn || new Date();
+    const prevMon = new Date(cur.monday);
+    prevMon.setDate(prevMon.getDate() - 7);
+    const prev = weekFromMonday(prevMon);
+    let prevStatus = null;
+    try {
+      const flt = encodeURIComponent(JSON.stringify([
+        ["employee", "=", CTX.employeeId], ["week_label", "=", prev.weekLabel]
+      ]));
+      const res = await apiGet('/api/resource/Weekly Team Update?filters=' + flt +
+        '&fields=' + encodeURIComponent(JSON.stringify(["name", "status"])) + '&limit_page_length=1');
+      if (res.data && res.data.length) prevStatus = res.data[0].status;
+    } catch (e) {
+      console.warn('[week] khong doc duoc tuan truoc, giu tuan nay', e);
+      return { week: cur, hint: null };
+    }
+    if (prevStatus !== 'Draft') return { week: cur, hint: null };
+    const weekdayMon0 = (now.getDay() + 6) % 7;
+    if (weekdayMon0 <= 2) return { week: prev, hint: { kind: 'opened-prev', prev: prev, cur: cur } };
+    return { week: cur, hint: { kind: 'prev-missing', prev: prev, cur: cur } };
+  }
+  function renderWeekHint(hint) {
+    const el = document.getElementById('wu-week-hint');
+    if (!el || !hint) return;
+    const range = function (w) { return w.weekStartDisplay + ' – ' + w.weekEndDisplay; };
+    const link = function (w, text) {
+      const u = new URL(window.location.href);
+      u.searchParams.set('week', w.weekLabel);
+      return '<a href="' + u.pathname + u.search + '">' + text + '</a>';
+    };
+    if (hint.kind === 'opened-prev') {
+      el.innerHTML = 'Bạn chưa nộp báo cáo <strong>' + hint.prev.weekLabel + '</strong> (' + range(hint.prev) +
+        ') nên trang đang mở tuần đó. Muốn nộp cho tuần này? ' + link(hint.cur, 'Chuyển sang ' + hint.cur.weekLabel);
+    } else {
+      el.innerHTML = 'Bạn chưa nộp báo cáo tuần trước <strong>' + hint.prev.weekLabel + '</strong> (' + range(hint.prev) +
+        '). ' + link(hint.prev, 'Mở ' + hint.prev.weekLabel + ' để nộp');
+    }
+    el.hidden = false;
   }
 
   // ============== FRAPPE API HELPERS ==============
@@ -1156,38 +1220,26 @@
   // ============== INITIAL LOAD ==============
   async function loadData() {
     WEEK = calculateCurrentWeek();
-    try { window.WEEK = WEEK; } catch(e){}
+    // window.WEEK dat SAU khi chon xong tuan (cuoi khoi duoi): cot "Lich bao cao" va
+    // applyDeptWindow() cho window.WEEK roi moi chay, nen ho thay ngay tuan dung.
+    let _weekHint = null;
     // F1_URL_OVERRIDE_START
     try {
       const _urlW = new URLSearchParams(location.search).get('week');
       if (_urlW && _urlW !== WEEK.weekLabel) {
-        const _p = _urlW.split('-W');
-        const _yr = parseInt(_p[0]);
-        const _wk = parseInt(_p[1]);
-        const _jan4 = new Date(_yr, 0, 4);
-        const _j4d = (_jan4.getDay() + 6) % 7;
-        const _w1m = new Date(_jan4);
-        _w1m.setDate(_jan4.getDate() - _j4d);
-        const _mon = new Date(_w1m);
-        _mon.setDate(_w1m.getDate() + (_wk - 1) * 7);
-        const _fri = new Date(_mon); _fri.setDate(_mon.getDate() + 4);
-        const _ddl = new Date(_fri); _ddl.setHours(18, 0, 0, 0);
-        WEEK = {
-          weekLabel: _urlW,
-          weekStartDate: _mon.toISOString().slice(0,10),
-          weekEndDate: _fri.toISOString().slice(0,10),
-          weekStartDisplay: fmtDate(_mon),
-          weekEndDisplay: fmtDateFull(_fri),
-          deadlineDisplay: 'Thứ 6, ' + fmtDateFull(_fri) + ' 18:00',
-          deadline: _ddl,
-          monday: _mon,
-          friday: _fri
-        };
+        WEEK = weekFromLabel(_urlW);
         try { window.WEEK = WEEK; } catch(e){}
         console.log('[F1] WEEK overridden from URL:', _urlW, WEEK);
       }
     } catch(e) { console.error('[F1] URL override failed', e); }
     // F1_URL_OVERRIDE_END
+    if (!VIEW_MODE && CTX.employeeId && !new URLSearchParams(location.search).get('week')) {
+      const _pick = await pickDefaultWeek(WEEK);
+      WEEK = _pick.week;
+      _weekHint = _pick.hint;
+    }
+    try { window.WEEK = WEEK; } catch(e){}
+    renderWeekHint(_weekHint);
 
     // VIEW MODE: chỉ render record được view, không fetch
     if (VIEW_MODE) {
@@ -3413,6 +3465,41 @@ async function sendMessage(text){
     });
   }
 
+  // 17/11/2026: chan nop nham tuan. Hai dau hieu, deu chi HOI LAI (window.confirm), khong cam:
+  //  1. ten tep ghi so tuan khac tuan dang nop (vd "Bao cao tuan 46" nop vao W47) - chi xet
+  //     so cach tuan dang nop <= 3, de "W2_Nov" (tuan 2 cua thang) khong bao dong nham;
+  //  2. dang nop cho tuan CHUA TOI (sau tuan lich hien tai).
+  function wuIsoWeekOf(d) {
+    var t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    var day = t.getUTCDay() || 7;
+    t.setUTCDate(t.getUTCDate() + 4 - day);
+    var yStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+    return { year: t.getUTCFullYear(), week: Math.ceil((((t - yStart) / 86400000) + 1) / 7) };
+  }
+  function wuWeekInName(name) {
+    var n = String(name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\u0111\u0110]/g, 'd').toLowerCase();
+    var m = n.match(/(?:^|[^a-z0-9])(?:w|wk|week|tuan)[\s_.\-]*0?(\d{1,2})(?![0-9])/);
+    return m ? parseInt(m[1], 10) : null;
+  }
+  function wuWeekMismatch(files, label, nowIn) {
+    var m = /^(\d{4})-W(\d{2})$/.exec(label || '');
+    if (!m) return '';
+    var year = parseInt(m[1], 10), target = parseInt(m[2], 10);
+    var now = wuIsoWeekOf(nowIn || new Date());
+    var msgs = [];
+    if (year * 100 + target > now.year * 100 + now.week) {
+      msgs.push('Bạn đang nộp cho ' + label + ' — tuần này CHƯA tới (tuần hiện tại là ' + now.year + '-W' + ('0' + now.week).slice(-2) + ').');
+    }
+    for (var i = 0; i < (files || []).length; i++) {
+      var w = wuWeekInName(files[i] && files[i].name);
+      if (w !== null && w !== target && Math.abs(w - target) <= 3) {
+        msgs.push('Tên tệp "' + files[i].name + '" ghi tuần ' + w + ' nhưng bạn đang nộp cho ' + label + '.');
+      }
+    }
+    if (!msgs.length) return '';
+    return msgs.join('\n') + '\n\nVẫn nộp vào ' + label + '?\n(Bấm Huỷ rồi chọn đúng tuần ở cột "Lịch báo cáo" bên trái.)';
+  }
+
   async function doServerSubmit() {
     var btn = document.querySelector('button[type="submit"]') || document.getElementById('submit-btn') || document.querySelector('.btn-submit, [data-action="submit"]');
     if (!btn) {
@@ -3435,6 +3522,9 @@ async function sendMessage(text){
         if (btn) { btn.disabled = false; btn.textContent = origText; }
         return;
       }
+
+      var wrongWeek = wuWeekMismatch(files, data.week_label);
+      if (wrongWeek && !window.confirm(wrongWeek)) return;   // finally{} tra nut ve nhu cu
 
       // ec_upload_session_2026-09-12 (A21): the deck goes browser -> SharePoint
       // directly. The server hands out an upload URL and only ever stores the
