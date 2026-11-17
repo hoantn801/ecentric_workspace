@@ -742,10 +742,13 @@
         renderFileList(field, labelId); }; }); }
 
   function wireCreate(){ var b=$("payr-body"); var editing=state.mode==="edit"; wireModels(b); wireSoPicker();
+    if(state._instSwitchPending&&!editing){ state._instSwitchPending=false; setTimeout(switchToInstallment,0); }   // tu hop "co chia dot khong?" o man chi tiet nhap
     var att=document.querySelector('[data-upload="request_attachment"]'); if(att) att.addEventListener("change",function(){ uploadFile(att,"request_attachment","payr-att-name"); }); if(att) renderFileList("request_attachment","payr-att-name");
     if(editing){
       $("payr-edit-cancel").onclick=function(){ state._editDet=null; state.mode="create"; _setEditingFlag(false); renderDetail($("payr-body")); };
-      $("payr-resubmit").onclick=function(){ var v=validateSubmit(); if(v){ showFieldErrors(v); toast("Vui lòng kiểm tra các trường bắt buộc.",true); return; } setBusyIds(["payr-resubmit","payr-edit-cancel"],true);
+      $("payr-resubmit").onclick=function(){ var v=validateSubmit(); if(v){ showFieldErrors(v); toast("Vui lòng kiểm tra các trường bắt buộc.",true); return; }
+        var rb=this; if(installmentHint(state.draft)&&!state._instHintPass){ confirmInstallmentHint(state.draft,{onSwitch:switchToInstallment}).then(function(go2){ if(go2){ state._instHintPass=true; try{ rb.onclick(); } finally { state._instHintPass=false; } } }); return; }
+        setBusyIds(["payr-resubmit","payr-edit-cancel"],true);
         call("resubmit",{name:state.id,payload:JSON.stringify(state.draft)}).then(function(res){ toast(resubmitMsg(res)); state._editDet=null; state.mode="create"; _setEditingFlag(false); renderDetail($("payr-body")); }).catch(function(e){ if(window.console&&console.error) console.error("Payment Request resubmit error:",e); toast(resubmitErr(e),true); setBusyIds(["payr-resubmit","payr-edit-cancel"],false); }); };
       return;
     }
@@ -767,8 +770,41 @@
       if(el && el.style.display!=="none"){ clearInterval(t); try{ el.scrollIntoView({behavior:"smooth",block:"start"}); }catch(e){ try{ el.scrollIntoView(); }catch(_e){} } return; }
       if(n>=40) clearInterval(t);
     },150); }
+  // ---- Canh bao "ghi dot 1 / 50% nhung chon 100%" (17/11/2026, Hoan) ----
+  // Nhieu phieu ghi "dot 1", "50%"... bang chu nhung van chon Thanh toan 100% (EC-PAYR-2026-00501,
+  // 00508, 00602): Finance chi xong khong co nut "Tao de nghi dot 2", phan con lai khong ai theo doi.
+  // Chi HOI LAI, khong chan: nguoi gui van gui 100% duoc. Chi bat "dot/lan 1", 50%, 50/50, coc -
+  // KHONG bat "dot 2", "lan N" (phieu dot sau tao tay) hay "tam ung" (khong phai chia dot).
+  var INST_HINT_RE=/(?:^|[^\p{L}\d])((?:đợt|dot|lần|lan)\s*(?:1|một|mot)|50\s*%|50\s*\/\s*50|đặt\s*cọc|dat\s*coc)(?![\p{L}\d%])/iu;
+  function installmentHint(d){ d=d||{}; if((d.payment_mode||"Full")==="Installment"||d.installment_of) return "";
+    var txt=[d.request_title,d.reason].map(function(x){ return String(x||""); }).join(" \n ");
+    var m=txt.match(INST_HINT_RE); return m?m[1].trim():""; }
+  // -> Promise: resolve(true) = gui tiep 100%; resolve(false) = dung (nguoi dung chuyen sang chia dot / dong).
+  function confirmInstallmentHint(d, opts){ opts=opts||{}; var hit=installmentHint(d);
+    var key=hit?(String(d.name||state.id||"new")+"|"+hit.toLowerCase()):"";
+    if(!hit||state._instHintOk===key) return Promise.resolve(true);
+    return new Promise(function(resolve){ var done=false; function fin(v){ if(!done){ done=true; resolve(v); } }
+      var body='<div class="banner warn" style="margin-bottom:10px"><div>Phiếu ghi <b>“'+esc(hit)+'”</b> nhưng đang chọn <b>Thanh toán 100%</b>.</div></div>'
+        +'<p style="margin:0 0 8px">Nếu hợp đồng trả làm nhiều đợt, hãy chọn <b>Chia nhiều đợt</b> và nhập Tổng giá trị. Khi Finance chi xong đợt này, phiếu sẽ có nút <b>“Tạo đề nghị đợt 2”</b> và hệ thống theo dõi phần còn lại.</p>'
+        +'<p class="hint" style="margin:0">Chọn 100% thì sau này phải tự tạo phiếu mới cho đợt sau.</p>'
+        +'<div class="actions" style="margin-top:12px"><button type="button" class="btn primary" data-inst-switch>'+esc(opts.switchLabel||"Chuyển sang Chia nhiều đợt")+'</button></div>';
+      var m=modal("Thanh toán này có chia đợt không?", body, { okLabel:"Vẫn gửi thanh toán 100%",
+        onConfirm:function(){ state._instHintOk=key; fin(true); } });
+      var ok=m.ov.querySelector("[data-ok]"); if(ok) ok.classList.remove("primary");
+      var sw=m.ov.querySelector("[data-inst-switch]"); if(sw){ try{ sw.focus(); }catch(e){}
+        sw.onclick=function(){ m.close(); fin(false); if(opts.onSwitch) opts.onSwitch(); }; }
+      var x=m.ov.querySelector("[data-x]"); if(x){ var c0=x.onclick; x.onclick=function(){ fin(false); c0&&c0(); }; }
+      m.ov.addEventListener("keydown",function(e){ if(e.key==="Escape") fin(false); });
+      m.ov.addEventListener("click",function(e){ if(e.target===m.ov) fin(false); });
+    }); }
+  // Chuyen form dang sua sang Chia nhieu dot, dua con tro toi o Tong gia tri.
+  function switchToInstallment(){ setModel("payment_mode","Installment"); renderCreate($("payr-body"));
+    var t=document.querySelector('#ec-payr-root [data-model="total_amount"]');
+    if(t){ try{ t.scrollIntoView({block:"center"}); }catch(e){} try{ t.focus(); }catch(e){} }
+    toast("Đã chuyển sang Chia nhiều đợt. Nhập Tổng giá trị hợp đồng rồi gửi lại."); }
   function saveDraft(thenSubmit){ if(state.busy)return;
-    if(thenSubmit){ var v=validateSubmit(); if(v){ showFieldErrors(v); toast("Vui lòng kiểm tra các trường bắt buộc.",true); return; } } else { showFieldErrors(null); }
+    if(thenSubmit){ var v=validateSubmit(); if(v){ showFieldErrors(v); toast("Vui lòng kiểm tra các trường bắt buộc.",true); return; }
+      if(installmentHint(state.draft)&&!state._instHintPass){ confirmInstallmentHint(state.draft,{onSwitch:switchToInstallment}).then(function(go2){ if(go2){ state._instHintPass=true; try{ saveDraft(true); } finally { state._instHintPass=false; } } }); return; } } else { showFieldErrors(null); }
     state.busy=true; setBusy(true);
     call("save_draft",{name:state.id||null,payload:JSON.stringify(state.draft||{})}).then(function(res){ state.id=res.name; state.dirty=false;
       if(thenSubmit){ return call("submit_request",{name:state.id}).then(function(){ toast("Gửi yêu cầu thành công. Yêu cầu đã được chuyển đến Quản lý trực tiếp phê duyệt."); go({id:state.id}); }); }
@@ -1198,7 +1234,7 @@
   function handleActionClick(e){ var el=e.target&&e.target.closest?e.target.closest("[data-act]"):null; if(!el) return;
     var a=el.getAttribute("data-act"); if(!a||el.disabled) return; if(document.querySelector(".ec-payr-overlay")) return; e.preventDefault();
     var det=state.detail||{}; var name=(det.business||{}).name||state.id;
-    if(a==="editdraft") return startEditDraft(det); if(a==="submitdraft") return doSubmitDraft(name);
+    if(a==="editdraft") return startEditDraft(det); if(a==="submitdraft"){ var bz=det.business||{}; if(installmentHint(bz)) return confirmInstallmentHint(bz,{switchLabel:"Sửa phiếu: chọn Chia nhiều đợt", onSwitch:function(){ state._instSwitchPending=true; startEditDraft(det); }}).then(function(go2){ if(go2) doSubmitDraft(name); }); return doSubmitDraft(name); }
     if(a==="edit") return startEditResubmit(det); if(a==="approve") return doApprove(name,det); if(a==="remind") return window.EcRemind&&EcRemind.run(call,name,{toast:toast,mapErr:(typeof mapErr==="function"?mapErr:null),done:function(){ if(typeof refreshDetail==="function") refreshDetail(); else if(typeof renderDetail==="function") renderDetail(document.querySelector('[id$="-body"]')); }});
     if(a==="approvesign") return doApproveAndSign(name,det);
     if(a==="reject") return doReject(name); if(a==="reqinfo") return doRequestInfo(name);
@@ -1371,7 +1407,7 @@
     call("get_bootstrap").then(function(bd){ state.boot=bd||{tabs:{},context:{},form_options:{}}; route(); })
     .catch(function(e){ var bd=$("payr-body"); if(bd) bd.innerHTML='<div class="card"><div class="state"><h4>Không tải được trang</h4><div class="hint">'+esc(mapErr(e))+'</div><button type="button" class="btn" id="b-retry">Thử lại</button></div></div>'; var r=$("b-retry"); if(r)r.onclick=boot; }); }
 
-  window.PaymentRequest={ state:state, soHintHTML:soHintHTML, soCheckHTML:soCheckHTML, fundingHintHTML:fundingHintHTML, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, ensurePROptions:ensurePROptions, renderCreate:renderCreate, doApproveAndSign:doApproveAndSign, loadSignReady:loadSignReady, callEsign:callEsign, handleHPRChange:handleHPRChange, handleSrcTypeChange:handleSrcTypeChange, handleSrcPick:handleSrcPick, promoteLegacySource:promoteLegacySource, fmtVnd:fmtVnd, startSignWait:startSignWait, stopSignWait:stopSignWait, signWaitActive:signWaitActive, uncStep:uncStep, uncSectionHTML:uncSectionHTML, uncCardVisible:uncCardVisible, doUncComplete:doUncComplete, instChainHTML:instChainHTML, instCardHTML:instCardHTML, instFolded:instFolded, installmentRemaining:installmentRemaining, formCardsHTML:formCardsHTML };
+  window.PaymentRequest={ installmentHint:installmentHint, confirmInstallmentHint:confirmInstallmentHint, state:state, soHintHTML:soHintHTML, soCheckHTML:soCheckHTML, fundingHintHTML:fundingHintHTML, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, ensurePROptions:ensurePROptions, renderCreate:renderCreate, doApproveAndSign:doApproveAndSign, loadSignReady:loadSignReady, callEsign:callEsign, handleHPRChange:handleHPRChange, handleSrcTypeChange:handleSrcTypeChange, handleSrcPick:handleSrcPick, promoteLegacySource:promoteLegacySource, fmtVnd:fmtVnd, startSignWait:startSignWait, stopSignWait:stopSignWait, signWaitActive:signWaitActive, uncStep:uncStep, uncSectionHTML:uncSectionHTML, uncCardVisible:uncCardVisible, doUncComplete:doUncComplete, instChainHTML:instChainHTML, instCardHTML:instCardHTML, instFolded:instFolded, installmentRemaining:installmentRemaining, formCardsHTML:formCardsHTML };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
 </script>
