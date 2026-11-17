@@ -60,8 +60,10 @@ class TestBadgeMatchesQueue(Base):
         self.me()
         self.fk.row("Task", "SP")["workflow_state"] = "Review"        # split parent waiting for MY approval
         self.fk.row("Task", "SENT")["workflow_state"] = "In Progress"  # returned to me
-        self.assertEqual(self.dash.rail_badges()["mywork"], len(self.q.list()["rows"]))
-        self.assertEqual(self.dash.rail_badges()["mywork"], 5)
+        rows = self.q.list()["rows"]
+        # hotfix 16: SENT is due 01/10 (15 days late) -> "Tồn đọng", folded away, not in the badge
+        self.assertEqual(self.dash.rail_badges()["mywork"], len([r for r in rows if r["bucket"] != "stale"]))
+        self.assertEqual(self.dash.rail_badges()["mywork"], 4)
 
     def test_badge_zero_when_only_waiting(self):
         F.task(self.fk, "SENT", owner=F.GIVER, assign=[F.ALICE], state="Review", end="2026-10-01")

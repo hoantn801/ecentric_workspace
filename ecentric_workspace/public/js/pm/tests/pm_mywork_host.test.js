@@ -47,7 +47,7 @@ const tick = ms => new Promise(r => setTimeout(r, ms || 30));
   let v = b.d.getElementById("pm-view");
   ok("#mywork → PMQueue trong #pm-view (tiêu đề head() của host 'Việc cần làm', dòng việc theo queue.list)", !!v.querySelector(".pmq") && (v.querySelector(".pm-head h1") || {}).textContent === "Việc cần làm" && !!v.querySelector('.pmq-row[data-name="T1"]'));
   ok("breadcrumb 'Việc cần làm', menu fallback cũng đổi nhãn", (b.d.getElementById("pm-crumb") || {}).textContent === "Việc cần làm" && /Việc cần làm/.test((b.d.querySelector('.ec-shell-fallback a[href="/pm#mywork"]') || {}).textContent || ""));
-  ok("đọc qua api của host (frappe.call) cả 2 tab; không gọi bộ dữ liệu màn cũ", b.calls.filter(c => c.m === "queue.list").length === 2 && !b.calls.some(c => c.m === "dashboard.my_tasklist"));
+  ok("đọc qua api của host (frappe.call) cả 3 tab (hotfix 16); không gọi bộ dữ liệu màn cũ", b.calls.filter(c => c.m === "queue.list").length === 3 && !b.calls.some(c => c.m === "dashboard.my_tasklist"));
   const css = b.d.querySelector("link[data-pmq-css]");
   ok("CSS pm_queue tải lười đúng 1 lần, cùng ?v= với pm_redesign.js", !!css && css.getAttribute("href") === "/assets/ecentric_workspace/css/pm/pm_queue.css?v=" + VER && b.d.querySelectorAll("link[data-pmq-css]").length === 1);
   ok("hàng đợi đặt cờ leader (control_center) vì màn cũ không còn làm việc đó", b.calls.some(c => c.m === "dashboard.control_center"));

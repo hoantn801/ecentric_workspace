@@ -39,6 +39,13 @@ VIEWS = [
 ]
 
 
+# Hotfix 16 (PO 17/11/2026): "Được giao cho tôi" + "Tôi đã giao" merged into "Việc cần làm" (tabs Việc tôi làm /
+# Việc tôi giao / Tôi theo dõi; "Cần đồng ý" is the block on top of the queue). The ROUTES stay (notification
+# links, #given/rep "Lặp lại", #given/done "Đã xong"); only the sidebar ROW goes (sidebar_hidden, so the
+# shared rail does not drop them into "Mục khác").
+MERGED_INTO_MYWORK = ("pm.view.assignments", "pm.view.given")
+
+
 def items():
     out = [dict(APP)]
     for key, label, route, icon, order in VIEWS:
@@ -51,5 +58,6 @@ def items():
             "visible_when": "internal", "owner": "pm", "view": True,
             # #project/<id> (chi tiet du an) sang menu "Du an", khong roi ve muc dau "Viec cua toi"
             **({"hash_segments": ["project"]} if key == "pm.view.projects" else {}),
+            **({"sidebar_hidden": True} if key in MERGED_INTO_MYWORK else {}),
         })
     return out

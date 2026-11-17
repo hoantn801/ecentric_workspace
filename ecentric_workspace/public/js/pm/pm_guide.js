@@ -64,9 +64,7 @@ function content() {
   h += sec("pmg-s1", 1, "Công việc gồm những gì", "Ai cũng đọc",
     '<div class="pmg-two">' + shot("menu", "Menu trái của Công việc") +
     '<div><ol class="pmg-menu-l">' +
-      "<li>" + b("Việc cần làm") + ": mọi việc bạn phải làm, xếp sẵn thứ tự <b>Hạn → Ưu tiên → Giờ</b>. Mở mỗi sáng, <b>làm từ trên xuống</b>. Việc đã gửi kiểm tra nằm ở nhóm <b>Đang chờ duyệt</b> cuối trang. Tab <b>Việc tôi giao</b>: <b>Nhắc</b> người chưa mở việc, <b>Duyệt xong</b> / <b>Trả lại</b>; ai <b>Đề xuất hạn khác</b> hay <b>Xin dời hạn</b> thì trả lời ở đầu tab.</li>" +
-      "<li>" + b("Được giao cho tôi") + ": chỉ những gì <b>cần bạn trả lời</b>: nhận việc, việc mới giao, kết quả xin dời hạn. Có số đỏ là có việc chờ bạn.</li>" +
-      "<li>" + b("Tôi đã giao") + ": việc bạn giao cho người khác, ai xong ai chưa.</li>" +
+      "<li>" + b("Việc cần làm") + ": mọi việc bạn phải làm, xếp sẵn thứ tự <b>Hạn → Ưu tiên → Giờ</b>. Mở mỗi sáng, <b>làm từ trên xuống</b>. Việc đã gửi kiểm tra nằm ở nhóm <b>Đang chờ duyệt</b> cuối trang. Việc trễ quá 14 ngày gom ở <b>Tồn đọng</b>: chọn nhiều việc rồi dời hạn, bỏ hạn hay Xong. Tab <b>Việc tôi giao</b>: <b>Nhắc</b>, <b>Duyệt xong</b> / <b>Trả lại</b>, trả lời đề xuất hạn. Tab <b>Tôi theo dõi</b>: việc bạn được CC.</li>" +
       "<li>" + b("Lịch làm việc") + ": xếp việc vào giờ trong tuần, xem lịch họp Outlook.</li>" +
       "<li>" + b("+ Giao việc") + ": tạo việc cho mình hoặc giao cho người khác.</li>" +
       "<li>" + b("Phòng họp") + ": xem phòng trống và đặt phòng (cũng là tab trong Lịch làm việc).</li>" +
@@ -88,11 +86,11 @@ function content() {
 
   /* 2 */
   h += sec("pmg-s2", 2, "Khi được giao việc", role("n") + " Dành cho người nhận việc",
-    "<p>Có người giao việc cho bạn: bạn nhận " + b("tin Teams") + " kèm đường link. Bấm link, hoặc vào " + b("Được giao cho tôi") + ", là thấy ai giao, hạn khi nào.</p>" +
-    shot("received", "Được giao cho tôi: việc cần trả lời, việc mới giao chưa mở, các lần xin dời hạn của bạn") +
+    "<p>Có người giao việc cho bạn: bạn nhận " + b("tin Teams") + " kèm đường link. Bấm link, hoặc mở " + b("Việc cần làm") + ", là thấy ai giao, hạn khi nào.</p>" +
+    shot("received", "Việc chờ bạn trả lời: Nhận việc, Đề xuất hạn khác hoặc Từ chối") +
     "<h3>Có hai kiểu được giao</h3>" +
     table(["Kiểu", "Bạn thấy gì", "Bạn làm gì"], [
-      [b("Cần bạn đồng ý") + "<br><small>(mặc định khi giao cho người khác)</small>", "Việc nằm ở <b>Được giao cho tôi → Cần bạn trả lời</b>.", "Bấm <b>Nhận việc</b>, <b>Đề xuất hạn khác</b>, hoặc <b>Từ chối</b> (ghi lý do)."],
+      [b("Cần bạn đồng ý") + "<br><small>(mặc định khi giao cho người khác)</small>", "Việc nằm ở khối <b>Cần đồng ý</b> đầu <b>Việc cần làm</b>.", "Bấm <b>Nhận việc</b>, <b>Đề xuất hạn khác</b>, hoặc <b>Từ chối</b> (ghi lý do)."],
       [b("Giao thẳng"), "Việc vào thẳng <b>Việc cần làm</b>. Không có nút từ chối.", "Làm luôn. Hạn không hợp lý thì <b>Xin dời hạn</b> (mục 3)."]]) +
     lanes("Luồng giao thẳng", ["g", "s", "n"], [
       ["g", "Giao việc (tắt <b>Cần người nhận đồng ý</b>)"], ["s", "Gửi tin Teams, việc vào <b>Việc cần làm</b>"],
@@ -115,8 +113,8 @@ function content() {
     steps([
       ["n", "Mở việc, bấm <b>Xin dời hạn</b> ngay cạnh hạn."],
       ["n", "Chọn ngày mới (các nút gợi ý, hoặc <b>Chọn ngày…</b>), ghi ngắn lý do, bấm <b>Gửi đề xuất</b>."],
-      ["g", "Nhận tin Teams. Đề xuất hiện ở đầu <b>Việc tôi giao</b> (và <b>Tôi đã giao</b>): bấm <b>Đồng ý</b> hoặc <b>Giữ hạn cũ</b>."],
-      ["n", "Xem kết quả ở <b>Được giao cho tôi → Xin dời hạn của bạn</b>. Đồng ý thì hạn tự cập nhật."]]) +
+      ["g", "Nhận tin Teams. Đề xuất hiện ở đầu <b>Việc tôi giao</b>: bấm <b>Đồng ý</b> hoặc <b>Giữ hạn cũ</b>."],
+      ["n", "Có tin báo kết quả. Đồng ý thì hạn tự cập nhật."]]) +
     shot("deadline_form", "Form Xin dời hạn ngay trong việc") +
     lanes("Luồng xin dời hạn", ["n", "s", "g"], [
       ["n", "Xin dời hạn + lý do"], ["s", "Báo người giao qua Teams"], ["g", "Đồng ý / Giữ hạn cũ"], ["s", "Báo kết quả"], ["n", "Hạn mới tự cập nhật"]]) +
@@ -172,7 +170,7 @@ function content() {
 
   /* 7 */
   h += sec("pmg-s7", 7, "Theo dõi việc đã giao", role("g") + " Dành cho người giao",
-    shot("given", "Tôi đã giao: tiến độ từng người, đề xuất dời hạn ở đầu trang") +
+    shot("given", "Tiến độ từng người (Việc tôi giao → Xem thêm: lặp lại, đã xong)") +
     steps([
       ["g", "Việc chờ bạn duyệt, việc có người trễ, việc người nhận chưa mở luôn nằm trên cùng. Giao một người thì ngay dòng đó ghi “chưa mở việc” hay “trễ N ngày”, kèm nút <b>Nhắc</b>."],
       ["g", "Mỗi dòng là một lần giao. Thanh màu: <span class=\"pmg-c-done\">xanh</span> xong, <span class=\"pmg-c-run\">navy</span> đang làm, <span class=\"pmg-c-late\">đỏ</span> trễ."],
@@ -211,11 +209,11 @@ function content() {
   /* 10 */
   h += sec("pmg-s10", 10, "Câu hỏi thường gặp", "Ai cũng đọc",
     table(["Câu hỏi", "Trả lời"], [
-      ["“Việc cần làm” khác “Được giao cho tôi” thế nào?", "<b>Việc cần làm</b> là toàn bộ việc bạn đang làm, xếp sẵn thứ tự. <b>Được giao cho tôi</b> chỉ chứa những gì cần bạn <b>trả lời</b>."],
+      ["Việc trễ lâu nằm đâu?", "Trễ quá 14 ngày gom ở <b>Tồn đọng</b> đầu danh sách, không tính vào số đếm. Mở ra để dời hạn, bỏ hạn hoặc Xong một lần nhiều việc."],
       ["Không muốn nhận một việc giao thẳng?", "Giao thẳng không có nút từ chối. Hãy <b>Xin dời hạn</b>, hoặc viết ở <b>Bình luận</b> để trao đổi với người giao."],
       ["Bấm Xong nhầm?", "Chọn <b>Hoàn tác</b> trên thông báo, hoặc mở việc đổi lại trạng thái."],
       ["Việc chung chưa đóng dù mọi người đã xong?", "Việc sang Chờ duyệt để người giao kiểm tra. Không cần kiểm tra thì khi giao bật <b>Tự đóng khi mọi người xong</b>."],
-      ["Được CC thì phải làm gì?", "Không phải bấm Xong. Bạn chỉ theo dõi: xem ở <b>Tôi đã giao → Tôi theo dõi</b>, bình luận khi cần. Không muốn theo dõi nữa thì bấm × cạnh tên mình trong việc."],
+      ["Được CC thì phải làm gì?", "Không phải bấm Xong. Bạn chỉ theo dõi: xem ở tab <b>Tôi theo dõi</b> của Việc cần làm, bình luận khi cần. Không muốn theo dõi nữa thì bấm × cạnh tên mình trong việc."],
       ["Muốn giao thêm người cho việc đã Xong?", "Chuyển việc về <b>Đang làm</b> trước, rồi thêm người."],
       ["Việc nhỏ có cần ghi không?", "Nên ghi. Gõ vào ô đầu <b>Việc cần làm</b>, vài giây là xong, khỏi quên."],
       ["Có bắt buộc ghi giờ không?", "Tuỳ quy định của nhóm. Hệ thống không bắt buộc."],
