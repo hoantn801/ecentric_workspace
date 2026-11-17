@@ -703,7 +703,7 @@ class QcVong4(unittest.TestCase):
     def test_khong_doi_loai_khi_da_tao_hop_dong_kol(self):
         s, _v, _a, _f = _fresh("req@ec")
         d = Doc(doctype=CR, name="CR-5", contract_type="Sales / Bán ra (EC)",
-                contract_file="/private/files/HDDV_1_ab.docx", acceptances=[])
+                contract_file="/private/files/HDDV_1_ab.docx", acceptances=[], generated_template="TPL-1")
         s.esign_flow.apply_default = lambda doc: None
         s.esign_flow.clean_labor = lambda doc: None
         with self.assertRaises(Throw) as cm:
@@ -714,11 +714,83 @@ class QcVong4(unittest.TestCase):
         src = _read("features/contract_review/application/kol_service.py")
         i = src.index("def prepare_draft")
         body = src[i:src.index("\ndef ", i + 10)]
-        self.assertIn('kol_access.is_generated(doc.get("request_attachment")) and doc.get("request_attachment") != doc.get("contract_file")', body)
+        self.assertIn('kol_access.foreign_generated(doc, doc.get("request_attachment"))', body)
 
-    def test_da_thanh_ly_xoa_duoc_dot_nhap_bat_ky(self):
-        src = _read("features/contract_review/application/kol_acceptance.py")
-        self.assertIn('if row.idx != len(doc.acceptances or []) and not doc.get("kol_closed_at"):', src)
+    def test_da_thanh_ly_van_chi_xoa_dot_nhap_cuoi(self):
+        _s, _v, acc, _f = _fresh("fin@ec")
+        STATE["roles"]["fin@ec"] = ["EC Finance"]
+        d = _kol(kol_closed_at="2026-11-17 10:00:00", requested_by="fin@ec", owner="fin@ec")
+        d["acceptances"] = [Row(name="r1", idx=1, status="Nháp", amount=1, bbnt_file=None),
+                            Row(name="r2", idx=2, status="Đã gửi ký", amount=1, bbnt_file=None)]
+        STATE["values"][("EC Approval Request", "AR-1")] = "Approved"
+        with self.assertRaises(Throw) as cm:
+            acc.delete_acceptance("CR-1", "fin@ec", "r1")
+        self.assertIn("cuối cùng", str(cm.exception))
+
+
+class QcVongCuoi(unittest.TestCase):
+    """QC vong cuoi 17/11: nhan dien tep HE THONG sinh khong chi dua vao ten tep."""
+
+    def test_phieu_loai_khac_co_tep_ten_hddv_van_luu_duoc(self):
+        s, _v, _a, _f = _fresh("req@ec")
+        s.esign_flow.apply_default = lambda doc: None
+        s.esign_flow.clean_labor = lambda doc: None
+        d = Doc(doctype=CR, name="CR-6", contract_type="Purchase / Mua vào (EC)",
+                contract_file="/private/files/HDDV_x.pdf", acceptances=[])
+        STATE["values"][(CR, "CR-6")] = lambda field, as_dict: {"contract_type": "Purchase / Mua vào (EC)"}
+        STATE["get_all"]["File"] = lambda f, kw: ["[Đối chứng] HDDV_x.docx"]
+        s.prepare_draft(d)                       # khong nem loi
+
+    def test_phieu_dang_luu_la_kol_co_tep_he_thong_thi_khong_doi_loai(self):
+        s, _v, _a, _f = _fresh("req@ec")
+        s.esign_flow.apply_default = lambda doc: None
+        s.esign_flow.clean_labor = lambda doc: None
+        d = Doc(doctype=CR, name="CR-7", contract_type="Sales / Bán ra (EC)", contract_file=None, acceptances=[])
+        STATE["values"][(CR, "CR-7")] = lambda field, as_dict: {"contract_type": "KOL/KOC / Creator (EC)"}
+        STATE["get_all"]["File"] = lambda f, kw: ["HDDV_7_ab12cd34.docx"]
+        with self.assertRaises(Throw):
+            s.prepare_draft(d)
+
+    def test_tep_cua_phieu_khac_moi_bo_tep_vua_tai_hoac_da_gan_thi_giu(self):
+        a = _access("req@ec")
+        d = Doc(doctype=CR, name="CR-8")
+        STATE["get_all"]["File"] = lambda f, kw: [{"attached_to_doctype": CR, "attached_to_name": "CR-OLD",
+                                                   "owner": "Administrator"}]
+        self.assertTrue(a.foreign_generated(d, "/private/files/HDDV_1_ab12cd34.docx"))
+        STATE["get_all"]["File"] = lambda f, kw: [{"attached_to_doctype": None, "attached_to_name": None,
+                                                   "owner": "req@ec"}]
+        self.assertFalse(a.foreign_generated(d, "/private/files/HDDV_hop_dong_creator.pdf"))
+        STATE["get_all"]["File"] = lambda f, kw: [{"attached_to_doctype": CR, "attached_to_name": "CR-8",
+                                                   "owner": "req@ec"}]
+        self.assertFalse(a.foreign_generated(d, "/private/files/HDDV_hop_dong_creator.pdf"))
+        self.assertFalse(a.foreign_generated(d, "/private/files/hop dong.pdf"))
+
+    def test_mau_creator_ten_hddv_nguoi_duyet_van_thay(self):
+        a = _access("appr@ec")
+        b = _biz()
+        b.update({"request_type": "Template from partner / Mẫu theo khung đối tác", "contract_file": None,
+                  "request_attachment": "/private/files/HDDV_hop_dong_creator.pdf", "requested_by": "req@ec"})
+        a.redact_business(b)
+        self.assertEqual(b["request_attachment"], "/private/files/HDDV_hop_dong_creator.pdf")
+        out = a.redact_attachments([{"file_url": "/private/files/HDDV_hop_dong_creator.pdf",
+                                     "file_name": "HDDV_hop_dong_creator.pdf", "owner": "req@ec"}], b)
+        self.assertEqual(len(out), 1)
+
+    def test_mau_ec_nguoi_duyet_van_bi_an(self):
+        a = _access("appr@ec")
+        b = _biz()
+        b.update({"request_type": "Template from EC / Mẫu theo khung EC", "requested_by": "req@ec",
+                  "request_attachment": b["contract_file"]})
+        a.redact_business(b)
+        self.assertIsNone(b["request_attachment"])
+        self.assertIsNone(b["contract_file"])
+
+    def test_tim_hop_dong_goc_khong_loc_sql_bang_khac(self):
+        src = _read("features/contract_review/controllers/api.py")
+        i = src.index("def search_previous_contracts")
+        body = src[i:src.index("\n@frappe.whitelist", i + 10) if "\n@frappe.whitelist" in src[i + 10:] else len(src)]
+        self.assertNotIn('["contract_type", "!="', body)
+        self.assertIn('r.get("contract_type") != "KOL/KOC / Creator (EC)"', body)
 
 
 if __name__ == "__main__":

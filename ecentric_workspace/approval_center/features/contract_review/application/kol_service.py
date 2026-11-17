@@ -35,10 +35,13 @@ def prepare_draft(doc):
         # che tep va lai len SharePoint chung (QC vong 4 17/11).
         if kol_access.has_kol_files(doc):
             frappe.throw(_("Phiếu đã tạo hợp đồng KOL (có CCCD, số tài khoản creator) nên không đổi sang loại "
-                           "hợp đồng khác. Hủy phiếu này rồi lập phiếu mới."))
+                           "hợp đồng khác. Lập phiếu mới cho loại hợp đồng kia; phiếu này hủy đi (đang chờ "
+                           "bổ sung thì nhờ người duyệt từ chối)."))
         return
-    # Ban nhan ban (clone) con tro toi hop dong sinh tu mau cua phieu CU: bo, khi gui se sinh lai (QC vong 4).
-    if kol_access.is_generated(doc.get("request_attachment")) and doc.get("request_attachment") != doc.get("contract_file"):
+    # Ban nhan ban (clone) con tro toi hop dong sinh tu mau cua phieu CU (tep gan phieu KHAC): bo, khi gui
+    # se sinh lai (QC vong 4). Tep nguoi dung vua tai / da gan chinh phieu nay thi giu, du ten bat dau
+    # HDDV_ / BBNT_ (QC vong cuoi 17/11 - truoc do xoa nham tep mau creator ten "HDDV_...").
+    if kol_access.foreign_generated(doc, doc.get("request_attachment")):
         doc.request_attachment = None
     creator = creator_row(doc.get("creator"))
     doc.creator_name = creator.get("supplier_name") if creator else None
@@ -448,6 +451,7 @@ def detail_extra(business, request):
         # Ban da che: nguoi lap / nguoi duyet / Ke toan (khop kol_preview._load) - QC 17/11.
         "can_preview": can_manage(business, user) or is_approver(business, user),
         "payee_changed": kol_access.payee_changed(business),
+        "payee_was_empty": business.get("kol_payee_fp") == kol_access.NO_ACCOUNT,
         "closed": {"at": str(business.get("kol_closed_at") or ""), "by": business.get("kol_closed_by") or "",
                    "reason": business.get("kol_close_reason") or ""} if kol_access.is_closed(business) else None,
         "acceptance_remaining": kol_acceptance.acceptance_remaining(business),

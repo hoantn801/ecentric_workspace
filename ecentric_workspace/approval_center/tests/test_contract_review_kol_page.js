@@ -78,6 +78,13 @@ function po1711Part(){
       d2.extra.kol.closed.reason="Creator huỷ booking.";
       const h3=K.detailHTML(d2);
       chk("da thanh ly: banner dung dau, khong 2 dau cham, van xoa duoc dot nhap cuoi", h2.indexOf("đã thanh lý")<h2.indexOf(">W<")&&!/booking\.\./.test(h3)&&/data-kol="delacc"/.test(h3));
+      { const d4=JSON.parse(JSON.stringify(d2)); d4.extra.kol.signed=false; d4.business.signing_status="Chờ kiểm tra";
+        chk("vong cuoi: thanh ly khi ban ky cho kiem -> noi ro van xac nhan duoc", /Bản ký đang chờ Kế toán kiểm vẫn xác nhận được/.test(K.detailHTML(d4))&&!/không nhận bản ký, không lập ĐNTT/.test(K.detailHTML(d4)));
+        const d5=JSON.parse(JSON.stringify(curDetail)); d5.extra.kol.payee_was_empty=true; d5.extra.kol.approved=true;
+        chk("vong cuoi: luc gui chua co STK -> banner 'vua bo sung'", /Creator vừa bổ sung tài khoản nhận tiền/.test(K.detailHTML(d5))); }
+      { const src=w8.document.documentElement.innerHTML;
+        chk("vong cuoi: CSS the BBNT tren dien thoai khong lan sang bang tinh long ben trong", /table\.tbl\.kol-acc>tbody>tr>td\{/.test(src)&&!/table\.tbl\.kol-acc td\{/.test(src));
+        chk("vong cuoi: nut Xóa thong nhat chinh ta", !/>Xoá</.test(src)); }
       chk("da thanh ly: thanh tien trinh khong con 'chua len dot'", /Đã thanh lý · Hoàn tất/.test(w8.ContractReview.buildStepper(Object.assign({},d2,{approval:{name:"R",approval_status:"Approved"}})))&&!/chưa lên đợt/.test(w8.ContractReview.buildStepper(Object.assign({},d2,{approval:{name:"R",approval_status:"Approved"}}))));
       { const d6=JSON.parse(JSON.stringify(detail)); d6.approval={approval_status:"Approved"};
         Object.assign(d6.extra.kol,{can_manage:true,is_finance:true,approved:true,signed:false,closed:{at:"2026-11-17",by:"f",reason:"x"}}); d6.business.signing_status="Chưa ký";

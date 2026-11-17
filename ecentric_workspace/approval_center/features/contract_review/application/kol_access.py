@@ -64,15 +64,55 @@ def is_pii_file(business, file_name_or_url):
 
 
 def has_kol_files(doc):
-    """Phieu da co tep sinh tu mau KOL (hop dong / BBNT) - kiem ca dong File he thong gan phieu."""
-    if is_generated(doc.get("contract_file")) or doc.get("acceptances"):
+    """Phieu da tao hop dong / BBNT KOL (in CCCD, STK creator). Chi dua vao dau vet KOL that (mau da
+    dung, van tay, dot BBNT) hoac phieu DANG LUU la KOL: ten tep HDDV_ / BBNT_ tren phieu loai khac
+    (vd tep nguoi dung, ban doi chung chu Administrator) khong tinh (QC vong cuoi 17/11)."""
+    if doc.get("acceptances") or doc.get("generated_template") or doc.get("contract_fingerprint"):
         return True
-    if not doc.get("name") or (hasattr(doc, "is_new") and doc.is_new()):
+    if not doc.get("name") or _is_new(doc):
         return False
+    stored = frappe.db.get_value(kol_lookup.CR_DT, doc.name, ["contract_type", "generated_template",
+                                                               "contract_fingerprint"], as_dict=True) or {}
+    if stored.get("generated_template") or stored.get("contract_fingerprint"):
+        return True
+    if not kol.is_kol(stored):
+        return False
+    if is_generated(doc.get("contract_file")):
+        return True
     names = frappe.get_all("File", filters={"attached_to_doctype": kol_lookup.CR_DT, "attached_to_name": doc.name,
                                             "owner": "Administrator"}, pluck="file_name", limit_page_length=0,
                            ignore_permissions=True)
     return any(is_generated(n) for n in names or [])
+
+
+def _is_new(doc):
+    fn = getattr(doc, "is_new", None)
+    return bool(callable(fn) and fn())
+
+
+def foreign_generated(doc, file_url):
+    """Tep ten HDDV_ / BBNT_ ma KHONG gan phieu nay va khong phai tep nguoi dung vua tai len (chua gan):
+    ban sinh tu mau cua phieu khac con sot lai khi "Sao chep" phieu."""
+    if not file_url or not is_generated(file_url):
+        return False
+    rows = frappe.get_all("File", filters={"file_url": file_url},
+                          fields=["attached_to_doctype", "attached_to_name", "owner"], limit_page_length=0,
+                          ignore_permissions=True)
+    is_new = _is_new(doc)
+    for r in rows or []:
+        if doc.get("name") and not is_new and r.get("attached_to_doctype") == doc.doctype \
+                and r.get("attached_to_name") == doc.name:
+            return False
+        if not r.get("attached_to_name") and r.get("owner") == frappe.session.user:
+            return False
+    return True
+
+
+def _partner_upload(business, url):
+    """Tep hop dong theo mau CUA CREATOR nguoi lap tai len: khong phai ban he thong sinh, du ten bat dau
+    HDDV_ / BBNT_ -> nguoi duyet van xem / tai binh thuong nhu truoc (QC vong cuoi 17/11)."""
+    return bool(url) and business.get("request_type") == kol.TEMPLATE_PARTNER \
+        and url == business.get("request_attachment") and url != business.get("contract_file")
 
 
 def lock_pii_files(doc):
@@ -83,7 +123,7 @@ def lock_pii_files(doc):
     try:
         urls = _signed_urls(doc)
         for f in ("contract_file", "request_attachment"):
-            if is_generated(doc.get(f)):
+            if is_generated(doc.get(f)) and not _partner_upload(doc, doc.get(f)):
                 urls.add(doc.get(f))
         for r in doc.get("acceptances") or []:
             if r.get("bbnt_file"):
@@ -124,7 +164,7 @@ def redact_business(business, request=None):
     if can_download_full(business, frappe.session.user):
         return
     for field in ("contract_file", "request_attachment"):
-        if is_generated(business.get(field)):
+        if is_generated(business.get(field)) and not _partner_upload(business, business.get(field)):
             business[field] = None
     if business.get("signed_file"):
         business["signed_file"] = None
@@ -148,6 +188,9 @@ def redact_attachments(attachments, business, request=None):
         if a.get("docx_file_url") or a.get("pdf_file_url"):
             if allowed:
                 out.append(a)
+            continue
+        if a.get("owner") != "Administrator" and _partner_upload(business, a.get("file_url")):
+            out.append(a)
             continue
         if _is_pii_attachment(business, a):
             continue

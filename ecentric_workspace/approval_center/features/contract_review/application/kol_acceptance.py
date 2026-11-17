@@ -113,10 +113,12 @@ def delete_acceptance(name, user, row_name):
     row = _row(doc, row_name)
     if row.status != kol.BBNT_DRAFT:
         frappe.throw(_("Chỉ xoá được đợt nghiệm thu còn nháp (chưa gửi ký)."))
-    if row.idx != len(doc.acceptances or []) and not doc.get("kol_closed_at"):
-        # Xoa dot giua thi cac dot sau bi danh so lai, ma tep BBNT cua chung da in "dot n" cu. Da thanh
-        # ly thi cho xoa dot nhap bat ky (dot bi cong tra ve nhap khong gui lai duoc) - QC vong 4.
-        frappe.throw(_("Chỉ xoá được đợt nghiệm thu cuối cùng."))
+    if row.idx != len(doc.acceptances or []):
+        # Xoa dot giua thi cac dot sau bi danh so lai, ma tep BBNT / goi ky cua chung da in "dot n" cu -
+        # KE CA khi da thanh ly (QC vong cuoi 17/11). Dot nhap con lai khong anh huong tien duoc tra:
+        # tran DNTT chi tinh dot da hoan tat.
+        frappe.throw(_("Chỉ xoá được đợt nghiệm thu cuối cùng. Đợt nháp còn lại không làm thay đổi số "
+                       "tiền được thanh toán (chỉ tính các đợt đã hoàn tất)."))
     idx, amount, bbnt = row.idx, flt(row.amount), row.bbnt_file
     doc.remove(row)
     doc.save(ignore_permissions=True)
