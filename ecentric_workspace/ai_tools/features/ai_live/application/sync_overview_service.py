@@ -44,7 +44,7 @@ class SyncOverviewService:
             "versions": [dict(v, source_text=C.PUB_SOURCE_TEXT.get(v["source"], v["source"]),
                               changes=[{k: c.get(k) for k in ("session", "title", "texts", "held_until", "held_why")}
                                        for c in v["changes"]]) for v in self.schedule.versions()],
-            "server_time": now}
+            "server_time": now, "can_edit": _common.has_role(roles, C.SCHEDULE_EDIT_ROLES)}
 
     def publisher(self):
         if self._publisher is None:

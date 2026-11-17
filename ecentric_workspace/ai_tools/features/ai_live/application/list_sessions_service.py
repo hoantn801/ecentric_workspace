@@ -40,4 +40,5 @@ class ListSessionsService:
         if status in STATUSES:
             rows = [r for r in rows if r["status"] == status]
         rows.sort(key=lambda r: (STATUS_ORDER.get(r["status"], 9), (r["next"] or {}).get("start") or 9e12, r["title"]))
-        return {"sessions": rows, "counts": counts, "facets": facets, "server_time": now, "refresh_s": 15}
+        return {"sessions": rows, "counts": counts, "facets": facets, "server_time": now, "refresh_s": 15,
+                "can_edit": _common.has_role(roles, C.SCHEDULE_EDIT_ROLES)}

@@ -75,7 +75,8 @@ class WeekScheduleService:
                 "machines": [{"code": c, "label": m["label"], "max_lives": m["max_lives"], "enabled": m["enabled"],
                               "sync": P.machine_sync(m, sessions, now, dead)} for c, m in machines.items()],
                 "drafts": sum(1 for s in sessions if s.get("draft")),
-                "blocks": blocks, "conflicts": conflicts, "server_time": now}
+                "blocks": blocks, "conflicts": conflicts, "server_time": now,
+                "can_edit": _common.has_role(roles, C.SCHEDULE_EDIT_ROLES)}
 
     def _sched(self):
         if self._schedule is None:

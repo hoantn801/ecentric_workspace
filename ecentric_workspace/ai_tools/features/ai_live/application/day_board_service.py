@@ -57,4 +57,5 @@ class DayBoardService:
         counts = {k: sum(1 for r in keep if r["status"] == k and not (r["off_plan"] or r["stale_plan"])) for k in B.STATUS_TEXT}
         return {"day": d.isoformat(), "window": [lo, hi], "rows": keep, "summary": SR.summary(keep), "counts": counts,
                 "facets": facets, "server_time": now, "now_text": R.vn_text(now),
+                "can_edit": _common.has_role(roles, C.SCHEDULE_EDIT_ROLES),
                 "today": datetime.fromtimestamp(now, R._VN).date().isoformat(), "drafts": sum(1 for s in sessions if s.get("draft"))}

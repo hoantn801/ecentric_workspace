@@ -34,5 +34,5 @@ class BrandMonthService:
         tot = {k: round(sum(r[k] for r in rows), 1) for k in ("planned_h", "due_h", "live_h", "off_plan_h")}
         tot["lives"] = sum(r["lives"] for r in rows)
         tot["pct"] = round(100.0 * tot["live_h"] / tot["due_h"]) if tot["due_h"] else None
-        return {"month": days[0].strftime("%Y-%m"), "rows": rows, "total": tot, "facets": facets, "server_time": now,
+        return {"month": days[0].strftime("%Y-%m"), "rows": rows, "total": tot, "facets": facets, "server_time": now, "can_edit": _common.has_role(roles, C.SCHEDULE_EDIT_ROLES),
                 "today": datetime.fromtimestamp(now, R._VN).date().isoformat(), "drafts": sum(1 for s in every if s.get("draft"))}

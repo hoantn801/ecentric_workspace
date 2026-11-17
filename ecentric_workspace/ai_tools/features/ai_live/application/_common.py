@@ -19,6 +19,11 @@ def require_machine(repo, user, code=None):
     return m
 
 
+def has_role(roles, allowed):
+    """18/11: trang an nut sua khi nguoi xem khong co quyen (server van tu kiem o tung API)."""
+    return bool(set(roles or ()) & set(allowed))
+
+
 def require_role(roles, allowed, msg):
     if not set(roles or ()) & set(allowed):
         raise C.AiLivePermission(msg)

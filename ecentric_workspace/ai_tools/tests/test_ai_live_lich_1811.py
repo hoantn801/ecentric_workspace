@@ -346,6 +346,15 @@ class TestRoles(unittest.TestCase):
             WeekScheduleService(w.ss, w.machines, w.clock, w.sched).execute(NOBODY, days=1)
 
 
+class TestCanEditFlag(unittest.TestCase):
+    def test_pages_hide_edit_buttons_for_viewer(self):          # trang an nut sua; server van kiem o tung API
+        w = World(at(12))
+        wk = lambda roles: WeekScheduleService(w.ss, w.machines, w.clock, w.sched).execute(roles, days=1)["can_edit"]
+        self.assertEqual((wk(SCHED), wk(VIEW), wk(VIEWER)), (True, True, False))
+        self.assertFalse(board(at(9), roles=VIEWER)["can_edit"])
+        self.assertTrue(board(at(9), roles=SCHED)["can_edit"])
+
+
 class TestValidateSession(unittest.TestCase):
     def setUp(self):
         self.svc = ValidateSessionService(FakeSessions([]), FakeMachines(), clock=lambda: ts(2026, 10, 19, 12))
