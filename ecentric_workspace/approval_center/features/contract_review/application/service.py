@@ -58,13 +58,19 @@ def _signature(doc):
     return hashlib.sha1(json.dumps(vals, sort_keys=True).encode("utf-8")).hexdigest()
 
 
+#: Tep he thong tao duoi ten nguoi dung (ban ky / ban review cua nen tang ky, ban doi chung SharePoint
+#: chup duoi ten nguoi vua quyet dinh - co the chinh la nguoi lap neu ho cung duyet mot cap): KHONG tinh.
+_SYSTEM_FILE_PREFIXES = ("SIGNED-", "REVIEW-", "[Đối chứng]")
+
+
 def _requester_files(doc):
     if not doc.get("name") or not doc.get("requested_by"):
         return []
-    return sorted(set(frappe.get_all("File", filters={"attached_to_doctype": BUSINESS_DT,
-                                                     "attached_to_name": doc.name,
-                                                     "owner": doc.requested_by},
-                                     pluck="file_url", limit_page_length=0, ignore_permissions=True)))
+    rows = frappe.get_all("File", filters={"attached_to_doctype": BUSINESS_DT, "attached_to_name": doc.name,
+                                           "owner": doc.requested_by},
+                          fields=["file_url", "file_name"], limit_page_length=0, ignore_permissions=True)
+    return sorted({r.get("file_url") for r in rows
+                   if r.get("file_url") and not str(r.get("file_name") or "").startswith(_SYSTEM_FILE_PREFIXES)})
 
 
 def _requester_context(user):

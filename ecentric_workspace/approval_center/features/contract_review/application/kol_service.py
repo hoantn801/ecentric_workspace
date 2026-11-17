@@ -366,7 +366,7 @@ def _numbers_in_use(base, exclude):
     reqs = [r.approval_request for r in rows if r.approval_request]
     released = set(frappe.get_all("EC Approval Request", filters={"name": ["in", reqs],
                                                                   "approval_status": ["in", _RELEASED]},
-                                  pluck="name", ignore_permissions=True)) if reqs else set()
+                                  pluck="name", limit_page_length=0, ignore_permissions=True)) if reqs else set()
     return {r.contract_no for r in rows if r.approval_request not in released}
 
 
@@ -399,6 +399,10 @@ def mark_signed(name, signed_file, user):
         frappe.throw(_("Hợp đồng phải được duyệt xong trước khi tải bản đã ký."))
     if is_signed(doc):
         frappe.throw(_("Hợp đồng đã được xác nhận ký đủ."))
+    # Thanh ly truoc khi ky: tai ban ky len sau do se mo tien coc cho mot hop dong da dung (QC 17/11).
+    from ecentric_workspace.approval_center.features.contract_review.application import kol_access
+    if kol_access.is_closed(doc):
+        frappe.throw(_("Hợp đồng đã thanh lý - không nhận bản ký mới."))
     if not (signed_file or "").lower().endswith(".pdf"):
         frappe.throw(_("Bản đã ký phải là tệp PDF."))
     if signed_file in {doc.get("request_attachment"), doc.get("contract_file")}:
@@ -432,6 +436,8 @@ def detail_extra(business, request):
         "acceptances": _rows_for(business, user, kol_acceptance.rows_view(business)),
         # PO 17/11: ban du PII chi nguoi tao creator + Ke toan tai (kol_access); thanh ly; STK doi.
         "can_download_full": kol_access.can_download_full(business, user),
+        # Ban da che: nguoi lap / nguoi duyet / Ke toan (khop kol_preview._load) - QC 17/11.
+        "can_preview": can_manage(business, user) or is_approver(business, user),
         "payee_changed": kol_access.payee_changed(business),
         "closed": {"at": str(business.get("kol_closed_at") or ""), "by": business.get("kol_closed_by") or "",
                    "reason": business.get("kol_close_reason") or ""} if kol_access.is_closed(business) else None,

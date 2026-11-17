@@ -104,5 +104,16 @@ class CreatorRepository:
         return _frappe().db.get_value(DT, {"ec_cr_misa_code": code, "name": ["!=", exclude]},
                                       "name")
 
+    def approved_contract(self, name):
+        """Mot hop dong (form 27) DA DUYET XONG dung creator nay, hoac None. Ten DocType o day thay vi
+        import feature: shared khong import nguoc module nghiep vu."""
+        frappe = _frappe()
+        rows = frappe.get_all("EC Contract Review Request", filters={"creator": name, "approval_request": ["is", "set"]},
+                              fields=["name", "approval_request"], limit_page_length=0, ignore_permissions=True)
+        for r in rows:
+            if frappe.db.get_value("EC Approval Request", r.approval_request, "approval_status") == "Approved":
+                return r.name
+        return None
+
     def roles(self, user):
         return set(_frappe().get_roles(user))

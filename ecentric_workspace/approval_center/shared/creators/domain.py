@@ -136,6 +136,9 @@ def identity_keys(data):
     return out
 
 
+_SAME_PERSON_TYPES = {"Cá nhân", "Hộ kinh doanh"}
+
+
 def classify_duplicates(candidate, existing_rows):
     """So mot creator moi voi cac ban ghi co san (moi dong da co khoa chuan hoa).
 
@@ -154,10 +157,10 @@ def classify_duplicates(candidate, existing_rows):
         hit_soft = [f for f in SOFT_KEYS if f in mine and mine[f] == theirs.get(f)]
         if not (hit_hard or hit_soft):
             continue
-        if hit_hard and candidate.get("ec_cr_type") and row.get("ec_cr_type") \
-                and candidate.get("ec_cr_type") != row.get("ec_cr_type"):
-            # Cung mot nguoi vua la creator ca nhan vua mo ho kinh doanh (MST = CCCD): KHAC loai thi
-            # chi hoi xac nhan, khong chan cung (PO 17/11).
+        if hit_hard and {candidate.get("ec_cr_type"), row.get("ec_cr_type")} == _SAME_PERSON_TYPES:
+            # Cung mot nguoi vua la creator ca nhan vua mo ho kinh doanh (MST = CCCD, chu ho thuong dung
+            # chinh tai khoan ca nhan): chi hoi xac nhan, khong chan cung (PO 17/11). Cong ty <-> ca nhan
+            # trung so tai khoan / ma so van CHAN cung (QC 17/11).
             hit_soft, hit_hard = hit_hard + hit_soft, []
         item = {"name": row.get("name"), "supplier_name": row.get("supplier_name"),
                 "ec_cr_misa_code": row.get("ec_cr_misa_code") or MISA_PENDING_LABEL,

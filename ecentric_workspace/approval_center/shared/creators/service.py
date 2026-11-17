@@ -86,6 +86,13 @@ class CreatorService:
         finance = self.is_finance(user)
         values = self._clean(data, with_identity=finance)
         if values.get("ec_cr_type") and values["ec_cr_type"] != row.get("ec_cr_type"):
+            # Hop dong da duyet giu loai cu (mau BBNT, so ngay thanh toan theo loai luc ky): doi loai
+            # thi BBNT sau do lech ben ky (QC 17/11). Sai loai tu dau = lap creator dung loai + HD moi.
+            used = getattr(self.repo, "approved_contract", None)
+            hit = used(name) if used else None
+            if hit:
+                raise CreatorError("Creator đã có hợp đồng duyệt xong (%s): không đổi loại creator được - "
+                                   "tạo creator đúng loại rồi lập hợp đồng mới." % hit)
             values["supplier_type"] = domain.SUPPLIER_TYPE_BY_CREATOR.get(values["ec_cr_type"])
         merged = dict(row, **values)
         self._validate(merged)

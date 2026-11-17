@@ -10,15 +10,16 @@ D. STK creator doi sau khi ky -> canh bao, Ke toan xac nhan thi luu;
 import ast
 import datetime as dt
 import importlib
-import json
 import os
 import sys
 import types
 import unittest
 
-from test_contract_kol_qc_15_11 import CR, STATE, Doc, Row, Throw, _fresh  # noqa: F401
-
 HERE = os.path.dirname(os.path.abspath(__file__))
+if HERE not in sys.path:                     # chay bang `python -m unittest <module>` (cong push) cung nap duoc
+    sys.path.insert(0, HERE)
+
+from test_contract_kol_qc_15_11 import CR, STATE, Doc, Row, Throw, _fresh  # noqa: E402,F401
 APP = os.path.abspath(os.path.join(HERE, "..", ".."))
 P = "ecentric_workspace.approval_center.features.contract_review.application."
 
@@ -92,7 +93,9 @@ class TaiBanDuPII(unittest.TestCase):
         a = _access("fin@ec")
         b = _biz()
         a.redact_business(b)
-        self.assertEqual(b, _biz())
+        self.assertEqual(dict(b, has_contract_file=None, has_request_attachment=None),
+                         dict(_biz(), has_contract_file=None, has_request_attachment=None))
+        self.assertEqual((b["has_contract_file"], b["has_request_attachment"]), (True, False))
         a = _access("req@ec")
         b = dict(_biz(), contract_type="Sales / Bán ra (EC)")
         a.redact_business(b)
@@ -109,7 +112,9 @@ class TaiBanDuPII(unittest.TestCase):
         self._file()
         name, content = a.download_file("CR-1", "/private/files/HDDV_17112026_ab12cd34.docx", "fin@ec")
         self.assertEqual((name, content), ("HDDV_17112026_ab12cd34.docx", b"DOCX"))
-        self.assertTrue(any("fin@ec" in c and "HDDV_17112026_ab12cd34.docx" in c for c in STATE["comments"]))
+        # vet ghi NHAN tep, khong ghi ten tep (doan ngau nhien la mot phan URL)
+        self.assertTrue(any("fin@ec" in c and "hợp đồng" in c for c in STATE["comments"]))
+        self.assertFalse(any("ab12cd34" in c for c in STATE["comments"]))
         with self.assertRaises(sys.modules["frappe"].PermissionError):
             a.download_file("CR-1", "/private/files/HDDV_17112026_ab12cd34.docx", "req@ec")
 
@@ -144,7 +149,8 @@ class TaiBanDuPII(unittest.TestCase):
         self.assertIn('"owner", "Administrator"', files)
         q = _read("shared/requests/query_service.py")
         self.assertIn("attachment_redactor", q)
-        self.assertIn("attachments = []", q)                 # loi redactor -> khong tra tep nao (fail-closed)
+        self.assertIn("attachments, doi_chung = [], []", q)  # loi redactor -> khong tra tep nao (fail-closed)
+        self.assertIn("doi_chung = definition.attachment_redactor(doi_chung", q)
 
     def test_nguoi_duyet_xem_ban_che_chi_doc(self):
         src = _read("features/contract_review/application/kol_preview.py")
@@ -188,7 +194,10 @@ class KolKhongDieuChinh(unittest.TestCase):
     def test_trang_khoa_va_tu_doi_ve_moi(self):
         html = _read("features/contract_review/ui/main_section.html")
         self.assertIn('if(d.request_kind==="Existing" && KOL.isKol(d)) errs.request_kind=', html)
-        self.assertIn('if(state.draft.request_kind==="Existing"){ state.draft.request_kind="New";', html)
+        i = html.index('if(k==="contract_type"&&KOL.isKol(state.draft)&&state.draft.request_kind==="Existing")')
+        self.assertLess(i, html.index('if(prevData() && DIFF_FIELDS.indexOf(k)>=0)'))   # truoc nhanh tra ve som
+        self.assertIn('["contract_type", "!=", "KOL/KOC / Creator (EC)"]',
+                      _read("features/contract_review/controllers/api.py"))
 
 
 # ----------------------------------------------------------------------------- D
@@ -209,6 +218,7 @@ class TaiKhoanNhanTien(unittest.TestCase):
         old = {"ec_bank_account_no": "111", "ec_bank_name": "VCB"}
         new = {"ec_bank_account_no": "222", "ec_bank_name": "VCB"}
         d = _kol()
+        STATE["values"][("EC Approval Request", "AR-1")] = "Pending"
         a.snapshot_payee(d, old)
         self.assertFalse(a.payee_changed(d, old))
         self.assertTrue(a.payee_changed(d, new))
@@ -218,6 +228,9 @@ class TaiKhoanNhanTien(unittest.TestCase):
         sys.modules["frappe"].db.set_value = lambda dt_, n, f, v=None, **k: sets.append((f, v))
         with self.assertRaises(sys.modules["frappe"].PermissionError):
             a.confirm_payee("CR-1", "req@ec")
+        with self.assertRaises(Throw):                      # chua duyet xong: phai bo sung + tao lai HD
+            a.confirm_payee("CR-1", "fin@ec")
+        STATE["values"][("EC Approval Request", "AR-1")] = "Approved"
         self.assertEqual(a.confirm_payee("CR-1", "fin@ec"), {"ok": True, "changed": True})
         (field, val), = sets
         self.assertEqual(field, "kol_payee_ok")
@@ -289,7 +302,6 @@ class SoHopDong(unittest.TestCase):
 # ----------------------------------------------------------------------------- creator
 class KeToanSuaCreator(unittest.TestCase):
     def _svc(self):
-        sys.path.insert(0, HERE)
         from test_creators_service import EXISTING, FakeRepo
         from ecentric_workspace.approval_center.shared.creators.service import CreatorService
         repo = FakeRepo([EXISTING], {"ke.toan@ec": ["EC Finance"]})
@@ -360,7 +372,9 @@ class PhieuThuongVaDntt(unittest.TestCase):
         self.assertIsNone(fu.required_source("TT_KHAC"))
         self.assertIsNone(fu.required_source(None))
         svc = _read("features/payment_request/application/service.py")
-        self.assertIn('funding.required_source(category)', svc)
+        self.assertIn('need = funding.required_source(', svc)
+        i = svc.index("def normalize_payment")
+        self.assertIn("_require_source(doc)", svc[i:svc.index("\ndef ", i + 10)])   # ca luc gui lai sau bo sung
 
     def test_duyet_thay_boi_co_level_no(self):
         q = _read("shared/requests/query_service.py")
@@ -375,11 +389,109 @@ class PhieuThuongVaDntt(unittest.TestCase):
 
     def test_trang_tai_qua_post_khong_lo_url(self):
         html = _read("features/contract_review/ui/main_section.html")
-        self.assertIn('f.method="POST"', html)
+        self.assertIn('kol_download_file",{method:"POST"', html)
+        self.assertIn('"X-Frappe-CSRF-Token"', html)
         self.assertIn('"kol_download_file"', html)
         self.assertNotIn('href="\'+esc(b.contract_file)', html)
         self.assertNotIn('href="\'+esc(r.bbnt_file)', html)
         self.assertNotIn('href="\'+esc(b.signed_file)', html)
+
+
+# ----------------------------------------------------------------------------- QC 17/11 (sua sau vong agent)
+class QcSauVongAgent(unittest.TestCase):
+    def test_ban_review_va_doi_chung_cung_la_ban_du(self):
+        a = _access()
+        for u in ("REVIEW-1a2b3c4d-HDDV_17112026_ab12cd34.docx", "[Đối chứng] HDDV_1.docx – Duyệt – x.docx",
+                  "SIGNED-REVIEW-1a2b3c4d-BBNT_1.pdf"):
+            self.assertTrue(a.is_generated(u), u)
+        self.assertFalse(a.is_generated("REVIEW-1a2b3c4d-phu luc.pdf"))
+
+    def test_nguoi_duoc_tai_cung_khong_mo_thang_tu_dinh_kem(self):
+        a = _access("fin@ec")
+        att = [{"file_name": "HDDV_1_ab.docx", "file_url": "/private/files/HDDV_1_ab.docx"},
+               {"file_name": "phu luc.pdf", "file_url": "/private/files/phu luc.pdf"}]
+        self.assertEqual([x["file_name"] for x in a.redact_attachments(att, _biz())], ["phu luc.pdf"])
+        dc = [{"name": "S1", "docx_file_url": "/private/files/x.docx", "pdf_file_url": "/private/files/x.pdf"}]
+        self.assertEqual(a.redact_attachments(dc, _biz()), dc)          # Ke toan van thay ban doi chung
+        a = _access("req@ec")
+        STATE["values"][("Supplier", "SUP-1")] = "owner@ec"
+        self.assertEqual(a.redact_attachments(dc, _biz()), [])          # nguoi khong duoc tai: an
+
+    def test_endpoint_khong_tra_url_cho_nguoi_khong_duoc_tai(self):
+        a = _access("req@ec")
+        STATE["values"][("Supplier", "SUP-1")] = "owner@ec"
+        self.assertEqual(a.strip_url(_biz(), {"contract_file": "/f/HDDV_1.docx", "x": 1}, "contract_file"),
+                         {"contract_file": None, "x": 1})
+        a = _access("fin@ec")
+        self.assertEqual(a.strip_url(_biz(), {"bbnt_file": "/f/B.docx"}, "bbnt_file"), {"bbnt_file": "/f/B.docx"})
+        api = _read("features/contract_review/controllers/kol_api.py")
+        for fn, f in (("kol_generate_contract", '"contract_file"'), ("kol_add_acceptance", '"bbnt_file"'),
+                      ("kol_send_acceptance", '"bbnt_file"')):
+            i = api.index("def " + fn)
+            self.assertIn("_no_pii_url(name", api[i:i + 400], fn)
+            self.assertIn(f, api[i:i + 400], fn)
+
+    def test_thanh_ly_chan_tai_ban_ky_moi(self):
+        s, _v, _a, _f = _fresh("req@ec")
+        _kol(kol_closed_at="2026-11-17 10:00:00", signing_status="Chưa ký")
+        STATE["values"][("EC Approval Request", "AR-1")] = "Approved"
+        with self.assertRaises(Throw) as cm:
+            s.mark_signed("CR-1", "/private/files/ky.pdf", "req@ec")
+        self.assertIn("thanh lý", str(cm.exception))
+
+    def test_trung_khac_loai_chi_mem_giua_ca_nhan_va_ho_kinh_doanh(self):
+        from ecentric_workspace.approval_center.shared.creators import domain
+        rows = [{"name": "SUP-1", "supplier_name": "A", "ec_cr_type": "Cá nhân", "ec_bank_account_no": "0011223344"}]
+        hit = domain.classify_duplicates({"ec_cr_type": "Công ty", "ec_bank_account_no": "0011223344"}, rows)
+        self.assertTrue(hit["hard"])                                     # cong ty dung STK ca nhan: chan
+        hit = domain.classify_duplicates({"ec_cr_type": "Hộ kinh doanh", "ec_bank_account_no": "0011223344"}, rows)
+        self.assertFalse(hit["hard"])
+
+    def test_khong_doi_loai_khi_da_co_hop_dong_duyet(self):
+        sys.path.insert(0, HERE)
+        from test_creators_service import EXISTING, FakeRepo
+        from ecentric_workspace.approval_center.shared.creators.service import CreatorError, CreatorService
+        repo = FakeRepo([EXISTING], {"ke.toan@ec": ["EC Finance"]})
+        repo.approved_contract = lambda n: "EC-CTR-1"
+        with self.assertRaises(CreatorError):
+            CreatorService(repo).update("ke.toan@ec", "SUP-001", {"ec_cr_type": "Hộ kinh doanh", "tax_id": "0312345678"})
+        CreatorService(repo).update("ke.toan@ec", "SUP-001", {"supplier_name": "Nguyễn Thị Hảo C"})   # doi ten van duoc
+        self.assertEqual(repo.rows["SUP-001"]["supplier_name"], "Nguyễn Thị Hảo C")
+
+    def test_chu_ky_bo_tep_he_thong(self):
+        svc = _read("features/contract_review/application/service.py")
+        self.assertIn('_SYSTEM_FILE_PREFIXES = ("SIGNED-", "REVIEW-", "[Đối chứng]")', svc)
+
+    def test_dntt_tai_khoan_phai_khop_creator(self):
+        src = _read("features/contract_review/application/kol_funding.py")
+        i = src.index("def funding_validate")
+        self.assertIn("_check_payee(pr)", src[i:])
+        j = src.index("def _check_payee")
+        body = src[j:]
+        self.assertIn("kol_access.payee_changed(doc, creator)", body)
+        self.assertIn('pr.get("bank_account_number")', body)
+
+    def test_p399_chot_moc_cho_hop_dong_cu(self):
+        _fresh()
+        fk = sys.modules["frappe"]
+        p = importlib.import_module("ecentric_workspace.approval_center.patches.p399_kol_van_tay_tai_khoan")
+        importlib.reload(p)
+        STATE["exists"].add(("DocType", CR))
+        fk.db.has_column = lambda dt_, c: True
+        acc = types.SimpleNamespace(payee_fp=lambda c: "FP-" + c["ec_bank_account_no"] if c.get("ec_bank_account_no") else "")
+        svc = types.SimpleNamespace(creator_row=lambda n: {"ec_bank_account_no": "1"} if n != "SUP-X" else {})
+        fk.get_module = lambda path: acc if path.endswith("kol_access") else svc
+        STATE["get_all"][CR] = [Row(name="A", creator="SUP-1", approval_request="R-A", kol_payee_fp=None),
+                                Row(name="B", creator="SUP-1", approval_request="R-B", kol_payee_fp="old"),
+                                Row(name="C", creator="SUP-1", approval_request="R-C", kol_payee_fp=None),
+                                Row(name="D", creator="SUP-X", approval_request="R-D", kol_payee_fp=None)]
+        STATE["values"].update({("EC Approval Request", "R-A"): "Approved", ("EC Approval Request", "R-C"): "Rejected",
+                                ("EC Approval Request", "R-D"): "Pending"})
+        sets = []
+        fk.db.set_value = lambda dt_, n, f, v=None, **k: sets.append((n, v))
+        fk.logger = lambda *a: types.SimpleNamespace(info=lambda *x: None)
+        p.execute()
+        self.assertEqual(sets, [("A", "FP-1")])
 
 
 if __name__ == "__main__":

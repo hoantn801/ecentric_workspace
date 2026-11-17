@@ -126,3 +126,26 @@ def funding_validate(pr, user):
         if so_brand and so_brand != contract_brand:
             frappe.throw(_("SO {0} thuộc brand {1}, hợp đồng thuộc brand {2}: chọn SO của brand {2}.").format(
                 so, so_brand, contract_brand))
+    _check_payee(pr)
+
+
+def _check_payee(pr):
+    """PO 17/11 (D) + QC 17/11: tien chi ra tai khoan GO TREN DNTT - phai la tai khoan creator dang
+    luu, va neu tai khoan do doi sau khi ky thi Ke toan da xac nhan tren hop dong."""
+    import re
+    from ecentric_workspace.approval_center.features.contract_review.application import kol_access
+    from ecentric_workspace.approval_center.features.contract_review.application.kol_service import creator_row
+    name = pr.get("funding_source_name")
+    if not name:
+        return
+    doc = _doc(name)
+    creator = creator_row(doc.get("creator")) or {}
+    if kol_access.payee_changed(doc, creator):
+        frappe.throw(_("Tài khoản nhận tiền của creator đã đổi sau khi ký hợp đồng {0}: Kế toán kiểm và bấm "
+                       "\"Xác nhận tài khoản mới\" trên hợp đồng trước khi lập đề nghị thanh toán.").format(name))
+    typed = re.sub(r"\D", "", str(pr.get("bank_account_number") or ""))
+    stored = re.sub(r"\D", "", str(creator.get("ec_bank_account_no") or ""))
+    if typed and stored and typed != stored:
+        frappe.throw(_("Số tài khoản nhận tiền trên đề nghị khác số tài khoản của creator trong hợp đồng {0}. "
+                       "Creator đổi tài khoản thì cập nhật thông tin creator (Kế toán xác nhận) rồi lập lại.")
+                     .format(name))

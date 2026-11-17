@@ -32,6 +32,12 @@ def _app(module):
                          + module)
 
 
+def _no_pii_url(name, result, *fields):
+    """PO 17/11 (A): URL tep du PII creator chi tra cho nguoi tao creator + Ke toan (QC 17/11)."""
+    access = _app("kol_access")
+    return access.strip_url(frappe.get_doc(_app("kol_lookup").CR_DT, name), result, *fields)
+
+
 def _me():
     user = frappe.session.user
     if user == "Guest":
@@ -113,7 +119,7 @@ def kol_preview_contract(fields=None, name=None):
 
 @frappe.whitelist(methods=["POST"])
 def kol_generate_contract(name):
-    return _app("kol_files").generate_contract(name, _me())
+    return _no_pii_url(name, _app("kol_files").generate_contract(name, _me()), "contract_file")
 
 
 @frappe.whitelist(methods=["POST"])
@@ -123,7 +129,8 @@ def kol_mark_signed(name, signed_file):
 
 @frappe.whitelist(methods=["POST"])
 def kol_add_acceptance(name, description=None, acceptance_date=None, amount=None):
-    return _app("kol_acceptance").add_acceptance(name, _me(), description, acceptance_date, amount)
+    return _no_pii_url(name, _app("kol_acceptance").add_acceptance(name, _me(), description, acceptance_date, amount),
+                       "bbnt_file")
 
 
 @frappe.whitelist(methods=["POST"])
@@ -133,7 +140,7 @@ def kol_delete_acceptance(name, row):
 
 @frappe.whitelist(methods=["POST"])
 def kol_send_acceptance(name, row):
-    return _app("kol_acceptance").send_acceptance(name, _me(), row)
+    return _no_pii_url(name, _app("kol_acceptance").send_acceptance(name, _me(), row), "bbnt_file")
 
 
 @frappe.whitelist(methods=["POST"])

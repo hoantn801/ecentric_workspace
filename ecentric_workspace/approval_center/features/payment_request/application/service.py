@@ -51,9 +51,20 @@ def normalize_payment(doc):
     if stored_kol and not (doc.get("funding_source_doctype") or "").strip():
         frappe.throw(_("Đề nghị này đã gửi theo hợp đồng KOL: không bỏ chứng từ nguồn khi bổ sung. "
                        "Cần đổi hẳn thì huỷ đề nghị này và lập đề nghị mới."))
+    if doc.get("approval_request"):
+        # Gui lai sau bo sung khong chay validate_payment: loai chi phi bat buoc nguon (Booking KOL ->
+        # hop dong) kiem ca o day, khong thi doi loai luc bo sung la lot (QC 17/11).
+        _require_source(doc)
     if doc.get("approval_request") and (doc.get("funding_source_doctype") == "EC Contract Review Request"
                                         or stored_kol):
         funding.validate_funding(doc)
+
+
+def _require_source(doc):
+    need = funding.required_source((doc.get("ec_loai_chi_phi") or "").strip())
+    if need and doc.get("funding_source_doctype") != need[0]:
+        frappe.throw(_("Loại chi phí này phải gắn chứng từ nguồn là {0}: ở mục \"Khoản chi này có chứng từ mua "
+                       "hàng?\" chọn có, rồi chọn hợp đồng.").format(need[1]))
 
 
 def _stored_source(doc):
@@ -172,10 +183,7 @@ def validate_payment(doc):
         doc.funding_source_doctype = None
         doc.funding_source_name = None
         doc.purchase_request = None
-    need = funding.required_source(category)
-    if need and doc.get("funding_source_doctype") != need[0]:
-        frappe.throw(_("Loại chi phí này phải gắn chứng từ nguồn là {0}: ở mục \"Khoản chi này có chứng từ mua "
-                       "hàng?\" chọn có, rồi chọn hợp đồng.").format(need[1]))
+    _require_source(doc)
     # Single guard for every source type: exists + approved + does not exceed the remainder.
     funding.validate_funding(doc)
     validate_installment(doc)

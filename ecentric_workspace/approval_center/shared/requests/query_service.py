@@ -357,9 +357,11 @@ def detail(definition, name):
         # KHONG nuot loi: loi thi an het dinh kem (fail-closed) con hon de lo tep nhay cam.
         try:
             attachments = definition.attachment_redactor(attachments, business, request)
+            # Ban doi chung cung la ban sao tep hop dong (QC 17/11) - qua cung bo loc.
+            doi_chung = definition.attachment_redactor(doi_chung, business, request) if doi_chung else doi_chung
         except Exception:
             frappe.log_error(frappe.get_traceback(), "attachment_redactor %s" % definition.code)
-            attachments = []
+            attachments, doi_chung = [], []
     status = request.approval_status if request else "Draft"
     extra = {}
     if getattr(definition, "detail_extender", None):

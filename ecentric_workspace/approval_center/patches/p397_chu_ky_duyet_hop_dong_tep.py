@@ -27,8 +27,9 @@ def execute():
         svc = frappe.get_module("ecentric_workspace.approval_center.features.contract_review.application.service")
         fields = list(svc.MATERIAL_FIELDS)
         rows = frappe.get_all(_DT, filters={"contract_type": ["!=", _KOL], "approval_request": ["is", "set"]},
-                              fields=["name", "approval_request", "material_signature", "requested_by",
-                                      "contract_type"] + fields, limit_page_length=0)
+                              fields=list(dict.fromkeys(["name", "approval_request", "material_signature",
+                                                         "requested_by", "contract_type"] + fields)),
+                              limit_page_length=0)
         doi = 0
         for r in rows:
             status = frappe.db.get_value("EC Approval Request", r.approval_request, "approval_status")
