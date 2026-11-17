@@ -34,7 +34,7 @@ class WeekScheduleService:
         self._schedule = schedule
 
     def execute(self, roles, week=None, days=7, start=None, view="draft"):
-        _common.require_role(roles, C.VIEW_ROLES, C.Msg.NEED_VIEW)
+        _common.require_role(roles, C.SCHEDULE_VIEW_ROLES, C.Msg.NEED_SCHEDULE_VIEW)
         now, n = self.clock(), int(days or 7)
         if not 1 <= n <= 7:
             raise C.AiLiveError(C.PubMsg.BAD_DAYS)
@@ -56,7 +56,7 @@ class WeekScheduleService:
                     hold_win = occ[:2]
                     blocks.append(self._block(s, held, occ, held_until=s["held_until_ts"], why=s.get("held_why")))
             pub_keys = {(a, b) for a, b, _ in S.occurrences(pub["slots"], span)} if pub["machine"] == v["machine"] else set()
-            for occ in S.occurrences(v["slots"], span):
+            for occ in S.occurrences(v["slots"], span, include_off=True):   # 18/11: khung tat ve xam de bat lai
                 if hold_win and occ[0] < hold_win[1] and hold_win[0] < occ[1]:
                     continue                                   # lan nay van chay theo gio cu
                 b = self._block(s, v, occ)
@@ -75,7 +75,8 @@ class WeekScheduleService:
                 "machines": [{"code": c, "label": m["label"], "max_lives": m["max_lives"], "enabled": m["enabled"],
                               "sync": P.machine_sync(m, sessions, now, dead)} for c, m in machines.items()],
                 "drafts": sum(1 for s in sessions if s.get("draft")),
-                "blocks": blocks, "conflicts": conflicts, "server_time": now}
+                "blocks": blocks, "conflicts": conflicts, "server_time": now,
+                "can_edit": _common.has_role(roles, C.SCHEDULE_EDIT_ROLES)}
 
     def _sched(self):
         if self._schedule is None:
@@ -89,7 +90,7 @@ class WeekScheduleService:
         slot = v["slots"][i]
         return {"session": s["id"], "slot": i, "date": datetime.fromtimestamp(a, R._VN).date().isoformat(),
                 "start_ts": a, "end_ts": b, "start": slot["start"], "end": slot["end"], "recurring": not slot["date"],
-                "enabled": s["enabled"], "machine": v["machine"], "obs_port": int(v["obs_port"] or 0), "conflict": False,
+                "enabled": s["enabled"], "slot_on": S.slot_on(slot), "key": S.slot_key(slot), "machine": v["machine"], "obs_port": int(v["obs_port"] or 0), "conflict": False,
                 "changed": False, "held": bool(held_until), "held_until": held_until, "held_why": why or ""}
 
     @staticmethod
@@ -106,7 +107,7 @@ class WeekScheduleService:
                     continue
                 out.append({"machine": code, "at": c["start"], "ids": c["ids"], "max_lives": cap})
                 for b in blocks:
-                    if b["session"] in c["ids"] and not b["held"] and b["start_ts"] <= c["start"] < b["end_ts"]:
+                    if b["session"] in c["ids"] and not b["held"] and b["slot_on"] and b["start_ts"] <= c["start"] < b["end_ts"]:
                         b["conflict"] = True
         return out
 

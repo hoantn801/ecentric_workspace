@@ -11,7 +11,8 @@
   "days",
   "on_date",
   "slot_start",
-  "slot_end"
+  "slot_end",
+  "enabled"
  ],
  "fields": [
   {
@@ -46,13 +47,22 @@
    "reqd": 1,
    "columns": 2,
    "description": "Nhỏ hơn giờ bắt đầu = qua đêm (vd 22:00 → 02:00)."
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "columns": 1,
+   "label": "Bật",
+   "description": "Tắt = khung chỉ lưu trên ERP, không gửi xuống máy, không tính trùng giờ / sức chứa."
   }
  ],
  "index_web_pages_for_search": 0,
  "issingle": 0,
  "istable": 1,
  "links": [],
- "modified": "2026-10-18 00:00:00.000000",
+ "modified": "2026-11-18 03:00:00.000000",
  "modified_by": "Administrator",
  "module": "Ecentric Workspace",
  "name": "EC AI Live Session Slot",

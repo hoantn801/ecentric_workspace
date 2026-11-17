@@ -19,7 +19,7 @@ class MonthScheduleService:
         self.clock = clock or R.now_ts
 
     def execute(self, roles, month=None, view="draft"):
-        _common.require_role(roles, C.VIEW_ROLES, C.Msg.NEED_VIEW)
+        _common.require_role(roles, C.SCHEDULE_VIEW_ROLES, C.Msg.NEED_SCHEDULE_VIEW)
         now = self.clock()
         y, m = self._month(month, now)
         first = date(y, m, 1)
@@ -43,7 +43,8 @@ class MonthScheduleService:
         return {"month": "%04d-%02d" % (y, m), "today": datetime.fromtimestamp(now, R._VN).date().isoformat(),
                 "view": view, "days": days, "brand_hours": brand_h, "machine_util": util,
                 "total_hours": round(sum(brand_h.values()), 1), "over_days": sum(1 for d in days if d["in_month"] and d["over"]),
-                "drafts": sum(1 for s in sessions if s.get("draft")), "server_time": now}
+                "drafts": sum(1 for s in sessions if s.get("draft")), "server_time": now,
+                "can_edit": _common.has_role(roles, C.SCHEDULE_EDIT_ROLES)}
 
     @staticmethod
     def _month(v, now):

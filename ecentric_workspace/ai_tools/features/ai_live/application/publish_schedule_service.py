@@ -26,7 +26,7 @@ class PublishScheduleService:
 
     def execute(self, user, roles, names=None, urgent=None, note=""):
         """names: ma phien can phat hanh (rong = moi ban nhap); urgent: ma phien ap ngay du sap len song."""
-        _common.require_role(roles, C.VIEW_ROLES, C.Msg.NEED_VIEW)
+        _common.require_role(roles, C.SCHEDULE_EDIT_ROLES, C.Msg.NEED_SCHEDULE_EDIT)
         names, urgent = _common.id_list(names), set(_common.id_list(urgent))
         all_s = self.sessions.list()
         targets = [s for s in all_s if s.get("draft") and (not names or s["id"] in names)]

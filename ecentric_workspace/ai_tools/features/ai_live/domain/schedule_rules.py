@@ -37,7 +37,7 @@ def same(a, b):
 
 
 def _key(s):
-    return (tuple(s.get("days") or []), s.get("date") or None, s["start"], s["end"])
+    return (tuple(s.get("days") or []), s.get("date") or None, s["start"], s["end"], S.slot_on(s))
 
 
 def draft_state(sess):
@@ -73,13 +73,20 @@ def diff_texts(before, after):
     b_keys, a_keys = [_key(s) for s in before["slots"]], [_key(s) for s in after["slots"]]
     gone = [s for s, k in zip(before["slots"], b_keys) if k not in a_keys]
     new = [s for s, k in zip(after["slots"], a_keys) if k not in b_keys]
+    for o in list(gone):                        # 18/11: chi doi bat / tat -> 1 dong "Tat khung" / "Bat lai khung"
+        n = next((x for x in new if _key(x)[:4] == _key(o)[:4]), None)
+        if n:
+            out.append(("Bật lại khung " if S.slot_on(n) else "Tắt khung ") + slot_text(n))
+            gone.remove(o)
+            new.remove(n)
     for o in list(gone):                        # cung ngay/thu, doi gio -> 1 dong "a → b"
         n = next((x for x in new if (x.get("date"), x.get("days")) == (o.get("date"), o.get("days"))), None)
         if n:
             out.append("%s: %s–%s → %s–%s" % (_days_txt(o), o["start"], o["end"], n["start"], n["end"]))
             gone.remove(o)
             new.remove(n)
-    out += ["Thêm khung " + slot_text(s) for s in new] + ["Bỏ khung " + slot_text(s) for s in gone]
+    off = lambda s: "" if S.slot_on(s) else " (đang tắt)"      # 18/11: khung tat cung hien ro
+    out += ["Thêm khung " + slot_text(s) + off(s) for s in new] + ["Bỏ khung " + slot_text(s) + off(s) for s in gone]
     return out[:C.MAX_DIFF_LINES]
 
 
@@ -97,19 +104,29 @@ def next_occurrence(slots, ts):
     return next(((a, b, i) for a, b, i in S.occurrences(slots, _around(ts, 1, 2)) if a > ts), None)
 
 
+def app_pos(slots, i):
+    """Vi tri khung slots[i] trong danh sach khung DANG BAT (= ma khung erpN tren app, app chi nhan khung bat);
+    None neu khung do tat / khong co."""
+    if i >= len(slots) or not S.slot_on(slots[i]):
+        return None
+    return sum(1 for s in slots[:i] if S.slot_on(s))
+
+
 def preserved(occ, before, after):
     """Lan dien ra `occ` (theo ban cu) van y nguyen voi app trong ban moi: cung may, kenh, cung vi tri khung (app dat
-    ma khung theo thu tu: erp1, erp2...), cung ngay va gio bat dau, gio ket thuc bang hoac muon hon (keo dai thi app
-    theo duoc ngay; rut ngan thi app van chay toi gio cu nen phai giu)."""
+    ma khung theo thu tu: erp1, erp2... - CHI dem khung dang bat, 18/11), cung ngay va gio bat dau, gio ket thuc bang
+    hoac muon hon (keo dai thi app theo duoc ngay; rut ngan thi app van chay toi gio cu nen phai giu).
+    occ[2] = vi tri trong before["slots"] (ke ca khung tat)."""
     a, b, i = occ
     if before["machine"] != after["machine"] or int(before["obs_port"] or 0) != int(after["obs_port"] or 0):
         return False
-    if i >= len(after["slots"]):
+    p, live_after = app_pos(before["slots"], i), S.live_slots(after["slots"])
+    if p is None or p >= len(live_after):
         return False
-    x, y = before["slots"][i], after["slots"][i]
+    x, y = before["slots"][i], live_after[p]
     if (x.get("date"), list(x.get("days") or []), x["start"]) != (y.get("date"), list(y.get("days") or []), y["start"]):
         return False
-    new = next((o for o in S.occurrences(after["slots"], _around(a)) if o[0] == a and o[2] == i), None)
+    new = next((o for o in S.occurrences(live_after, _around(a)) if o[0] == a and o[2] == p), None)
     return bool(new) and new[1] >= b
 
 

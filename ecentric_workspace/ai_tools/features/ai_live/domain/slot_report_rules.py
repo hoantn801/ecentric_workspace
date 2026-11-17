@@ -122,7 +122,7 @@ def match(planned, reports, now, is_erp_live):
     for k, rep in by_key.items():
         if k in used:
             continue
-        erp = is_erp_live(rep["live"])
+        erp = is_erp_live(rep["live"]) and not int(rep.get("off_plan") or 0)   # 18/11: live ERP nhung cua may khac
         ch = chips(rep, now) + [("idle", "Kế hoạch cũ / lịch trên máy" if erp else "Ngoài kế hoạch ERP")]
         rows.append({"live": rep["live"], "title": rep["live"], "machine": rep.get("machine") or "", "obs_port": 0,
                      "brand": rep.get("brand") or "", "start_ts": rep["planned_start_ts"], "end_ts": rep["planned_end_ts"],

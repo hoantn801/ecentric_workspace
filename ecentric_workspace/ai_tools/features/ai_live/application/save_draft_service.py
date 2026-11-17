@@ -19,7 +19,7 @@ class SaveDraftService:
         self.clock = clock or R.now_ts
 
     def execute(self, user, roles, name, slots=None, machine=None, obs_port=None):
-        _common.require_role(roles, C.VIEW_ROLES, C.Msg.NEED_VIEW)
+        _common.require_role(roles, C.SCHEDULE_EDIT_ROLES, C.Msg.NEED_SCHEDULE_EDIT)
         sess = self.sessions.get(str(name or ""))
         if not sess:
             raise C.AiLiveError(C.SessMsg.NOT_FOUND % name)

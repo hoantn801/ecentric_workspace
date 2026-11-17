@@ -7,7 +7,9 @@ import frappe
 from ecentric_workspace.ai_tools.features.ai_live import constants as C
 
 
-def _run(fn):
+def _run(fn, temp_5xx=False):
+    """temp_5xx (18/11, hop dong lich live muc 6): loi TAM cua ERP (DB, khoa, bat ky loi khong luong truoc) tra HTTP 503
+    de app GIU ban ghi va gui lai; success:false chi khi du lieu that su sai (app dem lan, qua 5 lan moi bo)."""
     from ecentric_workspace.ai_tools.features.ai_video.infrastructure.worker_client import WorkerDown
     try:
         return {"success": True, "message": "", "data": fn()}
@@ -22,10 +24,15 @@ def _run(fn):
         frappe.db.rollback()
         code = getattr(e, "code", None)
         data = dict(getattr(e, "data", None) or {}, code=code) if code else None
-        return {"success": False, "message": frappe.utils.strip_html(str(e)) or C.Msg.UNKNOWN, "data": data}
+        out = {"success": False, "message": frappe.utils.strip_html(str(e)) or C.Msg.UNKNOWN, "data": data}
+        if code:                                  # 18/11: ma loi ca o ngoai cung (hop dong) lan trong data (app cu)
+            out["code"] = code
+        return out
     except Exception:
         frappe.db.rollback()
         frappe.log_error(title="ai_live api")
+        if temp_5xx:
+            frappe.local.response["http_status_code"] = 503
         return {"success": False, "message": C.Msg.UNKNOWN, "data": None}
 
 
@@ -243,6 +250,42 @@ def push_slots(machine: str = None, live: str = None, slots=None, base_version=N
 
 
 @frappe.whitelist(methods=["GET"])
+def day_board(day: str = None, brand: str = None, machine: str = None, platform: str = None):
+    """18/11: kieu xem Bang / Timeline - ngay van hanh 06:00 -> 06:00, ke hoach da phat hanh + thuc te."""
+    from ecentric_workspace.ai_tools.features.ai_live.application.day_board_service import DayBoardService
+    return _run(lambda: DayBoardService().execute(_roles(), day or None, brand or None, machine or None, platform or None))
+
+
+@frappe.whitelist(methods=["GET"])
+def brand_month(month: str = None, platform: str = None, machine: str = None):
+    """18/11: kieu xem Theo brand - gio ke hoach / gio da live / % hoan thanh trong thang."""
+    from ecentric_workspace.ai_tools.features.ai_live.application.brand_month_service import BrandMonthService
+    return _run(lambda: BrandMonthService().execute(_roles(), month or None, platform or None, machine or None))
+
+
+@frappe.whitelist(methods=["GET"])
+def copy_week_preview(week: str = None):
+    """18/11: xem truoc chep tuan - khung se them / bo qua vi da co / loi tung phien / may se vuot so live."""
+    from ecentric_workspace.ai_tools.features.ai_live.application.copy_week_service import CopyWeekService
+    return _run(lambda: CopyWeekService().execute(frappe.session.user, _roles(), week or None, apply=False))
+
+
+@frappe.whitelist(methods=["POST"])
+def copy_week(week: str = None):
+    """18/11: chep khung "chi ngay" cua tuan sang tuan sau - vao ban nhap tung phien."""
+    from ecentric_workspace.ai_tools.features.ai_live.application.copy_week_service import CopyWeekService
+    return _run(lambda: CopyWeekService().execute(frappe.session.user, _roles(), week or None, apply=True))
+
+
+@frappe.whitelist(methods=["POST"])
+def toggle_slots(items=None, enabled=None):
+    """18/11: bat / tat nhieu khung gio (vao ban nhap). items = [{session, slot, key}]."""
+    from ecentric_workspace.ai_tools.features.ai_live.application.toggle_slots_service import ToggleSlotsService
+    user = frappe.session.user
+    return _run(lambda: ToggleSlotsService().execute(user, _roles(), items, frappe.utils.cint(enabled)))
+
+
+@frappe.whitelist(methods=["GET"])
 def viewer_wall():
     from ecentric_workspace.ai_tools.features.ai_live.application.viewer_wall_service import ViewerWallService
     return _run(lambda: ViewerWallService().execute(_roles()))
@@ -319,7 +362,7 @@ def month_schedule(month: str = None, view: str = "draft"):
 @frappe.whitelist(methods=["POST"])
 def push_slot_report(machine: str = None, slots=None):
     from ecentric_workspace.ai_tools.features.ai_live.application.push_slot_report_service import PushSlotReportService
-    return _run(lambda: PushSlotReportService().execute(frappe.session.user, str(machine or ""), slots))
+    return _run(lambda: PushSlotReportService().execute(frappe.session.user, str(machine or ""), slots), temp_5xx=True)
 
 
 @frappe.whitelist(methods=["GET"])

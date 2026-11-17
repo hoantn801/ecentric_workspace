@@ -15,7 +15,7 @@ class SetSessionsEnabledService:
         self.atomic = atomic or (lambda fn: fn())
 
     def execute(self, roles, names, enabled):
-        _common.require_role(roles, C.VIEW_ROLES, C.Msg.NEED_VIEW)
+        _common.require_role(roles, C.SCHEDULE_EDIT_ROLES, C.Msg.NEED_SCHEDULE_EDIT)
         lst = _common.parse_json(names, "danh sách phiên") if isinstance(names, str) else names
         lst = [str(n) for n in (lst or []) if C.LIVE_RE.match(str(n))][:MAX_BULK]
         done, errors = [], []
