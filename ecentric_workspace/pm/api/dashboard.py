@@ -296,7 +296,8 @@ def rail_badges():
     another person's numbers. Called once per pageview by ec_shell.js bindBadges()
     (BADGE_SOURCES keys pm.mywork / pm.assignments share this one request).
 
-      mywork      - "Việc cần làm" = queue.main_count(user): exactly the rows /pm#mywork lists
+      mywork      - "Việc cần làm" = queue.main_count(user) + "Cần đồng ý" requests waiting for me
+                    (hotfix 16: the block on top of the queue). main_count = the rows /pm#mywork lists
                     (pm.api.queue, the ONE rule): my open tasks minus the ones I sent for review
                     that wait for someone else, minus my own "Mỗi người một việc" parents (they
                     live in "Việc tôi giao"); personal-log projects hidden. QC3 15/11/2026 -
@@ -330,7 +331,12 @@ def rail_badges():
     received = 0
     try:
         from ecentric_workspace.pm.api import pm_inbox
-        received = pm_inbox.received_data(user)["badge"]
+        rd = pm_inbox.received_data(user)
+        received = rd["badge"]
+        # Hotfix 16 (PO 17/11/2026): "Được giao cho tôi" left the menu; its "Cần đồng ý" requests
+        # are the block on top of Việc cần làm -> the ONE work badge counts them too (same list,
+        # pm_inbox._needs_reply, as the block the queue shows).
+        mywork += len(rd.get("needs_reply") or [])
     except Exception:
         frappe.log_error(frappe.get_traceback(), "PM rail_badges received")
     return {"mywork": mywork, "assignments": assignments, "received": received}

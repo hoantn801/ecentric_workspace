@@ -112,9 +112,9 @@ function setup(o) {
   ok("người giao / Tự ghi", /Lê Hương/.test(t.rowEl("T-A2").querySelector(".pmq-hw").textContent) && /Tự ghi/.test(t.rowEl("T-C5").querySelector(".pmq-hw").textContent));
   ok("dòng quy tắc 'Thứ tự: Hạn → Ưu tiên → Giờ'", /Thứ tự:\s*Hạn\s*→\s*Ưu tiên\s*→\s*Giờ/.test(t.$(".pmq-rule").textContent));
   ok("tiêu đề + tóm tắt + số trên tab", t.$("h1").textContent === "Việc cần làm" && /9 việc đang mở, 2 quá hạn, 3 hạn hôm nay/.test(t.$("[data-sub]").textContent) && t.$('[data-c="me"]').textContent === "9" && t.$('[data-c="give"]').textContent === "2");
-  ok("tải cả 2 tab, chỉ đọc (queue.list), ẩn nhật ký cá nhân mặc định", t.count("queue.list") === 2 && t.calls.filter(x => x.m === "queue.list").every(x => x.a.include_personal === 0));
+  ok("tải cả 3 tab (hotfix 16: + Tôi theo dõi), chỉ đọc (queue.list), ẩn nhật ký cá nhân mặc định", t.count("queue.list") === 3 && t.calls.filter(x => x.m === "queue.list").every(x => x.a.include_personal === 0));
   ok("Việc tôi làm: dòng không tự ghi có Bắt đầu + Dời hạn; tự ghi thì không có Dời hạn", !!t.rowEl("T-A2").querySelector('[data-act="start"]') && !!t.rowEl("T-A2").querySelector('[data-act="ask"]') && !t.rowEl("T-C5").querySelector('[data-act="ask"]') && !t.rowEl("T-Z1").querySelector('[data-act="start"]'));
-  ok("pmr:badge mywork = số việc đang mở (đã ẩn nhật ký)", t.events.some(e => e.n === "pmr:badge" && e.d.key === "mywork" && e.d.count === 9));
+  ok("pmr:badge mywork = số việc đang mở (đã ẩn nhật ký) + 1 việc Cần đồng ý chờ nhận (hotfix 16)", t.events.some(e => e.n === "pmr:badge" && e.d.key === "mywork" && e.d.count === 10));
   /* bộ lọc */
   t.$('[data-f="today"]').click(); await flush();
   ok("bấm 'Hôm nay 3' -> chỉ còn 3 dòng, vẫn giữ # gốc", t.$$(".pmq-row").length === 3 && t.$$(".pmq-row .pmq-rk").map(x => x.textContent).join(",") === "3,4,5" && t.$('[data-f="today"]').getAttribute("aria-pressed") === "true");
@@ -190,7 +190,7 @@ function setup(o) {
   ok("Từ chối thiếu lý do -> báo lỗi tại chỗ, không gọi server", t.count("assignment.respond") === 0 && /Ghi lý do/.test(t.$(".pmq-ask-form").textContent) && t.$('[data-af="reason"]').getAttribute("aria-invalid") === "true");
   const rs = t.$('[data-af="reason"]'); rs.value = "Đang kẹt dự án khác"; rs.dispatchEvent(new t.w.Event("input", { bubbles: true }));
   t.intervals.find(x => x.ms === 60000).fn(); await flush();
-  ok("đang gõ lý do: tự làm mới 60 giây tạm hoãn, chữ còn nguyên", t.$('[data-af="reason"]').value === "Đang kẹt dự án khác" && t.count("queue.list") === 2);
+  ok("đang gõ lý do: tự làm mới 60 giây tạm hoãn, chữ còn nguyên", t.$('[data-af="reason"]').value === "Đang kẹt dự án khác" && t.count("queue.list") === 3);
   t.$('[data-act="ask-send"]').click(); await flush();
   ok("Từ chối có lý do -> respond(reject, reason)", t.last("assignment.respond").a.decision === "reject" && t.last("assignment.respond").a.reason === "Đang kẹt dự án khác" && /Đã từ chối/.test(t.toast()));
   t.ctl.destroy(); t.w.close();
@@ -206,7 +206,9 @@ function setup(o) {
 
   /* ---------- 5. giao việc 1 dòng */
   t = setup(); await flush();
-  ok("ô giao việc: gợi ý cách gõ khi trống", /@người nhận/.test(t.$("[data-parse]").textContent));
+  ok("ô giao việc: chưa bấm vào thì gọn một dòng (hotfix 16, không có dòng gợi ý)", t.$("[data-parse]").textContent === "" && t.$("[data-parse]").classList.contains("pmq-parse--off"));
+  t.$("[data-qa]").focus(); await flush();
+  ok("ô giao việc: bấm vào ô (3 lần dùng đầu) -> gợi ý cách gõ", /@người nhận/.test(t.$("[data-parse]").textContent) && !t.$("[data-parse]").classList.contains("pmq-parse--off"));
   await t.type("@Lan gửi báo cáo GMV thứ 7 gấp");
   await flush();
   const tok = t.$("[data-parse]").textContent;
@@ -378,7 +380,7 @@ function setup(o) {
   const cssNoCmt = CSS.replace(/\/\*[\s\S]*?\*\//g, "");
   ok("CSS AA: chữ số thứ tự / 'Chưa có hạn' / placeholder không dùng g400 (2.5:1); cam ưu tiên Cao #c2410c", /\.pmq-rk\{color:var\(--q-g500\)/.test(cssNoCmt) && /\.pmq-due--none b\{color:var\(--q-g500\)/.test(cssNoCmt) && /::placeholder\{color:var\(--q-g500\)\}/.test(cssNoCmt) && /--q-p3:#c2410c/.test(cssNoCmt));
   ok("CSS vùng bấm: nút ≥32px, nút tròn có vùng bấm mở rộng (::after), ≥40px trên điện thoại", /\.pmq-btn\{[^}]*min-height:32px/.test(cssNoCmt) && /\.pmq-chk::after\{content:"";position:absolute;inset:-6px/.test(cssNoCmt) && /@media \(max-width:640px\)[\s\S]*\.pmq-btn--sm,\.pmq-pick\{min-height:40px\}/.test(cssNoCmt) && /\.pmq-x\{width:32px;height:32px/.test(cssNoCmt));
-  ok("CSS: không viền trái màu cho dòng đang chọn, avatar trung tính, ô giao việc cao 100px như xương host", !/pmq-row--sel::before/.test(cssNoCmt) && !/hsl\(var\(--h/.test(cssNoCmt) && /\.pmq-qa\{padding:10px 14px 8px\}/.test(cssNoCmt) && /min-height:32px\}/.test(cssNoCmt));
+  ok("CSS: không viền trái màu cho dòng đang chọn, avatar trung tính, ô giao việc cao 100px như xương host", !/pmq-row--sel::before/.test(cssNoCmt) && !/hsl\(var\(--h/.test(cssNoCmt) && /\.pmq-qa\{padding:10px 14px\}/.test(cssNoCmt) && /min-height:32px\}/.test(cssNoCmt));
 
   ok("không gọi fetch trực tiếp khi host truyền api; không ký tự Jinja; một global", !/\{\{|\{%|\{#/.test(JS) && !/\{\{|\{%|\{#/.test(CSS) && /root\.PMQueue = \{/.test(JS));
   ok("CSS chỉ namespace .pmq- (trừ .pm-head của host lồng trong .pmq)", CSS.replace(/\/\*[\s\S]*?\*\//g, "").split("}").map(s => s.split("{")[0].trim()).filter(s => s && !/^@|^(from|to|\d+%)$/.test(s))

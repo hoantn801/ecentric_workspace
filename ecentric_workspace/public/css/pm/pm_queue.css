@@ -10,7 +10,8 @@
   --q-p4:#c81e1e;--q-p3:#c2410c;--q-p2:#6b7280;--q-p1:#b8bec8;--q-chk:#8a919e;--q-review-line:#c2770a;
   --q-row:54px;--q-ease:cubic-bezier(.16,1,.3,1);--q-font:var(--ec-font,Inter),-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   --q-cols:40px 30px minmax(0,1fr) 104px 128px 144px 192px;
-  font-family:var(--q-font);font-size:13px;line-height:1.45;color:var(--q-g900);font-feature-settings:"cv11" 1}
+  font-family:var(--q-font);font-size:13px;line-height:1.45;color:var(--q-g900);font-feature-settings:"cv11" 1;
+  padding-bottom:88px}   /* hotfix 16: chừa chỗ nút trợ lý nổi góc phải dưới — dòng cuối / thao tác không bị che */
 .pmq *,.pmq *::before,.pmq *::after{box-sizing:border-box}
 /* 15/11: :where() giữ độ ưu tiên = 0 cho phần reset, để màu của .pmq-btn--pri / .pmq-link... thắng
    (trước đây ".pmq button{color:inherit}" đè chữ trắng của nút chính -> chữ navy trên nền navy). */
@@ -27,7 +28,7 @@
 .pmq-kbd{display:inline-block;min-width:18px;text-align:center;font:600 11px/16px var(--q-font);background:var(--q-g100);border:1px solid var(--q-g200);border-bottom-width:2px;border-radius:5px;padding:0 5px;color:var(--q-g700)}
 
 /* ---------- đầu trang (dùng .pm-head của host) ---------- */
-.pmq .pm-head{align-items:flex-end;margin-bottom:14px}
+.pmq .pm-head{align-items:flex-end;margin-bottom:10px}
 .pmq .pm-head .sub{min-height:19px}
 .pmq .pm-head .sub b{font-weight:600;color:var(--q-g900)}
 .pmq .pm-head .sub b.pmq-late{color:var(--q-late)}
@@ -58,7 +59,7 @@
 .pmq-x:hover{background:var(--q-g100);color:var(--q-g900)}
 
 /* ---------- ô giao việc 1 dòng ---------- */
-.pmq-qa{padding:10px 14px 8px}
+.pmq-qa{padding:10px 14px}
 .pmq-qa-line{position:relative;display:flex;gap:8px;align-items:center}
 .pmq-qa-field{position:relative;flex:1;display:flex;align-items:center;gap:8px;border:1px solid var(--q-g300);border-radius:9px;padding:0 10px;background:#fff;min-width:0;transition:border-color .15s var(--q-ease),box-shadow .15s var(--q-ease)}
 .pmq-qa-field:focus-within{border-color:var(--q-navy);box-shadow:0 0 0 3px var(--q-navy-50)}
@@ -70,6 +71,9 @@
 .pmq-qa-more{padding:8px 10px;color:var(--q-navy);font-weight:600}
 .pmq-qa-more:hover:not(:disabled){color:var(--q-navy-700)}
 .pmq-parse{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;margin-top:8px;font-size:12.5px;color:var(--q-g500);min-height:32px}
+.pmq-parse--off{display:none}   /* hotfix 16: gợi ý chỉ khi đang gõ / 3 lần đầu -> ô giao việc gọn một dòng */
+.pmq-qa-field--ping{animation:pmq-ping .9s var(--q-ease)}
+@keyframes pmq-ping{0%{box-shadow:0 0 0 0 rgba(44,61,166,.35)}100%{box-shadow:0 0 0 8px rgba(44,61,166,0)}}
 .pmq-hint i{font-style:normal;color:var(--q-g700);background:var(--q-g100);border-radius:4px;padding:0 4px}
 .pmq-hint b{color:var(--q-g700);font-weight:600}
 .pmq-tok{display:inline-flex;align-items:center;gap:6px;min-width:0}
@@ -146,7 +150,7 @@
 .pmq-af-acts{display:flex;gap:6px;justify-content:flex-end}
 
 /* ---------- bộ đếm theo hạn = bộ lọc ---------- */
-.pmq-bar{display:flex;gap:10px;align-items:center;margin:14px 0 10px;flex-wrap:wrap}
+.pmq-bar{display:flex;gap:10px;align-items:center;margin:12px 0 8px;flex-wrap:wrap;min-width:0}
 .pmq-dist{display:flex;gap:6px;flex-wrap:wrap;align-items:center;min-height:30px}
 .pmq-dist button{display:inline-flex;align-items:baseline;gap:6px;border:1px solid var(--q-g200);background:#fff;border-radius:8px;padding:5px 10px;color:var(--q-g600);transition:border-color .15s var(--q-ease),background .15s var(--q-ease)}
 .pmq-dist button:hover{border-color:var(--q-g300)}
@@ -155,7 +159,8 @@
 .pmq-dist button[aria-pressed=true]{border-color:var(--q-navy);background:var(--q-navy-50);color:var(--q-navy)}
 .pmq-dist button[aria-pressed=true] b{color:var(--q-navy)}
 .pmq-skel-chip{width:84px;height:30px;border-radius:8px;background:var(--q-g100)}
-.pmq-rule{margin-left:auto;display:inline-flex;align-items:center;gap:6px;color:var(--q-g500);font-size:12px;white-space:nowrap}
+.pmq-rule{margin-left:auto;flex:none;display:inline-flex;align-items:center;gap:5px;padding-right:4px;color:var(--q-g500);font-size:12px;white-space:nowrap}
+.pmq-rule-l{margin-right:1px}
 .pmq-rule b{color:var(--q-g700);font-weight:600}
 .pmq-rule .pmq-i{width:14px;height:14px}
 .pmq-dist button:active{background:var(--q-g50)}
@@ -211,6 +216,26 @@
 .pmq-wait-t[aria-expanded="true"] .pmq-caret{transform:rotate(90deg)}
 .pmq-g--wait .pmq-rows[hidden]{display:none}
 .pmq-note-l{display:inline-flex;align-items:center;gap:8px}
+.pmq-note-l .pmq-link{margin:-7px 0}
+/* hotfix 16: "Tồn đọng" (trễ > 14 ngày) — một dòng thu gọn trên đầu, màu trung tính (không đỏ: đây là việc cần dọn, không phải báo động) */
+.pmq-g--old{background:var(--q-g25);border-bottom:1px solid var(--q-g200)}
+.pmq-old-h{display:flex;align-items:center;flex-wrap:wrap;gap:4px 12px;padding:10px 14px 10px 16px;color:var(--q-g700)}
+.pmq-old-h .pmq-wait-t{font-size:12.5px;margin:-6px -6px}
+.pmq-old-h small{color:var(--q-g600);font-size:12px}
+.pmq-old-h .pmq-btn{margin-left:auto}
+.pmq-g--old .pmq-row{background:transparent}
+.pmq-g--old .pmq-row:hover{background:var(--q-g50)}
+.pmq-g--old .pmq-row--sel{background:var(--q-navy-50)}
+.pmq-row--old .pmq-due--late b{color:var(--q-g700)}
+.pmq-g--old .pmq-rows{border-top:1px solid var(--q-g150)}
+.pmq-bulk{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;padding:8px 14px 10px 16px}
+.pmq-bulk-all{display:inline-flex;align-items:center;gap:8px;min-height:32px;cursor:pointer;color:var(--q-g700)}
+.pmq-bulk-all input,.pmq-pick-c{width:16px;height:16px;margin:0;accent-color:var(--q-navy);cursor:pointer}
+.pmq-bulk-acts{display:inline-flex;align-items:center;flex-wrap:wrap;gap:6px;margin-left:auto}
+.pmq-bulk-note{flex-basis:100%;color:var(--q-g600);font-size:12px}
+.pmq-btn--warn{border-color:#e7b4b4;background:var(--q-late-50);color:var(--q-late)}
+.pmq-btn--warn:hover:not(:disabled){border-color:var(--q-late);background:#fbe4e4}
+.pmq-row--old .pmq-rk{display:grid;place-items:center}
 .pmq-note{flex-wrap:wrap;column-gap:18px}
 .pmq-row .pmq-ac{display:flex;gap:2px;justify-content:flex-end;opacity:0;transition:opacity .12s var(--q-ease)}
 .pmq-row:hover .pmq-ac,.pmq-row:focus-within .pmq-ac,.pmq-row--sel .pmq-ac{opacity:1}
@@ -236,7 +261,7 @@
 /* người */
 .pmq-who{display:inline-flex;align-items:center;gap:7px;min-width:0;max-width:100%;white-space:nowrap}
 .pmq-who>span:not(.pmq-av):not(.pmq-more){overflow:hidden;text-overflow:ellipsis}
-.pmq-who--self{color:var(--q-g500)}
+.pmq-who--self,.pmq-who--sys{color:var(--q-g500)}
 .pmq-av{width:22px;height:22px;border-radius:50%;display:inline-grid;place-items:center;font-size:10px;font-weight:700;color:var(--q-g700);flex:none;background:var(--q-g150)}
 .pmq-more{font-size:11px;color:var(--q-g500);flex:none}
 /* dấu xong */
@@ -244,9 +269,6 @@
 .pmq-chk::after{content:"";position:absolute;inset:-6px;border-radius:50%}
 .pmq-chk .pmq-i{width:12px;height:12px;stroke-width:2.6}
 .pmq-chk:hover:not(:disabled){border-color:var(--q-ok);color:var(--q-ok)}
-.pmq-chk--doing{border-color:var(--q-navy);background:conic-gradient(var(--q-navy) 0 50%,#fff 0)}
-.pmq-chk--doing:hover:not(:disabled){background:var(--q-ok-50)}
-.pmq-chk--review{border-color:var(--q-review-line);border-style:dashed}
 .pmq-chk--done{background:var(--q-ok);border-color:var(--q-ok);color:#fff}
 .pmq-chk:active:not(:disabled){background:var(--q-ok-50)}
 .pmq-chk:disabled:not(.pmq-chk--done){opacity:.45}
@@ -263,6 +285,7 @@
 .pmq-state b{color:var(--q-g900);font-size:14px;font-weight:600}
 .pmq-state .pmq-btn{margin-top:6px}
 .pmq-state-i{width:28px;height:28px;color:var(--q-g400);stroke-width:1.5}
+.pmq-state--sm{padding:26px 20px}
 .pmq-state--err .pmq-state-i{color:var(--q-late)}
 
 /* ---------- ngăn chi tiết (không phải popup) ---------- */
@@ -277,11 +300,39 @@
 .pmq-dr-meta dd{margin:0;min-width:0;overflow-wrap:anywhere}
 .pmq-dr-meta .pmq-due{flex-direction:row;gap:8px;align-items:baseline}
 .pmq-dr-meta dd>small{display:block;margin-top:2px;font-size:11.5px}
-.pmq-dr-desc{padding:0 14px 12px;color:var(--q-g700);line-height:1.55}
-.pmq-dr-text{white-space:pre-line;overflow-wrap:anywhere;max-height:15.5em;overflow:auto}
+.pmq-dr-text{white-space:pre-line;overflow-wrap:anywhere;max-height:15.5em;overflow:auto;color:var(--q-g700);line-height:1.55}
+/* hotfix 16: ngăn chi tiết đủ để làm việc — mô tả sửa tại chỗ, các bước, việc con, bình luận */
+.pmq-dr-sec{padding:12px 14px;border-top:1px solid var(--q-g150)}
+.pmq-dr-sec>p{margin:0}
+.pmq-dr-sh{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.pmq-dr-st{margin:0 0 8px;font-size:12px;font-weight:600;color:var(--q-g700);display:flex;gap:6px;align-items:baseline}
+.pmq-dr-sh .pmq-link{margin:-7px -4px -7px 0}
+.pmq-dr-sec .pmq-ta{margin-bottom:6px;min-height:64px}
+.pmq-steps,.pmq-subs,.pmq-cms{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.pmq-step{display:flex;align-items:flex-start;gap:8px;min-height:32px;padding:5px 4px;border-radius:6px;cursor:pointer;color:var(--q-g900)}
+.pmq-step:hover{background:var(--q-g50)}
+.pmq-step input{flex:none;width:16px;height:16px;margin:1px 0 0;accent-color:var(--q-ok)}
+.pmq-step input:disabled{cursor:default}
+.pmq-step--done span{color:var(--q-g500);text-decoration:line-through}
+.pmq-req{font-size:11px;color:var(--q-today);text-decoration:none;display:inline-block}
+.pmq-subs li{display:flex;align-items:center;gap:8px;min-height:32px;min-width:0}
+.pmq-subs .pmq-st{flex:none}
+.pmq-sub-t{margin:0;padding:4px 0;font-weight:500;color:var(--q-g900);text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.pmq-sub-t[data-done]{color:var(--q-g500);text-decoration:line-through}
+.pmq-subs small{flex:none;max-width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11.5px}
+.pmq-cms{gap:10px;margin-bottom:10px}
+.pmq-cm-h{display:flex;align-items:center;gap:7px;font-size:12px}
+.pmq-cm-h b{font-weight:600}
+.pmq-cm-h .pmq-av{width:20px;height:20px;font-size:9px}
+.pmq-cm-b{margin:3px 0 0 27px;white-space:pre-line;overflow-wrap:anywhere;color:var(--q-g700);line-height:1.5}
+.pmq-cm--pin .pmq-cm-b{background:#fff8e1;border-radius:6px;padding:4px 8px;margin-left:27px}
+.pmq-cm-all{display:inline-block;margin:-4px -4px 8px}
+.pmq-cm-new .pmq-ta{min-height:54px}
+.pmq-dr-id{margin:0;padding:8px 14px 12px;font-size:11px;color:var(--q-g500);border-top:1px solid var(--q-g150)}
 .pmq-dr-skel{display:grid;gap:8px}
 .pmq-dr-skel i:nth-child(2){width:86%}.pmq-dr-skel i:nth-child(3){width:60%}
-.pmq-dr-acts{display:flex;gap:6px;flex-wrap:wrap;padding:12px 14px;border-top:1px solid var(--q-g150)}
+.pmq-dr-acts{display:flex;gap:6px;flex-wrap:wrap;padding:0 14px 12px}
+.pmq-dr-h .pmq-x{margin-top:-4px}
 .pmq-dr-acts .pmq-btn--q{border-color:var(--q-g300);background:#fff;color:var(--q-g700)}
 
 .pmq-keys{display:flex;gap:16px;flex-wrap:wrap;color:var(--q-g500);font-size:12px;margin:10px 0 0}
@@ -318,7 +369,7 @@
 @media (max-width:640px){
   .pmq .pm-head{align-items:flex-start}
   .pmq .pm-head>div:last-child{flex:1 1 100%}
-  .pmq-seg{width:100%}.pmq-seg button{flex:1;justify-content:center;min-height:40px}
+  .pmq-seg{width:100%}.pmq-seg button{flex:1;justify-content:center;min-height:40px;min-width:0;padding:6px 6px;gap:4px;white-space:normal;text-align:center;line-height:1.2}
   .pmq-qa{padding:10px}
   .pmq-qa-in{font-size:16px}
   .pmq-qa-kn,.pmq-keys,.pmq-rule,.pmq-cols{display:none}
@@ -345,6 +396,10 @@
   .pmq-row{grid-template-columns:34px minmax(0,1fr) auto;grid-template-areas:"chk tt due" "chk hp hw";gap:0 10px;padding:8px 12px 8px 4px;align-items:start}
   .pmq-row>.pmq-chk{grid-area:chk;margin:2px 0 0 6px}
   .pmq-row .pmq-rk,.pmq-row .pmq-ac{display:none}
+  /* hotfix 16 QA: dòng Tồn đọng giữ ô chọn trên điện thoại (không thì chỉ còn "Chọn tất cả") */
+  .pmq-row.pmq-row--old{grid-template-columns:34px 32px minmax(0,1fr) auto;grid-template-areas:"chk rk tt due" "chk rk hp hw"}
+  .pmq-row--old .pmq-rk{display:grid;grid-area:rk;place-items:center;align-self:stretch}
+  .pmq-pick-c,.pmq-bulk-all input{width:22px;height:22px}
   .pmq-row .pmq-tt{grid-area:tt;padding:0}
   .pmq-row .pmq-due{grid-area:due;text-align:right;align-items:flex-end}
   .pmq-row .pmq-hp{grid-area:hp;margin-top:4px}

@@ -46,7 +46,7 @@ class TestRule(Base):
         self.assertEqual((b["TODAY_9H"], b["MIDNIGHT"], b["SUNDAY"], b["NEXT_WEEK"], b["NODUE_URG"]),
                          ("late", "today", "week", "later", "none"))
         self.assertEqual([r["rank"] for r in out["rows"]], list(range(1, 12)))
-        self.assertEqual(out["counts"], {"late": 3, "today": 4, "tomorrow": 1, "week": 1, "later": 1, "none": 1})
+        self.assertEqual(out["counts"], {"late": 3, "today": 4, "tomorrow": 1, "week": 1, "later": 1, "none": 1, "stale": 0})
         m = [r for r in out["rows"] if r["name"] == "MIDNIGHT"][0]
         self.assertEqual((m["due"], m["due_time"]), ("2026-10-16", None))
 

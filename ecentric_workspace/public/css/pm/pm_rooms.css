@@ -17,6 +17,11 @@
 .pmrm-btn:focus-visible,.pmrm-link:focus-visible,.pmrm-seg button:focus-visible{outline:2px solid var(--rm-navy);outline-offset:2px}
 .pmrm-btn--pri{background:var(--rm-navy);border-color:var(--rm-navy);color:#fff}
 .pmrm-btn--pri:hover{background:var(--rm-navy-700)}
+/* hotfix 16 (PO 17/11): "+ Đặt phòng" nằm trong đầu trang của host (.pm-head), chữ từng bị tối trên nền navy. Khoá chữ trắng ở MỌI
+   trạng thái (hover / focus / đang tải), kể cả khi biến --rm-* không tới; lúc chờ tải lịch = navy nhạt + chữ trắng, không mờ cả nút. */
+.pmrm .pmrm-btn--pri,.pmrm-scrim .pmrm-btn--pri,.pm-head .pmrm-btn--pri{background:var(--rm-navy,#2C3DA6);border-color:var(--rm-navy,#2C3DA6);color:#fff;-webkit-text-fill-color:#fff}
+.pmrm .pmrm-btn--pri:hover:not([disabled]),.pm-head .pmrm-btn--pri:hover:not([disabled]){background:var(--rm-navy-700,#1f2d80);color:#fff}
+.pmrm .pmrm-btn--pri[disabled],.pm-head .pmrm-btn--pri[disabled]{opacity:1;background:#5b67c2;border-color:#5b67c2;color:#fff;cursor:progress}
 .pmrm-btn--danger{border-color:var(--rm-busy);color:var(--rm-busy)}
 .pmrm-btn--danger:hover{background:var(--rm-busy-50)}
 .pmrm-btn[disabled]{opacity:.55;cursor:default}

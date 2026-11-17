@@ -78,7 +78,8 @@ function setup(o) {
 
   /* ---------- M1/M2 giao diện nhiều người */
   ok("M4 nút 'Thêm chi tiết' cạnh 'Giao việc' (type=button, phím tắt Shift+Enter)", (() => { const b = t.$('[data-act="qa-more"]'); return b && b.type === "button" && b.textContent === "Thêm chi tiết" && b.getAttribute("aria-keyshortcuts") === "Shift+Enter" && b.previousElementSibling === t.$("[data-qa-go]"); })());
-  ok("M4 dòng gợi ý khi trống: ví dụ nhiều @, Enter để giao, Thêm chi tiết", /@Lan @Phú gửi báo cáo thứ 6 gấp/.test(t.parse()) && /Enter để giao/.test(t.parse()) && /Thêm chi tiết để ghi mô tả, các bước, lặp lại/.test(t.parse()));
+  t.qi().focus(); await flush();
+  ok("M4 dòng gợi ý khi trống (đang ở trong ô): ví dụ nhiều @, Enter để giao, Thêm chi tiết", /@Lan @Phú gửi báo cáo thứ 6 gấp/.test(t.parse()) && /Enter để giao/.test(t.parse()) && /Thêm chi tiết để ghi mô tả, các bước, lặp lại/.test(t.parse()));
   await t.type("@Lan @Phú gửi báo cáo");
   ok("M1 2 người -> 2 chip, mỗi chip có nút × có nhãn", t.chips().length === 2 && /Nguyễn Thị Lan/.test(t.chips()[0].textContent) && /Trần Văn Phú/.test(t.chips()[1].textContent) &&
     t.chips().every(c => { const x = c.querySelector('[data-act="qa-rm"]'); return x && /^Bỏ /.test(x.getAttribute("aria-label")); }));
@@ -203,6 +204,7 @@ function setup(o) {
   ok("M4 mở form KHÔNG gửi gì, ô 1 dòng còn nguyên", t.sends() === 0 && t.qi().value === "@Lan @Phú báo cáo tuần thứ 6 gấp");
   const r0 = refreshes();
   o.onCreated({ name: "T-X" }); await flush();
+  t.qi().focus(); await flush();
   ok("M4 form tạo xong -> xoá ô 1 dòng + hàng đợi làm mới", t.qi().value === "" && refreshes() > r0 && /Ví dụ:/.test(t.parse()));
   await t.type("@Lan @Phú việc A");
   await t.setF('[data-qa-f="ask"]', true);

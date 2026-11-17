@@ -26,6 +26,15 @@ QC2 15/11/2026 - who the queue is FOR (also only here):
     Rail badge "Việc cần làm" = main_count(user) = len(rows of tab=me) - same population (QC3).
     Up to 500 rows (`limit`), nearest due date first (an old overdue task is never the one cut); `truncated`.
 
+Hotfix 16 (PO 17/11/2026):
+    "Tồn đọng" (`stale`) = more than STALE_DAYS days past due. Its own bucket, LAST in the order: work
+             that has slipped that far is a clean-up decision (move / clear the due date / close -
+             queue_actions.bulk), not "do this first". Never in main_count (rail badge) nor in the
+             08:30 top 3 (the digest only names how many there are). Same rule for web, digest, MCP.
+    tab=follow tasks I follow (CC, PM Task Follower), top-level, still open - same order / shape.
+    giver_system = the giver is a system account (Administrator: imports, old scripts) -> shown as
+             "Hệ thống"; there is nobody to ask for a new deadline.
+
 Read-only service. Writes stay on the existing governed endpoints (tasks.create / mark_done /
 set_status, assignment.*, pm_inbox.nudge / request_deadline) so permissions, audit and
 notifications are unchanged."""
@@ -39,9 +48,13 @@ from frappe.utils import add_days, getdate, nowdate, now_datetime
 from ecentric_workspace.pm import permissions as pmperm
 from ecentric_workspace.pm import task_flow as tflow
 
-BUCKETS = ("late", "today", "tomorrow", "week", "later", "none")
+BUCKETS = ("late", "today", "tomorrow", "week", "later", "none", "stale")
 BUCKET_LABEL = {"late": "Quá hạn", "today": "Hôm nay", "tomorrow": "Ngày mai",
-                "week": "Còn lại tuần này", "later": "Tuần sau trở đi", "none": "Chưa có hạn"}
+                "week": "Còn lại tuần này", "later": "Tuần sau trở đi", "none": "Chưa có hạn",
+                "stale": "Tồn đọng"}
+STALE_DAYS = 14          # Hotfix 16: more than 14 days past due -> "Tồn đọng" (clean-up, not today's work)
+TABS = ("me", "give", "follow")
+SYSTEM_GIVER_LABEL = "Hệ thống"
 PRIORITY_RANK = {"Urgent": 4, "High": 3, "Medium": 2, "Low": 1}
 _FIELDS = ["name", "subject", "workflow_state", "status", "project", "parent_task", "is_group",
            "exp_end_date", "pm_end_time", "priority", "_assign", "owner", "modified",
@@ -98,6 +111,8 @@ def bucket(row, today, now_hm):
     d, t = due_parts(row)
     if not d:
         return "none"
+    if d < today and d < str(add_days(today, -STALE_DAYS)):
+        return "stale"
     if d < today or (d == today and t and t < now_hm):
         return "late"
     if d == today:
@@ -383,6 +398,13 @@ def _given(user):
     return out, proposals, givers, truncated
 
 
+def _followed(user):
+    """Top-level open tasks I follow (CC) - same population as "Tôi đã giao > Tôi theo dõi"
+    (pm_inbox.given(tab=follow)): followed_task_names, open, no sub-task."""
+    names = tflow.followed_task_names(user) or []
+    return [r for r in _by_names(names) if not r.get("parent_task")]
+
+
 def _decorate(rows, user, tab, givers=None):
     if not rows:
         return rows
@@ -409,8 +431,10 @@ def _decorate(rows, user, tab, givers=None):
         seen = tflow.seen_pairs(sorted({p[1] for r in rows for p in r.get("_people") or []}))
     for r in rows:
         g = givers.get(r["name"]) or r.get("owner")
+        system = (g or "") in tflow._SYSTEM_USERS
         r["giver"] = g
-        r["giver_name"] = "" if g == user else (full.get(g) or g)
+        r["giver_system"] = 1 if system else 0
+        r["giver_name"] = "" if g == user else (_(SYSTEM_GIVER_LABEL) if system else (full.get(g) or g))
         r["self"] = g == user and tab == "me"
         if tab == "give":
             # a pending recipient has nothing to open yet; a finished part was obviously opened
@@ -442,6 +466,7 @@ def list(tab="me", include_personal=0):
 
     tab=me   : open tasks assigned to me (incl. the ones I wrote for myself)
     tab=give : open tasks I gave to others
+    tab=follow: open top-level tasks I follow (CC)
     Returns {today, now, tab, rows (ordered, rank 1..n), counts {bucket: n}, buckets [{key, label}],
              asks (Cần đồng ý waiting for me, tab=me), personal_hidden,
              waiting (tab=me: I sent it for review, someone else checks; NOT in rows/counts),
@@ -477,20 +502,26 @@ def _me_rows(user, personal):
 
 
 def main_count(user):
-    """How many rows list(tab=me) shows with personal-log projects hidden (the default view) -
-    the rail badge "Việc cần làm" (dashboard.rail_badges). No decoration: 2-4 queries, none per
-    row. Capped at _MAX_ROWS like the list (the badge prints 99+ long before that)."""
-    return len(_me_rows(user, tflow.personal_log_projects())[0])
+    """How many rows list(tab=me) shows in its main list with personal-log projects hidden (the
+    default view) - the rail badge "Việc cần làm" (dashboard.rail_badges). "Tồn đọng" (stale) is
+    left out (hotfix 16: the screen folds it away). No decoration: 2-4 queries, none per row.
+    Capped at _MAX_ROWS like the list (the badge prints 99+ long before that)."""
+    today, now_hm = nowdate(), str(now_datetime())[11:16]
+    return len([r for r in _me_rows(user, tflow.personal_log_projects())[0]
+                if bucket(r, today, now_hm) != "stale"])
 
 
 def build(user, tab="me", include_personal=0):
     """Queue for `user` (no permission check: callers are list() for the session user and the
     scheduler digest for each recipient's OWN queue)."""
-    tab = "give" if tab == "give" else "me"
+    tab = tab if tab in TABS else "me"
     personal = set() if tflow.truthy(include_personal) else tflow.personal_log_projects()
     waiting, proposals = [], []
     if tab == "me":
         rows, waiting, givers, hidden, truncated = _me_rows(user, personal)
+    elif tab == "follow":
+        rows, hidden = _drop_personal(_followed(user), personal)
+        givers, truncated = None, False
     else:
         rows, proposals, givers, truncated = _given(user)
         rows, hidden = _drop_personal(rows, personal)
@@ -570,8 +601,11 @@ def _digest_text(rows, asks, today=None):
         lines.append(_("{0} việc hạn hôm nay").format(len(due_today)))
     if asks:
         lines.append(_("{0} việc chờ bạn nhận").format(len(asks)))
+    stale = len([r for r in rows if r["bucket"] == "stale"])
+    if stale:   # hotfix 16: only counted, never in the top 3
+        lines.append(_("{0} việc tồn đọng cần dọn").format(stale))
     top = []
-    for r in rows[:3]:
+    for r in [x for x in rows if x["bucket"] != "stale"][:3]:
         hint = _due_hint(r, today)
         top.append("{0}. {1}{2}".format(r["rank"], _short(r.get("subject") or r["name"]), " (%s)" % hint if hint else ""))
     return head, ", ".join(lines) + ". " + _("Làm trước:") + " " + " · ".join(top)

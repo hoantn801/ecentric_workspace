@@ -244,8 +244,9 @@ class TestLimit(Base):
         out = self.q.list()
         self.assertEqual(len(out["rows"]), 500)
         self.assertEqual(out["truncated"], 1)
-        self.assertEqual(out["rows"][0]["name"], "ZZZ_OLD")
-        self.assertEqual(out["rows"][0]["bucket"], "late")
+        # hotfix 16: > 14 days late = "Tồn đọng", ordered LAST - but still never the one cut
+        self.assertEqual(out["rows"][-1]["name"], "ZZZ_OLD")
+        self.assertEqual(out["rows"][-1]["bucket"], "stale")
 
     def test_not_truncated_under_limit(self):
         F.task(self.fk, "T1", assign=[F.ALICE], end="2026-10-20")

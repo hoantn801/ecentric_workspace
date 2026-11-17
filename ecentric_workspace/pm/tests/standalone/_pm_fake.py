@@ -193,8 +193,11 @@ class FakeDB(object):
     def commit(self):
         pass
 
-    def rollback(self):
-        pass
+    def rollback(self, save_point=None):
+        self.rolled_back = getattr(self, "rolled_back", []) + [save_point]
+
+    def savepoint(self, name):   # hotfix 16 (queue_actions.bulk): recorded only, the fake has no transactions
+        self.savepoints = getattr(self, "savepoints", []) + [name]
 
     def get_single_value(self, *a):
         return None
@@ -468,6 +471,7 @@ class FakeFrappe(object):
         m.get_traceback = lambda: "traceback"
         m.clear_cache = lambda **k: None
         m.enqueue = lambda *a, **k: None
+        m.clear_messages = lambda: None
 
         def throw(msg, exc=ValidationError, *a, **k):
             raise exc(msg)

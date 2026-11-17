@@ -724,9 +724,9 @@ RAIL_LAYOUTS = {
         {"t": "todo", "items": [
             # badge_source: every pm.* key resolves ONE shared session-scoped request
             # (pm.api.dashboard.rail_badges) in ec_shell.js BADGE_SOURCES.
+            # Hotfix 16 (PO 17/11/2026): "Được giao cho tôi" / "Tôi đã giao" gop vao "Việc cần làm" (tab + khoi
+            # Cần đồng ý); route van chay, muc an khoi cot (pm/nav.py MERGED_INTO_MYWORK, sidebar_hidden).
             {"key": "pm.view.mywork", "badge_source": "pm.mywork"},
-            {"key": "pm.view.assignments", "badge_source": "pm.received"},
-            {"key": "pm.view.given"},
             {"key": "pm.view.schedule"},
             {"key": "pm.view.rooms"}]},   # 05/11/2026 phong hop (PO duyet demo v2)
         {"t": "button", "item": {"key": "rail.pm.new", "label": "Giao việc", "route": "/pm#new",
