@@ -172,6 +172,10 @@ def validate_payment(doc):
         doc.funding_source_doctype = None
         doc.funding_source_name = None
         doc.purchase_request = None
+    need = funding.required_source(category)
+    if need and doc.get("funding_source_doctype") != need[0]:
+        frappe.throw(_("Loại chi phí này phải gắn chứng từ nguồn là {0}: ở mục \"Khoản chi này có chứng từ mua "
+                       "hàng?\" chọn có, rồi chọn hợp đồng.").format(need[1]))
     # Single guard for every source type: exists + approved + does not exceed the remainder.
     funding.validate_funding(doc)
     validate_installment(doc)

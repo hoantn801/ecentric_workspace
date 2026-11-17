@@ -214,7 +214,8 @@ class NgayVaKenh(unittest.TestCase):
     def test_ngay_ghi_du_nam_cach_xa_khong_bao_ghi_ro_nam(self):
         # A6: van chan (go nham nam hay gap) nhung khong bao "ghi ro nam" khi nguoi dung da ghi.
         with self.assertRaises(ValueError) as cm:
-            T.parse_service_dates("05/12/2026, 05/07/2027", dt.date(2026, 11, 15))
+            # PO 17/11: toi 366 ngay la hop le -> lay cap ngay cach hon 1 nam.
+            T.parse_service_dates("05/12/2026, 28/12/2027", dt.date(2026, 11, 15))
         self.assertNotIn("Ghi rõ năm", str(cm.exception))
         self.assertIn("Kiểm lại năm", str(cm.exception))
 
@@ -535,8 +536,11 @@ class HopDongLaoDongKhongLenSharePoint(unittest.TestCase):
         sp = importlib.import_module("ecentric_workspace.approval_center.shared.integrations.sharepoint_mirror")
         STATE["values"][(CR, (("name", "CR-L"),))] = "Labor / Hợp đồng lao động (EC)"
         STATE["values"][(CR, (("name", "CR-K"),))] = kol.KOL_CONTRACT_TYPE
+        STATE["values"][(CR, (("name", "CR-S"),))] = "Sales / Bán ra (EC)"
         self.assertFalse(sp.duoc_soi_guong_phieu(CR, "CR-L"))
-        self.assertTrue(sp.duoc_soi_guong_phieu(CR, "CR-K"))
+        # PO 17/11 (B): KOL cung khong len thu vien chung.
+        self.assertFalse(sp.duoc_soi_guong_phieu(CR, "CR-K"))
+        self.assertTrue(sp.duoc_soi_guong_phieu(CR, "CR-S"))
         self.assertIn("bo_qua", sp.dong_bo_mot_tep(CR, "CR-L", "/private/files/hd.pdf"))
 
 

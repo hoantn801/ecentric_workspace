@@ -57,13 +57,72 @@ const detail={business:{name:"EC-CTR-2026-00100",contract_type:KOL,request_type:
       calc:[{label:"Thực nhận đợt này",how:"",amount:6300000}]}]}}};
 const c={}; let failed=0;
 function chk(k,v){ c[k]=!!v; if(!v) failed++; }
+// PO 17/11: ban du PII tai qua POST (nguoi tao creator + Ke toan), nguoi duyet xem ban che; STK doi;
+// thanh ly; tao phieu moi tu phieu tu choi; KOL khong chon "dieu chinh".
+function po1711Part(){
+  curDetail=JSON.parse(JSON.stringify(detail));
+  curDetail.business.contract_file=null; curDetail.extra.kol.acceptances[0].bbnt_file=null; curDetail.extra.kol.acceptances[0].has_signed=true;
+  Object.assign(curDetail.extra.kol,{can_manage:false,is_finance:false,can_download_full:false,payee_changed:true,closed:null});
+  const w8=make("https://x/approvals/contract-review?id=EC-CTR-2026-00100");
+  wait(w8,function(){ return w8.document.getElementById("kol-detail"); },function(){
+    const b=w8.document.getElementById("ctr-body").innerHTML;
+    chk("nguoi duyet: khong co link / nut tai ban du, co ban da che", !/data-kol="dl"/.test(b)&&!/HDDV\.docx|BBNT\.docx/.test(b)&&/data-kol="preview"/.test(b)&&/bản đã che/.test(b));
+    chk("nguoi duyet: thay canh bao STK doi nhung khong co nut xac nhan / thanh ly", /Tài khoản nhận tiền của creator đã đổi/.test(b)&&!/data-kol="payeeok"/.test(b)&&!/data-kol="closehd"/.test(b));
+    chk("nguoi duyet: dot co ban ky thi ghi 'da co ban ky'", /đã có bản ký/.test(b));
+    curDetail=JSON.parse(JSON.stringify(detail));
+    curDetail.extra.kol.acceptances[0].signed_file="/private/files/bbnt ky.pdf";
+    Object.assign(curDetail.extra.kol,{is_finance:true,can_download_full:true,payee_changed:true,closed:null});
+    const w9=make("https://x/approvals/contract-review?id=EC-CTR-2026-00100");
+    const posted=[]; w9.HTMLFormElement.prototype.submit=function(){ const o={action:this.action,method:this.method};
+      Array.from(this.querySelectorAll("input")).forEach(function(i){ o[i.name]=i.value; }); posted.push(o); };
+    wait(w9,function(){ return w9.document.getElementById("kol-detail"); },function(){
+      const b9=w9.document.getElementById("ctr-body").innerHTML;
+      chk("ke toan: nut tai hop dong + BBNT + ban ky, khong co href toi tep", (b9.match(/data-kol="dl"/g)||[]).length>=3&&!/href="\/private\/files/.test(b9));
+      w9.document.querySelector('[data-kol="dl"]').click();
+      chk("tai: POST form toi kol_download_file kem csrf + ten tep", posted.length===1&&/kol_download_file$/.test(posted[0].action)&&/post/i.test(posted[0].method)&&posted[0].file_url==="/private/files/HDDV.docx"&&posted[0].name==="EC-CTR-2026-00100"&&"csrf_token" in posted[0]);
+      w9.document.querySelector('[data-kol="payeeok"]').click();
+      setTimeout(function(){
+        chk("ke toan xac nhan STK: goi kol_confirm_payee", calls.some(x=>/^kol_confirm_payee /.test(x)));
+        w9.document.querySelector('[data-kol="closehd"]').click();
+        setTimeout(function(){
+          const ov=w9.document.querySelector(".ec-ctr-overlay"); ov.querySelector("[data-ok]").click();
+          setTimeout(function(){
+            chk("thanh ly: bat buoc ly do", !calls.some(x=>/^kol_close_contract/.test(x)));
+            ov.querySelector("#kol-close-r").value="creator huy booking"; ov.querySelector("[data-ok]").click();
+            setTimeout(function(){
+              chk("thanh ly: goi kol_close_contract kem ly do", calls.some(x=>/^kol_close_contract .*creator huy booking/.test(x)));
+              curDetail=JSON.parse(JSON.stringify(detail));
+              Object.assign(curDetail.extra.kol,{is_finance:true,can_download_full:true,closed:{at:"2026-11-17 10:00:00",by:"fin@e.c",reason:"dung <b>x</b>"}});
+              const w10=make("https://x/approvals/contract-review?id=EC-CTR-2026-00100");
+              wait(w10,function(){ return w10.document.getElementById("kol-detail"); },function(){
+                const b10=w10.document.getElementById("ctr-body").innerHTML;
+                chk("da thanh ly: banner (escape ly do), khong them dot / khong thanh ly lai", /Hợp đồng đã thanh lý/.test(b10)&&/dung &lt;b&gt;x/.test(b10)&&!/data-kol="addacc"/.test(b10)&&!/data-kol="closehd"/.test(b10));
+                curDetail=JSON.parse(JSON.stringify(detail)); curDetail.business.requested_by="vy@e.c"; curDetail.approval={name:"R9",approval_status:"Rejected"};
+                const w11=make("https://x/approvals/contract-review?id=EC-CTR-2026-00100");
+                wait(w11,function(){ return w11.document.querySelector('[data-act="clone"]'); },function(){
+                  w11.document.querySelector('[data-act="clone"]').click();
+                  setTimeout(function(){ w11.document.querySelector(".ec-ctr-overlay [data-ok]").click();
+                    setTimeout(function(){ chk("tu choi: nut Tao phieu moi goi clone_request", calls.some(x=>/^clone_request .*EC-CTR-2026-00100/.test(x)));
+                      rulesPart(); },120); },80);
+                });
+              });
+            },150);
+          },80);
+        },80);
+      },150);
+    });
+  });
+}
 // Luat mau tool cu tren form (12/11): HKD / Shopee khong coc, chon coc tu dien 40%, danh sach mau loc theo
 // loai creator + nen tang + coc, nen tang ngoai TikTok/Shopee bi chan voi mau EC.
 function rulesPart(){
   const w7=make("https://x/approvals/contract-review");
   wait(w7,function(){ return w7.ContractReview&&w7.document.querySelector('[data-model="contract_type"]'); },function(){
+    const rk=w7.document.querySelector('[data-model="request_kind"]'); rk.value="Existing"; fire(w7,rk,"change");
     const ct=w7.document.querySelector('[data-model="contract_type"]'); ct.value=KOL; fire(w7,ct,"change");
     setTimeout(function(){
+      { const rk2=w7.document.querySelector('[data-model="request_kind"]'), ex=Array.from(rk2.options).filter(o=>o.value==="Existing")[0];
+        chk("KOL: tu ve Hop dong moi + khoa lua chon dieu chinh", w7.ContractReview.state.draft.request_kind==="New"&&rk2.value==="New"&&ex.disabled); }
       w7.ContractReviewKOL.pickCreator({name:"SUP-H",supplier_name:"Hộ KD A",ec_cr_type:"Hộ kinh doanh"});
       setTimeout(function(){
         const ps=w7.document.querySelector('[data-model="payment_schedule"]');
@@ -265,7 +324,7 @@ function reviewPart(){
       const w6=make("https://x/approvals/contract-review?id=EC-CTR-2026-00100");
       wait(w6,function(){ return /Chờ Kế toán kiểm/.test((w6.document.getElementById("ctr-body")||{}).innerHTML||""); },function(){
         chk("nguoi tao: khong co nut xac nhan ban ky", !/data-kol="vsignok"/.test(w6.document.getElementById("ctr-body").innerHTML));
-        rulesPart();
+        po1711Part();
       });
     },150);
   });

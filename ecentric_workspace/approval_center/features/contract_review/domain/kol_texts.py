@@ -59,6 +59,7 @@ def _make(year, month, day, raw):
 # Moi ngay doan DOC LAP (nguoi go khong nhat thiet theo thu tu thoi gian) roi moi sap xep.
 YEAR_RANGE = 2                      # chi nhan nam trong [nam nay - 1, nam nay + 2]
 MAX_SPAN_DAYS = 200                 # cac buoi cua MOT hop dong cach nhau qua xa = doan sai nam
+MAX_SPAN_EXPLICIT = 366             # ngay ghi du nam: HD dai su thuong hieu toi 1 nam (PO 17/11)
 
 
 def _nearest(month, day, anchors, raw):
@@ -84,13 +85,15 @@ def _check_year(d, today, raw):
 
 
 def _check_span(dates, raw, explicit=False):
-    if dates and (dates[-1] - dates[0]).days > MAX_SPAN_DAYS and explicit:
-        # Ngay da ghi du nam: van chan (go nham nam 28/12/2027 thay 2026 hay gap) nhung khong bao
-        # "ghi ro nam" nua - nguoi dung da ghi (QC 15/11 A6). HD dai hon 200 ngay: PO quyet.
+    span = (dates[-1] - dates[0]).days if dates else 0
+    if explicit and span > MAX_SPAN_EXPLICIT:
+        # Ngay da ghi du nam: van chan khi qua 1 nam (go nham nam 28/12/2027 thay 2026 hay gap) nhung
+        # khong bao "ghi ro nam" nua - nguoi dung da ghi (QC 15/11 A6). HD toi 1 nam: PO 17/11.
         raise ValueError("Các ngày thực hiện '%s' cách nhau hơn %d ngày (%s - %s). Kiểm lại năm; hợp đồng "
-                         "dài hơn thì dùng mẫu của creator." % (raw, MAX_SPAN_DAYS, dates[0].strftime("%d/%m/%Y"),
-                                                                dates[-1].strftime("%d/%m/%Y")))
-    if dates and (dates[-1] - dates[0]).days > MAX_SPAN_DAYS:
+                         "dài hơn 1 năm thì dùng mẫu của creator." % (raw, MAX_SPAN_EXPLICIT,
+                                                                     dates[0].strftime("%d/%m/%Y"),
+                                                                     dates[-1].strftime("%d/%m/%Y")))
+    if not explicit and span > MAX_SPAN_DAYS:
         raise ValueError("Các ngày thực hiện '%s' cách nhau quá xa (%s - %s). Ghi rõ năm cho từng ngày, "
                          "vd 28/12/2026, 05/01/2027." % (raw, dates[0].strftime("%d/%m/%Y"),
                                                           dates[-1].strftime("%d/%m/%Y")))

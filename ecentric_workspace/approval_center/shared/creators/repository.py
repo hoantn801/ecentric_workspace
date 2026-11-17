@@ -9,7 +9,7 @@ from importlib import import_module
 from ecentric_workspace.approval_center.shared.creators import domain
 
 DT = "Supplier"
-_IDENTITY_FIELDS = ["name", "owner", "supplier_name", "ec_cr_misa_code"] + list(domain.HARD_KEYS) + [
+_IDENTITY_FIELDS = ["name", "owner", "supplier_name", "ec_cr_type", "ec_cr_misa_code"] + list(domain.HARD_KEYS) + [
     f for f in domain.SOFT_KEYS if f != "supplier_name"]
 
 

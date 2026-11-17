@@ -78,6 +78,9 @@ _SOURCES = {
         "so_info_fn": _KOL + "funding_so_info",
         "so_view_fn": _KOL + "funding_so_can_view",
         "extra_filters": {"contract_type": "KOL/KOC / Creator (EC)"},
+        # PO 17/11: DNTT loai chi phi Booking KOL/KOC BAT BUOC chon hop dong nguon (khong co thi
+        # khong co tran nao chan so tien).
+        "required_for_categories": ("TT_KOL",),
     },
 }
 
@@ -85,6 +88,14 @@ _SOURCES = {
 def supported_sources():
     """[{value, label}] for the source-type picker. Config-driven, order is stable."""
     return [{"value": dt, "label": meta["label"]} for dt, meta in _SOURCES.items()]
+
+
+def required_source(category):
+    """(doctype, nhan) cua nguon BAT BUOC voi loai chi phi nay, hoac None."""
+    for doctype, meta in _SOURCES.items():
+        if category and category in (meta.get("required_for_categories") or ()):
+            return doctype, meta.get("label") or doctype
+    return None
 
 
 def _meta(source_doctype):

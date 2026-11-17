@@ -64,8 +64,11 @@ class SharePointChuaSan(Exception):
 #: Phieu cu the KHONG duoc dua len thu vien chung du loai phieu duoc phep: loai phieu -> (truong, gia tri)
 #: (vd hop dong lao dong mang luong - QC7). Khai bang du lieu, shared khong import nguoc feature.
 #: QC 15/11 B-09: nut "Them tep" o buoc duyet truoc do bo qua chot nay.
+#: PO 17/11 (B): hop dong KOL/KOC mang CCCD/STK creator -> cung khong len thu vien chung.
+#: Gia tri: mot chuoi HOAC tuple nhieu chuoi.
 BO_QUA_PHIEU = {
-    "EC Contract Review Request": ("contract_type", "Labor / Hợp đồng lao động (EC)"),
+    "EC Contract Review Request": ("contract_type", ("Labor / Hợp đồng lao động (EC)",
+                                                     "KOL/KOC / Creator (EC)")),
 }
 
 
@@ -81,7 +84,8 @@ def duoc_soi_guong_phieu(business_doctype, business_name):
     if not rule:
         return True
     try:
-        return frappe.db.get_value(business_doctype, {"name": business_name}, rule[0]) != rule[1]
+        bo_qua = rule[1] if isinstance(rule[1], (tuple, list, set, frozenset)) else (rule[1],)
+        return frappe.db.get_value(business_doctype, {"name": business_name}, rule[0]) not in bo_qua
     except Exception:
         frappe.log_error(frappe.get_traceback(), "SharePoint: khong hoi duoc phieu %s co bi loai" % business_name)
         return False
@@ -516,6 +520,10 @@ def dong_bo_phieu(business_doctype, business_name):
     """
     if not duoc_soi_guong(business_doctype):
         return {"bo_qua": "loai phieu khong nam trong danh sach cho phep",
+                "xong": [], "hong": [], "so_tep": 0}
+    # PO 17/11: chot ca o day (cong cu probe / patch backfill goi thang, khong qua service).
+    if not duoc_soi_guong_phieu(business_doctype, business_name):
+        return {"bo_qua": "phieu nay khong duoc dua len thu vien chung (BO_QUA_PHIEU)",
                 "xong": [], "hong": [], "so_tep": 0}
     tep = _dinh_kem(business_doctype, business_name)
     if not tep:

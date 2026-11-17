@@ -86,12 +86,18 @@
   "sign_check_note",
   "signed_verified_by",
   "signed_verified_at",
+  "kol_payee_fp",
+  "kol_payee_ok",
   "sb_kol_ai",
   "ai_qc_status",
   "ai_qc_at",
   "ai_qc_result",
   "sb_kol_bbnt",
-  "acceptances"
+  "acceptances",
+  "sb_kol_close",
+  "kol_closed_at",
+  "kol_closed_by",
+  "kol_close_reason"
  ],
  "fields": [
   {
@@ -620,11 +626,58 @@
    "label": "Các đợt nghiệm thu",
    "options": "EC Contract Acceptance",
    "no_copy": 1
+  },
+  {
+   "fieldname": "kol_payee_fp",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "read_only": 1,
+   "label": "Vân tay tài khoản nhận tiền lúc ký",
+   "description": "HMAC của STK + ngân hàng creator lúc gửi duyệt - không lưu số tài khoản (PO 17/11).",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "kol_payee_ok",
+   "fieldtype": "Small Text",
+   "hidden": 1,
+   "read_only": 1,
+   "label": "Tài khoản nhận tiền Kế toán đã xác nhận",
+   "description": "JSON [{fp, by, at}] - STK đổi sau khi ký mà Kế toán đã xác nhận.",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "sb_kol_close",
+   "fieldtype": "Section Break",
+   "label": "Thanh lý hợp đồng",
+   "collapsible": 1,
+   "depends_on": "eval:doc.kol_closed_at"
+  },
+  {
+   "fieldname": "kol_closed_at",
+   "fieldtype": "Datetime",
+   "read_only": 1,
+   "label": "Thanh lý lúc",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "kol_closed_by",
+   "fieldtype": "Link",
+   "options": "User",
+   "read_only": 1,
+   "label": "Người thanh lý",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "kol_close_reason",
+   "fieldtype": "Small Text",
+   "read_only": 1,
+   "label": "Lý do thanh lý",
+   "no_copy": 1
   }
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-11-12 11:30:00.000000",
+ "modified": "2026-11-17 10:30:00.000000",
  "modified_by": "Administrator",
  "module": "Approval Center",
  "name": "EC Contract Review Request",

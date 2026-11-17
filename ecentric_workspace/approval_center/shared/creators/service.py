@@ -82,13 +82,24 @@ class CreatorService:
             raise CreatorError("Không tìm thấy creator %s." % name)
         if not self.can_see_pii(user, row):
             raise CreatorPermissionError("Chỉ người tạo creator hoặc Kế toán được sửa thông tin.")
-        values = self._clean(data, with_identity=False)
+        # PO 17/11: Ke toan sua duoc ten / loai creator (go sai ten in vao hop dong + so HD).
+        finance = self.is_finance(user)
+        values = self._clean(data, with_identity=finance)
+        if values.get("ec_cr_type") and values["ec_cr_type"] != row.get("ec_cr_type"):
+            values["supplier_type"] = domain.SUPPLIER_TYPE_BY_CREATOR.get(values["ec_cr_type"])
         merged = dict(row, **values)
         self._validate(merged)
         self._refuse_hard(self._shown(user, self.check_duplicates(merged, exclude=name)["hard"]))
         changed = domain.payment_changes(row, values)
-        note = ("Đổi thông tin nhận tiền (%s) bởi %s - Kế toán đối chiếu trước khi chi cho hợp đồng đã ký."
-                % (", ".join(changed), user)) if changed else None
+        notes = []
+        if changed:
+            notes.append("Đổi thông tin nhận tiền (%s) bởi %s - Kế toán đối chiếu trước khi chi cho hợp "
+                         "đồng đã ký." % (", ".join(changed), user))
+        for field, label in (("supplier_name", "tên"), ("ec_cr_type", "loại")):
+            if field in values and str(values[field] or "") != str(row.get(field) or ""):
+                notes.append("%s đổi %s creator: \"%s\" -> \"%s\"." % (user, label, row.get(field) or "",
+                                                                    values[field] or ""))
+        note = " ".join(notes) or None
         self.repo.update(name, values, note=note)
         return {"name": name}
 

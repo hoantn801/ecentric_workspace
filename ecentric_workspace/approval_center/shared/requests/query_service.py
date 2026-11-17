@@ -335,7 +335,9 @@ def detail(definition, name):
             order_by="level_no asc")
         timeline = frappe.get_all(
             "EC Approval Action", filters={"approval_request": request.name},
-            fields=["seq", "request_level", "actor", "action", "comment", "action_time",
+            # level_no: hanh dong ghi thang so cap (khong qua request_level) - vd Duyet thay cua admin;
+            # thieu thi man hinh khong biet ai duyet cap do (17/11/2026).
+            fields=["seq", "request_level", "level_no", "actor", "action", "comment", "action_time",
                     "previous_status", "new_status"], order_by="seq asc")
         levels_by_name = {row.name: row for row in frappe.get_all(
             "EC Approval Request Level", filters={"approval_request": request.name},
@@ -351,6 +353,13 @@ def detail(definition, name):
         fields=["name", "file_name", "file_url", "is_private", "owner", "creation"],
         order_by="creation asc"))
     attachments = gan_sharepoint(dedupe_attachments(files), approvers)
+    if getattr(definition, "attachment_redactor", None):
+        # KHONG nuot loi: loi thi an het dinh kem (fail-closed) con hon de lo tep nhay cam.
+        try:
+            attachments = definition.attachment_redactor(attachments, business, request)
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "attachment_redactor %s" % definition.code)
+            attachments = []
     status = request.approval_status if request else "Draft"
     extra = {}
     if getattr(definition, "detail_extender", None):

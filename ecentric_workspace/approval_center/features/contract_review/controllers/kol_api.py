@@ -21,7 +21,8 @@ __all__ = ["kol_me", "kol_search_sales_orders", "kol_list_templates", "kol_place
            "kol_ai_extract", "kol_ai_qc", "kol_search_creators", "kol_get_creator",
            "kol_create_creator", "kol_update_creator", "kol_missing_misa", "kol_set_misa_code",
            "kol_verify_signed", "kol_verify_acceptance", "kol_pending_checks", "kol_preview_dates",
-           "kol_creator_gaps", "kol_preview_contract"]
+           "kol_creator_gaps", "kol_preview_contract", "kol_download_file", "kol_confirm_payee",
+           "kol_close_contract"]
 
 
 def _app(module):
@@ -197,3 +198,23 @@ def kol_verify_acceptance(name, row, ok, note=None):
 @frappe.whitelist()
 def kol_pending_checks():
     return {"rows": _app("kol_verify").pending_checks(_me())}
+
+
+# PO 17/11/2026 (kol_access): tai ban du PII co ghi vet, Ke toan xac nhan STK moi, thanh ly hop dong.
+@frappe.whitelist(methods=["POST"])
+def kol_download_file(name, file_url):
+    """POST (form an) de ghi vet duoc - GET bi rollback. Tra tep .docx de trinh duyet tai."""
+    file_name, content = _app("kol_access").download_file(name, file_url, _me())
+    frappe.local.response.filename = file_name
+    frappe.local.response.filecontent = content
+    frappe.local.response.type = "download"
+
+
+@frappe.whitelist(methods=["POST"])
+def kol_confirm_payee(name):
+    return _app("kol_access").confirm_payee(name, _me())
+
+
+@frappe.whitelist(methods=["POST"])
+def kol_close_contract(name, reason=None):
+    return _app("kol_access").close_contract(name, _me(), reason)

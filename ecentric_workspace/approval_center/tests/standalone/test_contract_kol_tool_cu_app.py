@@ -535,7 +535,9 @@ class AppTests(unittest.TestCase):
         r = acc.send_acceptance("CR-1", "a@ecentric.vn", "r1")
         self.assertEqual((row.bbnt_file, row.status, dropped, r.get("regenerated")),
                          ("/new.docx", acc.kol.BBNT_DRAFT, [], True))
-        self.assertTrue(comments and "/old.docx" in comments[0])
+        # PO 17/11: binh luan KHONG mang URL tep (ban du PII chi nguoi tao creator + Ke toan tai).
+        self.assertTrue(comments and "tạo lại" in comments[0])
+        self.assertFalse(any("/old.docx" in c or "/new.docx" in c for c in comments))
         # Bam lai (noi dung khong doi -> cung URL): moi danh dau da gui.
         r = acc.send_acceptance("CR-1", "a@ecentric.vn", "r1")
         self.assertEqual((row.status, r.get("regenerated")), (acc.kol.BBNT_SENT, None))

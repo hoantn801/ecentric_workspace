@@ -100,6 +100,8 @@ def _nap_mirror(frappe_gia, tai_len=None, ghi=None, cap=None, nguoi=None):
     ns["nguoi_trong_luong"] = nguoi or (lambda *a, **k: ["a@x.vn"])
     # Tep CHUA co lien ket cua phieu nay -> nhanh "tai moi" (03/11/2026).
     ns["_lien_ket_cua_phieu"] = lambda *a, **k: None
+    # PO 17/11: dong_bo_phieu chot them theo TUNG phieu (BO_QUA_PHIEU) - test rieng o test_contract_kol_po_17_11.
+    ns["duoc_soi_guong_phieu"] = lambda dt, n: True
     exec(compile(_doan(_MIRROR, "THU_MUC_THEO_PHIEU", "SNAP_DT", "duoc_soi_guong",
                        "tep_doi_chung", "_dinh_kem",
                        "dong_bo_phieu", "_dong_bo_tep", "dong_bo_nen"), "<m>", "exec"), ns)

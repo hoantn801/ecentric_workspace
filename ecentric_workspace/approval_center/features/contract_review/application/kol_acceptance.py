@@ -38,8 +38,21 @@ def done_amount(doc):
     return sum(flt(r.amount) for r in (doc.acceptances or []) if r.status == kol.BBNT_DONE)
 
 
+def _payee_note(doc, row_idx):
+    """PO 17/11 (D): STK creator doi sau khi ky ma Ke toan chua xac nhan -> ghi canh bao (khong chan)."""
+    from ecentric_workspace.approval_center.features.contract_review.application import kol_access
+    if kol_access.payee_changed(doc):
+        doc.add_comment("Info", _("Cảnh báo: tài khoản nhận tiền của creator đã đổi so với lúc ký hợp đồng "
+                                  "(BBNT đợt {0}). Kế toán kiểm thông tin creator rồi bấm \"Xác nhận tài khoản "
+                                  "mới\" trước khi chi.").format(row_idx))
+        return True
+    return False
+
+
 def add_acceptance(name, user, description, acceptance_date=None, amount=None):
     doc = _load(name, user)
+    from ecentric_workspace.approval_center.features.contract_review.application import kol_access
+    kol_access.require_open(doc)
     if approval_status(doc) != APPROVED or not is_signed(doc):
         frappe.throw(_("Chỉ tạo BBNT khi hợp đồng đã duyệt xong và đã ký đủ hai bên."))
     amount = flt(amount)
@@ -122,6 +135,8 @@ def send_acceptance(name, user, row_name):
     row = _row(doc, row_name)
     if row.status != kol.BBNT_DRAFT:
         frappe.throw(_("Đợt này đã gửi ký."))
+    from ecentric_workspace.approval_center.features.contract_review.application import kol_access
+    kol_access.require_open(doc)
     # Tool cu khong cho BBNT con cho trong di ky; kiem lai voi du lieu HIEN TAI (creator co the
     # vua duoc bo sung) - thieu thi chan, kem nhan tieng Viet (QC 12/11).
     from ecentric_workspace.approval_center.features.contract_review.application import kol_files
@@ -140,13 +155,14 @@ def send_acceptance(name, user, row_name):
     if old and new != old:
         row.bbnt_file = new
         doc.save(ignore_permissions=True)
-        doc.add_comment("Info", _("BBNT đợt {0} được tạo lại theo dữ liệu mới (bản cũ vẫn đính kèm: {1}).")
-                        .format(row.idx, old))
+        # Khong ghi URL vao binh luan: ban du PII chi nguoi tao creator + Ke toan tai (PO 17/11).
+        doc.add_comment("Info", _("BBNT đợt {0} được tạo lại theo dữ liệu mới (bản cũ vẫn đính kèm).")
+                        .format(row.idx))
         return {"status": row.status, "regenerated": True, "bbnt_file": new}
     row.bbnt_file = new
     row.status = kol.BBNT_SENT
     doc.save(ignore_permissions=True)
-    return {"status": row.status}
+    return {"status": row.status, "payee_changed": _payee_note(doc, row.idx)}
 
 
 def complete_acceptance(name, user, row_name, signed_file):
@@ -195,6 +211,7 @@ def finish_round(doc, row, signed_file, when, by):
         doc.add_comment("Info", _("Hạn thanh toán BBNT đợt {0} ({1}) chưa tính ngày lễ: chưa có lịch nghỉ lễ năm {2} "
                                   "- Kế toán cập nhật Holiday List rồi kiểm lại hạn.").format(
             row.idx, row.due_date.strftime("%d/%m/%Y"), row.due_date.year))
+    _payee_note(doc, row.idx)
     return findings
 
 
