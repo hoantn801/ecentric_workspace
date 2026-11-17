@@ -42,7 +42,7 @@ def _payee_note(doc, row_idx):
     """PO 17/11 (D): STK creator doi sau khi ky ma Ke toan chua xac nhan -> ghi canh bao (khong chan)."""
     from ecentric_workspace.approval_center.features.contract_review.application import kol_access
     if kol_access.payee_changed(doc):
-        doc.add_comment("Info", _("Cảnh báo: tài khoản nhận tiền của creator đã đổi so với lúc ký hợp đồng "
+        doc.add_comment("Info", _("Cảnh báo: tài khoản nhận tiền của creator đã đổi so với lúc gửi phiếu "
                                   "(BBNT đợt {0}). Kế toán kiểm thông tin creator rồi bấm \"Xác nhận tài khoản "
                                   "mới\" trước khi chi.").format(row_idx))
         return True

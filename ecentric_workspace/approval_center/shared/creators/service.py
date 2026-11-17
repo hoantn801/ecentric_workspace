@@ -85,6 +85,8 @@ class CreatorService:
         # PO 17/11: Ke toan sua duoc ten / loai creator (go sai ten in vao hop dong + so HD).
         finance = self.is_finance(user)
         values = self._clean(data, with_identity=finance)
+        if finance and "disabled" in (data or {}):
+            values["disabled"] = 1 if str(data.get("disabled")).strip().lower() in ("1", "true", "yes") else 0
         if values.get("ec_cr_type") and values["ec_cr_type"] != row.get("ec_cr_type"):
             # Hop dong da duyet giu loai cu (mau BBNT, so ngay thanh toan theo loai luc ky): doi loai
             # thi BBNT sau do lech ben ky (QC 17/11). Sai loai tu dau = lap creator dung loai + HD moi.
@@ -108,7 +110,6 @@ class CreatorService:
                 notes.append("%s đổi %s creator: \"%s\" -> \"%s\"." % (user, label, row.get(field) or "",
                                                                     values[field] or ""))
         if "disabled" in values:
-            values["disabled"] = 1 if str(values["disabled"]).strip().lower() in ("1", "true", "yes") else 0
             if values["disabled"] != (1 if row.get("disabled") else 0):
                 notes.append("%s %s creator." % (user, "ngừng dùng" if values["disabled"] else "dùng lại"))
         note = " ".join(notes) or None
@@ -141,8 +142,9 @@ class CreatorService:
     def _clean(data, with_identity):
         allowed = set(domain.WRITABLE_FIELDS)
         if with_identity:
-            # Ke toan: sua ten / loai, va NGUNG DUNG creator (duong sua sai loai khi da co HD duyet).
-            allowed |= {"supplier_name", "ec_cr_type", "disabled"}
+            # Ke toan: sua ten / loai (PO 17/11). `disabled` KHONG qua day: chi update() cua Ke toan nhan
+            # (QC he thong 17/11 - tao moi gui "disabled": "0" de lach chan trung cung).
+            allowed |= {"supplier_name", "ec_cr_type"}
         out = {}
         for key, value in (data or {}).items():
             if key in allowed:

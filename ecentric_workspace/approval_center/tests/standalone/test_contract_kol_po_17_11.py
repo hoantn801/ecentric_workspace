@@ -201,7 +201,7 @@ class KolKhongDieuChinh(unittest.TestCase):
         self.assertIn('if(d.request_kind==="Existing" && KOL.isKol(d)) errs.request_kind=', html)
         i = html.index('if(k==="contract_type"&&KOL.isKol(state.draft)&&state.draft.request_kind==="Existing")')
         self.assertLess(i, html.index('if(prevData() && DIFF_FIELDS.indexOf(k)>=0)'))   # truoc nhanh tra ve som
-        self.assertIn('["contract_type", "!=", "KOL/KOC / Creator (EC)"]',
+        self.assertIn('r.get("contract_type") != "KOL/KOC / Creator (EC)"',
                       _read("features/contract_review/controllers/api.py"))
 
 
@@ -624,6 +624,52 @@ class QcBanDo(unittest.TestCase):
         c = _j.loads(_read("doctype/ec_contract_acceptance/ec_contract_acceptance.json"))
         lv = {f["fieldname"]: f.get("permlevel", 0) for f in c["fields"]}
         self.assertEqual((lv["bbnt_file"], lv["signed_file"]), (1, 1))
+
+
+# ----------------------------------------------------------------------------- QC he thong vong 3 17/11
+class QcHeThong(unittest.TestCase):
+    def test_luu_phieu_tra_chu_tep_pii_ve_admin(self):
+        a = _access("req@ec")
+        d = _kol(contract_file="/private/files/HDDV_1_ab.docx", request_attachment="/private/files/HDDV_1_ab.docx",
+                 signed_file="/private/files/ky.pdf",
+                 acceptances=[Row(bbnt_file="/private/files/BBNT_1.docx", signed_file="/private/files/bbnt ky.pdf")])
+        seen = {}
+        STATE["get_all"]["File"] = lambda f, kw: seen.setdefault("f", f) and ["F-dup-1", "F-dup-2"]
+        sets = []
+        sys.modules["frappe"].db.set_value = lambda dt_, n, f, v=None, **k: sets.append((dt_, n, f, v))
+        a.lock_pii_files(d)
+        self.assertEqual(sorted(seen["f"]["file_url"][1]), sorted(["/private/files/HDDV_1_ab.docx", "/private/files/ky.pdf",
+                                                                   "/private/files/BBNT_1.docx", "/private/files/bbnt ky.pdf"]))
+        self.assertEqual(sets, [("File", "F-dup-1", "owner", "Administrator"), ("File", "F-dup-2", "owner", "Administrator")])
+        ctl = _read("doctype/ec_contract_review_request/ec_contract_review_request.py")
+        self.assertIn("def on_change(self):", ctl)
+        self.assertIn("kol_access.lock_pii_files", ctl)
+
+    def test_tao_creator_khong_lach_chan_trung_bang_disabled(self):
+        from test_creators_service import EXISTING, FakeRepo
+        from ecentric_workspace.approval_center.shared.creators.service import CreatorError, CreatorService
+        repo = FakeRepo([EXISTING], {"ke.toan@ec": ["EC Finance"]})
+        with self.assertRaises(CreatorError):
+            CreatorService(repo).create("an@ec", {"supplier_name": "Khác", "ec_cr_type": "Cá nhân",
+                                                  "ec_cr_cccd": EXISTING["ec_cr_cccd"], "ec_bank_account_no": "999",
+                                                  "ec_bank_name": "VCB", "disabled": "0"}, confirm_soft=True)
+        from ecentric_workspace.approval_center.shared.creators import domain
+        rows = [{"name": "SUP-2", "ec_cr_type": "Cá nhân", "ec_bank_account_no": "0011223344"}]
+        self.assertTrue(domain.classify_duplicates({"ec_cr_type": "Công ty", "ec_bank_account_no": "0011223344",
+                                                    "disabled": "0"}, rows)["hard"])
+
+    def test_dien_stk_chi_cho_nguoi_duoc_thay(self):
+        src = _read("features/contract_review/application/kol_funding.py")
+        i = src.index("def fill_payment")
+        body = src[i:src.index("\ndef ", i + 10)]
+        self.assertIn('may_see = kol_lookup.is_finance(me) or me == creator.get("owner") or me == doc.get("requested_by")', body)
+
+    def test_phieu_cu_contract_type_rong_van_duoc_xet(self):
+        api = _read("features/contract_review/controllers/api.py")
+        self.assertNotIn('["contract_type", "!=", "KOL/KOC / Creator (EC)"]', api)
+        self.assertIn('rows = [r for r in rows if r.get("contract_type") != "KOL/KOC / Creator (EC)"]', api)
+        p397 = _read("patches/p397_chu_ky_duyet_hop_dong_tep.py")
+        self.assertNotIn('"contract_type": ["!=", _KOL]', p397)
 
 
 if __name__ == "__main__":

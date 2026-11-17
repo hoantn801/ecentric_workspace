@@ -12,6 +12,13 @@ class ECContractReviewRequest(Document):
     def validate(self):
         self._snapshot_lock()
 
+    def on_change(self):
+        # Chay SAU hook on_update `attach_files_to_document` cua Frappe: hook do tao them dong File cho
+        # moi o Attach (chu = nguoi bam luu) -> tep du PII lai thuoc ve nguoi khong duoc tai. Tra chu ve
+        # Administrator (PO 17/11 A; QC he thong 17/11).
+        frappe.get_attr("ecentric_workspace.approval_center.features.contract_review.application."
+                        "kol_access.lock_pii_files")(self)
+
     def _snapshot_lock(self):
         if self.is_new() or not self.approval_request:
             return

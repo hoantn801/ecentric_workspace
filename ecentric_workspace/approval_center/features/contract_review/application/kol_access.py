@@ -63,6 +63,31 @@ def is_pii_file(business, file_name_or_url):
     return is_generated(file_name_or_url) or file_name_or_url in _signed_urls(business)
 
 
+def lock_pii_files(doc):
+    """Moi dong File gan phieu KOL tro toi tep du PII (ban sinh tu mau, ban ky) -> chu = Administrator.
+    Goi tu `on_change` cua DocType (sau hook attach_files_to_document). Nuot loi: khong lam hong viec luu."""
+    if not kol.is_kol(doc):
+        return
+    try:
+        urls = _signed_urls(doc)
+        for f in ("contract_file", "request_attachment"):
+            if is_generated(doc.get(f)):
+                urls.add(doc.get(f))
+        for r in doc.get("acceptances") or []:
+            if r.get("bbnt_file"):
+                urls.add(r.get("bbnt_file"))
+        urls.discard(None)
+        if not urls:
+            return
+        rows = frappe.get_all("File", filters={"attached_to_doctype": doc.doctype, "attached_to_name": doc.name,
+                                               "file_url": ["in", sorted(urls)], "owner": ["!=", "Administrator"]},
+                              pluck="name", limit_page_length=0, ignore_permissions=True)
+        for n in rows:
+            frappe.db.set_value("File", n, "owner", "Administrator", update_modified=False)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "kol lock_pii_files %s" % doc.get("name"))
+
+
 def can_download_full(business, user):
     """Nguoi tao creator + Ke toan (PO 17/11 A) + nguoi LAP chinh phieu nay (PO 17/11 sau QC: nguoi lap
     phai gui BBNT / hop dong cho creator ky va xuat PDF len cong ky). Nguoi duyet: ban che."""
@@ -243,7 +268,9 @@ def confirm_payee(name, user):
         frappe.throw(_("Creator chưa có số tài khoản: bổ sung thông tin creator trước khi xác nhận."))
     if not fp or not payee_changed(doc):
         return {"ok": True, "changed": False}
-    rows = _approved(doc) + [{"fp": fp, "by": user, "at": str(now_datetime())}]
+    # Khoa dong (for_update): hai Ke toan xac nhan cung luc khong lam mat mot van tay (QC he thong 17/11).
+    cur = frappe.db.get_value(kol_lookup.CR_DT, name, "kol_payee_ok", for_update=True)
+    rows = _approved({"kol_payee_ok": cur}) + [{"fp": fp, "by": user, "at": str(now_datetime())}]
     # Cap nhat modified: mot ban luu cu (dang mo tu truoc) se bi TimestampMismatch thay vi ghi de mat
     # xac nhan (QC 17/11).
     frappe.db.set_value(kol_lookup.CR_DT, name, "kol_payee_ok", json.dumps(rows))

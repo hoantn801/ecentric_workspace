@@ -77,8 +77,12 @@ def fill_payment(pr, name):
         pr.payee_full_name = doc.get("creator_name")
     # Tai khoan nhan = tai khoan creator (bat buoc khop - _check_payee). Dien san khi trong: dong doi cung
     # phong lap DNTT khong thay STK day du cua creator (QC ban do 17/11).
-    if not pr.get("bank_account_number") or not pr.get("account_bank"):
-        creator = creator_row(doc.get("creator")) or {}
+    # Chi dien cho nguoi duoc thay STK day du (Ke toan, nguoi tao creator, nguoi lap hop dong) - dong
+    # doi khac luu nhap de "doc" STK la lo so bi che (QC he thong 17/11).
+    creator = creator_row(doc.get("creator")) or {}
+    me = frappe.session.user
+    may_see = kol_lookup.is_finance(me) or me == creator.get("owner") or me == doc.get("requested_by")
+    if may_see and (not pr.get("bank_account_number") or not pr.get("account_bank")):
         if not pr.get("bank_account_number") and creator.get("ec_bank_account_no"):
             pr.bank_account_number = creator.get("ec_bank_account_no")
         if not pr.get("account_bank") and creator.get("ec_bank_name"):
@@ -194,7 +198,7 @@ def _check_payee(pr):
     doc = _doc(name)
     creator = creator_row(doc.get("creator")) or {}
     if kol_access.payee_changed(doc, creator):
-        frappe.throw(_("Tài khoản nhận tiền của creator đã đổi sau khi ký hợp đồng {0}: Kế toán kiểm và bấm "
+        frappe.throw(_("Tài khoản nhận tiền của creator đã đổi so với lúc gửi phiếu hợp đồng {0}: Kế toán kiểm và bấm "
                        "\"Xác nhận tài khoản mới\" trên hợp đồng trước khi lập đề nghị thanh toán.").format(name))
     typed = re.sub(r"\D", "", str(pr.get("bank_account_number") or ""))
     stored = re.sub(r"\D", "", str(creator.get("ec_bank_account_no") or ""))
