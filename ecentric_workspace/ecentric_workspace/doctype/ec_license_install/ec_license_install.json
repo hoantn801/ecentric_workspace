@@ -1,0 +1,114 @@
+{
+ "actions": [],
+ "creation": "2026-11-17 20:30:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "editable_grid": 1,
+ "field_order": [
+  "product",
+  "hw",
+  "pending_hw",
+  "reissued_at",
+  "machine_id",
+  "build_id",
+  "app_dir",
+  "col_i",
+  "license_issued_at",
+  "license_hw",
+  "last_checkin",
+  "last_checkin_ip"
+ ],
+ "fields": [
+  {
+   "fieldname": "product",
+   "fieldtype": "Select",
+   "label": "App",
+   "options": "elive\nesync\nevoice",
+   "in_list_view": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "hw",
+   "fieldtype": "Data",
+   "label": "Mã phần cứng đã cấp / đã báo",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "pending_hw",
+   "fieldtype": "Data",
+   "label": "Mã phần cứng đang chờ duyệt",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reissued_at",
+   "fieldtype": "Datetime",
+   "label": "Tự cấp lại lần cuối",
+   "read_only": 1
+  },
+  {
+   "fieldname": "machine_id",
+   "fieldtype": "Data",
+   "label": "Mã máy eSync (SYNC-…)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "build_id",
+   "fieldtype": "Data",
+   "label": "Bản build",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "app_dir",
+   "fieldtype": "Small Text",
+   "label": "Thư mục app",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_i",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "license_issued_at",
+   "fieldtype": "Datetime",
+   "label": "Cấp license lúc",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "license_hw",
+   "fieldtype": "Data",
+   "label": "Mã phần cứng của license",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_checkin",
+   "fieldtype": "Datetime",
+   "label": "Báo về lần cuối",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_checkin_ip",
+   "fieldtype": "Data",
+   "label": "IP báo về cuối",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-17 20:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC License Install",
+ "owner": "Administrator",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "istable": 1,
+ "autoname": "hash",
+ "permissions": [],
+ "track_changes": 0,
+ "description": "Một app (eLive / eSync / eVoice) trên một máy."
+}

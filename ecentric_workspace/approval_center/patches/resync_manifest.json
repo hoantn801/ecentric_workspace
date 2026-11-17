@@ -351,5 +351,9 @@
   "ai_tools/pages/ai_voice/main_section.html": {
     "last_resync_patch": "p380_ai_voice_trang_moi",
     "sha256": "5dc370c2c632a14977000d0ae5ff544459ba9248f8652275031d2e5978da765f"
+  },
+  "ai_tools/pages/ai_live_ban_quyen/main_section.html": {
+    "last_resync_patch": "p402_ai_live_ban_quyen",
+    "sha256": "7296b6c969504cbc2ca8663dd4e5d4dd51640acf93e5fa445707c5dc1bfd9df8"
   }
 }

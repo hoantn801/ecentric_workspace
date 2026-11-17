@@ -123,6 +123,22 @@ AI_TOOL_ITEMS = [
         ],
     },
     {
+        # 17/11/2026 (Hoan): Ban quyen eLive / eSync / eVoice - duyet / khoa may. Trang RIENG /ai-live/ban-quyen.
+        # Muc TANG MOT (khong phai con cua "Quan ly AI Live"): shell chi loc visible_when "role:" o tang mot.
+        # Chi role AI Live License Admin thay (System Manager duoc cap role o p402); API van tu kiem quyen.
+        # Menu 2 tang dat muc nay ngay duoi "Quan ly AI Live" (RAIL_LAYOUTS, kem huy hieu so may Cho duyet).
+        "key": "ai_tools.live.license",
+        "label": "Bản quyền AI Live",
+        "route": "/ai-live/ban-quyen",
+        "icon": "check",
+        "group": "",
+        "order": 23,
+        "active_patterns": ["/ai-live/ban-quyen"],
+        "visible_when": "role:AI Live License Admin",
+        "keywords": ["ban quyen", "license", "kich hoat", "duyet may", "khoa may", "elive", "esync", "evoice"],
+        "owner": "ai_tools",
+    },
+    {
         # 15/11/2026 (Hoan): Giong doc AI - dan van ban, chon giong (thu vien ERP / giong dang dung cua brand),
         # may eVoice doc ra MP3 luu tren ERP. Quyen do SERVER kep (EC AI Voice User / Manager, EC AI Content,
         # EC AI Video Admin) - muc menu "internal" giong cac cong cu AI khac.

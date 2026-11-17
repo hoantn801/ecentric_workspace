@@ -9,20 +9,21 @@ _COLOR = {C.Level.CRIT: ("attention", "D13438"), C.Level.OFF: ("attention", "D13
           C.Level.WARN: ("warning", "FFB900"), C.Level.INFO: ("good", "17683A"), C.Level.OK: ("good", "17683A")}
 
 
-def teams_payload(fmt, level, title, text, link):
+def teams_payload(fmt, level, title, text, link, button=None):
+    button = button or "Mở màn Giám sát"
     color, hexc = _COLOR.get(level, _COLOR[C.Level.WARN])
     if fmt == "messagecard":
         card = {"@type": "MessageCard", "@context": "https://schema.org/extensions", "summary": title,
                 "themeColor": hexc, "sections": [{"activityTitle": title, "text": text}]}
         if link:
-            card["potentialAction"] = [{"@type": "OpenUri", "name": "Mở màn Giám sát",
+            card["potentialAction"] = [{"@type": "OpenUri", "name": button,
                                         "targets": [{"os": "default", "uri": link}]}]
         return card
     content = {"$schema": "http://adaptivecards.io/schemas/adaptive-card.json", "type": "AdaptiveCard", "version": "1.4",
                "body": [{"type": "TextBlock", "text": title, "weight": "Bolder", "size": "Medium", "color": color, "wrap": True},
                         {"type": "TextBlock", "text": text, "wrap": True}]}
     if link:
-        content["actions"] = [{"type": "Action.OpenUrl", "title": "Mở màn Giám sát", "url": link}]
+        content["actions"] = [{"type": "Action.OpenUrl", "title": button, "url": link}]
     return {"type": "message", "attachments": [{"contentType": "application/vnd.microsoft.card.adaptive",
                                                  "contentUrl": None, "content": content}]}
 
@@ -40,6 +41,14 @@ def _post(url, payload):
     except ValueError:
         pass
     return 200 <= r.status_code < 300, str(r.status_code), body
+
+
+def send_teams_url(url, fmt, level, title, text, link, button=None):
+    """Ban quyen AI Live (17/11): webhook rieng trong EC License Settings, nut "Mo de duyet"."""
+    if not url:
+        return False, "OFF"
+    ok, code, _ = _post(url, teams_payload(fmt, level, title, text, link, button))
+    return ok, code
 
 
 def send_teams(cfg, level, title, text, link):

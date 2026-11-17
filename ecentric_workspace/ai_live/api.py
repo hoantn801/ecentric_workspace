@@ -4,3 +4,6 @@ CHI re-export - code that o ai_tools/features/ai_live/controllers/api.py (ham da
 from ecentric_workspace.ai_tools.features.ai_live.controllers.api import (  # noqa: F401
     ack_command, cost_summary, get_config, pull_commands, push_cost, push_heartbeat, push_race_result,
     push_session_summary, push_slot_report, push_slots, put_brand_settings, register_machine)
+# 17/11/2026 (Hoan): ban quyen tu dong eLive / eSync / eVoice - app tu xin license, khoa tu xa (lan mo app sau).
+from ecentric_workspace.ai_tools.features.ai_live.controllers.license_api import (  # noqa: F401,E402
+    license_checkin, license_request)

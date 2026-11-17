@@ -1,0 +1,130 @@
+{
+ "actions": [],
+ "creation": "2026-11-17 20:30:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "editable_grid": 1,
+ "field_order": [
+  "sec_mode",
+  "enabled",
+  "log_only",
+  "col_mode",
+  "office_ips",
+  "sec_keys",
+  "elive_secret",
+  "esync_secret",
+  "evoice_secret",
+  "dist_secret",
+  "sec_teams",
+  "teams_webhook",
+  "teams_format"
+ ],
+ "fields": [
+  {
+   "fieldname": "sec_mode",
+   "fieldtype": "Section Break",
+   "label": "Công tắc"
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Bật API (công tắc tổng)",
+   "default": "1",
+   "description": "Tắt: license_request trả \"unknown\", license_checkin trả \"ok\" – app vẫn chạy, vẫn cho dán key tay."
+  },
+  {
+   "fieldname": "log_only",
+   "fieldtype": "Check",
+   "label": "Chỉ ghi nhận",
+   "default": "1",
+   "description": "Bật: checkin luôn trả \"ok\" (vẫn ghi nhận máy), nút Khoá chưa có hiệu lực với app. Bật trong 3–7 ngày đầu."
+  },
+  {
+   "fieldname": "col_mode",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "office_ips",
+   "fieldtype": "Small Text",
+   "label": "IP công khai văn phòng",
+   "description": "Ngăn bằng dấu phẩy. Máy xin license từ IP này được tự duyệt."
+  },
+  {
+   "fieldname": "sec_keys",
+   "fieldtype": "Section Break",
+   "label": "Khoá bí mật (chỉ System Manager, không gửi qua chat)",
+   "description": "Dán NGUYÊN nội dung file khoá. Khoá lộ = người khác tạo được license và giải mã được app."
+  },
+  {
+   "fieldname": "elive_secret",
+   "fieldtype": "Password",
+   "label": "Khoá eLive (JSON khoa_ec.json)",
+   "length": 20000
+  },
+  {
+   "fieldname": "esync_secret",
+   "fieldtype": "Password",
+   "label": "Khoá eSync (JSON khoa_bi_mat.json + premium_fernet_key)",
+   "length": 20000
+  },
+  {
+   "fieldname": "evoice_secret",
+   "fieldtype": "Password",
+   "label": "Khoá eVoice (JSON vendor_secret.json + app_secret)",
+   "length": 20000
+  },
+  {
+   "fieldname": "dist_secret",
+   "fieldtype": "Password",
+   "label": "Khoá ký mã gói (khoa_goi.key)",
+   "length": 500,
+   "description": "Thiếu thì mọi máy mới đều phải chờ duyệt."
+  },
+  {
+   "fieldname": "sec_teams",
+   "fieldtype": "Section Break",
+   "label": "Báo Teams"
+  },
+  {
+   "fieldname": "teams_webhook",
+   "fieldtype": "Password",
+   "label": "Webhook Teams (máy chờ duyệt / nghi nhân bản)",
+   "length": 2000
+  },
+  {
+   "fieldname": "teams_format",
+   "fieldtype": "Select",
+   "label": "Kiểu webhook",
+   "options": "workflows\nmessagecard",
+   "default": "workflows",
+   "description": "workflows = Teams Workflows (Power Automate); messagecard = Incoming Webhook cũ."
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-17 20:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC License Settings",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "issingle": 1,
+ "track_changes": 1,
+ "permissions": [
+  {
+   "read": 1,
+   "write": 1,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0,
+   "role": "System Manager"
+  }
+ ],
+ "description": "Bản quyền AI Live: công tắc + khoá ký license eLive / eSync / eVoice."
+}

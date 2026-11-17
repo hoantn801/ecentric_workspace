@@ -691,6 +691,12 @@
     'pm.received': {
       url: '/api/method/ecentric_workspace.pm.api.dashboard.rail_badges',
       count: function (msg) { return (msg && msg.received) || 0; }
+    },
+    // Ban quyen AI Live (17/11/2026): so may Cho duyet. Muc menu chi hien voi role AI Live License Admin;
+    // nguoi khong co quyen goi vao -> 0 (khong loi).
+    'ai_live.license_pending': {
+      url: '/api/method/ecentric_workspace.ai_tools.features.ai_live.controllers.license_admin_api.pending_badge',
+      count: function (msg) { return (msg && msg.pending) || 0; }
     }
     // 'chat.unread' (Chat noi bo, 05/10/2026) CO Y khong o day: ec_chat.js to ca huy hieu
     // menu trai lan o Tin nhan tu MOT lan goi get_unread_total. Khoa la nhan la -> bo qua.
