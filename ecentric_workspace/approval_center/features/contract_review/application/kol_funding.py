@@ -104,26 +104,39 @@ def funding_so_can_view(pr, user):
     return bool(ar and frappe.db.exists("EC Approval Request Approver", {"approval_request": ar, "approver": user}))
 
 
-_OLD_NUMBER = re.compile(r"\b\d{8}/HDDV/ECENTRIC-[A-Za-z0-9.()_\-]+")
+# So HD dang tool cu / ERP: ddmmyyyy/HDDV/ECENTRIC-<doi tac>.<brand>[-n] (doi tac co the co "-", "(").
+_OLD_NUMBER = re.compile(r"\b\d{8}/HDDV/ECENTRIC-[A-Za-z0-9()\-]+\.[A-Za-z0-9]+(?:-\d+)?")
 
 
 def legacy_contract_ref(pr):
     """PO 17/11: DNTT Booking KOL cho hop dong ky bang tool cu (truoc ERP) - "Khong" co chung tu nguon,
-    ly do ghi so hop dong cu (dang ddmmyyyy/HDDV/ECENTRIC-...). Ke toan doi chieu luc duyet. So do ma da
-    co tren ERP thi phai chon hop dong ERP (co tran chi)."""
+    ly do ghi so hop dong cu. Ke toan doi chieu luc duyet. MOI so trong ly do ma trung (hoac la tien to
+    cua) mot hop dong ERP DA DUYET thi phai chon hop dong ERP do (co tran chi) - QC 17/11 vong 2."""
     if pr.get("has_purchase_request") != "No":
         return False
-    m = _OLD_NUMBER.search(str(pr.get("no_purchase_request_reason") or ""))
-    if not m:
+    text = str(pr.get("no_purchase_request_reason") or "")
+    found = [m.group(0) for m in _OLD_NUMBER.finditer(text)]
+    if not found:
         return False
-    no = m.group(0).rstrip(".,;:")
-    while no.endswith(")") and no.count(")") > no.count("("):      # "(so ...)" trong cau
-        no = no[:-1].rstrip(".,;:")
-    on_erp = frappe.db.get_value(kol_lookup.CR_DT, {"contract_no": no}, "name")
-    if on_erp:
-        frappe.throw(_("Hợp đồng {0} đã có trên ERP ({1}): chọn hợp đồng đó làm chứng từ nguồn.").format(
-            no, on_erp))
+    for no in found:
+        hit = _approved_erp_contract(no)
+        if hit:
+            frappe.throw(_("Hợp đồng {0} đã có trên ERP ({1}): chọn hợp đồng đó làm chứng từ nguồn.").format(
+                hit[1], hit[0]))
     return True
+
+
+def _approved_erp_contract(no):
+    """(ten phieu, so HD) cua hop dong ERP da duyet co so = `no` hoac la tien to cua `no` (vd "...FCV-dot2")."""
+    rows = frappe.get_all(kol_lookup.CR_DT, filters={"contract_no": ["like", no[:9] + "%"],
+                                                     "approval_request": ["is", "set"]},
+                          fields=["name", "contract_no", "approval_request"], limit_page_length=0,
+                          ignore_permissions=True)
+    for r in sorted(rows, key=lambda x: -len(x.contract_no or "")):
+        if r.contract_no and no.startswith(r.contract_no) \
+                and frappe.db.get_value("EC Approval Request", r.approval_request, "approval_status") == APPROVED:
+            return r.name, r.contract_no
+    return None
 
 
 def funding_validate(pr, user):
@@ -169,6 +182,6 @@ def _check_payee(pr):
     typed = re.sub(r"\D", "", str(pr.get("bank_account_number") or ""))
     stored = re.sub(r"\D", "", str(creator.get("ec_bank_account_no") or ""))
     if typed and stored and typed != stored:
-        frappe.throw(_("Số tài khoản nhận tiền trên đề nghị khác số tài khoản của creator trong hợp đồng {0}. "
-                       "Creator đổi tài khoản thì cập nhật thông tin creator (Kế toán xác nhận) rồi lập lại.")
-                     .format(name))
+        frappe.throw(_("Số tài khoản nhận tiền trên đề nghị khác số tài khoản của creator trong hợp đồng {0}: "
+                       "sửa số tài khoản trên đề nghị cho đúng. Creator thật sự đổi tài khoản thì cập nhật thông "
+                       "tin creator, Kế toán xác nhận trên hợp đồng, rồi lập đề nghị.").format(name))

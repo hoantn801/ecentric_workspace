@@ -52,6 +52,13 @@ def _signed_urls(business):
     return urls
 
 
+def _system_urls(doc):
+    """Tep chu = Administrator gan phieu (ban ky da nhan, ke ca ban bi tra lai)."""
+    return set(frappe.get_all("File", filters={"attached_to_doctype": doc.doctype, "attached_to_name": doc.name,
+                                               "owner": "Administrator"}, pluck="file_url",
+                              limit_page_length=0, ignore_permissions=True))
+
+
 def is_pii_file(business, file_name_or_url):
     return is_generated(file_name_or_url) or file_name_or_url in _signed_urls(business)
 
@@ -61,7 +68,9 @@ def can_download_full(business, user):
     phai gui BBNT / hop dong cho creator ky va xuat PDF len cong ky). Nguoi duyet: ban che."""
     if user == "Administrator" or _SYSTEM_MANAGER in frappe.get_roles(user) or kol_lookup.is_finance(user):
         return True
-    if user and business.get("requested_by") == user:
+    # Nguoi lap: chi khi phieu DA GUI (co phieu duyet - de lai vet, khong xoa duoc). Nhap thi xem ban
+    # che: khong de "lap nhap chon creator bat ky -> tai CCCD -> huy nhap" (QC 17/11 vong 2).
+    if user and business.get("requested_by") == user and business.get("approval_request"):
         return True
     creator = business.get("creator")
     owner = frappe.db.get_value("Supplier", creator, "owner") if creator else None
@@ -97,30 +106,42 @@ def redact_attachments(attachments, business, request=None):
     if not kol.is_kol(business):
         return attachments
     allowed = can_download_full(business, frappe.session.user)
-    signed = _signed_urls(business)
     out = []
     for a in attachments or []:
         if a.get("docx_file_url") or a.get("pdf_file_url"):
             if allowed:
                 out.append(a)
             continue
-        if is_generated(a.get("file_name")) or is_generated(a.get("file_url")) or a.get("file_url") in signed:
-            continue
-        out.append(a)
+        if not _is_pii_attachment(business, a):
+            out.append(a)
     return out
+
+
+def _is_pii_attachment(business, a):
+    """Tep du PII tren phieu KOL: tep he thong (chu = Administrator: ban sinh tu mau, ban ky da nhan,
+    ca ban ky bi tra lai), ban HDDV_/BBNT_ .docx cu (truoc 17/11 chu la nguoi bam tao), URL dang la ban
+    ky. PDF nguoi lap tu xuat tu Word (ten van HDDV_...pdf, chu la nguoi lap) KHONG an: do la ban dua
+    len cong ky, nguoi lap / Ke toan can thay de soat / xoa (QC 17/11 vong 2)."""
+    url, name = a.get("file_url"), a.get("file_name") or ""
+    if a.get("owner") == "Administrator" or url in _signed_urls(business):
+        return True
+    gen = is_generated(name) or is_generated(url)
+    return gen and (str(name or url or "").lower().endswith(".docx") or url in {
+        business.get("contract_file"), business.get("request_attachment")} or url in {
+        r.get("bbnt_file") for r in business.get("acceptances") or []})
 
 
 def download_file(name, file_url, user):
     """Tai ban du PII (POST - ghi vet duoc). -> (ten tep, noi dung)."""
     doc = frappe.get_doc(kol_lookup.CR_DT, name)
-    if not kol.is_kol(doc) or not is_pii_file(doc, file_url):
+    if not kol.is_kol(doc) or not (is_pii_file(doc, file_url) or file_url in _system_urls(doc)):
         frappe.throw(_("Tệp này không tải qua đây."))
     row = frappe.db.get_value("File", {"file_url": file_url, "attached_to_doctype": doc.doctype,
                                        "attached_to_name": doc.name}, ["name", "file_name"], as_dict=True)
     if not row:
         frappe.throw(_("Không tìm thấy tệp của phiếu này."))
     if not can_download_full(doc, user):
-        frappe.throw(_("Bản đủ thông tin cá nhân creator chỉ người lập phiếu, người tạo creator hoặc Kế toán tải được. "
+        frappe.throw(_("Bản đủ thông tin cá nhân creator chỉ người lập phiếu (sau khi gửi), người tạo creator hoặc Kế toán tải được. "
                        "Bấm \"Xem hợp đồng (bản đã che)\" để xem."), frappe.PermissionError)
     # Ghi NHAN tep, khong ghi ten tep (ten co doan ngau nhien = mot phan URL; binh luan ai co quyen
     # xem phieu cung doc duoc) - QC 17/11.

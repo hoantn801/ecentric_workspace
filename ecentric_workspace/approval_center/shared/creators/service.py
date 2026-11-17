@@ -91,8 +91,9 @@ class CreatorService:
             used = getattr(self.repo, "approved_contract", None)
             hit = used(name) if used else None
             if hit:
-                raise CreatorError("Creator đã có hợp đồng duyệt xong (%s): không đổi loại creator được - "
-                                   "tạo creator đúng loại rồi lập hợp đồng mới." % hit)
+                raise CreatorError("Creator đã có hợp đồng duyệt xong (%s): không đổi loại creator được (hợp đồng / "
+                                   "BBNT đã theo loại cũ). Ngừng dùng creator này rồi tạo creator đúng loại "
+                                   "(hệ thống chỉ hỏi xác nhận trùng) và lập hợp đồng mới." % hit)
             values["supplier_type"] = domain.SUPPLIER_TYPE_BY_CREATOR.get(values["ec_cr_type"])
         merged = dict(row, **values)
         self._validate(merged)
@@ -106,6 +107,10 @@ class CreatorService:
             if field in values and str(values[field] or "") != str(row.get(field) or ""):
                 notes.append("%s đổi %s creator: \"%s\" -> \"%s\"." % (user, label, row.get(field) or "",
                                                                     values[field] or ""))
+        if "disabled" in values:
+            values["disabled"] = 1 if str(values["disabled"]).strip().lower() in ("1", "true", "yes") else 0
+            if values["disabled"] != (1 if row.get("disabled") else 0):
+                notes.append("%s %s creator." % (user, "ngừng dùng" if values["disabled"] else "dùng lại"))
         note = " ".join(notes) or None
         self.repo.update(name, values, note=note)
         return {"name": name}
@@ -136,7 +141,8 @@ class CreatorService:
     def _clean(data, with_identity):
         allowed = set(domain.WRITABLE_FIELDS)
         if with_identity:
-            allowed |= {"supplier_name", "ec_cr_type"}
+            # Ke toan: sua ten / loai, va NGUNG DUNG creator (duong sua sai loai khi da co HD duyet).
+            allowed |= {"supplier_name", "ec_cr_type", "disabled"}
         out = {}
         for key, value in (data or {}).items():
             if key in allowed:

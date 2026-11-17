@@ -46,7 +46,7 @@
   },
   "approval_center/features/contract_review/ui/main_section.html": {
     "last_resync_patch": "p398_resync_contract_review_po_17_11",
-    "sha256": "80abd007a59f302f8fe89c24d15f5bf4ebc46415ab7587f2b274672b90a7fbf7"
+    "sha256": "8d32b57e9519732aefd76040852aebfbb69498b91bd6317297a67df7b236be82"
   },
   "approval_center/features/daily_target/ui/main_section.html": {
     "baseline": "2026-08-31",

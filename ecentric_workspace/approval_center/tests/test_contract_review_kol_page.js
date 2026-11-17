@@ -80,7 +80,7 @@ function po1711Part(){
     const w9=make("https://x/approvals/contract-review?id=EC-CTR-2026-00100");
     const posted=[]; let dlFail=false; w9.URL.createObjectURL=function(){ return "blob:x"; }; w9.URL.revokeObjectURL=function(){};
     w9.fetch=function(u,o){ const rec={action:u,method:o.method,csrf:(o.headers||{})["X-Frappe-CSRF-Token"]}; o.body.forEach(function(v,k){ rec[k]=v; }); posted.push(rec);
-      if(dlFail) return Promise.resolve({ok:false,status:403,headers:{get:function(){ return "application/json"; }},json:function(){ return Promise.resolve({_server_messages:JSON.stringify([JSON.stringify({message:"Bản đủ thông tin cá nhân creator chỉ người tạo creator hoặc Kế toán tải được."})])}); }});
+      if(dlFail) return Promise.resolve({ok:false,status:403,headers:{get:function(){ return "application/json"; }},json:function(){ return Promise.resolve({_server_messages:JSON.stringify([JSON.stringify({message:"Bản đủ thông tin cá nhân creator chỉ người lập phiếu (sau khi gửi), người tạo creator hoặc Kế toán tải được."})])}); }});
       return Promise.resolve({ok:true,status:200,headers:{get:function(){ return 'attachment; filename="HDDV.docx"'; }},blob:function(){ return Promise.resolve(new w9.Blob(["x"])); }}); };
     wait(w9,function(){ return w9.document.getElementById("kol-detail"); },function(){
       const b9=w9.document.getElementById("ctr-body").innerHTML;
@@ -92,7 +92,7 @@ function po1711Part(){
       chk("tai xong: nut mo lai, chu tra ve", d1&&!d1.disabled&&/Tải hợp đồng/.test(d1.textContent));
       dlFail=true; d1.click();
       setTimeout(function(){
-      chk("tai bi tu choi: o lai trang + toast loi tieng Viet", /chỉ người tạo creator hoặc Kế toán/.test((w9.document.getElementById("ctr-toast")||{}).textContent||"")&&!w9.document.querySelector('[data-kol="dl"]').disabled);
+      chk("tai bi tu choi: o lai trang + toast loi tieng Viet", /người tạo creator hoặc Kế toán/.test((w9.document.getElementById("ctr-toast")||{}).textContent||"")&&!w9.document.querySelector('[data-kol="dl"]').disabled);
       w9.document.querySelector('[data-kol="payeeok"]').click();
       setTimeout(function(){
         chk("ke toan xac nhan STK: goi kol_confirm_payee", calls.some(x=>/^kol_confirm_payee /.test(x)));

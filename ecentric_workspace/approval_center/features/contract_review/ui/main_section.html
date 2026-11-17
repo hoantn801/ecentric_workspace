@@ -1112,7 +1112,7 @@
         +f("ec_cr_cccd","Số CCCD",{grp:"ind",req:1})+f("ec_cr_cccd_issue_date","Ngày cấp CCCD",{grp:"ind",type:"date"})+f("ec_cr_cccd_issue_place","Nơi cấp",{grp:"ind"})+f("ec_cr_dob","Ngày sinh",{grp:"ind",type:"date"})
         +f("tax_id","MST",{grp:"org",req:1})+f("ec_cr_representative_name","Người đại diện",{grp:"org"})+f("ec_cr_representative_title","Chức vụ",{grp:"org"})
         +f("ec_cr_address","Địa chỉ")+f("ec_bank_account_no","Số tài khoản",{req:1})+f("ec_bank_name","Ngân hàng",{req:1})+f("ec_cr_bank_branch","Chi nhánh")+f("ec_cr_account_holder","Chủ tài khoản")
-        +'</div><div class="hint" style="margin-top:8px">Hợp đồng cần: địa chỉ, số tài khoản, ngân hàng; cá nhân thêm CCCD, ngày sinh; công ty / hộ KD thêm MST, người đại diện (công ty thêm chức vụ). Thiếu thì hợp đồng còn chỗ trống và chưa gửi được.<br>Mã viết tắt: để trống thì tự viết tắt từ tên (Nguyễn Thị Phương → NTP); công ty 2-6, hộ KD 2-8 chữ in hoa / số, không dấu cách.<br>CCCD, ngày sinh, số tài khoản chỉ người tạo và Kế toán xem được. Mã khách hàng MISA do Kế toán nhập sau.</div>'; },
+        +'</div>'+(editing&&!lock?'<label style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" id="kc-disabled"'+(cur.disabled?' checked':'')+'> Ngừng dùng creator này (không chọn được cho hợp đồng mới; dùng khi tạo lại creator đúng loại)</label>':'')+'<div class="hint" style="margin-top:8px">Hợp đồng cần: địa chỉ, số tài khoản, ngân hàng; cá nhân thêm CCCD, ngày sinh; công ty / hộ KD thêm MST, người đại diện (công ty thêm chức vụ). Thiếu thì hợp đồng còn chỗ trống và chưa gửi được.<br>Mã viết tắt: để trống thì tự viết tắt từ tên (Nguyễn Thị Phương → NTP); công ty 2-6, hộ KD 2-8 chữ in hoa / số, không dấu cách.<br>CCCD, ngày sinh, số tài khoản chỉ người tạo và Kế toán xem được. Mã khách hàng MISA do Kế toán nhập sau.</div>'; },
     CR_IDS:["ec_cr_type","supplier_name","ec_cr_party_code","ec_cr_tiktok_id","ec_cr_channel_url","ec_cr_shopee_id","ec_phone","ec_cr_email","ec_cr_cccd","ec_cr_cccd_issue_date","ec_cr_cccd_issue_place","ec_cr_dob","tax_id","ec_cr_representative_name","ec_cr_representative_title","ec_cr_address","ec_bank_account_no","ec_bank_name","ec_cr_bank_branch","ec_cr_account_holder"],
     creatorGroups:function(ov){ var t=(ov.querySelector("#kc-ec_cr_type")||{}).value||"Cá nhân";
       ov.querySelectorAll("[data-kc-grp]").forEach(function(el){ var g=el.getAttribute("data-kc-grp"); el.style.display=(t==="Hộ kinh doanh"||(g==="ind"&&t==="Cá nhân")||(g==="org"&&t==="Công ty"))?"":"none";
@@ -1122,7 +1122,9 @@
       KOL.CR_IDS.forEach(function(id){ var el=ov.querySelector("#kc-"+id); if(!el) return;
         var grp=el.closest("[data-kc-grp]"); if(grp&&grp.style.display==="none") return;   // nhom an theo loai creator: khong gui
         if(editing){ if((id==="supplier_name"||id==="ec_cr_type")&&KOL.lockIdentity(editing)) return; if((el.value||"")!==String(cur[id]==null?"":cur[id])) data[id]=el.value||""; }
-        else if(el.value) data[id]=el.value; }); return data; },
+        else if(el.value) data[id]=el.value; });
+      var dis=ov.querySelector("#kc-disabled"); if(editing&&dis&&(dis.checked?1:0)!==(cur.disabled?1:0)) data.disabled=dis.checked?1:0;
+      return data; },
     creatorCheck:function(d,editing){ var lock=KOL.lockIdentity(editing), t=lock?null:d.ec_cr_type, miss=[];
       if(!lock&&!String(d.supplier_name||"").trim()) miss.push("tên");
       if(t==="Cá nhân"&&!d.ec_cr_cccd) miss.push("CCCD"); if((t==="Công ty"||t==="Hộ kinh doanh")&&!d.tax_id) miss.push("MST");
@@ -1161,7 +1163,7 @@
         +(x.closed?'<div class="banner warn"><div><b>Hợp đồng đã thanh lý</b> · '+esc(fmt(x.closed.at))+(x.closed.by?(' · '+esc(x.closed.by)):'')+'<div class="hint">Lý do: '+esc(x.closed.reason||"")+'. Không tạo / gửi đợt nghiệm thu mới; ĐNTT chỉ trong phần đã nghiệm thu.</div></div></div>':'')
         +(x.payee_changed&&x.approved?('<div class="banner warn"><div><b>Tài khoản nhận tiền của creator đã đổi so với lúc ký hợp đồng.</b> '+(x.is_finance?'Kiểm thông tin creator (số tài khoản, ngân hàng, chủ tài khoản) rồi xác nhận - các đợt sau không cảnh báo lại.':'Kế toán kiểm và xác nhận trước khi chi.')
           +(x.is_finance?'<div class="actions" style="margin-top:8px"><button type="button" class="btn primary" data-kol="payeeok">Xác nhận tài khoản mới</button></div>':'')+'</div></div>'):'')
-        +(!x.can_download_full&&(b.has_contract_file||(x.acceptances||[]).length||x.signed)?'<div class="hint" style="margin-bottom:8px">Bản hợp đồng / BBNT đủ thông tin cá nhân creator (CCCD, tài khoản) chỉ người lập phiếu, người tạo creator và Kế toán tải được; bạn xem bản đã che.</div>':'')
+        +(!x.can_download_full&&(b.has_contract_file||(x.acceptances||[]).length||x.signed)?'<div class="hint" style="margin-bottom:8px">Bản hợp đồng / BBNT đủ thông tin cá nhân creator (CCCD, tài khoản) chỉ người lập phiếu (sau khi gửi), người tạo creator và Kế toán tải được'+(x.can_preview?'; bạn xem bản đã che.':'.')+'</div>':'')
         +KOL.stepsHTML(b,apSt)
         +'<div class="grid2">'+rows.map(function(r){ return KOL.roText(r[0],r[1]); }).join("")+'</div>'
         +(x.calc&&x.calc.length?('<h4 style="margin:16px 0 6px">Bảng tính chi tiết</h4>'+KOL.calcHTML(x.calc)+'<div class="hint">Làm tròn tới đồng (từ 0,5 trở lên làm tròn lên), giống tool cũ.</div>'):'')

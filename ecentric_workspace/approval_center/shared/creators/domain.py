@@ -157,7 +157,9 @@ def classify_duplicates(candidate, existing_rows):
         hit_soft = [f for f in SOFT_KEYS if f in mine and mine[f] == theirs.get(f)]
         if not (hit_hard or hit_soft):
             continue
-        if hit_hard and {candidate.get("ec_cr_type"), row.get("ec_cr_type")} == _SAME_PERSON_TYPES:
+        if hit_hard and (row.get("disabled") or {candidate.get("ec_cr_type"), row.get("ec_cr_type")} == _SAME_PERSON_TYPES):
+            # Creator da NGUNG DUNG: duong sua sai loai khi da co hop dong duyet = ngung creator cu, tao
+            # creator dung loai (QC 17/11 vong 2) - chi hoi xac nhan.
             # Cung mot nguoi vua la creator ca nhan vua mo ho kinh doanh (MST = CCCD, chu ho thuong dung
             # chinh tai khoan ca nhan): chi hoi xac nhan, khong chan cung (PO 17/11). Cong ty <-> ca nhan
             # trung so tai khoan / ma so van CHAN cung (QC 17/11).
@@ -237,4 +239,5 @@ def public_view(row, can_see_pii):
         elif f in ("ec_cr_cccd", "ec_bank_account_no"):
             out[f] = mask(_digits(value))
     out["can_see_pii"] = bool(can_see_pii)
+    out["disabled"] = 1 if row.get("disabled") else 0
     return out

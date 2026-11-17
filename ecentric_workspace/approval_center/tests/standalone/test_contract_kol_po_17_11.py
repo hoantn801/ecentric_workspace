@@ -74,7 +74,9 @@ class TaiBanDuPII(unittest.TestCase):
         self.assertTrue(a.can_download_full(b, "owner@ec"))            # nguoi tao creator
         self.assertTrue(a.can_download_full(b, "Administrator"))
         self.assertFalse(a.can_download_full(b, "req@ec"))             # nguoi khac (khong lap phieu nay)
-        self.assertTrue(a.can_download_full(dict(b, requested_by="req@ec"), "req@ec"))   # nguoi lap phieu
+        self.assertTrue(a.can_download_full(dict(b, requested_by="req@ec", approval_request="AR-1"), "req@ec"))
+        # nhap (chua gui): nguoi lap chi xem ban che - khong "chon creator bat ky -> tai -> huy nhap"
+        self.assertFalse(a.can_download_full(dict(b, requested_by="req@ec", approval_request=None), "req@ec"))
         self.assertFalse(a.can_download_full(dict(b, creator=None), "req@ec"))
 
     def test_nguoi_khong_duoc_tai_khong_thay_url(self):
@@ -477,18 +479,55 @@ class QcSauVongAgent(unittest.TestCase):
     def test_dntt_hop_dong_tool_cu_ghi_so_cu(self):
         _fresh("req@ec")
         fu = importlib.import_module(P + "kol_funding")
-        pr = {"has_purchase_request": "No", "no_purchase_request_reason": "HĐ cũ (số 05112026/HDDV/ECENTRIC-NTP.FCV)."}
-        key = (CR, (("contract_no", "05112026/HDDV/ECENTRIC-NTP.FCV"),))
-        STATE["values"][key] = lambda f, d: None
-        self.assertTrue(fu.legacy_contract_ref(pr))
-        STATE["values"][key] = lambda f, d: "EC-CTR-9"           # so do thuc ra da co tren ERP -> phai chon HD
-        with self.assertRaises(Throw):
-            fu.legacy_contract_ref(pr)
-        self.assertFalse(fu.legacy_contract_ref({"has_purchase_request": "No", "no_purchase_request_reason": "khong co"}))
+        erp = []
+        STATE["get_all"][CR] = lambda f, kw: list(erp)
+        pr = lambda reason: {"has_purchase_request": "No", "no_purchase_request_reason": reason}
+        self.assertTrue(fu.legacy_contract_ref(pr("HĐ cũ (số 05112026/HDDV/ECENTRIC-NTP.FCV).")))
+        erp.append(Row(name="EC-CTR-9", contract_no="05112026/HDDV/ECENTRIC-NTP.FCV", approval_request="AR-9"))
+        STATE["values"][("EC Approval Request", "AR-9")] = "Rejected"
+        self.assertTrue(fu.legacy_contract_ref(pr("05112026/HDDV/ECENTRIC-NTP.FCV")))   # HD ERP bi tu choi: khong chan
+        STATE["values"][("EC Approval Request", "AR-9")] = "Approved"
+        for reason in ("05112026/HDDV/ECENTRIC-NTP.FCV", "HD 05112026/HDDV/ECENTRIC-NTP.FCV-đợt 2",
+                       "05112026/HDDV/ECENTRIC-NTP.FCV_dot2", "cũ 01012025/HDDV/ECENTRIC-A.B thay 05112026/HDDV/ECENTRIC-NTP.FCV"):
+            with self.assertRaises(Throw, msg=reason):
+                fu.legacy_contract_ref(pr(reason))
+        self.assertFalse(fu.legacy_contract_ref(pr("khong co so")))
         self.assertFalse(fu.legacy_contract_ref({"has_purchase_request": "Yes",
                                                  "no_purchase_request_reason": "05112026/HDDV/ECENTRIC-A.B"}))
         svc = _read("features/payment_request/application/service.py")
         self.assertIn("funding.legacy_allowed(need[0], doc)", svc)
+
+    def test_dinh_kem_pii_theo_chu_tep(self):
+        a = _access("duyet@ec")
+        STATE["values"][("Supplier", "SUP-1")] = "owner@ec"
+        b = _biz()
+        att = [{"file_name": "HDDV_05112026.pdf", "file_url": "/private/files/HDDV_05112026.pdf", "owner": "req@ec"},
+               {"file_name": "HDDV_cu.docx", "file_url": "/private/files/HDDV_cu.docx", "owner": "req@ec"},
+               {"file_name": "ky bi tra.pdf", "file_url": "/private/files/ky bi tra.pdf", "owner": "Administrator"},
+               {"file_name": "phu luc.pdf", "file_url": "/private/files/phu luc.pdf", "owner": "req@ec"}]
+        self.assertEqual([x["file_name"] for x in a.redact_attachments(att, b)], ["HDDV_05112026.pdf", "phu luc.pdf"])
+
+    def test_nhan_ban_ky_chuyen_chu_tep(self):
+        src = _read("features/contract_review/application/kol_files.py")
+        i = src.index("def claim_upload")
+        body = src[i:src.index("\ndef ", i + 10)]
+        self.assertIn('"owner": "Administrator"', body)
+        self.assertIn('frappe.db.set_value("File", r.name, "owner", "Administrator"', body)
+
+    def test_creator_ngung_dung_thi_trung_chi_hoi(self):
+        from ecentric_workspace.approval_center.shared.creators import domain
+        rows = [{"name": "SUP-1", "supplier_name": "A", "ec_cr_type": "Công ty", "tax_id": "0312345678", "disabled": 1}]
+        hit = domain.classify_duplicates({"ec_cr_type": "Công ty", "tax_id": "0312345678"}, rows)
+        self.assertFalse(hit["hard"])
+        self.assertTrue(hit["soft"])
+        from test_creators_service import EXISTING, FakeRepo
+        from ecentric_workspace.approval_center.shared.creators.service import CreatorService
+        repo = FakeRepo([EXISTING], {"ke.toan@ec": ["EC Finance"]})
+        CreatorService(repo).update("ke.toan@ec", "SUP-001", {"disabled": 1})
+        self.assertEqual(repo.rows["SUP-001"]["disabled"], 1)
+        self.assertIn("ngừng dùng", " ".join(repo.notes))
+        CreatorService(repo).update("an@ec", "SUP-001", {"disabled": 0})     # chu ban ghi khong bat lai duoc
+        self.assertEqual(repo.rows["SUP-001"]["disabled"], 1)
 
     def test_p399_chot_moc_cho_hop_dong_cu(self):
         _fresh()

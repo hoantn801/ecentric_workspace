@@ -76,14 +76,21 @@ def claim_upload(doc, file_url, user):
     mine = [r for r in rows if r.attached_to_doctype == doc.doctype and r.attached_to_name == doc.name]
     free = [r for r in rows if not r.attached_to_name and (r.owner == user or kol_lookup.is_finance(user))]
     if mine:
+        for r in mine:
+            if r.owner != "Administrator":
+                frappe.db.set_value("File", r.name, "owner", "Administrator", update_modified=False)
         return file_url
     if not free:
         if not any(r.owner == user for r in rows) and not kol_lookup.is_finance(user):
             frappe.throw(_("Tệp này không phải do bạn tải lên."), frappe.PermissionError)
         frappe.throw(_("Tệp này đang gắn với chứng từ khác."))
     row = free[0]
+    # Ban ky co PII creator: chu tep = Administrator nhu tep sinh tu mau (PO 17/11 A) - nguoi tai len
+    # het mo thang URL; ai duoc thi tai qua kol_download_file (ghi vet). Danh dau nay con nguyen ca khi
+    # ban ky bi tra lai (signed_file ve rong) - kol_access van nhan ra tep la ban du (QC 17/11 vong 2).
     frappe.db.set_value("File", row.name, {"attached_to_doctype": doc.doctype,
-                                           "attached_to_name": doc.name})
+                                           "attached_to_name": doc.name, "owner": "Administrator"},
+                        update_modified=False)
     return file_url
 
 
