@@ -317,8 +317,8 @@
     "sha256": "cdcad8196af8c046a834c21217bcdab65b1d3714253eb329f3b5600c08356203"
   },
   "ai_tools/pages/ai_live/main_section.html": {
-    "last_resync_patch": "p380_ai_voice_trang_moi",
-    "sha256": "3e9fb3fe5a48499232856ac993794486b19e26a8a56a29f2fac15b11bf82c90a"
+    "last_resync_patch": "p412_ai_live_lich_hop_dong_1811",
+    "sha256": "f9ecb2bddf8ee9104f695a461213134ede23fa5babda4b0360bc9152b26686ca"
   },
   "dao_tao/pages/learn/main_section.html": {
     "last_resync_patch": "p389_dao_tao_bai_hoc_truc_quan",

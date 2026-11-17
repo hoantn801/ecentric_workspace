@@ -19,7 +19,7 @@ class MonthScheduleService:
         self.clock = clock or R.now_ts
 
     def execute(self, roles, month=None, view="draft"):
-        _common.require_role(roles, C.VIEW_ROLES, C.Msg.NEED_VIEW)
+        _common.require_role(roles, C.SCHEDULE_VIEW_ROLES, C.Msg.NEED_SCHEDULE_VIEW)
         now = self.clock()
         y, m = self._month(month, now)
         first = date(y, m, 1)

@@ -13,7 +13,7 @@ class SessionHistoryService:
         self.clock = clock or R.now_ts
 
     def execute(self, roles, live=None, brand=None, days=7, limit=500):
-        _common.require_role(roles, C.VIEW_ROLES, C.Msg.NEED_VIEW)
+        _common.require_role(roles, C.SCHEDULE_VIEW_ROLES, C.Msg.NEED_SCHEDULE_VIEW)
         days = max(1, min(int(days or 7), C.MAX_HISTORY_DAYS))
         rows = self.logs.list(self.clock() - days * 86400, live or None, brand or None, limit)
         tot = {"runs": len(rows), "hours": round(sum(r["duration_s"] for r in rows) / 3600.0, 1),

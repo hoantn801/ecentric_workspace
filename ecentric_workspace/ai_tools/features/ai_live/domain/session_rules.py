@@ -53,7 +53,8 @@ def norm_slots(slots):
                 raise C.AiLiveError("ngày phải dạng YYYY-MM-DD")
             if (_mins(b) - _mins(a)) % 1440 < C.MIN_SLOT_MIN:
                 raise C.AiLiveError(C.ContractMsg.SLOT_TOO_SHORT % C.MIN_SLOT_MIN)
-            out.append({"days": [] if d else _parse_days(s.get("days")), "date": d or None, "start": a, "end": b})
+            out.append({"days": [] if d else _parse_days(s.get("days")), "date": d or None, "start": a, "end": b,
+                        "enabled": slot_on(s)})
         except C.AiLiveError as e:
             raise C.AiLiveError(C.SessMsg.BAD_SLOT % (i, e))
     if len(out) > C.MAX_SESSION_SLOTS:
@@ -62,14 +63,36 @@ def norm_slots(slots):
     return sorted(out, key=lambda s: (s["date"] or "", s["days"], s["start"]))
 
 
+def slot_on(s):
+    """18/11: khung tat (enabled = 0) chi luu tren ERP - khong gui xuong may, khong tinh trung gio / suc chua.
+    Thieu truong (du lieu / ban nhap cu, app gui push_slots) = dang bat."""
+    v = (s or {}).get("enabled", True)
+    if isinstance(v, str):
+        return v.strip().lower() not in ("0", "false", "no", "off")
+    return v is None or bool(v)
+
+
+def slot_key(s):
+    """Dau nhan dien 1 khung (thu|ngay|bat dau|ket thuc) - trang gui kem chi so khung de bao "khung da doi" khi lech."""
+    return "%s|%s|%s|%s" % (",".join(str(d) for d in (s.get("days") or [])), s.get("date") or "", s["start"], s["end"])
+
+
+def live_slots(slots):
+    """Cac khung DANG BAT, dung thu tu - vi tri trong danh sach nay = ma khung tren app (erp1, erp2...)."""
+    return [s for s in slots or [] if slot_on(s)]
+
+
 def _applies(slot, day):
     return slot["date"] == day.isoformat() if slot["date"] else day.isoweekday() in slot["days"]
 
 
-def occurrences(slots, days):
-    """Cac lan dien ra trong cac ngay `days` (date): [(start_ts, end_ts, slot_index)] - epoch giay."""
+def occurrences(slots, days, include_off=False):
+    """Cac lan dien ra trong cac ngay `days` (date): [(start_ts, end_ts, slot_index)] - epoch giay.
+    slot_index = vi tri trong `slots` (ke ca khung tat). Khung tat bo qua, tru khi include_off (man Lich ve khoi xam)."""
     out = []
     for i, s in enumerate(slots):
+        if not include_off and not slot_on(s):
+            continue
         a, b = _mins(s["start"]), _mins(s["end"])
         for day in days:
             if not _applies(s, day):
@@ -155,9 +178,9 @@ def status_of(session, health_row, ev, now, dead_man_min):
 
 
 def to_app_schedule(slots):
-    """Khung cho app / tin hieu: {days, start, end} (+ date neu chi 1 ngay)."""
+    """Khung cho app / tin hieu: {days, start, end} (+ date neu chi 1 ngay). Khung tat khong gui (hop dong 18/11)."""
     return [{"days": s["days"] or list(range(1, 8)), "start": s["start"], "end": s["end"], **({"date": s["date"]} if s["date"] else {})}
-            for s in slots]
+            for s in live_slots(slots)]
 
 
 def _txt(v, n=C.MAX_DETAIL_TEXT):

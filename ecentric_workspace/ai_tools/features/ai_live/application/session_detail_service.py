@@ -22,7 +22,7 @@ class SessionDetailService:
         self.clock = clock or R.now_ts
 
     def execute(self, roles, name):
-        _common.require_role(roles, C.VIEW_ROLES, C.Msg.NEED_VIEW)
+        _common.require_role(roles, C.SCHEDULE_VIEW_ROLES, C.Msg.NEED_SCHEDULE_VIEW)
         sess = self.sessions.get(str(name or ""))
         if not sess:
             raise C.AiLiveError(C.SessMsg.NOT_FOUND % name)

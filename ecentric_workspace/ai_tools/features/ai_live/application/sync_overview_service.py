@@ -19,7 +19,7 @@ class SyncOverviewService:
         self._publisher = publisher
 
     def execute(self, roles):
-        _common.require_role(roles, C.VIEW_ROLES, C.Msg.NEED_VIEW)
+        _common.require_role(roles, C.SCHEDULE_VIEW_ROLES, C.Msg.NEED_SCHEDULE_VIEW)
         now, cfg = self.clock(), self.schedule.settings()
         sessions = self.sessions.list()
         drafts = [s for s in sessions if s.get("draft")]

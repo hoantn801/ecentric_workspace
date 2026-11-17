@@ -79,5 +79,23 @@
   "disabled": 0,
   "two_factor_auth": 0,
   "restrict_to_domain": ""
+ },
+ {
+  "doctype": "Role",
+  "name": "AI Live Scheduler",
+  "role_name": "AI Live Scheduler",
+  "desk_access": 1,
+  "disabled": 0,
+  "two_factor_auth": 0,
+  "restrict_to_domain": ""
+ },
+ {
+  "doctype": "Role",
+  "name": "AI Live Viewer",
+  "role_name": "AI Live Viewer",
+  "desk_access": 0,
+  "disabled": 0,
+  "two_factor_auth": 0,
+  "restrict_to_domain": ""
  }
 ]

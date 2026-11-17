@@ -20,7 +20,7 @@ class ListSessionsService:
         self.clock = clock or R.now_ts
 
     def execute(self, roles, brand=None, platform=None, machine=None, status=None):
-        _common.require_role(roles, C.VIEW_ROLES, C.Msg.NEED_VIEW)
+        _common.require_role(roles, C.SCHEDULE_VIEW_ROLES, C.Msg.NEED_SCHEDULE_VIEW)
         now, cfg = self.clock(), self.settings.get()
         hi = health_index(self.health.all())
         rows = [summarize(s, hi.get(R.key_of(s["machine"], s["id"])) if s["machine"] else None, now, cfg)

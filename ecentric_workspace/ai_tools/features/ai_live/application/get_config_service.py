@@ -30,9 +30,11 @@ class GetConfigService:
         lives = self._lives(m, out, now)
         version = self._sched().settings()["version"]
         self.machines.record_fetch(m["machine_code"], now, version)
+        # 18/11 (hop dong lich live): server_time = chuoi "YYYY-MM-DD HH:MM:SS" gio VN (app canh bao dong ho may lech
+        # >= 1 phut). App 1.0.28-1.0.32 doc duoc ca epoch lan chuoi nay (erp.js parseVnTime).
         return {"machine": m["machine_code"], "label": m.get("label") or "", "brands": out,
                 "max_lives": int(m.get("max_lives") or C.DEFAULT_MAX_LIVES), "lives": lives,
-                "schedule_version": version, "server_time": now}
+                "schedule_version": version, "server_time": R.vn_text(now)}
 
     def _sched(self):
         if self._schedule is None:
@@ -62,7 +64,7 @@ class GetConfigService:
                         "watch_url": s.get("watch_url") or "", "phone_serial": s.get("phone_serial") or "",
                         # dang giu gio cu: schedule la ban cu -> version cung la ban cu (app sua tu ban do se bi
                         # bao schedule_stale sau moc giu, khong ghi de lich moi tren ERP)
-                        "updated_at": s["updated_at"],
+                        "updated_at": str(s["updated_at"] or "")[:19],
                         "schedule_version": int((v.get("version") or 0) if v["held_until"] else (s.get("published_version") or 0)),
                         "held_until": v["held_until"] or None})
         return out

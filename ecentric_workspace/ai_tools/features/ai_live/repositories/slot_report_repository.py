@@ -57,10 +57,10 @@ class SlotReportRepository:
         # o Int cua Frappe NOT NULL: bo truong None (vd start_delay_sec khi lo) thay vi ghi NULL
         frappe.db.set_value(C.SLOT_REPORT, key, {k: v for k, v in vals.items() if v is not None}, update_modified=False)
 
-    def for_dates(self, dates):
+    def for_dates(self, dates, limit=2000):
         import frappe
         return [_row(r) for r in frappe.get_all(C.SLOT_REPORT, filters={"date": ["in", list(dates)]}, fields=FIELDS,
-                                                order_by="planned_start_ts asc", limit_page_length=2000)]
+                                                order_by="planned_start_ts asc", limit_page_length=int(limit))]
 
     def purge(self, before_ts):
         import frappe

@@ -12,7 +12,7 @@ class DiscardDraftService:
         self.clock = clock or R.now_ts
 
     def execute(self, user, roles, names=None):
-        _common.require_role(roles, C.VIEW_ROLES, C.Msg.NEED_VIEW)
+        _common.require_role(roles, C.SCHEDULE_EDIT_ROLES, C.Msg.NEED_SCHEDULE_EDIT)
         ids = _common.id_list(names)
         done = []
         for s in self.sessions.list():
