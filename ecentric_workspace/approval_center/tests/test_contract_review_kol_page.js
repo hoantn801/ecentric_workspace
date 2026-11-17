@@ -68,7 +68,7 @@ function po1711Part(){
     const b=w8.document.getElementById("ctr-body").innerHTML;
     chk("nguoi duyet: khong co link / nut tai ban du, co ban da che", !/data-kol="dl"/.test(b)&&!/HDDV\.docx|BBNT\.docx/.test(b)&&/data-kol="preview"/.test(b)&&/che thông tin cá nhân/.test(b));
     chk("nguoi duyet: thay canh bao STK doi nhung khong co nut xac nhan / thanh ly", /Tài khoản nhận tiền của creator đã đổi/.test(b)&&!/data-kol="payeeok"/.test(b)&&!/data-kol="closehd"/.test(b));
-    chk("nguoi duyet: dot co ban ky thi ghi 'da co BBNT da ky'", /đã có BBNT đã ký/.test(b));
+    chk("nguoi duyet: dot co ban ky thi ghi 'da co BBNT da ky'", /có bản ký/.test(b));
     { const K=w8.ContractReviewKOL, d=JSON.parse(JSON.stringify(curDetail));
       d.extra.kol.can_preview=false; chk("nguoi xem khong duyet: khong co nut ban che (server se tu choi)", !/data-kol="preview"/.test(K.detailHTML(d)));
       d.extra.kol.approved=false; d.approval={approval_status:"Pending"}; chk("chua duyet xong: khong hien canh bao STK / nut xac nhan", !/Tài khoản nhận tiền của creator đã đổi/.test(K.detailHTML(d)));
@@ -89,7 +89,7 @@ function po1711Part(){
         chk("thanh ly truoc ky: tien trinh 'Da thanh ly truoc khi ky', Hoan tat duoc", /Đã thanh lý trước khi ký/.test(st)&&!/Sau khi ký đủ/.test(st)&&!/kol-later/.test(K.detailHTML(d7)));
         const d8=JSON.parse(JSON.stringify(detail)); d8.extra.kol.acceptance_remaining=0;
         const h8=K.detailHTML(d8);
-        chk("da len dot du gia tri: an form them dot, nhan 'chua len dot'", /Đã lên đợt đủ giá trị hợp đồng/.test(h8)&&!/data-kol="addacc"/.test(h8));
+        chk("da len dot du gia tri: an form them dot, nhan 'chua len dot'", /Đã tạo BBNT đủ giá trị hợp đồng/.test(h8)&&!/data-kol="addacc"/.test(h8));
         const d9=JSON.parse(JSON.stringify(detail)); d9.business.ai_qc_at=null; d9.business.ai_qc_status=null; d9.business.ai_qc_result="{}";
         chk("sau duyet chua chay AI QC: an the AI QC", !/<h3>AI QC/.test(K.detailHTML(d9)));
         const d10=JSON.parse(JSON.stringify(detail)); d10.approval={approval_status:"Information Required"};
@@ -291,7 +291,7 @@ function detailPart(){
       const d3=JSON.parse(JSON.stringify(d2)); d3.extra.kol.acceptance_remaining=0;
       chk("tien trinh KOL: het tien chua len dot thi khong ghi 'con 0'", !/còn 0/.test(CR.buildStepper(d3)));
       d3.extra.kol.acceptance_remaining=500000;
-      chk("tien trinh KOL: con tien chua len dot thi ghi ro", /chưa lên đợt/.test(CR.buildStepper(d3)));
+      chk("tien trinh KOL: con tien chua len dot thi ghi ro", /chưa tạo BBNT/.test(CR.buildStepper(d3)));
       const d4=JSON.parse(JSON.stringify(d2)); delete d4.extra.kol;
       chk("tien trinh KOL: thieu du lieu vong doi thi Hoan tat chua xong", /Hoàn tất<\/div>[\s\S]*Chờ/.test(CR.buildStepper(d4)));
       d2.approval.approval_status="Rejected"; chk("tien trinh KOL: phieu tu choi khong ve buoc sau duyet", !/Ký hợp đồng/.test(CR.buildStepper(d2))); }

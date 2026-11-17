@@ -299,7 +299,8 @@
   {
    "fieldname": "request_attachment",
    "fieldtype": "Attach",
-   "label": "Attachment"
+   "label": "Attachment",
+   "permlevel": 1
   },
   {
    "fieldname": "sb_kol",
@@ -679,7 +680,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-11-17 14:00:00.000000",
+ "modified": "2026-11-17 17:00:00.000000",
  "modified_by": "Administrator",
  "module": "Approval Center",
  "name": "EC Contract Review Request",

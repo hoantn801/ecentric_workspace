@@ -26,10 +26,10 @@ def execute():
             if frappe.db.get_value("EC Approval Request", r.approval_request, "approval_status") in ("Rejected",
                                                                                                     "Cancelled"):
                 continue
-            fp = access.payee_fp(service.creator_row(r.creator))
-            if fp:
-                frappe.db.set_value(_DT, r.name, "kol_payee_fp", fp, update_modified=False)
-                dat += 1
+            # Creator chua co STK -> moc "-" (NO_ACCOUNT): STK them sau cung phai Ke toan xac nhan.
+            fp = access.payee_fp(service.creator_row(r.creator)) or getattr(access, "NO_ACCOUNT", "-")
+            frappe.db.set_value(_DT, r.name, "kol_payee_fp", fp, update_modified=False)
+            dat += 1
         except Exception:
             frappe.log_error(frappe.get_traceback(), "p399 van tay tai khoan %s" % r.name)
     frappe.logger("approval_center").info("p399: chot van tay tai khoan %s / %s hop dong KOL" % (dat, len(rows)))

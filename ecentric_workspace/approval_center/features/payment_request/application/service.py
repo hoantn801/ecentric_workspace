@@ -65,8 +65,8 @@ def _require_source(doc):
     if not need or doc.get("funding_source_doctype") == need[0] or funding.legacy_allowed(need[0], doc):
         return
     frappe.throw(_("Loại chi phí này phải gắn chứng từ nguồn là {0}: ở mục \"Khoản chi này có chứng từ mua "
-                   "hàng?\" chọn có, rồi chọn hợp đồng. Hợp đồng ký bằng tool cũ (chưa có trên ERP): chọn "
-                   "\"Không\" và ghi số hợp đồng cũ vào lý do (vd 05112026/HDDV/ECENTRIC-NTP.FCV).").format(need[1]))
+                   "hàng?\" chọn Yes, rồi chọn hợp đồng. Hợp đồng ký bằng tool cũ (chưa có trên ERP): chọn "
+                   "No và ghi số hợp đồng cũ vào lý do (vd 05112026/HDDV/ECENTRIC-NTP.FCV).").format(need[1]))
 
 
 def _stored_source(doc):

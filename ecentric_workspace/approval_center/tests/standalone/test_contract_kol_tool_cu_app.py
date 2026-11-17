@@ -477,7 +477,7 @@ class AppTests(unittest.TestCase):
         # Live lam som hon lich, hop dong ghi ngay ky sau hom nay: noi ro doi / phu luc (PO 12/11).
         with self.assertRaises(_Throw) as cm:
             acc._check_acceptance_date(FakeDoc(contract_date="2026-11-20"), "2026-11-10")
-        self.assertIn("phụ lục", str(cm.exception))
+        self.assertIn("báo Kế toán", str(cm.exception))   # KOL khong lam phu luc (PO 17/11)
 
     def test_xem_truoc_khong_doc_phieu_nguoi_khac(self):
         self.state["stored"]["CR-X"] = {"requested_by": "b@ecentric.vn", "creation": "2025-01-10 09:00:00"}

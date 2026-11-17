@@ -29,8 +29,17 @@ def prepare_draft(doc):
     viec voi phieu KOL, nuot loi tinh tien (nhap do)."""
     esign_flow.apply_default(doc)
     esign_flow.clean_labor(doc)
+    from ecentric_workspace.approval_center.features.contract_review.application import kol_access
     if not kol.is_kol(doc):
+        # Da tao hop dong / BBNT KOL (in CCCD, STK creator) thi khong doi sang loai khac: loai khac khong
+        # che tep va lai len SharePoint chung (QC vong 4 17/11).
+        if kol_access.has_kol_files(doc):
+            frappe.throw(_("Phiếu đã tạo hợp đồng KOL (có CCCD, số tài khoản creator) nên không đổi sang loại "
+                           "hợp đồng khác. Hủy phiếu này rồi lập phiếu mới."))
         return
+    # Ban nhan ban (clone) con tro toi hop dong sinh tu mau cua phieu CU: bo, khi gui se sinh lai (QC vong 4).
+    if kol_access.is_generated(doc.get("request_attachment")) and doc.get("request_attachment") != doc.get("contract_file"):
+        doc.request_attachment = None
     creator = creator_row(doc.get("creator"))
     doc.creator_name = creator.get("supplier_name") if creator else None
     doc.creator_type = creator.get("ec_cr_type") if creator else None
@@ -299,7 +308,7 @@ def validate_submit(doc):
     if doc.get("request_kind") == "Existing":
         # PO 17/11: thuc te it lam phu luc tang tien; phu luc KOL chua noi vao HD goc (so moi, tran
         # DNTT rieng -> hai tran chong nhau). Tang tien = lap hop dong moi.
-        errors.append("Hợp đồng KOL/KOC không làm phụ lục điều chỉnh - chọn \"Hợp đồng mới\" (cần tăng "
+        errors.append("Hợp đồng KOL/KOC không làm phụ lục điều chỉnh - chọn \"Hợp đồng / phụ lục MỚI\" (cần tăng "
                       "tiền thì lập hợp đồng mới).")
     if errors:
         frappe.throw(_(" ".join(errors)))

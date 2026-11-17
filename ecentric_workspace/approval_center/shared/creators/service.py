@@ -93,9 +93,8 @@ class CreatorService:
             used = getattr(self.repo, "approved_contract", None)
             hit = used(name) if used else None
             if hit:
-                raise CreatorError("Creator đã có hợp đồng duyệt xong (%s): không đổi loại creator được (hợp đồng / "
-                                   "BBNT đã theo loại cũ). Ngừng dùng creator này rồi tạo creator đúng loại "
-                                   "(hệ thống chỉ hỏi xác nhận trùng) và lập hợp đồng mới." % hit)
+                raise CreatorError("Creator đã có hợp đồng duyệt xong (%s) nên không đổi loại được. Tích \"Ngừng dùng "
+                                   "creator này\", lưu, rồi tạo creator mới đúng loại và lập hợp đồng mới." % hit)
             values["supplier_type"] = domain.SUPPLIER_TYPE_BY_CREATOR.get(values["ec_cr_type"])
         merged = dict(row, **values)
         self._validate(merged)

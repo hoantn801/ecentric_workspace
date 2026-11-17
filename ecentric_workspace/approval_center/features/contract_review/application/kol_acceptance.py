@@ -63,8 +63,9 @@ def add_acceptance(name, user, description, acceptance_date=None, amount=None):
         frappe.throw(_("Số tiền đợt nghiệm thu phải là số đồng chẵn (không có phần lẻ)."))
     planned = sum(flt(r.amount) for r in (doc.acceptances or [])) + flt(doc.advance_amount)
     if planned + amount > flt(doc.payable_amount) + 0.5:
-        frappe.throw(_("Tổng các đợt nghiệm thu và tiền cọc vượt số tiền trả creator ({0}).")
-                     .format(kol.fmt_money(doc.payable_amount)))
+        frappe.throw(_("Vượt số tiền trả creator ({0}): sau cọc và các đợt đã tạo, đợt này tối đa {1}.")
+                     .format(kol.fmt_money(doc.payable_amount),
+                             kol.fmt_money(max(flt(doc.payable_amount) - planned, 0))))
     acceptance_date = _check_acceptance_date(doc, acceptance_date or nowdate())
     row = doc.append("acceptances", {"description": (description or "").strip()[:140] or "Nghiệm thu",
                                      "acceptance_date": acceptance_date,
@@ -95,10 +96,10 @@ def _check_acceptance_date(doc, value):
     if signed and day < _dt.date.fromisoformat(signed):
         sd = _dt.date.fromisoformat(signed)
         # Live lam som hon lich (PO 12/11): BBNT ghi tu ngay ky tro di; chua toi ngay ky thi doi
-        # hoac lam phu luc - KHONG cho nghiem thu truoc khi co hop dong.
+        # (KOL khong lam phu luc - PO 17/11) - KHONG cho nghiem thu truoc khi co hop dong.
         if sd > today:
             frappe.throw(_("Hợp đồng ghi ngày ký {0}, sau hôm nay nên chưa lập BBNT được. Buổi làm sớm hơn "
-                           "lịch: đợi tới ngày ký, hoặc nhờ Kế toán làm phụ lục chỉnh ngày.").format(
+                           "lịch: đợi tới ngày ký, hoặc báo Kế toán.").format(
                                sd.strftime("%d/%m/%Y")))
         frappe.throw(_("Ngày nghiệm thu ({0}) trước ngày ký hợp đồng ({1}). Chọn từ {1} tới hôm nay; "
                        "ngày BBNT không cần trùng ngày live.").format(day.strftime("%d/%m/%Y"),
@@ -112,8 +113,9 @@ def delete_acceptance(name, user, row_name):
     row = _row(doc, row_name)
     if row.status != kol.BBNT_DRAFT:
         frappe.throw(_("Chỉ xoá được đợt nghiệm thu còn nháp (chưa gửi ký)."))
-    if row.idx != len(doc.acceptances or []):
-        # Xoa dot giua thi cac dot sau bi danh so lai, ma tep BBNT cua chung da in "dot n" cu.
+    if row.idx != len(doc.acceptances or []) and not doc.get("kol_closed_at"):
+        # Xoa dot giua thi cac dot sau bi danh so lai, ma tep BBNT cua chung da in "dot n" cu. Da thanh
+        # ly thi cho xoa dot nhap bat ky (dot bi cong tra ve nhap khong gui lai duoc) - QC vong 4.
         frappe.throw(_("Chỉ xoá được đợt nghiệm thu cuối cùng."))
     idx, amount, bbnt = row.idx, flt(row.amount), row.bbnt_file
     doc.remove(row)
@@ -215,16 +217,21 @@ def finish_round(doc, row, signed_file, when, by):
     return findings
 
 
+def effective_advance(doc):
+    """Tien coc duoc tinh vao tran chi. Ban ky TAI LEN / cong ky ghi nhan SAU khi thanh ly: khong mo coc
+    (QC ban do 17/11). Ban ky da co TRUOC khi thanh ly (Ke toan xac nhan sau) van tinh: hop dong da ky
+    truoc khi dung."""
+    closed = doc.get("kol_closed_at")
+    if closed and (not doc.get("signed_at") or str(doc.get("signed_at")) > str(closed)):
+        return 0.0
+    return flt(doc.get("advance_amount"))
+
+
 def payable_cap(doc):
     """Tran chi hien tai cho DNTT (truoc khi tru phan da de nghi)."""
     if approval_status(doc) != APPROVED:
         return 0.0
-    advance = doc.get("advance_amount")
-    closed = doc.get("kol_closed_at")
-    if closed and (not doc.get("signed_at") or str(doc.get("signed_at")) > str(closed)):
-        # Ky SAU khi thanh ly (cong ky / Ke toan xac nhan ban cho kiem): khong mo tien coc (QC ban do 17/11).
-        advance = 0
-    return kol.acceptance_cap(is_signed(doc), advance, done_amount(doc), doc.get("payable_amount"))
+    return kol.acceptance_cap(is_signed(doc), effective_advance(doc), done_amount(doc), doc.get("payable_amount"))
 
 
 def rows_view(doc):
@@ -255,5 +262,5 @@ def funding_view(doc):
     from ecentric_workspace.approval_center.features.payment_request.application import funding
     cap = payable_cap(doc)
     used = funding.consumed_amount(kol_lookup.CR_DT, doc.name)
-    return {"payable": flt(doc.payable_amount), "advance": flt(doc.advance_amount),
+    return {"payable": flt(doc.payable_amount), "advance": effective_advance(doc),
             "accepted": done_amount(doc), "cap": cap, "used": used, "remaining": cap - used}

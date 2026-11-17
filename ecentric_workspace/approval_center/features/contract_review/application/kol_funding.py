@@ -51,10 +51,12 @@ def funding_explain(name, amount, remaining):
         return _("Hợp đồng {0} chưa ký đủ hai bên nên chưa chi được, kể cả tiền cọc.").format(name)
     view = kol_acceptance.funding_view(doc)
     return _("Số tiền {0} vượt mức được chi của hợp đồng {1}: hiện chi được {2} (cọc {3} + BBNT "
-             "đã hoàn tất {4}), đã đề nghị {5}, còn {6}. Phần còn lại chỉ chi sau khi BBNT hoàn tất."
+             "đã hoàn tất {4}), đã đề nghị {5}, còn {6}. {7}"
              ).format(kol.fmt_money(amount), name, kol.fmt_money(view["cap"]),
                       kol.fmt_money(view["advance"]), kol.fmt_money(view["accepted"]),
-                      kol.fmt_money(view["used"]), kol.fmt_money(max(remaining, 0)))
+                      kol.fmt_money(view["used"]), kol.fmt_money(max(remaining, 0)),
+                      _("Hợp đồng đã thanh lý: chỉ chi trong phần cọc + BBNT đã hoàn tất.") if doc.get("kol_closed_at")
+                      else _("Phần còn lại chỉ chi sau khi BBNT hoàn tất."))
 
 
 def fill_payment(pr, name):
@@ -80,8 +82,10 @@ def fill_payment(pr, name):
     # Chi dien cho nguoi duoc thay STK day du (Ke toan, nguoi tao creator, nguoi lap hop dong) - dong
     # doi khac luu nhap de "doc" STK la lo so bi che (QC he thong 17/11).
     creator = creator_row(doc.get("creator")) or {}
-    me = frappe.session.user
-    may_see = kol_lookup.is_finance(me) or me == creator.get("owner") or me == doc.get("requested_by")
+    from ecentric_workspace.approval_center.features.contract_review.application import kol_access
+    # Cung luat voi tai ban du (nguoi lap chi sau khi gui) + hop dong da duyet xong - khong de "lap nhap HD
+    # chon creator bat ky -> nhap DNTT -> doc STK" (QC vong 4 17/11).
+    may_see = funding_approved(name) and kol_access.can_download_full(doc, frappe.session.user)
     if may_see and (not pr.get("bank_account_number") or not pr.get("account_bank")):
         if not pr.get("bank_account_number") and creator.get("ec_bank_account_no"):
             pr.bank_account_number = creator.get("ec_bank_account_no")
@@ -117,7 +121,7 @@ def funding_so_can_view(pr, user):
 
 
 # So HD dang tool cu / ERP: ddmmyyyy/HDDV/ECENTRIC-<doi tac>.<brand>[-n] (doi tac, brand co the co "-").
-_OLD_NUMBER = re.compile(r"\b\d{8}/HDDV/ECENTRIC-[A-Za-z0-9()\-]+\.[A-Za-z0-9\-]+")
+_OLD_NUMBER = re.compile(r"\b\d{8}/HDDV/ECENTRIC-[A-Za-z0-9()\-]+\.[A-Za-z0-9\-]+", re.I)
 _RELEASED = ("Rejected", "Cancelled")
 
 
@@ -137,8 +141,8 @@ def legacy_contract_ref(pr):
         if hit:
             name, number, status = hit
             if status == APPROVED:
-                frappe.throw(_("Hợp đồng {0} đã có trên ERP ({1}): chọn hợp đồng đó làm chứng từ nguồn.").format(
-                    number, name))
+                frappe.throw(_("Hợp đồng {0} đã có trên ERP ({1}): ở \"Khoản chi này có chứng từ mua hàng?\" chọn "
+                               "Yes, rồi chọn hợp đồng {1}.").format(number, name))
             frappe.throw(_("Hợp đồng {0} đang duyệt trên ERP ({1}): chờ duyệt xong rồi lập đề nghị thanh toán "
                            "theo hợp đồng đó.").format(number, name))
     return True
@@ -152,12 +156,13 @@ def _live_erp_contract(no):
                           fields=["name", "contract_no", "approval_request"], limit_page_length=0,
                           ignore_permissions=True)
     for r in sorted(rows, key=lambda x: -len(x.contract_no or "")):
-        c = r.contract_no or ""
-        if not c or not (no == c or no.startswith(c + "-") or no.startswith(c + "_")):
+        c = (r.contract_no or "").upper()
+        n = no.upper()                      # SQL like khong phan biet hoa thuong - so sanh cung vay
+        if not c or not (n == c or n.startswith(c + "-") or n.startswith(c + "_")):
             continue
         status = frappe.db.get_value("EC Approval Request", r.approval_request, "approval_status")
         if status not in _RELEASED:
-            return r.name, c, status
+            return r.name, r.contract_no, status
     return None
 
 
@@ -198,14 +203,14 @@ def _check_payee(pr):
     doc = _doc(name)
     creator = creator_row(doc.get("creator")) or {}
     if kol_access.payee_changed(doc, creator):
-        frappe.throw(_("Tài khoản nhận tiền của creator đã đổi so với lúc gửi phiếu hợp đồng {0}: Kế toán kiểm và bấm "
-                       "\"Xác nhận tài khoản mới\" trên hợp đồng trước khi lập đề nghị thanh toán.").format(name))
+        frappe.throw(_("Tài khoản nhận tiền của creator (hợp đồng {0}) đã đổi sau khi gửi phiếu. Báo Kế toán "
+                       "bấm \"Xác nhận tài khoản mới\" trên hợp đồng, rồi gửi lại đề nghị này.").format(name))
     typed = re.sub(r"\D", "", str(pr.get("bank_account_number") or ""))
     stored = re.sub(r"\D", "", str(creator.get("ec_bank_account_no") or ""))
     if not stored:
-        frappe.throw(_("Creator của hợp đồng {0} chưa có số tài khoản: bổ sung thông tin creator (Kế toán xác "
-                       "nhận trên hợp đồng) rồi lập đề nghị.").format(name))
+        frappe.throw(_("Creator của hợp đồng {0} chưa có số tài khoản. Nhờ người tạo creator hoặc Kế toán bổ "
+                       "sung, rồi gửi lại đề nghị.").format(name))
     if typed and typed != stored:
-        frappe.throw(_("Số tài khoản nhận tiền trên đề nghị khác số tài khoản của creator trong hợp đồng {0}: "
-                       "sửa số tài khoản trên đề nghị cho đúng. Creator thật sự đổi tài khoản thì cập nhật thông "
-                       "tin creator, Kế toán xác nhận trên hợp đồng, rồi lập đề nghị.").format(name))
+        frappe.throw(_("Số tài khoản trên đề nghị khác số tài khoản creator trong hợp đồng {0}. Sửa cho đúng "
+                       "(không biết số: hỏi người lập hợp đồng hoặc Kế toán). Creator đổi tài khoản thật: cập nhật "
+                       "thông tin creator, chờ Kế toán xác nhận.").format(name))

@@ -32,7 +32,8 @@ def search_previous_contracts(query=None):
     gốc điều chỉnh. Chỉ trả bản đã Approved — điều chỉnh một bản đang chờ duyệt là vô nghĩa."""
     user = frappe.session.user
     # KOL khong lam phu luc dieu chinh (PO 17/11) - khong goi y hop dong KOL lam goc.
-    filters = [["approval_request", "is", "set"]]
+    # Frappe boc ifnull cho "!=" (phieu cu contract_type rong van lot); loc them o Python cho chac.
+    filters = [["approval_request", "is", "set"], ["contract_type", "!=", "KOL/KOC / Creator (EC)"]]
     if "System Manager" not in frappe.get_roles(user):
         filters.append(["requested_by", "=", user])
     if query:

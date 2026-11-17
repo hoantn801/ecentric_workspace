@@ -165,7 +165,22 @@
   #ec-ctr-root button:focus-visible, #ec-ctr-root a:focus-visible, #ec-ctr-root input:focus-visible, #ec-ctr-root select:focus-visible, #ec-ctr-root textarea:focus-visible{ outline:2px solid var(--navy); outline-offset:2px; }
   @media (max-width:1024px){ #ec-ctr-root .content{ padding:18px 16px 40px; } }
   @media (max-width:900px){ #ec-ctr-root{ grid-template-columns:1fr; } #ec-ctr-root .ec-sidebar{ display:none; } #ec-ctr-root .grid2{ grid-template-columns:1fr; } }
-  @media (max-width:640px){ #ec-ctr-root table.tbl{ display:block; overflow-x:auto; white-space:nowrap; } #ec-ctr-root .ec-ctr-modal{ max-height:calc(100vh - 24px); } }
+  @media (max-width:640px){ #ec-ctr-root table.tbl{ display:block; overflow-x:auto; white-space:nowrap; } #ec-ctr-root .ec-ctr-modal{ max-height:calc(100vh - 24px); max-height:calc(100dvh - 24px); } }
+  /* QC UI 17/11 vong 4: bang BBNT thanh the tren dien thoai (nut hanh dong khong troi khoi man hinh), nut de bam. */
+  @media (max-width:640px){
+    #ec-ctr-root table.tbl.kol-acc{ display:block; white-space:normal; border:0; background:none; }
+    #ec-ctr-root table.tbl.kol-acc thead{ display:none; }
+    #ec-ctr-root table.tbl.kol-acc tbody, #ec-ctr-root table.tbl.kol-acc tr{ display:block; }
+    #ec-ctr-root table.tbl.kol-acc tr{ border:1px solid var(--gray-200); border-radius:10px; padding:6px 0; margin-bottom:10px; background:#fff; }
+    #ec-ctr-root table.tbl.kol-acc td{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:6px 12px; border:0; white-space:normal!important; }
+    #ec-ctr-root table.tbl.kol-acc td[data-label]::before{ content:attr(data-label); font-size:12px; color:var(--gray-500); }
+    #ec-ctr-root table.tbl.kol-acc td:nth-child(2){ display:block; }
+    #ec-ctr-root table.tbl.kol-acc td:last-child{ flex-wrap:wrap; justify-content:flex-end; }
+    #ec-ctr-root table.tbl.kol-acc td:last-child:empty{ display:none; }
+    #ec-ctr-root .kol-linkbtn{ padding:6px 0; }
+    #ec-ctr-root .summary-row{ gap:12px; } #ec-ctr-root .summary-row b{ text-align:right; }
+  }
+  @media (pointer:coarse){ #ec-ctr-root .btn{ min-height:44px; } }
 </style>
 
 <div id="ec-ctr-root">
@@ -178,7 +193,7 @@
       <div class="tabs" id="ctr-tabs"></div>
       <div id="ctr-body"></div>
     </div>
-    <div class="toast" id="ctr-toast"></div>
+    <div class="toast" id="ctr-toast" role="status" aria-live="polite" aria-atomic="true"></div>
   </main>
 </div>
 
@@ -735,7 +750,7 @@
     // KOL ma thieu du lieu vong doi (detail_extender loi) thi KHONG coi la xong (QC 15/11 vong 3).
     var kolMissing=KOL.isKol(det.business||{})&&!((det.extra||{}).kol);
     var allDone=ap.approval_status==="Approved"&&!kolMissing&&kol.every(function(k){ return k.state==="done"||k.state==="skipped"; });
-    steps.push({name:"Hoàn tất",state:(allDone?"done":"upcoming"),meta:""});
+    steps.push({name:"Hoàn tất",state:(allDone?"done":"upcoming"),meta:((det.extra||{}).kol||{}).closed?"Đã thanh lý":""});
     return renderStepsHTML(steps); }
   // Duyet thay (admin) khong doi trang thai dong nguoi duyet -> lay nguoi bam tu lich su.
   function adminActor(det,levelNo){ var t=(det.timeline||[]).filter(function(a){ return a.action==="Approved"&&a.level_no===levelNo; }); return t.length?(t[t.length-1].actor||""):""; }
@@ -763,6 +778,7 @@
     // PO 17/11: phieu bi tu choi / da huy -> nguoi de nghi tao phieu nhap moi, khong go lai (giong DNTT).
     if(isMine(det)&&(ap.approval_status==="Rejected"||ap.approval_status==="Cancelled"))
       btns.push('<button type="button" class="btn primary" data-act="clone">Tạo phiếu mới từ phiếu này</button>');
+    if(!btns.length&&KOL.isKol(det.business)&&ap.approval_status==="Approved") return '<div class="hint">Việc tiếp theo nằm ở thẻ Ký hợp đồng / Nghiệm thu phía trên.</div>';
     return btns.length? '<div class="actions">'+btns.join("")+'</div>' : '<div class="hint">Không có hành động khả dụng cho bạn ở trạng thái hiện tại.</div>'; }
   // Khop luat backend `command_service.clone_request`: chi nguoi de nghi (requested_by) - backend chan lan nua.
   function isMine(det){ var b=(det&&det.business)||{}; var u=(state.boot&&state.boot.context||{}).user;
@@ -794,9 +810,16 @@
     (document.getElementById("ec-ctr-root")||document.body).appendChild(ov);
     function close(){ if(ov.parentNode) ov.parentNode.removeChild(ov); if(prevFocus&&prevFocus.focus) try{prevFocus.focus();}catch(e){} }
     var first=ov.querySelector(".ec-ctr-modal-b input,.ec-ctr-modal-b select,.ec-ctr-modal-b textarea")||ov.querySelector("[data-ok]"); if(first&&first.focus) try{first.focus();}catch(e){}
-    // Modal co nhieu o nhap (noBackdrop): Escape khong dong - tranh mat du lieu dang go (QC UI 17/11 vong 3).
-    ov.addEventListener("keydown",function(e){ if(e.key==="Escape"&&!opts.noBackdrop) close(); });
-    ov.querySelector("[data-x]").onclick=close; ov.addEventListener("click",function(e){ if(e.target===ov&&!opts.noBackdrop) close(); });
+    // Da go gi trong modal thi Escape / bam nen KHONG dong - tranh mat du lieu dang go; modal hoi Co/Khong van
+    // dong bang Escape (QC UI 17/11 vong 4). Tab vong trong modal.
+    var dirty=false, mb=ov.querySelector(".ec-ctr-modal-b");
+    if(mb){ mb.addEventListener("input",function(){ dirty=true; }); mb.addEventListener("change",function(){ dirty=true; }); }
+    ov.addEventListener("keydown",function(e){
+      if(e.key==="Escape"&&!dirty){ close(); return; }
+      if(e.key!=="Tab") return; var f=[].filter.call(ov.querySelectorAll('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])'),function(n){ return !n.disabled; });
+      if(!f.length) return; var a0=f[0], z=f[f.length-1];
+      if(e.shiftKey&&document.activeElement===a0){ e.preventDefault(); z.focus(); } else if(!e.shiftKey&&document.activeElement===z){ e.preventDefault(); a0.focus(); } });
+    ov.querySelector("[data-x]").onclick=close; ov.addEventListener("click",function(e){ if(e.target===ov&&!dirty&&!opts.noBackdrop) close(); });
     var ok=ov.querySelector("[data-ok]"); ok.onclick=function(){ if(!opts.onConfirm){ close(); return; } ok.disabled=true; var p=opts.onConfirm(ov); if(p&&p.then){ p.then(function(){ close(); }).catch(function(){ ok.disabled=false; try{ ok.focus(); }catch(e){} }); } else { close(); } };
     return {ov:ov, close:close}; }
 
@@ -842,7 +865,7 @@
       if(!KOL.isKol(b)||!x||ap.approval_status==="Rejected"||ap.approval_status==="Cancelled") return [];
       var ok=ap.approval_status==="Approved", rows=x.acceptances||[], f=x.funding||{};
       var nDone=rows.filter(function(r){ return r.status==="Hoàn tất"; }).length, rem=Number(x.acceptance_remaining||0);
-      if(x.closed&&!x.signed) return [{name:"Ký hợp đồng",state:"skipped",meta:"Đã thanh lý trước khi ký"},
+      if(x.closed&&!x.signed&&b.signing_status!=="Chờ kiểm tra") return [{name:"Ký hợp đồng",state:"skipped",meta:"Đã thanh lý trước khi ký"},
         {name:"Nghiệm thu (BBNT)",state:"skipped",meta:"Không thực hiện"},{name:"Thanh toán (ĐNTT)",state:"skipped",meta:"Không thực hiện"}];
       var sign= x.signed?{state:"done",meta:"Đã ký đủ"+(b.signed_at?(" · "+esc(fmt(b.signed_at))):"")}
         : ok?{state:"current",meta:esc(b.signing_status||"Chưa ký")}
@@ -852,7 +875,7 @@
       var acc= !x.signed?{state:"upcoming",meta:"Sau khi ký đủ"}
         : x.closed?{state:pending?"current":"done",meta:"Đã thanh lý · Hoàn tất "+nDone+"/"+rows.length+" đợt"}
         : (rows.length&&nDone===rows.length&&rem<=0)?{state:"done",meta:"Hoàn tất "+nDone+"/"+rows.length+" đợt"}
-        : {state:"current",meta:rows.length?("Hoàn tất "+nDone+"/"+rows.length+" đợt"+(rem>0?(" · còn "+KOL.money(rem)+" chưa lên đợt"):"")):"Chưa có đợt nào"};
+        : {state:"current",meta:rows.length?("Hoàn tất "+nDone+"/"+rows.length+" đợt"+(rem>0?(" · còn "+KOL.money(rem)+" chưa tạo BBNT"):"")):"Chưa có đợt nào"};
       var used=Number(f.used||0), payable=Number(f.payable||0);
       var cap=Number(f.cap||0);
       var pay= (x.closed&&x.signed&&!pending&&used>=cap)?{state:"done",meta:"Đã lập ĐNTT "+KOL.money(used)+" (đã thanh lý)"}
@@ -987,7 +1010,7 @@
     roText:function(k,v){ return '<div class="fld"><label>'+esc(k)+'</label><div class="ro" style="padding:8px 10px;border:1px solid var(--gray-200);border-radius:8px;background:var(--gray-50);min-height:38px;white-space:normal;word-break:break-word">'+esc(v==null||v===""?"—":v)+'</div></div>'; },
     stepsHTML:function(b,apSt){ if(apSt!=="Draft"&&apSt!=="Information Required") return "";
       var ec=b.request_type!==KOL_TPL_PARTNER, hasFile=ec?!!(b.contract_file||b.has_contract_file):!!(b.request_attachment||b.has_request_attachment);
-      var st=[[ec?"Tạo hợp đồng từ mẫu, bấm Xem trước để kiểm tra":"Tải hợp đồng creator gửi ở mục Đính kèm; có thể bấm AI đọc hợp đồng creator",hasFile],["(Tuỳ chọn) Chạy AI QC: chỉ để tham khảo, không chặn việc gửi",!!b.ai_qc_at],[apSt==="Information Required"?"Bấm Chỉnh sửa & gửi lại (cuối trang) để gửi lại người duyệt":"Bấm Gửi yêu cầu (cuối trang) để chuyển Trưởng phòng duyệt",false]];
+      var st=[[ec?"Tạo hợp đồng từ mẫu, bấm Xem trước để kiểm tra":"Tải hợp đồng creator gửi ở mục Đính kèm; có thể bấm AI đọc hợp đồng creator",hasFile],["(Tùy chọn) Chạy AI QC: chỉ để tham khảo, không chặn việc gửi",!!b.ai_qc_at],[apSt==="Information Required"?"Bấm Chỉnh sửa & gửi lại (cuối trang) để gửi lại người duyệt":"Bấm Gửi yêu cầu (cuối trang) để chuyển Trưởng phòng duyệt",false]];
       var now=-1; st.forEach(function(x,i){ if(now<0&&!x[1]&&i!==1) now=i; });
       return '<ol class="kol-steps">'+st.map(function(x,i){ return '<li class="'+(x[1]?"done":(i===now?"now":""))+'">'+esc(x[0])+(x[1]?" ✓":"")+'</li>'; }).join("")+'</ol>'; },
     cur:function(){ var d=state.draft||{}; var c=state.kolCreator; return (c&&c.name&&c.name===d.creator)?c:null; },
@@ -1172,14 +1195,14 @@
       var pvOk=!x.can_download_full&&x.can_preview&&b.request_type===KOL_TPL_EC&&apSt!=="Draft"&&!(x.can_manage&&apSt==="Information Required");
       var draftMine=!x.can_download_full&&x.can_manage&&(apSt==="Draft"||apSt==="Information Required");
       var h='<div class="card" id="kol-detail"><h3>Hợp đồng KOL/KOC</h3>'
-        +(x.closed?'<div class="banner warn"><div><b>Hợp đồng đã thanh lý</b> · '+esc(fmt(x.closed.at))+(x.closed.by?(' · '+esc(x.closed.by)):'')+'<div class="hint">Lý do: '+esc(String(x.closed.reason||"").replace(/[.\s]+$/,""))+'.</div><div class="hint">Không tạo / gửi đợt nghiệm thu mới; ĐNTT chỉ trong phần đã nghiệm thu.</div>'+(x.is_finance?'<div class="actions" style="margin-top:8px"><button type="button" class="btn" data-kol="reopenhd">Mở lại hợp đồng…</button></div>':'')+'</div></div>':'')
+        +(x.closed?'<div class="banner warn"><div><b>Hợp đồng đã thanh lý</b> · '+esc(fmt(x.closed.at))+(x.closed.by?(' · '+esc(x.closed.by)):'')+'<div class="hint">Lý do: '+esc(String(x.closed.reason||"").replace(/[.\s]+$/,""))+'.</div><div class="hint">'+(x.signed?'Không tạo / gửi đợt nghiệm thu mới. ĐNTT chỉ trong mức được phép chi (cọc + BBNT đã hoàn tất).':'Hợp đồng chưa ký đủ: không nhận bản ký, không lập ĐNTT.')+'</div>'+(x.is_finance?'<div class="actions" style="margin-top:8px"><button type="button" class="btn" data-kol="reopenhd">Mở lại hợp đồng…</button></div>':'')+'</div></div>':'')
         +(b.revenue_warning?'<div class="banner warn">'+esc(b.revenue_warning)+'</div>':'')
         +(b.missing_placeholders?'<div class="banner warn"><div>Hợp đồng còn thiếu: <b>'+esc(KOL.missingText(x.missing_labels||b.missing_placeholders))+'</b>. '+(x.missing_creator?'Bấm <b>Sửa thông tin creator</b> (chỉ người tạo creator hoặc Kế toán sửa được - nếu không sửa được thì nhờ họ), rồi <b>Tạo lại hợp đồng từ mẫu</b>.':'Bổ sung trên phiếu, rồi <b>Tạo lại hợp đồng từ mẫu</b>.')+'</div></div>':'')
-        +(x.payee_changed&&x.approved?('<div class="banner warn"><div><b>Tài khoản nhận tiền của creator đã đổi so với lúc gửi phiếu.</b> '+(x.is_finance?'Bấm <b>Xem / sửa thông tin creator</b> kiểm số tài khoản, ngân hàng, chủ tài khoản rồi xác nhận - các đợt sau không cảnh báo lại.':'Kế toán kiểm và xác nhận trước khi chi.')
+        +(x.payee_changed&&x.approved?('<div class="banner warn"><div><b>Tài khoản nhận tiền của creator đã đổi so với lúc gửi phiếu.</b> '+(x.is_finance?'Bấm <b>Xem / sửa thông tin creator</b> để kiểm số tài khoản, ngân hàng, chủ tài khoản, rồi bấm <b>Xác nhận tài khoản mới</b>. Các đợt sau không cảnh báo lại.':'Chưa lập ĐNTT được cho tới khi Kế toán xác nhận tài khoản mới.')
           +(x.is_finance?'<div class="actions" style="margin-top:8px">'+(b.creator?'<button type="button" class="btn" data-kol="viewcr">Xem / sửa thông tin creator</button>':'')+'<button type="button" class="btn primary" data-kol="payeeok">Xác nhận tài khoản mới…</button></div>':'')+'</div></div>'):'')
         +(draftMine&&b.request_type===KOL_TPL_EC?'<div class="hint" style="margin-bottom:8px">Gửi phiếu xong bạn tải được bản hợp đồng .docx để gửi creator ký. Trước khi gửi, dùng <b>Xem trước</b> (thông tin cá nhân creator được che).</div>'
-          :(!x.can_download_full&&!draftMine&&(b.has_contract_file||(x.acceptances||[]).length||x.signed)?'<div class="hint" style="margin-bottom:8px">Hợp đồng / BBNT có CCCD, số tài khoản creator: chỉ người lập phiếu (sau khi gửi), người tạo creator và Kế toán tải được'+(pvOk?'; bạn xem được hợp đồng che thông tin cá nhân.':'.')+'</div>':''))
-        +(x.can_manage?KOL.stepsHTML(b,apSt):'')
+          :(!x.can_download_full&&!draftMine&&(b.has_contract_file||(x.acceptances||[]).length||x.signed)?'<div class="hint" style="margin-bottom:8px">Hợp đồng / BBNT có CCCD, số tài khoản creator: chỉ người lập phiếu (sau khi gửi), người tạo creator và Kế toán tải được'+(pvOk?'. Bạn xem bản che bằng nút <b>Xem hợp đồng</b>.':'.')+'</div>':''))
+        +(isMine(det)?KOL.stepsHTML(b,apSt):'')
         +'<div class="grid2">'+rows.map(function(r){ return KOL.roText(r[0],r[1]); }).join("")+'</div>'
         +(x.calc&&x.calc.length?('<h4 style="margin:16px 0 6px">Bảng tính chi tiết</h4>'+KOL.calcHTML(x.calc)+'<div class="hint">Làm tròn tới đồng (từ 0,5 trở lên làm tròn lên), giống tool cũ.</div>'):'')
         +'<div class="actions" style="margin-top:12px">'
@@ -1207,8 +1230,8 @@
           +'<div class="summary-row"><span>Được phép chi (cọc + BBNT đã hoàn tất)</span><b class="kol-money">'+KOL.money(f.cap)+'</b></div><div class="summary-row"><span>Đã lập ĐNTT</span><b class="kol-money">'+KOL.money(f.used)+'</b></div><div class="summary-row"><span>Còn có thể đề nghị thanh toán</span><b class="kol-money">'+KOL.money(f.remaining)+'</b></div>'
           +((x.can_manage||x.is_finance)&&Number(f.remaining||0)>0?'<div class="hint" style="margin:6px 0 10px">Tạo ĐNTT ở form Đề nghị thanh toán: mục <b>Khoản chi này có chứng từ mua hàng?</b> chọn <b>Yes</b> → <b>Loại nguồn chi phí</b> = Hợp đồng KOL/KOC → <b>Chứng từ nguồn</b> = hợp đồng này → <b>SO doanh thu</b> = SO của brand (bắt buộc).</div>':'')
           +KOL.acceptanceTable(x)
-          +(x.can_manage&&!x.closed&&x.acceptance_remaining!=null&&Number(x.acceptance_remaining)<=0?'<div class="hint" style="margin-top:12px">Đã lên đợt đủ giá trị hợp đồng. Cần sửa số: xoá đợt nháp cuối rồi tạo lại.</div>':'')
-          +(x.can_manage&&!x.closed&&!(x.acceptance_remaining!=null&&Number(x.acceptance_remaining)<=0)?'<h4 style="margin:16px 0 6px">Thêm đợt nghiệm thu</h4>'+(x.acceptance_remaining!=null?'<div class="hint">Còn chưa lên đợt (chưa tạo BBNT): <b class="kol-money">'+KOL.money(x.acceptance_remaining)+'</b></div>':'')+'<div class="grid2" style="margin-top:8px"><div class="fld"><label for="kol-acc-desc">Nội dung đợt nghiệm thu <span class="req">*</span></label><input id="kol-acc-desc" placeholder="Vd Livestream 3 buổi tháng 12 / Hoa hồng tháng 11"></div><div class="fld"><label for="kol-acc-date">Ngày nghiệm thu <span class="req">*</span></label><input type="date" id="kol-acc-date" max="'+esc(x.today||KOL.todayIso())+'"'+(b.contract_date?(' min="'+esc(String(b.contract_date).slice(0,10))+'"'):'')+' value="'+esc(KOL.accDateDefault(b,x.today))+'">'+KOL.accDateHint(b,x.today)+'</div><div class="fld"><label for="kol-acc-amt">Số tiền trả creator đợt này <span class="req">*</span></label><input type="text" inputmode="numeric" data-money id="kol-acc-amt"></div></div><div class="actions" style="margin-top:8px"><button type="button" class="btn primary" data-kol="addacc">Tạo BBNT</button></div>':'')
+          +(x.can_manage&&!x.closed&&x.acceptance_remaining!=null&&Number(x.acceptance_remaining)<=0?'<div class="hint" style="margin-top:12px">Đã tạo BBNT đủ giá trị hợp đồng.'+(((x.acceptances||[]).slice(-1)[0]||{}).status==="Nháp"?' Cần sửa số tiền: xóa đợt nháp cuối rồi tạo lại.':'')+'</div>':'')
+          +(x.can_manage&&!x.closed&&!(x.acceptance_remaining!=null&&Number(x.acceptance_remaining)<=0)?'<h4 style="margin:16px 0 6px">Thêm đợt nghiệm thu</h4>'+(x.acceptance_remaining!=null?'<div class="hint">Còn chưa tạo BBNT (đã trừ cọc): <b class="kol-money">'+KOL.money(x.acceptance_remaining)+'</b></div>':'')+'<div class="grid2" style="margin-top:8px"><div class="fld"><label for="kol-acc-desc">Nội dung đợt nghiệm thu <span class="req">*</span></label><input id="kol-acc-desc" placeholder="Vd Livestream 3 buổi tháng 12 / Hoa hồng tháng 11"></div><div class="fld"><label for="kol-acc-date">Ngày nghiệm thu <span class="req">*</span></label><input type="date" id="kol-acc-date" max="'+esc(x.today||KOL.todayIso())+'"'+(b.contract_date?(' min="'+esc(String(b.contract_date).slice(0,10))+'"'):'')+' value="'+esc(KOL.accDateDefault(b,x.today))+'">'+KOL.accDateHint(b,x.today)+'</div><div class="fld"><label for="kol-acc-amt" title="Không gồm tiền cọc.">Số tiền trả creator đợt này (không gồm cọc) <span class="req">*</span></label><input type="text" inputmode="numeric" data-money id="kol-acc-amt"></div></div><div class="actions" style="margin-top:8px"><button type="button" class="btn primary" data-kol="addacc">Tạo BBNT</button></div>':'')
           +'</div>'; }
       return h; },
     qcHTML:function(qc){ if(!qc||(!qc.data_checks&&!qc.ai)) return "";
@@ -1233,9 +1256,11 @@
           return r.blob().then(function(b){ var a=document.createElement("a"), u=URL.createObjectURL(b); a.href=u; a.download=fn; document.body.appendChild(a); a.click();
             setTimeout(function(){ URL.revokeObjectURL(u); if(a.parentNode) a.parentNode.removeChild(a); },1500); }); })
         .catch(function(e){ toast(e&&e.name==="TypeError"?"Không tải được tệp: mất kết nối. Kiểm tra mạng rồi thử lại.":mapErr(e),true); }); },
-    closeModal:function(name){ modal("Thanh lý hợp đồng",'<div class="banner warn">Sau khi thanh lý: không tạo / gửi đợt nghiệm thu mới. Số đã nghiệm thu và ĐNTT đã lập giữ nguyên.</div><div class="fld"><label for="kol-close-r">Lý do <span class="req">*</span></label><textarea id="kol-close-r" rows="3" maxlength="500" placeholder="Vd creator huỷ booking, hai bên thống nhất dừng"></textarea></div><div id="kol-close-msg"></div>',{okLabel:"Thanh lý",noBackdrop:true,onConfirm:function(ov){
-      var v=((ov.querySelector("#kol-close-r")||{}).value||"").trim(); if(!v){ ov.querySelector("#kol-close-msg").innerHTML='<div class="banner err"><div>Nhập lý do thanh lý.</div></div>'; return Promise.reject(); }
-      return call("kol_close_contract",{name:name,reason:v}).then(function(){ toast("Đã thanh lý hợp đồng."); refreshDetail(); }).catch(function(e){ toast(mapErr(e),true); return Promise.reject(e); }); }}); },
+    closeModal:function(name){ modal("Thanh lý hợp đồng",'<div class="banner warn">Sau khi thanh lý: không tạo / gửi đợt nghiệm thu mới. Số đã nghiệm thu và ĐNTT đã lập giữ nguyên.'+(((state.detail||{}).extra||{}).kol&&!state.detail.extra.kol.signed?' Hợp đồng chưa ký đủ sẽ không nhận bản ký nữa.':'')+'</div><div class="fld"><label for="kol-close-r">Lý do <span class="req">*</span></label><textarea id="kol-close-r" rows="3" maxlength="500" placeholder="Vd creator hủy booking, hai bên thống nhất dừng"></textarea></div><div id="kol-close-msg"></div>',{okLabel:"Thanh lý",noBackdrop:true,onConfirm:function(ov){
+      var box=ov.querySelector("#kol-close-msg"), okb=ov.querySelector("[data-ok]"); box.innerHTML="";
+      var v=((ov.querySelector("#kol-close-r")||{}).value||"").trim(); if(!v){ box.innerHTML='<div class="banner err" role="alert"><div>Nhập lý do thanh lý.</div></div>'; return Promise.reject(); }
+      if(okb) okb.textContent="Đang thanh lý…";
+      return call("kol_close_contract",{name:name,reason:v}).then(function(){ toast("Đã thanh lý hợp đồng."); refreshDetail(); }).catch(function(e){ if(okb) okb.textContent="Thanh lý"; box.innerHTML='<div class="banner err" role="alert"><div>'+esc(mapErr(e))+'</div></div>'; return Promise.reject(e); }); }}); },
     noteHTML:function(note){ return note?('<ul style="margin:6px 0 0 16px;padding:0">'+String(note).split("\n").filter(Boolean).map(function(l){ return '<li>'+esc(l.replace(/^-\s*/,""))+'</li>'; }).join("")+'</ul>'):""; },
     signHTML:function(b,x){ var link=b.signed_file?('<div style="margin-top:4px">'+KOL.dlLink(b.signed_file,"Hợp đồng đã ký")+'</div>'):"";
       if(x.signed) return '<div class="banner ok"><div>Đã ký đủ hai bên.'+link+(b.signed_verified_by?('<div class="hint">Xác nhận: '+esc(b.signed_verified_by)+(b.signed_verified_at?(' · '+esc(fmt(b.signed_verified_at))):'')+'</div>'):'')+'</div></div>';
@@ -1244,28 +1269,28 @@
           :'<div class="hint">Kế toán xác nhận xong thì mở bước nghiệm thu và tiền cọc.</div>');
       if(x.closed) return '<div class="hint">Hợp đồng đã thanh lý trước khi ký đủ - không nhận bản ký mới.</div>';
       if(!x.can_manage) return '<div class="hint">Chưa ký đủ.</div>';
-      return (b.sign_check_note?'<div class="banner err"><div>Bản ký trước bị trả lại:'+KOL.noteHTML(b.sign_check_note)+'</div></div>':'')
+      return (b.sign_check_note?'<div class="banner err"><div>Kế toán trả lại bản ký trước:'+KOL.noteHTML(b.sign_check_note)+'</div></div>':'')
         +'<div class="hint">Ký trên cổng SCTS như hiện nay, rồi tải bản đã ký (PDF) lên. Máy kiểm chữ ký số và số hợp đồng: đạt thì mở ngay bước nghiệm thu và tiền cọc; chưa đạt (vd bản scan ký tay) thì chờ Kế toán xác nhận.</div>'
         +'<div class="fld" style="margin-top:8px" data-ec-no-formkit><label for="kol-signed-f">Bản hợp đồng đã ký đủ hai bên (PDF)</label><input type="file" accept="application/pdf" id="kol-signed-f" data-ec-no-formkit></div><div class="actions" style="margin-top:8px;align-items:flex-start"><button type="button" class="btn primary" data-kol="signed" id="kol-signed-btn" disabled>Tải hợp đồng đã ký lên</button></div>'; },
-    reasonModal:function(title,onOk,okLabel){ modal(title,'<div class="fld"><label for="kol-reason">Lý do (người tạo sẽ thấy) <span class="req">*</span></label><textarea id="kol-reason" rows="3"></textarea></div><div id="kol-reason-msg"></div>',{okLabel:okLabel||"Trả lại",noBackdrop:true,onConfirm:function(ov){
-      var v=(ov.querySelector("#kol-reason").value||"").trim(); if(!v){ ov.querySelector("#kol-reason-msg").innerHTML='<div class="banner err" style="margin-top:8px"><div>Nhập lý do.</div></div>'; return Promise.reject(); }
+    reasonModal:function(title,onOk,okLabel){ modal(title,'<div class="fld"><label for="kol-reason">'+esc(okLabel==="Mở lại"?"Lý do mở lại (ghi vào lịch sử phiếu)":"Lý do (người lập phiếu sẽ thấy)")+' <span class="req">*</span></label><textarea id="kol-reason" rows="3"></textarea></div><div id="kol-reason-msg"></div>',{okLabel:okLabel||"Trả lại",noBackdrop:true,onConfirm:function(ov){
+      var v=(ov.querySelector("#kol-reason").value||"").trim(); if(!v){ ov.querySelector("#kol-reason-msg").innerHTML='<div class="banner err" role="alert" style="margin-top:8px"><div>Nhập lý do.</div></div>'; return Promise.reject(); }
       return onOk(v).catch(function(e){ ov.querySelector("#kol-reason-msg").innerHTML='<div class="banner err" style="margin-top:8px"><div>'+esc(mapErr(e))+'</div></div>'; return Promise.reject(e); }); }}); },
     accBadge:function(st){ var c=st==="Hoàn tất"?"b-green":(st==="Đã gửi ký"?"b-navy":(st==="Chờ kiểm tra"?"b-amber":"b-gray")); return '<span class="badge '+c+'" style="white-space:nowrap"><span class="dot"></span>'+esc(st||"Nháp")+'</span>'; },
     acceptanceTable:function(x){ var rows=x.acceptances||[]; if(!rows.length) return '<div class="hint">Chưa có đợt nghiệm thu nào.</div>';
-      var guide=x.can_manage&&!x.closed&&rows.some(function(r){ return r.status==="Nháp"; })?'<div class="hint" style="margin-bottom:6px">Đợt Nháp: tải BBNT, gửi creator ký, rồi bấm <b>Đánh dấu đã gửi ký</b>. Creator ký xong: bấm <b>Tải BBNT đã ký…</b>.</div>':'';
-      return guide+'<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Đợt</th><th>Nội dung</th><th>Ngày</th><th>Số tiền</th><th>Trạng thái</th><th>Hạn thanh toán</th><th></th></tr></thead><tbody>'+rows.map(function(r){
+      var guide=x.can_manage&&!x.closed&&rows.some(function(r){ return r.status==="Nháp"; })?'<div class="hint" style="margin-bottom:6px">Đợt Nháp: tải BBNT, gửi creator ký, rồi bấm <b>Đánh dấu đã gửi ký</b>. Creator ký xong: bấm <b>Tải BBNT đã ký</b>.</div>':'';
+      return guide+'<div style="overflow-x:auto"><table class="tbl kol-acc"><thead><tr><th>Đợt</th><th>Nội dung</th><th>Ngày</th><th>Số tiền</th><th>Trạng thái</th><th>Hạn thanh toán</th><th></th></tr></thead><tbody>'+rows.map(function(r){
         var act='';
         if(x.can_manage&&!x.closed&&r.status==="Nháp") act+='<button type="button" class="btn" data-kol="sendacc" data-row="'+esc(r.name)+'" title="Bấm sau khi đã gửi BBNT cho creator ký. Hệ thống kiểm lại thông tin; thiếu thì báo, đổi thì tạo lại BBNT.">Đánh dấu đã gửi ký</button>';
         // Xoa dot nhap cuoi: van duoc sau thanh ly (server khong chan) - QC UI 17/11.
         if(x.can_manage&&r.status==="Nháp"&&r===rows[rows.length-1]) act+=' <button type="button" class="btn" data-kol="delacc" data-row="'+esc(r.name)+'">Xoá</button>';
         if(x.can_manage&&r.status==="Đã gửi ký") act+=' <button type="button" class="btn primary" data-kol="doneacc" data-row="'+esc(r.name)+'">Tải BBNT đã ký…</button>';
         if(x.is_finance&&r.status==="Chờ kiểm tra") act+=' <button type="button" class="btn" data-kol="vaccno" data-row="'+esc(r.name)+'">Trả lại…</button> <button type="button" class="btn primary" data-kol="vaccok" data-row="'+esc(r.name)+'">Xác nhận BBNT</button>';
-        return '<tr><td>'+esc(r.idx)+'</td><td>'+esc(r.description||"")+(r.bbnt_file?(' · '+KOL.dlLink(r.bbnt_file,"BBNT (.docx)")):'')+(r.signed_file?(' · '+KOL.dlLink(r.signed_file,"BBNT đã ký")):(r.has_signed?' · <span class="hint">đã có BBNT đã ký</span>':''))+(r.check_note?('<div class="hint">'+(r.status==="Chờ kiểm tra"?'Máy kiểm chưa đạt:':'Ghi chú kiểm:')+KOL.noteHTML(r.check_note)+'</div>'):'')+(r.verified_by&&r.status==="Hoàn tất"?('<div class="hint">Xác nhận: '+esc(r.verified_by)+'</div>'):'')+(r.calc&&r.calc.length?('<details class="kol-calc-d"><summary>Bảng tính đợt này</summary>'+KOL.calcHTML(r.calc)+'</details>'):'')+'</td><td style="white-space:nowrap">'+esc(KOL.day(r.acceptance_date))+'</td><td class="kol-money">'+esc(KOL.money(r.amount))+'</td><td>'+KOL.accBadge(r.status)+'</td><td style="white-space:nowrap">'+esc(r.due_date?KOL.day(r.due_date):"—")+'</td><td style="white-space:nowrap">'+act+'</td></tr>'; }).join("")+'</tbody></table></div>'; },
+        return '<tr><td data-label="Đợt">'+esc(r.idx)+'</td><td>'+esc(r.description||"")+(r.bbnt_file?(' · '+KOL.dlLink(r.bbnt_file,"BBNT (.docx)")):'')+(r.signed_file?(' · '+KOL.dlLink(r.signed_file,"BBNT đã ký")):(r.has_signed?' · <span class="hint">có bản ký</span>':''))+(r.check_note?('<div class="hint">'+(r.status==="Chờ kiểm tra"?'Máy kiểm chưa đạt:':'Ghi chú kiểm:')+KOL.noteHTML(r.check_note)+'</div>'):'')+(r.verified_by&&r.status==="Hoàn tất"?('<div class="hint">Xác nhận: '+esc(r.verified_by)+'</div>'):'')+(r.calc&&r.calc.length?('<details class="kol-calc-d"><summary>Bảng tính đợt này</summary>'+KOL.calcHTML(r.calc)+'</details>'):'')+'</td><td data-label="Ngày" style="white-space:nowrap">'+esc(KOL.day(r.acceptance_date))+'</td><td data-label="Số tiền" class="kol-money">'+esc(KOL.money(r.amount))+'</td><td data-label="Trạng thái">'+KOL.accBadge(r.status)+'</td><td data-label="Hạn thanh toán" style="white-space:nowrap">'+esc(r.due_date?KOL.day(r.due_date):"—")+'</td><td style="white-space:nowrap">'+act+'</td></tr>'; }).join("")+'</tbody></table></div>'; },
     completeModal:function(name,row){ modal("Tải BBNT đã ký",'<div class="hint" style="margin-bottom:8px">Tải BBNT đã ký đủ hai bên. Máy kiểm chữ ký số, số hợp đồng, số tiền đợt: đạt thì hoàn tất ngay; chưa đạt thì chờ Kế toán xác nhận. Hạn thanh toán tính từ hôm nay theo số ngày trên hợp đồng.</div><div class="fld" data-ec-no-formkit><label for="kol-accf">BBNT đã ký (PDF) <span class="req">*</span></label><input type="file" accept="application/pdf" id="kol-accf" data-ec-no-formkit></div><div id="kol-accf-msg"></div>',
-      {okLabel:"Hoàn tất",noBackdrop:true,onConfirm:function(ov){ var box=ov.querySelector("#kol-accf-msg"), okb=ov.querySelector("[data-ok]"); if(okb) okb.textContent="Đang tải lên…";
+      {okLabel:"Tải lên",noBackdrop:true,onConfirm:function(ov){ var box=ov.querySelector("#kol-accf-msg"), okb=ov.querySelector("[data-ok]"); if(okb) okb.textContent="Đang tải lên…";
         return KOL.upload(ov.querySelector("#kol-accf")).then(function(url){ return call("kol_complete_acceptance",{name:name,row:row,signed_file:url}); })
           .then(function(r){ toast(r.status==="Hoàn tất"?("BBNT hoàn tất, hạn thanh toán "+KOL.day(r.due_date)+"."):"Đã tải BBNT, chờ Kế toán kiểm bản ký."); refreshDetail(); })
-          .catch(function(e){ if(okb) okb.textContent="Hoàn tất"; box.innerHTML='<div class="banner err" style="margin-top:8px"><div>'+esc((e&&e.message&&!e.responseJSON&&!e._server_messages)?e.message:mapErr(e))+'</div></div>'; return Promise.reject(e); }); }}); },
+          .catch(function(e){ if(okb) okb.textContent="Tải lên"; box.innerHTML='<div class="banner err" style="margin-top:8px"><div>'+esc((e&&e.message&&!e.responseJSON&&!e._server_messages)?e.message:mapErr(e))+'</div></div>'; return Promise.reject(e); }); }}); },
     upload:function(input){ var f=input&&input.files&&input.files[0]; if(!f) return Promise.reject(new Error("Chọn tệp PDF đã ký trước."));
       var fd=new FormData(); fd.append("file",f); fd.append("is_private","1");
       return fetch("/api/method/upload_file",{method:"POST",headers:{"X-Frappe-CSRF-Token":(window.frappe&&frappe.csrf_token)||""},body:fd}).then(function(r){
@@ -1277,6 +1302,7 @@
       host.addEventListener("click",function(e){ var el=e.target.closest&&e.target.closest("[data-kol]"); if(!el||el.disabled) return; var a=el.getAttribute("data-kol"); var name=(state.detail&&state.detail.business||{}).name; el.disabled=true;
         var done=function(msg){ if(msg) toast(msg); refreshDetail(); }, fail=function(err){ el.disabled=false; toast((err&&err.message&&!err.responseJSON&&!err._server_messages)?err.message:mapErr(err),true); };
         var label=el.textContent; var restore=function(){ el.textContent=label; };
+        if(["sendacc","vsignok","vaccok","addacc"].indexOf(a)>=0){ el.textContent="Đang xử lý…"; var _f=fail; fail=function(err){ restore(); _f(err); }; }
         if(a==="preview"){ el.disabled=false; KOL.previewContract(null, name); return; }
         if(a==="dl"){ el.textContent="Đang tải…"; return KOL.download(name, el.getAttribute("data-url")).then(function(){ restore(); el.disabled=false; }); }
         if(a==="viewcr"){ el.disabled=false; return KOL.editCreator((state.detail.business||{}).creator,function(){ refreshDetail(); }); }

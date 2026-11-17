@@ -63,6 +63,18 @@ def is_pii_file(business, file_name_or_url):
     return is_generated(file_name_or_url) or file_name_or_url in _signed_urls(business)
 
 
+def has_kol_files(doc):
+    """Phieu da co tep sinh tu mau KOL (hop dong / BBNT) - kiem ca dong File he thong gan phieu."""
+    if is_generated(doc.get("contract_file")) or doc.get("acceptances"):
+        return True
+    if not doc.get("name") or (hasattr(doc, "is_new") and doc.is_new()):
+        return False
+    names = frappe.get_all("File", filters={"attached_to_doctype": kol_lookup.CR_DT, "attached_to_name": doc.name,
+                                            "owner": "Administrator"}, pluck="file_name", limit_page_length=0,
+                           ignore_permissions=True)
+    return any(is_generated(n) for n in names or [])
+
+
 def lock_pii_files(doc):
     """Moi dong File gan phieu KOL tro toi tep du PII (ban sinh tu mau, ban ky) -> chu = Administrator.
     Goi tu `on_change` cua DocType (sau hook attach_files_to_document). Nuot loi: khong lam hong viec luu."""
@@ -171,8 +183,8 @@ def download_file(name, file_url, user):
     if not row:
         frappe.throw(_("Không tìm thấy tệp của phiếu này."))
     if not can_download_full(doc, user) or not _can_view(doc, user):
-        frappe.throw(_("Bản đủ thông tin cá nhân creator chỉ người lập phiếu (sau khi gửi), người tạo creator hoặc Kế toán tải được. "
-                       "Hợp đồng xem được bản che thông tin cá nhân (nút \"Xem hợp đồng\")."), frappe.PermissionError)
+        frappe.throw(_("Chỉ người lập phiếu (sau khi gửi), người tạo creator hoặc Kế toán tải được bản đủ thông "
+                       "tin creator. Người duyệt xem bản che bằng nút \"Xem hợp đồng\"."), frappe.PermissionError)
     # Ghi NHAN tep, khong ghi ten tep (ten co doan ngau nhien = mot phan URL; binh luan ai co quyen
     # xem phieu cung doc duoc) - QC 17/11.
     doc.add_comment("Info", _("{0} tải bản đủ thông tin creator: {1}").format(user, _label(doc, file_url)))
@@ -236,9 +248,13 @@ def _approved(doc):
     return [r for r in rows if isinstance(r, dict) and r.get("fp")]
 
 
+#: Moc "luc gui creator CHUA CO STK": STK them sau do cung phai Ke toan xac nhan (QC vong 4 17/11).
+NO_ACCOUNT = "-"
+
+
 def snapshot_payee(doc, creator):
     """Luc gui / gui lai duyet: chot van tay theo creator HIEN TAI (hop dong vua sinh lai in STK nay)."""
-    doc.kol_payee_fp = payee_fp(creator) or None
+    doc.kol_payee_fp = payee_fp(creator) or NO_ACCOUNT
 
 
 def payee_changed(doc, creator=None):
@@ -249,8 +265,9 @@ def payee_changed(doc, creator=None):
     if creator is None:
         from ecentric_workspace.approval_center.features.contract_review.application import kol_service
         creator = kol_service.creator_row(doc.get("creator"))
-    now = payee_fp(creator)
-    # STK bi XOA sau khi ky cung la "doi" (QC ban do 17/11: xoa STK roi go STK bat ky tren DNTT).
+    now = payee_fp(creator) or NO_ACCOUNT
+    # STK bi XOA sau khi ky cung la "doi" (QC ban do 17/11); STK THEM sau khi gui (luc gui chua co) cung
+    # la "doi" (QC vong 4).
     return now != base and now not in {r["fp"] for r in _approved(doc)}
 
 
