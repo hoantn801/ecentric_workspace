@@ -309,8 +309,8 @@
     "sha256": "2ef1b8bc4f939d9590289af02506163e3ad9deac7f8647360a8c4972e4a96714"
   },
   "weekly_report/pages/weekly_update/main_section.html": {
-    "last_resync_patch": "p230_resync_weekly_update_bom",
-    "sha256": "bcfec3a49e4da5715ff38db8cff485c5da8c3e8f2ab29349822eb3abd7d73bef"
+    "last_resync_patch": "p390_resync_weekly_update_tuan_theo_lich",
+    "sha256": "2a68fc1c6968cd99554157b6b76b2cbd5c880c9a9671ff67e76dc5498b198fd2"
   },
   "pm/frontend/pm_app.html": {
     "last_resync_patch": "p388_resync_pm_hotfix15",

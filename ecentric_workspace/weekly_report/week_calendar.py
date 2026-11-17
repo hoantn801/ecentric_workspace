@@ -58,7 +58,12 @@ def _now(now=None):
 
 
 def compute_week_for(now=None):
-    """Port of calculateCurrentWeek() (JS, /weekly-update).
+    """Tuan ma BO SINH ban ghi (scheduler) dang lo -- KHONG con la tuan trang mo mac dinh.
+
+    Truoc 17/11/2026 day la ban port cua calculateCurrentWeek() (JS). Tu p390 trang
+    /weekly-update mo TUAN LICH (khong nhay tuan T6 18:00), con ham nay GIU nhay de bo
+    sinh tao truoc ban nhap tuan sau tu T6 18:00 -- vo hai, va doi no se doi ca
+    dedupe/obligation_key. KHONG dung ham nay de chon tuan hien thi cho nguoi dung.
 
     Returns dict with keys:
       week_label        - "YYYY-Www" (ISO 8601 week, zero-padded)

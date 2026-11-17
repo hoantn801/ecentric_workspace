@@ -54,7 +54,18 @@ TITLE = "Báo cáo tuần"
 #: cho qua thi da day mot ky tu BOM len dau trang live.
 #: Bai hoc: chup nguon thi ghi bang `New-Object Text.UTF8Encoding $false`, va
 #: tinh baseline tu chuoi DOC tu DB, khong tu file da ghi xuong dia.
-BASELINE_SHA256 = "7e481f0faaf6c0062fde5eea5fc3b702bd5757615bcdfbaaf1cc52b04b92be78"
+#:
+#: 17/11/2026 (tuan mac dinh theo lich + hoi lai khi nop nham tuan): theo quy uoc cua
+#: tools/ci/check.py -- BASELINE = sha cua HTML commit nay ship, cac ban truoc sang
+#: SUPERSEDES. Live hien la ban p230 (bcfec3a4..., doc lai 15/11 bang probe_409_w46.ps1).
+BASELINE_SHA256 = "2a68fc1c6968cd99554157b6b76b2cbd5c880c9a9671ff67e76dc5498b198fd2"
+
+#: Cac ban REPO da tung len live qua chinh sync nay -> live dang giu mot trong so nay la
+#: binh thuong, khong phai "co nguoi sua tay".
+SUPERSEDES_SHA256 = (
+    "bcfec3a49e4da5715ff38db8cff485c5da8c3e8f2ab29349822eb3abd7d73bef",  # p230 (07/10)
+    "7e481f0faaf6c0062fde5eea5fc3b702bd5757615bcdfbaaf1cc52b04b92be78",  # ban chup 06/10 (truoc p229)
+)
 
 
 def _html():
@@ -71,8 +82,13 @@ def sync(html=None, expect_sha=BASELINE_SHA256):
     nham la mat mot bai sua doi ma khong ai biet.
     """
     html = html if html is not None else _html()
-    return page_sync.upsert_web_page(ROUTE, NAME, TITLE, html,
-                                     publish=1, expect_sha=expect_sha)
+    accepted = ((expect_sha,) + SUPERSEDES_SHA256) if expect_sha else None
+    res = page_sync.upsert_web_page(ROUTE, NAME, TITLE, html,
+                                    publish=1, expect_sha=accepted)
+    if (res or {}).get("action") in ("created", "updated") and res.get("name"):
+        # Nho sha live sau khi ghi: lan sync sau nhan ra chinh ban minh ghi.
+        res["recorded_sha"] = page_sync.record_live_sha(ROUTE, res["name"])
+    return res
 
 
 @frappe.whitelist(methods=["POST"])
