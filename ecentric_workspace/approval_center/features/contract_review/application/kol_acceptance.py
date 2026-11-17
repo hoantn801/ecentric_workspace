@@ -155,7 +155,7 @@ def send_acceptance(name, user, row_name):
     if old and new != old:
         row.bbnt_file = new
         doc.save(ignore_permissions=True)
-        # Khong ghi URL vao binh luan: ban du PII chi nguoi tao creator + Ke toan tai (PO 17/11).
+        # Khong ghi URL vao binh luan: ban du PII chi nguoi lap + nguoi tao creator + Ke toan tai (PO 17/11).
         doc.add_comment("Info", _("BBNT đợt {0} được tạo lại theo dữ liệu mới (bản cũ vẫn đính kèm).")
                         .format(row.idx))
         return {"status": row.status, "regenerated": True, "bbnt_file": new}

@@ -73,7 +73,8 @@ class TaiBanDuPII(unittest.TestCase):
         self.assertTrue(a.can_download_full(b, "fin@ec"))              # Ke toan
         self.assertTrue(a.can_download_full(b, "owner@ec"))            # nguoi tao creator
         self.assertTrue(a.can_download_full(b, "Administrator"))
-        self.assertFalse(a.can_download_full(b, "req@ec"))             # nguoi lap phieu
+        self.assertFalse(a.can_download_full(b, "req@ec"))             # nguoi khac (khong lap phieu nay)
+        self.assertTrue(a.can_download_full(dict(b, requested_by="req@ec"), "req@ec"))   # nguoi lap phieu
         self.assertFalse(a.can_download_full(dict(b, creator=None), "req@ec"))
 
     def test_nguoi_khong_duoc_tai_khong_thay_url(self):
@@ -116,7 +117,9 @@ class TaiBanDuPII(unittest.TestCase):
         self.assertTrue(any("fin@ec" in c and "hợp đồng" in c for c in STATE["comments"]))
         self.assertFalse(any("ab12cd34" in c for c in STATE["comments"]))
         with self.assertRaises(sys.modules["frappe"].PermissionError):
-            a.download_file("CR-1", "/private/files/HDDV_17112026_ab12cd34.docx", "req@ec")
+            a.download_file("CR-1", "/private/files/HDDV_17112026_ab12cd34.docx", "duyet@ec")
+        # PO 17/11 (sau QC): nguoi lap chinh phieu nay tai duoc (gui creator ky, xuat PDF len cong)
+        self.assertEqual(a.download_file("CR-1", "/private/files/HDDV_17112026_ab12cd34.docx", "req@ec")[1], b"DOCX")
 
     def test_khong_tai_tep_la_hay_tep_phieu_khac(self):
         a = _access("fin@ec")
@@ -470,6 +473,22 @@ class QcSauVongAgent(unittest.TestCase):
         body = src[j:]
         self.assertIn("kol_access.payee_changed(doc, creator)", body)
         self.assertIn('pr.get("bank_account_number")', body)
+
+    def test_dntt_hop_dong_tool_cu_ghi_so_cu(self):
+        _fresh("req@ec")
+        fu = importlib.import_module(P + "kol_funding")
+        pr = {"has_purchase_request": "No", "no_purchase_request_reason": "HĐ cũ (số 05112026/HDDV/ECENTRIC-NTP.FCV)."}
+        key = (CR, (("contract_no", "05112026/HDDV/ECENTRIC-NTP.FCV"),))
+        STATE["values"][key] = lambda f, d: None
+        self.assertTrue(fu.legacy_contract_ref(pr))
+        STATE["values"][key] = lambda f, d: "EC-CTR-9"           # so do thuc ra da co tren ERP -> phai chon HD
+        with self.assertRaises(Throw):
+            fu.legacy_contract_ref(pr)
+        self.assertFalse(fu.legacy_contract_ref({"has_purchase_request": "No", "no_purchase_request_reason": "khong co"}))
+        self.assertFalse(fu.legacy_contract_ref({"has_purchase_request": "Yes",
+                                                 "no_purchase_request_reason": "05112026/HDDV/ECENTRIC-A.B"}))
+        svc = _read("features/payment_request/application/service.py")
+        self.assertIn("funding.legacy_allowed(need[0], doc)", svc)
 
     def test_p399_chot_moc_cho_hop_dong_cu(self):
         _fresh()

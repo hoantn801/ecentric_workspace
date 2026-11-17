@@ -434,7 +434,7 @@ def detail_extra(business, request):
         "approved": status == APPROVED,
         "signed": is_signed(business),
         "acceptances": _rows_for(business, user, kol_acceptance.rows_view(business)),
-        # PO 17/11: ban du PII chi nguoi tao creator + Ke toan tai (kol_access); thanh ly; STK doi.
+        # PO 17/11: ban du PII chi nguoi lap + nguoi tao creator + Ke toan tai (kol_access); thanh ly; STK doi.
         "can_download_full": kol_access.can_download_full(business, user),
         # Ban da che: nguoi lap / nguoi duyet / Ke toan (khop kol_preview._load) - QC 17/11.
         "can_preview": can_manage(business, user) or is_approver(business, user),

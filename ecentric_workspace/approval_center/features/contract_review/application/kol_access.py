@@ -2,7 +2,7 @@
 """Hop dong KOL/KOC - quyet dinh PO 17/11/2026:
 
 * A. Ban hop dong / BBNT DU thong tin ca nhan creator (CCCD, ngay sinh, STK...) chi nguoi tao
-  creator + Ke toan tai duoc, moi lan tai ghi vet. Nguoi lap / nguoi duyet xem ban da che
+  creator + Ke toan + nguoi lap phieu tai duoc, moi lan tai ghi vet. Nguoi duyet xem ban da che
   (kol_preview). Tep van GAN phieu (nen tang ky so lay tep tu day) nhung: chu tep = Administrator,
   ten tep co doan ngau nhien, URL bi an khoi man hinh chi tiet voi nguoi khong duoc tai.
 * D. Van tay tai khoan nhan tien (HMAC, khong luu so) chot luc gui duyet. STK creator doi sau do
@@ -57,7 +57,11 @@ def is_pii_file(business, file_name_or_url):
 
 
 def can_download_full(business, user):
+    """Nguoi tao creator + Ke toan (PO 17/11 A) + nguoi LAP chinh phieu nay (PO 17/11 sau QC: nguoi lap
+    phai gui BBNT / hop dong cho creator ky va xuat PDF len cong ky). Nguoi duyet: ban che."""
     if user == "Administrator" or _SYSTEM_MANAGER in frappe.get_roles(user) or kol_lookup.is_finance(user):
+        return True
+    if user and business.get("requested_by") == user:
         return True
     creator = business.get("creator")
     owner = frappe.db.get_value("Supplier", creator, "owner") if creator else None
@@ -116,7 +120,7 @@ def download_file(name, file_url, user):
     if not row:
         frappe.throw(_("Không tìm thấy tệp của phiếu này."))
     if not can_download_full(doc, user):
-        frappe.throw(_("Bản đủ thông tin cá nhân creator chỉ người tạo creator hoặc Kế toán tải được. "
+        frappe.throw(_("Bản đủ thông tin cá nhân creator chỉ người lập phiếu, người tạo creator hoặc Kế toán tải được. "
                        "Bấm \"Xem hợp đồng (bản đã che)\" để xem."), frappe.PermissionError)
     # Ghi NHAN tep, khong ghi ten tep (ten co doan ngau nhien = mot phan URL; binh luan ai co quyen
     # xem phieu cung doc duoc) - QC 17/11.

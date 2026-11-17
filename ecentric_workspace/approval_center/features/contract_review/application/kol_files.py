@@ -43,7 +43,7 @@ def doc_file_bytes(doc, file_url):
 def attach(doc, file_name, content):
     """Gan tep he thong sinh (HDDV_ / BBNT_ - DU thong tin ca nhan creator) vao phieu.
 
-    PO 17/11 (A): chi nguoi tao creator + Ke toan tai ban du. Frappe cho CHU tep tai thang URL ->
+    PO 17/11 (A): chi nguoi lap + nguoi tao creator + Ke toan tai ban du. Frappe cho CHU tep tai thang URL ->
     chu tep = Administrator (khong phai nguoi bam tao); ten co doan ngau nhien de khong doan URL
     tu so hop dong. Tai hop le di qua kol_access.download_file (co ghi vet)."""
     if file_name.startswith(kol_access.GENERATED_PREFIXES) and "." in file_name:

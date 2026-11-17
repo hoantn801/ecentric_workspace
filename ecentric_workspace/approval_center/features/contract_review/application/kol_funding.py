@@ -4,6 +4,8 @@
 Giu o module hop dong (khong o payment_request): quy tac tran chi la cua hop dong. Payment
 request chi biet "nguon nay co ham tinh tong / ham xet da duyet", khong biet BBNT la gi.
 """
+import re
+
 import frappe
 from frappe import _
 
@@ -102,6 +104,28 @@ def funding_so_can_view(pr, user):
     return bool(ar and frappe.db.exists("EC Approval Request Approver", {"approval_request": ar, "approver": user}))
 
 
+_OLD_NUMBER = re.compile(r"\b\d{8}/HDDV/ECENTRIC-[A-Za-z0-9.()_\-]+")
+
+
+def legacy_contract_ref(pr):
+    """PO 17/11: DNTT Booking KOL cho hop dong ky bang tool cu (truoc ERP) - "Khong" co chung tu nguon,
+    ly do ghi so hop dong cu (dang ddmmyyyy/HDDV/ECENTRIC-...). Ke toan doi chieu luc duyet. So do ma da
+    co tren ERP thi phai chon hop dong ERP (co tran chi)."""
+    if pr.get("has_purchase_request") != "No":
+        return False
+    m = _OLD_NUMBER.search(str(pr.get("no_purchase_request_reason") or ""))
+    if not m:
+        return False
+    no = m.group(0).rstrip(".,;:")
+    while no.endswith(")") and no.count(")") > no.count("("):      # "(so ...)" trong cau
+        no = no[:-1].rstrip(".,;:")
+    on_erp = frappe.db.get_value(kol_lookup.CR_DT, {"contract_no": no}, "name")
+    if on_erp:
+        frappe.throw(_("Hợp đồng {0} đã có trên ERP ({1}): chọn hợp đồng đó làm chứng từ nguồn.").format(
+            no, on_erp))
+    return True
+
+
 def funding_validate(pr, user):
     """Luc nop DNTT tu hop dong KOL: bat buoc SO doanh thu va nguoi lap duoc dung SO do."""
     so = (pr.get("ec_sales_order") or "").strip()
@@ -132,7 +156,6 @@ def funding_validate(pr, user):
 def _check_payee(pr):
     """PO 17/11 (D) + QC 17/11: tien chi ra tai khoan GO TREN DNTT - phai la tai khoan creator dang
     luu, va neu tai khoan do doi sau khi ky thi Ke toan da xac nhan tren hop dong."""
-    import re
     from ecentric_workspace.approval_center.features.contract_review.application import kol_access
     from ecentric_workspace.approval_center.features.contract_review.application.kol_service import creator_row
     name = pr.get("funding_source_name")

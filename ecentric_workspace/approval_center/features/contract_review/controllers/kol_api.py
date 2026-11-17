@@ -33,7 +33,7 @@ def _app(module):
 
 
 def _no_pii_url(name, result, *fields):
-    """PO 17/11 (A): URL tep du PII creator chi tra cho nguoi tao creator + Ke toan (QC 17/11)."""
+    """PO 17/11 (A): URL tep du PII creator chi tra cho nguoi lap + nguoi tao creator + Ke toan (QC 17/11)."""
     access = _app("kol_access")
     return access.strip_url(frappe.get_doc(_app("kol_lookup").CR_DT, name), result, *fields)
 

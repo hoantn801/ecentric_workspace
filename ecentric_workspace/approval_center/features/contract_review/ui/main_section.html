@@ -1161,7 +1161,7 @@
         +(x.closed?'<div class="banner warn"><div><b>Hợp đồng đã thanh lý</b> · '+esc(fmt(x.closed.at))+(x.closed.by?(' · '+esc(x.closed.by)):'')+'<div class="hint">Lý do: '+esc(x.closed.reason||"")+'. Không tạo / gửi đợt nghiệm thu mới; ĐNTT chỉ trong phần đã nghiệm thu.</div></div></div>':'')
         +(x.payee_changed&&x.approved?('<div class="banner warn"><div><b>Tài khoản nhận tiền của creator đã đổi so với lúc ký hợp đồng.</b> '+(x.is_finance?'Kiểm thông tin creator (số tài khoản, ngân hàng, chủ tài khoản) rồi xác nhận - các đợt sau không cảnh báo lại.':'Kế toán kiểm và xác nhận trước khi chi.')
           +(x.is_finance?'<div class="actions" style="margin-top:8px"><button type="button" class="btn primary" data-kol="payeeok">Xác nhận tài khoản mới</button></div>':'')+'</div></div>'):'')
-        +(!x.can_download_full&&(b.has_contract_file||(x.acceptances||[]).length||x.signed)?'<div class="hint" style="margin-bottom:8px">Bản hợp đồng / BBNT đủ thông tin cá nhân creator (CCCD, tài khoản) chỉ người tạo creator và Kế toán tải được; bạn xem bản đã che.</div>':'')
+        +(!x.can_download_full&&(b.has_contract_file||(x.acceptances||[]).length||x.signed)?'<div class="hint" style="margin-bottom:8px">Bản hợp đồng / BBNT đủ thông tin cá nhân creator (CCCD, tài khoản) chỉ người lập phiếu, người tạo creator và Kế toán tải được; bạn xem bản đã che.</div>':'')
         +KOL.stepsHTML(b,apSt)
         +'<div class="grid2">'+rows.map(function(r){ return KOL.roText(r[0],r[1]); }).join("")+'</div>'
         +(x.calc&&x.calc.length?('<h4 style="margin:16px 0 6px">Bảng tính chi tiết</h4>'+KOL.calcHTML(x.calc)+'<div class="hint">Làm tròn tới đồng (từ 0,5 trở lên làm tròn lên), giống tool cũ.</div>'):'')
