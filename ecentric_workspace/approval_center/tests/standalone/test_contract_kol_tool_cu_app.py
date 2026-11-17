@@ -477,7 +477,7 @@ class AppTests(unittest.TestCase):
         # Live lam som hon lich, hop dong ghi ngay ky sau hom nay: noi ro doi / phu luc (PO 12/11).
         with self.assertRaises(_Throw) as cm:
             acc._check_acceptance_date(FakeDoc(contract_date="2026-11-20"), "2026-11-10")
-        self.assertIn("phụ lục", str(cm.exception))
+        self.assertIn("báo Kế toán", str(cm.exception))   # KOL khong lam phu luc (PO 17/11)
 
     def test_xem_truoc_khong_doc_phieu_nguoi_khac(self):
         self.state["stored"]["CR-X"] = {"requested_by": "b@ecentric.vn", "creation": "2025-01-10 09:00:00"}
@@ -535,7 +535,9 @@ class AppTests(unittest.TestCase):
         r = acc.send_acceptance("CR-1", "a@ecentric.vn", "r1")
         self.assertEqual((row.bbnt_file, row.status, dropped, r.get("regenerated")),
                          ("/new.docx", acc.kol.BBNT_DRAFT, [], True))
-        self.assertTrue(comments and "/old.docx" in comments[0])
+        # PO 17/11: binh luan KHONG mang URL tep (ban du PII chi nguoi tao creator + Ke toan tai).
+        self.assertTrue(comments and "tạo lại" in comments[0])
+        self.assertFalse(any("/old.docx" in c or "/new.docx" in c for c in comments))
         # Bam lai (noi dung khong doi -> cung URL): moi danh dau da gui.
         r = acc.send_acceptance("CR-1", "a@ecentric.vn", "r1")
         self.assertEqual((row.status, r.get("regenerated")), (acc.kol.BBNT_SENT, None))

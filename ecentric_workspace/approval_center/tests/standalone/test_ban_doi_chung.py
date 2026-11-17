@@ -498,7 +498,7 @@ class LoaiTru(unittest.TestCase):
               "tai_len": lambda dt, url, name, bn, token=None, item_id=None: tai.append(name) or {"item_id": "I"},
               "cap_quyen": lambda *a, **k: {"da_cap": [], "link": None},
               "ghi_lien_ket": lambda *a, **k: None, "nguoi_trong_luong": lambda *a: [],
-              "_lien_ket_cua_phieu": lambda *a: None}
+              "_lien_ket_cua_phieu": lambda *a: None, "duoc_soi_guong_phieu": lambda dt, n: True}
         ns.update({k: getattr(m, k) for k in ("duoc_soi_guong", "_dinh_kem")})
         exec(compile(_doan(_MIRROR, "dong_bo_phieu", "_dong_bo_tep"), "<m>", "exec"), ns)
         ns["dong_bo_phieu"](DT, "CTR-1")
@@ -614,8 +614,9 @@ class Hook(unittest.TestCase):
         f = _frappe(w)
         import types as _types
         ns = {"frappe": f, "BUSINESS_DT": "EC Contract Review Request",
-              "esign_flow": _types.SimpleNamespace(LABOR_CONTRACT_TYPE="Labor / Hợp đồng lao động (EC)")}
-        exec(compile(_doan(_SERVICE, "_is_labor", "on_decision"), "<s>", "exec"), ns)
+              "esign_flow": _types.SimpleNamespace(LABOR_CONTRACT_TYPE="Labor / Hợp đồng lao động (EC)",
+                                                   KOL_CONTRACT_TYPE="KOL/KOC / Creator (EC)")}
+        exec(compile(_doan(_SERVICE, "_KHONG_LEN_SHAREPOINT", "_is_labor", "on_decision"), "<s>", "exec"), ns)
         ns["on_decision"]("CTR-1", "AR-1", "ACT-9", "Approved")
         ((method, kw),) = w.enqueued
         self.assertEqual(method, "ecentric_workspace.approval_center.shared.integrations."

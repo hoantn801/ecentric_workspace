@@ -50,7 +50,27 @@ RESPONSE_DAYS = {"Existing": 1, "New": 3}
 def _signature(doc):
     fields = MATERIAL_FIELDS + (KOL_MATERIAL_FIELDS if kol.is_kol(doc) else [])
     vals = {f: str(doc.get(f) or "") for f in fields}
+    if not kol.is_kol(doc):
+        # PO 17/11: phieu thuong doi / them / bo tep hop dong luc bo sung = duyet lai tu dau. Chi tep
+        # NGUOI GUI tai (tep he thong: ban ky, ban doi chung, tep nguoi duyet them - chu khac). KOL da
+        # co contract_file / request_attachment trong chu ky rieng.
+        vals["__files"] = ",".join(_requester_files(doc))
     return hashlib.sha1(json.dumps(vals, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+#: Tep he thong tao duoi ten nguoi dung (ban ky / ban review cua nen tang ky, ban doi chung SharePoint
+#: chup duoi ten nguoi vua quyet dinh - co the chinh la nguoi lap neu ho cung duyet mot cap): KHONG tinh.
+_SYSTEM_FILE_PREFIXES = ("SIGNED-", "REVIEW-", "[Đối chứng]")
+
+
+def _requester_files(doc):
+    if not doc.get("name") or not doc.get("requested_by"):
+        return []
+    rows = frappe.get_all("File", filters={"attached_to_doctype": BUSINESS_DT, "attached_to_name": doc.name,
+                                           "owner": doc.requested_by},
+                          fields=["file_url", "file_name"], limit_page_length=0, ignore_permissions=True)
+    return sorted({r.get("file_url") for r in rows
+                   if r.get("file_url") and not str(r.get("file_name") or "").startswith(_SYSTEM_FILE_PREFIXES)})
 
 
 def _requester_context(user):
@@ -199,13 +219,20 @@ def _soi_guong_sharepoint(name):
         frappe.log_error(frappe.get_traceback(), "enqueue soi guong SharePoint %s" % name)
 
 
+#: Loai hop dong KHONG dua len thu vien SharePoint chung (nhom Operation Members ghi duoc):
+#: lao dong mang luong (QC7) + KOL/KOC mang CCCD/STK creator (PO 17/11, quyet dinh B).
+_KHONG_LEN_SHAREPOINT = (esign_flow.LABOR_CONTRACT_TYPE, esign_flow.KOL_CONTRACT_TYPE)
+
+
 def _is_labor(name):
-    """Hop dong lao dong mang luong: KHONG dua len thu vien SharePoint chung (nhom Operation Members
-    ghi duoc) - QC7, cho PO chon thu muc rieng cua HR. Nguoi duyet mo tep tren ERP."""
+    """Hop dong mang du lieu rieng tu (lao dong / KOL): KHONG dua len thu vien SharePoint chung.
+    Nguoi duyet mo tep tren ERP. Ten ham giu nguyen cho cac test/goi cu.
+    Loi khi hoi -> coi nhu KHONG duoc len (fail-closed: thieu ban Word Online con hon lo CCCD)."""
     try:
-        return frappe.db.get_value(BUSINESS_DT, name, "contract_type") == esign_flow.LABOR_CONTRACT_TYPE
+        return frappe.db.get_value(BUSINESS_DT, name, "contract_type") in _KHONG_LEN_SHAREPOINT
     except Exception:
-        return False
+        frappe.log_error(frappe.get_traceback(), "SharePoint: khong hoi duoc loai hop dong %s" % name)
+        return True
 
 
 def on_decision(name, approval_request, approval_action, action):

@@ -99,6 +99,10 @@ class ApprovalDefinition:
     #: di qua query_service.get_detail nen chi can mot cho. Vd Promotion (29/09): nguoi duyet
     #: khong xem duoc luong nhan su do (Lead o buoc quan ly truc tiep) khong thay so luong.
     business_redactor: Optional[Callable] = None
+    #: Loc danh sach dinh kem cua man hinh chi tiet theo NGUOI XEM, do module so huu:
+    #: (attachments, business_doc, approval_request) -> list moi. Vd Hop dong KOL (17/11/2026):
+    #: ban hop dong / BBNT du thong tin ca nhan creator chi nguoi tao creator + Ke toan thay.
+    attachment_redactor: Optional[Callable] = None
     #: Ba dau hieu ngoai le cho tab "Tao hang loat", do module so huu:
     #: (rows, user) -> {key: {ten_co: bool}}. Mac dinh None = form nay khong co dau hieu nao
     #: va man hinh chi don gian khong ve cot do.
@@ -147,6 +151,8 @@ def validate_definition(definition: ApprovalDefinition) -> None:
         raise ValueError("definition callback is not callable: draft_preparer")
     if definition.detail_extender is not None and not callable(definition.detail_extender):
         raise ValueError("definition callback is not callable: detail_extender")
+    if definition.attachment_redactor is not None and not callable(definition.attachment_redactor):
+        raise ValueError("definition callback is not callable: attachment_redactor")
     if definition.batch_flagger is not None and not callable(definition.batch_flagger):
         raise ValueError("definition callback is not callable: batch_flagger")
     _validate_all_tab(definition)

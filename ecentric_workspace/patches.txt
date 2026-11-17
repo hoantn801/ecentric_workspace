@@ -1,8 +1,6 @@
 # Patches for ecentric_workspace
 # Format: <category>.<module>.<patch_file_name>
-
 [pre_model_sync]
-
 [post_model_sync]
 ecentric_workspace.pm.patches.p001_pm_baseline_permissions
 ecentric_workspace.pm.patches.p002_pm_task_workflow
@@ -16,7 +14,6 @@ ecentric_workspace.alerts.patches.p002_migrate_resolved_to_closed
 ecentric_workspace.alerts.patches.p003_backfill_catalogue_promoted_fields
 ecentric_workspace.alerts.patches.p004_retire_missing_policy_alerts
 ecentric_workspace.alerts.patches.p005_backfill_order_log_brand_from_shop
-
 ecentric_workspace.weekly_report.patches.p001_wtu_obligation_fields
 ecentric_workspace.action_center.patches.p001_homepage_action_center
 ecentric_workspace.notification_center.patches.p001_homepage_notification_bell
@@ -34,7 +31,6 @@ ecentric_workspace.pm.patches.p017_pm_recurrence_selfcontained
 ecentric_workspace.pm.patches.p018_pm_recurrence_backfill
 ecentric_workspace.pm.patches.p019_pm_flatten_task_hierarchy
 ecentric_workspace.pm.patches.p020_pm_recurrence_schedule_fields
-
 ecentric_workspace.approval_center.patches.p001_seed_approval_categories
 ecentric_workspace.approval_center.patches.p002_seed_approval_types
 ecentric_workspace.approval_center.patches.p003_create_approvals_page
@@ -83,7 +79,6 @@ ecentric_workspace.approval_center.patches.p042_create_dashboard_page
 ecentric_workspace.approval_center.patches.p043_esign_indexes
 ecentric_workspace.action_center.patches.p002_reconcile_stale_task_todos
 ecentric_workspace.alerts.patches.p006_brand_consolidation
-
 ecentric_workspace.approval_center.patches.p044_todo_fulfillment_marker
 ecentric_workspace.approval_center.patches.p045_ec_sales_admin_order_perms
 ecentric_workspace.approval_center.patches.p046_send_back_transitions
@@ -468,3 +463,6 @@ ecentric_workspace.approval_center.patches.p402_ai_live_ban_quyen
 ecentric_workspace.approval_center.patches.p403_resync_ai_live_ban_quyen
 ecentric_workspace.approval_center.patches.p404_resync_pm_hotfix16
 ecentric_workspace.approval_center.patches.p412_ai_live_lich_hop_dong_1811
+ecentric_workspace.approval_center.patches.p397_chu_ky_duyet_hop_dong_tep
+ecentric_workspace.approval_center.patches.p398_resync_contract_review_po_17_11
+ecentric_workspace.approval_center.patches.p399_kol_van_tay_tai_khoan

@@ -9,7 +9,7 @@ from importlib import import_module
 from ecentric_workspace.approval_center.shared.creators import domain
 
 DT = "Supplier"
-_IDENTITY_FIELDS = ["name", "owner", "supplier_name", "ec_cr_misa_code"] + list(domain.HARD_KEYS) + [
+_IDENTITY_FIELDS = ["name", "owner", "supplier_name", "ec_cr_type", "ec_cr_misa_code", "disabled"] + list(domain.HARD_KEYS) + [
     f for f in domain.SOFT_KEYS if f != "supplier_name"]
 
 
@@ -103,6 +103,17 @@ class CreatorRepository:
     def misa_owner(self, code, exclude):
         return _frappe().db.get_value(DT, {"ec_cr_misa_code": code, "name": ["!=", exclude]},
                                       "name")
+
+    def approved_contract(self, name):
+        """Mot hop dong (form 27) DA DUYET XONG dung creator nay, hoac None. Ten DocType o day thay vi
+        import feature: shared khong import nguoc module nghiep vu."""
+        frappe = _frappe()
+        rows = frappe.get_all("EC Contract Review Request", filters={"creator": name, "approval_request": ["is", "set"]},
+                              fields=["name", "approval_request"], limit_page_length=0, ignore_permissions=True)
+        for r in rows:
+            if frappe.db.get_value("EC Approval Request", r.approval_request, "approval_status") == "Approved":
+                return r.name
+        return None
 
     def roles(self, user):
         return set(_frappe().get_roles(user))

@@ -93,6 +93,7 @@ def _moi_truong(ghi, docs=None, loi_tai=None, loi_cap=None, link="https://sp/sha
         "nguoi_trong_luong": lambda dt, n: ["huong.pham@e.c", "duyet@e.c"],
         "_dinh_kem": lambda dt, n: [_Row(file_url="/private/files/hd.docx", file_name="hd.docx")],
         "duoc_soi_guong": lambda dt: True,
+        "duoc_soi_guong_phieu": lambda dt, n: True,
         # Tep CHUA co lien ket cua phieu nay -> nhanh "tai moi" (03/11/2026).
         "_lien_ket_cua_phieu": lambda dt, n, url: None,
         "gio_he_thong": lambda x: x,

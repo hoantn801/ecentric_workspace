@@ -12,7 +12,7 @@ import json
 import frappe
 from frappe import _
 
-from ecentric_workspace.approval_center.features.contract_review.application import kol_lookup
+from ecentric_workspace.approval_center.features.contract_review.application import kol_access, kol_lookup
 from ecentric_workspace.approval_center.features.contract_review.application.kol_service import (
     can_manage, creator_row)
 from ecentric_workspace.approval_center.features.contract_review.domain import docx_fill, kol, kol_values
@@ -41,10 +41,20 @@ def doc_file_bytes(doc, file_url):
 
 
 def attach(doc, file_name, content):
+    """Gan tep he thong sinh (HDDV_ / BBNT_ - DU thong tin ca nhan creator) vao phieu.
+
+    PO 17/11 (A): chi nguoi lap + nguoi tao creator + Ke toan tai ban du. Frappe cho CHU tep tai thang URL ->
+    chu tep = Administrator (khong phai nguoi bam tao); ten co doan ngau nhien de khong doan URL
+    tu so hop dong. Tai hop le di qua kol_access.download_file (co ghi vet)."""
+    if file_name.startswith(kol_access.GENERATED_PREFIXES) and "." in file_name:
+        stem, ext = file_name.rsplit(".", 1)
+        file_name = "%s_%s.%s" % (stem, frappe.generate_hash(length=8), ext)
     f = frappe.get_doc({"doctype": "File", "file_name": file_name, "is_private": 1,
                         "attached_to_doctype": doc.doctype, "attached_to_name": doc.name,
                         "content": content})
     f.insert(ignore_permissions=True)
+    if file_name.startswith(kol_access.GENERATED_PREFIXES):
+        frappe.db.set_value("File", f.name, "owner", "Administrator", update_modified=False)
     return f.file_url
 
 
@@ -66,14 +76,21 @@ def claim_upload(doc, file_url, user):
     mine = [r for r in rows if r.attached_to_doctype == doc.doctype and r.attached_to_name == doc.name]
     free = [r for r in rows if not r.attached_to_name and (r.owner == user or kol_lookup.is_finance(user))]
     if mine:
+        for r in mine:
+            if r.owner != "Administrator":
+                frappe.db.set_value("File", r.name, "owner", "Administrator", update_modified=False)
         return file_url
     if not free:
         if not any(r.owner == user for r in rows) and not kol_lookup.is_finance(user):
             frappe.throw(_("Tệp này không phải do bạn tải lên."), frappe.PermissionError)
         frappe.throw(_("Tệp này đang gắn với chứng từ khác."))
     row = free[0]
+    # Ban ky co PII creator: chu tep = Administrator nhu tep sinh tu mau (PO 17/11 A) - nguoi tai len
+    # het mo thang URL; ai duoc thi tai qua kol_download_file (ghi vet). Danh dau nay con nguyen ca khi
+    # ban ky bi tra lai (signed_file ve rong) - kol_access van nhan ra tep la ban du (QC 17/11 vong 2).
     frappe.db.set_value("File", row.name, {"attached_to_doctype": doc.doctype,
-                                           "attached_to_name": doc.name})
+                                           "attached_to_name": doc.name, "owner": "Administrator"},
+                        update_modified=False)
     return file_url
 
 

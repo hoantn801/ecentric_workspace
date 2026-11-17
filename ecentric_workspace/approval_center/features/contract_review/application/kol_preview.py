@@ -5,7 +5,7 @@ Gia tri ERP dien to vang, cho con thieu to do. KHONG ghi gi: khong luu phieu, kh
 tep, khong cap so. Tep tai ve / gui ky van la tep generate_contract sinh ra (khong to mau).
 
 Bao ve (QC6):
-  * Phieu da luu: chi nguoi quan ly phieu xem truoc duoc.
+  * Phieu da luu: nguoi quan ly phieu xem truoc duoc; nguoi duyet + Ke toan xem CHI DOC (PO 17/11).
   * Thong tin ca nhan creator (CCCD, ngay sinh, dia chi, STK, SDT, email, MST): nguoi khong
     duoc xem ban day du cua creator (khong phai nguoi tao creator / Ke toan) thay "da co, an".
   * Tep lam sach truoc khi ve tren trinh duyet (docx_safe): mau chua the HTML / link javascript
@@ -21,7 +21,7 @@ from frappe import _
 
 from ecentric_workspace.approval_center.features.contract_review.application import kol_files, kol_lookup
 from ecentric_workspace.approval_center.features.contract_review.application.kol_service import (
-    can_manage, creator_row)
+    can_manage, creator_row, is_approver)
 from ecentric_workspace.approval_center.features.contract_review.domain import docx_fill, docx_safe, kol, kol_values
 
 # Ten <<...>> mang thong tin ca nhan creator - an khi nguoi xem khong co quyen xem ban day du.
@@ -59,6 +59,10 @@ def _load(name, user):
             return None, _fail(_("Không tìm thấy phiếu {0}.").format(name))
         doc = frappe.get_doc(kol_lookup.CR_DT, name)
         if not can_manage(doc, user):
+            # PO 17/11 (A): nguoi duyet / Ke toan xem ban DA CHE thay cho tep du PII - chi doc,
+            # khong nhan du lieu dang go (khong sua duoc gia tri hien tren ban xem).
+            if is_approver(doc, user) or kol_lookup.is_finance(user):
+                return doc, set()
             frappe.throw(_("Bạn không xem trước được hợp đồng của phiếu này."), frappe.PermissionError)
     else:
         doc = frappe.new_doc(kol_lookup.CR_DT)

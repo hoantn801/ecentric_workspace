@@ -29,8 +29,20 @@ def prepare_draft(doc):
     viec voi phieu KOL, nuot loi tinh tien (nhap do)."""
     esign_flow.apply_default(doc)
     esign_flow.clean_labor(doc)
+    from ecentric_workspace.approval_center.features.contract_review.application import kol_access
     if not kol.is_kol(doc):
+        # Da tao hop dong / BBNT KOL (in CCCD, STK creator) thi khong doi sang loai khac: loai khac khong
+        # che tep va lai len SharePoint chung (QC vong 4 17/11).
+        if kol_access.has_kol_files(doc):
+            frappe.throw(_("Phiếu đã tạo hợp đồng KOL (có CCCD, số tài khoản creator) nên không đổi sang loại "
+                           "hợp đồng khác. Lập phiếu mới cho loại hợp đồng kia; phiếu này hủy đi (đang chờ "
+                           "bổ sung thì nhờ người duyệt từ chối)."))
         return
+    # Ban nhan ban (clone) con tro toi hop dong sinh tu mau cua phieu CU (tep gan phieu KHAC): bo, khi gui
+    # se sinh lai (QC vong 4). Tep nguoi dung vua tai / da gan chinh phieu nay thi giu, du ten bat dau
+    # HDDV_ / BBNT_ (QC vong cuoi 17/11 - truoc do xoa nham tep mau creator ten "HDDV_...").
+    if kol_access.foreign_generated(doc, doc.get("request_attachment")):
+        doc.request_attachment = None
     creator = creator_row(doc.get("creator"))
     doc.creator_name = creator.get("supplier_name") if creator else None
     doc.creator_type = creator.get("ec_cr_type") if creator else None
@@ -296,11 +308,19 @@ def validate_submit(doc):
         errors.append("Creator này đã ngừng sử dụng - chọn creator khác.")
     if doc.get("request_type") == kol.TEMPLATE_PARTNER and not doc.get("request_attachment"):
         errors.append("Tải lên hợp đồng theo mẫu của creator trước khi gửi.")
+    if doc.get("request_kind") == "Existing":
+        # PO 17/11: thuc te it lam phu luc tang tien; phu luc KOL chua noi vao HD goc (so moi, tran
+        # DNTT rieng -> hai tran chong nhau). Tang tien = lap hop dong moi.
+        errors.append("Hợp đồng KOL/KOC không làm phụ lục điều chỉnh - chọn \"Hợp đồng / phụ lục MỚI\" (cần tăng "
+                      "tiền thì lập hợp đồng mới).")
     if errors:
         frappe.throw(_(" ".join(errors)))
     prepare_draft(doc)
     apply_amounts(doc, strict=True)
     fill_partner_signer(doc, creator)
+    # PO 17/11 (D): chot van tay STK nhan tien theo creator luc gui - hop dong sinh ra in STK nay.
+    from ecentric_workspace.approval_center.features.contract_review.application import kol_access
+    kol_access.snapshot_payee(doc, creator)
     signer_errors = partner_signer_errors(doc)
     if signer_errors:
         frappe.throw(" ".join(signer_errors))
@@ -339,13 +359,27 @@ def assign_number(doc, creator):
         base = kol.number_base(number_date, party, kol_lookup.brand_code(doc.get("brand")))
     except ValueError as e:
         frappe.throw(_(str(e)))
-    if kol.number_fits(doc.get("contract_no"), base) and not frappe.db.exists(
-            kol_lookup.CR_DT, {"contract_no": doc.contract_no, "name": ["!=", doc.name]}):
+    existing = _numbers_in_use(base, doc.name)
+    if kol.number_fits(doc.get("contract_no"), base) and doc.contract_no not in existing:
         return
-    existing = set(frappe.get_all(kol_lookup.CR_DT,
-                                  filters={"contract_no": ["like", base + "%"], "name": ["!=", doc.name]},
-                                  pluck="contract_no", limit_page_length=0, ignore_permissions=True))
     doc.contract_no = kol.contract_number(number_date, party, kol_lookup.brand_code(doc.get("brand")), existing)
+
+
+_RELEASED = ("Rejected", "Cancelled")
+
+
+def _numbers_in_use(base, exclude):
+    """So HD dang giu cho (cung goc). Phieu bi Tu choi / Huy NHA so de phieu lam lai dung lai - khong
+    co hop dong that nao mang so do (PO 17/11; truoc ra "...-2" ma khong co "-1")."""
+    rows = frappe.get_all(kol_lookup.CR_DT,
+                          filters={"contract_no": ["like", base + "%"], "name": ["!=", exclude]},
+                          fields=["contract_no", "approval_request"], limit_page_length=0,
+                          ignore_permissions=True)
+    reqs = [r.approval_request for r in rows if r.approval_request]
+    released = set(frappe.get_all("EC Approval Request", filters={"name": ["in", reqs],
+                                                                  "approval_status": ["in", _RELEASED]},
+                                  pluck="name", limit_page_length=0, ignore_permissions=True)) if reqs else set()
+    return {r.contract_no for r in rows if r.approval_request not in released}
 
 
 def can_manage(doc, user):
@@ -377,6 +411,10 @@ def mark_signed(name, signed_file, user):
         frappe.throw(_("Hợp đồng phải được duyệt xong trước khi tải bản đã ký."))
     if is_signed(doc):
         frappe.throw(_("Hợp đồng đã được xác nhận ký đủ."))
+    # Thanh ly truoc khi ky: tai ban ky len sau do se mo tien coc cho mot hop dong da dung (QC 17/11).
+    from ecentric_workspace.approval_center.features.contract_review.application import kol_access
+    if kol_access.is_closed(doc):
+        frappe.throw(_("Hợp đồng đã thanh lý - không nhận bản ký mới."))
     if not (signed_file or "").lower().endswith(".pdf"):
         frappe.throw(_("Bản đã ký phải là tệp PDF."))
     if signed_file in {doc.get("request_attachment"), doc.get("contract_file")}:
@@ -398,7 +436,7 @@ def detail_extra(business, request):
     """`detail_extender`: khoi KOL tren trang chi tiet (khong co PII creator)."""
     if not kol.is_kol(business):
         return {}
-    from ecentric_workspace.approval_center.features.contract_review.application import kol_acceptance
+    from ecentric_workspace.approval_center.features.contract_review.application import kol_acceptance, kol_access
     user = frappe.session.user
     status = (request or {}).get("approval_status") if isinstance(request, dict) else getattr(request, "approval_status", None)
     return {"kol": {
@@ -407,7 +445,15 @@ def detail_extra(business, request):
         "is_finance": kol_lookup.is_finance(user),
         "approved": status == APPROVED,
         "signed": is_signed(business),
-        "acceptances": kol_acceptance.rows_view(business),
+        "acceptances": _rows_for(business, user, kol_acceptance.rows_view(business)),
+        # PO 17/11: ban du PII chi nguoi lap + nguoi tao creator + Ke toan tai (kol_access); thanh ly; STK doi.
+        "can_download_full": kol_access.can_download_full(business, user),
+        # Ban da che: nguoi lap / nguoi duyet / Ke toan (khop kol_preview._load) - QC 17/11.
+        "can_preview": can_manage(business, user) or is_approver(business, user),
+        "payee_changed": kol_access.payee_changed(business),
+        "payee_was_empty": business.get("kol_payee_fp") == kol_access.NO_ACCOUNT,
+        "closed": {"at": str(business.get("kol_closed_at") or ""), "by": business.get("kol_closed_by") or "",
+                   "reason": business.get("kol_close_reason") or ""} if kol_access.is_closed(business) else None,
         "acceptance_remaining": kol_acceptance.acceptance_remaining(business),
         "funding": kol_acceptance.funding_view(business),
         "missing_labels": kol_values.missing_labels(_split(business.get("missing_placeholders"))),
@@ -417,6 +463,21 @@ def detail_extra(business, request):
         # Ngay theo gio site (khong theo dong ho may nguoi dung) cho o ngay BBNT - QC6.
         "today": str(today()),
     }}
+
+
+def _rows_for(business, user, rows):
+    """An URL BBNT du PII voi nguoi khong duoc tai (PO 17/11 A)."""
+    from ecentric_workspace.approval_center.features.contract_review.application import kol_access
+    for r in rows:
+        r["has_signed"] = bool(r.get("signed_file"))
+    if kol_access.can_download_full(business, user):
+        return rows
+    for r in rows:
+        if kol_access.is_generated(r.get("bbnt_file")):
+            r["bbnt_file"] = None
+        if r.get("signed_file"):
+            r["signed_file"] = None
+    return rows
 
 
 def _split(text):

@@ -82,13 +82,36 @@ class CreatorService:
             raise CreatorError("Không tìm thấy creator %s." % name)
         if not self.can_see_pii(user, row):
             raise CreatorPermissionError("Chỉ người tạo creator hoặc Kế toán được sửa thông tin.")
-        values = self._clean(data, with_identity=False)
+        # PO 17/11: Ke toan sua duoc ten / loai creator (go sai ten in vao hop dong + so HD).
+        finance = self.is_finance(user)
+        values = self._clean(data, with_identity=finance)
+        if finance and "disabled" in (data or {}):
+            values["disabled"] = 1 if str(data.get("disabled")).strip().lower() in ("1", "true", "yes") else 0
+        if values.get("ec_cr_type") and values["ec_cr_type"] != row.get("ec_cr_type"):
+            # Hop dong da duyet giu loai cu (mau BBNT, so ngay thanh toan theo loai luc ky): doi loai
+            # thi BBNT sau do lech ben ky (QC 17/11). Sai loai tu dau = lap creator dung loai + HD moi.
+            used = getattr(self.repo, "approved_contract", None)
+            hit = used(name) if used else None
+            if hit:
+                raise CreatorError("Creator đã có hợp đồng duyệt xong (%s) nên không đổi loại được. Tích \"Ngừng dùng "
+                                   "creator này\", lưu, rồi tạo creator mới đúng loại và lập hợp đồng mới." % hit)
+            values["supplier_type"] = domain.SUPPLIER_TYPE_BY_CREATOR.get(values["ec_cr_type"])
         merged = dict(row, **values)
         self._validate(merged)
         self._refuse_hard(self._shown(user, self.check_duplicates(merged, exclude=name)["hard"]))
         changed = domain.payment_changes(row, values)
-        note = ("Đổi thông tin nhận tiền (%s) bởi %s - Kế toán đối chiếu trước khi chi cho hợp đồng đã ký."
-                % (", ".join(changed), user)) if changed else None
+        notes = []
+        if changed:
+            notes.append("Đổi thông tin nhận tiền (%s) bởi %s - Kế toán đối chiếu trước khi chi cho hợp "
+                         "đồng đã ký." % (", ".join(changed), user))
+        for field, label in (("supplier_name", "tên"), ("ec_cr_type", "loại")):
+            if field in values and str(values[field] or "") != str(row.get(field) or ""):
+                notes.append("%s đổi %s creator: \"%s\" -> \"%s\"." % (user, label, row.get(field) or "",
+                                                                    values[field] or ""))
+        if "disabled" in values:
+            if values["disabled"] != (1 if row.get("disabled") else 0):
+                notes.append("%s %s creator." % (user, "ngừng dùng" if values["disabled"] else "dùng lại"))
+        note = " ".join(notes) or None
         self.repo.update(name, values, note=note)
         return {"name": name}
 
@@ -118,6 +141,8 @@ class CreatorService:
     def _clean(data, with_identity):
         allowed = set(domain.WRITABLE_FIELDS)
         if with_identity:
+            # Ke toan: sua ten / loai (PO 17/11). `disabled` KHONG qua day: chi update() cua Ke toan nhan
+            # (QC he thong 17/11 - tao moi gui "disabled": "0" de lach chan trung cung).
             allowed |= {"supplier_name", "ec_cr_type"}
         out = {}
         for key, value in (data or {}).items():

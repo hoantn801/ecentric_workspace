@@ -8,6 +8,7 @@ from ecentric_workspace.approval_center.shared.definition_support import (
 from ecentric_workspace.approval_center.features.contract_review.domain import esign_flow as _esign_flow
 
 _KOL = "ecentric_workspace.approval_center.features.contract_review.application.kol_service"
+_KOL_ACCESS = "ecentric_workspace.approval_center.features.contract_review.application.kol_access"
 
 CONTRACT_REVIEW_DEFINITION = ApprovalDefinition(
     code="CONTRACT_REVIEW", business_doctype="EC Contract Review Request", feature="contract_review",
@@ -54,6 +55,9 @@ CONTRACT_REVIEW_DEFINITION = ApprovalDefinition(
     clone_exclude_fields=("contract_date",),
     draft_preparer=ServiceMethod(_KOL, "prepare_draft"),
     detail_extender=ServiceMethod(_KOL, "detail_extra"),
+    # PO 17/11: ban hop dong / BBNT du thong tin ca nhan creator chi nguoi tao creator + Ke toan thay.
+    business_redactor=ServiceMethod(_KOL_ACCESS, "redact_business"),
+    attachment_redactor=ServiceMethod(_KOL_ACCESS, "redact_attachments"),
     **service_callbacks("contract_review"))
 
 

@@ -21,7 +21,8 @@ __all__ = ["kol_me", "kol_search_sales_orders", "kol_list_templates", "kol_place
            "kol_ai_extract", "kol_ai_qc", "kol_search_creators", "kol_get_creator",
            "kol_create_creator", "kol_update_creator", "kol_missing_misa", "kol_set_misa_code",
            "kol_verify_signed", "kol_verify_acceptance", "kol_pending_checks", "kol_preview_dates",
-           "kol_creator_gaps", "kol_preview_contract"]
+           "kol_creator_gaps", "kol_preview_contract", "kol_download_file", "kol_confirm_payee",
+           "kol_close_contract", "kol_reopen_contract"]
 
 
 def _app(module):
@@ -29,6 +30,12 @@ def _app(module):
     va cac test chi gia lap `frappe` (khong co frappe.utils) van nap duoc controllers/api.py."""
     return import_module("ecentric_workspace.approval_center.features.contract_review.application."
                          + module)
+
+
+def _no_pii_url(name, result, *fields):
+    """PO 17/11 (A): URL tep du PII creator chi tra cho nguoi lap + nguoi tao creator + Ke toan (QC 17/11)."""
+    access = _app("kol_access")
+    return access.strip_url(frappe.get_doc(_app("kol_lookup").CR_DT, name), result, *fields)
 
 
 def _me():
@@ -112,7 +119,7 @@ def kol_preview_contract(fields=None, name=None):
 
 @frappe.whitelist(methods=["POST"])
 def kol_generate_contract(name):
-    return _app("kol_files").generate_contract(name, _me())
+    return _no_pii_url(name, _app("kol_files").generate_contract(name, _me()), "contract_file")
 
 
 @frappe.whitelist(methods=["POST"])
@@ -122,7 +129,8 @@ def kol_mark_signed(name, signed_file):
 
 @frappe.whitelist(methods=["POST"])
 def kol_add_acceptance(name, description=None, acceptance_date=None, amount=None):
-    return _app("kol_acceptance").add_acceptance(name, _me(), description, acceptance_date, amount)
+    return _no_pii_url(name, _app("kol_acceptance").add_acceptance(name, _me(), description, acceptance_date, amount),
+                       "bbnt_file")
 
 
 @frappe.whitelist(methods=["POST"])
@@ -132,7 +140,7 @@ def kol_delete_acceptance(name, row):
 
 @frappe.whitelist(methods=["POST"])
 def kol_send_acceptance(name, row):
-    return _app("kol_acceptance").send_acceptance(name, _me(), row)
+    return _no_pii_url(name, _app("kol_acceptance").send_acceptance(name, _me(), row), "bbnt_file")
 
 
 @frappe.whitelist(methods=["POST"])
@@ -197,3 +205,28 @@ def kol_verify_acceptance(name, row, ok, note=None):
 @frappe.whitelist()
 def kol_pending_checks():
     return {"rows": _app("kol_verify").pending_checks(_me())}
+
+
+# PO 17/11/2026 (kol_access): tai ban du PII co ghi vet, Ke toan xac nhan STK moi, thanh ly hop dong.
+@frappe.whitelist(methods=["POST"])
+def kol_download_file(name, file_url):
+    """POST (form an) de ghi vet duoc - GET bi rollback. Tra tep .docx de trinh duyet tai."""
+    file_name, content = _app("kol_access").download_file(name, file_url, _me())
+    frappe.local.response.filename = file_name
+    frappe.local.response.filecontent = content
+    frappe.local.response.type = "download"
+
+
+@frappe.whitelist(methods=["POST"])
+def kol_confirm_payee(name):
+    return _app("kol_access").confirm_payee(name, _me())
+
+
+@frappe.whitelist(methods=["POST"])
+def kol_close_contract(name, reason=None):
+    return _app("kol_access").close_contract(name, _me(), reason)
+
+
+@frappe.whitelist(methods=["POST"])
+def kol_reopen_contract(name, reason=None):
+    return _app("kol_access").reopen_contract(name, _me(), reason)

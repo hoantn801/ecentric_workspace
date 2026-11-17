@@ -57,13 +57,121 @@ const detail={business:{name:"EC-CTR-2026-00100",contract_type:KOL,request_type:
       calc:[{label:"Thực nhận đợt này",how:"",amount:6300000}]}]}}};
 const c={}; let failed=0;
 function chk(k,v){ c[k]=!!v; if(!v) failed++; }
+// PO 17/11: ban du PII tai qua POST (nguoi tao creator + Ke toan), nguoi duyet xem ban che; STK doi;
+// thanh ly; tao phieu moi tu phieu tu choi; KOL khong chon "dieu chinh".
+function po1711Part(){
+  curDetail=JSON.parse(JSON.stringify(detail));
+  curDetail.business.contract_file=null; curDetail.extra.kol.acceptances[0].bbnt_file=null; curDetail.extra.kol.acceptances[0].has_signed=true;
+  Object.assign(curDetail.extra.kol,{can_manage:false,is_finance:false,can_download_full:false,can_preview:true,payee_changed:true,closed:null}); curDetail.business.has_contract_file=true;
+  const w8=make("https://x/approvals/contract-review?id=EC-CTR-2026-00100");
+  wait(w8,function(){ return w8.document.getElementById("kol-detail"); },function(){
+    const b=w8.document.getElementById("ctr-body").innerHTML;
+    chk("nguoi duyet: khong co link / nut tai ban du, co ban da che", !/data-kol="dl"/.test(b)&&!/HDDV\.docx|BBNT\.docx/.test(b)&&/data-kol="preview"/.test(b)&&/che thông tin cá nhân/.test(b));
+    chk("nguoi duyet: thay canh bao STK doi nhung khong co nut xac nhan / thanh ly", /Tài khoản nhận tiền của creator đã đổi/.test(b)&&!/data-kol="payeeok"/.test(b)&&!/data-kol="closehd"/.test(b));
+    chk("nguoi duyet: dot co ban ky thi ghi 'da co BBNT da ky'", /có bản ký/.test(b));
+    { const K=w8.ContractReviewKOL, d=JSON.parse(JSON.stringify(curDetail));
+      d.extra.kol.can_preview=false; chk("nguoi xem khong duyet: khong co nut ban che (server se tu choi)", !/data-kol="preview"/.test(K.detailHTML(d)));
+      d.extra.kol.approved=false; d.approval={approval_status:"Pending"}; chk("chua duyet xong: khong hien canh bao STK / nut xac nhan", !/Tài khoản nhận tiền của creator đã đổi/.test(K.detailHTML(d)));
+      const d2=JSON.parse(JSON.stringify(detail)); d2.extra.kol.can_manage=true; d2.extra.kol.closed={at:"2026-11-17",by:"f",reason:"x"};
+      chk("da thanh ly: dot nhap khong con nut Danh dau da gui ky", !/data-kol="sendacc"/.test(K.detailHTML(d2)));
+      const h2=K.detailHTML(Object.assign(JSON.parse(JSON.stringify(d2)),{business:Object.assign({},d2.business,{revenue_warning:"W"})}));
+      d2.extra.kol.closed.reason="Creator huỷ booking.";
+      const h3=K.detailHTML(d2);
+      chk("da thanh ly: banner dung dau, khong 2 dau cham, van xoa duoc dot nhap cuoi", h2.indexOf("đã thanh lý")<h2.indexOf(">W<")&&!/booking\.\./.test(h3)&&/data-kol="delacc"/.test(h3));
+      { const d4=JSON.parse(JSON.stringify(d2)); d4.extra.kol.signed=false; d4.business.signing_status="Chờ kiểm tra";
+        chk("vong cuoi: thanh ly khi ban ky cho kiem -> noi ro van xac nhan duoc", /Bản ký đang chờ Kế toán kiểm vẫn xác nhận được/.test(K.detailHTML(d4))&&!/không nhận bản ký, không lập ĐNTT/.test(K.detailHTML(d4)));
+        const d5=JSON.parse(JSON.stringify(curDetail)); d5.extra.kol.payee_was_empty=true; d5.extra.kol.approved=true;
+        chk("vong cuoi: luc gui chua co STK -> banner 'vua bo sung'", /Creator vừa bổ sung tài khoản nhận tiền/.test(K.detailHTML(d5))); }
+      { const src=w8.document.documentElement.innerHTML;
+        chk("vong cuoi: CSS the BBNT tren dien thoai khong lan sang bang tinh long ben trong", /table\.tbl\.kol-acc>tbody>tr>td\{/.test(src)&&!/table\.tbl\.kol-acc td\{/.test(src));
+        chk("vong cuoi: nut Xóa thong nhat chinh ta", !/>Xoá</.test(src)); }
+      chk("da thanh ly: thanh tien trinh khong con 'chua len dot'", /Đã thanh lý · Hoàn tất/.test(w8.ContractReview.buildStepper(Object.assign({},d2,{approval:{name:"R",approval_status:"Approved"}})))&&!/chưa lên đợt/.test(w8.ContractReview.buildStepper(Object.assign({},d2,{approval:{name:"R",approval_status:"Approved"}}))));
+      { const d6=JSON.parse(JSON.stringify(detail)); d6.approval={approval_status:"Approved"};
+        Object.assign(d6.extra.kol,{can_manage:true,is_finance:true,approved:true,signed:false,closed:{at:"2026-11-17",by:"f",reason:"x"}}); d6.business.signing_status="Chưa ký";
+        const h6=K.detailHTML(d6);
+        chk("thanh ly truoc khi ky: khong con o tai ban ky; Ke toan co nut Mo lai", !/kol-signed-f/.test(h6)&&/data-kol="reopenhd"/.test(h6)); }
+      { const d7=JSON.parse(JSON.stringify(detail)); d7.approval={name:"R",approval_status:"Approved"};
+        Object.assign(d7.extra.kol,{approved:true,signed:false,closed:{at:"2026-11-17",by:"f",reason:"x"}});
+        const st=w8.ContractReview.buildStepper(d7);
+        chk("thanh ly truoc ky: tien trinh 'Da thanh ly truoc khi ky', Hoan tat duoc", /Đã thanh lý trước khi ký/.test(st)&&!/Sau khi ký đủ/.test(st)&&!/kol-later/.test(K.detailHTML(d7)));
+        const d8=JSON.parse(JSON.stringify(detail)); d8.extra.kol.acceptance_remaining=0;
+        const h8=K.detailHTML(d8);
+        chk("da len dot du gia tri: an form them dot, nhan 'chua len dot'", /Đã tạo BBNT đủ giá trị hợp đồng/.test(h8)&&!/data-kol="addacc"/.test(h8));
+        const d9=JSON.parse(JSON.stringify(detail)); d9.business.ai_qc_at=null; d9.business.ai_qc_status=null; d9.business.ai_qc_result="{}";
+        chk("sau duyet chua chay AI QC: an the AI QC", !/<h3>AI QC/.test(K.detailHTML(d9)));
+        const d10=JSON.parse(JSON.stringify(detail)); d10.approval={approval_status:"Information Required"};
+        Object.assign(d10.extra.kol,{can_manage:false,approved:false,signed:false});
+        chk("nguoi duyet khong thay danh sach viec cua nguoi lap", !/kol-steps/.test(K.detailHTML(d10))); }
+      const d5=JSON.parse(JSON.stringify(detail)); d5.approval={approval_status:"Draft"}; d5.business.has_contract_file=true; d5.business.contract_file=null;
+      Object.assign(d5.extra.kol,{can_manage:true,can_download_full:false,approved:false,signed:false});
+      chk("nguoi lap nhap: goi y tai sau khi gui + nut Xem truoc, khong noi 'kiem tra tep .docx'", /Gửi phiếu xong bạn tải được/.test(K.detailHTML(d5))&&!/kiểm tra tệp \.docx/.test(K.detailHTML(d5))); }
+    curDetail=JSON.parse(JSON.stringify(detail));
+    curDetail.extra.kol.acceptances[0].signed_file="/private/files/bbnt ky.pdf";
+    Object.assign(curDetail.extra.kol,{is_finance:true,can_download_full:true,payee_changed:true,closed:null}); curDetail.business.creator="SUP-1";
+    const w9=make("https://x/approvals/contract-review?id=EC-CTR-2026-00100");
+    const posted=[]; let dlFail=false; w9.URL.createObjectURL=function(){ return "blob:x"; }; w9.URL.revokeObjectURL=function(){};
+    w9.fetch=function(u,o){ const rec={action:u,method:o.method,csrf:(o.headers||{})["X-Frappe-CSRF-Token"]}; o.body.forEach(function(v,k){ rec[k]=v; }); posted.push(rec);
+      if(dlFail) return Promise.resolve({ok:false,status:403,headers:{get:function(){ return "application/json"; }},json:function(){ return Promise.resolve({_server_messages:JSON.stringify([JSON.stringify({message:"Bản đủ thông tin cá nhân creator chỉ người lập phiếu (sau khi gửi), người tạo creator hoặc Kế toán tải được."})])}); }});
+      return Promise.resolve({ok:true,status:200,headers:{get:function(){ return 'attachment; filename="HDDV.docx"'; }},blob:function(){ return Promise.resolve(new w9.Blob(["x"])); }}); };
+    wait(w9,function(){ return w9.document.getElementById("kol-detail"); },function(){
+      const b9=w9.document.getElementById("ctr-body").innerHTML;
+      chk("ke toan: nut tai hop dong + BBNT + ban ky, khong co href toi tep", (b9.match(/data-kol="dl"/g)||[]).length>=3&&!/href="\/private\/files/.test(b9));
+      w9.document.querySelector('[data-kol="dl"]').click();
+      chk("tai: POST toi kol_download_file kem header csrf + ten tep", posted.length===1&&/kol_download_file$/.test(posted[0].action)&&/post/i.test(posted[0].method)&&posted[0].file_url==="/private/files/HDDV.docx"&&posted[0].name==="EC-CTR-2026-00100"&&"csrf" in posted[0]);
+      setTimeout(function(){
+      const d1=w9.document.querySelector('[data-kol="dl"]');
+      chk("tai xong: nut mo lai, chu tra ve", d1&&!d1.disabled&&/Tải hợp đồng/.test(d1.textContent));
+      dlFail=true; d1.click();
+      setTimeout(function(){
+      chk("tai bi tu choi: o lai trang + toast loi tieng Viet", /người tạo creator hoặc Kế toán/.test((w9.document.getElementById("ctr-toast")||{}).textContent||"")&&!w9.document.querySelector('[data-kol="dl"]').disabled);
+      chk("ke toan: co nut Xem thong tin creator canh nut xac nhan STK", !!w9.document.querySelector('[data-kol="viewcr"]'));
+      w9.document.querySelector('[data-kol="payeeok"]').click();
+      chk("xac nhan STK: hoi lai truoc (chua goi server)", !calls.some(x=>/^kol_confirm_payee /.test(x))&&/Các đợt sau sẽ chi vào tài khoản này/.test((w9.document.querySelector(".ec-ctr-overlay")||{}).textContent||""));
+      w9.document.querySelector(".ec-ctr-overlay [data-ok]").click();
+      setTimeout(function(){
+        chk("ke toan xac nhan STK: goi kol_confirm_payee", calls.some(x=>/^kol_confirm_payee /.test(x))&&!w9.document.querySelector(".ec-ctr-overlay"));
+        w9.document.querySelector('[data-kol="closehd"]').click();
+        setTimeout(function(){
+          const ov=w9.document.querySelector(".ec-ctr-overlay"); ov.querySelector("[data-ok]").click();
+          setTimeout(function(){
+            chk("thanh ly: bat buoc ly do", !calls.some(x=>/^kol_close_contract/.test(x)));
+            ov.querySelector("#kol-close-r").value="creator huy booking"; ov.querySelector("[data-ok]").click();
+            setTimeout(function(){
+              chk("thanh ly: goi kol_close_contract kem ly do", calls.some(x=>/^kol_close_contract .*creator huy booking/.test(x)));
+              curDetail=JSON.parse(JSON.stringify(detail));
+              Object.assign(curDetail.extra.kol,{is_finance:true,can_download_full:true,closed:{at:"2026-11-17 10:00:00",by:"fin@e.c",reason:"dung <b>x</b>"}});
+              const w10=make("https://x/approvals/contract-review?id=EC-CTR-2026-00100");
+              wait(w10,function(){ return w10.document.getElementById("kol-detail"); },function(){
+                const b10=w10.document.getElementById("ctr-body").innerHTML;
+                chk("da thanh ly: banner (escape ly do), khong them dot / khong thanh ly lai", /Hợp đồng đã thanh lý/.test(b10)&&/dung &lt;b&gt;x/.test(b10)&&!/data-kol="addacc"/.test(b10)&&!/data-kol="closehd"/.test(b10));
+                curDetail=JSON.parse(JSON.stringify(detail)); curDetail.business.requested_by="vy@e.c"; curDetail.approval={name:"R9",approval_status:"Rejected"};
+                const w11=make("https://x/approvals/contract-review?id=EC-CTR-2026-00100");
+                wait(w11,function(){ return w11.document.querySelector('[data-act="clone"]'); },function(){
+                  w11.document.querySelector('[data-act="clone"]').click();
+                  setTimeout(function(){ w11.document.querySelector(".ec-ctr-overlay [data-ok]").click();
+                    setTimeout(function(){ chk("tu choi: nut Tao phieu moi goi clone_request", calls.some(x=>/^clone_request .*EC-CTR-2026-00100/.test(x)));
+                      rulesPart(); },120); },80);
+                });
+              });
+            },150);
+          },80);
+        },80);
+      },150);
+      },120);
+      },120);
+    });
+  });
+}
 // Luat mau tool cu tren form (12/11): HKD / Shopee khong coc, chon coc tu dien 40%, danh sach mau loc theo
 // loai creator + nen tang + coc, nen tang ngoai TikTok/Shopee bi chan voi mau EC.
 function rulesPart(){
   const w7=make("https://x/approvals/contract-review");
   wait(w7,function(){ return w7.ContractReview&&w7.document.querySelector('[data-model="contract_type"]'); },function(){
+    const rk=w7.document.querySelector('[data-model="request_kind"]'); rk.value="Existing"; fire(w7,rk,"change");
     const ct=w7.document.querySelector('[data-model="contract_type"]'); ct.value=KOL; fire(w7,ct,"change");
     setTimeout(function(){
+      { const rk2=w7.document.querySelector('[data-model="request_kind"]'), ex=Array.from(rk2.options).filter(o=>o.value==="Existing")[0];
+        chk("KOL: tu ve Hop dong moi + khoa lua chon dieu chinh", w7.ContractReview.state.draft.request_kind==="New"&&rk2.value==="New"&&ex.disabled); }
       w7.ContractReviewKOL.pickCreator({name:"SUP-H",supplier_name:"Hộ KD A",ec_cr_type:"Hộ kinh doanh"});
       setTimeout(function(){
         const ps=w7.document.querySelector('[data-model="payment_schedule"]');
@@ -190,7 +298,7 @@ function detailPart(){
       const d3=JSON.parse(JSON.stringify(d2)); d3.extra.kol.acceptance_remaining=0;
       chk("tien trinh KOL: het tien chua len dot thi khong ghi 'con 0'", !/còn 0/.test(CR.buildStepper(d3)));
       d3.extra.kol.acceptance_remaining=500000;
-      chk("tien trinh KOL: con tien chua len dot thi ghi ro", /chưa lên đợt/.test(CR.buildStepper(d3)));
+      chk("tien trinh KOL: con tien chua len dot thi ghi ro", /chưa tạo BBNT/.test(CR.buildStepper(d3)));
       const d4=JSON.parse(JSON.stringify(d2)); delete d4.extra.kol;
       chk("tien trinh KOL: thieu du lieu vong doi thi Hoan tat chua xong", /Hoàn tất<\/div>[\s\S]*Chờ/.test(CR.buildStepper(d4)));
       d2.approval.approval_status="Rejected"; chk("tien trinh KOL: phieu tu choi khong ve buoc sau duyet", !/Ký hợp đồng/.test(CR.buildStepper(d2))); }
@@ -265,7 +373,7 @@ function reviewPart(){
       const w6=make("https://x/approvals/contract-review?id=EC-CTR-2026-00100");
       wait(w6,function(){ return /Chờ Kế toán kiểm/.test((w6.document.getElementById("ctr-body")||{}).innerHTML||""); },function(){
         chk("nguoi tao: khong co nut xac nhan ban ky", !/data-kol="vsignok"/.test(w6.document.getElementById("ctr-body").innerHTML));
-        rulesPart();
+        po1711Part();
       });
     },150);
   });

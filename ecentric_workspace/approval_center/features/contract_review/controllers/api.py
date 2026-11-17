@@ -16,7 +16,8 @@ from ecentric_workspace.approval_center.features.contract_review.controllers.kol
     kol_me, kol_missing_misa, kol_placeholder_help, kol_preview_amounts, kol_search_creators,
     kol_pending_checks, kol_search_sales_orders, kol_send_acceptance, kol_set_misa_code,
     kol_update_creator, kol_verify_acceptance, kol_verify_signed, kol_preview_dates, kol_creator_gaps,
-    kol_preview_contract)
+    kol_preview_contract, kol_download_file, kol_confirm_payee, kol_close_contract,
+    kol_reopen_contract)
 
 _DT = "EC Contract Review Request"
 _CODE = "CONTRACT_REVIEW"
@@ -30,6 +31,8 @@ def search_previous_contracts(query=None):
     """Hợp đồng đã DUYỆT XONG của chính người dùng (hoặc mọi người nếu là SM) để chọn làm
     gốc điều chỉnh. Chỉ trả bản đã Approved — điều chỉnh một bản đang chờ duyệt là vô nghĩa."""
     user = frappe.session.user
+    # KOL khong lam phu luc dieu chinh (PO 17/11): loc o Python ben duoi, KHONG loc "!=" trong SQL - get_all
+    # v16 co the khong boc ifnull, bo mat phieu cu contract_type rong (QC vong cuoi 17/11).
     filters = [["approval_request", "is", "set"]]
     if "System Manager" not in frappe.get_roles(user):
         filters.append(["requested_by", "=", user])
@@ -37,8 +40,11 @@ def search_previous_contracts(query=None):
         filters.append(["request_title", "like", "%%%s%%" % query])
     rows = frappe.get_all(_DT, filters=filters,
                           fields=["name", "request_title", "brand", "contract_value",
-                                  "approval_request"],
-                          order_by="modified desc", limit_page_length=100)
+                                  "approval_request", "contract_type"],
+                          order_by="modified desc", limit_page_length=300)
+    # KOL khong lam phu luc dieu chinh (PO 17/11) - loc o Python: `!=` trong SQL bo luon phieu cu
+    # contract_type rong (QC he thong 17/11).
+    rows = [r for r in rows if r.get("contract_type") != "KOL/KOC / Creator (EC)"]
     req_names = [r.approval_request for r in rows if r.approval_request]
     approved = set()
     if req_names:
