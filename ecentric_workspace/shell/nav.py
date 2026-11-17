@@ -796,7 +796,9 @@ RAIL_LAYOUTS = {
                 {"key": "ai_tools.live.monitor"}, {"key": "ai_tools.live.incidents"},
                 {"key": "ai_tools.live.lives"}, {"key": "ai_tools.live.schedule"},
                 {"key": "ai_tools.live.history"}, {"key": "ai_tools.live.races"},
-                {"key": "ai_tools.live.kits"}, {"key": "ai_tools.live.watch"}]}]},
+                {"key": "ai_tools.live.kits"}, {"key": "ai_tools.live.watch"}]},
+            # 17/11: Ban quyen (chi role AI Live License Admin thay - registry loc theo role)
+            {"key": "ai_tools.live.license", "label": "Bản quyền", "badge_source": "ai_live.license_pending"}]},
         {"t": "group", "label": "Khác", "items": [
             {"key": "home.portal.hall"}, {"key": "home.portal.hiring", "caption": "Chỉ HR"},
             {"key": "home.portal.training"}]},

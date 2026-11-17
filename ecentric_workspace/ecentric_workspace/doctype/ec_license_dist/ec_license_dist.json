@@ -1,0 +1,126 @@
+{
+ "actions": [],
+ "creation": "2026-11-17 20:30:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "editable_grid": 1,
+ "field_order": [
+  "dist_id",
+  "label",
+  "package_label",
+  "kind",
+  "package",
+  "created_at",
+  "col_d",
+  "first_machine",
+  "first_seen",
+  "issued_count"
+ ],
+ "fields": [
+  {
+   "fieldname": "dist_id",
+   "fieldtype": "Data",
+   "label": "Mã gói",
+   "reqd": 1,
+   "unique": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "label",
+   "fieldtype": "Data",
+   "label": "Nhãn",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "package_label",
+   "fieldtype": "Data",
+   "label": "Nhãn gốc (có chữ ký)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "kind",
+   "fieldtype": "Select",
+   "label": "Loại",
+   "options": "khach\nnoi_bo",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "package",
+   "fieldtype": "Data",
+   "label": "Gói (package)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "created_at",
+   "fieldtype": "Data",
+   "label": "Tạo gói lúc (laptop ký)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_d",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "first_machine",
+   "fieldtype": "Link",
+   "label": "Máy đầu tiên",
+   "options": "EC License Machine",
+   "read_only": 1
+  },
+  {
+   "fieldname": "first_seen",
+   "fieldtype": "Datetime",
+   "label": "Lần đầu kích hoạt",
+   "read_only": 1
+  },
+  {
+   "fieldname": "issued_count",
+   "fieldtype": "Int",
+   "label": "Số máy đã cấp",
+   "in_list_view": 1,
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-17 20:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC License Dist",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "autoname": "field:dist_id",
+ "track_changes": 1,
+ "title_field": "label",
+ "permissions": [
+  {
+   "read": 1,
+   "write": 1,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0,
+   "role": "System Manager"
+  },
+  {
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0,
+   "role": "AI Live License Admin"
+  }
+ ],
+ "description": "Mã gói (eCentric_phan_phoi.json) đã kiểm chữ ký. Loại và mã gói không sửa được."
+}

@@ -466,10 +466,11 @@ fixtures = [
         # se lam roi mat. EC Khay Pilot (28/09): mo dan tro ly Khay o goc moi trang.
         # EC AI Video Admin (05/10): quan tri prompt trang /ai-video (prompt chung + theo nhom SP).
         # EC AI Voice User / Manager (15/11): trang /ai-voice - tao giong doc AI / quan ly thu vien giong.
+        # AI Live License Admin (17/11): trang /ai-live/ban-quyen - duyet / khoa may dung eLive / eSync / eVoice.
         "filters": [["name", "in", ["PM Manager", "PM Member", "EC AI Formfill Pilot",
                                     "EC Khay Pilot", "EC AI Video Admin",
                                     "EC AI Usage Viewer", "EC AI Voice User",
-                                    "EC AI Voice Manager"]]],
+                                    "EC AI Voice Manager", "AI Live License Admin"]]],
     },
     # HR MVP (2026-09): cac Server Script `ec_hr_*` va cac trang `/ec-hr/*` truoc
     # day chi song trong DB, khong co ban trong git -- rebuild site la mat sach
@@ -1095,3 +1096,8 @@ scheduler_events["cron"].setdefault("*/2 * * * *", []).append(
 # cho tung nguoi. TAT mac dinh: bat bang site_config ec_pm_morning_digest = 1.
 scheduler_events["cron"].setdefault("30 8 * * 1-6", []).append(
     "ecentric_workspace.pm.api.queue.morning_digest")
+
+# 17/11/2026 (Hoan) - Ban quyen AI Live (/ai-live/ban-quyen): xoa su kien "bao ve" (checkin) qua 90 ngay.
+# Cap / cho / khoa / thao tac cua nguoi giu mai. Tat khan ca hai API cho app: site_config `ec_license_disabled: 1`.
+scheduler_events["daily"].append(
+    "ecentric_workspace.ai_tools.features.ai_live.jobs.license_purge_job.run")

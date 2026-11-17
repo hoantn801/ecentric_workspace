@@ -1,0 +1,673 @@
+<!--
+  Ban quyen AI Live (17/11/2026). Route /ai-live/ban-quyen (Web Page "ai-live-ban-quyen").
+  Duyet may moi cho duyet, khoa / bo khoa may dung eLive / eSync / eVoice, cay phan phoi, goi, nhat ky.
+  Khoa chi co hieu luc o LAN MO APP SAU - khong bao gio cat live dang chay.
+  Repo so huu toan bo byte cua trang. Hai vung shell (aside + topbar) do shell.fallback sinh lai tu
+  shell/nav.py - KHONG sua tay hai vung do. Du lieu: ecentric_workspace.ai_tools.features.ai_live.controllers.license_admin_api.*
+  (server tu kiem quyen: System Manager hoac role AI Live License Admin; nguoi khac 403).
+  Link sau: #may-LIC-00012 (mo ngan chi tiet - dung trong tin Teams), #tab-all | #tab-tree | #tab-dists | #tab-log.
+  Jinja: web page render qua Jinja - cam chuoi mo/dong the Jinja trong CSS/JS.
+-->
+
+<style id="ec-lic-css">
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+body > header, body > footer, body > nav.navbar, header.navbar,
+.web-page-header, #navbarSupportedContent, .navbar-collapse { display:none; }
+body { padding:0; margin:0; background:#f5f6fa; }
+body main { padding-top:0; }
+body .main-section, body main.container, body main.fluid { margin:0; padding:0; max-width:100%; }
+.ec-aiv-wrap { display:flex; min-height:100vh; max-width:none; width:100%; }
+.ec-aiv-wrap > main.ec-aiv-main { flex:1; min-width:0; padding:0; overflow-x:hidden; background:#f5f6fa; }
+
+#ec-aiv-root{
+  --ground:#f5f6fa;--surface:#fff;--ink:#111827;--ink2:#4b5563;--ink3:#6b7280;--ink4:#9ca3af;
+  --line:#e5e7eb;--line-soft:#f1f2f6;--navy:#2C3DA6;--navy-d:#1f2c80;--navy-wash:#eef0fb;--navy-line:#c9d0f0;
+  --gold:#f5b800;--gold-ink:#3a2c00;--hero1:#27348f;--hero2:#3a4bc2;
+  --ok:#17683a;--ok-bg:#e7f6ec;--warn:#8a5a08;--warn-bg:#fdf3e2;--warn-line:#f3d9a4;--bad:#a02020;--bad-bg:#fdeaea;--bad-line:#f4c2c2;
+  --shadow:0 1px 2px rgba(17,24,39,.04);
+  font-family:'Inter',-apple-system,"Segoe UI",Roboto,sans-serif;font-size:14px;line-height:1.5;color:var(--ink);
+}
+#ec-aiv-root *{box-sizing:border-box}
+#ec-aiv-root button,#ec-aiv-root input,#ec-aiv-root select,#ec-aiv-root textarea{font:inherit;color:inherit}
+#ec-aiv-root [hidden]{display:none !important}
+#ec-aiv-root :focus-visible{outline:2px solid var(--navy);outline-offset:2px}
+#ec-aiv-root .lc-wrap{padding:20px 24px 64px;display:flex;flex-direction:column;gap:16px;max-width:1400px;width:100%;margin-inline:auto}
+
+/* dau trang + 4 o so */
+#ec-aiv-root .lc-hero{border-radius:14px;background:linear-gradient(120deg,var(--hero1),var(--hero2));color:#fff;padding:18px 20px;display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between}
+#ec-aiv-root .lc-hero h1{font-size:22px;margin:0;font-weight:700;color:#fff;letter-spacing:-.01em}
+#ec-aiv-root .lc-hero p{margin:2px 0 0;color:rgba(255,255,255,.78);font-size:13px;max-width:62ch}
+#ec-aiv-root .lc-stats{display:grid;grid-template-columns:repeat(4,minmax(96px,1fr));gap:8px}
+#ec-aiv-root .lc-stat{appearance:none;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.1);color:#fff;border-radius:10px;padding:8px 12px;text-align:left;cursor:pointer;min-width:0}
+#ec-aiv-root .lc-stat span{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.8);font-weight:600;white-space:nowrap}
+#ec-aiv-root .lc-stat b{font-size:22px;font-variant-numeric:tabular-nums;font-weight:700}
+#ec-aiv-root .lc-stat.hl{border-color:var(--gold)} #ec-aiv-root .lc-stat.hl b{color:var(--gold)}
+#ec-aiv-root .lc-stat.on{background:rgba(255,255,255,.22);border-color:#fff}
+
+/* che do + khoa */
+#ec-aiv-root .lc-panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+#ec-aiv-root .lc-mode{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;padding:12px 16px}
+#ec-aiv-root .lc-switch{display:inline-flex;gap:8px;align-items:center;cursor:pointer;font-weight:600;font-size:13.5px}
+#ec-aiv-root .lc-switch input{appearance:none;width:38px;height:22px;border-radius:999px;background:var(--line);position:relative;cursor:pointer;transition:background .15s;margin:0;flex-shrink:0}
+#ec-aiv-root .lc-switch input::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:left .15s}
+#ec-aiv-root .lc-switch input:checked{background:var(--navy)} #ec-aiv-root .lc-switch input:checked::after{left:19px}
+#ec-aiv-root .lc-switch input:disabled{opacity:.5;cursor:not-allowed}
+#ec-aiv-root .lc-keys{display:flex;flex-wrap:wrap;gap:6px;margin-left:auto;align-items:center;font-size:12px;color:var(--ink3)}
+#ec-aiv-root .lc-band{border-radius:10px;padding:10px 14px;font-size:13px;font-weight:500;display:block}
+#ec-aiv-root #lc-bands{display:flex;flex-direction:column;gap:8px}
+#ec-aiv-root #lc-bands:empty{display:none}
+#ec-aiv-root .lc-band.warn{background:var(--warn-bg);border:1px solid var(--warn-line);color:var(--warn)}
+#ec-aiv-root .lc-band.bad{background:var(--bad-bg);border:1px solid var(--bad-line);color:var(--bad)}
+#ec-aiv-root .lc-band.info{background:var(--navy-wash);border:1px solid var(--navy-line);color:var(--ink2)}
+
+/* chip trang thai */
+#ec-aiv-root .lc-pill{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:600;white-space:nowrap}
+#ec-aiv-root .lc-pill.pending{background:var(--warn-bg);color:var(--warn)}
+#ec-aiv-root .lc-pill.approved{background:var(--ok-bg);color:var(--ok)}
+#ec-aiv-root .lc-pill.blocked{background:var(--bad-bg);color:var(--bad)}
+#ec-aiv-root .lc-pill.muted{background:var(--line-soft);color:var(--ink3)}
+
+/* tab */
+#ec-aiv-root .lc-tabs{display:flex;gap:4px;padding:4px 8px 0;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+#ec-aiv-root .lc-view{min-height:120px;padding-bottom:6px}
+#ec-aiv-root .lc-tab{appearance:none;border:0;background:none;padding:10px 14px;font-weight:600;font-size:13.5px;color:var(--ink3);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;display:inline-flex;gap:6px;align-items:center}
+#ec-aiv-root .lc-tab.on{color:var(--navy);border-bottom-color:var(--navy)}
+#ec-aiv-root .lc-tab .n{min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--gold);color:var(--gold-ink);font-size:11px;display:inline-grid;place-items:center}
+
+/* thanh loc */
+#ec-aiv-root .lc-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line-soft)}
+#ec-aiv-root .lc-in,#ec-aiv-root .lc-sel{border:1px solid var(--line);border-radius:8px;padding:7px 10px;background:#fff;font-size:13px;min-width:0}
+#ec-aiv-root .lc-in.grow{flex:1 1 220px}
+#ec-aiv-root .lc-chk{display:inline-flex;gap:6px;align-items:center;font-size:13px;color:var(--ink2);cursor:pointer;white-space:nowrap}
+#ec-aiv-root .lc-btn{appearance:none;font-size:13px;font-weight:500;border-radius:8px;padding:7px 13px;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink);display:inline-flex;align-items:center;gap:6px;white-space:nowrap;text-decoration:none;position:relative}
+#ec-aiv-root .lc-btn:hover{border-color:var(--ink4)}
+#ec-aiv-root .lc-btn.pri{background:var(--navy);border-color:var(--navy);color:#fff;font-weight:600}
+#ec-aiv-root .lc-btn.danger{color:var(--bad);border-color:var(--bad-line)}
+#ec-aiv-root .lc-btn.sm{padding:4px 10px;font-size:12px}
+#ec-aiv-root .lc-btn.link{border-color:transparent;background:none;color:var(--navy);padding:0;font-weight:600}
+#ec-aiv-root .lc-btn[disabled]{opacity:.45;cursor:not-allowed}
+#ec-aiv-root .lc-btn.busy{color:transparent !important;pointer-events:none}
+#ec-aiv-root .lc-btn.busy::after{content:"";position:absolute;inset:0;margin:auto;width:14px;height:14px;border-radius:50%;border:2px solid var(--ink3);border-color:var(--ink3) transparent var(--ink3) transparent;animation:lc-spin .8s linear infinite}
+#ec-aiv-root .lc-btn.pri.busy::after{border-color:#fff transparent #fff transparent}
+@keyframes lc-spin{to{transform:rotate(360deg)}}
+
+/* bang may: may tinh = bang, dien thoai = the */
+#ec-aiv-root .lc-table{width:100%;border-collapse:collapse;font-size:13px}
+#ec-aiv-root .lc-table th{text-align:left;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3);font-weight:600;padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap;background:#fafbfd}
+#ec-aiv-root .lc-table td{padding:9px 10px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+#ec-aiv-root .lc-table tr.lc-row{cursor:pointer}
+#ec-aiv-root .lc-table tr.lc-row:hover td{background:#fafbff}
+#ec-aiv-root .lc-name{font-weight:600;word-break:break-word}
+#ec-aiv-root .lc-sub{font-size:12px;color:var(--ink3);word-break:break-word}
+#ec-aiv-root .lc-reason{max-width:240px;font-size:12.5px;color:var(--ink2)}
+#ec-aiv-root .lc-mono{font-variant-numeric:tabular-nums;font-size:12.5px;white-space:nowrap}
+#ec-aiv-root .lc-stale{color:var(--ink4)}
+#ec-aiv-root .lc-apps{display:inline-flex;gap:4px}
+#ec-aiv-root .lc-app{display:inline-grid;place-items:center;min-width:30px;height:24px;padding:0 7px;border-radius:6px;font-size:11px;font-weight:700;background:var(--line-soft);color:var(--ink4)}
+#ec-aiv-root .lc-app.on{background:var(--navy-wash);color:var(--navy)}
+#ec-aiv-root .lc-app.wait{background:var(--warn-bg);color:var(--warn)}
+#ec-aiv-root .lc-warn{color:var(--bad);font-weight:700}
+#ec-aiv-root .lc-acts{display:flex;gap:6px;justify-content:flex-end}
+#ec-aiv-root .lc-empty{padding:32px 18px;text-align:center;color:var(--ink3)}
+#ec-aiv-root .lc-more{padding:12px;text-align:center}
+#ec-aiv-root .lc-skel{height:14px;border-radius:6px;background:linear-gradient(90deg,#f3f4f6,#e5e7eb,#f3f4f6);background-size:200% 100%;animation:lc-sh 1.2s linear infinite;margin:10px 16px}
+@keyframes lc-sh{to{background-position:-200% 0}}
+@media (max-width:900px){
+  #ec-aiv-root .lc-table thead{display:none}
+  #ec-aiv-root .lc-table,#ec-aiv-root .lc-table tbody{display:block}
+  #ec-aiv-root .lc-table tr.lc-row{display:grid;grid-template-columns:auto 1fr auto;gap:4px 10px;padding:12px 14px;border-bottom:1px solid var(--line)}
+  #ec-aiv-root .lc-table tr.lc-row td{border:0;padding:0;background:none !important}
+  #ec-aiv-root .lc-table td[data-k="pick"]{grid-row:1 / span 2}
+  #ec-aiv-root .lc-table td[data-k="name"]{grid-column:2}
+  #ec-aiv-root .lc-table td[data-k="status"]{grid-column:3;text-align:right}
+  #ec-aiv-root .lc-table td[data-k]:not([data-k="pick"]):not([data-k="name"]):not([data-k="status"]){grid-column:2 / span 2;font-size:12.5px}
+  #ec-aiv-root .lc-table td[data-label]::before{content:attr(data-label) ": ";color:var(--ink3);font-size:12px}
+  #ec-aiv-root .lc-table td[data-k="acts"] .lc-acts{justify-content:flex-start;margin-top:6px}
+  #ec-aiv-root .lc-table td[data-k="acts"] .lc-btn{padding:9px 16px;font-size:13.5px}
+  #ec-aiv-root .lc-reason{max-width:none}
+  #ec-aiv-root .lc-table td.lc-hide-m{display:none}
+}
+@media (max-width:640px){
+  #ec-aiv-root .lc-wrap{padding:12px}
+  #ec-aiv-root .lc-stats{grid-template-columns:repeat(2,1fr);width:100% }
+  #ec-aiv-root .lc-hero h1{font-size:19px}
+  #ec-aiv-root .lc-keys{margin-left:0}
+}
+
+/* ngan chi tiet */
+#ec-aiv-root .lc-drawer{position:fixed;inset:0;z-index:55;display:flex;justify-content:flex-end;background:rgba(17,24,39,.35)}
+#ec-aiv-root .lc-drawer .lc-dbox{background:var(--surface);width:min(560px,100%);height:100%;overflow:auto;display:flex;flex-direction:column;box-shadow:-8px 0 24px rgba(17,24,39,.15)}
+#ec-aiv-root .lc-dhead{position:sticky;top:0;background:var(--surface);z-index:1;padding:14px 16px;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:flex-start}
+#ec-aiv-root .lc-dhead h2{font-size:17px;margin:0;font-weight:700;word-break:break-word}
+#ec-aiv-root .lc-dbody{padding:14px 16px 32px;display:flex;flex-direction:column;gap:16px}
+#ec-aiv-root .lc-dfoot{position:sticky;bottom:0;background:var(--surface);border-top:1px solid var(--line);padding:12px 16px;display:flex;flex-wrap:wrap;gap:8px}
+#ec-aiv-root .lc-x{appearance:none;border:0;background:none;font-size:22px;line-height:1;cursor:pointer;color:var(--ink3);margin-left:auto;padding:2px 6px}
+#ec-aiv-root .lc-sec h3{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);margin:0 0 8px;font-weight:700}
+#ec-aiv-root .lc-kv{display:grid;grid-template-columns:140px minmax(0,1fr);gap:6px 12px;font-size:13px}
+#ec-aiv-root .lc-kv dt{color:var(--ink3)} #ec-aiv-root .lc-kv dd{margin:0;word-break:break-word}
+#ec-aiv-root .lc-edit{display:flex;gap:6px} #ec-aiv-root .lc-edit .lc-in{flex:1;min-width:0}
+#ec-aiv-root .lc-scroll{overflow-x:auto}
+#ec-aiv-root .lc-mini{width:100%;border-collapse:collapse;font-size:12.5px}
+#ec-aiv-root .lc-mini th{text-align:left;font-size:11px;color:var(--ink3);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+#ec-aiv-root .lc-mini td{padding:7px 8px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+#ec-aiv-root textarea.lc-in{width:100%;min-height:70px;resize:vertical}
+#ec-aiv-root .lc-ev{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:12.5px}
+#ec-aiv-root .lc-ev li{display:grid;grid-template-columns:118px 1fr;gap:8px;border-bottom:1px dashed var(--line-soft);padding-bottom:5px}
+#ec-aiv-root .lc-ev b{font-weight:600}
+@media (max-width:640px){ #ec-aiv-root .lc-kv{grid-template-columns:96px minmax(0,1fr)} #ec-aiv-root .lc-ev li{grid-template-columns:1fr}}
+
+/* cay phan phoi */
+#ec-aiv-root .lc-tree{padding:12px 16px;font-size:13px}
+#ec-aiv-root .lc-tree ul{list-style:none;margin:0;padding-left:20px;border-left:1px dashed var(--line)}
+#ec-aiv-root .lc-tree > ul{padding-left:0;border-left:0}
+#ec-aiv-root .lc-tree li{margin:4px 0}
+#ec-aiv-root .lc-tree summary{cursor:pointer;font-weight:600;padding:3px 0}
+#ec-aiv-root .lc-node{appearance:none;border:1px solid var(--line);background:#fff;border-radius:8px;padding:4px 10px;cursor:pointer;display:inline-flex;gap:6px;align-items:center;text-align:left;max-width:100% }
+#ec-aiv-root .lc-node.pending{border-color:var(--warn-line);background:var(--warn-bg)}
+#ec-aiv-root .lc-node.approved{border-color:#bfe3cc;background:var(--ok-bg)}
+#ec-aiv-root .lc-node.blocked{border-color:var(--bad-line);background:var(--bad-bg)}
+#ec-aiv-root .lc-node.hit{outline:2px solid var(--navy);outline-offset:1px}
+#ec-aiv-root .lc-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:var(--ink4)}
+#ec-aiv-root .lc-dot.pending{background:#d39b1b} #ec-aiv-root .lc-dot.approved{background:var(--ok)} #ec-aiv-root .lc-dot.blocked{background:var(--bad)}
+
+/* hop thoai + toast */
+#ec-aiv-root .lc-modal{position:fixed;inset:0;background:rgba(17,24,39,.55);display:grid;place-items:center;z-index:60;padding:16px}
+#ec-aiv-root .lc-modal .lc-mbox{background:var(--surface);border-radius:14px;max-width:520px;width:100%;max-height:90vh;overflow:auto;padding:18px;display:flex;flex-direction:column;gap:12px}
+#ec-aiv-root .lc-modal h3{margin:0;font-size:16px}
+#ec-aiv-root .lc-toast{position:fixed;left:50%;bottom:20px;transform:translate(-50%,16px);opacity:0;background:#111827;color:#fff;padding:11px 16px;border-radius:10px;font-size:13.5px;z-index:70;transition:.2s;pointer-events:none;max-width:90vw}
+#ec-aiv-root .lc-toast.show{opacity:1;transform:translate(-50%,0)} #ec-aiv-root .lc-toast.err{background:#dc2626}
+@media (prefers-reduced-motion:reduce){ #ec-aiv-root .lc-btn.busy::after,#ec-aiv-root .lc-skel{animation:none}}
+</style>
+
+<div class="ec-aiv-wrap">
+<aside class="ec-shell-mount" data-ec-shell="1" aria-label="Điều hướng eCentric"><div class="ec-shell-head"><a class="ec-shell-brand" href="/"><img class="ec-shell-logoimg" src="/files/eCentric%20logo%20-%20mini.png" alt="eCentric"><span class="ec-shell-logo" hidden>eC</span><span class="ec-shell-brandname">eCentric</span></a></div><div class="ec-shell-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input class="ec-shell-search-in" type="text" placeholder="Tìm chức năng…" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-label="Tìm chức năng" autocomplete="off" spellcheck="false"><button type="button" class="ec-shell-search-clear" data-ec-shell-search-clear="1" hidden aria-label="Xóa tìm kiếm">&times;</button></div><div class="ec-shell-search-results" role="listbox" hidden></div><nav class="ec-shell-nav ec-shell-fallback" aria-label="Điều hướng chính"><a class="ec-shell-item" href="/home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg><span>Trang chủ</span></a><div class="ec-shell-grouplabel">Phê duyệt</div><a class="ec-shell-item" href="/approvals"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Approval Center</span></a><a class="ec-shell-item" href="/approvals/all-requests"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span>Tất cả yêu cầu</span></a><a class="ec-shell-item" href="/approvals/dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg><span>Dashboard</span></a><div class="ec-shell-grouplabel">Chứng từ</div><a class="ec-shell-item" href="/all-ticket"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg><span>Dashboard</span></a><a class="ec-shell-item" href="/approval"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>All Tickets</span></a><div class="ec-shell-grouplabel">Tạo mới</div><a class="ec-shell-item" href="/mso-plan-form"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>MSO Request</span></a><a class="ec-shell-item" href="/gbs-so-form-v2"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>SO Request</span></a><a class="ec-shell-item" href="/gbs-po-form-v2"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>PO Request</span></a><button type="button" class="ec-shell-item ec-shell-subtoggle" data-ec-shell-subtoggle="docs.guides" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>Hướng dẫn</span><svg class="ec-shell-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="ec-shell-children" hidden data-ec-shell-children="docs.guides"><a class="ec-shell-item ec-shell-child" href="/docs/architecture"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>Docs / Architecture</span></a><a class="ec-shell-item ec-shell-child" href="/docs/gbs-flow"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>GBS Flow &amp; Definitions</span></a></div></nav><div class="ec-shell-foot"><a class="ec-shell-usercard" href="/app/user"><span class="ec-shell-avatar">•</span><span class="ec-shell-username">Tài khoản</span></a></div></aside>
+<main class="ec-aiv-main"><div class="ec-shell-topbar" data-ec-shell-topbar="1"><div class="ec-shell-crumbs" data-ec-shell-crumbs="1"></div><div class="ec-shell-tbright" data-ec-shell-header-right="1"><button type="button" class="ec-shell-iconbtn ec-shell-reminder" data-ec-shell-action-slot="1" aria-label="Việc của tôi" title="Việc của tôi" aria-haspopup="dialog" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h4l2 3h4l2-3h4"/><path d="M4 13V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7"/><path d="M4 13v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></svg><span class="ec-shell-reminder-badge" data-ec-shell-reminder-badge="1" hidden></span></button><button type="button" class="ec-shell-iconbtn ec-shell-slot-disabled" data-ec-shell-settings-slot="1" disabled aria-disabled="true" title="Cài đặt (sắp ra mắt)" aria-label="Cài đặt (sắp ra mắt)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg></button></div></div>
+<div id="ec-aiv-root">
+  <div class="lc-wrap">
+    <section class="lc-hero" aria-labelledby="lc-title">
+      <div>
+        <h1 id="lc-title">Bản quyền AI Live</h1>
+        <p>Duyệt máy mới, khoá / bỏ khoá máy dùng eLive · eSync · eVoice. Khoá có hiệu lực ở <b>lần mở app sau</b> – live đang chạy không bị cắt.</p>
+      </div>
+      <div class="lc-stats" id="lc-stats">
+        <button type="button" class="lc-stat hl" data-stat="pending"><span>Chờ duyệt</span><b>–</b></button>
+        <button type="button" class="lc-stat" data-stat="running"><span>Đang chạy 24h</span><b>–</b></button>
+        <button type="button" class="lc-stat" data-stat="blocked"><span>Bị khoá</span><b>–</b></button>
+        <button type="button" class="lc-stat" data-stat="clone"><span>Nghi nhân bản</span><b>–</b></button>
+      </div>
+    </section>
+
+    <div id="lc-bands"></div>
+
+    <section class="lc-panel lc-mode" aria-label="Chế độ">
+      <label class="lc-switch"><input type="checkbox" id="lc-enabled" disabled> Bật API</label>
+      <label class="lc-switch"><input type="checkbox" id="lc-logonly" disabled> Chỉ ghi nhận</label>
+      <div class="lc-keys" id="lc-keys"><span>Đang tải trạng thái khoá…</span></div>
+    </section>
+
+    <section class="lc-panel" aria-label="Danh sách">
+      <nav class="lc-tabs" role="tablist" aria-label="Chọn bảng">
+        <button type="button" class="lc-tab on" role="tab" data-tab="pending" aria-selected="true">Chờ duyệt <span class="n" id="lc-tabn" hidden></span></button>
+        <button type="button" class="lc-tab" role="tab" data-tab="all" aria-selected="false">Tất cả máy</button>
+        <button type="button" class="lc-tab" role="tab" data-tab="tree" aria-selected="false">Cây phân phối</button>
+        <button type="button" class="lc-tab" role="tab" data-tab="dists" aria-selected="false">Gói</button>
+        <button type="button" class="lc-tab" role="tab" data-tab="log" aria-selected="false">Nhật ký</button>
+      </nav>
+      <div id="lc-view" class="lc-view" aria-live="polite">
+        <div class="lc-skel" style="width:40%"></div><div class="lc-skel" style="width:85%"></div><div class="lc-skel" style="width:60%"></div>
+      </div>
+    </section>
+  </div>
+  <div class="lc-drawer" id="lc-drawer" hidden><div class="lc-dbox" id="lc-dbox" role="dialog" aria-modal="true" aria-label="Chi tiết máy"></div></div>
+  <div class="lc-modal" id="lc-modal" hidden><div class="lc-mbox" id="lc-mbox" role="dialog" aria-modal="true"></div></div>
+  <div class="lc-toast" id="lc-toast" role="status" aria-live="polite"></div>
+</div>
+</main></div>
+
+<script>
+/* Ban quyen AI Live (17/11/2026). Script rieng, boc IIFE (khong de `$` - Frappe dung jQuery). Moi chu tu may gui
+   len (ten may, user, thu muc...) deu qua esc() truoc khi ve. Khong co token / khoa nao di qua trang nay. */
+(() => {
+  "use strict";
+  const API = "/api/method/ecentric_workspace.ai_tools.features.ai_live.controllers.license_admin_api.";
+  const byId = (id) => document.getElementById(id);
+  const all = (root, sel) => Array.prototype.slice.call(root.querySelectorAll(sel));
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const ST = { pending: "Chờ duyệt", approved: "Đang dùng", blocked: "Bị khoá" };
+  const KIND = { request: "Xin license", issued: "Cấp license", pending: "Chờ duyệt", blocked: "Bị chặn", checkin: "Báo về",
+    approve: "Duyệt", block: "Khoá", unblock: "Bỏ khoá", edit: "Sửa tên / ghi chú", dist_edit: "Sửa nhãn gói",
+    mode: "Đổi công tắc", clone_warning: "Nghi nhân bản", notify: "Báo Teams", error: "Lỗi" };
+  const APP = { elive: "eLive", esync: "eSync", evoice: "eVoice" };
+  const S = { tab: "pending", f: { q: "", status: "", dist: "", stale: false, clone: false, running: false }, page: 0,
+    rows: [], more: false, now: "", stale: 3, picked: new Set(), sum: null, dists: [], open: "", busy: false,
+    log: { machine: "", product: "", kind: "", date_from: "", date_to: "" }, logPage: 0, logRows: [], logMore: false,
+    treeDist: "", treeQ: "", denied: false };
+
+  /* ---------- goi API ---------- */
+  const serverMsg = (b) => { try { const a = JSON.parse(b._server_messages || "[]"); if (a.length) return JSON.parse(a[0]).message || ""; } catch (e) { /* bo qua */ } return ""; };
+  async function call(method, args, http) {
+    const opts = { credentials: "same-origin", headers: { Accept: "application/json" } };
+    let url = API + method;
+    if (http === "GET") {
+      const qs = new URLSearchParams(Object.entries(args || {}).filter((kv) => kv[1] != null).map((kv) => [kv[0], typeof kv[1] === "object" ? JSON.stringify(kv[1]) : kv[1]])).toString();
+      if (qs) url += "?" + qs;
+    } else {
+      opts.method = "POST"; opts.headers["Content-Type"] = "application/json";
+      opts.headers["X-Frappe-CSRF-Token"] = (window.frappe && window.frappe.csrf_token) || "";
+      opts.body = JSON.stringify(args || {});
+    }
+    let res;
+    try { res = await fetch(url, opts); } catch (e) { return { success: false, message: "Mất kết nối mạng.", data: null }; }
+    if (res.status === 401) return { success: false, message: "Phiên đăng nhập hết hạn – tải lại trang.", data: null };
+    let body = {}; try { body = await res.json(); } catch (e) { /* khong phai JSON */ }
+    const m = body.message;
+    if (m && typeof m === "object" && typeof m.success === "boolean") return Object.assign({ status: res.status }, m);
+    if (!res.ok) return { success: false, status: res.status, message: serverMsg(body) || ("Máy chủ báo lỗi (" + res.status + ")."), data: null };
+    return { success: true, message: "", data: m };
+  }
+  let tt;
+  function toast(msg, err) { const t = byId("lc-toast"); t.textContent = msg; t.className = "lc-toast show" + (err ? " err" : ""); clearTimeout(tt); tt = setTimeout(() => { t.className = "lc-toast"; }, err ? 6000 : 3000); }
+  async function act(btn, method, args, okMsg) {
+    if (S.busy) { toast("Đang xử lý thao tác trước, đợi chút…"); return null; }
+    S.busy = true;
+    if (btn) { btn.disabled = true; btn.classList.add("busy"); btn.setAttribute("aria-busy", "true"); }
+    try {
+      const r = await call(method, args);
+      if (!r.success) { toast(r.message || "Không thực hiện được.", true); return null; }
+      if (okMsg) toast(okMsg);
+      return r.data || {};
+    } finally {
+      S.busy = false;
+      if (btn && btn.isConnected) { btn.disabled = false; btn.classList.remove("busy"); btn.removeAttribute("aria-busy"); }
+    }
+  }
+
+  /* ---------- thoi gian (gio he thong cua site; so voi "now" server tra) ---------- */
+  const parseDt = (s) => { if (!s) return null; const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/.exec(String(s)); return m ? Date.UTC(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +m[6]) : null; };
+  function ago(s) {
+    const t = parseDt(s), n = parseDt(S.now); if (t == null || n == null) return "—";
+    const d = Math.max(0, (n - t) / 1000);
+    if (d < 60) return "vừa xong";
+    if (d < 3600) return Math.floor(d / 60) + " phút trước";
+    if (d < 86400) return Math.floor(d / 3600) + " giờ trước";
+    return Math.floor(d / 86400) + " ngày trước";
+  }
+  const isStale = (s) => { const t = parseDt(s), n = parseDt(S.now); return t != null && n != null && (n - t) > S.stale * 86400000; };
+  const short = (s) => { const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/.exec(String(s || "")); return m ? m[4] + ":" + m[5] + " " + m[3] + "/" + m[2] + "/" + m[1] : (s ? esc(s) : "—"); };
+
+  /* ---------- dau trang ---------- */
+  async function loadSummary() {
+    const r = await call("summary", {}, "GET");
+    if (!r.success) {
+      if (r.status === 403) { S.denied = true; denied(r.message); }
+      return;
+    }
+    S.sum = r.data; S.now = r.data.now || S.now;
+    const c = r.data.counts || {};
+    all(byId("lc-stats"), "[data-stat]").forEach((b) => { b.querySelector("b").textContent = String(c[b.dataset.stat] || 0); });
+    const n = byId("lc-tabn"); n.hidden = !c.pending; n.textContent = String(c.pending || 0);
+    const md = r.data.mode || {};
+    const en = byId("lc-enabled"), lo = byId("lc-logonly");
+    en.checked = !!md.enabled; lo.checked = !!md.log_only; en.disabled = lo.disabled = false;
+    const sc = r.data.secrets || {};
+    const keyPill = (lbl, st) => '<span class="lc-pill ' + (st === "ok" ? "approved" : "blocked") + '" title="' + (st === "ok" ? "Đã có" : st === "bad" ? "Sai định dạng / thiếu trường" : "Chưa dán") + '">' + esc(lbl) + (st === "ok" ? " ✓" : st === "bad" ? " sai" : " thiếu") + "</span>";
+    byId("lc-keys").innerHTML = "<span>Khoá ký:</span>" + keyPill("eLive", sc.elive) + keyPill("eSync", sc.esync) + keyPill("eVoice", sc.evoice) +
+      keyPill("Mã gói", sc.dist) + keyPill("Teams", r.data.teams ? "ok" : "missing") +
+      '<span class="lc-pill muted">IP văn phòng: ' + (r.data.office_ips || 0) + "</span>";
+    const bands = [];
+    if (md.killed) bands.push('<div class="lc-band bad">⛔ Đang tắt khẩn bằng site_config (ec_license_disabled) – app không xin / báo về được, vẫn chạy bình thường.</div>');
+    else if (!md.enabled) bands.push('<div class="lc-band bad">⛔ API đang tắt – app không tự xin license được (hiện ô dán key tay), máy đang chạy không bị ảnh hưởng.</div>');
+    if (md.log_only) bands.push('<div class="lc-band warn">⚠ Đang chỉ ghi nhận – nút Khoá chưa có hiệu lực với app.</div>');
+    const miss = ["elive", "esync", "evoice"].filter((p) => sc[p] !== "ok");
+    if (miss.length) bands.push('<div class="lc-band info">Chưa có khoá ký ' + miss.map((p) => APP[p]).join(", ") + ' – máy xin app đó sẽ thấy ô dán key tay. Dán khoá trong <a href="/app/ec-license-settings">EC License Settings</a> (chỉ System Manager).</div>');
+    byId("lc-bands").innerHTML = bands.join("");
+  }
+  function denied(msg) {
+    byId("ec-aiv-root").querySelector(".lc-wrap").innerHTML = '<div class="lc-band bad" role="alert">' + esc(msg || "Bạn không có quyền xem trang này.") +
+      " Trang Bản quyền chỉ dành cho System Manager và role AI Live License Admin.</div>";
+  }
+
+  /* ---------- tab ---------- */
+  function setTab(tab, keepHash) {
+    S.tab = tab;
+    all(document, "#ec-aiv-root .lc-tab").forEach((b) => { const on = b.dataset.tab === tab; b.classList.toggle("on", on); b.setAttribute("aria-selected", on ? "true" : "false"); });
+    all(byId("lc-stats"), ".lc-stat").forEach((b) => b.classList.remove("on"));
+    if (!keepHash) history.replaceState(null, "", location.pathname + location.search + (tab === "pending" ? "" : "#tab-" + tab));
+    if (tab === "pending" || tab === "all") { S.page = 0; return loadMachines(); }
+    if (tab === "tree") return loadTree();
+    if (tab === "dists") return loadDists();
+    return loadLog();
+  }
+  const skel = () => '<div class="lc-skel" style="width:40%"></div><div class="lc-skel" style="width:85%"></div><div class="lc-skel" style="width:60%"></div>';
+
+  /* ---------- bang may ---------- */
+  function machineBar() {
+    const f = S.f, pend = S.tab === "pending";
+    const dopt = '<option value="">Mọi gói</option><option value="__none__"' + (f.dist === "__none__" ? " selected" : "") + ">Không có mã gói</option>" +
+      S.dists.map((d) => '<option value="' + esc(d.name) + '"' + (f.dist === d.name ? " selected" : "") + ">" + esc(d.label || d.name.slice(0, 8)) + "</option>").join("");
+    return '<div class="lc-bar">' +
+      '<input class="lc-in grow" type="search" id="lc-q" placeholder="Tìm tên máy, nhãn, IP, mã máy…" aria-label="Tìm máy" value="' + esc(f.q) + '">' +
+      (pend ? "" : '<select class="lc-sel" id="lc-status" aria-label="Trạng thái"><option value="">Mọi trạng thái</option>' +
+        Object.keys(ST).map((k) => '<option value="' + k + '"' + (f.status === k ? " selected" : "") + ">" + ST[k] + "</option>").join("") + "</select>") +
+      '<select class="lc-sel" id="lc-dist" aria-label="Gói">' + dopt + "</select>" +
+      '<label class="lc-chk"><input type="checkbox" id="lc-stale"' + (f.stale ? " checked" : "") + "> Mất liên lạc &gt; " + S.stale + " ngày</label>" +
+      '<label class="lc-chk"><input type="checkbox" id="lc-clone"' + (f.clone ? " checked" : "") + "> Nghi nhân bản</label>" +
+      (pend ? '<button type="button" class="lc-btn pri" id="lc-bulk" disabled>Duyệt đã chọn</button>' : "") + "</div>";
+  }
+  function appIcons(apps) {
+    return '<span class="lc-apps">' + (apps || []).map((a) => {
+      const tip = a.installed ? a.label + (a.build_id ? " · bản " + a.build_id : "") + (a.last_checkin ? " · báo về " + short(a.last_checkin) : "") + (a.waiting ? " · đang chờ duyệt" : "") : a.label + " · chưa cài";
+      return '<span class="lc-app' + (a.waiting ? " wait" : a.installed ? " on" : "") + '" title="' + esc(tip) + '" aria-label="' + esc(tip) + '">' + esc(a.label.slice(0, 2)) + "</span>";
+    }).join("") + "</span>";
+  }
+  function rowActions(r) {
+    if (r.status === "pending") return '<button type="button" class="lc-btn sm pri" data-approve="' + esc(r.name) + '">Duyệt</button><button type="button" class="lc-btn sm danger" data-block="' + esc(r.name) + '">Khoá</button>';
+    if (r.status === "blocked") return '<button type="button" class="lc-btn sm" data-unblock="' + esc(r.name) + '">Bỏ khoá</button>';
+    return '<button type="button" class="lc-btn sm danger" data-block="' + esc(r.name) + '">Khoá</button>';
+  }
+  function machineRow(r) {
+    const pend = S.tab === "pending", stale = isStale(r.last_seen);
+    return '<tr class="lc-row" data-open="' + esc(r.name) + '">' +
+      (pend ? '<td data-k="pick"><input type="checkbox" data-pick="' + esc(r.name) + '" aria-label="Chọn ' + esc(r.label || r.host || r.name) + '"' + (S.picked.has(r.name) ? " checked" : "") + "></td>" : "") +
+      '<td data-k="name"><div class="lc-name">' + esc(r.label || r.host || r.name) + '</div><div class="lc-sub">' + esc(r.win_user || "") + (r.win_user ? " · " : "") + esc(r.name) + "</div></td>" +
+      '<td data-k="status"><span class="lc-pill ' + esc(r.status) + '">' + esc(ST[r.status] || r.status) + "</span></td>" +
+      '<td data-k="apps" data-label="App">' + appIcons(r.apps) + "</td>" +
+      '<td data-k="dist" data-label="Gói">' + (r.dist.name ? esc(r.dist.label || r.dist.name.slice(0, 8)) : '<span class="lc-sub">không có mã gói</span>') + "</td>" +
+      '<td data-k="src" data-label="Nguồn">' + (r.parent.name ? '<button type="button" class="lc-btn link" data-open="' + esc(r.parent.name) + '">' + esc(r.parent.label || r.parent.name) + "</button>" : "—") + "</td>" +
+      '<td data-k="reason" data-label="Lý do"><div class="lc-reason">' + esc(r.reason || "—") + "</div></td>" +
+      '<td data-k="ip" data-label="IP cuối" class="lc-mono">' + esc(r.last_ip || "—") + "</td>" +
+      '<td data-k="seen" data-label="Báo về" class="lc-mono' + (stale ? " lc-stale" : "") + '" title="' + esc(short(r.last_seen)) + '">' + ago(r.last_seen) + (stale ? " · mất liên lạc" : "") + "</td>" +
+      '<td data-k="warn" class="' + (r.clone_warning ? "" : "lc-hide-m") + '">' + (r.clone_warning ? '<span class="lc-warn" title="Nghi nhân bản: cùng mã Windows + ổ C: nhưng khác card mạng và tên máy">⚠ nghi nhân bản</span>' : "") + "</td>" +
+      '<td data-k="acts"><div class="lc-acts">' + rowActions(r) + "</div></td></tr>";
+  }
+  function renderMachines() {
+    const pend = S.tab === "pending";
+    const head = "<thead><tr>" + (pend ? '<th><input type="checkbox" id="lc-pickall" aria-label="Chọn tất cả"></th>' : "") +
+      "<th>Máy</th><th>Trạng thái</th><th>App</th><th>Gói</th><th>Nguồn</th><th>Lý do</th><th>IP cuối</th><th>Báo về</th><th><span class=\"lc-sub\">Cảnh báo</span></th><th></th></tr></thead>";
+    const body = S.rows.length ? S.rows.map(machineRow).join("") : "";
+    byId("lc-view").innerHTML = machineBar() + (S.rows.length
+      ? '<table class="lc-table">' + head + "<tbody>" + body + "</tbody></table>" + (S.more ? '<div class="lc-more"><button type="button" class="lc-btn" id="lc-moreb">Xem thêm</button></div>' : "")
+      : '<div class="lc-empty">' + (pend ? "Không có máy nào đang chờ duyệt." : "Không có máy nào khớp bộ lọc.") + "</div>");
+    syncBulk();
+  }
+  async function loadMachines(append) {
+    if (!append) { byId("lc-view").innerHTML = machineBar() + skel(); }
+    const f = Object.assign({ tab: S.tab }, S.f);
+    const r = await call("list_machines", { filters: f, page: S.page }, "GET");
+    if (!r.success) { if (r.status === 403) return denied(r.message); byId("lc-view").innerHTML = machineBar() + '<div class="lc-empty">' + esc(r.message) + ' <button type="button" class="lc-btn sm" data-retry="1">Thử lại</button></div>'; return; }
+    S.now = r.data.now || S.now; S.stale = r.data.stale_days || S.stale;
+    S.rows = append ? S.rows.concat(r.data.rows) : r.data.rows; S.more = !!r.data.more;
+    const live = new Set(S.rows.map((x) => x.name));
+    S.picked.forEach((n) => { if (!live.has(n)) S.picked.delete(n); });
+    const qFocus = document.activeElement && document.activeElement.id === "lc-q";
+    renderMachines();
+    if (qFocus) { const q = byId("lc-q"); q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
+  }
+  function syncBulk() {
+    const b = byId("lc-bulk"); if (!b) return;
+    b.disabled = !S.picked.size; b.textContent = S.picked.size ? "Duyệt " + S.picked.size + " máy đã chọn" : "Duyệt đã chọn";
+  }
+
+  /* ---------- ngan chi tiet ---------- */
+  async function openMachine(name, keepHash) {
+    S.open = name;
+    if (!keepHash) history.replaceState(null, "", location.pathname + location.search + "#may-" + encodeURIComponent(name));
+    const box = byId("lc-dbox"); byId("lc-drawer").hidden = false;
+    box.innerHTML = '<div class="lc-dhead"><h2>' + esc(name) + '</h2><button type="button" class="lc-x" data-close-drawer="1" aria-label="Đóng">×</button></div>' + skel();
+    const r = await call("get_machine", { name: name }, "GET");
+    if (S.open !== name) return;
+    if (!r.success) { box.innerHTML = '<div class="lc-dhead"><h2>' + esc(name) + '</h2><button type="button" class="lc-x" data-close-drawer="1" aria-label="Đóng">×</button></div><div class="lc-dbody"><div class="lc-band bad">' + esc(r.message) + "</div></div>"; return; }
+    renderDrawer(r.data);
+    box.querySelector(".lc-x").focus();
+  }
+  function renderDrawer(d) {
+    const m = d.machine, box = byId("lc-dbox");
+    const kv = (k, v) => "<dt>" + k + "</dt><dd>" + v + "</dd>";
+    const inst = d.installs.length ? '<div class="lc-scroll"><table class="lc-mini"><thead><tr><th>App</th><th>Bản</th><th>Cấp license</th><th>Báo cuối</th><th>IP</th></tr></thead><tbody>' +
+      d.installs.map((i) => '<tr><td><b>' + esc(i.label) + "</b>" + (i.waiting ? ' <span class="lc-pill pending">chờ duyệt</span>' : "") + '<div class="lc-sub">' + esc(i.app_dir) + "</div></td><td>" + esc(i.build_id || "—") + '</td><td class="lc-mono">' + short(i.license_issued_at) + (i.reissued_at ? '<div class="lc-sub">cấp lại ' + short(i.reissued_at) + "</div>" : "") + '</td><td class="lc-mono">' + short(i.last_checkin) + '</td><td class="lc-mono">' + esc(i.last_checkin_ip || "—") + "</td></tr>").join("") + "</tbody></table></div>"
+      : '<div class="lc-sub">Chưa có app nào báo về.</div>';
+    const kids = d.children.length ? d.children.map((k) => '<div><button type="button" class="lc-node ' + esc(k.status) + '" data-open="' + esc(k.name) + '"><span class="lc-dot ' + esc(k.status) + '"></span>' + esc(k.label || k.host || k.name) + ' <span class="lc-sub">' + esc(k.name) + "</span></button></div>").join("") : '<div class="lc-sub">Chưa có máy nào chép từ máy này.</div>';
+    const ev = d.events.length ? '<ul class="lc-ev">' + d.events.map((e) => '<li><span class="lc-mono">' + short(e.at) + "</span><span><b>" + esc(KIND[e.kind] || e.kind) + "</b>" + (e.product ? " · " + esc(APP[e.product] || e.product) : "") + (e.user && e.user !== "Guest" && e.user !== "system" ? " · " + esc(e.user) : "") + (e.detail ? ' <span class="lc-sub">' + esc(e.detail) + "</span>" : "") + "</span></li>").join("") + "</ul>" : '<div class="lc-sub">Chưa có sự kiện.</div>';
+    const foot = (m.status === "pending" ? '<button type="button" class="lc-btn pri" data-approve="' + esc(m.name) + '">Duyệt</button>' : "") +
+      (m.status === "blocked" ? '<button type="button" class="lc-btn" data-unblock="' + esc(m.name) + '">Bỏ khoá</button>' : '<button type="button" class="lc-btn danger" data-block="' + esc(m.name) + '">Khoá</button>');
+    box.innerHTML = '<div class="lc-dhead"><div><h2>' + esc(m.label || m.host || m.name) + '</h2><div class="lc-sub">' + esc(m.name) + ' · <span class="lc-pill ' + esc(m.status) + '">' + esc(ST[m.status] || m.status) + "</span>" +
+      (m.clone_warning ? ' <span class="lc-warn">⚠ nghi nhân bản</span>' : "") + '</div></div><button type="button" class="lc-x" data-close-drawer="1" aria-label="Đóng">×</button></div>' +
+      '<div class="lc-dbody">' +
+      (m.status === "blocked" ? '<div class="lc-band bad">Lời nhắn khi mở app: ' + esc(m.block_message || d.default_block) + (d.log_only ? " (đang chỉ ghi nhận – khoá chưa có hiệu lực)" : "") + "</div>" : "") +
+      (m.clone_warning ? '<div class="lc-band warn">Cùng mã Windows + ổ C: với một máy khác tên "' + esc(m.clone_host) + '" nhưng khác card mạng – có thể cài từ cùng bản Ghost / sao ổ. Chỉ cảnh báo, chưa khoá.</div>' : "") +
+      '<div class="lc-sec"><h3>Lý do</h3><div>' + esc(m.reason || "—") + (m.via_checkin ? ' <span class="lc-pill muted">ghi nhận từ báo về (key tay)</span>' : "") + "</div></div>" +
+      '<div class="lc-sec"><h3>Thông tin</h3><dl class="lc-kv">' +
+      kv("Tên (eCentric đặt)", '<div class="lc-edit"><input class="lc-in" id="lc-label" maxlength="140" aria-label="Tên máy" value="' + esc(m.label) + '" placeholder="VD: Máy Lix 2"><button type="button" class="lc-btn sm" data-save-label="' + esc(m.name) + '">Lưu</button></div>') +
+      kv("Tên máy Windows", esc(m.host || "—")) + kv("User Windows", esc(m.win_user || "—")) + kv("Hệ điều hành", esc(m.os || "—")) +
+      kv("IP đầu / cuối", esc(m.first_ip || "—") + " / " + esc(m.last_ip || "—")) +
+      kv("Lần đầu thấy", short(m.first_seen)) + kv("Báo về lần cuối", short(m.last_seen) + " (" + ago(m.last_seen) + ")") +
+      kv("Gói", m.dist.name ? esc(m.dist.label || m.dist.name.slice(0, 8)) + (m.dist_kind ? ' <span class="lc-pill muted">' + esc(m.dist_kind) + "</span>" : "") : "không có mã gói") +
+      kv("Máy nguồn", m.parent.name ? '<button type="button" class="lc-btn link" data-open="' + esc(m.parent.name) + '">' + esc(m.parent.label || m.parent.name) + "</button>" : "—") +
+      kv("Người duyệt", m.approved_by ? esc(m.approved_by === "auto" ? "Tự động (theo luật)" : m.approved_by) + " · " + short(m.approved_at) : "—") +
+      "</dl></div>" +
+      '<div class="lc-sec"><h3>Ghi chú</h3><textarea class="lc-in" id="lc-note" maxlength="1000" aria-label="Ghi chú">' + esc(m.note) + '</textarea><div style="margin-top:6px"><button type="button" class="lc-btn sm" data-save-note="' + esc(m.name) + '">Lưu ghi chú</button></div></div>' +
+      '<div class="lc-sec"><h3>App trên máy</h3>' + inst + "</div>" +
+      '<div class="lc-sec"><h3>Máy chép từ máy này</h3>' + kids + "</div>" +
+      '<div class="lc-sec"><h3>Lịch sử (50 gần nhất)</h3>' + ev + "</div>" +
+      '</div><div class="lc-dfoot">' + foot + "</div>";
+  }
+  function closeDrawer() {
+    if (byId("lc-drawer").hidden) return;
+    byId("lc-drawer").hidden = true; byId("lc-dbox").innerHTML = ""; S.open = "";
+    if (/^#may-/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search + (S.tab === "pending" ? "" : "#tab-" + S.tab));
+  }
+
+  /* ---------- hop thoai ---------- */
+  function modal(html) { byId("lc-mbox").innerHTML = html; byId("lc-modal").hidden = false; const f = byId("lc-mbox").querySelector("textarea, input, .pri"); if (f) f.focus(); }
+  function closeModal() { byId("lc-modal").hidden = true; byId("lc-mbox").innerHTML = ""; }
+  function blockDialog(name) {
+    const lo = S.sum && S.sum.mode && S.sum.mode.log_only;
+    modal('<h3>Khoá máy ' + esc(name) + "</h3>" +
+      '<label for="lc-bmsg" class="lc-sub">Lời nhắn hiện cho người dùng khi mở app</label>' +
+      '<textarea class="lc-in" id="lc-bmsg" maxlength="300">Máy này đã bị eCentric khoá. Liên hệ người phụ trách.</textarea>' +
+      '<div class="lc-band info">Khoá có hiệu lực ở <b>lần mở app sau</b>. Live đang chạy không bị cắt.</div>' +
+      (lo ? '<div class="lc-band warn">Đang chỉ ghi nhận, khoá chưa có hiệu lực.</div>' : "") +
+      '<div class="lc-acts"><button type="button" class="lc-btn" data-close-modal="1">Huỷ</button><button type="button" class="lc-btn pri" data-confirm-block="' + esc(name) + '">Khoá máy</button></div>');
+  }
+  function modeDialog(field, want) {
+    const md = (S.sum && S.sum.mode) || {};
+    const en = field === "enabled" ? want : !!md.enabled, lo = field === "log_only" ? want : !!md.log_only;
+    const what = field === "enabled" ? (want ? "BẬT API" : "TẮT API") : (want ? "BẬT chỉ ghi nhận" : "TẮT chỉ ghi nhận");
+    const note = field === "enabled"
+      ? (want ? "App sẽ tự xin license từ ERP; máy mới / bản chép sẽ hiện ở Chờ duyệt." : "App không tự xin license được nữa (hiện ô dán key tay). Máy đang chạy không bị ảnh hưởng, không máy nào bị khoá.")
+      : (want ? "Checkin luôn trả \"ok\": nút Khoá chưa có hiệu lực với app." : "Từ lần mở app sau, máy anh đã bấm Khoá sẽ bị chặn (kèm lời nhắn). Máy ERP chưa từng biết không bao giờ bị khoá.");
+    modal("<h3>Xác nhận " + esc(what) + "</h3><div>" + esc(note) + "</div>" +
+      '<div class="lc-acts"><button type="button" class="lc-btn" data-close-modal="1">Huỷ</button><button type="button" class="lc-btn pri" data-confirm-mode="1" data-en="' + (en ? 1 : 0) + '" data-lo="' + (lo ? 1 : 0) + '">Xác nhận</button></div>');
+  }
+  function distDialog(d) {
+    modal("<h3>Sửa nhãn gói</h3>" + '<div class="lc-sub">Mã gói ' + esc(d.name) + " · " + esc(d.kind_label) + " · nhãn gốc: " + esc(d.package_label || "—") + "<br>Loại và mã gói là dữ liệu có chữ ký – không sửa được.</div>" +
+      '<input class="lc-in" id="lc-dlabel" maxlength="140" aria-label="Nhãn gói" value="' + esc(d.label) + '">' +
+      '<div class="lc-acts"><button type="button" class="lc-btn" data-close-modal="1">Huỷ</button><button type="button" class="lc-btn pri" data-confirm-dist="' + esc(d.name) + '">Lưu</button></div>');
+  }
+
+  /* ---------- cay phan phoi ---------- */
+  async function loadTree() {
+    byId("lc-view").innerHTML = treeBar() + skel();
+    const r = await call("tree", { dist: S.treeDist }, "GET");
+    if (!r.success) { if (r.status === 403) return denied(r.message); byId("lc-view").innerHTML = treeBar() + '<div class="lc-empty">' + esc(r.message) + "</div>"; return; }
+    renderTree(r.data.tree || []);
+  }
+  function treeBar() {
+    return '<div class="lc-bar"><select class="lc-sel" id="lc-tdist" aria-label="Lọc theo gói"><option value="">Mọi gói</option><option value="__none__"' + (S.treeDist === "__none__" ? " selected" : "") + ">Không có mã gói</option>" +
+      S.dists.map((d) => '<option value="' + esc(d.name) + '"' + (S.treeDist === d.name ? " selected" : "") + ">" + esc(d.label || d.name.slice(0, 8)) + "</option>").join("") + "</select>" +
+      '<input class="lc-in grow" type="search" id="lc-tq" placeholder="Tìm máy trong cây (tên, mã máy)…" aria-label="Tìm máy trong cây" value="' + esc(S.treeQ) + '"></div>';
+  }
+  function treeNode(m) {
+    const kids = (m.children || []).map(treeNode).join("");
+    return '<li><button type="button" class="lc-node ' + esc(m.status) + '" data-open="' + esc(m.name) + '" data-find="' + esc((m.label + " " + m.host + " " + m.name).toLowerCase()) + '"><span class="lc-dot ' + esc(m.status) + '"></span>' +
+      esc(m.label || m.host || m.name) + ' <span class="lc-sub">' + esc(m.name) + " · " + esc(ST[m.status] || m.status) + "</span>" + (m.clone_warning ? ' <span class="lc-warn">⚠</span>' : "") + "</button>" +
+      (kids ? "<ul>" + kids + "</ul>" : "") + "</li>";
+  }
+  function renderTree(tree) {
+    const body = tree.length ? '<ul><li><details open><summary>Gốc · eCentric</summary><ul>' + tree.map((d) =>
+      '<li><details open><summary>' + esc(d.label) + (d.kind_label ? ' <span class="lc-pill muted">' + esc(d.kind_label) + "</span>" : "") + ' <span class="lc-sub">' + d.machines.length + " máy gốc</span></summary>" +
+      (d.machines.length ? "<ul>" + d.machines.map(treeNode).join("") + "</ul>" : '<div class="lc-sub" style="padding-left:20px">Chưa có máy nào kích hoạt gói này.</div>') + "</details></li>").join("") + "</ul></details></li></ul>"
+      : '<div class="lc-empty">Chưa có máy / gói nào.</div>';
+    byId("lc-view").innerHTML = treeBar() + '<div class="lc-tree">' + body + "</div>";
+    findInTree();
+  }
+  function findInTree() {
+    const q = S.treeQ.trim().toLowerCase(); const view = byId("lc-view");
+    let first = null;
+    all(view, ".lc-node").forEach((n) => { const hit = !!q && (n.dataset.find || "").indexOf(q) >= 0; n.classList.toggle("hit", hit); if (hit && !first) first = n; });
+    if (first) { let p = first.parentElement; while (p && p !== view) { if (p.tagName === "DETAILS") p.open = true; p = p.parentElement; } first.scrollIntoView({ block: "center" }); }
+  }
+
+  /* ---------- goi ---------- */
+  async function loadDistOptions() {
+    const r = await call("list_dists", {}, "GET");
+    if (r.success) S.dists = r.data.rows || [];
+    return r;
+  }
+  async function loadDists() {
+    byId("lc-view").innerHTML = skel();
+    const r = await loadDistOptions();
+    if (!r.success) { if (r.status === 403) return denied(r.message); byId("lc-view").innerHTML = '<div class="lc-empty">' + esc(r.message) + "</div>"; return; }
+    const rows = S.dists;
+    byId("lc-view").innerHTML = (rows.length ? '<table class="lc-table"><thead><tr><th>Nhãn</th><th>Loại</th><th>Tạo gói</th><th>Máy đầu tiên</th><th>Đã cấp</th><th>Đang chờ</th><th></th></tr></thead><tbody>' +
+      rows.map((d) => '<tr class="lc-row" data-distrow="' + esc(d.name) + '"><td data-k="name"><div class="lc-name">' + esc(d.label || "—") + '</div><div class="lc-sub">' + esc(d.name.slice(0, 8)) + (d.package ? " · " + esc(d.package) : "") + "</div></td>" +
+        '<td data-k="status"><span class="lc-pill muted">' + esc(d.kind_label || d.kind) + "</span></td>" +
+        '<td data-k="c" data-label="Tạo gói" class="lc-mono">' + esc((d.created_at || "").slice(0, 10) || "—") + "</td>" +
+        '<td data-k="f" data-label="Máy đầu tiên">' + (d.first_machine.name ? '<button type="button" class="lc-btn link" data-open="' + esc(d.first_machine.name) + '">' + esc(d.first_machine.label || d.first_machine.name) + "</button>" : "—") + "</td>" +
+        '<td data-k="i" data-label="Đã cấp" class="lc-mono">' + d.issued + '</td><td data-k="p" data-label="Đang chờ" class="lc-mono">' + (d.pending ? '<span class="lc-pill pending">' + d.pending + "</span>" : "0") + "</td>" +
+        '<td data-k="acts"><div class="lc-acts"><button type="button" class="lc-btn sm" data-editdist="' + esc(d.name) + '">Sửa nhãn</button></div></td></tr>').join("") + "</tbody></table>"
+      : '<div class="lc-empty">Chưa có gói nào có chữ ký đúng báo về.</div>') +
+      (r.data.no_dist_pending ? '<div class="lc-more lc-sub">' + r.data.no_dist_pending + ' máy không có mã gói đang chờ duyệt – <button type="button" class="lc-btn link" data-distrow="__none__">xem</button></div>' : "");
+  }
+
+  /* ---------- nhat ky ---------- */
+  function logBar() {
+    const l = S.log;
+    return '<div class="lc-bar"><input class="lc-in" id="lc-lm" placeholder="Mã máy (LIC-…)" aria-label="Mã máy" value="' + esc(l.machine) + '" style="width:150px">' +
+      '<select class="lc-sel" id="lc-lp" aria-label="App"><option value="">Mọi app</option>' + Object.keys(APP).map((k) => '<option value="' + k + '"' + (l.product === k ? " selected" : "") + ">" + APP[k] + "</option>").join("") + "</select>" +
+      '<select class="lc-sel" id="lc-lk" aria-label="Loại sự kiện"><option value="">Mọi loại</option>' + Object.keys(KIND).map((k) => '<option value="' + k + '"' + (l.kind === k ? " selected" : "") + ">" + KIND[k] + "</option>").join("") + "</select>" +
+      '<label class="lc-chk">Từ <input class="lc-in" type="date" id="lc-lf" value="' + esc(l.date_from) + '"></label><label class="lc-chk">đến <input class="lc-in" type="date" id="lc-lt" value="' + esc(l.date_to) + '"></label></div>';
+  }
+  async function loadLog(append) {
+    if (!append) { S.logPage = 0; byId("lc-view").innerHTML = logBar() + skel(); }
+    const r = await call("events", { filters: S.log, page: S.logPage }, "GET");
+    if (!r.success) { if (r.status === 403) return denied(r.message); byId("lc-view").innerHTML = logBar() + '<div class="lc-empty">' + esc(r.message) + "</div>"; return; }
+    S.logRows = append ? S.logRows.concat(r.data.rows) : r.data.rows; S.logMore = !!r.data.more;
+    byId("lc-view").innerHTML = logBar() + (S.logRows.length ? '<table class="lc-table"><thead><tr><th>Lúc</th><th>Máy</th><th>App</th><th>Loại</th><th>Người làm</th><th>Chi tiết</th><th>IP</th></tr></thead><tbody>' +
+      S.logRows.map((e) => '<tr class="lc-row"' + (e.machine ? ' data-open="' + esc(e.machine) + '"' : "") + '><td data-k="name" class="lc-mono">' + short(e.at) + "</td>" +
+        '<td data-k="status">' + (e.machine ? esc(e.machine_label || e.machine) : "—") + "</td>" +
+        '<td data-k="p" data-label="App">' + esc(APP[e.product] || e.product || "—") + '</td><td data-k="k" data-label="Loại"><b>' + esc(KIND[e.kind] || e.kind) + "</b></td>" +
+        '<td data-k="u" data-label="Người làm">' + esc(e.user === "Guest" ? "app" : e.user || "—") + '</td><td data-k="d" data-label="Chi tiết"><div class="lc-reason">' + esc(e.detail || "—") + "</div></td>" +
+        '<td data-k="ip" data-label="IP" class="lc-mono">' + esc(e.ip || "—") + "</td></tr>").join("") + "</tbody></table>" +
+      (S.logMore ? '<div class="lc-more"><button type="button" class="lc-btn" id="lc-logmore">Xem thêm</button></div>' : "")
+      : '<div class="lc-empty">Không có sự kiện nào khớp bộ lọc.</div>');
+  }
+
+  /* ---------- thao tac ---------- */
+  async function refreshAll() { await loadSummary(); if (S.tab === "pending" || S.tab === "all") { S.page = 0; await loadMachines(true); } }
+  async function afterChange(name) { await refreshAll(); if (S.open === name) openMachine(name, true); }
+
+  const root = byId("ec-aiv-root");
+  root.addEventListener("click", async (e) => {
+    const t = e.target.closest ? e.target.closest("button, [data-open], [data-distrow], input[type=checkbox]") : null;
+    if (!t || !root.contains(t)) return;
+    const d = t.dataset;
+    if (t.matches("input[type=checkbox]")) {
+      if (d.pick) { e.stopPropagation(); if (t.checked) S.picked.add(d.pick); else S.picked.delete(d.pick); syncBulk(); }
+      else if (t.id === "lc-pickall") { S.rows.forEach((r) => { if (t.checked) S.picked.add(r.name); else S.picked.delete(r.name); }); all(byId("lc-view"), "[data-pick]").forEach((c) => { c.checked = t.checked; }); syncBulk(); }
+      return;
+    }
+    if (d.tab) return setTab(d.tab);
+    if (d.stat) {
+      const k = d.stat;
+      S.f = { q: "", status: "", dist: "", stale: false, clone: k === "clone", running: k === "running" };
+      if (k === "blocked") S.f.status = "blocked";
+      await setTab(k === "pending" ? "pending" : "all");
+      t.classList.add("on");
+      return;
+    }
+    if (d.closeDrawer) return closeDrawer();
+    if (d.closeModal) return closeModal();
+    if (d.retry) return setTab(S.tab);
+    if (d.approve) { const r = await act(t, "approve", { names: [d.approve] }); if (r) { toast(r.message || (r.skipped && r.skipped[0] && r.skipped[0].why) || "Đã xử lý.", !(r.approved || []).length); S.picked.delete(d.approve); afterChange(d.approve); } return; }
+    if (d.block) return blockDialog(d.block);
+    if (d.unblock) { const r = await act(t, "unblock", { name: d.unblock }, "Đã bỏ khoá – app mở lại được ở lần mở sau."); if (r) afterChange(d.unblock); return; }
+    if (d.confirmBlock) {
+      const msg = (byId("lc-bmsg").value || "").trim();
+      const r = await act(t, "block", { name: d.confirmBlock, message: msg });
+      if (r) { closeModal(); toast(r.log_only ? "Đã khoá – đang chỉ ghi nhận nên chưa có hiệu lực với app." : "Đã khoá – có hiệu lực ở lần mở app sau."); afterChange(d.confirmBlock); }
+      return;
+    }
+    if (d.confirmMode) {
+      const r = await act(t, "set_mode", { enabled: +d.en, log_only: +d.lo }, "Đã đổi công tắc.");
+      closeModal(); await loadSummary(); return r;
+    }
+    if (d.saveLabel) { const r = await act(t, "update_machine", { name: d.saveLabel, label: byId("lc-label").value }, "Đã lưu tên."); if (r) afterChange(d.saveLabel); return; }
+    if (d.saveNote) { await act(t, "update_machine", { name: d.saveNote, note: byId("lc-note").value }, "Đã lưu ghi chú."); return; }
+    if (d.editdist) { e.stopPropagation(); const x = S.dists.find((y) => y.name === d.editdist); if (x) distDialog(x); return; }
+    if (d.confirmDist) { const r = await act(t, "update_dist", { dist_id: d.confirmDist, label: byId("lc-dlabel").value }, "Đã lưu nhãn gói."); if (r) { closeModal(); loadDists(); } return; }
+    if (t.id === "lc-bulk") {
+      const names = Array.from(S.picked); if (!names.length) return;
+      const r = await act(t, "approve", { names: names });
+      if (r) { const n = (r.approved || []).length, k = (r.skipped || []).length; toast("Đã duyệt " + n + " máy" + (k ? " · bỏ qua " + k + " (đã được xử lý trước)" : "") + ". App tự mở trong khoảng 30 giây.", !n); S.picked.clear(); refreshAll(); }
+      return;
+    }
+    if (t.id === "lc-moreb") { S.page += 1; t.disabled = true; t.classList.add("busy"); return loadMachines(true); }
+    if (t.id === "lc-logmore") { S.logPage += 1; t.disabled = true; t.classList.add("busy"); return loadLog(true); }
+    if (d.distrow) { S.f = { q: "", status: "", dist: d.distrow, stale: false, clone: false, running: false }; return setTab(d.distrow === "__none__" ? "pending" : "all"); }
+    if (d.open) { if (t.tagName !== "BUTTON" && e.target.closest("button, input, a")) return; return openMachine(d.open); }
+  });
+  let qTimer;
+  root.addEventListener("input", (e) => {
+    const t = e.target;
+    if (t.id === "lc-q") { clearTimeout(qTimer); qTimer = setTimeout(() => { S.f.q = t.value; S.page = 0; loadMachines(); }, 350); }
+    if (t.id === "lc-tq") { S.treeQ = t.value; findInTree(); }
+    if (t.id === "lc-lm") { clearTimeout(qTimer); qTimer = setTimeout(() => { S.log.machine = t.value.trim(); loadLog(); }, 400); }
+  });
+  root.addEventListener("change", (e) => {
+    const t = e.target, f = S.f;
+    if (t.id === "lc-status") { f.status = t.value; S.page = 0; return loadMachines(); }
+    if (t.id === "lc-dist") { f.dist = t.value; S.page = 0; return loadMachines(); }
+    if (t.id === "lc-stale") { f.stale = t.checked; f.running = false; S.page = 0; return loadMachines(); }
+    if (t.id === "lc-clone") { f.clone = t.checked; S.page = 0; return loadMachines(); }
+    if (t.id === "lc-tdist") { S.treeDist = t.value; return loadTree(); }
+    if (t.id === "lc-lp") { S.log.product = t.value; return loadLog(); }
+    if (t.id === "lc-lk") { S.log.kind = t.value; return loadLog(); }
+    if (t.id === "lc-lf") { S.log.date_from = t.value; return loadLog(); }
+    if (t.id === "lc-lt") { S.log.date_to = t.value; return loadLog(); }
+    if (t.id === "lc-enabled" || t.id === "lc-logonly") {
+      const want = t.checked; t.checked = !want;            /* chua doi: cho xac nhan */
+      return modeDialog(t.id === "lc-enabled" ? "enabled" : "log_only", want);
+    }
+  });
+  byId("lc-drawer").addEventListener("click", (e) => { if (e.target.id === "lc-drawer") closeDrawer(); });
+  byId("lc-modal").addEventListener("click", (e) => { if (e.target.id === "lc-modal") closeModal(); });
+  document.addEventListener("keydown", (e) => { if (e.key !== "Escape") return; if (!byId("lc-modal").hidden) closeModal(); else closeDrawer(); });
+
+  /* ---------- link sau + tu lam moi 30 giay ---------- */
+  function fromHash() {
+    const h = decodeURIComponent(location.hash.replace(/^#/, ""));
+    const m = /^may-(LIC-\d+)$/.exec(h);
+    if (m) { if (S.open !== m[1]) openMachine(m[1], true); return; }
+    const tb = /^tab-(all|tree|dists|log)$/.exec(h);
+    closeDrawer();
+    if (tb && tb[1] !== S.tab) setTab(tb[1], true);
+  }
+  window.addEventListener("hashchange", fromHash);
+  setInterval(() => {
+    if (S.denied || document.hidden || !byId("lc-modal").hidden || S.busy) return;
+    loadSummary();
+    if ((S.tab === "pending" || S.tab === "all") && S.page === 0) loadMachines(true);
+  }, 30000);
+
+  (async () => {
+    await loadSummary();
+    if (S.denied) return;
+    await loadDistOptions();
+    const h = decodeURIComponent(location.hash.replace(/^#/, ""));
+    const tb = /^tab-(all|tree|dists|log)$/.exec(h);
+    await setTab(tb ? tb[1] : "pending", true);
+    if (/^may-LIC-\d+$/.test(h)) openMachine(h.slice(4), true);
+  })();
+})();
+</script>

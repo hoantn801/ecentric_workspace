@@ -1,0 +1,293 @@
+{
+ "actions": [],
+ "creation": "2026-11-17 20:30:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "editable_grid": 1,
+ "field_order": [
+  "label",
+  "status",
+  "host",
+  "win_user",
+  "os",
+  "col_a",
+  "source_dist",
+  "parent_machine",
+  "reason",
+  "via_checkin",
+  "sec_block",
+  "blocked_manual",
+  "block_message",
+  "col_b",
+  "clone_warning",
+  "clone_host",
+  "note",
+  "sec_seen",
+  "first_ip",
+  "last_ip",
+  "first_seen",
+  "last_seen",
+  "col_c",
+  "approved_by",
+  "approved_at",
+  "notified_pending",
+  "notified_clone",
+  "sec_fp",
+  "guid_h",
+  "disk_h",
+  "mac_h",
+  "sec_inst",
+  "installs"
+ ],
+ "fields": [
+  {
+   "fieldname": "label",
+   "fieldtype": "Data",
+   "label": "Tên máy (eCentric đặt)",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Trạng thái",
+   "options": "pending\napproved\nblocked",
+   "default": "pending",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "host",
+   "fieldtype": "Data",
+   "label": "Tên máy (Windows)",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "win_user",
+   "fieldtype": "Data",
+   "label": "User Windows",
+   "read_only": 1
+  },
+  {
+   "fieldname": "os",
+   "fieldtype": "Data",
+   "label": "Hệ điều hành",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_a",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "source_dist",
+   "fieldtype": "Link",
+   "label": "Gói",
+   "options": "EC License Dist",
+   "in_standard_filter": 1,
+   "search_index": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "parent_machine",
+   "fieldtype": "Link",
+   "label": "Máy nguồn (chép từ)",
+   "options": "EC License Machine",
+   "search_index": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Data",
+   "label": "Lý do (chỉ eCentric thấy)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "via_checkin",
+   "fieldtype": "Check",
+   "label": "Ghi nhận từ báo về (key tay, chưa có license do ERP cấp)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sec_block",
+   "fieldtype": "Section Break",
+   "label": "Khoá / cảnh báo"
+  },
+  {
+   "fieldname": "blocked_manual",
+   "fieldtype": "Check",
+   "label": "Khoá tay (eCentric bấm Khoá)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "block_message",
+   "fieldtype": "Small Text",
+   "label": "Lời nhắn khi bị khoá",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_b",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "clone_warning",
+   "fieldtype": "Check",
+   "label": "Nghi nhân bản",
+   "in_standard_filter": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "clone_host",
+   "fieldtype": "Data",
+   "label": "Tên máy nghi nhân bản",
+   "read_only": 1
+  },
+  {
+   "fieldname": "note",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú"
+  },
+  {
+   "fieldname": "sec_seen",
+   "fieldtype": "Section Break",
+   "label": "Báo về"
+  },
+  {
+   "fieldname": "first_ip",
+   "fieldtype": "Data",
+   "label": "IP đầu",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_ip",
+   "fieldtype": "Data",
+   "label": "IP cuối",
+   "read_only": 1
+  },
+  {
+   "fieldname": "first_seen",
+   "fieldtype": "Datetime",
+   "label": "Lần đầu thấy",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_seen",
+   "fieldtype": "Datetime",
+   "label": "Báo về lần cuối",
+   "search_index": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_c",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "approved_by",
+   "fieldtype": "Data",
+   "label": "Người duyệt",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approved_at",
+   "fieldtype": "Datetime",
+   "label": "Duyệt lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notified_pending",
+   "fieldtype": "Check",
+   "label": "Đã báo Teams chờ duyệt",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "notified_clone",
+   "fieldtype": "Check",
+   "label": "Đã báo Teams nghi nhân bản",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "sec_fp",
+   "fieldtype": "Section Break",
+   "label": "Dấu vân tay (bản băm – không phải giá trị thật)",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "guid_h",
+   "fieldtype": "Data",
+   "label": "MachineGuid (băm)",
+   "length": 20,
+   "search_index": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "disk_h",
+   "fieldtype": "Data",
+   "label": "Serial ổ C: (băm)",
+   "length": 20,
+   "read_only": 1
+  },
+  {
+   "fieldname": "mac_h",
+   "fieldtype": "JSON",
+   "label": "Card mạng (băm)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sec_inst",
+   "fieldtype": "Section Break",
+   "label": "App trên máy"
+  },
+  {
+   "fieldname": "installs",
+   "fieldtype": "Table",
+   "label": "App",
+   "options": "EC License Install",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-17 20:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC License Machine",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "autoname": "LIC-.#####",
+ "track_changes": 1,
+ "title_field": "host",
+ "search_fields": "label,host,last_ip",
+ "show_title_field_in_link": 0,
+ "permissions": [
+  {
+   "read": 1,
+   "write": 1,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0,
+   "role": "System Manager"
+  },
+  {
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0,
+   "role": "AI Live License Admin"
+  }
+ ],
+ "description": "Một máy thật (dùng chung cho eLive / eSync / eVoice). Không xoá: muốn bỏ thì Khoá."
+}
