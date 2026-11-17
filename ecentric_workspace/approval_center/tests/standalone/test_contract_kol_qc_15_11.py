@@ -494,6 +494,8 @@ class DnttTheoBrandHopDong(unittest.TestCase):
         _fresh("a@ec")
         self.fund = importlib.import_module(P + "kol_funding")
         self.fund.kol_lookup.so_allowed = lambda u, so: (Row(name=so, ec_brand=self.so_brand), None)
+        # PO 17/11: DNTT kiem them STK creator (test_contract_kol_po_17_11) - creator co STK o day.
+        self.fund.creator_row = lambda n: {"ec_bank_account_no": "0011", "ec_bank_name": "VCB"}
         _doc(brand="Brand-A")
 
     def test_doi_brand_bi_chan(self):

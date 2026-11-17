@@ -22,7 +22,7 @@ __all__ = ["kol_me", "kol_search_sales_orders", "kol_list_templates", "kol_place
            "kol_create_creator", "kol_update_creator", "kol_missing_misa", "kol_set_misa_code",
            "kol_verify_signed", "kol_verify_acceptance", "kol_pending_checks", "kol_preview_dates",
            "kol_creator_gaps", "kol_preview_contract", "kol_download_file", "kol_confirm_payee",
-           "kol_close_contract"]
+           "kol_close_contract", "kol_reopen_contract"]
 
 
 def _app(module):
@@ -225,3 +225,8 @@ def kol_confirm_payee(name):
 @frappe.whitelist(methods=["POST"])
 def kol_close_contract(name, reason=None):
     return _app("kol_access").close_contract(name, _me(), reason)
+
+
+@frappe.whitelist(methods=["POST"])
+def kol_reopen_contract(name, reason=None):
+    return _app("kol_access").reopen_contract(name, _me(), reason)

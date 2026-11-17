@@ -219,8 +219,12 @@ def payable_cap(doc):
     """Tran chi hien tai cho DNTT (truoc khi tru phan da de nghi)."""
     if approval_status(doc) != APPROVED:
         return 0.0
-    return kol.acceptance_cap(is_signed(doc), doc.get("advance_amount"), done_amount(doc),
-                              doc.get("payable_amount"))
+    advance = doc.get("advance_amount")
+    closed = doc.get("kol_closed_at")
+    if closed and (not doc.get("signed_at") or str(doc.get("signed_at")) > str(closed)):
+        # Ky SAU khi thanh ly (cong ky / Ke toan xac nhan ban cho kiem): khong mo tien coc (QC ban do 17/11).
+        advance = 0
+    return kol.acceptance_cap(is_signed(doc), advance, done_amount(doc), doc.get("payable_amount"))
 
 
 def rows_view(doc):

@@ -157,7 +157,8 @@ def classify_duplicates(candidate, existing_rows):
         hit_soft = [f for f in SOFT_KEYS if f in mine and mine[f] == theirs.get(f)]
         if not (hit_hard or hit_soft):
             continue
-        if hit_hard and (row.get("disabled") or {candidate.get("ec_cr_type"), row.get("ec_cr_type")} == _SAME_PERSON_TYPES):
+        if hit_hard and (row.get("disabled") or candidate.get("disabled")
+                         or {candidate.get("ec_cr_type"), row.get("ec_cr_type")} == _SAME_PERSON_TYPES):
             # Creator da NGUNG DUNG: duong sua sai loai khi da co hop dong duyet = ngung creator cu, tao
             # creator dung loai (QC 17/11 vong 2) - chi hoi xac nhan.
             # Cung mot nguoi vua la creator ca nhan vua mo ho kinh doanh (MST = CCCD, chu ho thuong dung

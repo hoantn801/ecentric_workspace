@@ -112,8 +112,13 @@ def redact_attachments(attachments, business, request=None):
             if allowed:
                 out.append(a)
             continue
-        if not _is_pii_attachment(business, a):
-            out.append(a)
+        if _is_pii_attachment(business, a):
+            continue
+        # Nguoi khong duoc tai: an CA ban PDF nguoi lap xuat tu Word (HDDV_...pdf) va ban SIGNED-/REVIEW-
+        # cua cong ky (QC ban do 17/11). Nguoi duoc tai van thay de soat / xoa.
+        if not allowed and (is_generated(a.get("file_name")) or is_generated(a.get("file_url"))):
+            continue
+        out.append(a)
     return out
 
 
@@ -140,13 +145,24 @@ def download_file(name, file_url, user):
                                        "attached_to_name": doc.name}, ["name", "file_name"], as_dict=True)
     if not row:
         frappe.throw(_("Không tìm thấy tệp của phiếu này."))
-    if not can_download_full(doc, user):
+    if not can_download_full(doc, user) or not _can_view(doc, user):
         frappe.throw(_("Bản đủ thông tin cá nhân creator chỉ người lập phiếu (sau khi gửi), người tạo creator hoặc Kế toán tải được. "
-                       "Bấm \"Xem hợp đồng (bản đã che)\" để xem."), frappe.PermissionError)
+                       "Hợp đồng xem được bản che thông tin cá nhân (nút \"Xem hợp đồng\")."), frappe.PermissionError)
     # Ghi NHAN tep, khong ghi ten tep (ten co doan ngau nhien = mot phan URL; binh luan ai co quyen
     # xem phieu cung doc duoc) - QC 17/11.
     doc.add_comment("Info", _("{0} tải bản đủ thông tin creator: {1}").format(user, _label(doc, file_url)))
     return row.file_name, frappe.get_doc("File", row.name).get_content()
+
+
+def _can_view(doc, user):
+    """Phai xem duoc phieu (Ke toan / SM luon duoc) - nguoi tao creator khong lien quan toi phieu thi
+    khong tai qua URL doan duoc (QC ban do 17/11)."""
+    if user == "Administrator" or kol_lookup.is_finance(user):
+        return True
+    from ecentric_workspace.approval_center.shared.requests import capabilities
+    req = frappe.db.get_value("EC Approval Request", doc.get("approval_request"), ["name", "approval_status"],
+                              as_dict=True) if doc.get("approval_request") else None
+    return bool(capabilities.can_view(user, doc, req))
 
 
 def _label(doc, file_url):
@@ -209,7 +225,8 @@ def payee_changed(doc, creator=None):
         from ecentric_workspace.approval_center.features.contract_review.application import kol_service
         creator = kol_service.creator_row(doc.get("creator"))
     now = payee_fp(creator)
-    return bool(now) and now != base and now not in {r["fp"] for r in _approved(doc)}
+    # STK bi XOA sau khi ky cung la "doi" (QC ban do 17/11: xoa STK roi go STK bat ky tren DNTT).
+    return now != base and now not in {r["fp"] for r in _approved(doc)}
 
 
 def confirm_payee(name, user):
@@ -222,6 +239,8 @@ def confirm_payee(name, user):
         # Phieu chua duyet xong van in STK cu: dung la Yeu cau bo sung + tao lai hop dong (QC 17/11).
         frappe.throw(_("Phiếu chưa duyệt xong: yêu cầu bổ sung để tạo lại hợp đồng với tài khoản mới."))
     fp = payee_fp(kol_service.creator_row(doc.get("creator")))
+    if not fp and doc.get("kol_payee_fp"):
+        frappe.throw(_("Creator chưa có số tài khoản: bổ sung thông tin creator trước khi xác nhận."))
     if not fp or not payee_changed(doc):
         return {"ok": True, "changed": False}
     rows = _approved(doc) + [{"fp": fp, "by": user, "at": str(now_datetime())}]
@@ -258,6 +277,23 @@ def close_contract(name, user, reason):
                                                  "kol_close_reason": reason[:500]})
     doc.add_comment("Info", _("{0} thanh lý hợp đồng: {1}").format(user, reason[:500]))
     return {"ok": True, "closed_at": str(when)}
+
+
+def reopen_contract(name, user, reason):
+    """Mo lai hop dong thanh ly nham (Ke toan, bat buoc ly do, ghi binh luan) - QC ban do 17/11."""
+    if not kol_lookup.is_finance(user):
+        frappe.throw(_("Chỉ Kế toán mở lại được hợp đồng."), frappe.PermissionError)
+    reason = str(reason or "").strip()
+    if not reason:
+        frappe.throw(_("Nhập lý do mở lại."))
+    doc = frappe.get_doc(kol_lookup.CR_DT, name)
+    if not is_closed(doc):
+        return {"ok": True}
+    frappe.db.set_value(kol_lookup.CR_DT, name, {"kol_closed_at": None, "kol_closed_by": None,
+                                                 "kol_close_reason": None})
+    doc.add_comment("Info", _("{0} mở lại hợp đồng đã thanh lý ({1}): {2}").format(
+        user, doc.get("kol_close_reason") or "", reason[:500]))
+    return {"ok": True}
 
 
 def require_open(doc):

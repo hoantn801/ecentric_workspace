@@ -505,6 +505,9 @@ class QcSauVongAgent(unittest.TestCase):
                {"file_name": "HDDV_cu.docx", "file_url": "/private/files/HDDV_cu.docx", "owner": "req@ec"},
                {"file_name": "ky bi tra.pdf", "file_url": "/private/files/ky bi tra.pdf", "owner": "Administrator"},
                {"file_name": "phu luc.pdf", "file_url": "/private/files/phu luc.pdf", "owner": "req@ec"}]
+        # nguoi duyet: an ca PDF nguoi lap xuat tu Word (HDDV_...pdf) - QC ban do 17/11
+        self.assertEqual([x["file_name"] for x in a.redact_attachments(att, b)], ["phu luc.pdf"])
+        a = _access("fin@ec")
         self.assertEqual([x["file_name"] for x in a.redact_attachments(att, b)], ["HDDV_05112026.pdf", "phu luc.pdf"])
 
     def test_nhan_ban_ky_chuyen_chu_tep(self):
@@ -550,6 +553,77 @@ class QcSauVongAgent(unittest.TestCase):
         fk.logger = lambda *a: types.SimpleNamespace(info=lambda *x: None)
         p.execute()
         self.assertEqual(sets, [("A", "FP-1")])
+
+
+# ----------------------------------------------------------------------------- QC ban do + UI 17/11
+class QcBanDo(unittest.TestCase):
+    def test_xoa_stk_cung_la_doi(self):
+        a = _access()
+        d = _kol()
+        a.snapshot_payee(d, {"ec_bank_account_no": "111", "ec_bank_name": "VCB"})
+        self.assertTrue(a.payee_changed(d, {"ec_bank_account_no": "", "ec_bank_name": "VCB"}))
+
+    def test_dntt_creator_khong_co_stk_bi_chan_va_dien_san_stk(self):
+        src = _read("features/contract_review/application/kol_funding.py")
+        j = src.index("def _check_payee")
+        self.assertIn("if not stored:", src[j:])
+        i = src.index("def fill_payment")
+        self.assertIn("pr.bank_account_number = creator.get(\"ec_bank_account_no\")", src[i:j])
+
+    def test_ngoai_le_tool_cu_chan_ca_hd_dang_duyet_va_so_brand_co_gach(self):
+        _fresh("req@ec")
+        fu = importlib.import_module(P + "kol_funding")
+        erp = [Row(name="EC-CTR-7", contract_no="05112026/HDDV/ECENTRIC-NTP.FRL-VN", approval_request="AR-7"),
+               Row(name="EC-CTR-8", contract_no="05112026/HDDV/ECENTRIC-NTP.FCV-1", approval_request="AR-8")]
+        STATE["get_all"][CR] = lambda f, kw: list(erp)
+        STATE["values"].update({("EC Approval Request", "AR-7"): "Pending", ("EC Approval Request", "AR-8"): "Approved"})
+        pr = lambda r: {"has_purchase_request": "No", "no_purchase_request_reason": r}
+        with self.assertRaises(Throw) as cm:
+            fu.legacy_contract_ref(pr("HĐ 05112026/HDDV/ECENTRIC-NTP.FRL-VN"))
+        self.assertIn("đang duyệt", str(cm.exception))
+        self.assertTrue(fu.legacy_contract_ref(pr("05112026/HDDV/ECENTRIC-NTP.FCV-12")))   # khong khop "-1"
+        with self.assertRaises(Throw):
+            fu.legacy_contract_ref(pr("05112026/HDDV/ECENTRIC-NTP.FCV-1-dot2"))
+
+    def test_ky_sau_thanh_ly_khong_mo_coc(self):
+        _s, _v, acc, _f = _fresh("fin@ec")
+        d = _kol(signing_status="Đã ký đủ", advance_amount=3_000_000, payable_amount=10_000_000,
+                 signed_at="2026-11-18 09:00:00", kol_closed_at="2026-11-17 10:00:00")
+        STATE["values"][("EC Approval Request", "AR-1")] = "Approved"
+        self.assertEqual(acc.payable_cap(d), 0.0)
+        d["signed_at"] = "2026-11-16 09:00:00"                 # ky truoc khi thanh ly: coc van tinh
+        self.assertEqual(acc.payable_cap(d), 3_000_000)
+
+    def test_tai_phai_xem_duoc_phieu_va_mo_lai_thanh_ly(self):
+        src = _read("features/contract_review/application/kol_access.py")
+        self.assertIn("not can_download_full(doc, user) or not _can_view(doc, user)", src)
+        a = _access("fin@ec")
+        sets = []
+        sys.modules["frappe"].db.set_value = lambda dt_, n, f, v=None, **k: sets.append(f)
+        _kol(kol_closed_at="2026-11-17 10:00:00", kol_close_reason="x")
+        with self.assertRaises(sys.modules["frappe"].PermissionError):
+            a.reopen_contract("CR-1", "req@ec", "nham")
+        with self.assertRaises(Throw):
+            a.reopen_contract("CR-1", "fin@ec", " ")
+        a.reopen_contract("CR-1", "fin@ec", "thanh ly nham")
+        self.assertEqual(sets[0]["kol_closed_at"], None)
+        self.assertTrue(any("mở lại" in c for c in STATE["comments"]))
+
+    def test_creator_ngung_dung_sua_duoc_du_da_co_ban_thay(self):
+        from ecentric_workspace.approval_center.shared.creators import domain
+        rows = [{"name": "SUP-2", "supplier_name": "Y", "ec_cr_type": "Cá nhân", "ec_bank_account_no": "0011223344"}]
+        hit = domain.classify_duplicates({"ec_cr_type": "Công ty", "ec_bank_account_no": "0011223344", "disabled": 1}, rows)
+        self.assertFalse(hit["hard"])
+
+    def test_truong_tep_o_permlevel_1(self):
+        import json as _j
+        d = _j.loads(_read("doctype/ec_contract_review_request/ec_contract_review_request.json"))
+        lv = {f["fieldname"]: f.get("permlevel", 0) for f in d["fields"]}
+        self.assertEqual((lv["contract_file"], lv["signed_file"], lv["request_attachment"]), (1, 1, 0))
+        self.assertTrue(any(p.get("permlevel") == 1 and p.get("role") == "System Manager" for p in d["permissions"]))
+        c = _j.loads(_read("doctype/ec_contract_acceptance/ec_contract_acceptance.json"))
+        lv = {f["fieldname"]: f.get("permlevel", 0) for f in c["fields"]}
+        self.assertEqual((lv["bbnt_file"], lv["signed_file"]), (1, 1))
 
 
 if __name__ == "__main__":

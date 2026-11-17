@@ -510,7 +510,8 @@
    "fieldtype": "Attach",
    "label": "Tệp hợp đồng (.docx)",
    "read_only": 1,
-   "no_copy": 1
+   "no_copy": 1,
+   "permlevel": 1
   },
   {
    "fieldname": "missing_placeholders",
@@ -546,7 +547,8 @@
    "fieldtype": "Attach",
    "label": "Bản đã ký (PDF)",
    "read_only": 1,
-   "no_copy": 1
+   "no_copy": 1,
+   "permlevel": 1
   },
   {
    "fieldname": "signed_at",
@@ -677,7 +679,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-11-17 10:30:00.000000",
+ "modified": "2026-11-17 14:00:00.000000",
  "modified_by": "Administrator",
  "module": "Approval Center",
  "name": "EC Contract Review Request",
@@ -695,6 +697,12 @@
    "role": "System Manager",
    "share": 1,
    "write": 1
+  },
+  {
+   "permlevel": 1,
+   "read": 1,
+   "write": 1,
+   "role": "System Manager"
   }
  ],
  "sort_field": "modified",

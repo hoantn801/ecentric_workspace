@@ -12,7 +12,7 @@ from frappe import _
 from ecentric_workspace.approval_center.features.contract_review.application import (
     kol_acceptance, kol_lookup)
 from ecentric_workspace.approval_center.features.contract_review.application.kol_service import (
-    APPROVED, approval_status, is_signed)
+    APPROVED, approval_status, creator_row, is_signed)
 from ecentric_workspace.approval_center.features.contract_review.domain import kol
 
 KOL_EXPENSE_CATEGORY = "TT_KOL"
@@ -75,6 +75,14 @@ def fill_payment(pr, name):
         pr.ec_brand = doc.brand
     if not pr.get("payee_full_name"):
         pr.payee_full_name = doc.get("creator_name")
+    # Tai khoan nhan = tai khoan creator (bat buoc khop - _check_payee). Dien san khi trong: dong doi cung
+    # phong lap DNTT khong thay STK day du cua creator (QC ban do 17/11).
+    if not pr.get("bank_account_number") or not pr.get("account_bank"):
+        creator = creator_row(doc.get("creator")) or {}
+        if not pr.get("bank_account_number") and creator.get("ec_bank_account_no"):
+            pr.bank_account_number = creator.get("ec_bank_account_no")
+        if not pr.get("account_bank") and creator.get("ec_bank_name"):
+            pr.account_bank = creator.get("ec_bank_name")
 
 
 # --------------------------------------------------------------------------- SO tren DNTT
@@ -104,38 +112,48 @@ def funding_so_can_view(pr, user):
     return bool(ar and frappe.db.exists("EC Approval Request Approver", {"approval_request": ar, "approver": user}))
 
 
-# So HD dang tool cu / ERP: ddmmyyyy/HDDV/ECENTRIC-<doi tac>.<brand>[-n] (doi tac co the co "-", "(").
-_OLD_NUMBER = re.compile(r"\b\d{8}/HDDV/ECENTRIC-[A-Za-z0-9()\-]+\.[A-Za-z0-9]+(?:-\d+)?")
+# So HD dang tool cu / ERP: ddmmyyyy/HDDV/ECENTRIC-<doi tac>.<brand>[-n] (doi tac, brand co the co "-").
+_OLD_NUMBER = re.compile(r"\b\d{8}/HDDV/ECENTRIC-[A-Za-z0-9()\-]+\.[A-Za-z0-9\-]+")
+_RELEASED = ("Rejected", "Cancelled")
 
 
 def legacy_contract_ref(pr):
     """PO 17/11: DNTT Booking KOL cho hop dong ky bang tool cu (truoc ERP) - "Khong" co chung tu nguon,
-    ly do ghi so hop dong cu. Ke toan doi chieu luc duyet. MOI so trong ly do ma trung (hoac la tien to
-    cua) mot hop dong ERP DA DUYET thi phai chon hop dong ERP do (co tran chi) - QC 17/11 vong 2."""
+    ly do ghi so hop dong cu. Ke toan doi chieu luc duyet. MOI so trong ly do ma trung mot hop dong ERP
+    CON HIEU LUC (da gui, khong bi tu choi / huy - ke ca dang cho duyet) thi phai dung hop dong ERP do
+    (co tran chi) - QC 17/11 vong 2 + ban do."""
     if pr.get("has_purchase_request") != "No":
         return False
     text = str(pr.get("no_purchase_request_reason") or "")
-    found = [m.group(0) for m in _OLD_NUMBER.finditer(text)]
+    found = [m.group(0).rstrip("-") for m in _OLD_NUMBER.finditer(text)]
     if not found:
         return False
     for no in found:
-        hit = _approved_erp_contract(no)
+        hit = _live_erp_contract(no)
         if hit:
-            frappe.throw(_("Hợp đồng {0} đã có trên ERP ({1}): chọn hợp đồng đó làm chứng từ nguồn.").format(
-                hit[1], hit[0]))
+            name, number, status = hit
+            if status == APPROVED:
+                frappe.throw(_("Hợp đồng {0} đã có trên ERP ({1}): chọn hợp đồng đó làm chứng từ nguồn.").format(
+                    number, name))
+            frappe.throw(_("Hợp đồng {0} đang duyệt trên ERP ({1}): chờ duyệt xong rồi lập đề nghị thanh toán "
+                           "theo hợp đồng đó.").format(number, name))
     return True
 
 
-def _approved_erp_contract(no):
-    """(ten phieu, so HD) cua hop dong ERP da duyet co so = `no` hoac la tien to cua `no` (vd "...FCV-dot2")."""
+def _live_erp_contract(no):
+    """(phieu, so HD, trang thai) cua hop dong ERP con hieu luc co so = `no`, hoac `no` = so do + "-..."/"_..."
+    (vd "...FCV-dot2"). So "...FCV-12" KHONG khop "...FCV-1"."""
     rows = frappe.get_all(kol_lookup.CR_DT, filters={"contract_no": ["like", no[:9] + "%"],
                                                      "approval_request": ["is", "set"]},
                           fields=["name", "contract_no", "approval_request"], limit_page_length=0,
                           ignore_permissions=True)
     for r in sorted(rows, key=lambda x: -len(x.contract_no or "")):
-        if r.contract_no and no.startswith(r.contract_no) \
-                and frappe.db.get_value("EC Approval Request", r.approval_request, "approval_status") == APPROVED:
-            return r.name, r.contract_no
+        c = r.contract_no or ""
+        if not c or not (no == c or no.startswith(c + "-") or no.startswith(c + "_")):
+            continue
+        status = frappe.db.get_value("EC Approval Request", r.approval_request, "approval_status")
+        if status not in _RELEASED:
+            return r.name, c, status
     return None
 
 
@@ -170,7 +188,6 @@ def _check_payee(pr):
     """PO 17/11 (D) + QC 17/11: tien chi ra tai khoan GO TREN DNTT - phai la tai khoan creator dang
     luu, va neu tai khoan do doi sau khi ky thi Ke toan da xac nhan tren hop dong."""
     from ecentric_workspace.approval_center.features.contract_review.application import kol_access
-    from ecentric_workspace.approval_center.features.contract_review.application.kol_service import creator_row
     name = pr.get("funding_source_name")
     if not name:
         return
@@ -181,7 +198,10 @@ def _check_payee(pr):
                        "\"Xác nhận tài khoản mới\" trên hợp đồng trước khi lập đề nghị thanh toán.").format(name))
     typed = re.sub(r"\D", "", str(pr.get("bank_account_number") or ""))
     stored = re.sub(r"\D", "", str(creator.get("ec_bank_account_no") or ""))
-    if typed and stored and typed != stored:
+    if not stored:
+        frappe.throw(_("Creator của hợp đồng {0} chưa có số tài khoản: bổ sung thông tin creator (Kế toán xác "
+                       "nhận trên hợp đồng) rồi lập đề nghị.").format(name))
+    if typed and typed != stored:
         frappe.throw(_("Số tài khoản nhận tiền trên đề nghị khác số tài khoản của creator trong hợp đồng {0}: "
                        "sửa số tài khoản trên đề nghị cho đúng. Creator thật sự đổi tài khoản thì cập nhật thông "
                        "tin creator, Kế toán xác nhận trên hợp đồng, rồi lập đề nghị.").format(name))
