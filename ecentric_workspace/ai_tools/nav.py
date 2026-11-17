@@ -98,7 +98,9 @@ AI_TOOL_ITEMS = [
         "icon": "target",
         "group": "",
         "order": 23,
-        "active_patterns": ["/ai-live"],
+        # 17/11: "/ai-live/*" de trang con /ai-live/ban-quyen thuoc ngu canh AI (menu dung khu) ca voi nguoi
+        # khong co role - muc "Ban quyen AI Live" bi loc theo role nen khong tu keo ngu canh duoc.
+        "active_patterns": ["/ai-live", "/ai-live/*"],
         "visible_when": "internal",
         "keywords": ["ai live", "live", "truc live", "phien live", "lich live", "su co", "may phat",
                      "eC Live", "dua vit", "bo live", "tuong hinh", "giam sat", "bao dong"],
