@@ -20,7 +20,7 @@ class ListSessionsService:
         self.clock = clock or R.now_ts
 
     def execute(self, roles, brand=None, platform=None, machine=None, status=None):
-        _common.require_role(roles, C.VIEW_ROLES, C.Msg.NEED_VIEW)
+        _common.require_role(roles, C.SCHEDULE_VIEW_ROLES, C.Msg.NEED_SCHEDULE_VIEW)
         now, cfg = self.clock(), self.settings.get()
         hi = health_index(self.health.all())
         rows = [summarize(s, hi.get(R.key_of(s["machine"], s["id"])) if s["machine"] else None, now, cfg)
@@ -40,4 +40,5 @@ class ListSessionsService:
         if status in STATUSES:
             rows = [r for r in rows if r["status"] == status]
         rows.sort(key=lambda r: (STATUS_ORDER.get(r["status"], 9), (r["next"] or {}).get("start") or 9e12, r["title"]))
-        return {"sessions": rows, "counts": counts, "facets": facets, "server_time": now, "refresh_s": 15}
+        return {"sessions": rows, "counts": counts, "facets": facets, "server_time": now, "refresh_s": 15,
+                "can_edit": _common.has_role(roles, C.SCHEDULE_EDIT_ROLES)}

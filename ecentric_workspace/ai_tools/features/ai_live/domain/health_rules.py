@@ -247,6 +247,11 @@ def now_ts():
     return time.time()
 
 
+def vn_text(ts):
+    """epoch -> "YYYY-MM-DD HH:MM:SS" gio Viet Nam (khong mui gio) - dang app eC Live doc cho server_time."""
+    return datetime.fromtimestamp(float(ts), _VN).strftime("%Y-%m-%d %H:%M:%S")
+
+
 def iso(ts):
     """epoch giay -> ISO 8601 UTC co mili giay (giong Date.toISOString() cua app)."""
     return datetime.fromtimestamp(float(ts), timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.") + "%03dZ" % (int(float(ts) * 1000) % 1000)

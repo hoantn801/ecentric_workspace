@@ -10,6 +10,12 @@ COST_LOG = "EC AI Live Cost Log"
 ADMIN_ROLES = ("EC AI Video Admin", "System Manager")
 #: Xem chi phi AI Live: ai co quyen trang /ai-video.
 VIEW_ROLES = ("EC AI Content", "EC AI Video Admin", "System Manager")
+#: 18/11 (hop dong lich live muc 8, Hoan chot giu role cu): role rieng cho Lich live.
+#: Scheduler = xem + sua nhap + phat hanh + bat/tat; Viewer = chi xem. Role cu (VIEW_ROLES) van lam duoc nhu truoc.
+SCHEDULER_ROLE = "AI Live Scheduler"
+SCHEDULE_VIEWER_ROLE = "AI Live Viewer"
+SCHEDULE_EDIT_ROLES = VIEW_ROLES + (SCHEDULER_ROLE,)
+SCHEDULE_VIEW_ROLES = SCHEDULE_EDIT_ROLES + (SCHEDULE_VIEWER_ROLE,)
 
 MODES = ("full", "lite")
 BREAK_SECS = (20, 25, 30, 35)
@@ -48,6 +54,8 @@ class Msg:
     BAD_COST = "Dữ liệu chi phí không hợp lệ: %s"
     NEED_ADMIN = "Chỉ quản trị AI Video được làm việc này."
     NEED_VIEW = "Cần quyền EC AI Content."
+    NEED_SCHEDULE_VIEW = "Cần quyền xem Lịch live (AI Live Viewer hoặc AI Live Scheduler)."
+    NEED_SCHEDULE_EDIT = "Chỉ người xếp lịch (AI Live Scheduler) mới sửa / phát hành được lịch live."
     UNKNOWN_BRAND = "Chưa có cấu hình brand %s."
     UNKNOWN = "Không thực hiện được. Thử lại sau ít phút, nếu vẫn lỗi thì báo IT."
 
@@ -288,9 +296,23 @@ MAX_DETAIL_TEXT = 160
 DETAIL_COUNTERS = ("comments", "answered", "greeted", "faq", "ai")
 
 
+#: 18/11 (hop dong lich live muc 3): gioi han app eLive doc (normalizeSession).
+MAX_SESSION_TITLE = 80
+MAX_TOGGLE_SLOTS = 200
+MAX_MONTH_REPORTS = 20000
+MONTH_RE = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
+MAX_SHOP_NAME = 120
+
+
 class SessMsg:
     BAD_ID = "Mã phiên live không hợp lệ (chữ, số, . _ -; tối đa 40 ký tự)."
     BAD_PLATFORM = "Sàn phải là TikTok hoặc Shopee."
+    BAD_MONTH = "Tháng phải dạng YYYY-MM."
+    PICK_SLOTS = "Chưa chọn khung giờ nào."
+    TOO_MANY_SLOTS = "Tối đa %d khung mỗi lần bật / tắt."
+    SLOT_MOVED = "Khung giờ đã đổi ở nơi khác – tải lại lịch rồi chọn lại."
+    LONG_TITLE = "Tên phiên tối đa %d ký tự (app eLive cắt / bỏ nếu dài hơn) – đang %d."
+    LONG_SHOP = "Tên shop tối đa %d ký tự – đang %d."
     NEED_TIKTOK = "Phiên TikTok cần username kênh."
     BAD_TIKTOK = "Username TikTok không hợp lệ: %s"
     BAD_PORT = "Cổng OBS phải từ 1024 đến 65535."
@@ -303,6 +325,8 @@ class SessMsg:
     NO_MACHINE = "Phiên live chưa gán máy phát."
     CMD_NOT_FOUND = "Không tìm thấy lệnh %s."
     BAD_WEEK = "Tuần không hợp lệ (dùng ngày thứ Hai, dạng YYYY-MM-DD)."
+    BAD_DAY = "Ngày không hợp lệ (dạng YYYY-MM-DD)."
+    COPY_OVER = "Máy %s chỉ chạy tối đa %d live cùng lúc – lúc %s sẽ có: %s."
     BRAND_OFF = "Brand %s chưa giao cho máy %s."
     BAD_URL = "Link xem phiên phải bắt đầu bằng https://"
     BAD_SERIAL = "Mã điện thoại (adb serial) không hợp lệ."

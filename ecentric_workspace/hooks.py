@@ -467,10 +467,12 @@ fixtures = [
         # EC AI Video Admin (05/10): quan tri prompt trang /ai-video (prompt chung + theo nhom SP).
         # EC AI Voice User / Manager (15/11): trang /ai-voice - tao giong doc AI / quan ly thu vien giong.
         # AI Live License Admin (17/11): trang /ai-live/ban-quyen - duyet / khoa may dung eLive / eSync / eVoice.
+        # AI Live Scheduler / Viewer (18/11, hop dong lich live): nhap + phat hanh lich / chi xem lich.
         "filters": [["name", "in", ["PM Manager", "PM Member", "EC AI Formfill Pilot",
                                     "EC Khay Pilot", "EC AI Video Admin",
                                     "EC AI Usage Viewer", "EC AI Voice User",
-                                    "EC AI Voice Manager", "AI Live License Admin"]]],
+                                    "EC AI Voice Manager", "AI Live License Admin",
+                                    "AI Live Scheduler", "AI Live Viewer"]]],
     },
     # HR MVP (2026-09): cac Server Script `ec_hr_*` va cac trang `/ec-hr/*` truoc
     # day chi song trong DB, khong co ban trong git -- rebuild site la mat sach
@@ -1101,3 +1103,9 @@ scheduler_events["cron"].setdefault("30 8 * * 1-6", []).append(
 # Cap / cho / khoa / thao tac cua nguoi giu mai. Tat khan ca hai API cho app: site_config `ec_license_disabled: 1`.
 scheduler_events["daily"].append(
     "ecentric_workspace.ai_tools.features.ai_live.jobs.license_purge_job.run")
+
+# 18/11/2026 - Lich live AI (hop dong 18/11, Hoan chot): /ai-live/lich la duong tat vao Lich live (kieu xem Bang).
+# 302 de doi dich sau nay khong vuong cache trinh duyet.
+website_redirects = list(globals().get("website_redirects") or []) + [
+    {"source": "/ai-live/lich", "target": "/ai-live#/schedule/board", "redirect_http_status": 302},
+]

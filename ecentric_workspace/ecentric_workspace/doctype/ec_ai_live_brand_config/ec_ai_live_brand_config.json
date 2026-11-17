@@ -204,7 +204,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-10-17 00:00:00.000000",
+ "modified": "2026-11-18 03:00:00.000000",
  "modified_by": "Administrator",
  "module": "Ecentric Workspace",
  "name": "EC AI Live Brand Config",
@@ -230,6 +230,18 @@
    "delete": 1,
    "report": 1,
    "export": 1,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  },
+  {
+   "role": "AI Live Scheduler",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 0,
+   "export": 0,
    "print": 0,
    "email": 0,
    "share": 0

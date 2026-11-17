@@ -9,7 +9,8 @@ fix10g: ERP NHAN LUON thanh 1 ban phat hanh moi (nguon "app"), khong qua ban nha
 - Phien dang giu gio cu (lich moi da phat hanh, app dang chay ban cu) -> tu choi toi het lan do (ma schedule_held).
   Luc giu, get_config tra schedule_version = ban CU dang chay (24/10), nen het moc giu ma app gui base cu -> schedule_stale.
 - Ai dang co ban nhap cho phien nay -> ban nhap thanh "lech" (draft_state stale), phai chon giu / bo truoc khi phat hanh.
-- Van kiem trung gio, suc chua may (tinh ca lan dang giu gio cu), cong OBS."""
+- Van kiem trung gio, suc chua may (tinh ca lan dang giu gio cu), cong OBS.
+- 18/11: khung ERP dang TAT (app khong thay) duoc giu lai, khong bi lich cua app xoa mat."""
 from datetime import datetime
 
 from ecentric_workspace.ai_tools.features.ai_live import constants as C
@@ -35,7 +36,7 @@ class PushSlotsService:
             raise C.AiLiveError(C.SessMsg.BAD_SLOTS)          # khong tu xoa lich khi app gui thieu slots
         clean = S.norm_slots(raw)
         before = P.published_view(sess)
-        after = dict(before, slots=clean)
+        after = dict(before, slots=self._keep_off(clean, before["slots"]))
         version = sess.get("published_version") or 0
         if not P.same(before, after):
             held = float(sess.get("held_until_ts") or 0)
@@ -57,6 +58,15 @@ class PushSlotsService:
             version = pub.write(user, all_s, {sess["id"]: after}, {}, C.PubSource.APP, refresh=False)["version"]
         return {"session": self.sessions.get(sess["id"]), "slots": clean, "schedule": S.to_app_schedule(clean),
                 "schedule_version": version}
+
+    @staticmethod
+    def _keep_off(clean, old):
+        """18/11: app chi biet khung DANG BAT (khung tat khong gui xuong may) -> giu lai khung ERP dang tat, tru khi
+        trung y het 1 khung app gui hoac vuot tran 40 khung (khung app gui duoc uu tien)."""
+        have = {(tuple(s["days"]), s["date"], s["start"], s["end"]) for s in clean}
+        offs = [s for s in old if not S.slot_on(s) and (tuple(s.get("days") or []), s.get("date"), s["start"], s["end"]) not in have]
+        offs = offs[:max(0, C.MAX_SESSION_SLOTS - len(clean))]
+        return S.norm_slots(clean + offs) if offs else clean
 
     def publisher(self):
         if self._publisher is None:

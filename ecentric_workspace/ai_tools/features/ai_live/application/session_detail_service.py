@@ -22,7 +22,7 @@ class SessionDetailService:
         self.clock = clock or R.now_ts
 
     def execute(self, roles, name):
-        _common.require_role(roles, C.VIEW_ROLES, C.Msg.NEED_VIEW)
+        _common.require_role(roles, C.SCHEDULE_VIEW_ROLES, C.Msg.NEED_SCHEDULE_VIEW)
         sess = self.sessions.get(str(name or ""))
         if not sess:
             raise C.AiLiveError(C.SessMsg.NOT_FOUND % name)
@@ -31,6 +31,8 @@ class SessionDetailService:
         row = self.health.get(key) if key else None
         out = summarize(sess, row, now, cfg)
         out.update({"session": sess, "server_time": now, "refresh_s": 10,
+                    "can_edit": _common.has_role(roles, C.SCHEDULE_EDIT_ROLES),     # 18/11: sua phien / lich
+                    "can_control": _common.has_role(roles, C.VIEW_ROLES),          # lenh dieu khien app
                     "detail": (row or {}).get("detail") or {}, "metrics": (row or {}).get("metrics") or {},
                     "app_version": (row or {}).get("app_version") or "",
                     "thumbs": {k: (row or {}).get(k + "_thumb_ts") or 0 for k in C.THUMB_KINDS},

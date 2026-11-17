@@ -29,8 +29,9 @@ class PushSlotReportService:
             except C.AiLiveError as e:
                 skipped.append({"live": str((rec or {}).get("live") or "")[:40] if isinstance(rec, dict) else "", "why": str(e)})
                 continue
-            if row["live"] not in erp:
-                erp[row["live"]] = bool(self.sessions.get(row["live"]))
+            if row["live"] not in erp:               # 18/11: live cua ERP VA giao cho dung may gui (ke ca ban cu dang giu)
+                s = self.sessions.get(row["live"]) or {}
+                erp[row["live"]] = m["machine_code"] in (s.get("machine"), (s.get("prev") or {}).get("machine"))
             row.update(machine=m["machine_code"], off_plan=0 if erp[row["live"]] else 1, received_ts=now)
             self.reports.upsert(SR.report_key(m["machine_code"], row["live"], row["planned_start_ts"]), row)
             saved.append(row["live"])

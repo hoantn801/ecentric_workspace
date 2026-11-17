@@ -47,7 +47,7 @@ class ScheduleActualsService:
         self.clock = clock or R.now_ts
 
     def execute(self, roles, day=None):
-        _common.require_role(roles, C.VIEW_ROLES, C.Msg.NEED_VIEW)
+        _common.require_role(roles, C.SCHEDULE_VIEW_ROLES, C.Msg.NEED_SCHEDULE_VIEW)
         now = self.clock()
         if day and not C.DATE_RE.match(str(day)):
             raise C.AiLiveError(C.SessMsg.BAD_WEEK)

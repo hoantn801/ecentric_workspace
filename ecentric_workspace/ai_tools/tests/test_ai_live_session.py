@@ -430,7 +430,7 @@ class TestPushSlots(unittest.TestCase):
         self.assertEqual(self.ss.saved, ["a"])
         self.assertEqual(r["session"]["id"], "a")
         self.assertEqual(r["session"]["slots"], r["slots"])
-        self.assertEqual(r["slots"][2], {"days": [], "date": "2026-10-25", "start": "09:00", "end": "10:30"})
+        self.assertEqual(r["slots"][2], {"days": [], "date": "2026-10-25", "start": "09:00", "end": "10:30", "enabled": True})
         self.assertEqual(r["schedule"][1], {"days": [6, 7], "start": "22:00", "end": "02:00"})
         from ecentric_workspace.ai_tools.tests.test_ai_live_service import FakeBrands
         lv = GetConfigService(FakeMachines(), FakeBrands(), sessions=self.ss, schedule=self.sched, clock=lambda: MON).execute(

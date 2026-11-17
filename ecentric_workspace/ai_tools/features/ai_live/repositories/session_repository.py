@@ -20,8 +20,9 @@ def _json(v):
 
 
 def _slot_rows(slots):
+    from ecentric_workspace.ai_tools.features.ai_live.domain.session_rules import slot_on
     return [{"days": ",".join(str(d) for d in s["days"]) if not s["date"] else "", "on_date": s["date"],
-             "slot_start": s["start"], "slot_end": s["end"]} for s in slots]
+             "slot_start": s["start"], "slot_end": s["end"], "enabled": 1 if slot_on(s) else 0} for s in slots]
 
 
 def _days(v):
@@ -39,8 +40,10 @@ def _days(v):
 
 def _slot(r):
     d = str(r.get("on_date") or "")[:10] or None
+    en = r.get("enabled")
     return {"days": [] if d else (_days(r.get("days")) or list(range(1, 8))), "date": d,
-            "start": r.get("slot_start") or "", "end": r.get("slot_end") or ""}
+            "start": r.get("slot_start") or "", "end": r.get("slot_end") or "",
+            "enabled": True if en is None else bool(int(en))}     # 18/11: dong cu chua co cot = dang bat
 
 
 def _row(r, slots):
@@ -64,7 +67,7 @@ class SessionRepository:
         if not names:
             return {}
         rows = frappe.get_all(C.SESSION_SLOT, filters={"parent": ["in", list(names)], "parenttype": C.SESSION},
-                              fields=["parent", "idx", "days", "on_date", "slot_start", "slot_end"],
+                              fields=["parent", "idx", "days", "on_date", "slot_start", "slot_end", "enabled"],
                               order_by="parent asc, idx asc", limit_page_length=C.MAX_SESSIONS * C.MAX_SESSION_SLOTS)
         out = {}
         for r in rows:

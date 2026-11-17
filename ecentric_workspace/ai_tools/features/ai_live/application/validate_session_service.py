@@ -24,15 +24,25 @@ class ValidateSessionService:
         doc.live_id = sid
         if doc.platform not in C.PLATFORMS:
             raise C.AiLiveError(C.SessMsg.BAD_PLATFORM)
+        doc.title = str(getattr(doc, "title", "") or "").strip()
+        doc.shop_name = str(getattr(doc, "shop_name", "") or "").strip()
+        if len(doc.title) > C.MAX_SESSION_TITLE:
+            raise C.AiLiveError(C.SessMsg.LONG_TITLE % (C.MAX_SESSION_TITLE, len(doc.title)))
+        if len(doc.shop_name) > C.MAX_SHOP_NAME:
+            raise C.AiLiveError(C.SessMsg.LONG_SHOP % (C.MAX_SHOP_NAME, len(doc.shop_name)))
         self._tiktok(doc)
         self._watch(doc)
         if (doc.mode or "") not in ("",) + C.MODES:
             raise C.AiLiveError(C.Msg.BAD_MODE)
+        rows = list(doc.slots or [])
         slots = S.norm_slots([{"days": r.days, "date": str(r.on_date or "")[:10] or None, "start": r.slot_start,
-                               "end": r.slot_end} for r in (doc.slots or [])])
-        for row, s in zip(doc.slots or [], slots):
+                               "end": r.slot_end, "enabled": getattr(r, "enabled", 1)} for r in rows])
+        # norm_slots SAP XEP lai (thu tu on dinh cho app) -> ghi lai dung thu tu do vao bang con
+        for row, s in zip(rows, slots):
             row.days = ",".join(str(d) for d in s["days"]) if not s["date"] else ""
+            row.on_date = s["date"]
             row.slot_start, row.slot_end = s["start"], s["end"]
+            row.enabled = 1 if s["enabled"] else 0
         today = datetime.fromtimestamp(self.clock(), R._VN).date()
         clash = S.self_overlap(slots, today)
         if clash:
