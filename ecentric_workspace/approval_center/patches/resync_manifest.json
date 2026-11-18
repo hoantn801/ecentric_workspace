@@ -321,32 +321,32 @@
     "sha256": "79d602e352d919a9e93eea4ec2f09f340aa73ff164c553e337f0f4967a016832"
   },
   "dao_tao/pages/learn/main_section.html": {
-    "last_resync_patch": "p389_dao_tao_bai_hoc_truc_quan",
-    "sha256": "3b97ea4c8813dbc1d5057fa3b1625d9ff8addced9c990e14dff8b3beeca2081d"
+    "last_resync_patch": "p415_dao_tao_bai_hoc_kieu_bai_viet",
+    "sha256": "a2ff4edd4cd9e1a219a61b4abaeafe0d765605f7ffe33b1fcb6b1f2d7de0939b"
   },
   "dao_tao/pages/lesson/main_section.html": {
-    "last_resync_patch": "p389_dao_tao_bai_hoc_truc_quan",
-    "sha256": "5412640b006aafffa68c64b4b5d79fb0367cce64cd8ebf55e10fb0a1871ec929"
+    "last_resync_patch": "p415_dao_tao_bai_hoc_kieu_bai_viet",
+    "sha256": "331ca647ce1508ba9a90afba121f0573cd6a8c3f70e2b163e2654a9908248fef"
   },
   "dao_tao/pages/admin/main_section.html": {
-    "last_resync_patch": "p389_dao_tao_bai_hoc_truc_quan",
-    "sha256": "bc455b4f393db7d0b30e00a816bd3104db17f1943a2f2a79e7fad9d2cf198ae8"
+    "last_resync_patch": "p415_dao_tao_bai_hoc_kieu_bai_viet",
+    "sha256": "b744188a960ff30a8693b16da51af3add3db0a642b14dc51388ea4be3a34e81d"
   },
   "dao_tao/pages/quiz/main_section.html": {
-    "last_resync_patch": "p389_dao_tao_bai_hoc_truc_quan",
-    "sha256": "3a678967e334107de9ba2ef1046d80d8c63ffe1cd22a0e81a2d4f76d2bde1843"
+    "last_resync_patch": "p415_dao_tao_bai_hoc_kieu_bai_viet",
+    "sha256": "d151b8102543e328bca842d85cf102f5a2a2bedf8e7ecd10aeb1a81419f8f55c"
   },
   "dao_tao/pages/edit/main_section.html": {
-    "last_resync_patch": "p389_dao_tao_bai_hoc_truc_quan",
-    "sha256": "9496631720ad2c772aee5b49bd3e3f47dc394c3ddc3828662fa2a5c6cb3e6217"
+    "last_resync_patch": "p415_dao_tao_bai_hoc_kieu_bai_viet",
+    "sha256": "c50caa681347c08ebacf5fa16abe2a26720d88803272f51b9d154fb01b4d211c"
   },
   "dao_tao/pages/play/main_section.html": {
-    "last_resync_patch": "p389_dao_tao_bai_hoc_truc_quan",
-    "sha256": "afd6748d2bf576fe002a66c619e73362cc616c2b09cd3945dcd63750f2e72a44"
+    "last_resync_patch": "p415_dao_tao_bai_hoc_kieu_bai_viet",
+    "sha256": "6fc400def664873fd63da5b545c43cb6b5e107d745493427bd8aaabd5c47cd54"
   },
   "dao_tao/pages/host/main_section.html": {
-    "last_resync_patch": "p389_dao_tao_bai_hoc_truc_quan",
-    "sha256": "63c45e2558732b3bd5bb5049249337cbe12621324760ce06bad7440909bdb5c4"
+    "last_resync_patch": "p415_dao_tao_bai_hoc_kieu_bai_viet",
+    "sha256": "c3196ca151dc993dddaa46818f61942c82f160adec17fe8e1ba69920b44462fd"
   },
   "ai_tools/pages/ai_voice/main_section.html": {
     "last_resync_patch": "p380_ai_voice_trang_moi",

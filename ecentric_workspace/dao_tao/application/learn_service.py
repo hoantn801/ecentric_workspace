@@ -65,6 +65,7 @@ def lesson_detail(ctx, repo, name):
     out = dict(les)
     out["step"] = L.step(les, prog)
     out["step_label"] = L.STEP_LABELS[out["step"]]
+    out["week_label"] = tickets.week_label(_date(les["week_start"])) if les.get("week_start") else ""
     out["progress"] = {k: prog.get(k) for k in ("viewed_at", "quiz_score", "quiz_scored", "quiz_at",
                                                  "practice_text", "practice_link", "practice_at", "review")}
     out["quiz"] = quiz
