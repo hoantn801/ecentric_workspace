@@ -1109,3 +1109,10 @@ scheduler_events["daily"].append(
 website_redirects = list(globals().get("website_redirects") or []) + [
     {"source": "/ai-live/lich", "target": "/ai-live#/schedule/board", "redirect_http_status": 302},
 ]
+
+# 18/11/2026 (Hoan) - Ky so: phieu ERP bi TU CHOI / HUY thi huy tai lieu tuong ung tren cong CMC
+# (truoc day tai lieu van "Dang xu ly" trong danh sach viec cua nguoi ky ke tiep). Chi phieu ket
+# thuc tu 18/11; ton dong cu qua lenh SM cancel_rejected_documents (chay thu mac dinh). Cung kill
+# switch esign (ec_esign_scheduler_disabled). Xem platform/esign/provider_cancel.py.
+scheduler_events["cron"].setdefault("*/10 * * * *", []).append(
+    "ecentric_workspace.platform.esign.provider_cancel.sweep")

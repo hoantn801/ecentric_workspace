@@ -427,6 +427,50 @@ class SctsClient(object):
         raise ProviderError("scts_create_rejected_%s" % status,
                             "SCTS rejected AddDocument (HTTP %s)" % status, retryable=False)
 
+    def cancel_document(self, document_id, reason, token):
+        """POST /api/Document/cancel-file-pdf (CMC, 18/11/2026) - HUY chung tu: cong danh dau
+        da huy (destroy=1) va dong dau "Cancelled" len tep. Payload lay tu chinh cong (nut "Huy
+        chung tu", view-tasks.js): {documentId, emails, emailTemplateId, reason}; emails rong =
+        khong gui mail. Lenh GHI khong lay lai duoc: MOT lan goi, KHONG thu lai. Mang / 5xx =
+        MO HO (co the da huy) -> nguoi goi phai doc lai tai lieu, khong goi lai mu.
+        2xx kem success=false = cong tu choi chac chan."""
+        headers = {"Accept": "application/json", "Content-Type": "application/json"}
+        if token:
+            headers["Authorization"] = "Bearer %s" % token
+        body = {"documentId": document_id, "emails": [], "emailTemplateId": None,
+                "reason": (reason or None)}
+        try:
+            resp = self._transport("POST", self._url("/api/Document/cancel-file-pdf"),
+                                   headers=headers, json_body=body, timeout=self.timeout,
+                                   verify_tls=self.verify_tls)
+        except Exception:
+            raise ProviderError("scts_cancel_outcome_unknown",
+                                "cancel-file-pdf outcome unknown (network/timeout)",
+                                retryable=False, ambiguous=True)
+        status = int(getattr(resp, "status_code", 0))
+        if status in _AUTH_STATUSES:
+            raise ProviderError("scts_auth_error_%s" % status,
+                                "SCTS rejected credentials on cancel (HTTP %s)" % status,
+                                retryable=False)
+        if status >= 500:
+            raise ProviderError("scts_cancel_outcome_unknown",
+                                "cancel-file-pdf outcome unknown (HTTP %s)" % status,
+                                retryable=False, ambiguous=True)
+        if not 200 <= status < 300:
+            raise ProviderError("scts_cancel_rejected_%s" % status,
+                                "SCTS rejected cancel (HTTP %s): %s"
+                                % (status, self._safe_body(resp)), retryable=False)
+        try:
+            data = resp.json()
+        except Exception:
+            data = None
+        if isinstance(data, dict) and data.get("success") is False:
+            raise ProviderError("scts_cancel_rejected",
+                                "SCTS refused cancel: %s"
+                                % " ".join(str(data.get("message") or "").split())[:200],
+                                retryable=False)
+        return data if isinstance(data, dict) else {}
+
     # Dau hieu "het han muc" trong `message` cua cong (so khop khong phan biet hoa thuong,
     # co dau va khong dau). Chi khop khi body la JSON {"success": false, "message": ...}.
     _QUOTA_MARKERS = ("v\u01b0\u1ee3t h\u1ea1n m\u1ee9c", "vuot han muc",
