@@ -144,6 +144,9 @@
 .pmq-ask-more .pmq-link{margin:0 -4px}
 .pmq-ask-form{grid-column:1/-1;display:grid;gap:7px;background:#fff;border:1px solid var(--q-today-line);border-radius:9px;padding:10px 12px;margin-top:2px}
 .pmq-af-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+/* hotfix 17 (live 18/11): ô ngày được ec_datepicker bọc .ec-dp-wrap (width:100%) -> trong hàng flex nó chiếm cả dòng, đẩy nút
+   Dời hạn / Bỏ hạn / Xong xuống dòng dưới. Giữ ô ngày gọn như ô Hạn của giao việc 1 dòng. */
+.pmq-af-row .ec-dp-wrap,.pmq-bulk .ec-dp-wrap{width:auto;flex:0 0 156px}
 .pmq-af-row label,.pmq-af-l{font-size:12.5px;font-weight:600;color:var(--q-g700)}
 .pmq-ta{width:100%;resize:vertical;min-height:54px;line-height:1.45}
 .pmq-ta[aria-invalid=true]{border-color:var(--q-late)}
