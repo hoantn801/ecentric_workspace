@@ -314,11 +314,48 @@ def payee_changed(doc, creator=None):
     return now != base and now not in {r["fp"] for r in _approved(doc)}
 
 
+_PAYEE_NOTE = "Đổi thông tin nhận tiền"     # binh luan creators.service.update ghi tren Supplier
+
+
+def payee_changers(doc):
+    """Nguoi da doi STK creator tu luc chot van tay (gui phieu / lan Ke toan xac nhan gan nhat). Doc tu
+    binh luan "Đổi thông tin nhận tiền" tren Supplier (creators.service.update ghi); sua tren Desk khong
+    co binh luan -> lay nguoi sua Supplier cuoi neu sua sau moc (QC 18/11 tach nhiem vu)."""
+    creator = doc.get("creator")
+    if not creator:
+        return set()
+    marks = [str(doc.get("submitted_at") or "")] + [str(r.get("at") or "") for r in _approved(doc)]
+    since = max(m for m in marks if m) if any(marks) else ""
+    filters = {"reference_doctype": "Supplier", "reference_name": creator, "comment_type": "Info",
+               "content": ["like", _PAYEE_NOTE + "%"]}
+    if since:
+        filters["creation"] = [">", since]
+    rows = frappe.get_all("Comment", filters=filters, fields=["owner", "comment_email"], limit_page_length=0)
+    users = {r.get("comment_email") or r.get("owner") for r in rows or []}
+    if not users:
+        mod = frappe.db.get_value("Supplier", creator, ["modified_by", "modified"], as_dict=True) or {}
+        if mod.get("modified_by") and (not since or str(mod.get("modified") or "") > since):
+            users.add(mod.get("modified_by"))
+    return {u for u in users if u}
+
+
+def can_confirm_payee(doc, user):
+    return bool(kol_lookup.is_finance(user) and user not in
+                payee_changers(doc) | {doc.get("requested_by"), doc.get("owner")})
+
+
 def confirm_payee(name, user):
     """Ke toan xac nhan STK moi cua creator cho hop dong nay - cac dot sau khong canh bao lai."""
     if not kol_lookup.is_finance(user):
         frappe.throw(_("Chỉ Kế toán xác nhận được tài khoản nhận tiền."), frappe.PermissionError)
     doc = frappe.get_doc(kol_lookup.CR_DT, name)
+    if not kol.is_kol(doc):
+        frappe.throw(_("Phiếu này không phải hợp đồng KOL/KOC."))
+    changers = payee_changers(doc)
+    if user in changers | {doc.get("requested_by"), doc.get("owner")}:
+        # Tach nhiem vu (QC 18/11): nguoi doi noi nhan tien / nguoi lap phieu khong tu duyet thay doi do.
+        frappe.throw(_("Bạn là người đổi tài khoản nhận tiền / người lập phiếu nên không tự xác nhận được. "
+                       "Nhờ một Kế toán khác kiểm."), frappe.PermissionError)
     from ecentric_workspace.approval_center.features.contract_review.application import kol_service
     if kol_service.approval_status(doc) != kol_service.APPROVED:
         # Phieu chua duyet xong van in STK cu: dung la Yeu cau bo sung + tao lai hop dong (QC 17/11).
@@ -334,8 +371,8 @@ def confirm_payee(name, user):
     # Cap nhat modified: mot ban luu cu (dang mo tu truoc) se bi TimestampMismatch thay vi ghi de mat
     # xac nhan (QC 17/11).
     frappe.db.set_value(kol_lookup.CR_DT, name, "kol_payee_ok", json.dumps(rows))
-    doc.add_comment("Info", _("{0} xác nhận tài khoản nhận tiền mới của creator (đổi sau khi ký hợp đồng).")
-                    .format(user))
+    doc.add_comment("Info", _("{0} xác nhận tài khoản nhận tiền mới của creator (đổi sau khi ký hợp đồng; người "
+                              "đổi: {1}).").format(user, ", ".join(sorted(changers)) or "-"))
     return {"ok": True, "changed": True}
 
 
@@ -376,6 +413,10 @@ def reopen_contract(name, user, reason):
     doc = frappe.get_doc(kol_lookup.CR_DT, name)
     if not is_closed(doc):
         return {"ok": True}
+    if user in {doc.get("requested_by"), doc.get("owner")}:
+        # Mo lai = mo lai tran chi: nguoi lap phieu khong tu mo (QC 18/11 tach nhiem vu).
+        frappe.throw(_("Bạn là người lập phiếu nên không tự mở lại được. Nhờ một Kế toán khác."),
+                     frappe.PermissionError)
     frappe.db.set_value(kol_lookup.CR_DT, name, {"kol_closed_at": None, "kol_closed_by": None,
                                                  "kol_close_reason": None})
     doc.add_comment("Info", _("{0} mở lại hợp đồng đã thanh lý ({1}): {2}").format(

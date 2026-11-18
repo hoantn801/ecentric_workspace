@@ -123,7 +123,7 @@ def _html():
 # ba viec giao dien (badge huy do + co chu hub). File sau merge mang CA HAI, nen compose cua no
 # khac ca hai gia tri dang choi nhau. So duoi day duoc TINH LAI tu file da gop, khong lay cua
 # ben nao; ca hai gia tri cu deu xuong SUPERSEDES vi ban nao cung co the dang nam o live.
-BASELINE_SHA256 = "72ecff3f8cb7f1fd496ba825c5cd1f3cb05b5f7753abd7f052db0a3b7e0c4433"
+BASELINE_SHA256 = "7202f2a7ac89d20b3ea74698c2ca9b938b1e686b15b5651c299dc1e5ff7c5fa5"
 SUPERSEDES_SHA256 = (
     "625db73bbaa2f8704c8b3e1617a3720253fd3011b51c43d245e7c078906a01b4",  # ban truoc canh bao "ghi dot 1 / 50% ma chon 100%" (17/11, p395)
     "12982f58af9e5719857ea24532f1bb97d6e95cb962e4de92ac7030de01f334b0",  # ban main #841 (chu SCTS -> CMC, p381) - live sau deploy 15/11

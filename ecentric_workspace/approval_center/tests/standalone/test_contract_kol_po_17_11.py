@@ -819,3 +819,71 @@ class QcVongCuoi(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class QcTachNhiemVu18_11(unittest.TestCase):
+    """QC 18/11 (sau E2E): nguoi doi STK / nguoi lap phieu khong tu xac nhan; khong tu mo lai thanh ly."""
+
+    def _setup(self, changers=(), supplier_mod=None):
+        a = _access("fin@ec", {"fin@ec": ["EC Finance"], "kt2@ec": ["EC Finance"], "req@ec": ["EC Finance"]})
+        old = {"ec_bank_account_no": "111", "ec_bank_name": "VCB"}
+        new = {"ec_bank_account_no": "222", "ec_bank_name": "VCB"}
+        d = _kol(submitted_at="2026-11-18 10:00:00")
+        a.snapshot_payee(d, old)
+        STATE["values"][("EC Approval Request", "AR-1")] = "Approved"
+        ks = importlib.import_module(P + "kol_service")
+        ks.creator_row = lambda n: new
+        STATE["get_all"]["Comment"] = lambda f, kw: [{"owner": u, "comment_email": u} for u in changers]
+        STATE["values"][("Supplier", "SUP-1")] = (
+            lambda field, as_dict: (supplier_mod or {}) if isinstance(field, (list, tuple)) else
+            ("owner@ec" if field == "owner" else None))
+        sys.modules["frappe"].db.set_value = lambda *x, **k: None
+        return a, d
+
+    def test_nguoi_doi_stk_khong_tu_xac_nhan(self):
+        a, d = self._setup(changers=("fin@ec",))
+        self.assertEqual(a.payee_changers(d), {"fin@ec"})
+        self.assertFalse(a.can_confirm_payee(d, "fin@ec"))
+        with self.assertRaises(sys.modules["frappe"].PermissionError):
+            a.confirm_payee("CR-1", "fin@ec")
+        self.assertTrue(a.can_confirm_payee(d, "kt2@ec"))
+        self.assertEqual(a.confirm_payee("CR-1", "kt2@ec"), {"ok": True, "changed": True})
+        self.assertTrue(any("người đổi: fin@ec" in c for c in STATE["comments"]))
+
+    def test_nguoi_lap_la_ke_toan_khong_tu_xac_nhan(self):
+        a, d = self._setup(changers=("owner@ec",))
+        with self.assertRaises(sys.modules["frappe"].PermissionError):
+            a.confirm_payee("CR-1", "req@ec")
+
+    def test_sua_tren_desk_khong_binh_luan_lay_nguoi_sua_supplier(self):
+        a, d = self._setup(changers=(), supplier_mod={"modified_by": "fin@ec", "modified": "2026-11-18 11:00:00"})
+        self.assertEqual(a.payee_changers(d), {"fin@ec"})
+        with self.assertRaises(sys.modules["frappe"].PermissionError):
+            a.confirm_payee("CR-1", "fin@ec")
+
+    def test_sua_supplier_truoc_moc_khong_tinh(self):
+        a, d = self._setup(changers=(), supplier_mod={"modified_by": "fin@ec", "modified": "2026-11-18 09:00:00"})
+        self.assertEqual(a.payee_changers(d), set())
+
+    def test_nguoi_lap_khong_tu_mo_lai_thanh_ly(self):
+        a = _access("req@ec", {"req@ec": ["EC Finance"], "fin@ec": ["EC Finance"]})
+        sys.modules["frappe"].db.set_value = lambda *x, **k: None
+        _kol(kol_closed_at="2026-11-17 10:00:00", kol_close_reason="x")
+        with self.assertRaises(sys.modules["frappe"].PermissionError):
+            a.reopen_contract("CR-1", "req@ec", "nham")
+        a.reopen_contract("CR-1", "fin@ec", "thanh ly nham")
+
+    def test_trang_an_nut_xac_nhan_voi_chinh_minh_va_xoa_nhap(self):
+        src = _read("features/contract_review/ui/main_section.html")
+        self.assertIn("x.can_verify_sign?", src)
+        self.assertIn("r.can_verify&&r.status===", src)
+        self.assertIn("x.can_confirm_payee?", src)
+        self.assertIn("function doDeleteDraft", src)
+        self.assertIn(">Xoá bản nháp</button>", src)
+        pr = _read("features/payment_request/ui/main_section.html")
+        self.assertIn("function doDeleteDraft", pr)
+        svc = _read("features/contract_review/application/kol_service.py")
+        self.assertIn('"can_verify_sign"', svc)
+        self.assertIn('r["can_verify"]', svc)
+        acc = _read("features/contract_review/application/kol_acceptance.py")
+        self.assertIn("tạo BBNT đợt", acc)
