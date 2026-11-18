@@ -497,6 +497,30 @@ class QcSauVongAgent(unittest.TestCase):
         svc = _read("features/payment_request/application/service.py")
         self.assertIn("funding.legacy_allowed(need[0], doc)", svc)
 
+    def test_dntt_hop_dong_tool_cu_dang_hddv_truoc_ngay(self):
+        """18/11 (Linh, EC-PAYR-2026-00693): so HD cu dang "HDDV/09102026/DMG-ECENTRIC-MCTRANNGOC" (HDDV truoc
+        ngay, khong co ".mau") truoc bi bao "phai gan hop dong KOL" du da chon No + ghi so."""
+        _fresh("req@ec")
+        fu = importlib.import_module(P + "kol_funding")
+        erp = []
+        STATE["get_all"][CR] = lambda f, kw: list(erp)
+        pr = lambda reason: {"has_purchase_request": "No", "no_purchase_request_reason": reason}
+        for reason in ("Thanh toán đợt 2 cho hợp đồng số HDDV/09102026/DMG-ECENTRIC-MCTRANNGOC",
+                       "HĐDV/01102026/ABC-ECENTRIC-X", "09102026/HDDV/ECENTRIC-XOAIFAM.DL",
+                       "12112026/HDDV/ECENTRIC-TC-HT(L.PHN"):
+            self.assertTrue(fu.legacy_contract_ref(pr(reason)), reason)
+        for reason in ("Booking KOL/KOC", "Booking KOL KOC", "HDDV", "HDDV/2026/ABC", "x/HDDV/09102026/ABC"):
+            self.assertFalse(fu.legacy_contract_ref(pr(reason)), reason)
+        # so HD dang moi trung hop dong ERP con hieu luc -> van chan nhu dang cu
+        erp.append(Row(name="EC-CTR-8", contract_no="HDDV/09102026/DMG-ECENTRIC-MCTRANNGOC", approval_request="AR-8"))
+        STATE["values"][("EC Approval Request", "AR-8")] = "Approved"
+        with self.assertRaises(Throw):
+            fu.legacy_contract_ref(pr("so HDDV/09102026/DMG-ECENTRIC-MCTRANNGOC"))
+        # cau bao khi da chon No ma chua nhan ra so: chi dung o va 2 vi du dinh dang
+        svc = _read("features/payment_request/application/service.py")
+        self.assertIn('if doc.get("has_purchase_request") == "No":', svc)
+        self.assertIn("HDDV/09102026/DMG-ECENTRIC-MCTRANNGOC", svc)
+
     def test_dinh_kem_pii_theo_chu_tep(self):
         a = _access("duyet@ec")
         STATE["values"][("Supplier", "SUP-1")] = "owner@ec"

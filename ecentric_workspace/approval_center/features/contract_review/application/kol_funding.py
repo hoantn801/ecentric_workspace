@@ -121,7 +121,12 @@ def funding_so_can_view(pr, user):
 
 
 # So HD dang tool cu / ERP: ddmmyyyy/HDDV/ECENTRIC-<doi tac>.<brand>[-n] (doi tac, brand co the co "-").
-_OLD_NUMBER = re.compile(r"\b\d{8}/HDDV/ECENTRIC-[A-Za-z0-9()\-]+\.[A-Za-z0-9\-]+", re.I)
+# So hop dong cu ky bang tool truoc ERP. Hai kieu dang co that (18/11, Linh - EC-PAYR-2026-00693):
+#   "05112026/HDDV/ECENTRIC-NTP.FCV"  (ngay truoc HDDV, co ".mau")
+#   "HDDV/09102026/DMG-ECENTRIC-MCTRANNGOC"  (HDDV truoc ngay, khong co ".mau", ten doi tac truoc ECENTRIC)
+# Ban cu chi nhan kieu 1 -> kieu 2 bi bao "phai gan hop dong KOL" du da chon No + ghi so HD.
+# Nhan ca HĐDV (co dau). Ky tu cuoi phai la chu/so: khong an ")" "." "-" dinh sau so HD.
+_OLD_NUMBER = re.compile(r"(?<![\w/])(?:\d{8}/H[DĐ]DV|H[DĐ]DV/\d{8})/[A-Za-z0-9][A-Za-z0-9().\-]*[A-Za-z0-9]", re.I)
 _RELEASED = ("Rejected", "Cancelled")
 
 

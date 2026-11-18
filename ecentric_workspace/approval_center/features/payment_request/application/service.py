@@ -64,6 +64,13 @@ def _require_source(doc):
     need = funding.required_source((doc.get("ec_loai_chi_phi") or "").strip())
     if not need or doc.get("funding_source_doctype") == need[0] or funding.legacy_allowed(need[0], doc):
         return
+    if doc.get("has_purchase_request") == "No":
+        # Da chon "No" nhung o "Ly do khong co Purchase Request" chua co so HD cu nhan duoc (18/11: Linh ghi
+        # so vao "Ly do / noi dung" hoac ghi "Booking KOL/KOC" -> cau bao cu bao "chon Yes" gay roi).
+        frappe.throw(_("Loại chi phí này cần số hợp đồng cũ: chưa nhận ra số hợp đồng trong ô \"Lý do không có "
+                       "Purchase Request\". Ghi đúng số in trên hợp đồng vào ô đó, ví dụ 05112026/HDDV/ECENTRIC-NTP.FCV "
+                       "hoặc HDDV/09102026/DMG-ECENTRIC-MCTRANNGOC. Hợp đồng đã có trên ERP thì chọn Yes rồi chọn "
+                       "hợp đồng trong danh sách."))
     frappe.throw(_("Loại chi phí này phải gắn chứng từ nguồn là {0}: ở mục \"Khoản chi này có chứng từ mua "
                    "hàng?\" chọn Yes, rồi chọn hợp đồng. Hợp đồng ký bằng tool cũ (chưa có trên ERP): chọn "
                    "No và ghi số hợp đồng cũ vào lý do (vd 05112026/HDDV/ECENTRIC-NTP.FCV).").format(need[1]))
