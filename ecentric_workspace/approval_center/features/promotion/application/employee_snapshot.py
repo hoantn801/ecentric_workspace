@@ -44,23 +44,63 @@ def latest_ssa(employee, as_of=None):
     return rows[0] if rows else None
 
 
+def _virtual_ssa(employee):
+    """SSA "ao" (KHONG luu) cho nhan su chua co SSA nao: chi employee + phong + cong ty hien tai, de hoi
+    ERP "user co duoc doc mot SSA cua nguoi nay khong" bang CHINH luat dang ap cho SSA (DocPerm + User
+    Permission Department). get_doc(dict) - khong new_doc: new_doc dien mac dinh tu User Permission cua
+    NGUOI DANG NHAP (vd phong cua ho) vao doc. owner = Administrator: quyen "if_owner" cua nguoi dang nhap
+    khong duoc mo cua. -> (doc, department) | (None, None)."""
+    emp = frappe.db.get_value(EMPLOYEE, employee, ["department", "company"], as_dict=True)
+    if not emp:
+        return None, None
+    doc = frappe.get_doc({"doctype": SSA, "employee": employee, "department": emp.department or None,
+                          "company": emp.company or None, "docstatus": 0, "owner": "Administrator"})
+    return doc, emp.department
+
+
+def _dept_scoped(user):
+    """user bi gioi han theo phong (User Permission Department ap cho SSA hoac moi doctype)? Loi -> True
+    (fail-closed). Can vi Frappe (khong strict) cho qua link TRONG: nhan su khong co phong thi truong phong
+    cung "doc duoc" SSA ao - chi nguoi xem tat ca moi duoc."""
+    try:
+        from frappe.permissions import get_user_permissions
+        rows = (get_user_permissions(user) or {}).get("Department") or []
+    except Exception:
+        return True
+    for r in rows:
+        applicable = r.get("applicable_for") if hasattr(r, "get") else getattr(r, "applicable_for", None)
+        if not applicable or applicable == SSA:
+            return True
+    return False
+
+
 def can_view_salary(employee, user=None):
-    """user (mac dinh nguoi dang nhap) co quyen doc SSA moi nhat cua employee khong."""
+    """user (mac dinh nguoi dang nhap) co quyen doc SSA moi nhat cua employee khong.
+
+    Nhan su CHUA CO SSA nao (thu viec, intern... - 18/11/2026, Phan quyen Tin 12): kiem tren SSA ao cung
+    phong -> C&B, CEO / HOF (Payroll Viewer All) va truong phong cua phong do (Payroll Viewer Dept) qua;
+    Lead / nhan vien thuong khong. Nhan su khong co phong: chi nguoi xem tat ca. Mot luat duy nhat - khong
+    hardcode role."""
     if not employee:
         return False
-    name = latest_ssa(employee)
-    if not name:
-        return False
+    user = user or frappe.session.user
     try:
-        return bool(frappe.has_permission(SSA, "read", doc=name, user=user or frappe.session.user))
+        name = latest_ssa(employee)
+        if name:
+            return bool(frappe.has_permission(SSA, "read", doc=name, user=user))
+        doc, dept = _virtual_ssa(employee)
+        if doc is None or not frappe.has_permission(SSA, "read", doc=doc, user=user):
+            return False
+        return bool(dept) or not _dept_scoped(user)
     except Exception:
         return False
 
 
 def candidates():
-    """Nhan su nguoi dang nhap duoc de xuat thang chuc = nguoi ho xem duoc luong (tru chinh minh)."""
+    """Nhan su nguoi dang nhap duoc de xuat thang chuc = nguoi ho xem duoc luong (tru chinh minh).
+    Gom ca nhan su Active CHUA CO SSA (18/11) - loc qua cung can_view_salary."""
     me = frappe.db.get_value(EMPLOYEE, {"user_id": frappe.session.user}, "name")
-    ids = sorted(set(frappe.get_all(SSA, filters={"docstatus": 1}, pluck="employee",
+    ids = sorted(set(frappe.get_all(EMPLOYEE, filters={"status": "Active"}, pluck="name",
                                     limit_page_length=0)) - {me, None})
     if not ids:
         return []

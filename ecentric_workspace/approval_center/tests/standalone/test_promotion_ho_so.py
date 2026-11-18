@@ -73,6 +73,8 @@ def build(visible=("E-A",), perms=None):
     W.visible = set(visible)
     #: quyen doc SSA theo user: {user: set(ten SSA)}; nguoi dang nhap = me@x
     W.perms = perms or {}
+    #: quyen tren SSA AO (nhan su chua co SSA): {user: "ALL" | set(phong)} - mo phong DocPerm + UP Department
+    W.vperm = {}
     W.emps = {"E-A": Doc(doctype="Employee", name="E-A", employee_name="An", department="Ops - EC",
                          designation="Engineer", grade="NV", employment_type="Full-time",
                          date_of_joining="2025-01-01", company="EC", user_id="an@x", status="Active",
@@ -102,6 +104,12 @@ def build(visible=("E-A",), perms=None):
 
     def has_permission(dt, ptype="read", doc=None, user=None):
         user = user or fr.session.user
+        if isinstance(doc, dict):                       # SSA ao: Frappe khong strict -> phong trong thi qua UP
+            assert doc.get("owner") == "Administrator" and not doc.get("name")
+            v = W.vperm.get(user)
+            if v == "ALL":
+                return True
+            return isinstance(v, set) and (not doc.get("department") or doc.get("department") in v)
         if doc is None:
             return bool(W.perms.get(user)) or (user == "me@x" and bool(W.visible))
         allowed = W.perms.get(user)
@@ -121,6 +129,8 @@ def build(visible=("E-A",), perms=None):
             rows = sorted(rows, key=lambda r: r.from_date, reverse=True)
             vals = [r.get(pluck) for r in rows]
             return vals[:limit_page_length] if limit_page_length else vals
+        if dt == "Employee" and pluck == "name":
+            return [e.name for e in W.emps.values() if e.status == "Active"]
         if dt == "Employee":
             return [Obj(name=e.name, employee_name=e.employee_name, department=e.department,
                         designation=e.designation) for e in W.emps.values() if e.name in filters["name"][1]]
@@ -147,7 +157,9 @@ def build(visible=("E-A",), perms=None):
                                   set_value=lambda dt, n, v, *a, **k: W.req.setdefault(n, {}).update(v if isinstance(v, dict) else {v: a[0]}),
                                   commit=lambda: None, rollback=lambda: W.notes.append("rollback"))
 
-    def get_doc(dt, name):
+    def get_doc(dt, name=None):
+        if isinstance(dt, dict):
+            return Doc(dt)
         if dt == "Employee":
             return W.emps[name]
         if dt == "Salary Structure Assignment":
@@ -165,12 +177,21 @@ def build(visible=("E-A",), perms=None):
     utils.nowdate = lambda: "2026-09-29"
     utils.now_datetime = lambda: "2026-09-29 10:00"
     fr.utils = utils
+    perms_mod = types.ModuleType("frappe.permissions")
+
+    def get_user_permissions(user):
+        v = W.vperm.get(user)
+        if getattr(W, "boom_up", False):
+            raise RuntimeError("up loi")
+        return {"Department": [Obj(doc=d, applicable_for=None) for d in v]} if isinstance(v, set) else {}
+    perms_mod.get_user_permissions = get_user_permissions
+    fr.permissions = perms_mod
     eng = types.ModuleType("eng")
     eng.log_action = lambda *a, **k: None
     eng.notify = lambda users, msg, *a: W.notes.append((tuple(users), msg))
     wf = types.ModuleType("wf")
     wf.transitions = eng
-    mods = {"frappe": fr, "frappe.utils": utils,
+    mods = {"frappe": fr, "frappe.utils": utils, "frappe.permissions": perms_mod,
             "ecentric_workspace": types.ModuleType("a"), "ecentric_workspace.approval_center": types.ModuleType("b"),
             "ecentric_workspace.approval_center.shared": types.ModuleType("c"),
             "ecentric_workspace.approval_center.shared.workflow": wf,
@@ -320,3 +341,71 @@ def test_an_luong_loi_thi_an_het(env):
     b = {"promoted_employee": "E-KHONG-CO", "current_salary": 1}
     s.redact_business(b)
     assert b["current_salary"] is None
+
+
+# ---------------------------------------------------------------- 18/11: nhan su CHUA CO SSA (Phan quyen Tin 12)
+def _them_thu_viec_production(dept="Production - EC"):
+    """Ban thu viec phong Production chua co SSA; Lead -> kieu (truong phong) -> CEO."""
+    W.emps["E-P"] = Doc(doctype="Employee", name="E-P", employee_name="Probation P", department=dept,
+                        designation="Intern", company="EC", user_id="p@x", status="Active", reports_to="E-LEADP")
+    W.emps["E-LEADP"] = Doc(doctype="Employee", name="E-LEADP", user_id="phuong.nguyen@x", status="Active",
+                            reports_to="E-KIEU")
+    W.emps["E-KIEU"] = Doc(doctype="Employee", name="E-KIEU", user_id="kieu.nguyen@x", status="Active",
+                           reports_to="E-LAM")
+    W.emps["E-LAM"] = Doc(doctype="Employee", name="E-LAM", user_id="lam.nguyen@x", status="Active", reports_to=None)
+    W.vperm.update({"cnb@x": "ALL", "lam.nguyen@x": "ALL", "phuong.nguyen1@x": "ALL",
+                    "kieu.nguyen@x": {"Production - EC"}, "linh.ngo@x": {"ECO - EC"}, "thai.cao@x": {"DM - EC"}})
+
+
+@pytest.mark.parametrize("user,thay", [
+    ("cnb@x", True), ("lam.nguyen@x", True), ("phuong.nguyen1@x", True), ("kieu.nguyen@x", True),
+    ("linh.ngo@x", False), ("thai.cao@x", False), ("tran.bui@x", False), ("phuong.nguyen@x", False),
+    ("vu.dang@x", False)])
+def test_chua_co_ssa_xet_tren_ssa_ao_cung_phong(env, user, thay):
+    snap, _s = env(visible=())
+    _them_thu_viec_production()
+    assert snap.latest_ssa("E-P") is None
+    assert snap.can_view_salary("E-P", user=user) is thay
+
+
+def test_chua_co_ssa_khong_co_phong_chi_nguoi_xem_tat_ca(env):
+    snap, _s = env(visible=())
+    _them_thu_viec_production(dept=None)
+    assert snap.can_view_salary("E-P", user="cnb@x") is True
+    assert snap.can_view_salary("E-P", user="lam.nguyen@x") is True
+    assert snap.can_view_salary("E-P", user="kieu.nguyen@x") is False      # Frappe cho qua link trong - phai chan
+    W.boom_up = True
+    assert snap.can_view_salary("E-P", user="kieu.nguyen@x") is False      # loi doc UP -> dong
+
+
+def test_chua_co_ssa_hien_trong_danh_sach_va_buoc_1_la_truong_phong(env):
+    snap, s = env(visible=())
+    _them_thu_viec_production()
+    fr = sys.modules["frappe"]
+    fr.session.user = "cnb@x"
+    assert "E-P" in [r.name for r in snap.candidates()]
+    fr.session.user = "thai.cao@x"
+    assert "E-P" not in [r.name for r in snap.candidates()]
+    assert snap.salary_reviewer("E-P", "cnb@x") == "kieu.nguyen@x"           # bo qua Lead
+    assert snap.salary_reviewer("E-P", "kieu.nguyen@x") is None              # trung nguoi gui -> bo buoc 1
+
+
+def test_chua_co_ssa_ceo_hof_thay_so_luong_lead_thi_an(env):
+    snap, s = env(visible=())
+    _them_thu_viec_production()
+    fr = sys.modules["frappe"]
+    for user, thay in (("lam.nguyen@x", True), ("phuong.nguyen1@x", True), ("phuong.nguyen@x", False)):
+        fr.session.user = user
+        b = {"promoted_employee": "E-P", "current_salary": 8000000, "proposed_salary": 10000000, "incentives": "x"}
+        s.redact_business(b)
+        assert (b["proposed_salary"] == 10000000) is thay, user
+    fr.session.user = "cnb@x"
+    snp = snap.snapshot("E-P")
+    assert snp["base_salary"] is None and snp["department"] == "Production - EC"
+
+
+def test_co_ssa_van_xet_tren_ssa_that_khong_dung_ssa_ao(env):
+    # E-A co SSA: quyen "ALL" tren SSA ao KHONG duoc dung thay cho SSA that
+    snap, _s = env(perms={"x@x": set()})
+    W.vperm["x@x"] = "ALL"
+    assert snap.can_view_salary("E-A", user="x@x") is False
