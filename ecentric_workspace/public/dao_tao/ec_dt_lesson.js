@@ -14,27 +14,35 @@
       function (e) { root.innerHTML = '<div class="dt-wrap"><p class="dt-err">' + D.esc(D.msg(e)) + '</p><a class="dt-b" href="/dao-tao">Về trang Đào tạo</a></div>'; });
   }
 
+  function minutes(t) { return Math.max(3, Math.round(String(t || "").split(/\s+/).length / 200)); }
+
+  // Kieu bai viet nhu Tin noi bo: banner toi + the bai viet + cot phai (muc luc, phan thuong).
   function render() {
     var p = L.progress || {};
-    var h = '<div class="dt-wrap dt-narrow"><div class="dt-row"><a class="dt-b ghost" href="/dao-tao">' + D.icon("back") + " Đào tạo</a><span class=\"dt-sp\"></span>" +
+    var R = window.ECDtRich ? window.ECDtRich.parse(L.body || "") : { html: '<div class="dt-body">' + D.richText(L.body || "") + "</div>", toc: [], cover: "" };
+    var cover = R.cover ? '<img class="dt-lhero-img" src="' + D.esc(R.cover) + '" alt=""><span class="dt-lhero-fade"></span>' : "";
+    var meta = [L.week_label, minutes(L.body) + " phút đọc"].filter(Boolean).map(D.esc).join(" · ");
+    var h = '<div class="dt-wrap dt-lwrap"><div class="dt-row"><a class="dt-b ghost" href="/dao-tao">' + D.icon("back") + " Đào tạo</a><span class=\"dt-sp\"></span>" +
       (L.can_manage ? '<a class="dt-b sm" href="/dao-tao/quan-ly?l=' + encodeURIComponent(L.name) + '">' + D.icon("edit") + " Sửa bài</a>" : "") + "</div>" +
-      '<div class="dt-panel dt-pad" style="display:grid;gap:12px"><div class="dt-row dt-small"><span class="dt-chip nv">' + D.esc(L.topic) + '</span><span class="dt-chip">' + D.esc(L.level) +
-      '</span><span class="dt-chip">' + D.esc(L.tool) + "</span>" + (L.status !== "Published" ? '<span class="dt-chip warn">Nháp</span>' : "") + "</div><h1>" + D.esc(L.title) + "</h1>" +
-      (L.summary ? '<p class="dt-muted" style="font-size:15px">' + D.esc(L.summary) + "</p>" : "") + (L.video_url ? D.embedVideo(L.video_url) : "") +
-      (L.slide_url && D.safeUrl(L.slide_url) ? '<a class="dt-b" href="' + D.esc(D.safeUrl(L.slide_url)) + '" target="_blank" rel="noopener noreferrer">' + D.icon("book") + " Mở slide / tài liệu</a>" : "") +
-      (L.body ? (window.ECDtRich ? window.ECDtRich.render(L.body) : '<div class="dt-body">' + D.richText(L.body) + "</div>") : "") + "</div>";
+      '<header class="dt-lhero">' + cover + '<div class="dt-lhero-in"><div class="dt-row dt-small"><span class="dt-chip ok">' + D.esc(L.topic) + '</span><span class="dt-lchip">' + D.esc(L.level) +
+      '</span><span class="dt-lchip">' + D.esc(L.tool) + "</span>" + (L.status !== "Published" ? '<span class="dt-chip warn">Nháp</span>' : "") + "</div><h1>" + D.esc(L.title) + "</h1>" +
+      (meta ? '<p class="dt-lmeta">' + meta + "</p>" : "") + "</div></header>" +
+      '<div class="dt-lgrid"><div class="dt-lmain"><article class="dt-panel dt-lart">' +
+      (L.summary ? '<p class="dt-llede">' + D.esc(L.summary) + "</p>" : "") + (L.video_url ? D.embedVideo(L.video_url) : "") + R.html + "</article>";
     if (L.quiz) h += '<div class="dt-panel dt-pad" id="dt-quiz"></div>';
     if (L.practice_prompt) {
       var rv = p.review === "Revoked";
-      h += '<div class="dt-panel dt-pad" style="display:grid;gap:10px"><h2 class="dt-h2">Bài thực hành</h2><div class="dt-body" style="font-size:14px">' + D.richText(L.practice_prompt) + "</div>" +
+      h += '<div class="dt-panel dt-pad" id="dt-prac" style="display:grid;gap:10px"><h2 class="dt-h2">Bài thực hành</h2><div class="dt-body" style="font-size:14px">' + D.richText(L.practice_prompt) + "</div>" +
         (L.practice_due ? '<p class="dt-small dt-muted">Hạn nộp: ' + D.esc(String(L.practice_due).slice(0, 16)) + (L.practice_open ? "" : " - đã quá hạn (vẫn nộp được, nhưng không có vé)") + "</p>" : "") +
         (p.practice_at ? '<p><span class="dt-chip ' + (rv ? "bad" : (p.review === "OK" ? "ok" : "nv")) + '">' + (rv ? "Đã bị thu hồi vé" : (p.review === "OK" ? "Ban đào tạo đã xem - đạt" : "Đã nộp " + D.fmtDate(p.practice_at))) + "</span></p>" : "") +
         '<div class="dt-f"><label for="dt-pt">Bạn đã làm gì, kết quả ra sao?</label><textarea class="dt-ta" id="dt-pt" maxlength="4000" style="min-height:120px">' + D.esc(p.practice_text || "") + "</textarea></div>" +
         '<div class="dt-f"><label for="dt-pl">Link kết quả (không bắt buộc - SharePoint, Claude chat share…)</label><input class="dt-in" id="dt-pl" value="' + D.esc(p.practice_link || "") + '" placeholder="https://…"></div>' +
         '<div class="dt-row"><span class="dt-sp"></span><button class="dt-b pri" id="dt-psend"' + (rv ? " disabled" : "") + ">" + (p.practice_at ? "Nộp lại" : "Nộp bài") + "</button></div></div>";
     }
-    h += "</div>";
+    h += "</div>" + side(R.toc, p) + "</div></div>";
     root.innerHTML = h;
+    if (window.ECDtRich) window.ECDtRich.bindChecks(root, L.name);
+    spy();
     if (L.quiz) quiz();
     var ps = D.byId("dt-psend");
     if (ps) ps.onclick = function () {
@@ -44,6 +52,42 @@
         load();
       }, function (e) { D.busy(ps, false); D.toast(D.msg(e), true); });
     };
+  }
+
+  function side(toc, p) {
+    var slide = L.slide_url && D.safeUrl(L.slide_url);
+    var quizDone = p.quiz_at && p.quiz_scored && p.quiz_score / p.quiz_scored >= 0.6;
+    var h = '<aside class="dt-lside">';
+    if (toc.length) {
+      h += '<nav class="dt-panel dt-lcard dt-ltoc" aria-label="Trong bài này"><div class="dt-lcap">Trong bài này</div>' +
+        toc.map(function (t) { return '<a href="#' + t.id + '" data-toc="' + t.id + '">' + D.esc(t.title) + "</a>"; }).join("") + "</nav>";
+    }
+    var rows = [];
+    if (L.quiz) rows.push(['<a href="#dt-quiz">Làm quiz</a> đạt 60%', quizDone ? "Đã nhận vé" : "+1 vé", quizDone]);
+    if (L.practice_prompt) rows.push(['<a href="#dt-prac">Nộp thực hành</a>' + (L.practice_due ? " trước " + D.esc(D.fmtDate(L.practice_due)) : ""), p.practice_at ? "Đã nộp" : "+1 vé", !!p.practice_at]);
+    if (rows.length || slide) {
+      h += '<section class="dt-panel dt-lcard"><div class="dt-lcap">Phần thưởng bài này</div>' + rows.map(function (r) {
+        return '<div class="dt-lrw"><span>' + r[0] + '</span><span class="dt-chip ' + (r[2] ? "ok" : "gold") + '">' + r[1] + "</span></div>";
+      }).join("") + (slide ? '<a class="dt-b" style="justify-content:center" href="' + D.esc(slide) + '" target="_blank" rel="noopener noreferrer">' + D.icon("book") + " Xem slide buổi học</a>" : "") + "</section>";
+    }
+    return h + "</aside>";
+  }
+
+  // Muc luc: to dam phan dang doc (tieu de cuoi cung da cuon qua mep tren).
+  var spyOn = false;
+  function spy() {
+    var links = D.qsa(root, "[data-toc]"), heads = links.map(function (a) { return D.byId(a.dataset.toc); });
+    if (!links.length) return;
+    var tick = false;
+    function mark() {
+      tick = false;
+      var cur = 0;
+      heads.forEach(function (h, i) { if (h && h.getBoundingClientRect().top < 140) cur = i; });
+      links.forEach(function (a, i) { a.classList.toggle("on", i === cur); });
+    }
+    window.__dtSpy = function () { if (!tick) { tick = true; window.requestAnimationFrame(mark); } };
+    if (!spyOn) { spyOn = true; window.addEventListener("scroll", function () { if (window.__dtSpy) window.__dtSpy(); }, { passive: true }); }
+    mark();
   }
 
   // ------------------------------------------------------------------- quiz tu luyen --
