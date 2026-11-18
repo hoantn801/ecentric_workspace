@@ -197,6 +197,7 @@ function setup(o) {
   ok("CSS: chừa chỗ nút trợ lý (padding-bottom), dòng quy tắc không co (flex:none)", /padding-bottom:88px/.test(css) && /\.pmq-rule\{[^}]*flex:none/.test(css));
   ok("CSS mới đều trong namespace .pmq-", css.split("}").map(s => s.split("{")[0].trim()).filter(s => s && !/^@|^(from|to|\d+%)$/.test(s))
     .every(sel => sel.split(",").every(x => /^\s*(\.pmq|:where\(\.pmq\))/.test(x) || /^\s*(input|select|textarea|button|button:disabled)\)?\s*$/.test(x) || /^\s*(from|to|\d+%)\b/.test(x))));
+  ok("hotfix 17: ô ngày ec_datepicker (.ec-dp-wrap) trong thanh tồn đọng / form đề xuất hạn không chiếm cả dòng", /\.pmq-af-row \.ec-dp-wrap,\.pmq-bulk \.ec-dp-wrap\{width:auto;flex:0 0 156px\}/.test(css));
   ok("JS: không Jinja, không console.log", !/\{\{|\{%|\{#/.test(JS) && !/console\.log/.test(JS));
 
   let fail = 0;
