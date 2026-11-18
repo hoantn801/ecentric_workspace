@@ -99,6 +99,7 @@ class FakeSessions:
 
     def publish(self, name, view, meta):
         self.rows[name].update(slots=view["slots"], machine=view["machine"], obs_port=view["obs_port"],
+                               lc_open_before_min=view.get("lc_open_before_min"),
                                published_version=meta["version"], published_ts=meta["ts"], published_source=meta["source"],
                                prev=meta.get("prev"), held_until_ts=meta.get("held_until") or 0,
                                held_why=meta.get("held_why") or "")

@@ -1,5 +1,5 @@
 # Copyright (c) 2026, eCentric and contributors
-"""fix10g: sua lich tren ERP -> chi vao BAN NHAP cua phien (khung gio, may, kenh OBS). App chi nhan khi phat hanh.
+"""fix10g: sua lich tren ERP -> chi vao BAN NHAP cua phien (khung gio, may, kenh OBS; 18/11: mo tab truoc gio live). App chi nhan khi phat hanh.
 Kiem som: khung hop le, khong trung trong phien, may ton tai + brand da giao. Suc chua may kiem khi phat hanh.
 Nhap giong het ban dang phat hanh -> tu xoa nhap."""
 from datetime import datetime
@@ -18,7 +18,7 @@ class SaveDraftService:
         self.machines = machines or DS.machines_all()
         self.clock = clock or R.now_ts
 
-    def execute(self, user, roles, name, slots=None, machine=None, obs_port=None):
+    def execute(self, user, roles, name, slots=None, machine=None, obs_port=None, lc_open_before_min=None):
         _common.require_role(roles, C.SCHEDULE_EDIT_ROLES, C.Msg.NEED_SCHEDULE_EDIT)
         sess = self.sessions.get(str(name or ""))
         if not sess:
@@ -38,15 +38,30 @@ class SaveDraftService:
             if port and not (C.OBS_PORT_RANGE[0] <= port <= C.OBS_PORT_RANGE[1]):
                 raise C.AiLiveError(C.SessMsg.BAD_PORT)
             view["obs_port"] = port
+        if lc_open_before_min is not None:      # "" = xoa (theo cai dat tren app)
+            view["lc_open_before_min"] = self._open_before(lc_open_before_min)
         pub = P.published_view(sess)
         if P.same(view, pub):
             self.sessions.save_draft(sess["id"], None, 0, user, now)
         else:
-            draft = {k: view[k] for k in ("slots", "machine", "obs_port") if view[k] != pub[k]}
+            draft = P.draft_of(view, pub)
             base = sess["draft_base_version"] if sess.get("draft") else sess.get("published_version") or 0
             self.sessions.save_draft(sess["id"], draft, base, user, now)
         out = self.sessions.get(sess["id"])
         return {"session": out, "state": P.draft_state(out), "diff": P.diff_texts(pub, P.draft_view(out))}
+
+    @staticmethod
+    def _open_before(v):
+        txt = str(v).strip()
+        if txt == "":
+            return None
+        try:
+            n = int(float(txt))
+        except ValueError:
+            raise C.AiLiveError(C.SessMsg.BAD_OPEN_BEFORE)
+        if n != float(txt) or not (C.OPEN_BEFORE_RANGE[0] <= n <= C.OPEN_BEFORE_RANGE[1]):
+            raise C.AiLiveError(C.SessMsg.BAD_OPEN_BEFORE)
+        return n
 
     def _machine(self, sess, code):
         if not code:

@@ -271,6 +271,7 @@ WATCH_URL_RE = re.compile(r"^https://[^\s]{4,400}$")
 VIEWER_SOURCES = ("platform", "stream", "phone")
 VIEWER_STALE_S = 120
 OBS_PORT_RANGE = (1024, 65535)
+OPEN_BEFORE_RANGE = (1, 60)     # 18/11: lc_open_before_min - mo tab truoc gio live (phut); trong = theo cai dat tren app
 
 
 class SessionStatus:
@@ -316,6 +317,7 @@ class SessMsg:
     NEED_TIKTOK = "Phiên TikTok cần username kênh."
     BAD_TIKTOK = "Username TikTok không hợp lệ: %s"
     BAD_PORT = "Cổng OBS phải từ 1024 đến 65535."
+    BAD_OPEN_BEFORE = "Mở tab trước giờ live phải từ 1 đến 60 phút (để trống = theo cài đặt trên app)."
     PORT_TAKEN = "Cổng OBS %s đã dùng cho phiên %s trên cùng máy."
     BAD_SLOT = "Khung giờ %d: %s"
     SLOT_OVERLAP = "Khung giờ %d trùng với khung %d của chính phiên này."

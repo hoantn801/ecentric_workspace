@@ -9,7 +9,8 @@ FIELDS = ["name", "title", "brand", "platform", "shop_name", "tiktok_username", 
           "auto_obs_start", "enabled", "watch_url", "phone_serial", "modified",
           # fix10g: ban nhap / phat hanh / giu gio cu
           "draft_json", "draft_base_version", "draft_by", "draft_at", "published_version", "published_ts", "prev_json",
-          "held_until_ts", "held_why", "published_source"]
+          "held_until_ts", "held_why", "published_source",
+          "lc_open_before_min"]                 # 18/11: mo tab truoc gio live (phut), trong = theo app
 
 
 def _json(v):
@@ -51,6 +52,7 @@ def _row(r, slots):
             "platform": r.get("platform") or "", "shop_name": r.get("shop_name") or "",
             "tiktok_username": r.get("tiktok_username") or "", "machine": r.get("machine") or "",
             "obs_port": int(r.get("obs_port") or 0), "kit": r.get("kit") or "", "mode": r.get("mode") or "",
+            "lc_open_before_min": int(r.get("lc_open_before_min") or 0) or None,
             "auto_obs_start": int(r.get("auto_obs_start") or 0), "enabled": int(r.get("enabled") or 0),
             "watch_url": r.get("watch_url") or "", "phone_serial": r.get("phone_serial") or "",
             "updated_at": str(r.get("modified") or ""), "slots": slots,
@@ -107,7 +109,7 @@ class SessionRepository:
                             update_modified=False)
 
     def publish(self, name, view, meta):
-        """fix10g: ghi ban phat hanh (khung, may, kenh) + moc phien ban / ban cu / giu gio; xoa ban nhap.
+        """fix10g: ghi ban phat hanh (khung, may, kenh, mo tab truoc) + moc phien ban / ban cu / giu gio; xoa ban nhap.
         Suc chua may da kiem tren ca bo truoc khi goi -> co flags.ec_publish de validate khong kiem lai tung phien."""
         import frappe
         doc = frappe.get_doc(C.SESSION, name)
@@ -115,6 +117,7 @@ class SessionRepository:
         doc.set("slots", _slot_rows(view["slots"]))
         doc.machine = view["machine"] or None
         doc.obs_port = int(view["obs_port"] or 0) or None
+        doc.lc_open_before_min = int(view.get("lc_open_before_min") or 0) or None
         doc.update({"published_version": meta["version"], "published_ts": meta["ts"], "published_source": meta["source"],
                     "prev_json": json.dumps(meta["prev"], ensure_ascii=False) if meta.get("prev") else "",
                     "held_until_ts": meta.get("held_until") or 0, "held_why": meta.get("held_why") or ""})

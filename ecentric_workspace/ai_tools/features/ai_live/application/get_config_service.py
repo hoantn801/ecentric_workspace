@@ -66,7 +66,9 @@ class GetConfigService:
                         # bao schedule_stale sau moc giu, khong ghi de lich moi tren ERP)
                         "updated_at": str(s["updated_at"] or "")[:19],
                         "schedule_version": int((v.get("version") or 0) if v["held_until"] else (s.get("published_version") or 0)),
-                        "held_until": v["held_until"] or None})
+                        "held_until": v["held_until"] or None,
+                        # 18/11: mo tab truoc gio live (phut) - CHI gui khi co gia tri; khong co = app dung cai dat cua no
+                        **({"lc_open_before_min": v["lc_open_before_min"]} if v.get("lc_open_before_min") else {})})
         return out
 
     def _late_hold(self, s, m, now):

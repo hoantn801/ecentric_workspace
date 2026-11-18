@@ -30,6 +30,9 @@ class ValidateSessionService:
             raise C.AiLiveError(C.SessMsg.LONG_TITLE % (C.MAX_SESSION_TITLE, len(doc.title)))
         if len(doc.shop_name) > C.MAX_SHOP_NAME:
             raise C.AiLiveError(C.SessMsg.LONG_SHOP % (C.MAX_SHOP_NAME, len(doc.shop_name)))
+        ob = getattr(doc, "lc_open_before_min", None)       # 18/11: trong = theo cai dat tren app
+        if ob not in (None, "", 0) and not (C.OPEN_BEFORE_RANGE[0] <= int(ob) <= C.OPEN_BEFORE_RANGE[1]):
+            raise C.AiLiveError(C.SessMsg.BAD_OPEN_BEFORE)
         self._tiktok(doc)
         self._watch(doc)
         if (doc.mode or "") not in ("",) + C.MODES:

@@ -20,6 +20,7 @@
   "machine",
   "obs_port",
   "auto_obs_start",
+  "lc_open_before_min",
   "col_2",
   "kit",
   "mode",
@@ -124,6 +125,13 @@
    "fieldtype": "Check",
    "label": "Tự bấm phát trên OBS khi tới giờ",
    "default": "0"
+  },
+  {
+   "fieldname": "lc_open_before_min",
+   "fieldtype": "Int",
+   "label": "Mở tab trước giờ live (phút)",
+   "non_negative": 1,
+   "description": "1–60 phút. Để trống = theo cài đặt trên app. Sửa ở Lịch live → vào bản nháp, Phát hành mới tới máy."
   },
   {
    "fieldname": "col_2",
@@ -267,7 +275,7 @@
  "issingle": 0,
  "istable": 0,
  "links": [],
- "modified": "2026-11-18 03:00:00.000000",
+ "modified": "2026-11-18 11:00:00.000000",
  "modified_by": "Administrator",
  "module": "Ecentric Workspace",
  "name": "EC AI Live Session",
