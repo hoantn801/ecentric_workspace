@@ -1517,3 +1517,32 @@ def resync_recreate_document(business_doctype, business_name, reason, dry_run=1,
                             else "").strip() == "1",
         rebuild_unembedded=str(rebuild_unembedded if rebuild_unembedded is not None
                                else "").strip() == "1")
+
+
+@frappe.whitelist(methods=["POST"])
+def cancel_rejected_documents(dry_run=1, business_names=None, include_before_cutoff=1,
+                              reason=None):
+    """SM: huy tai lieu tren cong cua phieu da TU CHOI / HUY tren ERP (18/11/2026).
+
+    Chay thu la mac dinh - chi chay that khi dry_run="0". business_names: JSON list (rong = moi
+    phieu). include_before_cutoff="1" (mac dinh) gom ca phieu ket thuc TRUOC moc tu dong (ton
+    dong cu - danh sach duyet tay); "0" = chi phieu sau moc (giong cron)."""
+    perms.assert_system_manager()
+    from ecentric_workspace.platform.esign import provider_cancel
+    names = frappe.parse_json(business_names) if business_names else None
+    if names is not None and not isinstance(names, list):
+        frappe.throw(_("business_names phải là danh sách."))
+    return provider_cancel.cancel_rejected_documents(
+        dry_run=_live_flag(dry_run), business_names=names,
+        include_before=str(include_before_cutoff if include_before_cutoff is not None
+                           else "1").strip() != "0",
+        reason=(reason or "").strip() or None)
+
+
+@frappe.whitelist(methods=["POST"])
+def resolve_cancel_unverified(package_name, reason):
+    """SM: goi 'da gui lenh huy nhung chua xac minh' -> doc lai cong (chi doc). Da huy -> ghi nhan;
+    chua huy -> go moc (kem ly do, co vet) de chay lai. Bat buoc ly do."""
+    perms.assert_system_manager()
+    from ecentric_workspace.platform.esign import provider_cancel
+    return provider_cancel.resolve_unverified(package_name, reason)

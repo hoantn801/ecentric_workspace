@@ -529,6 +529,12 @@ class SctsAdapter(SignatureProviderAdapter):
     def get_document(self, document_id):
         return self._with_auth(lambda t: self._client.get_document(document_id, t))
 
+    def cancel_document(self, document_id, reason):
+        """Huy chung tu tren cong (khong lay lai duoc). Xem SctsClient.cancel_document.
+        Qua _with_auth: 401/403 -> dang nhap lai va goi lai MOT lan - an toan vi 401/403 nghia
+        la lenh truoc KHONG duoc thuc hien."""
+        return self._with_auth(lambda t: self._client.cancel_document(document_id, reason, t))
+
     # -- live workflow state --------------------------------------------------
     def available_transitions(self, instance_id, provider_user_id):
         """What this user can actually do on this document RIGHT NOW, straight from the
@@ -652,6 +658,10 @@ class SctsAdapter(SignatureProviderAdapter):
             # Ai TAO tai lieu (eContract giao buoc nguoi de nghi cho tai khoan tao). Dung de
             # nhan ra tai lieu tao nham tai khoan (16/11, 00675). Chi email, khong bi mat.
             "creator_email": raw.get("creatorEmail"),
+            # CMC (18/11): co "da huy" (destroy=1) - CHI provider_cancel doc co nay; KHONG doi
+            # status chung (QC: chua co bang chung cong dat destroy the nao tren tai lieu song).
+            "destroyed": str(raw.get("destroy") if raw.get("destroy") is not None
+                             else "").strip().lower() in ("1", "true"),
         }
         return NormalizedDocState(str(doc_id), status, signers=signers, files=files, raw={},
                                   identity=identity)
