@@ -22,6 +22,10 @@ class ValidateSessionService:
         if not C.SESSION_ID_RE.match(sid):                 # fix10g: khop app eC Live (khong dau cham, <= 32)
             raise C.AiLiveError(C.ContractMsg.BAD_SESSION_ID)
         doc.live_id = sid
+        doc.machine = str(doc.machine or "").strip()
+        if not doc.machine:                                 # 18/11: phien = (may, ma live) -> bat buoc co may
+            raise C.AiLiveError(C.SessMsg.NEED_MACHINE)
+        self._locked(doc)
         if doc.platform not in C.PLATFORMS:
             raise C.AiLiveError(C.SessMsg.BAD_PLATFORM)
         doc.title = str(getattr(doc, "title", "") or "").strip()
@@ -51,14 +55,24 @@ class ValidateSessionService:
         if clash:
             raise C.AiLiveError(C.SessMsg.SLOT_OVERLAP % (clash[1], clash[0]))
         publishing = bool(getattr(getattr(doc, "flags", None), "ec_publish", False))
-        if doc.machine and not publishing:      # fix10g: phat hanh lich da kiem suc chua / cong OBS tren ca bo
+        if not publishing:      # fix10g: phat hanh lich da kiem suc chua / cong OBS tren ca bo
             self._machine(doc, sid, slots, today)
         return doc
 
+    @staticmethod
+    def _locked(doc):
+        """18/11 (PO chot): may + ma live co dinh sau khi tao - ten phien = {may}-{ma live}."""
+        before = doc.get_doc_before_save() if hasattr(doc, "get_doc_before_save") else None
+        if not before:
+            return
+        if (before.machine or "") and before.machine != doc.machine:
+            raise C.AiLiveError(C.SessMsg.MACHINE_LOCKED, code="field_invalid", data={"field": "machine"})
+        if (before.live_id or "") and before.live_id != doc.live_id:
+            raise C.AiLiveError(C.SessMsg.LIVE_LOCKED, code="field_invalid", data={"field": "live_id"})
+
     def _tiktok(self, doc):
         u = str(doc.tiktok_username or "").strip().lstrip("@")
-        if doc.platform == "TikTok" and not u:
-            raise C.AiLiveError(C.SessMsg.NEED_TIKTOK)
+        # 18/11: username TikTok khong bat buoc - thieu thi chi canh bao (lich tu dong se khong mo phong)
         if u and not C.TIKTOK_USER_RE.match(u):
             raise C.AiLiveError(C.SessMsg.BAD_TIKTOK % u)
         doc.tiktok_username = u
@@ -77,7 +91,12 @@ class ValidateSessionService:
             raise C.AiLiveError(C.SessMsg.NO_MACHINE)
         if doc.brand and doc.brand not in _common.machine_brands(m):
             raise C.AiLiveError(C.SessMsg.BRAND_OFF % (doc.brand, m["machine_code"]))
-        others = [s for s in self.sessions.by_machine(m["machine_code"]) if s["id"] != sid]
+        me = str(doc.name or "")
+        others = [s for s in self.sessions.by_machine(m["machine_code"]) if s["id"] != me]
+        dup = next((s for s in others if s["live"] == sid), None)     # 18/11: cam trung ma live trong CUNG 1 may
+        if dup:
+            raise C.AiLiveError(C.SessMsg.LIVE_TAKEN % (m["machine_code"], sid, dup.get("title") or dup["id"]),
+                                code="field_invalid", data={"field": "live_id"})
         port = int(doc.obs_port or 0)
         if port and not (C.OBS_PORT_RANGE[0] <= port <= C.OBS_PORT_RANGE[1]):
             raise C.AiLiveError(C.SessMsg.BAD_PORT)
@@ -86,9 +105,9 @@ class ValidateSessionService:
             raise C.AiLiveError(C.SessMsg.PORT_TAKEN % (port, taken["id"]))
         if not int(doc.enabled or 0):
             return
-        group = [{"id": sid, "slots": slots}] + [{"id": s["id"], "slots": s["slots"]} for s in others if s["enabled"]]
-        bad = [c for c in S.capacity_conflicts(group, m["max_lives"], today) if sid in c["ids"]]
+        group = [{"id": me or sid, "slots": slots}] + [{"id": s["id"], "slots": s["slots"]} for s in others if s["enabled"]]
+        bad = [c for c in S.capacity_conflicts(group, m["max_lives"], today) if (me or sid) in c["ids"]]
         if bad:
             when = datetime.fromtimestamp(bad[0]["start"], R._VN).strftime("%d/%m %H:%M")
             raise C.AiLiveError(C.SessMsg.CAPACITY % (m["machine_code"], m["max_lives"], when,
-                                                      ", ".join(i for i in bad[0]["ids"] if i != sid)))
+                                                      ", ".join(i for i in bad[0]["ids"] if i != (me or sid))))

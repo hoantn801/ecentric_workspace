@@ -272,6 +272,17 @@ VIEWER_SOURCES = ("platform", "stream", "phone")
 VIEWER_STALE_S = 120
 OBS_PORT_RANGE = (1024, 65535)
 OPEN_BEFORE_RANGE = (1, 60)     # 18/11: lc_open_before_min - mo tab truoc gio live (phut); trong = theo cai dat tren app
+#: 18/11 (tao phien tren /ai-live): cac truong phien di qua Nhap -> Phat hanh (ngoai khung gio / may / kenh / mo tab).
+SESSION_DRAFT_FIELDS = ("title", "brand", "platform", "shop_name", "tiktok_username", "kit", "mode", "watch_url",
+                        "phone_serial")
+FIELD_LABELS = {"title": "tên phiên", "brand": "brand", "platform": "sàn", "shop_name": "tên shop / kênh",
+                "tiktok_username": "username TikTok", "kit": "bộ live", "mode": "chế độ", "watch_url": "link xem phiên",
+                "phone_serial": "điện thoại theo dõi"}
+#: Danh sach live may bao (push_heartbeat lives[]) - giu toi da N, quen live khong thay qua N ngay.
+MAX_KNOWN_LIVES = 40
+KNOWN_LIVE_KEEP_S = 30 * 86400
+MACHINE_ONLINE_S = 10 * 60
+DEFAULT_OPEN_BEFORE_HINT = 10           # chi de hien "trong = theo may (10)" - gia tri that nam tren app
 
 
 class SessionStatus:
@@ -334,6 +345,20 @@ class SessMsg:
     BAD_SERIAL = "Mã điện thoại (adb serial) không hợp lệ."
     NOT_ON_MACHINE = "Phiên live %s không thuộc máy %s (hoặc chưa tạo trên ERP)."
     BAD_SLOTS = "Danh sách khung giờ không hợp lệ (cần mảng JSON, gửi [] để xoá hết khung)."
+    # 18/11: tao / sua phien tren /ai-live (loi hien duoi tung o)
+    NEED_MACHINE = "Chọn máy phát."
+    MACHINE_UNKNOWN = "Không có máy phát %s."
+    MACHINE_LOCKED = "Không đổi máy của phiên đã tạo – muốn chạy trên máy khác thì tạo phiên mới ở máy đó."
+    NEED_LIVE = "Chọn live trên máy (hoặc nhập mã live)."
+    LIVE_TAKEN = "Máy %s đã có phiên cho live %s (%s)."
+    NEED_BRAND = "Chọn brand."
+    NAME_TAKEN = "Đã có phiên tên %s – báo IT kiểm tra."
+    NEW_NO_DISCARD = "Phiên %s chưa phát hành lần nào – không bỏ nháp được (sửa lại, hoặc tắt \"Đang dùng\")."
+    BAD_FORM = "Dữ liệu phiên không hợp lệ."
+    BAD_KIT = "Không có bộ live %s."
+    NO_LIVES = "Máy chưa báo danh sách live – mở eLive trên máy rồi thử lại."
+    OFFLINE_LIVES = "Máy đang tắt – danh sách live theo lần báo gần nhất."
+    LIVE_LOCKED = "Không đổi mã live của phiên đã tạo – tạo phiên mới cho live khác."
 
 #: Tong ket cuoi phien (app gui khi phien ket thuc) - lich su phien, giu 400 ngay.
 SESSION_LOG = "EC AI Live Session Log"
@@ -449,6 +474,7 @@ class PubSource:
     ERP = "erp"
     URGENT = "erp_urgent"
     APP = "app"
+    NEW = "new"            # 18/11: phien tao tren /ai-live, CHUA phat hanh lan nao -> app chua nhan (get_config bo qua)
 
 
 class DraftState:
@@ -481,6 +507,7 @@ class PubMsg:
 # ------------------------------------------------------------------ Khop hop dong eC Live 1.0.21 (fix10g) ---
 #: Ma phien tren ERP = ma live tren app; app chi nhan ^[A-Za-z0-9_-]{1,32}$ (src/remote/sessions.js normalizeSession).
 SESSION_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
+SESSION_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]{1,80}$")    # 18/11: ten phien ERP = {may}-{ma live}
 #: App (src/schedule/time.js) tu choi CA lich cua live neu co khung ngan hon 5 phut.
 MIN_SLOT_MIN = 5
 MAX_HB_PROBLEMS = 30

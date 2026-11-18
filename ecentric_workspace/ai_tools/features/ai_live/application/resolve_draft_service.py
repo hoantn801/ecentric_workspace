@@ -20,6 +20,8 @@ class ResolveDraftService:
             raise C.AiLiveError(C.SessMsg.NOT_FOUND % name)
         if not s.get("draft"):
             raise C.AiLiveError(C.PubMsg.NO_DRAFT)
+        if P.is_new(s) and not keep:
+            raise C.AiLiveError(C.SessMsg.NEW_NO_DISCARD % (s.get("title") or s["id"]))
         pub = P.published_view(s)
         view = P.draft_view(s)
         if keep and not P.same(view, pub):

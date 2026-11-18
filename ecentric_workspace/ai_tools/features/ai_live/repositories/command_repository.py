@@ -49,9 +49,12 @@ class CommandRepository:
             vals["result"] = str(result)[:C.MAX_CMD_RESULT]
         frappe.db.set_value(C.COMMAND, name, vals, update_modified=False)
 
-    def recent(self, live, since_ts, limit=20):
+    def recent(self, live, since_ts, limit=20, machine=None):
         import frappe
-        rows = frappe.get_all(C.COMMAND, filters={"live": live, "created_ts": [">=", since_ts]}, fields=FIELDS,
+        filters = {"live": live, "created_ts": [">=", since_ts]}
+        if machine:
+            filters["machine"] = machine        # 18/11: phien = (may, ma live) - 2 may co the cung ma L1
+        rows = frappe.get_all(C.COMMAND, filters=filters, fields=FIELDS,
                               order_by="created_ts desc", limit_page_length=limit)
         return [_row(r) for r in rows]
 

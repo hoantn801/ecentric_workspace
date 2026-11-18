@@ -41,7 +41,7 @@ class ViewerWallService:
         lost_codes = {m["machine_code"] for m in self.machines.heartbeats() if WR.machine_lost(m, now, cfg)}
         tiles = []
         for s in self.sessions.list():
-            row = hi.get(R.key_of(s["machine"], s["id"])) if s["machine"] else None
+            row = hi.get(R.key_of(s["machine"], s["live"])) if s["machine"] else None
             sm = summarize(s, row, now, cfg)
             if sm["status"] not in ON_AIR:
                 continue

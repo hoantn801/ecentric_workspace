@@ -24,7 +24,7 @@ class QueueCommandService:
         if action not in C.CMD_ACTIONS:
             raise C.AiLiveError(C.SessMsg.BAD_CMD)
         clean = _clean_args(action, args)
-        cid = self.commands.insert({"live": sess["id"], "machine": sess["machine"], "action": action, "args": clean,
+        cid = self.commands.insert({"live": sess["live"], "machine": sess["machine"], "action": action, "args": clean,
                                     "created_ts": self.clock(), "requested_by": user})
         return {"id": cid, "status": C.CMD_QUEUED}
 

@@ -43,7 +43,8 @@
   "hb_last_seen_ts",
   "hb_boot_ts",
   "hb_started_ts",
-  "hb_lives_json"
+  "hb_lives_json",
+  "hb_known_lives_json"
  ],
  "fields": [
   {
@@ -293,6 +294,15 @@
    "no_copy": 1
   },
   {
+   "read_only": 1,
+   "fieldname": "hb_known_lives_json",
+   "fieldtype": "Long Text",
+   "label": "Live máy đã báo (JSON)",
+   "hidden": 1,
+   "no_copy": 1,
+   "description": "Danh sách live máy báo qua nhịp tim 30 ngày gần nhất - dùng cho ô \"Live trên máy\" khi tạo phiên."
+  },
+  {
    "fieldname": "hb_minimal",
    "fieldtype": "Check",
    "label": "Máy đang tải cao (nhịp rút gọn)",
@@ -301,7 +311,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-11-18 03:00:00.000000",
+ "modified": "2026-11-18 16:00:00.000000",
  "modified_by": "Administrator",
  "module": "Ecentric Workspace",
  "name": "EC AI Live Machine",

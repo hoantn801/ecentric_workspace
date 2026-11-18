@@ -23,7 +23,7 @@ class ListSessionsService:
         _common.require_role(roles, C.SCHEDULE_VIEW_ROLES, C.Msg.NEED_SCHEDULE_VIEW)
         now, cfg = self.clock(), self.settings.get()
         hi = health_index(self.health.all())
-        rows = [summarize(s, hi.get(R.key_of(s["machine"], s["id"])) if s["machine"] else None, now, cfg)
+        rows = [summarize(s, hi.get(R.key_of(s["machine"], s["live"])) if s["machine"] else None, now, cfg)
                 for s in self.sessions.list()]
         counts = {k: sum(1 for r in rows if r["status"] == k) for k in STATUSES}
         counts["total"] = len(rows)

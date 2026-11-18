@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 0,
- "autoname": "field:live_id",
+ "autoname": "format:{machine}-{live_id}",
  "creation": "2026-10-18 00:00:00.000000",
  "description": "Phiên live (nguồn gốc là ERP): app trên máy phát lấy danh sách phiên + lịch qua get_config. Sửa lịch nhanh ở /ai-video#/schedule.",
  "doctype": "DocType",
@@ -47,11 +47,10 @@
   {
    "fieldname": "live_id",
    "fieldtype": "Data",
-   "label": "Mã phiên",
+   "label": "Mã live trên máy",
    "reqd": 1,
-   "unique": 1,
    "in_list_view": 1,
-   "description": "Trùng mã live trên app (chữ, số, . _ -; tối đa 40 ký tự), vd friso_tt_1"
+   "description": "Mã live app eLive báo (chữ, số, _ -; tối đa 32), vd L1. Hai máy có thể trùng mã; cùng một máy thì không. Tên phiên = {máy}-{mã live}, không đổi sau khi tạo."
   },
   {
    "fieldname": "title",
@@ -112,7 +111,8 @@
    "fieldtype": "Link",
    "label": "Máy phát",
    "options": "EC AI Live Machine",
-   "in_standard_filter": 1
+   "in_standard_filter": 1,
+   "reqd": 1
   },
   {
    "fieldname": "obs_port",
@@ -124,7 +124,7 @@
    "fieldname": "auto_obs_start",
    "fieldtype": "Check",
    "label": "Tự bấm phát trên OBS khi tới giờ",
-   "default": "0"
+   "default": "1"
   },
   {
    "fieldname": "lc_open_before_min",
@@ -275,7 +275,7 @@
  "issingle": 0,
  "istable": 0,
  "links": [],
- "modified": "2026-11-18 11:00:00.000000",
+ "modified": "2026-11-18 16:00:00.000000",
  "modified_by": "Administrator",
  "module": "Ecentric Workspace",
  "name": "EC AI Live Session",

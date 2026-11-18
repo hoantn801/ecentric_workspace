@@ -322,10 +322,36 @@ def set_prize_status(items=None, status: str = None, note: str = None):
 # ------------------------------------------------------------------ Lich live: ban nhap -> phat hanh (fix10g) ---
 
 @frappe.whitelist(methods=["POST"])
-def save_draft(name: str, slots=None, machine: str = None, obs_port=None, lc_open_before_min=None):
+def save_draft(name: str, slots=None, machine: str = None, obs_port=None, lc_open_before_min=None, fields=None):
     from ecentric_workspace.ai_tools.features.ai_live.application.save_draft_service import SaveDraftService
     return _run(lambda: SaveDraftService().execute(frappe.session.user, _roles(), name, slots, machine, obs_port,
-                                                   lc_open_before_min))
+                                                   lc_open_before_min, fields))
+
+
+# ------------------------------------------------------------------ 18/11: tao / sua phien ngay tren /ai-live ---
+
+@frappe.whitelist(methods=["GET"])
+def session_form(name: str = None):
+    from ecentric_workspace.ai_tools.features.ai_live.application.session_form_service import SessionFormService
+    return _run(lambda: SessionFormService().execute(_roles(), name or None))
+
+
+@frappe.whitelist(methods=["GET"])
+def machine_lives(machine: str = None):
+    from ecentric_workspace.ai_tools.features.ai_live.application.session_form_service import SessionFormService
+    return _run(lambda: SessionFormService().live_options(_roles(), machine))
+
+
+@frappe.whitelist(methods=["POST"])
+def create_session(form=None):
+    from ecentric_workspace.ai_tools.features.ai_live.application.create_session_service import CreateSessionService
+    return _run(lambda: CreateSessionService().execute(frappe.session.user, _roles(), form))
+
+
+@frappe.whitelist(methods=["POST"])
+def update_session(name: str = None, form=None):
+    from ecentric_workspace.ai_tools.features.ai_live.application.update_session_service import UpdateSessionService
+    return _run(lambda: UpdateSessionService().execute(frappe.session.user, _roles(), name, form))
 
 
 @frappe.whitelist(methods=["POST"])

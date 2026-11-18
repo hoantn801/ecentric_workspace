@@ -63,4 +63,4 @@ class SyncOverviewService:
                 "hold_text": (C.HOLD_TEXT.get(hold[1], "") + " · giữ tới " +
                               datetime.fromtimestamp(hold[0], R._VN).strftime("%H:%M")) if hold else "",
                 "published_version": s.get("published_version") or 0, "base_version": s.get("draft_base_version") or 0,
-                "by": s.get("draft_by") or "", "at": s.get("draft_at") or ""}
+                "by": s.get("draft_by") or "", "at": s.get("draft_at") or "", "new": P.is_new(s)}   # 18/11: phien moi

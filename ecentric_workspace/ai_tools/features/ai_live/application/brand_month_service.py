@@ -8,6 +8,7 @@ from ecentric_workspace.ai_tools.features.ai_live.application import _common
 from ecentric_workspace.ai_tools.features.ai_live.application.schedule_actuals_service import planned_day
 from ecentric_workspace.ai_tools.features.ai_live.domain import board_rules as B
 from ecentric_workspace.ai_tools.features.ai_live.domain import health_rules as R
+from ecentric_workspace.ai_tools.features.ai_live.domain import session_rules as S
 
 
 class BrandMonthService:
@@ -26,11 +27,12 @@ class BrandMonthService:
         facets = {"platforms": sorted({(s.get("platform") or "").lower() for s in every} - {""}),
                   "machines": sorted({s.get("machine") or "" for s in every} - {""})}
         sessions = [s for s in every if (not platform or (s.get("platform") or "").lower() == str(platform).lower())]
-        by_id = {s["id"]: s for s in sessions}
+        idx = S.index(sessions)                  # 18/11: phien = (may, ma live)
         planned = [p for d in days for p in planned_day(sessions, d, now) if not machine or p["machine"] == machine]
         reports = [r for r in self.reports.for_dates([d.isoformat() for d in days], limit=C.MAX_MONTH_REPORTS)
-                   if (not machine or r.get("machine") == machine) and (not platform or r.get("live") in by_id)]
-        rows = B.brand_rollup(planned, reports, lambda live, rep: (by_id.get(live) or {}).get("brand") or rep.get("brand"), now)
+                   if (not machine or r.get("machine") == machine) and (not platform or (r.get("machine"), r.get("live")) in idx)]
+        rows = B.brand_rollup(planned, reports,
+                              lambda live, rep: (idx.get((rep.get("machine") or "", live)) or {}).get("brand") or rep.get("brand"), now)
         tot = {k: round(sum(r[k] for r in rows), 1) for k in ("planned_h", "due_h", "live_h", "off_plan_h")}
         tot["lives"] = sum(r["lives"] for r in rows)
         tot["pct"] = round(100.0 * tot["live_h"] / tot["due_h"]) if tot["due_h"] else None

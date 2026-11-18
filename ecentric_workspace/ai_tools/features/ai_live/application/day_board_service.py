@@ -10,6 +10,7 @@ from ecentric_workspace.ai_tools.features.ai_live.application import _common
 from ecentric_workspace.ai_tools.features.ai_live.application.schedule_actuals_service import planned_day
 from ecentric_workspace.ai_tools.features.ai_live.domain import board_rules as B
 from ecentric_workspace.ai_tools.features.ai_live.domain import health_rules as R
+from ecentric_workspace.ai_tools.features.ai_live.domain import session_rules as S
 from ecentric_workspace.ai_tools.features.ai_live.domain import slot_report_rules as SR
 
 
@@ -36,15 +37,15 @@ class DayBoardService:
             d = (datetime.fromtimestamp(now, R._VN) - timedelta(hours=B.DAY_START_H)).date()
         lo, hi = B.window(d)
         sessions = self.sessions.list()
-        by_id = {s["id"]: s for s in sessions}
+        idx = S.index(sessions)                  # 18/11: phien = (may, ma live)
         days = [d - timedelta(days=1), d, d + timedelta(days=1)]
         planned = [p for k in days for p in planned_day(sessions, k, now)]
         reports = self.reports.for_dates([k.isoformat() for k in days])
-        rows = [r for r in SR.match(planned, reports, now, lambda live: live in by_id) if B.overlaps(r, lo, hi)]
+        rows = [r for r in SR.match(planned, reports, now, S.session_lookup(idx)) if B.overlaps(r, lo, hi)]
         labels = {m["machine_code"]: m.get("label") or "" for m in self.machines.sync_states()}
         out = []
         for r in rows:
-            s = by_id.get(r["live"]) or {}
+            s = idx.get((r.get("machine") or "", r["live"])) or {}
             st = B.status(r, now)
             out.append(dict(r, platform=(s.get("platform") or "").lower(), title=s.get("title") or r["title"],
                             brand=r.get("brand") or s.get("brand") or "", machine_label=labels.get(r["machine"], ""),

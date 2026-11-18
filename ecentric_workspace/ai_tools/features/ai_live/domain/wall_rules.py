@@ -75,7 +75,7 @@ def missed_today(rows, airing, hb, brand=None, machine=None):
             continue
         if (r.get("report") or {}).get("status") == "missed":
             n += 1
-        elif r["no_report"] and r["live"] not in airing and r.get("machine") in reporting:
+        elif r["no_report"] and (r.get("machine") or "", r["live"]) not in airing and r.get("machine") in reporting:
             n += 1
     return n
 
@@ -87,10 +87,10 @@ def today_rows(rows, cards, now):
     """fix10h (Gantt "Hom nay"): moi khung ke hoach / bao cao hom nay + tinh trang that de to khoi:
     dang trong khung -> muc cua the live (lost/crit/warn/ok, chua co tin hieu -> "lost"); chua toi -> future; qua -> past.
     state = 1 dong chu cho danh sach dien thoai."""
-    by_live = {c["live"]: c for c in cards}
+    by_live = {(c["machine"], c["live"]): c for c in cards}          # 18/11: phien = (may, ma live)
     out = []
     for r in rows:
-        c = by_live.get(r["live"])
+        c = by_live.get((r.get("machine") or "", r["live"]))
         if r["start_ts"] > now:
             level, state = "future", "Chờ giờ"
         elif r["end_ts"] <= now:
