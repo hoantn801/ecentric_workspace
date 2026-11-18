@@ -1626,6 +1626,7 @@ tr.wb-r-bad td:first-child{box-shadow:inset 4px 0 0 var(--bad)} tr.wb-r-warn td:
   function editModal(sid, idx, day) {
     const s = sessOf(sid); if (!s) return; const x = s.slots[idx]; const ms = P.week.machines || [];
     if (!P.canEdit) return modal(`<h3 style="margin:0">${esc(s.title)}</h3><div class="av-hint">${esc(s.brand || "")} · ${esc(s.machine || "chưa gán máy")}${s.obs_port ? " · OBS " + s.obs_port : ""}</div>
+      <div class="av-hint">Mở tab trước giờ live: ${s.lc_open_before_min ? s.lc_open_before_min + " phút" : "theo cài đặt trên app"}</div>
       <div style="font-size:14px"><b>${x.start}–${x.end}</b> · ${x.date ? "chỉ ngày " + x.date.split("-").reverse().join("/") : "lặp hằng tuần: " + (x.days.length === 7 ? "mọi ngày" : x.days.map((n) => WD[n]).join(", "))}${x.enabled === false ? ' · <span class="av-pill p-idle">Khung tắt</span>' : ""}</div>
       ${(s.diff || []).length ? `<div class="av-callout warn"><div><b>Bản nháp chưa phát hành:</b><ul class="sy-diff">${s.diff.map((d) => `<li>${esc(d)}</li>`).join("")}</ul></div></div>` : ""}
       <div class="av-hint">Tài khoản của bạn chỉ xem lịch. Cần sửa: nhờ người có quyền AI Live Scheduler.</div>
@@ -1636,8 +1637,9 @@ tr.wb-r-bad td:first-child{box-shadow:inset 4px 0 0 var(--bad)} tr.wb-r-warn td:
       <div><label style="display:inline-flex;gap:8px;align-items:center;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" id="lc-on" style="width:16px!important;height:16px!important;margin:0!important" ${x.enabled === false ? "" : "checked"}>Bật khung này</label>
         <div class="av-hint">Bỏ tick = tắt khung: vẫn giữ trên ERP nhưng không gửi xuống máy, không tính trùng giờ / số live của máy.</div></div>
       <div class="av-row"><label class="av-f" style="flex:1">Máy phát (cả phiên)<select id="lc-m"><option value="">Chưa gán</option>${ms.map((m) => `<option value="${esc(m.code)}" ${m.code === s.machine ? "selected" : ""}>${esc(m.code)}${m.label ? " · " + esc(m.label) : ""}</option>`).join("")}</select></label>
-        <label class="av-f" style="flex:1">Kênh OBS (cổng)<input type="number" id="lc-p" min="1024" max="65535" value="${s.obs_port || ""}" placeholder="4455"></label></div>
-      <div class="av-hint">Giờ kết thúc nhỏ hơn giờ bắt đầu = qua đêm. ${x.date ? "" : "Sửa ở đây đổi giờ cho mọi tuần. "}Đổi máy / kênh áp cho cả phiên. Lưu vào bản nháp – app nhận khi bấm Phát hành.</div>
+        <label class="av-f" style="flex:1">Kênh OBS (cổng)<input type="number" id="lc-p" min="1024" max="65535" value="${s.obs_port || ""}" placeholder="4455"></label>
+        <label class="av-f" style="flex:1" title="1–60 phút. Để trống = theo cài đặt trên app">Mở tab trước giờ live (phút)<input type="number" id="lc-ob" min="1" max="60" step="1" inputmode="numeric" value="${s.lc_open_before_min || ""}" placeholder="theo app"></label></div>
+      <div class="av-hint">Giờ kết thúc nhỏ hơn giờ bắt đầu = qua đêm. ${x.date ? "" : "Sửa ở đây đổi giờ cho mọi tuần. "}Đổi máy / kênh / số phút mở tab trước áp cho cả phiên (để trống số phút = theo cài đặt trên app). Lưu vào bản nháp – app nhận khi bấm Phát hành.</div>
       <div class="av-row" style="justify-content:space-between"><button class="av-btn danger" data-lc-del="${esc(sid)}|${idx}">Xoá khung${x.date ? "" : " (mọi tuần)"}</button>
         <div class="av-row">${(s.diff || []).length ? `<button class="av-btn" data-lc-undo="${esc(sid)}">Bỏ nháp phiên này</button>` : ""}${x.date ? "" : `<button class="av-btn" data-lc-skip="${esc(sid)}|${idx}|${day}" title="Giữ khung hằng tuần, chỉ bỏ ngày này">Bỏ riêng ngày ${day.split("-").reverse().slice(0, 2).join("/")}</button>`}<a class="av-outline" href="#/live/${encodeURIComponent(sid)}">Chi tiết phiên</a><button class="av-btn" data-close>Huỷ</button><button class="av-btn pri" data-lc-save="${esc(sid)}|${idx}">Lưu vào nháp</button></div></div>`);
   }
@@ -2186,7 +2188,9 @@ tr.wb-r-bad td:first-child{box-shadow:inset 4px 0 0 var(--bad)} tr.wb-r-warn td:
       if (ds.lcDel) { if (!confirm("Xoá khung " + x.start + "–" + x.end + (x.date ? "" : " (mọi tuần)") + "?")) return; slots.splice(+idx, 1); return saveSlots(sid, slots, "Đã xoá khung"); }
       if (ds.lcSkip) { const wd = new Date(day + "T00:00:00Z").getUTCDay() || 7; return toast(`Khung lặp hằng tuần không bỏ riêng 1 ngày được – đổi thành "chỉ ngày" cho các ngày cần live, hoặc bỏ ${WD[wd]} khỏi khung trong form phiên.`, true); }
       x.start = (($("lc-a") || {}).value || "").trim(); x.end = (($("lc-b") || {}).value || "").trim(); x.enabled = !$("lc-on") || $("lc-on").checked;
-      return saveDraft(sid, { slots: JSON.stringify(slots), machine: ($("lc-m") || {}).value || "", obs_port: (($("lc-p") || {}).value || "").trim() || 0 }, "Đã lưu");
+      const ob = (($("lc-ob") || {}).value || "").trim();   /* 18/11: "" = theo cai dat tren app */
+      if (ob && !(/^\d+$/.test(ob) && +ob >= 1 && +ob <= 60)) return toast("Mở tab trước giờ live phải từ 1 đến 60 phút (để trống = theo cài đặt trên app).", true);
+      return saveDraft(sid, { slots: JSON.stringify(slots), machine: ($("lc-m") || {}).value || "", obs_port: (($("lc-p") || {}).value || "").trim() || 0, lc_open_before_min: ob }, "Đã lưu");
     }
     if (ds.lcCreate) {
       const day = ds.lcCreate, sid = ($("lc-s") || {}).value, s = sessOf(sid); if (!s) return;

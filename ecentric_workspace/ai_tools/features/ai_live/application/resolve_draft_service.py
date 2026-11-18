@@ -23,7 +23,7 @@ class ResolveDraftService:
         pub = P.published_view(s)
         view = P.draft_view(s)
         if keep and not P.same(view, pub):
-            draft = {k: view[k] for k in ("slots", "machine", "obs_port") if view[k] != pub[k]}
+            draft = P.draft_of(view, pub)
             self.sessions.save_draft(s["id"], draft, s.get("published_version") or 0, user, self.clock())
         else:
             self.sessions.save_draft(s["id"], None, 0, user, self.clock())

@@ -1,7 +1,7 @@
 # Copyright (c) 2026, eCentric and contributors
 """Luat Lich live ban nhap -> phat hanh (fix10g, thuan Python, khong goi DB).
 
-"View" cua 1 phien = {slots, machine, obs_port}: ban da phat hanh (app dang/ se nhan), ban nhap (chua phat hanh)
+"View" cua 1 phien = {slots, machine, obs_port, lc_open_before_min}: ban da phat hanh (app dang/ se nhan), ban nhap (chua phat hanh)
 hoac ban cu (prev, con giu cho lan dang live). Cac ca chong xung dot:
 - dang live luc phat hanh: giu gio bat dau / may / kenh cua lan do toi het lan do (chi keo dai gio ket thuc thi ap ngay);
 - sap len song trong LOCK_MIN phut: giu gio cu cho lan do, tru khi phat hanh khan;
@@ -17,22 +17,41 @@ _VN = S._VN
 _WD = {1: "T2", 2: "T3", 3: "T4", 4: "T5", 5: "T6", 6: "T7", 7: "CN"}
 
 
+# Cac truong cua phien di qua Nhap -> Phat hanh (18/11: them lc_open_before_min).
+VIEW_KEYS = ("slots", "machine", "obs_port", "lc_open_before_min")
+
+
+def open_before(v):
+    """lc_open_before_min: so phut 1..60, hoac None = theo cai dat tren app (trong / 0 / rac -> None)."""
+    try:
+        n = int(v or 0)
+    except (TypeError, ValueError):
+        return None
+    return n if n > 0 else None
+
+
 def published_view(sess):
     return {"slots": list(sess.get("slots") or []), "machine": sess.get("machine") or "",
-            "obs_port": int(sess.get("obs_port") or 0)}
+            "obs_port": int(sess.get("obs_port") or 0), "lc_open_before_min": open_before(sess.get("lc_open_before_min"))}
 
 
 def draft_view(sess):
     """Ban nhap ghep len ban da phat hanh (truong nao nhap khong co thi giu ban phat hanh)."""
     v, d = published_view(sess), sess.get("draft") or {}
-    for k in ("slots", "machine", "obs_port"):
+    for k in VIEW_KEYS:
         if k in d:
-            v[k] = d[k] if k != "obs_port" else int(d[k] or 0)
+            v[k] = int(d[k] or 0) if k == "obs_port" else open_before(d[k]) if k == "lc_open_before_min" else d[k]
     return v
+
+
+def draft_of(view, pub):
+    """Phan ban nhap = cac truong khac ban da phat hanh."""
+    return {k: view[k] for k in VIEW_KEYS if view.get(k) != pub.get(k)}
 
 
 def same(a, b):
     return a["machine"] == b["machine"] and int(a["obs_port"] or 0) == int(b["obs_port"] or 0) and \
+        open_before(a.get("lc_open_before_min")) == open_before(b.get("lc_open_before_min")) and \
         [_key(s) for s in a["slots"]] == [_key(s) for s in b["slots"]]
 
 
@@ -70,6 +89,9 @@ def diff_texts(before, after):
         out.append("Chuyển máy %s → %s" % (before["machine"] or "chưa gán", after["machine"] or "chưa gán"))
     if int(before["obs_port"] or 0) != int(after["obs_port"] or 0):
         out.append("Đổi kênh OBS %s → %s" % (before["obs_port"] or "–", after["obs_port"] or "–"))
+    ob = lambda v: "%d phút" % open_before(v) if open_before(v) else "theo app"
+    if open_before(before.get("lc_open_before_min")) != open_before(after.get("lc_open_before_min")):
+        out.append("Mở tab trước giờ live %s → %s" % (ob(before.get("lc_open_before_min")), ob(after.get("lc_open_before_min"))))
     b_keys, a_keys = [_key(s) for s in before["slots"]], [_key(s) for s in after["slots"]]
     gone = [s for s, k in zip(before["slots"], b_keys) if k not in a_keys]
     new = [s for s, k in zip(after["slots"], a_keys) if k not in b_keys]
@@ -161,7 +183,9 @@ def served_view(sess, now):
     """Ban app nhan luc now: ban cu neu dang giu, khong thi ban da phat hanh. Them held_until (0 = khong giu)."""
     until = float(sess.get("held_until_ts") or 0)
     if sess.get("prev") and until > now:
-        return dict(sess["prev"], held_until=until)
+        out = dict(sess["prev"], held_until=until)
+        out.setdefault("lc_open_before_min", published_view(sess)["lc_open_before_min"])   # ban cu truoc 18/11
+        return out
     return dict(published_view(sess), held_until=0)
 
 

@@ -69,6 +69,7 @@ class WeekScheduleService:
                 "today": datetime.fromtimestamp(now, R._VN).date().isoformat(), "view": view, "version": version,
                 "sessions": [dict({k: s[k] for k in ("id", "title", "brand", "platform", "enabled")}, slots=views[s["id"]]["slots"],
                                   machine=views[s["id"]]["machine"], obs_port=views[s["id"]]["obs_port"],
+                                  lc_open_before_min=views[s["id"]].get("lc_open_before_min"),
                                   published_machine=s["machine"], draft_state=P.draft_state(s),
                                   diff=P.diff_texts(P.published_view(s), P.draft_view(s)) if s.get("draft") else [])
                              for s in sessions],

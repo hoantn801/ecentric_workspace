@@ -322,9 +322,10 @@ def set_prize_status(items=None, status: str = None, note: str = None):
 # ------------------------------------------------------------------ Lich live: ban nhap -> phat hanh (fix10g) ---
 
 @frappe.whitelist(methods=["POST"])
-def save_draft(name: str, slots=None, machine: str = None, obs_port=None):
+def save_draft(name: str, slots=None, machine: str = None, obs_port=None, lc_open_before_min=None):
     from ecentric_workspace.ai_tools.features.ai_live.application.save_draft_service import SaveDraftService
-    return _run(lambda: SaveDraftService().execute(frappe.session.user, _roles(), name, slots, machine, obs_port))
+    return _run(lambda: SaveDraftService().execute(frappe.session.user, _roles(), name, slots, machine, obs_port,
+                                                   lc_open_before_min))
 
 
 @frappe.whitelist(methods=["POST"])
