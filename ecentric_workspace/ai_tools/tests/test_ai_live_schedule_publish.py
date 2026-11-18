@@ -96,11 +96,12 @@ class TestDraftPublish(unittest.TestCase):
         with self.assertRaises(C.AiLivePermission):
             SaveDraftService(w.ss, w.machines, w.clock).execute("x", NOBODY, "a", slots=[])
         with self.assertRaises(C.AiLiveError):
-            w.draft("a", machine="MAY02", slots=[slot("19:00", "22:00", DAILY), slot("21:00", "23:00", DAILY)])  # trung trong phien
-        w.ss.rows["w"] = sess("w", brand="wilmar")
+            w.draft("a", slots=[slot("19:00", "22:00", DAILY), slot("21:00", "23:00", DAILY)])  # trung trong phien
+        w.ss.rows["w"] = sess("w", machine="MAY02")
         with self.assertRaises(C.AiLiveError) as cm:
-            w.draft("w", machine="MAY02")                                  # MAY02 chua giao wilmar
+            w.draft("w", fields={"brand": "wilmar"})                       # MAY02 chua giao wilmar
         self.assertIn("wilmar", str(cm.exception))
+        self.assertEqual(cm.exception.data, {"field": "brand"})
 
     def test_discard(self):
         w = World(at(12))
@@ -165,16 +166,13 @@ class TestHolds(unittest.TestCase):
         self.assertEqual(starts(w.lives()["a"]), [("19:30", "22:00")])
         self.assertEqual(w.ss.get("a")["held_until_ts"], 0)
 
-    def test_move_machine_while_on_air(self):
+    def test_machine_locked_after_create(self):
+        """18/11 (PO chot): khong chuyen may cho phien da tao - tao phien moi o may kia."""
         w = World(at(20))
-        w.draft("a", machine="MAY02")
-        out = w.publish()
-        self.assertEqual(out["refresh_sent"], ["MAY01", "MAY02"])
-        self.assertIn("a", w.lives("MAY01"))
-        self.assertNotIn("a", w.lives("MAY02", "u2"))                      # khong co luc 2 may cung phat
-        w.clock.t = at(22, 1)
-        self.assertNotIn("a", w.lives("MAY01"))
-        self.assertIn("a", w.lives("MAY02", "u2"))
+        with self.assertRaises(C.AiLiveError) as cm:
+            w.draft("a", machine="MAY02")
+        self.assertEqual(cm.exception.data, {"field": "machine"})
+        self.assertEqual(w.draft("a", machine="MAY01", obs_port=4460)["state"], C.DraftState.READY)   # cung may: bo qua
 
 
 class TestChecks(unittest.TestCase):

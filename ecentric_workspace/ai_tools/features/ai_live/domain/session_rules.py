@@ -77,6 +77,21 @@ def slot_key(s):
     return "%s|%s|%s|%s" % (",".join(str(d) for d in (s.get("days") or [])), s.get("date") or "", s["start"], s["end"])
 
 
+def index(sessions):
+    """18/11: phien = (may, ma live) - ma live (L1...) chi duy nhat TRONG 1 may. {(may, ma live): phien}."""
+    out = {}
+    for s in sessions or []:
+        live = s.get("live") or s.get("id")
+        for m in {s.get("machine") or "", ((s.get("prev") or {}).get("machine") or "")} - {""}:
+            out.setdefault((m, live), s)
+    return out
+
+
+def session_lookup(idx):
+    """(may, ma live) -> ten phien ERP (id) hoac None."""
+    return lambda machine, live: (idx.get((machine or "", live)) or {}).get("id")
+
+
 def live_slots(slots):
     """Cac khung DANG BAT, dung thu tu - vi tri trong danh sach nay = ma khung tren app (erp1, erp2...)."""
     return [s for s in slots or [] if slot_on(s)]

@@ -31,3 +31,10 @@ def schedule():
     """fix10g: so phien ban lich + nhat ky phat hanh."""
     from ecentric_workspace.ai_tools.features.ai_live.repositories.schedule_repository import ScheduleRepository
     return ScheduleRepository()
+
+
+def kits():
+    """18/11: bo live (o "Bo live" cua ngan phien)."""
+    from ecentric_workspace.ai_tools.features.ai_live.repositories.kit_repository import KitRepository
+    return KitRepository()
+

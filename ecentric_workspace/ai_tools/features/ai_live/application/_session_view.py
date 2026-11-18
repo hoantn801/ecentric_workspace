@@ -2,6 +2,7 @@
 """Dung chung cho trang Phien live (thuan Python): ghep phien (ERP) + tin hieu moi nhat (app) thanh 1 dong."""
 from ecentric_workspace.ai_tools.features.ai_live import constants as C
 from ecentric_workspace.ai_tools.features.ai_live.domain import health_rules as R
+from ecentric_workspace.ai_tools.features.ai_live.domain import schedule_rules as P
 from ecentric_workspace.ai_tools.features.ai_live.domain import session_rules as S
 
 STATUS_ORDER = {C.SessionStatus.PROBLEM: 0, C.SessionStatus.ON_AIR: 1, C.SessionStatus.SCHEDULED: 2, C.SessionStatus.OFF: 3}
@@ -14,9 +15,10 @@ def summarize(sess, health_row, now, cfg):
     nxt = S.next_window(sess["slots"], now) if sess["enabled"] else None
     det = (health_row or {}).get("detail") or {}
     pf = det.get("platform") or {}
-    return {"id": sess["id"], "title": sess["title"], "brand": sess["brand"], "platform": sess["platform"],
+    return {"id": sess["id"], "live": sess["live"], "title": sess["title"], "brand": sess["brand"], "platform": sess["platform"],
             "shop_name": sess["shop_name"], "machine": sess["machine"], "enabled": sess["enabled"], "kit": sess["kit"],
-            "mode": sess["mode"], "status": st, "key": R.key_of(sess["machine"], sess["id"]) if sess["machine"] else "",
+            "mode": sess["mode"], "status": st, "key": R.key_of(sess["machine"], sess["live"]) if sess["machine"] else "",
+            "unpublished": P.is_new(sess), "has_draft": bool(sess.get("draft")),
             "level": ev["level"] if ev else None,
             "reasons": [{"code": r["code"], "level": r["level"], "text": r["text"]} for r in (ev or {}).get("reasons", [])[:3]],
             "app_state": (health_row or {}).get("state") or "", "last_seen_ts": (health_row or {}).get("last_seen_ts") or 0,

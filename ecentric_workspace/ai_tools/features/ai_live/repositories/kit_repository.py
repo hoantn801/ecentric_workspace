@@ -30,6 +30,10 @@ class KitRepository:
             out.append(d)
         return out
 
+    def exists(self, name):
+        import frappe
+        return bool(name) and bool(frappe.db.exists(C.KIT, name))
+
     def get(self, name):
         import frappe
         if not name or not frappe.db.exists(C.KIT, name):

@@ -317,8 +317,8 @@
     "sha256": "b6598cc51bafe27072a51693ad53459ae789eac523400a06d7cc7f6aba3b1442"
   },
   "ai_tools/pages/ai_live/main_section.html": {
-    "last_resync_patch": "p413_resync_ai_live_mo_tab_truoc",
-    "sha256": "79d602e352d919a9e93eea4ec2f09f340aa73ff164c553e337f0f4967a016832"
+    "last_resync_patch": "p417_ai_live_tao_phien_tren_trang",
+    "sha256": "865cd546b05cd260ec0cc9db936aa889ebda608121e2fb4e41659e006b4e6f49"
   },
   "dao_tao/pages/learn/main_section.html": {
     "last_resync_patch": "p415_dao_tao_bai_hoc_kieu_bai_viet",

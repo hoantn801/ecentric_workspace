@@ -5,6 +5,7 @@ Khung hong bi bo rieng (khong lam hong ca lo - app bo ca lo neu nhan success:fal
 from ecentric_workspace.ai_tools.features.ai_live import constants as C
 from ecentric_workspace.ai_tools.features.ai_live.application import _common
 from ecentric_workspace.ai_tools.features.ai_live.domain import health_rules as R
+from ecentric_workspace.ai_tools.features.ai_live.domain import schedule_rules as P
 from ecentric_workspace.ai_tools.features.ai_live.domain import slot_report_rules as SR
 
 
@@ -22,16 +23,18 @@ class PushSlotReportService:
         raw = _common.parse_json(slots, "khung giờ") if isinstance(slots, str) else slots
         if not isinstance(raw, list):
             raise C.AiLiveError(C.SlotMsg.BAD % "slots phải là mảng")
-        now, saved, skipped, erp = self.clock(), [], [], {}
+        now, saved, skipped, erp, mine = self.clock(), [], [], {}, None
         for rec in raw[:C.MAX_SLOT_REPORTS]:
             try:
                 row = SR.sanitize(rec, now)
             except C.AiLiveError as e:
                 skipped.append({"live": str((rec or {}).get("live") or "")[:40] if isinstance(rec, dict) else "", "why": str(e)})
                 continue
-            if row["live"] not in erp:               # 18/11: live cua ERP VA giao cho dung may gui (ke ca ban cu dang giu)
-                s = self.sessions.get(row["live"]) or {}
-                erp[row["live"]] = m["machine_code"] in (s.get("machine"), (s.get("prev") or {}).get("machine"))
+            if row["live"] not in erp:               # 18/11: live cua ERP tren DUNG may gui (phien = (may, ma live))
+                if mine is None:
+                    mine = {s["live"]: s for s in self.sessions.by_machine(m["machine_code"])}
+                s = mine.get(row["live"])
+                erp[row["live"]] = bool(s) and not P.is_new(s)
             row.update(machine=m["machine_code"], off_plan=0 if erp[row["live"]] else 1, received_ts=now)
             self.reports.upsert(SR.report_key(m["machine_code"], row["live"], row["planned_start_ts"]), row)
             saved.append(row["live"])

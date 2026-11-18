@@ -77,8 +77,8 @@ class PushSlotsService:
     def _session_of(self, m, live):
         if not C.LIVE_RE.match(live):
             raise C.AiLiveError(C.SessMsg.BAD_ID)
-        sess = next((s for s in self.sessions.by_machine(m["machine_code"]) if s["id"] == live), None)
-        if not sess:
+        sess = next((s for s in self.sessions.by_machine(m["machine_code"]) if s["live"] == live), None)   # 18/11: (may, ma live)
+        if not sess or P.is_new(sess):           # phien chua phat hanh: app chua biet, khong nhan sua tu app
             raise C.AiLiveError(C.SessMsg.NOT_ON_MACHINE % (live, m["machine_code"]))
         if sess["brand"] and sess["brand"] not in _common.machine_brands(m):
             raise C.AiLiveError(C.SessMsg.BRAND_OFF % (sess["brand"], m["machine_code"]))

@@ -67,7 +67,8 @@ class WeekScheduleService:
         dead = C.DEAD_MAN_MIN * 60
         return {"week": span[0].isoformat(), "start": span[0].isoformat(), "days": [d.isoformat() for d in span],
                 "today": datetime.fromtimestamp(now, R._VN).date().isoformat(), "view": view, "version": version,
-                "sessions": [dict({k: s[k] for k in ("id", "title", "brand", "platform", "enabled")}, slots=views[s["id"]]["slots"],
+                "sessions": [dict({k: views[s["id"]].get(k) or s[k] for k in ("title", "brand", "platform")},   # 18/11: ten / brand qua Nhap
+                                  id=s["id"], live=s["live"], enabled=s["enabled"], unpublished=P.is_new(s), slots=views[s["id"]]["slots"],
                                   machine=views[s["id"]]["machine"], obs_port=views[s["id"]]["obs_port"],
                                   lc_open_before_min=views[s["id"]].get("lc_open_before_min"),
                                   published_machine=s["machine"], draft_state=P.draft_state(s),

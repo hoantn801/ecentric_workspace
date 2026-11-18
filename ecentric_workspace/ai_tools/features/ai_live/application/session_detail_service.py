@@ -5,6 +5,7 @@ from ecentric_workspace.ai_tools.features.ai_live import constants as C
 from ecentric_workspace.ai_tools.features.ai_live.application import _common
 from ecentric_workspace.ai_tools.features.ai_live.application._session_view import summarize
 from ecentric_workspace.ai_tools.features.ai_live.domain import health_rules as R
+from ecentric_workspace.ai_tools.features.ai_live.domain import schedule_rules as P
 
 
 class SessionDetailService:
@@ -27,7 +28,7 @@ class SessionDetailService:
         if not sess:
             raise C.AiLiveError(C.SessMsg.NOT_FOUND % name)
         now, cfg = self.clock(), self.settings.get()
-        key = R.key_of(sess["machine"], sess["id"]) if sess["machine"] else ""
+        key = R.key_of(sess["machine"], sess["live"]) if sess["machine"] else ""
         row = self.health.get(key) if key else None
         out = summarize(sess, row, now, cfg)
         out.update({"session": sess, "server_time": now, "refresh_s": 10,
@@ -38,6 +39,8 @@ class SessionDetailService:
                     "thumbs": {k: (row or {}).get(k + "_thumb_ts") or 0 for k in C.THUMB_KINDS},
                     "samples": self.samples.since(key, now - 3600) if key else [],
                     "alerts": self.alerts.for_key(key, now - 86400) if key else [],
-                    "commands": self.commands.recent(sess["id"], now - 86400),
-                    "history": self.logs.list(now - 30 * 86400, sess["id"], None, 10)})
+                    "commands": self.commands.recent(sess["live"], now - 86400, machine=sess["machine"]),
+                    "history": self.logs.list(now - 30 * 86400, sess["live"], None, 10, machine=sess["machine"]),
+                    # 18/11: thay doi chua phat hanh (phien moi: toan bo phien) - trang hien kem link Dong bo
+                    "draft_diff": P.diff_texts(P.published_view(sess), P.draft_view(sess)) if sess.get("draft") else []})
         return out

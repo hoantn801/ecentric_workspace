@@ -105,13 +105,14 @@ def tone_of(ch):
     return max((t for t, _ in ch), key=lambda t: rank[t], default="idle")
 
 
-def match(planned, reports, now, is_erp_live):
-    """planned: [{live, title, machine, obs_port, brand, start_ts, end_ts}] (ke hoach ERP 1 ngay);
-    reports: [ban ghi da luu]. Tra danh sach dong ke hoach + bao cao khong khop (lich tren may / ke hoach cu)."""
-    by_key = {(r["live"], minute(r["planned_start_ts"])): r for r in reports}
+def match(planned, reports, now, session_of):
+    """planned: [{session, live, title, machine, obs_port, brand, start_ts, end_ts}] (ke hoach ERP 1 ngay);
+    reports: [ban ghi da luu]. Tra danh sach dong ke hoach + bao cao khong khop (lich tren may / ke hoach cu).
+    18/11: phien = (may, ma live) - ghep theo (may, live, phut bat dau); session_of(may, live) -> ten phien ERP | None."""
+    by_key = {(r.get("machine") or "", r["live"], minute(r["planned_start_ts"])): r for r in reports}
     used, rows = set(), []
     for p in planned:
-        k = (p["live"], minute(p["start_ts"]))
+        k = (p.get("machine") or "", p["live"], minute(p["start_ts"]))
         rep = by_key.get(k)
         if rep:
             used.add(k)
@@ -122,9 +123,11 @@ def match(planned, reports, now, is_erp_live):
     for k, rep in by_key.items():
         if k in used:
             continue
-        erp = is_erp_live(rep["live"]) and not int(rep.get("off_plan") or 0)   # 18/11: live ERP nhung cua may khac
+        sid = session_of(rep.get("machine") or "", rep["live"])
+        erp = bool(sid) and not int(rep.get("off_plan") or 0)   # 18/11: live ERP nhung cua may khac
         ch = chips(rep, now) + [("idle", "Kế hoạch cũ / lịch trên máy" if erp else "Ngoài kế hoạch ERP")]
-        rows.append({"live": rep["live"], "title": rep["live"], "machine": rep.get("machine") or "", "obs_port": 0,
+        rows.append({"session": sid if erp else "", "live": rep["live"], "title": rep["live"],
+                     "machine": rep.get("machine") or "", "obs_port": 0,
                      "brand": rep.get("brand") or "", "start_ts": rep["planned_start_ts"], "end_ts": rep["planned_end_ts"],
                      "report": _public(rep), "chips": [{"tone": t, "text": x} for t, x in ch], "tone": tone_of(ch),
                      "no_report": False, "off_plan": not erp, "stale_plan": erp})

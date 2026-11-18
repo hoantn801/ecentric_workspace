@@ -72,13 +72,35 @@ def heartbeat_vals(payload, lives, machine, now):
             "hb_started_ts": R.epoch(payload.get("app_started_at")) or 0, "hb_on_air": 1 if lives_now else 0,
             "hb_lives": lives_now, "hb_alerts": active_alerts(lives, payload.get("problems")),
             "hb_resume_crash": 1 if resume.get("from_crash") else 0, "hb_resume": _resume_text(resume),
-            "hb_minimal": 1 if payload.get("minimal") else 0}
+            "hb_minimal": 1 if payload.get("minimal") else 0,
+            "hb_known_lives": known_lives(machine.get("hb_known_lives"), lives, now)}   # 18/11: o "Live tren may"
     at = R.epoch(payload.get("at"))
     if at:                                       # fix10g: dong ho may lech so voi ERP (lich chay theo gio may)
         vals["hb_clock_skew_s"] = round(at - now, 1)
     if float(machine.get("watch_lost_ts") or 0) > 0 and not float(machine.get("watch_back_ts") or 0):
         vals["watch_back_ts"] = now
     return vals
+
+
+def known_lives(prev, lives, now):
+    """18/11: danh sach live may da bao (nhip tim) -> o chon "Live tren may" khi tao phien.
+    Gop voi danh sach cu (nhip rut gon khong lam mat live), giu KNOWN_LIVE_KEEP_S, toi da MAX_KNOWN_LIVES, moi nhat truoc.
+    Moi dong {live, name, platform, brand, seen}; app chua gui name / platform thi de trong."""
+    out = {}
+    for x in prev or []:
+        if isinstance(x, dict) and C.SESSION_ID_RE.match(str(x.get("live") or "")) and now - float(x.get("seen") or 0) <= C.KNOWN_LIVE_KEEP_S:
+            out[x["live"]] = {k: x.get(k) or "" for k in ("live", "name", "platform", "brand")}
+            out[x["live"]]["seen"] = float(x.get("seen") or 0)
+    for lv in _live_list(lives):
+        code = str(lv.get("live") or "")
+        if not C.SESSION_ID_RE.match(code):
+            continue
+        old = out.get(code) or {}
+        plat = str(lv.get("platform") or "").strip()
+        plat = next((p for p in C.PLATFORMS if p.lower() == plat.lower()), old.get("platform") or "")
+        out[code] = {"live": code, "name": str(lv.get("name") or lv.get("title") or lv.get("label") or old.get("name") or "")[:60],
+                     "platform": plat, "brand": str(lv.get("brand") or old.get("brand") or "")[:40], "seen": now}
+    return sorted(out.values(), key=lambda x: (-x["seen"], x["live"]))[:C.MAX_KNOWN_LIVES]
 
 
 def _resume_text(resume):
@@ -119,16 +141,22 @@ def repeat_minutes(now, cfg):
     return int(cfg.get("machine_repeat_min") or C.MACHINE_REPEAT_MIN)
 
 
+def _live(s):
+    return s.get("live") or s["id"]
+
+
 def expected_lives(m, sessions, health_rows, now):
     """Live cua may luc nay: dang len song o nhip cuoi + phien ERP dang trong khung gio + lich app gui kem.
     Tra [{live, brand, name}] khong trung ma live."""
     code, out = m["machine_code"], {}
-    titles = {s["id"]: s.get("title") or s["id"] for s in sessions or []}     # fix10h: ten phien ERP thay ma live
+    # 18/11: phien = (may, ma live) -> chi lay phien cua CHINH may nay, khoa theo ma live (s["live"])
+    mine = [s for s in sessions or [] if s.get("machine") == code]
+    titles = {_live(s): s.get("title") or _live(s) for s in mine}     # fix10h: ten phien ERP thay ma live
     for lv in m.get("hb_lives") or []:
         out.setdefault(lv["live"], {"live": lv["live"], "brand": lv.get("brand") or "", "name": titles.get(lv["live"], lv["live"])})
-    for s in sessions or []:
-        if s.get("machine") == code and s.get("enabled") and S.window_now(s.get("slots") or [], now):
-            out[s["id"]] = {"live": s["id"], "brand": s.get("brand") or "", "name": s.get("title") or s["id"]}
+    for s in mine:
+        if s.get("enabled") and S.window_now(s.get("slots") or [], now):
+            out[_live(s)] = {"live": _live(s), "brand": s.get("brand") or "", "name": s.get("title") or _live(s)}
     for h in health_rows or []:
         if h.get("machine") == code and R.in_schedule(h.get("schedule") or [], now):
             out.setdefault(h["live"], {"live": h["live"], "brand": h.get("brand") or "", "name": h["live"]})

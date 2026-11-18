@@ -8,7 +8,7 @@ from ecentric_workspace.ai_tools.features.ai_live import constants as C
 _TS = ("hb_last_seen_ts", "hb_boot_ts", "hb_started_ts", "watch_lost_ts", "watch_back_ts", "watch_sent_ts",
        "watch_lost_boot_ts", "watch_lost_started_ts", "cfg_fetched_ts", "hb_clock_skew_s")
 _HB_FIELDS = list(_TS) + ["hb_state", "hb_version", "hb_on_air", "hb_lives_json", "hb_resume_crash", "watch_brands",
-                          "cfg_version", "hb_alerts", "hb_resume", "hb_minimal"]
+                          "cfg_version", "hb_alerts", "hb_resume", "hb_minimal", "hb_known_lives_json"]
 #: truong epoch -> truong Datetime de nguoi xem tren Desk
 _DT = {"hb_last_seen_ts": "hb_last_seen", "hb_boot_ts": "hb_boot_at", "hb_started_ts": "hb_app_started_at",
        "cfg_fetched_ts": "cfg_fetched_at"}
@@ -25,12 +25,18 @@ def _hb(d):
         out["hb_lives"] = json.loads(d.get("hb_lives_json") or "[]") or []
     except ValueError:
         out["hb_lives"] = []
+    try:
+        out["hb_known_lives"] = json.loads(d.get("hb_known_lives_json") or "[]") or []     # 18/11
+    except ValueError:
+        out["hb_known_lives"] = []
     return out
 
 
 def _to_db(vals):
     from ecentric_workspace.ai_tools.features.ai_live.repositories.health_repository import local_dt
-    out = {k: v for k, v in vals.items() if k not in ("hb_lives", "hb_alerts", "watch_brands")}
+    out = {k: v for k, v in vals.items() if k not in ("hb_lives", "hb_alerts", "watch_brands", "hb_known_lives")}
+    if "hb_known_lives" in vals:
+        out["hb_known_lives_json"] = json.dumps(vals["hb_known_lives"], ensure_ascii=False)
     for ts, dt in _DT.items():
         if ts in vals:
             out[dt] = local_dt(vals[ts]) if vals[ts] else None

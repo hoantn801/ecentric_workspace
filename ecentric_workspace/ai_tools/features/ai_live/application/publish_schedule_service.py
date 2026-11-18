@@ -80,8 +80,10 @@ class PublishScheduleService:
             m = machines.get(v["machine"])
             if not m:
                 yield C.SessMsg.NO_MACHINE
-            elif sess["brand"] and sess["brand"] not in _common.machine_brands(m):
-                yield C.SessMsg.BRAND_OFF % (sess["brand"], v["machine"])
+            else:
+                brand = v.get("brand") or sess["brand"]      # 18/11: brand cung qua Nhap
+                if brand and brand not in _common.machine_brands(m):
+                    yield C.SessMsg.BRAND_OFF % (brand, v["machine"])
 
     def write(self, user, all_s, afters, holds, source, note="", refresh=True):
         """Ghi ban phat hanh moi cho cac phien trong `afters`; tra {version, changes, holds, refresh_sent}."""
@@ -92,20 +94,20 @@ class PublishScheduleService:
         for sid, after in afters.items():
             s, before = by_id[sid], P.published_view(by_id[sid])
             until, why = holds.get(sid, (0, ""))
-            prev = dict(before, version=int(s.get("published_version") or 0))   # ban cu kem so ban (get_config luc giu gio)
+            prev = dict({k: x for k, x in before.items() if k != "_new"}, version=int(s.get("published_version") or 0))   # ban cu kem so ban (get_config luc giu gio)
             self.sessions.publish(sid, after, {"version": version, "ts": now, "source": source, "prev": prev,
                                                "held_until": until, "held_why": why,
                                                "keep_draft": source == C.PubSource.APP})   # nhap cua nguoi khac -> lech
             changes.append({"session": sid, "title": s["title"], "brand": s["brand"], "texts": P.diff_texts(before, after),
                             "held_until": until, "held_why": why, "before": before, "after": after})
             for code in {before["machine"], after["machine"]} - {""}:
-                touched.setdefault(code, sid)
+                touched.setdefault(code, s.get("live") or sid)      # 18/11: lenh cho app mang MA LIVE, khong phai ten phien
         self.schedule.insert_version({"version": version, "source": source, "published_by": user, "published_ts": now,
                                       "note": note, "sessions": list(afters), "machines": sorted(touched), "changes": changes})
         sent = []
         if refresh and self.schedule.settings()["refresh_on_publish"]:
-            for code, sid in sorted(touched.items()):
-                self.commands.insert({"live": sid, "machine": code, "action": C.CMD_REFRESH, "args": {"version": version},
+            for code, live in sorted(touched.items()):
+                self.commands.insert({"live": live, "machine": code, "action": C.CMD_REFRESH, "args": {"version": version},
                                       "created_ts": now, "requested_by": user})
                 sent.append(code)
         return {"version": version, "changes": [{k: c[k] for k in ("session", "title", "texts", "held_until", "held_why")}

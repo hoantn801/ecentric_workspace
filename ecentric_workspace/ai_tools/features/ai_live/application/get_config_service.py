@@ -53,15 +53,19 @@ class GetConfigService:
         for s in self._sessions.list():
             if not s["enabled"] or code not in (s["machine"], (s.get("prev") or {}).get("machine")):
                 continue
+            if P.is_new(s):                       # 18/11: tao tren /ai-live, chua Phat hanh -> may chua nhan
+                continue
             self._late_hold(s, m, now)
             v = P.served_view(s, now)
             if v["machine"] != code:
                 continue
-            out.append({"id": s["id"], "title": s["title"], "brand": s["brand"], "platform": s["platform"],
-                        "shop_name": s["shop_name"], "tiktok_username": s["tiktok_username"], "obs_port": v["obs_port"] or None,
-                        "kit": s["kit"], "mode": s["mode"] or modes.get(s["brand"]) or "full", "mode_override": s["mode"] or "",
+            # 18/11: "id" = MA LIVE tren app (L1...), khong phai ten document ({may}-{ma}); cac truong phien lay tu
+            # ban app duoc nhan (v: ban phat hanh / ban cu dang giu) - sua tren ERP chi toi may khi Phat hanh.
+            out.append({"id": s["live"], "title": v["title"] or s["live"], "brand": v["brand"], "platform": v["platform"],
+                        "shop_name": v["shop_name"], "tiktok_username": v["tiktok_username"], "obs_port": v["obs_port"] or None,
+                        "kit": v["kit"], "mode": v["mode"] or modes.get(v["brand"]) or "full", "mode_override": v["mode"] or "",
                         "auto_obs_start": bool(s["auto_obs_start"]), "schedule": S.to_app_schedule(v["slots"]),
-                        "watch_url": s.get("watch_url") or "", "phone_serial": s.get("phone_serial") or "",
+                        "watch_url": v["watch_url"], "phone_serial": v["phone_serial"],
                         # dang giu gio cu: schedule la ban cu -> version cung la ban cu (app sua tu ban do se bi
                         # bao schedule_stale sau moc giu, khong ghi de lich moi tren ERP)
                         "updated_at": str(s["updated_at"] or "")[:19],

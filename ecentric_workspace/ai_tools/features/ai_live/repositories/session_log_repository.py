@@ -38,11 +38,13 @@ class SessionLogRepository:
         doc.insert(ignore_permissions=True)
         return doc.name
 
-    def list(self, since_ts, live=None, brand=None, limit=500):
+    def list(self, since_ts, live=None, brand=None, limit=500, machine=None):
         import frappe
         filters = {"started_ts": [">=", since_ts]}
         if live:
             filters["live"] = live
+        if machine:
+            filters["machine"] = machine        # 18/11: phien = (may, ma live)
         if brand:
             filters["brand"] = brand
         rows = frappe.get_all(C.SESSION_LOG, filters=filters, fields=FIELDS, order_by="started_ts desc",

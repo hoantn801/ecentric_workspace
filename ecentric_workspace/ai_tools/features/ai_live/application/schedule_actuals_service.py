@@ -18,7 +18,7 @@ def planned_day(sessions, day, now):
     day_lo = datetime(day.year, day.month, day.day, tzinfo=R._VN).timestamp()
     out = []
     for s in sessions:
-        if not s.get("enabled"):
+        if not s.get("enabled") or P.is_new(s):  # 18/11: phien chua phat hanh chua co ke hoach
             continue
         v, held = P.published_view(s), None
         if float(s.get("held_until_ts") or 0) > day_lo and s.get("prev"):
@@ -34,7 +34,7 @@ def planned_day(sessions, day, now):
 
 
 def _row(s, v, occ):
-    return {"live": s["id"], "title": s.get("title") or s["id"], "brand": s.get("brand") or "",
+    return {"session": s["id"], "live": s["live"], "title": s.get("title") or s["live"], "brand": s.get("brand") or "",
             "machine": v.get("machine") or "", "obs_port": int(v.get("obs_port") or 0), "start_ts": occ[0], "end_ts": occ[1]}
 
 
@@ -56,11 +56,10 @@ class ScheduleActualsService:
 
     def compute(self, d, now):
         sessions = self.sessions.list()
-        ids = {s["id"] for s in sessions}
-        rows = SR.match(planned_day(sessions, d, now), self.reports.for_dates([d.isoformat()]), now, lambda live: live in ids)
-        by_id = {s["id"]: s for s in sessions}
+        idx = S.index(sessions)
+        rows = SR.match(planned_day(sessions, d, now), self.reports.for_dates([d.isoformat()]), now, S.session_lookup(idx))
         for r in rows:
-            s = by_id.get(r["live"])
+            s = idx.get((r.get("machine") or "", r["live"]))
             if r["stale_plan"] and s:            # ke hoach cu: hien dung dong kenh OBS + ten phien hien tai
                 r.update(title=s.get("title") or r["live"], obs_port=int(P.published_view(s)["obs_port"] or 0),
                          machine=r["machine"] or P.published_view(s)["machine"])

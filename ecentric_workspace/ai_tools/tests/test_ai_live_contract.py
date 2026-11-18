@@ -60,7 +60,7 @@ class TestHeartbeat1021(unittest.TestCase):
 class Doc:
     def __init__(self, **kw):
         self.__dict__.update(dict(live_id="", name="", platform="TikTok", tiktok_username="shop", watch_url="", phone_serial="",
-                                  mode="", slots=[], machine="", obs_port=0, enabled=1, brand="friso"), **kw)
+                                  mode="", slots=[], machine="MAY01", obs_port=0, enabled=1, brand="friso"), **kw)
 
 
 class TestSchedule1021(unittest.TestCase):

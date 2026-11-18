@@ -76,8 +76,9 @@ class FakeMachines:
 
 class FakeSessions:
     def __init__(self, rows=()):
-        self.rows = {r["id"]: dict(r) for r in rows}
+        self.rows = {r["id"]: dict(r, live=r.get("live") or r["id"]) for r in rows}
         self.saved = []
+        self.created = []
 
     def list(self, filters=None):
         return [dict(r) for _, r in sorted(self.rows.items())]
@@ -89,6 +90,20 @@ class FakeSessions:
     def by_machine(self, machine):
         return [dict(r) for r in self.rows.values() if r["machine"] == machine]
 
+    def find(self, machine, live):      # 18/11: phien = (may, ma live)
+        return next((dict(r) for r in self.rows.values() if r["machine"] == machine and r["live"] == live), None)
+
+    def create(self, vals, slots, draft, user, ts):
+        name = "%s-%s" % (vals["machine"], vals["live_id"])
+        if name in self.rows:
+            raise C.AiLiveError("Duplicate %s" % name)
+        row = sess(name, **{k: v for k, v in vals.items() if k != "live_id"})
+        row.update(live=vals["live_id"], slots=list(slots or []), draft=draft, draft_base_version=0, draft_by=user,
+                   draft_at=str(ts), published_version=0)
+        self.rows[name] = row
+        self.created.append(name)
+        return name
+
     def save_slots(self, name, slots):
         self.rows[name]["slots"] = slots
         self.saved.append(name)
@@ -98,6 +113,7 @@ class FakeSessions:
                                draft_at=str(ts) if draft else "")
 
     def publish(self, name, view, meta):
+        self.rows[name].update({k: view[k] for k in C.SESSION_DRAFT_FIELDS if k in view})
         self.rows[name].update(slots=view["slots"], machine=view["machine"], obs_port=view["obs_port"],
                                lc_open_before_min=view.get("lc_open_before_min"),
                                published_version=meta["version"], published_ts=meta["ts"], published_source=meta["source"],
@@ -106,6 +122,9 @@ class FakeSessions:
         if not meta.get("keep_draft"):
             self.rows[name].update(draft=None, draft_base_version=0, draft_by="")
         self.saved.append(name)
+
+    def mirror_unpublished(self, name, vals):     # 18/11
+        self.rows[name].update(vals)
 
     def set_hold(self, name, until, why):
         self.rows[name].update(held_until_ts=until, held_why=why)
@@ -123,6 +142,7 @@ def sess(sid, machine="MAY01", brand="friso", slots=None, enabled=1, **kw):
          "machine": machine, "obs_port": 0, "kit": "", "mode": "", "auto_obs_start": 0, "enabled": enabled,
          "updated_at": "2026-10-18", "slots": slots if slots is not None else [slot("19:00", "22:00", [1, 2, 3, 4, 5, 6, 7])]}
     d.update(kw)
+    d.setdefault("live", sid)        # 18/11: id = ten phien (ERP), live = ma live tren may
     return d
 
 
@@ -150,8 +170,9 @@ class FakeCommands:
         if result is not None:
             self.rows[cid]["result"] = result
 
-    def recent(self, live, since, limit=20):
-        return [dict(r) for r in self.rows.values() if r["live"] == live and r["created_ts"] >= since][:limit]
+    def recent(self, live, since, limit=20, machine=None):
+        return [dict(r) for r in self.rows.values() if r["live"] == live and r["created_ts"] >= since
+                and (not machine or r["machine"] == machine)][:limit]
 
 
 class FakeLogs:
@@ -162,9 +183,9 @@ class FakeLogs:
         self.rows[key] = dict(row, log_key=key, **row["counters"])
         return key
 
-    def list(self, since, live=None, brand=None, limit=500):
+    def list(self, since, live=None, brand=None, limit=500, machine=None):
         out = [dict(r) for r in self.rows.values() if r["started_ts"] >= since and (not live or r["live"] == live)
-               and (not brand or r["brand"] == brand)]
+               and (not brand or r["brand"] == brand) and (not machine or r["machine"] == machine)]
         return sorted(out, key=lambda r: -r["started_ts"])[:limit]
 
 
@@ -251,7 +272,7 @@ class TestValidateSession(unittest.TestCase):
         self.assertEqual(d.slots[0].days, "1,2,3,4,5")
 
     def test_errors(self):
-        cases = [(dict(live_id="bad id!"), "Mã phiên"), (dict(platform="Lazada"), "Sàn"), (dict(tiktok_username=""), "username"),
+        cases = [(dict(live_id="bad id!"), "Mã phiên"), (dict(platform="Lazada"), "Sàn"), (dict(tiktok_username="a b"), "Username TikTok"), (dict(machine=""), "Chọn máy"),
                  (dict(machine="MAY02", brand="wilmar"), "chưa giao"), (dict(obs_port=4456), "Cổng OBS 4456"),
                  (dict(obs_port=80), "1024"), (dict(mode="turbo"), "Chế độ"),
                  (dict(watch_url="http://shopee.vn/x"), "https://"), (dict(phone_serial="a b"), "điện thoại"),
@@ -393,10 +414,10 @@ class TestHeartbeatSummaryConfig(unittest.TestCase):
             svc.execute("u1", "MAY01", "a", "nestle", {"session": "z", "started_at": MON})
         with self.assertRaises(C.AiLiveError):
             svc.execute("u1", "MAY01", "a", "friso", {"session": "z", "started_at": MON + 9999})
-        h = SessionHistoryService(logs, clock=lambda: MON).execute(VIEW, live="a")
+        h = SessionHistoryService(logs, clock=lambda: MON, sessions=FakeSessions()).execute(VIEW, live="a")
         self.assertEqual(h["totals"]["runs"], 2)
         self.assertEqual((h["totals"]["hours"], h["totals"]["comments"], h["totals"]["cost_usd"]), (2.0, 20, 1.0))
-        self.assertEqual(SessionHistoryService(logs, clock=lambda: MON).execute(VIEW, days=999)["days"], C.MAX_HISTORY_DAYS)
+        self.assertEqual(SessionHistoryService(logs, clock=lambda: MON, sessions=FakeSessions()).execute(VIEW, days=999)["days"], C.MAX_HISTORY_DAYS)
 
     def test_get_config_lives(self):
         from ecentric_workspace.ai_tools.tests.test_ai_live_service import FakeBrands
