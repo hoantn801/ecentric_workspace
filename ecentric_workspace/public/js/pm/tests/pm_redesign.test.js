@@ -1005,6 +1005,29 @@ async function block(name, fn) {
   });
 
   /* ---------------- pure helpers ---------------- */
+  await block('Đổi tên việc tại chỗ (18/11) #rn', async () => {
+    const E = makeEnv();
+    await E.w.PMR.openTask("T-1"); await flush();
+    const sh = E.sheet();
+    const btn = E.$(".pmr-dtitle .pmr-rn-b", sh);
+    ok("rn: người sửa được thấy tên là nút đổi tên", !!btn && btn.getAttribute("data-act") === "rename");
+    btn.click(); await flush();
+    const inp = E.$(".pmr-rn-in", sh);
+    ok("rn: bấm tên -> ô nhập có sẵn tên, con trỏ trong ô", !!inp && inp.value === E.db.tasks["T-1"].task.subject && E.w.document.activeElement === inp);
+    inp.value = "  Báo cáo PFM YTD   (1-15/11) "; inp.dispatchEvent(new E.w.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })); await flush();
+    const up = E.last("tasks.update");
+    ok("rn: Enter -> tasks.update(name, subject) đã gọn khoảng trắng; tên mới hiện ngay", up && up.args.name === "T-1" && up.args.subject === "Báo cáo PFM YTD (1-15/11)" && /Báo cáo PFM YTD \(1-15\/11\)/.test(E.$(".pmr-dtitle", sh).textContent) && !E.$(".pmr-rn-in", sh));
+    E.$(".pmr-rn-b", sh).click(); await flush();
+    const i2 = E.$(".pmr-rn-in", sh); i2.value = "";
+    E.$("[data-act=rn-save]", sh).click(); await flush();
+    ok("rn: tên trống -> không gọi server, ô còn mở", E.calls.filter(c => c.m === "tasks.update").length === 1 && !!E.$(".pmr-rn-in", sh));
+    E.$(".pmr-rn-in", sh).dispatchEvent(new E.w.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); await flush();
+    ok("rn: Esc -> thôi sửa, ngăn vẫn mở", !E.$(".pmr-rn-in", sh) && sh.classList.contains("pmr-on"));
+    E.db.tasks["T-1"].can_edit = 0; await E.w.PMR.openTask("T-1"); await flush();
+    ok("rn: chỉ xem (can_edit=0) -> tên không bấm đổi được", !E.$(".pmr-rn-b", E.sheet()));
+    delete E.db.tasks["T-1"].can_edit;
+  });
+
   await block('pure helpers #11', async () => {
     const E = makeEnv();
     const P = E.w.PMR._pure;

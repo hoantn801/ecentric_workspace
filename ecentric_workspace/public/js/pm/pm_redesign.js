@@ -173,6 +173,7 @@ const ICONS = {
   link: '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
   eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+  pen: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
   board: '<rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="12" rx="1"/><rect x="17" y="3" width="4" height="8" rx="1"/>',
   gantt: '<path d="M3 6h9M7 12h11M5 18h7"/>',
   appr: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>'
@@ -659,7 +660,7 @@ function paintTask() {
   const d = TS.d, t = d.t, sh = S.el, gname = giverName(d), terminal = isClosed(t.workflow_state), ck = TS.chk;
   /* 2 card cao bằng nhau (PO 16/10): card trái = tiêu đề + trạng thái + thông tin + tab; card phải = Bình luận. */
   let h = `<div class="pmr-sh-cols"><div class="pmr-main"><div class="pmr-sh-h"><div class="pmr-sh-top"><span class="pmr-crumb">${esc(t.project_name || NOPROJ)}</span>${ic("right", "pmr-s pmr-faint")}<span class="pmr-crumb2">${esc(t.name)}</span>${t.parent_task ? L("‹ Việc cha", "open-sub", dattr("task", t.parent_task), "pmr-ml pmr-crumb-up") : ""}` +
-    `<button type="button" class="pmr-x" data-act="copy" aria-label="Sao chép liên kết">${ic("link", "pmr-s")}</button>${xBtn}</div><h3 class="pmr-dtitle">${esc(t.subject || t.name)}</h3>`;
+    `<button type="button" class="pmr-x" data-act="copy" aria-label="Sao chép liên kết">${ic("link", "pmr-s")}</button>${xBtn}</div><div class="pmr-dt-wrap">${titleHtml(d, terminal)}</div>`;
   if (d.giver && d.isAssignee && !d.isGiver) {
     const line = [];
     if (t.creation) line.push(shortDate(t.creation));
@@ -697,12 +698,50 @@ function paintTask() {
   on(sh, onTaskChange, "change");
   sh.onkeydown = e => {
     const cl = e.target.classList, ctrl = e.ctrlKey || e.metaKey;
+    if (cl.contains("pmr-rn-in")) {   /* đổi tên: Enter lưu, Esc thôi (không đóng cả ngăn) */
+      if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); renameSave(); }
+      else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); TS.rename = null; paintTitle("title"); }
+      return;
+    }
     if (e.key !== "Enter") return;
     if (ctrl && cl.contains("pmr-cm-in")) { e.preventDefault(); $("[data-act=cm-send]", sh).click(); }
     else if (cl.contains("pmr-step-in")) { e.preventDefault(); $("[data-act=step-add]", sh).click(); }
     else if (cl.contains("pmr-sub-in")) { e.preventDefault(); $("[data-act=sub-add]", sh).click(); }
   };
   focusFirst(sh, TS.askOpen ? ".pmr-ask-reason" : ".pmr-cta,.pmr-statusbar .pmr-on");
+}
+/* 18/11/2026 (người dùng báo "không đổi tên task được"): tên việc sửa tại chỗ. Ai sửa được việc (canEdit) và việc chưa
+   đóng: bấm tên (hoặc bút chì) -> ô nhập, Enter / Lưu = tasks.update(subject), Esc / Huỷ = thôi. Chỉ vẽ lại phần tên. */
+const SUBJECT_MAX = 140;
+function titleHtml(d, closed) {
+  const t = d.t, txt = esc(t.subject || t.name);
+  if (!d.canEdit || closed) return `<h3 class="pmr-dtitle">${txt}</h3>`;
+  if (TS.rename && TS.rename.task === t.name) {
+    return `<div class="pmr-rn"><label class="pmr-sr" for="pmr-rn-in">Tên việc</label><input id="pmr-rn-in" class="pmr-rn-in" maxlength="${SUBJECT_MAX}" value="${esc(TS.rename.text)}" autocomplete="off">` +
+      `<div class="pmr-rn-acts">${Bs("Huỷ", "rn-cancel")}${Bs("Lưu tên", "rn-save", "pmr-pri")}</div></div>`;
+  }
+  return `<h3 class="pmr-dtitle"><button type="button" class="pmr-rn-b" data-act="rename" title="Bấm để đổi tên việc">${txt}${ic("pen", "pmr-s pmr-rn-i")}<span class="pmr-sr"> (đổi tên)</span></button></h3>`;
+}
+function paintTitle(focus) {
+  const w = $(".pmr-dt-wrap", S.el), d = TS.d;
+  if (!w || !d) return;
+  w.innerHTML = titleHtml(d, isClosed(d.t.workflow_state));
+  if (focus === "input") { const i = $(".pmr-rn-in", w); if (i) { i.focus(); i.select(); } }
+  else if (focus === "title") { const b = $(".pmr-rn-b", w); if (b) b.focus(); }
+}
+function renameSave(b) {
+  const d = TS.d, rn = TS.rename;
+  if (!d || !rn || rn.busy) return;
+  const name = d.t.name, i = $(".pmr-rn-in", S.el), subj = String(i ? i.value : rn.text).replace(/\s+/g, " ").trim();
+  if (!subj) { bad("Nhập tên việc"); if (i) i.focus(); return; }
+  if (subj.length > SUBJECT_MAX) { bad("Tên việc tối đa " + SUBJECT_MAX + " ký tự"); if (i) i.focus(); return; }
+  if (subj === (d.t.subject || "")) { TS.rename = null; return paintTitle("title"); }
+  rn.busy = true;
+  busy(b || $("[data-act=rn-save]", S.el), call("tasks.update", { name, subject: subj })).then(() => {
+    if (!onTask(name)) return;
+    TS.d.t.subject = subj; TS.rename = null; paintTitle("title");
+    toast("Đã đổi tên việc"); changed({ task: name });
+  }, e => { rn.busy = false; errToast(e, "Chưa đổi được tên việc"); const x = $(".pmr-rn-in", S.el); if (x) x.focus(); });
 }
 /* Người theo dõi (CC) trong chi tiết việc: người sửa được việc thêm/bỏ ai cũng được; người xem được thì tự
    theo dõi / bỏ theo dõi chính mình. Việc con chia người hiện CC của việc cha (không bỏ ở đây). */
@@ -780,6 +819,9 @@ function onTaskClick(a, b) {
   if (!d) return;
   const t = d.t, name = t.name;
   switch (a) {
+    case "rename": TS.rename = { task: name, text: t.subject || "" }; return paintTitle("input");
+    case "rn-cancel": TS.rename = null; return paintTitle("title");
+    case "rn-save": return renameSave(b);
     case "copy": {
       const url = root.location.origin + root.location.pathname + "#task/" + encodeURIComponent(name), cb = root.navigator && root.navigator.clipboard;
       if (cb && cb.writeText) cb.writeText(url).then(() => toast("Đã sao chép liên kết"), () => toast(url)); else toast(url);

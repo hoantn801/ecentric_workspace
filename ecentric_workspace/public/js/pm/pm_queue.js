@@ -810,7 +810,7 @@ function render(el, opts) {
     const who = S.tab === "me" ? `<dt>Người giao</dt><dd>${esc(giver)}${truthy(r.giver_left) ? ' <span class="pmq-muted">(đã nghỉ)</span>' : ""}</dd>`
       : `<dt>Người nhận</dt><dd>${esc(asg)}</dd>` + (watching() ? `<dt>Người giao</dt><dd>${esc(r.giver_name || r.giver || "—")}</dd>` : "");
     const acts = actsHtml(r, "d", true);
-    dr.innerHTML = `<div class="pmq-dr-h">${chkHtml(r, "d")}<h2 class="pmq-dr-t" tabindex="-1" data-k="d:title">${esc(r.subject || r.name)}</h2>` +
+    dr.innerHTML = `<div class="pmq-dr-h">${chkHtml(r, "d")}${drTitleHtml(r, det, t)}` +
       `<button type="button" class="pmq-x" data-act="full" data-name="${n}" data-k="d:full" aria-label="Mở đầy đủ" title="Mở đầy đủ (bình luận, tệp, lịch sử)">${ic("ext")}</button>` +
       `<button type="button" class="pmq-x" data-act="close" data-k="d:close" aria-label="Đóng chi tiết" title="Đóng (Esc)">${ic("x")}</button></div>` +
       `<dl class="pmq-dr-meta"><dt>Hạn</dt><dd>${dueHtml(r)}${askedDue(r) ? `<small class="pmq-muted">Đã xin dời sang ${esc(dm(askedDue(r)))}, chờ ${esc(r.giver_name || "người giao")} trả lời</small>` : ""}</dd><dt>Ưu tiên</dt><dd>${priHtml(r.priority)}</dd>` +
@@ -821,6 +821,48 @@ function render(el, opts) {
       stepsHtml(r, det, t) + subsHtml(r, det) +
       `<section class="pmq-dr-sec pmq-dr-cm" aria-label="Bình luận">${cmHtml(r)}</section>` +
       `<p class="pmq-dr-id pmq-num">${esc(r.name)}</p>`;
+  }
+  /* 18/11/2026 ("không đổi tên task được"): tên việc sửa tại chỗ khi được sửa việc (tasks.get can_edit) và việc chưa đóng.
+     Bấm tên -> ô nhập; Enter / Lưu = tasks.update(subject); Esc / Huỷ = thôi. */
+  function drTitleHtml(r, det, t) {
+    const n = esc(r.name), txt = esc(r.subject || r.name);
+    if (!det.task || !canEditT(r, t)) return `<h2 class="pmq-dr-t" tabindex="-1" data-k="d:title">${txt}</h2>`;
+    const rn = S.rename && S.rename.name === r.name ? S.rename : null;
+    if (rn) return `<div class="pmq-dr-rn"><label class="pmq-vh" for="${idp}rn">Tên việc</label><input id="${idp}rn" class="pmq-in pmq-rn-in" data-rn data-k="d:rn" maxlength="${SUBJECT_MAX}" value="${esc(rn.text)}" autocomplete="off"${rn.busy ? " disabled" : ""}>` +
+      `<div class="pmq-af-acts"><button type="button" class="pmq-btn pmq-btn--sm pmq-btn--q" data-act="rn-cancel" data-name="${n}">Huỷ</button>` +
+      `<button type="button" class="pmq-btn pmq-btn--sm pmq-btn--pri" data-act="rn-save" data-name="${n}" data-k="d:rn-save"${rn.busy ? ' disabled aria-busy="true"' : ""}>${rn.busy ? "Đang lưu…" : "Lưu tên"}</button></div></div>`;
+    return `<h2 class="pmq-dr-t" tabindex="-1" data-k="d:title"><button type="button" class="pmq-rn-b" data-act="rn" data-name="${n}" data-k="d:rn-b" title="Bấm để đổi tên việc">${txt}<svg class="pmq-i pmq-rn-i" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg><span class="pmq-vh"> (đổi tên)</span></button></h2>`;
+  }
+  function renameStart(name) {
+    const r = rowOf(name);
+    if (!r) return;
+    S.rename = { name, text: r.subject || "", busy: false };
+    paintDrawer();
+    const i = $("[data-rn]"); if (i) { i.focus(); try { i.select(); } catch (_) { /* jsdom */ } }
+  }
+  function renameSave(name) {
+    const rn = S.rename, r = rowOf(name);
+    if (!rn || rn.name !== name || rn.busy || !r) return;
+    const i = $("[data-rn]"), subj = String(i ? i.value : rn.text).replace(/\s+/g, " ").trim();
+    if (!subj) { toast("Nhập tên việc.", { bad: true }); if (i) i.focus(); return; }
+    if (subj.length > SUBJECT_MAX) { toast("Tên việc tối đa " + SUBJECT_MAX + " ký tự.", { bad: true }); if (i) i.focus(); return; }
+    if (subj === (r.subject || "")) { S.rename = null; paintDrawer(); return focusK("d:rn-b"); }
+    rn.text = subj; rn.busy = true; paintDrawer();
+    call("tasks.update", { name, subject: subj }).then(() => {
+      if (!alive()) return;
+      if (S.rename === rn) S.rename = null;
+      r.subject = subj;
+      const det = S.detail[name]; if (det && det.task) det.task.subject = subj;
+      keep(paintList);
+      if (S.open === name) { paintDrawer(); focusK("d:rn-b"); }
+      toast("Đã đổi tên việc.");
+      changed({ task: name });
+    }, e => {
+      if (!alive()) return;
+      rn.busy = false;
+      if (S.open === name) { paintDrawer(); const x = $("[data-rn]"); if (x) x.focus(); }
+      toast(msgOf(e, "Chưa đổi được tên việc."), { bad: true });
+    });
   }
   const canEditT = (r, t) => truthy(t.can_edit) && stateOf(r) !== "Done" && stateOf(r) !== "Cancelled";
   function descHtml(r, det, t) {
@@ -1524,7 +1566,7 @@ function render(el, opts) {
     if (TABS.indexOf(t) < 0) return Promise.resolve();
     const same = t === S.tab;
     S.tab = t; LAST_TAB = t;
-    if (!same) { S.filter = "all"; S.sel = null; S.open = null; S.askForm = null; S.pick = {}; S.bulk = null; S.descEdit = null; }
+    if (!same) { S.filter = "all"; S.sel = null; S.open = null; S.askForm = null; S.pick = {}; S.bulk = null; S.descEdit = null; S.rename = null; }
     paint();
     return refresh({ force: !same || !S.data[t] });
   }
@@ -1590,6 +1632,9 @@ function render(el, opts) {
         }
         case "bulk-move": case "bulk-clear": case "bulk-done": return doBulk(a);
         case "desc-edit": return descEdit(name);
+        case "rn": return renameStart(name);
+        case "rn-cancel": S.rename = null; paintDrawer(); return focusK("d:rn-b");
+        case "rn-save": return renameSave(name);
         case "desc-cancel": S.descEdit = null; paintDrawer(); return focusK("d:desc-edit");
         case "desc-save": return descSave(name);
         case "cm-send": return cmSend(name);
@@ -1622,6 +1667,7 @@ function render(el, opts) {
     if (t === QIN) { onQaInput(); return; }
     if (t.hasAttribute && t.hasAttribute("data-cm") && S.open) { const d = S.draft[S.open] || (S.draft[S.open] = {}); d.text = t.value; if (d.err) { d.err = ""; } return; }
     if (t.hasAttribute && t.hasAttribute("data-desc") && S.descEdit) { S.descEdit.text = t.value; return; }
+    if (t.hasAttribute && t.hasAttribute("data-rn") && S.rename) { S.rename.text = t.value; return; }
     const af = t.getAttribute && t.getAttribute("data-af");
     if (af && S.askForm) { S.askForm[af] = t.value; if (af === "reason" && S.askForm.err && t.value.trim()) { S.askForm.err = ""; t.removeAttribute("aria-invalid"); const er = $(".pmq-ask-form .pmq-ferr"); if (er) er.remove(); } }
   }
@@ -1688,6 +1734,11 @@ function render(el, opts) {
     const t = e.target;
     if (!t || !t.hasAttribute || !S.open) return;
     if (t.hasAttribute("data-cm") && e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); cmSend(S.open); return; }
+    if (t.hasAttribute("data-rn")) {   /* đổi tên: Enter lưu (không khi bộ gõ đang ghép chữ), Esc thôi */
+      if (e.key === "Enter" && !e.isComposing && !S.composing) { e.preventDefault(); renameSave(S.open); }
+      else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); S.rename = null; paintDrawer(); focusK("d:rn-b"); }
+      return;
+    }
     if (t.hasAttribute("data-desc")) {
       if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); descSave(S.open); return; }
       if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); S.descEdit = null; paintDrawer(); focusK("d:desc-edit"); }

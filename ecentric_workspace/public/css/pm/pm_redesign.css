@@ -255,6 +255,15 @@ tr.pmr-done .pmr-tname,.pmr-ck.pmr-done span{color:var(--pmr-g500);text-decorati
 .pmr-sh-f .pmr-hint,.pmr-compose .pmr-hint{margin:0}
 .pmr-title-in{width:100%;border:0;outline:0;font:700 19px/1.35 var(--pmr-font);color:var(--pmr-g900);padding:10px 0 6px;background:none}
 .pmr-dtitle{margin:6px 0 0;font-size:19px;font-weight:700;line-height:1.35;overflow-wrap:anywhere}
+/* 18/11: đổi tên việc tại chỗ (bấm tên) */
+.pmr-rn-b{all:unset;cursor:text;border-radius:6px;padding:1px 4px;margin:-1px -4px;overflow-wrap:anywhere}
+.pmr-rn-b:hover{background:var(--pmr-g50)}.pmr-rn-b:focus-visible{outline:2px solid var(--pmr-navy,#2C3DA6);outline-offset:2px}
+.pmr-rn-i{margin-left:6px;vertical-align:-1px;color:var(--pmr-g500,#6b7280);opacity:0;transition:opacity .15s}
+.pmr-rn-b:hover .pmr-rn-i,.pmr-rn-b:focus-visible .pmr-rn-i{opacity:1}
+@media (hover:none){.pmr-rn-i{opacity:1}}
+.pmr-rn{margin:6px 0 0}
+.pmr-rn-in{width:100%;box-sizing:border-box;font:700 19px/1.35 var(--pmr-font);color:var(--pmr-g900);border:1px solid var(--pmr-navy,#2C3DA6);border-radius:8px;padding:6px 10px;outline:0;box-shadow:0 0 0 3px rgba(44,61,166,.12)}
+.pmr-rn-acts{display:flex;gap:6px;justify-content:flex-end;margin-top:6px}
 .pmr-fl{display:grid;grid-template-columns:104px minmax(0,1fr);gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--pmr-soft)}
 .pmr-fl-first{border-top:0}.pmr-fl-top{align-items:start}
 .pmr-lb{font-weight:600;color:var(--pmr-g600)}
