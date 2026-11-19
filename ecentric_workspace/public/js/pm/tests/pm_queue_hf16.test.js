@@ -190,6 +190,27 @@ function setup(o) {
   ok("H6 mô tả có định dạng (đậm): không sửa tại chỗ, có 'Sửa ở màn đầy đủ'", !dr().querySelector('[data-act="desc-edit"]') && /Sửa ở màn đầy đủ/.test(dr().textContent));
   t.ctl.destroy(); t.w.close();
 
+  /* ---------- H8 đổi tên việc trong ngăn (18/11) */
+  t = setup(); await flush();
+  t.rowEl("M-2").querySelector(".pmq-open").click(); await flush();
+  const rb = t.$('[data-drawer] [data-act="rn"]');
+  ok("H8 ngăn: tên việc là nút đổi tên (can_edit)", !!rb);
+  rb.click(); await flush();
+  const ri = t.$("[data-rn]");
+  ok("H8 bấm tên -> ô nhập có sẵn tên, con trỏ trong ô", ri && ri.value === "Gọi brand" && t.w.document.activeElement === ri);
+  ri.value = "Gọi brand  FES-VN "; ri.dispatchEvent(new t.w.Event("input", { bubbles: true }));
+  ri.dispatchEvent(new t.w.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })); await flush();
+  ok("H8 Enter -> tasks.update(name, subject gọn), dòng + ngăn đổi tên ngay", t.last("tasks.update").a.name === "M-2" && t.last("tasks.update").a.subject === "Gọi brand FES-VN" &&
+    /Gọi brand FES-VN/.test(t.rowEl("M-2").textContent) && /Gọi brand FES-VN/.test(t.$("[data-drawer] .pmq-dr-t").textContent) && /Đã đổi tên việc/.test(t.toast()));
+  t.$('[data-drawer] [data-act="rn"]').click(); await flush();
+  t.$("[data-rn]").dispatchEvent(new t.w.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); await flush();
+  ok("H8 Esc -> thôi sửa, ngăn vẫn mở", !t.$("[data-rn]") && !t.$("[data-drawer]").hidden);
+  t.ctl.destroy(); t.w.close();
+  t = setup({ h: { "tasks.get": a => ({ task: { name: a.name, description: "", can_edit: 0 }, subtasks: [], user_names: {} }) } }); await flush();
+  t.rowEl("M-2").querySelector(".pmq-open").click(); await flush();
+  ok("H8 không được sửa (can_edit=0): tên không bấm đổi được", !t.$('[data-drawer] [data-act="rn"]'));
+  t.ctl.destroy(); t.w.close();
+
   /* ---------- H7 Phòng họp + CSS */
   const rm = RMCSS.replace(/\/\*[\s\S]*?\*\//g, "");
   ok("H7 '+ Đặt phòng': chữ trắng mọi trạng thái, lúc chờ tải không mờ cả nút", /\.pm-head \.pmrm-btn--pri\{[^}]*color:#fff/.test(rm) && /\.pm-head \.pmrm-btn--pri\[disabled\]\{opacity:1;[^}]*color:#fff/.test(rm));

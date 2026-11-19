@@ -298,6 +298,14 @@
 .pmq-dr-h .pmq-chk{margin-top:1px}
 .pmq-dr-t{flex:1;margin:0;font-size:15px;line-height:1.4;font-weight:600;overflow-wrap:anywhere}
 .pmq-dr-t:focus{outline:0}
+/* 18/11: đổi tên việc trong ngăn (bấm tên) */
+.pmq-rn-b{all:unset;cursor:text;border-radius:6px;padding:1px 4px;margin:-1px -4px;overflow-wrap:anywhere}
+.pmq-rn-b:hover{background:var(--q-g50)}.pmq-rn-b:focus-visible{outline:2px solid var(--q-navy);outline-offset:2px}
+.pmq-rn-i{width:14px;height:14px;margin-left:6px;vertical-align:-1px;color:var(--q-g500);opacity:0;transition:opacity .15s var(--q-ease)}
+.pmq-rn-b:hover .pmq-rn-i,.pmq-rn-b:focus-visible .pmq-rn-i{opacity:1}
+@media (hover:none){.pmq-rn-i{opacity:1}}
+.pmq-dr-rn{flex:1;min-width:0;display:grid;gap:6px}
+.pmq-rn-in{width:100%;font-size:14px;font-weight:600}
 .pmq-dr-meta{display:grid;grid-template-columns:92px minmax(0,1fr);gap:9px 10px;margin:0;padding:12px 14px;font-size:12.5px}
 .pmq-dr-meta dt{color:var(--q-g500)}
 .pmq-dr-meta dd{margin:0;min-width:0;overflow-wrap:anywhere}
