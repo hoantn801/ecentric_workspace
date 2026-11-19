@@ -45,7 +45,7 @@
     "sha256": "dbd1db94baaf0705e299029848263cbe1e00e00704cde244c1d65eb26c338d7c"
   },
   "approval_center/features/contract_review/ui/main_section.html": {
-    "last_resync_patch": "p417_resync_hop_dong_qc_18_11",
+    "last_resync_patch": "p419_resync_hop_dong_qc_18_11",
     "sha256": "154983c070d2ecef7e8399e3d6f1a6f22e565b42b0003f5e26a256fd41eb511a"
   },
   "approval_center/features/daily_target/ui/main_section.html": {
@@ -112,7 +112,7 @@
     "sha256": "c6e10501f260ed196abbfea2f24e480b8fc31a105fc7f0de8a90fe64cb520785"
   },
   "approval_center/features/payment_request/ui/main_section.html": {
-    "last_resync_patch": "p417_resync_hop_dong_qc_18_11",
+    "last_resync_patch": "p419_resync_hop_dong_qc_18_11",
     "sha256": "d495f38bb7ab9c5980d64ab3212280f6cd47fea3de20dd13d739a46e889fa17c"
   },
   "approval_center/features/promotion/ui/main_section.html": {

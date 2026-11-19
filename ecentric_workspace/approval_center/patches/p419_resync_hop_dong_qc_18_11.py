@@ -26,9 +26,9 @@ def execute():
             route = route or getattr(mod, "ROUTE", None)
             html = frappe.db.get_value("Web Page", {"route": route}, "main_section_html") or ""
             thieu = [m for m in marks if m not in html]
-            frappe.logger("approval_center").info("p417 resync %s: %s (thieu moc: %s)"
+            frappe.logger("approval_center").info("p419 resync %s: %s (thieu moc: %s)"
                                                   % (route, res.get("action"), thieu or "khong"))
             if res.get("action") == "refused" or thieu:
-                frappe.log_error(title="p417 resync %s" % route, message="action=%r thieu=%r" % (res.get("action"), thieu))
+                frappe.log_error(title="p419 resync %s" % route, message="action=%r thieu=%r" % (res.get("action"), thieu))
         except Exception:
-            frappe.log_error(frappe.get_traceback(), "p417 resync %s" % (route or module))
+            frappe.log_error(frappe.get_traceback(), "p419 resync %s" % (route or module))
