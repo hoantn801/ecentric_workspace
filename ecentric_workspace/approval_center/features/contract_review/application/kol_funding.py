@@ -219,3 +219,8 @@ def _check_payee(pr):
         frappe.throw(_("Số tài khoản trên đề nghị khác số tài khoản creator trong hợp đồng {0}. Sửa cho đúng "
                        "(không biết số: hỏi người lập hợp đồng hoặc Kế toán). Creator đổi tài khoản thật: cập nhật "
                        "thông tin creator, chờ Kế toán xác nhận.").format(name))
+    # Ngan hang di theo so tai khoan: lay tu creator, khong de go tay lech (PO 18/11). So sanh chi so
+    # tai khoan ma ngan hang go khac thi UNC co the chuyen sai noi.
+    bank = (creator.get("ec_bank_name") or "").strip()
+    if bank and (pr.get("account_bank") or "").strip() != bank:
+        pr.account_bank = bank

@@ -38,6 +38,12 @@ for (const s of ["Draft", "Pending", "Approved", "Rejected", "Information Requir
   ok(U.statusLabel(s) !== s, "nhan trang thai " + s);
 ok(U.fmtDateTime("2026-11-03 14:05:22.123") === "03/11/2026 14:05", "gio dd/mm/yyyy HH:mm");
 ok(U.fmtDateTime("2026-11-03") === "03/11/2026" && U.fmtDateTime(null) === "—", "ngay + rong");
+// Duyet thay (18/11): dong Skipped cua admin override khong con hien "Bo qua cap nay".
+{ const sk = U.timelineHTML([{ action: "Skipped", actor: "ad@ec", level_no: 2, comment: "Admin override approved by ad@ec", related_user: "fin@ec" },
+                             { action: "Approved", actor: "ad@ec", level_no: 2, comment: "Admin override approve. Reason: gap" }]);
+  ok(/Duyệt thay: bỏ lượt người duyệt/.test(sk) && /Lượt của fin@ec/.test(sk) && !/Bỏ qua cấp này/.test(sk), "duyet thay: dong bo luot dung nghia");
+  ok(/Đã duyệt thay/.test(sk) && /Lý do: gap/.test(sk) && !/Admin override/.test(sk), "duyet thay: dong duyet + ly do tieng Viet");
+  ok(/Bỏ qua cấp này/.test(U.timelineHTML([{ action: "Skipped", comment: "Skipped: this approver also approves at a later level" }])), "bo qua that van la Bo qua cap nay"); }
 ok(U.levelText(1, "Trưởng phòng duyệt") === "Cấp 1 · Trưởng phòng duyệt", "levelText");
 ok(U.levelText(2, "Finance", 4) === "Cấp 2/4 · Finance", "levelText co tong");
 ok(U.levelText(1, "Cấp 1") === "Cấp 1" && U.levelText(1, "Level 1") === "Cấp 1", "khong lap 'Cap 1 · Cap 1'");

@@ -887,3 +887,15 @@ class QcTachNhiemVu18_11(unittest.TestCase):
         self.assertIn('r["can_verify"]', svc)
         acc = _read("features/contract_review/application/kol_acceptance.py")
         self.assertIn("tạo BBNT đợt", acc)
+
+
+class QcNganHangTheoCreator18_11(unittest.TestCase):
+    def test_dntt_lay_ten_ngan_hang_tu_creator(self):
+        src = _read("features/contract_review/application/kol_funding.py")
+        j = src.index("def _check_payee")
+        body = src[j:]
+        self.assertIn('bank = (creator.get("ec_bank_name") or "").strip()', body)
+        self.assertIn("pr.account_bank = bank", body)
+        self.assertLess(body.index("typed != stored"), body.index("pr.account_bank = bank"))
+        qs = _read("shared/requests/query_service.py")
+        self.assertIn('"previous_status", "new_status", "related_user"]', qs)
