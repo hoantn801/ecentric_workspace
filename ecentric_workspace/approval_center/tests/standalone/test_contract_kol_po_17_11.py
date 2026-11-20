@@ -819,3 +819,145 @@ class QcVongCuoi(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class QcTachNhiemVu18_11(unittest.TestCase):
+    """QC 18/11 (sau E2E): nguoi doi STK / nguoi lap phieu khong tu xac nhan; khong tu mo lai thanh ly."""
+
+    def _setup(self, changers=(), supplier_mod=None):
+        a = _access("fin@ec", {"fin@ec": ["EC Finance"], "kt2@ec": ["EC Finance"], "req@ec": ["EC Finance"]})
+        old = {"ec_bank_account_no": "111", "ec_bank_name": "VCB"}
+        new = {"ec_bank_account_no": "222", "ec_bank_name": "VCB"}
+        d = _kol(submitted_at="2026-11-18 10:00:00")
+        a.snapshot_payee(d, old)
+        STATE["values"][("EC Approval Request", "AR-1")] = "Approved"
+        ks = importlib.import_module(P + "kol_service")
+        ks.creator_row = lambda n: new
+        STATE["get_all"]["Comment"] = lambda f, kw: [{"owner": u, "comment_email": u} for u in changers]
+        STATE["values"][("Supplier", "SUP-1")] = (
+            lambda field, as_dict: (supplier_mod or {}) if isinstance(field, (list, tuple)) else
+            ("owner@ec" if field == "owner" else None))
+        sys.modules["frappe"].db.set_value = lambda *x, **k: None
+        return a, d
+
+    def test_nguoi_doi_stk_khong_tu_xac_nhan(self):
+        a, d = self._setup(changers=("fin@ec",))
+        self.assertEqual(a.payee_changers(d), {"fin@ec"})
+        self.assertFalse(a.can_confirm_payee(d, "fin@ec"))
+        with self.assertRaises(sys.modules["frappe"].PermissionError):
+            a.confirm_payee("CR-1", "fin@ec")
+        self.assertTrue(a.can_confirm_payee(d, "kt2@ec"))
+        self.assertEqual(a.confirm_payee("CR-1", "kt2@ec"), {"ok": True, "changed": True})
+        self.assertTrue(any("người đổi: fin@ec" in c for c in STATE["comments"]))
+
+    def test_nguoi_lap_la_ke_toan_khong_tu_xac_nhan(self):
+        a, d = self._setup(changers=("owner@ec",))
+        with self.assertRaises(sys.modules["frappe"].PermissionError):
+            a.confirm_payee("CR-1", "req@ec")
+
+    def test_sua_tren_desk_khong_binh_luan_lay_nguoi_sua_supplier(self):
+        a, d = self._setup(changers=(), supplier_mod={"modified_by": "fin@ec", "modified": "2026-11-18 11:00:00"})
+        self.assertEqual(a.payee_changers(d), {"fin@ec"})
+        with self.assertRaises(sys.modules["frappe"].PermissionError):
+            a.confirm_payee("CR-1", "fin@ec")
+
+    def test_sua_supplier_truoc_moc_khong_tinh(self):
+        a, d = self._setup(changers=(), supplier_mod={"modified_by": "fin@ec", "modified": "2026-11-18 09:00:00"})
+        self.assertEqual(a.payee_changers(d), set())
+
+    def test_nguoi_lap_khong_tu_mo_lai_thanh_ly(self):
+        a = _access("req@ec", {"req@ec": ["EC Finance"], "fin@ec": ["EC Finance"]})
+        sys.modules["frappe"].db.set_value = lambda *x, **k: None
+        _kol(kol_closed_at="2026-11-17 10:00:00", kol_close_reason="x")
+        with self.assertRaises(sys.modules["frappe"].PermissionError):
+            a.reopen_contract("CR-1", "req@ec", "nham")
+        a.reopen_contract("CR-1", "fin@ec", "thanh ly nham")
+
+    def test_trang_an_nut_xac_nhan_voi_chinh_minh_va_xoa_nhap(self):
+        src = _read("features/contract_review/ui/main_section.html")
+        self.assertIn("x.can_verify_sign?", src)
+        self.assertIn("r.can_verify&&r.status===", src)
+        self.assertIn("x.can_confirm_payee?", src)
+        self.assertIn("function doDeleteDraft", src)
+        self.assertIn(">Xoá bản nháp</button>", src)
+        pr = _read("features/payment_request/ui/main_section.html")
+        self.assertIn("function doDeleteDraft", pr)
+        svc = _read("features/contract_review/application/kol_service.py")
+        self.assertIn('"can_verify_sign"', svc)
+        self.assertIn('r["can_verify"]', svc)
+        acc = _read("features/contract_review/application/kol_acceptance.py")
+        self.assertIn("tạo BBNT đợt", acc)
+
+
+class QcNganHangTheoCreator18_11(unittest.TestCase):
+    def test_dntt_lay_ten_ngan_hang_tu_creator(self):
+        src = _read("features/contract_review/application/kol_funding.py")
+        j = src.index("def _check_payee")
+        body = src[j:]
+        self.assertIn('bank = (creator.get("ec_bank_name") or "").strip()', body)
+        self.assertIn("pr.account_bank = bank", body)
+        self.assertLess(body.index("typed != stored"), body.index("pr.account_bank = bank"))
+        qs = _read("shared/requests/query_service.py")
+        self.assertIn('"previous_status", "new_status", "related_user"]', qs)
+
+
+class QcHopDongToolCu20_11(unittest.TestCase):
+    """PO 20/11: DNTT ngoai le HD tool cu luu so HD + trang hien cac DNTT khac cung so."""
+
+    def test_luu_so_hd_cu_len_phieu(self):
+        _fresh("req@ec")
+        fu = importlib.import_module(P + "kol_funding")
+        STATE["get_all"][CR] = lambda f, kw: []
+        pr = {"has_purchase_request": "No",
+              "no_purchase_request_reason": "đợt 2 HĐ 05112026/HDDV/ECENTRIC-NTP.FCV, trùng 05112026/hddv/ecentric-ntp.fcv"}
+        self.assertTrue(fu.legacy_contract_ref(pr))
+        self.assertEqual(pr["ec_legacy_contract_no"], "05112026/HDDV/ECENTRIC-NTP.FCV")
+        self.assertEqual(fu.old_numbers("a 05112026/HDDV/A.B va HDDV/09102026/DMG-ECENTRIC-X"),
+                         ["05112026/HDDV/A.B", "HDDV/09102026/DMG-ECENTRIC-X"])
+
+    def test_trang_canh_bao_cac_dntt_khac_cung_so(self):
+        _fresh("appr@ec")
+        fu = importlib.import_module(P + "kol_funding")
+        rows = [Row(name="PR-2", payment_amount=10000000, approval_request="AR-2", ec_legacy_contract_no="05112026/HDDV/A.B"),
+                Row(name="PR-3", payment_amount=7000000, approval_request="AR-3", ec_legacy_contract_no="05112026/HDDV/A.B, 01012025/HDDV/C.D"),
+                Row(name="PR-4", payment_amount=9000000, approval_request="AR-4", ec_legacy_contract_no="05112026/HDDV/A.BC"),
+                Row(name="PR-5", payment_amount=5000000, approval_request="AR-5", ec_legacy_contract_no="05112026/HDDV/A.B")]
+        STATE["get_all"]["EC Payment Request"] = lambda f, kw: list(rows)
+        STATE["values"][("EC Approval Request", "AR-2")] = "Approved"
+        STATE["values"][("EC Approval Request", "AR-3")] = "Pending"
+        STATE["values"][("EC Approval Request", "AR-5")] = "Cancelled"
+        v = fu.legacy_view({"name": "PR-1", "ec_legacy_contract_no": "05112026/HDDV/A.B"})
+        self.assertEqual([x["name"] for x in v["others"]], ["PR-2", "PR-3"])     # A.BC khac so; PR-5 da huy
+        self.assertEqual(v["others_total"], 17000000)
+        self.assertIsNone(fu.legacy_view({"name": "PR-1", "ec_legacy_contract_no": ""}))
+
+    def test_noi_day_service_va_trang(self):
+        svc = _read("features/payment_request/application/service.py")
+        self.assertIn('doc.ec_legacy_contract_no = None', svc)
+        self.assertIn('out["legacy_contract"] = legacy', svc)
+        fun = _read("features/payment_request/application/funding.py")
+        self.assertIn('"legacy_view_fn": _KOL + "legacy_view"', fun)
+        page = _read("features/payment_request/ui/main_section.html")
+        self.assertIn("function legacyKolHTML(det)", page)
+        self.assertIn("+legacyKolHTML(det)+", page)
+        import json
+        meta = json.loads(_read("doctype/ec_payment_request/ec_payment_request.json"))
+        self.assertIn("ec_legacy_contract_no", meta["field_order"])
+        self.assertIn("p420_dntt_so_hd_tool_cu", open(os.path.join(HERE, "..", "..", "..", "patches.txt")).read())
+
+
+class PatchesTxtModulesExist(unittest.TestCase):
+    """Moi dong patches.txt phai tro toi mot tep co that - doi so patch ma quen sua patches.txt thi migrate
+    dung giua chung (bai hoc 19/11: p417 -> p419)."""
+
+    def test_moi_dong_co_tep(self):
+        app = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
+        miss = []
+        for line in open(os.path.join(app, "patches.txt"), encoding="utf-8"):
+            s = line.strip()
+            if not s or s.startswith(("[", "#", "execute:")):
+                continue
+            rel = s.split()[0].replace("ecentric_workspace.", "", 1).replace(".", os.sep) + ".py"
+            if not os.path.exists(os.path.join(app, rel)):
+                miss.append(s)
+        self.assertEqual(miss, [])

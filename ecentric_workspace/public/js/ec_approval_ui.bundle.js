@@ -147,15 +147,28 @@
   }
 
   // ---- lich su ------------------------------------------------------------------------------
+  // "Duyet thay" (admin_override_current_level) ghi 2 dong: Skipped (bo luot nguoi duyet cua cap) + Approved.
+  // Comment may la tieng Anh co dinh trong transitions.py -> doi sang nhan dung nghia (QC 18/11: dong Skipped
+  // hien "Bo qua cap nay" lam tuong cap bi bo qua).
+  var OVERRIDE_SKIP = "Admin override approved by ", OVERRIDE_OK = "Admin override approve. Reason: ";
+  function overrideParts(a) {
+    var c = a.comment ? String(a.comment) : "";
+    if (a.action === "Skipped" && c.indexOf(OVERRIDE_SKIP) === 0)
+      return { head: "Duyệt thay: bỏ lượt người duyệt", comment: a.related_user ? ("Lượt của " + a.related_user) : "" };
+    if (a.action === "Approved" && c.indexOf(OVERRIDE_OK) === 0)
+      return { head: "Đã duyệt thay", comment: "Lý do: " + c.slice(OVERRIDE_OK.length) };
+    return null;
+  }
   function timelineItemParts(a) {
     a = a || {};
-    var head = actionLabel(a.action);
+    var ov = overrideParts(a);
+    var head = ov ? ov.head : actionLabel(a.action);
     var lv = a.level_no ? levelText(a.level_no, a.level_name) : "";
     var tr = (a.previous_status && a.new_status && a.previous_status !== a.new_status)
       ? (statusLabel(a.previous_status) + " → " + statusLabel(a.new_status)) : "";
     return { label: head, level: lv, actor: actorLabel(a.actor || a.user),
       when: fmtDateTime(a.action_time || a.creation || a.timestamp), transition: tr,
-      comment: a.comment ? String(a.comment) : "" };
+      comment: ov ? ov.comment : (a.comment ? String(a.comment) : "") };
   }
   function timelineHTML(items) {
     if (!items || !items.length) return '<div class="hint">Chưa có hoạt động nào.</div>';

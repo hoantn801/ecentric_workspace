@@ -137,8 +137,7 @@ def legacy_contract_ref(pr):
     (co tran chi) - QC 17/11 vong 2 + ban do."""
     if pr.get("has_purchase_request") != "No":
         return False
-    text = str(pr.get("no_purchase_request_reason") or "")
-    found = [m.group(0).rstrip("-") for m in _OLD_NUMBER.finditer(text)]
+    found = old_numbers(pr.get("no_purchase_request_reason"))
     if not found:
         return False
     for no in found:
@@ -150,7 +149,57 @@ def legacy_contract_ref(pr):
                                "Yes, rồi chọn hợp đồng {1}.").format(number, name))
             frappe.throw(_("Hợp đồng {0} đang duyệt trên ERP ({1}): chờ duyệt xong rồi lập đề nghị thanh toán "
                            "theo hợp đồng đó.").format(number, name))
+    # Luu so HD cu len phieu: ngoai le KHONG co tran chi -> nguoi duyet can thay cac DNTT khac cung so (PO 20/11).
+    _set(pr, "ec_legacy_contract_no", ", ".join(found))
     return True
+
+
+def old_numbers(text):
+    """Cac so hop dong tool cu nhan duoc trong mot doan chu (giu thu tu, bo trung)."""
+    out = []
+    for m in _OLD_NUMBER.finditer(str(text or "")):
+        no = m.group(0).rstrip("-")
+        if no.upper() not in {x.upper() for x in out}:
+            out.append(no)
+    return out
+
+
+def _set(doc, field, value):
+    if isinstance(doc, dict):
+        doc[field] = value
+    else:
+        setattr(doc, field, value)
+
+
+_PR_DT = "EC Payment Request"
+
+
+def legacy_view(pr):
+    """Khoi canh bao cho trang DNTT: so HD tool cu cua phieu + cac DNTT KHAC (da gui, khong bi tu choi /
+    huy) ghi cung so. None khi phieu khong phai ngoai le. So HD va so tien DNTT khong phai thong tin rieng
+    tu -> hien cho moi nguoi xem duoc phieu."""
+    nos = [x.strip() for x in str(pr.get("ec_legacy_contract_no") or "").split(",") if x.strip()]
+    if not nos:
+        return None
+    want = {x.upper() for x in nos}
+    others = {}
+    for no in nos:
+        for r in frappe.get_all(_PR_DT, filters={"ec_legacy_contract_no": ["like", "%" + no + "%"],
+                                                 "name": ["!=", pr.get("name") or ""],
+                                                 "approval_request": ["is", "set"]},
+                                fields=["name", "payment_amount", "approval_request", "ec_legacy_contract_no"],
+                                limit_page_length=0):
+            mine = {x.strip().upper() for x in str(r.get("ec_legacy_contract_no") or "").split(",")}
+            if mine & want:          # "like" khop ca so dai hon ("...FCV" trong "...FCV2") - loc lai dung so
+                others[r.get("name")] = r
+    live = []
+    for r in others.values():
+        status = frappe.db.get_value("EC Approval Request", r.get("approval_request"), "approval_status")
+        if status in _RELEASED:
+            continue
+        live.append({"name": r.get("name"), "amount": float(r.get("payment_amount") or 0), "status": status or ""})
+    live.sort(key=lambda x: x["name"])
+    return {"numbers": nos, "others": live, "others_total": sum(x["amount"] for x in live)}
 
 
 def _live_erp_contract(no):
@@ -219,3 +268,8 @@ def _check_payee(pr):
         frappe.throw(_("Số tài khoản trên đề nghị khác số tài khoản creator trong hợp đồng {0}. Sửa cho đúng "
                        "(không biết số: hỏi người lập hợp đồng hoặc Kế toán). Creator đổi tài khoản thật: cập nhật "
                        "thông tin creator, chờ Kế toán xác nhận.").format(name))
+    # Ngan hang di theo so tai khoan: lay tu creator, khong de go tay lech (PO 18/11). So sanh chi so
+    # tai khoan ma ngan hang go khac thi UNC co the chuyen sai noi.
+    bank = (creator.get("ec_bank_name") or "").strip()
+    if bank and (pr.get("account_bank") or "").strip() != bank:
+        pr.account_bank = bank

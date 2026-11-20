@@ -79,6 +79,11 @@ function po1711Part(){
       const h3=K.detailHTML(d2);
       chk("da thanh ly: banner dung dau, khong 2 dau cham, van xoa duoc dot nhap cuoi", h2.indexOf("đã thanh lý")<h2.indexOf(">W<")&&!/booking\.\./.test(h3)&&/data-kol="delacc"/.test(h3));
       { const d4=JSON.parse(JSON.stringify(d2)); d4.extra.kol.signed=false; d4.business.signing_status="Chờ kiểm tra";
+        { const d7=JSON.parse(JSON.stringify(d4)); d7.extra.kol.closed=null; d7.extra.kol.is_finance=true; d7.extra.kol.can_verify_sign=false;
+          const h7=K.detailHTML(d7); chk("qc 18/11: ke toan tu lap / tu tai ban ky -> khong co nut xac nhan, nho ke toan khac", !/data-kol="vsignok"/.test(h7)&&/nhờ một Kế toán khác kiểm/.test(h7));
+          d7.extra.kol.can_verify_sign=true; chk("qc 18/11: ke toan khac -> co nut xac nhan", /data-kol="vsignok"/.test(K.detailHTML(d7))); }
+        { const d8=JSON.parse(JSON.stringify(curDetail)); Object.assign(d8.extra.kol,{approved:true,payee_changed:true,is_finance:true,can_confirm_payee:false,payee_change_by:["fin@ec"]});
+          const h8=K.detailHTML(d8); chk("qc 18/11: nguoi doi STK -> khong co nut xac nhan TK moi, hien nguoi doi", !/data-kol="payeeok"/.test(h8)&&/Người đổi: fin@ec/.test(h8)&&/nhờ một Kế toán khác/.test(h8)); }
         chk("vong cuoi: thanh ly khi ban ky cho kiem -> noi ro van xac nhan duoc", /Bản ký đang chờ Kế toán kiểm vẫn xác nhận được/.test(K.detailHTML(d4))&&!/không nhận bản ký, không lập ĐNTT/.test(K.detailHTML(d4)));
         const d5=JSON.parse(JSON.stringify(curDetail)); d5.extra.kol.payee_was_empty=true; d5.extra.kol.approved=true;
         chk("vong cuoi: luc gui chua co STK -> banner 'vua bo sung'", /Creator vừa bổ sung tài khoản nhận tiền/.test(K.detailHTML(d5))); }
@@ -107,7 +112,7 @@ function po1711Part(){
       chk("nguoi lap nhap: goi y tai sau khi gui + nut Xem truoc, khong noi 'kiem tra tep .docx'", /Gửi phiếu xong bạn tải được/.test(K.detailHTML(d5))&&!/kiểm tra tệp \.docx/.test(K.detailHTML(d5))); }
     curDetail=JSON.parse(JSON.stringify(detail));
     curDetail.extra.kol.acceptances[0].signed_file="/private/files/bbnt ky.pdf";
-    Object.assign(curDetail.extra.kol,{is_finance:true,can_download_full:true,payee_changed:true,closed:null}); curDetail.business.creator="SUP-1";
+    Object.assign(curDetail.extra.kol,{is_finance:true,can_download_full:true,payee_changed:true,can_confirm_payee:true,closed:null}); curDetail.business.creator="SUP-1";
     const w9=make("https://x/approvals/contract-review?id=EC-CTR-2026-00100");
     const posted=[]; let dlFail=false; w9.URL.createObjectURL=function(){ return "blob:x"; }; w9.URL.revokeObjectURL=function(){};
     w9.fetch=function(u,o){ const rec={action:u,method:o.method,csrf:(o.headers||{})["X-Frappe-CSRF-Token"]}; o.body.forEach(function(v,k){ rec[k]=v; }); posted.push(rec);
@@ -360,7 +365,7 @@ function reviewPart(){
   curDetail=JSON.parse(JSON.stringify(detail));
   curDetail.business.signing_status="Chờ kiểm tra"; curDetail.business.signed_file="/private/files/ky.pdf";
   curDetail.business.sign_check_note="- Tìm thấy 0 chữ ký số, cần ít nhất 2";
-  curDetail.extra.kol.signed=false; curDetail.extra.kol.is_finance=true;
+  curDetail.extra.kol.signed=false; curDetail.extra.kol.is_finance=true; curDetail.extra.kol.can_verify_sign=true;
   const w5=make("https://x/approvals/contract-review?id=EC-CTR-2026-00100");
   wait(w5,function(){ return /Chờ Kế toán kiểm/.test((w5.document.getElementById("ctr-body")||{}).innerHTML||""); },function(){
     const b=w5.document.getElementById("ctr-body").innerHTML;
@@ -369,7 +374,7 @@ function reviewPart(){
     w5.document.querySelector('[data-kol="vsignok"]').click();
     setTimeout(function(){
       chk("ke toan xac nhan: goi kol_verify_signed ok=1", calls.some(x=>/^kol_verify_signed .*"ok":1/.test(x)));
-      curDetail.extra.kol.is_finance=false;
+      curDetail.extra.kol.is_finance=false; curDetail.extra.kol.can_verify_sign=false;
       const w6=make("https://x/approvals/contract-review?id=EC-CTR-2026-00100");
       wait(w6,function(){ return /Chờ Kế toán kiểm/.test((w6.document.getElementById("ctr-body")||{}).innerHTML||""); },function(){
         chk("nguoi tao: khong co nut xac nhan ban ky", !/data-kol="vsignok"/.test(w6.document.getElementById("ctr-body").innerHTML));

@@ -443,6 +443,10 @@ def detail_extra(business, request):
         "can_manage": can_manage(business, user),
         "can_ai": can_manage(business, user) or is_approver(business, user),
         "is_finance": kol_lookup.is_finance(user),
+        # Tach nhiem vu: Ke toan nhung la nguoi lap / nguoi tai ban ky thi khong xac nhan duoc (khop
+        # kol_verify._not_own) - an nut thay vi de bam roi bao loi (QC 18/11).
+        "can_verify_sign": kol_lookup.is_finance(user) and user not in {
+            business.get("requested_by"), business.get("owner"), business.get("signed_marked_by")},
         "approved": status == APPROVED,
         "signed": is_signed(business),
         "acceptances": _rows_for(business, user, kol_acceptance.rows_view(business)),
@@ -452,6 +456,9 @@ def detail_extra(business, request):
         "can_preview": can_manage(business, user) or is_approver(business, user),
         "payee_changed": kol_access.payee_changed(business),
         "payee_was_empty": business.get("kol_payee_fp") == kol_access.NO_ACCOUNT,
+        # Ai doi STK (de Ke toan khac xac nhan) - QC 18/11 tach nhiem vu. Chi tinh khi dang co canh bao.
+        "payee_change_by": sorted(kol_access.payee_changers(business)) if kol_access.payee_changed(business) else [],
+        "can_confirm_payee": kol_access.can_confirm_payee(business, user) if kol_access.payee_changed(business) else False,
         "closed": {"at": str(business.get("kol_closed_at") or ""), "by": business.get("kol_closed_by") or "",
                    "reason": business.get("kol_close_reason") or ""} if kol_access.is_closed(business) else None,
         "acceptance_remaining": kol_acceptance.acceptance_remaining(business),
@@ -468,8 +475,11 @@ def detail_extra(business, request):
 def _rows_for(business, user, rows):
     """An URL BBNT du PII voi nguoi khong duoc tai (PO 17/11 A)."""
     from ecentric_workspace.approval_center.features.contract_review.application import kol_access
+    fin = kol_lookup.is_finance(user)
+    own = {business.get("requested_by"), business.get("owner")}
     for r in rows:
         r["has_signed"] = bool(r.get("signed_file"))
+        r["can_verify"] = bool(fin and user not in own | {r.get("completed_by")})
     if kol_access.can_download_full(business, user):
         return rows
     for r in rows:

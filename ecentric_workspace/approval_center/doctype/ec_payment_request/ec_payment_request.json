@@ -32,6 +32,7 @@
   "funding_source_doctype",
   "funding_source_name",
   "no_purchase_request_reason",
+  "ec_legacy_contract_no",
   "sb_chk",
   "is_cost_valid",
   "details_and_attachments_correct",
@@ -214,6 +215,14 @@
    "label": "Reason for no purchase request"
   },
   {
+   "fieldname": "ec_legacy_contract_no",
+   "fieldtype": "Data",
+   "label": "Số HĐ tool cũ (ngoại lệ)",
+   "read_only": 1,
+   "no_copy": 1,
+   "description": "Hệ thống điền khi Booking KOL chọn No và ghi số hợp đồng ký ở tool cũ: không có trần chi, người duyệt đối chiếu."
+  },
+  {
    "fieldname": "sb_chk",
    "fieldtype": "Section Break",
    "label": "Checks"
@@ -391,7 +400,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-11 17:00:00.000000",
+ "modified": "2026-11-20 13:00:00.000000",
  "module": "Approval Center",
  "name": "EC Payment Request",
  "naming_rule": "Expression",

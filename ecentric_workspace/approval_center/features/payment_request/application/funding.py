@@ -83,6 +83,7 @@ _SOURCES = {
         "required_for_categories": ("TT_KOL",),
         # Ngoai le PO 17/11: hop dong ky bang tool cu (chua co tren ERP) -> chon "Khong" + ghi so HD cu.
         "legacy_fn": _KOL + "legacy_contract_ref",
+        "legacy_view_fn": _KOL + "legacy_view",
     },
 }
 
@@ -97,6 +98,19 @@ def required_source(category):
     for doctype, meta in _SOURCES.items():
         if category and category in (meta.get("required_for_categories") or ()):
             return doctype, meta.get("label") or doctype
+    return None
+
+
+def legacy_view(business):
+    """Khoi canh bao ngoai le HD tool cu cho trang DNTT (module so huu nguon tinh) - None neu khong ap dung."""
+    if not (business or {}).get("ec_legacy_contract_no"):
+        return None
+    for meta in _SOURCES.values():
+        fn = meta.get("legacy_view_fn")
+        if fn:
+            res = frappe.get_attr(fn)(business)
+            if res:
+                return res
     return None
 
 

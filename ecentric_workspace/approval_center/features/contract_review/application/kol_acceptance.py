@@ -76,6 +76,8 @@ def add_acceptance(name, user, description, acceptance_date=None, amount=None):
     url, missing = kol_files.generate_acceptance(doc, row, creator_row(doc.creator))
     row.bbnt_file = url
     doc.save(ignore_permissions=True)
+    # Vet: ai tao dot nao, bao nhieu tien (QC 18/11).
+    doc.add_comment("Info", _("{0} tạo BBNT đợt {1}: {2} đ.").format(user, row.idx, "{:,.0f}".format(flt(amount)).replace(",", ".")))
     from ecentric_workspace.approval_center.features.contract_review.domain import kol_values
     return {"row": row.name, "bbnt_file": url, "missing": missing,
             "missing_labels": kol_values.missing_labels(missing)}
@@ -242,7 +244,7 @@ def rows_view(doc):
              "status": r.status, "bbnt_file": r.bbnt_file, "signed_file": r.signed_file,
              "completed_at": str(r.completed_at or ""), "due_date": str(r.due_date or ""),
              "check_note": r.get("check_note") or "", "verified_by": r.get("verified_by") or "",
-             "calc": _round_calc(doc, r)}
+             "completed_by": r.get("completed_by") or "", "calc": _round_calc(doc, r)}
             for r in (doc.acceptances or [])]
 
 
