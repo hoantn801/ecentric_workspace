@@ -881,13 +881,19 @@
     var br=(biz.ec_brand||"").toString().trim(), sb=(c.brand||"").toString().trim();
     if(br&&sb&&br.toLowerCase()!==sb.toLowerCase()) note+='<div class="banner warn" style="margin-top:6px"><div>SO của brand <b>'+esc(sb)+'</b>, khác brand của đề nghị (<b>'+esc(br)+'</b>).</div></div>';
     return out+'<div class="fld full">'+note+'</div>'; }
+  // Ngoai le hop dong ky o tool cu (PO 20/11): khong co tran chi - cho nguoi duyet thay cac DNTT khac cung so HD.
+  function legacyKolHTML(det){ var L=((det||{}).extra||{}).legacy_contract; if(!L||!(L.numbers||[]).length) return "";
+    var o=L.others||[], list=o.map(function(x){ return '<a href="?id='+encodeURIComponent(x.name)+'">'+esc(x.name)+'</a> ('+fmtVnd(x.amount)+'đ)'; }).join(", ");
+    return '<div class="card"><div class="banner warn"><div><b>Ngoại lệ hợp đồng ký ở tool cũ: '+esc(L.numbers.join(", "))+'</b> — không có trần chi trên ERP, người duyệt tự đối chiếu với hợp đồng.'
+      +(o.length?'<br>Số hợp đồng này còn <b>'+o.length+' đề nghị khác</b> (tổng <b>'+fmtVnd(L.others_total)+'đ</b>): '+list+'.':'<br>Chưa có đề nghị nào khác ghi số hợp đồng này.')
+      +'</div></div></div>'; }
   function kv(k,v){ return '<div class="fld"><label>'+esc(k)+'</label><input class="ro" readonly value="'+esc(v==null||v===""?"—":v)+'"></div>'; }
   function drawDetail(b,det){ state.detail=det; var biz=det.business||{}, ap=det.approval||{};
     // Chi hoi trang thai ky khi nguoi dung THUC SU la nguoi duyet dang cho - tranh goi thua.
     if((det.capabilities||{}).can_approve) loadSignReady();
     b.innerHTML='<div style="margin-bottom:12px"><button type="button" class="btn" id="d-back">‹ Danh sách</button></div>'
       +'<div class="card"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px"><div><h3 style="margin:0">'+esc(biz.request_title||biz.name||state.id)+'</h3><div class="hint">'+esc(biz.name||"")+' · '+esc(biz.payee_full_name||"")+' · '+esc(biz.requested_by||"")+' · '+esc(biz.department||"")+'</div></div><div>'+badge(ap.approval_status||"Draft")+'</div></div></div>'
-      +'<div class="card"><h3>Tiến trình phê duyệt</h3>'+instChainHTML(det)+instStepperWrapOpen(det)+'<div class="stepper" id="d-stepper"></div>'+instStepperWrapClose(det)+'</div>'
+      +legacyKolHTML(det)+'<div class="card"><h3>Tiến trình phê duyệt</h3>'+instChainHTML(det)+instStepperWrapOpen(det)+'<div class="stepper" id="d-stepper"></div>'+instStepperWrapClose(det)+'</div>'
       +'<div class="card"><h3>Thông tin thanh toán</h3><div class="grid2">'+kv("Người nhận",biz.payee_full_name)+kv("Số tiền (VND)",biz.payment_amount!=null?fmtMoney(biz.payment_amount):"")+kv("Ngày thanh toán",biz.payment_date)+kv("Ngân hàng",biz.account_bank)+kv("Số tài khoản",biz.bank_account_number)+kv("Loại chi phí",catLabel((state.boot&&state.boot.form_options)||{},biz.ec_loai_chi_phi))+(biz.ec_brand?kv("Brand liên quan",biz.ec_brand):"")+kv("Kỳ ghi nhận chi phí",biz.ec_ky_chi_phi)+kv("Thuế VAT",(String(biz.ec_vat_pct||"0")==="0"?"Không có VAT":String(Number(biz.ec_vat_pct))+"%"))+kv("Có Purchase Request?",biz.has_purchase_request)+kv("Purchase Request",biz.purchase_request)+soCheckHTML(det,biz)+kv("Chi phí hợp lệ?",biz.is_cost_valid)+kv("Xác nhận thông tin & tệp",biz.details_and_attachments_correct==="Yes"?"Đã xác nhận":"Chưa xác nhận")+'</div><div class="fld" style="margin-top:10px"><label>Lý do / nội dung thanh toán</label><textarea class="ro" readonly rows="3">'+esc(biz.reason||"")+'</textarea></div>'+(biz.has_purchase_request==="No"?'<div class="fld" style="margin-top:10px"><label>Lý do không có Purchase Request</label><textarea class="ro" readonly rows="2">'+esc(biz.no_purchase_request_reason||"")+'</textarea></div>':'')+'</div>'
       +instCardHTML(det)
       +'<div class="card"><h3>Đính kèm</h3>'+renderAttachments(det.attachments)+'</div>'

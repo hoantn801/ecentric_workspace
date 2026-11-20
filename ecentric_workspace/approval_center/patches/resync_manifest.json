@@ -113,7 +113,7 @@
   },
   "approval_center/features/payment_request/ui/main_section.html": {
     "last_resync_patch": "p419_resync_hop_dong_qc_18_11",
-    "sha256": "d495f38bb7ab9c5980d64ab3212280f6cd47fea3de20dd13d739a46e889fa17c"
+    "sha256": "ef1b46aa41ca1c8899432144e5de0a678018e1af565424fdc7955e32347ac33e"
   },
   "approval_center/features/promotion/ui/main_section.html": {
     "baseline": "2026-08-31",

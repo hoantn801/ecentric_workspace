@@ -12,7 +12,7 @@ _PAGES = (
     ("ecentric_workspace.approval_center.features.contract_review.infrastructure.page_sync",
      "approvals/contract-review", ("can_verify_sign", "doDeleteDraft", "can_confirm_payee")),
     ("ecentric_workspace.approval_center.features.payment_request.infrastructure.page_sync",
-     None, ("doDeleteDraft",)),
+     None, ("doDeleteDraft", "legacyKolHTML")),
 )
 
 

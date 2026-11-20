@@ -61,6 +61,9 @@ def normalize_payment(doc):
 
 
 def _require_source(doc):
+    # Ngoai le HD tool cu: legacy_allowed ghi lai so HD neu dung la ngoai le; khac thi xoa (PO 20/11).
+    if doc.get("ec_legacy_contract_no") and doc.get("has_purchase_request") != "No":
+        doc.ec_legacy_contract_no = None
     need = funding.required_source((doc.get("ec_loai_chi_phi") or "").strip())
     if not need or doc.get("funding_source_doctype") == need[0] or funding.legacy_allowed(need[0], doc):
         return
@@ -643,5 +646,12 @@ def detail_extra(business, request):
         chk = None
     if chk:
         out["so_check"] = chk
+    try:
+        legacy = funding.legacy_view(business)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "payment_request legacy_view")
+        legacy = None
+    if legacy:
+        out["legacy_contract"] = legacy
     return out
 
