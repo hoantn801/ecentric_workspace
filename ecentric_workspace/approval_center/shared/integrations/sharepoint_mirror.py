@@ -283,14 +283,40 @@ def cap_quyen(item_id, emails, token=None, cho_sua=True, pha_thua_ke=False):
             "sendInvitation": False}
     if pha_thua_ke:
         than["retainInheritedPermissions"] = False
-    resp = requests.post(
-        "%s/sites/%s/drive/items/%s/createLink" % (_graph(), wr_sp.SITE_ID, item_id),
-        headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"},
-        json=than, timeout=TIMEOUT)
-    if resp.status_code not in (200, 201):
+    url = "%s/sites/%s/drive/items/%s/createLink" % (_graph(), wr_sp.SITE_ID, item_id)
+    hdr = {"Authorization": "Bearer " + token, "Content-Type": "application/json"}
+    resp = requests.post(url, headers=hdr, json=than, timeout=TIMEOUT)
+    if resp.status_code in (200, 201):
+        link = ((resp.json() or {}).get("link") or {}).get("webUrl")
+        return {"da_cap": nguoi, "bo_qua": bo, "link": link}
+    if not (_khong_resolve(resp) and len(nguoi) > 1):
         raise SharePointChuaSan("Cap quyen that bai (%s): %s" % (resp.status_code, resp.text[:300]))
-    link = ((resp.json() or {}).get("link") or {}).get("webUrl")
-    return {"da_cap": nguoi, "bo_qua": bo, "link": link}
+    # 20/11/2026 (EC-CTR-2026-00122 + moi phieu cua anh.luu tu 09/10): MOT dia chi Graph khong tim
+    # thay tai khoan Microsoft 365 -> `noResolvedUsers` cho CA LO -> khong ai duoc cap, khong ghi
+    # lien ket, .docx mat "Mo online". Cap TUNG NGUOI: nguoi resolve duoc van co quyen, nguoi hong
+    # vao `bo_qua` + log ten de HR / IT sua tai khoan. Ca lo deu hong thi van nem nhu cu (co the la
+    # loi ngu canh token, khong phai mot dia chi - xem ghi chu 14/09 o tren).
+    da_cap, hong, link = [], [], None
+    for e in nguoi:
+        r1 = requests.post(url, headers=hdr, json=dict(than, recipients=[{"email": e}]), timeout=TIMEOUT)
+        if r1.status_code in (200, 201):
+            da_cap.append(e)
+            link = link or ((r1.json() or {}).get("link") or {}).get("webUrl")
+        elif _khong_resolve(r1):
+            hong.append(e)
+        else:
+            raise SharePointChuaSan("Cap quyen that bai (%s): %s" % (r1.status_code, r1.text[:300]))
+    if not da_cap:
+        raise SharePointChuaSan("Cap quyen that bai: Graph khong resolve duoc ai trong %s" % ", ".join(hong))
+    frappe.log_error("Khong cap duoc quyen tep %s cho: %s - Graph bao noResolvedUsers (dia chi khong co / "
+                     "khac tai khoan Microsoft 365). Nhung nguoi con lai da duoc cap." % (item_id, ", ".join(hong)),
+                     "SharePoint: email khong co tai khoan M365")
+    return {"da_cap": da_cap, "bo_qua": bo + hong, "link": link}
+
+
+def _khong_resolve(resp):
+    """400 `noResolvedUsers` cua createLink: co dia chi Graph khong phan giai duoc."""
+    return resp.status_code == 400 and "noResolvedUsers" in (resp.text or "")
 
 
 def doc_quyen(item_id, token=None):
