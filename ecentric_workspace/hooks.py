@@ -1116,3 +1116,9 @@ website_redirects = list(globals().get("website_redirects") or []) + [
 # switch esign (ec_esign_scheduler_disabled). Xem platform/esign/provider_cancel.py.
 scheduler_events["cron"].setdefault("*/10 * * * *", []).append(
     "ecentric_workspace.platform.esign.provider_cancel.sweep")
+
+# 19/11/2026 (Hoan) - GBS: boxme whitelist IP cho khoa tich hop; site o server dung chung Frappe Cloud nen
+# IP goi ra KHONG tinh. Moi gio do IP + goi thu boxme; IP doi hoac boxme 401/403 -> bao (system_critical).
+# Tat: site_config ec_gbs_monitor_disabled. Nguoi nhan: ec_gbs_monitor_recipients. Xem gbs_monitor/__init__.py.
+scheduler_events["hourly"].append(
+    "ecentric_workspace.gbs_monitor.jobs.check_job.run")
