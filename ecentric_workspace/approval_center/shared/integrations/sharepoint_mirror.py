@@ -306,12 +306,36 @@ def cap_quyen(item_id, emails, token=None, cho_sua=True, pha_thua_ke=False):
             hong.append(e)
         else:
             raise SharePointChuaSan("Cap quyen that bai (%s): %s" % (r1.status_code, r1.text[:300]))
+    if hong:
+        # 22/11/2026: goi createLink rieng cho nguoi DA CO SAN trong link quyen cua tep cung bi bao
+        # noResolvedUsers (lien.vu tren EC-CTR-2026-00122: co ten trong quyen write ma log van ghi
+        # "khong cap duoc"). Doi chieu quyen dang co truoc khi ket luan; doc quyen hong -> giu nguyen
+        # ket luan cu (khong doan).
+        try:
+            co_san = _email_dang_co_quyen(item_id, token)
+        except Exception:
+            co_san = set()
+        da_co = [e for e in hong if e.lower() in co_san]
+        da_cap += da_co
+        hong = [e for e in hong if e.lower() not in co_san]
     if not da_cap:
         raise SharePointChuaSan("Cap quyen that bai: Graph khong resolve duoc ai trong %s" % ", ".join(hong))
-    frappe.log_error("Khong cap duoc quyen tep %s cho: %s - Graph bao noResolvedUsers (dia chi khong co / "
-                     "khac tai khoan Microsoft 365). Nhung nguoi con lai da duoc cap." % (item_id, ", ".join(hong)),
-                     "SharePoint: email khong co tai khoan M365")
+    if hong:
+        frappe.log_error("Khong cap duoc quyen tep %s cho: %s - Graph bao noResolvedUsers va nguoi nay chua co quyen "
+                         "tren tep (email khong khop tai khoan Microsoft 365). Nhung nguoi con lai da duoc cap."
+                         % (item_id, ", ".join(hong)), "SharePoint: email khong co tai khoan M365")
     return {"da_cap": da_cap, "bo_qua": bo + hong, "link": link}
+
+
+def _email_dang_co_quyen(item_id, token):
+    """Email (chu thuong) dang co quyen rieng tren tep - doc qua `doc_quyen`. Ten nhom bo qua."""
+    ra = set()
+    for q in doc_quyen(item_id, token=token) or []:
+        for ai in (q.get("cho") or "").split(","):
+            ai = ai.strip().lower()
+            if "@" in ai:
+                ra.add(ai)
+    return ra
 
 
 def _khong_resolve(resp):
