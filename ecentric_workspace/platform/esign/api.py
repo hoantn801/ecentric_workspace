@@ -1120,6 +1120,18 @@ def set_representative_attachment(payment_request_name=None, file_url=None, busi
     return ds.set_representative_attachment(biz_dt, biz_name, file_url)
 
 
+@frappe.whitelist(methods=["POST"])
+def auto_place_signature_boxes(payment_request_name=None, document_ref=None,
+                               business_doctype=None, business_name=None):
+    """Tu dat o ky theo moc [[KY_BEN_A]] / [[KY_BEN_B]] trong PDF (nguoi lap, goi Draft).
+    Ket qua: {ok, placed, skipped, verify, reason?, message?, state?}. Xem
+    placement_service.auto_place."""
+    biz_dt, biz_name = _target(payment_request_name, business_doctype, business_name)
+    _need(document_ref=document_ref)
+    from ecentric_workspace.platform.esign import placement_service as ps
+    return ps.auto_place(biz_dt, biz_name, document_ref)
+
+
 @frappe.whitelist()
 def placement_state(payment_request_name=None, document_ref=None, business_doctype=None,
                     business_name=None):

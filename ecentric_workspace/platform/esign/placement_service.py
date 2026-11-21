@@ -223,3 +223,96 @@ def delete_placement(business_doctype, business_name, document_ref, placement_na
         pkgsvc.delete_placement_row(placement_name)
     st = placement_state(business_doctype, business_name, document_ref)
     return {"ok": True, "state": st}
+
+
+# --------------------------------------------------------------------------- #
+# Tu dat o ky theo MOC trong PDF (hop dong / BBNT KOL - THIETKE_ky_so_hop_dong muc 2e, 18/11)
+# --------------------------------------------------------------------------- #
+MARKER_SLOT_HOOK = "ec_esign_marker_slots"
+
+
+def _marker_slots(business_doctype, business_name, required):
+    """{ten moc: slot_key}. Hook nghiep vu (ec_esign_marker_slots[doctype] -> ham(bd, bn,
+    required_slots) -> dict) neu co; khong thi mac dinh: KY_BEN_A -> slot ky DUY NHAT khong phai
+    nguoi de nghi (vd CEO "Don vi ky" WF09). Nhieu slot -> khong doan. KY_BEN_B (doi tac) chua co
+    slot trong ke hoach ky (cho buoc doi tac - PR-D) -> chi hook moi gan duoc."""
+    try:
+        hooks = frappe.get_hooks(MARKER_SLOT_HOOK) or {}
+        path = hooks.get(business_doctype) if isinstance(hooks, dict) else None
+        if isinstance(path, (list, tuple)):
+            path = path[-1] if path else None
+    except Exception:
+        path = None
+    if path:
+        try:
+            res = frappe.get_attr(path)(business_doctype, business_name, required) or {}
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "esign marker slot hook %s" % path)
+            return {}
+        return {k: v for k, v in res.items() if v} if isinstance(res, dict) else {}
+    signers = [s for s in required if s.get("kind") != "requester"]
+    return {"KY_BEN_A": signers[0]["slot_key"]} if len(signers) == 1 else {}
+
+
+def auto_place(business_doctype, business_name, document_ref):
+    """Tu tao o ky tu moc [[KY_BEN_A]] / [[KY_BEN_B]] trong lop chu cua PDF.
+
+    Di qua DUNG save_placement (cung chot: chi nguoi lap, goi Draft, slot thuoc ke hoach hien tai).
+    Khong ghi de: slot da co o tren tep nay -> bo qua. Thu tu:
+      1. loai phieu co ham doi chieu: PDF khong lop chu -> CHAN (khong lui ve keo tay - bo qua buoc
+         kiem so lieu); khong khop -> CHAN;
+      2. khong co moc -> de nguoi lap keo tay (bao ro);
+      3. moc -> slot (hook / mac dinh) -> o 180x60pt ngay tren moc.
+    """
+    from ecentric_workspace.platform.esign import document_verification as dv
+    from ecentric_workspace.platform.esign import pdf_markers as pm
+    # Khoa hang phieu TRUOC moi lan doc: hai lan bam lien tiep khong tao trung o / trung tep cho
+    # cung slot. Bo snapshot cu truoc (REPEATABLE READ: lan doc dau cua transaction lap snapshot;
+    # chua ghi gi nen rollback an toan) de moi lan doc SAU khoa thay du lieu lan truoc da commit.
+    frappe.db.rollback()
+    frappe.db.get_value(business_doctype, business_name, "name", for_update=True)
+    _assert_write_ok(business_doctype, business_name)
+    f = _resolve_file(business_doctype, business_name, document_ref)
+    if not f:
+        return {"ok": False, "reason": "stale_or_foreign_attachment"}
+    if not ds._is_pdf_name(f.get("file_name"), f.get("file_url")):
+        return {"ok": False, "reason": "not_pdf"}
+    content = pkgsvc.raw_file_bytes(f["name"])
+    analysis = pm.analyze(content)
+    out = {"ok": True, "placed": [], "skipped": list(analysis.get("skipped") or []),
+           "verify": None}
+    if dv.verifier_path(business_doctype):
+        v = dv.verify(business_doctype, business_name, f.get("file_name"), content, analysis)
+        out["verify"] = v
+        if v["status"] != "match":
+            return dict(out, ok=False, reason="verify_%s" % v["status"], message=v.get("reason"))
+    if not analysis.get("markers"):
+        return dict(out, ok=False, reason="no_markers",
+                    message="Không tìm thấy mốc ký trong tệp - kéo ô ký bằng tay.")
+    required, _keys, plan = _required_slots(business_doctype, business_name)
+    slots = _marker_slots(business_doctype, business_name, required)
+    st = placement_state(business_doctype, business_name, document_ref)
+    have = {p.get("signer_slot_key") for p in (st.get("placements") or [])}
+    seen = set()
+    for m in analysis["markers"]:
+        name = m["name"]
+        slot = slots.get(name)
+        if not slot:
+            out["skipped"].append({"name": name, "page_index": m["page_index"],
+                                   "reason": "no_slot_for_marker"})
+            continue
+        if name in seen or slot in have:
+            out["skipped"].append({"name": name, "page_index": m["page_index"],
+                                   "reason": "already_placed"})
+            continue
+        box = dict(pm.box_for(m), signer_slot_key=slot)
+        res = save_placement(business_doctype, business_name, document_ref, box)
+        if res.get("ok") is False:
+            out["skipped"].append({"name": name, "page_index": m["page_index"],
+                                   "reason": res.get("reason")})
+            continue
+        seen.add(name)
+        have.add(slot)
+        out["placed"].append({"name": name, "slot": slot, "box": box})
+    out["state"] = placement_state(business_doctype, business_name, document_ref)
+    return out

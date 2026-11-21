@@ -523,7 +523,8 @@ def preflight_for_lock(pkg_name):
     Returns list of error strings (empty = OK)."""
     errs = []
     pkg = frappe.db.get_value("EC Digital Signature Package", pkg_name,
-                              ["profile", "status"], as_dict=True)
+                              ["profile", "status", "business_doctype", "business_name"],
+                              as_dict=True)
     files = package_files(pkg_name)
     signable = [f for f in files if f.requires_signature]
     if not signable:
@@ -554,6 +555,16 @@ def preflight_for_lock(pkg_name):
                      and p.level_no == lvl.level_no and p.status != "Invalid"])
             if n < int(lvl.mandatory_placements_per_file or 1):
                 errs.append("missing_placement:L%s:%s" % (lvl.level_no, f.file_name))
+    # Doi chieu noi dung tep ky voi phieu (hop dong / BBNT: tep do nguoi lap tu xuat). Loai phieu
+    # khong khai hook ec_esign_document_verifiers -> khong doi gi (18/11/2026).
+    # CHI goi Draft (khoa / gui ky): goi da khoa da chot ma bam - khong doi chieu lai o cac lan
+    # kiem "san sang" cua nguoi duyet (QC 22/11: sua phieu sau khi gui khong duoc chan Duyet & Ky).
+    biz_dt = getattr(pkg, "business_doctype", None)
+    if biz_dt and signable and getattr(pkg, "status", None) == "Draft":
+        from ecentric_workspace.platform.esign import document_verification as dv
+        errs.extend(dv.package_errors(pkg_name, biz_dt, getattr(pkg, "business_name", None),
+                                      [f for f in signable if f.is_pdf],
+                                      lambda f: file_bytes(f.name)))
     return errs
 
 

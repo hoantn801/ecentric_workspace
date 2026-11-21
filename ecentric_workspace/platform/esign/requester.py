@@ -207,10 +207,23 @@ def _preflight_vi(code):
                 % (code.split(":", 1)[-1], limits.raw_budget_mb(2)))
     if head == "missing_hash":
         return "tệp %s chưa tính được mã kiểm tra" % code.split(":", 1)[-1]
+    if head == "document_verify":
+        bits = code.split(":")
+        fname = bits[1] if len(bits) > 1 else "?"
+        st = bits[2] if len(bits) > 2 else "?"
+        if st == "mismatch":
+            return ("nội dung tệp %s không khớp phiếu (số hợp đồng / số tiền) - sửa phiếu hoặc "
+                    "xuất lại PDF đúng bản đã duyệt" % fname)
+        if st == "no_text":
+            return ("tệp %s không có lớp chữ (bản scan / in ra ảnh) - mở trong Word → Lưu "
+                    "thành PDF rồi tải lên lại" % fname)
+        return "chưa đối chiếu được nội dung tệp %s với phiếu - thử lại hoặc liên hệ quản trị" % fname
     return code
 
 
 def _placement_refusal(missing):
+    if missing and all(str(m).startswith("document_verify:") for m in missing):
+        return _("Chưa gửi được: {0}.").format("; ".join(_preflight_vi(m) for m in missing))
     return _("Chưa gửi được: {0}. Hãy mở 'Thiết lập chữ ký', đặt đủ vị trí ký rồi gửi lại."
              ).format("; ".join(_preflight_vi(m) for m in missing))
 
