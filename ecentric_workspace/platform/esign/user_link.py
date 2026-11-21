@@ -359,6 +359,38 @@ def assert_signer_linked(user, settings, environment):
     return tok
 
 
+def assert_signature_ready(user, settings, environment):
+    """Chu ky CMC cua nguoi nay KY DUOC tu ERP khong - kiem TRUOC khi tao chan ky (19/11/2026).
+
+    Vu thu.nguyen2 (10/11 tren SCTS, 16/11 tren CMC): anh xa tro vao mot chu ky KHONG CON tren
+    cong (chi da tao lai chu ky), va chu ky moi chua kich hoat chung thu HSM. Cong NHAN lenh ky
+    (2xx) roi im - phieu treo "Dang doi soat", nguoi de nghi khong biet vi sao. Chan o day voi
+    cau bao ro rang. Chi kiem khi doc duoc danh sach chu ky; cong loi -> KHONG chan (luong ky
+    phia sau van tu bao loi), ghi Error Log.
+    """
+    m = verified_mapping(user, environment)
+    if not m:
+        return None                     # thieu anh xa: cac chot khac da bao
+    try:
+        sigs = get_adapter(settings).list_user_signatures(m.get("scts_user_id")) or []
+    except ProviderError:
+        frappe.log_error(frappe.get_traceback(), "esign assert_signature_ready: khong doc duoc")
+        return None
+    own = [x for x in sigs if str(x.get("id")) == str(m.get("signature_id"))]
+    if not own:
+        frappe.throw(_("Chữ ký số của bạn trên CMC đã thay đổi (mã chữ ký trong ERP không còn "
+                       "trên cổng). Liên hệ quản trị hệ thống để cập nhật trước khi gửi/ký."))
+    sig = own[0]
+    if sig.get("active") is False:
+        frappe.throw(_("Chữ ký số của bạn trên CMC đang bị tắt. Bật lại trên cổng CMC hoặc liên "
+                       "hệ quản trị, rồi thử lại."))
+    if ("has_hsm" in sig and not sig.get("has_hsm")) or sig.get("sign_token") == 1:
+        frappe.throw(_("Chữ ký số của bạn trên CMC chưa kích hoạt chứng thư ký số từ xa (HSM), "
+                       "nên ERP không ký thay được. Kích hoạt trên cổng CMC hoặc liên hệ quản "
+                       "trị, rồi gửi lại."))
+    return sig
+
+
 def assert_requester_linked(user, settings, environment):
     """Chot truoc khi tao DSR / tao chung tu. Fail-closed, thong diep noi ro phai lam gi."""
     if not needs_own_token(user, settings):
