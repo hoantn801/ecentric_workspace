@@ -162,6 +162,10 @@ def on_request_reopened(approval_request):
     # nguy tao bang chung - cap duyet se "da ky" mot to trinh ho chua tung doc.
     verdict = _signable_content_verdict(pkg)
     if verdict == "unchanged":
+        # Tep giu nguyen nhung PHIEU co the da sua (so hop dong / so tien) khi "Can bo sung" ->
+        # goi Locked di thang sang ky, khong qua preflight Draft. Loai phieu co ham doi chieu
+        # (ec_esign_document_verifiers) phai doi chieu lai o day (QC 22/11).
+        _assert_documents_still_match(pkg)
         out["unchanged"] = True
         return out
 
@@ -187,6 +191,23 @@ def on_request_reopened(approval_request):
                    "cấp chỉ nhận danh sách tệp lúc tạo tài liệu.\n\n"
                    "Hãy đề nghị cấp duyệt bấm “Từ chối”, rồi dùng “Tạo phiếu mới từ phiếu "
                    "này” — nội dung và tệp đính kèm sẽ được chép sang phiếu mới."))
+
+
+def _assert_documents_still_match(pkg):
+    from ecentric_workspace.platform.esign import document_verification as dv
+    from ecentric_workspace.platform.esign import package as pkgsvc
+    name = pkg.get("name") if isinstance(pkg, dict) else getattr(pkg, "name", pkg)
+    row = frappe.db.get_value("EC Digital Signature Package", name,
+                              ["business_doctype", "business_name"], as_dict=True) or {}
+    if not row.get("business_doctype") or not dv.verifier_path(row.get("business_doctype")):
+        return
+    files = [f for f in pkgsvc.package_files(name) if f.requires_signature and f.is_pdf]
+    errs = dv.package_errors(name, row.get("business_doctype"), row.get("business_name"), files,
+                             lambda f: pkgsvc.file_bytes(f.name))
+    if errs:
+        from ecentric_workspace.platform.esign import requester
+        frappe.throw(_("Chưa gửi lại được: {0}.").format(
+            "; ".join(requester._preflight_vi(e) for e in errs)))
 
 
 def reopen_notice(result):
