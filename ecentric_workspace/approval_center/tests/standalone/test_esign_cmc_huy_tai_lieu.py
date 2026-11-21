@@ -210,6 +210,8 @@ def _load(w):
         if dt == "EC Digital Signature Package":
             w.setdefault("pkg_filters", []).append(f)
             return [_D(x) for x in w.get("pkgs", [{"name": "PKG-1", "business_name": "PR-1"}])]
+        if dt == "EC Digital Signature Provider Settings":
+            return [_D(environment=e) for e in w.get("envs", ["UAT"])]
         if dt == "EC Digital Signature Event":
             if isinstance(f, list):                      # auto_armed
                 w.setdefault("arm_filters", []).append(f)
@@ -569,7 +571,13 @@ class TestSweep(Base):
         f = w["arm_filters"][0]
         self.assertIn(["verification_result", "=", "provider_document_cancelled_by_erp:cancelled"], f)
         self.assertIn(["request_meta", "like", '%"source": "sm_cancel"%'], f)
-        self.assertIn(["request_meta", "like", '%"environment": "Production"%'], f)
+        self.assertIn(["request_meta", "like", '%"environment": "UAT"%'], f,
+                      "moi truong DANG BAT tren site (prod dat nhan UAT) - 22/11")
+
+    def test_khong_co_moi_truong_bat_thi_khong_len_co(self):
+        m, w = self.mk(envs=[])
+        m.sweep()
+        self.assertEqual((w["polls"], w["cancels"]), ([], []))
 
     def test_cho_chan_dang_bay_khong_ghi_gi(self):
         m, w = self.mk(live=[{"name": "DSR-9", "status": "Queued"}])
