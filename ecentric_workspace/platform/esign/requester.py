@@ -311,6 +311,7 @@ def requester_submit_and_sign(business_doctype, business_name, comment=None):
     # Chan o day, TRUOC khi tao DSR - khong de lai chung tu rac ben SCTS (00046/47/48/50).
     from ecentric_workspace.platform.esign import user_link
     user_link.assert_requester_linked(requester, st, prof.environment)
+    user_link.assert_signature_ready(requester, st, prof.environment)
     pkg_name = pkgsvc.signable_package_for_request(ar)   # Locked OR Active (see flow docs)
     if not pkg_name:
         frappe.throw(_("Không có gói tài liệu sẵn sàng ký."))
