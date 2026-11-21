@@ -1,0 +1,388 @@
+{
+  "ten": "Hợp đồng: lập, duyệt, ký, nghiệm thu và thanh toán",
+  "tom_tat": {
+    "muc_dich": "Làm hợp đồng trọn vòng trên ERP: lập phiếu, duyệt, ký, nghiệm thu từng đợt và đề nghị thanh toán, thay tool cũ.",
+    "dung_khi": "Mọi hợp đồng cần duyệt (mua vào, bán ra, dịch vụ, KOL/KOC, lao động). Phần nghiệm thu và thanh toán (bước 19 trở đi) hiện dành cho hợp đồng KOL/KOC.",
+    "chuan_bi": "KOL/KOC: thông tin creator (CCCD hoặc MST, số tài khoản), dịch vụ, nền tảng, số tiền, lịch thanh toán, tên và email người ký phía đối tác (người ký là người đại diện thì cần CCCD của người đó). Hợp đồng khác: tệp hợp đồng.",
+    "ket_qua": "Hợp đồng duyệt đủ cấp, ký đủ hai bên, nghiệm thu từng đợt (mỗi đợt duyệt 3 cấp) và chỉ thanh toán trong số tiền đã nghiệm thu."
+  },
+  "vai_tro": [
+    {
+      "ma": "NL",
+      "ten": "Người lập phiếu"
+    },
+    {
+      "ma": "TBP",
+      "ten": "Trưởng bộ phận"
+    },
+    {
+      "ma": "KT",
+      "ten": "Kế toán / Kế toán tổng hợp"
+    },
+    {
+      "ma": "HOF",
+      "ten": "Head of Finance / Kế toán trưởng"
+    },
+    {
+      "ma": "NS",
+      "ten": "Nhân sự (CnB / HR)"
+    },
+    {
+      "ma": "CEO",
+      "ten": "CEO"
+    },
+    {
+      "ma": "CR",
+      "ten": "Creator / đối tác"
+    },
+    {
+      "ma": "HT",
+      "ten": "Hệ thống ERP"
+    }
+  ],
+  "buoc": [
+    {
+      "id": "S1",
+      "stt": "1",
+      "ten": "Tạo hoặc chọn creator",
+      "A": "NL",
+      "R": [
+        "NL"
+      ],
+      "dien_giai": "Hợp đồng KOL/KOC: chọn creator có sẵn hoặc bấm \"+ Creator mới\", nhập đủ thông tin định danh (CCCD cho cá nhân, MST cho công ty / hộ kinh doanh) và số tài khoản nhận tiền. Tên và loại creator sau khi tạo chỉ Kế toán sửa được."
+    },
+    {
+      "id": "S2",
+      "stt": "2",
+      "ten": "Nhập mã khách hàng MISA cho creator mới",
+      "A": "KT",
+      "R": [
+        "KT"
+      ],
+      "dien_giai": "Creator mới chưa có mã MISA hiện trong danh sách chờ của Kế toán. Tạo khách hàng trên MISA rồi nhập mã; mã này dùng trên hợp đồng và đề nghị thanh toán. Làm song song, không phải chờ."
+    },
+    {
+      "id": "S3",
+      "stt": "3",
+      "ten": "Lập phiếu Contract Review (form 27)",
+      "A": "NL",
+      "R": [
+        "NL",
+        "HT"
+      ],
+      "form_erp": "/approvals/contract-review",
+      "dien_giai": "KOL/KOC: chọn creator, dịch vụ, nền tảng, số tiền, lịch thanh toán (cọc trước hoặc sau nghiệm thu), mẫu hợp đồng. Hệ thống tự tính thuế, cấp số hợp đồng và sinh tệp hợp đồng .docx. Dùng mẫu của creator thì tải tệp ở mục Đính kèm. Hợp đồng loại khác: tải tệp hợp đồng và chọn quy trình ký. Điền người ký phía đối tác (tên, email); người ký là người đại diện, không phải chính creator, thì nhập CCCD của người đó vào ô \"CCCD / MST người ký phía đối tác\". Thời hạn tối đa 366 ngày."
+    },
+    {
+      "id": "S4",
+      "stt": "4",
+      "ten": "Tạo \"Bản PDF để ký\" (khi ký số trên ERP)",
+      "A": "NL",
+      "R": [
+        "NL",
+        "HT"
+      ],
+      "dien_giai": "Chỉ khi phiếu có khối \"Bản PDF để ký\" (hợp đồng ký số qua ERP). Mẫu EC: kiểm lại hợp đồng .docx rồi bấm \"Xác nhận hợp đồng & tạo bản ký\" — hệ thống tự chuyển sang PDF, đối chiếu số hợp đồng, số tiền và đặt ô ký. Mẫu của đối tác (hoặc muốn tự xuất): mở .docx bằng Word → Tệp → Lưu thành PDF rồi tải lên. Tạo lại hợp đồng sau đó thì phải tạo lại bản ký."
+    },
+    {
+      "id": "S5",
+      "stt": "5",
+      "ten": "Chạy AI QC (tuỳ chọn)",
+      "A": "NL",
+      "R": [
+        "NL"
+      ],
+      "dien_giai": "AI kiểm số liệu trên phiếu có khớp tệp không, so với mẫu chuẩn, điều khoản rủi ro. Chỉ để tham khảo, không chặn việc gửi hay duyệt."
+    },
+    {
+      "id": "S6",
+      "stt": "6",
+      "ten": "Gửi duyệt",
+      "A": "NL",
+      "R": [
+        "NL",
+        "HT"
+      ],
+      "dien_giai": "Hệ thống kiểm trước khi gửi: creator thiếu thông tin, email người ký phía đối tác sai định dạng, thiếu \"Bản PDF để ký\", hoặc (khi ký số) thiếu CCCD / MST của người ký phía đối tác... thì báo ngay để bổ sung. Phiếu nháp không dùng nữa thì bấm \"Xoá bản nháp\" (xoá hẳn)."
+    },
+    {
+      "id": "S7",
+      "stt": "7",
+      "ten": "Cấp 1 · Trưởng bộ phận duyệt",
+      "A": "TBP",
+      "R": [
+        "TBP"
+      ],
+      "dien_giai": "Duyệt, trả lại để sửa hoặc từ chối. Người duyệt xem bản đã che số định danh và số tài khoản của creator: đó là thiết kế, không phải lỗi."
+    },
+    {
+      "id": "S8",
+      "stt": "8",
+      "ten": "Cấp 2 · Kế toán duyệt",
+      "A": "KT",
+      "R": [
+        "KT"
+      ],
+      "dien_giai": "Kế toán kiểm số tiền, thuế, lịch thanh toán và thông tin nhận tiền. Kế toán xem được bản đầy đủ; mỗi lần tải bản đầy đủ được ghi lại."
+    },
+    {
+      "id": "S9",
+      "stt": "9",
+      "ten": "Cấp 3 · Head of Finance duyệt",
+      "A": "HOF",
+      "R": [
+        "HOF"
+      ],
+      "dien_giai": "Duyệt cấp tài chính. Cùng một người giữ nhiều cấp thì hệ thống tự bỏ qua cấp trước, chỉ duyệt một lần."
+    },
+    {
+      "id": "S10",
+      "stt": "10",
+      "ten": "Cấp 4 · Nhân sự duyệt (chỉ hợp đồng lao động)",
+      "A": "NS",
+      "R": [
+        "NS"
+      ],
+      "dien_giai": "Chỉ có ở hợp đồng loại \"Hợp đồng lao động\": CnB / HR kiểm lương, chức danh, thời hạn. Hợp đồng loại khác (KOL/KOC, mua vào, bán ra, dịch vụ) tự bỏ qua cấp này."
+    },
+    {
+      "id": "S11",
+      "stt": "11",
+      "ten": "Cấp 5 · CEO duyệt",
+      "A": "CEO",
+      "R": [
+        "CEO"
+      ],
+      "dien_giai": "Duyệt cuối. Duyệt xong thì mở bước ký hợp đồng."
+    },
+    {
+      "id": "S12",
+      "stt": "12",
+      "ten": "Sửa và gửi lại",
+      "A": "NL",
+      "R": [
+        "NL"
+      ],
+      "dien_giai": "Cấp nào trả lại (\"Cần bổ sung\") thì người lập sửa theo ghi chú rồi gửi lại, phiếu đi lại từ cấp 1. Khi ký số: cần đổi tệp ký thì bấm \"Thay bản PDF\" (tài liệu cũ trên cổng ký bị huỷ). Phiếu bị từ chối hoặc huỷ thì số hợp đồng được giải phóng."
+    },
+    {
+      "id": "S13",
+      "stt": "13",
+      "ten": "Ký số qua ERP (khi đã bật)",
+      "A": "HT",
+      "R": [
+        "HT",
+        "CEO",
+        "CR"
+      ],
+      "dien_giai": "Phiếu có khối \"Tài liệu & ký số\": duyệt xong, hệ thống đưa bản PDF lên cổng ký. CEO ký số; đối tác nhận email mời ký, xác thực (eKYC) rồi ký. Bản ký đủ tự về phiếu, không phải tải lên. Theo dõi trạng thái ở khối \"Tài liệu & ký số\" trên phiếu."
+    },
+    {
+      "id": "S14",
+      "stt": "14",
+      "ten": "Ký trên cổng SCTS (chưa bật ký số qua ERP)",
+      "A": "NL",
+      "R": [
+        "NL",
+        "CEO",
+        "CR"
+      ],
+      "dien_giai": "Làm như trước trên cổng SCTS, quy trình KOL/KOC WF09: người lập đưa hợp đồng lên cổng, CEO ký trước, creator ký sau qua email mời ký."
+    },
+    {
+      "id": "S15",
+      "stt": "15",
+      "ten": "Tải bản đã ký đủ (PDF) lên phiếu",
+      "A": "NL",
+      "R": [
+        "NL"
+      ],
+      "dien_giai": "Chỉ khi ký trên cổng ngoài ERP (bước 14): ở khối \"Ký hợp đồng\" trên phiếu, tải bản PDF đã ký đủ hai bên."
+    },
+    {
+      "id": "S16",
+      "stt": "16",
+      "ten": "Máy kiểm bản ký",
+      "A": "HT",
+      "R": [
+        "HT"
+      ],
+      "dien_giai": "Hệ thống kiểm chữ ký số và số hợp đồng trong tệp. Đạt thì hợp đồng ký đủ ngay. Chưa đạt (thường là bản scan ký tay) thì chuyển Kế toán kiểm."
+    },
+    {
+      "id": "S17",
+      "stt": "17",
+      "ten": "Kế toán xác nhận bản ký",
+      "A": "KT",
+      "R": [
+        "KT"
+      ],
+      "dien_giai": "Mở tệp, bấm \"Xác nhận đã ký đủ\" hoặc \"Trả lại\" kèm lý do. Kế toán đã lập phiếu hoặc tự tải bản ký thì không tự xác nhận: nhờ một Kế toán khác."
+    },
+    {
+      "id": "S18",
+      "stt": "18",
+      "ten": "Hợp đồng ký đủ: mở nghiệm thu và tiền cọc",
+      "A": "HT",
+      "R": [
+        "HT"
+      ],
+      "dien_giai": "Từ đây được tạo đợt nghiệm thu. Hợp đồng có cọc thì đề nghị thanh toán được ngay phần cọc."
+    },
+    {
+      "id": "S19",
+      "stt": "19",
+      "ten": "Tạo đợt nghiệm thu (BBNT)",
+      "A": "NL",
+      "R": [
+        "NL",
+        "HT"
+      ],
+      "dien_giai": "Ở khối \"Nghiệm thu (BBNT) & thanh toán\": nhập nội dung, ngày, số tiền trả creator đợt này (không gồm cọc). Hệ thống sinh BBNT .docx và báo số còn chưa nghiệm thu. Chỉ xoá được đợt nháp cuối cùng, chưa từng gửi duyệt."
+    },
+    {
+      "id": "S20",
+      "stt": "20",
+      "ten": "Gửi duyệt đợt nghiệm thu",
+      "A": "NL",
+      "R": [
+        "NL",
+        "HT"
+      ],
+      "dien_giai": "Bấm \"Gửi duyệt\" ở dòng đợt. Mỗi đợt là một phiếu duyệt riêng (mã EC-BBNT-...), luôn qua 3 cấp: Kế toán tổng hợp → Kế toán trưởng → CEO. Đợt bị trả lại thì sửa rồi gửi lại; bị từ chối hoặc huỷ thì không tính vào số đã nghiệm thu, tạo đợt mới nếu cần."
+    },
+    {
+      "id": "S21",
+      "stt": "21",
+      "ten": "Đợt · Kế toán tổng hợp duyệt",
+      "A": "KT",
+      "R": [
+        "KT"
+      ],
+      "dien_giai": "Kiểm nội dung, ngày và số tiền của đợt so với hợp đồng. Người duyệt đợt mở được hợp đồng và tải được BBNT của đợt mình duyệt (mỗi lần tải được ghi lại)."
+    },
+    {
+      "id": "S22",
+      "stt": "22",
+      "ten": "Đợt · Kế toán trưởng duyệt",
+      "A": "HOF",
+      "R": [
+        "HOF"
+      ],
+      "dien_giai": "Duyệt cấp tài chính cho đợt nghiệm thu."
+    },
+    {
+      "id": "S23",
+      "stt": "23",
+      "ten": "Đợt · CEO duyệt",
+      "A": "CEO",
+      "R": [
+        "CEO"
+      ],
+      "dien_giai": "Duyệt cuối. Dòng đợt chuyển \"Đã duyệt · chờ ký\"."
+    },
+    {
+      "id": "S24",
+      "stt": "24",
+      "ten": "Creator ký BBNT",
+      "A": "CR",
+      "R": [
+        "CR",
+        "NL"
+      ],
+      "dien_giai": "Người lập tải BBNT của đợt đã duyệt gửi creator ký."
+    },
+    {
+      "id": "S25",
+      "stt": "25",
+      "ten": "Tải BBNT đã ký",
+      "A": "NL",
+      "R": [
+        "NL"
+      ],
+      "dien_giai": "Bấm \"Tải BBNT đã ký\" (chỉ hiện khi đợt đã duyệt xong) và chọn tệp PDF đã ký đủ hai bên."
+    },
+    {
+      "id": "S26",
+      "stt": "26",
+      "ten": "Máy kiểm BBNT",
+      "A": "HT",
+      "R": [
+        "HT"
+      ],
+      "dien_giai": "Kiểm chữ ký số, số hợp đồng, số tiền đợt. Đạt thì đợt hoàn tất, hạn thanh toán tính từ hôm đó theo số ngày trên hợp đồng. Chưa đạt thì chờ Kế toán."
+    },
+    {
+      "id": "S27",
+      "stt": "27",
+      "ten": "Kế toán xác nhận BBNT",
+      "A": "KT",
+      "R": [
+        "KT"
+      ],
+      "dien_giai": "Bấm \"Xác nhận BBNT\" hoặc \"Trả lại\". Người tạo đợt nghiệm thu không tự xác nhận được."
+    },
+    {
+      "id": "S28",
+      "stt": "28",
+      "ten": "Lập đề nghị thanh toán (ĐNTT)",
+      "A": "NL",
+      "R": [
+        "NL"
+      ],
+      "form_erp": "/approvals/payment-request",
+      "dien_giai": "Form Đề nghị thanh toán: \"Khoản chi này có chứng từ mua hàng?\" chọn Yes, Loại nguồn chi phí = Hợp đồng KOL/KOC, Chứng từ nguồn = hợp đồng này, SO doanh thu = SO của brand. Chỉ đề nghị trong mức được phép chi (cọc + BBNT đã hoàn tất). ĐNTT duyệt tiếp theo hướng dẫn \"DNMH → DNTT\"."
+    },
+    {
+      "id": "S29",
+      "stt": "29",
+      "ten": "Xác nhận tài khoản nhận tiền mới",
+      "A": "KT",
+      "R": [
+        "KT"
+      ],
+      "dien_giai": "Chỉ khi creator đổi số tài khoản sau khi ký: phiếu hiện cảnh báo và chặn ĐNTT tới khi Kế toán xác nhận. Người đổi tài khoản hoặc người lập phiếu không tự xác nhận được."
+    },
+    {
+      "id": "S30",
+      "stt": "30",
+      "ten": "Thanh lý hợp đồng",
+      "A": "KT",
+      "R": [
+        "KT"
+      ],
+      "dien_giai": "Khi đã nghiệm thu và thanh toán xong, hoặc hai bên thống nhất dừng (vd creator huỷ booking). Kế toán thanh lý; mở lại cũng do Kế toán, người lập phiếu không tự mở lại."
+    }
+  ],
+  "so_do_mermaid": "flowchart TD\nsubgraph P1[\"Phần 1 · Chuẩn bị và lập phiếu\"]\nS1[\"1. Tạo hoặc chọn creator\"]\nS2[\"2. Nhập mã MISA cho creator mới\"]\nS3[\"3. Lập phiếu form 27\"]\nS4[\"4. Tạo Bản PDF để ký (khi ký số)\"]\nS5[\"5. Chạy AI QC (tuỳ chọn)\"]\nS6[\"6. Gửi duyệt\"]\nS1 --> S3\nS1 -.->|Kế toán làm song song| S2\nS3 --> S4\nS4 --> S5\nS5 --> S6\nend\nsubgraph P2[\"Phần 2 · Duyệt\"]\nS7[\"7. Cấp 1 · Trưởng bộ phận\"]\nS8[\"8. Cấp 2 · Kế toán\"]\nS9[\"9. Cấp 3 · Head of Finance\"]\nS10[\"10. Cấp 4 · Nhân sự (HĐ lao động)\"]\nS11[\"11. Cấp 5 · CEO\"]\nS12[\"12. Sửa và gửi lại\"]\nS7 --> S8\nS8 --> S9\nS9 -->|Hợp đồng lao động| S10\nS9 -->|Loại khác| S11\nS10 --> S11\nS7 -.->|Trả lại| S12\nS8 -.->|Trả lại| S12\nS9 -.->|Trả lại| S12\nS10 -.->|Trả lại| S12\nS11 -.->|Trả lại| S12\nS12 -.->|Gửi lại| S7\nend\nsubgraph P3[\"Phần 3 · Ký hợp đồng\"]\nS13[\"13. Ký số qua ERP: CEO rồi đối tác\"]\nS14[\"14. Ký trên cổng SCTS\"]\nS15[\"15. Tải bản đã ký (PDF)\"]\nS16{\"16. Máy kiểm bản ký\"}\nS17[\"17. Kế toán xác nhận bản ký\"]\nS18[\"18. Ký đủ: mở nghiệm thu và cọc\"]\nS13 -->|Bản ký tự về phiếu| S18\nS14 --> S15\nS15 --> S16\nS16 -->|Đạt| S18\nS16 -->|Chưa đạt| S17\nS17 --> S18\nend\nsubgraph P4[\"Phần 4 · Nghiệm thu và thanh toán (KOL/KOC)\"]\nS19[\"19. Tạo đợt nghiệm thu (BBNT)\"]\nS20[\"20. Gửi duyệt đợt\"]\nS21[\"21. Đợt · Kế toán tổng hợp\"]\nS22[\"22. Đợt · Kế toán trưởng\"]\nS23[\"23. Đợt · CEO\"]\nS24[\"24. Creator ký BBNT\"]\nS25[\"25. Tải BBNT đã ký\"]\nS26{\"26. Máy kiểm BBNT\"}\nS27[\"27. Kế toán xác nhận BBNT\"]\nS28[\"28. Lập ĐNTT\"]\nS29[\"29. Xác nhận tài khoản mới\"]\nS30[\"30. Thanh lý hợp đồng\"]\nS19 --> S20\nS20 --> S21\nS21 --> S22\nS22 --> S23\nS23 --> S24\nS24 --> S25\nS25 --> S26\nS26 -->|Đạt| S28\nS26 -->|Chưa đạt| S27\nS27 --> S28\nS29 -.->|Nếu creator đổi tài khoản| S28\nS28 -.->|Đợt tiếp theo| S19\nS28 -->|Xong hoặc dừng| S30\nend\nS6 --> S7\nS11 -->|Ký số qua ERP| S13\nS11 -->|Ký trên cổng ngoài| S14\nS18 --> S19",
+  "cau_hoi_thuong_gap": [
+    {
+      "hoi": "Tôi là người duyệt, sao không thấy số CCCD, số tài khoản của creator?",
+      "dap": "Người duyệt xem bản đã che. Chỉ người tạo creator, Kế toán và người lập phiếu (sau khi gửi) tải được bản đầy đủ. Ngoại lệ: khi ký số, người trong luồng duyệt xem được \"Bản PDF để ký\"; người duyệt đợt nghiệm thu tải được BBNT của đợt mình duyệt. Mỗi lần tải đều được ghi lại."
+    },
+    {
+      "hoi": "Tôi là Kế toán nhưng không thấy nút xác nhận?",
+      "dap": "Người lập phiếu, người tải bản ký, người tạo đợt nghiệm thu hoặc người đổi tài khoản thì không tự xác nhận việc của mình. Trên phiếu sẽ hiện \"nhờ một Kế toán khác kiểm\"."
+    },
+    {
+      "hoi": "Hợp đồng đã ký ở tool cũ thì đề nghị thanh toán thế nào?",
+      "dap": "Ở ĐNTT chọn \"Khoản chi này có chứng từ mua hàng?\" = No và ghi số hợp đồng cũ trong lý do. Người duyệt sẽ thấy cảnh báo \"không có trần chi\" kèm các ĐNTT khác đã ghi cùng số hợp đồng và tổng tiền."
+    },
+    {
+      "hoi": "Lập nhầm phiếu nháp thì làm gì?",
+      "dap": "Bấm \"Xoá bản nháp\". Phiếu nháp bị xoá hẳn, không còn trong danh sách."
+    },
+    {
+      "hoi": "Hợp đồng không phải KOL/KOC thì ký và thanh toán thế nào?",
+      "dap": "Lập và duyệt giống bước 1 đến 12 (tải tệp hợp đồng ở mục Đính kèm, chọn quy trình ký). Ký theo quy trình ký đã chọn trên phiếu; nghiệm thu từng đợt trên ERP hiện chỉ có cho hợp đồng KOL/KOC."
+    },
+    {
+      "hoi": "Ô \"CCCD / MST người ký phía đối tác\" để làm gì, khi nào phải nhập?",
+      "dap": "Cổng ký số bắt buộc số định danh của người ký phía đối tác. Hệ thống tự lấy: CCCD của creator cá nhân khi người ký chính là creator; MST khi creator là công ty hoặc hộ kinh doanh. Phải tự nhập khi người ký là người đại diện (nhập CCCD của người ký) hoặc hợp đồng không phải KOL/KOC. Thiếu thì hệ thống báo ngay lúc gửi duyệt. Người ngoài chỉ thấy 3 ký tự cuối."
+    },
+    {
+      "hoi": "Đợt nghiệm thu bị trả lại hoặc từ chối thì sao?",
+      "dap": "Bị trả lại (\"Cần bổ sung\"): sửa rồi bấm gửi lại; BBNT đổi thì duyệt lại từ đầu. Bị từ chối hoặc huỷ: đợt đó không tính vào số đã nghiệm thu; tạo đợt mới nếu vẫn cần nghiệm thu."
+    }
+  ]
+}

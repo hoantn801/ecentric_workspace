@@ -8,6 +8,8 @@ HAI cho thay the, ca hai lam LUC SYNC chu khong luc chay:
     va mot site moi (staging) se khong co anh nao - trong khi noi dung thi van bao "xem
     anh duoi day".
   * `{{guides_list}}`    -> danh sach bai tu guides.registry (mot cho khai duy nhat).
+  * `{{flow:<tep>.json}}` -> so do quy trinh theo vai tro (goi dinh dang ISO, ve bang bo ve cua
+    Thu vien tai lieu ISO) - xem guides.flow_section.
 
 Trang huong dan KHONG co du lieu nghiep vu, nen khong dung khoa chong troi (expect_sha)
 nhu cac form: nguon su that la repo, sync la ghi de. Dung sua tay tren Desk.
@@ -74,9 +76,34 @@ def render_guides_list():
                    for name, cards in groups)
 
 
-def build(page_dir, html_name="main_section.html"):
-    """Doc main_section.html cua mot trang huong dan va tra ve HTML da thay the."""
+def iso_flow_assets():
+    """(mermaid_js, ec_iso_docs.js co ?v=) - lay tu chinh trang ISO de hai noi luon cung ban.
+    Import muon: iso_docs.pages can frappe, chi co luc sync tren site."""
+    from ecentric_workspace.iso_docs import pages as iso_pages
+    return iso_pages.MERMAID_JS, iso_pages.asset_url("js")
+
+
+def embed_flows(html, page_dir, flow_assets=None):
+    """Thay {{flow:x.json}} bang so do quy trinh. Thieu tep / goi sai -> NEM LOI."""
+    from ecentric_workspace.guides import flow_section
+    out = html
+    while "{{flow:" in out:
+        i = out.index("{{flow:")
+        j = out.index("}}", i)
+        name = out[i + 7:j].strip()
+        path = os.path.join(page_dir, name)
+        if not os.path.isfile(path):
+            raise ValueError("guides: thieu tep quy trinh %s (%s)" % (name, path))
+        mermaid_js, flow_js = flow_assets or iso_flow_assets()
+        out = out[:i] + flow_section.render_file(path, mermaid_js, flow_js) + out[j + 2:]
+    return out
+
+
+def build(page_dir, html_name="main_section.html", flow_assets=None):
+    """Doc main_section.html cua mot trang huong dan va tra ve HTML da thay the.
+    flow_assets: (mermaid_js, flow_js) - chi test truyen; tren site lay tu iso_docs.pages."""
     with io.open(os.path.join(page_dir, html_name), encoding="utf-8") as fh:
         html = fh.read()
     html = html.replace("{{guides_list}}", render_guides_list())
+    html = embed_flows(html, page_dir, flow_assets)
     return embed_images(html, os.path.join(page_dir, "img"))

@@ -200,6 +200,15 @@ GUIDES = {
         "group": GROUP_HR,
         "order": 8,
     },
+    "hop-dong": {
+        "title": "Hợp đồng: lập, duyệt, ký, nghiệm thu và thanh toán",
+        "short": "Hợp đồng (form 27)",
+        "summary": "Sơ đồ quy trình theo vai trò: lập phiếu, duyệt, ký (cả ký số qua ERP), nghiệm thu "
+                   "từng đợt và đề nghị thanh toán. Chọn vai trò để tô sáng các bước của mình.",
+        "approval_types": ["CONTRACT_REVIEW"],
+        "updated": "2026-11-24",
+        "audience": "Người lập hợp đồng · Cấp duyệt · Kế toán",
+    },
 }
 
 ROUTE_PREFIX = "/huong-dan"

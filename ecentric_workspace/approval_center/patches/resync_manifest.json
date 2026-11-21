@@ -164,6 +164,10 @@
     "last_resync_patch": "p239_publish_huong_dan_chot_cong",
     "sha256": "e75638d604c3a7220374f11541ee00aa8fb003161b8191a1d68dd3644a1b1646"
   },
+  "guides/pages/hop_dong/main_section.html": {
+    "last_resync_patch": "p553_publish_huong_dan_hop_dong",
+    "sha256": "a8bbc0cfba6315b4f832db18096deeaa5bf63cde6ce04fdad65d83d7245fc0c7"
+  },
   "guides/pages/index/main_section.html": {
     "last_resync_patch": "p470_huong_dan_quy_trinh_nhan_su",
     "sha256": "7d390709d571fbe65975eec2e43278ab6dcc7d7f6303db13a76907ec26c3626b"
