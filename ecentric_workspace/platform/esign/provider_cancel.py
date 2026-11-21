@@ -68,7 +68,6 @@ SM_MAX_LIVE = 3             # chay that qua lenh SM: toi da 3 phieu / lan (reque
 SWEEP_BUDGET_SECONDS = 120  # cron khong BAT DAU goi moi sau moc nay (RQ timeout 300s)
 POLL_FAIL_MIN_AGE_HOURS = 24
 VERIFY_WAITS = (2, 3, 5, 8)  # doc lai sau lenh huy (cong co the dat destroy tre)
-ARM_ENVIRONMENT = "Production"
 LOCK_SECONDS = 600
 TODO_MARKER = "[EC-ESIGN-AUTO-CANCEL]"
 
@@ -382,18 +381,29 @@ def _skipped(pkg_name):
 
 def auto_armed():
     """Tu dong chi chay khi: khong bi tat (site_config) VA da co mot lan huy that qua lenh SM duoc
-    xac minh (chung minh tai khoan tich hop huy duoc va doc lai thay destroy - QC 18/11)."""
+    xac minh (chung minh tai khoan tich hop huy duoc va doc lai thay destroy - QC 18/11) TREN MOT
+    MOI TRUONG DANG BAT (Provider Settings integration_enabled=1).
+
+    22/11: ban dau doi environment = "Production" - nhung site production dat nhan moi truong la
+    "UAT" (ho so PAYMENT-REQUEST-SCTS-UAT tu thoi thu nghiem) -> lan huy 00675 da xac minh van
+    khong len co. Lay theo moi truong DANG BAT tren chinh site nay, khong theo ten."""
     try:
         if int(frappe.conf.get("ec_esign_auto_cancel_disabled") or 0):
             return False
     except Exception:
         return False
-    return bool(frappe.get_all(EVT, filters=[
-        ["event_type", "=", "Cancelled"],
-        ["verification_result", "=", CODE + ":cancelled"],          # cong DA NHAN lenh ERP
-        ["request_meta", "like", '%"source": "' + SOURCE_SM + '"%'],
-        ["request_meta", "like", '%"environment": "' + ARM_ENVIRONMENT + '"%']],
-        fields=["name"], limit_page_length=1))
+    envs = [r.environment for r in frappe.get_all(SETTINGS, filters={"integration_enabled": 1},
+                                                  fields=["environment"], limit_page_length=20)
+            if r.environment]
+    for env in envs:
+        if frappe.get_all(EVT, filters=[
+                ["event_type", "=", "Cancelled"],
+                ["verification_result", "=", CODE + ":cancelled"],      # cong DA NHAN lenh ERP
+                ["request_meta", "like", '%"source": "' + SOURCE_SM + '"%'],
+                ["request_meta", "like", '%"environment": "' + env + '"%']],
+                fields=["name"], limit_page_length=1):
+            return True
+    return False
 
 
 def _skip(pkg_name, reason, alert=True):
