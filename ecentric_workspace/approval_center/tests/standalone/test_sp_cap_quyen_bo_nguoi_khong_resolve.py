@@ -35,7 +35,7 @@ class _Req(object):
         return _Resp(200, "", link="https://sp/link")
 
 
-def _nap(req):
+def _nap(req, co_san=(), doc_loi=False):
     log = []
 
     class SharePointChuaSan(Exception):
@@ -44,7 +44,15 @@ def _nap(req):
           "wr_sp": types.SimpleNamespace(SITE_ID="S", get_app_token=lambda: "T"),
           "TAI_KHOAN_DICH_VU": ("fabric.bot",), "SharePointChuaSan": SharePointChuaSan,
           "frappe": types.SimpleNamespace(log_error=lambda *a, **k: log.append(a))}
-    exec(compile(_doan(_MIRROR, "loc_nguoi_that", "cap_quyen", "_khong_resolve"), "<m>", "exec"), ns)
+    exec(compile(_doan(_MIRROR, "loc_nguoi_that", "cap_quyen", "_khong_resolve", "_email_dang_co_quyen"),
+                 "<m>", "exec"), ns)
+
+    def doc_quyen(item_id, token=None):
+        if doc_loi:
+            raise RuntimeError("graph loi")
+        return [{"vai_tro": "write", "thua_ke": False, "cho": ", ".join(co_san)},
+                {"vai_tro": "write", "thua_ke": False, "cho": "Operation Members"}]
+    ns["doc_quyen"] = doc_quyen
     return ns, log
 
 
@@ -84,6 +92,33 @@ class CapTungNguoiKhiCoNguoiKhongResolve(unittest.TestCase):
         ns, _ = _nap(req)
         with self.assertRaises(ns["SharePointChuaSan"]):
             ns["cap_quyen"]("I", ["a@x.vn"], token="T")
+
+
+class NguoiDaCoQuyenSanKhongBaoNham(unittest.TestCase):
+    """22/11: lien.vu da co trong link quyen write cua EC-CTR-2026-00122 ma log van ghi "khong cap duoc"."""
+
+    def test_nguoi_da_co_quyen_tinh_la_da_cap_khong_log(self):
+        req = _Req(hong={"Lien.Vu@x.vn", "sang@x.vn"})
+        ns, log = _nap(req, co_san=("lien.vu@x.vn", "kieu@x.vn"))
+        r = ns["cap_quyen"]("I", ["Lien.Vu@x.vn", "sang@x.vn", "kieu@x.vn"], token="T")
+        self.assertIn("Lien.Vu@x.vn", r["da_cap"])
+        self.assertNotIn("Lien.Vu@x.vn", r["bo_qua"])
+        self.assertIn("sang@x.vn", r["bo_qua"])
+        self.assertTrue(log and "sang@x.vn" in log[0][0] and "Lien.Vu" not in log[0][0])
+
+    def test_tat_ca_hong_deu_da_co_quyen_thi_khong_log(self):
+        req = _Req(hong={"a@x.vn"})
+        ns, log = _nap(req, co_san=("a@x.vn",))
+        r = ns["cap_quyen"]("I", ["a@x.vn", "b@x.vn"], token="T")
+        self.assertEqual(sorted(r["da_cap"]), ["a@x.vn", "b@x.vn"])
+        self.assertEqual(log, [])
+
+    def test_doc_quyen_loi_thi_giu_ket_luan_cu(self):
+        req = _Req(hong={"a@x.vn"})
+        ns, log = _nap(req, co_san=("a@x.vn",), doc_loi=True)
+        r = ns["cap_quyen"]("I", ["a@x.vn", "b@x.vn"], token="T")
+        self.assertIn("a@x.vn", r["bo_qua"])
+        self.assertTrue(log)
 
 
 if __name__ == "__main__":
