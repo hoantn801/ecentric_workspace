@@ -34,6 +34,7 @@ from ecentric_workspace.approval_center.features.booking_request.domain.definiti
 from ecentric_workspace.approval_center.features.offer_request.domain.definition import OFFER_REQUEST_DEFINITION
 from ecentric_workspace.approval_center.features.new_staff_preparation.domain.definition import NEW_STAFF_PREPARATION_DEFINITION
 from ecentric_workspace.approval_center.features.clearance_request.domain.definition import CLEARANCE_REQUEST_DEFINITION
+from ecentric_workspace.approval_center.features.adhoc_approval.domain.definition import ADHOC_APPROVAL_DEFINITION
 
 
 _DEFINITIONS = (
@@ -69,6 +70,7 @@ _DEFINITIONS = (
     OFFER_REQUEST_DEFINITION,          # 28/09: Offer tu Hiring da duyet
     NEW_STAFF_PREPARATION_DEFINITION,  # 28/09: tu tao khi Offer duyet xong
     CLEARANCE_REQUEST_DEFINITION,  # 29/09: tu tao khi Don nghi viec duyet xong
+    ADHOC_APPROVAL_DEFINITION,     # 23/11: Phe duyet dot xuat gui CEO (phieu rieng tu)
 )
 
 

@@ -207,6 +207,13 @@ def derive(user, business_doc, approval_request):
         _add = _af.capability(user, business_doc, approval_request)
     except Exception:
         _add = {"can_add_attachment": False, "add_attachment_request": None}
+    # 23/11/2026: Gan phieu duyet (shared/requests/approval_links.py) - chip + nut, ve boi asset
+    # dung chung ec_approval_links.bundle.js qua EcAddFile.buttonHTML (khong sua trang nao).
+    try:
+        from ecentric_workspace.approval_center.shared.requests import approval_links as _al
+        _links = _al.capability(user, business_doc, approval_request)
+    except Exception:
+        _links = {"approval_links": [], "can_link_approval": False, "approval_link_host": None}
     return {
         "requires_signature": _requires_signature(can_act, business_doc, approval_request),
         "can_edit": requester and (
@@ -233,6 +240,9 @@ def derive(user, business_doc, approval_request):
         # 16/10: nut "Them tep" - nguoi DANG giu phieu (shared/requests/add_file.py).
         "can_add_attachment": _add["can_add_attachment"],
         "add_attachment_request": _add["add_attachment_request"],
+        "approval_links": _links["approval_links"],
+        "can_link_approval": _links["can_link_approval"],
+        "approval_link_host": _links["approval_link_host"],
     }
 
 

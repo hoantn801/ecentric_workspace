@@ -38,7 +38,15 @@
   }
   function csrf() { return (window.frappe && window.frappe.csrf_token) || ""; }
 
+  // 23/11/2026: khoi "Gan phieu duyet" (ec_approval_links.bundle.js) di cung cho nay - 31 form + popup
+  // hub da goi buttonHTML, noi them o day thi khong sua trang nao. Chip hien cho MOI nguoi xem.
   function buttonHTML(cap) {
+    var links = (window.EcApprovalLinks && typeof window.EcApprovalLinks.blockHTML === "function")
+      ? window.EcApprovalLinks.blockHTML(cap || {}) : "";
+    return fileButtonHTML(cap) + links;
+  }
+
+  function fileButtonHTML(cap) {
     cap = cap || {};
     if (!cap.can_add_attachment || !cap.add_attachment_request) return "";
     return '<label class="btn ec-addfile-btn" tabindex="0" role="button"'

@@ -1,0 +1,48 @@
+/* Gan phieu duyet vao o dinh kem (23/11/2026) - xem public/js/ec_approval_links.bundle.js. */
+:root { --ec-aplk-border: #cbd5e1; --ec-aplk-bg: #f8fafc; --ec-aplk-text: #1e293b; --ec-aplk-muted: #64748b;
+  --ec-aplk-red: #b91c1c; --ec-aplk-red-bg: #fef2f2; --ec-aplk-amber: #92400e; --ec-aplk-amber-bg: #fff8e1;
+  --ec-aplk-navy: #2c3da6; --ec-aplk-navy-bg: #eef0fb; }
+.ec-aplk { flex-basis: 100%; width: 100%; margin-top: 10px; padding: 10px 12px; border: 1px solid var(--ec-aplk-border);
+  border-radius: 9px; background: var(--ec-aplk-bg); color: var(--ec-aplk-text); font-size: 13px; line-height: 1.45; }
+.ec-aplk-h { font-weight: 700; margin-bottom: 6px; }
+.ec-aplk-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.ec-aplk-chip { padding: 8px 10px; border: 1px solid var(--ec-aplk-border); border-radius: 8px; background: #fff; }
+.ec-aplk-chip--private { border-color: var(--ec-aplk-navy); background: var(--ec-aplk-navy-bg); }
+.ec-aplk-chip--bad { border-color: var(--ec-aplk-red); background: var(--ec-aplk-red-bg); }
+.ec-aplk-line { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.ec-aplk-code { font-weight: 700; }
+.ec-aplk-title { flex: 1 1 160px; }
+.ec-aplk-muted { color: var(--ec-aplk-muted); }
+.ec-aplk-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; font-size: 12px; }
+.ec-aplk-status { font-weight: 600; }
+.ec-aplk-status.bad, .ec-aplk-table td.bad { color: var(--ec-aplk-red); }
+.ec-aplk-tag { padding: 0 6px; border-radius: 999px; background: var(--ec-aplk-navy-bg); color: var(--ec-aplk-navy); }
+.ec-aplk-tag.warn { background: var(--ec-aplk-amber-bg); color: var(--ec-aplk-amber); }
+.ec-aplk-reason { margin-top: 4px; font-size: 12px; }
+.ec-aplk-reason.bad { color: var(--ec-aplk-red); font-weight: 600; }
+.ec-aplk-x, .ec-aplk-linkbtn { border: 0; background: transparent; cursor: pointer; color: inherit; font: inherit; }
+.ec-aplk-x { margin-left: auto; font-size: 18px; line-height: 1; padding: 0 4px; }
+.ec-aplk-linkbtn { text-decoration: underline; color: var(--ec-aplk-red); padding: 0; }
+.ec-aplk-overlay { position: fixed; inset: 0; z-index: 10080; background: rgba(15, 23, 42, .45);
+  display: flex; align-items: center; justify-content: center; padding: 12px; }
+.ec-aplk-modal { background: #fff; border-radius: 12px; width: min(720px, 100%); max-height: 90vh; display: flex;
+  flex-direction: column; color: var(--ec-aplk-text); font-size: 13.5px; }
+.ec-aplk-mh { padding: 14px 16px; font-weight: 700; font-size: 15px; border-bottom: 1px solid var(--ec-aplk-border); }
+.ec-aplk-mb { padding: 12px 16px; overflow: auto; }
+.ec-aplk-mf { padding: 10px 16px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--ec-aplk-border); }
+.ec-aplk-search { display: grid; grid-template-columns: 1fr; gap: 4px; margin-bottom: 10px; }
+.ec-aplk-search input, .ec-aplk-search select { padding: 8px 10px; border: 1px solid var(--ec-aplk-border); border-radius: 8px; font: inherit; }
+.ec-aplk-table { width: 100%; border-collapse: collapse; }
+.ec-aplk-table th, .ec-aplk-table td { padding: 6px 8px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: top; }
+.ec-aplk-table tr[tabindex] { cursor: pointer; }
+.ec-aplk-table tr.sel { background: var(--ec-aplk-navy-bg); }
+.ec-aplk-table tr.dis { color: var(--ec-aplk-muted); }
+.ec-aplk-choice { margin-top: 10px; padding: 10px; border: 1px solid var(--ec-aplk-navy); border-radius: 8px; background: var(--ec-aplk-navy-bg); }
+.ec-aplk-choice[hidden], .ec-aplk-err[hidden], .ec-aplk-toast[hidden] { display: none; }
+.ec-aplk-radio { display: block; margin-top: 6px; cursor: pointer; }
+.ec-aplk-radio small { display: block; margin-left: 22px; color: var(--ec-aplk-muted); }
+.ec-aplk-err { margin-top: 8px; color: var(--ec-aplk-red); font-weight: 600; }
+.ec-aplk-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 10090;
+  background: #0f172a; color: #fff; padding: 10px 16px; border-radius: 9px; font-size: 13.5px; max-width: 92vw; }
+.ec-aplk-toast.err { background: var(--ec-aplk-red); }
+@media (max-width: 640px) { .ec-aplk-add, .ec-aplk-modal .btn { min-height: 44px; } .ec-aplk-x { min-width: 44px; min-height: 44px; } }

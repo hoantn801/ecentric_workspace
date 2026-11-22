@@ -312,6 +312,7 @@
         <button type="button" class="tab" data-box="received">Đã nhận</button>
         <button type="button" class="tab" data-box="sent">Đã gửi</button>
         <button type="button" class="tab" data-box="fulfil" title="Hồ sơ đang chờ tôi duyệt và việc tôi phải xử lý">Chờ tôi xử lý</button>
+        <button type="button" class="tab" data-box="watching" title="Phiếu tôi được thêm làm người theo dõi (chỉ xem, không duyệt)">Tôi theo dõi</button>
         <button type="button" class="tab active" data-box="all">Tất cả</button>
       </div>
       <div class="filters">
@@ -340,7 +341,7 @@
   // Ghi nhớ tab đang đứng: tab nằm trong URL (?box=) nên mở chi tiết rồi quay lại vẫn đúng chỗ,
   // và link/refresh/nút Back của trình duyệt đều giữ nguyên ngữ cảnh.
   (function(){ var b=new URLSearchParams(window.location.search).get("box");
-    if(["received","sent","fulfil","all"].indexOf(b)>=0) state.box=b; })();
+    if(["received","sent","fulfil","watching","all"].indexOf(b)>=0) state.box=b; })();
   function call(m,a){ if(!(window.frappe&&frappe.call)) return Promise.reject(new Error("frappe unavailable")); return frappe.call({method:API+"."+m,args:a||{}}).then(function(r){return r&&r.message;}); }
   function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
   function fmtDT(s){ if(!s) return "—"; var d=new Date(String(s).replace(" ","T")); if(isNaN(d)) return esc(s); function p(n){return(n<10?"0":"")+n;} return p(d.getDate())+"/"+p(d.getMonth()+1)+"/"+d.getFullYear()+" "+p(d.getHours())+":"+p(d.getMinutes()); }

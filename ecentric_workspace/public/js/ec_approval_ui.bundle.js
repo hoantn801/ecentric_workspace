@@ -57,6 +57,8 @@
     "Commented": "Ghi chú",
     "Reminded": "Đã nhắc người xử lý",
     "Attachment Added": "Đã thêm tệp đính kèm",
+    "Approval Linked": "Đã gắn phiếu duyệt",
+    "Approval Unlinked": "Đã gỡ phiếu duyệt",
     // rieng form / gia tri cu
     "Amount Adjusted": "Điều chỉnh số tiền",
     "Reopened": "Mở lại",

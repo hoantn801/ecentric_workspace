@@ -100,6 +100,18 @@ def approver_seats(user):
             out.append("%s %s (fallback)" % (r.parenttype, r.parent))
     except Exception:
         pass
+    # 23/11/2026: dong duyet DANG CHO tren phieu mo (approver_handover tu chuyen khi khoa tai
+    # khoan; liet ke o day de HR thay truoc).
+    try:
+        for r in frappe.get_all("EC Approval Request Approver",
+                                filters={"approver": user, "status": "Pending"},
+                                fields=["approval_request", "level_no"], limit_page_length=0):
+            st = frappe.db.get_value("EC Approval Request", r.approval_request, "approval_status")
+            if st in ("Pending", "Information Required"):
+                out.append("EC Approval Request %s (cap %s, dang cho)" % (r.approval_request,
+                                                                         r.level_no))
+    except Exception:
+        pass
     return sorted(set(out))
 
 

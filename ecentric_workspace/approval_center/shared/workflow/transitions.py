@@ -39,6 +39,21 @@ class _SlaOff:
 _SLA_OFF = _SlaOff()
 
 
+def _quiet_log(title, message=None):
+    """Ghi Error Log cho cac tinh nang PHU (Dot 0 HR: theo doi, gan phieu, chan tu duyet...).
+    Khong bao gio nem - ke ca khi `frappe` la ban gia trong test thieu log_error: mot dong log
+    hong khong duoc lam hong mot lan duyet."""
+    try:
+        if message is None:
+            try:
+                message = frappe.get_traceback()
+            except Exception:
+                message = ""
+        frappe.log_error(message, title)
+    except Exception:
+        pass
+
+
 def _sla():
     """Cong noi mot chieu sang module SLA. NAP TRE, co chu y.
 
@@ -444,23 +459,52 @@ def request_summary(reference_doctype, reference_name):
     return "<br>".join(parts)
 
 
-def notify(users, subject, doctype, name):
+#: Truong "muc gap" theo QUY UOC (Dot 0 HR, 23/11/2026): DocType nghiep vu nao co truong
+#: `urgency` mang mot gia tri duoi day thi MOI thong bao "Can duyet" cua engine di voi
+#: severity "urgent" - xuyen gio yen lang 21h-9h (notification_center/nhip_gui.hen_gio).
+URGENCY_FIELD = "urgency"
+URGENT_VALUES = ("Gấp", "Gap", "Urgent", "urgent", "Khẩn", "Khẩn cấp")
+
+
+def urgency_severity(doctype, name):
+    """"urgent" khi phieu khai `urgency` = Gap; None trong moi truong hop khac (ke ca loi)."""
+    try:
+        if not (doctype and name) or not frappe.db.has_column(doctype, URGENCY_FIELD):
+            return None
+        v = frappe.db.get_value(doctype, name, URGENCY_FIELD)
+    except Exception:
+        return None
+    return "urgent" if isinstance(v, str) and v.strip() in URGENT_VALUES else None
+
+
+def _sev_kw(doctype, name):
+    """kwargs cho notify(): chi them `severity` khi phieu gap - giu nguyen chu ky 4 tham so cu
+    cho moi phieu thuong (nhieu bo test thay notify bang lambda 4 tham so)."""
+    sev = urgency_severity(doctype, name)
+    return {"severity": sev} if sev else {}
+
+
+def notify(users, subject, doctype, name, severity=None):
     """Publish an approval notification to each recipient through the notification_center
     pipeline (events.publish_notification_event). That single path owns the in-app Notification
     Log AND fans out to Microsoft Teams via the working 'eCentric Copilot' channel, honouring each
     user's EC Notification Preference / quiet hours. event_type 'approval_required' routes to Teams
     by default. A unique dedupe_key per call preserves the historical always-notify behaviour (no
-    accidental suppression of distinct approval events on the same request)."""
+    accidental suppression of distinct approval events on the same request).
+
+    `severity` (23/11/2026): None = mac dinh cua event_type (action_required). "urgent" = di
+    xuyen gio yen lang (muc Gap); "info" = thong bao cho nguoi theo doi."""
     from ecentric_workspace.notification_center import events as ncev
     action_url = _approval_link(doctype, name)
     message = request_summary(doctype, name)
     stamp = now_datetime().strftime("%Y%m%d%H%M%S%f")
     for u in set(u for u in users if u and u != "Guest"):
         try:
+            kw = {"severity": severity} if severity else {}
             ncev.publish_notification_event(
                 "approval_required", u, subject or "", message=message, action_url=action_url,
                 reference_doctype=doctype, reference_name=name,
-                dedupe_key="|".join([doctype or "", name or "", u, stamp]))
+                dedupe_key="|".join([doctype or "", name or "", u, stamp]), **kw)
         except Exception:
             frappe.log_error(title="approval_center notify failed")
 
@@ -1161,6 +1205,11 @@ def _skip_earlier_duplicate_levels(req, from_level=1):
 def build_snapshot(req, process, levels, requester):
     # Nguoi co ghe DICH DANH o cap sau khong nam trong nhom ROLE o cap truoc (role_pool, 25/09).
     seats = named_seats_after(levels)
+    # CHAN TU DUYET (Dot 0 HR, 23/11/2026): nguoi gui + DOI TUONG cua phieu (ApprovalDefinition.
+    # subject_fields) khong duoc nam trong bat ky cap duyet nao - ke ca qua Role.
+    excluded = _self_exclusion(req, requester)
+    self_notes = []
+    last_no = max([l.level_no for l in levels] or [0])
     for lvl in levels:
         rl = frappe.get_doc({
             "doctype": "EC Approval Request Level", "approval_request": req.name,
@@ -1171,8 +1220,9 @@ def build_snapshot(req, process, levels, requester):
         }).insert(ignore_permissions=True)
         ctx = {"reference_doctype": req.reference_doctype, "reference_name": req.reference_name}
         if lvl.approval_mode == EACH_GROUP:
-            rows = [(u, lab, g) for g, members in _resolve_groups(lvl, requester, ctx)
-                    for u, lab in members]
+            rows = [(u, lab, g) for g, members in _resolve_groups(
+                lvl, requester, ctx, excluded=excluded, notes=self_notes, req=req)
+                for u, lab in members]
         else:
             approvers = resolve_participants(
                 [p for p in lvl.participants if p.participant_purpose == "Approver"], requester,
@@ -1180,6 +1230,17 @@ def build_snapshot(req, process, levels, requester):
             approvers = drop_own_seat(approvers, seats.get(lvl.level_no, set()))
             if not approvers:
                 frappe.throw(_no_approver_message(lvl, requester))
+            approvers, note = _apply_self_block(req, lvl, approvers, excluded, requester,
+                                                has_later=lvl.level_no < last_no)
+            if note:
+                self_notes.append((lvl, note))
+            if not approvers:
+                # Ca cap chi con nguoi gui / doi tuong, khong co nguoi du phong -> bo cap nay,
+                # sang cap ke (cap cuoi thi _apply_self_block da chuyen len quan ly hoac chan gui).
+                now = now_datetime()
+                frappe.db.set_value("EC Approval Request Level", rl.name,
+                                    {"level_status": "Skipped", "activated_at": now,
+                                     "completed_at": now})
             rows = [(u, lab, None) for u, lab in approvers]
         for user, label, group in rows:
             frappe.get_doc({
@@ -1187,18 +1248,235 @@ def build_snapshot(req, process, levels, requester):
                 "request_level": rl.name, "level_no": lvl.level_no, "approver": user,
                 "source": label, "participant_group": group, "status": "Pending",
             }).insert(ignore_permissions=True)
+    _log_self_block(req, self_notes)
     _skip_earlier_duplicate_levels(req)
+    _snapshot_watchers(req, process, levels, requester)
     grant_read_to_snapshot_approvers(req)
+    _approval_links_on_snapshot(req)
 
 
-def _resolve_groups(lvl, requester, context):
+# --------------------------------------------------------------------------- #
+# Chan tu duyet (Dot 0 HR, 23/11/2026)
+# --------------------------------------------------------------------------- #
+SELF_BLOCK_LABEL = "Chặn tự duyệt"
+
+
+def _subject_fields(business_doctype):
+    """Truong DOI TUONG khai o ApprovalDefinition.subject_fields. Nap tre registry: transitions
+    duoc nhieu bo test exec rieng, khong co goc repo."""
+    try:
+        from ecentric_workspace.approval_center.shared.registry import BUSINESS_DOCTYPE_DEFINITIONS
+        d = BUSINESS_DOCTYPE_DEFINITIONS.get(business_doctype)
+        return tuple(getattr(d, "subject_fields", ()) or ()) if d else ()
+    except Exception:
+        return ()
+
+
+def user_of_ident(value):
+    """email/User/ma Employee -> User id (hoac None). Khong nem."""
+    if not value or not isinstance(value, str):
+        return None
+    try:
+        if frappe.db.exists("User", value):
+            return value
+        emp = value if frappe.db.exists("Employee", value) else _employee_by_ident(value)
+        return (emp and frappe.db.get_value("Employee", emp, "user_id")) or None
+    except Exception:
+        return None
+
+
+def subject_users(req):
+    """Tap User la DOI TUONG cua phieu (doc tu subject_fields cua business doc)."""
+    out = set()
+    ctx = {"reference_doctype": req.reference_doctype, "reference_name": req.reference_name}
+    for f in _subject_fields(req.reference_doctype):
+        u = user_of_ident(_ref_field_value(ctx, f))
+        if u:
+            out.add(u)
+    return out
+
+
+def _self_exclusion(req, requester):
+    out = set([requester]) if requester else set()
+    try:
+        out |= subject_users(req)
+    except Exception:
+        _quiet_log("self_exclusion %s" % getattr(req, "name", ""))
+    return out
+
+
+def _level_fallbacks(lvl, excluded):
+    out = []
+    for p in sorted([p for p in (lvl.participants or []) if p.participant_purpose == "Approver"],
+                    key=lambda r: (r.sort_order or 0)):
+        fb = p.get("fallback_user")
+        if fb and fb not in excluded and fb not in out and _is_active_system_user(fb):
+            out.append(fb)
+    return out
+
+
+def _apply_self_block(req, lvl, approvers, excluded, requester, has_later):
+    """[(user, label)] -> ([(user, label)], note|None). Thu tu khi cap chi con nguoi bi loai:
+    nguoi du phong (fallback_user) cua cap -> (luong ky so: GIU NGUYEN, xem duoi) -> bo cap,
+    sang cap ke -> cap cuoi: quan ly truc tiep cua nguoi gui -> khong ai: CHAN gui."""
+    if not excluded:
+        return approvers, None
+    dropped = [u for u, _l in approvers if u in excluded]
+    if not dropped:
+        return approvers, None
+    kept = [(u, lab) for u, lab in approvers if u not in excluded]
+    if kept:
+        return kept, ("dropped", dropped, None)
+    fb = _level_fallbacks(lvl, excluded)
+    if fb:
+        return [(u, "Fallback (%s)" % SELF_BLOCK_LABEL) for u in fb], ("fallback", dropped, fb)
+    # Luong co ky so: chuoi duyet ERP phai trung chuoi o ky cua eContract (su co 16/09) - bo cap
+    # hay doi nguoi o day la lam lech chuoi ky. Giu nguyen + Error Log de quan tri cau hinh
+    # nguoi du phong cho cap nay.
+    if _luong_co_ky_so(req, "self_block"):
+        _quiet_log("Chan tu duyet: giu nguyen (luong ky so) %s" % req.name,
+                   "Cap %s chi co %s; cau hinh fallback_user cho cap nay."
+                   % (lvl.level_no, ", ".join(dropped)))
+        return approvers, ("kept_esign", dropped, None)
+    if has_later:
+        return [], ("skip", dropped, None)
+    mgr = _manager_user_of_employee(requester) if requester else None
+    if mgr and mgr not in excluded and _is_active_system_user(mgr):
+        return [(mgr, "Requester Manager (%s)" % SELF_BLOCK_LABEL)], ("manager", dropped, [mgr])
+    frappe.throw(_("Không gửi được: bước \"{0}\" chỉ có chính người gửi / người được nói tới "
+                   "trong phiếu duyệt, và chưa cấu hình người dự phòng. Liên hệ quản trị viên "
+                   "đặt người dự phòng (fallback) cho bước này.").format(lvl.level_name))
+
+
+_SELF_NOTE_TEXT = {
+    "dropped": "Chặn tự duyệt: {who} là người gửi / đối tượng của phiếu nên không nằm trong nhóm duyệt",
+    "fallback": "Chặn tự duyệt: {who} không được duyệt phiếu này - chuyển sang người dự phòng {to}",
+    "skip": "Chặn tự duyệt: bước chỉ có {who} - bỏ bước, chuyển sang bước kế",
+    "manager": "Chặn tự duyệt: bước cuối chỉ có {who} - chuyển lên quản lý trực tiếp {to}",
+    "kept_esign": "Chặn tự duyệt KHÔNG áp được (luồng ký số cố định): {who} vẫn ở bước này",
+    "group_fallback": "Chặn tự duyệt: {who} không được xác nhận nhóm này - chuyển sang người dự phòng {to}",
+    "group_kept": "Chặn tự duyệt KHÔNG áp được: nhóm chỉ có {who} và chưa có người dự phòng",
+}
+
+
+def _log_self_block(req, notes):
+    """Moi quyet dinh chan tu duyet -> mot dong EC Approval Action (Skipped) co ly do."""
+    for lvl, note in notes or []:
+        try:
+            kind, dropped, to = note
+            text = _SELF_NOTE_TEXT.get(kind, kind).format(
+                who=", ".join(dropped or []), to=", ".join(to or []))
+            for u in (dropped or [None]):
+                log_action(req.name, "Skipped", "Administrator", lvl.level_no,
+                           level_name=lvl.level_name, comment=text, related_user=u,
+                           new_status="Skipped")
+        except Exception:
+            _quiet_log("log_self_block %s" % req.name)
+
+
+# --------------------------------------------------------------------------- #
+# Nguoi theo doi (participant_purpose="Notify") - Dot 0 HR, 23/11/2026
+# --------------------------------------------------------------------------- #
+WATCHER_DT = "EC Approval Request Watcher"
+
+
+def _snapshot_watchers(req, process, levels, requester):
+    """Chot NGUOI THEO DOI luc gui: dong participant_purpose="Notify" o process VA o tung cap,
+    giai bang CHINH resolve_participants (User / Role / Reference User Field / ...). Bo nguoi
+    gui va nguoi da la nguoi duyet (ho da thay phieu, khong bao trung). Loi -> khong co nguoi
+    theo doi, KHONG chan viec gui."""
+    try:
+        parts = [p for p in (getattr(process, "participants", None) or [])
+                 if p.participant_purpose == "Notify"]
+        for lvl in levels or []:
+            parts += [p for p in (lvl.participants or []) if p.participant_purpose == "Notify"]
+        if not parts:
+            return []
+        ctx = {"reference_doctype": req.reference_doctype, "reference_name": req.reference_name}
+        found = resolve_participants(parts, requester, context=ctx)
+        return add_watchers(req.name, found, actor="Administrator", _grant=False)
+    except Exception:
+        _quiet_log("snapshot_watchers %s" % req.name)
+        return []
+
+
+def add_watchers(request_name, users, actor=None, source=None, _grant=True):
+    """Them NGUOI THEO DOI vao mot phieu (engine-internal, KHONG whitelist).
+
+    users: list user hoac list (user, nhan). Bo: nguoi khong hoat dong, nguoi gui, nguoi da la
+    nguoi duyet, nguoi da theo doi. Moi dong la ban ghi audit (added_by/added_at). Tra list user
+    vua them. Feature dung de them "CEO theo doi" theo dieu kien nghiep vu, hoac CC dich danh."""
+    req = frappe.db.get_value("EC Approval Request", request_name,
+                              ["name", "requested_by", "reference_doctype", "reference_name"],
+                              as_dict=True)
+    if not req:
+        return []
+    approvers = set(frappe.get_all("EC Approval Request Approver",
+                                   filters={"approval_request": request_name},
+                                   pluck="approver") or [])
+    have = set(frappe.get_all(WATCHER_DT, filters={"approval_request": request_name},
+                              pluck="watcher") or [])
+    added = []
+    for item in users or []:
+        u, label = (item if isinstance(item, (tuple, list)) else (item, source or "Manual"))
+        if (not u or u in have or u in approvers or u == req.requested_by or u in added
+                or not _is_active_system_user(u)):
+            continue
+        frappe.get_doc({"doctype": WATCHER_DT, "approval_request": request_name, "watcher": u,
+                        "source": source or label, "added_by": actor or frappe.session.user,
+                        "added_at": now_datetime()}).insert(ignore_permissions=True)
+        added.append(u)
+    if _grant:
+        for u in added:
+            try:
+                _engine_grant_read(req.reference_doctype, req.reference_name, u)
+            except Exception:
+                _quiet_log("add_watchers grant %s" % request_name)
+    return added
+
+
+def _notify_watchers(req, subject):
+    """Bao nguoi theo doi (luc gui / quyet dinh / hoan tat). severity "info". Khong bao gio nem."""
+    try:
+        users = frappe.get_all(WATCHER_DT, filters={"approval_request": req.name},
+                               pluck="watcher") or []
+        users = [u for u in dict.fromkeys(users) if isinstance(u, str) and u]
+        if users:
+            notify(users, subject, req.reference_doctype, req.reference_name, severity="info")
+    except Exception:
+        _quiet_log("notify_watchers %s" % getattr(req, "name", ""))
+
+
+def _watch_label(req):
+    try:
+        return request_label(req.reference_doctype, req.reference_name, req.approval_type)
+    except Exception:
+        return req.reference_name
+
+
+def _approval_links_on_snapshot(req):
+    """Gan phieu (Dot 0 HR): phieu chu vua gui -> cap quyen doc phieu rieng tu da gan cho nguoi
+    duyet cua no. Module approval_links tu nuot loi; boc them de ImportError khong chan gui."""
+    try:
+        from ecentric_workspace.approval_center.shared.requests import approval_links
+        approval_links.on_host_snapshot(req)
+    except Exception:
+        _quiet_log("approval_links.on_host_snapshot")
+
+
+def _resolve_groups(lvl, requester, context, excluded=None, notes=None, req=None):
     """EACH_GROUP: moi dong Approver giai RIENG thanh mot nhom. -> [(ten_nhom, [(user, label)])].
 
     Giai tung dong mot (khong gop) vi `resolve_participants` bo trung nguoi TRONG mot lan goi:
     gop ca cap lai thi mot nguoi thuoc hai nhom chi con o nhom dau, va nhom sau co the RONG
     - cap se xong ma nhom do chua ai xac nhan. Nhom nao khong co ai thi CHAN gui (fail-closed):
-    mot cap song song thieu mot nhom la mot viec chuan bi khong ai lam."""
+    mot cap song song thieu mot nhom la mot viec chuan bi khong ai lam.
+
+    `excluded` (23/11/2026, chan tu duyet): bo nguoi gui / doi tuong khoi tung nhom; nhom rong
+    -> nguoi du phong cua dong; khong co -> GIU NGUYEN + ghi chu (cap xac nhan da lam, chan gui
+    se lam hong phieu tu tao nhu Clearance)."""
     out, dung = [], set()
+    excluded = excluded or set()
     parts = sorted([p for p in (lvl.participants or []) if p.participant_purpose == "Approver"],
                    key=lambda r: (r.sort_order or 0))
     for i, p in enumerate(parts):
@@ -1211,6 +1489,21 @@ def _resolve_groups(lvl, requester, context):
             frappe.throw(_("Nhóm \"{0}\" của bước \"{1}\" chưa có ai (role/người được cấu hình "
                            "không còn hoạt động). Liên hệ quản trị viên cập nhật cấu hình trước khi gửi.")
                          .format(ten, lvl.level_name))
+        if excluded:
+            dropped = [u for u, _l in members if u in excluded]
+            kept = [(u, lab) for u, lab in members if u not in excluded]
+            if dropped and kept:
+                members = kept
+                if notes is not None:
+                    notes.append((lvl, ("dropped", dropped, None)))
+            elif dropped:
+                fb = p.get("fallback_user")
+                if fb and fb not in excluded and _is_active_system_user(fb):
+                    members = [(fb, "Fallback (%s)" % SELF_BLOCK_LABEL)]
+                    if notes is not None:
+                        notes.append((lvl, ("group_fallback", dropped, [fb])))
+                elif notes is not None:
+                    notes.append((lvl, ("group_kept", dropped, None)))
         out.append((ten, members))
     return out
 
@@ -1285,6 +1578,17 @@ def grant_read_to_snapshot_approvers(req):
         users = list(users) + [req.get("requested_by")]
     except Exception:
         frappe.log_error(frappe.get_traceback(), "grant_read: nguoi de nghi %s" % req.name)
+    # NGUOI THEO DOI (23/11/2026): can_view_request cho ho xem -> cong tep cung phai theo kip.
+    # Ten DocType viet thang (khong qua hang so module): nhieu bo test boc RIENG ham nay ra chay.
+    try:
+        users = list(users) + [u for u in (frappe.get_all(
+            "EC Approval Request Watcher", filters={"approval_request": req.name},
+            pluck="watcher") or []) if isinstance(u, str)]
+    except Exception:
+        try:
+            frappe.log_error(frappe.get_traceback(), "grant_read: nguoi theo doi %s" % req.name)
+        except Exception:
+            pass
     for u in dict.fromkeys(users):
         if not u or u == "Guest":
             continue
@@ -1309,10 +1613,14 @@ def is_active_process_fulfiller(approval_type, user=None):
 
 
 def submit(reference_doctype, reference_name, approval_type, requester, process_code=None,
-           activate_first_level=True, skip_level_nos=None, skip_reason=None):
+           activate_first_level=True, skip_level_nos=None, skip_reason=None, sla_overrides=None):
     """skip_level_nos: level_no bị loại khỏi snapshot của RIÊNG request này (tuỳ điều kiện
     nghiệp vụ do service của form quyết định — engine giữ trung tính, chỉ nhận danh sách).
-    Chỉ được bỏ cấp KHÔNG mandatory; việc bỏ được ghi audit kèm skip_reason."""
+    Chỉ được bỏ cấp KHÔNG mandatory; việc bỏ được ghi audit kèm skip_reason.
+
+    sla_overrides (23/11/2026): {level_no: policy_code} - SLA RIÊNG của request này (vd phiếu
+    Gấp 4 giờ làm việc thay vì 2 ngày). Chốt vào snapshot trước khi kích hoạt cấp; policy không
+    tồn tại / không active thì bỏ qua (giữ SLA của process) + Error Log."""
     process = resolve_process(approval_type, process_code)
     levels = resolve_levels(process.name)
     if not levels:
@@ -1341,6 +1649,8 @@ def submit(reference_doctype, reference_name, approval_type, requester, process_
         "approval_status": "Pending", "current_level": 0,
     }).insert(ignore_permissions=True)
     build_snapshot(req, process, levels, requester)
+    if sla_overrides:
+        _apply_sla_overrides(req.name, sla_overrides)
     log_action(req.name, "Submitted", requester, new_status="Pending")
     for lvl in skipped:
         log_action(req.name, "Skipped", requester,
@@ -1353,7 +1663,22 @@ def submit(reference_doctype, reference_name, approval_type, requester, process_
     if activate_first_level:
         first = _request_levels(req.name)[0]
         _activate_level(req, first.level_no)
+    _notify_watchers(req, _("Phiếu bạn theo dõi vừa được gửi: {0}").format(_watch_label(req)))
     return req.name
+
+
+def _apply_sla_overrides(req_name, overrides):
+    for level_no, code in (overrides or {}).items():
+        try:
+            if not code or not frappe.db.get_value("EC Approval SLA Policy",
+                                                   {"policy_code": code, "active": 1}, "name"):
+                _quiet_log("sla_overrides: policy %s khong dung duoc (%s)" % (code, req_name), "")
+                continue
+            rl = _rl_for(req_name, int(level_no))
+            if rl:
+                frappe.db.set_value("EC Approval Request Level", rl.name, "sla_policy", code)
+        except Exception:
+            _quiet_log("sla_overrides %s" % req_name)
 
 
 def _level_pending_approvers(req_name, level_no):
@@ -1443,7 +1768,8 @@ def _activate_level(req, level_no):
     approvers = frappe.get_all("EC Approval Request Approver",
                                filters={"approval_request": req.name, "level_no": level_no, "status": "Pending"},
                                pluck="approver")
-    notify(approvers, _("C\u1ea7n duy\u1ec7t: {0}").format(request_label(req.reference_doctype, req.reference_name, req.approval_type)), req.reference_doctype, req.reference_name)
+    notify(approvers, _("C\u1ea7n duy\u1ec7t: {0}").format(request_label(req.reference_doctype, req.reference_name, req.approval_type)), req.reference_doctype, req.reference_name,
+           **_sev_kw(req.reference_doctype, req.reference_name))
     close_todos(req.reference_doctype, req.reference_name)   # close prior-level ToDos before assigning the new level
     assign(req.reference_doctype, req.reference_name, approvers,
            _("Approval level {0}").format(level_no))
@@ -1639,6 +1965,7 @@ def reject(request_name, actor=None, comment=None):
     close_todos(req.reference_doctype, req.reference_name)
     notify([req.requested_by], _("Request rejected: {0}").format(request_name),
            req.reference_doctype, req.reference_name)
+    _notify_watchers(req, _("Phiếu bạn theo dõi bị từ chối: {0}").format(_watch_label(req)))
 
 
 def request_information(request_name, actor=None, comment=None):
@@ -1684,6 +2011,7 @@ def request_information(request_name, actor=None, comment=None):
     close_todos(req.reference_doctype, req.reference_name)
     notify([req.requested_by], _("Information requested: {0}").format(request_name),
            req.reference_doctype, req.reference_name)
+    _notify_watchers(req, _("Phiếu bạn theo dõi được yêu cầu bổ sung: {0}").format(_watch_label(req)))
 
 
 def _esign_on_reopen(request_name):
@@ -1733,6 +2061,10 @@ def resubmit(request_name, actor=None, restart=False):
                                  "completed_at": None, "due_at": None})
             for ap in frappe.get_all("EC Approval Request Approver",
                                      filters={"approval_request": request_name, "level_no": rl.level_no}, pluck="name"):
+                # Dong da bi CHUYEN NGUOI DUYET (nguoi duyet nghi viec / bi khoa, 23/11/2026) giu
+                # nguyen Skipped: hoi sinh no la giao lai viec cho mot tai khoan da khoa.
+                if _is_reassigned_row(ap):
+                    continue
                 frappe.db.set_value("EC Approval Request Approver", ap,
                                     {"status": "Pending", "decided_at": None, "comment": None})
     frappe.db.set_value("EC Approval Request", request_name,
@@ -1767,6 +2099,7 @@ def resubmit(request_name, actor=None, restart=False):
     # bat duyet cap Quan ly truc tiep, du lan dau da bo qua vi anh duyet o cap CEO). Ap lai
     # DUNG luat cua luc dung luong, chi tu cap tiep tuc; _activate_level tu di qua cap Skipped.
     _skip_earlier_duplicate_levels(frappe.get_doc("EC Approval Request", request_name), from_level=resume)
+    _reskip_empty_levels(request_name, resume)
     _activate_level(frappe.get_doc("EC Approval Request", request_name), resume)
     return {"esign": esign}
 
@@ -1787,6 +2120,7 @@ def cancel(request_name, actor=None, reason=None):
     close_todos(req.reference_doctype, req.reference_name)
     notify([req.requested_by], _("Request cancelled: {0}").format(request_name),
            req.reference_doctype, req.reference_name)
+    _notify_watchers(req, _("Phiếu bạn theo dõi đã bị huỷ: {0}").format(_watch_label(req)))
     # SLA: ho so bi huy -> moi dau viec con mo cua no bien khoi phep tinh. Khong
     # ai duoc tru diem vi mot viec khong con ton tai.
     _sla().on_request_cancelled(request_doctype=req.reference_doctype,
@@ -1916,6 +2250,8 @@ _FULFILLMENT_HANDLERS = {
     # 05/10: Outside Work duyet xong -> ngay lam viec ben ngoai co Attendance "Present" (bang cong
     # ERP / payroll chi doc Attendance). Ngay da co ban ghi thi giu nguyen.
     "EC Outside Work Request": "ecentric_workspace.approval_center.features.outside_work.application.attendance.on_final_approval",
+    # 23/11/2026: Phe duyet dot xuat - chi ghi moc hoan tat (khong co buoc xu ly).
+    "EC Adhoc Approval Request": "ecentric_workspace.approval_center.features.adhoc_approval.application.service.on_final_approval",
 }
 
 
@@ -1933,6 +2269,7 @@ def complete_approval(req):
     notify([req.requested_by], _("Yêu cầu đã được duyệt: {0}").format(
         request_label(req.reference_doctype, req.reference_name, req.approval_type)),
         req.reference_doctype, req.reference_name)
+    _notify_watchers(req, _("Phiếu bạn theo dõi đã duyệt xong: {0}").format(_watch_label(req)))
     close_todos(req.reference_doctype, req.reference_name)
     handler = _FULFILLMENT_HANDLERS.get(req.reference_doctype)
     if handler:
@@ -1992,3 +2329,134 @@ def admin_override_current_level(request_name, actor=None, reason=None):
         _activate_level(frappe.get_doc("EC Approval Request", request_name), nxt[0].level_no)
     else:
         complete_approval(frappe.get_doc("EC Approval Request", request_name))
+
+
+# --------------------------------------------------------------------------- #
+# Chuyen nguoi duyet dang cho (Dot 0 HR, 23/11/2026) - nguoi duyet nghi viec / bi khoa
+# --------------------------------------------------------------------------- #
+#: Dau tren `comment` cua dong duyet da bi chuyen di. resubmit KHONG hoi sinh dong mang dau nay.
+REASSIGN_MARK = "[Chuyển người duyệt]"
+
+
+def _is_reassigned_row(row_name):
+    try:
+        row = frappe.db.get_value("EC Approval Request Approver", row_name,
+                                  ["status", "comment"], as_dict=True) or {}
+    except Exception:
+        return False
+    c = row.get("comment")
+    return row.get("status") == "Skipped" and isinstance(c, str) and c.startswith(REASSIGN_MARK)
+
+
+def _reskip_empty_levels(request_name, from_level):
+    """Cap KHONG co dong duyet nao (bi bo luc gui vi chan tu duyet) -> giu Skipped khi gui lai.
+    Chi tin mot con so nguyen 0 - khong doan khi khong doc duoc."""
+    try:
+        now = now_datetime()
+        for rl in _request_levels(request_name):
+            if rl.level_no < (from_level or 1):
+                continue
+            n = frappe.db.count("EC Approval Request Approver",
+                                {"approval_request": request_name, "level_no": rl.level_no})
+            if isinstance(n, int) and not isinstance(n, bool) and n == 0:
+                frappe.db.set_value("EC Approval Request Level", rl.name,
+                                    {"level_status": "Skipped", "activated_at": now,
+                                     "completed_at": now})
+    except Exception:
+        _quiet_log("reskip_empty_levels %s" % request_name)
+
+
+def reassign_pending_approver(row_name, new_users, actor=None, reason=None, require_target=False):
+    """Chuyen MOT dong duyet Pending sang nguoi khac (engine-internal, KHONG whitelist).
+
+    * dong cu -> Skipped, comment bat dau bang REASSIGN_MARK (+ ly do); ToDo cua nguoi cu dong,
+      dau viec SLA cua ho bi loai;
+    * moi nguoi moi -> mot dong Pending CUNG cap, CUNG nhom (Each Group), nguon ghi ro "chuyen tu";
+      nguoi moi khong duoc la nguoi gui / doi tuong (chan tu duyet), phai dang hoat dong;
+    * neu cap do dang mo: giao ToDo + DocShare + thong bao (mang muc Gap neu phieu Gap) + SLA;
+    * moi buoc ghi EC Approval Action "Reassigned" (actor that, related_user = nguoi cu / moi).
+    Tra {"added": [...], "skipped_old": bool}. Nguoi goi chiu trach nhiem kiem quyen."""
+    actor = actor or frappe.session.user
+    row = frappe.db.get_value("EC Approval Request Approver", row_name,
+                              ["name", "approval_request", "request_level", "level_no", "approver",
+                               "source", "participant_group", "status"], as_dict=True)
+    if not row:
+        frappe.throw(_("Không tìm thấy dòng duyệt."))
+    req = frappe.get_doc("EC Approval Request", row.approval_request)
+    _lock_and_read(req)
+    _guard_open(req)
+    cur = frappe.db.get_value("EC Approval Request Approver", row_name, "status", for_update=True)
+    if cur != "Pending":
+        return {"added": [], "skipped_old": False}
+    excluded = _self_exclusion(req, req.requested_by)
+    on_level = set(frappe.get_all("EC Approval Request Approver",
+                                  filters={"approval_request": req.name, "level_no": row.level_no},
+                                  pluck="approver") or [])
+    targets = []
+    for u in new_users or []:
+        if (u and u != row.approver and u not in excluded and u not in on_level
+                and u not in targets and _is_active_system_user(u)):
+            targets.append(u)
+    if require_target and not targets:
+        # Khong co nguoi thay hop le -> KHONG dong gi (khong bao gio de cap rong vi chuyen nguoi).
+        return {"added": [], "skipped_old": False}
+    why = (reason or "").strip() or _("Người duyệt không còn hoạt động")
+    now = now_datetime()
+    frappe.db.set_value("EC Approval Request Approver", row_name,
+                        {"status": "Skipped", "decided_at": now,
+                         "comment": ("%s %s" % (REASSIGN_MARK, why))[:500]})
+    level_name = frappe.db.get_value("EC Approval Request Level", row.request_level, "level_name")
+    log_action(req.name, "Reassigned", actor, row.level_no, level_name=level_name,
+               comment=_("Bỏ {0} khỏi bước này: {1}").format(row.approver, why),
+               previous_status="Pending", new_status="Skipped", related_user=row.approver)
+    for u in targets:
+        frappe.get_doc({
+            "doctype": "EC Approval Request Approver", "approval_request": req.name,
+            "request_level": row.request_level, "level_no": row.level_no, "approver": u,
+            "source": ("Chuyển từ %s · %s" % (row.approver, row.source or ""))[:140],
+            "participant_group": row.participant_group, "status": "Pending",
+        }).insert(ignore_permissions=True)
+        log_action(req.name, "Reassigned", actor, row.level_no, level_name=level_name,
+                   comment=_("Chuyển việc duyệt từ {0} sang {1}: {2}").format(row.approver, u, why),
+                   new_status="Pending", related_user=u)
+        try:
+            _engine_grant_read(req.reference_doctype, req.reference_name, u)
+        except Exception:
+            _quiet_log("reassign grant %s" % req.name)
+    level_open = (req.approval_status == "Pending" and req.current_level == row.level_no
+                  and frappe.db.get_value("EC Approval Request Level", row.request_level,
+                                          "level_status") == "In Progress")
+    if level_open:
+        _close_user_todos(req.reference_doctype, req.reference_name, row.approver)
+        _sla().on_approver_removed(request_doctype=req.reference_doctype,
+                                   request_name=req.reference_name, level_no=row.level_no,
+                                   user=row.approver, reason=why)
+        if targets:
+            assign(req.reference_doctype, req.reference_name, targets,
+                   _("Approval level {0}").format(row.level_no))
+            notify(targets, _("Cần duyệt (chuyển từ {0}): {1}").format(
+                row.approver, request_label(req.reference_doctype, req.reference_name,
+                                            req.approval_type)),
+                req.reference_doctype, req.reference_name,
+                **_sev_kw(req.reference_doctype, req.reference_name))
+            _sla().on_level_activated(
+                request_doctype=req.reference_doctype, request_name=req.reference_name,
+                level_no=row.level_no, approvers=targets, opened_at=now_datetime(),
+                sla_policy_code=frappe.db.get_value("EC Approval Request Level",
+                                                    row.request_level, "sla_policy"),
+                attempt=_sla_attempt(req.name))
+    _approval_links_resync(req)
+    # Cap Any One / Each Group co the da du nguoi xac nhan sau khi bo nguoi cu (vd nhom con
+    # nguoi khac da bam) -> danh gia lai, dung duong binh thuong.
+    if level_open:
+        _evaluate(frappe.get_doc("EC Approval Request", req.name), row.level_no, actor=actor)
+    return {"added": targets, "skipped_old": True}
+
+
+def _approval_links_resync(req):
+    try:
+        from ecentric_workspace.approval_center.shared.requests import approval_links
+        approval_links.on_host_snapshot(req)
+    except Exception:
+        _quiet_log("approval_links resync")
+
