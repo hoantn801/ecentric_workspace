@@ -134,6 +134,34 @@ def _norm_transitions(rows):
     return out
 
 
+#: Kieu ky cua doi tac ma cong nhan (add-document.js, allSignTypes).
+PARTNER_SIGN_TYPES = ("image", "token", "ekyc", "esign", "vnetid", "nfc")
+
+
+def _external_handlers_payload(rows):
+    """[{full_name, email, phone?, identity?, identity_place?, identity_date?, dob?, sign_type?}]
+    -> ExternalHandlers cua AddDocument (dung khoa giao dien cong gui). Thieu ten / email hoac
+    kieu ky la -> ProviderError (khong gui doi tac nua voi)."""
+    out = []
+    for r in (rows or []):
+        name = str((r or {}).get("full_name") or "").strip()
+        email = str((r or {}).get("email") or "").strip()
+        if not name or not email or "@" not in email:
+            raise ProviderError("partner_info_invalid",
+                                "thong tin doi tac thieu ten / email hop le", retryable=False)
+        st = str(r.get("sign_type") or "image").strip()
+        if st not in PARTNER_SIGN_TYPES:
+            raise ProviderError("partner_sign_type_invalid", "kieu ky doi tac la: %s" % st,
+                                retryable=False)
+        out.append({"PartnerId": r.get("partner_id") or None, "FullName": name,
+                    "Email": email, "Phone": str(r.get("phone") or "").strip(),
+                    "IdentityNumber": str(r.get("identity") or "").strip(),
+                    "IdentityPlace": str(r.get("identity_place") or "").strip(),
+                    "IdentityDate": str(r.get("identity_date") or "").strip(),
+                    "Dob": str(r.get("dob") or "").strip(), "SignType": st})
+    return out
+
+
 class SctsAdapter(SignatureProviderAdapter):
     def __init__(self, settings, transport=None, sleeper=None):
         super().__init__(settings)
@@ -689,6 +717,7 @@ class SctsAdapter(SignatureProviderAdapter):
             return {"user_id": None, "signature_id": None, "status": "pending",
                     "signed_at": None, "is_external": False}
         raw_status = str(s.get("status") or s.get("signStatus") or "").strip().lower()
+        provider_status = raw_status            # giu chu goc: "tra lai" != "tu choi" (PR-D)
         raw_status = SctsAdapter._VN_SIGN_STATUS.get(raw_status, raw_status)
         is_signed = s.get("isSigned")
         if is_signed is True or raw_status in ("signed", "completed", "done", "success"):
@@ -710,6 +739,7 @@ class SctsAdapter(SignatureProviderAdapter):
                 "role_text": s.get("roleText"),
                 "sign_type": s.get("signType") or s.get("signTypeName"),
                 "status": norm,
+                "provider_status": provider_status,
                 "signed_at": SctsAdapter._signed_at(s),
                 "is_external": bool(s.get("isExternal") or s.get("external"))}
 
@@ -875,7 +905,9 @@ class SctsAdapter(SignatureProviderAdapter):
             "deadlineDate": package_ctx.get("deadline") or "",
             "fields": package_ctx.get("fields") or [],
             "Documents": documents,
-            "ExternalHandlers": [],  # external signer handlers disabled this phase
+            # Doi tac ky ngoai (PR-D, 22/11): chi khi ho so bat allow_external_signers va nghiep
+            # vu cung cap (ec_esign_external_handlers). Khoa = dung khoa cong gui (add-document.js).
+            "ExternalHandlers": _external_handlers_payload(package_ctx.get("external_handlers")),
             "DocumentRefIds": [],
         }
         try:

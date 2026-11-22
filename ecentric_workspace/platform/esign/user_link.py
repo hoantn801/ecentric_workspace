@@ -340,11 +340,23 @@ def signer_token_needed(dsr, settings):
         user = dsr.get("actor_user")
     elif (dsr.get("action") or "Sign") == "Sign":
         user = dsr.get("approver")
+    elif (dsr.get("action") or "") == "Approve" and _profile_allows_external(dsr):
+        # 22/11 (PR-D): ho so CO DOI TAC (hop dong WF09) - buoc duyet KHONG ky cung di bang token
+        # CHINH nguoi duyet: cong ghi hanh dong theo nguoi GUI lenh. (Buoc CEO `-5` sang doi tac
+        # hien khai la Sign - chot lai khi test that WF09.) DNTT giu nguyen (tai khoan tich hop).
+        user = dsr.get("approver")
     else:
         return None
     if not user or not needs_own_token(user, settings):
         return None
     return user
+
+
+def _profile_allows_external(dsr):
+    pkg = dsr.get("package")
+    prof = frappe.db.get_value("EC Digital Signature Package", pkg, "profile") if pkg else None
+    return bool(prof and int(frappe.db.get_value("EC Digital Signature Profile", prof,
+                                                 "allow_external_signers") or 0))
 
 
 def assert_signer_linked(user, settings, environment):

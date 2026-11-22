@@ -56,7 +56,10 @@ def _load_checker():
          # Nguon doi tu `_expected_signers` (hai tap hop) sang `_expected_signer_pairs`
          # (giu ghep doi) ngay 01/09 - ban gia phai theo, khong thi no goi ham that va no.
          "_expected_signer_pairs":
-             lambda name: list(getattr(_CUR_PKG[0], "expected_pairs", []))}
+             lambda name: list(getattr(_CUR_PKG[0], "expected_pairs", [])),
+         # PR-D (22/11): ho so KHONG co doi tac ky ngoai -> hai nhanh moi khong chay.
+         "_external_expectation": lambda pkg: None,
+         "_approve_leg_emails": lambda name: set()}
     exec(compile(fn, "decide", "exec"), g)
     return g["decide"]
 
