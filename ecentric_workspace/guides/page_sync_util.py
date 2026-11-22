@@ -46,20 +46,32 @@ def embed_images(html, img_dir):
     return out
 
 
-def render_guides_list():
-    """The danh sach bai cho trang muc luc - sinh tu registry, khong go tay."""
-    cards = []
-    for g in registry.listed():
-        cards.append(
-            '<a class="gcard" href="%s">'
+def _card(g):
+    return ('<a class="gcard" href="%s">'
             '<div class="gcard-t">%s</div>'
             '<div class="gcard-s">%s</div>'
             '<div class="gcard-m">%s · cập nhật %s</div>'
             '</a>' % (_esc(g["route"]), _esc(g["title"]), _esc(g["summary"]),
                       _esc(g.get("audience") or ""), _esc(g.get("updated") or "")))
-    if not cards:
+
+
+def render_guides_list():
+    """The danh sach bai cho trang muc luc - sinh tu registry, khong go tay.
+
+    23/11/2026: bai chia NHOM (registry.GROUP_ORDER). Chi mot nhom thi khong ve tieu de nhom
+    (giu nguyen hinh dang cu); nhieu nhom thi moi nhom mot tieu de + mot luoi the."""
+    groups = []
+    for g in registry.listed():
+        name = g.get("group") or registry.GROUP_DEFAULT
+        if not groups or groups[-1][0] != name:
+            groups.append((name, []))
+        groups[-1][1].append(_card(g))
+    if not groups:
         return '<p class="empty">Chưa có hướng dẫn nào.</p>'
-    return '<div class="gcards">%s</div>' % "".join(cards)
+    if len(groups) == 1:
+        return '<div class="gcards">%s</div>' % "".join(groups[0][1])
+    return "".join('<h2 class="ggroup">%s</h2><div class="gcards">%s</div>' % (_esc(name), "".join(cards))
+                   for name, cards in groups)
 
 
 def build(page_dir, html_name="main_section.html"):

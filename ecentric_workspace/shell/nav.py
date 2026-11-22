@@ -745,6 +745,12 @@ RAIL_LAYOUTS = {
             {"key": "sla.scoreboard"}, {"key": "hr.brand_weight"},
             {"key": "rail.hr.kpi", "label": "Mục tiêu KPI", "route": "/coming-soon?tool=kpi", "icon": "target",
              "soon": True, "noactive": True}]},
+        # 23/11/2026 (brief HR Agent F): huong dan 7 quy trinh nhan su moi. Lien ket rieng cua cot
+        # (rail.*): tung bai huong dan KHONG la muc registry (guides/nav.py - mot muc luc duy nhat,
+        # "/huong-dan/*" da quy ve guides.index cho breadcrumb); bai khai o guides/registry.py.
+        {"t": "group", "label": "Hướng dẫn", "items": [
+            {"key": "rail.hr.guides", "label": "Quy trình nhân sự", "route": "/huong-dan/nhan-su",
+             "icon": "book", "noactive": True}]},
         {"t": "help", "item": {"key": "hr.install_guide", "label": "Cài app lên điện thoại"}},
     ],
     "reports": [

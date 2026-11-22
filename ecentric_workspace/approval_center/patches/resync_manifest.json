@@ -165,8 +165,8 @@
     "sha256": "e75638d604c3a7220374f11541ee00aa8fb003161b8191a1d68dd3644a1b1646"
   },
   "guides/pages/index/main_section.html": {
-    "last_resync_patch": "p161_publish_guides_and_shell_drift",
-    "sha256": "f0779e4bc55d3adf0297a4d01c846e666815a559fb07ebdea4cc6df4b2dd6d8c"
+    "last_resync_patch": "p470_huong_dan_quy_trinh_nhan_su",
+    "sha256": "7d390709d571fbe65975eec2e43278ab6dcc7d7f6303db13a76907ec26c3626b"
   },
   "hr/pages/install_guide/main_section.html": {
     "baseline": "2026-08-31",
@@ -355,5 +355,37 @@
   "ai_tools/pages/ai_live_ban_quyen/main_section.html": {
     "last_resync_patch": "p403_resync_ai_live_ban_quyen",
     "sha256": "8943777fb59d311c799075f3d27887616075a57367b937569275d32115123cca"
+  },
+  "guides/pages/nhan_su/main_section.html": {
+    "last_resync_patch": "p470_huong_dan_quy_trinh_nhan_su",
+    "sha256": "d18c92e8ec4380d3f490c7be43d111a826bc6877f9a9b9a88a2e3b9b8d2a36ec"
+  },
+  "guides/pages/gan_phieu_duyet/main_section.html": {
+    "last_resync_patch": "p470_huong_dan_quy_trinh_nhan_su",
+    "sha256": "2f8b7ca5fbf551031d05c38ca8212b63f29341d8fd9e030e3bb3fda7f8654a2f"
+  },
+  "guides/pages/phe_duyet_dot_xuat/main_section.html": {
+    "last_resync_patch": "p470_huong_dan_quy_trinh_nhan_su",
+    "sha256": "75497e7e7b257b937a4568550a7f09a92fe6fc09c5287943affb4e19887b1c3f"
+  },
+  "guides/pages/offer_new_staff/main_section.html": {
+    "last_resync_patch": "p470_huong_dan_quy_trinh_nhan_su",
+    "sha256": "5087f884f448b9d8f6c857d8c6e310bbd50b471fbf3e17251cfd2d21165eb5c9"
+  },
+  "guides/pages/nghi_viec_clearance/main_section.html": {
+    "last_resync_patch": "p470_huong_dan_quy_trinh_nhan_su",
+    "sha256": "ebd5a3d4ca3198443d92435a78e4b66e262813a9597ec647598dfc10a737f794"
+  },
+  "guides/pages/danh_gia_nhan_su/main_section.html": {
+    "last_resync_patch": "p470_huong_dan_quy_trinh_nhan_su",
+    "sha256": "52cae9393f3541478f6d73308cf6458d06734fbc21d69cdee35ba22a0df0d583"
+  },
+  "guides/pages/khao_sat_nhan_su/main_section.html": {
+    "last_resync_patch": "p470_huong_dan_quy_trinh_nhan_su",
+    "sha256": "c2877efb74aea9fb8c1d23dbfa1b14785cb082df79054282a1001485c2d944d2"
+  },
+  "guides/pages/ky_luat/main_section.html": {
+    "last_resync_patch": "p470_huong_dan_quy_trinh_nhan_su",
+    "sha256": "311d2dd98c455e6410b5ead1ad6eb13a8f585e433316689f779c7c62f7ac4096"
   }
 }

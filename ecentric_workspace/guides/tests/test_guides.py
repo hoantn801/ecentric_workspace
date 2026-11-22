@@ -132,7 +132,11 @@ class TestNoiDungTrang(unittest.TestCase):
             html = self._html(d)
             names = re.findall(r"\{\{img:([^}]+)\}\}", html)
             with self.subTest(slug=slug):
-                self.assertTrue(names, "bai %s khong nhung anh nao - co dung y khong?" % slug)
+                # 23/11/2026: bai phai co HINH MINH HOA - anh chup man hinh HOAC so do luong
+                # (mermaid, class ecg-flow). Bai quy trinh nhan su viet truoc khi form len nen
+                # chua co anh chup; so do la thu thay the, khong phai trang chu chay.
+                self.assertTrue(names or 'class="ecg-flow"' in html,
+                                "bai %s khong co anh hay so do nao - co dung y khong?" % slug)
                 for n in names:
                     self.assertTrue(os.path.isfile(os.path.join(d, "img", n.strip())),
                                     "bai %s thieu anh %s" % (slug, n))
@@ -179,7 +183,94 @@ class TestNoiDungTrang(unittest.TestCase):
             with self.subTest(slug=slug):
                 html = page_sync_util.build(_page_dir_of(slug), "main_section.html")
                 self.assertNotIn("{{img:", html)
-                self.assertIn("data:image/", html)
+                if "{{img:" in self._html(_page_dir_of(slug)):
+                    self.assertIn("data:image/", html)
+
+    def test_muc_luc_chia_nhom_khi_co_nhieu_nhom(self):
+        listed = page_sync_util.render_guides_list()
+        self.assertIn('<h2 class="ggroup">%s</h2>' % registry.GROUP_DEFAULT, listed)
+        self.assertIn('<h2 class="ggroup">%s</h2>' % registry.GROUP_HR, listed)
+        # bai chung truoc, nhom nhan su sau; trong nhom theo "order" (tong quan dau tien)
+        self.assertLess(listed.index("/huong-dan/dnmh-dntt"), listed.index(registry.GROUP_HR))
+        self.assertLess(listed.index('href="/huong-dan/nhan-su"'), listed.index('href="/huong-dan/ky-luat"'))
+
+    def test_mot_nhom_thi_khong_ve_tieu_de_nhom(self):
+        real = registry.GUIDES
+        try:
+            registry.GUIDES = {k: v for k, v in real.items() if not v.get("group")}
+            listed = page_sync_util.render_guides_list()
+            self.assertNotIn("ggroup", listed)
+            self.assertTrue(listed.startswith('<div class="gcards">'))
+        finally:
+            registry.GUIDES = real
+
+
+class TestQuyTrinhNhanSu(unittest.TestCase):
+    """8 bai quy trinh nhan su (23/11/2026): dung SLA brief, loi vao form, menu khu Nhan su."""
+
+    SLUGS = ("nhan-su", "gan-phieu-duyet", "phe-duyet-dot-xuat", "offer-new-staff",
+             "nghi-viec-clearance", "danh-gia-nhan-su", "khao-sat-nhan-su", "ky-luat")
+
+    def _html(self, slug):
+        return io.open(os.path.join(_page_dir_of(slug), "main_section.html"), encoding="utf-8").read()
+
+    def test_du_8_bai_trong_nhom_nhan_su(self):
+        for slug in self.SLUGS:
+            with self.subTest(slug=slug):
+                self.assertIn(slug, registry.GUIDES)
+                self.assertEqual(registry.GUIDES[slug].get("group"), registry.GROUP_HR)
+
+    def test_form_da_co_tro_ve_bai_dung(self):
+        for code, slug in (("OFFER_REQUEST", "offer-new-staff"),
+                           ("NEW_STAFF_PREPARATION", "offer-new-staff"),
+                           ("RESIGNATION", "nghi-viec-clearance"),
+                           ("CLEARANCE_REQUEST", "nghi-viec-clearance")):
+            with self.subTest(code=code):
+                self.assertEqual(registry.guide_for_approval_type(code)["route"], registry.route_of(slug))
+
+    def test_sla_dung_brief(self):
+        """SLA Hoan chot 22-23/11 - doi brief thi sua ca bai lan test, khong de lech im lang."""
+        expect = {
+            "phe-duyet-dot-xuat": ["Bình thường: 2 ngày làm việc", "Gấp: 4 giờ làm việc"],
+            "offer-new-staff": ["1 ngày làm việc", "Trước ngày onboard 1 ngày làm việc",
+                                "tối thiểu 2 ngày làm việc"],
+            "nghi-viec-clearance": ["2 ngày làm việc", "Ngày làm việc cuối", "45 ngày", "30 ngày",
+                                    "3 ngày làm việc", "Không cần báo trước"],
+            "danh-gia-nhan-su": ["21 ngày trước", "37 ngày trước", "14 ngày trước", "30 ngày trước",
+                                 "Thử việc, thực tập: 2 ngày làm việc", "Hợp đồng: 3 ngày làm việc",
+                                 "Thử việc, thực tập: 3 ngày làm việc", "Hợp đồng: 5 ngày làm việc"],
+            "khao-sat-nhan-su": ["Ngày 7 · ngày 30 · ngày 45", "Ngày 30 · ngày 60 · ngày 75",
+                                 "3 ngày làm việc", "chỉ HR"],
+            "ky-luat": ["Thẩm định trong 3 ngày làm việc", "Họp sớm nhất sau 5 ngày làm việc",
+                        "2 ngày làm việc sau họp", "14 ngày", "Sau 3 tháng", "NĐ 145/2020"],
+        }
+        for slug, needles in expect.items():
+            html = self._html(slug)
+            for n in needles:
+                with self.subTest(slug=slug, needle=n):
+                    self.assertIn(n, html)
+
+    def test_nghi_viec_khong_co_tu_choi(self):
+        html = self._html("nghi-viec-clearance")
+        self.assertIn("không có nút “Từ chối”", html)
+        self.assertNotIn("Duyệt / Từ chối", html)
+
+    def test_ky_luat_khong_co_tien_phat(self):
+        self.assertIn("Không có ô tiền phạt", self._html("ky-luat"))
+
+    def test_route_du_kien_duoc_danh_dau(self):
+        """Form chua len thi link mang data-route-planned + nhan "sắp mở" - tich hop grep ra sua."""
+        for slug, route in (("phe-duyet-dot-xuat", "/approvals/ad-hoc-ceo"),
+                            ("danh-gia-nhan-su", "/approvals/employee-review"),
+                            ("ky-luat", "/ky-luat")):
+            with self.subTest(slug=slug):
+                self.assertIn('href="%s" data-route-planned="1"' % route, self._html(slug))
+
+    def test_menu_khu_nhan_su_tro_toi_tong_quan(self):
+        from ecentric_workspace.shell import nav as shell_nav
+        links = [it for b in shell_nav.RAIL_LAYOUTS["hr"] for it in b.get("items") or []]
+        hit = [it for it in links if it.get("route") == registry.route_of("nhan-su")]
+        self.assertEqual(len(hit), 1, "khu Nhan su phai co dung 1 loi vao huong dan quy trinh nhan su")
 
 
 if __name__ == "__main__":
