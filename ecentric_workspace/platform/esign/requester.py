@@ -283,6 +283,48 @@ def sign_on_submit(business_doctype, business_name):
     return requester_submit_and_sign(business_doctype, business_name)
 
 
+def lock_on_submit(business_doctype, business_name):
+    """KHOA goi ky ngay sau khi phieu duoc gui duyet - cho ho so NGUOI LAP KHONG KY (hop dong
+    WF09: buoc nguoi lap tren cong la "trinh", khong ky; PR-C 22/11/2026).
+
+    Nghiep vu goi: `assert_ready_to_submit` TRUOC engine.submit (chan som, chua ghi gi), roi
+    `lock_on_submit` SAU engine.submit trong cung giao dich. Goi khoa = chot ma bam tep + o ky;
+    portal_steps.start_requester_step se tim thay goi nay khi cap cong dau tien mo (-2).
+    Chi nguoi lap. Idempotent: goi da khoa -> tra lai. Ho so khong ky so -> khong lam gi.
+    Ho so CO yeu cau nguoi lap ky -> dung sign_on_submit (khong phai ham nay)."""
+    ar = _requester_ar(business_doctype, business_name)
+    if not ar:
+        frappe.throw(_("Không tìm thấy yêu cầu duyệt cho phiếu này."))
+    req = frappe.db.get_value(AR, ar, ["approval_type", "requested_by", "approval_status"],
+                              as_dict=True)
+    if frappe.session.user != req.requested_by:
+        frappe.throw(_("Chỉ người lập mới khoá được gói ký."), frappe.PermissionError)
+    if req.approval_status != "Pending":
+        # QC 22/11: _requester_ar roi ve yeu cau MOI NHAT ke ca da tu choi / huy.
+        frappe.throw(_("Yêu cầu duyệt không ở trạng thái chờ duyệt - không khoá gói ký."))
+    pname = guard.get_enabled_profile(business_doctype, req.approval_type, business_name)
+    if not pname:
+        return {"locked": False, "reason": "no_profile"}
+    if guard.requester_signature_required(business_doctype, req.approval_type, business_name):
+        frappe.throw(_("Hồ sơ ký này cần người lập ký - dùng luồng Gửi & Ký."))
+    existing = pkgsvc.signable_package_for_request(ar)
+    if existing:
+        return {"locked": True, "package": existing, "duplicate": True}
+    draft = pkgsvc.draft_package_for_business(business_doctype, business_name, for_update=True)
+    if not draft:
+        frappe.throw(_("Chưa có gói tài liệu ký: tải bản PDF để ký và đặt ô ký trước khi gửi."))
+    if frappe.db.get_value(PKG, draft, "profile") != pname:
+        # QC 22/11: luong ky (esign_flow) doi SAU khi dat o ky -> o ky theo ho so cu, chuoi cong
+        # khac. Khong tro lai ho so (o ky mat hieu luc) - bao nguoi lap dat lai.
+        frappe.throw(_("Luồng ký của phiếu đã đổi sau khi đặt ô ký - mở lại phần Ký số, đặt "
+                       "ô ký lại rồi gửi."))
+    missing = pkgsvc.preflight_for_lock(draft)
+    if missing:
+        frappe.throw(_placement_refusal(missing))
+    h = pkgsvc.lock_package(draft, ar)
+    return {"locked": True, "package": draft, "package_hash": h}
+
+
 def requester_submit_and_sign(business_doctype, business_name, comment=None):
     """Governed requester Submit & Sign. Session user MUST be the authoritative requester
     (no admin/SM bypass); creates or reuses exactly one requester-scoped DSR under a request
