@@ -258,13 +258,18 @@ class TestQuyTrinhNhanSu(unittest.TestCase):
     def test_ky_luat_khong_co_tien_phat(self):
         self.assertIn("Không có ô tiền phạt", self._html("ky-luat"))
 
-    def test_route_du_kien_duoc_danh_dau(self):
-        """Form chua len thi link mang data-route-planned + nhan "sắp mở" - tich hop grep ra sua."""
-        for slug, route in (("phe-duyet-dot-xuat", "/approvals/ad-hoc-ceo"),
+    def test_link_form_tro_dung_route_that(self):
+        """Tich hop 23/11: link sang form la route THAT (khong con nhan "sắp mở")."""
+        for slug, route in (("phe-duyet-dot-xuat", "/approvals/adhoc-approval"),
                             ("danh-gia-nhan-su", "/approvals/employee-review"),
+                            ("danh-gia-nhan-su", "/ec-hr/danh-gia-nhan-su"),
+                            ("khao-sat-nhan-su", "/khao-sat/ca-nhan"),
                             ("ky-luat", "/ky-luat")):
-            with self.subTest(slug=slug):
-                self.assertIn('href="%s" data-route-planned="1"' % route, self._html(slug))
+            with self.subTest(slug=slug, route=route):
+                html = self._html(slug)
+                self.assertIn('href="%s"' % route, html)
+                self.assertNotIn("data-route-planned", html)
+                self.assertNotIn("sắp mở", html)
 
     def test_menu_khu_nhan_su_tro_toi_tong_quan(self):
         from ecentric_workspace.shell import nav as shell_nav

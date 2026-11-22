@@ -47,7 +47,6 @@ RESIGNATION_DEFINITION = _dc_replace(
 # an phan danh gia kieu khao sat voi nguoi khong phai HR (ca don cu); khoi chi tiet: ngay nghi som
 # nhat hop le, nut Rut don, Clearance lien ket.
 from ecentric_workspace.approval_center.shared.definition_support import ServiceMethod as _SM  # noqa: E402
-from ecentric_workspace.approval_center.shared.requests.contracts import ApprovalDefinition as _AD  # noqa: E402
 
 _RESN = "ecentric_workspace.approval_center.features.resignation.application."
 RESIGNATION_DEFINITION = _dc_replace(
@@ -61,6 +60,5 @@ RESIGNATION_DEFINITION = _dc_replace(
         ("Sớm nhất hợp lệ", "earliest_valid_last_day"),
         ("Lý do", "resignation_reason"),
     ),
-    # Hop dong Dot 0 (engine chan tu duyet theo doi tuong): chi khai khi engine da co truong nay.
-    **{k: v for k, v in {"subject_fields": ("employee_email",)}.items()
-       if k in getattr(_AD, "__dataclass_fields__", {})})
+    # Dot 0 (23/11): chan tu duyet theo doi tuong - nguoi nghi viec khong duyet don cua chinh minh.
+    subject_fields=("employee_email",))

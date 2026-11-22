@@ -49,6 +49,7 @@ LY_DO = {
     "chua_toi_han": "Chưa tới ngày tạo nháp",
     "qua_han": "Hợp đồng đã kết thúc",
     "khong_nguoi_gui": "Chưa có người gửi mặc định (role EC CnB trống)",
+    "nguoi_gui_trung": "Người gửi trùng chính nhân viên hoặc quản lý trực tiếp của họ - để C&B khác gửi",
 }
 
 
@@ -153,7 +154,12 @@ def tao_nhap(nhan_vien, actor=None, auto=False, hom_nay=None, repo=None, hr=None
     if old:
         return {"ok": True, "name": old, "duplicate": True}
     cfg = repo.settings()
-    nguoi_gui = actor if (actor and not auto) else repo.nguoi_gui_mac_dinh(cfg)
+    # Nguoi gui KHONG duoc la chinh nhan vien hoac LM cua ho: engine loai nguoi gui khoi cap duyet
+    # (Dot 0 chan tu duyet) -> mat buoc tu danh gia / nhan xet (tich hop 23/11).
+    tranh = (nv.get("user_id"), ctx.get("lm"))
+    nguoi_gui = actor if (actor and not auto) else repo.nguoi_gui_mac_dinh(cfg, tranh=tranh)
+    if nguoi_gui and nguoi_gui in [t for t in tranh if t]:
+        return {"ok": False, "ly_do": "nguoi_gui_trung", "ly_do_text": LY_DO["nguoi_gui_trung"]}
     if not nguoi_gui:
         return {"ok": False, "ly_do": "khong_nguoi_gui", "ly_do_text": LY_DO["khong_nguoi_gui"]}
     mau, tieu_chi = repo.mau_tieu_chi(loai)

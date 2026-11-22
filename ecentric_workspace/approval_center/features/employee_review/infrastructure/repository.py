@@ -64,13 +64,18 @@ def roles_of(user):
     return frappe.get_roles(user)
 
 
-def nguoi_gui_mac_dinh(cfg):
+def nguoi_gui_mac_dinh(cfg, tranh=()):
     """Nguoi gui cua nhap tu tao: cau hinh, khong thi nguoi dau tien (theo email) giu role EC CnB.
-    Khong hardcode ai trong code."""
+    Khong hardcode ai trong code.
+
+    `tranh` (23/11, tich hop Dot 0): engine LOAI nguoi gui khoi moi cap duyet (chan tu duyet). Nguoi
+    gui trung nhan vien duoc danh gia / LM cua ho thi cap "NV tu danh gia" / "LM" bi bo -> phieu sai.
+    Nen bo qua nhung nguoi do khi chon nguoi gui."""
+    tranh = {t for t in (tranh or ()) if t}
     u = cfg.get("nguoi_gui_mac_dinh")
-    if u and frappe.db.get_value("User", u, "enabled"):
+    if u and u not in tranh and frappe.db.get_value("User", u, "enabled"):
         return u
-    pool = users_with_roles(("EC CnB",))
+    pool = [x for x in users_with_roles(("EC CnB",)) if x not in tranh]
     return pool[0] if pool else None
 
 

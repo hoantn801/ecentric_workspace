@@ -180,8 +180,11 @@ class FakeRepo:
     def users_with_roles(self, roles):
         return sorted(u for u, rs in self.roles.items() if set(rs) & set(roles))
 
-    def nguoi_gui_mac_dinh(self, cfg):
-        return cfg.get("nguoi_gui_mac_dinh") or "cnb@ec.vn"
+    def nguoi_gui_mac_dinh(self, cfg, tranh=()):
+        u = cfg.get("nguoi_gui_mac_dinh")
+        if u and u not in tranh:
+            return u
+        return next((x for x in ("cnb@ec.vn", "cnb2@ec.vn") if x not in tranh), None)
 
     def mau_tieu_chi(self, loai):
         return "Mẫu tạm", [{"tieu_chi": "Kết quả"}, {"tieu_chi": "Thái độ"}]
@@ -414,6 +417,16 @@ class TestTaoNhap(_Base):
         self.assertEqual(len(json.loads(doc.tieu_chi_json)), 2)
         self.assertIsNone(doc.approval_request)
         self.assertFalse(_calls("submit"))
+
+    def test_nguoi_gui_khong_trung_nv_hoac_lm(self):
+        """Tich hop Dot 0 (23/11): engine loai nguoi gui khoi cap duyet -> nguoi gui trung NV / LM la mat buoc."""
+        self.repo.cfg["nguoi_gui_mac_dinh"] = "lm@ec.vn"
+        res = service.tao_nhap("E1", auto=True, hom_nay=D(2026, 12, 10), repo=self.repo, hr=self.hr)
+        self.assertTrue(res["ok"])
+        self.assertNotIn(self.repo.docs[res["name"]].requested_by, ("lm@ec.vn", "nv@ec.vn"))
+        res2 = service.tao_nhap("E1", auto=False, actor="lm@ec.vn", hom_nay=D(2026, 12, 12),
+                                repo=self.repo, hr=self.hr)
+        self.assertTrue(res2.get("duplicate") or res2.get("ly_do") == "nguoi_gui_trung")
 
     def test_chua_toi_d21_job_khong_tao(self):
         res = service.tao_nhap("E1", auto=True, hom_nay=D(2026, 12, 9), repo=self.repo, hr=self.hr)

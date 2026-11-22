@@ -30,6 +30,11 @@ EMPLOYEE_REVIEW_DEFINITION = ApprovalDefinition(
     clone_exclude_fields=("ghi_chu_cnb",),
     ai_exclude_fields=("ghi_chu_cnb", "mau_tieu_chi"),
     all_tab_filters=("review_type",),
+    #: RIENG TU (tich hop Dot 0, 23/11): nhan xet hieu suat + ket qua thu viec / hop dong khong mo cho
+    #: truong phong / Approval Admin / tab "Tat ca" / thong ke. Chi C&B gui, NV + LM + CEO (cap duyet)
+    #: va nguoi theo doi (dong Notify = role EC CnB trong process) xem duoc. KHONG khai subject_fields:
+    #: chinh NV la nguoi duyet cap 1 (tu danh gia) - khai la engine loai NV khoi cap do.
+    private=True,
     **service_callbacks("employee_review", title=True))
 
 

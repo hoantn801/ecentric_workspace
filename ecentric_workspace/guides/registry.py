@@ -44,6 +44,8 @@ GUIDES = {
     # muc Gap) + loi vao tu menu khu Nhan su (shell/nav.py RAIL_LAYOUTS["hr"]).
     # approval_types: chi khai ma DA CO tren site. Form moi (Phe duyet dot xuat, Danh gia
     # nhan su, Ky luat) chua co ma -> them ma vao bai tuong ung khi tich hop form.
+    # Tich hop 23/11 (nhanh feat/hr-quy-trinh-nhan-su): da them ADHOC_APPROVAL,
+    # EMPLOYEE_REVIEW, DISCIPLINE_DECISION - ma do seed / activation cua chinh nhanh nay tao.
     'nhan-su': {
         "title": 'Quy trình nhân sự trên ERP — tổng quan',
         "short": 'Quy trình nhân sự',
@@ -68,7 +70,7 @@ GUIDES = {
         "title": 'Phê duyệt đột xuất gửi CEO',
         "short": 'Phê duyệt đột xuất',
         "summary": 'Xin CEO duyệt một việc ngoài quy trình bằng phiếu riêng tư trên ERP thay cho email; có mức Gấp báo ngay.',
-        "approval_types": [],
+        "approval_types": ['ADHOC_APPROVAL'],
         "updated": '2026-11-23',
         "audience": 'Mọi nhân viên · CEO',
         "group": GROUP_HR,
@@ -98,7 +100,7 @@ GUIDES = {
         "title": 'Đánh giá nhân sự (thử việc · thực tập · hợp đồng)',
         "short": 'Đánh giá nhân sự',
         "summary": 'Một form cho đánh giá cuối thử việc, cuối thực tập và trước khi hết hợp đồng: hệ thống tự tạo nháp, tự gửi đúng ngày; nhân viên → Line Manager → CEO.',
-        "approval_types": [],
+        "approval_types": ['EMPLOYEE_REVIEW'],
         "updated": '2026-11-23',
         "audience": 'Nhân viên · Line Manager · C&B · CEO',
         "group": GROUP_HR,
@@ -118,7 +120,7 @@ GUIDES = {
         "title": 'Kỷ luật: thẻ vàng, thẻ đỏ, thẻ đen',
         "short": 'Kỷ luật',
         "summary": 'Thẻ vàng là nhắc nhở nội bộ; thẻ đỏ / đen là kỷ luật theo Bộ luật Lao động, đi 4 bước: hồ sơ → thông báo họp → họp → CEO ký quyết định.',
-        "approval_types": [],
+        "approval_types": ['DISCIPLINE_DECISION'],
         "updated": '2026-11-23',
         "audience": 'Nhân viên · Line Manager · HR/CnB · CEO',
         "group": GROUP_HR,
