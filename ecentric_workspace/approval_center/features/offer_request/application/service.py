@@ -119,8 +119,9 @@ def submit(name):
         doc.employee = emp.name
     doc.request_title = gen_title(doc)
     _validate_for_submit(doc)
-    if not doc.get("offered_salary"):
-        frappe.throw(_("Vui lòng nhập Lương offer (số) - dùng để so với mức đã duyệt trên Hiring."))
+    # Tich hop 23/11: chan ca luong am / bang 0 (truoc chi chan o rong -> -1 di qua va lam lech luat HOF).
+    if float(doc.get("offered_salary") or 0) <= 0:
+        frappe.throw(_("Vui lòng nhập Lương offer (số, lớn hơn 0) - dùng để so với mức đã duyệt trên Hiring."))
     skip, note = hof_decision(doc)
     doc.hof_skipped = 1 if skip else 0
     doc.hof_rule_note = note

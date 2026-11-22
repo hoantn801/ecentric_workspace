@@ -275,7 +275,7 @@
   function showFieldErrors(errs){ FIELD_IDS.forEach(function(id){ setFieldError(id,(errs&&errs[id])||null); });
     var first=errs&&Object.keys(errs)[0]; if(first){ var el=document.querySelector('[data-fld="'+first+'"] input,[data-fld="'+first+'"] select,[data-fld="'+first+'"] textarea'); if(el&&el.focus){ try{el.focus();}catch(e){} } } }
   var EMAIL_RE=/^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-  function todayISO(){ var t=new Date(); function p(n){return (n<10?"0":"")+n;} return t.getFullYear()+"-"+p(t.getMonth()+1)+"-"+p(t.getDate()); }
+  function todayISO(){ var t=new Date(); function pad2(n){return (n<10?"0":"")+n;} return t.getFullYear()+"-"+pad2(t.getMonth()+1)+"-"+pad2(t.getDate()); }
   function fmtD(v){ if(!v) return "—"; var m=String(v).match(/^(\d{4})-(\d{2})-(\d{2})/); return m?(m[3]+"/"+m[2]+"/"+m[1]):String(v); }
   // Ngay nghi som nhat hop le (Dieu 35) - may chu tinh tu hop dong tren ho so; chi tra chi tiet cho chinh
   // NV / quan ly truc tiep / HR. Chon som hon -> chi canh bao (cac cap van duyet duoc), khong chan.

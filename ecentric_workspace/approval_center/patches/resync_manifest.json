@@ -127,7 +127,7 @@
   },
   "approval_center/features/resignation/ui/main_section.html": {
     "last_resync_patch": "p442_resync_hr_v2_trang",
-    "sha256": "bd542e0a63b25b885656065cd782e037b6f6889ef36bebdee06cf47c72bd451f"
+    "sha256": "fe237f25d2b7f65c64ee5d5dee4599ca35aef8ef32ebf38696ed162626773a65"
   },
   "approval_center/features/service_referral/ui/main_section.html": {
     "baseline": "2026-08-31",
