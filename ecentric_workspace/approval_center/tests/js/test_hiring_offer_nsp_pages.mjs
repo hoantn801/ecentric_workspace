@@ -88,6 +88,9 @@ function offerDetail(over) {
   const set = (k, v) => { const el = d.querySelector('[data-model="' + k + '"]'); el.value = v; el.dispatchEvent(new w.Event("input", { bubbles: true })); };
   set("candidate_name", "Nguyen Van A"); set("mobile_phone", "0900"); set("onboard_date", "2026-10-10");
   set("probation_end_date", "2026-10-01"); set("compensation", "15tr");
+  // HR v2 (23/11/2026): luong offer DANG SO (so voi muc Hiring -> HOF co dieu kien) la bat buoc.
+  ok(d.querySelector('[data-fld="offered_salary"]').classList.contains("invalid"), "offer: thieu luong offer (so) -> bao loi o");
+  set("offered_salary", "15000000");
   const hv = d.querySelector('[data-model="resume"]'); hv.value = "/private/files/cv.pdf";
   w.OfferRequest.state.draft.resume = "/private/files/cv.pdf";
   const cb = d.querySelector('[data-model="company_laptop"]'); cb.checked = true; cb.dispatchEvent(new w.Event("change", { bubbles: true }));
@@ -101,7 +104,8 @@ function offerDetail(over) {
   const sv = called(w, "save_draft");
   ok(sv.length === 1, "offer: du truong -> luu");
   const payload = sv.length ? JSON.parse(sv[0][1].payload) : {};
-  ok(payload.hiring_request === "EC-HIRE-2026-00009" && payload.compensation === "15tr" && payload.company_laptop === 1,
+  ok(payload.hiring_request === "EC-HIRE-2026-00009" && payload.compensation === "15tr" && payload.company_laptop === 1
+     && Number(payload.offered_salary) === 15000000,
      "offer: payload mang dung du lieu");
   ok(!("position" in payload) || payload.position === undefined, "offer: payload khong tu dat vi tri");
   ok(called(w, "submit_request").length === 1, "offer: gui sau khi luu");

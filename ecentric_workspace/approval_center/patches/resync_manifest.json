@@ -126,8 +126,8 @@
     "sha256": "8961e72f6e466d7910cfa471a13c641e92c06f7dc7637671329bd00e2d39b4b4"
   },
   "approval_center/features/resignation/ui/main_section.html": {
-    "last_resync_patch": "p335_resync_ux_lich_su_tien_trinh",
-    "sha256": "b6ef22ac39fb489aea4de5edb00a061feda38ec84054288da184b96b2517965b"
+    "last_resync_patch": "p442_resync_hr_v2_trang",
+    "sha256": "bd542e0a63b25b885656065cd782e037b6f6889ef36bebdee06cf47c72bd451f"
   },
   "approval_center/features/service_referral/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -249,13 +249,13 @@
   },
   "approval_center/features/offer_request/ui/main_section.html": {
     "baseline": "2026-09-28",
-    "last_resync_patch": "p335_resync_ux_lich_su_tien_trinh",
-    "sha256": "7125fb5a72e557840970cc93d3e255cac7921fd03ac31fce1176cb1b5758c2ab"
+    "last_resync_patch": "p442_resync_hr_v2_trang",
+    "sha256": "8f626f5b4ac515540f730a362d4dfcdfd0fd3f23b37afbce8c6b09c48947002a"
   },
   "approval_center/features/new_staff_preparation/ui/main_section.html": {
     "baseline": "2026-09-28",
-    "last_resync_patch": "p335_resync_ux_lich_su_tien_trinh",
-    "sha256": "3fae36ba410555560bb1d6186ce55ff4943d57b0e6f9fe8cac298fdbd889a809"
+    "last_resync_patch": "p442_resync_hr_v2_trang",
+    "sha256": "dc6321fb19ec21068459a57a2fd8ab13b4f42b9ec4a7b4f7d1e09a141ed21d71"
   },
   "legacy_pages/home/main_section.html": {
     "baseline": "2026-09-29",

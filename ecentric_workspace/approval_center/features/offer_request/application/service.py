@@ -43,6 +43,10 @@ def _hiring_service():
 
 def _signature(doc):
     vals = {f: str(doc.get(f) or "") for f in MATERIAL_FIELDS}
+    # V2 (23/11): luong offer dang so. Chi dua vao chu ky khi CO gia tri - phieu cu (chua co truong
+    # nay) giu nguyen chu ky, gui lai khong bi tinh la "doi noi dung" va duyet lai tu dau.
+    if doc.get("offered_salary"):
+        vals["offered_salary"] = str(float(doc.get("offered_salary")))
     return hashlib.sha1(json.dumps(vals, sort_keys=True).encode("utf-8")).hexdigest()
 
 
@@ -115,15 +119,94 @@ def submit(name):
         doc.employee = emp.name
     doc.request_title = gen_title(doc)
     _validate_for_submit(doc)
+    if not doc.get("offered_salary"):
+        frappe.throw(_("Vui lòng nhập Lương offer (số) - dùng để so với mức đã duyệt trên Hiring."))
+    skip, note = hof_decision(doc)
+    doc.hof_skipped = 1 if skip else 0
+    doc.hof_rule_note = note
     doc.submitted_at = now_datetime()
     doc.material_signature = _signature(doc)
     doc.save(ignore_permissions=True)
     # Offer dau tien cua mot Hiring chua ai nhan: nguoi lap Offer chinh la nguoi dang tuyen.
     if frappe.db.get_value(HIRING_DT, doc.hiring_request, "fulfillment_status") == "Assigned":
         _hiring_service().claim_fulfillment(doc.hiring_request, user=user)
-    req_name = engine.submit(BUSINESS_DT, doc.name, APPROVAL_TYPE, user)
+    req_name = engine.submit(BUSINESS_DT, doc.name, APPROVAL_TYPE, user,
+                             skip_level_nos=[skip] if skip else None,
+                             skip_reason=("Offer V2: " + note) if skip else None)
     frappe.db.set_value(BUSINESS_DT, doc.name, "approval_request", req_name)
     return req_name
+
+
+# --------------------------------------------------------------------------- HOF co dieu kien
+def _hof_level_no():
+    """So cap HOF KHONG bat buoc cua process Offer dang Active (tim theo ten - setup_v2.HOF_LEVEL_NAME).
+    Process cu (V1: moi cap bat buoc) -> None: khong bo cap nao."""
+    from ecentric_workspace.approval_center.features.offer_request.infrastructure.setup_v2 import (
+        HOF_LEVEL_NAME)
+    proc = frappe.get_all("EC Approval Process", filters={"approval_type": APPROVAL_TYPE, "status": "Active"},
+                          pluck="name", limit_page_length=1)
+    if not proc:
+        return None
+    row = frappe.db.get_value("EC Approval Level", {"approval_process": proc[0], "level_name": HOF_LEVEL_NAME},
+                              ["level_no", "mandatory"], as_dict=True)
+    return row.level_no if row and not row.mandatory else None
+
+
+def hof_decision(doc):
+    """-> (level_no_bo | None, ghi_chu). Luat o domain/hof_rule.py."""
+    from ecentric_workspace.approval_center.features.offer_request.domain.hof_rule import bo_cap_hof
+    lvl = _hof_level_no()
+    muc = frappe.db.get_value(HIRING_DT, doc.hiring_request, "suggested_salary") if doc.hiring_request else None
+    bo, note = bo_cap_hof(doc.get("offered_salary"), muc)
+    if lvl is None:
+        return None, note + " (quy trình hiện tại không có cấp HOF tuỳ chọn - giữ nguyên)"
+    return (lvl if bo else None), note
+
+
+# --------------------------------------------------------------------------- ung vien tu choi / huy
+CANDIDATE_KINDS = {"Declined": "Ứng viên từ chối offer", "Offer Cancelled": "Huỷ offer"}
+CANDIDATE_ROLES = ("EC Recruiter", "EC CnB", "HR", "System Manager")
+
+
+def may_mark_candidate(doc, user=None):
+    user = user or frappe.session.user
+    return doc.get("requested_by") == user or bool(set(frappe.get_roles(user)) & set(CANDIDATE_ROLES))
+
+
+def mark_candidate_status(name, kind, reason, actor=None):
+    """Ung vien tu choi offer / huy offer (ke ca SAU khi CEO duyet): dong phieu Offer dang mo (huy co ly
+    do) hoac ghi vet tren phieu da duyet, roi HUY New Staff Preparation dang mo - co audit."""
+    actor = actor or frappe.session.user
+    reason = (reason or "").strip()
+    if kind not in CANDIDATE_KINDS:
+        frappe.throw(_("Loại ghi nhận không hợp lệ."))
+    if not reason:
+        frappe.throw(_("Vui lòng nhập lý do."))
+    frappe.db.get_value(BUSINESS_DT, name, "name", for_update=True)
+    doc = frappe.get_doc(BUSINESS_DT, name)
+    if not may_mark_candidate(doc, actor):
+        frappe.throw(_("Chỉ người lập Offer / tuyển dụng / CnB/HR mới ghi nhận được."), frappe.PermissionError)
+    if doc.get("candidate_status"):
+        frappe.throw(_("Offer này đã được ghi nhận: {0}.").format(doc.candidate_status))
+    if not doc.approval_request:
+        frappe.throw(_("Offer chưa gửi - xoá bản nháp nếu không dùng."))
+    st = frappe.db.get_value("EC Approval Request", doc.approval_request, "approval_status")
+    if st not in ("Pending", "Information Required", "Approved"):
+        frappe.throw(_("Offer đã kết thúc ({0}).").format(st))
+    note = "%s: %s" % (CANDIDATE_KINDS[kind], reason)
+    if st == "Approved":
+        engine.log_action(doc.approval_request, "Commented", actor, comment=note)
+    else:
+        engine.cancel(doc.approval_request, actor=actor, reason=note)
+    frappe.db.set_value(BUSINESS_DT, name, {"candidate_status": kind, "candidate_status_at": now_datetime(),
+                                            "candidate_status_by": actor, "candidate_status_reason": reason})
+    from ecentric_workspace.approval_center.features.new_staff_preparation.application import (
+        service as nsp_service)
+    nsp_note = nsp_service.cancel_for_offer(name, actor, note)
+    engine.notify([u for u in {doc.requested_by, doc.line_manager} if u and u != actor],
+                  _("{0}: {1}").format(CANDIDATE_KINDS[kind], engine.request_label(BUSINESS_DT, name)),
+                  BUSINESS_DT, name)
+    return {"candidate_status": kind, "new_staff_preparation": nsp_note}
 
 
 def resubmit(name, actor=None):
@@ -131,6 +214,14 @@ def resubmit(name, actor=None):
     if not doc.approval_request:
         frappe.throw(_("Yêu cầu chưa được gửi."))
     _validate_for_submit(doc)
+    if doc.get("hof_skipped"):
+        # Cap HOF da bi bo luc gui (snapshot). Luong moi vuot muc Hiring thi khong the gan lai cap HOF
+        # vao phieu dang chay - phai huy va lap Offer moi de HOF duyet.
+        from ecentric_workspace.approval_center.features.offer_request.domain.hof_rule import bo_cap_hof
+        muc = frappe.db.get_value(HIRING_DT, doc.hiring_request, "suggested_salary")
+        if not bo_cap_hof(doc.get("offered_salary"), muc)[0]:
+            frappe.throw(_("Lương offer mới vượt mức đã duyệt trên Hiring nhưng phiếu này đã bỏ cấp HOF lúc gửi. "
+                           "Vui lòng huỷ và tạo Offer mới để HOF duyệt."))
     doc.request_title = gen_title(doc)
     new_sig = _signature(doc)
     material_changed = new_sig != (doc.material_signature or "")
@@ -151,9 +242,14 @@ def offer_block(business, request):
             out["hiring"] = {"name": h.name, "request_title": h.request_title,
                              "number_of_vacancy": h.number_of_vacancy,
                              "route": "/approvals/hiring-request?id=%s" % h.name}
+    out["candidate_status"] = business.get("candidate_status")
+    out["hof_rule_note"] = business.get("hof_rule_note")
+    out["can_mark_candidate"] = bool(
+        request and request.approval_status in ("Pending", "Information Required", "Approved")
+        and not business.get("candidate_status") and may_mark_candidate(business))
     if out["new_staff_preparation"]:
         out["nsp_route"] = "/approvals/new-staff-preparation?id=%s" % out["new_staff_preparation"]
-    elif request and request.approval_status == "Approved":
+    elif request and request.approval_status == "Approved" and not business.get("candidate_status"):
         user = frappe.session.user
         out["can_retry_nsp"] = (business.get("requested_by") == user
                                 or "System Manager" in frappe.get_roles(user))

@@ -1116,3 +1116,10 @@ website_redirects = list(globals().get("website_redirects") or []) + [
 # switch esign (ec_esign_scheduler_disabled). Xem platform/esign/provider_cancel.py.
 scheduler_events["cron"].setdefault("*/10 * * * *", []).append(
     "ecentric_workspace.platform.esign.provider_cancel.sweep")
+
+# 23/11/2026 (HR v2 - Nghi viec/Clearance): 09:05 ngay lam viec - (1) don nghi viec da duyet ma chua co
+# Clearance (job nen bi mat / loi tam thoi), ngay cuoi chua qua -> tao bu; (2) don chua duyet xong nhung
+# LM da duyet va con <= 5 ngay lam viec toi ngay cuoi -> MO SOM Clearance song song. Khong co process
+# CLEARANCE_REQUEST Active -> khong lam gi. Don cu (da qua ngay cuoi) chi tao bu qua endpoint SM co dry-run.
+scheduler_events["cron"].setdefault("5 9 * * 1-5", []).append(
+    "ecentric_workspace.approval_center.features.clearance_request.application.service.quet_hang_ngay")
