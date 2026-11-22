@@ -1,0 +1,244 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-11-23 09:00:00.000000",
+ "custom": 0,
+ "description": "Phiếu engine cho bước CEO ký quyết định kỷ luật (1 cấp). TỰ TẠO từ EC Discipline Case - không tạo tay.",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "approval_type",
+  "approval_request",
+  "request_title",
+  "requested_by",
+  "employee",
+  "department",
+  "company",
+  "cb0",
+  "submitted_at",
+  "completed_at",
+  "material_signature",
+  "sb_case",
+  "discipline_case",
+  "employee_name",
+  "card",
+  "penalty",
+  "extend_months",
+  "dismissal_ground",
+  "cb_case",
+  "rule_title",
+  "violation_date",
+  "meeting_date",
+  "effective_date",
+  "termination_date",
+  "limitation_effective_end",
+  "sb_text",
+  "summary",
+  "meeting_summary",
+  "decision_draft"
+ ],
+ "fields": [
+  {
+   "fieldname": "approval_type",
+   "fieldtype": "Link",
+   "label": "Approval Type",
+   "options": "EC Approval Type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approval_request",
+   "fieldtype": "Link",
+   "label": "Approval Request",
+   "options": "EC Approval Request",
+   "read_only": 1
+  },
+  {
+   "fieldname": "request_title",
+   "fieldtype": "Data",
+   "label": "Tiêu đề",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "requested_by",
+   "fieldtype": "Link",
+   "label": "Người trình",
+   "options": "User"
+  },
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "label": "Nhân viên",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "label": "Phòng ban",
+   "options": "Department"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Công ty",
+   "options": "Company"
+  },
+  {
+   "fieldname": "cb0",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "submitted_at",
+   "fieldtype": "Datetime",
+   "label": "Trình lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "completed_at",
+   "fieldtype": "Datetime",
+   "label": "Xong lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "material_signature",
+   "fieldtype": "Data",
+   "label": "Material signature",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_case",
+   "fieldtype": "Section Break",
+   "label": "Hồ sơ kỷ luật (bản chụp lúc trình)"
+  },
+  {
+   "fieldname": "discipline_case",
+   "fieldtype": "Link",
+   "label": "Hồ sơ",
+   "options": "EC Discipline Case",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "employee_name",
+   "fieldtype": "Data",
+   "label": "Họ tên",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "card",
+   "fieldtype": "Data",
+   "label": "Thẻ",
+   "read_only": 1
+  },
+  {
+   "fieldname": "penalty",
+   "fieldtype": "Data",
+   "label": "Hình thức",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "extend_months",
+   "fieldtype": "Int",
+   "label": "Kéo dài nâng lương (tháng)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "dismissal_ground",
+   "fieldtype": "Small Text",
+   "label": "Căn cứ sa thải",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb_case",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "rule_title",
+   "fieldtype": "Data",
+   "label": "Điều khoản nội quy",
+   "read_only": 1
+  },
+  {
+   "fieldname": "violation_date",
+   "fieldtype": "Date",
+   "label": "Ngày vi phạm",
+   "read_only": 1
+  },
+  {
+   "fieldname": "meeting_date",
+   "fieldtype": "Date",
+   "label": "Ngày họp",
+   "read_only": 1
+  },
+  {
+   "fieldname": "effective_date",
+   "fieldtype": "Date",
+   "label": "Ngày hiệu lực",
+   "read_only": 1
+  },
+  {
+   "fieldname": "termination_date",
+   "fieldtype": "Date",
+   "label": "Ngày chấm dứt HĐ",
+   "read_only": 1
+  },
+  {
+   "fieldname": "limitation_effective_end",
+   "fieldtype": "Date",
+   "label": "Hết thời hiệu",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_text",
+   "fieldtype": "Section Break",
+   "label": "Nội dung"
+  },
+  {
+   "fieldname": "summary",
+   "fieldtype": "Text",
+   "label": "Tóm tắt vi phạm",
+   "read_only": 1
+  },
+  {
+   "fieldname": "meeting_summary",
+   "fieldtype": "Text",
+   "label": "Ý kiến nhân viên tại cuộc họp",
+   "read_only": 1
+  },
+  {
+   "fieldname": "decision_draft",
+   "fieldtype": "Attach",
+   "label": "Dự thảo quyết định",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-23 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Approval Center",
+ "name": "EC Discipline Decision Request",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 1,
+   "share": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "autoname": "EC-QDKL-.YYYY.-.#####.",
+ "naming_rule": "Expression",
+ "title_field": "request_title"
+}

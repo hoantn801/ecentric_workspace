@@ -2255,6 +2255,8 @@ _FULFILLMENT_HANDLERS = {
     # 23/11: Danh gia nhan su - CEO duyet xong -> chot ket qua + DE XUAT cap nhat ho so cho C&B
     # xac nhan (khong tu ghi ho so).
     "EC Employee Review": "ecentric_workspace.approval_center.features.employee_review.application.service.on_final_approval",
+    # 23/11: CEO ky xong -> ho so ky luat (hr/ky_luat) ban hanh; sa thai -> ngay nghi viec + Clearance.
+    "EC Discipline Decision Request": "ecentric_workspace.approval_center.features.discipline_decision.application.service.on_final_approval",
 }
 
 

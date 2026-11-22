@@ -92,6 +92,20 @@ HR_ITEMS = [
         "sidebar_hidden": True,
     },
     {
+        # 23/11/2026 (Dot 3 HR): Ky luat lao dong - the vang + ho so the do/den. Moi nhan vien
+        # thay muc nay (xem the cua minh); quyen tung dong do hr/ky_luat/application/access.py.
+        "key": "hr.ky_luat",
+        "label": "Kỷ luật",
+        "route": "/ky-luat",
+        "icon": "doc",
+        "group": "Nhân sự",
+        "order": 60,
+        "active_patterns": ["/ky-luat", "/ky-luat/*"],
+        "visible_when": "internal",
+        "keywords": ["ky luat", "the vang", "the do", "the den", "khien trach", "sa thai", "nhac nho"],
+        "owner": "hr",
+    },
+    {
         "key": "hr.install_guide",
         "label": "Cài app lên điện thoại",
         "route": "/ec-hr/huong-dan-cai-app",

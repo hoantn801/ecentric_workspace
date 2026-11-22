@@ -753,6 +753,8 @@ RAIL_LAYOUTS = {
             {"key": "rail.hr.review", "label": "Đánh giá nhân sự", "route": "/ec-hr/danh-gia-nhan-su",
              "icon": "check", "caption": "C&B", "active_patterns": ["/ec-hr/danh-gia-nhan-su"],
              "roles": ["EC CnB", "HR", "HR Manager", "System Manager"]}]},
+        # 23/11/2026 (Dot 3 HR): Ky luat lao dong (hr/nav.py "hr.ky_luat").
+        {"t": "group", "label": "Quản lý nhân sự", "items": [{"key": "hr.ky_luat"}]},
         {"t": "help", "item": {"key": "hr.install_guide", "label": "Cài app lên điện thoại"}},
     ],
     "reports": [

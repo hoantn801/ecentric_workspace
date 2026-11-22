@@ -65,10 +65,21 @@ def _read(*parts):
         return handle.read()
 
 
+#: Feature co giao dien la trang www CUA APP (template Jinja + asset, khong Web Page / page_sync /
+#: main_section.html - A65 28/09: nguon trang trong repo, khong them khoi <script> inline vao trang
+#: live). Danh sach DONG va PHAI kem trang www that: TestWwwUiFeatures ben duoi kiem tung muc
+#: (5 file khuon con lai + trang ton tai + route activation khop). Them muc = khai ly do o day.
+WWW_UI_FEATURES = {
+    # 23/11/2026 Dot 3 HR: CEO ky quyet dinh ky luat - trang www/ky_luat/quyet_dinh.html.
+    "discipline_decision": ("www/ky_luat/quyet_dinh.html", "/ky-luat/quyet-dinh"),
+}
+
+
 def _features():
     names = sorted(
         name for name in os.listdir(FEATURES_DIR)
-        if name != "__pycache__" and os.path.isdir(os.path.join(FEATURES_DIR, name)))
+        if name != "__pycache__" and os.path.isdir(os.path.join(FEATURES_DIR, name))
+        and name not in WWW_UI_FEATURES)
     return names
 
 
@@ -587,6 +598,25 @@ class TestPinnedGaps(_Base):
 
     def test_fulfillment_scan_is_alive(self):
         self._assert_scanner_alive(len(_fulfillment_features()), 6, "claim_fulfillment")
+
+
+
+class TestWwwUiFeatures(unittest.TestCase):
+    """Feature giao dien www: van du khuon 5 lop + trang that + route khop activation."""
+
+    def test_www_features_have_layers_page_and_route(self):
+        app = os.path.dirname(CENTER)
+        for feature, (page, route) in WWW_UI_FEATURES.items():
+            with self.subTest(feature=feature):
+                for layer, filename in LAYER_FILES:
+                    if (layer, filename) in (("infrastructure", "page_sync.py"), ("ui", "main_section.html")):
+                        continue
+                    self.assertTrue(os.path.exists(_feature_file(feature, layer, filename)), (layer, filename))
+                self.assertTrue(os.path.exists(os.path.join(app, page)), page)
+                self.assertTrue(os.path.exists(os.path.join(app, page.replace(".html", ".py"))), page)
+                self.assertIn('ROUTE = "%s"' % route, _read(_feature_file(feature, "infrastructure", "activation.py")))
+                self.assertFalse(os.path.exists(_feature_file(feature, "ui", "main_section.html")),
+                                 "co main_section.html thi dua feature ve khuon Web Page, go khoi WWW_UI_FEATURES")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,11 @@
+{%- macro status_badge(s) -%}
+{%- set cls = {'Chờ phản hồi': 'is-wait', 'Đã đọc': 'is-ok', 'Đã phản hồi': 'is-ok', 'Không phản hồi': 'is-warn',
+  'Đã huỷ': 'is-mute', 'Đề xuất': 'is-wait', 'Đang lập': 'is-info', 'Hoãn': 'is-warn', 'Đã thông báo họp': 'is-info',
+  'Đã họp': 'is-info', 'Trình CEO': 'is-wait', 'Đã ban hành': 'is-bad', 'Không kỷ luật': 'is-mute',
+  'Hết thời hiệu': 'is-mute', 'Đã xoá kỷ luật': 'is-ok'}.get(s, 'is-mute') -%}
+<span class="ekl-badge {{ cls }}">{{ s|e }}</span>
+{%- endmacro -%}
+{%- macro card_chip(c) -%}
+<span class="ekl-card {{ 'is-red' if c == 'Thẻ đỏ' else 'is-black' }}">{{ c|e }}</span>
+{%- endmacro -%}
+{%- macro dmy(v) -%}{%- if v -%}{{ v[8:10] }}/{{ v[5:7] }}/{{ v[0:4] }}{%- else -%}—{%- endif -%}{%- endmacro -%}

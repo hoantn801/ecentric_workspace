@@ -188,7 +188,7 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
   var ICON_SOON = '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 12h8M12 8v8"/></svg>';
 
   var root = document.getElementById("tq-view");
-  var S = { hr: null, filter: { q: "", dept: "", sub: "", chip: "all" }, sel: null, profile: null, ptab: "org", orgPick: null };
+  var S = { hr: null, filter: { q: "", dept: "", sub: "", chip: "all" }, sel: null, profile: null, ptab: "org", orgPick: null, disc: null };
 
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
@@ -706,6 +706,7 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
     var tabs = [["org", "Tổ chức"]];
     if (d.contracts) tabs.push(["contracts", "Hợp đồng"]);
     if (d.personal) tabs.push(["personal", "Cá nhân"]);
+    tabs.push(["discipline", "Kỷ luật"]);
     var html = '<h3>' + esc(d.employee_name) + '</h3><div class="sub">' + esc(d.name) + (d.headline ? " · " + esc(d.headline) : "") + '</div><div class="ptabs" id="tq-ptabs">'
       + tabs.map(function (t) { return '<button type="button" data-p="' + t[0] + '" class="' + (S.ptab === t[0] ? "on" : "") + '">' + t[1] + '</button>'; }).join("") + '</div>';
     if (S.ptab === "contracts") {
@@ -713,6 +714,8 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
         return '<div><b>' + esc(c.type) + '</b>' + (c.no ? ' · ' + esc(c.no) : "") + '<br>' + fmt(c.from) + ' → ' + (c.no_term ? "không xác định" : fmt(c.to)) + '</div>';
       }).join("") + '</div>' : '<div class="empty">Chưa có hợp đồng nào trên hồ sơ.</div>';
       if (d.hr) html += '<dl style="margin-top:10px">' + pairs(d.hr) + '</dl>';
+    } else if (S.ptab === "discipline") {
+      html += disciplineHtml(S.disc && S.disc.employee === S.sel ? S.disc : null);
     } else if (S.ptab === "personal") {
       html += '<dl>' + pairs(d.personal) + '</dl><div class="note">Số CCCD và số tài khoản chỉ hiện 4 số cuối. Xem đầy đủ trong ERP.</div>';
     } else {
@@ -722,6 +725,33 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
     html += '<div style="display:flex; gap:8px; margin-top:14px; flex-wrap:wrap"><a class="btn pri" href="' + esc(d.erp_url) + '" target="_blank" rel="noopener">Mở trong ERP</a></div>';
     p.innerHTML = html;
     document.getElementById("tq-ptabs").onclick = function (e) { var b = e.target.closest("[data-p]"); if (b) { S.ptab = b.getAttribute("data-p"); drawPanel(); } };
+    if (S.ptab === "discipline" && !(S.disc && S.disc.employee === S.sel)) loadDiscipline(S.sel);
+  }
+  /* Tab "Kỷ luật" (Đợt 3 HR, 23/11/2026): thẻ vàng + hồ sơ đỏ/đen của MỘT người - dữ liệu và quyền
+     xem do hr/ky_luat (employee_discipline) quyết định; trang chỉ vẽ. Chi tiết mở ở /ky-luat. */
+  var KL_API = "/api/method/ecentric_workspace.hr.ky_luat.controllers.api.";
+  async function loadDiscipline(name) {
+    S.disc = { employee: name, loading: true };
+    try {
+      var res = await fetch(KL_API + "employee_discipline?" + new URLSearchParams({ employee: name }).toString(), { credentials: "same-origin", headers: { Accept: "application/json" } });
+      var env = ((await res.json().catch(function () { return {}; })).message) || {};
+      S.disc = env.success ? env.data : { employee: name, error: env.message || "Không tải được dữ liệu kỷ luật." };
+    } catch (e) { S.disc = { employee: name, error: "Không tải được dữ liệu kỷ luật. Thử lại sau." }; }
+    if (S.sel === name && S.ptab === "discipline") drawPanel();
+  }
+  function disciplineHtml(k) {
+    if (!k || k.loading) return '<div class="sk"><i></i><i></i></div>';
+    if (k.error) return '<div class="err"><span>' + esc(k.error) + '</span></div>';
+    var link = function (tab, n) { return esc(k.route) + "?tab=" + tab + "&ma=" + encodeURIComponent(n); };
+    var html = k.hint ? '<div class="note"><span class="pill p-amb">Gợi ý</span> ' + esc(k.hint) + '</div>' : "";
+    html += '<div class="sub" style="margin-top:6px">Kỷ luật đang có hiệu lực: <b>' + (k.active || []).length + '</b></div>';
+    html += '<div class="tl">' + (k.cases || []).map(function (c) {
+      return '<div><a href="' + link("ho-so", c.name) + '"><b>' + esc(c.card) + ' · ' + esc(c.penalty) + '</b></a> · ' + esc(c.status) + '<br>Vi phạm ' + fmt(c.violation_date) + (c.decision_date ? ' · QĐ ' + fmt(c.decision_date) : "") + (c.expunge_due ? ' · xoá ' + fmt(c.expunge_due) : "") + '</div>';
+    }).join("") + (k.notices || []).map(function (n) {
+      return '<div><a href="' + link("the-vang", n.name) + '"><b>Thẻ vàng (nội bộ)</b></a> · ' + esc(n.behavior) + '<br>' + fmt(n.incident_date) + ' · ' + esc(n.status) + '</div>';
+    }).join("") + '</div>';
+    if (!(k.cases || []).length && !(k.notices || []).length) html += '<div class="empty">Chưa có thẻ vàng hay hồ sơ kỷ luật nào.</div>';
+    return html + '<div class="note">Thẻ vàng là nhắc nhở nội bộ, không phải hình thức kỷ luật và không tính tái phạm.</div>';
   }
   function pairs(list) {
     return (list || []).map(function (x) { return '<dt>' + esc(x.label) + '</dt><dd>' + esc(/^\d{4}-\d{2}-\d{2}$/.test(x.value) ? fmt(x.value) : (x.value || "—")) + '</dd>'; }).join("");

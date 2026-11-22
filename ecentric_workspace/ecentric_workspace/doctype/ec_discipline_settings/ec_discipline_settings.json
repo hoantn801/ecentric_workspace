@@ -1,0 +1,126 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-11-23 09:00:00.000000",
+ "custom": 0,
+ "description": "Cấu hình module Kỷ luật (hr/ky_luat).",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "legal_note",
+  "sb_people",
+  "union_rep_user",
+  "signer_role",
+  "sb_sla",
+  "notice_reply_days",
+  "hr_review_days",
+  "cb_sla",
+  "meeting_notice_days",
+  "ceo_sign_days",
+  "limitation_warn_days"
+ ],
+ "fields": [
+  {
+   "fieldname": "legal_note",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú pháp lý hiển thị trên form",
+   "default": "Ghi chú pháp lý: HR/pháp chế xác nhận NĐ 145/2020 nguyên văn trước khi dùng thật. Không phạt tiền, không cắt lương thay cho kỷ luật (Điều 127 BLLĐ 2019)."
+  },
+  {
+   "fieldname": "sb_people",
+   "fieldtype": "Section Break",
+   "label": "Người tham gia"
+  },
+  {
+   "fieldname": "union_rep_user",
+   "fieldtype": "Link",
+   "label": "Đại diện công đoàn",
+   "options": "User",
+   "description": "Nhận thông báo họp + quyết định khi nhân viên là đoàn viên."
+  },
+  {
+   "fieldname": "signer_role",
+   "fieldtype": "Link",
+   "label": "Role người ký quyết định",
+   "options": "Role",
+   "default": "EC CEO",
+   "description": "Dùng khi dựng luồng duyệt DISCIPLINE_DECISION. Đổi người ký theo nội quy: sửa ở đây rồi chạy lại setup (V mới)."
+  },
+  {
+   "fieldname": "sb_sla",
+   "fieldtype": "Section Break",
+   "label": "Thời hạn nội bộ (ngày làm việc)"
+  },
+  {
+   "fieldname": "notice_reply_days",
+   "fieldtype": "Int",
+   "label": "Thẻ vàng: hạn phản hồi",
+   "default": "3"
+  },
+  {
+   "fieldname": "hr_review_days",
+   "fieldtype": "Int",
+   "label": "HR thẩm định đề xuất",
+   "default": "3"
+  },
+  {
+   "fieldname": "cb_sla",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "meeting_notice_days",
+   "fieldtype": "Int",
+   "label": "Báo trước họp tối thiểu",
+   "default": "5",
+   "description": "Luật: ≥ 5 ngày làm việc. Không đặt thấp hơn 5."
+  },
+  {
+   "fieldname": "ceo_sign_days",
+   "fieldtype": "Int",
+   "label": "CEO ký sau họp",
+   "default": "2"
+  },
+  {
+   "fieldname": "limitation_warn_days",
+   "fieldtype": "Int",
+   "label": "Cảnh báo trước hết thời hiệu (ngày lịch)",
+   "default": "14"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-23 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC Discipline Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 1,
+   "share": 1
+  },
+  {
+   "role": "HR Manager",
+   "read": 1,
+   "write": 1
+  },
+  {
+   "role": "EC CnB",
+   "read": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "issingle": 1
+}

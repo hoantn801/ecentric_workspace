@@ -1,0 +1,26 @@
+{#- Ky luat lao dong - khung chung: vo shell ERP (menu trai + thanh tren tu registry) + ghi chu phap ly.
+    Moi lop co tien to ekl-. Popup / form do ec_ky_luat.js dieu khien; noi dung server ve san. -#}
+{% extends base_template_path %}
+{% block title %}{{ title|e }} · eCentric{% endblock %}
+{% block navbar %}{% endblock %}
+{% block footer %}{% endblock %}
+{% block style %}{{ super() }}
+<link rel="stylesheet" href="{{ ekl_css }}">
+{% endblock %}
+{% block content %}
+<div class="ekl-app">
+  {{ ekl_shell_mount }}
+  <main class="ekl-main">
+    <div class="ec-shell-topbar" data-ec-shell-topbar="1">{{ ekl_topbar }}</div>
+    <div class="ekl-page" id="ekl" data-ekl-page="{{ ekl_page_key|default('') }}">
+      <p class="ekl-legal" role="note">{{ legal_note|e }}</p>
+      {% block ekl_page %}{% endblock %}
+    </div>
+  </main>
+</div>
+<div class="ekl-toast" data-ekl-toast role="status" aria-live="polite" hidden></div>
+<script type="application/json" id="ekl-boot">{{ boot_json }}</script>
+{% endblock %}
+{% block script %}{{ super() }}
+<script src="{{ ekl_js }}" defer></script>
+{% endblock %}

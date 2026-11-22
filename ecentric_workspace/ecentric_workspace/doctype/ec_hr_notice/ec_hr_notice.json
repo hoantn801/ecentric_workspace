@@ -1,0 +1,257 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-11-23 09:00:00.000000",
+ "custom": 0,
+ "description": "Thẻ vàng - nhắc nhở nội bộ, NGOÀI engine duyệt. Không trừ lương, không là căn cứ tái phạm. Ghi bởi hr/ky_luat - không sửa tay.",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "employee",
+  "employee_name",
+  "employee_user",
+  "department",
+  "line_manager_user",
+  "cb_head",
+  "status",
+  "issued_by",
+  "issuer_role",
+  "sent_at",
+  "reply_due",
+  "sb_body",
+  "behavior",
+  "incident_date",
+  "rule",
+  "content",
+  "evidence",
+  "sb_reply",
+  "read_at",
+  "responded_at",
+  "response",
+  "auto_closed_at",
+  "cancel_reason",
+  "sb_log",
+  "logs"
+ ],
+ "fields": [
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "label": "Nhân viên",
+   "options": "Employee",
+   "reqd": 1,
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "employee_name",
+   "fieldtype": "Data",
+   "label": "Họ tên",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "employee_user",
+   "fieldtype": "Data",
+   "label": "Tài khoản NV",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "label": "Phòng ban",
+   "options": "Department",
+   "read_only": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "line_manager_user",
+   "fieldtype": "Data",
+   "label": "Quản lý lúc gửi",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Trạng thái",
+   "options": "Chờ phản hồi\nĐã đọc\nĐã phản hồi\nKhông phản hồi\nĐã huỷ",
+   "default": "Chờ phản hồi",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "issued_by",
+   "fieldtype": "Link",
+   "label": "Người gửi",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "issuer_role",
+   "fieldtype": "Data",
+   "label": "Vai trò người gửi",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sent_at",
+   "fieldtype": "Datetime",
+   "label": "Gửi lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reply_due",
+   "fieldtype": "Date",
+   "label": "Hạn phản hồi",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_body",
+   "fieldtype": "Section Break",
+   "label": "Nội dung"
+  },
+  {
+   "fieldname": "behavior",
+   "fieldtype": "Data",
+   "label": "Hành vi",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "incident_date",
+   "fieldtype": "Date",
+   "label": "Ngày xảy ra",
+   "read_only": 1
+  },
+  {
+   "fieldname": "rule",
+   "fieldtype": "Link",
+   "label": "Điều khoản nội quy",
+   "options": "EC Discipline Rule",
+   "read_only": 1
+  },
+  {
+   "fieldname": "content",
+   "fieldtype": "Text",
+   "label": "Nội dung nhắc nhở",
+   "read_only": 1
+  },
+  {
+   "fieldname": "evidence",
+   "fieldtype": "Attach",
+   "label": "Bằng chứng (tuỳ chọn)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_reply",
+   "fieldtype": "Section Break",
+   "label": "Phản hồi của nhân viên"
+  },
+  {
+   "fieldname": "read_at",
+   "fieldtype": "Datetime",
+   "label": "Đã đọc lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "responded_at",
+   "fieldtype": "Datetime",
+   "label": "Phản hồi lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "response",
+   "fieldtype": "Small Text",
+   "label": "Phản hồi",
+   "read_only": 1
+  },
+  {
+   "fieldname": "auto_closed_at",
+   "fieldtype": "Datetime",
+   "label": "Hệ thống tự ghi lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cancel_reason",
+   "fieldtype": "Small Text",
+   "label": "Lý do huỷ",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_log",
+   "fieldtype": "Section Break",
+   "label": "Nhật ký"
+  },
+  {
+   "fieldname": "logs",
+   "fieldtype": "Table",
+   "label": "Nhật ký",
+   "options": "EC Discipline Log",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-23 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC HR Notice",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 1,
+   "share": 1
+  },
+  {
+   "role": "HR Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "HR User",
+   "read": 1,
+   "report": 1,
+   "print": 1
+  },
+  {
+   "role": "EC CnB",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "EC CEO",
+   "read": 1,
+   "report": 1,
+   "print": 1
+  },
+  {
+   "role": "Employee",
+   "read": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "autoname": "EC-TVANG-.YYYY.-.#####.",
+ "naming_rule": "Expression",
+ "title_field": "employee_name"
+}
