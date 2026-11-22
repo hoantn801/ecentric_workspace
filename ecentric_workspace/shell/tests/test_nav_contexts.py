@@ -61,9 +61,10 @@ class TestRouteToContext(unittest.TestCase):
         # to `home` and painted the full portal sidebar).
         # 2026-09-25: "Phân bổ công việc" (tỷ trọng brand hàng tháng, order 18)
         # nằm giữa Nghỉ phép và Phiếu lương.
+        # 2026-11-23: "Kỷ luật" (/ky-luat, order 60) - Đợt 3 HR.
         self.assertEqual([i["label"] for i in hr if i["owner"] == "hr"],
                          ["Chấm công", "Nghỉ phép", "Phân bổ công việc", "Phiếu lương",
-                          "Ảnh khuôn mặt", "Cài app lên điện thoại"])
+                          "Ảnh khuôn mặt", "Kỷ luật", "Cài app lên điện thoại"])
 
     def test_home_portal_preserves_restored_ia(self):
         def labels_route_of(items, label):

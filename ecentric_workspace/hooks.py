@@ -1116,3 +1116,25 @@ website_redirects = list(globals().get("website_redirects") or []) + [
 # switch esign (ec_esign_scheduler_disabled). Xem platform/esign/provider_cancel.py.
 scheduler_events["cron"].setdefault("*/10 * * * *", []).append(
     "ecentric_workspace.platform.esign.provider_cancel.sweep")
+
+# --------------------------------------------------------------------------- #
+# 23/11/2026 (Hoan chot, Dot 3 quy trinh nhan su) - Ky luat lao dong (/ky-luat, hr/ky_luat/):
+# the vang (EC HR Notice, ngoai engine) + ho so the do / den 4 buoc (EC Discipline Case); buoc CEO
+# ky la feature approval discipline_decision (/ky-luat/quyet-dinh). Xem hr/ky_luat/constants.py.
+#  * route: www/ky_luat/ (thu muc www khong duoc co gach ngang). Asset ec_ky_luat.js/.css CHI nap
+#    tren 2 trang nay (hr/ky_luat/pages.py).
+#  * quyen doc: permission_query_conditions + has_permission (tai tep rieng tu di theo ban ghi) -
+#    mot luat o hr/ky_luat/application/access.py.
+#  * 09:00 ngay lam viec: the vang qua han -> "khong phan hoi", het / sap het thoi hieu, dong bo
+#    phieu CEO, tu xoa ky luat (D126). Tat khan: site_config ec_ky_luat_jobs_disabled: 1.
+# --------------------------------------------------------------------------- #
+website_route_rules = list(globals().get("website_route_rules") or []) + [
+    {"from_route": "/ky-luat", "to_route": "ky_luat"},
+    {"from_route": "/ky-luat/quyet-dinh", "to_route": "ky_luat/quyet_dinh"},
+]
+permission_query_conditions["EC HR Notice"] = "ecentric_workspace.hr.ky_luat.permissions.notice_query"
+permission_query_conditions["EC Discipline Case"] = "ecentric_workspace.hr.ky_luat.permissions.case_query"
+has_permission["EC HR Notice"] = "ecentric_workspace.hr.ky_luat.permissions.notice_has_permission"
+has_permission["EC Discipline Case"] = "ecentric_workspace.hr.ky_luat.permissions.case_has_permission"
+scheduler_events["cron"].setdefault("0 9 * * *", []).append(
+    "ecentric_workspace.hr.ky_luat.controllers.api.daily_job")

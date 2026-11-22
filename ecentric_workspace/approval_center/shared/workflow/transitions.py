@@ -1916,6 +1916,8 @@ _FULFILLMENT_HANDLERS = {
     # 05/10: Outside Work duyet xong -> ngay lam viec ben ngoai co Attendance "Present" (bang cong
     # ERP / payroll chi doc Attendance). Ngay da co ban ghi thi giu nguyen.
     "EC Outside Work Request": "ecentric_workspace.approval_center.features.outside_work.application.attendance.on_final_approval",
+    # 23/11: CEO ky xong -> ho so ky luat (hr/ky_luat) ban hanh; sa thai -> ngay nghi viec + Clearance.
+    "EC Discipline Decision Request": "ecentric_workspace.approval_center.features.discipline_decision.application.service.on_final_approval",
 }
 
 

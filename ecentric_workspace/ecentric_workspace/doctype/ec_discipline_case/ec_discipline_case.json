@@ -1,0 +1,592 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-11-23 09:00:00.000000",
+ "custom": 0,
+ "description": "Hồ sơ kỷ luật thẻ đỏ / thẻ đen - 4 bước thủ tục. Ghi bởi hr/ky_luat (không sửa tay). Không có trường tiền (Điều 127).",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "employee",
+  "employee_name",
+  "employee_user",
+  "department",
+  "designation",
+  "line_manager_user",
+  "cb_head",
+  "status",
+  "card",
+  "penalty",
+  "extend_months",
+  "holds_position",
+  "dismissal_ground",
+  "proposed_by",
+  "proposed_at",
+  "hr_owner",
+  "hr_review_due",
+  "sb_viol",
+  "rule",
+  "rule_title",
+  "finance_related",
+  "violation_date",
+  "description",
+  "cb_viol",
+  "evidence",
+  "violation_record",
+  "limitation_end",
+  "limitation_effective_end",
+  "limitation_warned_at",
+  "recidivism",
+  "recidivism_note",
+  "hr_note",
+  "sb_block",
+  "block_reason",
+  "block_from",
+  "block_to",
+  "block_note",
+  "block_periods",
+  "sb_notice",
+  "is_union_member",
+  "union_rep_user",
+  "notice_date",
+  "notice_sent_at",
+  "earliest_meeting_date",
+  "cb_notice",
+  "meeting_date",
+  "meeting_place",
+  "attendance_reply",
+  "attendance_note",
+  "attendance_replied_at",
+  "sb_meet",
+  "employee_present",
+  "employee_statement",
+  "cb_meet",
+  "meeting_minutes",
+  "unsigned_notes",
+  "meeting_recorded_at",
+  "ceo_due",
+  "sb_dec",
+  "decision_draft",
+  "effective_date",
+  "termination_date",
+  "decision_request",
+  "submitted_to_ceo_at",
+  "cb_dec",
+  "decision_date",
+  "issued_at",
+  "expunge_due",
+  "expunged_at",
+  "expunge_hold_note",
+  "offboarding_note",
+  "sb_log",
+  "logs"
+ ],
+ "fields": [
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "label": "Nhân viên",
+   "options": "Employee",
+   "reqd": 1,
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "employee_name",
+   "fieldtype": "Data",
+   "label": "Họ tên",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "employee_user",
+   "fieldtype": "Data",
+   "label": "Tài khoản NV",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "label": "Phòng ban",
+   "options": "Department",
+   "read_only": 1
+  },
+  {
+   "fieldname": "designation",
+   "fieldtype": "Data",
+   "label": "Chức danh",
+   "read_only": 1
+  },
+  {
+   "fieldname": "line_manager_user",
+   "fieldtype": "Data",
+   "label": "Quản lý trực tiếp",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Trạng thái",
+   "options": "Đề xuất\nĐang lập\nHoãn\nĐã thông báo họp\nĐã họp\nTrình CEO\nĐã ban hành\nKhông kỷ luật\nHết thời hiệu\nĐã xoá kỷ luật\nĐã huỷ",
+   "default": "Đang lập",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "card",
+   "fieldtype": "Select",
+   "label": "Thẻ",
+   "options": "\nThẻ đỏ\nThẻ đen",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "penalty",
+   "fieldtype": "Select",
+   "label": "Hình thức",
+   "options": "\nKhiển trách\nKéo dài thời hạn nâng lương\nCách chức\nSa thải",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "extend_months",
+   "fieldtype": "Int",
+   "label": "Kéo dài nâng lương (tháng)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "holds_position",
+   "fieldtype": "Check",
+   "label": "Đang giữ chức vụ",
+   "read_only": 1
+  },
+  {
+   "fieldname": "dismissal_ground",
+   "fieldtype": "Select",
+   "label": "Căn cứ sa thải (Điều 125)",
+   "options": "\n1\n2\n3\n4",
+   "read_only": 1
+  },
+  {
+   "fieldname": "proposed_by",
+   "fieldtype": "Link",
+   "label": "Người đề xuất",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "proposed_at",
+   "fieldtype": "Datetime",
+   "label": "Đề xuất lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "hr_owner",
+   "fieldtype": "Link",
+   "label": "HR phụ trách",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "hr_review_due",
+   "fieldtype": "Date",
+   "label": "Hạn HR thẩm định",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_viol",
+   "fieldtype": "Section Break",
+   "label": "Bước 1 · Vi phạm"
+  },
+  {
+   "fieldname": "rule",
+   "fieldtype": "Link",
+   "label": "Điều khoản nội quy",
+   "options": "EC Discipline Rule",
+   "read_only": 1
+  },
+  {
+   "fieldname": "rule_title",
+   "fieldtype": "Data",
+   "label": "Tên điều khoản",
+   "read_only": 1
+  },
+  {
+   "fieldname": "finance_related",
+   "fieldtype": "Check",
+   "label": "Liên quan tài chính / tài sản / bí mật",
+   "read_only": 1
+  },
+  {
+   "fieldname": "violation_date",
+   "fieldtype": "Date",
+   "label": "Ngày vi phạm",
+   "read_only": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Text",
+   "label": "Mô tả hành vi",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb_viol",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "evidence",
+   "fieldtype": "Attach",
+   "label": "Bằng chứng",
+   "read_only": 1
+  },
+  {
+   "fieldname": "violation_record",
+   "fieldtype": "Attach",
+   "label": "Biên bản vi phạm",
+   "read_only": 1
+  },
+  {
+   "fieldname": "limitation_end",
+   "fieldtype": "Date",
+   "label": "Hết thời hiệu (Điều 123.1)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "limitation_effective_end",
+   "fieldtype": "Date",
+   "label": "Hết thời hiệu (đã tính kéo dài)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "limitation_warned_at",
+   "fieldtype": "Datetime",
+   "label": "Đã cảnh báo thời hiệu lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "recidivism",
+   "fieldtype": "Check",
+   "label": "Có kỷ luật chưa xoá (tái phạm)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "recidivism_note",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú tái phạm",
+   "read_only": 1
+  },
+  {
+   "fieldname": "hr_note",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú nội bộ HR",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_block",
+   "fieldtype": "Section Break",
+   "label": "Hoãn (Điều 122.4)"
+  },
+  {
+   "fieldname": "block_reason",
+   "fieldtype": "Select",
+   "label": "Lý do hoãn",
+   "options": "\nĐang bị tạm giữ, tạm giam\nChờ kết luận của cơ quan có thẩm quyền\nNữ mang thai, nghỉ thai sản, nuôi con dưới 12 tháng\nNghỉ ốm / điều dưỡng / nghỉ được đồng ý",
+   "read_only": 1
+  },
+  {
+   "fieldname": "block_from",
+   "fieldtype": "Date",
+   "label": "Từ ngày",
+   "read_only": 1
+  },
+  {
+   "fieldname": "block_to",
+   "fieldtype": "Date",
+   "label": "Đến ngày",
+   "read_only": 1
+  },
+  {
+   "fieldname": "block_note",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú hoãn",
+   "read_only": 1
+  },
+  {
+   "fieldname": "block_periods",
+   "fieldtype": "Long Text",
+   "label": "Các khoảng không được xử lý (JSON)",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "sb_notice",
+   "fieldtype": "Section Break",
+   "label": "Bước 2 · Thông báo họp"
+  },
+  {
+   "fieldname": "is_union_member",
+   "fieldtype": "Check",
+   "label": "Là đoàn viên công đoàn",
+   "read_only": 1
+  },
+  {
+   "fieldname": "union_rep_user",
+   "fieldtype": "Link",
+   "label": "Đại diện công đoàn",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notice_date",
+   "fieldtype": "Date",
+   "label": "Ngày thông báo",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notice_sent_at",
+   "fieldtype": "Datetime",
+   "label": "Gửi thông báo lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "earliest_meeting_date",
+   "fieldtype": "Date",
+   "label": "Ngày họp sớm nhất",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb_notice",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "meeting_date",
+   "fieldtype": "Date",
+   "label": "Ngày họp",
+   "read_only": 1
+  },
+  {
+   "fieldname": "meeting_place",
+   "fieldtype": "Data",
+   "label": "Địa điểm",
+   "read_only": 1
+  },
+  {
+   "fieldname": "attendance_reply",
+   "fieldtype": "Select",
+   "label": "Nhân viên xác nhận",
+   "options": "\nChưa trả lời\nSẽ tham dự\nKhông tham dự",
+   "read_only": 1
+  },
+  {
+   "fieldname": "attendance_note",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú của nhân viên",
+   "read_only": 1
+  },
+  {
+   "fieldname": "attendance_replied_at",
+   "fieldtype": "Datetime",
+   "label": "Xác nhận lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_meet",
+   "fieldtype": "Section Break",
+   "label": "Bước 3 · Họp"
+  },
+  {
+   "fieldname": "employee_present",
+   "fieldtype": "Select",
+   "label": "Nhân viên",
+   "options": "\nCó mặt\nVắng mặt dù đã được thông báo",
+   "read_only": 1
+  },
+  {
+   "fieldname": "employee_statement",
+   "fieldtype": "Text",
+   "label": "Ý kiến của nhân viên",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb_meet",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "meeting_minutes",
+   "fieldtype": "Attach",
+   "label": "Biên bản họp (có ký)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "unsigned_notes",
+   "fieldtype": "Small Text",
+   "label": "Người không ký và lý do",
+   "read_only": 1
+  },
+  {
+   "fieldname": "meeting_recorded_at",
+   "fieldtype": "Datetime",
+   "label": "Ghi biên bản lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "ceo_due",
+   "fieldtype": "Date",
+   "label": "Hạn CEO ký",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_dec",
+   "fieldtype": "Section Break",
+   "label": "Bước 4 · Quyết định"
+  },
+  {
+   "fieldname": "decision_draft",
+   "fieldtype": "Attach",
+   "label": "Dự thảo quyết định",
+   "read_only": 1
+  },
+  {
+   "fieldname": "effective_date",
+   "fieldtype": "Date",
+   "label": "Ngày hiệu lực",
+   "read_only": 1
+  },
+  {
+   "fieldname": "termination_date",
+   "fieldtype": "Date",
+   "label": "Ngày chấm dứt HĐ (sa thải)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "decision_request",
+   "fieldtype": "Link",
+   "label": "Phiếu trình CEO",
+   "options": "EC Discipline Decision Request",
+   "read_only": 1
+  },
+  {
+   "fieldname": "submitted_to_ceo_at",
+   "fieldtype": "Datetime",
+   "label": "Trình CEO lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb_dec",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "decision_date",
+   "fieldtype": "Date",
+   "label": "Ngày ban hành",
+   "read_only": 1
+  },
+  {
+   "fieldname": "issued_at",
+   "fieldtype": "Datetime",
+   "label": "Ban hành lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "expunge_due",
+   "fieldtype": "Date",
+   "label": "Tự xoá kỷ luật (Điều 126)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "expunged_at",
+   "fieldtype": "Datetime",
+   "label": "Đã xoá lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "expunge_hold_note",
+   "fieldtype": "Small Text",
+   "label": "Không tự xoá vì",
+   "read_only": 1
+  },
+  {
+   "fieldname": "offboarding_note",
+   "fieldtype": "Small Text",
+   "label": "Chấm dứt HĐ / Clearance",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_log",
+   "fieldtype": "Section Break",
+   "label": "Nhật ký"
+  },
+  {
+   "fieldname": "logs",
+   "fieldtype": "Table",
+   "label": "Nhật ký",
+   "options": "EC Discipline Log",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-23 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC Discipline Case",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 1,
+   "share": 1
+  },
+  {
+   "role": "HR Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "HR User",
+   "read": 1,
+   "report": 1,
+   "print": 1
+  },
+  {
+   "role": "EC CnB",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "EC CEO",
+   "read": 1,
+   "report": 1,
+   "print": 1
+  },
+  {
+   "role": "Employee",
+   "read": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "autoname": "EC-KL-.YYYY.-.#####.",
+ "naming_rule": "Expression",
+ "title_field": "employee_name"
+}

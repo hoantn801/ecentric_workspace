@@ -1,0 +1,127 @@
+{%- extends "templates/includes/ky_luat/layout.html" -%}
+{%- from "templates/includes/ky_luat/macros.html" import status_badge, card_chip, dmy -%}
+{#- /ky-luat - danh sach the vang + ho so ky luat (server ve san), popup chi tiet + form do JS. -#}
+{% block ekl_page %}
+<header class="ekl-head">
+  <h1 class="ekl-h1">Kỷ luật lao động</h1>
+  <p class="ekl-sub">Thẻ vàng là nhắc nhở nội bộ. Thẻ đỏ (khiển trách) và thẻ đen (kéo dài nâng lương / cách chức / sa thải) đi theo hồ sơ 4 bước: lập hồ sơ → thông báo họp → họp → CEO ký quyết định.</p>
+</header>
+<nav class="ekl-tabs" aria-label="Kỷ luật">
+  {% for t in tabs %}<a class="ekl-tab{% if t.active %} is-on{% endif %}" href="{{ t.href }}"{% if t.active %} aria-current="page"{% endif %}>{{ t.label|e }}</a>{% endfor %}
+</nav>
+
+<div class="ekl-toolbar" role="search">
+  <input class="ekl-inp ekl-grow" type="search" data-ekl-q placeholder="Tìm mã, tên nhân viên, hành vi…" aria-label="Tìm">
+  <label class="ekl-check"><input type="checkbox" data-ekl-mine> Chỉ của tôi</label>
+  {% if tab == 'the-vang' and perm.can_issue %}<button type="button" class="ekl-btn is-primary" data-ekl-open-form="notice">+ Gửi thẻ vàng</button>{% endif %}
+  {% if tab == 'ho-so' and perm.is_hr %}<button type="button" class="ekl-btn is-primary" data-ekl-open-form="case">+ Lập hồ sơ kỷ luật</button>{% endif %}
+  {% if tab == 'ho-so' and perm.has_team and not perm.is_hr %}<button type="button" class="ekl-btn is-primary" data-ekl-open-form="propose">+ Đề xuất kỷ luật</button>{% endif %}
+</div>
+
+{% if tab == 'the-vang' %}
+<p class="ekl-note">{{ yellow_note|e }}</p>
+<section class="ekl-cardbox">
+  <table class="ekl-tbl">
+    <thead><tr><th>Mã</th><th>Nhân viên</th><th>Hành vi</th><th>Ngày</th><th>Hạn phản hồi</th><th>Trạng thái</th></tr></thead>
+    <tbody data-ekl-rows>
+    {% for n in notices %}
+      <tr class="ekl-row" tabindex="0" data-ekl-open="notice" data-name="{{ n.name|e }}" data-mine="{{ n.mine }}" data-search="{{ (n.name ~ ' ' ~ n.employee_name ~ ' ' ~ n.behavior)|lower|e }}">
+        <td><b>{{ n.name|e }}</b></td><td>{{ n.employee_name|e }}</td><td>{{ n.behavior|e }}</td>
+        <td>{{ dmy(n.incident_date) }}</td><td>{{ dmy(n.reply_due) }}</td><td>{{ status_badge(n.status) }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="ekl-empty" data-ekl-empty{% if notices %} hidden{% endif %}>Chưa có thẻ vàng nào bạn được xem.</p>
+</section>
+{% else %}
+<section class="ekl-cardbox">
+  <table class="ekl-tbl">
+    <thead><tr><th>Mã</th><th>Nhân viên</th><th>Thẻ · hình thức</th><th>Ngày vi phạm</th><th>Ngày họp</th><th>Hết thời hiệu</th><th>Trạng thái</th></tr></thead>
+    <tbody data-ekl-rows>
+    {% for c in cases %}
+      <tr class="ekl-row" tabindex="0" data-ekl-open="case" data-name="{{ c.name|e }}" data-mine="{{ c.mine }}" data-search="{{ (c.name ~ ' ' ~ c.employee_name ~ ' ' ~ c.penalty)|lower|e }}">
+        <td><b>{{ c.name|e }}</b></td><td>{{ c.employee_name|e }}</td>
+        <td>{% if c.card %}{{ card_chip(c.card) }} {% endif %}{{ c.penalty|e }}</td>
+        <td>{{ dmy(c.violation_date) }}</td><td>{{ dmy(c.meeting_date) }}</td><td>{{ dmy(c.limitation_effective_end) }}</td>
+        <td>{{ status_badge(c.status) }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="ekl-empty" data-ekl-empty{% if cases %} hidden{% endif %}>Chưa có hồ sơ kỷ luật nào bạn được xem.</p>
+</section>
+{% endif %}
+
+{#- ===== popup chi tiet (JS ve noi dung tu API) ===== -#}
+<div class="ekl-ov" data-ekl-detail-ov hidden>
+  <div class="ekl-modal is-wide" role="dialog" aria-modal="true" aria-label="Chi tiết" tabindex="-1" data-ekl-detail>
+    <p class="ekl-state"><span class="ekl-spin" aria-hidden="true"></span> Đang tải…</p>
+  </div>
+</div>
+
+{#- ===== form gui the vang ===== -#}
+{% if perm.can_issue %}
+<div class="ekl-ov" data-ekl-form-ov="notice" hidden>
+  <form class="ekl-modal" data-ekl-form="notice" novalidate role="dialog" aria-modal="true" aria-labelledby="ekl-fn-h">
+    <h2 class="ekl-modal-h" id="ekl-fn-h">Gửi thẻ vàng</h2>
+    <div class="ekl-modal-b">
+      <p class="ekl-note">{{ yellow_note|e }}</p>
+      <div class="ekl-grid2">
+        <div class="ekl-fld ekl-full"><label for="ekl-n-emp">Nhân viên <span class="ekl-req">*</span></label><select id="ekl-n-emp" name="employee" required data-ekl-opt="employees"></select></div>
+        <div class="ekl-fld"><label for="ekl-n-beh">Hành vi <span class="ekl-req">*</span></label><input id="ekl-n-beh" name="behavior" maxlength="140" required></div>
+        <div class="ekl-fld"><label for="ekl-n-date">Ngày xảy ra <span class="ekl-req">*</span></label><input id="ekl-n-date" name="incident_date" type="date" required></div>
+        <div class="ekl-fld ekl-full"><label for="ekl-n-rule">Điều khoản nội quy (tuỳ chọn)</label><select id="ekl-n-rule" name="rule" data-ekl-opt="rules" data-ekl-blank="1"></select></div>
+        <div class="ekl-fld ekl-full"><label for="ekl-n-content">Nội dung nhắc nhở <span class="ekl-req">*</span></label><textarea id="ekl-n-content" name="content" rows="4" required></textarea></div>
+        <div class="ekl-fld ekl-full"><label for="ekl-n-ev">Bằng chứng (tuỳ chọn)</label><input id="ekl-n-ev" type="file" data-ekl-file="evidence"><input type="hidden" name="evidence"><span class="ekl-hint" data-ekl-file-name="evidence"></span></div>
+      </div>
+      <p class="ekl-err" data-ekl-err role="alert" hidden></p>
+    </div>
+    <div class="ekl-modal-f"><button type="button" class="ekl-btn" data-ekl-close>Huỷ</button><button type="submit" class="ekl-btn is-primary" data-ekl-submit>Gửi thẻ vàng</button></div>
+  </form>
+</div>
+{% endif %}
+
+{#- ===== form ho so (lap / de xuat / sua) ===== -#}
+{% if perm.is_hr or perm.has_team %}
+<div class="ekl-ov" data-ekl-form-ov="case" hidden>
+  <form class="ekl-modal is-wide" data-ekl-form="case" novalidate role="dialog" aria-modal="true" aria-labelledby="ekl-fc-h">
+    <h2 class="ekl-modal-h" id="ekl-fc-h" data-ekl-case-title>Lập hồ sơ kỷ luật</h2>
+    <div class="ekl-modal-b">
+      <p class="ekl-note">Không có ô tiền phạt: pháp luật cấm phạt tiền, cắt lương thay cho kỷ luật (Điều 127). Hệ thống tự kiểm thời hiệu (Điều 123) và kỷ luật chưa xoá (tái phạm).</p>
+      <input type="hidden" name="name">
+      <div class="ekl-grid2">
+        <div class="ekl-fld ekl-full" data-ekl-only-new><label for="ekl-c-emp">Nhân viên <span class="ekl-req">*</span></label><select id="ekl-c-emp" name="employee" data-ekl-opt="employees"></select></div>
+        <div class="ekl-fld"><label for="ekl-c-card">Thẻ <span class="ekl-req">*</span></label><select id="ekl-c-card" name="card" required><option value="">— Chọn —</option><option>Thẻ đỏ</option><option>Thẻ đen</option></select></div>
+        <div class="ekl-fld"><label for="ekl-c-pen">Hình thức <span class="ekl-req">*</span></label><select id="ekl-c-pen" name="penalty" required data-ekl-penalty></select></div>
+        <div class="ekl-fld" data-ekl-show="Kéo dài thời hạn nâng lương" hidden><label for="ekl-c-ext">Kéo dài (tháng, tối đa 6)</label><input id="ekl-c-ext" name="extend_months" type="number" min="1" max="6"></div>
+        <div class="ekl-fld" data-ekl-show="Cách chức" hidden><label class="ekl-check"><input type="checkbox" name="holds_position" value="1"> Nhân viên đang giữ chức vụ</label></div>
+        <div class="ekl-fld ekl-full" data-ekl-show="Sa thải" hidden><label for="ekl-c-gr">Căn cứ sa thải (Điều 125) <span class="ekl-req">*</span></label><select id="ekl-c-gr" name="dismissal_ground" data-ekl-opt="grounds" data-ekl-blank="1"></select></div>
+        <div class="ekl-fld ekl-full"><label for="ekl-c-rule">Điều khoản nội quy <span class="ekl-req" data-ekl-hr-only>*</span></label><select id="ekl-c-rule" name="rule" data-ekl-opt="rules" data-ekl-blank="1"></select></div>
+        <div class="ekl-fld"><label for="ekl-c-vd">Ngày vi phạm <span class="ekl-req">*</span></label><input id="ekl-c-vd" name="violation_date" type="date" required></div>
+        <div class="ekl-fld"><label class="ekl-check"><input type="checkbox" name="finance_related" value="1"> Liên quan tài chính, tài sản, bí mật (thời hiệu 12 tháng)</label></div>
+        <div class="ekl-fld ekl-full"><label for="ekl-c-desc">Mô tả hành vi vi phạm <span class="ekl-req">*</span></label><textarea id="ekl-c-desc" name="description" rows="4" required></textarea></div>
+        <div class="ekl-fld"><label for="ekl-c-ev">Bằng chứng</label><input id="ekl-c-ev" type="file" data-ekl-file="evidence"><input type="hidden" name="evidence"><span class="ekl-hint" data-ekl-file-name="evidence"></span></div>
+        <div class="ekl-fld" data-ekl-hr-only><label for="ekl-c-rec">Biên bản vi phạm (bắt buộc trước khi thông báo họp)</label><input id="ekl-c-rec" type="file" data-ekl-file="violation_record"><input type="hidden" name="violation_record"><span class="ekl-hint" data-ekl-file-name="violation_record"></span></div>
+        <div class="ekl-fld" data-ekl-hr-only><label class="ekl-check"><input type="checkbox" name="is_union_member" value="1"> Nhân viên là đoàn viên công đoàn</label></div>
+        <div class="ekl-fld ekl-full" data-ekl-hr-only><label for="ekl-c-note">Ghi chú nội bộ HR (nhân viên không thấy)</label><textarea id="ekl-c-note" name="hr_note" rows="2"></textarea></div>
+      </div>
+      <p class="ekl-err" data-ekl-err role="alert" hidden></p>
+    </div>
+    <div class="ekl-modal-f"><button type="button" class="ekl-btn" data-ekl-close>Huỷ</button><button type="submit" class="ekl-btn is-primary" data-ekl-submit>Lưu</button></div>
+  </form>
+</div>
+{% endif %}
+
+{#- ===== form thao tac (thong bao hop / bien ban hop / trinh CEO / hoan / huy / phan hoi) - mot khung, JS doi phan than ===== -#}
+<div class="ekl-ov" data-ekl-form-ov="step" hidden>
+  <form class="ekl-modal" data-ekl-form="step" novalidate role="dialog" aria-modal="true" aria-labelledby="ekl-fs-h">
+    <h2 class="ekl-modal-h" id="ekl-fs-h" data-ekl-step-title>Thao tác</h2>
+    <div class="ekl-modal-b">
+      <div data-ekl-step-body></div>
+      <p class="ekl-err" data-ekl-err role="alert" hidden></p>
+    </div>
+    <div class="ekl-modal-f"><button type="button" class="ekl-btn" data-ekl-close>Huỷ</button><button type="submit" class="ekl-btn is-primary" data-ekl-submit>Xác nhận</button></div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,117 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-11-23 09:00:00.000000",
+ "custom": 0,
+ "description": "Danh mục điều khoản nội quy dùng khi lập thẻ vàng / hồ sơ kỷ luật.",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "code",
+  "title",
+  "description",
+  "cb1",
+  "suggested_card",
+  "finance_related",
+  "is_active",
+  "is_sample"
+ ],
+ "fields": [
+  {
+   "fieldname": "code",
+   "fieldtype": "Data",
+   "label": "Mã điều khoản",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Tên điều khoản",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Nội dung"
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "suggested_card",
+   "fieldtype": "Select",
+   "label": "Mức gợi ý",
+   "options": "\nThẻ vàng\nThẻ đỏ\nThẻ đen",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "finance_related",
+   "fieldtype": "Check",
+   "label": "Liên quan tài chính / tài sản / bí mật",
+   "description": "Thời hiệu 12 tháng thay vì 6 tháng (Điều 123)."
+  },
+  {
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Đang dùng",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "is_sample",
+   "fieldtype": "Check",
+   "label": "Mẫu tạm",
+   "description": "Mục seed tạm - HR thay bằng nội quy đã đăng ký."
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-23 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC Discipline Rule",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 1,
+   "share": 1
+  },
+  {
+   "role": "HR Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1
+  },
+  {
+   "role": "EC CnB",
+   "read": 1,
+   "write": 1,
+   "create": 1
+  },
+  {
+   "role": "Employee",
+   "read": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "autoname": "field:code",
+ "naming_rule": "By fieldname",
+ "title_field": "title",
+ "show_title_field_in_link": 1,
+ "search_fields": "title"
+}

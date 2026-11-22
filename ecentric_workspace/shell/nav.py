@@ -745,6 +745,8 @@ RAIL_LAYOUTS = {
             {"key": "sla.scoreboard"}, {"key": "hr.brand_weight"},
             {"key": "rail.hr.kpi", "label": "Mục tiêu KPI", "route": "/coming-soon?tool=kpi", "icon": "target",
              "soon": True, "noactive": True}]},
+        # 23/11/2026 (Dot 3 HR): Ky luat lao dong (hr/nav.py "hr.ky_luat").
+        {"t": "group", "label": "Quản lý nhân sự", "items": [{"key": "hr.ky_luat"}]},
         {"t": "help", "item": {"key": "hr.install_guide", "label": "Cài app lên điện thoại"}},
     ],
     "reports": [
