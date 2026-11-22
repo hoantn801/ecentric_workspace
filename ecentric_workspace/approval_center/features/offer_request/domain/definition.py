@@ -15,7 +15,7 @@ OFFER_REQUEST_DEFINITION = ApprovalDefinition(
     #: `prepare_draft` - nguoi gui Offer khong chon duoc nguoi duyet cap 1.
     editable_fields=("request_title", "hiring_request", "candidate_name", "onboard_date",
                      "probation_end_date", "mobile_phone", "company_laptop", "compensation",
-                     "note", "resume"),
+                     "note", "resume", "offered_salary"),
     my_request_fields=("name", "request_title", "candidate_name", "position", "department",
                        "onboard_date", "hiring_request", "approval_request",
                        "new_staff_preparation", "creation", "modified"),
@@ -27,7 +27,7 @@ OFFER_REQUEST_DEFINITION = ApprovalDefinition(
     draft_preparer=ServiceMethod(_BASE, "prepare_draft"),
     detail_extender=ServiceMethod(_BASE, "offer_block"),
     #: Muc luong la thoa thuan voi ung vien - AI khong duoc dien ho tu CV.
-    ai_exclude_fields=("compensation",),
+    ai_exclude_fields=("compensation", "offered_salary"),
     **service_callbacks("offer_request", title=True))
 
 
@@ -41,3 +41,13 @@ OFFER_REQUEST_DEFINITION = _dc_replace(
         ("Ngày onboard", "onboard_date"),
     ),
 )
+
+
+# HR v2 (23/11/2026): nguoi CHI theo doi (neu co) khong thay luong - hop dong Dot 0, chi khai khi
+# engine da co truong nay.
+from ecentric_workspace.approval_center.shared.requests.contracts import ApprovalDefinition as _AD  # noqa: E402
+
+OFFER_REQUEST_DEFINITION = _dc_replace(
+    OFFER_REQUEST_DEFINITION,
+    **{k: v for k, v in {"watcher_hidden_fields": ("compensation", "offered_salary")}.items()
+       if k in getattr(_AD, "__dataclass_fields__", {})})

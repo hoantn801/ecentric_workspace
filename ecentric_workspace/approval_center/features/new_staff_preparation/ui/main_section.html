@@ -5,6 +5,8 @@
   "Da chuan bi xong" la nhom do xong. Khong co Tu choi - thieu thong tin thi "Yeu cau bo sung".
   HR (nguoi gui) chinh loi gioi thieu + ngay onboard cho thiep chao mung (Teams 10:00, popup 08:30).
   KHONG co muc luong. All data via ecentric_workspace.approval_center.api.new_staff_preparation.*.
+  V2 (23/11/2026): nhom HR (thay Lead HR) chon ho so Employee vua tao -> he thong ghi dong Thu viec /
+  Thuc tap vao Employee.ec_contracts (tu ngay onboard toi ngay het thu viec cua Offer).
   Marker: ec-nsp-root.
 -->
 <style>
@@ -139,7 +141,7 @@
     <div class="topbar"><div class="crumb ec-shell-crumbs" data-ec-shell-crumbs="1"><span class="ec-shell-crumb-group">Phê duyệt</span><span class="sep ec-shell-crumb-sep">/</span><a class="ec-shell-crumblink" href="/approvals">Approval Center</a><span class="sep ec-shell-crumb-sep">/</span><strong class="ec-shell-crumb-current ec-shell-crumb-detail" data-ec-shell-crumb-detail="1">New Staff Preparation</strong></div><div class="ec-shell-tbright" data-ec-shell-header-right="1"><button type="button" class="ec-shell-iconbtn ec-shell-reminder" data-ec-shell-action-slot="1" aria-label="Việc của tôi" title="Việc của tôi" aria-haspopup="dialog" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h4l2 3h4l2-3h4"/><path d="M4 13V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7"/><path d="M4 13v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></svg><span class="ec-shell-reminder-badge" data-ec-shell-reminder-badge="1" hidden></span></button><button type="button" class="ec-shell-iconbtn ec-shell-slot-disabled" data-ec-shell-settings-slot="1" disabled aria-disabled="true" title="Cài đặt (sắp ra mắt)" aria-label="Cài đặt (sắp ra mắt)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg></button></div></div>
     <div class="content">
       <h1 class="pg">New Staff Preparation</h1>
-      <p class="pg-sub">Chuẩn bị onboard cho nhân viên mới - tự tạo khi Offer được duyệt. Lead HR, HOF, CnB và Operation cùng chuẩn bị, mỗi bên xác nhận khi xong.</p>
+      <p class="pg-sub">Chuẩn bị onboard cho nhân viên mới - tự tạo khi Offer được duyệt. HR, HOF, CnB và Operation cùng chuẩn bị, mỗi bên xác nhận khi xong (trước ngày onboard 1 ngày làm việc).</p>
       <div class="tabs" id="nsp-tabs"></div>
       <div id="nsp-body"></div>
     </div>
@@ -420,6 +422,12 @@
     var sent=biz.welcome_teams_sent_at?('<div class="hint">Đã gửi Teams lúc '+esc(fmtDT(biz.welcome_teams_sent_at))+'</div>'):(biz.welcome_teams_result?('<div class="hint">Teams: '+esc(biz.welcome_teams_result)+'</div>'):'');
     var btn=x.can_edit_welcome?'<div class="actions" style="margin-top:12px"><button type="button" class="btn" data-act="editwelcome">Sửa lời giới thiệu / ngày onboard</button></div>':'';
     return '<div class="card"><h3>Chào mừng ngày onboard</h3><div class="hint" style="margin-bottom:10px">Ngày '+esc(biz.onboard_date||"—")+': popup trên trang chủ ERP từ 08:30, thiệp lên Teams lúc 10:00.</div>'+prev+sent+btn+'</div>'; }
+  function employeeCardHTML(det){ var x=det.extra||{};
+    if(!x.new_employee&&!x.can_pick_employee) return "";
+    var body=x.new_employee?('<div class="summary-row"><span>Hồ sơ nhân viên</span><b><a href="/app/employee/'+encodeURIComponent(x.new_employee)+'" target="_blank">'+esc(x.new_employee)+'</a></b></div>'+(x.contract_row_note?('<div class="hint">'+esc(x.contract_row_note)+'</div>'):''))
+      :'<div class="hint">Nhóm HR: khi đã tạo hồ sơ nhân viên, chọn hồ sơ ở đây - hệ thống ghi dòng Thử việc / Thực tập vào hợp đồng (từ ngày onboard tới ngày hết thử việc của Offer).</div>';
+    var btn=x.can_pick_employee?'<div class="actions" style="margin-top:10px"><button type="button" class="btn" data-act="pickemployee">'+(x.new_employee?"Đổi hồ sơ":"Chọn hồ sơ nhân viên")+'</button></div>':'';
+    return '<div class="card"><h3>Hồ sơ nhân viên</h3>'+body+btn+'</div>'; }
   function drawDetail(b,det){ state.detail=det; var biz=det.business||{}, ap=det.approval||{}, x=det.extra||{};
     b.innerHTML='<div style="margin-bottom:12px"><button type="button" class="btn" id="d-back">‹ Danh sách</button></div>'
       +'<div class="card"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px"><div><h3 style="margin:0">'+esc(biz.request_title||biz.name||state.id)+'</h3><div class="hint">'+esc(biz.name||"")+' · Offer <a href="'+esc(x.offer_route||"#")+'">'+esc(biz.offer_request||"")+'</a> · HR: '+esc(biz.requested_by||"")+'</div></div><div>'+badge(ap.approval_status||"Draft")+'</div></div></div>'
@@ -427,6 +435,7 @@
       +'<div class="card"><h3>Nhân viên mới</h3><div class="grid2">'+kv("Họ và tên",biz.candidate_name)+kv("Vị trí",biz.position)+kv("Ngày onboard",biz.onboard_date)+kv("Hết thử việc / thực tập",biz.probation_end_date)+kv("Line manager",biz.line_manager)+kv("Phòng ban",x.department_label||biz.department)+kv("Laptop công ty",Number(biz.company_laptop)?"Có":"Không")+kv("Số điện thoại",biz.mobile_phone)+'</div>'
         +'<div class="fld" style="margin-top:14px"><label>Ghi chú</label><textarea class="ro" readonly rows="2">'+esc(biz.note||"—")+'</textarea></div></div>'
       +'<div class="card"><h3>Các bên chuẩn bị (song song)</h3>'+checklistHTML(det)+'</div>'
+      +employeeCardHTML(det)
       +welcomeCardHTML(det)
       +'<div class="card"><h3>Hành động</h3>'+actionPanelHTML(det)+'</div>'
       +'<div class="card"><h3>Lịch sử</h3>'+timelineHTML(det.timeline)+'</div>';
@@ -486,7 +495,7 @@
     if(a==="edit") return startEditResubmit(det); if(a==="approve") return doApprove(name,det); if(a==="remind") return window.EcRemind&&EcRemind.run(call,name,{toast:toast,mapErr:(typeof mapErr==="function"?mapErr:null),done:function(){ if(typeof refreshDetail==="function") refreshDetail(); else if(typeof renderDetail==="function") renderDetail(document.querySelector('[id$="-body"]')); }});
     if(a==="reject") return doReject(name); if(a==="reqinfo") return doRequestInfo(name);
     if(a==="adminapprove") return doAdminApprove(name); if(a==="cancel") return doCancel(name);
-    if(a==="editwelcome") return doEditWelcome(name,det); }
+    if(a==="editwelcome") return doEditWelcome(name,det); if(a==="pickemployee") return doPickEmployee(name); }
   function ensureActionHandlers(){ if(document.__nspActBound) return; document.__nspActBound=true; document.addEventListener("click", handleActionClick, true); }
 
   function modal(title, bodyHTML, opts){ opts=opts||{}; var prevFocus=document.activeElement;
@@ -515,6 +524,14 @@
   function doAdminApprove(name){ modal("Duyệt thay bước hiện tại", '<div class="banner warn"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 9v4M12 17h.01"/></svg><div>Bạn đang duyệt thay cho bước phê duyệt hiện tại bằng quyền System Manager. Hành động này sẽ được ghi nhận trong lịch sử và không giả lập người duyệt gốc.</div></div><div class="fld"><label>Lý do <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>', {okLabel:"Xác nhận duyệt thay", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập lý do.",true); return Promise.reject(); }
     return call("admin_approve_current_level",{name:name,reason:c}).then(function(){ toast("Đã duyệt thay bước hiện tại. Yêu cầu đã được chuyển sang bước tiếp theo."); refreshDetail(); refreshApprovals(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
 
+  function doPickEmployee(name){
+    return call("suggest_employees",{name:name}).then(function(rows){ rows=rows||[];
+      var opts=rows.map(function(r){ return '<option value="'+esc(r.name)+'">'+esc(r.name+" · "+(r.employee_name||"")+(r.date_of_joining?(" · vào "+r.date_of_joining):""))+'</option>'; }).join("");
+      modal("Chọn hồ sơ nhân viên", (rows.length?'<div class="fld"><label>Gợi ý</label><select id="m-emp-sel"><option value="">—</option>'+opts+'</select></div>':'')+'<div class="fld"><label>Hoặc nhập mã nhân viên</label><input id="m-emp" placeholder="HR-EMP-..."></div><div class="hint">Hệ thống ghi dòng Thử việc / Thực tập vào hợp đồng của hồ sơ này (không ghi đè dòng có sẵn).</div>',
+        {okLabel:"Chọn", onConfirm:function(ov){ var sel=ov.querySelector("#m-emp-sel"); var v=((ov.querySelector("#m-emp").value||"").trim())||(sel?sel.value:"");
+          if(!v){ toast("Chưa chọn hồ sơ.",true); return Promise.reject(); }
+          return call("pick_employee",{name:name,employee:v}).then(function(r){ toast("Đã chọn hồ sơ "+v+"."); refreshDetail(); }).catch(function(e){ toast(mapErr(e),true); return Promise.reject(e); }); }});
+    }).catch(function(e){ toast(mapErr(e),true); }); }
   function doEditWelcome(name,det){ var biz=det.business||{};
     modal("Lời giới thiệu & ngày onboard", '<div class="fld"><label>Ngày onboard</label><input type="date" id="m-date" value="'+esc(biz.onboard_date||"")+'"></div><div class="fld"><label>Đôi lời giới thiệu từ chính chủ</label><textarea id="m-intro" rows="6">'+esc(biz.welcome_intro||"")+'</textarea><div class="hint">Hiện trong thiệp Teams (10:00) và popup trang chủ (từ 08:30) ngày onboard. Đổi ngày onboard sẽ báo các bên đang chuẩn bị.</div></div>', {okLabel:"Lưu", onConfirm:function(ov){
       var dt=(ov.querySelector("#m-date").value||""), it=ov.querySelector("#m-intro").value;
@@ -531,7 +548,7 @@
     call("get_bootstrap").then(function(bd){ state.boot=bd||{tabs:{},context:{},form_options:{}}; route(); })
     .catch(function(){ var bd=$("nsp-body"); if(bd) bd.innerHTML='<div class="card"><div class="state"><h4>Không tải được trang</h4><button type="button" class="btn" id="b-retry">Thử lại</button></div></div>'; var r=$("b-retry"); if(r)r.onclick=boot; }); }
 
-  window.NewStaffPreparation={ state:state, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, apply3Day:apply3Day };
+  window.NewStaffPreparation={ state:state, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, apply3Day:apply3Day, doPickEmployee:doPickEmployee, employeeCardHTML:employeeCardHTML };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
 </script>

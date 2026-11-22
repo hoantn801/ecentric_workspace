@@ -349,6 +349,11 @@ def approve_with_operation_date(definition, name, comment=None,
 
 def reject(definition, name, comment=None):
     from ecentric_workspace.approval_center.shared.workflow import transitions as engine
+    if not getattr(definition, "allow_reject", True):
+        # Chan o may chu, khong chi an nut (23/11/2026): hub, duyet nhanh, goi API thang deu qua day.
+        # frappe._ (khong phai `_`): ngay duoi `_` la bien cuc bo (`_, request_name = ...`).
+        frappe.throw(frappe._("Loại yêu cầu này không có \"Từ chối\". Dùng \"Yêu cầu bổ sung\" để trả lại "
+                              "người gửi điều chỉnh."), frappe.PermissionError)
     _, request_name = resolve_request(definition, name)
     engine.reject(request_name, comment=comment)
     return {"detail": query_service.detail(definition, name)}

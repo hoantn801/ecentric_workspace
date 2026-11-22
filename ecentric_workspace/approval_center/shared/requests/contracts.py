@@ -57,6 +57,12 @@ class ApprovalDefinition:
     #: Trang form bat buoc nhan xet khi DUYET (luat dang nam o UI tung form) -> the duyet
     #: nhanh cung bat, va loai nay khong vao duyet hang loat.
     quick_comment_required: bool = False
+    #: Loai phieu co nut "Tu choi" hay khong (23/11/2026, HR v2). Mac dinh True = nhu cu.
+    #: False -> command_service.reject chan o may chu (moi duong: trang form, hub, duyet nhanh
+    #: tren dien thoai deu qua do) va capabilities.derive tra can_reject=False de UI an nut.
+    #: Vd Don nghi viec: NLD co quyen don phuong nghi khi bao truoc du ngay (Dieu 35 BLLD 2019),
+    #: nguoi duyet chi "Duyet" hoac "Tra lai dieu chinh" - khong co "Tu choi".
+    allow_reject: bool = True
     #: Truong KHONG duoc chep khi "Tao phieu moi tu phieu nay".
     #:
     #: Danh cho cac o mang tinh CAM KET CA NHAN - nguoi dung tich vao de xac nhan mot dieu

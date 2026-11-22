@@ -16,8 +16,9 @@ ROUTE = "approvals/offer-request"
 NAME = "offer-request"
 TITLE = "Offer Request"
 
-BASELINE_SHA256 = "7125fb5a72e557840970cc93d3e255cac7921fd03ac31fce1176cb1b5758c2ab"
+BASELINE_SHA256 = "8f626f5b4ac515540f730a362d4dfcdfd0fd3f23b37afbce8c6b09c48947002a"
 SUPERSEDES_SHA256 = (
+    "7125fb5a72e557840970cc93d3e255cac7921fd03ac31fce1176cb1b5758c2ab",  # ban truoc dot HR v2 23/11 (p442)
     "c387a1f64fa737aed7e6bce297d8e5b348a34d614bcf26f980436bc6ba30cc0d",  # ban truoc dot UX lich su/tien trinh/loi 03/11
     "bde728605a45f92bbc7c7443a903f92fa53d665b8148fcc5e62eea1f778b2a47",  # ban truoc dot nut Nhac nguoi xu ly 01/10
 )

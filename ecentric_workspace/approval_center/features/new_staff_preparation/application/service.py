@@ -80,6 +80,9 @@ def _create_and_submit(offer_name):
         "EC Approval Request", offer.approval_request, "approval_status")
     if st != "Approved":
         frappe.throw(_("Offer {0} chưa được duyệt xong.").format(offer_name))
+    if offer.get("candidate_status"):
+        frappe.throw(_("Offer {0} đã ghi nhận \"{1}\" - không tạo New Staff Preparation.").format(
+            offer_name, offer.candidate_status))
     name = offer.new_staff_preparation or frappe.db.get_value(
         BUSINESS_DT, {"offer_request": offer_name}, "name")
     if name and frappe.db.get_value(BUSINESS_DT, name, "approval_request"):
@@ -106,7 +109,125 @@ def _create_and_submit(offer_name):
     doc.save(ignore_permissions=True)
     req_name = engine.submit(BUSINESS_DT, doc.name, APPROVAL_TYPE, doc.requested_by)
     frappe.db.set_value(BUSINESS_DT, doc.name, "approval_request", req_name)
+    _dat_han(req_name, doc.onboard_date)
     return doc.name
+
+
+#: SLA (23/11/2026): moi nhom xong truoc ngay onboard 1 ngay lam viec, nhung toi thieu 2 ngay lam viec.
+HAN_TRUOC_ONBOARD = 1
+HAN_TOI_THIEU = 2
+
+
+def han_chuan_bi(onboard_date, hom_nay, le=()):
+    """Ham thuan: han chung cho cac nhom (date)."""
+    from ecentric_workspace.approval_center.shared import sla_ngay_lam_viec as sla
+    toi_thieu = sla.cong_ngay_lam_viec(hom_nay, HAN_TOI_THIEU, le)
+    if not onboard_date:
+        return toi_thieu
+    return max(sla.tru_ngay_lam_viec(getdate(onboard_date), HAN_TRUOC_ONBOARD, le), toi_thieu)
+
+
+def _dat_han(req_name, onboard_date):
+    from ecentric_workspace.approval_center.shared import sla_ngay_lam_viec as sla
+    sla.dat_han_cap(req_name, 1, han_chuan_bi(onboard_date, getdate(nowdate()), sla.ngay_le()))
+
+
+# --------------------------------------------------------------------------- huy theo Offer
+def cancel_for_offer(offer_name, actor, note):
+    """Ung vien tu choi / huy offer -> huy NSP dang mo (engine.cancel co ly do). NSP da xong thi ghi vet +
+    bao cac ben (co the phai thu hoi viec da chuan bi). -> chuoi ket qua."""
+    name = frappe.db.get_value(OFFER_DT, offer_name, "new_staff_preparation") or frappe.db.get_value(
+        BUSINESS_DT, {"offer_request": offer_name}, "name")
+    if not name:
+        return "chua co NSP"
+    req = frappe.db.get_value(BUSINESS_DT, name, "approval_request")
+    if not req:
+        return "NSP %s chua gui - giu nhap" % name
+    st = frappe.db.get_value("EC Approval Request", req, "approval_status")
+    people = frappe.get_all("EC Approval Request Approver", filters={"approval_request": req},
+                            pluck="approver")
+    if st in ("Pending", "Information Required"):
+        engine.cancel(req, actor=actor, reason=note)
+        msg, out = _("Đã huỷ chuẩn bị onboard: {0}"), "da huy NSP %s" % name
+    elif st == "Approved":
+        engine.log_action(req, "Commented", actor, comment=note)
+        msg, out = _("Ứng viên không nhận việc - kiểm tra thu hồi đồ đã chuẩn bị: {0}"), "NSP %s da xong - da bao" % name
+    else:
+        return "NSP %s da %s" % (name, st)
+    engine.notify(sorted(set(people) - {actor}), msg.format(engine.request_label(BUSINESS_DT, name)),
+                  BUSINESS_DT, name)
+    return out
+
+
+# --------------------------------------------------------------------------- chon ho so nhan vien
+HR_PICK_ROLES = ("EC CnB", "HR", "System Manager")
+
+
+def may_pick_employee(doc, user=None):
+    """Nhom HR cua phieu (co dong duyet trong nhom HR) hoac role CnB/HR/System Manager."""
+    user = user or frappe.session.user
+    if set(frappe.get_roles(user)) & set(HR_PICK_ROLES):
+        return True
+    from ecentric_workspace.approval_center.features.new_staff_preparation.infrastructure.setup_v2 import (
+        HR_GROUP)
+    return bool(doc.get("approval_request") and frappe.db.exists(
+        "EC Approval Request Approver", {"approval_request": doc.approval_request, "approver": user,
+                                         "participant_group": ["in", [HR_GROUP, "Lead HR"]]}))
+
+
+def pick_employee(name, employee, actor=None):
+    """Nhom HR chon ho so Employee vua tao cho nguoi moi -> ghi dong Thu viec / Thuc tap vao
+    Employee.ec_contracts (tu_ngay = ngay onboard, den_ngay = ngay ket thuc thu viec cua Offer). Co ghi vet."""
+    from ecentric_workspace.approval_center.features.new_staff_preparation.infrastructure import (
+        employee_contract as ec)
+    actor = actor or frappe.session.user
+    frappe.db.get_value(BUSINESS_DT, name, "name", for_update=True)
+    doc = frappe.get_doc(BUSINESS_DT, name)
+    if not may_pick_employee(doc, actor):
+        frappe.throw(_("Chỉ nhóm HR của phiếu (hoặc CnB/HR) mới chọn hồ sơ nhân viên."), frappe.PermissionError)
+    if not doc.approval_request:
+        frappe.throw(_("Phiếu chưa gửi."))
+    st = frappe.db.get_value("EC Approval Request", doc.approval_request, "approval_status")
+    if st in ("Rejected", "Cancelled"):
+        frappe.throw(_("Phiếu đã kết thúc ({0}).").format(st))
+    if doc.get("new_employee") and doc.new_employee != employee \
+            and "System Manager" not in frappe.get_roles(actor):
+        frappe.throw(_("Đã chọn hồ sơ {0}. Chỉ System Manager đổi được.").format(doc.new_employee))
+    emp = frappe.db.get_value("Employee", employee, ["name", "employee_name", "status"], as_dict=True)
+    if not emp:
+        frappe.throw(_("Không tìm thấy hồ sơ nhân viên {0}.").format(employee))
+    emp_type = frappe.db.get_value("EC Hiring Request", doc.hiring_request, "employment_type") \
+        if doc.hiring_request else None
+    ket = ec.ghi_dong_dau(emp.name, ec.loai_hop_dong(emp_type), doc.onboard_date, doc.probation_end_date,
+                          ghi_chu="Từ %s (%s)" % (doc.name, doc.offer_request or ""))
+    frappe.db.set_value(BUSINESS_DT, name, {"new_employee": emp.name, "new_employee_set_by": actor,
+                                            "contract_row_note": ket})
+    engine.log_action(doc.approval_request, "Commented", actor,
+                      comment=_("Chọn hồ sơ nhân viên {0} ({1}); {2}").format(emp.name, emp.employee_name, ket))
+    return {"new_employee": emp.name, "contract": ket}
+
+
+def suggest_employees(name, user=None):
+    """Goi y ho so cho nhom HR chon: ngay vao lam gan ngay onboard (+-15 ngay) hoac trung ten ung vien."""
+    from frappe.utils import add_days
+    doc = frappe.get_doc(BUSINESS_DT, name)
+    if not may_pick_employee(doc, user):
+        frappe.throw(_("Chỉ nhóm HR của phiếu (hoặc CnB/HR) mới chọn hồ sơ nhân viên."), frappe.PermissionError)
+    fields = ["name", "employee_name", "date_of_joining", "department", "status"]
+    rows = []
+    if doc.onboard_date:
+        rows += frappe.get_all("Employee", filters={"date_of_joining": ["between", [
+            add_days(doc.onboard_date, -15), add_days(doc.onboard_date, 15)]]}, fields=fields,
+            limit_page_length=20)
+    if doc.candidate_name:
+        rows += frappe.get_all("Employee", filters={"employee_name": ["like", "%%%s%%" % doc.candidate_name.strip()]},
+                               fields=fields, limit_page_length=10)
+    seen, out = set(), []
+    for r in rows:
+        if r.name not in seen:
+            seen.add(r.name)
+            out.append(r)
+    return out[:20]
 
 
 def submit(name):
@@ -166,6 +287,8 @@ def update_welcome(name, welcome_intro=None, onboard_date=None):
     if not thay:
         return {"changed": False}
     doc.save(ignore_permissions=True)
+    if doc.approval_request and onboard_date and st in ("Pending", "Information Required"):
+        _dat_han(doc.approval_request, doc.onboard_date)      # han chuan bi theo ngay onboard moi
     if doc.approval_request:
         engine.log_action(doc.approval_request, "Commented", user,
                           comment=_("Cập nhật: {0}").format(", ".join(thay)))
@@ -201,6 +324,11 @@ def nsp_block(business, request):
         "department_label": _dept_label(business.get("department")),
         "can_edit_welcome": _may_edit_welcome(business, user)
         and not (request and request.approval_status in ("Rejected", "Cancelled")),
+        # V2 (23/11): nhom HR chon ho so Employee -> ghi dong Thu viec vao ec_contracts.
+        "new_employee": business.get("new_employee"),
+        "contract_row_note": business.get("contract_row_note"),
+        "can_pick_employee": bool(request and request.approval_status not in ("Rejected", "Cancelled")
+                                  and may_pick_employee(business, user)),
     }
 
 
