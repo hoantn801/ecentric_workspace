@@ -53,6 +53,10 @@ def tao_nhap_va_tu_gui_job(hom_nay=None, repo=default_repo, hr=None):
         return out
     emps = hr.nhan_vien_dang_lam()
     rows_by = hr.hop_dong_cua([e["name"] for e in emps])
+    # Tich hop 23/11: nhap VUA tao trong lan chay nay khong tu gui ngay ca khi ngay tu gui da qua
+    # (lan chay dau sau deploy: hop dong het trong < 14 / 30 ngay). C&B co it nhat mot ngay lam viec
+    # de xem / sua / tat tu dong; lan chay ke moi gui.
+    vua_tao = set()
     for e in emps:
         try:
             ly_do, ctx = service.kiem_du_lieu(e, rows_by.get(e["name"]) or [], hom_nay, hr, ngay_le)
@@ -69,6 +73,7 @@ def tao_nhap_va_tu_gui_job(hom_nay=None, repo=default_repo, hr=None):
             res = service.tao_nhap(e["name"], auto=True, hom_nay=hom_nay, repo=repo, hr=hr)
             if res.get("ok") and not res.get("duplicate"):
                 out["tao"] += 1
+                vua_tao.add(res["name"])
                 doc = repo.get_review(res["name"])
                 engine.notify([doc.requested_by], _("Đã tạo nháp đánh giá - tự gửi ngày {0}: {1}").format(
                     service._vn(doc.auto_submit_on), doc.request_title), service.BUSINESS_DT, doc.name)
@@ -81,6 +86,8 @@ def tao_nhap_va_tu_gui_job(hom_nay=None, repo=default_repo, hr=None):
             frappe.db.rollback()
             frappe.log_error(frappe.get_traceback(), "employee_review.tao_nhap %s" % e.get("name"))
     for name in repo.drafts_due(hom_nay):
+        if name in vua_tao:
+            continue
         try:
             doc = repo.get_review(name, for_update=True)
             if doc.approval_request or doc.da_huy_nhap:

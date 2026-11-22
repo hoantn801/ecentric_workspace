@@ -477,6 +477,16 @@ class TestJob(_Base):
         out = jobs.tao_nhap_va_tu_gui_job(hom_nay=D(2026, 12, 18), repo=self.repo, hr=self.hr)
         self.assertEqual(len(_calls("submit")), 1)                                # khong gui lai
 
+    def test_nhap_vua_tao_khi_ngay_gui_da_qua_thi_doi_lan_chay_sau(self):
+        """Lan chay dau sau deploy: hop dong het 31/12, ngay tu gui (17/12) da qua. Khong tao roi gui
+        ngay trong cung lan chay - C&B co mot ngay lam viec de xem; lan chay ke moi gui."""
+        out = jobs.tao_nhap_va_tu_gui_job(hom_nay=D(2026, 12, 28), repo=self.repo, hr=self.hr)
+        self.assertEqual((out["tao"], out["gui"]), (1, 0))
+        self.assertFalse(_calls("submit"))
+        out = jobs.tao_nhap_va_tu_gui_job(hom_nay=D(2026, 12, 29), repo=self.repo, hr=self.hr)
+        self.assertEqual(out["gui"], 1)
+        self.assertEqual(len(_calls("submit")), 1)
+
     def test_job_khong_chay_ngay_nghi(self):
         out = jobs.tao_nhap_va_tu_gui_job(hom_nay=D(2026, 12, 12), repo=self.repo, hr=self.hr)   # T7
         self.assertEqual(out, {"tao": 0, "gui": 0, "thieu": 0, "huy": 0})
