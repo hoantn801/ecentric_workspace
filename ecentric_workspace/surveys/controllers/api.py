@@ -13,9 +13,10 @@ se duoc commit.
 import frappe
 from frappe.utils import strip_html
 
-from ecentric_workspace.surveys.application import (builder_service, draw_feed, draw_service,
-                                                    publish_service, respond_service,
-                                                    results_service, submit_reward)
+from ecentric_workspace.surveys.application import (builder_service, ca_nhan, draw_feed,
+                                                    draw_service, publish_service,
+                                                    respond_service, results_service,
+                                                    submit_reward)
 from ecentric_workspace.surveys.application.access import Ctx
 from ecentric_workspace.surveys.domain.errors import AnswerErrors, SurveyError
 from ecentric_workspace.surveys.infrastructure import repository as repo
@@ -199,3 +200,17 @@ def download_file(name, url):
     frappe.local.response.filename = fname
     frappe.local.response.filecontent = content
     frappe.local.response.type = "download"
+
+
+# ------------------------------------------------- khao sat ca nhan theo moc (23/11) --
+# Xem ket qua: HR / C&B (role trong viewer_roles cua lan giao) xem du; quan ly truc tiep cua
+# nguoi tra loi xem phan "LM xem duoc". Luat o application/ca_nhan + domain/ca_nhan.
+
+@frappe.whitelist(methods=["GET"])
+def ca_nhan_danh_sach():
+    return _run(lambda c: ca_nhan.danh_sach_ket_qua(c))
+
+
+@frappe.whitelist(methods=["GET"])
+def ca_nhan_xem(name):
+    return _run(lambda c: ca_nhan.xem_ket_qua(c, name))

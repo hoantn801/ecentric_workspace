@@ -355,5 +355,17 @@
   "ai_tools/pages/ai_live_ban_quyen/main_section.html": {
     "last_resync_patch": "p403_resync_ai_live_ban_quyen",
     "sha256": "8943777fb59d311c799075f3d27887616075a57367b937569275d32115123cca"
+  },
+  "approval_center/features/employee_review/ui/main_section.html": {
+    "last_resync_patch": "p450_danh_gia_nhan_su",
+    "sha256": "ad06cd7796421cdd434249c06f89f68dd3a59eca754ba31f3735e5f446e307a4"
+  },
+  "hr/pages/danh_gia_nhan_su/main_section.html": {
+    "last_resync_patch": "p450_danh_gia_nhan_su",
+    "sha256": "ec8d3030487312f3e05f71b741463690b81845791b3f340adde6e0135cebd22f"
+  },
+  "surveys/pages/ca_nhan/main_section.html": {
+    "last_resync_patch": "p450_danh_gia_nhan_su",
+    "sha256": "97434b4556faada9816b667c968c5d659841b95f1d1ae54ccc706e68e29520f1"
   }
 }

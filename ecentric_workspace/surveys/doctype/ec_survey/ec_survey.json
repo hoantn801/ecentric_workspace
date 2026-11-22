@@ -54,7 +54,14 @@
   "draw_at",
   "section_form",
   "form_json",
-  "response_count"
+  "response_count",
+  "section_personal",
+  "survey_kind",
+  "ma_mau",
+  "mau_tam",
+  "column_break_personal",
+  "quan_ly_roles",
+  "lm_hidden_items"
  ],
  "fields": [
   {
@@ -304,6 +311,48 @@
    "default": "0",
    "read_only": 1,
    "in_list_view": 1
+  },
+  {
+   "fieldname": "section_personal",
+   "fieldtype": "Section Break",
+   "label": "Khảo sát cá nhân theo mốc",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "survey_kind",
+   "fieldtype": "Select",
+   "label": "Kiểu khảo sát",
+   "options": "\nKhảo sát cá nhân theo mốc",
+   "description": "Trống = chiến dịch (theo đối tượng). \"Khảo sát cá nhân theo mốc\" = mẫu giao cho từng người (EC Survey Assignment); ai làm được là ai được giao."
+  },
+  {
+   "fieldname": "ma_mau",
+   "fieldtype": "Data",
+   "label": "Mã mẫu",
+   "description": "Mã ổn định để code gọi giao_khao_sat(user, ma_mau, ...). Ví dụ KS_THU_VIEC_1."
+  },
+  {
+   "fieldname": "mau_tam",
+   "fieldtype": "Check",
+   "label": "Mẫu tạm",
+   "default": "0",
+   "description": "Câu hỏi tạm do hệ thống seed - HR sửa lại khi có bộ câu hỏi chính thức."
+  },
+  {
+   "fieldname": "column_break_personal",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "quan_ly_roles",
+   "fieldtype": "Small Text",
+   "label": "Role quản lý mẫu",
+   "description": "Mỗi dòng một role. Người có role này soạn được câu hỏi và xem toàn bộ kết quả của mẫu."
+  },
+  {
+   "fieldname": "lm_hidden_items",
+   "fieldtype": "Small Text",
+   "label": "Câu ẩn với quản lý trực tiếp",
+   "description": "Danh sách id câu hỏi (JSON) thuộc nhóm \"chỉ HR · C&B\" - quản lý trực tiếp không thấy câu trả lời."
   }
  ],
  "permissions": [
@@ -325,5 +374,5 @@
  "title_field": "title",
  "show_title_field_in_link": 1,
  "search_fields": "title",
- "modified": "2026-10-01 18:30:00.000000"
+ "modified": "2026-11-23 09:00:00.000000"
 }

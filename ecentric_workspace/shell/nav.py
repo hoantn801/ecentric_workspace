@@ -745,6 +745,11 @@ RAIL_LAYOUTS = {
             {"key": "sla.scoreboard"}, {"key": "hr.brand_weight"},
             {"key": "rail.hr.kpi", "label": "Mục tiêu KPI", "route": "/coming-soon?tool=kpi", "icon": "target",
              "soon": True, "noactive": True}]},
+        # 23/11/2026 (HR Dot 2, A73): hang cho Danh gia nhan su - chi C&B / HR thay lien ket.
+        {"t": "group", "label": "C&B", "items": [
+            {"key": "rail.hr.review", "label": "Đánh giá nhân sự", "route": "/ec-hr/danh-gia-nhan-su",
+             "icon": "check", "caption": "C&B", "active_patterns": ["/ec-hr/danh-gia-nhan-su"],
+             "roles": ["EC CnB", "HR", "HR Manager", "System Manager"]}]},
         {"t": "help", "item": {"key": "hr.install_guide", "label": "Cài app lên điện thoại"}},
     ],
     "reports": [
@@ -782,7 +787,10 @@ RAIL_LAYOUTS = {
                  "roles": ["System Manager"]}]},
             {"key": "surveys.hub", "children": [
                 {"key": "rail.co.survey", "label": "Làm khảo sát", "route": "/khao-sat", "icon": "list"},
-                {"key": "surveys.manage"}]}]},
+                {"key": "surveys.manage"},
+                # 23/11/2026 (HR Dot 2): ket qua khao sat moc - HR/C&B + quan ly truc tiep (trang tu loc).
+                {"key": "rail.co.survey_cn", "label": "Kết quả khảo sát mốc", "route": "/khao-sat/ca-nhan",
+                 "icon": "chart", "active_patterns": ["/khao-sat/ca-nhan"]}]}]},
         {"t": "group", "label": "Công cụ", "items": [
             {"key": "ai_tools.hub", "children": [
                 {"key": "rail.co.si", "label": "Tất cả công cụ", "route": "/ai-tool", "icon": "grid"},

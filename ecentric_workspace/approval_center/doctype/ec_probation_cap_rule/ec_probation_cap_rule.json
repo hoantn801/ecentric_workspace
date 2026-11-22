@@ -1,0 +1,56 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-11-23 09:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-23 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Approval Center",
+ "name": "EC Probation Cap Rule",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "field_order": [
+  "ap_dung",
+  "gia_tri",
+  "tran_ngay",
+  "ghi_chu"
+ ],
+ "fields": [
+  {
+   "fieldname": "ap_dung",
+   "fieldtype": "Select",
+   "label": "Áp dụng theo",
+   "options": "Chức danh\nChức vụ",
+   "default": "Chức danh",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "gia_tri",
+   "fieldtype": "Data",
+   "label": "Giá trị (đúng tên chức danh / chức vụ)",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "tran_ngay",
+   "fieldtype": "Int",
+   "label": "Trần thử việc (ngày)",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "ghi_chu",
+   "fieldtype": "Data",
+   "label": "Ghi chú",
+   "in_list_view": 1
+  }
+ ],
+ "permissions": [],
+ "istable": 1
+}

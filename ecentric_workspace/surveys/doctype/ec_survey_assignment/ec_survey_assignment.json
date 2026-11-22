@@ -1,0 +1,151 @@
+{
+ "doctype": "DocType",
+ "name": "EC Survey Assignment",
+ "module": "Surveys",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "autoname": "hash",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "title_field": "ma_mau",
+ "description": "Một lần GIAO khảo sát cá nhân cho một người (khảo sát mốc thử việc / thực tập, khảo sát nghỉ việc...). Đã nộp hay chưa đọc từ EC Survey Participant (một nguồn sự thật). Chỉ System Manager mở Desk; mọi truy cập của người dùng qua surveys/controllers/api.py.",
+ "field_order": [
+  "survey",
+  "ma_mau",
+  "user",
+  "employee",
+  "status",
+  "cb1",
+  "assigned_on",
+  "due_date",
+  "reminded_at",
+  "cancelled_reason",
+  "sb_ctx",
+  "viewer_roles",
+  "ngu_canh",
+  "dedupe_key"
+ ],
+ "fields": [
+  {
+   "fieldname": "survey",
+   "fieldtype": "Link",
+   "label": "Khảo sát (mẫu)",
+   "options": "EC Survey",
+   "reqd": 1,
+   "in_list_view": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "ma_mau",
+   "fieldtype": "Data",
+   "label": "Mã mẫu",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "Người được giao",
+   "options": "User",
+   "reqd": 1,
+   "in_list_view": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "label": "Nhân viên",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Trạng thái",
+   "options": "Open\nCancelled",
+   "default": "Open",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "assigned_on",
+   "fieldtype": "Date",
+   "label": "Ngày giao",
+   "read_only": 1
+  },
+  {
+   "fieldname": "due_date",
+   "fieldtype": "Date",
+   "label": "Hạn làm",
+   "read_only": 1,
+   "description": "Tính theo ngày làm việc của công ty."
+  },
+  {
+   "fieldname": "reminded_at",
+   "fieldtype": "Datetime",
+   "label": "Đã nhắc lúc",
+   "read_only": 1,
+   "description": "Nhắc MỘT lần trước hạn - có giá trị thì không nhắc lại."
+  },
+  {
+   "fieldname": "cancelled_reason",
+   "fieldtype": "Small Text",
+   "label": "Lý do huỷ",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_ctx",
+   "fieldtype": "Section Break",
+   "label": "Ngữ cảnh + người xem"
+  },
+  {
+   "fieldname": "viewer_roles",
+   "fieldtype": "Small Text",
+   "label": "Người xem kết quả",
+   "read_only": 1,
+   "description": "Mỗi dòng một role; \"LM\" = quản lý trực tiếp hiện tại của người trả lời."
+  },
+  {
+   "fieldname": "ngu_canh",
+   "fieldtype": "Small Text",
+   "label": "Ngữ cảnh (JSON)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "dedupe_key",
+   "fieldtype": "Data",
+   "label": "Khoá chống giao trùng",
+   "read_only": 1,
+   "unique": 1,
+   "hidden": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "modified": "2026-11-23 09:00:00.000000",
+ "creation": "2026-11-23 09:00:00.000000",
+ "owner": "Administrator",
+ "modified_by": "Administrator"
+}

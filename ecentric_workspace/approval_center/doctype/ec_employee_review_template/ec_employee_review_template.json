@@ -1,0 +1,99 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-11-23 09:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-23 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Approval Center",
+ "name": "EC Employee Review Template",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "field_order": [
+  "ten_mau",
+  "ap_dung_cho",
+  "dang_dung",
+  "mau_tam",
+  "ghi_chu",
+  "tieu_chi"
+ ],
+ "fields": [
+  {
+   "fieldname": "ten_mau",
+   "fieldtype": "Data",
+   "label": "Tên mẫu",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "ap_dung_cho",
+   "fieldtype": "Select",
+   "label": "Áp dụng cho",
+   "options": "Tất cả\nThử việc\nThực tập\nHợp đồng",
+   "default": "Tất cả",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "dang_dung",
+   "fieldtype": "Check",
+   "label": "Đang dùng",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "mau_tam",
+   "fieldtype": "Check",
+   "label": "Mẫu tạm",
+   "default": "0",
+   "description": "Mẫu do hệ thống seed - HR thay bằng bộ tiêu chí chính thức."
+  },
+  {
+   "fieldname": "ghi_chu",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú"
+  },
+  {
+   "fieldname": "tieu_chi",
+   "fieldtype": "Table",
+   "label": "Tiêu chí",
+   "options": "EC Employee Review Template Criterion"
+  }
+ ],
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "role": "EC CnB",
+   "read": 1,
+   "write": 1,
+   "create": 1
+  },
+  {
+   "role": "HR Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1
+  }
+ ],
+ "autoname": "field:ten_mau",
+ "naming_rule": "By fieldname",
+ "track_changes": 1,
+ "description": "Mẫu tiêu chí đánh giá nhân sự theo loại. Job tạo nháp chọn mẫu đang dùng khớp loại, không có thì mẫu 'Tất cả'."
+}

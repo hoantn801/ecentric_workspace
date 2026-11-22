@@ -217,5 +217,12 @@
   "category": "ADMINISTRATION",
   "legacy_template_name": "Clearance Request (Power Automate)",
   "sort_order": 33
+ },
+ {
+  "approval_code": "EMPLOYEE_REVIEW",
+  "approval_title": "Đánh giá nhân sự",
+  "category": "ADMINISTRATION",
+  "legacy_template_name": "Đánh giá thử việc / thực tập / hợp đồng (HR Đợt 2)",
+  "sort_order": 34
  }
 ]
