@@ -19,7 +19,7 @@ import sys
 _HERE = os.path.dirname(os.path.abspath(__file__))
 APP_DIR = os.path.dirname(os.path.dirname(_HERE))
 ASSET_DIR = os.path.join(APP_DIR, "public", "surveys")
-PAGE_KEYS = ("hub", "fill", "manage", "builder")
+PAGE_KEYS = ("hub", "fill", "manage", "builder", "ca_nhan")
 ASSET_REF = re.compile(r'(/assets/ecentric_workspace/surveys/([A-Za-z0-9_.-]+))\?v=([0-9a-f]*)')
 
 

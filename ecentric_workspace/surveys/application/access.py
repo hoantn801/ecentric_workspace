@@ -6,6 +6,8 @@ System Manager, nen moi duong doc / ghi cua nguoi dung deu phai qua cac ham o da
   * Soan + xem ket qua: nguoi tao, nguoi cung quan ly (bang editors), System Manager.
   * Lam khao sat      : nguoi nam trong doi tuong (domain/audience.py) khi khao sat dang mo.
   * Xem truoc         : nguoi soan (khong nop duoc).
+  * Khao sat ca nhan theo moc (23/11/2026): lam duoc = DUOC GIAO (EC Survey Assignment dang mo),
+    khong doc bang doi tuong; quan ly them = nguoi giu role trong `quan_ly_roles` cua mau.
 """
 from ecentric_workspace.surveys import constants as C
 from ecentric_workspace.surveys.domain import audience
@@ -32,9 +34,18 @@ def editors_of(survey):
     return {r.get("user") for r in survey.get("editors") or [] if r.get("user")}
 
 
+def manager_roles_of(survey):
+    """Role quan ly mau (chi khao sat ca nhan) - Small Text, moi dong mot role."""
+    if (survey or {}).get("survey_kind") != C.KIND_PERSONAL:
+        return set()
+    raw = survey.get("quan_ly_roles") or ""
+    return {r.strip() for r in str(raw).replace(",", "\n").split("\n") if r.strip()}
+
+
 def can_manage(ctx, survey):
     return bool(survey) and (ctx.is_admin or survey.get("owner") == ctx.user
-                             or ctx.user in editors_of(survey))
+                             or ctx.user in editors_of(survey)
+                             or bool(ctx.roles & manager_roles_of(survey)))
 
 
 def require_create(ctx):
@@ -54,6 +65,10 @@ def eligible_set(repo, survey, cache=None):
     """Tap user duoc lam khao sat. `cache` (dict) de dung chung danh sach nhan su / phong ban
     khi tinh cho nhieu khao sat trong mot request."""
     cache = cache if cache is not None else {}
+    if survey.get("survey_kind") == C.KIND_PERSONAL:
+        # Khao sat ca nhan: ai DUOC GIAO moi lam duoc - bang doi tuong khong dung toi (HR sua
+        # mau trong trinh soan khong the vo tinh mo cho ca cong ty).
+        return set(repo.assigned_users(survey.get("name")))
     if "emps" not in cache:
         cache["emps"] = repo.employees()
         cache["depts"] = repo.departments()

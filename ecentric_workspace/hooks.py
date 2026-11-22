@@ -1152,3 +1152,18 @@ web_include_css.append("ec_approval_links.bundle.css")
 # CLEARANCE_REQUEST Active -> khong lam gi. Don cu (da qua ngay cuoi) chi tao bu qua endpoint SM co dry-run.
 scheduler_events["cron"].setdefault("5 9 * * 1-5", []).append(
     "ecentric_workspace.approval_center.features.clearance_request.application.service.quet_hang_ngay")
+# --------------------------------------------------------------------------- #
+# 23/11/2026 (Hoan chot, HR Dot 2) - Danh gia nhan su + khao sat moc. Gio cron o site nay la GIO
+# DIA PHUONG (Asia/Ho_Chi_Minh). Moi job tu bo qua ngay nghi cong ty, idempotent (chay lai khong
+# tao / gui / bao them), thong bao qua notification_center (giu tin trong gio yen lang).
+#   * tao nhap danh gia D-21 / D-37 + tu gui D-14 / D-30 + huy phieu cua NV da nghi
+#   * giao khao sat moc thu viec (7/30/45) / thuc tap (30/60/75) + nhac MOT lan truoc han
+#   * thu Hai: bao C&B so nhan su thieu ngay ket thuc hop dong
+# Tat khan: site_config ec_employee_review_jobs_disabled / ec_survey_milestone_disabled.
+scheduler_events["cron"].setdefault("0 9 * * *", []).extend([
+    "ecentric_workspace.approval_center.features.employee_review.application.jobs.tao_nhap_va_tu_gui_job",
+    "ecentric_workspace.surveys.application.ca_nhan.giao_khao_sat_moc_job",
+    "ecentric_workspace.surveys.application.ca_nhan.nhac_khao_sat_ca_nhan_job",
+])
+scheduler_events["cron"].setdefault("0 9 * * 1", []).append(
+    "ecentric_workspace.approval_center.features.employee_review.application.jobs.nhac_thieu_ngay_job")

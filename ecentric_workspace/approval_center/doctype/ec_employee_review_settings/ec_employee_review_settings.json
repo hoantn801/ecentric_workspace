@@ -1,0 +1,73 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-11-23 09:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-23 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Approval Center",
+ "name": "EC Employee Review Settings",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "field_order": [
+  "tat_tu_dong",
+  "nguoi_gui_mac_dinh",
+  "tran_thu_viec_mac_dinh",
+  "quy_tac_tran"
+ ],
+ "fields": [
+  {
+   "fieldname": "tat_tu_dong",
+   "fieldtype": "Check",
+   "label": "Tắt tạo nháp / tự gửi",
+   "default": "0"
+  },
+  {
+   "fieldname": "nguoi_gui_mac_dinh",
+   "fieldtype": "Link",
+   "label": "Người gửi mặc định của nháp tự tạo",
+   "options": "User",
+   "description": "Để trống = người đầu tiên (theo email) đang có role EC CnB. C&B bấm 'Nhận nháp' thì thành người gửi."
+  },
+  {
+   "fieldname": "tran_thu_viec_mac_dinh",
+   "fieldtype": "Int",
+   "label": "Trần thử việc mặc định (ngày)",
+   "default": "60",
+   "description": "Điều 25 BLLĐ 2019: 180 (quản lý doanh nghiệp theo Luật DN), 60 (cần trình độ cao đẳng trở lên), 30 (trung cấp / CN kỹ thuật / NV nghiệp vụ), 6 ngày làm việc (khác)."
+  },
+  {
+   "fieldname": "quy_tac_tran",
+   "fieldtype": "Table",
+   "label": "Trần theo chức danh / chức vụ",
+   "options": "EC Probation Cap Rule"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1
+  },
+  {
+   "role": "EC CnB",
+   "read": 1,
+   "write": 1
+  },
+  {
+   "role": "HR Manager",
+   "read": 1,
+   "write": 1
+  }
+ ],
+ "issingle": 1,
+ "track_changes": 1,
+ "description": "Cấu hình Đánh giá nhân sự: người gửi mặc định, trần thử việc theo Điều 25."
+}

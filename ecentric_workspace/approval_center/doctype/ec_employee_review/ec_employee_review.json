@@ -1,0 +1,454 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-11-23 09:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-23 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Approval Center",
+ "name": "EC Employee Review",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "field_order": [
+  "approval_type",
+  "approval_request",
+  "request_title",
+  "requested_by",
+  "employee",
+  "department",
+  "company",
+  "cb0",
+  "submitted_at",
+  "completed_at",
+  "sb_nv",
+  "review_type",
+  "nhan_vien",
+  "ten_nhan_vien",
+  "employee_user",
+  "phong_ban_nv",
+  "chuc_danh",
+  "line_manager",
+  "cb1",
+  "dong_hop_dong",
+  "loai_hop_dong",
+  "hd_tu_ngay",
+  "hd_den_ngay",
+  "dedupe_key",
+  "sb_draft",
+  "auto_draft",
+  "draft_created_on",
+  "auto_submit_on",
+  "da_huy_nhap",
+  "ly_do_huy_nhap",
+  "cb2",
+  "ghi_chu_cnb",
+  "mau_tieu_chi",
+  "tieu_chi_json",
+  "sb_tu_dg",
+  "nv_danh_gia_json",
+  "nv_nhan_xet",
+  "nv_gui_luc",
+  "sb_lm",
+  "lm_danh_gia_json",
+  "lm_ket_qua",
+  "lm_gia_han_den",
+  "lm_thoi_han_hd",
+  "lm_nhan_xet",
+  "lm_gui_luc",
+  "lm_boi",
+  "sb_kq",
+  "ket_qua",
+  "ket_qua_luc",
+  "ho_so_trang_thai",
+  "ho_so_de_xuat_json",
+  "ho_so_xac_nhan_boi",
+  "ho_so_xac_nhan_luc"
+ ],
+ "fields": [
+  {
+   "fieldname": "approval_type",
+   "fieldtype": "Link",
+   "label": "Approval Type",
+   "options": "EC Approval Type",
+   "default": "EMPLOYEE_REVIEW",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approval_request",
+   "fieldtype": "Link",
+   "label": "Approval Request",
+   "options": "EC Approval Request",
+   "read_only": 1
+  },
+  {
+   "fieldname": "request_title",
+   "fieldtype": "Data",
+   "label": "Request Title",
+   "length": 255,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "requested_by",
+   "fieldtype": "Link",
+   "label": "Người gửi (C&B)",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "label": "Employee (người gửi)",
+   "options": "Employee",
+   "read_only": 1,
+   "description": "Hồ sơ của NGƯỜI GỬI (C&B) - engine dùng. Nhân viên được đánh giá ở trường nhan_vien."
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "label": "Department (người gửi)",
+   "options": "Department",
+   "read_only": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb0",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "submitted_at",
+   "fieldtype": "Datetime",
+   "label": "Submitted At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "completed_at",
+   "fieldtype": "Datetime",
+   "label": "Completed At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_nv",
+   "fieldtype": "Section Break",
+   "label": "Nhân viên được đánh giá"
+  },
+  {
+   "fieldname": "review_type",
+   "fieldtype": "Select",
+   "label": "Loại đánh giá",
+   "options": "\nThử việc\nThực tập\nHợp đồng",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "nhan_vien",
+   "fieldtype": "Link",
+   "label": "Nhân viên",
+   "options": "Employee",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "ten_nhan_vien",
+   "fieldtype": "Data",
+   "label": "Họ tên",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "employee_user",
+   "fieldtype": "Link",
+   "label": "Tài khoản nhân viên",
+   "options": "User",
+   "read_only": 1,
+   "description": "Đối tượng của phiếu. Cấp 1 (tự đánh giá) và cấp 2 (quản lý trực tiếp) giải theo trường này."
+  },
+  {
+   "fieldname": "phong_ban_nv",
+   "fieldtype": "Link",
+   "label": "Phòng ban",
+   "options": "Department",
+   "read_only": 1
+  },
+  {
+   "fieldname": "chuc_danh",
+   "fieldtype": "Data",
+   "label": "Chức danh",
+   "read_only": 1
+  },
+  {
+   "fieldname": "line_manager",
+   "fieldtype": "Link",
+   "label": "Quản lý trực tiếp (lúc tạo)",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "dong_hop_dong",
+   "fieldtype": "Data",
+   "label": "Dòng hợp đồng",
+   "read_only": 1,
+   "description": "Tên dòng EC Employee Contract trên hồ sơ (nguồn ngày)."
+  },
+  {
+   "fieldname": "loai_hop_dong",
+   "fieldtype": "Data",
+   "label": "Loại hợp đồng",
+   "read_only": 1
+  },
+  {
+   "fieldname": "hd_tu_ngay",
+   "fieldtype": "Date",
+   "label": "Hợp đồng từ ngày",
+   "read_only": 1
+  },
+  {
+   "fieldname": "hd_den_ngay",
+   "fieldtype": "Date",
+   "label": "Hợp đồng đến ngày",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "dedupe_key",
+   "fieldtype": "Data",
+   "label": "Khoá chống trùng",
+   "read_only": 1,
+   "unique": 1,
+   "hidden": 1,
+   "description": "nhân viên | loại | ngày kết thúc - job chạy lại không tạo phiếu thứ hai."
+  },
+  {
+   "fieldname": "sb_draft",
+   "fieldtype": "Section Break",
+   "label": "Nháp tự động"
+  },
+  {
+   "fieldname": "auto_draft",
+   "fieldtype": "Check",
+   "label": "Nháp do hệ thống tạo",
+   "default": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "draft_created_on",
+   "fieldtype": "Date",
+   "label": "Ngày tạo nháp",
+   "read_only": 1
+  },
+  {
+   "fieldname": "auto_submit_on",
+   "fieldtype": "Date",
+   "label": "Ngày tự gửi",
+   "read_only": 1,
+   "description": "Đến ngày này (9h, ngày làm việc) hệ thống tự gửi nháp nếu C&B chưa gửi."
+  },
+  {
+   "fieldname": "da_huy_nhap",
+   "fieldtype": "Check",
+   "label": "Nháp đã huỷ",
+   "default": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "ly_do_huy_nhap",
+   "fieldtype": "Small Text",
+   "label": "Lý do huỷ nháp",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "ghi_chu_cnb",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú của C&B",
+   "description": "Hiện cho nhân viên và quản lý. Không ghi nội dung nhạy cảm."
+  },
+  {
+   "fieldname": "mau_tieu_chi",
+   "fieldtype": "Link",
+   "label": "Mẫu tiêu chí",
+   "options": "EC Employee Review Template"
+  },
+  {
+   "fieldname": "tieu_chi_json",
+   "fieldtype": "Long Text",
+   "label": "Tiêu chí (bản chụp)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_tu_dg",
+   "fieldtype": "Section Break",
+   "label": "Nhân viên tự đánh giá"
+  },
+  {
+   "fieldname": "nv_danh_gia_json",
+   "fieldtype": "Long Text",
+   "label": "Điểm tự đánh giá (JSON)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "nv_nhan_xet",
+   "fieldtype": "Small Text",
+   "label": "Nhân viên tự nhận xét",
+   "read_only": 1
+  },
+  {
+   "fieldname": "nv_gui_luc",
+   "fieldtype": "Datetime",
+   "label": "Nhân viên gửi lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_lm",
+   "fieldtype": "Section Break",
+   "label": "Đánh giá của quản lý trực tiếp (ẩn với nhân viên tới khi CEO duyệt)",
+   "permlevel": 1
+  },
+  {
+   "fieldname": "lm_danh_gia_json",
+   "fieldtype": "Long Text",
+   "label": "Điểm quản lý chấm (JSON)",
+   "read_only": 1,
+   "permlevel": 1
+  },
+  {
+   "fieldname": "lm_ket_qua",
+   "fieldtype": "Select",
+   "label": "Kết quả quản lý đề xuất",
+   "options": "\nĐạt\nKhông đạt\nGia hạn\nKhông gia hạn",
+   "read_only": 1,
+   "permlevel": 1
+  },
+  {
+   "fieldname": "lm_gia_han_den",
+   "fieldtype": "Date",
+   "label": "Gia hạn đến ngày",
+   "read_only": 1,
+   "permlevel": 1
+  },
+  {
+   "fieldname": "lm_thoi_han_hd",
+   "fieldtype": "Select",
+   "label": "Thời hạn HĐ mới",
+   "options": "\n12 tháng\n24 tháng\n36 tháng\nKhông xác định thời hạn",
+   "read_only": 1,
+   "permlevel": 1
+  },
+  {
+   "fieldname": "lm_nhan_xet",
+   "fieldtype": "Text",
+   "label": "Nhận xét của quản lý",
+   "read_only": 1,
+   "permlevel": 1
+  },
+  {
+   "fieldname": "lm_gui_luc",
+   "fieldtype": "Datetime",
+   "label": "Quản lý gửi lúc",
+   "read_only": 1,
+   "permlevel": 1
+  },
+  {
+   "fieldname": "lm_boi",
+   "fieldtype": "Link",
+   "label": "Người nhập phần quản lý",
+   "options": "User",
+   "read_only": 1,
+   "permlevel": 1
+  },
+  {
+   "fieldname": "sb_kq",
+   "fieldtype": "Section Break",
+   "label": "Kết quả + cập nhật hồ sơ",
+   "permlevel": 1
+  },
+  {
+   "fieldname": "ket_qua",
+   "fieldtype": "Data",
+   "label": "Kết quả cuối (sau CEO)",
+   "read_only": 1,
+   "permlevel": 1
+  },
+  {
+   "fieldname": "ket_qua_luc",
+   "fieldtype": "Datetime",
+   "label": "Có kết quả lúc",
+   "read_only": 1,
+   "permlevel": 1
+  },
+  {
+   "fieldname": "ho_so_trang_thai",
+   "fieldtype": "Select",
+   "label": "Cập nhật hồ sơ",
+   "options": "\nChờ C&B xác nhận\nĐã cập nhật hồ sơ\nKhông cần cập nhật",
+   "read_only": 1,
+   "permlevel": 1
+  },
+  {
+   "fieldname": "ho_so_de_xuat_json",
+   "fieldtype": "Long Text",
+   "label": "Đề xuất cập nhật hồ sơ (JSON)",
+   "read_only": 1,
+   "permlevel": 1
+  },
+  {
+   "fieldname": "ho_so_xac_nhan_boi",
+   "fieldtype": "Link",
+   "label": "C&B xác nhận",
+   "options": "User",
+   "read_only": 1,
+   "permlevel": 1
+  },
+  {
+   "fieldname": "ho_so_xac_nhan_luc",
+   "fieldtype": "Datetime",
+   "label": "Xác nhận lúc",
+   "read_only": 1,
+   "permlevel": 1
+  }
+ ],
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "role": "System Manager",
+   "permlevel": 1,
+   "read": 1,
+   "write": 1
+  }
+ ],
+ "autoname": "EC-EVAL-.YYYY.-.#####.",
+ "naming_rule": "Expression",
+ "title_field": "request_title",
+ "track_changes": 1,
+ "description": "Đánh giá nhân sự (thử việc / thực tập / hợp đồng) - một form, người gửi = C&B, đối tượng = nhân viên. Phần của quản lý trực tiếp ở permlevel 1 (REST không trả cho người không có quyền) và business_redactor ẩn với nhân viên tới khi CEO duyệt."
+}

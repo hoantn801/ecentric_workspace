@@ -104,6 +104,22 @@ HR_ITEMS = [
                      "iphone", "android", "man hinh chinh"],
         "owner": "hr",
     },
+    {
+        # 23/11/2026 (HR Dot 2): hang cho Danh gia nhan su cua C&B. sidebar_hidden: muc nay chi
+        # cho trang nhan ngu canh Nhan su; LIEN KET trong cot nam o shell/nav.py RAIL_LAYOUTS["hr"]
+        # (rail.hr.review, chi hien voi role EC CnB / HR / HR Manager). API tu kiem quyen.
+        "key": "hr.employee_review",
+        "label": "Đánh giá nhân sự",
+        "route": "/ec-hr/danh-gia-nhan-su",
+        "icon": "check",
+        "group": "Nhân sự",
+        "order": 60,
+        "active_patterns": ["/ec-hr/danh-gia-nhan-su"],
+        "visible_when": "internal",
+        "keywords": ["danh gia", "thu viec", "thuc tap", "hop dong", "het han", "ngay ket thuc"],
+        "owner": "hr",
+        "sidebar_hidden": True,
+    },
 ]
 
 

@@ -2252,6 +2252,9 @@ _FULFILLMENT_HANDLERS = {
     "EC Outside Work Request": "ecentric_workspace.approval_center.features.outside_work.application.attendance.on_final_approval",
     # 23/11/2026: Phe duyet dot xuat - chi ghi moc hoan tat (khong co buoc xu ly).
     "EC Adhoc Approval Request": "ecentric_workspace.approval_center.features.adhoc_approval.application.service.on_final_approval",
+    # 23/11: Danh gia nhan su - CEO duyet xong -> chot ket qua + DE XUAT cap nhat ho so cho C&B
+    # xac nhan (khong tu ghi ho so).
+    "EC Employee Review": "ecentric_workspace.approval_center.features.employee_review.application.service.on_final_approval",
 }
 
 
