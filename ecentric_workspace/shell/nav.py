@@ -755,6 +755,12 @@ RAIL_LAYOUTS = {
              "roles": ["EC CnB", "HR", "HR Manager", "System Manager"]}]},
         # 23/11/2026 (Dot 3 HR): Ky luat lao dong (hr/nav.py "hr.ky_luat").
         {"t": "group", "label": "Quản lý nhân sự", "items": [{"key": "hr.ky_luat"}]},
+        # 23/11/2026 (brief HR Agent F): huong dan 7 quy trinh nhan su moi. Lien ket rieng cua cot
+        # (rail.*): tung bai huong dan KHONG la muc registry (guides/nav.py - mot muc luc duy nhat,
+        # "/huong-dan/*" da quy ve guides.index cho breadcrumb); bai khai o guides/registry.py.
+        {"t": "group", "label": "Hướng dẫn", "items": [
+            {"key": "rail.hr.guides", "label": "Quy trình nhân sự", "route": "/huong-dan/nhan-su",
+             "icon": "book", "noactive": True}]},
         {"t": "help", "item": {"key": "hr.install_guide", "label": "Cài app lên điện thoại"}},
     ],
     "reports": [
