@@ -694,9 +694,35 @@ def plan_portal_step(dsr, state, profile_name, environment, adapter=None, instan
         if cfg["terminal"]:
             out.update({"mode": "transition", "to_users": [], "erp_users": []})
             return out
-        # Buoc ke tiep tren cong khong co nguoi ERP (vd CEO `-5` sang DOI TAC). Chua lam (PR-D):
-        # DUNG, khong gui toUsers rong (= ca nhom vai tro). Ho so WF09 KHONG duoc bat truoc PR-D.
-        return {"mode": "stop", "reason": "no_next_level_approver:partner_step_not_supported"}
+        # Buoc ke tiep tren cong khong co nguoi ERP (vd CEO `-5` sang DOI TAC, PR-D 22/11). Chi
+        # khi ho so bat allow_external_signers: nguoi nhan = DUNG MOT nguoi cong chap nhan cho
+        # canh nay (giao dien cong lay tu users-for-transition, chi co mot thi tu chon). Khong
+        # hoi duoc / 0 / nhieu -> DUNG, khong gui toUsers rong (= ca nhom vai tro).
+        if not _allows_external(profile_name):
+            return {"mode": "stop", "reason": "no_next_level_approver:partner_step_not_supported"}
+        # CHI o cap ERP CUOI (QC 22/11): next_level_approvers rong ca khi cap sau con do nhung
+        # khong "Pending" (vd cap chi-ERP bi bo qua) - khi do KHONG duoc dua sang doi tac.
+        final = _final_level(ar)
+        if final is None or level < final:
+            return {"mode": "stop", "reason": "no_next_level_approver:not_final_level"}
+        if adapter is None or not instance_id or not hasattr(adapter, "eligible_recipients"):
+            return {"mode": "stop", "reason": "partner_recipient_unverified"}
+        eligible = adapter.eligible_recipients(instance_id, cfg.get("transition_id"),
+                                               dsr.get("effective_scts_user_id"))
+        if eligible is None:
+            return {"mode": "stop", "reason": "partner_recipient_unverified"}
+        ids = sorted(str(i) for i in eligible)
+        # Nguoi nhan buoc doi tac KHONG duoc la chinh nguoi gui hay mot nguoi NOI BO da anh xa
+        # (QC 22/11: cong tra nham mot user noi bo vai "doitac" -> tai lieu sang sai nguoi).
+        internal = [i for i in ids if i == str(dsr.get("effective_scts_user_id") or "")
+                    or _is_internal_provider_id(i, environment)]
+        if internal:
+            return {"mode": "stop", "reason": "partner_recipient_internal:%s" % ",".join(internal)}
+        if len(ids) != 1:
+            return {"mode": "stop", "reason": "partner_recipient_ambiguous:%d" % len(ids)}
+        out.update({"mode": "transition", "to_users": ids, "erp_users": [],
+                    "partner_handover": True})
+        return out
     ids, unmapped = provider_ids_for(users, environment)
     if unmapped or not ids:
         # Thieu anh xa mot nguoi = cong giao buoc cho thieu nguoi. Dung lai, noi ro ai.
@@ -714,6 +740,23 @@ def plan_portal_step(dsr, state, profile_name, environment, adapter=None, instan
             out["recipients_unverified"] = True
     out.update({"mode": "transition", "to_users": ids, "erp_users": users})
     return out
+
+
+def _final_level(ar):
+    rows = frappe.get_all("EC Approval Request Approver", filters={"approval_request": ar},
+                          fields=["level_no"], order_by="level_no desc", limit_page_length=1)
+    return int(rows[0].level_no) if rows else None
+
+
+def _is_internal_provider_id(pid, environment):
+    return bool(frappe.db.exists("EC SCTS User Mapping", {"scts_user_id": str(pid),
+                                                          "environment": environment,
+                                                          "active": 1}))
+
+
+def _allows_external(profile_name):
+    return bool(profile_name and int(frappe.db.get_value(
+        "EC Digital Signature Profile", profile_name, "allow_external_signers") or 0))
 
 
 def _level_of(dsr):

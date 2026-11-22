@@ -192,6 +192,9 @@ def _ensure_provider_document(dsr, settings, adapter):
     if not int(settings.get("allow_document_creation") or 0):
         raise ProviderError("document_creation_gated",
                             "allow_document_creation is OFF", retryable=True)
+    # Doi tac ky ngoai (PR-D): lay TRUOC moi doi trang thai - thieu thi dung, khong tao tai lieu
+    # thieu doi tac (khong sua lai duoc qua AddDocument).
+    external = _external_handlers_for(pkg)
     # Lazy trigger ('Before First Signing Level'): the package is already Active
     # (signable) - provider-document creation is an ATTRIBUTE update, never a status
     # regression (Active has no backward edges by design). Only the submit-time path
@@ -232,6 +235,7 @@ def _ensure_provider_document(dsr, settings, adapter):
             copies=_payload_copies(settings)),
         "placements": _with_page_heights(pkg.name,
                                          [dict(p) for p in pkgsvc.package_placements(pkg.name)]),
+        "external_handlers": external,
     }
     _enrich_signer_context(ctx["placements"], dsr)  # item 5: derive roleTitle/signatureType
     try:
@@ -269,7 +273,54 @@ def _ensure_provider_document(dsr, settings, adapter):
         events.set_package_status(pkg.name, "Active")
     else:  # Active (lazy mode): attribute update only
         events.emit("ProviderCreated", package=pkg.name, provider_txn_id=res["document_id"])
+    if external:
+        # Chot DOI TAC DA GUI kem tai lieu (QC 22/11): cong tai PDF doi chieu voi ban nay, khong
+        # doc lai hook (email doi tac sua sau / co ho so doi giua chung -> ket mai).
+        events.emit("PollTick", package=pkg.name, verification_result=PARTNERS_SENT,
+                    request_meta={"partner_emails": sorted(
+                        str(r.get("email") or "").strip().lower() for r in external)})
     return res["document_id"]
+
+
+EXTERNAL_HOOK = "ec_esign_external_handlers"
+PARTNERS_SENT = "external_handlers_sent"
+
+
+def _external_handlers_for(pkg):
+    """Doi tac ky ngoai cho tai lieu (PR-D, 22/11/2026). [] khi ho so KHONG bat
+    allow_external_signers (DNTT: khong doi gi). Bat ma nghiep vu khong khai hook / tra rong /
+    loi -> ProviderError (khong tao tai lieu thieu doi tac).
+    hooks.py: ec_esign_external_handlers = {"<doctype>": "<ham(business_name) -> [dict]>"}."""
+    if not pkg.profile or not int(frappe.db.get_value(
+            "EC Digital Signature Profile", pkg.profile, "allow_external_signers") or 0):
+        return []
+    hooks = frappe.get_hooks(EXTERNAL_HOOK) or {}
+    path = hooks.get(pkg.business_doctype) if isinstance(hooks, dict) else None
+    if isinstance(path, (list, tuple)):
+        path = path[-1] if path else None
+    if not path:
+        raise ProviderError("partner_info_missing", "nghiep vu %s chua khai %s"
+                            % (pkg.business_doctype, EXTERNAL_HOOK), retryable=False)
+    try:
+        rows = frappe.get_attr(path)(pkg.business_name)
+    except frappe.ValidationError as e:
+        # Nghiep vu noi ro thieu gi (vd "Hop dong chua co email doi tac") - giu nguyen cau do.
+        raise ProviderError("partner_info_missing", str(e)[:300], retryable=False)
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "esign external handlers hook")
+        raise ProviderError("partner_info_missing", "ham lay doi tac loi: %s"
+                            % type(e).__name__, retryable=False)
+    if not rows:
+        raise ProviderError("partner_info_missing", "phieu chua co thong tin doi tac ky",
+                            retryable=False)
+    rows = list(rows)
+    # Kiem TRUOC moi doi trang thai goi (dict, ten, email, kieu ky) - QC 22/11.
+    if any(not isinstance(r, dict) for r in rows):
+        raise ProviderError("partner_info_invalid", "ham lay doi tac tra dong khong phai dict",
+                            retryable=False)
+    from ecentric_workspace.platform.esign.providers.scts import _external_handlers_payload
+    _external_handlers_payload(rows)
+    return rows
 
 
 def _requester_leg_done(pkg_name):
@@ -578,9 +629,15 @@ def process_signing_request(dsr_name):
             events.set_dsr_status(dsr_name, "Manual Review", event_type="ManualReview")
             _dead_letter_todo(dsr_name)
             _leg_stopped(dsr_name, dsr)
-            # K6 (PR-C): nguoi ky tu choi tren cong -> bao nghiep vu (khong nem loi).
-            _report_outcome(dsr.package, "rejected",
-                            "Người ký %s đã từ chối trên cổng ký số CMC." % (dsr.approver or ""))
+            # K6 (PR-C): nguoi ky tu choi / tra lai tren cong -> bao nghiep vu (khong nem loi).
+            if str(signer.get("provider_status") or "").strip().lower() in (
+                    "trả lại", "tra lai", "returned"):
+                _report_outcome(dsr.package, "returned",
+                                "Người ký %s đã trả lại tài liệu trên cổng ký số CMC."
+                                % (dsr.approver or ""))
+            else:
+                _report_outcome(dsr.package, "rejected",
+                                "Người ký %s đã từ chối trên cổng ký số CMC." % (dsr.approver or ""))
             return
 
         if dsr.status == "Queued":
@@ -679,6 +736,7 @@ def process_signing_request(dsr_name):
                 events.emit("HandoverTargeted", signature_request=dsr_name, package=dsr.package,
                             request_meta={"to_users": plan.get("to_users"),
                                           "erp_users": plan.get("erp_users"),
+                                          "partner_handover": plan.get("partner_handover"),
                                           "actor_user_id": actor_uid,
                                           "signer_user_id": dsr.effective_scts_user_id,
                                           # token cua ai (None = tai khoan tich hop) - 16/11
@@ -1009,6 +1067,7 @@ def _process_portal_approve(dsr_name, dsr, settings, adapter, doc_id, sent_box):
     events.emit("HandoverTargeted", signature_request=dsr_name, package=dsr.package,
                 request_meta={"to_users": plan.get("to_users"),
                               "erp_users": plan.get("erp_users"),
+                              "partner_handover": plan.get("partner_handover"),
                               "signer_user_id": dsr.effective_scts_user_id,
                               "stage": "approve_no_sign",
                               "transition_source": plan.get("transition_source"),
@@ -1408,13 +1467,19 @@ def retrieve_signed_bundles():
         if r.approval_request and frappe.db.get_value(
                 "EC Approval Request", r.approval_request, "approval_status") in _AR_CLOSED:
             continue
+        # PR-D: da bao nghiep vu "doi tac tu choi" / "huy" -> khong bao gio du chu ky nua.
+        if _outcome_closed(r.name):
+            continue
         try:
             out = signed_files.retrieve_and_store_for_package(r.name)
         except Exception:
             frappe.log_error(frappe.get_traceback(),
                              "esign.tasks.retrieve_signed_bundles %s" % r.name)
             out = None
-        if not (out or {}).get("ok"):
+        detail = str((out or {}).get("detail") or "")
+        if detail in _PARTNER_REASONS or detail.startswith("document_dead:"):
+            _handle_partner_round(r.name, detail)
+        elif not (out or {}).get("ok"):
             _flag_stalled_retrieval(r.name)
         _commit_step()
     # K6 (PR-C): "ky du" chua bao duoc (ham nghiep vu loi luc truoc) -> thu lai co gioi han.
@@ -1426,6 +1491,63 @@ def retrieve_signed_bundles():
         frappe.log_error(frappe.get_traceback(), "esign.tasks.outcomes.sweep_unreported")
 
 
+#: Ly do (signed_files._terminal_signed_ok) chi co o ho so co doi tac ky ngoai (PR-D).
+_PARTNER_REASONS = ("partner_rejected", "partner_returned", "waiting_partner")
+#: Doi tac chua ky sau 7 ngay -> bao MOT lan.
+PARTNER_ALERT_DAYS = 7
+_MSG_PARTNER_REJECTED = "Đối tác đã từ chối ký trên cổng ký số CMC."
+_MSG_PARTNER_RETURNED = "Đối tác đã trả lại tài liệu trên cổng ký số CMC (cần sửa rồi gửi lại)."
+_MSG_DOC_DEAD = "Tài liệu trên cổng ký số CMC đã bị huỷ trong lúc chờ đối tác ký."
+
+
+def _handle_partner_round(package_name, detail):
+    """Mot vong tai PDF cua goi co doi tac chua xong (PR-D, QC 22/11)."""
+    from ecentric_workspace.platform.esign import outcomes
+    if detail == "waiting_partner":
+        # Binh thuong (co the nhieu ngay) - chi bao khi vong "cho doi tac" DAU TIEN da qua
+        # PARTNER_ALERT_DAYS (QC vong 2: retrieval_rounds khong dem vong NotReady).
+        if frappe.db.exists(EVT, {"package": package_name,
+                                  "event_type": "SignedRetrievalNotReady",
+                                  "verification_result": "waiting_partner",
+                                  "creation": ["<", add_to_date(now_datetime(),
+                                                                days=-PARTNER_ALERT_DAYS)]}):
+            _flag_stalled_retrieval(package_name, threshold=0, reason="partner_overdue")
+        return
+    # Ket qua KET THUC (dong goi vinh vien): hai vong LIEN TIEP cung thay moi bao.
+    seen = frappe.get_all(EVT, filters={"package": package_name,
+                                        "event_type": "SignedRetrievalNotReady"},
+                          fields=["verification_result"], order_by="creation desc",
+                          limit_page_length=2)
+    if len(seen) < 2 or any(str(s.verification_result or "").split(":")[0]
+                            != detail.split(":")[0] for s in seen):
+        return
+    if detail == "partner_rejected":
+        outcome, msg = "rejected", _MSG_PARTNER_REJECTED
+    elif detail == "partner_returned":
+        outcome, msg = "returned", _MSG_PARTNER_RETURNED
+    else:                                   # document_dead:*
+        outcome, msg = "destroyed", _MSG_DOC_DEAD
+    pkg = frappe.db.get_value("EC Digital Signature Package", package_name,
+                              "business_doctype")
+    fails = frappe.db.count(EVT, {"package": package_name, "event_type": "Failed",
+                                  "verification_result": "outcome_handler_failed:%s" % outcome})
+    if not outcomes.handler_path(pkg) or fails >= outcomes.MAX_ATTEMPTS:
+        # Khong bao duoc ve nghiep vu -> bao nguoi MOT lan (khong im lang quay mai).
+        _flag_stalled_retrieval(package_name, threshold=0, reason=detail)
+        return
+    _report_outcome(package_name, outcome, msg)
+
+
+def _outcome_closed(package_name):
+    """Goi da bao nghiep vu ket qua KET THUC khong phai "ky du" (rejected / returned /
+    destroyed). "returned" (tra lai): tai lieu nay khong con ky tiep - nghiep vu tao lai."""
+    return bool(frappe.db.exists(EVT, {"package": package_name, "event_type": "Completed",
+                                       "verification_result": ["in", (
+                                           "outcome_reported:rejected",
+                                           "outcome_reported:returned",
+                                           "outcome_reported:destroyed")]}))
+
+
 #: Trang thai phieu ma chu ky KHONG BAO GIO con du duoc - khong tai PDF ky cho nhung goi nay.
 _AR_CLOSED = ("Rejected", "Cancelled")
 
@@ -1433,7 +1555,7 @@ _AR_CLOSED = ("Rejected", "Cancelled")
 RETRIEVAL_ALERT_AFTER = 10
 
 
-def _flag_stalled_retrieval(package_name):
+def _flag_stalled_retrieval(package_name, threshold=None, reason=None):
     """Bao dong MOT LAN khi mot goi thu lai qua nhieu ma van chua co PDF da ky.
 
     Vong lap tren khong dem gi ca: no thu lai VO HAN, khong leo thang, khong tao nhac viec.
@@ -1449,14 +1571,17 @@ def _flag_stalled_retrieval(package_name):
         # Su kien do chi ton tai tren duong di thuan loi, nen bao dong nay tung khong the keu
         # cho dung loai goi ma no sinh ra de canh - xem chu thich o retrieval_rounds.
         from ecentric_workspace.platform.esign import signed_files
+        limit = RETRIEVAL_ALERT_AFTER if threshold is None else threshold
         tries = signed_files.retrieval_rounds(package_name)
-        if tries < RETRIEVAL_ALERT_AFTER:
+        if tries < limit:
             return
         if frappe.db.exists(EVT, {"package": package_name,
                                   "event_type": "SignedRetrievalStalled"}):
             return
-        events.emit("SignedRetrievalStalled", package=package_name,
-                    request_meta={"attempts": tries, "threshold": RETRIEVAL_ALERT_AFTER})
+        meta = {"attempts": tries, "threshold": limit}
+        if reason:
+            meta["reason"] = reason
+        events.emit("SignedRetrievalStalled", package=package_name, request_meta=meta)
     except Exception:
         # Bao dong hong thi KHONG duoc lam gay vong lap tai file - viec chinh quan trong hon.
         frappe.log_error(frappe.get_traceback(),

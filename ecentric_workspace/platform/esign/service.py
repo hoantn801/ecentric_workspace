@@ -225,6 +225,10 @@ def approve_and_sign(business_doctype, business_name, comment=None, bulk_batch_k
         from ecentric_workspace.platform.esign import user_link
         user_link.assert_signer_linked(actor, settings, profile.environment)
         user_link.assert_signature_ready(actor, settings, profile.environment)
+    elif action == "Approve" and int(profile.get("allow_external_signers") or 0):
+        # Ho so co doi tac (22/11, PR-D): buoc duyet khong ky cung di bang token chinh nguoi duyet.
+        from ecentric_workspace.platform.esign import user_link
+        user_link.assert_signer_linked(actor, settings, profile.environment)
 
     pkg_name = pkgsvc.active_package_for_request(req.name)
     if not pkg_name:

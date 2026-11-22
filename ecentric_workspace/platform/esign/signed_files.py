@@ -15,6 +15,8 @@ signable row), never overwrites the original approved PDF, never touches DSR/app
 terminal state, and appends only sanitized events (no binary/base64 ever logged).
 """
 from ecentric_workspace.platform.esign.state import DSR_TERMINAL
+import json
+
 import frappe
 from frappe.utils import now_datetime
 
@@ -26,6 +28,7 @@ from ecentric_workspace.platform.esign.sanitize import safe_error
 PKG = "EC Digital Signature Package"
 DSF = "EC Digital Signature File"
 DSR = "EC Digital Signature Request"
+EVT = "EC Digital Signature Event"
 
 _TERMINAL_SIGNED = ("signed", "completed", "complete", "done", "finished", "success")
 
@@ -144,6 +147,20 @@ def _terminal_signed_ok(adapter, pkg):
     if not signers:
         return False, "no_signers_on_document"
 
+    # DOI TAC KY NGOAI (PR-D, 22/11): chi ho so allow_external_signers. Doi tac ky SAU khi phieu
+    # ERP da duyet xong -> "cho doi tac" la trang thai BINH THUONG (khong bao dong treo), doi tac
+    # tu choi -> ly do rieng de bao nghiep vu. Danh sach doi tac doc lai tu hook nghiep vu.
+    ext = _external_expectation(pkg)
+    if ext is not None:
+        if ext is False:
+            return False, "partner_info_missing"
+        # Tai lieu da HUY tren cong trong khi cho doi tac -> khong cho mai (QC 22/11).
+        if status == "cancelled" or (getattr(doc, "identity", None) or {}).get("destroyed"):
+            return False, "document_dead:%s" % (status or "destroyed")
+        why = _partner_state(signers, ext)
+        if why:
+            return False, why
+
     # any signer explicitly pending/rejected/unknown -> partial -> BLOCK (even if the
     # top-level status claims terminal).
     for s in signers:
@@ -163,10 +180,17 @@ def _terminal_signed_ok(adapter, pkg):
     pairs = _expected_signer_pairs(pkg.name)
     if not pairs:
         return False, "no_expected_signers"
+    if ext:
+        # Moi doi tac ky vong phai co mat (theo email) - nhu mot chan ky.
+        pairs = list(pairs) + [(None, frozenset([m])) for m in sorted(ext)]
     exp_ids = {i for i, _m in pairs if i}
     exp_emails = set()
     for _i, _ms in pairs:
         exp_emails.update(_ms or ())
+    if ext is not None:
+        # Nguoi duyet ERP o buoc DUYET KHONG KY (vd CEO chuyen sang doi tac) co the hien la
+        # nguoi tham gia tren cong - khong phai "nguoi la". Chi cho ho so co doi tac.
+        exp_emails.update(_approve_leg_emails(pkg.name))
     def _known(s):
         return (str(s.get("user_id")) in exp_ids
                 or str(s.get("email") or "").strip().lower() in exp_emails)
@@ -187,6 +211,80 @@ def _terminal_signed_ok(adapter, pkg):
     if status in _TERMINAL_SIGNED:
         return True, "terminal_and_all_expected_signers_signed"
     return True, "all_expected_signers_signed"
+
+
+PROFILE = "EC Digital Signature Profile"
+
+
+def _external_expectation(pkg):
+    """None: ho so khong co doi tac (DNTT - khong doi gi). False: ho so co doi tac nhung khong
+    lay duoc danh sach (fail-closed). frozenset email doi tac (chu thuong) neu lay duoc."""
+    # 1) Ban DA GUI kem tai lieu (tasks._ensure_provider_document) - nguon dung nhat.
+    sent = frappe.get_all(EVT, filters={"package": pkg.name, "event_type": "PollTick",
+                                        "verification_result": "external_handlers_sent"},
+                          fields=["request_meta"], order_by="creation desc", limit_page_length=1)
+    if sent:
+        try:
+            meta = json.loads(sent[0].request_meta or "{}")
+        except Exception:
+            meta = {}
+        mails = frozenset(str(m).strip().lower() for m in (meta.get("partner_emails") or []) if m)
+        return mails or False
+    # 2) Goi tao truoc PR-D / chua co vet: doc ho so + hook nhu cu.
+    prof = getattr(pkg, "profile", None) or frappe.db.get_value(PKG, pkg.name, "profile")
+    if not prof or not int(frappe.db.get_value(PROFILE, prof, "allow_external_signers") or 0):
+        return None
+    from ecentric_workspace.platform.esign import tasks
+    try:
+        rows = tasks._external_handlers_for(frappe._dict(
+            name=pkg.name, profile=prof,
+            business_doctype=pkg.business_doctype, business_name=pkg.business_name))
+    except Exception:
+        return False
+    mails = frozenset(str(r.get("email") or "").strip().lower() for r in rows
+                      if r and r.get("email"))
+    return mails or False
+
+
+_RETURNED = ("trả lại", "tra lai", "returned")
+
+
+def _partner_state(signers, ext_emails):
+    """Ly do chua tai duoc vi DOI TAC, hoac None. Tu choi uu tien hon tra lai, hon cho
+    (nhieu doi tac: mot nguoi cho + mot nguoi tu choi -> tu choi, khong bi che)."""
+    seen = set()
+    for s in signers:
+        if not _is_partner(s, ext_emails):
+            continue
+        st = str(s.get("status") or "").strip().lower()
+        if st == "rejected":
+            raw = str(s.get("provider_status") or "").strip().lower()
+            seen.add("partner_returned" if raw in _RETURNED else "partner_rejected")
+        elif st != "signed":
+            seen.add("waiting_partner")
+    for why in ("partner_rejected", "partner_returned", "waiting_partner"):
+        if why in seen:
+            return why
+    return None
+
+
+def _is_partner(signer, ext_emails):
+    return bool(signer.get("is_external")) or (
+        str(signer.get("email") or "").strip().lower() in (ext_emails or ()))
+
+
+def _approve_leg_emails(package_name):
+    from ecentric_workspace.platform.esign.service import _emails_cua_cung_danh_tinh
+    out = set()
+    for r in frappe.get_all(DSR, filters={"package": package_name, "action": "Approve",
+                                          "status": ["in", ("Signed", "Approval Completed")]},
+                            fields=["effective_scts_user_id", "actor_user", "approver"]):
+        ds = _emails_cua_cung_danh_tinh({"actor_user": r.actor_user or r.approver,
+                                         "effective_scts_user_id": r.effective_scts_user_id})
+        if isinstance(ds, str):
+            ds = [ds]
+        out.update(str(e).strip().lower() for e in (ds or []) if e)
+    return out
 
 
 #: Moi su kien mot LUOT cron tai PDF co the de lai. Dem luot phai nhin ca hai.
@@ -296,7 +394,7 @@ def retrieve_and_store_for_package(package_name, force=False):
     pkg = frappe.db.get_value(
         PKG, package_name,
         ["name", "provider", "environment", "scts_document_id", "business_doctype",
-         "business_name", "status", "signed_bundle_complete"], as_dict=True)
+         "business_name", "status", "signed_bundle_complete", "profile"], as_dict=True)
     if not pkg:
         return {"ok": False, "reason": "package_missing"}
     if not pkg.scts_document_id:
