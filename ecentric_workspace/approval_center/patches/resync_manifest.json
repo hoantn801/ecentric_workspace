@@ -165,8 +165,8 @@
     "sha256": "e75638d604c3a7220374f11541ee00aa8fb003161b8191a1d68dd3644a1b1646"
   },
   "guides/pages/index/main_section.html": {
-    "last_resync_patch": "p161_publish_guides_and_shell_drift",
-    "sha256": "f0779e4bc55d3adf0297a4d01c846e666815a559fb07ebdea4cc6df4b2dd6d8c"
+    "last_resync_patch": "p470_huong_dan_quy_trinh_nhan_su",
+    "sha256": "7d390709d571fbe65975eec2e43278ab6dcc7d7f6303db13a76907ec26c3626b"
   },
   "hr/pages/install_guide/main_section.html": {
     "baseline": "2026-08-31",
