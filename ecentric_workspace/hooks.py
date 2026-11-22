@@ -1188,3 +1188,20 @@ has_permission["EC HR Notice"] = "ecentric_workspace.hr.ky_luat.permissions.noti
 has_permission["EC Discipline Case"] = "ecentric_workspace.hr.ky_luat.permissions.case_has_permission"
 scheduler_events["cron"].setdefault("0 9 * * *", []).append(
     "ecentric_workspace.hr.ky_luat.controllers.api.daily_job")
+
+# --------------------------------------------------------------------------- #
+# 23/11/2026 - Ky so hop dong (ban giao chat Ky so -> chat Hop dong, B2 + B6): nen tang ky so
+#  * doi chieu lop chu cua "Ban PDF de ky" voi phieu (so HD + so tien tra creator) truoc khi dat o ky
+#    / khoa goi - tra khac "match" thi nen tang chan;
+#  * lay nguoi ky phia doi tac (creator / nguoi lao dong) khi tao tai lieu tren cong - chi dung khi ho
+#    so ky bat allow_external_signers.
+# Chua co ho so ky so cho form 27 thi ca hai khong duoc goi. Xem contract_review/application/esign_hooks.py.
+# --------------------------------------------------------------------------- #
+ec_esign_document_verifiers = {
+    "EC Contract Review Request":
+        "ecentric_workspace.approval_center.features.contract_review.application.esign_hooks.verify_document",
+}
+ec_esign_external_handlers = {
+    "EC Contract Review Request":
+        "ecentric_workspace.approval_center.features.contract_review.application.esign_hooks.external_handlers",
+}

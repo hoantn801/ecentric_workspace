@@ -22,7 +22,7 @@ __all__ = ["kol_me", "kol_search_sales_orders", "kol_list_templates", "kol_place
            "kol_create_creator", "kol_update_creator", "kol_missing_misa", "kol_set_misa_code",
            "kol_verify_signed", "kol_verify_acceptance", "kol_pending_checks", "kol_preview_dates",
            "kol_creator_gaps", "kol_preview_contract", "kol_download_file", "kol_confirm_payee",
-           "kol_close_contract", "kol_reopen_contract"]
+           "kol_close_contract", "kol_reopen_contract", "kol_attach_sign_pdf", "kol_auto_place_sign"]
 
 
 def _app(module):
@@ -120,6 +120,18 @@ def kol_preview_contract(fields=None, name=None):
 @frappe.whitelist(methods=["POST"])
 def kol_generate_contract(name):
     return _no_pii_url(name, _app("kol_files").generate_contract(name, _me()), "contract_file")
+
+
+@frappe.whitelist(methods=["POST"])
+def kol_attach_sign_pdf(name, file_url):
+    """O "Ban PDF de ky" (ban giao chat Ky so 23/11, B1). Trang goi kol_auto_place_sign NGAY SAU."""
+    return _no_pii_url(name, _app("kol_sign_pdf").attach(name, file_url, _me()), "sign_pdf")
+
+
+@frappe.whitelist(methods=["POST"])
+def kol_auto_place_sign(name):
+    """Tu dat o ky theo moc [[KY_BEN_A]] / [[KY_BEN_B]] trong Ban PDF de ky."""
+    return _app("kol_sign_pdf").auto_place(name, _me())
 
 
 @frappe.whitelist(methods=["POST"])

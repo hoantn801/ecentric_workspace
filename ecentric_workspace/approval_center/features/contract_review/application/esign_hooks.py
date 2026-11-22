@@ -20,6 +20,13 @@ chi ghi vet + dua trang thai ky ve - hop dong ve "Chua ky", dot BBNT ve "Nhap" (
 nay KHONG mo lai / doi trang thai luong duyet ERP; viec do do luong duyet tu lam.
 
 `package_title(business_name, purpose)`: tieu de tai lieu tren cong (phia Hop dong truyen vao).
+
+Them 23/11/2026 (ban giao chat Ky so, B2 + B6):
+  * `verify_document(business_doctype, business_name, file_name, pages_text)` - hook
+    ec_esign_document_verifiers: doi chieu lop chu PDF ky voi phieu (so HD + so tien tra creator).
+  * `external_handlers(business_name)` - hook ec_esign_external_handlers: nguoi ky phia doi tac
+    (creator / nguoi lao dong) cho tai lieu tren cong. Thieu thong tin -> frappe.throw cau tieng Viet
+    (Ky so giu nguyen cau do de bao nguoi dung).
 Khong whitelist - chi goi tu server.
 """
 import frappe
@@ -27,7 +34,7 @@ from frappe import _
 from frappe.utils import now_datetime
 
 from ecentric_workspace.approval_center.features.contract_review.application import kol_lookup
-from ecentric_workspace.approval_center.features.contract_review.domain import kol
+from ecentric_workspace.approval_center.features.contract_review.domain import esign_flow, kol, sign_pdf_check
 
 ESIGN_ACTOR = "Ký số (cổng)"
 CONTRACT = "contract"
@@ -64,7 +71,7 @@ def on_signing_outcome(business_name, purpose, outcome, signed_file=None, detail
 def _check_signed_file(doc, signed_file):
     """Ban ky du phai la tep DA GAN phieu nay va khong phai ban chua ky dem di ky (QC 15/11 B-06:
     phieu thuong khong qua may kiem, truoc do nhan bat ky URL .pdf -> 'Da ky du' ngay)."""
-    if signed_file in {doc.get("request_attachment"), doc.get("contract_file")}:
+    if signed_file in {doc.get("request_attachment"), doc.get("contract_file"), doc.get("sign_pdf")}:
         raise ValueError("signed_file %s la ban chua ky cua phieu" % signed_file)
     if not frappe.db.exists("File", {"file_url": signed_file, "attached_to_doctype": doc.doctype,
                                      "attached_to_name": doc.name}):
@@ -80,6 +87,27 @@ def package_title(business_name, purpose):
         return "BBNT đợt %s - %s" % (row.idx, no)
     who = doc.get("creator_name") or doc.get("partner_signer_name") or doc.get("request_title") or ""
     return ("HĐ %s - %s" % (no, who)).strip(" -")[:140]
+
+
+#: Viec nguoi lap phai lam tiep theo tung ket qua khong thanh (B5, ban giao 23/11). "returned": tai lieu
+#: tren cong da dung han, khong ky tiep duoc - phai sua roi gui lai (tao tai lieu moi).
+_NEXT_STEP = {
+    REJECTED: "Xem lý do, sửa hợp đồng rồi gửi lại.",
+    RETURNED: "Tài liệu đó không ký tiếp được - sửa theo góp ý rồi gửi lại.",
+    DESTROYED: "Tài liệu đã bị huỷ trên cổng - liên hệ Kế toán / quản trị trước khi gửi lại.",
+}
+
+
+def _tell_requester(doc, text):
+    """Bao nguoi lap (chuong + Teams theo cai dat cua ho). Loi thong bao KHONG lam hong ket qua ky."""
+    to = doc.get("requested_by") or doc.get("owner")
+    if not to:
+        return
+    try:
+        from ecentric_workspace.approval_center.shared.workflow import transitions
+        transitions.notify([to], text, doc.doctype, doc.name)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "contract esign outcome notify %s" % doc.name)
 
 
 def _why(detail):
@@ -103,6 +131,9 @@ def _contract(doc, outcome, signed_file, detail):
         doc.save(ignore_permissions=True)
         doc.add_comment("Info", _("{0}: hợp đồng {1}{2}. Sửa tệp rồi Gửi ký lại.").format(
             ESIGN_ACTOR, _OUTCOME_TEXT[outcome], (": " + _why(detail)) if _why(detail) else ""))
+        _tell_requester(doc, _("Hợp đồng {0} {1} trên cổng ký{2}. {3}").format(
+            doc.get("contract_no") or doc.name, _OUTCOME_TEXT[outcome],
+            (": " + _why(detail)) if _why(detail) else "", _NEXT_STEP[outcome]))
         return {"changed": True, "signing_status": doc.signing_status}
     if doc.get("signing_status") == kol.SIGN_DONE or (
             doc.get("signing_status") == kol.SIGN_REVIEW and doc.get("signed_file") == signed_file):
@@ -141,6 +172,9 @@ def _round(doc, row_name, outcome, signed_file, detail):
         doc.save(ignore_permissions=True)
         doc.add_comment("Info", _("{0}: BBNT đợt {1} {2}{3}.").format(
             ESIGN_ACTOR, row.idx, _OUTCOME_TEXT[outcome], (": " + _why(detail)) if _why(detail) else ""))
+        _tell_requester(doc, _("BBNT đợt {0} của hợp đồng {1} {2} trên cổng ký{3}. {4}").format(
+            row.idx, doc.get("contract_no") or doc.name, _OUTCOME_TEXT[outcome],
+            (": " + _why(detail)) if _why(detail) else "", _NEXT_STEP[outcome]))
         return {"changed": True, "status": row.status}
     # Cung chot nhu tai tay (complete_acceptance): da qua buoc gui ky (kiem thieu + tao lai BBNT),
     # hop dong da ky du, tep khong trung hop dong / dot khac (QC7).
@@ -155,3 +189,77 @@ def _round(doc, row_name, outcome, signed_file, detail):
     from ecentric_workspace.approval_center.features.contract_review.application import kol_acceptance
     findings = kol_acceptance.finish_round(doc, row, signed_file, now_datetime(), ESIGN_ACTOR)
     return {"changed": True, "status": row.status, "due_date": str(row.due_date or ""), "findings": findings}
+
+
+# ----------------------------------------------------------------------------- B2: doi chieu tep ky
+def verify_document(business_doctype, business_name, file_name, pages_text):
+    """Hook ec_esign_document_verifiers. -> {"status": match|mismatch|no_text, "reason"}.
+    Nem loi / tra khac "match" -> Ky so chan (dung y: khong doan)."""
+    doc = frappe.get_doc(kol_lookup.CR_DT, business_name)
+    if not kol.is_kol(doc):
+        # Hop dong thuong: van ban do doi tac / phong ban soan, khong co du lieu doi chieu tren phieu.
+        return {"status": "match", "reason": _("Hợp đồng không phải KOL/KOC - không đối chiếu tự động.")}
+    text = "\n".join(str(p or "") for p in (pages_text or []))
+    if not text.strip():
+        return {"status": "no_text", "reason": None}
+    from ecentric_workspace.approval_center.features.contract_review.application.kol_ai import number_tokens
+    payable = kol.printed_digits(doc.get("payable_amount"))
+    problems = sign_pdf_check.findings(
+        text, number_tokens(text), doc.get("contract_no"), payable,
+        # Mau cua creator: van ban creator soan, khong mang so HD cua ERP.
+        check_contract_no=doc.get("request_type") != kol.TEMPLATE_PARTNER)
+    if problems:
+        return {"status": "mismatch", "reason": " ".join(problems)}
+    return {"status": "match", "reason": None}
+
+
+# ----------------------------------------------------------------------------- B6: doi tac ky tren cong
+def _fmt_day(value):
+    if not value:
+        return ""
+    s = str(value)[:10]
+    try:
+        y, m, d = s.split("-")
+        return "%s/%s/%s" % (d, m, y)
+    except ValueError:
+        return s
+
+
+def external_handlers(business_name):
+    """Hook ec_esign_external_handlers -> [{full_name, email, phone?, identity?, identity_place?,
+    identity_date?, dob?}]. Lay tu o "Nguoi ky phia doi tac" cua phieu (luc gui da kiem bang
+    kol_service.partner_signer_errors). KHONG dat sign_type: Ky so dat mac dinh (eKYC - anh Hoan chot).
+
+    Ca nhan ky chinh minh (email nguoi ky = email creator): kem CCCD / noi cap / ngay cap / ngay sinh
+    cua creator cho eKYC (CMC chua xac nhan truong nao bat buoc - dua du). Nguoi ky khac (dai dien cong
+    ty, nguoi lap sua tay) thi KHONG gan dinh danh cua creator. Ngay dang dd/mm/yyyy nhu tren hop dong.
+    Khong ghi log gia tri nao (PII)."""
+    doc = frappe.get_doc(kol_lookup.CR_DT, business_name)
+    if not esign_flow.needs_partner(doc.get("esign_flow")):
+        frappe.throw(_("Quy trình ký của phiếu {0} không có đối tác ký trên cổng.").format(business_name))
+    from ecentric_workspace.approval_center.features.contract_review.application.kol_service import (
+        partner_signer_errors)
+    errors = partner_signer_errors(doc)
+    if errors:
+        frappe.throw(errors[0])
+    name = (doc.get("partner_signer_name") or "").strip()
+    email = (doc.get("partner_signer_email") or "").strip()
+    row = {"full_name": name, "email": email}
+    phone = (doc.get("partner_signer_phone") or "").strip()
+    if phone:
+        row["phone"] = phone
+    if kol.is_kol(doc) and doc.get("creator"):
+        cr = frappe.db.get_value("Supplier", doc.creator,
+                                 ["ec_cr_type", "ec_cr_email", "ec_cr_cccd", "ec_cr_cccd_issue_place",
+                                  "ec_cr_cccd_issue_date", "ec_cr_dob"], as_dict=True) or {}
+        same_person = (cr.get("ec_cr_type") == "Cá nhân"
+                       and (cr.get("ec_cr_email") or "").strip().lower() == email.lower())
+        if same_person:
+            for key, value in (("identity", cr.get("ec_cr_cccd")),
+                               ("identity_place", cr.get("ec_cr_cccd_issue_place")),
+                               ("identity_date", _fmt_day(cr.get("ec_cr_cccd_issue_date"))),
+                               ("dob", _fmt_day(cr.get("ec_cr_dob")))):
+                if value:
+                    row[key] = str(value).strip()
+    return [row]
+

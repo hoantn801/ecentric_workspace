@@ -184,11 +184,18 @@ def submit(name):
     doc.save(ignore_permissions=True)
 
     skip = skip_ceo(doc, changed)
+    # Ky so (B4, ban giao chat Ky so 23/11): chan TRUOC khi tao yeu cau duyet neu goi ky chua du (chi
+    # khi phieu co ho so ky so dang bat - chua bat thi khong lam gi, form chay nhu cu).
+    from ecentric_workspace.approval_center.features.contract_review.application import esign_gate
+    esign_gate.before_submit(doc)
     req_name = engine.submit(
         BUSINESS_DT, doc.name, APPROVAL_TYPE, user,
         skip_level_nos=(CEO_LEVEL_NO,) if skip else None,
         skip_reason="Hợp đồng sẵn có, chỉ điều chỉnh — CEO nhận thông báo, không cần duyệt" if skip else None)
     frappe.db.set_value(BUSINESS_DT, doc.name, "approval_request", req_name)
+    doc.approval_request = req_name
+    # ...va khoa goi ky NGAY SAU, cung giao dich (nem -> rollback ca lan gui).
+    esign_gate.after_submit(doc)
     if skip:
         _notify_ceo_cc(req_name, doc)
     _soi_guong_sharepoint(doc.name)
@@ -305,7 +312,10 @@ def resubmit(name, actor=None):
     doc.save(ignore_permissions=True)
     new_sig = _signature(doc)
     material_changed = new_sig != (doc.material_signature or "")
+    from ecentric_workspace.approval_center.features.contract_review.application import esign_gate
+    esign_gate.before_submit(doc)
     res = engine.resubmit(doc.approval_request, actor=actor or frappe.session.user, restart=material_changed)
+    esign_gate.after_submit(doc)
     frappe.db.set_value(BUSINESS_DT, doc.name, "material_signature", new_sig)
     # Gui lai thuong di kem THAY tep dinh kem - phai soi guong lai, neu khong nguoi duyet se
     # mo ra ban cu tren SharePoint trong khi ERP da co ban moi.

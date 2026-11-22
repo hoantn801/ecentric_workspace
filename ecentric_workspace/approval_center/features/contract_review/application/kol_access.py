@@ -45,7 +45,7 @@ def is_generated(file_name_or_url):
 
 def _signed_urls(business):
     """Ban DA KY (hop dong + tung dot BBNT) cung in du CCCD/STK - xu ly nhu ban sinh tu mau."""
-    urls = {business.get("signed_file")}
+    urls = {business.get("signed_file"), business.get("sign_pdf")}     # sign_pdf: ban PDF de ky (23/11)
     urls.update(r.get("signed_file") for r in business.get("acceptances") or [])
     urls.discard(None)
     urls.discard("")
@@ -149,9 +149,31 @@ def can_download_full(business, user):
     # che: khong de "lap nhap chon creator bat ky -> tai CCCD -> huy nhap" (QC 17/11 vong 2).
     if user and business.get("requested_by") == user and business.get("approval_request"):
         return True
+    # Ky qua nen tang ky so (23/11, ban giao chat Ky so B1): nguoi lap phai xuat PDF tu ban .docx du
+    # thong tin TRUOC khi gui (goi ky khoa luc gui). Chi mo khi phieu co ho so ky so dang bat; moi lan
+    # tai luc nhap ghi them Access Log (con lai ca khi xoa nhap - download_file).
+    if user and user in {business.get("requested_by"), business.get("owner")} \
+            and not business.get("approval_request") \
+            and business.get("name") and _esign_enabled(business.get("name")):
+        return True
     creator = business.get("creator")
     owner = frappe.db.get_value("Supplier", creator, "owner") if creator else None
     return bool(owner) and owner == user
+
+
+def _esign_enabled(name):
+    from ecentric_workspace.approval_center.features.contract_review.application import esign_gate
+    return esign_gate.enabled(name)
+
+
+def _access_log(doc, file_url, user):
+    """Vet tai ban du PII KHONG nam tren phieu (binh luan mat theo khi xoa phieu nhap)."""
+    try:
+        from frappe.core.doctype.access_log.access_log import make_access_log
+        make_access_log(doctype=doc.doctype, document=doc.name, method="kol_download_file",
+                        file_type=str(file_url or "").rsplit(".", 1)[-1][:10])
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "kol download access log %s" % doc.name)
 
 
 def redact_business(business, request=None):
@@ -161,8 +183,10 @@ def redact_business(business, request=None):
         return
     business["has_contract_file"] = bool(business.get("contract_file"))
     business["has_request_attachment"] = bool(business.get("request_attachment"))
+    business["has_sign_pdf"] = bool(business.get("sign_pdf"))
     if can_download_full(business, frappe.session.user):
         return
+    business["sign_pdf"] = None
     for field in ("contract_file", "request_attachment"):
         if is_generated(business.get(field)) and not _partner_upload(business, business.get(field)):
             business[field] = None
@@ -231,6 +255,8 @@ def download_file(name, file_url, user):
     # Ghi NHAN tep, khong ghi ten tep (ten co doan ngau nhien = mot phan URL; binh luan ai co quyen
     # xem phieu cung doc duoc) - QC 17/11.
     doc.add_comment("Info", _("{0} tải bản đủ thông tin creator: {1}").format(user, _label(doc, file_url)))
+    if not doc.get("approval_request"):
+        _access_log(doc, file_url, user)
     return row.file_name, frappe.get_doc("File", row.name).get_content()
 
 
@@ -250,6 +276,8 @@ def _label(doc, file_url):
         return _("hợp đồng")
     if file_url == doc.get("signed_file"):
         return _("hợp đồng đã ký")
+    if file_url == doc.get("sign_pdf"):
+        return _("bản PDF để ký")
     for r in doc.get("acceptances") or []:
         if file_url == r.get("bbnt_file"):
             return _("BBNT đợt {0}").format(r.get("idx"))
