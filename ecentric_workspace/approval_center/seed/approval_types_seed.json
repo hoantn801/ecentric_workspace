@@ -217,5 +217,13 @@
   "category": "ADMINISTRATION",
   "legacy_template_name": "Clearance Request (Power Automate)",
   "sort_order": 33
+ },
+ {
+  "approval_code": "ADHOC_APPROVAL",
+  "approval_title": "Phê duyệt đột xuất",
+  "category": "OTHERS",
+  "description": "Gửi thẳng CEO duyệt (phiếu riêng tư). Không thay các bước duyệt bắt buộc của form khác - chỉ dùng làm chứng từ.",
+  "legacy_template_name": "Email xin CEO duyệt (ngoài hệ thống)",
+  "sort_order": 34
  }
 ]

@@ -144,8 +144,8 @@
     "sha256": "6cff7c62dc1550f662b4741c22b3fa0d78bd3260522d4c0b2c1d7f342d8b6fe4"
   },
   "approval_center/ui/all_requests/main_section.html": {
-    "last_resync_patch": "p335_resync_ux_lich_su_tien_trinh",
-    "sha256": "7058dc76887dc0b3b50328f6af4469f5dcb20dfc6dda357578fba7398d8ec1e0"
+    "last_resync_patch": "p431_resync_hub_toi_theo_doi",
+    "sha256": "06ecd83dd7069c81733c758514c31092608ad8379f9ce7a1bbb62fe5d5564671"
   },
   "approval_center/ui/dashboard/main_section.html": {
     "baseline": "2026-08-31",
@@ -355,5 +355,10 @@
   "ai_tools/pages/ai_live_ban_quyen/main_section.html": {
     "last_resync_patch": "p403_resync_ai_live_ban_quyen",
     "sha256": "8943777fb59d311c799075f3d27887616075a57367b937569275d32115123cca"
+  },
+  "approval_center/features/adhoc_approval/ui/main_section.html": {
+    "baseline": "2026-11-23",
+    "last_resync_patch": "p430_phe_duyet_dot_xuat",
+    "sha256": "feff18fc547871c795614bb1a54cb7bb8679c76a334987f411c74b208b449d3a"
   }
 }

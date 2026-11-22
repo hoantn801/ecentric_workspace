@@ -122,6 +122,20 @@ class ApprovalDefinition:
     #: Truong (cua `business_doctype`) co o loc dang danh sach chon tren tab "Tat ca". Gia tri
     #: trong danh sach chi lay tu nhung phieu NGUOI XEM DUOC PHEP XEM (scope_predicate).
     all_tab_filters: Tuple[str, ...] = ()
+    #: PHIEU RIENG TU (Dot 0 HR, 23/11/2026). True -> chi nguoi gui, nguoi co dong duyet trong
+    #: snapshot, nguoi theo doi, nguoi xu ly cua phieu va System Manager (co nhat ky) xem duoc.
+    #: Loai khoi pham vi truong phong / Approval Admin / tab "Tat ca" / thong ke / export.
+    #: Mot luat DUY NHAT o `shared/workflow/privacy.py` - EC Approval Type.private = 1 cung bat
+    #: duoc (cau hinh), hai nguon OR voi nhau. Xem HR_DOT0_INTERFACE.md.
+    private: bool = False
+    #: Truong cua `business_doctype` chi DOI TUONG cua phieu (nguoi duoc noi toi: nhan vien
+    #: nghi viec, nguoi duoc danh gia...). Gia tri la email/User hoac ma Employee. Engine loai
+    #: nguoi gui + doi tuong khoi moi cap duyet (chan tu duyet) - xem transitions._self_exclusion.
+    subject_fields: Tuple[str, ...] = ()
+    #: Truong AN voi nguoi CHI la nguoi theo doi (participant_purpose="Notify") - vd luong offer.
+    #: query_service.detail xoa gia tri truoc khi tra ve trinh duyet. Nguoi gui / nguoi duyet /
+    #: System Manager van thay.
+    watcher_hidden_fields: Tuple[str, ...] = ()
 
     @property
     def status_label_map(self) -> Mapping[str, str]:
@@ -156,6 +170,12 @@ def validate_definition(definition: ApprovalDefinition) -> None:
     if definition.batch_flagger is not None and not callable(definition.batch_flagger):
         raise ValueError("definition callback is not callable: batch_flagger")
     _validate_all_tab(definition)
+    for attr in ("subject_fields", "watcher_hidden_fields"):
+        for fieldname in getattr(definition, attr):
+            if not (isinstance(fieldname, str) and _FIELDNAME_RE.match(fieldname)):
+                raise ValueError("%s fieldname is not a plain fieldname: %r" % (attr, fieldname))
+    if not isinstance(definition.private, bool):
+        raise ValueError("private must be a bool")
 
 
 def _validate_all_tab(definition: ApprovalDefinition) -> None:

@@ -1116,3 +1116,28 @@ website_redirects = list(globals().get("website_redirects") or []) + [
 # switch esign (ec_esign_scheduler_disabled). Xem platform/esign/provider_cancel.py.
 scheduler_events["cron"].setdefault("*/10 * * * *", []).append(
     "ecentric_workspace.platform.esign.provider_cancel.sweep")
+
+# --------------------------------------------------------------------------- #
+# 23/11/2026 (Dot 0 quy trinh nhan su, Hoan chot) - CHUYEN NGUOI DUYET DANG CHO khi nguoi duyet
+# nghi viec / bi khoa: tai khoan bi khoa (User.enabled 1->0) -> dong duyet Pending tren phieu mo
+# chuyen sang nguoi cung role / quan ly cua nguoi do / nguoi du phong; job 00:45 quet bu (sau job
+# khoa 00:30). Co audit "Reassigned". Tat: site_config ec_approver_handover_disabled.
+# Xem approval_center/shared/workflow/approver_handover.py. Ham nuot moi loi.
+# --------------------------------------------------------------------------- #
+_EC_HANDOVER_HOOK = "ecentric_workspace.approval_center.shared.workflow.approver_handover.on_user_update"
+_ho_user = doc_events.setdefault("User", {})
+_ho_prev = _ho_user.get("on_update")
+if _ho_prev is None:
+    _ho_user["on_update"] = [_EC_HANDOVER_HOOK]
+elif isinstance(_ho_prev, str):
+    if _ho_prev != _EC_HANDOVER_HOOK:
+        _ho_user["on_update"] = [_ho_prev, _EC_HANDOVER_HOOK]
+elif _EC_HANDOVER_HOOK not in _ho_prev:
+    _ho_prev.append(_EC_HANDOVER_HOOK)
+scheduler_events["cron"].setdefault("45 0 * * *", []).append(
+    "ecentric_workspace.approval_center.shared.workflow.approver_handover.sweep")
+
+# 23/11/2026 (Dot 0 HR) - "Gan phieu duyet" vao o dinh kem moi form + popup hub: chip + nut, noi vao
+# EcAddFile.buttonHTML (khong sua trang nao). Backend: approval_center/shared/requests/approval_links.py.
+web_include_js.append("ec_approval_links.bundle.js")
+web_include_css.append("ec_approval_links.bundle.css")

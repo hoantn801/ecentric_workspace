@@ -704,7 +704,10 @@ RAIL_LAYOUTS = {
             {"key": "rail.appr.waiting", "label": "Chờ tôi duyệt", "route": "/approvals/all-requests?box=received",
              "icon": "check", "badge_source": "action_center.approvals", "noactive": True},
             {"key": "rail.appr.sent", "label": "Tôi đã gửi", "route": "/approvals/all-requests?box=sent",
-             "icon": "send", "noactive": True}]},
+             "icon": "send", "noactive": True},
+            # 23/11/2026 (Dot 0 HR): phieu toi la NGUOI THEO DOI (participant_purpose=Notify).
+            {"key": "rail.appr.watching", "label": "Tôi theo dõi", "route": "/approvals/all-requests?box=watching",
+             "icon": "bell", "noactive": True}]},
         {"t": "group", "label": "", "items": [
             {"key": "apc.catalog", "label": "Tạo yêu cầu", "icon": "grid"},
             {"key": "apc.all"},
