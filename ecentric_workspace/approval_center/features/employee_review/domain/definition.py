@@ -35,6 +35,7 @@ EMPLOYEE_REVIEW_DEFINITION = ApprovalDefinition(
     #: va nguoi theo doi (dong Notify = role EC CnB trong process) xem duoc. KHONG khai subject_fields:
     #: chinh NV la nguoi duyet cap 1 (tu danh gia) - khai la engine loai NV khoi cap do.
     private=True,
+    block_self_approval=True,
     **service_callbacks("employee_review", title=True))
 
 

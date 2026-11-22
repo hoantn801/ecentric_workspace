@@ -49,5 +49,7 @@ from ecentric_workspace.approval_center.shared.requests.contracts import Approva
 
 OFFER_REQUEST_DEFINITION = _dc_replace(
     OFFER_REQUEST_DEFINITION,
-    **{k: v for k, v in {"watcher_hidden_fields": ("compensation", "offered_salary")}.items()
+    **{k: v for k, v in {"watcher_hidden_fields": ("compensation", "offered_salary"),
+                         # 23/11: TA gui offer khong tu duyet buoc CnB/HR (opt-in, F12).
+                         "block_self_approval": True}.items()
        if k in getattr(_AD, "__dataclass_fields__", {})})

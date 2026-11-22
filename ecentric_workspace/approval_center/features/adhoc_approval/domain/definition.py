@@ -25,6 +25,8 @@ ADHOC_APPROVAL_DEFINITION = ApprovalDefinition(
     filter_builder=ExactAndDateFilters(("urgency",)),
     #: PHIEU RIENG TU: chi nguoi gui, CEO, nguoi theo doi, System Manager (co nhat ky).
     private=True,
+    #: Nguoi gui khong tu duyet (vd CEO tu gui) - opt-in, xem contracts.block_self_approval.
+    block_self_approval=True,
     #: "Cho toi duyet" tren dien thoai - CEO doc noi dung truoc khi bam.
     quick_summary=(
         ("Mức độ", "urgency"),

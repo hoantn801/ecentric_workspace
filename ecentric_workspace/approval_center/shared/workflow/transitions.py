@@ -1205,8 +1205,9 @@ def _skip_earlier_duplicate_levels(req, from_level=1):
 def build_snapshot(req, process, levels, requester):
     # Nguoi co ghe DICH DANH o cap sau khong nam trong nhom ROLE o cap truoc (role_pool, 25/09).
     seats = named_seats_after(levels)
-    # CHAN TU DUYET (Dot 0 HR, 23/11/2026): nguoi gui + DOI TUONG cua phieu (ApprovalDefinition.
-    # subject_fields) khong duoc nam trong bat ky cap duyet nao - ke ca qua Role.
+    # CHAN TU DUYET (Dot 0 HR, 23/11/2026): DOI TUONG cua phieu (ApprovalDefinition.subject_fields)
+    # khong duoc nam trong bat ky cap duyet nao - ke ca qua Role. NGUOI GUI chi bi loai khi form
+    # bat block_self_approval (opt-in - F12: form cu van cho nguoi gui tu duyet).
     excluded = _self_exclusion(req, requester)
     self_notes = []
     last_no = max([l.level_no for l in levels] or [0])
@@ -1296,8 +1297,18 @@ def subject_users(req):
     return out
 
 
+def _block_self(business_doctype):
+    """ApprovalDefinition.block_self_approval (opt-in; F12 - form cu van cho nguoi gui tu duyet)."""
+    try:
+        from ecentric_workspace.approval_center.shared.registry import BUSINESS_DOCTYPE_DEFINITIONS
+        d = BUSINESS_DOCTYPE_DEFINITIONS.get(business_doctype)
+        return bool(getattr(d, "block_self_approval", False)) if d else False
+    except Exception:
+        return False
+
+
 def _self_exclusion(req, requester):
-    out = set([requester]) if requester else set()
+    out = set([requester]) if (requester and _block_self(req.reference_doctype)) else set()
     try:
         out |= subject_users(req)
     except Exception:
@@ -1318,7 +1329,7 @@ def _level_fallbacks(lvl, excluded):
 def _apply_self_block(req, lvl, approvers, excluded, requester, has_later):
     """[(user, label)] -> ([(user, label)], note|None). Thu tu khi cap chi con nguoi bi loai:
     nguoi du phong (fallback_user) cua cap -> (luong ky so: GIU NGUYEN, xem duoi) -> bo cap,
-    sang cap ke -> cap cuoi: quan ly truc tiep cua nguoi gui -> khong ai: CHAN gui."""
+    sang cap ke -> cap cuoi: quan ly truc tiep cua nguoi gui -> khong ai: GIU NGUYEN + log (khong chan gui)."""
     if not excluded:
         return approvers, None
     dropped = [u for u, _l in approvers if u in excluded]
@@ -1343,9 +1354,13 @@ def _apply_self_block(req, lvl, approvers, excluded, requester, has_later):
     mgr = _manager_user_of_employee(requester) if requester else None
     if mgr and mgr not in excluded and _is_active_system_user(mgr):
         return [(mgr, "Requester Manager (%s)" % SELF_BLOCK_LABEL)], ("manager", dropped, [mgr])
-    frappe.throw(_("Không gửi được: bước \"{0}\" chỉ có chính người gửi / người được nói tới "
-                   "trong phiếu duyệt, và chưa cấu hình người dự phòng. Liên hệ quản trị viên "
-                   "đặt người dự phòng (fallback) cho bước này.").format(lvl.level_name))
+    # 23/11/2026 (tich hop HR): KHONG chan gui. Truoc Dot 0 nguoi gui o buoc cuoi (vd CEO tu gui
+    # phieu co buoc CEO) van tu duyet duoc; chan gui ngay sau deploy la lam dung viec cua 34 form
+    # dang chay. Giu nguyen nguoi duyet + ghi lich su + Error Log de quan tri dat fallback_user.
+    _quiet_log("Chan tu duyet: giu nguyen (khong co nguoi thay) %s" % req.name,
+               "Cap %s chi co %s, khong co fallback_user / quan ly truc tiep; cau hinh "
+               "fallback_user cho cap nay." % (lvl.level_no, ", ".join(dropped)))
+    return approvers, ("kept_no_fallback", dropped, None)
 
 
 _SELF_NOTE_TEXT = {
@@ -1356,6 +1371,7 @@ _SELF_NOTE_TEXT = {
     "kept_esign": "Chặn tự duyệt KHÔNG áp được (luồng ký số cố định): {who} vẫn ở bước này",
     "group_fallback": "Chặn tự duyệt: {who} không được xác nhận nhóm này - chuyển sang người dự phòng {to}",
     "group_kept": "Chặn tự duyệt KHÔNG áp được: nhóm chỉ có {who} và chưa có người dự phòng",
+    "kept_no_fallback": "Chặn tự duyệt KHÔNG áp được: bước cuối chỉ có {who} và chưa có người dự phòng / quản lý trực tiếp",
 }
 
 

@@ -176,11 +176,13 @@ class SelfBlock(unittest.TestCase):
         self.assertEqual(out[0][0], "mgr@x")
         self.assertEqual(note[0], "manager")
 
-    def test_last_level_no_one_blocks_submit(self):
+    def test_last_level_no_one_keeps_original_not_block(self):
+        # 23/11: khong chan gui (CEO tu gui phieu co buoc CEO) - giu nguyen + ghi chu kept_no_fallback
         tr._manager_user_of_employee = lambda ident: None
-        with self.assertRaises(W.Err):
-            tr._apply_self_block(self.req, _Lvl(), [("req@x", "Role: R")], {"req@x"}, "req@x",
-                                 has_later=False)
+        out, note = tr._apply_self_block(self.req, _Lvl(), [("req@x", "Role: R")], {"req@x"}, "req@x",
+                                         has_later=False)
+        self.assertEqual(out, [("req@x", "Role: R")])
+        self.assertEqual(note[0], "kept_no_fallback")
 
     def test_esign_flow_keeps_original(self):
         tr._luong_co_ky_so = lambda req, ctx: True
@@ -198,6 +200,19 @@ class SelfBlock(unittest.TestCase):
             self.assertEqual(tr._self_exclusion(self.req, "req@x"), {"req@x", "a@x"})
         finally:
             tr._subject_fields = orig
+
+    def test_requester_block_is_opt_in_F12(self):
+        # F12 (25/09): form cu (khong bat block_self_approval) van cho nguoi gui tu duyet.
+        orig = tr._block_self
+        try:
+            tr._block_self = lambda dt: False
+            self.assertEqual(tr._self_exclusion(self.req, "req@x"), set())
+            tr._block_self = lambda dt: True
+            self.assertEqual(tr._self_exclusion(self.req, "req@x"), {"req@x"})
+        finally:
+            tr._block_self = orig
+        self.assertTrue(tr._block_self("EC Adhoc Approval Request"))
+        self.assertFalse(tr._block_self("EC Payment Request"))
 
     def test_each_group_drops_subject(self):
         notes = []

@@ -37,7 +37,7 @@ DISCIPLINE_DECISION_DEFINITION = ApprovalDefinition(
                    ("Ngày họp", "meeting_date"), ("Hết thời hiệu", "limitation_effective_end")),
     **service_callbacks("discipline_decision"))
 
-_DOT0 = (("private", True), ("subject_fields", ("employee",)))
+_DOT0 = (("private", True), ("subject_fields", ("employee",)), ("block_self_approval", True))
 _HAS = getattr(ApprovalDefinition, "__dataclass_fields__", {})
 _EXTRA = {k: v for k, v in _DOT0 if k in _HAS}
 if _EXTRA:

@@ -138,6 +138,11 @@ class ApprovalDefinition:
     #: nghi viec, nguoi duoc danh gia...). Gia tri la email/User hoac ma Employee. Engine loai
     #: nguoi gui + doi tuong khoi moi cap duyet (chan tu duyet) - xem transitions._self_exclusion.
     subject_fields: Tuple[str, ...] = ()
+    #: CHAN NGUOI GUI tu duyet (opt-in, 23/11/2026). MAC DINH False vi F12 (25/09, Hoan xac nhan):
+    #: o 34 form cu nguoi gui nam trong cap duyet cua chinh minh thi DUOC tu duyet - la rule, khong
+    #: phai loi. Chi cac form HR moi bat (dot 0-3). Muon ap cho form cu phai hoi Hoan.
+    #: Doi tuong (subject_fields) thi luon bi loai khoi cap duyet, khong phu thuoc co nay.
+    block_self_approval: bool = False
     #: Truong AN voi nguoi CHI la nguoi theo doi (participant_purpose="Notify") - vd luong offer.
     #: query_service.detail xoa gia tri truoc khi tra ve trinh duyet. Nguoi gui / nguoi duyet /
     #: System Manager van thay.
@@ -182,6 +187,8 @@ def validate_definition(definition: ApprovalDefinition) -> None:
                 raise ValueError("%s fieldname is not a plain fieldname: %r" % (attr, fieldname))
     if not isinstance(definition.private, bool):
         raise ValueError("private must be a bool")
+    if not isinstance(definition.block_self_approval, bool):
+        raise ValueError("block_self_approval must be a bool")
 
 
 def _validate_all_tab(definition: ApprovalDefinition) -> None:
