@@ -410,6 +410,21 @@ def _mark_document_dead(dsr_name, dsr, how, detail):
                           error_summary=detail)
     _dead_letter_todo(dsr_name)
     _leg_stopped(dsr_name, dsr)
+    # K6 (PR-C): tai lieu bi huy / xoa tren cong -> bao nghiep vu (khong nem loi). detail
+    # cho nguoi dung doc (nghiep vu dan vao binh luan) - ma ky thuat da nam o su kien Failed.
+    _report_outcome(dsr.package, "destroyed", msg)
+
+
+def _report_outcome(package, outcome, detail=None):
+    """K6 (PR-C): bao ket qua ky ve nghiep vu (outcomes.report). Khong bao gio nem loi ra luong ky."""
+    try:
+        from ecentric_workspace.platform.esign import outcomes
+        outcomes.report(package, outcome, detail=detail)
+    except Exception:
+        try:
+            frappe.log_error(frappe.get_traceback(), "esign tasks report outcome")
+        except Exception:
+            pass
 
 
 def _complete_dsr(dsr_name, dsr):
@@ -563,6 +578,9 @@ def process_signing_request(dsr_name):
             events.set_dsr_status(dsr_name, "Manual Review", event_type="ManualReview")
             _dead_letter_todo(dsr_name)
             _leg_stopped(dsr_name, dsr)
+            # K6 (PR-C): nguoi ky tu choi tren cong -> bao nghiep vu (khong nem loi).
+            _report_outcome(dsr.package, "rejected",
+                            "Người ký %s đã từ chối trên cổng ký số CMC." % (dsr.approver or ""))
             return
 
         if dsr.status == "Queued":
@@ -1399,6 +1417,13 @@ def retrieve_signed_bundles():
         if not (out or {}).get("ok"):
             _flag_stalled_retrieval(r.name)
         _commit_step()
+    # K6 (PR-C): "ky du" chua bao duoc (ham nghiep vu loi luc truoc) -> thu lai co gioi han.
+    try:
+        from ecentric_workspace.platform.esign import outcomes
+        outcomes.sweep_unreported(commit=_commit_step)
+        _commit_step()
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "esign.tasks.outcomes.sweep_unreported")
 
 
 #: Trang thai phieu ma chu ky KHONG BAO GIO con du duoc - khong tai PDF ky cho nhung goi nay.

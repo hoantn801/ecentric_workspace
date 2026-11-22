@@ -377,6 +377,9 @@ def retrieve_and_store_for_package(package_name, force=False):
             all_done = False
     if all_done and files:
         frappe.db.set_value(PKG, package_name, "signed_bundle_complete", 1)
+        # K6 (PR-C): bao "ky du" ve nghiep vu (chi loai phieu khai ec_esign_outcome_handlers;
+        # khong bao gio nem loi ra day).
+        _report_outcome(package_name, "signed")
     return {"ok": all_done, "files": results}
 
 
@@ -581,3 +584,15 @@ def restore_missing_signed_files(package_name, dry_run=True):
                     request_meta={"file": d.file_name, "sha256": res["sha256"], "size": res["size"]})
         report["restored"].append({"dsf": m["dsf"], "file": m["file"], "sha256": res["sha256"]})
     return report
+
+
+def _report_outcome(package_name, outcome, detail=None):
+    """K6 (PR-C): bao ket qua ve nghiep vu. Khong bao gio lam hong luong tai PDF."""
+    try:
+        from ecentric_workspace.platform.esign import outcomes
+        outcomes.report(package_name, outcome, detail=detail)
+    except Exception:
+        try:
+            frappe.log_error(frappe.get_traceback(), "esign signed_files report outcome")
+        except Exception:
+            pass
