@@ -1,5 +1,6 @@
 # Copyright (c) 2026, eCentric and contributors
 """Module-owned immutable approval definition - Phe duyet dot xuat gui CEO (23/11/2026)."""
+from dataclasses import replace as _dc_replace
 from ecentric_workspace.approval_center.shared.requests.contracts import (
     ApprovalDefinition, STANDARD_STATUS_LABELS)
 from ecentric_workspace.approval_center.shared.definition_support import (
@@ -36,3 +37,12 @@ ADHOC_APPROVAL_DEFINITION = ApprovalDefinition(
     all_tab_columns=(("Mức độ", "urgency", "select"), ("Mong muốn trước", "desired_by", "date")),
     all_tab_filters=("urgency",),
     **service_callbacks("adhoc_approval"))
+
+
+# Quy trinh A-Z (24/11/2026): cac buoc SAU khi duyet xong - EcApprovalUI.withJourney ve tiep.
+ADHOC_APPROVAL_DEFINITION = _dc_replace(
+    ADHOC_APPROVAL_DEFINITION,
+    journey_after=(
+        ("Dùng làm chứng từ", "Gắn phiếu đã duyệt vào phiếu khác (thanh toán, mua hàng…)", "info"),
+    ),
+)

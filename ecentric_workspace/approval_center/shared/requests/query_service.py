@@ -86,7 +86,22 @@ def bootstrap(definition):
                  # scope_predicate, va hai luat canh nhau thi som muon cung troi nhau.
                  "all": True},
         "form_options": definition.options_provider(),
+        # Quy trinh A-Z (24/11/2026): cac cap duyet THAT cua process dang chay + cac buoc sau duyet.
+        "process_preview": _safe_preview(definition.code),
+        "journey_after": journey_after(definition),
     }
+
+
+def journey_after(definition):
+    """[{label, meta, kind}] - cac buoc sau khi duyet xong cua loai phieu (ApprovalDefinition)."""
+    return [{"label": a, "meta": b, "kind": c} for a, b, c in (definition.journey_after or ())]
+
+
+def _safe_preview(code):
+    try:
+        return process_preview(code)
+    except Exception:
+        return []
 
 
 def list_my_requests(definition, filters=None, start=0, page_length=20):
@@ -397,6 +412,7 @@ def detail(definition, name):
         "timeline": timeline,
         "process_preview": ([] if request else process_preview(
             business.approval_type or definition.code)),
+        "journey_after": journey_after(definition),
         "capabilities": capabilities.derive(user, business, request),
         # Dot 0 HR (23/11/2026): co rieng tu, nguoi theo doi, nhat ky truy cap (chi nguoi gui /
         # System Manager thay nhat ky). Trang cu khong doc khoi nay -> khong doi gi.

@@ -32,3 +32,45 @@ def ghi_dong_dau(employee, loai, tu_ngay, den_ngay, ghi_chu=None):
     emp.flags.ec_contract_source = ghi_chu
     emp.save(ignore_permissions=True)
     return "da ghi %s %s -> %s vao %s" % (loai, tu_ngay, den_ngay, employee)
+
+
+# --------------------------------------------------------------------------- 24/11/2026
+#: Mac dinh thoi gian thu viec khi Offer chua ghi ngay ket thuc: BLLD 2019 Dieu 25 - toi da 60 ngay
+#: cho cong viec can trinh do cao dang tro len (phan lon vi tri van phong). C&B sua tren ho so neu
+#: vi tri can it hon (30 ngay / 6 ngay) hoac la quan ly (180 ngay). Thuc tap: KHONG tu dat (can ngay
+#: ket thuc that tu Offer).
+THU_VIEC_MAC_DINH_NGAY = 60
+
+
+def ngay_ket_thuc_mac_dinh(loai, tu_ngay):
+    """-> (date | None, ghi_chu). Chi tinh cho "Thu viec"."""
+    from frappe.utils import add_days
+    if loai != "Thử việc" or not tu_ngay:
+        return None, None
+    return getdate(add_days(getdate(tu_ngay), THU_VIEC_MAC_DINH_NGAY - 1)), (
+        "mặc định %d ngày theo Đ25 BLLĐ (Offer chưa ghi ngày kết thúc) - C&B sửa nếu khác" % THU_VIEC_MAC_DINH_NGAY)
+
+
+def dien_ho_so(employee, tu_ngay, den_ngay, nguon):
+    """Dien date_of_joining / final_confirmation_date cua Employee NEU DANG TRONG (khong ghi de).
+    Co ghi vet (Comment tren Employee). -> chuoi ket qua."""
+    if not employee:
+        return "khong co ho so"
+    cur = frappe.db.get_value("Employee", employee, ["date_of_joining", "final_confirmation_date"],
+                              as_dict=True) or {}
+    upd = {}
+    if tu_ngay and not cur.get("date_of_joining"):
+        upd["date_of_joining"] = getdate(tu_ngay)
+    if den_ngay and not cur.get("final_confirmation_date"):
+        upd["final_confirmation_date"] = getdate(den_ngay)
+    if not upd:
+        return "ho so da co ngay vao lam / ngay het thu viec - giu nguyen"
+    frappe.db.set_value("Employee", employee, upd)
+    try:
+        frappe.get_doc({"doctype": "Comment", "comment_type": "Info", "reference_doctype": "Employee",
+                        "reference_name": employee,
+                        "content": "Tự điền từ %s: %s" % (nguon, ", ".join(
+                            "%s = %s" % (k, v) for k, v in sorted(upd.items())))}).insert(ignore_permissions=True)
+    except Exception:
+        pass
+    return "da dien %s" % ", ".join(sorted(upd))

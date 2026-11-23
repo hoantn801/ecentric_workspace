@@ -41,3 +41,12 @@ DATA_REQUEST_DEFINITION = _dc_replace(
         ("Cần ngày", "expected_resolution_date"),
     ),
 )
+
+
+# Quy trinh A-Z (24/11/2026): cac buoc SAU khi duyet xong - EcApprovalUI.withJourney ve tiep.
+DATA_REQUEST_DEFINITION = _dc_replace(
+    DATA_REQUEST_DEFINITION,
+    journey_after=(
+        ("Data xử lý", "Team Data nhận việc và xử lý", "fulfillment"),
+    ),
+)

@@ -42,3 +42,12 @@ _HAS = getattr(ApprovalDefinition, "__dataclass_fields__", {})
 _EXTRA = {k: v for k, v in _DOT0 if k in _HAS}
 if _EXTRA:
     DISCIPLINE_DECISION_DEFINITION = _dc_replace(DISCIPLINE_DECISION_DEFINITION, **_EXTRA)
+
+
+# Quy trinh A-Z (24/11/2026): cac buoc SAU khi duyet xong - EcApprovalUI.withJourney ve tiep.
+DISCIPLINE_DECISION_DEFINITION = _dc_replace(
+    DISCIPLINE_DECISION_DEFINITION,
+    journey_after=(
+        ("Ban hành quyết định", "Hồ sơ kỷ luật cập nhật; HR gửi quyết định cho nhân viên", "info"),
+    ),
+)

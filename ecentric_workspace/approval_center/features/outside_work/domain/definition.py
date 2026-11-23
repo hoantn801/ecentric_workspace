@@ -48,3 +48,12 @@ OUTSIDE_WORK_DEFINITION = _dc_replace(
         ("Số ngày", "duration_days"),
     ),
 )
+
+
+# Quy trinh A-Z (24/11/2026): cac buoc SAU khi duyet xong - EcApprovalUI.withJourney ve tiep.
+OUTSIDE_WORK_DEFINITION = _dc_replace(
+    OUTSIDE_WORK_DEFINITION,
+    journey_after=(
+        ("Ghi chấm công", "Hệ thống ghi công cho ngày làm việc bên ngoài", "auto"),
+    ),
+)

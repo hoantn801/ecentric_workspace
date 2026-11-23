@@ -62,3 +62,13 @@ RESIGNATION_DEFINITION = _dc_replace(
     ),
     # Dot 0 (23/11): chan tu duyet theo doi tuong - nguoi nghi viec khong duyet don cua chinh minh.
     subject_fields=("employee_email",))
+
+
+# Quy trinh A-Z (24/11/2026): cac buoc SAU khi duyet xong - EcApprovalUI.withJourney ve tiep.
+RESIGNATION_DEFINITION = _dc_replace(
+    RESIGNATION_DEFINITION,
+    journey_after=(
+        ("Bàn giao (Clearance)", "Tự tạo: LM / Vận hành / HR / HOF bàn giao song song", "form"),
+        ("Khoá tài khoản", "00:30 sau ngày làm việc cuối", "info"),
+    ),
+)

@@ -178,8 +178,6 @@ def may_pick_employee(doc, user=None):
 def pick_employee(name, employee, actor=None):
     """Nhom HR chon ho so Employee vua tao cho nguoi moi -> ghi dong Thu viec / Thuc tap vao
     Employee.ec_contracts (tu_ngay = ngay onboard, den_ngay = ngay ket thuc thu viec cua Offer). Co ghi vet."""
-    from ecentric_workspace.approval_center.features.new_staff_preparation.infrastructure import (
-        employee_contract as ec)
     actor = actor or frappe.session.user
     frappe.db.get_value(BUSINESS_DT, name, "name", for_update=True)
     doc = frappe.get_doc(BUSINESS_DT, name)
@@ -196,15 +194,33 @@ def pick_employee(name, employee, actor=None):
     emp = frappe.db.get_value("Employee", employee, ["name", "employee_name", "status"], as_dict=True)
     if not emp:
         frappe.throw(_("Không tìm thấy hồ sơ nhân viên {0}.").format(employee))
-    emp_type = frappe.db.get_value("EC Hiring Request", doc.hiring_request, "employment_type") \
-        if doc.hiring_request else None
-    ket = ec.ghi_dong_dau(emp.name, ec.loai_hop_dong(emp_type), doc.onboard_date, doc.probation_end_date,
-                          ghi_chu="Từ %s (%s)" % (doc.name, doc.offer_request or ""))
+    ket = ghi_ho_so_nhan_vien(doc, emp.name)
     frappe.db.set_value(BUSINESS_DT, name, {"new_employee": emp.name, "new_employee_set_by": actor,
                                             "contract_row_note": ket})
     engine.log_action(doc.approval_request, "Commented", actor,
                       comment=_("Chọn hồ sơ nhân viên {0} ({1}); {2}").format(emp.name, emp.employee_name, ket))
     return {"new_employee": emp.name, "contract": ket}
+
+
+def ghi_ho_so_nhan_vien(doc, employee):
+    """24/11/2026 (Hoan: vong tuyen dung phai noi toi thu viec): ho so nguoi moi co
+      * dong Thu viec / Thuc tap trong ec_contracts (goc cua Danh gia thu viec + Khao sat moc);
+      * date_of_joining = ngay onboard, final_confirmation_date = ngay het thu viec - CHI khi trong.
+    Offer chua ghi ngay ket thuc thu viec -> mac dinh theo Dieu 25 (employee_contract). Idempotent.
+    -> chuoi ket qua (ghi vet tren phieu)."""
+    from ecentric_workspace.approval_center.features.new_staff_preparation.infrastructure import (
+        employee_contract as ec)
+    emp_type = frappe.db.get_value("EC Hiring Request", doc.hiring_request, "employment_type") \
+        if doc.get("hiring_request") else None
+    loai = ec.loai_hop_dong(emp_type)
+    den, ghi_chu_mac_dinh = doc.get("probation_end_date"), None
+    if not den:
+        den, ghi_chu_mac_dinh = ec.ngay_ket_thuc_mac_dinh(loai, doc.get("onboard_date"))
+    nguon = "%s (%s)" % (doc.name, doc.get("offer_request") or "")
+    ket = ec.ghi_dong_dau(employee, loai, doc.get("onboard_date"), den,
+                          ghi_chu="Từ " + nguon + ("; " + ghi_chu_mac_dinh if ghi_chu_mac_dinh else ""))
+    ket += "; " + ec.dien_ho_so(employee, doc.get("onboard_date"), den if loai == "Thử việc" else None, nguon)
+    return ket
 
 
 def suggest_employees(name, user=None):
@@ -335,6 +351,16 @@ def nsp_block(business, request):
 def on_final_approval(name):
     """Du cac nhom da chuan bi -> bao them line manager (nguoi de nghi da duoc engine bao)."""
     doc = frappe.get_doc(BUSINESS_DT, name)
+    # 24/11/2026: da gan ho so nhan vien -> dam bao dong thu viec + ngay tren ho so (idempotent, nuot loi:
+    # loi ghi ho so khong lam hong luot duyet; ghi vet de C&B biet).
+    if doc.get("new_employee"):
+        try:
+            ket = ghi_ho_so_nhan_vien(doc, doc.new_employee)
+            if doc.approval_request:
+                engine.log_action(doc.approval_request, "Commented", "Administrator",
+                                  comment=_("Hồ sơ nhân viên {0}: {1}").format(doc.new_employee, ket))
+        except Exception:
+            frappe.log_error(title="NSP %s: ghi ho so nhan vien loi" % name, message=frappe.get_traceback())
     if doc.line_manager and doc.line_manager != doc.requested_by:
         engine.notify([doc.line_manager],
                       _("Các bên đã chuẩn bị xong cho nhân viên mới: {0}").format(

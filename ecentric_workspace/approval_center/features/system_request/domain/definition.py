@@ -36,3 +36,12 @@ SYSTEM_REQUEST_DEFINITION = _dc_replace(
         ("Cần ngày", "requester_expected_resolution_date"),
     ),
 )
+
+
+# Quy trinh A-Z (24/11/2026): cac buoc SAU khi duyet xong - EcApprovalUI.withJourney ve tiep.
+SYSTEM_REQUEST_DEFINITION = _dc_replace(
+    SYSTEM_REQUEST_DEFINITION,
+    journey_after=(
+        ("Operation xử lý", "Operation cấp tài khoản / quyền", "fulfillment"),
+    ),
+)

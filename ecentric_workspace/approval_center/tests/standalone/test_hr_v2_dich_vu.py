@@ -554,3 +554,69 @@ def test_setup_nghi_viec_v2_ba_cap_sla_2_ngay():
     assert all(l.sla_policy == "HR_2_NGAY_LV" for l in lv)
     assert not [r for r in W.tables["EC Approval Process"]["RESIGNATION-V2"].participants
                 if r["participant_purpose"] == "Fulfiller"]
+
+
+# =============================================================== 24/11: NSP -> ho so nhan vien
+def test_chon_ho_so_offer_thieu_ngay_thu_viec_dung_mac_dinh_d25_va_dien_ho_so():
+    _boot(user="cnb@x")
+    user("cnb@x", ["EC CnB"])
+    put("EC Hiring Request", "HR-1", employment_type="Full-time")
+    put("EC New Staff Preparation", "NSP-1", approval_request="AR-N", hiring_request="HR-1",
+        onboard_date="2026-12-01", probation_end_date=None, offer_request="OF-1")
+    put("EC Approval Request", "AR-N", approval_status="Pending")
+    emp = put("Employee", "HR-EMP-9", employee_name="New", status="Active", ec_contracts=[],
+              date_of_joining=None, final_confirmation_date=None)
+    svc = F.load(FEAT + "new_staff_preparation.application.service")
+    svc.pick_employee("NSP-1", "HR-EMP-9", actor="cnb@x")
+    rows = emp["ec_contracts"]
+    assert len(rows) == 1 and str(rows[0]["den_ngay"]) == "2027-01-29"          # 60 ngay ke ca ngay dau
+    assert "Đ25" in (rows[0]["ghi_chu"] or "")
+    e = W.tables["Employee"]["HR-EMP-9"]
+    assert str(e.date_of_joining) == "2026-12-01" and str(e.final_confirmation_date) == "2027-01-29"
+
+
+def test_dien_ho_so_khong_ghi_de_ngay_da_co():
+    _boot(user="cnb@x")
+    user("cnb@x", ["EC CnB"])
+    put("EC Hiring Request", "HR-1", employment_type="Full-time")
+    put("EC New Staff Preparation", "NSP-1", approval_request="AR-N", hiring_request="HR-1",
+        onboard_date="2026-12-01", probation_end_date="2027-01-31", offer_request="OF-1")
+    put("EC Approval Request", "AR-N", approval_status="Pending")
+    put("Employee", "HR-EMP-9", employee_name="New", status="Active", ec_contracts=[],
+        date_of_joining="2026-11-30", final_confirmation_date="2027-02-15")
+    svc = F.load(FEAT + "new_staff_preparation.application.service")
+    out = svc.pick_employee("NSP-1", "HR-EMP-9", actor="cnb@x")
+    e = W.tables["Employee"]["HR-EMP-9"]
+    assert str(e.date_of_joining) == "2026-11-30" and str(e.final_confirmation_date) == "2027-02-15"
+    assert "giu nguyen" in out["contract"]
+
+
+def test_thuc_tap_khong_tu_dat_ngay_khi_offer_thieu():
+    _boot(user="cnb@x")
+    user("cnb@x", ["EC CnB"])
+    put("EC Hiring Request", "HR-1", employment_type="Intern")
+    put("EC New Staff Preparation", "NSP-1", approval_request="AR-N", hiring_request="HR-1",
+        onboard_date="2026-12-01", probation_end_date=None, offer_request="OF-1")
+    put("EC Approval Request", "AR-N", approval_status="Pending")
+    emp = put("Employee", "HR-EMP-9", employee_name="New", status="Active", ec_contracts=[],
+              date_of_joining=None, final_confirmation_date=None)
+    svc = F.load(FEAT + "new_staff_preparation.application.service")
+    svc.pick_employee("NSP-1", "HR-EMP-9", actor="cnb@x")
+    assert emp["ec_contracts"] == []
+    assert W.tables["Employee"]["HR-EMP-9"].final_confirmation_date is None
+
+
+def test_nsp_duyet_xong_dam_bao_ho_so_da_gan():
+    _boot()
+    put("EC Hiring Request", "HR-1", employment_type="Full-time")
+    put("EC New Staff Preparation", "NSP-1", approval_request="AR-N", hiring_request="HR-1",
+        onboard_date="2026-12-01", probation_end_date="2027-01-31", offer_request="OF-1",
+        new_employee="HR-EMP-9", line_manager=None, requested_by="ta@x")
+    put("EC Approval Request", "AR-N", approval_status="Approved")
+    emp = put("Employee", "HR-EMP-9", employee_name="New", status="Active", ec_contracts=[],
+              date_of_joining=None, final_confirmation_date=None)
+    svc = F.load(FEAT + "new_staff_preparation.application.service")
+    svc.on_final_approval("NSP-1")
+    svc.on_final_approval("NSP-1")
+    assert len(emp["ec_contracts"]) == 1
+    assert str(W.tables["Employee"]["HR-EMP-9"].final_confirmation_date) == "2027-01-31"

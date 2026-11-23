@@ -121,3 +121,12 @@ PAYMENT_REQUEST_DEFINITION = _dc_replace(
     ),
     all_tab_filters=("ec_brand",),
 )
+
+
+# Quy trinh A-Z (24/11/2026): cac buoc SAU khi duyet xong - EcApprovalUI.withJourney ve tiep.
+PAYMENT_REQUEST_DEFINITION = _dc_replace(
+    PAYMENT_REQUEST_DEFINITION,
+    journey_after=(
+        ("Finance xử lý UNC", "Finance chuyển khoản, đính kèm UNC", "fulfillment"),
+    ),
+)

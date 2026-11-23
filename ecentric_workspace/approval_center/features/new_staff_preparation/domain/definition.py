@@ -24,6 +24,11 @@ NEW_STAFF_PREPARATION_DEFINITION = ApprovalDefinition(
     filter_builder=ExactAndDateFilters(("offer_request",)),
     draft_preparer=ServiceMethod(_BASE, "prepare_draft"),
     detail_extender=ServiceMethod(_BASE, "nsp_block"),
+    journey_after=(
+        ("Ghi hồ sơ nhân viên", "Hệ thống ghi ngày vào làm + ngày hết thử việc vào hồ sơ", "auto"),
+        ("Onboard", "Ngày đi làm: chào mừng trên Teams + trang chủ", "info"),
+        ("Thử việc", "Khảo sát mốc + đánh giá thử việc tự chạy theo ngày hết thử việc", "info"),
+    ),
     **service_callbacks("new_staff_preparation"))
 
 

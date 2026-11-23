@@ -139,13 +139,60 @@
     steps.forEach(function (s, i) { if (s.state !== "upcoming") k = i; });
     var inner = steps.map(function (s) {
       var lbl = s.statusLabel || STEP_LBL[s.state] || s.state || "";
-      return '<div class="step ' + esc(s.state) + '" role="listitem"' + (s.state === "current" ? ' aria-current="step"' : "") + ">"
-        + '<div class="step-top"><div class="step-dot" aria-hidden="true">' + stepDot(s) + "</div>"
+      return '<div class="step ' + esc(s.state) + (s.after ? " step-after" : "") + '" role="listitem"' + (s.state === "current" ? ' aria-current="step"' : "") + ">"
+        + '<div class="step-top"><div class="step-dot" aria-hidden="true"' + (s.after && s.state === "upcoming" ? ' style="border-style:dashed"' : "") + ">" + stepDot(s) + "</div>"
         + '<div class="step-name">' + stepName(s) + "</div>"
         + '<div class="step-state" style="color:' + (STEP_COLOR[s.state] || "var(--gray-400)") + '">' + esc(lbl) + "</div></div>"
         + '<div class="step-meta">' + (s.meta || "") + "</div></div>";
     }).join("");
     return '<div class="stepline' + (opts.cancelled ? " is-cancelled" : "") + '" role="list" aria-label="Tiến trình phê duyệt" style="--n:' + n + ";--k:" + k + '">' + inner + "</div>";
+  }
+
+  // ---- quy trinh A-Z (24/11/2026) ----------------------------------------------------------
+  // Hoan: "show full quy trinh tu A-Z thay vi toi khi CEO review xong moi co buoc tiep". Trang
+  // van tu dung cac buoc duyet (ten + trang thai that); ham nay CHEN cac buoc sau duyet do server
+  // khai (ApprovalDefinition.journey_after -> get_bootstrap / get_detail "journey_after"):
+  //   [Tao] -> cap duyet ... -> viec cua chinh phieu (fulfillment / auto) -> Hoan tat -> phieu / viec
+  //   tiep theo (form / info, nhan "Tiep theo").
+  // Buoc trung ten voi buoc trang da ve (vd "Finance xu ly UNC" co trang thai that) -> giu cua trang.
+  // Phieu bi tu choi / da huy -> giu nguyen (khong ve tiep).
+  var DONE_RE = /^Ho\u00e0n t\u1ea5t/i;
+  function _norm(t) { return String(t || "").trim().toLowerCase(); }
+  function withJourney(steps, journey) {
+    steps = (steps || []).slice();
+    journey = journey || [];
+    if (!journey.length) return steps;
+    if (steps.some(function (s) { return s.state === "rejected" || s.state === "cancelled"; })) return steps;
+    var hi = -1;
+    for (var i = steps.length - 1; i >= 0; i--) { if (DONE_RE.test(String(steps[i].name || ""))) { hi = i; break; } }
+    var hoan = hi >= 0 ? steps.splice(hi, 1)[0] : null;
+    var names = {};
+    steps.forEach(function (s) { names[_norm(s.name)] = true; });
+    var levels = steps.filter(isLevel);
+    var approved = (hoan && hoan.state === "done")
+      || (levels.length > 0 && levels.every(function (s) { return s.state === "done" || s.state === "skipped"; }));
+    var own = [], next = [];
+    journey.forEach(function (j) {
+      if (!j || !j.label || names[_norm(j.label)]) return;
+      (j.kind === "fulfillment" || j.kind === "auto" ? own : next).push(j);
+    });
+    var pending = false;
+    own.forEach(function (j) {
+      var st = "upcoming", lbl = "Sau duyệt";
+      if (approved && j.kind === "auto") { st = "done"; lbl = "Hệ thống tự làm"; }
+      else if (approved) { st = "current"; lbl = "Chờ nhận việc"; pending = true; }
+      steps.push({ name: j.label, state: st, statusLabel: lbl, meta: esc(j.meta || ""), after: true });
+    });
+    steps.forEach(function (s) { if (s.state === "current" && !isLevel(s) && approved) pending = true; });
+    if (!hoan) hoan = { name: "Hoàn tất", state: "upcoming", meta: "" };
+    hoan = Object.assign({}, hoan);
+    if (!approved || pending) { hoan.state = "upcoming"; delete hoan.statusLabel; }
+    else if (approved) hoan.state = "done";
+    steps.push(hoan);
+    next.forEach(function (j) {
+      steps.push({ name: j.label, state: "upcoming", statusLabel: "Tiếp theo", meta: esc(j.meta || ""), after: true });
+    });
+    return steps;
   }
 
   // ---- lich su ------------------------------------------------------------------------------
@@ -259,7 +306,7 @@
   window.EcApprovalUI = {
     actionLabel: actionLabel, statusLabel: statusLabel, actorLabel: actorLabel,
     fmtDateTime: fmtDateTime, fmtDate: fmtDate, levelText: levelText,
-    stepsHTML: stepsHTML, timelineHTML: timelineHTML, timelineItemParts: timelineItemParts,
+    stepsHTML: stepsHTML, withJourney: withJourney, timelineHTML: timelineHTML, timelineItemParts: timelineItemParts,
     serverMessage: serverMessage, errorText: errorText, isTechnical: isTechnical,
     ACTION_LABELS: ACTION, STATUS_LABELS: STATUS
   };
