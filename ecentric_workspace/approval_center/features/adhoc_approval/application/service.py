@@ -18,6 +18,7 @@ import frappe
 from frappe import _
 from frappe.utils import getdate, nowdate, now_datetime
 
+from ecentric_workspace.approval_center.shared import people
 from ecentric_workspace.approval_center.shared.workflow import transitions as engine
 
 BUSINESS_DT = "EC Adhoc Approval Request"
@@ -51,6 +52,10 @@ def validate_business(doc):
         frappe.throw(_("Phiếu Gấp bắt buộc ghi lý do gấp."))
     if doc.get("desired_by") and getdate(doc.get("desired_by")) < getdate(nowdate()):
         frappe.throw(_("Ngày mong muốn có kết quả không được ở quá khứ."))
+    cc, errs = people.validate_cc(doc.get("cc_users"), doc.get("requested_by"))
+    if errs:
+        frappe.throw(" ".join(errs))
+    doc.cc_users = ", ".join(cc) or None
 
 
 def sla_overrides_for(doc):
@@ -83,7 +88,8 @@ def submit(name):
     doc.material_signature = _signature(doc)
     doc.save(ignore_permissions=True)
     req_name = engine.submit(BUSINESS_DT, doc.name, APPROVAL_TYPE, requester,
-                             sla_overrides=sla_overrides_for(doc))
+                             sla_overrides=sla_overrides_for(doc),
+                             watchers=people.parse_users(doc.cc_users))
     frappe.db.set_value(BUSINESS_DT, doc.name, "approval_request", req_name)
     if doc.urgency == URGENT:
         engine.log_action(req_name, "Commented", requester,
@@ -99,6 +105,11 @@ def resubmit(name, actor=None):
         frappe.db.set_value(BUSINESS_DT, doc.name, "urgency_reason", None)
         doc.urgency_reason = None
     validate_business(doc)
+    frappe.db.set_value(BUSINESS_DT, doc.name, "cc_users", doc.cc_users)
+    # CC them khi gui lai -> them nguoi theo doi (khong go ai da CC: nguoi do da nhan thong bao,
+    # bo ho khoi danh sach la mat dau vet audit).
+    engine.add_watchers(doc.approval_request, people.parse_users(doc.cc_users),
+                        actor=actor or frappe.session.user, source="CC")
     new_sig = _signature(doc)
     changed = new_sig != (doc.material_signature or "")
     frappe.db.set_value(BUSINESS_DT, doc.name, "request_title", gen_title(doc))

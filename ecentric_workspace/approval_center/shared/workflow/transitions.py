@@ -1629,14 +1629,19 @@ def is_active_process_fulfiller(approval_type, user=None):
 
 
 def submit(reference_doctype, reference_name, approval_type, requester, process_code=None,
-           activate_first_level=True, skip_level_nos=None, skip_reason=None, sla_overrides=None):
+           activate_first_level=True, skip_level_nos=None, skip_reason=None, sla_overrides=None,
+           watchers=None):
     """skip_level_nos: level_no bị loại khỏi snapshot của RIÊNG request này (tuỳ điều kiện
     nghiệp vụ do service của form quyết định — engine giữ trung tính, chỉ nhận danh sách).
     Chỉ được bỏ cấp KHÔNG mandatory; việc bỏ được ghi audit kèm skip_reason.
 
     sla_overrides (23/11/2026): {level_no: policy_code} - SLA RIÊNG của request này (vd phiếu
     Gấp 4 giờ làm việc thay vì 2 ngày). Chốt vào snapshot trước khi kích hoạt cấp; policy không
-    tồn tại / không active thì bỏ qua (giữ SLA của process) + Error Log."""
+    tồn tại / không active thì bỏ qua (giữ SLA của process) + Error Log.
+
+    watchers (23/11/2026): list user NGƯỜI GỬI CC đích danh (vd kế toán) - thêm làm người theo dõi
+    TRƯỚC khi kích hoạt cấp 1, nên nhận luôn tin "vừa được gửi". Lọc như add_watchers (bỏ người gửi,
+    người duyệt, user không hoạt động); nguồn ghi "CC" để audit phân biệt với Notify của process."""
     process = resolve_process(approval_type, process_code)
     levels = resolve_levels(process.name)
     if not levels:
@@ -1665,6 +1670,8 @@ def submit(reference_doctype, reference_name, approval_type, requester, process_
         "approval_status": "Pending", "current_level": 0,
     }).insert(ignore_permissions=True)
     build_snapshot(req, process, levels, requester)
+    if watchers:
+        add_watchers(req.name, watchers, actor=requester, source="CC")
     if sla_overrides:
         _apply_sla_overrides(req.name, sla_overrides)
     log_action(req.name, "Submitted", requester, new_status="Pending")

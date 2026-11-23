@@ -54,6 +54,9 @@ function boot(html, route, det, calls) {
     if (m === "get_bootstrap") return Promise.resolve({ message: { tabs: { create: true, my_requests: true, all: true }, context: { user: "req@x", employee_name: "A" }, form_options: { urgency_levels: ["Bình thường", "Gấp"] } } });
     if (m === "get_detail") return Promise.resolve({ message: det });
     if (m === "save_draft") return Promise.resolve({ message: { name: "EC-ADHOC-1" } });
+    if (m === "search_cc_users") return Promise.resolve({ message: [
+      { user: "ketoan@x", full_name: "Kế Toán", department: "Finance - EC" },
+      { user: "linh@x", full_name: "Linh <b>V</b>", department: "" }] });
     return Promise.resolve({ message: { rows: [], total: 0 } }); } };
   w.confirm = () => true;
   mockFetch(w);
@@ -131,7 +134,39 @@ const DET = (cap, biz, ap) => ({ business: Object.assign({ name: "R-1", requeste
   await flush();
   const sd = w.__calls.find((x) => x[0] === "save_draft");
   ok(sd && JSON.parse(sd[1].payload).urgency === "Gấp", "save_draft mang muc Gap");
+  ok(sd && !JSON.parse(sd[1].payload).cc_users, "khong CC -> khong gui cc_users");
   ok(w.__calls.some((x) => x[0] === "submit_request"), "gui -> submit_request");
+}
+{
+  // O CC: go 1 ky tu khong tim; go 2+ ky tu -> search_cc_users; chon -> chip; luu nhap mang cc_users.
+  const w = boot(ADHOC, "approvals/adhoc-approval", DET(CAP()));
+  await flush();
+  const q = w.document.getElementById("adhc-cc-q");
+  ok(!!q, "co o CC");
+  q.value = "k"; q.dispatchEvent(new w.Event("input", { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 300)); await flush();
+  ok(!w.__calls.some((x) => x[0] === "search_cc_users"), "1 ky tu -> chua tim");
+  q.value = "ke"; q.dispatchEvent(new w.Event("input", { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 300)); await flush();
+  const sc = w.__calls.find((x) => x[0] === "search_cc_users");
+  ok(sc && sc[1].q === "ke", "2 ky tu -> search_cc_users");
+  const drop = w.document.getElementById("adhc-cc-drop");
+  ok(drop && !drop.hidden && drop.querySelectorAll("[data-i]").length === 2, "hien 2 goi y");
+  ok(drop.innerHTML.indexOf("<b>V</b>") < 0, "ten goi y duoc escape");
+  drop.querySelector("[data-i='0']").dispatchEvent(new w.MouseEvent("mousedown", { bubbles: true }));
+  const chips = w.document.querySelectorAll("#adhc-cc-chips .cc-chip");
+  ok(chips.length === 1 && /Kế Toán/.test(chips[0].textContent), "chon -> chip ten");
+  q.value = "sep@cong.ty"; q.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+  ok(w.document.querySelectorAll("#adhc-cc-chips .cc-chip").length === 2, "Enter email hop le -> them chip");
+  ok(/Kế Toán/.test(w.document.getElementById("adhc-summary").textContent) || /ketoan@x/.test(w.document.getElementById("adhc-summary").textContent), "tom tat co CC");
+  w.document.querySelector("[data-ccrm='sep@cong.ty']").click();
+  ok(w.document.querySelectorAll("#adhc-cc-chips .cc-chip").length === 1, "bo chip");
+  const t = w.document.getElementById("adhc-title"); t.value = "T"; t.dispatchEvent(new w.Event("input", { bubbles: true }));
+  const c = w.document.getElementById("adhc-content"); c.value = "C"; c.dispatchEvent(new w.Event("input", { bubbles: true }));
+  w.document.getElementById("adhc-save").click();
+  await flush();
+  const sd = w.__calls.find((x) => x[0] === "save_draft");
+  ok(sd && JSON.parse(sd[1].payload).cc_users === "ketoan@x", "luu nhap mang cc_users");
 }
 {
   // Chi tiet: the Tai lieu & phieu lien quan co chip; khu Hanh dong KHONG ve chip lan hai.
