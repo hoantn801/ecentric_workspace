@@ -249,6 +249,141 @@ def assert_ready_to_submit(business_doctype, business_name):
     missing = pkgsvc.preflight_for_lock(pkg_name) if pkg_name else ["no_package"]
     if missing:
         frappe.throw(_placement_refusal(missing))
+    assert_requester_portal_role(frappe.db.get_value(PKG, pkg_name, "profile"),
+                                 frappe.session.user)
+    assert_partner_sign_type_ready(pkg_name)
+
+
+PROFILE = "EC Digital Signature Profile"
+
+
+def _portal_adapter(prof):
+    """Adapter cong (tai khoan tich hop) cho ho so, hoac None khi cong tac tich hop TAT
+    (cong tac tong cua ky so - tasks._disabled - hoac Provider Settings tat)."""
+    try:
+        from ecentric_workspace.platform.esign import tasks
+        disabled = tasks._disabled()
+    except Exception:            # khong doc duoc cong tac tong -> xet tiep Provider Settings
+        disabled = False
+    if disabled:
+        return None
+    settings = frappe.db.get_value("EC Digital Signature Provider Settings",
+                                   {"provider": prof.provider, "environment": prof.environment},
+                                   "*", as_dict=True)
+    if not settings or not int(settings.get("integration_enabled") or 0):
+        return None
+    from ecentric_workspace.platform.esign.providers import get_adapter
+    return get_adapter(settings)
+
+
+def _contract_profile_row(profile_name):
+    if not profile_name:
+        return None
+    prof = frappe.db.get_value(PROFILE, profile_name,
+                               ["name", "trust_portal_transitions", "allow_external_signers",
+                                "workflow_definition_id", "provider", "environment"],
+                               as_dict=True)
+    if not prof or not (int(prof.trust_portal_transitions or 0)
+                        or int(prof.allow_external_signers or 0)):
+        return None
+    return prof
+
+
+def assert_requester_portal_role(profile_name, user):
+    """Nguoi lap phai giu MOT vai tro cua buoc KHOI TAO tren quy trinh cong (PR-F 23/11/2026; vd
+    WF03: "Chuyen vien CnB" / "Khoi tao hop dong"). Cong tu choi tao tai lieu cho nguoi khong co
+    vai - bao ngay luc gui thay vi de chan nguoi lap hong sau khi phieu da di.
+
+    Chi ho so hop dong (lay buoc tu cong / co doi tac); DNTT khong doi. CHI CHAN khi chac chan
+    (QC 23/11): moi vai can co deu la MA da biet tren cong (Role/GetAll), tim duoc DUNG MOT tai
+    khoan cong (theo ma anh xa da xac minh, roi moi toi email), va doc lai KHONG qua cache van
+    thieu vai. Thieu bat ky dieu nao -> khong chan."""
+    prof = _contract_profile_row(profile_name)
+    if not prof or not user or not prof.workflow_definition_id:
+        return
+    try:
+        adapter = _portal_adapter(prof)
+        if adapter is None or not (hasattr(adapter, "workflow_nodes")
+                                   and hasattr(adapter, "user_roles")
+                                   and hasattr(adapter, "role_names")):
+            return
+        wf = adapter.workflow_nodes(prof.workflow_definition_id)
+        start = (wf or {}).get("start_node")
+        need = [str(r) for r in (((wf or {}).get("nodes") or {}).get(str(start) if start else "",
+                                                                    {}).get("roles") or [])]
+        if not need:
+            return
+        names = adapter.role_names() or {}
+        known = {str(k).strip().lower(): v for k, v in names.items()}
+        if not known or any(r.strip().lower() not in known for r in need):
+            return                      # dang ma vai la / khong doc duoc ten -> khong chan
+        mapping = perms.verified_mapping(user, prof.environment)
+        pid = (mapping.get("scts_user_id") if isinstance(mapping, dict)
+               else getattr(mapping, "scts_user_id", None)) if mapping else None
+        want = {r.strip().lower() for r in need}
+
+        def _ok(have):
+            return have is None or bool(want & {str(h).strip().lower() for h in have})
+        if _ok(adapter.user_roles(user, provider_user_id=pid)):
+            return
+        if _ok(adapter.user_roles(user, provider_user_id=pid, fresh=True)):
+            return                      # vua duoc cap vai - cache cu
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "esign requester portal role check")
+        return
+    frappe.throw(_("Tài khoản cổng ký số CMC của bạn chưa có vai trò được khởi tạo tài liệu cho "
+                   "quy trình này (cần một trong: {0}). Liên hệ quản trị cổng CMC cấp vai trò "
+                   "rồi gửi lại.").format(", ".join(known.get(r.strip().lower()) or r
+                                                    for r in need)))
+
+
+_PARTNER_ERROR_VI = {
+    "partner_info_missing": "Phiếu chưa có đủ thông tin người ký phía đối tác (họ tên, email) - "
+                            "bổ sung trên phiếu rồi gửi lại.",
+    "partner_info_invalid": "Thông tin người ký phía đối tác trên phiếu chưa hợp lệ (thiếu họ tên "
+                            "hoặc email sai) - sửa trên phiếu rồi gửi lại.",
+    "partner_sign_type_invalid": "Kiểu ký của đối tác trên phiếu không được cổng ký số hỗ trợ - "
+                                 "liên hệ quản trị.",
+}
+
+
+def _partner_error_vi(code):
+    return _(_PARTNER_ERROR_VI.get(code) or "Thông tin người ký phía đối tác trên phiếu chưa "
+                                            "đúng - liên hệ quản trị.")
+
+
+def assert_partner_sign_type_ready(pkg_name):
+    """Ho so co doi tac ky ngoai: kiem LUC GUI (truoc khi phieu di) - thong tin doi tac du, va
+    goi CMC con luot cho kieu ky cua doi tac (eKYC...). Truoc day chi lo luc tao tai lieu, sau
+    khi phieu da duyet toi buoc cong, chan nguoi lap chet vinh vien (QC 23/11). Khong doc duoc
+    giay phep -> khong chan (giong luc tao tai lieu)."""
+    if not pkg_name:
+        return
+    pkg = frappe.db.get_value(PKG, pkg_name, ["name", "profile", "business_doctype",
+                                              "business_name"], as_dict=True)
+    prof = _contract_profile_row(pkg.profile if pkg else None)
+    if not prof or not int(prof.allow_external_signers or 0):
+        return
+    from ecentric_workspace.platform.esign import tasks
+    from ecentric_workspace.platform.esign.providers.base import ProviderError
+    try:
+        from ecentric_workspace.platform.esign.providers.scts import _external_handlers_payload
+        payload = _external_handlers_payload(tasks._external_handlers_for(pkg))
+    except ProviderError as e:
+        # Cau cho NGUOI DUNG: cau cua nghiep vu neu co, khong thi cau co dinh theo ma loi - khong
+        # lo ma noi bo / ten hook / chu khong dau (QC vong 2).
+        frappe.throw(getattr(e, "user_message", None) or _partner_error_vi(e.code))
+    try:
+        adapter = _portal_adapter(prof)
+        if adapter is None or not hasattr(adapter, "assert_partner_sign_types_available"):
+            return
+        adapter.assert_partner_sign_types_available(payload)
+    except ProviderError as e:
+        if e.code == "partner_sign_type_unavailable":
+            frappe.throw(e.message)
+        frappe.log_error(frappe.get_traceback(), "esign requester partner licence check")
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "esign requester partner licence check")
 
 
 def sign_on_submit(business_doctype, business_name):
@@ -321,6 +456,8 @@ def lock_on_submit(business_doctype, business_name):
     missing = pkgsvc.preflight_for_lock(draft)
     if missing:
         frappe.throw(_placement_refusal(missing))
+    assert_requester_portal_role(pname, frappe.session.user)
+    assert_partner_sign_type_ready(draft)
     h = pkgsvc.lock_package(draft, ar)
     return {"locked": True, "package": draft, "package_hash": h}
 

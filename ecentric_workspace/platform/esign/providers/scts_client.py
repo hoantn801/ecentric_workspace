@@ -611,6 +611,49 @@ class SctsClient(object):
             % (instance_id, transition_id, user_id),
             token=token, _label="users_for_transition")
 
+    # -- doc cau hinh cong (PR-F 23/11/2026, chi DOC) ---------------------------
+    def _read(self, path, token, label):
+        """GET chi doc, nhanh (QUICK_READ). CHI 401 -> scts_auth_error_401 (de _with_auth dang
+        nhap lai mot lan). 403 = tai khoan KHONG CO QUYEN doc trang quan tri do - KHONG phai token
+        het han: khong dang nhap lai (QC 23/11: moi lan doc se dang nhap lai tai khoan tich hop,
+        ghi de token_cache dung chung voi DNTT). 4xx khac -> ProviderError khong retry."""
+        try:
+            return self._request("GET", path, token=token, _label=label, **QUICK_READ)
+        except SctsHttpError as e:
+            if e.status == 403:
+                raise ProviderError("scts_read_forbidden",
+                                    "SCTS: tai khoan khong co quyen %s (HTTP 403)" % label,
+                                    retryable=False)
+            if e.status == 401:
+                raise ProviderError("scts_auth_error_%s" % e.status,
+                                    "SCTS rejected credentials on %s (HTTP %s)" % (label, e.status),
+                                    retryable=False)
+            raise ProviderError("scts_read_rejected_%s" % e.status,
+                                "SCTS refused %s (HTTP %s)" % (label, e.status), retryable=False)
+
+    def get_licence(self, token):
+        """GET /api/Settings/GetLicence -> {docTotal, ekycTotal, esginTotal, vnetTotal, nfcTotal,
+        smsTotal, emailTotal} (do tren cong 23/11: add-document.js an kieu ky khi total = 0)."""
+        return self._read("/api/Settings/GetLicence", token, "get_licence")
+
+    def get_workflow_json(self, definition_id, token):
+        """GET /api/WorkflowDefinition/GetJson/{id} -> mo hinh quy trinh (GoJS GraphLinksModel:
+        nodeDataArray / linkDataArray; `data` co the la CHUOI JSON)."""
+        return self._read("/api/WorkflowDefinition/GetJson/%s" % definition_id, token,
+                          "get_workflow_json")
+
+    def get_users_paged(self, keyword, token, page_size=50):
+        """GET /api/User/GetPaged?pageIndex=1&pageSize=..&keyword=.. -> {data: {data: [{email,
+        roleIds, roleNames...}]}} (user.js cua cong). Chi DOC."""
+        from urllib.parse import quote
+        return self._read("/api/User/GetPaged?pageIndex=1&pageSize=%d&keyword=%s"
+                          % (int(page_size), quote(str(keyword or ""), safe="")), token,
+                          "get_users_paged")
+
+    def get_roles(self, token):
+        """GET /api/Role/GetAll -> [{id, name}] (ten vai tro tren cong)."""
+        return self._read("/api/Role/GetAll", token, "get_roles")
+
     def get_workflow_instance(self, instance_id, user_id, token):
         """GET /api/Workflow/{instanceId}?userid={userId} -> the LIVE workflow state.
 
@@ -646,11 +689,12 @@ class SctsClient(object):
             "GET", "/api/Workflow/instance/%s?userId=%s" % (document_id, user_id),
             token=token, _label="workflow_instance_by_document", **QUICK_READ)
 
-    def get_document(self, document_id, token):
-        """GET /api/Document/{documentId} -> raw document payload (status/signers/files)."""
+    def get_document(self, document_id, token, quick=False):
+        """GET /api/Document/{documentId} -> raw document payload (status/signers/files).
+        `quick`: vong quet nen (5 giay, khong thu lai - QUICK_READ)."""
         try:
             return self._request("GET", "/api/Document/%s" % document_id, token=token,
-                                 _label="get_document")
+                                 _label="get_document", **(QUICK_READ if quick else {}))
         except SctsHttpError as e:
             if e.status in _AUTH_STATUSES:
                 raise ProviderError("scts_auth_error_%s" % e.status,

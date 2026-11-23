@@ -609,10 +609,19 @@ def _plan_handover_core(dsr, profile_name, environment, stage=None, adapter=None
     return out
 
 
+#: Buoc THU HAI cua nguoi lap, SAU khi doi tac ky (HD lao dong WF03: `-11` "Doi tac ky xong va
+#: trinh CEO"; PR-F 23/11/2026). Chan nay la chan Requester/Approve co `transition_id` = ma canh
+#: cau hinh (portal_steps.start_bridge_step) - chan nguoi lap thuong de trong truong nay.
+BRIDGE_STAGE = "requester:after_partner"
+
+
 def portal_stage_for(dsr):
     """Khoa `stage` cua dong cau hinh buoc cho chan nay o che do LAY BUOC TU CONG:
-    "requester" cho chan nguoi lap, "level:<n>" cho cap duyet n cua ERP."""
+    "requester" cho chan nguoi lap, BRIDGE_STAGE cho buoc nguoi lap sau doi tac,
+    "level:<n>" cho cap duyet n cua ERP."""
     if dsr.get("actor_type") == "Requester":
+        if (dsr.get("action") or "") == "Approve" and dsr.get("transition_id") not in (None, "", 0):
+            return BRIDGE_STAGE
         return "requester"
     level = dsr.get("request_level_no")
     if level is None:
@@ -683,12 +692,20 @@ def plan_portal_step(dsr, state, profile_name, environment, adapter=None, instan
            "to_state": str(edge.get("to_state") or ""),
            "transition_source": SOURCE_DISCOVERED, "stage": stage}
     ar = dsr.get("approval_request")
-    if stage == "requester":
+    if stage in ("requester", BRIDGE_STAGE):
         # Nguoi lap trinh cho cap cong DAU TIEN - chinh la cap dang mo (portal_steps), khong
-        # phai cap 1 (vd Truong phong chi duyet tren ERP).
+        # phai cap 1 (vd Truong phong chi duyet tren ERP). Buoc nguoi lap SAU doi tac (WF03
+        # `-11`) cung trinh cho cap ERP dang mo (CEO).
         level = int(frappe.db.get_value(AR, ar, "current_level") or 0) - 1
     else:
         level = int(stage.split(":")[1])
+    # Canh nay dua tai lieu toi buoc DOI TAC tren cong? Doc tu dinh nghia quy trinh (PR-F
+    # 23/11): WF09 `-5` (sau CEO) va WF03 `-8` (ngay sau nguoi lap, du ERP con CEO phia sau).
+    # Chi hoi khi ho so co doi tac - ho so DNTT khong bao gio vao nhanh nay.
+    kind = (_edge_target_kind(adapter, profile_name, out["to_state"])
+            if _allows_external(profile_name) else "internal")
+    if kind == "external":
+        return _partner_plan(out, cfg, dsr, adapter, instance_id, environment)
     users = next_level_approvers(ar, level)
     if not users:
         if cfg["terminal"]:
@@ -700,29 +717,20 @@ def plan_portal_step(dsr, state, profile_name, environment, adapter=None, instan
         # hoi duoc / 0 / nhieu -> DUNG, khong gui toUsers rong (= ca nhom vai tro).
         if not _allows_external(profile_name):
             return {"mode": "stop", "reason": "no_next_level_approver:partner_step_not_supported"}
-        # CHI o cap ERP CUOI (QC 22/11): next_level_approvers rong ca khi cap sau con do nhung
-        # khong "Pending" (vd cap chi-ERP bi bo qua) - khi do KHONG duoc dua sang doi tac.
+        if kind == "internal":
+            # Dinh nghia quy trinh noi buoc dich KHONG danh dau doi tac (EXTERNAL) ma ERP khong
+            # con ai. Chua kiem tren cong that cach WF09 danh dau nut doi tac (QC vong 2 M-4) ->
+            # ghi lai roi ve luat PR-D ben duoi (_partner_plan van chan nguoi noi bo / mo ho).
+            out["workflow_node_kind"] = "internal"
+        # kind "legacy" (adapter khong co workflow_nodes) hoac "unreadable" (co ma khong doc
+        # duoc - QC 23/11: khong duoc lam WF09 dung han chi vi chua cap quyen GetJson): luat
+        # PR-D - CHI o cap ERP CUOI (next_level_approvers rong ca khi cap sau con do nhung khong
+        # "Pending" - khi do KHONG duoc dua sang doi tac), van qua _partner_plan (dung mot nguoi
+        # cong chap nhan, khong phai nguoi noi bo).
         final = _final_level(ar)
         if final is None or level < final:
             return {"mode": "stop", "reason": "no_next_level_approver:not_final_level"}
-        if adapter is None or not instance_id or not hasattr(adapter, "eligible_recipients"):
-            return {"mode": "stop", "reason": "partner_recipient_unverified"}
-        eligible = adapter.eligible_recipients(instance_id, cfg.get("transition_id"),
-                                               dsr.get("effective_scts_user_id"))
-        if eligible is None:
-            return {"mode": "stop", "reason": "partner_recipient_unverified"}
-        ids = sorted(str(i) for i in eligible)
-        # Nguoi nhan buoc doi tac KHONG duoc la chinh nguoi gui hay mot nguoi NOI BO da anh xa
-        # (QC 22/11: cong tra nham mot user noi bo vai "doitac" -> tai lieu sang sai nguoi).
-        internal = [i for i in ids if i == str(dsr.get("effective_scts_user_id") or "")
-                    or _is_internal_provider_id(i, environment)]
-        if internal:
-            return {"mode": "stop", "reason": "partner_recipient_internal:%s" % ",".join(internal)}
-        if len(ids) != 1:
-            return {"mode": "stop", "reason": "partner_recipient_ambiguous:%d" % len(ids)}
-        out.update({"mode": "transition", "to_users": ids, "erp_users": [],
-                    "partner_handover": True})
-        return out
+        return _partner_plan(out, cfg, dsr, adapter, instance_id, environment)
     ids, unmapped = provider_ids_for(users, environment)
     if unmapped or not ids:
         # Thieu anh xa mot nguoi = cong giao buoc cho thieu nguoi. Dung lai, noi ro ai.
@@ -736,10 +744,66 @@ def plan_portal_step(dsr, state, profile_name, environment, adapter=None, instan
                 # Chuoi ERP va quy trinh cong lech nhau: nguoi ERP chon khong nhan duoc buoc nay.
                 return {"mode": "stop", "reason": "recipient_not_eligible:%s"
                                                   % ",".join(str(i) for i in dropped)}
+        elif kind == "unreadable":
+            # Ho so CO doi tac, khong biet buoc dich co phai doi tac khong VA khong hoi duoc nguoi
+            # nhan -> KHONG gui mo theo chuoi ERP (WF03 `-8` se sang tay CEO thay vi doi tac -
+            # QC 23/11). CHO (thu lai) - loi doc tam thoi khong duoc lam chan dung han (QC vong 2).
+            return {"mode": "wait", "reason": "partner_recipient_unverified"}
         else:
             out["recipients_unverified"] = True
+    elif kind == "unreadable":
+        return {"mode": "wait", "reason": "partner_recipient_unverified"}
     out.update({"mode": "transition", "to_users": ids, "erp_users": users})
     return out
+
+
+def _edge_target_kind(adapter, profile_name, to_state):
+    """Buoc dich cua canh tren cong: "external" (doi tac) | "internal" | "unreadable" (co cach
+    hoi ma khong doc duoc) | "legacy" (adapter khong co workflow_nodes - giu luat PR-D)."""
+    if adapter is None or not hasattr(adapter, "workflow_nodes"):
+        return "legacy"
+    def_id = frappe.db.get_value("EC Digital Signature Profile", profile_name,
+                                 "workflow_definition_id") if profile_name else None
+    try:
+        wf = adapter.workflow_nodes(def_id) if def_id else None
+    except Exception:
+        wf = None
+    if not isinstance(wf, dict) or not isinstance(wf.get("nodes"), dict):
+        return "unreadable"
+    node = wf["nodes"].get(str(to_state or ""))
+    if node is None:
+        return "unreadable"
+    return "external" if node.get("external") else "internal"
+
+
+def _partner_plan(out, cfg, dsr, adapter, instance_id, environment):
+    """Nguoi nhan buoc DOI TAC: DUNG MOT nguoi cong chap nhan cho canh nay, khong phai chinh
+    nguoi gui, khong phai nguoi noi bo da anh xa. Khong hoi duoc / 0 / nhieu -> DUNG."""
+    if adapter is None or not instance_id or not hasattr(adapter, "eligible_recipients"):
+        return {"mode": "stop", "reason": "partner_recipient_unverified"}
+    eligible = adapter.eligible_recipients(instance_id, cfg.get("transition_id"),
+                                           dsr.get("effective_scts_user_id"))
+    if eligible is None:
+        # Khong hoi duoc nguoi nhan (thuong la loi mang tam thoi): CHO, thu lai - khong gui mo,
+        # khong dung han chan (QC vong 2 M-3).
+        return {"mode": "wait", "reason": "partner_recipient_unverified"}
+    ids = sorted(str(i) for i in eligible)
+    # Nguoi nhan buoc doi tac KHONG duoc la chinh nguoi gui hay mot nguoi NOI BO da anh xa
+    # (QC 22/11: cong tra nham mot user noi bo vai "doitac" -> tai lieu sang sai nguoi).
+    internal = [i for i in ids if i == str(dsr.get("effective_scts_user_id") or "")
+                or _is_internal_provider_id(i, environment)]
+    if internal:
+        return {"mode": "stop", "reason": "partner_recipient_internal:%s" % ",".join(internal)}
+    if len(ids) != 1:
+        return {"mode": "stop", "reason": "partner_recipient_ambiguous:%d" % len(ids)}
+    out.update({"mode": "transition", "to_users": ids, "erp_users": [],
+                "partner_handover": True})
+    return out
+
+
+def bridge_step(profile_name):
+    """Dong cau hinh buoc nguoi lap sau doi tac (Forward / BRIDGE_STAGE) hoac None."""
+    return _configured_step(profile_name, STEP_ACTION["Approve"], BRIDGE_STAGE)
 
 
 def _final_level(ar):
