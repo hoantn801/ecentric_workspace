@@ -7,7 +7,7 @@
  "engine": "InnoDB",
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-11-23 09:00:00.000000",
+ "modified": "2026-11-24 09:00:00.000000",
  "modified_by": "Administrator",
  "module": "Approval Center",
  "name": "EC Employee Review",
@@ -47,6 +47,7 @@
   "da_huy_nhap",
   "ly_do_huy_nhap",
   "cb2",
+  "custom_title",
   "ghi_chu_cnb",
   "mau_tieu_chi",
   "tieu_chi_json",
@@ -275,6 +276,13 @@
   {
    "fieldname": "cb2",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "custom_title",
+   "fieldtype": "Data",
+   "label": "Tiêu đề (tuỳ chỉnh)",
+   "length": 140,
+   "description": "C&B sửa ở bản nháp trước ngày tự gửi. Để trống = dùng tiêu đề tự sinh. Không sửa được sau khi đã gửi."
   },
   {
    "fieldname": "ghi_chu_cnb",

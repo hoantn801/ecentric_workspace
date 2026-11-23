@@ -174,8 +174,8 @@
     "sha256": "176f923979339da9140f34758e29671f90e33007e6c1c5b88bacdb42b979631d"
   },
   "hr/pages/tong_quan/main_section.html": {
-    "last_resync_patch": "p461_resync_tong_quan_tab_ky_luat",
-    "sha256": "5b58d0fde3155b75f11b385867d1f14bfa5455fef0481611f64227a22cf437e0"
+    "last_resync_patch": "p485_resync_tong_quan_tieu_de_ky_luat",
+    "sha256": "eed6c3fa4f03d5c1c4cdacd5703066fa4aadd8dc0a0476e26d8ed474ba7c7944"
   },
   "legacy_pages/all_ticket/main_section.html": {
     "baseline": "2026-08-31",
@@ -362,12 +362,12 @@
     "sha256": "feff18fc547871c795614bb1a54cb7bb8679c76a334987f411c74b208b449d3a"
   },
   "approval_center/features/employee_review/ui/main_section.html": {
-    "last_resync_patch": "p450_danh_gia_nhan_su",
-    "sha256": "ad06cd7796421cdd434249c06f89f68dd3a59eca754ba31f3735e5f446e307a4"
+    "last_resync_patch": "p486_resync_danh_gia_nhan_su_tieu_de",
+    "sha256": "55f99ebc7e2a3537c059c9c577af1c112893a8a47c9fd4c8d8cbb2e1e34eb4d1"
   },
   "hr/pages/danh_gia_nhan_su/main_section.html": {
-    "last_resync_patch": "p450_danh_gia_nhan_su",
-    "sha256": "ec8d3030487312f3e05f71b741463690b81845791b3f340adde6e0135cebd22f"
+    "last_resync_patch": "p486_resync_danh_gia_nhan_su_tieu_de",
+    "sha256": "e5d4dc80ffdb6d62138d045bd24d96355fa6288c3cd1fc65398d71ccbfd84f61"
   },
   "surveys/pages/ca_nhan/main_section.html": {
     "last_resync_patch": "p450_danh_gia_nhan_su",

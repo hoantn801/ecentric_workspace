@@ -16,6 +16,7 @@ from ecentric_workspace.hr.ky_luat.application.assess import assess
 from ecentric_workspace.hr.ky_luat.application.common import (
     found, int_setting, log, require_own_files, route_case, text)
 from ecentric_workspace.hr.ky_luat.domain import dates as D
+from ecentric_workspace.hr.ky_luat.domain import rules as R
 from ecentric_workspace.hr.ky_luat.domain.errors import FieldErrors, KyLuatError
 
 
@@ -78,14 +79,15 @@ def notify_meeting(repo, ctx, name, meeting_date, place=""):
             "limitation_effective_end": chk.get("limitation_effective_end")}
     repo.update_case(name, vals, log(repo, ctx.user, "Thông báo họp xử lý kỷ luật", "Họp ngày %s" % md))
     subject = "Thông báo họp xử lý kỷ luật lao động ngày %s" % md
-    msg = "Địa điểm: %s. Vui lòng xác nhận tham dự trên ERP." % (vals["meeting_place"] or "HR sẽ báo")
+    msg = "Hồ sơ: %s. Địa điểm: %s. Vui lòng xác nhận tham dự trên ERP." % (
+        R.case_title(case), vals["meeting_place"] or "HR sẽ báo")
     repo.notify([case.get("employee_user")], subject, C.CASE, name, message=msg, url=route_case(name),
                 email=True, severity="action_required")
     if rep:
         repo.notify([rep], "%s - nhân viên %s (đoàn viên)" % (subject, case.get("employee_name")), C.CASE, name,
                     message=msg, url=route_case(name), email=True)
     repo.notify([case.get("line_manager_user")], "%s - %s" % (subject, case.get("employee_name")), C.CASE, name,
-                url=route_case(name))
+                message="Hồ sơ: %s." % R.case_title(case), url=route_case(name))
     return {"name": name, "status": C.S_NOTIFIED, "meeting_date": str(md), "earliest": str(earliest)}
 
 
@@ -173,7 +175,7 @@ def submit_to_ceo(repo, ctx, name, payload):
     chk, stop = _gate(repo, ctx.user, case)
     if stop:
         return stop
-    merged = dict(case, **vals)
+    merged = dict(case, case_title=R.case_title(case), **vals)
     decision = repo.create_decision(merged, ctx.user)
     vals.update({"status": C.S_AT_CEO, "decision_request": decision, "submitted_to_ceo_at": repo.now()})
     repo.update_case(name, vals, log(repo, ctx.user, "Trình CEO ký quyết định", decision))
@@ -191,6 +193,6 @@ def resubmit_to_ceo(repo, ctx, name, payload):
     chk, stop = _gate(repo, ctx.user, case)
     if stop:
         return stop
-    repo.resubmit_decision(dict(case, **vals), ctx.user)
+    repo.resubmit_decision(dict(case, case_title=R.case_title(case), **vals), ctx.user)
     repo.update_case(name, vals, log(repo, ctx.user, "Gửi lại CEO sau bổ sung"))
     return {"name": name, "status": C.S_AT_CEO}

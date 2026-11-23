@@ -20,6 +20,7 @@
   "sent_at",
   "reply_due",
   "sb_body",
+  "title",
   "behavior",
   "incident_date",
   "rule",
@@ -118,6 +119,15 @@
    "label": "Nội dung"
   },
   {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Tiêu đề",
+   "length": 140,
+   "read_only": 1,
+   "in_list_view": 1,
+   "description": "Bắt buộc khi gửi thẻ mới (kiểm ở hr/ky_luat). Bản ghi cũ để trống - màn hình hiện tiêu đề dự phòng."
+  },
+  {
    "fieldname": "behavior",
    "fieldtype": "Data",
    "label": "Hành vi",
@@ -199,7 +209,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-11-23 09:00:00.000000",
+ "modified": "2026-11-24 09:00:00.000000",
  "modified_by": "Administrator",
  "module": "Ecentric Workspace",
  "name": "EC HR Notice",

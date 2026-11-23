@@ -12,8 +12,9 @@ _BASE = "ecentric_workspace.approval_center.features.employee_review.application
 EMPLOYEE_REVIEW_DEFINITION = ApprovalDefinition(
     code="EMPLOYEE_REVIEW", business_doctype="EC Employee Review", feature="employee_review",
     #: Phieu TU TAO tu bang hop dong tren ho so (hoac C&B tao tu trang hang cho). Nguoi gui (C&B)
-    #: chi sua duoc ghi chu + mau tieu chi; doi tuong / dong hop dong la ban chup.
-    editable_fields=("request_title", "ghi_chu_cnb", "mau_tieu_chi"),
+    #: chi sua duoc ghi chu + mau tieu chi + tieu de tuy chinh (chi o NHAP - service.prepare_draft
+    #: chan doi custom_title sau khi gui); doi tuong / dong hop dong la ban chup.
+    editable_fields=("request_title", "ghi_chu_cnb", "mau_tieu_chi", "custom_title"),
     my_request_fields=("name", "request_title", "review_type", "ten_nhan_vien", "hd_den_ngay",
                        "auto_submit_on", "approval_request", "creation", "modified"),
     approval_list_fields=("name", "request_title", "review_type", "ten_nhan_vien", "hd_den_ngay",

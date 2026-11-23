@@ -5,7 +5,9 @@ Moi ham kiem quyen qua access.py truoc khi tra; danh sach loc hai lop (truy van 
 can_view tung dong) de mot loi truy van khong lam lo ho so cua nguoi khac."""
 from ecentric_workspace.hr.ky_luat import constants as C
 from ecentric_workspace.hr.ky_luat.application import access as A
+from ecentric_workspace.hr.ky_luat.application import case_service as CS
 from ecentric_workspace.hr.ky_luat.application import decision_service as DS
+from ecentric_workspace.hr.ky_luat.application import notice_service as NS
 from ecentric_workspace.hr.ky_luat.application.assess import assess
 from ecentric_workspace.hr.ky_luat.application.case_service import _public
 from ecentric_workspace.hr.ky_luat.application.common import found, int_setting
@@ -26,13 +28,15 @@ def _s(v):
 
 
 def _notice_row(n):
-    return {"name": n["name"], "employee": n.get("employee"), "employee_name": n.get("employee_name") or "",
+    return {"name": n["name"], "title": R.notice_title(n), "title_auto": 0 if R.clean_title(n.get("title")) else 1,
+            "employee": n.get("employee"), "employee_name": n.get("employee_name") or "",
             "behavior": n.get("behavior") or "", "incident_date": _s(n.get("incident_date")),
             "status": n.get("status"), "reply_due": _s(n.get("reply_due")), "issuer_role": n.get("issuer_role") or ""}
 
 
 def _case_row(c):
-    return {"name": c["name"], "employee": c.get("employee"), "employee_name": c.get("employee_name") or "",
+    return {"name": c["name"], "title": R.case_title(c), "title_auto": 0 if R.clean_title(c.get("title")) else 1,
+            "employee": c.get("employee"), "employee_name": c.get("employee_name") or "",
             "card": c.get("card") or "", "penalty": c.get("penalty") or "", "status": c.get("status"),
             "violation_date": _s(c.get("violation_date")), "meeting_date": _s(c.get("meeting_date")),
             "limitation_effective_end": _s(c.get("limitation_effective_end")),
@@ -89,6 +93,7 @@ def index_page(repo, ctx, tab=None, code=None):
             "present": [C.PRESENT_YES, C.PRESENT_NO],
             "meeting_notice_days": int_setting(settings, "meeting_notice_days", C.DEFAULT_MEETING_NOTICE_DAYS),
             "is_hr": ctx.is_hr, "can_issue": can_issue,
+            "title_max": C.TITLE_MAX, "title_placeholder": C.TITLE_PLACEHOLDER,
         },
     }
 
@@ -97,21 +102,24 @@ def notice_detail(repo, ctx, name):
     n = found(repo.get_notice(name), "thẻ vàng")
     A.require(A.can_view_notice(ctx, n))
     owner = A.is_notice_owner(ctx, n)
-    out = {k: _s(n.get(k)) for k in ("name", "employee", "employee_name", "department", "behavior", "content",
+    out = {k: _s(n.get(k)) for k in ("name", "title", "employee", "employee_name", "department", "behavior", "content",
                                      "incident_date", "rule", "evidence", "status", "sent_at", "reply_due",
                                      "read_at", "response", "responded_at", "issued_by", "issuer_role",
                                      "cancel_reason")}
     out["logs"] = [{k: _s(v) for k, v in r.items()} for r in n.get("logs") or []]
+    out["display_title"] = R.notice_title(n)
+    out["title_auto"] = 0 if R.clean_title(n.get("title")) else 1
     open_ = n.get("status") in (C.NOTICE_PENDING, C.NOTICE_READ)
     out["actions"] = {"read": owner and n.get("status") == C.NOTICE_PENDING, "reply": owner and open_,
-                      "cancel": (ctx.is_hr or n.get("issued_by") == ctx.user) and n.get("status") != C.NOTICE_CANCELLED}
+                      "cancel": (ctx.is_hr or n.get("issued_by") == ctx.user) and n.get("status") != C.NOTICE_CANCELLED,
+                      "retitle": NS.can_retitle(ctx, n)}
     out["note"] = C.YELLOW_NOTE
     if ctx.sees_all:
         out["hint"] = R.yellow_hint(repo.notice_dates(n["employee"]), repo.today())
     return out
 
 
-CASE_FIELDS = ("name", "employee", "employee_name", "department", "designation", "status", "card", "penalty",
+CASE_FIELDS = ("name", "title", "employee", "employee_name", "department", "designation", "status", "card", "penalty",
                "extend_months", "holds_position", "dismissal_ground", "rule", "rule_title", "finance_related",
                "violation_date", "description", "evidence", "violation_record", "proposed_by", "hr_owner",
                "hr_review_due", "limitation_end", "limitation_effective_end", "recidivism_note", "is_union_member",
@@ -129,6 +137,8 @@ def case_detail(repo, ctx, name):
     out = {k: _s(c.get(k)) for k in CASE_FIELDS}
     out = A.redact_case(ctx, out)
     out["display_status"] = DS.display_status(c, engine)
+    out["display_title"] = R.case_title(c)
+    out["title_auto"] = 0 if R.clean_title(c.get("title")) else 1
     out["engine_status"] = engine or ""
     out["ground_label"] = dict(C.DISMISS_GROUNDS).get(_s(c.get("dismissal_ground")), "")
     # Nhat ky: nguoi ngoai HR/CEO chi thay hanh dong + thoi diem, khong thay ghi chu noi bo.
@@ -144,6 +154,8 @@ def case_detail(repo, ctx, name):
         "cancel": hr and st in (C.S_PROPOSED, C.S_DRAFT, C.S_POSTPONED, C.S_NOTIFIED, C.S_MET),
         "expunge": hr and st == C.S_ISSUED and bool(c.get("expunge_hold_note")),
     }
+    # Sua rieng tieu de: HR, ho so chua ban hanh. O buoc lap da co nut "Sua" (form day du co o tieu de).
+    out["actions"]["retitle"] = CS.can_retitle(ctx, c) and not out["actions"]["edit"]
     if hr and st in C.CASE_OPEN:
         out["check"] = _public(assess(repo, c))
         if st == C.S_DRAFT:

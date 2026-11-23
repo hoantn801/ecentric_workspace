@@ -2,7 +2,11 @@
 """Ho so the do / the den - buoc 1: de xuat (LM) / lap ho so (HR), sua, hoan, tiep tuc, huy.
 
 LM chi DE XUAT; HR lap ho so chinh thuc (bien ban vi pham + dieu khoan noi quy + the + hinh
-thuc con). Moi lan luu he thong kiem thoi hieu D123 va tai pham. Buoc 2-4: procedure_service."""
+thuc con). Moi lan luu he thong kiem thoi hieu D123 va tai pham. Buoc 2-4: procedure_service.
+
+Tieu de (Hoan chot 23/11): BAT BUOC khi de xuat / lap ho so MOI (kiem o day, khong reqd o DocType);
+ho so cu chua co tieu de: sua / luu lai khong bi bat nhap, man hinh hien tieu de du phong
+(rules.case_title). HR sua tieu de khi ho so chua ban hanh (retitle) - ghi nhat ky cu -> moi."""
 from ecentric_workspace.hr.ky_luat import constants as C
 from ecentric_workspace.hr.ky_luat.application import access as A
 from ecentric_workspace.hr.ky_luat.application.assess import assess
@@ -13,7 +17,7 @@ from ecentric_workspace.hr.ky_luat.domain import rules as R
 from ecentric_workspace.hr.ky_luat.domain.errors import FieldErrors, KyLuatError
 
 #: Truong HR sua duoc o buoc lap (KHONG co truong tien nao - D127).
-EDITABLE = ("card", "penalty", "extend_months", "holds_position", "dismissal_ground", "rule",
+EDITABLE = ("title", "card", "penalty", "extend_months", "holds_position", "dismissal_ground", "rule",
             "finance_related", "violation_date", "description", "evidence", "violation_record",
             "is_union_member", "hr_note")
 EDITABLE_STATUSES = (C.S_PROPOSED, C.S_DRAFT)
@@ -25,7 +29,9 @@ def _clean(p):
         if k not in p:
             continue
         v = p.get(k)
-        if k in ("extend_months",):
+        if k == "title":
+            v = R.clean_title(v) or None
+        elif k in ("extend_months",):
             try:
                 v = int(v or 0)
             except (TypeError, ValueError):
@@ -64,6 +70,12 @@ def _validate(repo, case, require_record=False):
     return e, rule
 
 
+def _require_title(case, errors):
+    if not case.get("title"):
+        errors["title"] = "Nhập tiêu đề hồ sơ (vd “%s”)." % C.TITLE_PLACEHOLDER
+    return errors
+
+
 def _snapshot_employee(repo, employee):
     emp = found(repo.employee(employee), "nhân viên")
     return emp, {"employee": emp["name"], "employee_name": emp.get("employee_name"),
@@ -95,14 +107,15 @@ def propose(repo, ctx, payload):
     errors, rule = _validate(repo, case)
     if not p.get("rule"):
         errors.pop("rule", None)          # LM co the chua biet dieu khoan - HR chon khi lap
+    _require_title(case, errors)
     if errors:
         raise FieldErrors(errors)
     _derived(repo, case, rule)
     days = int_setting(repo.settings(), "hr_review_days", C.DEFAULT_HR_REVIEW_DAYS)
     case.update({"status": C.S_PROPOSED, "proposed_by": ctx.user, "proposed_at": repo.now(),
                  "hr_review_due": D.workday_after(repo.today(), days, repo.holidays())})
-    name = repo.insert_case(case, log(repo, ctx.user, "Đề xuất kỷ luật", "%s - %s" % (case["card"], case["penalty"])))
-    repo.notify(hr_users(repo), "Đề xuất kỷ luật mới: %s (%s)" % (emp.get("employee_name"), case["card"]),
+    name = repo.insert_case(case, log(repo, ctx.user, "Đề xuất kỷ luật", "%s - %s - %s" % (case["title"], case["card"], case["penalty"])))
+    repo.notify(hr_users(repo), "Đề xuất kỷ luật mới: %s (%s) - %s" % (emp.get("employee_name"), case["card"], case["title"]),
                 C.CASE, name, message="HR thẩm định trước %s." % case["hr_review_due"], url=route_case(name))
     return {"name": name}
 
@@ -118,13 +131,14 @@ def create(repo, ctx, payload):
     case = dict(snap, **_clean(p))
     require_own_files(repo, ctx, case)
     errors, rule = _validate(repo, case)
+    _require_title(case, errors)
     if errors:
         raise FieldErrors(errors)
     chk = _derived(repo, case, rule)
     if chk.get("expired"):
         raise KyLuatError(chk["errors"][0])
     case.update({"status": C.S_DRAFT, "hr_owner": ctx.user})
-    name = repo.insert_case(case, log(repo, ctx.user, "Lập hồ sơ", "%s - %s" % (case["card"], case["penalty"])))
+    name = repo.insert_case(case, log(repo, ctx.user, "Lập hồ sơ", "%s - %s - %s" % (case["title"], case["card"], case["penalty"])))
     return {"name": name, "check": _public(chk)}
 
 
@@ -134,7 +148,10 @@ def update(repo, ctx, name, payload):
     if case["status"] not in EDITABLE_STATUSES:
         raise KyLuatError("Hồ sơ đang ở bước “%s” - không sửa được." % case["status"])
     p = payload or {}
-    merged = dict(case, **_clean(p))
+    cleaned = _clean(p)
+    if not cleaned.get("title"):
+        cleaned.pop("title", None)        # o trong = giu tieu de cu (ho so cu: van hien du phong)
+    merged = dict(case, **cleaned)
     require_own_files(repo, ctx, merged, case)
     errors, rule = _validate(repo, merged)
     if errors:
@@ -142,14 +159,43 @@ def update(repo, ctx, name, payload):
     chk = _derived(repo, merged, rule)
     vals = {k: merged.get(k) for k in EDITABLE + ("rule_title", "limitation_end", "limitation_effective_end",
                                                   "recidivism", "recidivism_note")}
-    action = "Cập nhật hồ sơ"
+    action, note = "Cập nhật hồ sơ", ""
+    if R.clean_title(case.get("title")) != R.clean_title(merged.get("title")):
+        note = "Tiêu đề: “%s” → “%s”" % (R.clean_title(case.get("title")) or R.case_title(case), merged.get("title"))
     if case["status"] == C.S_PROPOSED and int(p.get("accept") or 0):
         vals.update({"status": C.S_DRAFT, "hr_owner": ctx.user})
         action = "HR nhận đề xuất, lập hồ sơ"
         repo.notify([case.get("proposed_by")], "HR đã nhận đề xuất kỷ luật %s" % case.get("employee_name"),
                     C.CASE, name, url=route_case(name))
-    repo.update_case(name, vals, log(repo, ctx.user, action))
+    repo.update_case(name, vals, log(repo, ctx.user, action, note))
     return {"name": name, "check": _public(chk)}
+
+
+def can_retitle(ctx, case):
+    return ctx.is_hr and case.get("status") in C.CASE_RETITLE_STATUSES
+
+
+def retitle(repo, ctx, name, title):
+    """HR sua tieu de ho so CHUA ban hanh. Ghi nhat ky (cu -> moi). Dang trinh CEO: cap nhat luon
+    tieu de phieu quyet dinh (qua cong discipline_decision) - loi o day khong chan viec sua."""
+    A.require_hr(ctx)
+    case = found(repo.get_case(name))
+    if case["status"] not in C.CASE_RETITLE_STATUSES:
+        raise KyLuatError("Hồ sơ ở bước “%s” - không sửa tiêu đề được nữa." % case["status"])
+    new = R.clean_title(title)
+    if not new:
+        raise FieldErrors({"title": "Nhập tiêu đề."})
+    old = R.clean_title(case.get("title"))
+    if new == old:
+        return {"name": name, "title": new, "changed": False}
+    repo.update_case(name, {"title": new}, log(repo, ctx.user, "Sửa tiêu đề",
+                                               "“%s” → “%s”" % (old or R.case_title(case), new)))
+    if case.get("decision_request"):
+        try:
+            repo.retitle_decision(dict(case, title=new, case_title=new))
+        except Exception:
+            repo.log_error("ky_luat: doi tieu de phieu quyet dinh %s" % name)
+    return {"name": name, "title": new, "changed": True}
 
 
 def check(repo, ctx, name, on_day=None):
@@ -172,7 +218,8 @@ def cancel(repo, ctx, name, reason):
     users = [case.get("proposed_by")]
     if case["status"] in (C.S_NOTIFIED, C.S_MET):
         users += [case.get("employee_user"), case.get("union_rep_user")]
-    repo.notify(users, "Hồ sơ kỷ luật %s đã huỷ" % name, C.CASE, name, message=why, url=route_case(name))
+    repo.notify(users, "Hồ sơ kỷ luật %s đã huỷ: %s" % (name, R.case_title(case)), C.CASE, name, message=why,
+                url=route_case(name))
     return {"name": name, "status": C.S_CANCELLED}
 
 

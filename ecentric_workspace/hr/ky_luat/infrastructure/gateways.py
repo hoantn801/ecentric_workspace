@@ -21,6 +21,11 @@ def resubmit_decision(case, actor):
     return frappe.get_attr(DECISION_SERVICE + ".gui_lai_tu_ho_so")(case, actor)
 
 
+def retitle_decision(case):
+    """HR sua tieu de ho so dang trinh CEO -> doi tieu de phieu quyet dinh (ban chup)."""
+    return frappe.get_attr(DECISION_SERVICE + ".doi_tieu_de_tu_ho_so")(case)
+
+
 def create_clearance(employee, reason, last_day):
     """-> ten Clearance hoac None (chua co ham / loi) - khong bao gio nem loi."""
     try:

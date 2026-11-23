@@ -26,6 +26,7 @@
   "hr_owner",
   "hr_review_due",
   "sb_viol",
+  "title",
   "rule",
   "rule_title",
   "finance_related",
@@ -205,6 +206,15 @@
    "fieldname": "sb_viol",
    "fieldtype": "Section Break",
    "label": "Bước 1 · Vi phạm"
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Tiêu đề",
+   "length": 140,
+   "read_only": 1,
+   "in_list_view": 1,
+   "description": "Bắt buộc khi đề xuất / lập hồ sơ mới (kiểm ở hr/ky_luat). Bản ghi cũ để trống - màn hình hiện tiêu đề dự phòng."
   },
   {
    "fieldname": "rule",
@@ -534,7 +544,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-11-23 09:00:00.000000",
+ "modified": "2026-11-24 09:00:00.000000",
  "modified_by": "Administrator",
  "module": "Ecentric Workspace",
  "name": "EC Discipline Case",

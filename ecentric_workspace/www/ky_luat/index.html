@@ -11,7 +11,7 @@
 </nav>
 
 <div class="ekl-toolbar" role="search">
-  <input class="ekl-inp ekl-grow" type="search" data-ekl-q placeholder="Tìm mã, tên nhân viên, hành vi…" aria-label="Tìm">
+  <input class="ekl-inp ekl-grow" type="search" data-ekl-q placeholder="Tìm tiêu đề, mã, tên nhân viên, hành vi…" aria-label="Tìm">
   <label class="ekl-check"><input type="checkbox" data-ekl-mine> Chỉ của tôi</label>
   {% if tab == 'the-vang' and perm.can_issue %}<button type="button" class="ekl-btn is-primary" data-ekl-open-form="notice">+ Gửi thẻ vàng</button>{% endif %}
   {% if tab == 'ho-so' and perm.is_hr %}<button type="button" class="ekl-btn is-primary" data-ekl-open-form="case">+ Lập hồ sơ kỷ luật</button>{% endif %}
@@ -22,11 +22,11 @@
 <p class="ekl-note">{{ yellow_note|e }}</p>
 <section class="ekl-cardbox">
   <table class="ekl-tbl">
-    <thead><tr><th>Mã</th><th>Nhân viên</th><th>Hành vi</th><th>Ngày</th><th>Hạn phản hồi</th><th>Trạng thái</th></tr></thead>
+    <thead><tr><th>Tiêu đề</th><th>Mã</th><th>Nhân viên</th><th>Hành vi</th><th>Ngày</th><th>Hạn phản hồi</th><th>Trạng thái</th></tr></thead>
     <tbody data-ekl-rows>
     {% for n in notices %}
-      <tr class="ekl-row" tabindex="0" data-ekl-open="notice" data-name="{{ n.name|e }}" data-mine="{{ n.mine }}" data-search="{{ (n.name ~ ' ' ~ n.employee_name ~ ' ' ~ n.behavior)|lower|e }}">
-        <td><b>{{ n.name|e }}</b></td><td>{{ n.employee_name|e }}</td><td>{{ n.behavior|e }}</td>
+      <tr class="ekl-row" tabindex="0" data-ekl-open="notice" data-name="{{ n.name|e }}" data-mine="{{ n.mine }}" data-search="{{ (n.title ~ ' ' ~ n.name ~ ' ' ~ n.employee_name ~ ' ' ~ n.behavior)|lower|e }}">
+        <td class="ekl-title{% if n.title_auto %} is-auto{% endif %}"><b>{{ n.title|e }}</b></td><td>{{ n.name|e }}</td><td>{{ n.employee_name|e }}</td><td>{{ n.behavior|e }}</td>
         <td>{{ dmy(n.incident_date) }}</td><td>{{ dmy(n.reply_due) }}</td><td>{{ status_badge(n.status) }}</td>
       </tr>
     {% endfor %}
@@ -37,11 +37,11 @@
 {% else %}
 <section class="ekl-cardbox">
   <table class="ekl-tbl">
-    <thead><tr><th>Mã</th><th>Nhân viên</th><th>Thẻ · hình thức</th><th>Ngày vi phạm</th><th>Ngày họp</th><th>Hết thời hiệu</th><th>Trạng thái</th></tr></thead>
+    <thead><tr><th>Tiêu đề</th><th>Mã</th><th>Nhân viên</th><th>Thẻ · hình thức</th><th>Ngày vi phạm</th><th>Ngày họp</th><th>Hết thời hiệu</th><th>Trạng thái</th></tr></thead>
     <tbody data-ekl-rows>
     {% for c in cases %}
-      <tr class="ekl-row" tabindex="0" data-ekl-open="case" data-name="{{ c.name|e }}" data-mine="{{ c.mine }}" data-search="{{ (c.name ~ ' ' ~ c.employee_name ~ ' ' ~ c.penalty)|lower|e }}">
-        <td><b>{{ c.name|e }}</b></td><td>{{ c.employee_name|e }}</td>
+      <tr class="ekl-row" tabindex="0" data-ekl-open="case" data-name="{{ c.name|e }}" data-mine="{{ c.mine }}" data-search="{{ (c.title ~ ' ' ~ c.name ~ ' ' ~ c.employee_name ~ ' ' ~ c.penalty)|lower|e }}">
+        <td class="ekl-title{% if c.title_auto %} is-auto{% endif %}"><b>{{ c.title|e }}</b></td><td>{{ c.name|e }}</td><td>{{ c.employee_name|e }}</td>
         <td>{% if c.card %}{{ card_chip(c.card) }} {% endif %}{{ c.penalty|e }}</td>
         <td>{{ dmy(c.violation_date) }}</td><td>{{ dmy(c.meeting_date) }}</td><td>{{ dmy(c.limitation_effective_end) }}</td>
         <td>{{ status_badge(c.status) }}</td>
@@ -68,6 +68,7 @@
     <div class="ekl-modal-b">
       <p class="ekl-note">{{ yellow_note|e }}</p>
       <div class="ekl-grid2">
+        <div class="ekl-fld ekl-full"><label for="ekl-n-title">Tiêu đề <span class="ekl-req">*</span></label><input id="ekl-n-title" name="title" maxlength="140" required placeholder="Ví dụ: Đi trễ nhiều lần tháng 11"></div>
         <div class="ekl-fld ekl-full"><label for="ekl-n-emp">Nhân viên <span class="ekl-req">*</span></label><select id="ekl-n-emp" name="employee" required data-ekl-opt="employees"></select></div>
         <div class="ekl-fld"><label for="ekl-n-beh">Hành vi <span class="ekl-req">*</span></label><input id="ekl-n-beh" name="behavior" maxlength="140" required></div>
         <div class="ekl-fld"><label for="ekl-n-date">Ngày xảy ra <span class="ekl-req">*</span></label><input id="ekl-n-date" name="incident_date" type="date" required></div>
@@ -91,6 +92,7 @@
       <p class="ekl-note">Không có ô tiền phạt: pháp luật cấm phạt tiền, cắt lương thay cho kỷ luật (Điều 127). Hệ thống tự kiểm thời hiệu (Điều 123) và kỷ luật chưa xoá (tái phạm).</p>
       <input type="hidden" name="name">
       <div class="ekl-grid2">
+        <div class="ekl-fld ekl-full"><label for="ekl-c-title">Tiêu đề <span class="ekl-req" data-ekl-only-new>*</span></label><input id="ekl-c-title" name="title" maxlength="140" placeholder="Ví dụ: Đi trễ nhiều lần tháng 11"><span class="ekl-hint" data-ekl-title-hint hidden>Hồ sơ cũ chưa có tiêu đề - để trống thì giữ tiêu đề tự sinh.</span></div>
         <div class="ekl-fld ekl-full" data-ekl-only-new><label for="ekl-c-emp">Nhân viên <span class="ekl-req">*</span></label><select id="ekl-c-emp" name="employee" data-ekl-opt="employees"></select></div>
         <div class="ekl-fld"><label for="ekl-c-card">Thẻ <span class="ekl-req">*</span></label><select id="ekl-c-card" name="card" required><option value="">— Chọn —</option><option>Thẻ đỏ</option><option>Thẻ đen</option></select></div>
         <div class="ekl-fld"><label for="ekl-c-pen">Hình thức <span class="ekl-req">*</span></label><select id="ekl-c-pen" name="penalty" required data-ekl-penalty></select></div>

@@ -11,6 +11,7 @@ Ghi = POST (Frappe hoan tac moi ghi trong GET). Tham so dict den nguyen kieu hoa
   POST notify_meeting(name, meeting_date, place) / confirm_attendance(name, attend, note)
   POST record_meeting(name, payload) / submit_to_ceo(name, payload) / resubmit_to_ceo(name, payload)
   POST sync_case(name) / expunge_case(name, note)
+  POST notice_retitle(name, title) / case_retitle(name, title)   (sua tieu de, co nhat ky)
 """
 import frappe
 from frappe.utils import strip_html
@@ -101,6 +102,11 @@ def notice_cancel(name: str, reason: str = ""):
     return _run(lambda r, c: notice_service.cancel(r, c, str(name), reason))
 
 
+@frappe.whitelist(methods=["POST"])
+def notice_retitle(name: str, title: str = ""):
+    return _run(lambda r, c: notice_service.retitle(r, c, str(name), title))
+
+
 # ------------------------------------------------------------------------ ho so do/den --
 @frappe.whitelist(methods=["POST"])
 def propose_case(payload=None):
@@ -120,6 +126,11 @@ def update_case(name: str, payload=None):
 @frappe.whitelist(methods=["POST"])
 def cancel_case(name: str, reason: str = ""):
     return _run(lambda r, c: case_service.cancel(r, c, str(name), reason))
+
+
+@frappe.whitelist(methods=["POST"])
+def case_retitle(name: str, title: str = ""):
+    return _run(lambda r, c: case_service.retitle(r, c, str(name), title))
 
 
 @frappe.whitelist(methods=["POST"])

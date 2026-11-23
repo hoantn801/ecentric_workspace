@@ -704,5 +704,110 @@ class TestDangKy(unittest.TestCase):
         self.assertNotIn("lm_", src.split("quick_summary")[1])
 
 
+
+# --------------------------------------------------- tieu de tuy chinh (Hoan chot 23/11) --
+class _DocTruoc(Doc):
+    """Doc co ban luu truoc (get_doc_before_save) - mo phong save_draft tren phieu da co."""
+    def get_doc_before_save(self):
+        return self.__dict__.get("_truoc")
+
+
+class TestTieuDeTuyChinh(_Base):
+    def _doc(self, truoc=None, **kw):
+        base = dict(name="EV-9", review_type="Thử việc", ten_nhan_vien="Nguyễn Thị D", nhan_vien="E1",
+                    hd_den_ngay="2026-12-31", approval_request=None, da_huy_nhap=0, mau_tieu_chi=None,
+                    custom_title=None)
+        d = _DocTruoc(**dict(base, **kw))
+        d._truoc = Doc(**dict(base, **truoc)) if truoc is not None else None
+        return d
+
+    def test_gen_title_dung_custom_neu_co(self):
+        auto = service.tieu_de_tu_sinh({"review_type": "Thử việc", "ten_nhan_vien": "Nguyễn Thị D",
+                                         "hd_den_ngay": "2026-12-31"})
+        self.assertEqual(auto, "Đánh giá thử việc - Nguyễn Thị D - đến 31/12/2026")
+        self.assertEqual(service.gen_title({"review_type": "Thử việc", "ten_nhan_vien": "Nguyễn Thị D",
+                                            "hd_den_ngay": "2026-12-31", "custom_title": "   "}), auto)
+        self.assertEqual(service.gen_title({"review_type": "Thử việc", "custom_title": "  Đánh giá  cuối thử việc  "}),
+                         "Đánh giá cuối thử việc")
+        self.assertEqual(len(service.gen_title({"custom_title": "x" * 300})), service.CUSTOM_TITLE_MAX)
+
+    def test_tao_nhap_van_dung_tieu_de_tu_sinh(self):
+        doc = self.draft()
+        self.assertEqual(doc.request_title, "Đánh giá thử việc - Nguyễn Thị D - đến 31/12/2026")
+
+    def test_cnb_sua_o_nhap_duoc_va_chuan_hoa(self):
+        SESSION.user = "cnb@ec.vn"
+        d = self._doc(truoc={}, custom_title="  Đánh giá   đặc biệt ")
+        service.prepare_draft(d)
+        self.assertEqual(d.custom_title, "Đánh giá đặc biệt")
+        d2 = self._doc(truoc={"custom_title": "Cũ"}, custom_title="")
+        service.prepare_draft(d2)                                   # xoa tieu de = quay ve tu sinh
+        self.assertIsNone(d2.custom_title)
+
+    def test_chan_sau_khi_gui(self):
+        SESSION.user = "cnb@ec.vn"
+        d = self._doc(truoc={"approval_request": "REQ-1"}, approval_request="REQ-1", custom_title="Mới")
+        with self.assertRaises(_Throw):
+            service.prepare_draft(d)
+        # Phieu "Can bo sung" gui lai nguyen tieu de cu -> khong chan.
+        d = self._doc(truoc={"approval_request": "REQ-1", "custom_title": "Cũ"}, approval_request="REQ-1",
+                      custom_title="Cũ")
+        service.prepare_draft(d)
+        d = self._doc(truoc={"approval_request": "REQ-1", "custom_title": "Cũ"}, approval_request="REQ-1",
+                      custom_title=None)
+        with self.assertRaises(_Throw):
+            service.prepare_draft(d)
+
+    def test_chi_cnb_va_nhap_chua_huy(self):
+        SESSION.user = "nv@ec.vn"
+        with self.assertRaises(_Perm):
+            service.prepare_draft(self._doc(truoc={}, custom_title="Lạ"))
+        SESSION.user = "cnb@ec.vn"
+        with self.assertRaises(_Throw):
+            service.prepare_draft(self._doc(truoc={"da_huy_nhap": 1}, da_huy_nhap=1, custom_title="Lạ"))
+
+    def test_review_block_o_tieu_de_dung_vai_tro(self):
+        doc = self.draft()
+        biz = dict(vars(doc))
+        SESSION.user = "cnb@ec.vn"
+        x = service.review_block(biz, None, self.repo, self.hr)["danh_gia"]
+        self.assertEqual(x["sua_tieu_de"], 1)
+        self.assertEqual(x["tieu_de_tu_sinh"], "Đánh giá thử việc - Nguyễn Thị D - đến 31/12/2026")
+        SESSION.user = "nv@ec.vn"
+        self.assertEqual(service.review_block(biz, None, self.repo, self.hr)["danh_gia"]["sua_tieu_de"], 0)
+        SESSION.user = "cnb@ec.vn"
+        biz["approval_request"] = "REQ-1"
+        self.assertEqual(service.review_block(biz, None, self.repo, self.hr)["danh_gia"]["sua_tieu_de"], 0)
+
+    def test_definition_va_doctype(self):
+        from ecentric_workspace.approval_center.features.employee_review.domain.definition import (
+            EMPLOYEE_REVIEW_DEFINITION as DEF)
+        self.assertIn("custom_title", DEF.editable_fields)
+        d = json.loads(_read("approval_center", "doctype", "ec_employee_review", "ec_employee_review.json"))
+        f = next(x for x in d["fields"] if x["fieldname"] == "custom_title")
+        self.assertEqual((f["fieldtype"], f["label"], f.get("permlevel", 0)), ("Data", "Tiêu đề (tuỳ chỉnh)", 0))
+        self.assertFalse(f.get("reqd"))
+
+    def test_controller_khoa_sau_khi_gui(self):
+        """Lop DocType chan doi custom_title sau khi gui tren MOI duong ghi (ke ca rong -> co)."""
+        if "frappe.model.document" not in sys.modules:
+            m1, m2 = types.ModuleType("frappe.model"), types.ModuleType("frappe.model.document")
+            m2.Document = type("Document", (object,), {})
+            sys.modules["frappe.model"], sys.modules["frappe.model.document"] = m1, m2
+        from ecentric_workspace.approval_center.doctype.ec_employee_review.ec_employee_review import ECEmployeeReview
+        lock = ECEmployeeReview._title_lock
+        d = self._doc(truoc={"approval_request": "REQ-1"}, approval_request="REQ-1", custom_title="Mới")
+        d.is_new = lambda: False
+        with self.assertRaises(_Throw):
+            lock(d)
+        d = self._doc(truoc={}, approval_request=None, custom_title="Mới")
+        d.is_new = lambda: False
+        lock(d)                                                   # nhap: duoc sua
+        d = self._doc(truoc={"approval_request": "REQ-1", "custom_title": "A"}, approval_request="REQ-1",
+                      custom_title="A")
+        d.is_new = lambda: False
+        lock(d)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -21,6 +21,7 @@
   "material_signature",
   "sb_case",
   "discipline_case",
+  "case_title",
   "employee_name",
   "card",
   "penalty",
@@ -117,6 +118,13 @@
    "options": "EC Discipline Case",
    "read_only": 1,
    "in_list_view": 1
+  },
+  {
+   "fieldname": "case_title",
+   "fieldtype": "Data",
+   "label": "Tiêu đề hồ sơ",
+   "length": 140,
+   "read_only": 1
   },
   {
    "fieldname": "employee_name",
@@ -216,7 +224,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-11-23 09:00:00.000000",
+ "modified": "2026-11-24 09:00:00.000000",
  "modified_by": "Administrator",
  "module": "Approval Center",
  "name": "EC Discipline Decision Request",

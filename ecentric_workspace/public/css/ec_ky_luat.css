@@ -47,6 +47,11 @@
 .ekl-tbl{width:100%;border-collapse:collapse}
 .ekl-tbl th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--ekl-g500);padding:10px 14px;background:#fafbfc;border-bottom:1px solid var(--ekl-line);white-space:nowrap}
 .ekl-tbl td{padding:11px 14px;border-bottom:1px solid var(--ekl-soft);vertical-align:top}
+.ekl-tbl td.ekl-title{min-width:180px;max-width:340px}
+.ekl-title.is-auto b,.ekl-dtitle.is-auto{font-weight:500;color:var(--ekl-g500)}
+.ekl-modal-h.is-stack{display:block}
+.ekl-dtitle{display:block;font-size:17px;font-weight:700;line-height:1.35;overflow-wrap:anywhere}
+.ekl-dsub{display:block;margin-top:4px;font-size:13px;font-weight:400;color:var(--ekl-g500)}
 .ekl-row{cursor:pointer}
 .ekl-row:hover{background:var(--ekl-navy-50)}
 .ekl-empty,.ekl-state{padding:36px 16px;text-align:center;color:var(--ekl-g500);margin:0}

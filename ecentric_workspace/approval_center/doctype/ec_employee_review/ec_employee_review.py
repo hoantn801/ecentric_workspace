@@ -17,6 +17,16 @@ _KHOA_SAU_KHI_GUI = ("review_type", "nhan_vien", "employee_user", "dong_hop_dong
 class ECEmployeeReview(Document):
     def validate(self):
         self._snapshot_lock()
+        self._title_lock()
+
+    def _title_lock(self):
+        """Tieu de tuy chinh chi sua o NHAP (Hoan chot 23/11) - ke ca tu rong -> co gia tri, moi
+        duong ghi (Desk, API, job). Quyen C&B kiem o service.prepare_draft."""
+        if self.is_new() or not self.approval_request:
+            return
+        truoc = self.get_doc_before_save()
+        if truoc and (truoc.get("custom_title") or "") != (self.get("custom_title") or ""):
+            frappe.throw(_("Phiếu đã gửi - không sửa tiêu đề được nữa."))
 
     def _snapshot_lock(self):
         if self.is_new() or not self.approval_request:

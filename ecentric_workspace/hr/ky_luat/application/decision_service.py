@@ -51,7 +51,8 @@ def on_ceo_approved(repo, name):
         vals["offboarding_note"] = _dismiss(repo, case)
         note += "; " + vals["offboarding_note"]
     repo.update_case(name, vals, log(repo, None, "CEO ký - ban hành quyết định", note))
-    repo.notify(_participants(case), "Quyết định kỷ luật lao động: %s (%s)" % (case.get("penalty"), case.get("employee_name")),
+    repo.notify(_participants(case), "Quyết định kỷ luật lao động: %s (%s) - %s" % (
+                    case.get("penalty"), case.get("employee_name"), R.case_title(case)),
                 C.CASE, name, url=route_case(name), email=True,
                 message=("Tự xoá kỷ luật dự kiến: %s (Điều 126) nếu không tái phạm." % vals["expunge_due"])
                 if vals["expunge_due"] else "")
@@ -92,7 +93,8 @@ def reconcile(repo, name):
         users = [case.get("hr_owner"), case.get("proposed_by")]
         if st == ENGINE_REJECTED:
             users += [case.get("employee_user"), case.get("union_rep_user")]
-        repo.notify(users, "%s: %s" % (case.get("employee_name"), action), C.CASE, name, url=route_case(name))
+        repo.notify(users, "%s: %s (%s)" % (case.get("employee_name"), action, R.case_title(case)), C.CASE, name,
+                    url=route_case(name))
         return new
     return case["status"]
 
