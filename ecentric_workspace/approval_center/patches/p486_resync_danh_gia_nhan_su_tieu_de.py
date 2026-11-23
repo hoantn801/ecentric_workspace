@@ -1,5 +1,5 @@
 # Copyright (c) 2026, eCentric and contributors
-"""p481_resync_danh_gia_nhan_su_tieu_de (24/11/2026, Hoan chot 23/11): Danh gia nhan su - C&B sua
+"""p486_resync_danh_gia_nhan_su_tieu_de (24/11/2026, Hoan chot 23/11): Danh gia nhan su - C&B sua
 TIEU DE (truong moi custom_title, migrate tu them cot) o ban nhap truoc ngay tu gui.
 
 Sync lai 2 trang tu nguon repo (A65):
@@ -21,11 +21,11 @@ def execute():
     for mod in PAGES:
         try:
             res = frappe.get_module(mod).sync() or {}
-            frappe.logger("approval_center").info("p481 %s: %s" % (mod.rsplit(".", 2)[-2], res))
+            frappe.logger("approval_center").info("p486 %s: %s" % (mod.rsplit(".", 2)[-2], res))
             if isinstance(res, dict) and res.get("action") == "refused":
-                frappe.log_error("p481: %s refused (live drift): %s" % (mod, res),
-                                 "p481_resync_danh_gia_nhan_su_tieu_de")
+                frappe.log_error("p486: %s refused (live drift): %s" % (mod, res),
+                                 "p486_resync_danh_gia_nhan_su_tieu_de")
             frappe.db.commit()
         except Exception:
             frappe.db.rollback()
-            frappe.log_error(frappe.get_traceback(), "p481_resync_danh_gia_nhan_su_tieu_de failed: %s" % mod)
+            frappe.log_error(frappe.get_traceback(), "p486_resync_danh_gia_nhan_su_tieu_de failed: %s" % mod)
