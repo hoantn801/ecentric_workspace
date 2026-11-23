@@ -41,6 +41,7 @@ function boot(fix, onPin) {
   w.frappe = { call: (o) => { w.__calls.push(o);
     if (/list_catalog$/.test(o.method)) return Promise.resolve({ message: JSON.parse(JSON.stringify(fix)) });
     if (/set_pin$/.test(o.method)) return onPin ? onPin(o) : Promise.resolve({ message: { my_pins: [] } });
+    if (/seed_default_pins$/.test(o.method)) return Promise.resolve({ message: { my_pins: ["PAYMENT_REQUEST", "LEAVE", "PURCHASE_REQUEST", "RESIGNATION"] } });
     return Promise.resolve({ message: {} }); } };
   w.eval(JS);
   return w;
@@ -116,6 +117,28 @@ function boot(fix, onPin) {
   ok(!d.getElementById("apc-tops").hidden && /bấm ☆/.test(d.getElementById("apc-tops").textContent), "goi y cach ghim");
   ok(!d.querySelector(".apc-use"), "khong lich su -> khong ve Hay dung");
   ok(d.getElementById("apc-tops").className.indexOf("one") >= 0, "mot cot khi khong co Hay dung");
+}
+{
+  // Lan dau (pins_seeded=false, chua ghim): goi seed_default_pins (POST) va ve 4 muc server tra.
+  const w = boot(Object.assign({}, FIX, { my_pins: [], pins_seeded: false }));
+  await flush();
+  const seed = w.__calls.find((c) => /seed_default_pins$/.test(c.method));
+  ok(seed && seed.type === "POST", "lan dau -> POST seed_default_pins");
+  ok(w.document.querySelectorAll(".apc-pin").length === 4, "ve 4 muc ghim san");
+  ok(!w.document.querySelector(".apc-panel h2") && w.document.querySelector(".apc-ph"), "tieu de khoi khong dung h2 (theme web lam lech)");
+  // Da gieo roi (hoac da co ghim) -> khong goi lai
+  const w2 = boot(Object.assign({}, FIX, { my_pins: [], pins_seeded: true }));
+  await flush();
+  ok(!w2.__calls.some((c) => /seed_default_pins$/.test(c.method)), "da gieo -> khong gieo lai");
+  const w3 = boot(Object.assign({}, FIX, { pins_seeded: false }));
+  await flush();
+  ok(!w3.__calls.some((c) => /seed_default_pins$/.test(c.method)), "da co ghim -> khong gieo");
+}
+{
+  // The: khong dung ten lop body cua Bootstrap (padding 1.25rem lam the lech, Hoan bao 23/11)
+  const w = boot(FIX);
+  await flush();
+  ok(!w.document.querySelector("#apc-body .card-body") && w.document.querySelector("#apc-body .card-main"), "the dung .card-main");
 }
 console.log(pass + " dat, " + fail + " hong");
 process.exit(fail ? 1 : 0);

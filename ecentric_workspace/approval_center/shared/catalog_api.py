@@ -16,6 +16,8 @@ PIN_DT = "EC Approval Type Pin"
 MAX_PINS = 12
 USAGE_DAYS = 90
 TOP_USAGE = 8
+DEFAULT_PINS = 4
+SEEDED_KEY = "ec_apc_pins_seeded"
 TYPE_FIELDS = ["name", "approval_title", "description", "icon", "category",
                "card_status", "process_status", "route", "sort_order",
                "visibility_mode", "available_from"]
@@ -109,7 +111,8 @@ def list_catalog(include_disabled_admin=0):
     visible_codes = {c["approval_code"] for c in cards}
     return {"is_admin": bool(ctx["is_admin"]), "categories": categories, "types": cards,
             "my_pins": [c for c in _my_pins(user) if c in visible_codes],
-            "my_usage": {k: v for k, v in _my_usage(user).items() if k in visible_codes}}
+            "my_usage": {k: v for k, v in _my_usage(user).items() if k in visible_codes},
+            "pins_seeded": _is_seeded(user)}
 
 
 # --------------------------------------------------------------------------- #
@@ -141,6 +144,79 @@ def _my_usage(user):
         return {}
 
 
+def _is_seeded(user):
+    try:
+        return bool(frappe.defaults.get_user_default(SEEDED_KEY, user))
+    except Exception:
+        return True     # loi -> coi nhu da gieo, khong tu ghim lung tung
+
+
+def _mark_seeded(user):
+    try:
+        frappe.defaults.set_user_default(SEEDED_KEY, "1", user)
+    except Exception:
+        pass
+
+
+def _company_top():
+    """Loai phieu ca cong ty gui nhieu nhat USAGE_DAYS ngay (cache 1 gio). -> [code, ...]"""
+    key = "ec_apc_company_top"
+    try:
+        hit = frappe.cache().get_value(key)
+        if hit is not None:
+            return hit
+    except Exception:
+        hit = None
+    try:
+        from frappe.utils import add_days, now_datetime
+        rows = frappe.db.sql(
+            """SELECT approval_type, COUNT(*) AS n FROM `tabEC Approval Request`
+                WHERE submitted_at >= %(since)s AND IFNULL(approval_type, '') != ''
+                GROUP BY approval_type ORDER BY n DESC LIMIT 12""",
+            {"since": add_days(now_datetime(), -USAGE_DAYS)}, as_dict=True) or []
+        out = [r.approval_type for r in rows]
+    except Exception:
+        out = []
+    try:
+        frappe.cache().set_value(key, out, expires_in_sec=3600)
+    except Exception:
+        pass
+    return out
+
+
+def default_pins(user, usable_codes):
+    """4 loai ghim san (Hoan 23/11): loai CHINH user gui nhieu nhat truoc, thieu thi bu bang loai ca
+    cong ty dung nhieu nhat. Chi loai user thay + dung duoc (the Active co route)."""
+    picked = []
+    mine = sorted(_my_usage(user).items(), key=lambda kv: -kv[1])
+    for code in [k for k, _v in mine] + _company_top():
+        if code in usable_codes and code not in picked:
+            picked.append(code)
+        if len(picked) >= DEFAULT_PINS:
+            break
+    return picked
+
+
+@frappe.whitelist(methods=["POST"])
+def seed_default_pins():
+    """Ghim san 4 loai cho user CHUA tung duoc gieo (lan dau mo Approval Center). Chay mot lan / user:
+    sau do user tu ghim / bo ghim, khong gieo lai. -> {"my_pins": [...]}"""
+    from frappe.utils import now_datetime
+    user = frappe.session.user
+    if not perms.is_internal_system_user(user):
+        return {"my_pins": []}
+    if _is_seeded(user):
+        return {"my_pins": _my_pins(user)}
+    have = _my_pins(user)
+    if not have:
+        usable = {c["approval_code"] for c in list_catalog().get("types", []) if c.get("route")}
+        for code in default_pins(user, usable):
+            frappe.get_doc({"doctype": PIN_DT, "user": user, "approval_type": code,
+                            "pinned_at": now_datetime()}).insert(ignore_permissions=True)
+    _mark_seeded(user)
+    return {"my_pins": _my_pins(user)}
+
+
 @frappe.whitelist(methods=["POST"])
 def set_pin(approval_type=None, pinned=1):
     """Ghim / bo ghim mot loai phieu cho CHINH user dang dang nhap. -> {"my_pins": [...]}."""
@@ -162,6 +238,7 @@ def set_pin(approval_type=None, pinned=1):
     elif not want:
         for n in rows:
             frappe.delete_doc(PIN_DT, n, ignore_permissions=True, force=True)
+    _mark_seeded(user)  # da tu ghim / bo ghim -> khong gieo mac dinh nua
     return {"my_pins": _my_pins(user)}
 
 
