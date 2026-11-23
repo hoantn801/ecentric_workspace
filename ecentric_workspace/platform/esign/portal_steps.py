@@ -623,7 +623,9 @@ def sweep_missing_requester_steps(limit=50):
     started = []
     for p in pairs:
         # CHI phieu chua co chan nguoi lap nao (loc trong SQL): khong thi 50 phieu cu nhat da
-        # co chan bi xet lai moi gio va phieu moi khong bao gio toi luot (QC 12/11).
+        # co chan bi xet lai moi gio va phieu moi khong bao gio toi luot (QC 12/11). Chan cua goi
+        # da THAY (Superseded - mo lai sau "Can bo sung", PR-G) khong tinh: goi moi phai co
+        # chan nguoi lap rieng (QC PR-G vong 2 M-2).
         reqs = frappe.db.sql("""
             SELECT ar.name, ar.reference_doctype, ar.reference_name, ar.approval_type,
                    ar.current_level
@@ -631,8 +633,10 @@ def sweep_missing_requester_steps(limit=50):
             WHERE ar.reference_doctype = %(dt)s AND ar.approval_type = %(at)s
               AND ar.approval_status = 'Pending' AND ar.current_level > 0
               AND NOT EXISTS (SELECT 1 FROM `tabEC Digital Signature Request` d
+                              JOIN `tabEC Digital Signature Package` pk ON pk.name = d.package
                               WHERE d.approval_request = ar.name
-                                AND d.actor_type = 'Requester' AND d.action = 'Approve')
+                                AND d.actor_type = 'Requester' AND d.action = 'Approve'
+                                AND pk.status NOT IN ('Superseded', 'Cancelled'))
             ORDER BY ar.modified ASC LIMIT %(lim)s""",
             {"dt": p.business_doctype, "at": p.approval_type, "lim": int(limit)}, as_dict=True)
         from ecentric_workspace.platform.esign import package as pkgsvc

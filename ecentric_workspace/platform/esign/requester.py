@@ -207,6 +207,14 @@ def _preflight_vi(code):
                 % (code.split(":", 1)[-1], limits.raw_budget_mb(2)))
     if head == "missing_hash":
         return "tệp %s chưa tính được mã kiểm tra" % code.split(":", 1)[-1]
+    # PR-G: tep ky do nghiep vu khai (ec_esign_signing_files).
+    if head == "signing_files_unavailable":
+        return "chưa xác định được bản PDF để ký của phiếu (lỗi hệ thống) - liên hệ quản trị"
+    if head == "signing_file_missing":
+        return "chưa có bản PDF để ký trong gói - tải bản PDF để ký lên rồi đặt ô ký"
+    if head == "signing_file_not_declared":
+        return ("tệp %s không còn là bản PDF để ký của phiếu - tải đúng bản PDF để ký rồi đặt "
+                "ô ký" % code.split(":", 1)[-1])
     if head == "document_verify":
         bits = code.split(":")
         fname = bits[1] if len(bits) > 1 else "?"
@@ -214,6 +222,9 @@ def _preflight_vi(code):
         if st == "mismatch":
             return ("nội dung tệp %s không khớp phiếu (số hợp đồng / số tiền) - sửa phiếu hoặc "
                     "xuất lại PDF đúng bản đã duyệt" % fname)
+        if st == "error":
+            return ("không đọc được tệp %s (tệp hỏng) hoặc chưa đối chiếu được với phiếu - "
+                    "xuất lại PDF rồi tải lên" % fname)
         if st == "no_text":
             return ("tệp %s không có lớp chữ (bản scan / in ra ảnh) - mở trong Word → Lưu "
                     "thành PDF rồi tải lên lại" % fname)
@@ -704,6 +715,9 @@ def _add_requester_pdf_files(pkg_name, business_doctype, business_name):
             have_sha.add(row.sha256)
     seen_url = set()
     added = 0
+    # Loai phieu khai tep ky (PR-G): chi them DUNG cac tep do. Khong khai -> moi PDF nhu cu.
+    from ecentric_workspace.platform.esign import signing_files
+    decl = signing_files.declared(business_doctype, business_name)
     # is_private=1 + attached_to_doctype/name keeps this to PDFs directly linked to THIS
     # Payment Request; attached_to_field is intentionally NOT filtered, so both the
     # request_attachment field-attachment and its null-field twin qualify.
@@ -716,6 +730,8 @@ def _add_requester_pdf_files(pkg_name, business_doctype, business_name):
         name_l = (f.file_name or "").lower()
         url_l = (f.file_url or "").lower()
         if not (name_l.endswith(".pdf") or url_l.endswith(".pdf")):
+            continue
+        if decl is not None and (f.file_url or "") not in decl["urls"]:
             continue
         # de-dupe multiple File rows for the SAME physical PDF by canonical URL first (cheap),
         # then by content SHA - so the same file is added exactly once per package.

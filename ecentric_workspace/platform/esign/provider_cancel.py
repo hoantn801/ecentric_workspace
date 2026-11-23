@@ -8,7 +8,11 @@ ky sai, nhung nguoi dung thay viec rac va co the ky nham vao mot phieu da chet.
 Huy tren cong KHONG LAY LAI DUOC (cong dong dau "Cancelled", destroy=1). Vi vay moi chot deu
 nghieng ve "khong huy":
 
-  * Pham vi: chi AUTO_DOCTYPES (Payment Request). Hop dong (doi tac ky, WF09) chua bat.
+  * Pham vi: phieu Rejected / Cancelled - chi AUTO_DOCTYPES (Payment Request). RIENG goi
+    Superseded co vet `superseded_for_edit` (PR-G 23/11: nguoi lap mo lai thiet lap ky sau "Can
+    bo sung", ho so nguoi lap KHONG ky - hop dong): moi loai phieu, phieu van song; them chot
+    "khong ai ky ngoai cac chan ERP biet / khong doi tac nao da ky" (doc cong) - co -> dung + bao
+    ops, KHONG huy. Mo rong nay can PO xac nhan (ghi trong commit PR-G).
   * Phieu phai Rejected / Cancelled (ket thuc that: _guard_open chan moi duong mo lai).
   * Tai lieu phai DANG XU LY (danh sach CHO PHEP, khong phai danh sach cam): moi trang thai la /
     khong doc duoc / moi nguoi da ky / goi da luu PDF ky -> KHONG huy.
@@ -70,6 +74,8 @@ POLL_FAIL_MIN_AGE_HOURS = 24
 VERIFY_WAITS = (2, 3, 5, 8)  # doc lai sau lenh huy (cong co the dat destroy tre)
 LOCK_SECONDS = 600
 TODO_MARKER = "[EC-ESIGN-AUTO-CANCEL]"
+#: = lifecycle.SUPERSEDED_FOR_EDIT (khong import: provider_cancel nam duoi lifecycle).
+SUPERSEDED_FOR_EDIT = "superseded_for_edit"
 
 _MSG = {"Rejected": "bị từ chối", "Cancelled": "bị huỷ"}
 
@@ -140,10 +146,34 @@ def _pkg(pkg_name):
                                as_dict=True)
 
 
+def _superseded_for_edit(pkg_name):
+    """Goi da duoc thay bang ban sua sau "Can bo sung" (lifecycle.reopen_for_edit, PR-G)."""
+    return bool(frappe.get_all(EVT, filters={"package": pkg_name, "event_type": "PollTick",
+                                             "verification_result": SUPERSEDED_FOR_EDIT},
+                               fields=["name"], limit_page_length=1))
+
+
 def _check_pkg(pkg, ar):
     """Ly do KHONG duoc huy (chuoi) hoac None - phan doc ERP, khong goi cong."""
     if not pkg:
         return "no_package"
+    if pkg.status == "Superseded":
+        # Duong rieng (PR-G 23/11): tai lieu cu cua goi DA THAY bang ban sua sau "Can bo sung".
+        # Moi loai phieu (vet chi do reopen_for_edit ghi); phieu van song nen KHONG xet tu choi.
+        if not _superseded_for_edit(pkg.name):
+            return "package_status:Superseded"
+        if not ar:
+            return "no_request"
+        if not pkg.scts_document_id:
+            return "no_provider_document"
+        if str(pkg.error_code or "").startswith("provider_document_"):
+            return "already_marked:%s" % pkg.error_code
+        if int(pkg.signed_bundle_complete or 0):
+            return "signed_bundle_complete"
+        live = _live_legs(pkg.name)
+        if live:
+            return "live_legs:%s" % ",".join("%s/%s" % (x.name, x.status) for x in live)
+        return None
     if pkg.business_doctype not in AUTO_DOCTYPES:
         return "doctype_not_enabled:%s" % pkg.business_doctype
     if pkg.status not in ACTIVE_PKG:
@@ -163,7 +193,10 @@ def _check_pkg(pkg, ar):
 
 
 def _mark(pkg, code, how, ar_status, source, detail=None):
-    if code == CODE_UNVERIFIED:
+    if getattr(pkg, "status", None) == "Superseded" and code == CODE:
+        msg = ("Gói đã được thay bằng bản sửa sau \"Cần bổ sung\" - tài liệu cũ trên CMC đã được "
+               "huỷ theo.")
+    elif code == CODE_UNVERIFIED:
         msg = ("Phiếu trên ERP %s - đã gửi lệnh huỷ tài liệu trên CMC nhưng chưa xác minh được; "
                "ops kiểm tra trên cổng." % _MSG.get(ar_status, "đã kết thúc"))
     elif how == "cancelled_on_portal":
@@ -273,13 +306,36 @@ def cancel_one(pkg_name, reason=None, dry_run=True, source=SOURCE_SM):
             return dict(row, result="stop", reason="no_signers")      # khong biet -> khong huy
         if signed >= len(signers):
             return dict(row, result="stop", reason="all_signers_signed")
+        if pkg.status == "Superseded":
+            # QC PR-G B1: tai lieu cu cua ban sua - neu cong co nguoi ky ma ERP khong biet (doi
+            # tac ngoai, hoac nhieu hon so chan ERP da xong) thi KHONG huy (mat chu ky that, vd
+            # eKYC cua nguoi lao dong) - dung + bao ops.
+            # So theo DANH TINH (QC PR-G vong 2 M-4): moi nguoi da ky phai khop mot chan ERP da
+            # xong cua goi; doi tac ngoai / nguoi la -> khong huy.
+            from ecentric_workspace.platform.esign import lifecycle
+            signed_rows = [x for x in signers
+                           if str((x or {}).get("status") or "").lower() == "signed"]
+            try:
+                stray = lifecycle.unmatched_signed(pkg.name, signed_rows)
+            except Exception:
+                return dict(row, result="stop", reason="superseded_identity_check_failed")
+            if stray:
+                return dict(row, result="stop",
+                            reason="superseded_signed_on_portal:%d/%d%s"
+                                   % (len(stray), signed,
+                                      ":external" if any(bool((x or {}).get("is_external"))
+                                                         for x in stray) else ""))
         if not hasattr(adapter, "cancel_document"):
             return dict(row, result="stop", reason="adapter_no_cancel")
         if dry_run:
             return dict(row, result="would_cancel")
-        why_txt = (reason or "Phiếu ERP %s %s" % (pkg.business_name,
-                                                  _MSG.get(ar.approval_status,
-                                                           "đã kết thúc")))[:300]
+        if pkg.status == "Superseded":
+            why_txt = (reason or "Phiếu ERP %s cần bổ sung - tài liệu cũ được huỷ để tạo lại"
+                       % pkg.business_name)[:300]
+        else:
+            why_txt = (reason or "Phiếu ERP %s %s" % (pkg.business_name,
+                                                      _MSG.get(ar.approval_status,
+                                                               "đã kết thúc")))[:300]
         events.emit("PollTick", package=pkg.name, erp_actor=frappe.session.user,
                     verification_result="cancel_sent",
                     request_meta={"source": source, "document_id": pkg.scts_document_id,
@@ -341,11 +397,34 @@ def _negative_requests(include_before):
                                            limit_page_length=0)]
 
 
+def _revision_candidates(business_names=None):
+    """Goi Superseded vi ban sua sau "Can bo sung" (PR-G) con tai lieu tren cong, chua xu ly
+    xong (chua danh dau provider_document_*, chua bi bo qua). Chi doc. Moi nhat truoc."""
+    seen, names = set(), []
+    for r in frappe.get_all(
+            EVT, filters={"event_type": "PollTick", "verification_result": SUPERSEDED_FOR_EDIT},
+            fields=["package"], order_by="creation desc", limit_page_length=500):
+        if r.package and r.package not in seen:
+            seen.add(r.package)
+            names.append(r.package)
+    names = [n for n in names if not _skipped(n)]
+    if not names:
+        return []
+    filters = {"name": ["in", names], "status": "Superseded", "scts_document_id": ["is", "set"]}
+    if business_names:
+        filters["business_name"] = ["in", list(business_names)]
+    rows = frappe.get_all(PKG, filters=filters, fields=["name", "business_name", "error_code"],
+                          order_by="creation asc", limit_page_length=0)
+    return [r for r in rows if not str(r.error_code or "").startswith("provider_document_")]
+
+
 def candidates(include_before=False, business_names=None):
-    """Goi con tai lieu + chua danh dau chet, cua phieu Rejected / Cancelled. Chi doc."""
+    """Goi con tai lieu + chua danh dau chet, cua phieu Rejected / Cancelled; va (PR-G) goi da
+    thay bang ban sua sau "Can bo sung". Chi doc."""
+    rev = _revision_candidates(business_names)
     ars = _negative_requests(include_before)
     if not ars:
-        return []
+        return rev
     filters = {"approval_request": ["in", ars], "status": ["in", list(ACTIVE_PKG)],
                "scts_document_id": ["is", "set"],
                "business_doctype": ["in", list(AUTO_DOCTYPES)]}
@@ -354,7 +433,9 @@ def candidates(include_before=False, business_names=None):
     rows = frappe.get_all(PKG, filters=filters,
                           fields=["name", "business_name", "error_code"],
                           order_by="creation asc", limit_page_length=0)
-    return [r for r in rows if not str(r.error_code or "").startswith("provider_document_")]
+    seen = {r.name for r in rev}
+    return rev + [r for r in rows if r.name not in seen
+                  and not str(r.error_code or "").startswith("provider_document_")]
 
 
 def _sent_tries(pkg_name):

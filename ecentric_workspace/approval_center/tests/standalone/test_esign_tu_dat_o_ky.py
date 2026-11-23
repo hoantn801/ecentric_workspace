@@ -5,7 +5,8 @@ chat Hop dong va chat Ky so - THIETKE_ky_so_hop_dong muc 2e).
   1. pdf_markers.analyze: moc chu trang 1pt bi cat nhieu manh tren cung dong -> van nhan; toa do
      he chuan (goc tren-trai, point, trang tu 1); moc tren 2 dong -> khong nhan; trang xoay -> bo +
      ly do; PDF khong lop chu -> has_text_layer False; o ky 180x60 NGAY TREN moc, trong trang.
-  2. document_verification: khong khai hook -> not_required; khong lop chu -> no_text (KHONG goi
+  2. document_verification: khong khai hook -> not_required; khong lop chu -> VAN goi ham voi
+     pages_text rong (PR-G 23/11) - ham tra no_text thi chan, not_applicable thi qua (KHONG goi
      ham); ham tra match / mismatch / la / nem loi; cache theo sha; package_errors.
   3. placement_service.auto_place: di qua save_placement; chan khi khong khop / khong lop chu;
      khong moc -> bao keo tay; KY_BEN_A -> slot ky duy nhat; KY_BEN_B chua co slot -> bo qua;
@@ -225,13 +226,16 @@ class TestVerify(unittest.TestCase):
         r = _dv().verify("EC Payment Request", "PR-1", "a.pdf", PDF_OK)
         self.assertEqual(r["status"], "not_required")
 
-    def test_khong_lop_chu_thi_no_text_khong_goi_ham(self):
+    def test_khong_lop_chu_van_goi_ham_voi_trang_rong(self):
+        """PR-G 23/11: nghiep vu quyet (KOL bat buoc lop chu -> no_text; ban scan WF05 ->
+        not_applicable). Ham tra no_text khong kem ly do -> cau mac dinh 'Luu thanh PDF'."""
         calls = []
-        m = _dv("x.y", lambda *a: calls.append(a) or {"status": "match"})
+        m = _dv("x.y", lambda *a: calls.append(a) or {"status": "no_text"})
         r = m.verify(BD, "CTR-1", "a.pdf", PDF_SCAN)
         self.assertEqual(r["status"], "no_text")
         self.assertIn("Lưu thành PDF", r["reason"])
-        self.assertEqual(calls, [])
+        self.assertFalse(r["has_text_layer"])
+        self.assertEqual(calls, [(BD, "CTR-1", "a.pdf", [])])
 
     def test_match_mismatch_la_loi(self):
         seen = []
@@ -298,14 +302,25 @@ def _ps(content, required, verify_status=None, placements=(), save_fail=None, ho
     ds._is_pdf_name = lambda n, u=None: str(n or "").lower().endswith(".pdf")
     pk = types.ModuleType("pk")
     pk.raw_file_bytes = lambda fid: w["content"]
+    import hashlib as _hl
+    pk.hashing = types.SimpleNamespace(sha256_bytes=lambda b: _hl.sha256(b).hexdigest())
     pm_ = types.ModuleType("perms")
     sp = types.ModuleType("sp")
     dv = types.ModuleType("dv")
     dv.verifier_path = lambda bd: "x.y" if verify_status else None
-    dv.verify = lambda bd, bn, fn, c, a=None: {"status": verify_status, "reason": "ly do"}
+    dv.verify = lambda bd, bn, fn, c, a=None, sha=None: {"status": verify_status, "reason": "ly do"}
+    dv.PASS_STATUSES = ("match", "not_applicable")
+    sf = types.ModuleType("signing_files")           # PR-G: loai phieu khong khai tep ky
+    sf.is_signing_file = lambda *a, **k: None
+    sf.reconcile_draft = lambda pkg, bd, bn: []          # PR-G vong 2: khong khai -> khong go gi
+    lc = types.ModuleType("lifecycle")
+    lc.maybe_reopen_for_edit = lambda bd, bn, portal=None: w["order"].append("reopen?") and None
+    lc.portal_for_possible_reopen = lambda bd, bn: w["order"].append("portal") or None
+    lc.locked_signable_shas = lambda bd, bn: None      # khong "Can bo sung" -> khong mo lai
     root = types.ModuleType("ecentric_workspace.platform.esign")
     root.document_setup, root.package, root.permissions, root.signer_plan = ds, pk, pm_, sp
     root.document_verification, root.pdf_markers = dv, _pm()
+    root.signing_files, root.lifecycle = sf, lc
     m = _exec("placement_service.py", {
         "frappe": fk, "ecentric_workspace.platform.esign": root,
         "ecentric_workspace.platform.esign.document_setup": ds,
@@ -313,8 +328,10 @@ def _ps(content, required, verify_status=None, placements=(), save_fail=None, ho
         "ecentric_workspace.platform.esign.permissions": pm_,
         "ecentric_workspace.platform.esign.signer_plan": sp,
         "ecentric_workspace.platform.esign.document_verification": dv,
+        "ecentric_workspace.platform.esign.signing_files": sf,
         "ecentric_workspace.platform.esign.pdf_markers": root.pdf_markers})
     w["order"] = []
+    ds._assert_can_classify = lambda bd, bn: w["order"].append("perm")   # PR-G vong 2 M-1
     m._assert_write_ok = lambda bd, bn: w["order"].append("gate") or "PKG-D"
 
     def gv(*a, **k):
@@ -332,6 +349,7 @@ def _ps(content, required, verify_status=None, placements=(), save_fail=None, ho
         return {"ok": False, "reason": save_fail} if save_fail else {"ok": True}
     m.save_placement = save
     real_mods = {"ecentric_workspace.platform.esign": root,
+                 "ecentric_workspace.platform.esign.lifecycle": lc,
                  "ecentric_workspace.platform.esign.document_verification": dv,
                  "ecentric_workspace.platform.esign.pdf_markers": root.pdf_markers}
 
@@ -364,8 +382,12 @@ class TestAutoPlace(unittest.TestCase):
         self.assertIn({"name": "KY_BEN_B", "page_index": 1, "reason": "no_slot_for_marker"},
                       r["skipped"])
         self.assertEqual(w["locks"], [True], "khoa hang phieu truoc khi tinh o da co")
-        self.assertEqual(w["order"][:3], ["rollback", "lock", "gate"],
-                         "bo snapshot -> khoa -> moi doc lai")
+        # PR-G (QC vong 1): chi mo lai khi "Can bo sung" va SAU moi phep kiem tep - o day khong
+        # phai truong hop do nen khong mo lai; van khoa truoc, chot ghi sau.
+        self.assertEqual(w["order"][:6], ["perm", "portal", "rollback", "lock", "perm", "gate"],
+                         "quyen -> doc cong (truoc khoa, QC PR-G vong 3) -> bo snapshot -> khoa "
+                         "-> kiem lai quyen -> chot ghi")
+        self.assertNotIn("reopen?", w["order"])
 
     def test_khong_khop_thi_chan_khong_dat(self):
         for st in ("mismatch", "no_text", "error"):

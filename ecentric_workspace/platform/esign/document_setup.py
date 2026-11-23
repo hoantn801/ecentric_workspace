@@ -26,6 +26,7 @@ from ecentric_workspace.platform.esign import package as pkgsvc
 from ecentric_workspace.platform.esign import render
 from ecentric_workspace.platform.esign import permissions as perms
 from ecentric_workspace.platform.esign import signer_plan as sp
+from ecentric_workspace.platform.esign import signing_files
 
 AR = "EC Approval Request"
 PKG = "EC Digital Signature Package"
@@ -349,6 +350,12 @@ def remove_attachment(bd, bn, document_ref):
     goi da khoa/da ky cua phieu (goi Superseded sau tra ve) thi KHONG go - do la bang chung
     da ky. Xoa File `delete_permanently=False` -> Deleted Document, khoi phuc duoc.
     """
+    _assert_can_classify(bd, bn)                # requester-only (raises)
+    _ok_edit, _why_edit = _setup_editable(bd, bn)
+    if not _ok_edit and _why_edit == "already_submitted" and _reopen_hint(bd, bn):
+        # QC PR-G M3: phieu "Can bo sung", ho so nguoi lap khong ky - chi cach dung: mo lai thiet
+        # lap ky TRUOC (reopen_signing_setup), khong go tep cua goi da khoa.
+        frappe.throw(_REOPEN_HINT, frappe.ValidationError)
     _assert_setup_editable(bd, bn)              # nem neu da gui / goi da khoa / mo ho
     groups = _dedupe(_current_files(bd, bn))
     group = next((g for g in groups if g["rep"]["name"] == document_ref), None)
@@ -358,6 +365,12 @@ def remove_attachment(bd, bn, document_ref):
     frozen = frappe.get_all(PKG, filters={"business_doctype": bd, "business_name": bn,
                                           "status": ["!=", "Draft"]}, pluck="name")
     if frozen and frappe.db.exists(DSF, {"sha256": sha, "package": ["in", frozen]}):
+        from ecentric_workspace.platform.esign import signing_files
+        if signing_files.hook_path(bd):
+            # Loai phieu khai tep ky (PR-G): ban cu o lai lam bang chung, khong con la tep ky.
+            frappe.throw(_("Tệp này đã nằm trong gói ký đã chốt nên không gỡ được (giữ làm bằng "
+                           "chứng). Muốn thay bản PDF để ký: tải bản mới lên - bản cũ vẫn nằm lại "
+                           "trên phiếu nhưng không còn là tệp ký."))
         frappe.throw(_("Tệp này đã nằm trong gói ký đã chốt nên không gỡ được."))
     cur_name, _st, is_draft, _nr = _current_package(bd, bn)
     removed_rows = 0
@@ -443,6 +456,27 @@ def remove_supporting_attachment(bd, bn, document_ref):
             "state": get_document_setup_state(bd, bn)}
 
 
+_REOPEN_HINT = ("Phiếu đang \"Cần bổ sung\" và gói ký đã khoá. Muốn thay bản PDF để ký: mở lại "
+                "thiết lập ký trước rồi tải bản mới lên - không gỡ tệp của gói đã khoá.")
+
+
+def _reopen_hint(bd, bn):
+    """Phieu "Can bo sung" + ho so nguoi lap KHONG ky -> goi y mo lai thiet lap ky (PR-G M3)."""
+    try:
+        from ecentric_workspace.platform.esign import signing_files
+        if not signing_files.hook_path(bd):
+            return False                 # chi loai phieu khai tep ky (QC PR-G vong 2 M-3)
+        ar = perms.business_approval_request(bd, bn)
+        if not ar or frappe.db.get_value(AR, ar, "approval_status") != "Information Required":
+            return False
+        cur_name, _st, _is_draft, _nr = _current_package(bd, bn)
+        prof = frappe.db.get_value(PKG, cur_name, "profile") if cur_name else None
+        return bool(prof) and not int(frappe.db.get_value(
+            "EC Digital Signature Profile", prof, "requester_signature_required") or 0)
+    except Exception:
+        return False
+
+
 def _setup_editable(bd, bn):
     """SINGLE governed predicate: may document setup (classification + placement) be MUTATED?
     Editable ONLY during the pre-submit document-setup stage - the business request has NOT been
@@ -472,7 +506,8 @@ def _setup_editable(bd, bn):
     cur_name, cur_status, is_draft, needs_review = _current_package(bd, bn)
     if needs_review:
         return False, "needs_review"
-    if ar and not (is_draft and _awaiting_requester_signature(ar)):
+    if ar and not (is_draft and (_awaiting_requester_signature(ar)
+                                 or _reopened_for_edit(ar, cur_name))):
         return False, "already_submitted"
     if cur_name and not is_draft:
         return False, "package_locked"
@@ -483,6 +518,26 @@ def _setup_editable(bd, bn):
 #: Giu ban sao tai day thay vi import requester._START_STATES: document_setup nam duoi
 #: requester trong thu tu import (requester -> document_setup), keo nguoc lai la vong tron.
 _AWAITING_REQUESTER = ("Pending", "Reconciliation Required", "Failed")
+
+
+def _reopened_for_edit(ar, draft_name):
+    """Cua so sua lai sau "Can bo sung" cho ho so NGUOI LAP KHONG KY (PR-G 23/11, gop y chat Hop
+    dong muc 2): phieu dang "Information Required" va goi hien tai CHINH LA goi Draft do
+    lifecycle.reopen_for_edit tao (co vet `reopened_for_edit`) - khong phai bat ky Draft nao (QC
+    PR-G M4: phieu gui truoc PR-C con Draft chua khoa thi khong duoc mo). DNTT di duong cu."""
+    if not draft_name:
+        return False
+    try:
+        if frappe.db.get_value(AR, ar, "approval_status") != "Information Required":
+            return False
+        prof = frappe.db.get_value(PKG, draft_name, "profile")
+        if not prof or int(frappe.db.get_value(
+                "EC Digital Signature Profile", prof, "requester_signature_required") or 0):
+            return False
+        from ecentric_workspace.platform.esign import lifecycle
+        return lifecycle._reopened_draft(ar) == draft_name
+    except Exception:
+        return False                    # doc hong -> dong cua
 
 
 def _awaiting_requester_signature(ar):
@@ -518,7 +573,10 @@ def get_document_setup_state(business_doctype, business_name):
     # This is stage-based, NOT business docstatus (EC Payment Request is not submittable).
     editable, editable_reason = _setup_editable(business_doctype, business_name)
     is_requester = frappe.session.user == _requester_of(business_doctype, business_name)
-    can_classify = editable and is_requester
+    # Loai phieu khai tep ky (ec_esign_signing_files): nghiep vu quyet tep nao ky, nguoi lap khong
+    # doi phan loai (PR-G). decl None = khong khai (DNTT) -> nhu cu.
+    decl = signing_files.declared(business_doctype, business_name)
+    can_classify = editable and is_requester and decl is None
     can_add_supporting = _can_add_supporting(business_doctype, business_name, is_requester)
     plan = sp.resolve_signer_plan(business_doctype, business_name)
     required_slots = (plan.get("summary") or {}).get("required_slots", 0) if plan.get("resolved") else 0
@@ -570,6 +628,11 @@ def get_document_setup_state(business_doctype, business_name):
             classification_source = "default" if (is_draft or not cur_name) \
                 else "supporting_after_lock"
             signature_file = None
+        if decl is not None:
+            # Nghiep vu khai: tep trong danh sach = can ky, moi tep khac = bo chung tu.
+            urls = {m.get("file_url") for m in g["members"]} | {rep.get("file_url")}
+            req_sig = bool(urls & decl["urls"])
+            classification_source = "business_declared"
         docs.append({
             "document_ref": rep["name"],            # deterministic representative File.name
             "display_name": rep.get("file_name"),
@@ -642,6 +705,9 @@ def set_document_requires_signature(business_doctype, business_name, document_re
     requested = _to_bool(requires_signature)      # canonical (accepts "true"/"false"/1/0/bool)
     confirm = _to_bool(confirm)
     _assert_can_classify(business_doctype, business_name)
+    if signing_files.hook_path(business_doctype):
+        # Nghiep vu khai tep ky -> phan loai do nghiep vu quyet (PR-G).
+        return {"ok": False, "reason": "declared_by_business"}
     _ok_edit, _edit_reason = _setup_editable(business_doctype, business_name)
     if not _ok_edit:
         return {"ok": False, "reason": _edit_reason}      # sent/locked/needs_review -> immutable
