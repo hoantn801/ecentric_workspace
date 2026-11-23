@@ -138,7 +138,8 @@ const ok = (c, m) => { if (c) pass++; else { fail++; console.log("  FAIL: " + m)
   const src = script(path.join(ESIGN_UI, "document_signing_section.html"));
   console.log("Khối Tài liệu & ký số");
   const od = src.slice(src.indexOf("function openDrawer(ref)"), src.indexOf("function refreshRow()"));
-  ok(/var myTok = DRW\.docToken, myPr = pr\(\)/.test(od), "openDrawer chụp mã phiên + phiếu");
+  // PR-E 23/11: khoi dung chung DNTT + Hop dong - "phieu" la ident() (pr() o trang DNTT).
+  ok(/var myTok = DRW\.docToken, myPr = ident\(\), myT = target\(\)/.test(od), "openDrawer chụp mã phiên + phiếu");
   ok((od.match(/if \(stale\(\)\) return;/g) || []).length >= 6, "mọi phản hồi async đều kiểm stale (>=6 chỗ)");
   ok(/call\("placement_state"[\s\S]*?\.then\(function \(res\) \{\s*if \(stale\(\)\) return;/.test(od), "placement_state: kiểm stale TRƯỚC khi ghi DRW.st");
   ok(/getDocument\([\s\S]*?\.then\(function \(pdf\) \{[\s\S]*?if \(stale\(\)\) return;[\s\S]*?DRW\.pdf = pdf/.test(od), "PDF về muộn: kiểm stale trước khi gán DRW.pdf");

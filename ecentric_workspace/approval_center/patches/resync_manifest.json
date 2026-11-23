@@ -218,8 +218,8 @@
     "sha256": "60df026a79048ebbef516cedc0462c386733159882b74f4bc2b80e60f6104424"
   },
   "platform/esign/ui/document_signing_section.html": {
-    "last_resync_patch": "p381_resync_ten_cong_cmc",
-    "sha256": "2dea68104973d3dab8db8f6dfedf323a6f79d27afaa8e6b86525103e58af79f3"
+    "last_resync_patch": "p432_resync_khoi_ky_so_hop_dong",
+    "sha256": "8c1c68421ec5a545247378d1bd6a69ffbfc232c7adf0c5778aa8130c58f88804"
   },
   "platform/esign/ui/ops_page.html": {
     "last_resync_patch": "p195_resync_esign_ops_sync_drift_button",
