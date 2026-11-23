@@ -914,6 +914,10 @@ class QcHopDongToolCu20_11(unittest.TestCase):
         self.assertEqual(pr["ec_legacy_contract_no"], "05112026/HDDV/ECENTRIC-NTP.FCV")
         self.assertEqual(fu.old_numbers("a 05112026/HDDV/A.B va HDDV/09102026/DMG-ECENTRIC-X"),
                          ["05112026/HDDV/A.B", "HDDV/09102026/DMG-ECENTRIC-X"])
+        # 23/11: so tool cu dang 4 chu so (EC-PAYR-2026-00749)
+        self.assertEqual(fu.old_numbers("theo HĐHT số 2509/HDDV/ECENTRIC-BK-VITA"),
+                         ["2509/HDDV/ECENTRIC-BK-VITA"])
+        self.assertEqual(fu.old_numbers("so 123/HDDV/X va 2025 HDDV"), [])
 
     def test_trang_canh_bao_cac_dntt_khac_cung_so(self):
         _fresh("appr@ec")
