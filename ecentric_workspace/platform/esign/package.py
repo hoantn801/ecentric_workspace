@@ -102,7 +102,9 @@ def provider_file_count(pkg_name):
 def package_placements(pkg_name):
     return frappe.get_all("EC Digital Signature Placement", filters={"package": pkg_name},
                           fields=["name", "signature_file", "page_index", "x", "y", "llx", "lly",
-                                  "width", "height", "level_no", "signature_type", "status"],
+                                  "width", "height", "level_no", "signature_type", "status",
+                                  "signer_slot_key", "signer_slot_version", "scts_role_title",
+                                  "keyword"],
                           order_by="creation asc")
 
 
@@ -526,6 +528,12 @@ def preflight_for_lock(pkg_name):
                               ["profile", "status", "business_doctype", "business_name"],
                               as_dict=True)
     files = package_files(pkg_name)
+    if getattr(pkg, "status", None) == "Draft" and getattr(pkg, "business_doctype", None):
+        # Loai phieu khai tep ky (PR-G vong 2 B-1): tep ky CU khong con khai (con lai sau khi mo lai
+        # thiet lap ky) se bi go luc khoa (lock_package -> reconcile_draft) - khong tinh o day.
+        from ecentric_workspace.platform.esign import signing_files
+        files = signing_files.signable_declared(pkg.business_doctype,
+                                                getattr(pkg, "business_name", None), files)
     signable = [f for f in files if f.requires_signature]
     if not signable:
         errs.append("no_signable_file")
@@ -560,6 +568,13 @@ def preflight_for_lock(pkg_name):
     # CHI goi Draft (khoa / gui ky): goi da khoa da chot ma bam - khong doi chieu lai o cac lan
     # kiem "san sang" cua nguoi duyet (QC 22/11: sua phieu sau khi gui khong duoc chan Duyet & Ky).
     biz_dt = getattr(pkg, "business_doctype", None)
+    # Loai phieu khai tep ky (ec_esign_signing_files, PR-G): goi chi duoc ky DUNG cac tep do.
+    # CHI goi Draft (nhu doi chieu noi dung): goi da khoa da chot tep - phieu sua sau do khong
+    # duoc chan Duyet & Ky cua cap sau.
+    if biz_dt and getattr(pkg, "status", None) == "Draft":
+        from ecentric_workspace.platform.esign import signing_files
+        errs.extend(signing_files.package_errors(pkg_name, biz_dt,
+                                                 getattr(pkg, "business_name", None), files))
     if biz_dt and signable and getattr(pkg, "status", None) == "Draft":
         from ecentric_workspace.platform.esign import document_verification as dv
         errs.extend(dv.package_errors(pkg_name, biz_dt, getattr(pkg, "business_name", None),
@@ -572,6 +587,11 @@ def lock_package(pkg_name, approval_request):
     """Called by the business submit hook AFTER engine.submit succeeded, same transaction.
     Freezes the hash; from here the package is immutable (new version only)."""
     pkg = get_package(pkg_name)
+    if pkg.status == "Draft" and pkg.get("business_doctype"):
+        # Go tep ky khong con khai TRUOC khi chot ma bam (PR-G vong 2 B-1). Loai phieu khong khai
+        # tep ky (DNTT) -> khong lam gi.
+        from ecentric_workspace.platform.esign import signing_files
+        signing_files.reconcile_draft(pkg_name, pkg.business_doctype, pkg.get("business_name"))
     errs = preflight_for_lock(pkg_name)
     if errs:
         frappe.throw(_("Gói tài liệu chưa sẵn sàng: {0}").format(", ".join(errs[:6])))
@@ -619,10 +639,10 @@ def create_revision(old_pkg_name):
     old = get_package(old_pkg_name)
     if old.status not in ("Locked", "Active", "Provider Create Failed", "Provider Created"):
         frappe.throw(_("Chỉ tạo phiên bản mới từ gói đã khóa."))
-    # GHI CHU (12/11, PR-A): ham nay khong con ai goi (lifecycle, tu 31/08). Neu hoi sinh cho
-    # loai co NHIEU ho so (hop dong): ban sua phai chon lai ho so theo phieu hien tai
-    # (guard.get_enabled_profile(..., business_name)) + kiem lai o ky + emit
-    # PackageProfileChanged - xem _repoint_profile. Hien giu ho so cu nhu truoc.
+    # GHI CHU: tu 31/08 toi 23/11 khong ai goi ham nay; PR-G (24/11) goi lai tu
+    # lifecycle.reopen_for_edit (mo lai sau "Can bo sung", ho so nguoi lap khong ky). Ham GIU ho so
+    # cu - neu luong ky (esign_flow) doi trong luc "Can bo sung", requester.lock_on_submit tu choi
+    # luc gui lai (ho so goi != ho so phieu) va nguoi lap dat lai o ky. Xem _repoint_profile.
     new = frappe.get_doc({
         "doctype": "EC Digital Signature Package",
         "business_doctype": old.business_doctype, "business_name": old.business_name,
@@ -654,6 +674,11 @@ def create_revision(old_pkg_name):
             "signature_file": tgt, "page_index": p.page_index, "x": p.x, "y": p.y,
             "llx": p.llx, "lly": p.lly, "width": p.width, "height": p.height,
             "level_no": p.level_no, "signature_type": p.signature_type, "status": "Draft",
+            # Danh tinh o ky theo ke hoach nguoi ky (PR-G: ban sua phai giu - thieu thi o ky
+            # "khong thuoc slot nao", document_setup dem 0/N).
+            "signer_slot_key": p.get("signer_slot_key"),
+            "signer_slot_version": p.get("signer_slot_version"),
+            "scts_role_title": p.get("scts_role_title"), "keyword": p.get("keyword"),
             "placed_by": frappe.session.user, "placed_at": now_datetime(),
         }).insert(ignore_permissions=True)
     for dsr in frappe.get_all("EC Digital Signature Request",

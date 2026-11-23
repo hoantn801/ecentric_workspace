@@ -164,8 +164,9 @@ class TestUnreadableIsNotTheSameAsChanged(unittest.TestCase):
 
     def test_moi_duong_doc_hong_deu_ra_unreadable(self):
         body = _code_only(_fn(self.src, "_signable_content_verdict"))
-        # ba nhanh: package_files nem loi / thieu ma bam / _attached_signable_shas tra None
-        self.assertEqual(body.count('return "unreadable"'), 3)
+        # nam nhanh: ham khai tep ky loi (PR-G) / package_files nem loi / thieu ma bam / tep khai
+        # khong doc duoc (PR-G vong 2) / _attached_signable_shas tra None
+        self.assertEqual(body.count('return "unreadable"'), 5)
 
     def test_thong_bao_cua_hai_truong_hop_KHAC_nhau(self):
         fn = _fn(self.src, "on_request_reopened")

@@ -2093,7 +2093,10 @@ def resubmit(request_name, actor=None, restart=False):
     frappe.db.set_value("EC Approval Request", request_name,
                         {"approval_status": "Pending", "information_requested_from_level": 0})   # Int NOT NULL: clear with 0, never None
     note = None
-    if esign.get("force_restart"):
+    if esign.get("force_restart") and esign.get("reason") == "reopened_for_edit":
+        note = _("Bắt đầu lại từ cấp 1: người lập đã sửa tài liệu ký sau khi được yêu cầu bổ "
+                 "sung, tài liệu trên cổng ký số được tạo lại từ đầu.")
+    elif esign.get("force_restart"):
         note = _("Bắt đầu lại từ cấp 1: tài liệu ký đã đổi nên các chữ ký số đã thu thập "
                  "không còn chứng thực cho bộ tài liệu hiện tại.")
     elif esign.get("revised"):

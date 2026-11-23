@@ -17,6 +17,7 @@ from ecentric_workspace.platform.esign import document_setup as ds
 from ecentric_workspace.platform.esign import package as pkgsvc
 from ecentric_workspace.platform.esign import permissions as perms
 from ecentric_workspace.platform.esign import signer_plan as sp
+from ecentric_workspace.platform.esign import signing_files
 
 PL = "EC Digital Signature Placement"
 
@@ -159,6 +160,9 @@ def _ensure_signable_dsf(business_doctype, business_name, f, cur_name):
                                            allow_submitted=True).name
     dsf = ds._dsf_by_sha(draft, sha)
     if not dsf:
+        if signing_files.is_signing_file(business_doctype, business_name,
+                                         f.get("file_url"), sha=sha) is False:
+            frappe.throw(_("Tệp này không phải tài liệu ký của phiếu."))
         display = f.get("file_name") or (f.get("file_url") or "").rsplit("/", 1)[-1] or "document.pdf"
         dsf_name = pkgsvc.add_file(draft, display, content, requires_signature=1,
                                    is_supporting_document=0,
@@ -176,6 +180,14 @@ def save_placement(business_doctype, business_name, document_ref, box):
     f = _resolve_file(business_doctype, business_name, document_ref)
     if not f:
         return {"ok": False, "reason": "stale_or_foreign_attachment"}
+    # Ban PDF cu khong con khai trong goi Draft -> go truoc khi dat o (PR-G vong 2 B-1).
+    signing_files.reconcile_draft(cur_name, business_doctype, business_name)
+    # Loai phieu khai tep ky (ec_esign_signing_files, PR-G): chi dat o ky tren tep do (khop URL
+    # hoac noi dung - cung luat voi man thiet lap).
+    if signing_files.hook_path(business_doctype) and signing_files.is_signing_file(
+            business_doctype, business_name, f.get("file_url"),
+            sha=pkgsvc.hashing.sha256_bytes(pkgsvc.raw_file_bytes(f["name"]))) is False:
+        return {"ok": False, "reason": "not_signing_file"}
     dsf_probe = _dsf_for(business_doctype, business_name, f, cur_name)
     if dsf_probe is not None and not dsf_probe.get("requires_signature"):
         return {"ok": False, "reason": "supporting_document"}
@@ -269,23 +281,59 @@ def auto_place(business_doctype, business_name, document_ref):
     # Khoa hang phieu TRUOC moi lan doc: hai lan bam lien tiep khong tao trung o / trung tep cho
     # cung slot. Bo snapshot cu truoc (REPEATABLE READ: lan doc dau cua transaction lap snapshot;
     # chua ghi gi nen rollback an toan) de moi lan doc SAU khoa thay du lieu lan truoc da commit.
+    from ecentric_workspace.platform.esign import lifecycle
+    # QUYEN TRUOC MOI THU (QC PR-G vong 2 M-1, vong 3 minor 1): chi nguoi lap - khong thi ket qua
+    # doi chieu (so hop dong / so tien lech) lo ra, va nguoi la khong giu duoc khoa hang phieu.
+    ds._assert_can_classify(business_doctype, business_name)
+    # Doc cong (HTTP) TRUOC khi khoa hang - khong goi mang khi dang giu khoa (QC PR-G vong 3 M1).
+    # Chi doc khi co the mo lai (phieu "Can bo sung" + goi da khoa + loai phieu khai tep ky).
+    portal = lifecycle.portal_for_possible_reopen(business_doctype, business_name)
     frappe.db.rollback()
     frappe.db.get_value(business_doctype, business_name, "name", for_update=True)
-    _assert_write_ok(business_doctype, business_name)
+    # Kiem lai quyen SAU khoa (trang thai co the doi trong luc cho khoa).
+    ds._assert_can_classify(business_doctype, business_name)
+    # Moi phep kiem tep TRUOC (QC PR-G M2): tep sai / khong khop / khong lop chu KHONG BAO GIO mo
+    # lai thiet lap ky (mo lai = huy tai lieu cu tren cong, khong lay lai duoc).
     f = _resolve_file(business_doctype, business_name, document_ref)
     if not f:
         return {"ok": False, "reason": "stale_or_foreign_attachment"}
     if not ds._is_pdf_name(f.get("file_name"), f.get("file_url")):
         return {"ok": False, "reason": "not_pdf"}
     content = pkgsvc.raw_file_bytes(f["name"])
+    sha = pkgsvc.hashing.sha256_bytes(content)
+    if signing_files.is_signing_file(business_doctype, business_name, f.get("file_url"),
+                                     sha=sha) is False:
+        return {"ok": False, "reason": "not_signing_file",
+                "message": "Tệp này không phải tài liệu ký của phiếu."}
     analysis = pm.analyze(content)
     out = {"ok": True, "placed": [], "skipped": list(analysis.get("skipped") or []),
-           "verify": None}
+           "verify": None, "reopened": None}
+    manual = False
     if dv.verifier_path(business_doctype):
-        v = dv.verify(business_doctype, business_name, f.get("file_name"), content, analysis)
+        v = dv.verify(business_doctype, business_name, f.get("file_name"), content, analysis,
+                      sha=sha)
         out["verify"] = v
-        if v["status"] != "match":
+        if v["status"] not in dv.PASS_STATUSES:
             return dict(out, ok=False, reason="verify_%s" % v["status"], message=v.get("reason"))
+        manual = v["status"] == "not_applicable"
+    # Phieu "Can bo sung" + goi da khoa (nguoi lap khong ky): tep MOI (khac ban da khoa) da qua
+    # moi phep kiem -> mo lai thiet lap ky (goi Draft moi) roi moi dat o (PR-G muc 2).
+    locked = lifecycle.locked_signable_shas(business_doctype, business_name)
+    if locked is not None:
+        if sha in locked:
+            return dict(out, ok=False, reason="unchanged_in_locked_package",
+                        message="Tệp này trùng bản đã khoá trong gói ký - không cần đặt lại ô ký.")
+        reopened = lifecycle.maybe_reopen_for_edit(business_doctype, business_name,
+                                                   portal=portal)
+        out["reopened"] = (reopened or {}).get("new_package")
+    cur = _assert_write_ok(business_doctype, business_name)
+    # Ban PDF cu con lai trong goi Draft (mo lai TRUOC, tai ban moi SAU) -> go (PR-G vong 2 B-1).
+    signing_files.reconcile_draft(cur, business_doctype, business_name)
+    if manual:
+        # Nghiep vu: phieu nay khong doi chieu theo moc (vd ban scan doi tac da ky) -> nguoi lap
+        # keo o ky tay. ok False de ben goi KHONG hieu nham la "o ky da co san" (QC PR-G).
+        return dict(out, ok=False, reason="manual_placement",
+                    message="Tệp không dùng mốc ký tự động - kéo ô ký bằng tay.")
     if not analysis.get("markers"):
         return dict(out, ok=False, reason="no_markers",
                     message="Không tìm thấy mốc ký trong tệp - kéo ô ký bằng tay.")

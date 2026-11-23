@@ -124,6 +124,11 @@ def upload_package_file(business_doctype, business_name, requires_signature=0,
     profile = guard.get_active_profile(business_doctype, at, business_name)
     if not profile:
         frappe.throw(_("Ký số chưa được bật cho loại yêu cầu này."))
+    from ecentric_workspace.platform.esign import signing_files
+    if signing_files.hook_path(business_doctype) and int(requires_signature or 0):
+        # Loai phieu khai tep ky (PR-G): tep ky do nghiep vu quyet, khong tai tep ky qua day.
+        frappe.throw(_("Tài liệu ký của loại phiếu này do nghiệp vụ khai - không tải tệp ký "
+                       "qua đây."))
     file_name, content = _file_bytes()
     pkg = pkgsvc.get_or_create_draft(business_doctype, business_name, profile)
     row = pkgsvc.add_file(pkg.name, file_name, content,
@@ -137,6 +142,15 @@ def upload_package_file(business_doctype, business_name, requires_signature=0,
 @frappe.whitelist(methods=["POST"])
 def set_file_flags(dsf_name, requires_signature=None, is_supporting_document=None,
                    share_with_partner=None, file_kind=None):
+    if requires_signature is not None:
+        from ecentric_workspace.platform.esign import signing_files
+        pkg = frappe.db.get_value("EC Digital Signature File", dsf_name, "package")
+        bd = frappe.db.get_value("EC Digital Signature Package", pkg, "business_doctype") \
+            if pkg else None
+        if bd and signing_files.hook_path(bd):
+            # Phan loai tep ky do nghiep vu khai (PR-G) - khong doi qua day.
+            frappe.throw(_("Tài liệu ký của loại phiếu này do nghiệp vụ khai - không đổi "
+                           "phân loại được."))
     return pkgsvc.set_file_flags(dsf_name, requires_signature, is_supporting_document,
                                  share_with_partner, file_kind)
 
@@ -1130,6 +1144,17 @@ def auto_place_signature_boxes(payment_request_name=None, document_ref=None,
     _need(document_ref=document_ref)
     from ecentric_workspace.platform.esign import placement_service as ps
     return ps.auto_place(biz_dt, biz_name, document_ref)
+
+
+@frappe.whitelist(methods=["POST"])
+def reopen_signing_setup(business_doctype=None, business_name=None):
+    """Mo lai thiet lap ky sau "Can bo sung" (ho so NGUOI LAP KHONG KY - hop dong WF09; PR-G
+    23/11). Chi nguoi lap. Tao goi Draft moi tu goi da khoa; tai lieu cu tren cong (neu co) duoc
+    huy sau. Tra {reopened, new_package, old_package, cancel_pending} - xem
+    lifecycle.reopen_for_edit."""
+    biz_dt, biz_name = _target(None, business_doctype, business_name)
+    from ecentric_workspace.platform.esign import lifecycle
+    return lifecycle.reopen_for_edit(biz_dt, biz_name)
 
 
 @frappe.whitelist()

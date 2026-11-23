@@ -1459,8 +1459,10 @@ def retrieve_signed_bundles():
         # `retrieval_abandoned` la co NGUOI bat, sau khi ket luan tai lieu ben nha cung cap
         # khong con lay ve duoc nua. Khong loc no o day thi nut "Ngung thu lai" chi la trang
         # tri: cron van goi mang moi 30 phut cho mot goi da co nguoi tuyen bo la bo.
+        # Goi Superseded / Cancelled khong bao gio ky du (PR-G: ban sua sau "Can bo sung" giu
+        # nguyen scts_document_id cua tai lieu cu da huy) - khong tai, khong bao treo.
         filters={"scts_document_id": ["is", "set"], "signed_bundle_complete": 0,
-                 "retrieval_abandoned": 0},
+                 "retrieval_abandoned": 0, "status": ["not in", ("Superseded", "Cancelled")]},
         fields=["name", "provider", "environment", "approval_request", "profile"],
         limit_page_length=200)
     from ecentric_workspace.platform.esign import signed_files
