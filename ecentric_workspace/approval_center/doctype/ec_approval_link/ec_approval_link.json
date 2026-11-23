@@ -1,0 +1,121 @@
+{
+ "doctype": "DocType",
+ "name": "EC Approval Link",
+ "module": "Approval Center",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "autoname": "EC-APLK-.YYYY.-.#####.",
+ "naming_rule": "Expression",
+ "description": "Phieu duyet duoc GAN lam chung tu cho mot phieu khac. Chi luu lien ket, khong chep noi dung.",
+ "field_order": [
+  "host_doctype",
+  "host_name",
+  "host_request",
+  "target_request",
+  "share_to_host_approvers",
+  "active",
+  "added_by",
+  "added_at",
+  "removed_by",
+  "removed_at",
+  "override_reason"
+ ],
+ "fields": [
+  {
+   "fieldname": "host_doctype",
+   "fieldtype": "Link",
+   "label": "Host DocType",
+   "options": "DocType",
+   "reqd": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "host_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Host Name",
+   "options": "host_doctype",
+   "reqd": 1,
+   "in_standard_filter": 1,
+   "search_index": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "host_request",
+   "fieldtype": "Link",
+   "label": "Host Approval Request",
+   "options": "EC Approval Request"
+  },
+  {
+   "fieldname": "target_request",
+   "fieldtype": "Link",
+   "label": "Linked Approval Request",
+   "options": "EC Approval Request",
+   "reqd": 1,
+   "in_standard_filter": 1,
+   "search_index": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "share_to_host_approvers",
+   "fieldtype": "Check",
+   "label": "Share With Host Approvers",
+   "default": "0"
+  },
+  {
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "label": "Active",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "added_by",
+   "fieldtype": "Link",
+   "label": "Added By",
+   "options": "User"
+  },
+  {
+   "fieldname": "added_at",
+   "fieldtype": "Datetime",
+   "label": "Added At"
+  },
+  {
+   "fieldname": "removed_by",
+   "fieldtype": "Link",
+   "label": "Removed By",
+   "options": "User"
+  },
+  {
+   "fieldname": "removed_at",
+   "fieldtype": "Datetime",
+   "label": "Removed At"
+  },
+  {
+   "fieldname": "override_reason",
+   "fieldtype": "Small Text",
+   "label": "Reason (rejected/cancelled linked request)"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1
+  }
+ ],
+ "modified": "2026-11-23 10:00:00.000000",
+ "owner": "Administrator",
+ "creation": "2026-11-23 10:00:00"
+}

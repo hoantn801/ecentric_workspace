@@ -134,7 +134,14 @@ def save_draft(definition, name=None, payload=None):
             "capabilities": capabilities.derive(user, document, request)}
 
 
+def _assert_links_ok(definition, name):
+    """Phieu gan kem bi Tu choi / Huy ma chua ghi ly do -> chan gui (approval_links)."""
+    from ecentric_workspace.approval_center.shared.requests import approval_links
+    approval_links.assert_host_submittable(definition.business_doctype, name)
+
+
 def submit(definition, name):
+    _assert_links_ok(definition, name)
     previous = frappe.flags.mute_messages
     frappe.flags.mute_messages = True
     try:
@@ -342,6 +349,11 @@ def approve_with_operation_date(definition, name, comment=None,
 
 def reject(definition, name, comment=None):
     from ecentric_workspace.approval_center.shared.workflow import transitions as engine
+    if not getattr(definition, "allow_reject", True):
+        # Chan o may chu, khong chi an nut (23/11/2026): hub, duyet nhanh, goi API thang deu qua day.
+        # frappe._ (khong phai `_`): ngay duoi `_` la bien cuc bo (`_, request_name = ...`).
+        frappe.throw(frappe._("Loại yêu cầu này không có \"Từ chối\". Dùng \"Yêu cầu bổ sung\" để trả lại "
+                              "người gửi điều chỉnh."), frappe.PermissionError)
     _, request_name = resolve_request(definition, name)
     engine.reject(request_name, comment=comment)
     return {"detail": query_service.detail(definition, name)}
@@ -366,6 +378,7 @@ def resubmit(definition, name, payload=None):
         frappe.throw(_("Bạn không được phép gửi lại yêu cầu này."), frappe.PermissionError)
     if payload:
         save_draft(definition, name=name, payload=payload)
+    _assert_links_ok(definition, name)
     result = definition.resubmitter(name, frappe.session.user) or {}
     return {"restarted": bool(result.get("restarted")),
             # Lop ky so co the da tao phien ban moi cho goi ky va bat duyet lai tu cap 1.

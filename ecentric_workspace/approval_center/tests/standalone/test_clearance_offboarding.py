@@ -67,6 +67,7 @@ def build(today="2026-10-01"):
                 "Has Role": {"hr1": Obj(name="hr1", role="HR Manager", parenttype="User", parent="hr@x")}}
     W.roles, W.saves, W.logs, W.notes, W.enq, W.events, W.fail_save = {}, [], [], [], [], [], {}
     W.seq, W.submitted, W.conf, W.actions = 0, [], {}, []
+    W.role_users = {}
     fr = types.ModuleType("frappe")
     fr._ = lambda s: s
     fr.session = types.SimpleNamespace(user="Administrator")
@@ -141,10 +142,17 @@ def build(today="2026-10-01"):
     utils.add_days = lambda d, n: d
     fr.utils = utils
     eng = types.ModuleType("eng")
-    eng.submit = lambda dt, name, t, user: W.submitted.append((dt, name, t, user)) or "APR-CLR"
+    eng.submit = lambda dt, name, t, user, **k: W.submitted.append((dt, name, t, user)) or "APR-CLR"
     eng.notify = lambda users, msg, *a: W.notes.append((tuple(users), msg))
     eng.log_action = lambda *a, **k: W.actions.append(a)
     eng.request_label = lambda dt, n: n
+    eng.role_of = lambda src: (src or "")[6:].strip() if (src or "").startswith("Role: ") else None
+    # HR v2 (23/11): nguoi gui Clearance lay tu nhom CnB/HR (role) - khong bao gio la nguoi nghi.
+    parts = types.ModuleType("parts")
+    parts.active_role_users = lambda role: sorted(W.role_users.get(role, []))
+    sla = types.ModuleType("sla")
+    sla.dat_han_cap = lambda req, lvl, han: W.notes.append(("han", req, lvl, str(han)))
+    sla.ngay_le = lambda: set()
     ncev = types.ModuleType("ncev")
     ncev.publish_notification_event = lambda *a, **k: W.events.append((a, k))
     pk = {}
@@ -163,6 +171,8 @@ def build(today="2026-10-01"):
     sys.modules.update({"frappe": fr, "frappe.utils": utils,
                         "ecentric_workspace.approval_center.shared.workflow": wf,
                         "ecentric_workspace.approval_center.shared.workflow.transitions": eng,
+                        "ecentric_workspace.approval_center.shared.workflow.participants": parts,
+                        "ecentric_workspace.approval_center.shared.sla_ngay_lam_viec": sla,
                         "ecentric_workspace.notification_center.events": ncev})
     off = load("hr/offboarding/service.py", "ecentric_workspace.hr.offboarding.service")
     pk["ecentric_workspace.hr.offboarding"].service = off
@@ -271,13 +281,17 @@ def test_sau_duyet_ghi_ngay_va_tao_clearance(env):
     fr, off, job, clr, res = env()
     emp("E1", "a@x", reports_to="EM")
     emp("EM", "lm@x")
+    W.role_users["EC CnB"] = ["cnb@x"]
+    W.tables["User"]["cnb@x"] = Doc(doctype="User", name="cnb@x", enabled=1, user_type="System User")
     _resn()
     res.after_approval("RESN-1")
     e = W.tables["Employee"]["E1"]
     assert str(e["relieving_date"]) == "2026-10-15" and str(e["resignation_letter_date"]) == "2026-09-20"
     assert e["status"] == "Active"                            # chua doi status
     (c,) = W.tables["EC Clearance Request"].values()
-    assert c["requested_by"] == "a@x" and c["line_manager"] == "lm@x" and c["approval_request"] == "APR-CLR"
+    # HR v2 (23/11/2026): nguoi gui KHONG con la nguoi nghi (tai khoan bi khoa 00:30 -> phieu ket).
+    assert c["requested_by"] == "cnb@x" and c["employee_email"] == "a@x"
+    assert c["line_manager"] == "lm@x" and c["approval_request"] == "APR-CLR"
     assert W.submitted[0][2] == "CLEARANCE_REQUEST"
     res.after_approval("RESN-1")                              # chay lai: khong tao them
     assert len(W.tables["EC Clearance Request"]) == 1 and len(W.submitted) == 1
@@ -296,7 +310,10 @@ def test_khong_co_ho_so_van_tao_clearance(env):
     fr, off, job, clr, res = env()
     _resn()
     res.after_approval("RESN-1")
-    assert len(W.tables["EC Clearance Request"]) == 1         # requested_by fallback nguoi nop
+    assert len(W.tables["EC Clearance Request"]) == 1
+    # nguoi nop = chinh nguoi nghi (a@x) -> khong dung; khong ai trong nhom CnB/HR -> Administrator.
+    (c,) = W.tables["EC Clearance Request"].values()
+    assert c["requested_by"] == "Administrator"
     assert any("ho so" in (t or "") for t in W.logs)
 
 

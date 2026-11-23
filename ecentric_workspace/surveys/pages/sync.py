@@ -11,7 +11,7 @@ import frappe
 
 from ecentric_workspace.approval_center import page_sync_util
 
-PAGE_KEYS = ("hub", "fill", "manage", "builder")
+PAGE_KEYS = ("hub", "fill", "manage", "builder", "ca_nhan")
 
 
 def _relocate_foreign(route, title):

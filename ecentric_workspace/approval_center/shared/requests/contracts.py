@@ -57,6 +57,12 @@ class ApprovalDefinition:
     #: Trang form bat buoc nhan xet khi DUYET (luat dang nam o UI tung form) -> the duyet
     #: nhanh cung bat, va loai nay khong vao duyet hang loat.
     quick_comment_required: bool = False
+    #: Loai phieu co nut "Tu choi" hay khong (23/11/2026, HR v2). Mac dinh True = nhu cu.
+    #: False -> command_service.reject chan o may chu (moi duong: trang form, hub, duyet nhanh
+    #: tren dien thoai deu qua do) va capabilities.derive tra can_reject=False de UI an nut.
+    #: Vd Don nghi viec: NLD co quyen don phuong nghi khi bao truoc du ngay (Dieu 35 BLLD 2019),
+    #: nguoi duyet chi "Duyet" hoac "Tra lai dieu chinh" - khong co "Tu choi".
+    allow_reject: bool = True
     #: Truong KHONG duoc chep khi "Tao phieu moi tu phieu nay".
     #:
     #: Danh cho cac o mang tinh CAM KET CA NHAN - nguoi dung tich vao de xac nhan mot dieu
@@ -122,6 +128,25 @@ class ApprovalDefinition:
     #: Truong (cua `business_doctype`) co o loc dang danh sach chon tren tab "Tat ca". Gia tri
     #: trong danh sach chi lay tu nhung phieu NGUOI XEM DUOC PHEP XEM (scope_predicate).
     all_tab_filters: Tuple[str, ...] = ()
+    #: PHIEU RIENG TU (Dot 0 HR, 23/11/2026). True -> chi nguoi gui, nguoi co dong duyet trong
+    #: snapshot, nguoi theo doi, nguoi xu ly cua phieu va System Manager (co nhat ky) xem duoc.
+    #: Loai khoi pham vi truong phong / Approval Admin / tab "Tat ca" / thong ke / export.
+    #: Mot luat DUY NHAT o `shared/workflow/privacy.py` - EC Approval Type.private = 1 cung bat
+    #: duoc (cau hinh), hai nguon OR voi nhau. Xem HR_DOT0_INTERFACE.md.
+    private: bool = False
+    #: Truong cua `business_doctype` chi DOI TUONG cua phieu (nguoi duoc noi toi: nhan vien
+    #: nghi viec, nguoi duoc danh gia...). Gia tri la email/User hoac ma Employee. Engine loai
+    #: nguoi gui + doi tuong khoi moi cap duyet (chan tu duyet) - xem transitions._self_exclusion.
+    subject_fields: Tuple[str, ...] = ()
+    #: CHAN NGUOI GUI tu duyet (opt-in, 23/11/2026). MAC DINH False vi F12 (25/09, Hoan xac nhan):
+    #: o 34 form cu nguoi gui nam trong cap duyet cua chinh minh thi DUOC tu duyet - la rule, khong
+    #: phai loi. Chi cac form HR moi bat (dot 0-3). Muon ap cho form cu phai hoi Hoan.
+    #: Doi tuong (subject_fields) thi luon bi loai khoi cap duyet, khong phu thuoc co nay.
+    block_self_approval: bool = False
+    #: Truong AN voi nguoi CHI la nguoi theo doi (participant_purpose="Notify") - vd luong offer.
+    #: query_service.detail xoa gia tri truoc khi tra ve trinh duyet. Nguoi gui / nguoi duyet /
+    #: System Manager van thay.
+    watcher_hidden_fields: Tuple[str, ...] = ()
 
     @property
     def status_label_map(self) -> Mapping[str, str]:
@@ -156,6 +181,14 @@ def validate_definition(definition: ApprovalDefinition) -> None:
     if definition.batch_flagger is not None and not callable(definition.batch_flagger):
         raise ValueError("definition callback is not callable: batch_flagger")
     _validate_all_tab(definition)
+    for attr in ("subject_fields", "watcher_hidden_fields"):
+        for fieldname in getattr(definition, attr):
+            if not (isinstance(fieldname, str) and _FIELDNAME_RE.match(fieldname)):
+                raise ValueError("%s fieldname is not a plain fieldname: %r" % (attr, fieldname))
+    if not isinstance(definition.private, bool):
+        raise ValueError("private must be a bool")
+    if not isinstance(definition.block_self_approval, bool):
+        raise ValueError("block_self_approval must be a bool")
 
 
 def _validate_all_tab(definition: ApprovalDefinition) -> None:

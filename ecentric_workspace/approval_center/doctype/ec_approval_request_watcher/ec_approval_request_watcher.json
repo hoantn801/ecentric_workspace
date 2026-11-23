@@ -1,0 +1,78 @@
+{
+ "doctype": "DocType",
+ "name": "EC Approval Request Watcher",
+ "module": "Approval Center",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "autoname": "EC-APRW-.YYYY.-.#####.",
+ "naming_rule": "Expression",
+ "description": "Nguoi theo doi (participant_purpose=Notify) chot luc gui phieu. Chi doc + nhan thong bao; khong duyet.",
+ "field_order": [
+  "approval_request",
+  "watcher",
+  "source",
+  "added_by",
+  "added_at"
+ ],
+ "fields": [
+  {
+   "fieldname": "approval_request",
+   "fieldtype": "Link",
+   "label": "Approval Request",
+   "options": "EC Approval Request",
+   "reqd": 1,
+   "in_standard_filter": 1,
+   "search_index": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "watcher",
+   "fieldtype": "Link",
+   "label": "Watcher",
+   "options": "User",
+   "reqd": 1,
+   "in_standard_filter": 1,
+   "search_index": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "source",
+   "fieldtype": "Data",
+   "label": "Source",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "added_by",
+   "fieldtype": "Link",
+   "label": "Added By",
+   "options": "User"
+  },
+  {
+   "fieldname": "added_at",
+   "fieldtype": "Datetime",
+   "label": "Added At"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1
+  }
+ ],
+ "modified": "2026-11-23 10:00:00.000000",
+ "owner": "Administrator",
+ "creation": "2026-11-23 10:00:00"
+}

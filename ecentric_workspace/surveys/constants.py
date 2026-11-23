@@ -151,3 +151,26 @@ ROUTE_BUILDER = "khao-sat/soan"
 
 def fill_url(name):
     return "/%s?s=%s" % (ROUTE_FILL, name)
+
+
+# ------------------------------------------------------ Khao sat ca nhan theo moc --
+# 23/11/2026 (Hoan chot, HR Dot 2): khao sat GIAO CHO TUNG NGUOI (thu viec D7/D30/D45, thuc tap
+# D30/D60/D75, khao sat nghi viec...). Mot EC Survey "mau" (ma_mau) cho moi loai; moi lan giao la
+# mot EC Survey Assignment. Ai lam duoc = ai DUOC GIAO (khong doc bang doi tuong cua chien dich).
+ASSIGNMENT = "EC Survey Assignment"
+KIND_CAMPAIGN = ""
+KIND_PERSONAL = "Khảo sát cá nhân theo mốc"
+ASSIGN_OPEN = "Open"
+ASSIGN_CANCELLED = "Cancelled"
+#: Token "nguoi xem" dac biet: quan ly truc tiep HIEN TAI cua nguoi tra loi.
+VIEWER_LM = "LM"
+#: Nguoi xem mac dinh cua khao sat moc thu viec / thuc tap (Hoan chot: HR + C&B + LM).
+VIEWERS_MOC = ("HR", "EC CnB", VIEWER_LM)
+#: Role quan ly (soan cau hoi + xem toan bo ket qua) cua mau khao sat moc.
+MANAGER_ROLES_MOC = ("HR", "EC CnB")
+#: Han lam mac dinh (ngay lam viec) + nhac MOT lan truoc han.
+HAN_NGAY_LV_MAC_DINH = 3
+NHAC_TRUOC_NGAY_LV = 1
+ROUTE_PERSONAL = "khao-sat/ca-nhan"
+#: Tat job (khong can deploy): site_config.
+FLAG_MOC_DISABLED = "ec_survey_milestone_disabled"

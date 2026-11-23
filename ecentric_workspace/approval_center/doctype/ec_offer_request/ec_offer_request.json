@@ -35,7 +35,16 @@
   "note",
   "resume",
   "sb_next",
-  "new_staff_preparation"
+  "new_staff_preparation",
+  "sb_v2",
+  "offered_salary",
+  "hof_skipped",
+  "hof_rule_note",
+  "cb_v2",
+  "candidate_status",
+  "candidate_status_at",
+  "candidate_status_by",
+  "candidate_status_reason"
  ],
  "fields": [
   {
@@ -217,11 +226,64 @@
    "label": "New Staff Preparation",
    "options": "EC New Staff Preparation",
    "read_only": 1
+  },
+  {
+   "fieldname": "sb_v2",
+   "fieldtype": "Section Break",
+   "label": "Lương offer / Ứng viên (V2)"
+  },
+  {
+   "fieldname": "offered_salary",
+   "fieldtype": "Currency",
+   "label": "Lương offer (số, gross/tháng)",
+   "options": "VND"
+  },
+  {
+   "fieldname": "hof_skipped",
+   "fieldtype": "Check",
+   "label": "Bỏ cấp HOF (lương ≤ mức đã duyệt trên Hiring)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "hof_rule_note",
+   "fieldtype": "Small Text",
+   "label": "Căn cứ HOF",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb_v2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "candidate_status",
+   "fieldtype": "Select",
+   "label": "Trạng thái ứng viên",
+   "options": "\nDeclined\nOffer Cancelled",
+   "read_only": 1
+  },
+  {
+   "fieldname": "candidate_status_at",
+   "fieldtype": "Datetime",
+   "label": "Ghi nhận lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "candidate_status_by",
+   "fieldtype": "Link",
+   "options": "User",
+   "label": "Người ghi nhận",
+   "read_only": 1
+  },
+  {
+   "fieldname": "candidate_status_reason",
+   "fieldtype": "Small Text",
+   "label": "Lý do",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-09-28 20:00:00.000000",
+ "modified": "2026-11-23 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "Approval Center",
  "name": "EC Offer Request",

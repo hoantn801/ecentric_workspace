@@ -35,7 +35,11 @@
   "welcome_intro",
   "cb_w",
   "welcome_teams_sent_at",
-  "welcome_teams_result"
+  "welcome_teams_result",
+  "sb_v2",
+  "new_employee",
+  "new_employee_set_by",
+  "contract_row_note"
  ],
  "fields": [
   {
@@ -215,11 +219,36 @@
    "fieldtype": "Small Text",
    "label": "Welcome Teams Result",
    "read_only": 1
+  },
+  {
+   "fieldname": "sb_v2",
+   "fieldtype": "Section Break",
+   "label": "Hồ sơ nhân viên (V2)"
+  },
+  {
+   "fieldname": "new_employee",
+   "fieldtype": "Link",
+   "options": "Employee",
+   "label": "Hồ sơ nhân viên mới",
+   "read_only": 1
+  },
+  {
+   "fieldname": "new_employee_set_by",
+   "fieldtype": "Link",
+   "options": "User",
+   "label": "Người chọn hồ sơ",
+   "read_only": 1
+  },
+  {
+   "fieldname": "contract_row_note",
+   "fieldtype": "Small Text",
+   "label": "Ghi hợp đồng thử việc/thực tập",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-09-28 20:00:00.000000",
+ "modified": "2026-11-23 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "Approval Center",
  "name": "EC New Staff Preparation",

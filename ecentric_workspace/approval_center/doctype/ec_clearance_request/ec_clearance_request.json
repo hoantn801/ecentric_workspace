@@ -8,7 +8,7 @@
  "engine": "InnoDB",
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-09-29 20:00:00.000000",
+ "modified": "2026-11-23 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "Approval Center",
  "name": "EC Clearance Request",
@@ -154,6 +154,31 @@
    "label": "Line Manager",
    "options": "Email",
    "read_only": 1
+  },
+  {
+   "fieldname": "sb_v2",
+   "fieldtype": "Section Break",
+   "label": "Nguồn (V2)"
+  },
+  {
+   "fieldname": "clearance_source",
+   "fieldtype": "Select",
+   "label": "Nguồn",
+   "options": "Resignation\nDiscipline\nOther",
+   "default": "Resignation",
+   "read_only": 1
+  },
+  {
+   "fieldname": "source_reference",
+   "fieldtype": "Data",
+   "label": "Tham chiếu nguồn",
+   "read_only": 1
+  },
+  {
+   "fieldname": "opened_early",
+   "fieldtype": "Check",
+   "label": "Mở sớm (đơn chưa duyệt xong, còn ≤ 5 ngày làm việc)",
+   "read_only": 1
   }
  ],
  "field_order": [
@@ -175,6 +200,10 @@
   "cb_s",
   "last_working_day",
   "resignation_reason",
-  "line_manager"
+  "line_manager",
+  "sb_v2",
+  "clearance_source",
+  "source_reference",
+  "opened_early"
  ]
 }

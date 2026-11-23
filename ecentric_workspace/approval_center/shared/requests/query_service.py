@@ -375,6 +375,7 @@ def detail(definition, name):
     if getattr(definition, "business_redactor", None):
         # KHONG nuot loi o day: redactor tu fail-closed (an het truong nhay cam khi loi).
         definition.business_redactor(biz, request)
+    privacy_block = _privacy_block(definition, user, business, request, biz)
     return {
         "extra": extra,
         "business": biz,
@@ -397,8 +398,32 @@ def detail(definition, name):
         "process_preview": ([] if request else process_preview(
             business.approval_type or definition.code)),
         "capabilities": capabilities.derive(user, business, request),
+        # Dot 0 HR (23/11/2026): co rieng tu, nguoi theo doi, nhat ky truy cap (chi nguoi gui /
+        # System Manager thay nhat ky). Trang cu khong doc khoi nay -> khong doi gi.
+        "privacy": privacy_block,
     }
 
 
-
+def _privacy_block(definition, user, business, request, biz):
+    """Ghi nhat ky khi nguoi NGOAI luong mo phieu RIENG TU (System Manager / quyen doc qua Gan
+    phieu), an `watcher_hidden_fields` voi nguoi chi theo doi, va tra khoi hien thi.
+    Nhat ky va an truong KHONG nuot loi theo huong mo: loi an truong -> an (privacy tu lo)."""
+    from ecentric_workspace.approval_center.shared.workflow import privacy
+    req_name = request.name if request else None
+    atype = (request.get("approval_type") if request else None) or definition.code
+    requested_by = getattr(business, "requested_by", None)
+    owner = getattr(business, "fulfillment_owner", None)
+    is_private = privacy.is_private_type(atype)
+    if req_name and is_private:
+        privacy.note_access(user, req_name, atype, requested_by, owner)
+    privacy.redact_for_watcher(biz, definition, user, req_name)
+    watchers = privacy.watchers_of(req_name) if req_name else []
+    show_log = bool(is_private and req_name and (
+        user == requested_by or capabilities.is_system_manager(user)))
+    return {
+        "private": bool(is_private),
+        "watchers": [{"user": u, "name": requester_display(u)} for u in watchers],
+        "i_am_watcher": bool(user in watchers),
+        "access_log": privacy.access_log(req_name) if show_log else [],
+    }
 

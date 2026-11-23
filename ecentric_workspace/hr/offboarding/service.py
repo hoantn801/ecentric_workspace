@@ -59,6 +59,27 @@ def mark_resignation(employee_email, letter_date=None, relieving_date=None, sour
     return "ho so %s: relieving_date=%s" % (emp_name, emp.relieving_date)
 
 
+def unmark_resignation(employee_email, relieving_date=None, source=None):
+    """NV rut don sau khi da duyet (23/11/2026): xoa relieving_date / resignation_letter_date tren ho
+    so - CHI khi ho so van Active va relieving_date dang dung la ngay cua don nay (khong xoa ngay do
+    mot don khac / HR ghi). Idempotent. -> chuoi ket qua ngan (cho nhat ky)."""
+    emp_name = _employee_of(employee_email)
+    if not emp_name:
+        return "khong thay ho so %s" % employee_email
+    emp = frappe.get_doc(EMPLOYEE, emp_name)
+    if not emp.relieving_date:
+        return "ho so %s: khong co relieving_date" % emp_name
+    if relieving_date and getdate(emp.relieving_date) != getdate(relieving_date):
+        return "ho so %s: relieving_date=%s khac don - giu nguyen" % (emp_name, emp.relieving_date)
+    if emp.status != "Active":
+        return "ho so %s: da %s - HR xu ly tay (runbook bat lai User truoc)" % (emp_name, emp.status)
+    emp.relieving_date = None
+    emp.resignation_letter_date = None
+    emp.flags.ec_offboarding_source = source
+    emp.save(ignore_permissions=True)
+    return "ho so %s: da xoa relieving_date" % emp_name
+
+
 def due_employees(today=None):
     """Employee Active co relieving_date TRUOC hom nay (hom nay van con la ngay lam viec).
 
@@ -98,6 +119,18 @@ def approver_seats(user):
         for r in frappe.get_all("EC Approval Participant", filters={"fallback_user": user},
                                 fields=["parent", "parenttype"], limit_page_length=0):
             out.append("%s %s (fallback)" % (r.parenttype, r.parent))
+    except Exception:
+        pass
+    # 23/11/2026: dong duyet DANG CHO tren phieu mo (approver_handover tu chuyen khi khoa tai
+    # khoan; liet ke o day de HR thay truoc).
+    try:
+        for r in frappe.get_all("EC Approval Request Approver",
+                                filters={"approver": user, "status": "Pending"},
+                                fields=["approval_request", "level_no"], limit_page_length=0):
+            st = frappe.db.get_value("EC Approval Request", r.approval_request, "approval_status")
+            if st in ("Pending", "Information Required"):
+                out.append("EC Approval Request %s (cap %s, dang cho)" % (r.approval_request,
+                                                                         r.level_no))
     except Exception:
         pass
     return sorted(set(out))

@@ -30,6 +30,7 @@
   "visibility_mode",
   "allowed_roles",
   "allowed_departments",
+  "private",
   "sb_meta",
   "owner_department",
   "legacy_source",
@@ -141,6 +142,13 @@
    "description": "Used only when visibility_mode = Restricted Departments."
   },
   {
+   "fieldname": "private",
+   "fieldtype": "Check",
+   "label": "Phiếu riêng tư",
+   "default": "0",
+   "description": "Chỉ người gửi, người duyệt, người theo dõi, người xử lý và System Manager (có nhật ký) xem được. Không hiện với trưởng phòng / Approval Admin / tab Tất cả / Thống kê."
+  },
+  {
    "fieldname": "sb_meta",
    "fieldtype": "Section Break",
    "label": "Ownership & Legacy"
@@ -187,5 +195,6 @@
   }
  ],
  "links": [],
- "index_web_pages_for_search": 0
+ "index_web_pages_for_search": 0,
+ "modified": "2026-11-23 10:00:00.000000"
 }

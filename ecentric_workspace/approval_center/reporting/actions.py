@@ -410,3 +410,40 @@ def list_my_pending():
 def quick_decide(request_name, action, comment=None):
     from ecentric_workspace.approval_center.shared.requests import quick_approve
     return quick_approve.quick_decide(request_name, action, comment)
+
+
+# --- Gan phieu duyet vao o dinh kem (23/11/2026, Dot 0 HR) ---------------------------
+# Luat o shared/requests/approval_links.py; day chi la cua vao cho asset dung chung
+# ec_approval_links.bundle.js (moi form + popup hub). KHONG nhan `user` tu client.
+@frappe.whitelist(methods=["GET"])
+def list_approval_links(host_doctype, host_name):
+    from ecentric_workspace.approval_center.shared.requests import approval_links as al
+    definition, doc, req = al._host(host_doctype, host_name)
+    if not capabilities.can_view(frappe.session.user, doc, req):
+        frappe.throw(_("Bạn không có quyền xem yêu cầu này."), frappe.PermissionError)
+    return al.capability(frappe.session.user, doc, req)
+
+
+@frappe.whitelist(methods=["GET"])
+def search_linkable(host_doctype, host_name, q=None, box=None):
+    from ecentric_workspace.approval_center.shared.requests import approval_links as al
+    return al.search(host_doctype, host_name, q=q, box=box)
+
+
+@frappe.whitelist(methods=["POST"])
+def link_approval(host_doctype, host_name, target_request, share=None):
+    from ecentric_workspace.approval_center.shared.requests import approval_links as al
+    return al.link(host_doctype, host_name, target_request, share=share)
+
+
+@frappe.whitelist(methods=["POST"])
+def unlink_approval(link):
+    from ecentric_workspace.approval_center.shared.requests import approval_links as al
+    return al.unlink(link)
+
+
+@frappe.whitelist(methods=["POST"])
+def set_link_override_reason(link, reason):
+    from ecentric_workspace.approval_center.shared.requests import approval_links as al
+    return al.set_override_reason(link, reason)
+

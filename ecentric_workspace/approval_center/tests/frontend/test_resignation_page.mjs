@@ -75,9 +75,12 @@ async function run() {
 
   const cb = () => w.document.getElementById("resn-body").innerHTML;
   // all create fields render
-  ["request_title", "resignation_for", "employee_email", "personal_email", "last_working_day", "resignation_reason",
-   "workplace_environment_rating", "benefit_policy_rating", "corporate_culture_rating", "recommend_to_friend", "final_message"].forEach(function (f) {
+  ["request_title", "resignation_for", "employee_email", "personal_email", "last_working_day", "resignation_reason"].forEach(function (f) {
     ok(!!w.document.querySelector('[data-model="' + f + '"]'), f + " field renders");
+  });
+  // HR v2 (23/11/2026): khao sat nghi viec TACH khoi don (module Khao sat, chi HR xem) - form khong hoi danh gia.
+  ["workplace_environment_rating", "benefit_policy_rating", "corporate_culture_rating", "recommend_to_friend", "final_message"].forEach(function (f) {
+    ok(!w.document.querySelector('[data-model="' + f + '"]'), f + " KHONG con tren form (V2)");
   });
   // no attachment field on create
   ok(!w.document.querySelector('[data-upload]'), "no attachment upload on create form");
@@ -86,27 +89,26 @@ async function run() {
   ok(!!w.document.getElementById("resn-process-preview"), "process preview card renders");
   { const html = cb(); ok(html.indexOf('id="resn-process-preview"') < html.indexOf('data-model="request_title"'), "preview renders before request_title"); }
   { const pv = w.document.getElementById("resn-process-preview");
-    ok(pv.querySelectorAll(".step").length === 4, "preview has exactly 4 steps");
-    ok(/Tạo yêu cầu/.test(pv.innerHTML) && /Direct Manager review/.test(pv.innerHTML) && /HR xử lý/.test(pv.innerHTML) && /Hoàn tất/.test(pv.innerHTML), "preview steps: Tạo/Direct Manager review/HR xử lý/Hoàn tất");
+    ok(pv.querySelectorAll(".step").length === 5, "preview has exactly 5 steps (V2)");
+    ok(/Tạo yêu cầu/.test(pv.innerHTML) && /Quản lý trực tiếp/.test(pv.innerHTML) && /CnB\/HR/.test(pv.innerHTML) && /CEO/.test(pv.innerHTML) && /Clearance/.test(pv.innerHTML), "preview steps: Tạo/QLTT/CnB-HR/CEO/Clearance");
     ok(!/SLA/i.test(pv.innerHTML), "preview shows no misleading SLA text"); }
 
   // options render
   ok(/Myself/.test(cb()) && /Request for the others/.test(cb()), "resignation_for options render");
   ok(/Have another direction/.test(cb()) && /Cultural Environment/.test(cb()), "resignation_reason options render");
-  ok(/5 \(Very satisfied\)/.test(cb()) && /1 \(Very dissatisfied\)/.test(cb()), "rating options render");
+  ok(!/5 \(Very satisfied\)/.test(cb()), "rating options KHONG con tren form (V2)");
 
   // validateSubmit
   w.Resignation.state.draft = {};
   ok(!!(w.Resignation.validateSubmit() || {}).request_title, "validateSubmit: title required");
   const goodDraft = { request_title: "T", resignation_for: "Myself", employee_email: "a@company.com",
-    personal_email: "a@gmail.com", last_working_day: "2026-08-15", resignation_reason: "Have another direction",
-    workplace_environment_rating: "4 (Satisfied)", benefit_policy_rating: "4 (Satisfied)", corporate_culture_rating: "5 (Very satisfied)" };
+    personal_email: "a@gmail.com", last_working_day: "2099-08-15", resignation_reason: "Have another direction" };
   // bad email
   w.Resignation.state.draft = Object.assign({}, goodDraft, { employee_email: "not-an-email" });
   ok(!!(w.Resignation.validateSubmit() || {}).employee_email, "validateSubmit rejects a bad email");
-  // missing rating
-  w.Resignation.state.draft = Object.assign({}, goodDraft, { benefit_policy_rating: "" });
-  ok(!!(w.Resignation.validateSubmit() || {}).benefit_policy_rating, "validateSubmit rejects a missing rating");
+  // V2: khong con bat danh gia; ngay lam viec cuoi o qua khu bi chan
+  w.Resignation.state.draft = Object.assign({}, goodDraft, { last_working_day: "2020-01-01" });
+  ok(!!(w.Resignation.validateSubmit() || {}).last_working_day, "validateSubmit rejects a past last working day");
   // full valid
   w.Resignation.state.draft = Object.assign({}, goodDraft);
   ok(w.Resignation.validateSubmit() === null, "valid form passes validateSubmit");
@@ -142,7 +144,7 @@ async function run() {
   w.history.pushState({}, "", "/approvals/resignation?id=EC-RESN-2026-00001"); w.Resignation.route(); await flush(); await flush();
   ok(/class="stepper"/.test(cb()), "detail renders the runtime stepper");
   { const rh = w.Resignation.buildStepper(detail());
-    ok(/Đã gửi/.test(rh) && /HR xử lý/.test(rh) && /Direct Manager Review/.test(rh), "runtime stepper: Đã gửi + Direct Manager Review + HR xử lý"); }
+    ok(/Đã gửi/.test(rh) && /Clearance/.test(rh) && /Direct Manager Review/.test(rh) && !/HR xử lý/.test(rh), "runtime stepper V2: Đã gửi + cap duyet + Clearance (khong con HR xu ly)"); }
 
   // request info / resubmit banner + runtime stepper
   w = boot({ detail: detail({ approval: { name: "AR-1", approval_status: "Information Required", current_level: 1, information_requested_from_level: 1 },

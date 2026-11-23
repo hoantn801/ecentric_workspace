@@ -43,3 +43,12 @@ def retry_new_staff_preparation(name):
         service as nsp_service)
     nsp = nsp_service.create_from_offer(name, raise_errors=True)
     return {"new_staff_preparation": nsp}
+
+
+@frappe.whitelist(methods=["POST"])
+def mark_candidate_status(name, kind, reason=None):
+    """Ung vien tu choi offer (kind="Declined") / huy offer (kind="Offer Cancelled") - ke ca sau khi
+    CEO duyet. Huy New Staff Preparation dang mo, co ghi vet. Luat quyen o service.may_mark_candidate."""
+    out = service.mark_candidate_status(name, kind, reason, actor=frappe.session.user)
+    out["detail"] = globals()["get_detail"](name)
+    return out

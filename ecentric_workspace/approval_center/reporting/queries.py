@@ -310,6 +310,11 @@ def _list_where(scope, filters, search, params):
                      "WHERE va.approval_request = r.name AND va.approver = %(_me_recv)s)")
     elif box == "fulfil":
         where.append(_my_todo_clause(me, params))
+    elif box == "watching" and me:
+        # "Toi theo doi" (23/11/2026): phieu toi la NGUOI THEO DOI (participant_purpose=Notify).
+        params["_me_watch"] = me
+        where.append("EXISTS (SELECT 1 FROM `tabEC Approval Request Watcher` vw "
+                     "WHERE vw.approval_request = r.name AND vw.watcher = %(_me_watch)s)")
     bz = _biz_clause(filters, params)
     if bz:
         where.append(bz)

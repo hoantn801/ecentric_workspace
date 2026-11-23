@@ -114,7 +114,45 @@ def resolve_scope(user=None):
 
 
 def scope_predicate(scope):
-    """Return (sql_fragment, params) to AND into a query using request alias `r`."""
+    """Return (sql_fragment, params) to AND into a query using request alias `r`.
+
+    PHIEU RIENG TU (23/11/2026): ket qua cua moi tang (ke ca admin) duoc AND them dieu kien
+    cua `shared/workflow/privacy.scope_sql` - phieu rieng tu chi hien voi nguoi trong luong.
+    Loi khi dung dieu kien do -> danh sach RONG (fail-closed, loi hien ngay), khong bao gio mo
+    rong pham vi."""
+    sql, params = _base_predicate(scope)
+    return _with_privacy(scope, sql, params)
+
+
+def _with_privacy(scope, sql, params):
+    try:
+        from ecentric_workspace.approval_center.shared.workflow import privacy as _priv
+    except ImportError:
+        # Module chua co (ban gia trong test chay rieng scope.py) = chua co loai rieng tu nao.
+        return sql, params
+    try:
+        user = scope.get("user")
+        if not _priv.private_types():
+            return sql, params
+        ft = scope.get("fulfil_types")
+        if scope.get("mode") == "admin":
+            ft = _fulfil_types(user)
+        extra = _priv.scope_sql(user, ft)
+    except Exception:
+        try:
+            frappe.log_error(title="scope: privacy predicate")
+        except Exception:
+            pass
+        return ("(%s) AND 0=1" % sql, params)
+    if not extra:
+        return sql, params
+    psql, pparams = extra
+    merged = dict(params)
+    merged.update(pparams)
+    return ("(%s) AND %s" % (sql, psql), merged)
+
+
+def _base_predicate(scope):
     mode = scope.get("mode")
     if mode == "admin":
         return ("1=1", {})

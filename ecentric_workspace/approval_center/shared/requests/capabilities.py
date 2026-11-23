@@ -165,6 +165,18 @@ def _each_group_level(approval_request):
         return False
 
 
+def _type_allows_reject(approval_request):
+    """ApprovalDefinition.allow_reject cua loai phieu (23/11/2026). Doc khong duoc -> True (nhu cu):
+    duong ghi (command_service.reject) van tu chan, nen o day chi la an nut."""
+    try:
+        if not approval_request or not approval_request.get("approval_type"):
+            return True
+        from ecentric_workspace.approval_center.shared.registry import get_definition
+        return bool(getattr(get_definition(approval_request.get("approval_type")), "allow_reject", True))
+    except Exception:
+        return True
+
+
 def derive(user, business_doc, approval_request):
     """Return advisory UI capabilities; write paths still revalidate authority."""
     requester = business_doc.requested_by == user
@@ -207,6 +219,13 @@ def derive(user, business_doc, approval_request):
         _add = _af.capability(user, business_doc, approval_request)
     except Exception:
         _add = {"can_add_attachment": False, "add_attachment_request": None}
+    # 23/11/2026: Gan phieu duyet (shared/requests/approval_links.py) - chip + nut, ve boi asset
+    # dung chung ec_approval_links.bundle.js qua EcAddFile.buttonHTML (khong sua trang nao).
+    try:
+        from ecentric_workspace.approval_center.shared.requests import approval_links as _al
+        _links = _al.capability(user, business_doc, approval_request)
+    except Exception:
+        _links = {"approval_links": [], "can_link_approval": False, "approval_link_host": None}
     return {
         "requires_signature": _requires_signature(can_act, business_doc, approval_request),
         "can_edit": requester and (
@@ -219,7 +238,8 @@ def derive(user, business_doc, approval_request):
         "can_approve": can_act,
         # Cap "moi nhom mot nguoi" (xac nhan da chuan bi) khong co Tu choi - engine chan, nen
         # nut cung phai an: mot nut bam vao chi de nhan loi la mot nut noi doi.
-        "can_reject": can_act and not _each_group_level(approval_request),
+        "can_reject": can_act and not _each_group_level(approval_request)
+        and _type_allows_reject(approval_request),
         "can_request_information": can_act,
         "can_admin_approve_current_level": admin_approve,
         "can_claim": _can_claim(user, business_doc, approval_request),
@@ -233,6 +253,9 @@ def derive(user, business_doc, approval_request):
         # 16/10: nut "Them tep" - nguoi DANG giu phieu (shared/requests/add_file.py).
         "can_add_attachment": _add["can_add_attachment"],
         "add_attachment_request": _add["add_attachment_request"],
+        "approval_links": _links["approval_links"],
+        "can_link_approval": _links["can_link_approval"],
+        "approval_link_host": _links["approval_link_host"],
     }
 
 

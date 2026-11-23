@@ -3,7 +3,9 @@
   Reuses the eCentric shell (.ec-sidebar/.ec-main + tokens). Follows Approval Rollout Template v1
   (AI Topup pattern): create/draft/submit, My Requests, Need My Approval, runtime/preview stepper,
   timeline, namespaced modal, delegated actions, resubmit banner+stepper, friendly VN errors.
-  Fulfillment form: L1 = Direct Manager Review, then HR fulfillment (claim + complete). Total steps N = 4.
+  V2 (23/11/2026): NV -> Quan ly truc tiep -> CnB/HR -> CEO -> Clearance. Khong co "Tu choi"; NV "Rut don";
+  ngay nghi som nhat hop le (Dieu 35); khao sat nghi viec tach sang module Khao sat. Don cu (V1) van hien
+  buoc "HR xu ly" khi da vao hang doi.
   All data via ecentric_workspace.approval_center.api.resignation.*. Marker: ec-resn-root.
 -->
 <style>
@@ -140,7 +142,7 @@
     <div class="topbar"><div class="crumb ec-shell-crumbs" data-ec-shell-crumbs="1"><span class="ec-shell-crumb-group">Phê duyệt</span><span class="sep ec-shell-crumb-sep">/</span><a class="ec-shell-crumblink" href="/approvals">Approval Center</a><span class="sep ec-shell-crumb-sep">/</span><strong class="ec-shell-crumb-current ec-shell-crumb-detail" data-ec-shell-crumb-detail="1">Resignation Request</strong></div><div class="ec-shell-tbright" data-ec-shell-header-right="1"><button type="button" class="ec-shell-iconbtn ec-shell-reminder" data-ec-shell-action-slot="1" aria-label="Việc của tôi" title="Việc của tôi" aria-haspopup="dialog" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h4l2 3h4l2-3h4"/><path d="M4 13V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7"/><path d="M4 13v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></svg><span class="ec-shell-reminder-badge" data-ec-shell-reminder-badge="1" hidden></span></button><button type="button" class="ec-shell-iconbtn ec-shell-slot-disabled" data-ec-shell-settings-slot="1" disabled aria-disabled="true" title="Cài đặt (sắp ra mắt)" aria-label="Cài đặt (sắp ra mắt)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg></button></div></div>
     <div class="content">
       <h1 class="pg">Resignation Request</h1>
-      <p class="pg-sub">Yêu cầu nghỉ việc: gửi đơn, Direct Manager duyệt, sau đó HR xử lý và hoàn tất.</p>
+      <p class="pg-sub">Đơn nghỉ việc: quản lý trực tiếp → CnB/HR → CEO xác nhận, sau đó các bên bàn giao (Clearance).</p>
       <div class="tabs" id="resn-tabs"></div>
       <div id="resn-body"></div>
     </div>
@@ -221,17 +223,12 @@
       + fld("_r2","Phòng ban",'<input class="ro" readonly value="'+esc(c.department||"—")+'">')
       + '</div></div><div class="card"><h3>Thông tin nghỉ việc</h3><div class="grid2">'
       + fld("resignation_for","Nghỉ việc cho",'<select data-model="resignation_for"><option value="">—</option>'+opt(fo.resignation_for||[],d.resignation_for)+'</select>',true)
-      + fld("last_working_day","Ngày làm việc cuối",'<input type="date" data-model="last_working_day" value="'+esc(d.last_working_day||"")+'">',true)
+      + fld("last_working_day","Ngày làm việc cuối",'<input type="date" data-model="last_working_day" value="'+esc(d.last_working_day||"")+'"><div class="hint" id="resn-notice"></div>',true)
       + fld("employee_email","Employee Email Address",'<input data-model="employee_email" placeholder="name@company.com" value="'+esc(d.employee_email||"")+'">',true)
       + fld("personal_email","Personal Email Address",'<input data-model="personal_email" placeholder="name@gmail.com" value="'+esc(d.personal_email||"")+'">',true)
       + fld("resignation_reason","Lý do nghỉ việc",'<select data-model="resignation_reason"><option value="">—</option>'+opt(fo.resignation_reasons||[],d.resignation_reason)+'</select>',true).replace('class="fld','class="fld full')
-      + '</div></div><div class="card"><h3>Đánh giá</h3><div class="grid2">'
-      + fld("workplace_environment_rating","Môi trường làm việc",'<select data-model="workplace_environment_rating"><option value="">—</option>'+opt(fo.ratings||[],d.workplace_environment_rating)+'</select>',true)
-      + fld("benefit_policy_rating","Chính sách phúc lợi",'<select data-model="benefit_policy_rating"><option value="">—</option>'+opt(fo.ratings||[],d.benefit_policy_rating)+'</select>',true)
-      + fld("corporate_culture_rating","Văn hóa doanh nghiệp",'<select data-model="corporate_culture_rating"><option value="">—</option>'+opt(fo.ratings||[],d.corporate_culture_rating)+'</select>',true)
-      + fld("recommend_to_friend","Giới thiệu cho bạn bè",'<select data-model="recommend_to_friend"><option value="">—</option>'+opt(fo.recommend_options||[],d.recommend_to_friend)+'</select>')
-      + fld("final_message","Lời nhắn cuối",'<textarea data-model="final_message" rows="3">'+esc(d.final_message||"")+'</textarea>').replace('class="fld','class="fld full')
-      + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="resn-summary"></div></div>';
+      + '</div><div class="banner info" style="margin-top:12px">Khảo sát nghỉ việc được gửi riêng sau khi đơn duyệt xong (không bắt buộc, chỉ HR xem câu trả lời).</div></div>'
+      + '<div class="card"><h3>Tóm tắt</h3><div id="resn-summary"></div></div>';
   }
   var MATERIAL=["resignation_for","employee_email","personal_email","last_working_day","resignation_reason"];
   function materialSnap(d){ return MATERIAL.map(function(k){return String((d||{})[k]||"");}).join("|"); }
@@ -239,9 +236,10 @@
   function processPreviewHTML(){
     var steps=[
       {name:"Tạo yêu cầu",state:"current",statusLabel:"Đang thực hiện",meta:"Điền đơn nghỉ việc."},
-      {name:"Direct Manager review",state:"upcoming",statusLabel:"Chờ",meta:"Quản lý trực tiếp xem xét."},
-      {name:"HR xử lý",state:"upcoming",statusLabel:"Chờ",meta:"HR nhận và xử lý."},
-      {name:"Hoàn tất",state:"upcoming",statusLabel:"Chờ",meta:"Hoàn tất sau khi HR xử lý."}];
+      {name:"Quản lý trực tiếp",state:"upcoming",statusLabel:"Chờ",meta:"Duyệt hoặc trả lại điều chỉnh (2 ngày LV)."},
+      {name:"CnB/HR",state:"upcoming",statusLabel:"Chờ",meta:"Xác nhận (2 ngày LV)."},
+      {name:"CEO",state:"upcoming",statusLabel:"Chờ",meta:"Xác nhận (2 ngày LV)."},
+      {name:"Bàn giao (Clearance)",state:"upcoming",statusLabel:"Chờ",meta:"LM · HR · HOF · Operation song song."}];
     return '<div class="card" id="resn-process-preview"><h3>Quy trình xử lý yêu cầu</h3><div class="stepper">'+renderStepsHTML(steps)+'</div></div>';
   }
   function renderCreate(b){
@@ -256,12 +254,12 @@
     b.innerHTML = '<div class="resn-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + actions + '</div>';
     if(editing) state._origMaterial=materialSnap(d);
     state.titleTouched = !!((d.request_title||"").toString().trim());
-    maybeAutoTitle(); renderSummary(); wireCreate();
+    maybeAutoTitle(); renderSummary(); wireCreate(); refreshNotice();
   }
   function renderSummary(){ var h=$("resn-summary"); if(!h)return; var d=state.draft||{}; var c=state.boot.context||{};
     var rows=[["Tiêu đề",d.request_title],["Nghỉ việc cho",d.resignation_for],
       ["Email công ty",d.employee_email],["Ngày làm việc cuối",d.last_working_day],
-      ["Người yêu cầu",c.employee_name||c.user],["Luồng duyệt","Direct Manager Review → HR Fulfillment (theo cấu hình)"]];
+      ["Người yêu cầu",c.employee_name||c.user],["Luồng duyệt","Quản lý trực tiếp → CnB/HR → CEO → Clearance (theo cấu hình)"]];
     h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
   function suggestTitle(d){ d=d||{};
     var parts=[d.resignation_reason, d.last_working_day].filter(function(x){return x&&String(x).trim();});
@@ -273,11 +271,22 @@
   function setFieldError(id,msg){ var f=document.querySelector('[data-fld="'+id+'"]'); if(!f)return; f.classList.toggle("invalid",!!msg);
     var e=f.querySelector(".err"); if(msg){ if(!e){ e=document.createElement("div"); e.className="err"; f.appendChild(e);} e.textContent=msg; } else if(e){ e.textContent=""; } }
   function clearFieldError(id){ setFieldError(id,null); }
-  var FIELD_IDS=["request_title","resignation_for","employee_email","personal_email","last_working_day","resignation_reason","workplace_environment_rating","benefit_policy_rating","corporate_culture_rating"];
+  var FIELD_IDS=["request_title","resignation_for","employee_email","personal_email","last_working_day","resignation_reason"];
   function showFieldErrors(errs){ FIELD_IDS.forEach(function(id){ setFieldError(id,(errs&&errs[id])||null); });
     var first=errs&&Object.keys(errs)[0]; if(first){ var el=document.querySelector('[data-fld="'+first+'"] input,[data-fld="'+first+'"] select,[data-fld="'+first+'"] textarea'); if(el&&el.focus){ try{el.focus();}catch(e){} } } }
   var EMAIL_RE=/^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-  function ratingOk(v){ v=(v||"").toString().trim(); if(!v)return false; var d=v.charAt(0); return d>="1"&&d<="5"; }
+  function todayISO(){ var t=new Date(); function pad2(n){return (n<10?"0":"")+n;} return t.getFullYear()+"-"+pad2(t.getMonth()+1)+"-"+pad2(t.getDate()); }
+  function fmtD(v){ if(!v) return "—"; var m=String(v).match(/^(\d{4})-(\d{2})-(\d{2})/); return m?(m[3]+"/"+m[2]+"/"+m[1]):String(v); }
+  // Ngay nghi som nhat hop le (Dieu 35) - may chu tinh tu hop dong tren ho so; chi tra chi tiet cho chinh
+  // NV / quan ly truc tiep / HR. Chon som hon -> chi canh bao (cac cap van duyet duoc), khong chan.
+  function noticeHTML(n,last){ if(!n||!n.known) return (n&&!n.hidden&&n.rule)?esc(n.rule):"";
+    var early=last&&n.earliest&&String(last)<String(n.earliest);
+    return (early?'<span style="color:var(--amber);font-weight:600">Sớm hơn hạn báo trước - các cấp sẽ thấy. </span>':'')+'Sớm nhất hợp lệ: <b>'+esc(fmtD(n.earliest))+'</b> · '+esc(n.rule||""); }
+  function refreshNotice(){ var h=$("resn-notice"); if(!h) return; var d=state.draft||{}; var em=(d.employee_email||"").trim();
+    if(!EMAIL_RE.test(em)){ h.innerHTML=""; return; }
+    if(state._noticeFor===em&&state._notice){ h.innerHTML=noticeHTML(state._notice,d.last_working_day); return; }
+    state._noticeFor=em; state._notice=null;
+    call("get_notice_info",{employee_email:em}).then(function(n){ if(state._noticeFor!==em) return; state._notice=n||{}; var hh=$("resn-notice"); if(hh) hh.innerHTML=noticeHTML(state._notice,(state.draft||{}).last_working_day); }).catch(function(){}); }
   function validateSubmit(){ var d=state.draft||{}; var errs={};
     if(!((d.request_title||"").toString().trim())) errs.request_title="Vui lòng nhập tiêu đề yêu cầu.";
     if(!((d.resignation_for||"").toString().trim())) errs.resignation_for="Vui lòng chọn đối tượng nghỉ việc.";
@@ -286,10 +295,8 @@
     if(!((d.personal_email||"").toString().trim())) errs.personal_email="Vui lòng nhập email cá nhân.";
     else if(!EMAIL_RE.test((d.personal_email||"").toString().trim())) errs.personal_email="Email cá nhân không hợp lệ.";
     if(!(d.last_working_day)) errs.last_working_day="Vui lòng chọn ngày làm việc cuối.";
+    else if(String(d.last_working_day)<todayISO()) errs.last_working_day="Ngày làm việc cuối không được ở quá khứ.";
     if(!((d.resignation_reason||"").toString().trim())) errs.resignation_reason="Vui lòng chọn lý do nghỉ việc.";
-    if(!ratingOk(d.workplace_environment_rating)) errs.workplace_environment_rating="Vui lòng chọn đánh giá (1-5).";
-    if(!ratingOk(d.benefit_policy_rating)) errs.benefit_policy_rating="Vui lòng chọn đánh giá (1-5).";
-    if(!ratingOk(d.corporate_culture_rating)) errs.corporate_culture_rating="Vui lòng chọn đánh giá (1-5).";
     return Object.keys(errs).length?errs:null; }
   function extractServerMsg(e){ if(!e) return "";
     function _strip(s){ return String(s==null?"":s).replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim(); }
@@ -321,6 +328,7 @@
     el.addEventListener("input",function(){ var k=el.getAttribute("data-model"); var v=el.value; setModel(k,v);
       if(k==="request_title") state.titleTouched=((el.value||"").trim()!=="");
       if(k!=="request_title") maybeAutoTitle();
+      if(k==="employee_email"||k==="last_working_day") refreshNotice();
       renderSummary(); clearFieldError(k); }); }
   function wireModels(scope){ (scope||document).querySelectorAll("[data-model]").forEach(attachModel); }
   function wireCreate(){ var b=$("resn-body"); var editing=state.mode==="edit"; wireModels(b);
@@ -369,7 +377,7 @@
     if(!N){ if(st==="Pending") return "Đang phê duyệt"; if(st==="Draft") return "Nháp"; if(st==="Rejected") return "Đã từ chối"; if(st==="Cancelled") return "Đã hủy"; if(st==="Information Required") return "Cần bổ sung"; return "—"; }
     if(st==="Draft") return "Nháp";
     if(st==="Rejected") return "Đã từ chối"; if(st==="Cancelled") return "Đã hủy"; if(st==="Information Required") return "Cần bổ sung";
-    if(st==="Approved"){ if(ff==="Completed") return "Hoàn tất"; return "HR xử lý"; }
+    if(st==="Approved"){ if(ff==="Completed") return "Hoàn tất"; if(ff==="Assigned"||ff==="In Progress") return "HR xử lý"; return "Đã duyệt · Bàn giao"; }
     if(st==="Pending"&&r.current_level){ return (window.EcApprovalUI?EcApprovalUI.levelText(r.current_level,r.current_level_name,L):("Cấp "+r.current_level+"/"+L+(r.current_level_name?(" · "+r.current_level_name):""))); }
     return "Đang phê duyệt"; }
   function badge(r){ var st=(r&&r.approval_status)||r||"Draft"; if(r&&r.approval_status==="Approved"&&r.fulfillment_status&&r.fulfillment_status!=="Not Started") st=r.fulfillment_status;
@@ -383,13 +391,13 @@
       if(!rows.length){ h.innerHTML='<div class="sect-h">'+esc(title)+'</div><div class="card"><div class="state"><h4>Không có mục nào</h4></div></div>'; return; }
       h.innerHTML='<div class="sect-h">'+esc(title)+'</div><div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Ngày request</th><th>Mã</th><th>Tiêu đề</th><th>Người request</th><th>Nghỉ việc cho</th><th>Lý do</th><th>Tiến độ</th><th></th></tr></thead><tbody>'
         + rows.map(function(r){ var act= section==="pending"
-            ? '<button type="button" class="btn" data-open="'+esc(r.name)+'">Chi tiết</button> <button type="button" class="btn primary" data-quick="approve" data-n="'+esc(r.name)+'">Duyệt</button> <button type="button" class="btn" data-quick="reqinfo" data-n="'+esc(r.name)+'">Bổ sung</button> <button type="button" class="btn" data-quick="reject" data-n="'+esc(r.name)+'">Từ chối</button>'
+            ? '<button type="button" class="btn" data-open="'+esc(r.name)+'">Chi tiết</button> <button type="button" class="btn primary" data-quick="approve" data-n="'+esc(r.name)+'">Duyệt</button> <button type="button" class="btn" data-quick="reqinfo" data-n="'+esc(r.name)+'">Bổ sung</button>'
             : '<button type="button" class="btn" data-open="'+esc(r.name)+'">Chi tiết</button> '+badge(r);
           return '<tr><td>'+fmtDT(r.requested_at||r.creation)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.request_title||"—")+'</td><td>'+esc(r.requester_name || r.requested_by || "—")+'</td><td>'+esc(r.resignation_for||"—")+'</td><td>'+esc(r.resignation_reason||"—")+'</td><td>'+esc(stepLabel(r))+'</td><td>'+act+'</td></tr>'; }).join("")
         +'</tbody></table></div>';
             h.querySelectorAll("[data-open]").forEach(function(el){ el.onclick=function(){ go({id:el.getAttribute("data-open")}); }; });
       h.querySelectorAll("[data-quick]").forEach(function(el){ el.onclick=function(){ var n=el.getAttribute("data-n"), qk=el.getAttribute("data-quick");
-        call("get_detail",{name:n}).then(function(det){ if(qk==="approve")doApprove(n,det); else if(qk==="reqinfo")doRequestInfo(n); else doReject(n); }).catch(function(e){ toast(mapErr(e),true); }); }; });
+        call("get_detail",{name:n}).then(function(det){ if(qk==="approve")doApprove(n,det); else if(qk==="reqinfo")doRequestInfo(n); }).catch(function(e){ toast(mapErr(e),true); }); }; });
     }).catch(function(){ h.innerHTML='<div class="sect-h">'+esc(title)+'</div><div class="card"><div class="state"><h4>Không tải được</h4></div></div>'; }); }
 
   // ======================= FULFILLMENT QUEUE =======================
@@ -413,12 +421,26 @@
     call("get_detail",{name:reqId}).then(function(det){ state._loadingDetail=null; if(state.tab==="detail"&&state.id===reqId) drawDetail(b,det); })
     .catch(function(e){ state._loadingDetail=null; if(!(state.tab==="detail"&&state.id===reqId)) return; var perm=/quyền|access|permission/i.test(((e&&e.message)||"")+" "+(window.EcApprovalUI?EcApprovalUI.serverMessage(e)+" "+((e&&(e.exc_type||(e.responseJSON&&e.responseJSON.exc_type)))||""):"")); b.innerHTML='<div class="card"><div class="state"><h4>'+(perm?"Bạn không có quyền xem yêu cầu này":"Không tải được yêu cầu")+'</h4>'+(perm||!window.EcApprovalUI?'':'<div class="hint">'+esc(EcApprovalUI.errorText(e,"Vui lòng thử lại sau ít phút."))+'</div>')+'<button type="button" class="btn" id="d-back">Quay lại</button></div></div>'; var bk=$("d-back"); if(bk)bk.onclick=function(){ window.location.href=hubHref(); }; }); }
   function kv(k,v){ return '<div class="fld"><label>'+esc(k)+'</label><input class="ro" readonly value="'+esc(v==null||v===""?"—":v)+'"></div>'; }
+  function hasOldFulfillment(det){ var ff=det.fulfillment||{}; return !!(ff.status&&ff.status!=="Not Started"); }
+  function surveyCardHTML(biz){ if(biz.survey_hidden) return '<div class="card"><h3>Đánh giá (đơn cũ)</h3><div class="hint">Phần đánh giá kiểu khảo sát chỉ người nghỉ việc và nhóm HR xem được.</div></div>';
+    var any=["workplace_environment_rating","benefit_policy_rating","corporate_culture_rating","recommend_to_friend","final_message"].some(function(k){ return !!biz[k]; });
+    if(!any) return "";
+    return '<div class="card"><h3>Đánh giá (đơn cũ - chỉ HR xem)</h3><div class="grid2">'+kv("Môi trường làm việc",biz.workplace_environment_rating)+kv("Chính sách phúc lợi",biz.benefit_policy_rating)+kv("Văn hóa doanh nghiệp",biz.corporate_culture_rating)+kv("Giới thiệu cho bạn bè",biz.recommend_to_friend)+'</div><div class="fld" style="margin-top:10px"><label>Lời nhắn cuối</label><textarea class="ro" readonly rows="3">'+esc(biz.final_message||"")+'</textarea></div></div>'; }
+  function noticeBannerHTML(det){ var x=det.extra||{}, biz=det.business||{}; var out="";
+    if(x.withdrawn_at) out+='<div class="banner warn"><div><b>Đơn đã được rút</b> lúc '+esc(fmtDT(x.withdrawn_at))+(x.withdrawal_reason?(' · “'+esc(x.withdrawal_reason)+'”'):'')+'</div></div>';
+    if(x.early_leave_requested) out+='<div class="banner warn"><div><b>Xin nghỉ sớm hơn hạn báo trước.</b> Ngày làm việc cuối '+esc(fmtD(biz.last_working_day))+', sớm nhất hợp lệ '+esc(fmtD(x.earliest_valid_last_day))+'. Cần các cấp đồng ý.<br>'+esc(x.notice_rule||"")+'</div></div>';
+    else if(x.notice_rule) out+='<div class="banner info"><div>Báo trước: '+esc(x.notice_rule)+(x.earliest_valid_last_day?(' · sớm nhất hợp lệ '+esc(fmtD(x.earliest_valid_last_day))):'')+'</div></div>';
+    if(x.clearance) out+='<div class="banner info"><div>Bàn giao (Clearance): <a href="'+esc(x.clearance.route)+'">'+esc(x.clearance.name)+'</a>'+(x.clearance.status?(' · '+esc(x.clearance.status)):'')+'</div></div>';
+    else if(x.clearance_error) out+='<div class="banner err"><div>Chưa tạo được Clearance: '+esc(x.clearance_error)+'</div></div>';
+    return out; }
   function drawDetail(b,det){ state.detail=det; var biz=det.business||{}, ap=det.approval||{}, ff=det.fulfillment||{};
     b.innerHTML='<div style="margin-bottom:12px"><button type="button" class="btn" id="d-back">‹ Danh sách</button></div>'
       +'<div class="card"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px"><div><h3 style="margin:0">'+esc(biz.request_title||biz.name||state.id)+'</h3><div class="hint">'+esc(biz.name||"")+' · '+esc(biz.resignation_for||"")+' · '+esc(biz.requested_by||"")+' · '+esc(biz.department||"")+'</div></div><div>'+badge({approval_status:ap.approval_status||"Draft",fulfillment_status:biz.fulfillment_status})+'</div></div></div>'
+      +noticeBannerHTML(det)
       +'<div class="card"><h3>Tiến trình xử lý</h3><div class="stepper" id="d-stepper"></div></div>'
-      +'<div class="card"><h3>Thông tin nghỉ việc</h3><div class="grid2">'+kv("Nghỉ việc cho",biz.resignation_for)+kv("Lý do nghỉ việc",biz.resignation_reason)+kv("Email công ty",biz.employee_email)+kv("Email cá nhân",biz.personal_email)+kv("Ngày làm việc cuối",biz.last_working_day)+kv("Giới thiệu cho bạn bè",biz.recommend_to_friend)+kv("Môi trường làm việc",biz.workplace_environment_rating)+kv("Chính sách phúc lợi",biz.benefit_policy_rating)+kv("Văn hóa doanh nghiệp",biz.corporate_culture_rating)+'</div><div class="fld" style="margin-top:10px"><label>Lời nhắn cuối</label><textarea class="ro" readonly rows="3">'+esc(biz.final_message||"")+'</textarea></div></div>'
-      +'<div class="card"><h3>Xử lý HR</h3>'+fulfillmentSectionHTML(det)+'</div>'
+      +'<div class="card"><h3>Thông tin nghỉ việc</h3><div class="grid2">'+kv("Nghỉ việc cho",biz.resignation_for)+kv("Lý do nghỉ việc",biz.resignation_reason)+kv("Email công ty",biz.employee_email)+kv("Email cá nhân",biz.personal_email)+kv("Ngày làm việc cuối",biz.last_working_day)+kv("Sớm nhất hợp lệ",biz.earliest_valid_last_day)+'</div></div>'
+      +surveyCardHTML(biz)
+      +(hasOldFulfillment(det)?('<div class="card"><h3>Xử lý HR (đơn cũ)</h3>'+fulfillmentSectionHTML(det)+'</div>'):'')
       +'<div class="card"><h3>Đính kèm</h3>'+renderAttachments(det.attachments)+'</div>'
       +'<div class="card"><h3>Hành động</h3>'+actionPanelHTML(det)+'</div>'
       +'<div class="card"><h3>Lịch sử</h3>'+timelineHTML(det.timeline)+'</div>';
@@ -447,9 +469,8 @@
   function buildDraftStepper(det){ var prev=det.process_preview||[];
     var steps=[{name:"Tạo yêu cầu",state:"current",statusLabel:"Đang thực hiện",meta:""}];
     if(prev.length){ prev.forEach(function(l){ steps.push({level:l.level_no,name:l.level_name||("Cấp "+l.level_no),state:"upcoming",statusLabel:"Chờ",meta:""}); }); }
-    else { steps.push({name:"Direct Manager Review",state:"upcoming",statusLabel:"Chờ",meta:""}); }
-    steps.push({name:"HR xử lý",state:"upcoming",statusLabel:"Chờ",meta:""});
-    steps.push({name:"Hoàn tất",state:"upcoming",statusLabel:"Chờ",meta:""});
+    else { steps.push({name:"Quản lý trực tiếp",state:"upcoming",statusLabel:"Chờ",meta:""}); }
+    steps.push({name:"Bàn giao (Clearance)",state:"upcoming",statusLabel:"Chờ",meta:""});
     return renderStepsHTML(steps); }
   function buildStepper(det){ var ap=det.approval||{}; if(!ap.name) return buildDraftStepper(det);
     var levels=det.levels||[], approvers=det.approvers||[], ff=det.fulfillment||{};
@@ -463,7 +484,10 @@
       else if(l.level_status==="In Progress"||ap.current_level===l.level_no){ st="current"; var elig=rows.filter(function(r){return r.status==="Pending";}).map(function(r){return esc(r.approver);}); meta=(elig.length?(l.approval_mode==="Any One"?elig.join(" hoặc "):elig.join(", ")):"Đang chờ"); }
       if(l.due_at&&st==="current"&&new Date(l.due_at)<new Date()){ meta+=' · <span class="ov">Quá hạn</span>'; } else if(l.due_at&&st==="current"){ meta+=" · Hạn: "+fmt(l.due_at); }
       steps.push({level:l.level_no,name:l.level_name||("Cấp "+l.level_no),state:st,meta:meta}); });
-    // fulfillment step (HR xử lý)
+    // fulfillment step (HR xử lý) - CHI don cu da vao hang doi HR (V1). V2: duyet xong -> Clearance.
+    if(!hasOldFulfillment(det)){ var x=det.extra||{}; var cst=x.clearance?(x.clearance.status==="Approved"?"done":"current"):(ap.approval_status==="Approved"?"current":"upcoming");
+      steps.push({name:"Bàn giao (Clearance)",state:(x.withdrawn_at?"skipped":cst),meta:x.clearance?esc(x.clearance.name):""});
+      return renderStepsHTML(steps); }
     var fst="upcoming", fmeta=""; var allApproved=ap.approval_status==="Approved";
     if(ff.status==="Completed"){ fst="done"; fmeta="Hoàn tất"+(ff.completed_by?(" bởi "+esc(ff.completed_by)):"")+(ff.completed_at?(" · "+fmt(ff.completed_at)):""); }
     else if(ff.status==="In Progress"){ fst="current"; fmeta="Đang xử lý"+(ff.owner?(" · "+esc(ff.owner)):""); }
@@ -487,18 +511,19 @@
     if(cap.can_edit&&ap.approval_status==="Information Required") btns.push('<button type="button" class="btn primary" data-act="edit">Chỉnh sửa & gửi lại</button>');
     else if(cap.can_edit) btns.push('<button type="button" class="btn" data-act="edit">Chỉnh sửa</button>');
     if(cap.can_approve) btns.push('<button type="button" class="btn primary" data-act="approve">Duyệt</button>');
-    if(cap.can_request_information) btns.push('<button type="button" class="btn" data-act="reqinfo">Yêu cầu bổ sung</button>');
-    if(cap.can_reject) btns.push('<button type="button" class="btn" data-act="reject">Từ chối</button>');
+    if(cap.can_request_information) btns.push('<button type="button" class="btn" data-act="reqinfo">Trả lại điều chỉnh</button>');
+    // Don nghi viec KHONG co "Tu choi" (23/11/2026, Dieu 35 BLLD): may chu chan, nut khong ve.
     if(window.EcRemind) btns.push(EcRemind.buttonHTML(cap));   // 01/10: nhac nguoi xu ly (asset dung chung)
+    var ex=det.extra||{}; if(ex.can_withdraw) btns.push('<button type="button" class="btn warn" data-act="withdraw">Rút đơn</button>');
     if(cap.can_admin_approve_current_level) btns.push('<button type="button" class="btn warn" data-act="adminapprove">Duyệt thay bước hiện tại</button>');
-    if(cap.can_cancel) btns.push('<button type="button" class="btn" data-act="cancel">Hủy yêu cầu</button>');
+    if(cap.can_cancel&&!ex.can_withdraw) btns.push('<button type="button" class="btn" data-act="cancel">Hủy yêu cầu</button>');
     return btns.length? '<div class="actions">'+btns.join("")+'</div>' : '<div class="hint">Không có hành động khả dụng cho bạn ở trạng thái hiện tại.</div>'; }
   function handleActionClick(e){ var el=e.target&&e.target.closest?e.target.closest("[data-act]"):null; if(!el) return;
     var a=el.getAttribute("data-act"); if(!a||el.disabled) return; if(document.querySelector(".ec-resn-overlay")) return; e.preventDefault();
     var det=state.detail||{}; var name=(det.business||{}).name||state.id;
     if(a==="editdraft") return startEditDraft(det); if(a==="submitdraft") return doSubmitDraft(name);
     if(a==="edit") return startEditResubmit(det); if(a==="approve") return doApprove(name,det); if(a==="remind") return window.EcRemind&&EcRemind.run(call,name,{toast:toast,mapErr:(typeof mapErr==="function"?mapErr:null),done:function(){ if(typeof refreshDetail==="function") refreshDetail(); else if(typeof renderDetail==="function") renderDetail(document.querySelector('[id$="-body"]')); }});
-    if(a==="reject") return doReject(name); if(a==="reqinfo") return doRequestInfo(name);
+    if(a==="withdraw") return doWithdraw(name); if(a==="reqinfo") return doRequestInfo(name);
     if(a==="adminapprove") return doAdminApprove(name); if(a==="cancel") return doCancel(name);
     if(a==="claim") return doClaim(name); if(a==="reassign") return doReassign(name); if(a==="complete") return doComplete(name,det); }
   function ensureActionHandlers(){ if(document.__resnActBound) return; document.__resnActBound=true; document.addEventListener("click", handleActionClick, true); }
@@ -526,10 +551,10 @@
   function summaryRows(det){ var b=det.business||{}; return '<div class="summary-row"><span>Người yêu cầu</span><b>'+esc(b.requested_by||"—")+'</b></div><div class="summary-row"><span>Nghỉ việc cho</span><b>'+esc(b.resignation_for||"—")+'</b></div><div class="summary-row"><span>Lý do</span><b>'+esc(b.resignation_reason||"—")+'</b></div><div class="summary-row"><span>Ngày làm việc cuối</span><b>'+esc(b.last_working_day||"—")+'</b></div>'; }
   function doApprove(name,det){
     modal("Duyệt yêu cầu", summaryRows(det)+'<div class="fld"><label>Ghi chú (không bắt buộc)</label><textarea id="m-cmt" rows="2"></textarea></div>', {okLabel:"Duyệt", onConfirm:function(ov){ var cmt=(ov.querySelector("#m-cmt").value||"");
-    return call("approve",{name:name,comment:cmt}).then(function(res){ var nx=nextLevelName(res&&res.detail); toast(nx?("Đã duyệt. Yêu cầu đã chuyển sang "+nx+"."):"Đã duyệt. Yêu cầu chuyển sang HR xử lý."); applyDetail(res); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
-  function doReject(name){ modal("Từ chối yêu cầu", '<div class="banner err">Sau khi từ chối, yêu cầu sẽ kết thúc.</div><div class="fld"><label>Lý do <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>', {okLabel:"Từ chối", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập lý do.",true); return Promise.reject(); }
-    return call("reject",{name:name,comment:c}).then(function(res){ toast("Đã từ chối."); applyDetail(res); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
-  function doRequestInfo(name){ modal("Yêu cầu bổ sung thông tin", '<div class="banner info">Yêu cầu sẽ được trả lại người gửi để bổ sung.</div><div class="fld"><label>Nội dung cần bổ sung <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>', {okLabel:"Gửi yêu cầu", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập nội dung.",true); return Promise.reject(); }
+    return call("approve",{name:name,comment:cmt}).then(function(res){ var nx=nextLevelName(res&&res.detail); toast(nx?("Đã duyệt. Yêu cầu đã chuyển sang "+nx+"."):"Đã duyệt xong. Hệ thống mở phiếu bàn giao (Clearance)."); applyDetail(res); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
+  function doWithdraw(name){ modal("Rút đơn nghỉ việc", '<div class="banner warn">Rút đơn sẽ dừng luồng duyệt; nếu đơn đã duyệt xong, ngày nghỉ trên hồ sơ được xoá và phiếu bàn giao (Clearance) bị huỷ.</div><div class="fld"><label>Lý do <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>', {okLabel:"Rút đơn", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập lý do.",true); return Promise.reject(); }
+    return call("withdraw",{name:name,reason:c}).then(function(res){ toast("Đã rút đơn."); applyDetail(res); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); return Promise.reject(e); }); }}); }
+  function doRequestInfo(name){ modal("Trả lại điều chỉnh", '<div class="banner info">Đơn được trả lại người gửi để điều chỉnh (ví dụ ngày làm việc cuối chưa đủ báo trước). Đơn nghỉ việc không có "Từ chối".</div><div class="fld"><label>Nội dung cần bổ sung <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>', {okLabel:"Gửi yêu cầu", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập nội dung.",true); return Promise.reject(); }
     return call("request_information",{name:name,comment:c}).then(function(res){ toast("Đã gửi yêu cầu bổ sung."); applyDetail(res); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
   function doCancel(name){ modal("Hủy yêu cầu", '<div class="banner warn">Hủy yêu cầu sẽ kết thúc luồng phê duyệt.</div><div class="fld"><label>Lý do <span class="req">*</span></label><textarea id="m-cmt" rows="2"></textarea></div>', {okLabel:"Xác nhận hủy", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập lý do.",true); return Promise.reject(); }
     return call("cancel",{name:name,reason:c}).then(function(res){ toast("Đã hủy yêu cầu."); if(res&&res.deleted) window.location.href=hubHref(); else { applyDetail(res); } }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); return Promise.reject(e); }); }}); }
@@ -591,7 +616,7 @@
     .catch(function(){ var bd=$("resn-body"); if(bd) bd.innerHTML='<div class="card"><div class="state"><h4>Không tải được trang</h4><button type="button" class="btn" id="b-retry">Thử lại</button></div></div>'; var r=$("b-retry"); if(r)r.onclick=boot; });
   } catch(e){ if(window.console&&console.error) console.error("Resignation boot error:",e); } }
 
-  window.Resignation={ state:state, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, renderFulfillment:renderFulfillment, fulfillmentSectionHTML:fulfillmentSectionHTML, completionErrors:completionErrors, doComplete:doComplete, doClaim:doClaim, doReassign:doReassign, applyDetail:applyDetail, loadApprovals:loadApprovals, renderMyApprovals:renderMyApprovals };
+  window.Resignation={ state:state, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, doWithdraw:doWithdraw, noticeHTML:noticeHTML, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, renderFulfillment:renderFulfillment, fulfillmentSectionHTML:fulfillmentSectionHTML, completionErrors:completionErrors, doComplete:doComplete, doClaim:doClaim, doReassign:doReassign, applyDetail:applyDetail, loadApprovals:loadApprovals, renderMyApprovals:renderMyApprovals };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
 </script>

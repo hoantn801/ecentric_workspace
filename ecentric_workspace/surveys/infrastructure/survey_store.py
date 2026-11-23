@@ -103,6 +103,16 @@ def surveys_managed_by(user, all_surveys=False):
         if extra:
             rows += frappe.get_all(C.SURVEY, filters={"name": ["in", extra]},
                                    fields=SURVEY_LIST_FIELDS, limit_page_length=500)
+        # Mau khao sat ca nhan (23/11/2026): nguoi giu role trong `quan_ly_roles` cung quan ly.
+        roles = set(frappe.get_roles(user))
+        known = {r.name for r in rows}
+        for r in frappe.get_all(C.SURVEY, filters={"survey_kind": C.KIND_PERSONAL},
+                                fields=SURVEY_LIST_FIELDS + ["quan_ly_roles"],
+                                limit_page_length=200):
+            mine = {x.strip() for x in str(r.get("quan_ly_roles") or "").replace(",", "\n").split("\n")}
+            if r.name not in known and roles & mine:
+                r.pop("quan_ly_roles", None)
+                rows.append(r)
     return [dict(r) for r in rows]
 
 

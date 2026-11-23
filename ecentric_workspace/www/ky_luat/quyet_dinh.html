@@ -1,0 +1,44 @@
+{%- extends "templates/includes/ky_luat/layout.html" -%}
+{%- from "templates/includes/ky_luat/macros.html" import card_chip, dmy -%}
+{#- /ky-luat/quyet-dinh?id= - CEO xem ban chup ho so va ky quyet dinh (engine 1 cap). -#}
+{% block ekl_page %}
+<header class="ekl-head">
+  <h1 class="ekl-h1">{{ d.request_title|e }}</h1>
+  <p class="ekl-sub">{{ d.name|e }} · trạng thái: <b>{{ (approval.status_label or approval.approval_status)|e }}</b> · <a href="{{ case_route|e }}">Mở hồ sơ kỷ luật {{ d.discipline_case|e }}</a></p>
+</header>
+<section class="ekl-cardbox ekl-pad">
+  <h2 class="ekl-h2">Nội dung trình ký</h2>
+  <dl class="ekl-kv">
+    <dt>Nhân viên</dt><dd>{{ d.employee_name|e }} ({{ d.employee|e }})</dd>
+    <dt>Thẻ · hình thức</dt><dd>{% if d.card %}{{ card_chip(d.card) }} {% endif %}{{ d.penalty|e }}{% if d.extend_months %} · {{ d.extend_months }} tháng{% endif %}</dd>
+    {% if d.dismissal_ground %}<dt>Căn cứ sa thải</dt><dd>{{ d.dismissal_ground|e }}</dd>{% endif %}
+    <dt>Điều khoản nội quy</dt><dd>{{ d.rule_title|e }}</dd>
+    <dt>Ngày vi phạm</dt><dd>{{ dmy(d.violation_date|string if d.violation_date else '') }}</dd>
+    <dt>Ngày họp</dt><dd>{{ dmy(d.meeting_date|string if d.meeting_date else '') }}</dd>
+    <dt>Ngày hiệu lực</dt><dd>{{ dmy(d.effective_date|string if d.effective_date else '') }}</dd>
+    {% if d.termination_date %}<dt>Ngày chấm dứt HĐ</dt><dd>{{ dmy(d.termination_date|string) }}</dd>{% endif %}
+    <dt>Hết thời hiệu</dt><dd>{{ dmy(d.limitation_effective_end|string if d.limitation_effective_end else '') }}</dd>
+  </dl>
+  <h3 class="ekl-h3">Tóm tắt vi phạm</h3><p class="ekl-pre">{{ d.summary|e }}</p>
+  <h3 class="ekl-h3">Ý kiến nhân viên tại cuộc họp</h3><p class="ekl-pre">{{ d.meeting_summary|e }}</p>
+  {% if d.decision_draft %}<p><a class="ekl-btn" href="{{ d.decision_draft|e }}" target="_blank" rel="noopener">Mở dự thảo quyết định</a></p>{% endif %}
+</section>
+{% if caps.can_approve %}
+<section class="ekl-cardbox ekl-pad" data-ekl-decide>
+  <h2 class="ekl-h2">Quyết định của người ký</h2>
+  <div class="ekl-fld"><label for="ekl-d-cmt">Ghi chú (bắt buộc khi yêu cầu bổ sung / không kỷ luật)</label><textarea id="ekl-d-cmt" rows="3" data-ekl-d-comment></textarea></div>
+  <div class="ekl-actions">
+    <button type="button" class="ekl-btn is-primary" data-ekl-decide-act="approve">Ký ban hành quyết định</button>
+    <button type="button" class="ekl-btn" data-ekl-decide-act="info">Yêu cầu HR bổ sung</button>
+    <button type="button" class="ekl-btn is-danger" data-ekl-decide-act="reject">Không kỷ luật</button>
+  </div>
+  <p class="ekl-err" data-ekl-err role="alert" hidden></p>
+</section>
+{% endif %}
+<section class="ekl-cardbox ekl-pad">
+  <h2 class="ekl-h2">Lịch sử</h2>
+  <ul class="ekl-log">
+  {% for a in timeline %}<li><b>{{ a.action|e }}</b> · {{ a.actor|e }} · {{ (a.action_time|string)[:16] }}{% if a.comment %}<div class="ekl-hint">{{ a.comment|e }}</div>{% endif %}</li>{% else %}<li class="ekl-hint">Chưa có.</li>{% endfor %}
+  </ul>
+</section>
+{% endblock %}

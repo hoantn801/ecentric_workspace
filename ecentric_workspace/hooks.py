@@ -1122,3 +1122,69 @@ scheduler_events["cron"].setdefault("*/10 * * * *", []).append(
 # Tat: site_config ec_gbs_monitor_disabled. Nguoi nhan: ec_gbs_monitor_recipients. Xem gbs_monitor/__init__.py.
 scheduler_events["hourly"].append(
     "ecentric_workspace.gbs_monitor.jobs.check_job.run")
+# --------------------------------------------------------------------------- #
+# 23/11/2026 (Dot 0 quy trinh nhan su, Hoan chot) - CHUYEN NGUOI DUYET DANG CHO khi nguoi duyet
+# nghi viec / bi khoa: tai khoan bi khoa (User.enabled 1->0) -> dong duyet Pending tren phieu mo
+# chuyen sang nguoi cung role / quan ly cua nguoi do / nguoi du phong; job 00:45 quet bu (sau job
+# khoa 00:30). Co audit "Reassigned". Tat: site_config ec_approver_handover_disabled.
+# Xem approval_center/shared/workflow/approver_handover.py. Ham nuot moi loi.
+# --------------------------------------------------------------------------- #
+_EC_HANDOVER_HOOK = "ecentric_workspace.approval_center.shared.workflow.approver_handover.on_user_update"
+_ho_user = doc_events.setdefault("User", {})
+_ho_prev = _ho_user.get("on_update")
+if _ho_prev is None:
+    _ho_user["on_update"] = [_EC_HANDOVER_HOOK]
+elif isinstance(_ho_prev, str):
+    if _ho_prev != _EC_HANDOVER_HOOK:
+        _ho_user["on_update"] = [_ho_prev, _EC_HANDOVER_HOOK]
+elif _EC_HANDOVER_HOOK not in _ho_prev:
+    _ho_prev.append(_EC_HANDOVER_HOOK)
+scheduler_events["cron"].setdefault("45 0 * * *", []).append(
+    "ecentric_workspace.approval_center.shared.workflow.approver_handover.sweep")
+
+# 23/11/2026 (Dot 0 HR) - "Gan phieu duyet" vao o dinh kem moi form + popup hub: chip + nut, noi vao
+# EcAddFile.buttonHTML (khong sua trang nao). Backend: approval_center/shared/requests/approval_links.py.
+web_include_js.append("ec_approval_links.bundle.js")
+web_include_css.append("ec_approval_links.bundle.css")
+# 23/11/2026 (HR v2 - Nghi viec/Clearance): 09:05 ngay lam viec - (1) don nghi viec da duyet ma chua co
+# Clearance (job nen bi mat / loi tam thoi), ngay cuoi chua qua -> tao bu; (2) don chua duyet xong nhung
+# LM da duyet va con <= 5 ngay lam viec toi ngay cuoi -> MO SOM Clearance song song. Khong co process
+# CLEARANCE_REQUEST Active -> khong lam gi. Don cu (da qua ngay cuoi) chi tao bu qua endpoint SM co dry-run.
+scheduler_events["cron"].setdefault("5 9 * * 1-5", []).append(
+    "ecentric_workspace.approval_center.features.clearance_request.application.service.quet_hang_ngay")
+# --------------------------------------------------------------------------- #
+# 23/11/2026 (Hoan chot, HR Dot 2) - Danh gia nhan su + khao sat moc. Gio cron o site nay la GIO
+# DIA PHUONG (Asia/Ho_Chi_Minh). Moi job tu bo qua ngay nghi cong ty, idempotent (chay lai khong
+# tao / gui / bao them), thong bao qua notification_center (giu tin trong gio yen lang).
+#   * tao nhap danh gia D-21 / D-37 + tu gui D-14 / D-30 + huy phieu cua NV da nghi
+#   * giao khao sat moc thu viec (7/30/45) / thuc tap (30/60/75) + nhac MOT lan truoc han
+#   * thu Hai: bao C&B so nhan su thieu ngay ket thuc hop dong
+# Tat khan: site_config ec_employee_review_jobs_disabled / ec_survey_milestone_disabled.
+scheduler_events["cron"].setdefault("0 9 * * *", []).extend([
+    "ecentric_workspace.approval_center.features.employee_review.application.jobs.tao_nhap_va_tu_gui_job",
+    "ecentric_workspace.surveys.application.ca_nhan.giao_khao_sat_moc_job",
+    "ecentric_workspace.surveys.application.ca_nhan.nhac_khao_sat_ca_nhan_job",
+])
+scheduler_events["cron"].setdefault("0 9 * * 1", []).append(
+    "ecentric_workspace.approval_center.features.employee_review.application.jobs.nhac_thieu_ngay_job")
+# --------------------------------------------------------------------------- #
+# 23/11/2026 (Hoan chot, Dot 3 quy trinh nhan su) - Ky luat lao dong (/ky-luat, hr/ky_luat/):
+# the vang (EC HR Notice, ngoai engine) + ho so the do / den 4 buoc (EC Discipline Case); buoc CEO
+# ky la feature approval discipline_decision (/ky-luat/quyet-dinh). Xem hr/ky_luat/constants.py.
+#  * route: www/ky_luat/ (thu muc www khong duoc co gach ngang). Asset ec_ky_luat.js/.css CHI nap
+#    tren 2 trang nay (hr/ky_luat/pages.py).
+#  * quyen doc: permission_query_conditions + has_permission (tai tep rieng tu di theo ban ghi) -
+#    mot luat o hr/ky_luat/application/access.py.
+#  * 09:00 ngay lam viec: the vang qua han -> "khong phan hoi", het / sap het thoi hieu, dong bo
+#    phieu CEO, tu xoa ky luat (D126). Tat khan: site_config ec_ky_luat_jobs_disabled: 1.
+# --------------------------------------------------------------------------- #
+website_route_rules = list(globals().get("website_route_rules") or []) + [
+    {"from_route": "/ky-luat", "to_route": "ky_luat"},
+    {"from_route": "/ky-luat/quyet-dinh", "to_route": "ky_luat/quyet_dinh"},
+]
+permission_query_conditions["EC HR Notice"] = "ecentric_workspace.hr.ky_luat.permissions.notice_query"
+permission_query_conditions["EC Discipline Case"] = "ecentric_workspace.hr.ky_luat.permissions.case_query"
+has_permission["EC HR Notice"] = "ecentric_workspace.hr.ky_luat.permissions.notice_has_permission"
+has_permission["EC Discipline Case"] = "ecentric_workspace.hr.ky_luat.permissions.case_has_permission"
+scheduler_events["cron"].setdefault("0 9 * * *", []).append(
+    "ecentric_workspace.hr.ky_luat.controllers.api.daily_job")

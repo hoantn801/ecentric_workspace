@@ -215,9 +215,22 @@ def can_view_request(request_name, user=None, business_doctype=None,
         return True
     if fulfillment_owner and fulfillment_owner == user:
         return True
+    # Dot 0 HR (23/11/2026): NGUOI THEO DOI (participant_purpose="Notify", chot luc gui) va
+    # nguoi duoc cap quyen doc qua GAN PHIEU (chi dung phieu nay). Ca hai deu la quyen DOC -
+    # khong co nut duyet (is_actionable chi doc dong approver). Luat o privacy.py.
+    if request_name and _watcher_or_link_grant(request_name, user):
+        return True
     # Truyen ten phieu xuong: doc MOT phieu thi duong "dang giu viec" phai la viec TREN
     # CHINH PHIEU DO, khong phai mot viec bat ky cung loai.
     return is_eligible_fulfiller(user, approval_type, business_doctype, business_name)
+
+
+def _watcher_or_link_grant(request_name, user):
+    try:
+        from ecentric_workspace.approval_center.shared.workflow import privacy as _priv
+        return _priv.is_watcher(request_name, user) or _priv.has_link_grant(request_name, user)
+    except Exception:
+        return False
 
 
 def can_fulfill(user=None, business_doctype=None, fulfillment_owner=None, approval_type=None):

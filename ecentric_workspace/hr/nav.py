@@ -92,6 +92,20 @@ HR_ITEMS = [
         "sidebar_hidden": True,
     },
     {
+        # 23/11/2026 (Dot 3 HR): Ky luat lao dong - the vang + ho so the do/den. Moi nhan vien
+        # thay muc nay (xem the cua minh); quyen tung dong do hr/ky_luat/application/access.py.
+        "key": "hr.ky_luat",
+        "label": "Kỷ luật",
+        "route": "/ky-luat",
+        "icon": "doc",
+        "group": "Nhân sự",
+        "order": 60,
+        "active_patterns": ["/ky-luat", "/ky-luat/*"],
+        "visible_when": "internal",
+        "keywords": ["ky luat", "the vang", "the do", "the den", "khien trach", "sa thai", "nhac nho"],
+        "owner": "hr",
+    },
+    {
         "key": "hr.install_guide",
         "label": "Cài app lên điện thoại",
         "route": "/ec-hr/huong-dan-cai-app",
@@ -103,6 +117,22 @@ HR_ITEMS = [
         "keywords": ["huong dan", "cai app", "cai dat", "install", "pwa",
                      "iphone", "android", "man hinh chinh"],
         "owner": "hr",
+    },
+    {
+        # 23/11/2026 (HR Dot 2): hang cho Danh gia nhan su cua C&B. sidebar_hidden: muc nay chi
+        # cho trang nhan ngu canh Nhan su; LIEN KET trong cot nam o shell/nav.py RAIL_LAYOUTS["hr"]
+        # (rail.hr.review, chi hien voi role EC CnB / HR / HR Manager). API tu kiem quyen.
+        "key": "hr.employee_review",
+        "label": "Đánh giá nhân sự",
+        "route": "/ec-hr/danh-gia-nhan-su",
+        "icon": "check",
+        "group": "Nhân sự",
+        "order": 60,
+        "active_patterns": ["/ec-hr/danh-gia-nhan-su"],
+        "visible_when": "internal",
+        "keywords": ["danh gia", "thu viec", "thuc tap", "hop dong", "het han", "ngay ket thuc"],
+        "owner": "hr",
+        "sidebar_hidden": True,
     },
 ]
 

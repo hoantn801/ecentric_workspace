@@ -36,3 +36,13 @@ CLEARANCE_REQUEST_DEFINITION = _dc_replace(
         ("Quản lý", "line_manager"),
     ),
 )
+
+
+# HR v2 (23/11/2026): doi tuong cua phieu = nguoi nghi (employee_email), KHONG phai nguoi gui. Hop dong
+# Dot 0 (engine chan tu duyet theo doi tuong) - chi khai khi engine da co truong nay.
+from ecentric_workspace.approval_center.shared.requests.contracts import ApprovalDefinition as _AD  # noqa: E402
+
+CLEARANCE_REQUEST_DEFINITION = _dc_replace(
+    CLEARANCE_REQUEST_DEFINITION,
+    **{k: v for k, v in {"subject_fields": ("employee_email",)}.items()
+       if k in getattr(_AD, "__dataclass_fields__", {})})
