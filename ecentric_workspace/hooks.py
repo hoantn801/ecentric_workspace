@@ -1213,3 +1213,7 @@ web_include_css.append("ec_richtext.bundle.css")
 # Dau trang form phe duyet kieu thanh cong cu dinh (phuong an C, 23/11/2026) - markup san trong tung trang.
 web_include_js.append("ec_form_header.bundle.js")
 web_include_css.append("ec_form_header.bundle.css")
+
+# O chon nguoi dung chung (EcPeoplePicker, 24/11/2026) - trang khai input[data-ec-people] trong markup nguon.
+web_include_js.append("ec_people_picker.bundle.js")
+web_include_css.append("ec_people_picker.bundle.css")

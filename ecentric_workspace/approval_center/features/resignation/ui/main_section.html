@@ -233,7 +233,7 @@
       + '</div></div><div class="card"><h3>Thông tin nghỉ việc</h3><div class="grid2">'
       + fld("resignation_for","Nghỉ việc cho",'<select data-model="resignation_for"><option value="">—</option>'+opt(fo.resignation_for||[],d.resignation_for)+'</select>',true)
       + fld("last_working_day","Ngày làm việc cuối",'<input type="date" data-model="last_working_day" value="'+esc(d.last_working_day||"")+'"><div class="hint" id="resn-notice"></div>',true)
-      + fld("employee_email","Employee Email Address",'<input data-model="employee_email" placeholder="name@company.com" value="'+esc(d.employee_email||"")+'">',true)
+      + fld("employee_email","Employee Email Address",'<input data-model="employee_email" data-ec-people placeholder="Gõ tên hoặc email để chọn…" value="'+esc(d.employee_email||"")+'">',true)
       + fld("personal_email","Personal Email Address",'<input data-model="personal_email" placeholder="name@gmail.com" value="'+esc(d.personal_email||"")+'">',true)
       + fld("resignation_reason","Lý do nghỉ việc",'<select data-model="resignation_reason"><option value="">—</option>'+opt(fo.resignation_reasons||[],d.resignation_reason)+'</select>',true).replace('class="fld','class="fld full')
       + '</div><div class="banner info" style="margin-top:12px">Khảo sát nghỉ việc được gửi riêng sau khi đơn duyệt xong (không bắt buộc, chỉ HR xem câu trả lời).</div></div>'

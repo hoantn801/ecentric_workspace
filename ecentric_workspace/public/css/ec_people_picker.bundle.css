@@ -1,0 +1,22 @@
+/* ec_people_picker.bundle.css - o chon nguoi dung chung (24/11/2026). Mau theo token ec_shell. */
+.ec-pp { position: relative; }
+.ec-pp-drop { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: var(--ec-z-dropdown, 10060); max-height: 280px; overflow: auto;
+  background: var(--ec-surface, #fff); border: 1px solid var(--ec-gray-300, #d1d5db); border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, .12); padding: 4px 0; }
+.ec-pp-drop[hidden] { display: none; }
+.ec-pp-opt { padding: 7px 12px; cursor: pointer; font-size: 13px; line-height: 1.35; color: var(--ec-gray-700, #374151); }
+.ec-pp-opt b { display: block; font-weight: 600; color: var(--ec-gray-900, #111827); }
+.ec-pp-opt small { color: var(--ec-gray-500, #6b7280); font-size: 12px; }
+.ec-pp-opt:hover, .ec-pp-opt.on { background: var(--ec-selected-bg, #eef0fb); }
+.ec-pp-none { padding: 10px 12px; color: var(--ec-gray-500, #6b7280); font-size: 12.5px; font-style: italic; }
+.ec-pp-who { margin-top: 4px; font-size: 12.5px; font-weight: 600; color: var(--ec-navy, #2C3DA6); min-height: 0; }
+.ec-pp-who:empty { display: none; }
+.ec-pp-who span { font-weight: 500; color: var(--ec-gray-500, #6b7280); }
+.ec-pp-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-height: 38px; padding: 4px 8px; border: 1px solid var(--ec-border-default, #e5e7eb);
+  border-radius: 8px; background: var(--ec-surface, #fff); cursor: text; }
+.ec-pp-chips:focus-within { border-color: var(--ec-navy, #2C3DA6); box-shadow: 0 0 0 3px var(--ec-focus-ring, #eef0fb); }
+.ec-pp-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 10px; border-radius: 999px; background: var(--ec-selected-bg, #eef0fb);
+  color: var(--ec-navy, #2C3DA6); font-size: 12.5px; font-weight: 600; }
+.ec-pp-chip button { border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 15px; line-height: 1; padding: 0 4px; }
+/* !important: kieu o nhap cua tung trang dung #ec-xxx-root .fld input (do uu tien id) - o tim nam trong
+   khung chip phai bo vien / padding rieng; asset dung chung khong biet id goc cua trang. */
+.ec-pp-chips input.ec-pp-q { flex: 1 1 160px; min-width: 120px; border: 0 !important; outline: none; padding: 5px 2px !important; box-shadow: none !important; background: transparent; font: inherit; font-size: 13.5px; }

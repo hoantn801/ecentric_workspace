@@ -235,7 +235,7 @@
       + '</div></div><div class="card"><h3>Thông tin điều chuyển</h3><div class="grid2">'
       + fld("new_position","New position",'<input data-model="new_position" maxlength="180" placeholder="Chức danh / vị trí mới" value="'+esc(d.new_position||"")+'">',true)
       + fld("new_department","New department",'<select data-model="new_department"><option value="">—</option>'+opt(fo.new_departments||[],d.new_department)+'</select>',true)
-      + fld("new_line_manager","New line manager",'<input data-model="new_line_manager" placeholder="email@ecentric.vn" value="'+esc(d.new_line_manager||"")+'"><div class="hint">Email của line manager mới (phải là user đang hoạt động)</div>',true)
+      + fld("new_line_manager","New line manager",'<input data-model="new_line_manager" data-ec-people placeholder="Gõ tên hoặc email để chọn…" value="'+esc(d.new_line_manager||"")+'"><div class="hint">Email của line manager mới (phải là user đang hoạt động)</div>',true)
       + fld("start_date","Start date",'<input type="date" data-model="start_date" value="'+esc(d.start_date||"")+'">',true)
       + fld("transfer_reason","Lý do điều chuyển",'<textarea data-model="transfer_reason" rows="3" placeholder="Vì sao cần điều chuyển này? / Kết quả kinh doanh kỳ vọng? / Điều gì cần lưu ý?">'+esc(d.transfer_reason||"")+'</textarea>',true).replace('class="fld','class="fld full')
       + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="latm-summary"></div></div>';

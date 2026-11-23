@@ -241,7 +241,7 @@
       ? fld("field_to_update_other","Tên trường khác (Other)",'<input data-model="field_to_update_other" maxlength="140" value="'+esc(d.field_to_update_other||"")+'">',true).replace('class="fld','class="fld full')
       : "";
     return '<div class="card"><h3>Thông tin cập nhật</h3><div class="grid2">'
-      + fld("employee_email","Employee",'<input data-model="employee_email" type="email" placeholder="ten@ecentric.vn" value="'+esc(d.employee_email||"")+'"><div class="hint">Input email of employee to be updated</div>',true).replace('class="fld','class="fld full')
+      + fld("employee_email","Employee",'<input data-model="employee_email" type="email" data-ec-people placeholder="Gõ tên hoặc email để chọn…" value="'+esc(d.employee_email||"")+'"><div class="hint">Input email of employee to be updated</div>',true).replace('class="fld','class="fld full')
       + fld("field_to_update","Field to update",selCtrl,true).replace('class="fld','class="fld full')
       + otherFld
       + fld("current_value","Current value",'<textarea data-model="current_value" rows="2"'+(d._cv_locked?' class="ro" readonly':'')+'>'+esc(d.current_value||"")+'</textarea><div class="hint" id="eiu-cv-hint">'+esc(cvHint(d))+'</div>').replace('class="fld','class="fld full')

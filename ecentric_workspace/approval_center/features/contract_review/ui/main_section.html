@@ -372,7 +372,7 @@
       + fld("contract_end_date","Ngày kết thúc",'<input type="date" data-model="contract_end_date" class="'+hlCls("contract_end_date")+'" value="'+esc(d.contract_end_date||"")+'">')
       + '</div></div><div class="card"><h3>Chi tiết</h3><div class="grid2">'
       + fld("request_details","Yêu cầu chi tiết",'<textarea data-model="request_details" rows="4" class="'+hlCls("request_details")+'" placeholder="Thông tin Finance cần kiểm tra: phạm vi công việc, điều khoản thanh toán, bảng giá, thời hạn hợp đồng, ngày bắt đầu...">'+esc(d.request_details||"")+'</textarea>'+(KOL.isKol(d)?'<div class="hint">Để trống: hệ thống tự tóm tắt từ các thẻ KOL/KOC bên dưới.</div>':''),!KOL.isKol(d)).replace('class="fld','class="fld full')
-      + fld("cc_to","CC To",'<input data-model="cc_to" placeholder="email1@ecentric.vn, email2@..." value="'+esc(d.cc_to||"")+'">').replace('class="fld','class="fld full')
+      + fld("cc_to","CC To",'<input data-model="cc_to" data-ec-people="multi" placeholder="Gõ tên hoặc email để thêm người…" value="'+esc(d.cc_to||"")+'">').replace('class="fld','class="fld full')
       + fld("request_attachment","Tệp đính kèm",'<input type="file" multiple data-upload="request_attachment"><div class="hint" id="att-name">'+esc(d.request_attachment?"Đã tải":"Nên đính kèm bản thảo hợp đồng")+'</div>').replace('class="fld','class="fld full')
       + '</div></div>' + (KOL.isKol(d)?KOL.cardsHTML(d):'') + '<div class="card"><h3>Tóm tắt</h3><div id="ctr-summary"></div></div>';
   }

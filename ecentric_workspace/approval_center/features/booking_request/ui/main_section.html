@@ -552,7 +552,7 @@
           '<input type="file" multiple id="book-att-input"><div id="book-att" class="hint"></div>',
           false,null,"Brief chi tiết, danh sách KOL, hình ảnh sản phẩm… Không bắt buộc.")
           .replace('class="fld','class="fld full')
-      + fld("cc_to","CC To",'<input id="f-cc_to" data-model="cc_to" value="'+esc(d.cc_to||"")+'" placeholder="email1@ecentric.vn, email2@…">',false,null,"Người nhận thông báo, cách nhau dấu phẩy.").replace('class="fld','class="fld full')
+      + fld("cc_to","CC To",'<input id="f-cc_to" data-model="cc_to" data-ec-people="multi" value="'+esc(d.cc_to||"")+'" placeholder="Gõ tên hoặc email để thêm người…">',false,null,"Người nhận thông báo, cách nhau dấu phẩy.").replace('class="fld','class="fld full')
       + '</div></div>';
     return h;
   }
