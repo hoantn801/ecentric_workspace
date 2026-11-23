@@ -34,6 +34,26 @@
   }
 
   /* ---------------------------------------------------------------- combobox */
+  // Dong bo chung cho moi combobox: phat hien trang gan sel.value bang code (24/11/2026). Khong dung
+  // setInterval (giu tien trinh/tab thuc mai): doi chieu sau moi thao tac cua nguoi dung (click,
+  // go, doi, focus) va moi lan form ve lai (scan) - gia tri doi bang code gan nhu luon nam ngay sau
+  // mot thao tac nhu vay.
+  var SYNC_SET = [], syncPending = null;
+  function syncAll() {
+    for (var i = SYNC_SET.length - 1; i >= 0; i--) {
+      var s = SYNC_SET[i];
+      if (!s.isConnected) { SYNC_SET.splice(i, 1); continue; }
+      var o = s.options[s.selectedIndex];
+      if ((s.selectedIndex + "|" + (o ? o.value : "")) !== s.__ecCbShown) s.__ecCbSync();
+    }
+  }
+  function ensureSyncLoop() {
+    if (ensureSyncLoop.done) return;
+    ensureSyncLoop.done = true;
+    ["click", "input", "change", "keyup", "focusin"].forEach(function (ev) {
+      document.addEventListener(ev, function () { clearTimeout(syncPending); syncPending = setTimeout(syncAll, 30); }, true);
+    });
+  }
   function enhanceSelect(sel) {
     if (!sel || sel.__ecCb || sel.multiple || sel.disabled) return;
     // TRANG TU KHAI QUYEN SO HUU - cung mot luat da ap cho input[type=file] ben duoi.
@@ -42,11 +62,16 @@
     // Trang biet ngu canh do, asset toan site thi khong - nen de trang noi.
     if (sel.hasAttribute("data-ec-no-formkit") || sel.closest("[data-ec-no-formkit]")) return;
     if (sel.closest(".ec-cb")) return;                 // trang đã có combobox của riêng nó
-    if (sel.options.length < 6) return;            // danh sách ngắn: <select> gốc dễ dùng hơn
+    // 24/11/2026 (Hoan: "mot so dropdown rat xau, dong bo voi dropdown cua toan ERP"): o NAM TRONG
+    // O NHAP CUA FORM (.fld) thi moi <select> tu 2 lua chon deu dung combobox chung; danh sach ngan
+    // (< 8) an o tim. Ngoai form (bo loc, bang) giu luat cu: >= 6 lua chon moi nang cap.
+    var inForm = !!(sel.closest && sel.closest(".fld"));
+    if (sel.options.length < (inForm ? 2 : 6)) return;
     sel.__ecCb = true;
+    var compact = sel.options.length < 8;
 
     var wrap = document.createElement("div");
-    wrap.className = "ec-cb";
+    wrap.className = "ec-cb" + (compact ? " ec-cb-compact" : "");
     sel.parentNode.insertBefore(wrap, sel);
     wrap.appendChild(sel);
     sel.style.display = "none";
@@ -74,10 +99,13 @@
     function opts() {
       return Array.prototype.slice.call(sel.options);
     }
+    var lastShown = null;
     function syncDisplay() {
       var o = sel.options[sel.selectedIndex];
       var label = o ? o.textContent.trim() : "";
       var empty = !o || !o.value;
+      lastShown = sel.selectedIndex + "|" + (o ? o.value : "");
+      sel.__ecCbShown = lastShown;
       btn.textContent = empty ? (label || "— Chọn —") : label;
       btn.classList.toggle("ec-cb-placeholder", empty);
     }
@@ -134,6 +162,16 @@
     search.onkeydown = function (e) { if (e.key === "Escape") { close(); btn.focus(); } };
     document.addEventListener("click", function (e) { if (!wrap.contains(e.target)) close(); });
     sel.addEventListener("change", syncDisplay);
+    // Trang doi gia tri bang code (sel.value = x) khong phat 'change' -> o hien thi bi cu. Khong boc
+    // setter (select la doi tuong dac biet co chi so, boc accessor khong chay o moi trinh duyet):
+    // dang ky vao SYNC_SET, doi chieu sau moi thao tac / moi lan ve lai, chi ve lai khi doi.
+    sel.__ecCbSync = syncDisplay;
+    SYNC_SET.push(sel);
+    ensureSyncLoop();
+    // Trang thay danh sach lua chon (innerHTML option) ma khong ve lai ca form.
+    try { new MutationObserver(syncDisplay).observe(sel, { childList: true, subtree: true, attributes: true, attributeFilter: ["selected"] }); } catch (e) { /* bo qua */ }
+    // Trang focus vao o loi dau tien -> chuyen focus sang nut hien thi.
+    sel.focus = function () { try { btn.focus(); } catch (e) { /* bo qua */ } };
     syncDisplay();
   }
 
@@ -143,9 +181,11 @@
     // TRANG TU KHAI QUYEN SO HUU. Loc theo duong dan van khong du: nhieu trang cung nam
     // duoi /approvals va vai trang trong so do da co bo tai tep rieng, nen formkit boc them
     // mot lop nua -> hai vung keo-tha chong nhau (Payment Request, 2026-08-26).
-    // `data-upload` = o tai tep do chinh trang quan ly; `data-ec-no-formkit` cho trang moi
-    // tu chon khong tham gia ma khong phai sua file nay lan nua.
-    if (inp.hasAttribute("data-upload")) return;
+    // `data-ec-no-formkit` cho trang tu chon khong tham gia ma khong phai sua file nay lan nua.
+    // 24/11/2026 (Hoan: "mot so form chi la mot nut tai tep rat xau, khong dong bo"): bo guard
+    // `data-upload`. Vung keo-tha thua 26/08 thuc ra boc #ecdUpload cua khu ky so (o do nay tu khai
+    // data-ec-no-formkit) - KHONG phai o data-upload. O data-upload van do trang quan ly: dropzone chi
+    // goi inp.click() / gan files roi phat 'change', handler uploadFile cua trang chay nhu cu.
     if (inp.hasAttribute("data-ec-no-formkit") || inp.closest("[data-ec-no-formkit]")) return;
     // O tai tep bi AN la o do trang tu dieu khien bang nut rieng (vd "+ Tai tai lieu").
     // Boc dropzone len no se tao mot vung keo-tha thu hai nam canh nut do.
@@ -192,6 +232,7 @@
     if (!onApprovalPage() && !optedIn()) return;
     document.querySelectorAll("select").forEach(enhanceSelect);
     document.querySelectorAll('input[type="file"]').forEach(enhanceFile);
+    syncAll();
   }
 
   function start() {

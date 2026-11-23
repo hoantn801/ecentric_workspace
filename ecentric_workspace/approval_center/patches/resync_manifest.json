@@ -31,8 +31,8 @@
   },
   "approval_center/features/booking_request/ui/main_section.html": {
     "baseline": "2026-09-11",
-    "last_resync_patch": "p499_resync_dau_trang_form_phe_duyet",
-    "sha256": "c6888341b12e2e19fcb41727451996e4b2c2fa54b628bb8d74fe556cb2457b40"
+    "last_resync_patch": "p501_resync_dong_bo_o_nhap",
+    "sha256": "387fa5ef9c6b6edabe2d50ce0ac9c475665887c00bd00a32637fd8febfbb6aa4"
   },
   "approval_center/features/budget_setting/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -45,8 +45,8 @@
     "sha256": "3750136d621f79a77a60a128b3d77485a47ffd6b5f521f3fc502801c0c2d0b3d"
   },
   "approval_center/features/contract_review/ui/main_section.html": {
-    "last_resync_patch": "p499_resync_dau_trang_form_phe_duyet",
-    "sha256": "e16895e6370a0ee088e0264a5bd65105e7f0cf8692fb685c15e3aa540f546038"
+    "last_resync_patch": "p501_resync_dong_bo_o_nhap",
+    "sha256": "466c11f9e7c0cabe83e78dd70377fd8979f3fde0bd2e511a58c37c9aa005f8b1"
   },
   "approval_center/features/daily_target/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -63,8 +63,8 @@
   },
   "approval_center/features/employee_info_update/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p499_resync_dau_trang_form_phe_duyet",
-    "sha256": "ae71fc25a1a8860e9855f606aad9ae03fa06fe0e7c219ed9f36de2fac3249f76"
+    "last_resync_patch": "p501_resync_dong_bo_o_nhap",
+    "sha256": "8b4b0c83537a51c628a121dda9383cad9d5230c68a29bccd6bd43aec3a9d7047"
   },
   "approval_center/features/employee_referral/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -73,8 +73,8 @@
   },
   "approval_center/features/hiring_request/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p499_resync_dau_trang_form_phe_duyet",
-    "sha256": "43cb3d68f3fb0c30ddcf527ee7829db85e86790d58446f6343329bb6702a8ddf"
+    "last_resync_patch": "p501_resync_dong_bo_o_nhap",
+    "sha256": "103f5e074c6f24e8ce7c08f2c45a4cfea55e2f88c1577007369568f2ef8682b0"
   },
   "approval_center/features/hr_activity/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -88,8 +88,8 @@
   },
   "approval_center/features/lateral_move/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p499_resync_dau_trang_form_phe_duyet",
-    "sha256": "1ac61443f2739ab5cb1073260a0504d19f2f5b53e4bf40c830f43aac0938d859"
+    "last_resync_patch": "p501_resync_dong_bo_o_nhap",
+    "sha256": "7b539ad07bebd4860acd8b96e88cc8390b892380dcd308a2f4690ceb3615c109"
   },
   "approval_center/features/leave/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -126,8 +126,8 @@
     "sha256": "7a736fa333eba52e382d8e750d402ef60debed2a007078e245677b6cfbf17fa9"
   },
   "approval_center/features/resignation/ui/main_section.html": {
-    "last_resync_patch": "p499_resync_dau_trang_form_phe_duyet",
-    "sha256": "47fdb7cdc61ca3f4fd4746ab74220cc14854badf68122dc193cdac0d64c0052f"
+    "last_resync_patch": "p501_resync_dong_bo_o_nhap",
+    "sha256": "ae7d29910561cea7aed140479f6d4869afc81c06f20bc08c028bde1ed7634a72"
   },
   "approval_center/features/service_referral/ui/main_section.html": {
     "baseline": "2026-08-31",

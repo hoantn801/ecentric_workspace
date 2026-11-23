@@ -65,9 +65,12 @@ class TestFormkitDoesNotDoubleUpUploaders(unittest.TestCase):
     thành hai vùng kéo-thả chồng nhau. Lọc theo đường dẫn không đủ vì nhiều trang cùng
     nằm dưới /approvals."""
 
-    def test_skips_inputs_owned_by_the_page(self):
+    def test_page_owned_uploaders_now_get_the_shared_dropzone(self):
+        """24/11/2026 (Hoan: "mot so form chi la mot nut tai tep rat xau"): guard `data-upload` da bo.
+        Vung keo-tha thua 26/08 la #ecdUpload cua khu ky so (tu khai data-ec-no-formkit, xem test duoi),
+        khong phai o data-upload; o data-upload van do trang quan ly qua su kien 'change'."""
         src = _read(_FORMKIT)
-        self.assertIn('inp.hasAttribute("data-upload")', src)
+        self.assertNotIn('if (inp.hasAttribute("data-upload")) return;', src)
 
     def test_offers_an_explicit_opt_out_for_future_pages(self):
         src = _read(_FORMKIT)

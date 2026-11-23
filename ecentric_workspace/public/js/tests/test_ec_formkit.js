@@ -20,8 +20,10 @@ const html=`<div id="ec-dtgt-root">
        voi o tren thi o nay bi bo qua vi luat DO, va phep kiem "data-upload" thanh vo nghia -
        dot bien xoa luat data-upload van song. Tach ra thi moi do dung thu minh dang do. -->
   <div id="o2"><input type="file" multiple data-upload="request_attachment" id="trang-tu-quan"></div>
-  <!-- Danh sach NGAN phai giu <select> goc: combobox co o tim cho 3 muc la thua. -->
+  <!-- Danh sach NGAN NGOAI form (bo loc, bang) giu <select> goc. -->
   <select id="ngan"><option></option><option>A</option><option>B</option></select>
+  <!-- 24/11/2026: danh sach ngan TRONG o nhap form (.fld) dung combobox chung, an o tim. -->
+  <div class="fld" id="fld-ngan"><select id="ngan-form" data-model="employment_type"><option value="">— Chọn loại hình —</option><option value="Full-time">Full-time</option><option value="Intern">Intern</option></select></div>
   <table><tbody><tr><td>
     <select id="in-table" data-ec-no-formkit>
       <option value=""></option><option>TikTok</option><option>Facebook</option>
@@ -72,10 +74,32 @@ setTimeout(()=>{
  // `data-upload` = trang tu quan ly viec tai tep. Boc them mot dropzone nua se tao HAI vung
  // keo-tha chong nhau - dung loi da gap o Payment Request 26/08. Bai test cu khong co o nay
  // nen luat do khong duoc canh o dau ca.
+ // 24/11/2026: o `data-upload` (trang tu quan viec tai tep) NAY CUNG duoc vung keo-tha chung
+ // (Hoan: "mot so form chi la mot nut tai tep rat xau"). Van chi MOT vung cho moi o, o goc giu
+ // nguyen trong DOM (an) de handler 'change' cua trang chay nhu cu.
  const tuQuan=w.document.querySelector("#trang-tu-quan");
- c["data-upload: trang tu quan, KHONG boc dropzone"]= !!tuQuan && !tuQuan.closest(".ec-dz")
-   && tuQuan.style.display!=="none"
-   && w.document.querySelectorAll(".ec-dz").length===1;
+ let tqChange=0; tuQuan.addEventListener("change",()=>tqChange++);
+ const dz2=w.document.querySelector("#o2 .ec-dz");
+ c["data-upload: co vung keo-tha chung, o goc an + con trong DOM"]= !!dz2 && tuQuan.style.display==="none"
+   && w.document.querySelectorAll(".ec-dz").length===2 && dz2.nextElementSibling===tuQuan;
+ let clicked=0; tuQuan.click=()=>clicked++; dz2.click();
+ c["bam vung keo-tha -> mo hop chon tep cua o goc"]= clicked===1;
+ // select ngan trong form
+ const nf=w.document.querySelector("#ngan-form");
+ const nwrap=nf.closest(".ec-cb");
+ c["select ngan TRONG form -> combobox gon (an o tim)"]= !!nwrap && nwrap.classList.contains("ec-cb-compact") && nf.style.display==="none";
+ let nfChange=0; nf.addEventListener("change",()=>nfChange++);
+ nwrap.querySelector(".ec-cb-display").click();
+ const nopt=[...nwrap.querySelectorAll(".ec-cb-option")].find(o=>o.getAttribute("data-val")==="Intern");
+ nopt.click();
+ c["chon -> gia tri + change"]= nf.value==="Intern" && nfChange===1 && /Intern/.test(nwrap.querySelector(".ec-cb-display").textContent);
+ nf.value="Full-time"; w.document.body.dispatchEvent(new w.MouseEvent("click",{bubbles:true}));
+ setTimeout(()=>{
+ c["trang gan .value bang code -> o hien thi cap nhat"]= /Full-time/.test(nwrap.querySelector(".ec-cb-display").textContent);
+ nf.selectedIndex=0; w.document.body.dispatchEvent(new w.Event("input",{bubbles:true}));
+ setTimeout(()=>{
+ c["gan selectedIndex -> ve placeholder"]= /Chọn loại hình/.test(nwrap.querySelector(".ec-cb-display").textContent);
+ c["select ngan: van doc .value dung"]= nf.value==="";
  const ngan=w.document.querySelector("#ngan");
  c["danh sach ngan (<6 muc) giu select goc"]= !!ngan && !ngan.closest(".ec-cb")
    && ngan.style.display!=="none";
@@ -85,4 +109,5 @@ setTimeout(()=>{
  // thoat 0 - run_js.sh dem no la XANH, va 15/09 chinh no lam phep kiem dot bien cua
  // Claude bao "dot bien song sot" trong khi that ra bai test da bat dung loi.
  process.exit(ok?0:1);
+ },100); },100);
 },150);
