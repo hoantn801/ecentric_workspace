@@ -18,6 +18,8 @@
  "field_order": [
   "category_code",
   "category_name",
+  "name_vi",
+  "short_name_vi",
   "icon",
   "sort_order",
   "is_active"
@@ -39,6 +41,18 @@
    "label": "Category Name",
    "reqd": 1,
    "in_list_view": 1
+  },
+  {
+   "fieldname": "name_vi",
+   "fieldtype": "Data",
+   "label": "Tên tiếng Việt",
+   "description": "Tiêu đề nhóm trên Approval Center."
+  },
+  {
+   "fieldname": "short_name_vi",
+   "fieldtype": "Data",
+   "label": "Tên ngắn (nút lọc)",
+   "description": "Nhãn ngắn trên nút lọc nhóm, VD: Tài chính."
   },
   {
    "fieldname": "icon",
@@ -76,5 +90,6 @@
   }
  ],
  "links": [],
- "index_web_pages_for_search": 0
+ "index_web_pages_for_search": 0,
+ "modified": "2026-11-23 20:00:00.000000"
 }

@@ -140,5 +140,25 @@ function boot(fix, onPin) {
   await flush();
   ok(!w.document.querySelector("#apc-body .card-body") && w.document.querySelector("#apc-body .card-main"), "the dung .card-main");
 }
+{
+  // Song ngu + mau nhom (23/11, Hoan: "khong dep nhu mockup")
+  const fx = JSON.parse(JSON.stringify(FIX));
+  fx.categories[0].name_vi = "Tài chính & Ngân sách"; fx.categories[0].short_name_vi = "Tài chính";
+  fx.types[0].title_vi = "Đề nghị thanh toán"; fx.types[0].category_icon = "wallet"; fx.types[0].description = "Thanh toán NCC";
+  fx.types[2].title_vi = "Nghỉ phép"; fx.types[2].approval_title = "Nghỉ phép";
+  const w = boot(fx);
+  await flush();
+  const d = w.document;
+  const pay = d.querySelector('#apc-body .card[data-code="PAYMENT_REQUEST"]');
+  ok(pay.querySelector(".card-title").textContent === "Đề nghị thanh toán" && pay.querySelector(".card-sub").textContent === "Payment Request", "the: ten Viet + dong phu Anh");
+  ok(!d.querySelector('#apc-body .card[data-code="LEAVE"] .card-sub'), "ten Viet trung ten Anh -> khong lap dong phu");
+  ok(/color:#2b68e0/.test(pay.querySelector(".card-ic").getAttribute("style")), "icon to mau theo nhom");
+  ok(/Tài chính/.test(d.querySelector('.chip[data-cat="FIN"]').textContent) && d.querySelector('.chip[data-cat="FIN"]').getAttribute("title") === "Tài chính & Ngân sách", "nut loc ten ngan, title ten day du");
+  ok(/^Tài chính & Ngân sách/.test(d.querySelector(".apc-sec").textContent), "tieu de nhom tieng Viet");
+  const pin = d.querySelector(".apc-pin");
+  ok(pin.querySelector(".pin-ic") && /Đề nghị thanh toán/.test(pin.textContent) && /Payment Request/.test(pin.querySelector("small").textContent), "the ghim: icon + Viet + Anh");
+  const q = d.getElementById("apc-q"); q.value = "de nghi thanh"; q.dispatchEvent(new w.Event("input", { bubbles: true }));
+  ok([...d.querySelectorAll("#apc-body .card")].map((c) => c.getAttribute("data-code")).join() === "PAYMENT_REQUEST", "tim theo ten Viet khong dau");
+}
 console.log(pass + " dat, " + fail + " hong");
 process.exit(fail ? 1 : 0);

@@ -18,6 +18,7 @@
  "field_order": [
   "approval_code",
   "approval_title",
+  "title_vi",
   "category",
   "description",
   "icon",
@@ -54,6 +55,12 @@
    "label": "Approval Title",
    "reqd": 1,
    "in_list_view": 1
+  },
+  {
+   "fieldname": "title_vi",
+   "fieldtype": "Data",
+   "label": "Tên tiếng Việt",
+   "description": "Tên chính hiện trên thẻ Approval Center; approval_title (tiếng Anh) hiện làm dòng phụ."
   },
   {
    "fieldname": "category",
@@ -196,5 +203,5 @@
  ],
  "links": [],
  "index_web_pages_for_search": 0,
- "modified": "2026-11-23 10:00:00.000000"
+ "modified": "2026-11-23 20:00:00.000000"
 }

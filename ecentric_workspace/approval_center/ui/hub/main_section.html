@@ -94,14 +94,20 @@
   #ec-apc-root .apc-ph .icon{ color:#e0a100; }
   #ec-apc-root .apc-ph small{ font-size:12px; font-weight:500; color:var(--gray-500); }
   #ec-apc-root .apc-pins{ display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px; }
-  #ec-apc-root .apc-pin{ position:relative; display:flex; flex-direction:column; gap:4px; padding:12px; border-radius:11px; border:1px solid #f1d78a; background:#fffdf6; text-decoration:none; color:var(--gray-900); min-width:0; }
-  #ec-apc-root .apc-pin:hover{ border-color:#e3b93c; box-shadow:0 6px 16px rgba(0,0,0,.06); }
-  #ec-apc-root .apc-pin b{ font-size:14px; line-height:1.3; padding-right:22px; }
-  #ec-apc-root .apc-pin span{ font-size:12.5px; color:var(--navy); font-weight:600; }
+  /* The ghim trong khoi "Da ghim" (giong mockup A): nen trang-xanh nhat, icon mau nhom, ten Viet + Anh. */
+  #ec-apc-root .apc-pin{ position:relative; display:flex; flex-direction:column; gap:2px; padding:14px; border-radius:12px; border:1px solid #dfe3f6; background:linear-gradient(180deg,#fff 0%,#f7f8fe 100%); text-decoration:none; color:var(--gray-900); min-width:0; }
+  #ec-apc-root .apc-pin:hover{ border-color:#b9c2ee; box-shadow:0 6px 16px rgba(44,61,166,.08); }
+  #ec-apc-root .apc-pin .pin-ic{ width:36px; height:36px; border-radius:9px; display:flex; align-items:center; justify-content:center; margin-bottom:8px; }
+  #ec-apc-root .apc-pin .pin-ic .icon{ width:19px !important; height:19px !important; }
+  #ec-apc-root .apc-pin b{ font-size:14.5px; line-height:1.3; padding-right:22px; }
+  #ec-apc-root .apc-pin small{ font-size:12.5px; color:var(--gray-500); }
+  #ec-apc-root .apc-pin span{ margin-top:8px; font-size:13px; color:var(--navy); font-weight:600; }
   #ec-apc-root .apc-empty{ font-size:13px; color:var(--gray-500); padding:6px 0; }
   #ec-apc-root .apc-use{ display:flex; flex-direction:column; }
   #ec-apc-root .apc-use a{ display:flex; align-items:center; gap:10px; padding:7px 8px; border-radius:9px; text-decoration:none; color:var(--gray-800); min-width:0; }
   #ec-apc-root .apc-use a:hover{ background:var(--gray-50); }
+  #ec-apc-root .apc-use .u-ic{ width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex:none; }
+  #ec-apc-root .apc-use .u-ic .icon{ width:17px !important; height:17px !important; }
   #ec-apc-root .apc-use .u-t{ flex:1; min-width:0; font-weight:600; font-size:13.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   #ec-apc-root .apc-use .u-bar{ width:80px; height:6px; border-radius:4px; background:var(--gray-100); overflow:hidden; flex:none; }
   #ec-apc-root .apc-use .u-bar i{ display:block; height:100%; background:var(--navy); border-radius:4px; }
@@ -134,12 +140,14 @@
   /* Ten lop card-main (khong dung ten lop body cua Bootstrap): website nap Bootstrap, lop do co
      padding 1.25rem va tieu de the co margin-bottom .75rem -> the lech (23/11, Hoan bao). */
   #ec-apc-root .card-main{ flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; padding:0; }
-  #ec-apc-root .apc-grid .card-title{ font-size:14.5px; line-height:1.3; margin:0; }
-  #ec-apc-root .apc-grid .card-desc{ font-size:12.5px; color:var(--gray-500); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:none; }
+  #ec-apc-root .apc-grid .card-title{ font-size:14.5px; line-height:20px; margin:0; }
+  #ec-apc-root .apc-grid .card-sub{ font-size:12.5px; color:var(--gray-500); line-height:1.35; }
+  #ec-apc-root .apc-grid .card-desc{ margin-top:3px; font-size:12.5px; color:var(--gray-600); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:none; }
   #ec-apc-root .apc-grid .card-foot{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:4px; }
   #ec-apc-root .apc-grid .card-foot .card-cta{ padding:2px 8px; font-size:11.5px; border-radius:999px; }
   #ec-apc-root .apc-grid .card-help{ margin-left:auto; width:22px; height:22px; border-radius:7px; font-size:12px; }
-  #ec-apc-root .apc-grid .card > .star{ margin-top:-2px; }
+  /* Sao canh giua dong tieu de (20px): nut 22px, bu -1px. */
+  #ec-apc-root .apc-grid .card > .star{ align-self:flex-start; margin:-1px 0 0; }
   #ec-apc-root .apc-grid .card:focus-visible{ outline:2px solid var(--navy); outline-offset:2px; }
   #ec-apc-root .card-use{ font-size:11.5px; font-weight:600; color:var(--navy); background:var(--navy-50); border-radius:999px; padding:2px 8px; align-self:flex-start; }
   #ec-apc-root .card-top .tr{ display:flex; align-items:center; gap:6px; }
@@ -327,6 +335,16 @@
     "file-check":'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/>'
   };
   function iconSvg(name){ var p = ICONS[name] || ICONS["file-check"]; return '<svg class="icon" viewBox="0 0 24 24" style="width:22px;height:22px">'+p+'</svg>'; }
+  // Mau theo ICON cua nhom (23/11, giong mockup A): moi nhom mot tong mau, khong viet ten loai phieu nao.
+  var TONE = { "wallet":["#2b68e0","#eaf1fd"], "users":["#6a4fd8","#f0ecfd"], "package":["#0f8f83","#e3f5f2"],
+    "database":["#0a7ea8","#e3f3f9"], "target":["#d9701a","#fdf0e4"], "calendar-clock":["#17924f","#e6f5ec"],
+    "building-2":["#4b5a78","#eceff4"], "file-check":["#6b7280","#f1f2f5"] };
+  function iconOf(c){ return c.icon || c.category_icon || "file-check"; }
+  function icBox(c, cls){ var t=TONE[iconOf(c)]||TONE["file-check"];
+    return '<span class="'+(cls||"card-ic")+'" style="color:'+t[0]+';background:'+t[1]+'">'+iconSvg(iconOf(c))+'</span>'; }
+  // Song ngu: ten tieng Viet la dong chinh, ten tieng Anh (approval_title) la dong phu khi khac nhau.
+  function titleOf(c){ return c.title_vi || c.approval_title || ""; }
+  function subOf(c){ return (c.title_vi && c.approval_title && c.title_vi !== c.approval_title) ? c.approval_title : ""; }
 
   var BADGE = { "Active":["active","Đang hoạt động"], "Migrating":["migrating","Đang chuyển đổi"],
                 "Coming Soon":["coming","Sắp ra mắt"], "Disabled":["disabled","Đã tắt"] };
@@ -343,7 +361,7 @@
     if(state.cat!==ALL && card.category_code!==state.cat) return false;
     var q=norm(state.q.trim());
     if(!q) return true;
-    var hay=norm([card.approval_title, card.description, card.category_name, card.approval_code].join(" "));
+    var hay=norm([card.title_vi, card.approval_title, card.description, card.category_name, card.category_name_vi, card.approval_code].join(" "));
     return q.split(/\s+/).every(function(w){ return hay.indexOf(w)>=0; });
   }
   function usable(c){ return c.card_status==="Active" && !!c.route; }
@@ -351,7 +369,7 @@
   function isPinned(code){ return state.pins.indexOf(code)>=0; }
   var STAR='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg>';
   function starBtn(c){ var on=isPinned(c.approval_code);
-    return '<button type="button" class="star'+(on?' on':'')+'" data-pin="'+esc(c.approval_code)+'" aria-pressed="'+(on?'true':'false')+'" title="'+(on?'Bỏ ghim':'Ghim lên đầu')+'" aria-label="'+(on?'Bỏ ghim ':'Ghim ')+esc(c.approval_title||"")+'">'+STAR+'</button>'; }
+    return '<button type="button" class="star'+(on?' on':'')+'" data-pin="'+esc(c.approval_code)+'" aria-pressed="'+(on?'true':'false')+'" title="'+(on?'Bỏ ghim':'Ghim lên đầu')+'" aria-label="'+(on?'Bỏ ghim ':'Ghim ')+esc(titleOf(c))+'">'+STAR+'</button>'; }
   function renderTops(){
     var box=$("apc-tops"); if(!box) return;
     if(state.loading||state.error||!types().length){ box.hidden=true; return; }
@@ -362,11 +380,11 @@
     var max=used.length?(state.usage[used[0].approval_code]||1):1;
     var pinHtml='<div class="apc-panel"><div class="apc-ph">'+STAR.replace('<svg','<svg class="icon" style="width:18px;height:18px"')+' Đã ghim <small>'+(pinned.length?pinned.length+' mục · bấm ☆ để thêm / bỏ':'bấm ☆ trên thẻ bên dưới để ghim loại bạn hay dùng')+'</small></div>'
       +(pinned.length?'<div class="apc-pins">'+pinned.map(function(c){
-          return '<a class="apc-pin" href="'+esc(c.route)+'" data-go="1"><b>'+esc(c.approval_title||"")+'</b><span>Tạo ngay →</span>'+starBtn(c)+'</a>'; }).join("")+'</div>'
+          return '<a class="apc-pin" href="'+esc(c.route)+'" data-go="1">'+icBox(c,"pin-ic")+'<b>'+esc(titleOf(c))+'</b>'+(subOf(c)?'<small>'+esc(subOf(c))+'</small>':'')+'<span>Tạo ngay →</span>'+starBtn(c)+'</a>'; }).join("")+'</div>'
         :'<div class="apc-empty">Chưa ghim loại nào.</div>')+'</div>';
     var useHtml=used.length?('<div class="apc-panel"><div class="apc-ph">Bạn hay dùng <small>90 ngày qua</small></div><div class="apc-use">'+used.map(function(c){
         var n=state.usage[c.approval_code]||0;
-        return '<a href="'+esc(c.route)+'" data-go="1"><span class="u-t">'+esc(c.approval_title||"")+'</span><span class="u-bar"><i style="width:'+Math.max(8,Math.round(n*100/max))+'%"></i></span><span class="u-n">đã gửi '+n+' lần</span>'+starBtn(c)+'</a>'; }).join("")+'</div></div>'):'';
+        return '<a href="'+esc(c.route)+'" data-go="1">'+icBox(c,"u-ic")+'<span class="u-t">'+esc(titleOf(c))+'</span><span class="u-bar"><i style="width:'+Math.max(8,Math.round(n*100/max))+'%"></i></span><span class="u-n">đã gửi '+n+' lần</span>'+starBtn(c)+'</a>'; }).join("")+'</div></div>'):'';
     box.className="apc-tops"+(useHtml?"":" one");
     box.innerHTML=pinHtml+useHtml; box.hidden=false;
   }
@@ -393,13 +411,13 @@
     var html = chip(ALL,"Tất cả",all);
     cats().forEach(function(c){
       var n = types().filter(function(t){return t.category_code===c.category_code;}).length;
-      html += chip(c.category_code, c.category_name, n);
+      html += chip(c.category_code, c.short_name_vi || c.name_vi || c.category_name, n, c.name_vi || c.category_name);
     });
     box.innerHTML = html;
   }
-  function chip(code,label,count){
+  function chip(code,label,count,full){
     var on = state.cat===code ? " active":"";
-    return '<button class="chip'+on+'" data-cat="'+esc(code)+'">'+esc(label)+' <span class="cnt">'+count+'</span></button>';
+    return '<button class="chip'+on+'" data-cat="'+esc(code)+'"'+(full&&full!==label?' title="'+esc(full)+'"':'')+'>'+esc(label)+' <span class="cnt">'+count+'</span></button>';
   }
 
   function cardHtml(c){
@@ -429,8 +447,9 @@
       + (used ? '<span class="card-use">đã gửi '+used+' lần</span>' : '') + help;
     return '<div class="card'+clickable+dim+(isActive&&isPinned(c.approval_code)?' pinned':'')+'" data-code="'+esc(c.approval_code)+'" data-status="'+esc(c.card_status)+'"'
       + (isActive?(' data-route="'+esc(c.route)+'" role="link" tabindex="0"'):'')+'>'
-      + '<span class="card-ic">'+iconSvg(icon)+'</span>'
-      + '<div class="card-main"><div class="card-title">'+esc(c.approval_title||"")+'</div>'
+      + icBox(c)
+      + '<div class="card-main"><div class="card-title">'+esc(titleOf(c))+'</div>'
+      + (subOf(c) ? '<div class="card-sub">'+esc(subOf(c))+'</div>' : '')
       + (c.description ? '<div class="card-desc" title="'+esc(c.description)+'">'+esc(c.description)+'</div>' : '')
       + (foot ? '<div class="card-foot">'+foot+'</div>' : '')
       + '</div>'
@@ -464,7 +483,7 @@
     var html="";
     if(state.cat===ALL && !state.q.trim()){
       cats().forEach(function(ct){ var xs=ok.filter(function(c){ return c.category_code===ct.category_code; });
-        if(xs.length) html+='<div class="apc-sec">'+esc(ct.category_name||ct.category_code)+' · '+xs.length+'</div><div class="apc-grid">'+xs.map(cardHtml).join("")+'</div>'; });
+        if(xs.length) html+='<div class="apc-sec">'+esc(ct.name_vi||ct.category_name||ct.category_code)+' · '+xs.length+'</div><div class="apc-grid">'+xs.map(cardHtml).join("")+'</div>'; });
       var rest=ok.filter(function(c){ return !cats().some(function(ct){ return ct.category_code===c.category_code; }); });
       if(rest.length) html+='<div class="apc-grid">'+rest.map(cardHtml).join("")+'</div>';
     } else if(ok.length){ html+='<div class="apc-grid">'+ok.map(cardHtml).join("")+'</div>'; }

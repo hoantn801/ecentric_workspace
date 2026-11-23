@@ -40,8 +40,10 @@ def _html():
 # Deliberate update = edit ui/hub/main_section.html, bump
 # BASELINE_SHA256, move the value it replaced into SUPERSEDES_SHA256 -- all in
 # the same commit.
-BASELINE_SHA256 = "8bba278976b9710bba88238cff30e299f4deefcdd046ee20869eda47a8871139"
+BASELINE_SHA256 = "e7b2511042548af1e75af77e4869b06b57fd28d062ef380ed0377cb6c68ec491"
 SUPERSEDES_SHA256 = (
+    # baseline p494 (chua song ngu / mau nhom). Doi 23/11 bang p497.
+    "8bba278976b9710bba88238cff30e299f4deefcdd046ee20869eda47a8871139",
     # baseline p493 (the lech do lop Bootstrap card-body; tieu de khoi la h2). Doi 23/11 bang p494.
     "edd57e3bdc6bab6c9f49bdad7c0eb1e6fdce451e9c2502a4a6e70a88030c3ee9",
     # baseline truoc p493 (chua co ghim / ban hay dung / the gon). DO tren prod 23/11: live = gia tri nay.
