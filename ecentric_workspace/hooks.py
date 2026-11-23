@@ -1209,3 +1209,7 @@ ec_esign_external_handlers = {
 # O soan noi dung kieu mail dung chung (EcRichText) - Phe duyet dot xuat dung dau tien (23/11/2026).
 web_include_js.append("ec_richtext.bundle.js")
 web_include_css.append("ec_richtext.bundle.css")
+
+# Dau trang form phe duyet kieu thanh cong cu dinh (phuong an C, 23/11/2026) - markup san trong tung trang.
+web_include_js.append("ec_form_header.bundle.js")
+web_include_css.append("ec_form_header.bundle.css")
