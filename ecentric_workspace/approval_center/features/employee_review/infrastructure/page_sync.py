@@ -16,8 +16,8 @@ ROUTE = "approvals/employee-review"
 NAME = "employee-review"
 TITLE = "Đánh giá nhân sự"
 
-BASELINE_SHA256 = "55f99ebc7e2a3537c059c9c577af1c112893a8a47c9fd4c8d8cbb2e1e34eb4d1"
-SUPERSEDES_SHA256 = ("ad06cd7796421cdd434249c06f89f68dd3a59eca754ba31f3735e5f446e307a4",)
+BASELINE_SHA256 = "c4292dbf3a1272a8cdc01e4edd2936010b8dea5b52b219c38b54f8c443b3590f"
+SUPERSEDES_SHA256 = ("55f99ebc7e2a3537c059c9c577af1c112893a8a47c9fd4c8d8cbb2e1e34eb4d1", "ad06cd7796421cdd434249c06f89f68dd3a59eca754ba31f3735e5f446e307a4",)
 
 
 def _html():

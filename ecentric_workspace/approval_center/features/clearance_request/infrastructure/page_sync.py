@@ -16,8 +16,9 @@ ROUTE = "approvals/clearance-request"
 NAME = "clearance-request"
 TITLE = "Clearance Request"
 
-BASELINE_SHA256 = "138eee910db27ba465e900f0a1ef5cbe7eafbfc49756123eb2fa04dd1317f166"
+BASELINE_SHA256 = "066d013e45a8f2241d903d6f8e65c805f839204d308285a5f9e0f11105d04a92"
 SUPERSEDES_SHA256 = (
+    "138eee910db27ba465e900f0a1ef5cbe7eafbfc49756123eb2fa04dd1317f166",  # truoc p499 (dau trang thanh cong cu dinh, 23/11)
     "30ea2f62193d68623b68c5723e61d9dd0802b490f80720c20ce8b37126c179a6",  # ban truoc dot UX lich su/tien trinh/loi 03/11
     "730ad1ba443632ab1e513ebcf798552de80602d8040862223335c21522accb85",  # ban truoc dot nut Nhac nguoi xu ly 01/10
 )

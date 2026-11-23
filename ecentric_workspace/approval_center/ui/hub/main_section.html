@@ -91,7 +91,8 @@
   #ec-apc-root .apc-panel{ background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:14px 16px; min-width:0; }
   /* Tieu de khoi dung div.apc-ph, KHONG dung h2: theme website dinh kieu h2 (can le, margin) -> lech. */
   #ec-apc-root .apc-ph{ margin:0 0 10px; font-size:15px; font-weight:700; color:var(--gray-900); display:flex; align-items:center; justify-content:flex-start; gap:8px; text-align:left; line-height:1.3; }
-  #ec-apc-root .apc-ph .icon{ color:#e0a100; }
+  /* margin:0 - mot quy tac chung cua theme dat svg.icon margin:auto, day sao ra giua khung (23/11). */
+  #ec-apc-root .apc-ph .icon{ color:#e0a100; margin:0; flex:none; }
   #ec-apc-root .apc-ph small{ font-size:12px; font-weight:500; color:var(--gray-500); }
   #ec-apc-root .apc-pins{ display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px; }
   /* The ghim trong khoi "Da ghim" (giong mockup A): nen trang-xanh nhat, icon mau nhom, ten Viet + Anh. */
@@ -145,7 +146,12 @@
   #ec-apc-root .apc-grid .card-desc{ margin-top:3px; font-size:12.5px; color:var(--gray-600); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:none; }
   #ec-apc-root .apc-grid .card-foot{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:4px; }
   #ec-apc-root .apc-grid .card-foot .card-cta{ padding:2px 8px; font-size:11.5px; border-radius:999px; }
-  #ec-apc-root .apc-grid .card-help{ margin-left:auto; width:22px; height:22px; border-radius:7px; font-size:12px; }
+  /* Dau "?" co dinh o GOC DUOI PHAI cua the (Hoan 23/11: dang troi theo noi dung nen lech). Van nam trong
+     .card-foot (thu tu doc / test) nhung dinh vi theo the; the chua 30px day cho "?" khong de chu. */
+  #ec-apc-root .apc-grid .card{ position:relative; }
+  #ec-apc-root .apc-grid .card:has(.card-help){ padding-bottom:30px; }
+  #ec-apc-root .apc-grid .card-help{ position:absolute; right:10px; bottom:10px; margin:0; width:22px; height:22px; border-radius:7px; font-size:12px; }
+  #ec-apc-root .apc-grid .card-foot:empty{ display:none; }
   /* Sao canh giua dong tieu de (20px): nut 22px, bu -1px. */
   #ec-apc-root .apc-grid .card > .star{ align-self:flex-start; margin:-1px 0 0; }
   #ec-apc-root .apc-grid .card:focus-visible{ outline:2px solid var(--navy); outline-offset:2px; }
@@ -268,7 +274,6 @@
       <div class="apc-head">
         <div class="h-txt">
           <h1 class="apc-title">Approval Center</h1>
-          <p class="apc-desc">Gửi và theo dõi các yêu cầu nội bộ của công ty — nghỉ việc, tuyển dụng, mua sắm, tài sản, ngân sách, dữ liệu và nhiều loại khác. Chọn loại yêu cầu bên dưới để bắt đầu.</p>
         </div>
         <div class="h-actions">
           <div class="apc-scts" id="apc-scts" hidden>
@@ -405,7 +410,8 @@
     var box=$("apc-cats"); if(!box) return;
     if(!box._w){ box._w=1;
       var end=function(){ box.classList.toggle("end", box.scrollLeft+box.clientWidth>=box.scrollWidth-4); };
-      box.addEventListener("wheel",function(e){ if(Math.abs(e.deltaY)>Math.abs(e.deltaX)&&box.scrollWidth>box.clientWidth){ e.preventDefault(); box.scrollLeft+=e.deltaY; } },{passive:false});
+      // KHONG doi lan chuot doc thanh cuon ngang (cuon trang di ngang qua hang chip se bi "nuot", Hoan
+      // thay chip "Tat ca" bi cat 23/11). Cuon ngang bang trackpad / Shift+lan chuot / keo tren dien thoai.
       box.addEventListener("scroll",end); if(window.addEventListener) window.addEventListener("resize",end); setTimeout(end,0); }
     var all = types().length;
     var html = chip(ALL,"Tất cả",all);
