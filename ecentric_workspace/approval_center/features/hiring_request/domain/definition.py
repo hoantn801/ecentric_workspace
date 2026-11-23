@@ -23,6 +23,12 @@ def _definition(code, doctype, feature, editable, mine, approvals, options, filt
         feature=feature,
         # 28/09: man hinh chi tiet can biet cac Offer da tao va nguoi xem co duoc "Tao Offer".
         detail_extender=ServiceMethod(_BASE, "hiring_block"),
+    journey_after=(
+        ("HR tuyển dụng", "HR (EC Recruiter) nhận việc, tìm ứng viên", "fulfillment"),
+        ("Offer từng ứng viên", "Tạo Offer cho ứng viên đạt ngay trên phiếu này", "form"),
+        ("Chuẩn bị nhân sự mới", "Tự tạo khi Offer duyệt: thiết bị, tài khoản, chỗ ngồi", "form"),
+        ("Onboard", "Ngày đi làm: chào mừng trên Teams + trang chủ", "info"),
+    ),
         **service_callbacks(feature),
     )
 

@@ -28,6 +28,11 @@ OFFER_REQUEST_DEFINITION = ApprovalDefinition(
     detail_extender=ServiceMethod(_BASE, "offer_block"),
     #: Muc luong la thoa thuan voi ung vien - AI khong duoc dien ho tu CV.
     ai_exclude_fields=("compensation", "offered_salary"),
+    journey_after=(
+        ("Chuẩn bị nhân sự mới", "Tự tạo khi CEO duyệt: HR, HOF, Vận hành, Lương chuẩn bị", "form"),
+        ("Onboard", "Ngày đi làm: chào mừng trên Teams + trang chủ", "info"),
+        ("Thử việc", "Hồ sơ có ngày hết thử việc → khảo sát mốc + đánh giá thử việc", "info"),
+    ),
     **service_callbacks("offer_request", title=True))
 
 

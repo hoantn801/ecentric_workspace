@@ -50,3 +50,13 @@ EMPLOYEE_REVIEW_DEFINITION = _dc_replace(
         ("Hợp đồng đến", "hd_den_ngay"),
     ),
 )
+
+
+# Quy trinh A-Z (24/11/2026): cac buoc SAU khi duyet xong - EcApprovalUI.withJourney ve tiep.
+EMPLOYEE_REVIEW_DEFINITION = _dc_replace(
+    EMPLOYEE_REVIEW_DEFINITION,
+    journey_after=(
+        ("Chốt kết quả", "Hệ thống ghi kết quả đánh giá", "auto"),
+        ("C&B cập nhật hồ sơ", "C&B nhận đề xuất cập nhật hồ sơ / hợp đồng theo kết quả", "info"),
+    ),
+)

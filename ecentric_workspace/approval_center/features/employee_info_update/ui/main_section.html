@@ -241,7 +241,7 @@
       ? fld("field_to_update_other","Tên trường khác (Other)",'<input data-model="field_to_update_other" maxlength="140" value="'+esc(d.field_to_update_other||"")+'">',true).replace('class="fld','class="fld full')
       : "";
     return '<div class="card"><h3>Thông tin cập nhật</h3><div class="grid2">'
-      + fld("employee_email","Employee",'<input data-model="employee_email" type="email" placeholder="ten@ecentric.vn" value="'+esc(d.employee_email||"")+'"><div class="hint">Input email of employee to be updated</div>',true).replace('class="fld','class="fld full')
+      + fld("employee_email","Employee",'<input data-model="employee_email" type="email" data-ec-people placeholder="Gõ tên hoặc email để chọn…" value="'+esc(d.employee_email||"")+'"><div class="hint">Input email of employee to be updated</div>',true).replace('class="fld','class="fld full')
       + fld("field_to_update","Field to update",selCtrl,true).replace('class="fld','class="fld full')
       + otherFld
       + fld("current_value","Current value",'<textarea data-model="current_value" rows="2"'+(d._cv_locked?' class="ro" readonly':'')+'>'+esc(d.current_value||"")+'</textarea><div class="hint" id="eiu-cv-hint">'+esc(cvHint(d))+'</div>').replace('class="fld','class="fld full')
@@ -469,7 +469,7 @@
     return renderStepsHTML(steps); }
   var _STEP_LBL={done:"Hoàn thành",current:"Đang xử lý",upcoming:"Chờ",rejected:"Từ chối",info:"Cần bổ sung",skipped:"Bỏ qua"};
   function stColor(s){ return {done:"var(--green)",current:"var(--navy)",rejected:"var(--red)",info:"var(--amber)",skipped:"var(--gray-400)",upcoming:"var(--gray-400)"}[s]||"var(--gray-400)"; }
-  function renderStepsHTML(steps){ if(window.EcApprovalUI) return EcApprovalUI.stepsHTML(steps); var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
+  function renderStepsHTML(steps){ if(window.EcApprovalUI) return EcApprovalUI.stepsHTML((EcApprovalUI.withJourney?EcApprovalUI.withJourney(steps,(state.boot||{}).journey_after):steps)); var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
     var inner=steps.map(function(s,i){ return '<div class="step '+s.state+'"><div class="step-top"><div class="step-dot">'+(s.state==="done"?"✓":(s.state==="rejected"?"✕":(i+1)))+'</div><div class="step-name">'+esc(s.name)+'</div><div class="step-state" style="color:'+stColor(s.state)+'">'+esc(s.statusLabel||_STEP_LBL[s.state]||s.state)+'</div></div><div class="step-meta">'+(s.meta||"")+'</div></div>'; }).join("");
     return '<div class="stepline" style="--n:'+n+';--k:'+k+'">'+inner+'</div>'; }
 

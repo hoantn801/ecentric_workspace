@@ -1219,3 +1219,6 @@ ec_esign_signing_files = {
     "EC Contract Review Request":
         "ecentric_workspace.approval_center.features.contract_review.application.esign_hooks.signing_files",
 }
+# O chon nguoi dung chung (EcPeoplePicker, 24/11/2026) - trang khai input[data-ec-people] trong markup nguon.
+web_include_js.append("ec_people_picker.bundle.js")
+web_include_css.append("ec_people_picker.bundle.css")

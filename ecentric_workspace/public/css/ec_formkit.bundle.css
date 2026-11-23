@@ -27,6 +27,8 @@
      gộp ở đây là tự chọn một bên thay người khác. Giữ nguyên, chờ quyết định. */
   --ec-fk-dz-bg:        #fafbfc;
   --ec-fk-dz-bg-hover:  #f7f8fd;
+  /* 24/11/2026: vien o loi cua form (ec_shell chua co primitive do -> literal o day). */
+  --ec-fk-danger:       #dc2626;
 }
 
 .ec-cb { position: relative; }
@@ -79,3 +81,9 @@
 .ec-dz-sub { font-size: 12.5px; color: var(--ec-fk-text-muted); margin-top: 2px; }
 .ec-dz-sub a, .ec-dz-link { color: var(--ec-fk-accent); font-weight: 600; }
 .ec-dz-hint { font-size: 11.5px; color: var(--ec-fk-text-muted); margin-top: 6px; }
+
+/* 24/11/2026: combobox cho danh sach ngan trong form (< 8 lua chon) - an o tim + dem; o loi cua form
+   to vien combobox nhu o nhap thuong. */
+.ec-cb-compact .ec-cb-search-wrap, .ec-cb-compact .ec-cb-count { display: none; }
+.fld.invalid .ec-cb-display { border-color: var(--ec-fk-danger); }
+.ec-cb-display:disabled { background: var(--ec-fk-wash); color: var(--ec-fk-text-muted); cursor: not-allowed; }

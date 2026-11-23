@@ -25,6 +25,8 @@ ALL_TAB_COLUMN_KINDS = ("text", "money", "date", "select")
 #: Ten truong duoc phep khai cho tab "Tat ca". Ten nay se di vao SQL (duoi dang dinh danh
 #: trong dau backtick) nen chan ngay tu luc nap registry, khong doi toi luc truy van.
 _FIELDNAME_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
+#: Loai buoc hop le trong `journey_after`.
+JOURNEY_KINDS = ("fulfillment", "auto", "form", "info")
 
 
 @dataclass(frozen=True, slots=True)
@@ -147,6 +149,15 @@ class ApprovalDefinition:
     #: query_service.detail xoa gia tri truoc khi tra ve trinh duyet. Nguoi gui / nguoi duyet /
     #: System Manager van thay.
     watcher_hidden_fields: Tuple[str, ...] = ()
+    #: CAC BUOC SAU KHI DUYET XONG (24/11/2026, Hoan: "show full quy trinh tu A-Z"). Moi phan tu
+    #: (ten buoc, mo ta ngan, loai): loai thuoc JOURNEY_KINDS -
+    #:   "fulfillment" bo phan nhan viec tren chinh phieu nay (hang doi xu ly);
+    #:   "auto"        he thong tu lam ngay khi duyet xong (ghi ho so, ghi cong...);
+    #:   "form"        tu tao / mo tiep MOT PHIEU KHAC (Offer, New Staff Preparation, Clearance...);
+    #:   "info"        viec tiep theo ngoai phieu (onboard, ban hanh quyet dinh...).
+    #: Trang ve bang EcApprovalUI.withJourney (public/js/ec_approval_ui.bundle.js). Ten buoc trung
+    #: ten buoc trang da tu ve (vd "Finance xu ly UNC") thi giu buoc cua trang (co trang thai that).
+    journey_after: Tuple[Tuple[str, str, str], ...] = ()
 
     @property
     def status_label_map(self) -> Mapping[str, str]:
@@ -185,6 +196,11 @@ def validate_definition(definition: ApprovalDefinition) -> None:
         for fieldname in getattr(definition, attr):
             if not (isinstance(fieldname, str) and _FIELDNAME_RE.match(fieldname)):
                 raise ValueError("%s fieldname is not a plain fieldname: %r" % (attr, fieldname))
+    for step in definition.journey_after:
+        if not (isinstance(step, tuple) and len(step) == 3 and all(isinstance(x, str) and x for x in step)
+                and step[2] in JOURNEY_KINDS):
+            raise ValueError("journey_after entries must be (label, meta, kind in %s): %r"
+                             % (JOURNEY_KINDS, step))
     if not isinstance(definition.private, bool):
         raise ValueError("private must be a bool")
     if not isinstance(definition.block_self_approval, bool):

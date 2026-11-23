@@ -49,3 +49,12 @@ AI_TOPUP_DEFINITION = _dc_replace(
         ("Cần trước", "needed_by"),
     ),
 )
+
+
+# Quy trinh A-Z (24/11/2026): cac buoc SAU khi duyet xong - EcApprovalUI.withJourney ve tiep.
+AI_TOPUP_DEFINITION = _dc_replace(
+    AI_TOPUP_DEFINITION,
+    journey_after=(
+        ("Operation xử lý", "Operation nạp credit, xác nhận hoàn tất", "fulfillment"),
+    ),
+)

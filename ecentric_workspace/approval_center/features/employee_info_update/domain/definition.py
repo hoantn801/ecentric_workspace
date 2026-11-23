@@ -44,3 +44,12 @@ EMPLOYEE_INFO_UPDATE_DEFINITION = _dc_replace(
         ("Trường cần sửa", "field_to_update"),
     ),
 )
+
+
+# Quy trinh A-Z (24/11/2026): cac buoc SAU khi duyet xong - EcApprovalUI.withJourney ve tiep.
+EMPLOYEE_INFO_UPDATE_DEFINITION = _dc_replace(
+    EMPLOYEE_INFO_UPDATE_DEFINITION,
+    journey_after=(
+        ("Ghi hồ sơ", "Hệ thống tự ghi thông tin mới vào hồ sơ nhân viên", "auto"),
+    ),
+)

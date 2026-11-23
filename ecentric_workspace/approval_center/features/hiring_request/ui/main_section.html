@@ -241,7 +241,7 @@
       + fld("employment_type","Employment type",'<select data-model="employment_type"><option value="">— Chọn loại hình —</option>'+opt(fo.employment_types||[],d.employment_type)+'</select>',true)
       + fld("department","Department",((fo.departments||[]).length?'<select data-model="department"><option value="">— Chọn phòng ban —</option>'+opt(fo.departments||[],d.department)+'</select>':'<select data-model="department" disabled><option value="">Không tải được danh sách phòng ban</option></select><div class="hint">Vui lòng tải lại trang; nếu vẫn lỗi, liên hệ quản trị viên.</div>'),true)
       + fld("education","Education",'<input data-model="education" value="'+esc(d.education||"")+'"><div class="hint">E.g: From Bachelor Degree</div>',true)
-      + fld("line_manager","Line manager",'<input type="email" data-model="line_manager" placeholder="manager@company.com" value="'+esc(d.line_manager||"")+'"><div class="hint">Email of the future line manager — must be an active user</div>',true)
+      + fld("line_manager","Line manager",'<input type="email" data-model="line_manager" data-ec-people placeholder="Gõ tên hoặc email để chọn…" value="'+esc(d.line_manager||"")+'"><div class="hint">Email of the future line manager — must be an active user</div>',true)
       + fld("suggested_salary","Suggested salary (VND)",'<input type="text" inputmode="numeric" autocomplete="off" data-money data-model="suggested_salary" value="'+esc(window.EcMoney?EcMoney.fmt((d.suggested_salary!=null?d.suggested_salary:"")):(d.suggested_salary!=null?d.suggested_salary:""))+'">',true)
       + fld("request_attachment","Tệp đính kèm (JD, mô tả...)",'<input type="file" id="hire-file-input"><div class="hint">Không bắt buộc</div>'+'<div class="hint" id="hire-file-name">'+(d.request_attachment?('Đã đính kèm: <a href="'+esc(d.request_attachment)+'" target="_blank">'+esc(fileLabel(d.request_attachment))+'</a>'):'')+'</div>' ).replace('class="fld','class="fld full')
       + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="hire-summary"></div></div>';
@@ -534,7 +534,7 @@
     return renderStepsHTML(steps); }
   var _STEP_LBL={done:"Hoàn thành",current:"Đang xử lý",upcoming:"Chờ",rejected:"Từ chối",info:"Cần bổ sung",skipped:"Bỏ qua"};
   function stColor(s){ return {done:"var(--green)",current:"var(--navy)",rejected:"var(--red)",info:"var(--amber)",skipped:"var(--gray-400)",upcoming:"var(--gray-400)"}[s]||"var(--gray-400)"; }
-  function renderStepsHTML(steps){ if(window.EcApprovalUI) return EcApprovalUI.stepsHTML(steps); var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
+  function renderStepsHTML(steps){ if(window.EcApprovalUI) return EcApprovalUI.stepsHTML((EcApprovalUI.withJourney?EcApprovalUI.withJourney(steps,(state.boot||{}).journey_after):steps)); var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
     var inner=steps.map(function(s,i){ return '<div class="step '+s.state+'"><div class="step-top"><div class="step-dot">'+(s.state==="done"?"✓":(s.state==="rejected"?"✕":(i+1)))+'</div><div class="step-name">'+esc(s.name)+'</div><div class="step-state" style="color:'+stColor(s.state)+'">'+esc(s.statusLabel||_STEP_LBL[s.state]||s.state)+'</div></div><div class="step-meta">'+(s.meta||"")+'</div></div>'; }).join("");
     return '<div class="stepline" style="--n:'+n+';--k:'+k+'">'+inner+'</div>'; }
 

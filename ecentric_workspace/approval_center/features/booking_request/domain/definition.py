@@ -46,3 +46,12 @@ BOOKING_REQUEST_DEFINITION = _dc_replace(
         ("Bắt đầu", "campaign_start_date"),
     ),
 )
+
+
+# Quy trinh A-Z (24/11/2026): cac buoc SAU khi duyet xong - EcApprovalUI.withJourney ve tiep.
+BOOKING_REQUEST_DEFINITION = _dc_replace(
+    BOOKING_REQUEST_DEFINITION,
+    journey_after=(
+        ("Booking xử lý", "Booking phụ trách brand nhận việc", "fulfillment"),
+    ),
+)

@@ -53,3 +53,13 @@ PROMOTION_DEFINITION = _dc_replace(
     ),
     quick_comment_required=True,
 )
+
+
+# Quy trinh A-Z (24/11/2026): cac buoc SAU khi duyet xong - EcApprovalUI.withJourney ve tiep.
+PROMOTION_DEFINITION = _dc_replace(
+    PROMOTION_DEFINITION,
+    journey_after=(
+        ("Ghi chức danh", "Hệ thống ghi chức danh mới vào hồ sơ", "auto"),
+        ("C&B cập nhật lương", "C&B nhận việc cập nhật bảng lương", "info"),
+    ),
+)

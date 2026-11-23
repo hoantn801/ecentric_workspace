@@ -46,3 +46,12 @@ CLEARANCE_REQUEST_DEFINITION = _dc_replace(
     CLEARANCE_REQUEST_DEFINITION,
     **{k: v for k, v in {"subject_fields": ("employee_email",)}.items()
        if k in getattr(_AD, "__dataclass_fields__", {})})
+
+
+# Quy trinh A-Z (24/11/2026): cac buoc SAU khi duyet xong - EcApprovalUI.withJourney ve tiep.
+CLEARANCE_REQUEST_DEFINITION = _dc_replace(
+    CLEARANCE_REQUEST_DEFINITION,
+    journey_after=(
+        ("Khoá tài khoản", "00:30 sau ngày làm việc cuối", "info"),
+    ),
+)

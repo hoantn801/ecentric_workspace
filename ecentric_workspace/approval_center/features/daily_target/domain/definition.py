@@ -55,3 +55,12 @@ DAILY_TARGET_DEFINITION = _dc_replace(
         ("Loại", "target_setting_type"),
     ),
 )
+
+
+# Quy trinh A-Z (24/11/2026): cac buoc SAU khi duyet xong - EcApprovalUI.withJourney ve tiep.
+DAILY_TARGET_DEFINITION = _dc_replace(
+    DAILY_TARGET_DEFINITION,
+    journey_after=(
+        ("Data xử lý", "Team Data cập nhật target vào hệ thống", "fulfillment"),
+    ),
+)
