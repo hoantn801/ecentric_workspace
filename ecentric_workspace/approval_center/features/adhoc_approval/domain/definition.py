@@ -14,8 +14,8 @@ ADHOC_APPROVAL_DEFINITION = ApprovalDefinition(
     feature="adhoc_approval",
     #: KHONG co department/company: service tu lay tu ho so Employee luc gui (snapshot khong mo
     #: cho nguoi gui sua - xem test_e2e3_feature_parity department_snapshot).
-    editable_fields=("request_title", "content", "urgency", "urgency_reason", "desired_by",
-                     "request_attachment", "cc_users"),
+    editable_fields=("request_title", "content", "content_html", "urgency", "urgency_reason",
+                     "desired_by", "request_attachment", "cc_users"),
     my_request_fields=("name", "request_title", "urgency", "desired_by", "approval_request",
                        "creation", "modified"),
     approval_list_fields=("name", "request_title", "urgency", "desired_by", "department",

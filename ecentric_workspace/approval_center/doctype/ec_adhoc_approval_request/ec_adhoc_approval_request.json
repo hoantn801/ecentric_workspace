@@ -32,6 +32,7 @@
   "completed_at",
   "material_signature",
   "sb_form",
+  "content_html",
   "content",
   "urgency",
   "urgency_reason",
@@ -115,10 +116,17 @@
    "label": "Nội dung đề xuất"
   },
   {
+   "fieldname": "content_html",
+   "fieldtype": "Long Text",
+   "label": "Nội dung đề xuất",
+   "description": "Soạn kiểu mail (HTML đã lọc ở DocType.validate)."
+  },
+  {
    "fieldname": "content",
    "fieldtype": "Text",
-   "label": "Nội dung đề xuất",
-   "reqd": 1
+   "label": "Nội dung đề xuất (chữ trơn)",
+   "reqd": 1,
+   "description": "Tự suy ra từ Nội dung soạn (content_html) - dùng cho tìm kiếm, tóm tắt. Phiếu cũ chỉ có trường này."
   },
   {
    "fieldname": "urgency",
@@ -168,5 +176,5 @@
  ],
  "owner": "Administrator",
  "creation": "2026-11-23 10:00:00",
- "modified": "2026-11-23 15:00:00.000000"
+ "modified": "2026-11-23 18:00:00.000000"
 }

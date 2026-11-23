@@ -22,8 +22,8 @@ def _html():
 
 # sha256 cua HTML (da compose) ma commit nay ship. Sua HTML = bump gia tri nay + chuyen gia tri cu
 # vao SUPERSEDES_SHA256 trong CUNG commit (tools/ci/check.py in gia tri dung).
-BASELINE_SHA256 = "ad79d2b27a980e0b2b4db6abd3575f24391f385e3b1f6f30e25dbd35a5494794"
-SUPERSEDES_SHA256 = ("feff18fc547871c795614bb1a54cb7bb8679c76a334987f411c74b208b449d3a",)
+BASELINE_SHA256 = "f6e49ed92ea1d8f63a3327296d35f68cf2885174de539ead0db783bca502036a"
+SUPERSEDES_SHA256 = ("ad79d2b27a980e0b2b4db6abd3575f24391f385e3b1f6f30e25dbd35a5494794", "feff18fc547871c795614bb1a54cb7bb8679c76a334987f411c74b208b449d3a")
 
 
 def sync(html=None, force=0):

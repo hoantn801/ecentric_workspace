@@ -358,8 +358,8 @@
   },
   "approval_center/features/adhoc_approval/ui/main_section.html": {
     "baseline": "2026-11-23",
-    "last_resync_patch": "p491_resync_phe_duyet_dot_xuat_cc",
-    "sha256": "ad79d2b27a980e0b2b4db6abd3575f24391f385e3b1f6f30e25dbd35a5494794"
+    "last_resync_patch": "p495_resync_phe_duyet_dot_xuat_soan_mail",
+    "sha256": "f6e49ed92ea1d8f63a3327296d35f68cf2885174de539ead0db783bca502036a"
   },
   "approval_center/features/employee_review/ui/main_section.html": {
     "last_resync_patch": "p486_resync_danh_gia_nhan_su_tieu_de",
