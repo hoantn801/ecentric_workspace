@@ -180,16 +180,39 @@ class NguoiDuyetXemBanPdfDeKy(unittest.TestCase):
         self.assertEqual(self._run("ceo@ec", esign=False), ["F4"])
 
 
-class TrangHoiXacNhanTruocKhiMoLai(unittest.TestCase):
-    def test_trang_goi_reopen_truoc_khi_tai(self):
+class TrangHoiXacNhanKhongMoLaiTruoc(unittest.TestCase):
+    """Sau review chat Ky so 24/11: KHONG goi reopen_signing_setup truoc khi tai - auto_place tu mo lai
+    chi khi tep moi qua het phep kiem (tep trung / sai / loi thi tai lieu cu tren cong con nguyen)."""
+
+    def test_trang_hoi_xac_nhan_roi_tai_thang(self):
         page = _read("features/contract_review/ui/main_section.html")
+        self.assertNotIn("reopen_signing_setup", page)
         i = page.index('if(a==="signpdf"&&spv.locked)')
-        seg = page[i:i + 1600]
+        seg = page[i:i + 1400]
         self.assertIn("modal(", seg)
-        self.assertIn("ecentric_workspace.platform.esign.api.reopen_signing_setup", seg)
-        self.assertIn('type:"POST"', seg)
-        self.assertLess(seg.index("reopen_signing_setup"), seg.index("runSignPdf"))
+        self.assertIn("runSignPdf", seg)
         self.assertIn("sp.locked", page)
+        run = page[page.index("var runSignPdf=function()"):i]
+        self.assertLess(run.index('"kol_attach_sign_pdf"'), run.index('"kol_auto_place_sign"'))
+
+    def test_bao_da_mo_lai_goi(self):
+        _fresh("req@ec")
+        gate = types.ModuleType(P + "esign_gate")
+        gate.enabled = lambda name: True
+        sys.modules[P + "esign_gate"] = gate
+        sys.modules.pop(P + "kol_sign_pdf", None)
+        m = importlib.import_module(P + "kol_sign_pdf")
+        r = m.summarize({"ok": True, "placed": [{}, {}], "reopened": "PKG-2"})
+        self.assertTrue(r["message"].startswith("Đã mở lại gói ký; tài liệu cũ trên cổng sẽ được huỷ."))
+        self.assertIn("2 ô ký", r["message"])
+        self.assertEqual(r["reopened"], "PKG-2")
+        r = m.summarize({"ok": False, "reason": "unchanged_in_locked_package", "reopened": None})
+        self.assertNotIn("Đã mở lại", r["message"])
+
+    def test_patch_moc_khong_con_reopen(self):
+        for f in ("p512_resync_hop_dong_thay_pdf", "p513_resync_hop_dong_thay_pdf_khong_mo_truoc"):
+            src = _read("patches/%s.py" % f)
+            self.assertNotIn('"reopen_signing_setup"', src[src.index("_MARKS"):src.index("_MARKS") + 120])
 
 
 if __name__ == "__main__":
