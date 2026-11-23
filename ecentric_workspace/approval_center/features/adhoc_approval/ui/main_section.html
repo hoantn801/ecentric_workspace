@@ -65,6 +65,14 @@
   #ec-adhc-root .fld.invalid input,#ec-adhc-root .fld.invalid select,#ec-adhc-root .fld.invalid textarea{ border-color:var(--red); }
   #ec-adhc-root .full{ grid-column:1/-1; }
   #ec-adhc-root .hint{ font-size:12px;color:var(--gray-500); }
+  #ec-adhc-root .cc-box{ position:relative; }
+  #ec-adhc-root .cc-chips{ display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px; }
+  #ec-adhc-root .cc-chip{ display:inline-flex;align-items:center;gap:6px;padding:4px 6px 4px 10px;border-radius:999px;background:var(--navy-50);color:var(--navy);font-size:12.5px;font-weight:600; }
+  #ec-adhc-root .cc-chip button{ border:0;background:transparent;color:inherit;cursor:pointer;font-size:15px;line-height:1;padding:0 4px; }
+  #ec-adhc-root .cc-drop{ position:absolute;left:0;right:0;top:100%;margin-top:4px;background:#fff;border:1px solid var(--gray-200);border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,.12);z-index:30;max-height:260px;overflow:auto; }
+  #ec-adhc-root .cc-opt{ display:block;width:100%;text-align:left;padding:8px 12px;border:0;background:#fff;cursor:pointer;font-family:inherit;font-size:13px; }
+  #ec-adhc-root .cc-opt:hover,#ec-adhc-root .cc-opt.on{ background:var(--navy-50); }
+  #ec-adhc-root .cc-opt small{ display:block;color:var(--gray-500);font-size:11.5px; }
   #ec-adhc-root .banner{ padding:11px 14px;border-radius:9px;font-size:13px;display:flex;gap:9px;align-items:flex-start;margin-bottom:14px; }
   #ec-adhc-root .banner.warn{ background:var(--yellow-50);color:var(--amber);border:1px solid #fde68a; }
   #ec-adhc-root .banner.err{ background:var(--red-50);color:var(--red);border:1px solid #fecaca; }
@@ -225,6 +233,7 @@
       + fld("content","Nội dung đề xuất",'<textarea id="adhc-content" data-model="content" rows="6" placeholder="VD: Đề xuất tăng 80.000.000đ ngân sách KOL tháng 12 cho brand A, lý do: …">'+esc(d.content||"")+'</textarea>',true).replace('class="fld','class="fld full')
       + fld("urgency","Mức độ",'<select id="adhc-urgency" data-model="urgency">'+opts+'</select>',true)
       + fld("desired_by","Mong muốn có kết quả trước",'<input id="adhc-desired" type="date" data-model="desired_by" value="'+esc(d.desired_by||"")+'">')
+      + fld("cc_users","CC (người theo dõi)",'<div class="cc-box"><div class="cc-chips" id="adhc-cc-chips"></div><input id="adhc-cc-q" type="text" autocomplete="off" placeholder="Gõ tên hoặc email, VD: kế toán, linh.vuong…" aria-label="Thêm người CC"><div class="cc-drop" id="adhc-cc-drop" hidden></div></div><div class="hint">Người được CC nhận thông báo và xem được phiếu, không duyệt. Tối đa 15 người.</div>').replace('class="fld','class="fld full')
       + '<div class="full" id="adhc-urgent-box"'+(urg===URGENT?"":" hidden")+'>'
       + fld("urgency_reason","Lý do gấp",'<textarea id="adhc-urgent-reason" data-model="urgency_reason" rows="2" placeholder="VD: brand chốt ngân sách trước 25/11">'+esc(d.urgency_reason||"")+'</textarea>',true)
       + '<div class="hint">Phiếu Gấp báo CEO ngay kể cả ngoài giờ (21h–9h); hạn 4 giờ làm việc.</div></div>'
@@ -249,7 +258,8 @@
       ["Hạn CEO", urg===URGENT?"4 giờ làm việc":"2 ngày làm việc"],
       ["Mong muốn có kết quả trước", d.desired_by],
       ["Người yêu cầu", c.employee_name||c.user],
-      ["Luồng duyệt", POOL_LABEL]];
+      ["Luồng duyệt", POOL_LABEL],
+      ["CC", ccList().map(function(u){ return ccNames()[u]||u; }).join(", ")]];
     h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join("");
     var box=$("adhc-urgent-box"); if(box) box.hidden=(urg!==URGENT); }
   function setModel(k,v){ state.draft=state.draft||{}; state.draft[k]=v; state.dirty=true; }
@@ -332,7 +342,34 @@
         state.draft._attachments.splice(i,1);
         setModel(field, (state.draft._attachments[0]||{}).url||"");
         renderFileList(field, labelId); }; }); }
-  function wireCreate(){ var b=$("adhc-body"); wireModels(b);
+  // ---- o CC: chip + goi y tu danh ba noi bo (search_cc_users). Luu vao draft.cc_users dang "a@x, b@x". ----
+  var CC_MAX=15;
+  function ccList(){ var v=(state.draft&&state.draft.cc_users)||""; return String(v).split(/[,;\n]/).map(function(x){ return x.trim(); }).filter(Boolean); }
+  function ccNames(){ state.ccNames=state.ccNames||{}; return state.ccNames; }
+  function ccSet(list){ setModel("cc_users", list.join(", ")); renderCcChips(); renderSummary(); clearFieldError("cc_users"); }
+  function renderCcChips(){ var h=$("adhc-cc-chips"); if(!h)return; var nm=ccNames();
+    h.innerHTML=ccList().map(function(u){ return '<span class="cc-chip" title="'+esc(u)+'">'+esc(nm[u]||u)+'<button type="button" data-ccrm="'+esc(u)+'" aria-label="Bỏ '+esc(nm[u]||u)+'">&times;</button></span>'; }).join("");
+    h.querySelectorAll("[data-ccrm]").forEach(function(b){ b.onclick=function(){ var u=b.getAttribute("data-ccrm"); ccSet(ccList().filter(function(x){ return x!==u; })); }; }); }
+  function ccAdd(u,name){ if(!u)return; var l=ccList(); if(l.indexOf(u)>=0)return; if(l.length>=CC_MAX){ setFieldError("cc_users","Chỉ CC tối đa "+CC_MAX+" người."); return; }
+    if(name) ccNames()[u]=name; l.push(u); ccSet(l); }
+  function wireCc(){ var q=$("adhc-cc-q"), drop=$("adhc-cc-drop"); if(!q||!drop)return; renderCcChips();
+    var timer=null, seq=0, items=[], idx=-1;
+    function close(){ drop.hidden=true; items=[]; idx=-1; }
+    function paint(){ drop.innerHTML=items.length?items.map(function(r,i){ return '<button type="button" class="cc-opt'+(i===idx?" on":"")+'" data-i="'+i+'">'+esc(r.full_name||r.user)+'<small>'+esc(r.user)+(r.department?" · "+esc(r.department):"")+'</small></button>'; }).join(""):'<div class="cc-opt"><small>Không tìm thấy người phù hợp.</small></div>';
+      drop.hidden=false; drop.querySelectorAll("[data-i]").forEach(function(b){ b.onmousedown=function(ev){ ev.preventDefault(); pick(+b.getAttribute("data-i")); }; }); }
+    function pick(i){ var r=items[i]; if(!r)return; ccAdd(r.user,r.full_name); q.value=""; close(); q.focus(); }
+    function search(){ var t=q.value.trim(); if(t.length<2){ close(); return; } var my=++seq;
+      call("search_cc_users",{q:t}).then(function(rows){ if(my!==seq)return; var have=ccList(); items=(rows||[]).filter(function(r){ return have.indexOf(r.user)<0; }); idx=items.length?0:-1; paint(); })
+        .catch(function(e){ if(my!==seq)return; drop.innerHTML='<div class="cc-opt"><small>'+esc(mapErr(e))+'</small></div>'; drop.hidden=false; }); }
+    q.addEventListener("input",function(){ clearTimeout(timer); timer=setTimeout(search,220); });
+    q.addEventListener("keydown",function(ev){
+      if(ev.key==="ArrowDown"&&items.length){ ev.preventDefault(); idx=(idx+1)%items.length; paint(); }
+      else if(ev.key==="ArrowUp"&&items.length){ ev.preventDefault(); idx=(idx-1+items.length)%items.length; paint(); }
+      else if(ev.key==="Enter"){ ev.preventDefault(); if(idx>=0) pick(idx); else if(/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(q.value.trim())){ ccAdd(q.value.trim().toLowerCase()); q.value=""; close(); } }
+      else if(ev.key==="Escape"){ close(); }
+      else if(ev.key==="Backspace"&&!q.value){ var l=ccList(); if(l.length){ l.pop(); ccSet(l); } } });
+    q.addEventListener("blur",function(){ setTimeout(close,150); }); }
+  function wireCreate(){ var b=$("adhc-body"); wireModels(b); wireCc();
     var att=document.querySelector('[data-upload="request_attachment"]'); if(att) att.addEventListener("change",function(){ uploadFile(att,"request_attachment","adhc-att-name"); }); if(att) renderFileList("request_attachment","adhc-att-name");
     if($("adhc-save")) $("adhc-save").onclick=function(){ saveDraft(false); };
     $("adhc-submit").onclick=function(){ saveDraft(true); };
@@ -414,6 +451,7 @@
       +'<div class="card"><h3>Tiến trình phê duyệt</h3><div class="stepper" id="d-stepper"></div><div class="hint" style="margin-top:6px">Cấp duyệt: '+esc(POOL_LABEL)+' · Hạn: '+(urgent?"4 giờ làm việc":"2 ngày làm việc")+'</div></div>'
       +'<div class="card"><h3>Nội dung đề xuất</h3><div class="grid2">'
         +kv("Mức độ",biz.urgency)+kv("Mong muốn có kết quả trước",biz.desired_by)
+        +(biz.cc_users?kv("CC",biz.cc_users).replace('class="fld','class="fld full'):'')
       +'</div>'+(urgent?'<div class="fld full" style="margin-top:10px"><label>Lý do gấp</label><textarea class="ro" readonly rows="2">'+esc(biz.urgency_reason||"")+'</textarea></div>':'')
       +'<div class="fld full" style="margin-top:10px"><label>Nội dung</label><textarea class="ro" readonly rows="6">'+esc(biz.content||"")+'</textarea></div></div>'
       +'<div class="card"><h3>Tài liệu &amp; phiếu liên quan</h3>'+renderAttachments(det.attachments)+linksHTML(det)+'</div>'

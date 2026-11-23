@@ -55,7 +55,7 @@ def publish_employee_review(dry_run=1, apply=0, commit=0):
     doc = frappe.get_doc("EC Approval Type", TYPE)
     doc.card_status = "Active"
     doc.process_status = "Live"
-    doc.route = ROUTE
+    doc.route = "/" + ROUTE.lstrip("/")  # EC Approval Type bat route bat dau bang "/" (p450 loi 23/11)
     doc.visibility_mode = "Restricted Roles"
     have = {r.role for r in doc.get("allowed_roles") or []}
     for role in CARD_ROLES:
@@ -63,5 +63,5 @@ def publish_employee_review(dry_run=1, apply=0, commit=0):
             doc.append("allowed_roles", {"role": role})
     doc.save(ignore_permissions=True)
     frappe.db.commit()
-    report["result"] = "the Active, route %s, chi %s" % (ROUTE, CARD_ROLES)
+    report["result"] = "the Active, route %s, chi %s" % (doc.route, CARD_ROLES)
     return report

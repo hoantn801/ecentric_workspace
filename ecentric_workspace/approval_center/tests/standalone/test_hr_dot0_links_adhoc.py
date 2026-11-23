@@ -198,6 +198,26 @@ class Adhoc(unittest.TestCase):
             adhoc.validate_business(W.D({"request_title": "T", "content": "C",
                                          "urgency": "Bình thường", "desired_by": "2026-01-01"}))
 
+    def test_cc_validated_and_requester_dropped(self):
+        WORLD.user("off@x", enabled=0)
+        doc = W.D({"request_title": "T", "content": "C", "urgency": "Bình thường",
+                   "requested_by": "req@x", "cc_users": "fin@x, req@x\nfin@x"})
+        adhoc.validate_business(doc)
+        self.assertEqual(doc["cc_users"], "fin@x")
+        for bad in ("off@x", "khong.co@x", "Administrator"):
+            with self.assertRaises(W.Err):
+                adhoc.validate_business(W.D({"request_title": "T", "content": "C", "urgency": "Bình thường",
+                                             "requested_by": "req@x", "cc_users": "fin@x, " + bad}))
+        many = ", ".join("u%d@x" % i for i in range(16))
+        for i in range(16):
+            WORLD.user("u%d@x" % i)
+        with self.assertRaises(W.Err):
+            adhoc.validate_business(W.D({"request_title": "T", "content": "C", "urgency": "Bình thường",
+                                         "requested_by": "req@x", "cc_users": many}))
+
+    def test_cc_definition_editable(self):
+        self.assertIn("cc_users", get_definition("ADHOC_APPROVAL").editable_fields)
+
     def test_engine_urgency_convention_matches_form(self):
         from ecentric_workspace.approval_center.features.adhoc_approval.domain.definition import URGENCY_LEVELS
         self.assertIn(adhoc.URGENT, tr.URGENT_VALUES)

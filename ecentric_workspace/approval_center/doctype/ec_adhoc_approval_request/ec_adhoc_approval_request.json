@@ -36,6 +36,7 @@
   "urgency",
   "urgency_reason",
   "desired_by",
+  "cc_users",
   "request_attachment"
  ],
  "fields": [
@@ -140,6 +141,12 @@
    "label": "Mong muốn có kết quả trước"
   },
   {
+   "fieldname": "cc_users",
+   "fieldtype": "Small Text",
+   "label": "CC (người theo dõi)",
+   "description": "Email người nhận thông báo, cách nhau dấu phẩy. Không duyệt, chỉ theo dõi phiếu."
+  },
+  {
    "fieldname": "request_attachment",
    "fieldtype": "Attach",
    "label": "Tệp đính kèm"
@@ -161,5 +168,5 @@
  ],
  "owner": "Administrator",
  "creation": "2026-11-23 10:00:00",
- "modified": "2026-11-23 10:00:00.000000"
+ "modified": "2026-11-23 15:00:00.000000"
 }

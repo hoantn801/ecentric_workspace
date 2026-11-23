@@ -261,6 +261,35 @@ class Watchers(unittest.TestCase):
         self.assertEqual(len(WORLD.rows(privacy.WATCHER_DT)), 1)
         self.assertIn((BIZ, "B1", "ceo@x"), WORLD.shares)
 
+    def test_submit_cc_watchers_before_activation(self):
+        # engine.submit(watchers=): CC thanh nguoi theo doi (nguon "CC") TRUOC khi kich hoat cap 1
+        # va truoc tin "vua duoc gui" -> nguoi duoc CC nhan luon tin gui.
+        order = []
+        stubs = {
+            "resolve_process": lambda t, c=None: W.D({"name": "P1", "version_no": 1}),
+            "resolve_levels": lambda n: [W.D({"level_no": 1, "mandatory": 1, "level_name": "CEO"})],
+            "resolve_requester_department": lambda *a: None,
+            "build_snapshot": lambda *a: order.append("snapshot"),
+            "add_watchers": lambda name, users, actor=None, source=None, _grant=True: order.append(
+                ("cc", list(users), actor, source)) or [],
+            "log_action": lambda *a, **k: None,
+            "_request_levels": lambda n: [W.D({"level_no": 1})],
+            "_activate_level": lambda req, no: order.append("activate"),
+            "_notify_watchers": lambda req, subj: order.append("notify"),
+        }
+        saved = {k: getattr(tr, k) for k in stubs}
+        try:
+            for k, v in stubs.items():
+                setattr(tr, k, v)
+            tr.submit(BIZ, "B9", "X", "req@x", watchers=["fin@x"])
+            self.assertEqual(order, ["snapshot", ("cc", ["fin@x"], "req@x", "CC"), "activate", "notify"])
+            order[:] = []
+            tr.submit(BIZ, "B10", "X", "req@x")
+            self.assertNotIn("cc", [o[0] if isinstance(o, tuple) else o for o in order])
+        finally:
+            for k, v in saved.items():
+                setattr(tr, k, v)
+
     def test_snapshot_watchers_from_notify_rows(self):
         proc = W.D({"participants": [_p(participant_purpose="Notify", source_type="User",
                                          user="ceo@x")]})

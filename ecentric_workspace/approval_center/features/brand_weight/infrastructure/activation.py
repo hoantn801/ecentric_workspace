@@ -35,6 +35,7 @@ def enable_brand_weight(dry_run=1, apply=0, commit=0):
         return report
     for code in (PROCESS_CODE, SELF_PROCESS_CODE):
         frappe.db.set_value("EC Approval Process", code, "status", "Active")
-    frappe.db.set_value("EC Approval Type", TYPE, "route", ROUTE)
+    # EC Approval Type.route bat dau bang "/" (validate); ROUTE giu dang page_sync (test parity).
+    frappe.db.set_value("EC Approval Type", TYPE, "route", "/" + ROUTE.lstrip("/"))
     report["result"] = "ENABLED"
     return report
