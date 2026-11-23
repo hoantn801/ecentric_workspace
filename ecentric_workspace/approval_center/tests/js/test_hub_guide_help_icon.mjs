@@ -58,10 +58,11 @@ const noGuide = { approval_code: "LEAVE", approval_title: "Nghỉ phép",
 const h1 = AC._cardHtml(withGuide);
 const h2 = AC._cardHtml(noGuide);
 ok(h1.includes('class="card-help"'), "the co bai phai co loi vao huong dan");
-// Vi tri (y Hoan 08/09): o HANG CHAN, SAU nut "Tao yeu cau" - khong phai goc tren
-// phai canh nhan trang thai. Chot lai de no khong lang le troi nguoc len.
-ok(/<div class="card-foot">[\s\S]*card-cta[\s\S]*card-help[\s\S]*<\/div>/.test(h1),
-   "loi vao huong dan phai nam trong .card-foot, sau nut CTA");
+// Vi tri (y Hoan 08/09): o HANG CHAN cua the - khong phai goc tren phai canh nhan trang thai.
+// The gon 23/11 (Hoan: "card cu to va thua") bo nut "Tao yeu cau" cua the dung duoc (ca the bam
+// duoc); "?" van nam cuoi hang chan .card-foot.
+ok(/<div class="card-foot">[\s\S]*card-help[\s\S]*<\/div>/.test(h1),
+   "loi vao huong dan phai nam trong .card-foot");
 ok(!/card-top[\s\S]*card-help[\s\S]*<\/div>\s*<div>/.test(h1),
    "khong duoc quay lai goc tren phai");
 ok(h1.includes('href="/huong-dan/dnmh-dntt"'), "icon ? phai tro dung route cua bai");
