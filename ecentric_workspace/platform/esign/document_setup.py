@@ -88,8 +88,74 @@ def _setup_state(requires_signature, is_pdf_like, covered, required, legacy_unma
 def _current_files(bd, bn):
     return frappe.get_all(
         "File", filters={"attached_to_doctype": bd, "attached_to_name": bn},
-        fields=["name", "file_name", "file_url", "content_hash", "is_private", "creation"],
+        fields=["name", "file_name", "file_url", "content_hash", "is_private", "creation",
+                "owner"],
         order_by="creation asc, name asc")
+
+
+def _is_requester(business_doctype, business_name, user):
+    """Nguoi dang xem la NGUOI LAP phieu (requested_by; khong co cot do thi owner)."""
+    try:
+        who = perms.business_requested_by(business_doctype, business_name) \
+            or frappe.db.get_value(business_doctype, business_name, "owner")
+    except Exception:
+        return False
+    return bool(who) and who == user
+
+
+def _visible_file_names(business_doctype, business_name, files):
+    """Ten File ma NGHIEP VU cho nguoi dang xem thay, hoac None (= khong loc).
+
+    PR-E (23/11/2026): khoi Tai lieu & ky so nay hien ca tren form Hop dong. Hop dong KOL an tep
+    du PII (ban sinh tu mau, ban ky, ban doi chung - PO 17/11 A) khoi danh sach Dinh kem qua
+    `attachment_redactor` cua dinh nghia loai phieu (approval_center registry). Khoi ky so dung
+    CUNG bo loc do cho NGUOI DUYET / nguoi xem khac.
+
+      * Loai phieu khong dang ky / khong khai redactor (DNTT) -> None, Y HET truoc.
+      * NGUOI LAP -> None (QC vong 2, 23/11): redactor viet cho the Dinh kem nen an ca ban
+        HDDV_...pdf cua chinh nguoi lap o buoc nhap; nguoi lap phai thay tep minh dat o ky.
+      * Tep do CHINH nguoi dang xem tai len -> luon giu.
+      * Redactor loi -> an het tep cua nguoi khac (fail-closed, nhu query_service).
+    Huong lau dai: hook rieng cua nghiep vu khai "tep ky" / bo loc cho ky so (THIETKE 2h)."""
+    try:
+        from ecentric_workspace.approval_center.shared.registry import get_definition_for_doctype
+        definition = get_definition_for_doctype(business_doctype)
+    except KeyError:
+        return None                                 # loai phieu chua dang ky Approval Center
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "esign document_setup registry %s"
+                         % business_doctype)
+        return set()
+    redactor = getattr(definition, "attachment_redactor", None)
+    if not redactor:
+        return None
+    user = frappe.session.user
+    if _is_requester(business_doctype, business_name, user):
+        return None
+    mine = {f.get("name") for f in files if f.get("owner") == user and f.get("name")}
+    try:
+        business = frappe.get_doc(business_doctype, business_name)
+        # request: redactor hien khong dung (kol_access.redact_attachments) - khong nap AR.
+        kept = redactor([dict(f) for f in files], business, None)
+        return mine | {k.get("name") for k in (kept or []) if k.get("name")}
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "esign document_setup attachment_redactor %s"
+                         % business_doctype)
+        return mine
+
+
+def _esign_enabled(business_doctype, business_name):
+    """Phieu nay CO ho so ky DANG BAT khong (PR-E, QC 23/11): ho so tat (dang dung thu) thi khoi
+    an tren form - _target van nhan ho so tat (co chu dich), nen phai noi rieng."""
+    if not frappe.db.exists("EC Digital Signature Profile",
+                            {"business_doctype": business_doctype, "enabled": 1}):
+        return False
+    try:
+        from ecentric_workspace.approval_center.shared.registry import get_definition_for_doctype
+        code = get_definition_for_doctype(business_doctype).code
+        return bool(guard.get_enabled_profile(business_doctype, code, business_name))
+    except Exception:
+        return True               # khong xac dinh duoc theo phieu -> khong an (loi khac tu bao)
 
 
 def _physical_key(f):
@@ -459,7 +525,11 @@ def get_document_setup_state(business_doctype, business_name):
     _req_keys = {sl["slot_key"] for sl in (plan.get("slots") or []) if sl.get("required")} \
         if plan.get("resolved") else set()
 
-    groups = _dedupe(_current_files(business_doctype, business_name))
+    files = _current_files(business_doctype, business_name)
+    all_groups = _dedupe(files)
+    visible = _visible_file_names(business_doctype, business_name, files)
+    groups = all_groups if visible is None else [g for g in all_groups
+                                                 if g["rep"]["name"] in visible]
     pkg_for_dsf = cur_name                          # Draft (editable) or immutable-live; never Cancelled/Superseded
     docs, n_sign, n_support = [], 0, 0
     for g in groups:
@@ -537,7 +607,11 @@ def get_document_setup_state(business_doctype, business_name):
         "summary": {"documents": len(docs), "requires_signature": n_sign,
                     "supporting_documents": n_support},
         "documents": docs,
-        "stale_signing_files": _stale_dsf(business_doctype, business_name, pkg_for_dsf, groups),
+        # Tep nghiep vu an voi nguoi dang xem (PII) - chi dem, khong ten / URL.
+        "hidden_documents": len(all_groups) - len(groups),
+        "esign_enabled": _esign_enabled(business_doctype, business_name),
+        "stale_signing_files": _stale_dsf(business_doctype, business_name, pkg_for_dsf,
+                                          all_groups),
     }
 
 

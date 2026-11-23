@@ -14,10 +14,29 @@ NAME = "contract-review"
 TITLE = "Contract Review"
 
 
+_PLATFORM_ESIGN_UI = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__)))))),
+    "platform", "esign", "ui")
+
+
+def _document_signing_section():
+    """Khoi "Tai lieu & ky so" DUNG CHUNG cua nen tang ky so (PR-E, 23/11/2026 - cung tep trang
+    DNTT ghep). Tu gan vao #ctr-esign-slot khi trang ve chi tiet; trang danh sach / tao moi
+    khong co slot nen khoi khong lam gi. Thieu tep -> '' (sync khong bao gio hong vi no)."""
+    try:
+        with open(os.path.join(_PLATFORM_ESIGN_UI, "document_signing_section.html"),
+                  encoding="utf-8") as fh:
+            return fh.read()
+    except OSError:
+        return ""
+
+
 def _html():
     base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     with open(os.path.join(base, "ui", "main_section.html"), encoding="utf-8") as fh:
-        return fh.read()
+        main = fh.read()
+    return main + "\n" + _document_signing_section()
 
 
 def sync(html=None, force=0):

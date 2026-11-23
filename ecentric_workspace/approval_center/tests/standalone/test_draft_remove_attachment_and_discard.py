@@ -300,7 +300,9 @@ class TestWiring(unittest.TestCase):
         self.assertIn("ds.remove_attachment(", api[i:i + 900])  # 11/11: chu ky ham dai hon (chang 3)
         h = _read("platform", "esign", "ui", "document_signing_section.html")
         self.assertIn('data-remove-any="1"', h)
-        self.assertIn('call("remove_attachment", { payment_request_name: name, document_ref: ref }, "POST")', h)
+        # PR-E (23/11): tham so chung tu qua target() (DNTT: payment_request_name; Hop dong: business_*).
+        self.assertIn('call("remove_attachment", target({ document_ref: ref }), "POST")', h)
+        self.assertIn("else o.payment_request_name = pr();", h)
         self.assertIn("STATE._can_remove_any = !!(STATE.editable && STATE.can_classify)", h)
         self.assertIn("Các vị trí ký đã đặt trên tệp này sẽ bị xoá.", h)
         self.assertIn("chỉ lưu trên ERP, không gửi CMC", h)
