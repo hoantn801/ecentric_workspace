@@ -126,7 +126,10 @@ def funding_so_can_view(pr, user):
 #   "HDDV/09102026/DMG-ECENTRIC-MCTRANNGOC"  (HDDV truoc ngay, khong co ".mau", ten doi tac truoc ECENTRIC)
 # Ban cu chi nhan kieu 1 -> kieu 2 bi bao "phai gan hop dong KOL" du da chon No + ghi so HD.
 # Nhan ca HĐDV (co dau). Ky tu cuoi phai la chu/so: khong an ")" "." "-" dinh sau so HD.
-_OLD_NUMBER = re.compile(r"(?<![\w/])(?:\d{8}/H[DĐ]DV|H[DĐ]DV/\d{8})/[A-Za-z0-9][A-Za-z0-9().\-]*[A-Za-z0-9]", re.I)
+# 23/11 (Hoan, EC-PAYR-2026-00749): so tool cu co ca dang 4 chu so dau (2509/HDDV/ECENTRIC-BK-VITA),
+# khong chi 8 chu so ngay (05112026/HDDV/...). Chap nhan 4-8 chu so TRUOC HDDV; sau HDDV van 8 so
+# (HDDV/2026/ABC khong phai so HD - QC 18/11).
+_OLD_NUMBER = re.compile(r"(?<![\w/])(?:\d{4,8}/H[DĐ]DV|H[DĐ]DV/\d{8})/[A-Za-z0-9][A-Za-z0-9().\-]*[A-Za-z0-9]", re.I)
 _RELEASED = ("Rejected", "Cancelled")
 
 
