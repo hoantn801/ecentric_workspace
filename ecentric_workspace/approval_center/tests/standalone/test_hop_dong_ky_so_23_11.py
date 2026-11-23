@@ -230,7 +230,7 @@ class HookDoiChieu(unittest.TestCase):
 
     def test_hop_dong_thuong_khong_doi_chieu(self):
         _kol_doc(contract_type="Purchase / Mua vào (EC)")
-        self.assertEqual(_hooks().verify_document(CR, "CR-1", "x.pdf", ["bất kỳ"])["status"], "match")
+        self.assertEqual(_hooks().verify_document(CR, "CR-1", "x.pdf", ["bất kỳ"])["status"], "not_applicable")
 
 
 class HookDoiTac(unittest.TestCase):
@@ -451,7 +451,9 @@ class KhaiBaoVaBaoNguoiLap(unittest.TestCase):
             self.assertIn("ecentric_workspace.approval_center.patches." + p, patches)
         man = _read("patches/resync_manifest.json")
         blk = man[man.index('"approval_center/features/contract_review/ui/main_section.html"'):]
-        self.assertIn('"last_resync_patch": "p481_resync_hop_dong_ky_so"', blk[:300])
+        # Trang form 27 con duoc PR sau resync (vd p499 dau trang form) -> chi doi: patch resync cuoi da khai.
+        last = re.search(r'"last_resync_patch": "([^"]+)"', blk[:300]).group(1)
+        self.assertIn("ecentric_workspace.approval_center.patches." + last, patches)
 
 
 if __name__ == "__main__":

@@ -45,8 +45,8 @@
     "sha256": "3750136d621f79a77a60a128b3d77485a47ffd6b5f521f3fc502801c0c2d0b3d"
   },
   "approval_center/features/contract_review/ui/main_section.html": {
-    "last_resync_patch": "p499_resync_dau_trang_form_phe_duyet",
-    "sha256": "e16895e6370a0ee088e0264a5bd65105e7f0cf8692fb685c15e3aa540f546038"
+    "last_resync_patch": "p512_resync_hop_dong_thay_pdf",
+    "sha256": "ab1c3c75c0470e61e66cbaf9f3dc455ade9a247a756b7dd4abb8d42ac8e369b3"
   },
   "approval_center/features/daily_target/ui/main_section.html": {
     "baseline": "2026-08-31",

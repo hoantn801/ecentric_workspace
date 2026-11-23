@@ -207,8 +207,14 @@ def redact_attachments(attachments, business, request=None):
     if not kol.is_kol(business):
         return attachments
     allowed = can_download_full(business, frappe.session.user)
+    sign_url = _approver_sign_pdf(business, frappe.session.user)
     out = []
     for a in attachments or []:
+        if sign_url and a.get("file_url") == sign_url:
+            # PO 24/11 (cau 4 chat Ky so): nguoi trong luong duyet (KTTH, KTT, CEO) xem / mo duoc ban PDF
+            # de ky o khoi Ky so - ho ky chinh tep do. Moi tep PII khac van an.
+            out.append(a)
+            continue
         if a.get("docx_file_url") or a.get("pdf_file_url"):
             if allowed:
                 out.append(a)
@@ -224,6 +230,21 @@ def redact_attachments(attachments, business, request=None):
             continue
         out.append(a)
     return out
+
+
+def _approver_sign_pdf(business, user):
+    """URL "Ban PDF de ky" neu `user` nam trong luong duyet phieu nay va phieu ky qua nen tang ky so;
+    nguoc lai None. Doc lai tu DB: `business` co the da qua redact_business (sign_pdf = None)."""
+    name = business.get("name")
+    if not name or not user or user == "Guest":
+        return None
+    row = frappe.db.get_value(kol_lookup.CR_DT, name, ["sign_pdf", "approval_request"], as_dict=True) or {}
+    url, ar = row.get("sign_pdf"), row.get("approval_request")
+    if not url or not ar:
+        return None
+    if not frappe.db.exists("EC Approval Request Approver", {"approval_request": ar, "approver": user}):
+        return None
+    return url if _esign_enabled(name) else None
 
 
 def _is_pii_attachment(business, a):
