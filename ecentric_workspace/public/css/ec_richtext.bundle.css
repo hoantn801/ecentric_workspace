@@ -1,0 +1,29 @@
+/* ec_richtext.bundle.css - o soan noi dung kieu mail dung chung (ec_richtext.bundle.js), 23/11/2026.
+   Namespace .ecrt-* (o soan) + .ec-rt-view (vung VE noi dung da soan). */
+.ecrt { border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; position: relative; }
+.ecrt:focus-within { border-color: #2C3DA6; box-shadow: 0 0 0 3px #eef0fb; }
+.ecrt-tb { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 6px 8px; border-bottom: 1px solid #eef0f4; background: #fafbfc; border-radius: 10px 10px 0 0; position: relative; }
+.ecrt-b { min-width: 30px; height: 30px; padding: 0 6px; border: 0; border-radius: 6px; background: transparent; color: #374151; font-family: inherit; font-weight: 600; font-size: 13.5px; line-height: 1; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.ecrt-b:hover { background: #eef0fb; color: #2C3DA6; }
+.ecrt-b:focus-visible { outline: 2px solid #2C3DA6; outline-offset: 1px; }
+.ecrt-sep { width: 1px; height: 18px; background: #e5e7eb; margin: 0 4px; }
+.ecrt-a { border-bottom: 3px solid #c0392b; line-height: 1; padding: 0 1px; }
+.ecrt-hl { background: #fff3a3; padding: 0 2px; border-radius: 2px; }
+.ecrt-pop { position: absolute; top: 100%; left: 8px; z-index: 40; margin-top: 4px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 8px 24px rgba(15, 23, 42, .12); max-width: min(420px, 92vw); }
+.ecrt-pop[hidden] { display: none; }
+.ecrt-sw { width: 24px; height: 24px; border-radius: 50%; border: 1px solid rgba(0, 0, 0, .1); cursor: pointer; padding: 0; }
+.ecrt-sw-x { background: #fff; color: #6b7280; font-size: 12px; }
+.ecrt-in { flex: 1 1 180px; min-width: 0; padding: 7px 10px; border: 1px solid #e5e7eb; border-radius: 8px; font: inherit; font-size: 13px; }
+.ecrt-in.bad { border-color: #dc2626; }
+.ecrt-ok { padding: 7px 12px; border: 0; border-radius: 8px; background: #2C3DA6; color: #fff; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+.ecrt-ed { min-height: 220px; max-height: 60vh; overflow: auto; padding: 12px 14px; outline: none; font-size: 14px; line-height: 1.6; color: #1f2937; word-wrap: break-word; }
+.ecrt-ed.is-empty::before { content: attr(data-ph); color: #9ca3af; pointer-events: none; position: absolute; }
+.ecrt-ed p, .ec-rt-view p { margin: 0 0 8px; }
+.ecrt-ed ul, .ecrt-ed ol, .ec-rt-view ul, .ec-rt-view ol { margin: 0 0 8px; padding-left: 24px; }
+.ecrt-ed blockquote, .ec-rt-view blockquote { margin: 0 0 8px; padding: 4px 12px; border-left: 3px solid #c7cef0; color: #4b5563; background: #f8f9fe; }
+.ecrt-ed table, .ec-rt-view table { border-collapse: collapse; margin: 0 0 10px; max-width: 100%; }
+.ecrt-ed td, .ecrt-ed th, .ec-rt-view td, .ec-rt-view th { border: 1px solid #d1d5db; padding: 5px 8px; min-width: 40px; vertical-align: top; }
+.ecrt-ed th, .ec-rt-view th { background: #f3f4f6; font-weight: 600; }
+.ecrt-ed a, .ec-rt-view a { color: #2C3DA6; text-decoration: underline; }
+.ec-rt-view { font-size: 14px; line-height: 1.6; color: #1f2937; word-wrap: break-word; overflow-x: auto; padding: 12px 14px; border: 1px solid #e5e7eb; border-radius: 10px; background: #fafbfc; }
+@media (max-width: 640px) { .ecrt-b { min-width: 34px; height: 34px; } .ecrt-ed { min-height: 180px; } }

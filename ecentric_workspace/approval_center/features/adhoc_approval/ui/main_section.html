@@ -65,6 +65,22 @@
   #ec-adhc-root .fld.invalid input,#ec-adhc-root .fld.invalid select,#ec-adhc-root .fld.invalid textarea{ border-color:var(--red); }
   #ec-adhc-root .full{ grid-column:1/-1; }
   #ec-adhc-root .hint{ font-size:12px;color:var(--gray-500); }
+  #ec-adhc-root .card.mail .mail-row{ display:flex; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid var(--gray-100); min-height:44px; }
+  #ec-adhc-root .card.mail .mail-k{ flex:0 0 78px; font-size:13px; font-weight:600; color:var(--gray-500); }
+  #ec-adhc-root .card.mail .mail-v{ flex:1; min-width:0; font-size:14px; }
+  #ec-adhc-root .card.mail .mail-v input{ width:100%; border:0; padding:6px 0; font-size:14.5px; font-family:inherit; background:transparent; outline:none; }
+  #ec-adhc-root .card.mail #adhc-title{ font-weight:600; }
+  #ec-adhc-root .card.mail .mail-row-in:focus-within{ border-bottom-color:var(--navy); }
+  #ec-adhc-root .card.mail .mail-row.invalid{ border-bottom-color:var(--red); }
+  #ec-adhc-root .card.mail .mail-row .err{ flex:0 0 auto; font-size:12px; color:var(--red); }
+  #ec-adhc-root .mail-to{ display:inline-flex; padding:2px 10px; border-radius:999px; background:var(--navy-50); color:var(--navy); font-weight:700; font-size:12.5px; }
+  #ec-adhc-root .mail-dim{ color:var(--gray-500); font-size:12.5px; }
+  #ec-adhc-root .mail-body{ margin-top:14px; }
+  #ec-adhc-root .mail-body.invalid .ecrt{ border-color:var(--red); }
+  #ec-adhc-root .card.mail .cc-box .cc-chips{ margin-bottom:0; }
+  #ec-adhc-root .card.mail .cc-box{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+  #ec-adhc-root .card.mail .cc-box input{ flex:1 1 200px; width:auto; }
+  @media (max-width:640px){ #ec-adhc-root .card.mail .mail-k{ flex-basis:58px; } }
   #ec-adhc-root .cc-box{ position:relative; }
   #ec-adhc-root .cc-chips{ display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px; }
   #ec-adhc-root .cc-chip{ display:inline-flex;align-items:center;gap:6px;padding:4px 6px 4px 10px;border-radius:999px;background:var(--navy-50);color:var(--navy);font-size:12.5px;font-weight:600; }
@@ -225,15 +241,19 @@
   function formCardsHTML(d,c,fo){
     var lv=(fo&&fo.urgency_levels)||["Bình thường",URGENT]; var urg=d.urgency||lv[0];
     var opts=lv.map(function(v){ return '<option value="'+esc(v)+'"'+(v===urg?" selected":"")+'>'+esc(v)+'</option>'; }).join("");
-    return '<div class="card"><h3>Người yêu cầu</h3><div class="grid2">'
-      + fld("_r1","Người yêu cầu",'<input class="ro" readonly value="'+esc(c.employee_name||c.user||"")+'">')
-      + fld("_r2","Phòng ban",'<input class="ro" readonly value="'+esc(c.department||"—")+'">')
-      + '</div></div><div class="card"><h3>Nội dung đề xuất</h3><div class="grid2">'
-      + fld("request_title","Tiêu đề",'<input id="adhc-title" data-model="request_title" maxlength="140" value="'+esc(d.request_title||"")+'">',true).replace('class="fld','class="fld full')
-      + fld("content","Nội dung đề xuất",'<textarea id="adhc-content" data-model="content" rows="6" placeholder="VD: Đề xuất tăng 80.000.000đ ngân sách KOL tháng 12 cho brand A, lý do: …">'+esc(d.content||"")+'</textarea>',true).replace('class="fld','class="fld full')
+    // Soan kieu MAIL (23/11/2026, Hoan: phieu nay thay viec xin CEO duyet qua mail):
+    // Tu / Gui toi / CC / Tieu de / Noi dung (o soan dinh dang dung chung EcRichText) / Muc do / Tep.
+    var from=esc(c.employee_name||c.user||"")+(c.department?' <span class="mail-dim">· '+esc(c.department)+'</span>':'');
+    return '<div class="card mail"><h3>Soạn đề xuất</h3>'
+      + '<div class="mail-row"><span class="mail-k">Từ</span><span class="mail-v">'+from+'</span></div>'
+      + '<div class="mail-row"><span class="mail-k">Gửi tới</span><span class="mail-v"><span class="mail-to">CEO</span> <span class="mail-dim">người có role EC CEO · duyệt / trả lại bổ sung / từ chối</span></span></div>'
+      + '<div class="mail-row mail-row-in" data-fld="cc_users"><label class="mail-k" for="adhc-cc-q">CC</label><div class="mail-v cc-box"><div class="cc-chips" id="adhc-cc-chips"></div><input id="adhc-cc-q" type="text" autocomplete="off" placeholder="Gõ tên hoặc email, VD: kế toán, linh.vuong…" aria-label="Thêm người CC"><div class="cc-drop" id="adhc-cc-drop" hidden></div></div></div>'
+      + '<div class="mail-row mail-row-in" data-fld="request_title"><label class="mail-k" for="adhc-title">Tiêu đề <span class="req">*</span></label><div class="mail-v"><input id="adhc-title" data-model="request_title" maxlength="140" placeholder="VD: Xin duyệt tăng ngân sách KOL tháng 12 – brand A" value="'+esc(d.request_title||"")+'"></div></div>'
+      + '<div class="fld full mail-body" data-fld="content"><label>Nội dung <span class="req">*</span></label><div id="adhc-editor"></div>'
+      + '<div class="hint">Soạn như mail: in đậm, màu chữ, danh sách, bảng, link. Dán từ Outlook / Gmail / Word / Excel vẫn giữ định dạng. Ảnh dán vào được đưa xuống Tệp đính kèm.</div></div>'
+      + '<div class="grid2" style="margin-top:12px">'
       + fld("urgency","Mức độ",'<select id="adhc-urgency" data-model="urgency">'+opts+'</select>',true)
       + fld("desired_by","Mong muốn có kết quả trước",'<input id="adhc-desired" type="date" data-model="desired_by" value="'+esc(d.desired_by||"")+'">')
-      + fld("cc_users","CC (người theo dõi)",'<div class="cc-box"><div class="cc-chips" id="adhc-cc-chips"></div><input id="adhc-cc-q" type="text" autocomplete="off" placeholder="Gõ tên hoặc email, VD: kế toán, linh.vuong…" aria-label="Thêm người CC"><div class="cc-drop" id="adhc-cc-drop" hidden></div></div><div class="hint">Người được CC nhận thông báo và xem được phiếu, không duyệt. Tối đa 15 người.</div>').replace('class="fld','class="fld full')
       + '<div class="full" id="adhc-urgent-box"'+(urg===URGENT?"":" hidden")+'>'
       + fld("urgency_reason","Lý do gấp",'<textarea id="adhc-urgent-reason" data-model="urgency_reason" rows="2" placeholder="VD: brand chốt ngân sách trước 25/11">'+esc(d.urgency_reason||"")+'</textarea>',true)
       + '<div class="hint">Phiếu Gấp báo CEO ngay kể cả ngoài giờ (21h–9h); hạn 4 giờ làm việc.</div></div>'
@@ -308,7 +328,8 @@
       var v=(window.EcMoney&&el.hasAttribute("data-money"))?EcMoney.val(el):el.type==="number"?(el.value===""?null:Number(el.value)):el.value; setModel(k,v);
       renderSummary(); clearFieldError(k); }); }
   function wireModels(scope){ (scope||document).querySelectorAll("[data-model]").forEach(attachModel); }
-  function uploadFile(fileInput,field,labelId){ var files=fileInput.files?Array.prototype.slice.call(fileInput.files):[]; if(!files.length) return;
+  function uploadFile(fileInput,field,labelId){ var files=fileInput.files?Array.prototype.slice.call(fileInput.files):[]; uploadList(files,field,labelId); fileInput.value=""; }
+  function uploadList(files,field,labelId){ if(!files||!files.length) return;
     var lbl=$(labelId); if(lbl) lbl.textContent="Đang tải...";
     var DT="EC Adhoc Approval Request";
     state.draft=state.draft||{}; state.draft._attachments=state.draft._attachments||[];
@@ -328,8 +349,7 @@
         renderFileList(field, labelId); })
       .catch(function(e){ renderFileList(field, labelId);
         if(lbl){ var d=document.createElement("div"); d.style.color="#dc2626"; d.style.fontSize="12.5px";
-          d.textContent=(e&&e.message)||"Lỗi tải tệp."; lbl.appendChild(d); } });
-    fileInput.value=""; }
+          d.textContent=(e&&e.message)||"Lỗi tải tệp."; lbl.appendChild(d); } }); }
   function renderFileList(field, labelId){
     var lbl=$(labelId); if(!lbl) return;
     var list=((state.draft||{})._attachments)||[];
@@ -369,7 +389,17 @@
       else if(ev.key==="Escape"){ close(); }
       else if(ev.key==="Backspace"&&!q.value){ var l=ccList(); if(l.length){ l.pop(); ccSet(l); } } });
     q.addEventListener("blur",function(){ setTimeout(close,150); }); }
-  function wireCreate(){ var b=$("adhc-body"); wireModels(b); wireCc();
+  // O soan noi dung kieu mail (asset dung chung ec_richtext.bundle.js). Khong co asset (trang cu /
+  // loi tai) -> o chu tran nhu truoc, du lieu van gui duoc.
+  function plainToHtml(t){ return String(t||"").split(/\r?\n\r?\n/).filter(function(x){ return x.trim(); }).map(function(x){ return "<p>"+esc(x).replace(/\r?\n/g,"<br>")+"</p>"; }).join(""); }
+  function wireEditor(){ var host=$("adhc-editor"); if(!host) return; var d=state.draft=state.draft||{};
+    if(!window.EcRichText){ host.innerHTML='<textarea id="adhc-content" data-model="content" rows="8">'+esc(d.content||"")+'</textarea>'; wireModels(host); return; }
+    var first=true;
+    state.editor=EcRichText.mount(host,{ html:d.content_html||plainToHtml(d.content), placeholder:"Kính gửi anh/chị, … (VD: Đề xuất tăng 80.000.000đ ngân sách KOL tháng 12 cho brand A, lý do: …)",
+      onChange:function(html){ if(first){ first=false; return; } setModel("content_html",html); setModel("content",EcRichText.toText(html)); renderSummary(); clearFieldError("content"); },
+      onFiles:function(files){ uploadList(files,"request_attachment","adhc-att-name"); toast("Đã đưa ảnh xuống Tệp đính kèm."); },
+      onDroppedImages:function(){ toast("Ảnh trong nội dung dán vào không giữ được — chụp màn hình rồi dán, hoặc thêm ở Tệp đính kèm.",true); } }); }
+  function wireCreate(){ var b=$("adhc-body"); wireModels(b); wireCc(); wireEditor();
     var att=document.querySelector('[data-upload="request_attachment"]'); if(att) att.addEventListener("change",function(){ uploadFile(att,"request_attachment","adhc-att-name"); }); if(att) renderFileList("request_attachment","adhc-att-name");
     if($("adhc-save")) $("adhc-save").onclick=function(){ saveDraft(false); };
     $("adhc-submit").onclick=function(){ saveDraft(true); };
@@ -453,7 +483,7 @@
         +kv("Mức độ",biz.urgency)+kv("Mong muốn có kết quả trước",biz.desired_by)
         +(biz.cc_users?kv("CC",biz.cc_users).replace('class="fld','class="fld full'):'')
       +'</div>'+(urgent?'<div class="fld full" style="margin-top:10px"><label>Lý do gấp</label><textarea class="ro" readonly rows="2">'+esc(biz.urgency_reason||"")+'</textarea></div>':'')
-      +'<div class="fld full" style="margin-top:10px"><label>Nội dung</label><textarea class="ro" readonly rows="6">'+esc(biz.content||"")+'</textarea></div></div>'
+      +'<div class="fld full" style="margin-top:10px"><label>Nội dung</label>'+contentView(biz)+'</div></div>'
       +'<div class="card"><h3>Tài liệu &amp; phiếu liên quan</h3>'+renderAttachments(det.attachments)+linksHTML(det)+'</div>'
       +watchersHTML(pv)
       +'<div class="card"><h3>Hành động</h3>'+actionPanelHTML(det)+'</div>'
@@ -465,6 +495,9 @@
   }
   // Khoi "Gan phieu duyet" ve boi asset dung chung (ec_approval_links.bundle.js) - o day chi dat vao the.
   function linksHTML(det){ var cap=det.capabilities||{}; return (window.EcApprovalLinks?EcApprovalLinks.blockHTML(cap):""); }
+  function contentView(biz){
+    if(biz.content_html && window.EcRichText) return '<div class="ec-rt-view">'+EcRichText.clean(biz.content_html)+'</div>';
+    return '<textarea class="ro" readonly rows="6">'+esc(biz.content||"")+'</textarea>'; }
   function watchersHTML(pv){ var w=(pv&&pv.watchers)||[]; if(!w.length) return "";
     return '<div class="card"><h3>Người theo dõi</h3>'+w.map(function(x){ return '<div class="summary-row"><span>'+esc(x.name||x.user)+'</span><b>Theo dõi, nhận thông báo lúc gửi và lúc xong</b></div>'; }).join("")+'</div>'; }
   function accessLogHTML(pv){ var l=(pv&&pv.access_log)||[]; if(!l.length) return "";

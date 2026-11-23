@@ -26,7 +26,7 @@ APPROVAL_TYPE = "ADHOC_APPROVAL"
 URGENT = "Gấp"
 NORMAL = "Bình thường"
 URGENT_SLA_POLICY = "ADHOC_APPROVAL_URGENT_4H"
-MATERIAL_FIELDS = ["request_title", "content", "urgency", "urgency_reason", "desired_by"]
+MATERIAL_FIELDS = ["request_title", "content", "content_html", "urgency", "urgency_reason", "desired_by"]
 MAX_TITLE = 140
 
 
@@ -43,6 +43,10 @@ def validate_business(doc):
     """Luat nghiep vu khi gui / gui lai (cau tieng Viet de nguoi dung sua duoc)."""
     if not (doc.get("request_title") or "").strip():
         frappe.throw(_("Vui lòng nhập tiêu đề."))
+    if doc.get("content_html"):
+        # Noi dung soan kieu mail: chu tran suy ra tu HTML (DocType.validate cung lam khi luu).
+        from ecentric_workspace.approval_center.shared import rich_text
+        doc.content = rich_text.to_text(doc.get("content_html")) or None
     if not (doc.get("content") or "").strip():
         frappe.throw(_("Vui lòng nhập nội dung đề xuất."))
     urg = doc.get("urgency") or NORMAL
