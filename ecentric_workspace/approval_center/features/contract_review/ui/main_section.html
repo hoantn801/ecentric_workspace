@@ -235,7 +235,7 @@
   function changedFields(){ var p=prevData(), d=state.draft||{}; if(!p) return [];
     return DIFF_FIELDS.filter(function(f){ return String(d[f]==null?"":d[f])!==String(p[f]==null?"":p[f]); }); }
   function willSkipCEO(){ var d=state.draft||{};
-    if(d.request_kind!=="Existing"||!d.previous_request) return false;
+    if(d.request_kind!=="Existing"||!d.previous_request||isLabor(d)) return false;
     return changedFields().every(function(f){ return ADJUST_ONLY.indexOf(f)>=0; }); }
   function deadlineText(kind){ var days=RESPONSE_DAYS[kind]||3;
     return days+" ngày làm việc"+(kind==="Existing"?" (hợp đồng sẵn có)":" (hợp đồng mới)"); }
@@ -379,9 +379,13 @@
   var MATERIAL=["request_kind","previous_request","contract_type","request_type","brand","justification","contract_value","contract_start_date","contract_end_date","request_details"];
   function materialSnap(d){ return MATERIAL.map(function(k){return String((d||{})[k]||"");}).join("|"); }
 
+  // Hop dong lao dong (PO 24/11): Nhan su (C&B) duyet noi dung -> CEO ky. Nguon that: domain/routing.py + process V2.
+  var LEVELS_LABOR=["Nhân sự (C&B) duyệt","CEO duyệt"];
   function previewSteps(){
     var skip=willSkipCEO();
     var steps=[{name:"Tạo yêu cầu",state:"current",statusLabel:"Đang thực hiện",meta:"Điền thông tin hợp đồng."}];
+    if(isLabor(state.draft)){ LEVELS_LABOR.forEach(function(n){ steps.push({name:n,state:"upcoming",statusLabel:"Chờ",meta:""}); });
+      steps.push({name:"Hoàn tất",state:"upcoming",statusLabel:"Chờ",meta:""}); return steps; }
     LEVELS_ALL.forEach(function(n,i){
       if(i===3 && skip){ steps.push({name:n,state:"skipped",statusLabel:"CC",meta:"Chỉ điều chỉnh — CEO nhận thông báo, không cần duyệt."}); }
       else steps.push({name:n,state:"upcoming",statusLabel:"Chờ",meta:""});
@@ -416,7 +420,7 @@
       ["Loại hợp đồng",d.contract_type],["Legal entity / Brand",d.brand],["Giá trị",vnd],
       ["Người yêu cầu",c.employee_name||c.user],["Phòng ban",d.department||c.department],
       ["Hạn phản hồi",deadlineText(d.request_kind||"New")],
-      ["Luồng duyệt",willSkipCEO()?"3 cấp (CEO nhận CC)":"4 cấp (đến CEO)"]];
+      ["Luồng duyệt",isLabor(d)?"2 cấp (Nhân sự → CEO)":(willSkipCEO()?"3 cấp (CEO nhận CC)":"4 cấp (đến CEO)")]];
     h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
 
   function suggestTitle(d){ d=d||{};

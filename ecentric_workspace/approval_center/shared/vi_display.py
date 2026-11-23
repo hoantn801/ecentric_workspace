@@ -29,6 +29,7 @@ LEVEL_NAMES = {
     "Finance Team Review": "Finance Team duyệt",
     "HOF Review": "Head of Finance duyệt",
     "Head of Finance Review": "Head of Finance duyệt",
+    "HR & C&B Review": "Nhân sự (C&B) duyệt",
     "HR Manager Review": "HR Manager duyệt",
     "HR Review": "HR duyệt",
     "New Line Manager Review": "Quản lý mới duyệt",
