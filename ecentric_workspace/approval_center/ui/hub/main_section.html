@@ -85,8 +85,72 @@
   #ec-apc-root .apc-mine.is-late .apc-mine-n{ background:var(--red); }
   #ec-apc-root .apc-mine.is-late .apc-mine-t span{ color:#b42318; font-weight:600; }
   @media (max-width:420px){ #ec-apc-root .apc-mine-go{ display:none; } }
+  /* Ghim + hay dung (23/11/2026, Hoan chon mockup A): loai minh hay gui nam tren cung. */
+  #ec-apc-root .apc-tops{ display:grid; grid-template-columns:minmax(0,1.35fr) minmax(0,1fr); gap:16px; margin:0 0 18px; }
+  #ec-apc-root .apc-tops.one{ grid-template-columns:minmax(0,1fr); }
+  #ec-apc-root .apc-panel{ background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:14px 16px; min-width:0; }
+  #ec-apc-root .apc-panel h2{ margin:0 0 10px; font-size:15px; font-weight:700; color:var(--gray-900); display:flex; align-items:center; gap:8px; }
+  #ec-apc-root .apc-panel h2 small{ font-size:12px; font-weight:500; color:var(--gray-500); }
+  #ec-apc-root .apc-pins{ display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px; }
+  #ec-apc-root .apc-pin{ position:relative; display:flex; flex-direction:column; gap:4px; padding:12px; border-radius:11px; border:1px solid #f1d78a; background:#fffdf6; text-decoration:none; color:var(--gray-900); min-width:0; }
+  #ec-apc-root .apc-pin:hover{ border-color:#e3b93c; box-shadow:0 6px 16px rgba(0,0,0,.06); }
+  #ec-apc-root .apc-pin b{ font-size:14px; line-height:1.3; padding-right:22px; }
+  #ec-apc-root .apc-pin span{ font-size:12.5px; color:var(--navy); font-weight:600; }
+  #ec-apc-root .apc-empty{ font-size:13px; color:var(--gray-500); padding:6px 0; }
+  #ec-apc-root .apc-use{ display:flex; flex-direction:column; }
+  #ec-apc-root .apc-use a{ display:flex; align-items:center; gap:10px; padding:7px 8px; border-radius:9px; text-decoration:none; color:var(--gray-800); min-width:0; }
+  #ec-apc-root .apc-use a:hover{ background:var(--gray-50); }
+  #ec-apc-root .apc-use .u-t{ flex:1; min-width:0; font-weight:600; font-size:13.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #ec-apc-root .apc-use .u-bar{ width:80px; height:6px; border-radius:4px; background:var(--gray-100); overflow:hidden; flex:none; }
+  #ec-apc-root .apc-use .u-bar i{ display:block; height:100%; background:var(--navy); border-radius:4px; }
+  #ec-apc-root .apc-use .u-n{ width:72px; text-align:right; font-size:12px; color:var(--gray-500); flex:none; }
+  #ec-apc-root .star{ border:0; background:transparent; cursor:pointer; padding:2px; color:var(--gray-300); line-height:0; border-radius:6px; flex:none; }
+  #ec-apc-root .star:hover{ color:#d99a00; background:var(--yellow-50); }
+  #ec-apc-root .star.on{ color:#e0a100; }
+  #ec-apc-root .star svg{ width:18px; height:18px; stroke:currentColor; stroke-width:1.8; fill:none; stroke-linejoin:round; }
+  #ec-apc-root .star.on svg{ fill:currentColor; }
+  #ec-apc-root .apc-pin .star{ position:absolute; top:8px; right:8px; }
+  /* Thanh cong cu MOT dong: o tim + chip danh muc; chip thua thi cuon ngang, mep phai mo dan. */
+  #ec-apc-root .apc-tools{ display:flex; align-items:center; gap:12px; margin-bottom:18px; }
+  #ec-apc-root .apc-tools .apc-search{ flex:none; }
+  #ec-apc-root .apc-tools .apc-search input{ width:260px; }
   /* category chips */
-  #ec-apc-root .apc-cats{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px; }
+  #ec-apc-root .apc-cats{ display:flex; gap:8px; flex-wrap:nowrap; flex:1; min-width:0; overflow-x:auto; scrollbar-width:none; scroll-behavior:smooth; padding-right:28px;
+    -webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 36px),transparent); mask-image:linear-gradient(90deg,#000 calc(100% - 36px),transparent); }
+  #ec-apc-root .apc-cats::-webkit-scrollbar{ display:none; }
+  #ec-apc-root .apc-cats.end{ -webkit-mask-image:none; mask-image:none; }
+  #ec-apc-root .apc-cats .chip{ flex:none; white-space:nowrap; }
+  #ec-apc-root .apc-sec{ margin:4px 0 10px; font-size:12px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color:var(--gray-500); }
+  #ec-apc-root .apc-sec + .apc-grid{ margin-bottom:22px; }
+  #ec-apc-root .card.pinned{ border-color:#f1d78a; background:#fffdf6; }
+  /* The GON (23/11): mot hang icon | noi dung | sao. Ghi de kieu the cu (to, nhieu khoang trong). */
+  #ec-apc-root .apc-grid{ grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:10px; }
+  #ec-apc-root .apc-grid .card{ flex-direction:row; align-items:flex-start; gap:12px; padding:12px 10px 12px 12px; min-height:0; border-radius:11px; }
+  #ec-apc-root .apc-grid .card.clickable:hover{ transform:none; border-color:#c7cef0; box-shadow:0 6px 16px rgba(0,0,0,.06); }
+  #ec-apc-root .apc-grid .card-ic{ width:36px; height:36px; border-radius:9px; }
+  #ec-apc-root .apc-grid .card-ic .icon{ width:19px !important; height:19px !important; }
+  #ec-apc-root .card-body{ flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; }
+  #ec-apc-root .apc-grid .card-title{ font-size:14.5px; line-height:1.3; }
+  #ec-apc-root .apc-grid .card-desc{ font-size:12.5px; color:var(--gray-500); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:none; }
+  #ec-apc-root .apc-grid .card-foot{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:4px; }
+  #ec-apc-root .apc-grid .card-foot .card-cta{ padding:2px 8px; font-size:11.5px; border-radius:999px; }
+  #ec-apc-root .apc-grid .card-help{ margin-left:auto; width:22px; height:22px; border-radius:7px; font-size:12px; }
+  #ec-apc-root .apc-grid .card > .star{ margin-top:-2px; }
+  #ec-apc-root .apc-grid .card:focus-visible{ outline:2px solid var(--navy); outline-offset:2px; }
+  #ec-apc-root .card-use{ font-size:11.5px; font-weight:600; color:var(--navy); background:var(--navy-50); border-radius:999px; padding:2px 8px; align-self:flex-start; }
+  #ec-apc-root .card-top .tr{ display:flex; align-items:center; gap:6px; }
+  #ec-apc-root details.apc-soon{ margin-top:8px; }
+  #ec-apc-root details.apc-soon > summary{ cursor:pointer; font-size:13px; font-weight:600; color:var(--gray-500); padding:8px 0; list-style:none; }
+  #ec-apc-root details.apc-soon > summary::-webkit-details-marker{ display:none; }
+  #ec-apc-root details.apc-soon > summary::before{ content:"\25B8  "; }
+  #ec-apc-root details.apc-soon[open] > summary::before{ content:"\25BE  "; }
+  @media (max-width:900px){ #ec-apc-root .apc-tops{ grid-template-columns:minmax(0,1fr); } }
+  @media (max-width:560px){
+    #ec-apc-root .apc-tools{ flex-wrap:wrap; }
+    #ec-apc-root .apc-tools .apc-search, #ec-apc-root .apc-tools .apc-search input{ width:100%; }
+    #ec-apc-root .apc-cats{ flex-basis:100%; }
+    #ec-apc-root .apc-use .u-bar{ display:none; }
+  }
   #ec-apc-root .chip{ padding:7px 14px; border-radius:999px; border:1px solid var(--gray-200); background:#fff; color:var(--gray-600); font-size:13px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:7px; }
   #ec-apc-root .chip:hover{ border-color:var(--gray-300); color:var(--gray-800); }
   #ec-apc-root .chip.active{ background:var(--navy-50); border-color:var(--navy-100); color:var(--navy); }
@@ -153,8 +217,8 @@
   #ec-apc-root .state .s-ic{ color:var(--gray-300); margin-bottom:12px; }
   #ec-apc-root .state h3{ font-size:16px; color:var(--gray-700); margin:0 0 6px; font-weight:700; }
   #ec-apc-root .state p{ font-size:13.5px; margin:0 0 14px; }
-  #ec-apc-root .skel{ display:grid; grid-template-columns:repeat(auto-fill,minmax(288px,1fr)); gap:16px; }
-  #ec-apc-root .skel .sk{ height:172px; border-radius:14px; background:linear-gradient(90deg,#f3f4f6 25%,#e9ebef 37%,#f3f4f6 63%); background-size:400% 100%; animation:apcsh 1.3s ease infinite; }
+  #ec-apc-root .skel{ display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:10px; }
+  #ec-apc-root .skel .sk{ height:84px; border-radius:14px; background:linear-gradient(90deg,#f3f4f6 25%,#e9ebef 37%,#f3f4f6 63%); background-size:400% 100%; animation:apcsh 1.3s ease infinite; }
   @keyframes apcsh{ 0%{background-position:100% 0} 100%{background-position:-100% 0} }
   #ec-apc-root .retry-btn{ background:var(--navy); color:#fff; border:none; padding:9px 16px; border-radius:8px; font-weight:600; cursor:pointer; font-family:inherit; }
   /* toast */
@@ -213,10 +277,6 @@
               </form>
             </div>
           </div>
-          <div class="apc-search">
-            <svg class="icon s-ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-            <input id="apc-q" type="text" placeholder="Tìm phê duyệt..." autocomplete="off" aria-label="Tìm phê duyệt">
-          </div>
         </div>
       </div>
 
@@ -225,7 +285,14 @@
         <span class="apc-mine-t"><b id="apc-mine-t"></b><span id="apc-mine-s"></span></span>
         <span class="apc-mine-go" aria-hidden="true">Duyệt ngay ›</span>
       </a>
-      <nav class="apc-cats" id="apc-cats" aria-label="Danh mục"></nav>
+      <div class="apc-tops" id="apc-tops" hidden></div>
+      <div class="apc-tools">
+        <div class="apc-search">
+          <svg class="icon s-ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input id="apc-q" type="text" placeholder="Tìm: thanh toán, nghi phep, hop dong…" autocomplete="off" aria-label="Tìm phê duyệt">
+        </div>
+        <nav class="apc-cats" id="apc-cats" aria-label="Danh mục"></nav>
+      </div>
       <div id="apc-body"></div>
     </div>
     <div class="apc-toast" id="apc-toast"></div>
@@ -237,7 +304,8 @@
   "use strict";
   var API = "ecentric_workspace.approval_center.api.catalog.list_catalog";
   var ALL = "__all__";
-  var state = { data:null, loading:true, error:false, cat:ALL, q:"" };
+  var PIN_API = "ecentric_workspace.approval_center.api.catalog.set_pin";
+  var state = { data:null, loading:true, error:false, cat:ALL, q:"", pins:[], usage:{} };
 
   function $(id){ return document.getElementById(id); }
   function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,function(c){
@@ -264,18 +332,58 @@
   function types(){ return (state.data && state.data.types) || []; }
   function cats(){ return (state.data && state.data.categories) || []; }
 
+  // Tim khong can dau: "nghi phep" khop "Nghỉ phép" (bo dau + d/đ).
+  function norm(s){ s=(s==null?"":String(s)).toLowerCase(); try{ s=s.normalize("NFD").replace(/[\u0300-\u036f]/g,""); }catch(e){} return s.replace(/đ/g,"d"); }
   function matches(card){
     if(state.cat!==ALL && card.category_code!==state.cat) return false;
-    var q=state.q.trim().toLowerCase();
+    var q=norm(state.q.trim());
     if(!q) return true;
-    var hay=[card.approval_title, card.description, card.category_name, card.approval_code]
-      .map(function(x){return (x||"").toLowerCase();}).join(" ");
-    return hay.indexOf(q)>=0;
+    var hay=norm([card.approval_title, card.description, card.category_name, card.approval_code].join(" "));
+    return q.split(/\s+/).every(function(w){ return hay.indexOf(w)>=0; });
+  }
+  function usable(c){ return c.card_status==="Active" && !!c.route; }
+  function byCode(code){ var t=types(); for(var i=0;i<t.length;i++){ if(t[i].approval_code===code) return t[i]; } return null; }
+  function isPinned(code){ return state.pins.indexOf(code)>=0; }
+  var STAR='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg>';
+  function starBtn(c){ var on=isPinned(c.approval_code);
+    return '<button type="button" class="star'+(on?' on':'')+'" data-pin="'+esc(c.approval_code)+'" aria-pressed="'+(on?'true':'false')+'" title="'+(on?'Bỏ ghim':'Ghim lên đầu')+'" aria-label="'+(on?'Bỏ ghim ':'Ghim ')+esc(c.approval_title||"")+'">'+STAR+'</button>'; }
+  function renderTops(){
+    var box=$("apc-tops"); if(!box) return;
+    if(state.loading||state.error||!types().length){ box.hidden=true; return; }
+    var pinned=state.pins.map(byCode).filter(function(c){ return c && usable(c); });
+    var used=Object.keys(state.usage||{}).map(byCode)
+      .filter(function(c){ return c && usable(c) && !isPinned(c.approval_code); })
+      .sort(function(a,b){ return (state.usage[b.approval_code]||0)-(state.usage[a.approval_code]||0); }).slice(0,5);
+    var max=used.length?(state.usage[used[0].approval_code]||1):1;
+    var pinHtml='<div class="apc-panel"><h2>'+STAR.replace('<svg','<svg class="icon" style="width:18px;height:18px"')+' Đã ghim <small>'+(pinned.length?pinned.length+' mục':'bấm ☆ trên thẻ bên dưới để ghim loại bạn hay dùng')+'</small></h2>'
+      +(pinned.length?'<div class="apc-pins">'+pinned.map(function(c){
+          return '<a class="apc-pin" href="'+esc(c.route)+'" data-go="1"><b>'+esc(c.approval_title||"")+'</b><span>Tạo ngay →</span>'+starBtn(c)+'</a>'; }).join("")+'</div>'
+        :'<div class="apc-empty">Chưa ghim loại nào.</div>')+'</div>';
+    var useHtml=used.length?('<div class="apc-panel"><h2>Bạn hay dùng <small>90 ngày qua</small></h2><div class="apc-use">'+used.map(function(c){
+        var n=state.usage[c.approval_code]||0;
+        return '<a href="'+esc(c.route)+'" data-go="1"><span class="u-t">'+esc(c.approval_title||"")+'</span><span class="u-bar"><i style="width:'+Math.max(8,Math.round(n*100/max))+'%"></i></span><span class="u-n">đã gửi '+n+' lần</span>'+starBtn(c)+'</a>'; }).join("")+'</div></div>'):'';
+    box.className="apc-tops"+(useHtml?"":" one");
+    box.innerHTML=pinHtml+useHtml; box.hidden=false;
+  }
+  function setPin(code, on){
+    var before=state.pins.slice();
+    if(on){ if(!isPinned(code)) state.pins.push(code); } else { state.pins=state.pins.filter(function(x){ return x!==code; }); }
+    render();
+    var fr=window.frappe; if(!fr||!fr.call) return;
+    fr.call({ method:PIN_API, type:"POST", args:{ approval_type:code, pinned:on?1:0 } })
+      .then(function(r){ var m=r&&r.message; if(m&&m.my_pins){ state.pins=m.my_pins; render(); } toast(on?"Đã ghim lên đầu.":"Đã bỏ ghim."); })
+      .catch(function(e){ state.pins=before; render();
+        var msg=""; try{ var sm=e&&(e._server_messages||(e.responseJSON&&e.responseJSON._server_messages)); if(sm){ var a=JSON.parse(sm); msg=JSON.parse(a[0]).message||""; } }catch(_e){}
+        toast(msg||"Không lưu được, thử lại."); });
   }
   function filtered(){ return types().filter(matches); }
 
   function renderCats(){
     var box=$("apc-cats"); if(!box) return;
+    if(!box._w){ box._w=1;
+      var end=function(){ box.classList.toggle("end", box.scrollLeft+box.clientWidth>=box.scrollWidth-4); };
+      box.addEventListener("wheel",function(e){ if(Math.abs(e.deltaY)>Math.abs(e.deltaX)&&box.scrollWidth>box.clientWidth){ e.preventDefault(); box.scrollLeft+=e.deltaY; } },{passive:false});
+      box.addEventListener("scroll",end); if(window.addEventListener) window.addEventListener("resize",end); setTimeout(end,0); }
     var all = types().length;
     var html = chip(ALL,"Tất cả",all);
     cats().forEach(function(c){
@@ -308,19 +416,25 @@
       ? '<a class="card-help" data-go="1" href="'+esc(c.guide_route)+'" title="Hướng dẫn: '
         + esc(c.guide_title||c.approval_title||"")+'" aria-label="Xem hướng dẫn">?</a>'
       : '';
-    return '<div class="card'+clickable+dim+'" data-code="'+esc(c.approval_code)+'" data-status="'+esc(c.card_status)+'"'
-      + (isActive?(' data-route="'+esc(c.route)+'"'):'')+'>'
-      + '<div class="card-top"><span class="card-ic">'+iconSvg(icon)+'</span>'
-      + (c.card_status==="Active" ? '' : '<span class="badge '+b[0]+'">'+esc(b[1])+'</span>') + '</div>'
-      + '<div><div class="card-cat">'+esc(c.category_name||"")+'</div>'
-      + '<div class="card-title">'+esc(c.approval_title||"")+'</div></div>'
-      + '<div class="card-desc">'+esc(c.description||"")+'</div>'
-      + '<div class="card-foot">' + cta + help + '</div>'
+    var used = (state.usage||{})[c.approval_code]||0;
+    // The gon (23/11/2026, Hoan: "card cu to va thua"): icon trai | ten + mo ta 1 dong + nhan | sao.
+    // Ca the bam duoc (onClick -> data-route) nen khong can nut CTA rieng; nhan danh muc bo vi da
+    // co tieu de nhom. card-cta chi con cho the CHUA dung duoc (noi ro vi sao).
+    var foot = (isActive ? '' : cta)
+      + (used ? '<span class="card-use">đã gửi '+used+' lần</span>' : '') + help;
+    return '<div class="card'+clickable+dim+(isActive&&isPinned(c.approval_code)?' pinned':'')+'" data-code="'+esc(c.approval_code)+'" data-status="'+esc(c.card_status)+'"'
+      + (isActive?(' data-route="'+esc(c.route)+'" role="link" tabindex="0"'):'')+'>'
+      + '<span class="card-ic">'+iconSvg(icon)+'</span>'
+      + '<div class="card-body"><div class="card-title">'+esc(c.approval_title||"")+'</div>'
+      + (c.description ? '<div class="card-desc" title="'+esc(c.description)+'">'+esc(c.description)+'</div>' : '')
+      + (foot ? '<div class="card-foot">'+foot+'</div>' : '')
+      + '</div>'
+      + (isActive ? starBtn(c) : '')
       + '</div>';
   }
 
   function render(){
-    renderCats();
+    renderCats(); renderTops();
     var body=$("apc-body"); if(!body) return;
     if(state.loading){
       var s=""; for(var i=0;i<6;i++) s+='<div class="sk"></div>';
@@ -339,7 +453,21 @@
       var reason = state.q ? "Không tìm thấy phê duyệt phù hợp." : "Danh mục này chưa có phê duyệt.";
       body.innerHTML='<div class="state"><div class="s-ic">'+iconSvg("file-check")+'</div><h3>Không có kết quả</h3><p>'+esc(reason)+'</p></div>'; return;
     }
-    body.innerHTML='<div class="apc-grid">'+list.map(cardHtml).join("")+'</div>';
+    // Dung duoc truoc; "Sap ra mat" / chua kha dung gom xuong cuoi, thu gon. "Tat ca" + khong tim:
+    // chia theo danh muc (thu tu danh muc do server xep - Tai chinh len dau, 23/11).
+    var ok=list.filter(usable), soon=list.filter(function(c){ return !usable(c); });
+    var html="";
+    if(state.cat===ALL && !state.q.trim()){
+      cats().forEach(function(ct){ var xs=ok.filter(function(c){ return c.category_code===ct.category_code; });
+        if(xs.length) html+='<div class="apc-sec">'+esc(ct.category_name||ct.category_code)+' · '+xs.length+'</div><div class="apc-grid">'+xs.map(cardHtml).join("")+'</div>'; });
+      var rest=ok.filter(function(c){ return !cats().some(function(ct){ return ct.category_code===c.category_code; }); });
+      if(rest.length) html+='<div class="apc-grid">'+rest.map(cardHtml).join("")+'</div>';
+    } else if(ok.length){ html+='<div class="apc-grid">'+ok.map(cardHtml).join("")+'</div>'; }
+    if(soon.length){
+      html+= ok.length ? '<details class="apc-soon"><summary>Chưa dùng được ('+soon.length+')</summary><div class="apc-grid">'+soon.map(cardHtml).join("")+'</div></details>'
+                       : '<div class="apc-grid">'+soon.map(cardHtml).join("")+'</div>';
+    }
+    body.innerHTML=html;
   }
 
   function fetchCatalog(){
@@ -349,6 +477,7 @@
     fr.call({ method: API }).then(function(r){
       var m = (r && r.message) ? r.message : {categories:[],types:[]};
       state.data = { categories: m.categories||[], types: m.types||[], is_admin: !!m.is_admin };
+      state.pins = m.my_pins||[]; state.usage = m.my_usage||{};
       state.loading=false; state.error=false; render();
     }).catch(function(){ state.loading=false; state.error=true; render(); });
   }
@@ -361,6 +490,8 @@
       if(a==="sbopen") document.getElementById("ec-apc-root").classList.add("sb-open");
       if(a==="sbclose") document.getElementById("ec-apc-root").classList.remove("sb-open");
       return; }
+    var pinEl = t.closest ? t.closest("[data-pin]") : null;
+    if(pinEl){ e.preventDefault(); e.stopPropagation(); setPin(pinEl.getAttribute("data-pin"), !isPinned(pinEl.getAttribute("data-pin"))); return; }
     var chipEl = t.closest ? t.closest(".chip") : null;
     if(chipEl){ state.cat = chipEl.getAttribute("data-cat"); render(); return; }
     if(t.closest && t.closest("[data-go]")) return; // active route link: let it navigate
@@ -413,6 +544,7 @@
     if(q) q.addEventListener("input", function(){ state.q=q.value; render(); });
     var root=$("ec-apc-root");
     if(root) root.addEventListener("click", onClick);
+    if(root) root.addEventListener("keydown", function(e){ if(e.key!=="Enter") return; var c=e.target; if(c && c.classList && c.classList.contains("card") && c.getAttribute("data-route")) window.location.href=c.getAttribute("data-route"); });
     fetchCatalog();
     mineLoad();
     sctsInit();
@@ -492,7 +624,7 @@
 
   // expose for headless tests (no security logic here; visibility is server-side)
   window.ApprovalCenter = { state:state, fetchCatalog:fetchCatalog, render:render,
-    filtered:filtered, _esc:esc, _init:init, _cardHtml:cardHtml, _onClick:onClick,
+    filtered:filtered, _esc:esc, _init:init, _cardHtml:cardHtml, _onClick:onClick, _norm:norm, _setPin:setPin,
     _mineRender:mineRender, _mineLate:mineLate };
 
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", init);

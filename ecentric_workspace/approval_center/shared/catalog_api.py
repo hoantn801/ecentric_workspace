@@ -1,7 +1,7 @@
 # Copyright (c) 2026, eCentric and contributors
 """Approval Center - controlled read API for the catalog page (B2a).
 
-Exposes ONLY `list_catalog` (whitelisted). Normal users never get raw DocType
+Exposes `list_catalog` and `set_pin` (whitelisted; set_pin only touches the caller's own pins). Normal users never get raw DocType
 access (DocPerm is System Manager only); visibility is enforced here via
 `shared.catalog_permissions`. Returns just what the page needs.
 """
@@ -12,6 +12,10 @@ from ecentric_workspace.approval_center.shared import catalog_permissions as per
 from ecentric_workspace.guides import registry as guides_registry
 
 CATEGORY_FIELDS = ["name", "category_name", "icon", "sort_order", "is_active"]
+PIN_DT = "EC Approval Type Pin"
+MAX_PINS = 12
+USAGE_DAYS = 90
+TOP_USAGE = 8
 TYPE_FIELDS = ["name", "approval_title", "description", "icon", "category",
                "card_status", "process_status", "route", "sort_order",
                "visibility_mode", "available_from"]
@@ -102,7 +106,63 @@ def list_catalog(include_disabled_admin=0):
             }
     categories = sorted(seen.values(), key=lambda x: (x["sort_order"], x["category_code"]))
 
-    return {"is_admin": bool(ctx["is_admin"]), "categories": categories, "types": cards}
+    visible_codes = {c["approval_code"] for c in cards}
+    return {"is_admin": bool(ctx["is_admin"]), "categories": categories, "types": cards,
+            "my_pins": [c for c in _my_pins(user) if c in visible_codes],
+            "my_usage": {k: v for k, v in _my_usage(user).items() if k in visible_codes}}
+
+
+# --------------------------------------------------------------------------- #
+# Ghim + hay dung (23/11/2026, Hoan chon phuong an A). CHI du lieu cua chinh user
+# dang dang nhap; loi -> rong, khong bao gio lam hong danh muc.
+# --------------------------------------------------------------------------- #
+def _my_pins(user):
+    try:
+        if not frappe.db.exists("DocType", PIN_DT):
+            return []
+        return frappe.get_all(PIN_DT, filters={"user": user}, pluck="approval_type",
+                              order_by="pinned_at asc, creation asc") or []
+    except Exception:
+        return []
+
+
+def _my_usage(user):
+    """{approval_type: so phieu CHINH user da gui trong USAGE_DAYS ngay}, TOP_USAGE loai nhieu nhat."""
+    try:
+        from frappe.utils import add_days, now_datetime
+        since = add_days(now_datetime(), -USAGE_DAYS)
+        rows = frappe.db.sql(
+            """SELECT approval_type, COUNT(*) AS n FROM `tabEC Approval Request`
+                WHERE requested_by = %(u)s AND submitted_at >= %(since)s AND IFNULL(approval_type, '') != ''
+                GROUP BY approval_type ORDER BY n DESC LIMIT %(lim)s""",
+            {"u": user, "since": since, "lim": TOP_USAGE}, as_dict=True) or []
+        return {r.approval_type: int(r.n or 0) for r in rows}
+    except Exception:
+        return {}
+
+
+@frappe.whitelist(methods=["POST"])
+def set_pin(approval_type=None, pinned=1):
+    """Ghim / bo ghim mot loai phieu cho CHINH user dang dang nhap. -> {"my_pins": [...]}."""
+    from frappe import _
+    from frappe.utils import now_datetime
+    user = frappe.session.user
+    if not perms.is_internal_system_user(user):
+        frappe.throw(_("Bạn không có quyền dùng Approval Center."), frappe.PermissionError)
+    code = (approval_type or "").strip()
+    if not code or not frappe.db.exists("EC Approval Type", code):
+        frappe.throw(_("Loại phiếu không tồn tại."))
+    want = str(pinned).strip().lower() not in ("0", "false", "no", "")
+    rows = frappe.get_all(PIN_DT, filters={"user": user, "approval_type": code}, pluck="name") or []
+    if want and not rows:
+        if len(_my_pins(user)) >= MAX_PINS:
+            frappe.throw(_("Chỉ ghim tối đa {0} loại phiếu. Bỏ ghim bớt rồi thử lại.").format(MAX_PINS))
+        frappe.get_doc({"doctype": PIN_DT, "user": user, "approval_type": code,
+                        "pinned_at": now_datetime()}).insert(ignore_permissions=True)
+    elif not want:
+        for n in rows:
+            frappe.delete_doc(PIN_DT, n, ignore_permissions=True, force=True)
+    return {"my_pins": _my_pins(user)}
 
 
 
