@@ -1227,7 +1227,8 @@
         +(b.ai_qc_at?'<div class="hint">Chạy lúc '+esc(fmt(b.ai_qc_at))+'</div>':'<div class="hint">Chưa chạy. AI QC kiểm số liệu form khớp tệp, so với mẫu chuẩn, điều khoản rủi ro, và tệp có ký được không.</div>')
         +KOL.qcHTML(qc)
         +((b.contract_file||b.request_attachment||b.has_contract_file||b.has_request_attachment)&&x.can_ai&&(apSt==="Draft"||apSt==="Information Required"||apSt==="Pending")?'<div class="actions" style="margin-top:10px"><button type="button" class="btn" data-kol="qc">'+(b.ai_qc_at?'Chạy lại AI QC':'Chạy AI QC')+'</button></div><div class="hint" style="margin-top:6px">AI QC chỉ để tham khảo, không chặn việc gửi hay duyệt.</div>':'')+'</div>';
-      h+=esignSlotHTML(b);
+      if(x.sign_pdf&&(x.sign_pdf.can_edit||x.sign_pdf.has)) h+=KOL.signPdfHTML(b,x.sign_pdf);
+ h+=esignSlotHTML(b);
       var dead=apSt==="Rejected"||apSt==="Cancelled";
       if(x.approved){ h+='<div class="card"><h3>Ký hợp đồng</h3>'+KOL.signHTML(b,x)+'</div>'; }
       else if(!dead){ h+='<div class="card kol-later"><h3>Ký hợp đồng</h3><div class="hint">Mở sau khi phiếu duyệt xong. Quy trình ký: <b>'+esc(esignLabel(b.esign_flow)||"mặc định theo loại hợp đồng")+'</b>'+(b.partner_signer_email?(' · người ký phía đối tác: '+esc(b.partner_signer_email)):'')+'.</div></div>'; }
@@ -1252,6 +1253,17 @@
       if(ai.summary) out+='<div class="hint" style="margin-top:6px">'+esc(ai.summary)+'</div>';
       return out; },
     // PO 17/11 (A): tep du PII creator tai qua POST (server ghi vet), khong mo thang URL.
+    // O "Ban PDF de ky" (ban giao chat Ky so 23/11, B1): PDF xuat tu Word, nen tang tu dat o ky theo moc.
+    signPdfHTML:function(b,sp){ var m=state._signPdfMsg&&state._signPdfMsg.name===b.name?state._signPdfMsg:null;
+      return '<div class="card" id="kol-signpdf"><h3>Bản PDF để ký</h3>'
+        +(sp.esign?'<div class="hint">Hợp đồng ký trên cổng từ ERP. Tải hợp đồng .docx → mở bằng Word → <b>Tệp → Lưu thành PDF</b> (không in ra máy in PDF, không scan) → tải lên đây. Hệ thống đối chiếu số hợp đồng, số tiền và tự đặt ô ký theo mốc có sẵn trong mẫu.</div>'
+          :'<div class="hint">Hợp đồng này chưa ký qua ERP - vẫn ký trên cổng như hiện nay. Có thể tải sẵn bản PDF xuất từ Word để lưu cùng phiếu.</div>')
+        +(sp.stale?'<div class="banner warn">Hợp đồng vừa được tạo lại sau khi bạn tải bản PDF - tải hợp đồng mới, xuất PDF lại rồi tải lên.</div>':'')
+        +(m?'<div class="banner '+(m.ok?'ok':'warn')+'" id="kol-signpdf-msg">'+esc(m.text)+'</div>':'')
+        +(sp.has?'<div class="summary-row"><span>Đã có bản PDF để ký</span>'+(b.sign_pdf?KOL.dlBtn(b.sign_pdf,"Tải bản PDF để ký","Có CCCD, số tài khoản creator - mỗi lần tải được ghi lại."):'<b>✓</b>')+'</div>':'<div class="hint">Chưa có bản PDF để ký.</div>')
+        +(sp.can_edit?'<div class="actions" style="margin-top:10px"><input type="file" accept=".pdf,application/pdf" id="kol-signpdf-f" aria-label="Chọn bản PDF để ký"><button type="button" class="btn primary" id="kol-signpdf-btn" data-kol="signpdf" disabled>'+(sp.has?'Thay bản PDF':'Tải lên bản PDF')+'</button>'
+          +(sp.esign&&sp.has?'<button type="button" class="btn" data-kol="autoplace">Tự đặt lại ô ký</button>':'')+'</div>':'')
+        +'</div>'; },
     dlBtn:function(url,label,title){ return '<button type="button" class="btn" data-kol="dl" data-url="'+esc(url)+'"'+(title?' title="'+esc(title)+'"':'')+'>'+esc(label)+'</button>'; },
     dlLink:function(url,label){ return '<button type="button" class="kol-linkbtn" data-kol="dl" data-url="'+esc(url)+'">'+esc(label)+'</button>'; },
     // fetch + blob: loi quyen / khong tim thay tep hien toast tai cho, khong chuyen sang trang JSON loi.
@@ -1308,6 +1320,7 @@
         .then(function(j){ var url=j&&j.message&&j.message.file_url; if(!url) throw new Error("Không tải được tệp."); return url; }); },
     wireDetail:function(det){ var host=$("ctr-body"); if(!host||host.__kolw) return; host.__kolw=true;
       host.addEventListener("change",function(e){ if(e.target&&e.target.id==="kol-signed-f"){ var bt=$("kol-signed-btn"); if(bt) bt.disabled=!(e.target.files&&e.target.files.length); } });
+      host.addEventListener("change",function(e){ if(e.target&&e.target.id==="kol-signpdf-f"){ var bt=$("kol-signpdf-btn"); if(bt) bt.disabled=!(e.target.files&&e.target.files.length); } });
       host.addEventListener("click",function(e){ var el=e.target.closest&&e.target.closest("[data-kol]"); if(!el||el.disabled) return; var a=el.getAttribute("data-kol"); var name=(state.detail&&state.detail.business||{}).name; el.disabled=true;
         var done=function(msg){ if(msg) toast(msg); refreshDetail(); }, fail=function(err){ el.disabled=false; toast((err&&err.message&&!err.responseJSON&&!err._server_messages)?err.message:mapErr(err),true); };
         var label=el.textContent; var restore=function(){ el.textContent=label; };
@@ -1324,7 +1337,12 @@
         if(a==="qc"){ el.textContent="AI đang kiểm… (tới 1 phút)"; return call("kol_ai_qc",{name:name}).then(function(r){ done("AI QC: "+r.status); }).catch(function(e){ restore(); fail(e); }); }
         if(a==="extract"){ el.textContent="AI đang đọc…"; return call("kol_ai_extract",{name:name}).then(function(r){ restore(); el.disabled=false; KOL.showSuggestions(r.suggestions||{},name); }).catch(function(e){ restore(); fail(e); }); }
         if(a==="editcr"){ el.disabled=false; return KOL.editCreator((state.detail.business||{}).creator,function(){ refreshDetail(); }); }
-        if(a==="signed"){ el.textContent="Đang tải lên…"; return KOL.upload($("kol-signed-f")).then(function(url){ return call("kol_mark_signed",{name:name,signed_file:url}); }).then(function(r){ done(r&&r.signing_status==="Đã ký đủ"?"Máy kiểm đạt: hợp đồng đã ký đủ.":"Đã tải bản ký, chờ Kế toán kiểm."); }).catch(function(e){ restore(); fail(e); }); }
+        if(a==="signpdf"||a==="autoplace"){ el.textContent=a==="signpdf"?"Đang tải lên…":"Đang đặt ô ký…";
+        var keep=function(r){ state._signPdfMsg={name:name,ok:!!(r&&r.ok!==false),text:(r&&r.message)||"Đã lưu bản PDF để ký."}; done(); };
+        var step=a==="signpdf"?KOL.upload($("kol-signpdf-f")).then(function(url){ return call("kol_attach_sign_pdf",{name:name,file_url:url}); })
+          .then(function(r){ return r&&r.esign?call("kol_auto_place_sign",{name:name}):r; }):call("kol_auto_place_sign",{name:name});
+        return step.then(keep).catch(function(e){ restore(); fail(e); }); }
+      if(a==="signed"){ el.textContent="Đang tải lên…"; return KOL.upload($("kol-signed-f")).then(function(url){ return call("kol_mark_signed",{name:name,signed_file:url}); }).then(function(r){ done(r&&r.signing_status==="Đã ký đủ"?"Máy kiểm đạt: hợp đồng đã ký đủ.":"Đã tải bản ký, chờ Kế toán kiểm."); }).catch(function(e){ restore(); fail(e); }); }
         if(a==="addacc"){ if(!$("kol-acc-desc").value||!$("kol-acc-date").value){ restore(); el.disabled=false; toast("Nhập nội dung và ngày nghiệm thu.",true); return; } var amt=window.EcMoney?EcMoney.val($("kol-acc-amt")):$("kol-acc-amt").value; return call("kol_add_acceptance",{name:name,description:$("kol-acc-desc").value,acceptance_date:$("kol-acc-date").value,amount:amt}).then(function(r){ done(r.missing&&r.missing.length?("Đã tạo BBNT, mẫu còn thiếu: "+KOL.missingText(r.missing_labels||r.missing)):"Đã tạo BBNT."); }).catch(fail); }
         var row=el.getAttribute("data-row");
         if(a==="sendacc") return call("kol_send_acceptance",{name:name,row:row}).then(function(r){

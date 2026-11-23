@@ -276,6 +276,13 @@ def revenue_warning(so_revenue, other_contracts_total, this_value):
     return ""
 
 
+def printed_digits(value):
+    """So tien nhu in tren hop dong / BBNT (lam tron nua len toi dong), chi chu so - de so voi
+    tap con so trong van ban (kol_ai.number_tokens). Khong co / 0 -> None."""
+    v = _r(_f(value))
+    return str(int(v)) if v else None
+
+
 def fmt_money(value):
     return "{:,.0f}".format(_f(value)).replace(",", ".")
 

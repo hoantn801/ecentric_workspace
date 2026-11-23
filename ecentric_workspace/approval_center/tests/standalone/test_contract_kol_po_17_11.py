@@ -96,8 +96,8 @@ class TaiBanDuPII(unittest.TestCase):
         a = _access("fin@ec")
         b = _biz()
         a.redact_business(b)
-        self.assertEqual(dict(b, has_contract_file=None, has_request_attachment=None),
-                         dict(_biz(), has_contract_file=None, has_request_attachment=None))
+        self.assertEqual(dict(b, has_contract_file=None, has_request_attachment=None, has_sign_pdf=None),
+                         dict(_biz(), has_contract_file=None, has_request_attachment=None, has_sign_pdf=None))
         self.assertEqual((b["has_contract_file"], b["has_request_attachment"]), (True, False))
         a = _access("req@ec")
         b = dict(_biz(), contract_type="Sales / Bán ra (EC)")

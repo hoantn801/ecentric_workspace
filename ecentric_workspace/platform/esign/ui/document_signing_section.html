@@ -5,7 +5,15 @@
      terminology. Native multi-file upload creates normal File rows attached to the request.
      The placement drawer is a SHELL only (signer cards + viewer placeholder) - no placement
      writes, no drag/drop, no editor mount (Phase C). Mounts INSIDE #ec-payr-root .content and
-     never at body/grid-root level. Governed writes go only to whitelisted endpoints. -->
+     never at body/grid-root level. Governed writes go only to whitelisted endpoints.
+     PR-E (23/11/2026, THIETKE_ky_so_hop_dong muc 2h): KHOI DUNG CHUNG. Trang Hop dong dat
+     #ctr-esign-slot (data-business-doctype / data-business-name) + phat "ctr:detail-rendered";
+     khi do khoi gan vao slot va goi API bang {business_doctype, business_name} (che do "ctr"):
+     KHONG co o tai tep / nut Go (tep do cac o tep cua Hop dong quan ly), CON o "Bo chung tu"
+     (danh dau tep nao khong ky), danh sach tai lieu + drawer dat o ky + tinh trang ky; quyen
+     sua do server quyet (can_classify / editable). Trang Hop dong KHONG co slot (danh sach /
+     tao moi) -> khoi khong lam gi. Moi trang khac (DNTT) chay dung nhu cu:
+     {payment_request_name}. -->
 <div id="ec-docsign" class="ec-docsign" style="display:none">
   <style>
     /* Bang mau RIENG cua drawer. Truoc day drawer muon 20 lan bien cua ERP shell
@@ -24,6 +32,12 @@
        bound to state.draft.request_attachment) so the data contract + submit validation +
        representative-pointer logic are all preserved. */
     #ec-payr-root .fld:has([data-upload="request_attachment"]){display:none !important}
+/* PR-E: che do Hop dong - khong co be mat tai tep (tep do o "Ban PDF de ky" / Dinh kem cua Hop
+       dong quan ly). GIU o "Bo chung tu": phieu hop dong co nhieu tep dinh kem, nguoi lap phai
+       danh dau tep nao chi la chung tu (server chi cho khi can_classify). Class dat TRUOC khi
+       khoi hien, nen khong nhay. */
+    .ec-docsign.ecd-ctr{margin-top:0}
+    .ec-docsign.ecd-ctr .ecd-up{display:none}
 /* Luat tren dung o MOI che do, ke ca "Chinh sua & gui lai".
        30/08 co mot ban va mo lai o cu o che do sua, vi luc bi tra lai thi ca hai be mat tai
        len deu dong. Ban va do da bi GO: no dung lai dung cai be mat thu hai ma thiet ke nay
@@ -162,6 +176,16 @@
   "use strict";
   var root = document.getElementById("ec-docsign");
   if (!root) return;
+  // Phan tu CUA KHOI (id "ecd..."). Tren form Hop dong khoi nam trong #ctr-esign-slot - slot bi ve
+  // lai moi lan render, khoi bi THAO khoi trang cho toi lan gan lai: document.getElementById tra
+  // null cho phan tu ben trong -> TypeError lam chet ca vong theo doi (QC 23/11 B1). Dung o cac
+  // duong chay KHI DANG THAO (doi phieu: _clearDocState / closeDrawer); duong ve (render, drawer)
+  // chi chay sau relocate() hoac bi chan boi kiem "lan tai cu". Trang DNTT: luon gan -> y het.
+  function _el(id) {
+    var n = document.getElementById(id);
+    if (n || root.isConnected !== false) return n;            // khoi dang gan: y het truoc
+    try { return root.querySelector ? root.querySelector("#" + id) : null; } catch (e) { return null; }
+  }
   var API = "ecentric_workspace.platform.esign.api.";
   function callReady() { return !!(window.frappe && typeof window.frappe.call === "function"); }
   function esc(s) { return window.frappe ? frappe.utils.escape_html(s == null ? "" : String(s))
@@ -174,7 +198,60 @@
     id = (id == null ? "" : ("" + id)).trim();
     return id || null;
   }
+  // ---- PR-E: chung tu cua khoi (DNTT / Hop dong) ------------------------------------------
+  // "ctr": trang Hop dong CO slot; "none": trang Hop dong KHONG co slot (danh sach / tao moi -
+  // KHONG BAO GIO roi ve DNTT: URL ?id= cua hop dong khong phai ma DNTT); "pr": moi trang khac.
+  var CTR_SLOT_ID = "ctr-esign-slot", _ctrDetail = null;
+  function mode() {
+    if (document.getElementById(CTR_SLOT_ID)) return "ctr";
+    return document.getElementById("ec-ctr-root") ? "none" : "pr";
+  }
+  function ctrBiz() {
+    var s = document.getElementById(CTR_SLOT_ID); if (!s) return null;
+    var dt = (s.getAttribute("data-business-doctype") || "").trim()
+      || ((_ctrDetail && _ctrDetail.business_doctype) || "");
+    var nm = (s.getAttribute("data-business-name") || "").trim()
+      || ((_ctrDetail && _ctrDetail.business_name) || "");
+    return (dt && nm) ? { business_doctype: dt, business_name: nm } : null;
+  }
+  // Khoa danh tinh (so sanh "da doi phieu chua") - null = chua co phieu de tai.
+  function ident() {
+    var m = mode();
+    if (m === "ctr") { var b = ctrBiz(); return b ? (b.business_doctype + "|" + b.business_name) : null; }
+    return m === "pr" ? pr() : null;
+  }
+  // Tham so chung tu cho moi lenh goi API (+ tham so rieng cua lenh). Server nhan ca hai kieu.
+  // null = khong co chung tu de goi (trang Hop dong khong co slot / slot chua co ten): nguoi goi
+  // DUNG, khong roi ve payment_request_name = ?id cua hop dong (QC 23/11).
+  function target(extra) {
+    var o = {}, k, b, m = mode();
+    if (m === "none") return null;
+    if (m === "ctr") { b = ctrBiz(); if (!b) return null; o.business_doctype = b.business_doctype; o.business_name = b.business_name; }
+    else o.payment_request_name = pr();
+    for (k in (extra || {})) { if (Object.prototype.hasOwnProperty.call(extra, k)) o[k] = extra[k]; }
+    return o;
+  }
+  function withArgs(t, extra) {          // ghep tham so vao mot target da chot (chong doi phieu giua chung)
+    var o = {}, k;
+    for (k in t) { if (Object.prototype.hasOwnProperty.call(t, k)) o[k] = t[k]; }
+    for (k in (extra || {})) { if (Object.prototype.hasOwnProperty.call(extra, k)) o[k] = extra[k]; }
+    return o;
+  }
   function relocate() {
+    var slot = document.getElementById(CTR_SLOT_ID);
+    if (slot) {
+      // TEMP-WORKAROUND (2026-11-23, PR-E QC M4): tren form Hop dong khoi khoi dong an va duoc JS
+      // DOI vao slot sau 3 lenh doc -> the "Dinh kem" / "Hanh dong" ben duoi nhay xuong (trai A65
+      // "trang thai ban dau trong markup"). Rui ro: nhay bo cuc moi lan mo phieu. Cach dung: dua
+      // khoi thanh asset cua app + slot do server dung san (giu cho). Han go: 2026-12-31. Xem
+      // 03_BUGS_AND_NEXT_STEPS.md muc "Temporary workarounds".
+      // Slot nam trong the chi tiet - bi ve lai moi lan render; phan tu khoi van con trong bien,
+      // gan lai vao slot moi (xem ctr:detail-rendered ben duoi).
+      if (root.classList) root.classList.add("ecd-ctr");
+      if (root.parentNode !== slot) slot.appendChild(root);
+      return;
+    }
+    if (root.classList) root.classList.remove("ecd-ctr");
     // Mount INSIDE the Payment Request business-content region - the .content wrapper that holds
     // #payr-body under the Shared ERP Shell. Never the shell nav (.ec-shell-mount), header-right
     // (.ec-shell-tbright) or breadcrumb; never inside #payr-body itself (re-rendered
@@ -186,6 +263,7 @@
     if (host && root.parentNode !== host) host.appendChild(root);
   }
   function call(method, args, type) {
+    if (!args) return Promise.reject(new Error("Không xác định được phiếu."));
     return window.frappe.call({ method: API + method, args: args, type: type || "GET" })
       .then(function (r) { return r && r.message; });
   }
@@ -271,6 +349,13 @@
     } else if (plan.resolved === false) {
       banner.innerHTML = '<div class="ecd-banner b-info">Chưa xác định được người ký. Hoàn tất thông tin yêu cầu để hệ thống xác định quy trình ký.</div>';
     } else { banner.innerHTML = ""; }
+    // Tep nghiep vu an voi nguoi dang xem (PII - hop dong KOL; QC vong 2 PR-E): chi bao SO tep,
+    // khong ten / URL. DNTT luon 0 -> khong hien gi.
+    var nh = +(STATE.hidden_documents || 0);
+    if (nh > 0) {
+      banner.innerHTML += '<div class="ecd-banner b-info">Có ' + nh
+        + ' tệp bạn không có quyền xem chi tiết.</div>';
+    }
     // Tinh quyen TRUOC khi dung cac dong: rowHtml doc `STATE._can_remove_supporting` de quyet
     // dinh co ve nut "Go" hay khong. Dat co sau khi da dung xong thi lan ve dau tien khong co
     // nut, phai doi mot lan ve lai moi thay - kieu loi chi lo ra khi bam thu.
@@ -303,6 +388,9 @@
     }
     STATE._can_remove_supporting = supportOnly;   // dong nao duoc phep go - xem rowHtml
     STATE._can_remove_any = !!(STATE.editable && STATE.can_classify);   // dang lap phieu
+    if (mode() === "ctr") {                       // Hop dong: tep do o "Ban PDF de ky" quan ly
+      STATE._can_remove_supporting = false; STATE._can_remove_any = false;
+    }
     document.getElementById("ecdRows").innerHTML =
       (STATE.documents || []).map(rowHtml).join("") || '<div class="ecd-meta">Chưa có tài liệu.</div>';
     wire();
@@ -342,14 +430,14 @@
 
   // Go tep khi DANG LAP phieu (chua gui). To trinh da dat o ky thi mat luon cac o do - noi ro.
   function removeAny(ref, btn) {
-    var name = pr(); if (!name || !ref) return;
+    var name = ident(); if (!name || !ref || mode() === "ctr") return;
     var d = (STATE.documents || []).filter(function (x) { return x.document_ref === ref; })[0] || {};
     var msg = "Gỡ tệp \"" + (d.display_name || ref) + "\" khỏi yêu cầu?";
     if (d.requires_signature && (d.covered_slot_count || 0) > 0)
       msg += "\nCác vị trí ký đã đặt trên tệp này sẽ bị xoá.";
     if (!window.confirm(msg)) return;
     btn.disabled = true;
-    call("remove_attachment", { payment_request_name: name, document_ref: ref }, "POST")
+    call("remove_attachment", target({ document_ref: ref }), "POST")
       .then(function (o) {
         if (o && o.state) { STATE = o.state; render(); }
         else load();
@@ -364,12 +452,12 @@
 
   // Go mot chung tu bo sung vua tai nham. Hoi truoc - go la thao tac khong hoan tac duoc.
   function removeSupporting(ref, btn) {
-    var name = pr(); if (!name || !ref) return;
+    var name = ident(); if (!name || !ref || mode() === "ctr") return;
     if (!window.confirm("Gỡ tệp này khỏi yêu cầu?")) return;
     btn.disabled = true;
     // "POST": endpoint nay GHI (xoa ban ghi File + ghi vet lich su). Mac dinh cua `call` la
     // GET, ma Frappe tu choi ghi qua GET - quen tham so nay la loi 417 kho doan.
-    call("remove_supporting_attachment", { payment_request_name: name, document_ref: ref }, "POST")
+    call("remove_supporting_attachment", target({ document_ref: ref }), "POST")
       .then(function (o) {
         if (o && o.state) { STATE = o.state; render(); }
         else load();
@@ -384,9 +472,11 @@
   // classify: requires_signature = !supporting. Handle confirmation + unsupported + no-op.
   function classify(ref, requiresSig, chk, confirm) {
     if (!callReady()) return;
+    var _a = target({ document_ref: ref,
+              requires_signature: requiresSig ? "true" : "false", confirm: confirm ? 1 : 0 });
+    if (!_a) return;
     window.frappe.call({ method: API + "set_document_requires_signature", type: "POST",
-      args: { payment_request_name: pr(), document_ref: ref,
-              requires_signature: requiresSig ? "true" : "false", confirm: confirm ? 1 : 0 } })
+      args: _a })
       .then(function (r) {
         var out = r && r.message || {};
         if (out.confirmation_required) {
@@ -422,7 +512,9 @@
     return (body && body.exception ? String(body.exception).split(":").pop().trim() : "") || ("lỗi " + status);
   }
   function uploadFiles(files) {
-    var name = pr(); if (!name || !files || !files.length) return;   // no persisted name -> no POST
+    var name = ident(); if (!name || !files || !files.length) return;   // no persisted name -> no POST
+    if (mode() === "ctr") return;                          // Hop dong: tep ky di qua o cua Hop dong
+    var T = target();                                      // chot chung tu cua lan tai nay
     if (UP.busy) return;                                      // mot dot mot luc - khong chong so dem
     var hint = document.getElementById("ecdUploadHint");
     var done = 0, total = files.length, failed = 0, firstUrl = null, reasons = [];
@@ -453,7 +545,7 @@
         .then(function (res) {
           var j = res.body, url = j && j.message && j.message.file_url;
           if (!url) { failed++; reasons.push(file.name + ": " + _uploadReason(res.status, j)); return; }
-          return call("attach_uploaded_file", { payment_request_name: name, file_url: url }, "POST")
+          return call("attach_uploaded_file", withArgs(T, { file_url: url }), "POST")
             .then(function () { if (!firstUrl) firstUrl = url; })
             .catch(function (e) { failed++; reasons.push(file.name + ": không gắn được vào phiếu"
               + ((e && e.message) ? " (" + e.message + ")" : "")); });
@@ -476,7 +568,7 @@
               frappe.show_alert({ message: "Đã tải tài liệu. Chưa đặt được tệp đại diện — "
                 + "bạn có thể tải lại hoặc thử lại.", indicator: "orange" }); }
             window.frappe.call({ method: API + "set_representative_attachment", type: "POST",
-              args: { payment_request_name: name, file_url: firstUrl } })
+              args: withArgs(T, { file_url: firstUrl }) })
               .then(function (r) { if (((r && r.message) || {}).ok === false) _ptrWarn(); load(); _announce(); })
               .catch(function () { _ptrWarn(); load(); _announce(); });
           } else { load(); _announce(); }
@@ -665,9 +757,11 @@
                     width: box.width, height: box.height, signer_slot_key: p.signer_slot_key }, b);
   }
   function _sendDelete(cid, name) {
-    var myToken = DRW.docToken; saveState("saving");
+    var myToken = DRW.docToken, _a = target({ document_ref: DRW.ref, placement_name: name });
+    if (!_a) return;
+    saveState("saving");
     window.frappe.call({ method: API + "delete_placement", type: "POST",
-      args: { payment_request_name: pr(), document_ref: DRW.ref, placement_name: name } })
+      args: _a })
       .then(function (r) { if (myToken !== DRW.docToken) return;
         var o = (r && r.message) || {};
         if (o.ok === false) { saveFail(o); return; }
@@ -714,17 +808,19 @@
     pend.inflight = true;
     var myToken = DRW.docToken;
     if (el && el._p && el._p.name && !box.name) box.name = el._p.name;  // adopted server name -> UPDATE
+    var _a = target({ document_ref: DRW.ref, box: JSON.stringify(box) });
+    if (!_a) { pend.inflight = false; pend.queued = null; return; }   // phieu da roi trang
     saveState("saving");
     window.frappe.call({ method: API + "save_placement", type: "POST",
-      args: { payment_request_name: pr(), document_ref: DRW.ref, box: JSON.stringify(box) } })
+      args: _a })
       .then(function (r) {
         pend.inflight = false;
         var o = (r && r.message) || {};
         if (pend.deleted) {                                   // deleted while in flight
-          if (o && o.ok !== false && o.placement_name && !box.name)
+          if (o && o.ok !== false && o.placement_name && !box.name && target())
             window.frappe.call({ method: API + "delete_placement", type: "POST",  // governed orphan cleanup
-              args: { payment_request_name: pr(), document_ref: DRW.ref,
-                      placement_name: o.placement_name } }).catch(function () {});
+              args: target({ document_ref: DRW.ref,
+                      placement_name: o.placement_name }) }).catch(function () {});
           else if (pend.delName) { var dn = pend.delName; pend.delName = null;
             _sendDelete(cid, dn); }                           // deferred delete of the named row
           pend.queued = null; return;
@@ -949,7 +1045,7 @@
       return;
     }
     if (DRW.sigPreview) { DRW.showSig = true; _applySigPreview(); return; }
-    call("my_signature_preview", { payment_request_name: pr() }).then(function (o) {
+    call("my_signature_preview", target()).then(function (o) {
       if (o && o.image_base64) { DRW.sigPreview = o.image_base64; DRW.showSig = true; _applySigPreview(); }
       else drawerErr("Chưa lấy được mẫu chữ ký"
                      + ((o && o.reason) ? " (" + o.reason + ")" : " (cần mapping CMC đã xác minh)."));
@@ -992,7 +1088,8 @@
     // Ma phien cua LAN MO nay. Moi phan hoi ve sau (placement_state, PDF, overlay) phai
     // khop ma nay - mo tep X (PDF lon, cham), dong, mo tep Y: truoc day phan hoi cua X ve
     // sau de len DRW.pdf/DRW.st trong khi DRW.ref = Y -> o ky dat len trang cua X, luu vao Y.
-    var myTok = DRW.docToken, myPr = pr();
+    var myTok = DRW.docToken, myPr = ident(), myT = target();
+    if (!myT) return;                                         // khong con phieu (roi trang)
     var doc = (STATE.documents || []).filter(function (d) { return d.document_ref === ref; })[0];
     document.getElementById("ecdDrawerName").textContent = "Thiết lập chữ ký — " + (doc ? doc.display_name : "");
     document.getElementById("ecdDrawerOv").style.display = "block";
@@ -1002,13 +1099,13 @@
     document.getElementById("ecdStage").style.display = "none";
     document.getElementById("ecdDrawerSummary").textContent = "";
     saveState("");
-    function stale() { return myTok !== DRW.docToken || DRW.ref !== ref || pr() !== myPr; }
+    function stale() { return myTok !== DRW.docToken || DRW.ref !== ref || ident() !== myPr; }
     // Trang thai ky THAT tu SCTS. Truot thi bo qua - chu ky da ky la thong tin them, khong
     // duoc phep lam hong viec mo drawer. Ve muon / cua phieu khac thi bo.
-    call("document_signature_overlay", { payment_request_name: myPr })
+    call("document_signature_overlay", myT)
       .then(function (o) { if (stale()) return; DRW.signed = (o && o.signed) || []; _applySigned(); })
       .catch(function () { if (stale()) return; DRW.signed = []; _applySigned(); });
-    Promise.all([call("placement_state", { payment_request_name: myPr, document_ref: ref }), loadPdfjs()])
+    Promise.all([call("placement_state", withArgs(myT, { document_ref: ref })), loadPdfjs()])
       .then(function (res) {
         if (stale()) return;                                  // da dong / mo tep khac / doi phieu
         DRW.st = res[0] || {}; var ok = res[1];
@@ -1076,10 +1173,11 @@
   function refreshRow() { DRW.rowsStale = true; }             // rows are behind the overlay: refresh ONCE on close (no 3-call reload per save)
   function closeDrawer() { _cancelPending(); _setDrawerOpen(false); DRW.pdf = null;
     if (DRW.task) { try { DRW.task.cancel(); } catch (e) {} DRW.task = null; }   // huy luot ve dang chay
-    document.getElementById("ecdDrawerOv").style.display = "none";
+    var _ov = _el("ecdDrawerOv"); if (_ov) _ov.style.display = "none";
     if (DRW.rowsStale) { DRW.rowsStale = false; load(); } }   // one refresh when returning to the list
 
   function _renderUnsaved() {
+    if (mode() !== "pr") { root.style.display = "none"; return; }   // Hop dong: khong co phieu -> an
     relocate(); root.style.display = "block";
     document.getElementById("ecdCount").textContent = "";
     document.getElementById("ecdSummary").textContent = "";
@@ -1088,17 +1186,59 @@
     document.getElementById("ecdRows").innerHTML = "";
     document.getElementById("ecdUploadBtn").disabled = true;   // upload disabled; handler also guards
   }
+  // Hop dong: doc bang fetch (KHONG qua frappe.call - frappe.call tu bat hop thoai loi). Loai
+  // chung tu chua co ho so ky (chua bat ky so cho hop dong) hoac quy trinh "Khong ky tren cong"
+  // -> khoi AN im lang, khong bao loi tren moi trang hop dong.
+  var NOT_CONFIGURED = "chưa được cấu hình ký số";
+  var _ctrOff = false;           // da biet loai phieu chua cau hinh ky so - het phien trang
+  function quietGet(method, args) {
+    var q = [], k;
+    for (k in args) { if (Object.prototype.hasOwnProperty.call(args, k) && args[k] != null) {
+      q.push(encodeURIComponent(k) + "=" + encodeURIComponent(args[k])); } }
+    return fetch("/api/method/" + API + method + "?" + q.join("&"),
+                 { method: "GET", credentials: "same-origin", headers: { "Accept": "application/json" } })
+      .then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (j) {
+          if (r.ok) return j && j.message;
+          var msg = "";
+          try { msg = JSON.parse(JSON.parse(j._server_messages || "[]")[0] || "{}").message || ""; }
+          catch (e) { msg = ""; }
+          var err = new Error(msg || ("HTTP " + r.status));
+          err.notConfigured = msg.indexOf(NOT_CONFIGURED) >= 0;
+          err.permission = r.status === 403 || j.exc_type === "PermissionError";
+          throw err;
+        });
+      });
+  }
   function load() {
     if (!callReady()) return;
-    var name = pr();
+    var name = ident(), m = mode(), T = target();
     var tok = ++_loadTok; _curPr = name;                     // ISSUE 4: identity/load token
     if (!name) { _renderUnsaved(); return; }
-    Promise.all([call("document_setup_state", { payment_request_name: name }),
-                 call("signer_plan", { payment_request_name: name }),
-                 call("signing_readiness", { payment_request_name: name })])
+    if (m === "ctr" && _ctrDetail && _ctrDetail.esign_flow === "khong_ky_cong") {
+      root.style.display = "none"; return;                   // phieu chon "Khong ky tren cong"
+    }
+    // Hop dong chua bat ky so (lan truoc da bao "chua cau hinh"): khong goi lai moi lan ve trang.
+    if (m === "ctr" && _ctrOff) { root.style.display = "none"; return; }
+    var get = (m === "ctr") ? quietGet : function (meth, a) { return call(meth, a); };
+    var all = (m === "ctr")
+      // Hop dong: hoi document_setup_state TRUOC - chua cau hinh / ho so tat thi dung o 1 GET
+      // (QC vong 2: khong 3 GET 417 moi lan ve trang chi tiet).
+      ? get("document_setup_state", T).then(function (st) {
+          if (!st || st.esign_enabled === false) return [st || {}, {}, {}];
+          return Promise.all([get("signer_plan", T), get("signing_readiness", T)])
+            .then(function (r2) { return [st, r2[0], r2[1]]; });
+        })
+      : Promise.all([get("document_setup_state", T),
+                     get("signer_plan", T),
+                     get("signing_readiness", T)]);
+    all
       .then(function (res) {
-        if (tok !== _loadTok || pr() !== name) return;        // stale: identity changed / newer load won
+        if (tok !== _loadTok || ident() !== name) return;     // stale: identity changed / newer load won
         STATE = res[0] || {}; PLAN = res[1] || {};
+        if (m === "ctr" && STATE.esign_enabled === false) {    // ho so ky dang tat / phieu khong ky
+          root.style.display = "none"; return;
+        }
         var rd = res[2] || {}, ck = rd.checks || {};
         relocate(); root.style.display = "block";
         var _le = document.getElementById("ecdLoadErr");     // lan truoc loi, lan nay duoc: go bang do
@@ -1114,6 +1254,8 @@
         render();
       })
       .catch(function (e) {
+        if (tok !== _loadTok || ident() !== name) return;     // loi cua lan tai cu - bo
+        if (e && e.notConfigured) { _ctrOff = true; root.style.display = "none"; return; }   // Hop dong chua bat ky so
         // KHONG nuot loi, VA phai noi o cho NHIN THAY DUOC.
         //
         // Ban va 31/08 dat cau loi vao #ecdMsg - mot phan tu KHONG TON TAI - va fallback
@@ -1133,10 +1275,13 @@
                           + "background:#fff5f4;border-radius:8px;color:#b42318;font-size:13px";
           root.insertBefore(m, root.firstChild);
         }
-        m.textContent = "Không tải được phần Tài liệu & ký số"
-          + ((e && e.message) ? " — " + e.message : "")
-          + ". Hãy tải lại trang; nếu vẫn lỗi thì báo kỹ thuật (đây là lỗi hệ thống, "
-          + "không phải do bạn thiếu quyền).";
+        m.textContent = (e && e.permission)
+          ? "Bạn không có quyền xem phần Tài liệu & ký số của phiếu này"
+            + ((e && e.message) ? " — " + e.message : "") + "."
+          : "Không tải được phần Tài liệu & ký số"
+            + ((e && e.message) ? " — " + e.message : "")
+            + ". Hãy tải lại trang; nếu vẫn lỗi thì báo kỹ thuật (đây là lỗi hệ thống, "
+            + "không phải do bạn thiếu quyền).";
         if (window.console) console.error("[ec-docsign] setup_state failed", e);
       });
   }
@@ -1172,14 +1317,15 @@
     DRW.pdfDocs = {}; DRW.rowsStale = false; DRW.sigPreview = null; DRW.showSig = false;
     DRW.signed = [];                                          // chu ky THAT cua phieu truoc khong duoc mang sang
     STATE = null; PLAN = null;
-    var r = document.getElementById("ecdRows"); if (r) r.innerHTML = "";
-    var sm = document.getElementById("ecdSummary"); if (sm) sm.textContent = "";
-    var ct = document.getElementById("ecdCount"); if (ct) ct.textContent = "";
-    var bn = document.getElementById("ecdBanner"); if (bn) bn.innerHTML = "";
+    // _el: khoi co the dang THAO khoi trang (form Hop dong ve lai) - van phai xoa noi dung phieu cu.
+    var r = _el("ecdRows"); if (r) r.innerHTML = "";
+    var sm = _el("ecdSummary"); if (sm) sm.textContent = "";
+    var ct = _el("ecdCount"); if (ct) ct.textContent = "";
+    var bn = _el("ecdBanner"); if (bn) bn.innerHTML = "";
   }
   function _checkIdentity() {   // PR identity/route change -> never render the previous request's docs
     if (!callReady()) return;
-    if (pr() === _curPr) return;                              // no change
+    if (ident() === _curPr) return;                           // no change
     _clearDocState();                                         // immediate, before any async
     _loadTok++;                                               // invalidate any in-flight previous-PR response
     load();                                                   // renders unsaved (no id) or loads the new id
@@ -1188,6 +1334,17 @@
     window.addEventListener("popstate", _checkIdentity);
     window.addEventListener("hashchange", _checkIdentity);
   }
+  // PR-E: trang Hop dong ve lai the chi tiet (slot moi, rong) sau moi thao tac -> gan khoi vao
+  // slot moi va tai lai (quyen sua / trang thai ky co the vua doi). Phat tren `document`.
+  try {
+    document.addEventListener("ctr:detail-rendered", function (ev) {
+      _ctrDetail = (ev && ev.detail) || null;
+      if (!callReady() || mode() !== "ctr") return;
+      if (ident() !== _curPr) { _clearDocState(); _loadTok++; }
+      else { relocate(); }
+      load();
+    });
+  } catch (e) {}
 
   // bounded, idempotent init (frappe.call may be installed after this inline script)
   var _t = null, _n = 0;

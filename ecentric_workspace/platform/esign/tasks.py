@@ -305,7 +305,9 @@ def _external_handlers_for(pkg):
         rows = frappe.get_attr(path)(pkg.business_name)
     except frappe.ValidationError as e:
         # Nghiep vu noi ro thieu gi (vd "Hop dong chua co email doi tac") - giu nguyen cau do.
-        raise ProviderError("partner_info_missing", str(e)[:300], retryable=False)
+        err = ProviderError("partner_info_missing", str(e)[:300], retryable=False)
+        err.user_message = str(e)[:300]          # cau CUA nghiep vu - hien thang cho nguoi dung
+        raise err
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "esign external handlers hook")
         raise ProviderError("partner_info_missing", "ham lay doi tac loi: %s"
@@ -1320,6 +1322,14 @@ def flag_silent_legs():
         except Exception:
             frappe.log_error(frappe.get_traceback(), "esign.tasks.flag_silent_legs %s" % r.name)
         _commit_step()
+    # PR-F (23/11): buoc nguoi lap SAU doi tac (HD lao dong WF03 `-11`) - gan vao vong 5 phut nay
+    # de khong sua hooks.py. Ho so khong khai buoc do -> mot truy van roi thoi.
+    try:
+        from ecentric_workspace.platform.esign import portal_steps
+        portal_steps.sweep_partner_bridges()
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "esign.tasks.sweep_partner_bridges")
+    _commit_step()
 
 
 def sweep_stale():
@@ -1451,7 +1461,8 @@ def retrieve_signed_bundles():
         # tri: cron van goi mang moi 30 phut cho mot goi da co nguoi tuyen bo la bo.
         filters={"scts_document_id": ["is", "set"], "signed_bundle_complete": 0,
                  "retrieval_abandoned": 0},
-        fields=["name", "provider", "environment", "approval_request"], limit_page_length=200)
+        fields=["name", "provider", "environment", "approval_request", "profile"],
+        limit_page_length=200)
     from ecentric_workspace.platform.esign import signed_files
     for r in rows:
         if not _integration_open(r.provider, r.environment):
@@ -1464,8 +1475,15 @@ def retrieve_signed_bundles():
         # "rejected"/"pending" -> _terminal_signed_ok tra non_signed_signer_present MAI MAI,
         # moi 30 phut mot su kien SignedRetrievalNotReady + mot lenh GET, khong ai dung lai
         # (khong co gi dua goi ve Completed/Cancelled khi phieu ket thuc). Bo qua, khong goi mang.
-        if r.approval_request and frappe.db.get_value(
-                "EC Approval Request", r.approval_request, "approval_status") in _AR_CLOSED:
+        ar_status = (frappe.db.get_value("EC Approval Request", r.approval_request,
+                                         "approval_status") if r.approval_request else None)
+        if ar_status in _AR_CLOSED:
+            continue
+        # PR-F (23/11): ho so HOP DONG (lay buoc tu cong / co doi tac) - CHI phieu da Approved. Chan
+        # nguoi lap xong SOM nen dieu kien "co chan Approval Completed" o tren dung tu dau; tai
+        # luc phieu con Pending chi ra non_signed_signer_present moi 30 phut roi bao "treo" sai.
+        # Ho so DNTT giu nguyen hanh vi cu.
+        if ar_status and ar_status != "Approved" and _contract_profile(r.profile):
             continue
         # PR-D: da bao nghiep vu "doi tac tu choi" / "huy" -> khong bao gio du chu ky nua.
         if _outcome_closed(r.name):
@@ -1546,6 +1564,17 @@ def _outcome_closed(package_name):
                                            "outcome_reported:rejected",
                                            "outcome_reported:returned",
                                            "outcome_reported:destroyed")]}))
+
+
+def _contract_profile(profile_name):
+    """Ho so hop dong: lay buoc tu cong hoac co doi tac ky ngoai (DNTT: khong)."""
+    if not profile_name:
+        return False
+    row = frappe.db.get_value("EC Digital Signature Profile", profile_name,
+                              ["trust_portal_transitions", "allow_external_signers"],
+                              as_dict=True) or {}
+    return bool(int(row.get("trust_portal_transitions") or 0)
+                or int(row.get("allow_external_signers") or 0))
 
 
 #: Trang thai phieu ma chu ky KHONG BAO GIO con du duoc - khong tai PDF ky cho nhung goi nay.

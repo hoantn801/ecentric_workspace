@@ -136,6 +136,84 @@ def _norm_transitions(rows):
 
 #: Kieu ky cua doi tac ma cong nhan (add-document.js, allSignTypes).
 PARTNER_SIGN_TYPES = ("image", "token", "ekyc", "esign", "vnetid", "nfc")
+#: Mac dinh khi nghiep vu khong chi dinh - Hoan chot 23/11/2026: doi tac (KOL, nguoi lao dong) ky
+#: bang eKYC. Cong AN kieu ky co luot = 0 (add-document.js) -> create_document kiem giay phep.
+PARTNER_DEFAULT_SIGN_TYPE = "ekyc"
+#: Kieu ky tinh luot -> truong giay phep (GET /api/Settings/GetLicence). image / token: khong tinh.
+_LICENCE_FIELDS = {"ekyc": "ekycTotal", "esign": "esginTotal", "vnetid": "vnetTotal",
+                   "nfc": "nfcTotal"}
+_SIGN_TYPE_LABEL = {"ekyc": "eKYC", "esign": "eSign (ký từ xa)", "vnetid": "VNeID", "nfc": "NFC"}
+LICENCE_CACHE_SECONDS = 600
+#: Luot = 0 cache NGAN: CMC mo luot xong thi tao tai lieu duoc lai sau toi da 1 phut (QC 23/11).
+LICENCE_EMPTY_CACHE_SECONDS = 60
+WORKFLOW_CACHE_SECONDS = 3600
+ROLES_CACHE_SECONDS = 600
+#: Doc LOI cung cache (5 phut): khong doc lai / dang nhap lai moi lan goi (QC 23/11).
+FAIL_CACHE_SECONDS = 300
+_FAIL = {"__esign_read_failed__": 1}
+
+
+def _is_fail(hit):
+    return isinstance(hit, dict) and hit.get("__esign_read_failed__") == 1
+
+
+def partner_sign_type_message(sign_type):
+    """Cau bao nguoi dung khi goi CMC het luot cho kieu ky cua doi tac."""
+    return ("Gói CMC chưa có lượt %s cho đối tác ký - liên hệ CMC mở lượt rồi gửi lại."
+            % _SIGN_TYPE_LABEL.get(sign_type, sign_type))
+
+
+def _unwrap(raw):
+    """`data` cua cong (co the long nhau / la CHUOI JSON) -> dict | list | None."""
+    import json
+    d = raw
+    for _i in range(4):
+        if isinstance(d, str):
+            try:
+                d = json.loads(d)
+            except Exception:
+                return None
+            continue
+        if isinstance(d, dict) and "data" in d and not d.get("nodeDataArray") \
+                and isinstance(d.get("data"), (dict, list, str)):
+            d = d["data"]
+            continue
+        if isinstance(d, dict) and isinstance(d.get("workflowJson"), (str, dict)) \
+                and not d.get("nodeDataArray"):
+            d = d["workflowJson"]
+            continue
+        break
+    return d if isinstance(d, (dict, list)) else None
+
+
+def _rows_of(d):
+    """Danh sach dong dict tu cac dang tra ve cua cong: [..] | {data: [..]} | {items: [..]} |
+    {data: {data|items: [..]}}. None khi khong nhan ra."""
+    for _i in range(3):
+        if isinstance(d, list):
+            return [r for r in d if isinstance(r, dict)]
+        if isinstance(d, dict):
+            nxt = d.get("data") if d.get("data") is not None else d.get("items")
+            if nxt is None:
+                return None
+            d = nxt
+            continue
+        return None
+    return None
+
+
+def _cache_get(key):
+    try:
+        return frappe.cache().get_value(key)
+    except Exception:
+        return None
+
+
+def _cache_set(key, value, seconds):
+    try:
+        frappe.cache().set_value(key, value, expires_in_sec=seconds)
+    except Exception:
+        pass
 
 
 def _external_handlers_payload(rows):
@@ -149,7 +227,7 @@ def _external_handlers_payload(rows):
         if not name or not email or "@" not in email:
             raise ProviderError("partner_info_invalid",
                                 "thong tin doi tac thieu ten / email hop le", retryable=False)
-        st = str(r.get("sign_type") or "image").strip()
+        st = str(r.get("sign_type") or PARTNER_DEFAULT_SIGN_TYPE).strip()
         if st not in PARTNER_SIGN_TYPES:
             raise ProviderError("partner_sign_type_invalid", "kieu ky doi tac la: %s" % st,
                                 retryable=False)
@@ -554,7 +632,10 @@ class SctsAdapter(SignatureProviderAdapter):
         return None
 
     # -- documents / status ---------------------------------------------------
-    def get_document(self, document_id):
+    def get_document(self, document_id, quick=False):
+        if quick:
+            return self._with_auth(lambda t: self._client.get_document(document_id, t,
+                                                                       quick=True))
         return self._with_auth(lambda t: self._client.get_document(document_id, t))
 
     def cancel_document(self, document_id, reason):
@@ -601,6 +682,169 @@ class SctsAdapter(SignatureProviderAdapter):
                     }, None
         except Exception as exc:          # hinh dang la -> noi ro, khong nem (QC 12/11)
             return None, "state_lookup_bad_shape:%s" % safe_error(exc)
+
+    # -- cau hinh cong (PR-F 23/11/2026; chi DOC, co cache, KHONG BAO GIO nem loi) --------
+    def _service_auth(self, fn):
+        """Doc cau hinh cong bang tai khoan TICH HOP, ke ca khi adapter dang mang token nguoi
+        dung (chan ky cua nguoi lap / nguoi duyet): token ca nhan co the khong duoc doc dinh nghia
+        quy trinh / danh sach nguoi dung (trang quan tri)."""
+        saved = self._user_token
+        self._user_token = None
+        try:
+            return self._with_auth(fn)
+        finally:
+            self._user_token = saved
+
+    def licence(self):
+        """Luot con theo giay phep cong {ekycTotal, esginTotal, vnetTotal, nfcTotal, ...} hoac
+        None (khong doc duoc)."""
+        key = "esign:scts:licence:%s" % (self._name or "")
+        hit = _cache_get(key)
+        if _is_fail(hit):
+            return None
+        if isinstance(hit, dict):
+            return hit
+        try:
+            raw = self._service_auth(lambda t: self._client.get_licence(t))
+        except Exception as exc:
+            from ecentric_workspace.platform.esign.sanitize import safe_error
+            frappe.log_error("GetLicence that bai: %s" % safe_error(exc), "esign scts licence")
+            _cache_set(key, _FAIL, FAIL_CACHE_SECONDS)
+            return None
+        d = _unwrap(raw)
+        if not isinstance(d, dict):
+            return None
+        out = {}
+        for k, v in d.items():
+            if str(k).endswith("Total"):
+                try:
+                    out[str(k)] = int(v or 0)
+                except (TypeError, ValueError):
+                    continue
+        if not out:
+            return None
+        _cache_set(key, out, LICENCE_EMPTY_CACHE_SECONDS
+                   if any(v <= 0 for v in out.values()) else LICENCE_CACHE_SECONDS)
+        return out
+
+    def assert_partner_sign_types_available(self, handlers):
+        """Kieu ky cua doi tac phai CON LUOT tren giay phep cong - cong an kieu ky het luot, doi
+        tac se khong ky duoc. Khong doc duoc giay phep -> khong chan (ghi log)."""
+        types = sorted({str(h.get("SignType") or "") for h in (handlers or [])}
+                       & set(_LICENCE_FIELDS))
+        if not types:
+            return
+        lic = self.licence()
+        if lic is None:
+            frappe.log_error("khong doc duoc giay phep CMC - khong kiem luot %s" % ",".join(types),
+                             "esign scts licence")
+            return
+        for st in types:
+            field = _LICENCE_FIELDS[st]
+            if field not in lic:
+                # Giay phep khong noi kieu nay -> khong biet, KHONG chan (QC 23/11).
+                frappe.log_error("giay phep CMC khong co truong %s - khong kiem luot %s"
+                                 % (field, st), "esign scts licence")
+                continue
+            if int(lic.get(field) or 0) <= 0:
+                raise ProviderError("partner_sign_type_unavailable",
+                                    partner_sign_type_message(st), retryable=False)
+
+    def workflow_nodes(self, definition_id):
+        """Mo hinh quy trinh tren cong: {"nodes": {key: {"external", "roles", "type"}},
+        "start_node": key buoc dau tien} hoac None. Cache 1 gio."""
+        if not definition_id:
+            return None
+        key = "esign:scts:wfnodes:%s:%s" % (self._name or "", definition_id)
+        hit = _cache_get(key)
+        if _is_fail(hit):
+            return None
+        if isinstance(hit, dict):
+            return hit
+        try:
+            raw = self._service_auth(lambda t: self._client.get_workflow_json(definition_id, t))
+        except Exception as exc:
+            from ecentric_workspace.platform.esign.sanitize import safe_error
+            frappe.log_error("GetJson quy trinh %s that bai: %s" % (definition_id, safe_error(exc)),
+                             "esign scts workflow_nodes")
+            _cache_set(key, _FAIL, FAIL_CACHE_SECONDS)
+            return None
+        d = _unwrap(raw)
+        if not isinstance(d, dict) or not isinstance(d.get("nodeDataArray"), list):
+            _cache_set(key, _FAIL, FAIL_CACHE_SECONDS)
+            return None
+        nodes, start_keys = {}, set()
+        for n in d.get("nodeDataArray") or []:
+            if not isinstance(n, dict) or n.get("key") is None:
+                continue
+            k = str(n.get("key"))
+            nodes[k] = {"external": str(n.get("processingType") or "").upper() == "EXTERNAL",
+                        "roles": [str(r) for r in (n.get("roles") or [])],
+                        "type": str(n.get("type") or "")}
+            if str(n.get("type") or "").lower() == "start":
+                start_keys.add(k)
+        starts = [str(link.get("to")) for link in (d.get("linkDataArray") or [])
+                  if isinstance(link, dict) and str(link.get("from")) in start_keys]
+        out = {"nodes": nodes, "start_node": starts[0] if len(set(starts)) == 1 else None}
+        _cache_set(key, out, WORKFLOW_CACHE_SECONDS)
+        return out
+
+    def user_roles(self, email, provider_user_id=None, fresh=False):
+        """Ma vai tro tren cong cua MOT tai khoan, hoac None (khong doc duoc / khong thay / trung -
+        khong duoc dung de chan). Tim bang email (GetPaged keyword); co `provider_user_id` (anh xa
+        ERP->cong da xac minh) thi khop theo MA - email cong co the khac email ERP (QC 23/11).
+        `fresh`: bo qua cache (truoc khi CHAN, doc lai - vua duoc cap vai thi khong bi chan oan)."""
+        em = str(email or "").strip().lower()
+        pid = str(provider_user_id or "").strip().lower()
+        if not em:
+            return None
+        key = "esign:scts:roles:%s:%s:%s" % (self._name or "", em, pid)
+        if not fresh:
+            hit = _cache_get(key)
+            if _is_fail(hit):
+                return None
+            if isinstance(hit, list):
+                return hit
+        try:
+            raw = self._service_auth(lambda t: self._client.get_users_paged(em, t))
+        except Exception as exc:
+            from ecentric_workspace.platform.esign.sanitize import safe_error
+            frappe.log_error("GetPaged nguoi dung that bai: %s" % safe_error(exc),
+                             "esign scts user_roles")
+            _cache_set(key, _FAIL, FAIL_CACHE_SECONDS)
+            return None
+        rows = _rows_of(_unwrap(raw))
+        if rows is None:
+            return None
+        if pid:
+            hits = [r for r in rows if str(r.get("id") or "").strip().lower() == pid]
+        else:
+            hits = [r for r in rows if str(r.get("email") or "").strip().lower() == em]
+        if len(hits) != 1:
+            return None
+        roles = [str(x) for x in (hits[0].get("roleIds") or [])]
+        _cache_set(key, roles, ROLES_CACHE_SECONDS)
+        return roles
+
+    def role_names(self):
+        """{ma vai tro: ten} tren cong, {} khi khong doc duoc."""
+        key = "esign:scts:rolenames:%s" % (self._name or "")
+        hit = _cache_get(key)
+        if _is_fail(hit):
+            return {}
+        if isinstance(hit, dict):
+            return hit
+        try:
+            d = _unwrap(self._service_auth(lambda t: self._client.get_roles(t)))
+        except Exception:
+            _cache_set(key, _FAIL, FAIL_CACHE_SECONDS)
+            return {}
+        rows = _rows_of(d) or []
+        out = {str(r.get("id")): str(r.get("name") or "") for r in rows
+               if r.get("id") is not None}
+        if out:
+            _cache_set(key, out, ROLES_CACHE_SECONDS)
+        return out
 
     def eligible_recipients(self, instance_id, transition_id, provider_user_id):
         """ID cua nhung nguoi eContract CHAP NHAN cho buoc nay. None = khong hoi duoc.
@@ -658,8 +902,9 @@ class SctsAdapter(SignatureProviderAdapter):
         """Normalized document status (alias surface required by S2B-A §4)."""
         return self.poll_status(provider_document_id)
 
-    def poll_status(self, document_id):
-        raw = self.get_document(document_id)
+    def poll_status(self, document_id, quick=False):
+        raw = self.get_document(document_id, quick=True) if quick else \
+            self.get_document(document_id)
         return self._normalize_document(document_id, raw)
 
     def _normalize_document(self, document_id, raw):
@@ -891,6 +1136,11 @@ class SctsAdapter(SignatureProviderAdapter):
                 "OriginalBase64": "" if omit else b64,
                 "Signatures": sigs,
             })
+        # Doi tac ky ngoai (PR-D, 22/11): chi khi ho so bat allow_external_signers va nghiep
+        # vu cung cap (ec_esign_external_handlers). Khoa = dung khoa cong gui (add-document.js).
+        # PR-F 23/11: kieu ky tinh luot (eKYC...) phai con luot TRUOC khi tao tai lieu.
+        handlers = _external_handlers_payload(package_ctx.get("external_handlers"))
+        self.assert_partner_sign_types_available(handlers)
         payload = {
             "docCode": package_ctx.get("doc_code"),
             "docBatchCode": package_ctx.get("doc_batch_code") or "",
@@ -905,9 +1155,7 @@ class SctsAdapter(SignatureProviderAdapter):
             "deadlineDate": package_ctx.get("deadline") or "",
             "fields": package_ctx.get("fields") or [],
             "Documents": documents,
-            # Doi tac ky ngoai (PR-D, 22/11): chi khi ho so bat allow_external_signers va nghiep
-            # vu cung cap (ec_esign_external_handlers). Khoa = dung khoa cong gui (add-document.js).
-            "ExternalHandlers": _external_handlers_payload(package_ctx.get("external_handlers")),
+            "ExternalHandlers": handlers,
             "DocumentRefIds": [],
         }
         try:

@@ -2,7 +2,7 @@
 """PR-D (22/11/2026): doi tac ky ngoai cho hop dong (WF09) - chi ho so bat allow_external_signers.
 
   1. scts._external_handlers_payload: dung khoa cong gui (add-document.js); thieu ten / email,
-     kieu ky la -> ProviderError khong retry; mac dinh SignType "image".
+     kieu ky la -> ProviderError khong retry; mac dinh SignType "ekyc" (PR-F 23/11).
   2. tasks._external_handlers_for: ho so khong bat -> [] (DNTT khong doi); bat ma hook thieu /
      rong / loi -> partner_info_missing (khong tao tai lieu thieu doi tac).
   3. next_handler.plan_portal_step: buoc sang doi tac - ho so khong bat -> dung nhu cu; bat ->
@@ -69,7 +69,7 @@ class TestPayload(unittest.TestCase):
     def setUp(self):
         g = {"ProviderError": _PE}
         exec(compile(_fns(_read("providers", "scts.py"),
-                          ["PARTNER_SIGN_TYPES", "_external_handlers_payload"]), "s", "exec"), g)
+                          ["PARTNER_SIGN_TYPES", "PARTNER_DEFAULT_SIGN_TYPE", "_external_handlers_payload"]), "s", "exec"), g)
         self.f = g["_external_handlers_payload"]
 
     def test_rong(self):
@@ -85,8 +85,11 @@ class TestPayload(unittest.TestCase):
         self.assertEqual((out[0]["FullName"], out[0]["SignType"]), ("Nguyen Van A", "ekyc"))
         self.assertIsNone(out[0]["PartnerId"])
 
-    def test_mac_dinh_image(self):
-        self.assertEqual(self.f([{"full_name": "B", "email": "b@x.vn"}])[0]["SignType"], "image")
+    def test_mac_dinh_ekyc(self):
+        """Hoan chot 23/11 (PR-F): doi tac ky eKYC khi nghiep vu khong chi dinh."""
+        self.assertEqual(self.f([{"full_name": "B", "email": "b@x.vn"}])[0]["SignType"], "ekyc")
+        self.assertEqual(self.f([{"full_name": "B", "email": "b@x.vn", "sign_type": "image"}])[0]
+                         ["SignType"], "image")
 
     def test_thieu_thong_tin_khong_retry(self):
         for row in ({"full_name": "", "email": "a@x"}, {"full_name": "A", "email": "khong-email"},
@@ -103,8 +106,9 @@ class TestPayload(unittest.TestCase):
 
     def test_add_document_dung_ham(self):
         src = _read("providers", "scts.py")
-        self.assertIn('"ExternalHandlers": _external_handlers_payload(package_ctx.get('
-                      '"external_handlers"))', src)
+        self.assertIn('handlers = _external_handlers_payload(package_ctx.get("external_handlers"))',
+                      src)
+        self.assertIn('"ExternalHandlers": handlers,', src)
         self.assertNotIn('"ExternalHandlers": [],', src)
 
 
@@ -128,7 +132,7 @@ def _ext(allow, hook=None, rows=None, boom=None, profile="P"):
                  "t", "exec"), g)
     sg = {"ProviderError": _PE}
     exec(compile(_fns(_read("providers", "scts.py"),
-                      ["PARTNER_SIGN_TYPES", "_external_handlers_payload"]), "s", "exec"), sg)
+                      ["PARTNER_SIGN_TYPES", "PARTNER_DEFAULT_SIGN_TYPE", "_external_handlers_payload"]), "s", "exec"), sg)
     scts = types.ModuleType("scts")
     scts._external_handlers_payload = sg["_external_handlers_payload"]
     pkg = _D(name="PKG-1", profile=profile, business_doctype="EC Contract Review Request",
@@ -272,11 +276,12 @@ class TestBuocDoiTac(unittest.TestCase):
         self.assertEqual(p["reason"], "partner_recipient_internal:KT-7")
 
     def test_khong_hoi_duoc_rong_nhieu_thi_dung(self):
-        for el, why in ((None, "partner_recipient_unverified"),
-                        (set(), "partner_recipient_ambiguous:0"),
-                        ({"A", "B"}, "partner_recipient_ambiguous:2")):
+        for el, mode, why in ((None, "wait", "partner_recipient_unverified"),
+                              (set(), "stop", "partner_recipient_ambiguous:0"),
+                              ({"A", "B"}, "stop", "partner_recipient_ambiguous:2")):
+            # Khong hoi duoc nguoi nhan (loi tam thoi) -> CHO thu lai, khong gui (PR-F QC vong 2).
             p = self._plan(1, el)
-            self.assertEqual((p["mode"], p["reason"]), ("stop", why))
+            self.assertEqual((p["mode"], p["reason"]), (mode, why))
         nh, ad = _nh(1, {"DT-1"})
         self.assertEqual(nh.plan_portal_step(DSR_CEO, ST6, "P", "UAT")["reason"],
                          "partner_recipient_unverified", "khong co adapter -> khong doan")
