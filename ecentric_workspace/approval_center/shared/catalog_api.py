@@ -23,6 +23,20 @@ TYPE_FIELDS = ["name", "approval_title", "description", "icon", "category",
                "visibility_mode", "available_from"]
 
 
+# Truong song ngu (23/11/2026). Them bang migrate -> truoc khi migrate chay thi KHONG co cot: chi xin
+# cot dang ton tai, khong de danh muc vo vi mot cot chua co.
+OPTIONAL_TYPE_FIELDS = ["title_vi"]
+OPTIONAL_CATEGORY_FIELDS = ["name_vi", "short_name_vi"]
+
+
+def _with_optional(doctype, base, optional):
+    try:
+        meta = frappe.get_meta(doctype)
+        return base + [f for f in optional if meta.has_field(f)]
+    except Exception:
+        return base
+
+
 def _child_map(child_doctype, value_field):
     """parent -> [values] for a child table of EC Approval Type."""
     out = {}
@@ -46,10 +60,13 @@ def _shape(t, cat):
         "guide_title": guide["short"] if guide else None,
         "approval_code": t.name,
         "approval_title": t.approval_title,
+        # Ten tieng Viet (dong chinh) - trang tu ve approval_title lam dong phu neu khac.
+        "title_vi": t.get("title_vi") if hasattr(t, "get") else None,
         "description": t.description,
         "icon": t.icon,
         "category_code": t.category,
         "category_name": cat.category_name if cat else None,
+        "category_name_vi": (cat.get("name_vi") if (cat and hasattr(cat, "get")) else None),
         "category_icon": cat.icon if cat else None,
         "card_status": t.card_status,
         "process_status": t.process_status,
@@ -70,8 +87,11 @@ def list_catalog(include_disabled_admin=0):
     include_disabled = bool(ctx["is_admin"]) and bool(int(include_disabled_admin or 0))
     today = getdate(nowdate())
 
-    cats = {c.name: c for c in frappe.get_all("EC Approval Category", fields=CATEGORY_FIELDS)}
-    types = frappe.get_all("EC Approval Type", fields=TYPE_FIELDS)
+    cats = {c.name: c for c in frappe.get_all(
+        "EC Approval Category",
+        fields=_with_optional("EC Approval Category", CATEGORY_FIELDS, OPTIONAL_CATEGORY_FIELDS))}
+    types = frappe.get_all("EC Approval Type",
+                           fields=_with_optional("EC Approval Type", TYPE_FIELDS, OPTIONAL_TYPE_FIELDS))
     roles_map = _child_map("EC Approval Type Role", "role")
     depts_map = _child_map("EC Approval Type Department", "department")
 
@@ -103,6 +123,8 @@ def list_catalog(include_disabled_admin=0):
             seen[code] = {
                 "category_code": code,
                 "category_name": c["category_name"],
+                "name_vi": cat.get("name_vi") if (cat and hasattr(cat, "get")) else None,
+                "short_name_vi": cat.get("short_name_vi") if (cat and hasattr(cat, "get")) else None,
                 "icon": c["category_icon"],
                 "sort_order": (cat.sort_order or 0) if cat else 0,
             }
