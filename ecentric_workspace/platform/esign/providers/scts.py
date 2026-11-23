@@ -220,6 +220,14 @@ def _external_handlers_payload(rows):
     """[{full_name, email, phone?, identity?, identity_place?, identity_date?, dob?, sign_type?}]
     -> ExternalHandlers cua AddDocument (dung khoa giao dien cong gui). Thieu ten / email hoac
     kieu ky la -> ProviderError (khong gui doi tac nua voi)."""
+    # site_config `ec_esign_partner_sign_type` (vd "vnetid") ghi de mac dinh TAM - 24/11/2026 Hoan:
+    # chay thu hop dong KOL bang VNeID trong luc CMC chua mo luot eKYC. La / khong doc -> eKYC.
+    try:
+        default = str((frappe.conf or {}).get("ec_esign_partner_sign_type") or "").strip().lower()
+    except Exception:
+        default = ""
+    if default not in PARTNER_SIGN_TYPES:
+        default = PARTNER_DEFAULT_SIGN_TYPE
     out = []
     for r in (rows or []):
         name = str((r or {}).get("full_name") or "").strip()
@@ -227,7 +235,7 @@ def _external_handlers_payload(rows):
         if not name or not email or "@" not in email:
             raise ProviderError("partner_info_invalid",
                                 "thong tin doi tac thieu ten / email hop le", retryable=False)
-        st = str(r.get("sign_type") or PARTNER_DEFAULT_SIGN_TYPE).strip()
+        st = str(r.get("sign_type") or default).strip()
         if st not in PARTNER_SIGN_TYPES:
             raise ProviderError("partner_sign_type_invalid", "kieu ky doi tac la: %s" % st,
                                 retryable=False)

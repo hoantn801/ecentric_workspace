@@ -301,6 +301,17 @@ class TestAdapter(unittest.TestCase):
         out = g["_external_handlers_payload"]([{"full_name": "A", "email": "a@x.vn"}])
         self.assertEqual(out[0]["SignType"], "ekyc")
         self.assertIn("Gói CMC chưa có lượt eKYC", g["partner_sign_type_message"]("ekyc"))
+        # 24/11: site_config ghi de tam (chay thu bang VNeID); gia tri la -> eKYC
+        g["frappe"].conf = {"ec_esign_partner_sign_type": "vnetid"}
+        out = g["_external_handlers_payload"]([{"full_name": "A", "email": "a@x.vn"}])
+        self.assertEqual(out[0]["SignType"], "vnetid")
+        g["frappe"].conf = {"ec_esign_partner_sign_type": "khong-co"}
+        out = g["_external_handlers_payload"]([{"full_name": "A", "email": "a@x.vn"}])
+        self.assertEqual(out[0]["SignType"], "ekyc")
+        out = g["_external_handlers_payload"]([{"full_name": "A", "email": "a@x.vn",
+                                                "sign_type": "image"}])
+        self.assertEqual(out[0]["SignType"], "image", "nghiep vu chi dinh thi giu")
+        g["frappe"].conf = {}
         src = _read("providers", "scts.py")
         i = src.index("def create_document(")
         body = src[i:src.index("\n    @staticmethod", i)]
