@@ -7,7 +7,7 @@ import frappe
 
 _MODULE = "ecentric_workspace.approval_center.features.contract_review.infrastructure.page_sync"
 _ROUTE = "approvals/contract-review"
-_MARKS = ("signPdfHTML", "kol_attach_sign_pdf", "reopen_signing_setup")
+_MARKS = ("signPdfHTML", "kol_attach_sign_pdf", "spv.locked")
 
 
 def execute():
