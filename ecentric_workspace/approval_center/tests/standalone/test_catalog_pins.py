@@ -72,6 +72,12 @@ def _load(world, user="a@x", internal=True):
         world.pins[:] = [p for p in world.pins if p["name"] != name]
     fk.delete_doc = delete_doc
 
+    world.defaults = getattr(world, "defaults", {})
+    fk.defaults = types.SimpleNamespace(
+        get_user_default=lambda k, u: world.defaults.get((k, u)),
+        set_user_default=lambda k, v, u: world.defaults.__setitem__((k, u), v))
+    fk.cache = lambda: types.SimpleNamespace(get_value=lambda k: None, set_value=lambda *a, **k: None)
+
     perms = types.SimpleNamespace(is_internal_system_user=lambda u: internal)
     saved = {k: sys.modules.get(k) for k in ("frappe", "frappe.utils")}
     sys.modules["frappe"] = fk
@@ -124,6 +130,38 @@ class Pins(unittest.TestCase):
         self.assertEqual(m._my_usage("a@x"), {"PAY": 4})
         self.assertEqual(self.w.sql_args["u"], "a@x")
         self.assertEqual(self.w.sql_args["since"], "since(-90)")
+
+
+class Seed(unittest.TestCase):
+    def setUp(self):
+        self.w = _World()
+        self.w.types |= {"A", "B", "C", "D", "E"}
+
+    def _m(self, usage, company, usable, **k):
+        m = _load(self.w, **k)
+        self.addCleanup(m._restore)
+        m._my_usage = lambda u: usage
+        m._company_top = lambda: company
+        m.list_catalog = lambda: {"types": [{"approval_code": c, "route": "/x"} for c in usable]
+                                  + [{"approval_code": "SOON", "route": None}]}
+        return m
+
+    def test_mine_first_then_company_only_usable(self):
+        m = self._m({"B": 9, "SOON": 50, "A": 3}, ["SOON", "C", "B", "D", "E"], ["A", "B", "C", "D", "E"])
+        self.assertEqual(m.seed_default_pins()["my_pins"], ["B", "A", "C", "D"])
+        self.assertTrue(m._is_seeded("a@x"))
+
+    def test_seed_runs_once_and_never_over_existing_pins(self):
+        m = self._m({}, ["A", "B", "C", "D"], ["A", "B", "C", "D"])
+        m.set_pin("E", 1)                      # tu ghim roi tu bo -> da danh dau, khong gieo
+        m.set_pin("E", 0)
+        self.assertEqual(m.seed_default_pins()["my_pins"], [], "user da tu chinh ghim -> khong gieo")
+        self.assertEqual(m.seed_default_pins()["my_pins"], [])
+
+    def test_external_user_gets_nothing(self):
+        m = self._m({"A": 1}, ["B"], ["A", "B"], internal=False)
+        self.assertEqual(m.seed_default_pins()["my_pins"], [])
+        self.assertEqual(self.w.pins, [])
 
 
 if __name__ == "__main__":

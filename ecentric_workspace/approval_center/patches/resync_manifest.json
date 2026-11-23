@@ -153,8 +153,8 @@
     "sha256": "347f7ad43edc901cbd42da98f89580c64d86d4d403e2f981408abf9a9163c740"
   },
   "approval_center/ui/hub/main_section.html": {
-    "last_resync_patch": "p493_resync_approval_center_ghim",
-    "sha256": "edd57e3bdc6bab6c9f49bdad7c0eb1e6fdce451e9c2502a4a6e70a88030c3ee9"
+    "last_resync_patch": "p494_resync_approval_center_the_thang",
+    "sha256": "8bba278976b9710bba88238cff30e299f4deefcdd046ee20869eda47a8871139"
   },
   "guides/pages/dnmh_dntt/main_section.html": {
     "last_resync_patch": "p161_publish_guides_and_shell_drift",
