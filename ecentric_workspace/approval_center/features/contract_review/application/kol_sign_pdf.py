@@ -25,6 +25,11 @@ _REASON_TEXT = {
     "no_markers": "Không thấy mốc ký trong tệp - kéo ô ký bằng tay ở phần Ký số bên dưới.",
     "not_pdf": "Tệp không phải PDF.",
     "stale_or_foreign_attachment": "Tệp không còn gắn với phiếu - tải lên lại.",
+    # PR-G (24/11): ma moi cua nen tang.
+    "not_signing_file": "Tệp này không phải bản PDF để ký của phiếu - tải lên ở ô \"Bản PDF để ký\".",
+    "unchanged_in_locked_package": "Tệp này trùng bản đã khoá trong gói ký - không cần đặt lại ô ký. "
+                                   "Muốn thay nội dung: xuất PDF mới từ hợp đồng đã sửa rồi tải lên.",
+    "manual_placement": "Tệp không dùng mốc ký tự động - kéo ô ký bằng tay ở phần Ký số bên dưới.",
 }
 
 
@@ -62,7 +67,11 @@ def attach(name, file_url, user):
     from ecentric_workspace.approval_center.features.contract_review.application.kol_files import claim_upload
     old = doc.get("sign_pdf")
     url = claim_upload(doc, url, user)
-    if old and old != url:
+    if old and old != url and not doc.get("approval_request"):
+        # Chi go ban cu khi phieu CHUA GUI. Sau "Can bo sung": ban cu co the nam trong goi ky da khoa
+        # (bang chung, nen tang khong cho go - PR-G) -> de lai tren phieu. Chu tep = Administrator
+        # (claim_upload) nen van bi an voi nguoi duyet nhu moi tep du PII (_is_pii_attachment).
+        # Goi Draft moi (sau reopen_signing_setup) tu bo ban cu khi dat o ky (reconcile_draft).
         _drop_old(doc, old)
     doc.db_set("sign_pdf", url)
     doc.add_comment("Info", _("{0} tải bản PDF để ký.").format(user))
@@ -148,8 +157,21 @@ def view(doc, user):
     status = None
     if doc.get("approval_request"):
         status = frappe.db.get_value("EC Approval Request", doc.get("approval_request"), "approval_status")
+    esign = esign_gate.enabled(doc.get("name"))
+    can_edit = bool(mine and doc.get("contract_no")
+                    and (not doc.get("approval_request") or status == "Information Required"))
     return {"has": bool(doc.get("sign_pdf")), "stale": is_stale(doc) if doc.get("sign_pdf") else False,
-            "esign": esign_gate.enabled(doc.get("name")),
-            "can_edit": bool(mine and doc.get("contract_no")
-                             and (not doc.get("approval_request") or status == "Information Required"))}
+            "esign": esign, "can_edit": can_edit,
+            # "Can bo sung" + goi ky da khoa: thay PDF = mo lai thiet lap ky (huy tai lieu cu tren cong,
+            # gui lai duyet tu cap 1) -> trang hoi xac nhan roi goi reopen_signing_setup TRUOC (PR-G).
+            "locked": bool(can_edit and esign and status == "Information Required" and _locked(doc))}
+
+
+def _locked(doc):
+    try:
+        from ecentric_workspace.platform.esign import lifecycle
+        return lifecycle.locked_signable_shas(kol_lookup.CR_DT, doc.get("name")) is not None
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "kol_sign_pdf.view locked")
+        return False
 

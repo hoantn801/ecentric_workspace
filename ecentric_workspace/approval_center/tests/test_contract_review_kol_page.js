@@ -121,6 +121,11 @@ function po1711Part(){
         d6.extra.kol.sign_pdf={has:true,stale:false,esign:false,can_edit:false};
         const s8=K.detailHTML(d6);
         chk("ky so 23/11: chua bat ky so / sau khi gui: khong co nut tai, noi ro ky tren cong nhu hien nay", !/kol-signpdf-f/.test(s8)&&/ký trên cổng như hiện nay/.test(s8));
+        d6.extra.kol.sign_pdf={has:true,stale:false,esign:true,can_edit:true,locked:true};
+        const s9=K.detailHTML(d6);
+        chk("PR-H 24/11: Can bo sung + goi da khoa -> nut Thay ban PDF + noi ro huy tai lieu cu, duyet lai tu cap 1", /Thay bản PDF/.test(s9)&&/huỷ tài liệu cũ trên cổng ký/.test(s9)&&/duyệt lại từ cấp 1/.test(s9));
+        d6.extra.kol.sign_pdf={has:true,stale:false,esign:true,can_edit:true,locked:false};
+        chk("PR-H 24/11: chua khoa goi thi khong canh bao huy tai lieu", !/huỷ tài liệu cũ/.test(K.detailHTML(d6)));
         d6.extra.kol.sign_pdf=null;
         chk("ky so 23/11: khong co du lieu sign_pdf (phieu cu) thi khong ve o", !/Bản PDF để ký/.test(K.detailHTML(d6))); } }
     curDetail=JSON.parse(JSON.stringify(detail));

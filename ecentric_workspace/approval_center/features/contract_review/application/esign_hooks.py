@@ -193,12 +193,15 @@ def _round(doc, row_name, outcome, signed_file, detail):
 
 # ----------------------------------------------------------------------------- B2: doi chieu tep ky
 def verify_document(business_doctype, business_name, file_name, pages_text):
-    """Hook ec_esign_document_verifiers. -> {"status": match|mismatch|no_text, "reason"}.
-    Nem loi / tra khac "match" -> Ky so chan (dung y: khong doan)."""
+    """Hook ec_esign_document_verifiers. -> {"status": match|mismatch|no_text|not_applicable, "reason"}.
+    Nen tang LUON goi (PR-G 24/11): PDF khong lop chu -> pages_text = []. Nem loi / tra trang thai
+    khong qua -> Ky so chan (dung y: khong doan)."""
     doc = frappe.get_doc(kol_lookup.CR_DT, business_name)
     if not kol.is_kol(doc):
-        # Hop dong thuong: van ban do doi tac / phong ban soan, khong co du lieu doi chieu tren phieu.
-        return {"status": "match", "reason": _("Hợp đồng không phải KOL/KOC - không đối chiếu tự động.")}
+        # Hop dong thuong: van ban do doi tac / phong ban soan (co the la ban scan doi tac da ky - WF05),
+        # khong co du lieu doi chieu tren phieu -> "khong ap dung" = qua, nguoi lap keo o ky tay.
+        return {"status": "not_applicable",
+                "reason": _("Hợp đồng không phải KOL/KOC - không đối chiếu tự động.")}
     text = "\n".join(str(p or "") for p in (pages_text or []))
     if not text.strip():
         return {"status": "no_text", "reason": None}
@@ -211,6 +214,20 @@ def verify_document(business_doctype, business_name, file_name, pages_text):
     if problems:
         return {"status": "mismatch", "reason": " ".join(problems)}
     return {"status": "match", "reason": None}
+
+
+# ----------------------------------------------------------------------------- PR-H: tep ky do nghiep vu khai
+def signing_files(business_name):
+    """Hook ec_esign_signing_files (PR-G 24/11) -> [file_url]: DUY NHAT cac tep nay la tai lieu ky.
+
+    * KOL: chi "Ban PDF de ky" (sign_pdf). Ban .docx sinh tu mau, dinh kem, ban ky cu = bo chung tu.
+    * Hop dong thuong: [] - chua chot tep ky voi PO; ho so ky dau tien chi ap cho KOL (chat Ky so dong
+      y 24/11). Bat ho so cho hop dong thuong ma van tra rong -> nen tang chan khoa goi (CO Y)."""
+    doc = frappe.get_doc(kol_lookup.CR_DT, business_name)
+    if not kol.is_kol(doc):
+        return []
+    url = doc.get("sign_pdf")
+    return [url] if url else []
 
 
 # ----------------------------------------------------------------------------- B6: doi tac ky tren cong
