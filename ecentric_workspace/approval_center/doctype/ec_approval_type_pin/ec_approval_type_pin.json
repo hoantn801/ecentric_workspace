@@ -1,0 +1,64 @@
+{
+ "doctype": "DocType",
+ "name": "EC Approval Type Pin",
+ "module": "Approval Center",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "autoname": "hash",
+ "naming_rule": "Random",
+ "description": "Loai phieu nguoi dung ghim len dau Approval Center (23/11/2026). Moi dong = 1 user ghim 1 loai. Chi ghi qua catalog_api.set_pin (user hien tai).",
+ "field_order": [
+  "user",
+  "approval_type",
+  "pinned_at"
+ ],
+ "fields": [
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "User",
+   "options": "User",
+   "reqd": 1,
+   "in_standard_filter": 1,
+   "search_index": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "approval_type",
+   "fieldtype": "Link",
+   "label": "Approval Type",
+   "options": "EC Approval Type",
+   "reqd": 1,
+   "in_standard_filter": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "pinned_at",
+   "fieldtype": "Datetime",
+   "label": "Pinned At",
+   "in_list_view": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1
+  }
+ ],
+ "modified": "2026-11-23 16:00:00.000000",
+ "owner": "Administrator",
+ "creation": "2026-11-23 16:00:00"
+}
