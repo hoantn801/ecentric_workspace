@@ -1,9 +1,9 @@
 {
- "source": "app src/rules/defaults.js 2026-11-23",
+ "source": "app src/rules/defaults.js 0.1.1 (23/11 toi)",
  "rules": [
   {
    "title": "Nói quá nhỏ, khó nghe",
-   "how": "Đo mức âm (dBFS) từng mic, chỉ tính lúc có tiếng nói (VAD). Chia phiên thành cửa sổ 5 phút; cửa sổ nào có dưới 95% thời lượng nói đạt mức nghe rõ (≥ −38 dBFS) tính 1 lần. Cửa sổ nói dưới 20 giây bỏ qua.",
+   "how": "Đo mức âm (dBFS) từng mic, chỉ tính lúc có tiếng nói (VAD) và mic đó là mic to nhất hoặc kém mic to nhất ≤ 6 dB (bỏ tiếng lọt từ host bên cạnh). Chia phiên thành cửa sổ 5 phút; cửa sổ nào có dưới 95% thời lượng nói đạt mức nghe rõ (≥ −38 dBFS) tính 1 lần. Cửa sổ nói dưới 20 giây bỏ qua.",
    "default_text": "Đủ 3 lần = 1 lỗi Minor (nhóm A), đếm lại từ đầu.",
    "tune_tip": "Mức −38 dBFS phụ thuộc độ lợi mic từng máy: chạy 1 phiên thử, xem mức âm trung bình của host nói bình thường rồi đặt min_db thấp hơn khoảng 8–10 dB. Báo sai nhiều → giảm min_db hoặc clear_ratio.",
    "code": "VOI-01",
@@ -11,7 +11,8 @@
    "enabled": 1,
    "severity": "Minor",
    "default_review": "",
-   "deduct_only_valid": 0,
+   "count_after_valid": 0,
+   "experimental": 0,
    "sort_order": 10,
    "params": [
     {
@@ -43,6 +44,12 @@
      "value": 20.0,
      "unit": "giây",
      "description": "Cửa sổ nói ít hơn mức này thì bỏ qua"
+    },
+    {
+     "key": "crosstalk_db",
+     "value": 6.0,
+     "unit": "dB",
+     "description": "Mic kém mic to nhất quá mức này thì coi là tiếng lọt, không tính"
     }
    ],
    "format_overrides": []
@@ -50,14 +57,15 @@
   {
    "title": "Phát âm sai tên sản phẩm / brand",
    "how": "So chép lời với tên SP + bảng phiên âm trong Dữ liệu brand; AI xác nhận chỉ khi sai rõ ràng.",
-   "default_text": "Major (nhóm A), luôn bắt đầu ở \"Need Review\" vì chép lời có thể nghe nhầm. Cùng SP, cùng host trong 10 phút chỉ tính 1 lỗi.",
+   "default_text": "Major (nhóm A), luôn bắt đầu ở \"Need Review\" vì chép lời có thể nghe nhầm; CHƯA trừ điểm, chưa tính vào ngưỡng cảnh báo cho tới khi QC duyệt \"Valid Violation\" (count_after_valid). Chỉ nhận khi câu AI trích có thật trong chép lời. Cùng SP, cùng host trong 10 phút chỉ tính 1 lỗi.",
    "tune_tip": "Nhiều False Positive → bổ sung cột phiên âm / tên gọi khác (aliases) cho SP trong Dữ liệu brand.",
    "code": "VOI-02",
    "group": "A",
    "enabled": 1,
    "severity": "Major",
    "default_review": "Need Review",
-   "deduct_only_valid": 1,
+   "count_after_valid": 1,
+   "experimental": 0,
    "sort_order": 20,
    "params": [
     {
@@ -71,15 +79,16 @@
   },
   {
    "title": "Tự ý cam kết công dụng",
-   "how": "Khớp danh sách từ cấm \"cam kết\" của brand + sàn trên chép lời (so cả có dấu và không dấu), rồi AI xem ngữ cảnh. AI bác bỏ → bỏ. AI lỗi / quá 150 giây chưa trả lời → vẫn ghi lỗi, trạng thái \"Need Review\".",
+   "how": "Khớp danh sách từ cấm \"cam kết\" của brand + sàn trên chép lời (khớp có dấu; chỉ so bỏ dấu khi câu chép lời không có dấu, để \"chưa khỏi\" không khớp \"chữa khỏi\"), mỗi câu chỉ 1 ứng viên, rồi AI xem ngữ cảnh. AI bác bỏ → bỏ. AI lỗi / quá 180 giây chưa trả lời → vẫn ghi lỗi, trạng thái \"Need Review\".",
    "default_text": "Critical (nhóm B), chỉ cần 1 lần; luôn chờ QC xác minh; gửi cảnh báo ngay.",
-   "tune_tip": "Thêm / bớt cụm từ trong danh sách từ cấm của brand và sàn. Cụm càng cụ thể (vd \"chữa khỏi\") càng ít báo nhầm.",
+   "tune_tip": "Nhập từ cấm CÓ DẤU (chép lời có dấu). Thêm / bớt cụm từ trong danh sách từ cấm của brand và sàn. Cụm càng cụ thể (vd \"chữa khỏi\") càng ít báo nhầm.",
    "code": "CMP-01",
    "group": "B",
    "enabled": 1,
    "severity": "Critical",
    "default_review": "",
-   "deduct_only_valid": 0,
+   "count_after_valid": 0,
+   "experimental": 0,
    "sort_order": 30,
    "params": [
     {
@@ -101,7 +110,8 @@
    "enabled": 1,
    "severity": "Critical",
    "default_review": "",
-   "deduct_only_valid": 0,
+   "count_after_valid": 0,
+   "experimental": 0,
    "sort_order": 40,
    "params": [
     {
@@ -115,15 +125,16 @@
   },
   {
    "title": "Đùa giỡn, nói ngoài nội dung phiên",
-   "how": "AI đọc từng cửa sổ 60 giây chép lời, đánh dấu đoạn lạc đề; các đoạn cách nhau ≤ 10 giây được nối thành 1 đoạn liên tục, kể cả qua 2 cửa sổ.",
-   "default_text": "Đoạn liên tục ≥ 30 giây = Minor; kéo tới ≥ 60 giây thì chính lỗi đó nâng lên Major (nhóm B).",
+   "how": "AI đọc từng cửa sổ 60 giây chép lời, đánh dấu đoạn lạc đề (chỉ nhận khi câu AI trích có thật trong chép lời); các đoạn cách nhau ≤ 10 giây được nối thành 1 đoạn liên tục, kể cả qua 2 cửa sổ. Đoạn im / nghỉ theo kịch bản, tạm dừng và khoảng thiếu dữ liệu cắt đoạn.",
+   "default_text": "Đoạn liên tục trên 30 giây = Minor; kéo tới ≥ 60 giây thì chính lỗi đó nâng lên Major (nhóm B).",
    "tune_tip": "Phiên KOL / Mega có giao lưu nhiều → tăng minor_s, major_s theo format.",
    "code": "CMP-03",
    "group": "B",
    "enabled": 1,
    "severity": "",
    "default_review": "",
-   "deduct_only_valid": 0,
+   "count_after_valid": 0,
+   "experimental": 0,
    "sort_order": 50,
    "params": [
     {
@@ -150,14 +161,15 @@
   {
    "title": "Rời khung hình (mới, ngoài brief)",
    "how": "Cứ 5 giây lấy 1 ảnh nhỏ từ OBS, model nhận người đếm số người; ít hơn số host \"trên hình\" của phiên là đang vắng. Khoảng nghỉ có trong kịch bản không tính. Không lấy được ảnh = không biết, không tính.",
-   "default_text": "Vắng liên tục ≥ 60 giây = Minor; kéo tới ≥ 3 phút nâng lên Major (nhóm B). Gán host chính.",
+   "default_text": "Vắng liên tục trên 60 giây = Minor; kéo tới trên 3 phút nâng lên Major (nhóm B). Gán host chính. Đoạn im theo kịch bản và nghỉ theo kịch bản đều không tính.",
    "tune_tip": "Khung hình có người không phải host (khách, trợ lý) → model đếm dư, ít bắt được; host ngồi khuất / quay lưng → có thể báo nhầm, khi đó tăng minor_s.",
    "code": "VID-01",
    "group": "B",
    "enabled": 1,
    "severity": "",
    "default_review": "",
-   "deduct_only_valid": 0,
+   "count_after_valid": 0,
+   "experimental": 0,
    "sort_order": 60,
    "params": [
     {
@@ -183,15 +195,16 @@
   },
   {
    "title": "Im lặng bất thường (tất cả mic)",
-   "how": "VAD trên mọi mic của phiên, độ phân giải 250 ms. Chỉ tính khi mọi mic đều im; đoạn im theo kịch bản không tính; mất dữ liệu (app thu tiếng lỗi) không tính là im.",
-   "default_text": "30–60 giây = Minor; từ 60 giây chính lỗi đó nâng lên Critical (nhóm C). Mỗi lần im chỉ 1 lỗi theo bậc cao nhất. Sai số mốc giờ ≤ 2 giây.",
+   "how": "VAD trên mọi mic của phiên, độ phân giải 250 ms. Chỉ tính khi mọi mic đều im; đoạn im theo kịch bản và lúc tạm dừng không tính; mất dữ liệu (app thu tiếng lỗi) không tính là im. Mic báo lỗi hoặc không có dữ liệu quá 60 giây được bỏ khỏi điều kiện \"mọi mic\" (ghi chú trong báo cáo).",
+   "default_text": "Từ 30 tới 60 giây = Minor; trên 60 giây chính lỗi đó nâng lên Critical (nhóm C). Mỗi lần im chỉ 1 lỗi theo bậc cao nhất; nếu lỗi im này vừa làm chạm ngưỡng 5 Minor thì chỉ gửi 1 tin (Critical nếu nâng cấp trong ~30 giây). Sai số mốc giờ ≤ 2 giây (khung 250 ms).",
    "tune_tip": "Có đoạn chiếu video / minigame không nói → nhập vào \"đoạn im theo kịch bản\" của phiên thay vì nới ngưỡng.",
    "code": "ENG-01",
    "group": "C",
    "enabled": 1,
    "severity": "",
    "default_review": "",
-   "deduct_only_valid": 0,
+   "count_after_valid": 0,
+   "experimental": 0,
    "sort_order": 70,
    "params": [
     {
@@ -207,17 +220,17 @@
      "description": "Từ mức này nâng lên Critical"
     },
     {
-     "key": "tolerance_s",
-     "value": 2.0,
+     "key": "mic_dead_s",
+     "value": 60.0,
      "unit": "giây",
-     "description": "Sai số mốc giờ cho phép"
+     "description": "Mic lỗi / không có dữ liệu quá mức này thì bỏ khỏi điều kiện \"mọi mic\""
     }
    ],
    "format_overrides": []
   },
   {
    "title": "Bỏ qua comment phù hợp",
-   "how": "AI chọn các comment \"phù hợp\" (hỏi về SP, giá, ship, khuyến mãi, cách dùng) và kiểm host có trả lời ý đó trong 3 phút sau không. Không bắt host đọc mọi comment.",
+   "how": "Lọc trước spam / chào hỏi / chỉ có emoji / trùng (cùng người + cùng nội dung bỏ dấu). AI chọn các comment \"phù hợp\" (hỏi về SP, giá, ship, khuyến mãi, cách dùng) và kiểm host có trả lời ý đó trong 3 phút sau không; comment đang chờ trả lời luôn được gửi lại cho AI trước. Không bắt host đọc mọi comment.",
    "default_text": "Trong 10 phút có ≥ 3 comment phù hợp bị bỏ qua = 1 Minor (nhóm C). Sàn chưa đọc được comment (Shopee) = không áp dụng.",
    "tune_tip": "Phiên đông comment → tăng min_missed. Khoảng AI lỗi không được tính để tránh phạt oan.",
    "code": "ENG-02",
@@ -225,7 +238,8 @@
    "enabled": 1,
    "severity": "Minor",
    "default_review": "",
-   "deduct_only_valid": 0,
+   "count_after_valid": 0,
+   "experimental": 0,
    "sort_order": 80,
    "params": [
     {
@@ -245,34 +259,35 @@
      "value": 3.0,
      "unit": "comment",
      "description": "Số comment bỏ qua để thành 1 lỗi"
+    },
+    {
+     "key": "max_prompt_comments",
+     "value": 60.0,
+     "unit": "comment",
+     "description": "Số comment tối đa gửi AI mỗi cửa sổ"
     }
    ],
    "format_overrides": []
   },
   {
    "title": "Không tạo tương tác",
-   "how": "AI đếm câu hỏi mở / mời bình luận / chào tên khách. Chia phiên thành chu kỳ 5 phút.",
-   "default_text": "2 chu kỳ liền nhau không có câu tương tác nào = 1 Minor (nhóm C), đếm lại.",
-   "tune_tip": "Brief: 3–5 phút ≥ 1 câu tương tác. Muốn chặt hơn → cycle_min = 3.",
+   "how": "AI ghi nhận câu hỏi mở / mời bình luận / chào tên khách. Tính khoảng trống trượt từ câu tương tác gần nhất (hoặc từ đầu phiên).",
+   "default_text": "Quá 5 phút không có câu tương tác = 1 Minor (nhóm C); mỗi khoảng trống 1 lỗi, kéo dài tới khi host tương tác lại.",
+   "tune_tip": "Brief: 3–5 phút ≥ 1 câu tương tác. Muốn chặt hơn → gap_min = 3. (ERP gửi kiểu cũ cycle_min × cycles vẫn được đổi thành gap_min.)",
    "code": "ENG-03",
    "group": "C",
    "enabled": 1,
    "severity": "Minor",
    "default_review": "",
-   "deduct_only_valid": 0,
+   "count_after_valid": 0,
+   "experimental": 0,
    "sort_order": 90,
    "params": [
     {
-     "key": "cycle_min",
+     "key": "gap_min",
      "value": 5.0,
      "unit": "phút",
-     "description": "Độ dài 1 chu kỳ"
-    },
-    {
-     "key": "cycles",
-     "value": 2.0,
-     "unit": "chu kỳ",
-     "description": "Số chu kỳ liền nhau không có tương tác"
+     "description": "Khoảng trống tối đa"
     }
    ],
    "format_overrides": []
@@ -287,7 +302,8 @@
    "enabled": 1,
    "severity": "Major",
    "default_review": "",
-   "deduct_only_valid": 0,
+   "count_after_valid": 0,
+   "experimental": 0,
    "sort_order": 100,
    "params": [
     {
@@ -309,14 +325,15 @@
   {
    "title": "Không có CTA / push sale",
    "how": "AI ghi nhận CTA thật (kêu gọi mua kèm nội dung: giỏ hàng, phân loại, mã, lý do mua). Lặp \"chốt đơn\", \"mua ngay\" rỗng không tính.",
-   "default_text": "Quá 5 phút không có CTA thật = Major (nhóm D); mỗi khoảng trống 1 lỗi. Branding: tắt. Education: 10 phút.",
+   "default_text": "Quá 5 phút không có CTA thật = Major (nhóm D); mỗi khoảng trống 1 lỗi. Branding: tắt. Education: 10 phút. Mức push sale \"none\": tắt; \"low\": 10 phút (đề xuất, chờ chốt).",
    "tune_tip": "Mức push sale thấp → nới gap_min hoặc tắt theo format.",
    "code": "SAL-02",
    "group": "D",
    "enabled": 1,
    "severity": "Major",
    "default_review": "",
-   "deduct_only_valid": 0,
+   "count_after_valid": 0,
+   "experimental": 0,
    "sort_order": 110,
    "params": [
     {
@@ -343,7 +360,7 @@
   },
   {
    "title": "Không truyền tải ưu đãi",
-   "how": "So danh sách deal quan trọng của phiên với chép lời (khớp từ khoá, bỏ dấu) và kết quả AI. Kiểm khi hết khung giờ của deal hoặc lúc đóng phiên.",
+   "how": "So danh sách deal quan trọng của phiên với chép lời (khớp từ khoá, bỏ dấu, theo thời điểm câu nói) và kết quả AI (chỉ tính cửa sổ giao với khung deal). Chỉ chốt khi AI đã phân tích tới hết khung deal; khung deal nằm trọn trong khoảng thiếu dữ liệu / tạm dừng thì không tính.",
    "default_text": "Mỗi deal quan trọng không được nhắc = 1 Major (nhóm D).",
    "tune_tip": "Nhập thêm từ khoá cách host hay nói (vd \"mua hai tặng một\", \"2 tặng 1\").",
    "code": "SAL-03",
@@ -351,9 +368,33 @@
    "enabled": 1,
    "severity": "Major",
    "default_review": "",
-   "deduct_only_valid": 0,
+   "count_after_valid": 0,
+   "experimental": 0,
    "sort_order": 120,
    "params": [],
+   "format_overrides": []
+  },
+  {
+   "title": "Tư vấn sai thông tin sản phẩm (thử nghiệm)",
+   "how": "AI so lời host với cấu hình sản phẩm + ưu đãi của phiên (giá, quà tặng, công dụng). Chỉ nhận khi câu AI trích có thật trong chép lời; giá gốc / giá gạch, đọc câu hỏi của khách, so sánh giá nơi khác thì không tính.",
+   "default_text": "THỬ NGHIỆM – brief để mục này sau MVP. Major (nhóm D) nhưng luôn ở \"Need Review\": CHƯA trừ điểm, chưa tính ngưỡng cảnh báo cho tới khi QC duyệt \"Valid Violation\". Cùng SP, cùng host trong 10 phút chỉ tính 1 lỗi.",
+   "tune_tip": "Nhập giá / ưu đãi đúng và đủ trong cấu hình phiên (cả giá theo combo). Nhiều False Positive do chép lời nghe nhầm số → tắt mã này cho format đó.",
+   "code": "SAL-04",
+   "group": "D",
+   "enabled": 1,
+   "severity": "Major",
+   "default_review": "Need Review",
+   "count_after_valid": 1,
+   "experimental": 1,
+   "sort_order": 130,
+   "params": [
+    {
+     "key": "dedupe_min",
+     "value": 10.0,
+     "unit": "phút",
+     "description": "Cùng SP, cùng host trong khoảng này chỉ tính 1 lỗi"
+    }
+   ],
    "format_overrides": []
   },
   {

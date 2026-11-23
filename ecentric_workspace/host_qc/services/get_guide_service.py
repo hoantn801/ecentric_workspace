@@ -21,7 +21,7 @@ class GetGuideService:
         rows = []
         for r in self.rules.list_all(cfg["version"]):
             rows.append({k: r.get(k) for k in ("code", "title", "group", "enabled", "severity", "default_review",
-                                                "deduct_only_valid", "how", "default_text", "tune_tip")}
+                                                "count_after_valid", "experimental", "how", "default_text", "tune_tip")}
                         | {"params": [dict(p, value=num(p.get("value"))) for p in r.get("params") or []],
                            "format_overrides": [dict(o, value=num(o.get("value"))) for o in r.get("format_overrides") or []]})
         return {"can_edit": bool(set(roles or ()) & set(MANAGE)), "version": cfg["version"], "rows": rows,

@@ -8,8 +8,23 @@ frappe.ui.form.on("Host QC Violation", {
 	refresh(frm) {
 		hq_render_review(frm);
 		hq_render_clip(frm);
+		hq_rule_flags(frm);
 	},
 });
+
+// Nhan "Thu nghiem" / "Chi tinh khi duyet Valid" lay tu Host QC Rule cua ma loi (chi hien thi).
+async function hq_rule_flags(frm) {
+	if (!frm.doc.code) return;
+	try {
+		const r = await frappe.db.get_value("Host QC Rule", frm.doc.code, ["experimental", "count_after_valid"]);
+		const f = (r && r.message) || {};
+		const tags = [f.experimental ? __("Mã thử nghiệm") : "",
+			f.count_after_valid && frm.doc.review !== "Valid Violation" ? __("Chưa trừ điểm – chỉ tính khi duyệt Valid") : ""].filter(Boolean);
+		if (tags.length) frm.dashboard.set_headline_alert(frappe.utils.escape_html(tags.join(" · ")), "yellow");
+	} catch (e) {
+		// chi la nhan hien thi - loi doc luat khong chan duyet
+	}
+}
 
 function hq_render_review(frm) {
 	const $w = frm.fields_dict.review_html && frm.fields_dict.review_html.$wrapper;

@@ -13,13 +13,17 @@ from ecentric_workspace.host_qc.tests import fakes as F
 
 
 class TestSeed(unittest.TestCase):
-    def test_12_ma_va_muc_chung(self):
+    def test_13_ma_va_muc_chung(self):
         rows = P._load()
         codes = [r["code"] for r in rows if r["group"] != "–"]
-        self.assertEqual(len(codes), 12)
+        self.assertEqual(len(codes), 13)
         self.assertTrue(all(r["code"].startswith("GENERAL-") for r in rows if r["group"] == "–"))
         by = {r["code"]: r for r in rows}
-        self.assertEqual((by["VOI-02"]["default_review"], by["VOI-02"]["deduct_only_valid"]), ("Need Review", 1))
+        self.assertEqual((by["VOI-02"]["default_review"], by["VOI-02"]["count_after_valid"], by["VOI-02"]["experimental"]),
+                         ("Need Review", 1, 0))
+        self.assertEqual((by["SAL-04"]["group"], by["SAL-04"]["severity"], by["SAL-04"]["default_review"],
+                          by["SAL-04"]["count_after_valid"], by["SAL-04"]["experimental"]), ("D", "Major", "Need Review", 1, 1))
+        self.assertEqual([p["key"] for p in by["ENG-03"]["params"]], ["gap_min"])
         self.assertEqual((by["CMP-01"]["severity"], by["CMP-02"]["severity"]), ("Critical", "Critical"))
         self.assertTrue(all(p["unit"] and p["description"] for r in rows for p in r["params"]))
 
@@ -35,7 +39,10 @@ class TestSeed(unittest.TestCase):
         cfg = BuildRulesConfigService(F.FakeSettings(), repo).execute()
         self.assertEqual(cfg["codes"]["VOI-01"], {"group": "A", "enabled": True, "severity": "Minor", "window_min": 5,
                                                   "clear_ratio": 0.95, "min_db": -38, "hits_per_violation": 3,
-                                                  "min_speech_s": 20})
+                                                  "min_speech_s": 20, "crosstalk_db": 6})
+        self.assertEqual(cfg["codes"]["SAL-04"], {"group": "D", "enabled": True, "severity": "Major",
+                                                  "default_review": "Need Review", "count_after_valid": True,
+                                                  "experimental": True, "dedupe_min": 10})
         self.assertEqual(cfg["codes"]["CMP-01"]["llm_confirm"], 1)
         self.assertEqual(cfg["formats"]["branding"], {"SAL-02": {"enabled": False}, "SAL-01": {"gap_min": 10}})
         self.assertEqual(cfg["formats"]["education"], {"SAL-02": {"gap_min": 10}})

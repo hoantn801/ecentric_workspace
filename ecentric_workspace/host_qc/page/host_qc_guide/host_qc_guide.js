@@ -38,7 +38,8 @@ frappe.pages["host-qc-guide"].on_page_load = function (wrapper) {
 			const tags = [r.enabled ? "" : `<span class="indicator-pill gray">${__("Tắt")}</span>`,
 				r.severity ? `<span class="indicator-pill orange">${esc(r.severity)}</span>` : "",
 				r.default_review ? `<span class="indicator-pill blue">${esc(r.default_review)}</span>` : "",
-				r.deduct_only_valid ? `<span class="indicator-pill purple">${__("Chỉ trừ khi duyệt Valid")}</span>` : ""].join(" ");
+				r.count_after_valid ? `<span class="indicator-pill purple">${__("Chỉ tính khi duyệt Valid")}</span>` : "",
+				r.experimental ? `<span class="indicator-pill yellow">${__("Thử nghiệm")}</span>` : ""].join(" ");
 			return `<tr>
 				<td><b>${esc(r.code)}</b><div class="text-muted small">${esc(g ? `${g.name} (${g.max})` : __("Chung"))}</div></td>
 				<td><b>${esc(r.title || "")}</b> ${tags}<div class="small">${esc(r.how || "")}</div></td>

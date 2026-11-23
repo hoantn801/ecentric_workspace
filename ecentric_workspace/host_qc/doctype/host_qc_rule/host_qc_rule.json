@@ -24,7 +24,8 @@
   "enabled",
   "severity",
   "default_review",
-  "deduct_only_valid",
+  "count_after_valid",
+  "experimental",
   "sort_order",
   "sb_guide",
   "how",
@@ -42,7 +43,7 @@
    "reqd": 1,
    "unique": 1,
    "in_list_view": 1,
-   "description": "VOI-01 … SAL-03, VID-01, mục chung GENERAL-01…"
+   "description": "VOI-01 … SAL-04, VID-01, mục chung GENERAL-01…"
   },
   {
    "fieldname": "title",
@@ -87,10 +88,16 @@
    "description": "Need Review = lỗi của mã này luôn chờ QC xem."
   },
   {
-   "fieldname": "deduct_only_valid",
+   "fieldname": "count_after_valid",
    "fieldtype": "Check",
-   "label": "Chỉ trừ điểm khi duyệt Valid",
-   "description": "Bật cho mã dễ nghe nhầm (VOI-02): lỗi chỉ trừ điểm khi QC duyệt Valid Violation."
+   "label": "Chỉ tính khi duyệt Valid",
+   "description": "Bật cho mã dễ nghe nhầm (VOI-02, SAL-04): lỗi chưa trừ điểm, chưa tính ngưỡng cảnh báo cho tới khi QC duyệt Valid Violation."
+  },
+  {
+   "fieldname": "experimental",
+   "fieldtype": "Check",
+   "label": "Thử nghiệm",
+   "description": "Mã thử nghiệm (SAL-04): trang duyệt hiện nhãn \"Thử nghiệm\"."
   },
   {
    "fieldname": "sort_order",

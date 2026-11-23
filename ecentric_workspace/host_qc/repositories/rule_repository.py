@@ -5,7 +5,7 @@ import frappe
 from ecentric_workspace.host_qc.constants import doctypes as DT
 from ecentric_workspace.host_qc.constants.rules import RULES_CACHE_S
 
-RULE_FIELDS = ["name", "code", "title", "group", "enabled", "severity", "default_review", "deduct_only_valid",
+RULE_FIELDS = ["name", "code", "title", "group", "enabled", "severity", "default_review", "count_after_valid", "experimental",
                "sort_order", "how", "default_text", "tune_tip"]
 
 

@@ -2,7 +2,7 @@
 """Cham diem phien tu danh sach loi - CUNG cong thuc voi app (src/rules/scoring.js), thuan tuy, khong I/O.
 
 - Loi khong phai False Positive tru `deduction[muc]` vao nhom cua ma; diem nhom khong am; tong = 4 nhom.
-- Ma co `deduct_only_valid` (VOI-02, ma thu nghiem): chi tru khi da duyet Valid Violation.
+- Ma co `count_after_valid` (VOI-02, ma thu nghiem): chi tru khi da duyet Valid Violation.
 - RED: tong < yellow_min, hoac >= red_major_count Major, hoac >= 1 Critical.
   YELLOW: tong < green_min, hoac >= 1 Major, hoac >= yellow_minor_count Minor. Con lai GREEN.
 """
@@ -21,6 +21,8 @@ class ComputeScoreService:
         t0ms = to_ms(t0) if t0 else None
         for v in sorted(violations, key=lambda x: to_ms(x.get("start_time")) or 0):
             if not self._counted(v, codes.get(v.get("code")) or {}):
+                if v.get("review") != Review.FALSE_POSITIVE.value:      # giong app: ghi "chua tinh, cho QC"
+                    explain.append(self._line(v, 0, t0ms) + " – chưa tính, chờ QC xác nhận")
                 continue
             sev = v.get("severity")
             if sev not in counts:
@@ -47,7 +49,7 @@ class ComputeScoreService:
         review = v.get("review")
         if review == Review.FALSE_POSITIVE.value:
             return False
-        if code_rule.get("deduct_only_valid") and review != Review.VALID.value:
+        if code_rule.get("count_after_valid") and review != Review.VALID.value:
             return False
         return True
 

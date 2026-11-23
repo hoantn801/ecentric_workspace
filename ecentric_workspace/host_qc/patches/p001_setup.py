@@ -1,6 +1,6 @@
 # Copyright (c) 2026, eCentric and contributors
 """Host QC dot 1: tao role Host QC Manager / Viewer, dien mac dinh Host QC Settings, nap bang huong dan
-(12 ma loi + muc chung) tu seeds/host_qc_rules.json (sinh tu src/rules/defaults.js cua app 23/11).
+(13 ma loi gom SAL-04 thu nghiem + muc chung) tu seeds/host_qc_rules.json (sinh tu src/rules/defaults.js app 0.1.1).
 
 Idempotent, KHONG ghi de: ma da co (Production da sua) giu nguyen; Settings chi dien o con trong.
 Loi tung ma ghi Error Log, khong lam hong migrate."""

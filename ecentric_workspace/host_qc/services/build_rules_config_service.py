@@ -63,8 +63,10 @@ class BuildRulesConfigService:
             c["severity"] = r["severity"]
         if r.get("default_review"):
             c["default_review"] = r["default_review"]
-        if r.get("deduct_only_valid"):
-            c["deduct_only_valid"] = True
+        if r.get("count_after_valid"):
+            c["count_after_valid"] = True
+        if r.get("experimental"):
+            c["experimental"] = True
         for p in r.get("params") or []:
             if p.get("key"):
                 c[p["key"]] = num(p.get("value"))

@@ -50,6 +50,20 @@ class TestScoring(unittest.TestCase):
         self.assertEqual((sc["total"], sc["status"], sc["counts"]["Minor"]), (85, "YELLOW", 5))
 
 
+class TestSal04(unittest.TestCase):
+    def test_ma_thu_nghiem_chi_tru_khi_valid(self):
+        rules = BuildRulesConfigService(F.FakeSettings(), F.FakeRules(F.RULES + [
+            F.rule("SAL-04", "D", "Major", "Need Review", 1, experimental=1)])).execute()
+        v = {"code": "SAL-04", "group": "D", "severity": "Major", "review": "Need Review", "start_time": F.NOW}
+        sc = ComputeScoreService().execute([v], rules)
+        self.assertEqual((sc["total"], sc["status"], sc["counts"]["Major"]), (100, "GREEN", 0))
+        self.assertIn("chưa tính", sc["explain"][0])
+        v["review"] = "Valid Violation"
+        sc = ComputeScoreService().execute([v], rules)
+        self.assertEqual((sc["total"], sc["status"]), (90, "YELLOW"))
+        self.assertTrue(rules["codes"]["SAL-04"]["experimental"])
+
+
 class TestRulesConfig(unittest.TestCase):
     def test_dang_rules_config(self):
         cfg = BuildRulesConfigService(F.FakeSettings(), F.FakeRules()).execute()
@@ -60,7 +74,7 @@ class TestRulesConfig(unittest.TestCase):
         self.assertEqual(len(cfg["guide"]), len(F.RULES))
         self.assertEqual(cfg["codes"]["VOI-01"]["min_db"], -38)
         self.assertEqual(cfg["codes"]["VOI-01"]["clear_ratio"], 0.95)
-        self.assertTrue(cfg["codes"]["VOI-02"]["deduct_only_valid"])
+        self.assertTrue(cfg["codes"]["VOI-02"]["count_after_valid"])
         self.assertEqual(cfg["codes"]["VOI-02"]["default_review"], "Need Review")
         self.assertNotIn("severity", cfg["codes"]["ENG-01"])
         self.assertEqual(cfg["formats"]["branding"], {"SAL-01": {"gap_min": 10}, "SAL-02": {"enabled": False}})

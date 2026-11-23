@@ -32,9 +32,9 @@ class FakeSettings:
         self.d["rules_version"] = v
 
 
-def rule(code, group, severity="", default_review="", deduct_only_valid=0, params=(), fmts=(), enabled=1):
+def rule(code, group, severity="", default_review="", count_after_valid=0, params=(), fmts=(), enabled=1, experimental=0):
     return {"name": code, "code": code, "title": code, "group": group, "enabled": enabled, "severity": severity,
-            "default_review": default_review, "deduct_only_valid": deduct_only_valid, "how": "", "default_text": "",
+            "default_review": default_review, "count_after_valid": count_after_valid, "experimental": experimental, "how": "", "default_text": "",
             "tune_tip": "", "params": [{"key": k, "value": v, "unit": "", "description": ""} for k, v in params],
             "format_overrides": [dict(zip(("format", "enabled", "key", "value"), f)) for f in fmts]}
 
