@@ -417,7 +417,7 @@ def mark_signed(name, signed_file, user):
         frappe.throw(_("Hợp đồng đã thanh lý - không nhận bản ký mới."))
     if not (signed_file or "").lower().endswith(".pdf"):
         frappe.throw(_("Bản đã ký phải là tệp PDF."))
-    if signed_file in {doc.get("request_attachment"), doc.get("contract_file")}:
+    if signed_file in {doc.get("request_attachment"), doc.get("contract_file"), doc.get("sign_pdf")}:
         # Cung chot voi hook ky so: ban CHUA ky dem di ky khong phai ban ky (vong 2).
         frappe.throw(_("Đây là bản hợp đồng chưa ký - tải lên bản đã ký đủ chữ ký."))
     from ecentric_workspace.approval_center.features.contract_review.application import kol_verify
@@ -436,7 +436,8 @@ def detail_extra(business, request):
     """`detail_extender`: khoi KOL tren trang chi tiet (khong co PII creator)."""
     if not kol.is_kol(business):
         return {}
-    from ecentric_workspace.approval_center.features.contract_review.application import kol_acceptance, kol_access
+    from ecentric_workspace.approval_center.features.contract_review.application import (
+        kol_acceptance, kol_access, kol_sign_pdf)
     user = frappe.session.user
     status = (request or {}).get("approval_status") if isinstance(request, dict) else getattr(request, "approval_status", None)
     return {"kol": {
@@ -469,6 +470,8 @@ def detail_extra(business, request):
         "calc": kol_calc.contract_steps(business),
         # Ngay theo gio site (khong theo dong ho may nguoi dung) cho o ngay BBNT - QC6.
         "today": str(today()),
+        # O "Ban PDF de ky" + ky so tren cong (ban giao chat Ky so 23/11, B1).
+        "sign_pdf": kol_sign_pdf.view(business, user),
     }}
 
 

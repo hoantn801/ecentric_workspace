@@ -109,7 +109,20 @@ function po1711Part(){
         chk("nguoi duyet khong thay danh sach viec cua nguoi lap", !/kol-steps/.test(K.detailHTML(d10))); }
       const d5=JSON.parse(JSON.stringify(detail)); d5.approval={approval_status:"Draft"}; d5.business.has_contract_file=true; d5.business.contract_file=null;
       Object.assign(d5.extra.kol,{can_manage:true,can_download_full:false,approved:false,signed:false});
-      chk("nguoi lap nhap: goi y tai sau khi gui + nut Xem truoc, khong noi 'kiem tra tep .docx'", /Gửi phiếu xong bạn tải được/.test(K.detailHTML(d5))&&!/kiểm tra tệp \.docx/.test(K.detailHTML(d5))); }
+      chk("nguoi lap nhap: goi y tai sau khi gui + nut Xem truoc, khong noi 'kiem tra tep .docx'", /Gửi phiếu xong bạn tải được/.test(K.detailHTML(d5))&&!/kiểm tra tệp \.docx/.test(K.detailHTML(d5)));
+      // Ky so 23/11 (B1): o "Ban PDF de ky".
+      { const d6=JSON.parse(JSON.stringify(d5)); d6.extra.kol.sign_pdf={has:false,stale:false,esign:true,can_edit:true};
+        const s6=K.detailHTML(d6);
+        chk("ky so 23/11: nguoi lap nhap thay o Ban PDF de ky + chon tep + huong dan Word -> PDF", /<h3>Bản PDF để ký<\/h3>/.test(s6)&&/id="kol-signpdf-f"/.test(s6)&&/data-kol="signpdf"/.test(s6)&&/Lưu thành PDF/.test(s6));
+        chk("ky so 23/11: o Ban PDF de ky dung TRUOC khoi Ky so cua nen tang", s6.indexOf("kol-signpdf")<s6.indexOf("ctr-esign-slot")||s6.indexOf("ctr-esign-slot")<0);
+        d6.extra.kol.sign_pdf={has:true,stale:true,esign:true,can_edit:true};
+        const s7=K.detailHTML(d6);
+        chk("ky so 23/11: hop dong tao lai sau khi tai PDF -> canh bao xuat lai + nut tu dat lai o ky", /xuất PDF lại/.test(s7)&&/data-kol="autoplace"/.test(s7));
+        d6.extra.kol.sign_pdf={has:true,stale:false,esign:false,can_edit:false};
+        const s8=K.detailHTML(d6);
+        chk("ky so 23/11: chua bat ky so / sau khi gui: khong co nut tai, noi ro ky tren cong nhu hien nay", !/kol-signpdf-f/.test(s8)&&/ký trên cổng như hiện nay/.test(s8));
+        d6.extra.kol.sign_pdf=null;
+        chk("ky so 23/11: khong co du lieu sign_pdf (phieu cu) thi khong ve o", !/Bản PDF để ký/.test(K.detailHTML(d6))); } }
     curDetail=JSON.parse(JSON.stringify(detail));
     curDetail.extra.kol.acceptances[0].signed_file="/private/files/bbnt ky.pdf";
     Object.assign(curDetail.extra.kol,{is_finance:true,can_download_full:true,payee_changed:true,can_confirm_payee:true,closed:null}); curDetail.business.creator="SUP-1";

@@ -76,6 +76,7 @@
   "contract_date",
   "contract_no",
   "contract_file",
+  "sign_pdf",
   "missing_placeholders",
   "contract_fingerprint",
   "cb_kol4",
@@ -515,6 +516,15 @@
    "permlevel": 1
   },
   {
+   "description": "PDF người lập xuất từ tệp hợp đồng .docx (Word → Lưu thành PDF) để ký trên cổng; có mốc ô ký [[KY_BEN_A]] / [[KY_BEN_B]]. Có CCCD / STK creator.",
+   "fieldname": "sign_pdf",
+   "fieldtype": "Attach",
+   "label": "Bản PDF để ký",
+   "no_copy": 1,
+   "permlevel": 1,
+   "read_only": 1
+  },
+  {
    "fieldname": "missing_placeholders",
    "fieldtype": "Small Text",
    "label": "Trường mẫu chưa có dữ liệu",
@@ -680,7 +690,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-11-17 17:00:00.000000",
+ "modified": "2026-11-23 06:00:00.000000",
  "modified_by": "Administrator",
  "module": "Approval Center",
  "name": "EC Contract Review Request",
