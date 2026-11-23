@@ -1268,6 +1268,7 @@
         +(sp.esign?'<div class="hint">Hợp đồng ký trên cổng từ ERP. Tải hợp đồng .docx → mở bằng Word → <b>Tệp → Lưu thành PDF</b> (không in ra máy in PDF, không scan) → tải lên đây. Hệ thống đối chiếu số hợp đồng, số tiền và tự đặt ô ký theo mốc có sẵn trong mẫu.</div>'
           :'<div class="hint">Hợp đồng này chưa ký qua ERP - vẫn ký trên cổng như hiện nay. Có thể tải sẵn bản PDF xuất từ Word để lưu cùng phiếu.</div>')
         +(sp.stale?'<div class="banner warn">Hợp đồng vừa được tạo lại sau khi bạn tải bản PDF - tải hợp đồng mới, xuất PDF lại rồi tải lên.</div>':'')
+        +(sp.locked?'<div class="hint">Phiếu bị trả về "Cần bổ sung": gói ký đã chốt lúc gửi duyệt. Thay bản PDF sẽ huỷ tài liệu cũ trên cổng ký; gửi lại thì phiếu duyệt lại từ cấp 1.</div>':'')
         +(m?'<div class="banner '+(m.ok?'ok':'warn')+'" id="kol-signpdf-msg">'+esc(m.text)+'</div>':'')
         +(sp.has?'<div class="summary-row"><span>Đã có bản PDF để ký</span>'+(b.sign_pdf?KOL.dlBtn(b.sign_pdf,"Tải bản PDF để ký","Có CCCD, số tài khoản creator - mỗi lần tải được ghi lại."):'<b>✓</b>')+'</div>':'<div class="hint">Chưa có bản PDF để ký.</div>')
         +(sp.can_edit?'<div class="actions" style="margin-top:10px"><input type="file" accept=".pdf,application/pdf" id="kol-signpdf-f" aria-label="Chọn bản PDF để ký"><button type="button" class="btn primary" id="kol-signpdf-btn" data-kol="signpdf" disabled>'+(sp.has?'Thay bản PDF':'Tải lên bản PDF')+'</button>'
@@ -1346,11 +1347,21 @@
         if(a==="qc"){ el.textContent="AI đang kiểm… (tới 1 phút)"; return call("kol_ai_qc",{name:name}).then(function(r){ done("AI QC: "+r.status); }).catch(function(e){ restore(); fail(e); }); }
         if(a==="extract"){ el.textContent="AI đang đọc…"; return call("kol_ai_extract",{name:name}).then(function(r){ restore(); el.disabled=false; KOL.showSuggestions(r.suggestions||{},name); }).catch(function(e){ restore(); fail(e); }); }
         if(a==="editcr"){ el.disabled=false; return KOL.editCreator((state.detail.business||{}).creator,function(){ refreshDetail(); }); }
-        if(a==="signpdf"||a==="autoplace"){ el.textContent=a==="signpdf"?"Đang tải lên…":"Đang đặt ô ký…";
-        var keep=function(r){ state._signPdfMsg={name:name,ok:!!(r&&r.ok!==false),text:(r&&r.message)||"Đã lưu bản PDF để ký."}; done(); };
-        var step=a==="signpdf"?KOL.upload($("kol-signpdf-f")).then(function(url){ return call("kol_attach_sign_pdf",{name:name,file_url:url}); })
-          .then(function(r){ return r&&r.esign?call("kol_auto_place_sign",{name:name}):r; }):call("kol_auto_place_sign",{name:name});
-        return step.then(keep).catch(function(e){ restore(); fail(e); }); }
+        if(a==="signpdf"||a==="autoplace"){
+        var runSignPdf=function(){ el.disabled=true; el.textContent=a==="signpdf"?"Đang tải lên…":"Đang đặt ô ký…";
+          var keep=function(r){ state._signPdfMsg={name:name,ok:!!(r&&r.ok!==false),text:(r&&r.message)||"Đã lưu bản PDF để ký."}; done(); };
+          var step=a==="signpdf"?KOL.upload($("kol-signpdf-f")).then(function(url){ return call("kol_attach_sign_pdf",{name:name,file_url:url}); })
+            .then(function(r){ return r&&r.esign?call("kol_auto_place_sign",{name:name}):r; }):call("kol_auto_place_sign",{name:name});
+          return step.then(keep).catch(function(e){ restore(); fail(e); }); };
+        var spv=((((state.detail||{}).extra||{}).kol||{}).sign_pdf)||{};
+        if(a==="signpdf"&&spv.locked){ restore(); el.disabled=false;
+          // PR-G: goi da khoa luc gui -> mo lai thiet lap ky TRUOC (nen tang huy tai lieu cu tren cong), roi moi tai ban moi.
+          return modal("Thay bản PDF để ký",'<div class="banner warn">Gói ký đã chốt lúc gửi duyệt. Thay bản PDF sẽ <b>huỷ tài liệu cũ trên cổng ký</b> (không lấy lại được); khi gửi lại, phiếu duyệt lại từ cấp 1.</div><div class="hint">Bản cũ vẫn nằm trên phiếu làm bằng chứng.</div>',{okLabel:"Thay bản PDF",noBackdrop:true,onConfirm:function(ov){
+            var ok=ov.querySelector("[data-ok]"); if(ok) ok.textContent="Đang mở lại gói ký…";
+            return window.frappe.call({method:"ecentric_workspace.platform.esign.api.reopen_signing_setup",type:"POST",args:{business_doctype:"EC Contract Review Request",business_name:name}})
+              .then(function(){ setTimeout(runSignPdf,0); })
+              .catch(function(e){ if(ok) ok.textContent="Thay bản PDF"; toast(mapErr(e),true); return Promise.reject(e); }); }}); }
+        return runSignPdf(); }
       if(a==="signed"){ el.textContent="Đang tải lên…"; return KOL.upload($("kol-signed-f")).then(function(url){ return call("kol_mark_signed",{name:name,signed_file:url}); }).then(function(r){ done(r&&r.signing_status==="Đã ký đủ"?"Máy kiểm đạt: hợp đồng đã ký đủ.":"Đã tải bản ký, chờ Kế toán kiểm."); }).catch(function(e){ restore(); fail(e); }); }
         if(a==="addacc"){ if(!$("kol-acc-desc").value||!$("kol-acc-date").value){ restore(); el.disabled=false; toast("Nhập nội dung và ngày nghiệm thu.",true); return; } var amt=window.EcMoney?EcMoney.val($("kol-acc-amt")):$("kol-acc-amt").value; return call("kol_add_acceptance",{name:name,description:$("kol-acc-desc").value,acceptance_date:$("kol-acc-date").value,amount:amt}).then(function(r){ done(r.missing&&r.missing.length?("Đã tạo BBNT, mẫu còn thiếu: "+KOL.missingText(r.missing_labels||r.missing)):"Đã tạo BBNT."); }).catch(fail); }
         var row=el.getAttribute("data-row");
