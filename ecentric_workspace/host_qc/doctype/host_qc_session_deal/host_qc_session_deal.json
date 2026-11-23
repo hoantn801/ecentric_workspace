@@ -1,0 +1,71 @@
+{
+ "doctype": "DocType",
+ "name": "Host QC Session Deal",
+ "module": "Host QC",
+ "custom": 0,
+ "istable": 1,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "description": "",
+ "field_order": [
+  "deal_id",
+  "text",
+  "keywords",
+  "important",
+  "valid_from",
+  "valid_to"
+ ],
+ "fields": [
+  {
+   "fieldname": "deal_id",
+   "fieldtype": "Data",
+   "label": "Mã deal",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "text",
+   "fieldtype": "Data",
+   "label": "Nội dung",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 4
+  },
+  {
+   "fieldname": "keywords",
+   "fieldtype": "Small Text",
+   "label": "Từ khoá",
+   "in_list_view": 1,
+   "columns": 3,
+   "description": "Cách nhau bằng dấu phẩy hoặc xuống dòng."
+  },
+  {
+   "fieldname": "important",
+   "fieldtype": "Check",
+   "label": "Quan trọng",
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "valid_from",
+   "fieldtype": "Datetime",
+   "label": "Từ"
+  },
+  {
+   "fieldname": "valid_to",
+   "fieldtype": "Datetime",
+   "label": "Đến"
+  }
+ ],
+ "permissions": [],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "modified": "2026-11-24 09:00:00.000000"
+}

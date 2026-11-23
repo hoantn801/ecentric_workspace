@@ -1,0 +1,147 @@
+{
+ "doctype": "DocType",
+ "name": "Host QC Alert Log",
+ "module": "Host QC",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "description": "Nhật ký gửi cảnh báo Teams. Khoá phiên + lý do + danh sách lỗi: trùng thì không gửi lại.",
+ "autoname": "hash",
+ "field_order": [
+  "session",
+  "reason",
+  "violations",
+  "score",
+  "cb_a",
+  "channel",
+  "sent_at",
+  "ok",
+  "tries",
+  "error",
+  "idem_key"
+ ],
+ "fields": [
+  {
+   "fieldname": "session",
+   "fieldtype": "Link",
+   "label": "Phiên",
+   "options": "Host QC Session",
+   "read_only": 1,
+   "in_list_view": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Select",
+   "label": "Lý do",
+   "options": "minor_threshold\nmajor_threshold\ncritical\nmachine_offline\nload_reduced",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "violations",
+   "fieldtype": "Small Text",
+   "label": "Lỗi",
+   "read_only": 1
+  },
+  {
+   "fieldname": "score",
+   "fieldtype": "Int",
+   "label": "Điểm",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb_a",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "channel",
+   "fieldtype": "Data",
+   "label": "Kênh",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sent_at",
+   "fieldtype": "Datetime",
+   "label": "Gửi lúc",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "ok",
+   "fieldtype": "Check",
+   "label": "Gửi được",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "tries",
+   "fieldtype": "Int",
+   "label": "Số lần thử",
+   "read_only": 1
+  },
+  {
+   "fieldname": "error",
+   "fieldtype": "Small Text",
+   "label": "Lỗi gửi",
+   "read_only": 1
+  },
+  {
+   "fieldname": "idem_key",
+   "fieldtype": "Data",
+   "label": "Khoá chống gửi trùng",
+   "read_only": 1,
+   "unique": 1,
+   "hidden": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 0,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  },
+  {
+   "role": "Host QC Manager",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "export": 0,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  },
+  {
+   "role": "Host QC Viewer",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "export": 0,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "modified": "2026-11-24 09:00:00.000000"
+}

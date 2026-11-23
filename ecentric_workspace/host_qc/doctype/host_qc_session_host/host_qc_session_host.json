@@ -1,0 +1,78 @@
+{
+ "doctype": "DocType",
+ "name": "Host QC Session Host",
+ "module": "Host QC",
+ "custom": 0,
+ "istable": 1,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "description": "",
+ "field_order": [
+  "host_id",
+  "host_name",
+  "employee",
+  "role",
+  "mic_device",
+  "on_camera"
+ ],
+ "fields": [
+  {
+   "fieldname": "host_id",
+   "fieldtype": "Data",
+   "label": "Mã host",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 1,
+   "description": "H01, H02…"
+  },
+  {
+   "fieldname": "host_name",
+   "fieldtype": "Data",
+   "label": "Tên",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "label": "Nhân viên",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "role",
+   "fieldtype": "Select",
+   "label": "Vai",
+   "options": "main\nsupport\nkol\nguest",
+   "default": "main",
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "mic_device",
+   "fieldtype": "Select",
+   "label": "Mic",
+   "in_list_view": 1,
+   "columns": 4,
+   "description": "Chọn từ \"Micro trên máy\" của máy đã chọn. Mỗi host một mic."
+  },
+  {
+   "fieldname": "on_camera",
+   "fieldtype": "Check",
+   "label": "Trên hình",
+   "default": "1",
+   "in_list_view": 1,
+   "columns": 1
+  }
+ ],
+ "permissions": [],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "modified": "2026-11-24 09:00:00.000000"
+}

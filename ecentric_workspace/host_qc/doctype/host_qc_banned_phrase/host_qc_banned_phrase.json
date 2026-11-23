@@ -1,0 +1,106 @@
+{
+ "doctype": "DocType",
+ "name": "Host QC Banned Phrase",
+ "module": "Host QC",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "description": "Từ cấm theo sàn, dùng chung mọi phiên.",
+ "autoname": "hash",
+ "title_field": "phrase",
+ "search_fields": "phrase,kind,platform",
+ "field_order": [
+  "platform",
+  "kind",
+  "phrase",
+  "enabled",
+  "note"
+ ],
+ "fields": [
+  {
+   "fieldname": "platform",
+   "fieldtype": "Select",
+   "label": "Sàn",
+   "options": "all\ntiktok\nshopee",
+   "default": "all",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "kind",
+   "fieldtype": "Select",
+   "label": "Loại",
+   "options": "commitment\noffensive",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "commitment = cam kết công dụng (CMP-01) · offensive = phản cảm (CMP-02)"
+  },
+  {
+   "fieldname": "phrase",
+   "fieldtype": "Data",
+   "label": "Cụm từ",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Bật",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "note",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  },
+  {
+   "role": "Host QC Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  },
+  {
+   "role": "Host QC Viewer",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "export": 0,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "modified": "2026-11-24 09:00:00.000000"
+}

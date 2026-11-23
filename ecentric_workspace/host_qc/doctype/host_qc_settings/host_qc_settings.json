@@ -1,0 +1,320 @@
+{
+ "doctype": "DocType",
+ "name": "Host QC Settings",
+ "module": "Host QC",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 1,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "description": "Cấu hình chung AI Host QC: khoá AI, trừ điểm, ngưỡng gửi, clip, SharePoint.",
+ "field_order": [
+  "sb_ai",
+  "kie_api_key",
+  "claude_api_key",
+  "cb_ai",
+  "llm_models",
+  "claude_model",
+  "llm_window_s",
+  "sb_score",
+  "deduction_minor",
+  "deduction_major",
+  "deduction_critical",
+  "cb_score",
+  "green_min",
+  "yellow_min",
+  "yellow_minor_count",
+  "red_major_count",
+  "sb_alert",
+  "alert_minor_at",
+  "alert_major_at",
+  "cb_alert",
+  "default_alert_channel",
+  "machine_offline_after_s",
+  "sb_evidence",
+  "evidence_before_s",
+  "evidence_after_s",
+  "evidence_max_s",
+  "cb_evidence",
+  "evidence_height",
+  "evidence_bitrate_k",
+  "clip_keep_days",
+  "sb_sp",
+  "sharepoint_tenant_id",
+  "sharepoint_client_id",
+  "sharepoint_client_secret",
+  "cb_sp",
+  "sharepoint_site_id",
+  "sharepoint_drive_id",
+  "sharepoint_root_folder",
+  "sb_ver",
+  "rules_version"
+ ],
+ "fields": [
+  {
+   "fieldname": "sb_ai",
+   "fieldtype": "Section Break",
+   "label": "AI cho QC",
+   "collapsible": 0
+  },
+  {
+   "fieldname": "kie_api_key",
+   "fieldtype": "Password",
+   "label": "Khoá kie.ai"
+  },
+  {
+   "fieldname": "claude_api_key",
+   "fieldtype": "Password",
+   "label": "Khoá Claude (dự phòng)"
+  },
+  {
+   "fieldname": "cb_ai",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "llm_models",
+   "fieldtype": "Small Text",
+   "label": "Model AI (mỗi dòng 1 model)",
+   "default": "gemini-3-8-flash\ngemini-3-8-flash-openai\ngrok-4-7"
+  },
+  {
+   "fieldname": "claude_model",
+   "fieldtype": "Data",
+   "label": "Model Claude dự phòng",
+   "default": "claude-haiku-4-5"
+  },
+  {
+   "fieldname": "llm_window_s",
+   "fieldtype": "Int",
+   "label": "Cửa sổ AI (giây)",
+   "default": "60"
+  },
+  {
+   "fieldname": "sb_score",
+   "fieldtype": "Section Break",
+   "label": "Trừ điểm và trạng thái",
+   "collapsible": 0
+  },
+  {
+   "fieldname": "deduction_minor",
+   "fieldtype": "Int",
+   "label": "Trừ mỗi lỗi Minor",
+   "default": "3"
+  },
+  {
+   "fieldname": "deduction_major",
+   "fieldtype": "Int",
+   "label": "Trừ mỗi lỗi Major",
+   "default": "10"
+  },
+  {
+   "fieldname": "deduction_critical",
+   "fieldtype": "Int",
+   "label": "Trừ mỗi lỗi Critical",
+   "default": "18"
+  },
+  {
+   "fieldname": "cb_score",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "green_min",
+   "fieldtype": "Int",
+   "label": "GREEN từ (điểm)",
+   "default": "85"
+  },
+  {
+   "fieldname": "yellow_min",
+   "fieldtype": "Int",
+   "label": "YELLOW từ (điểm)",
+   "default": "70"
+  },
+  {
+   "fieldname": "yellow_minor_count",
+   "fieldtype": "Int",
+   "label": "Số Minor thành YELLOW",
+   "default": "5"
+  },
+  {
+   "fieldname": "red_major_count",
+   "fieldtype": "Int",
+   "label": "Số Major thành RED",
+   "default": "2"
+  },
+  {
+   "fieldname": "sb_alert",
+   "fieldtype": "Section Break",
+   "label": "Gửi cảnh báo",
+   "collapsible": 0
+  },
+  {
+   "fieldname": "alert_minor_at",
+   "fieldtype": "Int",
+   "label": "Gửi khi đủ số Minor",
+   "default": "5"
+  },
+  {
+   "fieldname": "alert_major_at",
+   "fieldtype": "Int",
+   "label": "Gửi khi đủ số Major",
+   "default": "2",
+   "description": "Critical luôn gửi từng lỗi."
+  },
+  {
+   "fieldname": "cb_alert",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "default_alert_channel",
+   "fieldtype": "Link",
+   "label": "Kênh Teams mặc định",
+   "options": "Host QC Alert Channel"
+  },
+  {
+   "fieldname": "machine_offline_after_s",
+   "fieldtype": "Int",
+   "label": "Máy im lặng bao lâu thì báo (giây)",
+   "default": "180",
+   "description": "Chỉ tính khi máy đang có phiên Running."
+  },
+  {
+   "fieldname": "sb_evidence",
+   "fieldtype": "Section Break",
+   "label": "Clip minh chứng",
+   "collapsible": 0
+  },
+  {
+   "fieldname": "evidence_before_s",
+   "fieldtype": "Int",
+   "label": "Trước lỗi (giây)",
+   "default": "15"
+  },
+  {
+   "fieldname": "evidence_after_s",
+   "fieldtype": "Int",
+   "label": "Sau lỗi (giây)",
+   "default": "15"
+  },
+  {
+   "fieldname": "evidence_max_s",
+   "fieldtype": "Int",
+   "label": "Tối đa (giây)",
+   "default": "30"
+  },
+  {
+   "fieldname": "cb_evidence",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "evidence_height",
+   "fieldtype": "Int",
+   "label": "Độ cao khung hình (px)",
+   "default": "480"
+  },
+  {
+   "fieldname": "evidence_bitrate_k",
+   "fieldtype": "Int",
+   "label": "Bitrate (kbps)",
+   "default": "1000"
+  },
+  {
+   "fieldname": "clip_keep_days",
+   "fieldtype": "Int",
+   "label": "Giữ clip (ngày)",
+   "default": "30"
+  },
+  {
+   "fieldname": "sb_sp",
+   "fieldtype": "Section Break",
+   "label": "SharePoint (Microsoft Graph)",
+   "collapsible": 0
+  },
+  {
+   "fieldname": "sharepoint_tenant_id",
+   "fieldtype": "Data",
+   "label": "Tenant ID"
+  },
+  {
+   "fieldname": "sharepoint_client_id",
+   "fieldtype": "Data",
+   "label": "Client ID"
+  },
+  {
+   "fieldname": "sharepoint_client_secret",
+   "fieldtype": "Password",
+   "label": "Client secret"
+  },
+  {
+   "fieldname": "cb_sp",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "sharepoint_site_id",
+   "fieldtype": "Data",
+   "label": "Site ID"
+  },
+  {
+   "fieldname": "sharepoint_drive_id",
+   "fieldtype": "Data",
+   "label": "Drive ID"
+  },
+  {
+   "fieldname": "sharepoint_root_folder",
+   "fieldtype": "Data",
+   "label": "Thư mục gốc",
+   "default": "HostQC"
+  },
+  {
+   "fieldname": "sb_ver",
+   "fieldtype": "Section Break",
+   "label": "",
+   "collapsible": 0
+  },
+  {
+   "fieldname": "rules_version",
+   "fieldtype": "Data",
+   "label": "Phiên bản bảng ngưỡng",
+   "read_only": 1,
+   "description": "Tự đổi mỗi khi sửa trang này hoặc Host QC Rule. Máy so số này để tải lại ngưỡng."
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  },
+  {
+   "role": "Host QC Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "modified": "2026-11-24 09:00:00.000000"
+}

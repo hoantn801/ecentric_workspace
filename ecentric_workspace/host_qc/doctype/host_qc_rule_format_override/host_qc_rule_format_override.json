@@ -1,0 +1,62 @@
+{
+ "doctype": "DocType",
+ "name": "Host QC Rule Format Override",
+ "module": "Host QC",
+ "custom": 0,
+ "istable": 1,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "description": "",
+ "field_order": [
+  "format",
+  "enabled",
+  "key",
+  "value"
+ ],
+ "fields": [
+  {
+   "fieldname": "format",
+   "fieldtype": "Select",
+   "label": "Format",
+   "options": "sales\nmega\nkol\nbranding\neducation",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Select",
+   "label": "Bật / tắt",
+   "options": "Kế thừa\nBật\nTắt",
+   "default": "Kế thừa",
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "key",
+   "fieldtype": "Data",
+   "label": "Tham số",
+   "in_list_view": 1,
+   "columns": 3,
+   "description": "Để trống nếu chỉ bật / tắt."
+  },
+  {
+   "fieldname": "value",
+   "fieldtype": "Float",
+   "label": "Giá trị",
+   "in_list_view": 1,
+   "columns": 2,
+   "precision": "3"
+  }
+ ],
+ "permissions": [],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "modified": "2026-11-24 09:00:00.000000"
+}

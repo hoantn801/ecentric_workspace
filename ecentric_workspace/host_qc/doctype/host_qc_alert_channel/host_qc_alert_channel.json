@@ -1,0 +1,83 @@
+{
+ "doctype": "DocType",
+ "name": "Host QC Alert Channel",
+ "module": "Host QC",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "description": "Kênh Teams nhận cảnh báo Host QC.",
+ "autoname": "field:title",
+ "field_order": [
+  "title",
+  "kind",
+  "enabled",
+  "webhook_url"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Tên kênh",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "kind",
+   "fieldtype": "Select",
+   "label": "Loại",
+   "options": "Teams Workflow webhook",
+   "default": "Teams Workflow webhook",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Bật",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "webhook_url",
+   "fieldtype": "Password",
+   "label": "Link webhook",
+   "description": "Link bí mật của kênh – không gửi xuống máy, không ghi log."
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  },
+  {
+   "role": "Host QC Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "modified": "2026-11-24 09:00:00.000000"
+}

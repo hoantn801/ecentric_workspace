@@ -1,0 +1,20 @@
+{
+ "content": null,
+ "creation": "2026-11-24 00:00:00",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2026-11-24 00:00:00",
+ "module": "Host QC",
+ "name": "host-qc-guide",
+ "owner": "Administrator",
+ "page_name": "host-qc-guide",
+ "roles": [
+  {"role": "Host QC Manager"},
+  {"role": "Host QC Viewer"},
+  {"role": "System Manager"}
+ ],
+ "standard": "Yes",
+ "system_page": 0,
+ "title": "Bảng hướng dẫn Host QC"
+}

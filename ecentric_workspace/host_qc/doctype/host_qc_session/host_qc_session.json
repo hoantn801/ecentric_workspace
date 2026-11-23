@@ -1,0 +1,437 @@
+{
+ "doctype": "DocType",
+ "name": "Host QC Session",
+ "module": "Host QC",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "planned_start",
+ "sort_order": "DESC",
+ "description": "Một phiên QC: cấu hình (Production nhập trước phiên) + kết quả (app ghi).",
+ "autoname": "field:session_id",
+ "title_field": "title",
+ "search_fields": "title,brand,machine,status",
+ "field_order": [
+  "session_id",
+  "title",
+  "brand",
+  "machine",
+  "cb_a",
+  "status",
+  "platform",
+  "tiktok_username",
+  "format",
+  "push_sale",
+  "cb_b",
+  "planned_start",
+  "planned_end",
+  "source",
+  "sb_hosts",
+  "hosts",
+  "sb_products",
+  "products",
+  "deals",
+  "sb_rules",
+  "banned_phrases",
+  "scripted_silences",
+  "scripted_breaks",
+  "rule_overrides",
+  "sb_notify",
+  "alert_channels",
+  "notify_users",
+  "sb_result",
+  "total_score",
+  "status_color",
+  "needs_verification",
+  "started_at",
+  "ended_at",
+  "cb_r1",
+  "score_a",
+  "score_b",
+  "score_c",
+  "score_d",
+  "cb_r2",
+  "minor_count",
+  "major_count",
+  "critical_count",
+  "app_version",
+  "config_hash",
+  "sb_r3",
+  "score_explain",
+  "summary",
+  "recommendations",
+  "transcript_file",
+  "app_score_json"
+ ],
+ "fields": [
+  {
+   "fieldname": "session_id",
+   "fieldtype": "Data",
+   "label": "Mã phiên",
+   "reqd": 1,
+   "unique": 1,
+   "set_only_once": 1,
+   "in_list_view": 1,
+   "description": "Chữ thường, số, _ - (tối đa 40), vd vinasoy_tt_20261125_19."
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Tên phiên",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "brand",
+   "fieldtype": "Link",
+   "label": "Brand",
+   "options": "Brand",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "machine",
+   "fieldtype": "Link",
+   "label": "Máy studio",
+   "options": "Host QC Machine",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "cb_a",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Trạng thái",
+   "options": "Draft\nReady\nRunning\nClosed\nCancelled",
+   "default": "Draft",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Ready = máy được nhận phiên này. Running / Closed do app ghi."
+  },
+  {
+   "fieldname": "platform",
+   "fieldtype": "Select",
+   "label": "Sàn",
+   "options": "tiktok\nshopee",
+   "default": "tiktok",
+   "reqd": 1
+  },
+  {
+   "fieldname": "tiktok_username",
+   "fieldtype": "Data",
+   "label": "Username TikTok",
+   "depends_on": "eval:doc.platform=='tiktok'"
+  },
+  {
+   "fieldname": "format",
+   "fieldtype": "Select",
+   "label": "Format",
+   "options": "sales\nmega\nkol\nbranding\neducation",
+   "default": "sales",
+   "reqd": 1
+  },
+  {
+   "fieldname": "push_sale",
+   "fieldtype": "Select",
+   "label": "Mức push sale",
+   "options": "high\nmedium\nlow\nnone",
+   "default": "medium"
+  },
+  {
+   "fieldname": "cb_b",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "planned_start",
+   "fieldtype": "Datetime",
+   "label": "Giờ bắt đầu",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "planned_end",
+   "fieldtype": "Datetime",
+   "label": "Giờ kết thúc",
+   "reqd": 1
+  },
+  {
+   "fieldname": "source",
+   "fieldtype": "Select",
+   "label": "Nguồn",
+   "options": "planned\nunplanned",
+   "default": "planned",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_hosts",
+   "fieldtype": "Section Break",
+   "label": "Host",
+   "collapsible": 0
+  },
+  {
+   "fieldname": "hosts",
+   "fieldtype": "Table",
+   "label": "Host",
+   "options": "Host QC Session Host"
+  },
+  {
+   "fieldname": "sb_products",
+   "fieldtype": "Section Break",
+   "label": "Sản phẩm và ưu đãi",
+   "collapsible": 0
+  },
+  {
+   "fieldname": "products",
+   "fieldtype": "Table",
+   "label": "Sản phẩm",
+   "options": "Host QC Session Product"
+  },
+  {
+   "fieldname": "deals",
+   "fieldtype": "Table",
+   "label": "Ưu đãi",
+   "options": "Host QC Session Deal"
+  },
+  {
+   "fieldname": "sb_rules",
+   "fieldtype": "Section Break",
+   "label": "Từ cấm, đoạn theo kịch bản, ngưỡng riêng",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "banned_phrases",
+   "fieldtype": "Table",
+   "label": "Từ cấm riêng brand",
+   "options": "Host QC Session Banned"
+  },
+  {
+   "fieldname": "scripted_silences",
+   "fieldtype": "Table",
+   "label": "Đoạn im lặng theo kịch bản (ENG-01)",
+   "options": "Host QC Time Range"
+  },
+  {
+   "fieldname": "scripted_breaks",
+   "fieldtype": "Table",
+   "label": "Đoạn cho phép vắng khung (VID-01)",
+   "options": "Host QC Time Range"
+  },
+  {
+   "fieldname": "rule_overrides",
+   "fieldtype": "Table",
+   "label": "Ngưỡng riêng phiên",
+   "options": "Host QC Rule Override"
+  },
+  {
+   "fieldname": "sb_notify",
+   "fieldtype": "Section Break",
+   "label": "Gửi cảnh báo",
+   "collapsible": 0
+  },
+  {
+   "fieldname": "alert_channels",
+   "fieldtype": "Table MultiSelect",
+   "label": "Kênh Teams",
+   "options": "Host QC Session Channel",
+   "description": "Để trống = kênh mặc định trong Host QC Settings."
+  },
+  {
+   "fieldname": "notify_users",
+   "fieldtype": "Table MultiSelect",
+   "label": "Người nhận thông báo",
+   "options": "Host QC Session Notify User"
+  },
+  {
+   "fieldname": "sb_result",
+   "fieldtype": "Section Break",
+   "label": "Kết quả (app ghi)",
+   "collapsible": 0
+  },
+  {
+   "fieldname": "total_score",
+   "fieldtype": "Int",
+   "label": "Tổng điểm",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "status_color",
+   "fieldtype": "Select",
+   "label": "Màu",
+   "options": "\nGREEN\nYELLOW\nRED",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "needs_verification",
+   "fieldtype": "Check",
+   "label": "Còn lỗi Critical chờ xác minh",
+   "read_only": 1
+  },
+  {
+   "fieldname": "started_at",
+   "fieldtype": "Datetime",
+   "label": "Bắt đầu lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "ended_at",
+   "fieldtype": "Datetime",
+   "label": "Kết thúc lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb_r1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "score_a",
+   "fieldtype": "Int",
+   "label": "A Voice (/30)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "score_b",
+   "fieldtype": "Int",
+   "label": "B Compliance & Focus (/20)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "score_c",
+   "fieldtype": "Int",
+   "label": "C Engagement (/25)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "score_d",
+   "fieldtype": "Int",
+   "label": "D Sales (/25)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb_r2",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "minor_count",
+   "fieldtype": "Int",
+   "label": "Số Minor",
+   "read_only": 1
+  },
+  {
+   "fieldname": "major_count",
+   "fieldtype": "Int",
+   "label": "Số Major",
+   "read_only": 1
+  },
+  {
+   "fieldname": "critical_count",
+   "fieldtype": "Int",
+   "label": "Số Critical",
+   "read_only": 1
+  },
+  {
+   "fieldname": "app_version",
+   "fieldtype": "Data",
+   "label": "Phiên bản app",
+   "read_only": 1
+  },
+  {
+   "fieldname": "config_hash",
+   "fieldtype": "Data",
+   "label": "Mã băm cấu hình",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_r3",
+   "fieldtype": "Section Break",
+   "label": "",
+   "collapsible": 0
+  },
+  {
+   "fieldname": "score_explain",
+   "fieldtype": "Long Text",
+   "label": "Cách tính điểm",
+   "read_only": 1
+  },
+  {
+   "fieldname": "summary",
+   "fieldtype": "Long Text",
+   "label": "Tóm tắt",
+   "read_only": 1
+  },
+  {
+   "fieldname": "recommendations",
+   "fieldtype": "Small Text",
+   "label": "Đề xuất",
+   "read_only": 1
+  },
+  {
+   "fieldname": "transcript_file",
+   "fieldtype": "Attach",
+   "label": "Chép lời cả phiên",
+   "read_only": 1
+  },
+  {
+   "fieldname": "app_score_json",
+   "fieldtype": "Long Text",
+   "label": "Điểm app gửi (JSON)",
+   "read_only": 1,
+   "hidden": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  },
+  {
+   "role": "Host QC Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  },
+  {
+   "role": "Host QC Viewer",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "export": 0,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "modified": "2026-11-24 09:00:00.000000"
+}

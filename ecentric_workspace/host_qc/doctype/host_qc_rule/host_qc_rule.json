@@ -1,0 +1,181 @@
+{
+ "doctype": "DocType",
+ "name": "Host QC Rule",
+ "module": "Host QC",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "sort_order",
+ "sort_order": "ASC",
+ "description": "Bảng hướng dẫn: mỗi bản ghi một mã lỗi (hoặc mục chung) kèm ngưỡng. Sửa ở đây thì máy tự tải lại.",
+ "autoname": "field:code",
+ "title_field": "title",
+ "search_fields": "title,group",
+ "field_order": [
+  "code",
+  "title",
+  "group",
+  "cb_main",
+  "enabled",
+  "severity",
+  "default_review",
+  "deduct_only_valid",
+  "sort_order",
+  "sb_guide",
+  "how",
+  "default_text",
+  "tune_tip",
+  "sb_params",
+  "params",
+  "format_overrides"
+ ],
+ "fields": [
+  {
+   "fieldname": "code",
+   "fieldtype": "Data",
+   "label": "Mã",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1,
+   "description": "VOI-01 … SAL-03, VID-01, mục chung GENERAL-01…"
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Tên",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "group",
+   "fieldtype": "Select",
+   "label": "Nhóm",
+   "options": "A\nB\nC\nD\n–",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "A Voice · B Compliance & Focus · C Engagement · D Sales · – mục chung (không trừ điểm)."
+  },
+  {
+   "fieldname": "cb_main",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Bật",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "severity",
+   "fieldtype": "Select",
+   "label": "Mức",
+   "options": "\nMinor\nMajor\nCritical",
+   "description": "Để trống = theo ngưỡng (Minor / Major / Critical tuỳ thời lượng)."
+  },
+  {
+   "fieldname": "default_review",
+   "fieldtype": "Select",
+   "label": "Trạng thái duyệt ban đầu",
+   "options": "\nNeed Review",
+   "description": "Need Review = lỗi của mã này luôn chờ QC xem."
+  },
+  {
+   "fieldname": "deduct_only_valid",
+   "fieldtype": "Check",
+   "label": "Chỉ trừ điểm khi duyệt Valid",
+   "description": "Bật cho mã dễ nghe nhầm (VOI-02): lỗi chỉ trừ điểm khi QC duyệt Valid Violation."
+  },
+  {
+   "fieldname": "sort_order",
+   "fieldtype": "Int",
+   "label": "Thứ tự hiển thị"
+  },
+  {
+   "fieldname": "sb_guide",
+   "fieldtype": "Section Break",
+   "label": "Bảng hướng dẫn",
+   "collapsible": 0
+  },
+  {
+   "fieldname": "how",
+   "fieldtype": "Text",
+   "label": "Cách AI phát hiện"
+  },
+  {
+   "fieldname": "default_text",
+   "fieldtype": "Small Text",
+   "label": "Ngưỡng mặc định (bằng lời)"
+  },
+  {
+   "fieldname": "tune_tip",
+   "fieldtype": "Text",
+   "label": "Chỉnh khi nào, chỉnh thế nào"
+  },
+  {
+   "fieldname": "sb_params",
+   "fieldtype": "Section Break",
+   "label": "Ngưỡng",
+   "collapsible": 0
+  },
+  {
+   "fieldname": "params",
+   "fieldtype": "Table",
+   "label": "Tham số",
+   "options": "Host QC Rule Param"
+  },
+  {
+   "fieldname": "format_overrides",
+   "fieldtype": "Table",
+   "label": "Ghi đè theo format",
+   "options": "Host QC Rule Format Override"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  },
+  {
+   "role": "Host QC Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  },
+  {
+   "role": "Host QC Viewer",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "export": 0,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "modified": "2026-11-24 09:00:00.000000"
+}
