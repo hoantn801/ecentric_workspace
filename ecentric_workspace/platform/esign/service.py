@@ -213,6 +213,13 @@ def approve_and_sign(business_doctype, business_name, comment=None, bulk_batch_k
         waiting = portal_steps.requester_step_pending(req)
         if waiting:
             frappe.throw(waiting)
+        # HD lao dong WF03 (PR-F 23/11): doi tac ky GIUA chuoi (sau nguoi lap, truoc CEO). Chua co
+        # buoc nguoi lap SAU doi tac (`-11`) thi buoc cua cap nay tren cong chua mo - chan som voi
+        # cau ro rang thay vi de chan ky cho mai roi roi Manual Review.
+        bridge_msg = portal_steps.bridge_gate_message(
+            req, pkgsvc.signable_package_for_request(req.name))
+        if bridge_msg:
+            frappe.throw(bridge_msg)
 
     mapping = perms.verified_mapping(actor, profile.environment)
     if not mapping:
