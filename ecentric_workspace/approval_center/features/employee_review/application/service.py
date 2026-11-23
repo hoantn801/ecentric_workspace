@@ -63,10 +63,23 @@ def _vn(d):
     return d.strftime("%d/%m/%Y") if d else "—"
 
 
-def gen_title(doc):
+#: Tieu de tuy chinh (Hoan chot 23/11): C&B sua o NHAP truoc ngay tu gui; trong = tieu de tu sinh.
+CUSTOM_TITLE_MAX = 140
+
+
+def tieu_de_tu_sinh(doc):
     return ("Đánh giá %s - %s - đến %s" % ((doc.get("review_type") or "").lower(),
                                            doc.get("ten_nhan_vien") or doc.get("nhan_vien") or "",
                                            _vn(doc.get("hd_den_ngay"))))[:255]
+
+
+def tieu_de_tuy_chinh(v):
+    return " ".join(str(v or "").split())[:CUSTOM_TITLE_MAX]
+
+
+def gen_title(doc):
+    """title_builder: tieu de tuy chinh cua C&B neu co, khong thi tieu de tu sinh."""
+    return tieu_de_tuy_chinh(doc.get("custom_title")) or tieu_de_tu_sinh(doc)
 
 
 def process_code_for(review_type):
@@ -91,12 +104,29 @@ def prepare_draft(document):
     if document.is_new() and not frappe.flags.get("ec_employee_review_auto"):
         frappe.throw(_("Phiếu đánh giá được tạo từ bảng hợp đồng trên hồ sơ (C&B: trang Hàng chờ "
                        "đánh giá) - không tạo tay."))
+    truoc = None if document.is_new() else document.get_doc_before_save()
+    _kiem_tieu_de_tuy_chinh(document, truoc)
     if document.get("approval_request"):
         return
-    truoc = None if document.is_new() else document.get_doc_before_save()
     if document.get("mau_tieu_chi") and (not truoc or truoc.get("mau_tieu_chi") != document.mau_tieu_chi):
         document.tieu_chi_json = json.dumps(default_repo.tieu_chi_cua_mau(document.mau_tieu_chi),
                                             ensure_ascii=False)
+
+
+def _kiem_tieu_de_tuy_chinh(document, truoc, repo=None):
+    """custom_title: chi C&B, chi khi phieu con NHAP (chua gui, chua huy). Da gui -> chan ca khi
+    phieu o "Can bo sung" (save_draft chung cho sua o trang thai do)."""
+    moi = tieu_de_tuy_chinh(document.get("custom_title"))
+    cu = tieu_de_tuy_chinh(truoc.get("custom_title")) if truoc else ""
+    document.custom_title = moi or None
+    if moi == cu:
+        return
+    if document.get("approval_request") or (truoc and truoc.get("approval_request")):
+        frappe.throw(_("Phiếu đã gửi - không sửa tiêu đề được nữa."))
+    if document.get("da_huy_nhap"):
+        frappe.throw(_("Nháp này đã bị huỷ."))
+    if not la_cnb(frappe.session.user, repo):
+        frappe.throw(_("Chỉ C&B / HR sửa được tiêu đề phiếu đánh giá."), frappe.PermissionError)
 
 
 # --------------------------------------------------------------------------- tao nhap --
@@ -540,6 +570,10 @@ def review_block(business, request, repo=None, hr=None):
            "la_cnb": 1 if la_cnb(user, repo) else 0,
            "lm_nhap_o_cap_ceo": 0, "lich_su_hd": [], "lua_chon": None, "khao_sat": [],
            "ho_so": None}
+    # Tieu de tuy chinh: o nhap chi C&B thay / sua (placeholder = tieu de tu sinh).
+    out["tieu_de_tu_sinh"] = tieu_de_tu_sinh(business)
+    out["sua_tieu_de"] = 1 if (out["la_cnb"] and not business.get("approval_request")
+                               and not business.get("da_huy_nhap")) else 0
     # Lich su hop dong cua chinh NV - ai trong luong cung xem duoc (LM can de chon thoi han).
     rows = (hr.hop_dong_cua([business.get("nhan_vien")]) or {}).get(business.get("nhan_vien")) or []
     out["lich_su_hd"] = [{"loai_hop_dong": r.get("loai_hop_dong"), "tu_ngay": str(r.get("tu_ngay") or ""),

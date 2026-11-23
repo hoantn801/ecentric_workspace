@@ -96,3 +96,40 @@ def expunge_blocked_by(case, later_cases):
         if d and start < d <= due:
             out.append(r.get("name"))
     return out
+
+
+# ------------------------------------------------------------------------ tieu de --
+def _dmy(v):
+    d = D.as_date(v) if v else None
+    return d.strftime("%d/%m/%Y") if d else ""
+
+
+def _join(prefix, *parts):
+    out = " - ".join([prefix] + [str(p).strip() for p in parts if p and str(p).strip()])
+    return out[:C.TITLE_MAX]
+
+
+def clean_title(v):
+    """Chuan hoa tieu de nguoi nhap: gop khoang trang, cat TITLE_MAX. Rong -> ""."""
+    return " ".join(("" if v is None else str(v)).split())[:C.TITLE_MAX]
+
+
+def notice_title(n):
+    """Tieu de hien thi cua the vang: tieu de da nhap, hoac du phong
+    "The vang - <hanh vi / dieu khoan> - <ngay>" cho ban ghi cu."""
+    n = n or {}
+    t = clean_title(n.get("title"))
+    if t:
+        return t
+    return _join(C.FALLBACK_NOTICE, n.get("behavior") or n.get("rule_title") or n.get("rule"),
+                 _dmy(n.get("incident_date")))
+
+
+def case_title(c):
+    """Tieu de hien thi cua ho so do/den: tieu de da nhap, hoac du phong
+    "Ho so ky luat - <hinh thuc> - <ngay vi pham>" cho ban ghi cu."""
+    c = c or {}
+    t = clean_title(c.get("title"))
+    if t:
+        return t
+    return _join(C.FALLBACK_CASE, c.get("penalty") or c.get("card"), _dmy(c.get("violation_date")))

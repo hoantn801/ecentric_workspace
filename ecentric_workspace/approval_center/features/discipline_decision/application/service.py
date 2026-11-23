@@ -25,8 +25,10 @@ SNAPSHOT = ("employee", "employee_name", "department", "card", "penalty", "exten
 
 
 def gen_title(doc):
-    parts = [doc.get("penalty"), doc.get("employee_name") or doc.get("employee")]
-    return ("Quyết định kỷ luật - " + " - ".join(str(p) for p in parts if p))[:255]
+    """"Quyet dinh ky luat - <hinh thuc> - <ten NV> - <tieu de ho so>" (Hoan chot 23/11), cat 255.
+    `case_title` = tieu de ho so luc trinh (ho so cu: tieu de du phong do hr/ky_luat sinh)."""
+    parts = [doc.get("penalty"), doc.get("employee_name") or doc.get("employee"), doc.get("case_title")]
+    return ("Quyết định kỷ luật - " + " - ".join(str(p).strip() for p in parts if p and str(p).strip()))[:255]
 
 
 def prepare_draft(document):
@@ -38,6 +40,7 @@ def _fill(doc, case):
     for f in SNAPSHOT:
         doc.set(f, case.get(f))
     doc.discipline_case = case["name"]
+    doc.case_title = (case.get("case_title") or case.get("title") or "")[:140] or None
     g = str(case.get("dismissal_ground") or "")
     doc.dismissal_ground = ("(%s) %s" % (g, dict(frappe.get_attr(GROUND_LABELS)).get(g, ""))) if g else None
     doc.summary = "%s\nĐiều khoản: %s" % (case.get("description") or "", case.get("rule_title") or "")
@@ -82,6 +85,23 @@ def gui_lai_tu_ho_so(case, actor):
         engine.resubmit(doc.approval_request, actor=actor, restart=False)
     finally:
         frappe.flags.ec_discipline_resubmit = False
+    return name
+
+
+def doi_tieu_de_tu_ho_so(case):
+    """HR sua tieu de ho so khi phieu dang cho CEO -> cap nhat ban chup tieu de + request_title
+    (engine lay nhan phieu tu title_field). db_set: khong dong vao trang thai duyet / ban chup khac.
+    Phieu da ket thuc (khong con Pending / Information Required) thi giu nguyen - lich su."""
+    name = case.get("decision_request")
+    if not name or not frappe.db.exists(BUSINESS_DT, name):
+        return None
+    doc = frappe.get_doc(BUSINESS_DT, name)
+    st = frappe.db.get_value("EC Approval Request", doc.approval_request, "approval_status") \
+        if doc.approval_request else None
+    if st not in ("Pending", "Information Required"):
+        return None
+    doc.case_title = (case.get("case_title") or case.get("title") or "")[:140] or None
+    doc.db_set({"case_title": doc.case_title, "request_title": gen_title(doc)})
     return name
 
 

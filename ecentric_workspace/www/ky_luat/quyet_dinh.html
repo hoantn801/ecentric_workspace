@@ -9,6 +9,7 @@
 <section class="ekl-cardbox ekl-pad">
   <h2 class="ekl-h2">Nội dung trình ký</h2>
   <dl class="ekl-kv">
+    {% if d.case_title %}<dt>Tiêu đề hồ sơ</dt><dd>{{ d.case_title|e }}</dd>{% endif %}
     <dt>Nhân viên</dt><dd>{{ d.employee_name|e }} ({{ d.employee|e }})</dd>
     <dt>Thẻ · hình thức</dt><dd>{% if d.card %}{{ card_chip(d.card) }} {% endif %}{{ d.penalty|e }}{% if d.extend_months %} · {{ d.extend_months }} tháng{% endif %}</dd>
     {% if d.dismissal_ground %}<dt>Căn cứ sa thải</dt><dd>{{ d.dismissal_ground|e }}</dd>{% endif %}

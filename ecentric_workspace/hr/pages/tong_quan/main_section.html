@@ -746,9 +746,9 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
     var html = k.hint ? '<div class="note"><span class="pill p-amb">Gợi ý</span> ' + esc(k.hint) + '</div>' : "";
     html += '<div class="sub" style="margin-top:6px">Kỷ luật đang có hiệu lực: <b>' + (k.active || []).length + '</b></div>';
     html += '<div class="tl">' + (k.cases || []).map(function (c) {
-      return '<div><a href="' + link("ho-so", c.name) + '"><b>' + esc(c.card) + ' · ' + esc(c.penalty) + '</b></a> · ' + esc(c.status) + '<br>Vi phạm ' + fmt(c.violation_date) + (c.decision_date ? ' · QĐ ' + fmt(c.decision_date) : "") + (c.expunge_due ? ' · xoá ' + fmt(c.expunge_due) : "") + '</div>';
+      return '<div><a href="' + link("ho-so", c.name) + '"><b>' + esc(c.title || c.name) + '</b></a><br>' + esc(c.card) + ' · ' + esc(c.penalty) + ' · ' + esc(c.status) + '<br>Vi phạm ' + fmt(c.violation_date) + (c.decision_date ? ' · QĐ ' + fmt(c.decision_date) : "") + (c.expunge_due ? ' · xoá ' + fmt(c.expunge_due) : "") + '</div>';
     }).join("") + (k.notices || []).map(function (n) {
-      return '<div><a href="' + link("the-vang", n.name) + '"><b>Thẻ vàng (nội bộ)</b></a> · ' + esc(n.behavior) + '<br>' + fmt(n.incident_date) + ' · ' + esc(n.status) + '</div>';
+      return '<div><a href="' + link("the-vang", n.name) + '"><b>' + esc(n.title || n.name) + '</b></a><br>Thẻ vàng (nội bộ) · ' + esc(n.behavior) + '<br>' + fmt(n.incident_date) + ' · ' + esc(n.status) + '</div>';
     }).join("") + '</div>';
     if (!(k.cases || []).length && !(k.notices || []).length) html += '<div class="empty">Chưa có thẻ vàng hay hồ sơ kỷ luật nào.</div>';
     return html + '<div class="note">Thẻ vàng là nhắc nhở nội bộ, không phải hình thức kỷ luật và không tính tái phạm.</div>';

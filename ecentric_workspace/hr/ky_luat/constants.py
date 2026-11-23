@@ -128,5 +128,18 @@ LEGAL_NOTE = ("Ghi chú pháp lý: HR/pháp chế xác nhận NĐ 145/2020 nguy�
 YELLOW_NOTE = ("Thẻ vàng là nhắc nhở nội bộ: không trừ lương, không phải hình thức kỷ luật và không "
                "là căn cứ tái phạm theo luật. Nhiều thẻ vàng không tự chuyển thành thẻ đỏ.")
 
+# ------------------------------------------------------------------------ Tieu de --
+#: Tieu de the vang / ho so (Hoan chot 23/11): BAT BUOC khi TAO MOI - kiem o service, KHONG dat
+#: reqd o DocType (ban ghi cu chua co tieu de luu lai khong loi). Ban ghi cu -> tieu de du phong
+#: tu sinh (domain/rules.notice_title / case_title).
+TITLE_MAX = 140
+TITLE_PLACEHOLDER = "Đi trễ nhiều lần tháng 11"
+FALLBACK_NOTICE = "Thẻ vàng"
+FALLBACK_CASE = "Hồ sơ kỷ luật"
+#: HR sua tieu de ho so khi CHUA ban hanh; the vang sua duoc khi NV CHUA phan hoi (con "Cho phan
+#: hoi" - "Da doc" cung la mot cach phan hoi, giong luat tu dong dong the qua han).
+CASE_RETITLE_STATUSES = CASE_OPEN
+NOTICE_RETITLE_STATUSES = (NOTICE_PENDING,)
+
 ROUTE = "/ky-luat"
 ROUTE_DECISION = "/ky-luat/quyet-dinh"

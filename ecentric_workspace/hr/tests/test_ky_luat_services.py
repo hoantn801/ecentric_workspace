@@ -22,7 +22,7 @@ def ctx(repo, user):
 
 
 def case_payload(**kw):
-    p = {"employee": "EMP-NV", "card": C.CARD_RED, "penalty": C.P_REPRIMAND, "rule": "R1",
+    p = {"title": "Vang khong phep thang 11", "employee": "EMP-NV", "card": C.CARD_RED, "penalty": C.P_REPRIMAND, "rule": "R1",
          "violation_date": "2026-11-10", "description": "Vang 2 ngay khong phep",
          "violation_record": "/private/files/bb.pdf"}
     p.update(kw)
@@ -49,7 +49,8 @@ class Base(unittest.TestCase):
 
 class TestNotice(Base):
     def issue(self, user=LM, **kw):
-        p = {"employee": "EMP-NV", "behavior": "Di muon", "content": "Nhac lan 1", "incident_date": "2026-11-20"}
+        p = {"title": "Di tre nhieu lan thang 11", "employee": "EMP-NV", "behavior": "Di muon", "content": "Nhac lan 1",
+             "incident_date": "2026-11-20"}
         p.update(kw)
         return NS.issue(self.r, ctx(self.r, user), p)
 
@@ -405,7 +406,7 @@ class TestJobs(Base):
 
 class TestEmployeeTab(Base):
     def test_profile_tab_permissions(self):
-        NS.issue(self.r, ctx(self.r, LM), {"employee": "EMP-NV", "behavior": "x", "content": "y",
+        NS.issue(self.r, ctx(self.r, LM), {"title": "Nhac nho", "employee": "EMP-NV", "behavior": "x", "content": "y",
                                            "incident_date": "2026-11-20"})
         self.make_case()
         hr_view = V.employee_discipline(self.r, ctx(self.r, HR), "EMP-NV")

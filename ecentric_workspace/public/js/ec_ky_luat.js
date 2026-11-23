@@ -146,6 +146,8 @@
     $("[data-ekl-case-title]", form).textContent = titles[mode] || "Hồ sơ";
     $all("[data-ekl-only-new]", form).forEach(function (el) { el.hidden = !(mode === "create" || mode === "propose"); });
     $all("[data-ekl-hr-only]", form).forEach(function (el) { el.hidden = !BOOT.is_hr; });
+    // Ho so cu chua co tieu de: o trong = giu tieu de tu sinh (server khong bat nhap khi sua).
+    $all("[data-ekl-title-hint]", form).forEach(function (el) { el.hidden = !(data && !data.title); });
     if (data) { var c = data.card; setVals(form, { card: c }); syncPenalty(form); setVals(form, data); }
     syncPenalty(form);
     if (data) setVals(form, { penalty: data.penalty, dismissal_ground: data.dismissal_ground });
@@ -179,8 +181,20 @@
     cancel: { title: "Huỷ hồ sơ", method: "cancel_case", body: reasonBody },
     expunge: { title: "Xoá kỷ luật sau khi xem xét", method: "expunge_case", body: function () { return fld("Lý do (không phải tái phạm)", '<textarea name="note" rows="3" required></textarea>', true); } },
     reply: { title: "Phản hồi thẻ vàng", method: "notice_reply", body: function () { return fld("Nội dung phản hồi", '<textarea name="message" rows="4" required></textarea>', true); } },
-    ncancel: { title: "Huỷ thẻ vàng", method: "notice_cancel", body: reasonBody }
+    ncancel: { title: "Huỷ thẻ vàng", method: "notice_cancel", body: reasonBody },
+    retitle: { title: "Sửa tiêu đề hồ sơ", method: "case_retitle", body: titleBody },
+    nretitle: { title: "Sửa tiêu đề thẻ vàng", method: "notice_retitle", body: titleBody }
   };
+  function titleBody(d) {
+    return fld("Tiêu đề", '<input name="title" required maxlength="' + esc(BOOT.title_max || 140) + '" value="' + esc(d.title || "") +
+      '" placeholder="' + esc(d.display_title || BOOT.title_placeholder || "") + '">', true) +
+      '<p class="ekl-hint">Thay đổi được ghi vào nhật ký (tiêu đề cũ → mới).</p>';
+  }
+  function titleHead(kind, d) {
+    return '<div class="ekl-modal-h is-stack"><span class="ekl-dtitle' + (d.title_auto ? " is-auto" : "") + '">' + esc(d.display_title || d.name) +
+      '</span><span class="ekl-dsub">' + esc(kind) + " " + esc(d.name) + ' <span class="ekl-badge">' + esc(kind === "Thẻ vàng" ? d.status : d.display_status) + "</span>" +
+      (d.title_auto ? ' <span class="ekl-hint">(tiêu đề tự sinh)</span>' : "") + "</span></div>";
+  }
   function fld(label, ctrl, req) { return '<div class="ekl-fld"><label>' + esc(label) + (req ? ' <span class="ekl-req">*</span>' : "") + "</label>" + ctrl + "</div>"; }
   function fileFld(label, name, req) {
     return fld(label, '<input type="file" data-ekl-file="' + name + '"><input type="hidden" name="' + name + '"><span class="ekl-hint" data-ekl-file-name="' + name + '"></span>', req);
@@ -212,20 +226,20 @@
   }
   function noticeHtml(d) {
     var a = d.actions || {};
-    return '<div class="ekl-modal-h">Thẻ vàng ' + esc(d.name) + ' <span class="ekl-badge">' + esc(d.status) + '</span></div><div class="ekl-modal-b">' +
+    return titleHead("Thẻ vàng", d) + '<div class="ekl-modal-b">' +
       '<p class="ekl-note">' + esc(d.note) + "</p>" + (d.hint ? '<p class="ekl-banner is-warn">' + esc(d.hint) + "</p>" : "") +
       '<dl class="ekl-kv">' + kv("Nhân viên", d.employee_name) + kv("Hành vi", d.behavior) + kv("Ngày xảy ra", dmy(d.incident_date)) +
       kv("Người gửi", d.issued_by + (d.issuer_role ? " (" + d.issuer_role + ")" : "")) + kv("Hạn phản hồi", dmy(d.reply_due)) +
       kv("Điều khoản", d.rule) + fileLink("Bằng chứng", d.evidence) + "</dl>" +
       '<p class="ekl-pre">' + esc(d.content) + "</p>" + (d.response ? '<h3 class="ekl-h3">Phản hồi</h3><p class="ekl-pre">' + esc(d.response) + "</p>" : "") +
       logHtml(d.logs) + '</div><div class="ekl-modal-f">' + btn("close", "Đóng") +
-      (a.cancel ? btn("ncancel", "Huỷ thẻ", "is-danger") : "") + (a.reply ? btn("reply", "Viết phản hồi") : "") +
+      (a.cancel ? btn("ncancel", "Huỷ thẻ", "is-danger") : "") + (a.retitle ? btn("nretitle", "Sửa tiêu đề") : "") + (a.reply ? btn("reply", "Viết phản hồi") : "") +
       (a.read ? btn("read", "Đã đọc", "is-primary") : "") + "</div>";
   }
   function caseHtml(d) {
     var a = d.actions || {}; var chk = d.check || {};
     var warn = (chk.errors || []).concat(chk.warnings || []).concat(d.recidivism_note ? [d.recidivism_note] : []);
-    return '<div class="ekl-modal-h">Hồ sơ ' + esc(d.name) + ' <span class="ekl-badge">' + esc(d.display_status) + "</span></div>" +
+    return titleHead("Hồ sơ", d) +
       '<div class="ekl-modal-b">' + (warn.length ? '<div class="ekl-banner is-warn">' + warn.map(esc).join("<br>") + "</div>" : "") +
       '<dl class="ekl-kv">' + kv("Nhân viên", d.employee_name) + kv("Thẻ · hình thức", (d.card || "") + " · " + (d.penalty || "") + (d.extend_months && d.extend_months !== "0" ? " (" + d.extend_months + " tháng)" : "")) +
       kv("Căn cứ sa thải", d.ground_label) + kv("Điều khoản nội quy", d.rule_title) + kv("Ngày vi phạm", dmy(d.violation_date)) +
@@ -241,7 +255,7 @@
       (d.hr_note ? '<h3 class="ekl-h3">Ghi chú nội bộ HR</h3><p class="ekl-pre">' + esc(d.hr_note) + "</p>" : "") +
       logHtml(d.logs) + '</div><div class="ekl-modal-f">' + btn("close", "Đóng") +
       (a.cancel ? btn("cancel", "Huỷ hồ sơ", "is-danger") : "") + (a.postpone ? btn("postpone", "Hoãn") : "") + (a.resume ? btn("resume", "Tiếp tục") : "") +
-      (a.accept ? btn("accept", "Nhận đề xuất", "is-primary") : (a.edit ? btn("edit", "Sửa") : "")) +
+      (a.retitle ? btn("retitle", "Sửa tiêu đề") : "") + (a.accept ? btn("accept", "Nhận đề xuất", "is-primary") : (a.edit ? btn("edit", "Sửa") : "")) +
       (a.notify ? btn("notify", "Thông báo họp", "is-primary") : "") + (a.attend ? btn("attend", "Xác nhận tham dự", "is-primary") : "") +
       (a.record ? btn("record", "Ghi biên bản họp", "is-primary") : "") + (a.submit ? btn("submit", "Trình CEO", "is-primary") : "") +
       (a.resubmit ? btn("resubmit", "Gửi lại CEO", "is-primary") : "") + (a.expunge ? btn("expunge", "Xoá kỷ luật") : "") + "</div>";

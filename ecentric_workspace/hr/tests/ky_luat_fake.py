@@ -48,6 +48,7 @@ class FakeRepo:
         self.clearance_calls = []
         self.decisions = {}     # decision -> status
         self.decision_calls = []
+        self.retitle_fail = False
         self.bad_files = set()
         self.seq = 0
         self.settings_ = {"union_rep_user": UNION, "notice_reply_days": 3, "hr_review_days": 3,
@@ -211,6 +212,12 @@ class FakeRepo:
     def resubmit_decision(self, case, actor):
         self.decisions[case["decision_request"]] = "Pending"
         self.decision_calls.append(("resubmit", case["name"], actor))
+
+    def retitle_decision(self, case):
+        self.decision_calls.append(("retitle", case["name"], case.get("case_title")))
+        if self.retitle_fail:
+            raise RuntimeError("retitle loi")
+        return case.get("decision_request")
 
     def create_clearance(self, employee, reason, last_day):
         self.clearance_calls.append((employee, reason, last_day))

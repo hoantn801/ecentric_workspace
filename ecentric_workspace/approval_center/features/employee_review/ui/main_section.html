@@ -460,17 +460,21 @@
     if(a==="lmsend"||a==="lmsave"){ var q=collectLm(); var w=validateLm(q,x); if(w){ toast(w,true); return true; } runAct(call("nop_danh_gia_lm",{name:name,payload:JSON.stringify(q)}),a==="lmsend"?"Đã gửi CEO.":"Đã lưu phần quản lý.").catch(function(){}); return true; }
     if(a==="back"){ reasonModal(x.cap_cua_toi===2?"Trả lại nhân viên":"Trả lại quản lý","Lý do (hiện với mọi người trong luồng)","Trả lại",function(c){ return runAct(call("tra_lai",{name:name,ly_do:c}),"Đã trả lại."); }); return true; }
     // C&B khac nguoi dang giu nhap: nhan nhap ve minh truoc (save_draft chung chi cho nguoi gui sua).
-    if(a==="savedraft"){ runAct(call("nhan_nhap",{name:name}).then(function(){ return call("save_draft",{name:name,payload:JSON.stringify({ghi_chu_cnb:($("er-gc")||{}).value||""})}); }).then(function(){ return {}; }),"Đã lưu nháp.").catch(function(){}); return true; }
-    if(a==="submitdraft"){ runAct(call("nhan_nhap",{name:name}).then(function(){ return call("save_draft",{name:name,payload:JSON.stringify({ghi_chu_cnb:($("er-gc")||{}).value||""})}); }).then(function(){ return call("submit_request",{name:name}); }),"Đã gửi - phiếu chuyển tới nhân viên tự đánh giá.").catch(function(){}); return true; }
+    if(a==="savedraft"){ runAct(call("nhan_nhap",{name:name}).then(function(){ return call("save_draft",{name:name,payload:JSON.stringify(draftPayload())}); }).then(function(){ return {}; }),"Đã lưu nháp.").catch(function(){}); return true; }
+    if(a==="submitdraft"){ runAct(call("nhan_nhap",{name:name}).then(function(){ return call("save_draft",{name:name,payload:JSON.stringify(draftPayload())}); }).then(function(){ return call("submit_request",{name:name}); }),"Đã gửi - phiếu chuyển tới nhân viên tự đánh giá.").catch(function(){}); return true; }
     if(a==="claim"){ runAct(call("nhan_nhap",{name:name}).then(function(){ return {}; }),"Bạn là người gửi của nháp này.").catch(function(){}); return true; }
     if(a==="dropdraft"){ reasonModal("Huỷ nháp","Lý do","Huỷ nháp",function(c){ return runAct(call("huy_nhap",{name:name,ly_do:c}).then(function(){ return {}; }),"Đã huỷ nháp."); }); return true; }
     if(a==="hoso"){ modal("Xác nhận cập nhật hồ sơ",'<div class="banner warn">Hệ thống sẽ ghi vào hồ sơ nhân sự (có lưu vết). Kiểm tra ngày trước khi xác nhận.</div>',{okLabel:"Xác nhận",onConfirm:function(){ var pl={tu_ngay:($("hs-tu")||{}).value||"",den_ngay:($("hs-den")||{}).value||"",so_hop_dong:($("hs-so")||{}).value||""}; var k=$("hs-kxd"); if(k) pl.khong_thoi_han=k.checked?1:0; return runAct(call("xac_nhan_ho_so",{name:name,payload:JSON.stringify(pl)}),"Đã cập nhật hồ sơ."); }}); return true; }
     return false; }
+  // Nhap: ghi chu + tieu de tuy chinh (chi gui khoa custom_title khi o tieu de co tren man hinh - server
+  // chan sua sau khi gui va chan nguoi khong phai C&B).
+  function draftPayload(){ var p={ghi_chu_cnb:($("er-gc")||{}).value||""}; var t=$("er-ct"); if(t) p.custom_title=(t.value||"").trim(); return p; }
   function drawDetail(b,det){ state.detail=det; var biz=det.business||{}, ap=det.approval||{}, x=X(det);
     var editSelf=(x.cap_cua_toi===1&&x.la_nv);
     var editLm=(x.xem_lm&&(x.cap_cua_toi===2||x.lm_nhap_o_cap_ceo));
     var hist=(x.lich_su_hd||[]).map(function(r){ return '<tr><td>'+esc(r.loai_hop_dong)+'</td><td>'+esc(d2(r.tu_ngay))+'</td><td>'+(r.khong_thoi_han?"Không xác định":esc(d2(r.den_ngay)))+'</td></tr>'; }).join("");
     var draftCard=(!ap.name)?('<div class="card"><h3>Nháp (C&amp;B kiểm tra rồi gửi)</h3><div class="banner info">'+(biz.auto_draft?("Hệ thống tự gửi ngày <b>"+esc(d2(biz.auto_submit_on))+"</b> (9h, ngày làm việc) nếu C&amp;B chưa gửi."):"Nháp tạo tay - bấm Gửi khi sẵn sàng.")+(biz.da_huy_nhap?" Nháp đã huỷ: "+esc(biz.ly_do_huy_nhap||""):"")+'</div>'
+      +(x.sua_tieu_de?'<div class="fld"><label for="er-ct">Tiêu đề (tuỳ chỉnh)</label><input id="er-ct" data-model="custom_title" maxlength="140" value="'+esc(biz.custom_title||"")+'" placeholder="'+esc(x.tieu_de_tu_sinh||"")+'"><div class="hint">Để trống = dùng tiêu đề tự sinh. Sau khi gửi không sửa được.</div></div>':'')
       +(x.la_cnb?'<div class="fld"><label>Ghi chú cho nhân viên và quản lý</label><textarea rows="3" data-model="ghi_chu_cnb" id="er-gc">'+esc(biz.ghi_chu_cnb||"")+'</textarea></div>':'')+'</div>'):"";
     b.innerHTML='<div style="margin-bottom:12px"><button type="button" class="btn" id="d-back">‹ Danh sách</button></div>'
       +'<div class="card"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px"><div><h3 style="margin:0">'+esc(biz.request_title||biz.name||state.id)+'</h3><div class="hint">'+esc(biz.name||"")+'</div></div><div>'+badge(ap.approval_status||"Draft")+'</div></div></div>'
@@ -586,7 +590,7 @@
     call("get_bootstrap").then(function(bd){ state.boot=bd||{tabs:{},context:{},form_options:{}}; route(); })
     .catch(function(){ var bd=$("er-body"); if(bd) bd.innerHTML='<div class="card"><div class="state"><h4>Không tải được trang</h4><button type="button" class="btn" id="b-retry">Thử lại</button></div></div>'; var r=$("b-retry"); if(r)r.onclick=boot; }); }
 
-  window.EmployeeReview={ drawDetail:drawDetail, lmFormHTML:lmFormHTML, collectLm:collectLm, collectNv:collectNv, validateLm:validateLm, validateNv:validateNv, state:state, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, apply3Day:apply3Day };
+  window.EmployeeReview={ drawDetail:drawDetail, draftPayload:draftPayload, lmFormHTML:lmFormHTML, collectLm:collectLm, collectNv:collectNv, validateLm:validateLm, validateNv:validateNv, state:state, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, apply3Day:apply3Day };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
 </script>

@@ -170,7 +170,7 @@ class Repository:
 
     def notices(self, employees=None, issued_by=None, limit=500):
         """employees=None + issued_by=None -> tat ca (chi goi khi nguoi xem duoc xem het)."""
-        fields = ["name", "employee", "employee_name", "employee_user", "department", "issued_by",
+        fields = ["name", "title", "employee", "employee_name", "employee_user", "department", "issued_by",
                   "issuer_role", "behavior", "incident_date", "status", "sent_at", "reply_due",
                   "read_at", "responded_at", "line_manager_user", "creation"]
         if employees is None and issued_by is None:
@@ -194,7 +194,8 @@ class Repository:
     def overdue_notices(self, today):
         return [dict(r) for r in frappe.get_all(
             C.NOTICE, filters={"status": C.NOTICE_PENDING, "reply_due": ["<", today]},
-            fields=["name", "employee", "employee_name", "issued_by", "reply_due"],
+            fields=["name", "title", "behavior", "incident_date", "employee", "employee_name", "issued_by",
+                    "reply_due"],
             limit_page_length=0)]
 
     # ------------------------------------------------------------------ ho so do/den --
@@ -217,7 +218,7 @@ class Repository:
         return self._update(C.CASE, name, values, log)
 
     def cases(self, employees=None, extra_or=None, limit=500, statuses=None):
-        fields = ["name", "employee", "employee_name", "employee_user", "department", "status",
+        fields = ["name", "title", "employee", "employee_name", "employee_user", "department", "status",
                   "card", "penalty", "violation_date", "limitation_effective_end", "meeting_date",
                   "decision_date", "expunge_due", "proposed_by", "union_rep_user",
                   "decision_request", "creation", "modified"]
@@ -240,7 +241,7 @@ class Repository:
             filters["status"] = ["in", list(statuses)]
         return [dict(r) for r in frappe.get_all(
             C.CASE, filters=filters,
-            fields=["name", "status", "card", "penalty", "violation_date", "decision_date",
+            fields=["name", "title", "status", "card", "penalty", "violation_date", "decision_date",
                     "expunge_due", "employee", "employee_user", "proposed_by", "union_rep_user"],
             order_by="creation desc", limit_page_length=0)]
 
@@ -273,6 +274,10 @@ class Repository:
     def resubmit_decision(self, case, actor):
         from ecentric_workspace.hr.ky_luat.infrastructure import gateways
         return gateways.resubmit_decision(case, actor)
+
+    def retitle_decision(self, case):
+        from ecentric_workspace.hr.ky_luat.infrastructure import gateways
+        return gateways.retitle_decision(case)
 
     def create_clearance(self, employee, reason, last_day):
         from ecentric_workspace.hr.ky_luat.infrastructure import gateways
