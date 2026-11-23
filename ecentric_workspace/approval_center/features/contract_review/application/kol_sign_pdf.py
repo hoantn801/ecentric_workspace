@@ -109,8 +109,20 @@ def place(doc):
     return summarize(res)
 
 
+_REOPENED = "Đã mở lại gói ký; tài liệu cũ trên cổng sẽ được huỷ."
+
+
 def summarize(res):
-    """Ket qua auto_place -> cau tieng Viet cho nguoi lap (THUAN, de test)."""
+    """Ket qua auto_place -> cau tieng Viet cho nguoi lap (THUAN, de test). `reopened` (ma goi Draft moi)
+    = nen tang da mo lai goi da khoa sau khi tep moi qua het phep kiem -> bao truoc moi cau khac."""
+    out = _summarize(res)
+    if res.get("reopened"):
+        out["reopened"] = res.get("reopened")
+        out["message"] = _(_REOPENED) + " " + (out.get("message") or "")
+    return out
+
+
+def _summarize(res):
     placed = list(res.get("placed") or [])
     reason = str(res.get("reason") or "")
     if res.get("ok"):
