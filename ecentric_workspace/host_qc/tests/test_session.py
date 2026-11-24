@@ -12,6 +12,7 @@ from ecentric_workspace.host_qc.services.get_next_session_service import GetNext
 from ecentric_workspace.host_qc.services.open_session_service import OpenSessionService
 from ecentric_workspace.host_qc.services.record_alert_service import RecordAlertService
 from ecentric_workspace.host_qc.services.validate_session_service import ValidateSessionService
+from ecentric_workspace.host_qc.services.rescore_session_service import RescoreSessionService
 from ecentric_workspace.host_qc.tests import fakes as F
 
 M1 = {"name": "M1", "machine_id": "M1"}
@@ -59,13 +60,14 @@ class TestOpenClose(unittest.TestCase):
     def setUp(self):
         self.s, self.m = F.FakeSessions(), F.FakeMachines()
         self.m.add("M1")
-        self.open = OpenSessionService(self.s, self.m, F.clock)
+        self.open = OpenSessionService(self.s, self.m, F.FakeRooms(), F.clock, RescoreSessionService(self.s, F.FakeViolations(), BuildRulesConfigService(F.FakeSettings(), F.FakeRules())))
 
     def test_phien_theo_lich(self):
         self.s.add("s1")
         self.open.execute(M1, {"session_id": "s1", "started_at": 1795957200000, "config_hash": "h", "app_version": "0.1"})
         self.assertEqual(self.s.s["s1"]["status"], "Running")
         self.assertEqual(self.m.current["M1"], "s1")
+        self.assertEqual((self.s.s["s1"]["total_score"], self.s.s["s1"]["status_color"]), (100, "GREEN"))
         with self.assertRaises(ForbiddenError):
             self.open.execute({"name": "M2"}, {"session_id": "s1"})
 

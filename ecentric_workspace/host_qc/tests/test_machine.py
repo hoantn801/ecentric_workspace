@@ -80,5 +80,12 @@ class TestHeartbeat(unittest.TestCase):
             MachineMicsService(m, F.clock).execute(["Employee"], "M1")
 
 
+
+class TestGuardMessage(unittest.TestCase):
+    def test_sai_ma_may_noi_ro(self):
+        from ecentric_workspace.host_qc.constants import messages as M
+        self.assertIn("TEST-2", M.MACHINE_ID_MISMATCH % ("TEST-2", "TEST-1"))
+
+
 if __name__ == "__main__":
     unittest.main()

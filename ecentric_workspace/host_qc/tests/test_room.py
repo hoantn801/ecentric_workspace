@@ -14,6 +14,7 @@ from ecentric_workspace.host_qc.services.open_session_service import OpenSession
 from ecentric_workspace.host_qc.services.record_heartbeat_service import RecordHeartbeatService
 from ecentric_workspace.host_qc.services.validate_room_service import ValidateRoomService
 from ecentric_workspace.host_qc.services.validate_session_service import ValidateSessionService
+from ecentric_workspace.host_qc.services.rescore_session_service import RescoreSessionService
 from ecentric_workspace.host_qc.tests import fakes as F
 
 M1, M2 = {"name": "M1", "machine_id": "M1"}, {"name": "M2", "machine_id": "M2"}
@@ -71,7 +72,7 @@ class TestSessionByRoom(unittest.TestCase):
         self.m.add("M1")
         self.st = F.FakeSettings()
         self.next = GetNextSessionService(self.s, Banned(), self.st, BuildRulesConfigService(self.st, F.FakeRules()), F.clock)
-        self.open = OpenSessionService(self.s, self.m, F.FakeRooms(), F.clock)
+        self.open = OpenSessionService(self.s, self.m, F.FakeRooms(), F.clock, RescoreSessionService(self.s, F.FakeViolations(), BuildRulesConfigService(F.FakeSettings(), F.FakeRules())))
 
     def test_next_session_theo_phong(self):
         self.s.add("p1-toi", machine=None, live_room="P1", planned_start=F.NOW + dt.timedelta(minutes=5))
