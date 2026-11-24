@@ -407,7 +407,7 @@
   // noi dung vao [data-ec-rooms-list] + badge, khong dung lai bo cuc. Du lieu: pm.api.rooms.day()
   // (cache 60 s phia server, dung chung voi trang Phong hop). Gio la chuoi gio dia phuong cua site:
   // tinh bang phut, "bay gio" = now cua server + thoi gian da troi o client.
-  var RM_H0=480, RM_H1=1140, RM_REFRESH=60000, _rmBusy=false;
+  var RM_REFRESH=60000, _rmBusy=false;
   function rmPad(n){ return (n<10?'0':'')+n; }
   function rmHm(m){ return m>=1440 ? '24:00' : rmPad(Math.floor(m/60))+':'+rmPad(m%60); }
   function rmMin(s){ var x=/(\d{2}):(\d{2})/.exec(String(s||'').slice(11)); return x ? (+x[1])*60+(+x[2]) : null; }
@@ -416,22 +416,44 @@
     var ds=s0.slice(0,10), de=e0.slice(0,10); if(ds>day||de<day) return null;
     var s=ds<day?0:rmMin(s0), e=de>day?1440:rmMin(e0);
     if(b.all_day){ s=0; e=1440; }
-    return (s===null||e===null||e<=s) ? null : {s:s, e:e};
+    return (s===null||e===null||e<=s) ? null : {s:s, e:e, who:b.who||'', mine:!!b.mine};
   }
-  function rmPct(m){ return (Math.max(RM_H0, Math.min(RM_H1, m))-RM_H0)/(RM_H1-RM_H0)*100; }
-  // busy (gop cac lich lien nhau) | soon (trong, <=30 phut nua co nguoi) | free | off
+  // busy (gop cac lich lien nhau) | soon (trong, <=30 phut nua co nguoi) | free | off.
+  // cur = lich dang dien ra, next = lich ke tiep (de ghi dong phu "tiep theo ..." / "Ban dat ...").
   function rmState(list, n){
     var cur=null, i;
     for(i=0;i<list.length;i++){ if(list[i].s<=n && n<list[i].e){ cur=list[i]; break; } }
-    if(cur){ var end=cur.e; list.forEach(function(x){ if(x.s<=end && x.e>end) end=x.e; }); return {k:'busy', until:end}; }
+    if(cur){ var end=cur.e; list.forEach(function(x){ if(x.s<=end && x.e>end) end=x.e; }); return {k:'busy', until:end, cur:cur}; }
     var next=null; for(i=0;i<list.length;i++){ if(list[i].s>n){ next=list[i]; break; } }
-    if(next && next.s-n<=30) return {k:'soon', until:next.s};
-    return {k:'free', until: next ? next.s : null};
+    if(next && next.s-n<=30) return {k:'soon', until:next.s, next:next, any:true};
+    return {k:'free', until: next ? next.s : null, next:next, any:list.length>0};
   }
-  function rmText(st){
+  // 24/11 (phuong an A): nhan trang thai + lop mau
+  function rmText(st, n){
     if(st.k==='off') return 'Chưa kết nối';
-    if(st.k==='busy') return st.until>=1440 ? 'Bận cả ngày' : 'Bận đến '+rmHm(st.until);
-    return st.until!==null ? 'Trống đến '+rmHm(st.until) : 'Trống cả ngày';
+    if(st.k==='busy'){
+      if(st.cur && st.cur.mine) return 'Bạn đang họp';
+      if(st.until>=1440) return 'Bận cả ngày';
+      return st.until-n<60 ? 'Đang họp · còn '+(st.until-n)+"'" : 'Bận đến '+rmHm(st.until);
+    }
+    if(st.next && st.next.mine) return 'Bạn đặt '+rmHm(st.next.s);
+    if(st.k==='soon') return 'Sắp họp '+rmHm(st.until);
+    return st.until!==null ? 'Trống đến '+rmHm(st.until) : (st.any ? 'Trống đến hết ngày' : 'Trống cả ngày');
+  }
+  function rmKind(st){
+    if(st.k==='busy' && st.cur && st.cur.mine) return 'mine';
+    if(st.k!=='busy' && st.k!=='off' && st.next && st.next.mine) return 'mine';
+    return st.k;
+  }
+  function rmWho(x){ return x.mine ? 'Bạn' : (x.who||''); }
+  function rmSub(r, st){
+    var p=[];
+    if(r.capacity) p.push(r.capacity+' chỗ');
+    if(st.k==='off'){ p.push('chưa kết nối lịch'); }
+    else if(st.k==='busy' && st.cur){ p.push((rmWho(st.cur) ? rmWho(st.cur)+' · ' : '')+rmHm(st.cur.s)+'–'+rmHm(st.cur.e)); }
+    else if(st.next){ p.push('tiếp theo '+rmHm(st.next.s)+'–'+rmHm(st.next.e)+(rmWho(st.next) ? ' · '+rmWho(st.next) : '')); }
+    else p.push(st.any ? 'hết lịch hôm nay' : 'không có lịch hôm nay');
+    return p.join(' · ');
   }
   function rmNote(card, text){
     var ul=card.querySelector('[data-ec-rooms-list]'), bd=card.querySelector('[data-ec-rooms-badge]');
@@ -447,21 +469,22 @@
     var day=String(d.now||'').slice(0,10) || d.date;
     var n=rmMin(d.now); if(n===null) n=0;
     n+=Math.floor((Date.now()-(d._at||Date.now()))/60000);
-    var free=0, h='';
-    rooms.forEach(function(r){
-      var list=[];
+    var free=0, h='', floor=null;
+    // chia theo tang (giu thu tu sort_order trong cung tang); phong khong ghi tang -> khong co dong tieu de
+    var order=rooms.map(function(r, i){ return {r:r, i:i}; });
+    order.sort(function(a, b){ var fa=a.r.floor||'', fb=b.r.floor||''; return fa<fb ? -1 : fa>fb ? 1 : a.i-b.i; });
+    order.forEach(function(o){
+      var r=o.r, list=[];
       (r.bookings||[]).forEach(function(b){ var sp=rmSpan(b, day); if(sp) list.push(sp); });
       list.sort(function(a,b){ return a.s-b.s || a.e-b.e; });
       var st=r.error ? {k:'off'} : rmState(list, n);
       if(!r.error && st.k!=='busy') free++;
-      var bars=list.filter(function(x){ return x.e>RM_H0 && x.s<RM_H1; }).map(function(x){
-        return '<i'+(x.s<=n && n<x.e ? ' class="ec2-rm-cur"' : '')+' style="left:'+rmPct(x.s)+'%;width:'+(rmPct(x.e)-rmPct(x.s))+'%"></i>'; }).join('');
-      var pin=(n>=RM_H0 && n<=RM_H1) ? '<b style="left:'+rmPct(n)+'%"></b>' : '';
-      var name=r.title || r.label || r.code || r.name, txt=rmText(st);
-      h+='<li><a class="ec2-rm-row" href="/pm#rooms" title="'+esc((r.label||name)+': '+txt)+'" aria-label="'+esc((r.label||name)+': '+txt)+'">'+
-         '<span class="ec2-rm-code">'+esc(r.code||'')+'</span><span class="ec2-rm-name">'+esc(name)+'</span>'+
-         '<span class="ec2-rm-st ec2-rm-st--'+st.k+'">'+txt+'</span>'+
-         '<span class="ec2-rm-bar" aria-hidden="true">'+bars+pin+'</span></a></li>';
+      if(r.floor && r.floor!==floor){ floor=r.floor; h+='<li class="ec2-rm-floor" aria-hidden="true">'+esc(floor)+'</li>'; }
+      var name=r.title || r.label || r.code || r.name, txt=rmText(st, n), sub=rmSub(r, st);
+      h+='<li><a class="ec2-rm-row" href="/pm#rooms" title="'+esc((r.label||name)+': '+txt+' · '+sub)+'" aria-label="'+esc((r.label||name)+': '+txt+', '+sub)+'">'+
+         '<span class="ec2-rm-code">'+esc(r.code||'')+'</span>'+
+         '<span class="ec2-rm-main"><span class="ec2-rm-name">'+esc(name)+'</span><span class="ec2-rm-sub">'+esc(sub)+'</span></span>'+
+         '<span class="ec2-rm-st ec2-rm-st--'+rmKind(st)+'">'+esc(txt)+'</span></a></li>';
     });
     ul.setAttribute('aria-busy','false');
     ul.innerHTML=h;
