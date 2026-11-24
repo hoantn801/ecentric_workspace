@@ -636,6 +636,7 @@ async function block(name, fn) {
     E.w.PMR.closeSheet();
     E.w.PMR.newTask({ project: "P1" }); await flush();
     ok("mở từ dự án: không tự giao cho mình (việc chung của dự án)", !E.$(".pmr-pc-self", sh) && sb().textContent === "Tạo việc (chưa giao ai)");
+    ok("24/11: để trống người nhận -> dòng nhắc 'không hiện trong Việc cần làm của ai'", /không hiện trong Việc cần làm của ai/.test((E.$(".pmr-nt-unas", sh) || {}).textContent || ""));
     E.w.PMR.closeSheet();
     const plan = E.w.PMR._pure.buildCreatePlan({ subject: "x", assignees: [], ask: false, split: false, steps: [], labels: [], due: "", time: "", rep: false, priority: "Medium", project: "", desc: "Dòng 1\nFile mẫu https://x.vn/m" });
     ok("mô tả gõ thường → giữ xuống dòng + link bấm được khi lưu", /Dòng 1<br>File mẫu <a href="https:\/\/x\.vn\/m"/.test(plan.args.description), plan.args.description);

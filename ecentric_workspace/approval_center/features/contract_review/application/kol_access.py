@@ -18,7 +18,7 @@ import frappe
 from frappe import _
 from frappe.utils import now_datetime
 
-from ecentric_workspace.approval_center.features.contract_review.application import kol_lookup
+from ecentric_workspace.approval_center.features.contract_review.application import kol_lookup, kol_rounds
 from ecentric_workspace.approval_center.features.contract_review.domain import kol
 from ecentric_workspace.approval_center.features.contract_review.domain.kol_texts import strip_accents
 
@@ -46,7 +46,7 @@ def is_generated(file_name_or_url):
 def _signed_urls(business):
     """Ban DA KY (hop dong + tung dot BBNT) cung in du CCCD/STK - xu ly nhu ban sinh tu mau."""
     urls = {business.get("signed_file"), business.get("sign_pdf")}     # sign_pdf: ban PDF de ky (23/11)
-    urls.update(r.get("signed_file") for r in business.get("acceptances") or [])
+    urls.update(r.get("signed_file") for r in kol_rounds.rows(business))
     urls.discard(None)
     urls.discard("")
     return urls
@@ -67,7 +67,7 @@ def has_kol_files(doc):
     """Phieu da tao hop dong / BBNT KOL (in CCCD, STK creator). Chi dua vao dau vet KOL that (mau da
     dung, van tay, dot BBNT) hoac phieu DANG LUU la KOL: ten tep HDDV_ / BBNT_ tren phieu loai khac
     (vd tep nguoi dung, ban doi chung chu Administrator) khong tinh (QC vong cuoi 17/11)."""
-    if doc.get("acceptances") or doc.get("generated_template") or doc.get("contract_fingerprint"):
+    if doc.get("generated_template") or doc.get("contract_fingerprint") or kol_rounds.rows(doc):
         return True
     if not doc.get("name") or _is_new(doc):
         return False
@@ -125,7 +125,7 @@ def lock_pii_files(doc):
         for f in ("contract_file", "request_attachment"):
             if is_generated(doc.get(f)) and not _partner_upload(doc, doc.get(f)):
                 urls.add(doc.get(f))
-        for r in doc.get("acceptances") or []:
+        for r in kol_rounds.rows(doc):
             if r.get("bbnt_file"):
                 urls.add(r.get("bbnt_file"))
         urls.discard(None)
@@ -192,6 +192,7 @@ def redact_business(business, request=None):
             business[field] = None
     if business.get("signed_file"):
         business["signed_file"] = None
+    # Dot nghiem thu la phieu rieng tu 24/11 (kol_rounds); bang con cu chi con lich su rong - van che.
     for row in business.get("acceptances") or []:
         if is_generated(row.get("bbnt_file")):
             row["bbnt_file"] = None
@@ -247,6 +248,20 @@ def _approver_sign_pdf(business, user):
     return url if _esign_enabled(name) else None
 
 
+def round_approver_files(business, user):
+    """URL ban BBNT / ban ky cua cac dot ma `user` nam trong luong duyet dot (KTTH, KTT, CEO - PO 24/11
+    cau 3: nguoi duyet dot xem / tai duoc ban du CCCD, STK cua DOT DO, nhu ban PDF ky hop dong). Tai
+    van qua download_file (POST, ghi vet)."""
+    out = set()
+    if not user or user == "Guest":
+        return out
+    for r in kol_rounds.rows(business):
+        req = r.get("approval_request")
+        if req and frappe.db.exists("EC Approval Request Approver", {"approval_request": req, "approver": user}):
+            out.update(x for x in (r.get("bbnt_file"), r.get("signed_file"), r.get("sign_pdf")) if x)
+    return out
+
+
 def _is_pii_attachment(business, a):
     """Tep du PII tren phieu KOL: tep he thong (chu = Administrator: ban sinh tu mau, ban ky da nhan,
     ca ban ky bi tra lai), ban HDDV_/BBNT_ .docx cu (truoc 17/11 chu la nguoi bam tao), URL dang la ban
@@ -258,7 +273,7 @@ def _is_pii_attachment(business, a):
     gen = is_generated(name) or is_generated(url)
     return gen and (str(name or url or "").lower().endswith(".docx") or url in {
         business.get("contract_file"), business.get("request_attachment")} or url in {
-        r.get("bbnt_file") for r in business.get("acceptances") or []})
+        r.get("bbnt_file") for r in kol_rounds.rows(business)})
 
 
 def download_file(name, file_url, user):
@@ -270,7 +285,7 @@ def download_file(name, file_url, user):
                                        "attached_to_name": doc.name}, ["name", "file_name"], as_dict=True)
     if not row:
         frappe.throw(_("Không tìm thấy tệp của phiếu này."))
-    if not can_download_full(doc, user) or not _can_view(doc, user):
+    if not (can_download_full(doc, user) and _can_view(doc, user)) and file_url not in round_approver_files(doc, user):
         frappe.throw(_("Chỉ người lập phiếu (sau khi gửi), người tạo creator hoặc Kế toán tải được bản đủ thông "
                        "tin creator. Người duyệt xem bản che bằng nút \"Xem hợp đồng\"."), frappe.PermissionError)
     # Ghi NHAN tep, khong ghi ten tep (ten co doan ngau nhien = mot phan URL; binh luan ai co quyen
@@ -299,7 +314,7 @@ def _label(doc, file_url):
         return _("hợp đồng đã ký")
     if file_url == doc.get("sign_pdf"):
         return _("bản PDF để ký")
-    for r in doc.get("acceptances") or []:
+    for r in kol_rounds.rows(doc):
         if file_url == r.get("bbnt_file"):
             return _("BBNT đợt {0}").format(r.get("idx"))
         if file_url == r.get("signed_file"):

@@ -86,6 +86,10 @@ class AppTests(unittest.TestCase):
         sys.modules["frappe"], sys.modules["frappe.utils"] = fk, fk.utils
         for m in MODS:
             sys.modules.pop(PKG + "." + m, None)
+        # Dot nghiem thu la phieu EC KOL Acceptance tu 24/11: kho kol_rounds gia lap bang doc["acceptances"].
+        from _kol_rounds_fake import install as _fake_rounds
+        sys.modules.pop(PKG + ".kol_rounds", None)
+        _fake_rounds(importlib.import_module(PKG + ".kol_rounds"), frappe_throw=fk.throw)
         cls.lookup = importlib.import_module(PKG + ".kol_lookup")
         cls.svc = importlib.import_module(PKG + ".kol_service")
         cls.files = importlib.import_module(PKG + ".kol_files")
@@ -360,7 +364,7 @@ class AppTests(unittest.TestCase):
         doc = FakeDoc(creator_type="Cá nhân", amount_type=k.GROSS_BEFORE_PIT, gross_amount=a["gross"],
                       pit_amount=a["pit"], vat_amount=0, payable_amount=a["payable"], pit_rate=10,
                       acceptances=[1])
-        rows = acc._round_calc(doc, FakeDoc(amount=a["payable"]))
+        rows = acc._round_calc(doc, doc, FakeDoc(amount=a["payable"]))     # cv = hop dong + cac dot
         amounts = [r["amount"] for r in rows]
         self.assertIn(2621905, amounts)                               # = so in tren BBNT (so hop dong)
         self.assertIn(262191, amounts)
@@ -458,7 +462,7 @@ class AppTests(unittest.TestCase):
         acc = importlib.import_module(PKG + ".kol_acceptance")
         row = FakeDoc(name="r1", idx=1, status=acc.kol.BBNT_DRAFT)
         self._patch(acc, _load=lambda n, u: FakeDoc(), _row=lambda d, r: row)
-        for st, word in ((acc.kol.BBNT_DRAFT, "Đánh dấu đã gửi ký"), (acc.kol.BBNT_REVIEW, "Kế toán")):
+        for st, word in ((acc.kol.BBNT_DRAFT, "Gửi duyệt"), (acc.kol.BBNT_REVIEW, "Kế toán")):
             row.status = st
             with self.assertRaises(_Throw) as cm:
                 acc.complete_acceptance("CR-1", "a@ecentric.vn", "r1", "/s.pdf")
@@ -519,35 +523,45 @@ class AppTests(unittest.TestCase):
         self.assertIsNone(doc.revenue_warning)
 
     def test_gui_bbnt_sinh_lai_tep_theo_du_lieu_moi(self):
+        """24/11 (PO chot C): "Gui duyet" kiem thieu + sinh lai BBNT theo du lieu HIEN TAI roi gui chuoi duyet
+        rieng cua dot. Noi dung doi: nguoi duyet xem ban MOI (duyet lai tu dau neu dang "Can bo sung")."""
         acc = importlib.import_module(PKG + ".kol_acceptance")
-        row = FakeDoc(idx=1, status=acc.kol.BBNT_DRAFT, bbnt_file="/old.docx")
-        saved, dropped = [], []
-        doc = FakeDoc(contract_no="X/1", creator="SUP-1")
-        doc.save = lambda ignore_permissions=False: saved.append(1)
-        self._patch(acc, _load=lambda n, u: doc, _row=lambda d, r: row, creator_row=lambda n: {"ec_cr_type": "Cá nhân"})
+        row = FakeDoc(name="r1", idx=1, round_no=1, status=acc.kol.BBNT_DRAFT, bbnt_file="/old.docx")
+        dropped, sent = [], []
+        doc = FakeDoc(name="CR-1", contract_no="X/1", creator="SUP-1")
+        access = importlib.import_module(PKG + ".kol_access")
+        self._patch(access, require_open=lambda d: None, payee_changed=lambda d: False)
+        self._patch(acc, _load=lambda n, u: doc, _row=lambda d, r: row, creator_row=lambda n: {"ec_cr_type": "Cá nhân"},
+                    approval_status=lambda d: acc.APPROVED, is_signed=lambda d: True,
+                    _submit_round=lambda d, r, u, mode, restart=False: (sent.append((mode, restart)),
+                                                                        r.update(status=acc.kol.BBNT_SENT)) and "AR-9")
         self._patch(self.files, acceptance_content=lambda d, r, c, tpl=None: (b"new", []),
                     attach=lambda d, fn, c: "/new.docx",
                     _drop_generated=lambda d, url, prefix="", keep_if_sent=True: dropped.append(url))
         comments = []
         doc.add_comment = lambda kind, text: comments.append(text)
-        # Noi dung DOI (URL moi): KHONG danh dau da gui - ban creator dang cam khong phai ban nay; giu
-        # tep cu lam vet, ghi chu (QC3).
         r = acc.send_acceptance("CR-1", "a@ecentric.vn", "r1")
-        self.assertEqual((row.bbnt_file, row.status, dropped, r.get("regenerated")),
-                         ("/new.docx", acc.kol.BBNT_DRAFT, [], True))
+        self.assertEqual((row.bbnt_file, row.status, dropped, r.get("regenerated"), sent),
+                         ("/new.docx", acc.kol.BBNT_SENT, [], True, [("new", True)]))
         # PO 17/11: binh luan KHONG mang URL tep (ban du PII chi nguoi tao creator + Ke toan tai).
-        self.assertTrue(comments and "tạo lại" in comments[0])
+        self.assertTrue(comments and "tạo lại" in comments[-1])
         self.assertFalse(any("/old.docx" in c or "/new.docx" in c for c in comments))
-        # Bam lai (noi dung khong doi -> cung URL): moi danh dau da gui.
-        r = acc.send_acceptance("CR-1", "a@ecentric.vn", "r1")
-        self.assertEqual((row.status, r.get("regenerated")), (acc.kol.BBNT_SENT, None))
+        # Dang cho duyet: khong gui lai.
+        with self.assertRaises(_Throw):
+            row.update(approval_request="AR-9")
+            acc.send_acceptance("CR-1", "a@ecentric.vn", "r1")
         # Con thieu (creator chua co CCCD): chan, bao nhan tieng Viet, khong doi tep.
-        row.status, row.bbnt_file = acc.kol.BBNT_DRAFT, "/old.docx"
+        row.update(status=acc.kol.BBNT_DRAFT, bbnt_file="/old.docx", approval_request=None)
         self._patch(self.files, acceptance_content=lambda d, r, c, tpl=None: (b"x", ["PERSON_ID_NO"]))
         with self.assertRaises(_Throw) as cm:
             acc.send_acceptance("CR-1", "a@ecentric.vn", "r1")
         self.assertNotIn("PERSON_ID_NO", str(cm.exception))
         self.assertEqual(row.bbnt_file, "/old.docx")
+        # Hop dong chua duyet / chua ky du: khong gui.
+        self._patch(acc, is_signed=lambda d: False)
+        with self.assertRaises(_Throw):
+            acc.send_acceptance("CR-1", "a@ecentric.vn", "r1")
+
 
 class FillRealTemplate(unittest.TestCase):
     """Dien mau BBNT ca nhan that cua Ke toan (van ban lay tu Google Docs 12/11, giu nguyen ten <<...>>)."""

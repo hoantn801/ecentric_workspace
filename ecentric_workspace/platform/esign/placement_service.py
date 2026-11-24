@@ -362,5 +362,24 @@ def auto_place(business_doctype, business_name, document_ref):
         seen.add(name)
         have.add(slot)
         out["placed"].append({"name": name, "slot": slot, "box": box})
+    # PR-I 24/11: ho so co doi tac ky ngoai -> o ky doi tac dat theo moc [[KY_BEN_B]] luc tao tai
+    # lieu tren cong. Thieu moc thi bao NGAY (canh bao, khong chan) thay vi de cong tu choi sau.
+    try:
+        if not any(m.get("name") == "KY_BEN_B" for m in analysis.get("markers") or []) \
+                and _partner_expected(cur):
+            out["warnings"] = ["Thiếu mốc [[KY_BEN_B]] cho ô ký đối tác - thêm mốc (chữ trắng "
+                               "1pt) dưới chỗ ký Bên B trong mẫu Word, xuất lại PDF rồi tải lên."]
+    except Exception:
+        pass                                  # chi la canh bao - khong bao gio lam hong dat o
     out["state"] = placement_state(business_doctype, business_name, document_ref)
     return out
+
+
+def _partner_expected(pkg_name):
+    """Ho so cua goi bat doi tac ky ngoai (allow_external_signers). Loi -> False (khong canh bao)."""
+    try:
+        prof = frappe.db.get_value("EC Digital Signature Package", pkg_name, "profile")
+        return bool(prof and int(frappe.db.get_value("EC Digital Signature Profile", prof,
+                                                     "allow_external_signers") or 0))
+    except Exception:
+        return False

@@ -149,11 +149,11 @@ def analyze(content):
 
 
 #: O ky mac dinh (point) va khoang ho phia tren moc.
-BOX_W, BOX_H, GAP = 180.0, 60.0, 2.0
+BOX_W, BOX_H, GAP = 180.0, 100.0, 2.0
 
 
 def box_for(marker):
-    """O ky 180x60pt NGAY TREN moc (canh trai theo moc), ep vao trong trang. He chuan coords."""
+    """O ky 180x100pt (24/11: 60pt qua thap) NGAY TREN moc (canh trai theo moc), ep vao trong trang. He chuan coords."""
     pw, ph = float(marker["page_width"]), float(marker["page_height"])
     w, h = min(BOX_W, pw), min(BOX_H, ph)
     x = min(max(0.0, float(marker["x"])), pw - w)

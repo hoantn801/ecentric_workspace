@@ -636,9 +636,12 @@
   {
    "fieldname": "acceptances",
    "fieldtype": "Table",
-   "label": "Các đợt nghiệm thu",
+   "label": "Các đợt nghiệm thu (lịch sử trước 24/11/2026)",
    "options": "EC Contract Acceptance",
-   "no_copy": 1
+   "no_copy": 1,
+   "hidden": 1,
+   "read_only": 1,
+   "description": "Từ 24/11/2026 mỗi đợt BBNT là một phiếu EC KOL Acceptance (p520 đã chép). Bảng này chỉ còn lịch sử, không ghi mới."
   },
   {
    "fieldname": "kol_payee_fp",
@@ -690,7 +693,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-11-23 06:00:00.000000",
+ "modified": "2026-11-24 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Approval Center",
  "name": "EC Contract Review Request",

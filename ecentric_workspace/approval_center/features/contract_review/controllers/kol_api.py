@@ -24,7 +24,8 @@ __all__ = ["kol_me", "kol_search_sales_orders", "kol_list_templates", "kol_place
            "kol_misa_preview", "kol_misa_apply",
            "kol_verify_signed", "kol_verify_acceptance", "kol_pending_checks", "kol_preview_dates",
            "kol_creator_gaps", "kol_preview_contract", "kol_download_file", "kol_confirm_payee",
-           "kol_close_contract", "kol_reopen_contract", "kol_attach_sign_pdf", "kol_auto_place_sign"]
+           "kol_close_contract", "kol_reopen_contract", "kol_attach_sign_pdf", "kol_auto_place_sign",
+           "kol_round_contract"]
 
 
 def _app(module):
@@ -160,6 +161,12 @@ def kol_send_acceptance(name, row):
 @frappe.whitelist(methods=["POST"])
 def kol_complete_acceptance(name, row, signed_file):
     return _app("kol_acceptance").complete_acceptance(name, _me(), row, signed_file)
+
+
+@frappe.whitelist()
+def kol_round_contract(name):
+    """Phieu dot EC-BBNT-... -> hop dong cua no (24/11: route KOL_ACCEPTANCE tro ve trang Hop dong)."""
+    return _app("kol_acceptance").round_contract(name, _me())
 
 
 @frappe.whitelist(methods=["POST"])

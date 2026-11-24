@@ -30,6 +30,9 @@ LEVEL_NAMES = {
     "HOF Review": "Head of Finance duyệt",
     "Head of Finance Review": "Head of Finance duyệt",
     "HR & C&B Review": "Nhân sự (C&B) duyệt",
+    # BBNT tung dot hop dong KOL/KOC (KOL_ACCEPTANCE-V1, 24/11/2026).
+    "General Accountant Review": "Kế toán tổng hợp duyệt",
+    "Chief Accountant Review": "Kế toán trưởng duyệt",
     "HR Manager Review": "HR Manager duyệt",
     "HR Review": "HR duyệt",
     "New Line Manager Review": "Quản lý mới duyệt",

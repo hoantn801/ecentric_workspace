@@ -58,7 +58,7 @@ const detail={business:{name:"EC-CTR-2026-00100",contract_type:KOL,request_type:
       {label:"Cọc 30% trên thực nhận",how:"9.000.000 × 30%",amount:2700000,strong:false,kind:"split",note:"",input:false},
       {label:"Còn lại trả sau nghiệm thu",how:"9.000.000 − 2.700.000",amount:6300000,strong:false,kind:"split",note:"",input:false},
       {label:"Chi phí eCentric",how:"= giá trị trước thuế",amount:10000000,strong:true,kind:"cost",note:"giá trị hợp đồng",input:false}],
-    acceptances:[{name:"r1",idx:1,description:"Livestream T12",acceptance_date:"2026-12-05",amount:6300000,status:"Nháp",bbnt_file:"/private/files/BBNT.docx",
+    acceptances:[{name:"r1",idx:1,description:"Livestream T12",acceptance_date:"2026-12-05",amount:6300000,status:"Nháp",can_send:true,approval_request:"",approval_status:"",bbnt_file:"/private/files/BBNT.docx",
       calc:[{label:"Thực nhận đợt này",how:"",amount:6300000}]}]}}};
 const c={}; let failed=0;
 function chk(k,v){ c[k]=!!v; if(!v) failed++; }
