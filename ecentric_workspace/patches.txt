@@ -524,3 +524,4 @@ ecentric_workspace.host_qc.patches.p001_setup
 ecentric_workspace.approval_center.patches.p541_tao_bu_clearance_im_lang
 ecentric_workspace.host_qc.patches.p002_dien_mac_dinh_settings
 ecentric_workspace.approval_center.patches.p550_huong_dan_nhan_su_day_du
+ecentric_workspace.approval_center.patches.p554_resync_hop_dong_tao_ban_ky

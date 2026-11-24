@@ -83,6 +83,25 @@ def attach(name, file_url, user):
                                              "ký trên cổng như hiện nay.")}
 
 
+def make_from_template(name, user):
+    """Nut "Xac nhan hop dong & tao ban ky" (PR-J, chat Ky so 24/11): hop dong .docx sinh tu MAU EC -> PDF
+    (nen tang chuyen phia server) -> gan lam Ban PDF de ky. CUNG mot request: buoc gan loi thi ca giao dich
+    rollback, khong de lai tren phieu ban PDF du PII ma chu tep chua chuyen ve Administrator.
+    Dat o ky (auto_place) KHONG goi o day - trang goi kol_auto_place_sign ngay sau (request rieng, ly do o
+    attach). Mau cua doi tac: van xuat PDF bang Word va tai len tay."""
+    doc = _doc_for_requester(name, user)
+    if doc.get("request_type") != kol.TEMPLATE_EC:
+        frappe.throw(_("Hợp đồng theo mẫu của đối tác: xuất PDF từ Word rồi tải lên ở ô \"Bản PDF để ký\"."))
+    if not doc.get("contract_file"):
+        frappe.throw(_("Tạo hợp đồng từ mẫu trước, rồi mới tạo bản ký."))
+    if not esign_gate.enabled(doc.name):
+        frappe.throw(_("Hợp đồng này chưa ký qua ERP - ký trên cổng như hiện nay."))
+    pdf = esign_gate.docx_to_pdf(doc, doc.get("contract_file")) or {}
+    if not pdf.get("file_url"):
+        frappe.throw(_("Không tạo được bản PDF - thử lại sau."))
+    return attach(name, pdf.get("file_url"), user)
+
+
 def _drop_old(doc, old_url):
     """Go ban PDF cu khoi phieu. Phieu ky so: qua nen tang (go ca dong goi + o ky trong goi Draft);
     khong ky so: xoa File (vao Deleted Document, khoi phuc duoc)."""
@@ -174,6 +193,9 @@ def view(doc, user):
                     and (not doc.get("approval_request") or status == "Information Required"))
     return {"has": bool(doc.get("sign_pdf")), "stale": is_stale(doc) if doc.get("sign_pdf") else False,
             "esign": esign, "can_edit": can_edit,
+            # PR-J: mau EC + da sinh .docx + ky so -> trang hien nut "Xac nhan hop dong & tao ban ky".
+            "can_make": bool(can_edit and esign and doc.get("request_type") == kol.TEMPLATE_EC
+                             and doc.get("contract_file")),
             # "Can bo sung" + goi ky da khoa: thay PDF = mo lai thiet lap ky (huy tai lieu cu tren cong,
             # gui lai duyet tu cap 1) -> trang hoi xac nhan roi goi reopen_signing_setup TRUOC (PR-G).
             "locked": bool(can_edit and esign and status == "Information Required" and _locked(doc))}

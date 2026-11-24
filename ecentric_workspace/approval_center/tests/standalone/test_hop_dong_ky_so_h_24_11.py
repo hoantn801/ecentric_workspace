@@ -187,13 +187,17 @@ class TrangHoiXacNhanKhongMoLaiTruoc(unittest.TestCase):
     def test_trang_hoi_xac_nhan_roi_tai_thang(self):
         page = _read("features/contract_review/ui/main_section.html")
         self.assertNotIn("reopen_signing_setup", page)
-        i = page.index('if(a==="signpdf"&&spv.locked)')
+        # PR-J: nut "tao ban ky" (makepdf) di cung duong hoi xac nhan khi goi da khoa.
+        i = page.index('if((a==="signpdf"||a==="makepdf")&&spv.locked)')
         seg = page[i:i + 1400]
         self.assertIn("modal(", seg)
         self.assertIn("runSignPdf", seg)
         self.assertIn("sp.locked", page)
         run = page[page.index("var runSignPdf=function()"):i]
-        self.assertLess(run.index('"kol_attach_sign_pdf"'), run.index('"kol_auto_place_sign"'))
+        # dat o ky (placeAfter -> kol_auto_place_sign) chay SAU khi gan tep (kol_attach_sign_pdf)
+        att = run.index('"kol_attach_sign_pdf"')
+        self.assertIn(".then(placeAfter)", run[att:])
+        self.assertIn('"kol_auto_place_sign"', run[run.index("var placeAfter="):att])
 
     def test_bao_da_mo_lai_goi(self):
         _fresh("req@ec")

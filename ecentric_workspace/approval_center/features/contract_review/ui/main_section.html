@@ -1369,13 +1369,15 @@
     // O "Ban PDF de ky" (ban giao chat Ky so 23/11, B1): PDF xuat tu Word, nen tang tu dat o ky theo moc.
     signPdfHTML:function(b,sp){ var m=state._signPdfMsg&&state._signPdfMsg.name===b.name?state._signPdfMsg:null;
       return '<div class="card" id="kol-signpdf"><h3>Bản PDF để ký</h3>'
-        +(sp.esign?'<div class="hint">Hợp đồng ký trên cổng từ ERP. Tải hợp đồng .docx → mở bằng Word → <b>Tệp → Lưu thành PDF</b> (không in ra máy in PDF, không scan) → tải lên đây. Hệ thống đối chiếu số hợp đồng, số tiền và tự đặt ô ký theo mốc có sẵn trong mẫu.</div>'
+        +(sp.esign?(sp.can_make?'<div class="hint">Hợp đồng ký trên cổng từ ERP. Kiểm lại hợp đồng .docx rồi bấm <b>Xác nhận hợp đồng &amp; tạo bản ký</b>: hệ thống tự chuyển sang PDF, đối chiếu số hợp đồng, số tiền và đặt ô ký theo mốc trong mẫu. Muốn tự xuất thì vẫn tải lên được bản PDF từ Word (<b>Tệp → Lưu thành PDF</b>).</div>'
+            :'<div class="hint">Hợp đồng ký trên cổng từ ERP. Tải hợp đồng .docx → mở bằng Word → <b>Tệp → Lưu thành PDF</b> (không in ra máy in PDF, không scan) → tải lên đây. Hệ thống đối chiếu số hợp đồng, số tiền và tự đặt ô ký theo mốc có sẵn trong mẫu.</div>')
           :'<div class="hint">Hợp đồng này chưa ký qua ERP - vẫn ký trên cổng như hiện nay. Có thể tải sẵn bản PDF xuất từ Word để lưu cùng phiếu.</div>')
         +(sp.stale?'<div class="banner warn">Hợp đồng vừa được tạo lại sau khi bạn tải bản PDF - tải hợp đồng mới, xuất PDF lại rồi tải lên.</div>':'')
         +(sp.locked?'<div class="hint">Phiếu bị trả về "Cần bổ sung": gói ký đã chốt lúc gửi duyệt. Thay bản PDF hợp lệ sẽ huỷ tài liệu cũ trên cổng ký; gửi lại thì phiếu duyệt lại từ cấp 1.</div>':'')
         +(m?'<div class="banner '+(m.ok?'ok':'warn')+'" id="kol-signpdf-msg">'+esc(m.text)+'</div>':'')
         +(sp.has?'<div class="summary-row"><span>Đã có bản PDF để ký</span>'+(b.sign_pdf?KOL.dlBtn(b.sign_pdf,"Tải bản PDF để ký","Có CCCD, số tài khoản creator - mỗi lần tải được ghi lại."):'<b>✓</b>')+'</div>':'<div class="hint">Chưa có bản PDF để ký.</div>')
-        +(sp.can_edit?'<div class="actions" style="margin-top:10px"><input type="file" accept=".pdf,application/pdf" id="kol-signpdf-f" aria-label="Chọn bản PDF để ký"><button type="button" class="btn primary" id="kol-signpdf-btn" data-kol="signpdf" disabled>'+(sp.has?'Thay bản PDF':'Tải lên bản PDF')+'</button>'
+        +(sp.can_make?'<div class="actions" style="margin-top:10px"><button type="button" class="btn primary" data-kol="makepdf">'+(sp.has?'Tạo lại bản ký từ hợp đồng':'Xác nhận hợp đồng &amp; tạo bản ký')+'</button></div>':'')
+        +(sp.can_edit?'<div class="actions" style="margin-top:10px"><input type="file" accept=".pdf,application/pdf" id="kol-signpdf-f" aria-label="Chọn bản PDF để ký"><button type="button" class="btn'+(sp.can_make?'':' primary')+'" id="kol-signpdf-btn" data-kol="signpdf" disabled>'+(sp.has?'Thay bản PDF':'Tải lên bản PDF')+'</button>'
           +(sp.esign&&sp.has?'<button type="button" class="btn" data-kol="autoplace">Tự đặt lại ô ký</button>':'')+'</div>':'')
         +'</div>'; },
     dlBtn:function(url,label,title){ return '<button type="button" class="btn" data-kol="dl" data-url="'+esc(url)+'"'+(title?' title="'+esc(title)+'"':'')+'>'+esc(label)+'</button>'; },
@@ -1457,14 +1459,19 @@
         if(a==="qc"){ el.textContent="AI đang kiểm… (tới 1 phút)"; return call("kol_ai_qc",{name:name}).then(function(r){ done("AI QC: "+r.status); }).catch(function(e){ restore(); fail(e); }); }
         if(a==="extract"){ el.textContent="AI đang đọc…"; return call("kol_ai_extract",{name:name}).then(function(r){ restore(); el.disabled=false; KOL.showSuggestions(r.suggestions||{},name); }).catch(function(e){ restore(); fail(e); }); }
         if(a==="editcr"){ el.disabled=false; return KOL.editCreator((state.detail.business||{}).creator,function(){ refreshDetail(); }); }
-        if(a==="signpdf"||a==="autoplace"){
-        var runSignPdf=function(){ el.disabled=true; el.textContent=a==="signpdf"?"Đang tải lên…":"Đang đặt ô ký…";
+        if(a==="signpdf"||a==="autoplace"||a==="makepdf"){
+        var runSignPdf=function(){ el.disabled=true; el.textContent=a==="signpdf"?"Đang tải lên…":(a==="makepdf"?"Đang tạo bản PDF… (tới 1 phút)":"Đang đặt ô ký…");
           var keep=function(r){ state._signPdfMsg={name:name,ok:!!(r&&r.ok!==false),text:(r&&r.message)||"Đã lưu bản PDF để ký."}; done(); };
+          var placeAfter=function(r){ if(!(r&&r.esign)) return r; el.textContent="Đang đặt ô ký…"; return call("kol_auto_place_sign",{name:name}); };
+          // PR-J: .docx mau EC -> PDF -> Ban PDF de ky (mot request), roi dat o ky (request rieng). Buoc nao loi thi
+          // dung, cau loi cua nen tang (vd chua cau hinh thu vien tam) hien NGUYEN trong o nay, khong qua mapErr.
+          if(a==="makepdf") return call("kol_make_sign_pdf",{name:name}).then(placeAfter).then(keep).catch(function(e){ restore(); el.disabled=false;
+            state._signPdfMsg={name:name,ok:false,text:extractServerMsg(e)||"Chưa tạo được bản ký - thử lại sau."}; refreshDetail(); });
           var step=a==="signpdf"?KOL.upload($("kol-signpdf-f")).then(function(url){ return call("kol_attach_sign_pdf",{name:name,file_url:url}); })
-            .then(function(r){ return r&&r.esign?call("kol_auto_place_sign",{name:name}):r; }):call("kol_auto_place_sign",{name:name});
+            .then(placeAfter):call("kol_auto_place_sign",{name:name});
           return step.then(keep).catch(function(e){ restore(); fail(e); }); };
         var spv=((((state.detail||{}).extra||{}).kol||{}).sign_pdf)||{};
-        if(a==="signpdf"&&spv.locked){ restore(); el.disabled=false;
+        if((a==="signpdf"||a==="makepdf")&&spv.locked){ restore(); el.disabled=false;
           // Goi da khoa luc gui: KHONG mo lai truoc. auto_place tu mo lai goi CHI KHI tep moi qua het phep kiem va khac
           // ban da khoa (chat Ky so 24/11) - tep trung / sai / tai loi thi tai lieu cu tren cong con nguyen.
           return modal("Thay bản PDF để ký",'<div class="banner warn">Gói ký đã chốt lúc gửi duyệt. Nếu bản mới hợp lệ (khớp phiếu, khác bản cũ), hệ thống mở lại gói ký: <b>tài liệu cũ trên cổng ký bị huỷ</b> (không lấy lại được) và khi gửi lại, phiếu duyệt lại từ cấp 1.</div><div class="hint">Bản cũ vẫn nằm trên phiếu làm bằng chứng.</div>',{okLabel:"Thay bản PDF",noBackdrop:true,onConfirm:function(){ setTimeout(runSignPdf,0); return Promise.resolve(); }}); }
