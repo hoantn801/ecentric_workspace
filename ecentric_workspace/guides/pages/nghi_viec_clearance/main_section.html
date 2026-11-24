@@ -12,7 +12,7 @@
   </div>
 
   <h1>Nghỉ việc → Clearance</h1>
-  <div class="sub">Cập nhật 23/11/2026 · dành cho Mọi nhân viên · Line Manager · CnB/HR · Fin · Operation · CEO</div>
+  <div class="sub">Cập nhật 24/11/2026 · dành cho Mọi nhân viên · Line Manager · CnB/HR · Fin · Operation · CEO</div>
 
   <p class="lead"><b>Mục đích:</b> nghỉ việc đúng thời hạn báo trước theo luật, bàn giao đủ trước ngày cuối, và để công ty lắng nghe lý do nghỉ qua khảo sát riêng.</p>
   <div class="note">Đơn nghỉ việc <b>không có nút “Từ chối”</b>: người lao động có quyền nghỉ khi báo trước đủ (Điều 35 Bộ luật Lao động). Người duyệt chỉ <b>Duyệt</b> hoặc <b>Trả lại điều chỉnh</b> (ví dụ chỉnh ngày cuối, kế hoạch bàn giao).</div>
@@ -31,7 +31,8 @@
   LM -.-&gt;|"Còn 5 ngày làm việc tới ngày cuối&lt;br/&gt;mà đơn chưa duyệt xong"| CL
   CEO --&gt;|"Duyệt xong"| SV["Khảo sát nghỉ việc&lt;br/&gt;không bắt buộc · chỉ HR xem"]
   NV -.-&gt;|"Rút đơn trước ngày cuối"| WD["Đơn huỷ, có ghi lịch sử"]
-  CL --&gt; LOCK["00:30 sau ngày làm việc cuối&lt;br/&gt;tài khoản tự khoá"]
+  CL --&gt; LOCK["00:30 sáng sau ngày làm việc cuối&lt;br/&gt;hồ sơ chuyển Left · khoá tài khoản ERP"]
+  LOCK --&gt; RA["00:45 · phiếu đang chờ người đó duyệt&lt;br/&gt;chuyển sang người khác"]
   classDef a fill:#eef0fb,stroke:#2C3DA6,color:#1f2d80
   classDef p fill:#fef2f2,stroke:#dc2626,color:#991b1b
   class CL a
@@ -59,10 +60,13 @@
       <tr><td data-label="Bước">3</td><td data-label="Ai làm">CnB/HR</td><td data-label="Việc">Duyệt / Trả lại điều chỉnh</td><td data-label="Hạn" class="ecg-sla">2 ngày làm việc</td><td data-label="Hệ thống tự làm">Người nghỉ thuộc nhóm thì không tự duyệt được</td></tr>
       <tr><td data-label="Bước">4</td><td data-label="Ai làm">CEO</td><td data-label="Việc">Duyệt / Trả lại điều chỉnh</td><td data-label="Hạn" class="ecg-sla">2 ngày làm việc</td><td data-label="Hệ thống tự làm">Duyệt xong: mở Clearance + giao khảo sát nghỉ việc</td></tr>
       <tr><td data-label="Bước">5</td><td data-label="Ai làm">LM · HR/CnB · Fin · Operation</td><td data-label="Việc">Mỗi nhóm xác nhận phần bàn giao của mình</td><td data-label="Hạn" class="ecg-sla">Ngày làm việc cuối</td><td data-label="Hệ thống tự làm">Người gửi Clearance là hệ thống / CnB; CEO theo dõi</td></tr>
-      <tr><td data-label="Bước">6</td><td data-label="Ai làm">Hệ thống</td><td data-label="Việc">—</td><td data-label="Hạn" class="ecg-sla">00:30 sau ngày cuối</td><td data-label="Hệ thống tự làm">Khoá tài khoản</td></tr>
+      <tr><td data-label="Bước">6</td><td data-label="Ai làm">Hệ thống</td><td data-label="Việc">—</td><td data-label="Hạn" class="ecg-sla">00:30 sáng sau ngày cuối</td><td data-label="Hệ thống tự làm">Hồ sơ chuyển trạng thái Left và khoá tài khoản ERP. Dữ liệu giữ nguyên, vai trò (role) giữ nguyên</td></tr>
+      <tr><td data-label="Bước">7</td><td data-label="Ai làm">Hệ thống</td><td data-label="Việc">—</td><td data-label="Hạn" class="ecg-sla">00:45 sáng sau ngày cuối</td><td data-label="Hệ thống tự làm">Phiếu đang chờ người nghỉ duyệt tự chuyển sang người khác cùng nhóm / cùng vai trò / quản lý của họ; lịch sử phiếu ghi lại</td></tr>
       <tr><td data-label="Bước">*</td><td data-label="Ai làm">Nhân viên</td><td data-label="Việc">Rút đơn</td><td data-label="Hạn" class="ecg-sla">Trước ngày làm việc cuối</td><td data-label="Hệ thống tự làm">Đơn huỷ, có lịch sử</td></tr>
     </tbody>
   </table>
+  <div class="warn">Email, OneDrive và các dịch vụ Microsoft 365 <b>không</b> khoá theo ERP — bộ phận IT khoá riêng.</div>
+  <div class="note">Tới lượt bạn duyệt, băng <b>Việc của bạn</b> ở đầu phiếu có sẵn nút <b>Duyệt</b> và <b>Trả lại</b> (= yêu cầu người gửi bổ sung). Phần <b>Tiến trình</b> hiện đủ các bước, kể cả các bước sau khi duyệt.</div>
   <div class="note">Mở Clearance sớm: nếu chỉ còn 5 ngày làm việc tới ngày cuối mà đơn chưa duyệt xong (Line Manager đã duyệt), Clearance được mở song song để kịp bàn giao.</div>
 
   <h2>Ai xem được</h2>
@@ -78,7 +82,7 @@
     <details><summary>Tôi đổi ý thì sao?</summary><p>Bấm “Rút đơn” trước ngày làm việc cuối. Đơn huỷ, lịch sử ghi lại.</p></details>
     <details><summary>Vì sao tôi không chọn được ngày cuối như mong muốn?</summary><p>Vẫn chọn được ngày sớm hơn gợi ý; phiếu sẽ ghi “xin nghỉ sớm hơn hạn báo trước” để các cấp cân nhắc.</p></details>
     <details><summary>Khảo sát nghỉ việc có bắt buộc không? Ai đọc?</summary><p>Không bắt buộc. Chỉ HR đọc; Line Manager không xem được. Bạn được nhắc một lần, 2 ngày làm việc trước ngày cuối.</p></details>
-    <details><summary>Tài khoản ERP của tôi bị khoá lúc nào?</summary><p>00:30 sáng ngày sau ngày làm việc cuối. Hãy tải về những gì cá nhân cần trước đó.</p></details>
+    <details><summary>Tài khoản ERP của tôi bị khoá lúc nào?</summary><p>00:30 sáng ngày sau ngày làm việc cuối: hồ sơ chuyển Left, tài khoản ERP bị khoá (dữ liệu vẫn giữ). Email / OneDrive do IT khoá riêng. Hãy tải về những gì cá nhân cần trước đó.</p></details>
   </div>
 
   <h2>Vào form</h2>
@@ -94,7 +98,7 @@
     <a class="backbtn" href="/approvals">Approval Center</a>
   </div>
 
-  <footer>eCentric · Hướng dẫn nội bộ — cập nhật 23/11/2026. Thấy hướng dẫn chưa đúng với hệ thống, báo bộ phận Hệ thống.</footer>
+  <footer>eCentric · Hướng dẫn nội bộ — cập nhật 24/11/2026. Thấy hướng dẫn chưa đúng với hệ thống, báo bộ phận Hệ thống.</footer>
 </article>
 </div>
 </main></div>

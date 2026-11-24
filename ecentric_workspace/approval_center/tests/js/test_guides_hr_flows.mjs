@@ -23,9 +23,12 @@ const MERMAID = readFileSync(join(PUB, "vendor", "mermaid", "mermaid.min.js"), "
 const FLOWJS = readFileSync(join(PUB, "guides", "ec_guide_flow.js"), "utf8");
 const CSS = readFileSync(join(PUB, "guides", "ec_guide.css"), "utf8");
 
+// 24/11/2026: + 7 bai bo huong dan nhan su day du (Tuyen dung A-Z + 6 bai ngan) -> 17 so do.
 const HR = ["nhan_su", "gan_phieu_duyet", "phe_duyet_dot_xuat", "offer_new_staff",
-  "nghi_viec_clearance", "danh_gia_nhan_su", "khao_sat_nhan_su", "ky_luat"];
-const EXPECT_FLOWS = 10;
+  "nghi_viec_clearance", "danh_gia_nhan_su", "khao_sat_nhan_su", "ky_luat",
+  "tuyen_dung", "thang_chuc_dieu_chinh_luong", "dieu_chuyen_noi_bo", "cap_nhat_thong_tin_nhan_su",
+  "gioi_thieu_ung_vien", "hoat_dong_nhan_su", "phan_bo_ty_trong_brand"];
+const EXPECT_FLOWS = 17;
 
 let fails = 0, oks = 0;
 const ok = (c, n) => { if (c) oks++; else { fails++; console.log("  FAIL: " + n); } };

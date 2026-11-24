@@ -374,8 +374,8 @@
     "sha256": "97434b4556faada9816b667c968c5d659841b95f1d1ae54ccc706e68e29520f1"
   },
   "guides/pages/nhan_su/main_section.html": {
-    "last_resync_patch": "p470_huong_dan_quy_trinh_nhan_su",
-    "sha256": "03a9597cb0eae017851609d26d6e8ef69f015f04ad9b1648fd35036aaef2d413"
+    "last_resync_patch": "p550_huong_dan_nhan_su_day_du",
+    "sha256": "79f53c34005e9e86eca29f9bc4b258b1e71cc3835bdc9b33c7880d8f4d0beedc"
   },
   "guides/pages/gan_phieu_duyet/main_section.html": {
     "last_resync_patch": "p470_huong_dan_quy_trinh_nhan_su",
@@ -386,23 +386,51 @@
     "sha256": "9537e590cf9badb02ddd77f4602d85a24272b79eec8f45b59c708aa737c582ab"
   },
   "guides/pages/offer_new_staff/main_section.html": {
-    "last_resync_patch": "p470_huong_dan_quy_trinh_nhan_su",
-    "sha256": "5087f884f448b9d8f6c857d8c6e310bbd50b471fbf3e17251cfd2d21165eb5c9"
+    "last_resync_patch": "p550_huong_dan_nhan_su_day_du",
+    "sha256": "69a2a0e3ea713dd48dbfe44852469b4de4993a6729b28e153b022cef5087d100"
   },
   "guides/pages/nghi_viec_clearance/main_section.html": {
-    "last_resync_patch": "p470_huong_dan_quy_trinh_nhan_su",
-    "sha256": "ebd5a3d4ca3198443d92435a78e4b66e262813a9597ec647598dfc10a737f794"
+    "last_resync_patch": "p550_huong_dan_nhan_su_day_du",
+    "sha256": "9d2666184f9cdb55fd92a52bf007fab4e0f267634f827febcbf950e1e048eb75"
   },
   "guides/pages/danh_gia_nhan_su/main_section.html": {
-    "last_resync_patch": "p470_huong_dan_quy_trinh_nhan_su",
-    "sha256": "86cb0aa92249f284c72ff7e67e0f79c87c228fe827c9b0d1a12165670ce51f9c"
+    "last_resync_patch": "p550_huong_dan_nhan_su_day_du",
+    "sha256": "b25dfcc5c39b4c89680375490b54a74b0cf8fef8ff5cf1707c9b6ee4687126ce"
   },
   "guides/pages/khao_sat_nhan_su/main_section.html": {
     "last_resync_patch": "p470_huong_dan_quy_trinh_nhan_su",
     "sha256": "84edb2c95a21b843d5db8cef229c99b7c807bb1159e2900dbb8c384a6ab79f49"
   },
   "guides/pages/ky_luat/main_section.html": {
-    "last_resync_patch": "p470_huong_dan_quy_trinh_nhan_su",
-    "sha256": "532c5a3981863409d5033ee5cd56cf6ba5445006ba31b5db09a39932391dc6b7"
+    "last_resync_patch": "p550_huong_dan_nhan_su_day_du",
+    "sha256": "cfb7871870932661d33317febc1731fe21b22ab9cd18cb4d906734349b01126c"
+  },
+  "guides/pages/tuyen_dung/main_section.html": {
+    "last_resync_patch": "p550_huong_dan_nhan_su_day_du",
+    "sha256": "e140669d82b03af94e52d9e7c66ba3db9a7802dfd6a3b81bc44d8c14357180d9"
+  },
+  "guides/pages/thang_chuc_dieu_chinh_luong/main_section.html": {
+    "last_resync_patch": "p550_huong_dan_nhan_su_day_du",
+    "sha256": "d1c498cb71cf2c1ba2917eba3d69464d92f8a307a5909ab7642af61511ba2d84"
+  },
+  "guides/pages/dieu_chuyen_noi_bo/main_section.html": {
+    "last_resync_patch": "p550_huong_dan_nhan_su_day_du",
+    "sha256": "a21529c2fd30f1e140ced0e8eecadcb51e86265894d58dd21a1d2fe1ceb00302"
+  },
+  "guides/pages/cap_nhat_thong_tin_nhan_su/main_section.html": {
+    "last_resync_patch": "p550_huong_dan_nhan_su_day_du",
+    "sha256": "2cd66b580ecf2d57e45fcc5bec0b07360890d60128244580fe4e69bf5c42723a"
+  },
+  "guides/pages/gioi_thieu_ung_vien/main_section.html": {
+    "last_resync_patch": "p550_huong_dan_nhan_su_day_du",
+    "sha256": "8b062958abd7da5ea9970be5d66778ac3519893c4e26c312db96549d83e31ef0"
+  },
+  "guides/pages/hoat_dong_nhan_su/main_section.html": {
+    "last_resync_patch": "p550_huong_dan_nhan_su_day_du",
+    "sha256": "8656bab2c568855dc6c34ba440133defb2559063cec7d80094a08bc5266246a4"
+  },
+  "guides/pages/phan_bo_ty_trong_brand/main_section.html": {
+    "last_resync_patch": "p550_huong_dan_nhan_su_day_du",
+    "sha256": "e38488cb25ea4e7876bfbbad36382fc65a7c1e829e546f87ba03c9bce5d24a53"
   }
 }

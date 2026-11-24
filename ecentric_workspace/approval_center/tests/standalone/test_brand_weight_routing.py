@@ -141,6 +141,7 @@ class TestLuonTruyenProcessCode(unittest.TestCase):
         calls = [n for n in ast.walk(ast.parse(src)) if isinstance(n, ast.Call)
                  and getattr(n.func, "attr", None) == "submit"
                  and getattr(getattr(n.func, "value", None), "id", None) == "engine"]
-        self.assertEqual(len(calls), 2, "so lan goi engine.submit da doi - cap nhat test")
+        # 3 lan (24/11 cap nhat): submit thuong, submit tu chot (Management), submit_on_behalf (ec-bw-proxy-v1).
+        self.assertEqual(len(calls), 3, "so lan goi engine.submit da doi - cap nhat test")
         for c in calls:
             self.assertIn("process_code", [k.arg for k in c.keywords])
