@@ -101,6 +101,63 @@
   #ec-ctr-root table.kol-calc tr.strong td{ font-weight:600; }
   #ec-ctr-root details.kol-calc-d{ margin-top:6px; }
   #ec-ctr-root details.kol-calc-d summary{ cursor:pointer;font-size:12px;color:var(--blue,#2563eb); }
+  /* Bang tinh chi tiet kieu bien lai (PO 24/11, ban B phang - khong kinh): the trang vien 1px, so thang cot phai. */
+  #ec-ctr-root .kol-rc{ margin:18px 0 4px;padding:16px 18px;background:#fff;border:1px solid var(--gray-200);border-radius:12px;container-type:inline-size; }
+  #ec-ctr-root .kol-rc-h{ display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:0 0 10px; }
+  #ec-ctr-root .kol-rc-h h4{ margin:0;font-size:14px;font-weight:700;color:var(--gray-900); }
+  #ec-ctr-root .kol-rc-chips{ display:flex;flex-wrap:wrap;gap:6px;min-width:0; }
+  #ec-ctr-root .kol-chip{ display:inline-flex;align-items:center;max-width:100%;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600;line-height:1.6;background:var(--gray-50);color:var(--gray-700);border:1px solid var(--gray-200);overflow-wrap:anywhere; }
+  #ec-ctr-root .kol-chip.pit{ background:#fef5f5;color:#b91c1c;border-color:#fbe1e1; }
+  #ec-ctr-root .kol-chip.free{ background:#f3fbf5;color:#15803d;border-color:#d7f0de; }
+  #ec-ctr-root .kol-rc-grid{ display:grid;grid-template-columns:minmax(0,1.55fr) minmax(220px,1fr);gap:16px 28px;align-items:stretch; }
+  #ec-ctr-root .kol-rc-row,#ec-ctr-root .kol-rc-total,#ec-ctr-root .kol-rc-sp{ display:grid;grid-template-columns:14px minmax(0,1fr) auto;gap:2px 10px;align-items:baseline;padding:11px 10px; }
+  #ec-ctr-root .kol-rc-row+.kol-rc-row{ border-top:1px solid var(--gray-100); }
+  #ec-ctr-root .kol-rc-row.tax{ background:#fef7f7;border-top-color:transparent;border-radius:8px; }
+  #ec-ctr-root .kol-rc-s{ grid-column:1;grid-row:1;font-size:13px;font-weight:600;color:var(--gray-400);text-align:center; }
+  #ec-ctr-root .kol-rc-l{ grid-column:2;grid-row:1;min-width:0;font-size:13.5px;font-weight:600;color:var(--gray-800); }
+  #ec-ctr-root .kol-rc-a{ grid-column:3;grid-row:1;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums; }
+  #ec-ctr-root .kol-rc-note{ grid-column:2;grid-row:2;min-width:0; }
+  #ec-ctr-root .kol-rc-fx{ grid-column:3;grid-row:2;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums; }
+  #ec-ctr-root .kol-rc-note,#ec-ctr-root .kol-rc-fx{ font-size:12px;font-weight:400;color:var(--gray-500);line-height:1.4; }
+  #ec-ctr-root .kol-rc-n{ font-size:15px;font-weight:600;color:var(--gray-900); }
+  #ec-ctr-root .kol-rc-n small{ font-size:.8em;font-weight:500;color:var(--gray-500); }
+  #ec-ctr-root .kol-rc-row.tax .kol-rc-n{ color:#b91c1c; }
+  #ec-ctr-root .kol-rc-row.tax.vat{ background:var(--gray-50); }
+  #ec-ctr-root .kol-rc-row.tax.vat .kol-rc-n{ color:var(--gray-900); }
+  #ec-ctr-root .kol-rc-sep{ height:0;margin:8px 0;border:0;border-top:1px dashed var(--gray-300); }
+  #ec-ctr-root .kol-rc-total{ padding:14px 12px 14px 10px;background:var(--navy-50);border:1px solid #dbe0f5;border-radius:10px; }
+  #ec-ctr-root .kol-rc-total .kol-rc-s{ color:#7c86c9; }
+  #ec-ctr-root .kol-rc-total .kol-rc-l{ font-size:14px;font-weight:700;color:var(--navy-700); }
+  #ec-ctr-root .kol-rc-total .kol-rc-n{ font-size:22px;font-weight:700;letter-spacing:-.01em;color:var(--navy-700); }
+  #ec-ctr-root .kol-rc-total .kol-rc-n small{ color:#5b66b3; }
+  #ec-ctr-root .kol-rc-total .kol-rc-fx{ color:#4b5596; }
+  #ec-ctr-root .kol-rc-side{ display:flex;flex-direction:column;gap:14px;min-width:0;padding-left:24px;border-left:1px solid var(--gray-100); }
+  #ec-ctr-root .kol-rc-facts{ display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px 12px;margin:4px 0 0;font-size:12.5px; }
+  #ec-ctr-root .kol-rc-facts dt{ color:var(--gray-500); }
+  #ec-ctr-root .kol-rc-facts dd{ margin:0;text-align:right;font-weight:600;color:var(--gray-800);font-variant-numeric:tabular-nums; }
+  #ec-ctr-root .kol-rc-sub{ font-size:12px;font-weight:600;color:var(--gray-500);margin:0 0 2px; }
+  #ec-ctr-root .kol-rc-sp{ grid-template-columns:0 minmax(0,1fr) auto;column-gap:0;padding:7px 0;border-top:1px solid var(--gray-100); }
+  #ec-ctr-root .kol-rc-sp .kol-rc-a,#ec-ctr-root .kol-rc-sp .kol-rc-fx{ padding-left:10px; }
+  #ec-ctr-root .kol-rc-sp .kol-rc-l{ font-size:12.5px;font-weight:500;color:var(--gray-700); }
+  #ec-ctr-root .kol-rc-sp .kol-rc-n{ font-size:13px; }
+  #ec-ctr-root .kol-rc-foot{ margin-top:auto;display:flex;flex-direction:column;align-items:flex-start;gap:10px; }
+  #ec-ctr-root .kol-rc-foot .hint{ margin:0; }
+  #ec-ctr-root .kol-rc>.kol-calc-wrap+.kol-rc-foot{ margin-top:10px; }
+  #ec-ctr-root .kol-rc+.actions:empty{ display:none; }
+  @container (max-width:640px){
+    #ec-ctr-root .kol-rc-grid{ grid-template-columns:minmax(0,1fr); }
+    #ec-ctr-root .kol-rc-side{ padding:14px 0 0;border-left:0;border-top:1px solid var(--gray-100); }
+    #ec-ctr-root .kol-rc-foot{ align-items:stretch; }
+    #ec-ctr-root .kol-rc-foot .btn{ justify-content:center; }
+  }
+  @container (max-width:420px){
+    #ec-ctr-root .kol-rc-row,#ec-ctr-root .kol-rc-total{ column-gap:8px;padding-left:6px;padding-right:8px; }
+    #ec-ctr-root .kol-rc-fx{ grid-column:2/4;grid-row:3;white-space:normal; }
+    #ec-ctr-root .kol-rc-total .kol-rc-a{ grid-column:2/4;grid-row:3;margin-top:6px; }
+    #ec-ctr-root .kol-rc-total .kol-rc-fx{ grid-row:4; }
+  }
+  @media (max-width:640px){ #ec-ctr-root .kol-rc{ padding:14px 12px; } }
+  @supports not (container-type:inline-size){ @media (max-width:760px){ #ec-ctr-root .kol-rc-grid{ grid-template-columns:minmax(0,1fr); } #ec-ctr-root .kol-rc-side{ padding:14px 0 0;border-left:0;border-top:1px solid var(--gray-100); } } }
   #ec-ctr-root .banner{ padding:11px 14px;border-radius:9px;font-size:13px;display:flex;gap:9px;align-items:flex-start;margin-bottom:14px; }
   #ec-ctr-root .banner.warn{ background:var(--yellow-50);color:var(--amber);border:1px solid #fde68a; }
   #ec-ctr-root .banner.err{ background:var(--red-50);color:var(--red);border:1px solid #fecaca; }
@@ -963,7 +1020,37 @@
       return '<div class="hint">Từ ngày ký '+esc(KOL.day(s))+' tới hôm nay. Không cần trùng ngày live.</div>'; },
     // Bang tinh tung buoc cho Ke toan soat (PO 12/11): server dien giai so da luu (kol_calc).
     calcHTML:function(rows){ return '<div class="kol-calc-wrap"><table class="kol-calc"><thead><tr><th>Khoản</th><th>Cách tính</th><th class="kol-money">Số tiền</th></tr></thead><tbody>'
-      +rows.map(function(r){ return '<tr'+(r.strong?' class="strong"':'')+'><td>'+esc(r.label)+'</td><td class="how">'+esc(r.how||"")+'</td><td class="kol-money">'+esc(KOL.money(r.amount))+'</td></tr>'; }).join("")+'</tbody></table></div>'; },
+      +rows.map(function(r){ return '<tr'+(r.strong?' class="strong"':'')+'><td>'+esc(KOL.calcLabel(r))+'</td><td class="how">'+esc(r.how||"")+'</td><td class="kol-money">'+esc(KOL.money(r.amount))+'</td></tr>'; }).join("")+'</tbody></table></div>'; },
+    calcLabel:function(r){ return r.label+(r.note?(" ("+r.note+")"):""); },
+    // Bang tinh hop dong kieu BIEN LAI (PO 24/11, ban B phang): doc tu tren xuong nhu phep cong
+    // [khoan cam ve] + [thue] = gia tri hop dong / chi phi eCentric. Chi VE lai cac dong server da
+    // dien giai (kol_calc gan kind) - khong tinh lai so. Dong thieu / tong lech chi phi -> bang cu.
+    rcAmt:function(v){ return '<span class="kol-rc-n">'+esc(v==null||v===""?"—":Number(v).toLocaleString("vi-VN"))+'<small>\u00a0đ</small></span>'; },
+    // Viet hoa chu dau ghi chu ("số nhập" -> "Số nhập"), tru ten kieu eCentric (chu thu 2 da hoa).
+    rcCap:function(t){ t=String(t||""); var c=t.charAt(1); return c&&c!==c.toLowerCase()?t:t.charAt(0).toUpperCase()+t.slice(1); },
+    // Moi dong = luoi 3 cot (dau | nhan | so): ghi chu ngay duoi nhan, cong thuc ngay duoi so.
+    rcRow:function(cls,sign,lbl,note,amt,fx){ return '<div class="'+cls+'"><span class="kol-rc-s" aria-hidden="true">'+sign+'</span>'
+      +'<b class="kol-rc-l">'+esc(lbl)+'</b><span class="kol-rc-a">'+KOL.rcAmt(amt)+'</span>'
+      +(note?'<small class="kol-rc-note">'+esc(KOL.rcCap(note))+'</small>':'')+(fx?'<small class="kol-rc-fx">'+esc(fx)+'</small>':'')+'</div>'; },
+    receiptHTML:function(rows,b,dl){ b=b||{}; var k={}, split=[];
+      (rows||[]).forEach(function(r){ if(r.kind==="split") split.push(r); else if(r.kind&&!k[r.kind]) k[r.kind]=r; });
+      var tax=k.pit||k.vat, base=k.base, tot=k.total, cost=k.cost;
+      var foot='<div class="kol-rc-foot"><p class="hint">Làm tròn tới đồng, từ 0,5 trở lên làm tròn lên.</p>'+(dl||"")+'</div>';
+      var chips='<div class="kol-rc-chips">'+(b.creator_type?'<span class="kol-chip">'+esc("HĐDV "+b.creator_type+(b.service_type?(" · "+b.service_type):""))+'</span>':'')
+        +(k.pit?'<span class="kol-chip pit">'+esc("Khấu trừ TNCN "+(k.pit.rate||""))+'</span>':'<span class="kol-chip free">Không khấu trừ thuế</span>')+'</div>';
+      var head='<div class="kol-rc-h"><h4>Bảng tính chi tiết</h4>'+chips+'</div>';
+      if(!cost||!tot||Number(tot.amount)!==Number(cost.amount))
+        return '<section class="kol-rc">'+head+KOL.calcHTML(rows)+foot+'</section>';
+      var main=(base?KOL.rcRow("kol-rc-row","",base.label,base.note,base.amount,base.how):"")
+        +(tax?KOL.rcRow("kol-rc-row tax"+(k.pit?"":" vat"),"+",tax.label,tax.note,tax.amount,tax.how):"")
+        +((base||tax)?'<hr class="kol-rc-sep">':'')
+        +KOL.rcRow("kol-rc-total","=","Giá trị hợp đồng / Chi phí eCentric",KOL.calcLabel(tot),cost.amount,tot.how);
+      var facts=[["Kiểu nhập",b.amount_type||""],["Thuế suất",tax&&tax.rate?((k.pit?"TNCN ":"VAT ")+tax.rate):""]];
+      if(k.pit&&base&&Number(base.amount)>0){ var pc=Math.round((Number(cost.amount)-Number(base.amount))*1000/Number(base.amount))/10;
+        facts.push(["Chi phí so với thực nhận","+"+String(pc).replace(".",",")+"%"]); }
+      var side='<dl class="kol-rc-facts">'+facts.filter(function(f){ return f[1]; }).map(function(f){ return '<dt>'+esc(f[0])+'</dt><dd>'+esc(f[1])+'</dd>'; }).join("")+'</dl>'
+        +(split.length?'<div class="kol-rc-split"><div class="kol-rc-sub">Chia thanh toán</div>'+split.map(function(r){ return KOL.rcRow("kol-rc-sp","",r.label,r.note,r.amount,r.how); }).join("")+'</div>':'');
+      return '<section class="kol-rc">'+head+'<div class="kol-rc-grid"><div class="kol-rc-main">'+main+'</div><div class="kol-rc-side">'+side+foot+'</div></div></section>'; },
     // ---------- xem truoc hop dong (PO 12/11) ----------
     // Server dien mau tu du lieu dang go, to vang cho ERP dien / do cho thieu, tra .docx (base64);
     // trinh duyet ve trang bang docx-preview (vendored, khong CDN). Khong luu gi.
@@ -1216,6 +1303,9 @@
       // PO 17/11: pvOk = co nut "Xem hop dong (che thong tin ca nhan)" - goi y chi hua khi co nut that (QC UI 17/11).
       var pvOk=!x.can_download_full&&x.can_preview&&b.request_type===KOL_TPL_EC&&apSt!=="Draft"&&!(x.can_manage&&apSt==="Information Required");
       var draftMine=!x.can_download_full&&x.can_manage&&(apSt==="Draft"||apSt==="Information Required");
+      // Nut tai .docx nam o hang cuoi cua bang tinh (PO 24/11); chua co bang tinh thi o hang nut nhu cu.
+      var dlH=b.contract_file&&x.can_download_full?KOL.dlBtn(b.contract_file,"Tải hợp đồng (.docx)","Có CCCD, số tài khoản creator - mỗi lần tải được ghi lại."):'';
+      var rcH=x.calc&&x.calc.length?KOL.receiptHTML(x.calc,b,dlH):'';
       var h='<div class="card" id="kol-detail"><h3>Hợp đồng KOL/KOC</h3>'
         +(x.closed?'<div class="banner warn"><div><b>Hợp đồng đã thanh lý</b> · '+esc(fmt(x.closed.at))+(x.closed.by?(' · '+esc(x.closed.by)):'')+'<div class="hint">Lý do: '+esc(String(x.closed.reason||"").replace(/[.\s]+$/,""))+'.</div><div class="hint">'+(x.signed?'Không tạo / gửi đợt nghiệm thu mới. ĐNTT chỉ trong mức được phép chi (cọc + BBNT đã hoàn tất).':(b.signing_status==="Chờ kiểm tra"?'Không nhận bản ký mới. Bản ký đang chờ Kế toán kiểm vẫn xác nhận được.':'Hợp đồng chưa ký đủ: không nhận bản ký, không lập ĐNTT.'))+'</div>'+(x.is_finance?'<div class="actions" style="margin-top:8px"><button type="button" class="btn" data-kol="reopenhd">Mở lại hợp đồng…</button></div>':'')+'</div></div>':'')
         +(b.revenue_warning?'<div class="banner warn">'+esc(b.revenue_warning)+'</div>':'')
@@ -1227,9 +1317,9 @@
           :(!x.can_download_full&&!draftMine&&(b.has_contract_file||(x.acceptances||[]).length||x.signed)?'<div class="hint" style="margin-bottom:8px">Hợp đồng / BBNT có CCCD, số tài khoản creator: chỉ người lập phiếu (sau khi gửi), người tạo creator và Kế toán tải được'+(pvOk?'. Bạn xem bản che bằng nút <b>Xem hợp đồng</b>.':'.')+'</div>':''))
         +(isMine(det)?KOL.stepsHTML(b,apSt):'')
         +'<div class="grid2">'+rows.map(function(r){ return KOL.roText(r[0],r[1]); }).join("")+'</div>'
-        +(x.calc&&x.calc.length?('<h4 style="margin:16px 0 6px">Bảng tính chi tiết</h4>'+KOL.calcHTML(x.calc)+'<div class="hint">Làm tròn tới đồng (từ 0,5 trở lên làm tròn lên), giống tool cũ.</div>'):'')
+        +(rcH||'')
         +'<div class="actions" style="margin-top:12px">'
-        +(b.contract_file&&x.can_download_full?KOL.dlBtn(b.contract_file,"Tải hợp đồng (.docx)","Có CCCD, số tài khoản creator - mỗi lần tải được ghi lại."):'')
+        +(rcH?'':dlH)
         +(pvOk?'<button type="button" class="btn" data-kol="preview">Xem hợp đồng (che thông tin cá nhân)</button>':'')
         +(x.can_manage&&(apSt==="Draft"||apSt==="Information Required")&&b.creator?'<button type="button" class="btn" data-kol="editcr">Sửa thông tin creator</button>':'')
         +(x.can_manage&&(apSt==="Draft"||apSt==="Information Required")&&b.request_type===KOL_TPL_EC?'<button type="button" class="btn'+(b.contract_file||b.has_contract_file?'':' primary')+'" data-kol="gen">'+(b.contract_file||b.has_contract_file?'Tạo lại hợp đồng từ mẫu':'Tạo hợp đồng từ mẫu')+'</button>':'')

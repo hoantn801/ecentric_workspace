@@ -4,6 +4,7 @@
 Chi DIEN GIAI so da luu tren phieu (gross_amount, pit_amount, vat_amount, payable_amount,
 advance_amount) - khong tinh lai bang cong thuc khac, de bang luon khop so in tren hop dong.
 Cong thuc chu viet theo dung thu tu cua kol.compute_amounts / kol_values.round_money.
+Nhan day du cu = label + " (" + note + ")" khi co note (bang cu calcHTML ghep lai y nhu truoc).
 """
 from ecentric_workspace.approval_center.features.contract_review.domain import kol
 from ecentric_workspace.approval_center.features.contract_review.domain import kol_texts as T
@@ -25,8 +26,16 @@ def _pct(v):
     return ("%g" % x).replace(".", ",") + "%"
 
 
-def _row(label, how, amount, strong=False):
-    return {"label": label, "how": how, "amount": T.round_half_up(_n(amount)), "strong": bool(strong)}
+def _row(label, how, amount, strong=False, kind="", note="", input=False, rate=""):
+    """kind/note/input/rate (24/11, bang tinh kieu bien lai): chi GAN NHAN cho trang ve - khong doi so.
+    kind: base (khoan nguoi nhan cam ve / gia truoc VAT) | pit | vat | total (tong cua phep cong) |
+          split (coc / con lai) | cost (chi phi eCentric). note = phan trong ngoac cua nhan cu."""
+    r = {"label": label, "how": how, "amount": T.round_half_up(_n(amount)), "strong": bool(strong)}
+    if kind:
+        r.update(kind=kind, note=note, input=bool(input))
+        if rate:
+            r["rate"] = rate
+    return r
 
 
 def contract_steps(doc):
@@ -39,32 +48,36 @@ def contract_steps(doc):
     pr, vr = get("pit_rate"), get("vat_rate")
     rows = []
     if at == kol.NET_AFTER_PIT:
-        rows += [_row("Thực nhận (số nhập)", "", pay),
-                 _row("Giá trị trước thuế (gross)", "%s ÷ (1 − %s)" % (_m(pay), _pct(pr)), g, True),
-                 _row("Thuế TNCN %s (eCentric khấu trừ, nộp thay)" % _pct(pr), "%s − %s" % (_m(g), _m(pay)), p)]
+        rows += [_row("Thực nhận", "", pay, kind="base", note="số nhập", input=True),
+                 _row("Giá trị trước thuế", "%s ÷ (1 − %s)" % (_m(pay), _pct(pr)), g, True, kind="total", note="gross"),
+                 _row("Thuế TNCN %s" % _pct(pr), "%s − %s" % (_m(g), _m(pay)), p,
+                      kind="pit", note="eCentric khấu trừ, nộp thay", rate=_pct(pr))]
     elif at == kol.GROSS_BEFORE_PIT:
-        rows += [_row("Giá trị trước thuế (gross, số nhập)", "", g, True),
-                 _row("Thuế TNCN %s (eCentric khấu trừ, nộp thay)" % _pct(pr), "%s × %s" % (_m(g), _pct(pr)), p),
-                 _row("Thực nhận", "%s − %s" % (_m(g), _m(p)), pay)]
+        rows += [_row("Giá trị trước thuế", "", g, True, kind="total", note="gross, số nhập", input=True),
+                 _row("Thuế TNCN %s" % _pct(pr), "%s × %s" % (_m(g), _pct(pr)), p,
+                      kind="pit", note="eCentric khấu trừ, nộp thay", rate=_pct(pr)),
+                 _row("Thực nhận", "%s − %s" % (_m(g), _m(p)), pay, kind="base")]
     elif at == kol.BEFORE_VAT:
-        rows += [_row("Giá trước VAT (số nhập)", "", g, True),
-                 _row("VAT %s" % _pct(vr), "%s × %s" % (_m(g), _pct(vr)), v),
-                 _row("Tổng thanh toán (hóa đơn)", "%s + %s" % (_m(g), _m(v)), pay)]
+        rows += [_row("Giá trước VAT", "", g, True, kind="base", note="số nhập", input=True),
+                 _row("VAT %s" % _pct(vr), "%s × %s" % (_m(g), _pct(vr)), v, kind="vat", rate=_pct(vr)),
+                 _row("Tổng thanh toán", "%s + %s" % (_m(g), _m(v)), pay, kind="total", note="hóa đơn")]
     elif at == kol.WITH_VAT:
-        rows += [_row("Tổng thanh toán (hóa đơn, số nhập)", "", pay),
-                 _row("Giá trước VAT", "%s ÷ (1 + %s)" % (_m(pay), _pct(vr)), g, True),
-                 _row("VAT %s" % _pct(vr), "%s − %s" % (_m(pay), _m(g)), v)]
+        rows += [_row("Tổng thanh toán", "", pay, kind="total", note="hóa đơn, số nhập", input=True),
+                 _row("Giá trước VAT", "%s ÷ (1 + %s)" % (_m(pay), _pct(vr)), g, True, kind="base"),
+                 _row("VAT %s" % _pct(vr), "%s − %s" % (_m(pay), _m(g)), v, kind="vat", rate=_pct(vr))]
     else:
-        rows += [_row("Tổng thanh toán (hộ kinh doanh tự kê khai thuế)", "", pay, True)]
+        rows += [_row("Tổng thanh toán", "", pay, True, kind="total", note="hộ kinh doanh tự kê khai thuế", input=True)]
     adv = _n(get("advance_amount"))
     if adv:
         base, what = (g, "giá trước VAT") if ct == "Công ty" else (pay, "thực nhận")
         rows += [_row("Cọc %s trên %s" % (_pct(get("advance_percent")), what),
-                      "%s × %s" % (_m(base), _pct(get("advance_percent"))), adv),
-                 _row("Còn lại trả sau nghiệm thu" + (" (gồm toàn bộ VAT)" if ct == "Công ty" else ""),
-                      "%s − %s" % (_m(pay), _m(adv)), pay - adv)]
-    rows.append(_row("Chi phí eCentric (giá trị hợp đồng)",
-                     "%s + %s" % (_m(g), _m(v)) if v else "= giá trị trước thuế", g + v, True))
+                      "%s × %s" % (_m(base), _pct(get("advance_percent"))), adv, kind="split"),
+                 _row("Còn lại trả sau nghiệm thu",
+                      "%s − %s" % (_m(pay), _m(adv)), pay - adv, kind="split",
+                      note="gồm toàn bộ VAT" if ct == "Công ty" else "")]
+    rows.append(_row("Chi phí eCentric",
+                     "%s + %s" % (_m(g), _m(v)) if v else "= giá trị trước thuế", g + v, True,
+                     kind="cost", note="giá trị hợp đồng"))
     return rows
 
 
