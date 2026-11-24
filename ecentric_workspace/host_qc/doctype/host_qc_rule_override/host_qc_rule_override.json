@@ -1,0 +1,54 @@
+{
+ "doctype": "DocType",
+ "name": "Host QC Rule Override",
+ "module": "Host QC",
+ "custom": 0,
+ "istable": 1,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "description": "",
+ "field_order": [
+  "code",
+  "key",
+  "value"
+ ],
+ "fields": [
+  {
+   "fieldname": "code",
+   "fieldtype": "Link",
+   "label": "Mã",
+   "options": "Host QC Rule",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "key",
+   "fieldtype": "Data",
+   "label": "Tham số",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 3,
+   "description": "vd gap_min, enabled"
+  },
+  {
+   "fieldname": "value",
+   "fieldtype": "Data",
+   "label": "Giá trị",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 3,
+   "description": "Số, hoặc 1/0 cho bật/tắt."
+  }
+ ],
+ "permissions": [],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "modified": "2026-11-24 09:00:00.000000"
+}

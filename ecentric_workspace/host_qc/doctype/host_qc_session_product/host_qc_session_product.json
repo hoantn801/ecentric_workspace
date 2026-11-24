@@ -1,0 +1,86 @@
+{
+ "doctype": "DocType",
+ "name": "Host QC Session Product",
+ "module": "Host QC",
+ "custom": 0,
+ "istable": 1,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "description": "",
+ "field_order": [
+  "code",
+  "product_name",
+  "aliases",
+  "pronunciation",
+  "usp",
+  "target",
+  "price",
+  "deal"
+ ],
+ "fields": [
+  {
+   "fieldname": "code",
+   "fieldtype": "Data",
+   "label": "Mã SP",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "product_name",
+   "fieldtype": "Data",
+   "label": "Tên SP",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 3
+  },
+  {
+   "fieldname": "aliases",
+   "fieldtype": "Small Text",
+   "label": "Tên gọi khác",
+   "description": "Cách nhau bằng dấu phẩy hoặc xuống dòng."
+  },
+  {
+   "fieldname": "pronunciation",
+   "fieldtype": "Data",
+   "label": "Phiên âm",
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "usp",
+   "fieldtype": "Small Text",
+   "label": "USP",
+   "description": "Mỗi dòng 1 ý."
+  },
+  {
+   "fieldname": "target",
+   "fieldtype": "Data",
+   "label": "Đối tượng"
+  },
+  {
+   "fieldname": "price",
+   "fieldtype": "Data",
+   "label": "Giá",
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "deal",
+   "fieldtype": "Data",
+   "label": "Ưu đãi",
+   "in_list_view": 1,
+   "columns": 2
+  }
+ ],
+ "permissions": [],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "modified": "2026-11-24 09:00:00.000000"
+}

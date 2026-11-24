@@ -1,0 +1,336 @@
+{
+ "doctype": "DocType",
+ "name": "Host QC Violation",
+ "module": "Host QC",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "start_time",
+ "sort_order": "DESC",
+ "description": "Một lỗi app phát hiện. Duyệt bằng 3 nút trên form; điểm phiên tự tính lại.",
+ "autoname": "field:violation_id",
+ "title_field": "code",
+ "search_fields": "session,code,severity,review",
+ "field_order": [
+  "violation_id",
+  "session",
+  "code",
+  "group",
+  "severity",
+  "cb_a",
+  "review",
+  "needs_verification",
+  "host_id",
+  "host_name",
+  "cb_b",
+  "start_time",
+  "end_time",
+  "start_rel",
+  "end_rel",
+  "sb_review",
+  "review_html",
+  "review_note",
+  "reviewed_by",
+  "reviewed_at",
+  "sb_content",
+  "quote",
+  "reason",
+  "transcript_excerpt",
+  "cb_c",
+  "source",
+  "model",
+  "deduction",
+  "sb_clip",
+  "clip_html",
+  "clip_status",
+  "clip_local_file",
+  "clip_sharepoint_item_id",
+  "clip_web_url",
+  "sb_log",
+  "review_log"
+ ],
+ "fields": [
+  {
+   "fieldname": "violation_id",
+   "fieldtype": "Data",
+   "label": "Mã lỗi (app)",
+   "reqd": 1,
+   "unique": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "session",
+   "fieldtype": "Link",
+   "label": "Phiên",
+   "options": "Host QC Session",
+   "reqd": 1,
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "code",
+   "fieldtype": "Data",
+   "label": "Mã",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "group",
+   "fieldtype": "Data",
+   "label": "Nhóm",
+   "read_only": 1
+  },
+  {
+   "fieldname": "severity",
+   "fieldtype": "Select",
+   "label": "Mức",
+   "options": "Minor\nMajor\nCritical",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "cb_a",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "review",
+   "fieldtype": "Select",
+   "label": "Kết quả duyệt",
+   "options": "Pending\nNeed Review\nValid Violation\nFalse Positive",
+   "default": "Pending",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "needs_verification",
+   "fieldtype": "Check",
+   "label": "Chờ xác minh",
+   "read_only": 1
+  },
+  {
+   "fieldname": "host_id",
+   "fieldtype": "Data",
+   "label": "Mã host",
+   "read_only": 1
+  },
+  {
+   "fieldname": "host_name",
+   "fieldtype": "Data",
+   "label": "Host",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "cb_b",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "start_time",
+   "fieldtype": "Datetime",
+   "label": "Bắt đầu",
+   "read_only": 1
+  },
+  {
+   "fieldname": "end_time",
+   "fieldtype": "Datetime",
+   "label": "Kết thúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "start_rel",
+   "fieldtype": "Data",
+   "label": "Từ (trong phiên)",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "end_rel",
+   "fieldtype": "Data",
+   "label": "Đến (trong phiên)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_review",
+   "fieldtype": "Section Break",
+   "label": "Duyệt",
+   "collapsible": 0
+  },
+  {
+   "fieldname": "review_html",
+   "fieldtype": "HTML",
+   "label": ""
+  },
+  {
+   "fieldname": "review_note",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú duyệt",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reviewed_by",
+   "fieldtype": "Link",
+   "label": "Người duyệt",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reviewed_at",
+   "fieldtype": "Datetime",
+   "label": "Duyệt lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_content",
+   "fieldtype": "Section Break",
+   "label": "Nội dung",
+   "collapsible": 0
+  },
+  {
+   "fieldname": "quote",
+   "fieldtype": "Small Text",
+   "label": "Câu bị đánh giá",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Small Text",
+   "label": "Lý do",
+   "read_only": 1
+  },
+  {
+   "fieldname": "transcript_excerpt",
+   "fieldtype": "Long Text",
+   "label": "Đoạn chép lời",
+   "read_only": 1,
+   "description": "Câu lỗi được đánh dấu bằng « … »."
+  },
+  {
+   "fieldname": "cb_c",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "source",
+   "fieldtype": "Select",
+   "label": "Phát hiện bởi",
+   "options": "rule\nllm\nrule+llm",
+   "read_only": 1
+  },
+  {
+   "fieldname": "model",
+   "fieldtype": "Data",
+   "label": "Model",
+   "read_only": 1
+  },
+  {
+   "fieldname": "deduction",
+   "fieldtype": "Int",
+   "label": "Trừ điểm",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_clip",
+   "fieldtype": "Section Break",
+   "label": "Clip minh chứng",
+   "collapsible": 0
+  },
+  {
+   "fieldname": "clip_html",
+   "fieldtype": "HTML",
+   "label": ""
+  },
+  {
+   "fieldname": "clip_status",
+   "fieldtype": "Select",
+   "label": "Trạng thái clip",
+   "options": "none\npending\nuploaded\nfailed\nexpired",
+   "default": "none",
+   "read_only": 1
+  },
+  {
+   "fieldname": "clip_local_file",
+   "fieldtype": "Attach",
+   "label": "Clip trên ERP (chờ đẩy SharePoint)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "clip_sharepoint_item_id",
+   "fieldtype": "Data",
+   "label": "SharePoint item id",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "clip_web_url",
+   "fieldtype": "Data",
+   "label": "Link SharePoint",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_log",
+   "fieldtype": "Section Break",
+   "label": "Lịch sử duyệt",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "review_log",
+   "fieldtype": "Table",
+   "label": "Lịch sử duyệt",
+   "options": "Host QC Review Log",
+   "read_only": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 0,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  },
+  {
+   "role": "Host QC Manager",
+   "read": 1,
+   "write": 1,
+   "create": 0,
+   "delete": 0,
+   "export": 1,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  },
+  {
+   "role": "Host QC Viewer",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "export": 0,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "modified": "2026-11-24 09:00:00.000000"
+}
