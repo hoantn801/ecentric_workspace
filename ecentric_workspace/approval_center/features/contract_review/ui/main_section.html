@@ -514,7 +514,10 @@
     var kolHint=KOL.isKol(d)?'<div class="hint">Để trống: lấy từ thông tin creator khi gửi duyệt.</div>':'';
     return fld("partner_signer_name","Người ký phía đối tác",'<input data-model="partner_signer_name" value="'+esc(d.partner_signer_name||"")+'" placeholder="Họ tên">'+kolHint)
       + fld("partner_signer_email","Email người ký",'<input type="email" data-model="partner_signer_email" value="'+esc(d.partner_signer_email||"")+'" placeholder="Cổng gửi email mời ký tới đây">')
-      + fld("partner_signer_phone","Điện thoại người ký",'<input data-model="partner_signer_phone" value="'+esc(d.partner_signer_phone||"")+'">'); }
+      + fld("partner_signer_phone","Điện thoại người ký",'<input data-model="partner_signer_phone" value="'+esc(d.partner_signer_phone||"")+'">')
+      // 24/11: cong ky CMC bat buoc CCCD / MST doi tac (kol_service.partner_identity).
+      + fld("partner_signer_identity","CCCD / MST người ký",'<input data-model="partner_signer_identity" maxlength="20" inputmode="numeric" value="'+esc(d.partner_signer_identity||"")+'" placeholder="'+(KOL.isKol(d)?'Để trống: lấy CCCD / MST của creator':'CCCD (cá nhân) hoặc MST (công ty)')+'">'
+          +'<div class="hint">'+(KOL.isKol(d)?'Bắt buộc khi người ký không phải chính creator (người đại diện): nhập CCCD của người ký.':'Cổng ký số bắt buộc: CCCD với cá nhân, MST với công ty / hộ kinh doanh.')+'</div>'); }
   function validateSubmit(){ var d=state.draft||{}; var errs={};
     if(!((d.request_title||"").toString().trim())) errs.request_title="Vui lòng nhập tiêu đề yêu cầu.";
     if(d.request_kind==="Existing" && !d.previous_request) errs.previous_request="Vui lòng chọn hợp đồng gốc cần điều chỉnh.";
@@ -715,7 +718,7 @@
             +kvh("contract_type","Loại hợp đồng",biz.contract_type)
             +kvh("request_type","Loại mẫu",biz.request_type)
             +kvh("esign_flow","Quy trình ký",biz.esign_flow?esignLabel(biz.esign_flow):"Chưa chọn")
-            +(biz.partner_signer_name||biz.partner_signer_email?kv("Người ký phía đối tác",[biz.partner_signer_name,biz.partner_signer_email,biz.partner_signer_phone].filter(Boolean).join(" · ")):"")
+            +(biz.partner_signer_name||biz.partner_signer_email?kv("Người ký phía đối tác",[biz.partner_signer_name,biz.partner_signer_email,biz.partner_signer_phone,biz.partner_signer_identity?("CCCD/MST "+biz.partner_signer_identity):""].filter(Boolean).join(" · ")):"")
             +kvh("brand","Legal entity / Brand",biz.brand)
             +kvh("justification","Mục đích",biz.justification)
             +kvh("contract_value","Giá trị hợp đồng",vnd)
