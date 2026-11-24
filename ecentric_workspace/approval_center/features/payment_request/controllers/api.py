@@ -51,6 +51,14 @@ def create_next_installment(name):
     return service.create_next_installment(name)
 
 
+@frappe.whitelist(methods=["POST"])
+def clone_request(name):
+    """Ghi de clone_request chung (bind): phieu chia dot >= 2 bi tu choi -> ban sao giu chuoi dot
+    (24/11). Con lai giong het duong chung. Xem service.clone_rejected."""
+    from ecentric_workspace.approval_center.features.payment_request.application import service
+    return service.clone_rejected(name)
+
+
 @frappe.whitelist()
 def list_approved_purchase_requests():
     """Legacy shape kept for older clients: approved ĐNMH as {value,label} only.

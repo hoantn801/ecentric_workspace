@@ -379,6 +379,40 @@ def create_next_installment(name):
     return out
 
 
+def clone_rejected(name):
+    """"Tao phieu moi tu phieu nay" cho DNTT (24/11, Hien bao): phieu dot >= 2 bi tu choi / huy
+    thi ban sao PHAI GIU chuoi (installment_of + installment_no). Truoc day clone dung chung chi
+    chep `editable_fields` -> mat installment_of -> luc gui validate_installment coi la Dot 1 cua
+    mot luong MOI ("mat luong dot 1"). Phieu 100% / dot 1 -> di duong clone chung nhu cu."""
+    from ecentric_workspace.approval_center.shared.requests import command_service
+    from ecentric_workspace.approval_center.shared.registry import get_definition
+    definition = get_definition(APPROVAL_TYPE)
+    src = frappe.get_doc(BUSINESS_DT, name)
+    no = int(src.get("installment_no") or 0)
+    if (src.get("payment_mode") or "Full") != INSTALLMENT or not src.get("installment_of") or no < 2:
+        return command_service.clone_request(definition, name)
+    user = frappe.session.user
+    if src.requested_by != user and "System Manager" not in frappe.get_roles(user):
+        frappe.throw(_("Bạn chỉ có thể tạo lại yêu cầu của chính mình."), frappe.PermissionError)
+    st = src.approval_request and frappe.db.get_value("EC Approval Request", src.approval_request,
+                                                      "approval_status")
+    if st not in ("Rejected", "Cancelled"):
+        frappe.throw(_("Chỉ tạo được phiếu mới từ yêu cầu đã bị từ chối hoặc đã hủy."))
+    root = src.installment_of
+    for r in installment_chain(root):
+        if r.name != src.name and int(r.installment_no or 0) == no and _live(r):
+            # Da co phieu dot nay con hieu luc (vd da tao lai tu phieu dot truoc) -> mo phieu do.
+            return {"name": r.name, "existing": True}
+
+    def prepare(target, source):
+        target.payment_mode = INSTALLMENT
+        target.installment_of = root
+        target.installment_no = no
+    out = command_service.clone_followup(definition, name, prepare)
+    out["installment_no"] = no
+    return out
+
+
 def _strip_installment_head(reason):
     """Bo dong ngu canh "[Đợt k — ...]" cua dot truoc de khong chong nhieu dong."""
     lines = (reason or "").splitlines()
