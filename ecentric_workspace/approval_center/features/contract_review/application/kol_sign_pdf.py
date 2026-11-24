@@ -16,7 +16,7 @@ import frappe
 from frappe import _
 
 from ecentric_workspace.approval_center.features.contract_review.application import esign_gate, kol_lookup
-from ecentric_workspace.approval_center.features.contract_review.domain import kol
+from ecentric_workspace.approval_center.features.contract_review.domain import esign_flow, kol
 
 #: Thong bao theo ma ket qua cua placement_service.auto_place.
 _REASON_TEXT = {
@@ -33,10 +33,29 @@ _REASON_TEXT = {
 }
 
 
+def is_labor(doc):
+    return doc.get("contract_type") == esign_flow.LABOR_CONTRACT_TYPE
+
+
+def applies(doc):
+    """Loai hop dong co o "Ban PDF de ky": KOL/KOC (23/11) + hop dong lao dong (chat Ky so 24/11, WF03).
+    Hop dong thuong khac: chua chot tep ky voi PO - khong co o."""
+    return kol.is_kol(doc) or is_labor(doc)
+
+
+def _source_docx(doc):
+    """Tep Word de chuyen PDF bang nut (PR-J): KOL = .docx sinh tu MAU EC; lao dong = tep hop dong HR tai
+    len (request_attachment) neu la .docx. Khong co -> None (chi tai PDF len tay)."""
+    if kol.is_kol(doc):
+        return doc.get("contract_file") if doc.get("request_type") == kol.TEMPLATE_EC else None
+    url = doc.get("request_attachment") or ""
+    return url if url.lower().endswith(".docx") else None
+
+
 def _doc_for_requester(name, user):
     doc = frappe.get_doc(kol_lookup.CR_DT, name)
-    if not kol.is_kol(doc):
-        frappe.throw(_("Chỉ hợp đồng KOL/KOC có ô \"Bản PDF để ký\"."))
+    if not applies(doc):
+        frappe.throw(_("Chỉ hợp đồng KOL/KOC và hợp đồng lao động có ô \"Bản PDF để ký\"."))
     # Cung "nguoi lap" voi nen tang ky so (document_setup._requester_of): nhap = chu phieu, da gui =
     # requested_by - lech nhau thi tai len duoc ma dat o ky bi nen tang tu choi.
     if user != (doc.get("requested_by") if doc.get("approval_request") else doc.get("owner")):
@@ -46,7 +65,7 @@ def _doc_for_requester(name, user):
         # Sau khi gui chi doi duoc luc bi tra lai "Can bo sung" (nen tang ky so con kiem them: goi
         # ky da khoa thi tu tu choi).
         frappe.throw(_("Phiếu đã gửi duyệt - không đổi bản PDF để ký được nữa."))
-    if not doc.get("contract_no"):
+    if kol.is_kol(doc) and not doc.get("contract_no"):
         frappe.throw(_("Tạo hợp đồng từ mẫu trước, rồi xuất PDF từ tệp đó."))
     return doc
 
@@ -62,7 +81,8 @@ def attach(name, file_url, user):
     url = str(file_url or "").strip()
     if not url.lower().endswith(".pdf"):
         frappe.throw(_("Bản để ký phải là tệp PDF (Word → Lưu thành PDF)."))
-    if url in {doc.get("contract_file"), doc.get("request_attachment")}:
+    # (Lao dong: HR co the da dinh kem chinh ban PDF hop dong - dung lai tep do lam ban ky la hop le.)
+    if url == doc.get("contract_file") or (kol.is_kol(doc) and url == doc.get("request_attachment")):
         frappe.throw(_("Đây là tệp hợp đồng .docx của phiếu - tải lên bản PDF xuất từ tệp đó."))
     from ecentric_workspace.approval_center.features.contract_review.application.kol_files import claim_upload
     old = doc.get("sign_pdf")
@@ -90,13 +110,15 @@ def make_from_template(name, user):
     Dat o ky (auto_place) KHONG goi o day - trang goi kol_auto_place_sign ngay sau (request rieng, ly do o
     attach). Mau cua doi tac: van xuat PDF bang Word va tai len tay."""
     doc = _doc_for_requester(name, user)
-    if doc.get("request_type") != kol.TEMPLATE_EC:
+    if kol.is_kol(doc) and doc.get("request_type") != kol.TEMPLATE_EC:
         frappe.throw(_("Hợp đồng theo mẫu của đối tác: xuất PDF từ Word rồi tải lên ở ô \"Bản PDF để ký\"."))
-    if not doc.get("contract_file"):
-        frappe.throw(_("Tạo hợp đồng từ mẫu trước, rồi mới tạo bản ký."))
+    source = _source_docx(doc)
+    if not source:
+        frappe.throw(_("Tạo hợp đồng từ mẫu trước, rồi mới tạo bản ký.") if kol.is_kol(doc)
+                     else _("Đính kèm hợp đồng lao động dạng Word (.docx) ở ô Tệp hợp đồng, hoặc tự xuất PDF rồi tải lên."))
     if not esign_gate.enabled(doc.name):
         frappe.throw(_("Hợp đồng này chưa ký qua ERP - ký trên cổng như hiện nay."))
-    pdf = esign_gate.docx_to_pdf(doc, doc.get("contract_file")) or {}
+    pdf = esign_gate.docx_to_pdf(doc, source) or {}
     if not pdf.get("file_url"):
         frappe.throw(_("Không tạo được bản PDF - thử lại sau."))
     return attach(name, pdf.get("file_url"), user)
@@ -176,26 +198,30 @@ def _created(doc, url):
 def is_stale(doc):
     """Hop dong .docx duoc TAO LAI sau khi tai Ban PDF de ky (sua tien / ngay / creator...) -> PDF la
     ban cu, phai xuat lai. So thoi diem tao File cua hai tep."""
-    pdf_at, docx_at = _created(doc, doc.get("sign_pdf")), _created(doc, doc.get("contract_file"))
+    # Lao dong: so voi tep hop dong HR tai len (doi tep Word sau khi da tao PDF -> PDF cu).
+    src = doc.get("request_attachment") if is_labor(doc) else doc.get("contract_file")
+    if src and src == doc.get("sign_pdf"):
+        return False
+    pdf_at, docx_at = _created(doc, doc.get("sign_pdf")), _created(doc, src)
     return bool(pdf_at and docx_at and str(docx_at) > str(pdf_at))
 
 
 def view(doc, user):
     """Phan "Ban PDF de ky" cho trang chi tiet (khong URL - URL di qua redact_business)."""
-    if not kol.is_kol(doc):
+    if not applies(doc):
         return None
     mine = user == (doc.get("requested_by") if doc.get("approval_request") else doc.get("owner"))
     status = None
     if doc.get("approval_request"):
         status = frappe.db.get_value("EC Approval Request", doc.get("approval_request"), "approval_status")
     esign = esign_gate.enabled(doc.get("name"))
-    can_edit = bool(mine and doc.get("contract_no")
+    can_edit = bool(mine and (doc.get("contract_no") or is_labor(doc))
                     and (not doc.get("approval_request") or status == "Information Required"))
     return {"has": bool(doc.get("sign_pdf")), "stale": is_stale(doc) if doc.get("sign_pdf") else False,
-            "esign": esign, "can_edit": can_edit,
+            "esign": esign, "can_edit": can_edit, "kind": "labor" if is_labor(doc) else "kol",
             # PR-J: mau EC + da sinh .docx + ky so -> trang hien nut "Xac nhan hop dong & tao ban ky".
-            "can_make": bool(can_edit and esign and doc.get("request_type") == kol.TEMPLATE_EC
-                             and doc.get("contract_file")),
+            # Lao dong: tep hop dong HR dinh kem la .docx.
+            "can_make": bool(can_edit and esign and _source_docx(doc)),
             # "Can bo sung" + goi ky da khoa: thay PDF = mo lai thiet lap ky (huy tai lieu cu tren cong,
             # gui lai duyet tu cap 1) -> trang hoi xac nhan roi goi reopen_signing_setup TRUOC (PR-G).
             "locked": bool(can_edit and esign and status == "Information Required" and _locked(doc))}

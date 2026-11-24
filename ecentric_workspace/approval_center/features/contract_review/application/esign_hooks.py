@@ -228,11 +228,13 @@ def verify_document(business_doctype, business_name, file_name, pages_text):
 def signing_files(business_name):
     """Hook ec_esign_signing_files (PR-G 24/11) -> [file_url]: DUY NHAT cac tep nay la tai lieu ky.
 
-    * KOL: chi "Ban PDF de ky" (sign_pdf). Ban .docx sinh tu mau, dinh kem, ban ky cu = bo chung tu.
-    * Hop dong thuong: [] - chua chot tep ky voi PO; ho so ky dau tien chi ap cho KOL (chat Ky so dong
-      y 24/11). Bat ho so cho hop dong thuong ma van tra rong -> nen tang chan khoa goi (CO Y)."""
+    * KOL + hop dong lao dong (WF03, chat Ky so 24/11): chi "Ban PDF de ky" (sign_pdf). Ban .docx sinh
+      tu mau / tep Word HR dinh kem, ban ky cu = bo chung tu.
+    * Hop dong thuong khac: [] - chua chot tep ky voi PO. Bat ho so cho loai do ma van tra rong -> nen
+      tang chan khoa goi (CO Y)."""
+    from ecentric_workspace.approval_center.features.contract_review.application import kol_sign_pdf
     doc = frappe.get_doc(kol_lookup.CR_DT, business_name)
-    if not kol.is_kol(doc):
+    if not kol_sign_pdf.applies(doc):
         return []
     url = doc.get("sign_pdf")
     return [url] if url else []
