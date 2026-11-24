@@ -56,12 +56,14 @@ ok(/Chưa có hoạt động/.test(U.timelineHTML([])), "lich su rong");
 { const h = U.stepsHTML([{ name: "Đã gửi", state: "done" }, { level: 1, name: "Lead", state: "done" },
     { level: 2, name: "HOF", state: "current", meta: '<span class="ov">Quá hạn</span>' }, { name: "Hoàn tất", state: "upcoming" }]);
   const d = new JSDOM("<body>" + h + "</body>").window.document;
-  const dots = [...d.querySelectorAll(".step-dot")].map((x) => x.textContent);
+  // Tien trinh A (24/11): cham = .ec-aps-node; cap duyet chua xong hien DUNG so cap (.ec-aps-num), xong = dau tick (svg).
+  const items = [...d.querySelectorAll(".ec-aps-track .ec-aps-item")];
+  const dots = items.map((x) => { const n = x.querySelector(".ec-aps-node"); return n.classList.contains("ec-aps-node--done") ? "✓" : n.textContent; });
   ok(dots.join("|") === "✓|✓|2|", "cham: Da gui ✓, cap 1 ✓, cap 2 -> '2', Hoan tat khong so: " + dots.join("|"));
-  const names = [...d.querySelectorAll(".step-name")].map((x) => x.textContent);
+  const names = items.map((x) => x.querySelector(".ec-aps-name").textContent);
   ok(names[2] === "Cấp 2 · HOF" && names[0] === "Đã gửi" && names[3] === "Hoàn tất", "ten buoc: " + names.join("|"));
-  ok(d.querySelector(".step.current[aria-current=step] .ov"), "meta giu nguyen HTML trang + aria-current");
-  ok(/--n:4;--k:2/.test(h), "giu bien CSS --n/--k cua thanh tien trinh"); }
+  ok(d.querySelector(".ec-aps-item--current[aria-current=step] .ov"), "meta giu nguyen HTML trang + aria-current");
+  ok(/grid-template-columns:(minmax\([^)]*\) ?){4}"/.test(h), "4 cot trong luoi tien trinh"); }
 ok(/is-cancelled/.test(U.stepsHTML([], { cancelled: true })), "phieu huy giu class is-cancelled");
 // loi
 const sm = (m) => ({ _server_messages: JSON.stringify([JSON.stringify({ message: m })]) });
@@ -110,15 +112,15 @@ for (const f of feats) {
   const { w, err } = boot(html, route, DET(), true); await flush();
   ok(!err, f + ": trang chay duoc " + (err || ""));
   const doc = w.document;
-  const steps = [...doc.querySelectorAll(".stepline .step")];
+  const steps = [...doc.querySelectorAll(".ec-aps-track .ec-aps-item")];
   if (NO_STEPPER.has(f)) ok(steps.length === 0, f + ": (khong co thanh tien trinh o chi tiet)");
   else {
   ok(steps.length >= 3, f + ": co thanh tien trinh (" + steps.length + " buoc)");
-  const byName = (re) => steps.find((s) => re.test(s.querySelector(".step-name").textContent));
+  const byName = (re) => steps.find((s) => re.test(s.querySelector(".ec-aps-name").textContent));
   const s1 = byName(/Department Manager Review/), s2 = byName(/Finance Review/), sent = byName(/^Đã gửi$/);
-  ok(s1 && /^Cấp 1 · /.test(s1.querySelector(".step-name").textContent), f + ": ten cap 1 = 'Cap 1 · ...'");
-  ok(s2 && s2.querySelector(".step-dot").textContent === "2", f + ": cham cap 2 hien '2' (truoc la '3')");
-  ok(sent && !/\d/.test(sent.querySelector(".step-dot").textContent), f + ": 'Da gui' khong danh so");
+  ok(s1 && /^Cấp 1 · /.test(s1.querySelector(".ec-aps-name").textContent), f + ": ten cap 1 = 'Cap 1 · ...'");
+  ok(s2 && s2.querySelector(".ec-aps-node").textContent === "2", f + ": cham cap 2 hien '2' (truoc la '3')");
+  ok(sent && !/\d/.test(sent.querySelector(".ec-aps-node").textContent), f + ": 'Da gui' khong danh so");
   }
   if (/function timelineHTML\(/.test(html)) {
     const tl = [...doc.querySelectorAll(".tl-item")];

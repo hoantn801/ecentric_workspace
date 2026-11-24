@@ -407,7 +407,7 @@
     var fo=state.boot&&state.boot.form_options||{}; var c=state.boot&&state.boot.context||{}; var d=state.draft||{};
     var editing=state.mode==="edit";
     var head = editing
-      ? ('<div class="card"><h3>Tiến trình phê duyệt</h3><div class="stepper">'+buildStepper(state._editDet||{approval:{}})+'</div></div>'+infoRequiredBannerHTML())
+      ? ('<div class="card"><h3>Tiến trình phê duyệt</h3><div class="stepper">'+buildStepper(Object.assign({},state._editDet||{approval:{}},{viewer:null}))+'</div></div>'+infoRequiredBannerHTML())
       : '';
     var actions = editing
       ? '<div class="actions"><button type="button" class="btn" id="ctr-edit-cancel">Hủy</button><button type="button" class="btn primary" id="ctr-resubmit">Gửi lại</button></div>'
@@ -768,12 +768,12 @@
     var kolMissing=KOL.isKol(det.business||{})&&!((det.extra||{}).kol);
     var allDone=ap.approval_status==="Approved"&&!kolMissing&&kol.every(function(k){ return k.state==="done"||k.state==="skipped"; });
     steps.push({name:"Hoàn tất",state:(allDone?"done":"upcoming"),meta:((det.extra||{}).kol||{}).closed?"Đã thanh lý":""});
-    return renderStepsHTML(steps); }
+    return renderStepsHTML(steps,det); }
   // Duyet thay (admin) khong doi trang thai dong nguoi duyet -> lay nguoi bam tu lich su.
   function adminActor(det,levelNo){ var t=(det.timeline||[]).filter(function(a){ return a.action==="Approved"&&a.level_no===levelNo; }); return t.length?(t[t.length-1].actor||""):""; }
   var _STEP_LBL={done:"Hoàn thành",current:"Đang xử lý",upcoming:"Chờ",rejected:"Từ chối",info:"Cần bổ sung",skipped:"Bỏ qua"};
   function stColor(s){ return {done:"var(--green)",current:"var(--navy)",rejected:"var(--red)",info:"var(--amber)",skipped:"var(--gray-400)",upcoming:"var(--gray-400)"}[s]||"var(--gray-400)"; }
-  function renderStepsHTML(steps){ if(window.EcApprovalUI) return EcApprovalUI.stepsHTML((EcApprovalUI.withJourney?EcApprovalUI.withJourney(steps,(state.boot||{}).journey_after):steps)); var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
+  function renderStepsHTML(steps,det){ if(window.EcApprovalUI) return EcApprovalUI.stepsHTML((EcApprovalUI.withJourney?EcApprovalUI.withJourney(steps,(state.boot||{}).journey_after):steps),{detail:det}); var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
     var inner=steps.map(function(s,i){ return '<div class="step '+s.state+'"><div class="step-top"><div class="step-dot">'+(s.state==="done"?"✓":(s.state==="rejected"?"✕":(i+1)))+'</div><div class="step-name">'+esc(s.name)+'</div><div class="step-state" style="color:'+stColor(s.state)+'">'+esc(s.statusLabel||_STEP_LBL[s.state]||s.state)+'</div></div><div class="step-meta">'+(s.meta||"")+'</div></div>'; }).join("");
     return '<div class="stepline" style="--n:'+n+';--k:'+k+'">'+inner+'</div>'; }
 

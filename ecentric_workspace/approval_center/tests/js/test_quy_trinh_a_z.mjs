@@ -32,7 +32,11 @@ const names = (st) => st.map((s) => s.name).join(" > ");
   ok(st[6].meta === "Tạo Offer &lt;b&gt;x&lt;/b&gt;", "mo ta duoc escape");
   ok(base.length === 4, "khong sua mang goc");
   const html = U.stepsHTML(st);
-  ok((html.match(/step-after/g) || []).length === 3 && /border-style:dashed/.test(html), "buoc sau duyet ve khac nhe");
+  // Tien trinh A (24/11): pha sau duyet chua toi -> gom thanh 1 nut mo duoc; trong panel 3 buoc sau duyet net dut.
+  const d = new JSDOM("<body>" + html + "</body>").window.document;
+  const g = d.querySelector(".ec-aps-track .ec-aps-item--group");
+  ok(g && /Sau duyệt · 4 bước/.test(g.textContent), "gom pha sau duyet: " + (g && g.textContent));
+  ok(d.querySelectorAll(".ec-aps-panel .ec-aps-node--after").length === 3, "buoc sau duyet ve khac nhe (net dut)");
 }
 // 2. Chi tiet da duyet, fulfillment chua nhan: HR tuyen dung current, Hoan tat chua xong
 {

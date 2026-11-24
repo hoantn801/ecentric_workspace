@@ -395,6 +395,8 @@ def get_request_detail(name):
                 [p for p in proc.participants if p.participant_purpose == "Fulfiller"], biz.requested_by)]
         except Exception:
             pass
+    caps = _capabilities(user, biz, req)
+    from ecentric_workspace.approval_center.shared.requests import viewer_task as _viewer_task
     if biz.actual_ai_account:
         ff["ai_account"] = frappe.db.get_value("EC AI Account", biz.actual_ai_account,
             ["name", "account_email", "account_manager", "current_plan", "subscription_start_date",
@@ -414,7 +416,10 @@ def get_request_detail(name):
         "attachments": attachments,
         "timeline": timeline,
         "process_preview": ([] if req else _process_preview(biz.approval_type or APPROVAL_TYPE)),
-        "capabilities": _capabilities(user, biz, req),
+        "capabilities": caps,
+        # 24/11/2026 (Tien trinh A): bang "Viec cua ban" + levels[i].mine - cung luat voi form dung chung.
+        "viewer": _viewer_task.build(user, _DEFINITION, biz, req, levels, approvers, ff, caps, None,
+                                     _query_service.journey_after(_DEFINITION)),
     }
 
 

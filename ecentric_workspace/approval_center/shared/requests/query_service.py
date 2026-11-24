@@ -391,6 +391,14 @@ def detail(definition, name):
         # KHONG nuot loi o day: redactor tu fail-closed (an het truong nhay cam khi loi).
         definition.business_redactor(biz, request)
     privacy_block = _privacy_block(definition, user, business, request, biz)
+    caps = capabilities.derive(user, business, request)
+    fulfillment = fulfillment_block(business, request)
+    journey = journey_after(definition)
+    # 24/11/2026 (Tien trinh A): bang "Viec cua ban" tren stepper - tinh tu chinh du lieu tra ve
+    # duoi day; gan them levels[i].mine (cap cua NGUOI DANG XEM). Xem shared/requests/viewer_task.py.
+    from ecentric_workspace.approval_center.shared.requests import viewer_task
+    viewer = viewer_task.build(user, definition, business, request, levels, approvers, fulfillment,
+                               caps, privacy_block, journey)
     return {
         "extra": extra,
         "business": biz,
@@ -408,12 +416,13 @@ def detail(definition, name):
         # tai len, khong co "online", khong tinh vao so dinh kem. Rong voi moi loai phieu khong
         # soi guong SharePoint.
         "doi_chung": doi_chung,
-        "fulfillment": fulfillment_block(business, request),
+        "fulfillment": fulfillment,
         "timeline": timeline,
         "process_preview": ([] if request else process_preview(
             business.approval_type or definition.code)),
-        "journey_after": journey_after(definition),
-        "capabilities": capabilities.derive(user, business, request),
+        "journey_after": journey,
+        "capabilities": caps,
+        "viewer": viewer,
         # Dot 0 HR (23/11/2026): co rieng tu, nguoi theo doi, nhat ky truy cap (chi nguoi gui /
         # System Manager thay nhat ky). Trang cu khong doc khoi nay -> khong doi gi.
         "privacy": privacy_block,
