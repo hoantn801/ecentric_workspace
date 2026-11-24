@@ -253,7 +253,7 @@ class TaiKhoanNhanTien(unittest.TestCase):
         self.assertLess(svc.index("fill_partner_signer(doc, creator)", svc.index("def validate_submit")),
                         svc.index("kol_access.snapshot_payee(doc, creator)"))
         acc = _read("features/contract_review/application/kol_acceptance.py")
-        self.assertIn("_payee_note(doc, row.idx)", acc)
+        self.assertIn("_payee_note(doc, _no(row))", acc)
 
 
 # ----------------------------------------------------------------------------- thanh ly
@@ -621,7 +621,9 @@ class QcBanDo(unittest.TestCase):
 
     def test_tai_phai_xem_duoc_phieu_va_mo_lai_thanh_ly(self):
         src = _read("features/contract_review/application/kol_access.py")
-        self.assertIn("not can_download_full(doc, user) or not _can_view(doc, user)", src)
+        # 24/11: nguoi duyet DOT (KTTH/KTT/CEO) tai duoc ban BBNT cua dot ho duyet (PO cau 3).
+        self.assertIn("not (can_download_full(doc, user) and _can_view(doc, user)) and file_url not in "
+                      "round_approver_files(doc, user)", src)
         a = _access("fin@ec")
         sets = []
         sys.modules["frappe"].db.set_value = lambda dt_, n, f, v=None, **k: sets.append(f)

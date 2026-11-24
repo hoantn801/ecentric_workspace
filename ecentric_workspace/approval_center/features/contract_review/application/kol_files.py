@@ -233,8 +233,11 @@ def acceptance_content(doc, row, creator, tpl=None):
     if not creator:
         frappe.throw(_("Creator của hợp đồng không còn trong danh sách creator - nhờ Kế toán kiểm lại."))
     tpl = tpl or frappe.get_doc("EC Contract Template", template_for(doc, KIND_BBNT))
-    values = kol_values.acceptance_values(_values(doc, creator, row.get("acceptance_date")), row.as_dict(),
-                                          doc.as_dict())
+    # Dot = phieu EC KOL Acceptance (24/11): so dot = round_no; dot cuoi / dot phu het hop dong tinh
+    # theo cac dot cua hop dong (kol_rounds.contract_view).
+    from ecentric_workspace.approval_center.features.contract_review.application import kol_rounds
+    values = kol_values.acceptance_values(_values(doc, creator, row.get("acceptance_date")), kol_rounds.row_view(row),
+                                          kol_rounds.contract_view(doc, keep=row.get("name")))
     return _fill(file_bytes(tpl.template_file), values, doc)
 
 
@@ -260,7 +263,7 @@ def generate_acceptance(doc, row, creator):
     tpl = frappe.get_doc("EC Contract Template", template_for(doc, KIND_BBNT))
     # Ngay tren BBNT = ngay nghiem thu cua dot (ERP lam BBNT SAU khi thuc hien xong).
     content, missing = acceptance_content(doc, row, creator, tpl)
-    url = attach(doc, "BBNT_%s_dot%s.docx" % (_safe(doc.contract_no), row.idx), content)
+    url = attach(doc, "BBNT_%s_dot%s.docx" % (_safe(doc.contract_no), row.get("round_no") or row.get("idx")), content)
     return url, missing
 
 

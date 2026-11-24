@@ -485,10 +485,12 @@ def _rows_for(business, user, rows):
         r["can_verify"] = bool(fin and user not in own | {r.get("completed_by")})
     if kol_access.can_download_full(business, user):
         return rows
+    # Nguoi duyet dot (KTTH, KTT, CEO) thay nut tai ban du cua DOT HO DUYET (PO 24/11 cau 3).
+    mine = kol_access.round_approver_files(business, user)
     for r in rows:
-        if kol_access.is_generated(r.get("bbnt_file")):
+        if kol_access.is_generated(r.get("bbnt_file")) and r.get("bbnt_file") not in mine:
             r["bbnt_file"] = None
-        if r.get("signed_file"):
+        if r.get("signed_file") and r.get("signed_file") not in mine:
             r["signed_file"] = None
     return rows
 

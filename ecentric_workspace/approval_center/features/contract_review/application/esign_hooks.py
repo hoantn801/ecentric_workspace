@@ -33,7 +33,7 @@ import frappe
 from frappe import _
 from frappe.utils import now_datetime
 
-from ecentric_workspace.approval_center.features.contract_review.application import kol_lookup
+from ecentric_workspace.approval_center.features.contract_review.application import kol_lookup, kol_rounds
 from ecentric_workspace.approval_center.features.contract_review.domain import esign_flow, kol, sign_pdf_check
 
 ESIGN_ACTOR = "Ký số (cổng)"
@@ -84,7 +84,7 @@ def package_title(business_name, purpose):
     no = doc.get("contract_no") or doc.name
     if str(purpose or "").startswith(BBNT_PREFIX):
         row = _find_row(doc, str(purpose)[len(BBNT_PREFIX):])
-        return "BBNT đợt %s - %s" % (row.idx, no)
+        return "BBNT đợt %s - %s" % (row.round_no, no)
     who = doc.get("creator_name") or doc.get("partner_signer_name") or doc.get("request_title") or ""
     return ("HĐ %s - %s" % (no, who)).strip(" -")[:140]
 
@@ -155,35 +155,43 @@ def _contract(doc, outcome, signed_file, detail):
 
 
 def _find_row(doc, row_name):
-    row = next((r for r in (doc.get("acceptances") or []) if r.name == row_name), None)
-    if row is None:
+    """Document dot nghiem thu (EC KOL Acceptance, 24/11) theo ten moi hoac ten dong con cu (legacy_row)."""
+    view = kol_rounds.find(doc, row_name)
+    if view is None:
         raise ValueError("khong co dot nghiem thu %r tren %s" % (row_name, doc.name))
-    return row
+    return kol_rounds.get(doc, view.name)
 
 
 def _round(doc, row_name, outcome, signed_file, detail):
     row = _find_row(doc, row_name)
+    no = row.round_no
     if row.status in (kol.BBNT_DONE, kol.BBNT_REVIEW):
         return {"changed": False, "status": row.status}
     if outcome != SIGNED:
         if row.status != kol.BBNT_SENT:
             return {"changed": False, "status": row.status}
-        row.status = kol.BBNT_DRAFT            # ve Nhap: sua du lieu, tao lai BBNT, gui ky lai
-        doc.save(ignore_permissions=True)
+        if not row.get("approval_request"):
+            row.status = kol.BBNT_DRAFT        # dot cu (truoc 24/11): ve Nhap, sua, tao lai BBNT, gui lai
+            kol_rounds.save(row)
+        # Dot co chuoi duyet rieng (24/11): giu trang thai, chi ghi vet + bao - luong ky so cua phieu dot
+        # (C3, hook rieng cho EC KOL Acceptance) se thay nhanh nay.
         doc.add_comment("Info", _("{0}: BBNT đợt {1} {2}{3}.").format(
-            ESIGN_ACTOR, row.idx, _OUTCOME_TEXT[outcome], (": " + _why(detail)) if _why(detail) else ""))
+            ESIGN_ACTOR, no, _OUTCOME_TEXT[outcome], (": " + _why(detail)) if _why(detail) else ""))
         _tell_requester(doc, _("BBNT đợt {0} của hợp đồng {1} {2} trên cổng ký{3}. {4}").format(
-            row.idx, doc.get("contract_no") or doc.name, _OUTCOME_TEXT[outcome],
+            no, doc.get("contract_no") or doc.name, _OUTCOME_TEXT[outcome],
             (": " + _why(detail)) if _why(detail) else "", _NEXT_STEP[outcome]))
         return {"changed": True, "status": row.status}
-    # Cung chot nhu tai tay (complete_acceptance): da qua buoc gui ky (kiem thieu + tao lai BBNT),
-    # hop dong da ky du, tep khong trung hop dong / dot khac (QC7).
+    # Cung chot nhu tai tay (complete_acceptance): da qua buoc gui duyet (kiem thieu + tao lai BBNT),
+    # dot da duyet xong neu co chuoi duyet, hop dong da ky du, tep khong trung hop dong / dot khac (QC7).
     if row.status != kol.BBNT_SENT:
-        raise ValueError("dot %s chua qua buoc gui ky (trang thai %s)" % (row.idx, row.status))
+        raise ValueError("dot %s chua qua buoc gui duyet (trang thai %s)" % (no, row.status))
+    if row.get("approval_request") and frappe.db.get_value(
+            "EC Approval Request", row.approval_request, "approval_status") != "Approved":
+        raise ValueError("dot %s chua duyet xong tren ERP" % no)
     from ecentric_workspace.approval_center.features.contract_review.application.kol_service import is_signed
     if not is_signed(doc):
         raise ValueError("hop dong %s chua ky du" % doc.name)
-    used = {r.signed_file for r in (doc.acceptances or []) if r.name != row.name and r.signed_file}
+    used = {r.signed_file for r in kol_rounds.rows(doc) if r.name != row.name and r.signed_file}
     if signed_file in used or signed_file == doc.get("signed_file"):
         raise ValueError("tep %s da dung cho hop dong / dot khac" % signed_file)
     from ecentric_workspace.approval_center.features.contract_review.application import kol_acceptance

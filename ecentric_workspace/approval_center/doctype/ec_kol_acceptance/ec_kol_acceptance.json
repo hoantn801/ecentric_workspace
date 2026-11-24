@@ -1,0 +1,291 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "EC-BBNT-.YYYY.-.#####.",
+ "creation": "2026-11-24 11:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "approval_type",
+  "approval_request",
+  "request_title",
+  "requested_by",
+  "department",
+  "company",
+  "cb0",
+  "submitted_at",
+  "sb_contract",
+  "contract",
+  "contract_no",
+  "round_no",
+  "cb1",
+  "creator",
+  "creator_name",
+  "brand",
+  "sb_round",
+  "description",
+  "acceptance_date",
+  "amount",
+  "status",
+  "cb2",
+  "bbnt_file",
+  "sign_pdf",
+  "signed_file",
+  "completed_at",
+  "completed_by",
+  "due_date",
+  "check_note",
+  "verified_by",
+  "legacy_row"
+ ],
+ "fields": [
+  {
+   "fieldname": "approval_type",
+   "fieldtype": "Link",
+   "label": "Approval Type",
+   "options": "EC Approval Type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approval_request",
+   "fieldtype": "Link",
+   "label": "Approval Request",
+   "options": "EC Approval Request",
+   "read_only": 1,
+   "no_copy": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "request_title",
+   "fieldtype": "Data",
+   "label": "Tiêu đề",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "requested_by",
+   "fieldtype": "Link",
+   "label": "Người lập",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "label": "Phòng ban",
+   "options": "Department",
+   "read_only": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Công ty",
+   "options": "Company",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb0",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "submitted_at",
+   "fieldtype": "Datetime",
+   "label": "Gửi duyệt lúc",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "sb_contract",
+   "fieldtype": "Section Break",
+   "label": "Hợp đồng"
+  },
+  {
+   "fieldname": "contract",
+   "fieldtype": "Link",
+   "label": "Hợp đồng",
+   "options": "EC Contract Review Request",
+   "reqd": 1,
+   "read_only": 1,
+   "in_standard_filter": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "contract_no",
+   "fieldtype": "Data",
+   "label": "Số hợp đồng",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "round_no",
+   "fieldtype": "Int",
+   "label": "Đợt",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "creator",
+   "fieldtype": "Link",
+   "label": "Creator",
+   "options": "Supplier",
+   "read_only": 1
+  },
+  {
+   "fieldname": "creator_name",
+   "fieldtype": "Data",
+   "label": "Tên creator",
+   "read_only": 1
+  },
+  {
+   "fieldname": "brand",
+   "fieldtype": "Data",
+   "label": "Brand",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_round",
+   "fieldtype": "Section Break",
+   "label": "Nghiệm thu"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Data",
+   "label": "Nội dung nghiệm thu",
+   "read_only": 1
+  },
+  {
+   "fieldname": "acceptance_date",
+   "fieldtype": "Date",
+   "label": "Ngày nghiệm thu",
+   "read_only": 1
+  },
+  {
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "label": "Số tiền đợt này",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Trạng thái",
+   "options": "Nháp\nĐã gửi ký\nChờ kiểm tra\nHoàn tất",
+   "default": "Nháp",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb2",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "bbnt_file",
+   "fieldtype": "Attach",
+   "label": "Tệp BBNT (.docx)",
+   "read_only": 1,
+   "permlevel": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "sign_pdf",
+   "fieldtype": "Attach",
+   "label": "Bản PDF để ký",
+   "read_only": 1,
+   "permlevel": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "signed_file",
+   "fieldtype": "Attach",
+   "label": "BBNT đã ký",
+   "read_only": 1,
+   "permlevel": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "completed_at",
+   "fieldtype": "Datetime",
+   "label": "Hoàn tất lúc",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "completed_by",
+   "fieldtype": "Link",
+   "label": "Người xác nhận",
+   "options": "User",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "due_date",
+   "fieldtype": "Date",
+   "label": "Hạn thanh toán",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "check_note",
+   "fieldtype": "Small Text",
+   "label": "Kết quả kiểm bản ký",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "verified_by",
+   "fieldtype": "Data",
+   "label": "Xác nhận bởi",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "legacy_row",
+   "fieldtype": "Data",
+   "label": "Dòng bảng con cũ",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "unique": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-24 11:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Approval Center",
+ "name": "EC KOL Acceptance",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "permlevel": 1,
+   "read": 1,
+   "write": 1,
+   "role": "System Manager"
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "request_title",
+ "track_changes": 1
+}

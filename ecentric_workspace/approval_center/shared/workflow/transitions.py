@@ -2283,6 +2283,8 @@ _FULFILLMENT_HANDLERS = {
     "EC Employee Review": "ecentric_workspace.approval_center.features.employee_review.application.service.on_final_approval",
     # 23/11: CEO ky xong -> ho so ky luat (hr/ky_luat) ban hanh; sa thai -> ngay nghi viec + Clearance.
     "EC Discipline Decision Request": "ecentric_workspace.approval_center.features.discipline_decision.application.service.on_final_approval",
+    # 24/11: BBNT tung dot hop dong KOL/KOC duyet xong -> ghi vet tren hop dong + buoc ky tiep theo.
+    "EC KOL Acceptance": "ecentric_workspace.approval_center.features.kol_acceptance.application.service.on_final_approval",
 }
 
 

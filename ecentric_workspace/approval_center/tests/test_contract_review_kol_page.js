@@ -53,7 +53,7 @@ const detail={business:{name:"EC-CTR-2026-00100",contract_type:KOL,request_type:
   approval:{approval_status:"Approved"},capabilities:{},levels:[],approvers:[],timeline:[],attachments:[],
   extra:{kol:{can_manage:true,can_ai:true,approved:true,signed:true,funding:{cap:2700000,used:0,remaining:2700000},
     calc:[{label:"Giá trị trước thuế (gross)",how:"9.000.000 ÷ (1 − 10%)",amount:10000000,strong:true},{label:"<b>x</b>",how:"",amount:1}],
-    acceptances:[{name:"r1",idx:1,description:"Livestream T12",acceptance_date:"2026-12-05",amount:6300000,status:"Nháp",bbnt_file:"/private/files/BBNT.docx",
+    acceptances:[{name:"r1",idx:1,description:"Livestream T12",acceptance_date:"2026-12-05",amount:6300000,status:"Nháp",can_send:true,approval_request:"",approval_status:"",bbnt_file:"/private/files/BBNT.docx",
       calc:[{label:"Thực nhận đợt này",how:"",amount:6300000}]}]}}};
 const c={}; let failed=0;
 function chk(k,v){ c[k]=!!v; if(!v) failed++; }

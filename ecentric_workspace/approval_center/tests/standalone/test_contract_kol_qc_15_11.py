@@ -120,6 +120,9 @@ def _fresh(user="fin@ec"):
     install(user=user)
     for m in [k for k in sys.modules if k.startswith("ecentric_workspace.approval_center.features.contract_review.application")]:
         sys.modules.pop(m)
+    # Dot nghiem thu la phieu EC KOL Acceptance tu 24/11: kho kol_rounds gia lap bang doc["acceptances"].
+    from _kol_rounds_fake import install as _fake_rounds
+    _fake_rounds(importlib.import_module(P + "kol_rounds"))
     return (importlib.import_module(P + "kol_service"), importlib.import_module(P + "kol_verify"),
             importlib.import_module(P + "kol_acceptance"), importlib.import_module(P + "kol_files"))
 

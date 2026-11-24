@@ -14,7 +14,7 @@ import frappe
 from frappe import _
 from frappe.utils import now_datetime
 
-from ecentric_workspace.approval_center.features.contract_review.application import kol_lookup
+from ecentric_workspace.approval_center.features.contract_review.application import kol_lookup, kol_rounds
 from ecentric_workspace.approval_center.features.contract_review.application.kol_ai import (
     number_tokens, pdf_text)
 from ecentric_workspace.approval_center.features.contract_review.application.kol_files import doc_file_bytes
@@ -34,7 +34,7 @@ def _same_file_as_other_round(doc, row):
         mine = hashlib.sha256(doc_file_bytes(doc, row.signed_file)).hexdigest()
     except Exception:
         return None
-    for other in (doc.acceptances or []):
+    for other in kol_rounds.rows(doc):
         if other.name == row.name or not other.get("signed_file"):
             continue
         if other.signed_file == row.signed_file:
@@ -67,7 +67,7 @@ def apply_contract_check(doc):
 
 def apply_acceptance_check(doc, row):
     from ecentric_workspace.approval_center.features.contract_review.domain import kol_values
-    findings = check(doc, row.signed_file, kol_values.printed_amount(doc.as_dict(), row.amount))
+    findings = check(doc, row.signed_file, kol_values.printed_amount(kol_rounds.contract_view(doc, keep=row.name), row.amount))
     dup = _same_file_as_other_round(doc, row)
     if dup:
         # QC 15/11 (C3): may khong biet tep la cua dot nao - cung so tien thi BBNT dot truoc lot qua.
@@ -130,26 +130,25 @@ def verify_contract(name, user, ok, note=None):
 
 def verify_acceptance(name, user, row_name, ok, note=None):
     doc = _finance_doc(name, user)
-    row = next((r for r in (doc.acceptances or []) if r.name == row_name), None)
-    if not row:
-        frappe.throw(_("Không tìm thấy đợt nghiệm thu."))
+    row = kol_rounds.get(doc, row_name)
     if row.status != kol.BBNT_REVIEW:
         frappe.throw(_("Đợt này không ở trạng thái chờ kiểm tra."))
     _not_own(doc, user, row.get("completed_by"))
     note = (note or "").strip()
+    no = row.round_no
     if ok:
         row.status = kol.BBNT_DONE
         row.verified_by = _who(user)
-        msg = _("Kế toán xác nhận BBNT đợt {0} đã ký đủ.").format(row.idx)
+        msg = _("Kế toán xác nhận BBNT đợt {0} đã ký đủ.").format(no)
     else:
         if not note:
             frappe.throw(_("Nhập lý do trả lại để người tạo biết cần sửa gì."))
         row.status = kol.BBNT_SENT
         row.signed_file = row.completed_at = row.completed_by = row.due_date = None
-        msg = _("Kế toán trả lại BBNT đợt {0}: {1}").format(row.idx, note)
+        msg = _("Kế toán trả lại BBNT đợt {0}: {1}").format(no, note)
     if note:
         row.check_note = ((row.get("check_note") or "") + "\nKế toán: " + note).strip()
-    doc.save(ignore_permissions=True)
+    kol_rounds.save(row)
     doc.add_comment("Info", msg)
     return {"status": row.status}
 
@@ -166,13 +165,10 @@ def pending_checks(user):
         out.append({"kind": "Hợp đồng", "name": r.name, "contract_no": r.contract_no,
                     "creator_name": r.creator_name, "requested_by": r.requested_by,
                     "at": str(r.signed_at or "")})
-    for r in frappe.get_all("EC Contract Acceptance", filters={"status": kol.BBNT_REVIEW,
-                                                               "parenttype": kol_lookup.CR_DT},
-                            fields=["parent", "idx", "amount", "completed_at"],
-                            order_by="completed_at asc", limit_page_length=200, ignore_permissions=True):
-        head = frappe.db.get_value(kol_lookup.CR_DT, r.parent,
+    for r in kol_rounds.review_queue():
+        head = frappe.db.get_value(kol_lookup.CR_DT, r.contract,
                                    ["contract_no", "creator_name", "requested_by"], as_dict=True) or {}
-        out.append({"kind": "BBNT đợt %s" % r.idx, "name": r.parent, "contract_no": head.get("contract_no"),
+        out.append({"kind": "BBNT đợt %s" % r.round_no, "name": r.contract, "contract_no": head.get("contract_no"),
                     "creator_name": head.get("creator_name"), "requested_by": head.get("requested_by"),
                     "amount": float(r.amount or 0), "at": str(r.completed_at or "")})
     return out

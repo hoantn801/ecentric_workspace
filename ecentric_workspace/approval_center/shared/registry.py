@@ -37,6 +37,7 @@ from ecentric_workspace.approval_center.features.clearance_request.domain.defini
 from ecentric_workspace.approval_center.features.adhoc_approval.domain.definition import ADHOC_APPROVAL_DEFINITION
 from ecentric_workspace.approval_center.features.employee_review.domain.definition import EMPLOYEE_REVIEW_DEFINITION
 from ecentric_workspace.approval_center.features.discipline_decision.domain.definition import DISCIPLINE_DECISION_DEFINITION
+from ecentric_workspace.approval_center.features.kol_acceptance.domain.definition import KOL_ACCEPTANCE_DEFINITION
 
 
 _DEFINITIONS = (
@@ -75,6 +76,7 @@ _DEFINITIONS = (
     ADHOC_APPROVAL_DEFINITION,     # 23/11: Phe duyet dot xuat gui CEO (phieu rieng tu)
     EMPLOYEE_REVIEW_DEFINITION,    # 23/11: Danh gia nhan su (thu viec / thuc tap / hop dong)
     DISCIPLINE_DECISION_DEFINITION,  # 23/11: CEO ky quyet dinh ky luat - tu tao tu hr/ky_luat
+    KOL_ACCEPTANCE_DEFINITION,     # 24/11: BBNT tung dot hop dong KOL/KOC - tu tao tu the KOL form 27
 )
 
 

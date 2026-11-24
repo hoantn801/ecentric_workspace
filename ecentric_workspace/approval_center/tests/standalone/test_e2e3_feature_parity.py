@@ -75,11 +75,21 @@ WWW_UI_FEATURES = {
 }
 
 
+#: Feature KHONG co trang rieng: phieu tu tao + thao tac tren trang cua feature KHAC (route cua EC
+#: Approval Type tro ve trang do). Danh sach DONG; TestHostedUiFeatures kiem tung muc (5 file khuon,
+#: khong co ui/page_sync rieng, route activation = route trang chu, trang chu du khuon Web Page).
+HOSTED_UI_FEATURES = {
+    # 24/11/2026 (PO chot C): moi dot BBNT hop dong KOL/KOC la phieu EC KOL Acceptance - tao / gui duyet /
+    # tai ban ky tren the KOL cua form 27; duyet o "Cho toi duyet" / popup "Tat ca yeu cau".
+    "kol_acceptance": ("contract_review", "/approvals/contract-review"),
+}
+
+
 def _features():
     names = sorted(
         name for name in os.listdir(FEATURES_DIR)
         if name != "__pycache__" and os.path.isdir(os.path.join(FEATURES_DIR, name))
-        and name not in WWW_UI_FEATURES)
+        and name not in WWW_UI_FEATURES and name not in HOSTED_UI_FEATURES)
     return names
 
 
@@ -617,6 +627,26 @@ class TestWwwUiFeatures(unittest.TestCase):
                 self.assertIn('ROUTE = "%s"' % route, _read(_feature_file(feature, "infrastructure", "activation.py")))
                 self.assertFalse(os.path.exists(_feature_file(feature, "ui", "main_section.html")),
                                  "co main_section.html thi dua feature ve khuon Web Page, go khoi WWW_UI_FEATURES")
+
+
+class TestHostedUiFeatures(unittest.TestCase):
+    """Feature dung trang cua feature khac: van du 5 lop + cong System Manager + route khop trang chu."""
+
+    def test_hosted_features_have_layers_and_host_route(self):
+        self.assertTrue(HOSTED_UI_FEATURES)
+        for feature, (host, route) in HOSTED_UI_FEATURES.items():
+            with self.subTest(feature=feature):
+                for layer, filename in LAYER_FILES:
+                    path = _feature_file(feature, layer, filename)
+                    if (layer, filename) in (("infrastructure", "page_sync.py"), ("ui", "main_section.html")):
+                        self.assertFalse(os.path.exists(path), "%s co trang rieng -> go khoi HOSTED_UI_FEATURES" % feature)
+                        self.assertTrue(os.path.exists(_feature_file(host, layer, filename)), (host, filename))
+                        continue
+                    self.assertTrue(os.path.exists(path), (layer, filename))
+                for filename in ("setup.py", "activation.py"):
+                    self.assertRegex(_read(_feature_file(feature, "infrastructure", filename)), _SM_GATE)
+                self.assertIn('ROUTE = "%s"' % route, _read(_feature_file(feature, "infrastructure", "activation.py")))
+                self.assertIn('ROUTE = "%s"' % route.lstrip("/"), _read(_feature_file(host, "infrastructure", "page_sync.py")))
 
 
 if __name__ == "__main__":

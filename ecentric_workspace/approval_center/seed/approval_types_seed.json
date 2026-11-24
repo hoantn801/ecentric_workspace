@@ -232,5 +232,13 @@
   "category": "ADMINISTRATION",
   "legacy_template_name": "Đánh giá thử việc / thực tập / hợp đồng (HR Đợt 2)",
   "sort_order": 35
+ },
+ {
+  "approval_code": "KOL_ACCEPTANCE",
+  "approval_title": "BBNT hợp đồng KOL/KOC",
+  "category": "FINANCE_BUDGET",
+  "description": "Mỗi đợt nghiệm thu (BBNT) của hợp đồng KOL/KOC: Kế toán tổng hợp → Kế toán trưởng → CEO. Tạo từ thẻ KOL trên trang Hợp đồng.",
+  "legacy_template_name": "BBNT KOL/KOC (bảng con của hợp đồng, trước 24/11/2026)",
+  "sort_order": 86
  }
 ]
