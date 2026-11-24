@@ -169,7 +169,7 @@ class TestMarkers(unittest.TestCase):
         pm = _pm()
         b = pm.box_for({"page_index": 1, "x": 80, "y": 381.89, "font_size": 1,
                         "page_width": 595.28, "page_height": 841.89})
-        self.assertEqual((b["width"], b["height"]), (180.0, 60.0))
+        self.assertEqual((b["width"], b["height"]), (180.0, 100.0))   # 24/11: 60 -> 100pt
         self.assertAlmostEqual(b["y"] + b["height"], 381.89 - 1 - 2, places=1)
         self.assertEqual(b["x"], 80)
         b = pm.box_for({"page_index": 1, "x": 560, "y": 20, "font_size": 1,
