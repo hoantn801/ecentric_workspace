@@ -522,3 +522,4 @@ ecentric_workspace.hr.patches.p009_ngay_van_hoa_24_11
 ecentric_workspace.approval_center.patches.p545_resync_hop_dong_dinh_danh_doi_tac
 ecentric_workspace.host_qc.patches.p001_setup
 ecentric_workspace.approval_center.patches.p541_tao_bu_clearance_im_lang
+ecentric_workspace.approval_center.patches.p550_huong_dan_nhan_su_day_du

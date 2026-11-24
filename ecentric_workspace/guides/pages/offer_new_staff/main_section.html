@@ -12,9 +12,11 @@
   </div>
 
   <h1>Offer → New Staff Preparation</h1>
-  <div class="sub">Cập nhật 23/11/2026 · dành cho TA · Line Manager · CnB/HR · HOF · Operation · CEO</div>
+  <div class="sub">Cập nhật 24/11/2026 · dành cho HR tuyển dụng (TA) · Line Manager · CnB/HR · HOF · Operation · CEO</div>
 
   <p class="lead"><b>Mục đích:</b> duyệt thư mời nhận việc (Offer) theo đúng ngân sách tuyển dụng, rồi tự tạo phiếu chuẩn bị cho người mới (New Staff Preparation) để HR, Fin, Operation, CnB làm phần việc của mình trước ngày onboard.</p>
+
+  <div class="note">Đây là bước 3–5 của <a href="/huong-dan/tuyen-dung">Tuyển dụng từ A–Z</a> (từ Đề xuất tuyển dụng tới hết thử việc).</div>
 
   <h2>Sơ đồ luồng</h2>
   <figure class="ecg-flow" data-state="pending">
@@ -22,7 +24,7 @@
     <div class="ecg-flow-canvas" aria-live="polite">Đang tải sơ đồ…</div>
     <details class="ecg-flow-code"><summary>Xem sơ đồ dạng chữ</summary>
 <pre class="ecg-flow-src">flowchart TD
-  H["Hiring đã duyệt&lt;br/&gt;có mức lương đã duyệt"] --&gt; TA["TA tạo Offer"] --&gt; LM["Line Manager"]
+  H["Hiring đã duyệt&lt;br/&gt;có mức lương đã duyệt"] --&gt; TA["HR tuyển dụng tạo Offer"] --&gt; LM["Line Manager"]
   LM --&gt; CH["CnB/HR · 1 người duyệt"]
   CH --&gt; Q{"Lương offer cao hơn mức&lt;br/&gt;đã duyệt trên Hiring?"}
   Q --&gt;|"Không · bỏ qua HOF, ghi lịch sử"| CEO{"CEO"}
@@ -49,19 +51,20 @@
   <table class="ecg-steps">
     <thead><tr><th>Bước</th><th>Ai làm</th><th>Việc</th><th>Hạn</th><th>Hệ thống tự làm</th></tr></thead>
     <tbody>
-      <tr><td data-label="Bước">1</td><td data-label="Ai làm">TA</td><td data-label="Việc">Tạo Offer từ Hiring đã duyệt: lương, ngày onboard, ngày kết thúc thử việc</td><td data-label="Hạn" class="ecg-sla">—</td><td data-label="Hệ thống tự làm">Lấy Line Manager từ Hiring; so lương offer với mức đã duyệt</td></tr>
+      <tr><td data-label="Bước">1</td><td data-label="Ai làm">HR tuyển dụng (role EC Recruiter)</td><td data-label="Việc">Bấm <b>Tạo Offer</b> trên phiếu Hiring đã duyệt: lương offer, ngày onboard, ngày kết thúc thử việc, CV</td><td data-label="Hạn" class="ecg-sla">—</td><td data-label="Hệ thống tự làm">Lấy Line Manager từ Hiring; so lương offer với mức đã duyệt</td></tr>
       <tr><td data-label="Bước">2</td><td data-label="Ai làm">Line Manager</td><td data-label="Việc">Duyệt / Trả lại</td><td data-label="Hạn" class="ecg-sla">1 ngày làm việc</td><td data-label="Hệ thống tự làm">—</td></tr>
-      <tr><td data-label="Bước">3</td><td data-label="Ai làm">CnB/HR (một người trong nhóm)</td><td data-label="Việc">Duyệt / Trả lại</td><td data-label="Hạn" class="ecg-sla">1 ngày làm việc</td><td data-label="Hệ thống tự làm">Người gửi thuộc nhóm thì không tự duyệt được</td></tr>
+      <tr><td data-label="Bước">3</td><td data-label="Ai làm">CnB/HR (role EC CnB hoặc HR, một người)</td><td data-label="Việc">Duyệt / Trả lại</td><td data-label="Hạn" class="ecg-sla">1 ngày làm việc</td><td data-label="Hệ thống tự làm">Người gửi thuộc nhóm thì không tự duyệt được</td></tr>
       <tr><td data-label="Bước">4</td><td data-label="Ai làm">HOF</td><td data-label="Việc">Duyệt / Trả lại — <b>chỉ khi</b> lương offer cao hơn mức đã duyệt trên Hiring</td><td data-label="Hạn" class="ecg-sla">1 ngày làm việc</td><td data-label="Hệ thống tự làm">Lương không vượt: tự bỏ qua bước HOF, ghi lịch sử lý do. Thiếu dữ liệu so sánh: giữ bước HOF</td></tr>
       <tr><td data-label="Bước">5</td><td data-label="Ai làm">CEO</td><td data-label="Việc">Duyệt / Trả lại / Từ chối</td><td data-label="Hạn" class="ecg-sla">1 ngày làm việc</td><td data-label="Hệ thống tự làm">Duyệt xong: tự tạo New Staff Preparation</td></tr>
     </tbody>
   </table>
+  <div class="note">Tới lượt bạn duyệt, băng <b>Việc của bạn</b> ở đầu phiếu có sẵn nút <b>Duyệt</b> và <b>Trả lại</b> (= yêu cầu người gửi bổ sung). Phần <b>Tiến trình</b> hiện đủ các bước, kể cả các bước sau khi duyệt.</div>
 
   <h2>Các bước — New Staff Preparation</h2>
   <table class="ecg-steps">
     <thead><tr><th>Bước</th><th>Ai làm</th><th>Việc</th><th>Hạn</th><th>Hệ thống tự làm</th></tr></thead>
     <tbody>
-      <tr><td data-label="Bước">6</td><td data-label="Ai làm">HR (nhóm CnB/HR)</td><td data-label="Việc">Xác nhận phần HR, <b>chọn hồ sơ nhân viên</b> vừa tạo</td><td data-label="Hạn" class="ecg-sla">Trước ngày onboard 1 ngày làm việc</td><td data-label="Hệ thống tự làm">Ghi dòng Thử việc vào bảng hợp đồng trên hồ sơ (từ ngày onboard tới ngày kết thúc thử việc)</td></tr>
+      <tr><td data-label="Bước">6</td><td data-label="Ai làm">HR (nhóm CnB/HR)</td><td data-label="Việc">Xác nhận phần HR, <b>chọn hồ sơ nhân viên</b> vừa tạo</td><td data-label="Hạn" class="ecg-sla">Trước ngày onboard 1 ngày làm việc</td><td data-label="Hệ thống tự làm">Ghi vào hồ sơ: ngày vào làm, ngày hết thử việc, dòng Thử việc / Thực tập trong bảng hợp đồng. Offer không ghi ngày kết thúc thử việc: tạm tính 60 ngày (Điều 25), C&amp;B sửa nếu khác</td></tr>
       <tr><td data-label="Bước">6</td><td data-label="Ai làm">Fin (HOF)</td><td data-label="Việc">Xác nhận phần tài chính</td><td data-label="Hạn" class="ecg-sla">Trước ngày onboard 1 ngày làm việc</td><td data-label="Hệ thống tự làm">—</td></tr>
       <tr><td data-label="Bước">6</td><td data-label="Ai làm">Operation</td><td data-label="Việc">Máy tính, chỗ ngồi, thẻ, tài khoản</td><td data-label="Hạn" class="ecg-sla">Trước ngày onboard 1 ngày làm việc</td><td data-label="Hệ thống tự làm">—</td></tr>
       <tr><td data-label="Bước">6</td><td data-label="Ai làm">CnB</td><td data-label="Việc">Lương, bảo hiểm</td><td data-label="Hạn" class="ecg-sla">Trước ngày onboard 1 ngày làm việc</td><td data-label="Hệ thống tự làm">—</td></tr>
@@ -69,6 +72,16 @@
     </tbody>
   </table>
   <div class="note">Mỗi nhóm luôn có tối thiểu 2 ngày làm việc để làm phần của mình, kể cả khi ngày onboard gần.</div>
+
+  <h2>Ngày onboard</h2>
+  <table class="ecg-steps">
+    <thead><tr><th>Bước</th><th>Ai làm</th><th>Việc</th><th>Hạn</th><th>Hệ thống tự làm</th></tr></thead>
+    <tbody>
+      <tr><td data-label="Bước">7</td><td data-label="Ai làm">HR tuyển dụng (role EC Recruiter) hoặc người lập Offer</td><td data-label="Việc">Bấm <b>Sửa lời giới thiệu / ngày onboard</b> trên phiếu New Staff Preparation, nhập “Lời giới thiệu”</td><td data-label="Hạn" class="ecg-sla">Trước 10:00 ngày onboard</td><td data-label="Hệ thống tự làm">Đổi ngày onboard: báo các nhóm, ghi lịch sử</td></tr>
+      <tr><td data-label="Bước">8</td><td data-label="Ai làm">Hệ thống</td><td data-label="Việc">—</td><td data-label="Hạn" class="ecg-sla">Từ 08:30 ngày onboard</td><td data-label="Hệ thống tự làm">Popup chào mừng trên trang chủ</td></tr>
+      <tr><td data-label="Bước">9</td><td data-label="Ai làm">Hệ thống</td><td data-label="Việc">—</td><td data-label="Hạn" class="ecg-sla">10:00 ngày onboard</td><td data-label="Hệ thống tự làm">Thiệp “Chào mừng thành viên mới” đăng lên nhóm Teams eCentric Team; lỗi thì gửi bù 10:15, 10:30, 10:45</td></tr>
+    </tbody>
+  </table>
 
   <h2>Ai xem được</h2>
   <ul>
@@ -81,6 +94,7 @@
     <details><summary>Vì sao Offer của tôi không qua HOF?</summary><p>Vì lương offer không cao hơn mức đã duyệt trên Hiring. Lịch sử phiếu ghi rõ “bỏ qua HOF” và lý do.</p></details>
     <details><summary>Ứng viên từ chối sau khi CEO đã duyệt thì sao?</summary><p>Cập nhật Offer là ứng viên từ chối (hoặc huỷ Offer). Phiếu New Staff đang mở tự huỷ và các nhóm được báo.</p></details>
     <details><summary>Tôi ở nhóm HR, phải chọn hồ sơ nhân viên để làm gì?</summary><p>Để hệ thống ghi sẵn ngày thử việc vào hồ sơ. Đánh giá thử việc và khảo sát người mới về sau dựa vào ngày này — không ai phải nhập lại.</p></details>
+    <details><summary>Ai nhập lời giới thiệu cho thiệp chào mừng?</summary><p>HR tuyển dụng (role EC Recruiter) hoặc người lập Offer, trên phiếu New Staff Preparation, trước 10:00 ngày onboard. Thiếu lời giới thiệu thì thiệp vẫn đăng.</p></details>
     <details><summary>CEO có phải duyệt New Staff không?</summary><p>Không. CEO chỉ theo dõi: nhận thông báo khi tạo và khi xong, không có nút duyệt.</p></details>
   </div>
 
@@ -96,7 +110,7 @@
     <a class="backbtn" href="/approvals">Approval Center</a>
   </div>
 
-  <footer>eCentric · Hướng dẫn nội bộ — cập nhật 23/11/2026. Thấy hướng dẫn chưa đúng với hệ thống, báo bộ phận Hệ thống.</footer>
+  <footer>eCentric · Hướng dẫn nội bộ — cập nhật 24/11/2026. Thấy hướng dẫn chưa đúng với hệ thống, báo bộ phận Hệ thống.</footer>
 </article>
 </div>
 </main></div>

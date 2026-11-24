@@ -214,12 +214,15 @@ def make_frappe(w):
 def make_engine(w, fr):
     e = types.ModuleType("engine")
 
-    def submit(dt, name, atype, requester):
+    def submit(dt, name, atype, requester, skip_level_nos=None, skip_reason=None):
+        # 24/11/2026: engine.submit nhan them skip_level_nos / skip_reason (Offer V2 bo cap HOF co dieu kien).
         if name in w.fail_submit_for:
             raise Err("Nhom Operation chua co ai")
         ar = w.add("EC Approval Request", reference_doctype=dt, reference_name=name, approval_type=atype,
                    requested_by=requester, approval_status="Pending", current_level=1)
         w.calls.append(("submit", dt, name, requester))
+        if skip_level_nos:
+            w.calls.append(("skip_levels", name, tuple(skip_level_nos), skip_reason))
         return ar
     e.submit = submit
     e.resubmit = lambda req, actor=None, restart=False: w.calls.append(("resubmit", req, restart))
@@ -233,6 +236,16 @@ def make_engine(w, fr):
     e.is_active_process_fulfiller = lambda atype, user=None: "EC Recruiter" in w.roles.get(user, ())
     e.request_label = lambda dt, name, atype=None: name
     return e
+
+
+def _module_const(path, name):
+    import ast
+    with open(path, encoding="utf-8") as fh:
+        tree = ast.parse(fh.read())
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(getattr(t, "id", None) == name for t in node.targets):
+            return node.value.value
+    raise AssertionError("khong thay hang so %s trong %s" % (name, path))
 
 
 def _load(path, name, mods):
@@ -273,6 +286,30 @@ def env():
     mods["hiring"] = _load(os.path.join(_FEAT, "hiring_request", "application", "service.py"),
                            "ecentric_workspace.approval_center.features.hiring_request.application.service", mods)
     sys.modules["ecentric_workspace.approval_center.features.hiring_request.application"].service = mods["hiring"]
+    # 24/11/2026 (harness bat kip Offer V2 23/11): service Offer import domain.hof_rule (ham thuan - nap
+    # code THAT) va infrastructure.setup_v2.HOF_LEVEL_NAME (module do keo process_seed -> chi doc HANG SO
+    # bang AST tu file that, khong chep tay ten cap). NSP dat han qua shared.sla_ngay_lam_viec: nap code
+    # that cho phep tinh ngay lam viec, chi thay hai ham cham DB (ngay_le, dat_han_cap).
+    for p in ("ecentric_workspace.approval_center.features.offer_request.domain",
+              "ecentric_workspace.approval_center.features.offer_request.infrastructure"):
+        sys.modules[p] = types.ModuleType(p)
+    _load(os.path.join(_FEAT, "offer_request", "domain", "hof_rule.py"),
+          "ecentric_workspace.approval_center.features.offer_request.domain.hof_rule", mods)
+    sv2 = types.ModuleType("setup_v2")
+    sv2.HOF_LEVEL_NAME = _module_const(os.path.join(_FEAT, "offer_request", "infrastructure", "setup_v2.py"),
+                                       "HOF_LEVEL_NAME")
+    sys.modules["ecentric_workspace.approval_center.features.offer_request.infrastructure.setup_v2"] = sv2
+    sys.modules["ecentric_workspace.approval_center.features.new_staff_preparation.infrastructure"] = \
+        types.ModuleType("nsp_infra")
+    nsv2 = types.ModuleType("nsp_setup_v2")
+    nsv2.HR_GROUP = _module_const(os.path.join(_FEAT, "new_staff_preparation", "infrastructure", "setup_v2.py"),
+                                  "HR_GROUP")
+    sys.modules["ecentric_workspace.approval_center.features.new_staff_preparation.infrastructure.setup_v2"] = nsv2
+    sla = _load(os.path.join(_ROOT, "approval_center", "shared", "sla_ngay_lam_viec.py"),
+                "ecentric_workspace.approval_center.shared.sla_ngay_lam_viec", mods)
+    sla.ngay_le = lambda: ()
+    sla.dat_han_cap = lambda req, lvl, han, gio="18:00:00": w.calls.append(("dat_han", req, lvl, han))
+    sys.modules["ecentric_workspace.approval_center.shared"].sla_ngay_lam_viec = sla
     mods["offer"] = _load(os.path.join(_FEAT, "offer_request", "application", "service.py"),
                           "ecentric_workspace.approval_center.features.offer_request.application.service", mods)
     mods["nsp"] = _load(os.path.join(_FEAT, "new_staff_preparation", "application", "service.py"),
@@ -385,7 +422,8 @@ def _offer_draft(w, h, user=REC, **kw):
     d = w.fr.new_doc("EC Offer Request")
     d.update(dict(hiring_request=h, requested_by=user, candidate_name="Nguyen Van A",
                   onboard_date="2026-10-10", probation_end_date="2027-01-10", mobile_phone="0900",
-                  compensation="15.000.000 VND", resume="/private/files/cv.pdf"), **kw)
+                  compensation="15.000.000 VND", offered_salary=15000000,
+                  resume="/private/files/cv.pdf"), **kw)
     return d
 
 
@@ -469,6 +507,52 @@ def test_offer_duyet_xong_tao_nsp_o_nen_sau_commit(env):
     assert not any(c[0] == "notify" and "15.000.000" in str(c) for c in w.calls)   # luong khong vao thong bao
 
 
+def _offer_v2_process(w, mandatory=0):
+    w.tbl("EC Approval Process")["OFFER_REQUEST-V2"] = Obj(name="OFFER_REQUEST-V2", approval_type="OFFER_REQUEST",
+                                                          status="Active")
+    w.add("EC Approval Level", approval_process="OFFER_REQUEST-V2", level_no=3, mandatory=mandatory,
+          level_name=sys.modules[
+              "ecentric_workspace.approval_center.features.offer_request.infrastructure.setup_v2"].HOF_LEVEL_NAME)
+
+
+@pytest.mark.parametrize("offered,muc,bo", [(15000000, 20000000, True), (20000000, 20000000, True),
+                                            (25000000, 20000000, False), (15000000, None, False)])
+def test_offer_v2_hof_chi_khi_luong_vuot_muc_hiring(env, offered, muc, bo):
+    """24/11/2026: luat Offer V2 qua service that - luong <= muc Hiring thi bo cap HOF (co ly do ghi lich su);
+    vuot muc hoac Hiring khong co muc -> giu HOF."""
+    w = env
+    _offer_v2_process(w)
+    h = _hiring(w)
+    w.tbl("EC Hiring Request")[h]["suggested_salary"] = muc
+    o = _saved_offer(w, h, offered_salary=offered)
+    w.m["offer"].submit(o)
+    row = w.tbl("EC Offer Request")[o]
+    skips = [c for c in w.calls if c[0] == "skip_levels"]
+    assert row["hof_skipped"] == (1 if bo else 0) and row["hof_rule_note"]
+    assert (skips == [("skip_levels", o, (3,), "Offer V2: " + row["hof_rule_note"])]) if bo else not skips
+
+
+def test_offer_v2_luong_am_hoac_0_bi_chan(env):
+    w = env
+    h = _hiring(w)
+    for v in (0, -1):
+        o = _saved_offer(w, h, offered_salary=v)
+        with pytest.raises(Err) as e:
+            w.m["offer"].submit(o)
+        assert "Lương offer" in str(e.value)
+
+
+def test_offer_cap_hof_bat_buoc_thi_khong_bo(env):
+    w = env
+    _offer_v2_process(w, mandatory=1)
+    h = _hiring(w)
+    w.tbl("EC Hiring Request")[h]["suggested_salary"] = 99000000
+    o = _saved_offer(w, h)
+    w.m["offer"].submit(o)
+    assert w.tbl("EC Offer Request")[o]["hof_skipped"] == 0
+    assert not [c for c in w.calls if c[0] == "skip_levels"]
+
+
 # ============================== NEW STAFF PREPARATION ==============================
 def _approved_offer(w):
     h = _hiring(w)
@@ -498,6 +582,17 @@ def test_tao_tu_offer_chep_du_khong_co_luong_va_idempotent(env):
     assert w.m["nsp"].create_from_offer(o) == n                     # chay lai: khong tao them
     assert len(w.tbl("EC New Staff Preparation")) == so_nsp
     assert len([c for c in w.calls if c[0] == "submit" and c[1] == "EC New Staff Preparation"]) == 1
+    # Han cac nhom (23/11): truoc ngay onboard 1 ngay lam viec, toi thieu 2 ngay lam viec tu hom nay.
+    # Hom nay T5 01/10, onboard T7 10/10 -> han T6 09/10 (cap 1 = muc "Chuan bi onboard").
+    assert ("dat_han", nsp["approval_request"], 1, _dt.date(2026, 10, 9)) in w.calls
+
+
+def test_han_chuan_bi_toi_thieu_2_ngay_lam_viec(env):
+    w = env
+    f = w.m["nsp"].han_chuan_bi
+    assert f("2026-10-02", _dt.date(2026, 10, 1)) == _dt.date(2026, 10, 5)      # onboard sat ngay -> T2 05/10
+    assert f(None, _dt.date(2026, 10, 1)) == _dt.date(2026, 10, 5)
+    assert f("2026-10-20", _dt.date(2026, 10, 1)) == _dt.date(2026, 10, 19)
 
 
 def test_tao_nsp_hong_thi_rollback_ghi_loi_bao_hr(env):
@@ -603,7 +698,8 @@ def test_teams_10h_gui_mot_lan_va_ghi_ket_qua(env):
     assert w.m["welcome"].send_welcome_teams()["sent"] == 1
     card = posted[0][1]["attachments"][0]["content"]
     txt = json.dumps(card, ensure_ascii=False)
-    assert "NGUYEN VAN A" in txt and "Em la A" in txt and "Data Intern" in txt
+    # 9666d4fa: thiep theo mau HR - giu nguyen cach viet ten (khong UPPER).
+    assert "Nguyen Van A" in txt and "NGUYEN VAN A" not in txt and "Em la A" in txt and "Data Intern" in txt
     row = w.tbl("EC New Staff Preparation")[n]
     assert row["welcome_teams_sent_at"] and row["welcome_teams_result"].startswith("OK")
     assert w.m["welcome"].send_welcome_teams() == {"sent": 0}           # khong gui lan 2
