@@ -1015,6 +1015,7 @@ class TestProviderCancelRevision(unittest.TestCase):
         g = {"frappe": types.SimpleNamespace(db=types.SimpleNamespace(
                 count=lambda dt, f: 0), session=types.SimpleNamespace(user="x")),
              "DSR": "DSR", "SOURCE_SM": "sm", "ProviderError": Exception,
+             "STRICT_ANY_SIGNED": ("EC Contract Review Request",),     # PR-J
              "_pkg": lambda n: pkg, "_check_pkg": lambda p, a: None,
              "_ar": lambda n: _D(approval_status="Information Required"),
              "_settings": lambda p, e: {"integration_enabled": 1},

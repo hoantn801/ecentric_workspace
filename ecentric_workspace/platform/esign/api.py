@@ -139,6 +139,82 @@ def upload_package_file(business_doctype, business_name, requires_signature=0,
     return {"package": pkg.name, "file_row": row.name, "sha256": row.sha256}
 
 
+DOCX_MIME_EXT = ".docx"
+
+
+@frappe.whitelist(methods=["POST"])
+def convert_business_docx_to_pdf(business_doctype, business_name, file_url):
+    """PR-J (24/11/2026): chuyen mot tep .docx DINH KEM phieu -> PDF (Microsoft Graph, phia server)
+    va dinh kem PDF (rieng tu) vao CHINH phieu do. Tra {file_url, file_name}.
+
+    Dung chung cho moi loai phieu da cau hinh ky so (khong co code rieng cho hop dong): nghiep vu
+    goi ham nay voi tep sinh tu mau, roi tu dua PDF vao goi ky (vd kol_attach_sign_pdf +
+    auto_place). Chi NGUOI TAO phieu / SM. Tep phai dinh kem dung phieu nay - khong doc duoc tep
+    cua phieu khac qua day. KHONG dong vao goi ky / cong ky."""
+    for v in (business_doctype, business_name, file_url):
+        if not isinstance(v, str) or not v.strip():
+            frappe.throw(_("Tham số không hợp lệ."))
+    business_doctype, business_name = _target(business_doctype=business_doctype,
+                                              business_name=business_name)
+    perms.assert_requester(business_doctype, business_name)
+    from ecentric_workspace.platform.esign import ratelimit
+    ratelimit.hit("docx_to_pdf", limit=10, window_s=60)      # vuot -> tu nem loi
+    file_url = file_url.strip()
+    if not (file_url.startswith("/private/files/") or file_url.startswith("/files/")):
+        frappe.throw(_("Đường dẫn tệp không hợp lệ."))
+    ar = perms.business_approval_request(business_doctype, business_name)
+    if ar and frappe.db.get_value("EC Approval Request", ar, "approval_status") in (
+            "Approved", "Rejected", "Cancelled"):
+        frappe.throw(_("Phiếu đã kết thúc - không tạo bản PDF mới."))
+    f = frappe.db.get_value("File", {"file_url": file_url, "attached_to_doctype": business_doctype,
+                                     "attached_to_name": business_name, "is_folder": 0},
+                            ["name", "file_name", "file_url", "file_size"], as_dict=True)
+    if not f:
+        frappe.throw(_("Không tìm thấy tệp này trong phần đính kèm của phiếu."))
+    ten = (f.file_name or f.file_url or "").strip()
+    if not ten.lower().endswith(DOCX_MIME_EXT):
+        frappe.throw(_("Chỉ chuyển được tệp Word .docx."))
+    from ecentric_workspace.platform import docconvert
+    # QC PR-J M2: kiem kich thuoc TRUOC khi doc tep vao bo nho.
+    if int(f.file_size or 0) > docconvert.MAX_BYTES:
+        frappe.throw(_("Tệp Word quá lớn để chuyển PDF (tối đa 10 MB)."))
+    # Mot lan chuyen / phieu tai mot thoi diem (khong de nhieu worker cung bi giu).
+    lock_key = "esign:docx_to_pdf:%s:%s" % (business_doctype, business_name)
+    try:
+        locked = frappe.cache().set(lock_key, "1", nx=True, ex=docconvert.DEADLINE_SECONDS + 30)
+    except Exception:
+        locked = True
+    if not locked:
+        frappe.throw(_("Phiếu này đang được chuyển PDF - đợi khoảng một phút rồi thử lại."))
+    try:
+        content = frappe.get_doc("File", f.name).get_content()
+        if isinstance(content, str):
+            content = content.encode("utf-8")
+        try:
+            pdf = docconvert.docx_to_pdf(content, ten)
+        except docconvert.ConvertError as e:
+            frappe.throw(str(e))
+    finally:
+        try:
+            frappe.cache().delete(lock_key)
+        except Exception:
+            pass
+    goc = ten.rsplit("/", 1)[-1]
+    pdf_name = goc[:-len(DOCX_MIME_EXT)] + ".pdf"
+    new = frappe.get_doc({
+        "doctype": "File", "file_name": pdf_name, "is_private": 1,
+        "attached_to_doctype": business_doctype, "attached_to_name": business_name,
+        "content": pdf,
+    }).insert(ignore_permissions=True)
+    try:
+        # Vet nhin thay tren phieu (auditability) - khong ghi noi dung tep.
+        frappe.get_doc(business_doctype, business_name).add_comment(
+            "Info", _("Đã tạo bản PDF {0} từ {1}.").format(new.file_name, goc))
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "convert_business_docx_to_pdf comment")
+    return {"file_url": new.file_url, "file_name": new.file_name}
+
+
 @frappe.whitelist(methods=["POST"])
 def set_file_flags(dsf_name, requires_signature=None, is_supporting_document=None,
                    share_with_partner=None, file_kind=None):
@@ -285,14 +361,15 @@ def authorize_resend(dsr_name, reason):
     dsr = frappe.db.get_value("EC Digital Signature Request", dsr_name, "*", as_dict=True)
     if not dsr:
         frappe.throw(_("Không tìm thấy chân ký."))
-    if dsr.action == "Approve":
-        # Buoc duyet KHONG KY (12/11/2026): phep kiem duoi day doc CHU KY - vo nghia o day.
-        # Chan nay dung "Doi soat" (kiem buoc tren cong). Gui lai buoc khong ky: chua lam.
-        frappe.throw(_("Chân duyệt không ký trên cổng: dùng 'Đối soát' (kiểm bước trên cổng), "
-                       "không dùng 'Gửi lại'."))
     if dsr.status != "Manual Review":
         frappe.throw(_("Chỉ gửi lại được chân ký đang ở Manual Review (hiện: {0}).")
                      .format(dsr.status))
+    if dsr.action == "Approve":
+        # Buoc duyet KHONG KY / buoc nguoi lap tren cong (PR-J 24/11/2026). Phep kiem chu ky ben
+        # duoi vo nghia; chot an toan la CANH CUA BUOC NAY CON MO tren cong ngay luc nay: lenh
+        # truoc (neu da toi) thi cong da roi buoc, canh da dong -> tu choi. Vu that: tao tai lieu
+        # mo ho (500) roi tao duoc -> chan nguoi lap ket "co the da gui" du chua gui -2 lan nao.
+        return _authorize_portal_resend(dsr, ly_do)
     pkg = frappe.db.get_value("EC Digital Signature Package", dsr.package,
                               ["scts_document_id", "status"], as_dict=True)
     if not pkg or not pkg.scts_document_id:
@@ -325,6 +402,59 @@ def authorize_resend(dsr_name, reason):
                               "nha_cung_cap_noi": ly_do_nha_cung_cap,
                               "attempt_truoc": int(dsr.request_attempt or 1)})
     return svc.retry_signature_request(dsr_name)
+
+
+#: Phut toi thieu ke tu lan thu cuoi truoc khi cho gui lai buoc cong (QC PR-J).
+PORTAL_RESEND_MIN_AGE = 10
+
+
+def _authorize_portal_resend(dsr, ly_do):
+    """Gui lai CO KIEM cho chan duyet khong ky / buoc nguoi lap (ho so lay buoc tu cong). Chi khi:
+    goi co tai lieu, ho so bat 'Lay buoc tu cong', doc duoc buoc cong, va ke hoach cho chan nay la
+    'transition' (canh cua no DANG MO). Moi ket qua khac -> tu choi, khong doan."""
+    pkg = frappe.db.get_value("EC Digital Signature Package", dsr.package,
+                              ["scts_document_id", "status", "profile"], as_dict=True)
+    if not pkg or not pkg.scts_document_id:
+        frappe.throw(_("Gói chưa có tài liệu bên nhà cung cấp - không có gì để gửi lại."))
+    if not int(frappe.db.get_value("EC Digital Signature Profile", pkg.profile,
+                                   "trust_portal_transitions") or 0):
+        frappe.throw(_("Hồ sơ ký không lấy bước từ cổng - chân này dùng 'Đối soát'."))
+    # QC PR-J: lenh mo ho truoc co the con dang chay ben cong - doi it nhat PORTAL_RESEND_MIN_AGE
+    # phut ke tu lan thu / lan doi trang thai cuoi.
+    from frappe.utils import add_to_date, get_datetime, now_datetime
+    last = dsr.get("accepted_at") or dsr.get("modified")
+    if last and get_datetime(last) > add_to_date(now_datetime(),
+                                                 minutes=-PORTAL_RESEND_MIN_AGE):
+        frappe.throw(_("Chân này vừa thử cách đây chưa tới {0} phút - đợi thêm rồi gửi lại.")
+                     .format(PORTAL_RESEND_MIN_AGE))
+    settings = _settings_of(dsr)
+    from ecentric_workspace.platform.esign import next_handler
+    from ecentric_workspace.platform.esign.package import workflow_instance_id
+    from ecentric_workspace.platform.esign.providers import get_adapter
+    adapter = get_adapter(settings)
+    state, why = adapter.workflow_state_for_document(pkg.scts_document_id,
+                                                     dsr.effective_scts_user_id)
+    if state is None:
+        frappe.throw(_("Không đọc được bước trên cổng ({0}) - không gửi lại.").format(why))
+    cur = str(state.get("current_state_id") or "")
+    before = str(dsr.get("provider_state_before") or "").partition("|")[0]
+    if before and cur and before != cur:
+        frappe.throw(_("Cổng đã rời bước {0} (đang ở {1}) - lệnh trước có thể đã chạy. Dùng "
+                       "'Đối soát'.").format(before, cur))
+    plan = next_handler.plan_portal_step(dsr, state, pkg.profile, settings.get("environment"),
+                                         adapter=adapter,
+                                         instance_id=workflow_instance_id(dsr.package)
+                                         or pkg.scts_document_id)
+    if plan.get("mode") != "transition":
+        frappe.throw(_("Bước của chân này không đang mở trên cổng ({0}) - không gửi lại.")
+                     .format(plan.get("reason") or plan.get("mode")))
+    frappe.db.set_value("EC Digital Signature Request", dsr.name, "resend_authorized", 1)
+    events.emit("ResendAuthorized", signature_request=dsr.name, package=dsr.package,
+                request_meta={"boi": frappe.session.user, "ly_do": ly_do,
+                              "loai": "portal_step", "current_state_id": cur,
+                              "transition_id": (plan.get("config") or {}).get("transition_id"),
+                              "attempt_truoc": int(dsr.request_attempt or 1)})
+    return svc.retry_signature_request(dsr.name)
 
 
 @frappe.whitelist(methods=["POST"])

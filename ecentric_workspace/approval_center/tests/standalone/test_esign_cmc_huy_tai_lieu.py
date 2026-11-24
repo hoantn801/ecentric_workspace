@@ -315,8 +315,9 @@ class TestCancelOne(Base):
             self.assertEqual(r["result"], "stop", st)
             self.assertEqual((w["cancels"], w["writes"], w["polls"]), ([], [], []))
 
-    def test_chi_payment_request(self):
-        m, w = self.mk(bdt="EC Contract Review Request")
+    def test_chi_loai_phieu_trong_danh_sach(self):
+        # PR-J (24/11): hop dong da vao AUTO_DOCTYPES; loai khac van khong.
+        m, w = self.mk(bdt="EC Leave Request")
         self.assertTrue(m.cancel_one("PKG-1", dry_run=False)["reason"].startswith(
             "doctype_not_enabled"))
         self.assertEqual(w["polls"], [])
@@ -488,8 +489,10 @@ class TestSweep(Base):
         self.assertEqual(len(w["cancels"]), 1)
         self.assertEqual(w["ar_filters"][0]["completed_at"], [">=", m.AUTO_SINCE],
                          "cron loc theo completed_at (khong phai modified)")
-        self.assertEqual(w["ar_filters"][0]["reference_doctype"], ["in", ["EC Payment Request"]])
-        self.assertEqual(w["pkg_filters"][0]["business_doctype"], ["in", ["EC Payment Request"]])
+        # PR-J: loc tung loai phieu (moc rieng theo loai) - DNTT van la loai dau, moc cu.
+        self.assertEqual(w["ar_filters"][0]["reference_doctype"], "EC Payment Request")
+        self.assertEqual(w["pkg_filters"][0]["business_doctype"],
+                         ["in", ["EC Payment Request", "EC Contract Review Request"]])
 
     def test_toi_da_lenh_gui_va_khoang_cach(self):
         m, w = self.mk(tries=[NOW - datetime.timedelta(hours=h) for h in range(1, 4)])
