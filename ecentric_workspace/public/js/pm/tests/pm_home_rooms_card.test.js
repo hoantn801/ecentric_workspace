@@ -58,7 +58,7 @@ const okReply = data => () => Promise.resolve({ ok: true, status: 200, json: () 
   ok("khung giữ chỗ: 5 dòng xương trong markup, aria-busy", list.children.length === 5 && list.querySelectorAll(".ec2-rm-sk").length === 5 && list.getAttribute("aria-busy") === "true");
   const a0 = PAGE.indexOf('<div class="panel ec2-rooms" data-ec-rooms'), seg = PAGE.slice(a0, PAGE.indexOf("Chính sách & Quy định", a0));
   ok("phần thêm không có {{ {% {# và không có <script|style id=ec-…>", a0 > 0 && !/\{\{|\{%|\{#/.test(seg) && !/<(script|style)\b/.test(seg));
-  ok("CSS card nằm trong stylesheet trang, cạnh khối .ec2-col; dòng thật = dòng xương = 38px", /\.ecentric-app \.ec2-col \.quick-grid\{grid-template-columns:repeat\(4,1fr\)\}\n  \/\* ---- v2: card Phong hop/.test(PAGE) && /\.ec2-rm-list>li\{height:38px/.test(PAGE));
+  ok("CSS card nằm trong stylesheet trang, cạnh khối .ec2-col; dòng thật = dòng xương = 54px, bỏ thanh 08–19", /\.ecentric-app \.ec2-col \.quick-grid\{grid-template-columns:repeat\(4,1fr\)\}\r?\n  \/\* ---- v2: card Phong hop/.test(PAGE) && /\.ec2-rm-list>li\{min-height:54px/.test(PAGE) && !/ec2-rm-foot|ec2-rm-bar/.test(PAGE));
   await flush(); await new Promise(r => setTimeout(r, 450)); await flush();
   ok("gọi rooms.day bằng POST một lần", B.calls.filter(c => /rooms\.day$/.test(c.url)).length === 1 && B.calls.find(c => /rooms\.day$/.test(c.url)).method === "POST");
   ok("widget Lịch hôm nay vẫn tải như cũ (schedule.today)", B.calls.some(c => /schedule\.today$/.test(c.url)));
@@ -69,17 +69,33 @@ const okReply = data => () => Promise.resolve({ ok: true, status: 200, json: () 
   const c2 = B.d.querySelector("[data-ec-rooms]"), rows = Array.from(c2.querySelectorAll(".ec2-rm-row"));
   const st = r => r.querySelector(".ec2-rm-st");
   ok("5 dòng (bằng số dòng xương, không nhảy), mã mono + tên", rows.length === 5 && c2.querySelector("[data-ec-rooms-list]").children.length === 5 && rows[0].querySelector(".ec2-rm-code").textContent === "5.1" && rows[0].querySelector(".ec2-rm-name").textContent === "Phong");
-  ok("Phong: Bận đến 11:00 (gộp lịch liền nhau), đỏ", st(rows[0]).textContent === "Bận đến 11:00" && st(rows[0]).classList.contains("ec2-rm-st--busy"));
-  ok("Hoả: Trống đến 11:00, xanh", st(rows[1]).textContent === "Trống đến 11:00" && st(rows[1]).classList.contains("ec2-rm-st--free"));
-  ok("Thổ: ≤30 phút nữa có người → cam", st(rows[2]).textContent === "Trống đến 10:30" && st(rows[2]).classList.contains("ec2-rm-st--soon"));
+  ok("Phong: đang họp, gộp lịch liền nhau → còn 45', đỏ", st(rows[0]).textContent === "Đang họp · còn 45'" && st(rows[0]).classList.contains("ec2-rm-st--busy"));
+  const sub = r => r.querySelector(".ec2-rm-sub").textContent;
+  ok("Phong: dòng phụ = cuộc họp đang diễn ra", sub(rows[0]) === "A · 09:30–10:30");
+  ok("Hoả: Trống đến 11:00, xanh + dòng phụ lịch kế tiếp", st(rows[1]).textContent === "Trống đến 11:00" && st(rows[1]).classList.contains("ec2-rm-st--free") && sub(rows[1]) === "tiếp theo 11:00–12:00 · D");
+  ok("Thổ: ≤30 phút nữa có người → Sắp họp, cam", st(rows[2]).textContent === "Sắp họp 10:30" && st(rows[2]).classList.contains("ec2-rm-st--soon"));
   ok("Thuỷ (ROOM_NOT_FOUND): Chưa kết nối, không vỡ", st(rows[3]).textContent === "Chưa kết nối" && st(rows[3]).classList.contains("ec2-rm-st--off"));
-  ok("Cabin: Trống cả ngày", st(rows[4]).textContent === "Trống cả ngày");
+  ok("Cabin: Trống cả ngày + không có lịch hôm nay", st(rows[4]).textContent === "Trống cả ngày" && sub(rows[4]) === "không có lịch hôm nay");
   ok("badge: 3/5 trống", c2.querySelector("[data-ec-rooms-badge]").textContent === "3/5 trống");
-  ok("thanh 08–19: khối đã đặt + khối đang diễn ra đỏ + vạch giờ hiện tại", rows[0].querySelectorAll(".ec2-rm-bar i").length === 3 && rows[0].querySelectorAll(".ec2-rm-bar i.ec2-rm-cur").length === 1 && rows[0].querySelector(".ec2-rm-bar b") && /left:20.4/.test(rows[0].querySelector(".ec2-rm-bar b").getAttribute("style")));
   ok("bấm dòng → /pm#rooms (chỉ xem, không có nút đặt)", rows.every(r => r.getAttribute("href") === "/pm#rooms") && !c2.querySelector("button"));
   ok("esc tên phòng từ server", !rows[2].querySelector(".ec2-rm-name b") && rows[2].querySelector(".ec2-rm-name").textContent === "Th<b>ổ</b>");
   ok("tự làm mới mỗi 60 s (bỏ qua khi tab ẩn)", B.ivs.length === 1 && (() => { const n = B.calls.length; B.ivs[0](); return B.calls.length === n + 1; })());
   ok("không lỗi console", B.errors.length === 0, B.errors.join(" | "));
+  B.w.close();
+
+  /* ---------- 24/11 phương án A: chia tầng, số chỗ, lịch của bạn */
+  const dF = day();
+  dF.rooms[0].floor = "Lầu 5"; dF.rooms[1].floor = "Lầu 1"; dF.rooms[2].floor = "Lầu 1"; dF.rooms[3].floor = "Lầu 1"; dF.rooms[4].floor = "Lầu 5";
+  dF.rooms[1].capacity = 8;
+  dF.rooms[4].bookings = [Object.assign(bk("14:00", "14:30", "Hoàn"), { mine: true })];
+  dF.rooms[0].bookings = [Object.assign(bk("10:00", "10:30", "Hoàn"), { mine: true })];
+  B = boot(okReply(dF)); await flush();
+  const lF = B.d.querySelector("[data-ec-rooms-list]"), fl = Array.from(lF.querySelectorAll(".ec2-rm-floor")).map(x => x.textContent);
+  const rF = Array.from(lF.querySelectorAll(".ec2-rm-row"));
+  ok("chia theo tầng: Lầu 1 (1.1, 1.2, 1.3) rồi Lầu 5 (5.1, 5.2)", fl.join("|") === "Lầu 1|Lầu 5" && rF.map(r => r.querySelector(".ec2-rm-code").textContent).join(",") === "1.1,1.2,1.3,5.1,5.2");
+  ok("số chỗ ở dòng phụ", rF[0].querySelector(".ec2-rm-sub").textContent.indexOf("8 chỗ · ") === 0);
+  ok("đang họp lịch của bạn → 'Bạn đang họp' màu navy", rF[3].querySelector(".ec2-rm-st").textContent === "Bạn đang họp" && rF[3].querySelector(".ec2-rm-st").classList.contains("ec2-rm-st--mine"));
+  ok("lịch kế tiếp của bạn → 'Bạn đặt 14:00' + dòng phụ ghi Bạn", rF[4].querySelector(".ec2-rm-st").textContent === "Bạn đặt 14:00" && /14:00–14:30 · Bạn$/.test(rF[4].querySelector(".ec2-rm-sub").textContent));
   B.w.close();
 
   /* ---------- QC 05/11: quay lại tab sau khi ẩn lâu -> tải lại ngay (không đợi tới 60 s); lỗi thoáng qua sau khi đã có dữ liệu
