@@ -248,6 +248,74 @@ def _external_handlers_payload(rows):
     return out
 
 
+#: Tieu de vung ky doi tac tren mau CMC (WF09, doc ConvertPdfFile 24/11/2026).
+PARTNER_AREA_TITLE = "Đối tác ký"
+PARTNER_MARKER = "KY_BEN_B"
+
+
+def _signature_entry(area, page_index, x, y_top, width, height, page_height):
+    """Mot muc Signatures[] cua AddDocument tu hinh hoc ERP (goc TREN-trai, point) - dung cho
+    o ky DOI TAC. Phai GIONG HET muc cua o ky ERP dung trong create_document (test kiem).
+
+    SCTS dung toa do PDF (goc DUOI-trai): y_pdf = page_h - y_top - h, roi doi don vi qua
+    `to_provider_box`. KHONG doan chieu cao trang (A4 842 vs Letter 792 lech 50 diem)."""
+    if not page_height:
+        raise ProviderError(
+            "scts_page_height_unknown",
+            "khong doc duoc chieu cao trang %s - khong dat duoc vi tri chu ky chinh xac"
+            % page_index, retryable=False)
+    page_h = float(page_height)
+    x = float(x or 0)
+    h = float(height or 0)
+    y_pdf = max(0.0, page_h - float(y_top or 0) - h)
+    # Doi sang he don vi ma SCTS THUC SU dung - xem `to_provider_box`.
+    bx = to_provider_box(x, y_pdf, float(width or 0), h)
+    return {
+        "signatureId": area.get("signatureId"),
+        "title": area.get("title"),
+        "role": area.get("role") or "",
+        "signatureType": "position",
+        "keyword": "",
+        "margin": 0,
+        "canBeSigned": True,
+        "added": 1,
+        "isPlaced": True,
+        "pageIndex": int(page_index or 1),
+        "x": bx["x"], "y": bx["y"],
+        "Llx": bx["x"], "Lly": bx["y"],
+        "Width": bx["w"],
+        "Height": bx["h"],
+    }
+
+
+def _partner_box(content, reasons=None):
+    """O ky doi tac theo moc [[KY_BEN_B]], he toa do chuan (goc tren-trai, point) +
+    page_height. None neu khong co moc dung duoc.
+
+    Nhieu moc -> lay moc DAU TIEN (trang nho nhat, roi tren cung) - CUNG luat voi
+    [[KY_BEN_A]] cua placement_service.auto_place (QC 24/11: hai ben phai ky cung mot khoi ky).
+    `reasons` (list, tuy chon): them ly do moc bi bo (trang xoay, vi tri khong tin duoc) de
+    cau bao loi noi ro thay vi "khong co moc"."""
+    from ecentric_workspace.platform.esign import pdf_markers
+    try:
+        a = pdf_markers.analyze(bytes(content or b""))
+    except Exception:
+        if reasons is not None:
+            reasons.append("khong doc duoc PDF")
+        return None
+    if reasons is not None:
+        for s in (a.get("skipped") or []):
+            if s.get("name") == PARTNER_MARKER:
+                reasons.append("trang %s: %s" % (s.get("page_index"), s.get("reason")))
+    marks = [m for m in (a.get("markers") or []) if m.get("name") == PARTNER_MARKER]
+    if not marks:
+        return None
+    m = sorted(marks, key=lambda k: (int(k.get("page_index") or 0), float(k.get("y") or 0)))[0]
+    box = pdf_markers.box_for(m)
+    box["page_height"] = m.get("page_height")
+    return box
+
+
 class SctsAdapter(SignatureProviderAdapter):
     def __init__(self, settings, transport=None, sleeper=None):
         super().__init__(settings)
@@ -1037,6 +1105,11 @@ class SctsAdapter(SignatureProviderAdapter):
         reconcile, never blind-recreate."""
         files = package_ctx.get("files") or []
         placements = package_ctx.get("placements") or []
+        # Doi tac ky ngoai (PR-D, 22/11): chi khi ho so bat allow_external_signers va nghiep
+        # vu cung cap (ec_esign_external_handlers). Khoa = dung khoa cong gui (add-document.js).
+        # PR-F 23/11: kieu ky tinh luot (eKYC...) phai con luot TRUOC khi tao tai lieu.
+        handlers = _external_handlers_payload(package_ctx.get("external_handlers"))
+        has_partner = bool(handlers)
         # eContract: Signatures are nested INSIDE each Documents[] entry, and EVERY signature
         # MUST carry the signatureId of a sign AREA defined by the workflow's sign template
         # (probed live 2026-08-23: AddDocument 400s without it). The area list comes from
@@ -1053,7 +1126,8 @@ class SctsAdapter(SignatureProviderAdapter):
         # QC #8 ghi ngay 28/08, va no chan dung ke hoach ky Payment Request kem Purchase
         # Request trong mot lan.
         areas_by_file = {}
-        if placements:
+        # PR-I 24/11: co doi tac thi can ca vung "Doi tac ky" cua mau (de dat o ky doi tac).
+        if placements or has_partner:
             for f in files:
                 if not f.get("can_be_signed"):
                     continue
@@ -1078,8 +1152,21 @@ class SctsAdapter(SignatureProviderAdapter):
                        ", ".join(sorted(a.get("title") or "?" for a in areas.values()))),
                     retryable=False)
             return d
+
+        def _partner_area(file_dsf):
+            """Vung ky DOI TAC cua mau (role "doitac" / tieu de "Doi tac ky"), hoac None."""
+            for d in (areas_by_file.get(file_dsf) or {}).values():
+                if not d.get("signatureId"):
+                    continue
+                if (str(d.get("role") or "").strip().casefold() == "doitac"
+                        or self._norm_title(d.get("title")) == self._norm_title(PARTNER_AREA_TITLE)):
+                    return d
+            return None
         omit = bool(int(_sval(getattr(self, "settings", None) or {}, "omit_original_base64", 0) or 0))
         documents = []
+        # O ky doi tac (PR-I): dem tep CAN o doi tac / da dat duoc; thieu moc o MOT tep thi bo
+        # qua tep do, chi tu choi khi KHONG tep nao dat duoc (QC 24/11 - goi nhieu tep).
+        partner_needed, partner_placed, partner_missing = 0, 0, []
         for f in files:
             # CHOT CUOI: moi dong Documents[] khai "FileType: pdf" - byte phai la PDF that.
             # 05/09 (00042): byte PNG duoi nhan pdf -> eContract nhan 2xx roi im lang o
@@ -1129,13 +1216,44 @@ class SctsAdapter(SignatureProviderAdapter):
                     "Width": bx["w"],
                     "Height": bx["h"],
                 })
+            if has_partner and f.get("can_be_signed"):
+                # PR-I 24/11 (thu EC-CTR-2026-00134, WF09): mau co vung "Doi tac ky" thi PHAI co
+                # o ky doi tac - dat theo moc [[KY_BEN_B]] trong chinh tep (o 180x100 ngay tren
+                # moc, nhu o ky cong ty). Mau khong co vung doi tac -> bo qua (cong tu xu ly).
+                pa = _partner_area(f.get("file_dsf"))
+                used = {s.get("signatureId") for s in sigs}
+                if pa is None:
+                    frappe.log_error("mau ky khong co vung doi tac (tep %s) - khong dat o doi tac"
+                                     % f.get("name"), "esign scts partner area")
+                elif pa.get("signatureId") in used:
+                    # Vung doi tac da duoc mot o ky ERP dung (cap nao do dat tieu de "Doi tac
+                    # ky") - khong them muc trung signatureId.
+                    frappe.log_error("vung doi tac da co o ky ERP (tep %s) - khong them"
+                                     % f.get("name"), "esign scts partner area")
+                else:
+                    partner_needed += 1
+                    why = []
+                    box = _partner_box(f.get("content"), reasons=why)
+                    if not box:
+                        partner_missing.append("%s%s" % (f.get("name"),
+                                                         (" (%s)" % "; ".join(why)) if why else ""))
+                        frappe.log_error("tep %s khong co moc [[KY_BEN_B]] dung duoc%s"
+                                         % (f.get("name"), (": " + "; ".join(why)) if why else ""),
+                                         "esign scts partner area")
+                    else:
+                        partner_placed += 1
+                        sigs.append(_signature_entry(pa, box["page_index"], box["x"], box["y"],
+                                                     box["width"], box["height"],
+                                                     box["page_height"]))
             documents.append({
                 "FileName": f.get("name"),
                 "FileType": "pdf",
                 "file_kind": 1 if f.get("can_be_signed") else 2,   # 1: tep chinh, 2: phu luc
                 "CanBeSigned": bool(f.get("can_be_signed")),
                 "uploadBct": False,
-                "IsSharedWithPartner": bool(f.get("share_with_partner")),
+                # Doi tac phai XEM duoc tep can ky (PR-I 24/11); tep phu giu co cu.
+                "IsSharedWithPartner": bool(f.get("share_with_partner")
+                                            or (has_partner and f.get("can_be_signed"))),
                 "PdfBase64": b64,
                 # THU NGHIEM 07/09 (Provider Settings.omit_original_base64, TAT mac dinh):
                 # dac ta noi OriginalBase64 "Co" nhung voi PDF no trung PdfBase64 - gui hai
@@ -1144,10 +1262,12 @@ class SctsAdapter(SignatureProviderAdapter):
                 "OriginalBase64": "" if omit else b64,
                 "Signatures": sigs,
             })
-        # Doi tac ky ngoai (PR-D, 22/11): chi khi ho so bat allow_external_signers va nghiep
-        # vu cung cap (ec_esign_external_handlers). Khoa = dung khoa cong gui (add-document.js).
-        # PR-F 23/11: kieu ky tinh luot (eKYC...) phai con luot TRUOC khi tao tai lieu.
-        handlers = _external_handlers_payload(package_ctx.get("external_handlers"))
+        if partner_needed and not partner_placed:
+            raise ProviderError(
+                "partner_position_missing",
+                "khong tep nao co moc [[KY_BEN_B]] dung duoc de dat o ky doi tac: %s - them moc "
+                "(chu trang 1pt) duoi cho ky Ben B trong mau Word, xuat lai PDF"
+                % ", ".join(partner_missing), retryable=False)
         self.assert_partner_sign_types_available(handlers)
         payload = {
             "docCode": package_ctx.get("doc_code"),
