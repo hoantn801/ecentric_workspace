@@ -73,7 +73,7 @@ const DET1 = () => ({
   ok(d.querySelector(".ec-aps-panel").hidden === true && g.querySelector("[aria-expanded=false]"), "TH1: nhom dong san trong markup");
   ok(items.every((it) => it.querySelectorAll(".ec-aps-text > div, .ec-aps-text > button").length === 3), "TH1: moi cot dung 3 dong");
   const sk = items.find((x) => x.classList.contains("ec-aps-item--skipped"));
-  ok(sk && /minmax\(92px/.test(html), "TH1: buoc bo qua cot hep");
+  ok(sk && !/minmax\(92px/.test(html) && /grid-template-columns:minmax\(0,1fr\)/.test(html), "TH1: cot bang nhau (can giua 24/11)");
   ok(/Bước 3\/8 · Phê duyệt/.test(d.querySelector(".ec-aps-now-k").textContent), "TH1 ban hep: Buoc 3/8 · Phe duyet");
   ok(d.querySelectorAll(".ec-aps-vrow").length === 8 && d.querySelectorAll(".ec-aps-seg:not(.ec-aps-seg--gap)").length === 8, "TH1 ban hep: du 8 dong + 8 doan");
   ok(d.querySelectorAll(".ec-aps-vrow .ec-aps-desc").length === 3, "TH1 ban hep: mo ta hien trong danh sach (mobile khong hover)");

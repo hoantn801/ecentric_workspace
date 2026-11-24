@@ -60,19 +60,20 @@
 
 /* ---- stepper ngang ---- */
 .ec-aps-track { display: grid; }
-.ec-aps-item { min-width: 0; }
-.ec-aps-rail { height: 28px; display: flex; align-items: center; margin-bottom: 8px; }
-.ec-aps-line { flex: 1; height: 0; border-top: 2px solid var(--ec-aps-border-2); margin: 0 8px; }
+.ec-aps-item { min-width: 0; text-align: center; }
+.ec-aps-rail { height: 28px; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; position: relative; }
+/* 24/11 (Hoan): can giua - net noi tu tam nut nay toi tam nut ke (cot ke ben phai), chua khoang 22px quanh nut */
+.ec-aps-line { position: absolute; top: 50%; left: calc(50% + 22px); right: calc(-50% + 22px); height: 0; border-top: 2px solid var(--ec-aps-border-2); margin: 0; }
 .ec-aps-item--link-done .ec-aps-line { border-top-color: var(--ec-aps-green); }
 .ec-aps-item--link-after .ec-aps-line { border-top-style: dashed; }
 .ec-aps-item--last .ec-aps-line { display: none; }
-.ec-aps-text { padding-right: 14px; min-width: 0; }
+.ec-aps-text { padding: 0 8px; min-width: 0; }
 .ec-aps-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ec-aps-text); }
 .ec-aps-item--upcoming .ec-aps-name { color: var(--ec-aps-text-2); font-weight: 500; }
 .ec-aps-item--skipped .ec-aps-name { color: var(--ec-aps-faint); font-weight: 500; }
 .ec-aps-item--mine .ec-aps-name { color: var(--ec-aps-navy); }
 .ec-step-lv { font-weight: 700; }
-.ec-aps-status { font-size: 12px; margin-top: 2px; display: flex; gap: 6px; align-items: center; white-space: nowrap; min-width: 0; }
+.ec-aps-status { font-size: 12px; margin-top: 2px; display: flex; gap: 6px; align-items: center; justify-content: center; white-space: nowrap; min-width: 0; }
 .ec-aps-lbl { overflow: hidden; text-overflow: ellipsis; }
 .ec-aps-meta { font-size: 12px; color: var(--ec-aps-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; min-height: 17px; }
 .ec-aps-meta--wrap { white-space: normal; overflow-wrap: anywhere; min-height: 0; }
@@ -85,7 +86,7 @@
 .ec-aps-me { font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 999px; background: var(--ec-aps-navy); color: var(--ec-aps-surface); letter-spacing: .02em; flex: none; }
 .ec-aps-wait { font-size: 11.5px; color: var(--ec-aps-amber); background: var(--ec-aps-amber-50); border: 1px solid var(--ec-aps-amber-200);
   border-radius: 6px; padding: 0 6px; white-space: nowrap; }
-.ec-aps-gbtn { display: flex; align-items: center; gap: 4px; border: 0; background: none; padding: 0; cursor: pointer; color: inherit; max-width: 100%;
+.ec-aps-gbtn { display: flex; align-items: center; justify-content: center; margin: 0 auto; gap: 4px; border: 0; background: none; padding: 0; cursor: pointer; color: inherit; max-width: 100%;
   text-align: left; font-size: 13px; line-height: 1.45; }
 .ec-aps-gbtn svg { flex: none; color: var(--ec-aps-muted); transition: transform .15s; }
 .ec-aps-gbtn[aria-expanded="true"] svg { transform: rotate(180deg); }
