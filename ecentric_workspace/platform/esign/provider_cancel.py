@@ -8,7 +8,8 @@ ky sai, nhung nguoi dung thay viec rac va co the ky nham vao mot phieu da chet.
 Huy tren cong KHONG LAY LAI DUOC (cong dong dau "Cancelled", destroy=1). Vi vay moi chot deu
 nghieng ve "khong huy":
 
-  * Pham vi: phieu Rejected / Cancelled - chi AUTO_DOCTYPES (Payment Request). RIENG goi
+  * Pham vi: phieu Rejected / Cancelled - chi AUTO_DOCTYPES (Payment Request; Hop dong tu PR-J
+    24/11 voi chot "co ai da ky thi khong huy"). RIENG goi
     Superseded co vet `superseded_for_edit` (PR-G 23/11: nguoi lap mo lai thiet lap ky sau "Can
     bo sung", ho so nguoi lap KHONG ky - hop dong): moi loai phieu, phieu van song; them chot
     "khong ai ky ngoai cac chan ERP biet / khong doi tac nao da ky" (doc cong) - co -> dung + bao
@@ -50,11 +51,21 @@ EVT = "EC Digital Signature Event"
 SETTINGS = "EC Digital Signature Provider Settings"
 
 NEGATIVE = ("Rejected", "Cancelled")
-#: Chi loai phieu nay. Hop dong: doi tac ky + buoc duyet khong ky -> chua bat (can PO quyet).
-AUTO_DOCTYPES = ("EC Payment Request",)
+#: Loai phieu duoc huy tai lieu khi phieu tu choi / huy. Hop dong (PR-J 24/11/2026, Hoan): them
+#: vao, voi chot chat hon (STRICT_ANY_SIGNED): co BAT KY ai da ky tren cong (CEO / doi tac) -> KHONG
+#: huy, dung + bao ops (huy la mat chu ky that, khong lay lai duoc).
+AUTO_DOCTYPES = ("EC Payment Request", "EC Contract Review Request")
 #: Moc tu dong: phieu KET THUC (completed_at - ghi cung luc voi trang thai khi tu choi / huy) tu
 #: ngay trien khai. Truoc moc (ton dong): chi qua lenh SM sau khi nguoi xem danh sach chay thu.
 AUTO_SINCE = "2026-11-18 00:00:00"
+#: Moc rieng theo loai phieu (loai khong co -> AUTO_SINCE).
+AUTO_SINCE_BY_DOCTYPE = {}
+#: QC PR-J M3: loai phieu chi TU DONG huy khi da "len co" RIENG (lenh SM huy that da xac minh tren
+#: mot goi cua loai do, hoac site_config `ec_esign_auto_cancel_doctypes` liet ke). Moc lay tu
+#: site_config `ec_esign_contract_auto_cancel_since` (khong khai -> khong tu dong).
+SEPARATELY_ARMED = {"EC Contract Review Request": "ec_esign_contract_auto_cancel_since"}
+#: Loai phieu ma CHI CAN MOT nguoi da ky (ke ca doi tac ngoai) la khong huy.
+STRICT_ANY_SIGNED = ("EC Contract Review Request",)
 CODE = "provider_document_cancelled_by_erp"
 CODE_UNVERIFIED = "provider_document_cancel_unverified"
 #: Chan ky con co the gui lenh vao tai lieu -> chua huy (cho luot sau).
@@ -306,6 +317,16 @@ def cancel_one(pkg_name, reason=None, dry_run=True, source=SOURCE_SM):
             return dict(row, result="stop", reason="no_signers")      # khong biet -> khong huy
         if signed >= len(signers):
             return dict(row, result="stop", reason="all_signers_signed")
+        if pkg.status != "Superseded" and signed and pkg.business_doctype in STRICT_ANY_SIGNED:
+            # PR-J: hop dong bi tu choi / huy - co BAT KY ai da ky (CEO / doi tac, ke ca eKYC /
+            # VNeID) -> khong huy, nguoi xem. Goi Superseded (ban sua PR-G) giu luat rieng ben
+            # duoi (chi chan chu ky ERP khong biet).
+            return dict(row, result="stop",
+                        reason="signed_on_portal:%d/%d%s"
+                               % (signed, len(signers),
+                                  ":external" if any(bool((x or {}).get("is_external"))
+                                                     and str((x or {}).get("status") or "").lower()
+                                                     == "signed" for x in signers) else ""))
         if pkg.status == "Superseded":
             # QC PR-G B1: tai lieu cu cua ban sua - neu cong co nguoi ky ma ERP khong biet (doi
             # tac ngoai, hoac nhieu hon so chan ERP da xong) thi KHONG huy (mat chu ky that, vd
@@ -329,6 +350,18 @@ def cancel_one(pkg_name, reason=None, dry_run=True, source=SOURCE_SM):
             return dict(row, result="stop", reason="adapter_no_cancel")
         if dry_run:
             return dict(row, result="would_cancel")
+        if pkg.business_doctype in STRICT_ANY_SIGNED:
+            # QC PR-J: doi tac co the vua ky giua lan doc tren va lenh huy - doc lai NGAY truoc.
+            try:
+                st2 = adapter.poll_status(pkg.scts_document_id)
+            except ProviderError as e:
+                return dict(row, result="stop", reason="poll_failed:%s" % e.code,
+                            transient=_transient(e.code))
+            s2 = getattr(st2, "signers", None) or []
+            if _state_status(st2) != "processing" or any(
+                    str((x or {}).get("status") or "").lower() == "signed" for x in s2):
+                if pkg.status != "Superseded":
+                    return dict(row, result="stop", reason="changed_before_cancel")
         if pkg.status == "Superseded":
             why_txt = (reason or "Phiếu ERP %s cần bổ sung - tài liệu cũ được huỷ để tạo lại"
                        % pkg.business_name)[:300]
@@ -388,13 +421,54 @@ def cancel_one(pkg_name, reason=None, dry_run=True, source=SOURCE_SM):
             _unlock(key)
 
 
+def _since_for(dt):
+    """Moc tu dong cua loai phieu, hoac None (loai can len co rieng ma chua khai moc)."""
+    key = SEPARATELY_ARMED.get(dt)
+    if key:
+        try:
+            v = str(frappe.conf.get(key) or "").strip()
+        except Exception:
+            v = ""
+        return v or None
+    return AUTO_SINCE_BY_DOCTYPE.get(dt, AUTO_SINCE)
+
+
+def doctype_armed(dt):
+    """Tu dong huy cho loai phieu nay chua. Loai thuong (DNTT): theo auto_armed() chung. Loai can
+    len co rieng (Hop dong): them (a) moc site_config, va (b) site_config
+    `ec_esign_auto_cancel_doctypes` co loai nay HOAC da co mot lenh SM huy that da xac minh tren
+    goi cua loai nay."""
+    if dt not in SEPARATELY_ARMED:
+        return True
+    if not _since_for(dt):
+        return False
+    try:
+        listed = frappe.conf.get("ec_esign_auto_cancel_doctypes") or []
+        if isinstance(listed, str):
+            listed = [x.strip() for x in listed.split(",")]
+        if dt in listed:
+            return True
+    except Exception:
+        pass
+    pkgs = [r.package for r in frappe.get_all(EVT, filters=[
+        ["event_type", "=", "Cancelled"], ["verification_result", "=", CODE + ":cancelled"],
+        ["request_meta", "like", '%"source": "' + SOURCE_SM + '"%']],
+        fields=["package"], limit_page_length=200) if r.package]
+    return bool(pkgs and frappe.db.exists(PKG, {"name": ["in", pkgs], "business_doctype": dt}))
+
+
 def _negative_requests(include_before):
-    filters = {"approval_status": ["in", list(NEGATIVE)],
-               "reference_doctype": ["in", list(AUTO_DOCTYPES)]}
-    if not include_before:
-        filters["completed_at"] = [">=", AUTO_SINCE]
-    return [r.name for r in frappe.get_all(AR, filters=filters, fields=["name"],
-                                           limit_page_length=0)]
+    out = []
+    for dt in AUTO_DOCTYPES:
+        filters = {"approval_status": ["in", list(NEGATIVE)], "reference_doctype": dt}
+        if not include_before:
+            since = _since_for(dt)
+            if not since or not doctype_armed(dt):
+                continue                  # tu dong: loai chua len co -> khong lay
+            filters["completed_at"] = [">=", since]
+        out.extend(r.name for r in frappe.get_all(AR, filters=filters, fields=["name"],
+                                                  limit_page_length=0))
+    return out
 
 
 def _revision_candidates(business_names=None):
@@ -507,7 +581,17 @@ _RETRY_LATER = ("live_legs", "locked", "integration_closed")
 def sweep():
     """Cron */10. Kill switch esign (ec_esign_scheduler_disabled) + ec_esign_auto_cancel_disabled."""
     from ecentric_workspace.platform.esign import tasks
-    if tasks._disabled() or not auto_armed():
+    if tasks._disabled():
+        return
+    # QC PR-J M1: don tep tam chuyen PDF con sot trong SharePoint (gan vao cron */10 nay de khong
+    # sua hooks.py). Chua cau hinh ec_docconvert -> khong goi gi.
+    try:
+        from ecentric_workspace.platform import docconvert
+        if docconvert.is_configured():
+            docconvert.sweep_temp()
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "esign provider_cancel.sweep docconvert")
+    if not auto_armed():
         return
     started = time.time()
     done = 0

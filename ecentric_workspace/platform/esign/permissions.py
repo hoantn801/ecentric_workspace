@@ -100,6 +100,16 @@ def assert_can_view_business(business_doctype, business_name, user=None):
         frappe.throw(_("Bạn không có quyền xem yêu cầu này."), frappe.PermissionError)
 
 
+def assert_requester(business_doctype, business_name, user=None):
+    """Chi NGUOI TAO phieu (hoac SM). PR-J: thao tac tao tep tren phieu (vd chuyen .docx -> PDF)
+    - nguoi duyet / nguoi xu ly khong co ly do tao tep moi tren phieu cua nguoi khac."""
+    user = user or frappe.session.user
+    requested_by = business_requested_by(business_doctype, business_name)
+    if not (requested_by and requested_by == user) and not is_system_manager(user):
+        frappe.throw(_("Chỉ người tạo yêu cầu được thực hiện thao tác này."),
+                     frappe.PermissionError)
+
+
 def assert_requester_draft_package(pkg, user=None):
     """Package mutations (upload/flags/order/placements/replace/delete) are allowed only
     to the requester (or SM) and only while the package is Draft."""
