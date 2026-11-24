@@ -1,0 +1,91 @@
+{
+ "doctype": "DocType",
+ "name": "EC Holiday Work Member",
+ "module": "Ecentric Workspace",
+ "custom": 0,
+ "istable": 1,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "employee",
+  "employee_name",
+  "employee_number",
+  "department",
+  "first_checkin",
+  "leave_credited",
+  "leave_ledger",
+  "status_note"
+ ],
+ "fields": [
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "label": "Nhân viên",
+   "options": "Employee",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "employee_name",
+   "fieldtype": "Data",
+   "label": "Họ tên",
+   "fetch_from": "employee.employee_name",
+   "read_only": 1,
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "employee_number",
+   "fieldtype": "Data",
+   "label": "MNV",
+   "fetch_from": "employee.employee_number",
+   "read_only": 1,
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "label": "Phòng ban",
+   "options": "Department",
+   "fetch_from": "employee.department",
+   "read_only": 1,
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "first_checkin",
+   "fieldtype": "Data",
+   "label": "Chấm công đầu",
+   "read_only": 1,
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "leave_credited",
+   "fieldtype": "Float",
+   "label": "Đã cộng phép",
+   "read_only": 1,
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "leave_ledger",
+   "fieldtype": "Link",
+   "label": "Bút toán phép",
+   "options": "Leave Ledger Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "status_note",
+   "fieldtype": "Data",
+   "label": "Ghi chú hệ thống",
+   "read_only": 1,
+   "in_list_view": 1,
+   "columns": 1
+  }
+ ],
+ "permissions": [],
+ "index_web_pages_for_search": 0
+}

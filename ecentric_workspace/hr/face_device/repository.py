@@ -58,9 +58,13 @@ class FaceCheckinRepository:
             "Company", emp.get("company"), "default_holiday_list")
         if not hl:
             return False
-        return bool(frappe.db.sql(
-            "select 1 from `tabHoliday` where parent=%s and holiday_date=%s limit 1",
-            (hl, day)))
+        if not frappe.db.sql(
+                "select 1 from `tabHoliday` where parent=%s and holiday_date=%s limit 1",
+                (hl, day)):
+            return False
+        # Ngay le nhung nguoi nay nam trong "Danh sach di lam ngay nghi" -> ngay lam.
+        from ecentric_workspace.hr.holiday_work import lookup
+        return not lookup.is_workday(emp.get("name"), day)
 
     def on_leave(self, employee, day):
         return bool(frappe.db.sql(

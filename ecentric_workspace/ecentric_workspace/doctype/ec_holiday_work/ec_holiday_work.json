@@ -1,0 +1,165 @@
+{
+ "doctype": "DocType",
+ "name": "EC Holiday Work",
+ "module": "Ecentric Workspace",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "autoname": "format:DLNN-{work_date}-{##}",
+ "title_field": "title",
+ "sort_field": "work_date",
+ "sort_order": "DESC",
+ "description": "Danh sách đi làm ngày nghỉ: người trong danh sách đi làm đúng ngày lễ / cuối tuần của lịch chung. Logic ở ecentric_workspace.hr.holiday_work.",
+ "field_order": [
+  "title",
+  "work_date",
+  "cb1",
+  "counts_as_workday",
+  "require_checkin",
+  "allow_comp_off",
+  "sec_reward",
+  "leave_bonus_days",
+  "cb2",
+  "cash_bonus",
+  "sec_members",
+  "paste_codes",
+  "members",
+  "note"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Tên đợt",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "Ví dụ: Ngày Văn hoá Việt Nam 24/11/2026"
+  },
+  {
+   "fieldname": "work_date",
+   "fieldtype": "Date",
+   "label": "Ngày đi làm",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "counts_as_workday",
+   "fieldtype": "Check",
+   "label": "Tính như ngày làm bình thường",
+   "default": "1",
+   "description": "Bật: ngày này là ngày làm của người trong danh sách: phải chấm công, được nhắc chấm công, tính SLA và bảng công như ngày thường."
+  },
+  {
+   "fieldname": "require_checkin",
+   "fieldtype": "Check",
+   "label": "Phải có chấm công mới được thưởng / nghỉ bù",
+   "default": "1",
+   "description": "Tắt khi bổ sung danh sách cho ngày cũ không có dữ liệu chấm công (ví dụ trước khi có máy khuôn mặt)."
+  },
+  {
+   "fieldname": "allow_comp_off",
+   "fieldtype": "Check",
+   "label": "Cho xin Nghỉ bù OT cho ngày này",
+   "default": "0",
+   "description": "Tắt: người trong danh sách KHÔNG xin nghỉ bù OT cho ngày này (đã được tính công / thưởng)."
+  },
+  {
+   "fieldname": "sec_reward",
+   "fieldtype": "Section Break",
+   "label": "Thưởng"
+  },
+  {
+   "fieldname": "leave_bonus_days",
+   "fieldtype": "Float",
+   "label": "Thưởng ngày phép năm",
+   "default": "0",
+   "description": "Tự cộng vào phép năm (Annual Leave) khi đến ngày và người đó đủ điều kiện."
+  },
+  {
+   "fieldname": "cb2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cash_bonus",
+   "fieldtype": "Currency",
+   "label": "Thưởng tiền mỗi người (VND)",
+   "default": "0",
+   "description": "Chỉ ghi nhận để CnB trả cùng lương."
+  },
+  {
+   "fieldname": "sec_members",
+   "fieldtype": "Section Break",
+   "label": "Danh sách"
+  },
+  {
+   "fieldname": "paste_codes",
+   "fieldtype": "Small Text",
+   "label": "Dán mã nhân viên (NV00xxx)",
+   "description": "Dán cột MNV từ file danh sách (mỗi dòng hoặc cách nhau dấu phẩy). Bấm Lưu: hệ thống tự thêm vào bảng bên dưới."
+  },
+  {
+   "fieldname": "members",
+   "fieldtype": "Table",
+   "label": "Người đi làm",
+   "options": "EC Holiday Work Member"
+  },
+  {
+   "fieldname": "note",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 1
+  },
+  {
+   "role": "HR Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 1
+  },
+  {
+   "role": "HR User",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 1
+  },
+  {
+   "role": "EC CnB",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}
