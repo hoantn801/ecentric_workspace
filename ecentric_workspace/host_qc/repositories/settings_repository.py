@@ -27,14 +27,14 @@ class SettingsRepository:
         frappe.clear_document_cache(DT.SETTINGS, DT.SETTINGS)
 
     def set_defaults(self, values):
-        """Chi dien o con trong (patch khoi tao) - khong ghi de gia tri Production da sua."""
-        doc = frappe.get_single(DT.SETTINGS)
-        changed = False
-        for k, v in values.items():
-            if doc.get(k) in (None, "", 0):
-                doc.set(k, v)
-                changed = True
-        if changed:
-            doc.flags.ignore_permissions = True
-            doc.save()
-        return changed
+        """Chi dien o con trong (patch) - khong ghi de gia tri Production da sua.
+
+        So voi gia tri DA LUU trong tabSingles, KHONG so voi frappe.get_single(): Single chua luu dong nao thi
+        get_single tra ve mac dinh cua DocType (chi trong bo nho) nen tuong la da co va khong luu gi -
+        loi cua p001 ngay 24/11 (Settings tren site toan 0)."""
+        stored = frappe.db.get_singles_dict(DT.SETTINGS) or {}
+        missing = {k: v for k, v in values.items() if stored.get(k) in (None, "", 0, "0", 0.0)}
+        if missing:
+            frappe.db.set_single_value(DT.SETTINGS, missing)
+            frappe.clear_document_cache(DT.SETTINGS, DT.SETTINGS)
+        return sorted(missing)
