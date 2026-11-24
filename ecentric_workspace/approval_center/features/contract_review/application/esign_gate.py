@@ -76,3 +76,13 @@ def after_submit(doc):
         return None
     from ecentric_workspace.platform.esign import requester
     return requester.lock_on_submit(CR_DT, doc.name)
+
+
+def docx_to_pdf(doc, file_url):
+    """PR-J (chat Ky so 24/11): chuyen tep .docx DINH KEM phieu -> PDF rieng tu gan cung phieu, qua API dung
+    chung cua nen tang (Graph phia server). -> {file_url, file_name}. Loi la cau tieng Viet cua nen tang
+    (vd "Chua cau hinh thu vien tam de chuyen PDF", "dang duoc chuyen ... doi khoang mot phut") - de nguyen
+    cho nguoi dung doc. Nen tang tu kiem: chi nguoi tao phieu / SM, tep cua chinh phieu, <= 10 MB, phieu chua
+    ket thuc."""
+    from ecentric_workspace.platform.esign import api as esign_api
+    return esign_api.convert_business_docx_to_pdf(CR_DT, doc.name, file_url)

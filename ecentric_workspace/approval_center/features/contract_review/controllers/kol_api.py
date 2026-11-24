@@ -24,7 +24,7 @@ __all__ = ["kol_me", "kol_search_sales_orders", "kol_list_templates", "kol_place
            "kol_misa_preview", "kol_misa_apply",
            "kol_verify_signed", "kol_verify_acceptance", "kol_pending_checks", "kol_preview_dates",
            "kol_creator_gaps", "kol_preview_contract", "kol_download_file", "kol_confirm_payee",
-           "kol_close_contract", "kol_reopen_contract", "kol_attach_sign_pdf", "kol_auto_place_sign",
+           "kol_close_contract", "kol_reopen_contract", "kol_attach_sign_pdf", "kol_make_sign_pdf", "kol_auto_place_sign",
            "kol_round_contract"]
 
 
@@ -129,6 +129,13 @@ def kol_generate_contract(name):
 def kol_attach_sign_pdf(name, file_url):
     """O "Ban PDF de ky" (ban giao chat Ky so 23/11, B1). Trang goi kol_auto_place_sign NGAY SAU."""
     return _no_pii_url(name, _app("kol_sign_pdf").attach(name, file_url, _me()), "sign_pdf")
+
+
+@frappe.whitelist(methods=["POST"])
+def kol_make_sign_pdf(name):
+    """Nut "Xac nhan hop dong & tao ban ky" (PR-J): .docx tu mau EC -> PDF -> Ban PDF de ky. Trang goi
+    kol_auto_place_sign NGAY SAU, nhu sau kol_attach_sign_pdf."""
+    return _no_pii_url(name, _app("kol_sign_pdf").make_from_template(name, _me()), "sign_pdf")
 
 
 @frappe.whitelist(methods=["POST"])
