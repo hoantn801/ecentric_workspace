@@ -13,7 +13,7 @@ def machine(claimed_id=None):
     """May goi API. claimed_id (machine_id trong than) neu co phai khop may cua token."""
     m = VerifyMachineTokenService().execute(frappe.get_request_header(TOKEN_HEADER), frappe.local.request_ip)
     if claimed_id and str(claimed_id) != m["machine_id"]:
-        raise ForbiddenError(M.WRONG_MACHINE)
+        raise ForbiddenError(M.MACHINE_ID_MISMATCH % (claimed_id, m["machine_id"]))
     return m
 
 

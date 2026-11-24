@@ -10,6 +10,7 @@ from ecentric_workspace.host_qc.constants.statuses import SessionSource, Session
 from ecentric_workspace.host_qc.exceptions import ForbiddenError, InvalidInput, NotFoundError
 from ecentric_workspace.host_qc.repositories.machine_repository import MachineRepository
 from ecentric_workspace.host_qc.repositories.room_repository import RoomRepository
+from ecentric_workspace.host_qc.services.rescore_session_service import RescoreSessionService
 from ecentric_workspace.host_qc.repositories.session_repository import SessionRepository
 from ecentric_workspace.host_qc.utils.time import now, to_dt
 
@@ -26,8 +27,9 @@ def _true(v):
 
 
 class OpenSessionService:
-    def __init__(self, sessions=None, machines=None, rooms=None, clock=now):
+    def __init__(self, sessions=None, machines=None, rooms=None, clock=now, rescore=None):
         self.sessions = sessions or SessionRepository()
+        self.rescore = rescore or RescoreSessionService(sessions=self.sessions)
         self.machines = machines or MachineRepository()
         self.rooms = rooms or RoomRepository()
         self.clock = clock
@@ -55,6 +57,7 @@ class OpenSessionService:
                 vals["started_at"] = started
             self.sessions.update(sid, vals)
             self.machines.set_current_session(machine["name"], sid)
+            self.rescore.execute(sid)           # phien moi mo: 100 diem / GREEN ngay, khong de trong
         return {"name": sid}
 
     def _room(self, room_id):
