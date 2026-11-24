@@ -242,7 +242,7 @@
       + '<div></div>'
       + fld("justification","Lý do đề xuất",'<textarea data-model="justification" rows="3" placeholder="What are the employee\u2019s most significant achievements... / What specific skills... / Why is this promotion necessary at this time?">'+esc(d.justification||"")+'</textarea>',true).replace('class="fld','class="fld full')
       + fld("incentives","Đãi ngộ / phúc lợi khác",'<textarea data-model="incentives" rows="2" placeholder="Thưởng, phụ cấp, quyền lợi khác (nếu có).">'+esc(d.incentives||"")+'</textarea>').replace('class="fld','class="fld full')
-      + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="prom-summary"></div></div>';
+      + '</div></div>';
   }
   // 29/09: chon nhan su tu danh sach (chi nguoi minh xem duoc luong); thong tin hien tai do
   // server dien (promotion_employee) - o chi doc, server ghi de lai luc gui.
@@ -278,19 +278,17 @@
     var actions = editing
       ? '<div class="actions"><button type="button" class="btn" id="prom-edit-cancel">Hủy</button><button type="button" class="btn primary" id="prom-resubmit">Gửi lại</button></div>'
       : '<div class="actions"><button type="button" class="btn" id="prom-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="prom-save">Lưu nháp</button><button type="button" class="btn primary" id="prom-submit">Gửi yêu cầu</button></div>';
-    b.innerHTML = '<div class="prom-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + actions + '</div>';
+    b.innerHTML = '<div class="prom-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + (window.EcSummary?EcSummary.cardHTML("prom-summary",actions):actions) + '</div>';
     if(editing) state._origMaterial=materialSnap(d);
     state.titleTouched = !!((d.request_title||"").toString().trim());
     maybeAutoTitle(); renderSummary(); wireCreate();
   }
-  function renderSummary(){ var h=$("prom-summary"); if(!h)return; var d=state.draft||{}; var c=state.boot.context||{};
-    var rows=[["Tiêu đề",d.request_title||""],["Họ tên",d.full_name||""],["Phòng ban",d.department||""],
-      ["Vị trí hiện tại",d.current_position||""],["Vị trí đề xuất",d.proposed_position||""],
-      ["Lương hiện tại (gross)",d.current_salary!=null&&d.current_salary!==""?((window.EcMoney?EcMoney.fmt(d.current_salary):d.current_salary)+" VND"):""],
-      ["Lương đề xuất (gross)",d.proposed_salary!=null&&d.proposed_salary!==""?((window.EcMoney?EcMoney.fmt(d.proposed_salary):d.proposed_salary)+" VND"):""],
-      ["Ngày hiệu lực",d.effective_date_of_promotion||""],
-      ["Luồng duyệt","Direct Manager → CnB → HOF → CEO"]];
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
+  function renderSummary(){ var h=$("prom-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
+    EcSummary.render(h,{draft:d, by:c.employee_name||c.user, resubmit:state.mode==="edit",
+      hero:[["Họ tên",d.full_name,"promoted_employee"],["Vị trí đề xuất",d.proposed_position,"proposed_position"],["Lương đề xuất (gross)",d.proposed_salary,"proposed_salary","money"]],
+      groups:[{title:"Hiện tại",fields:[["Tiêu đề",d.request_title,"request_title"],["Phòng ban",d.department,"department"],["Vị trí hiện tại",d.current_position,"current_position"],
+        ["Lương hiện tại (gross)",d.current_salary,"current_salary","money"],["Ngày hiệu lực",d.effective_date_of_promotion,"effective_date_of_promotion","date"]]}],
+      flow:"Direct Manager → CnB → HOF → CEO"}); }
   function suggestTitle(d){ d=d||{}; var parts=[d.full_name, d.proposed_position].filter(function(x){return x&&String(x).trim();});
     return parts.length?("Promotion - "+parts.join(" → ")).slice(0,140):""; }
   function maybeAutoTitle(){ if(state.titleTouched)return; var s=suggestTitle(state.draft||{}); if(!s)return;

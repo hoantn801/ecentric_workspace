@@ -378,7 +378,7 @@
       + fld("request_details","Yêu cầu chi tiết",'<textarea data-model="request_details" rows="4" class="'+hlCls("request_details")+'" placeholder="Thông tin Finance cần kiểm tra: phạm vi công việc, điều khoản thanh toán, bảng giá, thời hạn hợp đồng, ngày bắt đầu...">'+esc(d.request_details||"")+'</textarea>'+(KOL.isKol(d)?'<div class="hint">Để trống: hệ thống tự tóm tắt từ các thẻ KOL/KOC bên dưới.</div>':''),!KOL.isKol(d)).replace('class="fld','class="fld full')
       + fld("cc_to","CC To",'<input data-model="cc_to" data-ec-people="multi" placeholder="Gõ tên hoặc email để thêm người…" value="'+esc(d.cc_to||"")+'">').replace('class="fld','class="fld full')
       + fld("request_attachment","Tệp đính kèm",'<input type="file" multiple data-upload="request_attachment"><div class="hint" id="att-name">'+esc(d.request_attachment?"Đã tải":"Nên đính kèm bản thảo hợp đồng")+'</div>').replace('class="fld','class="fld full')
-      + '</div></div>' + (KOL.isKol(d)?KOL.cardsHTML(d):'') + '<div class="card"><h3>Tóm tắt</h3><div id="ctr-summary"></div></div>';
+      + '</div></div>' + (KOL.isKol(d)?KOL.cardsHTML(d):'');
   }
   var MATERIAL=["request_kind","previous_request","contract_type","request_type","brand","justification","contract_value","contract_start_date","contract_end_date","request_details"];
   function materialSnap(d){ return MATERIAL.map(function(k){return String((d||{})[k]||"");}).join("|"); }
@@ -412,20 +412,19 @@
     var actions = editing
       ? '<div class="actions"><button type="button" class="btn" id="ctr-edit-cancel">Hủy</button><button type="button" class="btn primary" id="ctr-resubmit">Gửi lại</button></div>'
       : '<div class="actions"><button type="button" class="btn" id="ctr-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="ctr-save">Lưu nháp</button><button type="button" class="btn primary" id="ctr-submit">'+(KOL.needsGenerate(d)?'Tạo hợp đồng &amp; gửi':'Gửi yêu cầu')+'</button></div>';
-    b.innerHTML = '<div class="ctr-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + actions + '</div>';
+    b.innerHTML = '<div class="ctr-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + (window.EcSummary?EcSummary.cardHTML("ctr-summary",actions):actions) + '</div>';
     if(editing) state._origMaterial=materialSnap(d);
     var curTitle=(d.request_title||"").toString().trim();
     state.titleTouched = !!curTitle && curTitle!==state._autoTitle;
     maybeAutoTitle(); renderSummary(); wireCreate();
   }
-  function renderSummary(){ var h=$("ctr-summary"); if(!h)return; var d=state.draft||{}; var c=state.boot.context||{};
-    var vnd=d.contract_value?Number(d.contract_value).toLocaleString("vi-VN")+" VND":"—";
-    var rows=[["Loại yêu cầu",d.request_kind==="Existing"?("Điều chỉnh "+(d.previous_request||"(chưa chọn gốc)")):"Hợp đồng / phụ lục mới"],
-      ["Loại hợp đồng",d.contract_type],["Legal entity / Brand",d.brand],["Giá trị",vnd],
-      ["Người yêu cầu",c.employee_name||c.user],["Phòng ban",d.department||c.department],
-      ["Hạn phản hồi",deadlineText(d.request_kind||"New")],
-      ["Luồng duyệt",isLabor(d)?"2 cấp (Nhân sự → CEO)":(willSkipCEO()?"3 cấp (CEO nhận CC)":"4 cấp (đến CEO)")]];
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
+  function renderSummary(){ var h=$("ctr-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
+    EcSummary.render(h,{draft:d, by:c.employee_name||c.user, resubmit:state.mode==="edit",
+      hero:[["Loại hợp đồng",d.contract_type,"contract_type"],["Legal entity / Brand",d.brand,"brand"],["Giá trị",d.contract_value,"contract_value","money"]],
+      groups:[{title:"Hợp đồng",fields:[["Loại yêu cầu",d.request_kind==="Existing"?("Điều chỉnh "+(d.previous_request||"(chưa chọn gốc)")):"Hợp đồng / phụ lục mới","request_kind"],
+        ["Phòng ban",d.department||c.department,"department"],["Hạn phản hồi",deadlineText(d.request_kind||"New")],
+        ["Số cấp duyệt",isLabor(d)?"2 cấp (Nhân sự → CEO)":(willSkipCEO()?"3 cấp (CEO nhận CC)":"4 cấp (đến CEO)")]]}],
+      flow:isLabor(d)?LEVELS_LABOR:(willSkipCEO()?LEVELS_ALL.slice(0,3):LEVELS_ALL)}); }
 
   function suggestTitle(d){ d=d||{};
     var parts=KOL.isKol(d)?["HĐ KOL/KOC", d.brand, d.creator_name, d.service_type]

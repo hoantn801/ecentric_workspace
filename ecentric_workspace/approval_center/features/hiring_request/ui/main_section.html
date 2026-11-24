@@ -244,7 +244,7 @@
       + fld("line_manager","Line manager",'<input type="email" data-model="line_manager" data-ec-people placeholder="Gõ tên hoặc email để chọn…" value="'+esc(d.line_manager||"")+'"><div class="hint">Email of the future line manager — must be an active user</div>',true)
       + fld("suggested_salary","Suggested salary (VND)",'<input type="text" inputmode="numeric" autocomplete="off" data-money data-model="suggested_salary" value="'+esc(window.EcMoney?EcMoney.fmt((d.suggested_salary!=null?d.suggested_salary:"")):(d.suggested_salary!=null?d.suggested_salary:""))+'">',true)
       + fld("request_attachment","Tệp đính kèm (JD, mô tả...)",'<input type="file" id="hire-file-input"><div class="hint">Không bắt buộc</div>'+'<div class="hint" id="hire-file-name">'+(d.request_attachment?('Đã đính kèm: <a href="'+esc(d.request_attachment)+'" target="_blank">'+esc(fileLabel(d.request_attachment))+'</a>'):'')+'</div>' ).replace('class="fld','class="fld full')
-      + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="hire-summary"></div></div>';
+      + '</div></div>';
   }
   var MATERIAL=["position","number_of_vacancy","reason","employment_type","department","education","line_manager","suggested_salary","request_attachment"];
   function materialSnap(d){ return MATERIAL.map(function(k){return String((d||{})[k]||"");}).join("|"); }
@@ -266,7 +266,7 @@
     var actions = editing
       ? '<div class="actions"><button type="button" class="btn" id="hire-edit-cancel">Hủy</button><button type="button" class="btn primary" id="hire-resubmit">Gửi lại</button></div>'
       : '<div class="actions"><button type="button" class="btn" id="hire-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="hire-save">Lưu nháp</button><button type="button" class="btn primary" id="hire-submit">Gửi yêu cầu</button></div>';
-    b.innerHTML = '<div class="hire-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + actions + '</div>';
+    b.innerHTML = '<div class="hire-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + (window.EcSummary?EcSummary.cardHTML("hire-summary",actions):actions) + '</div>';
     if(editing) state._origMaterial=materialSnap(d);
     state.titleTouched = !!((d.request_title||"").toString().trim());
     maybeAutoTitle(); renderSummary(); wireCreate();
@@ -279,15 +279,12 @@
     try{ return decodeURIComponent(i>=0?u.slice(i+1):u); }catch(e){ return i>=0?u.slice(i+1):u; } }
   function showFileName(url){ var el=$("hire-file-name"); if(!el) return;
     el.innerHTML = url ? ('Đã đính kèm: <a href="'+esc(url)+'" target="_blank">'+esc(fileLabel(url))+'</a>') : ""; }
-  function renderSummary(){ var h=$("hire-summary"); if(!h)return; var d=state.draft||{}; var c=state.boot.context||{};
-    var rows=[["Tiêu đề",d.request_title||""],["Vị trí",d.position||""],
-      ["Số lượng",d.number_of_vacancy!=null&&d.number_of_vacancy!==""?d.number_of_vacancy:""],
-      ["Loại hình",d.employment_type||""],["Phòng ban",d.department||""],["Line manager",d.line_manager||""],
-      ["Lương đề xuất",d.suggested_salary!=null&&d.suggested_salary!==""?(d.suggested_salary+" VND"):""],
-      ["Người yêu cầu",c.employee_name||c.user||""],
-      ["Tệp đính kèm",d.request_attachment?fileLabel(d.request_attachment):""],
-      ["Luồng duyệt","Direct Manager → HR → CEO"]];
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
+  function renderSummary(){ var h=$("hire-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
+    EcSummary.render(h,{draft:d, by:c.employee_name||c.user, resubmit:state.mode==="edit",
+      hero:[["Vị trí",d.position,"position"],["Số lượng",d.number_of_vacancy,"number_of_vacancy"],["Lương đề xuất",d.suggested_salary,"suggested_salary","money"]],
+      groups:[{title:"Tuyển dụng",fields:[["Tiêu đề",d.request_title,"request_title"],["Loại hình",d.employment_type,"employment_type"],["Phòng ban",d.department,"department"],
+        ["Line manager",d.line_manager,"line_manager"],["Tệp đính kèm",d.request_attachment?fileLabel(d.request_attachment):"","request_attachment"]]}],
+      flow:"Direct Manager → HR → CEO"}); }
   function suggestTitle(d){ d=d||{}; var parts=[d.position, d.department].filter(function(x){return x&&String(x).trim();});
     return parts.length?("Hiring - "+parts.join(" · ")).slice(0,140):""; }
   function maybeAutoTitle(){ if(state.titleTouched)return; var s=suggestTitle(state.draft||{}); if(!s)return;

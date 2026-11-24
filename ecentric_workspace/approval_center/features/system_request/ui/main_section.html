@@ -235,7 +235,7 @@
       + fld("requester_expected_resolution_date","Ngày mong muốn hoàn thành",'<input type="date" data-model="requester_expected_resolution_date" value="'+esc(d.requester_expected_resolution_date||"")+'">',true)
       + fld("description","Mô tả chi tiết",'<textarea data-model="description" rows="3">'+esc(d.description||"")+'</textarea>',true).replace('class="fld','class="fld full')
       + fld("request_attachment","Tệp đính kèm",'<input type="file" multiple data-upload="request_attachment"><div class="hint" id="att-name">'+esc(d.request_attachment?"Đã tải":"Không bắt buộc")+'</div>').replace('class="fld','class="fld full')
-      + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="sysr-summary"></div></div>';
+      + '</div></div>';
   }
   var MATERIAL=["request_type","other_type","description","priority","requester_expected_resolution_date"];
   function materialSnap(d){ return MATERIAL.map(function(k){return String((d||{})[k]||"");}).join("|"); }
@@ -257,16 +257,16 @@
     var actions = editing
       ? '<div class="actions"><button type="button" class="btn" id="sysr-edit-cancel">Hủy</button><button type="button" class="btn primary" id="sysr-resubmit">Gửi lại</button></div>'
       : '<div class="actions"><button type="button" class="btn" id="sysr-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="sysr-save">Lưu nháp</button><button type="button" class="btn primary" id="sysr-submit">Gửi yêu cầu</button></div>';
-    b.innerHTML = '<div class="sysr-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + actions + '</div>';
+    b.innerHTML = '<div class="sysr-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + (window.EcSummary?EcSummary.cardHTML("sysr-summary",actions):actions) + '</div>';
     if(editing) state._origMaterial=materialSnap(d);
     state.titleTouched = !!((d.request_title||"").toString().trim());
     maybeAutoTitle(); renderSummary(); wireCreate();
   }
-  function renderSummary(){ var h=$("sysr-summary"); if(!h)return; var d=state.draft||{}; var c=state.boot.context||{};
-    var rows=[["Tiêu đề",d.request_title],["Loại yêu cầu",d.request_type==="Other"?("Other: "+(d.other_type||"")):d.request_type],
-      ["Mức độ ưu tiên",d.priority],["Ngày mong muốn hoàn thành",d.requester_expected_resolution_date],
-      ["Người yêu cầu",c.employee_name||c.user],["Luồng duyệt","Operation Review → Operation Fulfillment (theo cấu hình)"]];
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
+  function renderSummary(){ var h=$("sysr-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
+    EcSummary.render(h,{draft:d, by:c.employee_name||c.user, resubmit:state.mode==="edit",
+      hero:[["Loại yêu cầu",d.request_type==="Other"?("Other: "+(d.other_type||"")):d.request_type,"request_type"],["Mức độ ưu tiên",d.priority,"priority"],["Ngày mong muốn hoàn thành",d.requester_expected_resolution_date,"requester_expected_resolution_date","date"]],
+      groups:[{title:"Yêu cầu",fields:[["Tiêu đề",d.request_title,"request_title"],["Mô tả chi tiết",d.description,"description","long"]]}],
+      flow:"Operation Review (theo cấu hình)", after:["Operation Fulfillment"]}); }
   function suggestTitle(d){ d=d||{}; var rt=d.request_type==="Other"?(d.other_type||"Other"):d.request_type;
     var parts=[rt, d.requester_expected_resolution_date].filter(function(x){return x&&String(x).trim();});
     return parts.length?parts.join(" - ").slice(0,180):""; }

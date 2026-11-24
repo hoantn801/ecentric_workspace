@@ -260,7 +260,7 @@
       + (actOther?fld("recommended_actions_other","Hành động khác",'<input data-model="recommended_actions_other" value="'+esc(d.recommended_actions_other||"")+'">',true).replace('class="fld','class="fld full'):'')
       + '</div></div><div class="card"><h3>Bằng chứng</h3><div class="grid2">'
       + fld("request_attachment","Tệp đính kèm (bằng chứng)",'<input type="file" multiple data-upload="request_attachment"><div class="hint" id="att-name">'+esc(d.request_attachment?"Đã tải":"Không bắt buộc")+'</div>').replace('class="fld','class="fld full')
-      + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="adlr-summary"></div></div>';
+      + '</div></div>';
   }
   var MATERIAL=["asset_type","asset_type_other","asset_code","incident_type","incident_type_other","incident_description","incident_date","incident_location","witnesses","physical_damage","data_compromised","impact_on_operations","estimated_repair_cost","estimated_value_lost_stolen_asset","recommended_actions","recommended_actions_other"];
   function materialSnap(d){ return MATERIAL.map(function(k){return String((d||{})[k]||"");}).join("|"); }
@@ -281,20 +281,18 @@
     var actions = editing
       ? '<div class="actions"><button type="button" class="btn" id="adlr-edit-cancel">Hủy</button><button type="button" class="btn primary" id="adlr-resubmit">Gửi lại</button></div>'
       : '<div class="actions"><button type="button" class="btn" id="adlr-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="adlr-save">Lưu nháp</button><button type="button" class="btn primary" id="adlr-submit">Gửi yêu cầu</button></div>';
-    b.innerHTML = '<div class="adlr-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + actions + '</div>';
+    b.innerHTML = '<div class="adlr-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + (window.EcSummary?EcSummary.cardHTML("adlr-summary",actions):actions) + '</div>';
     if(editing) state._origMaterial=materialSnap(d);
     state.titleTouched = !!((d.request_title||"").toString().trim());
     maybeAutoTitle(); renderSummary(); wireCreate();
   }
-  function renderSummary(){ var h=$("adlr-summary"); if(!h)return; var d=state.draft||{}; var c=state.boot.context||{};
-    var rows=[["Tiêu đề",d.request_title],
-      ["Loại tài sản",d.asset_type==="Other"?("Other: "+(d.asset_type_other||"")):d.asset_type],
-      ["Loại sự cố",d.incident_type==="Other"?("Other: "+(d.incident_type_other||"")):d.incident_type],
-      ["Ngày sự cố",d.incident_date],
-      ["Hành động đề xuất",selectedActions(d).join(", ")],
-      ["Người yêu cầu",c.employee_name||c.user],
-      ["Luồng duyệt","Operation Review → CEO"]];
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
+  function renderSummary(){ var h=$("adlr-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
+    var other=function(v,o){ return v==="Other"?("Other: "+(o||"")):v; };
+    EcSummary.render(h,{draft:d, by:c.employee_name||c.user, resubmit:state.mode==="edit",
+      hero:[["Loại sự cố",other(d.incident_type,d.incident_type_other),"incident_type"],["Ngày sự cố",d.incident_date,"incident_date","date"],["Chi phí sửa chữa ước tính",d.estimated_repair_cost,"estimated_repair_cost","money"]],
+      groups:[{title:"Sự cố",fields:[["Tiêu đề",d.request_title,"request_title"],["Loại tài sản",other(d.asset_type,d.asset_type_other),"asset_type"],["Mã tài sản",d.asset_code,"asset_code"],["Địa điểm",d.incident_location,"incident_location"],["Giá trị tài sản mất ước tính",d.estimated_value_lost_stolen_asset,"estimated_value_lost_stolen_asset","money"]]},
+        {title:"Đề xuất",fields:[["Hành động đề xuất",selectedActions(d).join(", "),"recommended_actions"],["Mô tả sự cố",d.incident_description,"incident_description","long"]]}],
+      flow:"Operation Review → CEO"}); }
   function suggestTitle(d){ d=d||{}; var at=d.asset_type==="Other"?(d.asset_type_other||"Other"):d.asset_type; var parts=[at, d.incident_type, d.incident_date].filter(function(x){return x&&String(x).trim();});
     return parts.length?parts.join(" - ").slice(0,140):""; }
   function maybeAutoTitle(){ if(state.titleTouched)return; var s=suggestTitle(state.draft||{}); if(!s)return;

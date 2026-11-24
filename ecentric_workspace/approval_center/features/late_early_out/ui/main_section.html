@@ -238,7 +238,7 @@
       + otherFld
       + fld("reason","Lý do",'<textarea data-model="reason" rows="3" placeholder="Lý do đi trễ / về sớm">'+esc(d.reason||"")+'</textarea>',true).replace('class="fld','class="fld full')
       + fld("request_attachment","Tệp đính kèm",'<input type="file" multiple data-upload="request_attachment"><div class="hint" id="att-name">'+esc(d.request_attachment?"Đã tải":"Không bắt buộc")+'</div>').replace('class="fld','class="fld full')
-      + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="lteo-summary"></div></div>';
+      + '</div></div>';
   }
   var MATERIAL=["request_type","applied_date","check_time","check_time_other","reason"];
   function materialSnap(d){ return MATERIAL.map(function(k){return String((d||{})[k]||"");}).join("|"); }
@@ -259,16 +259,16 @@
     var actions = editing
       ? '<div class="actions"><button type="button" class="btn" id="lteo-edit-cancel">Hủy</button><button type="button" class="btn primary" id="lteo-resubmit">Gửi lại</button></div>'
       : '<div class="actions"><button type="button" class="btn" id="lteo-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="lteo-save">Lưu nháp</button><button type="button" class="btn primary" id="lteo-submit">Gửi yêu cầu</button></div>';
-    b.innerHTML = '<div class="lteo-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + actions + '</div>';
+    b.innerHTML = '<div class="lteo-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + (window.EcSummary?EcSummary.cardHTML("lteo-summary",actions):actions) + '</div>';
     if(editing) state._origMaterial=materialSnap(d);
     renderSummary(); wireCreate();
   }
   function titlePreview(d){ d=d||{}; var t=(d.check_time==="Other"?(d.check_time_other||"?"):(d.check_time||"?")); var rt=(d.request_type==="Đi trễ"||d.request_type==="Về sớm")?d.request_type:"Late/Early"; return rt+" - "+(d.applied_date||"?")+" - "+t; }
-  function renderSummary(){ var h=$("lteo-summary"); if(!h)return; var d=state.draft||{}; var c=state.boot.context||{};
-    var gio=(d.check_time==="Other"?(d.check_time_other||"—"):(d.check_time||"—"));
-    var rows=[["Tiêu đề (dự kiến)",titlePreview(d)],["Ngày áp dụng",d.applied_date],["Loại yêu cầu",d.request_type||"—"],["Giờ",gio],["Người yêu cầu",c.employee_name||c.user],
-      ["Luồng duyệt","Direct Manager (theo cấu hình)"]];
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
+  function renderSummary(){ var h=$("lteo-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
+    EcSummary.render(h,{draft:d, by:c.employee_name||c.user, resubmit:state.mode==="edit",
+      hero:[["Loại yêu cầu",d.request_type,"request_type"],["Ngày áp dụng",d.applied_date,"applied_date","date"],["Giờ",d.check_time==="Other"?d.check_time_other:d.check_time,"check_time"]],
+      groups:[{title:"Yêu cầu",fields:[["Tiêu đề (dự kiến)",titlePreview(d)],["Lý do",d.reason,"reason","long"]]}],
+      flow:"Direct Manager (theo cấu hình)"}); }
   function suggestTitle(d){ return titlePreview(d); }
 
   function apply3Day(){ /* no time-window/overlap warning for Late in - Early out */ }

@@ -244,7 +244,7 @@
       + fld("specifications","Thông số / cấu hình",'<textarea data-model="specifications" rows="2" placeholder="Model, tính năng, cấu hình...">'+esc(d.specifications||"")+'</textarea>',true).replace('class="fld','class="fld full')
       + fld("justification","Lý do","<textarea data-model=\"justification\" rows=\"2\">"+esc(d.justification||"")+"</textarea>",true).replace('class="fld','class="fld full')
       + fld("request_attachment","Tệp đính kèm",'<input type="file" multiple data-upload="request_attachment"><div class="hint" id="att-name">'+esc(d.request_attachment?"Đã tải":"Không bắt buộc")+'</div>').replace('class="fld','class="fld full')
-      + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="assr-summary"></div></div>';
+      + '</div></div>';
   }
   var MATERIAL=["request_type","asset_type","asset_type_other","purpose_of_request","purpose_other","quantity","specifications","justification","requested_needed_date"];
   function materialSnap(d){ return MATERIAL.map(function(k){return String((d||{})[k]||"");}).join("|"); }
@@ -267,17 +267,17 @@
     var actions = editing
       ? '<div class="actions"><button type="button" class="btn" id="assr-edit-cancel">Hủy</button><button type="button" class="btn primary" id="assr-resubmit">Gửi lại</button></div>'
       : '<div class="actions"><button type="button" class="btn" id="assr-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="assr-save">Lưu nháp</button><button type="button" class="btn primary" id="assr-submit"'+(mgrBlock?" disabled":"")+'>Gửi yêu cầu</button></div>';
-    b.innerHTML = '<div class="assr-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + actions + '</div>';
+    b.innerHTML = '<div class="assr-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + (window.EcSummary?EcSummary.cardHTML("assr-summary",actions):actions) + '</div>';
     if(editing) state._origMaterial=materialSnap(d);
     state.titleTouched = !!((d.request_title||"").toString().trim());
     maybeAutoTitle(); renderSummary(); wireCreate();
   }
-  function renderSummary(){ var h=$("assr-summary"); if(!h)return; var d=state.draft||{}; var c=state.boot.context||{};
-    var rows=[["Loại yêu cầu",d.request_type],["Loại tài sản",d.asset_type==="Other"?("Other: "+(d.asset_type_other||"")):d.asset_type],
-      ["Mục đích",d.purpose_of_request==="Other"?("Other: "+(d.purpose_other||"")):d.purpose_of_request],
-      ["Số lượng",d.quantity],["Ngày cần",d.requested_needed_date],["Quản lý trực tiếp",c.manager_user||"—"],
-      ["Luồng duyệt","Direct Manager → Operation Review → Operation Fulfillment (theo cấu hình)"]];
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
+  function renderSummary(){ var h=$("assr-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
+    EcSummary.render(h,{draft:d, by:c.employee_name||c.user, resubmit:state.mode==="edit",
+      hero:[["Loại yêu cầu",d.request_type,"request_type"],["Số lượng",d.quantity,"quantity"],["Ngày cần",d.requested_needed_date,"requested_needed_date","date"]],
+      groups:[{title:"Tài sản",fields:[["Tiêu đề",d.request_title,"request_title"],["Loại tài sản",d.asset_type==="Other"?("Other: "+(d.asset_type_other||"")):d.asset_type,"asset_type"],
+        ["Mục đích",d.purpose_of_request==="Other"?("Other: "+(d.purpose_other||"")):d.purpose_of_request,"purpose_of_request"],["Quản lý trực tiếp",c.manager_user]]}],
+      flow:"Direct Manager → Operation Review (theo cấu hình)", after:["Operation Fulfillment"]}); }
   function suggestTitle(d){ d=d||{}; var at=d.asset_type==="Other"?(d.asset_type_other||"Other"):d.asset_type;
     var parts=[d.request_type, at].filter(function(x){return x&&String(x).trim();});
     return parts.length?parts.join(" - ").slice(0,180):""; }

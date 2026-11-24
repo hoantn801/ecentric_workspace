@@ -238,7 +238,7 @@
       + fld("remarks","Ghi chú",'<textarea data-model="remarks" rows="3" placeholder="Nhập ghi chú...">'+esc(d.remarks||"")+'</textarea>',true).replace('class="fld','class="fld full')
       + '</div></div><div class="card"><h3>Đính kèm</h3><div class="grid2">'
       + fld("request_attachment","Tệp đính kèm",'<input type="file" multiple data-upload="request_attachment"><div class="hint" id="att-name">'+esc(d.request_attachment?"Đã tải":"Không bắt buộc")+'</div>').replace('class="fld','class="fld full')
-      + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="cplv-summary"></div></div>';
+      + '</div></div>';
   }
 
   function processPreviewHTML(){
@@ -257,16 +257,15 @@
     var actions = editing
       ? '<div class="actions"><button type="button" class="btn" id="cplv-edit-cancel">Hủy</button><button type="button" class="btn primary" id="cplv-resubmit">Gửi lại</button></div>'
       : '<div class="actions"><button type="button" class="btn" id="cplv-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="cplv-save">Lưu nháp</button><button type="button" class="btn primary" id="cplv-submit">Gửi yêu cầu</button></div>';
-    b.innerHTML = '<div class="cplv-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c) + actions + '</div>';
+    b.innerHTML = '<div class="cplv-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c) + (window.EcSummary?EcSummary.cardHTML("cplv-summary",actions):actions) + '</div>';
     renderSummary(); wireCreate();
   }
-  function renderSummary(){ var h=$("cplv-summary"); if(!h)return; var d=state.draft||{}; var c=state.boot.context||{};
-    var rows=[["Tiêu đề (dự kiến)",titlePreview(d)],
-      ["Tăng ca",(d.overtime_start_date||"—")+" → "+(d.overtime_end_date||"—")+" · "+(d.overtime_duration_days!=null?d.overtime_duration_days:"—")+" ngày"],
-      ["Nghỉ bù",(d.cl_start_date||"—")+" → "+(d.cl_end_date||"—")+" · "+(d.cl_duration_days!=null?d.cl_duration_days:"—")+" ngày"],
-      ["Người yêu cầu",c.employee_name||c.user],
-      ["Luồng duyệt","Direct Manager review (theo cấu hình)"]];
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
+  function renderSummary(){ var h=$("cplv-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
+    EcSummary.render(h,{draft:d, by:c.employee_name||c.user, resubmit:state.mode==="edit",
+      hero:[["Số ngày tăng ca",d.overtime_duration_days,"overtime_duration_days"],["Số ngày nghỉ bù",d.cl_duration_days,"cl_duration_days"]],
+      groups:[{title:"Thời gian",fields:[["Tiêu đề (dự kiến)",titlePreview(d)],["Tăng ca từ",d.overtime_start_date,"overtime_start_date","date"],["Tăng ca đến",d.overtime_end_date,"overtime_end_date","date"],
+        ["Nghỉ bù từ",d.cl_start_date,"cl_start_date","date"],["Nghỉ bù đến",d.cl_end_date,"cl_end_date","date"]]}],
+      flow:"Direct Manager review (theo cấu hình)"}); }
 
   function apply3Day(){ /* no time-window/overlap warning for Compensation Leave */ }
   function setModel(k,v){ state.draft=state.draft||{}; state.draft[k]=v; state.dirty=true; }

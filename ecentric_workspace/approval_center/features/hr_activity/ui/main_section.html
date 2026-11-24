@@ -242,7 +242,7 @@
       + fld("justification","Lý do / giá trị",'<textarea data-model="justification" rows="2" placeholder="Vì sao cần? Giá trị? Đo lường thế nào?">'+esc(d.justification||"")+'</textarea>',true).replace('class="fld','class="fld full')
       + fld("vendor_trainer_partner_info","Vendor / Trainer / Partner",'<textarea data-model="vendor_trainer_partner_info" rows="2" placeholder="Vendor/trainer/partner? Liên hệ? Ghi chú?">'+esc(d.vendor_trainer_partner_info||"")+'</textarea>',true).replace('class="fld','class="fld full')
       + fld("request_attachment","Tệp đính kèm",'<input type="file" multiple data-upload="request_attachment"><div class="hint" id="att-name">'+esc(d.request_attachment?"Đã tải":"Bắt buộc")+'</div>',true).replace('class="fld','class="fld full')
-      + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="hrac-summary"></div></div>';
+      + '</div></div>';
   }
   var MATERIAL=["activity_type","activity_type_other","detail","start_date","end_date","participants","justification","estimated_budget","vendor_trainer_partner_info"];
   function materialSnap(d){ return MATERIAL.map(function(k){return String((d||{})[k]||"");}).join("|"); }
@@ -265,16 +265,16 @@
     var actions = editing
       ? '<div class="actions"><button type="button" class="btn" id="hrac-edit-cancel">Hủy</button><button type="button" class="btn primary" id="hrac-resubmit">Gửi lại</button></div>'
       : '<div class="actions"><button type="button" class="btn" id="hrac-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="hrac-save">Lưu nháp</button><button type="button" class="btn primary" id="hrac-submit">Gửi yêu cầu</button></div>';
-    b.innerHTML = '<div class="ec-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + actions + '</div>';
+    b.innerHTML = '<div class="ec-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + (window.EcSummary?EcSummary.cardHTML("hrac-summary",actions):actions) + '</div>';
     if(editing) state._origMaterial=materialSnap(d);
     state.titleTouched = !!((d.request_title||"").toString().trim());
     maybeAutoTitle(); renderSummary(); wireCreate();
   }
-  function renderSummary(){ var h=$("hrac-summary"); if(!h)return; var d=state.draft||{}; var c=state.boot.context||{};
-    var rows=[["Loại hoạt động",d.activity_type==="Other"?("Other: "+(d.activity_type_other||"")):d.activity_type],
-      ["Thời gian",(d.start_date||"—")+" → "+(d.end_date||"—")],["Ngân sách dự kiến",d.estimated_budget!=null&&d.estimated_budget!==""?(d.estimated_budget+" VND"):""],
-      ["Người yêu cầu",c.employee_name||c.user],["Luồng duyệt","HR Manager → HOF → CEO (theo cấu hình)"]];
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
+  function renderSummary(){ var h=$("hrac-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
+    EcSummary.render(h,{draft:d, by:c.employee_name||c.user, resubmit:state.mode==="edit",
+      hero:[["Loại hoạt động",d.activity_type==="Other"?("Other: "+(d.activity_type_other||"")):d.activity_type,"activity_type"],["Ngân sách dự kiến",d.estimated_budget,"estimated_budget","money"]],
+      groups:[{title:"Hoạt động",fields:[["Tiêu đề",d.request_title,"request_title"],["Ngày bắt đầu",d.start_date,"start_date","date"],["Ngày kết thúc",d.end_date,"end_date","date"]]}],
+      flow:"HR Manager → HOF → CEO (theo cấu hình)"}); }
   function suggestTitle(d){ d=d||{}; var at=d.activity_type==="Other"?(d.activity_type_other||"Other"):d.activity_type; var parts=[at, d.start_date].filter(function(x){return x&&String(x).trim();});
     return parts.length?parts.join(" - ").slice(0,140):""; }
   function maybeAutoTitle(){ if(state.titleTouched)return; var s=suggestTitle(state.draft||{}); if(!s)return;

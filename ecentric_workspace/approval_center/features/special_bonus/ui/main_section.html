@@ -238,7 +238,7 @@
       + '<div></div>'
       + fld("reasons","Reasons",'<textarea data-model="reasons" rows="3" placeholder="Lý do đề xuất thưởng đặc biệt.">'+esc(d.reasons||"")+'</textarea>',true).replace('class="fld','class="fld full')
       + fld("request_attachment","Tệp đính kèm",'<input type="file" multiple data-upload="request_attachment"><div class="hint" id="spbn-att-name">'+attTxt+'</div>',false).replace('class="fld','class="fld full')
-      + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="spbn-summary"></div></div>';
+      + '</div></div>';
   }
   var MATERIAL=["department","project_name","reasons","total_bonus","request_attachment"];
   function materialSnap(d){ return MATERIAL.map(function(k){return String((d||{})[k]||"");}).join("|"); }
@@ -261,17 +261,16 @@
     var actions = editing
       ? '<div class="actions"><button type="button" class="btn" id="spbn-edit-cancel">Hủy</button><button type="button" class="btn primary" id="spbn-resubmit">Gửi lại</button></div>'
       : '<div class="actions"><button type="button" class="btn" id="spbn-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="spbn-save">Lưu nháp</button><button type="button" class="btn primary" id="spbn-submit">Gửi yêu cầu</button></div>';
-    b.innerHTML = '<div class="spbn-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + actions + '</div>';
+    b.innerHTML = '<div class="spbn-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + (window.EcSummary?EcSummary.cardHTML("spbn-summary",actions):actions) + '</div>';
     if(editing) state._origMaterial=materialSnap(d);
     state.titleTouched = !!((d.request_title||"").toString().trim());
     maybeAutoTitle(); renderSummary(); wireCreate();
   }
-  function renderSummary(){ var h=$("spbn-summary"); if(!h)return; var d=state.draft||{}; var c=state.boot.context||{};
-    var rows=[["Tiêu đề",d.request_title||""],["Phòng ban",d.department||""],["Dự án",d.project_name||""],
-      ["Tổng thưởng",d.total_bonus!=null&&d.total_bonus!==""?(d.total_bonus+" VND"):""],
-      ["Người yêu cầu",c.employee_name||c.user||""],
-      ["Luồng duyệt","Direct Manager → CnB → HOF → CEO"]];
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
+  function renderSummary(){ var h=$("spbn-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
+    EcSummary.render(h,{draft:d, by:c.employee_name||c.user, resubmit:state.mode==="edit",
+      hero:[["Dự án",d.project_name,"project_name"],["Phòng ban",d.department,"department"],["Tổng thưởng",d.total_bonus,"total_bonus","money"]],
+      groups:[{title:"Thưởng",fields:[["Tiêu đề",d.request_title,"request_title"],["Lý do",d.reasons,"reasons","long"]]}],
+      flow:"Direct Manager → CnB → HOF → CEO"}); }
   function suggestTitle(d){ d=d||{}; var parts=[d.project_name].filter(function(x){return x&&String(x).trim();});
     return parts.length?("Special Bonus - "+parts.join(" → ")).slice(0,140):""; }
   function maybeAutoTitle(){ if(state.titleTouched)return; var s=suggestTitle(state.draft||{}); if(!s)return;

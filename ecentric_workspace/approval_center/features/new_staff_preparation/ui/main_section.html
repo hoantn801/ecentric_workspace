@@ -235,7 +235,7 @@
     return '<div class="card"><h3>Chào mừng ngày onboard</h3><div class="grid2">'
       + fld("onboard_date","Ngày onboard",'<input type="date" data-model="onboard_date" value="'+esc(d.onboard_date||"")+'">',true)
       + fld("welcome_intro","Đôi lời giới thiệu từ chính chủ",'<textarea data-model="welcome_intro" rows="5" placeholder="Nhân viên mới tự giới thiệu - hiện trong thiệp Teams và popup trang chủ">'+esc(d.welcome_intro||"")+'</textarea>').replace('class="fld','class="fld full')
-      + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="nsp-summary"></div></div>';
+      + '</div></div>';
   }
   var MATERIAL=["onboard_date","welcome_intro"];
   function materialSnap(d){ return MATERIAL.map(function(k){return String((d||{})[k]||"");}).join("|"); }
@@ -257,7 +257,7 @@
     var actions = editing
       ? '<div class="actions"><button type="button" class="btn" id="nsp-edit-cancel">Hủy</button><button type="button" class="btn primary" id="nsp-resubmit">Gửi lại</button></div>'
       : '<div class="actions"><button type="button" class="btn" id="nsp-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="nsp-save">Lưu nháp</button><button type="button" class="btn primary" id="nsp-submit">Gửi yêu cầu</button></div>';
-    b.innerHTML = '<div class="nsp-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + actions + '</div>';
+    b.innerHTML = '<div class="nsp-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + (window.EcSummary?EcSummary.cardHTML("nsp-summary",actions):actions) + '</div>';
     if(editing) state._origMaterial=materialSnap(d);
     state.titleTouched = !!((d.request_title||"").toString().trim());
     maybeAutoTitle(); renderSummary(); wireCreate();
@@ -270,9 +270,9 @@
     try{ return decodeURIComponent(i>=0?u.slice(i+1):u); }catch(e){ return i>=0?u.slice(i+1):u; } }
   function showFileName(url){ var el=$("nsp-file-name"); if(!el) return;
     el.innerHTML = url ? ('Đã đính kèm: <a href="'+esc(url)+'" target="_blank">'+esc(fileLabel(url))+'</a>') : ""; }
-  function renderSummary(){ var h=$("nsp-summary"); if(!h)return; var d=state.draft||{};
-    var rows=[["Nhân viên mới",d.candidate_name||""],["Vị trí",d.position||""],["Ngày onboard",d.onboard_date||""],["Lời giới thiệu",d.welcome_intro?"Đã có":"Chưa có"]];
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
+  function renderSummary(){ var h=$("nsp-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{};
+    EcSummary.render(h,{draft:d, resubmit:true, hero:[["Nhân viên mới",d.candidate_name],["Vị trí",d.position],["Ngày onboard",d.onboard_date,"onboard_date","date"]],
+      groups:[{title:"Chào mừng",fields:[["Lời giới thiệu",d.welcome_intro?"Đã có":"Chưa có","welcome_intro"]]}]}); }
   function suggestTitle(d){ return (d&&d.request_title)||""; }
   function maybeAutoTitle(){ }
 

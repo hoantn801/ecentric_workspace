@@ -251,8 +251,7 @@
       + '<div class="card"><h3>Người yêu cầu</h3><div class="grid2">'
       + fld("_r1","Người yêu cầu",'<input class="ro" readonly value="'+esc(c.employee_name||c.user||"")+'">')
       + fld("_r2","Phòng ban",'<input class="ro" readonly value="'+esc(c.department||"—")+'">')
-      + '</div></div>'
-      + '<div class="card"><h3>Tóm tắt</h3><div id="eiu-summary"></div></div>';
+      + '</div></div>';
   }
   function cvHint(d){ if(!d.field_to_update) return "";
     if(d.field_to_update==="Other") return "Trường khác: C&B cập nhật tay vào hồ sơ sau khi duyệt.";
@@ -272,13 +271,14 @@
     var c=(state.boot&&state.boot.context)||{}; if(!state.draft) state.draft={}; var d=state.draft;
     if(!d.employee_email&&c.user&&c.user.indexOf("@")>0){ d.employee_email=c.user; }
     var actions='<div class="actions"><button type="button" class="btn" id="eiu-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="eiu-save">Lưu nháp</button><button type="button" class="btn primary" id="eiu-submit">Gửi yêu cầu</button></div>';
-    b.innerHTML='<div class="ec-formwrap">'+processPreviewHTML()+formCardsHTML(d,c)+actions+'</div>';
+    b.innerHTML='<div class="ec-formwrap">'+processPreviewHTML()+formCardsHTML(d,c)+(window.EcSummary?EcSummary.cardHTML("eiu-summary",actions):actions)+'</div>';
     renderSummary(); wireCreate();
   }
-  function renderSummary(){ var h=$("eiu-summary"); if(!h)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
-    var rows=[["Tiêu đề (dự kiến)",titlePreview(d)],["Employee",d.employee_email],["Field to update",d.field_to_update],
-      ["Current value",d.current_value],["New value",d.new_value],["Người yêu cầu",c.employee_name||c.user],["Luồng duyệt","HR Review"]];
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
+  function renderSummary(){ var h=$("eiu-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
+    EcSummary.render(h,{draft:d, by:c.employee_name||c.user,
+      hero:[["Employee",d.employee_email,"employee_email"],["Field to update",d.field_to_update,"field_to_update"]],
+      groups:[{title:"Thay đổi",fields:[["Tiêu đề (dự kiến)",titlePreview(d)],["Current value",d.current_value,"current_value"],["New value",d.new_value,"new_value"]]}],
+      flow:"HR Review"}); }
 
   function setModel(k,v){ state.draft=state.draft||{}; state.draft[k]=v; state.dirty=true; }
   function setFieldError(id,msg){ var f=document.querySelector('[data-fld="'+id+'"]'); if(!f)return; f.classList.toggle("invalid",!!msg);
