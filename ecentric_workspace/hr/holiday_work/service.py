@@ -44,14 +44,19 @@ def validate(doc):
     if codes:
         missing = []
         for code in codes:
-            emp = frappe.db.get_value("Employee", {"employee_number": code}, "name")
-            if not emp:
+            e = frappe.db.get_value("Employee", {"employee_number": code},
+                                    ["name", "employee_name", "employee_number", "department"],
+                                    as_dict=True)
+            if not e:
                 missing.append(code)
                 continue
-            if emp in have:
+            if e.name in have:
                 continue
-            have.add(emp)
-            doc.append("members", {"employee": emp})
+            have.add(e.name)
+            # fetch_from chay TRUOC validate -> dong them o day phai tu dien ten / MNV / phong ban.
+            doc.append("members", {"employee": e.name, "employee_name": e.employee_name,
+                                   "employee_number": e.employee_number,
+                                   "department": e.department})
         doc.paste_codes = ""
         if missing:
             frappe.msgprint("Không tìm thấy mã nhân viên: %s. Kiểm tra lại MNV trên hồ sơ "
