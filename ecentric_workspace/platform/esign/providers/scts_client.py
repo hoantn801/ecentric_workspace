@@ -23,6 +23,7 @@ NEVER logged or echoed into ProviderError messages.
 """
 import base64
 import json
+import re
 import time
 
 from ecentric_workspace.platform.esign.providers.base import ProviderError
@@ -172,6 +173,59 @@ class SctsClient(object):
         except Exception:
             pass
         return txt[:200]
+
+    #: Chuoi dai lien tuc (base64 / JWT / ma bam) - khong bao gio dua vao thong bao loi.
+    _LONG_RUN = re.compile(r"[A-Za-z0-9+/=_\-.]{40,}")
+    _BEARER = re.compile(r"(?i)bearer\s+\S+")
+    #: QC 24/11: cau loi cua cong co the lap lai du lieu doi tac (CCCD, SDT, email) - che truoc
+    #: khi vao error_summary / error_message.
+    _DIGITS = re.compile(r"\d{9,}")
+    _EMAIL = re.compile(r"[^\s@|;,=]+@[^\s@|;,=]+")
+    #: Khoa / chu "base64" lam safe_error giau CA cau - bo truoc (vd errors["Documents[0].PdfBase64"]).
+    _B64_WORD = re.compile(r"(?i)[\w.\[\]]*base64[\w.\[\]]*")
+
+    @classmethod
+    def _provider_error_detail(cls, resp, limit=300):
+        """Loi giai thich cua cong (message / title / detail / errors) DA LAM SACH: bo chuoi
+        dai (base64, token), bo "Bearer ...". Rong neu khong doc duoc. Khong bao gio nem."""
+        try:
+            txt = resp.text or ""
+        except Exception:
+            txt = ""
+        parts = []
+        try:
+            data = json.loads(txt)
+        except Exception:
+            data = None
+        if isinstance(data, dict):
+            for k in ("message", "title", "detail", "error"):
+                v = data.get(k)
+                if isinstance(v, str) and v.strip():
+                    parts.append(v.strip())
+            errs = data.get("errors")
+            if isinstance(errs, dict):
+                for field, msgs in errs.items():
+                    if "base64" in str(field).lower():
+                        continue
+                    if isinstance(msgs, (list, tuple)):
+                        msgs = "; ".join(str(m) for m in msgs)
+                    parts.append("%s=%s" % (field, msgs))
+            elif isinstance(errs, (list, tuple)):
+                parts.extend(str(e) for e in errs[:10])
+        elif txt.strip() and not txt.lstrip().startswith("<"):
+            parts.append(txt.strip())
+        out = " | ".join(" ".join(p.split()) for p in parts if p)
+        out = cls._BEARER.sub("Bearer ***", out)
+        out = cls._LONG_RUN.sub("***", out)
+        out = cls._EMAIL.sub("***@***", out)
+        out = cls._DIGITS.sub("***", out)
+        out = cls._B64_WORD.sub("(tep)", out)
+        return out[:limit]
+
+    @classmethod
+    def _detail_suffix(cls, resp):
+        d = cls._provider_error_detail(resp)
+        return (": " + d) if d else ""
 
     # -- endpoints ------------------------------------------------------------
     def login(self, site, username, password):
@@ -421,11 +475,15 @@ class SctsClient(object):
                 raise ProviderError("scts_create_quota_exceeded",
                                     "Nha cung cap ky so bao het han muc tai lieu: %s" % quota,
                                     retryable=True)
+            # PR-I 24/11: noi ro cong noi gi (thu EC-CTR-2026-00134: 500 im lang, khong ai biet vi
+            # sao). Van MO HO - tai lieu co the da tao; chi them loi giai thich da lam sach.
             raise ProviderError("scts_create_outcome_unknown",
-                                "AddDocument outcome unknown (HTTP %s)" % status,
+                                "AddDocument outcome unknown (HTTP %s)%s"
+                                % (status, self._detail_suffix(resp)),
                                 retryable=False, ambiguous=True)
         raise ProviderError("scts_create_rejected_%s" % status,
-                            "SCTS rejected AddDocument (HTTP %s)" % status, retryable=False)
+                            "SCTS rejected AddDocument (HTTP %s)%s"
+                            % (status, self._detail_suffix(resp)), retryable=False)
 
     def cancel_document(self, document_id, reason, token):
         """POST /api/Document/cancel-file-pdf (CMC, 18/11/2026) - HUY chung tu: cong danh dau

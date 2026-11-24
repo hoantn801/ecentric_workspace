@@ -570,33 +570,36 @@
   .ecentric-app .ec2-col>.panel .news-list,.ecentric-app .ec2-col>.panel ul{padding-left:0;padding-right:0}
   .ecentric-app .ec2-col .quick-grid{grid-template-columns:repeat(4,1fr)}
   /* ---- v2: card Phong hop (05/11/2026, demo v2 PO duyet). CHI xem trong/ban, dat o /pm#rooms. Khung giu cho
-     5 dong xuong co san trong markup, cung chieu cao dong that (38px) -> du lieu ve khong lam nhay bo cuc.
+     5 dong xuong co san trong markup, cung chieu cao dong that (54px) -> du lieu ve khong lam nhay bo cuc.
      pm_home_calendar.js chi dien noi dung vao [data-ec-rooms-list] va badge. ---- */
   .ecentric-app .ec2-rooms .badge:empty{display:none}
+  /* 24/11/2026 (Hoan chon phuong an A): moi phong 1 dong 2 tang (ten + lich ke tiep), nhan trang thai mau
+     ben phai, chia theo tang. Bo thanh 08-19 (qua mong, kho doc) - xem ca ngay o /pm#rooms. */
   .ecentric-app .ec2-col>.panel .ec2-rm-list{list-style:none;margin:0;padding:0}
-  .ecentric-app .ec2-rm-list>li{height:38px;border-top:1px solid #f3f4f6}
-  .ecentric-app .ec2-rm-list>li:first-child{border-top:0}
-  .ecentric-app .ec2-rm-row{display:grid;grid-template-columns:30px minmax(0,1fr) auto;grid-template-rows:auto 4px;column-gap:8px;row-gap:5px;align-content:center;height:100%;padding:0 4px;text-decoration:none;color:inherit;border-radius:6px}
+  .ecentric-app .ec2-rm-list>li{min-height:54px;border-top:1px solid #f3f4f6}
+  .ecentric-app .ec2-rm-list>li:first-child,.ecentric-app .ec2-rm-list>li.ec2-rm-floor+li{border-top:0}
+  .ecentric-app .ec2-rm-list>li.ec2-rm-floor{min-height:0;border-top:0;padding:12px 6px 2px;font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#9ca3af}
+  .ecentric-app .ec2-rm-list>li.ec2-rm-floor:first-child{padding-top:0}
+  .ecentric-app .ec2-rm-row{display:grid;grid-template-columns:34px minmax(0,1fr) auto;column-gap:10px;align-items:center;min-height:54px;padding:6px;text-decoration:none;color:inherit;border-radius:8px}
   .ecentric-app .ec2-rm-row:hover{background:#f9fafb}
   .ecentric-app .ec2-rm-row:focus-visible{outline:2px solid var(--navy);outline-offset:-2px}
-  .ecentric-app .ec2-rm-code{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:11px;color:#6b7280;font-variant-numeric:tabular-nums}
-  .ecentric-app .ec2-rm-name{font-size:12.5px;font-weight:500;color:#111827;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .ecentric-app .ec2-rm-st{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
-  .ecentric-app .ec2-rm-st::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
-  .ecentric-app .ec2-rm-st--free{color:#059669}
-  .ecentric-app .ec2-rm-st--busy{color:#dc2626}
-  .ecentric-app .ec2-rm-st--soon{color:#b45309}
-  .ecentric-app .ec2-rm-st--off{color:#9ca3af}
-  .ecentric-app .ec2-rm-bar{grid-column:2/4;position:relative;height:4px;border-radius:2px;background:#f3f4f6;overflow:hidden}
-  .ecentric-app .ec2-rm-bar i{position:absolute;top:0;bottom:0;background:#d1d5db}
-  .ecentric-app .ec2-rm-bar i.ec2-rm-cur{background:#dc2626}
-  .ecentric-app .ec2-rm-bar b{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:#111827}
-  .ecentric-app .ec2-rm-sk{display:grid;grid-template-columns:30px minmax(0,1fr) 84px;grid-template-rows:10px 4px;gap:8px;align-content:center;padding:0 4px}
+  .ecentric-app .ec2-rm-code{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:11.5px;color:#6b7280;font-variant-numeric:tabular-nums}
+  .ecentric-app .ec2-rm-main{min-width:0}
+  .ecentric-app .ec2-rm-name{display:block;font-size:13px;font-weight:600;color:#111827;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ecentric-app .ec2-rm-sub{display:block;margin-top:1px;font-size:11.5px;color:#6b7280;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .ecentric-app .ec2-rm-st{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:999px;font-size:11.5px;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .ecentric-app .ec2-rm-st::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+  .ecentric-app .ec2-rm-st--free{color:#047857;background:#ecfdf5}
+  .ecentric-app .ec2-rm-st--busy{color:#b42318;background:#fef3f2}
+  .ecentric-app .ec2-rm-st--soon{color:#b54708;background:#fff6e5}
+  .ecentric-app .ec2-rm-st--mine{color:var(--navy);background:#eef0fb}
+  .ecentric-app .ec2-rm-st--off{color:#9ca3af;background:#f3f4f6}
+  .ecentric-app .ec2-rm-sk{display:grid;grid-template-columns:34px minmax(0,1fr) 92px;grid-template-rows:10px 8px;gap:6px 10px;align-content:center;padding:0 6px}
   .ecentric-app .ec2-rm-sk span{border-radius:4px;background:#f3f4f6}
-  .ecentric-app .ec2-rm-sk span:nth-child(4){grid-column:2/4}
-  .ecentric-app .ec2-rm-list>li.ec2-rm-note{height:auto;padding:10px 4px;font-size:12px;color:#9ca3af}
-  .ecentric-app .ec2-rm-foot{display:flex;justify-content:space-between;gap:8px;margin-top:6px;font-size:11px;color:#9ca3af}
-  .ecentric-app .ec2-rm-foot span:first-child,.ecentric-app .ec2-rm-foot span:last-child{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+  .ecentric-app .ec2-rm-sk span:nth-child(1){grid-row:1/3;height:10px;align-self:center}
+  .ecentric-app .ec2-rm-sk span:nth-child(3){grid-column:3;grid-row:1/3;height:20px;align-self:center;border-radius:999px}
+  .ecentric-app .ec2-rm-sk span:nth-child(4){grid-column:2;grid-row:2;width:60%}
+  .ecentric-app .ec2-rm-list>li.ec2-rm-note{min-height:0;padding:10px 4px;font-size:12px;color:#9ca3af}
   .ecentric-app .ec2-qn{display:inline-block;font-size:11px;font-weight:700;background:#eef0fb;color:#1f2d80;border-radius:8px;padding:1px 8px;margin-left:6px;vertical-align:1px}
   .ecentric-app .ec2-qn[hidden]{display:none}
   .ecentric-app .ec2-qg{font-size:9.5px;letter-spacing:.1em;font-weight:750;margin:10px 4px 3px;display:flex;align-items:center;gap:8px}
@@ -976,7 +979,6 @@
               <li class="ec2-rm-sk"><span></span><span></span><span></span><span></span></li>
               <li class="ec2-rm-sk"><span></span><span></span><span></span><span></span></li>
             </ul>
-            <div class="ec2-rm-foot" aria-hidden="true"><span>08:00</span><span>thanh xám = đã có người đặt hôm nay</span><span>19:00</span></div>
           </div>
 
           <div class="panel">
@@ -1076,7 +1078,7 @@
 <script id="ec-action-center-widget" src="/assets/ecentric_workspace/js/action_center_widget.js" defer></script><!-- /ec-action-center-widget -->
 
 
-<script id="ec-lich-hom-nay-loader" src="/assets/ecentric_workspace/js/pm_home_calendar.js?v=0cbccdb82e" defer></script><!-- /ec-lich-hom-nay-loader -->
+<script id="ec-lich-hom-nay-loader" src="/assets/ecentric_workspace/js/pm_home_calendar.js?v=47679267ac" defer></script><!-- /ec-lich-hom-nay-loader -->
 
 <style>
   /* ec-att-home-v2 */
