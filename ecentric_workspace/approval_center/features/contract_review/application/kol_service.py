@@ -266,7 +266,87 @@ def fill_partner_signer(doc, creator):
             doc.set(field, str(value).strip()[:140])
 
 
-PARTNER_FIELDS = ("partner_signer_name", "partner_signer_email", "partner_signer_phone")
+PARTNER_FIELDS = ("partner_signer_name", "partner_signer_email", "partner_signer_phone", "partner_signer_identity")
+IDENTITY_FIELD = "partner_signer_identity"
+_CREATOR_ID_FIELDS = ["ec_cr_type", "supplier_name", "ec_cr_email", "ec_cr_cccd", "ec_cr_cccd_issue_place",
+                      "ec_cr_cccd_issue_date", "ec_cr_dob", "tax_id"]
+
+
+def _norm_id(value):
+    """CCCD / MST: bo khoang trang, cham; giu chu so, chu cai va '-' (MST chi nhanh 0101234567-001)."""
+    return "".join(ch for ch in str(value or "") if ch.isalnum() or ch == "-").strip("-")
+
+
+def _norm_name(value):
+    return " ".join(str(value or "").split()).casefold()
+
+
+def _fmt_day(value):
+    if not value:
+        return ""
+    s = str(value)[:10]
+    try:
+        y, m, d = s.split("-")
+        return "%s/%s/%s" % (d, m, y)
+    except ValueError:
+        return s
+
+
+def _signer_is_creator(doc, cr):
+    """Nguoi ky phia doi tac la CHINH creator ca nhan: trung email, hoac (creator chua co email) trung ten."""
+    email = (doc.get("partner_signer_email") or "").strip().lower()
+    cr_email = (cr.get("ec_cr_email") or "").strip().lower()
+    if email and cr_email:
+        return email == cr_email
+    return _norm_name(doc.get("partner_signer_name")) == _norm_name(cr.get("supplier_name"))
+
+
+def partner_identity(doc):
+    """Dinh danh nguoi ky phia doi tac cho cong ky CMC (BAT BUOC voi moi hop dong co doi tac ky - chat Ky so
+    24/11) -> (truong gui cong {identity, identity_place?, identity_date?, dob?}, loi tieng Viet hoac None).
+
+      * O "CCCD / MST nguoi ky phia doi tac" co gia tri -> dung no (nguoi ky la nguoi dai dien / nguoi khac).
+      * Hop dong KOL, o trong: creator ca nhan ky chinh minh -> CCCD (+ noi cap, ngay cap, ngay sinh);
+        creator ca nhan nhung nguoi ky la nguoi khac -> phai nhap CCCD nguoi ky; cong ty / ho kinh doanh ->
+        MST (ho kinh doanh chua co MST thi CCCD chu ho).
+      * Hop dong khac, o trong -> loi (khong co nguon du lieu doi tac).
+    KHONG ghi log gia tri nao (PII)."""
+    manual = _norm_id(doc.get(IDENTITY_FIELD))
+    if manual:
+        if len(manual) < 9:
+            return {}, _("\"CCCD / MST người ký phía đối tác\" không hợp lệ - nhập đủ số CCCD (12 số) hoặc MST.")
+        return {"identity": manual}, None
+    if not (kol.is_kol(doc) and doc.get("creator")):
+        return {}, _("Nhập \"CCCD / MST người ký phía đối tác\" (CCCD với cá nhân, MST với công ty / hộ kinh doanh) "
+                     "- cổng ký số bắt buộc.")
+    cr = frappe.db.get_value("Supplier", doc.creator, _CREATOR_ID_FIELDS, as_dict=True) or {}
+    kind = cr.get("ec_cr_type")
+    if kind == "Cá nhân":
+        if not _signer_is_creator(doc, cr):
+            return {}, _("Người ký phía đối tác không phải chính creator: nhập CCCD của người ký vào ô \"CCCD / MST "
+                         "người ký phía đối tác\" - cổng ký số bắt buộc.")
+        cccd = _norm_id(cr.get("ec_cr_cccd"))
+        if not cccd:
+            return {}, _("Creator chưa có CCCD - bổ sung trong thông tin creator (cổng ký số bắt buộc).")
+        out = {"identity": cccd}
+        for key, value in (("identity_place", cr.get("ec_cr_cccd_issue_place")),
+                           ("identity_date", _fmt_day(cr.get("ec_cr_cccd_issue_date"))),
+                           ("dob", _fmt_day(cr.get("ec_cr_dob")))):
+            if value:
+                out[key] = str(value).strip()
+        return out, None
+    tax = _norm_id(cr.get("tax_id")) or (_norm_id(cr.get("ec_cr_cccd")) if kind == "Hộ kinh doanh" else "")
+    if not tax:
+        return {}, _("Creator ({0}) chưa có MST - bổ sung trong thông tin creator, hoặc nhập vào ô \"CCCD / MST "
+                     "người ký phía đối tác\" (cổng ký số bắt buộc).").format(kind or "công ty")
+    return {"identity": tax}, None
+
+
+def partner_identity_error(doc):
+    """Loi thieu dinh danh doi tac (None khi du / quy trinh khong co doi tac ky tren cong)."""
+    if not esign_flow.needs_partner(doc.get("esign_flow")):
+        return None
+    return partner_identity(doc)[1]
 
 
 def _reset_partner_on_creator_change(doc):

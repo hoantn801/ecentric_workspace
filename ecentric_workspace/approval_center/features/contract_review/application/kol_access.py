@@ -176,9 +176,24 @@ def _access_log(doc, file_url, user):
         frappe.log_error(frappe.get_traceback(), "kol download access log %s" % doc.name)
 
 
+def _mask_partner_identity(business):
+    """CCCD / MST nguoi ky phia doi tac (24/11) la PII voi MOI loai hop dong: chi nguoi lap, System Manager
+    va (hop dong KOL) nguoi duoc tai ban du thay so day du; nguoi khac thay 3 ky tu cuoi."""
+    value = business.get("partner_signer_identity")
+    if not value:
+        return
+    user = frappe.session.user
+    if user in (business.get("requested_by"), business.get("owner")) or "System Manager" in frappe.get_roles(user):
+        return
+    if kol.is_kol(business) and can_download_full(business, user):
+        return
+    business["partner_signer_identity"] = "•••" + str(value)[-3:]
+
+
 def redact_business(business, request=None):
     """`business_redactor`: an URL ban du PII khoi chi tiet phieu voi nguoi khong duoc tai. Co
     `has_contract_file` / `has_request_attachment` de trang van biet da co tep (nhan nut, buoc)."""
+    _mask_partner_identity(business)
     if not kol.is_kol(business):
         return
     business["has_contract_file"] = bool(business.get("contract_file"))

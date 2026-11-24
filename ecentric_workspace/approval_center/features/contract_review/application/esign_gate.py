@@ -48,7 +48,15 @@ def requester_signs(name):
 def before_submit(doc):
     """Goi TRUOC engine.submit / engine.resubmit. Chua co Ban PDF de ky -> bao ro bang loi cua form;
     con lai giao nen tang kiem (o ky du, doi chieu noi dung tep). Khong ky so -> khong lam gi."""
-    if not profile(doc.name) or requester_signs(doc.name):
+    if not profile(doc.name):
+        return False
+    # CMC bat buoc CCCD / MST cua doi tac (chat Ky so 24/11): thieu thi bao nguoi lap NGAY luc gui, khong
+    # de toi luc nen tang gui cong moi bi tu choi.
+    from ecentric_workspace.approval_center.features.contract_review.application import kol_service
+    err = kol_service.partner_identity_error(doc)
+    if err:
+        frappe.throw(err)
+    if requester_signs(doc.name):
         return False
     if not doc.get("sign_pdf"):
         frappe.throw(_("Tải \"Bản PDF để ký\" (xuất từ Word: Tệp → Lưu thành PDF) trước khi gửi duyệt."))

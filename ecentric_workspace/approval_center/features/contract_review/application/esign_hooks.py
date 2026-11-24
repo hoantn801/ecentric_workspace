@@ -239,52 +239,31 @@ def signing_files(business_name):
 
 
 # ----------------------------------------------------------------------------- B6: doi tac ky tren cong
-def _fmt_day(value):
-    if not value:
-        return ""
-    s = str(value)[:10]
-    try:
-        y, m, d = s.split("-")
-        return "%s/%s/%s" % (d, m, y)
-    except ValueError:
-        return s
-
-
 def external_handlers(business_name):
-    """Hook ec_esign_external_handlers -> [{full_name, email, phone?, identity?, identity_place?,
+    """Hook ec_esign_external_handlers -> [{full_name, email, phone?, identity, identity_place?,
     identity_date?, dob?}]. Lay tu o "Nguoi ky phia doi tac" cua phieu (luc gui da kiem bang
-    kol_service.partner_signer_errors). KHONG dat sign_type: Ky so dat mac dinh (eKYC - anh Hoan chot).
+    kol_service.partner_signer_errors + esign_gate). KHONG dat sign_type: Ky so dat mac dinh (eKYC).
 
-    Ca nhan ky chinh minh (email nguoi ky = email creator): kem CCCD / noi cap / ngay cap / ngay sinh
-    cua creator cho eKYC (CMC chua xac nhan truong nao bat buoc - dua du). Nguoi ky khac (dai dien cong
-    ty, nguoi lap sua tay) thi KHONG gan dinh danh cua creator. Ngay dang dd/mm/yyyy nhu tren hop dong.
-    Khong ghi log gia tri nao (PII)."""
+    `identity` LUON co (CMC bat buoc CCCD / MST doi tac - chat Ky so 24/11): xem
+    kol_service.partner_identity (o nhap tay > CCCD creator ca nhan ky chinh minh > MST cong ty / ho
+    kinh doanh). Thieu -> nem loi ro rang thay vi gui cong roi bi CMC tu choi. Ngay dd/mm/yyyy nhu tren
+    hop dong. Khong ghi log gia tri nao (PII)."""
     doc = frappe.get_doc(kol_lookup.CR_DT, business_name)
     if not esign_flow.needs_partner(doc.get("esign_flow")):
         frappe.throw(_("Quy trình ký của phiếu {0} không có đối tác ký trên cổng.").format(business_name))
     from ecentric_workspace.approval_center.features.contract_review.application.kol_service import (
-        partner_signer_errors)
+        partner_identity, partner_signer_errors)
     errors = partner_signer_errors(doc)
     if errors:
         frappe.throw(errors[0])
-    name = (doc.get("partner_signer_name") or "").strip()
-    email = (doc.get("partner_signer_email") or "").strip()
-    row = {"full_name": name, "email": email}
+    ident, err = partner_identity(doc)
+    if err:
+        frappe.throw(err)
+    row = {"full_name": (doc.get("partner_signer_name") or "").strip(),
+           "email": (doc.get("partner_signer_email") or "").strip()}
     phone = (doc.get("partner_signer_phone") or "").strip()
     if phone:
         row["phone"] = phone
-    if kol.is_kol(doc) and doc.get("creator"):
-        cr = frappe.db.get_value("Supplier", doc.creator,
-                                 ["ec_cr_type", "ec_cr_email", "ec_cr_cccd", "ec_cr_cccd_issue_place",
-                                  "ec_cr_cccd_issue_date", "ec_cr_dob"], as_dict=True) or {}
-        same_person = (cr.get("ec_cr_type") == "Cá nhân"
-                       and (cr.get("ec_cr_email") or "").strip().lower() == email.lower())
-        if same_person:
-            for key, value in (("identity", cr.get("ec_cr_cccd")),
-                               ("identity_place", cr.get("ec_cr_cccd_issue_place")),
-                               ("identity_date", _fmt_day(cr.get("ec_cr_cccd_issue_date"))),
-                               ("dob", _fmt_day(cr.get("ec_cr_dob")))):
-                if value:
-                    row[key] = str(value).strip()
+    row.update(ident)
     return [row]
 

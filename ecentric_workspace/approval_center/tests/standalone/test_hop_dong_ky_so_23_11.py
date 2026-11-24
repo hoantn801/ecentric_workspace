@@ -253,12 +253,14 @@ class HookDoiTac(unittest.TestCase):
         self.assertEqual((r["identity_date"], r["dob"]), ("01/04/2021", "03/02/1999"))
         self.assertNotIn("sign_type", r)              # Ky so dat mac dinh (eKYC)
 
-    def test_nguoi_ky_khac_khong_gan_cccd_creator(self):
+    def test_cong_ty_gui_mst_khong_gan_cccd_creator(self):
+        # 24/11 (chat Ky so): CMC bat buoc dinh danh doi tac -> cong ty gui MST, KHONG gui CCCD / ngay sinh.
         _kol_doc(partner_signer_email="dai.dien@cty.vn")
-        self._creator(ec_cr_type="Công ty")
+        self._creator(ec_cr_type="Công ty", tax_id="0312345678")
         r = _hooks().external_handlers("CR-1")[0]
-        self.assertNotIn("identity", r)
+        self.assertEqual(r["identity"], "0312345678")
         self.assertNotIn("dob", r)
+        self.assertNotIn("identity_place", r)
 
     def test_thieu_email_bao_tieng_viet(self):
         _kol_doc(partner_signer_email="")
@@ -355,7 +357,9 @@ class KhoaGoiKhiGui(unittest.TestCase):
         sp.is_stale = lambda doc: stale
         sys.modules[P + "kol_sign_pdf"] = sp
         sys.modules.pop(P + "esign_gate", None)
-        return importlib.import_module(P + "esign_gate"), calls, _kol_doc(sign_pdf=sign_pdf)
+        # 24/11: co ho so ky -> kiem CCCD / MST doi tac truoc (test_hop_dong_dinh_danh_doi_tac_24_11); o day da nhap.
+        return importlib.import_module(P + "esign_gate"), calls, _kol_doc(sign_pdf=sign_pdf,
+                                                                          partner_signer_identity="001200000001")
 
     def tearDown(self):
         for k in ("ecentric_workspace.platform.esign", "ecentric_workspace.platform.esign.guard",

@@ -29,6 +29,7 @@
   "partner_signer_name",
   "partner_signer_email",
   "partner_signer_phone",
+  "partner_signer_identity",
   "brand",
   "justification",
   "cb1",
@@ -240,6 +241,13 @@
    "fieldname": "partner_signer_phone",
    "fieldtype": "Data",
    "label": "Điện thoại người ký phía đối tác"
+  },
+  {
+   "fieldname": "partner_signer_identity",
+   "fieldtype": "Data",
+   "length": 20,
+   "label": "CCCD / MST người ký phía đối tác",
+   "description": "Cổng ký CMC bắt buộc. Hợp đồng KOL để trống: lấy CCCD (cá nhân) / MST (công ty, hộ kinh doanh) của creator; người ký không phải creator thì nhập CCCD người ký. Chỉ người lập và người được xem bản đủ thấy số."
   },
   {
    "fieldname": "brand",
@@ -693,7 +701,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-11-24 12:00:00.000000",
+ "modified": "2026-11-24 16:00:00.000000",
  "modified_by": "Administrator",
  "module": "Approval Center",
  "name": "EC Contract Review Request",
