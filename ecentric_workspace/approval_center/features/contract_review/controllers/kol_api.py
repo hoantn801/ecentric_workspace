@@ -12,6 +12,7 @@ import frappe
 from frappe import _
 
 from ecentric_workspace.approval_center.features.contract_review.domain import kol
+from ecentric_workspace.approval_center.shared.creators import misa_import
 from ecentric_workspace.approval_center.shared.creators.service import (
     CreatorError, CreatorPermissionError, CreatorService)
 
@@ -20,6 +21,7 @@ __all__ = ["kol_me", "kol_search_sales_orders", "kol_list_templates", "kol_place
            "kol_add_acceptance", "kol_send_acceptance", "kol_delete_acceptance", "kol_complete_acceptance",
            "kol_ai_extract", "kol_ai_qc", "kol_search_creators", "kol_get_creator",
            "kol_create_creator", "kol_update_creator", "kol_missing_misa", "kol_set_misa_code",
+           "kol_misa_preview", "kol_misa_apply",
            "kol_verify_signed", "kol_verify_acceptance", "kol_pending_checks", "kol_preview_dates",
            "kol_creator_gaps", "kol_preview_contract", "kol_download_file", "kol_confirm_payee",
            "kol_close_contract", "kol_reopen_contract", "kol_attach_sign_pdf", "kol_auto_place_sign"]
@@ -198,6 +200,24 @@ def kol_missing_misa():
 @frappe.whitelist(methods=["POST"])
 def kol_set_misa_code(name, code):
     return _creator(CreatorService().set_misa_code, name, code)
+
+
+@frappe.whitelist(methods=["POST"])
+def kol_misa_preview(filename=None, content=None):
+    """Nhap ma MISA tu tep (PO 24/11): doc CSV / .xlsx (base64) + kiem tung dong. KHONG ghi gi.
+    POST vi than tep lon; chi EC Finance / System Manager (kiem trong misa_import.preview)."""
+    return _creator(misa_import.preview, filename, content)
+
+
+@frappe.whitelist(methods=["POST"])
+def kol_misa_apply(rows, filename=None):
+    """Xac nhan hang loat: rows = [{line, name, code}] cac dong Khop o buoc xem truoc. Server kiem LAI
+    toan bo roi ghi tung dong qua CreatorService.set_misa_code (cung duong voi kol_set_misa_code)."""
+    try:
+        items = json.loads(rows or "[]") if isinstance(rows, str) else rows
+    except ValueError:
+        frappe.throw(_("Danh sách dòng không hợp lệ."))
+    return _creator(misa_import.apply, items, filename)
 
 
 def _flag(v):

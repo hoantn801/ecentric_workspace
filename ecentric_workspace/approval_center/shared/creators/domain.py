@@ -18,6 +18,10 @@ CREATOR_TYPES = ("Cá nhân", "Công ty", "Hộ kinh doanh")
 SUPPLIER_TYPE_BY_CREATOR = {"Cá nhân": "Individual", "Công ty": "Company",
                             "Hộ kinh doanh": "Individual"}
 MISA_PENDING_LABEL = "Đang cập nhật"
+# Ma khach hang MISA (24/11/2026, nhap hang loat): MISA chi nhan ma chu / so khong dau, khong dau cach,
+# toi da vai chuc ky tu (mau tren trang: "KH0123"). Them . _ - / cho ma kieu "KH-0123", "HN/0012".
+MISA_CODE_MAX = 30
+MISA_CODE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
 
 # Truong ca nhan nhay cam: chi chu ban ghi, EC Finance va System Manager thay ban day du.
 PII_FIELDS = ("ec_cr_cccd", "ec_cr_cccd_issue_date", "ec_cr_cccd_issue_place", "ec_cr_dob",
@@ -218,6 +222,16 @@ def validate_payload(data):
         errors.append("Quá %d ký tự: %s (dán link rút gọn hoặc bỏ tham số sau dấu ?)."
                       % (DATA_MAX, ", ".join(sorted(long))))
     return errors
+
+
+def misa_code_error(code):
+    """Loi dinh dang ma MISA (chuoi da strip) hoac None. Dung chung nut Luu tung dong + nhap file."""
+    if len(code) > MISA_CODE_MAX:
+        return "Mã MISA dài quá %d ký tự." % MISA_CODE_MAX
+    if not MISA_CODE_RE.match(code):
+        return ("Mã MISA \"%s\" sai định dạng: chỉ dùng chữ không dấu, số và . _ - /, không dấu cách "
+                "(vd KH0123)." % code)
+    return None
 
 
 def mask(value, keep=4):

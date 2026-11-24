@@ -46,7 +46,7 @@ class FakeRepo:
         self.inserted.append(values)
         return name
 
-    def update(self, name, values, note=None):
+    def update(self, name, values, note=None, isolate=False):
         self.rows[name].update(values)
         self.updated.append((name, values))
         self.notes = getattr(self, "notes", []) + ([note] if note else [])

@@ -21,6 +21,14 @@ class CreatorPermissionError(CreatorError):
     pass
 
 
+class MisaCodeError(CreatorError):
+    """Ma MISA khong gan duoc. `status` la ma trang thai dong (misa_import.STATUS_LABELS)."""
+
+    def __init__(self, status, message):
+        super().__init__(message)
+        self.status = status
+
+
 class CreatorService:
     def __init__(self, repo=None):
         self.repo = repo or CreatorRepository()
@@ -119,17 +127,41 @@ class CreatorService:
         self._require_finance(user)
         return self.repo.missing_misa()
 
-    def set_misa_code(self, user, name, code):
-        self._require_finance(user)
+    def check_misa_code(self, name, code, overwrite=True, row=None):
+        """Kiem MOT cap (creator, ma MISA) truoc khi ghi -> (row, ma da strip) hoac MisaCodeError.
+        Noi DUY NHAT chua luat gan ma: nut Luu tung dong, xem truoc va ap dung khi nhap file deu goi day.
+        overwrite=False (nhap file): khong de len creator da co ma - ma cu co the da nam tren hop dong."""
         code = str(code or "").strip()
         if not code:
-            raise CreatorError("Mã khách hàng MISA không được để trống.")
-        if not self.repo.get(name):
-            raise CreatorError("Không tìm thấy creator %s." % name)
+            raise MisaCodeError("ma_trong", "Mã khách hàng MISA không được để trống.")
+        bad = domain.misa_code_error(code)
+        if bad:
+            raise MisaCodeError("sai_dinh_dang", bad)
+        row = row or (self.repo.get(name) if name else None)
+        if not row:
+            raise MisaCodeError("khong_tim_thay", "Không tìm thấy creator %s." % (name or "(trống)"))
+        current = str(row.get("ec_cr_misa_code") or "").strip()
+        if current and not overwrite:
+            if current.casefold() == code.casefold():
+                raise MisaCodeError("da_co_cung_ma", "Creator đã có đúng mã %s." % current)
+            raise MisaCodeError("da_co_ma", "Creator đã có mã %s (khác %s): sửa tay nếu cần đổi." % (current, code))
         other = self.repo.misa_owner(code, name)
         if other:
-            raise CreatorError("Mã %s đã gán cho creator %s." % (code, other))
-        self.repo.update(name, {"ec_cr_misa_code": code})
+            raise MisaCodeError("trung_creator_khac", "Mã %s đã gán cho creator %s." % (code, other))
+        return row, code
+
+    def set_misa_code(self, user, name, code, note=None, overwrite=True):
+        """Ghi ma MISA cho mot creator: kiem quyen + luat (check_misa_code) + ghi + ghi vet tren ban ghi.
+        Nhap file goi LAI ham nay cho tung dong (overwrite=False), khong co duong ghi thu hai."""
+        self._require_finance(user)
+        row, code = self.check_misa_code(name, code, overwrite=overwrite)
+        old = str(row.get("ec_cr_misa_code") or "").strip()
+        trace = note or "%s gán mã khách hàng MISA %s%s." % (user, code, (" (thay %s)" % old) if old and old != code else "")
+        try:
+            # isolate: loi validate cua Frappe chi huy DONG nay (nhap 500 dong khong mat ca lo vi 1 dong).
+            self.repo.update(name, {"ec_cr_misa_code": code}, note=trace, isolate=True)
+        except InsertError as e:
+            raise CreatorError("Không lưu được mã MISA cho %s: %s" % (name, e))
         return {"name": name, "ec_cr_misa_code": code}
 
     # ---- noi bo ----------------------------------------------------------------
