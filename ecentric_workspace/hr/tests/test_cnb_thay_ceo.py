@@ -35,7 +35,7 @@ class ThayCeo(unittest.TestCase):
         self.assertIn("thay_ceo = is_hr and mgr_user == CEO_USER", dec)
         self.assertIn("is_admin or thay_ceo):", dec)
         # chot chan tu duyet don cua chinh minh van con
-        self.assertIn("Ban khong the tu duyet don nghi cua chinh minh", dec)
+        self.assertIn("Bạn không thể tự duyệt đơn nghỉ của chính mình", dec)
 
     def test_duyet_giai_trinh_hr_von_da_duoc(self):
         for n in ("ec_hr_appeal_decide", "ec_hr_late_decide"):

@@ -174,7 +174,10 @@ def _should_skip(emp, today):
     #    (13/75 ho so chua co holiday_list, do 17/09) bi nhac cham cong ca T7/CN va ngay le.
     hl = emp.get("holiday_list") or _company_holiday_list(emp.get("company"))
     if hl and frappe.db.exists("Holiday", {"parent": hl, "holiday_date": today}):
-        return True
+        # Tru nguoi dang ky di lam ngay nghi (hr/holiday_work): ho can cham cong.
+        from ecentric_workspace.hr.holiday_work import lookup
+        if not lookup.is_workday(emp.get("name"), today):
+            return True
     # 3) Da duoc duyet nghi phep hom nay.
     if frappe.db.exists("Leave Application", {
         "employee": emp["name"], "docstatus": 1, "status": "Approved",

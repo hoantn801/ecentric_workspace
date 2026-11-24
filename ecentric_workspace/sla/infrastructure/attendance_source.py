@@ -89,7 +89,24 @@ def _holidays_for(emp, cache):
             frappe.log_error(title="sla.attendance._holidays_for",
                              message=frappe.get_traceback())
             cache[hl] = set()
-    return cache[hl]
+    # 24/11/2026: nguoi trong "Danh sach di lam ngay nghi" (hr/holiday_work) di lam dung
+    # ngay le cua lich chung -> ngay do la ngay LAM cua rieng ho. Tra tap MOI, khong
+    # sua tap dang cache theo lich (dung chung cho ca cong ty).
+    ow = _workday_overrides(emp, cache)
+    return (cache[hl] - ow) if ow else cache[hl]
+
+
+def _workday_overrides(emp, cache):
+    key = ("holiday_work", emp.get("name") or "")
+    if key not in cache:
+        try:
+            from ecentric_workspace.hr.holiday_work import lookup
+            cache[key] = lookup.workday_dates(emp.get("name"))
+        except Exception:
+            frappe.log_error(title="sla.attendance._workday_overrides",
+                             message=frappe.get_traceback())
+            cache[key] = set()
+    return cache[key]
 
 
 def _leave_days(employee, start, end):
