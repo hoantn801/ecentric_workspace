@@ -539,6 +539,11 @@ scheduler_events["cron"].setdefault("30 8 * * *", []).append(
 scheduler_events["cron"].setdefault("30 9 * * *", []).append(
     "ecentric_workspace.hr.checkin_reminder.remind_0930")
 
+# Danh sach di lam ngay nghi (24/11/2026): cong phep thuong / ghi bu ngay cong cho nguoi
+# cham cong sau khi luu danh sach. Mot ham, mot slot (xem ghi chu ngay tren).
+scheduler_events["cron"].setdefault("40 23 * * *", []).append(
+    "ecentric_workspace.hr.holiday_work.service.daily")
+
 # Ra soat ho so Active thieu tai khoan dang nhap, bao cho HR Manager.
 # 08:00 la co y: SOM HON moc nhac cham cong 08:30, de mot nguoi vao lam hom nay
 # con kip duoc noi vao he thong truoc khi ho lo lan nhac dau tien.

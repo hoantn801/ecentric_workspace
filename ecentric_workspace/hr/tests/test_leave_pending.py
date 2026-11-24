@@ -262,7 +262,7 @@ class TestLuongLeadRoiNhanSu(unittest.TestCase):
         # ky thay. Moi truong hop khac HR van khong ky buoc lead.
         src = _script("ec_hr_leave_decide")
         i = src.index("if stage == 'lead':")
-        j = src.index("frappe.throw('Don nay cho quan ly truc tiep duyet truoc.')", i)
+        j = src.index("frappe.throw('Đơn này chờ quản lý trực tiếp duyệt trước.')", i)
         dieu_kien = src[i:j]
         self.assertIn("thay_ceo = is_hr and mgr_user == CEO_USER", dieu_kien)
         self.assertIn("u == mgr_user or is_ancestor_mgr or is_admin or thay_ceo", dieu_kien)
