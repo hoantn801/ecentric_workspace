@@ -37,7 +37,7 @@ def _html():
 # commit. SUPERSEDES_SHA256 exists for repo-authored edits: at deploy time live
 # still holds the bytes being superseded, and after the first successful write
 # it holds the new snapshot; both are "not drifted", so both must be accepted.
-BASELINE_SHA256 = "2ae24dfa6e8a837bf5bcbc398df3500ae8fa801c8c64a3f33e5689e49a963319"
+BASELINE_SHA256 = "fb7f775a76e04d8e3fd6411cb01cc759ba2debd9f737cde3cdfec871dd318c08"
 
 # Giá trị live mà snapshot này được phép ghi đè.
 #
@@ -51,6 +51,7 @@ BASELINE_SHA256 = "2ae24dfa6e8a837bf5bcbc398df3500ae8fa801c8c64a3f33e5689e49a963
 # d6d412c thì sync tiến lên, môi trường đã nhận bytes #241 thì trả về "unchanged".
 # Bỏ entry này khi đã xác nhận deploy trên mọi môi trường.
 SUPERSEDES_SHA256 = (
+    "2ae24dfa6e8a837bf5bcbc398df3500ae8fa801c8c64a3f33e5689e49a963319",  # truoc 24/11 tien trinh A + tom tat A1 + bang tinh B
     "39c138ce4a3a252bd9347d847227698fdd102deada691c2ca4d3d14bda56cda5",  # truoc p500 (quy trinh A-Z, 24/11)
     "8c55c0463529eb7af826cef311c361c518e40b7f56e256cfa45a2385dcb5157a",  # truoc p499 (dau trang thanh cong cu dinh, 23/11)
     "0635285abc7748911c1e2689d076955cf384aced9b6558563d8fc27a50860be0",  # ban truoc dot UX lich su/tien trinh/loi 03/11
