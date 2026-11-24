@@ -419,7 +419,11 @@ class CauHinhVaDiTru(unittest.TestCase):
         with open(os.path.join(APP, "features/contract_review/ui/main_section.html"), "rb") as fh:
             # Ban clone Windows (core.autocrlf) doi xuong dong thanh CRLF; ma bam tinh tren ban LF cua repo.
             self.assertEqual(man[key]["sha256"], hashlib.sha256(fh.read().replace(b"\r\n", b"\n")).hexdigest())
-        self.assertEqual(man[key]["last_resync_patch"], "p521_resync_hop_dong_bbnt_duyet")
+        # p521 hoac mot patch resync SAU no trong patches.txt (vd p540 bang tinh bien lai 24/11).
+        order = [ln.rsplit(".", 1)[-1] for ln in _read("../patches.txt").splitlines() if ln.strip()]
+        last = man[key]["last_resync_patch"]
+        self.assertIn(last, order)
+        self.assertGreaterEqual(order.index(last), order.index("p521_resync_hop_dong_bbnt_duyet"))
         html = _read("features/contract_review/ui/main_section.html")
         marks = re.search(r"_MARKS = \(([^)]*)\)", _read("patches/p521_resync_hop_dong_bbnt_duyet.py")).group(1)
         for m in re.findall(r'"([^"]+)"', marks):
@@ -499,7 +503,7 @@ console.log(JSON.stringify({
         self.assertIn('call("kol_round_contract",{name:rid})', body)
         self.assertIn("go({id:r.contract,bbnt:r.round", body)
         api = _read("features/contract_review/controllers/api.py")
-        self.assertIn("kol_round_contract)", api)
+        self.assertRegex(api, r"kol_round_contract[,)]")
 
 
 class MoTrangTuPhieuDot(unittest.TestCase):

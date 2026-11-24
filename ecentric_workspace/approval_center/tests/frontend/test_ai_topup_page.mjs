@@ -3,6 +3,8 @@ import { JSDOM } from "jsdom";
 import { pageSource } from "./_page_source.mjs";
 import fs from "fs"; import path from "path"; import { fileURLToPath } from "url";
 const __dir = path.dirname(fileURLToPath(import.meta.url));
+// Khoi Tom tat (A1, 24/11/2026) do asset dung chung ve - trang that nap qua web_include.
+const SUMMARY_JS = fs.readFileSync(path.join(__dir, "..", "..", "..", "public", "js", "ec_summary.bundle.js"), "utf8");
 const HTML = pageSource("ai_topup");
 const [markup, rest] = HTML.split('<script id="ec-aitopup">');
 const JS = rest.replace(/<\/script>\s*$/, "");
@@ -30,7 +32,7 @@ function boot(){
     if (o.method.endsWith("get_ai_account_detail")) return Promise.resolve({ message: (o.args.name === "EC-AIACC-00001" ? { name:"EC-AIACC-00001", ai_tool:"Claude", account_email:"hoantn801@gmail.com", account_manager:"hoan.tran@ecentric.vn", current_plan:"Claude Max 20x", billing_cycle:"Monthly", status:"Active", subscription_start_date:"2026-07-04", subscription_end_date:"2026-07-22" } : null) });
     return Promise.resolve({ message: { rows:[], total:0 } });
   }};
-  w.eval(JS);
+  w.eval(SUMMARY_JS); w.eval(JS);
   return w;
 }
 

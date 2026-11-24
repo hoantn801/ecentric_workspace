@@ -1222,3 +1222,10 @@ ec_esign_signing_files = {
 # O chon nguoi dung chung (EcPeoplePicker, 24/11/2026) - trang khai input[data-ec-people] trong markup nguon.
 web_include_js.append("ec_people_picker.bundle.js")
 web_include_css.append("ec_people_picker.bundle.css")
+
+# 24/11/2026 (Tien trinh phe duyet - phuong an A, PO chot): CSS cua stepper + bang "Viec cua ban" ve boi
+# EcApprovalUI.stepsHTML (ec_approval_ui.bundle.js). Du lieu: get_detail "viewer" (shared/requests/viewer_task.py).
+web_include_css.append("ec_approval_ui.bundle.css")
+# Khoi "Tom tat" cuoi form phe duyet (A1 luoi can bang, Hoan chot 24/11/2026) - trang khai cau hinh, asset dung khung.
+web_include_js.append("ec_summary.bundle.js")
+web_include_css.append("ec_summary.bundle.css")

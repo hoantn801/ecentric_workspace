@@ -16,8 +16,9 @@ ROUTE = "approvals/new-staff-preparation"
 NAME = "new-staff-preparation"
 TITLE = "New Staff Preparation"
 
-BASELINE_SHA256 = "ea188285ed52936229ae3c216a3b1cae3d361c130cb302bac86e82ec9b7454be"
+BASELINE_SHA256 = "c2c2ac874b21f422816c5cf88bbe22ef433bd1efada1a8befd00fef5381027ba"
 SUPERSEDES_SHA256 = (
+    "ea188285ed52936229ae3c216a3b1cae3d361c130cb302bac86e82ec9b7454be",  # truoc 24/11 tien trinh A + tom tat A1 + bang tinh B
     "9ef51d7643fc8ec2a967996447605106a9675dac90de8df53e8074b030e5fcdf",  # truoc p500 (quy trinh A-Z, 24/11)
     "dc6321fb19ec21068459a57a2fd8ab13b4f42b9ec4a7b4f7d1e09a141ed21d71",  # truoc p499 (dau trang thanh cong cu dinh, 23/11)
     "3fae36ba410555560bb1d6186ce55ff4943d57b0e6f9fe8cac298fdbd889a809",  # ban truoc dot HR v2 23/11 (p442)

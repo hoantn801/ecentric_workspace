@@ -234,7 +234,7 @@
       + fld("budget","Ngân sách (VND)",'<input type="text" inputmode="numeric" autocomplete="off" data-money data-model="budget" value="'+esc(window.EcMoney?EcMoney.fmt((d.budget==null?"":d.budget)):(d.budget==null?"":d.budget))+'">',true)
       + fld("detail","Chi tiết hoạt động",'<textarea data-model="detail" rows="4" placeholder="Các hoạt động là gì (minigame, doanh thu, ...)? Bao nhiêu KOL/KOC nhận thưởng mỗi hoạt động?">'+esc(d.detail||"")+'</textarea><div class="hint">What are the activities (minigames, revenue, ...)? How many KOL/KOCs receive bonus per activity? Please attach a file.</div>',true).replace('class="fld','class="fld full')
       + fld("request_attachment","Tệp đính kèm",'<input type="file" multiple data-upload="request_attachment"><div class="hint" id="att-name">'+esc(d.request_attachment?"Đã tải":"Bắt buộc")+'</div>',true).replace('class="fld','class="fld full')
-      + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="afbn-summary"></div></div>';
+      + '</div></div>';
   }
   var MATERIAL=["service_month","total_amount","budget","detail"];
   function materialSnap(d){ return MATERIAL.map(function(k){return String((d||{})[k]||"");}).join("|"); }
@@ -250,19 +250,20 @@
     var fo=state.boot&&state.boot.form_options||{}; var c=state.boot&&state.boot.context||{}; var d=state.draft||{};
     var editing=state.mode==="edit";
     var head = editing
-      ? ('<div class="card"><h3>Tiến trình phê duyệt</h3><div class="stepper">'+buildStepper(state._editDet||{approval:{}})+'</div></div>'+infoRequiredBannerHTML())
+      ? ('<div class="card"><h3>Tiến trình phê duyệt</h3><div class="stepper">'+buildStepper(Object.assign({},state._editDet||{approval:{}},{viewer:null}))+'</div></div>'+infoRequiredBannerHTML())
       : '';
     var actions = editing
       ? '<div class="actions"><button type="button" class="btn" id="afbn-edit-cancel">Hủy</button><button type="button" class="btn primary" id="afbn-resubmit">Gửi lại</button></div>'
       : '<div class="actions"><button type="button" class="btn" id="afbn-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="afbn-save">Lưu nháp</button><button type="button" class="btn primary" id="afbn-submit">Gửi yêu cầu</button></div>';
-    b.innerHTML = '<div class="ec-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + actions + '</div>';
+    b.innerHTML = '<div class="ec-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + (window.EcSummary?EcSummary.cardHTML("afbn-summary",actions):actions) + '</div>';
     if(editing) state._origMaterial=materialSnap(d);
     renderSummary(); wireCreate();
   }
-  function renderSummary(){ var h=$("afbn-summary"); if(!h)return; var d=state.draft||{}; var c=state.boot.context||{};
-    var rows=[["Tiêu đề",computedTitle(d)],["Tháng dịch vụ",d.service_month],["Tổng tiền",fmtVND(d.total_amount)],["Ngân sách",fmtVND(d.budget)],["Người yêu cầu",c.employee_name||c.user],
-      ["Luồng duyệt","Vinh Review → CEO Review"]];
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
+  function renderSummary(){ var h=$("afbn-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
+    EcSummary.render(h,{draft:d, by:c.employee_name||c.user, resubmit:state.mode==="edit",
+      hero:[["Tháng dịch vụ",d.service_month,"service_month"],["Tổng tiền",d.total_amount,"total_amount","money"]],
+      groups:[{title:"Thông tin",fields:[["Tiêu đề",computedTitle(d)],["Ngân sách",d.budget,"budget","money"]]}],
+      flow:"Vinh Review → CEO Review"}); }
   function ym(s){ if(!s) return "?"; var m=String(s).match(/^(\d{4})-(\d{2})/); return m?(m[1]+"-"+m[2]):"?"; }
   function computedTitle(d){ d=d||{}; var amt=(d.total_amount!=null&&String(d.total_amount).trim()!=="")?d.total_amount:"?"; return "Affiliate Bonus - "+ym(d.service_month)+" - "+amt; }
   function suggestTitle(d){ return computedTitle(d); }
@@ -469,10 +470,10 @@
       if(l.due_at&&st==="current"&&new Date(l.due_at)<new Date()){ meta+=' · <span class="ov">Quá hạn</span>'; } else if(l.due_at&&st==="current"){ meta+=" · Hạn: "+fmt(l.due_at); }
       steps.push({level:l.level_no,name:l.level_name||("Cấp "+l.level_no),state:st,meta:meta}); });
     steps.push({name:"Hoàn tất",state:(ap.approval_status==="Approved"?"done":"upcoming"),meta:""});
-    return renderStepsHTML(steps); }
+    return renderStepsHTML(steps,det); }
   var _STEP_LBL={done:"Hoàn thành",current:"Đang xử lý",upcoming:"Chờ",rejected:"Từ chối",info:"Cần bổ sung",skipped:"Bỏ qua"};
   function stColor(s){ return {done:"var(--green)",current:"var(--navy)",rejected:"var(--red)",info:"var(--amber)",skipped:"var(--gray-400)",upcoming:"var(--gray-400)"}[s]||"var(--gray-400)"; }
-  function renderStepsHTML(steps){ if(window.EcApprovalUI) return EcApprovalUI.stepsHTML((EcApprovalUI.withJourney?EcApprovalUI.withJourney(steps,(state.boot||{}).journey_after):steps)); var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
+  function renderStepsHTML(steps,det){ if(window.EcApprovalUI) return EcApprovalUI.stepsHTML((EcApprovalUI.withJourney?EcApprovalUI.withJourney(steps,(state.boot||{}).journey_after):steps),{detail:det}); var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
     var inner=steps.map(function(s,i){ return '<div class="step '+s.state+'"><div class="step-top"><div class="step-dot">'+(s.state==="done"?"✓":(s.state==="rejected"?"✕":(i+1)))+'</div><div class="step-name">'+esc(s.name)+'</div><div class="step-state" style="color:'+stColor(s.state)+'">'+esc(s.statusLabel||_STEP_LBL[s.state]||s.state)+'</div></div><div class="step-meta">'+(s.meta||"")+'</div></div>'; }).join("");
     return '<div class="stepline" style="--n:'+n+';--k:'+k+'">'+inner+'</div>'; }
 

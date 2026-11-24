@@ -82,7 +82,9 @@ class JourneyAfter(unittest.TestCase):
         boot = src[src.index("def bootstrap("):src.index("def journey_after(")]
         self.assertIn('"journey_after": journey_after(definition)', boot)
         self.assertIn('"process_preview": _safe_preview(definition.code)', boot)
-        self.assertIn('"journey_after": journey_after(definition),', src[src.index('"timeline": timeline'):])
+        # 24/11 (Tien trinh A): detail() tinh journey mot lan (dung chung cho khoi viewer) roi tra ra.
+        self.assertIn('journey = journey_after(definition)', src)
+        self.assertIn('"journey_after": journey,', src[src.index('"timeline": timeline'):])
 
 
 if __name__ == "__main__":

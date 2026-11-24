@@ -233,24 +233,19 @@
       + fld("estimated_contract_value","Estimated contract value (VND)",'<input type="text" inputmode="numeric" autocomplete="off" data-money data-model="estimated_contract_value" value="'+esc(window.EcMoney?EcMoney.fmt((d.estimated_contract_value==null?"":d.estimated_contract_value)):(d.estimated_contract_value==null?"":d.estimated_contract_value))+'">',true)
       + fld("justification","Justification",'<textarea data-model="justification" rows="3" placeholder="Lý do / bối cảnh giới thiệu (không bắt buộc)">'+esc(d.justification||"")+'</textarea>').replace('class="fld','class="fld full')
       + fld("request_attachment","Tệp đính kèm",'<input type="file" multiple data-upload="request_attachment"><div class="hint" id="svrf-att-name">'+esc(d.request_attachment?"Đã tải":"Không bắt buộc")+'</div>').replace('class="fld','class="fld full')
-      + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="svrf-summary"></div></div>';
+      + '</div></div>';
   }
   function renderCreate(b){
     var fo=state.boot&&state.boot.form_options||{}; var c=state.boot&&state.boot.context||{}; var d=state.draft||{};
     var actions='<div class="actions"><button type="button" class="btn" id="svrf-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="svrf-save">Lưu nháp</button><button type="button" class="btn primary" id="svrf-submit">Gửi yêu cầu</button></div>';
-    b.innerHTML = '<div class="ec-formwrap">' + processPreviewHTML() + formCardsHTML(d,c,fo) + actions + '</div>';
+    b.innerHTML = '<div class="ec-formwrap">' + processPreviewHTML() + formCardsHTML(d,c,fo) + (window.EcSummary?EcSummary.cardHTML("svrf-summary",actions):actions) + '</div>';
     renderSummary(); wireCreate();
   }
-  function renderSummary(){ var h=$("svrf-summary"); if(!h)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
-    var rows=[
-      ["Tiêu đề (dự kiến)", titlePreview(d)],
-      ["Client", d.client],
-      ["Brand", d.brand],
-      ["Người liên hệ", d.contact_name],
-      ["Giá trị hợp đồng dự kiến", fmtVND(d.estimated_contract_value)],
-      ["Người yêu cầu", c.employee_name||c.user],
-      ["Luồng duyệt", POOL_LABEL]];
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
+  function renderSummary(){ var h=$("svrf-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
+    EcSummary.render(h,{draft:d, by:c.employee_name||c.user,
+      hero:[["Client",d.client,"client"],["Brand",d.brand,"brand"],["Giá trị hợp đồng dự kiến",d.estimated_contract_value,"estimated_contract_value","money"]],
+      groups:[{title:"Liên hệ",fields:[["Tiêu đề (dự kiến)",titlePreview(d)],["Người liên hệ",d.contact_name,"contact_name"]]}],
+      flow:[POOL_LABEL]}); }
 
   function setModel(k,v){ state.draft=state.draft||{}; state.draft[k]=v; state.dirty=true; }
   function setFieldError(id,msg){ var f=document.querySelector('[data-fld="'+id+'"]'); if(!f)return; f.classList.toggle("invalid",!!msg);
@@ -445,10 +440,10 @@
       else if(l.level_status==="In Progress"||ap.current_level===l.level_no){ st="current"; var elig=rows.filter(function(r){return r.status==="Pending";}).map(function(r){return esc(r.approver);}); meta=(elig.length?(l.approval_mode==="Any One"?("Any One: "+elig.join(" / ")):elig.join(", ")):"Đang chờ"); }
       steps.push({level:l.level_no,name:l.level_name||("Cấp "+l.level_no),state:st,meta:meta}); });
     steps.push({name:"Hoàn tất",state:(ap.approval_status==="Approved"?"done":"upcoming"),meta:""});
-    return renderStepsHTML(steps); }
+    return renderStepsHTML(steps,det); }
   var _STEP_LBL={done:"Hoàn thành",current:"Đang xử lý",upcoming:"Chờ",rejected:"Từ chối",info:"Cần bổ sung",skipped:"Bỏ qua"};
   function stColor(s){ return {done:"var(--green)",current:"var(--navy)",rejected:"var(--red)",info:"var(--amber)",skipped:"var(--gray-400)",upcoming:"var(--gray-400)"}[s]||"var(--gray-400)"; }
-  function renderStepsHTML(steps){ if(window.EcApprovalUI) return EcApprovalUI.stepsHTML((EcApprovalUI.withJourney?EcApprovalUI.withJourney(steps,(state.boot||{}).journey_after):steps)); var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
+  function renderStepsHTML(steps,det){ if(window.EcApprovalUI) return EcApprovalUI.stepsHTML((EcApprovalUI.withJourney?EcApprovalUI.withJourney(steps,(state.boot||{}).journey_after):steps),{detail:det}); var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
     var inner=steps.map(function(s,i){ return '<div class="step '+s.state+'"><div class="step-top"><div class="step-dot">'+(s.state==="done"?"✓":(s.state==="rejected"?"✕":(i+1)))+'</div><div class="step-name">'+esc(s.name)+'</div><div class="step-state" style="color:'+stColor(s.state)+'">'+esc(s.statusLabel||_STEP_LBL[s.state]||s.state)+'</div></div><div class="step-meta">'+(s.meta||"")+'</div></div>'; }).join("");
     return '<div class="stepline" style="--n:'+n+';--k:'+k+'">'+inner+'</div>'; }
 

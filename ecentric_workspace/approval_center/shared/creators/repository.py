@@ -85,7 +85,26 @@ class CreatorRepository:
         from frappe.model.naming import append_number_if_name_exists
         return append_number_if_name_exists(DT, supplier_name)
 
-    def update(self, name, values, note=None):
+    def update(self, name, values, note=None, isolate=False):
+        """isolate=True: loi validate cua Frappe -> InsertError va CHI lan ghi nay bi huy (savepoint),
+        nhu insert(). Mac dinh giu hanh vi cu (loi noi len nguyen ven) cho form sua creator."""
+        if not isolate:
+            return self._update(name, values, note)
+        frappe = _frappe()
+        sp = "ec_creator_update"
+        frappe.db.savepoint(sp)
+        log = getattr(frappe.local, "message_log", None)
+        keep = len(log) if isinstance(log, list) else None
+        try:
+            return self._update(name, values, note)
+        except (frappe.ValidationError, frappe.DuplicateEntryError) as e:
+            frappe.db.rollback(save_point=sp)
+            if keep is not None:
+                del frappe.local.message_log[keep:]
+            raise InsertError(_clean_msg(e))
+
+    @staticmethod
+    def _update(name, values, note):
         doc = _frappe().get_doc(DT, name)
         doc.update(values)
         doc.save(ignore_permissions=True)

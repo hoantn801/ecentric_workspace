@@ -251,7 +251,7 @@
       + fld("offered_salary","Lương offer (VND, gross/tháng)",'<input type="text" inputmode="numeric" autocomplete="off" data-money data-model="offered_salary" value="'+esc(window.EcMoney?EcMoney.fmt((d.offered_salary!=null?d.offered_salary:"")):(d.offered_salary!=null?d.offered_salary:""))+'"><div class="hint">So với mức lương đã duyệt trên Hiring: vượt thì cần HOF duyệt, không vượt thì bỏ cấp HOF.</div>',true)
       + fld("compensation","Chi tiết lương / phụ cấp / thưởng",'<textarea data-model="compensation" rows="3" placeholder="Lương, phụ cấp, thưởng / cơ chế incentive nếu có">'+esc(d.compensation||"")+'</textarea><div class="hint">Chỉ người gửi, người duyệt và quản trị xem được.</div>',true).replace('class="fld','class="fld full')
       + fld("note","Ghi chú",'<textarea data-model="note" rows="2" placeholder="VD: cần thêm license, thiết bị...">'+esc(d.note||"")+'</textarea>').replace('class="fld','class="fld full')
-      + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="offr-summary"></div></div>';
+      + '</div></div>';
   }
   var MATERIAL=["hiring_request","candidate_name","onboard_date","probation_end_date","mobile_phone","company_laptop","compensation","note","resume","offered_salary"];
   function materialSnap(d){ return MATERIAL.map(function(k){return String((d||{})[k]||"");}).join("|"); }
@@ -280,12 +280,12 @@
         if(editing){ state.prefill={hiring_request:hid,position:d.position,department:d.department,employment_type:d.employment_type,line_manager:d.line_manager}; renderCreate(b); return; }
         b.innerHTML='<div class="card"><div class="state"><h4>Không tạo được Offer từ '+esc(hid)+'</h4><p>'+esc(extractServerMsg(e)||"Bạn không có quyền hoặc Hiring chưa ở bước tuyển dụng.")+'</p></div></div>'; }); return; }
     var head = editing
-      ? ('<div class="card"><h3>Tiến trình phê duyệt</h3><div class="stepper">'+buildStepper(state._editDet||{approval:{}})+'</div></div>'+infoRequiredBannerHTML())
+      ? ('<div class="card"><h3>Tiến trình phê duyệt</h3><div class="stepper">'+buildStepper(Object.assign({},state._editDet||{approval:{}},{viewer:null}))+'</div></div>'+infoRequiredBannerHTML())
       : '';
     var actions = editing
       ? '<div class="actions"><button type="button" class="btn" id="offr-edit-cancel">Hủy</button><button type="button" class="btn primary" id="offr-resubmit">Gửi lại</button></div>'
       : '<div class="actions"><button type="button" class="btn" id="offr-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="offr-save">Lưu nháp</button><button type="button" class="btn primary" id="offr-submit">Gửi yêu cầu</button></div>';
-    b.innerHTML = '<div class="offr-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + actions + '</div>';
+    b.innerHTML = '<div class="offr-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + (window.EcSummary?EcSummary.cardHTML("offr-summary",actions):actions) + '</div>';
     if(editing) state._origMaterial=materialSnap(d);
     state.titleTouched = !!((d.request_title||"").toString().trim());
     maybeAutoTitle(); renderSummary(); wireCreate();
@@ -298,12 +298,13 @@
     try{ return decodeURIComponent(i>=0?u.slice(i+1):u); }catch(e){ return i>=0?u.slice(i+1):u; } }
   function showFileName(url){ var el=$("offr-file-name"); if(!el) return;
     el.innerHTML = url ? ('Đã đính kèm: <a href="'+esc(url)+'" target="_blank">'+esc(fileLabel(url))+'</a>') : ""; }
-  function renderSummary(){ var h=$("offr-summary"); if(!h)return; var d=state.draft||{}; var p=state.prefill||{}; var c=state.boot.context||{};
-    var rows=[["Tiêu đề",d.request_title||""],["Ứng viên",d.candidate_name||""],["Vị trí",p.position||""],["Phòng ban",p.department||""],
-      ["Ngày onboard",d.onboard_date||""],["Hết thử việc / thực tập",d.probation_end_date||""],["Laptop công ty",Number(d.company_laptop)?"Có":"Không"],
-      ["SĐT",d.mobile_phone||""],["CV",d.resume?fileLabel(d.resume):""],["Người gửi",c.employee_name||c.user||""],
-      ["Luồng duyệt","Line manager → HR & CnB → HOF → CEO"]];
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
+  function renderSummary(){ var h=$("offr-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
+    var p=state.prefill||{};
+    EcSummary.render(h,{draft:d, by:c.employee_name||c.user, resubmit:state.mode==="edit",
+      hero:[["Ứng viên",d.candidate_name,"candidate_name"],["Vị trí",p.position],["Lương offer (gross/tháng)",d.offered_salary,"offered_salary","money"]],
+      groups:[{title:"Ứng viên",fields:[["Tiêu đề",d.request_title,"request_title"],["Số điện thoại",d.mobile_phone,"mobile_phone"],["CV",d.resume?fileLabel(d.resume):"","resume"],["Phòng ban",p.department]]},
+        {title:"Thời gian & thiết bị",fields:[["Ngày onboard",d.onboard_date,"onboard_date","date"],["Hết thử việc / thực tập",d.probation_end_date,"probation_end_date","date"],["Laptop công ty",Number(d.company_laptop)?"Có":"Không","company_laptop"]]}],
+      flow:"Line manager → HR & CnB → HOF → CEO", after:["Chuẩn bị nhân sự mới"]}); }
   function suggestTitle(d){ d=d||{}; var p=state.prefill||{}; var parts=[d.candidate_name, p.position||d.position, p.department||d.department].filter(function(x){return x&&String(x).trim();});
     return parts.length?("Offer - "+parts.join(" - ")).slice(0,255):""; }
   function maybeAutoTitle(){ if(state.titleTouched)return; var s=suggestTitle(state.draft||{}); if(!s)return;
@@ -512,10 +513,10 @@
       if(l.due_at&&st==="current"&&new Date(l.due_at)<new Date()){ meta+=' · <span class="ov">Quá hạn</span>'; } else if(l.due_at&&st==="current"){ meta+=" · Hạn: "+fmt(l.due_at); }
       steps.push({level:l.level_no,name:l.level_name||("Cấp "+l.level_no),state:st,meta:meta}); });
     steps.push({name:"Hoàn tất",state:(ap.approval_status==="Approved"?"done":"upcoming"),meta:""});
-    return renderStepsHTML(steps); }
+    return renderStepsHTML(steps,det); }
   var _STEP_LBL={done:"Hoàn thành",current:"Đang xử lý",upcoming:"Chờ",rejected:"Từ chối",info:"Cần bổ sung",skipped:"Bỏ qua"};
   function stColor(s){ return {done:"var(--green)",current:"var(--navy)",rejected:"var(--red)",info:"var(--amber)",skipped:"var(--gray-400)",upcoming:"var(--gray-400)"}[s]||"var(--gray-400)"; }
-  function renderStepsHTML(steps){ if(window.EcApprovalUI) return EcApprovalUI.stepsHTML((EcApprovalUI.withJourney?EcApprovalUI.withJourney(steps,(state.boot||{}).journey_after):steps)); var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
+  function renderStepsHTML(steps,det){ if(window.EcApprovalUI) return EcApprovalUI.stepsHTML((EcApprovalUI.withJourney?EcApprovalUI.withJourney(steps,(state.boot||{}).journey_after):steps),{detail:det}); var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
     var inner=steps.map(function(s,i){ return '<div class="step '+s.state+'"><div class="step-top"><div class="step-dot">'+(s.state==="done"?"✓":(s.state==="rejected"?"✕":(i+1)))+'</div><div class="step-name">'+esc(s.name)+'</div><div class="step-state" style="color:'+stColor(s.state)+'">'+esc(s.statusLabel||_STEP_LBL[s.state]||s.state)+'</div></div><div class="step-meta">'+(s.meta||"")+'</div></div>'; }).join("");
     return '<div class="stepline" style="--n:'+n+';--k:'+k+'">'+inner+'</div>'; }
 

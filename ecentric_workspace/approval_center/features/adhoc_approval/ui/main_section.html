@@ -267,7 +267,7 @@
       + fld("urgency_reason","Lý do gấp",'<textarea id="adhc-urgent-reason" data-model="urgency_reason" rows="2" placeholder="VD: brand chốt ngân sách trước 25/11">'+esc(d.urgency_reason||"")+'</textarea>',true)
       + '<div class="hint">Phiếu Gấp báo CEO ngay kể cả ngoài giờ (21h–9h); hạn 4 giờ làm việc.</div></div>'
       + fld("request_attachment","Tệp đính kèm",'<input id="adhc-file" type="file" multiple data-upload="request_attachment"><div class="hint" id="adhc-att-name">'+esc(d.request_attachment?"Đã tải":"Không bắt buộc")+'</div><div class="hint">Gắn phiếu duyệt khác làm chứng từ: bấm “Lưu nháp”, rồi dùng nút “Gắn phiếu duyệt” ở trang chi tiết.</div>').replace('class="fld','class="fld full')
-      + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="adhc-summary"></div></div>';
+      + '</div></div>';
   }
   function renderCreate(b){
     var fo=state.boot&&state.boot.form_options||{}; var c=state.boot&&state.boot.context||{}; var d=state.draft||{};
@@ -276,20 +276,15 @@
     var actions='<div class="actions"><button type="button" class="btn" id="adhc-cancel-changes">Hủy thay đổi</button>'
       +(resub?'':'<button type="button" class="btn" id="adhc-save">Lưu nháp</button>')
       +'<button type="button" class="btn primary" id="adhc-submit">'+(resub?"Gửi lại CEO":"Gửi CEO")+'</button></div>';
-    b.innerHTML = '<div class="ec-formwrap">' + processPreviewHTML() + formCardsHTML(d,c,fo) + actions + '</div>';
+    b.innerHTML = '<div class="ec-formwrap">' + processPreviewHTML() + formCardsHTML(d,c,fo) + (window.EcSummary?EcSummary.cardHTML("adhc-summary",actions):actions) + '</div>';
     renderSummary(); wireCreate();
   }
   function renderSummary(){ var h=$("adhc-summary"); if(!h)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
     var urg=d.urgency||"Bình thường";
-    var rows=[
-      ["Tiêu đề", titlePreview(d)],
-      ["Mức độ", urg],
-      ["Hạn CEO", urg===URGENT?"4 giờ làm việc":"2 ngày làm việc"],
-      ["Mong muốn có kết quả trước", d.desired_by],
-      ["Người yêu cầu", c.employee_name||c.user],
-      ["Luồng duyệt", POOL_LABEL],
-      ["CC", ccList().map(function(u){ return ccNames()[u]||u; }).join(", ")]];
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join("");
+    if(window.EcSummary) EcSummary.render(h,{draft:d, by:c.employee_name||c.user, resubmit:state.mode==="resubmit",
+      hero:[["Mức độ",urg,"urgency"],["Hạn CEO",urg===URGENT?"4 giờ làm việc":"2 ngày làm việc"],["Mong muốn có kết quả trước",d.desired_by,"desired_by","date"]],
+      groups:[{title:"Nội dung",fields:[["Tiêu đề",titlePreview(d),"request_title"],["CC",ccList().map(function(u){ return ccNames()[u]||u; }).join(", ")]]}],
+      flow:[POOL_LABEL]});
     var box=$("adhc-urgent-box"); if(box) box.hidden=(urg!==URGENT); }
   function setModel(k,v){ state.draft=state.draft||{}; state.draft[k]=v; state.dirty=true; }
   function setFieldError(id,msg){ var f=document.querySelector('[data-fld="'+id+'"]'); if(!f)return; f.classList.toggle("invalid",!!msg);
@@ -533,10 +528,10 @@
       else if(l.level_status==="In Progress"||ap.current_level===l.level_no){ st="current"; var elig=rows.filter(function(r){return r.status==="Pending";}).map(function(r){return esc(r.approver);}); meta=(elig.length?(l.approval_mode==="Any One"?("Any One: "+elig.join(" / ")):elig.join(", ")):"Đang chờ"); }
       steps.push({level:l.level_no,name:l.level_name||("Cấp "+l.level_no),state:st,meta:meta}); });
     steps.push({name:"Hoàn tất",state:(ap.approval_status==="Approved"?"done":"upcoming"),meta:""});
-    return renderStepsHTML(steps); }
+    return renderStepsHTML(steps,det); }
   var _STEP_LBL={done:"Hoàn thành",current:"Đang xử lý",upcoming:"Chờ",rejected:"Từ chối",info:"Cần bổ sung",skipped:"Bỏ qua"};
   function stColor(s){ return {done:"var(--green)",current:"var(--navy)",rejected:"var(--red)",info:"var(--amber)",skipped:"var(--gray-400)",upcoming:"var(--gray-400)"}[s]||"var(--gray-400)"; }
-  function renderStepsHTML(steps){ if(window.EcApprovalUI) return EcApprovalUI.stepsHTML((EcApprovalUI.withJourney?EcApprovalUI.withJourney(steps,(state.boot||{}).journey_after):steps)); var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
+  function renderStepsHTML(steps,det){ if(window.EcApprovalUI) return EcApprovalUI.stepsHTML((EcApprovalUI.withJourney?EcApprovalUI.withJourney(steps,(state.boot||{}).journey_after):steps),{detail:det}); var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
     var inner=steps.map(function(s,i){ return '<div class="step '+s.state+'"><div class="step-top"><div class="step-dot">'+(s.state==="done"?"✓":(s.state==="rejected"?"✕":(i+1)))+'</div><div class="step-name">'+esc(s.name)+'</div><div class="step-state" style="color:'+stColor(s.state)+'">'+esc(s.statusLabel||_STEP_LBL[s.state]||s.state)+'</div></div><div class="step-meta">'+(s.meta||"")+'</div></div>'; }).join("");
     return '<div class="stepline" style="--n:'+n+';--k:'+k+'">'+inner+'</div>'; }
 

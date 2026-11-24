@@ -4,6 +4,8 @@ import { JSDOM } from "jsdom";
 import { pageSource } from "./_page_source.mjs";
 import fs from "fs"; import path from "path"; import { fileURLToPath } from "url";
 const __dir = path.dirname(fileURLToPath(import.meta.url));
+// Khoi Tom tat (A1, 24/11/2026) do asset dung chung ve - trang that nap qua web_include.
+const SUMMARY_JS = fs.readFileSync(path.join(__dir, "..", "..", "..", "public", "js", "ec_summary.bundle.js"), "utf8");
 const HTML = pageSource("late_early_out");
 const [markup, rest] = HTML.split('<script id="ec-late-early-out">');
 const JS = rest.replace(/<\/script>\s*$/, "");
@@ -53,7 +55,7 @@ function boot(over) {
     if (m.endsWith("get_detail")) return Promise.resolve({ message: (over && over.detail) || detail() });
     return Promise.resolve({ message: { rows: [], total: 0 } });
   }};
-  w.eval(JS);
+  w.eval(SUMMARY_JS); w.eval(JS);
   return w;
 }
 async function run() {

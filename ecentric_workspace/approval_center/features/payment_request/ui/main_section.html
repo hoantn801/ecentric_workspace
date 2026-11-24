@@ -424,7 +424,7 @@
       + fld("is_cost_valid","Chi phí hợp lệ?",'<select data-model="is_cost_valid"><option value="">— Chọn —</option>'+opt(yn,d.is_cost_valid||"")+'</select>',true)
       + fld("details_and_attachments_correct","Xác nhận",'<div class="chkline"><input type="checkbox" id="payr-confirm-chk" data-model="details_and_attachments_correct"'+(d.details_and_attachments_correct==="Yes"?" checked":"")+'><label for="payr-confirm-chk">Tôi xác nhận thông tin và tệp đính kèm là chính xác.</label></div>',true).replace('class="fld','class="fld full')
       + fld("request_attachment","Tệp đính kèm",'<input type="file" multiple data-upload="request_attachment"><div class="hint" id="payr-att-name">'+esc(d.request_attachment?"Đã tải":"Bắt buộc")+'</div>',true).replace('class="fld','class="fld full')
-      + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="payr-summary"></div></div>';
+      + '</div></div>';
   }
 
   function processPreviewHTML(){
@@ -460,28 +460,23 @@
     var fo=state.boot&&state.boot.form_options||{}; var c=state.boot&&state.boot.context||{}; var d=state.draft||{};
     var editing=state.mode==="edit";
     var head = editing
-      ? ('<div class="card"><h3>Tiến trình phê duyệt</h3><div class="stepper">'+buildStepper(state._editDet||{approval:{}})+'</div></div>'+infoRequiredBannerHTML())
+      ? ('<div class="card"><h3>Tiến trình phê duyệt</h3><div class="stepper">'+buildStepper(Object.assign({},state._editDet||{approval:{}},{viewer:null}))+'</div></div>'+infoRequiredBannerHTML())
       : '';
     var actions = editing
       ? '<div class="actions"><button type="button" class="btn" id="payr-edit-cancel">Hủy</button><button type="button" class="btn primary" id="payr-resubmit">Gửi lại</button></div>'
       : '<div class="actions"><button type="button" class="btn" id="payr-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="payr-save">Lưu nháp</button><button type="button" class="btn primary" id="payr-continue">Tiếp tục: Thêm chứng từ</button></div><div class="hint" style="margin-top:8px">Bước tiếp theo: thêm chứng từ &amp; thiết lập chữ ký. Gửi yêu cầu sau khi hoàn tất hồ sơ.</div>';
-    b.innerHTML = '<div class="payr-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + actions + '</div>';
+    b.innerHTML = '<div class="payr-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + (window.EcSummary?EcSummary.cardHTML("payr-summary",actions):actions) + '</div>';
     renderSummary(); wireCreate();
   }
   function suggestTitle(d){ d=d||{}; return ("Payment Request - "+(d.payee_full_name||"?")+" - "+(d.payment_amount||"?")); }
-  function renderSummary(){ var h=$("payr-summary"); if(!h)return; var d=state.draft||{}; var c=state.boot.context||{};
-    var inst=d.payment_mode==="Installment";
-    var rows=[["Tiêu đề",suggestTitle(d)],
-      ["Người nhận",d.payee_full_name||""],
-      [inst?("Số tiền đợt "+(d.installment_no||1)):"Số tiền",d.payment_amount!=null&&d.payment_amount!==""?(fmtMoney(d.payment_amount)+" VND"):""]];
-    if(inst){ rows.push(["Hình thức","Chia đợt — tổng "+(d.total_amount?fmtMoney(d.total_amount)+" VND":"—")]);
-      var rem=installmentRemaining(d); if(rem>0) rows.push(["Đợt kế",(fmtMoney(d.next_installment_amount!=null&&d.next_installment_amount!==""?d.next_installment_amount:rem))+" VND"+(d.next_installment_date?(" · dự kiến "+d.next_installment_date):"")]); }
-    rows=rows.concat([
-      ["Ngày thanh toán",d.payment_date||""],
-      ["Có Purchase Request?",d.has_purchase_request||""],
-      ["Người yêu cầu",c.employee_name||c.user||""],
-      ["Luồng duyệt","Direct Manager → Finance → HOF → CEO → Finance UNC"]]);
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
+  function renderSummary(){ var h=$("payr-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
+    var inst=d.payment_mode==="Installment"; var paid=Number(d._paid_before)||0; var rem=installmentRemaining(d);
+    EcSummary.render(h,{draft:d, by:c.employee_name||c.user, resubmit:state.mode==="edit",
+      hero:[["Người nhận",d.payee_full_name,"payee_full_name"],["Ngày thanh toán",d.payment_date,"payment_date","date"],[inst?("Số tiền đợt "+(d.installment_no||1)):"Số tiền",d.payment_amount,"payment_amount","money"]],
+      groups:[{title:"Thanh toán",fields:[["Tiêu đề",suggestTitle(d),"request_title"],["Hình thức",inst?"Chia nhiều đợt":"Thanh toán 100%","payment_mode"],["Ngân hàng",d.account_bank,"account_bank"],["Số tài khoản",d.bank_account_number,"bank_account_number"]]},
+        inst?{title:"Các đợt",lines:[paid>0?["Đã thanh toán các đợt trước",paid]:null,["Đợt "+(d.installment_no||1)+" (đề nghị này)",d.payment_amount],rem>0?["Còn lại (các đợt sau)",rem]:null],total:{label:"Tổng giá trị",value:d.total_amount||null}}:null,
+        {title:"Nguồn chi phí",fields:[["Có chứng từ mua hàng?",d.has_purchase_request,"has_purchase_request"],["Lý do / nội dung thanh toán",d.reason,"reason","long"]]}],
+      flow:"Direct Manager → Finance → HOF → CEO", after:["Finance lập UNC"]}); }
 
   function setModel(k,v){ state.draft=state.draft||{}; state.draft[k]=v; state.dirty=true; }
   function setFieldError(id,msg){ var f=document.querySelector('[data-fld="'+id+'"]'); if(!f)return; f.classList.toggle("invalid",!!msg);
@@ -1169,7 +1164,7 @@
   }
   var _STEP_LBL={done:"Hoàn thành",current:"Đang xử lý",upcoming:"Chờ",rejected:"Từ chối",info:"Cần bổ sung",skipped:"Bỏ qua",cancelled:"Đã hủy"};
   function stColor(s){ return {done:"var(--green)",current:"var(--navy)",rejected:"var(--red)",info:"var(--amber)",skipped:"var(--gray-400)",upcoming:"var(--gray-400)",cancelled:"var(--red)"}[s]||"var(--gray-400)"; }
-  function renderStepsHTML(steps, det){ if(window.EcApprovalUI) return EcApprovalUI.stepsHTML((EcApprovalUI.withJourney?EcApprovalUI.withJourney(steps,(state.boot||{}).journey_after):steps),{cancelled:((det||{}).approval||{}).approval_status==="Cancelled"}); var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
+  function renderStepsHTML(steps, det){ if(window.EcApprovalUI) return EcApprovalUI.stepsHTML((EcApprovalUI.withJourney?EcApprovalUI.withJourney(steps,(state.boot||{}).journey_after):steps),{cancelled:((det||{}).approval||{}).approval_status==="Cancelled",detail:det}); var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
     var huy=((det||{}).approval||{}).approval_status==="Cancelled";
     var inner=steps.map(function(s,i){ return '<div class="step '+s.state+'"><div class="step-top"><div class="step-dot">'+(s.state==="done"?"✓":((s.state==="rejected"||s.state==="cancelled")?"✕":(i+1)))+'</div><div class="step-name">'+esc(s.name)+'</div><div class="step-state" style="color:'+stColor(s.state)+'">'+esc(s.statusLabel||_STEP_LBL[s.state]||s.state)+'</div></div><div class="step-meta">'+(s.meta||"")+'</div></div>'; }).join("");
     return '<div class="stepline'+(huy?" is-cancelled":"")+'" style="--n:'+n+';--k:'+k+'">'+inner+'</div>'; }

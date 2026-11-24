@@ -237,7 +237,7 @@
       + fld("importance","Mức độ quan trọng",'<select data-model="importance"><option value="">—</option>'+opt(fo.importances||[],d.importance)+'</select>',true)
       + fld("detailed_description","Mô tả chi tiết",'<textarea data-model="detailed_description" rows="3">'+esc(d.detailed_description||"")+'</textarea>',true).replace('class="fld','class="fld full')
       + fld("request_attachment","Tệp đính kèm",'<input type="file" multiple data-upload="request_attachment"><div class="hint" id="att-name">'+esc(d.request_attachment?"Đã tải":"Không bắt buộc")+'</div>').replace('class="fld','class="fld full')
-      + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="dreq-summary"></div></div>';
+      + '</div></div>';
   }
   var MATERIAL=["request_type","detailed_description","expected_resolution_date","urgency","importance"];
   function materialSnap(d){ return MATERIAL.map(function(k){return String((d||{})[k]||"");}).join("|"); }
@@ -255,12 +255,12 @@
     var editing=state.mode==="edit";
     if(!editing){ b.innerHTML=movedCardHTML(); return; }
     var head = editing
-      ? ('<div class="card"><h3>Tiến trình phê duyệt</h3><div class="stepper">'+buildStepper(state._editDet||{approval:{}})+'</div></div>'+infoRequiredBannerHTML())
+      ? ('<div class="card"><h3>Tiến trình phê duyệt</h3><div class="stepper">'+buildStepper(Object.assign({},state._editDet||{approval:{}},{viewer:null}))+'</div></div>'+infoRequiredBannerHTML())
       : '';
     var actions = editing
       ? '<div class="actions"><button type="button" class="btn" id="dreq-edit-cancel">Hủy</button><button type="button" class="btn primary" id="dreq-resubmit">Gửi lại</button></div>'
       : '<div class="actions"><button type="button" class="btn" id="dreq-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="dreq-save">Lưu nháp</button><button type="button" class="btn primary" id="dreq-submit">Gửi yêu cầu</button></div>';
-    b.innerHTML = '<div class="dreq-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + actions + '</div>';
+    b.innerHTML = '<div class="dreq-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + (window.EcSummary?EcSummary.cardHTML("dreq-summary",actions):actions) + '</div>';
     if(editing) state._origMaterial=materialSnap(d);
     state.titleTouched = !!((d.request_title||"").toString().trim());
     maybeAutoTitle(); renderSummary(); wireCreate();
@@ -274,11 +274,11 @@
   function movedDetailHTML(id){
     return '<div class="banner info dreq-moved" id="dreq-moved-detail"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><div>Phiếu này đã chuyển sang Trung tâm Dữ liệu - mọi xử lý, trao đổi tiếp theo làm ở đó. <a href="/du-lieu?ma='+encodeURIComponent(id||"")+'">Xem trên Trung tâm Dữ liệu</a></div></div>';
   }
-  function renderSummary(){ var h=$("dreq-summary"); if(!h)return; var d=state.draft||{}; var c=state.boot.context||{};
-    var rows=[["Tiêu đề",d.request_title],["Loại yêu cầu",d.request_type],["Ngày mong muốn hoàn thành",d.expected_resolution_date],
-      ["Mức độ khẩn cấp",d.urgency],["Mức độ quan trọng",d.importance],["Người yêu cầu",c.employee_name||c.user],
-      ["Luồng duyệt","Data Review → Data Fulfillment (theo cấu hình)"]];
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
+  function renderSummary(){ var h=$("dreq-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
+    EcSummary.render(h,{draft:d, by:c.employee_name||c.user, resubmit:state.mode==="edit",
+      hero:[["Loại yêu cầu",d.request_type,"request_type"],["Mức độ khẩn cấp",d.urgency,"urgency"],["Ngày mong muốn hoàn thành",d.expected_resolution_date,"expected_resolution_date","date"]],
+      groups:[{title:"Yêu cầu",fields:[["Tiêu đề",d.request_title,"request_title"],["Mức độ quan trọng",d.importance,"importance"],["Mô tả chi tiết",d.detailed_description,"detailed_description","long"]]}],
+      flow:"Data Review (theo cấu hình)", after:["Data Fulfillment"]}); }
 
   function suggestTitle(d){ d=d||{}; var parts=[d.request_type, d.expected_resolution_date].filter(function(x){return x&&String(x).trim();});
     return parts.length?parts.join(" - ").slice(0,180):""; }
@@ -519,10 +519,10 @@
     else if(allApproved){ fst="current"; fmeta="Chờ Data nhận xử lý"; }
     steps.push({name:"Data xử lý",state:fst,meta:fmeta});
     steps.push({name:"Hoàn tất",state:(ff.status==="Completed"?"done":"upcoming"),meta:""});
-    return renderStepsHTML(steps); }
+    return renderStepsHTML(steps,det); }
   var _STEP_LBL={done:"Hoàn thành",current:"Đang xử lý",upcoming:"Chờ",rejected:"Từ chối",info:"Cần bổ sung",skipped:"Bỏ qua"};
   function stColor(s){ return {done:"var(--green)",current:"var(--navy)",rejected:"var(--red)",info:"var(--amber)",skipped:"var(--gray-400)",upcoming:"var(--gray-400)"}[s]||"var(--gray-400)"; }
-  function renderStepsHTML(steps){ if(window.EcApprovalUI) return EcApprovalUI.stepsHTML((EcApprovalUI.withJourney?EcApprovalUI.withJourney(steps,(state.boot||{}).journey_after):steps)); var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
+  function renderStepsHTML(steps,det){ if(window.EcApprovalUI) return EcApprovalUI.stepsHTML((EcApprovalUI.withJourney?EcApprovalUI.withJourney(steps,(state.boot||{}).journey_after):steps),{detail:det}); var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
     var inner=steps.map(function(s,i){ return '<div class="step '+s.state+'"><div class="step-top"><div class="step-dot">'+(s.state==="done"?"✓":(s.state==="rejected"?"✕":(i+1)))+'</div><div class="step-name">'+esc(s.name)+'</div><div class="step-state" style="color:'+stColor(s.state)+'">'+esc(s.statusLabel||_STEP_LBL[s.state]||s.state)+'</div></div><div class="step-meta">'+(s.meta||"")+'</div></div>'; }).join("");
     return '<div class="stepline" style="--n:'+n+';--k:'+k+'">'+inner+'</div>'; }
 

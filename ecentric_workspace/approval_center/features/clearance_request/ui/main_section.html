@@ -229,7 +229,7 @@
   function infoRequiredBannerHTML(){ var i=state._infoCtx||{}; return '<div class="banner warn"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 9v4M12 17h.01"/></svg><div><b>Cần bổ sung thông tin.</b> Cấp: '+esc(i.level||"—")+(i.approver?(' · '+esc(i.approver)):'')+(i.comment?('<br>“'+esc(i.comment)+'”'):'')+'</div></div>'; }
 
   function formCardsHTML(d,c,fo){
-    return '<div class="card"><h3>Bàn giao nghỉ việc</h3><div class="hint">Phiếu chép từ Đơn nghỉ việc đã duyệt - không có trường nào để sửa. Bấm "Gửi lại" sau khi đã bổ sung ngoài hệ thống.</div></div><div class="card"><h3>Tóm tắt</h3><div id="clr-summary"></div></div>';
+    return '<div class="card"><h3>Bàn giao nghỉ việc</h3><div class="hint">Phiếu chép từ Đơn nghỉ việc đã duyệt - không có trường nào để sửa. Bấm "Gửi lại" sau khi đã bổ sung ngoài hệ thống.</div></div>';
   }
   var MATERIAL=[];
   function materialSnap(d){ return MATERIAL.map(function(k){return String((d||{})[k]||"");}).join("|"); }
@@ -246,12 +246,12 @@
     var fo=state.boot&&state.boot.form_options||{}; var c=state.boot&&state.boot.context||{}; var d=state.draft||{};
     var editing=true;
     var head = editing
-      ? ('<div class="card"><h3>Tiến trình phê duyệt</h3><div class="stepper">'+buildStepper(state._editDet||{approval:{}})+'</div></div>'+infoRequiredBannerHTML())
+      ? ('<div class="card"><h3>Tiến trình phê duyệt</h3><div class="stepper">'+buildStepper(Object.assign({},state._editDet||{approval:{}},{viewer:null}))+'</div></div>'+infoRequiredBannerHTML())
       : '';
     var actions = editing
       ? '<div class="actions"><button type="button" class="btn" id="clr-edit-cancel">Hủy</button><button type="button" class="btn primary" id="clr-resubmit">Gửi lại</button></div>'
       : '<div class="actions"><button type="button" class="btn" id="clr-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="clr-save">Lưu nháp</button><button type="button" class="btn primary" id="clr-submit">Gửi yêu cầu</button></div>';
-    b.innerHTML = '<div class="clr-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + actions + '</div>';
+    b.innerHTML = '<div class="clr-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + (window.EcSummary?EcSummary.cardHTML("clr-summary",actions):actions) + '</div>';
     if(editing) state._origMaterial=materialSnap(d);
     state.titleTouched = !!((d.request_title||"").toString().trim());
     maybeAutoTitle(); renderSummary(); wireCreate();
@@ -264,9 +264,8 @@
     try{ return decodeURIComponent(i>=0?u.slice(i+1):u); }catch(e){ return i>=0?u.slice(i+1):u; } }
   function showFileName(url){ var el=$("clr-file-name"); if(!el) return;
     el.innerHTML = url ? ('Đã đính kèm: <a href="'+esc(url)+'" target="_blank">'+esc(fileLabel(url))+'</a>') : ""; }
-  function renderSummary(){ var h=$("clr-summary"); if(!h)return; var d=state.draft||{};
-    var rows=[["Nhân viên nghỉ việc",d.employee_name||d.employee_email||""],["Ngày làm việc cuối",d.last_working_day||""]];
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
+  function renderSummary(){ var h=$("clr-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{};
+    EcSummary.render(h,{draft:d, resubmit:true, hero:[["Nhân viên nghỉ việc",d.employee_name||d.employee_email],["Ngày làm việc cuối",d.last_working_day,"","date"]]}); }
   function suggestTitle(d){ return (d&&d.request_title)||""; }
   function maybeAutoTitle(){ }
 
@@ -446,10 +445,10 @@
       if(l.due_at&&st==="current"&&new Date(l.due_at)<new Date()){ meta+=' · <span class="ov">Quá hạn</span>'; } else if(l.due_at&&st==="current"){ meta+=" · Hạn: "+fmt(l.due_at); }
       steps.push({level:l.level_no,name:l.level_name||("Cấp "+l.level_no),state:st,meta:meta}); });
     steps.push({name:"Hoàn tất",state:(ap.approval_status==="Approved"?"done":"upcoming"),meta:""});
-    return renderStepsHTML(steps); }
+    return renderStepsHTML(steps,det); }
   var _STEP_LBL={done:"Hoàn thành",current:"Đang xử lý",upcoming:"Chờ",rejected:"Từ chối",info:"Cần bổ sung",skipped:"Bỏ qua"};
   function stColor(s){ return {done:"var(--green)",current:"var(--navy)",rejected:"var(--red)",info:"var(--amber)",skipped:"var(--gray-400)",upcoming:"var(--gray-400)"}[s]||"var(--gray-400)"; }
-  function renderStepsHTML(steps){ if(window.EcApprovalUI) return EcApprovalUI.stepsHTML((EcApprovalUI.withJourney?EcApprovalUI.withJourney(steps,(state.boot||{}).journey_after):steps)); var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
+  function renderStepsHTML(steps,det){ if(window.EcApprovalUI) return EcApprovalUI.stepsHTML((EcApprovalUI.withJourney?EcApprovalUI.withJourney(steps,(state.boot||{}).journey_after):steps),{detail:det}); var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
     var inner=steps.map(function(s,i){ return '<div class="step '+s.state+'"><div class="step-top"><div class="step-dot">'+(s.state==="done"?"✓":(s.state==="rejected"?"✕":(i+1)))+'</div><div class="step-name">'+esc(s.name)+'</div><div class="step-state" style="color:'+stColor(s.state)+'">'+esc(s.statusLabel||_STEP_LBL[s.state]||s.state)+'</div></div><div class="step-meta">'+(s.meta||"")+'</div></div>'; }).join("");
     return '<div class="stepline" style="--n:'+n+';--k:'+k+'">'+inner+'</div>'; }
 

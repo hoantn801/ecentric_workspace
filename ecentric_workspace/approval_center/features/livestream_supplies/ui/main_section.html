@@ -224,7 +224,7 @@
       + '</div></div><div class="card"><h3>Người yêu cầu</h3><div class="grid2">'
       + fld("_r1","Người yêu cầu",'<input class="ro" readonly value="'+esc(c.employee_name||c.user||"")+'">')
       + fld("_r2","Phòng ban",'<input class="ro" readonly value="'+esc(c.department||"—")+'">')
-      + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="lvsp-summary"></div></div>';
+      + '</div></div>';
   }
   function processPreviewHTML(){
     var steps=[
@@ -235,14 +235,15 @@
   }
   function renderCreate(b){
     var c=state.boot&&state.boot.context||{}; var d=state.draft||{};
-    b.innerHTML='<div class="ec-formwrap">'+processPreviewHTML()+formCardsHTML(d,c)
-      +'<div class="actions"><button type="button" class="btn" id="lvsp-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="lvsp-save">Lưu nháp</button><button type="button" class="btn primary" id="lvsp-submit">Gửi yêu cầu</button></div></div>';
+    var actions='<div class="actions"><button type="button" class="btn" id="lvsp-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="lvsp-save">Lưu nháp</button><button type="button" class="btn primary" id="lvsp-submit">Gửi yêu cầu</button></div>';
+    b.innerHTML='<div class="ec-formwrap">'+processPreviewHTML()+formCardsHTML(d,c)+(window.EcSummary?EcSummary.cardHTML("lvsp-summary",actions):actions)+'</div>';
     syncTitle(); renderSummary(); wireCreate();
   }
-  function renderSummary(){ var h=$("lvsp-summary"); if(!h)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
-    var rows=[["Tiêu đề",titlePreview(d)],["Loại",d.request_type],["Vật tư",d.supplies],["Số lượng",d.quantity],
-      ["Từ ngày",d.start_date],["Đến ngày",d.end_date],["Người yêu cầu",c.employee_name||c.user],["Luồng duyệt","Sang Bui Review"]];
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]==null||r[1]===""?"—":r[1])+'</b></div>'; }).join(""); }
+  function renderSummary(){ var h=$("lvsp-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
+    EcSummary.render(h,{draft:d, by:c.employee_name||c.user,
+      hero:[["Loại",d.request_type,"request_type"],["Vật tư",d.supplies,"supplies"],["Số lượng",d.quantity,"quantity"]],
+      groups:[{title:"Thời gian",fields:[["Tiêu đề",titlePreview(d)],["Từ ngày",d.start_date,"start_date","date"],["Đến ngày",d.end_date,"end_date","date"]]}],
+      flow:"Sang Bui Review"}); }
   function syncTitle(){ state.draft=state.draft||{}; state.draft.request_title=titlePreview(state.draft); }
 
   function setModel(k,v){ state.draft=state.draft||{}; state.draft[k]=v; state.dirty=true; }
@@ -428,10 +429,10 @@
       if(l.due_at&&st==="current"&&new Date(l.due_at)<new Date()){ meta+=' · <span class="ov">Quá hạn</span>'; } else if(l.due_at&&st==="current"){ meta+=" · Hạn: "+fmt(l.due_at); }
       steps.push({level:l.level_no,name:l.level_name||("Cấp "+l.level_no),state:st,meta:meta}); });
     steps.push({name:"Hoàn tất",state:(ap.approval_status==="Approved"?"done":"upcoming"),meta:""});
-    return renderStepsHTML(steps); }
+    return renderStepsHTML(steps,det); }
   var _STEP_LBL={done:"Hoàn thành",current:"Đang xử lý",upcoming:"Chờ",rejected:"Từ chối",info:"Cần bổ sung",skipped:"Bỏ qua"};
   function stColor(s){ return {done:"var(--green)",current:"var(--navy)",rejected:"var(--red)",info:"var(--amber)",skipped:"var(--gray-400)",upcoming:"var(--gray-400)"}[s]||"var(--gray-400)"; }
-  function renderStepsHTML(steps){ if(window.EcApprovalUI) return EcApprovalUI.stepsHTML((EcApprovalUI.withJourney?EcApprovalUI.withJourney(steps,(state.boot||{}).journey_after):steps)); var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
+  function renderStepsHTML(steps,det){ if(window.EcApprovalUI) return EcApprovalUI.stepsHTML((EcApprovalUI.withJourney?EcApprovalUI.withJourney(steps,(state.boot||{}).journey_after):steps),{detail:det}); var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
     var inner=steps.map(function(s,i){ return '<div class="step '+s.state+'"><div class="step-top"><div class="step-dot">'+(s.state==="done"?"✓":(s.state==="rejected"?"✕":(i+1)))+'</div><div class="step-name">'+esc(s.name)+'</div><div class="step-state" style="color:'+stColor(s.state)+'">'+esc(s.statusLabel||_STEP_LBL[s.state]||s.state)+'</div></div><div class="step-meta">'+(s.meta||"")+'</div></div>'; }).join("");
     return '<div class="stepline" style="--n:'+n+';--k:'+k+'">'+inner+'</div>'; }
 

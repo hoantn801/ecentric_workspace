@@ -251,8 +251,7 @@
       + '<div class="card"><h3>Người yêu cầu</h3><div class="grid2">'
       + fld("_r1","Người yêu cầu",'<input class="ro" readonly value="'+esc(c.employee_name||c.user||"")+'">')
       + fld("_r2","Phòng ban",'<input class="ro" readonly value="'+esc(c.department||"—")+'">')
-      + '</div></div>'
-      + '<div class="card"><h3>Tóm tắt</h3><div id="eiu-summary"></div></div>';
+      + '</div></div>';
   }
   function cvHint(d){ if(!d.field_to_update) return "";
     if(d.field_to_update==="Other") return "Trường khác: C&B cập nhật tay vào hồ sơ sau khi duyệt.";
@@ -272,13 +271,14 @@
     var c=(state.boot&&state.boot.context)||{}; if(!state.draft) state.draft={}; var d=state.draft;
     if(!d.employee_email&&c.user&&c.user.indexOf("@")>0){ d.employee_email=c.user; }
     var actions='<div class="actions"><button type="button" class="btn" id="eiu-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="eiu-save">Lưu nháp</button><button type="button" class="btn primary" id="eiu-submit">Gửi yêu cầu</button></div>';
-    b.innerHTML='<div class="ec-formwrap">'+processPreviewHTML()+formCardsHTML(d,c)+actions+'</div>';
+    b.innerHTML='<div class="ec-formwrap">'+processPreviewHTML()+formCardsHTML(d,c)+(window.EcSummary?EcSummary.cardHTML("eiu-summary",actions):actions)+'</div>';
     renderSummary(); wireCreate();
   }
-  function renderSummary(){ var h=$("eiu-summary"); if(!h)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
-    var rows=[["Tiêu đề (dự kiến)",titlePreview(d)],["Employee",d.employee_email],["Field to update",d.field_to_update],
-      ["Current value",d.current_value],["New value",d.new_value],["Người yêu cầu",c.employee_name||c.user],["Luồng duyệt","HR Review"]];
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
+  function renderSummary(){ var h=$("eiu-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
+    EcSummary.render(h,{draft:d, by:c.employee_name||c.user,
+      hero:[["Employee",d.employee_email,"employee_email"],["Field to update",d.field_to_update,"field_to_update"]],
+      groups:[{title:"Thay đổi",fields:[["Tiêu đề (dự kiến)",titlePreview(d)],["Current value",d.current_value,"current_value"],["New value",d.new_value,"new_value"]]}],
+      flow:"HR Review"}); }
 
   function setModel(k,v){ state.draft=state.draft||{}; state.draft[k]=v; state.dirty=true; }
   function setFieldError(id,msg){ var f=document.querySelector('[data-fld="'+id+'"]'); if(!f)return; f.classList.toggle("invalid",!!msg);
@@ -466,10 +466,10 @@
       else if(l.level_status==="In Progress"||ap.current_level===l.level_no){ st="current"; var elig=rows.filter(function(r){return r.status==="Pending";}).map(function(r){return esc(r.approver);}); meta=(elig.length?(l.approval_mode==="Any One"?elig.join(" hoặc "):elig.join(", ")):"Đang chờ"); }
       steps.push({level:l.level_no,name:l.level_name||("Cấp "+l.level_no),state:st,meta:meta}); });
     steps.push({name:"Hoàn tất",state:(ap.approval_status==="Approved"?"done":"upcoming"),meta:""});
-    return renderStepsHTML(steps); }
+    return renderStepsHTML(steps,det); }
   var _STEP_LBL={done:"Hoàn thành",current:"Đang xử lý",upcoming:"Chờ",rejected:"Từ chối",info:"Cần bổ sung",skipped:"Bỏ qua"};
   function stColor(s){ return {done:"var(--green)",current:"var(--navy)",rejected:"var(--red)",info:"var(--amber)",skipped:"var(--gray-400)",upcoming:"var(--gray-400)"}[s]||"var(--gray-400)"; }
-  function renderStepsHTML(steps){ if(window.EcApprovalUI) return EcApprovalUI.stepsHTML((EcApprovalUI.withJourney?EcApprovalUI.withJourney(steps,(state.boot||{}).journey_after):steps)); var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
+  function renderStepsHTML(steps,det){ if(window.EcApprovalUI) return EcApprovalUI.stepsHTML((EcApprovalUI.withJourney?EcApprovalUI.withJourney(steps,(state.boot||{}).journey_after):steps),{detail:det}); var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
     var inner=steps.map(function(s,i){ return '<div class="step '+s.state+'"><div class="step-top"><div class="step-dot">'+(s.state==="done"?"✓":(s.state==="rejected"?"✕":(i+1)))+'</div><div class="step-name">'+esc(s.name)+'</div><div class="step-state" style="color:'+stColor(s.state)+'">'+esc(s.statusLabel||_STEP_LBL[s.state]||s.state)+'</div></div><div class="step-meta">'+(s.meta||"")+'</div></div>'; }).join("");
     return '<div class="stepline" style="--n:'+n+';--k:'+k+'">'+inner+'</div>'; }
 

@@ -14,6 +14,7 @@ const FEAT = join(here, "..", "..", "features");
 const REMIND = readFileSync(join(ROOT, "public", "js", "ec_remind.bundle.js"), "utf8");
 const ADDF = readFileSync(join(ROOT, "public", "js", "ec_addfile.bundle.js"), "utf8");
 const LINKS = readFileSync(join(ROOT, "public", "js", "ec_approval_links.bundle.js"), "utf8");
+const SUMMARY = readFileSync(join(ROOT, "public", "js", "ec_summary.bundle.js"), "utf8");  // khoi Tom tat A1 (24/11)
 const ADHOC = readFileSync(join(FEAT, "adhoc_approval", "ui", "main_section.html"), "utf8");
 const SVRF = readFileSync(join(FEAT, "service_referral", "ui", "main_section.html"), "utf8");
 let fails = 0, oks = 0;
@@ -60,7 +61,7 @@ function boot(html, route, det, calls) {
     return Promise.resolve({ message: { rows: [], total: 0 } }); } };
   w.confirm = () => true;
   mockFetch(w);
-  w.eval(REMIND); w.eval(ADDF); w.eval(LINKS);
+  w.eval(REMIND); w.eval(ADDF); w.eval(LINKS); w.eval(SUMMARY);
   w.eval(js);
   return w;
 }

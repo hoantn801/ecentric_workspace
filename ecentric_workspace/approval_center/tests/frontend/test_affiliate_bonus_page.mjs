@@ -3,6 +3,8 @@ import { JSDOM } from "jsdom";
 import { pageSource } from "./_page_source.mjs";
 import fs from "fs"; import path from "path"; import { fileURLToPath } from "url";
 const __dir = path.dirname(fileURLToPath(import.meta.url));
+// Khoi Tom tat (A1, 24/11/2026) do asset dung chung ve - trang that nap qua web_include.
+const SUMMARY_JS = fs.readFileSync(path.join(__dir, "..", "..", "..", "public", "js", "ec_summary.bundle.js"), "utf8");
 const HTML = pageSource("affiliate_bonus");
 const [markup, rest] = HTML.split('<script id="ec-affiliate-bonus">');
 const JS = rest.replace(/<\/script>\s*$/, "");
@@ -53,7 +55,7 @@ function boot(over) {
     if (m.endsWith("get_detail")) return Promise.resolve({ message: (over && over.detail) || detail() });
     return Promise.resolve({ message: { rows: [], total: 0 } });
   }};
-  w.eval(JS);
+  w.eval(SUMMARY_JS); w.eval(JS);
   return w;
 }
 async function run() {
@@ -102,7 +104,8 @@ async function run() {
   w.AffiliateBonus.render();
   { const sm = w.document.getElementById("afbn-summary");
     ok(/Affiliate Bonus - 2026-09 - 5000000/.test(sm.innerHTML), "title preview in summary");
-    ok(/Vinh Review → CEO Review/.test(sm.innerHTML), "summary flow Vinh -> CEO"); }
+    // Tom tat A1 (24/11/2026): luong duyet ve thanh chip danh so theo thu tu, khong con chuoi "A → B"
+    ok([...sm.querySelectorAll(".ec-sum-chip")].map((c) => c.textContent).join("|") === "1Vinh Review|2CEO Review", "summary flow Vinh -> CEO"); }
   ok(w.AffiliateBonus.computedTitle({ service_month: "2026-09-01", total_amount: 5000000 }) === "Affiliate Bonus - 2026-09 - 5000000", "computedTitle format");
 
   // save draft carries fields
