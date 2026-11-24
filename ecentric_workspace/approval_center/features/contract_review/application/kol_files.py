@@ -218,14 +218,23 @@ def _drop_generated(doc, file_url, prefix="HDDV_", keep_if_sent=True):
                                             "file_name": ["like", prefix + "%"]}, pluck="name")
     if not names:
         return
+    # Xoa trong JOB NEN xep sau commit (24/11/2026). Truoc day xoa trong frappe.db.after_commit cua
+    # chinh request: lenh DELETE roi vao giao dich MOI ma Frappe khong commit nua (chi commit mot lan
+    # cuoi request) -> rollback, ban ghi File con nguyen nhung byte tren dia da xoa. Kiem prod 24/11:
+    # 5 ban ghi mo coi o EC-CTR-2026-00119 / 00130 / 00133, khoi Ky so bao "esign file missing on
+    # disk". Job nen tu commit khi chay xong. Xep job loi -> giu tep (thua mot tep con hon mat byte).
+    try:
+        frappe.enqueue("ecentric_workspace.approval_center.features.contract_review.application.kol_files."
+                       "drop_files", queue="short", names=list(names), enqueue_after_commit=True)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "kol drop generated %s" % doc.name)
 
-    def _go():
-        for n in names:
-            if frappe.db.exists("File", n):
-                frappe.delete_doc("File", n, ignore_permissions=True, force=True)
-    hook = getattr(frappe.db, "after_commit", None)
-    if hook is not None:
-        hook.add(_go)
+
+def drop_files(names):
+    """Job nen: xoa cac ban ghi File (va byte) da duoc go khoi phieu. Chay lai an toan."""
+    for n in names or []:
+        if frappe.db.exists("File", n):
+            frappe.delete_doc("File", n, ignore_permissions=True, force=True)
 
 
 def acceptance_content(doc, row, creator, tpl=None):

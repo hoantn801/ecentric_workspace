@@ -239,6 +239,34 @@ class TaiBanKyVaXoa(unittest.TestCase):
         self.assertEqual(d["acceptances"], [])
 
 
+class XoaTepSauCommit(unittest.TestCase):
+    """Prod 24/11: xoa tep cu trong after_commit cua request -> DELETE bi rollback, byte da mat (5 ban ghi
+    File mo coi o 00119 / 00130 / 00133). Nay xoa trong job nen xep sau commit (job tu commit)."""
+
+    def test_xep_job_sau_commit_khong_xoa_ngay(self):
+        _fresh("req@ec")
+        files = importlib.import_module(P + "kol_files")
+        fk = sys.modules["frappe"]
+        jobs, deleted = [], []
+        fk.enqueue = lambda method, **kw: jobs.append((method, kw))
+        fk.delete_doc = lambda dt_, n, **kw: deleted.append(n)
+        STATE["get_all"]["File"] = lambda f, kw: ["F-1", "F-2"]
+        d = _contract(approval_request=None)
+        files._drop_generated(d, "/private/files/HDDV_x.docx")
+        self.assertEqual(deleted, [])
+        self.assertEqual(jobs[0][0].rsplit(".", 1)[-1], "drop_files")
+        self.assertEqual((jobs[0][1]["names"], jobs[0][1]["enqueue_after_commit"]), (["F-1", "F-2"], True))
+        STATE["exists"].add(("File", "F-1"))
+        files.drop_files(["F-1", "F-2"])                  # F-2 da mat: bo qua
+        self.assertEqual(deleted, ["F-1"])
+        jobs.clear()
+        files._drop_generated(_contract(approval_request="AR-1"), "/private/files/HDDV_x.docx")
+        self.assertEqual(jobs, [])                        # phieu da gui: giu tep lam vet
+        src = _read("features/contract_review/application/kol_files.py")
+        i = src.index("def _drop_generated")
+        self.assertNotIn("after_commit", src[i:src.index("def drop_files")].split('"""', 2)[2].split("# Xoa trong JOB")[0])
+
+
 class NguoiDuyetDot(unittest.TestCase):
     def test_nguoi_duyet_dot_tai_duoc_ban_cua_dot_do(self):
         _fresh("ceo@ec")
@@ -389,7 +417,8 @@ class CauHinhVaDiTru(unittest.TestCase):
         man = json.loads(_read("patches/resync_manifest.json"))
         key = "approval_center/features/contract_review/ui/main_section.html"
         with open(os.path.join(APP, "features/contract_review/ui/main_section.html"), "rb") as fh:
-            self.assertEqual(man[key]["sha256"], hashlib.sha256(fh.read()).hexdigest())
+            # Ban clone Windows (core.autocrlf) doi xuong dong thanh CRLF; ma bam tinh tren ban LF cua repo.
+            self.assertEqual(man[key]["sha256"], hashlib.sha256(fh.read().replace(b"\r\n", b"\n")).hexdigest())
         self.assertEqual(man[key]["last_resync_patch"], "p521_resync_hop_dong_bbnt_duyet")
         html = _read("features/contract_review/ui/main_section.html")
         marks = re.search(r"_MARKS = \(([^)]*)\)", _read("patches/p521_resync_hop_dong_bbnt_duyet.py")).group(1)
@@ -441,7 +470,13 @@ console.log(JSON.stringify({
             self.assertIn("KOL.accSignable(r)", parts[3])
             self.assertIn("r.can_send", parts[3])
             return
-        out = subprocess.run(["node", "-e", js], capture_output=True, text=True, timeout=60)
+        # Chu Viet: ghi JS ra tep UTF-8 (khong qua argv) va doc stdout bang utf-8 - Windows mac dinh cp1252
+        # lam vo bai test o cong push 24/11.
+        import tempfile
+        with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False, encoding="utf-8") as fh:
+            fh.write(js)
+        self.addCleanup(os.unlink, fh.name)
+        out = subprocess.run(["node", fh.name], capture_output=True, encoding="utf-8", errors="replace", timeout=60)
         self.assertEqual(out.returncode, 0, out.stderr)
         r = json.loads(out.stdout.strip().splitlines()[-1])
         self.assertIn("Chờ duyệt", r["b2"])
