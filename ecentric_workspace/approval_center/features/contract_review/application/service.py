@@ -1,7 +1,8 @@
 # Copyright (c) 2026, eCentric and contributors
 """Contract Review orchestration over the shared engine (thay SharePoint Contract approval).
 
-4 cấp: L1 Trưởng phòng (động theo department) -> L2 Finance Team -> L3 HOF -> L4 CEO.
+4 cấp: L1 Trưởng phòng (động theo department) -> L2 Finance Team -> L3 HOF -> L4 CEO. V2 (24/11, PO chốt):
+thêm cấp Nhân sự (C&B) - hợp đồng lao động đi Nhân sự -> CEO, loại khác như cũ (domain/routing.py).
 request_kind quyết định số cấp — Hoàn chốt 2026-09-01: hợp đồng SẴN CÓ chỉ điều chỉnh
 (số tiền / thời hạn / chi tiết) thì KHÔNG cần CEO duyệt, CEO chỉ nhận thông báo (CC);
 hợp đồng hoặc phụ lục MỚI, hoặc sẵn-có-nhưng-đổi-nội-dung, đi đủ 4 cấp.
@@ -14,11 +15,12 @@ import frappe
 from frappe import _
 from frappe.utils import now_datetime
 
-from ecentric_workspace.approval_center.features.contract_review.domain import esign_flow, kol
+from ecentric_workspace.approval_center.features.contract_review.domain import esign_flow, kol, routing
 from ecentric_workspace.approval_center.shared.workflow import transitions as engine
 
 BUSINESS_DT = "EC Contract Review Request"
 APPROVAL_TYPE = "CONTRACT_REVIEW"
+#: So cap CEO cua V1 - chi con dung khi khong tim duoc theo TEN (routing.CEO). V2 (24/11): CEO la cap 5.
 CEO_LEVEL_NO = 4
 
 MATERIAL_FIELDS = ["request_kind", "previous_request", "contract_type", "request_type",
@@ -86,6 +88,9 @@ def changed_vs_previous(doc, prev):
 def skip_ceo(doc, changed):
     """CEO chỉ CC khi là hợp đồng sẵn có VÀ mọi thay đổi đều thuộc nhóm điều chỉnh."""
     if doc.get("request_kind") != "Existing" or not doc.get("previous_request"):
+        return False
+    if doc.get("contract_type") == esign_flow.LABOR_CONTRACT_TYPE:
+        # Hop dong lao dong: CEO ky (PO 24/11 cau D) - khong bao gio bo CEO.
         return False
     if kol.is_kol(doc):
         # KOL: doi creator / so tien tra / coc nam ngoai DIFF_FIELDS -> "chi dieu chinh" lach CEO
@@ -184,14 +189,16 @@ def submit(name):
     doc.save(ignore_permissions=True)
 
     skip = skip_ceo(doc, changed)
+    # Cap nao chay (PO 24/11 cau D): lao dong -> Nhan su -> CEO; loai khac -> luong cu (CEO bo khi chi
+    # dieu chinh). Tim cap theo TEN tren process dang Active (V1 4 cap / V2 5 cap deu dung).
+    skips, skip_reason = routing.plan(_active_levels(), _labor(doc), skip)
     # Ky so (B4, ban giao chat Ky so 23/11): chan TRUOC khi tao yeu cau duyet neu goi ky chua du (chi
     # khi phieu co ho so ky so dang bat - chua bat thi khong lam gi, form chay nhu cu).
     from ecentric_workspace.approval_center.features.contract_review.application import esign_gate
     esign_gate.before_submit(doc)
     req_name = engine.submit(
         BUSINESS_DT, doc.name, APPROVAL_TYPE, user,
-        skip_level_nos=(CEO_LEVEL_NO,) if skip else None,
-        skip_reason="Hợp đồng sẵn có, chỉ điều chỉnh — CEO nhận thông báo, không cần duyệt" if skip else None)
+        skip_level_nos=skips or None, skip_reason=skip_reason)
     frappe.db.set_value(BUSINESS_DT, doc.name, "approval_request", req_name)
     doc.approval_request = req_name
     # ...va khoa goi ky NGAY SAU, cung giao dich (nem -> rollback ca lan gui).
@@ -268,7 +275,7 @@ def _notify_ceo_cc(req_name, doc):
     (in-app + Teams) mà engine dùng, không tự chế kênh riêng. Lỗi thông báo không được
     làm hỏng việc gửi yêu cầu."""
     try:
-        ceo = _process_level_users(doc, CEO_LEVEL_NO)
+        ceo = _process_level_users(doc)
         if ceo:
             # Cap quyen doc TRUOC khi gui link, neu khong thi thong bao co ma quyen
             # khong co: cap CEO bi loai khoi snapshot (`skip_level_nos`) nen KHONG co
@@ -286,9 +293,33 @@ def _notify_ceo_cc(req_name, doc):
         frappe.log_error(frappe.get_traceback(), "contract_review ceo cc notify failed")
 
 
-def _process_level_users(doc, level_no):
+def _labor(doc):
+    return doc.get("contract_type") == esign_flow.LABOR_CONTRACT_TYPE
+
+
+def _active_levels():
+    """[(level_no, level_name)] cua process CONTRACT_REVIEW dang Active."""
     process = engine.resolve_process(APPROVAL_TYPE, None)
-    for lvl in engine.resolve_levels(process.name):
+    return [(l.level_no, l.level_name) for l in engine.resolve_levels(process.name)]
+
+
+def _ceo_level_no(levels):
+    return routing.level_no(levels, routing.CEO) or CEO_LEVEL_NO
+
+
+def _snapshot_levels(approval_request):
+    return [(r.level_no, r.level_name) for r in frappe.get_all(
+        "EC Approval Request Level", filters={"approval_request": approval_request},
+        fields=["level_no", "level_name"], order_by="level_no asc")]
+
+
+def _process_level_users(doc, level_no=None):
+    """Nguoi duyet cap CEO (mac dinh) cua process dang Active - tim theo TEN cap."""
+    process = engine.resolve_process(APPROVAL_TYPE, None)
+    levels = engine.resolve_levels(process.name)
+    if level_no is None:
+        level_no = _ceo_level_no([(l.level_no, l.level_name) for l in levels])
+    for lvl in levels:
         if lvl.level_no == level_no:
             users = engine.resolve_participants(
                 [p for p in lvl.participants if p.participant_purpose == "Approver"],
@@ -302,6 +333,7 @@ def resubmit(name, actor=None):
     doc = frappe.get_doc(BUSINESS_DT, name)
     if not doc.approval_request:
         frappe.throw(_("Yêu cầu chưa được gửi."))
+    _guard_resubmit_route(doc)
     _guard_resubmit_needs_ceo(doc)
     if kol.is_kol(doc):
         # Gui lai sau "Can bo sung" cung qua DUNG phep chot nhu luc gui: tinh lai tien, sinh lai
@@ -322,6 +354,23 @@ def resubmit(name, actor=None):
     _soi_guong_sharepoint(doc.name)
     # Tra ca ket qua ky so cua engine cho lop tren (QC 15/11 B-12 - truoc do bo mat).
     return {"restarted": material_changed, "esign": res.get("esign") if isinstance(res, dict) else None}
+
+
+def _guard_resubmit_route(doc):
+    """Snapshot cap duyet chot LUC GUI. Doi loai hop dong lao dong <-> loai khac luc "Can bo sung" thi
+    chuoi da chot khong con dung nguoi duyet (lao dong: Nhan su -> CEO; loai khac: Truong phong ->
+    Finance -> HOF -> CEO) -> phai tao yeu cau moi (PO 24/11 cau D)."""
+    proc = frappe.db.get_value("EC Approval Request", doc.approval_request, "approval_process")
+    proc_levels = [(l.level_no, l.level_name) for l in frappe.get_all(
+        "EC Approval Level", filters={"approval_process": proc}, fields=["level_no", "level_name"])] if proc else []
+    if not routing.has_labor_route(proc_levels):
+        return                       # gui theo V1: mot luong chung cho moi loai hop dong - khong doi
+    snap_labor = routing.snapshot_is_labor_route([nm for _no, nm in _snapshot_levels(doc.approval_request)])
+    if snap_labor != _labor(doc):
+        frappe.throw(_("Yêu cầu này đã gửi theo luồng duyệt của {0}; đổi loại hợp đồng {1} thì người duyệt khác. "
+                       "Vui lòng hủy yêu cầu này và tạo yêu cầu mới.").format(
+            _("hợp đồng lao động") if snap_labor else _("hợp đồng thường"),
+            _("sang loại khác") if snap_labor else _("sang hợp đồng lao động")))
 
 
 def _guard_resubmit_needs_ceo(doc):
@@ -346,9 +395,14 @@ def _guard_resubmit_needs_ceo(doc):
     needs_ceo = not skip_ceo(doc, changed)
     if not needs_ceo:
         return
-    has_ceo_level = bool(frappe.db.exists(
-        "EC Approval Request Level",
-        {"approval_request": doc.approval_request, "level_no": CEO_LEVEL_NO}))
+    snap = _snapshot_levels(doc.approval_request)
+    if any(nm for _no, nm in snap):
+        # Theo TEN cap (V2 24/11: CEO la cap 5, V1 la cap 4).
+        has_ceo_level = routing.level_no(snap, routing.CEO) is not None
+    else:
+        has_ceo_level = bool(frappe.db.exists(
+            "EC Approval Request Level",
+            {"approval_request": doc.approval_request, "level_no": CEO_LEVEL_NO}))
     if not has_ceo_level and kol.is_kol(doc):
         frappe.throw(_("Hợp đồng KOL/KOC điều chỉnh nay phải qua CEO duyệt, nhưng yêu cầu này đã gửi theo luồng "
                        "không có cấp CEO. Vui lòng hủy yêu cầu này và tạo yêu cầu mới."))

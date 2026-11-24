@@ -45,8 +45,8 @@
     "sha256": "5e9b74503f68e1d5538d12ce7a477e523a38e83c9f54fe77db4b790daa32004e"
   },
   "approval_center/features/contract_review/ui/main_section.html": {
-    "last_resync_patch": "p500_resync_quy_trinh_a_z",
-    "sha256": "e673b369caa035c00843f535823e5401cad425007ef4f7bdb6506aeb985b5315"
+    "last_resync_patch": "p515_resync_hop_dong_lao_dong",
+    "sha256": "e1b00882ba08cd574af15ac3525b387136332c31e01433ef1bca1f15ae23a004"
   },
   "approval_center/features/daily_target/ui/main_section.html": {
     "baseline": "2026-08-31",

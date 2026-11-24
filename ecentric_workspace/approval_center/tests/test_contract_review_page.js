@@ -74,6 +74,13 @@ setTimeout(function(){
           chk("doi brand -> du 4 cap tro lai", !w.ContractReview.willSkipCEO());
           const b5=w.document.getElementById("ctr-body").innerHTML;
           chk("preview quay lai 4 cap", !/CEO nhận thông báo/.test(b5) && /CEO duyệt/.test(b5));
+          // PO 24/11 cau D: hop dong lao dong -> Nhan su (C&B) -> CEO, khong bao gio bo CEO.
+          const cr=w.ContractReview, d0=cr.state.draft, keep=Object.assign({},d0);
+          d0.contract_type="Labor / Hợp đồng lao động (EC)"; d0.brand=d0.previous_request&&keep.brand;
+          const ps=cr.previewSteps().map(function(x){ return x.name+":"+x.state; });
+          chk("lao dong: xem truoc 2 cap Nhan su -> CEO", ps.join("|")==="Tạo yêu cầu:current|Nhân sự (C&B) duyệt:upcoming|CEO duyệt:upcoming|Hoàn tất:upcoming");
+          chk("lao dong: khong bao gio bo CEO", !cr.willSkipCEO());
+          Object.assign(d0,keep);
           done();
         },150);
       },150);
