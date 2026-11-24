@@ -1348,7 +1348,9 @@ function paintChips() {
   const w = NT && $S(".pmr-chips");
   if (!w) return;
   w.innerHTML = NT.assignees.map(u => `<span class="pmr-pc">${av(u)}${esc(nameOf(u))}<button type="button" class="pmr-rm" data-act="nt-rm"${dattr("u", u)} aria-label="Bỏ ${esc(nameOf(u))}">${ic("x", "pmr-s")}</button></span>`).join("") ||
-    (NT.self ? `<span class="pmr-pc pmr-pc-self">${av(cfg.user)}Tôi<button type="button" class="pmr-rm" data-act="nt-self-rm" aria-label="Không giao cho tôi (tạo việc chưa có người nhận)">${ic("x", "pmr-s")}</button></span>` : "");
+    (NT.self ? `<span class="pmr-pc pmr-pc-self">${av(cfg.user)}Tôi<button type="button" class="pmr-rm" data-act="nt-self-rm" aria-label="Không giao cho tôi (tạo việc chưa có người nhận)">${ic("x", "pmr-s")}</button></span>` : "") +
+    /* rà soát 24/11/2026: việc chưa giao ai không vào "Việc cần làm" của ai (live: 415 việc mở không người nhận) -> nói rõ khi đang để trống */
+    (!NT.assignees.length && !NT.self ? '<span class="pmr-nt-unas">Chưa giao ai: việc sẽ không hiện trong Việc cần làm của ai.</span>' : "");
   const last = loadLast(), sg = $S(".pmr-suggest"), sh = $S(".pmr-split-hint"), sb = $S("[data-act=nt-submit]");
   if (sg) sg.innerHTML = !NT.assignees.length && last && last.assignees && last.assignees.length
     ? L(`Gợi ý: nhóm lần giao trước (${esc(last.assignees.map(nameOf).slice(0, 3).join(", "))}${last.assignees.length > 3 ? "…" : ""})`, "nt-last", "", "pmr-link-muted") : "";

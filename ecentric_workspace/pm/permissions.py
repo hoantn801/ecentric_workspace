@@ -52,7 +52,7 @@ def has_pm_module_access(user=None):
 def require_pm_access(user=None):
     """Capability guard for whitelisted PM services."""
     if not has_pm_module_access(user):
-        frappe.throw(_("You do not have access to the PM module."), frappe.PermissionError)
+        frappe.throw(_("Bạn chưa có quyền dùng Công việc (PM). Nhờ quản trị cấp quyền."), frappe.PermissionError)
 
 
 def get_user_departments(user=None):

@@ -62,7 +62,7 @@ def start(task):
         doc, _("Không thể bắt đầu giờ trên nhiệm vụ đã hoàn thành/huỷ. Vui lòng Reopen trước."))
     existing = _active(user)
     if existing:
-        frappe.throw(_("You already have a running timer on task {0}. Stop it first.").format(existing.task))
+        frappe.throw(_("Bạn đang bấm giờ cho việc {0}. Dừng việc đó trước.").format(existing.task))
     t = frappe.get_doc({
         "doctype": TIMER_DT, "user": user, "task": task,
         "project": doc.get("project"), "start_time": _now(),

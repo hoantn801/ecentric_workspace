@@ -475,3 +475,5 @@ details.pmr-md-g[open]>summary .pmr-section-t::after{transform:rotate(45deg)}
   .pmr-sheet .pmr-qd button,.pmr-sheet .pmr-btn,.pmr-statusbar button{min-height:40px}
   .pmr-sh-f .pmr-btn,.pmr-stw .pmr-cta{flex:1 1 auto;justify-content:center}
 }
+/* 24/11: nhắc khi form giao việc để trống người nhận */
+.pmr-nt-unas{flex-basis:100%;font-size:12px;color:var(--pmr-g600);margin-top:2px}

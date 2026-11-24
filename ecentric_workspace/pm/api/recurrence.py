@@ -324,7 +324,7 @@ def _view(name):
           or (r.project and pmperm.can_view_project(r.project, me))
           or _can_edit_rule(r, me))
     if not ok:
-        frappe.throw(_("Not permitted."), frappe.PermissionError)
+        frappe.throw(_("Bạn không có quyền với quy tắc lặp lại này."), frappe.PermissionError)
     return r
 
 
@@ -352,6 +352,36 @@ def _manage(name):
         frappe.throw(_("Bạn chỉ xem được quy tắc lặp này. Chỉ người tạo, người nhận, quản lý dự án, "
                        "trưởng phòng hoặc quản trị PM mới thay đổi được."), frappe.PermissionError)
     return r
+
+
+def _norm_subject(s):
+    return " ".join(str(s or "").split()).casefold()
+
+
+def _people_key(owner, assignees):
+    """Who the occurrences go to, as a comparable key (same resolution as _occ_assignees: an empty
+    list means the owner). A manager may run the same "Daily report" for Lan and for Phú - those
+    are two rules, not duplicates."""
+    users = sorted(set(_clean_assignees(assignees)))
+    return tuple(users) if users else (owner,)
+
+
+def _active_duplicate(owner, subject, frequency, project, assignees=None, exclude=None):
+    """Audit 24/11/2026: people re-created the same rule up to 5 times (live: hoang.le) because
+    the occurrences never reached their queue. Same owner + same name (case/space-insensitive) +
+    same frequency + same project + same people + Active = the same rule -> its name, else None.
+    `exclude` (a rule name) is never reported as its own duplicate."""
+    want, who = _norm_subject(subject), _people_key(owner, assignees)
+    for x in frappe.get_all(DT, filters={"owner": owner, "status": "Active", "frequency": frequency},
+                            fields=["name", "template_subject", "project", "template_assignees"],
+                            order_by="name asc", limit_page_length=0):
+        if x["name"] == exclude:
+            continue
+        if _norm_subject(x.get("template_subject")) == want \
+                and (x.get("project") or None) == (project or None) \
+                and _people_key(owner, x.get("template_assignees")) == who:
+            return x["name"]
+    return None
 
 
 def _assert_project_allowed(project):
@@ -385,6 +415,11 @@ def create(subject, frequency, description=None, priority=None, assignees=None, 
         frappe.throw(_("Ngày kết thúc không được trước ngày bắt đầu."))
     mo = _safe_max_occ(max_occurrences)
     _assert_project_allowed(project)
+    dup = _active_duplicate(frappe.session.user, subject, frequency, project, assignees)
+    if dup:
+        frappe.throw(_("Bạn đã có quy tắc lặp \u201c{0}\u201d cùng tần suất đang chạy ({1}). "
+                       "Hãy mở quy tắc đó để sửa thay vì tạo thêm.").format(subject, dup),
+                     frappe.DuplicateEntryError)
     r = frappe.get_doc({
         "doctype": DT, "frequency": frequency,
         "start_date": sd,
@@ -417,6 +452,8 @@ def update_template(name, subject=None, description=None, priority=None, assigne
     r = _manage(name)
     if project and project != (r.project or None):
         _assert_project_allowed(project)
+    sched_before = (r.frequency, str(r.start_date or ""), r.get("interval"),
+                    r.get("weekly_days"), r.get("monthly_day"))
     if frequency is not None:
         if frequency not in _FREQ:
             frappe.throw(_("Tần suất không hợp lệ."))
@@ -435,6 +472,14 @@ def update_template(name, subject=None, description=None, priority=None, assigne
         r.weekly_days = json.dumps(_clean_weekdays(weekly_days))
     if monthly_day is not None:
         r.monthly_day = _clean_monthday(monthly_day)
+    # Audit 24/11/2026: changing the schedule used to leave next_run_date on the OLD pattern (a
+    # start date moved to next month still fired tomorrow; Daily -> Monthly fired tomorrow).
+    if r.status == "Active" and sched_before != (r.frequency, str(r.start_date or ""), r.get("interval"),
+                                                  r.get("weekly_days"), r.get("monthly_day")):
+        base = max(getdate(r.start_date or nowdate()), getdate(nowdate()))
+        if r.last_run_date and getdate(r.last_run_date) >= base:
+            base = add_days(r.last_run_date, 1)     # never a second occurrence for a done date
+        r.next_run_date = _first_occurrence(r.frequency, base, r.get("weekly_days"), r.get("monthly_day"))
     _apply_template(r, subject=subject, description=description, priority=priority,
                     assignees=assignees, template_start_time=template_start_time,
                     template_end_time=template_end_time, duration_days=duration_days,
@@ -524,7 +569,7 @@ def create_from_task(task, frequency, start_date=None, end_date=None, max_occurr
     user = frappe.session.user
     t = frappe.get_doc("Task", task)
     if not pmperm.can_view_task(t.as_dict(), user):
-        frappe.throw(_("Not permitted."), frappe.PermissionError)
+        frappe.throw(_("Bạn không có quyền với quy tắc lặp lại này."), frappe.PermissionError)
     from ecentric_workspace.pm import task_flow as _tflow   # lazy: avoid import cycle
     _tflow.require_edit(t.as_dict(), user)
     if t.get("parent_task"):
@@ -623,10 +668,12 @@ def _clone(r, occ_date):
         "project": r.get("project"), "parent_task": None, "exp_start_date": occ_date,
         "pm_start_time": r.get("template_start_time"), "pm_end_time": r.get("template_end_time"),
     }
+    # Audit 24/11/2026: an occurrence always has a due date (start + duration, 0 = same day; the
+    # template end time is pm_end_time) - an undated one sat in "Chưa có hạn" forever and never
+    # aged into "Tồn đọng" (live: 209/253 new tasks in 14 days had no due date).
     dur = _clean_int(r.get("template_duration_days"), 0)
-    if dur > 0:
-        fields["exp_end_date"] = add_days(occ_date, dur)
-    users = _load_list(r.get("template_assignees"))
+    fields["exp_end_date"] = add_days(occ_date, dur)
+    users = _occ_assignees(r)
     split = bool(_flag(r.get("split_per_assignee")) and len(users) > 1)
     fields["ec_review_required"] = _flag(r.get("review_required"))
     fields["ec_auto_close"] = _flag(r.get("auto_close"))
@@ -685,12 +732,12 @@ def _clone(r, occ_date):
                 "description": st.get("description"),
                 "priority": _clean_priority(st.get("priority")),
                 "project": r.get("project"), "parent_task": t.name,
-                "exp_start_date": occ_date,
+                "exp_start_date": occ_date, "exp_end_date": fields.get("exp_end_date"),
             })
             child.insert(ignore_permissions=True)
             _own(child.name, r.get("owner"))
             try:
-                cu = _clean_assignees(st.get("assignees")) or _load_list(r.get("template_assignees"))
+                cu = _clean_assignees(st.get("assignees")) or users
                 if cu:
                     _assign_add({"doctype": "Task", "name": child.name,
                                  "assign_to": cu, "notify": 0})
@@ -699,6 +746,18 @@ def _clone(r, occ_date):
     except Exception:
         frappe.log_error(frappe.get_traceback(), "Recurring subtask copy failed: " + t.name)
     return t.name
+
+
+def _occ_assignees(r):
+    """Who an occurrence is assigned to: the template assignees still enabled; a rule with none
+    (or whose people all left) goes to its owner. Audit 24/11/2026: an unassigned occurrence is
+    in nobody's "Việc cần làm" (queue tab=me needs me in _assign, tab=give needs another
+    assignee) - live: 108/253 new tasks in 14 days had no assignee."""
+    users = _clean_assignees(r.get("template_assignees"))   # drops people who left (disabled)
+    owner = r.get("owner")
+    if not users and owner and owner not in ("Administrator", "Guest"):
+        users = [owner]
+    return users
 
 
 def _own(task_name, rule_owner):
@@ -741,13 +800,54 @@ def _clone_split_children(r, t, occ_date, users, fields):
             frappe.log_error(frappe.get_traceback(), "Recurring split child failed: " + t.name)
 
 
-def _process(name, today):
-    r = frappe.get_doc(DT, name)
+def _latest_due(r, nrd, today):
+    """Latest occurrence date <= today (and <= end_date) reachable from `nrd`. run_due generates
+    ONE occurrence per rule per night, so a rule that fell behind (stuck on an error, scheduler
+    paused) used to stay N periods behind for ever, each night adding an already-late task."""
+    end = getdate(r.end_date) if r.get("end_date") else None
+    d = nrd
+    for _ in range(400):
+        nx = getdate(_advance(r, d))
+        if nx <= d or nx > today or (end and nx > end):
+            break
+        d = nx
+    return d
+
+
+def _widen_project(r, nrd):
+    """A rule on a project whose expected_end_date has passed: ERPNext rejects the Task
+    (InvalidDates) every night (live: vu.dang "Weekly Report" PROJ-0050 never ran). Widen the
+    project like tasks.create does, backed by the RULE OWNER's permission (authority), and leave
+    a trace on the project."""
+    if not r.get("project"):
+        return
+    from ecentric_workspace.pm.api import tasks as pmtasks   # lazy: tasks imports a lot
+    end = add_days(nrd, _clean_int(r.get("template_duration_days"), 0))
+    before = frappe.db.get_value("Project", r.project, "expected_end_date")
+    pmtasks._expand_project_dates(r.project, nrd, end, r.owner, authority=r.owner)
+    after = frappe.db.get_value("Project", r.project, "expected_end_date")
+    if str(before or "") != str(after or ""):
+        try:
+            frappe.get_doc({"doctype": "Comment", "comment_type": "Info",
+                            "reference_doctype": "Project", "reference_name": r.project,
+                            "content": _("Tự nới hạn dự án từ {0} đến {1} để tạo việc lặp lại "
+                                         "của quy tắc {2}.").format(before, after, r.name)
+                            }).insert(ignore_permissions=True)
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "PM Recurrence widen comment " + str(r.name))
+
+
+def _process(name, today, catch_up=False):
+    # row lock: "Tạo ngay" (generate_now) racing the 00:00 scheduler must not pass the
+    # last_run_date guard twice
+    r = frappe.get_doc(DT, name, for_update=True)
     if r.status != "Active" or not r.next_run_date:
         return
     nrd = getdate(r.next_run_date)
     if nrd > today:
         return
+    if not catch_up and nrd < today:
+        nrd = _latest_due(r, nrd, today)   # skip missed periods, make only the current one
     if r.end_date and nrd > getdate(r.end_date):
         r.status = "Completed"; r.save(ignore_permissions=True); return
     if r.max_occurrences and (r.occurrences_done or 0) >= r.max_occurrences:
@@ -757,11 +857,31 @@ def _process(name, today):
         r.next_run_date = _advance(r, nrd)
         r.save(ignore_permissions=True)
         return
+    # Audit 24/11/2026: duplicates that ALREADY exist on live (hoang.le: 4x "Daily catchup") - only
+    # the first-named rule of a duplicate group creates the task; the others just move on (no data
+    # deleted, the owner can still cancel them). Without this, fixing R1 would give one person 9
+    # identical tasks a day.
+    first = _active_duplicate(r.owner, r.get("template_subject"), r.frequency, r.get("project"),
+                              r.get("template_assignees"), exclude=r.name)
+    if first and first < r.name:
+        r.next_run_date = _advance(r, nrd)
+        r.last_run_date = nrd
+        r.save(ignore_permissions=True)
+        return
+    _widen_project(r, nrd)
+    prev = r.get("last_task")
     new_task = _clone(r, nrd)
     try:
-        pmnotif.notify_users([r.owner], "Recurring tao nhiem vu moi: " +
-                             (frappe.db.get_value("Task", new_task, "subject") or new_task),
-                             new_task, from_user="Administrator")
+        _close_previous(r, prev, new_task)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "PM Recurrence close previous " + str(r.name))
+    try:
+        # Tell the owner only when the task went to someone else (their own task is in their queue);
+        # Vietnamese text (was "Recurring tao nhiem vu moi").
+        if r.owner not in _occ_assignees(r):
+            pmnotif.notify_users([r.owner], _("Việc lặp lại mới đã giao: {0}").format(
+                frappe.db.get_value("Task", new_task, "subject") or new_task),
+                new_task, from_user="Administrator")
     except Exception:
         frappe.log_error(frappe.get_traceback(), "PM Recurrence notify")
     r.occurrences_done = (r.occurrences_done or 0) + 1
@@ -777,12 +897,66 @@ def _process(name, today):
     r.save(ignore_permissions=True)
 
 
-def _process_with_retry(name, today, attempts=4):
+UNTOUCHED = ("Backlog", "To Do")
+
+
+def _close_previous(r, prev, new_task):
+    """PO 24/11/2026 ("tự đóng lần lặp cũ"): a DAILY rule left one identical task per day when nobody
+    worked on it (live: 137 copies of "Daily catchup" / "Đọc dashboard" / "Get raw data"). When the
+    new occurrence is made, the previous one is cancelled ONLY if nobody touched it: still Chưa làm
+    (Backlog / To Do), no comment, no ticked step, no sub-task. Audited write (tflow.write_state ->
+    Version) + an Info comment naming the new task. Weekly / monthly rules keep every occurrence
+    (a missed week usually still has to be done)."""
+    if r.frequency != "Daily" or not prev or prev == new_task:
+        return False
+    from ecentric_workspace.pm import task_flow as tflow   # lazy: avoid import cycle
+    row = frappe.db.get_value("Task", prev, ["workflow_state"], as_dict=True)
+    if not row or row.get("workflow_state") not in UNTOUCHED:
+        return False
+    if frappe.get_all("Comment", filters={"reference_doctype": "Task", "reference_name": prev,
+                                          "comment_type": "Comment"}, limit_page_length=1):
+        return False
+    if frappe.get_all("Task", filters={"parent_task": prev}, limit_page_length=1):
+        return False
+    doc = frappe.get_doc("Task", prev)
+    if any(tflow.truthy(it.get("is_done")) for it in (doc.get("pm_checklist") or [])):
+        return False
+    tflow.write_state(prev, "Cancelled", "Administrator", notify=False)
+    try:
+        frappe.get_doc({"doctype": "Comment", "comment_type": "Info", "reference_doctype": "Task",
+                        "reference_name": prev,
+                        "content": _("Tự huỷ: việc lặp lại hằng ngày chưa ai làm, đã có lần mới {0}.").format(new_task)
+                        }).insert(ignore_permissions=True)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "PM Recurrence close previous comment " + str(prev))
+    return True
+
+
+def _skip_failed(name):
+    """Audit 24/11/2026: a rule whose occurrence is rejected by validation / permission (closed
+    project, owner lost access...) retried the SAME date every night for ever. Move next_run_date
+    one period on (audited: modified/modified_by) so the rule is not stuck; the error stays in
+    Error Log titled with the rule name. Transient errors (DB) are NOT skipped."""
+    try:
+        r = frappe.get_doc(DT, name)
+        if r.status != "Active" or not r.next_run_date:
+            return
+        frappe.db.set_value(DT, name, "next_run_date", _advance(r, getdate(r.next_run_date)))
+        frappe.db.commit()
+    except Exception:
+        frappe.db.rollback()
+        frappe.log_error(frappe.get_traceback(), "PM Recurrence skip failed: " + str(name))
+
+
+def _process_with_retry(name, today, attempts=4, catch_up=False, skip_bad=False):
     """Generate for one rule, retrying on transient DB deadlocks (MySQL 1213). ERPNext Task
-    nested-set updates can deadlock under contention. Non-deadlock errors are logged + skipped."""
+    nested-set updates can deadlock under contention. Non-deadlock errors are logged; a
+    validation / permission error also moves the rule past that date when `skip_bad` (only the
+    scheduler, which runs as Administrator - a "Tạo ngay" caller's own permission gap must not
+    drop an occurrence)."""
     for i in range(attempts):
         try:
-            _process(name, today)
+            _process(name, today, catch_up=catch_up)
             frappe.db.commit()
             return True
         except QueryDeadlockError:
@@ -792,9 +966,15 @@ def _process_with_retry(name, today, attempts=4):
                                  "PM Recurrence run_due deadlock (gave up): " + str(name))
             else:
                 time.sleep(0.4 * (i + 1))
+        except (frappe.ValidationError, frappe.PermissionError):
+            frappe.db.rollback()
+            frappe.log_error(frappe.get_traceback(), "PM Recurrence run_due: " + str(name))
+            if skip_bad:
+                _skip_failed(name)
+            return False
         except Exception:
             frappe.db.rollback()
-            frappe.log_error(frappe.get_traceback(), "PM Recurrence run_due")
+            frappe.log_error(frappe.get_traceback(), "PM Recurrence run_due: " + str(name))
             return False
     return False
 
@@ -805,7 +985,7 @@ def run_due():
     rules = frappe.get_all(DT, filters={"status": "Active", "next_run_date": ["<=", today]},
                            fields=["name"])
     for row in rules:
-        _process_with_retry(row["name"], today)
+        _process_with_retry(row["name"], today, skip_bad=True)
 
 
 @frappe.whitelist()
@@ -828,7 +1008,7 @@ def generate_now():
             if (not b or b.status != "Active" or not b.next_run_date
                     or getdate(b.next_run_date) > today):
                 break
-            if not _process_with_retry(row["name"], today):
+            if not _process_with_retry(row["name"], today, catch_up=True):
                 break
             after = frappe.db.get_value(DT, row["name"], "occurrences_done") or 0
             if after > (b.occurrences_done or 0):
