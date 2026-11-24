@@ -224,7 +224,7 @@
       + '</div></div><div class="card"><h3>Người yêu cầu</h3><div class="grid2">'
       + fld("_r1","Người yêu cầu",'<input class="ro" readonly value="'+esc(c.employee_name||c.user||"")+'">')
       + fld("_r2","Phòng ban",'<input class="ro" readonly value="'+esc(c.department||"—")+'">')
-      + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="lvsp-summary"></div></div>';
+      + '</div></div>';
   }
   function processPreviewHTML(){
     var steps=[
@@ -235,14 +235,15 @@
   }
   function renderCreate(b){
     var c=state.boot&&state.boot.context||{}; var d=state.draft||{};
-    b.innerHTML='<div class="ec-formwrap">'+processPreviewHTML()+formCardsHTML(d,c)
-      +'<div class="actions"><button type="button" class="btn" id="lvsp-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="lvsp-save">Lưu nháp</button><button type="button" class="btn primary" id="lvsp-submit">Gửi yêu cầu</button></div></div>';
+    var actions='<div class="actions"><button type="button" class="btn" id="lvsp-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="lvsp-save">Lưu nháp</button><button type="button" class="btn primary" id="lvsp-submit">Gửi yêu cầu</button></div>';
+    b.innerHTML='<div class="ec-formwrap">'+processPreviewHTML()+formCardsHTML(d,c)+(window.EcSummary?EcSummary.cardHTML("lvsp-summary",actions):actions)+'</div>';
     syncTitle(); renderSummary(); wireCreate();
   }
-  function renderSummary(){ var h=$("lvsp-summary"); if(!h)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
-    var rows=[["Tiêu đề",titlePreview(d)],["Loại",d.request_type],["Vật tư",d.supplies],["Số lượng",d.quantity],
-      ["Từ ngày",d.start_date],["Đến ngày",d.end_date],["Người yêu cầu",c.employee_name||c.user],["Luồng duyệt","Sang Bui Review"]];
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]==null||r[1]===""?"—":r[1])+'</b></div>'; }).join(""); }
+  function renderSummary(){ var h=$("lvsp-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
+    EcSummary.render(h,{draft:d, by:c.employee_name||c.user,
+      hero:[["Loại",d.request_type,"request_type"],["Vật tư",d.supplies,"supplies"],["Số lượng",d.quantity,"quantity"]],
+      groups:[{title:"Thời gian",fields:[["Tiêu đề",titlePreview(d)],["Từ ngày",d.start_date,"start_date","date"],["Đến ngày",d.end_date,"end_date","date"]]}],
+      flow:"Sang Bui Review"}); }
   function syncTitle(){ state.draft=state.draft||{}; state.draft.request_title=titlePreview(state.draft); }
 
   function setModel(k,v){ state.draft=state.draft||{}; state.draft[k]=v; state.dirty=true; }

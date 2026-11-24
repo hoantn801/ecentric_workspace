@@ -231,7 +231,7 @@
 
   function formCardsHTML(d,c,fo){
     return '<div class="card"><h3>Gửi lại phiếu đánh giá</h3><div class="hint">Đối tượng và dòng hợp đồng là bản chụp lúc gửi - không sửa được. C&amp;B bổ sung theo yêu cầu (ghi chú bên dưới hoặc sửa hồ sơ) rồi bấm Gửi lại.</div>'
-      +'<div class="fld" style="margin-top:10px"><label>Ghi chú cho nhân viên và quản lý</label><textarea rows="3" data-model="ghi_chu_cnb">'+esc(d.ghi_chu_cnb||"")+'</textarea></div></div><div class="card"><h3>Tóm tắt</h3><div id="er-summary"></div></div>';
+      +'<div class="fld" style="margin-top:10px"><label>Ghi chú cho nhân viên và quản lý</label><textarea rows="3" data-model="ghi_chu_cnb">'+esc(d.ghi_chu_cnb||"")+'</textarea></div></div>';
   }
   var MATERIAL=[];
   function materialSnap(d){ return MATERIAL.map(function(k){return String((d||{})[k]||"");}).join("|"); }
@@ -253,7 +253,7 @@
     var actions = editing
       ? '<div class="actions"><button type="button" class="btn" id="er-edit-cancel">Hủy</button><button type="button" class="btn primary" id="er-resubmit">Gửi lại</button></div>'
       : '<div class="actions"><button type="button" class="btn" id="er-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="er-save">Lưu nháp</button><button type="button" class="btn primary" id="er-submit">Gửi yêu cầu</button></div>';
-    b.innerHTML = '<div class="er-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + actions + '</div>';
+    b.innerHTML = '<div class="er-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + (window.EcSummary?EcSummary.cardHTML("er-summary",actions):actions) + '</div>';
     if(editing) state._origMaterial=materialSnap(d);
     state.titleTouched = !!((d.request_title||"").toString().trim());
     maybeAutoTitle(); renderSummary(); wireCreate();
@@ -266,9 +266,8 @@
     try{ return decodeURIComponent(i>=0?u.slice(i+1):u); }catch(e){ return i>=0?u.slice(i+1):u; } }
   function showFileName(url){ var el=$("er-file-name"); if(!el) return;
     el.innerHTML = url ? ('Đã đính kèm: <a href="'+esc(url)+'" target="_blank">'+esc(fileLabel(url))+'</a>') : ""; }
-  function renderSummary(){ var h=$("er-summary"); if(!h)return; var d=state.draft||{};
-    var rows=[["Nhân viên",d.ten_nhan_vien||""],["Loại đánh giá",d.review_type||""],["Hợp đồng đến",d.hd_den_ngay||""]];
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
+  function renderSummary(){ var h=$("er-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{};
+    EcSummary.render(h,{draft:d, resubmit:true, hero:[["Nhân viên",d.ten_nhan_vien],["Loại đánh giá",d.review_type],["Hợp đồng đến",d.hd_den_ngay,"","date"]]}); }
   function suggestTitle(d){ return (d&&d.request_title)||""; }
   function maybeAutoTitle(){ }
 

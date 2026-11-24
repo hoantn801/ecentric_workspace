@@ -234,7 +234,7 @@
       + fld("budget","Ngân sách (VND)",'<input type="text" inputmode="numeric" autocomplete="off" data-money data-model="budget" value="'+esc(window.EcMoney?EcMoney.fmt((d.budget==null?"":d.budget)):(d.budget==null?"":d.budget))+'">',true)
       + fld("detail","Chi tiết hoạt động",'<textarea data-model="detail" rows="4" placeholder="Các hoạt động là gì (minigame, doanh thu, ...)? Bao nhiêu KOL/KOC nhận thưởng mỗi hoạt động?">'+esc(d.detail||"")+'</textarea><div class="hint">What are the activities (minigames, revenue, ...)? How many KOL/KOCs receive bonus per activity? Please attach a file.</div>',true).replace('class="fld','class="fld full')
       + fld("request_attachment","Tệp đính kèm",'<input type="file" multiple data-upload="request_attachment"><div class="hint" id="att-name">'+esc(d.request_attachment?"Đã tải":"Bắt buộc")+'</div>',true).replace('class="fld','class="fld full')
-      + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="afbn-summary"></div></div>';
+      + '</div></div>';
   }
   var MATERIAL=["service_month","total_amount","budget","detail"];
   function materialSnap(d){ return MATERIAL.map(function(k){return String((d||{})[k]||"");}).join("|"); }
@@ -255,14 +255,15 @@
     var actions = editing
       ? '<div class="actions"><button type="button" class="btn" id="afbn-edit-cancel">Hủy</button><button type="button" class="btn primary" id="afbn-resubmit">Gửi lại</button></div>'
       : '<div class="actions"><button type="button" class="btn" id="afbn-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="afbn-save">Lưu nháp</button><button type="button" class="btn primary" id="afbn-submit">Gửi yêu cầu</button></div>';
-    b.innerHTML = '<div class="ec-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + actions + '</div>';
+    b.innerHTML = '<div class="ec-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + (window.EcSummary?EcSummary.cardHTML("afbn-summary",actions):actions) + '</div>';
     if(editing) state._origMaterial=materialSnap(d);
     renderSummary(); wireCreate();
   }
-  function renderSummary(){ var h=$("afbn-summary"); if(!h)return; var d=state.draft||{}; var c=state.boot.context||{};
-    var rows=[["Tiêu đề",computedTitle(d)],["Tháng dịch vụ",d.service_month],["Tổng tiền",fmtVND(d.total_amount)],["Ngân sách",fmtVND(d.budget)],["Người yêu cầu",c.employee_name||c.user],
-      ["Luồng duyệt","Vinh Review → CEO Review"]];
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
+  function renderSummary(){ var h=$("afbn-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
+    EcSummary.render(h,{draft:d, by:c.employee_name||c.user, resubmit:state.mode==="edit",
+      hero:[["Tháng dịch vụ",d.service_month,"service_month"],["Tổng tiền",d.total_amount,"total_amount","money"]],
+      groups:[{title:"Thông tin",fields:[["Tiêu đề",computedTitle(d)],["Ngân sách",d.budget,"budget","money"]]}],
+      flow:"Vinh Review → CEO Review"}); }
   function ym(s){ if(!s) return "?"; var m=String(s).match(/^(\d{4})-(\d{2})/); return m?(m[1]+"-"+m[2]):"?"; }
   function computedTitle(d){ d=d||{}; var amt=(d.total_amount!=null&&String(d.total_amount).trim()!=="")?d.total_amount:"?"; return "Affiliate Bonus - "+ym(d.service_month)+" - "+amt; }
   function suggestTitle(d){ return computedTitle(d); }

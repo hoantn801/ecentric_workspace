@@ -242,7 +242,7 @@
       + '</div></div><div class="card"><h3>Ghi chú / đính kèm</h3><div class="grid2">'
       + fld("remarks","Ghi chú",'<textarea data-model="remarks" rows="2">'+esc(d.remarks||"")+'</textarea>',true).replace('class="fld','class="fld full')
       + fld("request_attachment","Tệp đính kèm",'<input type="file" multiple data-upload="request_attachment"><div class="hint" id="att-name">'+esc(d.request_attachment?"Đã tải":"Không bắt buộc")+'</div>').replace('class="fld','class="fld full')
-      + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="owrk-summary"></div></div>';
+      + '</div></div>';
   }
   var MATERIAL=["work_type","start_date","end_date","duration_days","department"];
   function materialSnap(d){ return MATERIAL.map(function(k){return String((d||{})[k]||"");}).join("|"); }
@@ -263,16 +263,17 @@
     var actions = editing
       ? '<div class="actions"><button type="button" class="btn" id="owrk-edit-cancel">Hủy</button><button type="button" class="btn primary" id="owrk-resubmit">Gửi lại</button></div>'
       : '<div class="actions"><button type="button" class="btn" id="owrk-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="owrk-save">Lưu nháp</button><button type="button" class="btn primary" id="owrk-submit"'+(mgrBlock?" disabled":"")+'>Gửi yêu cầu</button></div>';
-    b.innerHTML = '<div class="ec-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + actions + '</div>';
+    b.innerHTML = '<div class="ec-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + (window.EcSummary?EcSummary.cardHTML("owrk-summary",actions):actions) + '</div>';
     if(editing) state._origMaterial=materialSnap(d);
     state.titleTouched = !!((d.request_title||"").toString().trim());
     maybeAutoTitle(); renderSummary(); apply3Day(); wireCreate();
   }
-  function renderSummary(){ var h=$("owrk-summary"); if(!h)return; var d=state.draft||{}; var c=state.boot.context||{};
-    var rows=[["Tiêu đề",d.request_title],["Loại công việc",WORK_LABEL[d.work_type]||d.work_type],
-      ["Thời gian",(d.start_date||"—")+" → "+(d.end_date||"—")],["Thời lượng",(d.duration_days!=null&&d.duration_days!==""?(d.duration_days+" ngày"):"")],
-      ["Ghi chú",d.remarks],["Quản lý trực tiếp",c.manager_user||"—"],["Luồng duyệt","Direct Manager (theo cấu hình)"]];
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
+  function renderSummary(){ var h=$("owrk-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
+    EcSummary.render(h,{draft:d, by:c.employee_name||c.user, resubmit:state.mode==="edit",
+      hero:[["Loại công việc",WORK_LABEL[d.work_type]||d.work_type,"work_type"],["Thời lượng",d.duration_days!=null&&d.duration_days!==""?(d.duration_days+" ngày"):"","duration_days"]],
+      groups:[{title:"Thời gian",fields:[["Tiêu đề",d.request_title,"request_title"],["Ngày bắt đầu",d.start_date,"start_date","date"],["Ngày kết thúc",d.end_date,"end_date","date"],
+        ["Quản lý trực tiếp",c.manager_user],["Ghi chú",d.remarks,"remarks","long"]]}],
+      flow:"Direct Manager (theo cấu hình)"}); }
 
   function suggestTitle(d){ d=d||{}; var parts=[d.work_type, (d.start_date&&d.end_date)?(d.start_date+" → "+d.end_date):(d.start_date||"")].filter(function(x){return x&&String(x).trim();});
     return parts.length?parts.join(" - ").slice(0,140):""; }

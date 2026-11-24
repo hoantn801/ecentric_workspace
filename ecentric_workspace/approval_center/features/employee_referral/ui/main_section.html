@@ -239,7 +239,7 @@
       + (isOther?fld("relationship_other","Mối quan hệ khác",'<input data-model="relationship_other" value="'+esc(d.relationship_other||"")+'">',true):'<div></div>')
       + fld("referral_justification","Lý do đề xuất",'<textarea data-model="referral_justification" rows="3" placeholder="Vì sao phù hợp? Điểm mạnh? Ngày bắt đầu dự kiến?">'+esc(d.referral_justification||"")+'</textarea>',true).replace('class="fld','class="fld full')
       + fld("request_attachment","CV / hồ sơ đính kèm",'<input type="file" multiple data-upload="request_attachment"><div class="hint" id="att-name">'+esc(d.request_attachment?"Đã tải":"Bắt buộc")+'</div>',true).replace('class="fld','class="fld full')
-      + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="refr-summary"></div></div>';
+      + '</div></div>';
   }
   var MATERIAL=["candidate_full_name","candidate_email","position_applied_for","hiring_department","relationship_with_referrer","relationship_other","referral_justification"];
   function materialSnap(d){ return MATERIAL.map(function(k){return String((d||{})[k]||"");}).join("|"); }
@@ -261,16 +261,17 @@
     var actions = editing
       ? '<div class="actions"><button type="button" class="btn" id="refr-edit-cancel">Hủy</button><button type="button" class="btn primary" id="refr-resubmit">Gửi lại</button></div>'
       : '<div class="actions"><button type="button" class="btn" id="refr-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="refr-save">Lưu nháp</button><button type="button" class="btn primary" id="refr-submit">Gửi yêu cầu</button></div>';
-    b.innerHTML = '<div class="ec-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + actions + '</div>';
+    b.innerHTML = '<div class="ec-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + (window.EcSummary?EcSummary.cardHTML("refr-summary",actions):actions) + '</div>';
     if(editing) state._origMaterial=materialSnap(d);
     state.titleTouched = !!((d.request_title||"").toString().trim());
     maybeAutoTitle(); renderSummary(); wireCreate();
   }
-  function renderSummary(){ var h=$("refr-summary"); if(!h)return; var d=state.draft||{}; var c=state.boot.context||{};
-    var rows=[["Ứng viên",d.candidate_full_name],["Email",d.candidate_email],["Vị trí",d.position_applied_for],
-      ["Phòng ban tuyển",d.hiring_department],["Mối quan hệ",d.relationship_with_referrer==="Other"?("Other: "+(d.relationship_other||"")):d.relationship_with_referrer],
-      ["Người yêu cầu",c.employee_name||c.user],["Luồng duyệt","Careers → CEO (theo cấu hình)"]];
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
+  function renderSummary(){ var h=$("refr-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
+    EcSummary.render(h,{draft:d, by:c.employee_name||c.user, resubmit:state.mode==="edit",
+      hero:[["Ứng viên",d.candidate_full_name,"candidate_full_name"],["Vị trí",d.position_applied_for,"position_applied_for"],["Phòng ban tuyển",d.hiring_department,"hiring_department"]],
+      groups:[{title:"Ứng viên",fields:[["Tiêu đề",d.request_title,"request_title"],["Email",d.candidate_email,"candidate_email"],
+        ["Mối quan hệ",d.relationship_with_referrer==="Other"?("Other: "+(d.relationship_other||"")):d.relationship_with_referrer,"relationship_with_referrer"]]}],
+      flow:"Careers → CEO (theo cấu hình)"}); }
   function suggestTitle(d){ d=d||{}; var parts=[d.candidate_full_name, d.position_applied_for].filter(function(x){return x&&String(x).trim();});
     return parts.length?parts.join(" - ").slice(0,140):""; }
   function maybeAutoTitle(){ if(state.titleTouched)return; var s=suggestTitle(state.draft||{}); if(!s)return;

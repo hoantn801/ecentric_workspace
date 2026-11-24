@@ -277,7 +277,7 @@
       + fld("subscription_end_date","Ngày kết thúc",'<input type="date" data-model="subscription_end_date" value="'+esc(d.subscription_end_date||"")+'">')
       + fld("billing_cycle","Chu kỳ thanh toán",'<select data-model="billing_cycle"><option value="">—</option>'+opt((fo.billing_cycles||[]).map(function(x){return{value:x,label:({Monthly:"Hàng tháng",Quarterly:"Hàng quý","Semi-annual":"6 tháng",Annual:"Hàng năm","One-time":"Một lần",Custom:"Tùy chỉnh"})[x]||x};}),d.billing_cycle)+'</select>')
       + fld("auto_renewal_expected","Dự kiến tự động gia hạn",'<select data-model="auto_renewal_expected"><option value="0"'+(!d.auto_renewal_expected?" selected":"")+'>Không</option><option value="1"'+(d.auto_renewal_expected?" selected":"")+'>Có</option></select><div class="hint">Chỉ dùng để ghi nhận nhu cầu gia hạn. Tự động nhắc hạn hoặc tạo yêu cầu gia hạn sẽ được triển khai ở phase sau.</div>')
-      + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="ait-summary"></div></div>';
+      + '</div></div>';
   }
   var MATERIAL=["ai_tool","account_mode","ai_account","account_email","account_manager","requested_amount","department","requested_plan","billing_cycle","subscription_start_date","subscription_end_date"];
   function materialSnap(d){ return MATERIAL.map(function(k){return String((d||{})[k]||"");}).join("|"); }
@@ -317,7 +317,7 @@
       ? '<div class="actions"><button class="btn" id="ait-edit-cancel">Hủy</button><button class="btn primary" id="ait-resubmit">Gửi lại</button></div>'
       : '<div class="actions"><button class="btn" id="ait-cancel-changes">Hủy thay đổi</button><button class="btn" id="ait-save">Lưu nháp</button><button class="btn primary" id="ait-submit"'+(mgrBlock?" disabled":"")+'>Gửi phê duyệt</button></div>';
     // roadmap always visible on Create (not on edit/resubmit); sits below tabs, above the blocking alert + form.
-    b.innerHTML = '<div class="ait-formwrap">' + (editing?"":roadmapHTML()) + head + formCardsHTML(d,c,fo) + actions + '</div>';
+    b.innerHTML = '<div class="ait-formwrap">' + (editing?"":roadmapHTML()) + head + formCardsHTML(d,c,fo) + (window.EcSummary?EcSummary.cardHTML("ait-summary",actions):actions) + '</div>';
     if(editing) state._origMaterial=materialSnap(d);
     state.titleTouched = !!((d.request_title||"").toString().trim());
     state.draft=state.draft||{}; if(state.draft.tax_fee_basis==null) state.draft.tax_fee_basis="Included";
@@ -350,16 +350,16 @@
     wireDynamicLists();
     wireAccountPicker();
   }
-  function renderSummary(){ var h=$("ait-summary"); if(!h)return; var d=state.draft||{}; var c=state.boot.context||{};
+  function renderSummary(){ var h=$("ait-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
     var isNew=d.account_mode==="New Account";
     var acct=isNew?d.proposed_account_email:(d.account_email||d.ai_account);
     var mgr=isNew?d.proposed_account_manager:d.account_manager;
     var plan=isNew?(d.requested_plan||d.proposed_plan):(d.current_plan||d.requested_plan);
-    var rows=[["Tiêu đề",d.request_title],["Tool",d.ai_tool],["Account",acct],["Account manager",mgr],
-      ["Gói",plan],["Số tiền",(d.requested_amount?d.requested_amount+" "+(d.currency||""):"")],["Cơ sở VAT/thuế/phí",taxBasisLabel(d.tax_fee_basis)],
-      ["Thời hạn",(d.subscription_start_date||"—")+" → "+(d.subscription_end_date||"—")],["Quản lý trực tiếp",c.manager_user||"—"],
-      ["Luồng duyệt","Direct Manager → Operation Review → Finance Review → Operation Fulfillment (theo cấu hình)"]];
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
+    EcSummary.render(h,{draft:d, by:c.employee_name||c.user, resubmit:state.mode==="edit",
+      hero:[["Tool",d.ai_tool,"ai_tool"],["Gói",plan,"requested_plan"],{label:"Số tiền",value:d.requested_amount,field:"requested_amount",kind:"money",currency:d.currency}],
+      groups:[{title:"Tài khoản",fields:[["Tiêu đề",d.request_title,"request_title"],["Account",acct],["Account manager",mgr],["Quản lý trực tiếp",c.manager_user]]},
+        {title:"Thanh toán",fields:[["Cơ sở VAT/thuế/phí",taxBasisLabel(d.tax_fee_basis),"tax_fee_basis"],["Bắt đầu",d.subscription_start_date,"subscription_start_date","date"],["Kết thúc",d.subscription_end_date,"subscription_end_date","date"]]}],
+      flow:"Direct Manager → Operation Review → Finance Review (theo cấu hình)", after:["Operation Fulfillment"]}); }
 
   function setModel(k,v){ state.draft=state.draft||{}; state.draft[k]=v; state.dirty=true; }
   function setBusyIds(ids,on){ ids.forEach(function(id){ var el=$(id); if(el) el.disabled=on; }); }

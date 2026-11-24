@@ -259,8 +259,7 @@
       + (showRisk? fld("financial_risk_details","Chi tiết rủi ro tài chính",'<textarea data-model="financial_risk_details" rows="3" placeholder="Mô tả các rủi ro tài chính (bắt buộc khi chọn Yes).">'+esc(d.financial_risk_details||"")+'</textarea>',true).replace('class="fld','class="fld full') : '')
       + fld("additional_notes_comments","Ghi chú bổ sung",'<textarea data-model="additional_notes_comments" rows="2" placeholder="Không bắt buộc.">'+esc(d.additional_notes_comments||"")+'</textarea>').replace('class="fld','class="fld full')
       + fld("request_attachment","Tệp đính kèm",'<input type="file" multiple data-upload="request_attachment"><div class="hint" id="att-name">'+esc(d.request_attachment?("Đã tải: "+d.request_attachment):"Bắt buộc")+'</div>',true).replace('class="fld','class="fld full')
-      + '</div></div>'
-      + '<div class="card"><h3>Tóm tắt</h3><div id="budg-summary"></div></div>';
+      + '</div></div>';
   }
   var MATERIAL=["budget_period_type","period_start","department","approved_budget_current_period","actual_spending_current_period","forecast_budget_next_period","forecast_justification","has_financial_risks","financial_risk_details","additional_notes_comments","request_attachment"];
   function materialSnap(d){ return MATERIAL.map(function(k){return String((d||{})[k]||"");}).join("|"); }
@@ -281,21 +280,16 @@
     var actions = editing
       ? '<div class="actions"><button type="button" class="btn" id="budg-edit-cancel">Hủy</button><button type="button" class="btn primary" id="budg-resubmit">Gửi lại</button></div>'
       : '<div class="actions"><button type="button" class="btn" id="budg-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="budg-save">Lưu nháp</button><button type="button" class="btn primary" id="budg-submit">Gửi yêu cầu</button></div>';
-    b.innerHTML = '<div class="budg-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + actions + '</div>';
+    b.innerHTML = '<div class="budg-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + (window.EcSummary?EcSummary.cardHTML("budg-summary",actions):actions) + '</div>';
     if(editing) state._origMaterial=materialSnap(d);
     renderSummary(); wireCreate();
   }
-  function renderSummary(){ var h=$("budg-summary"); if(!h)return; var d=state.draft||{};
-    var rows=[["Tiêu đề (tự tạo)",genTitle(d)],
-      ["Loại kỳ ngân sách",d.budget_period_type||""],
-      ["Ngày bắt đầu",d.period_start||""],
-      ["Phòng ban",d.department||""],
-      ["Ngân sách duyệt kỳ này",fmtVnd(d.approved_budget_current_period)],
-      ["Chi tiêu thực tế kỳ này",fmtVnd(d.actual_spending_current_period)],
-      ["Dự báo kỳ sau",fmtVnd(d.forecast_budget_next_period)],
-      ["Rủi ro tài chính",d.has_financial_risks||""],
-      ["Luồng duyệt","Tạo yêu cầu → HOF → CEO"]];
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
+  function renderSummary(){ var h=$("budg-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
+    EcSummary.render(h,{draft:d, by:c.employee_name||c.user, resubmit:state.mode==="edit",
+      hero:[["Phòng ban",d.department,"department"],["Loại kỳ ngân sách",d.budget_period_type,"budget_period_type"],["Dự báo kỳ sau",d.forecast_budget_next_period,"forecast_budget_next_period","money"]],
+      groups:[{title:"Ngân sách",fields:[["Tiêu đề (tự tạo)",genTitle(d)],["Ngày bắt đầu",d.period_start,"period_start","date"],["Ngân sách duyệt kỳ này",d.approved_budget_current_period,"approved_budget_current_period","money"],
+        ["Chi tiêu thực tế kỳ này",d.actual_spending_current_period,"actual_spending_current_period","money"],["Rủi ro tài chính",d.has_financial_risks,"has_financial_risks"]]}],
+      flow:"Tạo yêu cầu → HOF → CEO"}); }
 
   function setModel(k,v){ state.draft=state.draft||{}; state.draft[k]=v; state.dirty=true; }
   function setFieldError(id,msg){ var f=document.querySelector('[data-fld="'+id+'"]'); if(!f)return; f.classList.toggle("invalid",!!msg);

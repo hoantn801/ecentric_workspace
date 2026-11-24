@@ -249,7 +249,7 @@
       + fld("estimated_purchase_date","Ngày mua dự kiến",'<input type="date" data-model="estimated_purchase_date" value="'+esc(d.estimated_purchase_date||"")+'">',true)
       + fld("estimated_delivery_date","Ngày giao hàng dự kiến",'<input type="date" data-model="estimated_delivery_date" value="'+esc(d.estimated_delivery_date||"")+'">',true)
       + fld("request_attachment","Tệp đính kèm",'<input type="file" multiple data-upload="request_attachment"><div class="hint" id="purr-att-name">'+esc(d.request_attachment?"Đã tải":"Bắt buộc")+'</div>',true).replace('class="fld','class="fld full')
-      + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="purr-summary"></div></div>';
+      + '</div></div>';
   }
   var MATERIAL=["department","justification","purchase_details","payment_amount","payment_term","payment_term_other","supplier_type","supplier_name","new_supplier_information","additional_notes_comments","estimated_purchase_date","estimated_delivery_date","request_attachment"];
   function materialSnap(d){ return MATERIAL.map(function(k){return String((d||{})[k]||"");}).join("|"); }
@@ -272,18 +272,16 @@
     var actions = editing
       ? '<div class="actions"><button type="button" class="btn" id="purr-edit-cancel">Hủy</button><button type="button" class="btn primary" id="purr-resubmit">Gửi lại</button></div>'
       : '<div class="actions"><button type="button" class="btn" id="purr-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="purr-save">Lưu nháp</button><button type="button" class="btn primary" id="purr-submit">Gửi yêu cầu</button></div>';
-    b.innerHTML = '<div class="purr-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + actions + '</div>';
+    b.innerHTML = '<div class="purr-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + (window.EcSummary?EcSummary.cardHTML("purr-summary",actions):actions) + '</div>';
     if(editing) state._origMaterial=materialSnap(d);
     renderSummary(); wireCreate();
   }
-  function renderSummary(){ var h=$("purr-summary"); if(!h)return; var d=state.draft||{}; var c=state.boot.context||{};
-    var term=d.payment_term==="Other"?(d.payment_term_other||"Other"):(d.payment_term||"");
-    var rows=[["Tiêu đề",computeTitle(d)],["Phòng ban",d.department||""],
-      ["Số tiền",d.payment_amount!=null&&d.payment_amount!==""?(d.payment_amount+" VND"):""],
-      ["Điều khoản TT",term],["Nhà cung cấp",d.supplier_name||""],
-      ["Người yêu cầu",c.employee_name||c.user||""],
-      ["Luồng duyệt","Direct Manager → Finance → HOF → CEO"]];
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
+  function renderSummary(){ var h=$("purr-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
+    EcSummary.render(h,{draft:d, by:c.employee_name||c.user, resubmit:state.mode==="edit",
+      hero:[["Phòng ban",d.department,"department"],["Nhà cung cấp",d.supplier_name,"supplier_name"],["Số tiền",d.payment_amount,"payment_amount","money"]],
+      groups:[{title:"Mua sắm",fields:[["Tiêu đề",computeTitle(d)],["Điều khoản thanh toán",d.payment_term==="Other"?(d.payment_term_other||"Other"):d.payment_term,"payment_term"],
+        ["Ngày mua dự kiến",d.estimated_purchase_date,"estimated_purchase_date","date"],["Ngày giao dự kiến",d.estimated_delivery_date,"estimated_delivery_date","date"]]}],
+      flow:"Direct Manager → Finance → HOF → CEO"}); }
   function computeTitle(d){ d=d||{}; var dep=(d.department||"?"); var amt=(d.payment_amount||"?"); return "Purchase Request - "+dep+" - "+amt; }
   function maybeAutoTitle(){ /* title auto-generated server-side */ }
 

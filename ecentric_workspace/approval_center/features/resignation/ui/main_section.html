@@ -236,8 +236,7 @@
       + fld("employee_email","Employee Email Address",'<input data-model="employee_email" data-ec-people placeholder="Gõ tên hoặc email để chọn…" value="'+esc(d.employee_email||"")+'">',true)
       + fld("personal_email","Personal Email Address",'<input data-model="personal_email" placeholder="name@gmail.com" value="'+esc(d.personal_email||"")+'">',true)
       + fld("resignation_reason","Lý do nghỉ việc",'<select data-model="resignation_reason"><option value="">—</option>'+opt(fo.resignation_reasons||[],d.resignation_reason)+'</select>',true).replace('class="fld','class="fld full')
-      + '</div><div class="banner info" style="margin-top:12px">Khảo sát nghỉ việc được gửi riêng sau khi đơn duyệt xong (không bắt buộc, chỉ HR xem câu trả lời).</div></div>'
-      + '<div class="card"><h3>Tóm tắt</h3><div id="resn-summary"></div></div>';
+      + '</div><div class="banner info" style="margin-top:12px">Khảo sát nghỉ việc được gửi riêng sau khi đơn duyệt xong (không bắt buộc, chỉ HR xem câu trả lời).</div></div>';
   }
   var MATERIAL=["resignation_for","employee_email","personal_email","last_working_day","resignation_reason"];
   function materialSnap(d){ return MATERIAL.map(function(k){return String((d||{})[k]||"");}).join("|"); }
@@ -260,16 +259,16 @@
     var actions = editing
       ? '<div class="actions"><button type="button" class="btn" id="resn-edit-cancel">Hủy</button><button type="button" class="btn primary" id="resn-resubmit">Gửi lại</button></div>'
       : '<div class="actions"><button type="button" class="btn" id="resn-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="resn-save">Lưu nháp</button><button type="button" class="btn primary" id="resn-submit">Gửi yêu cầu</button></div>';
-    b.innerHTML = '<div class="resn-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + actions + '</div>';
+    b.innerHTML = '<div class="resn-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + (window.EcSummary?EcSummary.cardHTML("resn-summary",actions):actions) + '</div>';
     if(editing) state._origMaterial=materialSnap(d);
     state.titleTouched = !!((d.request_title||"").toString().trim());
     maybeAutoTitle(); renderSummary(); wireCreate(); refreshNotice();
   }
-  function renderSummary(){ var h=$("resn-summary"); if(!h)return; var d=state.draft||{}; var c=state.boot.context||{};
-    var rows=[["Tiêu đề",d.request_title],["Nghỉ việc cho",d.resignation_for],
-      ["Email công ty",d.employee_email],["Ngày làm việc cuối",d.last_working_day],
-      ["Người yêu cầu",c.employee_name||c.user],["Luồng duyệt","Quản lý trực tiếp → CnB/HR → CEO → Clearance (theo cấu hình)"]];
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
+  function renderSummary(){ var h=$("resn-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
+    EcSummary.render(h,{draft:d, by:c.employee_name||c.user, resubmit:state.mode==="edit",
+      hero:[["Nghỉ việc cho",d.resignation_for,"resignation_for"],["Ngày làm việc cuối",d.last_working_day,"last_working_day","date"]],
+      groups:[{title:"Đơn nghỉ việc",fields:[["Tiêu đề",d.request_title,"request_title"],["Email công ty",d.employee_email,"employee_email"],["Lý do nghỉ việc",d.resignation_reason,"resignation_reason"]]}],
+      flow:"Quản lý trực tiếp → CnB/HR → CEO (theo cấu hình)", after:["Bàn giao (Clearance)"]}); }
   function suggestTitle(d){ d=d||{};
     var parts=[d.resignation_reason, d.last_working_day].filter(function(x){return x&&String(x).trim();});
     return parts.length?parts.join(" - ").slice(0,180):""; }

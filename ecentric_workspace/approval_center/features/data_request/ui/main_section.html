@@ -237,7 +237,7 @@
       + fld("importance","Mức độ quan trọng",'<select data-model="importance"><option value="">—</option>'+opt(fo.importances||[],d.importance)+'</select>',true)
       + fld("detailed_description","Mô tả chi tiết",'<textarea data-model="detailed_description" rows="3">'+esc(d.detailed_description||"")+'</textarea>',true).replace('class="fld','class="fld full')
       + fld("request_attachment","Tệp đính kèm",'<input type="file" multiple data-upload="request_attachment"><div class="hint" id="att-name">'+esc(d.request_attachment?"Đã tải":"Không bắt buộc")+'</div>').replace('class="fld','class="fld full')
-      + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="dreq-summary"></div></div>';
+      + '</div></div>';
   }
   var MATERIAL=["request_type","detailed_description","expected_resolution_date","urgency","importance"];
   function materialSnap(d){ return MATERIAL.map(function(k){return String((d||{})[k]||"");}).join("|"); }
@@ -260,7 +260,7 @@
     var actions = editing
       ? '<div class="actions"><button type="button" class="btn" id="dreq-edit-cancel">Hủy</button><button type="button" class="btn primary" id="dreq-resubmit">Gửi lại</button></div>'
       : '<div class="actions"><button type="button" class="btn" id="dreq-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="dreq-save">Lưu nháp</button><button type="button" class="btn primary" id="dreq-submit">Gửi yêu cầu</button></div>';
-    b.innerHTML = '<div class="dreq-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + actions + '</div>';
+    b.innerHTML = '<div class="dreq-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + (window.EcSummary?EcSummary.cardHTML("dreq-summary",actions):actions) + '</div>';
     if(editing) state._origMaterial=materialSnap(d);
     state.titleTouched = !!((d.request_title||"").toString().trim());
     maybeAutoTitle(); renderSummary(); wireCreate();
@@ -274,11 +274,11 @@
   function movedDetailHTML(id){
     return '<div class="banner info dreq-moved" id="dreq-moved-detail"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><div>Phiếu này đã chuyển sang Trung tâm Dữ liệu - mọi xử lý, trao đổi tiếp theo làm ở đó. <a href="/du-lieu?ma='+encodeURIComponent(id||"")+'">Xem trên Trung tâm Dữ liệu</a></div></div>';
   }
-  function renderSummary(){ var h=$("dreq-summary"); if(!h)return; var d=state.draft||{}; var c=state.boot.context||{};
-    var rows=[["Tiêu đề",d.request_title],["Loại yêu cầu",d.request_type],["Ngày mong muốn hoàn thành",d.expected_resolution_date],
-      ["Mức độ khẩn cấp",d.urgency],["Mức độ quan trọng",d.importance],["Người yêu cầu",c.employee_name||c.user],
-      ["Luồng duyệt","Data Review → Data Fulfillment (theo cấu hình)"]];
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
+  function renderSummary(){ var h=$("dreq-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
+    EcSummary.render(h,{draft:d, by:c.employee_name||c.user, resubmit:state.mode==="edit",
+      hero:[["Loại yêu cầu",d.request_type,"request_type"],["Mức độ khẩn cấp",d.urgency,"urgency"],["Ngày mong muốn hoàn thành",d.expected_resolution_date,"expected_resolution_date","date"]],
+      groups:[{title:"Yêu cầu",fields:[["Tiêu đề",d.request_title,"request_title"],["Mức độ quan trọng",d.importance,"importance"],["Mô tả chi tiết",d.detailed_description,"detailed_description","long"]]}],
+      flow:"Data Review (theo cấu hình)", after:["Data Fulfillment"]}); }
 
   function suggestTitle(d){ d=d||{}; var parts=[d.request_type, d.expected_resolution_date].filter(function(x){return x&&String(x).trim();});
     return parts.length?parts.join(" - ").slice(0,180):""; }

@@ -234,7 +234,7 @@
       + fld("estimated_arrival_time","Thời gian dự kiến nhận",'<input type="date" data-model="estimated_arrival_time" value="'+esc(d.estimated_arrival_time||"")+'">',true)
       + fld("sample_detail","Chi tiết sample",'<textarea data-model="sample_detail" rows="3" placeholder="SKU nào? Số lượng bao nhiêu?">'+esc(d.sample_detail||"")+'</textarea>',true).replace('class="fld','class="fld full')
       + fld("request_attachment","Tệp đính kèm",'<input type="file" multiple data-upload="request_attachment"><div class="hint" id="att-name">'+esc(d.request_attachment?"Đã tải":"Không bắt buộc")+'</div>').replace('class="fld','class="fld full')
-      + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="lvsm-summary"></div></div>';
+      + '</div></div>';
   }
   var MATERIAL=["brand","sample_detail","estimated_arrival_time"];
   function materialSnap(d){ return MATERIAL.map(function(k){return String((d||{})[k]||"");}).join("|"); }
@@ -255,15 +255,16 @@
     var actions = editing
       ? '<div class="actions"><button type="button" class="btn" id="lvsm-edit-cancel">Hủy</button><button type="button" class="btn primary" id="lvsm-resubmit">Gửi lại</button></div>'
       : '<div class="actions"><button type="button" class="btn" id="lvsm-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="lvsm-save">Lưu nháp</button><button type="button" class="btn primary" id="lvsm-submit">Gửi yêu cầu</button></div>';
-    b.innerHTML = '<div class="ec-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + actions + '</div>';
+    b.innerHTML = '<div class="ec-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + (window.EcSummary?EcSummary.cardHTML("lvsm-summary",actions):actions) + '</div>';
     if(editing) state._origMaterial=materialSnap(d);
     state.titleTouched = !!((d.request_title||"").toString().trim());
     maybeAutoTitle(); renderSummary(); wireCreate();
   }
-  function renderSummary(){ var h=$("lvsm-summary"); if(!h)return; var d=state.draft||{}; var c=state.boot.context||{};
-    var rows=[["Brand",d.brand],["Thời gian dự kiến",d.estimated_arrival_time],["Người yêu cầu",c.employee_name||c.user],
-      ["Luồng duyệt","Sang Bui (theo cấu hình)"]];
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
+  function renderSummary(){ var h=$("lvsm-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
+    EcSummary.render(h,{draft:d, by:c.employee_name||c.user, resubmit:state.mode==="edit",
+      hero:[["Brand",d.brand,"brand"],["Thời gian dự kiến nhận",d.estimated_arrival_time,"estimated_arrival_time","date"]],
+      groups:[{title:"Sample",fields:[["Tiêu đề",d.request_title,"request_title"],["Chi tiết sample",d.sample_detail,"sample_detail","long"]]}],
+      flow:"Sang Bui (theo cấu hình)"}); }
   function suggestTitle(d){ d=d||{}; var parts=[d.brand, d.estimated_arrival_time].filter(function(x){return x&&String(x).trim();});
     return parts.length?parts.join(" - ").slice(0,140):""; }
   function maybeAutoTitle(){ if(state.titleTouched)return; var s=suggestTitle(state.draft||{}); if(!s)return;

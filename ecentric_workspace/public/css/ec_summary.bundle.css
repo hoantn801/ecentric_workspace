@@ -1,0 +1,116 @@
+/* ec_summary.bundle.css - khoi "Tom tat" cuoi form phe duyet, phuong an A1 "Luoi can bang" (Hoan chot
+   24/11/2026). Markup do public/js/ec_summary.bundle.js dung; trang chi khai cau hinh.
+   #ec-sum.ec-sum + ten lop: uu tien cao hon kieu rieng cua trang (#ec-xxx-root .actions / .btn) - cung
+   cach #ec-fh cua dau trang. Mau theo chuan: navy #2f3a8f, xanh #16a34a, do #dc2626; khong gradient.
+   Tu co theo BE RONG KHOI (container query), khong theo man hinh: <= 760px -> luoi 2 o, nut Gui rong het. */
+#ec-sum.ec-sum {
+  --ec-sum-navy: #2f3a8f; --ec-sum-navy-50: #eef0f8; --ec-sum-ink: #111827; --ec-sum-ink-2: #374151;
+  --ec-sum-muted: #6b7280; --ec-sum-faint: #9ca3af; --ec-sum-line: #e5e7eb; --ec-sum-line-2: #f0f1f4;
+  --ec-sum-green: #16a34a; --ec-sum-red: #dc2626;
+  /* nut cua trang (var(--navy)) trong thanh duoi theo dung mau chuan */
+  --navy: #2f3a8f; --navy-700: #262f78;
+  container-type: inline-size; background: #fff; border: 1px solid var(--ec-sum-line); border-radius: 12px;
+  overflow: hidden; margin: 0 0 16px; color: var(--ec-sum-ink); font-size: 14px; line-height: 1.45;
+}
+#ec-sum .ec-sum-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px;
+  border-bottom: 1px solid var(--ec-sum-line); }
+#ec-sum .ec-sum-ht { min-width: 0; }
+#ec-sum .ec-sum-h h3 { margin: 0; padding: 0; font-size: 15px; font-weight: 700; line-height: 1.3; color: var(--ec-sum-ink); display: block; }
+#ec-sum .ec-sum-h p { margin: 1px 0 0; font-size: 12.5px; color: var(--ec-sum-muted); overflow-wrap: anywhere; }
+#ec-sum .ec-sum-prog { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ec-sum-muted); white-space: nowrap; flex: none; }
+#ec-sum .ec-sum-bar { width: 96px; height: 6px; border-radius: 6px; background: #eceef3; overflow: hidden; display: block; }
+#ec-sum .ec-sum-bar i { display: block; height: 100%; background: var(--ec-sum-navy); border-radius: 6px; }
+#ec-sum .ec-sum-prog.is-ok { color: var(--ec-sum-green); font-weight: 600; }
+#ec-sum .ec-sum-prog.is-ok .ec-sum-bar i { background: var(--ec-sum-green); }
+#ec-sum .ec-sum-body { padding: 16px 20px; display: grid; gap: 14px; }
+#ec-sum .ec-sum-lb { font-size: 12px; color: var(--ec-sum-muted); line-height: 1.35; }
+#ec-sum .ec-sum-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+#ec-sum .ec-sum-cur { color: var(--ec-sum-muted); font-weight: 500; font-size: .86em; }
+
+/* dai so chinh: 1 hang, o so tien can phai mau navy */
+#ec-sum .ec-sum-hero { display: grid; grid-template-columns: repeat(var(--ec-sum-hn, 3), minmax(0, 1fr)); gap: 1px;
+  background: var(--ec-sum-line); border: 1px solid var(--ec-sum-line); border-radius: 10px; overflow: hidden; }
+#ec-sum .ec-sum-hc { background: #f8f9fc; padding: 9px 14px; min-width: 0; }
+#ec-sum .ec-sum-hc .ec-sum-vl { font-size: 17px; font-weight: 600; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#ec-sum .ec-sum-hc.is-num { text-align: right; }
+#ec-sum .ec-sum-hc.is-num .ec-sum-vl { color: var(--ec-sum-navy); }
+
+/* nhom: ten o le trai, luoi o dong 12 cot ben phai */
+#ec-sum .ec-sum-g { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 16px; align-items: start; }
+#ec-sum .ec-sum-gt { font-size: 12.5px; font-weight: 600; color: var(--ec-sum-ink-2); padding-top: 9px; overflow-wrap: anywhere; }
+#ec-sum .ec-sum-gt small { display: block; font-weight: 500; color: var(--ec-sum-faint); font-size: 11.5px; }
+#ec-sum .ec-sum-cells { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 1px; background: var(--ec-sum-line);
+  border: 1px solid var(--ec-sum-line); border-radius: 10px; overflow: hidden; }
+#ec-sum .ec-sum-c { background: #fff; padding: 8px 12px; grid-column: span var(--ec-sum-s4, 3); min-width: 0; }
+#ec-sum .ec-sum-c .ec-sum-vl { font-weight: 600; font-size: 13.5px; margin-top: 1px; overflow-wrap: anywhere; }
+#ec-sum .ec-sum-c.is-num { text-align: right; }
+#ec-sum .ec-sum-c.is-long .ec-sum-vl { font-weight: 500; color: var(--ec-sum-ink-2); line-height: 1.5; white-space: pre-line; }
+#ec-sum .ec-sum-c.is-table { padding: 4px 12px 8px; }
+/* MOT cham do cho moi o thieu - chi sau nhan (ban A bi 2 cham vi selector bat ca span "Can nhap") */
+#ec-sum .is-miss > .ec-sum-lb::after { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--ec-sum-red); margin-left: 6px; vertical-align: middle; }
+#ec-sum .is-miss .ec-sum-vl { color: var(--ec-sum-red); font-weight: 500; }
+#ec-sum .is-none .ec-sum-vl { color: var(--ec-sum-faint); font-weight: 500; }
+
+#ec-sum table.ec-sum-lines { width: 100%; border-collapse: collapse; font-size: 13px; margin: 0; }
+#ec-sum .ec-sum-lines td { padding: 6px 0; border: 0; border-bottom: 1px solid var(--ec-sum-line-2); background: none; }
+#ec-sum .ec-sum-lines .r { text-align: right; padding-left: 12px; white-space: nowrap; }
+#ec-sum .ec-sum-lines tfoot td { border-bottom: 0; border-top: 1px solid var(--ec-sum-line); font-weight: 700; padding-top: 8px; }
+
+/* luong duyet 1 dong; dau "›" dinh vao buoc phia sau */
+#ec-sum .ec-sum-flow { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 16px; align-items: center; }
+#ec-sum .ec-sum-fl { font-size: 12.5px; font-weight: 600; color: var(--ec-sum-ink-2); }
+#ec-sum .ec-sum-chips { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; row-gap: 6px; min-width: 0; }
+#ec-sum .ec-sum-stp { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+#ec-sum .ec-sum-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px 3px 4px; border-radius: 999px;
+  background: var(--ec-sum-navy-50); color: var(--ec-sum-navy); font-size: 12.5px; font-weight: 600; }
+#ec-sum .ec-sum-chip b { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: #fff; font-size: 11px; }
+#ec-sum .ec-sum-chip.is-after { background: transparent; color: var(--ec-sum-muted); font-weight: 500; padding: 3px 2px; }
+#ec-sum .ec-sum-sep { color: var(--ec-sum-faint); font-size: 12px; }
+#ec-sum .ec-sum-afl { margin-left: 8px; padding-left: 10px; border-left: 1px solid var(--ec-sum-line); font-size: 11.5px;
+  color: var(--ec-sum-faint); font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
+#ec-sum .ec-sum-note { font-size: 12px; color: var(--ec-sum-faint); margin-left: 6px; }
+
+/* thanh duoi: con thieu ben trai, nut ben phai (Gui o goc phai) */
+#ec-sum .ec-sum-f { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 14px; padding: 12px 20px;
+  border-top: 1px solid var(--ec-sum-line); background: #fafbfc; }
+#ec-sum .ec-sum-msg { font-size: 13px; min-width: 0; flex: 1 1 280px; }
+/* dong goi y trang tu dat sau hang nut (vd Payment "Buoc tiep theo...") -> xuong hang rieng, canh phai */
+#ec-sum.ec-sum .ec-sum-f > .hint { flex: 1 1 100%; text-align: right; }
+#ec-sum .ec-sum-msg-bad { color: var(--ec-sum-red); }
+#ec-sum .ec-sum-msg-ok { color: var(--ec-sum-green); font-weight: 600; }
+#ec-sum .ec-sum-link { border: 0; background: none; padding: 0; margin: 0; font: inherit; color: inherit; cursor: pointer;
+  text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; }
+#ec-sum .ec-sum-link:hover { text-decoration-style: solid; }
+#ec-sum .ec-sum-link:focus-visible { outline: 2px solid var(--ec-sum-navy); outline-offset: 2px; border-radius: 3px; }
+#ec-sum.ec-sum .ec-sum-f .actions { display: flex; flex-wrap: nowrap; gap: 8px; margin: 0; flex: none; }
+/* nut bi khoa (neu trang khoa): nen xam dac, khong mo 50% nhu loi hien thi */
+#ec-sum.ec-sum .ec-sum-f .btn[disabled] { opacity: 1; background: #eef0f3; border-color: #eef0f3; color: #9ca3af; cursor: not-allowed; }
+
+/* o nhap duoc nhay toi tu link "con thieu" (o nam ngoai khoi tom tat) */
+.ec-sum-flash { animation: ec-sum-flash 1.4s ease; border-radius: 8px; }
+@keyframes ec-sum-flash { 0%, 40% { box-shadow: 0 0 0 3px rgba(220, 38, 38, .35); } 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); } }
+@media (prefers-reduced-motion: reduce) { .ec-sum-flash { animation: none; box-shadow: 0 0 0 3px rgba(220, 38, 38, .35); } }
+
+@container (max-width: 760px) {
+  #ec-sum .ec-sum-h { padding: 12px 14px; }
+  #ec-sum .ec-sum-body { padding: 14px; gap: 12px; }
+  #ec-sum .ec-sum-g, #ec-sum .ec-sum-flow { grid-template-columns: 1fr; gap: 6px; }
+  #ec-sum .ec-sum-gt { padding-top: 0; }
+  #ec-sum .ec-sum-gt small { display: inline; margin-left: 6px; }
+  #ec-sum .ec-sum-c { grid-column: span var(--ec-sum-s2, 6); }
+  #ec-sum .ec-sum-hero { grid-template-columns: 1fr 1fr; }
+  #ec-sum .ec-sum-hc.is-lead { grid-column: 1 / -1; order: -1; }
+  #ec-sum .ec-sum-hc .ec-sum-vl { font-size: 15.5px; white-space: normal; overflow-wrap: anywhere; }
+  #ec-sum .ec-sum-bar { width: 56px; }
+  #ec-sum .ec-sum-f { flex-direction: column; align-items: stretch; padding: 12px 14px; gap: 10px; }
+  #ec-sum .ec-sum-msg { flex: none; }
+  #ec-sum.ec-sum .ec-sum-f > .hint { text-align: left; }
+  #ec-sum.ec-sum .ec-sum-f .actions { display: grid; grid-template-columns: 1fr 1fr; }
+  #ec-sum.ec-sum .ec-sum-f .actions .btn { justify-content: center; }
+  #ec-sum.ec-sum .ec-sum-f .actions .btn.primary { grid-column: 1 / -1; order: -1; }
+}
+@container (max-width: 760px) {
+  /* chi 2 nut (Huy + Gui lai): nut con lai cung rong het hang, khong de nua hang trong */
+  #ec-sum.ec-sum .ec-sum-f .actions > .btn:first-child:nth-last-child(2) { grid-column: 1 / -1; }
+}

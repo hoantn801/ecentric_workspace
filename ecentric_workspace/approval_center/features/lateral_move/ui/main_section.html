@@ -238,7 +238,7 @@
       + fld("new_line_manager","New line manager",'<input data-model="new_line_manager" data-ec-people placeholder="Gõ tên hoặc email để chọn…" value="'+esc(d.new_line_manager||"")+'"><div class="hint">Email của line manager mới (phải là user đang hoạt động)</div>',true)
       + fld("start_date","Start date",'<input type="date" data-model="start_date" value="'+esc(d.start_date||"")+'">',true)
       + fld("transfer_reason","Lý do điều chuyển",'<textarea data-model="transfer_reason" rows="3" placeholder="Vì sao cần điều chuyển này? / Kết quả kinh doanh kỳ vọng? / Điều gì cần lưu ý?">'+esc(d.transfer_reason||"")+'</textarea>',true).replace('class="fld','class="fld full')
-      + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="latm-summary"></div></div>';
+      + '</div></div>';
   }
   var MATERIAL=["new_position","new_department","new_line_manager","transfer_reason","start_date"];
   function materialSnap(d){ return MATERIAL.map(function(k){return String((d||{})[k]||"");}).join("|"); }
@@ -261,16 +261,16 @@
     var actions = editing
       ? '<div class="actions"><button type="button" class="btn" id="latm-edit-cancel">Hủy</button><button type="button" class="btn primary" id="latm-resubmit">Gửi lại</button></div>'
       : '<div class="actions"><button type="button" class="btn" id="latm-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="latm-save">Lưu nháp</button><button type="button" class="btn primary" id="latm-submit">Gửi yêu cầu</button></div>';
-    b.innerHTML = '<div class="latm-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + actions + '</div>';
+    b.innerHTML = '<div class="latm-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + (window.EcSummary?EcSummary.cardHTML("latm-summary",actions):actions) + '</div>';
     if(editing) state._origMaterial=materialSnap(d);
     state.titleTouched = !!((d.request_title||"").toString().trim());
     maybeAutoTitle(); renderSummary(); wireCreate();
   }
-  function renderSummary(){ var h=$("latm-summary"); if(!h)return; var d=state.draft||{}; var c=state.boot.context||{};
-    var rows=[["Tiêu đề",d.request_title],["Vị trí mới",d.new_position],["Phòng ban mới",d.new_department],
-      ["Line manager mới",d.new_line_manager],["Ngày bắt đầu",d.start_date],
-      ["Người yêu cầu",c.employee_name||c.user],["Luồng duyệt","Current Manager → New Line Manager → HR → CEO"]];
-    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
+  function renderSummary(){ var h=$("latm-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
+    EcSummary.render(h,{draft:d, by:c.employee_name||c.user, resubmit:state.mode==="edit",
+      hero:[["Vị trí mới",d.new_position,"new_position"],["Phòng ban mới",d.new_department,"new_department"],["Ngày bắt đầu",d.start_date,"start_date","date"]],
+      groups:[{title:"Điều chuyển",fields:[["Tiêu đề",d.request_title,"request_title"],["Line manager mới",d.new_line_manager,"new_line_manager"]]}],
+      flow:"Current Manager → New Line Manager → HR → CEO"}); }
   function suggestTitle(d){ d=d||{}; var parts=[d.new_position, d.new_department].filter(function(x){return x&&String(x).trim();});
     return parts.length?("Lateral move - "+parts.join(" / ")).slice(0,140):""; }
   function maybeAutoTitle(){ if(state.titleTouched)return; var s=suggestTitle(state.draft||{}); if(!s)return;
