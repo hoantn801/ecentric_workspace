@@ -418,6 +418,53 @@ class TestCreateNext(unittest.TestCase):
         self.assertEqual(docs["EC-PAYR-NEW"]["payment_amount"], 5000)
 
 
+class TestCloneRejectedInstallment(unittest.TestCase):
+    """24/11 (Hien bao): dot 2 bi tu choi -> "Tao phieu moi tu phieu nay" PHAI giu chuoi dot 1."""
+
+    def _docs(self, **extra):
+        d = {"PR-1": _pr(approval_status="Approved", fulfillment_status="Completed"),
+             "PR-2": _pr(installment_no=2, installment_of="PR-1", approval_status="Rejected",
+                         request_title="Camera — Đợt 2")}
+        d.update(extra)
+        return _docs(**d)
+
+    def test_giu_chuoi(self):
+        docs = self._docs()
+        svc, _r, w, *_ = _load(docs, case=self)
+        out = svc.clone_rejected("PR-2")
+        n = docs[out["name"]]
+        self.assertEqual(n["installment_of"], "PR-1")
+        self.assertEqual(n["installment_no"], 2)
+        self.assertEqual(n["payment_mode"], "Installment")
+        self.assertEqual(n["total_amount"], 10000)
+        self.assertEqual(out["installment_no"], 2)
+
+    def test_da_co_dot_2_khac_con_hieu_luc(self):
+        docs = self._docs(**{"PR-3": _pr(installment_no=2, installment_of="PR-1", approval_status="Pending")})
+        svc, _r, w, *_ = _load(docs, case=self)
+        self.assertEqual(svc.clone_rejected("PR-2"), {"name": "PR-3", "existing": True})
+        self.assertEqual(w["inserted"], [])
+
+    def test_chi_phieu_tu_choi_huy_va_chu_phieu(self):
+        docs = self._docs()
+        docs["PR-2"]["approval_status"] = "Pending"
+        svc, *_ = _load(docs, case=self)
+        with self.assertRaises(_Throw):
+            svc.clone_rejected("PR-2")
+        docs = self._docs()
+        svc, *_ = _load(docs, user="ke.la@ec.vn", case=self)
+        with self.assertRaises(_Perm):
+            svc.clone_rejected("PR-2")
+
+    def test_dot_1_va_100pt_di_duong_chung(self):
+        docs = self._docs()
+        svc, _r, _w, _f, cs, _d = _load(docs, case=self)
+        goi = []
+        cs.clone_request = lambda d, n: goi.append(n) or {"name": "X"}
+        svc.clone_rejected("PR-1")
+        self.assertEqual(goi, ["PR-1"])
+
+
 class TestCloneFollowup(unittest.TestCase):
     def test_khong_doi_tu_choi_va_prepare_chay_truoc_title(self):
         docs = _docs(**{"PR-1": _pr(approval_status="Approved")})
