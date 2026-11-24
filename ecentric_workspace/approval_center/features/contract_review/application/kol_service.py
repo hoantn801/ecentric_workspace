@@ -513,8 +513,12 @@ def mark_signed(name, signed_file, user):
 
 
 def detail_extra(business, request):
-    """`detail_extender`: khoi KOL tren trang chi tiet (khong co PII creator)."""
+    """`detail_extender`: khoi KOL tren trang chi tiet (khong co PII creator). Hop dong lao dong: chi o
+    "Ban PDF de ky" (chat Ky so 24/11, WF03)."""
     if not kol.is_kol(business):
+        if business.get("contract_type") == esign_flow.LABOR_CONTRACT_TYPE:
+            from ecentric_workspace.approval_center.features.contract_review.application import kol_sign_pdf
+            return {"sign_pdf": kol_sign_pdf.view(business, frappe.session.user)}
         return {}
     from ecentric_workspace.approval_center.features.contract_review.application import (
         kol_acceptance, kol_access, kol_sign_pdf)

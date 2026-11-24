@@ -45,8 +45,8 @@
     "sha256": "3ab16a2f5b93375f649164f19d588e90327fc79b57f997c591552fa30af4d4ab"
   },
   "approval_center/features/contract_review/ui/main_section.html": {
-    "last_resync_patch": "p554_resync_hop_dong_tao_ban_ky",
-    "sha256": "47c517a1651bf9071aa3efc86b8e465ee1135633c6555624107a287ffad5051a"
+    "last_resync_patch": "p555_resync_hop_dong_lao_dong_ban_ky",
+    "sha256": "a35c178f2fad37eef9577c3a1113fba83a1d32c48566436663ce8c4b04710f70"
   },
   "approval_center/features/daily_target/ui/main_section.html": {
     "baseline": "2026-08-31",
