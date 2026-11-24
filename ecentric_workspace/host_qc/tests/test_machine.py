@@ -65,7 +65,7 @@ class TestHeartbeat(unittest.TestCase):
         m = F.FakeMachines()
         m.add("M1")
         m.add_mic("M1", 1, "Mic cu", "WASAPI", 1, F.NOW - dt.timedelta(hours=3))
-        svc = RecordHeartbeatService(m, F.FakeSettings(), clock=F.clock)
+        svc = RecordHeartbeatService(m, F.FakeSettings(), F.FakeRooms(), clock=F.clock)
         out = svc.execute({"name": "M1"}, {"app_version": "0.1.0", "state": "idle", "load_level": "2",
                                            "obs": {"connected": True, "skipped_pct": 0.5},
                                            "audio_inputs": [{"name": "Rode A", "hostapi": "WASAPI", "channels": 2},

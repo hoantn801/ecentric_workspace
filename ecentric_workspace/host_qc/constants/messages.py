@@ -31,3 +31,7 @@ TOKEN_ISSUED = "Token chỉ hiện một lần – dán vào app trên máy ngay
 ALERT_NOT_SENT = "Chưa gửi Teams (gửi Teams làm ở đợt 3) – đã ghi nhật ký."
 BAD_JSON = "Dữ liệu gửi lên không phải JSON hợp lệ."
 BAD_REASON = "Lý do cảnh báo không hợp lệ: %s."
+BAD_ROOM_ID = "Mã phòng chỉ gồm chữ không dấu, số, khoảng trắng, . _ - (tối đa 40 ký tự)."
+NO_ROOM = "Không có phòng live %s (hoặc phòng đã ngừng)."
+ROOM_SHARED = "Máy %s cũng đang khai phòng này – mỗi phòng chỉ nên có 1 máy QC."
+SESSION_NEEDS_TARGET = "Chọn phòng live hoặc máy studio cho phiên."

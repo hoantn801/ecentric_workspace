@@ -15,9 +15,12 @@ class MachineMicsService:
         self.machines = machines or MachineRepository()
         self.clock = clock
 
-    def execute(self, roles, machine_id):
+    def execute(self, roles, machine_id, room_id=None):
         if not set(roles or ()) & set(VIEW):
             raise ForbiddenError(M.NEED_VIEWER)
+        if not machine_id and room_id:                  # phien theo phong: mic cua may dang khai phong
+            found = self.machines.in_room(room_id)
+            machine_id = found[0] if found else None
         limit = self.clock() - _dt.timedelta(minutes=MIC_STALE_MIN)
         out = []
         for r in self.machines.mics(machine_id) if machine_id else []:

@@ -29,6 +29,8 @@
   "obs_streaming",
   "obs_skipped_pct",
   "current_session",
+  "current_room",
+  "room_warning",
   "sb_mics",
   "mics",
   "sb_token",
@@ -119,6 +121,21 @@
    "fieldtype": "Link",
    "label": "Phiên đang chạy",
    "options": "Host QC Session",
+   "read_only": 1
+  },
+  {
+   "fieldname": "current_room",
+   "fieldtype": "Link",
+   "label": "Phòng live đang chọn",
+   "options": "Host QC Live Room",
+   "read_only": 1,
+   "in_list_view": 1,
+   "description": "Người vận hành chọn phòng trong Cài đặt app; app gửi qua nhịp tim."
+  },
+  {
+   "fieldname": "room_warning",
+   "fieldtype": "Small Text",
+   "label": "Cảnh báo phòng",
    "read_only": 1
   },
   {

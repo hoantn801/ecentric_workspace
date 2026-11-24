@@ -8,6 +8,7 @@ frappe.ui.form.on("Host QC Machine", {
 			frm.add_custom_button(__("Tạo token mới"), () => hq_issue_token(frm));
 		}
 		if (!frm.is_new()) hq_show_stale_mics(frm);
+		if (frm.doc.room_warning) frm.dashboard.set_headline_alert(frappe.utils.escape_html(frm.doc.room_warning), "orange");
 	},
 });
 

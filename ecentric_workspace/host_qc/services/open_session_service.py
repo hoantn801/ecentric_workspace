@@ -1,11 +1,15 @@
 # Copyright (c) 2026, eCentric and contributors
 """session_open: phien -> Running. Phien chua co tren ERP (app QC ngoai lich) -> tao phien source=unplanned
-tu cau hinh app gui kem, gan cho chinh may nay. Gui lai nhieu lan (hang doi cua app) cho cung ket qua."""
+tu cau hinh app gui kem, gan cho chinh may nay. Gui lai nhieu lan (hang doi cua app) cho cung ket qua.
+
+Phong live (spec muc 7): phien theo phong chua gan may -> may mo phien la may cua phien. no_schedule = OBS
+phat ma ERP chua co lich cho phong: tao phien danh dau "Live chua co lich" (chi ghi nhan)."""
 from ecentric_workspace.host_qc.constants import messages as M
 from ecentric_workspace.host_qc.constants.rules import SESSION_ID_RE
 from ecentric_workspace.host_qc.constants.statuses import SessionSource, SessionStatus
 from ecentric_workspace.host_qc.exceptions import ForbiddenError, InvalidInput, NotFoundError
 from ecentric_workspace.host_qc.repositories.machine_repository import MachineRepository
+from ecentric_workspace.host_qc.repositories.room_repository import RoomRepository
 from ecentric_workspace.host_qc.repositories.session_repository import SessionRepository
 from ecentric_workspace.host_qc.utils.time import now, to_dt
 
@@ -17,10 +21,15 @@ def _join(v):
     return str(v or "")[:2000]
 
 
+def _true(v):
+    return v is True or str(v).strip().lower() in ("1", "true", "yes")
+
+
 class OpenSessionService:
-    def __init__(self, sessions=None, machines=None, clock=now):
+    def __init__(self, sessions=None, machines=None, rooms=None, clock=now):
         self.sessions = sessions or SessionRepository()
         self.machines = machines or MachineRepository()
+        self.rooms = rooms or RoomRepository()
         self.clock = clock
 
     def execute(self, machine, payload):
@@ -33,18 +42,24 @@ class OpenSessionService:
             cfg = payload.get("config")
             if not isinstance(cfg, dict):
                 raise NotFoundError(M.SESSION_CONFIG_MISSING % sid)
-            self.sessions.create(self.from_config(sid, cfg, machine["name"], started), from_machine=True)
+            vals = self.from_config(sid, cfg, machine["name"], started)
+            vals.update(live_room=self._room(payload.get("room_id")), no_schedule=1 if _true(payload.get("no_schedule")) else 0)
+            self.sessions.create(vals, from_machine=True)
             s = self.sessions.get_brief(sid)
-        elif s["machine"] != machine["name"]:
+        elif s.get("machine") and s["machine"] != machine["name"]:
             raise ForbiddenError(M.WRONG_MACHINE)
         if s["status"] != SessionStatus.CLOSED.value:
             vals = {"status": SessionStatus.RUNNING.value, "config_hash": str(payload.get("config_hash") or "")[:80],
-                    "app_version": str(payload.get("app_version") or "")[:40]}
+                    "app_version": str(payload.get("app_version") or "")[:40], "machine": machine["name"]}
             if not s.get("started_at"):
                 vals["started_at"] = started
             self.sessions.update(sid, vals)
             self.machines.set_current_session(machine["name"], sid)
         return {"name": sid}
+
+    def _room(self, room_id):
+        room = self.rooms.get(str(room_id or "").strip()) if room_id else None
+        return room["room_id"] if room else None
 
     @staticmethod
     def from_config(sid, c, machine_name, started):

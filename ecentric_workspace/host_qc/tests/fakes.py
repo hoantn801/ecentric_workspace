@@ -98,6 +98,10 @@ class FakeMachines:
         self.mic_rows[mid].append({"name": "%s-%d" % (mid, idx), "idx": idx, "device_name": dev,
                                    "hostapi": hostapi, "channels": ch, "last_seen": at})
 
+    def in_room(self, room, seen_since=None):
+        return [k for k, v in self.hb.items() if v.get("current_room") == room
+                and (seen_since is None or v.get("last_seen") >= seen_since)]
+
     def set_current_session(self, mid, sid):
         self.current[mid] = sid
 
@@ -124,6 +128,16 @@ class FakeSessions:
     def ready_for_machine(self, mid, frm, to, status):
         return [{"name": d["name"], "planned_start": d["planned_start"]} for d in self.s.values()
                 if d["machine"] == mid and d["status"] == status and frm <= d["planned_start"] <= to]
+
+    def ready_for_room(self, room, frm, to, status):
+        return [{"name": d["name"], "planned_start": d["planned_start"], "machine": d.get("machine")}
+                for d in self.s.values() if d.get("live_room") == room and d["status"] == status
+                and frm <= d["planned_start"] <= to]
+
+    def for_rooms(self, rooms, statuses, frm, to):
+        rows = [d for d in self.s.values() if d.get("live_room") in rooms and d["status"] in statuses
+                and frm <= d["planned_start"] <= to]
+        return sorted([dict(d) for d in rows], key=lambda d: d["planned_start"])
 
     def hosts(self, sid):
         return list(self.s[sid].get("hosts") or [])
@@ -159,6 +173,20 @@ class FakeViolations:
 
     def add_review_log(self, vid, row):
         self.logs.append((vid, row))
+
+
+class FakeRooms:
+    def __init__(self, rows=None):
+        self.rows = rows if rows is not None else [
+            {"room_id": "P1", "room_name": "Phòng 1", "active": 1},
+            {"room_id": "P2", "room_name": "Phòng 2", "active": 1},
+            {"room_id": "P9", "room_name": "Phòng cũ", "active": 0}]
+
+    def active(self):
+        return [dict(r) for r in self.rows if r["active"]]
+
+    def get(self, rid):
+        return next((dict(r) for r in self.rows if r["room_id"] == rid), None)
 
 
 class FakeLogs:

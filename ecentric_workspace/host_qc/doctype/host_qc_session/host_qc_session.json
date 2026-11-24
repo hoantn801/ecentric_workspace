@@ -20,6 +20,7 @@
   "session_id",
   "title",
   "brand",
+  "live_room",
   "machine",
   "cb_a",
   "status",
@@ -31,6 +32,7 @@
   "planned_start",
   "planned_end",
   "source",
+  "no_schedule",
   "sb_hosts",
   "hosts",
   "sb_products",
@@ -94,12 +96,21 @@
    "in_list_view": 1
   },
   {
+   "fieldname": "live_room",
+   "fieldtype": "Link",
+   "label": "Phòng live",
+   "options": "Host QC Live Room",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Máy đang chọn phòng này sẽ nhận phiên (không cần chọn máy)."
+  },
+  {
    "fieldname": "machine",
    "fieldtype": "Link",
    "label": "Máy studio",
    "options": "Host QC Machine",
-   "reqd": 1,
-   "in_list_view": 1
+   "in_list_view": 1,
+   "description": "Để trống nếu đã chọn phòng live: máy nào mở phiên thì ERP ghi vào đây."
   },
   {
    "fieldname": "cb_a",
@@ -171,6 +182,14 @@
    "options": "planned\nunplanned",
    "default": "planned",
    "read_only": 1
+  },
+  {
+   "fieldname": "no_schedule",
+   "fieldtype": "Check",
+   "label": "Live chưa có lịch",
+   "read_only": 1,
+   "in_standard_filter": 1,
+   "description": "OBS phát khi ERP chưa có lịch cho phòng này – chỉ ghi nhận."
   },
   {
    "fieldname": "sb_hosts",

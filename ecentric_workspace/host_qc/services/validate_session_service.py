@@ -1,7 +1,8 @@
 # Copyright (c) 2026, eCentric and contributors
 """Kiem cau hinh phien truoc khi luu: ma phien, gio, host trung, mic trung, mic phai co tren may da chon.
 
-Phien do may tao (QC ngoai lich, flags.from_machine) chi kiem mic trung - mic do chinh may vua bao."""
+Phien do may tao (QC ngoai lich, flags.from_machine) chi kiem mic trung - mic do chinh may vua bao.
+Phien theo phong live chua gan may: mic lay tu may dang khai phong do (chua may nao thi chua kiem)."""
 from ecentric_workspace.host_qc.constants import messages as M
 from ecentric_workspace.host_qc.constants.rules import SESSION_ID_RE
 from ecentric_workspace.host_qc.exceptions import InvalidInput
@@ -21,11 +22,13 @@ class ValidateSessionService:
         start, end = to_dt(doc.planned_start), to_dt(doc.planned_end)
         if start and end and end < start:
             raise InvalidInput(M.END_BEFORE_START)
+        if not doc.machine and not doc.get("live_room"):
+            raise InvalidInput(M.SESSION_NEEDS_TARGET)
         self._hosts(doc)
 
     def _hosts(self, doc):
         seen_host, seen_mic = set(), set()
-        known = None
+        known, machine = None, False             # False = chua tra may
         for h in doc.get("hosts") or []:
             hid = (h.host_id or "").strip()
             if hid in seen_host:
@@ -37,9 +40,17 @@ class ValidateSessionService:
             if mic in seen_mic:
                 raise InvalidInput(M.MIC_DUPLICATE % mic)
             seen_mic.add(mic)
-            if getattr(doc.flags, "from_machine", False) or not doc.machine:
+            if getattr(doc.flags, "from_machine", False):
                 continue
-            if known is None:
-                known = {r["device_name"] for r in self.machines.mics(doc.machine)}
-            if mic not in known:
-                raise InvalidInput(M.MIC_NOT_ON_MACHINE % (mic, doc.machine))
+            if machine is False:
+                machine = self._machine(doc)
+                known = {r["device_name"] for r in self.machines.mics(machine)} if machine else None
+            if known is not None and mic not in known:
+                raise InvalidInput(M.MIC_NOT_ON_MACHINE % (mic, machine))
+
+    def _machine(self, doc):
+        if doc.machine:
+            return doc.machine
+        room = doc.get("live_room")
+        found = self.machines.in_room(room) if room else []
+        return found[0] if found else None

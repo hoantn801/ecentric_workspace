@@ -8,7 +8,7 @@ import frappe
 from ecentric_workspace.host_qc.constants import doctypes as DT
 
 HB_FIELDS = ("last_seen", "app_version", "state", "load_level", "obs_connected", "obs_streaming",
-             "obs_skipped_pct")
+             "obs_skipped_pct", "current_room", "room_warning")
 
 
 class MachineRepository:
@@ -48,3 +48,10 @@ class MachineRepository:
 
     def current_session(self, machine_id):
         return frappe.db.get_value(DT.MACHINE, machine_id, "current_session")
+
+    def in_room(self, room_id, seen_since=None):
+        """May dang khai phong (moi nhat truoc); seen_since: chi tinh may con lien lac tu moc do."""
+        filters = {"current_room": room_id, "enabled": 1}
+        if seen_since:
+            filters["last_seen"] = [">=", seen_since]
+        return frappe.get_all(DT.MACHINE, filters=filters, pluck="name", order_by="last_seen desc")

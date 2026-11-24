@@ -1,0 +1,103 @@
+{
+ "doctype": "DocType",
+ "name": "Host QC Live Room",
+ "module": "Host QC",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "description": "Phòng live dưới studio (mỗi phòng 1 máy QC): máy chọn phòng trong Cài đặt app, ERP giao phiên theo phòng.",
+ "autoname": "field:room_id",
+ "title_field": "room_name",
+ "search_fields": "room_name",
+ "field_order": [
+  "room_id",
+  "room_name",
+  "cb_main",
+  "active",
+  "note"
+ ],
+ "fields": [
+  {
+   "fieldname": "room_id",
+   "fieldtype": "Data",
+   "label": "Mã phòng",
+   "reqd": 1,
+   "unique": 1,
+   "set_only_once": 1,
+   "in_list_view": 1,
+   "description": "Chữ không dấu, số, khoảng trắng, . _ - (tối đa 40). Trùng với cột phòng trong lịch livestream."
+  },
+  {
+   "fieldname": "room_name",
+   "fieldtype": "Data",
+   "label": "Tên phòng",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "cb_main",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "label": "Đang hoạt động",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "note",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  },
+  {
+   "role": "Host QC Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  },
+  {
+   "role": "Host QC Viewer",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "export": 0,
+   "report": 1,
+   "print": 0,
+   "share": 0,
+   "email": 0
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "modified": "2026-11-24 09:00:00.000000"
+}

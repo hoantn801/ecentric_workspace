@@ -27,7 +27,13 @@ def heartbeat(**kw):
 @frappe.whitelist(allow_guest=True, methods=["GET"])
 def next_session(**kw):
     from ecentric_workspace.host_qc.services.get_next_session_service import GetNextSessionService
-    return run(lambda: GetNextSessionService().execute(G.machine(kw.get("machine_id"))))
+    return run(lambda: GetNextSessionService().execute(G.machine(kw.get("machine_id")), kw.get("room_id")))
+
+
+@frappe.whitelist(allow_guest=True, methods=["GET"])
+def list_rooms(**kw):
+    from ecentric_workspace.host_qc.services.list_rooms_service import ListRoomsService
+    return run(lambda: G.machine(kw.get("machine_id")) and ListRoomsService().execute())
 
 
 @frappe.whitelist(allow_guest=True, methods=["GET"])
@@ -90,9 +96,9 @@ def issue_machine_token(machine_id: str):
 
 
 @frappe.whitelist(methods=["GET"])
-def machine_mics(machine_id: str = None):
+def machine_mics(machine_id: str = None, room_id: str = None):
     from ecentric_workspace.host_qc.services.machine_mics_service import MachineMicsService
-    return run(lambda: MachineMicsService().execute(G.user_roles(), machine_id))
+    return run(lambda: MachineMicsService().execute(G.user_roles(), machine_id, room_id))
 
 
 @frappe.whitelist(methods=["POST"])

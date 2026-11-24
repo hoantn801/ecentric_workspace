@@ -5,7 +5,7 @@ import frappe
 
 from ecentric_workspace.host_qc.constants import doctypes as DT
 
-BRIEF = ["name", "session_id", "machine", "status", "started_at", "planned_start", "platform", "format"]
+BRIEF = ["name", "session_id", "machine", "live_room", "status", "started_at", "planned_start", "platform", "format"]
 
 
 class SessionRepository:
@@ -22,6 +22,17 @@ class SessionRepository:
         return frappe.get_all(DT.SESSION, filters={"machine": machine_id, "status": status,
                                                    "planned_start": ["between", [start_from, start_to]]},
                               fields=["name", "planned_start"], order_by="planned_start asc")
+
+    def ready_for_room(self, room_id, start_from, start_to, status):
+        return frappe.get_all(DT.SESSION, filters={"live_room": room_id, "status": status,
+                                                   "planned_start": ["between", [start_from, start_to]]},
+                              fields=["name", "planned_start", "machine"], order_by="planned_start asc")
+
+    def for_rooms(self, room_ids, statuses, start_from, start_to):
+        return frappe.get_all(DT.SESSION, filters={"live_room": ["in", list(room_ids)], "status": ["in", list(statuses)],
+                                                   "planned_start": ["between", [start_from, start_to]]},
+                              fields=["live_room", "status", "planned_start", "platform", "brand", "tiktok_username"],
+                              order_by="planned_start asc")
 
     def hosts(self, session_id):
         return frappe.get_all(DT.SESSION_HOST, filters={"parent": session_id, "parenttype": DT.SESSION},

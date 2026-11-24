@@ -1,5 +1,7 @@
 # Copyright (c) 2026, eCentric and contributors
-"""next_session: phien Ready cua chinh may nay, planned_start trong [now-60', now+30'], gan gio nhat.
+"""next_session: phien Ready, planned_start trong [now-60', now+30'], gan gio nhat.
+
+Co room_id (spec muc 7.3): phien cua phong do, chua gan may hoac gan dung may nay. Khong co: phien cua may.
 
 Tra SessionConfig (CONTRACTS A.1) + rules_config + ai. Khoa AI chi tra cho may da xac thuc token."""
 import re
@@ -32,11 +34,15 @@ class GetNextSessionService:
         self.rules_config = rules_config or BuildRulesConfigService(settings=self.settings)
         self.clock = clock
 
-    def execute(self, machine):
+    def execute(self, machine, room_id=None):
         at = self.clock()
-        rows = self.sessions.ready_for_machine(
-            machine["name"], at - _dt.timedelta(minutes=NEXT_SESSION_BEFORE_MIN),
-            at + _dt.timedelta(minutes=NEXT_SESSION_AFTER_MIN), SessionStatus.READY.value)
+        frm, to = at - _dt.timedelta(minutes=NEXT_SESSION_BEFORE_MIN), at + _dt.timedelta(minutes=NEXT_SESSION_AFTER_MIN)
+        room_id = str(room_id or "").strip()
+        if room_id:
+            rows = [r for r in self.sessions.ready_for_room(room_id, frm, to, SessionStatus.READY.value)
+                    if r.get("machine") in (None, "", machine["name"])]
+        else:
+            rows = self.sessions.ready_for_machine(machine["name"], frm, to, SessionStatus.READY.value)
         if not rows:
             return None
         best = min(rows, key=lambda r: abs((to_dt(r["planned_start"]) - at).total_seconds()))
@@ -65,6 +71,7 @@ class GetNextSessionService:
                             for r in rows or []]
         return {
             "session_id": d["session_id"], "title": d.get("title") or "", "brand": d.get("brand") or "",
+            "room_id": d.get("live_room") or "",
             "platform": d.get("platform") or "tiktok", "tiktok_username": d.get("tiktok_username") or "",
             "format": d.get("format") or "sales", "push_sale": d.get("push_sale") or "medium",
             "planned_start": iso(d.get("planned_start")), "planned_end": iso(d.get("planned_end")),

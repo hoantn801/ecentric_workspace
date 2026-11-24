@@ -10,6 +10,7 @@ FORMATS = ("sales", "mega", "kol", "branding", "education")
 SESSION_ID_RE = re.compile(r"^[a-z0-9_-]{1,40}$")
 MACHINE_ID_RE = re.compile(r"^[A-Z0-9._-]{1,40}$")
 VIOLATION_ID_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,140}$")
+ROOM_ID_RE = re.compile(r"^[A-Za-z0-9 ._-]{1,40}$")
 RULE_CODE_RE = re.compile(r"^[A-Z]{2,8}-\d{2}$")
 
 TOKEN_BYTES = 32                          # token may = 64 ky tu hex
