@@ -218,14 +218,23 @@ def _drop_generated(doc, file_url, prefix="HDDV_", keep_if_sent=True):
                                             "file_name": ["like", prefix + "%"]}, pluck="name")
     if not names:
         return
+    # Xoa trong JOB NEN xep sau commit (24/11/2026). Truoc day xoa trong frappe.db.after_commit cua
+    # chinh request: lenh DELETE roi vao giao dich MOI ma Frappe khong commit nua (chi commit mot lan
+    # cuoi request) -> rollback, ban ghi File con nguyen nhung byte tren dia da xoa. Kiem prod 24/11:
+    # 5 ban ghi mo coi o EC-CTR-2026-00119 / 00130 / 00133, khoi Ky so bao "esign file missing on
+    # disk". Job nen tu commit khi chay xong. Xep job loi -> giu tep (thua mot tep con hon mat byte).
+    try:
+        frappe.enqueue("ecentric_workspace.approval_center.features.contract_review.application.kol_files."
+                       "drop_files", queue="short", names=list(names), enqueue_after_commit=True)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "kol drop generated %s" % doc.name)
 
-    def _go():
-        for n in names:
-            if frappe.db.exists("File", n):
-                frappe.delete_doc("File", n, ignore_permissions=True, force=True)
-    hook = getattr(frappe.db, "after_commit", None)
-    if hook is not None:
-        hook.add(_go)
+
+def drop_files(names):
+    """Job nen: xoa cac ban ghi File (va byte) da duoc go khoi phieu. Chay lai an toan."""
+    for n in names or []:
+        if frappe.db.exists("File", n):
+            frappe.delete_doc("File", n, ignore_permissions=True, force=True)
 
 
 def acceptance_content(doc, row, creator, tpl=None):
@@ -233,8 +242,11 @@ def acceptance_content(doc, row, creator, tpl=None):
     if not creator:
         frappe.throw(_("Creator của hợp đồng không còn trong danh sách creator - nhờ Kế toán kiểm lại."))
     tpl = tpl or frappe.get_doc("EC Contract Template", template_for(doc, KIND_BBNT))
-    values = kol_values.acceptance_values(_values(doc, creator, row.get("acceptance_date")), row.as_dict(),
-                                          doc.as_dict())
+    # Dot = phieu EC KOL Acceptance (24/11): so dot = round_no; dot cuoi / dot phu het hop dong tinh
+    # theo cac dot cua hop dong (kol_rounds.contract_view).
+    from ecentric_workspace.approval_center.features.contract_review.application import kol_rounds
+    values = kol_values.acceptance_values(_values(doc, creator, row.get("acceptance_date")), kol_rounds.row_view(row),
+                                          kol_rounds.contract_view(doc, keep=row.get("name")))
     return _fill(file_bytes(tpl.template_file), values, doc)
 
 
@@ -260,7 +272,7 @@ def generate_acceptance(doc, row, creator):
     tpl = frappe.get_doc("EC Contract Template", template_for(doc, KIND_BBNT))
     # Ngay tren BBNT = ngay nghiem thu cua dot (ERP lam BBNT SAU khi thuc hien xong).
     content, missing = acceptance_content(doc, row, creator, tpl)
-    url = attach(doc, "BBNT_%s_dot%s.docx" % (_safe(doc.contract_no), row.idx), content)
+    url = attach(doc, "BBNT_%s_dot%s.docx" % (_safe(doc.contract_no), row.get("round_no") or row.get("idx")), content)
     return url, missing
 
 
