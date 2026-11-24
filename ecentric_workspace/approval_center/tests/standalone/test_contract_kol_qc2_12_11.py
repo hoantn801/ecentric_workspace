@@ -148,6 +148,41 @@ class CalcTable(unittest.TestCase):
         self.assertEqual([r["amount"] for r in rows], [6_800_000, 6_000_000, 800_000])
         self.assertIn("6.000.000 (trước VAT còn lại)", rows[1]["how"])
 
+    def test_bien_lai_24_11_gan_kind_khong_doi_so(self):
+        """PO 24/11 (bang tinh kieu bien lai): moi dong co kind; cam ve + thue = tong = chi phi eCentric
+        o MOI kieu nhap; nhan cu = label + (note) y nhu truoc (bang dot BBNT ca hop dong khong doi)."""
+        from ecentric_workspace.approval_center.features.contract_review.domain import kol_calc
+        cases = [("Cá nhân", "NET_AFTER_PIT", 1_000_000, "", "pit"), ("Cá nhân", "NET_AFTER_PIT", 25_000_000, "Cọc trước", "pit"),
+                 ("Cá nhân", "GROSS_BEFORE_PIT", 10_000_000, "", "pit"), ("Công ty", "BEFORE_VAT", 25_000_000, "Cọc trước", "vat"),
+                 ("Công ty", "WITH_VAT", 27_000_000, "", "vat"), ("Hộ kinh doanh", "HOUSEHOLD_TOTAL", 5_000_000, "", None)]
+        for ct, at, amt, sch, tax in cases:
+            with self.subTest(ct=ct, at=at, amt=amt):
+                rows = kol_calc.contract_steps(self.doc(ct, at, amt, sch))
+                k = {}
+                for r in rows:
+                    self.assertIn(r.get("kind"), ("base", "pit", "vat", "total", "split", "cost"))
+                    k.setdefault(r["kind"], []).append(r)
+                self.assertEqual(len(k["total"]), 1)
+                self.assertEqual(len(k["cost"]), 1)
+                self.assertEqual(k["total"][0]["amount"], k["cost"][0]["amount"])
+                self.assertEqual(sum(1 for r in rows if r["input"]), 1)
+                self.assertEqual(len(k.get("split", [])), 2 if sch else 0)
+                if tax:
+                    self.assertEqual(k["base"][0]["amount"] + k[tax][0]["amount"], k["total"][0]["amount"])
+                    self.assertEqual(k[tax][0]["rate"], "10%" if tax == "pit" else "8%")
+                    self.assertNotIn("vat" if tax == "pit" else "pit", k)
+                else:
+                    self.assertEqual(set(k), {"total", "cost"})
+        net = kol_calc.contract_steps(self.doc("Cá nhân", "NET_AFTER_PIT", 1_000_000))
+        by = {r["kind"]: r for r in net}
+        self.assertEqual((by["total"]["amount"], by["pit"]["amount"]), (1_111_111, 111_111))
+        self.assertEqual(by["total"]["how"], "1.000.000 ÷ (1 − 10%)")
+        full = [r["label"] + (" (%s)" % r["note"] if r.get("note") else "") for r in net]
+        self.assertEqual(full, ["Thực nhận (số nhập)", "Giá trị trước thuế (gross)",
+                                "Thuế TNCN 10% (eCentric khấu trừ, nộp thay)", "Chi phí eCentric (giá trị hợp đồng)"])
+        big = {r["kind"]: r["amount"] for r in kol_calc.contract_steps(self.doc("Cá nhân", "NET_AFTER_PIT", 25_000_000))}
+        self.assertEqual((big["total"], big["pit"]), (27_777_778, 2_777_778))
+
     def test_chua_co_so_tien_thi_khong_co_bang(self):
         from ecentric_workspace.approval_center.features.contract_review.domain import kol_calc
         self.assertEqual(kol_calc.contract_steps({"amount_type": "Chưa VAT"}), [])

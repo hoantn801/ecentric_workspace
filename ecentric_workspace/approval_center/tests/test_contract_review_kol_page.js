@@ -52,7 +52,12 @@ const detail={business:{name:"EC-CTR-2026-00100",contract_type:KOL,request_type:
   ai_qc_result:JSON.stringify({data_checks:[{field:"CCCD",value_present:false}],signable:"OK",ai:{template_deviations:["Bỏ điều khoản phạt"],risky_clauses:[{clause:"Thanh toán 100% trước",risk:"rủi ro",severity:"Cao"}],summary:"x"}})},
   approval:{approval_status:"Approved"},capabilities:{},levels:[],approvers:[],timeline:[],attachments:[],
   extra:{kol:{can_manage:true,can_ai:true,approved:true,signed:true,funding:{cap:2700000,used:0,remaining:2700000},
-    calc:[{label:"Giá trị trước thuế (gross)",how:"9.000.000 ÷ (1 − 10%)",amount:10000000,strong:true},{label:"<b>x</b>",how:"",amount:1}],
+    calc:[{label:"Thực nhận",how:"",amount:9000000,strong:false,kind:"base",note:"<b>x</b>",input:true},
+      {label:"Giá trị trước thuế",how:"9.000.000 ÷ (1 − 10%)",amount:10000000,strong:true,kind:"total",note:"gross",input:false},
+      {label:"Thuế TNCN 10%",how:"10.000.000 − 9.000.000",amount:1000000,strong:false,kind:"pit",note:"eCentric khấu trừ, nộp thay",input:false,rate:"10%"},
+      {label:"Cọc 30% trên thực nhận",how:"9.000.000 × 30%",amount:2700000,strong:false,kind:"split",note:"",input:false},
+      {label:"Còn lại trả sau nghiệm thu",how:"9.000.000 − 2.700.000",amount:6300000,strong:false,kind:"split",note:"",input:false},
+      {label:"Chi phí eCentric",how:"= giá trị trước thuế",amount:10000000,strong:true,kind:"cost",note:"giá trị hợp đồng",input:false}],
     acceptances:[{name:"r1",idx:1,description:"Livestream T12",acceptance_date:"2026-12-05",amount:6300000,status:"Nháp",bbnt_file:"/private/files/BBNT.docx",
       calc:[{label:"Thực nhận đợt này",how:"",amount:6300000}]}]}}};
 const c={}; let failed=0;
@@ -289,6 +294,69 @@ wait(w,function(){ return w.ContractReview&&w.document.querySelector('[data-mode
   },100);
 });
 
+// PO 24/11 (ban B phang): Bang tinh chi tiet kieu bien lai - [cam ve] + [thue] = gia tri HD / chi phi
+// eCentric; cong thuc ngay duoi so; gop 2 dong bang nhau; chip loai HD + khau tru; nut tai o hang cuoi.
+function rcRows(o){ // dong y nhu server kol_calc.contract_steps tra (kind/note/input/rate)
+  const R=(label,how,amount,kind,note,extra)=>Object.assign({label,how,amount,strong:false,kind,note:note||"",input:false},extra||{});
+  if(o.t==="net") return [R("Thực nhận","",o.pay,"base","số nhập",{input:true}),R("Giá trị trước thuế",o.fxG,o.g,"total","gross",{strong:true}),
+    R("Thuế TNCN 10%",o.fxT,o.p,"pit","eCentric khấu trừ, nộp thay",{rate:"10%"})].concat(o.split||[]).concat([R("Chi phí eCentric","= giá trị trước thuế",o.cost==null?o.g:o.cost,"cost","giá trị hợp đồng",{strong:true})]);
+  if(o.t==="vat") return [R("Giá trước VAT","",o.g,"base","số nhập",{input:true,strong:true}),R("VAT 8%",o.fxT,o.v,"vat","",{rate:"8%"}),
+    R("Tổng thanh toán",o.fxG,o.pay,"total","hóa đơn"),R("Chi phí eCentric",o.fxG,o.g+o.v,"cost","giá trị hợp đồng",{strong:true})];
+  return [R("Tổng thanh toán","",o.pay,"total","hộ kinh doanh tự kê khai thuế",{input:true,strong:true}),R("Chi phí eCentric","= giá trị trước thuế",o.pay,"cost","giá trị hợp đồng",{strong:true})];
+}
+function receiptPart(w){
+  const K=w.ContractReview._KOL, doc=w.document;
+  const dom=function(h){ const d=doc.createElement("div"); d.innerHTML=h; return d; };
+  const txt=function(el){ return el?el.textContent.replace(/ /g," ").replace(/\s+/g," ").trim():""; };
+  const nums=function(d){ return Array.from(d.querySelectorAll(".kol-rc-n")).map(function(e){ return txt(e).replace(/ đ$/,""); }); };
+  const indiv={creator_type:"Cá nhân",service_type:"Livestream",amount_type:"Thực nhận sau TNCN"};
+  // 1) Ca nhan 1.000.000 thuc nhan -> 1.111.111 / thue 111.111
+  { const d=dom(K.receiptHTML(rcRows({t:"net",pay:1000000,g:1111111,p:111111,fxG:"1.000.000 ÷ (1 − 10%)",fxT:"1.111.111 − 1.000.000"}),indiv,'<button type="button" class="btn" data-kol="dl" data-url="/f.docx">Tải hợp đồng (.docx)</button>'));
+    const rows=d.querySelectorAll(".kol-rc-main > div"), tot=d.querySelector(".kol-rc-total"), tax=d.querySelector(".kol-rc-row.tax");
+    chk("bang tinh B: 1.000.000 -> tong 1.111.111 trong dai navy, thue 111.111", txt(tot.querySelector(".kol-rc-n"))==="1.111.111 đ"&&txt(tax.querySelector(".kol-rc-n"))==="111.111 đ"&&!tax.classList.contains("vat"));
+    chk("bang tinh B: doc nhu phep cong Thuc nhan -> + Thue -> = Tong", rows.length===3&&/^Thực nhận/.test(txt(rows[0].querySelector(".kol-rc-l")))&&rows[1]===tax&&rows[2]===tot
+      &&txt(tax.querySelector(".kol-rc-s"))==="+"&&txt(tot.querySelector(".kol-rc-s"))==="="&&txt(rows[0].querySelector(".kol-rc-s"))===""&&!!d.querySelector(".kol-rc-main > hr.kol-rc-sep"));
+    chk("bang tinh B: cong thuc nam ngay duoi so tuong ung", txt(tot.querySelector(".kol-rc-fx"))==="1.000.000 ÷ (1 − 10%)"&&txt(tax.querySelector(".kol-rc-fx"))==="1.111.111 − 1.000.000"&&!rows[0].querySelector(".kol-rc-fx")&&txt(rows[0].querySelector(".kol-rc-note"))==="Số nhập");
+    chk("bang tinh B: gop gross = chi phi eCentric thanh MOT dong (khong lap so)", nums(d).filter(function(n){ return n==="1.111.111"; }).length===1&&/Giá trị hợp đồng \/ Chi phí eCentric/.test(txt(tot))&&/Giá trị trước thuế \(gross\)/.test(txt(tot.querySelector(".kol-rc-note")))&&!d.querySelector("table"));
+    chk("bang tinh B: chip loai HD + Khau tru TNCN 10%", Array.from(d.querySelectorAll(".kol-chip")).map(txt).join("|")==="HĐDV Cá nhân · Livestream|Khấu trừ TNCN 10%"&&!!d.querySelector(".kol-chip.pit"));
+    chk("bang tinh B: cot phai Chi phi so voi thuc nhan +11,1%, khong chia dot khi khong coc", /Chi phí so với thực nhận\s*\+11,1%/.test(txt(d.querySelector(".kol-rc-facts")))&&/Thuế suất\s*TNCN 10%/.test(txt(d.querySelector(".kol-rc-facts")))&&!d.querySelector(".kol-rc-split"));
+    const foot=d.querySelector(".kol-rc-foot");
+    chk("bang tinh B: hang cuoi = ghi chu lam tron + nut tai .docx", /Làm tròn tới đồng, từ 0,5 trở lên làm tròn lên/.test(txt(foot))&&!!foot.querySelector('[data-kol="dl"][data-url="/f.docx"]')); }
+  // 2) So lon 25.000.000 + coc -> 27.777.778; chia thanh toan o cot phai
+  { const split=[{label:"Cọc 40% trên thực nhận",how:"25.000.000 × 40%",amount:10000000,kind:"split",note:""},{label:"Còn lại trả sau nghiệm thu",how:"25.000.000 − 10.000.000",amount:15000000,kind:"split",note:""}];
+    const d=dom(K.receiptHTML(rcRows({t:"net",pay:25000000,g:27777778,p:2777778,fxG:"25.000.000 ÷ (1 − 10%)",fxT:"27.777.778 − 25.000.000",split:split}),indiv,""));
+    chk("bang tinh B: 25.000.000 -> 27.777.778 / thue 2.777.778", txt(d.querySelector(".kol-rc-total .kol-rc-n"))==="27.777.778 đ"&&txt(d.querySelector(".kol-rc-row.tax .kol-rc-n"))==="2.777.778 đ"&&txt(d.querySelector(".kol-rc-total .kol-rc-fx"))==="25.000.000 ÷ (1 − 10%)");
+    const sp=d.querySelector(".kol-rc-side .kol-rc-split");
+    chk("bang tinh B: coc / con lai o cot phai, khong chen vao phep cong", !!sp&&sp.querySelectorAll(".kol-rc-sp").length===2&&/10\.000\.000/.test(txt(sp))&&/15\.000\.000/.test(txt(sp))&&d.querySelectorAll(".kol-rc-main > div").length===3);
+    chk("bang tinh B: khong co quyen tai -> hang cuoi chi con ghi chu", !d.querySelector('[data-kol="dl"]')&&!!d.querySelector(".kol-rc-foot .hint")); }
+  // 3) Cong ty (khong khau tru): VAT cong vao, chip Khong khau tru thue
+  { const d=dom(K.receiptHTML(rcRows({t:"vat",g:25000000,v:2000000,pay:27000000,fxG:"25.000.000 + 2.000.000",fxT:"25.000.000 × 8%"}),{creator_type:"Công ty",service_type:"Livestream",amount_type:"Chưa VAT"},""));
+    chk("bang tinh B: cong ty -> Khong khau tru thue, khong chip TNCN", /Không khấu trừ thuế/.test(txt(d.querySelector(".kol-chip.free")))&&!/Khấu trừ TNCN/.test(txt(d))&&!d.querySelector(".kol-chip.pit"));
+    chk("bang tinh B: cong ty -> Gia truoc VAT + VAT 8% = 27.000.000 (dong VAT khong to do)", /Giá trước VAT/.test(txt(d.querySelector(".kol-rc-main > div")))&&!!d.querySelector(".kol-rc-row.tax.vat")&&txt(d.querySelector(".kol-rc-total .kol-rc-n"))==="27.000.000 đ"&&/Tổng thanh toán \(hóa đơn\)/.test(txt(d.querySelector(".kol-rc-total")))&&!/Chi phí so với thực nhận/.test(txt(d))&&/Thuế suất\s*VAT 8%/.test(txt(d))); }
+  // 4) Ho kinh doanh: chi con dai tong, khong dong thue
+  { const d=dom(K.receiptHTML(rcRows({t:"hkd",pay:5000000}),{creator_type:"Hộ kinh doanh",service_type:"Video",amount_type:"Tổng đã gồm thuế HKD"},""));
+    chk("bang tinh B: ho kinh doanh -> chi dai tong 5.000.000, khong thue, khong gach noi", d.querySelectorAll(".kol-rc-main > div").length===1&&!d.querySelector(".kol-rc-row")&&!d.querySelector(".kol-rc-sep")&&txt(d.querySelector(".kol-rc-total .kol-rc-n"))==="5.000.000 đ"&&/Không khấu trừ thuế/.test(txt(d))&&/hộ kinh doanh tự kê khai thuế/.test(txt(d))); }
+  // 5) Escape ten loai HD / dich vu / nhan tu server
+  { const bad={creator_type:'<b id="xc">C</b>',service_type:'<img src=x onerror="window.__xss=1">',amount_type:"<i>t</i>"};
+    const rows=rcRows({t:"net",pay:1000000,g:1111111,p:111111,fxG:"<u>f</u>",fxT:"x"}); rows[0].label='<script>window.__xss=2</script>';
+    const h=K.receiptHTML(rows,bad,""); const d=dom(h);
+    chk("bang tinh B: escape ten loai HD, dich vu, nhan, cong thuc", !d.querySelector("img,#xc,script,u,i")&&!w.__xss&&/&lt;img src=x/.test(h)&&/HĐDV <b id="xc">C<\/b> · <img/.test(txt(d.querySelector(".kol-chip")))); }
+  // 6) Tong lech chi phi / du lieu cu khong co kind -> bang cu (khong bia phep cong)
+  { const r=rcRows({t:"net",pay:1000000,g:1111111,p:111111,fxG:"a",fxT:"b",cost:1111112});
+    const d=dom(K.receiptHTML(r,indiv,'<button data-kol="dl">x</button>'));
+    chk("bang tinh B: tong != chi phi eCentric -> ve bang cu, van giu chip + nut tai", !!d.querySelector("table.kol-calc")&&!d.querySelector(".kol-rc-total")&&!!d.querySelector(".kol-chip")&&!!d.querySelector('.kol-rc-foot [data-kol="dl"]'));
+    const d2=dom(K.receiptHTML([{label:"Giá trị trước thuế (gross)",how:"9.000.000 ÷ (1 − 10%)",amount:10000000,strong:true},{label:"<b>x</b>",how:"",amount:1}],indiv,""));
+    chk("bang tinh B: dong cu khong co kind -> bang cu, nhan escape", !!d2.querySelector("table.kol-calc")&&!d2.querySelector(".kol-calc b")&&/<b>x<\/b>/.test(txt(d2.querySelector("table")))); }
+  // 7) Bang cu (dot BBNT ca hop dong) ghep lai nhan + ghi chu y nhu truoc
+  chk("bang tinh B: bang cu ghep nhan (ghi chu) nhu truoc", /Thuế TNCN 10% \(eCentric khấu trừ, nộp thay\)/.test(K.calcHTML(rcRows({t:"net",pay:1,g:1,p:0,fxG:"",fxT:""})))&&/Chi phí eCentric \(giá trị hợp đồng\)/.test(K.calcHTML(rcRows({t:"hkd",pay:1}))));
+  // 8) Nut tai: co bang tinh -> o hang cuoi bang tinh (khong lap o hang nut); chua co bang tinh -> hang nut nhu cu
+  { const d6=JSON.parse(JSON.stringify(detail)); d6.extra.kol.can_download_full=true;
+    const a=dom(K.detailHTML(d6));
+    chk("bang tinh B: nut tai hop dong nam o hang cuoi bang tinh, chi 1 nut", a.querySelectorAll('[data-kol="dl"][data-url="/private/files/HDDV.docx"]').length===1&&!!a.querySelector('.kol-rc-foot [data-kol="dl"]')&&/Tải hợp đồng \(\.docx\)/.test(txt(a.querySelector(".kol-rc-foot"))));
+    d6.extra.kol.calc=[]; const e=dom(K.detailHTML(d6));
+    chk("bang tinh B: chua co so tien -> khong ve bang, nut tai o hang nut", !e.querySelector(".kol-rc")&&!!e.querySelector('.actions [data-kol="dl"]')); }
+}
+
 function detailPart(){
   const w2=make("https://x/approvals/contract-review?id=EC-CTR-2026-00100");
   let evt=null; w2.document.addEventListener("ctr:detail-rendered",function(e){ evt=e.detail; });
@@ -310,6 +378,7 @@ function detailPart(){
     // Thiet ke ban 2 (12/11 11:49): khoi hien tu luc lap phieu; chi sua duoc khi phieu con o nguoi lap.
     chk("su kien: phieu da duyet -> can_edit=false", !!evt&&evt.can_edit===false&&evt.approval_status!=="Draft");
     chk("chi tiet: bang tinh hop dong + dot", /Bảng tính chi tiết/.test(b)&&/9\.000\.000 ÷ \(1 − 10%\)/.test(b)&&/Bảng tính đợt này/.test(b)&&b.indexOf("<b>x</b>")<0);
+    receiptPart(w2);
     // QC3: dot NHAP chua co nut Hoan tat - phai qua "Danh dau da gui ky" (kiem thieu + tao lai BBNT) truoc.
     chk("BBNT nhap: chua cho Hoan tat (bo qua buoc kiem)", !/data-kol="doneacc"/.test(b));
     chk("da duyet: khong con nut tao lai hop dong", !/data-kol="gen"/.test(b));
