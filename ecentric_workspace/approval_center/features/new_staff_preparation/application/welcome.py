@@ -34,7 +34,8 @@ def today_rows(day=None):
     day = day or nowdate()
     rows = frappe.get_all(BUSINESS_DT, filters={"onboard_date": day},
                           fields=["name", "candidate_name", "position", "department",
-                                  "welcome_intro", "approval_request", "welcome_teams_sent_at"],
+                                  "welcome_intro", "approval_request", "welcome_teams_sent_at",
+                                  "line_manager", "new_employee", "onboard_date"],
                           order_by="creation asc", limit_page_length=0)
     out = []
     for r in rows:
@@ -64,34 +65,98 @@ def welcome_today():
     return {"rows": [payload(r) for r in today_rows()]}
 
 
+def card_payload(r):
+    """Them cho THIEP (khong dua ra popup): ten quan ly truc tiep + email cong ty cua nhan vien
+    moi (nut "Nhan chao" mo chat Teams 1-1). Thieu du lieu thi bo truong, khong loi."""
+    p = payload(r)
+    lm = (r.get("line_manager") or "").strip()
+    p["line_manager_name"] = (lm and (frappe.db.get_value("User", lm, "full_name") or "")) or ""
+    email = ""
+    if r.get("new_employee"):
+        e = frappe.db.get_value("Employee", r.new_employee, ["company_email", "user_id"], as_dict=True)
+        email = e and (e.get("company_email") or e.get("user_id")) or ""
+    p["chat_email"] = email if "@" in (email or "") else ""
+    p["onboard_date"] = str(r.get("onboard_date") or "")
+    return p
+
+
+_THU = ("Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật")
+
+
+def _ngay(s):
+    try:
+        d = datetime.date.fromisoformat(str(s)[:10])
+    except Exception:
+        return ""
+    return "%s, %02d/%02d/%d" % (_THU[d.weekday()], d.day, d.month, d.year)
+
+
+def _ten_goi(full):
+    """Ten de goi ("Nguyen Vu Duy Phong" -> "Phong")."""
+    parts = (full or "").split()
+    return parts[-1] if parts else ""
+
+
 def build_card(p):
-    """Adaptive Card cho Workflow webhook ("Post card in a chat or channel")."""
-    ten = (p["candidate_name"] or "").upper()
+    """Adaptive Card cho Workflow webhook ("Send webhook alerts to a chat").
+
+    Giu bo cuc thiep HR van gui (24/11 Hoan gui mau), lam gon + ro hon:
+      * dai tieu de mau nhan (Container accent) + thu, ngay onboard;
+      * ten giu nguyen hoa thuong nhu HR viet (khong UPPER);
+      * them Quan ly truc tiep (neu co);
+      * loi gioi thieu: thanh doc ben trai + chu nghieng (RichTextBlock), giu xuong dong;
+      * nut "Nhan chao <ten>" mo chat Teams 1-1 (chi khi biet email cong ty).
+    KHONG co gi ve luong."""
+    ten = (p.get("candidate_name") or "").strip()
+    header = [{"type": "TextBlock", "text": "\U0001F31F Chào mừng thành viên mới \U0001F31F",
+               "weight": "Bolder", "size": "Large", "wrap": True, "color": "Accent"}]
+    ngay = _ngay(p.get("onboard_date"))
+    if ngay:
+        header.append({"type": "TextBlock", "text": ngay, "isSubtle": True, "spacing": "None",
+                       "wrap": True})
+    facts = [{"title": "Tên:", "value": ten or "—"},
+             {"title": "Vị trí:", "value": p.get("position") or "—"},
+             {"title": "Bộ phận:", "value": p.get("department") or "—"}]
+    if p.get("line_manager_name"):
+        facts.append({"title": "Quản lý:", "value": p["line_manager_name"]})
     body = [
-        {"type": "TextBlock", "text": "\U0001F31F Chào mừng thành viên mới \U0001F31F",
-         "weight": "Bolder", "size": "Large", "wrap": True},
-        {"type": "TextBlock", "wrap": True,
+        {"type": "Container", "style": "accent", "bleed": True, "items": header},
+        {"type": "TextBlock", "wrap": True, "spacing": "Medium",
          "text": "Mọi người ơi, hôm nay **eCentric** chính thức chào đón thành viên mới:"},
-        {"type": "FactSet", "facts": [
-            {"title": "Tên:", "value": ten},
-            {"title": "Vị trí:", "value": p.get("position") or "—"},
-            {"title": "Bộ phận:", "value": p.get("department") or "—"}]},
+        {"type": "FactSet", "facts": facts},
     ]
-    if p.get("welcome_intro"):
+    intro = (p.get("welcome_intro") or "").strip()
+    if intro:
+        doan = [d.strip() for d in intro.replace("\r\n", "\n").split("\n") if d.strip()]
         body += [
             {"type": "TextBlock", "text": "Đôi lời giới thiệu từ chính chủ:", "weight": "Bolder",
              "wrap": True, "spacing": "Medium"},
-            {"type": "Container", "style": "emphasis", "items": [
-                {"type": "TextBlock", "text": p["welcome_intro"], "wrap": True, "isSubtle": True}]},
+            {"type": "ColumnSet", "spacing": "Small", "columns": [
+                {"type": "Column", "width": "4px", "style": "emphasis", "bleed": False,
+                 "items": [{"type": "TextBlock", "text": " "}]},
+                {"type": "Column", "width": "stretch", "items": [
+                    {"type": "RichTextBlock", "spacing": "Small" if k else "None", "inlines": [
+                        {"type": "TextRun", "text": d, "italic": True}]}
+                    for k, d in enumerate(doan)]},
+            ]},
         ]
     body += [
         {"type": "TextBlock", "wrap": True, "spacing": "Medium",
          "text": "Cả nhà cùng **say hi** và hỗ trợ nhân viên mới trong thời gian đầu làm quen nhé!"},
         {"type": "TextBlock", "wrap": True, "weight": "Bolder",
-         "text": "Welcome on board, %s! \U0001F680 \U0001F499" % ten},
+         "text": "Welcome on board, %s! \U0001F680 \U0001F499" % (ten or "bạn mới")},
     ]
     card = {"type": "AdaptiveCard", "version": "1.4",
-            "$schema": "http://adaptivecards.io/schemas/adaptive-card.json", "body": body}
+            "$schema": "http://adaptivecards.io/schemas/adaptive-card.json", "body": body,
+            "msteams": {"width": "Full"}}
+    if p.get("chat_email"):
+        from urllib.parse import quote
+        goi = _ten_goi(ten) or ten
+        loi = "Chào %s, chào mừng bạn đến với eCentric! \U0001F44B" % goi
+        card["actions"] = [{"type": "Action.OpenUrl",
+                            "title": "\U0001F44B Nhắn chào %s" % goi,
+                            "url": "https://teams.microsoft.com/l/chat/0/0?users=%s&message=%s"
+                                   % (quote(p["chat_email"]), quote(loi))}]
     return {"type": "message", "attachments": [
         {"contentType": "application/vnd.microsoft.card.adaptive", "content": card}]}
 
@@ -120,7 +185,7 @@ def send_welcome_teams():
     sent = 0
     for r in rows:
         try:
-            code, text = _post(url, build_card(payload(r)))
+            code, text = _post(url, build_card(card_payload(r)))
             ok = 200 <= int(code) < 300
             frappe.db.set_value(BUSINESS_DT, r.name, {
                 "welcome_teams_sent_at": now_datetime() if ok else None,
