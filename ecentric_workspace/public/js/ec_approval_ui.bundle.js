@@ -344,8 +344,8 @@
     return items;
   }
   function colOf(it) {
-    if (it.group) return "minmax(150px,1.15fr)";
-    return it.state === "skipped" ? "minmax(92px,.65fr)" : "minmax(0,1fr)";
+    // 24/11 (Hoan): can giua -> cac cot BANG NHAU de net noi tam-toi-tam thang hang.
+    return it.group ? "minmax(120px,1fr)" : "minmax(0,1fr)";
   }
   function itemHTML(it, i, items) {
     var next = items[i + 1];
