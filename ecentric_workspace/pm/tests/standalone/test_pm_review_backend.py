@@ -377,6 +377,9 @@ class TestRecurrenceOccurrenceOwner(Base):
                                duration_days=1, start_date="2026-10-14",
                                checklist_items=json.dumps(["Keo so"]))["name"]
         first = self._run(rule, "2026-10-14")
+        # 24/11/2026: an UNTOUCHED previous Daily occurrence is now auto-cancelled when the next one
+        # comes (PO). Alice started yesterday's -> it is kept, and the giver rule below still applies.
+        self.fk.row("Task", first)["workflow_state"] = "In Progress"
         second = self._run(rule, "2026-10-15")
         self.assertNotEqual(first, second)
         for t in (first, second):

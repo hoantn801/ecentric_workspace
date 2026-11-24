@@ -934,7 +934,7 @@ def update(name, subject=None, description=None, priority=None,
     user = frappe.session.user
     doc = frappe.get_doc("Task", name)
     if not pmperm.can_view_task(doc.as_dict(), user):
-        frappe.throw(_("Not permitted to edit this task."), frappe.PermissionError)
+        frappe.throw(_("Bạn không có quyền sửa việc này."), frappe.PermissionError)
     tflow.require_edit(doc.as_dict(), user)
     # G4.8: a sub-task must stay in its parent's project — block moving it to a different one.
     if project is not None and doc.get("parent_task"):
@@ -1142,7 +1142,7 @@ def set_status(name, action):
     user = frappe.session.user
     doc = frappe.get_doc("Task", name)
     if not pmperm.can_view_task(doc.as_dict(), user):
-        frappe.throw(_("Not permitted to change this task."), frappe.PermissionError)
+        frappe.throw(_("Bạn không có quyền đổi trạng thái việc này."), frappe.PermissionError)
     tflow.require_edit(doc.as_dict(), user)
     target = action
     if target not in _pm_states():
@@ -1222,7 +1222,7 @@ def mark_done(name):
     user = frappe.session.user
     doc = frappe.get_doc("Task", name)
     if not pmperm.can_view_task(doc.as_dict(), user):
-        frappe.throw(_("Not permitted to change this task."), frappe.PermissionError)
+        frappe.throw(_("Bạn không có quyền đổi trạng thái việc này."), frappe.PermissionError)
     tflow.require_edit(doc.as_dict(), user)
     cur = doc.get("workflow_state")
     if cur == "Cancelled":

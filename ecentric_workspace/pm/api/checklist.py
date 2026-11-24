@@ -100,7 +100,7 @@ def set_item(task, row_name, is_done):
     user = frappe.session.user
     doc = frappe.get_doc("Task", task)
     if not pmperm.can_view_task(doc.as_dict(), user):
-        frappe.throw(_("Not permitted to edit this task's checklist."), frappe.PermissionError)
+        frappe.throw(_("Bạn không có quyền sửa các bước của việc này."), frappe.PermissionError)
     from ecentric_workspace.pm import task_flow as _tflow   # lazy: avoid import cycle
     _tflow.require_edit(doc.as_dict(), user)
     # G4.2/G4.3: terminal tasks have IMMUTABLE checklists (audit-safe). Reopen is the
@@ -135,7 +135,7 @@ def add_item(task, title, is_required=0):
     user = frappe.session.user
     doc = frappe.get_doc("Task", task)
     if not pmperm.can_view_task(doc.as_dict(), user):
-        frappe.throw(_("Not permitted to edit this task's checklist."), frappe.PermissionError)
+        frappe.throw(_("Bạn không có quyền sửa các bước của việc này."), frappe.PermissionError)
     from ecentric_workspace.pm import task_flow as _tflow   # lazy: avoid import cycle
     _tflow.require_edit(doc.as_dict(), user)
     pmperm.assert_task_not_terminal(
@@ -155,7 +155,7 @@ def _chk_editable_doc(task):
     user = frappe.session.user
     doc = frappe.get_doc("Task", task)
     if not pmperm.can_view_task(doc.as_dict(), user):
-        frappe.throw(_("Not permitted to edit this task's checklist."), frappe.PermissionError)
+        frappe.throw(_("Bạn không có quyền sửa các bước của việc này."), frappe.PermissionError)
     from ecentric_workspace.pm import task_flow as _tflow   # lazy: avoid import cycle
     _tflow.require_edit(doc.as_dict(), user)
     pmperm.assert_task_not_terminal(
