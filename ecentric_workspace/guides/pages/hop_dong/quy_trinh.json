@@ -4,7 +4,7 @@
     "muc_dich": "Làm hợp đồng trọn vòng trên ERP: lập phiếu, duyệt, ký, nghiệm thu từng đợt và đề nghị thanh toán, thay tool cũ.",
     "dung_khi": "Mọi hợp đồng cần duyệt (mua vào, bán ra, dịch vụ, KOL/KOC, lao động). Phần nghiệm thu và thanh toán (bước 19 trở đi) hiện dành cho hợp đồng KOL/KOC.",
     "chuan_bi": "KOL/KOC: thông tin creator (CCCD hoặc MST, số tài khoản), dịch vụ, nền tảng, số tiền, lịch thanh toán, tên và email người ký phía đối tác (người ký là người đại diện thì cần CCCD của người đó). Hợp đồng khác: tệp hợp đồng.",
-    "ket_qua": "Hợp đồng duyệt đủ cấp, ký đủ hai bên, nghiệm thu từng đợt (mỗi đợt duyệt 3 cấp) và chỉ thanh toán trong số tiền đã nghiệm thu."
+    "ket_qua": "Hợp đồng duyệt đủ cấp (hợp đồng lao động: Nhân sự → CEO), ký đủ hai bên, nghiệm thu từng đợt (mỗi đợt duyệt 3 cấp) và chỉ thanh toán trong số tiền đã nghiệm thu."
   },
   "vai_tro": [
     {
@@ -82,7 +82,7 @@
         "NL",
         "HT"
       ],
-      "dien_giai": "Chỉ khi phiếu có khối \"Bản PDF để ký\" (hợp đồng ký số qua ERP). Mẫu EC: kiểm lại hợp đồng .docx rồi bấm \"Xác nhận hợp đồng & tạo bản ký\" — hệ thống tự chuyển sang PDF, đối chiếu số hợp đồng, số tiền và đặt ô ký. Mẫu của đối tác (hoặc muốn tự xuất): mở .docx bằng Word → Tệp → Lưu thành PDF rồi tải lên. Tạo lại hợp đồng sau đó thì phải tạo lại bản ký."
+      "dien_giai": "Chỉ khi phiếu có khối \"Bản PDF để ký\" (hợp đồng KOL/KOC hoặc hợp đồng lao động ký số qua ERP). KOL mẫu EC: kiểm lại hợp đồng .docx rồi bấm \"Xác nhận hợp đồng & tạo bản ký\" — hệ thống tự chuyển sang PDF, đối chiếu và đặt ô ký. Hợp đồng lao động: tệp Word HR đính kèm phải có mốc [[KY_BEN_A]] ngay dưới chỗ ký đại diện eCentric (CEO) và [[KY_BEN_B]] dưới chỗ ký người lao động, gõ bằng chữ trắng cỡ 1pt (không dùng định dạng Hidden); tệp .docx thì bấm nút tạo bản ký như trên. Mẫu của đối tác hoặc muốn tự xuất: mở .docx bằng Word → Tệp → Lưu thành PDF rồi tải lên. Sửa hợp đồng sau đó thì phải tạo lại bản ký."
     },
     {
       "id": "S5",
@@ -113,7 +113,7 @@
       "R": [
         "TBP"
       ],
-      "dien_giai": "Duyệt, trả lại để sửa hoặc từ chối. Người duyệt xem bản đã che số định danh và số tài khoản của creator: đó là thiết kế, không phải lỗi."
+      "dien_giai": "Duyệt, trả lại để sửa hoặc từ chối. Người duyệt xem bản đã che số định danh và số tài khoản của creator: đó là thiết kế, không phải lỗi. Hợp đồng lao động không qua cấp này."
     },
     {
       "id": "S8",
@@ -138,12 +138,12 @@
     {
       "id": "S10",
       "stt": "10",
-      "ten": "Cấp 4 · Nhân sự duyệt (chỉ hợp đồng lao động)",
+      "ten": "Cấp 4 · Nhân sự duyệt (hợp đồng lao động)",
       "A": "NS",
       "R": [
         "NS"
       ],
-      "dien_giai": "Chỉ có ở hợp đồng loại \"Hợp đồng lao động\": CnB / HR kiểm lương, chức danh, thời hạn. Hợp đồng loại khác (KOL/KOC, mua vào, bán ra, dịch vụ) tự bỏ qua cấp này."
+      "dien_giai": "Chỉ hợp đồng lao động, và đi thẳng tới đây: Nhân sự (CnB / HR) duyệt nội dung (lương, chức danh, thời hạn) rồi CEO ký — không qua Trưởng bộ phận, Kế toán, Head of Finance. Hợp đồng loại khác tự bỏ qua cấp này."
     },
     {
       "id": "S11",
@@ -175,7 +175,7 @@
         "CEO",
         "CR"
       ],
-      "dien_giai": "Phiếu có khối \"Tài liệu & ký số\": duyệt xong, hệ thống đưa bản PDF lên cổng ký. CEO ký số; đối tác nhận email mời ký, xác thực (eKYC) rồi ký. Bản ký đủ tự về phiếu, không phải tải lên. Theo dõi trạng thái ở khối \"Tài liệu & ký số\" trên phiếu."
+      "dien_giai": "Phiếu có khối \"Tài liệu & ký số\": duyệt xong, hệ thống đưa bản PDF lên cổng ký. CEO ký số; đối tác (creator hoặc người lao động) nhận email mời ký, xác thực (eKYC) rồi ký. Bản ký đủ tự về phiếu, không phải tải lên. Theo dõi trạng thái ở khối \"Tài liệu & ký số\" trên phiếu."
     },
     {
       "id": "S14",
@@ -354,7 +354,7 @@
       "dien_giai": "Khi đã nghiệm thu và thanh toán xong, hoặc hai bên thống nhất dừng (vd creator huỷ booking). Kế toán thanh lý; mở lại cũng do Kế toán, người lập phiếu không tự mở lại."
     }
   ],
-  "so_do_mermaid": "flowchart TD\nsubgraph P1[\"Phần 1 · Chuẩn bị và lập phiếu\"]\nS1[\"1. Tạo hoặc chọn creator\"]\nS2[\"2. Nhập mã MISA cho creator mới\"]\nS3[\"3. Lập phiếu form 27\"]\nS4[\"4. Tạo Bản PDF để ký (khi ký số)\"]\nS5[\"5. Chạy AI QC (tuỳ chọn)\"]\nS6[\"6. Gửi duyệt\"]\nS1 --> S3\nS1 -.->|Kế toán làm song song| S2\nS3 --> S4\nS4 --> S5\nS5 --> S6\nend\nsubgraph P2[\"Phần 2 · Duyệt\"]\nS7[\"7. Cấp 1 · Trưởng bộ phận\"]\nS8[\"8. Cấp 2 · Kế toán\"]\nS9[\"9. Cấp 3 · Head of Finance\"]\nS10[\"10. Cấp 4 · Nhân sự (HĐ lao động)\"]\nS11[\"11. Cấp 5 · CEO\"]\nS12[\"12. Sửa và gửi lại\"]\nS7 --> S8\nS8 --> S9\nS9 -->|Hợp đồng lao động| S10\nS9 -->|Loại khác| S11\nS10 --> S11\nS7 -.->|Trả lại| S12\nS8 -.->|Trả lại| S12\nS9 -.->|Trả lại| S12\nS10 -.->|Trả lại| S12\nS11 -.->|Trả lại| S12\nS12 -.->|Gửi lại| S7\nend\nsubgraph P3[\"Phần 3 · Ký hợp đồng\"]\nS13[\"13. Ký số qua ERP: CEO rồi đối tác\"]\nS14[\"14. Ký trên cổng SCTS\"]\nS15[\"15. Tải bản đã ký (PDF)\"]\nS16{\"16. Máy kiểm bản ký\"}\nS17[\"17. Kế toán xác nhận bản ký\"]\nS18[\"18. Ký đủ: mở nghiệm thu và cọc\"]\nS13 -->|Bản ký tự về phiếu| S18\nS14 --> S15\nS15 --> S16\nS16 -->|Đạt| S18\nS16 -->|Chưa đạt| S17\nS17 --> S18\nend\nsubgraph P4[\"Phần 4 · Nghiệm thu và thanh toán (KOL/KOC)\"]\nS19[\"19. Tạo đợt nghiệm thu (BBNT)\"]\nS20[\"20. Gửi duyệt đợt\"]\nS21[\"21. Đợt · Kế toán tổng hợp\"]\nS22[\"22. Đợt · Kế toán trưởng\"]\nS23[\"23. Đợt · CEO\"]\nS24[\"24. Creator ký BBNT\"]\nS25[\"25. Tải BBNT đã ký\"]\nS26{\"26. Máy kiểm BBNT\"}\nS27[\"27. Kế toán xác nhận BBNT\"]\nS28[\"28. Lập ĐNTT\"]\nS29[\"29. Xác nhận tài khoản mới\"]\nS30[\"30. Thanh lý hợp đồng\"]\nS19 --> S20\nS20 --> S21\nS21 --> S22\nS22 --> S23\nS23 --> S24\nS24 --> S25\nS25 --> S26\nS26 -->|Đạt| S28\nS26 -->|Chưa đạt| S27\nS27 --> S28\nS29 -.->|Nếu creator đổi tài khoản| S28\nS28 -.->|Đợt tiếp theo| S19\nS28 -->|Xong hoặc dừng| S30\nend\nS6 --> S7\nS11 -->|Ký số qua ERP| S13\nS11 -->|Ký trên cổng ngoài| S14\nS18 --> S19",
+  "so_do_mermaid": "flowchart TD\nsubgraph P1[\"Phần 1 · Chuẩn bị và lập phiếu\"]\nS1[\"1. Tạo hoặc chọn creator\"]\nS2[\"2. Nhập mã MISA cho creator mới\"]\nS3[\"3. Lập phiếu form 27\"]\nS4[\"4. Tạo Bản PDF để ký (khi ký số)\"]\nS5[\"5. Chạy AI QC (tuỳ chọn)\"]\nS6[\"6. Gửi duyệt\"]\nS1 --> S3\nS1 -.->|Kế toán làm song song| S2\nS3 --> S4\nS4 --> S5\nS5 --> S6\nend\nsubgraph P2[\"Phần 2 · Duyệt\"]\nS7[\"7. Cấp 1 · Trưởng bộ phận\"]\nS8[\"8. Cấp 2 · Kế toán\"]\nS9[\"9. Cấp 3 · Head of Finance\"]\nS10[\"10. Cấp 4 · Nhân sự (HĐ lao động)\"]\nS11[\"11. Cấp 5 · CEO\"]\nS12[\"12. Sửa và gửi lại\"]\nS7 --> S8\nS8 --> S9\nS9 --> S11\nS10 --> S11\nS7 -.->|Trả lại| S12\nS8 -.->|Trả lại| S12\nS9 -.->|Trả lại| S12\nS10 -.->|Trả lại| S12\nS11 -.->|Trả lại| S12\nS12 -.->|Gửi lại| S7\nS12 -.->|Gửi lại HĐ lao động| S10\nend\nsubgraph P3[\"Phần 3 · Ký hợp đồng\"]\nS13[\"13. Ký số qua ERP: CEO rồi đối tác\"]\nS14[\"14. Ký trên cổng SCTS\"]\nS15[\"15. Tải bản đã ký (PDF)\"]\nS16{\"16. Máy kiểm bản ký\"}\nS17[\"17. Kế toán xác nhận bản ký\"]\nS18[\"18. Ký đủ: mở nghiệm thu và cọc\"]\nS13 -->|Bản ký tự về phiếu| S18\nS14 --> S15\nS15 --> S16\nS16 -->|Đạt| S18\nS16 -->|Chưa đạt| S17\nS17 --> S18\nend\nsubgraph P4[\"Phần 4 · Nghiệm thu và thanh toán (KOL/KOC)\"]\nS19[\"19. Tạo đợt nghiệm thu (BBNT)\"]\nS20[\"20. Gửi duyệt đợt\"]\nS21[\"21. Đợt · Kế toán tổng hợp\"]\nS22[\"22. Đợt · Kế toán trưởng\"]\nS23[\"23. Đợt · CEO\"]\nS24[\"24. Creator ký BBNT\"]\nS25[\"25. Tải BBNT đã ký\"]\nS26{\"26. Máy kiểm BBNT\"}\nS27[\"27. Kế toán xác nhận BBNT\"]\nS28[\"28. Lập ĐNTT\"]\nS29[\"29. Xác nhận tài khoản mới\"]\nS30[\"30. Thanh lý hợp đồng\"]\nS19 --> S20\nS20 --> S21\nS21 --> S22\nS22 --> S23\nS23 --> S24\nS24 --> S25\nS25 --> S26\nS26 -->|Đạt| S28\nS26 -->|Chưa đạt| S27\nS27 --> S28\nS29 -.->|Nếu creator đổi tài khoản| S28\nS28 -.->|Đợt tiếp theo| S19\nS28 -->|Xong hoặc dừng| S30\nend\nS6 -->|Hợp đồng KOL / loại khác| S7\nS6 -->|Hợp đồng lao động| S10\nS11 -->|Ký số qua ERP| S13\nS11 -->|Ký trên cổng ngoài| S14\nS18 --> S19",
   "cau_hoi_thuong_gap": [
     {
       "hoi": "Tôi là người duyệt, sao không thấy số CCCD, số tài khoản của creator?",
@@ -383,6 +383,10 @@
     {
       "hoi": "Đợt nghiệm thu bị trả lại hoặc từ chối thì sao?",
       "dap": "Bị trả lại (\"Cần bổ sung\"): sửa rồi bấm gửi lại; BBNT đổi thì duyệt lại từ đầu. Bị từ chối hoặc huỷ: đợt đó không tính vào số đã nghiệm thu; tạo đợt mới nếu vẫn cần nghiệm thu."
+    },
+    {
+      "hoi": "Tôi là HR, soạn hợp đồng lao động bằng Word thì cần gì để ký số được?",
+      "dap": "Gõ [[KY_BEN_A]] ngay dưới chỗ ký đại diện eCentric (CEO) và [[KY_BEN_B]] ngay dưới chỗ ký người lao động; đổi hai mốc này sang chữ trắng cỡ 1pt (không dùng Hidden). Thiếu [[KY_BEN_B]] thì cổng không tạo được tài liệu vì CMC bắt buộc có vị trí ký của người lao động. Nhập CCCD của người lao động ở ô \"CCCD / MST người ký phía đối tác\". Sau đó đính kèm tệp .docx và bấm \"Xác nhận hợp đồng & tạo bản ký\", hoặc tự lưu PDF rồi tải lên."
     }
   ]
 }

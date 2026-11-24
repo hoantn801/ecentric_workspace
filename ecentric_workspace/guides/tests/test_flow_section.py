@@ -58,6 +58,10 @@ class TestGoiHopDong(unittest.TestCase):
         self.assertIn("CCCD / MST người ký phía đối tác", steps["S3"]["dien_giai"])
         self.assertIn("Kế toán tổng hợp → Kế toán trưởng → CEO", steps["S20"]["dien_giai"])
         self.assertIn("đã duyệt xong", steps["S25"]["dien_giai"])
+        # HD lao dong: Nhan su -> CEO, khong qua 3 cap dau; HR dat moc ky (chat Ky so 24/11).
+        self.assertIn("S6 -->|Hợp đồng lao động| S10", _pkg()["so_do_mermaid"])
+        self.assertIn("[[KY_BEN_B]]", steps["S4"]["dien_giai"])
+        self.assertIn("1pt", steps["S4"]["dien_giai"])
 
     def test_form_erp_tro_dung_form(self):
         html = flow_section.render(_pkg(), *ASSETS)
