@@ -756,12 +756,22 @@ def process_signing_request(dsr_name):
                                           "transition_source": plan.get("transition_source"),
                                           "transition_id":
                                               (plan.get("config") or {}).get("transition_id"),
-                                          "discovery_probe": plan.get("discovery_probe")})
+                                          "discovery_probe": plan.get("discovery_probe"),
+                                          "signature_sent": not plan.get("partner_handover")})
                 sent_attempted = True
+                # Canh vao buoc DOI TAC (WF09 `-5` CEO -> Doi tac): cong CMC KHONG gui chu ky
+                # (tasks.js: requiresSignature = isSigned && toState.stateType !== 'PARTNER';
+                # o chon chu ky bi an, signatureInfo/signType = null). 25/11 EC-CTR-2026-00135:
+                # ERP gui kem signatureInfo "ky-chinh" -> Log xu ly quy trinh cua CMC "Loi xu
+                # ly", nguoi nhan trong; tai lieu sang nut doi tac nhung khong dong Ky chinh va
+                # doi tac "Cho gui di". Gui DUNG nhu cong: khong chu ky. Xac minh van doi chu ky
+                # cua nguoi nay tren tai lieu (khong ha chuan).
+                sig_for_send = (None if plan.get("partner_handover")
+                                else dsr.effective_signature_id)
                 try:
                     res = adapter.transition_with_recipients(
                         inst_id, dsr.effective_scts_user_id, plan["to_users"], plan["config"],
-                        dsr.effective_signature_id, actor_user_id=actor_uid)
+                        sig_for_send, actor_user_id=actor_uid)
                 except ProviderError as exc:
                     # A DEFINITE rejection (4xx) means the provider did NOT act, so re-sending
                     # through the older proven path is safe and is not a double-sign. An
