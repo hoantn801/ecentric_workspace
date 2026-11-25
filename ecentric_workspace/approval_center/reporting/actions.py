@@ -306,19 +306,14 @@ def _apply_esign_wait(data, request_name):
         return
     if ap.get("approval_status") != "Pending" or not ap.get("current_level"):
         return
-    try:
-        from ecentric_workspace.platform.esign import service as esign_service
-        leg = esign_service.in_flight_leg(request_name, ap.get("current_level"), frappe.session.user)
-    except Exception:
-        frappe.log_error(frappe.get_traceback(), "all-requests esign_wait")
-        return
-    if not leg:
+    from ecentric_workspace.approval_center.shared.requests import esign_wait
+    wait = esign_wait.in_flight(request_name, ap.get("current_level"), frappe.session.user)
+    if not wait:
         return
     for k in ("can_approve", "can_reject", "can_request_information"):
         cap[k] = False
     data["capabilities"] = cap
-    data["esign_wait"] = {"status": leg.get("status"), "accepted_at": str(leg.get("accepted_at") or ""),
-                          "manual": leg.get("status") == "Manual Review"}
+    data["esign_wait"] = wait
 
 
 # --------------------------------------------------------------------------- #

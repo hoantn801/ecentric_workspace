@@ -14,49 +14,51 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SRC = open(os.path.join(ROOT, "reporting", "actions.py"), encoding="utf-8").read()
 
 
+EW = "ecentric_workspace.approval_center.shared.requests.esign_wait"
+
+
 def _fn(calls, leg=None, boom=False):
+    """Chay _apply_esign_wait voi esign_wait gia (helper chung da tu boc loi + doi leg -> wait)."""
     tree = ast.parse(SRC)
     node = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "_apply_esign_wait")
-    fake = types.SimpleNamespace(session=types.SimpleNamespace(user="lam@ec"),
-                                 log_error=lambda *a, **k: calls.append(("log",)),
-                                 get_traceback=lambda: "tb")
-    svc = types.ModuleType("ecentric_workspace.platform.esign.service")
+    fake = types.SimpleNamespace(session=types.SimpleNamespace(user="lam@ec"))
+    ew = types.ModuleType(EW)
 
-    def in_flight_leg(ar, level, user):
+    def in_flight(ar, level, user):
         calls.append((ar, level, user))
-        if boom:
-            raise RuntimeError("x")
-        return leg
-    svc.in_flight_leg = in_flight_leg
-    pkg = types.ModuleType("ecentric_workspace.platform.esign")
-    pkg.service = svc
-    mods = {"ecentric_workspace.platform": types.ModuleType("ecentric_workspace.platform"),
-            "ecentric_workspace.platform.esign": pkg, "ecentric_workspace.platform.esign.service": svc}
+        if boom or not leg:
+            if boom:
+                calls.append(("log",))
+            return None
+        return {"status": leg.get("status"), "accepted_at": str(leg.get("accepted_at") or ""),
+                "manual": leg.get("status") == "Manual Review"}
+    ew.in_flight = in_flight
+    pkg_name = EW.rpartition(".")[0]
     ns = {"frappe": fake}
-    code = compile(ast.Module(body=[node], type_ignores=[]), "actions.py", "exec")
-    saved = {k: sys.modules.get(k) for k in mods}
-    sys.modules.update(mods)
-    try:
-        exec(code, ns)
-        f = ns["_apply_esign_wait"]
+    exec(compile(ast.Module(body=[node], type_ignores=[]), "actions.py", "exec"), ns)
+    f = ns["_apply_esign_wait"]
 
-        def run(data, name):
-            sys.modules.update(mods)
-            try:
-                return f(data, name)
-            finally:
-                for k, v in saved.items():
-                    if v is None:
-                        sys.modules.pop(k, None)
-                    else:
-                        sys.modules[k] = v
-        return run
-    finally:
-        for k, v in saved.items():
-            if v is None:
-                sys.modules.pop(k, None)
+    def run(data, name):
+        saved = sys.modules.get(EW)
+        pkg = sys.modules.get(pkg_name)
+        had = pkg is not None and hasattr(pkg, "esign_wait")
+        old = getattr(pkg, "esign_wait", None) if pkg is not None else None
+        sys.modules[EW] = ew
+        if pkg is not None:
+            pkg.esign_wait = ew
+        try:
+            return f(data, name)
+        finally:
+            if saved is None:
+                sys.modules.pop(EW, None)
             else:
-                sys.modules[k] = v
+                sys.modules[EW] = saved
+            if pkg is not None:
+                if had:
+                    pkg.esign_wait = old
+                else:
+                    delattr(pkg, "esign_wait")
+    return run
 
 
 def _data(**cap):
