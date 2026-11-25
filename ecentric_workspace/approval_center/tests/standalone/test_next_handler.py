@@ -163,6 +163,32 @@ class TestNextLevelApprovers(Base):
         self._approver(4, "ceo@ec.vn")
         self.assertEqual(self.nh.next_level_approvers("AR-1", 4), [])
 
+    def test_skipped_level_jumps_to_the_next_level_that_exists(self):
+        """Su co 25/11 EC-APR-2026-01321: routing bo cap 4 (HR) cua HD KOL -> cap 3 duyet phai
+        trao cho CEO cap 5, khong phai [] (no_next_level_approver:not_final_level)."""
+        self._approver(2, "lien.vu@ecentric.vn", status="Approved")
+        self._approver(3, "phuong.nguyen1@ecentric.vn")
+        self._approver(5, "lam.nguyen@ecentric.vn")
+        self.assertEqual(self.nh.next_level_approvers("AR-1", 3), ["lam.nguyen@ecentric.vn"])
+
+    def test_labor_contract_requester_reaches_hr_at_level_four(self):
+        self._approver(4, "cnb@ec.vn")
+        self._approver(5, "ceo@ec.vn")
+        self.assertEqual(self.nh.next_level_approvers("AR-1", 0), ["cnb@ec.vn"])
+
+    def test_next_existing_level_not_pending_stays_empty(self):
+        """Cap ke tiep CO dong nhung khong Pending -> [] (khong nhay qua no toi cap sau)."""
+        self._approver(4, "x@ec.vn", status="Rejected")
+        self._approver(5, "ceo@ec.vn")
+        self.assertEqual(self.nh.next_level_approvers("AR-1", 3), [])
+
+    def test_other_requests_rows_are_ignored(self):
+        STORE.setdefault("EC Approval Request Approver", []).append(
+            {"approval_request": "AR-2", "level_no": 4, "approver": "khac@ec.vn",
+             "status": "Pending"})
+        self._approver(5, "ceo@ec.vn")
+        self.assertEqual(self.nh.next_level_approvers("AR-1", 3), ["ceo@ec.vn"])
+
 
 class TestProviderIds(Base):
     def test_only_verified_mappings_are_used(self):
