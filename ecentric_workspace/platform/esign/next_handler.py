@@ -94,21 +94,31 @@ def resolve_transition_config(profile_name, action, stage=None, step_index=None)
 
 
 def next_level_approvers(approval_request, current_level):
-    """ERP users who may act on the level AFTER `current_level` (pending rows only).
+    """ERP users who may act on the NEXT level after `current_level` (pending rows only).
 
-    `current_level` 0 means the requester leg: the next actors are level 1. Returns [] when
-    the chain has no further level - the caller then has nobody to hand over to.
+    `current_level` 0 means the requester leg. "Next level" = the smallest level_no above
+    `current_level` that HAS approver rows on this request - NOT `current_level + 1`. Routing
+    may drop a whole level (CONTRACT_REVIEW-V2: KOL / service contracts skip L4 HR, labor
+    contracts skip L1-L3), leaving no rows for it. Su co 25/11 EC-APR-2026-01321 (HD KOL 00135):
+    HOF cap 3 bam Duyet & Ky, cap 4 khong co dong -> [] -> "no_next_level_approver:
+    not_final_level" du CEO cap 5 dang cho.
+    Only that next level's PENDING rows are returned: when it exists but is not Pending, the
+    answer stays [] (callers rely on this - see plan_portal_step).
+    Returns [] when the chain has no further level.
     """
     if not approval_request:
         return []
-    nxt = int(current_level or 0) + 1
-    rows = frappe.get_all(APPROVER,
-                          filters={"approval_request": approval_request, "level_no": nxt,
-                                   "status": "Pending"},
-                          fields=["approver"], limit_page_length=0)
+    cur = int(current_level or 0)
+    rows = frappe.get_all(APPROVER, filters={"approval_request": approval_request},
+                          fields=["approver", "level_no", "status"], limit_page_length=0)
+    later = [int(r.level_no) for r in rows if r.level_no is not None and int(r.level_no) > cur]
+    if not later:
+        return []
+    nxt = min(later)
     seen, out = set(), []
     for r in rows:
-        if r.approver and r.approver not in seen:
+        if (r.level_no is not None and int(r.level_no) == nxt and r.status == "Pending"
+                and r.approver and r.approver not in seen):
             seen.add(r.approver)
             out.append(r.approver)
     return out
