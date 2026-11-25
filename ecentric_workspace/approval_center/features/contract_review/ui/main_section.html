@@ -849,7 +849,7 @@
     if(cap.can_submit){ return '<div class="actions"><button type="button" class="btn primary" data-act="submitdraft">Gửi yêu cầu</button><button type="button" class="btn" data-act="editdraft">Tiếp tục chỉnh sửa</button><button type="button" class="btn" data-act="cancel">Xoá bản nháp</button></div><div class="hint" style="margin-top:8px">Yêu cầu đang ở trạng thái nháp — chưa gửi phê duyệt.</div>'; }
     if(cap.can_edit&&ap.approval_status==="Information Required") btns.push('<button type="button" class="btn primary" data-act="edit">Chỉnh sửa & gửi lại</button>');
     else if(cap.can_edit) btns.push('<button type="button" class="btn" data-act="edit">Chỉnh sửa</button>');
-    if(cap.can_approve) btns.push('<button type="button" class="btn primary" data-act="approve">Duyệt</button>');
+    if(cap.can_approve) btns.push('<button type="button" class="btn primary" data-act="approve">'+(cap.requires_signature?'Duyệt &amp; Ký':'Duyệt')+'</button>');
     if(cap.can_request_information) btns.push('<button type="button" class="btn" data-act="reqinfo">Yêu cầu bổ sung</button>');
     if(cap.can_reject) btns.push('<button type="button" class="btn" data-act="reject">Từ chối</button>');
     if(window.EcRemind) btns.push(EcRemind.buttonHTML(cap));   // 01/10: nhac nguoi xu ly (asset dung chung)
@@ -879,7 +879,7 @@
     var a=el.getAttribute("data-act"); if(!a||el.disabled) return; if(document.querySelector(".ec-ctr-overlay")) return; e.preventDefault();
     var det=state.detail||{}; var name=(det.business||{}).name||state.id;
     if(a==="editdraft") return startEditDraft(det); if(a==="submitdraft") return doSubmitDraft(name);
-    if(a==="edit") return startEditResubmit(det); if(a==="approve") return doApprove(name,det); if(a==="remind") return window.EcRemind&&EcRemind.run(call,name,{toast:toast,mapErr:(typeof mapErr==="function"?mapErr:null),done:function(){ if(typeof refreshDetail==="function") refreshDetail(); else if(typeof renderDetail==="function") renderDetail(document.querySelector('[id$="-body"]')); }});
+    if(a==="edit") return startEditResubmit(det); if(a==="approve") return ((det.capabilities||{}).requires_signature?doApproveAndSign(name,det):doApprove(name,det)); if(a==="remind") return window.EcRemind&&EcRemind.run(call,name,{toast:toast,mapErr:(typeof mapErr==="function"?mapErr:null),done:function(){ if(typeof refreshDetail==="function") refreshDetail(); else if(typeof renderDetail==="function") renderDetail(document.querySelector('[id$="-body"]')); }});
     if(a==="reject") return doReject(name); if(a==="reqinfo") return doRequestInfo(name);
     if(a==="adminapprove") return doAdminApprove(name); if(a==="cancel") return doCancel(name);
     if(a==="clone") return doClone(name); }
@@ -911,6 +911,21 @@
     return '<div class="summary-row"><span>Người yêu cầu</span><b>'+esc(b.requested_by||"—")+'</b></div><div class="summary-row"><span>Loại</span><b>'+esc(b.request_kind==="Existing"?"Điều chỉnh":"Hợp đồng mới")+'</b></div><div class="summary-row"><span>Brand</span><b>'+esc(b.brand||"—")+'</b></div><div class="summary-row"><span>Giá trị</span><b>'+esc(vnd)+'</b></div>'; }
   function doApprove(name,det){ modal("Duyệt yêu cầu", summaryRows(det)+'<div class="fld"><label>Ghi chú (không bắt buộc)</label><textarea id="m-cmt" rows="2"></textarea></div>', {okLabel:"Duyệt", onConfirm:function(ov){ var cmt=(ov.querySelector("#m-cmt").value||"");
     return call("approve",{name:name,comment:cmt}).then(function(res){ var nx=nextLevelName(res&&res.detail); toast(nx?("Đã duyệt. Chuyển sang "+nx+"."):"Đã duyệt. Yêu cầu hoàn tất."); refreshDetail(); refreshApprovals(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
+  // 25/11/2026 (chi Lien, EC-CTR-2026-00135): cap duyet di qua cong ky so (KOL WF09: Ke toan / HOF "duyet
+  // khong ky", CEO ky) KHONG duoc goi approve thuong - engine chan "[no_completion_marker]". Nut "Duyet & Ky"
+  // (khu hanh dong cua trang + o "Viec cua ban" dung chung) goi API dung chung cua nen tang ky so: ERP gui buoc
+  // cua nguoi nay len cong, cap duyet tu dong khi cong xac nhan. Cung cach form DNTT (pr_approve_and_sign).
+  function callEsign(method,args){ var fr=window.frappe; if(!fr||!fr.call) return Promise.reject(new Error("no frappe"));
+    return fr.call({method:"ecentric_workspace.platform.esign.api."+method, args:args||{}, type:"POST"})
+      .then(function(r){ return r&&r.message; }); }
+  function doApproveAndSign(name,det){ modal("Duyệt & Ký", summaryRows(det)
+      +'<div class="banner info">Cấp này duyệt qua cổng ký số. Bấm <b>Duyệt &amp; Ký</b>: ERP gửi bước của bạn lên cổng (cấp cần chữ ký thì ký số luôn), phiếu tự chuyển cấp khi cổng xác nhận — thường trong ít phút.</div>'
+      +'<div class="fld"><label>Ghi chú (không bắt buộc)</label><textarea id="m-cmt" rows="2"></textarea></div>',
+    {okLabel:"Duyệt & Ký", onConfirm:function(ov){ var cmt=(ov.querySelector("#m-cmt").value||"").trim();
+      return callEsign("approve_and_sign",{business_doctype:"EC Contract Review Request",business_name:name,comment:cmt}).then(function(res){
+        toast((res&&res.duplicate)?"Yêu cầu đã gửi lên cổng ký trước đó — đang chờ cổng xác nhận.":"Đã gửi lên cổng ký. Phiếu sẽ chuyển cấp khi cổng xác nhận.");
+        refreshDetail(); refreshApprovals();
+      }).catch(function(e){ toast(extractServerMsg(e)||mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
   function doReject(name){ modal("Từ chối yêu cầu", '<div class="banner err">Sau khi từ chối, yêu cầu sẽ kết thúc.</div><div class="fld"><label>Lý do <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>', {okLabel:"Từ chối", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập lý do.",true); return Promise.reject(); }
     return call("reject",{name:name,comment:c}).then(function(){ toast("Đã từ chối."); refreshDetail(); refreshApprovals(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
   function doRequestInfo(name){ modal("Yêu cầu bổ sung thông tin", '<div class="banner info">Yêu cầu sẽ được trả lại người gửi để bổ sung.</div><div class="fld"><label>Nội dung cần bổ sung <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>', {okLabel:"Gửi yêu cầu", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập nội dung.",true); return Promise.reject(); }
