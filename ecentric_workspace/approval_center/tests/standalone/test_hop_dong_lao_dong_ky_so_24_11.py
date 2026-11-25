@@ -147,7 +147,8 @@ class LaoDongTrang(unittest.TestCase):
         self.assertIn("spv=((ex.kol||{}).sign_pdf)||ex.sign_pdf||{}", self.page)
 
     def test_detail_extra_lao_dong(self):
-        seg = self.svc[self.svc.index("def detail_extra("):]
+        # 25/11: detail_extra boc them esign_wait; nhanh theo loai hop dong nam o _detail_extra.
+        seg = self.svc[self.svc.index("def _detail_extra("):]
         self.assertIn("LABOR_CONTRACT_TYPE", seg[:900])
         self.assertIn('{"sign_pdf": kol_sign_pdf.view(', seg[:900])
 

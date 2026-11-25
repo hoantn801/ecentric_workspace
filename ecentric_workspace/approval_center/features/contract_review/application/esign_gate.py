@@ -86,3 +86,26 @@ def docx_to_pdf(doc, file_url):
     ket thuc."""
     from ecentric_workspace.platform.esign import api as esign_api
     return esign_api.convert_business_docx_to_pdf(CR_DT, doc.name, file_url)
+
+
+def in_flight(request, user):
+    """Buoc "Duyet & Ky" cua `user` o cap hien tai dang cho cong xac nhan (25/11/2026, chi Lien 00135:
+    bam xong cong mat ~30s, trang van hien nut nhu chua bam; Ctrl+Shift+R cung vay). Nguon that la ban
+    ghi yeu cau ky (DSR) cua nen tang - `service.in_flight_leg`, cung ham DNTT dung qua signing_readiness.
+    -> {status, accepted_at, manual} hoac None. Khong ky so / phieu khong o Pending / loi -> None (form
+    chay nhu cu, khong bao gio lam vo trang chi tiet)."""
+    try:
+        if not request or not user:
+            return None
+        get = request.get if hasattr(request, "get") else (lambda k: getattr(request, k, None))
+        if get("approval_status") != "Pending" or not get("current_level") or not get("name"):
+            return None
+        from ecentric_workspace.platform.esign import service
+        leg = service.in_flight_leg(get("name"), get("current_level"), user)
+        if not leg:
+            return None
+        return {"status": leg.get("status"), "accepted_at": leg.get("accepted_at") or "",
+                "manual": leg.get("status") == "Manual Review"}
+    except Exception:
+        return None
+

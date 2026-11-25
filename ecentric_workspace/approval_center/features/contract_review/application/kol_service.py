@@ -514,7 +514,18 @@ def mark_signed(name, signed_file, user):
 
 def detail_extra(business, request):
     """`detail_extender`: khoi KOL tren trang chi tiet (khong co PII creator). Hop dong lao dong: chi o
-    "Ban PDF de ky" (chat Ky so 24/11, WF03)."""
+    "Ban PDF de ky" (chat Ky so 24/11, WF03). Moi loai: `esign_wait` = buoc "Duyet & Ky" cua NGUOI DANG
+    XEM dang cho cong xac nhan (25/11) - trang an nut ngay tu lan ve dau, ke ca sau Ctrl+Shift+R."""
+    from ecentric_workspace.approval_center.features.contract_review.application import esign_gate
+    out = _detail_extra(business, request)
+    wait = esign_gate.in_flight(request, frappe.session.user)
+    if wait:
+        out = dict(out or {})
+        out["esign_wait"] = wait
+    return out
+
+
+def _detail_extra(business, request):
     if not kol.is_kol(business):
         if business.get("contract_type") == esign_flow.LABOR_CONTRACT_TYPE:
             from ecentric_workspace.approval_center.features.contract_review.application import kol_sign_pdf
