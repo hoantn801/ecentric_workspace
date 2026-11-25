@@ -703,7 +703,26 @@
     call("get_detail",{name:state.id}).then(function(det){ drawDetail(b,det); })
     .catch(function(e){ var perm=/quyền|access|permission/i.test(((e&&e.message)||"")+" "+(window.EcApprovalUI?EcApprovalUI.serverMessage(e)+" "+((e&&(e.exc_type||(e.responseJSON&&e.responseJSON.exc_type)))||""):"")); b.innerHTML='<div class="card"><div class="state"><h4>'+(perm?"Bạn không có quyền xem yêu cầu này":"Không tải được yêu cầu")+'</h4>'+(perm||!window.EcApprovalUI?'':'<div class="hint">'+esc(EcApprovalUI.errorText(e,"Vui lòng thử lại sau ít phút."))+'</div>')+'<button class="btn" id="d-back">Quay lại</button></div></div>'; var bk=$("d-back"); if(bk)bk.onclick=function(){ window.location.href=hubHref(); }; }); }
   function kv(k,v){ return '<div class="fld"><label>'+esc(k)+'</label><input class="ro" readonly value="'+esc(v==null||v===""?"—":v)+'"></div>'; }
-  function drawDetail(b,det){ state.detail=det; var biz=det.business||{}, ap=det.approval||{};
+  // 25/11/2026: buoc "Duyet & Ky" cua nguoi dang xem da gui len cong, dang cho CMC xac nhan (thuong < 1 phut).
+  // Server bao qua extra.esign_wait (ban ghi yeu cau ky cua nen tang) -> an nut ngay tu lan ve DAU, ke ca sau
+  // Ctrl+Shift+R; o "Viec cua ban" chuyen sang dang cho; trang tu tai lai toi khi cong xac nhan.
+  function applyEsignWait(det){ var w=((det||{}).extra||{}).esign_wait; if(!w) return null;
+    var c=det.capabilities=det.capabilities||{}; c.can_approve=false; c.can_reject=false; c.can_request_information=false;
+    var v=det.viewer; if(v&&v.kind==="approve") det.viewer={kind:"watch",role:"esign_wait",level_no:v.level_no,level_name:v.level_name,
+      waiting_on:["cổng ký CMC"],step_label:w.manual?"bước Duyệt & Ký của bạn cần kiểm tra thủ công":"xác nhận bước Duyệt & Ký của bạn"};
+    return w; }
+  function esignWaitHTML(w){ if(!w) return ""; var at=w.accepted_at?String(w.accepted_at).slice(11,16):"";
+    return w.manual?'<div class="banner warn">Bước Duyệt &amp; Ký của bạn'+(at?' (gửi lúc '+esc(at)+')':'')+' đang chờ bộ phận Ký số kiểm tra trên cổng. Bạn không cần bấm lại.</div>'
+      :'<div class="banner info">Đã gửi bước Duyệt &amp; Ký của bạn lên cổng'+(at?' lúc '+esc(at):'')+' — đang chờ CMC xác nhận (thường dưới 1 phút). Trang tự cập nhật, bạn không cần bấm lại.'
+        +(state._esignSlow?' <b>Cổng đang xác nhận chậm hơn thường lệ.</b>':'')+'</div>'; }
+  function scheduleEsignWait(det){ if(state._esignTimer){ clearTimeout(state._esignTimer); state._esignTimer=null; }
+    var w=((det||{}).extra||{}).esign_wait, id=state.id;
+    if(!w||w.manual){ if(!w&&state._esignSince&&state._esignFor===id) toast("Cổng ký đã xác nhận — bước của bạn đã duyệt xong.");
+      state._esignSince=null; state._esignSlow=false; return; }
+    if(state._esignFor!==id){ state._esignFor=id; state._esignSince=Date.now(); state._esignSlow=false; }
+    var age=Date.now()-(state._esignSince||Date.now()); state._esignSlow=age>180000;
+    state._esignTimer=setTimeout(function(){ state._esignTimer=null; if(state.tab==="detail"&&state.id===id) refreshDetail(); }, state._esignSlow?30000:5000); }
+  function drawDetail(b,det){ applyEsignWait(det); scheduleEsignWait(det); state.detail=det; var biz=det.business||{}, ap=det.approval||{};
     b.innerHTML='<div style="margin-bottom:12px"><button type="button" class="btn" id="d-back">‹ Danh sách</button></div>'
       +'<div class="card"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px"><div><h3 style="margin:0">'+esc(biz.request_title||biz.name||state.id)+'</h3><div class="hint">'+esc(biz.name||"")+' · '+esc(biz.request_kind==="Existing"?("Điều chỉnh "+(biz.previous_request||"")):"Hợp đồng mới")+' · '+esc(biz.requested_by||"")+' · '+esc(biz.department||"")+(biz.expected_response_date?(' · Hạn phản hồi '+esc(biz.expected_response_date)):'')+'</div></div><div>'+badge(ap.approval_status||"Draft")+'</div></div></div>'
       +'<div class="card"><h3>Tiến trình phê duyệt</h3><div class="stepper" id="ctr-d-stepper"></div></div>'
@@ -846,6 +865,7 @@
 
   // ---- action panel + modal ----
   function actionPanelHTML(det){ var cap=det.capabilities||{}; var ap=det.approval||{}; var btns=[];
+    var ew=((det.extra||{}).esign_wait); if(ew) return esignWaitHTML(ew);
     if(cap.can_submit){ return '<div class="actions"><button type="button" class="btn primary" data-act="submitdraft">Gửi yêu cầu</button><button type="button" class="btn" data-act="editdraft">Tiếp tục chỉnh sửa</button><button type="button" class="btn" data-act="cancel">Xoá bản nháp</button></div><div class="hint" style="margin-top:8px">Yêu cầu đang ở trạng thái nháp — chưa gửi phê duyệt.</div>'; }
     if(cap.can_edit&&ap.approval_status==="Information Required") btns.push('<button type="button" class="btn primary" data-act="edit">Chỉnh sửa & gửi lại</button>');
     else if(cap.can_edit) btns.push('<button type="button" class="btn" data-act="edit">Chỉnh sửa</button>');
