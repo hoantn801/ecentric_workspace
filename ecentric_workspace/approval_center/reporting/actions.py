@@ -284,12 +284,41 @@ def get_request_detail(request_name):
         if isinstance(level, dict) and level.get("level_name"):
             level["level_name"] = vi_display.level_name(level["level_name"])
     data["business_name"] = name
+    _apply_esign_wait(data, request_name)
     data["type_title"] = frappe.db.get_value("EC Approval Type", definition.code, "approval_title") \
         or definition.code
     route = frappe.db.get_value("EC Approval Type", definition.code, "route")
     if route:
         data["detail_route"] = ("/" + route.lstrip("/")) + "?id=" + name
     return data
+
+
+def _apply_esign_wait(data, request_name):
+    """Cua so xem nhanh /approvals/all-requests (25/11/2026, anh Lam - EC-CTR-2026-00135, EC-DSR-2026-02797):
+    nguoi duyet da bam "Duyet & Ky", buoc cua ho dang cho cong xac nhan, nhung cua so van hien nut "Duyet &
+    Ky" (form 27 da an tu p557). Cung nguon that: ban ghi yeu cau ky cua nen tang
+    (platform.esign.service.in_flight_leg). Co chan dang bay -> tat Duyet / Tu choi / Yeu cau bo sung cua
+    NGUOI DANG XEM trong goi tra ve (chi popup nay; trang form tu xu ly) + `esign_wait` de cua so bao dang
+    cho. Chi xet khi cap nay yeu cau ky (requires_signature). Loi -> giu nguyen, khong lam vo popup."""
+    cap = data.get("capabilities") or {}
+    ap = data.get("approval") or {}
+    if not (cap.get("can_approve") and cap.get("requires_signature")):
+        return
+    if ap.get("approval_status") != "Pending" or not ap.get("current_level"):
+        return
+    try:
+        from ecentric_workspace.platform.esign import service as esign_service
+        leg = esign_service.in_flight_leg(request_name, ap.get("current_level"), frappe.session.user)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "all-requests esign_wait")
+        return
+    if not leg:
+        return
+    for k in ("can_approve", "can_reject", "can_request_information"):
+        cap[k] = False
+    data["capabilities"] = cap
+    data["esign_wait"] = {"status": leg.get("status"), "accepted_at": str(leg.get("accepted_at") or ""),
+                          "manual": leg.get("status") == "Manual Review"}
 
 
 # --------------------------------------------------------------------------- #

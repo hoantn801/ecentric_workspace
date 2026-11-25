@@ -222,6 +222,8 @@
   .ec-apl-tl .cmt{ display:block; margin-top:2px; color:#4b5563; background:#f9fafb; border-radius:7px; padding:5px 9px; }
   /* ô nhập lý do hiện ngay trong popup — không dùng hộp thoại trình duyệt */
   .ec-apl-note{ border-top:1px solid #eef0f4; padding:14px 20px; background:#fbfbfd; }
+  .ec-apl-wait{ margin:0 0 14px; padding:11px 14px; border-radius:10px; background:#eef2ff; color:#1e3a8a; font-size:13px; line-height:1.5; }
+  .ec-apl-wait.warn{ background:#fff7ed; color:#9a3412; }
   .ec-apl-note label{ display:block; font-size:12px; font-weight:600; color:#374151; margin-bottom:6px; }
   .ec-apl-note textarea{ width:100%; min-height:70px; padding:9px 11px; border:1px solid #e5e7eb; border-radius:9px;
     font-size:13px; font-family:inherit; resize:vertical; color:#111827; }
@@ -860,6 +862,13 @@
     var biz=d.business||{}, ap=d.approval||{}, cap=d.capabilities||{}, ff=d.fulfillment||{};
     var levels=d.levels||[], cur=ap.current_level;
     var overall=ap.approval_status||biz.final_status||biz.status||"";
+    // 25/11 (anh Lam, 00135): buoc "Duyet & Ky" cua nguoi dang xem dang cho cong xac nhan -> server da tat
+    // nut (get_request_detail._apply_esign_wait); o day bao dang cho + tu mo lai toi khi cong xac nhan.
+    var ew=d.esign_wait, ewAt=ew&&ew.accepted_at?String(ew.accepted_at).slice(11,16):"";
+    var waitHtml=!ew?"":(ew.manual
+      ?'<div class="ec-apl-wait warn">Bước Duyệt &amp; Ký của bạn'+(ewAt?' (gửi lúc '+esc(ewAt)+')':'')+' đang chờ bộ phận Ký số kiểm tra trên cổng. Bạn không cần bấm lại.</div>'
+      :'<div class="ec-apl-wait">Đã gửi bước Duyệt &amp; Ký của bạn lên cổng'+(ewAt?' lúc '+esc(ewAt):'')+' — đang chờ CMC xác nhận (thường dưới 1 phút). Cửa sổ tự cập nhật, bạn không cần bấm lại.</div>');
+    scheduleSignWait(reqName, ew);
     var title=biz.request_title||d.type_title||reqName;
     var who=biz.requested_by||"";
     var parts=splitFields(d.display_fields||[]);
@@ -946,7 +955,7 @@
     var bodyEl=box.querySelector('[data-h="body"]');
     bodyEl.classList.remove("loading");
     bodyEl.innerHTML =
-      hl
+      waitHtml+hl
       +(levels.length?('<div class="ec-apl-sec"><h4>Tiến trình duyệt</h4>'+stepperHtml(levels,cur,overall,ff)+'</div>'):'')
       +(fields?('<div class="ec-apl-sec"><h4>Nội dung yêu cầu</h4><div class="ec-apl-kv">'+fields+'</div></div>'):'')
       +(files?('<div class="ec-apl-sec"><h4>Đính kèm</h4><div class="ec-apl-files">'+files+'</div>'+caub+'</div>'):'');
@@ -1027,6 +1036,16 @@
   // Duyet & Ky tu popup: goi dung endpoint ky so (chinh dieu form Payment Request lam), server
   // tu resolve cap/goi ky/vi tri/chuyen tiep. Ket qua la "da GUI lenh ky" - chu ky duoc xac
   // nhan bat dong bo trong vai giay toi vai phut; khong hua "da duyet".
+  // Tu mo lai cua so xem nhanh trong luc buoc ky dang cho cong (5s; qua 3 phut: 30s). Dong cua so / doi
+  // phieu -> dung. Cong xac nhan xong (het esign_wait) -> bao mot lan.
+  function scheduleSignWait(reqName, ew){
+    if(state._swTimer){ clearTimeout(state._swTimer); state._swTimer=null; }
+    if(!ew||ew.manual){ if(!ew&&state._swFor===reqName&&state._swSince) toast("Cổng ký đã xác nhận — bước của bạn đã duyệt xong.","ok");
+      state._swFor=null; state._swSince=null; return; }
+    if(state._swFor!==reqName){ state._swFor=reqName; state._swSince=Date.now(); }
+    var slow=(Date.now()-state._swSince)>180000;
+    state._swTimer=setTimeout(function(){ state._swTimer=null; if(state.openReq===reqName) openDetail(reqName); }, slow?30000:5000);
+  }
   function runApproveSign(reqName, btn, fromModal, comment){
     var d=state.detail||{}, ap=d.approval||{};
     // reqName tren hub la MA PHE DUYET (EC-APR-...), con business_name la ma phieu (EC-PAYR-...).
@@ -1038,6 +1057,7 @@
       .then(function(){
         toast("Đã gửi lệnh ký cho "+reqName+". Chữ ký sẽ được xác nhận trong ít phút.","ok");
         if(fromModal){ closeDetail(); }
+        else if(state.openReq===reqName){ openDetail(reqName); }   // 25/11: ve lai -> an nut, bao dang cho cong
         load();
       })
       .catch(function(e){
