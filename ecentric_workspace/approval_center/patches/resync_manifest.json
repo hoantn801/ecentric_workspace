@@ -144,8 +144,8 @@
     "sha256": "fa933f208626559a98ae4eb3ed2c427971cced0ab75e852e9555f8d64ddac935"
   },
   "approval_center/ui/all_requests/main_section.html": {
-    "last_resync_patch": "p431_resync_hub_toi_theo_doi",
-    "sha256": "06ecd83dd7069c81733c758514c31092608ad8379f9ce7a1bbb62fe5d5564671"
+    "last_resync_patch": "p558_resync_hub_cho_cong_ky",
+    "sha256": "368b1e3dd327cd121b45cf88ebb595e00d4e91763f099032398262c5b4647967"
   },
   "approval_center/ui/dashboard/main_section.html": {
     "baseline": "2026-08-31",

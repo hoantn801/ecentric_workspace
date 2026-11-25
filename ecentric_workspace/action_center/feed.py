@@ -252,6 +252,14 @@ def _engine_link_state(rows, user):
                                 fields=["name", "route"], ignore_permissions=True) or []:
             type_route[t["name"]] = (t.get("route") or "").strip()
 
+    # 25/11/2026 (PO): buoc "Duyet & Ky" cua user o cap hien tai dang cho cong ky xac nhan -> khong con
+    # la viec cua user: khong the, khong tinh vao so "Cho toi duyet". Cong bao loi han / cap bi tra lai
+    # -> het "dang bay" -> the hien lai. Nguon that chung: approval_center.shared.requests.esign_wait.
+    from ecentric_workspace.approval_center.shared.requests import esign_wait as _esign_wait
+    esign_waiting = _esign_wait.waiting_requests(user, {
+        r["name"]: r.get("current_level") for r in reqs
+        if r.get("approval_status") not in _APPROVAL_TERMINAL and r.get("current_level")})
+
     level_map = {}                     # request -> {level_no: (level_status, due_at)}
     for lv in frappe.get_all(EC_LEVEL, filters={"approval_request": ["in", req_names]},
                              fields=["approval_request", "level_no", "level_status", "due_at"],
@@ -319,7 +327,12 @@ def _engine_link_state(rows, user):
         ftodo = (_open_fulfillment_todo(biz_dt, biz, user)
                  if (appr_status == "Approved" and ful_status in _FULFILLMENT_ACTIVE)
                  else None)
-        if appr_status not in _APPROVAL_TERMINAL:
+        if appr_status not in _APPROVAL_TERMINAL and reqname in esign_waiting:
+            # Da bam "Duyet & Ky", dang cho cong xac nhan -> nhu terminal: khong the, khong dem.
+            out[key] = {"found": True, "stage": "approval", "terminal": True, "esign_wait": True,
+                        "active": False, "due": "", "route": route,
+                        "request": reqname, "biz_name": biz, "visible": False}
+        elif appr_status not in _APPROVAL_TERMINAL:
             # APPROVAL stage: due from the CURRENT actionable level SLA only.
             cur = req.get("current_level") or 0
             ls, lvl_due = level_map.get(reqname, {}).get(cur, ("", ""))

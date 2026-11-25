@@ -450,6 +450,20 @@ def awaiting_my_decision_sql(param_name):
             "AND va.level_no = r.current_level AND va.status = 'Pending'))")
 
 
+def _esign_waiting(me):
+    """Phieu dang cho `me` duyet (dung cap, dong approver Pending) ma buoc "Duyet & Ky" cua `me` dang
+    cho cong ky xac nhan. Loi -> set() (phieu van hien)."""
+    try:
+        rows = frappe.db.sql(
+            "SELECT r.name, r.current_level FROM `tabEC Approval Request` r WHERE "
+            + awaiting_my_decision_sql("_me"), {"_me": me}, as_dict=True) or []
+        from ecentric_workspace.approval_center.shared.requests import esign_wait
+        return esign_wait.waiting_requests(me, {r["name"]: r["current_level"] for r in rows})
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "reporting.queries._esign_waiting")
+        return set()
+
+
 def _my_todo_clause(me, params):
     """Tab 'Chờ tôi xử lý' = MỌI việc đang chờ tôi ra tay.
 
@@ -459,7 +473,19 @@ def _my_todo_clause(me, params):
     parts = []
     if me:
         params["_me_todo"] = me
-        parts.append(awaiting_my_decision_sql("_me_todo"))
+        mine = awaiting_my_decision_sql("_me_todo")
+        # 25/11/2026 (PO): phieu toi DA bam "Duyet & Ky" va dang cho cong xac nhan -> khong con la viec cua
+        # toi, khong hien o tab nay va khong tinh vao so dem. Cong bao loi han / cap bi tra lai -> het
+        # "dang bay" -> phieu tu hien lai. Nguon that: shared.requests.esign_wait (in_flight_leg).
+        waiting = _esign_waiting(me)
+        if waiting:
+            keys = []
+            for i, nm in enumerate(sorted(waiting)):
+                k = "_ew%d" % i
+                params[k] = nm
+                keys.append("%%(%s)s" % k)
+            mine = "(" + mine + " AND r.name NOT IN (" + ", ".join(keys) + "))"
+        parts.append(mine)
     refs = _fulfillment_refs(me)
     if refs:
         keys = []
