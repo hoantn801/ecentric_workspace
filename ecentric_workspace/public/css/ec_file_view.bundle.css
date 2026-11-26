@@ -1,0 +1,57 @@
+/* Hop thoai "Xem tep" .docx (26/11/2026) - xem public/js/ec_file_view.bundle.js.
+   Token dung chung --ec-* (ec_shell :root) kem gia tri du phong khi trang khong nap shell. */
+.ec-fv-ov {
+  --fv-navy: var(--ec-navy, #2f3a8f);
+  --fv-surface: var(--ec-surface, #fff);
+  --fv-line: var(--ec-gray-200, #e5e7eb);
+  --fv-muted: var(--ec-gray-500, #6b7280);
+  --fv-text: var(--ec-gray-900, #111827);
+  --fv-paper: #eef0f3;
+  --fv-radius: 12px;
+  position: fixed; inset: 0; z-index: 10100;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(15, 23, 42, .55); padding: 16px; box-sizing: border-box;
+}
+.ec-fv-modal {
+  display: flex; flex-direction: column; width: min(1000px, 100%); height: min(92vh, 100%);
+  background: var(--fv-surface); border-radius: var(--fv-radius); overflow: hidden;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, .3); color: var(--fv-text);
+}
+.ec-fv-h {
+  display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+  border-bottom: 1px solid var(--fv-line);
+}
+.ec-fv-ttl { flex: 1; min-width: 0; }
+.ec-fv-k { font-size: 12px; color: var(--fv-muted); font-weight: 600; }
+.ec-fv-name { font-size: 15px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ec-fv-act { display: flex; gap: 8px; flex-shrink: 0; }
+.ec-fv-btn {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 36px; padding: 0 14px;
+  border: 1px solid var(--fv-line); border-radius: 8px; background: var(--fv-surface); color: var(--fv-text);
+  font: inherit; font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer;
+}
+.ec-fv-btn:hover { border-color: var(--fv-navy); color: var(--fv-navy); text-decoration: none; }
+.ec-fv-btn:focus-visible { outline: 2px solid var(--fv-navy); outline-offset: 2px; }
+.ec-fv-primary { background: var(--fv-navy); border-color: var(--fv-navy); color: #fff; }
+.ec-fv-primary:hover { color: #fff; opacity: .92; }
+.ec-fv-b { position: relative; flex: 1; min-height: 0; background: var(--fv-paper); }
+.ec-fv-frame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: var(--fv-paper); }
+.ec-fv-st {
+  display: flex; align-items: center; gap: 10px; padding: 20px; font-size: 14px; color: var(--fv-muted);
+}
+.ec-fv-spin {
+  width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--fv-line); border-top-color: var(--fv-navy);
+  animation: ec-fv-rot .8s linear infinite;
+}
+@keyframes ec-fv-rot { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .ec-fv-spin { animation: none; } }
+.ec-fv-err {
+  margin: 16px; padding: 12px 14px; border: 1px solid #fcd34d; border-radius: 10px; background: #fffbeb;
+  color: #78350f; font-size: 14px; line-height: 1.5;
+}
+@media (max-width: 640px) {
+  .ec-fv-ov { padding: 0; }
+  .ec-fv-modal { width: 100%; height: 100%; border-radius: 0; }
+  .ec-fv-h { padding: 10px 12px; gap: 8px; }
+  .ec-fv-btn { min-height: 44px; padding: 0 12px; }
+}
