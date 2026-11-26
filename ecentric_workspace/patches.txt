@@ -540,3 +540,4 @@ ecentric_workspace.approval_center.patches.p571_tai_san_trang
 ecentric_workspace.tai_san.patches.p003_dot4
 ecentric_workspace.approval_center.patches.p575_tai_san_ban_quyen
 ecentric_workspace.shared_tools.patches.p001_setup
+ecentric_workspace.shared_tools.patches.p002_resync_page

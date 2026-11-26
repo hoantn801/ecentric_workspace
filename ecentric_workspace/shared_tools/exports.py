@@ -90,11 +90,24 @@ def download(ctx, name):
     content = R.file_content(row.file_url) if row.file_url else None
     if content is None:
         raise Q.QueueError("Không đọc được file trên ERP.")
+    content = with_bom(row.file_name, content)
     if not row.downloaded_at:
         R.mark_downloaded(name, now_datetime())
     R.log(row.tool, C.EV_DOWNLOAD, user=ctx.user, detail={"export": name})
     R.commit()
     return row.file_name, content
+
+
+BOM = b"\xef\xbb\xbf"
+
+
+def with_bom(file_name, content):
+    """CSV luon co BOM UTF-8 de Excel tren Windows doc dung tieng Viet. File cua Frappe bo BOM khi luu
+    (do 27/11 tren site: byte dau la "Cot 1"), nen them lai luc tai."""
+    if not (file_name or "").lower().endswith(".csv"):
+        return content
+    raw = content.encode("utf-8") if isinstance(content, str) else bytes(content)
+    return raw if raw.startswith(BOM) else BOM + raw
 
 
 def purge():
