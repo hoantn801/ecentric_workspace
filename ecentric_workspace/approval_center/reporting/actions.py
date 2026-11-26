@@ -449,7 +449,9 @@ def list_approval_links(host_doctype, host_name):
 
 
 @frappe.whitelist(methods=["GET"])
-def search_linkable(host_doctype, host_name, q=None, box=None):
+def search_linkable(host_doctype=None, host_name=None, q=None, box=None):
+    # Khong host (form tao moi chua co ma) -> chi de xuat phieu NGUOI GOI xem duoc, de giu tam;
+    # gan that qua link_approval sau khi luu (approval_links.search).
     from ecentric_workspace.approval_center.shared.requests import approval_links as al
     return al.search(host_doctype, host_name, q=q, box=box)
 

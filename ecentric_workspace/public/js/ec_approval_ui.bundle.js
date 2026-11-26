@@ -644,14 +644,70 @@
     session: "Phiên đăng nhập đã hết hạn. Tải lại trang (F5) rồi thử lại.",
     permission: "Bạn không có quyền thực hiện thao tác này. Nếu cần, liên hệ người quản lý hoặc IT.",
     timeout: "Hệ thống đang phản hồi chậm. Đợi vài giây rồi thử lại.",
+    maintenance: "Hệ thống đang cập nhật, vui lòng thử lại sau vài phút — dữ liệu bạn nhập vẫn được giữ.",
     system: "Hệ thống gặp lỗi khi xử lý. Vui lòng thử lại; nếu vẫn lỗi, báo IT kèm mã phiếu."
   };
   // Dau hieu chu cua LAP TRINH VIEN, khong phai cau cho nguoi dung: ten exception Python,
   // loi SQL, stack trace, thuoc tinh/kieu. Cau tieng Viet tu frappe.throw thi KHONG khop.
   var TECH_RE = /Traceback|NoneType|AttributeError|KeyError|TypeError|ValueError|IndexError|NameError|ImportError|ModuleNotFound|has no attribute|object is not|not subscriptable|unsupported operand|pymysql|OperationalError|ProgrammingError|IntegrityError|InternalError|DataError|Duplicate entry|Deadlock|Lock wait timeout|frappe\.exceptions|File "[^"]*", line \d+|Internal Server Error|<!DOCTYPE|\bsyntax error\b|\b1062\b|\b1048\b/i;
+  // 26/11/2026: site o Read Only Mode (deploy) / maintenance -> Frappe tra 503 (InReadOnlyMode,
+  // SessionStopped). Truoc gop chung "phan hoi cham" - sai nghia, nguoi dung bam lai lien tuc.
+  var MAINT_RE = /InReadOnlyMode|ReadOnlyMode|read[ -]only mode|SessionStopped|Session Stopped|maintenance mode|under maintenance|site update/i;
+  // Truong bat buoc cua DocType (frappe MandatoryError): moi truong mot dong _server_messages
+  // "Error: Value missing for <DocType>: <Label>", exception "...MandatoryError: [<DocType>, <name>]: f1, f2".
+  var MISSING_RE = /Value missing for [^:]+:\s*(.+)$/i;
+  function allServerMessages(e) {
+    var out = [];
+    var sm = e && typeof e === "object" && (e._server_messages || (e.responseJSON && e.responseJSON._server_messages));
+    if (!sm) return out;
+    try {
+      var arr = (typeof sm === "string") ? JSON.parse(sm) : sm;
+      for (var i = 0; i < arr.length; i++) {
+        var o = arr[i];
+        if (typeof o === "string") { try { o = JSON.parse(o); } catch (_a) { o = { message: o }; } }
+        var mm = o && (o.message || o.title);
+        if (mm) out.push(String(mm).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim());
+      }
+    } catch (_b) {}
+    return out;
+  }
+  // Nhan tieng Viet tren form dang mo cho mot fieldname (o data-model / data-fld cua trang).
+  function formLabel(fieldname) {
+    if (!fieldname || !/^[a-z0-9_]+$/i.test(fieldname) || typeof document === "undefined") return "";
+    try {
+      var el = document.querySelector('[data-fld="' + fieldname + '"] label')
+        || (function () { var c = document.querySelector('[data-model="' + fieldname + '"]');
+          var f = c && c.closest ? c.closest(".fld,.field,[data-fld]") : null; return f ? f.querySelector("label") : null; })();
+      return el ? String(el.textContent || "").replace(/\*/g, "").replace(/\s+/g, " ").trim() : "";
+    } catch (_e) { return ""; }
+  }
+  function missingFields(e) {
+    var labels = [];
+    allServerMessages(e).forEach(function (m) {
+      var x = m.match(MISSING_RE);
+      if (x) x[1].split(/\s*,\s*/).forEach(function (l) { if (l) labels.push(l); });
+    });
+    var exc = String((e && (e.exception || (e.responseJSON && e.responseJSON.exception))) || "");
+    var fx = exc.match(/MandatoryError:\s*\[[^\]]*\]:\s*(.+)$/);
+    var fields = fx ? fx[1].split(/\s*,\s*/) : [];
+    if (!labels.length) {
+      var one = serverMessage(e).match(MISSING_RE);
+      if (one) labels = one[1].split(/\s*,\s*/);
+    }
+    if (!labels.length && !fields.length) return null;
+    var n = Math.max(labels.length, fields.length), out = [];
+    for (var i = 0; i < n; i++) {
+      var vi = formLabel(fields[i]);
+      var l = vi || labels[i] || fields[i];
+      if (l && out.indexOf(l) < 0) out.push(l);
+    }
+    return out;
+  }
   function kind(e) {
     var st = httpStatus(e), et = excType(e), m = serverMessage(e);
     if (/CSRFTokenError|SessionExpired/i.test(et + " " + m)) return "session";
+    if (st === 503 || MAINT_RE.test(et + " " + m)) return "maintenance";
+    if (missingFields(e)) return "missing";
     if (st === 0 && /Failed to fetch|NetworkError|Network request failed|ERR_NETWORK|net::/i.test(m)) return "network";
     if (st === 401) return "session";
     if (st === 504 || st === 502 || st === 503 || /Gateway Time-?out|Request Timeout|timed out/i.test(m)) return "timeout";
@@ -665,6 +721,7 @@
   // thong diep ky thuat thay bang cau huong dan. Khong co gi -> `fallback`.
   function errorText(e, fallback) {
     var k = kind(e);
+    if (k === "missing") return "Cần nhập: " + missingFields(e).join(", ") + ".";
     if (k) return MSG[k];
     var m = serverMessage(e);
     if (m) return m.length > 300 ? (m.slice(0, 297) + "…") : m;
