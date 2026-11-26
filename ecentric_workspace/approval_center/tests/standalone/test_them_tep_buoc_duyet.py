@@ -125,6 +125,8 @@ def build(status="Pending", level=2, doctype="EC Leave", user="fin1@x", approver
 
     sp = types.ModuleType("ecentric_workspace.approval_center.shared.integrations.sharepoint_mirror")
     sp.duoc_soi_guong = lambda dt_: dt_ == CTR
+    # 26/11: add_file chot theo PHIEU (lao dong / KOL chua cau hinh -> khong xep viec).
+    sp.duoc_soi_guong_phieu = lambda dt_, name_, kiem_quyen=True: dt_ == CTR
 
     for p in ("ecentric_workspace", "ecentric_workspace.approval_center",
               "ecentric_workspace.approval_center.shared",

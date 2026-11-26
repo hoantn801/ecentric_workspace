@@ -25,6 +25,19 @@ duyet mo khong duoc tep, cach sua la them ho vao site. Lich su ham `cap_quyen` c
 
 Token: dung LAI `weekly_report.sharepoint.get_app_token` - app-only client_credentials, doc
 client_secret tu Social Login Key, khong hardcode. Khong dung MSAL phia trinh duyet.
+
+THU MUC HAN CHE (26/11/2026, PO Hoan, "huong 2"). Hop dong KOL/KOC mang CCCD/STK creator nen tu
+17/11 bi loai khoi thu vien chung (ca phong Operation doc duoc). Nhung Ke toan / nguoi lap can
+XEM va SUA bang Word Online. Huong 2: dua TOAN BO hop dong KOL len, nhung vao MOT THU MUC RIENG
+(`site_config.ec_sp_kol_folder`, cung thu vien mac dinh cua site) ma IT da ngat ke thua quyen va
+chi cap cho mot nhom (Phap che, Ke toan, ...). Van giu tinh than "quan quyen o MOT cho":
+  * code KHONG tao thu muc, KHONG cap quyen thu muc - viec cua IT, lam o mot cho;
+  * code CHI DOC quyen cua thu muc (`kiem_quyen_thu_muc`) va TU CHOI tai len khi thu muc chua ton
+    tai / con quyen ke thua tu thu vien cha / mo cho ca cong ty. Fail-closed: chua cau hinh,
+    Graph loi, khong chac -> KHONG tai, tep van tren ERP, phieu van gui binh thuong;
+  * cap quyen theo TUNG TEP (createLink scope=users) cho nguoi trong luong van chay nhu cu (bai
+    hoc 15/09 ben duoi) - rieng phieu han che KHONG gom CC (`nguoi_trong_luong`).
+Hop dong LAO DONG van KHONG BAO GIO len SharePoint (`BO_QUA_PHIEU`).
 """
 import hashlib
 from datetime import timedelta
@@ -61,34 +74,246 @@ class SharePointChuaSan(Exception):
     """Graph chua dung duoc (chua cau hinh / mat mang). Goi ben ngoai TU quyet dinh xu ly."""
 
 
-#: Phieu cu the KHONG duoc dua len thu vien chung du loai phieu duoc phep: loai phieu -> (truong, gia tri)
-#: (vd hop dong lao dong mang luong - QC7). Khai bang du lieu, shared khong import nguoc feature.
-#: QC 15/11 B-09: nut "Them tep" o buoc duyet truoc do bo qua chot nay.
-#: PO 17/11 (B): hop dong KOL/KOC mang CCCD/STK creator -> cung khong len thu vien chung.
+#: Phieu cu the KHONG BAO GIO duoc dua len SharePoint du loai phieu duoc phep: loai phieu ->
+#: (truong, gia tri). Khai bang du lieu, shared khong import nguoc feature.
+#:   * Hop dong lao dong mang luong (QC7).  QC 15/11 B-09: nut "Them tep" truoc do bo qua chot nay.
+#:   * KOL/KOC: 17/11 (B) tung nam o day; 26/11/2026 ("huong 2") chuyen sang `THU_MUC_HAN_CHE`.
 #: Gia tri: mot chuoi HOAC tuple nhieu chuoi.
 BO_QUA_PHIEU = {
-    "EC Contract Review Request": ("contract_type", ("Labor / Hợp đồng lao động (EC)",
-                                                     "KOL/KOC / Creator (EC)")),
+    "EC Contract Review Request": ("contract_type", ("Labor / Hợp đồng lao động (EC)",)),
 }
+
+#: THU MUC HAN CHE (26/11/2026, PO Hoan, "huong 2"): phieu cu the KHONG vao thu muc chung cua loai
+#: phieu (`THU_MUC_THEO_PHIEU`) ma vao thu muc rieng do IT dung san va ngat ke thua quyen.
+#: loai phieu -> (truong, gia tri | tuple gia tri, khoa site_config chua TEN thu muc).
+#: Khoa chua co gia tri -> phieu nay KHONG len SharePoint (giu hanh vi 17/11 - fail-closed).
+#: Co gia tri -> chi tai len khi `thu_muc_an_toan` xac nhan thu muc ton tai + quyen rieng.
+THU_MUC_HAN_CHE = {
+    "EC Contract Review Request": ("contract_type", ("KOL/KOC / Creator (EC)",), "ec_sp_kol_folder"),
+}
+
+#: Ket qua kiem quyen thu muc han che duoc nho 10 phut: moi lan tai len deu hoi, nhung khong goi
+#: Graph cho tung tep. IT sua thu muc xong thi toi da 10 phut sau he thong moi dung ket qua moi.
+CACHE_AN_TOAN_GIAY = 600
+#: Canh bao "IT can cau hinh" toi da MOT lan / gio / thu muc - Error Log khong bi spam moi lan gui.
+CANH_BAO_GIAY = 3600
+#: Link chia se mo rong hon "nhung nguoi cu the" -> thu muc KHONG an toan du da ngat ke thua.
+LINK_SCOPE_RONG = ("anonymous", "organization")
+#: Nhom mac dinh cua site SharePoint ("<Site> Members" / "<Site> Visitors") va nhom ca cong ty.
+#: Ngat ke thua trong giao dien SharePoint CHEP NGUYEN quyen cha thanh quyen rieng - thu muc het
+#: `inheritedFrom` nhung "Operation Members" van doc duoc. IT phai go cac nhom nay sau khi ngat.
+#: So khop theo hau to / chuoi con cua ten hien thi (chu thuong). Owners duoc giu (quan tri site).
+NHOM_RONG_HAU_TO = (" members", " visitors")
+NHOM_RONG_CHUA = ("everyone",)
 
 
 def duoc_soi_guong(business_doctype):
     return business_doctype in THU_MUC_THEO_PHIEU
 
 
-def duoc_soi_guong_phieu(business_doctype, business_name):
-    """Loai phieu duoc phep VA phieu nay khong bi loai rieng (BO_QUA_PHIEU)."""
-    if not duoc_soi_guong(business_doctype):
-        return False
-    rule = BO_QUA_PHIEU.get(business_doctype)
-    if not rule:
-        return True
+def _gia_tri(rule):
+    return rule[1] if isinstance(rule[1], (tuple, list, set, frozenset)) else (rule[1],)
+
+
+def _thu_muc_cau_hinh(khoa):
+    """Ten thu muc han che tu site_config, da bo "/" hai dau. Chua cau hinh -> None."""
     try:
-        bo_qua = rule[1] if isinstance(rule[1], (tuple, list, set, frozenset)) else (rule[1],)
-        return frappe.db.get_value(business_doctype, {"name": business_name}, rule[0]) not in bo_qua
+        v = str(frappe.conf.get(khoa) or "").strip().strip("/")
+    except Exception:
+        return None
+    return v or None
+
+
+def phan_loai_phieu(business_doctype, business_name):
+    """(loai, thu_muc_goc) cua MOT phieu - MOT cho quyet dinh phieu nay di dau.
+
+    loai:
+      * "ngoai"         - loai phieu khong nam trong danh sach cho phep;
+      * "bo_qua"        - KHONG BAO GIO len (BO_QUA_PHIEU, vd hop dong lao dong);
+      * "chua_cau_hinh" - phieu han che nhung site_config chua co ten thu muc -> khong len;
+      * "han_che"       - vao thu muc rieng `thu_muc_goc` (con phai qua `thu_muc_an_toan`);
+      * "chung"         - vao thu muc chung cua loai phieu.
+    Hoi DB loi -> "bo_qua" + log (fail-closed: thieu ban Word Online con hon lo CCCD / luong)."""
+    if not duoc_soi_guong(business_doctype):
+        return "ngoai", None
+    rule = BO_QUA_PHIEU.get(business_doctype)
+    han_che = THU_MUC_HAN_CHE.get(business_doctype)
+    gia_tri = {}
+    try:
+        for t in dict.fromkeys(r[0] for r in (rule, han_che) if r):
+            gia_tri[t] = frappe.db.get_value(business_doctype, {"name": business_name}, t)
     except Exception:
         frappe.log_error(frappe.get_traceback(), "SharePoint: khong hoi duoc phieu %s co bi loai" % business_name)
+        return "bo_qua", None
+    if rule and gia_tri.get(rule[0]) in _gia_tri(rule):
+        return "bo_qua", None
+    if han_che and gia_tri.get(han_che[0]) in _gia_tri(han_che):
+        thu_muc = _thu_muc_cau_hinh(han_che[2])
+        return ("han_che", thu_muc) if thu_muc else ("chua_cau_hinh", None)
+    return "chung", THU_MUC_THEO_PHIEU[business_doctype]
+
+
+def la_phieu_han_che(business_doctype, business_name):
+    """Phieu thuoc dien thu muc han che (da cau hinh hay chua), bi loai, hoac khong hoi duoc -> True."""
+    return phan_loai_phieu(business_doctype, business_name)[0] in ("han_che", "chua_cau_hinh", "bo_qua")
+
+
+def duoc_soi_guong_phieu(business_doctype, business_name, kiem_quyen=True):
+    """Phieu nay duoc dua len SharePoint khong. MOT cong cho moi cho goi (gui phieu, them tep,
+    ban doi chung, hien link "Mo online", dong bo lai, probe).
+
+    `kiem_quyen=False`: chi xet cau hinh (re, khong goi Graph) - dung o cho chi XEP VIEC hoac hien
+    thi. Cho thuc su tai len van chot lai bang `thu_muc_an_toan` (`_chot_truoc_khi_tai`)."""
+    loai, thu_muc = phan_loai_phieu(business_doctype, business_name)
+    if loai == "chung":
+        return True
+    if loai != "han_che":
         return False
+    if not kiem_quyen:
+        return True
+    ok, ly_do = thu_muc_an_toan(thu_muc)
+    if not ok:
+        canh_bao_it(thu_muc, ly_do)
+    return ok
+
+
+def _khoa_cache(tien_to, thu_muc):
+    return "%s:%s" % (tien_to, hashlib.sha1((thu_muc or "").encode("utf-8")).hexdigest()[:16])
+
+
+def thu_muc_an_toan(thu_muc, token=None, bo_cache=False):
+    """(ok, ly_do). CHOT AN TOAN cua thu muc han che, nho `CACHE_AN_TOAN_GIAY`.
+
+    CHI DOC. Khong tao thu muc, khong sua quyen (quan quyen o MOT cho - IT)."""
+    if not thu_muc:
+        return False, "chưa cấu hình thư mục"
+    khoa = _khoa_cache("ec_sp_han_che_an_toan", thu_muc)
+    if not bo_cache:
+        try:
+            nho = frappe.cache().get_value(khoa)
+        except Exception:
+            nho = None
+        if nho:
+            return bool(nho.get("ok")), nho.get("ly_do") or ""
+    ok, ly_do = kiem_quyen_thu_muc(thu_muc, token=token)[:2]
+    ghi_nho_an_toan(thu_muc, ok, ly_do)
+    return ok, ly_do
+
+
+def ghi_nho_an_toan(thu_muc, ok, ly_do):
+    """Ghi ket qua kiem quyen vao cache `CACHE_AN_TOAN_GIAY` (ham dong bo lai goi sau lan kiem tuoi
+    de job nen khong dung lai ket qua cu "chua an toan" truoc khi IT sua)."""
+    try:
+        frappe.cache().set_value(_khoa_cache("ec_sp_han_che_an_toan", thu_muc),
+                                 {"ok": bool(ok), "ly_do": ly_do}, expires_in_sec=CACHE_AN_TOAN_GIAY)
+    except Exception:
+        pass
+
+
+def _ten_nguoi_nhan(p):
+    """Ten hien thi cua moi nguoi / nhom duoc cap trong mot permission cua Graph."""
+    ra = []
+    ds = (p.get("grantedToIdentitiesV2") or ([p["grantedToV2"]] if p.get("grantedToV2") else [])
+          or p.get("grantedToIdentities") or ([p["grantedTo"]] if p.get("grantedTo") else []))
+    for gi in ds:
+        for k in ("siteGroup", "group", "user", "siteUser", "application"):
+            u = (gi or {}).get(k)
+            if u:
+                ra.append(u.get("displayName") or u.get("email") or u.get("loginName") or "?")
+    return ra
+
+
+def _nhom_rong(ten):
+    t = (ten or "").strip().lower()
+    return t.endswith(NHOM_RONG_HAU_TO) or any(c in t for c in NHOM_RONG_CHUA)
+
+
+def kiem_quyen_thu_muc(thu_muc, token=None):
+    """(ok, ly_do, tom_tat_quyen). Goi Graph, KHONG cache (`thu_muc_an_toan` cache ben tren).
+
+    Hai lan GET, chi doc:
+      1. `GET /sites/{site}/drive/root:/{thu_muc}` -> 404 = chua ton tai; khong co facet `folder`
+         = khong phai thu muc.
+      2. `GET /sites/{site}/drive/items/{id}/permissions` -> quyen KE THUA la quyen co thuoc tinh
+         `inheritedFrom` (itemReference toi to tien). Khong thoa khi: bat ky quyen nao mang
+         `inheritedFrom` (ke ca `{}` - chi can khoa co mat va khac null: fail-closed), danh sach
+         rong (khong chung minh duoc gi), link chia se an danh / ca cong ty, hoac nhom chung cua
+         site (Members / Visitors / Everyone) con trong quyen rieng.
+    Moi loi (token, mang, 403...) -> khong thoa."""
+    tom_tat = []
+    try:
+        requests = _requests()
+        token = token or wr_sp.get_app_token()
+        hdr = {"Authorization": "Bearer " + token}
+        r1 = requests.get(_drive_url(thu_muc), headers=hdr, timeout=TIMEOUT)
+        if r1.status_code == 404:
+            return False, "thư mục chưa tồn tại", tom_tat
+        if r1.status_code != 200:
+            return False, "Graph trả %s khi đọc thư mục" % r1.status_code, tom_tat
+        item = r1.json() or {}
+        if not item.get("folder") or not item.get("id"):
+            return False, "đường dẫn tồn tại nhưng không phải thư mục", tom_tat
+        r2 = requests.get("%s/sites/%s/drive/items/%s/permissions" % (_graph(), wr_sp.SITE_ID, item["id"]),
+                          headers=hdr, timeout=TIMEOUT)
+        if r2.status_code != 200:
+            return False, "Graph trả %s khi đọc quyền thư mục" % r2.status_code, tom_tat
+        quyen = (r2.json() or {}).get("value") or []
+    except Exception as e:
+        return False, "không gọi được Graph: %s" % str(e)[:200], tom_tat
+    ke_thua, rong, nhom = 0, [], []
+    for p in quyen:
+        ten = _ten_nguoi_nhan(p)
+        scope = (p.get("link") or {}).get("scope")
+        thua = p.get("inheritedFrom", None) is not None
+        tom_tat.append({"vai_tro": ",".join(p.get("roles") or []), "thua_ke": thua,
+                        "cho": ", ".join(ten) or scope or "?"})
+        if thua:
+            ke_thua += 1
+        if scope in LINK_SCOPE_RONG:
+            rong.append(scope)
+        nhom += [t for t in ten if _nhom_rong(t)]
+    if not quyen:
+        return False, "không đọc được quyền nào của thư mục - không xác minh được", tom_tat
+    if ke_thua:
+        return False, "còn %d quyền kế thừa từ thư viện cha (chưa ngắt kế thừa)" % ke_thua, tom_tat
+    if rong:
+        return False, "có link chia sẻ phạm vi %s" % ", ".join(sorted(set(rong))), tom_tat
+    if nhom:
+        return False, "nhóm chung của site còn quyền: %s" % ", ".join(sorted(set(nhom))), tom_tat
+    return True, "", tom_tat
+
+
+def canh_bao_it(thu_muc, ly_do):
+    """Error Log "IT can cau hinh" - toi da MOT lan / `CANH_BAO_GIAY` / thu muc."""
+    khoa = _khoa_cache("ec_sp_han_che_canh_bao", thu_muc)
+    try:
+        if frappe.cache().get_value(khoa):
+            return False
+        frappe.cache().set_value(khoa, 1, expires_in_sec=CANH_BAO_GIAY)
+    except Exception:
+        pass
+    frappe.log_error(
+        "Thư mục KOL chưa ngắt kế thừa quyền / chưa tồn tại — IT cần cấu hình.\n"
+        "Thư mục: %s\nLý do: %s\n"
+        "Hệ thống KHÔNG tải hợp đồng KOL lên SharePoint cho tới khi thư mục đạt yêu cầu. Phiếu vẫn "
+        "gửi bình thường, tệp vẫn nằm trên ERP. (Cảnh báo lặp lại tối đa mỗi giờ một lần.)"
+        % (thu_muc or "(chưa cấu hình)", ly_do), "SharePoint: thư mục KOL chưa an toàn")
+    return True
+
+
+def _chot_truoc_khi_tai(business_doctype, business_name, token=None):
+    """Thu muc goc de tai len - goi TRUOC MOI lan tai len (`tai_len`). Nem SharePointChuaSan khi
+    phieu khong duoc len, hoac thu muc han che chua an toan (khong tai gi)."""
+    loai, thu_muc = phan_loai_phieu(business_doctype, business_name)
+    if loai == "chung":
+        return thu_muc
+    if loai != "han_che":
+        raise SharePointChuaSan("Phieu %s khong duoc dua len SharePoint (%s)" % (business_name, loai))
+    ok, ly_do = thu_muc_an_toan(thu_muc, token=token)
+    if not ok:
+        canh_bao_it(thu_muc, ly_do)
+        raise SharePointChuaSan("Thu muc han che %s chua an toan: %s" % (thu_muc, ly_do))
+    return thu_muc
 
 
 def _requests():
@@ -106,14 +331,18 @@ def _drive_url(rel_path):
     return "%s/sites/%s/drive/root:/%s" % (_graph(), wr_sp.SITE_ID, quote(rel_path))
 
 
-def duong_dan(business_doctype, business_name, file_name):
-    """<thu muc cua loai phieu>/<ma phieu>/<ten tep da lam sach>.
+def duong_dan(business_doctype, business_name, file_name, goc=None):
+    """<thu muc goc>/<ma phieu>/<ten tep da lam sach>.
 
+    Thu muc goc: thu muc chung cua loai phieu, HOAC thu muc han che (`phan_loai_phieu`, 26/11).
+    `goc` da tinh san (tu `_chot_truoc_khi_tai`) thi dung luon, khong hoi lai DB.
     Moi phieu mot thu muc: doi chieu bang mat tren SharePoint khong phai do ma tep, va hai
     phieu dinh kem trung ten khong de len nhau."""
-    goc = THU_MUC_THEO_PHIEU.get(business_doctype)
     if not goc:
-        raise SharePointChuaSan("Loai phieu %s khong nam trong danh sach cho phep" % business_doctype)
+        loai, goc = phan_loai_phieu(business_doctype, business_name)
+        if loai not in ("chung", "han_che") or not goc:
+            raise SharePointChuaSan("Phieu %s (%s) khong duoc dua len SharePoint (%s)"
+                                    % (business_name, business_doctype, loai))
     return "%s/%s/%s" % (goc, business_name, wr_sp.safe_filename(file_name))
 
 
@@ -192,11 +421,14 @@ def tai_len(business_doctype, file_url, file_name, business_name, token=None, it
     hop dong .docx co the vuot nguong 4MB cua PUT truc tiep."""
     requests = _requests()
     token = token or wr_sp.get_app_token()
+    # CHOT AN TOAN truoc MOI lan tai len (26/11, ke ca ghi de theo item_id): Labor -> khong bao gio;
+    # thu muc han che chua ton tai / con ke thua quyen -> khong tai, log cho IT.
+    goc = _chot_truoc_khi_tai(business_doctype, business_name, token=token)
     noi_dung = _noi_dung_tep(file_url)
     tong = len(noi_dung)
     for lan in ([1] if item_id else range(1, SO_TEN_THAY_THE + 1)):
         rel = None if item_id else duong_dan(business_doctype, business_name,
-                                             ten_thay_the(file_name, lan))
+                                             ten_thay_the(file_name, lan), goc=goc)
         phien = _phien_tai_len(rel, token, item_id=item_id)
         if phien is None:
             continue
@@ -449,7 +681,7 @@ def ghi_lien_ket(business_doctype, file_url, business_name, ket_qua, da_cap=None
 
 
 def nguoi_trong_luong(business_doctype, business_name):
-    """Nguoi gui + moi cap duyet cua phieu + CC. KHONG mo cho ca cong ty.
+    """Nguoi gui + moi cap duyet cua phieu + CC (tru phieu thu muc han che). KHONG mo cho ca cong ty.
 
     Doc tu `EC Approval Request Approver` - dung bang ma engine THAT SU dung de quyet dinh ai
     duoc duyet, khong tu dung mot danh sach thu hai roi hai ben troi nhau.
@@ -458,7 +690,10 @@ def nguoi_trong_luong(business_doctype, business_name):
     truong thieu la chuyen cau hinh, khong phai chuyen phai giau di.
     """
     fields = ["requested_by", "approval_request"]
-    co_cc = frappe.get_meta(business_doctype).has_field("cc_to")
+    # Phieu thu muc han che (KOL, 26/11): KHONG cap quyen tep cho CC - CC chi theo doi, khong phai
+    # nguoi lap / nguoi duyet; tep mang CCCD/STK creator.
+    co_cc = (frappe.get_meta(business_doctype).has_field("cc_to")
+             and not la_phieu_han_che(business_doctype, business_name))
     if co_cc:
         fields.append("cc_to")
     row = frappe.db.get_value(business_doctype, business_name, fields, as_dict=True) or {}
@@ -474,7 +709,7 @@ def nguoi_trong_luong(business_doctype, business_name):
                                 fields=["approver", "source"]) or []:
             if _dong_con_hieu_luc(r.get("source"), r.get("approver")):
                 ra.append(r.get("approver"))
-    for e in (row.get("cc_to") or "").replace(";", ",").split(","):
+    for e in ((row.get("cc_to") or "") if co_cc else "").replace(";", ",").split(","):
         e = e.strip()
         if e:
             ra.append(e)
@@ -571,9 +806,11 @@ def dong_bo_phieu(business_doctype, business_name):
     if not duoc_soi_guong(business_doctype):
         return {"bo_qua": "loai phieu khong nam trong danh sach cho phep",
                 "xong": [], "hong": [], "so_tep": 0}
-    # PO 17/11: chot ca o day (cong cu probe / patch backfill goi thang, khong qua service).
+    # PO 17/11: chot ca o day (cong cu probe / patch backfill / dong bo lai goi thang, khong qua
+    # service). 26/11: phieu thu muc han che chi qua khi da cau hinh VA thu muc an toan.
     if not duoc_soi_guong_phieu(business_doctype, business_name):
-        return {"bo_qua": "phieu nay khong duoc dua len thu vien chung (BO_QUA_PHIEU)",
+        return {"bo_qua": "phieu nay khong duoc dua len SharePoint (BO_QUA_PHIEU / thu muc han che "
+                          "chua cau hinh hoac chua an toan)",
                 "xong": [], "hong": [], "so_tep": 0}
     tep = _dinh_kem(business_doctype, business_name)
     if not tep:

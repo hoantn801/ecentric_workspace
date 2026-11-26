@@ -165,23 +165,32 @@ class TaiBanDuPII(unittest.TestCase):
 
 # ----------------------------------------------------------------------------- B
 class KhongLenSharePoint(unittest.TestCase):
-    def test_bo_qua_ca_lao_dong_va_kol(self):
+    """17/11 (B) KOL khong len thu vien chung. 26/11 ("huong 2"): KOL vao THU MUC HAN CHE khi da cau
+    hinh + thu muc an toan (test hanh vi: test_sp_kol_thu_muc_han_che.py). Lao dong: van khong bao gio."""
+
+    def test_lao_dong_bo_qua_kol_vao_thu_muc_han_che(self):
         src = _read("shared/integrations/sharepoint_mirror.py")
         tree = ast.parse(src)
-        val = [n for n in tree.body if isinstance(n, ast.Assign) and getattr(n.targets[0], "id", "") == "BO_QUA_PHIEU"][0]
-        rule = ast.literal_eval(val.value)["EC Contract Review Request"]
+
+        def _val(ten):
+            return ast.literal_eval([n for n in tree.body if isinstance(n, ast.Assign)
+                                     and getattr(n.targets[0], "id", "") == ten][0].value)
+        rule = _val("BO_QUA_PHIEU")["EC Contract Review Request"]
         self.assertEqual(rule[0], "contract_type")
-        self.assertIn("KOL/KOC / Creator (EC)", rule[1])
         self.assertIn("Labor / Hợp đồng lao động (EC)", rule[1])
-        # dong_bo_phieu (probe / patch goi thang) cung chot theo phieu
+        self.assertNotIn("KOL/KOC / Creator (EC)", rule[1])
+        han_che = _val("THU_MUC_HAN_CHE")["EC Contract Review Request"]
+        self.assertEqual(han_che, ("contract_type", ("KOL/KOC / Creator (EC)",), "ec_sp_kol_folder"))
+        # dong_bo_phieu (probe / patch / dong bo lai goi thang) cung chot theo phieu
         i = src.index("\ndef dong_bo_phieu(")
         self.assertIn("duoc_soi_guong_phieu(business_doctype, business_name)", src[i:i + 3000])
 
-    def test_service_khong_xep_viec_cho_kol_va_loi_thi_khong_len(self):
+    def test_service_lao_dong_luon_bo_kol_hoi_cong_chung_loi_thi_khong_len(self):
         svc = _read("features/contract_review/application/service.py")
-        self.assertIn("_KHONG_LEN_SHAREPOINT = (esign_flow.LABOR_CONTRACT_TYPE, esign_flow.KOL_CONTRACT_TYPE)", svc)
+        self.assertIn("_KHONG_LEN_SHAREPOINT = (esign_flow.LABOR_CONTRACT_TYPE,)", svc)
         i = svc.index("def _is_labor")
-        self.assertIn("return True", svc[i:i + 900])
+        self.assertIn("duoc_soi_guong_phieu(BUSINESS_DT, name, kiem_quyen=False)", svc[i:i + 1200])
+        self.assertIn("return True", svc[i:i + 1200])
 
 
 # ----------------------------------------------------------------------------- C

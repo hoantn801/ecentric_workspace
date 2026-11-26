@@ -167,7 +167,9 @@ def _mirror_new_file(doctype, name, file_url):
     """Contract Review: dua RIENG tep nay len SharePoint, chay nen sau commit. Nuot loi enqueue:
     tep da nam an toan trong Frappe; SharePoint hong khong duoc lam hong lan them tep."""
     from ecentric_workspace.approval_center.shared.integrations import sharepoint_mirror as sp
-    if not sp.duoc_soi_guong(doctype):
+    # Chot THEO PHIEU (26/11): hop dong lao dong khong bao gio; KOL chi khi da cau hinh thu muc han
+    # che. Chi xet cau hinh - job nen chot quyen thu muc truoc khi tai (`dong_bo_mot_tep`).
+    if not sp.duoc_soi_guong_phieu(doctype, name, kiem_quyen=False):
         return False
     try:
         frappe.enqueue(
