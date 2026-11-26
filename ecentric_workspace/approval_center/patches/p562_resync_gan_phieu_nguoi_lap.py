@@ -1,5 +1,5 @@
 # Copyright (c) 2026, eCentric and contributors
-"""p561_resync_gan_phieu_nguoi_lap (26/11/2026): sync lai 32 trang form phe duyet tu nguon repo (A65).
+"""p562_resync_gan_phieu_nguoi_lap (26/11/2026): sync lai 32 trang form phe duyet tu nguon repo (A65).
 
 1. Gan phieu duyet cho NGUOI LAP phieu (truoc do 0 EC Approval Link tren site: trang chi ve khoi o panel nguoi
    duyet). Chi tiet phieu NHAP: panel hanh dong noi EcAddFile.buttonHTML(cap) (chip + nut theo capability

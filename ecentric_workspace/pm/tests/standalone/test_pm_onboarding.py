@@ -74,5 +74,27 @@ class TestOnboarding(unittest.TestCase):
                       open(os.path.join(app, "patches.txt"), encoding="utf-8").read())
 
 
+class TestDailyBackfill(TestOnboarding):
+    def test_daily_backfill_grants_missing_active_employee(self):
+        self.fk.add("Employee", name="E-1", user_id=NEW, status="Active")
+        real = self.fk.module.get_all   # the shared fake hides Employee from get_all; read it here
+        self.fk.module.get_all = lambda dt, **kw: ([r["user_id"] for r in self.fk.db.rows(dt, kw.get("filters"))]
+                                                   if dt == "Employee" else real(dt, **kw))
+        try:
+            self.assertEqual(self.ob.daily_backfill(), [NEW])
+            self.assertIn("PM Member", self.fk.roles[NEW])
+            self.assertEqual(self.ob.daily_backfill(), [])   # idempotent
+        finally:
+            self.fk.module.get_all = real
+
+    def test_daily_backfill_never_raises(self):
+        orig = self.ob.backfill_active_employees
+        self.ob.backfill_active_employees = lambda: 1 / 0
+        try:
+            self.assertEqual(self.ob.daily_backfill(), [])
+        finally:
+            self.ob.backfill_active_employees = orig
+
+
 if __name__ == "__main__":
     unittest.main()

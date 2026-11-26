@@ -420,16 +420,41 @@
   // opts.cancelled: phieu da huy (giu class is-cancelled). opts.detail: det cua get_detail -> bang
   // "Viec cua ban" + co mine. Khong co detail (xem truoc luc tao, hub) -> chi ve stepper.
   // opts.approveMode: "open" -> xem youModel.
+  // Phieu DA HUY / BI TU CHOI (25/11, Hoan: "bam huy ma sao ghi cho duyet"): trang tu dung buoc
+  // tu cap duyet, cap dang do van con level_status Pending -> ve "Cho duyet". O day khoa lai:
+  // buoc dang do -> "Đã hủy" (huy) / giu nguyen neu trang da ve "Từ chối"; buoc chua toi -> "—".
+  function endState(det, opts) {
+    if (opts.cancelled) return "Cancelled";
+    var st = det && ((det.approval && det.approval.approval_status) || det.approval_status);
+    return st === "Cancelled" || st === "Rejected" ? st : "";
+  }
+  function closeSteps(steps, end) {
+    if (!end) return steps;
+    var hasRej = steps.some(function (s) { return s.state === "rejected"; });
+    return steps.map(function (s) {
+      var c = Object.assign({}, s, { mine: false, wait: "" });
+      if (c.state === "current" || c.state === "info") {
+        if (end === "Cancelled" || !hasRej) {
+          c.state = end === "Cancelled" ? "cancelled" : "rejected";
+          c.statusLabel = end === "Cancelled" ? "Đã hủy" : "Từ chối";
+        }
+      } else if (c.state === "upcoming") {
+        c.statusLabel = "—";
+      }
+      return c;
+    });
+  }
   function stepsHTML(steps, opts) {
     opts = opts || {};
     var det = opts.detail || null;
-    steps = applyViewer(steps || [], det);
+    var end = endState(det, opts);
+    steps = closeSteps(applyViewer(steps || [], det), end);
     var items = buildItems(steps);
     var track = items.length ? ('<div class="ec-aps-track" role="list" aria-label="Tiến trình phê duyệt" style="grid-template-columns:'
       + items.map(colOf).join(" ") + '">' + items.map(function (it, i) { return itemHTML(it, i, items); }).join("") + "</div>") : "";
     var panels = items.filter(function (it) { return it.group; }).map(panelHTML).join("");
-    return '<div class="ec-aps' + (opts.cancelled ? " is-cancelled" : "") + '" data-ec-aps="1">'
-      + youHTML(det ? youModel(det, opts) : null) + track + panels + compactHTML(steps) + "</div>";
+    return '<div class="ec-aps' + (end === "Cancelled" ? " is-cancelled" : "") + '" data-ec-aps="1">'
+      + youHTML(det && !end ? youModel(det, opts) : null) + track + panels + compactHTML(steps) + "</div>";
   }
 
   // Bam vao bang / nut nhom: mot listener uy quyen cho moi stepper tren trang.
