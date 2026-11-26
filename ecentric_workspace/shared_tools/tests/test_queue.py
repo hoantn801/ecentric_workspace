@@ -145,6 +145,18 @@ class CommandTest(unittest.TestCase):
         self.assertEqual(Q.eta_minutes(es, es[2], NOW, CFG), 52)
 
 
+class BomTest(unittest.TestCase):
+    def test_csv_gets_bom_once(self):
+        sys.modules.setdefault("frappe.utils", types.ModuleType("frappe.utils"))
+        fu = sys.modules["frappe.utils"]
+        fu.add_days = getattr(fu, "add_days", lambda d, n: d)
+        fu.now_datetime = getattr(fu, "now_datetime", lambda: NOW)
+        from ecentric_workspace.shared_tools import exports as X
+        self.assertEqual(X.with_bom("a.csv", "Cột,1"), X.BOM + "Cột,1".encode())
+        self.assertEqual(X.with_bom("a.CSV", X.BOM + b"x"), X.BOM + b"x")
+        self.assertEqual(X.with_bom("a.xlsx", b"PK"), b"PK")
+
+
 class SignTest(unittest.TestCase):
     def test_signature_binds_method_path_body(self):
         s = B.sign("k", "POST", "/ec/grant", 100, "n", b'{"user":"a"}')

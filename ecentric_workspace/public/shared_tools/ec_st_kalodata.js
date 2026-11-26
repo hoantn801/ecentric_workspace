@@ -79,6 +79,7 @@
     // Thu tu tren dien thoai (cot don): luot cua toi -> hang doi -> nguoi dang dung -> file -> quy dinh.
     byId("st-root").innerHTML = html;
     paintTimers();
+    showArmed();
     document.title = (me.status === "Ready" ? "(Đến lượt) " : "") + baseTitle;
   }
 
@@ -222,16 +223,24 @@
   }
 
   // ------------------------------------------------------------------ thao tac
+  // Nut nguy hiem: bam lan 1 doi chu, bam lan 2 trong ARM_MS moi chay (khong dung confirm() chan trang).
+  // Trang tu ve lai moi 10 s nen trang thai "da bam lan 1" giu theo khoa (act + entry), khong theo nut.
+  var ARM_MS = 6000, armSig = "", armUntil = 0;
+  function sigOf(btn) { return btn.getAttribute("data-act") + ":" + (btn.getAttribute("data-entry") || ""); }
+  function showArmed() {
+    if (!armSig || performance.now() > armUntil) return;
+    Array.prototype.forEach.call(root.querySelectorAll("[data-confirm]"), function (b) {
+      if (sigOf(b) === armSig) b.textContent = b.getAttribute("data-confirm");
+    });
+  }
   function armed(btn) {
-    // Nut nguy hiem: bam lan 1 doi chu, bam lan 2 trong 4 s moi chay (khong dung confirm() chan trang).
-    var c = btn.getAttribute("data-confirm");
-    if (!c || btn.getAttribute("data-armed") === "1") return true;
-    btn.setAttribute("data-armed", "1");
-    btn.setAttribute("data-label", btn.innerHTML);
-    btn.textContent = c;
-    setTimeout(function () {
-      if (btn.isConnected && btn.getAttribute("data-armed") === "1") { btn.innerHTML = btn.getAttribute("data-label"); btn.removeAttribute("data-armed"); }
-    }, 4000);
+    if (!btn.getAttribute("data-confirm")) return true;
+    var sig = sigOf(btn);
+    if (sig === armSig && performance.now() <= armUntil) { armSig = ""; return true; }
+    armSig = sig;
+    armUntil = performance.now() + ARM_MS;
+    showArmed();
+    setTimeout(function () { if (armSig === sig && performance.now() > armUntil) { armSig = ""; if (S) render(); } }, ARM_MS + 50);
     return false;
   }
 
