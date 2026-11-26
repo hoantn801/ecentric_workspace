@@ -50,3 +50,7 @@
 .ec-aplk-note { margin: 0 0 8px; color: var(--ec-aplk-muted); font-size: 12.5px; }
 .ec-aplk-add[aria-busy="true"] { cursor: progress; }
 @media (max-width: 640px) { .ec-aplk-add, .ec-aplk-modal .btn { min-height: 44px; } .ec-aplk-x { min-width: 44px; min-height: 44px; } }
+
+/* 26/11 (Hoan): bo emoji tren nut, dung icon net manh cung kieu icon the Approval Center */
+.ec-aplk-add, .ec-addfile-btn { display: inline-flex; align-items: center; gap: 6px; }
+.ec-btn-ic { flex: none; width: 16px; height: 16px; color: #2f3a8f; margin: 0; }

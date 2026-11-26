@@ -124,7 +124,7 @@
     var chips = cap.approval_links || [];
     var can = !!cap.can_link_approval;
     var list = chips.length ? '<div class="ec-aplk-list" role="list">' + chips.map(function (c) { return chipHTML(c, can); }).join("") + "</div>" : "";
-    var btn = can ? '<button type="button" class="btn ec-aplk-add" data-ec-aplk-open>🔗 Gắn phiếu duyệt</button>' : "";
+    var btn = can ? '<button type="button" class="btn ec-aplk-add" data-ec-aplk-open><svg class="ec-btn-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5"/></svg>Gắn phiếu duyệt</button>' : "";
     return '<div class="ec-aplk-h">Phiếu duyệt đính kèm' + (chips.length ? " (" + chips.length + ")" : "") + "</div>" + list + btn;
   }
 
@@ -292,7 +292,7 @@
     return '<div class="ec-aplk ec-aplk--new"><div class="ec-aplk-h">Phiếu duyệt đính kèm</div>'
       + '<p class="ec-aplk-note">Dùng phiếu đã duyệt (vd Phê duyệt đột xuất của CEO) làm chứng từ cho phiếu này. '
       + "Bấm nút sẽ lưu nháp trước, rồi chọn phiếu — dữ liệu đang nhập được giữ nguyên.</p>"
-      + '<button type="button" class="btn ec-aplk-add" data-ec-aplk-create>🔗 Gắn phiếu duyệt</button></div>';
+      + '<button type="button" class="btn ec-aplk-add" data-ec-aplk-create><svg class="ec-btn-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5"/></svg>Gắn phiếu duyệt</button></div>';
   }
 
   // opts: { name: ma phieu hoac null, cap: capabilities tu get_detail (neu trang dang giu),
