@@ -8,6 +8,7 @@
   function load() {
     if (!data) root.innerHTML = '<div class="ts-wrap">' + T.skel(6) + "</div>";
     T.get("board", {}).then(function (d) { data = d; render(); }, function (e) {
+      if (T.toMineIfDenied(e)) return;
       root.innerHTML = '<div class="ts-wrap">' + T.errBox(e, true) + "</div>";
       var b = root.querySelector("[data-retry]"); if (b) b.addEventListener("click", load);
     });
@@ -86,7 +87,7 @@
       col("Chờ thu hồi", (d.returns || []).length, "#d97706", rets, "Không có ai sắp nghỉ đang giữ máy.") +
       col("Chờ kiểm tra", (d.checks || []).length + (d.broken || []).length, "#9ca3af", checks, "Không có máy chờ kiểm tra.") +
       col("Đang sửa", (d.repairs || []).length, "#dc2626", reps, "Không có máy đang sửa.") + "</div>" +
-      '<div class="ts-note">00:40 ngày làm việc cuối của người nghỉ, máy chưa trả tự chuyển sang Chờ kiểm tra. Sửa chữa dự kiến trên ' + T.fmtMoney(d.repair_threshold) + " cần phiếu Báo hỏng / mất được duyệt.</div></div>";
+      '<div class="ts-note">Sau ngày làm việc cuối của người nghỉ, máy chưa trả sẽ tự chuyển sang Chờ kiểm tra (chạy lúc 00:40 hằng đêm). Sửa chữa dự kiến trên ' + T.fmtMoney(d.repair_threshold) + " cần phiếu Báo hỏng / mất được duyệt.</div></div>";
   }
 
   function returnModal(card, asset) {

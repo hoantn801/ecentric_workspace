@@ -80,8 +80,10 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 @media (max-width:640px) { #ec-ts .ts-form { grid-template-columns:minmax(0,1fr); } }
 #ec-ts .ts-ck { display:flex; gap:8px; align-items:flex-start; font-size:13px; color:var(--ink2); padding:3px 0; cursor:pointer; }
 #ec-ts .ts-ck input { margin-top:3px; }
+#ec-ts .ts-filters .ts-ck { align-items:center; min-height:38px; padding:0 4px; white-space:nowrap; }
+#ec-ts .ts-filters .ts-ck input { margin:0; width:16px; height:16px; }
 #ec-ts .ts-chips { display:flex; gap:6px; flex-wrap:wrap; }
-#ec-ts .ts-chip { border:1px solid var(--line); background:#fff; color:var(--ink2); border-radius:999px; padding:6px 12px; font-size:12.5px; font-weight:600; cursor:pointer; min-height:32px; }
+#ec-ts .ts-chip { display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); background:#fff; color:var(--ink2); border-radius:999px; padding:6px 12px; font-size:12.5px; font-weight:600; cursor:pointer; min-height:32px; white-space:nowrap; }
 #ec-ts .ts-chip.on { background:var(--wash); border-color:var(--navy-line); color:var(--navy); }
 #ec-ts .ts-filters { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
 #ec-ts .ts-filters .ts-sel, #ec-ts .ts-filters .ts-in { width:auto; min-width:150px; }
@@ -98,6 +100,9 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 /* ---------------------------------------------------------------- KPI */
 #ec-ts .ts-kpi { text-align:left; background:#fff; border:1px solid var(--line); border-radius:var(--r); padding:14px 16px; cursor:pointer; min-width:0; }
 #ec-ts .ts-kpi:hover { border-color:var(--navy-line); }
+/* KPI la <button>: trinh duyet canh giua noi dung theo chieu doc -> nhan cac o lech nhau khi co
+   o co dong phu. Ep canh tren nhu the div. */
+#ec-ts button.ts-kpi { display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; font:inherit; color:inherit; }
 #ec-ts .ts-kpi-l { display:flex; align-items:center; gap:6px; font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; color:var(--ink3); }
 #ec-ts .ts-kpi-v { font-size:28px; font-weight:800; color:var(--ink); margin-top:6px; line-height:1.1; font-variant-numeric:tabular-nums; }
 #ec-ts .ts-kpi-s { font-size:12px; color:var(--ink3); margin-top:2px; }
@@ -109,6 +114,10 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 
 /* ---------------------------------------------------------------- bieu do CSS */
 #ec-ts .ts-hbar { display:grid; grid-template-columns:110px minmax(0,1fr) 44px; gap:10px; align-items:center; font-size:13px; padding:4px 0; }
+#ec-ts .ts-drow { padding:7px 0; border-bottom:1px solid var(--line2); font-size:13px; }
+#ec-ts .ts-drow:last-child { border-bottom:0; }
+#ec-ts .ts-drow-h { display:flex; justify-content:space-between; gap:12px; align-items:baseline; }
+#ec-ts .ts-drow .ts-note { margin-top:3px; }
 #ec-ts .ts-stack { display:flex; height:14px; border-radius:4px; overflow:hidden; background:#f3f4f6; }
 #ec-ts .ts-stack > span { display:block; height:100%; }
 #ec-ts .ts-legend { display:flex; gap:14px; flex-wrap:wrap; margin-top:10px; font-size:12px; color:var(--ink3); }
@@ -145,6 +154,12 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 #ec-ts .ts-table tr.ts-click:hover td { background:#fafbff; }
 #ec-ts .ts-table tr.on td { background:var(--wash); }
 #ec-ts .ts-num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+#ec-ts .ts-nw { white-space:nowrap; }
+#ec-ts .ts-table .ts-col-dev { min-width:190px; }
+#ec-ts .ts-table .ts-col-who { min-width:150px; }
+#ec-ts .ts-table .ts-col-dept { min-width:150px; }
+/* Mo ngan chi tiet: bang chi giu cot chinh (tag, thiet bi, trang thai, nguoi giu). */
+#ec-ts .ts-split.ts-has-drawer .ts-wide { display:none; }
 #ec-ts .ts-pager { display:flex; align-items:center; gap:8px; justify-content:flex-end; padding:10px; font-size:12.5px; color:var(--ink3); }
 
 /* ---------------------------------------------------------------- danh sach + drawer (2 cot, khong wrap) */

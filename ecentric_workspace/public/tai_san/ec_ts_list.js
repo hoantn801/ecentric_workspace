@@ -8,7 +8,7 @@
   var st = { status: T.param("status"), q: T.param("q"), category: T.param("category"), department: T.param("department"),
     issues_only: T.param("issues") === "1", include_components: false, page: 1 };
   var cur = { asset: T.param("asset"), tab: "info", detail: null, partSel: null };
-  var root, listBox, drawer, last = null, qTimer = null;
+  var root, listBox, drawer, split, last = null, qTimer = null;
 
   // ------------------------------------------------------------ danh sach --
   function shell() {
@@ -23,6 +23,7 @@
       '<div class="ts-split"><div class="ts-left"><div class="ts-card" style="padding:0" data-list></div></div><aside class="ts-drawer" data-drawer hidden aria-label="Chi tiết thiết bị"></aside></div></div>';
     listBox = root.querySelector("[data-list]");
     drawer = root.querySelector("[data-drawer]");
+    split = root.querySelector(".ts-split");
     var chips = [["", "Tất cả"]].concat(T.STATUS_ORDER.map(function (s) { return [s, T.statusLabel(s)]; }));
     root.querySelector("[data-chips]").innerHTML = chips.map(function (c) {
       return '<button type="button" class="ts-chip' + (c[0] === st.status ? " on" : "") + '" data-s="' + esc(c[0]) + '">' + (c[0] ? T.dot(c[0]) : "") + esc(c[1]) + "</button>";
@@ -44,8 +45,10 @@
     root.querySelector("[data-issues]").addEventListener("change", function (e) { st.issues_only = e.target.checked; st.page = 1; T.setParam("issues", e.target.checked ? "1" : ""); loadList(); });
     root.querySelector("[data-comp]").addEventListener("change", function (e) { st.include_components = e.target.checked; st.page = 1; loadList(); });
     listBox.addEventListener("click", function (e) {
-      var pg = e.target.closest("[data-page]");
-      if (pg) { st.page = Number(pg.getAttribute("data-page")); loadList(); return; }
+      // data-goto (KHONG dung data-page: the goc #ts-root co data-page="list" -> moi cu bam deu bi
+      // hieu la "sang trang", tai lai bang va drawer khong mo).
+      var pg = e.target.closest("[data-goto]");
+      if (pg && listBox.contains(pg)) { st.page = Number(pg.getAttribute("data-goto")); loadList(); return; }
       var tr = e.target.closest("tr[data-name]");
       if (tr) openDrawer(tr.getAttribute("data-name"));
     });
@@ -84,25 +87,27 @@
   function drawList(d) {
     var cost = d.can && d.can.see_cost;
     if (!d.rows.length) { listBox.innerHTML = '<div class="ts-empty" style="padding:32px">Không có thiết bị nào khớp bộ lọc.</div>'; return; }
-    var head = "<tr><th>Tag</th><th>Thiết bị</th><th>Loại</th><th>Trạng thái</th><th>Người giữ</th><th>Phòng ban</th><th>Ngày mua</th>" +
-      (cost ? '<th class="ts-num">Nguyên giá</th><th class="ts-num">Còn lại</th>' : "") + "</tr>";
+    // .ts-wide: cot phu, an khi mo ngan chi tiet (bang con du cho de doc, khong bop chu xuong 3 dong).
+    var head = '<tr><th class="ts-nw">Tag</th><th class="ts-col-dev">Thiết bị</th><th class="ts-wide">Loại</th><th>Trạng thái</th>' +
+      '<th class="ts-col-who">Người giữ</th><th class="ts-wide ts-col-dept">Phòng ban</th><th class="ts-wide ts-nw">Ngày mua</th>' +
+      (cost ? '<th class="ts-num ts-wide">Nguyên giá</th><th class="ts-num ts-wide">Còn lại</th>' : "") + "</tr>";
     var body = d.rows.map(function (r) {
       return '<tr class="ts-click' + (r.name === cur.asset ? " on" : "") + '" data-name="' + esc(r.name) + '" tabindex="0">' +
-        '<td class="ts-strong">' + esc(r.tag || r.name) + "</td>" +
+        '<td class="ts-strong ts-nw">' + esc(r.tag || r.name) + "</td>" +
         "<td>" + esc(r.asset_name || "") + (r.serial ? '<div class="ts-note">SN ' + esc(r.serial) + "</div>" : "") +
         (r.components ? '<div class="ts-note">+' + r.components + " linh kiện lắp thêm</div>" : "") +
         (r.issues && r.issues.length ? '<div class="ts-note ts-bad-text">' + esc(r.issues.join(" · ")) + "</div>" : "") + "</td>" +
-        "<td>" + esc(r.category || "") + "</td>" +
-        "<td>" + T.pill(r.status, last && last.status_labels) + (r.condition && r.condition !== "Good" ? " " + T.condPill(r.condition) : "") + "</td>" +
+        '<td class="ts-wide">' + esc(r.category || "") + "</td>" +
+        '<td class="ts-nw">' + T.pill(r.status, last && last.status_labels) + (r.condition && r.condition !== "Good" ? " " + T.condPill(r.condition) : "") + "</td>" +
         "<td" + (r.holder_left ? ' class="ts-bad-text"' : "") + ">" + esc(r.holder_name || (r.installed_on ? "Lắp trong " + r.installed_on : "—")) + (r.holder_left ? '<div class="ts-note ts-bad-text">Đã nghỉ việc</div>' : "") + "</td>" +
-        "<td>" + esc(r.department || "") + "</td><td>" + T.fmtDate(r.purchase_date) + "</td>" +
-        (cost ? '<td class="ts-num">' + (r.gross != null ? T.fmtMillion(r.gross) : "") + '</td><td class="ts-num">' + (r.nbv != null ? T.fmtMillion(r.nbv) : "") + "</td>" : "") + "</tr>";
+        '<td class="ts-wide">' + esc(r.department || "") + '</td><td class="ts-wide ts-nw">' + T.fmtDate(r.purchase_date) + "</td>" +
+        (cost ? '<td class="ts-num ts-wide">' + (r.gross != null ? T.fmtMillion(r.gross) : "") + '</td><td class="ts-num ts-wide">' + (r.nbv != null ? T.fmtMillion(r.nbv) : "") + "</td>" : "") + "</tr>";
     }).join("");
     var pages = Math.max(1, Math.ceil(d.total / (d.page_size || 50)));
     listBox.innerHTML = '<div class="ts-table-wrap"><table class="ts-table"><thead>' + head + "</thead><tbody>" + body + "</tbody></table></div>" +
       (pages > 1 ? '<div class="ts-pager">Trang ' + d.page + "/" + pages +
-        '<button type="button" class="ts-btn ts-sm" data-page="' + (d.page - 1) + '"' + (d.page <= 1 ? " disabled" : "") + ">Trước</button>" +
-        '<button type="button" class="ts-btn ts-sm" data-page="' + (d.page + 1) + '"' + (d.page >= pages ? " disabled" : "") + ">Sau</button></div>" : "");
+        '<button type="button" class="ts-btn ts-sm" data-goto="' + (d.page - 1) + '"' + (d.page <= 1 ? " disabled" : "") + ">Trước</button>" +
+        '<button type="button" class="ts-btn ts-sm" data-goto="' + (d.page + 1) + '"' + (d.page >= pages ? " disabled" : "") + ">Sau</button></div>" : "");
   }
 
   // ------------------------------------------------------------- ngan phai --
@@ -111,11 +116,13 @@
     T.setParam("asset", name);
     T.qsa(listBox, "tr[data-name]").forEach(function (tr) { tr.classList.toggle("on", tr.getAttribute("data-name") === name); });
     drawer.hidden = false;
+    split.classList.add("ts-has-drawer");
     drawer.innerHTML = '<div class="ts-dbody">' + T.skel(6) + "</div>";
     loadDetail();
   }
   function closeDrawer() {
     cur.asset = ""; cur.detail = null; drawer.hidden = true; drawer.innerHTML = ""; T.setParam("asset", "");
+    split.classList.remove("ts-has-drawer");
     T.qsa(listBox, "tr.on").forEach(function (tr) { tr.classList.remove("on"); });
   }
   function loadDetail() {
