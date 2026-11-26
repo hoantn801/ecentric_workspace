@@ -1,0 +1,202 @@
+{
+ "doctype": "DocType",
+ "name": "EC Asset Event",
+ "module": "Tai San",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "autoname": "hash",
+ "naming_rule": "Random",
+ "description": "Nhật ký thiết bị - chỉ thêm, không sửa / xoá. Mọi thay đổi trạng thái, người giữ, linh kiện đều để lại một dòng.",
+ "field_order": [
+  "asset",
+  "event_type",
+  "event_time",
+  "actor",
+  "from_status",
+  "to_status",
+  "cb1",
+  "from_employee",
+  "to_employee",
+  "ref_doctype",
+  "ref_name",
+  "related_asset",
+  "sb1",
+  "condition",
+  "checklist",
+  "note",
+  "acknowledged_at"
+ ],
+ "fields": [
+  {
+   "fieldname": "asset",
+   "fieldtype": "Link",
+   "label": "Thiết bị",
+   "options": "Asset",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "event_type",
+   "fieldtype": "Select",
+   "label": "Sự kiện",
+   "options": "Intake\nReserve\nUnreserve\nAssign\nTransfer\nReturn\nCheck Passed\nCheck Failed\nBroken\nRepair Start\nRepair Done\nRepair Failed\nLost\nFound\nDisposed\nRetired\nAcknowledged\nDamage Reported\nComponent Installed\nComponent Removed\nSpec Updated\nCounted\nEdited",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "event_time",
+   "fieldtype": "Datetime",
+   "label": "Thời điểm",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "actor",
+   "fieldtype": "Link",
+   "label": "Người thao tác",
+   "options": "User"
+  },
+  {
+   "fieldname": "from_status",
+   "fieldtype": "Data",
+   "label": "Từ trạng thái"
+  },
+  {
+   "fieldname": "to_status",
+   "fieldtype": "Data",
+   "label": "Sang trạng thái",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "from_employee",
+   "fieldtype": "Link",
+   "label": "Người giữ trước",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "to_employee",
+   "fieldtype": "Link",
+   "label": "Người giữ sau",
+   "options": "Employee",
+   "in_standard_filter": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "ref_doctype",
+   "fieldtype": "Link",
+   "label": "Phiếu nguồn (loại)",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "ref_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Phiếu nguồn",
+   "options": "ref_doctype",
+   "search_index": 1
+  },
+  {
+   "fieldname": "related_asset",
+   "fieldtype": "Link",
+   "label": "Thiết bị liên quan",
+   "options": "Asset",
+   "description": "Máy mẹ khi lắp / tháo linh kiện; máy tạm khi gửi sửa."
+  },
+  {
+   "fieldname": "sb1",
+   "fieldtype": "Section Break",
+   "label": ""
+  },
+  {
+   "fieldname": "condition",
+   "fieldtype": "Data",
+   "label": "Tình trạng lúc ghi"
+  },
+  {
+   "fieldname": "checklist",
+   "fieldtype": "Small Text",
+   "label": "Checklist (JSON)"
+  },
+  {
+   "fieldname": "note",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú"
+  },
+  {
+   "fieldname": "acknowledged_at",
+   "fieldtype": "Datetime",
+   "label": "Nhân viên xác nhận lúc",
+   "description": "Chỉ có ở sự kiện Cấp phát / Điều chuyển.",
+   "read_only": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "share": 1
+  },
+  {
+   "role": "EC Asset Manager",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "share": 1
+  },
+  {
+   "role": "EC HOF",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "create": 0,
+   "write": 0
+  },
+  {
+   "role": "EC Finance",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "create": 0,
+   "write": 0
+  },
+  {
+   "role": "EC CEO",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "create": 0,
+   "write": 0
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "title_field": "asset",
+ "in_create": 1
+}

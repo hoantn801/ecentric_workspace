@@ -1,0 +1,86 @@
+{
+ "doctype": "DocType",
+ "name": "EC Asset Count Item",
+ "module": "Tai San",
+ "custom": 0,
+ "istable": 1,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "autoname": "hash",
+ "naming_rule": "Random",
+ "description": "Một dòng kiểm kê.",
+ "field_order": [
+  "asset",
+  "expected_holder",
+  "expected_status",
+  "result",
+  "actual_holder",
+  "counted_by",
+  "counted_at",
+  "self_confirmed",
+  "note"
+ ],
+ "fields": [
+  {
+   "fieldname": "asset",
+   "fieldtype": "Link",
+   "label": "Thiết bị",
+   "options": "Asset",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "expected_holder",
+   "fieldtype": "Link",
+   "label": "Người giữ theo sổ",
+   "options": "Employee",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "expected_status",
+   "fieldtype": "Data",
+   "label": "Trạng thái theo sổ"
+  },
+  {
+   "fieldname": "result",
+   "fieldtype": "Select",
+   "label": "Kết quả",
+   "options": "\nOK\nWrong Holder\nWrong Status\nNot Found\nDamaged",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "actual_holder",
+   "fieldtype": "Link",
+   "label": "Người giữ thực tế",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "counted_by",
+   "fieldtype": "Link",
+   "label": "Người kiểm",
+   "options": "User"
+  },
+  {
+   "fieldname": "counted_at",
+   "fieldtype": "Datetime",
+   "label": "Lúc kiểm"
+  },
+  {
+   "fieldname": "self_confirmed",
+   "fieldtype": "Check",
+   "label": "Nhân viên tự xác nhận"
+  },
+  {
+   "fieldname": "note",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú",
+   "in_list_view": 1
+  }
+ ],
+ "permissions": [],
+ "links": [],
+ "index_web_pages_for_search": 0
+}

@@ -1,0 +1,156 @@
+{
+ "doctype": "DocType",
+ "name": "EC Asset Monthly",
+ "module": "Tai San",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "autoname": "hash",
+ "naming_rule": "Random",
+ "description": "Số liệu chốt mỗi tháng của từng thiết bị (job ngày 1 hàng tháng). Dùng cho chi phí theo phòng ban qua các tháng.",
+ "field_order": [
+  "month",
+  "asset",
+  "asset_category",
+  "status",
+  "holder",
+  "department",
+  "cb1",
+  "gross",
+  "depreciation",
+  "accumulated",
+  "nbv",
+  "repair_cost",
+  "rent"
+ ],
+ "fields": [
+  {
+   "fieldname": "month",
+   "fieldtype": "Data",
+   "label": "Tháng (YYYY-MM)",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "asset",
+   "fieldtype": "Link",
+   "label": "Thiết bị",
+   "options": "Asset",
+   "reqd": 1,
+   "in_list_view": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "asset_category",
+   "fieldtype": "Link",
+   "label": "Loại",
+   "options": "Asset Category"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Data",
+   "label": "Trạng thái"
+  },
+  {
+   "fieldname": "holder",
+   "fieldtype": "Link",
+   "label": "Người giữ",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "label": "Phòng ban",
+   "options": "Department",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "gross",
+   "fieldtype": "Currency",
+   "label": "Nguyên giá"
+  },
+  {
+   "fieldname": "depreciation",
+   "fieldtype": "Currency",
+   "label": "Khấu hao tháng",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "accumulated",
+   "fieldtype": "Currency",
+   "label": "Khấu hao luỹ kế"
+  },
+  {
+   "fieldname": "nbv",
+   "fieldtype": "Currency",
+   "label": "Giá trị còn lại"
+  },
+  {
+   "fieldname": "repair_cost",
+   "fieldtype": "Currency",
+   "label": "Chi phí sửa trong tháng"
+  },
+  {
+   "fieldname": "rent",
+   "fieldtype": "Currency",
+   "label": "Thuê / phụ cấp tháng"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "share": 1
+  },
+  {
+   "role": "EC Asset Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "EC HOF",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "EC Finance",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "EC CEO",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "in_create": 1
+}

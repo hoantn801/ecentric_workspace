@@ -1,0 +1,238 @@
+/* Quan ly tai san (/tai-san/*). MOI selector nam duoi #ec-ts va dung tien to ts- (Bootstrap cua
+ * Frappe nap toan site: .row/.btn/.card se dinh). Ngoai le DUY NHAT: khoi "frappe-chrome" an vo
+ * website mac dinh cua Frappe (giong dao_tao). Doi file -> python -m ecentric_workspace.tai_san.pages.assets --stamp */
+
+/* frappe-chrome */
+body > header, body > footer, body > nav.navbar, header.navbar, .navbar.navbar-light,
+.web-page-header, #navbarSupportedContent, .navbar-collapse, .web-footer, footer.web-footer { display:none !important; }
+body { padding:0 !important; margin:0 !important; background:#f7f8fb !important; }
+body main { padding-top:0 !important; }
+body .main-section, body main.container, body main.fluid, body .page_content, body .page-content {
+  margin:0 !important; padding:0 !important; max-width:none !important; }
+/* end frappe-chrome */
+
+#ec-ts { display:grid; grid-template-columns:248px minmax(0,1fr); min-height:100vh; width:100%; }
+#ec-ts > .ec-shell-mount { position:sticky; top:0; height:100vh; overflow:auto; }
+#ec-ts > main.ts-main { min-width:0; background:var(--ground); }
+@media (max-width:900px) { #ec-ts { grid-template-columns:minmax(0,1fr); } #ec-ts > .ec-shell-mount { display:none; } }
+
+#ec-ts {
+  --ground:#f7f8fb; --surface:#fff; --ink:#111827; --ink2:#374151; --ink3:#6b7280; --ink4:#9ca3af;
+  --line:#e5e7eb; --line2:#f3f4f6; --navy:#2C3DA6; --navy-d:#1f2d80; --wash:#eef0fb; --navy-line:#d9deef;
+  --ok:#10b981; --ok-bg:#ecfdf5; --warn:#d97706; --warn-bg:#fff7ed; --bad:#dc2626; --bad-bg:#fef2f2;
+  --r:12px;
+  font-family:'Inter',-apple-system,"Segoe UI",Roboto,sans-serif; font-size:13.5px; line-height:1.5; color:var(--ink2);
+}
+#ec-ts *, #ec-ts *::before, #ec-ts *::after { box-sizing:border-box; }
+#ec-ts :where(#ts-root, .ts-modal-bg) :where(button, input, select, textarea) { font:inherit; color:inherit; }
+#ec-ts :focus-visible { outline:2px solid var(--navy); outline-offset:2px; }
+#ec-ts :where(#ts-root, .ts-modal-bg) a { color:var(--navy); text-decoration:none; }
+#ec-ts :where(#ts-root, .ts-modal-bg) a:hover { text-decoration:underline; }
+#ec-ts :where(#ts-root, .ts-modal-bg) :where(h1,h2,h3,h4) { margin:0; color:var(--ink); letter-spacing:-.01em; }
+#ec-ts :where(#ts-root, .ts-modal-bg) p { margin:0; }
+#ec-ts [hidden] { display:none !important; }
+
+/* ---------------------------------------------------------------- khung */
+#ec-ts .ts-wrap { max-width:1380px; margin:0 auto; padding:22px 24px 80px; display:flex; flex-direction:column; gap:16px; }
+#ec-ts .ts-wrap.ts-narrow { max-width:760px; }
+@media (max-width:640px) { #ec-ts .ts-wrap { padding:14px 12px 96px; } }
+#ec-ts .ts-head { display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap; }
+#ec-ts .ts-head-main { flex:1 1 320px; min-width:0; }
+#ec-ts .ts-title { font-size:24px; font-weight:800; letter-spacing:-.4px; color:var(--ink); line-height:1.25; }
+#ec-ts .ts-sub { color:var(--ink3); font-size:13px; margin-top:4px; }
+#ec-ts .ts-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+#ec-ts .ts-sp { flex:1; }
+#ec-ts .ts-muted { color:var(--ink3); }
+#ec-ts .ts-small { font-size:12.5px; }
+#ec-ts .ts-strong { font-weight:700; color:var(--ink); }
+#ec-ts .ts-bad-text { color:var(--bad); }
+#ec-ts .ts-mono { font-variant-numeric:tabular-nums; }
+#ec-ts .ts-note { font-size:12px; color:var(--ink3); }
+
+#ec-ts .ts-card { background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:16px 18px; min-width:0; }
+#ec-ts .ts-card-h { display:flex; align-items:baseline; gap:10px; margin-bottom:12px; flex-wrap:wrap; }
+#ec-ts .ts-card-t { font-size:14px; font-weight:700; color:var(--ink); }
+#ec-ts .ts-grid { display:grid; gap:14px; }
+#ec-ts .ts-g2 { grid-template-columns:repeat(2,minmax(0,1fr)); }
+#ec-ts .ts-g4 { grid-template-columns:repeat(4,minmax(0,1fr)); }
+#ec-ts .ts-g5 { grid-template-columns:repeat(5,minmax(0,1fr)); }
+@media (max-width:1024px) { #ec-ts .ts-g5 { grid-template-columns:repeat(3,minmax(0,1fr)); } #ec-ts .ts-g4 { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width:900px) { #ec-ts .ts-g2 { grid-template-columns:minmax(0,1fr); } }
+@media (max-width:640px) { #ec-ts .ts-g5, #ec-ts .ts-g4 { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+
+/* ---------------------------------------------------------------- nut, o nhap */
+#ec-ts .ts-btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:36px; padding:8px 14px; border-radius:9px;
+  border:1px solid var(--line); background:#fff; color:var(--ink2); font-weight:600; font-size:12.5px; cursor:pointer; white-space:nowrap; text-decoration:none; }
+#ec-ts .ts-btn:hover { background:#f9fafb; color:var(--ink); text-decoration:none; }
+#ec-ts .ts-btn.ts-primary { background:var(--navy); border-color:var(--navy); color:#fff; }
+#ec-ts .ts-btn.ts-primary:hover { background:var(--navy-d); }
+#ec-ts .ts-btn.ts-wash { background:var(--wash); border-color:var(--navy-line); color:var(--navy); }
+#ec-ts .ts-btn.ts-danger { color:var(--bad); border-color:#f3c8c8; }
+#ec-ts .ts-btn.ts-sm { min-height:30px; padding:5px 10px; }
+#ec-ts .ts-btn[disabled], #ec-ts .ts-btn.busy { opacity:.55; cursor:default; pointer-events:none; }
+#ec-ts .ts-link { background:none; border:0; padding:0; color:var(--navy); font-weight:600; cursor:pointer; }
+#ec-ts .ts-in, #ec-ts .ts-sel, #ec-ts .ts-ta { width:100%; border:1px solid var(--line); border-radius:8px; padding:8px 11px; background:#fff; color:var(--ink); font-size:13.5px; min-height:38px; }
+#ec-ts .ts-ta { min-height:70px; resize:vertical; }
+#ec-ts .ts-in:focus, #ec-ts .ts-sel:focus, #ec-ts .ts-ta:focus { outline:none; border-color:var(--navy); box-shadow:0 0 0 3px var(--wash); }
+#ec-ts .ts-lbl { display:flex; flex-direction:column; gap:5px; font-size:12.5px; font-weight:600; color:#4b5563; }
+#ec-ts .ts-form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px 16px; }
+#ec-ts .ts-form .ts-full { grid-column:1 / -1; }
+@media (max-width:640px) { #ec-ts .ts-form { grid-template-columns:minmax(0,1fr); } }
+#ec-ts .ts-ck { display:flex; gap:8px; align-items:flex-start; font-size:13px; color:var(--ink2); padding:3px 0; cursor:pointer; }
+#ec-ts .ts-ck input { margin-top:3px; }
+#ec-ts .ts-chips { display:flex; gap:6px; flex-wrap:wrap; }
+#ec-ts .ts-chip { border:1px solid var(--line); background:#fff; color:var(--ink2); border-radius:999px; padding:6px 12px; font-size:12.5px; font-weight:600; cursor:pointer; min-height:32px; }
+#ec-ts .ts-chip.on { background:var(--wash); border-color:var(--navy-line); color:var(--navy); }
+#ec-ts .ts-filters { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+#ec-ts .ts-filters .ts-sel, #ec-ts .ts-filters .ts-in { width:auto; min-width:150px; }
+
+/* ---------------------------------------------------------------- pill trang thai */
+#ec-ts .ts-pill { display:inline-flex; align-items:center; gap:6px; background:#f3f4f6; color:#374151; border-radius:999px; padding:3px 9px;
+  font-size:11.5px; font-weight:700; white-space:nowrap; }
+#ec-ts .ts-dot { width:7px; height:7px; border-radius:50%; display:inline-block; flex:none; background:#9ca3af; }
+#ec-ts .ts-dot.ring { background:transparent; border:2px solid currentColor; width:8px; height:8px; }
+#ec-ts .ts-pill.ts-cond-partial { background:var(--warn-bg); color:#92400e; }
+#ec-ts .ts-pill.ts-cond-full, #ec-ts .ts-pill.ts-red { background:var(--bad-bg); color:var(--bad); }
+#ec-ts .ts-tag { font-weight:700; color:var(--ink); font-variant-numeric:tabular-nums; }
+
+/* ---------------------------------------------------------------- KPI */
+#ec-ts .ts-kpi { text-align:left; background:#fff; border:1px solid var(--line); border-radius:var(--r); padding:14px 16px; cursor:pointer; min-width:0; }
+#ec-ts .ts-kpi:hover { border-color:var(--navy-line); }
+#ec-ts .ts-kpi-l { display:flex; align-items:center; gap:6px; font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; color:var(--ink3); }
+#ec-ts .ts-kpi-v { font-size:28px; font-weight:800; color:var(--ink); margin-top:6px; line-height:1.1; font-variant-numeric:tabular-nums; }
+#ec-ts .ts-kpi-s { font-size:12px; color:var(--ink3); margin-top:2px; }
+#ec-ts .ts-fin-v { font-size:22px; font-weight:800; color:var(--ink); margin-top:6px; font-variant-numeric:tabular-nums; }
+#ec-ts .ts-bar { height:6px; background:#f3f4f6; border-radius:99px; overflow:hidden; margin-top:8px; }
+#ec-ts .ts-bar > span { display:block; height:100%; background:var(--navy); border-radius:99px; }
+#ec-ts .ts-kv { display:flex; justify-content:space-between; gap:8px; font-size:12.5px; color:#4b5563; }
+#ec-ts .ts-kv b { color:var(--ink); font-variant-numeric:tabular-nums; }
+
+/* ---------------------------------------------------------------- bieu do CSS */
+#ec-ts .ts-hbar { display:grid; grid-template-columns:110px minmax(0,1fr) 44px; gap:10px; align-items:center; font-size:13px; padding:4px 0; }
+#ec-ts .ts-stack { display:flex; height:14px; border-radius:4px; overflow:hidden; background:#f3f4f6; }
+#ec-ts .ts-stack > span { display:block; height:100%; }
+#ec-ts .ts-legend { display:flex; gap:14px; flex-wrap:wrap; margin-top:10px; font-size:12px; color:var(--ink3); }
+#ec-ts .ts-legend span { display:inline-flex; align-items:center; gap:6px; }
+#ec-ts .ts-cols { display:flex; align-items:flex-end; gap:6px; height:180px; border-bottom:1px solid var(--line); padding:0 4px; }
+#ec-ts .ts-col { flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:4px; height:100%; justify-content:flex-end; }
+#ec-ts .ts-col-v { font-size:11px; color:#4b5563; font-weight:600; }
+#ec-ts .ts-col-b { width:100%; max-width:34px; display:flex; flex-direction:column-reverse; border-radius:3px 3px 0 0; overflow:hidden; }
+#ec-ts .ts-col-x { display:flex; gap:6px; padding:4px 4px 0; }
+#ec-ts .ts-col-x span { flex:1; text-align:center; font-size:11px; color:var(--ink3); }
+#ec-ts .ts-age { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; align-items:end; height:150px; }
+#ec-ts .ts-age > div { display:flex; flex-direction:column; align-items:center; gap:6px; justify-content:flex-end; height:100%; }
+#ec-ts .ts-age i { display:block; width:60%; background:#1f3a5f; border-radius:4px 4px 0 0; min-height:2px; }
+
+/* ---------------------------------------------------------------- can xu ly */
+#ec-ts .ts-todo { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+#ec-ts .ts-todo > section { padding:14px 18px; border-top:1px solid var(--line); min-width:0; }
+#ec-ts .ts-todo > section:nth-child(odd) { border-right:1px solid var(--line); }
+@media (max-width:900px) { #ec-ts .ts-todo { grid-template-columns:minmax(0,1fr); } #ec-ts .ts-todo > section:nth-child(odd) { border-right:0; } }
+#ec-ts .ts-eb { font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; color:var(--ink3); margin-bottom:8px; display:flex; align-items:center; gap:8px; }
+#ec-ts .ts-eb.ts-red { color:var(--bad); }
+#ec-ts .ts-li { display:flex; gap:10px; align-items:flex-start; padding:8px 0; border-bottom:1px solid var(--line2); font-size:13px; }
+#ec-ts .ts-li:last-child { border-bottom:0; }
+#ec-ts .ts-li-main { flex:1; min-width:0; }
+#ec-ts .ts-empty { color:var(--ink4); font-size:12.5px; padding:6px 0; }
+
+/* ---------------------------------------------------------------- bang */
+#ec-ts .ts-table-wrap { overflow:auto; }
+#ec-ts table.ts-table { width:100%; border-collapse:collapse; font-size:13px; }
+#ec-ts .ts-table th { text-align:left; font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--ink3);
+  padding:9px 10px; border-bottom:1px solid var(--line); white-space:nowrap; background:#fafbfc; position:sticky; top:0; }
+#ec-ts .ts-table td { padding:9px 10px; border-bottom:1px solid var(--line2); vertical-align:top; }
+#ec-ts .ts-table tr.ts-click { cursor:pointer; }
+#ec-ts .ts-table tr.ts-click:hover td { background:#fafbff; }
+#ec-ts .ts-table tr.on td { background:var(--wash); }
+#ec-ts .ts-num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+#ec-ts .ts-pager { display:flex; align-items:center; gap:8px; justify-content:flex-end; padding:10px; font-size:12.5px; color:var(--ink3); }
+
+/* ---------------------------------------------------------------- danh sach + drawer (2 cot, khong wrap) */
+#ec-ts .ts-split { display:flex; gap:16px; align-items:flex-start; }
+#ec-ts .ts-split > .ts-left { flex:1 1 auto; min-width:0; }
+#ec-ts .ts-drawer { flex:0 0 600px; width:600px; background:#fff; border:1px solid var(--line); border-radius:var(--r); position:sticky; top:12px;
+  max-height:calc(100vh - 24px); overflow:auto; }
+@media (max-width:1100px) { #ec-ts .ts-split { display:block; } #ec-ts .ts-drawer { position:fixed; inset:0 0 0 auto; width:min(600px,100vw); max-height:none; border-radius:0; z-index:60; box-shadow:0 12px 32px rgba(17,24,39,.16); } }
+#ec-ts .ts-dhead { padding:16px 18px 12px; border-bottom:1px solid var(--line); display:flex; flex-direction:column; gap:8px; }
+#ec-ts .ts-dname { font-size:17px; font-weight:800; color:var(--ink); }
+#ec-ts .ts-tabs { display:flex; gap:2px; padding:0 18px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+#ec-ts .ts-tab { background:none; border:0; border-bottom:2px solid transparent; padding:10px 10px; font-weight:600; font-size:13px; color:var(--ink3); cursor:pointer; }
+#ec-ts .ts-tab.on { color:var(--navy); border-bottom-color:var(--navy); }
+#ec-ts .ts-dbody { padding:16px 18px; display:flex; flex-direction:column; gap:14px; }
+#ec-ts .ts-info { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px 16px; }
+#ec-ts .ts-info div span { display:block; font-size:11.5px; color:var(--ink3); }
+#ec-ts .ts-info div b { font-weight:600; color:var(--ink); word-break:break-word; }
+#ec-ts .ts-issue { background:var(--bad-bg); color:var(--bad); border-radius:8px; padding:8px 10px; font-size:12.5px; }
+
+/* so do may */
+#ec-ts .ts-diagram { border:1px solid var(--line); border-radius:var(--r); padding:12px; background:#fafbfc; }
+#ec-ts .ts-diagram svg { display:block; width:100%; height:auto; }
+#ec-ts .ts-parts { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:12px; }
+#ec-ts .ts-part { text-align:left; border:1px solid var(--line); background:#fff; border-radius:10px; padding:9px 11px; cursor:pointer; min-height:44px; }
+#ec-ts .ts-part span { display:block; font-size:11.5px; color:var(--ink3); }
+#ec-ts .ts-part b { font-weight:700; color:var(--ink); font-size:13px; }
+#ec-ts .ts-part.ts-addon { border-style:dashed; border-color:var(--navy); background:var(--wash); }
+#ec-ts .ts-part.on { box-shadow:0 0 0 2px var(--navy); }
+#ec-ts .ts-partinfo { border:1px solid var(--line); border-radius:10px; padding:10px 12px; background:#fff; }
+
+/* timeline */
+#ec-ts .ts-tl { list-style:none; margin:0; padding:0; }
+#ec-ts .ts-tl li { position:relative; padding:0 0 14px 18px; border-left:2px solid var(--line); margin-left:5px; }
+#ec-ts .ts-tl li::before { content:""; position:absolute; left:-6px; top:4px; width:10px; height:10px; border-radius:50%; background:#fff; border:2px solid var(--navy); }
+#ec-ts .ts-tl li:last-child { border-left-color:transparent; }
+
+/* ---------------------------------------------------------------- kanban */
+#ec-ts .ts-board { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; align-items:start; }
+@media (max-width:1100px) { #ec-ts .ts-board { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width:640px) { #ec-ts .ts-board { grid-template-columns:minmax(0,1fr); } }
+#ec-ts .ts-colk { background:#f3f4f6; border-radius:12px; padding:10px; display:flex; flex-direction:column; gap:8px; min-width:0; }
+#ec-ts .ts-colk-h { display:flex; align-items:center; gap:8px; padding:2px 4px; font-weight:700; color:var(--ink); font-size:13px; }
+#ec-ts .ts-kc { background:#fff; border:1px solid var(--line); border-radius:10px; padding:11px 12px; display:flex; flex-direction:column; gap:6px; }
+#ec-ts .ts-kc.ts-late { border-color:#f3c8c8; }
+#ec-ts .ts-strip { background:#fff; border:1px solid var(--line); border-radius:var(--r); padding:14px 18px; }
+
+/* ---------------------------------------------------------------- modal, sheet, toast */
+#ec-ts .ts-modal-bg { position:fixed; inset:0; background:rgba(17,24,39,.45); z-index:80; display:flex; align-items:flex-start; justify-content:center; padding:5vh 12px; overflow:auto; }
+#ec-ts .ts-modal { background:#fff; border-radius:14px; box-shadow:0 20px 50px rgba(0,0,0,.25); width:min(640px,100%); display:flex; flex-direction:column; }
+#ec-ts .ts-modal.ts-wide { width:min(820px,100%); }
+#ec-ts .ts-mh { padding:16px 20px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:10px; }
+#ec-ts .ts-mt { font-size:15px; font-weight:700; color:var(--ink); }
+#ec-ts .ts-mb { padding:16px 20px; display:flex; flex-direction:column; gap:14px; }
+#ec-ts .ts-mf { padding:12px 20px; border-top:1px solid var(--line); display:flex; gap:8px; justify-content:flex-end; align-items:center; flex-wrap:wrap; }
+@media (max-width:640px) { #ec-ts .ts-modal-bg { align-items:flex-end; padding:0; } #ec-ts .ts-modal { border-radius:16px 16px 0 0; max-height:92vh; overflow:auto; } }
+#ec-ts .ts-pick { max-height:280px; overflow:auto; display:flex; flex-direction:column; gap:6px; }
+#ec-ts .ts-opt { display:flex; gap:10px; align-items:center; text-align:left; width:100%; border:1px solid var(--line); background:#fff; border-radius:10px; padding:9px 12px; cursor:pointer; min-height:44px; }
+#ec-ts .ts-opt.on { border-color:var(--navy); background:var(--wash); }
+#ec-ts .ts-opt-main { flex:1; min-width:0; }
+#ec-ts .ts-warn { background:var(--warn-bg); color:#92400e; border-radius:10px; padding:10px 12px; font-size:13px; }
+#ec-ts .ts-infobox { background:#f9fafb; border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-size:13px; }
+#ec-ts-toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:#111827; color:#fff; padding:10px 16px; border-radius:10px; font:600 13px 'Inter',sans-serif; z-index:99; max-width:90vw; box-shadow:0 12px 32px rgba(17,24,39,.16); }
+#ec-ts-toast.bad { background:#b91c1c; }
+
+/* ---------------------------------------------------------------- skeleton */
+#ec-ts .ts-skel { height:14px; border-radius:6px; background:linear-gradient(90deg,#f1f2f6,#e9ebf1,#f1f2f6); background-size:200% 100%; animation:tsSk 1.2s infinite linear; margin:8px 0; }
+@keyframes tsSk { from { background-position:200% 0; } to { background-position:-200% 0; } }
+@media (prefers-reduced-motion:reduce) { #ec-ts .ts-skel { animation:none; } }
+#ec-ts .ts-err { background:var(--bad-bg); color:var(--bad); border-radius:12px; padding:14px 16px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+
+/* ---------------------------------------------------------------- tai san cua toi (dien thoai) */
+#ec-ts .ts-mine { display:flex; flex-direction:column; gap:14px; }
+#ec-ts .ts-mcard { background:#fff; border:1px solid var(--line); border-radius:16px; padding:16px; display:flex; flex-direction:column; gap:12px; }
+#ec-ts .ts-mcard-h { display:flex; gap:12px; align-items:flex-start; }
+#ec-ts .ts-dev-ico { width:48px; height:48px; border-radius:12px; background:var(--wash); color:var(--navy); display:flex; align-items:center; justify-content:center; flex:none; }
+#ec-ts .ts-dev-ico svg { width:26px; height:26px; fill:none; stroke:currentColor; stroke-width:1.6; }
+#ec-ts .ts-ack { background:var(--warn-bg); border:1px solid #fcd9a8; border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:10px; color:#92400e; font-size:14px; }
+#ec-ts .ts-big { min-height:44px; font-size:14px; padding:10px 16px; }
+#ec-ts .ts-actions { display:flex; gap:8px; flex-wrap:wrap; }
+#ec-ts .ts-actions .ts-btn { flex:1 1 140px; }
+#ec-ts .ts-specs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px 12px; font-size:13px; }
+#ec-ts .ts-specs span { color:var(--ink3); font-size:12px; display:block; }
+@media (max-width:640px) { #ec-ts .ts-mine { font-size:15px; } }
+#ec-ts svg.ts-ico { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; flex:none; }
+#ec-ts a.ts-kpi { display:block; text-decoration:none; color:inherit; }
+#ec-ts a.ts-kpi:hover { text-decoration:none; }
+#ec-ts .ts-li a { color:var(--navy); }
+#ec-ts .ts-repeat { display:inline-block; font-size:11px; font-weight:700; color:var(--bad); background:var(--bad-bg); border-radius:99px; padding:1px 7px; margin-left:4px; }
+#ec-ts .ts-prog { height:10px; background:#f3f4f6; border-radius:99px; overflow:hidden; }
+#ec-ts .ts-prog > span { display:block; height:100%; background:var(--navy); }
+#ec-ts .ts-wrap.ts-mine { max-width:560px; }

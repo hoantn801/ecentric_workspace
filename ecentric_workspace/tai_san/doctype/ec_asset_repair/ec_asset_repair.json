@@ -1,0 +1,226 @@
+{
+ "doctype": "DocType",
+ "name": "EC Asset Repair",
+ "module": "Tai San",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "autoname": "naming_series:",
+ "naming_rule": "By \"Naming Series\" field",
+ "description": "Một lần sửa chữa thiết bị: mức hỏng, nơi sửa, chi phí thật, máy tạm.",
+ "field_order": [
+  "naming_series",
+  "asset",
+  "status",
+  "damage_level",
+  "damaged_parts",
+  "description",
+  "holder",
+  "cb1",
+  "repair_mode",
+  "vendor",
+  "sent_date",
+  "expected_return",
+  "returned_date",
+  "sb1",
+  "expected_cost",
+  "actual_cost",
+  "result",
+  "cb2",
+  "loaner_asset",
+  "damage_request",
+  "note"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Mã",
+   "options": "TS-SC-.YYYY.-.####",
+   "default": "TS-SC-.YYYY.-.####",
+   "hidden": 1
+  },
+  {
+   "fieldname": "asset",
+   "fieldtype": "Link",
+   "label": "Thiết bị",
+   "options": "Asset",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Trạng thái",
+   "options": "Open\nIn Repair\nDone\nCancelled",
+   "default": "Open",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "damage_level",
+   "fieldtype": "Select",
+   "label": "Mức hỏng",
+   "options": "Partial\nFull",
+   "default": "Partial",
+   "reqd": 1
+  },
+  {
+   "fieldname": "damaged_parts",
+   "fieldtype": "Small Text",
+   "label": "Bộ phận hỏng"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Mô tả"
+  },
+  {
+   "fieldname": "holder",
+   "fieldtype": "Link",
+   "label": "Người đang dùng",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "repair_mode",
+   "fieldtype": "Select",
+   "label": "Hướng xử lý",
+   "options": "Internal\nWarranty\nExternal",
+   "default": "External",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "vendor",
+   "fieldtype": "Data",
+   "label": "Nơi sửa"
+  },
+  {
+   "fieldname": "sent_date",
+   "fieldtype": "Date",
+   "label": "Ngày gửi"
+  },
+  {
+   "fieldname": "expected_return",
+   "fieldtype": "Date",
+   "label": "Dự kiến nhận lại",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "returned_date",
+   "fieldtype": "Date",
+   "label": "Ngày nhận lại"
+  },
+  {
+   "fieldname": "sb1",
+   "fieldtype": "Section Break",
+   "label": "Chi phí & kết quả"
+  },
+  {
+   "fieldname": "expected_cost",
+   "fieldtype": "Currency",
+   "label": "Chi phí dự kiến"
+  },
+  {
+   "fieldname": "actual_cost",
+   "fieldtype": "Currency",
+   "label": "Chi phí thật",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "result",
+   "fieldtype": "Select",
+   "label": "Kết quả",
+   "options": "\nFixed\nUnfixable"
+  },
+  {
+   "fieldname": "cb2",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "loaner_asset",
+   "fieldtype": "Link",
+   "label": "Máy tạm",
+   "options": "Asset"
+  },
+  {
+   "fieldname": "damage_request",
+   "fieldtype": "Link",
+   "label": "Phiếu báo hỏng / mất",
+   "options": "EC Asset Damage Loss Request"
+  },
+  {
+   "fieldname": "note",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "share": 1
+  },
+  {
+   "role": "EC Asset Manager",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "EC HOF",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "create": 0,
+   "write": 0
+  },
+  {
+   "role": "EC Finance",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "create": 0,
+   "write": 0
+  },
+  {
+   "role": "EC CEO",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "create": 0,
+   "write": 0
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "title_field": "asset"
+}

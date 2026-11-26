@@ -445,6 +445,8 @@ fixtures = [
             "Asset-ec_depreciation_start", "Asset-ec_salvage_value", "Asset-ec_sb_spec",
             "Asset-ec_spec", "Asset Category-ec_default_life_months",
             "Asset Category-ec_is_component", "Asset Category-ec_spec_template",
+            # dot 1 (tai_san p002): giu cho cho ai + ngay ghi giam (dung khau hao quan tri).
+            "Asset-ec_reserved_for", "Asset-ec_end_date",
 ]]],
     },
     # Ba DocType custom cua PnL dashboard (09-10/09/2026). Truoc day chi ton tai tren
@@ -1250,3 +1252,12 @@ scheduler_events["daily"].append("ecentric_workspace.pm.onboarding.daily_backfil
 # trang (form + popup hub), mo hop thoai docx-preview trong iframe sandbox. Khong sua trang nao.
 web_include_js.append("ec_file_view.bundle.js")
 web_include_css.append("ec_file_view.bundle.css")
+
+# 26/11/2026 - Quan ly tai san (tai_san/, xem tai_san/README.md):
+#  * 00:40 hang ngay: may cua nguoi co ngay lam viec cuoi = hom qua -> "Cho kiem tra" (sau luot khoa
+#    tai khoan 00:30, tranh bao :00/:15/:30/:45).
+#  * 01:10 ngay 1: chot so lieu thang truoc vao EC Asset Monthly.
+scheduler_events["cron"].setdefault("40 0 * * *", []).append(
+    "ecentric_workspace.tai_san.jobs.return_due_today")
+scheduler_events["cron"].setdefault("10 1 1 * *", []).append(
+    "ecentric_workspace.tai_san.jobs.monthly_snapshot")
