@@ -285,5 +285,23 @@ for (const f of feats) {
   ok(hit === 1, f + ": bam Duyet tren bang -> nut Duyet that cua trang nhan dung 1 click (" + hit + ")");
 }
 ok(banners >= 31, "bang hien tren >= 31 form: " + banners);
+
+// ---- Phieu DA HUY / TU CHOI (25/11, Hoan): khong con "Cho duyet" o cap dang do, khong bang ----
+{
+  const det = DET1(); det.approval.approval_status = "Cancelled";
+  const html = U.stepsHTML(pageSteps(["done", "current", "upcoming"]), { detail: det });
+  const d = parse(html);
+  ok(!/Chờ duyệt|Chờ bạn duyệt/.test(d.body.textContent), "HUY: khong con chu Cho duyet");
+  ok(/Đã hủy/.test(d.body.textContent), "HUY: cap dang do ghi Da huy");
+  ok(!d.querySelector(".ec-aps-you"), "HUY: khong ve bang Viec cua ban");
+  ok(d.querySelector(".ec-aps.is-cancelled"), "HUY: class is-cancelled");
+  const det2 = DET1(); det2.approval.approval_status = "Rejected";
+  const t2 = parse(U.stepsHTML(pageSteps(["done", "current", "upcoming"]), { detail: det2 })).body.textContent;
+  ok(/Từ chối/.test(t2) && !/Chờ duyệt/.test(t2), "TU CHOI: cap dang do -> Tu choi");
+  const t3 = parse(U.stepsHTML(pageSteps(["done", "rejected", "upcoming"]), { detail: det2 })).body.textContent;
+  ok((t3.match(/Từ chối/g) || []).length >= 1 && !/Chờ duyệt/.test(t3), "TU CHOI: trang da ve rejected thi giu");
+  const t4 = parse(U.stepsHTML(pageSteps(["done", "current", "upcoming"]), { detail: DET1() })).body.textContent;
+  ok(/Chờ bạn duyệt/.test(t4), "PENDING: van nhu cu");
+}
 console.log("JS: " + pass + " dat, " + fail + " hong");
 process.exit(fail ? 1 : 0);
