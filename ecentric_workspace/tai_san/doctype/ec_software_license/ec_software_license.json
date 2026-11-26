@@ -1,0 +1,272 @@
+{
+ "doctype": "DocType",
+ "name": "EC Software License",
+ "module": "Tai San",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "autoname": "naming_series:",
+ "naming_rule": "By \"Naming Series\" field",
+ "description": "Bản quyền phần mềm (thuê bao / vĩnh viễn): số chỗ, hạn, gia hạn, người phụ trách. Gắn cho nhân viên qua EC Software License Seat.",
+ "title_field": "license_name",
+ "search_fields": "vendor,account",
+ "field_order": [
+  "naming_series",
+  "license_name",
+  "vendor",
+  "category",
+  "license_type",
+  "billing_cycle",
+  "status",
+  "cb1",
+  "seats",
+  "start_date",
+  "current_term_start",
+  "expiry_date",
+  "auto_renew",
+  "sb1",
+  "owner_employee",
+  "department",
+  "account",
+  "key_location",
+  "cb2",
+  "cost_per_cycle",
+  "supplier_invoice",
+  "alert_stage",
+  "alert_for_expiry",
+  "note",
+  "sb2",
+  "renewals"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Mã",
+   "options": "TS-BQ-.YYYY.-.####",
+   "default": "TS-BQ-.YYYY.-.####",
+   "hidden": 1
+  },
+  {
+   "fieldname": "license_name",
+   "fieldtype": "Data",
+   "label": "Tên bản quyền",
+   "reqd": 1,
+   "in_list_view": 1,
+   "bold": 1
+  },
+  {
+   "fieldname": "vendor",
+   "fieldtype": "Data",
+   "label": "Hãng / nhà cung cấp",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "category",
+   "fieldtype": "Select",
+   "label": "Nhóm",
+   "options": "Văn phòng\nThiết kế\nAI\nPhát triển\nBảo mật\nDữ liệu\nKhác",
+   "default": "Khác",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "license_type",
+   "fieldtype": "Select",
+   "label": "Loại",
+   "options": "Subscription\nPerpetual",
+   "default": "Subscription",
+   "reqd": 1
+  },
+  {
+   "fieldname": "billing_cycle",
+   "fieldtype": "Select",
+   "label": "Kỳ thanh toán",
+   "options": "Monthly\nQuarterly\nYearly\nOther",
+   "default": "Yearly",
+   "depends_on": "eval:doc.license_type==\"Subscription\""
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Trạng thái",
+   "options": "Active\nExpired\nCancelled",
+   "default": "Active",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "seats",
+   "fieldtype": "Int",
+   "label": "Số chỗ",
+   "default": "1",
+   "reqd": 1
+  },
+  {
+   "fieldname": "start_date",
+   "fieldtype": "Date",
+   "label": "Ngày bắt đầu"
+  },
+  {
+   "fieldname": "current_term_start",
+   "fieldtype": "Date",
+   "label": "Đầu kỳ hiện tại",
+   "read_only": 1
+  },
+  {
+   "fieldname": "expiry_date",
+   "fieldtype": "Date",
+   "label": "Ngày hết hạn",
+   "in_list_view": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "auto_renew",
+   "fieldtype": "Check",
+   "label": "Tự gia hạn"
+  },
+  {
+   "fieldname": "sb1",
+   "fieldtype": "Section Break",
+   "label": "Phụ trách"
+  },
+  {
+   "fieldname": "owner_employee",
+   "fieldtype": "Link",
+   "label": "Người phụ trách gia hạn",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "label": "Phòng ban",
+   "options": "Department",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "account",
+   "fieldtype": "Data",
+   "label": "Tài khoản quản trị / email đăng ký",
+   "description": "Không ghi mật khẩu."
+  },
+  {
+   "fieldname": "key_location",
+   "fieldtype": "Data",
+   "label": "Nơi lưu key / hoá đơn",
+   "description": "Ghi NƠI lưu (vd kho mật khẩu IT), không dán key."
+  },
+  {
+   "fieldname": "cb2",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "cost_per_cycle",
+   "fieldtype": "Currency",
+   "label": "Chi phí mỗi kỳ (₫)"
+  },
+  {
+   "fieldname": "supplier_invoice",
+   "fieldtype": "Data",
+   "label": "Số hoá đơn / mã đơn hàng"
+  },
+  {
+   "fieldname": "alert_stage",
+   "fieldtype": "Data",
+   "label": "Mốc nhắc đã gửi",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "alert_for_expiry",
+   "fieldtype": "Date",
+   "label": "Nhắc cho hạn",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "note",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú"
+  },
+  {
+   "fieldname": "sb2",
+   "fieldtype": "Section Break",
+   "label": "Gia hạn"
+  },
+  {
+   "fieldname": "renewals",
+   "fieldtype": "Table",
+   "label": "Lịch sử gia hạn",
+   "options": "EC Software License Renewal",
+   "read_only": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "share": 1
+  },
+  {
+   "role": "EC Asset Manager",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "EC HOF",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "EC Finance",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "EC CEO",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "sort_field": "creation",
+ "sort_order": "DESC"
+}

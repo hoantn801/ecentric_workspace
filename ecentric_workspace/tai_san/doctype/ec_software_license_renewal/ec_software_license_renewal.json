@@ -1,0 +1,67 @@
+{
+ "doctype": "DocType",
+ "name": "EC Software License Renewal",
+ "module": "Tai San",
+ "custom": 0,
+ "istable": 1,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "description": "Một lần gia hạn bản quyền.",
+ "field_order": [
+  "renewed_on",
+  "old_expiry",
+  "new_expiry",
+  "cost",
+  "renewed_by",
+  "note"
+ ],
+ "fields": [
+  {
+   "fieldname": "renewed_on",
+   "fieldtype": "Date",
+   "label": "Ngày gia hạn",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "old_expiry",
+   "fieldtype": "Date",
+   "label": "Hạn cũ",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "new_expiry",
+   "fieldtype": "Date",
+   "label": "Hạn mới",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "cost",
+   "fieldtype": "Currency",
+   "label": "Chi phí kỳ",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "renewed_by",
+   "fieldtype": "Link",
+   "label": "Người gia hạn",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "note",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú",
+   "read_only": 1
+  }
+ ],
+ "permissions": [],
+ "links": [],
+ "index_web_pages_for_search": 0
+}

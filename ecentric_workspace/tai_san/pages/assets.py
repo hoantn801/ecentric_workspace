@@ -1,5 +1,5 @@
 # Copyright (c) 2026, eCentric and contributors
-"""Asset CSS/JS cua Quan ly tai san (public/tai_san/) va dau `?v=` trong 6 trang.
+"""Asset CSS/JS cua Quan ly tai san (public/tai_san/) va dau `?v=` trong 7 trang.
 
 Frappe Cloud phuc vu /assets/* voi `Cache-Control: max-age=31536000, immutable` (do 29/09):
 duong dan khong doi thi trinh duyet giu ban cu MOT NAM. Moi the tro vao public/tai_san/ mang
@@ -19,7 +19,7 @@ import sys
 _HERE = os.path.dirname(os.path.abspath(__file__))
 APP_DIR = os.path.dirname(os.path.dirname(_HERE))
 PUBLIC_DIR = os.path.join(APP_DIR, "public")
-PAGE_KEYS = ("home", "list", "moves", "repairs", "count", "mine")
+PAGE_KEYS = ("home", "list", "moves", "repairs", "count", "mine", "licenses")
 ASSET_REF = re.compile(r'(/assets/ecentric_workspace/(tai_san/[A-Za-z0-9_.-]+))\?v=([0-9a-f]*)')
 
 

@@ -236,3 +236,4 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 #ec-ts .ts-prog { height:10px; background:#f3f4f6; border-radius:99px; overflow:hidden; }
 #ec-ts .ts-prog > span { display:block; height:100%; background:var(--navy); }
 #ec-ts .ts-wrap.ts-mine { max-width:560px; }
+#ec-ts .ts-pill.ts-amber { background:var(--warn-bg); color:#92400e; }

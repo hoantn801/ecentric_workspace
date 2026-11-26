@@ -4,6 +4,7 @@
   "use strict";
   var T = window.ECTs, O = window.ECTsOps, esc = T.esc;
   var LIST = "/tai-san/thiet-bi";
+  var LIC = "/tai-san/ban-quyen";
   var COST_COL = { depreciation: ["Khấu hao", "#2C3DA6"], repair: ["Sửa chữa", "#d97706"], rent: ["Thuê / phụ cấp", "#9ca3af"] };
   var state = { month: T.param("month"), department: T.param("department"), category: T.param("category") };
   var root;
@@ -95,8 +96,9 @@
       (rows.length ? rows.map(function (r) {
         return '<div class="ts-hbar"><span class="ts-strong" title="' + esc(r.department) + '" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(r.department || "—") + "</span>" +
           '<div class="ts-bar" style="margin:0"><span style="width:' + (max ? r.count * 100 / max : 0) + '%"></span></div><span class="ts-num">' + T.fmtNum(r.count) + "</span></div>" +
+          (r.in_use != null && r.in_use !== r.count ? '<div class="ts-note" style="margin:-2px 0 4px 120px">' + T.fmtNum(r.in_use) + " đang dùng</div>" : "") +
           (r.nbv != null ? '<div class="ts-note" style="margin:-2px 0 4px 120px">Còn lại ' + T.fmtMillion(r.nbv) + "</div>" : "");
-      }).join("") : '<div class="ts-empty">Chưa có thiết bị nào đang dùng.</div>') + "</div>";
+      }).join("") : '<div class="ts-empty">Chưa có thiết bị.</div>') + "</div>";
   }
 
   function age(d) {
@@ -153,6 +155,23 @@
       '<a class="ts-link" href="/tai-san/luan-chuyen">Mở bảng luân chuyển</a></div><div class="ts-todo">' + secs.join("") + "</div></div>";
   }
 
+  function licenses(d) {
+    var b = d.licenses;
+    if (!b) return "";
+    var s = b.summary || {}, todo = b.todo || [];
+    return '<div class="ts-card"><div class="ts-card-h"><div class="ts-card-t">Bản quyền phần mềm</div><span class="ts-sp"></span>' +
+      '<a class="ts-link" href="' + LIC + '">Mở danh sách</a></div>' +
+      '<div class="ts-row ts-note" style="margin-bottom:8px">' + T.fmtNum(s.total) + " bản quyền · " + T.fmtNum(s.used) + "/" + T.fmtNum(s.seats) + " chỗ đã cấp" +
+      (s.due ? ' · <a href="' + LIC + '?stage=due">' + T.fmtNum(s.due) + " sắp hết hạn</a>" : "") +
+      (s.expired ? ' · <a class="ts-bad-text" href="' + LIC + '?stage=expired">' + T.fmtNum(s.expired) + " đã quá hạn</a>" : "") +
+      (s.monthly_cost != null ? " · " + T.fmtMillion(s.monthly_cost) + "/tháng" : "") + "</div>" +
+      (todo.length ? todo.map(function (r) {
+        return '<div class="ts-li"><div class="ts-li-main"><a class="ts-strong" href="' + LIC + "?id=" + encodeURIComponent(r.name) + '">' + esc(r.license_name || r.name) + "</a>" +
+          '<div class="ts-note">' + esc([r.vendor, r.expiry_date ? "hết hạn " + T.fmtDate(r.expiry_date) : "", T.licDays(r.days_left)].filter(Boolean).join(" · ")) + "</div></div>" +
+          "<div>" + T.licPill(r) + "</div></div>";
+      }).join("") : '<div class="ts-note">Không có bản quyền sắp hết hạn.</div>') + "</div>";
+  }
+
   function render(d) {
     var can = d.can || {}, k = d.kpis || {}, f = d.filters || {};
     root.innerHTML = '<div class="ts-wrap">' +
@@ -166,7 +185,7 @@
       kpi("Đang dùng", k.in_use, "", "In Use") + kpi("Sẵn sàng", k.available, "", "Available") + kpi("Đã giữ chỗ", k.reserved, "", "Reserved") +
       kpi("Chờ kiểm tra", k.pending_check, "", "Pending Check") + kpi("Hỏng / đang sửa", k.broken_or_repair, (k.lost ? "Mất " + k.lost : ""), "Broken") + "</div>" +
       (can.see_cost ? finance(d) + '<div class="ts-note">Khấu hao quản trị — chưa ghi sổ kế toán.</div>' + cost12(d) : "") +
-      todo(d) +
+      todo(d) + licenses(d) +
       '<div class="ts-grid ts-g2">' + byCategory(d) + '<div class="ts-grid">' + byDepartment(d) + age(d) + "</div></div>" +
       "</div>";
     T.qsa(root, "[data-f]").forEach(function (el) {

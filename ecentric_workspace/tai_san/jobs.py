@@ -5,6 +5,7 @@
     Employee.relieving_date) ma con giu may -> may sang "Cho kiem tra", go nguoi giu, bao Ops.
     00:40 (khong phai 00:30 / 00:45): tranh bao scheduler :00/:15/:30/:45 da biet (loi 1205),
     va chay SAU luot khoa tai khoan 00:30.
+  * 08:20 moi ngay - `license_alerts`: nhac ban quyen sap het han / qua han (dot 4).
   * 01:10 ngay 1 hang thang - `monthly_snapshot`: chot so lieu THANG TRUOC vao EC Asset Monthly
     (tung may; chay lai chi chot may con thieu; khoa duy nhat (month, asset) o DocType).
 
@@ -16,6 +17,9 @@ from frappe.utils import add_days, getdate, nowdate
 from ecentric_workspace.tai_san import access as A
 from ecentric_workspace.tai_san import constants as C
 from ecentric_workspace.tai_san import depreciation as D
+from ecentric_workspace.tai_san import license_repository as LR
+from ecentric_workspace.tai_san import license_service as LS
+from ecentric_workspace.tai_san import licenses as LIC
 from ecentric_workspace.tai_san import repository as R
 from ecentric_workspace.tai_san import reports as RP
 from ecentric_workspace.tai_san import service as S
@@ -48,10 +52,63 @@ def return_due_today():
         except Exception:
             frappe.db.rollback()
             frappe.log_error(title="tai_san return_due_today %s" % a["name"])
+    licenses = []
+    for emp, (last_day, clr) in leaving.items():
+        try:
+            names = LS.revoke_for_leaver(ctx, emp, ref_doctype=C.SRC_CLEARANCE if clr else None,
+                                         ref_name=clr, last_day=last_day)
+            licenses += names
+            frappe.db.commit()
+        except Exception:
+            frappe.db.rollback()
+            frappe.log_error(title="tai_san return_due_today license %s" % emp)
     if done:
         R.notify_role(C.ROLE_MANAGER, "Thu hồi tự động (nghỉ việc %s): %s - kiểm tra máy trên /tai-san/luan-chuyen."
                       % (day, ", ".join(done)), "/" + C.ROUTE_MOVES)
-    return {"day": str(day), "returned": len(done)}
+    if licenses:
+        R.notify_role(C.ROLE_MANAGER, "Đã thu %d chỗ bản quyền của nhân viên nghỉ việc - xem /tai-san/ban-quyen "
+                      "(huỷ tài khoản bên hãng nếu cần)." % len(licenses), "/" + C.ROUTE_LICENSES)
+    return {"day": str(day), "returned": len(done), "licenses_revoked": len(licenses)}
+
+
+def license_alerts():
+    """08:20 hang ngay: bao ban quyen sap het han (truoc 30 ngay; goi thang truoc 10 ngay) va da qua
+    han. Moi moc chi bao MOT lan cho moi han (alert_stage + alert_for_expiry); gia han xong tu reset.
+    08:20 - gio lam viec, ngoai bao scheduler :00/:15/:30/:45."""
+    today = getdate(nowdate())
+    sent = 0
+    for lic in LR.licenses({"status": ["in", [C.LS_ACTIVE, C.LS_EXPIRED]]}):
+        st = LIC.needs_alert(lic, today)
+        if not st:
+            continue
+        try:
+            left = LIC.days_left(lic, today)
+            exp = str(lic.expiry_date)[:10]
+            if st == C.STAGE_DUE:
+                msg = ("Bản quyền %s hết hạn HÔM NAY (%s)" % (lic.license_name, exp) if left == 0
+                       else "Bản quyền %s hết hạn sau %d ngày (%s)" % (lic.license_name, left, exp))
+            else:
+                msg = "Bản quyền %s đã quá hạn từ %s" % (lic.license_name, exp)
+            msg += " - gia hạn hoặc huỷ trên /tai-san/ban-quyen."
+            link = "/%s?id=%s" % (C.ROUTE_LICENSES, lic.name)
+            values = {"alert_stage": st, "alert_for_expiry": exp}
+            if st == C.STAGE_EXPIRED:
+                values["status"] = C.LS_EXPIRED
+            # Ghi truoc, bao sau, va CHI khi han chua doi tu luc doc danh sach (ai do vua gia han giua
+            # chung thi bo qua - khong danh dau Het han nham, khong bao thua).
+            if not LR.set_license_if(lic.name, lic.expiry_date, values):
+                frappe.db.rollback()
+                continue
+            R.notify_role(C.ROLE_MANAGER, msg, link)
+            owner = R.employee_user(lic.owner_employee) if lic.owner_employee else None
+            if owner:
+                R.notify([owner], msg, link)
+            sent += 1
+            frappe.db.commit()
+        except Exception:
+            frappe.db.rollback()
+            frappe.log_error(title="tai_san license_alerts %s" % lic.name)
+    return {"alerts": sent}
 
 
 def monthly_snapshot(month=None):

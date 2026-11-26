@@ -1261,3 +1261,13 @@ scheduler_events["cron"].setdefault("40 0 * * *", []).append(
     "ecentric_workspace.tai_san.jobs.return_due_today")
 scheduler_events["cron"].setdefault("10 1 1 * *", []).append(
     "ecentric_workspace.tai_san.jobs.monthly_snapshot")
+
+# 26/11/2026 - Quan ly tai san dot 4 (Hoan): ban quyen phan mem (EC Software License, /tai-san/ban-quyen).
+#  * 08:20 hang ngay: nhac ban quyen sap het han (truoc 30 ngay; goi thang truoc 10 ngay) va qua han.
+#  * Trang cu /it-asset-management-system (Web Page khong co nguon trong repo) -> /tai-san; patch
+#    tai_san.p003 go publish trang cu (KHONG xoa). 302 de doi dich sau nay khong vuong cache.
+scheduler_events["cron"].setdefault("20 8 * * *", []).append(
+    "ecentric_workspace.tai_san.jobs.license_alerts")
+website_redirects = list(globals().get("website_redirects") or []) + [
+    {"source": "/it-asset-management-system", "target": "/tai-san", "redirect_http_status": 302},
+]

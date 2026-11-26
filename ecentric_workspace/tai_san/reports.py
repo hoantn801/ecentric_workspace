@@ -88,14 +88,25 @@ def by_category(assets):
             for k, v in sorted(out.items(), key=lambda kv: -sum(kv[1].values()))]
 
 
+def dept_bucket(department, holder):
+    """Nhom phong ban hien thi + loc: may co nguoi giu -> phong cua ho (thieu -> Chua gan phong);
+    may khong ai giu -> Kho chung (du ban ghi con de phong cu)."""
+    if holder:
+        return department or C.NO_DEPT_BUCKET
+    return C.STOCK_BUCKET
+
+
 def by_department(assets, cats, as_of, with_cost):
+    """May con trong so theo noi dang nam: phong cua nguoi giu; may khong ai giu -> Kho chung; may co
+    nguoi giu ma thieu phong -> Chua gan phong (loi du lieu, khong lan voi kho)."""
     out = {}
     for a in assets:
-        if is_installed(a) or a.get(C.OPS_STATUS_FIELD) != C.ST_IN_USE:
+        if is_installed(a) or a.get(C.OPS_STATUS_FIELD) in C.OUT_OF_BOOK:
             continue
-        dept = a.get("department") or C.STOCK_BUCKET
-        row = out.setdefault(dept, {"department": dept, "count": 0, "nbv": 0.0})
+        dept = dept_bucket(a.get("department"), a.get("custodian"))
+        row = out.setdefault(dept, {"department": dept, "count": 0, "in_use": 0, "nbv": 0.0})
         row["count"] += 1
+        row["in_use"] += 1 if a.get(C.OPS_STATUS_FIELD) == C.ST_IN_USE else 0
         if with_cost:
             row["nbv"] += D.compute(a, _life(a, cats), as_of)["nbv"]
     rows = sorted(out.values(), key=lambda r: -r["count"])

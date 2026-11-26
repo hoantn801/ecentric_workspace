@@ -85,3 +85,26 @@ Test: `python -m unittest ecentric_workspace.tai_san.tests.test_tai_san ecentric
 
 36 tháng / 24 tháng linh kiện · có bước "Chờ kiểm tra" khi thu hồi · role riêng `EC Asset Manager` ·
 menu ở khu Công ty · ngưỡng 3.000.000 ₫ sửa chữa phải tạo phiếu duyệt (đợt 2).
+
+## Đợt 4 — Bản quyền phần mềm (26/11/2026)
+
+- DocType **EC Software License** (+ bảng con EC Software License Renewal) và **EC Software License Seat**
+  (mỗi lần cấp cho một nhân viên là một dòng; thu lại thì đổi trạng thái, không xoá).
+- Tên DocType tránh trùng cụm "EC License …" của AI Live (bản quyền app eC Live, không liên quan).
+- **Nhắc hạn** (`licenses.py`, job `license_alerts` 08:20 mỗi ngày):
+  - thuê bao nhắc trước 30 ngày;
+  - gói ngắn hạn (theo tháng, hoặc kỳ khác ≤ 31 ngày) nhắc trước 10 ngày;
+  - quá hạn nhắc thêm một lần và đổi trạng thái sang "Hết hạn".
+  - Mỗi mốc chỉ báo một lần cho mỗi hạn; gia hạn hoặc sửa hạn thì tính lại.
+  - Người nhận: role EC Asset Manager và người phụ trách gia hạn.
+- **Nghỉ việc:** job 00:40 thu luôn các chỗ bản quyền của người nghỉ. Bảng luân chuyển có nút "Thu" từng chỗ.
+- **Quyền:**
+  - Người quản lý tài sản: nhập, gia hạn, cấp, thu, huỷ.
+  - Finance / HOF: sửa chi phí mỗi kỳ.
+  - Trưởng phòng: chỉ thấy bản quyền có chỗ của nhân viên phòng mình, không thấy tiền.
+  - Nhân viên: thấy chỗ của mình ở "Tài sản của tôi".
+- Không lưu key hay mật khẩu, chỉ ghi nơi lưu.
+- **Trang:** `/tai-san/ban-quyen` (p575). Trang cũ `/it-asset-management-system` chuyển hướng 302 sang `/tai-san`; p003 gỡ publish trang cũ, không xoá. DocType cũ "IT Asset Management System" giữ nguyên.
+- **Chưa làm:**
+  - chi phí bản quyền chưa đưa vào biểu đồ chi phí 12 tháng và EC Asset Monthly (mới hiện ở khối Bản quyền);
+  - bản quyền vĩnh viễn không phân bổ chi phí theo tháng.

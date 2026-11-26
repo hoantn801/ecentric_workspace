@@ -1,5 +1,5 @@
 # Copyright (c) 2026, eCentric and contributors
-"""6 trang Quan ly tai san: ?v= khop noi dung asset, khong chuoi Jinja, co vo shell, page_sync khop
+"""7 trang Quan ly tai san: ?v= khop noi dung asset, khong chuoi Jinja, co vo shell, page_sync khop
 constants, JS dung ES5, CSS bo hep trong #ec-ts, moi ham API JS goi deu co trong controllers/api.py.
 
     python -m unittest ecentric_workspace.tai_san.tests.test_pages
@@ -17,7 +17,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 MOD = os.path.dirname(HERE)
 PUBLIC = os.path.join(assets.PUBLIC_DIR, "tai_san")
 EXPECT = {"home": C.ROUTE_HOME, "list": C.ROUTE_LIST, "moves": C.ROUTE_MOVES,
-          "repairs": C.ROUTE_REPAIRS, "count": C.ROUTE_COUNT, "mine": C.ROUTE_MINE}
+          "repairs": C.ROUTE_REPAIRS, "count": C.ROUTE_COUNT, "mine": C.ROUTE_MINE,
+          "licenses": C.ROUTE_LICENSES}
 
 
 def _read(path):

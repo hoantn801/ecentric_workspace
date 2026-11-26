@@ -39,6 +39,16 @@
       '<div class="ts-actions"><button type="button" class="ts-btn ts-big" data-dmg>' + T.icon("alert") + "Báo hỏng / mất</button></div></article>";
   }
 
+  function licList(list) {
+    if (!list || !list.length) return "";
+    return '<div class="ts-card"><div class="ts-card-t" style="margin-bottom:6px">Bản quyền của tôi · ' + list.length + "</div>" + list.map(function (l) {
+      return '<div class="ts-li"><div class="ts-li-main"><b class="ts-strong">' + esc(l.license_name || l.license) + "</b>" +
+        '<div class="ts-note">' + esc([l.vendor, l.account].filter(Boolean).join(" · ")) + "</div>" +
+        (l.expiry_date ? '<div class="ts-note">Hết hạn ' + esc(T.fmtDate(l.expiry_date)) + " · " + esc(T.licDays(l.days_left)) + "</div>" : "") + "</div>" +
+        "<div>" + T.licPill(l) + "</div></div>";
+    }).join("") + '<div class="ts-note" style="margin-top:6px">Phần mềm công ty cấp theo tài khoản. Không dùng nữa thì báo quản lý tài sản để thu lại.</div></div>';
+  }
+
   function render() {
     var d = data;
     var head = '<div class="ts-head"><div class="ts-head-main"><h1 class="ts-title">Tài sản của tôi</h1>' +
@@ -55,6 +65,7 @@
         ". Xác nhận từng thiết bị bạn đang giữ bên dưới.</div>" : "") +
       (list.length ? list.map(function (a) { return card(a, d.count); }).join("") :
         '<div class="ts-card"><div class="ts-empty">Bạn chưa giữ thiết bị nào của công ty.</div></div>') +
+      licList(d.licenses) +
       (d.request_route ? '<a class="ts-btn ts-wash ts-big" href="' + esc(d.request_route) + '" style="justify-content:center">' + T.icon("plus") + "Xin cấp / đổi thiết bị</a>" : "") +
       '<div class="ts-note">Máy hỏng hay mất, báo ngay để được gửi sửa hoặc cấp máy tạm. Khi nghỉ việc, trả máy theo phiếu Clearance.</div></div>';
   }

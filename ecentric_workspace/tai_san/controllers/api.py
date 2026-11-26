@@ -14,6 +14,8 @@ from ecentric_workspace.tai_san import component_service as CS
 from ecentric_workspace.tai_san import constants as C
 from ecentric_workspace.tai_san import count_service as KK
 from ecentric_workspace.tai_san import flows as F
+from ecentric_workspace.tai_san import license_service as LS
+from ecentric_workspace.tai_san import license_views as LV
 from ecentric_workspace.tai_san import lifecycle as L
 from ecentric_workspace.tai_san import repair_service as RS
 from ecentric_workspace.tai_san import repository as R
@@ -210,3 +212,44 @@ def mark_count(asset, result, actual_holder=None, note=None):
 @frappe.whitelist(methods=["POST"])
 def close_count():
     return _run(KK.close)
+
+
+# ------------------------------------------------------------ ban quyen ----
+@frappe.whitelist(methods=["GET"])
+def licenses(filters=None):
+    return _run(lambda c: LV.licenses_view(c, _json(filters, {})))
+
+
+@frappe.whitelist(methods=["GET"])
+def license_detail(name):
+    return _run(lambda c: LV.license_detail(c, name))
+
+
+@frappe.whitelist(methods=["POST"])
+def create_license(data):
+    return _run(lambda c: LS.create(c, _json(data, {})))
+
+
+@frappe.whitelist(methods=["POST"])
+def update_license(name, data):
+    return _run(lambda c: LS.update(c, name, _json(data, {})))
+
+
+@frappe.whitelist(methods=["POST"])
+def renew_license(name, new_expiry=None, cost=None, note=None):
+    return _run(lambda c: LS.renew(c, name, new_expiry, cost, note))
+
+
+@frappe.whitelist(methods=["POST"])
+def cancel_license(name, note=None):
+    return _run(lambda c: LS.cancel(c, name, note))
+
+
+@frappe.whitelist(methods=["POST"])
+def assign_license(name, employee, note=None):
+    return _run(lambda c: LS.assign(c, name, employee, note))
+
+
+@frappe.whitelist(methods=["POST"])
+def revoke_license_seat(seat, note=None):
+    return _run(lambda c: LS.revoke(c, seat, note))
