@@ -1709,7 +1709,7 @@
   "fieldname": "ec_sb_spec",
   "label": "Cấu hình gốc",
   "fieldtype": "Section Break",
-  "insert_after": "ec_salvage_value",
+  "insert_after": "ec_end_date",
   "collapsible": 1,
   "description": "Linh kiện có sẵn trong máy. Linh kiện mua thêm (RAM, SSD, card) tạo thành tài sản riêng và chọn máy ở ô Installed On."
  },
@@ -1757,5 +1757,30 @@
   "fieldtype": "Small Text",
   "insert_after": "ec_is_component",
   "description": "Các bộ phận gợi ý khi nhập cấu hình gốc, cách nhau bằng dấu phẩy."
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Asset-ec_reserved_for",
+  "dt": "Asset",
+  "module": "Tai San",
+  "fieldname": "ec_reserved_for",
+  "label": "Giữ chỗ cho",
+  "fieldtype": "Link",
+  "options": "Employee",
+  "insert_after": "ec_salvage_value",
+  "read_only": 1,
+  "description": "Ghi bởi /tai-san khi giữ chỗ máy cho nhân sự mới / phiếu đã duyệt."
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Asset-ec_end_date",
+  "dt": "Asset",
+  "module": "Tai San",
+  "fieldname": "ec_end_date",
+  "label": "Ngày ghi giảm",
+  "fieldtype": "Date",
+  "insert_after": "ec_reserved_for",
+  "read_only": 1,
+  "description": "Ngày thanh lý / báo mất. Khấu hao quản trị dừng từ tháng sau."
  }
 ]

@@ -46,6 +46,41 @@ Tình trạng (`ec_condition`: Tốt / Hỏng một phần / Hỏng toàn bộ) 
 
 Test: `python -m unittest ecentric_workspace.tai_san.tests.test_tai_san`
 
+## Đợt 1–3 (nhánh `feat/tai-san-dot1`)
+
+| Phần | File |
+| --- | --- |
+| Vòng đời (bảng chuyển trạng thái duy nhất) | `lifecycle.py` |
+| Khấu hao quản trị | `depreciation.py` |
+| Số liệu Tổng quan (hàm thuần) | `reports.py` |
+| Truy cập dữ liệu (nơi duy nhất gọi `frappe.db`) | `repository.py` |
+| Quyền | `access.py` (Ctx: manage / see_cost / finance / overview, phạm vi phòng ban) |
+| Lệnh vận hành | `service.py` (transition, nhân viên xác nhận / báo hỏng, sửa thông tin) |
+| Sửa chữa | `repair_service.py` (máy tạm, ngưỡng duyệt chi phí) |
+| Linh kiện, cấu hình gốc, nhập thiết bị | `component_service.py` |
+| Nối luồng phê duyệt | `flows.py` (NSP, Asset Request → hoàn tất fulfillment, Clearance, Báo hỏng/mất) |
+| Kiểm kê | `count_service.py` |
+| Tác vụ nền | `jobs.py` — 00:40 thu hồi theo ngày làm việc cuối, 01:10 ngày 1 chốt tháng |
+| Đọc cho trang | `views.py` |
+| API | `controllers/api.py` (hợp đồng: `API.md`) |
+| Trang | `pages/*` + `public/tai_san/*` |
+| Menu | `nav.py` + `shell/nav.py` (ngữ cảnh `tai_san`, nhóm "Tài sản & thiết bị" ở khu Công ty) |
+
+DocType mới: `EC Asset Event` (nhật ký, chỉ thêm), `EC Asset Repair`, `EC Asset Monthly`,
+`EC Asset Count` + `EC Asset Count Item`. Field mới: `Asset.ec_reserved_for`, `Asset.ec_end_date`.
+
+**Ranh giới với Approval Center:** chỉ ĐỌC phiếu (NSP, Asset Request, Clearance, Báo hỏng/mất) và
+link sang. Ngoại lệ duy nhất có ghi: cấp phát theo Asset Request gọi
+`asset_request.application.service.claim_fulfillment / complete_fulfillment` (API của chính
+feature đó) — lỗi phía phiếu không chặn việc cấp máy, trả cảnh báo. **Không** duyệt thay nhóm
+Operation của Clearance.
+
+**Thao tác ghi Asset** dùng `frappe.db.set_value` (không `doc.save()`): Asset đang Draft, validate
+gốc của ERPNext kiểm khấu hao / tài khoản kế toán mà module không dùng. `create_asset` thì phải
+`insert()` một Asset thật (is_existing_asset=1) — **cần thử trên site trước khi Ops dùng**.
+
+Test: `python -m unittest ecentric_workspace.tai_san.tests.test_tai_san ecentric_workspace.tai_san.tests.test_dot1 ecentric_workspace.tai_san.tests.test_pages`
+
 ## Chưa chốt (mặc định đang theo đề xuất trong plan)
 
 36 tháng / 24 tháng linh kiện · có bước "Chờ kiểm tra" khi thu hồi · role riêng `EC Asset Manager` ·

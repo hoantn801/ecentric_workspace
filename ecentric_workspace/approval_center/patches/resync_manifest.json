@@ -432,5 +432,29 @@
   "guides/pages/phan_bo_ty_trong_brand/main_section.html": {
     "last_resync_patch": "p550_huong_dan_nhan_su_day_du",
     "sha256": "e38488cb25ea4e7876bfbbad36382fc65a7c1e829e546f87ba03c9bce5d24a53"
+  },
+  "tai_san/pages/home/main_section.html": {
+    "last_resync_patch": "p571_tai_san_trang",
+    "sha256": "2a2cfafc775012a0506da1a8484ce100a3de5a558ff3f5f95945f898b4075d89"
+  },
+  "tai_san/pages/list/main_section.html": {
+    "last_resync_patch": "p571_tai_san_trang",
+    "sha256": "e84eaefb9de1b436121b3ff71a9bb1e4ba039fac247da0f5cd7b1240b00f9d46"
+  },
+  "tai_san/pages/moves/main_section.html": {
+    "last_resync_patch": "p571_tai_san_trang",
+    "sha256": "2488896d999e9fed426a0db5c845fdf6083b4c45672b7b3465f47f82070dce37"
+  },
+  "tai_san/pages/repairs/main_section.html": {
+    "last_resync_patch": "p571_tai_san_trang",
+    "sha256": "8eafa185235d9485de6be6b7d26e916e67d89def18932c0dc5d92427c22fb34f"
+  },
+  "tai_san/pages/count/main_section.html": {
+    "last_resync_patch": "p571_tai_san_trang",
+    "sha256": "259488f1bd4f08d4d7a39ac51fe4bd80dab59baf0f4bba7443e47a592f0a3f3a"
+  },
+  "tai_san/pages/mine/main_section.html": {
+    "last_resync_patch": "p571_tai_san_trang",
+    "sha256": "5545462ebfb768455e66ee9dbedfe9d15eb87777d8cadb39d69a934b02a7fa30"
   }
 }

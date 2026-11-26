@@ -63,7 +63,7 @@ class TestCategoryDefaults(unittest.TestCase):
         self.assertEqual(D.category_defaults("Laptop")[:2], (36, 0))
 
     def test_unknown(self):
-        self.assertIsNone(D.category_defaults("CAMERA"))
+        self.assertIsNone(D.category_defaults("XE MAY"))
 
     def test_life_under_fixed_asset_cap(self):
         for row in C.CATEGORY_DEFAULTS.values():

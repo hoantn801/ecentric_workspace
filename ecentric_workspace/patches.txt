@@ -535,3 +535,5 @@ ecentric_workspace.approval_center.patches.p561_resync_pm_hotfix22
 ecentric_workspace.approval_center.patches.p562_resync_gan_phieu_nguoi_lap
 ecentric_workspace.approval_center.patches.p570_resync_contract_review_mo_online_kol
 ecentric_workspace.tai_san.patches.p001_setup
+ecentric_workspace.tai_san.patches.p002_dot1
+ecentric_workspace.approval_center.patches.p571_tai_san_trang

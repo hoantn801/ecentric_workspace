@@ -269,6 +269,7 @@ def _providers():
     from ecentric_workspace.surveys import nav as surveys_nav
     from ecentric_workspace.data_hub import nav as data_hub_nav
     from ecentric_workspace.dao_tao import nav as dao_tao_nav
+    from ecentric_workspace.tai_san import nav as tai_san_nav
     return [
         ("core", lambda: list(CORE_ITEMS)),
         ("approval_center", approval_nav.items),
@@ -293,6 +294,8 @@ def _providers():
         ("data_hub", data_hub_nav.items),
         # Dao tao + Quiz truc tiep (12/11/2026): Hoc · Quiz truc tiep · Quan ly bai hoc.
         ("dao_tao", dao_tao_nav.items),
+        # Quan ly tai san (26/11/2026): Tong quan · Danh sach · Cap phat · Sua chua · Kiem ke · Cua toi.
+        ("tai_san", tai_san_nav.items),
         ("home_portal", lambda: list(HOME_PORTAL_ITEMS)),
     ]
 
@@ -367,11 +370,17 @@ CONTEXTS = {
         "entry": {"key": "ctx.dao_tao", "label": "Đào tạo",
                   "route": "/dao-tao", "icon": "book"},
     },
+    # 26/11/2026: Quan ly tai san (/tai-san, tai_san/) - thuoc khu "Cong ty".
+    "tai_san": {
+        "providers": ["core", "tai_san"],
+        "entry": {"key": "ctx.tai_san", "label": "Tài sản & thiết bị",
+                  "route": "/tai-san", "icon": "folder"},
+    },
 }
 #: order in which specialized contexts are probed for route resolution and in
 #: which launcher entries render.
 CONTEXT_ORDER = ["approval_document", "hr", "alert_center", "reporting", "pnl", "pm",
-                 "ai_tools", "surveys", "data_hub", "dao_tao"]
+                 "ai_tools", "surveys", "data_hub", "dao_tao", "tai_san"]
 #: `pnl` dung TRUOC `reporting`? Khong can: /pnl-dashboard khong khop mau nao
 #: cua reporting (/reports, /reports/*), nen hai ngu canh khong tranh nhau.
 DEFAULT_CONTEXT = "approval_document"
@@ -638,7 +647,7 @@ RAIL = [
      "keys": ["home.portal.reports", "home.portal.weekly", "home.portal.pulse", "home.portal.alerts"],
      "group": "Báo cáo & Phân tích"},
     {"key": "company", "label": "Công ty", "icon": "building", "route": "/tai-lieu",
-     "contexts": ["ai_tools", "surveys", "dao_tao"],
+     "contexts": ["ai_tools", "surveys", "dao_tao", "tai_san"],
      "keys": ["home.portal.iso_docs", "home.portal.feedback", "home.portal.surveys", "home.portal.hall",
               "home.portal.ai_tools", "home.portal.hiring", "home.portal.training", "home.portal.quiz"],
      "group": "Công ty"},
@@ -667,6 +676,9 @@ RAIL = [
 #: Muc registry cua ngu canh dang mo ma bo cuc KHONG dat -> tu noi vao nhom "Mục khác" o cuoi:
 #: module them muc moi khong bao gio bi mat khoi cot (test khoa: hien nay khong co muc nao).
 APPROVALS_CAPTION = "Chỉ admin"
+
+#: Role thay muc quan ly tai san tren rail - khop tai_san.constants.COST_ROLES (test khoa).
+_TS_COST_ROLES = ("System Manager", "EC Asset Manager", "EC HOF", "EC Finance", "EC CEO")
 
 RAIL_LAYOUTS = {
     "home": [
@@ -818,6 +830,17 @@ RAIL_LAYOUTS = {
                 {"key": "ai_tools.live.kits"}, {"key": "ai_tools.live.watch"}]},
             # 17/11: Ban quyen (chi role AI Live License Admin thay - registry loc theo role)
             {"key": "ai_tools.live.license", "label": "Bản quyền", "badge_source": "ai_live.license_pending"}]},
+        # 26/11/2026: Quan ly tai san (tai_san/nav.py). KHONG them alias vao HOME_PORTAL_ITEMS: alias doi
+        # vo shell tinh cua trang module khac (phai resync). Muc cha la lien ket rieng cua rail; /tai-san
+        # tu chuyen nguoi khong co quyen tong quan sang "Tai san cua toi". Role chi la UX, server tu kiem.
+        {"t": "group", "label": "Tài sản & thiết bị", "items": [
+            {"key": "rail.co.assets", "label": "Tài sản & thiết bị", "route": "/tai-san", "icon": "folder",
+             "active_patterns": ["/tai-san", "/tai-san/*"], "children": [
+                {"key": "tai_san.home", "roles": list(_TS_COST_ROLES)},
+                {"key": "tai_san.list", "roles": list(_TS_COST_ROLES)},
+                {"key": "tai_san.moves"}, {"key": "tai_san.count"},
+                {"key": "tai_san.repairs", "roles": list(_TS_COST_ROLES)},
+                {"key": "tai_san.mine"}]}]},
         {"t": "group", "label": "Khác", "items": [
             {"key": "home.portal.hall"}, {"key": "home.portal.hiring", "caption": "Chỉ HR"},
             {"key": "home.portal.training"}]},
