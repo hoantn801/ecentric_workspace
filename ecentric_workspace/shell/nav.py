@@ -688,6 +688,8 @@ APPROVALS_CAPTION = "Chỉ admin"
 
 #: Role thay muc quan ly tai san tren rail - khop tai_san.constants.COST_ROLES (test khoa).
 _TS_COST_ROLES = ("System Manager", "EC Asset Manager", "EC HOF", "EC Finance", "EC CEO")
+#: Role thay Cap phat / Kiem ke tren rail (thao tac ghi) - khop tai_san.constants.MANAGER_ROLES.
+_TS_MANAGE_ROLES = ("System Manager", "EC Asset Manager")
 
 RAIL_LAYOUTS = {
     "home": [
@@ -849,7 +851,8 @@ RAIL_LAYOUTS = {
              "active_patterns": ["/tai-san", "/tai-san/*"], "children": [
                 {"key": "tai_san.home", "roles": list(_TS_COST_ROLES)},
                 {"key": "tai_san.list", "roles": list(_TS_COST_ROLES)},
-                {"key": "tai_san.moves"}, {"key": "tai_san.count"},
+                {"key": "tai_san.moves", "roles": list(_TS_MANAGE_ROLES)},
+                {"key": "tai_san.count", "roles": list(_TS_MANAGE_ROLES)},
                 {"key": "tai_san.repairs", "roles": list(_TS_COST_ROLES)},
                 {"key": "tai_san.licenses", "roles": list(_TS_COST_ROLES)},
                 {"key": "tai_san.mine"}]}]},
