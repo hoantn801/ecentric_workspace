@@ -437,6 +437,14 @@ fixtures = [
             "EC Payment Request-ec_sales_order",
             # Ma brand trong so hop dong KOL/KOC (12/11/2026, p384): tach khoi ec_brand_code cua bao cao.
             "Brand-ec_contract_code",
+            # Quan ly tai san (26/11/2026, tai_san p001): field ec_* tren Asset + Asset Category goc,
+            # bang con EC Asset Spec. Field custom_* co san tren site (tao tay 08/2026) KHONG nam day.
+            "Asset-ec_sb_tai_san", "Asset-ec_condition", "Asset-ec_ownership",
+            "Asset-ec_monthly_rent", "Asset-ec_warranty_until", "Asset-ec_supplier",
+            "Asset-ec_invoice", "Asset-ec_cb_tai_san", "Asset-ec_useful_life_months",
+            "Asset-ec_depreciation_start", "Asset-ec_salvage_value", "Asset-ec_sb_spec",
+            "Asset-ec_spec", "Asset Category-ec_default_life_months",
+            "Asset Category-ec_is_component", "Asset Category-ec_spec_template",
 ]]],
     },
     # Ba DocType custom cua PnL dashboard (09-10/09/2026). Truoc day chi ton tai tren
