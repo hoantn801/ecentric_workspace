@@ -1347,6 +1347,8 @@
       var draftMine=!x.can_download_full&&x.can_manage&&(apSt==="Draft"||apSt==="Information Required");
       // Nut tai .docx nam o hang cuoi cua bang tinh (PO 24/11); chua co bang tinh thi o hang nut nhu cu.
       var dlH=b.contract_file&&x.can_download_full?KOL.dlBtn(b.contract_file,"Tải hợp đồng (.docx)","Có CCCD, số tài khoản creator - mỗi lần tải được ghi lại."):'';
+      // PO 26/11: mo / sua ban DU tren Word Online - co server can_open_online (= can_download_full + da co ban SharePoint).
+      if(x.can_open_online) dlH+='<button type="button" class="btn" data-kol="online" title="Bản đủ thông tin creator trên SharePoint - mỗi lần mở được ghi lại.">Mở online (Word)</button>';
       var rcH=x.calc&&x.calc.length?KOL.receiptHTML(x.calc,b,dlH):'';
       var h='<div class="card" id="kol-detail"><h3>Hợp đồng KOL/KOC</h3>'
         +(x.closed?'<div class="banner warn"><div><b>Hợp đồng đã thanh lý</b> · '+esc(fmt(x.closed.at))+(x.closed.by?(' · '+esc(x.closed.by)):'')+'<div class="hint">Lý do: '+esc(String(x.closed.reason||"").replace(/[.\s]+$/,""))+'.</div><div class="hint">'+(x.signed?'Không tạo / gửi đợt nghiệm thu mới. ĐNTT chỉ trong mức được phép chi (cọc + BBNT đã hoàn tất).':(b.signing_status==="Chờ kiểm tra"?'Không nhận bản ký mới. Bản ký đang chờ Kế toán kiểm vẫn xác nhận được.':'Hợp đồng chưa ký đủ: không nhận bản ký, không lập ĐNTT.'))+'</div>'+(x.is_finance?'<div class="actions" style="margin-top:8px"><button type="button" class="btn" data-kol="reopenhd">Mở lại hợp đồng…</button></div>':'')+'</div></div>':'')
@@ -1443,6 +1445,10 @@
           return r.blob().then(function(b){ var a=document.createElement("a"), u=URL.createObjectURL(b); a.href=u; a.download=fn; document.body.appendChild(a); a.click();
             setTimeout(function(){ URL.revokeObjectURL(u); if(a.parentNode) a.parentNode.removeChild(a); },1500); }); })
         .catch(function(e){ toast(e&&e.name==="TypeError"?"Không tải được tệp: mất kết nối. Kiểm tra mạng rồi thử lại.":mapErr(e),true); }); },
+    // PO 26/11: POST (server kiem quyen + ghi vet) -> {url} Word Online, mo tab moi. Loi quyen / chua co ban online: toast.
+    openOnline:function(name){ return call("kol_open_online",{name:name}).then(function(r){ var u=r&&r.url;
+      if(!u) throw new Error("Hợp đồng chưa có bản online — Kế toán / IT đang cấu hình; tạm thời dùng Tải về.");
+      window.open(u,"_blank","noopener"); toast("Đã mở hợp đồng trên Word Online ở tab mới. Không thấy tab mới: cho phép trình duyệt mở cửa sổ bật lên rồi bấm lại."); }); },
     closeModal:function(name){ modal("Thanh lý hợp đồng",'<div class="banner warn">Sau khi thanh lý: không tạo / gửi đợt nghiệm thu mới. Số đã nghiệm thu và ĐNTT đã lập giữ nguyên.'+(((state.detail||{}).extra||{}).kol&&!state.detail.extra.kol.signed?((state.detail.business||{}).signing_status==="Chờ kiểm tra"?' Không nhận bản ký mới; bản ký đang chờ Kế toán kiểm vẫn xác nhận được.':' Hợp đồng chưa ký đủ sẽ không nhận bản ký nữa.'):'')+'</div><div class="fld"><label for="kol-close-r">Lý do <span class="req">*</span></label><textarea id="kol-close-r" rows="3" maxlength="500" placeholder="Vd creator hủy booking, hai bên thống nhất dừng"></textarea></div><div id="kol-close-msg"></div>',{okLabel:"Thanh lý",noBackdrop:true,onConfirm:function(ov){
       var box=ov.querySelector("#kol-close-msg"), okb=ov.querySelector("[data-ok]"); box.innerHTML="";
       var v=((ov.querySelector("#kol-close-r")||{}).value||"").trim(); if(!v){ box.innerHTML='<div class="banner err" role="alert"><div>Nhập lý do thanh lý.</div></div>'; return Promise.reject(); }
@@ -1501,6 +1507,7 @@
         if(["sendacc","vsignok","vaccok","addacc"].indexOf(a)>=0){ el.textContent="Đang xử lý…"; var _f=fail; fail=function(err){ restore(); _f(err); }; }
         if(a==="preview"){ el.disabled=false; KOL.previewContract(null, name); return; }
         if(a==="dl"){ el.textContent="Đang tải…"; return KOL.download(name, el.getAttribute("data-url")).then(function(){ restore(); el.disabled=false; }); }
+        if(a==="online"){ el.textContent="Đang mở…"; return KOL.openOnline(name).then(function(){ restore(); el.disabled=false; }).catch(function(e){ restore(); fail(e); }); }
         if(a==="viewcr"){ el.disabled=false; return KOL.editCreator((state.detail.business||{}).creator,function(){ refreshDetail(); }); }
         if(a==="payeeok"){ el.disabled=false; return modal("Xác nhận tài khoản mới",'<div class="banner warn">Xác nhận tài khoản nhận tiền mới của creator cho hợp đồng này? Các đợt sau sẽ chi vào tài khoản này và không cảnh báo lại.</div>',{okLabel:"Xác nhận",noBackdrop:true,onConfirm:function(ov){
           var ok=ov.querySelector("[data-ok]"); if(ok) ok.textContent="Đang xác nhận…";

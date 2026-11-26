@@ -365,6 +365,74 @@ class KhongCapQuyenChoCC(unittest.TestCase):
         self.assertEqual(self._nguoi("CTR-S"), ["lap@ec.vn", "cc@ec.vn"])
 
 
+# --------------------------------------------------------------------------- PO 26/11: link tung tep KOL
+class LinkTungTepChiNguoiLap(unittest.TestCase):
+    """PO 26/11 (sau "huong 2"): phieu KOL - link tung tep CHI nguoi lap + nguoi tao creator (co tai
+    khoan). KHONG nguoi duyet (Truong phong, CEO...), KHONG CC. Hop dong thuong: giu nguyen."""
+
+    def _nguoi(self, ten, creator="SUP-1", owner="taocr@ec.vn", khoa=(), conf=CAU_HINH):
+        m, _g, _l, fr = _nap(PHIEU, conf)
+        fr.get_meta = lambda dt: types.SimpleNamespace(has_field=lambda f: f == "cc_to")
+        goc = fr.db.get_value
+        hoi = []
+
+        def get_value(dt, filters, field=None, *a, **k):
+            if dt == CTR and isinstance(field, list):
+                hoi.append(list(field))
+                return {"requested_by": "lap@ec.vn", "approval_request": "AR-1", "cc_to": "cc@ec.vn",
+                        "creator": creator}
+            if dt == "Supplier":
+                return owner if (filters == creator and field == "owner") else None
+            if dt == "User":
+                return 0 if filters in khoa else 1
+            return goc(dt, filters, field, *a, **k)
+        fr.db.get_value = get_value
+
+        def get_all(dt, filters=None, **kw):
+            if dt == "EC Approval Request Approver":
+                return [types.SimpleNamespace(get={"approver": e, "source": "User"}.get)
+                        for e in ("truongphong@ec.vn", "ceo@ec.vn")]
+            return []
+        fr.get_all = get_all
+        m._dong_con_hieu_luc = lambda source, user: True
+        m._phieu_duyet_theo_tham_chieu = lambda *a: None
+        return m.nguoi_trong_luong(CTR, ten), hoi
+
+    def test_kol_chi_nguoi_lap_va_nguoi_tao_creator(self):
+        ra, hoi = self._nguoi("CTR-K")
+        self.assertEqual(ra, ["lap@ec.vn", "taocr@ec.vn"])
+        self.assertNotIn("truongphong@ec.vn", ra)
+        self.assertNotIn("ceo@ec.vn", ra)
+        self.assertNotIn("cc@ec.vn", ra)
+        self.assertNotIn("cc_to", hoi[0], "phieu han che khong doc ca truong CC")
+
+    def test_kol_chua_cau_hinh_cung_khong_cap_nguoi_duyet(self):
+        ra, _h = self._nguoi("CTR-K", conf={})
+        self.assertEqual(ra, ["lap@ec.vn", "taocr@ec.vn"])
+
+    def test_creator_khong_co_tai_khoan_hoac_la_administrator(self):
+        self.assertEqual(self._nguoi("CTR-K", owner=None)[0], ["lap@ec.vn"])
+        self.assertEqual(self._nguoi("CTR-K", owner="Administrator")[0], ["lap@ec.vn"])
+        self.assertEqual(self._nguoi("CTR-K", creator=None)[0], ["lap@ec.vn"])
+
+    def test_nguoi_lap_trung_nguoi_tao_creator_khong_lap_lai(self):
+        self.assertEqual(self._nguoi("CTR-K", owner="lap@ec.vn")[0], ["lap@ec.vn"])
+
+    def test_tai_khoan_da_khoa_van_bi_bo(self):
+        self.assertEqual(self._nguoi("CTR-K", khoa=("taocr@ec.vn",))[0], ["lap@ec.vn"])
+
+    def test_hop_dong_thuong_giu_nguoi_duyet_va_cc(self):
+        ra, _h = self._nguoi("CTR-S")
+        self.assertEqual(ra, ["lap@ec.vn", "truongphong@ec.vn", "ceo@ec.vn", "cc@ec.vn"])
+        self.assertNotIn("taocr@ec.vn", ra)
+
+    def test_khai_bang_du_lieu_khong_import_feature(self):
+        m, _g, _l, _f = _nap(PHIEU, CAU_HINH)
+        self.assertEqual(m.NGUOI_THEM_HAN_CHE[CTR], (("creator", "Supplier", "owner"),))
+        src = io.open(str(MIRROR), encoding="utf-8").read()
+        self.assertNotIn("features.contract_review", src)
+
+
 # --------------------------------------------------------------------------- nhat quan
 class NhatQuanMoiCho(unittest.TestCase):
     def test_them_tep_o_buoc_duyet_chot_theo_phieu(self):
@@ -558,3 +626,53 @@ class DongBoLai(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# --------------------------------------------------------------------------- PO 26/11: url mo online
+class UrlMoOnline(unittest.TestCase):
+    """`url_mo_online`: link Word Online qua CUNG cong theo phieu, khong goi Graph khi bam."""
+
+    def _m(self, conf=CAU_HINH, row="mac_dinh"):
+        m, g, _l, fr = _nap(PHIEU, conf)
+        goc = fr.db.get_value
+        hoi = []
+        if row == "mac_dinh":
+            row = {"sp_web_url": "https://sp/web", "sp_share_url": "https://sp/share",
+                   "sp_granted_to": "lap@ec.vn, TaoCr@ec.vn"}
+
+        def get_value(dt, filters, field=None, *a, **k):
+            if dt == m.LINK_DT:
+                hoi.append(filters)
+                return row
+            return goc(dt, filters, field, *a, **k)
+        fr.db.get_value = get_value
+        return m, g, hoi
+
+    def test_nguoi_duoc_cap_link_tung_tep_nhan_link_chia_se(self):
+        m, g, hoi = self._m()
+        self.assertEqual(m.url_mo_online(CTR, "CTR-K", "/f/HD.docx", "lap@ec.vn"), "https://sp/share")
+        self.assertEqual(m.url_mo_online(CTR, "CTR-K", "/f/HD.docx", "taocr@ec.vn"), "https://sp/share")
+        self.assertEqual(hoi[0], {"file_url": "/f/HD.docx", "business_doctype": CTR, "business_name": "CTR-K"},
+                         "ban ghi lien ket phai cua CHINH phieu nay")
+        self.assertEqual(g.calls, [], "khong goi Graph khi bam mo")
+
+    def test_ke_toan_qua_nhom_thu_muc_nhan_url_goc(self):
+        m, _g, _h = self._m()
+        self.assertEqual(m.url_mo_online(CTR, "CTR-K", "/f/HD.docx", "ketoan@ec.vn"), "https://sp/web")
+
+    def test_chua_cau_hinh_thu_muc_khong_co_link(self):
+        m, _g, hoi = self._m(conf={})
+        self.assertIsNone(m.url_mo_online(CTR, "CTR-K", "/f/HD.docx", "lap@ec.vn"))
+        self.assertEqual(hoi, [], "ban ghi lien ket cu sot lai cung khong dung")
+
+    def test_lao_dong_khong_bao_gio(self):
+        m, _g, _h = self._m()
+        self.assertIsNone(m.url_mo_online(CTR, "CTR-L", "/f/HD.docx", "lap@ec.vn"))
+
+    def test_chua_dong_bo(self):
+        m, _g, _h = self._m(row=None)
+        self.assertIsNone(m.url_mo_online(CTR, "CTR-K", "/f/HD.docx", "lap@ec.vn"))
+        m, _g, _h = self._m(row={"sp_web_url": "", "sp_share_url": "x", "sp_granted_to": "lap@ec.vn"})
+        self.assertIsNone(m.url_mo_online(CTR, "CTR-K", "/f/HD.docx", "lap@ec.vn"))
+        m, _g, _h = self._m()
+        self.assertIsNone(m.url_mo_online(CTR, "CTR-K", None, "lap@ec.vn"))

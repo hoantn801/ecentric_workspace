@@ -36,7 +36,9 @@ chi cap cho mot nhom (Phap che, Ke toan, ...). Van giu tinh than "quan quyen o M
     tai / con quyen ke thua tu thu vien cha / mo cho ca cong ty. Fail-closed: chua cau hinh,
     Graph loi, khong chac -> KHONG tai, tep van tren ERP, phieu van gui binh thuong;
   * cap quyen theo TUNG TEP (createLink scope=users) cho nguoi trong luong van chay nhu cu (bai
-    hoc 15/09 ben duoi) - rieng phieu han che KHONG gom CC (`nguoi_trong_luong`).
+    hoc 15/09 ben duoi) - RIENG phieu han che (PO 26/11, quyet dinh sau): CHI nguoi lap + nguoi
+    khai trong `NGUOI_THEM_HAN_CHE` (nguoi tao creator). KHONG nguoi duyet, KHONG CC - ho xem ban
+    che tren ERP. Ke toan / Phap che co quyen qua NHOM cua thu muc (IT cap, mot cho).
 Hop dong LAO DONG van KHONG BAO GIO len SharePoint (`BO_QUA_PHIEU`).
 """
 import hashlib
@@ -90,6 +92,14 @@ BO_QUA_PHIEU = {
 #: Co gia tri -> chi tai len khi `thu_muc_an_toan` xac nhan thu muc ton tai + quyen rieng.
 THU_MUC_HAN_CHE = {
     "EC Contract Review Request": ("contract_type", ("KOL/KOC / Creator (EC)",), "ec_sp_kol_folder"),
+}
+
+#: Phieu thu muc han che (PO 26/11, sau "huong 2"): link TUNG TEP (createLink scope=users) CHI cap
+#: cho nguoi lap + nguoi khai o day - KHONG cap cho nguoi duyet / CC (ho xem ban che tren ERP; Ke
+#: toan / Phap che vao qua nhom cua thu muc). loai phieu -> tuple (truong tren phieu, doctype lien
+#: ket, cot chua tai khoan). Khai bang du lieu: shared khong import nguoc feature.
+NGUOI_THEM_HAN_CHE = {
+    "EC Contract Review Request": (("creator", "Supplier", "owner"),),    # nguoi tao creator
 }
 
 #: Ket qua kiem quyen thu muc han che duoc nho 10 phut: moi lan tai len deu hoi, nhung khong goi
@@ -680,8 +690,37 @@ def ghi_lien_ket(business_doctype, file_url, business_name, ket_qua, da_cap=None
     return doc.name
 
 
+def url_mo_online(business_doctype, business_name, file_url, user):
+    """URL mo `file_url` cua phieu tren Word Online cho `user`, hoac None (chua co ban SharePoint).
+
+    KHONG kiem quyen nghiep vu - ben goi (vd `kol_access.open_online`) da kiem. Qua CUNG cong theo
+    phieu voi luong tai len (`duoc_soi_guong_phieu`, chi xet cau hinh - khong goi Graph khi bam):
+    hop dong lao dong / KOL chua cau hinh thu muc -> None du con ban ghi lien ket cu sot lai.
+    Ban ghi lien ket phai THUOC CHINH phieu nay (phieu tao lai tu phieu tu choi dung chung
+    `file_url` - xem `_lien_ket_cua_phieu`).
+
+    Link nao: `user` nam trong `sp_granted_to` va co `sp_share_url` -> link chia se (quyen tung tep
+    gan vao LINK, URL goc bi SharePoint chan voi ho - xem `ghi_lien_ket`). Con lai (Ke toan / Phap
+    che vao qua nhom cua thu muc han che) -> `sp_web_url`."""
+    if not file_url or not duoc_soi_guong_phieu(business_doctype, business_name, kiem_quyen=False):
+        return None
+    row = frappe.db.get_value(
+        LINK_DT, {"file_url": file_url, "business_doctype": business_doctype,
+                  "business_name": business_name},
+        ["sp_web_url", "sp_share_url", "sp_granted_to"], as_dict=True)
+    if not row or not row.get("sp_web_url"):
+        return None
+    da_cap = {e.strip().lower() for e in (row.get("sp_granted_to") or "").split(",") if e.strip()}
+    if row.get("sp_share_url") and (user or "").strip().lower() in da_cap:
+        return row.get("sp_share_url")
+    return row.get("sp_web_url")
+
+
 def nguoi_trong_luong(business_doctype, business_name):
-    """Nguoi gui + moi cap duyet cua phieu + CC (tru phieu thu muc han che). KHONG mo cho ca cong ty.
+    """Nguoi gui + moi cap duyet cua phieu + CC. KHONG mo cho ca cong ty.
+
+    Phieu thu muc han che / bi loai (KOL, 26/11 - PO chot sau "huong 2"): CHI nguoi lap + nguoi
+    khai trong `NGUOI_THEM_HAN_CHE` (`_nguoi_phieu_han_che`) - khong nguoi duyet, khong CC.
 
     Doc tu `EC Approval Request Approver` - dung bang ma engine THAT SU dung de quyet dinh ai
     duoc duyet, khong tu dung mot danh sach thu hai roi hai ben troi nhau.
@@ -689,11 +728,10 @@ def nguoi_trong_luong(business_doctype, business_name):
     `cc_to` khong phai form nao cung co, nen hoi meta truoc thay vi doc bua roi nuot loi: mot
     truong thieu la chuyen cau hinh, khong phai chuyen phai giau di.
     """
+    if la_phieu_han_che(business_doctype, business_name):
+        return _nguoi_phieu_han_che(business_doctype, business_name)
     fields = ["requested_by", "approval_request"]
-    # Phieu thu muc han che (KOL, 26/11): KHONG cap quyen tep cho CC - CC chi theo doi, khong phai
-    # nguoi lap / nguoi duyet; tep mang CCCD/STK creator.
-    co_cc = (frappe.get_meta(business_doctype).has_field("cc_to")
-             and not la_phieu_han_che(business_doctype, business_name))
+    co_cc = frappe.get_meta(business_doctype).has_field("cc_to")
     if co_cc:
         fields.append("cc_to")
     row = frappe.db.get_value(business_doctype, business_name, fields, as_dict=True) or {}
@@ -713,9 +751,30 @@ def nguoi_trong_luong(business_doctype, business_name):
         e = e.strip()
         if e:
             ra.append(e)
+    return _tai_khoan_con_dung(ra)
+
+
+def _nguoi_phieu_han_che(business_doctype, business_name):
+    """Nguoi lap + nguoi khai trong `NGUOI_THEM_HAN_CHE` (vd nguoi tao creator, neu co tai khoan).
+
+    Tep phieu han che mang CCCD / STK creator. Nguoi duyet (Truong phong, CEO...) va CC KHONG duoc
+    link tung tep: ho xem ban che tren ERP (PO 17/11 + 26/11). Ke toan / Phap che mo qua nhom cua
+    thu muc han che. Khop `kol_access.can_download_full` o phan "ai duoc ban du"."""
+    them = NGUOI_THEM_HAN_CHE.get(business_doctype) or ()
+    fields = ["requested_by"] + [t[0] for t in them]
+    row = frappe.db.get_value(business_doctype, business_name, fields, as_dict=True) or {}
+    ra = [row.get("requested_by")]
+    for truong, dt, cot in them:
+        if row.get(truong):
+            ra.append(frappe.db.get_value(dt, row.get(truong), cot))
+    return _tai_khoan_con_dung(ra)
+
+
+def _tai_khoan_con_dung(ra):
+    """Bo trung, bo rong / khong phai email; bo tai khoan ERP DA KHOA (nghi viec - job 00:30) - khong
+    cap quyen sua hop dong nua. Chi bo ai CO trong User va enabled = 0: email ngoai he thong (CC doi
+    tac) giu nguyen nhu truoc."""
     ra = [e for e in dict.fromkeys(ra) if e and "@" in e]
-    # Tai khoan ERP DA KHOA (nghi viec - job 00:30) thi khong cap quyen sua hop dong nua. Chi bo
-    # ai CO trong User va enabled = 0: email ngoai he thong (CC doi tac) giu nguyen nhu truoc.
     return [e for e in ra if frappe.db.get_value("User", e, "enabled") != 0]
 
 
