@@ -1238,3 +1238,7 @@ web_include_css.append("ec_summary.bundle.css")
 # 26/11/2026 - Luoi an toan quyen Cong viec: moi ngay cap PM Member cho nhan vien Active con thieu
 # (hoa.dinh, huan.duong bi sot du da co hook Employee on_update). Xem pm/onboarding.daily_backfill.
 scheduler_events["daily"].append("ecentric_workspace.pm.onboarding.daily_backfill")
+# 26/11/2026 - Xem online tep Word (.docx) dinh kem: bat click link /files|/private/files/*.docx tren moi
+# trang (form + popup hub), mo hop thoai docx-preview trong iframe sandbox. Khong sua trang nao.
+web_include_js.append("ec_file_view.bundle.js")
+web_include_css.append("ec_file_view.bundle.css")
