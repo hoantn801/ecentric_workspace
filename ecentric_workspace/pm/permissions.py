@@ -147,6 +147,19 @@ def can_open_project(name, user=None):
     return name in projects_with_my_tasks(user)
 
 
+def _not_open_msg(name):
+    """26/11/2026 (vi.le không mở được dự án của team): nói rõ vì sao + nhờ ai, thay cho câu tiếng Anh."""
+    try:
+        p = frappe.db.get_value("Project", name, ["project_name", "ec_manager", "owner"], as_dict=True) or {}
+        mgr = p.get("ec_manager") or p.get("owner")
+        mname = (frappe.db.get_value("User", mgr, "full_name") or mgr) if mgr else None
+    except Exception:
+        p, mname = {}, None
+    who = (_("{0} (quản lý dự án)").format(mname)) if mname else _("quản lý dự án")
+    return _("Dự án “{0}” chưa mở cho bạn. Nhờ {1} thêm bạn vào thành viên hoặc chọn phòng ban cho dự án.").format(
+        p.get("project_name") or name, who)
+
+
 def project_view_scope(name, user=None):
     """Gate + scope for a project READ view. Throws if the user cannot open it. Returns the
     or_filters to AND into the project's task query: None = all tasks (full-visibility project or a
@@ -154,7 +167,7 @@ def project_view_scope(name, user=None):
     Leak-free: a project the user only reaches via an assignment shows just that assignment."""
     user = user or frappe.session.user
     if not can_open_project(name, user):
-        frappe.throw(_("Not permitted to view this project."), frappe.PermissionError)
+        frappe.throw(_not_open_msg(name), frappe.PermissionError)
     if can_view_project(name, user):
         return None
     return task_scope_or_filters(user)

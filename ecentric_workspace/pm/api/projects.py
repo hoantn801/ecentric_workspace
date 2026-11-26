@@ -148,6 +148,13 @@ def detail(name):
             "risk_level": level, "progress": progress}
 
 
+def _creator_department(user):
+    try:
+        return frappe.db.get_value("Employee", {"user_id": user, "status": "Active"}, "department") or None
+    except Exception:
+        return None
+
+
 @frappe.whitelist()
 def create(project_name, manager=None, department=None, expected_start_date=None,
            expected_end_date=None, priority=None, description=None):
@@ -176,7 +183,9 @@ def create(project_name, manager=None, department=None, expected_start_date=None
         "priority": priority or None,
         "notes": description or None,
         "ec_manager": manager or user,        # G5.2: default creator as manager so they can see/manage
-        "ec_department": department or None,   # existing custom field (Link Department)
+        # 26/11/2026: không chọn phòng ban -> lấy phòng ban của người tạo. Dự án không phòng ban chỉ người
+        # tạo / quản lý / thành viên xem được (live: 9/44 dự án mở, đồng nghiệp cùng team bị chặn).
+        "ec_department": department or _creator_department(user),
     })
     doc.insert()  # honors DocPerm 'create' + audit; ec_manager/ec_department validated by Frappe
     return {"name": doc.name, "project_name": doc.project_name}
