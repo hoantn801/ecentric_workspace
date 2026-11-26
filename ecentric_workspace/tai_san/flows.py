@@ -47,8 +47,7 @@ def reserve_for_nsp(ctx, asset_name, nsp_name, note=None):
     emp = frappe.db.get_value(C.SRC_NSP, nsp_name, "new_employee")
     if emp:
         return allocate(ctx, asset_name, emp, C.SRC_NSP, nsp_name, note=note, reserve_only=True)
-    R.lock_asset(asset_name)
-    a = R.asset(asset_name)
+    a = R.lock_asset(asset_name)
     L.plan(C.A_RESERVE, a.get(C.OPS_STATUS_FIELD), a.get("custodian"), new_holder="-")
     R.set_asset(asset_name, {C.OPS_STATUS_FIELD: C.ST_RESERVED})
     S.cascade_status(ctx, asset_name, a.get(C.OPS_STATUS_FIELD), C.ST_RESERVED, C.EV_RESERVE,

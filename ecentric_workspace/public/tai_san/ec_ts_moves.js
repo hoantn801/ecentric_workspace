@@ -46,6 +46,10 @@
         (c.assets || []).map(function (a) {
           return '<div class="ts-row" style="border-top:1px solid #f3f4f6;padding-top:6px">' + assetA(a) + '<span class="ts-note" style="flex:1;min-width:0">' + esc(a.asset_name || "") + "</span>" +
             (can.manage ? '<button type="button" class="ts-btn ts-sm" data-ret="' + i + '" data-a="' + esc(a.name) + '">Nhận lại</button>' : "") + "</div>";
+        }).join("") + (c.licenses || []).map(function (l) {
+          return '<div class="ts-row" style="border-top:1px solid #f3f4f6;padding-top:6px"><a class="ts-strong" style="flex:1;min-width:0" href="/tai-san/ban-quyen?id=' +
+            encodeURIComponent(l.license) + '">' + esc(l.license_name || l.license) + '</a><span class="ts-note">Bản quyền</span>' +
+            (can.manage ? '<button type="button" class="ts-btn ts-sm" data-lrev="' + esc(l.seat) + '" data-ln="' + esc(l.license_name || l.license) + '">Thu</button>' : "") + "</div>";
         }).join("") + "</div>";
     }).join("");
     var checks = (d.checks || []).map(function (r) {
@@ -135,6 +139,16 @@
     if ((t = e.target.closest("[data-ret]"))) {
       var card = data.returns[Number(t.getAttribute("data-ret"))];
       returnModal(card, find(card.assets, t.getAttribute("data-a")));
+      return;
+    }
+    if ((t = e.target.closest("[data-lrev]"))) {
+      var seat = t.getAttribute("data-lrev"), btn = t;
+      T.confirmBox("Thu bản quyền", "Thu lại chỗ " + t.getAttribute("data-ln") + "? Nhớ gỡ người này khỏi tài khoản trên trang của hãng.", "Thu lại").then(function (ok) {
+        if (!ok) return;
+        T.busy(btn, true);
+        T.post("revoke_license_seat", { seat: seat, note: "Thu khi nghỉ việc" })
+          .then(function () { T.toast("Đã thu bản quyền."); load(); }, function (er) { T.busy(btn, false); T.toast(T.msg(er), true); });
+      });
       return;
     }
     if ((t = e.target.closest("[data-chk]"))) { checkModal(find(data.checks, t.getAttribute("data-a")), t.getAttribute("data-chk") === "1"); return; }

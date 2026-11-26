@@ -247,6 +247,8 @@ RETURN_HORIZON_DAYS = 30                # nguoi nghi trong 30 ngay toi
 ONBOARD_HORIZON_DAYS = 30
 AGE_BUCKETS = ((12, "< 1 năm"), (24, "1–2 năm"), (36, "2–3 năm"), (None, "> 3 năm"))
 STOCK_BUCKET = "Kho chung"              # chi phi may nam kho tinh vao nhom nay
+NO_DEPT_BUCKET = "Chưa gắn phòng"       # may co nguoi giu nhung thieu phong ban (loi du lieu)
+OUT_OF_BOOK = (ST_LOST, ST_DISPOSED, ST_RETIRED)   # khong con nam trong so dem theo phong
 
 # --- nguon phieu (Approval Center) - chi DOC + link, khong ghi thay luong duyet ---
 SRC_ASSET_REQUEST = "EC Asset Request"
@@ -275,3 +277,47 @@ HANDOVER_CHECKLIST = ("Cài phần mềm chuẩn (Office, Teams, VPN)", "Đăng 
                       "Kèm sạc", "Kèm túi chống sốc", "Chụp ảnh tình trạng khi giao")
 RETURN_CHECKLIST = ("Ngoại hình: không nứt vỡ, đủ phím", "Đủ sạc và phụ kiện đã cấp",
                     "Xoá dữ liệu, đăng xuất M365 / Lark / trình duyệt", "Cài lại Windows chuẩn công ty")
+
+# --- ban quyen phan mem (dot 4, Hoan 26/11/2026) ---
+# Ban quyen la "mot dang tai san" voi nguoi dung (cung module, cung trang Cua toi) nhung KHONG phai
+# Asset ERPNext: co so cho (seat), co han va gia han theo ky - Asset goc khong mo ta duoc.
+LICENSE_DT = "EC Software License"
+LICENSE_SEAT_DT = "EC Software License Seat"
+LICENSE_RENEWAL_DT = "EC Software License Renewal"
+ROUTE_LICENSES = "tai-san/ban-quyen"
+
+LT_SUBSCRIPTION = "Subscription"
+LT_PERPETUAL = "Perpetual"
+LICENSE_TYPES = (LT_SUBSCRIPTION, LT_PERPETUAL)
+LICENSE_TYPE_LABELS = {LT_SUBSCRIPTION: "Thuê bao (có hạn)", LT_PERPETUAL: "Vĩnh viễn"}
+
+CY_MONTHLY = "Monthly"
+CY_QUARTERLY = "Quarterly"
+CY_YEARLY = "Yearly"
+CY_OTHER = "Other"
+BILLING_CYCLES = (CY_MONTHLY, CY_QUARTERLY, CY_YEARLY, CY_OTHER)
+BILLING_CYCLE_LABELS = {CY_MONTHLY: "Theo tháng", CY_QUARTERLY: "Theo quý", CY_YEARLY: "Theo năm",
+                        CY_OTHER: "Kỳ khác"}
+CYCLE_MONTHS = {CY_MONTHLY: 1, CY_QUARTERLY: 3, CY_YEARLY: 12}
+
+LS_ACTIVE = "Active"
+LS_EXPIRED = "Expired"
+LS_CANCELLED = "Cancelled"
+LICENSE_STATUSES = (LS_ACTIVE, LS_EXPIRED, LS_CANCELLED)
+LICENSE_STATUS_LABELS = {LS_ACTIVE: "Đang dùng", LS_EXPIRED: "Hết hạn", LS_CANCELLED: "Đã huỷ"}
+
+SEAT_ACTIVE = "Active"
+SEAT_REVOKED = "Revoked"
+SEAT_STATUSES = (SEAT_ACTIVE, SEAT_REVOKED)
+
+LICENSE_CATEGORIES = ("Văn phòng", "Thiết kế", "AI", "Phát triển", "Bảo mật", "Dữ liệu", "Khác")
+
+# Nhac han: truoc 30 ngay; goi ngan han (theo thang / ky <= 31 ngay) truoc 10 ngay (Hoan chot 26/11).
+LICENSE_LEAD_DAYS = 30
+LICENSE_LEAD_DAYS_SHORT = 10
+SHORT_TERM_MAX_DAYS = 31
+# Giai doan nhac (ghi vao alert_stage de moi moc chi bao MOT lan cho moi han).
+STAGE_OK = "OK"
+STAGE_DUE = "Due"
+STAGE_EXPIRED = "Expired"
+STAGE_LABELS = {STAGE_OK: "Còn hạn", STAGE_DUE: "Sắp hết hạn", STAGE_EXPIRED: "Đã quá hạn"}

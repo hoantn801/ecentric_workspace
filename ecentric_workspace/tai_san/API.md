@@ -65,3 +65,15 @@ expected_cost?, actual_cost?, result, loaner_asset, overdue(bool)`.
 | `confirm_count` | asset, ok(1/0), note? | nhân viên tự xác nhận trong "Tài sản của tôi" |
 | `mark_count` | asset, result(OK\|Wrong Holder\|Wrong Status\|Not Found\|Damaged), actual_holder?, note? | |
 | `close_count` | – | |
+
+### Bản quyền phần mềm (đợt 4)
+| Hàm | Tham số | Ghi chú |
+|---|---|---|
+| `licenses` (GET) | filters{stage: due\|expired\|perpetual, category, status, q} | `rows[]`, `summary{total,due,expired,seats,used,monthly_cost?}`; tiền chỉ cho role xem chi phí |
+| `license_detail` (GET) | name | `license`, `seats[]`, `history[]`, `renewals[]`, `suggested_expiry` |
+| `create_license` | data{license_name, license_type, billing_cycle, seats, start_date, expiry_date, owner_employee, department, account, key_location, cost_per_cycle, …} | người quản lý tài sản |
+| `update_license` | name, data | `cost_per_cycle` chỉ finance; `expiry_date` = sửa nhập nhầm (gia hạn dùng `renew_license`) |
+| `renew_license` | name, new_expiry, cost?, note? | hạn mới phải sau hạn cũ và sau hôm nay |
+| `cancel_license` | name, note? | thu hết chỗ |
+| `assign_license` / `revoke_license_seat` | name, employee, note? / seat, note? | không vượt số chỗ, không trùng người, nhân viên phải Active |
+`dashboard.licenses{summary, todo}`, `my_assets.licenses[]` (không có tiền), `board.returns[].licenses[]`.

@@ -224,6 +224,19 @@
     qsa(root, 'input[name="' + (name || "ck") + '"]').forEach(function (c) { out[c.value] = !!c.checked; });
     return out;
   }
+  // ---- ban quyen: pill giai doan han (server tinh stage: OK / Due / Expired / null) ----
+  function licPill(r) {
+    if (r.status === "Cancelled") return '<span class="ts-pill">' + esc(r.status_label || "Đã huỷ") + "</span>";
+    if (r.stage === "Expired") return '<span class="ts-pill ts-red">' + esc(r.stage_label || "Đã quá hạn") + "</span>";
+    if (r.stage === "Due") return '<span class="ts-pill ts-amber">' + esc(r.stage_label || "Sắp hết hạn") + "</span>";
+    if (r.stage === "OK") return '<span class="ts-pill"><span class="ts-dot" style="background:#10b981"></span>' + esc(r.stage_label || "Còn hạn") + "</span>";
+    return '<span class="ts-pill">' + esc(r.type_label || "Vĩnh viễn") + "</span>";
+  }
+  function licDays(n) {
+    if (n == null || n === "") return "";
+    n = Number(n);
+    return n < 0 ? "Quá " + (-n) + " ngày" : n === 0 ? "Hết hạn hôm nay" : "Còn " + n + " ngày";
+  }
   function assetLine(r) {
     return '<span class="ts-tag">' + esc(r.tag || r.name) + "</span> · " + esc(r.asset_name || "");
   }
@@ -235,6 +248,6 @@
     STATUS_ORDER: STATUS_ORDER, COND: COND, OWN: OWN,
     fmtNum: fmtNum, fmtMoney: fmtMoney, fmtMillion: fmtMillion, fmtDate: fmtDate, fmtDT: fmtDT, fmtMonth: fmtMonth,
     skel: skel, errBox: errBox, picker: picker, pickList: pickList, pickEmployee: pickEmployee,
-    checklistHtml: checklistHtml, checklistValue: checklistValue, assetLine: assetLine
+    checklistHtml: checklistHtml, checklistValue: checklistValue, assetLine: assetLine, licPill: licPill, licDays: licDays
   };
 })();

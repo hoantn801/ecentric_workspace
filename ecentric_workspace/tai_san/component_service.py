@@ -23,9 +23,8 @@ def install(ctx, component, parent):
     A.require(ctx.can_manage)
     if component == parent:
         raise L.TransitionError("Không lắp một thiết bị vào chính nó.")
-    R.lock_asset(parent)
-    R.lock_asset(component)
-    comp, mother = R.asset(component), R.asset(parent)
+    mother = R.lock_asset(parent)
+    comp = R.lock_asset(component)
     if mother.get(C.OPS_STATUS_FIELD) in INSTALL_BLOCKED:
         raise L.TransitionError("Máy %s đang %s - không lắp thêm linh kiện."
                                 % (mother.get(C.TAG_FIELD) or parent,
@@ -54,8 +53,7 @@ def install(ctx, component, parent):
 def remove(ctx, component, to_status=None):
     """Thao linh kien ve kho (Sẵn sàng) hoac danh dau hong (Broken) khi thay do hong."""
     A.require(ctx.can_manage)
-    R.lock_asset(component)
-    comp = R.asset(component)
+    comp = R.lock_asset(component)
     parent = comp.get(C.INSTALLED_ON_FIELD)
     if not parent:
         raise L.TransitionError("Linh kiện này không lắp trong máy nào.")

@@ -840,6 +840,7 @@ RAIL_LAYOUTS = {
                 {"key": "tai_san.list", "roles": list(_TS_COST_ROLES)},
                 {"key": "tai_san.moves"}, {"key": "tai_san.count"},
                 {"key": "tai_san.repairs", "roles": list(_TS_COST_ROLES)},
+                {"key": "tai_san.licenses", "roles": list(_TS_COST_ROLES)},
                 {"key": "tai_san.mine"}]}]},
         {"t": "group", "label": "Khác", "items": [
             {"key": "home.portal.hall"}, {"key": "home.portal.hiring", "caption": "Chỉ HR"},

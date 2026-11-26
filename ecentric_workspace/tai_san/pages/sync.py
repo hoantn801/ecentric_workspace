@@ -1,5 +1,5 @@
 # Copyright (c) 2026, eCentric and contributors
-"""Ghi 6 trang Quan ly tai san tu repo len site (Web Page).
+"""Ghi 7 trang Quan ly tai san tu repo len site (Web Page).
 
 Truoc khi ghi, trang nao dang giu route ma KHONG phai cua module nay (khac title) thi duoc DOI
 ROUTE sang `<route>-cu` (giu nguyen noi dung + publish) va ghi Error Log - khong xoa gi
@@ -11,7 +11,7 @@ import frappe
 
 from ecentric_workspace.approval_center import page_sync_util
 
-PAGE_KEYS = ("home", "list", "moves", "repairs", "count", "mine")
+PAGE_KEYS = ("home", "list", "moves", "repairs", "count", "mine", "licenses")
 
 
 def _relocate_foreign(route, title):

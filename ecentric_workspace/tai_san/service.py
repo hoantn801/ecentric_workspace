@@ -28,8 +28,7 @@ def transition(ctx, asset_name, action, employee=None, ref_doctype=None, ref_nam
     A.require(ctx.can_finance if action in L.FINANCE_ACTIONS else ctx.can_manage,
               "Chỉ Finance / HOF được thanh lý." if action in L.FINANCE_ACTIONS else
               "Chỉ người quản lý tài sản được làm thao tác này.")
-    R.lock_asset(asset_name)
-    a = R.asset(asset_name)
+    a = R.lock_asset(asset_name)
     status = a.get(C.OPS_STATUS_FIELD)
     plan = L.plan(action, status, a.get("custodian"), new_holder=employee,
                   is_component=bool(a.get(C.INSTALLED_ON_FIELD)))
@@ -41,7 +40,7 @@ def transition(ctx, asset_name, action, employee=None, ref_doctype=None, ref_nam
     _apply(ctx, a, action, plan, values, employee=employee, ref_doctype=ref_doctype,
            ref_name=ref_name, note=note, checklist=checklist, condition=condition,
            related_asset=related_asset)
-    for comp in R.components_of(asset_name):
+    for comp in R.lock_components(asset_name):
         if comp.get(C.OPS_STATUS_FIELD) != status:
             # Du lieu cu: linh kien da lech trang thai voi may me -> khong ghi de (khong hoi sinh
             # linh kien da thanh ly / mat). Can tay: thao ra roi xu ly rieng.
@@ -60,7 +59,7 @@ def transition(ctx, asset_name, action, employee=None, ref_doctype=None, ref_nam
 def cascade_status(ctx, parent_name, from_status, to_status, event_type, ref_doctype=None, ref_name=None):
     """Duong doi trang thai may me KHONG qua transition() (bao hong, giu cho NSP) van phai keo linh
     kien dang lap theo - neu khong, lan transition sau se bo qua linh kien (lech trang thai)."""
-    for comp in R.components_of(parent_name):
+    for comp in R.lock_components(parent_name):
         if comp.get(C.OPS_STATUS_FIELD) != from_status:
             continue
         R.set_asset(comp.name, {C.OPS_STATUS_FIELD: to_status})
@@ -139,8 +138,7 @@ def report_damage(ctx, asset_name, level, parts=None, description=None):
     if level not in C.DAMAGE_LEVELS:
         raise L.TransitionError("Chọn mức hỏng.")
     A.require(ctx.can_manage or ctx.employee_id, "Tài khoản chưa gắn hồ sơ nhân viên.")
-    R.lock_asset(asset_name)
-    a = R.asset(asset_name)
+    a = R.lock_asset(asset_name)
     A.require(ctx.can_manage or (a.get("custodian") and a.get("custodian") == ctx.employee_id),
               "Thiết bị này không do bạn giữ.")
     if a.get(C.INSTALLED_ON_FIELD):
@@ -183,8 +181,7 @@ def update_info(ctx, asset_name, data):
         raise L.TransitionError("Hình thức sở hữu không hợp lệ.")
     if not values:
         return {"changed": []}
-    R.lock_asset(asset_name)
-    before = R.asset(asset_name)
+    before = R.lock_asset(asset_name)
     validate_money(values.get("net_purchase_amount", before.get("net_purchase_amount")),
                    values.get("ec_useful_life_months", before.get("ec_useful_life_months")),
                    values.get("ec_salvage_value", before.get("ec_salvage_value")))

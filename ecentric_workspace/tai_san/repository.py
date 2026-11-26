@@ -71,10 +71,29 @@ def asset(name):
     return rows[0]
 
 
+def locked_rows(table, fields, where, params):
+    """SELECT ... FOR UPDATE va tra ve CHINH cac dong vua khoa.
+
+    Bay InnoDB REPEATABLE READ: doc thuong (frappe.get_all) sau khi khoa van thay anh chup tu lan
+    doc DAU TIEN cua giao dich (vd luc dung Ctx) - nguoi thu hai cho khoa xong lai doc trang thai CU
+    va ghi de. Doc co khoa (FOR UPDATE) luon thay ban moi nhat da commit -> phai lay du lieu tu day.
+    `table`, `fields`, `where` la hang so trong code, KHONG nhan gia tri tu nguoi dung."""
+    cols = ", ".join("`%s`" % f for f in fields)
+    return frappe.db.sql("select %s from `%s` where %s for update" % (cols, table, where), params, as_dict=True)
+
+
 def lock_asset(name):
-    """Khoa dong Asset trong giao dich - hai nguoi cung bam cap phat mot may thi nguoi sau doc
-    trang thai MOI (FOR UPDATE), khong ghi de nhau."""
-    frappe.db.sql("select name from `tabAsset` where name=%s for update", (name,))
+    """Khoa dong Asset va tra ve ban MOI NHAT (hai nguoi cung bam cap phat mot may: nguoi sau thay
+    trang thai nguoi truoc vua ghi, khong ghi de)."""
+    rows = locked_rows("tabAsset", ASSET_FIELDS, "name=%s", (name,))
+    if not rows:
+        frappe.throw("Không tìm thấy thiết bị %s." % name, frappe.DoesNotExistError)
+    return rows[0]
+
+
+def lock_components(parent):
+    """Linh kien dang lap trong may (doc co khoa) - dung khi lan trang thai may me sang linh kien."""
+    return locked_rows("tabAsset", ASSET_FIELDS, "`%s`=%%s" % C.INSTALLED_ON_FIELD, (parent,))
 
 
 def set_asset(name, values):
@@ -204,14 +223,17 @@ def repairs_using_damage_request(request_name):
 
 
 def lock_repair(name):
-    frappe.db.sql("select name from `tabEC Asset Repair` where name=%s for update", (name,))
+    rows = locked_rows("tabEC Asset Repair", REPAIR_FIELDS, "name=%s", (name,))
+    if not rows:
+        frappe.throw("Không tìm thấy phiếu sửa chữa %s." % name, frappe.DoesNotExistError)
+    return rows[0]
 
 
 def open_repair_of(asset_name):
-    rows = frappe.get_all(C.REPAIR_DT, filters={"asset": asset_name,
-                                                 "status": ["in", [C.REP_OPEN, C.REP_IN_REPAIR]]},
-                          pluck="name", limit_page_length=1)
-    return rows[0] if rows else None
+    """Doc CO KHOA (goi sau lock_asset): hai nguoi cung mo phieu sua - nguoi sau thay phieu vua tao."""
+    rows = locked_rows("tabEC Asset Repair", ["name"], "asset=%s and status in (%s, %s)",
+                       (asset_name, C.REP_OPEN, C.REP_IN_REPAIR))
+    return rows[0].name if rows else None
 
 
 def insert_repair(values):

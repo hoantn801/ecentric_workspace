@@ -10,6 +10,7 @@ from ecentric_workspace.tai_san import constants as C
 from ecentric_workspace.tai_san import count_service as KK
 from ecentric_workspace.tai_san import depreciation as D
 from ecentric_workspace.tai_san import domain as DOM
+from ecentric_workspace.tai_san import license_views as LV
 from ecentric_workspace.tai_san import lifecycle as L
 from ecentric_workspace.tai_san import reports as RP
 from ecentric_workspace.tai_san import repository as R
@@ -70,7 +71,7 @@ def dashboard(ctx, month=None, department=None, category=None):
     assets, cats, emps, comp = _base(ctx)
     assets = _scoped(ctx, assets)
     if department:
-        assets = [a for a in assets if (a.get("department") or C.STOCK_BUCKET) == department]
+        assets = [a for a in assets if RP.dept_bucket(a.get("department"), a.get("custodian")) == department]
     if category:
         assets = [a for a in assets if a.get("asset_category") == category]
     as_of = D.month_key(month) if month else D.month_key(_today())
@@ -78,7 +79,8 @@ def dashboard(ctx, month=None, department=None, category=None):
            "by_department": RP.by_department(assets, cats, as_of, ctx.can_see_cost),
            "age": RP.age_buckets(assets, as_of), "month": D.month_str(as_of),
            "status_labels": C.STATUS_LABELS, "can": ctx.flags(),
-           "filters": {"departments": sorted({a.get("department") or C.STOCK_BUCKET for a in assets}),
+           "filters": {"departments": sorted({RP.dept_bucket(a.get("department"), a.get("custodian"))
+                                              for a in assets}),
                        "categories": sorted(cats)}}
     if ctx.can_see_cost:
         since = D.month_str(D.add_months(as_of, -11)) + "-01"
@@ -86,6 +88,7 @@ def dashboard(ctx, month=None, department=None, category=None):
         out["finance"] = RP.finance(assets, cats, as_of, rep)
         out["cost_12m"] = RP.cost_series(assets, cats, as_of, rep)
     out["todo"] = _todo(ctx, assets, cats, emps)
+    out["licenses"] = LV.dashboard_block(ctx)
     return out
 
 
@@ -219,7 +222,7 @@ def _filter_rows(rows, f):
             continue
         if f.get("category") and r["category"] != f["category"]:
             continue
-        if f.get("department") and (r["department"] or C.STOCK_BUCKET) != f["department"]:
+        if f.get("department") and RP.dept_bucket(r["department"], r["holder"]) != f["department"]:
             continue
         if f.get("holder") and r["holder"] != f["holder"]:
             continue
@@ -312,7 +315,8 @@ def my_assets(ctx):
         r["count_confirmed"] = confirmed.get(r["name"])
     return {"assets": rows, "employee": ctx.employee, "can": ctx.flags(),
             "damage_levels": C.DAMAGE_LEVELS, "count": dict(count) if count else None,
-            "request_route": C.SOURCE_ROUTES[C.SRC_ASSET_REQUEST]}
+            "request_route": C.SOURCE_ROUTES[C.SRC_ASSET_REQUEST],
+            "licenses": LV.my_licenses(ctx.employee_id)}
 
 
 # -------------------------------------------------------------- Luan chuyen --
@@ -327,13 +331,17 @@ def board(ctx):
         if a.get("custodian") and not a.get(C.INSTALLED_ON_FIELD):
             by_holder.setdefault(a.get("custodian"), []).append(a)
     returns = []
-    for c in R.clearances_upcoming(add_days(today, -14), add_days(today, C.RETURN_HORIZON_DAYS)):
+    clearances = R.clearances_upcoming(add_days(today, -14), add_days(today, C.RETURN_HORIZON_DAYS))
+    lic_held = LV.held_by([c.employee for c in clearances if c.employee])
+    for c in clearances:
         held = by_holder.get(c.employee, [])
+        lics = lic_held.get(c.employee, [])
         returns.append({"source": c.name, "route": _route(C.SRC_CLEARANCE, c.name), "employee": c.employee,
                         "employee_name": c.employee_name, "department": c.department,
                         "last_working_day": _s(c.last_working_day),
                         "days_left": (getdate(c.last_working_day) - today).days,
-                        "assets": [_row(ctx, a, cats, emps) for a in held], "all_returned": not held})
+                        "assets": [_row(ctx, a, cats, emps) for a in held], "licenses": lics,
+                        "all_returned": not held and not lics})
     checks = [_row(ctx, a, cats, emps) for a in assets if a.get(C.OPS_STATUS_FIELD) == C.ST_PENDING_CHECK
               and not a.get(C.INSTALLED_ON_FIELD)]
     broken = [_row(ctx, a, cats, emps) for a in assets if a.get(C.OPS_STATUS_FIELD) == C.ST_BROKEN

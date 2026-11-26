@@ -22,13 +22,12 @@ def open_repair(ctx, asset_name, data):
         raise L.TransitionError("Mức hỏng phải là Hỏng một phần hoặc Hỏng toàn bộ.")
     if mode not in C.REPAIR_MODES:
         raise L.TransitionError("Hướng xử lý không hợp lệ.")
-    R.lock_asset(asset_name)  # hai nguoi cung mo phieu sua cho mot may -> nguoi sau thay phieu dang mo
+    a = R.lock_asset(asset_name)  # hai nguoi cung mo phieu sua cho mot may -> nguoi sau thay phieu dang mo
     if R.open_repair_of(asset_name):
         raise L.TransitionError("Thiết bị đang có phiếu sửa chưa đóng.")
     cost = float(data.get("expected_cost") or 0)
     if cost < 0:
         raise L.TransitionError("Chi phí không được âm.")
-    a = R.asset(asset_name)
     if data.get("damage_request"):
         allowed = approved_cost(data["damage_request"], a)
         if R.repairs_using_damage_request(data["damage_request"]):
@@ -73,10 +72,16 @@ def approved_cost(request_name, asset):
     return float(req.estimated_repair_cost or 0)
 
 
+def _lock_repair_and_asset(repair_name):
+    """Thu tu khoa CO DINH: may truoc, phieu sau (giong open_repair) - tranh hai giao dich khoa cheo
+    nhau (deadlock). Tra ve phieu doc co khoa."""
+    R.lock_asset(R.repair(repair_name).asset)
+    return R.lock_repair(repair_name)
+
+
 def close_repair(ctx, repair_name, data):
     A.require(ctx.can_manage)
-    R.lock_repair(repair_name)
-    rep = R.repair(repair_name)
+    rep = _lock_repair_and_asset(repair_name)
     if rep.status not in (C.REP_OPEN, C.REP_IN_REPAIR):
         raise L.TransitionError("Phiếu sửa đã đóng.")
     result = data.get("result")
@@ -97,7 +102,7 @@ def close_repair(ctx, repair_name, data):
     if result == C.RES_FIXED:
         cond = data.get("condition") or C.COND_GOOD
         if data.get("return_to") == "stock":
-            a = R.asset(rep.asset)
+            a = R.lock_asset(rep.asset)
             if a.get("custodian"):
                 R.set_asset(rep.asset, {"custodian": None, "department": None})
         S.transition(ctx, rep.asset, C.A_REPAIR_DONE, ref_doctype=C.REPAIR_DT, ref_name=repair_name,
@@ -106,7 +111,7 @@ def close_repair(ctx, repair_name, data):
         S.transition(ctx, rep.asset, C.A_REPAIR_FAIL, ref_doctype=C.REPAIR_DT, ref_name=repair_name,
                      condition=C.COND_FULL, note=data.get("note") or "Không sửa được")
     if rep.loaner_asset and result == C.RES_FIXED and data.get("return_to") != "stock":
-        loan = R.asset(rep.loaner_asset)
+        loan = R.lock_asset(rep.loaner_asset)
         if loan.get(C.OPS_STATUS_FIELD) == C.ST_IN_USE:
             S.transition(ctx, rep.loaner_asset, C.A_RETURN, ref_doctype=C.REPAIR_DT,
                          ref_name=repair_name, note="Thu máy tạm sau khi sửa xong")
@@ -115,11 +120,11 @@ def close_repair(ctx, repair_name, data):
 
 def cancel_repair(ctx, repair_name, note=None):
     A.require(ctx.can_manage)
-    rep = R.repair(repair_name)
+    rep = _lock_repair_and_asset(repair_name)
     if rep.status not in (C.REP_OPEN, C.REP_IN_REPAIR):
         raise L.TransitionError("Phiếu sửa đã đóng.")
     R.set_repair(repair_name, {"status": C.REP_CANCELLED, "note": note or rep.note})
-    a = R.asset(rep.asset)
+    a = R.lock_asset(rep.asset)
     if a.get(C.OPS_STATUS_FIELD) == C.ST_UNDER_REPAIR:
         S.transition(ctx, rep.asset, C.A_REPAIR_DONE, ref_doctype=C.REPAIR_DT, ref_name=repair_name,
                      note="Huỷ phiếu sửa")

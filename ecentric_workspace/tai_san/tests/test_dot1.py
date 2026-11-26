@@ -228,7 +228,10 @@ class FakeRepo:
         return Row(self.assets[name])
 
     def lock_asset(self, name):
-        pass
+        return self.asset(name)
+
+    def lock_components(self, parent):
+        return self.components_of(parent)
 
     def set_asset(self, name, values):
         self.assets[name].update(values)
@@ -280,7 +283,7 @@ class FakeRepo:
         self.repairs_[name].update(values)
 
     def lock_repair(self, name):
-        pass
+        return self.repair(name)
 
     def repairs_using_damage_request(self, name):
         return [n for n, r in self.repairs_.items() if r.get("damage_request") == name
