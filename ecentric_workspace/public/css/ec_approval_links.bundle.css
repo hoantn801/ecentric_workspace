@@ -45,4 +45,12 @@
 .ec-aplk-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 10090;
   background: #0f172a; color: #fff; padding: 10px 16px; border-radius: 9px; font-size: 13.5px; max-width: 92vw; }
 .ec-aplk-toast.err { background: var(--ec-aplk-red); }
+/* 26/11/2026: khoi tren form tao / sua nhap (trong the Tom tat A1, xem ec_summary .ec-sum-x) */
+.ec-aplk-slot > .ec-aplk { margin-top: 0; }
+.ec-aplk-note { margin: 0 0 8px; color: var(--ec-aplk-muted); font-size: 12.5px; }
+.ec-aplk-add[aria-busy="true"] { cursor: progress; }
 @media (max-width: 640px) { .ec-aplk-add, .ec-aplk-modal .btn { min-height: 44px; } .ec-aplk-x { min-width: 44px; min-height: 44px; } }
+
+/* 26/11 (Hoan): bo emoji tren nut, dung icon net manh cung kieu icon the Approval Center */
+.ec-aplk-add, .ec-addfile-btn { display: inline-flex; align-items: center; gap: 6px; }
+.ec-btn-ic { flex: none; width: 16px; height: 16px; color: #2f3a8f; margin: 0; }

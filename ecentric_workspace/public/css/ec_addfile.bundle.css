@@ -13,3 +13,7 @@
 @media (max-width: 768px) {
   .ec-addfile-btn, .ec-addfile-panel .btn { min-height: 44px; }
 }
+
+/* 26/11 (Hoan): bo emoji tren nut, dung icon net manh cung kieu icon the Approval Center */
+.ec-aplk-add, .ec-addfile-btn { display: inline-flex; align-items: center; gap: 6px; }
+.ec-btn-ic { flex: none; width: 16px; height: 16px; color: #2f3a8f; margin: 0; }

@@ -167,8 +167,12 @@ class SubmitGuard(unittest.TestCase):
     def test_rejected_target_blocks_until_reason(self):
         al.link(HOST_DT, "PAYR-1", "APR-T", share="0")
         WORLD.store[AR]["APR-T"]["approval_status"] = "Rejected"
-        with self.assertRaises(W.Err):
+        with self.assertRaises(W.Err) as cm:
             al.assert_host_submittable(HOST_DT, "PAYR-1")
+        # 26/11: mo dau "Vui long" de bo loc loi cua cac trang form giu nguyen thong diep (khong thay bang
+        # "Khong the gui lai yeu cau..."), va KHONG chua chu "quyen" (mapErr doi thanh "khong con quyen").
+        self.assertTrue(str(cm.exception).startswith("Vui lòng"), str(cm.exception))
+        self.assertNotIn("quyền", str(cm.exception))
         link = WORLD.rows(al.LINK_DT, active=1)[0]["name"]
         al.set_override_reason(link, "Đã trao đổi trực tiếp với CEO")
         al.assert_host_submittable(HOST_DT, "PAYR-1")   # khong nem

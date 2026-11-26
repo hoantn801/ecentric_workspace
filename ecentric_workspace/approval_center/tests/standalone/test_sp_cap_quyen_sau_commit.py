@@ -60,7 +60,10 @@ ROLE_HIEN_TAI = {}
 
 def _nap(f):
     ns = {"frappe": f}
-    exec(compile(_doan(_MIRROR, "nguoi_trong_luong", "_phieu_duyet_theo_tham_chieu"), "<m>", "exec"), ns)
+    exec(compile(_doan(_MIRROR, "nguoi_trong_luong", "_phieu_duyet_theo_tham_chieu", "_tai_khoan_con_dung"),
+                 "<m>", "exec"), ns)
+    # Phieu thuong (thu muc han che KOL: test_sp_kol_thu_muc_han_che).
+    ns["la_phieu_han_che"] = lambda *a: False
 
     def _con(source, user):
         role = source[len("Role: "):] if (source or "").startswith("Role: ") else None

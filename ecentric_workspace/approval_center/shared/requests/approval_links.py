@@ -352,8 +352,12 @@ def assert_host_submittable(host_doctype, host_name):
         if st.get("approval_status") in BAD_STATUSES and not (l.override_reason or "").strip():
             bad.append(st.get("reference_name") or l.target_request)
     if bad:
-        frappe.throw(_("Phiếu gắn kèm {0} đã bị từ chối / huỷ. Ghi lý do vẫn dùng ở chip phiếu đó "
-                       "(người duyệt sẽ thấy) hoặc gỡ phiếu đó trước khi gửi.").format(", ".join(bad)))
+        # 26/11/2026: cau mo dau "Vui long ..." CO CHU Y - bo loc loi cua ~31 trang form (mapErr /
+        # resubmitErr) chi giu nguyen thong diep server khi khop "Vui long|bat buoc|..."; cau cu bi thay
+        # bang "Khong the gui lai yeu cau..." nen nguoi gui khong biet phai lam gi.
+        frappe.throw(_("Vui lòng xử lý phiếu gắn kèm {0} trước khi gửi: phiếu đó đã bị từ chối / huỷ. "
+                       "Ghi lý do vẫn dùng ở chip phiếu (người duyệt sẽ thấy) hoặc gỡ phiếu đó.")
+                     .format(", ".join(bad)))
 
 
 # --------------------------------------------------------------------------- #

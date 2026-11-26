@@ -147,7 +147,8 @@ for (const f of forms) {
   if (!/EcSummary\./.test(html)) continue;
   using.push(f);
   ok(!/<h3>Tóm tắt<\/h3>/.test(html) && !/summary-row"><span>'\+esc\(r\[0\]\)/.test(html), f + ": bo khoi tom tat tu dung");
-  ok(/EcSummary\.cardHTML\("[a-z]+-summary",actions\)/.test(html) && /EcSummary\.render\(h,\{/.test(html), f + ": markup khung + render cau hinh");
+  ok(/EcSummary\.cardHTML\("[a-z]+-summary",actions(,aplkFormHTML\(\))?\)/.test(html)   // 26/11: o thu 3 = khoi gan phieu duyet
+     && /EcSummary\.render\(h,\{/.test(html), f + ": markup khung + render cau hinh");
   ok(!/<(script|style) id="ec-sum/.test(html), f + ": khong chen khoi ec- moi (A65)");
 }
 ok(using.length === 32, "32 form dung khoi chung: " + using.length);

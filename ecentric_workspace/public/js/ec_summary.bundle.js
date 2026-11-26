@@ -13,6 +13,7 @@
 // GIAO KEO VOI TRANG
 //   Markup (trong formCardsHTML / render, thay cho the "Tom tat" cu + hang nut):
 //     EcSummary.cardHTML("offr-summary", actionsHTML)
+//     EcSummary.cardHTML("offr-summary", actionsHTML, EcApprovalLinks.formHTML({...}))   // 26/11: khoi gan phieu
 //   Ve lai (trong renderSummary, goi moi lan go):
 //     EcSummary.render($("offr-summary"), {
 //       draft: state.draft,                    // de dem MOI o co dau sao cua form (ke ca o khong hien o day)
@@ -284,8 +285,11 @@
   // Khung tinh dat san trong markup trang: phan noi dung (id cu cua trang) + thanh duoi chua hang nut
   // cua trang (giu nguyen id/handler). id="ec-sum" (moi trang mot khoi) de kieu dung chung thang kieu
   // #ec-xxx-root .actions cua trang - cung cach #ec-fh cua dau trang.
-  function cardHTML(id, actionsHTML) {
+  // extraHTML (26/11/2026): HTML da esc() san cua asset dung chung dat giua phan tom tat va thanh nut -
+  // hien chi co khoi "Phieu duyet dinh kem" (EcApprovalLinks.formHTML). render() khong dung toi no.
+  function cardHTML(id, actionsHTML, extraHTML) {
     return '<section class="ec-sum" id="ec-sum" aria-label="Tóm tắt"><div class="ec-sum-main" id="' + esc(id) + '"></div>'
+      + (extraHTML ? '<div class="ec-sum-x">' + extraHTML + "</div>" : "")
       + '<div class="ec-sum-f"><div class="ec-sum-msg" aria-live="polite"></div>' + (actionsHTML || "") + "</div></section>";
   }
   function render(host, cfg) {

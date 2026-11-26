@@ -52,7 +52,7 @@
     return '<label class="btn ec-addfile-btn" tabindex="0" role="button"'
       + ' title="Đính kèm thêm tệp vào phiếu — ghi vào lịch sử duyệt, không xoá được">'
       + '<input type="file" hidden data-ec-addfile="' + esc(cap.add_attachment_request) + '">'
-      + "📎 Thêm tệp</label>";
+      + '<svg class="ec-btn-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>Thêm tệp</label>';
   }
 
   function serverMsg(j) {

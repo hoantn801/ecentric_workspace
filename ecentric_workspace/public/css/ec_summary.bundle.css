@@ -87,6 +87,10 @@
 /* nut bi khoa (neu trang khoa): nen xam dac, khong mo 50% nhu loi hien thi */
 #ec-sum.ec-sum .ec-sum-f .btn[disabled] { opacity: 1; background: #eef0f3; border-color: #eef0f3; color: #9ca3af; cursor: not-allowed; }
 
+/* khoi phu giua tom tat va thanh nut (26/11/2026: "Phieu duyet dinh kem" - ec_approval_links) */
+#ec-sum .ec-sum-x { padding: 0 20px 16px; }
+#ec-sum .ec-sum-x > * { margin-top: 0; }
+
 /* o nhap duoc nhay toi tu link "con thieu" (o nam ngoai khoi tom tat) */
 .ec-sum-flash { animation: ec-sum-flash 1.4s ease; border-radius: 8px; }
 @keyframes ec-sum-flash { 0%, 40% { box-shadow: 0 0 0 3px rgba(220, 38, 38, .35); } 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); } }
@@ -95,6 +99,7 @@
 @container (max-width: 760px) {
   #ec-sum .ec-sum-h { padding: 12px 14px; }
   #ec-sum .ec-sum-body { padding: 14px; gap: 12px; }
+  #ec-sum .ec-sum-x { padding: 0 14px 14px; }
   #ec-sum .ec-sum-g, #ec-sum .ec-sum-flow { grid-template-columns: 1fr; gap: 6px; }
   #ec-sum .ec-sum-gt { padding-top: 0; }
   #ec-sum .ec-sum-gt small { display: inline; margin-left: 6px; }
