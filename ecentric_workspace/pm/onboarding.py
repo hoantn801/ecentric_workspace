@@ -60,3 +60,20 @@ def backfill_active_employees():
         except Exception:
             frappe.log_error(frappe.get_traceback(), "PM backfill grant %s" % uid)
     return granted
+
+
+def daily_backfill():
+    """26/11/2026 (hoa.dinh, huan.duong vào 09/11 vẫn "chưa có quyền dùng Công việc"; hook Employee không
+    cấp, không có Error Log - nghi tài khoản chưa là System User lúc lưu hồ sơ). Lưới an toàn: mỗi ngày
+    quét nhân viên Active còn thiếu role PM, cấp PM Member (cùng quy tắc grant_pm_member). Nuốt mọi lỗi."""
+    try:
+        granted = backfill_active_employees()
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "PM daily backfill")
+        return []
+    if granted:
+        try:
+            frappe.logger("pm").info("PM daily backfill granted: %s" % ", ".join(granted))
+        except Exception:
+            pass
+    return granted
