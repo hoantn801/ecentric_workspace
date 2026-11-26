@@ -30,8 +30,10 @@ NAME = "project-management"
 TITLE = "Project Management"
 
 #: sha256 cua pm_app.html commit nay ship (cong QC `pagesync` doi chieu manifest).
-BASELINE_SHA256 = "c7bb74dda302b5c912e882f696da149ec25ceec723cc95eb9357783eda3a04d6"
+BASELINE_SHA256 = "6cdefaf75623d8fbe9339f5483968ff605e82a8cef1adf7c96f7a3931cdcf86e"
 SUPERSEDES_SHA256 = (
+    # 26/11/2026: ban /pm truoc hotfix 21 (phong ban du an + loi de hieu).
+    "c7bb74dda302b5c912e882f696da149ec25ceec723cc95eb9357783eda3a04d6",
     # 24/11/2026: ban /pm truoc hotfix 20 (ra soat Lap lai; trang khong doi).
     "abb9e58408521f7dc791854745dca7d00f64ede945bb0180f5938bbaa80a5496",
     # 18/11/2026: ban /pm truoc hotfix 19 (doi ten viec tai cho).

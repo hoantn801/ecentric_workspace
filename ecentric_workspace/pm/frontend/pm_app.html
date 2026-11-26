@@ -940,7 +940,10 @@
     try{ var sm=e._server_messages||(e.responseJSON&&e.responseJSON._server_messages);
       if(sm){ var arr=(typeof sm==="string")?JSON.parse(sm):sm; if(arr&&arr.length){ var o=arr[0]; if(typeof o==="string"){ try{o=JSON.parse(o);}catch(_z){o={message:o};} } var m=o&&(o.message||o.title); if(m) return String(m).replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim(); } }
     }catch(_e){}
-    return (e&&e.message)||(e&&e.responseJSON&&e.responseJSON.message)||"Đã có lỗi. Vui lòng thử lại."; }
+    var m2=(e&&e.message)||(e&&e.responseJSON&&e.responseJSON.message)||(e&&e.exception)||(e&&e.responseJSON&&e.responseJSON.exception)||"";
+    /* 26/11/2026: GET tra "frappe.exceptions.PermissionError: ..." -> bo tien to ky thuat, chi giu cau cho nguoi dung */
+    m2=String(m2).replace(/^\s*[\w.]*(Error|Exception):\s*/,"").replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim();
+    return m2||"Đã có lỗi. Vui lòng thử lại."; }
   function errBox(c,e,retry){c.innerHTML='<div class="pm-err">'+esc(errOf(e))+(retry?' <button type="button" class="pm-btn" id="pm-err-retry" style="margin-top:8px">Thử lại</button>':'')+'</div>';var rb=el("pm-err-retry");if(rb&&retry)rb.onclick=retry;}
   function emptyBox(c,msg){c.innerHTML='<div class="pm-state"><svg class="icon em-ic"><use href="#p-inbox"/></svg><div>'+esc(msg)+'</div></div>';}
 
