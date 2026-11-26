@@ -123,8 +123,9 @@ def _html():
 # ba viec giao dien (badge huy do + co chu hub). File sau merge mang CA HAI, nen compose cua no
 # khac ca hai gia tri dang choi nhau. So duoi day duoc TINH LAI tu file da gop, khong lay cua
 # ben nao; ca hai gia tri cu deu xuong SUPERSEDES vi ban nao cung co the dang nam o live.
-BASELINE_SHA256 = "8fc0ea57978090a11362cc96388852d276df8eb021f34f724850c95a819f7eca"
+BASELINE_SHA256 = "e8898955df498c24b7e27598f0754a5619b2394f2828242ffdb20ce584554f4c"
 SUPERSEDES_SHA256 = (
+    "8fc0ea57978090a11362cc96388852d276df8eb021f34f724850c95a819f7eca",  # truoc 26/11 gan phieu duyet cho nguoi lap (p561)
     "486740de104a63d6c51f46194df87e3b9ae2e2931b5ab1de89eb8c2ee5e95cc2",  # truoc 24/11 tien trinh A + tom tat A1 + bang tinh B
     "3a2ed6bc093eaccef2a1d1fb709fb5e779d5626a75e9caefa0fb4bb21f81be63",  # truoc p500 (quy trinh A-Z, 24/11)
     "ac01242a188d7cda842348b495c69a9a0dec6c1bf3254dc6f2d0446aec910460",  # truoc p499 (dau trang thanh cong cu dinh, 23/11)

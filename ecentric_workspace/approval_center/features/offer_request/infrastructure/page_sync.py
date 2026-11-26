@@ -16,8 +16,9 @@ ROUTE = "approvals/offer-request"
 NAME = "offer-request"
 TITLE = "Offer Request"
 
-BASELINE_SHA256 = "8b7297d4d717ca537e0cf7a03cfe67ea954b7ab514b9d82f1097d9b4d53233d8"
+BASELINE_SHA256 = "8fd34c66fff5747728a6e118192a48ce8f72cd71dd3a6ba9b842212f225048f4"
 SUPERSEDES_SHA256 = (
+    "8b7297d4d717ca537e0cf7a03cfe67ea954b7ab514b9d82f1097d9b4d53233d8",  # truoc 26/11 gan phieu duyet cho nguoi lap (p561)
     "ceec45ae5d042a8bc7e5e603a0aa68f4b1f80a23f4bb8b167dfc395f39d28ddb",  # truoc 24/11 tien trinh A + tom tat A1 + bang tinh B
     "ad706138bf3ce9c32932e3b87508ce92488ee24bd24646f059931d6df3e059fc",  # truoc p500 (quy trinh A-Z, 24/11)
     "8f626f5b4ac515540f730a362d4dfcdfd0fd3f23b37afbce8c6b09c48947002a",  # truoc p499 (dau trang thanh cong cu dinh, 23/11)

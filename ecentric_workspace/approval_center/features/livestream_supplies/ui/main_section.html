@@ -233,10 +233,15 @@
       {name:"Hoàn tất",state:"upcoming",statusLabel:"Chờ",meta:"Yêu cầu được ghi nhận."}];
     return '<div class="card" id="lvsp-process-preview"><h3>Quy trình xử lý yêu cầu</h3><div class="stepper">'+renderStepsHTML(steps)+'</div></div>';
   }
+  // 26/11/2026: khoi "Phieu duyet dinh kem" tren form tao / sua nhap / sua de gui lai - asset dung chung
+  // ec_approval_links (EcApprovalLinks.formHTML). Form moi: bam nut -> saveDraft(false, done) roi mo hop chon.
+  function aplkFormHTML(){ if(!window.EcApprovalLinks||!EcApprovalLinks.formHTML) return "";
+    var d=[state._editDet,state.detail].filter(function(x){ return x&&x.business&&x.business.name===state.id; })[0];
+    return EcApprovalLinks.formHTML({ name:state.id||null, cap:d?d.capabilities:null, call:call, save:function(done){ return saveDraft(false,done); } }); }
   function renderCreate(b){
     var c=state.boot&&state.boot.context||{}; var d=state.draft||{};
     var actions='<div class="actions"><button type="button" class="btn" id="lvsp-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="lvsp-save">Lưu nháp</button><button type="button" class="btn primary" id="lvsp-submit">Gửi yêu cầu</button></div>';
-    b.innerHTML='<div class="ec-formwrap">'+processPreviewHTML()+formCardsHTML(d,c)+(window.EcSummary?EcSummary.cardHTML("lvsp-summary",actions):actions)+'</div>';
+    b.innerHTML='<div class="ec-formwrap">'+processPreviewHTML()+formCardsHTML(d,c)+(window.EcSummary?EcSummary.cardHTML("lvsp-summary",actions,aplkFormHTML()):actions)+'</div>';
     syncTitle(); renderSummary(); wireCreate();
   }
   function renderSummary(){ var h=$("lvsp-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
@@ -331,11 +336,12 @@
     $("lvsp-cancel-changes").onclick=function(){ if(!state.dirty||confirm("Hủy các thay đổi chưa lưu?")){ state.draft={}; state.dirty=false; render(); } };
   }
   function setBusy(on){ ["lvsp-save","lvsp-submit","lvsp-cancel-changes"].forEach(function(id){ var el=$(id); if(el) el.disabled=on; }); }
-  function saveDraft(thenSubmit){ if(state.busy)return;
+  function saveDraft(thenSubmit,stay){ if(state.busy)return;
     if(thenSubmit){ var v=validateSubmit(); if(v){ showFieldErrors(v); toast("Vui lòng kiểm tra các trường bắt buộc.",true); return; } } else { showFieldErrors(null); }
     syncTitle(); state.busy=true; setBusy(true);
-    call("save_draft",{name:state.id||null,payload:JSON.stringify(state.draft||{})}).then(function(res){ state.id=res.name; state.dirty=false;
+    return call("save_draft",{name:state.id||null,payload:JSON.stringify(state.draft||{})}).then(function(res){ state.id=res.name; state.dirty=false;
       if(thenSubmit){ return call("submit_request",{name:state.id}).then(function(){ toast("Gửi yêu cầu thành công. Yêu cầu đã được chuyển đến Sang Bui phê duyệt."); go({id:state.id}); }); }
+      if(typeof stay==="function"){ stay(state.id); return; }   // 26/11: gan phieu tu form moi - o lai form
       toast("Đã lưu nháp. Bạn có thể gửi yêu cầu sau."); go({id:state.id});
     }).catch(function(e){ if(window.console&&console.error) console.error("Livestream Supplies save/submit error:",e); toast(mapErr(e),true); }).then(function(){ state.busy=false; setBusy(false); }); }
 

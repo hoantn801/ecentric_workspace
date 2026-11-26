@@ -306,6 +306,11 @@
       + steps.map(function(s,i){ return '<div class="rmx-step'+(i===0?" current":"")+'"><div class="rmx-dot">'+(i+1)+'</div><div class="rmx-name">'+esc(s[0])+'</div><div class="rmx-sub">'+esc(s[1])+'</div></div>'; }).join("")
       + '</div><div class="rm-sla"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'
       + '<span>Mỗi bước duyệt có SLA 3 giờ làm việc, tính trong khung 09:00–12:00 và 13:00–18:00, Thứ Hai–Thứ Sáu, trừ ngày lễ.</span></div></div>'; }
+  // 26/11/2026: khoi "Phieu duyet dinh kem" tren form tao / sua nhap / sua de gui lai - asset dung chung
+  // ec_approval_links (EcApprovalLinks.formHTML). Form moi: bam nut -> saveDraft(false, done) roi mo hop chon.
+  function aplkFormHTML(){ if(!window.EcApprovalLinks||!EcApprovalLinks.formHTML) return "";
+    var d=[state._editDet,state.detail].filter(function(x){ return x&&x.business&&x.business.name===state.id; })[0];
+    return EcApprovalLinks.formHTML({ name:state.id||null, cap:d?d.capabilities:null, call:call, save:function(done){ return saveDraft(false,done); } }); }
   function renderCreate(b){
     var fo=state.boot&&state.boot.form_options||{}; var c=state.boot&&state.boot.context||{}; var d=state.draft||{};
     var editing=state.mode==="edit"; var mgrBlock=!editing && c && !c.manager_resolvable;
@@ -317,7 +322,7 @@
       ? '<div class="actions"><button class="btn" id="ait-edit-cancel">Hủy</button><button class="btn primary" id="ait-resubmit">Gửi lại</button></div>'
       : '<div class="actions"><button class="btn" id="ait-cancel-changes">Hủy thay đổi</button><button class="btn" id="ait-save">Lưu nháp</button><button class="btn primary" id="ait-submit"'+(mgrBlock?" disabled":"")+'>Gửi phê duyệt</button></div>';
     // roadmap always visible on Create (not on edit/resubmit); sits below tabs, above the blocking alert + form.
-    b.innerHTML = '<div class="ait-formwrap">' + (editing?"":roadmapHTML()) + head + formCardsHTML(d,c,fo) + (window.EcSummary?EcSummary.cardHTML("ait-summary",actions):actions) + '</div>';
+    b.innerHTML = '<div class="ait-formwrap">' + (editing?"":roadmapHTML()) + head + formCardsHTML(d,c,fo) + (window.EcSummary?EcSummary.cardHTML("ait-summary",actions,aplkFormHTML()):actions) + '</div>';
     if(editing) state._origMaterial=materialSnap(d);
     state.titleTouched = !!((d.request_title||"").toString().trim());
     state.draft=state.draft||{}; if(state.draft.tax_fee_basis==null) state.draft.tax_fee_basis="Included";
@@ -415,6 +420,7 @@
     if(/not Active/i.test(m)) return "Account đã chọn không còn hoạt động.";
     if(/end date cannot be before/i.test(m)) return "Ngày kết thúc không thể trước ngày bắt đầu.";
     if(/quản lý trực tiếp|manager/i.test(m)) return "Không thể gửi: chưa xác định quản lý trực tiếp.";
+    if(/phiếu gắn kèm/i.test(m)) return m;   // 26/11: phieu gan bi tu choi/huy - giu cau huong dan cua server
     return "Đã có lỗi khi lưu/gửi yêu cầu. Vui lòng thử lại."; }
   function wireCreate(){ var b=$("ait-body"); var editing=state.mode==="edit";
     wireModels(b);
@@ -480,13 +486,14 @@
     if(!f)return true; var bad=d.subscription_start_date&&d.subscription_end_date&&d.subscription_end_date<d.subscription_start_date;
     f.classList.toggle("invalid",!!bad); var e=f.querySelector(".err"); if(bad&&!e){ e=document.createElement("div"); e.className="err"; f.appendChild(e);} if(e) e.textContent=bad?"Ngày kết thúc không thể trước ngày bắt đầu.":""; return !bad; }
 
-  function saveDraft(thenSubmit){ if(state.busy)return; if(!validateDates()){ toast("Vui lòng sửa lỗi ngày.",true); return; }
+  function saveDraft(thenSubmit,stay){ if(state.busy)return; if(!validateDates()){ toast("Vui lòng sửa lỗi ngày.",true); return; }
     if(thenSubmit){ var verrs=validateSubmit(); if(verrs){ showFieldErrors(verrs); toast("Vui lòng kiểm tra các trường bắt buộc.",true); return; } }
     else { showFieldErrors(null); }
     state.busy=true; setBusy(true);
-    call("save_draft",{name:state.id||null,payload:JSON.stringify(state.draft||{})}).then(function(res){
+    return call("save_draft",{name:state.id||null,payload:JSON.stringify(state.draft||{})}).then(function(res){
       state.id=res.name; state.dirty=false;
       if(thenSubmit){ return call("submit_request",{name:state.id}).then(function(){ toast(SUBMIT_OK); go({id:state.id}); }); }
+      if(typeof stay==="function"){ stay(state.id); return; }   // 26/11: gan phieu tu form moi - o lai form
       toast("Đã lưu nháp. Bạn có thể gửi phê duyệt sau."); go({id:state.id});
     }).catch(function(e){ if(!applyBackendError(e)){ if(window.console&&console.error) console.error("AI Topup save/submit error:", e); toast(friendlyErr(e),true); } }).then(function(){ state.busy=false; setBusy(false); }); }
   function setBusy(on){ ["ait-save","ait-submit","ait-cancel-changes"].forEach(function(id){ var el=$(id); if(el) el.disabled=on; }); }
@@ -648,7 +655,7 @@
   // Resubmit-specific error mapping: stale conflict -> reload; known safe validation -> show; else generic (never raw SQL/500).
   function resubmitErr(e){ var m=extractServerMsg(e);
     if(/pending approver|not a pending|no further action|is Approved|is Rejected|is Cancelled|moved|next level|updated by|đã thay đổi/i.test(m)) return "Yêu cầu vừa được cập nhật bởi người khác. Vui lòng tải lại.";
-    if(/Only an Information Required|is mandatory|is required|not allowed to|do not have|permission/i.test(m)) return m;
+    if(/Only an Information Required|is mandatory|is required|not allowed to|do not have|permission|phiếu gắn kèm/i.test(m)) return m;
     return "Không thể gửi lại yêu cầu. Vui lòng thử lại hoặc liên hệ quản trị viên."; }
   function extractServerMsg(e){ if(!e) return "";
     function _strip(s){ return String(s==null?"":s).replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim(); }
@@ -747,7 +754,7 @@
     if(cap.can_submit){   // Draft (owner): primary path is submit; edit + cancel are secondary
       return '<div class="apanel"><button type="button" class="btn primary" data-act="submitdraft">Gửi phê duyệt</button>'
         + '<button type="button" class="btn" data-act="editdraft">Tiếp tục chỉnh sửa</button>'
-        + '<button type="button" class="btn" data-act="cancel">Hủy yêu cầu</button></div>'
+        + '<button type="button" class="btn" data-act="cancel">Hủy yêu cầu</button>'+(window.EcAddFile?EcAddFile.buttonHTML(cap):"")/* 26/11: gan phieu duyet cho nguoi lap */+'</div>'
         + '<div class="hint" style="margin-top:8px">Yêu cầu đang ở trạng thái nháp — chưa gửi phê duyệt.</div>'; }
     if(cap.can_edit&&ap.approval_status==="Information Required") btns.push('<button type="button" class="btn primary" data-act="edit">Chỉnh sửa & gửi lại</button>');
     else if(cap.can_edit) btns.push('<button type="button" class="btn" data-act="edit">Chỉnh sửa</button>');

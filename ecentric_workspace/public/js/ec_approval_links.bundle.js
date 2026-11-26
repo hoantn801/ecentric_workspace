@@ -17,6 +17,17 @@
 // GIAO KEO VOI TRANG - KHONG sua trang form nao: ec_addfile.bundle.js noi `EcApprovalLinks.blockHTML(cap)`
 // vao `EcAddFile.buttonHTML(cap)` (31 form goi qua EcRemind.buttonHTML, popup hub goi thang). Sau moi
 // thao tac widget TU ve lai khoi cua no (goi list_approval_links) - khong bat trang ve lai.
+//
+// 26/11/2026 - NGUOI LAP PHIEU (0 EC Approval Link tren site: cac trang chi goi buttonHTML o panel cua
+// nguoi duyet). Them hai cho:
+//   * Chi tiet phieu NHAP: nhanh `cap.can_submit` cua actionPanelHTML noi them EcAddFile.buttonHTML(cap).
+//   * Form TAO MOI / sua nhap / sua de gui lai: khoi Tom tat A1 nhan them o thu 3
+//       EcSummary.cardHTML(id, actions, EcApprovalLinks.formHTML({name, cap, call, save}))
+//     - co ma + capability (get_detail cua trang)  -> ve dung blockHTML(cap) (chip + nut, theo server);
+//     - chua co ma (form moi) -> nut "Gan phieu duyet": bam -> `save(done)` = saveDraft(false, done) CUA
+//       TRANG (dung duong luu nhap san co, loi validate bao nhu nut Luu nhap; thanh cong goi done(name)
+//       va KHONG chuyen trang) -> lay capability that qua call("get_detail") -> mo hop chon phieu.
+//       Form van o trang thai sua nhap, du lieu da nhap giu nguyen.
 (function () {
   "use strict";
   if (window.EcApprovalLinks) return;
@@ -131,12 +142,22 @@
     return box ? { box: box, doctype: box.getAttribute("data-ec-aplk-dt"), name: box.getAttribute("data-ec-aplk-name") } : null;
   }
 
+  // name phieu chu -> capability moi nhat ma widget biet (sau get_detail / gan / go / ghi ly do). Form tao
+  // ve lai (go phim, doi loai...) doc lai tu day nen chip khong bien mat / khong hien ban cu.
+  var capCache = {};
+  function remember(h, cap) {
+    if (!h || !h.name || !cap) return;
+    capCache[h.name] = { approval_links: cap.approval_links || [], can_link_approval: !!cap.can_link_approval,
+      approval_link_host: cap.approval_link_host || { doctype: h.doctype, name: h.name } };
+  }
+
   function redraw(h, cap) {
     if (!h || !h.box) return;
     if (cap && cap.chips) cap = { approval_links: cap.chips, can_link_approval: true,
       approval_link_host: { doctype: h.doctype, name: h.name } };
-    if (cap && cap.approval_links) { h.box.innerHTML = innerHTML(cap); return Promise.resolve(); }
+    if (cap && cap.approval_links) { remember(h, cap); h.box.innerHTML = innerHTML(cap); return Promise.resolve(); }
     return api("list_approval_links", { host_doctype: h.doctype, host_name: h.name }).then(function (c) {
+      remember(h, c || {});
       h.box.innerHTML = innerHTML(c || {});
     });
   }
@@ -263,10 +284,86 @@
     return ov;
   }
 
+  // ---- form tao moi / sua nhap / sua de gui lai (26/11/2026) ----------------------------
+  // Moi trang form chi co MOT form dang mo -> giu mot ban { name, call, save } cua lan ve gan nhat.
+  var form = null;
+
+  function newBlockHTML() {
+    return '<div class="ec-aplk ec-aplk--new"><div class="ec-aplk-h">Phiếu duyệt đính kèm</div>'
+      + '<p class="ec-aplk-note">Dùng phiếu đã duyệt (vd Phê duyệt đột xuất của CEO) làm chứng từ cho phiếu này. '
+      + "Bấm nút sẽ lưu nháp trước, rồi chọn phiếu — dữ liệu đang nhập được giữ nguyên.</p>"
+      + '<button type="button" class="btn ec-aplk-add" data-ec-aplk-create>🔗 Gắn phiếu duyệt</button></div>';
+  }
+
+  // opts: { name: ma phieu hoac null, cap: capabilities tu get_detail (neu trang dang giu),
+  //         call: ham call(method, args) cua trang, save: function(done) -> saveDraft(false, done) }
+  function formHTML(opts) {
+    opts = opts || {};
+    var name = opts.name || null;
+    form = { name: name, call: opts.call, save: opts.save };
+    var cap = (name && capCache[name]) || opts.cap || null;
+    var inner;
+    if (name && cap && cap.approval_link_host) inner = blockHTML(cap);           // quyen theo server
+    else if (typeof opts.call === "function" && (name || typeof opts.save === "function")) inner = newBlockHTML();
+    else inner = "";
+    return inner ? '<div class="ec-aplk-slot" data-ec-aplk-form>' + inner + "</div>" : "";
+  }
+
+  async function capabilityOf(name) {
+    var det = await form.call("get_detail", { name: name });
+    var cap = (det && det.capabilities) || {};
+    if (cap.approval_link_host) remember({ name: name, doctype: cap.approval_link_host.doctype }, cap);
+    return cap;
+  }
+
+  async function startFromForm(btn) {
+    if (busy || !form || btn.disabled) return;
+    var slot = btn.closest ? btn.closest("[data-ec-aplk-form]") : null;
+    var label = btn.textContent;
+    busy = true;
+    btn.disabled = true;
+    btn.setAttribute("aria-busy", "true");
+    try {
+      var name = form.name;
+      if (!name) {
+        if (typeof form.save !== "function") return;
+        btn.textContent = "Đang lưu nháp…";
+        var got = null;
+        await form.save(function (n) { got = n || null; });
+        if (!got) return;              // trang da bao loi nhu nut Luu nhap; form giu nguyen
+        name = got;
+        form.name = got;
+        toast("Đã lưu nháp " + got + ". Chọn phiếu duyệt để gắn.");
+      }
+      btn.textContent = "Đang mở…";
+      var cap = await capabilityOf(name);
+      var host = cap.approval_link_host;
+      if (slot) slot.innerHTML = blockHTML(cap);
+      if (!cap.can_link_approval || !host || !host.doctype || !host.name) {
+        toast("Bạn không gắn được phiếu duyệt vào phiếu này ở trạng thái hiện tại.", true);
+        return;
+      }
+      var box = slot ? slot.querySelector(".ec-aplk") : null;
+      busy = false;
+      openModal({ box: box, doctype: host.doctype, name: host.name });
+    } catch (e) {
+      toast(errText(e, "Không mở được phần gắn phiếu duyệt. Thử lại sau."), true);
+    } finally {
+      busy = false;
+      if (btn.isConnected) {
+        btn.disabled = false;
+        btn.removeAttribute("aria-busy");
+        btn.textContent = label;
+      }
+    }
+  }
+
   // ---- su kien (uy quyen tren document) ------------------------------------------------
   document.addEventListener("click", function (e) {
     var t = e.target;
     if (!t || !t.closest) return;
+    var create = t.closest("[data-ec-aplk-create]");
+    if (create) { e.preventDefault(); e.stopPropagation(); startFromForm(create); return; }
     var open = t.closest("[data-ec-aplk-open]");
     var un = t.closest("[data-ec-aplk-unlink]");
     var rs = t.closest("[data-ec-aplk-reason]");
@@ -295,5 +392,5 @@
     }
   }, true);
 
-  window.EcApprovalLinks = { blockHTML: blockHTML, chipHTML: chipHTML, openModal: openModal };
+  window.EcApprovalLinks = { blockHTML: blockHTML, chipHTML: chipHTML, openModal: openModal, formHTML: formHTML };
 })();

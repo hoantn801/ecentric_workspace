@@ -269,6 +269,11 @@
       + fld("request_attachment","Tệp đính kèm",'<input id="adhc-file" type="file" multiple data-upload="request_attachment"><div class="hint" id="adhc-att-name">'+esc(d.request_attachment?"Đã tải":"Không bắt buộc")+'</div><div class="hint">Gắn phiếu duyệt khác làm chứng từ: bấm “Lưu nháp”, rồi dùng nút “Gắn phiếu duyệt” ở trang chi tiết.</div>').replace('class="fld','class="fld full')
       + '</div></div>';
   }
+  // 26/11/2026: khoi "Phieu duyet dinh kem" tren form tao / sua nhap / sua de gui lai - asset dung chung
+  // ec_approval_links (EcApprovalLinks.formHTML). Form moi: bam nut -> saveDraft(false, done) roi mo hop chon.
+  function aplkFormHTML(){ if(!window.EcApprovalLinks||!EcApprovalLinks.formHTML) return "";
+    var d=[state._editDet,state.detail].filter(function(x){ return x&&x.business&&x.business.name===state.id; })[0];
+    return EcApprovalLinks.formHTML({ name:state.id||null, cap:d?d.capabilities:null, call:call, save:function(done){ return saveDraft(false,done); } }); }
   function renderCreate(b){
     var fo=state.boot&&state.boot.form_options||{}; var c=state.boot&&state.boot.context||{}; var d=state.draft||{};
     if(!d.urgency){ state.draft=d; d.urgency="Bình thường"; }
@@ -276,7 +281,7 @@
     var actions='<div class="actions"><button type="button" class="btn" id="adhc-cancel-changes">Hủy thay đổi</button>'
       +(resub?'':'<button type="button" class="btn" id="adhc-save">Lưu nháp</button>')
       +'<button type="button" class="btn primary" id="adhc-submit">'+(resub?"Gửi lại CEO":"Gửi CEO")+'</button></div>';
-    b.innerHTML = '<div class="ec-formwrap">' + processPreviewHTML() + formCardsHTML(d,c,fo) + (window.EcSummary?EcSummary.cardHTML("adhc-summary",actions):actions) + '</div>';
+    b.innerHTML = '<div class="ec-formwrap">' + processPreviewHTML() + formCardsHTML(d,c,fo) + (window.EcSummary?EcSummary.cardHTML("adhc-summary",actions,aplkFormHTML()):actions) + '</div>';
     renderSummary(); wireCreate();
   }
   function renderSummary(){ var h=$("adhc-summary"); if(!h)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
@@ -410,7 +415,7 @@
     $("adhc-cancel-changes").onclick=function(){ if(!state.dirty||confirm("Hủy các thay đổi chưa lưu?")){ state.draft=state.id?state.draft:{}; state.dirty=false; render(); } };
   }
   function setBusy(on){ ["adhc-save","adhc-submit","adhc-cancel-changes"].forEach(function(id){ var el=$(id); if(el) el.disabled=on; }); }
-  function saveDraft(thenSubmit){ if(state.busy)return;
+  function saveDraft(thenSubmit,stay){ if(state.busy)return;
     if(thenSubmit){ var v=validateSubmit(); if(v){ showFieldErrors(v); toast("Vui lòng kiểm tra các trường bắt buộc.",true); return; } } else { showFieldErrors(null); }
     state.busy=true; setBusy(true);
     if(state.mode==="resubmit"&&state.id){
@@ -418,8 +423,9 @@
       call("resubmit",{name:state.id,payload:JSON.stringify(state.draft||{})}).then(function(){ state.dirty=false; toast("Đã gửi lại CEO."); go({id:state.id}); })
         .catch(function(e){ if(!applyBackendError(e)) toast(friendlyErr(e),true); }).then(function(){ state.busy=false; setBusy(false); });
       return; }
-    call("save_draft",{name:state.id||null,payload:JSON.stringify(state.draft||{})}).then(function(res){ state.id=res.name; state.dirty=false;
+    return call("save_draft",{name:state.id||null,payload:JSON.stringify(state.draft||{})}).then(function(res){ state.id=res.name; state.dirty=false;
       if(thenSubmit){ return call("submit_request",{name:state.id}).then(function(){ toast("Đã gửi CEO."); go({id:state.id}); }); }
+      if(typeof stay==="function"){ stay(state.id); return; }   // 26/11: gan phieu tu form moi - o lai form
       toast("Đã lưu nháp. Bạn có thể gắn phiếu duyệt và gửi sau."); go({id:state.id});
     }).catch(function(e){ if(!applyBackendError(e)){ if(window.console&&console.error) console.error("Adhoc approval save/submit error:",e); toast(friendlyErr(e),true); } }).then(function(){ state.busy=false; setBusy(false); }); }
   // ======================= MY REQUESTS =======================
@@ -543,7 +549,7 @@
   function actionPanelHTML(det){ var ap=det.approval||{}; var btns=[];
     // Chip "Gan phieu duyet" da ve o the "Tai lieu & phieu lien quan" -> khong ve lai trong khu nut.
     var cap=Object.assign({}, det.capabilities||{}, {approval_links:[], can_link_approval:false});
-    if(cap.can_submit){ return '<div class="actions"><button type="button" class="btn primary" data-act="submitdraft">Gửi CEO</button><button type="button" class="btn" data-act="editdraft">Tiếp tục chỉnh sửa</button><button type="button" class="btn" data-act="cancel">Hủy yêu cầu</button></div><div class="hint" style="margin-top:8px">Yêu cầu đang ở trạng thái nháp — chưa gửi phê duyệt.</div>'; }
+    if(cap.can_submit){ return '<div class="actions"><button type="button" class="btn primary" data-act="submitdraft">Gửi CEO</button><button type="button" class="btn" data-act="editdraft">Tiếp tục chỉnh sửa</button><button type="button" class="btn" data-act="cancel">Hủy yêu cầu</button>'+(window.EcAddFile?EcAddFile.buttonHTML(cap):"")/* 26/11: gan phieu duyet cho nguoi lap */+'</div><div class="hint" style="margin-top:8px">Yêu cầu đang ở trạng thái nháp — chưa gửi phê duyệt.</div>'; }
     if(cap.can_edit&&ap.approval_status==="Information Required") btns.push('<button type="button" class="btn primary" data-act="edit">Chỉnh sửa &amp; gửi lại</button>');
     if(cap.can_approve) btns.push('<button type="button" class="btn primary" data-act="approve">Duyệt</button>');
     if(cap.can_request_information) btns.push('<button type="button" class="btn" data-act="reqinfo">Trả lại bổ sung</button>');
