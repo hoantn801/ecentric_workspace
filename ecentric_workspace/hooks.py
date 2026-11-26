@@ -1271,3 +1271,11 @@ scheduler_events["cron"].setdefault("20 8 * * *", []).append(
 website_redirects = list(globals().get("website_redirects") or []) + [
     {"source": "/it-asset-management-system", "target": "/tai-san", "redirect_http_status": 302},
 ]
+
+# 27/11/2026 - Kalodata dung chung (shared_tools/, xem shared_tools/README.md):
+#  * moi phut: don hang doi (het gio / de yen / khong mo kip -> nguoi tiep theo) + keo file xuat ve ERP.
+#  * 03:20 hang ngay: xoa file xuat qua 7 ngay.
+scheduler_events["cron"].setdefault("*/1 * * * *", []).append(
+    "ecentric_workspace.shared_tools.jobs.every_minute")
+scheduler_events["cron"].setdefault("20 3 * * *", []).append(
+    "ecentric_workspace.shared_tools.jobs.purge_exports")

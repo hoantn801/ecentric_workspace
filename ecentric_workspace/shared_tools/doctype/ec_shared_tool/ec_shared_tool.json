@@ -1,0 +1,125 @@
+{
+ "doctype": "DocType",
+ "name": "EC Shared Tool",
+ "module": "Shared Tools",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "autoname": "field:tool_key",
+ "description": "Một công cụ dùng chung tài khoản (hiện có Kalodata). Máy chạy và khoá bí mật nằm trong site_config, không ở đây.",
+ "field_order": [
+  "tool_key",
+  "title",
+  "enabled",
+  "allowed_role",
+  "notice",
+  "cb1",
+  "lease_minutes",
+  "ready_minutes",
+  "extend_minutes",
+  "idle_minutes"
+ ],
+ "fields": [
+  {
+   "fieldname": "tool_key",
+   "fieldtype": "Data",
+   "label": "Mã",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1,
+   "description": "Viết thường, không dấu, vd kalodata. Là tên bản ghi."
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Tên hiển thị",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Đang mở cho mọi người dùng",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "allowed_role",
+   "fieldtype": "Link",
+   "label": "Chỉ role này được dùng",
+   "options": "Role",
+   "description": "Để trống = mọi nhân viên đăng nhập ERP."
+  },
+  {
+   "fieldname": "notice",
+   "fieldtype": "Small Text",
+   "label": "Thông báo trên trang",
+   "description": "Hiện ở đầu trang, vd lịch bảo trì máy."
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "lease_minutes",
+   "fieldtype": "Int",
+   "label": "Mỗi lượt (phút)",
+   "default": "30",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "ready_minutes",
+   "fieldtype": "Int",
+   "label": "Thời gian để mở khi đến lượt (phút)",
+   "default": "3",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "extend_minutes",
+   "fieldtype": "Int",
+   "label": "Gia hạn mỗi lần (phút)",
+   "default": "15",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "idle_minutes",
+   "fieldtype": "Int",
+   "label": "Để yên bao lâu thì tự kết thúc (phút)",
+   "default": "10",
+   "non_negative": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0
+  },
+  {
+   "role": "EC Shared Tool Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "title_field": "title",
+ "naming_rule": "By fieldname"
+}

@@ -270,6 +270,7 @@ def _providers():
     from ecentric_workspace.data_hub import nav as data_hub_nav
     from ecentric_workspace.dao_tao import nav as dao_tao_nav
     from ecentric_workspace.tai_san import nav as tai_san_nav
+    from ecentric_workspace.shared_tools import nav as shared_tools_nav
     return [
         ("core", lambda: list(CORE_ITEMS)),
         ("approval_center", approval_nav.items),
@@ -296,6 +297,8 @@ def _providers():
         ("dao_tao", dao_tao_nav.items),
         # Quan ly tai san (26/11/2026): Tong quan · Danh sach · Cap phat · Sua chua · Kiem ke · Cua toi.
         ("tai_san", tai_san_nav.items),
+        # Kalodata dung chung (27/11/2026): /kalodata - hang doi mot tai khoan Kalodata (shared_tools/).
+        ("shared_tools", shared_tools_nav.items),
         ("home_portal", lambda: list(HOME_PORTAL_ITEMS)),
     ]
 
@@ -376,11 +379,17 @@ CONTEXTS = {
         "entry": {"key": "ctx.tai_san", "label": "Tài sản & thiết bị",
                   "route": "/tai-san", "icon": "folder"},
     },
+    # 27/11/2026: Kalodata dung chung (/kalodata, shared_tools/) - thuoc khu "Cong ty", nhom Cong cu.
+    "shared_tools": {
+        "providers": ["core", "shared_tools"],
+        "entry": {"key": "ctx.shared_tools", "label": "Kalodata dùng chung",
+                  "route": "/kalodata", "icon": "chart"},
+    },
 }
 #: order in which specialized contexts are probed for route resolution and in
 #: which launcher entries render.
 CONTEXT_ORDER = ["approval_document", "hr", "alert_center", "reporting", "pnl", "pm",
-                 "ai_tools", "surveys", "data_hub", "dao_tao", "tai_san"]
+                 "ai_tools", "surveys", "data_hub", "dao_tao", "tai_san", "shared_tools"]
 #: `pnl` dung TRUOC `reporting`? Khong can: /pnl-dashboard khong khop mau nao
 #: cua reporting (/reports, /reports/*), nen hai ngu canh khong tranh nhau.
 DEFAULT_CONTEXT = "approval_document"
@@ -647,7 +656,7 @@ RAIL = [
      "keys": ["home.portal.reports", "home.portal.weekly", "home.portal.pulse", "home.portal.alerts"],
      "group": "Báo cáo & Phân tích"},
     {"key": "company", "label": "Công ty", "icon": "building", "route": "/tai-lieu",
-     "contexts": ["ai_tools", "surveys", "dao_tao", "tai_san"],
+     "contexts": ["ai_tools", "surveys", "dao_tao", "tai_san", "shared_tools"],
      "keys": ["home.portal.iso_docs", "home.portal.feedback", "home.portal.surveys", "home.portal.hall",
               "home.portal.ai_tools", "home.portal.hiring", "home.portal.training", "home.portal.quiz"],
      "group": "Công ty"},
@@ -820,7 +829,9 @@ RAIL_LAYOUTS = {
                 {"key": "ai_tools.livestream", "label": "Livestream Script"},
                 {"key": "ai_tools.livestream.brand"}, {"key": "ai_tools.livestream.rules"},
                 {"key": "ai_tools.video"}, {"key": "ai_tools.voice"},  # 15/11: Giong doc AI (/ai-voice)
-                {"key": "ai_tools.usage"}]}]},
+                {"key": "ai_tools.usage"}]},
+            # 27/11/2026: Kalodata dung chung (shared_tools/nav.py) - mot tai khoan, hang doi.
+            {"key": "shared_tools.kalodata"}]},
         # 25/10/2026 (Hoan chot): AI Live thanh khoi rieng (trang /ai-live), khong nam trong SI Tool.
         {"t": "group", "label": "AI Live", "items": [
             {"key": "ai_tools.live", "children": [
