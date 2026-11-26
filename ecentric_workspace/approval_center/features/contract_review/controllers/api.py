@@ -18,7 +18,7 @@ from ecentric_workspace.approval_center.features.contract_review.controllers.kol
     kol_update_creator, kol_verify_acceptance, kol_verify_signed, kol_preview_dates, kol_creator_gaps,
     kol_preview_contract, kol_download_file, kol_confirm_payee, kol_close_contract,
     kol_reopen_contract, kol_attach_sign_pdf, kol_make_sign_pdf, kol_auto_place_sign, kol_round_contract,
-    kol_misa_preview, kol_misa_apply)
+    kol_misa_preview, kol_misa_apply, kol_open_online)
 
 _DT = "EC Contract Review Request"
 _CODE = "CONTRACT_REVIEW"

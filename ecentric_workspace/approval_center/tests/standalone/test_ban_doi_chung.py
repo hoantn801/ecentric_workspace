@@ -271,6 +271,8 @@ def _mirror_ns(w, f):
     # gio_he_thong goi frappe.utils - thay bang ban rut gon UTC+7.
     ns["gio_he_thong"] = lambda iso: (_get_datetime(str(iso).replace("T", " ").rstrip("Z"))
                                       + _dt.timedelta(hours=7)) if iso else None
+    # Cong theo phieu (26/11, thu muc han che KOL) - test rieng o test_sp_kol_thu_muc_han_che.
+    ns["duoc_soi_guong_phieu"] = lambda dt, n, kiem_quyen=True: ns["duoc_soi_guong"](dt)
     return types.SimpleNamespace(**ns)
 
 
@@ -615,7 +617,9 @@ class Hook(unittest.TestCase):
         import types as _types
         ns = {"frappe": f, "BUSINESS_DT": "EC Contract Review Request",
               "esign_flow": _types.SimpleNamespace(LABOR_CONTRACT_TYPE="Labor / Hợp đồng lao động (EC)",
-                                                   KOL_CONTRACT_TYPE="KOL/KOC / Creator (EC)")}
+                                                   KOL_CONTRACT_TYPE="KOL/KOC / Creator (EC)"),
+              # Cong chung cua shared (26/11): phieu thuong duoc len.
+              "_mirror": lambda: _types.SimpleNamespace(duoc_soi_guong_phieu=lambda *a, **k: True)}
         exec(compile(_doan(_SERVICE, "_KHONG_LEN_SHAREPOINT", "_is_labor", "on_decision"), "<s>", "exec"), ns)
         ns["on_decision"]("CTR-1", "AR-1", "ACT-9", "Approved")
         ((method, kw),) = w.enqueued

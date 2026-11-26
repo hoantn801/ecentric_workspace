@@ -233,17 +233,27 @@ def _soi_guong_sharepoint(name):
         frappe.log_error(frappe.get_traceback(), "enqueue soi guong SharePoint %s" % name)
 
 
-#: Loai hop dong KHONG dua len thu vien SharePoint chung (nhom Operation Members ghi duoc):
-#: lao dong mang luong (QC7) + KOL/KOC mang CCCD/STK creator (PO 17/11, quyet dinh B).
-_KHONG_LEN_SHAREPOINT = (esign_flow.LABOR_CONTRACT_TYPE, esign_flow.KOL_CONTRACT_TYPE)
+#: Loai hop dong KHONG BAO GIO len SharePoint: lao dong mang luong (QC7). KOL/KOC mang CCCD/STK
+#: creator tung nam o day (PO 17/11, B); tu 26/11/2026 ("huong 2") KOL vao THU MUC HAN CHE khi IT da
+#: cau hinh - cong chung `sharepoint_mirror.duoc_soi_guong_phieu` (shared khong import nguoc feature).
+_KHONG_LEN_SHAREPOINT = (esign_flow.LABOR_CONTRACT_TYPE,)
+
+
+def _mirror():
+    from ecentric_workspace.approval_center.shared.integrations import sharepoint_mirror
+    return sharepoint_mirror
 
 
 def _is_labor(name):
-    """Hop dong mang du lieu rieng tu (lao dong / KOL): KHONG dua len thu vien SharePoint chung.
-    Nguoi duyet mo tep tren ERP. Ten ham giu nguyen cho cac test/goi cu.
-    Loi khi hoi -> coi nhu KHONG duoc len (fail-closed: thieu ban Word Online con hon lo CCCD)."""
+    """True = phieu nay KHONG dua len SharePoint (ten ham giu nguyen cho cac test/goi cu).
+      * Hop dong lao dong: LUON True - chot ngay o feature, khong phu thuoc cau hinh shared.
+      * KOL: True khi `site_config.ec_sp_kol_folder` chua cau hinh (26/11). Day chi xet CAU HINH
+        (khong goi Graph): job nen chot quyen thu muc lai truoc moi lan tai len.
+    Loi khi hoi -> True (fail-closed: thieu ban Word Online con hon lo CCCD / luong)."""
     try:
-        return frappe.db.get_value(BUSINESS_DT, name, "contract_type") in _KHONG_LEN_SHAREPOINT
+        if frappe.db.get_value(BUSINESS_DT, name, "contract_type") in _KHONG_LEN_SHAREPOINT:
+            return True
+        return not _mirror().duoc_soi_guong_phieu(BUSINESS_DT, name, kiem_quyen=False)
     except Exception:
         frappe.log_error(frappe.get_traceback(), "SharePoint: khong hoi duoc loai hop dong %s" % name)
         return True

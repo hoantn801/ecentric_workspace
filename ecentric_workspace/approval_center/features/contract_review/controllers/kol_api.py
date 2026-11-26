@@ -25,7 +25,7 @@ __all__ = ["kol_me", "kol_search_sales_orders", "kol_list_templates", "kol_place
            "kol_verify_signed", "kol_verify_acceptance", "kol_pending_checks", "kol_preview_dates",
            "kol_creator_gaps", "kol_preview_contract", "kol_download_file", "kol_confirm_payee",
            "kol_close_contract", "kol_reopen_contract", "kol_attach_sign_pdf", "kol_make_sign_pdf", "kol_auto_place_sign",
-           "kol_round_contract"]
+           "kol_round_contract", "kol_open_online"]
 
 
 def _app(module):
@@ -261,6 +261,13 @@ def kol_download_file(name, file_url):
     frappe.local.response.filename = file_name
     frappe.local.response.filecontent = content
     frappe.local.response.type = "download"
+
+
+# PO 26/11/2026: mo ban DU tren Word Online (SharePoint thu muc han che) - cung nhom nguoi duoc tai ban du.
+@frappe.whitelist(methods=["POST"])
+def kol_open_online(name, file_url=None):
+    """POST - ghi vet duoc (GET bi rollback). -> {url} Word Online."""
+    return _app("kol_access").open_online(name, file_url, _me())
 
 
 @frappe.whitelist(methods=["POST"])

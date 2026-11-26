@@ -255,6 +255,21 @@ def gan_sharepoint(attachments, approvers):
     return attachments
 
 
+def _gan_sharepoint_cua_phieu(business_doctype, name, attachments, approvers):
+    """`gan_sharepoint` qua CUNG cong theo phieu voi luong tai len (26/11): hop dong lao dong khong
+    bao gio hien "Mo online" (ke ca ban ghi lien ket cu con sot); KOL chi khi da cau hinh thu muc han
+    che. Chi xet cau hinh, khong goi Graph tren duong hien thi. Loai phieu ngoai danh sach: giu nguyen
+    hanh vi cu. Loi -> khong gan link (fail-closed)."""
+    from ecentric_workspace.approval_center.shared.integrations import sharepoint_mirror
+    try:
+        duoc = (not sharepoint_mirror.duoc_soi_guong(business_doctype)
+                or sharepoint_mirror.duoc_soi_guong_phieu(business_doctype, name, kiem_quyen=False))
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "SharePoint: khong xet duoc link Mo online %s" % name)
+        duoc = False
+    return gan_sharepoint(attachments, approvers) if duoc else attachments
+
+
 def _tach_doi_chung(business_doctype, name, rows):
     """(dinh kem cua nguoi dung, ban doi chung) - xem `sharepoint_snapshot.tach_ban_doi_chung`.
 
@@ -367,7 +382,8 @@ def detail(definition, name):
                          "attached_to_name": name},
         fields=["name", "file_name", "file_url", "is_private", "owner", "creation"],
         order_by="creation asc"))
-    attachments = gan_sharepoint(dedupe_attachments(files), approvers)
+    attachments = _gan_sharepoint_cua_phieu(definition.business_doctype, name,
+                                            dedupe_attachments(files), approvers)
     if getattr(definition, "attachment_redactor", None):
         # KHONG nuot loi: loi thi an het dinh kem (fail-closed) con hon de lo tep nhay cam.
         try:

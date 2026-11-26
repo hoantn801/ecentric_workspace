@@ -305,6 +305,10 @@ def chup_quyet_dinh(approval_action):
                               ["reference_doctype", "reference_name"], as_dict=True)
     if not ref or not mirror.duoc_soi_guong(ref.reference_doctype):
         return {"bo_qua": "loai phieu khong soi guong"}
+    # Cung cong theo phieu voi luong tai len (26/11): lao dong khong bao gio; KOL chi khi da cau hinh
+    # thu muc han che. Chi xet cau hinh - chup la DOC tep da co tren SharePoint ve ERP.
+    if not mirror.duoc_soi_guong_phieu(ref.reference_doctype, ref.reference_name, kiem_quyen=False):
+        return {"bo_qua": "phieu nay khong soi guong"}
     nguon = tep_can_chup(ref.reference_doctype, ref.reference_name)
     if not nguon:
         return {"so_tep": 0, "xong": [], "da_co": [], "hong": []}

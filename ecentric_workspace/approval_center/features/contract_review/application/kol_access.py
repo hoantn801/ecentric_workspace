@@ -166,11 +166,11 @@ def _esign_enabled(name):
     return esign_gate.enabled(name)
 
 
-def _access_log(doc, file_url, user):
+def _access_log(doc, file_url, user, method="kol_download_file"):
     """Vet tai ban du PII KHONG nam tren phieu (binh luan mat theo khi xoa phieu nhap)."""
     try:
         from frappe.core.doctype.access_log.access_log import make_access_log
-        make_access_log(doctype=doc.doctype, document=doc.name, method="kol_download_file",
+        make_access_log(doctype=doc.doctype, document=doc.name, method=method,
                         file_type=str(file_url or "").rsplit(".", 1)[-1][:10])
     except Exception:
         frappe.log_error(frappe.get_traceback(), "kol download access log %s" % doc.name)
@@ -309,6 +309,59 @@ def download_file(name, file_url, user):
     if not doc.get("approval_request"):
         _access_log(doc, file_url, user)
     return row.file_name, frappe.get_doc("File", row.name).get_content()
+
+
+# ----------------------------------------------------------------------------- A2. mo online (Word)
+#: PO 26/11: thieu ban SharePoint (chua cau hinh thu muc KOL / thu muc chua dat / chua dong bo).
+ONLINE_MISSING = "Hợp đồng chưa có bản online — Kế toán / IT đang cấu hình; tạm thời dùng Tải về."
+
+
+def _online_file(business, file_url=None):
+    """Tep mo online: tham so, hoac hop dong cua phieu (mau EC), hoac tep hop dong creator gui."""
+    return file_url or business.get("contract_file") or business.get("request_attachment")
+
+
+def online_url(business, user, file_url=None):
+    """URL Word Online cua tep hop dong (`sharepoint_mirror.url_mo_online`), hoac None. KHONG kiem
+    quyen - chi dung sau `can_download_full`. Loi -> None (fail-closed: nut an, Tai ve van dung)."""
+    url = _online_file(business, file_url)
+    if not url or not business.get("name"):
+        return None
+    try:
+        from ecentric_workspace.approval_center.shared.integrations import sharepoint_mirror
+        return sharepoint_mirror.url_mo_online(kol_lookup.CR_DT, business.get("name"), url, user)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "kol online url %s" % business.get("name"))
+        return None
+
+
+def can_open_online(business, user):
+    """Co `kol_open_online` (PO 26/11): CUNG nhom nguoi duoc ban du (`can_download_full`) VA tep hop
+    dong da co ban SharePoint. Nguoi duyet khac / CC / nguoi theo doi: chi ban che."""
+    return bool(kol.is_kol(business) and can_download_full(business, user) and online_url(business, user))
+
+
+def open_online(name, file_url, user):
+    """Mo ban DU thong tin creator tren Word Online (PO 26/11). Ghi vet nhu `download_file`. -> {url}."""
+    doc = frappe.get_doc(kol_lookup.CR_DT, name)
+    if not kol.is_kol(doc):
+        frappe.throw(_("Chỉ hợp đồng KOL/KOC mở online qua đây."))
+    if not (can_download_full(doc, user) and _can_view(doc, user)):
+        frappe.throw(_("Chỉ người lập phiếu (sau khi gửi), người tạo creator hoặc Kế toán mở được bản đủ thông "
+                       "tin creator trên Word Online. Người duyệt xem bản che bằng nút \"Xem hợp đồng\"."),
+                     frappe.PermissionError)
+    url = _online_file(doc, file_url)
+    if not url or not frappe.db.exists("File", {"file_url": url, "attached_to_doctype": doc.doctype,
+                                                "attached_to_name": doc.name}):
+        frappe.throw(_("Không tìm thấy tệp hợp đồng của phiếu này."))
+    link = online_url(doc, user, url)
+    if not link:
+        frappe.throw(_(ONLINE_MISSING))
+    # Vet giong download_file: binh luan (ghi NHAN tep, khong ghi ten/URL) + Access Log khi phieu nhap.
+    doc.add_comment("Info", _("{0} mở bản đủ thông tin creator trên Word Online: {1}").format(user, _label(doc, url)))
+    if not doc.get("approval_request"):
+        _access_log(doc, url, user, method="kol_open_online")
+    return {"url": link}
 
 
 def _can_view(doc, user):
