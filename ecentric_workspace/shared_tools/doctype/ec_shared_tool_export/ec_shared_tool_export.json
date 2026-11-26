@@ -1,0 +1,151 @@
+{
+ "doctype": "DocType",
+ "name": "EC Shared Tool Export",
+ "module": "Shared Tools",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "autoname": "hash",
+ "description": "File xuất từ Kalodata, kéo từ máy 24/7 về ERP. Chỉ người xuất (và quản lý) tải được; tự xoá sau 7 ngày.",
+ "field_order": [
+  "tool",
+  "user",
+  "entry",
+  "export_id",
+  "source",
+  "file_name",
+  "file_url",
+  "cb1",
+  "exported_at",
+  "rows",
+  "columns",
+  "pages",
+  "page_title",
+  "page_url",
+  "downloaded_at"
+ ],
+ "fields": [
+  {
+   "fieldname": "tool",
+   "fieldtype": "Link",
+   "label": "Công cụ",
+   "options": "EC Shared Tool",
+   "reqd": 1
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "Người xuất",
+   "options": "User",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "entry",
+   "fieldtype": "Link",
+   "label": "Lượt",
+   "options": "EC Shared Tool Queue"
+  },
+  {
+   "fieldname": "export_id",
+   "fieldtype": "Data",
+   "label": "Mã trên máy Kalodata",
+   "unique": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "source",
+   "fieldtype": "Select",
+   "label": "Nguồn",
+   "options": "extension\nkalodata_native\ndiagnostic",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "file_name",
+   "fieldtype": "Data",
+   "label": "Tên file",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "file_url",
+   "fieldtype": "Data",
+   "label": "File (riêng tư)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "exported_at",
+   "fieldtype": "Datetime",
+   "label": "Xuất lúc",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "rows",
+   "fieldtype": "Int",
+   "label": "Số dòng"
+  },
+  {
+   "fieldname": "columns",
+   "fieldtype": "Int",
+   "label": "Số cột"
+  },
+  {
+   "fieldname": "pages",
+   "fieldtype": "Int",
+   "label": "Số trang"
+  },
+  {
+   "fieldname": "page_title",
+   "fieldtype": "Data",
+   "label": "Trang Kalodata"
+  },
+  {
+   "fieldname": "page_url",
+   "fieldtype": "Small Text",
+   "label": "Đường dẫn trang"
+  },
+  {
+   "fieldname": "downloaded_at",
+   "fieldtype": "Datetime",
+   "label": "Tải lần đầu lúc"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0
+  },
+  {
+   "role": "EC Shared Tool Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "naming_rule": "Random",
+ "title_field": "file_name",
+ "in_create": 1
+}
