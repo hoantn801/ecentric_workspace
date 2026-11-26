@@ -203,15 +203,33 @@ def _who(user):
 # --------------------------------------------------------------------------- #
 # commands
 # --------------------------------------------------------------------------- #
-def search(host_doctype, host_name, q=None, box=None, limit=20):
+def search(host_doctype=None, host_name=None, q=None, box=None, limit=20):
     """Phieu `user` duoc xem (CUNG luat tab "Tat ca" - scope_predicate, phieu rieng tu chi khi o
-    trong luong), tru chinh phieu chu. box: mine | received | None."""
+    trong luong), tru chinh phieu chu. box: mine | received | None.
+
+    26/11/2026 - KHONG CO PHIEU CHU (form tao moi chua luu, chua co ma): ca host_doctype va
+    host_name deu rong. Nguoi dang lap form moi la nguoi gui tuong lai cua no -> cung luat
+    `can_edit_links` voi nhap (request None -> requester == user), nen chi can la nguoi dang nhap.
+    Ket qua van chi gom phieu nguoi do XEM duoc; `can_attach` (phieu rieng tu: phai la nguoi gui
+    phieu do) giong het. Chi la DE XUAT de giu tam tren form - viec gan that van qua `link()` sau
+    khi phieu chu duoc luu, kiem quyen lai day du."""
     from ecentric_workspace.approval_center.reporting import scope as _scope
     from ecentric_workspace.approval_center.reporting import queries as _q
     user = frappe.session.user
-    definition, doc, req = _host(host_doctype, host_name)
-    if not can_edit_links(user, doc, req):
-        frappe.throw(_("Chỉ người đang giữ phiếu mới gắn được phiếu duyệt."), frappe.PermissionError)
+    no_host = not host_doctype and not host_name
+    if no_host:
+        if not user or user == "Guest":
+            frappe.throw(_("Vui lòng đăng nhập để gắn phiếu duyệt."), frappe.PermissionError)
+        req, have, host = None, set(), None
+    else:
+        if not host_doctype or not host_name:
+            frappe.throw(_("Thiếu phiếu cần gắn."))
+        definition, doc, req = _host(host_doctype, host_name)
+        if not can_edit_links(user, doc, req):
+            frappe.throw(_("Chỉ người đang giữ phiếu mới gắn được phiếu duyệt."),
+                         frappe.PermissionError)
+        have = {l.target_request for l in _active_links(host_doctype, host_name)}
+        host = (host_doctype, host_name)
     filters = {}
     if box == "mine":
         filters.update({"box": "sent", "_me": user})
@@ -220,15 +238,21 @@ def search(host_doctype, host_name, q=None, box=None, limit=20):
     scope = _scope.resolve_scope(user)
     rows = _q.fetch_requests_page(scope, filters, 0, int(limit or 20) + 1,
                                   search=(q or "").strip() or None) or []
-    have = {l.target_request for l in _active_links(host_doctype, host_name)}
     out = []
     for r in rows:
         if req and r.get("name") == req.name:
             continue
         row = _req_row(r.get("name"))
-        if not row or row.reference_doctype == host_doctype and row.reference_name == host_name:
+        if not row:
             continue
-        lab = _label(row, user, host=(host_doctype, host_name))
+        if host and row.reference_doctype == host_doctype and row.reference_name == host_name:
+            continue
+        # Lop chan thu hai, khong tin ham liet ke: phieu nguoi xem KHONG duoc mo thi khong de xuat.
+        if no_host and not can_view_target(user, row):
+            continue
+        lab = _label(row, user, host=host)
+        if no_host:
+            lab["used_elsewhere"] = _used_elsewhere(row.name, None, None)
         lab["already_linked"] = row.name in have
         lab["needs_share_choice"] = lab["private"]
         lab["can_attach"] = (not lab["private"]) or row.requested_by == user or _is_sm(user)

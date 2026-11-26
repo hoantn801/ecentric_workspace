@@ -251,3 +251,87 @@ class WatcherRedaction(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SearchWithoutHost(unittest.TestCase):
+    """26/11/2026: form TAO MOI chua co ma -> search_linkable khong host. Chi de xuat phieu NGUOI
+    XEM duoc (lop chan thu hai can_view_target, khong tin ham liet ke); phieu rieng tu chi nguoi gui
+    phieu do moi `can_attach`. Gan that van qua link() sau khi luu."""
+    def setUp(self):
+        _reset()
+        from ecentric_workspace.approval_center.reporting import scope as sc, queries as qq
+        self._orig = (sc.resolve_scope, qq.fetch_requests_page)
+        self.calls = []
+        sc.resolve_scope = lambda user: {"user": user}
+
+        def fake_page(scope, filters, start, page_len, search=None):
+            self.calls.append((scope, dict(filters), search))
+            # liet ke "ro ri" ca phieu nguoi xem khong duoc mo -> search phai tu loc
+            return [{"name": "APR-T"}, {"name": "APR-P"}, {"name": "APR-MISSING"}]
+        qq.fetch_requests_page = fake_page
+        WORLD.add(HOST_DT, {"name": "PAYR-P", "requested_by": "other@x", "request_title": "Mua giấy"})
+        WORLD.add(AR, {"name": "APR-P", "approval_type": "PAYMENT_REQUEST", "approval_status": "Approved",
+                       "requested_by": "other@x", "reference_doctype": HOST_DT,
+                       "reference_name": "PAYR-P"})
+
+    def tearDown(self):
+        from ecentric_workspace.approval_center.reporting import scope as sc, queries as qq
+        sc.resolve_scope, qq.fetch_requests_page = self._orig
+
+    def _codes(self, out):
+        return [r["code"] for r in out["rows"]]
+
+    def test_requester_sees_own_private_and_can_attach(self):
+        FR.session.user = "req@x"
+        out = al.search(None, None, q=" PC ", box="mine")
+        self.assertIn("EC-ADHOC-1", self._codes(out))
+        row = [r for r in out["rows"] if r["code"] == "EC-ADHOC-1"][0]
+        self.assertTrue(row["private"] and row["can_attach"] and row["needs_share_choice"])
+        self.assertFalse(row["already_linked"])
+        self.assertEqual(self.calls[-1][0], {"user": "req@x"})
+        self.assertEqual(self.calls[-1][1], {"box": "sent", "_me": "req@x"})
+        self.assertEqual(self.calls[-1][2], "PC")
+
+    def test_stranger_never_gets_invisible_private(self):
+        FR.session.user = "other@x"
+        codes = self._codes(al.search(None, None))
+        self.assertNotIn("EC-ADHOC-1", codes)          # liet ke ro ri van bi chan
+        self.assertIn("PAYR-P", codes)                 # phieu cua chinh minh
+
+    def test_viewer_not_requester_cannot_attach_private(self):
+        FR.session.user = "fin@x"
+        WORLD.add(privacy.GRANT_DT, {"target_request": "APR-T", "user": "fin@x", "active": 1})
+        rows = al.search(None, None)["rows"]
+        row = [r for r in rows if r["code"] == "EC-ADHOC-1"]
+        self.assertTrue(row and row[0]["can_open"])
+        self.assertFalse(row[0]["can_attach"])
+
+    def test_guest_and_half_host_rejected(self):
+        FR.session.user = "Guest"
+        with self.assertRaises(W.PermErr):
+            al.search(None, None)
+        FR.session.user = "req@x"
+        with self.assertRaises(W.Err):
+            al.search(HOST_DT, None)
+        with self.assertRaises(W.Err):
+            al.search(None, "PAYR-1")
+
+    def test_host_mode_still_requires_holder(self):
+        FR.session.user = "fin@x"
+        with self.assertRaises(W.PermErr):
+            al.search(HOST_DT, "PAYR-1")
+        FR.session.user = "req@x"
+        al.link(HOST_DT, "PAYR-1", "APR-T", share="0")
+        rows = al.search(HOST_DT, "PAYR-1")["rows"]
+        self.assertTrue([r for r in rows if r["code"] == "EC-ADHOC-1"][0]["already_linked"])
+
+    def test_endpoint_accepts_no_host_and_takes_no_user(self):
+        import inspect
+        src = open(os.path.join(os.path.dirname(__file__), "..", "..", "reporting", "actions.py"),
+                   encoding="utf-8").read()
+        i = src.index("def search_linkable(")
+        head = src[src.rindex("@frappe.whitelist", 0, i):src.index(")", i) + 1]
+        self.assertIn('methods=["GET"]', head)
+        self.assertIn("host_doctype=None, host_name=None", head)
+        self.assertNotIn("user", head.split("def search_linkable(")[1])
+        self.assertIsNone(inspect.signature(al.search).parameters["host_doctype"].default)
