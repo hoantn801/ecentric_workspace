@@ -570,6 +570,9 @@ details.pmr-md-g[open]>summary .pmr-section-t::after{transform:rotate(45deg)}
 .pmr-pn .pmr-pname{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
 .pmr-pn small{display:block;font-size:12px;color:var(--pmr-g500);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pmr-pr .pmr-who{font-weight:500;min-width:0}
+/* hotfix 24: tên phụ trách dài không xuống 2 dòng */
+.pmr-pr .pmr-who{display:flex;align-items:center;max-width:100%}
+.pmr-pr .pmr-ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .pmr-pprog{display:flex;align-items:center;font-size:12.5px;color:var(--pmr-g600)}
 .pmr-pprog .pmr-bar{width:90px}
 .pmr-pr .pmr-late{color:#c81e1e;font-weight:600}

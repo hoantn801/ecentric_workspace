@@ -916,7 +916,10 @@ function paintDue() {
   const other = d.pdr && !mine && (!d.pdr.status || d.pdr.status === "Pending") ? d.pdr : null;
   const canEdit = (d.isGiver || d.canManage) && open && d.canEdit;
   /* hotfix 23: "Xin dời hạn" chuyển lên hàng trạng thái, mở hộp nổi (openAskPop) */
-  let h = `<div class="pmr-fl pmr-fl-first"><span class="pmr-lb">Hạn</span><div class="pmr-due-row">${dueSpan(di)}${t.exp_end_date ? muted(esc(fullDue(t.exp_end_date, t.pm_end_time))) : ""}`;
+  const ds = dueSpan(di), fd = t.exp_end_date ? fullDue(t.exp_end_date, t.pm_end_time) : "";
+  /* hotfix 24: hạn xa hiện ngày ở cả 2 chỗ ("T2 30/11  T2 30/11 · 18:00") -> chỉ thêm phần chưa có (giờ) */
+  const dsTxt = String(ds).replace(/<[^>]*>/g, "").trim(), extra = fd && dsTxt && fd.indexOf(dsTxt) === 0 ? fd.slice(dsTxt.length).replace(/^\s*·\s*/, "") : fd;
+  let h = `<div class="pmr-fl pmr-fl-first"><span class="pmr-lb">Hạn</span><div class="pmr-due-row">${ds}${extra ? muted(esc(extra)) : ""}`;
   if (canEdit) h += L("Đổi hạn", "due-edit", "", "pmr-ml");
   h += "</div></div>";
   if (TS.dueEdit && canEdit) {
@@ -2641,7 +2644,7 @@ function pjRow(p) {
   return `<div class="pmr-pr${open ? " pmr-pr-open" : ""}" role="row" tabindex="0" data-act="p-open"${dattr("p", p.name)} aria-label="Mở dự án ${esc(nm)}">` +
     `<div class="pmr-pn"><span class="pmr-tile" style="${pcVars(p.color_key)}">${ic("folder", "pmr-s")}</span><div class="pmr-minw"><b><span class="pmr-pname">${esc(nm)}</span>${tag}${truthy(p.ec_personal_log) ? '<span class="pmr-tag">nhật ký cá nhân</span>' : ""}</b>` +
     `${p.ec_department ? `<small class="pmr-pdept">${esc(p.ec_department)}</small>` : ""}</div></div>` +
-    `<div class="pmr-minw">${mgr ? who(mgr, p.ec_manager_name) : muted("—")}</div>` +
+    `<div class="pmr-minw">${mgr ? `<span class="pmr-who">${av(mgr, p.ec_manager_name)}<span class="pmr-ell" title="${esc(p.ec_manager_name || nameOf(mgr))}">${esc(p.ec_manager_name || nameOf(mgr))}</span></span>` : muted("—")}</div>` +
     (tot ? `<div class="pmr-pprog">${bar(pc)}<span class="pmr-num">${dn}/${tot}</span></div>` : '<div class="pmr-pprog pmr-faint">Chưa có việc</div>') +
     num(p.open != null ? +p.open : tot - dn) + num(+p.late || 0, true) + num(+p.unassigned || 0, true) +
     `<span class="pmr-pj-upd">${PJ.scope === "closed" || isClosedPj(p) ? muted(esc(relDay(p.modified))) : healthHtml(p)}</span>` +
