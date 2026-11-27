@@ -75,7 +75,8 @@
       '<p class="st-sub">Một người dùng một lúc · mỗi lượt ' + t.lease + ' phút · đến lượt có ' + t.ready + ' phút để mở</p></header>' +
       (t.notice ? '<p class="st-notice">' + esc(t.notice) + '</p>' : "") +
       '<div class="st-grid"><div class="st-col">' + hero(me) + filesCard() + '</div>' +
-      '<div class="st-col">' + queueCard(me) + (me.status === "Waiting" || !me.status ? holderCard() : "") + rulesCard() + '</div></div></div>';
+      '<div class="st-col">' + queueCard(me) + (me.status === "Waiting" || !me.status ? holderCard() : "") + rulesCard() + '</div></div>' +
+      (S.is_manager && window.ECStStats ? window.ECStStats.card() : "") + '</div>';
     // Thu tu tren dien thoai (cot don): luot cua toi -> hang doi -> nguoi dang dung -> file -> quy dinh.
     byId("st-root").innerHTML = html;
     paintTimers();
@@ -161,9 +162,25 @@
       '<li>Không đăng xuất, không đổi mật khẩu tài khoản ' + esc(t.title) + '.</li></ul></section>';
   }
 
+  // Mot lan xuat nhieu trang (nhieu phan): nut Tai Excel gop + danh sach tung phan CSV (an trong <details>).
+  function runItem(f) {
+    var href = "/api/method/" + PREFIX + "download_run?run=" + encodeURIComponent(f.run);
+    var meta = [f.source, f.rows + " dòng", f.parts.length + " phần", f.at].filter(Boolean).join(" · ");
+    var parts = f.parts.map(function (p) {
+      return '<a href="/api/method/' + PREFIX + 'download?name=' + encodeURIComponent(p.name) + '" data-act="dl" download>Phần ' +
+        p.part + (p.rows == null ? "" : " (" + p.rows + " dòng)") + '</a>';
+    }).join("");
+    return '<li class="st-file st-file--run"><div class="st-file-main"><div class="st-file-name">' +
+      '<span class="st-file-title" title="' + esc(f.page) + '">' + esc(f.page || "Kalodata") + '</span>' +
+      (f["new"] ? '<span class="st-new">Mới</span>' : "") + '</div><div class="st-file-meta">' + esc(meta) + '</div>' +
+      '<details class="st-parts"><summary>Tải từng phần (CSV)</summary><div class="st-parts-list">' + parts + '</div></details></div>' +
+      '<a class="st-btn st-btn--sm st-btn--primary" href="' + href + '" data-act="dl" download aria-label="Tải Excel gộp ' + esc(f.page) + '">Tải Excel</a></li>';
+  }
+
   function filesCard() {
     // Moi file mot dong gon: ten trang (cat bot neu dai) + dong phu "nguon · so dong · luc", nut Tai luon thay.
     var rows = (S.exports || []).map(function (f) {
+      if (f.kind === "run") return runItem(f);
       var href = "/api/method/" + PREFIX + "download?name=" + encodeURIComponent(f.name);
       var meta = [f.source, f.rows == null ? "" : f.rows + " dòng", f.at].filter(Boolean).join(" · ");
       return '<li class="st-file"><div class="st-file-main"><div class="st-file-name">' +
@@ -211,7 +228,9 @@
     }
   }
   function apply(data, was) {
+    var firstManager = !S && data && data.is_manager;
     S = data;
+    if (firstManager && window.ECStStats) window.ECStStats.load(30);
     base = performance.now();
     render();
     var now = S.me && S.me.status;
@@ -249,6 +268,7 @@
   async function act(btn) {
     var a = btn.getAttribute("data-act");
     if (a === "open") return openTool(btn);
+    if (a === "stats") { if (window.ECStStats) window.ECStStats.load(+btn.getAttribute("data-days") || 30); return; }
     if (!armed(btn)) return;
     var map = { join: ["join", "Đã vào hàng đợi."], leave: ["leave", "Đã cập nhật lượt của bạn."],
                 extend: ["extend", "Đã gia hạn thêm " + S.tool.extend + " phút."], force: ["force_end", "Đã kết thúc lượt đó."] };
@@ -303,6 +323,7 @@
     refresh(true);
   }
 
-  window.ECSt = { refresh: refresh };
+  // ec_st_stats.js (khoi thong ke cho quan ly) dung lai api / esc / ve lai trang.
+  window.ECSt = { refresh: refresh, api: api, esc: esc, msg: msg, rerender: function () { if (S) render(); } };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
 })();

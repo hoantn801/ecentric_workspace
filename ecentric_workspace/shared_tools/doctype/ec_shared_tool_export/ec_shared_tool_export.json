@@ -16,6 +16,8 @@
   "user",
   "entry",
   "export_id",
+  "run_id",
+  "part",
   "source",
   "file_name",
   "file_url",
@@ -57,6 +59,21 @@
    "label": "Mã trên máy Kalodata",
    "unique": 1,
    "read_only": 1
+  },
+  {
+   "fieldname": "run_id",
+   "fieldtype": "Data",
+   "label": "Mã lần xuất",
+   "read_only": 1,
+   "search_index": 1,
+   "description": "Các phần của cùng một lần xuất nhiều trang có cùng mã -> tải gộp."
+  },
+  {
+   "fieldname": "part",
+   "fieldtype": "Int",
+   "label": "Phần",
+   "read_only": 1,
+   "default": "0"
   },
   {
    "fieldname": "source",

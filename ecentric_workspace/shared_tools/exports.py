@@ -18,6 +18,7 @@ from ecentric_workspace.shared_tools import repository as R
 from ecentric_workspace.shared_tools import service as S
 
 _ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+_RUN_RE = re.compile(r"[^A-Za-z0-9_-]")
 _NAME_RE = re.compile(r"[^\w.\- ]+", re.UNICODE)
 MAX_PER_SYNC = 20
 
@@ -71,6 +72,8 @@ def _pull(key, eid):
               "source": source, "file_name": safe_file_name(meta.get("file_name"), eid),
               "exported_at": at, "rows": meta.get("rows"), "columns": meta.get("columns"),
               "pages": meta.get("pages"), "page_title": (meta.get("page_title") or "")[:140],
+              "run_id": _RUN_RE.sub("", str(meta.get("run") or ""))[:40] or None,
+              "part": int(meta.get("part") or 0),
               "page_url": (meta.get("page_url") or "")[:500]}
     name = R.save_export(values, content)
     R.log(key, C.EV_EXPORT, user=user, entry=values["entry"],
@@ -96,6 +99,38 @@ def download(ctx, name):
     R.log(row.tool, C.EV_DOWNLOAD, user=ctx.user, detail={"export": name})
     R.commit()
     return row.file_name, content
+
+
+def download_run(ctx, run_id):
+    """Gop moi phan cua mot lan xuat thanh mot file Excel. (ten file, bytes)."""
+    from ecentric_workspace.shared_tools import merge as M
+    rows = R.exports_of_run(_RUN_RE.sub("", str(run_id or ""))[:40])
+    if not rows:
+        raise Q.QueueError("Không còn file của lần xuất này (đã quá %d ngày)." % C.EXPORT_KEEP_DAYS)
+    if any(r.user != ctx.user for r in rows) and not ctx.is_manager:
+        raise Q.QueueError("File này của người khác.")
+    S.load_tool(ctx, rows[0].tool)
+    parts = []
+    for r in rows:
+        content = R.file_content(r.file_url) if r.file_url else None
+        if content is not None and (r.file_name or "").lower().endswith(".csv"):
+            parts.append((int(r.part or 0), content))
+    if not parts:
+        raise Q.QueueError("Không đọc được file trên ERP.")
+    try:
+        header, body = M.merge(parts)
+    except ValueError as e:
+        raise Q.QueueError(str(e))
+    data = M.to_xlsx(header, body)
+    now = now_datetime()
+    for r in rows:
+        if not r.downloaded_at:
+            R.mark_downloaded(r.name, now)
+    R.log(rows[0].tool, C.EV_DOWNLOAD, user=ctx.user, detail={"run": rows[0].run_id, "parts": len(parts), "rows": len(body)})
+    R.commit()
+    title = (rows[0].page_title or "kalodata").split(" (phần")[0]
+    safe = safe_file_name(title, rows[0].run_id).replace(" ", "_")[:80]
+    return "%s_%d_phan.xlsx" % (safe, len(parts)), data
 
 
 BOM = b"\xef\xbb\xbf"

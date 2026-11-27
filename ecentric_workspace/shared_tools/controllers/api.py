@@ -49,6 +49,11 @@ def state(tool=None):
     return _run(lambda c: V.state(c, _key(tool)))
 
 
+@frappe.whitelist(methods=["GET"])
+def stats(days=30, tool=None):
+    return _run(lambda c: V.stats(c, _key(tool), int(days or 30)))
+
+
 @frappe.whitelist(methods=["POST"])
 def join(tool=None):
     return _run(lambda c: S.join(c, _key(tool)) and V.state(c, _key(tool)))
@@ -72,6 +77,19 @@ def extend(tool=None):
 @frappe.whitelist(methods=["POST"])
 def force_end(entry, tool=None):
     return _run(lambda c: S.force_end(c, _key(tool), str(entry or "")[:140]) and V.state(c, _key(tool)))
+
+
+@frappe.whitelist(methods=["GET"])
+def download_run(run):
+    """Gop cac phan cua mot lan xuat thanh mot file Excel (khong envelope)."""
+    try:
+        fname, content = X.download_run(_ctx(), str(run or "")[:40])
+    except (Q.QueueError, frappe.PermissionError) as e:
+        frappe.db.rollback()
+        frappe.throw(str(e) if isinstance(e, Q.QueueError) else MSG_LOGIN, frappe.PermissionError)
+    frappe.local.response.filename = fname
+    frappe.local.response.filecontent = content
+    frappe.local.response.type = "download"
 
 
 @frappe.whitelist(methods=["GET"])

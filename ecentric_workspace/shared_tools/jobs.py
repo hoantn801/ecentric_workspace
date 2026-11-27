@@ -10,6 +10,7 @@ import frappe
 
 from ecentric_workspace.shared_tools import constants as C
 from ecentric_workspace.shared_tools import exports as X
+from ecentric_workspace.shared_tools import repository as R
 from ecentric_workspace.shared_tools import service as S
 
 TOOLS = (C.TOOL_KALODATA,)
@@ -20,7 +21,8 @@ def every_minute():
         try:
             host = S.host_state(key, force=True)
             S.tick(key, host=host)
-            X.sync(key, host=host)
+            if R.try_lock(C.CACHE_EXPORT_LOCK % key, 50):
+                X.sync(key, host=host)
         except Exception:
             frappe.db.rollback()
             frappe.log_error(title="shared_tools every_minute %s" % key)

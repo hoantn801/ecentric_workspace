@@ -39,6 +39,11 @@ def state(ctx, key):
     tool = S.load_tool(ctx, key)
     host = S.host_state(key)
     S.tick(key, host=host)
+    # May bao co file cho -> keo luon (khong doi job moi phut: scheduler co the tre / dung khi site deploy,
+    # do 27/11 file 3000 dong nam cho 3+ phut). Khoa ngan de nhieu trang dang mo khong keo trung.
+    if host.get("ok") and int(host.get("exports_pending") or 0) and R.try_lock(C.CACHE_EXPORT_LOCK % key, 30):
+        from ecentric_workspace.shared_tools import exports as X
+        X.sync(key, host=host)
     now = now_datetime()
     cfg = Q.cfg_of(tool)
     entries = Q.ordered(R.open_entries(key))
@@ -106,14 +111,55 @@ def _holder(entries, meta, now):
     return out
 
 
+STATS_DAYS = (7, 30, 90)
+
+
+def stats(ctx, key, days=30):
+    """Thong ke cho quan ly (System Manager / EC Shared Tool Manager)."""
+    from ecentric_workspace.shared_tools import stats as ST
+    S.load_tool(ctx, key)
+    if not ctx.is_manager:
+        raise Q.QueueError("Chỉ quản lý công cụ xem được thống kê.")
+    days = days if days in STATS_DAYS else 30
+    now = now_datetime()
+    # Lay rong hon 1 ngay: luot vao hang truoc ky nhung bat dau dung trong ky van tinh.
+    entries = R.entries_since(key, add_days(now, -days - 1))
+    exports = R.exports_since(key, add_days(now, -days))
+    meta = R.user_meta([e["user"] for e in entries] + [x["user"] for x in exports])
+    return ST.compute(entries, exports, meta, now, days)
+
+
+MAX_FILE_ITEMS = 25
+
+
 def _exports(key, user, now):
-    rows = R.exports_of(key, user, add_days(now, -C.EXPORT_KEEP_DAYS))
-    out = []
+    return group_exports(R.exports_of(key, user, add_days(now, -C.EXPORT_KEEP_DAYS)), now)
+
+
+def group_exports(rows, now):
+    """Cac phan cung run_id gop thanh MOT dong (tai gop Excel + tung phan); file le giu nguyen.
+    rows: moi nhat truoc. Ham thuan (test duoc)."""
+    out, runs = [], {}
     for r in rows:
-        out.append({"name": r.name, "file_name": r.file_name, "rows": r.rows, "pages": r.pages,
-                    "page": r.page_title or "", "source": C.EXPORT_SOURCE_LABELS.get(r.source, r.source),
-                    "at": _when(r.exported_at, now), "new": not r.downloaded_at})
-    return out
+        src = C.EXPORT_SOURCE_LABELS.get(r.get("source"), r.get("source"))
+        if r.get("run_id") and int(r.get("part") or 0) > 0:
+            g = runs.get(r["run_id"])
+            if g is None:
+                g = runs[r["run_id"]] = {"kind": "run", "run": r["run_id"], "source": src, "rows": 0, "pages": 0,
+                                         "page": (r.get("page_title") or "").split(" (phần")[0], "parts": [],
+                                         "at": _when(r.get("exported_at"), now), "new": False}
+                out.append(g)
+            g["rows"] += int(r.get("rows") or 0)
+            g["pages"] += int(r.get("pages") or 0)
+            g["new"] = g["new"] or not r.get("downloaded_at")
+            g["parts"].append({"name": r["name"], "part": int(r.get("part") or 0), "rows": r.get("rows")})
+            continue
+        out.append({"kind": "file", "name": r["name"], "file_name": r.get("file_name"), "rows": r.get("rows"),
+                    "pages": r.get("pages"), "page": r.get("page_title") or "", "source": src,
+                    "at": _when(r.get("exported_at"), now), "new": not r.get("downloaded_at")})
+    for g in runs.values():
+        g["parts"].sort(key=lambda x: x["part"])
+    return out[:MAX_FILE_ITEMS]
 
 
 def _when(d, now):
