@@ -94,10 +94,13 @@
     rows.forEach(function (r) { max = Math.max(max, Number(r.count || 0)); });
     return '<div class="ts-card"><div class="ts-card-h"><div class="ts-card-t">Thiết bị theo phòng ban</div></div>' +
       (rows.length ? rows.map(function (r) {
-        return '<div class="ts-hbar"><span class="ts-strong" title="' + esc(r.department) + '" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(r.department || "—") + "</span>" +
-          '<div class="ts-bar" style="margin:0"><span style="width:' + (max ? r.count * 100 / max : 0) + '%"></span></div><span class="ts-num">' + T.fmtNum(r.count) + "</span></div>" +
-          (r.in_use != null && r.in_use !== r.count ? '<div class="ts-note" style="margin:-2px 0 4px 120px">' + T.fmtNum(r.in_use) + " đang dùng</div>" : "") +
-          (r.nbv != null ? '<div class="ts-note" style="margin:-2px 0 4px 120px">Còn lại ' + T.fmtMillion(r.nbv) + "</div>" : "");
+        // Ten phong ban DAY DU (khong cat "E-commerce ..."): dong ten + so, thanh do, ghi chu gop mot dong.
+        var notes = [];
+        if (r.in_use != null && r.in_use !== r.count) notes.push(T.fmtNum(r.in_use) + " đang dùng");
+        if (r.nbv != null) notes.push("Còn lại " + T.fmtMillion(r.nbv));
+        return '<div class="ts-drow"><div class="ts-drow-h"><span class="ts-strong">' + esc(r.department || "—") + '</span><span class="ts-num ts-strong">' + T.fmtNum(r.count) + "</span></div>" +
+          '<div class="ts-bar" style="margin:4px 0 0"><span style="width:' + (max ? r.count * 100 / max : 0) + '%"></span></div>' +
+          (notes.length ? '<div class="ts-note">' + esc(notes.join(" · ")) + "</div>" : "") + "</div>";
       }).join("") : '<div class="ts-empty">Chưa có thiết bị.</div>') + "</div>";
   }
 

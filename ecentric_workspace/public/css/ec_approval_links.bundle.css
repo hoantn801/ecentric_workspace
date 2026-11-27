@@ -9,6 +9,7 @@
 .ec-aplk-chip { padding: 8px 10px; border: 1px solid var(--ec-aplk-border); border-radius: 8px; background: #fff; }
 .ec-aplk-chip--private { border-color: var(--ec-aplk-navy); background: var(--ec-aplk-navy-bg); }
 .ec-aplk-chip--bad { border-color: var(--ec-aplk-red); background: var(--ec-aplk-red-bg); }
+.ec-aplk-chip--pending { border-style: dashed; }
 .ec-aplk-line { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
 .ec-aplk-code { font-weight: 700; }
 .ec-aplk-title { flex: 1 1 160px; }
