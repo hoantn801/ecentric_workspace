@@ -194,6 +194,63 @@ def mask_match(item, reveal):
     return out
 
 
+# Creator cong ty / ho kinh doanh quan ly NHIEU KOL / kenh (PO 27/11/2026): bang con EC Creator KOL tren
+# Supplier. Hop dong chon mot hay nhieu dong, mot tong tien chung (kol_channels tren form 27).
+KOL_TABLE = "ec_cr_kols"
+KOL_DOCTYPE = "EC Creator KOL"
+KOL_FIELDS = ("kol_name", "tiktok_id", "channel_url", "shopee_id", "shopee_url")
+KOL_TYPES = ("Công ty", "Hộ kinh doanh")
+KOL_MAX = 50
+
+
+def clean_kols(rows, keep_names=()):
+    """Danh sach KOL tu form -> list dict sach. Bo dong trong het; `name` chi giu neu la dong DANG CO cua
+    creator (client gui name la thi thanh dong moi - khong ghi de dong cua creator khac)."""
+    out = []
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        item = {f: str(row.get(f) or "").strip() for f in KOL_FIELDS}
+        if not any(item.values()):
+            continue
+        item["disabled"] = 1 if str(row.get("disabled") or "").strip().lower() in ("1", "true", "yes") else 0
+        if row.get("name") and row.get("name") in keep_names:
+            item["name"] = row["name"]
+        out.append(item)
+    return out
+
+
+def kol_errors(rows, ctype):
+    """Loi cua danh sach KOL (rong = hop le). `rows` da qua clean_kols."""
+    rows = list(rows or [])
+    active = [r for r in rows if not r.get("disabled")]
+    if active and ctype not in KOL_TYPES:
+        return ["Chỉ creator công ty / hộ kinh doanh có danh sách KOL - bỏ danh sách KOL trước khi đổi loại."]
+    if len(rows) > KOL_MAX:
+        return ["Danh sách KOL tối đa %d dòng." % KOL_MAX]
+    errors, seen = [], set()
+    for i, r in enumerate(rows, 1):
+        label = r.get("kol_name") or ("dòng %d" % i)
+        if not r.get("kol_name"):
+            errors.append("KOL dòng %d thiếu tên." % i)
+        if not (r.get("tiktok_id") or r.get("channel_url") or r.get("shopee_id") or r.get("shopee_url")):
+            errors.append("KOL \"%s\" thiếu TikTok ID / Shopee ID hoặc link kênh." % label)
+        if any(len(r.get(f) or "") > DATA_MAX for f in KOL_FIELDS):
+            errors.append("KOL \"%s\" có ô quá %d ký tự." % (label, DATA_MAX))
+        for f in ("tiktok_id", "shopee_id"):
+            key = (f, _handle(r.get(f)))
+            if key[1] and key in seen:
+                errors.append("KOL \"%s\": %s bị lặp trong danh sách." % (label, KEY_LABELS["ec_cr_" + f]))
+            seen.add(key)
+    return errors
+
+
+def kol_view(row):
+    """Danh sach KOL tra client (khong phai PII: ten kenh / ID cong khai)."""
+    return [dict({f: r.get(f) or "" for f in KOL_FIELDS}, name=r.get("name"), disabled=1 if r.get("disabled") else 0)
+            for r in (row.get("kols") or [])]
+
+
 def validate_payload(data):
     """Loi nhap lieu co ban - tra danh sach thong bao (rong = hop le)."""
     errors = []
@@ -216,6 +273,9 @@ def validate_payload(data):
     email = str(data.get("ec_cr_email") or "").strip()
     if email and not EMAIL.match(email):
         errors.append("Email không hợp lệ: %s." % email)
+    kols = data.get(KOL_TABLE) if KOL_TABLE in data else data.get("kols")
+    errors.extend(kol_errors(clean_kols(kols, [r.get("name") for r in kols or [] if isinstance(r, dict)]),
+                             data.get("ec_cr_type")))
     long = [KEY_LABELS.get(f, f) for f, v in data.items()
             if f not in LONG_FIELDS and isinstance(v, str) and len(v) > DATA_MAX]
     if long:
@@ -254,6 +314,7 @@ def public_view(row, can_see_pii):
             out[f] = value
         elif f in ("ec_cr_cccd", "ec_bank_account_no"):
             out[f] = mask(_digits(value))
+    out["kols"] = kol_view(row)
     out["can_see_pii"] = bool(can_see_pii)
     out["disabled"] = 1 if row.get("disabled") else 0
     return out

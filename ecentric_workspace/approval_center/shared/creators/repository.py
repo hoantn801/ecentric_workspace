@@ -52,8 +52,19 @@ class CreatorRepository:
     def get(self, name):
         fields = list(dict.fromkeys(list(domain.PUBLIC_FIELDS) + list(domain.WRITABLE_FIELDS)
                                     + ["owner", "supplier_group", "creation", "disabled"]))
-        row = _frappe().db.get_value(DT, name, fields, as_dict=True)
-        return row if row and row.get("supplier_group") == domain.CREATOR_GROUP else None
+        frappe = _frappe()
+        row = frappe.db.get_value(DT, name, fields, as_dict=True)
+        if not row or row.get("supplier_group") != domain.CREATOR_GROUP:
+            return None
+        row["kols"] = self.kols(name)
+        return row
+
+    def kols(self, name):
+        """Danh sach KOL cua creator (bang con ec_cr_kols), theo thu tu tren ban ghi."""
+        return _frappe().get_all(domain.KOL_DOCTYPE, filters={"parent": name, "parenttype": DT,
+                                                              "parentfield": domain.KOL_TABLE},
+                                 fields=["name", "disabled"] + list(domain.KOL_FIELDS),
+                                 order_by="idx asc", limit_page_length=0)
 
     def insert(self, values):
         """Them Supplier. Loi validate cua Frappe (email sai, trung ten khi dat ten theo ten NCC...)

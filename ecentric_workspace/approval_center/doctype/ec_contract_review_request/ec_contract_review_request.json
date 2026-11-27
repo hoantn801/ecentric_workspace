@@ -50,6 +50,7 @@
   "creator",
   "creator_name",
   "creator_type",
+  "kol_channels",
   "cb_kol1",
   "service_type",
   "platform",
@@ -368,6 +369,13 @@
    "fieldtype": "Data",
    "label": "Loại creator",
    "read_only": 1
+  },
+  {
+   "fieldname": "kol_channels",
+   "fieldtype": "Table",
+   "label": "KOL / kênh trong hợp đồng",
+   "options": "EC Contract Review KOL",
+   "description": "Creator là công ty / hộ kinh doanh có nhiều KOL: các KOL / kênh hợp đồng này dùng (chụp từ danh sách của creator lúc lưu phiếu). Một tổng tiền chung cho cả hợp đồng."
   },
   {
    "fieldname": "cb_kol1",
@@ -709,7 +717,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-11-27 13:00:00.000000",
+ "modified": "2026-11-27 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "Approval Center",
  "name": "EC Contract Review Request",

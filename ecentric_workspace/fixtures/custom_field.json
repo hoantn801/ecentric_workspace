@@ -1819,5 +1819,18 @@
   "allow_in_quick_entry": 0,
   "translatable": 0,
   "description": "Hotfix 23 /pm: màu dự án (khoá trong pm/colors.py). Trống = theo phòng ban."
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Supplier-ec_cr_kols",
+  "dt": "Supplier",
+  "module": "Ecentric Workspace",
+  "fieldname": "ec_cr_kols",
+  "label": "KOL / kênh của creator",
+  "fieldtype": "Table",
+  "options": "EC Creator KOL",
+  "insert_after": "ec_cr_shopee_url",
+  "depends_on": "eval:in_list(['Công ty', 'Hộ kinh doanh'], doc.ec_cr_type)",
+  "description": "Creator là công ty / hộ kinh doanh quản lý nhiều KOL: mỗi dòng một KOL / kênh. Hợp đồng chọn một hay nhiều dòng (27/11/2026)."
  }
 ]

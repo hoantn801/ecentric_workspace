@@ -73,6 +73,9 @@ class CreatorService:
 
     def insert_prepared(self, values, soft_matches):
         """Ghi creator da qua prepare() va da do trung CUNG. soft_matches = nguoi tao da xac nhan."""
+        if values.get(domain.KOL_TABLE):
+            values = dict(values, **{domain.KOL_TABLE: [{k: v for k, v in r.items() if k != "name"}
+                                                        for r in values[domain.KOL_TABLE]]})
         row = dict(values, supplier_group=domain.CREATOR_GROUP,
                    supplier_type=domain.SUPPLIER_TYPE_BY_CREATOR[values["ec_cr_type"]],
                    ec_cr_dup_ack=self._ack_note(soft_matches) if soft_matches else None)
@@ -109,6 +112,13 @@ class CreatorService:
         self._refuse_hard(self._shown(user, self.check_duplicates(merged, exclude=name)["hard"]))
         changed = domain.payment_changes(row, values)
         notes = []
+        if domain.KOL_TABLE in values:
+            values[domain.KOL_TABLE] = domain.clean_kols(values[domain.KOL_TABLE],
+                                                         [r.get("name") for r in row.get("kols") or []])
+            if self._kol_sig(values[domain.KOL_TABLE]) != self._kol_sig(row.get("kols")):
+                notes.append("%s cập nhật danh sách KOL (%d dòng)." % (user, len(values[domain.KOL_TABLE])))
+            else:
+                del values[domain.KOL_TABLE]
         if changed:
             notes.append("Đổi thông tin nhận tiền (%s) bởi %s - Kế toán đối chiếu trước khi chi cho hợp "
                          "đồng đã ký." % (", ".join(changed), user))
@@ -170,6 +180,11 @@ class CreatorService:
             raise CreatorPermissionError("Chỉ Kế toán (EC Finance) được làm việc này.")
 
     @staticmethod
+    def _kol_sig(rows):
+        return [tuple(str(r.get(f) or "") for f in domain.KOL_FIELDS) + (1 if r.get("disabled") else 0,)
+                for r in rows or []]
+
+    @staticmethod
     def _clean(data, with_identity):
         allowed = set(domain.WRITABLE_FIELDS)
         if with_identity:
@@ -180,6 +195,18 @@ class CreatorService:
         for key, value in (data or {}).items():
             if key in allowed:
                 out[key] = value.strip() if isinstance(value, str) else value
+        if domain.KOL_TABLE in (data or {}):
+            kols = data.get(domain.KOL_TABLE)
+            if isinstance(kols, str):
+                import json
+                try:
+                    kols = json.loads(kols or "[]")
+                except ValueError:
+                    raise CreatorError("Danh sách KOL không đọc được.")
+            if not isinstance(kols, list):
+                raise CreatorError("Danh sách KOL không đọc được.")
+            # Giu `name` client gui; update() chi giu name cua dong DANG CO, insert_prepared() bo het.
+            out[domain.KOL_TABLE] = domain.clean_kols(kols, [r.get("name") for r in kols if isinstance(r, dict)])
         return domain.normalize_for_storage(out)
 
     @staticmethod
