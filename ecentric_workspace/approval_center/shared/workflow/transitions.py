@@ -1676,9 +1676,12 @@ def submit(reference_doctype, reference_name, approval_type, requester, process_
         _apply_sla_overrides(req.name, sla_overrides)
     log_action(req.name, "Submitted", requester, new_status="Pending")
     for lvl in skipped:
-        log_action(req.name, "Skipped", requester,
-                   comment=(skip_reason or "Level skipped by business condition")
-                           + " (level %s - %s)" % (lvl.level_no, lvl.level_name))
+        # 27/11/2026 (QC lich su hop dong EC-CTR-2026-00150): he thong bo cap theo DIEU KIEN NGHIEP VU, khong phai
+        # nguoi gui -> actor "Administrator" (giao dien hien "He thong") + gan dung cap bi bo de lich su xep dong nay
+        # vao cho cua cap do (EcApprovalUI.timelineHTML), khong dung truoc "Da duyet - Cap 1".
+        log_action(req.name, "Skipped", "Administrator", lvl.level_no, level_name=lvl.level_name,
+                   comment=skip_reason or "Level skipped by business condition",
+                   related_user=requester, new_status="Skipped")
     # Deferred activation (Option B): a governed pre-approval step (e.g. requester signing)
     # may need to complete first. When activate_first_level is False the request + frozen
     # snapshot exist but Level 1 is NOT activated (no ToDo, no approver notification) until
