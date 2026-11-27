@@ -555,6 +555,16 @@ def detail_extra(business, request):
     if wait:
         out = dict(out or {})
         out["esign_wait"] = wait
+    # 27/11: nut "Chuyen cho ke toan khac" (finance_handover) - nguoi dang duyet buoc Ke toan / SM.
+    from ecentric_workspace.approval_center.features.contract_review.application import finance_handover
+    try:
+        ho = None if wait else finance_handover.view(business, request, frappe.session.user)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "finance_handover.view")
+        ho = None
+    if ho:
+        out = dict(out or {})
+        out["handover"] = ho
     return out
 
 
