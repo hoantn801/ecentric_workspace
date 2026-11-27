@@ -92,6 +92,11 @@ def revoke():
     return _request("POST", "/revoke", {})
 
 
+def reset_profile():
+    """Xoa ho so Chromium tren may 24/7 (doi tai khoan Kalodata). Mat vai giay."""
+    return _request("POST", "/reset-profile", {}, timeout=90)
+
+
 def status():
     return _request("GET", "/status", timeout=8)
 

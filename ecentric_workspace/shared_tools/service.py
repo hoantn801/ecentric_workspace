@@ -35,7 +35,7 @@ def load_tool(ctx, key):
     if not R.is_system_user(ctx.user):
         raise Q.QueueError("Chỉ nhân viên eCentric dùng được công cụ này.")
     if not tool.enabled:
-        raise Q.QueueError("Công cụ đang tạm đóng.")
+        raise Q.QueueError("Kalodata đang tạm đóng (bảo trì hoặc đổi tài khoản). Bạn quay lại sau ít phút nhé.")
     if tool.allowed_role and tool.allowed_role not in ctx.roles:
         raise Q.QueueError("Bạn chưa được cấp quyền dùng %s. Liên hệ quản lý công cụ." % tool.title)
     return tool

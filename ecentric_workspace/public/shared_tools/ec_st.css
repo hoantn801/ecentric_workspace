@@ -186,3 +186,9 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 /* Ghi chu cuoi khung file: tach khoi thanh chia trang, canh thang hang voi noi dung. */
 #ec-st .st-files + .st-files-note, #ec-st .st-pager + .st-files-note { margin-top:14px; padding-top:12px; border-top:1px solid var(--g100); }
 #ec-st .st-pager { padding-top:4px; }
+
+/* ---------------------------------------------------------------- quan ly (doi tai khoan) */
+#ec-st .st-admin-steps { margin-bottom:4px; }
+#ec-st .st-admin-actions { margin-top:12px; gap:8px; }
+#ec-st .st-admin .st-hint { margin-top:10px; font-size:12.5px; color:var(--g500); }
+@media (max-width:640px) { #ec-st .st-admin-actions .st-btn { flex:1 1 100%; } }
