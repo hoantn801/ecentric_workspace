@@ -216,8 +216,10 @@ def gemini_chat(message=None, history=None, **kwargs):
     # Chot cuoi: guard bi lach / AI bia so -> cau tra loi co so lieu luong/PnL bi thay. Cau TU VAN
     # chung (advisory) duoc giu vi du minh hoa - du lieu dua vao da duoc scrub, AI khong co so that.
     reply = res["text"]
-    if not knowledge.advisory(message) and knowledge.leaks(reply):
-        guard_log.note("output", CHANNEL, message)
-        reply = knowledge.LEAK_REPLY
+    if not knowledge.advisory(message):
+        safe = knowledge.safe_reply(reply)
+        if safe != reply:
+            guard_log.note("output", CHANNEL, message)
+        reply = safe
     return {"success": True, "reply": reply,
             "viewer_scope": view["scope"], "dept": ", ".join(view["depts"]), "model": res["model"]}

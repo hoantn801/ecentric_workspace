@@ -178,9 +178,11 @@ def intent(message=None, history=None, page=None, files=None):
     out = lookup_override(out, message, has_files=bool(names))
     out = pnl_create_only(out, message, forms)
     out = _enrich(out, user, forms)
-    if out.get("reply") and not knowledge.advisory(message) and knowledge.leaks(out["reply"]):
-        guard_log.note("output", CHANNEL, message)
-        out["reply"] = knowledge.LEAK_REPLY
+    if out.get("reply") and not knowledge.advisory(message):
+        safe = knowledge.safe_reply(out["reply"])
+        if safe != out["reply"]:
+            guard_log.note("output", CHANNEL, message)
+        out["reply"] = safe
     out["options"] = [o for o in out.get("options") or [] if not knowledge.leaks(o)]
     out["model"] = res["model"]      # dong "Tra loi boi ..." duoi cau tra loi (Hoan 28/09)
     return out

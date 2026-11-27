@@ -81,6 +81,7 @@ LOOKUP_ONLY = (SURVEY, NEWS, DOCS, LEAVE, TASKS, SLA, TRAINING)
 # long. Gio: (1) CHUAN HOA truoc khi xet (norm), (2) tu vung rong hon, (3) xet ca dang "dinh
 # lien" (l.ư.ơ.n.g), (4) loc LICH SU va (5) loc CAU TRA LOI + DU LIEU co so tien (leaks/scrub).
 # Regex KHONG BAO GIO du - lop (5) va viec khong nguon nao doc luong/PnL moi la chot that.
+import html as _html
 import unicodedata
 
 #: Chu Cyrillic / Hy Lap trong giong chu Latin -> Latin (go "sаlary" voi a Cyrillic).
@@ -94,7 +95,7 @@ def norm(text):
     """PURE. Chuan hoa truoc khi xet vung cam: NFKC (gop dau to hop, chu fullwidth -> thuong),
     bo ky tu an / dieu khien (zero-width, bidi, soft hyphen), chu giong Latin -> Latin, gop
     khoang trang, chu thuong. GIU dau tieng Viet ("lương" != "lượng")."""
-    t = unicodedata.normalize("NFKC", str(text or ""))
+    t = unicodedata.normalize("NFKC", _html.unescape(str(text or "")))
     t = "".join(" " if ch in "\n\r\t" else ch for ch in t
                 if ch in "\n\r\t" or unicodedata.category(ch) not in ("Cf", "Cc"))
     t = unicodedata.normalize("NFC", t).lower().translate(_CONFUSABLE)
@@ -149,7 +150,7 @@ _SALARY_SQ = re.compile(r"(lương|thunhập|salary|payroll|tiềnthưởng)")
 _ORG = r"(cong ty|cty|company|ecentric|toan|tong|phong|bo phan|team|brand|khach|nam nay|" \
        r"thang|quy|q[1-4])"
 _PNL = re.compile(
-    r"(\bp\W{0,3}n\W{0,3}l\b|\bp\W{0,3}(&|and|va|/|-)\W{0,3}l\b|doanh thu|doanh so|loi nhuan|"
+    r"(\bp[\W_]{0,3}n[\W_]{0,3}l\b|\bp[\W_]{0,3}(&|and|va|/|-)[\W_]{0,3}l\b|doanh thu|doanh so|loi nhuan|"
     r"\b(gmv|nmv)\b|"
     r"bien loi|lai gop|lai rong|ebit(da)?\b|gross profit|net profit|\brevenues?\b|\bprofits?\b|"
     r"profitab|\bmargins?\b(?! (css|top|left|right|bottom|trang|le|slide|cua (slide|trang|anh)))|"
@@ -165,6 +166,18 @@ _PNL = re.compile(
     r"(loi|lai|lo|kiem|thu) (duoc )?(bao nhieu|may))|"
     r"phi dich vu[^.?!]{0,30}\b(thu|bao nhieu)\b|\bservice fee\b|"
     r"\b(ln|loi nhuan) (truoc|sau) thue\b|\b(tien|khoan) (loi|lai|lo)\b)", re.I)
+#: Viet tat / gian tiep (QC 27/11, 14 bien the con lot): xet tren van ban CON DAU (de "đt" = dien
+#: thoai khong bi nham la "dt" = doanh thu).
+_PNL_ABBR = re.compile(
+    r"(?<![đ\w])(dt|rev|gp|ln)\b ?(tháng|thang|quý|quy|năm|nam|tuần|tuan|brand|công ty|cong ty|cty|"
+    r"ecentric|q[1-4]|phòng|phong|team|toàn|toan|\d)|"
+    r"tài chính (công ty|cty|quý|năm|tháng|của)|hiệu quả tài chính|dashboard tài chính|"
+    r"tình hình tài chính|headcount cost|staff cost|people cost")
+_SALARY_IND = re.compile(
+    r"(quỹ trả|tổng tiền trả|tiền trả) (cho )?(nhân viên|nhân sự|nv|người)|"
+    r"(mức|tiền|lương|giá trị|con số) offer|offer (của|cho) [^.?!]{0,20}(bao nhiêu|là mấy|mức)|"
+    r"(mức|tiền|giá trị) offer|"
+    r"tăng (bao nhiêu|mấy) (phần trăm|%)|\bsổ lg\b")
 #: Cum de nham khi bo dau ("lo lại" != "lỗ lãi") - xet tren van ban CON DAU / go khong dau.
 _PNL_ACC = re.compile(r"(lãi lỗ|lỗ lãi|lời lãi|lời lỗ|\b(lai lo|lo lai|loi lai)\b)")
 _PNL_SQ = re.compile(r"(doanhthu|doanhso|loinhuan|revenue|grossprofit|netprofit|gmv|nmv)")
@@ -193,7 +206,7 @@ def salary_question(message):
     t = norm(message)
     if _SALARY_SQ.search(_squeeze(t)):
         return True
-    if _COMMISSION.search(fold(t)):
+    if _COMMISSION.search(fold(t)) or _SALARY_IND.search(t):
         return True
     # "so luong", "chat luong" go khong dau: bo cac cap do truoc khi xet chu "luong" tran.
     return bool(_SALARY.search(_LUONG_BENIGN.sub(" ", t)))
@@ -203,7 +216,8 @@ def pnl_question(message):
     """PURE. Cau nay dong toi PnL / doanh thu / loi nhuan / chi phi cong ty?"""
     t = norm(message)
     f = fold(t)
-    return bool(_PNL.search(f) or _PNL_ACC.search(t) or _PNL_SQ.search(_squeeze(f)))
+    return bool(_PNL.search(f) or _PNL_ACC.search(t) or _PNL_ABBR.search(t)
+                or _PNL_SQ.search(_squeeze(f)))
 
 
 def creating(message):
@@ -266,13 +280,19 @@ def guard(message, creating_ok=False):
 
 #: So TIEN / ti le: 12tr, 12 trieu, 1,2 ty, 15.000.000, 15000000, 30%, 500k, 2000 usd.
 _MONEY = re.compile(
-    r"(\d[\d.,]*\s?(k|tr|trieu|ty|ti|m|mil|million|b|bn|d|vnd|usd|dong|cu|%)\b|"
+    r"(\d[\d.,]*\s?(k|tr|trieu|ty|ti|m|mil|million|b|bn|d|vnd|usd|dong|cu)\b|\d[\d.,]*\s?%|"
     r"\d{1,3}([.,]\d{3})+|\d{6,})", re.I)
+#: SO TIEN (khong tinh %): 15tr, 2,5 ty, 500k, 15.000.000d, 2000 usd, so >= 6 chu so. Du lieu do
+#: nguoi viet (bao cao tuan, bang tin, tieu de phieu) va cau tra loi cua AI: cau nao co so tien la
+#: AN - khong can tu khoa (Hoan 27/11: an so lieu; GMV / doanh so brand cung cam).
+_AMOUNT = re.compile(
+    r"(\d[\d.,]*\s?(k|nghin|ngan|tr|trieu|ty|ti|cu|vnd|usd|dong|d)\b|"
+    r"\d{1,3}([.,]\d{3})+(?![.,]?\d)|\d{6,})", re.I)
 #: Hep hon _PNL: phieu "chi phi ... phong X 15.000.000d" la viec thuong ngay, khong an.
 _PNL_LEAK = re.compile(
     r"(\bp\W{0,3}n\W{0,3}l\b|doanh thu|doanh so|\b(gmv|nmv)\b|loi nhuan|bien loi|lai gop|lai rong|ebit(da)?\b|"
     r"\brevenues?\b|\bprofits?\b|\bturnover\b|quy luong|chi phi luong|chi phi nhan su|"
-    r"ket qua kinh doanh|\b(lai|lo|loi) (duoc )?\d)", re.I)
+    r"ket qua kinh doanh|\b(lai|lo|loi) (duoc )?\d|\b(dt|gp|rev|ln|offer)\b)", re.I)
 #: Mot "cau": dau cham / phay nam TRONG so (15.000.000) hay duong dan khong cat cau.
 _SENT = re.compile(r"(?:[^.!?;\n•|]|[.!?;](?=\S))+")
 
@@ -287,13 +307,20 @@ def leaks(text):
     return False
 
 
+def money(text):
+    """PURE. Doan van co so tien (khong tinh %)?"""
+    return bool(_AMOUNT.search(fold(norm(text))))
+
+
 def scrub(text):
-    """PURE. An CAU co so lieu luong/tai chinh trong mot doan do nguoi dung viet (bao cao tuan,
-    bai dang, tieu de phieu) truoc khi dua vao loi dan - AI khong thay thi khong lo duoc."""
+    """PURE. An CAU co so lieu luong/tai chinh HOAC co so tien trong mot doan do nguoi dung viet
+    (bao cao tuan, bai dang, tieu de phieu) truoc khi dua vao loi dan - AI khong thay thi khong lo
+    duoc. Ti le % chi an khi kem tu khoa (leaks) - "xong 80% task" van giu."""
     text = str(text or "")
-    if not leaks(text):
+    if not (leaks(text) or money(text)):
         return text
-    return _SENT.sub(lambda m: (" " + HIDDEN) if leaks(m.group(0)) else m.group(0), text)
+    return _SENT.sub(lambda m: (" " + HIDDEN) if (leaks(m.group(0)) or money(m.group(0)))
+                     else m.group(0), text)
 
 
 def safe_history(turns):
@@ -309,8 +336,11 @@ def safe_history(turns):
 
 
 def safe_reply(reply):
-    """PURE. Chot cuoi tren cau tra loi cua AI: co so lieu luong/PnL -> cau co dinh."""
-    return LEAK_REPLY if leaks(reply) else reply
+    """PURE. Chot cuoi tren cau tra loi cua AI: co so lieu luong/PnL -> cau co dinh; con lai cau
+    nao co so tien -> an cau do (AI khong co nguon so tien hop le nao)."""
+    if leaks(reply):
+        return LEAK_REPLY
+    return scrub(reply)
 
 
 # ----------------------------------------------------------------- chon nguon --

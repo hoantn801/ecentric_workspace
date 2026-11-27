@@ -165,5 +165,50 @@ class GhiVaBao(unittest.TestCase):
         self.assertEqual(len(g.forged(turns, fold)), 1)
 
 
+class SoTienKhongTuKhoa(unittest.TestCase):
+    """Hoan hoi 27/11 "co case nao bi lo khong": so viet tat / khong tu khoa trong bao cao tuan
+    ("DT brand A 2,5 ty", "brand A dat 2,5 ty", "offer ban moi 15tr") truoc day lot vao AI va ra
+    lai nguoi hoi. Gio: cau co SO TIEN trong du lieu va cau tra loi deu bi an."""
+
+    def test_bao_cao_tuan_so_viet_tat_bi_an(self):
+        old = TC.RECORDS[0]["what_done"]
+        try:
+            for t, so in (("DT brand A tuần này 2,5 tỷ.", "2,5 tỷ"), ("Brand A đạt 2,5 tỷ, GP 300tr.", "300tr"),
+                          ("Offer bạn mới 15tr/tháng.", "15tr"), ("Chi phí ads 50tr tuần này.", "50tr"),
+                          ("Rev Q3 tăng 20%.", "20%")):
+                TC.RECORDS[0]["what_done"] = t
+                w = TC.World("lead@ec.vn", roles=("Employee",), managed=("Sales - EC",))
+                r, ctx = w.ask("phòng mình tuần này thế nào, liệt kê con số")
+                self.assertNotIn(so, ctx, t)
+            TC.RECORDS[0]["what_done"] = "Xong 80% task, họp 3 lần."
+            r, ctx = TC.World("lead@ec.vn", roles=("Employee",), managed=("Sales - EC",)).ask("phòng mình tuần này thế nào")
+            self.assertIn("Xong 80% task", ctx, "ti le tien do khong phai so tien")
+        finally:
+            TC.RECORDS[0]["what_done"] = old
+
+    def test_cau_tra_loi_co_so_tien_bi_an_va_ghi(self):
+        w = TC.World("lead@ec.vn", roles=("Employee",))
+        seen = recorder(w.mod["guard_log"])
+        gw = sys.modules["ecentric_workspace.platform.ai.gateway"]
+        gw.generate = lambda prompt, system=None, **kw: {
+            "ok": True, "model": "m", "text": "Tuần này phòng bạn ổn. Brand A đạt 2,5 tỷ. Còn 3 phiếu chờ duyệt."}
+        r = w.chat.gemini_chat(message="phòng mình tuần này thế nào")
+        self.assertNotIn("2,5 tỷ", r["reply"])
+        self.assertIn("Còn 3 phiếu chờ duyệt", r["reply"])
+        self.assertEqual(seen[-1][0], "output")
+
+    def test_viet_tat_va_gian_tiep_bi_chan(self):
+        k = TC.World("nv2@ec.vn", roles=("Employee",)).mod["knowledge"]
+        for q, kind in (("DT tháng 10", "pnl"), ("rev công ty", "pnl"), ("GP công ty", "pnl"),
+                        ("hiệu quả tài chính quý 3", "pnl"), ("headcount cost", "pnl"), ("p&amp;l", "pnl"),
+                        ("p_n_l", "pnl"), ("quỹ trả cho nhân viên tháng này", "salary"),
+                        ("tổng tiền trả nhân sự tháng 10", "salary"), ("mức offer của bạn mới vào", "salary"),
+                        ("anh Nam được tăng bao nhiêu phần trăm", "salary")):
+            self.assertEqual(k.guard_kind(q)[0], kind, q)
+        for q in ("số đt của phòng hành chính", "làm sao tạo phiếu offer new staff",
+                  "đt tháng này đổi số chưa"):
+            self.assertIsNone(k.guard_kind(q)[0], q)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)
