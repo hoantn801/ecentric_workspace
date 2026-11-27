@@ -1,0 +1,105 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-11-27 00:00:00.000000",
+ "description": "Câu hỏi TÌNH NGHI tới AI (hỏi lương / PnL / doanh thu, lịch sử chat giả mạo, AI suýt trả số liệu). Chỉ ghi câu tình nghi, cắt 500 ký tự (Hoàn chốt 27/11). Báo chuông cho role EC AI Usage Viewer.",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "user",
+  "department",
+  "kind",
+  "kind_label",
+  "cb1",
+  "channel",
+  "question"
+ ],
+ "fields": [
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "Người hỏi",
+   "options": "User",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Data",
+   "label": "Phòng ban",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "kind",
+   "fieldtype": "Select",
+   "label": "Loại",
+   "options": "\nsalary\npnl\nhistory\noutput\nparam",
+   "in_standard_filter": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "kind_label",
+   "fieldtype": "Data",
+   "label": "Loại (mô tả)",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "channel",
+   "fieldtype": "Data",
+   "label": "Kênh",
+   "description": "chat = ô chat trang chủ / báo cáo tuần; khay = eC Mate"
+  },
+  {
+   "fieldname": "question",
+   "fieldtype": "Small Text",
+   "label": "Câu hỏi (cắt 500 ký tự)",
+   "in_list_view": 1
+  }
+ ],
+ "in_create": 1,
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-27 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ecentric Workspace",
+ "name": "EC AI Guard Log",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "delete": 1,
+   "write": 0,
+   "create": 0,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  },
+  {
+   "role": "EC AI Usage Viewer",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "delete": 0,
+   "write": 0,
+   "create": 0,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  }
+ ],
+ "read_only": 1,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

@@ -16,7 +16,7 @@ from ecentric_workspace.tai_san import licenses as LIC
 from ecentric_workspace.tai_san import product_service as PS
 from ecentric_workspace.tai_san import repository as R
 
-COST_KEYS = ("cost_per_cycle", "monthly_cost", "supplier_invoice")
+COST_KEYS = ("cost_per_cycle", "currency", "cost_fc", "exchange_rate", "monthly_cost", "supplier_invoice")
 #: Chi nguoi quan ly tai san: noi luu key, tai khoan quan tri, ghi chu (hay chua gia / thong tin dang nhap).
 MANAGER_KEYS = ("account", "key_location", "note")
 TODO_LIMIT = 10
@@ -54,6 +54,8 @@ def _row(ctx, lic, used, today, emps=None):
            "owner_employee": lic.owner_employee, "department": lic.department, "account": lic.account,
            "key_location": lic.key_location, "note": lic.note,
            "cost_per_cycle": lic.cost_per_cycle, "monthly_cost": LIC.monthly_cost(lic),
+           "currency": lic.get("currency") or C.BASE_CURRENCY, "cost_fc": lic.get("cost_fc"),
+           "exchange_rate": lic.get("exchange_rate"),
            "supplier_invoice": lic.supplier_invoice}
     if emps is not None and lic.owner_employee in emps:
         row["owner_name"] = emps[lic.owner_employee].employee_name
@@ -151,6 +153,8 @@ def licenses_view(ctx, filters=None):
     kept = [r for r in rows if _match(r, f)]
     return {"rows": kept, "groups": groups(ctx, kept), "summary": summary(ctx, rows), "can": ctx.flags(),
             "categories": list(C.LICENSE_CATEGORIES), "cycles": C.BILLING_CYCLE_LABELS,
+            "currencies": list(C.LICENSE_CURRENCIES),
+            "rates": LR.latest_rates(C.LICENSE_CURRENCIES, C.BASE_CURRENCY) if (ctx.can_manage or ctx.can_finance) else {},
             "types": C.LICENSE_TYPE_LABELS, "statuses": C.LICENSE_STATUS_LABELS, "stages": C.STAGE_LABELS,
             "lead_days": {"default": C.LICENSE_LEAD_DAYS, "short": C.LICENSE_LEAD_DAYS_SHORT}}
 
@@ -167,9 +171,12 @@ def license_detail(ctx, name):
     ren = LR.renewals(name)
     who = LR.user_names([r.renewed_by for r in ren])
     ren = [dict(r, renewed_by_name=who.get(r.renewed_by, r.renewed_by),
-                cost=r.cost if ctx.can_see_cost else None,
+                cost=r.cost if ctx.can_see_cost else None, cost_fc=r.get("cost_fc") if ctx.can_see_cost else None,
+                exchange_rate=r.get("exchange_rate") if ctx.can_see_cost else None,
                 note=r.note if ctx.can_manage else None) for r in ren]
     nxt = LIC.next_expiry(lic)
+    logs = LR.license_logs(name) if (ctx.can_manage or ctx.can_finance) else []
+    who_log = LR.user_names([x.comment_email for x in logs]) if logs else {}
 
     def seat_row(s):
         e = emps.get(s.employee)
@@ -181,7 +188,10 @@ def license_detail(ctx, name):
             "history": [seat_row(s) for s in seats if s.status != C.SEAT_ACTIVE][:100],
             "renewals": [dict(r, renewed_on=_s(r.renewed_on), old_expiry=_s(r.old_expiry),
                               new_expiry=_s(r.new_expiry)) for r in ren],
-            "suggested_expiry": str(nxt) if nxt else None, "can": ctx.flags()}
+            "suggested_expiry": str(nxt) if nxt else None, "can": ctx.flags(),
+            # Nhat ky sua (co chi phi) - chi nguoi sua duoc moi thay.
+            "logs": [{"text": x.content, "by": who_log.get(x.comment_email, x.comment_email), "at": str(x.creation)[:16]}
+                     for x in logs] if logs else []}
 
 
 def my_licenses(employee_id):

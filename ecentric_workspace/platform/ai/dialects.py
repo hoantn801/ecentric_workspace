@@ -18,13 +18,28 @@ Kie ban nhieu ho model, MOI HO MOT DINH DANG. Do that ngay 22/09 va 28/09:
               docs.kie.ai/market/grok/grok-4-7). Tai lieu noi nhan tep nhung CHUA DO
               -> tam coi nhu chi van ban, giong gpt-*.
 
-Ho khac (claude-*...) chua do duoc -> khong ho tro, gateway bo qua va ghi ro.
+    claude-*  POST https://api.anthropic.com/v1/messages  (Claude GOI THANG Anthropic, KHONG qua
+              Kie - Hoan 05/11: them Claude lam nha cung cap thu hai, dat o dau chuoi model la
+              model chinh, dat cuoi la du phong; doi trong System Settings, khong can deploy).
+              Khoa rieng `ec_anthropic_api_key`, header x-api-key + anthropic-version.
+              Nhan PDF (khoi document) va anh png/jpeg/gif/webp; loai tep khac -> bo qua.
+              Ban API 2026-10-21 BO temperature/top_p/top_k (gui la 400) -> khong gui.
+              JSON ep bang loi dan nhu gpt-*. Loi bao bang HTTP != 200 + {"type":"error",...}.
+
+Ho khac chua do duoc -> khong ho tro, gateway bo qua va ghi ro.
 File nay khong import frappe, khong goi mang: test chay khong can bench.
 """
 import base64
 import json
 
 KIE_BASE = "https://api.kie.ai"
+ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
+#: platform.claude.com/docs/en/api/versioning (05/11/2026): ban moi nhat, Anthropic khuyen dung.
+ANTHROPIC_VERSION = "2026-10-21"
+CLAUDE = "claude"
+#: Claude bat buoc max_tokens. Du cho JSON dai (AI dien phieu, cham bao cao tuan).
+CLAUDE_MAX_TOKENS = 8192
+CLAUDE_FILE_TYPES = ("application/pdf", "image/png", "image/jpeg", "image/gif", "image/webp")
 GEMINI = "gemini"
 GEMINI_OAI = "gemini_oai"
 OAI_SUFFIX = "-openai"
@@ -34,7 +49,9 @@ GROK = "grok"
 RESPONSES = (GPT, GROK)
 
 #: Ho nao mang duoc tep. Them ho moi vao day CHI SAU KHI da do that ho do doc duoc tep.
-ACCEPTS_FILES = {GEMINI: True, GEMINI_OAI: True, GPT: False, GROK: False}
+ACCEPTS_FILES = {GEMINI: True, GEMINI_OAI: True, GPT: False, GROK: False, CLAUDE: True}
+#: Nha cung cap cua tung ho - moi nha mot khoa (config.key_for).
+PROVIDER = {GEMINI: "kie", GEMINI_OAI: "kie", GPT: "kie", GROK: "kie", CLAUDE: "anthropic"}
 
 
 def dialect_of(model):
@@ -47,7 +64,34 @@ def dialect_of(model):
         return GPT
     if m.startswith("grok-"):
         return GROK
+    if m.startswith("claude-"):
+        return CLAUDE
     return None
+
+
+def provider_of(model):
+    return PROVIDER.get(dialect_of(model), "")
+
+
+def accepts(model, files):
+    """PURE. Model nay nhan DU bo tep nay khong (luat 1 cua gateway: thieu mot tep = khong goi)."""
+    d = dialect_of(model)
+    if not d:
+        return False
+    if not files:
+        return True
+    if not ACCEPTS_FILES.get(d):
+        return False
+    if d == CLAUDE:
+        return all(str(f.get("mime_type") or "").lower() in CLAUDE_FILE_TYPES for f in files)
+    return True
+
+
+def headers_for(model, key):
+    if dialect_of(model) == CLAUDE:
+        return {"x-api-key": key, "anthropic-version": ANTHROPIC_VERSION,
+                "content-type": "application/json"}
+    return {"Authorization": "Bearer %s" % key, "Content-Type": "application/json"}
 
 
 def url_for(model):
@@ -60,6 +104,8 @@ def url_for(model):
         return "%s/codex/v1/responses" % KIE_BASE
     if d == GROK:
         return "%s/grok/v1/responses" % KIE_BASE
+    if d == CLAUDE:
+        return ANTHROPIC_URL
     return ""
 
 
@@ -86,6 +132,8 @@ def build(model, prompt, system=None, schema=None, files=None, history=None,
     """-> than request (dict). `files` = [{'data': bytes, 'mime_type': str}]."""
     opts = dict(opts or {})
     want_json = bool(schema) or bool(json_mode)
+    if dialect_of(model) == CLAUDE:
+        return _build_claude(model, prompt, system, schema, files, history, want_json, opts)
     if dialect_of(model) == GEMINI_OAI:
         return _build_chat(model, prompt, system, schema, files, history, want_json, opts)
     if dialect_of(model) in RESPONSES:
@@ -161,6 +209,36 @@ def _build_gpt(model, prompt, system, schema, history, want_json, opts):
     body = {"model": model, "stream": False, "input": items,
             "reasoning": {"effort": opts.get("effort") if opts.get("effort") in
                           ("low", "medium", "high") else "low"}}
+    return body
+
+
+def _build_claude(model, prompt, system, schema, files, history, want_json, opts):
+    """Anthropic Messages. Lich su phai xen ke user/assistant va bat dau bang user -> gop
+    luot lien nhau cung vai, bo luot assistant dung dau."""
+    messages = []
+    for role, text in _history_pairs(history):
+        r = "user" if role == "user" else "assistant"
+        if not messages and r == "assistant":
+            continue
+        if messages and messages[-1]["role"] == r:
+            messages[-1]["content"] += "\n\n" + text
+        else:
+            messages.append({"role": r, "content": text})
+    content = []
+    for f in files or []:
+        mime = str(f.get("mime_type") or "").lower()
+        data = base64.b64encode(f["data"]).decode("ascii")
+        kind = "document" if mime == "application/pdf" else "image"
+        content.append({"type": kind, "source": {"type": "base64", "media_type": mime,
+                                                  "data": data}})
+    content.append({"type": "text", "text": prompt + (json_instruction(schema) if want_json else "")})
+    if messages and messages[-1]["role"] == "user":
+        content.insert(0, {"type": "text", "text": messages.pop()["content"]})
+    messages.append({"role": "user", "content": content})
+    body = {"model": model, "max_tokens": int(opts.get("max_tokens") or CLAUDE_MAX_TOKENS),
+            "messages": messages}
+    if system:
+        body["system"] = system
     return body
 
 
@@ -257,8 +335,38 @@ def _with_credits(obj):
     return usage
 
 
+def claude_error(body):
+    """-> 'loai: thong diep' tu than loi Anthropic {"type":"error","error":{...}}, "" neu khong."""
+    try:
+        obj = json.loads(body or "")
+    except Exception:
+        return ""
+    err = obj.get("error") if isinstance(obj, dict) else None
+    if isinstance(err, dict):
+        return "Claude %s: %s" % (err.get("type") or "error", err.get("message") or "")
+    return ""
+
+
+def _claude_parse(body):
+    try:
+        obj = json.loads(body or "")
+    except Exception:
+        return "", {}, ""
+    texts = [c.get("text") or "" for c in obj.get("content") or []
+             if isinstance(c, dict) and c.get("type") == "text"]
+    return "".join(texts), dict(obj.get("usage") or {}), obj.get("stop_reason") or ""
+
+
 def parse(model, status, body):
     """-> (text, usage, finish, error). Khong nem."""
+    if dialect_of(model) == CLAUDE:
+        if status != 200:
+            why = claude_error(body)
+            return "", {}, "", "HTTP %s%s" % (status, (": " + why) if why else "")
+        text, usage, finish = _claude_parse(body)
+        if not text:
+            return "", usage, finish, "model tra ve rong (finish=%s)" % (finish or "?")
+        return text, usage, finish, ""
     why = kie_error(body)
     if status != 200:
         return "", {}, "", "HTTP %s%s" % (status, (": " + why) if why else "")

@@ -124,7 +124,7 @@ class Env(object):
         sys.modules["ecentric_workspace.approval_center.shared.catalog_api"] = cat
         sys.modules["ecentric_workspace.approval_center.shared"].catalog_api = cat
         self.mod = {}
-        for name in ("config", "dialects", "health", "gateway", "khay_intent", "khay"):
+        for name in ("config", "dialects", "health", "gateway", "khay_intent", "guard_log", "knowledge_sources", "knowledge", "khay"):
             full = "ecentric_workspace.platform.ai." + name
             m = types.ModuleType(full)
             m.__file__ = os.path.join(AI, name + ".py")
@@ -362,6 +362,77 @@ class Endpoint(unittest.TestCase):
         self.assertEqual(e.k.intent(message="  ")["action"], "clarify")
         self.assertEqual(e.calls, [])
 
+
+
+class TraCuuVaLuong(unittest.TestCase):
+    """Hoan 10/11: 'khao sat dang ki Claude' bi hoi 'AI Topup hay System Request?'; hoi luong
+    nguoi khac khong duoc tra loi."""
+
+    def test_hoi_khao_sat_ma_model_doi_tao_phieu_thi_di_tra_cuu(self):
+        e = Env(roles=("EC Khay Pilot", "EC AI Formfill Pilot"),
+                reply=(200, sse({"action": "clarify", "reply": "AI Topup hay System Request?",
+                                 "options": ["AI Topup", "System Request"]})))
+        r = e.k.intent(message="khảo sát đăng kí Claude")
+        self.assertEqual((r["action"], r["needs_data"]), ("answer", True))
+
+    def test_lookup_override_khong_dung_khi_xin_nghi_hoac_co_tep(self):
+        ask = {"action": "clarify", "reply": "Nghi ngay nao?", "options": []}
+        self.assertEqual(e_k().lookup_override(ask, "xin 2 ngày phép")["action"], "clarify")
+        self.assertEqual(e_k().lookup_override(ask, "khao sat", has_files=True)["action"], "clarify")
+        tao = {"action": "approval", "reply": "", "approval_code": "PAYMENT_REQUEST"}
+        self.assertEqual(e_k().lookup_override(tao, "tạo đề nghị thanh toán")["action"], "approval")
+        for msg in ("quy trình mua hàng là gì", "tin nội bộ mới nhất", "mình còn bao nhiêu ngày phép"):
+            self.assertEqual(e_k().lookup_override(tao, msg)["action"], "answer", msg)
+
+    def test_hoi_luong_khong_goi_ai(self):
+        for msg in ("lương của chị Linh bao nhiêu?", "Mức lương phòng Media", "bang luong thang 10",
+                    "salary of Hoan", "thu nhập của anh A"):
+            e = Env()
+            r = e.k.intent(message=msg)
+            self.assertEqual((r["action"], r["needs_data"], r["model"]), ("answer", False, ""), msg)
+            self.assertIn("không tra cứu", r["reply"])
+            self.assertEqual(e.calls, [], msg)
+
+
+class PhamViVaPnL(unittest.TestCase):
+    """Hoan 27/11: cam PnL; cau hoi cong viec di tra cuu theo quyen; ngoai le thi tu choi."""
+
+    def test_hoi_pnl_khong_goi_ai(self):
+        for msg in ("doanh thu tháng này bao nhiêu", "lợi nhuận công ty quý 3", "PnL brand A"):
+            e = Env()
+            r = e.k.intent(message=msg)
+            self.assertEqual((r["action"], r["needs_data"], r["model"]), ("answer", False, ""), msg)
+            self.assertIn("không trả lời về PnL", r["reply"])
+            self.assertEqual(e.calls, [], msg)
+
+    def test_tao_phieu_co_chu_doanh_thu_van_goi_ai(self):
+        e = Env(roles=("EC Khay Pilot", "EC AI Formfill Pilot"),
+                reply=(200, sse({"action": "approval", "approval_code": "PAYMENT_REQUEST", "reply": ""})))
+        e.k.intent(message="tạo đề nghị thanh toán phí xuất hóa đơn doanh thu brand A")
+        self.assertEqual(len(e.calls) >= 1, True)
+
+    def test_model_tra_loi_thang_cau_cong_viec_thi_van_di_tra_cuu(self):
+        k = e_k()
+        doan = {"action": "answer", "reply": "Bạn vào menu Nhân sự nhé.", "options": [], "needs_data": False}
+        for msg in ("làm sao đổi mật khẩu ERP", "ai là trưởng phòng Data", "tháng này mình đi muộn mấy lần",
+                    "laptop của tôi bảo hành tới bao giờ"):
+            self.assertEqual(k.lookup_override(dict(doan), msg)["needs_data"], True, msg)
+
+    def test_cau_ngoai_cong_viec_giu_cau_tu_choi_cua_model(self):
+        k = e_k()
+        tu_choi = {"action": "answer", "reply": "Mình chỉ hỗ trợ việc ở công ty thôi nha.", "options": [],
+                   "needs_data": False}
+        r = k.lookup_override(dict(tu_choi), "tìm giúp mình trang web xem phim vui")
+        self.assertEqual((r["needs_data"], r["reply"]), (False, tu_choi["reply"]))
+
+    def test_loi_dan_router_noi_ro_pham_vi(self):
+        sysmsg = B.system("eC Mate")
+        for need in ("needs_data=true cho MOI cau hoi ve cong viec", "NGOAI cong viec", "PnL / doanh thu"):
+            self.assertIn(need, sysmsg)
+
+
+def e_k():
+    return Env().k
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)

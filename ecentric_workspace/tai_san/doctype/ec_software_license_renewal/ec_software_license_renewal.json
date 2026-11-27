@@ -15,6 +15,9 @@
   "old_expiry",
   "new_expiry",
   "cost",
+  "currency",
+  "cost_fc",
+  "exchange_rate",
   "renewed_by",
   "note"
  ],
@@ -43,8 +46,29 @@
   {
    "fieldname": "cost",
    "fieldtype": "Currency",
-   "label": "Chi phí kỳ",
+   "label": "Chi phí kỳ (₫)",
    "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Tiền tệ",
+   "options": "Currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cost_fc",
+   "fieldtype": "Currency",
+   "label": "Chi phí kỳ (ngoại tệ)",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "exchange_rate",
+   "fieldtype": "Float",
+   "label": "Tỷ giá",
+   "precision": "2",
    "read_only": 1
   },
   {

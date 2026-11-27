@@ -327,3 +327,7 @@ STAGE_LABELS = {STAGE_OK: "Còn hạn", STAGE_DUE: "Sắp hết hạn", STAGE_EX
 PRODUCT_DT = "EC Software Product"
 PRODUCT_SIMILAR_RATIO = 0.82     # ten moi giong ten co san tu muc nay -> hoi "dung cai co san?"
 MODEL_CODE_PREFIX = "EC"         # ma Item mau moi theo mau dang co tren site: EC-DELL-LATITUDE-3440
+
+# --- ngoai te ban quyen (27/11/2026, Hoan): tra USD song song VND. Chi phi thang luon cong bang VND.
+BASE_CURRENCY = "VND"
+LICENSE_CURRENCIES = ("VND", "USD", "EUR", "SGD")

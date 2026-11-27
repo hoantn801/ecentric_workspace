@@ -89,3 +89,13 @@ Tạo trả về một trong ba: `{product|item, row}` đã tạo · `{exact: ro
 | `merge_product` | source, target | bản quyền của source chuyển sang target; source ngừng dùng (không xoá) |
 | `create_model` | data{item_name, asset_category}, force? | mẫu thiết bị = Item tài sản (is_fixed_asset); mã `EC-<TÊN>`, nhóm hàng / ĐVT chép từ Item cùng loại |
 | `pickers` (GET) | kind = `categories` | loại thiết bị (Asset Category) cho form Thêm mẫu |
+
+### Chi phí nhiều tiền tệ (27/11/2026)
+- `create_license` / `update_license` nhận `currency` (VND, USD, EUR, SGD), `cost_fc` (số ngoại tệ), `exchange_rate` (₫ / 1 đơn vị) và `cost_per_cycle` (₫).
+  - Ngoại tệ mà `cost_per_cycle` để trống: hệ thống tính `cost_fc × exchange_rate`.
+  - `cost_per_cycle` luôn là ₫, dùng để cộng chi phí tháng.
+- Ai sửa chi phí: người quản lý tài sản + Finance / HOF, bất cứ lúc nào. Mỗi lần sửa ghi nhật ký; `license_detail.logs` trả nhật ký cho hai vai này.
+- `renew_license` nhận thêm `currency`, `cost_fc`, `exchange_rate`. Để trống thì giữ chi phí cũ.
+- `licenses` trả thêm:
+  - `currencies`;
+  - `rates` (tỷ giá gợi ý = Currency Exchange mới nhất → VND; chỉ người quản lý / Finance thấy).

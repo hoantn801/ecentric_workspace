@@ -159,6 +159,13 @@ class FakeLR:
     def user_names(self, users):
         return {u: u.split("@")[0] for u in users if u}
 
+    def latest_rates(self, currencies, to):
+        return {"USD": {"rate": 26010.0, "date": "2026-11-27"}}
+
+    def license_logs(self, name, limit=50):
+        return [Row({"content": t, "comment_email": "ops@x", "creation": "2026-11-27 10:00:00"})
+                for n, t in reversed(self.logs) if n == name][:limit]
+
     def seats(self, filters=None):
         rows = [Row(s) for s in self.seats_.values()]
         if filters and filters.get("license"):
@@ -249,11 +256,14 @@ class TestLicenseService(LicenseCase):
         with self.assertRaises(L.TransitionError):
             self.LS.update(MGR, "BQ1", {"seats": 1})
 
-    def test_cost_edit_finance_only(self):
+    def test_cost_edit_manager_and_finance_logged(self):
+        # Hoan 27/11: nguoi quan ly tai san sua chi phi bat cu luc nao, co log; nhan vien thuong thi khong.
         with self.assertRaises(A.AccessDenied):
-            self.LS.update(MGR, "BQ1", {"cost_per_cycle": 1})
+            self.LS.update(STAFF, "BQ1", {"cost_per_cycle": 1})
+        self.LS.update(MGR, "BQ1", {"cost_per_cycle": 12_000_000})
         self.LS.update(FIN, "BQ1", {"cost_per_cycle": 13_000_000})
         self.assertEqual(self.lr.lics["BQ1"]["cost_per_cycle"], 13_000_000)
+        self.assertIn("Chi phí (₫): 12.000.000 → 13.000.000", self.lr.logs[-1][1])
 
     def test_fix_wrong_expiry_and_blank_guards(self):
         self.lr.lics["BQ1"].update(alert_stage=C.STAGE_DUE, alert_for_expiry="2026-12-20")
@@ -379,7 +389,7 @@ class TestReview2Fixes(LicenseCase):
 
     def test_update_logged_and_validated(self):
         self.LS.update(MGR, "BQ1", {"seats": 5})
-        self.assertIn("seats: 2 → 5", self.lr.logs[-1][1])
+        self.assertIn("Số chỗ: 2 → 5", self.lr.logs[-1][1])
         with self.assertRaises(L.TransitionError):
             self.LS.update(MGR, "BQ1", {"seats": "nam"})
         with self.assertRaises(L.TransitionError):
