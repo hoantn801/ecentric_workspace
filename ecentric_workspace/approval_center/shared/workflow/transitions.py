@@ -1888,6 +1888,24 @@ def _signature_guard(req, level_no, actor):
     esign_guard.assert_level_completable(req, level_no, actor)
 
 
+def _approval_input_guard(req, actor):
+    """ApprovalDefinition.approval_input_check (27/11/2026): loai phieu bat nguoi duyet lam mot viec
+    truoc khi duyet (Promotion: dien luong). Cau tra ve khac "" -> chan duyet bang dung cau do.
+    Chi bo qua khi KHONG nap duoc registry (bo test exec rieng transitions, khong co goc repo);
+    loi trong callback thi de no noi len - fail-closed, khong duyet mo."""
+    try:
+        from ecentric_workspace.approval_center.shared.registry import BUSINESS_DOCTYPE_DEFINITIONS
+    except Exception:
+        return
+    d = BUSINESS_DOCTYPE_DEFINITIONS.get(req.reference_doctype)
+    check = getattr(d, "approval_input_check", None) if d else None
+    if not check:
+        return
+    msg = check(frappe.get_doc(req.reference_doctype, req.reference_name), req, actor)
+    if msg:
+        frappe.throw(msg)
+
+
 def approve(request_name, actor=None, comment=None):
     actor = actor or frappe.session.user
     req = frappe.get_doc("EC Approval Request", request_name)
@@ -1915,6 +1933,7 @@ def approve(request_name, actor=None, comment=None):
     row = _actor_pending_row(request_name, req.current_level, actor)
     if not row:
         frappe.throw(_("You are not a pending approver for the current level."))
+    _approval_input_guard(req, actor)
     _signature_guard(req, req.current_level, actor)
     frappe.db.set_value("EC Approval Request Approver", row,
                         {"status": "Approved", "decided_at": now_datetime(), "comment": comment})

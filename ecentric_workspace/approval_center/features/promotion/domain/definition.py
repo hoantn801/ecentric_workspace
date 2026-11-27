@@ -24,6 +24,10 @@ def _definition(code, doctype, feature, editable, mine, approvals, options, filt
         # Review Phan quyen P1: nguoi xem khong xem duoc luong nhan su do thi khong thay so.
         business_redactor=ServiceMethod(_BASE, "redact_business"),
         ai_exclude_fields=("current_salary", "proposed_salary", "incentives"),
+        # 27/11/2026 (huong 2): Lead de xuat cho cap duoi - kiem pham vi + bo luong client gui khi
+        # luu nhap; nguoi duyet co quyen xem luong phai dien luong truoc khi duyet.
+        draft_preparer=ServiceMethod(_BASE, "prepare_draft"),
+        approval_input_check=ServiceMethod(_BASE, "approval_input_message"),
         **service_callbacks(feature),
     )
 
