@@ -99,6 +99,10 @@ def _idle(e, now, cfg, host):
     limit = minutes(cfg["idle"])
     if e.get("started_at") and now - e["started_at"] < limit:
         return False
+    # Extension dang xuat nhieu trang (tool tu bam, nguoi dung co the da dong tab) -> khong tinh de yen.
+    # Het 30 phut van ket thuc binh thuong; cac phan file da gui van o ERP.
+    if host.get("busy"):
+        return False
     if int(host.get("vnc_clients") or 0) == 0:
         return True
     idle_ms = host.get("x_idle_ms")

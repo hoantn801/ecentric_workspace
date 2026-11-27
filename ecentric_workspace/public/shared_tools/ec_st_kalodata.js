@@ -157,7 +157,7 @@
     return '<section class="st-card st-o5" aria-labelledby="st-h-rules"><h2 class="st-h2" id="st-h-rules" style="margin-bottom:12px">Quy định</h2><ul class="st-rules">' +
       '<li>Mỗi lượt ' + t.lease + ' phút. Không ai chờ thì gia hạn thêm ' + t.extend + ' phút.</li>' +
       '<li>Để yên ' + t.idle + ' phút, lượt tự kết thúc.</li>' +
-      '<li>Xuất bảng tối đa 50 trang mỗi lần, 30 lần mỗi giờ.</li>' +
+      '<li>Xuất bảng tối đa 2500 trang mỗi lần (trên 50 trang, file về theo từng phần 50 trang), 30 lần mỗi giờ.</li>' +
       '<li>Không đăng xuất, không đổi mật khẩu tài khoản ' + esc(t.title) + '.</li></ul></section>';
   }
 
