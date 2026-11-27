@@ -56,6 +56,31 @@ def apply_default(doc):
     return doc.esign_flow
 
 
+# Kieu ky cua nguoi ky phia doi tac tren cong (PO 27/11/2026: KOL hay chi ky anh). Ma = ma cong ky
+# nhan (ExternalHandlers.SignType); nhan theo man hinh cong CMC. Trong = mac dinh cua nen tang ky so
+# (eKYC, hoac site_config `ec_esign_partner_sign_type`). Kieu tinh luot ma goi CMC het luot thi nen
+# tang bao loi ngay luc gui ky.
+PARTNER_SIGN_TYPES = {
+    "image": "Ký ảnh",
+    "token": "USB Token",
+    "esign": "eSign (ký từ xa)",
+    "vnetid": "VNeID",
+    "ekyc": "eKYC",
+}
+
+
+def partner_sign_type(value):
+    """Ma kieu ky hop le hoac "" (= mac dinh cua cong). Gia tri la -> ""."""
+    cur = str(value or "").strip()
+    return cur if cur in PARTNER_SIGN_TYPES else ""
+
+
+def clean_partner_sign_type(doc):
+    """Gia tri la (sua tay qua API) -> xoa, ve mac dinh cua cong."""
+    doc.partner_sign_type = partner_sign_type(doc.get("partner_sign_type")) or None
+    return doc.partner_sign_type
+
+
 def label(code):
     return LABELS.get(code or "", code or "")
 

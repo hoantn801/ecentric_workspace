@@ -26,7 +26,9 @@ CONTRACT_REVIEW_DEFINITION = ApprovalDefinition(
                      # Quy trinh ky tren cong (12/11, chot voi chat Ky so) - xem domain/esign_flow.py.
                      "esign_flow", "partner_signer_name", "partner_signer_email", "partner_signer_phone",
                      # 24/11: CMC bat buoc CCCD / MST doi tac (kol_service.partner_identity).
-                     "partner_signer_identity"),
+                     "partner_signer_identity",
+                     # 27/11: kieu ky cua doi tac tren cong (Ky anh / USB Token / ...) - esign_flow.
+                     "partner_sign_type"),
     my_request_fields=("name", "request_title", "request_kind", "contract_type", "brand",
                        "contract_value", "expected_response_date", "approval_request",
                        "creation", "modified"),
@@ -41,6 +43,8 @@ CONTRACT_REVIEW_DEFINITION = ApprovalDefinition(
         # [ma, nhan] - luu ma, hien nhan.
         ("esign_flows", tuple((k, v) for k, v in _esign_flow.LABELS.items())),
         ("esign_flows_with_partner", _esign_flow.WITH_PARTNER),
+        # [ma, nhan] kieu ky cua doi tac tren cong - trong = mac dinh cua cong.
+        ("esign_partner_sign_types", tuple(_esign_flow.PARTNER_SIGN_TYPES.items())),
         # "loai HD|quy trinh mac dinh" - trang chi HIEN goi y, server dien that (esign_flow.apply_default).
         ("esign_flow_defaults", tuple("%s|%s" % kv for kv in _esign_flow.DEFAULTS.items())),
         ("kol_service_types", ("Livestream", "Video", "Livestream + Video", "Hoa hồng affiliate")),

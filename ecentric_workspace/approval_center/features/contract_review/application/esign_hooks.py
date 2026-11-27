@@ -243,8 +243,9 @@ def signing_files(business_name):
 # ----------------------------------------------------------------------------- B6: doi tac ky tren cong
 def external_handlers(business_name):
     """Hook ec_esign_external_handlers -> [{full_name, email, phone?, identity, identity_place?,
-    identity_date?, dob?}]. Lay tu o "Nguoi ky phia doi tac" cua phieu (luc gui da kiem bang
-    kol_service.partner_signer_errors + esign_gate). KHONG dat sign_type: Ky so dat mac dinh (eKYC).
+    identity_date?, dob?, sign_type?}]. Lay tu o "Nguoi ky phia doi tac" cua phieu (luc gui da kiem bang
+    kol_service.partner_signer_errors + esign_gate). `sign_type` chi dat khi nguoi lap chon o "Kieu ky
+    cua doi tac" (27/11, esign_flow.PARTNER_SIGN_TYPES); trong -> nen tang ky so dat mac dinh (eKYC).
 
     `identity` LUON co (CMC bat buoc CCCD / MST doi tac - chat Ky so 24/11): xem
     kol_service.partner_identity (o nhap tay > CCCD creator ca nhan ky chinh minh > MST cong ty / ho
@@ -267,5 +268,8 @@ def external_handlers(business_name):
     if phone:
         row["phone"] = phone
     row.update(ident)
+    sign_type = esign_flow.partner_sign_type(doc.get("partner_sign_type"))
+    if sign_type:
+        row["sign_type"] = sign_type
     return [row]
 
