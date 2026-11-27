@@ -1,10 +1,15 @@
 # Copyright (c) 2026, eCentric and contributors
 """Cau hinh AI - CHO DUY NHAT doc khoa va model.
 
-Ba o tren System Settings, het:
+Bon o tren System Settings, het:
     ec_kie_api_key            khoa Kie (Password)
-    ec_llm_model_kie          model chinh, vd gemini-3-8-flash
+    ec_anthropic_api_key      khoa Claude / Anthropic (Password) - chi can khi chuoi co claude-*
+    ec_llm_model_kie          model chinh, vd gemini-3-8-flash  (hoac claude-haiku-5-5)
     ec_llm_model_kie_fallback model du phong, cach nhau dau phay, vd gemini-3-8-flash-openai, grok-4-7
+
+LINH HOAT DOI NHA CUNG CAP (Hoan 05/11): chuoi model tron Kie + Claude tuy y. Claude lam du
+phong = them `claude-haiku-5-5` vao CUOI o du phong; Claude lam chinh = dat no o o model chinh.
+Doi co hieu luc ngay, khong can deploy. Model claude-* goi thang Anthropic bang khoa rieng.
 
 Cong tac tat toan bo AI: site_config `ec_ai_disabled: 1` (khong can deploy).
 
@@ -17,6 +22,7 @@ import json
 import frappe
 
 KEY_FIELD = "ec_kie_api_key"
+ANTHROPIC_KEY_FIELD = "ec_anthropic_api_key"
 PRIMARY_FIELD = "ec_llm_model_kie"
 FALLBACK_FIELD = "ec_llm_model_kie_fallback"
 DISABLED_FLAG = "ec_ai_disabled"
@@ -45,17 +51,45 @@ def looks_masked(value):
     return len(v) > 0 and set(v) == {"*"}
 
 
-def api_key():
-    """Khoa Kie. Doc bang duong Password - xem su co 17/09 trong gemini_api.api_key()."""
+def _password(field):
+    """Doc truong Password bang duong giai ma - xem su co 17/09 trong gemini_api.api_key()."""
     try:
         from frappe.utils.password import get_decrypted_password
         key = get_decrypted_password("System Settings", "System Settings",
-                                     KEY_FIELD, raise_exception=False) or ""
+                                     field, raise_exception=False) or ""
     except Exception:
         key = ""
     if not key:
-        key = _single(KEY_FIELD)
-    return "" if looks_masked(key) else key.strip()
+        key = _single(field)
+    return "" if looks_masked(key) else str(key).strip()
+
+
+def api_key():
+    """Khoa Kie."""
+    return _password(KEY_FIELD)
+
+
+def anthropic_key():
+    """Khoa Claude (Anthropic) - chi dung cho model claude-*."""
+    return _password(ANTHROPIC_KEY_FIELD)
+
+
+def keys_for(models):
+    """-> {model: khoa} cho moi model trong chuoi. Doc o LUONG CHINH (can DB) roi moi chia
+    cho luong phu cua dot song song. Model chua co khoa -> ''."""
+    from ecentric_workspace.platform.ai import dialects
+    cache, out = {}, {}
+    for m in models or []:
+        prov = dialects.provider_of(m)
+        if prov not in cache:
+            cache[prov] = anthropic_key() if prov == "anthropic" else api_key()
+        out[m] = cache[prov]
+    return out
+
+
+def all_keys():
+    """Moi khoa dang cai - de che khoi chuoi loi."""
+    return [k for k in (api_key(), anthropic_key()) if k]
 
 
 #: Doan khoa dai tu chung nay tro len ma lot vao chuoi loi thi cung bi che (Kie in lai mot
@@ -129,13 +163,16 @@ def fast_chain():
     nhanh thi dung Gemini, Gemini treo thi van co Grok. Thu tu con lai giu nhu System Settings.
     """
     full = chain(True)
+    # Model chinh KHONG phai Kie (vd Claude): nguoi cai dat chon no lam chinh -> giu dau chuoi.
+    lead = [full[0]] if full and full[0].startswith("claude-") else []
+    full = full[len(lead):]
     oai = [m for m in full if m.endswith("-openai")]
     if not oai:
-        return full
+        return lead + full
     grok = [m for m in full if m.startswith("grok-")]
     rest = [m for m in full if m not in oai and m not in grok
             and (m + "-openai") not in oai]
-    return oai + grok + rest
+    return lead + oai + grok + rest
 
 
 def disabled():

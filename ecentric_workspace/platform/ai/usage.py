@@ -25,7 +25,13 @@ SKIP_PURPOSES = ("probe_llm_health", "probe_inline_limit")
 USD_PER_CREDIT = 0.005
 #: credit / 1 trieu token (vao, ra). Chi ghi gia DA THAY tren trang Kie; con lai them qua
 #: site_config `ec_ai_prices`.
-DEFAULT_PRICES = {"grok-4-7": (160.0, 480.0)}
+DEFAULT_PRICES = {"grok-4-7": (160.0, 480.0),
+                  # Claude goi thang Anthropic, gia USD/1M token (platform.claude.com/docs/en/
+                  # about-claude/pricing, 05/11/2026) quy ra credit (/ USD_PER_CREDIT).
+                  # Haiku 5.5: gia cho cau hoi <= 100k token; dai hon thi gap 5 -> uoc tinh thap.
+                  "claude-haiku-5-5": (0.10 / USD_PER_CREDIT, 0.50 / USD_PER_CREDIT),
+                  "claude-sonnet-5-5": (2.0 / USD_PER_CREDIT, 10.0 / USD_PER_CREDIT),
+                  "claude-opus-5-5": (4.0 / USD_PER_CREDIT, 20.0 / USD_PER_CREDIT)}
 DOCTYPE = "EC AI Usage Log"
 
 
