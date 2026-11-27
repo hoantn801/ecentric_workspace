@@ -108,3 +108,23 @@ menu ở khu Công ty · ngưỡng 3.000.000 ₫ sửa chữa phải tạo phi�
 - **Chưa làm:**
   - chi phí bản quyền chưa đưa vào biểu đồ chi phí 12 tháng và EC Asset Monthly (mới hiện ở khối Bản quyền);
   - bản quyền vĩnh viễn không phân bổ chi phí theo tháng.
+
+## Danh mục phần mềm + mẫu thiết bị (27/11/2026, nhánh `fix/tai-san-qc-giao-dien`)
+
+Hoàn: bản quyền chọn từ dropdown thay vì gõ tay ("Windows 11 Pro" / "wins 11 pro" / "window 11 pro"),
+có nút thêm mới, phân loại được, sau gộp được; laptop các thứ cũng vậy.
+
+- **Phần mềm:** DocType `EC Software Product` (tên, hãng, nhóm, loại + kỳ mặc định). `EC Software License.product`
+  bắt buộc khi tạo; `license_name` / `vendor` / `category` của bản quyền lấy theo phần mềm (đổi ở danh mục là
+  đổi luôn trên mọi bản quyền). Trang Bản quyền: lọc theo phần mềm, xem "Gộp theo phần mềm", Sửa / Gộp vào….
+- **Mẫu thiết bị:** dùng chính Item tài sản của ERPNext (site đã có sẵn kiểu `EC-DELL-LATITUDE-3440`),
+  không thêm DocType. Nhập thiết bị chọn mẫu từ dropdown + "Thêm mẫu mới" (tên + loại); Danh sách thiết bị
+  lọc theo mẫu; ngăn chi tiết có "Đổi mẫu" để sắp lại máy nhập tên lệch.
+- **Chặn trùng** (`catalog.py`, hàm thuần): trùng khoá (bỏ dấu / hoa thường / khoảng trắng / ký tự) → chọn
+  cái có sẵn; giống ≥ 0.82 → hỏi lại, chỉ tạo khi bấm "Vẫn tạo mới".
+- **p004_danh_muc:** nối bản quyền đã nhập vào danh mục theo tên chuẩn hoá (tạo dòng nếu chưa có). Tên giống
+  nhưng khác khoá không tự gộp - người quản lý bấm Gộp.
+- Người quản lý tài sản tạo Item qua `model_service` (ignore_permissions sau khi đã kiểm quyền + chặn trùng):
+  role EC Asset Manager không có quyền Item trên Desk.
+
+Test: `python -m unittest ecentric_workspace.tai_san.tests.test_dot5`

@@ -13,6 +13,7 @@ from ecentric_workspace.tai_san import access as A
 from ecentric_workspace.tai_san import constants as C
 from ecentric_workspace.tai_san import license_repository as LR
 from ecentric_workspace.tai_san import licenses as LIC
+from ecentric_workspace.tai_san import product_service as PS
 from ecentric_workspace.tai_san import repository as R
 
 COST_KEYS = ("cost_per_cycle", "monthly_cost", "supplier_invoice")
@@ -42,7 +43,7 @@ def _visible(ctx, lics, seats):
 
 def _row(ctx, lic, used, today, emps=None):
     st = LIC.stage(lic, today)
-    row = {"name": lic.name, "license_name": lic.license_name, "vendor": lic.vendor, "category": lic.category,
+    row = {"name": lic.name, "product": lic.product, "license_name": lic.license_name, "vendor": lic.vendor, "category": lic.category,
            "license_type": lic.license_type, "type_label": C.LICENSE_TYPE_LABELS.get(lic.license_type),
            "billing_cycle": lic.billing_cycle, "cycle_label": C.BILLING_CYCLE_LABELS.get(lic.billing_cycle),
            "status": lic.status, "status_label": C.LICENSE_STATUS_LABELS.get(lic.status),
@@ -80,6 +81,8 @@ def _match(row, f):
         return False
     if f.get("category") and row["category"] != f["category"]:
         return False
+    if f.get("product") and row["product"] != f["product"]:
+        return False
     q = (f.get("q") or "").strip().lower()
     return not q or q in " ".join(str(row.get(k) or "") for k in
                                   ("name", "license_name", "vendor", "account", "owner_name")).lower()
@@ -95,6 +98,44 @@ def summary(ctx, rows):
     return out
 
 
+def groups(ctx, rows):
+    """Gop theo phan mem (Hoan: "de sau gop duoc"): moi phan mem mot dong - so lan mua, cho, dang dung,
+    han gan nhat, chi phi thang. Ban quyen huy khong tinh."""
+    out = {}
+    for r in rows:
+        if r["status"] == C.LS_CANCELLED:
+            continue
+        k = r.get("product") or ("~" + (r.get("license_name") or ""))
+        g = out.setdefault(k, {"product": r.get("product"), "label": r.get("license_name"), "vendor": r.get("vendor"),
+                               "category": r.get("category"), "licenses": 0, "seats": 0, "used": 0,
+                               "next_expiry": None, "due": 0, "expired": 0, "monthly_cost": 0})
+        g["licenses"] += 1
+        g["seats"] += r["seats"]
+        g["used"] += r["used"]
+        g["due"] += r["stage"] == C.STAGE_DUE
+        g["expired"] += r["stage"] == C.STAGE_EXPIRED
+        if r.get("expiry_date") and (not g["next_expiry"] or r["expiry_date"] < g["next_expiry"]):
+            g["next_expiry"] = r["expiry_date"]
+        g["monthly_cost"] += r.get("monthly_cost") or 0
+    res = sorted(out.values(), key=lambda g: (g["label"] or "").lower())
+    if not ctx.can_see_cost:
+        for g in res:
+            g.pop("monthly_cost")
+    return res
+
+
+def products_view(ctx):
+    """Danh muc cho dropdown (nguoi quan ly) - kem so ban quyen dang tro toi moi phan mem."""
+    A.require(ctx.can_overview, "Danh mục phần mềm dành cho quản lý.")
+    count = {}
+    for x in LR.licenses():
+        if x.product and x.status != C.LS_CANCELLED:
+            count[x.product] = count.get(x.product, 0) + 1
+    rows = [dict(PS.row(p), licenses=count.get(p.name, 0)) for p in LR.products(include_disabled=ctx.can_manage)]
+    return {"rows": rows, "categories": list(C.LICENSE_CATEGORIES), "types": C.LICENSE_TYPE_LABELS,
+            "cycles": C.BILLING_CYCLE_LABELS, "can": ctx.flags()}
+
+
 def licenses_view(ctx, filters=None):
     A.require(ctx.can_overview, "Danh sách bản quyền dành cho quản lý.")
     f = filters or {}
@@ -105,7 +146,8 @@ def licenses_view(ctx, filters=None):
         used[s.license] = used.get(s.license, 0) + 1
     emps = R.employees([x.owner_employee for x in lics])
     rows = [_row(ctx, x, used.get(x.name, 0), today, emps) for x in lics]
-    return {"rows": [r for r in rows if _match(r, f)], "summary": summary(ctx, rows), "can": ctx.flags(),
+    kept = [r for r in rows if _match(r, f)]
+    return {"rows": kept, "groups": groups(ctx, kept), "summary": summary(ctx, rows), "can": ctx.flags(),
             "categories": list(C.LICENSE_CATEGORIES), "cycles": C.BILLING_CYCLE_LABELS,
             "types": C.LICENSE_TYPE_LABELS, "statuses": C.LICENSE_STATUS_LABELS, "stages": C.STAGE_LABELS,
             "lead_days": {"default": C.LICENSE_LEAD_DAYS, "short": C.LICENSE_LEAD_DAYS_SHORT}}

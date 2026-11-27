@@ -278,11 +278,14 @@
       placed[it.key] = 1;
       (it.children || []).forEach(function (c) { placed[c.key] = 1; });
       (spec.children || []).forEach(function (c) { placed[c.key] = 1; });
+      (spec.hide || []).forEach(function (k) { placed[k] = 1; });
       return it;
     }
     function takeAll(arr) { return (arr || []).map(take).filter(function (x) { return x; }); }
     (sec.layout || []).forEach(function (b) {
       var items, more, it;
+      // muc an vi role: da co cho, khong roi xuong "Muc khac" (trung fallback.rail_layout)
+      (b.hide || []).forEach(function (k) { placed[k] = 1; });
       if (b.t === 'todo' || b.t === 'group') {
         items = takeAll(b.items);
         if (items.length) blocks.push({ t: b.t, label: b.label || '', items: items });

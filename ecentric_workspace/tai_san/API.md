@@ -59,8 +59,8 @@ expected_cost?, actual_cost?, result, loaner_asset, overdue(bool)`.
 | `install_component` | component, parent | |
 | `remove_component` | component, to_status?("Broken") | |
 | `save_specs` | asset, rows[{part_type, spec, qty, note}] | thay toàn bộ bảng cấu hình gốc |
-| `create_asset` | data{item_code, asset_name, purchase_date, net_purchase_amount, available_for_use_date?, tag?, serial?, ownership?, monthly_rent?, warranty_until?, supplier?, useful_life_months?, specs?[]} | "+ Nhập thiết bị" |
-| `update_info` | asset, data{…} | trường tiền / khấu hao chỉ finance |
+| `create_asset` | data{item_code (mẫu thiết bị), asset_name? (trống = tên mẫu), purchase_date, net_purchase_amount, available_for_use_date?, tag?, serial?, ownership?, monthly_rent?, warranty_until?, supplier?, useful_life_months?, specs?[]} | "+ Nhập thiết bị" |
+| `update_info` | asset, data{…, item_code?} | trường tiền / khấu hao chỉ finance; `item_code` = đổi mẫu (người quản lý), loại đi theo mẫu |
 | `open_count` | title? | |
 | `confirm_count` | asset, ok(1/0), note? | nhân viên tự xác nhận trong "Tài sản của tôi" |
 | `mark_count` | asset, result(OK\|Wrong Holder\|Wrong Status\|Not Found\|Damaged), actual_holder?, note? | |
@@ -69,11 +69,23 @@ expected_cost?, actual_cost?, result, loaner_asset, overdue(bool)`.
 ### Bản quyền phần mềm (đợt 4)
 | Hàm | Tham số | Ghi chú |
 |---|---|---|
-| `licenses` (GET) | filters{stage: due\|expired\|perpetual, category, status, q} | `rows[]`, `summary{total,due,expired,seats,used,monthly_cost?}`; tiền chỉ cho role xem chi phí |
+| `licenses` (GET) | filters{stage: due\|expired\|perpetual, category, product, status, q} | `rows[]` (có `product`), `groups[]` (gộp theo phần mềm), `summary{total,due,expired,seats,used,monthly_cost?}`; tiền chỉ cho role xem chi phí |
 | `license_detail` (GET) | name | `license`, `seats[]`, `history[]`, `renewals[]`, `suggested_expiry` |
-| `create_license` | data{license_name, license_type, billing_cycle, seats, start_date, expiry_date, owner_employee, department, account, key_location, cost_per_cycle, …} | người quản lý tài sản |
-| `update_license` | name, data | `cost_per_cycle` chỉ finance; `expiry_date` = sửa nhập nhầm (gia hạn dùng `renew_license`) |
+| `create_license` | data{product (bắt buộc), license_type?, billing_cycle, seats, start_date, expiry_date, owner_employee, department, account, key_location, cost_per_cycle, …} | người quản lý tài sản |
+| `update_license` | name, data | tên / hãng / nhóm theo `product` (không sửa riêng); `cost_per_cycle` chỉ finance; `expiry_date` = sửa nhập nhầm (gia hạn dùng `renew_license`) |
 | `renew_license` | name, new_expiry, cost?, note? | hạn mới phải sau hạn cũ và sau hôm nay |
 | `cancel_license` | name, note? | thu hết chỗ |
 | `assign_license` / `revoke_license_seat` | name, employee, note? / seat, note? | không vượt số chỗ, không trùng người, nhân viên phải Active |
 `dashboard.licenses{summary, todo}`, `my_assets.licenses[]` (không có tiền), `board.returns[].licenses[]`.
+
+### Danh mục (27/11/2026)
+Tạo trả về một trong ba: `{product|item, row}` đã tạo · `{exact: row}` đã có đúng tên (bỏ dấu / hoa thường / khoảng trắng) - không tạo · `{similar: [row+score]}` tên gần giống - gọi lại với `force=1` nếu chắc là khác.
+
+| Hàm | Tham số | Ghi chú |
+|---|---|---|
+| `products` (GET) | – | danh mục phần mềm `rows[{name,label,vendor,category,license_type,billing_cycle,disabled,licenses}]` |
+| `create_product` | data{product_name, vendor?, category?, license_type?, billing_cycle?}, force? | người quản lý tài sản |
+| `update_product` | name, data{product_name?, vendor?, category?, license_type?, billing_cycle?, disabled?, note?} | đổi tên / hãng / nhóm cập nhật luôn mọi bản quyền của phần mềm |
+| `merge_product` | source, target | bản quyền của source chuyển sang target; source ngừng dùng (không xoá) |
+| `create_model` | data{item_name, asset_category}, force? | mẫu thiết bị = Item tài sản (is_fixed_asset); mã `EC-<TÊN>`, nhóm hàng / ĐVT chép từ Item cùng loại |
+| `pickers` (GET) | kind = `categories` | loại thiết bị (Asset Category) cho form Thêm mẫu |

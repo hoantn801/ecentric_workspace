@@ -1,0 +1,161 @@
+{
+ "doctype": "DocType",
+ "name": "EC Software Product",
+ "module": "Tai San",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "autoname": "naming_series:",
+ "naming_rule": "By \"Naming Series\" field",
+ "description": "Danh mục phần mềm (mỗi phần mềm một dòng) - bản quyền chọn từ đây để không ghi tên lệch và gộp được.",
+ "title_field": "product_name",
+ "search_fields": "vendor,category",
+ "show_title_field_in_link": 1,
+ "field_order": [
+  "naming_series",
+  "product_name",
+  "name_key",
+  "vendor",
+  "category",
+  "cb1",
+  "license_type",
+  "billing_cycle",
+  "disabled",
+  "note"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Mã",
+   "options": "TS-PM-.####",
+   "default": "TS-PM-.####",
+   "hidden": 1
+  },
+  {
+   "fieldname": "product_name",
+   "fieldtype": "Data",
+   "label": "Tên phần mềm",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1,
+   "bold": 1
+  },
+  {
+   "fieldname": "name_key",
+   "fieldtype": "Data",
+   "label": "Khoá so trùng",
+   "read_only": 1,
+   "hidden": 1,
+   "unique": 1,
+   "description": "Tên bỏ dấu / khoảng trắng / hoa thường - chặn trùng."
+  },
+  {
+   "fieldname": "vendor",
+   "fieldtype": "Data",
+   "label": "Hãng",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "category",
+   "fieldtype": "Select",
+   "label": "Nhóm",
+   "options": "Văn phòng\nThiết kế\nAI\nPhát triển\nBảo mật\nDữ liệu\nKhác",
+   "default": "Khác",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "license_type",
+   "fieldtype": "Select",
+   "label": "Loại mặc định",
+   "options": "Subscription\nPerpetual",
+   "default": "Subscription"
+  },
+  {
+   "fieldname": "billing_cycle",
+   "fieldtype": "Select",
+   "label": "Kỳ thanh toán mặc định",
+   "options": "Monthly\nQuarterly\nYearly\nOther",
+   "default": "Yearly",
+   "depends_on": "eval:doc.license_type==\"Subscription\""
+  },
+  {
+   "fieldname": "disabled",
+   "fieldtype": "Check",
+   "label": "Ngừng dùng"
+  },
+  {
+   "fieldname": "note",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "share": 1
+  },
+  {
+   "role": "EC Asset Manager",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "EC HOF",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "EC Finance",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "EC CEO",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "sort_field": "product_name",
+ "sort_order": "ASC"
+}

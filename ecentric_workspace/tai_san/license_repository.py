@@ -7,10 +7,12 @@ from frappe.utils import now_datetime, nowdate
 from ecentric_workspace.tai_san import constants as C
 from ecentric_workspace.tai_san import repository as R
 
-LICENSE_FIELDS = ["name", "license_name", "vendor", "category", "license_type", "billing_cycle", "status",
+LICENSE_FIELDS = ["name", "product", "license_name", "vendor", "category", "license_type", "billing_cycle", "status",
                   "seats", "start_date", "current_term_start", "expiry_date", "auto_renew", "owner_employee",
                   "department", "account", "key_location", "cost_per_cycle", "supplier_invoice",
                   "alert_stage", "alert_for_expiry", "note", "modified"]
+PRODUCT_FIELDS = ["name", "product_name", "name_key", "vendor", "category", "license_type", "billing_cycle",
+                  "disabled", "note"]
 SEAT_FIELDS = ["name", "license", "employee", "employee_name", "status", "assigned_on", "assigned_by",
                "revoked_on", "revoked_by", "ref_doctype", "ref_name", "note"]
 
@@ -83,6 +85,60 @@ def renewals(name):
     return frappe.get_all(C.LICENSE_RENEWAL_DT, filters={"parent": name, "parenttype": C.LICENSE_DT},
                           fields=["renewed_on", "old_expiry", "new_expiry", "cost", "renewed_by", "note"],
                           order_by="creation desc")
+
+
+# ---------------------------------------------------------- danh muc phan mem ----
+def products(include_disabled=False):
+    f = {} if include_disabled else {"disabled": 0}
+    return frappe.get_all(C.PRODUCT_DT, filters=f, fields=PRODUCT_FIELDS, order_by="product_name asc",
+                          limit_page_length=0)
+
+
+def product(name):
+    rows = frappe.get_all(C.PRODUCT_DT, filters={"name": name}, fields=PRODUCT_FIELDS)
+    if not rows:
+        frappe.throw("Không tìm thấy phần mềm %s." % name, frappe.DoesNotExistError)
+    return rows[0]
+
+
+def product_by_key(key):
+    rows = frappe.get_all(C.PRODUCT_DT, filters={"name_key": key}, fields=PRODUCT_FIELDS)
+    return rows[0] if rows else None
+
+
+def lock_product(name):
+    rows = R.locked_rows("tabEC Software Product", PRODUCT_FIELDS, "name=%s", (name,))
+    if not rows:
+        frappe.throw("Không tìm thấy phần mềm %s." % name, frappe.DoesNotExistError)
+    return rows[0]
+
+
+def insert_product(values):
+    """name_key unique o DB: hai nguoi tao cung ten cung luc -> mot nguoi loi trung, khong sinh hai dong."""
+    doc = frappe.get_doc(dict(values, doctype=C.PRODUCT_DT))
+    doc.flags.ignore_permissions = True
+    doc.insert()
+    return doc.name
+
+
+def set_product(name, values):
+    frappe.db.set_value(C.PRODUCT_DT, name, values, update_modified=True)
+
+
+def license_names_of_product(product_name):
+    return frappe.get_all(C.LICENSE_DT, filters={"product": product_name}, pluck="name", limit_page_length=0)
+
+
+def licenses_without_product():
+    return frappe.get_all(C.LICENSE_DT, filters={"product": ["is", "not set"]}, fields=LICENSE_FIELDS,
+                          limit_page_length=0)
+
+
+def add_product_log(name, text, user):
+    doc = frappe.get_doc({"doctype": "Comment", "comment_type": "Info", "reference_doctype": C.PRODUCT_DT,
+                          "reference_name": name, "content": text[:2000], "comment_email": user})
+    doc.flags.ignore_permissions = True
+    doc.insert()
 
 
 # ------------------------------------------------------------------- cho ----

@@ -12,7 +12,7 @@ from frappe.utils import now_datetime
 
 from ecentric_workspace.tai_san import constants as C
 
-ASSET_FIELDS = ["name", "asset_name", "item_code", "asset_category", "company", "location",
+ASSET_FIELDS = ["name", "asset_name", "item_code", "item_name", "asset_category", "company", "location",
                 "purchase_date", "available_for_use_date", "net_purchase_amount", "custodian",
                 "department", "docstatus", "creation",
                 C.OPS_STATUS_FIELD, C.TAG_FIELD, C.SERIAL_FIELD, C.INSTALLED_ON_FIELD,
@@ -122,7 +122,22 @@ def replace_specs(asset_name, rows):
 
 def fixed_asset_items():
     return frappe.get_all(C.ITEM, filters={"is_fixed_asset": 1, "disabled": 0},
-                          fields=["name", "item_name", "asset_category"], order_by="item_name")
+                          fields=["name", "item_name", "asset_category", "item_group", "stock_uom"],
+                          order_by="item_name")
+
+
+def item_codes():
+    """Moi ma Item (ke ca ngung dung) - de sinh ma mau moi khong trung."""
+    return set(frappe.get_all(C.ITEM, pluck="name", limit_page_length=0))
+
+
+def insert_item(values):
+    """Mau thiet bi moi = Item goc ERPNext (is_fixed_asset). Nguoi quan ly tai san khong co quyen Item tren
+    Desk -> chi tao qua model_service (da kiem quyen + chan trung ten)."""
+    doc = frappe.get_doc(dict(values, doctype=C.ITEM))
+    doc.flags.ignore_permissions = True
+    doc.insert()
+    return doc.name
 
 
 def insert_asset(values):

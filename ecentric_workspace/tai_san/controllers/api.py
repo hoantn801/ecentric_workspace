@@ -16,6 +16,8 @@ from ecentric_workspace.tai_san import count_service as KK
 from ecentric_workspace.tai_san import flows as F
 from ecentric_workspace.tai_san import license_service as LS
 from ecentric_workspace.tai_san import license_views as LV
+from ecentric_workspace.tai_san import model_service as MS
+from ecentric_workspace.tai_san import product_service as PS
 from ecentric_workspace.tai_san import lifecycle as L
 from ecentric_workspace.tai_san import repair_service as RS
 from ecentric_workspace.tai_san import repository as R
@@ -253,3 +255,29 @@ def assign_license(name, employee, note=None):
 @frappe.whitelist(methods=["POST"])
 def revoke_license_seat(seat, note=None):
     return _run(lambda c: LS.revoke(c, seat, note))
+
+
+# ------------------------------------------------- danh muc (27/11/2026) ----
+@frappe.whitelist(methods=["GET"])
+def products():
+    return _run(lambda c: LV.products_view(c))
+
+
+@frappe.whitelist(methods=["POST"])
+def create_product(data, force=0):
+    return _run(lambda c: PS.create_product(c, _json(data, {}), _bool(force)))
+
+
+@frappe.whitelist(methods=["POST"])
+def update_product(name, data):
+    return _run(lambda c: PS.update_product(c, name, _json(data, {})))
+
+
+@frappe.whitelist(methods=["POST"])
+def merge_product(source, target):
+    return _run(lambda c: PS.merge_product(c, source, target))
+
+
+@frappe.whitelist(methods=["POST"])
+def create_model(data, force=0):
+    return _run(lambda c: MS.create_model(c, _json(data, {}), _bool(force)))

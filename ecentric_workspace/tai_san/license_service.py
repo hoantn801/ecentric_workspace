@@ -17,7 +17,8 @@ from ecentric_workspace.tai_san import lifecycle as L
 from ecentric_workspace.tai_san import repository as R
 from ecentric_workspace.tai_san import service as S
 
-INFO_FIELDS = ("license_name", "vendor", "category", "billing_cycle", "seats", "start_date", "auto_renew",
+#: Ten / hang / nhom KHONG sua rieng tren ban quyen - lay theo phan mem (product_service, 27/11/2026).
+INFO_FIELDS = ("billing_cycle", "seats", "start_date", "auto_renew",
                "owner_employee", "department", "account", "key_location", "supplier_invoice", "note")
 FINANCE_FIELDS = ("cost_per_cycle",)
 MAX_SEATS = 10000
@@ -49,8 +50,6 @@ def _clean(data, ctx, creating):
         if seats < 1 or seats > MAX_SEATS:
             raise L.TransitionError("Số chỗ từ 1 đến %d." % MAX_SEATS)
         v["seats"] = seats
-    if v.get("category") and v["category"] not in C.LICENSE_CATEGORIES:
-        raise L.TransitionError("Nhóm bản quyền không hợp lệ.")
     if v.get("billing_cycle") and v["billing_cycle"] not in C.BILLING_CYCLES:
         raise L.TransitionError("Kỳ thanh toán không hợp lệ.")
     if "auto_renew" in v:
@@ -59,8 +58,6 @@ def _clean(data, ctx, creating):
         S.require_active_employee(v["owner_employee"])
     if v.get("department") and not LR.department_exists(v["department"]):
         raise L.TransitionError("Không có phòng ban %s." % v["department"])
-    if "license_name" in v and not v["license_name"]:
-        raise L.TransitionError("Tên bản quyền không được để trống.")
     if "start_date" in v and not v["start_date"]:
         v.pop("start_date")          # de trong = giu nguyen (dau ky dung de tinh moc nhac)
     if "seats" in data and not v.get("seats"):
@@ -68,20 +65,29 @@ def _clean(data, ctx, creating):
     return v
 
 
+def _product_values(product):
+    """Ten / hang / nhom cua ban quyen = cua phan mem trong danh muc."""
+    if not product:
+        raise L.TransitionError("Chọn phần mềm trong danh mục (hoặc Thêm phần mềm mới).")
+    p = LR.product(product)
+    if p.disabled:
+        raise L.TransitionError("Phần mềm %s đang ngừng dùng - chọn phần mềm khác." % p.product_name)
+    return p, {"product": p.name, "license_name": p.product_name, "vendor": p.vendor, "category": p.category}
+
+
 def create(ctx, data):
     A.require(ctx.can_manage, "Chỉ người quản lý tài sản nhập bản quyền.")
-    if not (data.get("license_name") or "").strip():
-        raise L.TransitionError("Nhập tên bản quyền.")
-    ltype = data.get("license_type") or C.LT_SUBSCRIPTION
+    p, pv = _product_values(data.get("product"))
+    ltype = data.get("license_type") or p.license_type or C.LT_SUBSCRIPTION
     if ltype not in C.LICENSE_TYPES:
         raise L.TransitionError("Loại bản quyền không hợp lệ.")
     v = _clean(data, ctx, creating=True)
-    v.update({"license_type": ltype, "status": C.LS_ACTIVE, "seats": v.get("seats") or 1,
-              "category": v.get("category") or "Khác"})
+    v.update(pv)
+    v.update({"license_type": ltype, "status": C.LS_ACTIVE, "seats": v.get("seats") or 1})
     if ltype == C.LT_SUBSCRIPTION:
         if not data.get("expiry_date"):
             raise L.TransitionError("Thuê bao cần ngày hết hạn.")
-        v["billing_cycle"] = v.get("billing_cycle") or C.CY_YEARLY
+        v["billing_cycle"] = v.get("billing_cycle") or p.billing_cycle or C.CY_YEARLY
         v["expiry_date"] = str(getdate(data["expiry_date"]))
         v["start_date"] = v.get("start_date") or nowdate()
         if getdate(v["expiry_date"]) <= getdate(v["start_date"]):
@@ -96,7 +102,11 @@ def update(ctx, name, data):
     A.require(ctx.can_manage or ctx.can_finance)
     if any(f in data for f in INFO_FIELDS):
         A.require(ctx.can_manage, "Chỉ người quản lý tài sản sửa thông tin bản quyền.")
+    if "product" in data:
+        A.require(ctx.can_manage, "Chỉ người quản lý tài sản đổi phần mềm của bản quyền.")
     v = _clean(data, ctx, creating=False)
+    if "product" in data:
+        v.update(_product_values(data["product"])[1])
     lic = LR.lock_license(name)
     if v.get("start_date") and not LR.renewals(name):
         # Chua gia han lan nao: ngay bat dau chinh la dau ky (moc nhac goi ngan han tinh tu day).

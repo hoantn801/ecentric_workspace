@@ -171,6 +171,15 @@ def update_info(ctx, asset_name, data):
     for f in INFO_FIELDS:
         if f in data and ctx.can_manage:
             values[f] = data[f] or None
+    if data.get("item_code") and ctx.can_manage:
+        # Doi mau thiet bi (sap lai 54 may nhap tay ten lech): loai di theo mau (Asset dang Draft).
+        from ecentric_workspace.tai_san import model_service as MS
+        item = MS.model_item(data["item_code"])
+        if not item:
+            raise L.TransitionError("Mẫu thiết bị không hợp lệ.")
+        values.update({"item_code": item.name, "item_name": item.item_name or item.name})
+        if item.asset_category:
+            values["asset_category"] = item.asset_category
     for f in FINANCE_FIELDS:
         if f in data:
             A.require(ctx.can_finance, "Chỉ Finance / HOF sửa nguyên giá và khấu hao.")

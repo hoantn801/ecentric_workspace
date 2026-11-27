@@ -206,6 +206,74 @@
     });
   }
 
+  // ------------------------------------------------- mau thiet bi (danh muc) --
+  // Mau = Item tai san goc ERPNext; them moi qua create_model (chan trung ten, hoi khi giong ten).
+  function modelForm(name) {
+    return new Promise(function (resolve) {
+      T.modal("Thêm mẫu thiết bị",
+        '<div class="ts-form"><label class="ts-lbl ts-full">Tên mẫu *<input class="ts-in" name="item_name" maxlength="140" placeholder="Vd: Dell Latitude 5420" value="' + esc(name || "") + '"></label>' +
+        '<label class="ts-lbl ts-full">Loại thiết bị *<select class="ts-sel" name="asset_category"><option value="">Đang tải…</option></select></label></div>' +
+        '<div class="ts-note">Ghi đủ hãng + dòng máy, không ghi cấu hình riêng của từng máy (cấu hình nhập ở bước sau). Loại quyết định thời gian khấu hao mặc định.</div>',
+        '<button type="button" class="ts-btn" data-close>Huỷ</button><button type="button" class="ts-btn ts-primary" data-ok>Thêm</button>',
+        function (el, close) {
+          var sel = el.querySelector('[name="asset_category"]');
+          T.pickList("categories").then(function (rows) {
+            sel.innerHTML = '<option value="">Chọn loại…</option>' + rows.map(function (r) {
+              return '<option value="' + esc(r.name) + '">' + esc(r.label) + (r.component ? " (linh kiện)" : "") + "</option>";
+            }).join("");
+          }, function (e) { sel.innerHTML = '<option value="">' + esc(T.msg(e)) + "</option>"; });
+          el.querySelector("[data-close]").addEventListener("click", function () { resolve(null); });
+          el.querySelector("[data-ok]").addEventListener("click", function (ev) {
+            var btn = ev.currentTarget, data = { item_name: el.querySelector('[name="item_name"]').value.trim(), asset_category: sel.value };
+            if (!data.item_name) { T.toast("Nhập tên mẫu.", true); return; }
+            if (!data.asset_category) { T.toast("Chọn loại thiết bị.", true); return; }
+            T.busy(btn, true);
+            T.catalogCreate("create_model", data, "mẫu này").then(function (r) {
+              T.busy(btn, false);
+              if (!r) return;
+              T.pickList("items", null, true);
+              close(); T.toast("Đã có mẫu " + r.label + "."); resolve(r);
+            }, function (e) { T.busy(btn, false); T.toast(T.msg(e), true); });
+          });
+        });
+    });
+  }
+
+  // O chon mau thiet bi (dropdown + Them mau moi). -> Promise(handle {value(), row()})
+  function modelPick(host, selected, onPick) {
+    host.innerHTML = T.skel(1);
+    return T.pickList("items").then(function (rows) {
+      return T.catalogPick(host, { rows: rows.slice(), selected: selected || null, placeholder: "Chọn mẫu thiết bị…",
+        label: function (r) { return r.label || r.name; }, sub: function (r) { return r.category; },
+        addLabel: "Thêm mẫu mới", onAdd: modelForm, onPick: onPick });
+    }, function (e) { host.innerHTML = T.errBox(e); return null; });
+  }
+
+  // Doi mau cho mot thiet bi (sap lai may nhap ten lech). Loai di theo mau (server).
+  function changeModel(asset) {
+    return new Promise(function (resolve) {
+      var pick = null;
+      T.modal("Đổi mẫu · " + (asset.tag || asset.name),
+        '<div class="ts-lbl">Mẫu thiết bị<div data-mp></div></div>' +
+        '<label class="ts-ck"><input type="checkbox" data-rename checked> Đặt tên hiển thị theo tên mẫu (hiện: ' + esc(asset.asset_name || "—") + ")</label>" +
+        '<div class="ts-note">Loại thiết bị đổi theo mẫu. Có ghi vào Lịch sử của máy.</div>',
+        '<button type="button" class="ts-btn" data-close>Huỷ</button><button type="button" class="ts-btn ts-primary" data-ok>Lưu</button>',
+        function (el, close) {
+          modelPick(el.querySelector("[data-mp]"), asset.model).then(function (h) { pick = h; });
+          el.querySelector("[data-close]").addEventListener("click", function () { resolve(null); });
+          el.querySelector("[data-ok]").addEventListener("click", function (ev) {
+            var btn = ev.currentTarget, k = pick && pick.value(), r = pick && pick.row();
+            if (!k) { T.toast("Chọn mẫu.", true); return; }
+            var data = { item_code: k };
+            if (el.querySelector("[data-rename]").checked && r) data.asset_name = r.label || k;
+            T.busy(btn, true);
+            T.post("update_info", { asset: asset.name, data: JSON.stringify(data) }).then(function (res) { close(); T.toast("Đã đổi mẫu."); resolve(res || true); },
+              function (e) { T.busy(btn, false); T.toast(T.msg(e), true); });
+          });
+        });
+    });
+  }
+
   // Nhap thiet bi moi (create_asset).
   // can: d.can cua trang (server). Khau hao / tien thue chi Finance dat - nguoi khac de theo loai.
   function createAsset(can) {
@@ -213,8 +281,9 @@
     return new Promise(function (resolve) {
       var today = new Date().toISOString().slice(0, 10);
       T.modal("Nhập thiết bị",
-        '<div><div class="ts-lbl" style="margin-bottom:6px">Mã hàng (Item tài sản)</div><div data-item>' + T.skel(3) + "</div></div>" +
-        '<div class="ts-form"><label class="ts-lbl ts-full">Tên thiết bị<input class="ts-in" name="asset_name" maxlength="140" required></label>' +
+        '<div class="ts-form"><div class="ts-lbl ts-full">Mẫu thiết bị *<div data-item></div>' +
+        '<span class="ts-note" style="font-weight:400">Chọn từ danh mục để cùng một dòng máy luôn một tên. Chưa có thì bấm Thêm mẫu mới.</span></div>' +
+        '<label class="ts-lbl ts-full">Tên hiển thị<input class="ts-in" name="asset_name" maxlength="140" placeholder="Trống = theo tên mẫu"></label>' +
         '<label class="ts-lbl">Tag dán trên máy<input class="ts-in" name="tag" placeholder="EC202600001"></label>' +
         '<label class="ts-lbl">Serial<input class="ts-in" name="serial"></label>' +
         '<label class="ts-lbl">Ngày mua<input class="ts-in" type="date" name="purchase_date" value="' + today + '"></label>' +
@@ -235,16 +304,11 @@
             }).join("");
           }
           specRows(["CPU", "RAM", "Ổ cứng", "Màn hình"]);
-          T.pickList("items").then(function (rows) {
-            itemPick = T.picker(el.querySelector("[data-item]"), rows, { placeholder: "Tìm mã hàng…", label: function (r) { return r.label || r.name; },
-              sub: function (r) { return r.name + (r.category ? " · " + r.category : ""); },
-              onPick: function (k, r) {
-                var n = el.querySelector('[name="asset_name"]'); if (!n.value && r) n.value = r.label || r.name;
-                var c = String((r && r.category) || "").toUpperCase();
-                specRows(c === "PC" ? ["CPU", "Mainboard", "RAM", "SSD", "GPU", "PSU"] : c === "MONITOR" ? ["Kích thước", "Độ phân giải", "Cổng kết nối"] :
-                  c === "PRINTER" ? ["Loại máy", "Kết nối"] : ["CPU", "RAM", "Ổ cứng", "Màn hình"]);
-              } });
-          }, function (e) { el.querySelector("[data-item]").innerHTML = T.errBox(e); });
+          modelPick(el.querySelector("[data-item]"), null, function (k, r) {
+            var c = String((r && r.category) || "").toUpperCase();
+            specRows(c === "PC" ? ["CPU", "Mainboard", "RAM", "SSD", "GPU", "PSU"] : c === "MONITOR" ? ["Kích thước", "Độ phân giải", "Cổng kết nối"] :
+              c === "PRINTER" ? ["Loại máy", "Kết nối"] : ["CPU", "RAM", "Ổ cứng", "Màn hình"]);
+          }).then(function (h) { itemPick = h; });
           var own = el.querySelector('[name="ownership"]');
           own.addEventListener("change", function () { var r = el.querySelector("[data-rent]"); if (r) r.hidden = own.value === "Owned"; });
           el.querySelector("[data-close]").addEventListener("click", function () { resolve(null); });
@@ -257,7 +321,7 @@
               warranty_until: v("warranty_until"), ownership: own.value, monthly_rent: String(v("monthly_rent")).replace(/[^\d]/g, ""),
               specs: T.qsa(specHost, "[data-part]").filter(function (i) { return i.value.trim(); }).map(function (i) {
                 return { part_type: i.getAttribute("data-part"), spec: i.value.trim(), qty: 1 }; }) };
-            if (!data.item_code) { T.toast("Chọn mã hàng.", true); return; }
+            if (!data.item_code) { T.toast("Chọn mẫu thiết bị.", true); return; }
             T.busy(btn, true);
             T.post("create_asset", { data: data }).then(function (r) { close(); T.toast("Đã nhập kho."); resolve(r); },
               function (e) { T.busy(btn, false); T.toast(T.msg(e), true); });
@@ -266,5 +330,5 @@
     });
   }
 
-  window.ECTsOps = { transition: transition, openRepair: openRepair, closeRepair: closeRepair, allocate: allocate, createAsset: createAsset, condSelect: condSelect };
+  window.ECTsOps = { changeModel: changeModel, modelPick: modelPick, transition: transition, openRepair: openRepair, closeRepair: closeRepair, allocate: allocate, createAsset: createAsset, condSelect: condSelect };
 })();

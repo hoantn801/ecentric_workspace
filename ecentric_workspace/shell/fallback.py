@@ -290,10 +290,12 @@ def rail_layout(sec, context_name, ctx_items, pool):
             placed.add(c["key"])
         for c in spec.get("children") or []:
             placed.add(c["key"])
+        placed.update(spec.get("hide") or [])
         return it
 
     for b in sec.get("layout") or []:
         t = b["t"]
+        placed.update(b.get("hide") or [])      # muc an vi role: da co cho, khong roi xuong "Muc khac"
         if t in ("todo", "group"):
             items = [x for x in (take(i) for i in b.get("items") or []) if x]
             if items:

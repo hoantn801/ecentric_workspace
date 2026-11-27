@@ -872,10 +872,19 @@ def _layout_for(sec_key, roles):
         need = it.get("roles")
         return not need or (have is not None and bool(have & set(need)))
 
+    def keys_of(it):
+        return [it["key"]] + [k for c in it.get("children") or [] for k in keys_of(c)]
+
     def clean(it):
         out = {k: v for k, v in it.items() if k not in ("roles", "children")}
         if it.get("children"):
             out["children"] = [clean(c) for c in it["children"] if ok(c)]
+            # Muc con bi an vi role van tinh la DA CO CHO (railLayout danh dau "placed"): neu khong,
+            # ban ve chung (roles=None) day chung xuong "Muc khac" roi ban theo role ve lai dung cho
+            # -> menu nhay khi tai trang (27/11/2026, /tai-san).
+            hide = [k for c in it["children"] if not ok(c) for k in keys_of(c)]
+            if hide:
+                out["hide"] = hide
         return out
 
     blocks = []
@@ -883,6 +892,9 @@ def _layout_for(sec_key, roles):
         nb = {k: v for k, v in b.items() if k not in ("items", "item", "more")}
         if "items" in b:
             nb["items"] = [clean(i) for i in b["items"] if ok(i)]
+            hide = [k for i in b["items"] if not ok(i) for k in keys_of(i)]
+            if hide:
+                nb["hide"] = hide
         if "item" in b:
             if not ok(b["item"]):
                 continue

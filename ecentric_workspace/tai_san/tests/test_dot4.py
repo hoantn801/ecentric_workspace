@@ -63,9 +63,48 @@ class TestLicenseRules(unittest.TestCase):
 
 
 class FakeLR:
-    def __init__(self, lics=None):
+    def __init__(self, lics=None, products=None):
         self.lics = {x["name"]: Row(x) for x in (lics or [])}
         self.seats_, self.ren, self.logs = {}, [], []
+        self.prods = {p["name"]: Row(dict({"vendor": None, "category": "Khác", "license_type": C.LT_SUBSCRIPTION,
+                                          "billing_cycle": C.CY_YEARLY, "disabled": 0, "note": None}, **p))
+                      for p in (products or [])}
+        self.plogs = []
+
+    # --- danh muc phan mem ---
+    def products(self, include_disabled=False):
+        return [Row(p) for p in self.prods.values() if include_disabled or not p["disabled"]]
+
+    def product(self, name):
+        if name not in self.prods:
+            raise _fk.DoesNotExistError(name)
+        return Row(self.prods[name])
+
+    def lock_product(self, name):
+        return self.product(name)
+
+    def product_by_key(self, key):
+        return next((Row(p) for p in self.prods.values() if p["name_key"] == key), None)
+
+    def insert_product(self, values):
+        if any(p["name_key"] == values["name_key"] for p in self.prods.values()):
+            raise ValueError("Duplicate entry name_key")
+        name = "PM%d" % (len(self.prods) + 1)
+        self.prods[name] = Row(dict({"vendor": None, "disabled": 0, "note": None, "billing_cycle": None},
+                                    **values, name=name))
+        return name
+
+    def set_product(self, name, values):
+        self.prods[name].update(values)
+
+    def license_names_of_product(self, product_name):
+        return [n for n, x in self.lics.items() if x.get("product") == product_name]
+
+    def licenses_without_product(self):
+        return [Row(x) for x in self.lics.values() if not x.get("product")]
+
+    def add_product_log(self, name, text, user):
+        self.plogs.append((name, text))
 
     def licenses(self, filters=None):
         rows = list(self.lics.values())
@@ -153,7 +192,11 @@ class LicenseCase(unittest.TestCase):
             "E3": {"name": "E3", "employee_name": "Chi", "department": "Data", "user_id": "c@x", "status": "Left"}})
         self.saved = _install(self.repo)
         from ecentric_workspace.tai_san import license_repository as LRm
-        self.lr = FakeLR([lic()])
+        self.lr = FakeLR([lic(product="PM1")], [{"name": "PM1", "product_name": "Microsoft 365",
+                                                 "name_key": "microsoft365", "category": "Văn phòng"},
+                                                {"name": "PM2", "product_name": "Adobe CC", "name_key": "adobecc",
+                                                 "category": "Thiết kế", "vendor": "Adobe",
+                                                 "billing_cycle": C.CY_MONTHLY}])
         self.lr_saved = {}
         for n in dir(FakeLR):
             if not n.startswith("_") and hasattr(LRm, n):
@@ -173,11 +216,14 @@ class LicenseCase(unittest.TestCase):
 class TestLicenseService(LicenseCase):
     def test_create_subscription_needs_expiry(self):
         with self.assertRaises(L.TransitionError):
-            self.LS.create(MGR, {"license_name": "Adobe CC", "license_type": C.LT_SUBSCRIPTION})
-        r = self.LS.create(MGR, {"license_name": "Adobe CC", "expiry_date": "2027-11-26", "seats": 3,
-                                 "billing_cycle": C.CY_MONTHLY, "cost_per_cycle": 900_000})
+            self.LS.create(MGR, {"product": "PM2", "license_type": C.LT_SUBSCRIPTION})
+        r = self.LS.create(MGR, {"product": "PM2", "expiry_date": "2027-11-26", "seats": 3,
+                                 "cost_per_cycle": 900_000})
         x = self.lr.lics[r["license"]]
         self.assertEqual((x.seats, x.status, x.current_term_start), (3, C.LS_ACTIVE, x.start_date))
+        # ten / hang / nhom / ky lay theo phan mem trong danh muc
+        self.assertEqual((x.license_name, x.vendor, x.category, x.billing_cycle),
+                         ("Adobe CC", "Adobe", "Thiết kế", C.CY_MONTHLY))
 
     def test_staff_cannot_create(self):
         with self.assertRaises(A.AccessDenied):
@@ -217,7 +263,7 @@ class TestLicenseService(LicenseCase):
         x = self.lr.lics["BQ1"]
         self.assertEqual((x.expiry_date, x.alert_stage), ("2026-12-25", None))
         with self.assertRaises(L.TransitionError):
-            self.LS.update(MGR, "BQ1", {"license_name": "  "})
+            self.LS.update(MGR, "BQ1", {"product": ""})                    # bo trong phan mem
         self.LS.update(MGR, "BQ1", {"start_date": ""})                      # de trong = giu nguyen
         self.assertEqual(self.lr.lics["BQ1"]["start_date"], "2025-12-20")
 
