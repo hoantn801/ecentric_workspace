@@ -275,6 +275,11 @@
 .pmq-btn--warn{border-color:#e7b4b4;background:var(--q-late-50);color:var(--q-late)}
 .pmq-btn--warn:hover:not(:disabled){border-color:var(--q-late);background:#fbe4e4}
 .pmq-row .pmq-ac{display:flex;gap:2px;justify-content:flex-end;opacity:0;transition:opacity .12s var(--q-ease)}
+/* hotfix 24 (PO 27/11): cột thao tác 92px chứa 2 nút có chữ ("Bắt đầu" + "Xin dời hạn") -> tràn đè lên tên người giao.
+   Trên dòng chỉ còn biểu tượng (chữ vẫn có cho trình đọc màn hình + tooltip title); bản đầy đủ nằm trong cửa sổ chi tiết. */
+.pmq-row .pmq-ac{min-width:0;overflow:hidden}
+.pmq-row .pmq-ac .pmq-btn{width:32px;min-width:32px;padding:0}
+.pmq-row .pmq-ac .pmq-btn>span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .pmq-row:hover .pmq-ac,.pmq-row:focus-within .pmq-ac,.pmq-row--sel .pmq-ac{opacity:1}
 @media (hover:none){.pmq-row .pmq-ac{opacity:1}}
 

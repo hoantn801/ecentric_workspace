@@ -285,6 +285,9 @@ def detail(name):
     health, health_text = health_of(risk, level, total, doc.get("status"))
     project = doc.as_dict()
     project["color_key"] = pmcolors.color_for(project)
+    # hotfix 24: đầu chi tiết dự án hiện TÊN quản lý (trước hiện email)
+    if project.get("ec_manager"):
+        project["ec_manager_name"] = frappe.db.get_value("User", project.get("ec_manager"), "full_name") or None
     manage = can_manage_project(project, user)
     return {"project": project, "total": total, "risk": risk,
             "risk_level": level, "progress": progress,
