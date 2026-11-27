@@ -114,12 +114,16 @@
       dot = '<span data-left-min="remaining_sec"></span>';
       title = 'Bạn đang dùng · còn <span class="st-num" data-left="remaining_sec"></span>';
       sub = esc(me.started) + ' → ' + esc(me.ends) + ' · ' +
-        (late && !me.extend_reason ? "Không ai chờ, gia hạn thêm " + t.extend + " phút được." :
+        (me.connected ? esc(t.title) + " đang mở ở một tab khác của bạn, chuyển sang tab đó để dùng tiếp." :
+         late && !me.extend_reason ? "Không ai chờ, gia hạn thêm " + t.extend + " phút được." :
          "Lỡ đóng tab thì bấm Mở lại, lượt vẫn tính. Để yên " + t.idle + " phút, lượt tự kết thúc.");
       bar = '<div class="st-bar"><span data-bar="' + total + '"></span></div>';
       acts = btn("leave", "Kết thúc lượt", "st-btn--danger", "Bấm lần nữa để kết thúc") +
         (me.extend_reason ? "" : btn("extend", "Gia hạn " + t.extend + " phút")) +
-        btn("open", ICON_OPEN + "Mở lại " + esc(t.title), "st-btn--primary");
+        (me.connected
+          // Tab cu con mo: mo tab moi se NGAT tab cu -> hoi lai mot lan (nut khong con la nut chinh).
+          ? btn("open", ICON_OPEN + "Mở tab mới", "", "Tab đang mở sẽ bị ngắt · bấm lần nữa")
+          : btn("open", ICON_OPEN + "Mở lại " + esc(t.title), "st-btn--primary"));
     } else if (me.status === "Ready") {
       tone = "ok";
       dot = '<span data-left="ready_left_sec"></span>';
@@ -384,7 +388,7 @@
 
   async function act(btn) {
     var a = btn.getAttribute("data-act");
-    if (a === "open") return openTool(btn);
+    if (a === "open") { if (armed(btn)) openTool(btn); return; }
     if (a === "fpage") { filePage = Math.max(1, +btn.getAttribute("data-page") || 1); render(); return; }
     if (a === "ffilter") { fileFilter = btn.getAttribute("data-f") || "all"; filePage = 1; render(); return; }
     if (a === "stats") { if (window.ECStStats) window.ECStStats.load(+btn.getAttribute("data-days") || 30); return; }

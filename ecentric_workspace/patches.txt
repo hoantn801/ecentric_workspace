@@ -548,6 +548,7 @@ ecentric_workspace.shared_tools.patches.p005_resync_page
 ecentric_workspace.shared_tools.patches.p006_resync_page
 ecentric_workspace.shared_tools.patches.p007_resync_page
 ecentric_workspace.shared_tools.patches.p008_resync_page
+ecentric_workspace.shared_tools.patches.p009_resync_page
 ecentric_workspace.tai_san.patches.p004_danh_muc
 ecentric_workspace.approval_center.patches.p579_tai_san_danh_muc
 ecentric_workspace.approval_center.patches.p580_tai_san_giao_dien
