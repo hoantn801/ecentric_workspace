@@ -35,7 +35,7 @@ class _Doc(dict):
         return self
 
 
-def _package(files_by_name, dsf_row=None, other_refs=()):
+def _package(files_by_name, dsf_row=None, other_refs=(), in_package=None):
     fk = types.ModuleType("frappe"); fk._ = lambda s: s
     fk.PermissionError = type("PermissionError", (Exception,), {})
     fk.thrown = []; fk.inserted = []; fk.deleted = []
@@ -54,6 +54,12 @@ def _package(files_by_name, dsf_row=None, other_refs=()):
             if dt == "EC Digital Signature Profile":
                 return types.SimpleNamespace(max_files=10, max_file_mb=10, require_signable_pdf=0)
             if dt == "EC Digital Signature File":
+                if isinstance(name, dict):
+                    # add_file (27/11): dong DA CO cua cung File trong goi (doc co khoa)
+                    hit = (in_package or {}).get((name.get("package"), name.get("file")))
+                    if hit is None:
+                        return None
+                    return types.SimpleNamespace(**hit) if as_dict else hit["name"]
                 return "PKG-1"
             return None
 
@@ -124,6 +130,35 @@ class TestLinkNotCopy(unittest.TestCase):
         dsf = m._fk.inserted[0]
         self.assertEqual(dsf["file"], "F-orig")
         self.assertEqual(dsf["file_is_linked"], 1)
+
+    def test_cung_File_da_co_trong_goi_thi_tra_dong_cu_khong_tao_them(self):
+        """27/11/2026 EC-PAYR-2026-00821: hai lan luu o ky -> hai DSF cung File."""
+        m = _package(FILES, dsf_row={"name": "DSF-1", "file": "F-orig"},
+                     in_package={("PKG-1", "F-orig"): {"name": "DSF-1", "requires_signature": 1,
+                                                        "is_supporting_document": 0}})
+        row = _run(m, lambda: m.add_file("PKG-1", "a.pdf", b"%PDF", requires_signature=1,
+                                         source_file="F-orig"))
+        self.assertEqual(row.name, "DSF-1")
+        self.assertEqual(m._fk.inserted, [], "khong duoc tao DSF thu hai")
+
+    def test_cung_File_khac_co_thi_dua_co_ve_dung_yeu_cau(self):
+        """QC 27/11: dong cu la 'bo chung tu', lan nay yeu cau can ky -> set_file_flags."""
+        m = _package(FILES, dsf_row={"name": "DSF-1", "file": "F-orig"},
+                     in_package={("PKG-1", "F-orig"): {"name": "DSF-1", "requires_signature": 0,
+                                                        "is_supporting_document": 1}})
+        calls = []
+        m.set_file_flags = lambda name, **kw: calls.append((name, kw))
+        _run(m, lambda: m.add_file("PKG-1", "a.pdf", b"%PDF", requires_signature=1,
+                                   source_file="F-orig"))
+        self.assertEqual(calls, [("DSF-1", {"requires_signature": 1,
+                                            "is_supporting_document": 0})])
+        self.assertEqual(m._fk.inserted, [])
+
+    def test_khong_source_file_khong_gop(self):
+        """Tai len moi (khong source_file) giu nhu cu - fixture tai cung noi dung nhieu lan."""
+        m = _package(FILES, in_package={("PKG-1", None): {"name": "DSF-1"}})
+        _run(m, lambda: m.add_file("PKG-1", "a.pdf", b"%PDF", requires_signature=1))
+        self.assertIn("EC Digital Signature File", [d["doctype"] for d in m._fk.inserted])
 
     def test_khong_source_file_thi_van_sao_chep_nhu_cu(self):
         m = _package(FILES)

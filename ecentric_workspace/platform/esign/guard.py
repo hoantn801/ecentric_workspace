@@ -81,10 +81,12 @@ def _profile_rows(reference_doctype, approval_type, business_name=None):
     rows = frappe.get_all(PROFILE, filters={"business_doctype": reference_doctype,
                                             "approval_type": approval_type, "enabled": 1},
                           fields=["name", "provider", "environment", "selector_field",
-                                  "selector_value"],
+                                  "selector_value", "trust_portal_transitions"],
                           order_by="name asc", limit_page_length=20)
-    if not business_name or not any(r.get("selector_field") for r in rows):
+    if not business_name:
         return rows
+    if not any(r.get("selector_field") for r in rows):
+        return _drop_trust_if_submitted_without_package(rows, reference_doctype, business_name)
     frozen = _frozen_profile(reference_doctype, business_name)
     if frozen:
         # Ho so cua goi da tat thi coi nhu tat (y het truoc PR: tat ho so = khong ky) - KHONG
@@ -102,9 +104,35 @@ def _profile_rows(reference_doctype, approval_type, business_name=None):
         have = values[field]
         if have not in (None, "") and str(have) == str(r.get("selector_value") or ""):
             picked.append(r)
-    if picked:
-        return picked
-    return [r for r in rows if not (r.get("selector_field") or "").strip()]
+    out = picked or [r for r in rows if not (r.get("selector_field") or "").strip()]
+    return _drop_trust_if_submitted_without_package(out, reference_doctype, business_name)
+
+
+def _drop_trust_if_submitted_without_package(rows, reference_doctype, business_name):
+    """Phieu GUI DUYET TRUOC khi bat ho so (27/11/2026, EC-CTR-2026-00120/00125/00130): khong co
+    goi tai lieu nao -> khong co gi de gui len cong. Ho so "lay buoc tu cong" ma van ap vao thi
+    cap cong dau tien bao mai "ERP dang gui phieu sang cong" va khong ai duyet duoc. Phieu nhu
+    vay chay luong ERP cu (khong ky so) - y het luc no duoc gui. Ho so khong "lay buoc tu cong"
+    (DNTT) khong them truy van nao."""
+    if not any(int(r.get("trust_portal_transitions") or 0) for r in rows):
+        return rows
+    if not _submitted_without_package(reference_doctype, business_name):
+        return rows
+    return [r for r in rows if not int(r.get("trust_portal_transitions") or 0)]
+
+
+def _submitted_without_package(reference_doctype, business_name):
+    """Phieu DA gui duyet (co EC Approval Request) ma CHUA TUNG co goi ky so nao (moi trang
+    thai, ke ca Draft / Cancelled). Phieu moi luon co goi Draft truoc khi gui (tai tep +
+    assert_ready_to_submit) nen KHONG roi vao day; truoc khi gui thi chua co yeu cau duyet."""
+    if frappe.db.exists("EC Digital Signature Package", {"business_doctype": reference_doctype,
+                                                         "business_name": business_name}):
+        return False
+    # CHI yeu cau DANG MO (QC 27/11): vong cu da Rejected/Cancelled cua cung phieu (vd BBNT gui
+    # lai vong moi) khong duoc lam vong moi mat ky so.
+    return bool(frappe.db.exists("EC Approval Request", {
+        "reference_doctype": reference_doctype, "reference_name": business_name,
+        "approval_status": ["in", ("Pending", "Information Required")]}))
 
 
 def get_active_profile(reference_doctype, approval_type, business_name=None):

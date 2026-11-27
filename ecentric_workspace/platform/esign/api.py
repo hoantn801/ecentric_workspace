@@ -1057,7 +1057,8 @@ def esign_document_state(payment_request_name=None, business_doctype=None, busin
                           # which would make this endpoint lie about the verdict.
                           fields=["name", "status", "actor_type", "approver", "actor_user",
                                   "effective_scts_user_id", "effective_signature_id",
-                                  "queued_at", "creation"],
+                                  "queued_at", "accepted_at", "request_level", "package",
+                                  "creation"],
                           order_by="creation desc", limit_page_length=0)
     out = {"ok": True, "package": pkg,
            "provider_status": getattr(state, "status", None),

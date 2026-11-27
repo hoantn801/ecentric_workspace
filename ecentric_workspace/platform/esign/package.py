@@ -237,7 +237,29 @@ def add_file(pkg_name, file_name, content, requires_signature=0, is_supporting_d
     profile = frappe.db.get_value("EC Digital Signature Profile", pkg.profile,
                                   ["max_files", "max_file_mb", "require_signable_pdf"],
                                   as_dict=True)
+    if source_file:
+        # MOT File da dinh vao phieu = MOT dong trong goi (27/11/2026, EC-PAYR-2026-00821): hai
+        # lan luu o ky gan nhau tren cung tep -> hai request cung "chua co DSF" (doc thuong duoi
+        # REPEATABLE READ khong thay dong request kia vua insert) -> hai DSF cung File; giao dien
+        # gop theo tep nen chi hien mot dong, dong an thieu o ky va chan "Gui yeu cau". Khoa dong
+        # goi roi doc CO KHOA (thay ca dong vua commit; cot `package` co chi muc nen chi khoa
+        # dong cua goi nay): co roi thi dung dong do - dua co ve dung yeu cau neu khac (QC 27/11).
+        # Chi duong lien ket (source_file) - tai len moi van nhu cu.
+        frappe.db.get_value("EC Digital Signature Package", pkg.name, "name", for_update=True)
+        same = frappe.db.get_value("EC Digital Signature File",
+                                   {"package": pkg.name, "file": source_file},
+                                   ["name", "requires_signature", "is_supporting_document"],
+                                   as_dict=True, for_update=True)
+        if same:
+            want_sign = 1 if requires_signature else 0
+            want_sup = 1 if is_supporting_document else 0
+            if (int(same.requires_signature or 0), int(same.is_supporting_document or 0)) != \
+                    (want_sign, want_sup):
+                set_file_flags(same.name, requires_signature=want_sign,
+                               is_supporting_document=want_sup)
+            return frappe.get_doc("EC Digital Signature File", same.name)
     is_pdf = _validate_content(pkg, profile, file_name, content, requires_signature)
+    sha = hashing.sha256_bytes(content)
     linked = 0
     if source_file:
         src = frappe.db.get_value("File", source_file,
@@ -261,7 +283,7 @@ def add_file(pkg_name, file_name, content, requires_signature=0, is_supporting_d
         "requires_signature": 1 if requires_signature else 0,
         "is_supporting_document": 1 if is_supporting_document else 0,
         "share_with_partner": 1 if share_with_partner else 0,
-        "sha256": hashing.sha256_bytes(content), "size_bytes": len(content),
+        "sha256": sha, "size_bytes": len(content),
         "mime_type": _guess_mime(file_name, is_pdf), "is_pdf": 1 if is_pdf else 0,
     }).insert(ignore_permissions=True)
     events.emit("Created", package=pkg.name,
