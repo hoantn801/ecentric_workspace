@@ -12,7 +12,7 @@
   </div>
 
   <h1>Thăng chức / điều chỉnh lương</h1>
-  <div class="sub">Cập nhật 24/11/2026 · dành cho Quản lý · CnB/HR · HOF · CEO</div>
+  <div class="sub">Cập nhật 27/11/2026 · dành cho Quản lý · Lead · CnB/HR · HOF · CEO</div>
 
   <p class="lead"><b>Mục đích:</b> đề xuất thăng chức hoặc điều chỉnh lương cho một nhân sự. Duyệt xong, hệ thống tự ghi chức danh mới vào hồ sơ; lương do C&amp;B cập nhật.</p>
 
@@ -22,8 +22,8 @@
     <div class="ecg-flow-canvas" aria-live="polite">Đang tải sơ đồ…</div>
     <details class="ecg-flow-code"><summary>Xem sơ đồ dạng chữ</summary>
 <pre class="ecg-flow-src">flowchart TD
-  P["Người đề xuất chọn nhân sự&lt;br/&gt;chỉ thấy người mình được xem lương"] --&gt; Q{"Có quản lý trên chuỗi báo cáo&lt;br/&gt;khác người gửi, xem được lương?"}
-  Q --&gt;|"Có"| DM["Quản lý đó duyệt"] --&gt; C["CnB/HR"]
+  P["Người đề xuất chọn nhân sự&lt;br/&gt;người mình quản lý hoặc được xem lương"] --&gt; Q{"Có quản lý trên chuỗi báo cáo&lt;br/&gt;khác người gửi, xem được lương?"}
+  Q --&gt;|"Có"| DM["Quản lý đó duyệt&lt;br/&gt;điền lương nếu người lập chưa xem được lương"] --&gt; C["CnB/HR&lt;br/&gt;bắt buộc điền lương nếu chưa ai điền"]
   Q --&gt;|"Không · bỏ cấp này, ghi lịch sử"| C
   C --&gt; H["HOF"] --&gt; CEO{"CEO"}
   CEO --&gt;|"Trả lại"| P
@@ -41,24 +41,25 @@
   <table class="ecg-steps">
     <thead><tr><th>Bước</th><th>Ai làm</th><th>Việc</th><th>Hạn</th><th>Hệ thống tự làm</th></tr></thead>
     <tbody>
-      <tr><td data-label="Bước">1</td><td data-label="Ai làm">Người đề xuất (thường là quản lý)</td><td data-label="Việc">Tạo phiếu ở <a href="/approvals/promotion">/approvals/promotion</a>: chọn nhân sự, vị trí đề xuất, lương hiện tại và lương đề xuất (gross, VND), ngày hiệu lực, lý do</td><td data-label="Hạn" class="ecg-sla">—</td><td data-label="Hệ thống tự làm">Danh sách chỉ có nhân sự đang làm mà bạn được xem lương (không gồm chính bạn); tự điền phòng ban, vị trí hiện tại</td></tr>
-      <tr><td data-label="Bước">2</td><td data-label="Ai làm">Quản lý trên chuỗi báo cáo của nhân sự (người đầu tiên xem được lương)</td><td data-label="Việc">Duyệt (bắt buộc ghi nhận xét) / Trả lại / Từ chối</td><td data-label="Hạn" class="ecg-sla">8 giờ làm việc</td><td data-label="Hệ thống tự làm">Không có ai phù hợp, hoặc người đó là người gửi: bỏ cấp này, ghi lý do</td></tr>
-      <tr><td data-label="Bước">3</td><td data-label="Ai làm">CnB/HR (role EC CnB, một người)</td><td data-label="Việc">Duyệt / Trả lại / Từ chối</td><td data-label="Hạn" class="ecg-sla">4 giờ làm việc</td><td data-label="Hệ thống tự làm">—</td></tr>
+      <tr><td data-label="Bước">1</td><td data-label="Ai làm">Người đề xuất (thường là quản lý)</td><td data-label="Việc">Tạo phiếu ở <a href="/approvals/promotion">/approvals/promotion</a>: chọn nhân sự, vị trí đề xuất, lương hiện tại và lương đề xuất (gross, VND), ngày hiệu lực, lý do. Đề xuất cho người mình quản lý mà không được xem lương (thường là Lead): <b>không</b> thấy và <b>không</b> nhập lương — người duyệt có quyền điền</td><td data-label="Hạn" class="ecg-sla">—</td><td data-label="Hệ thống tự làm">Danh sách gồm nhân sự đang làm mà bạn được xem lương và người bạn quản lý trực tiếp / gián tiếp (không gồm chính bạn); tự điền phòng ban, vị trí hiện tại</td></tr>
+      <tr><td data-label="Bước">2</td><td data-label="Ai làm">Quản lý trên chuỗi báo cáo của nhân sự (người đầu tiên xem được lương)</td><td data-label="Việc">Phiếu chưa có lương: điền Lương hiện tại và Lương đề xuất (gross) rồi mới Duyệt. Duyệt (bắt buộc ghi nhận xét) / Trả lại / Từ chối</td><td data-label="Hạn" class="ecg-sla">8 giờ làm việc</td><td data-label="Hệ thống tự làm">Không có ai phù hợp, hoặc người đó là người gửi: bỏ cấp này, ghi lý do</td></tr>
+      <tr><td data-label="Bước">3</td><td data-label="Ai làm">CnB/HR (role EC CnB, một người)</td><td data-label="Việc">Chưa ai điền lương (bước 2 bị bỏ qua): bắt buộc điền rồi mới Duyệt. Duyệt / Trả lại / Từ chối</td><td data-label="Hạn" class="ecg-sla">4 giờ làm việc</td><td data-label="Hệ thống tự làm">—</td></tr>
       <tr><td data-label="Bước">4</td><td data-label="Ai làm">HOF</td><td data-label="Việc">Duyệt / Trả lại / Từ chối</td><td data-label="Hạn" class="ecg-sla">4 giờ làm việc</td><td data-label="Hệ thống tự làm">—</td></tr>
       <tr><td data-label="Bước">5</td><td data-label="Ai làm">CEO</td><td data-label="Việc">Duyệt / Trả lại / Từ chối</td><td data-label="Hạn" class="ecg-sla">8 giờ làm việc</td><td data-label="Hệ thống tự làm">Duyệt xong: ghi chức danh mới vào hồ sơ (chạy nền, kết quả hiện ở khối “Cập nhật hồ sơ sau duyệt”)</td></tr>
       <tr><td data-label="Bước">6</td><td data-label="Ai làm">C&amp;B</td><td data-label="Việc">Cập nhật bảng lương khi lương đổi; cập nhật chức danh tay nếu chức danh mới chưa có trong danh mục</td><td data-label="Hạn" class="ecg-sla">—</td><td data-label="Hệ thống tự làm">Hệ thống <b>không</b> tự ghi lương. Cần C&amp;B làm tay thì người gửi và các cấp đã duyệt nhận thông báo</td></tr>
     </tbody>
   </table>
-  <div class="note">Ai mở phiếu mà không có quyền xem lương của nhân sự đó sẽ thấy các ô lương bị ẩn. Lương cũng không hiện trên thẻ duyệt nhanh ở điện thoại.</div>
+  <div class="note">Ai mở phiếu mà không có quyền xem lương của nhân sự đó sẽ thấy các ô lương bị ẩn — kể cả người lập phiếu khi lương do người duyệt điền. Lương cũng không hiện trên thẻ duyệt nhanh ở điện thoại; phiếu cần điền lương phải mở trang chi tiết để duyệt.</div>
   <div class="note">Tới lượt bạn duyệt, băng <b>Việc của bạn</b> ở đầu phiếu có nút <b>Duyệt</b> và <b>Trả lại</b> (= yêu cầu người gửi bổ sung). <b>Từ chối</b> nằm ở phần Hành động của phiếu và kết thúc phiếu luôn.</div>
 
   <h2>Lỗi thường gặp</h2>
   <table>
     <tr><th>Bạn thấy</th><th>Làm gì</th></tr>
     <tr><td>“Vui lòng chọn nhân sự được đề xuất.”</td><td>Chọn nhân sự trong danh sách trước khi gửi.</td></tr>
-    <tr><td>“Bạn không có quyền xem thông tin lương của nhân sự này.”</td><td>Bạn không được đề xuất cho người này. Nhờ quản lý cấp trên của họ hoặc C&amp;B lập phiếu.</td></tr>
+    <tr><td>“Bạn không được đề xuất cho nhân sự này…”</td><td>Người này không do bạn quản lý và bạn không được xem lương của họ. Nhờ quản lý cấp trên của họ hoặc C&amp;B lập phiếu.</td></tr>
+    <tr><td>“Vui lòng điền Lương hiện tại – gross và Lương đề xuất – gross trước khi duyệt…”</td><td>Người lập không xem được lương; bạn là người duyệt có quyền. Điền 2 ô lương ở khối Hành động (hoặc ngay trong hộp Duyệt) rồi duyệt.</td></tr>
     <tr><td>Báo lỗi mức lương (số âm, không phải số, lương hiện tại bằng 0)</td><td>Nhập lương gross/tháng bằng số dương.</td></tr>
-    <tr><td>Không thấy nhân sự cần đề xuất trong danh sách</td><td>Danh sách chỉ có người bạn được xem lương và đang làm việc. Hỏi C&amp;B nếu thấy thiếu.</td></tr>
+    <tr><td>Không thấy nhân sự cần đề xuất trong danh sách</td><td>Danh sách chỉ có người đang làm việc mà bạn quản lý (theo “Báo cáo cho” trong hồ sơ) hoặc được xem lương. Hỏi C&amp;B nếu thấy thiếu.</td></tr>
   </table>
 
   <h2>Câu hỏi thường gặp</h2>
@@ -79,7 +80,7 @@
     <a class="backbtn" href="/approvals">Approval Center</a>
   </div>
 
-  <footer>eCentric · Hướng dẫn nội bộ — cập nhật 24/11/2026. Thấy hướng dẫn chưa đúng với hệ thống, báo bộ phận Hệ thống.</footer>
+  <footer>eCentric · Hướng dẫn nội bộ — cập nhật 27/11/2026. Thấy hướng dẫn chưa đúng với hệ thống, báo bộ phận Hệ thống.</footer>
 </article>
 </div>
 </main></div>

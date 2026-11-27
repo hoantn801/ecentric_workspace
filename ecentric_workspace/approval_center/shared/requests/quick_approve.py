@@ -90,8 +90,19 @@ def _capabilities(definition, user, biz, req):
         return {}
 
 
-def _needs_input(definition, caps, level_name, biz):
+def _needs_input(definition, caps, level_name, biz, req=None, user=None):
     """-> (bool, ly do). Loai nao duyet phai nhap them thi khong duyet nhanh duoc."""
+    check = getattr(definition, "approval_input_check", None)
+    if check is not None and req is not None:
+        # 27/11/2026: dieu kien truoc khi duyet do module khai (Promotion: dien luong). Loi -> coi
+        # nhu can mo trang chi tiet (khong cho duyet nhanh mo).
+        try:
+            why = check(biz, req, user or frappe.session.user)
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "quick_approve.approval_input_check %s" % definition.code)
+            why = _("Cần mở trang chi tiết để duyệt.")
+        if why:
+            return True, why
     if caps.get("can_adjust_approved_amount"):
         return True, _("Cần xác nhận số tiền được duyệt - mở trang chi tiết.")
     mod = _controller(definition)
@@ -251,7 +262,7 @@ def list_my_pending(user=None):
             continue
         req_doc = frappe.get_doc(_REQ, req.name)
         caps = _capabilities(definition, user, biz, req_doc)
-        need, why = _needs_input(definition, caps, lv.level_name, biz)
+        need, why = _needs_input(definition, caps, lv.level_name, biz, req_doc, user)
         label, route = _type_meta(req.approval_type)
         typed = _summary_typed(definition, biz.as_dict(), req_doc)
         who = req.requested_by
@@ -319,8 +330,9 @@ def quick_decide(request_name, action, comment=None, user=None):
     biz = frappe.get_doc(definition.business_doctype, req.reference_name)
     lv_name = frappe.db.get_value(_LEVEL, {"approval_request": req.name,
                                            "level_no": req.current_level}, "level_name")
-    caps = _capabilities(definition, user, biz, frappe.get_doc(_REQ, req.name))
-    need, why = _needs_input(definition, caps, lv_name, biz)
+    req_doc = frappe.get_doc(_REQ, req.name)
+    caps = _capabilities(definition, user, biz, req_doc)
+    need, why = _needs_input(definition, caps, lv_name, biz, req_doc, user)
     if need and method in ("approve", "approve_sign"):
         raise QuickDecideError(why)
     sign = bool(caps.get("requires_signature"))

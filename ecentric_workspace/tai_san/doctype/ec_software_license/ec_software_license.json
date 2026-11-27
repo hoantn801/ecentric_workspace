@@ -36,6 +36,9 @@
   "key_location",
   "cb2",
   "cost_per_cycle",
+  "currency",
+  "cost_fc",
+  "exchange_rate",
   "supplier_invoice",
   "alert_stage",
   "alert_for_expiry",
@@ -184,7 +187,31 @@
   {
    "fieldname": "cost_per_cycle",
    "fieldtype": "Currency",
-   "label": "Chi phí mỗi kỳ (₫)"
+   "label": "Chi phí mỗi kỳ (₫)",
+   "description": "Luôn bằng VNĐ - dùng để cộng chi phí tháng."
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Tiền tệ",
+   "options": "Currency",
+   "default": "VND",
+   "description": "Tiền trả cho nhà cung cấp. VND: chỉ cần Chi phí mỗi kỳ."
+  },
+  {
+   "fieldname": "cost_fc",
+   "fieldtype": "Currency",
+   "label": "Chi phí mỗi kỳ (ngoại tệ)",
+   "options": "currency",
+   "depends_on": "eval:doc.currency && doc.currency!=\"VND\""
+  },
+  {
+   "fieldname": "exchange_rate",
+   "fieldtype": "Float",
+   "label": "Tỷ giá (₫ / 1 đơn vị)",
+   "precision": "2",
+   "depends_on": "eval:doc.currency && doc.currency!=\"VND\"",
+   "description": "Chi phí ₫ = ngoại tệ × tỷ giá (sửa được theo số thực trừ trên sao kê)."
   },
   {
    "fieldname": "supplier_invoice",

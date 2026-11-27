@@ -324,3 +324,10 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 #ec-ts .ts-kr .ts-kpi-v.ts-zero { color:#c4c8d0; }
 #ec-ts .ts-kr .ts-kpi-s { font-size:12px; margin-top:1px; line-height:1.4; }
 #ec-ts .ts-kr .ts-bar { margin-top:6px; }
+/* chi phi nhieu tien te: Tien te | so ngoai te | ty gia | so ₫ tren mot hang (mobile xuong dong) */
+#ec-ts .ts-cost-row { display:grid; grid-template-columns:110px repeat(3,minmax(0,1fr)); gap:10px 12px; align-items:end; }
+#ec-ts .ts-cost [data-fc][hidden] { display:none; }
+#ec-ts .ts-cost [data-cost-hint]:empty { display:none; }
+#ec-ts .ts-cost [data-cost-hint] { margin-top:6px; }
+@media (max-width:700px) { #ec-ts .ts-cost-row { grid-template-columns:1fr 1fr; } }
+#ec-ts .ts-cost-row .ts-lbl > span b { font-weight:inherit; }

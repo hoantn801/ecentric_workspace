@@ -129,6 +129,8 @@ def build(visible=("E-A",), perms=None):
             rows = sorted(rows, key=lambda r: r.from_date, reverse=True)
             vals = [r.get(pluck) for r in rows]
             return vals[:limit_page_length] if limit_page_length else vals
+        if dt == "Employee" and (filters or {}).get("reports_to"):          # cay cap duoi (27/11)
+            return [Obj(name=e.name, reports_to=e.get("reports_to")) for e in W.emps.values() if e.get("reports_to")]
         if dt == "Employee" and pluck == "name":
             return [e.name for e in W.emps.values() if e.status == "Active"]
         if dt == "Employee":

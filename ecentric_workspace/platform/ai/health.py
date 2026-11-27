@@ -88,19 +88,20 @@ def ping_models():
     from ecentric_workspace.platform.ai import config, dialects, gateway
     if config.disabled():
         return {}
-    key = config.api_key()
-    if not key:
-        return {}
     models = []
     for m in config.chain(True):
         if dialects.dialect_of(m) and m not in models:
             models.append(m)
+    keys = config.keys_for(models)
+    models = [m for m in models if keys.get(m)]     # model chua co khoa: khong ping
+    if not models:
+        return {}
     request = {"prompt": "Tra loi dung mot chu: ok", "system": None, "schema": None,
                "files": [], "history": None, "json_mode": False,
                "opts": {"temperature": 0, "max_tokens": 16, "effort": "none"}}
     out = {}
     with cf.ThreadPoolExecutor(max_workers=max(1, len(models))) as ex:
-        futs = {ex.submit(gateway.timed_try, m, key, request, PING_TIMEOUT): m for m in models}
+        futs = {ex.submit(gateway.timed_try, m, keys[m], request, PING_TIMEOUT): m for m in models}
         for f in cf.as_completed(futs):
             r = f.result()
             out[r["model"]] = r

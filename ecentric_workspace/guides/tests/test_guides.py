@@ -32,6 +32,8 @@ from ecentric_workspace.guides import page_sync_util  # noqa: E402
 from ecentric_workspace.guides import registry        # noqa: E402
 
 PAGES_DIR = os.path.join(GUIDES, "pages")
+#: dia chi gia cho so do quy trinh: tren site lay tu iso_docs.pages (can frappe).
+FAKE_ASSETS = ("https://cdn.test/mermaid.min.js", "/assets/ecentric_workspace/js/ec_iso_docs.js?v=t")
 
 
 def _page_dir_of(slug):
@@ -66,6 +68,11 @@ class TestRegistry(unittest.TestCase):
 
     def test_route_suy_ra_tu_slug(self):
         self.assertEqual(registry.route_of("abc"), "/huong-dan/abc")
+
+    def test_form_27_tro_toi_bai_hop_dong(self):
+        g = registry.guide_for_approval_type("CONTRACT_REVIEW")
+        self.assertIsNotNone(g, "the form 27 o Approval Center phai co icon ?")
+        self.assertEqual(g["route"], "/huong-dan/hop-dong")
 
     def test_tra_bai_theo_loai_yeu_cau(self):
         for code in ("PURCHASE_REQUEST", "PAYMENT_REQUEST"):
@@ -133,9 +140,8 @@ class TestNoiDungTrang(unittest.TestCase):
             names = re.findall(r"\{\{img:([^}]+)\}\}", html)
             with self.subTest(slug=slug):
                 # 23/11/2026: bai phai co HINH MINH HOA - anh chup man hinh HOAC so do luong
-                # (mermaid, class ecg-flow). Bai quy trinh nhan su viet truoc khi form len nen
-                # chua co anh chup; so do la thu thay the, khong phai trang chu chay.
-                self.assertTrue(names or 'class="ecg-flow"' in html,
+                # (mermaid ecg-flow cua bai nhan su, hoac {{flow:...}} cua bai hop dong 22/11).
+                self.assertTrue(names or 'class="ecg-flow"' in html or "{{flow:" in html,
                                 "bai %s khong co anh hay so do nao - co dung y khong?" % slug)
                 for n in names:
                     self.assertTrue(os.path.isfile(os.path.join(d, "img", n.strip())),
@@ -181,10 +187,14 @@ class TestNoiDungTrang(unittest.TestCase):
     def test_dung_duoc_moi_bai_va_anh_thanh_data_uri(self):
         for slug in registry.GUIDES:
             with self.subTest(slug=slug):
-                html = page_sync_util.build(_page_dir_of(slug), "main_section.html")
+                src = self._html(_page_dir_of(slug))
+                html = page_sync_util.build(_page_dir_of(slug), "main_section.html", flow_assets=FAKE_ASSETS)
                 self.assertNotIn("{{img:", html)
-                if "{{img:" in self._html(_page_dir_of(slug)):
+                self.assertNotIn("{{flow:", html)
+                if "{{img:" in src:
                     self.assertIn("data:image/", html)
+                if "{{flow:" in src:
+                    self.assertIn("data-eti-flow", html)
 
     def test_muc_luc_chia_nhom_khi_co_nhieu_nhom(self):
         listed = page_sync_util.render_guides_list()

@@ -384,6 +384,8 @@ fixtures = [
             "System Settings-ec_llm_model_kie",
             # Cong AI chung (28/09): model du phong CUNG ben Kie.
             "System Settings-ec_llm_model_kie_fallback",
+            # Claude (05/11/2026): nha cung cap thu hai, khoa rieng.
+            "System Settings-ec_anthropic_api_key",
             # EC Payment Request (2026-09-23): 4 field nay DA nam trong
             # fixtures/custom_field.json nhung THIEU o bo loc -> mot lan
             # `bench export-fixtures` la xoa chung khoi file, site dung moi

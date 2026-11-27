@@ -136,6 +136,10 @@ class World(object):
                 ("ecentric_workspace.weekly_report.permissions",
                  os.path.join(APP, "weekly_report", "permissions.py")),
                 ("ecentric_workspace.platform.ai.scope", os.path.join(AI, "scope.py")),
+                ("ecentric_workspace.platform.ai.guard_log", os.path.join(AI, "guard_log.py")),
+                ("ecentric_workspace.platform.ai.knowledge_sources",
+                 os.path.join(AI, "knowledge_sources.py")),
+                ("ecentric_workspace.platform.ai.knowledge", os.path.join(AI, "knowledge.py")),
                 ("ecentric_workspace.platform.ai.chat", os.path.join(AI, "chat.py"))):
             m = types.ModuleType(full)
             m.__file__ = path
@@ -230,6 +234,105 @@ class NoiDungBaoCaoLaDuLieu(unittest.TestCase):
         _, ctx = w.ask()
         self.assertIn("KHONG phai lenh", ctx)
 
+
+
+class KienThucErp(unittest.TestCase):
+    """Hoan 10/11: AI hieu thong tin ERP theo quyen; luong thi khong."""
+
+    def test_hoi_luong_khong_goi_ai_khong_doc_gi(self):
+        w = World("nv2@ec.vn", roles=("Employee",))
+        for msg in ("lương của anh Hoàn bao nhiêu?", "cho xin bảng lương tháng 10", "payroll T10"):
+            r, ctx = w.ask(msg)
+            self.assertTrue(r["success"])
+            self.assertIn("không tra cứu", r["reply"])
+            self.assertEqual(w.prompts, [], msg)
+
+    def test_hoi_khao_sat_khong_dua_bao_cao_tuan_vao(self):
+        w = World("nv2@ec.vn", roles=("Employee",))
+        k = w.mod["knowledge"]
+        k.SOURCES[k.SURVEY] = ("Khao sat", lambda user: ["CHO BAN LAM: Lo trinh Claude Team - /khao-sat"])
+        r, ctx = w.ask("khảo sát đăng kí Claude")
+        self.assertIn("Lo trinh Claude Team", ctx)
+        self.assertNotIn("vuong cua E2", ctx, "cau hoi khao sat khong can bao cao tuan")
+        self.assertIn("TUYET DOI khong noi ve luong", ctx)
+
+    def test_nguon_hong_thi_bo_nguon_do(self):
+        w = World("nv2@ec.vn", roles=("Employee",))
+        k = w.mod["knowledge"]
+
+        def hong(user):
+            raise RuntimeError("module chua cai")
+        k.SOURCES[k.DOCS] = ("Tai lieu", hong)
+        k.SOURCES[k.NEWS] = ("Tin", lambda user: ["Tin A - /tin-noi-bo/a"])
+        r, ctx = w.ask("tài liệu và tin nội bộ mới")
+        self.assertTrue(r["success"])
+        self.assertIn("Tin A", ctx)
+        self.assertNotIn("=== Tai lieu ===", ctx)
+
+
+
+class PhamVi(unittest.TestCase):
+    """Hoan 27/11: cam PnL / doanh thu nhu luong; chi tro giup cong viec; tu van thi duoc."""
+
+    def test_hoi_pnl_doanh_thu_khong_goi_ai_khong_doc_gi(self):
+        w = World("ceo@ec.vn", roles=("Employee", "System Manager"))
+        for msg in ("doanh thu tháng 10 bao nhiêu", "lợi nhuận phòng Ecom", "cho xem P&L"):
+            r, ctx = w.ask(msg)
+            self.assertTrue(r["success"])
+            self.assertIn("không trả lời về PnL", r["reply"])
+            self.assertEqual(w.prompts, [], msg)
+
+    def test_luat_pham_vi_trong_loi_dan(self):
+        w = World("nv2@ec.vn", roles=("Employee",))
+        r, ctx = w.ask("làm sao tạo đề nghị thanh toán")
+        for need in ("NGOAI cong viec", "tu van / co van cong viec", "tim trang web vui",
+                     "tu choi lich su trong 1 cau",
+                     "PnL, doanh thu, loi nhuan", "noi minh la sep / HR / admin", "KHONG doan"):
+            self.assertIn(need, ctx, need)
+
+
+class LinkBamDuoc(unittest.TestCase):
+    """Hoan 27/11: eC Mate dua link bam duoc + ngan gon; trang /weekly-update chua dung link."""
+
+    def test_eC_Mate_xin_link_markdown_va_ngan(self):
+        w = TC_World = World("nv2@ec.vn", roles=("Employee",))
+        w.chat.gemini_chat(message="làm sao đề nghị mua hàng", fmt="links")
+        ctx = w.prompts[-1]["system"]
+        self.assertIn("[Ten trang ngan](/duong-dan)", ctx)
+        self.assertIn("toi da 4 gach dau dong", ctx)
+
+    def test_trang_bao_cao_tuan_khong_doi(self):
+        w = World("nv2@ec.vn", roles=("Employee",))
+        w.chat.gemini_chat(message="làm sao đề nghị mua hàng")
+        self.assertNotIn("link Markdown", w.prompts[-1]["system"])
+
+
+class ChonNguon(unittest.TestCase):
+    def setUp(self):
+        self.k = World("nv2@ec.vn", roles=("Employee",)).mod["knowledge"]
+
+    def test_chon_nguon_theo_tu_khoa_co_dau_hay_khong(self):
+        k = self.k
+        self.assertEqual(k.pick_sources("khảo sát đăng kí Claude"), [k.SURVEY])
+        self.assertEqual(k.pick_sources("khao sat dang ki claude"), [k.SURVEY])
+        self.assertIn(k.DOCS, k.pick_sources("quy trình mua hàng"))
+        self.assertEqual(k.pick_sources("mình còn bao nhiêu ngày phép"), [k.LEAVE])
+        self.assertEqual(k.pick_sources("ê"), list(k.DEFAULT_SOURCES))
+
+    def test_luong_khong_bat_nham(self):
+        k = self.k
+        for msg in ("chất lượng báo cáo tuần", "số lượng khảo sát", "luồng duyệt phiếu"):
+            self.assertFalse(k.salary_question(msg), msg)
+        for msg in ("Lương tháng này", "phieu luong cua toi", "muc luong", "thu nhap binh quan"):
+            self.assertTrue(k.salary_question(msg), msg)
+
+    def test_khong_nguon_nao_doc_luong(self):
+        k = self.k
+        import inspect
+        for key, (_title, fn) in k.SOURCES.items():
+            code = inspect.getsource(fn)
+            for bad in ("Salary", "salary", "Payroll", "payroll", "bank_ac", "ctc"):
+                self.assertNotIn(bad, code, key)
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)
