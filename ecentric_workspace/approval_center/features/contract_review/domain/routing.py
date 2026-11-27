@@ -17,6 +17,10 @@ HOF = "Head of Finance Review"
 HR = "HR & C&B Review"
 CEO = "CEO Review"
 
+#: Cap duoc CHUYEN cho nguoi khac cung nhom (PO 27/11/2026, chi Lien: buoc Ke toan dang cau hinh dich danh mot
+#: nguoi, dung ra ke toan khac duyet). {ten cap: role chua nguoi nhan}. Them cap = them dong, khong sua code.
+HANDOVER_ROLES = {FINANCE: "EC Finance"}
+
 #: Cap cua luong thuong (khong phai lao dong).
 STANDARD = (DEPT, FINANCE, HOF)
 

@@ -80,3 +80,11 @@ def get_previous_contract(name):
     row.pop("requested_by", None)
     row.pop("approval_request", None)
     return row
+
+
+@frappe.whitelist(methods=["POST"])
+def handover_step(name, new_user, reason=None):
+    """27/11/2026: nguoi dang duyet buoc Ke toan (hoac SM) chuyen buoc nay cho ke toan khac - xem
+    application/finance_handover.py (kiem quyen + ghi qua engine.reassign_pending_approver)."""
+    from ecentric_workspace.approval_center.features.contract_review.application import finance_handover
+    return finance_handover.handover(name, new_user, reason, frappe.session.user)

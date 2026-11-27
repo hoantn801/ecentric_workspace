@@ -893,6 +893,8 @@
     if(cap.can_approve) btns.push('<button type="button" class="btn primary" data-act="approve">'+(cap.requires_signature?'Duyệt &amp; Ký':'Duyệt')+'</button>');
     if(cap.can_request_information) btns.push('<button type="button" class="btn" data-act="reqinfo">Yêu cầu bổ sung</button>');
     if(cap.can_reject) btns.push('<button type="button" class="btn" data-act="reject">Từ chối</button>');
+    // 27/11 (chi Lien): buoc Ke toan chuyen cho ke toan khac - server tra khoi `handover` khi nguoi xem chuyen duoc.
+    if(((det.extra||{}).handover)) btns.push('<button type="button" class="btn" data-act="handover">Chuyển cho kế toán khác</button>');
     if(window.EcRemind) btns.push(EcRemind.buttonHTML(cap));   // 01/10: nhac nguoi xu ly (asset dung chung)
     if(cap.can_admin_approve_current_level) btns.push('<button type="button" class="btn warn" data-act="adminapprove">Duyệt thay bước hiện tại</button>');
     if(cap.can_cancel) btns.push('<button type="button" class="btn" data-act="cancel">Hủy yêu cầu</button>');
@@ -922,7 +924,7 @@
     if(a==="editdraft") return startEditDraft(det); if(a==="submitdraft") return doSubmitDraft(name);
     if(a==="edit") return startEditResubmit(det); if(a==="approve") return ((det.capabilities||{}).requires_signature?doApproveAndSign(name,det):doApprove(name,det)); if(a==="remind") return window.EcRemind&&EcRemind.run(call,name,{toast:toast,mapErr:(typeof mapErr==="function"?mapErr:null),done:function(){ if(typeof refreshDetail==="function") refreshDetail(); else if(typeof renderDetail==="function") renderDetail(document.querySelector('[id$="-body"]')); }});
     if(a==="reject") return doReject(name); if(a==="reqinfo") return doRequestInfo(name);
-    if(a==="adminapprove") return doAdminApprove(name); if(a==="cancel") return doCancel(name);
+    if(a==="adminapprove") return doAdminApprove(name); if(a==="handover") return doHandover(name); if(a==="cancel") return doCancel(name);
     if(a==="clone") return doClone(name); }
   function ensureActionHandlers(){ if(document.__ctrActBound) return; document.__ctrActBound=true; document.addEventListener("click", handleActionClick, true); }
 
@@ -978,6 +980,17 @@
     return call("cancel",{name:name,reason:"Xoá bản nháp"}).then(function(res){ toast("Đã xoá bản nháp."); if(res&&res.deleted) window.location.href=hubHref(); else { refreshDetail(); refreshApprovals(); } }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); return Promise.reject(e); }); }}); }
   function doCancel(name){ if(isDraftDoc()) return doDeleteDraft(name); modal("Hủy yêu cầu", '<div class="banner warn">Hủy yêu cầu sẽ kết thúc luồng phê duyệt.</div><div class="fld"><label>Lý do <span class="req">*</span></label><textarea id="m-cmt" rows="2"></textarea></div>', {okLabel:"Xác nhận hủy", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập lý do.",true); return Promise.reject(); }
     return call("cancel",{name:name,reason:c}).then(function(res){ toast("Đã hủy yêu cầu."); if(res&&res.deleted) window.location.href=hubHref(); else { refreshDetail(); refreshApprovals(); } }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); return Promise.reject(e); }); }}); }
+  function doHandover(name){ var ho=((state.detail||{}).extra||{}).handover; if(!ho||!(ho.candidates||[]).length) return;
+    var m=modal("Chuyển bước "+(ho.level_no?("cấp "+ho.level_no+" "):"")+"cho người khác",
+      '<div class="banner info"><div>Bước <b>'+esc(ho.level_label||ho.level)+'</b> đang chờ <b>'+esc((ho.from||[]).join(", "))+'</b>. Chọn người duyệt thay; người mới nhận việc và thông báo ngay, lịch sử ghi lại việc chuyển.</div></div>'
+      +'<div class="fld"><label for="ho-user">Chuyển cho <span class="req">*</span></label><select id="ho-user"><option value="">— Chọn người —</option>'
+      +ho.candidates.map(function(c){ return '<option value="'+esc(c.user)+'">'+esc(c.full_name&&c.full_name!==c.user?(c.full_name+" · "+c.user):c.user)+'</option>'; }).join("")+'</select></div>'
+      +'<div class="fld"><label for="ho-why">Lý do</label><input id="ho-why" placeholder="Vd: Hợp đồng do kế toán phụ trách brand này duyệt"></div>',
+      {okLabel:"Chuyển", onConfirm:function(ov){ var u=(ov.querySelector("#ho-user")||{}).value, why=(ov.querySelector("#ho-why")||{}).value||"";
+        if(!u){ toast("Chọn người nhận bước này.",true); return Promise.reject(); }
+        return call("handover_step",{name:name,new_user:u,reason:why}).then(function(r){ toast("Đã chuyển cho "+((r&&r.to)||u)+"."); refreshDetail(); refreshApprovals(); })
+          .catch(function(e){ toast(mapErr(e),true); return Promise.reject(e); }); }});
+    return m; }
   function doAdminApprove(name){ modal("Duyệt thay bước hiện tại", '<div class="banner warn"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 9v4M12 17h.01"/></svg><div>Bạn đang duyệt thay bằng quyền System Manager. Hành động này được ghi nhận trong lịch sử.</div></div><div class="fld"><label>Lý do <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>', {okLabel:"Xác nhận duyệt thay", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập lý do.",true); return Promise.reject(); }
     return call("admin_approve_current_level",{name:name,reason:c}).then(function(){ toast("Đã duyệt thay bước hiện tại."); refreshDetail(); refreshApprovals(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
 
