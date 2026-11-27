@@ -70,6 +70,14 @@ class GroupTest(unittest.TestCase):
         self.assertEqual(out[1]["kind"], "file")
         self.assertEqual((g["day"], g["time"]), ("Hôm nay", "15:00"))
 
+    def test_connected(self):
+        from ecentric_workspace.shared_tools import views as V
+        h = {"ok": True, "vnc_clients": 1, "current_user": "a@x"}
+        self.assertTrue(V._connected(h, "a@x"))
+        self.assertFalse(V._connected(h, "b@x"))
+        self.assertFalse(V._connected(dict(h, vnc_clients=0), "a@x"))
+        self.assertFalse(V._connected({"ok": False}, "a@x"))
+
     def test_day_label(self):
         from ecentric_workspace.shared_tools import views as V
         now = dt.datetime(2026, 11, 27, 9, 0)
