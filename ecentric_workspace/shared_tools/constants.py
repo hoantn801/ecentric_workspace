@@ -60,8 +60,9 @@ EV_END = "End"
 EV_REVOKE_FAIL = "Revoke Failed"
 EV_EXPORT = "Export"
 EV_DOWNLOAD = "Download"
+EV_MAINT = "Maintenance"   # quan ly doi tai khoan / mo / dong cong cu
 EVENTS = (EV_JOIN, EV_LEAVE, EV_READY, EV_OPEN, EV_REOPEN, EV_EXTEND, EV_END, EV_REVOKE_FAIL,
-          EV_EXPORT, EV_DOWNLOAD)
+          EV_EXPORT, EV_DOWNLOAD, EV_MAINT)
 
 # --- mac dinh (sua tren ban ghi EC Shared Tool "kalodata") ---
 DEFAULT_LEASE_MIN = 30

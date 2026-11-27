@@ -50,7 +50,8 @@ def state(ctx, key):
     meta = R.user_meta([e["user"] for e in entries])
     me = Q.mine(entries, ctx.user)
     return {
-        "tool": {"key": key, "title": tool.title, "notice": tool.notice or "", "lease": cfg["lease"],
+        "tool": {"key": key, "title": tool.title, "notice": tool.notice or "", "enabled": bool(tool.enabled),
+                 "lease": cfg["lease"],
                  "ready": cfg["ready"], "extend": cfg["extend"], "idle": cfg["idle"]},
         "host": host_view(host),
         "me": _me(entries, me, now, cfg),

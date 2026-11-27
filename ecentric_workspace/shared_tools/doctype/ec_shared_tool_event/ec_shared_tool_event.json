@@ -33,7 +33,7 @@
    "fieldname": "event",
    "fieldtype": "Select",
    "label": "Sự kiện",
-   "options": "Join\nLeave\nReady\nOpen\nReopen\nExtend\nEnd\nRevoke Failed\nExport\nDownload",
+   "options": "Join\nLeave\nReady\nOpen\nReopen\nExtend\nEnd\nRevoke Failed\nExport\nDownload\nMaintenance",
    "reqd": 1,
    "in_list_view": 1,
    "in_standard_filter": 1

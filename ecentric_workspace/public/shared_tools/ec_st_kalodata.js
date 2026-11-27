@@ -75,7 +75,7 @@
       '<p class="st-sub">Một người dùng một lúc · mỗi lượt ' + t.lease + ' phút · đến lượt có ' + t.ready + ' phút để mở</p></header>' +
       (t.notice ? '<p class="st-notice">' + esc(t.notice) + '</p>' : "") +
       '<div class="st-grid"><div class="st-col">' + hero(me) + filesCard() + '</div>' +
-      '<div class="st-col">' + queueCard(me) + (me.status === "Waiting" || !me.status ? holderCard() : "") + rulesCard() + '</div></div>' +
+      '<div class="st-col">' + (S.is_manager ? adminCard() : "") + queueCard(me) + (me.status === "Waiting" || !me.status ? holderCard() : "") + rulesCard() + '</div></div>' +
       (S.is_manager && window.ECStStats ? window.ECStStats.card() : "") + '</div>';
     // Thu tu tren dien thoai (cot don): luot cua toi -> hang doi -> nguoi dang dung -> file -> quy dinh.
     byId("st-root").innerHTML = html;
@@ -151,6 +151,23 @@
         (h.status === "Active" ? '<dt>Từ</dt><dd>' + esc(h.since) + '</dd><dt>Còn lại</dt><dd>' + h.remaining_min + ' phút</dd>'
           : '<dt>Trạng thái</dt><dd>Vừa đến lượt, đang mở</dd>') + '</dl>';
     return '<section class="st-card st-o3" aria-labelledby="st-h-holder"><h2 class="st-h2" id="st-h-holder" style="margin-bottom:12px">Đang dùng ' + esc(t.title) + '</h2>' + body + '</section>';
+  }
+
+  // Chi quan ly (System Manager / EC Shared Tool Manager) thay. Server tu kiem quyen moi lenh.
+  function adminCard() {
+    var t = S.tool, on = t.enabled !== false;
+    var steps = on ? "" : '<ol class="st-rules st-admin-steps">' +
+      '<li>Bấm <b>Vào hàng đợi</b> → <b>Mở ' + esc(t.title) + '</b> (chỉ quản lý vào được lúc này).</li>' +
+      '<li>Trong ' + esc(t.title) + ', đăng nhập tài khoản mới bằng <b>số điện thoại hoặc email + mật khẩu</b>. Không dùng Google / TikTok (bị chặn trên máy dùng chung).</li>' +
+      '<li>Bấm <b>Kết thúc sớm</b>, rồi <b>Mở lại cho mọi người</b>.</li></ol>';
+    return '<section class="st-card st-o1 st-admin" aria-labelledby="st-h-admin"><div class="st-card-head"><h2 class="st-h2" id="st-h-admin">Quản lý</h2>' +
+      '<span class="st-pill ' + (on ? "st-pill--ok" : "st-pill--warn") + '">' + (on ? "Đang mở cho mọi người" : "Đang tạm đóng") + '</span></div>' +
+      steps + '<div class="st-actions st-admin-actions">' +
+      (on ? '<button class="st-btn st-btn--sm" type="button" data-act="admin-reset" data-confirm="Bấm lần nữa để đổi tài khoản">Đổi tài khoản ' + esc(t.title) + '</button>' +
+            '<button class="st-btn st-btn--sm" type="button" data-act="admin-close" data-confirm="Bấm lần nữa để tạm đóng">Tạm đóng</button>'
+          : '<button class="st-btn st-btn--sm st-btn--primary" type="button" data-act="admin-open">Mở lại cho mọi người</button>' +
+            '<button class="st-btn st-btn--sm" type="button" data-act="admin-reset" data-confirm="Bấm lần nữa để xoá lại">Xoá đăng nhập lại</button>') +
+      '</div><p class="st-hint">Mật khẩu ' + esc(t.title) + ' chỉ gõ trong trang ' + esc(t.title) + '. ERP không lưu và không thấy mật khẩu.</p></section>';
   }
 
   function rulesCard() {
@@ -294,13 +311,17 @@
     if (a === "stats") { if (window.ECStStats) window.ECStStats.load(+btn.getAttribute("data-days") || 30); return; }
     if (!armed(btn)) return;
     var map = { join: ["join", "Đã vào hàng đợi."], leave: ["leave", "Đã cập nhật lượt của bạn."],
-                extend: ["extend", "Đã gia hạn thêm " + S.tool.extend + " phút."], force: ["force_end", "Đã kết thúc lượt đó."] };
+                extend: ["extend", "Đã gia hạn thêm " + S.tool.extend + " phút."], force: ["force_end", "Đã kết thúc lượt đó."],
+                "admin-reset": ["admin_reset", "Đã xoá phiên đăng nhập cũ. Làm tiếp các bước trong khung Quản lý."],
+                "admin-open": ["admin_enable", "Đã mở lại cho mọi người."], "admin-close": ["admin_enable", "Đã tạm đóng công cụ."] };
     var m = map[a];
     if (!m) return;
     busy(btn, true);
     try {
       var args = { tool: TOOL };
       if (a === "force") args.entry = btn.getAttribute("data-entry");
+      if (a === "admin-open" || a === "admin-close") args.on = a === "admin-open" ? 1 : 0;
+      if (a === "admin-reset") toast("Đang xoá phiên đăng nhập trên máy Kalodata, chờ khoảng 10–20 giây…");
       var data = await api(m[0], args, true);
       apply(data, S.me && S.me.status);
       toast(m[1]);

@@ -22,6 +22,10 @@ def tool(key):
                                                "idle_minutes"], as_dict=True)
 
 
+def set_tool_enabled(key, on):
+    frappe.db.set_value(C.TOOL_DT, key, "enabled", 1 if on else 0, update_modified=True)
+
+
 def lock_tool(key):
     """Khoa dong cong cu den het transaction: hai nguoi bam cung luc khong cung thanh Den luot."""
     frappe.db.sql("select name from `tabEC Shared Tool` where name=%s for update", (key,))

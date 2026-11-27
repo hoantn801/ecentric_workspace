@@ -8,6 +8,7 @@ URL dang nhap Kalodata (open) chi nam trong response cua chinh nguoi bam, khong 
 """
 import frappe
 
+from ecentric_workspace.shared_tools import admin_service as A
 from ecentric_workspace.shared_tools import constants as C
 from ecentric_workspace.shared_tools import exports as X
 from ecentric_workspace.shared_tools import queue_rules as Q
@@ -47,6 +48,17 @@ def _run(fn):
 @frappe.whitelist(methods=["GET"])
 def state(tool=None):
     return _run(lambda c: V.state(c, _key(tool)))
+
+
+@frappe.whitelist(methods=["POST"])
+def admin_reset(tool=None):
+    """Quan ly: doi tai khoan Kalodata (dong cong cu, ket thuc luot, xoa phien dang nhap tren may 24/7)."""
+    return _run(lambda c: A.reset_account(c, _key(tool)) and V.state(c, _key(tool)))
+
+
+@frappe.whitelist(methods=["POST"])
+def admin_enable(on=1, tool=None):
+    return _run(lambda c: (A.set_enabled(c, _key(tool), str(on) in ("1", "true", "True")), V.state(c, _key(tool)))[1])
 
 
 @frappe.whitelist(methods=["GET"])
