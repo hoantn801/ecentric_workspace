@@ -1,7 +1,7 @@
 /* pm_mywork_host.test.js — host #mywork (pm_app.html showMyTasks) = "Việc cần làm" (PMQueue, 15/11/2026).
  * Chạy: NODE_PATH=<node_modules có jsdom> node ecentric_workspace/public/js/pm/tests/pm_mywork_host.test.js
  * Kiểm: có PMR thật + asset pm_queue -> #mywork vẽ PMQueue (tiêu đề + breadcrumb "Việc cần làm", queue.list qua api của host,
- * CSS tải lười cùng ?v=), không lỗi console; pmr:changed của PMR làm mới hàng đợi tại chỗ (không vẽ lại khung);
+ * CSS tải lười cùng ?v=), không lỗi console; bấm dòng -> cửa sổ chi tiết chung (hotfix 23, không còn ngăn); pmr:changed của PMR làm mới hàng đợi tại chỗ (không vẽ lại khung);
  * rời màn -> destroy; xương khi asset đang tải; tải asset lỗi -> màn cũ (dự phòng) cho cả phiên; PMR cũ (không có
  * _pure.parseDue) -> màn cũ; không thêm <script>/<link> cố định cho pm_queue, không Jinja, không đổi ?v=. */
 "use strict";
@@ -55,10 +55,10 @@ const tick = ms => new Promise(r => setTimeout(r, ms || 30));
   b.d.dispatchEvent(new b.w.CustomEvent("pmr:changed", { detail: { task: "T1" } }));
   await tick(1300);
   ok("pmr:changed (từ ngăn việc của PMR) → hàng đợi tự làm mới tại chỗ, không vẽ lại khung", b.w._pmQueueCtl === ctl && v.querySelector(".pmq") === root0 && b.calls.filter(c => c.m === "queue.list").length > n0);
-  b.d.querySelector('.pmq-row[data-name="T1"] .pmq-open').click(); await tick(60);
-  ok("bấm dòng → ngăn chi tiết bên phải (tasks.get), không đổi hash", !b.d.querySelector("[data-drawer]").hidden && b.calls.some(c => c.m === "tasks.get") && b.w.location.hash === "#mywork");
-  b.d.querySelector('[data-act="full"]').click(); await tick(60);
-  ok("Mở đầy đủ → openTask của host (hash #task/T1, ngăn PMR)", b.w.location.hash === "#task/T1");
+  b.d.querySelector('.pmq-row[data-name="T1"] .pmq-open').click(); await tick(80);
+  /* hotfix 23: bỏ ngăn chi tiết .pmq-dr -> bấm dòng mở CÙNG cửa sổ chi tiết (PMR.openTask qua openTask của host, hash #task/T1) */
+  ok("bấm dòng → cửa sổ chi tiết chung (openTask của host, hash #task/T1), không còn ngăn [data-drawer]", b.w.location.hash === "#task/T1" && !b.d.querySelector("#pm-view [data-drawer]") && b.calls.some(c => c.m === "tasks.get"));
+  try { b.w.PMR.closeSheet(); } catch (_) { } await tick(60);
   ok("không lỗi console", b.errors.length === 0, b.errors.slice(0, 2).join(" | "));
   b.w.location.hash = "#received"; await tick(150);
   ok("rời #mywork → PMQueue destroy, không còn .pmq", ctl._state.dead === true && !b.w._pmQueueCtl && !b.d.querySelector(".pmq"));

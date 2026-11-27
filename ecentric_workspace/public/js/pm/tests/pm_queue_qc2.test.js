@@ -70,20 +70,22 @@ function setup(o) {
   /* ---------- A1 Đang chờ duyệt */
   let t = setup(); await flush();
   const sec = t.$(".pmq-g--wait"), tg = t.$('[data-act="wait"]');
-  ok("A1 nhóm 'Đang chờ duyệt (1)' ở CUỐI danh sách, thu gọn mặc định", !!sec && sec === t.$$("[data-list] .pmq-g").slice(-1)[0] && /Đang chờ duyệt\s*\(1\)/.test(tg.textContent) && tg.getAttribute("aria-expanded") === "false" && !t.rowEl("W-1"));
-  ok("A1 không tính vào số đếm: tab 'Việc tôi làm' = 2, 'Tất cả 2', không có chip Quá hạn", t.$('[data-c="me"]').textContent === "2" && /Tất cả\s*2/.test(t.$('[data-f="all"]').textContent) && !t.$('[data-f="late"]'));
+  ok("A1 nhóm 'Đang chờ duyệt (1)' ở CUỐI danh sách, thu gọn mặc định", !!sec && sec === t.$$("[data-list] .pmq-g").slice(-1)[0] && /Đang chờ duyệt\s*1/.test(tg.textContent) && tg.getAttribute("aria-expanded") === "false" && !t.rowEl("W-1"));
+  /* hotfix 23 (sửa): hàng nút lọc -> dải tuần; tổng dải tuần cũng không tính việc chờ duyệt, ô Trễ hạn = 0 (khoá) */
+  ok("A1 không tính vào số đếm: tab 'Việc tôi làm' = 2, tổng dải tuần 2, ô Trễ hạn 0", t.$('[data-c="me"]').textContent === "2" && t.$$(".pmq-wk-n").reduce((a, x) => a + parseInt(x.textContent, 10), 0) === 2 && t.$('[data-wk="late"]').disabled);
   tg.click(); await flush();
   const w1 = t.rowEl("W-1");
   ok("A1 bấm mở: aria-expanded=true, aria-controls trỏ đúng danh sách, dòng hiện, focus vẫn ở nút", t.$('[data-act="wait"]').getAttribute("aria-expanded") === "true" && !!w1 &&
     t.w.document.getElementById(t.$('[data-act="wait"]').getAttribute("aria-controls")).contains(w1) && t.w.document.activeElement === t.$('[data-act="wait"]'));
-  ok("A1 dòng chờ duyệt: không số thứ tự, ô tròn khoá 'Đang chờ người giao kiểm tra', không Bắt đầu", w1.querySelector(".pmq-rk").textContent === "" && w1.querySelector(".pmq-chk").disabled &&
+  ok("A1 dòng chờ duyệt: không số thứ tự, ô tròn khoá 'Đang chờ người giao kiểm tra', không Bắt đầu", !w1.querySelector(".pmq-rk") && w1.querySelector(".pmq-chk").disabled &&
     /chờ người giao kiểm tra/i.test(w1.querySelector(".pmq-chk").title) && !w1.querySelector('[data-act="start"]'));
   t.key("j"); t.key("j"); t.key("j"); t.key("j");
   ok("A1 J/K chỉ đi trong hàng đợi chính (không nhảy vào việc chờ duyệt)", t.ctl._state.sel === "T-2", t.ctl._state.sel);
   t.key("x"); await flush();
   ok("A1 X trên hàng đợi chính vẫn chạy (T-2)", t.last("tasks.mark_done") && t.last("tasks.mark_done").a.name === "T-2");
   t.rowEl("W-1").querySelector(".pmq-open").click(); await flush();
-  ok("A1 mở chi tiết việc chờ duyệt được (ngăn chi tiết)", t.ctl._state.open === "W-1" && /Chờ duyệt/.test(t.$("[data-drawer]").textContent));
+  /* hotfix 23 (sửa): ngăn chi tiết -> cửa sổ chung; nav = các việc chờ duyệt đang hiện */
+  ok("A1 mở chi tiết việc chờ duyệt được (openTask, nav trong nhóm chờ duyệt)", t.opened.slice(-1)[0][0] === "W-1" && t.opened.slice(-1)[0][1].nav.names.join(",") === "W-1");
   t.ctl.destroy(); t.w.close();
   t = setup({ h: { "queue.list": a => (a.tab === "give" ? pack("give", []) : pack("me", [], { waiting: [W1()] })) } }); await flush();
   ok("A1 chỉ còn việc chờ duyệt: 'Không còn việc nào cần bạn làm' + nhóm chờ duyệt (không mời ghi việc như trống trơn)",
@@ -98,10 +100,11 @@ function setup(o) {
   ok("A2 việc cha chia người: '1/3 người xong' + Nhắc (người chưa xong)", /1\/3 người xong/.test(sp.textContent) && !/Nhiều người/.test(sp.textContent) && !!sp.querySelector('[data-act="nudge"]'));
   ok("B người nhận đã nghỉ: nhãn cảnh báo", /Người nhận đã nghỉ/.test(lf.textContent));
   ok("A4 dòng tiêu đề tab giao đếm 'chờ nhận'", /1 chờ nhận/.test(t.$(".sub").textContent), t.$(".sub").textContent);
+  /* hotfix 23 (sửa): "Lan (chờ nhận)" / "An (xong)" từng ở ngăn chi tiết -> cửa sổ PMR hiện người nhận; ở đây chỉ kiểm mở đúng việc */
   aw.querySelector(".pmq-open").click(); await flush();
-  ok("A4 chi tiết: 'Lan (chờ nhận)'", /Lan \(chờ nhận\)/.test(t.$("[data-drawer]").textContent));
+  ok("A4 bấm việc chờ nhận -> openTask('G-AW', {nav})", t.opened.slice(-1)[0][0] === "G-AW" && t.opened.slice(-1)[0][1].nav.names.indexOf("G-AW") >= 0);
   sp.querySelector(".pmq-open").click(); await flush();
-  ok("A2 chi tiết: 'An (xong)'", /An \(xong\)/.test(t.$("[data-drawer]").textContent));
+  ok("A2 bấm việc chia người -> openTask('G-SP')", t.opened.slice(-1)[0][0] === "G-SP");
   t.ctl.destroy(); t.w.close();
 
   /* ---------- A5 truncated */
@@ -197,8 +200,9 @@ function setup(o) {
   const acc = t.$('[data-act="ask-accept"][data-req="R-1"]');
   acc.focus(); acc.click(); await flush();
   ok("B Nhận việc xong (dòng biến mất) -> focus sang nút Nhận việc kế tiếp, không rơi ra <body>", t.w.document.activeElement === t.$('[data-act="ask-accept"][data-req="R-2"]'), (t.w.document.activeElement || {}).outerHTML);
-  const chip = t.$('[data-f="tomorrow"]'); chip.focus(); chip.click(); await flush();
-  ok("B bấm chip lọc -> focus vẫn ở chip đó sau khi vẽ lại", t.w.document.activeElement === t.$('[data-f="tomorrow"]'));
+  /* hotfix 23 (sửa): chip lọc nhóm -> ô dải tuần (T7 14/11) */
+  const chip = t.$('[data-wk="d:2026-11-14"]'); chip.focus(); chip.click(); await flush();
+  ok("B bấm ô dải tuần -> focus vẫn ở ô đó sau khi vẽ lại", t.w.document.activeElement === t.$('[data-wk="d:2026-11-14"]'));
   t.ctl.destroy(); t.w.close();
 
   /* ---------- B khả năng tiếp cận */

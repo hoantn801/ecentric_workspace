@@ -33,6 +33,8 @@ RECENT_DECIDED_DAYS = 30
 NUDGE_WINDOW_SEC = 3600
 # Coordinate: cap per to-do kind (the screen is a worklist, not a report).
 TODO_CAP = 20
+# Coordinate paging (hotfix 23): rows per page for the to-do list and the people list.
+COORD_PAGE_LEN = 7
 # Coordinate "overload": open >= OVERLOAD_FACTOR x team median AND >= OVERLOAD_MIN_OPEN.
 OVERLOAD_FACTOR = 2
 OVERLOAD_MIN_OPEN = 5
@@ -527,14 +529,37 @@ def _project_stats(rows, today):
     return sorted(out.values(), key=lambda a: (-a["late"], -a["open"]))
 
 
+def _page_args(start, length, default_len):
+    """(start, length) from request args; bad / negative values fall back to the defaults."""
+    try:
+        start = max(0, int(start or 0))
+    except (TypeError, ValueError):
+        start = 0
+    try:
+        length = int(length) if length not in (None, "") else default_len
+    except (TypeError, ValueError):
+        length = default_len
+    return start, (length if length > 0 else default_len)
+
+
 @frappe.whitelist()
-def coordinate(include_personal=0):
+def coordinate(include_personal=0, todo_start=0, todo_len=COORD_PAGE_LEN, people_start=0,
+               people_len=COORD_PAGE_LEN):
     """Leader-only overview. No per-person on-time %, only the team-level KPI (PO point 10).
-    Split parents are coordination rows (assigned to the giver) -> excluded from all counts."""
+    Split parents are coordination rows (assigned to the giver) -> excluded from all counts.
+
+    Hotfix 23: the two lists are paged independently (default 7 rows each, PO 27/11):
+    todo[todo_start : todo_start+todo_len] in the fixed order late (oldest due first) ->
+    unassigned group -> nodue group -> overload, and people[...] by open desc. todo_total /
+    people_total are the full lengths. Every late task is now reachable through paging (the old
+    TODO_CAP=20 cut is gone for late rows; the two group rows still list at most TODO_CAP
+    projects / task names). kpi + projects are unchanged and never paged."""
     pmperm.require_pm_access()
     user = frappe.session.user
     if not pmperm.can_see_all_pm_data(user):
         frappe.throw(_("Chỉ leader xem được Điều phối."), frappe.PermissionError)
+    todo_start, todo_len = _page_args(todo_start, todo_len, COORD_PAGE_LEN)
+    people_start, people_len = _page_args(people_start, people_len, COORD_PAGE_LEN)
     today = frappe.utils.nowdate()
     personal = tflow.personal_log_projects()
     rows = frappe.get_all("Task", fields=_TASK_FIELDS + ["ec_split_parent"], limit_page_length=0)
@@ -545,23 +570,30 @@ def coordinate(include_personal=0):
     names = tflow.full_names(list(stats.keys()))
     pnames = _project_names(active)
     late = sorted([t for t in active if _is_late(t, today)],
-                  key=lambda t: tflow.d10(t["exp_end_date"]))[:TODO_CAP]
-    seen = tflow.seen_pairs([t["name"] for t in late])
-    todo = [_todo_task("late", t, pnames, names, today, seen) for t in late]
+                  key=lambda t: (tflow.d10(t["exp_end_date"]), t["name"]))
     old = str(frappe.utils.add_days(today, -NODUE_MIN_AGE_DAYS))
+    tail = []
     for grp in (_todo_group("unassigned", [t for t in active if not tflow.assignees(t)], pnames),
                 _todo_group("nodue", [t for t in active if tflow.assignees(t)
                                       and not t.get("exp_end_date")
                                       and (tflow.d10(t.get("creation")) or today) <= old],
                             pnames)):
         if grp:
-            todo.append(grp)
-    todo += [{"kind": "overload", "user": s["user"], "full_name": names.get(s["user"]) or s["user"],
+            tail.append(grp)
+    tail += [{"kind": "overload", "user": s["user"], "full_name": names.get(s["user"]) or s["user"],
               "open": s["open"], "late": s["late"]} for s in _overload(stats)]
-    people = sorted(stats.values(), key=lambda s: -s["open"])
-    for s in people:
+    # build only the requested page (late rows need a seen lookup each)
+    end = todo_start + todo_len
+    page_late = late[todo_start:end]
+    seen = tflow.seen_pairs([t["name"] for t in page_late])
+    todo = [_todo_task("late", t, pnames, names, today, seen) for t in page_late]
+    todo += tail[max(0, todo_start - len(late)):max(0, end - len(late))]
+    people = sorted(stats.values(), key=lambda s: (-s["open"], s["user"]))
+    people_page = people[people_start:people_start + people_len]
+    for s in people_page:
         s["full_name"] = names.get(s["user"]) or s["user"]
-    return {"kpi": _kpi(rows, today), "todo": todo, "people": people,
+    return {"kpi": _kpi(rows, today), "todo": todo, "todo_total": len(late) + len(tail),
+            "people": people_page, "people_total": len(people),
             "projects": _project_stats(rows, today),
             "personal_hidden": 0 if tflow.truthy(include_personal) else len(personal)}
 

@@ -435,15 +435,18 @@ class TestPMTransform(unittest.TestCase):
         # Hotfix 16 (PO 17/11/2026): "Được giao cho tôi" / "Tôi đã giao" gop vao "Việc cần làm" -> khong con
         # dong tren cot (sidebar_hidden) nhung route + ngu canh van con (compose include_hidden).
         self.assertEqual([i["label"] for i in views],
-                         ["Việc cần làm", "Lịch làm việc",
-                          "Phòng họp", "Điều phối", "Dự án", "Tất cả việc", "Timesheet", "Hướng dẫn"])
+                         ["Việc cần làm", "Lịch & phòng họp",
+                          "Điều phối", "Dự án", "Tất cả việc", "Timesheet", "Hướng dẫn"])
         self.assertEqual([i["route"] for i in views],
                          ["/pm#mywork", "/pm#schedule",
-                          "/pm#rooms", "/pm#coordinate", "/pm#projects", "/pm#work/list", "/pm#timesheet",
+                          "/pm#coordinate", "/pm#projects", "/pm#work/list", "/pm#timesheet",
                           "/pm#guide"])
         hidden = [i["route"] for i in nav.compose("pm", include_hidden=True) if i.get("view")]
         self.assertIn("/pm#received", hidden)
         self.assertIn("/pm#given", hidden)
+        # Hotfix 23 (PO 27/11/2026): Phong hop gop vao "Lịch & phòng họp" -> an khoi cot, route van con.
+        self.assertIn("/pm#rooms", hidden)
+        self.assertEqual(nav.resolve_context("/pm#rooms"), "pm")
         # /pm discoverable exactly once; NO hash route in discovery
         allr = [i["route"] for i in nav.compose_all()]
         self.assertEqual(allr.count("/pm"), 1)

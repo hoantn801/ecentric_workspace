@@ -79,8 +79,9 @@ const give2 = () => [
   let t = setup({ h: { "queue.list": a => (a.tab === "give" ? pack("give", []) : pack("me", [row({ name: "T-1", subject: "Việc một", deadline_ask: { due: "2026-11-18" } }), row({ name: "T-2", subject: "Việc hai" })])) } }); await flush();
   ok("D1 dòng đã xin dời: nhãn 'Đã xin dời sang T4 18/11'", /Đã xin dời sang T4 18\/11/.test(t.rowEl("T-1").textContent), t.rowEl("T-1").textContent);
   ok("D1 dòng đã xin dời: ẩn nút Xin dời hạn; dòng khác vẫn có", !t.rowEl("T-1").querySelector('[data-act="ask"]') && !!t.rowEl("T-2").querySelector('[data-act="ask"]'));
+  /* hotfix 23 (sửa): ngăn chi tiết đã bỏ -> mở cửa sổ chung (cửa sổ PMR hiện "đã xin dời, chờ trả lời") */
   t.rowEl("T-1").querySelector(".pmq-open").click(); await flush();
-  ok("D1 ngăn chi tiết: 'Đã xin dời sang T4 18/11, chờ Huyền trả lời', không có nút Xin dời hạn", /Đã xin dời sang T4 18\/11, chờ Huyền trả lời/.test(t.$("[data-drawer]").textContent) && !t.$('[data-drawer] [data-act="ask"]'));
+  ok("D1 bấm dòng đã xin dời -> openTask('T-1', {nav}), không còn ngăn chi tiết", t.opened.slice(-1)[0][0] === "T-1" && !!t.opened.slice(-1)[0][1].nav && !t.$("[data-drawer]"));
   t.ctl.destroy(); t.w.close();
 
   t = setup({ h: { "queue.list": a => pack(a.tab, [row({ name: "T-1", subject: "x", deadline_ask: { due: "rác" } })]) } }); await flush();
@@ -128,7 +129,7 @@ const give2 = () => [
   ok("D3 sau Nhắc: dòng ghi 'Đã nhắc HH:MM', nút Nhắc nói đã nhắc lúc mấy giờ", /Đã nhắc \d\d:\d\d/.test(t.rowEl("G-UN").textContent) && /Đã nhắc lúc \d\d:\d\d/.test(t.rowEl("G-UN").querySelector('[data-act="nudge"]').title));
   await t.ctl.refresh(); await flush();
   ok("D3 'Đã nhắc' còn sau khi làm mới; lọc vẫn giữ", /Đã nhắc/.test(t.rowEl("G-UN").textContent) && t.$$(".pmq-row").length === 1);
-  t.$('[data-f="all"]').click(); await flush();
+  t.$('[data-f="unopened"]').click(); await flush();   /* hotfix 23: bấm lại = bỏ lọc (không còn nút "Tất cả") */
   const rv = t.rowEl("G-RV");
   ok("D3 việc Chờ duyệt (tab giao): 'Duyệt xong' + 'Trả lại'", !!rv.querySelector('[data-act="approve"]') && /Trả lại/.test(rv.querySelector('[data-act="return"]').textContent));
   rv.querySelector('[data-act="return"]').click(); await flush(); await flush();
@@ -144,7 +145,7 @@ const give2 = () => [
 
   /* ---------- tĩnh */
   ok("không console sót, không Jinja", !/console\.(log|debug|info)/.test(JS) && !/\{\{|\{%|\{#/.test(JS));
-  ok("CSS: không còn luật chết .pmq-qa-in[readonly]; có màu ô lọc Chưa mở", !/pmq-qa-in\[readonly\]/.test(CSS) && /pmq-f--warn/.test(CSS));
+  ok("CSS: không còn luật chết .pmq-qa-in[readonly]; có màu ô lọc Chưa mở", !/pmq-qa-in\[readonly\]/.test(CSS) && /\.pmq-fbtn b\{[^}]*color:var\(--q-late\)/.test(CSS.replace(/\/\*[\s\S]*?\*\//g, "")));
 
   let pass = 0;
   res.forEach(r => { console.log((r.c ? "ok   " : "FAIL ") + r.n + (r.c || r.x === undefined ? "" : "  -> " + JSON.stringify(r.x))); if (r.c) pass++; });

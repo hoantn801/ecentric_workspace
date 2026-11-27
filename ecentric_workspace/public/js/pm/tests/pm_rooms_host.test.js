@@ -1,8 +1,9 @@
-/* pm_rooms_host.test.js — host /pm (pm_app.html) gắn Phòng họp: route #rooms + tab "Phòng họp" trong #schedule.
+/* pm_rooms_host.test.js — host /pm (pm_app.html) gắn Phòng họp vào màn gộp "Lịch & phòng họp" (hotfix 23, PO 27/11/2026).
  * Chạy: NODE_PATH=<node_modules có jsdom> node ecentric_workspace/public/js/pm/tests/pm_rooms_host.test.js
- * Kiểm: #rooms tải lười pm_rooms.css cùng ?v= với pm_redesign.js rồi vẽ PMRooms (mode page) + breadcrumb "Phòng họp";
- * thiếu asset -> câu đang tải, không vỡ; #schedule có tab Lịch tuần | Phòng họp, đổi tab không đổi hash, dùng cùng PMRooms
- * (mode tab); rời màn -> component dừng; không thêm thẻ <script>/<link> cố định, không Jinja. */
+ * Kiểm: link cũ #rooms chuyển hướng (replaceState) vào #schedule/rooms: PMRooms mode tab + khối "Phòng bạn đã đặt",
+ * tiêu đề + breadcrumb "Lịch & phòng họp", pm_rooms.css tải lười cùng ?v= với pm_redesign.js; thiếu asset -> câu đang tải,
+ * không vỡ; #schedule có chế độ Lịch tuần | Phòng họp, đổi chế độ đổi hash #schedule <-> #schedule/rooms, dùng cùng PMRooms;
+ * rời màn -> component dừng; không thêm thẻ <script>/<link> cố định, không Jinja. */
 "use strict";
 const fs = require("fs"), path = require("path");
 const { JSDOM, VirtualConsole } = require("jsdom");
@@ -34,14 +35,15 @@ function boot(hash, withAsset) {
 (async () => {
   let b = boot("#rooms", true); await tick(200);
   const v = b.d.getElementById("pm-view");
-  ok("#rooms → PMRooms mode page trong #pm-view (5 phòng + 3 ô tóm tắt + Phòng bạn đã đặt)", v.querySelectorAll(".pmrm--page .pmrm-row").length === 5 && v.querySelectorAll(".pmrm-tile").length === 3 && /Phòng bạn đã đặt/.test(v.textContent));
-  ok("#rooms: tiêu đề bằng head() của host, hash giữ #rooms, breadcrumb Phòng họp", (v.querySelector(".pm-head h1") || {}).textContent === "Phòng họp" && b.w.location.hash === "#rooms" && (b.d.getElementById("pm-crumb") ? b.d.getElementById("pm-crumb").textContent === "Phòng họp" : true));
+  ok("#rooms (link cũ) → màn gộp, chế độ Phòng họp: PMRooms mode tab (5 phòng) + Phòng bạn đã đặt, không còn trang riêng", v.querySelectorAll("#sch-rooms .pmrm--tab .pmrm-row").length === 5 && !!v.querySelector("#sch-rooms .pmrm-minep") && /Phòng bạn đã đặt/.test(v.textContent) && !v.querySelector(".pmrm--page") && !v.querySelector('a[href="/pm#rooms"]'));
+  ok("#rooms: hash chuẩn hoá #schedule/rooms, tiêu đề + breadcrumb 'Lịch & phòng họp', tab Phòng họp đang chọn", (v.querySelector(".pm-head h1") || {}).textContent === "Lịch & phòng họp" && b.w.location.hash === "#schedule/rooms" && (b.d.getElementById("pm-crumb") ? b.d.getElementById("pm-crumb").textContent === "Lịch & phòng họp" : true) && b.d.getElementById("sch-tab-rooms").getAttribute("aria-selected") === "true");
+  ok("#rooms: mở sẵn lớp Phòng đã đặt (lưu cho lần sau)", JSON.parse(b.w.localStorage.getItem("pm_sch_layers") || "{}").room === true);
   const css = b.d.querySelector("link[data-pmrm-css]");
   ok("CSS tải lười đúng 1 lần, cùng ?v= với pm_redesign.js", css && css.getAttribute("href") === "/assets/ecentric_workspace/css/pm/pm_rooms.css?v=" + VER && b.d.querySelectorAll("link[data-pmrm-css]").length === 1);
   ok("host truyền api của trang (frappe.call): gọi rooms.day + rooms.mine", b.calls.indexOf("rooms.day") >= 0 && b.calls.indexOf("rooms.mine") >= 0);
   const ctl = b.w._pmRoomsCtl;
   b.w.location.hash = "#mywork"; await tick(120);
-  ok("rời #rooms → component dừng (destroy), không còn gốc .pmrm", ctl && ctl._state.dead === true && !b.w._pmRoomsCtl && !b.d.querySelector(".pmrm"));
+  ok("rời Phòng họp → component dừng (destroy), không còn gốc .pmrm trong #pm-view", ctl && ctl._state.dead === true && !b.w._pmRoomsCtl && !b.d.querySelector("#pm-view .pmrm"));
   ok("không lỗi console (#rooms)", b.errors.length === 0, b.errors.slice(0, 2).join(" | "));
   b.w.close();
 
@@ -51,12 +53,12 @@ function boot(hash, withAsset) {
 
   b = boot("#schedule", true); await tick(200);
   const tabs = () => Array.from(b.d.querySelectorAll(".sch-tabs [role=tab]"));
-  ok("#schedule: tablist Lịch tuần | Phòng họp, mặc định Lịch tuần, lưới tuần cũ vẫn vẽ", tabs().map(t => t.textContent).join("|") === "Lịch tuần|Phòng họp" && tabs()[0].getAttribute("aria-selected") === "true" && !!b.d.getElementById("sch-days") && b.calls.indexOf("schedule.week") >= 0);
+  ok("#schedule: tablist Lịch tuần | Phòng họp, mặc định Lịch tuần, lưới tuần vẫn vẽ", tabs().map(t => t.textContent).join("|") === "Lịch tuần|Phòng họp" && tabs()[0].getAttribute("aria-selected") === "true" && !!b.d.getElementById("sch-days") && b.calls.indexOf("schedule.week") >= 0);
   b.d.getElementById("sch-tab-rooms").click(); await tick(150);
-  ok("bấm tab Phòng họp → cùng PMRooms (mode tab) trong #sch-rooms, hash vẫn #schedule, focus ở tab", !!b.d.querySelector("#sch-rooms .pmrm--tab") && b.d.querySelectorAll("#sch-rooms .pmrm-row").length === 5 && b.w.location.hash === "#schedule" && b.d.activeElement === b.d.getElementById("sch-tab-rooms") && b.d.getElementById("sch-tab-rooms").getAttribute("aria-selected") === "true");
+  ok("bấm tab Phòng họp → cùng PMRooms (mode tab) trong #sch-rooms, hash #schedule/rooms (link được), focus ở tab", !!b.d.querySelector("#sch-rooms .pmrm--tab") && b.d.querySelectorAll("#sch-rooms .pmrm-row").length === 5 && b.w.location.hash === "#schedule/rooms" && b.d.activeElement === b.d.getElementById("sch-tab-rooms") && b.d.getElementById("sch-tab-rooms").getAttribute("aria-selected") === "true");
   const n0 = b.calls.filter(x => x === "schedule.week").length;
   b.d.getElementById("sch-tab-cal").click(); await tick(150);
-  ok("bấm Lịch tuần → về lưới tuần (tải lại schedule.week), PMRooms dừng", !!b.d.getElementById("sch-days") && b.calls.filter(x => x === "schedule.week").length === n0 + 1 && !b.d.querySelector(".pmrm") && !b.w._pmRoomsCtl);
+  ok("bấm Lịch tuần → về lưới tuần (tải lại schedule.week), PMRooms dừng, hash #schedule", !!b.d.getElementById("sch-days") && b.calls.filter(x => x === "schedule.week").length === n0 + 1 && !b.d.querySelector("#pm-view .pmrm") && !b.w._pmRoomsCtl && b.w.location.hash === "#schedule");
   b.d.querySelector(".sch-tabs").dispatchEvent(new b.w.KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })); await tick(150);
   ok("phím mũi tên trên tablist đổi tab", !!b.d.querySelector("#sch-rooms .pmrm--tab"));
   ok("không lỗi console (#schedule)", b.errors.length === 0, b.errors.slice(0, 2).join(" | "));

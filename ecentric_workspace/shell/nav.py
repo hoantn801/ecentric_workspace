@@ -753,8 +753,9 @@ RAIL_LAYOUTS = {
             # Hotfix 16 (PO 17/11/2026): "Được giao cho tôi" / "Tôi đã giao" gop vao "Việc cần làm" (tab + khoi
             # Cần đồng ý); route van chay, muc an khoi cot (pm/nav.py MERGED_INTO_MYWORK, sidebar_hidden).
             {"key": "pm.view.mywork", "badge_source": "pm.mywork"},
-            {"key": "pm.view.schedule"},
-            {"key": "pm.view.rooms"}]},   # 05/11/2026 phong hop (PO duyet demo v2)
+            # Hotfix 23 (PO 27/11/2026): Phong hop gop vao "Lịch & phòng họp" (pm.view.rooms sidebar_hidden,
+            # route /pm#rooms van mo dung che do Phong hop trong man gop).
+            {"key": "pm.view.schedule"}]},
         {"t": "button", "item": {"key": "rail.pm.new", "label": "Giao việc", "route": "/pm#new",
                                  "icon": "plus", "noactive": True}},
         {"t": "group", "label": "Quản lý", "items": [

@@ -9,7 +9,14 @@
  *   trả lại chỗ cũ; ô Lặp lại + Đến ngày (≤180 ngày, đếm buổi như server); mời khách ngoài bằng email (chip khác màu).
  * Nguồn sự thật là lịch Exchange của từng phòng: client chỉ kiểm trùng để báo sớm, server quyết định cuối.
  * Giờ là chuỗi giờ địa phương của site ("YYYY-MM-DD HH:MM:SS"): tính bằng phút, không qua Date của trình duyệt.
- * Mọi chuỗi từ server đi qua esc(). Sửa giao diện: chỉ sửa file này + pm_rooms.css. */
+ * Mọi chuỗi từ server đi qua esc(). Sửa giao diện: chỉ sửa file này + pm_rooms.css.
+ * Hotfix 23 (PO 27/11/2026, màn gộp "Lịch & phòng họp"):
+ *   opts.mine = true   -> chế độ "tab" cũng có khối "Phòng bạn đã đặt" (trang #rooms riêng đã gộp vào lịch).
+ *   opts.headless      -> không tự làm mới 60 giây (gốc ẩn, chỉ dùng cho hộp đặt phòng mở từ lịch tuần).
+ *   opts.onBooked(row) -> gọi sau khi đặt phòng thành công (lịch tuần tải lại).
+ *   ctl.freeRooms(day, s, e) -> Promise {rooms:[{name,label,meta,free,why}], off}: phòng trống / bận đúng khung giờ.
+ *   ctl.book({room, day, s, e, subject, who:[email], submit}) -> mở CÙNG hộp đặt phòng (điền sẵn); submit = gửi luôn
+ *     qua đúng đường submit() (kiểm trùng, txn, chờ phòng nhận); lỗi thì hộp ở lại để sửa. Không có luồng Graph mới. */
 (function (root) {
 "use strict";
 if (root.PMRooms) return;
@@ -129,6 +136,7 @@ function render(el, opts) {
   opts = opts || {};
   if (el._pmrm) el._pmrm.destroy();
   const mode = opts.mode === "tab" ? "tab" : "page";
+  const withMine = mode === "page" || !!opts.mine;   /* hotfix 23: tab trong màn gộp cũng có "Phòng bạn đã đặt" */
   const POLLS = Array.isArray(opts.pollMs) && opts.pollMs.length ? opts.pollMs : POLL_MS;   /* pollMs: chỉ để test */
   const me = ++UID, idp = "pmrm" + me + "-";
   const S = { date: null, today: null, cache: {}, mine: [], mineErr: "", pending: {}, err: "", loading: false,
@@ -177,8 +185,8 @@ function render(el, opts) {
     '<div class="pmrm-msg" data-msg role="alert" hidden></div>' +
     '<div class="pmrm-tl" data-tl role="region" aria-label="Lịch phòng họp" aria-busy="true">' + skel + "</div></div>" +
     '<p class="pmrm-hint">Bấm chỗ trống để đặt (bước 30 phút), hoặc chọn một phòng rồi nhấn Enter. Đặt trên Teams/Outlook cũng hiện ở đây; đặt ở đây thì Teams của bạn và người được mời cũng có lịch + link họp.' +
-    (mode === "tab" ? ' <a class="pmrm-link" href="/pm#rooms">Phòng bạn đã đặt →</a>' : "") + "</p>" +
-    (mode === "page" ? '<section class="pmrm-panel pmrm-minep" aria-labelledby="' + idp + 'mh"><div class="pmrm-ph"><h2 class="pmrm-pt" id="' + idp + 'mh">Phòng bạn đã đặt</h2></div><div data-mine aria-live="polite"><p class="pmrm-empty">Đang tải…</p></div></section>' : "") +
+    (mode === "tab" && !withMine ? ' <a class="pmrm-link" href="/pm#rooms">Phòng bạn đã đặt →</a>' : "") + "</p>" +
+    (withMine ? '<section class="pmrm-panel pmrm-minep" aria-labelledby="' + idp + 'mh"><div class="pmrm-ph"><h2 class="pmrm-pt" id="' + idp + 'mh">Phòng bạn đã đặt</h2></div><div data-mine aria-live="polite"><p class="pmrm-empty">Đang tải…</p></div></section>' : "") +
     '<div class="pmrm-toast" role="status" aria-live="polite"></div></div>';
   const R = el.querySelector("[data-pmrm]");
   const $ = (s, r) => (r || R).querySelector(s), $$ = (s, r) => Array.prototype.slice.call((r || R).querySelectorAll(s));
@@ -313,7 +321,7 @@ function render(el, opts) {
   const PILL = { accepted: ["ok", "Phòng đã nhận"], pending: ["wait", "Chờ phòng nhận"], declined: ["no", "Phòng từ chối"],
     held: ["wait", "Đặt tạm · chờ Microsoft"] };   /* 13/11: Microsoft 365 lỗi -> giữ phòng tạm trên ERP (rooms_hold) */
   function paintMine() {
-    if (mode !== "page") return;
+    if (!withMine) return;
     const box = $("[data-mine]"); if (!box) return;
     const rows = mineRows();
     if (!rows.length) {
@@ -716,6 +724,7 @@ function render(el, opts) {
     if (p.recurring) { p.series_id = p.event_id; p.master = true; }   /* id = seriesMaster: thay bằng các buổi khi mine() có (series_id) */
     S.pending[p.event_id] = p;
     closeDlg();
+    if (typeof opts.onBooked === "function") { try { opts.onBooked(p); } catch (_) { /* host lỗi không chặn đặt phòng */ } }
     if (p.start && String(p.start).slice(0, 10) !== S.date) S.date = String(p.start).slice(0, 10);
     paint();
     if (p.state === "held") {   /* Microsoft 365 lỗi: đã giữ phòng tạm, không hỏi booking_state */
@@ -960,7 +969,7 @@ function render(el, opts) {
   R.addEventListener("mouseleave", hideGhost);
   R.addEventListener("change", onChange);
   document.addEventListener("visibilitychange", onVis);
-  const iv = setInterval(() => {
+  const iv = opts.headless ? 0 : setInterval(() => {
     if (!alive()) return;
     if (document.hidden) { S.stale = true; return; }
     if (!S.dlg) refresh(); else paintGrid();
@@ -973,7 +982,36 @@ function render(el, opts) {
     closeDlg(true);
     if (el._pmrm === ctl) el._pmrm = null;
   }
-  const ctl = { refresh, destroy, _state: S };
+  /* hotfix 23: phòng trống đúng khung [s, e) của ngày `day` (phút từ 00:00), cùng clashOf của lưới phòng */
+  async function freeRooms(day, s, e) {
+    const d = await ensureDay(day);
+    if (S.dead) return { rooms: [], off: true };
+    if (!d) return { rooms: [], off: true, err: "Chưa tải được lịch phòng." };
+    const off = !d.sync_on && !d.offline;
+    const rooms = (d.rooms || []).map(r => {
+      const meta = [r.floor, r.note, r.capacity ? r.capacity + " người" : ""].filter(Boolean).join(" · ");
+      if (r.error) return { name: r.name, label: r.label || r.code || r.name, meta, free: false, why: "Chưa kết nối" };
+      const c = clashOf(r, day, s, e);
+      return { name: r.name, label: r.label || r.code || r.name, meta, free: !c, why: c ? (c.kind === "busy" ? "Bận" : "Bạn đã đặt") : "Trống" };
+    });
+    return { rooms, off };
+  }
+  /* hotfix 23: mở hộp đặt phòng điền sẵn (từ ô trống của lịch tuần); submit = gửi luôn bằng submit() sẵn có */
+  function book(o) {
+    o = o || {};
+    if (S.dead) return Promise.resolve(false);
+    const day = o.day || S.date || S.today;
+    const rs = roomsOf(day).length ? roomsOf(day) : roomsOf(S.date);
+    const room = o.room || ((rs.find(r => !r.error) || rs[0] || {}).name) || null;
+    openBook(room, day, o.s != null ? o.s : null, o.e != null ? o.e : null);
+    const D = S.dlg;
+    if (!D) return Promise.resolve(false);
+    if (o.subject) D.f("subject").value = String(o.subject);
+    if (Array.isArray(o.who) && o.who.length) D.addTyped(o.who.join(","));
+    else check();
+    return o.submit ? submit().then(() => true) : Promise.resolve(true);
+  }
+  const ctl = { refresh, destroy, freeRooms, book, _state: S };
   el._pmrm = ctl;
   refresh();
   return ctl;

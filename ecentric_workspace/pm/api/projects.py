@@ -10,6 +10,7 @@ import frappe
 from frappe import _
 
 from ecentric_workspace.pm import permissions as pmperm
+from ecentric_workspace.pm import colors as pmcolors
 from ecentric_workspace.pm import task_flow as tflow
 
 _FIELDS = [
@@ -17,20 +18,112 @@ _FIELDS = [
     "ec_department", "ec_manager", "owner", "modified", "_user_tags",
 ]
 
+# Project.status values the PM screens use. "closed" = Completed + Cancelled (hotfix 23 scope).
+PROJECT_STATUSES = ("Open", "Completed", "Cancelled")
+CLOSED_STATUSES = ("Completed", "Cancelled")
+SCOPES = ("run", "closed", "mine")
+_FINISHED = ["Done", "Cancelled"]
+_HEALTH = {"high": "hi", "medium": "mid", "low": "ok"}
 
-@frappe.whitelist()
-def list(start=0, page_length=20, status=None, include_personal=0):
-    """Permission-scoped, paginated project list. Returns {rows, total}.
 
-    PM redesign: personal-log projects (ec_personal_log=1, the worklog) are hidden unless
-    include_personal=1; every row carries ec_personal_log (0/1)."""
+def _fields():
+    return _FIELDS + ([pmcolors.COLOR_FIELD] if pmcolors.has_color_field() else [])
+
+
+# --------------------------------------------------------------------------- risk / health
+def _task_assignees(t):
+    return pmperm.assignees_of(t)
+
+
+def risk_summary(rows, today):
+    """Risk counters over a project's (scoped) task rows. SINGLE definition shared by
+    projects.detail (risk / risk_level, unchanged since UX-3) and projects.list (health):
+      high   if overdue > 0 or blocked > 0
+      medium if (no_assignee + no_due) >= max(3, total // 2)
+      low    otherwise.
+    rows need workflow_state, exp_end_date, _assign. Returns (risk dict, level, total)."""
+    def active(t):
+        return t.get("workflow_state") not in _FINISHED
+
+    def overdue(t):
+        d = t.get("exp_end_date")
+        d = str(d)[:10] if d else None
+        return bool(d and d < today and active(t))
+
+    total = len(rows)
+    risk = {
+        "active": len([t for t in rows if active(t)]),
+        "overdue": len([t for t in rows if overdue(t)]),
+        "blocked": len([t for t in rows if t.get("workflow_state") == "Blocked"]),
+        "review": len([t for t in rows if t.get("workflow_state") == "Review"]),
+        "no_assignee": len([t for t in rows if not _task_assignees(t)]),
+        "no_due": len([t for t in rows if not t.get("exp_end_date")]),
+        "completed": len([t for t in rows if t.get("workflow_state") == "Done"]),
+    }
+    if risk["overdue"] > 0 or risk["blocked"] > 0:
+        level = "high"
+    elif (risk["no_assignee"] + risk["no_due"]) >= max(3, total // 2):
+        level = "medium"
+    else:
+        level = "low"
+    return risk, level, total
+
+
+def health_of(risk, level, total, status=None):
+    """-> (health in hi|mid|ok|"", health_text). Same thresholds as risk_summary (the label the
+    project detail header has shown as Rủi ro cao / Cần chú ý / Ổn định); "" when there is
+    nothing to judge (no task yet, or the project is closed)."""
+    if status in CLOSED_STATUSES:
+        return "", (_("Dự án đã hoàn thành") if status == "Completed" else _("Dự án đã huỷ"))
+    if not total:
+        return "", _("Chưa có việc")
+    h = _HEALTH.get(level, "ok")
+    if h == "hi":
+        parts = []
+        if risk["overdue"]:
+            parts.append(_("{0} việc quá hạn trên {1} việc đang mở").format(risk["overdue"], risk["active"]))
+        if risk["blocked"]:
+            parts.append(_("{0} việc đang bị chặn").format(risk["blocked"]))
+        return h, " · ".join(parts)
+    if h == "mid":
+        return h, _("{0} việc chưa giao, {1} việc chưa có hạn trên {2} việc").format(
+            risk["no_assignee"], risk["no_due"], total)
+    return h, _("Không có việc quá hạn hay bị chặn ({0} việc đang mở)").format(risk["active"])
+
+
+# --------------------------------------------------------------------------- manage gate
+def can_manage_project(project_row, user=None, is_leader=None):
+    """Who may edit / close / cancel / recolour / delete (0 tasks) a project: a PM leader
+    (pmperm.can_see_all_pm_data) OR the project's ec_manager. Same rule as projects.update."""
+    user = user or frappe.session.user
+    if is_leader is None:
+        is_leader = pmperm.can_see_all_pm_data(user)
+    return bool(is_leader or ((project_row or {}).get("ec_manager") or None) == user)
+
+
+def _managed_doc(name, action):
+    """Load a project the caller may manage, else a Vietnamese error. `action` completes the
+    sentence "Chỉ quản lý dự án hoặc trưởng nhóm PM mới ... được"."""
     pmperm.require_pm_access()
-    user = frappe.session.user
+    if not name or not frappe.db.exists("Project", name):
+        frappe.throw(_("Không tìm thấy dự án."))
+    doc = frappe.get_doc("Project", name)
+    if not can_manage_project(doc, frappe.session.user):
+        frappe.throw(_("Chỉ quản lý dự án hoặc trưởng nhóm PM mới {0} được.").format(action),
+                     frappe.PermissionError)
+    return doc
 
-    filters = {}
+
+# --------------------------------------------------------------------------- list
+def _base_filters(user, include_personal, status, q):
+    """List-form filters shared by rows / total / counts. None = the user can open nothing."""
+    filters = []
     if status:
-        filters["status"] = status
-
+        filters.append(["status", "=", status])
+    q = (q or "").strip()
+    if q:
+        esc = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        filters.append(["project_name", "like", "%{0}%".format(esc)])
     personal = tflow.personal_log_projects()
     hide = set() if tflow.truthy(include_personal) else personal
     visible = pmperm.get_visible_project_names(user)
@@ -40,40 +133,117 @@ def list(start=0, page_length=20, status=None, include_personal=0):
         # defines `def list`, which shadows the builtin `list` -> use sorted(), never bare list().
         openable = (set(visible) | pmperm.projects_with_my_tasks(user)) - hide
         if not openable:
-            return {"rows": [], "total": 0}
-        filters["name"] = ["in", sorted(openable)]
+            return None, personal
+        filters.append(["name", "in", sorted(openable)])
     elif hide:
-        filters["name"] = ["not in", sorted(hide)]  # Project.name is never NULL
+        filters.append(["name", "not in", sorted(hide)])  # Project.name is never NULL
+    return filters, personal
 
-    rows = frappe.get_all(
-        "Project", filters=filters, fields=_FIELDS,
-        start=int(start), page_length=int(page_length), order_by="modified desc",
-    )
-    # Computed progress from task completion (native percent_complete is unreliable
-    # here since PM uses workflow_state). Same definition as projects.detail:
-    # progress = Done / total_tasks. Single aggregate query for the page's projects.
+
+def _mine_names(filters, user):
+    return frappe.get_all("Project", filters=filters,
+                          or_filters=[["owner", "=", user], ["ec_manager", "=", user]],
+                          pluck="name", limit_page_length=0)
+
+
+def _scope_filter(scope, mine):
+    if scope == "run":
+        return [["status", "not in", sorted(CLOSED_STATUSES)]]
+    if scope == "closed":
+        return [["status", "in", sorted(CLOSED_STATUSES)]]
+    if scope == "mine":
+        return [["name", "in", sorted(mine)]]
+    return []
+
+
+def _decorate_rows(rows, user):
+    """Task aggregates + health + colour + manage flags for one page of projects (one Task query,
+    scoped to the user's own tasks like before)."""
+    today = frappe.utils.nowdate()
     names = [r["name"] for r in rows]
+    by = {}
     if names:
-        agg = {}
         for t in frappe.get_all(
             "Task", filters={"project": ["in", names]},
             or_filters=pmperm.task_scope_or_filters(user),  # scope counts to the user's own tasks
-            fields=["project", "workflow_state"], limit_page_length=0,
+            fields=["project", "workflow_state", "exp_end_date", "_assign"], limit_page_length=0,
         ):
-            a = agg.setdefault(t["project"], {"total": 0, "done": 0})
-            a["total"] += 1
-            if t.get("workflow_state") == "Done":
-                a["done"] += 1
+            by.setdefault(t["project"], []).append(t)
+    is_leader = pmperm.can_see_all_pm_data(user)
+    mgr_names = tflow.full_names([r.get("ec_manager") for r in rows])
+    for r in rows:
+        tl = by.get(r["name"], [])
+        risk, level, total = risk_summary(tl, today)
+        # Computed progress from task completion (native percent_complete is unreliable here
+        # since PM uses workflow_state). Same definition as projects.detail: Done / total.
+        r["task_total"] = total
+        r["task_done"] = risk["completed"]
+        r["progress"] = int(round(risk["completed"] * 100.0 / total)) if total else 0
+        r["open"] = risk["active"]
+        r["late"] = risk["overdue"]
+        r["unassigned"] = len([t for t in tl if t.get("workflow_state") not in _FINISHED
+                               and not _task_assignees(t)])
+        r["health"], r["health_text"] = health_of(risk, level, total, r.get("status"))
+        r["color_key"] = pmcolors.color_for(r)
+        r["ec_manager_name"] = mgr_names.get(r.get("ec_manager")) if r.get("ec_manager") else None
+        r["can_manage"] = can_manage_project(r, user, is_leader)
+        # can_delete needs the AUTHORITATIVE count (the page count above is user-scoped).
+        r["can_delete"] = bool(r["can_manage"] and not total)
+    # can_delete needs the AUTHORITATIVE count; one grouped query for all candidates (QC 27/11, no N+1)
+    cands = [r["name"] for r in rows if r.get("can_delete")]
+    if cands:
+        have = {x["project"] for x in frappe.get_all("Task", filters={"project": ["in", cands]},
+                                                     fields=["project"], distinct=True, limit_page_length=0)}
         for r in rows:
-            a = agg.get(r["name"], {"total": 0, "done": 0})
-            r["task_total"] = a["total"]
-            r["task_done"] = a["done"]
-            r["progress"] = int(round(a["done"] * 100.0 / a["total"])) if a["total"] else 0
+            if r.get("can_delete") and r["name"] in have:
+                r["can_delete"] = False
+    return rows
+
+
+@frappe.whitelist()
+def list(start=0, page_length=20, status=None, include_personal=0, scope=None, q=None):
+    """Permission-scoped, paginated project list.
+
+    Returns {rows, total, counts: {run, closed, mine}}.
+      scope  run (not Completed/Cancelled) | closed (Completed + Cancelled) | mine (I own or
+             manage it) | None = every visible project (legacy callers: dropdowns, 200/500 rows).
+      q      substring of project_name. `counts` follow q + include_personal, not scope.
+    PM redesign: personal-log projects (ec_personal_log=1, the worklog) are hidden unless
+    include_personal=1; every row carries ec_personal_log (0/1). Hotfix 23 row additions:
+    open, late, unassigned, health (hi|mid|ok|""), health_text, color_key, ec_manager_name,
+    can_manage, can_delete."""
+    pmperm.require_pm_access()
+    user = frappe.session.user
+    scope = (scope or "").strip().lower() or None
+    if scope and scope not in SCOPES:
+        frappe.throw(_("Bộ lọc dự án không hợp lệ: {0}").format(scope))
+    try:
+        start = max(0, int(start or 0))
+        page_length = 20 if page_length in (None, "") else max(0, int(page_length))  # 0 = all (legacy)
+    except (TypeError, ValueError):
+        frappe.throw(_("Tham số phân trang không hợp lệ."))
+
+    base, personal = _base_filters(user, include_personal, status, q)
+    if base is None:
+        return {"rows": [], "total": 0, "counts": {"run": 0, "closed": 0, "mine": 0}}
+    mine = _mine_names(base, user)
+    counts = {"run": frappe.db.count("Project", base + _scope_filter("run", mine)),
+              "closed": frappe.db.count("Project", base + _scope_filter("closed", mine)),
+              "mine": len(mine)}
+    if scope == "mine" and not mine:
+        return {"rows": [], "total": 0, "counts": counts}
+    filters = base + _scope_filter(scope, mine)
+
+    rows = frappe.get_all(
+        "Project", filters=filters, fields=_fields(),
+        start=start, page_length=page_length, order_by="modified desc",
+    )
+    _decorate_rows(rows, user)
     for r in rows:
         r["ec_personal_log"] = 1 if r["name"] in personal else 0
 
     total = frappe.db.count("Project", filters)
-    return {"rows": rows, "total": total}
+    return {"rows": rows, "total": total, "counts": counts}
 
 
 @frappe.whitelist()
@@ -91,15 +261,13 @@ def get(name):
     return {"project": doc.as_dict(), "task_status_counts": counts}
 
 
-_FINISHED = ["Done", "Cancelled"]
-
-
 @frappe.whitelist()
 def detail(name):
     """Project + risk summary (additive, permission-scoped). For UX-3 detail tabs.
 
     risk_level: high if overdue/blocked > 0; medium if many tasks lack assignee/due;
-    low otherwise. progress = completed / total.
+    low otherwise (risk_summary). progress = completed / total.
+    Hotfix 23: project.color_key, can_manage, can_delete, health (hi|mid|ok|""), health_text.
     """
     pmperm.require_pm_access()
     user = frappe.session.user
@@ -112,40 +280,16 @@ def detail(name):
         fields=["name", "workflow_state", "exp_end_date", "_assign"],
         limit_page_length=0,
     )
-
-    def assignees(t):
-        try:
-            return frappe.parse_json(t.get("_assign") or "[]") or []
-        except Exception:
-            return []
-
-    def active(t):
-        return t.get("workflow_state") not in _FINISHED
-
-    def overdue(t):
-        d = t.get("exp_end_date")
-        d = str(d)[:10] if d else None
-        return bool(d and d < today and active(t))
-
-    total = len(rows)
-    risk = {
-        "active": len([t for t in rows if active(t)]),
-        "overdue": len([t for t in rows if overdue(t)]),
-        "blocked": len([t for t in rows if t.get("workflow_state") == "Blocked"]),
-        "review": len([t for t in rows if t.get("workflow_state") == "Review"]),
-        "no_assignee": len([t for t in rows if not assignees(t)]),
-        "no_due": len([t for t in rows if not t.get("exp_end_date")]),
-        "completed": len([t for t in rows if t.get("workflow_state") == "Done"]),
-    }
-    if risk["overdue"] > 0 or risk["blocked"] > 0:
-        level = "high"
-    elif (risk["no_assignee"] + risk["no_due"]) >= max(3, total // 2):
-        level = "medium"
-    else:
-        level = "low"
+    risk, level, total = risk_summary(rows, today)
     progress = int(round(risk["completed"] * 100.0 / total)) if total else 0
-    return {"project": doc.as_dict(), "total": total, "risk": risk,
-            "risk_level": level, "progress": progress}
+    health, health_text = health_of(risk, level, total, doc.get("status"))
+    project = doc.as_dict()
+    project["color_key"] = pmcolors.color_for(project)
+    manage = can_manage_project(project, user)
+    return {"project": project, "total": total, "risk": risk,
+            "risk_level": level, "progress": progress,
+            "health": health, "health_text": health_text, "can_manage": manage,
+            "can_delete": bool(manage and not frappe.db.count("Task", {"project": name}))}
 
 
 def _creator_department(user):
@@ -220,32 +364,79 @@ def update(name, project_name=None, manager=None, department=None,
     if priority:
         doc.priority = priority
     doc.notes = description or None
+    _pin_status(doc)   # hotfix 23: editing a Completed project must not reopen it
     doc.save()  # honors audit; ec_manager/ec_department links validated by Frappe
     return {"name": doc.name, "project_name": doc.project_name}
 
 
 @frappe.whitelist()
+def set_status(name, status):
+    """Hotfix 23: Hoàn thành / Huỷ / Mở lại a project. status in Open | Completed | Cancelled.
+    Manager-or-leader only (can_manage_project, re-checked here). Validated doc.save() ->
+    Version keeps who/when/from-to. Tasks are NOT touched (closing a project does not close
+    its tasks)."""
+    status = (status or "").strip()
+    if status not in PROJECT_STATUSES:
+        frappe.throw(_("Trạng thái dự án không hợp lệ: {0}").format(status or "-"))
+    doc = _managed_doc(name, _("đổi trạng thái dự án"))
+    if doc.get("status") != status:
+        doc.status = status
+        _pin_status(doc, force=True)
+        doc.save()
+    if doc.get("status") != status:
+        frappe.throw(_("Chưa đổi được trạng thái dự án (hệ thống tự tính lại theo tiến độ). Thử lại hoặc báo quản trị."))
+    return {"name": doc.name, "status": doc.get("status")}
+
+
+def _pin_status(doc, force=False):
+    """QC 27/11: ERPNext Project.validate -> update_percent_complete() re-derives status from task
+    completion ("Completed" iff 100%, else "Open"; only Cancelled survives) unless the method is
+    "Manual" - and every Task.on_update re-runs it via project.update_project(). A status chosen by a
+    person (set_status) or an already-closed project being edited (colour / form) must not silently
+    flip back, so switch the project to Manual. /pm shows progress from task counts, not percent_complete."""
+    meta = getattr(doc, "meta", None)
+    if meta is not None and hasattr(meta, "has_field") and not meta.has_field("percent_complete_method"):
+        return
+    if force or doc.get("status") == "Completed":
+        if doc.get("percent_complete_method") != "Manual":
+            doc.percent_complete_method = "Manual"
+
+
+@frappe.whitelist()
+def set_color(name, color_key=None):
+    """Hotfix 23: project colour. color_key = one of colors.PALETTE_KEYS, or empty = back to the
+    department colour. Same gate as projects.update (manager or PM leader). Returns the
+    EFFECTIVE key (color_key) + the stored override (ec_color, "" = theo phòng ban)."""
+    key = (color_key or "").strip()
+    if key and not pmcolors.valid_key(key):
+        frappe.throw(_("Màu không hợp lệ: {0}").format(key))
+    doc = _managed_doc(name, _("đổi màu dự án"))
+    if not pmcolors.has_color_field():
+        frappe.throw(_("Hệ thống chưa cài trường màu dự án (Project.ec_color). Nhờ quản trị chạy cập nhật."))
+    if (doc.get(pmcolors.COLOR_FIELD) or "") != key:
+        doc.set(pmcolors.COLOR_FIELD, key)
+        _pin_status(doc)
+        doc.save()
+    return {"name": doc.name, "color_key": pmcolors.color_for(doc), "ec_color": key}
+
+
+@frappe.whitelist()
 def delete(name):
-    """Controlled hard-delete of a Project. LEADER-ONLY. Allowed ONLY when the project
-    has zero Tasks (authoritative server-side count; never trusts the frontend). Uses the
-    standard frappe.delete_doc (no SQL, no force) so Frappe's own link checks run — if any
-    other document still links the project, a clear error is returned and nothing is
-    cascade-deleted.
+    """Controlled hard-delete of a Project. Hotfix 23: PM leaders OR the project's manager
+    (can_manage_project; was leader-only). Allowed ONLY when the project has zero Tasks
+    (authoritative server-side count; never trusts the frontend). Uses the standard
+    frappe.delete_doc (no SQL, no force) so Frappe's own link checks run — if any other
+    document still links the project, a clear error is returned and nothing is cascade-deleted.
     """
-    pmperm.require_pm_access()
-    user = frappe.session.user
-    if not pmperm.can_see_all_pm_data(user):
-        frappe.throw(frappe._("Only PM leaders can delete projects."), frappe.PermissionError)
-    if not frappe.db.exists("Project", name):
-        frappe.throw(frappe._("Project not found."))
+    _managed_doc(name, _("xoá dự án"))
     task_count = frappe.db.count("Task", {"project": name})
     if task_count:
-        frappe.throw(frappe._("Dự án đã có nhiệm vụ và không thể xoá. Hãy đóng hoặc huỷ dự án."))
+        frappe.throw(_("Dự án đã có {0} việc nên không xoá được. Hãy đánh dấu hoàn thành hoặc huỷ dự án.").format(task_count))
     try:
         frappe.delete_doc("Project", name, ignore_permissions=True)  # service layer is the gate; no force -> link checks apply
     except frappe.LinkExistsError:
-        frappe.throw(frappe._("Không thể xoá: dự án còn liên kết với dữ liệu khác. "
-                              "Hãy gỡ liên kết hoặc đóng/huỷ dự án."))
+        frappe.throw(_("Không thể xoá: dự án còn liên kết với dữ liệu khác. "
+                       "Hãy gỡ liên kết hoặc đóng/huỷ dự án."))
     return {"deleted": name}
 
 

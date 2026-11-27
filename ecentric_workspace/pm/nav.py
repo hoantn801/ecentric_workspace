@@ -28,8 +28,10 @@ VIEWS = [
     ("pm.view.mywork", "Việc cần làm", "/pm#mywork", "inbox", 20),
     ("pm.view.assignments", "Được giao cho tôi", "/pm#received", "recv", 22),
     ("pm.view.given", "Tôi đã giao", "/pm#given", "send", 24),
-    ("pm.view.schedule", "Lịch làm việc", "/pm#schedule", "calendar", 25),
-    # 05/11/2026: phòng họp văn phòng mới (lịch phòng từ Teams + đặt phòng) - pm.api.rooms
+    # Hotfix 23 (PO 27/11/2026, B2): "Lịch làm việc" + "Phòng họp" gộp thành MỘT màn "Lịch & phòng họp".
+    ("pm.view.schedule", "Lịch & phòng họp", "/pm#schedule", "calendar", 25),
+    # 05/11/2026: phòng họp văn phòng (lịch phòng từ Teams + đặt phòng) - pm.api.rooms. Hotfix 23: không còn dòng
+    # riêng trên cột (sidebar_hidden); route /pm#rooms vẫn chạy = chế độ "Phòng họp" trong màn Lịch & phòng họp.
     ("pm.view.rooms", "Phòng họp", "/pm#rooms", "users", 26),
     ("pm.view.overview", "Điều phối", "/pm#coordinate", "grid", 30),
     ("pm.view.projects", "Dự án", "/pm#projects", "folder", 35),
@@ -44,6 +46,8 @@ VIEWS = [
 # links, #given/rep "Lặp lại", #given/done "Đã xong"); only the sidebar ROW goes (sidebar_hidden, so the
 # shared rail does not drop them into "Mục khác").
 MERGED_INTO_MYWORK = ("pm.view.assignments", "pm.view.given")
+# Hotfix 23 (PO 27/11/2026): Phòng họp gộp vào "Lịch & phòng họp" (pm.view.schedule owns #rooms + #schedule/rooms).
+MERGED_INTO_SCHEDULE = ("pm.view.rooms",)
 
 
 def items():
@@ -58,6 +62,7 @@ def items():
             "visible_when": "internal", "owner": "pm", "view": True,
             # #project/<id> (chi tiet du an) sang menu "Du an", khong roi ve muc dau "Viec cua toi"
             **({"hash_segments": ["project"]} if key == "pm.view.projects" else {}),
-            **({"sidebar_hidden": True} if key in MERGED_INTO_MYWORK else {}),
+            **({"hash_segments": ["rooms"]} if key == "pm.view.schedule" else {}),
+            **({"sidebar_hidden": True} if key in MERGED_INTO_MYWORK + MERGED_INTO_SCHEDULE else {}),
         })
     return out

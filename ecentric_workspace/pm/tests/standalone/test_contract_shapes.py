@@ -59,7 +59,8 @@ CONTRACT = {
                                "subject", "task", "total", "workflow_state"],
     "pm_inbox.given.rules": ["assignees", "name", "next_run", "schedule_label", "status",
                              "subject"],
-    "pm_inbox.coordinate": ["kpi", "people", "personal_hidden", "projects", "todo"],
+    "pm_inbox.coordinate": ["kpi", "people", "people_total", "personal_hidden", "projects", "todo",
+                            "todo_total"],  # hotfix 23: paged lists
     "pm_inbox.coordinate.kpi": ["done_week", "late", "on_time_pct_30d", "open", "unassigned"],
     "pm_inbox.coordinate.todo.late": ["assignees", "days_late", "exp_end_date", "full_name",
                                       "kind", "opened", "project", "project_name", "subject",
