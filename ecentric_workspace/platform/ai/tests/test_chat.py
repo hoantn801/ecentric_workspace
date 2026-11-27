@@ -136,6 +136,7 @@ class World(object):
                 ("ecentric_workspace.weekly_report.permissions",
                  os.path.join(APP, "weekly_report", "permissions.py")),
                 ("ecentric_workspace.platform.ai.scope", os.path.join(AI, "scope.py")),
+                ("ecentric_workspace.platform.ai.guard_log", os.path.join(AI, "guard_log.py")),
                 ("ecentric_workspace.platform.ai.knowledge_sources",
                  os.path.join(AI, "knowledge_sources.py")),
                 ("ecentric_workspace.platform.ai.knowledge", os.path.join(AI, "knowledge.py")),

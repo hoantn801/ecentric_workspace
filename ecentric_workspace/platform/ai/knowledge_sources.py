@@ -277,7 +277,7 @@ def guide_text(slug):
     from ecentric_workspace import guides as pkg
     path = os.path.join(os.path.dirname(pkg.__file__), "pages", str(slug).replace("-", "_"),
                         "main_section.html")
-    if not re.match(r"^[a-z0-9-]+$", str(slug)) or not os.path.isfile(path):
+    if not re.match(r"^[a-z0-9-]+\Z", str(slug)) or not os.path.isfile(path):
         return ""
     with io.open(path, encoding="utf-8") as fh:
         return html_text(fh.read())

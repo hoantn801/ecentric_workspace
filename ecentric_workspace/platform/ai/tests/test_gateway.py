@@ -103,7 +103,7 @@ class Env(object):
                     "ecentric_workspace.platform.ai"):
             sys.modules[pkg] = types.ModuleType(pkg)
         self.mod = {}
-        for name in ("config", "dialects", "health", "usage", "gateway", "scope", "knowledge_sources", "knowledge", "chat", "company_summary"):
+        for name in ("config", "dialects", "health", "usage", "gateway", "scope", "guard_log", "knowledge_sources", "knowledge", "chat", "company_summary"):
             full = "ecentric_workspace.platform.ai." + name
             m = types.ModuleType(full)
             m.__file__ = os.path.join(AI, name + ".py")

@@ -124,7 +124,7 @@ class Env(object):
         sys.modules["ecentric_workspace.approval_center.shared.catalog_api"] = cat
         sys.modules["ecentric_workspace.approval_center.shared"].catalog_api = cat
         self.mod = {}
-        for name in ("config", "dialects", "health", "gateway", "khay_intent", "knowledge_sources", "knowledge", "khay"):
+        for name in ("config", "dialects", "health", "gateway", "khay_intent", "guard_log", "knowledge_sources", "knowledge", "khay"):
             full = "ecentric_workspace.platform.ai." + name
             m = types.ModuleType(full)
             m.__file__ = os.path.join(AI, name + ".py")
