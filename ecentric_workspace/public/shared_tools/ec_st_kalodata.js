@@ -162,15 +162,17 @@
   }
 
   function filesCard() {
+    // Moi file mot dong gon: ten trang (cat bot neu dai) + dong phu "nguon · so dong · luc", nut Tai luon thay.
     var rows = (S.exports || []).map(function (f) {
       var href = "/api/method/" + PREFIX + "download?name=" + encodeURIComponent(f.name);
-      return '<tr><td>' + esc(f.page || f.file_name) + (f["new"] ? '<span class="st-new">Mới</span>' : "") + '</td><td>' + esc(f.source) + '</td>' +
-        '<td>' + (f.rows == null ? "—" : esc(f.rows)) + '</td><td>' + esc(f.at) + '</td>' +
-        '<td><a class="st-btn st-btn--sm" href="' + href + '" data-act="dl" download>Tải file</a></td></tr>';
+      var meta = [f.source, f.rows == null ? "" : f.rows + " dòng", f.at].filter(Boolean).join(" · ");
+      return '<li class="st-file"><div class="st-file-main"><div class="st-file-name">' +
+        '<span class="st-file-title" title="' + esc(f.page || f.file_name) + '">' + esc(f.page || f.file_name) + '</span>' +
+        (f["new"] ? '<span class="st-new">Mới</span>' : "") + '</div><div class="st-file-meta">' + esc(meta) + '</div></div>' +
+        '<a class="st-btn st-btn--sm" href="' + href + '" data-act="dl" download aria-label="Tải file ' + esc(f.page || f.file_name) + '">Tải file</a></li>';
     }).join("");
     return '<section class="st-card st-o4" aria-labelledby="st-h-files"><div class="st-card-head"><h2 class="st-h2" id="st-h-files">File đã xuất của tôi</h2><span class="st-muted">giữ 7 ngày</span></div>' +
-      (rows ? '<div class="st-table-wrap"><table class="st-table"><thead><tr><th scope="col">Trang</th><th scope="col">Nguồn</th><th scope="col">Dòng</th><th scope="col">Lúc</th><th scope="col"><span hidden>Tải</span></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
-        : '<p class="st-empty">Chưa có file nào.</p>') +
+      (rows ? '<ul class="st-files">' + rows + '</ul>' : '<p class="st-empty">Chưa có file nào.</p>') +
       '<p class="st-files-note">File xuất trong ' + esc(S.tool.title) + ' (nút Xuất bảng hoặc nút Export của ' + esc(S.tool.title) + ') hiện ở đây sau vài giây.</p></section>';
   }
 
