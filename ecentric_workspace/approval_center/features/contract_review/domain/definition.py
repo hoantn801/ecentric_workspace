@@ -28,7 +28,10 @@ CONTRACT_REVIEW_DEFINITION = ApprovalDefinition(
                      # 24/11: CMC bat buoc CCCD / MST doi tac (kol_service.partner_identity).
                      "partner_signer_identity",
                      # 27/11: kieu ky cua doi tac tren cong (Ky anh / USB Token / ...) - esign_flow.
-                     "partner_sign_type"),
+                     "partner_sign_type",
+                     # 27/11: creator cong ty / ho KD nhieu KOL - client gui [{kol_ref}], server chup lai
+                     # tu creator (kol_service.snapshot_kols).
+                     "kol_channels"),
     my_request_fields=("name", "request_title", "request_kind", "contract_type", "brand",
                        "contract_value", "expected_response_date", "approval_request",
                        "creation", "modified"),

@@ -435,6 +435,8 @@ fixtures = [
             "Supplier-ec_cr_bank_branch", "Supplier-ec_cr_cccd_front", "Supplier-ec_cr_cccd_back",
             "Supplier-ec_cr_party_code",
             "Supplier-ec_cr_end_section",
+            # Creator cong ty / ho KD co nhieu KOL (27/11/2026): bang con EC Creator KOL.
+            "Supplier-ec_cr_kols",
             # DNTT gan hop dong KOL/KOC: SO doanh thu tu dien tu hop dong (doi chieu chi phi - doanh thu).
             "EC Payment Request-ec_sales_order",
             # Ma brand trong so hop dong KOL/KOC (12/11/2026, p384): tach khoi ec_brand_code cua bao cao.

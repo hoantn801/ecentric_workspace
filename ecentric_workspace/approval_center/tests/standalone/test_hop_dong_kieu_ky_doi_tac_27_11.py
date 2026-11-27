@@ -100,7 +100,7 @@ class GiaoDienVaKhaiBao(unittest.TestCase):
         order = cr["field_order"]
         self.assertEqual(order.index("partner_sign_type"), order.index("partner_signer_identity") + 1)
         defn = _read("approval_center/features/contract_review/domain/definition.py")
-        self.assertIn('"partner_sign_type")', defn)
+        self.assertIn('"partner_sign_type"', defn)
         self.assertIn('"esign_partner_sign_types"', defn)
         html = _read("approval_center/features/contract_review/ui/main_section.html")
         self.assertIn('<select data-model="partner_sign_type">', html)
@@ -113,7 +113,9 @@ class GiaoDienVaKhaiBao(unittest.TestCase):
         key = "approval_center/features/contract_review/ui/main_section.html"
         with open(os.path.join(APP, key), "rb") as fh:
             self.assertEqual(man[key]["sha256"], hashlib.sha256(fh.read().replace(b"\r\n", b"\n")).hexdigest())
-        self.assertEqual(man[key]["last_resync_patch"], "p582_resync_hop_dong_kieu_ky_doi_tac")
+        # Patch resync sau (p587 nhieu KOL...) duoc thay ten o ban ke; file patch do phai co that.
+        last = man[key]["last_resync_patch"]
+        self.assertTrue(os.path.exists(os.path.join(APP, "approval_center", "patches", last + ".py")), last)
         lines = [ln for ln in _read("patches.txt").splitlines() if ln.strip()]
         self.assertEqual(lines.count("ecentric_workspace.approval_center.patches.p582_resync_hop_dong_kieu_ky_doi_tac"), 1)
         html = _read(key)

@@ -1,0 +1,74 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-11-27 18:00:00.000000",
+ "description": "Bản chụp KOL / kênh của creator mà hợp đồng chọn (chụp lúc lưu phiếu; creator sửa danh sách sau đó không đổi hợp đồng đã gửi).",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "index_web_pages_for_search": 0,
+ "is_child_table": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-11-27 18:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Approval Center",
+ "name": "EC Contract Review KOL",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0,
+ "field_order": [
+  "kol_ref",
+  "kol_name",
+  "tiktok_id",
+  "channel_url",
+  "shopee_id",
+  "shopee_url"
+ ],
+ "fields": [
+  {
+   "fieldname": "kol_ref",
+   "fieldtype": "Data",
+   "label": "Dòng KOL của creator",
+   "read_only": 1,
+   "description": "Tên dòng EC Creator KOL lúc chọn."
+  },
+  {
+   "fieldname": "kol_name",
+   "fieldtype": "Data",
+   "label": "Tên KOL / kênh",
+   "reqd": 1,
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "tiktok_id",
+   "fieldtype": "Data",
+   "label": "TikTok ID",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "channel_url",
+   "fieldtype": "Data",
+   "label": "Link kênh TikTok",
+   "read_only": 1
+  },
+  {
+   "fieldname": "shopee_id",
+   "fieldtype": "Data",
+   "label": "Shopee ID",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "shopee_url",
+   "fieldtype": "Data",
+   "label": "Link Shopee",
+   "read_only": 1
+  }
+ ],
+ "permissions": []
+}

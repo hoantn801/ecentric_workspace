@@ -367,7 +367,9 @@ def detail(definition, name):
             "EC Approval Action", filters={"approval_request": request.name},
             # level_no: hanh dong ghi thang so cap (khong qua request_level) - vd Duyet thay cua admin;
             # thieu thi man hinh khong biet ai duyet cap do (17/11/2026).
-            fields=["seq", "request_level", "level_no", "actor", "action", "comment", "action_time",
+            # level_name: dong "tu dong bo cap" (engine.submit, 27/11) ghi ten cap ma khong co request_level -
+            # cap bi bo khong nam trong snapshot.
+            fields=["seq", "request_level", "level_no", "level_name", "actor", "action", "comment", "action_time",
                     "previous_status", "new_status", "related_user"], order_by="seq asc")
         levels_by_name = {row.name: row for row in frappe.get_all(
             "EC Approval Request Level", filters={"approval_request": request.name},

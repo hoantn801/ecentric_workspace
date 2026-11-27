@@ -576,20 +576,54 @@
       return { head: "Đã duyệt thay", comment: "Lý do: " + c.slice(OVERRIDE_OK.length) };
     return null;
   }
+  // Bo cap theo dieu kien nghiep vu luc GUI (engine.submit skip_level_nos - vd cap Nhan su chi cho HD lao dong).
+  // Dong cu (truoc 27/11) ghi actor = NGUOI GUI, khong co level_no, cap nam o duoi comment "(level 4 - Ten)":
+  // nguoi duyet tuong nguoi gui tu bo cap. Doc ra cap + hien "He thong" cho ca dong cu lan moi.
+  var AUTO_SKIP_TAIL = /\s*\(level (\d+) - ([^)]*)\)\s*$/;
+  function autoSkip(a) {
+    if (!a || a.action !== "Skipped") return null;
+    var c = a.comment ? String(a.comment) : "";
+    if (c.indexOf(OVERRIDE_SKIP) === 0) return null;
+    var m = AUTO_SKIP_TAIL.exec(c);
+    if (m && !a.level_no) return { level_no: Number(m[1]), level_name: m[2], comment: c.slice(0, m.index) };
+    if (a.level_no && SYSTEM_ACTORS[a.actor || a.user]) return { level_no: Number(a.level_no), level_name: a.level_name, comment: c };
+    return null;
+  }
   function timelineItemParts(a) {
     a = a || {};
-    var ov = overrideParts(a);
-    var head = ov ? ov.head : actionLabel(a.action);
-    var lv = a.level_no ? levelText(a.level_no, a.level_name) : "";
+    var ov = overrideParts(a), au = ov ? null : autoSkip(a);
+    var head = ov ? ov.head : (au ? "Tự động bỏ qua cấp này" : actionLabel(a.action));
+    var lv = au ? levelText(au.level_no, au.level_name) : (a.level_no ? levelText(a.level_no, a.level_name) : "");
     var tr = (a.previous_status && a.new_status && a.previous_status !== a.new_status)
       ? (statusLabel(a.previous_status) + " → " + statusLabel(a.new_status)) : "";
-    return { label: head, level: lv, actor: actorLabel(a.actor || a.user),
+    return { label: head, level: lv, actor: au ? "Hệ thống" : actorLabel(a.actor || a.user),
       when: fmtDateTime(a.action_time || a.creation || a.timestamp), transition: tr,
-      comment: ov ? ov.comment : (a.comment ? String(a.comment) : "") };
+      comment: ov ? ov.comment : (au ? au.comment : (a.comment ? String(a.comment) : "")) };
+  }
+  // Dong "tu dong bo cap N" duoc ghi ngay luc gui (truoc moi quyet dinh) -> xep lai vao cho cua cap N: sau dong
+  // cuoi cung thuoc cap nho hon N. Chua co dong nao cua cap nho hon thi giu nguyen cho cu. Chi doi THU TU HIEN
+  // (du lieu va seq khong doi).
+  function orderTimeline(items) {
+    var rest = [], moved = [];
+    items.forEach(function (a) { var au = autoSkip(a); if (au) moved.push({ a: a, n: au.level_no }); else rest.push(a); });
+    if (!moved.length) return items;
+    var out = rest.slice();
+    moved.forEach(function (m) {
+      var at = -1;
+      for (var i = 0; i < out.length; i++) { var x = out[i], xn = Number(x && x.level_no) || 0, xa = autoSkip(x);
+        if (xa) xn = xa.level_no;
+        if (xn && xn < m.n) at = i; }
+      // Chi doi XUONG (dong ghi luc gui ma cap nho hon duyet sau); dong ghi dung luc (vd bo nguoi duyet trung o
+      // cap sau, p266) da dung cho thi khong keo len.
+      if (at >= 0 && items.indexOf(out[at]) < items.indexOf(m.a)) at = -1;
+      if (at < 0) { var orig = items.indexOf(m.a), j = 0; while (j < out.length && items.indexOf(out[j]) < orig) j++; out.splice(j, 0, m.a); }
+      else out.splice(at + 1, 0, m.a);
+    });
+    return out;
   }
   function timelineHTML(items) {
     if (!items || !items.length) return '<div class="hint">Chưa có hoạt động nào.</div>';
-    return items.map(function (a) {
+    return orderTimeline(items).map(function (a) {
       var p = timelineItemParts(a);
       var meta = [p.actor, p.when !== "—" ? p.when : "", p.transition].filter(Boolean).map(esc).join(" · ");
       return '<div class="tl-item"><div class="tl-dot"></div><div>'
@@ -731,7 +765,7 @@
   window.EcApprovalUI = {
     actionLabel: actionLabel, statusLabel: statusLabel, actorLabel: actorLabel,
     fmtDateTime: fmtDateTime, fmtDate: fmtDate, levelText: levelText,
-    stepsHTML: stepsHTML, withJourney: withJourney, viewerBanner: youModel, waitText: waitText, timelineHTML: timelineHTML, timelineItemParts: timelineItemParts,
+    stepsHTML: stepsHTML, withJourney: withJourney, viewerBanner: youModel, waitText: waitText, timelineHTML: timelineHTML, timelineItemParts: timelineItemParts, orderTimeline: orderTimeline,
     serverMessage: serverMessage, errorText: errorText, isTechnical: isTechnical,
     ACTION_LABELS: ACTION, STATUS_LABELS: STATUS
   };
