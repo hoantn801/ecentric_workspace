@@ -128,3 +128,17 @@ có nút thêm mới, phân loại được, sau gộp được; laptop các th�
   role EC Asset Manager không có quyền Item trên Desk.
 
 Test: `python -m unittest ecentric_workspace.tai_san.tests.test_dot5`
+
+## Chi phí bản quyền nhiều tiền tệ (27/11/2026, nhánh `fix/tai-san-ngoai-te`)
+
+Bản quyền trả bằng USD (vd Adobe 383,95 USD/năm). Hoàn chốt:
+- Tỷ giá gõ tay, có gợi ý từ ERP.
+- Người quản lý tài sản được sửa chi phí, có lưu nhật ký.
+
+Cách làm:
+- Trường mới trên `EC Software License` và trên dòng gia hạn: `currency`, `cost_fc`, `exchange_rate`.
+- `cost_per_cycle` vẫn là ₫, nên mọi tổng / chi phí tháng không đổi cách tính.
+- Ô ₫ tự tính bằng ngoại tệ × tỷ giá. Sửa tay được khi sao kê thẻ trừ số khác; số sửa tay được giữ.
+- Nhật ký sửa (Comment Info) hiện trong ngăn chi tiết, mục "Nhật ký sửa".
+
+Test: `python -m unittest ecentric_workspace.tai_san.tests.test_dot6`

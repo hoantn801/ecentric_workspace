@@ -238,8 +238,8 @@ def update_license(name, data):
 
 
 @frappe.whitelist(methods=["POST"])
-def renew_license(name, new_expiry=None, cost=None, note=None):
-    return _run(lambda c: LS.renew(c, name, new_expiry, cost, note))
+def renew_license(name, new_expiry=None, cost=None, note=None, currency=None, cost_fc=None, exchange_rate=None):
+    return _run(lambda c: LS.renew(c, name, new_expiry, cost, note, currency, cost_fc, exchange_rate))
 
 
 @frappe.whitelist(methods=["POST"])
