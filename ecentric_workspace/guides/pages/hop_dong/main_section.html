@@ -1,0 +1,148 @@
+<style id="ec-guide-css">
+/* Frappe's default website chrome is replaced by the shared ERP shell. */
+body > header, body > footer, body > nav.navbar, header.navbar,
+.web-page-header, #navbarSupportedContent, .navbar-collapse { display:none; }
+body { padding:0; margin:0; }
+body main { padding-top:0; }
+body .main-section, body main.container, body main.fluid { margin:0; padding:0; max-width:100%; }
+.ec-guide-wrap { display:flex; min-height:100vh; max-width:none; width:100%; }
+.ec-guide-wrap > main.ec-guide-main { flex:1; min-width:0; padding:0; overflow-x:hidden; }
+
+.ecg{
+  --navy:#1E2A5A; --ink:#141A2E; --ink-2:#4C5372; --ink-3:#7E859E;
+  --bg:#F6F7FB; --card:#fff; --line:#E4E7F0; --blue:#1a73e8; --blue-soft:#E8F0FE;
+  --red:#D93025; --red-soft:#FDECEA; --green:#137333; --green-soft:#E6F4EA;
+  --amber-soft:#FEF7E0; --amber-line:#F0D48A;
+  --shadow:0 1px 2px rgba(20,26,46,.05), 0 12px 32px -20px rgba(20,26,46,.30);
+  background:var(--bg); color:var(--ink); font-size:16px; line-height:1.6;
+  font-family:'Segoe UI', Inter, system-ui, -apple-system, Roboto, sans-serif;
+}
+.ecg *{box-sizing:border-box}
+.ecg .wrap{max-width:860px; margin:0 auto; padding:28px 20px 72px}
+.ecg .backbar{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px}
+.ecg .backbtn{
+  display:inline-flex; align-items:center; gap:6px; text-decoration:none;
+  background:var(--card); border:1px solid var(--line); color:var(--ink-2);
+  padding:7px 13px; border-radius:999px; font-size:13.5px; font-weight:600; cursor:pointer;
+}
+.ecg .backbtn:hover{border-color:var(--blue); color:var(--blue)}
+.ecg h1{font-size:clamp(24px,3vw,32px); margin:6px 0 4px; line-height:1.25}
+.ecg .sub{color:var(--ink-3); font-size:14px; margin-bottom:26px}
+.ecg h2{font-size:20px; margin:36px 0 10px; color:var(--navy)}
+.ecg h3{font-size:16px; margin:24px 0 8px}
+.ecg p{margin:10px 0}
+.ecg .lead{background:var(--blue-soft); border-left:4px solid var(--blue); padding:12px 16px; border-radius:0 8px 8px 0}
+.ecg table{border-collapse:collapse; width:100%; margin:14px 0; font-size:14.5px; background:var(--card)}
+.ecg th,.ecg td{border:1px solid var(--line); padding:9px 11px; text-align:left; vertical-align:top}
+.ecg th{background:#F3F6FA; font-weight:600}
+.ecg figure{margin:14px 0}
+.ecg img{max-width:100%; border:1px solid var(--line); border-radius:8px; box-shadow:var(--shadow); display:block}
+.ecg figcaption{color:var(--ink-3); font-size:13px; margin-top:6px}
+.ecg .note{background:var(--amber-soft); border:1px solid var(--amber-line); border-radius:8px; padding:11px 14px; margin:14px 0; font-size:14.5px}
+.ecg code{background:#EEF1F6; padding:2px 6px; border-radius:4px; font-size:13.5px}
+.ecg hr{border:0; border-top:1px solid var(--line); margin:30px 0}
+.ecg footer{color:var(--ink-3); font-size:13px; margin-top:36px}
+/* --- trang nay: so do quy trinh theo vai tro (bo ve cua Thu vien ISO, ec_iso_docs.js) --- */
+.ecg .wrap{max-width:1120px}
+.ecg .gfacts{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:10px; margin:16px 0 4px}
+.ecg .gfact{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 14px}
+.ecg .gfact dt{font-size:12.5px; font-weight:700; color:var(--ink-3); text-transform:uppercase; letter-spacing:.03em}
+.ecg .gfact dd{margin:4px 0 0; font-size:14.5px}
+.ecg .gflow{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; margin:22px 0; box-shadow:var(--shadow)}
+.ecg .gflow-head{display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap}
+.ecg .gflow-head h2{margin:0}
+.ecg .gflow-tools{display:flex; gap:8px; flex-wrap:wrap}
+.ecg .gseg{display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden}
+.ecg .gbtn{background:var(--card); border:0; border-right:1px solid var(--line); padding:6px 12px; font-size:13px; font-weight:600; color:var(--ink-2); cursor:pointer; min-height:32px}
+.ecg .gbtn:last-child{border-right:0}
+.ecg .gbtn:hover{background:var(--blue-soft); color:var(--blue)}
+.ecg .gbtn[aria-pressed="true"]{background:var(--navy); color:#fff}
+.ecg .grolebar{display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:14px 0 4px}
+.ecg .glbl{font-size:13px; font-weight:700; color:var(--ink-2)}
+.ecg .gchips{display:flex; gap:6px; flex-wrap:wrap}
+.ecg .eti-chip{padding:6px 13px; border-radius:999px; border:1px solid var(--line); background:var(--card); font-size:13.5px; color:var(--ink-2); cursor:pointer; min-height:32px}
+.ecg .eti-chip:hover{border-color:var(--blue); color:var(--blue)}
+.ecg .eti-chip.is-on{background:var(--navy); border-color:var(--navy); color:#fff; font-weight:600}
+.ecg .gmut,.ecg .eti-mut{color:var(--ink-3); font-size:13.5px}
+.ecg .eti-flowbox{overflow:auto; border:1px solid var(--line); border-radius:10px; background:#fff; padding:16px; margin-top:8px; min-height:420px; max-height:900px}
+.ecg .eti-flowbox.is-wide{min-height:0}
+.ecg .eti-flowbox svg{display:block; margin:0 auto; border:0; box-shadow:none; border-radius:0}
+.ecg .eti-flowbox svg foreignObject div,.ecg .eti-flowbox svg foreignObject span,.ecg .eti-flowbox svg foreignObject p{line-height:normal}
+.ecg .eti-part+.eti-part{margin-top:18px; padding-top:14px; border-top:1px dashed var(--line)}
+.ecg .eti-part-t{font-size:14px; font-weight:700; color:var(--navy); margin:0 0 8px}
+.ecg .eti-part-svg{overflow-x:auto}
+.ecg .eti-flowbox svg .node{transition:opacity .15s}
+.ecg .eti-flowbox svg .node.eti-dim{opacity:.28}
+.ecg .eti-flowbox svg .eti-dim-edge{opacity:.25}
+.ecg .eti-mine{margin-top:14px; background:var(--blue-soft); border-radius:10px; padding:12px 16px}
+.ecg .eti-mine h3{margin:0 0 8px; font-size:15px; color:var(--navy)}
+.ecg .eti-mine-list{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px}
+.ecg .eti-mine-list li{display:grid; grid-template-columns:36px 1fr; gap:10px; align-items:start; font-size:14px}
+.ecg .eti-no{display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:50%; background:var(--navy); color:#fff; font-size:12.5px; font-weight:700}
+.ecg .gsteps{margin:22px 0}
+.ecg .gsteps summary{display:flex; align-items:baseline; gap:10px; cursor:pointer; list-style:none}
+.ecg .gsteps summary::-webkit-details-marker{display:none}
+.ecg .gsteps summary h2{margin:0}
+.ecg .gtbl{overflow-x:auto}
+.ecg .gtbl td.gno{font-weight:700; color:var(--navy); white-space:nowrap}
+.ecg .gfaq{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 14px; margin:8px 0}
+.ecg .gfaq summary{cursor:pointer; font-weight:600}
+.ecg .gfaq p{margin:8px 0 0; color:var(--ink-2)}
+@media (max-width:640px){ .ecg .eti-flowbox{min-height:320px} .ecg .gflow{padding:12px} }
+@media (prefers-reduced-motion:reduce){ .ecg .eti-flowbox svg .node{transition:none} }
+</style>
+<div class="ec-guide-wrap">
+  <aside class="ec-shell-mount" data-ec-shell="1" aria-label="Điều hướng eCentric"><div class="ec-shell-head"><a class="ec-shell-brand" href="/"><img class="ec-shell-logoimg" src="/files/eCentric%20logo%20-%20mini.png" alt="eCentric"><span class="ec-shell-logo" hidden>eC</span><span class="ec-shell-brandname">eCentric</span></a></div><div class="ec-shell-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input class="ec-shell-search-in" type="text" placeholder="Tìm chức năng…" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-label="Tìm chức năng" autocomplete="off" spellcheck="false"><button type="button" class="ec-shell-search-clear" data-ec-shell-search-clear="1" hidden aria-label="Xóa tìm kiếm">&times;</button></div><div class="ec-shell-search-results" role="listbox" hidden></div><nav class="ec-shell-nav ec-shell-fallback" aria-label="Điều hướng chính"><a class="ec-shell-item" href="/home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg><span>Trang chủ</span></a><div class="ec-shell-grouplabel">Phê duyệt</div><a class="ec-shell-item" href="/approvals"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Approval Center</span></a><a class="ec-shell-item" href="/approvals/all-requests"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span>Tất cả yêu cầu</span></a><a class="ec-shell-item" href="/approvals/dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg><span>Dashboard</span></a><div class="ec-shell-grouplabel">Chứng từ</div><a class="ec-shell-item" href="/all-ticket"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg><span>Dashboard</span></a><a class="ec-shell-item" href="/approval"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>All Tickets</span></a><div class="ec-shell-grouplabel">Tạo mới</div><a class="ec-shell-item" href="/mso-plan-form"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>MSO Request</span></a><a class="ec-shell-item" href="/gbs-so-form-v2"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>SO Request</span></a><a class="ec-shell-item" href="/gbs-po-form-v2"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>PO Request</span></a><button type="button" class="ec-shell-item ec-shell-subtoggle" data-ec-shell-subtoggle="docs.guides" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>Hướng dẫn</span><svg class="ec-shell-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="ec-shell-children" hidden data-ec-shell-children="docs.guides"><a class="ec-shell-item ec-shell-child" href="/docs/architecture"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>Docs / Architecture</span></a><a class="ec-shell-item ec-shell-child" href="/docs/gbs-flow"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>GBS Flow &amp; Definitions</span></a></div></nav><div class="ec-shell-foot"><a class="ec-shell-usercard" href="/app/user"><span class="ec-shell-avatar">•</span><span class="ec-shell-username">Tài khoản</span></a></div></aside>
+  <main class="ec-guide-main"><div class="ec-shell-topbar" data-ec-shell-topbar="1"><div class="ec-shell-crumbs" data-ec-shell-crumbs="1"><span class="ec-shell-crumb-group">Hướng dẫn</span><span class="sep ec-shell-crumb-sep">/</span><a class="ec-shell-crumblink" href="/huong-dan">Hướng dẫn sử dụng</a><span class="sep ec-shell-crumb-sep">/</span><strong class="ec-shell-crumb-current" data-ec-shell-crumb-detail="1">Hợp đồng (form 27)</strong></div><div class="ec-shell-tbright" data-ec-shell-header-right="1"><button type="button" class="ec-shell-iconbtn ec-shell-reminder" data-ec-shell-action-slot="1" aria-label="Việc của tôi" title="Việc của tôi" aria-haspopup="dialog" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h4l2 3h4l2-3h4"/><path d="M4 13V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7"/><path d="M4 13v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></svg><span class="ec-shell-reminder-badge" data-ec-shell-reminder-badge="1" hidden></span></button><button type="button" class="ec-shell-iconbtn ec-shell-slot-disabled" data-ec-shell-settings-slot="1" disabled aria-disabled="true" title="Cài đặt (sắp ra mắt)" aria-label="Cài đặt (sắp ra mắt)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg></button></div></div>
+<div class="ecg">
+<div class="wrap">
+
+  <div class="backbar">
+    <a class="backbtn" href="/huong-dan">← Tất cả hướng dẫn</a>
+    <button type="button" class="backbtn" data-ec-guide-back="1">← Quay lại trang trước</button>
+    <a class="backbtn" href="/approvals/contract-review">Mở form 27 (Contract Review)</a>
+    <a class="backbtn" href="/huong-dan/dnmh-dntt">Hướng dẫn DNMH → DNTT</a>
+  </div>
+
+  <h1>Hợp đồng: lập, duyệt, ký, nghiệm thu và thanh toán</h1>
+  <div class="sub">Cập nhật 24/11/2026 · dành cho người lập hợp đồng, các cấp duyệt, Kế toán · form 27 "Contract Review" trên Approval Center</div>
+
+  <p class="lead">Hợp đồng đi trọn vòng trên ERP: <b>lập phiếu → duyệt → ký → nghiệm thu từng đợt → đề nghị thanh toán</b>.
+  Bấm vào vai trò của bạn ở sơ đồ dưới để thấy ngay những bước bạn phải làm.</p>
+
+  {{flow:quy_trinh.json}}
+
+  <h2>Ghi nhớ</h2>
+  <ul>
+    <li><b>Thông tin cá nhân creator được bảo vệ.</b> Bản hợp đồng / BBNT đủ số định danh và số tài khoản chỉ người tạo creator, Kế toán và người lập phiếu (sau khi gửi) tải được. Ngoại lệ: khi ký số, người trong luồng duyệt xem được "Bản PDF để ký"; người duyệt đợt nghiệm thu tải được BBNT của đợt mình duyệt. Mỗi lần tải đều được ghi lại.</li>
+    <li><b>Người làm không tự kiểm việc của mình.</b> Bản ký, BBNT, tài khoản nhận tiền mới phải do một Kế toán khác người lập / người tải / người đổi xác nhận.</li>
+    <li><b>Mỗi đợt nghiệm thu duyệt 3 cấp.</b> Kế toán tổng hợp → Kế toán trưởng → CEO duyệt xong mới tải được BBNT đã ký của đợt.</li>
+    <li><b>Chỉ chi trong số đã nghiệm thu.</b> Đề nghị thanh toán của hợp đồng KOL/KOC không vượt quá tiền cọc cộng các đợt BBNT đã hoàn tất.</li>
+  </ul>
+
+  <div class="backbar" style="margin-top:28px">
+    <a class="backbtn" href="/huong-dan">← Tất cả hướng dẫn</a>
+    <a class="backbtn" href="/approvals/contract-review">Mở form 27</a>
+    <a class="backbtn" href="/approvals/payment-request">Đề nghị thanh toán</a>
+  </div>
+
+  <footer>eCentric · Hướng dẫn nội bộ — cập nhật 24/11/2026</footer>
+</div>
+</div>
+<script id="ec-guide-back">
+(function () {
+  // Nut "Quay lai trang truoc": chi hien khi THAT SU co trang truoc trong cung site.
+  // Khong co referrer noi bo (mo tu chat, tu bookmark) thi history.back() se nem nguoi
+  // dung ra khoi ERP - te hon la khong co nut. Luc do an nut di, hai nut kia van dua ve
+  // dung cho.
+  var b = document.querySelector('[data-ec-guide-back="1"]');
+  if (!b) return;
+  var ref = document.referrer || "";
+  var same = false;
+  try { same = !!ref && new URL(ref).origin === window.location.origin
+                     && new URL(ref).pathname !== window.location.pathname; } catch (e) {}
+  if (!same || history.length <= 1) { b.remove(); return; }
+  b.addEventListener("click", function () { history.back(); });
+})();
+</script>
+</main></div>
