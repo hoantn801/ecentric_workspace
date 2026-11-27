@@ -561,3 +561,4 @@ ecentric_workspace.approval_center.patches.p585_resync_pm_hotfix25
 ecentric_workspace.approval_center.patches.p586_tai_san_ngoai_te_nhan
 ecentric_workspace.approval_center.patches.p594_promotion_lead_de_xuat
 ecentric_workspace.approval_center.patches.p597_resync_hub_tai_excel
+ecentric_workspace.tai_san.patches.p005_dong_bo_kiem_ke

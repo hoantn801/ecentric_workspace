@@ -24,7 +24,8 @@ MONEY_FIELDS = ("net_purchase_amount", "ec_salvage_value", "ec_monthly_rent")
 
 
 def transition(ctx, asset_name, action, employee=None, ref_doctype=None, ref_name=None,
-               note=None, checklist=None, condition=None, related_asset=None):
+               note=None, checklist=None, condition=None, related_asset=None, notify=True):
+    """notify=False: dong bo theo so kiem ke (sync_service) - nguoi giu da cam may, khong bao lai."""
     A.require(ctx.can_finance if action in L.FINANCE_ACTIONS else ctx.can_manage,
               "Chỉ Finance / HOF được thanh lý." if action in L.FINANCE_ACTIONS else
               "Chỉ người quản lý tài sản được làm thao tác này.")
@@ -48,7 +49,7 @@ def transition(ctx, asset_name, action, employee=None, ref_doctype=None, ref_nam
         _apply(ctx, comp, action, dict(plan, event=plan["event"]), values, employee=employee,
                ref_doctype=ref_doctype, ref_name=ref_name, note="Theo máy mẹ " + asset_name,
                related_asset=asset_name, cascade=True)
-    if plan["event"] in (C.EV_ASSIGN, C.EV_TRANSFER) and plan["holder"]:
+    if notify and plan["event"] in (C.EV_ASSIGN, C.EV_TRANSFER) and plan["holder"]:
         user = R.employee_user(plan["holder"])
         if user:
             R.notify([user], "Bạn được cấp thiết bị %s - vào Tài sản của tôi để xác nhận đã nhận."
