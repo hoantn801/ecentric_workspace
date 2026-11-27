@@ -82,6 +82,7 @@ HOST_SYNC_SEC = 10
 CACHE_HOST = "ec_shared_tool:host:%s"        # trang thai may 24/7 lan hoi gan nhat
 CACHE_SYNC_LOCK = "ec_shared_tool:sync:%s"   # chong hoi may 24/7 don dap
 CACHE_OPEN_LOCK = "ec_shared_tool:open:%s"   # chong bam "Mo" lien tuc (theo user)
+CACHE_EXPORT_LOCK = "ec_shared_tool:pull:%s"  # mot trang dang keo file xuat tai mot thoi diem
 HOST_CACHE_TTL = 120
 OPEN_LOCK_SEC = 4
 

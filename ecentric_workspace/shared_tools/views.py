@@ -39,6 +39,11 @@ def state(ctx, key):
     tool = S.load_tool(ctx, key)
     host = S.host_state(key)
     S.tick(key, host=host)
+    # May bao co file cho -> keo luon (khong doi job moi phut: scheduler co the tre / dung khi site deploy,
+    # do 27/11 file 3000 dong nam cho 3+ phut). Khoa ngan de nhieu trang dang mo khong keo trung.
+    if host.get("ok") and int(host.get("exports_pending") or 0) and R.try_lock(C.CACHE_EXPORT_LOCK % key, 30):
+        from ecentric_workspace.shared_tools import exports as X
+        X.sync(key, host=host)
     now = now_datetime()
     cfg = Q.cfg_of(tool)
     entries = Q.ordered(R.open_entries(key))
