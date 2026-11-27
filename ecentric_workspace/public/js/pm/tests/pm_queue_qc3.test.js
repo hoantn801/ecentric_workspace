@@ -82,7 +82,8 @@ const giveWithProps = props => a => (a.tab === "give" ? pack("give", giveRows(),
   ok("C2 lý do hiện (đã esc, không thành thẻ)", li.querySelector(".pmq-quote").textContent === "Tuần này đang kiểm kê <kho>" && !li.querySelector("kho"));
   ok("C2 2 nút: 'Đồng ý hạn mới' (chính) + 'Giữ hạn cũ, gửi lại'", /Đồng ý hạn mới/.test(li.querySelector('[data-act="prop-accept"]').textContent) && li.querySelector('[data-act="prop-accept"]').classList.contains("pmq-btn--pri") &&
     /Giữ hạn cũ, gửi lại/.test(li.querySelector('[data-act="prop-resend"]').textContent));
-  ok("C2 không vào danh sách / số đếm: tab giao = 3, Tất cả 3, không có dòng P-1", t.$('[data-c="give"]').textContent === "3" && /Tất cả\s*3/.test(t.$('[data-f="all"]').textContent) && !t.rowEl("P-1"));
+  /* hotfix 23 (sửa): "Tất cả 3" (hàng nút lọc) -> tổng dải tuần */
+  ok("C2 không vào danh sách / số đếm: tab giao = 3, tổng dải tuần 3, không có dòng P-1", t.$('[data-c="give"]').textContent === "3" && t.$$(".pmq-wk-n").reduce((a, x) => a + parseInt(x.textContent, 10), 0) === 3 && !t.rowEl("P-1"));
   ok("C2 dòng phụ đầu trang nói có 1 đề xuất hạn chờ bạn trả lời", /1\s*đề xuất hạn chờ bạn trả lời/.test(t.$(".sub").textContent), t.$(".sub").textContent);
   li.querySelector('[data-act="full"]').click(); await flush();
   ok("C2 bấm tên việc -> mở đầy đủ đúng việc", t.opened.length === 1 && t.opened[0][0] === "P-1");

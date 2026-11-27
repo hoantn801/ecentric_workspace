@@ -45,6 +45,7 @@ import frappe
 from frappe import _
 from frappe.utils import add_days, getdate, nowdate, now_datetime
 
+from ecentric_workspace.pm import colors as pmcolors
 from ecentric_workspace.pm import permissions as pmperm
 from ecentric_workspace.pm import task_flow as tflow
 
@@ -421,11 +422,15 @@ def _decorate(rows, user, tab, givers=None):
             full[u["name"]] = u.get("full_name") or u["name"]
             if not tflow.truthy(u.get("enabled")):
                 off.add(u["name"])
-    pnames = {}
+    pnames, pcolors = {}, {}
     projects = [*{r.get("project") for r in rows if r.get("project")}]
     if projects:
-        for p in frappe.get_all("Project", filters={"name": ["in", projects]}, fields=["name", "project_name"]):
+        # hotfix 23: same query also yields the project colour key (pm/colors.py)
+        pfields = ["name", "project_name", "ec_department"] + (
+            [pmcolors.COLOR_FIELD] if pmcolors.has_color_field() else [])
+        for p in frappe.get_all("Project", filters={"name": ["in", projects]}, fields=pfields):
             pnames[p["name"]] = p.get("project_name") or p["name"]
+            pcolors[p["name"]] = pmcolors.color_for(p)
     seen = set()
     if tab == "give":
         seen = tflow.seen_pairs(sorted({p[1] for r in rows for p in r.get("_people") or []}))
@@ -445,6 +450,7 @@ def _decorate(rows, user, tab, givers=None):
             r["assignees"] = [{"user": a, "name": full.get(a) or a, "opened": True, "left": 1 if a in off else 0}
                               for a in tflow.assignees(r) if a]
         r["project_name"] = pnames.get(r.get("project")) or ""
+        r["project_color"] = pcolors.get(r.get("project")) or ""
         r["group"] = 1 if (is_split_parent(r) or tflow.truthy(r.get("is_group"))) else 0
         r["review"] = 1 if tflow.truthy(r.get("ec_review_required")) else 0
         r["unopened"] = tab == "give" and any(not a["opened"] for a in r["assignees"])

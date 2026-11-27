@@ -35,7 +35,13 @@
  * danh sách, mở ra chọn nhiều việc rồi Dời hạn / Bỏ hạn / Xong (queue_actions.bulk), không vào số đếm / J,K khi đóng; cột gọn (ưu tiên
  * Bình thường để trống, "Tự ghi" để trống, người giao hệ thống = "Hệ thống", bỏ chữ "Thao tác"); trạng thái chỉ ghi bằng chữ (vòng tròn
  * = nút Xong); dòng gợi ý dưới ô giao việc chỉ hiện khi đang gõ / 3 lần đầu; ngăn chi tiết có mô tả sửa tại chỗ, các bước, việc con,
- * 3 bình luận gần nhất + ô trả lời; host gọi ctl.focusQa() khi bấm "+ Giao việc" trên menu. */
+ * 3 bình luận gần nhất + ô trả lời; host gọi ctl.focusQa() khi bấm "+ Giao việc" trên menu.
+ * Hotfix 23 (PO 27/11/2026, thiết kế lại v2, tests/pm_queue_hf23.test.js): đầu cột, tên nhóm, dòng dùng MỘT lưới (--q-cols), bỏ cột "#",
+ * chữ nhóm bắt đầu đúng cột "Việc" (grid-column 2/-1); dòng 2 = chấm màu dự án (PMR.projectColor) + tên dự án · bước/việc con · bình luận
+ * mới; cột Hạn = tờ lịch hạn (.pmq-dt); BỎ ngăn chi tiết .pmq-dr: bấm dòng / Enter -> PMR.openTask(name, {nav: {names, onMove}}) (cửa sổ
+ * chung của /pm lo mô tả, bước, bình luận, đổi tên); bỏ hàng nút lọc nhóm, thay bằng dải tuần .pmq-wk (Trễ hạn · Hôm nay · 6 ngày tới ·
+ * Sau đó · Chưa có hạn, không tính Tồn đọng); mỗi nhóm tối đa 7 việc + "Xem thêm N việc"; nhật ký cá nhân = công tắc trên thanh công cụ;
+ * phím tắt ở chân bảng; hết việc = màn trống riêng. */
 (function (root) {
 "use strict";
 if (root.PMQueue) return;
@@ -65,9 +71,12 @@ const VISIT_STALE_MS = 15000;
 const READ_GET = { "queue.list": 1, "assignment.list_assignable": 1, "tasks.get": 1, "comments.list": 1 };
 const TABS = ["me", "give", "follow"];
 const BULK_CHUNK = 50, OTHER_TABS_EVERY = 5;   /* tồn đọng: 50 việc / lần gọi (queue_actions.MAX_NAMES); 2 tab không xem: tải lại mỗi 5 lần làm mới */
-const STALE_DAYS = 14, QA_USES_KEY = "pmq.qaUses", QA_HINT_USES = 3, CM_SHOW = 3, SUB_SHOW = 6;
-/* mô tả chỉ có đoạn / xuống dòng thì sửa tại chỗ được; có định dạng khác (đậm, link, ảnh, bảng) -> sửa ở Mở đầy đủ, không làm mất định dạng */
-const PLAIN_DESC = /^(?:[^<]|<\/?(?:p|div)>|<br\s*\/?>|<div class="ql-editor[^"]*"(?:\s+contenteditable="[^"]*")?>)*$/i;   /* thuần = không thuộc tính (Quill ql-align / ql-indent / style là định dạng) */
+const STALE_DAYS = 14, QA_USES_KEY = "pmq.qaUses", QA_HINT_USES = 3;
+const GROUP_MAX = 7, WK_DAYS = 6, WK_DOTS = 10;   /* hotfix 23: 7 việc / nhóm + "Xem thêm"; dải tuần: hôm nay + 6 ngày tới; tối đa 10 chấm / ô */
+/* bảng màu dự án (hợp đồng hotfix 23) — dự phòng khi PMR.projectColor chưa có; BE chỉ trả khoá */
+const PAL = { navy: ["#2C3DA6", "#eef0fb"], violet: ["#6941c6", "#f4f3ff"], sky: ["#026aa2", "#f0f9ff"], teal: ["#0e7c70", "#f0fdf9"],
+  green: ["#067647", "#ecfdf3"], amber: ["#b54708", "#fffaeb"], rose: ["#c01048", "#fff1f3"], slate: ["#475467", "#f2f4f7"] };
+const HEX = /^#[0-9a-f]{3,8}$/i;
 let UID = 0, LAST_TAB = "me", LAST_ASK = true, LAST_WAIT = false, LAST_SPLIT = true;   /* nhớ trong phiên: tab đang xem, ô "Cần đồng ý" + cách chia người của giao nhanh */
 
 /* ------------------------------------------------------------------ helpers thuần */
@@ -121,16 +130,6 @@ function msgOf(e, fb) {
 }
 const excOf = e => (e && (e.excType || e.exc_type || (e.responseJSON && e.responseJSON.exc_type) || (e.body && e.body.exc_type))) || "";
 const noAccess = e => !!e && (excOf(e) === "PermissionError" || e.status === 403);
-/* mô tả HTML của Task -> chữ thường (tài liệu trơ: không chạy script, không tải ảnh) */
-function htmlText(h) {
-  if (!h) return "";
-  const s = String(h).replace(/<br\s*\/?>/gi, "\n").replace(/<\/(p|div|li|h[1-6]|tr)>/gi, "\n");
-  let t;
-  try { const doc = D.implementation.createHTMLDocument(""); doc.body.innerHTML = s; t = doc.body.textContent || ""; }
-  catch (_) { t = s.replace(/<[^>]*>/g, " "); }
-  return t.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
-}
-
 /* ---- giao việc 1 dòng: tách @người, từ ưu tiên, hạn (PMR._pure.parseDue) ---- */
 function stripPriority(s) {
   let pri = null;
@@ -263,7 +262,9 @@ const IC = {
   send: '<path d="M20.5 3.5l-17 7.2 6.8 2.5 2.5 6.8z"/><path d="M10.3 13.2l4.2-4.2"/>',
   ext: '<path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
   alert: '<circle cx="12" cy="12" r="8.5"/><path d="M12 8v4.5M12 16h.01"/>',
-  retry: '<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/>'
+  retry: '<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/>',
+  right: '<path d="M10 7l5 5-5 5"/>', down: '<path d="M7 10l5 5 5-5"/>', up: '<path d="M7 14l5-5 5 5"/>',
+  cm: '<path d="M5 18l-1 3 4-2h9a3 3 0 0 0 3-3V8a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7"/>'
 };
 const ic = (n, cls) => `<svg class="pmq-i${cls ? " " + cls : ""}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${IC[n]}</svg>`;
 
@@ -276,9 +277,9 @@ function render(el, opts) {
   /* F5 sớm: host có thể chưa biết user (window._pmUser điền sau) -> đọc lại khi cần, cookie user_id của Frappe */
   const me = () => { if (!user) user = cookieUser() || (root._pmUser && root._pmUser !== "User" && root._pmUser !== "Guest" ? String(root._pmUser) : ""); return user; };
   const S = { tab: TABS.indexOf(opts.tab) >= 0 ? opts.tab : LAST_TAB, filter: "all", data: { me: null, give: null, follow: null }, err: null,
-    sel: null, open: null, openKey: false, detail: {}, busy: {}, just: {}, people: null, peopleP: null, peopleErr: null,
+    sel: null, busy: {}, just: {}, people: null, peopleP: null, peopleErr: null, more: {},
     qa: null, ac: null, askForm: null, askBusy: {}, timers: [], dead: false, seq: 0, lastFetch: 0, stale: false, sig: { me: "", give: "", follow: "" }, waitOpen: LAST_WAIT,
-    oldOpen: false, pick: {}, bulk: null, bulkDue: null, bulkT: 0, bulkN: 0, qaFocus: false, qaUses: 0, cm: {}, draft: {}, descEdit: null,
+    oldOpen: false, pick: {}, bulk: null, bulkDue: null, bulkT: 0, bulkN: 0, qaFocus: false, qaUses: 0,
     inflight: null, pending: false, chT: null, nudged: {}, toastT: null, toastMs: 0, personal: false, askAll: false, qaN: 0, qaLast: 0, composing: false, lostK: null };
   try { S.personal = root.localStorage.getItem(LSK) === "1"; } catch (_) { S.personal = false; }
   try { S.qaUses = num(root.localStorage.getItem(QA_USES_KEY)); } catch (_) { S.qaUses = 0; }
@@ -303,7 +304,6 @@ function render(el, opts) {
   const nowHm = () => { const d = S.data.me || S.data.give; return (d && d.now) || localHm(); };
   const baseDate = () => { const t = today().split("-").map(Number), h = (nowHm().split(":").map(Number)); return new Date(t[0], t[1] - 1, t[2], h[0] || 0, h[1] || 0); };
   const parseDueFn = () => { const p = root.PMR && root.PMR._pure; return p && typeof p.parseDue === "function" ? p.parseDue : null; };
-  const mobile = () => { try { return !!(root.matchMedia && root.matchMedia("(max-width: 640px)").matches); } catch (_) { return false; } };
   function emit(name, detail) { try { D.dispatchEvent(new root.CustomEvent(name, { detail })); } catch (_) { /* trình duyệt cũ */ } }
   const changed = d => emit("pmr:changed", Object.assign({ source: "pmq" }, d || {}));
   function openFull(name, o) {
@@ -319,8 +319,10 @@ function render(el, opts) {
     `<button type="button" data-tab="follow" aria-pressed="${S.tab === "follow"}" title="Việc bạn được CC: xem, bình luận, không cần bấm Xong">Tôi theo dõi <span class="pmq-c pmq-num" data-c="follow"></span></button></div>`;
   const headHtml = typeof opts.head === "function" ? opts.head("Việc cần làm", "Đang tải…", tabsHtml)
     : '<div class="pm-head pmq-head"><div><h1>Việc cần làm</h1><div class="sub">Đang tải…</div></div><div>' + tabsHtml + "</div></div>";
+  /* thứ tự (mockup v2): đầu trang · dải tuần · ô giao việc (một lớp, không khung bọc) · Cần đồng ý · thanh công cụ · bảng (chân bảng = phím tắt) */
   el.innerHTML = '<div class="pmq" data-pmq>' + headHtml +
-    `<section class="pmq-panel pmq-qa" aria-label="Giao việc nhanh"><form class="pmq-qa-line" data-qa-form novalidate autocomplete="off">` +
+    '<nav class="pmq-wk" aria-label="Việc theo ngày hạn" data-wkbar><span class="pmq-wk-sk"></span></nav>' +
+    `<section class="pmq-qa" aria-label="Giao việc nhanh"><form class="pmq-qa-line" data-qa-form novalidate autocomplete="off">` +
       `<div class="pmq-qa-field">${ic("plus")}<label class="pmq-vh" for="${idp}qa">Giao việc nhanh</label>` +
       `<input id="${idp}qa" class="pmq-qa-in" data-qa type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="${idp}ac" aria-describedby="${idp}parse" maxlength="240" enterkeyhint="send" spellcheck="false" placeholder="Giao việc: @Lan gửi báo cáo GMV thứ 6 gấp">` +
       `<kbd class="pmq-kbd pmq-qa-kn" aria-hidden="true">N</kbd>` +
@@ -330,12 +332,12 @@ function render(el, opts) {
       `</form>` +
       `<div class="pmq-parse pmq-parse--off" id="${idp}parse" data-parse></div></section>` +
     '<div data-ask></div>' +
-    '<div class="pmq-bar" data-bar><div class="pmq-dist" role="group" aria-label="Lọc theo hạn" data-dist><span class="pmq-skel-chip"></span><span class="pmq-skel-chip"></span><span class="pmq-skel-chip"></span></div>' +
-      `<span class="pmq-rule" title="Một quy tắc cho web, tin Teams buổi sáng và trợ lý: nhóm hạn trước, cùng nhóm thì ưu tiên cao trước, rồi tới giờ">${ic("sort")}<span class="pmq-rule-l">Thứ tự:</span><b>Hạn</b><span aria-hidden="true">→</span><b>Ưu tiên</b><span aria-hidden="true">→</span><b>Giờ</b></span></div>` +
-    `<div class="pmq-wrap" data-wrap><div class="pmq-panel pmq-list" data-list aria-busy="true">${skelHtml()}</div>` +
-      `<aside class="pmq-panel pmq-dr" id="${idp}dr" data-drawer aria-label="Chi tiết việc" hidden></aside></div>` +
+    '<div class="pmq-tools" data-bar><span data-tl></span><span class="pmq-grow"></span>' +
+      `<span class="pmq-rule" title="Một quy tắc cho web, tin Teams buổi sáng và trợ lý: nhóm hạn trước, cùng nhóm thì ưu tiên cao trước, rồi tới giờ">${ic("sort")}<span class="pmq-rule-l">Thứ tự:</span><b>Hạn</b>${ic("right", "pmq-rule-c")}<b>Ưu tiên</b>${ic("right", "pmq-rule-c")}<b>Giờ</b></span>` +
+      '<span data-sw></span></div>' +
+    `<div class="pmq-panel pmq-card"><div class="pmq-list" data-list aria-busy="true">${skelHtml()}</div>` +
+      `<div class="pmq-keys" data-keys><span class="pmq-keys-l">Bấm một dòng để xem chi tiết</span><span class="pmq-keys-k">${keysHtml(S.tab)}</span></div></div>` +
     '<div class="pmq-note" data-note hidden></div>' +   /* dưới danh sách: hiện sau khi tải không đẩy danh sách xuống */
-    `<p class="pmq-keys" data-keys>${keysHtml(S.tab)}</p>` +
     '<div class="pmq-toast" role="status" aria-live="polite"><span data-tm></span><span class="pmq-toast-acts" data-tacts></span></div></div>';
   const R = el.querySelector("[data-pmq]");
   const $ = (s, r) => (r || R).querySelector(s), $$ = (s, r) => Array.prototype.slice.call((r || R).querySelectorAll(s));
@@ -345,7 +347,7 @@ function render(el, opts) {
 
   function keysHtml(tab) {
     const K = (k, t) => `<span>${k.map(x => `<kbd class="pmq-kbd">${x}</kbd>`).join("")} ${t}</span>`;
-    return K(["J", "K"], "lên / xuống") + (tab === "me" ? K(["X"], "xong") + K(["S"], "bắt đầu") : "") + K(["Enter"], "xem chi tiết") + K(["N"], "giao việc") + K(["Esc"], "đóng");
+    return K(["J", "K"], "lên / xuống") + (tab === "me" ? K(["X"], "xong") + K(["S"], "bắt đầu") : "") + K(["Enter"], "mở") + K(["N"], "giao việc");
   }
   /* "Tồn đọng" (server: trễ hơn 14 ngày) -> một dòng thu gọn trên đầu danh sách, không phải "làm trước" */
   const isOld = r => r && r.bucket === "stale";
@@ -356,8 +358,8 @@ function render(el, opts) {
     try { root.localStorage.setItem(QA_USES_KEY, String(S.qaUses)); } catch (_) { /* chế độ riêng tư */ }
   }
   function skelHtml() {
-    let h = '<div class="pmq-cols" aria-hidden="true"><span></span><span></span><span>Việc</span><span class="pmq-hp">Ưu tiên</span><span>Hạn</span><span class="pmq-hw"></span><span class="pmq-ha"></span></div>';
-    for (let i = 0; i < 6; i++) h += '<div class="pmq-skel" aria-hidden="true"><i></i><i></i><b></b><i></i><i></i></div>';
+    let h = '<div class="pmq-cols" aria-hidden="true"><span></span><span>Việc</span><span class="pmq-hp">Ưu tiên</span><span>Hạn</span><span class="pmq-hw"></span><span class="pmq-ha"></span></div>';
+    for (let i = 0; i < 6; i++) h += '<div class="pmq-skel" aria-hidden="true"><i></i><b></b><i></i><i></i></div>';
     return h + '<span class="pmq-vh">Đang tải danh sách việc…</span>';
   }
 
@@ -388,12 +390,35 @@ function render(el, opts) {
   /* ---------------- dữ liệu */
   const cur = () => S.data[S.tab];
   const rowsAll = () => ((cur() || {}).rows) || [];
-  /* bộ lọc: "all", một nhóm hạn, hoặc (tab giao) "unopened" = người nhận chưa mở việc */
-  const inFilter = (r, f) => f === "all" || (f === "unopened" ? !!r.unopened : r.bucket === f);
+  /* hotfix 23 — ô của dải tuần cho một việc (không tính Tồn đọng): "late" | "today" | "d:YYYY-MM-DD" (6 ngày tới) | "far" | "none".
+     Trễ / hôm nay / chưa có hạn theo bucket của server (trễ theo giờ hôm nay vẫn là "late"); còn lại theo ngày hạn thật. */
+  function wkKey(r) {
+    if (r.bucket === "late") return "late";
+    if (r.bucket === "today") return "today";
+    if (r.bucket === "none" || !isYmd(r.due)) return "none";
+    const n = dayDiff(today(), r.due);
+    if (n <= 0) return "today";
+    return n <= WK_DAYS ? "d:" + r.due : "far";
+  }
+  /* bộ lọc: "all", một ô dải tuần, hoặc (tab giao) "unopened" = người nhận chưa mở việc */
+  const inFilter = (r, f) => f === "all" || (f === "unopened" ? !!r.unopened : wkKey(r) === f);
   const mainRows = () => rowsAll().filter(r => !isOld(r));
   const oldRows = () => rowsAll().filter(isOld);
-  /* thứ tự J/K = thứ tự trên màn: nhóm Tồn đọng (khi mở, chỉ ở "Tất cả") nằm trên đầu */
-  const visible = () => (S.filter === "all" && S.oldOpen ? oldRows() : []).concat(mainRows().filter(r => inFilter(r, S.filter)));
+  /* mỗi nhóm tối đa GROUP_MAX dòng (S.more[key] = đã bấm "Xem thêm") — dùng chung cho vẽ và J/K / thứ tự cửa sổ chi tiết */
+  const capped = (key, rows) => (S.more[key] ? rows : rows.slice(0, GROUP_MAX));
+  function groupsOf(rows) {
+    const d = cur(), out = [];
+    if (!d) return out;
+    d.buckets.forEach(b => { if (b.key === "stale") return; const g = rows.filter(r => r.bucket === b.key); if (g.length) out.push({ b, g }); });
+    const known = d.buckets.map(b => b.key), rest = rows.filter(r => known.indexOf(r.bucket) < 0);
+    if (rest.length) out.push({ b: { key: "other", label: "Khác" }, g: rest });
+    return out;
+  }
+  /* thứ tự J/K = thứ tự ĐANG HIỆN trên màn: nhóm Tồn đọng (khi mở, chỉ khi không lọc) trên đầu, rồi từng nhóm (đã cắt 7) */
+  function visible() {
+    const top = S.filter === "all" && S.oldOpen ? capped("stale", oldRows()) : [];
+    return groupsOf(mainRows().filter(r => inFilter(r, S.filter))).reduce((a, x) => a.concat(capped(x.b.key, x.g)), top);
+  }
   const filterCount = f => mainRows().filter(r => inFilter(r, f)).length;
   const waitRows = () => (S.tab === "me" && cur() && cur().waiting) || [];
   const rowOf = name => rowsAll().find(r => r.name === name) || waitRows().find(r => r.name === name) || null;
@@ -441,7 +466,6 @@ function render(el, opts) {
       const vis = visible().map(r => r.name);
       if (S.filter !== "all" && !filterCount(S.filter)) S.filter = "all";
       if (S.sel && vis.indexOf(S.sel) < 0 && !waitRows().some(r => r.name === S.sel)) S.sel = nextSel(before, S.sel, vis);
-      if (S.open && !rowOf(S.open) && !drawerTyping()) closeDrawer(true);   /* đang gõ trong ngăn: giữ ngăn tới khi rời ô */
       paint();
       const me = S.data.me;
       /* số menu = hàng đợi chính (không tồn đọng) + việc "Cần đồng ý" chờ mình (dashboard.rail_badges, hotfix 16) */
@@ -497,7 +521,25 @@ function render(el, opts) {
   }
   /* cột Ưu tiên: Bình thường để trống (đa số việc) — chỉ Khẩn cấp / Cao / Thấp mới đáng nhìn */
   const priCell = p => (priOf(p) === "Medium" ? '<span class="pmq-vh">Ưu tiên: Bình thường</span>' : priHtml(p));
-  const dueHtml = r => { const d = dueInfo(r); return `<span class="pmq-due${d.cls ? " pmq-due--" + d.cls : ""}"><b>${esc(d.rel)}</b><small class="pmq-num">${d.abs ? esc(d.abs) : "&nbsp;"}</small></span>`; };
+  /* hotfix 23: "tờ lịch hạn" (mockup v2 .dt): thứ trên, ngày dưới; bên phải chữ tương đối + giờ (không giờ: "tháng M").
+     Đỏ = trễ, cam = hôm nay, nét đứt = chưa có hạn. Cùng kích thước với PMR.dueTile (.pmr-dt) nhưng tính theo ngày / giờ của server
+     (today/now của queue.list, "Trễ 25 phút") nên dùng bản riêng .pmq-dt. Ngày tuyệt đối đọc cho máy đọc màn hình + title. */
+  function dueHtml(r) {
+    const d = dueInfo(r), due = isYmd(r.due) ? r.due : null;
+    if (!due) return '<span class="pmq-due pmq-dt pmq-dt--none"><span class="pmq-dt-t" aria-hidden="true"><i></i><b></b></span><span class="pmq-dt-x"><b>Chưa có hạn</b></span></span>';
+    const k = stateOf(r) === "Done" ? "done" : d.cls, tm = r.due_time || "", rel = tm ? d.rel.replace(/\s\d{1,2}:\d{2}$/, "") : d.rel;
+    return `<span class="pmq-due pmq-dt${k ? " pmq-dt--" + k : ""}" title="${esc(d.abs)}"><span class="pmq-dt-t" aria-hidden="true"><i>${WD[dow(due)]}</i><b class="pmq-num">${due.slice(8, 10)}</b></span>` +
+      `<span class="pmq-dt-x"><b>${esc(rel)}</b><small class="pmq-num" aria-hidden="true">${esc(tm || "tháng " + (+due.slice(5, 7)))}</small></span><span class="pmq-vh">, ${esc(d.abs)}</span></span>`;
+  }
+  /* màu dự án: PMR.projectColor(key) -> {fg, bg} (pm_redesign.js); thiếu thì bảng màu dự phòng cùng giá trị. Chỉ nhận mã màu #hex. */
+  function projColor(key) {
+    const P = root.PMR;
+    if (P && typeof P.projectColor === "function") {
+      try { const c = P.projectColor(key); if (c && HEX.test(String(c.fg || ""))) return { fg: c.fg, bg: HEX.test(String(c.bg || "")) ? c.bg : "" }; } catch (_) { /* dùng bảng dự phòng */ }
+    }
+    const p = PAL[key] || PAL.slate;
+    return { fg: p[0], bg: p[1] };
+  }
   const av = (key, name) => `<span class="pmq-av" aria-hidden="true">${esc(initials(name || key))}</span>`;   /* trung tính: màu chỉ dành cho trạng thái */
   function personHtml(r) {
     if (S.tab === "me") {
@@ -528,9 +570,18 @@ function render(el, opts) {
     const cls = done ? " pmq-chk--done" : "";   /* trạng thái ghi bằng chữ ở dòng phụ (Đang làm / Chờ duyệt), vòng tròn chỉ là nút Xong */
     return `<button type="button" class="pmq-chk${cls}" data-act="done" data-name="${esc(r.name)}" data-k="${k}:done:${esc(r.name)}" aria-label="${esc(label + ": " + (r.subject || r.name))}" title="${esc(label)}"${dis || busy ? " disabled" : ""}${busy ? ' aria-busy="true"' : ""}>${ic("check")}</button>`;
   }
+  /* dòng 2 nhạt: chấm màu dự án + tên dự án · Các bước x/y · Việc con x/y · bình luận mới (khi server có), rồi nhãn trạng thái */
+  function metaHtml(r) {
+    const head = [], cnt = (o, label) => (o && num(o.total) ? `<span class="pmq-num">${label} ${num(o.done)}/${num(o.total)}</span>` : "");
+    if (r.project_name) head.push(`<span class="pmq-proj"><span class="pmq-pdot" style="--pc:${projColor(r.project_color).fg}" aria-hidden="true"></span><span class="pmq-proj-n">${esc(r.project_name)}</span></span>`);
+    const st = cnt(r.steps, "Các bước"), sb = cnt(r.subtasks, "Việc con"), nc = num(r.new_comments);
+    if (st) head.push(st);
+    if (sb) head.push(sb);
+    if (nc) head.push(`<span class="pmq-cm">${ic("cm")}<span class="pmq-num">${nc}</span> mới</span>`);
+    return head.join('<span class="pmq-sep" aria-hidden="true">·</span>') + tagsHtml(r);
+  }
   function tagsHtml(r) {
     const st = stateOf(r), t = [];
-    if (r.project_name) t.push(`<span class="pmq-tag">${esc(r.project_name)}</span>`);
     if (st === "In Progress") t.push('<span class="pmq-st pmq-st--doing">Đang làm</span>');
     if (st === "Review") t.push('<span class="pmq-st pmq-st--review">Chờ duyệt</span>');
     if (st === "Blocked") t.push('<span class="pmq-st pmq-st--blocked">Bị chặn</span>');
@@ -587,15 +638,10 @@ function render(el, opts) {
   function lostFocus() { const a = D.activeElement; return S.lostK && (!a || a === D.body || !a.isConnected) ? S.lostK : null; }
   /* vẽ lại một phần mà vẫn giữ focus (nút đang đứng / nút vừa bấm) */
   function keep(fn) { if (!alive()) return; const k = captureFocus() || lostFocus(); fn(); restoreFocus(k); }
-  function paint() { keep(() => { paintHead(); paintAsk(); paintBar(); paintNote(); paintList(); if (!drawerTyping()) paintDrawer(); }); }
-  /* đang gõ bình luận / sửa mô tả trong ngăn: làm mới danh sách không vẽ lại ngăn (mất chữ, mất con trỏ) */
-  function drawerTyping() {
-    const a = D.activeElement, dr = R && $("[data-drawer]");
-    return !!(S.open && dr && a && dr.contains(a) && (a.tagName === "TEXTAREA" || a.tagName === "INPUT"));
-  }
+  function paint() { keep(() => { paintHead(); paintWeek(); paintAsk(); paintTools(); paintNote(); paintList(); }); }
   function paintHead() {
     $$("[data-tab]").forEach(b => b.setAttribute("aria-pressed", String(b.getAttribute("data-tab") === S.tab)));
-    const kb = $("[data-keys]");
+    const kb = $("[data-keys] .pmq-keys-k");
     if (kb && kb.getAttribute("data-for") !== S.tab) { kb.innerHTML = keysHtml(S.tab); kb.setAttribute("data-for", S.tab); }
     TABS.forEach(t => { const c = $('[data-c="' + t + '"]'); if (c) c.textContent = S.data[t] ? String(S.data[t].rows.filter(r => !isOld(r)).length) : ""; });
     if (!SUB) return;
@@ -673,23 +719,38 @@ function render(el, opts) {
             `${Bp("prop-resend", "Giữ hạn cũ, gửi lại", "", "Giữ hạn cũ, gửi lại yêu cầu để người nhận trả lời lần nữa")}</div></li>`);
       }).join("") + "</ul></section>";
   }
-  function paintBar() {
-    const box = $("[data-dist]"), d = cur();
-    if (!d) return;
-    const total = d.rows.length - (d.counts.stale || 0);
-    box.innerHTML = `<button type="button" data-f="all" data-k="f:all" aria-pressed="${S.filter === "all"}">Tất cả <b class="pmq-num">${total}</b></button>` +
-      d.buckets.filter(b => b.key !== "stale" && (d.counts[b.key] || 0) > 0).map(b =>
-        `<button type="button" data-f="${esc(b.key)}" data-k="f:${esc(b.key)}" class="${b.key === "late" ? "pmq-f--late" : ""}" aria-pressed="${S.filter === b.key}">${esc(b.label)} <b class="pmq-num">${d.counts[b.key]}</b></button>`).join("") +
-      (S.tab === "give" && filterCount("unopened") ? `<button type="button" data-f="unopened" data-k="f:unopened" class="pmq-f--warn" aria-pressed="${S.filter === "unopened"}" title="Việc người nhận chưa mở: bấm Nhắc trên từng dòng">Chưa mở việc <b class="pmq-num">${filterCount("unopened")}</b></button>` : "");
+  /* hotfix 23: dải tuần thay hàng nút lọc theo nhóm — Trễ hạn · Hôm nay · 6 ngày tới (thứ + ngày) · Sau đó · Chưa có hạn (nếu có).
+     Mỗi ô: số việc + tối đa 10 chấm theo ưu tiên; bấm = lọc, bấm lại = bỏ lọc. Không tính Tồn đọng (giống số đếm hàng đợi chính). */
+  function paintWeek() {
+    const box = $("[data-wkbar]"), d = cur();
+    if (!d) { if (S.err) { box.hidden = true; box.innerHTML = ""; } return; }
+    const rows = mainRows();
+    if (!rows.length) { box.hidden = true; box.innerHTML = ""; return; }
+    box.hidden = false;
+    const td = today(), cells = [["late", "Trễ hạn", "late"], ["today", "Hôm nay · " + WD[dow(td)], "today"]];
+    for (let i = 1; i <= WK_DAYS; i++) { const y = ymdAdd(td, i); cells.push(["d:" + y, WD[dow(y)] + " " + y.slice(8, 10), "day"]); }
+    cells.push(["far", "Sau đó", "far"]);
+    if (rows.some(r => wkKey(r) === "none")) cells.push(["none", "Chưa có hạn", "none"]);
+    box.innerHTML = cells.map(([k, l, c]) => {
+      const g = rows.filter(r => wkKey(r) === k), on = S.filter === k, z = !g.length;
+      return `<button type="button" class="pmq-wk-c pmq-wk--${c}" data-wk="${esc(k)}" data-k="wk:${esc(k)}" aria-pressed="${on}"${z && !on ? " disabled" : ""}>` +
+        `<span class="pmq-wk-l">${esc(l)}</span><span class="pmq-wk-n pmq-num${z ? " pmq-wk-z" : ""}">${g.length}<span class="pmq-vh"> việc</span></span>` +
+        `<span class="pmq-wk-d" aria-hidden="true">${g.slice(0, WK_DOTS).map(r => `<i class="pmq-p${PRI[priOf(r.priority)][0]}"></i>`).join("")}</span></button>`;
+    }).join("");
+  }
+  /* thanh công cụ: (tab giao) lọc "Chưa mở việc" · Thứ tự · công tắc nhật ký cá nhân (thay dòng "Đang ẩn N việc nhật ký cá nhân") */
+  function paintTools() {
+    const tl = $("[data-tl]"), sw = $("[data-sw]"), d = cur(), un = d && S.tab === "give" ? filterCount("unopened") : 0, n = d ? d.personal_hidden : 0;
+    tl.innerHTML = un ? `<button type="button" class="pmq-fbtn" data-f="unopened" data-k="f:unopened" aria-pressed="${S.filter === "unopened"}" title="Việc người nhận chưa mở: bấm Nhắc trên từng dòng">Chưa mở việc <b class="pmq-num">${un}</b></button>` : "";
+    sw.innerHTML = d && (S.personal || n) ? `<button type="button" class="pmq-sw" role="switch" aria-checked="${S.personal}" data-act="personal" data-k="personal" ` +
+      `title="${S.personal ? "Đang hiện việc nhật ký cá nhân. Bấm để ẩn" : "Đang ẩn " + n + " việc nhật ký cá nhân. Bấm để hiện"}"><span class="pmq-sw-t" aria-hidden="true"></span>Nhật ký cá nhân` +
+      (!S.personal && n ? ` <span class="pmq-num">(${n})</span>` : "") + "</button>" : "";
   }
   function paintNote() {
-    const box = $("[data-note]"), d = cur();
-    const n = d ? d.personal_hidden : 0, tr = !!(d && d.truncated);
-    if (!d || (!S.personal && !n && !tr && S.tab !== "give")) { box.hidden = true; box.innerHTML = ""; return; }
+    const box = $("[data-note]"), d = cur(), tr = !!(d && d.truncated);
+    if (!d || (!tr && S.tab !== "give")) { box.hidden = true; box.innerHTML = ""; return; }
     box.hidden = false;
-    box.innerHTML = (tr ? `<span class="pmq-note-l">${ic("alert")}<span>Đang hiện <b class="pmq-num">${d.limit || d.rows.length}</b> việc có hạn gần nhất. Việc hạn xa hơn xem ở danh sách Công việc.</span></span>` : "") +
-      (S.personal || n ? `<span class="pmq-note-l">${ic("eye")}` + (S.personal ? "<span>Đang hiện việc nhật ký cá nhân.</span>" : `<span>Đang ẩn <b class="pmq-num">${n}</b> việc nhật ký cá nhân.</span>`) +
-      `<button type="button" class="pmq-link" data-act="personal">${S.personal ? "Ẩn nhật ký cá nhân" : "Hiện nhật ký cá nhân (" + n + ")"}</button></span>` : "") + giveLinks();
+    box.innerHTML = (tr ? `<span class="pmq-note-l">${ic("alert")}<span>Đang hiện <b class="pmq-num">${d.limit || d.rows.length}</b> việc có hạn gần nhất. Việc hạn xa hơn xem ở danh sách Công việc.</span></span>` : "") + giveLinks();
     if (!box.innerHTML) { box.hidden = true; }
   }
   /* tab giao: "Lặp lại" (lịch tự giao) và "Đã xong" vẫn ở trang cũ #given (đã bỏ khỏi menu) — đường vào từ đây */
@@ -705,8 +766,9 @@ function render(el, opts) {
     return "";
   }
   function paintList() {
-    const box = $("[data-list]"), d = cur();
+    const box = $("[data-list]"), d = cur(), keys = $("[data-keys]");
     if (!d) {
+      if (keys) keys.hidden = !!S.err;
       if (S.err) {
         box.removeAttribute("aria-busy");
         const na = noAccess(S.err);   /* user chưa được cấp quyền PM: nói rõ, không để câu tiếng Anh của server */
@@ -716,9 +778,10 @@ function render(el, opts) {
       return;
     }
     box.removeAttribute("aria-busy");
-    const rows = mainRows().filter(r => inFilter(r, S.filter)), wait = S.filter === "all" ? waitHtml() : "", old = S.filter === "all" ? oldHtml() : "";
+    const all = S.filter === "all", rows = mainRows().filter(r => inFilter(r, S.filter)), wait = all ? waitHtml() : "", old = all ? oldHtml() : "";
+    if (keys) keys.hidden = !rows.length && !old && !wait;
     if (!rows.length) {
-      const all = S.filter === "all", me = S.tab === "me";
+      const me = S.tab === "me";
       if (all && old) {   /* chỉ còn việc tồn đọng: nói thẳng, không mời "ghi việc mới" như thể trống trơn */
         box.innerHTML = colsHtml() + old + `<div class="pmq-state pmq-state--sm">${ic("inbox", "pmq-state-i")}<b>Không còn việc gần hạn</b><span>${S.tab === "follow" ? "Các việc bạn theo dõi ở trên đã trễ lâu, người nhận chưa đóng." : (S.oldOpen ? "Chọn việc ở trên rồi " + (S.tab === "me" ? "dời hạn, bỏ hạn hoặc đánh dấu xong." : "dời hạn hoặc bỏ hạn.") : "Mở nhóm Tồn đọng ở trên để dọn.")}</span></div>` + wait;
         return;
@@ -731,38 +794,48 @@ function render(el, opts) {
         box.innerHTML = `<div class="pmq-state">${ic("inbox", "pmq-state-i")}<b>Không còn việc nào cần bạn làm</b><span>Các việc bạn đã gửi kiểm tra đang chờ người giao duyệt.</span></div>` + wait;
         return;
       }
+      if (all && me) {   /* hết việc (mockup v2): màn trống riêng */
+        box.innerHTML = `<div class="pmq-state pmq-empty"><span class="pmq-empty-art">${ic("check")}</span><b>Không còn việc nào cần làm</b>` +
+          '<span>Bạn đã xử lý hết việc đang mở. Việc mới được giao sẽ hiện ở đây.</span>' +
+          `<button type="button" class="pmq-btn pmq-btn--sm" data-act="focus-qa">${ic("plus")}<span>Ghi việc mới</span></button></div>`;
+        return;
+      }
       const props = !me && d.proposals.length;   /* chỉ còn đề xuất hạn (khối trên): không nói "chưa giao việc nào" */
-      box.innerHTML = `<div class="pmq-state">${ic(me ? "inbox" : "send", "pmq-state-i")}<b>${all ? (me ? "Không còn việc nào đang mở" : (props ? "Không còn việc đã giao nào khác đang mở" : "Bạn chưa giao việc nào đang mở")) : (S.filter === "unopened" ? "Người nhận đã mở hết việc" : "Không có việc trong nhóm này")}</b>` +
-        `<span>${all ? (me ? "Ghi việc mới vào ô phía trên: gõ tên việc, hạn rồi Enter." : "Giao việc bằng ô phía trên, thêm @tên người nhận.") : "Bấm Tất cả để xem lại toàn bộ hàng đợi."}</span>` +
-        (all ? `<button type="button" class="pmq-btn pmq-btn--sm" data-act="focus-qa">${ic("plus")}<span>${me ? "Ghi việc" : "Giao việc"}</span></button>` : `<button type="button" class="pmq-btn pmq-btn--sm" data-act="all" data-k="all">Xem tất cả</button>`) + "</div>";
+      box.innerHTML = `<div class="pmq-state">${ic(me ? "inbox" : "send", "pmq-state-i")}<b>${all ? (props ? "Không còn việc đã giao nào khác đang mở" : "Bạn chưa giao việc nào đang mở") : (S.filter === "unopened" ? "Người nhận đã mở hết việc" : "Không có việc trong ngày này")}</b>` +
+        `<span>${all ? "Giao việc bằng ô phía trên, thêm @tên người nhận." : "Bỏ lọc để xem lại toàn bộ hàng đợi."}</span>` +
+        (all ? `<button type="button" class="pmq-btn pmq-btn--sm" data-act="focus-qa">${ic("plus")}<span>Giao việc</span></button>` : `<button type="button" class="pmq-btn pmq-btn--sm" data-act="all" data-k="all">Bỏ lọc</button>`) + "</div>";
       return;
     }
-    const groups = [];
-    d.buckets.forEach(b => { if (b.key === "stale") return; const g = rows.filter(r => r.bucket === b.key); if (g.length) groups.push({ b, g }); });
-    const known = d.buckets.map(b => b.key), rest = rows.filter(r => known.indexOf(r.bucket) < 0);
-    if (rest.length) groups.push({ b: { key: "other", label: "Khác" }, g: rest });
-    box.innerHTML = colsHtml() + old +
-      groups.map(x => {
-        const hid = idp + "g-" + esc(x.b.key), rg = groupRange(x.b.key);
-        return `<section class="pmq-g pmq-g--${esc(x.b.key)}" aria-labelledby="${hid}"><h3 class="pmq-grp" id="${hid}">${esc(x.b.label)}${rg ? ` <small class="pmq-num">${esc(rg)}</small>` : ""}<small class="pmq-num">· ${x.g.length} việc</small></h3>` +
-          `<ul class="pmq-rows" role="list">${x.g.map(rowHtml).join("")}</ul></section>`;
-      }).join("") + wait;
+    box.innerHTML = colsHtml() + old + groupsOf(rows).map(x => groupHtml(x.b, x.g)).join("") + wait;
   }
-  /* tiêu đề cột: không ghi "Thao tác" (nút chỉ hiện khi rê chuột / chọn dòng) */
+  /* MỘT lưới cho đầu cột, tên nhóm, dòng (--q-cols): ô tròn | Việc | Ưu tiên | Hạn | Người | thao tác (rê chuột). Không cột "#".
+     Tên nhóm nằm grid-column 2/-1 = bắt đầu đúng cột "Việc". Không ghi "Thao tác" (nút chỉ hiện khi rê chuột / chọn dòng). */
   function colsHtml() {
-    return `<div class="pmq-cols" aria-hidden="true"><span></span><span class="pmq-r">#</span><span>Việc</span><span class="pmq-hp">Ưu tiên</span><span>Hạn</span><span class="pmq-hw">${S.tab === "me" ? "Người giao" : "Người nhận"}</span><span class="pmq-ha"></span></div>`;
+    return `<div class="pmq-cols" aria-hidden="true"><span></span><span class="pmq-hv">Việc</span><span class="pmq-hp">Ưu tiên</span><span class="pmq-hd">Hạn</span><span class="pmq-hw">${S.tab === "me" ? "Người giao" : "Người nhận"}</span><span class="pmq-ha"></span></div>`;
   }
-  /* "Tồn đọng": việc trễ hơn 14 ngày (server). Một dòng thu gọn trên đầu; mở ra = chọn nhiều + Dời hạn / Bỏ hạn / Xong. */
+  function groupHtml(b, g) {
+    const key = String(b.key), hid = idp + "g-" + esc(key), rg = groupRange(key), shown = capped(key, g);
+    return `<section class="pmq-g pmq-g--${esc(key)}" aria-labelledby="${hid}"><h3 class="pmq-grp" id="${hid}"><span class="pmq-grp-l">${esc(b.label)}${rg ? `<small class="pmq-num">${esc(rg)}</small>` : ""}<em class="pmq-num">${g.length}</em></span></h3>` +
+      `<ul class="pmq-rows" role="list">${shown.map(rowHtml).join("")}</ul>${moreHtml(key, g.length, g.length - shown.length)}</section>`;
+  }
+  /* "Xem thêm N việc" / "Thu gọn" (không phân trang ở màn này: giữ thứ tự hạn và J/K) */
+  function moreHtml(key, total, rest) {
+    if (rest > 0) return `<button type="button" class="pmq-more-g" data-act="grpmore" data-g="${esc(key)}" data-k="more:${esc(key)}" aria-expanded="false">${ic("down")}<span>Xem thêm ${rest} việc</span></button>`;
+    if (S.more[key] && total > GROUP_MAX) return `<button type="button" class="pmq-more-g" data-act="grpmore" data-g="${esc(key)}" data-k="more:${esc(key)}" aria-expanded="true">${ic("up")}<span>Thu gọn</span></button>`;
+    return "";
+  }
+  /* "Tồn đọng": việc trễ hơn 14 ngày (server). Một dòng thu gọn trên đầu; mở ra = chọn nhiều + Dời hạn / Bỏ hạn / Xong. Cùng lưới. */
   function oldHtml() {
     const o = oldRows();
     if (!o.length) return "";
     const hid = idp + "old", open = !!S.oldOpen, canBulk = S.tab !== "follow";
-    const head = `<div class="pmq-old-h"><button type="button" class="pmq-wait-t" data-act="old" data-k="old" aria-expanded="${open}" aria-controls="${hid}">` +
-      `<span class="pmq-caret" aria-hidden="true"></span>Tồn đọng <span class="pmq-num">(${o.length})</span></button>` +
+    const head = `<div class="pmq-grp pmq-old-h"><span class="pmq-grp-l"><button type="button" class="pmq-wait-t" data-act="old" data-k="old" aria-expanded="${open}" aria-controls="${hid}">` +
+      `<span class="pmq-caret" aria-hidden="true"></span>Tồn đọng <em class="pmq-num">${o.length}</em></button>` +
       `<small>Trễ hơn ${STALE_DAYS} ngày. ${S.tab === "me" ? "Dời hạn, bỏ hạn hoặc đánh dấu xong cho gọn." : (canBulk ? "Dời hạn hoặc bỏ hạn cho gọn." : "Người nhận chưa đóng.")}</small>` +
-      (!open && canBulk ? `<button type="button" class="pmq-btn pmq-btn--sm" data-act="old" data-k="old:go">Xem và dọn</button>` : "") + "</div>";
+      (!open && canBulk ? `<button type="button" class="pmq-btn pmq-btn--sm" data-act="old" data-k="old:go">Xem và dọn</button>` : "") + "</span></div>";
     if (!open) return `<section class="pmq-g pmq-g--old" aria-label="Tồn đọng">${head}</section>`;
-    return `<section class="pmq-g pmq-g--old pmq-g--open" aria-label="Tồn đọng">${head}${canBulk ? bulkHtml(o) : ""}<ul class="pmq-rows" role="list" id="${hid}">${o.map(rowHtml).join("")}</ul></section>`;
+    const shown = capped("stale", o);
+    return `<section class="pmq-g pmq-g--old pmq-g--open" aria-label="Tồn đọng">${head}${canBulk ? bulkHtml(o) : ""}<ul class="pmq-rows" role="list" id="${hid}">${shown.map(rowHtml).join("")}</ul>${moreHtml("stale", o.length, o.length - shown.length)}</section>`;
   }
   function bulkHtml(o) {
     const picked = o.filter(r => S.pick[r.name]), n = picked.length, all = n === o.length, b = S.bulk, busy = !!(b && b.busy);
@@ -772,303 +845,65 @@ function render(el, opts) {
     const prog = busy && b.total > BULK_CHUNK ? " " + (b.done || 0) + "/" + b.total : "";   /* nhiều lô: tiến độ */
     const dis = !n || busy ? " disabled" : "", disOwn = !own || busy ? " disabled" : "";
     const Bb = (act, label, cls, d, title) => `<button type="button" class="pmq-btn pmq-btn--sm ${cls}" data-act="${act}" data-k="old:${act}"${d}${title ? ` title="${esc(title)}"` : ""}${busy && b.act === act ? ' aria-busy="true"' : ""}>${label}</button>`;
-    return `<div class="pmq-bulk" role="group" aria-label="Xử lý việc tồn đọng đã chọn">` +
-      `<label class="pmq-bulk-all"><input type="checkbox" data-pick-all data-k="old:all"${all ? " checked" : ""}${busy ? " disabled" : ""}> <span>${n ? `Đã chọn <b class="pmq-num">${n}</b>/${o.length}` : "Chọn tất cả " + o.length + " việc"}</span></label>` +
+    /* ô "chọn tất cả" nằm đúng cột ô chọn của các dòng; chữ + nút bắt đầu ở cột "Việc" */
+    return `<div class="pmq-bulk" role="group" aria-label="Xử lý việc tồn đọng đã chọn"><span class="pmq-rk"><input type="checkbox" id="${idp}pa" class="pmq-pick-a" data-pick-all data-k="old:all"${all ? " checked" : ""}${busy ? " disabled" : ""}></span>` +
+      `<span class="pmq-bulk-m"><label class="pmq-bulk-all" for="${idp}pa">${n ? `Đã chọn <b class="pmq-num">${n}</b>/${o.length}` : "Chọn tất cả " + o.length + " việc"}</label>` +
       `<span class="pmq-bulk-acts"><label class="pmq-vh" for="${idp}bd">Hạn mới</label><input id="${idp}bd" class="pmq-in pmq-in--sm" type="date" data-bulk-due data-k="old:due" value="${esc(due)}" min="${esc(today())}"${busy ? " disabled" : ""}>` +
       Bb("bulk-move", busy && b.act === "bulk-move" ? "Đang dời…" + prog : "Dời hạn", "pmq-btn--pri", disOwn, "Đổi hạn các việc đã chọn sang ngày này") +
       Bb("bulk-clear", armed("bulk-clear") ? `Bỏ hạn ${own} việc?` : (busy && b.act === "bulk-clear" ? "Đang bỏ…" + prog : "Bỏ hạn"), armed("bulk-clear") ? "pmq-btn--warn" : "", disOwn, "Chuyển sang Chưa có hạn") +
       (me ? Bb("bulk-done", armed("bulk-done") ? `Xong ${n} việc?` : (busy && b.act === "bulk-done" ? "Đang lưu…" + prog : "Đánh dấu xong"), armed("bulk-done") ? "pmq-btn--warn" : "", dis, "Đánh dấu xong (việc cần kiểm tra thì gửi người giao)") : "") + "</span>" +
-      (n && own < n && me ? `<small class="pmq-bulk-note">${n - own} việc người khác giao: dời / bỏ hạn sẽ giữ nguyên, dùng <b>Xin dời hạn</b> trên từng việc.</small>` : "") + "</div>";
+      (n && own < n && me ? `<small class="pmq-bulk-note">${n - own} việc người khác giao: dời / bỏ hạn sẽ giữ nguyên, dùng <b>Xin dời hạn</b> trên từng việc.</small>` : "") + "</span></div>";
   }
   /* "Đang chờ duyệt (n)": việc mình đã gửi kiểm tra, người giao chưa duyệt. Thu gọn mặc định (nhớ trong phiên), cuối danh sách. */
   function waitHtml() {
     const w = waitRows();
     if (!w.length) return "";
     const hid = idp + "wait", open = !!S.waitOpen;
-    return `<section class="pmq-g pmq-g--wait" aria-labelledby="${hid}h"><h3 class="pmq-grp" id="${hid}h"><button type="button" class="pmq-wait-t" data-act="wait" data-k="wait" aria-expanded="${open}" aria-controls="${hid}">` +
-      `<span class="pmq-caret" aria-hidden="true"></span>Đang chờ duyệt <span class="pmq-num">(${w.length})</span></button><small>Bạn đã gửi kiểm tra, chờ người giao duyệt</small></h3>` +
+    return `<section class="pmq-g pmq-g--wait" aria-labelledby="${hid}h"><h3 class="pmq-grp" id="${hid}h"><span class="pmq-grp-l"><button type="button" class="pmq-wait-t" data-act="wait" data-k="wait" aria-expanded="${open}" aria-controls="${hid}">` +
+      `<span class="pmq-caret" aria-hidden="true"></span>Đang chờ duyệt <em class="pmq-num">${w.length}</em></button><small>Bạn đã gửi kiểm tra, chờ người giao duyệt</small></span></h3>` +
       `<ul class="pmq-rows" role="list" id="${hid}"${open ? "" : " hidden"}>${open ? w.map(rowHtml).join("") : ""}</ul></section>`;
   }
   function rowHtml(r) {
-    const n = esc(r.name), sel = S.sel === r.name, st = stateOf(r);
-    const cls = "pmq-row" + (sel ? " pmq-row--sel" : "") + (st === "Done" ? " pmq-row--done" : "") + (S.busy[r.name] ? " pmq-row--busy" : "") + (r.bucket === "late" ? " pmq-row--late" : "") + (isOld(r) ? " pmq-row--old" : "");
-    const rk = isOld(r) ? (S.tab !== "follow" ? `<span class="pmq-rk"><input type="checkbox" class="pmq-pick-c" data-pick="${n}" data-k="p:${n}" aria-label="Chọn ${esc(r.subject || r.name)}"${S.pick[r.name] ? " checked" : ""}${S.bulk && S.bulk.busy ? " disabled" : ""}></span>` : '<span class="pmq-rk" aria-hidden="true"></span>')
-      : (r.waiting ? '<span class="pmq-rk" aria-hidden="true"></span>' : `<span class="pmq-rk pmq-num" title="Thứ tự làm">${esc(r.rank)}</span>`);
-    return `<li class="${cls}" data-name="${n}"${sel ? ' aria-current="true"' : ""}>${chkHtml(r, "r")}${rk}` +
-      `<div class="pmq-tt"><button type="button" class="pmq-open" data-act="open" data-name="${n}" data-k="r:open:${n}" aria-expanded="${S.open === r.name}" aria-controls="${idp}dr"${String(r.subject || "").length > TITLE_TIP ? ` title="${esc(r.subject)}"` : ""}>${esc(r.subject || r.name)}</button>` +
-      `<small>${tagsHtml(r) || "&nbsp;"}</small></div><span class="pmq-hp">${priCell(r.priority)}</span>${dueHtml(r)}<span class="pmq-hw">${personHtml(r)}</span>` +
+    const n = esc(r.name), sel = S.sel === r.name, st = stateOf(r), old = isOld(r);
+    const cls = "pmq-row" + (sel ? " pmq-row--sel" : "") + (st === "Done" ? " pmq-row--done" : "") + (S.busy[r.name] ? " pmq-row--busy" : "") + (r.bucket === "late" ? " pmq-row--late" : "") + (old ? " pmq-row--old" : "");
+    /* cột 1: vòng Xong; dòng Tồn đọng (tab làm / giao) = ô chọn để xử lý hàng loạt (Xong có trong thanh hàng loạt và cửa sổ chi tiết) */
+    const c1 = old && S.tab !== "follow" ? `<span class="pmq-rk"><input type="checkbox" class="pmq-pick-c" data-pick="${n}" data-k="p:${n}" aria-label="Chọn ${esc(r.subject || r.name)}"${S.pick[r.name] ? " checked" : ""}${S.bulk && S.bulk.busy ? " disabled" : ""}></span>` : chkHtml(r, "r");
+    return `<li class="${cls}" data-name="${n}"${sel ? ' aria-current="true"' : ""}>${c1}` +
+      `<div class="pmq-tt"><button type="button" class="pmq-open" data-act="open" data-name="${n}" data-k="r:open:${n}" aria-haspopup="dialog"${String(r.subject || "").length > TITLE_TIP ? ` title="${esc(r.subject)}"` : ""}>${esc(r.subject || r.name)}</button>` +
+      `<small>${metaHtml(r) || "&nbsp;"}</small></div><span class="pmq-hp">${priCell(r.priority)}</span>${dueHtml(r)}<span class="pmq-hw">${personHtml(r)}</span>` +
       `<span class="pmq-ac">${actsHtml(r, "r", false)}</span></li>`;
   }
-  function paintDrawer() {
-    const dr = $("[data-drawer]"), wrap = $("[data-wrap]"), r = S.open ? rowOf(S.open) : null;
-    wrap.classList.toggle("pmq-wrap--open", !!r);
-    if (!r) { dr.hidden = true; dr.innerHTML = ""; return; }
-    dr.hidden = false;
-    const det = S.detail[r.name] || {}, st = stateOf(r), t = det.task || {}, n = esc(r.name);
-    const giver = r.self ? "Tôi (tự ghi)" : (r.giver_name || r.giver || "—");
-    const asg = S.tab === "me" ? "Tôi" : ((r.assignees || []).map(a => (a.name || a.user) + (truthy(a.pending) ? " (chờ nhận)" : (truthy(a.done) ? " (xong)" : (a.opened ? "" : " (chưa mở)"))) + (truthy(a.left) ? " (đã nghỉ)" : "")).join(", ") || "—");
-    const who = S.tab === "me" ? `<dt>Người giao</dt><dd>${esc(giver)}${truthy(r.giver_left) ? ' <span class="pmq-muted">(đã nghỉ)</span>' : ""}</dd>`
-      : `<dt>Người nhận</dt><dd>${esc(asg)}</dd>` + (watching() ? `<dt>Người giao</dt><dd>${esc(r.giver_name || r.giver || "—")}</dd>` : "");
-    const acts = actsHtml(r, "d", true);
-    dr.innerHTML = `<div class="pmq-dr-h">${chkHtml(r, "d")}${drTitleHtml(r, det, t)}` +
-      `<button type="button" class="pmq-x" data-act="full" data-name="${n}" data-k="d:full" aria-label="Mở đầy đủ" title="Mở đầy đủ (bình luận, tệp, lịch sử)">${ic("ext")}</button>` +
-      `<button type="button" class="pmq-x" data-act="close" data-k="d:close" aria-label="Đóng chi tiết" title="Đóng (Esc)">${ic("x")}</button></div>` +
-      `<dl class="pmq-dr-meta"><dt>Hạn</dt><dd>${dueHtml(r)}${askedDue(r) ? `<small class="pmq-muted">Đã xin dời sang ${esc(dm(askedDue(r)))}, chờ ${esc(r.giver_name || "người giao")} trả lời</small>` : ""}</dd><dt>Ưu tiên</dt><dd>${priHtml(r.priority)}</dd>` +
-      `<dt>Trạng thái</dt><dd><span class="pmq-st pmq-st--${st === "In Progress" ? "doing" : (st === "Review" ? "review" : (st === "Done" ? "done" : "todo"))}">${esc(STATE[st] || st)}</span>${r.review ? ' <span class="pmq-tag">Cần người giao kiểm tra</span>' : ""}</dd>` +
-      who + (r.project_name ? `<dt>Dự án</dt><dd>${esc(r.project_name)}</dd>` : "") + "</dl>" +
-      (acts ? `<div class="pmq-dr-acts">${acts}</div>` : "") +
-      `<section class="pmq-dr-sec" aria-label="Mô tả" aria-live="polite">${descHtml(r, det, t)}</section>` +
-      stepsHtml(r, det, t) + subsHtml(r, det) +
-      `<section class="pmq-dr-sec pmq-dr-cm" aria-label="Bình luận">${cmHtml(r)}</section>` +
-      `<p class="pmq-dr-id pmq-num">${esc(r.name)}</p>`;
-  }
-  /* 18/11/2026 ("không đổi tên task được"): tên việc sửa tại chỗ khi được sửa việc (tasks.get can_edit) và việc chưa đóng.
-     Bấm tên -> ô nhập; Enter / Lưu = tasks.update(subject); Esc / Huỷ = thôi. */
-  function drTitleHtml(r, det, t) {
-    const n = esc(r.name), txt = esc(r.subject || r.name);
-    if (!det.task || !canEditT(r, t)) return `<h2 class="pmq-dr-t" tabindex="-1" data-k="d:title">${txt}</h2>`;
-    const rn = S.rename && S.rename.name === r.name ? S.rename : null;
-    if (rn) return `<div class="pmq-dr-rn"><label class="pmq-vh" for="${idp}rn">Tên việc</label><input id="${idp}rn" class="pmq-in pmq-rn-in" data-rn data-k="d:rn" maxlength="${SUBJECT_MAX}" value="${esc(rn.text)}" autocomplete="off"${rn.busy ? " disabled" : ""}>` +
-      `<div class="pmq-af-acts"><button type="button" class="pmq-btn pmq-btn--sm pmq-btn--q" data-act="rn-cancel" data-name="${n}">Huỷ</button>` +
-      `<button type="button" class="pmq-btn pmq-btn--sm pmq-btn--pri" data-act="rn-save" data-name="${n}" data-k="d:rn-save"${rn.busy ? ' disabled aria-busy="true"' : ""}>${rn.busy ? "Đang lưu…" : "Lưu tên"}</button></div></div>`;
-    return `<h2 class="pmq-dr-t" tabindex="-1" data-k="d:title"><button type="button" class="pmq-rn-b" data-act="rn" data-name="${n}" data-k="d:rn-b" title="Bấm để đổi tên việc">${txt}<svg class="pmq-i pmq-rn-i" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg><span class="pmq-vh"> (đổi tên)</span></button></h2>`;
-  }
-  function renameStart(name) {
-    const r = rowOf(name);
-    if (!r) return;
-    S.rename = { name, text: r.subject || "", busy: false };
-    paintDrawer();
-    const i = $("[data-rn]"); if (i) { i.focus(); try { i.select(); } catch (_) { /* jsdom */ } }
-  }
-  function renameSave(name) {
-    const rn = S.rename, r = rowOf(name);
-    if (!rn || rn.name !== name || rn.busy || !r) return;
-    const i = $("[data-rn]"), subj = String(i ? i.value : rn.text).replace(/\s+/g, " ").trim();
-    if (!subj) { toast("Nhập tên việc.", { bad: true }); if (i) i.focus(); return; }
-    if (subj.length > SUBJECT_MAX) { toast("Tên việc tối đa " + SUBJECT_MAX + " ký tự.", { bad: true }); if (i) i.focus(); return; }
-    if (subj === (r.subject || "")) { S.rename = null; paintDrawer(); return focusK("d:rn-b"); }
-    rn.text = subj; rn.busy = true; paintDrawer();
-    call("tasks.update", { name, subject: subj }).then(() => {
-      if (!alive()) return;
-      if (S.rename === rn) S.rename = null;
-      r.subject = subj;
-      const det = S.detail[name]; if (det && det.task) det.task.subject = subj;
-      keep(paintList);
-      if (S.open === name) { paintDrawer(); focusK("d:rn-b"); }
-      toast("Đã đổi tên việc.");
-      changed({ task: name });
-    }, e => {
-      if (!alive()) return;
-      rn.busy = false;
-      if (S.open === name) { paintDrawer(); const x = $("[data-rn]"); if (x) x.focus(); }
-      toast(msgOf(e, "Chưa đổi được tên việc."), { bad: true });
-    });
-  }
-  const canEditT = (r, t) => truthy(t.can_edit) && stateOf(r) !== "Done" && stateOf(r) !== "Cancelled";
-  function descHtml(r, det, t) {
-    const n = esc(r.name);
-    if (det.loading) return '<h3 class="pmq-dr-st">Mô tả</h3><div class="pmq-dr-skel" aria-hidden="true"><i></i><i></i><i></i></div><span class="pmq-vh">Đang tải chi tiết…</span>';
-    if (det.err) return `<p class="pmq-ferr">Không tải được chi tiết. <button type="button" class="pmq-link" data-act="desc-retry" data-name="${n}">Thử lại</button></p>`;
-    const raw = String(t.description || ""), plain = PLAIN_DESC.test(raw), can = canEditT(r, t), ed = S.descEdit && S.descEdit.name === r.name ? S.descEdit : null;
-    const editBtn = can && !ed ? (plain ? `<button type="button" class="pmq-link" data-act="desc-edit" data-name="${n}" data-k="d:desc-edit">${det.desc ? "Sửa" : "Thêm mô tả"}</button>`
-      : `<button type="button" class="pmq-link" data-act="full" data-name="${n}" title="Mô tả có định dạng (đậm, link, ảnh): sửa ở màn đầy đủ để không mất định dạng">Sửa ở màn đầy đủ</button>`) : "";
-    let body;
-    if (ed) body = `<label class="pmq-vh" for="${idp}de">Mô tả</label><textarea id="${idp}de" class="pmq-in pmq-ta" data-desc rows="4" maxlength="4000" data-k="d:desc">${esc(ed.text)}</textarea>` +
-      (ed.err ? `<p class="pmq-ferr" role="alert">${esc(ed.err)}</p>` : "") +
-      `<div class="pmq-af-acts"><button type="button" class="pmq-btn pmq-btn--sm pmq-btn--q" data-act="desc-cancel" data-name="${n}">Huỷ</button>` +
-      `<button type="button" class="pmq-btn pmq-btn--sm pmq-btn--pri" data-act="desc-save" data-name="${n}" data-k="d:desc-save"${ed.busy ? ' disabled aria-busy="true"' : ""}>${ed.busy ? "Đang lưu…" : "Lưu mô tả"}</button></div>`;
-    else body = det.desc ? `<div class="pmq-dr-text">${esc(det.desc)}</div>` : '<p class="pmq-muted">Chưa có mô tả.</p>';
-    return `<div class="pmq-dr-sh"><h3 class="pmq-dr-st">Mô tả</h3>${editBtn}</div>${body}`;
-  }
-  /* các bước (checklist của việc): tích ngay trong ngăn (checklist.set_item), bước bắt buộc có dấu */
-  function stepsHtml(r, det, t) {
-    const rows = (det.steps && det.steps.rows) || [];
-    if (det.loading || det.err || !rows.length) return "";
-    const done = rows.filter(x => truthy(x.is_done)).length, can = canEditT(r, t);
-    return `<section class="pmq-dr-sec" aria-label="Các bước"><h3 class="pmq-dr-st">Các bước <span class="pmq-num pmq-muted">${done}/${rows.length}</span></h3><ul class="pmq-steps">` +
-      rows.map(x => `<li><label class="pmq-step${truthy(x.is_done) ? " pmq-step--done" : ""}"><input type="checkbox" data-step="${esc(x.name)}" data-k="d:step:${esc(x.name)}"${truthy(x.is_done) ? " checked" : ""}${!can || det.stepBusy ? " disabled" : ""}>` +
-        `<span>${esc(x.item_label || "")}${truthy(x.is_required) && !truthy(x.is_done) ? ' <small class="pmq-req">bắt buộc</small>' : ""}</span></label></li>`).join("") + "</ul></section>";
-  }
-  /* việc con: xem nhanh trạng thái, bấm tên = mở việc con đầy đủ */
-  function subsHtml(r, det) {
-    const subs = det.subtasks || [];
-    if (det.loading || det.err || !subs.length) return "";
-    const done = subs.filter(x => x.workflow_state === "Done").length, shown = subs.slice(0, SUB_SHOW);
-    return `<section class="pmq-dr-sec" aria-label="Việc con"><h3 class="pmq-dr-st">Việc con <span class="pmq-num pmq-muted">${done}/${subs.length} xong</span></h3><ul class="pmq-subs">` +
-      shown.map(x => {
-        const ws = x.workflow_state || "To Do", cls = ws === "Done" ? "done" : (ws === "In Progress" ? "doing" : (ws === "Review" ? "review" : "todo"));
-        const ass = parseAssign(x._assign).map(u => (det.names && det.names[u]) || u.split("@")[0]).join(", ");
-        return `<li><span class="pmq-st pmq-st--${cls}" title="${esc(STATE[ws] || ws)}"><span class="pmq-vh">${esc(STATE[ws] || ws)}</span></span>` +
-          `<button type="button" class="pmq-link pmq-sub-t" data-act="full" data-name="${esc(x.name)}"${ws === "Done" ? ' data-done="1"' : ""}>${esc(x.subject || x.name)}</button>${ass ? `<small class="pmq-muted">${esc(ass)}</small>` : ""}</li>`;
-      }).join("") + "</ul>" +
-      (subs.length > SUB_SHOW ? `<button type="button" class="pmq-link" data-act="full" data-name="${esc(r.name)}">Xem cả ${subs.length} việc con</button>` : "") + "</section>";
-  }
-  const parseAssign = v => { try { const a = typeof v === "string" ? JSON.parse(v || "[]") : v; return Array.isArray(a) ? a.filter(Boolean) : []; } catch (_) { return []; } };
-  /* bình luận: 3 cái gần nhất + ô trả lời (comments.add, chữ thường -> HTML an toàn); xem hết ở Mở đầy đủ */
-  function cmHtml(r) {
-    const c = S.cm[r.name] || {}, n = esc(r.name), d = S.draft[r.name] || {};
-    let list;
-    if (c.loading) list = '<div class="pmq-dr-skel" aria-hidden="true"><i></i><i></i></div>';
-    else if (c.err) list = `<p class="pmq-ferr">Không tải được bình luận. <button type="button" class="pmq-link" data-act="cm-retry" data-name="${n}">Thử lại</button></p>`;
-    else {
-      const rows = c.rows || [], shown = rows.slice(-CM_SHOW);
-      list = (rows.length > CM_SHOW ? `<button type="button" class="pmq-link pmq-cm-all" data-act="full" data-name="${n}">Xem cả ${rows.length} bình luận</button>` : "") +
-        (shown.length ? `<ul class="pmq-cms">${shown.map(x => `<li class="pmq-cm${truthy(x.pinned) ? " pmq-cm--pin" : ""}"><div class="pmq-cm-h">${av(x.owner, nameOfUser(x.owner))}<b>${esc(nameOfUser(x.owner))}</b><small class="pmq-num pmq-muted">${esc(whenOf(x.creation))}</small></div>` +
-          `<div class="pmq-cm-b">${esc(htmlText(x.content))}</div></li>`).join("")}</ul>` : '<p class="pmq-muted">Chưa có bình luận.</p>');
-    }
-    return `<h3 class="pmq-dr-st">Bình luận${c.rows && c.rows.length ? ` <span class="pmq-num pmq-muted">${c.rows.length}</span>` : ""}</h3>${list}` +
-      `<div class="pmq-cm-new"><label class="pmq-vh" for="${idp}cm">Viết bình luận</label><textarea id="${idp}cm" class="pmq-in pmq-ta" data-cm rows="2" maxlength="4000" placeholder="Viết bình luận… (Ctrl+Enter để gửi)" data-k="d:cm"${d.busy ? " disabled" : ""}>${esc(d.text || "")}</textarea>` +
-      (d.err ? `<p class="pmq-ferr" role="alert">${esc(d.err)}</p>` : "") +
-      `<div class="pmq-af-acts"><button type="button" class="pmq-btn pmq-btn--sm pmq-btn--pri" data-act="cm-send" data-name="${n}" data-k="d:cm-send"${d.busy ? ' disabled aria-busy="true"' : ""}>${d.busy ? "Đang gửi…" : "Gửi"}</button></div></div>`;
-  }
-  function nameOfUser(u) {
-    if (!u) return "—";
-    if (u === me()) return "Tôi";
-    const det = S.open && S.detail[S.open], nm = det && det.names && det.names[u];
-    if (nm) return nm;
-    const p = (S.people || []).find(x => x.email === u);
-    return p ? (p.full_name || u) : String(u).split("@")[0];
-  }
-  const whenOf = v => { const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(String(v || "")); return m ? m[3] + "/" + m[2] + " " + m[4] + ":" + m[5] : ""; };
 
-  /* ---------------- chọn dòng / ngăn chi tiết */
+  /* ---------------- chọn dòng / mở cửa sổ chi tiết chung (PMR.openTask) */
   function rowEl(name) { return $$(".pmq-row").find(x => x.getAttribute("data-name") === name) || null; }
+  function scrollRow(r) { if (r && r.scrollIntoView) { try { r.scrollIntoView({ block: "nearest" }); } catch (_) { /* jsdom */ } } }
   function focusRow(name) {
     const r = rowEl(name), b = r && r.querySelector(".pmq-open");
     if (!b) return;
     try { b.focus({ preventScroll: true }); } catch (_) { b.focus(); }
-    if (r.scrollIntoView) { try { r.scrollIntoView({ block: "nearest" }); } catch (_) { /* jsdom */ } }
+    scrollRow(r);
+  }
+  /* dòng đang chọn: chỉ tô nền (không vạch màu một bên) */
+  function markSel(name) {
+    $$(".pmq-row").forEach(x => { const on = x.getAttribute("data-name") === name; x.classList.toggle("pmq-row--sel", on); if (on) x.setAttribute("aria-current", "true"); else x.removeAttribute("aria-current"); });
   }
   function select(name, o) {
     o = o || {};
     S.sel = name;
-    if (S.open && name && S.open !== name) openDrawer(name, { quiet: true });
-    $$(".pmq-row").forEach(x => { const on = x.getAttribute("data-name") === name; x.classList.toggle("pmq-row--sel", on); if (on) x.setAttribute("aria-current", "true"); else x.removeAttribute("aria-current"); });
+    markSel(name);
     if (o.focus !== false && name) focusRow(name);
   }
-  function openDrawer(name, o) {
-    o = o || {};
+  /* bấm dòng / Enter -> cửa sổ chi tiết chung của /pm, mũi tên ↑/↓ + J/K đi theo đúng thứ tự đang hiện trên màn.
+     Cửa sổ đóng / việc đổi -> làm mới hàng đợi (như sau một thao tác trên dòng). */
+  function openRow(name) {
     if (!rowOf(name)) return;
-    if (mobile() && !o.quiet) { S.sel = name; openFull(name); return; }
-    S.open = name; S.sel = name;
-    if (!S.detail[name] || S.detail[name].err || S.detail[name].stale) loadDetail(name, { quiet: true });
-    paintDrawer();
-    $$(".pmq-row").forEach(x => {
-      const on = x.getAttribute("data-name") === name, b = x.querySelector(".pmq-open");
-      x.classList.toggle("pmq-row--sel", on); if (on) x.setAttribute("aria-current", "true"); else x.removeAttribute("aria-current");
-      if (b) b.setAttribute("aria-expanded", String(on));
-    });
-    if (o.focus) { const t = $(".pmq-dr-t"); if (t) t.focus(); }
-  }
-  function closeDrawer(silent) {
-    const was = S.open;
-    S.open = null;
-    if (silent) return;
-    paintDrawer();
-    $$(".pmq-open").forEach(b => b.setAttribute("aria-expanded", "false"));
-    if (was) focusRow(was);
-  }
-  function loadDetail(name, o) {
-    const old = S.detail[name];
-    /* tải lại (đã có dữ liệu cũ): giữ nội dung cũ trên màn tới khi có bản mới, không nháy xương */
-    if (!(o && o.quiet && old && old.task)) S.detail[name] = { loading: true };
-    call("tasks.get", { name }).then(res => {
-      const t = (res && res.task) || {};
-      const steps = Array.isArray(t.pm_checklist) ? { rows: t.pm_checklist.map(x => ({ name: x.name, item_label: x.item_label, is_required: x.is_required, is_done: x.is_done })) } : null;
-      S.detail[name] = { desc: htmlText(t.description), task: t, subtasks: (res && res.subtasks) || [], names: (res && res.user_names) || {}, steps };
-      if (alive() && S.open === name) paintDrawerSafe();
-    }, e => {
-      S.detail[name] = { err: e };
-      if (alive() && S.open === name) paintDrawerSafe();
-    });
-    loadComments(name);
-  }
-  function loadComments(name) {
-    S.cm[name] = Object.assign({}, S.cm[name], { loading: !(S.cm[name] && S.cm[name].rows), err: null });
-    call("comments.list", { reference_doctype: "Task", reference_name: name }).then(res => {
-      S.cm[name] = { rows: (res && res.rows) || [] };
-      if (alive() && S.open === name) paintDrawerSafe();
-    }, e => {
-      S.cm[name] = { err: e };
-      if (alive() && S.open === name) paintDrawerSafe();
-    });
-  }
-  /* vẽ lại ngăn mà không làm mất chữ đang gõ (bình luận / mô tả): chữ nằm trong S.draft / S.descEdit, focus + con trỏ trả lại */
-  function paintDrawerSafe() {
-    const a = D.activeElement, k = a && R.contains(a) ? a.getAttribute("data-k") : null;
-    const pos = a && (a.tagName === "TEXTAREA" || a.tagName === "INPUT") ? [a.selectionStart, a.selectionEnd] : null;
-    paintDrawer();
-    if (!k) return;
-    const n = $('[data-k="' + k.replace(/"/g, '\\"') + '"]');
-    if (n && !n.disabled) { try { n.focus({ preventScroll: true }); } catch (_) { n.focus(); } if (pos && n.setSelectionRange) { try { n.setSelectionRange(pos[0], pos[1]); } catch (_) { /* date */ } } }
-  }
-  /* ---------------- ngăn chi tiết: mô tả / bước / bình luận */
-  function descEdit(name) {
-    const det = S.detail[name] || {};
-    S.descEdit = { name, text: det.desc || "", busy: false, err: "" };
-    paintDrawer();
-    const t = $("[data-desc]"); if (t) { t.focus(); try { t.setSelectionRange(t.value.length, t.value.length); } catch (_) { /* jsdom */ } }
-  }
-  const toHtml = txt => String(txt || "").split(/\n{2,}/).map(p => "<p>" + esc(p).replace(/\n/g, "<br>") + "</p>").join("");
-  function descSave(name) {
-    const ed = S.descEdit;
-    if (!ed || ed.name !== name || ed.busy) return;
-    const text = String(ed.text || "").trim(), html = text ? toHtml(text) : "";
-    ed.busy = true; ed.err = ""; paintDrawerSafe();
-    call("tasks.update", { name, description: html }).then(() => {
-      if (!alive()) return;
-      const mine = S.descEdit === ed;   /* trả về muộn: người dùng có thể đang sửa mô tả việc KHÁC -> không đụng */
-      if (mine) S.descEdit = null;
-      const det = S.detail[name];
-      if (det && det.task) { det.task.description = html; det.desc = text; }
-      toast("Đã lưu mô tả.");
-      changed({ task: name });
-      if (S.open === name && mine) { paintDrawer(); focusK("d:desc-edit"); }
-    }, e => {
-      if (!alive()) return;
-      ed.busy = false; ed.err = msgOf(e, "Chưa lưu được mô tả."); if (S.open === name) paintDrawerSafe();
-    });
-  }
-  function stepToggle(name, row, on) {
-    const det = S.detail[name];
-    if (!det || !det.steps || det.stepBusy) return;
-    const it = det.steps.rows.find(x => x.name === row);
-    if (!it) return;
-    const prev = it.is_done, k = "d:step:" + row;
-    it.is_done = on ? 1 : 0; det.stepBusy = true; paintDrawerSafe();
-    /* ô bước bị khoá lúc lưu -> focus rơi ra <body>; lưu xong đưa về đúng ô (nếu người dùng chưa đi chỗ khác) */
-    const back = () => { if (!alive() || S.open !== name) return; paintDrawerSafe(); const a = D.activeElement; if (!a || a === D.body || !a.isConnected) focusK(k); };
-    call("checklist.set_item", { task: name, row_name: row, is_done: on ? 1 : 0 }).then(res => {
-      det.stepBusy = false;
-      if (res && Array.isArray(res.rows)) det.steps = { rows: res.rows };
-      back();
-      changed({ task: name });
-    }, e => {
-      det.stepBusy = false; it.is_done = prev;
-      back();
-      toast(msgOf(e, "Chưa lưu được bước."), { bad: true });
-    });
-  }
-  function cmSend(name) {
-    const d = S.draft[name] || (S.draft[name] = {}), text = String(d.text || "").trim();
-    if (d.busy) return;
-    if (!text) { d.err = "Viết nội dung bình luận."; paintDrawerSafe(); focusK("d:cm"); return; }
-    d.busy = true; d.err = ""; paintDrawerSafe();
-    call("comments.add", { reference_doctype: "Task", reference_name: name, content: toHtml(text) }).then(row => {
-      if (!alive()) return;
-      S.draft[name] = {};
-      const c = S.cm[name] || (S.cm[name] = {});
-      c.rows = (c.rows || []).concat(row && row.name ? [row] : []);
-      toast("Đã gửi bình luận.");
-      changed({ task: name, comment: true });
-      if (S.open !== name) return;   /* đã sang việc khác: không vẽ lại / không kéo focus */
-      const busyElse = drawerTyping();   /* đang gõ ô khác trong ngăn (mô tả): giữ nguyên chỗ */
-      paintDrawerSafe();
-      if (!busyElse) focusK("d:cm");
-    }, e => {
-      if (!alive()) return;
-      d.busy = false; d.err = msgOf(e, "Chưa gửi được bình luận.");
-      if (S.open === name) { const busyElse = drawerTyping(); paintDrawerSafe(); if (!busyElse) focusK("d:cm"); }
+    select(name, { focus: false });
+    const list = visible().map(r => r.name), wl = S.waitOpen ? waitRows().map(r => r.name) : [];
+    const names = list.indexOf(name) >= 0 ? list : (wl.indexOf(name) >= 0 ? wl : [name]);
+    openFull(name, {
+      nav: { names: names.slice(), onMove: n => { if (!alive() || !rowOf(n)) return; select(n, { focus: false }); scrollRow(rowEl(n)); } },
+      onChange: () => { if (alive()) refresh({ force: true }); },
+      onClose: () => { if (!alive()) return; refresh({ force: true }); if (S.sel && rowEl(S.sel)) focusRow(S.sel); }
     });
   }
 
@@ -1562,11 +1397,16 @@ function render(el, opts) {
   }
 
   /* ---------------- đổi tab / lọc / nhật ký cá nhân */
+  function setFilter(f) {
+    S.filter = f || "all";
+    if (S.sel && visible().every(r => r.name !== S.sel)) S.sel = null;
+    paint();
+  }
   function switchTab(t) {
     if (TABS.indexOf(t) < 0) return Promise.resolve();
     const same = t === S.tab;
     S.tab = t; LAST_TAB = t;
-    if (!same) { S.filter = "all"; S.sel = null; S.open = null; S.askForm = null; S.pick = {}; S.bulk = null; S.descEdit = null; S.rename = null; }
+    if (!same) { S.filter = "all"; S.sel = null; S.askForm = null; S.pick = {}; S.bulk = null; S.more = {}; }
     paint();
     return refresh({ force: !same || !S.data[t] });
   }
@@ -1587,8 +1427,9 @@ function render(el, opts) {
     if (opt) { e.preventDefault(); acChoose(+opt.getAttribute("data-i")); return; }
     const tb = t.closest && t.closest("[data-tab]");
     if (tb && R.contains(tb)) { switchTab(tb.getAttribute("data-tab")); return; }
-    const fb = t.closest && t.closest("[data-f]");
-    if (fb && R.contains(fb)) { S.filter = fb.getAttribute("data-f"); S.sel = null; paint(); return; }
+    /* ô dải tuần / "Chưa mở việc": bấm = lọc, bấm lại = bỏ lọc */
+    const fb = t.closest && t.closest("[data-f],[data-wk]");
+    if (fb && R.contains(fb) && !fb.disabled) { const f = fb.getAttribute("data-f") || fb.getAttribute("data-wk"); setFilter(S.filter === f ? "all" : f); return; }
     const b = t.closest && t.closest("[data-act]");
     if (b && R.contains(b)) {
       if (b.disabled) return;
@@ -1601,12 +1442,17 @@ function render(el, opts) {
         case "nudge": return doNudge(name);
         case "approve": return doApprove(name);
         case "return": return doReturn(name);
-        case "open": if (S.open === name) closeDrawer(); else openDrawer(name); return;
-        case "close": return closeDrawer();
+        case "open": return openRow(name);
         case "full": return openFull(name);
-        case "desc-retry": loadDetail(name); return paintDrawer();
         case "retry": S.err = null; paintList(); return refresh({ force: true, manual: true });
-        case "all": S.filter = "all"; return paint();
+        case "all": return setFilter("all");
+        case "grpmore": {
+          const g = b.getAttribute("data-g");
+          S.more[g] = !S.more[g];
+          if (!S.more[g] && S.sel && visible().every(r => r.name !== S.sel)) S.sel = null;   /* dòng đang chọn vừa bị thu gọn */
+          paintList();
+          return focusK("more:" + g);
+        }
         case "focus-qa": return QIN.focus();
         case "personal": return setPersonal(!S.personal);
         case "ask-accept": return askAccept(req);
@@ -1625,20 +1471,11 @@ function render(el, opts) {
             if (!S.bulkN) { S.pick = {}; S.bulk = null; }
             /* dòng tồn đọng vừa ẩn không được còn "đang chọn" (X / S / Enter sẽ tác động việc không thấy) */
             if (S.sel && isOld(rowOf(S.sel))) S.sel = null;
-            if (S.open && isOld(rowOf(S.open))) closeDrawer(true);
           }
-          paintList(); paintDrawer();   /* không qua keep(): focus rơi về dòng đầu sẽ "chọn" nó (focusin) */
+          paintList();   /* không qua keep(): focus rơi về dòng đầu sẽ "chọn" nó (focusin) */
           return focusK("old");
         }
         case "bulk-move": case "bulk-clear": case "bulk-done": return doBulk(a);
-        case "desc-edit": return descEdit(name);
-        case "rn": return renameStart(name);
-        case "rn-cancel": S.rename = null; paintDrawer(); return focusK("d:rn-b");
-        case "rn-save": return renameSave(name);
-        case "desc-cancel": S.descEdit = null; paintDrawer(); return focusK("d:desc-edit");
-        case "desc-save": return descSave(name);
-        case "cm-send": return cmSend(name);
-        case "cm-retry": loadComments(name); return paintDrawer();
         case "qa-pick": {
           const p = (S.people || []).find(x => x.email === b.getAttribute("data-email")), tk = b.getAttribute("data-tok") || S.qa.p.token;
           if (!p || !tk) return;
@@ -1655,19 +1492,13 @@ function render(el, opts) {
         default: return;
       }
     }
-    if (t.closest && t.closest("input,label,textarea,select")) return;   /* ô chọn (tồn đọng), bước, ô gõ: không mở / đóng ngăn */
+    if (t.closest && t.closest("input,label,textarea,select,a")) return;   /* ô chọn (tồn đọng), ô gõ, link: không mở việc */
     const row = t.closest && t.closest(".pmq-row");
-    if (row && R.contains(row)) {
-      const name = row.getAttribute("data-name");
-      if (S.open === name) closeDrawer(); else openDrawer(name);
-    }
+    if (row && R.contains(row)) openRow(row.getAttribute("data-name"));   /* bấm bất kỳ đâu trên dòng (trừ vòng Xong / nút) = mở chi tiết */
   }
   function onInput(e) {
     const t = e.target;
     if (t === QIN) { onQaInput(); return; }
-    if (t.hasAttribute && t.hasAttribute("data-cm") && S.open) { const d = S.draft[S.open] || (S.draft[S.open] = {}); d.text = t.value; if (d.err) { d.err = ""; } return; }
-    if (t.hasAttribute && t.hasAttribute("data-desc") && S.descEdit) { S.descEdit.text = t.value; return; }
-    if (t.hasAttribute && t.hasAttribute("data-rn") && S.rename) { S.rename.text = t.value; return; }
     const af = t.getAttribute && t.getAttribute("data-af");
     if (af && S.askForm) { S.askForm[af] = t.value; if (af === "reason" && S.askForm.err && t.value.trim()) { S.askForm.err = ""; t.removeAttribute("aria-invalid"); const er = $(".pmq-ask-form .pmq-ferr"); if (er) er.remove(); } }
   }
@@ -1676,7 +1507,6 @@ function render(el, opts) {
     if (t.hasAttribute && t.hasAttribute("data-pick")) { const n = t.getAttribute("data-pick"); if (t.checked) S.pick[n] = 1; else delete S.pick[n]; if (S.bulk && !S.bulk.busy) S.bulk = null; keep(paintList); return; }
     if (t.hasAttribute && t.hasAttribute("data-pick-all")) return pickAll(t.checked);
     if (t.hasAttribute && t.hasAttribute("data-bulk-due")) { S.bulkDue = t.value; return; }
-    if (t.hasAttribute && t.hasAttribute("data-step") && S.open) return stepToggle(S.open, t.getAttribute("data-step"), t.checked);
     if (f) {
       const q = S.qa;
       if (f === "due") { q.due = t.value; q.edited.due = true; q.dueDefault = false; }
@@ -1722,26 +1552,10 @@ function render(el, opts) {
     const selShown = !!(S.sel && rowEl(S.sel));   /* chỉ tác động việc đang hiện trên màn */
     if (kl === "x" && selShown) { e.preventDefault(); doDone(S.sel, { advance: true }); return; }
     if (kl === "s" && selShown) { e.preventDefault(); doStart(S.sel); return; }
-    if (k === "Enter" && selShown && !(t && t.closest && t.closest("button,a,input,select,textarea"))) { e.preventDefault(); openDrawer(S.sel, { focus: true }); return; }
+    if (k === "Enter" && selShown && !(t && t.closest && t.closest("button,a,input,select,textarea"))) { e.preventDefault(); openRow(S.sel); return; }
     if (k === "Escape") {
       if (S.askForm) { const kk = "ask:ask-" + S.askForm.kind + ":" + S.askForm.req; S.askForm = null; paintAsk(); focusK(kk); e.preventDefault(); return; }
-      if (S.open) { e.preventDefault(); closeDrawer(); return; }
       if (S.sel) { e.preventDefault(); const s = S.sel; select(null, { focus: false }); const b = rowEl(s); if (b && b.querySelector(".pmq-open")) b.querySelector(".pmq-open").blur(); }
-    }
-  }
-  /* ô bình luận / mô tả trong ngăn: Ctrl+Enter gửi / lưu, Esc thôi sửa mô tả */
-  function onDrKey(e) {
-    const t = e.target;
-    if (!t || !t.hasAttribute || !S.open) return;
-    if (t.hasAttribute("data-cm") && e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); cmSend(S.open); return; }
-    if (t.hasAttribute("data-rn")) {   /* đổi tên: Enter lưu (không khi bộ gõ đang ghép chữ), Esc thôi */
-      if (e.key === "Enter" && !e.isComposing && !S.composing) { e.preventDefault(); renameSave(S.open); }
-      else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); S.rename = null; paintDrawer(); focusK("d:rn-b"); }
-      return;
-    }
-    if (t.hasAttribute("data-desc")) {
-      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); descSave(S.open); return; }
-      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); S.descEdit = null; paintDrawer(); focusK("d:desc-edit"); }
     }
   }
   function onFocusIn(e) {
@@ -1757,9 +1571,6 @@ function render(el, opts) {
   function onChanged(e) {
     const d = (e && e.detail) || {};
     if (d.source === "pmq" || !alive()) return;
-    /* màn khác vừa sửa việc (Mở đầy đủ: mô tả, bước, bình luận): chi tiết đã cache trong ngăn cũ -> đánh dấu tải lại */
-    Object.keys(S.detail).forEach(n => { if (!d.task || d.task === n) { S.detail[n].stale = true; if (S.cm[n]) S.cm[n].stale = true; } });
-    if (S.open && S.detail[S.open] && S.detail[S.open].stale && !S.descEdit) loadDetail(S.open, { quiet: true });
     const at = Date.now();
     clearTimeout(S.chT);
     S.chT = setTimeout(() => { if (alive()) refresh({ since: at }); }, 300);
@@ -1779,7 +1590,6 @@ function render(el, opts) {
   QIN.addEventListener("click", acUpdate);
   QIN.addEventListener("focus", () => { S.qaFocus = true; if (!S.qa.text.trim()) paintParse(); if (!S.people && !S.peopleP && !S.peopleErr) people().catch(() => { /* báo khi cần */ }); });
   QIN.addEventListener("blur", () => { S.qaFocus = false; later(150, () => { if (!S.qaFocus && !S.qa.text.trim()) paintParse(); }); });   /* trễ: bấm "Thêm chi tiết" không bị dòng gợi ý co lại dưới con trỏ */
-  R.addEventListener("keydown", onDrKey);
   D.addEventListener("keydown", onDocKey);
   D.addEventListener("click", onDocClick);
   D.addEventListener("visibilitychange", onVis);
@@ -1787,7 +1597,7 @@ function render(el, opts) {
   const iv = setInterval(() => {
     if (!alive()) return;
     if (D.hidden) { S.stale = true; return; }
-    if (S.askForm || S.qaN > 0 || Object.keys(S.busy).length || (S.bulk && S.bulk.busy) || S.bulkN || S.descEdit || drawerTyping()) { S.stale = true; return; }   /* đang gõ / đang ghi: để sau */
+    if (S.askForm || S.qaN > 0 || Object.keys(S.busy).length || (S.bulk && S.bulk.busy) || S.bulkN) { S.stale = true; return; }   /* đang gõ / đang ghi: để sau */
     refresh();
   }, REFRESH_MS);
   function destroy() {

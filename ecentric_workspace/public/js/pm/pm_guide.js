@@ -65,10 +65,9 @@ function content() {
     '<div class="pmg-two">' + shot("menu", "Menu trái của Công việc") +
     '<div><ol class="pmg-menu-l">' +
       "<li>" + b("Việc cần làm") + ": mọi việc bạn phải làm, xếp sẵn thứ tự <b>Hạn → Ưu tiên → Giờ</b>. Mở mỗi sáng, <b>làm từ trên xuống</b>. Việc đã gửi kiểm tra nằm ở nhóm <b>Đang chờ duyệt</b> cuối trang. Việc trễ quá 14 ngày gom ở <b>Tồn đọng</b>: chọn nhiều việc rồi dời hạn, bỏ hạn hay Xong. Tab <b>Việc tôi giao</b>: <b>Nhắc</b>, <b>Duyệt xong</b> / <b>Trả lại</b>, trả lời đề xuất hạn. Tab <b>Tôi theo dõi</b>: việc bạn được CC.</li>" +
-      "<li>" + b("Lịch làm việc") + ": xếp việc vào giờ trong tuần, xem lịch họp Outlook.</li>" +
+      "<li>" + b("Lịch & phòng họp") + ": xếp việc vào giờ trong tuần, xem lịch họp Outlook, bấm ô trống để đặt phòng.</li>" +
       "<li>" + b("+ Giao việc") + ": tạo việc cho mình hoặc giao cho người khác.</li>" +
-      "<li>" + b("Phòng họp") + ": xem phòng trống và đặt phòng (cũng là tab trong Lịch làm việc).</li>" +
-      "<li>Nhóm " + b("Quản lý") + " (Điều phối, Dự án, Tất cả việc, Timesheet) dành cho trưởng nhóm và người theo dõi dự án.</li>" +
+            "<li>Nhóm " + b("Quản lý") + " (Điều phối, Dự án, Tất cả việc, Timesheet) dành cho trưởng nhóm và người theo dõi dự án.</li>" +
     "</ol></div></div>" +
     "<h3>Một việc có 4 trạng thái</h3>" +
     '<div class="pmg-states">' +
@@ -78,7 +77,7 @@ function content() {
       "<div>" + st("s3", "Xong") + "<br>Hoàn tất.</div>" +
       "<div>" + st("s4", "Đã huỷ") + "<br>Chỉ quản lý huỷ được. Mặc định ẩn.</div></div>" +
     '<h3 id="pmg-rooms">Đặt phòng họp</h3>' + steps([
-      "Mở " + b("Phòng họp") + ": mỗi phòng một dòng, khối xám là đã có người đặt, vạch đỏ là bây giờ.",
+      "Mở " + b("Lịch & phòng họp") + ", chế độ Phòng họp: mỗi phòng một dòng, khối xám là đã có người đặt, vạch đỏ là bây giờ.",
       "Bấm vào chỗ trống, ghi tên cuộc họp (thêm mô tả, agenda nếu cần), mời thêm người, bấm " + b("Đặt phòng") + ". Họp định kỳ: chọn " + b("Lặp lại") + " và " + b("Đến ngày") + ".",
       "Phòng trống tự nhận. Lịch và link Teams vào Outlook / Teams của bạn và người được mời.",
       "Đổi giờ, đổi phòng, tên, người mời: bấm khối của bạn (hoặc " + b("Sửa") + "), sửa rồi " + b("Lưu thay đổi") + ". Kéo khối sang giờ / phòng khác cũng được. Họp lặp lại: chọn <b>Chỉ buổi này</b> hay <b>Cả chuỗi</b>."]) +
@@ -145,7 +144,7 @@ function content() {
       [b("Tab Thời gian trong việc"), "Bấm giờ, hoặc ghi tay số giờ kèm việc đã làm. <b>Dùng chỗ này là chính.</b>"],
       [b("Nút Ghi giờ sau khi bấm Xong"), "Ghi nhanh ngay lúc vừa xong."],
       [b("Đồng hồ trên thanh trên cùng"), "Đang bấm giờ thì đồng hồ hiện ở đó, bấm Dừng là tự ghi."],
-      [b("Lịch làm việc"), "Xác nhận các khối giờ đã xếp trong tuần."]]) +
+      [b("Lịch & phòng họp"), "Xác nhận các khối giờ đã xếp trong tuần."]]) +
     shot("time_tab", "Tab Thời gian: bấm giờ hoặc + Ghi giờ"));
 
   /* 6 */
@@ -190,7 +189,7 @@ function content() {
       [b("Điều phối"), "Mở đầu ngày: việc đang mở, trễ hạn, chưa có người nhận. Bấm vào con số để xem danh sách việc đó. Mục <b>Cần xử lý</b> có nút làm ngay: Nhắc, Giao, Đặt hạn."],
       [b("Dự án"), "Tiến độ từng dự án, số việc trễ và chưa giao. Bấm vào dự án để xem việc, Kanban, Gantt."],
       [b("Tất cả việc"), "Mọi việc bạn được xem. Lọc nhanh <b>Của tôi / Trễ hạn / Chưa có người / Hạn tuần này</b> (có số đếm). Bộ lọc được nhớ cho lần sau; bấm <b>Xoá lọc</b> để bỏ. Đổi kiểu xem: Danh sách, Kanban, Theo hạn, Gantt."],
-      [b("Lịch làm việc"), "Trưởng phòng chọn tên nhân viên để xem lịch tuần: thấy <b>tên việc và tên cuộc họp</b> (họp riêng tư hiện “Họp riêng”). Đồng nghiệp chỉ thấy “Bận”."]]) +
+      [b("Lịch & phòng họp"), "Trưởng phòng chọn tên nhân viên để xem lịch tuần: thấy <b>tên việc và tên cuộc họp</b> (họp riêng tư hiện “Họp riêng”). Đồng nghiệp chỉ thấy “Bận”."]]) +
     shot("coordinate", "Điều phối: số liệu cả nhóm, việc cần xử lý, theo người, theo dự án") +
     shot("all_work", "Tất cả việc: lọc, nhóm theo dự án, đổi kiểu xem"));
 

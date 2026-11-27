@@ -1,4 +1,6 @@
 /* pm_queue_hf16_qa.test.js (QA tester 17/11, harness chép từ pm_queue_hf16.test.js) — mỗi check mô tả hành vi ĐÚNG; FAIL = lỗi còn.
+ * Hotfix 23: ngăn chi tiết .pmq-dr bị BỎ (chi tiết = cửa sổ chung PMR.openTask). Các check của ngăn (B1 phần ngăn, B4, B5, B5b, B8 tích
+ * bước, B10, B14) chuyển trách nhiệm sang cửa sổ PMR (pm_redesign.js, FE-R) — thay bằng check "bấm dòng mở openTask với nav".
  * Chạy: NODE_PATH=<node_modules có jsdom> node pm_queue_hf16_qa.test.js (PMQ_JS / PMQ_CSS: thử một bản pm_queue.js / .css khác)
  * (gốc) pm_queue_hf16.test.js — hotfix 16 (PO 17/11/2026). Chạy: NODE_PATH=<node_modules có jsdom> node pm_queue_hf16.test.js
  * H1 Tồn đọng: một dòng thu gọn trên đầu, không vào số đếm / J,K khi đóng; mở ra chọn nhiều -> Dời hạn / Bỏ hạn (bấm 2 lần) / Xong
@@ -88,21 +90,17 @@ function setup(o) {
 }
 
 const defer = () => { let res, rej; const p = new Promise((a, b) => { res = a; rej = b; }); return { p, res, rej }; };
-const stdTask = name => ({ task: { name, description: name === "M-2" ? "<p>Có <b>đậm</b></p>" : "<p>Mô tả " + name + "</p>", can_edit: 1,
-  pm_checklist: [{ name: "C1", item_label: "Lấy số", is_required: 1, is_done: 0 }, { name: "C2", item_label: "Gửi sếp", is_required: 0, is_done: 1 }] }, subtasks: [], user_names: {} });
-const typeIn = (t, el, v) => { el.value = v; el.dispatchEvent(new t.w.Event("input", { bubbles: true })); };
-const ctrlEnter = (t, el) => el.dispatchEvent(new t.w.KeyboardEvent("keydown", { key: "Enter", ctrlKey: true, bubbles: true, cancelable: true }));
 
 (async () => {
   let t;
   /* B1 */
   t = setup(); await flush();
   t.$('[data-k="old:go"]').click(); await flush();
-  const dueS1 = t.rowEl("S-1").querySelector(".pmq-due b").textContent;
+  const dueS1 = t.rowEl("S-1").querySelector(".pmq-due .pmq-dt-x b").textContent;
   ok("B1 🔴 dòng Tồn đọng (hạn 26/07, hôm nay 17/11) phải ghi 'Trễ 114 ngày', không phải 'Còn 1 ngày'", /Trễ 114 ngày/.test(dueS1), "thấy: " + dueS1);
   t.rowEl("S-1").querySelector(".pmq-open").click(); await flush();
-  const dueDr = t.$("[data-drawer] .pmq-due b").textContent;
-  ok("B1 🔴 ngăn chi tiết việc tồn đọng: hạn cũng phải 'Trễ … ngày'", /Trễ/.test(dueDr), "thấy: " + dueDr);
+  const o1 = t.opened.slice(-1)[0];
+  ok("B1 (hotfix 23) mở việc tồn đọng -> openTask với nav = tồn đọng đang hiện + việc chính", o1 && o1[0] === "S-1" && o1[1].nav.names.join(",") === "S-1,S-2,S-3,M-1,M-2,M-3", o1 && o1[1] && o1[1].nav.names.join(","));
   t.ctl.destroy(); t.w.close();
 
   /* B2 bấm đúp = xác nhận luôn */
@@ -138,46 +136,6 @@ const ctrlEnter = (t, el) => el.dispatchEvent(new t.w.KeyboardEvent("keydown", {
   ok("B3 🔴 thu gọn Tồn đọng rồi bấm X: KHÔNG được đánh dấu xong việc tồn đọng đang ẩn (" + selName + ")", t.count("tasks.mark_done") === 0, "mark_done(" + ((t.last("tasks.mark_done") || { a: {} }).a.name) + ")");
   t.ctl.destroy(); t.w.close();
 
-  /* B4 ngăn chi tiết cache vĩnh viễn -> sửa mô tả ghi đè bản mới hơn */
-  let ver = 1;
-  t = setup({ h: { "tasks.get": a => { const r = stdTask(a.name); if (a.name === "M-1") r.task.description = "<p>Bản " + ver + "</p>"; return r; } } }); await flush();
-  t.rowEl("M-1").querySelector(".pmq-open").click(); await flush();
-  t.$('[data-act="close"]').click(); await flush();
-  ver = 2;   /* người dùng sửa mô tả ở "Mở đầy đủ" (PMR) -> màn đó phát pmr:changed */
-  t.w.document.dispatchEvent(new t.w.CustomEvent("pmr:changed", { detail: { source: "pmr", task: "M-1" } }));
-  await tick(400); await flush();
-  t.rowEl("M-1").querySelector(".pmq-open").click(); await flush();
-  t.$('[data-act="desc-edit"]').click(); await flush();
-  const deVal = t.$("[data-desc]").value;
-  ok("B4 🟡 mở lại ngăn sau khi mô tả đổi ở chỗ khác: ô sửa phải là 'Bản 2' (không thì Lưu ghi đè mất bản mới)", deVal === "Bản 2", "ô sửa có: " + JSON.stringify(deVal) + ", tasks.get gọi " + t.count("tasks.get") + " lần");
-  t.ctl.destroy(); t.w.close();
-
-  /* B5 lưu mô tả trả về muộn khi đã sang việc khác */
-  let upd = defer();
-  t = setup({ h: { "tasks.get": a => stdTask(a.name), "tasks.update": () => upd.p } }); await flush();
-  t.rowEl("M-1").querySelector(".pmq-open").click(); await flush();
-  t.$('[data-act="desc-edit"]').click(); await flush();
-  typeIn(t, t.$("[data-desc]"), "Mô tả M-1 mới"); ctrlEnter(t, t.$("[data-desc]")); await flush();
-  t.rowEl("M-3").querySelector(".pmq-open").click(); await flush();
-  t.$('[data-act="desc-edit"]').click(); await flush();
-  t.$("[data-desc]").focus(); typeIn(t, t.$("[data-desc]"), "Đang gõ cho M-3");
-  upd.res({ name: "M-1" }); await flush();
-  const de3 = t.$("[data-desc]");
-  ok("B5 🟡 lưu mô tả M-1 trả về muộn: KHÔNG xoá ô đang sửa mô tả của M-3 (mất chữ)", !!de3 && de3.value === "Đang gõ cho M-3", de3 ? "ô có: " + de3.value : "ô sửa M-3 đã biến mất");
-  ok("B5 🟡 … và không cướp focus khỏi ô đang gõ", !!de3 && t.w.document.activeElement === de3, "focus ở: " + (t.w.document.activeElement && (t.w.document.activeElement.getAttribute("data-k") || t.w.document.activeElement.tagName)));
-  t.ctl.destroy(); t.w.close();
-  /* B5b gửi bình luận M-1 trả về muộn khi đang gõ bình luận M-3 */
-  let add = defer();
-  t = setup({ h: { "tasks.get": a => stdTask(a.name), "comments.add": () => add.p } }); await flush();
-  t.rowEl("M-1").querySelector(".pmq-open").click(); await flush();
-  typeIn(t, t.$("[data-cm]"), "BL cho M-1"); ctrlEnter(t, t.$("[data-cm]")); await flush();
-  t.rowEl("M-3").querySelector(".pmq-open").click(); await flush();
-  t.$('[data-act="desc-edit"]').click(); await flush();
-  t.$("[data-desc]").focus(); typeIn(t, t.$("[data-desc]"), "Gõ dở M-3");
-  add.res({ name: "CMX", content: "<p>BL cho M-1</p>", owner: ME, creation: "2026-11-17 09:40:00" }); await flush();
-  ok("B5b 🟡 gửi bình luận M-1 xong muộn: focus vẫn ở ô mô tả M-3 đang gõ", t.w.document.activeElement === t.$("[data-desc]"), "focus ở: " + (t.w.document.activeElement && (t.w.document.activeElement.getAttribute("data-k") || t.w.document.activeElement.tagName)));
-  t.ctl.destroy(); t.w.close();
-
   /* B6 mobile: ô chọn từng việc tồn đọng bị ẩn */
   const media = (CSS.match(/@media \(max-width:640px\)\{([\s\S]*?)\n\}/) || [])[1] || "";
   const hidesRk = /\.pmq-row \.pmq-rk[^{]*\{[^}]*display:none/.test(media);
@@ -204,15 +162,6 @@ const ctrlEnter = (t, el) => el.dispatchEvent(new t.w.KeyboardEvent("keydown", {
   t.$("[data-bulk-due]").focus(); t.ctl.refresh(); await flush();
   ok("B8 🟡 đang ở ô 'Hạn mới' mà danh sách vẽ lại (làm mới): focus ở lại ô ngày", t.w.document.activeElement === t.$("[data-bulk-due]"), "focus ở: " + t.w.document.activeElement.tagName);
   t.ctl.destroy(); t.w.close();
-  let setp = defer();
-  t = setup({ h: { "tasks.get": a => stdTask(a.name), "checklist.set_item": () => setp.p } }); await flush();
-  t.rowEl("M-1").querySelector(".pmq-open").click(); await flush();
-  const c1 = t.$('[data-step="C1"]'); c1.focus(); t.check(c1, true); await flush();
-  setp.res({ rows: [{ name: "C1", item_label: "Lấy số", is_required: 1, is_done: 1 }, { name: "C2", item_label: "Gửi sếp", is_required: 0, is_done: 1 }] }); await flush();
-  const ae = t.w.document.activeElement;
-  ok("B8 🟡 tích bước bằng bàn phím: lưu xong focus về lại đúng ô bước (không rơi ra <body>)", ae && ae.getAttribute("data-step") === "C1", "focus ở: " + (ae && (ae.getAttribute("data-k") || ae.tagName)));
-  t.ctl.destroy(); t.w.close();
-
   /* B9 tab giao: số "chưa mở / chờ nhận" tính cả tồn đọng, lệch với tổng + chip lọc */
   t = setup({ tab: "give", h: { "queue.list": a => a.tab !== "give" ? pack(a.tab, []) : pack("give", [
     row({ name: "G-1", subject: "Việc mới", due: "2026-11-18", bucket: "tomorrow", giver: ME, giver_name: "", assignees: [{ user: "lan@ecentric.vn", name: "Lan", opened: true }] }),
@@ -221,16 +170,6 @@ const ctrlEnter = (t, el) => el.dispatchEvent(new t.w.KeyboardEvent("keydown", {
     row({ name: "G-4", subject: "Cũ 3", due: "2026-08-03", bucket: "stale", giver: ME, awaiting: 1, assignees: [{ user: "phu@ecentric.vn", name: "Phú", opened: false, pending: 1 }] })]) } }); await flush();
   const subG = t.$("[data-sub]").textContent;
   ok("B9 🟡 tab giao: '1 việc còn mở' mà tóm tắt lại ghi '2 việc người nhận chưa mở, 1 chờ nhận' (đếm cả tồn đọng; chip 'Chưa mở việc' = 0)", !/chưa mở|chờ nhận/.test(subG.replace(/tồn đọng.*/, "")), "tóm tắt: " + subG);
-  t.ctl.destroy(); t.w.close();
-
-  /* B10 đang gõ bình luận, việc rời danh sách (người khác đóng) -> ngăn đóng, mất chữ */
-  let gone = false;
-  t = setup({ h: { "tasks.get": a => stdTask(a.name), "queue.list": a => a.tab !== "me" ? pack(a.tab, []) : pack("me", meRows().filter(r => !(gone && r.name === "M-1"))) } }); await flush();
-  t.rowEl("M-1").querySelector(".pmq-open").click(); await flush();
-  t.$("[data-cm]").focus(); typeIn(t, t.$("[data-cm]"), "Em gửi file rồi ạ, anh xem giúp");
-  gone = true; t.ctl.refresh(); await flush();
-  const cmEl = t.$("[data-cm]");
-  ok("B10 🟡 đang gõ bình luận mà việc rời hàng đợi: ngăn không bị đóng dưới tay, chữ còn", !!cmEl && cmEl.value === "Em gửi file rồi ạ, anh xem giúp", cmEl ? cmEl.value : "ngăn đã đóng, chữ mất");
   t.ctl.destroy(); t.w.close();
 
   /* B11 chữ hướng dẫn sai tab */
@@ -250,12 +189,6 @@ const ctrlEnter = (t, el) => el.dispatchEvent(new t.w.KeyboardEvent("keydown", {
   t.$('[data-act="bulk-move"]').click(); await flush();
   const mv = t.last("queue_actions.bulk");
   ok("B12 🟢 gõ ngày đã qua (10/11): không âm thầm dời sang +7 (24/11) — báo chọn lại ngày", !mv || mv.a.due !== "2026-11-24", "bulk(due=" + (mv && mv.a.due) + ")");
-  t.ctl.destroy(); t.w.close();
-
-  /* B14 mô tả p/div có class/style (Quill căn giữa, thụt lề) vẫn bị coi là "thuần" */
-  t = setup({ h: { "tasks.get": a => { const r = stdTask(a.name); r.task.description = '<p class="ql-align-center">Tiêu đề giữa</p><p class="ql-indent-1">Ý thụt lề</p><p style="color:#e00">Chữ đỏ</p>'; return r; } } }); await flush();
-  t.rowEl("M-1").querySelector(".pmq-open").click(); await flush();
-  ok("B14 🟢 mô tả có căn giữa / thụt lề / màu: không cho sửa tại chỗ (lưu sẽ mất định dạng)", !t.$('[data-act="desc-edit"]'), "vẫn có nút Sửa tại chỗ");
   t.ctl.destroy(); t.w.close();
 
   /* B15 thu gọn khi đang gửi -> bấm lại gửi trùng */

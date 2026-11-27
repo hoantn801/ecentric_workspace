@@ -5,8 +5,8 @@
  * H3 cột gọn: ưu tiên Bình thường trống, Tự ghi trống, người giao hệ thống = "Hệ thống" + không Xin dời hạn, không chữ "Thao tác".
  * H4 trạng thái một cách: vòng tròn không còn kiểu "đang làm" (nửa tô), chữ Đang làm ở dòng phụ.
  * H5 ô giao việc gọn: gợi ý chỉ khi ở trong ô và < 3 lần dùng; focusQa() cho nút menu.
- * H6 ngăn chi tiết: mô tả sửa tại chỗ (chỉ mô tả thường), các bước tích được, việc con, 3 bình luận + gửi (Ctrl+Enter),
- *    tự làm mới không xoá chữ đang gõ.
+ * H6 (hotfix 23 thay ngăn chi tiết): bấm dòng -> cửa sổ chung openTask(name, {nav}); mô tả / bước / việc con / bình luận / đổi tên
+ *    do cửa sổ PMR lo, hàng đợi không còn tự gọi tasks.get / comments / checklist / tasks.update.
  * H7 Phòng họp: nút "+ Đặt phòng" luôn chữ trắng. */
 "use strict";
 const fs = require("fs"), path = require("path");
@@ -87,9 +87,11 @@ function setup(o) {
 (async () => {
   /* ---------- H1 Tồn đọng */
   let t = setup(); await flush();
-  ok("H1 Tồn đọng thu gọn: không có dòng S-* trên màn, có một dòng 'Tồn đọng (3)' + nút Xem và dọn", !t.rowEl("S-1") && /Tồn đọng\s*\(3\)/.test(t.$(".pmq-g--old").textContent) && !!t.$('[data-k="old:go"]'));
+  ok("H1 Tồn đọng thu gọn: không có dòng S-* trên màn, có một dòng 'Tồn đọng (3)' + nút Xem và dọn", !t.rowEl("S-1") && /Tồn đọng\s*3/.test(t.$(".pmq-g--old").textContent) && !!t.$('[data-k="old:go"]'));
   ok("H1 Tồn đọng nằm TRÊN nhóm Quá hạn", (() => { const a = t.$(".pmq-g--old"), b = t.$(".pmq-g--late"); return a && b && (a.compareDocumentPosition(b) & 4); })());
-  ok("H1 số đếm không tính tồn đọng: tab 3, 'Tất cả 3', tóm tắt có '3 tồn đọng'", t.$('[data-c="me"]').textContent === "3" && /Tất cả\s*3/.test(t.$('[data-f="all"]').textContent) && /3 tồn đọng/.test(t.$("[data-sub]").textContent) && !t.$('[data-f="stale"]'));
+  /* hotfix 23 (sửa): "Tất cả N" (hàng nút lọc) đã bỏ -> tổng số trên dải tuần cũng không tính tồn đọng */
+  const wkSum = () => t.$$(".pmq-wk-n").reduce((a, x) => a + parseInt(x.textContent, 10), 0);
+  ok("H1 số đếm không tính tồn đọng: tab 3, tổng dải tuần 3, tóm tắt có '3 tồn đọng'", t.$('[data-c="me"]').textContent === "3" && wkSum() === 3 && /3 tồn đọng/.test(t.$("[data-sub]").textContent) && !t.$('[data-wk="stale"]'));
   ok("H1 số menu = 3 việc chính + 1 Cần đồng ý = 4", t.events.some(e => e.n === "pmr:badge" && e.d.count === 4));
   t.key("j"); t.key("j"); t.key("j"); t.key("j");
   ok("H1 J/K khi tồn đọng đóng: chỉ đi qua 3 việc chính", t.$(".pmq-row--sel") && t.$(".pmq-row--sel").getAttribute("data-name") === "M-3");
@@ -162,53 +164,19 @@ function setup(o) {
   ok("H5 đã dùng 3 lần: bấm vào ô cũng không hiện gợi ý", t.$("[data-parse]").classList.contains("pmq-parse--off"));
   t.ctl.destroy(); t.w.close();
 
-  /* ---------- H6 ngăn chi tiết */
+  /* ---------- H6 / H8 (hotfix 23, thay ngăn chi tiết): mọi chi tiết đi qua cửa sổ chung của /pm */
   t = setup(); await flush();
   t.rowEl("M-1").querySelector(".pmq-open").click(); await flush();
-  const dr = () => t.$("[data-drawer]");
-  ok("H6 ngăn: Mở đầy đủ là nút biểu tượng ở đầu ngăn, có Mô tả / Các bước 1/2 / Việc con 1/2 xong / Bình luận 4", !!dr().querySelector('.pmq-dr-h [data-act="full"]') && /Các bước\s*1\/2/.test(dr().textContent) && /Việc con\s*1\/2 xong/.test(dr().textContent) && /Bình luận\s*4/.test(dr().textContent));
-  ok("H6 bình luận: chỉ 3 cái gần nhất + 'Xem cả 4 bình luận', tên người + giờ", dr().querySelectorAll(".pmq-cm").length === 3 && /Xem cả 4 bình luận/.test(dr().textContent) && /Tôi/.test(dr().querySelectorAll(".pmq-cm")[2].textContent) && /14\/11 08:04/.test(dr().textContent));
-  ok("H6 việc con: bấm tên mở việc con đầy đủ", (() => { const b = dr().querySelector('.pmq-sub-t[data-name="SUB-2"]'); b.click(); return t.opened.some(x => x[0] === "SUB-2"); })());
-  t.check(dr().querySelector('[data-step="C1"]'), true); await flush();
-  ok("H6 tích bước -> checklist.set_item(task, row_name, 1), số 2/2", t.last("checklist.set_item").a.row_name === "C1" && t.last("checklist.set_item").a.is_done === 1 && /Các bước\s*2\/2/.test(dr().textContent));
-  dr().querySelector('[data-act="desc-edit"]').click(); await flush();
-  const ta = dr().querySelector("[data-desc]");
-  ok("H6 mô tả thường (ql-editor + p): sửa tại chỗ, ô có sẵn chữ", ta && /Dòng một\s*\n+\s*Dòng hai/.test(ta.value));
-  ta.value = "Dòng một\nmới <b>"; ta.dispatchEvent(new t.w.Event("input", { bubbles: true }));
-  ta.dispatchEvent(new t.w.KeyboardEvent("keydown", { key: "Enter", ctrlKey: true, bubbles: true, cancelable: true })); await flush();
-  ok("H6 Ctrl+Enter lưu mô tả: tasks.update(description) đã esc + xuống dòng <br>", t.last("tasks.update").a.description === "<p>Dòng một<br>mới &lt;b&gt;</p>" && /Đã lưu mô tả/.test(t.toast()));
-  const cm = dr().querySelector("[data-cm]");
-  cm.focus(); cm.value = "Ok anh, chiều em gửi"; cm.dispatchEvent(new t.w.Event("input", { bubbles: true }));
-  t.intervals.find(x => x.ms === 60000).fn(); await flush();
-  ok("H6 đang gõ bình luận: tự làm mới 60 giây tạm hoãn, chữ còn nguyên", dr().querySelector("[data-cm]").value === "Ok anh, chiều em gửi");
-  t.ctl.refresh(); await flush();
-  ok("H6 làm mới (pmr:changed) khi đang gõ: không vẽ lại ngăn, chữ còn", dr().querySelector("[data-cm]").value === "Ok anh, chiều em gửi");
-  dr().querySelector("[data-cm]").dispatchEvent(new t.w.KeyboardEvent("keydown", { key: "Enter", ctrlKey: true, bubbles: true, cancelable: true })); await flush();
-  ok("H6 Ctrl+Enter gửi bình luận: comments.add(Task, M-1, chữ thường -> <p>), ô trống, bình luận mới hiện", t.last("comments.add").a.reference_doctype === "Task" && t.last("comments.add").a.reference_name === "M-1" &&
-    t.last("comments.add").a.content === "<p>Ok anh, chiều em gửi</p>" && dr().querySelector("[data-cm]").value === "" && /Ok anh, chiều em gửi/.test(dr().textContent));
-  t.rowEl("M-2").querySelector(".pmq-open").click(); await flush();
-  ok("H6 mô tả có định dạng (đậm): không sửa tại chỗ, có 'Sửa ở màn đầy đủ'", !dr().querySelector('[data-act="desc-edit"]') && /Sửa ở màn đầy đủ/.test(dr().textContent));
-  t.ctl.destroy(); t.w.close();
-
-  /* ---------- H8 đổi tên việc trong ngăn (18/11) */
-  t = setup(); await flush();
-  t.rowEl("M-2").querySelector(".pmq-open").click(); await flush();
-  const rb = t.$('[data-drawer] [data-act="rn"]');
-  ok("H8 ngăn: tên việc là nút đổi tên (can_edit)", !!rb);
-  rb.click(); await flush();
-  const ri = t.$("[data-rn]");
-  ok("H8 bấm tên -> ô nhập có sẵn tên, con trỏ trong ô", ri && ri.value === "Gọi brand" && t.w.document.activeElement === ri);
-  ri.value = "Gọi brand  FES-VN "; ri.dispatchEvent(new t.w.Event("input", { bubbles: true }));
-  ri.dispatchEvent(new t.w.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })); await flush();
-  ok("H8 Enter -> tasks.update(name, subject gọn), dòng + ngăn đổi tên ngay", t.last("tasks.update").a.name === "M-2" && t.last("tasks.update").a.subject === "Gọi brand FES-VN" &&
-    /Gọi brand FES-VN/.test(t.rowEl("M-2").textContent) && /Gọi brand FES-VN/.test(t.$("[data-drawer] .pmq-dr-t").textContent) && /Đã đổi tên việc/.test(t.toast()));
-  t.$('[data-drawer] [data-act="rn"]').click(); await flush();
-  t.$("[data-rn]").dispatchEvent(new t.w.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); await flush();
-  ok("H8 Esc -> thôi sửa, ngăn vẫn mở", !t.$("[data-rn]") && !t.$("[data-drawer]").hidden);
-  t.ctl.destroy(); t.w.close();
-  t = setup({ h: { "tasks.get": a => ({ task: { name: a.name, description: "", can_edit: 0 }, subtasks: [], user_names: {} }) } }); await flush();
-  t.rowEl("M-2").querySelector(".pmq-open").click(); await flush();
-  ok("H8 không được sửa (can_edit=0): tên không bấm đổi được", !t.$('[data-drawer] [data-act="rn"]'));
+  const o6 = t.opened.slice(-1)[0];
+  ok("H6 bấm tên việc -> openTask('M-1', {nav}) theo thứ tự đang hiện (tồn đọng đóng: 3 việc chính)", o6 && o6[0] === "M-1" && o6[1].nav.names.join(",") === "M-1,M-2,M-3" && typeof o6[1].nav.onMove === "function");
+  ok("H6 không còn ngăn .pmq-dr; hàng đợi không tự gọi tasks.get / comments.list / checklist (cửa sổ PMR lo)", !t.$("[data-drawer]") && !t.$(".pmq-dr") && t.count("tasks.get") + t.count("comments.list") + t.count("checklist.set_item") === 0);
+  t.rowEl("M-3").querySelector(".pmq-dt").click(); await flush();
+  ok("H6 bấm bất kỳ đâu trên dòng (ô hạn) -> mở việc đó", t.opened.slice(-1)[0][0] === "M-3");
+  const n6 = t.opened.length;
+  t.rowEl("M-1").querySelector('[data-act="done"]').click(); await flush();
+  ok("H6 bấm vòng Xong không mở cửa sổ", t.opened.length === n6);
+  o6[1].onChange(); await flush();
+  ok("H8 cửa sổ báo việc đổi (đổi tên / mô tả) -> hàng đợi làm mới", t.count("queue.list") >= 4);
   t.ctl.destroy(); t.w.close();
 
   /* ---------- H7 Phòng họp + CSS */

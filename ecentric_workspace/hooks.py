@@ -1279,3 +1279,10 @@ scheduler_events["cron"].setdefault("*/1 * * * *", []).append(
     "ecentric_workspace.shared_tools.jobs.every_minute")
 scheduler_events["cron"].setdefault("20 3 * * *", []).append(
     "ecentric_workspace.shared_tools.jobs.purge_exports")
+
+# 27/11/2026 (PM hotfix 23): mau du an (Project.ec_color, trong = theo phong ban - pm/colors.py).
+# Them ten vao bo loc fixture Custom Field o day thay vi sua danh sach phia tren.
+for _ec_fx in fixtures:
+    if isinstance(_ec_fx, dict) and _ec_fx.get("dt") == "Custom Field":
+        if "Project-ec_color" not in _ec_fx["filters"][0][2]:
+            _ec_fx["filters"][0][2].append("Project-ec_color")

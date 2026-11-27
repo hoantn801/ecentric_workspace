@@ -5,7 +5,7 @@
 if (root.PMR && root.PMR.__pmr) return;
 const D = root.document, PMA = "ecentric_workspace.pm.api.", HAS = Object.prototype.hasOwnProperty;
 const cfg = { api: null, user: "", now: null, views: {}, navigate: null, openProject: null, openChat: null, onChange: null,
-  onSheetClose: null, onViewChange: null, createProject: null };   /* go/el/esc/toast của host: bỏ qua */
+  onSheetClose: null, onViewChange: null, createProject: null, editProject: null };   /* go/el/esc/toast của host: bỏ qua. editProject(name): hotfix 23, menu ⋯ dự án */
 const NAMES = {};
 let inited = false;
 
@@ -133,10 +133,12 @@ function initials(nm) {
   if (!w.length) return "?";
   return (w.length === 1 ? w[0].slice(0, 2) : w[0].charAt(0) + w[w.length - 1].charAt(0)).toUpperCase();
 }
-function colorIdx(k) { let h = 0; const s = String(k || ""); for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return (Math.abs(h) % 7) + 1; }
+/* Hotfix 23 (đổi quyết định 15/11 "avatar trung tính"): màu nhạt cố định theo người = sắc độ băm từ email/tên,
+   nền hsl(h 70% 93%) chữ hsl(h 45% 28%) -> tương phản >= 4.5:1 ở mọi sắc độ. */
+function hueOf(k) { let h = 0; const s = String(k || ""); for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return h; }
 function av(u, nm, cls) {
   nm = nm || nameOf(u);
-  return `<span class="pmr-av pmr-a${colorIdx(u || nm)}${cls ? " " + cls : ""}" title="${esc(nm)}" aria-hidden="true">${esc(initials(nm))}</span>`;
+  return `<span class="pmr-av${cls ? " " + cls : ""}" style="--h:${hueOf(u || nm)}" title="${esc(nm)}" aria-hidden="true">${esc(initials(nm))}</span>`;
 }
 function stack(users, max) {
   max = max || 5;
@@ -176,7 +178,15 @@ const ICONS = {
   pen: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
   board: '<rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="12" rx="1"/><rect x="17" y="3" width="4" height="8" rx="1"/>',
   gantt: '<path d="M3 6h9M7 12h11M5 18h7"/>',
-  appr: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>'
+  appr: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+  /* hotfix 23 */
+  up: '<path d="m6 15 6-6 6 6"/>',
+  down: '<path d="m6 9 6 6 6-6"/>',
+  left: '<path d="m15 6-6 6 6 6"/>',
+  more: '<circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>',
+  folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  clock: '<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>',
+  check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>'
 };
 const ic = (n, cls) => `<svg class="pmr-i${cls ? " " + cls : ""}" aria-hidden="true" focusable="false"><use href="#pmr-i-${n}"></use></svg>`;
 function ensureSprite() {
@@ -186,6 +196,37 @@ function ensureSprite() {
     `<symbol id="pmr-i-${k}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${ICONS[k]}</symbol>`).join("")}</defs></svg>`;
   D.body.appendChild(w.firstChild);
 }
+
+/* -- hotfix 23: hàm dùng chung FE (xuất qua PMR; pm_queue.js / pm_app.html / pm_rooms.js gọi, chữ ký cố định) -- */
+/* Bảng màu dự án: BE chỉ trả khoá (pm/colors.py PALETTE_KEYS), hex nằm ở đây. [fg, bg, tên]. */
+const PAL = { navy: ["#2C3DA6", "#eef0fb", "Xanh navy"], violet: ["#6941c6", "#f4f3ff", "Tím"], sky: ["#026aa2", "#f0f9ff", "Xanh trời"], teal: ["#0e7c70", "#f0fdf9", "Xanh ngọc"],
+  green: ["#067647", "#ecfdf3", "Xanh lá"], amber: ["#b54708", "#fffaeb", "Vàng cam"], rose: ["#c01048", "#fff1f3", "Hồng"], slate: ["#475467", "#f2f4f7", "Xám"] };
+function projectColor(key) { const p = PAL[key] || PAL.slate; return { fg: p[0], bg: p[1] }; }
+const pcVars = key => { const c = projectColor(key); return `--pc:${c.fg};--pcb:${c.bg}`; };
+/* Tờ lịch hạn: thứ trên, ngày dưới, chữ tương đối bên phải. state: late|today|done|none|"" (không truyền = tự tính theo ngày). */
+function dueTile(dateStr, timeStr, state) {
+  const d = parseYmd(dateStr);
+  if (!d) return '<span class="pmr-dt pmr-dt--none"><span class="pmr-dt-t" aria-hidden="true"><i>&nbsp;</i><b>–</b></span><span class="pmr-dt-x"><b>Chưa có hạn</b></span></span>';
+  const h = hm(timeStr) || timeOfDT(dateStr), diff = dayDiff(parseYmd(todayYmd()), d);
+  if (state == null) state = diff < 0 ? "late" : (diff === 0 ? "today" : "");
+  const rel = state === "done" ? "Đã xong" : diff < 0 ? `Trễ ${-diff} ngày` : diff === 0 ? "Hôm nay" : diff === 1 ? "Ngày mai" : diff <= 14 ? `Còn ${diff} ngày` : dayLabel(ymd10(dateStr));
+  return `<span class="pmr-dt${state ? " pmr-dt--" + esc(state) : ""}" title="${esc(fullDue(ymd10(dateStr), timeStr))}"><span class="pmr-dt-t" aria-hidden="true"><i>${WD[d.getDay()]}</i><b>${d.getDate()}</b></span>` +
+    `<span class="pmr-dt-x"><b>${esc(rel)}</b><small>${esc(h || "tháng " + (d.getMonth() + 1))}</small></span></span>`;
+}
+/* Phân trang dùng chung: "1–7 trên 33" + ‹ 1 2 … 9 ›. Nút có data-act="pg" data-key data-p; ai dùng thì tự bắt sự kiện. 1 trang -> "". */
+function pager(key, page, pages, total, size) {
+  pages = Math.max(1, +pages || 1); page = Math.min(Math.max(1, +page || 1), pages); total = +total || 0; size = +size || 1;
+  if (pages <= 1) return "";
+  const nums = [];
+  for (let i = 1; i <= pages; i++) if (i === 1 || i === pages || Math.abs(i - page) <= 1) nums.push(i); else if (nums[nums.length - 1] !== 0) nums.push(0);
+  const pb = (p, label, aria, dis, cur) => `<button type="button" class="pmr-pg-b${cur ? " pmr-num" : ""}" data-act="pg" data-key="${esc(key)}" data-p="${p}" aria-label="${aria}"${dis ? " disabled" : ""}${cur ? ' aria-current="page"' : ""}>${label}</button>`;
+  return `<nav class="pmr-pager" aria-label="Chuyển trang"><span class="pmr-num">${(page - 1) * size + 1}–${Math.min(page * size, total)} trên ${total}</span><span class="pmr-grow"></span>` +
+    pb(page - 1, ic("left", "pmr-s"), "Trang trước", page === 1) + nums.map(n => n ? pb(n, n, "Trang " + n, false, n === page) : '<span class="pmr-pg-gap" aria-hidden="true">…</span>').join("") +
+    pb(page + 1, ic("right", "pmr-s"), "Trang sau", page === pages) + "</nav>";
+}
+/* Nhãn ưu tiên như Việc cần làm: Gấp / Cao có thanh sóng, Bình thường / Thấp để trống. */
+const priTag = p => p === "Urgent" || p === "High" ? `<span class="pmr-pri pmr-pri--${p === "Urgent" ? 4 : 3}"><i aria-hidden="true"><s></s><s></s><s></s></i>${esc(priorityLabel(p))}</span>` : '<span class="pmr-pri-0"></span>';
+const typing = el => !!el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable);
 
 /* -- sự kiện + DOM -- */
 const changed = d => emit("pmr:changed", d);
@@ -381,6 +422,8 @@ function closeFloating() {
   $$(".pmr-picker").forEach(x => { x.parentNode.removeChild(x); n++; });
   $$(".pmr-pj-list").forEach(x => { if (!x.hidden) { x.hidden = true; n++; } });
   if (POP) { closeLogPop(); n++; }
+  if (closeNotePop()) n++;
+  if (PJ && PJ.menu && PJ.c.isConnected) { PJ.menu = PJ.del = null; pjPaint(); n++; }
   if (n && NT) safe(paintProjectSel);
   return n;
 }
@@ -391,8 +434,8 @@ function newDirty() {
 }
 function taskDirty() {
   if (S.kind !== "task") return false;
-  const c = $S(".pmr-cm-in"), r = $S(".pmr-ask-reason");
-  return !!((c && c.value.trim()) || (TS.atts && TS.atts.length) || (r && r.value.trim()));
+  const c = $S(".pmr-cm-in"), r = $S(".pmr-ask-reason"), de = $S(".pmr-desc-in");
+  return !!((c && c.value.trim()) || (TS.atts && TS.atts.length) || (r && r.value.trim()) || (de && TS.descEdit && de.value !== TS.descEdit.text));
 }
 const DIRTY_MSG = () => newDirty() ? "Bạn đang soạn dở việc này. Bấm Huỷ nếu muốn bỏ." : taskDirty() ? "Bạn đang viết dở. Bấm × nếu muốn bỏ." : "";
 function onScrimClick() {
@@ -429,6 +472,12 @@ function onDocKey(e) {
     else if (S.kind) sheetClose();
     else return;
     e.preventDefault();
+    return;
+  }
+  /* hotfix 23: J/K = việc sau/trước trong cửa sổ chi tiết (khi mở từ một danh sách), trừ khi đang gõ hoặc có lớp nổi */
+  if ((e.key === "j" || e.key === "k" || e.key === "J" || e.key === "K") && S.kind === "task" && TS.nav && !e.ctrlKey && !e.metaKey && !e.altKey
+    && !typing(e.target) && !$S(".pmr-npop,.pmr-picker") && !POP) {
+    if (navMove(e.key.toLowerCase() === "j" ? 1 : -1)) e.preventDefault();
     return;
   }
   if (e.key === "Tab" && S.kind && S.el.contains(D.activeElement)) {
@@ -619,10 +668,12 @@ function openTask(name, o) {
   if (!name) { bad("Thiếu mã việc"); return Promise.resolve(null); }
   const sh = sheetOpen("task", "Chi tiết việc", o.onClose), token = {};
   S.task = name;
-  sh.innerHTML = `<div class="pmr-sh-h"><div class="pmr-sh-top"><span class="pmr-crumb">Đang mở việc…</span>${xBtn}</div></div><div class="pmr-sh-b">${skel(6)}</div>`;
-  on(sh, a => { if (a === "close") sheetClose(); });
-  focusFirst(sh);
-  TS = { name, token, o, tab: o.tab || null };
+  /* hotfix 23: o.nav = {names:[...], onMove(name)} -> ↑/↓ + J/K + "i/N" theo thứ tự danh sách đã mở */
+  const nv = o.nav && Array.isArray(o.nav.names) && o.nav.names.length ? o.nav : null;
+  TS = { name, token, o, tab: o.tab || null, nav: nv };
+  sh.innerHTML = `<div class="pmr-sh-cols pmr-sh-load"><div class="pmr-main"><div class="pmr-sh-h"><div class="pmr-sh-top"><span class="pmr-crumb">Đang mở việc…</span><span class="pmr-sh-ctl">${navHtml()}${xBtn}</span></div></div><div class="pmr-sh-b">${skel(6)}</div></div></div>`;
+  on(sh, a => { if (a === "close") sheetClose(); else if (a === "nav-prev" || a === "nav-next") navMove(a === "nav-next" ? 1 : -1); });
+  focusFirst(sh, "[data-act=close]");
   return Promise.all([call("tasks.get", { name }), call("checklist.get_for_task", { task: name }).then(null, () => null)]).then(rs => {
     if (TS.token !== token) return null;
     TS.d = normTask(rs[0]);
@@ -633,20 +684,40 @@ function openTask(name, o) {
   }, e => {
     if (TS.token !== token) return null;
     $(".pmr-sh-b", sh).innerHTML = errBox("Không mở được việc.", e, true);
-    on(sh, a => { if (a === "close") sheetClose(); else if (a === "retry") openTask(name, o); });
+    on(sh, a => { if (a === "close") sheetClose(); else if (a === "retry") openTask(name, o); else if (a === "nav-prev" || a === "nav-next") navMove(a === "nav-next" ? 1 : -1); });
     return null;
   });
+}
+function navHtml() {
+  const n = TS.nav, i = n ? n.names.indexOf(TS.name) : -1;
+  if (i < 0) return "";
+  const nb = (act, icon, label, dis) => `<button type="button" class="pmr-x" data-act="${act}" aria-label="${label}" title="${label}"${dis ? " disabled" : ""}>${ic(icon, "pmr-s")}</button>`;
+  return `<span class="pmr-sh-nav"><span class="pmr-sh-pos pmr-num" aria-label="Việc ${i + 1} trên ${n.names.length}">${i + 1}/${n.names.length}</span>` +
+    nb("nav-prev", "up", "Việc trước (K)", i === 0) + nb("nav-next", "down", "Việc sau (J)", i === n.names.length - 1) + "</span>";
+}
+/* Sang việc trước/sau trong cùng cửa sổ: báo host (onMove) rồi mở việc mới. Đang viết dở -> nhắc, không chuyển. */
+function navMove(step) {
+  const n = TS.nav, i = n && S.kind === "task" ? n.names.indexOf(TS.name) : -1, j = i + step;
+  if (i < 0 || j < 0 || j >= n.names.length) return false;
+  if (taskDirty()) { toast(DIRTY_MSG()); return true; }
+  closeNotePop();
+  const next = n.names[j];
+  if (n.onMove) safe(n.onMove, next);
+  openTask(next, { nav: n });
+  return true;
 }
 const reviewVariant = d => d.review && !d.isGiver && !d.canManage && d.t.workflow_state !== "Done";
 function statusBarHtml(d) {
   const cur = curBucket(d.t.workflow_state);
   const set = [["To Do", "Chưa làm"], ["In Progress", "Đang làm"]].concat(reviewVariant(d) ? [["Review", "Gửi kiểm tra"]] : [["Review", "Chờ duyệt"], ["Done", "Xong"]]);
-  const ro = !d.canEdit, na = nextAct(d);
+  const ro = !d.canEdit, na = nextAct(d), ask = canAskDl(d) && !myPdr(d);
   return `<div class="pmr-stw">${na}<div class="pmr-statusbar${ro ? " pmr-ro" : ""}" role="radiogroup" aria-label="Trạng thái"${ro ? ' aria-disabled="true"' : ""}>${set.map(s => {
     const onS = s[0] === cur;
     return `<button type="button" role="radio" aria-checked="${onS}" class="pmr-sb-${stateIdx(s[0])}${onS ? " pmr-on" : ""}" data-act="state"${dattr("s", s[0])}${ro ? " disabled" : ""}>${esc(s[1])}</button>`;
-  }).join("")}</div></div>`;
+  }).join("")}</div>${ask ? Bs(ic("clock", "pmr-s") + "Xin dời hạn", "ask-open", "", ` aria-haspopup="dialog" aria-expanded="${!!TS.askOpen}"`) : ""}</div>`;
 }
+const canAskDl = d => d.isAssignee && !d.isGiver && !isClosed(d.t.workflow_state);
+function paintStw() { const sb = $S(".pmr-stw"); if (sb && TS.d) sb.outerHTML = statusBarHtml(TS.d); }
 /* Nút việc tiếp theo: người nhận Bắt đầu / Xong / Gửi kiểm tra; người duyệt Duyệt và đóng. Chỉ xem, đã đóng, việc chia người: không có. */
 function nextAct(d) {
   const ws = d.t.workflow_state, cta = (s, l) => B(l, "state", "pmr-pri pmr-cta", dattr("s", s));
@@ -659,8 +730,8 @@ const fl = (label, body, cls) => `<div class="pmr-fl${cls ? " " + cls : ""}"><sp
 function paintTask() {
   const d = TS.d, t = d.t, sh = S.el, gname = giverName(d), terminal = isClosed(t.workflow_state), ck = TS.chk;
   /* 2 card cao bằng nhau (PO 16/10): card trái = tiêu đề + trạng thái + thông tin + tab; card phải = Bình luận. */
-  let h = `<div class="pmr-sh-cols"><div class="pmr-main"><div class="pmr-sh-h"><div class="pmr-sh-top"><span class="pmr-crumb">${esc(t.project_name || NOPROJ)}</span>${ic("right", "pmr-s pmr-faint")}<span class="pmr-crumb2">${esc(t.name)}</span>${t.parent_task ? L("‹ Việc cha", "open-sub", dattr("task", t.parent_task), "pmr-ml pmr-crumb-up") : ""}` +
-    `<button type="button" class="pmr-x" data-act="copy" aria-label="Sao chép liên kết">${ic("link", "pmr-s")}</button>${xBtn}</div><div class="pmr-dt-wrap">${titleHtml(d, terminal)}</div>`;
+  let h = `<div class="pmr-sh-cols"><div class="pmr-main"><div class="pmr-sh-h"><div class="pmr-sh-top">${ic("folder", "pmr-s pmr-faint")}<span class="pmr-crumb">${esc(t.project_name || NOPROJ)}</span>${ic("right", "pmr-s pmr-faint")}<span class="pmr-crumb2">${esc(t.name)}</span>${t.parent_task ? L(ic("left", "pmr-s") + "Việc cha", "open-sub", dattr("task", t.parent_task), "pmr-crumb-up") : ""}` +
+    `<span class="pmr-sh-ctl">${navHtml()}<button type="button" class="pmr-x" data-act="copy" aria-label="Sao chép liên kết">${ic("link", "pmr-s")}</button>${xBtn}</span></div><div class="pmr-dt-wrap">${titleHtml(d, terminal)}</div>`;
   if (d.giver && d.isAssignee && !d.isGiver) {
     const line = [];
     if (t.creation) line.push(shortDate(t.creation));
@@ -670,9 +741,8 @@ function paintTask() {
   h += statusBarHtml(d);
   if (!d.canEdit) h += `<div class="pmr-hint pmr-ro-hint">${ic("eye", "pmr-s")}Chỉ xem: người nhận, người giao, quản lý dự án hoặc trưởng phòng mới sửa được. Bạn vẫn bình luận được.</div>`;
   if (reviewVariant(d) && !terminal) h += `<div class="pmr-hint">${esc(gname)} cần kiểm tra việc này: làm xong bấm <b>Gửi kiểm tra</b>, ${esc(gname)} sẽ đóng việc.</div>`;
-  h += '</div><div class="pmr-sh-b"><div class="pmr-due-sec"></div>';
-  /* "cần làm gì" đọc ngay dưới Hạn, trước các dòng ai/ở đâu */
-  if (t.description && clean(t.description)) h += fl("Mô tả", `<div class="pmr-desc">${sanitize(t.description)}</div>`, "pmr-fl-top");
+  /* hotfix 23: thông tin xếp 2 cột (Hạn đầu tiên); Mô tả thành mục riêng ngay dưới, kẹp 6 dòng + Xem thêm */
+  h += '</div><div class="pmr-sh-b"><div class="pmr-fields"><div class="pmr-due-sec"></div>';
   if (!d.isAssignee || d.isGiver) h += fl("Người giao", d.giver ? (d.isGiver ? `<span class="pmr-who">${av(cfg.user)}Bạn</span>` : who(d.giver.user, gname)) : muted("—"));
   if (!(d.split && d.subs.length)) {
     h += `<div class="pmr-fl"><span class="pmr-lb">Người nhận</span><div class="pmr-pick-wrap">${d.asg.length ? d.asg.map(u => `<span class="pmr-pc">${av(u)}${esc(nameOf(u))}</span>`).join("") : muted("Chưa có người nhận") + " "}${terminal || !d.canEdit ? "" : L("+ Thêm người", "add-assignee")}</div></div>`;
@@ -682,6 +752,7 @@ function paintTask() {
   if (d.rec) h += fl("Lặp lại", `<span class="pmr-tag">${ic("repeat", "pmr-s")}${esc(typeof d.rec === "string" ? d.rec : d.rec.label || d.rec.name || "")}</span>`);
   if (t.priority) h += fl("Ưu tiên", esc(priorityLabel(t.priority)));
   if (d.review) h += fl("Kiểm tra", muted("Cần người giao kiểm tra trước khi xong"));
+  h += '</div><section class="pmr-desc-sec" aria-label="Mô tả"></section>';
   const tabs = [];
   const people = d.split && d.subs.length, nDone = d.subs.filter(s => s.workflow_state === "Done").length;
   if (people) tabs.push(["people", `Từng người ${nDone}/${d.subs.length}`]);
@@ -692,12 +763,14 @@ function paintTask() {
     '<aside class="pmr-side" aria-label="Bình luận"><h4 class="pmr-side-h">Bình luận <span class="pmr-side-n"></span></h4><div class="pmr-side-b"></div></aside></div>';
   sh.innerHTML = h;
   paintDue();
+  paintDesc();
   loadTab(TS.tab);
   loadComments();
   on(sh, onTaskClick);
   on(sh, onTaskChange, "change");
   sh.onkeydown = e => {
     const cl = e.target.classList, ctrl = e.ctrlKey || e.metaKey;
+    if (ctrl && e.key === "Enter" && (cl.contains("pmr-done-note") || cl.contains("pmr-ask-reason"))) { e.preventDefault(); const b = $(cl.contains("pmr-done-note") ? "[data-act=done-ok]" : "[data-act=ask-send]", sh); if (b) b.click(); return; }
     if (cl.contains("pmr-rn-in")) {   /* đổi tên: Enter lưu, Esc thôi (không đóng cả ngăn) */
       if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); renameSave(); }
       else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); TS.rename = null; paintTitle("title"); }
@@ -708,19 +781,83 @@ function paintTask() {
     else if (cl.contains("pmr-step-in")) { e.preventDefault(); $("[data-act=step-add]", sh).click(); }
     else if (cl.contains("pmr-sub-in")) { e.preventDefault(); $("[data-act=sub-add]", sh).click(); }
   };
-  focusFirst(sh, TS.askOpen ? ".pmr-ask-reason" : ".pmr-cta,.pmr-statusbar .pmr-on");
+  focusFirst(sh, ".pmr-cta,.pmr-statusbar .pmr-on");
+  if (TS.askOpen) { const ab = $S("[data-act=ask-open]"); if (ab) openAskPop(ab); else TS.askOpen = false; }
+}
+/* -- mô tả: kẹp 6 dòng + Xem thêm; Sửa cho mô tả chữ thường (mô tả có định dạng giữ nguyên, như ngăn hotfix 16) -- */
+const PLAIN_DESC = /^(?:[^<]|<\/?(?:p|div)>|<br\s*\/?>|<div class="ql-editor[^"]*"(?:\s+contenteditable="[^"]*")?>)*$/i;
+function htmlText(h) {
+  if (!h) return "";
+  const s = String(h).replace(/<br\s*\/?>/gi, "\n").replace(/<\/(p|div|li|h[1-6]|tr)>/gi, "\n");
+  let t;
+  try { const doc = D.implementation.createHTMLDocument(""); doc.body.innerHTML = s; t = doc.body.textContent || ""; } catch (e) { t = s.replace(/<[^>]*>/g, " "); }
+  return t.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+const toParas = txt => String(txt || "").split(/\n{2,}/).map(p => "<p>" + esc(p).replace(/\n/g, "<br>") + "</p>").join("");
+const descLong = raw => { const t = htmlText(raw); return t.length > 320 || t.split("\n").length > 6; };
+/* link dài trong mô tả/bình luận: hiện "docs.google.com/…/edit", href giữ nguyên (title = link đầy đủ) */
+function shortUrl(u) {
+  const m = String(u || "").match(/^https?:\/\/(?:www\.)?([^/?#\s]+)([^?#\s]*)/i);
+  if (!m) return String(u || "");
+  const segs = m[2].split("/").filter(Boolean);
+  if (!segs.length) return m[1];
+  let last = segs[segs.length - 1];
+  if (last.length > 24) last = last.slice(0, 22) + "…";
+  return m[1] + (segs.length > 1 ? "/…/" : "/") + last;
+}
+function shortLinks(html) {
+  const w = D.createElement("div");
+  w.innerHTML = html;
+  $$("a[href]", w).forEach(a => {
+    const tx = a.textContent.trim();
+    if (/^https?:\/\//i.test(tx) && tx.length > 32) { a.textContent = shortUrl(tx); a.setAttribute("title", a.getAttribute("href")); a.setAttribute("class", "pmr-lnk"); }
+  });
+  return w.innerHTML;
+}
+function paintDesc() {
+  const sec = $S(".pmr-desc-sec"), d = TS.d;
+  if (!sec || !d) return;
+  const t = d.t, raw = String(t.description || ""), has = !!clean(raw), ed = TS.descEdit && TS.descEdit.task === t.name ? TS.descEdit : null;
+  const can = d.canEdit && !isClosed(t.workflow_state) && PLAIN_DESC.test(raw);
+  if (!has && !can) { sec.hidden = true; sec.innerHTML = ""; return; }
+  sec.hidden = false;
+  let body;
+  if (ed) {
+    body = `<label class="pmr-sr" for="pmr-desc-in">Mô tả</label><textarea id="pmr-desc-in" class="pmr-ta pmr-desc-in" rows="5" maxlength="4000">${esc(ed.text)}</textarea>` +
+      `<div class="pmr-acts">${Bs("Huỷ", "desc-cancel")}${Bs("Lưu mô tả", "desc-save", "pmr-pri")}</div>`;
+  } else if (!has) body = `<p class="pmr-muted pmr-desc-empty">Chưa có mô tả.</p>`;
+  else {
+    const long = descLong(raw), open = !!TS.descOpen;
+    body = `<div class="pmr-desc${long && !open ? " pmr-clamp" : ""}">${shortLinks(sanitize(raw))}</div>` +
+      (long ? L(open ? "Thu gọn" : "Xem thêm", "desc-more", ` aria-expanded="${open}"`, "pmr-desc-more") : "");
+  }
+  sec.innerHTML = `<div class="pmr-sec-h"><span>Mô tả</span>${can && !ed ? L(ic("pen", "pmr-s") + (has ? "Sửa" : "Thêm mô tả"), "desc-edit", ' title="Sửa mô tả (chữ thường)"') : ""}</div>${body}`;
+  /* trình duyệt thật: đoán "dài" nhưng thực ra vừa 6 dòng -> bỏ nút Xem thêm */
+  const dv = $(".pmr-desc.pmr-clamp", sec);
+  if (dv && dv.clientHeight > 0 && dv.scrollHeight <= dv.clientHeight + 1) { dv.classList.remove("pmr-clamp"); const mb = $(".pmr-desc-more", sec); if (mb) mb.parentNode.removeChild(mb); }
+  if (ed) { const i = $(".pmr-desc-in", sec); if (i) safe(() => { i.focus(); i.setSelectionRange(i.value.length, i.value.length); }); }
+}
+function descSave(b) {
+  const d = TS.d, name = d.t.name, i = $S(".pmr-desc-in"), text = String(i ? i.value : "").trim(), html = text ? toParas(text) : "";
+  if (TS.descEdit && text === TS.descEdit.text.trim()) { TS.descEdit = null; return paintDesc(); }
+  busy(b, call("tasks.update", { name, description: html })).then(() => {
+    changed({ task: name });
+    toast("Đã lưu mô tả");
+    if (!onTask(name)) return;
+    TS.d.t.description = html; TS.descEdit = null; paintDesc();
+  }, e => errToast(e, "Chưa lưu được mô tả"));
 }
 /* 18/11/2026 (người dùng báo "không đổi tên task được"): tên việc sửa tại chỗ. Ai sửa được việc (canEdit) và việc chưa
    đóng: bấm tên (hoặc bút chì) -> ô nhập, Enter / Lưu = tasks.update(subject), Esc / Huỷ = thôi. Chỉ vẽ lại phần tên. */
 const SUBJECT_MAX = 140;
 function titleHtml(d, closed) {
   const t = d.t, txt = esc(t.subject || t.name);
-  if (!d.canEdit || closed) return `<h3 class="pmr-dtitle">${txt}</h3>`;
+  if (!d.canEdit || closed) return `<h3 class="pmr-dtitle" title="${txt}">${txt}</h3>`;   /* tối đa 2 dòng (CSS), title = tên đầy đủ */
   if (TS.rename && TS.rename.task === t.name) {
     return `<div class="pmr-rn"><label class="pmr-sr" for="pmr-rn-in">Tên việc</label><input id="pmr-rn-in" class="pmr-rn-in" maxlength="${SUBJECT_MAX}" value="${esc(TS.rename.text)}" autocomplete="off">` +
       `<div class="pmr-rn-acts">${Bs("Huỷ", "rn-cancel")}${Bs("Lưu tên", "rn-save", "pmr-pri")}</div></div>`;
   }
-  return `<h3 class="pmr-dtitle"><button type="button" class="pmr-rn-b" data-act="rename" title="Bấm để đổi tên việc">${txt}${ic("pen", "pmr-s pmr-rn-i")}<span class="pmr-sr"> (đổi tên)</span></button></h3>`;
+  return `<h3 class="pmr-dtitle"><button type="button" class="pmr-rn-b" data-act="rename" title="${txt} (bấm để đổi tên)">${txt}${ic("pen", "pmr-s pmr-rn-i")}<span class="pmr-sr"> (đổi tên)</span></button></h3>`;
 }
 function paintTitle(focus) {
   const w = $(".pmr-dt-wrap", S.el), d = TS.d;
@@ -777,24 +914,14 @@ function paintDue() {
   if (!sec) return;
   const di = dueInfo(t.exp_end_date, t.pm_end_time, t.workflow_state), mine = myPdr(d), open = !isClosed(t.workflow_state);
   const other = d.pdr && !mine && (!d.pdr.status || d.pdr.status === "Pending") ? d.pdr : null;
-  const canAsk = d.isAssignee && !d.isGiver && open, canEdit = (d.isGiver || d.canManage) && open && d.canEdit;
+  const canEdit = (d.isGiver || d.canManage) && open && d.canEdit;
+  /* hotfix 23: "Xin dời hạn" chuyển lên hàng trạng thái, mở hộp nổi (openAskPop) */
   let h = `<div class="pmr-fl pmr-fl-first"><span class="pmr-lb">Hạn</span><div class="pmr-due-row">${dueSpan(di)}${t.exp_end_date ? muted(esc(fullDue(t.exp_end_date, t.pm_end_time))) : ""}`;
-  if (canAsk && !mine) h += Bs("Xin dời hạn", "ask-open", "pmr-wash pmr-ml", ` aria-expanded="${!!TS.askOpen}"`);
-  else if (canEdit) h += L("Đổi hạn", "due-edit", "", "pmr-ml");
+  if (canEdit) h += L("Đổi hạn", "due-edit", "", "pmr-ml");
   h += "</div></div>";
   if (TS.dueEdit && canEdit) {
     h += `<div class="pmr-rs"><div class="pmr-row"><input class="pmr-in pmr-due-d" type="date" aria-label="Hạn mới" value="${esc(ymd10(t.exp_end_date))}"><input class="pmr-in pmr-due-t" type="time" aria-label="Giờ" value="${esc(hm(t.pm_end_time))}"></div>` +
       `<div class="pmr-acts">${Bs("Huỷ", "due-cancel")}${Bs("Lưu hạn", "due-save", "pmr-pri")}</div></div>`;
-  }
-  if (canAsk && !mine && TS.askOpen) {
-    const opts = askOptions(d);
-    TS.askPick = TS.askPick || opts[0][0];
-    h += `<div class="pmr-rs"><h4>Xin ${esc(giverName(d))} dời hạn</h4><div class="pmr-row"><span class="pmr-lb pmr-lb-w">Hạn mới</span><div class="pmr-qd" role="group" aria-label="Hạn mới">` +
-      opts.map(x => qdBtn("ask-pick", "d", x[0], x[1], !TS.askCustom && TS.askPick === x[0])).join("") + qdBtn("ask-custom", "d", "", "Chọn ngày…", TS.askCustom) + "</div>" +
-      /* bọc riêng: ec_datepicker bọc input trong .ec-dp-wrap nên ẩn input không ẩn được ô ngày -> ẩn cả khối bọc */
-      `<span class="pmr-ask-date-w"${TS.askCustom ? "" : " hidden"}><input class="pmr-in pmr-ask-date" type="date" aria-label="Chọn ngày" value="${esc(TS.askPick)}"></span></div>` +
-      '<textarea class="pmr-ta pmr-ask-reason" placeholder="Lý do (người giao sẽ thấy)" aria-label="Lý do"></textarea><div class="pmr-err-t pmr-hide" role="alert"></div>' +
-      `<div class="pmr-acts">${Bs("Huỷ", "ask-cancel")}${Bs("Gửi đề xuất", "ask-send", "pmr-pri")}</div></div>`;
   }
   if (mine) {
     h += `<div class="pmr-sent" role="status">${ic("cal", "pmr-s")}<span>Đã xin dời sang <b>${esc(dayLabel(mine.new_end || mine.proposed_end))}</b> · đang chờ ${esc(giverName(d))} duyệt. Hạn cũ vẫn giữ cho tới khi được đồng ý.</span>${L("Rút lại", "ask-withdraw", "", "pmr-ml")}</div>`;
@@ -812,7 +939,83 @@ function setTaskState(st) {
   if (sb) sb.outerHTML = statusBarHtml(TS.d);
   if (hint && isClosed(st) && hint.closest(".pmr-sh-h")) hint.parentNode.removeChild(hint);
 }
-function keepReason(fn) { const r = $S(".pmr-ask-reason"), v = r ? r.value : ""; fn(); const r2 = $S(".pmr-ask-reason"); if (r2) r2.value = v; }
+/* == hotfix 23: hộp nổi ghi chú khi Xong (không bắt buộc) / Xin dời hạn (lý do bắt buộc). Nằm trong cửa sổ, cạnh nút bấm. == */
+function closeNotePop() {
+  const p = S.el && $(".pmr-npop", S.el);
+  if (!p) return false;
+  p.parentNode.removeChild(p);
+  TS.askOpen = TS.askCustom = false; TS.pendDone = null;
+  $$S("[data-act=ask-open]").forEach(b => b.setAttribute("aria-expanded", "false"));
+  return true;
+}
+function notePop(kind, anchor, label) {
+  closeNotePop();
+  const main = $S(".pmr-main");
+  if (!main) return null;
+  const p = D.createElement("div");
+  p.className = "pmr-npop";
+  p.setAttribute("role", "dialog");
+  p.setAttribute("aria-label", label);
+  p.setAttribute("data-kind", kind);
+  main.appendChild(p);
+  const r = anchor.getBoundingClientRect(), mr = main.getBoundingClientRect();
+  p.style.top = Math.max(8, r.bottom - mr.top + 8) + "px";
+  p.style.left = Math.max(12, Math.min(mr.width - 356, r.left - mr.left)) + "px";
+  return p;
+}
+function openDonePop(s, b) {
+  const d = TS.d, rv = s === "Review", closing = !d.isAssignee || d.isGiver || d.t.workflow_state === "Review";
+  const p = notePop("done", b, rv ? "Ghi chú khi gửi kiểm tra" : "Ghi chú khi xong");
+  if (!p) return;
+  TS.pendDone = { s, b };
+  const title = closing ? "Ghi chú khi đóng việc" : `${rv ? "Gửi kiểm tra" : "Xong rồi"}. Nhắn gì cho ${giverName(d)} không?`;
+  p.innerHTML = `<h5>${esc(title)}</h5><p>Không bắt buộc. Ghi chú sẽ nằm trong Bình luận của việc.</p>` +
+    '<textarea class="pmr-ta pmr-done-note" aria-label="Ghi chú (không bắt buộc)" placeholder="Ví dụ: file kết quả ở link…"></textarea>' +
+    `<div class="pmr-acts">${Bs(rv ? "Bỏ qua, chỉ gửi kiểm tra" : "Bỏ qua, chỉ đánh Xong", "done-skip", "pmr-ghost")}${Bs(rv ? "Gửi kiểm tra + ghi chú" : "Xong + gửi ghi chú", "done-ok", "pmr-pri")}</div>`;
+  focusFirst(p, ".pmr-done-note");
+}
+function openAskPop(b) {
+  const p = notePop("ask", b, "Xin dời hạn");
+  if (!p) return;
+  TS.askOpen = true;
+  b.setAttribute("aria-expanded", "true");
+  paintAskPop();
+  focusFirst(p, ".pmr-ask-reason");
+}
+function paintAskPop() {
+  const p = $S(".pmr-npop[data-kind=ask]"), d = TS.d;
+  if (!p) return;
+  const r = $(".pmr-ask-reason", p), v = r ? r.value : "", opts = askOptions(d);
+  TS.askPick = TS.askPick || opts[0][0];
+  p.innerHTML = `<h5>Xin ${esc(giverName(d))} dời hạn</h5><p>Người giao sẽ đồng ý hoặc từ chối. Lý do nằm trong Bình luận.</p>` +
+    `<div class="pmr-qd" role="group" aria-label="Hạn mới">${opts.map(x => qdBtn("ask-pick", "d", x[0], x[1], !TS.askCustom && TS.askPick === x[0])).join("")}${qdBtn("ask-custom", "d", "", "Chọn ngày…", TS.askCustom)}</div>` +
+    /* bọc riêng: ec_datepicker bọc input trong .ec-dp-wrap nên ẩn input không ẩn được ô ngày -> ẩn cả khối bọc */
+    `<span class="pmr-ask-date-w"${TS.askCustom ? "" : " hidden"}><input class="pmr-in pmr-ask-date" type="date" aria-label="Chọn ngày" value="${esc(TS.askPick)}"></span>` +
+    '<textarea class="pmr-ta pmr-ask-reason" placeholder="Lý do (bắt buộc)" aria-label="Lý do (bắt buộc)" aria-required="true"></textarea><div class="pmr-err-t pmr-hide" role="alert"></div>' +
+    `<div class="pmr-acts">${Bs("Huỷ", "ask-cancel", "pmr-ghost")}${Bs("Gửi đề xuất", "ask-send", "pmr-pri")}</div>`;
+  $(".pmr-ask-reason", p).value = v;
+}
+/* Ghi chú vào Bình luận của việc (sau khi Xong / xin dời hạn thành công). Lỗi: báo riêng, không hoàn tác việc chính. */
+function addNote(name, content, failMsg) {
+  return call("comments.add", { reference_doctype: "Task", reference_name: name, content }).then(res => {
+    changed({ task: name });
+    if (!onTask(name) || !TS.cmRows) return;
+    TS.cmRows.push({ name: res && res.name, owner: cfg.user, content: (res && res.content) || content, creation: (res && res.creation) || new Date().toISOString(), pinned: 0 });
+    paintComments();
+  }, e => errToast(e, failMsg));
+}
+function runDone(note) {
+  const d = TS.d, pd = TS.pendDone;
+  if (!d || !pd) return;
+  const t = d.t, name = t.name, s = pd.s, cur = t.workflow_state, b = $S(`.pmr-stw [data-act=state][data-s="${s}"]`) || pd.b;
+  closeNotePop();
+  const paintSt = st => { if (onTask(name)) setTaskState(st); };
+  markDone(name, { subject: t.subject, prevState: cur, apply: paintSt, revert: paintSt, button: b && b.isConnected ? b : null, reviewRequired: d.review, isGiver: d.isGiver || d.canManage, predict: s,
+    onDone: r => {
+      if (r.withdrew_request && onTask(name)) { TS.d.pdr = null; paintDue(); paintStw(); }
+      if (note) addNote(name, linkify(note), "Đã xong nhưng chưa gửi được ghi chú");
+    } });
+}
 function onTaskClick(a, b) {
   const d = TS.d;
   if (a === "close") return sheetClose();
@@ -833,23 +1036,30 @@ function onTaskClick(a, b) {
       const s = ga(b, "s"), cur = t.workflow_state;
       if (curBucket(cur) === s) return;
       const paintSt = st => { if (onTask(name)) setTaskState(st); };
-      const opts = { subject: t.subject, prevState: cur, apply: paintSt, revert: paintSt, button: b, reviewRequired: d.review, isGiver: d.isGiver || d.canManage,
-        onDone: r => { if (r.withdrew_request && onTask(name)) { TS.d.pdr = null; paintDue(); } } };
-      if (s === "Done" || (s === "Review" && reviewVariant(d))) { opts.predict = s; markDone(name, opts); } else setState(name, s, cur, opts);
+      /* hotfix 23: Xong / Gửi kiểm tra -> hộp ghi chú không bắt buộc trước (Bỏ qua = chỉ Xong) */
+      if (s === "Done" || (s === "Review" && reviewVariant(d))) return openDonePop(s, b);
+      setState(name, s, cur, { subject: t.subject, prevState: cur, apply: paintSt, revert: paintSt, button: b });
       return;
     }
+    case "done-skip": return runDone("");
+    case "done-ok": { const n = $S(".pmr-done-note"); return runDone(n ? n.value.trim() : ""); }
+    case "nav-prev": case "nav-next": return navMove(a === "nav-next" ? 1 : -1);
+    case "desc-more": TS.descOpen = !TS.descOpen; return paintDesc();
+    case "desc-edit": TS.descEdit = { task: name, text: htmlText(t.description) }; return paintDesc();
+    case "desc-cancel": TS.descEdit = null; return paintDesc();
+    case "desc-save": return descSave(b);
     case "tab":
       TS.tab = ga(b, "tab");
       $$S(".pmr-stabs [data-act=tab]").forEach(x => { x.classList.toggle("pmr-on", x === b); x.setAttribute("aria-selected", x === b); });
       return loadTab(TS.tab);
-    case "ask-open": TS.askOpen = !TS.askOpen; paintDue(); if (TS.askOpen) focusFirst(S.el, ".pmr-ask-reason"); return;
-    case "ask-cancel": TS.askOpen = TS.askCustom = false; return paintDue();
-    case "ask-pick": TS.askPick = ga(b, "d"); TS.askCustom = false; return keepReason(paintDue);
-    case "ask-custom": TS.askCustom = true; keepReason(paintDue); return focusFirst(S.el, ".pmr-ask-date");
+    case "ask-open": if ($S(".pmr-npop[data-kind=ask]")) return void closeNotePop(); return openAskPop(b);
+    case "ask-cancel": return void closeNotePop();
+    case "ask-pick": TS.askPick = ga(b, "d"); TS.askCustom = false; return paintAskPop();
+    case "ask-custom": TS.askCustom = true; paintAskPop(); return focusFirst(S.el, ".pmr-ask-date");
     case "ask-send": return sendDeadline(b);
     case "ask-withdraw": {
       const m = myPdr(d);
-      return withdrawDl(b, m && (m.request || m.name), () => { d.pdr = null; TS.askOpen = false; paintDue(); changed({ task: name }); });
+      return withdrawDl(b, m && (m.request || m.name), () => { d.pdr = null; TS.askOpen = false; paintDue(); paintStw(); changed({ task: name }); });
     }
     case "dl-keep": case "dl-accept": {
       const acc = a === "dl-accept" ? 1 : 0, p = d.pdr;
@@ -899,7 +1109,7 @@ function onTaskClick(a, b) {
   }
 }
 function sendDeadline(b) {
-  const d = TS.d, t = d.t, errEl = $S(".pmr-rs .pmr-err-t"), reasonIn = $S(".pmr-ask-reason");
+  const d = TS.d, t = d.t, errEl = $S(".pmr-npop .pmr-err-t"), reasonIn = $S(".pmr-ask-reason");
   const nd = TS.askCustom ? ($S(".pmr-ask-date") || {}).value : TS.askPick, reason = ((reasonIn && reasonIn.value) || "").trim();
   const err = !nd ? "Chọn hạn mới." : (nd === ymd10(t.exp_end_date) ? "Hạn mới đang trùng hạn cũ." : (!reason ? `Ghi lý do để ${giverName(d)} hiểu vì sao cần dời.` : ""));
   if (err) {
@@ -910,10 +1120,13 @@ function sendDeadline(b) {
   busy(b, call("pm_inbox.request_deadline", { task: t.name, new_end: nd, reason })).then(r => {
     r = r || {};
     d.pdr = { request: r.request || r.name, new_end: nd, old_end: t.exp_end_date, reason, requested_by: cfg.user, status: "Pending" };
-    TS.askOpen = TS.askCustom = false; TS.askPick = null;
-    paintDue();
+    TS.askPick = null;
+    closeNotePop();
+    if (onTask(t.name)) { paintDue(); paintStw(); }
     toast(`Đã gửi ${giverName(d)} đề xuất dời hạn sang ${dayLabel(nd)}`);
     changed({ task: t.name });
+    /* request_deadline chỉ lưu lý do vào đề xuất + thông báo, KHÔNG vào Bình luận -> ghi một dòng để cả việc thấy (spec 27/11) */
+    addNote(t.name, `Xin dời hạn sang <b>${esc(dayLabel(nd))}</b>. Lý do: ${linkify(reason)}`, "Đã gửi đề xuất nhưng chưa ghi được vào Bình luận");
   }, e => errToast(e, "Chưa gửi được đề xuất"));
 }
 function onTaskChange(a, el) {
@@ -1069,14 +1282,26 @@ function toggleTimer(b) {
 }
 const cmHtml = (c, pending) => {
   const pin = !pending && c.name && TS.canPin ? `<button type="button" class="pmr-cm-pin" data-act="cm-pin"${dattr("cm", c.name)} aria-pressed="${!!c.pinned}" aria-label="${c.pinned ? "Bỏ ghim" : "Ghim bình luận"}" title="${c.pinned ? "Bỏ ghim" : "Ghim lên đầu"}">${ic("pin", "pmr-s")}</button>` : "";
-  return `<div class="pmr-cm${pending ? " pmr-pending" : ""}${c.pinned ? " pmr-cm-pinned" : ""}">${av(c.owner)}<div class="pmr-cm-b"><div class="pmr-cm-hd"><b>${esc(nameOf(c.owner))}</b><time>${esc(pending ? "đang gửi…" : relTime(c.creation))}</time>${pin}</div><div class="pmr-cm-c">${sanitize(c.content)}</div></div></div>`;
+  /* hotfix 23: bong bóng; của mình nền navy-50 bên phải */
+  const me = c.owner === cfg.user;
+  return `<div class="pmr-cm${me ? " pmr-cm-me" : ""}${pending ? " pmr-pending" : ""}${c.pinned ? " pmr-cm-pinned" : ""}">${av(c.owner)}<div class="pmr-cm-b"><div class="pmr-cm-hd"><b>${esc(me ? "Bạn" : nameOf(c.owner))}</b><time>${esc(pending ? "đang gửi…" : relTime(c.creation))}</time>${pin}</div><div class="pmr-cm-c">${shortLinks(sanitize(c.content))}</div></div></div>`;
 };
+/* dòng hệ thống (chữ nhỏ giữa): đổi trạng thái lấy từ lịch sử của việc, xen theo thời gian */
+function sysLines() {
+  return arr(TS.d && TS.d.history).filter(r => r && r.at && r.to).map(r => {
+    const by = r.by === cfg.user ? "Bạn" : (r.by_name || nameOf(r.by));
+    return { sys: true, creation: r.at, text: `${by ? by + " " : ""}đổi trạng thái sang “${stateLabel(r.to)}” · ${relTime(r.at)}` };
+  });
+}
+const tkey = s => String(s || "").replace("T", " ").slice(0, 19), byTime = (a, b) => tkey(a.creation).localeCompare(tkey(b.creation));
 /* Bình luận: phần "Đã ghim" (vàng nhạt) luôn ở đầu card, không cuộn theo; dưới là dòng trao đổi. */
 function paintComments() {
   const rows = TS.cmRows || [], pins = rows.filter(c => c.pinned), rest = rows.filter(c => !c.pinned), pw = $S(".pmr-pins-w"), list = $S(".pmr-cms"), cnt = $S(".pmr-side-n");
+  const flow = rest.concat(sysLines()).sort(byTime);
   if (cnt) cnt.textContent = rows.length ? String(rows.length) : "";
   if (pw) pw.innerHTML = pins.length ? `<div class="pmr-pins"><div class="pmr-pins-h">${ic("pin", "pmr-s")}Đã ghim · ${pins.length}</div>${pins.map(c => cmHtml(c)).join("")}</div>` : "";
-  if (list) list.innerHTML = rest.length ? rest.map(c => cmHtml(c)).join("") : (pins.length ? "" : smallEmpty("Chưa có bình luận. Hỏi lại, báo tiến độ, gửi file ở đây: ai trong việc cũng thấy. Ý quan trọng thì ghim lên đầu."));
+  if (list) list.innerHTML = (rest.length ? "" : (pins.length ? "" : smallEmpty("Chưa có bình luận. Hỏi lại, báo tiến độ, gửi file ở đây: ai trong việc cũng thấy. Ý quan trọng thì ghim lên đầu."))) +
+    flow.map(c => c.sys ? `<p class="pmr-cm-sys">${esc(c.text)}</p>` : cmHtml(c)).join("");
   if (list) list.scrollTop = list.scrollHeight;
 }
 function togglePin(b) {
@@ -1982,7 +2207,7 @@ function todoHtml(x) {
   let icon = "flag", tone = "pmr-g", t, m, act = "";
   if (k === "late") {
     const ld = x.days_late != null ? +x.days_late : lateDays(x.exp_end_date), notOpened = x.opened === false || x.opened === 0;
-    icon = "alert"; tone = "pmr-r"; t = x.subject || x.task;
+    icon = "clock"; tone = "pmr-r"; t = x.subject || x.task;
     m = [x.full_name || nameOf(x.user), ld ? `trễ ${ld} ngày` : "trễ hạn", notOpened ? "chưa mở việc" : stateLabel(x.workflow_state).toLowerCase()].join(" · ");
     act = (notOpened || x.workflow_state === "To Do" || x.workflow_state === "Backlog") && x.user
       ? Bs("Nhắc", "c-nudge", "pmr-wash", dattr("task", x.task) + dattr("u", x.user)) : Bs("Mở", "c-open", "", dattr("task", x.task));
@@ -1997,42 +2222,59 @@ function todoHtml(x) {
 const kv = (v, l, cls, f) => `<${f == null ? "div" : `button type="button" data-act="c-kpi" data-f="${f}"`} class="${cls || ""}"><div class="pmr-v pmr-num">${v}</div><div class="pmr-l">${l}</div></${f == null ? "div" : "button"}>`;
 const bar = pc => `<span class="pmr-bar"><i class="${pc >= 85 ? "pmr-ok" : ""}" style="width:${pc}%"></i></span>`;
 const rc = (v, warn) => `<td class="pmr-r${warn ? " pmr-late" : ""}">${v}</td>`;
+/* hotfix 23: Cần xử lý 7 / Theo người 7, phân trang phía server (todo_start / people_start); server cũ trả hết -> cắt phía client */
+const CO_SIZE = 7, CO = { c: null, todo: 1, ppl: 1 };
 function renderCoordinate(c) {
   prep(c);
   const rq = renderSeq(c);
+  if (CO.c !== c) { CO.c = c; CO.todo = CO.ppl = 1; }
   const head = pageHead("Điều phối", "Việc của cả nhóm: ai trễ, việc nào chưa có người, ai đang ôm nhiều việc."), again = () => renderCoordinate(c);
-  c.innerHTML = head + skel(6);
-  return call("pm_inbox.coordinate", { include_personal: isPersonalShown() ? 1 : 0 }).then(d => {
+  if (!$(".pmr-co", c)) c.innerHTML = head + skel(6);   /* chuyển trang: giữ nội dung cũ tới khi có dữ liệu */
+  return call("pm_inbox.coordinate", { include_personal: isPersonalShown() ? 1 : 0, todo_start: (CO.todo - 1) * CO_SIZE, todo_len: CO_SIZE,
+    people_start: (CO.ppl - 1) * CO_SIZE, people_len: CO_SIZE }).then(d => {
     if (stale(c, rq)) return;
     d = d || {};
-    const k = d.kpi || {}, todo = d.todo || [], ppl = (d.people || []).slice(), prj = (d.projects || []).slice();
+    const k = d.kpi || {}, prj = (d.projects || []).slice();
+    let todo = d.todo || [], ppl = d.people || [];
+    const todoTotal = d.todo_total != null ? +d.todo_total : todo.length, pplTotal = d.people_total != null ? +d.people_total : ppl.length;
+    if (d.todo_total == null) todo = todo.slice((CO.todo - 1) * CO_SIZE, CO.todo * CO_SIZE);
+    if (d.people_total == null) ppl = ppl.slice((CO.ppl - 1) * CO_SIZE, CO.ppl * CO_SIZE);
+    const tp = Math.max(1, Math.ceil(todoTotal / CO_SIZE)), pp = Math.max(1, Math.ceil(pplTotal / CO_SIZE));
+    if ((CO.todo > tp && todoTotal) || (CO.ppl > pp && pplTotal)) { CO.todo = Math.min(CO.todo, tp); CO.ppl = Math.min(CO.ppl, pp); return renderCoordinate(c); }
     const byLate = (a, b) => (b.late || 0) - (a.late || 0) || (b.open || 0) - (a.open || 0);
-    ppl.sort(byLate); prj.sort(byLate);
-    c.innerHTML = head + `<div class="pmr-strip">${kv(k.open || 0, "việc đang mở", "", "")}${kv(k.late || 0, "trễ hạn", k.late ? "pmr-late" : "", "late")}${kv(k.unassigned || 0, "chưa có người nhận", "", "none")}${kv(k.done_week || 0, "xong tuần này")}` +
+    prj.sort(byLate);
+    const maxOpen = Math.max(1, ...ppl.map(p => +p.open || 0));
+    const late = todo.filter(x => x.kind === "late" && x.task).map(x => x.task);
+    c.innerHTML = head + `<div class="pmr-co"><div class="pmr-strip">${kv(k.open || 0, "việc đang mở", "", "")}${kv(k.late || 0, "trễ hạn", k.late ? "pmr-late" : "", "late")}${kv(k.unassigned || 0, "chưa có người nhận", "", "none")}${kv(k.done_week || 0, "xong tuần này")}` +
       `${kv(k.on_time_pct_30d == null ? "—" : Math.round(+k.on_time_pct_30d) + "%", "xong đúng hạn (30 ngày)")}</div><div class="pmr-pt"></div>` +
-      `<div class="pmr-grid2"><div class="pmr-panel"><div class="pmr-panel-h"><h3>Cần xử lý</h3><span class="pmr-meta">${todo.length} mục</span></div>` +
-      (todo.length ? todo.map(todoHtml).join("") : emptyBox("appr", "Không có gì cần xử lý", "Không có việc trễ, việc chưa có người hay người quá tải. Kiểm tra lại sau.")) + "</div>" +
-      '<div class="pmr-panel"><div class="pmr-panel-h"><h3>Theo người</h3><span class="pmr-meta">tuần này</span></div>' +
-      (ppl.length ? '<div class="pmr-tbw">' + thead(["Người", ">Đang mở", ">Trễ", ">Xong"]) +
-        ppl.map(p => `<tr><td><button type="button" class="pmr-who-b" data-act="c-person"${dattr("u", p.user)}>${who(p.user, p.full_name)}</button></td>${rc(p.open || 0)}${rc(p.late || 0, p.late)}${rc(p.done_week || 0)}</tr>`).join("") + "</tbody></table></div>"
-        : emptyBox("flag", "Chưa có ai đang giữ việc", "")) + "</div></div>" +
-      `<div class="pmr-panel"><div class="pmr-panel-h"><h3>Dự án đang chạy</h3><span class="pmr-meta">sắp theo việc trễ</span>${L("Tất cả dự án", "c-projects", "", "pmr-ml")}</div>` +
+      `<div class="pmr-grid2"><section class="pmr-panel"><div class="pmr-panel-h"><h3>Cần xử lý</h3><span class="pmr-cnt pmr-num">${todoTotal}</span></div>` +
+      (todo.length ? todo.map(todoHtml).join("") + pager("c-todo", CO.todo, tp, todoTotal, CO_SIZE) : emptyBox("appr", "Không có gì cần xử lý", "Không có việc trễ, việc chưa có người hay người quá tải. Kiểm tra lại sau.")) + "</section>" +
+      '<section class="pmr-panel"><div class="pmr-panel-h"><h3>Theo người</h3><span class="pmr-meta">tuần này</span></div>' +
+      (ppl.length ? '<div class="pmr-tbw">' + thead(["Người", ">Đang mở", ">Trễ", ">Xong"], "pmr-ppl") +
+        ppl.map(p => {
+          const o = +p.open || 0, w = Math.round(o * 100 / maxOpen), hi = o && (+p.late || 0) / o > 0.5;
+          return `<tr><td><button type="button" class="pmr-who-b" data-act="c-person"${dattr("u", p.user)}>${who(p.user, p.full_name)}</button></td>` +
+            `<td class="pmr-r"><span class="pmr-num">${o}</span><span class="pmr-load" aria-hidden="true"><i class="${hi ? "pmr-hi" : ""}" style="width:${w}%"></i></span></td>${rc(p.late || 0, p.late)}${rc(p.done_week || 0)}</tr>`;
+        }).join("") + "</tbody></table></div>" + pager("c-ppl", CO.ppl, pp, pplTotal, CO_SIZE)
+        : emptyBox("flag", "Chưa có ai đang giữ việc", "")) + "</section></div>" +
+      `<section class="pmr-panel"><div class="pmr-panel-h"><h3>Dự án đang chạy</h3><span class="pmr-meta">sắp theo việc trễ</span>${L("Tất cả dự án", "c-projects", "", "pmr-ml")}</div>` +
       (prj.length ? '<div class="pmr-tbw">' + thead(["Dự án", "Tiến độ", ">Mở", ">Trễ", ">Chưa giao", "Phụ trách"]) +
         prj.map(p => {
           const pc = p.total ? Math.round((p.done || 0) * 100 / p.total) : 0;
           return `<tr><td><button type="button" class="pmr-pname" data-act="c-project"${dattr("p", p.name)}>${esc(p.project_name || p.name)}</button></td><td class="pmr-nowrap">${bar(pc)}<span class="pmr-num">${pc}%</span></td>` +
             `${rc(p.open || 0)}${rc(p.late || 0, p.late)}${rc(p.unassigned || 0, p.unassigned)}<td>${p.owner ? who(p.owner, p.owner_name) : muted("—")}</td></tr>`;
-        }).join("") + "</tbody></table></div>" : emptyBox("list", "Chưa có dự án đang chạy", "")) + "</div>";
-    personalToggle($(".pmr-pt", c), again, { count: d.personal_hidden, noun: "dự án nhật ký cá nhân", suffix: " — không tính vào số liệu nhóm" });
+        }).join("") + "</tbody></table></div>" : emptyBox("list", "Chưa có dự án đang chạy", "")) + "</section></div>";
+    personalToggle($(".pmr-pt", c), () => { CO.todo = CO.ppl = 1; again(); }, { count: d.personal_hidden, noun: "dự án nhật ký cá nhân", suffix: " — không tính vào số liệu nhóm" });
     on(c, (a, b) => {
       if (a === "c-nudge") nudge(b, ga(b, "task"), ga(b, "u"));
-      else if (a === "c-open") openTask(ga(b, "task"));
+      else if (a === "c-open") openTask(ga(b, "task"), late.indexOf(ga(b, "task")) >= 0 ? { nav: { names: late } } : {});
       else if (a === "c-unassigned") goAllWork({ f: "none" });
       else if (a === "c-kpi") goAllWork({ f: ga(b, "f") });
       else if (a === "c-nodue") goAllWork({ f: "nodue" });
       else if (a === "c-person") goAllWork({ assignee: ga(b, "u") });
       else if (a === "c-projects") nav("#projects");
       else if (a === "c-project") openProject(ga(b, "p"));
+      else if (a === "pg") { const key = ga(b, "key"); if (key === "c-todo") CO.todo = +ga(b, "p"); else if (key === "c-ppl") CO.ppl = +ga(b, "p"); again(); }
     });
   }, e => {
     if (stale(c, rq)) return;
@@ -2071,13 +2313,15 @@ function awFiltered(noChip) {   /* noChip: để đếm số trên chip */
   });
 }
 const awActive = () => !!(Object.keys(CHIP).some(k => AW.f[k]) || AW.q || AW.assignee);
+/* hotfix 23: cùng lưới với Việc cần làm (ô tròn | Việc | Trạng thái | Ưu tiên | Hạn | Người nhận), tờ lịch hạn, nhãn ưu tiên; cả dòng bấm được */
 function awRow(r) {
-  const asg = rowAssignees(r), ws = r.workflow_state, done = ws === "Done", di = dueInfo(r.exp_end_date, r.pm_end_time, ws);
-  return `<tr${dattr("task", r.name)} class="${done ? "pmr-done" : ""}"><td><div class="pmr-tcell"><button type="button" class="pmr-cb" data-act="tick" aria-pressed="${done}" aria-label="${done ? "Bỏ đánh dấu xong" : "Đánh dấu xong"}: ${esc(r.subject)}"></button>` +
-    `<button type="button" class="pmr-tname" data-act="open">${esc(r.subject || r.name)}</button>${r._kids.length ? `<span class="pmr-subn">· ${r._kids.length} việc con</span>` : ""}</div></td>` +
-    `<td class="pmr-pick-wrap">${asg.length ? (asg.length > 1 ? stack(asg) : who(asg[0])) : (done ? "" : L("+ Giao người", "assign"))}</td>` +
-    `<td>${r.exp_end_date ? dueSpan(di) : muted("Chưa có hạn")}</td>` +
-    `<td>${pill(ws, `data-act="cycle" aria-label="Trạng thái ${esc(stateLabel(ws))}, bấm để chuyển"`)}</td></tr>`;
+  const asg = rowAssignees(r), ws = r.workflow_state, done = ws === "Done";
+  const meta = [r._kids.length ? `<span class="pmr-subn">${r._kids.length} việc con</span>` : "", AW.group !== "project" && r.project ? esc(r.project_name || r.project) : ""].filter(Boolean).join(" · ");
+  return `<tr${dattr("task", r.name)} data-act="open" class="pmr-gr${done ? " pmr-done" : ""}${AW.cur === r.name ? " pmr-cur" : ""}"><td class="pmr-c-cb"><button type="button" class="pmr-cb" data-act="tick" aria-pressed="${done}" aria-label="${done ? "Bỏ đánh dấu xong" : "Đánh dấu xong"}: ${esc(r.subject)}"></button></td>` +
+    `<td class="pmr-c-t"><button type="button" class="pmr-tname" data-act="open">${esc(r.subject || r.name)}</button>${meta ? `<small class="pmr-tmeta">${meta}</small>` : ""}</td>` +
+    `<td class="pmr-c-st">${pill(ws, `data-act="cycle" aria-label="Trạng thái ${esc(stateLabel(ws))}, bấm để chuyển"`)}</td><td class="pmr-c-pri">${priTag(r.priority)}</td>` +
+    `<td class="pmr-c-due">${dueTile(r.exp_end_date, r.pm_end_time, isClosed(ws) ? "done" : undefined)}</td>` +
+    `<td class="pmr-c-who pmr-pick-wrap">${asg.length ? (asg.length > 1 ? `<span class="pmr-who">${stack(asg, 4)}<span class="pmr-muted">${asg.length} người</span></span>` : who(asg[0])) : (done ? "" : L("+ Giao người", "assign"))}</td></tr>`;
 }
 function awGroups(rows) {
   const g = AW.group, map = {}, order = [];
@@ -2090,6 +2334,13 @@ function awGroups(rows) {
   });
   return order.sort((a, b) => (!a.key && b.key) ? 1 : ((a.key && !b.key) ? -1 : a.label.localeCompare(b.label, "vi")));
 }
+const AW_SIZE = 12;
+/* danh sách phẳng theo thứ tự hiển thị (nhóm -> dòng): dùng cho phân trang 12 dòng và ↑/↓ J/K trong cửa sổ chi tiết */
+function awFlat(rows) {
+  const flat = [];
+  awGroups(rows).forEach(g => g.rows.forEach((r, i) => flat.push({ g, r, last: i === g.rows.length - 1 })));
+  return flat;
+}
 function paintList(body) {
   const rows = awFiltered();
   if (!rows.length) {
@@ -2097,17 +2348,28 @@ function paintList(body) {
       : emptyBox("list", "Chưa có việc nào đang mở", "Việc bạn được giao, việc bạn giao và việc trong dự án bạn xem được sẽ hiện ở đây.", `<div class="pmr-mt">${B(ic("plus", "pmr-s") + "Giao việc", "new", "pmr-wash")}</div>`)) + "</div>";
     return;
   }
-  const none = AW.group === "none";
-  let h = '<div class="pmr-panel pmr-tbw">' + thead(["Việc", "Người nhận", "Hạn", "Trạng thái"], "pmr-tasks");
-  awGroups(rows).forEach(g => {
-    if (!none) h += `<tr class="pmr-grp-row"><td colspan="4">${esc(g.label)}<span class="pmr-cnt">${g.rows.length}</span></td></tr>`;
-    h += g.rows.map(awRow).join("");
-    if (!awActive() && AW.group !== "assignee") {
+  const none = AW.group === "none", flat = AW.flat = awFlat(rows), pages = Math.max(1, Math.ceil(flat.length / AW_SIZE));
+  AW.page = Math.min(Math.max(1, AW.page || 1), pages);
+  let h = '<div class="pmr-panel pmr-tbw">' + thead(['<span class="pmr-sr">Xong</span>', "Việc", "Trạng thái", "Ưu tiên", "Hạn", "Người nhận"], "pmr-tasks pmr-gtb"), lastG = null;
+  flat.slice((AW.page - 1) * AW_SIZE, AW.page * AW_SIZE).forEach(x => {
+    const g = x.g;
+    /* tên nhóm lặp lại ở đầu mỗi trang (số = cả nhóm) */
+    if (!none && g !== lastG) h += `<tr class="pmr-grp-row"><td colspan="6">${esc(g.label)}<span class="pmr-cnt">${g.rows.length}</span></td></tr>`;
+    lastG = g;
+    h += awRow(x.r);
+    if (x.last && !awActive() && AW.group !== "assignee") {
       const proj = none ? (AW.project && AW.project !== "__none" ? AW.project : "") : g.key;
-      h += `<tr class="pmr-addrow"${dattr("project", proj)}><td colspan="4"><button type="button" class="pmr-link-muted" data-act="quick">${ic("plus", "pmr-s")}${none ? " Thêm việc" : " Thêm việc vào " + esc(g.label)}</button></td></tr>`;
+      h += `<tr class="pmr-addrow"${dattr("project", proj)}><td colspan="6"><button type="button" class="pmr-link-muted" data-act="quick">${ic("plus", "pmr-s")}${none ? " Thêm việc" : " Thêm việc vào " + esc(g.label)}</button></td></tr>`;
     }
   });
-  body.innerHTML = h + "</tbody></table></div>" + (AW.capped ? `<div class="pmr-hint pmr-mt">Đang hiện ${AW.rows.length} việc cập nhật gần nhất. Dùng ô lọc hoặc chọn dự án để thu hẹp.</div>` : "");
+  body.innerHTML = h + "</tbody></table>" + pager("aw", AW.page, pages, flat.length, AW_SIZE) + "</div>" + (AW.capped ? `<div class="pmr-hint pmr-mt">Đang hiện ${AW.rows.length} việc cập nhật gần nhất. Dùng ô lọc hoặc chọn dự án để thu hẹp.</div>` : "");
+}
+/* mở chi tiết từ danh sách: ↑/↓ J/K đi theo đúng thứ tự đang thấy (qua các trang); trang tự lật theo việc đang mở */
+function awOpen(name) {
+  const names = AW.view === "list" && AW.flat ? AW.flat.map(x => x.r.name) : [];
+  const move = n => { if (!AW) return; AW.cur = n; const i = names.indexOf(n); if (i >= 0) AW.page = Math.floor(i / AW_SIZE) + 1; if (AW.view === "list") awPaintBody(); };
+  move(name);
+  return openTask(name, names.indexOf(name) >= 0 ? { nav: { names, onMove: move } } : {});
 }
 function paintBoard(body) {
   const cols = {};
@@ -2157,7 +2419,7 @@ function renderAllWork(c, view, opts) {
   opts = opts || {};
   view = { list: 1, board: 1, due: 1, gantt: 1 }[view] ? view : "list";
   const keep = AW && AW.c === c ? AW : pref("aw") || {};
-  AW = { c, view, opts, q: keep.q || "", f: keep.f || NOF(), project: keep.project || "", assignee: keep.assignee || "", group: keep.group || "project", rows: [], top: [], justDone: {}, capped: false };
+  AW = { c, view, opts, q: keep.q || "", f: keep.f || NOF(), project: keep.project || "", assignee: keep.assignee || "", group: keep.group || "project", rows: [], top: [], justDone: {}, capped: false, page: 1, cur: null, flat: null };
   if (PENDING) { Object.assign(AW, { f: NOF(), q: "", project: "", assignee: PENDING.assignee || "" }); if (PENDING.f) AW.f[PENDING.f] = true; PENDING = null; }
   const seg = `<div class="pmr-seg" role="group" aria-label="Kiểu xem">${[["list", "list", "Danh sách"], ["board", "board", "Kanban"], ["due", "cal", "Theo hạn"], ["gantt", "gantt", "Gantt"]].map(v =>
     `<button type="button" data-act="view" data-v="${v[0]}"${onA(v[0] === view)}>${ic(v[1], "pmr-s")}${v[2]}</button>`).join("")}</div>`;
@@ -2180,13 +2442,14 @@ function renderAllWork(c, view, opts) {
   personalToggle($(".pmr-pt", c), () => renderAllWork(c, view, opts), { noun: "nhật ký cá nhân" });
   const qIn = $(".pmr-aw-q", c);
   let qt = null;
-  qIn.addEventListener("input", () => { const v = qIn.value; clearTimeout(qt); qt = setTimeout(() => { AW.q = v; awPaintBody(); }, 60); });
+  qIn.addEventListener("input", () => { const v = qIn.value; clearTimeout(qt); qt = setTimeout(() => { AW.q = v; AW.page = 1; awPaintBody(); }, 60); });
   c.onchange = e => {
     const cl = e.target.classList;
     if (cl.contains("pmr-aw-proj")) AW.project = e.target.value;
     else if (cl.contains("pmr-aw-asg")) AW.assignee = e.target.value;
     else if (cl.contains("pmr-aw-grp")) AW.group = e.target.value;
     else return;
+    AW.page = 1;
     awPaintBody();
   };
   c.onkeydown = e => {
@@ -2261,9 +2524,10 @@ function onAllWork(a, b) {
   switch (a) {
     case "view": return awSwitch(c, ga(b, "v"));
     case "retry": return renderAllWork(c, AW.view, AW.opts);
-    case "chip": { const k = ga(b, "f"); AW.f[k] = !AW.f[k]; return awPaintBody(); }
+    case "chip": { const k = ga(b, "f"); AW.f[k] = !AW.f[k]; AW.page = 1; return awPaintBody(); }
+    case "pg": if (ga(b, "key") === "aw") { AW.page = +ga(b, "p"); awPaintBody(); const t = $(".pmr-aw-body", c); if (t && t.scrollIntoView) safe(() => t.scrollIntoView({ block: "nearest" })); } return;
     case "clear":
-      Object.assign(AW, { f: NOF(), q: "", project: "", assignee: "" });
+      Object.assign(AW, { f: NOF(), q: "", project: "", assignee: "", page: 1 });
       $(".pmr-aw-q", c).value = $(".pmr-aw-proj", c).value = $(".pmr-aw-asg", c).value = "";
       return awPaintBody();
     case "new": return newTask({ onCreated: () => renderAllWork(c, AW.view, AW.opts) });
@@ -2274,7 +2538,7 @@ function onAllWork(a, b) {
     }
   }
   const tr = b.closest("tr"), name = ga(b, "task") || (tr && ga(tr, "task")), r = name && awFindRow(name);
-  if (a === "open") return openTask(name);
+  if (a === "open") return awOpen(name);
   if (!r) return;
   if (a === "tick") {
     const o = { subject: r.subject, prevState: r.workflow_state, apply: awSetState(name), revert: awSetState(name), button: b };
@@ -2291,44 +2555,157 @@ function onAllWork(a, b) {
   }
 }
 
-/* == render.projects — Dự án == */
+/* == render.projects — Dự án (hotfix 23: lọc/tìm/phân trang phía server, cả dòng bấm được, menu ⋯ quản lý dự án) == */
+const PJ_SIZE = 10, PJ_SCOPES = [["run", "Đang chạy"], ["closed", "Đã đóng"], ["mine", "Của tôi"]];
+const HEALTH = { hi: "Rủi ro cao", mid: "Cần chú ý", ok: "Ổn định" };
+const PJ_NOPERM = "Chỉ quản lý dự án hoặc trưởng nhóm PM mới sửa, đổi màu, đóng hoặc xoá được dự án này.";
+let PJ = null, TIPN = 0;
 function renderProjects(c) {
   prep(c);
-  const rq = renderSeq(c);
-  const right = cfg.createProject ? B(ic("plus", "pmr-s") + "Tạo dự án", "p-create", "pmr-pri") : "", again = () => renderProjects(c);
-  const h0 = pageHead("Dự án", "", right);
-  c.innerHTML = h0 + skel(6);
-  on(c, a => { if (a === "p-create") safe(cfg.createProject); });
-  return call("projects.list", { page_length: 500, include_personal: isPersonalShown() ? 1 : 0 }).then(r => {
-    if (stale(c, rq)) return;
-    const raw = (r && r.rows) || [], all = raw.filter(p => isPersonalShown() || !truthy(p.ec_personal_log)), isOpen = p => !p.status || p.status === "Open";
-    const hidden = r && r.personal_hidden != null ? r.personal_hidden : (raw.length - all.length || null);
-    const FL = { run: isOpen, done: p => p.status === "Completed", mine: p => p.ec_manager === cfg.user || p.owner === cfg.user };
-    const paint = () => {
-      const filt = FL[pref("pj")] ? pref("pj") : "run", rows = all.filter(FL[filt]);   /* bộ lọc nhớ cho lần sau */
-      let h = pageHead("Dự án", esc(all.filter(isOpen).length + " dự án đang chạy"), right) + '<div class="pmr-toolbar">' +
-        [["run", "Đang chạy"], ["done", "Hoàn thành"], ["mine", "Của tôi"]].map(x => `<button type="button" class="pmr-chip${filt === x[0] ? " pmr-on" : ""}" aria-pressed="${filt === x[0]}" data-act="p-filter" data-f="${x[0]}">${x[1]} <span class="pmr-cnt">${all.filter(FL[x[0]]).length}</span></button>`).join("") +
-        '<span class="pmr-grow"></span><span class="pmr-pt"></span></div>';
-      if (!rows.length) {
-        h += `<div class="pmr-panel">${emptyBox("list", filt === "mine" ? "Bạn chưa phụ trách dự án nào" : "Không có dự án nào ở đây", filt === "run" ? "Dự án gom các việc cùng mục tiêu để cả nhóm theo dõi tiến độ." : "Đổi bộ lọc phía trên để xem dự án khác.")}</div>`;
-      } else {
-        h += '<div class="pmr-panel pmr-tbw">' + thead(["Dự án", "Phụ trách", "Tiến độ", ">Mở", ">Trễ", ">Chưa giao", "Cập nhật"]) + rows.map(p => {
-          const tot = +p.task_total || 0, dn = +p.task_done || 0, pc = tot ? Math.round(dn * 100 / tot) : (+p.progress || 0), mgr = p.ec_manager || p.owner;
-          return `<tr><td><button type="button" class="pmr-pname" data-act="p-open"${dattr("p", p.name)}>${esc(p.project_name || p.name)}</button>${p.ec_department ? `<div class="pmr-pdept">${esc(p.ec_department)}</div>` : ""}${truthy(p.ec_personal_log) ? '<span class="pmr-tag">nhật ký cá nhân</span>' : ""}</td>` +
-            `<td>${mgr ? who(mgr, p.ec_manager_name) : muted("—")}</td><td class="pmr-nowrap">${bar(pc)}<span class="pmr-num">${dn}/${tot}</span></td>` +
-            `${rc(p.open != null ? p.open : tot - dn)}${rc(p.late != null ? p.late : "—", p.late)}${rc(p.unassigned != null ? p.unassigned : "—", p.unassigned)}<td class="pmr-muted">${esc(relDay(p.modified))}</td></tr>`;
-        }).join("") + "</tbody></table></div>";
-      }
-      c.innerHTML = h;
-      personalToggle($(".pmr-pt", c), again, { count: isPersonalShown() ? null : hidden, noun: "dự án nhật ký cá nhân" });
-    };
-    paint();
-    on(c, (a, b) => {
-      if (a === "p-filter") { pref("pj", ga(b, "f")); paint(); }
-      else if (a === "p-open") openProject(ga(b, "p"));
-      else if (a === "p-create") safe(cfg.createProject);
-    });
-  }, e => { if (!stale(c, rq)) loadErr(c, e, again, h0); });
+  let scope = pref("pj");
+  if (scope === "done") scope = "closed";   /* bộ lọc cũ "Hoàn thành" -> "Đã đóng" */
+  if (!PJ_SCOPES.some(x => x[0] === scope)) scope = "run";
+  PJ = { c, scope, q: PJ && PJ.c === c ? PJ.q : "", page: 1, rows: [], total: 0, counts: {}, menu: null, del: null, loaded: false };
+  const right = cfg.createProject ? B(ic("plus", "pmr-s") + "Tạo dự án", "p-create", "pmr-pri") : "";
+  c.innerHTML = pageHead("Dự án", '<span class="pmr-pj-sub">&nbsp;</span>', right) + '<div class="pmr-toolbar">' +
+    PJ_SCOPES.map(x => `<button type="button" class="pmr-chip" data-act="p-filter" data-f="${x[0]}" aria-pressed="false">${x[1]} <span class="pmr-cnt"></span></button>`).join("") +
+    '<span class="pmr-grow"></span><span class="pmr-pt"></span>' +
+    `<label class="pmr-search">${ic("search", "pmr-s")}<input class="pmr-pj-q" type="search" aria-label="Tìm dự án" placeholder="Tìm dự án" value="${esc(PJ.q)}"></label></div>` +
+    `<div class="pmr-pj-body">${skel(6)}</div>`;
+  personalToggle($(".pmr-pt", c), () => { PJ.page = 1; pjLoad(); }, { noun: "dự án nhật ký cá nhân" });
+  const qIn = $(".pmr-pj-q", c);
+  let qt = null;
+  qIn.addEventListener("input", () => { clearTimeout(qt); qt = setTimeout(() => { if (!PJ || PJ.c !== c) return; PJ.q = qIn.value.trim(); PJ.page = 1; PJ.menu = PJ.del = null; pjLoad(); }, 250); });
+  c.onkeydown = e => {
+    const t = e.target;
+    if ((e.key === "Enter" || e.key === " ") && t.classList && t.classList.contains("pmr-pr")) { e.preventDefault(); openProject(ga(t, "p")); }
+  };
+  on(c, pjClick);
+  pjChips();
+  return pjLoad();
+}
+function pjLoad() {
+  const st = PJ, c = st.c, rq = renderSeq(c);
+  return call("projects.list", { start: (st.page - 1) * PJ_SIZE, page_length: PJ_SIZE, scope: st.scope, q: st.q || null, include_personal: isPersonalShown() ? 1 : 0 }).then(r => {
+    if (stale(c, rq) || PJ !== st) return;
+    r = r || {};
+    st.rows = r.rows || []; st.total = r.total != null ? +r.total : st.rows.length; st.counts = r.counts || {}; st.loaded = true;
+    const pages = Math.max(1, Math.ceil(st.total / PJ_SIZE));
+    if (st.page > pages && st.total) { st.page = pages; return pjLoad(); }   /* vừa xoá/đóng dự án cuối trang */
+    pjPaint();
+  }, e => {
+    if (stale(c, rq) || PJ !== st) return;
+    const b = $(".pmr-pj-body", c);
+    if (b) b.innerHTML = errBox("Không tải được danh sách dự án.", e, true);
+  });
+}
+function pjChips() {
+  const st = PJ, c = st.c, n = st.counts || {};
+  $$("[data-act=p-filter]", c).forEach(b => {
+    const k = ga(b, "f"), onC = k === st.scope;
+    b.classList.toggle("pmr-on", onC); b.setAttribute("aria-pressed", onC);
+    $(".pmr-cnt", b).textContent = n[k] != null ? n[k] : "";
+  });
+  const sub = $(".pmr-pj-sub", c);
+  if (sub && st.loaded) sub.innerHTML = `<b class="pmr-num">${+n.run || 0}</b> dự án đang chạy`;
+}
+const isClosedPj = p => p.status === "Completed" || p.status === "Cancelled";
+function healthHtml(p) {
+  if (!HEALTH[p.health]) return '<span class="pmr-faint">—</span>';
+  const id = "pmr-tip-" + (++TIPN);
+  return `<span class="pmr-risk pmr-risk--${p.health}" tabindex="0" aria-describedby="${id}"><i aria-hidden="true"></i>${HEALTH[p.health]}<span class="pmr-tip" role="tooltip" id="${id}">${esc(p.health_text || "")}</span></span>`;
+}
+const mi = (label, act, extra, sub, cls) => `<button type="button" role="menuitem" class="pmr-mi${cls ? " " + cls : ""}" data-act="${act}"${extra || ""}>${label}${sub ? `<small>${esc(sub)}</small>` : ""}</button>`;
+function pjMenu(p) {
+  const nm = p.project_name || p.name, cm = truthy(p.can_manage), cd = truthy(p.can_delete), tot = +p.task_total || 0, own = p.ec_color || "";
+  let h = `<div class="pmr-menu" role="menu" data-act="p-noop" aria-label="Thao tác với dự án ${esc(nm)}">`;
+  if (PJ.del === p.name) {
+    return h + `<p class="pmr-menu-q">Xoá hẳn dự án “${esc(nm)}”? Không hoàn tác được.</p><div class="pmr-acts">${Bs("Thôi", "p-del-no", "pmr-ghost")}${Bs("Xoá dự án", "p-del-yes", "pmr-danger-b")}</div></div>`;
+  }
+  h += mi("Mở dự án", "p-open");
+  if (cm && cfg.editProject) h += mi("Sửa thông tin", "p-edit");
+  if (!cm) return h + `<hr><p class="pmr-menu-note">${ic("info", "pmr-s")}<span>${PJ_NOPERM}</span></p></div>`;
+  h += `<span class="pmr-menu-lbl">Màu dự án${own ? "" : " · đang theo phòng ban"}</span><div class="pmr-sw" role="group" aria-label="Màu dự án">` +
+    Object.keys(PAL).map(k => `<button type="button" role="menuitemradio" data-act="p-color" data-c="${k}" style="${pcVars(k)}" aria-label="${PAL[k][2]}" title="${PAL[k][2]}" aria-checked="${p.color_key === k}"></button>`).join("") + "</div>";
+  if (own) h += mi("Dùng màu phòng ban", "p-color", ' data-c=""');
+  h += "<hr>" + (isClosedPj(p) ? mi("Mở lại dự án", "p-status", ' data-s="Open"', "Dự án về “Đang chạy”")
+    : mi("Đánh dấu hoàn thành", "p-status", ' data-s="Completed"', "Việc giữ nguyên, dự án sang “Đã đóng”") + mi("Huỷ dự án", "p-status", ' data-s="Cancelled"', "Dự án dừng, việc giữ để tra cứu"));
+  h += "<hr>" + mi("Xoá dự án", "p-del", cd ? "" : ' disabled aria-disabled="true"',
+    cd ? "Dự án chưa có việc nào. Xoá hẳn, không hoàn tác." : (tot ? `Đã có ${tot} việc: dùng Hoàn thành hoặc Huỷ` : "Dự án đã có việc: dùng Hoàn thành hoặc Huỷ"), "pmr-danger");
+  return h + "</div>";
+}
+function pjRow(p) {
+  const nm = p.project_name || p.name, tot = +p.task_total || 0, dn = +p.task_done || 0, pc = tot ? Math.round(dn * 100 / tot) : 0, mgr = p.ec_manager || p.owner, open = PJ.menu === p.name;
+  const tag = p.status === "Completed" ? '<span class="pmr-tag pmr-tag-ok">Hoàn thành</span>' : (p.status === "Cancelled" ? '<span class="pmr-tag">Đã huỷ</span>' : "");
+  const num = (v, warn) => `<span class="pmr-r pmr-num${v ? (warn ? " pmr-late" : "") : " pmr-faint"}">${v || "—"}</span>`;
+  return `<div class="pmr-pr${open ? " pmr-pr-open" : ""}" role="row" tabindex="0" data-act="p-open"${dattr("p", p.name)} aria-label="Mở dự án ${esc(nm)}">` +
+    `<div class="pmr-pn"><span class="pmr-tile" style="${pcVars(p.color_key)}">${ic("folder", "pmr-s")}</span><div class="pmr-minw"><b><span class="pmr-pname">${esc(nm)}</span>${tag}${truthy(p.ec_personal_log) ? '<span class="pmr-tag">nhật ký cá nhân</span>' : ""}</b>` +
+    `${p.ec_department ? `<small class="pmr-pdept">${esc(p.ec_department)}</small>` : ""}</div></div>` +
+    `<div class="pmr-minw">${mgr ? who(mgr, p.ec_manager_name) : muted("—")}</div>` +
+    (tot ? `<div class="pmr-pprog">${bar(pc)}<span class="pmr-num">${dn}/${tot}</span></div>` : '<div class="pmr-pprog pmr-faint">Chưa có việc</div>') +
+    num(p.open != null ? +p.open : tot - dn) + num(+p.late || 0, true) + num(+p.unassigned || 0, true) +
+    `<span class="pmr-pj-upd">${PJ.scope === "closed" || isClosedPj(p) ? muted(esc(relDay(p.modified))) : healthHtml(p)}</span>` +
+    `<span class="pmr-pmore"><button type="button" class="pmr-pj-more" data-act="p-menu" aria-haspopup="menu" aria-expanded="${open}" aria-label="Thao tác với dự án ${esc(nm)}">${ic("more")}</button>${open ? pjMenu(p) : ""}</span></div>`;
+}
+function pjPaint() {
+  const st = PJ, c = st.c, body = $(".pmr-pj-body", c);
+  pjChips();
+  if (!body) return;
+  if (!st.rows.length) {
+    body.innerHTML = `<div class="pmr-panel">${st.q ? emptyBox("search", "Không có dự án nào khớp", "Đổi chữ tìm hoặc bộ lọc phía trên.")
+      : emptyBox("list", st.scope === "mine" ? "Bạn chưa phụ trách dự án nào" : "Không có dự án nào ở đây", st.scope === "run" ? "Dự án gom các việc cùng mục tiêu để cả nhóm theo dõi tiến độ." : "Đổi bộ lọc phía trên để xem dự án khác.")}</div>`;
+    return;
+  }
+  const pages = Math.max(1, Math.ceil(st.total / PJ_SIZE));
+  body.innerHTML = '<div class="pmr-panel pmr-pjt" role="table" aria-label="Dự án"><div class="pmr-gh" role="row"><span>Dự án</span><span>Phụ trách</span><span>Tiến độ</span><span class="pmr-r">Mở</span><span class="pmr-r">Trễ</span><span class="pmr-r">Chưa giao</span>' +
+    `<span class="pmr-pj-upd">${st.scope === "closed" ? "Cập nhật" : "Sức khoẻ"}</span><span><span class="pmr-sr">Thao tác</span></span></div>${st.rows.map(pjRow).join("")}${pager("pj", st.page, pages, st.total, PJ_SIZE)}</div>`;
+}
+const pjRowOf = name => (PJ.rows || []).filter(r => r.name === name)[0] || null;
+function pjMenuFocus(name, sel) { const r = $$(".pmr-pr", PJ.c).filter(x => ga(x, "p") === name)[0], t = r && $(sel, r); if (t) safe(() => t.focus()); }
+function pjClick(a, b) {
+  const st = PJ, c = st.c, row = b.closest(".pmr-pr"), name = row ? ga(row, "p") : null, p = name ? pjRowOf(name) : null, nm = p ? p.project_name || p.name : "";
+  /* menu đang mở: bấm ngoài menu chỉ đóng menu */
+  if (st.menu && !b.closest(".pmr-pmore")) { st.menu = st.del = null; pjPaint(); return; }
+  switch (a) {
+    case "p-create": return void safe(cfg.createProject);
+    case "retry": return void pjLoad();
+    case "p-filter": st.scope = ga(b, "f"); pref("pj", st.scope); st.page = 1; st.menu = st.del = null; pjChips(); return void pjLoad();
+    case "pg": if (ga(b, "key") === "pj") { st.page = +ga(b, "p"); st.menu = null; pjLoad(); } return;
+    case "p-noop": return;
+    case "p-open": return void (name && openProject(name));
+    case "p-menu": st.menu = st.menu === name ? null : name; st.del = null; pjPaint(); return void (st.menu ? pjMenuFocus(name, ".pmr-mi") : pjMenuFocus(name, ".pmr-pj-more"));
+    case "p-edit": st.menu = null; pjPaint(); return void safe(cfg.editProject, name);
+  }
+  if (!p) return;
+  const done = () => { st.menu = st.del = null; changed({ project: name }); };
+  if (a === "p-color") {
+    const key = ga(b, "c") || "";
+    busy(b, call("projects.set_color", { name, color_key: key })).then(r => {
+      r = r || {};
+      p.color_key = r.color_key || key || p.color_key; p.ec_color = r.ec_color != null ? r.ec_color : key;
+      done(); pjPaint(); pjMenuFocus(name, ".pmr-pj-more");
+      toast(key ? `Đã đổi màu dự án “${nm}”` : `Dự án “${nm}” dùng lại màu phòng ban`);
+    }, e => errToast(e, "Chưa đổi được màu"));
+  } else if (a === "p-status") {
+    const s = ga(b, "s"), prev = p.status || "Open";
+    const msg = { Completed: "Đã đánh dấu hoàn thành", Cancelled: "Đã huỷ dự án", Open: "Đã mở lại dự án" }[s] || "Đã cập nhật";
+    busy(b, call("projects.set_status", { name, status: s })).then(() => {
+      done(); pjLoad();
+      toast(`${msg}: “${nm}”`, { actions: prev !== s ? [{ label: "Hoàn tác", run: () => call("projects.set_status", { name, status: prev }).then(() => { toast("Đã hoàn tác"); changed({ project: name }); if (PJ === st) pjLoad(); }, e => errToast(e, "Chưa hoàn tác được")) }] : [] });
+    }, e => errToast(e, "Chưa đổi được trạng thái dự án"));
+  } else if (a === "p-del") {
+    if (!truthy(p.can_delete)) return;
+    st.del = name; pjPaint(); pjMenuFocus(name, "[data-act=p-del-no]");
+  } else if (a === "p-del-no") { st.del = null; pjPaint(); pjMenuFocus(name, ".pmr-mi"); }
+  else if (a === "p-del-yes") {
+    busy(b, call("projects.delete", { name })).then(() => { done(); toast(`Đã xoá dự án “${nm}”`); pjLoad(); }, e => errToast(e, "Chưa xoá được dự án"));
+  }
+}
+/* bấm ra ngoài vùng Dự án khi menu đang mở -> đóng menu */
+function onDocClick(e) {
+  if (!PJ || !PJ.menu || !PJ.c.isConnected) return;
+  const t = e.target;
+  if (t && t.isConnected && !PJ.c.contains(t)) { PJ.menu = PJ.del = null; pjPaint(); }   /* nút vừa bị vẽ lại (đã rời DOM) không tính là "bấm ngoài" */
 }
 
 /* == init + API công khai == */
@@ -2342,21 +2719,24 @@ function init(o) {
     inited = true;
     ensureSprite();
     D.addEventListener("keydown", onDocKey);
+    D.addEventListener("click", onDocClick);
     bindNewInputs();
   }
   return PMR;
 }
 const PMR = {
-  __pmr: '2026-10-16',
+  __pmr: '2026-11-27',
   init, LABELS, stateLabel, priorityLabel,
   statePill: ws => pill(ws),
   openTask: (name, o) => { ensureInit(); return openTask(name, o); },
   newTask: o => { ensureInit(); return newTask(o); },
   markDone: (name, o) => { ensureInit(); return markDone(name, o); },
   closeSheet: sheetClose,
+  /* hotfix 23: hàm dùng chung cho pm_queue.js / pm_app.html / pm_rooms.js (chữ ký cố định theo HOTFIX23_HOP_DONG.md) */
+  dueTile, projectColor, pager, priTag, PALETTE: Object.keys(PAL),
   render: { received: renderReceived, given: renderGiven, coordinate: renderCoordinate, allWork: renderAllWork, projects: renderProjects, myDay: renderMyDay },
   personalToggle, isPersonalShown,
-  _pure: { dueInfo, dayLabel, sanitize, buildCreatePlan, errOf, quickDue, parseDue, parseQuick }
+  _pure: { dueInfo, dayLabel, sanitize, buildCreatePlan, errOf, quickDue, parseDue, parseQuick, shortUrl, shortLinks }
 };
 root.PMR = PMR;
 })(window);
