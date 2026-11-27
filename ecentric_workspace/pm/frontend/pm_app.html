@@ -245,6 +245,8 @@
   .pmh-btn:disabled{ opacity:.5; cursor:default; }
   .pmh-btn--pri{ background:var(--navy); border-color:var(--navy); color:#fff; }
   .pmh-btn--pri:hover:not(:disabled){ background:var(--navy-700); border-color:var(--navy-700); }
+  /* hotfix 24 (PO 27/11): chữ nút chính luôn trắng ở mọi trạng thái (một số trình duyệt / quy tắc button:focus của theme làm chữ tối) */
+  .pmh-btn--pri,.pmh-btn--pri:hover,.pmh-btn--pri:focus,.pmh-btn--pri:focus-visible,.pmh-btn--pri:active,.pmh-btn--pri .icon{ color:#fff; }
   .pmh-btn--q{ border-color:transparent; background:none; color:var(--pmh-g600); }
   .pmh-btn--ic{ width:34px; padding:0; }
   .pmh-btn .spin{ width:13px; height:13px; }
@@ -375,6 +377,9 @@
   .pmh-fold{ display:flex; align-items:center; gap:8px; width:100%; padding:10px 14px 10px 54px; border:0; border-top:1px solid var(--pmh-line2); color:var(--pmh-g500); font:inherit; font-size:12.5px; cursor:pointer; background:var(--pmh-g25); text-align:left; }
   .pmh-fold:hover{ color:var(--navy); }
   .pmh-fold[aria-expanded="false"] .icon{ transform:rotate(-90deg); }
+  /* hotfix 24 (PO 27/11): biểu tượng bị margin:auto của quy tắc .icon chung đẩy ra giữa, chữ dạt phải */
+  .pmh-fold{ justify-content:flex-start; }
+  .pmh-fold .icon{ margin:0; flex:none; }
   .pmh-add{ border-top:1px solid var(--pmh-line2); padding:8px 14px 8px 50px; }
   .pmh-addf{ display:flex; gap:8px; align-items:center; }
   /* timesheet */

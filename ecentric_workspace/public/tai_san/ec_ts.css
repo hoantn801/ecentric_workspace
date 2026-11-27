@@ -330,3 +330,4 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 #ec-ts .ts-cost [data-cost-hint]:empty { display:none; }
 #ec-ts .ts-cost [data-cost-hint] { margin-top:6px; }
 @media (max-width:700px) { #ec-ts .ts-cost-row { grid-template-columns:1fr 1fr; } }
+#ec-ts .ts-cost-row .ts-lbl > span b { font-weight:inherit; }

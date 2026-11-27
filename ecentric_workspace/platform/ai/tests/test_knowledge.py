@@ -147,8 +147,11 @@ class HuongDanThat(unittest.TestCase):
 
     def test_chon_dung_bai_theo_cau_hoi(self):
         idx = self.reg.listed()
-        self.assertEqual(self.S.match_guides("làm sao để đề nghị mua hàng rồi đề nghị thanh toán", idx),
-                         ["dnmh-dntt"], "bai thu hai lac de (kem xa bai dau) khong kem vao")
+        got = self.S.match_guides("làm sao để đề nghị mua hàng rồi đề nghị thanh toán", idx)
+        self.assertEqual(got[0], "dnmh-dntt")
+        # bai thu hai lac de (kem xa bai dau) khong kem vao; bai sat chu de (vd hop-dong co DNTT)
+        # duoc phep - main them bai moi thi danh sach doi.
+        self.assertNotIn("nghi-viec-clearance", got)
         self.assertIn("chot-cong-thang", self.S.match_guides("chốt công tháng hạn khi nào", idx))
         self.assertEqual(self.S.match_guides("chào bạn", idx), [])
         self.assertEqual(self.S.match_guides("hôm nay ăn gì", idx), [])

@@ -317,8 +317,8 @@
     "sha256": "2a68fc1c6968cd99554157b6b76b2cbd5c880c9a9671ff67e76dc5498b198fd2"
   },
   "pm/frontend/pm_app.html": {
-    "last_resync_patch": "p583_resync_pm_hotfix24",
-    "sha256": "74c97188abdc4054798216f31af9c896d1794ddccee37b8bdfabc90e4f544e00"
+    "last_resync_patch": "p585_resync_pm_hotfix25",
+    "sha256": "7500d2e130620b63a7c2aea829c95558e8be57e70ae11dc8047db70adccb66fe"
   },
   "ai_tools/pages/ai_live/main_section.html": {
     "last_resync_patch": "p417_ai_live_tao_phien_tren_trang",
@@ -438,31 +438,31 @@
     "sha256": "e38488cb25ea4e7876bfbbad36382fc65a7c1e829e546f87ba03c9bce5d24a53"
   },
   "tai_san/pages/home/main_section.html": {
-    "last_resync_patch": "p584_tai_san_ngoai_te",
-    "sha256": "63af2b5177816ba92b45aa16de5aab2c8cca614ea8e9e1ac16cb0beed0399b8f"
+    "last_resync_patch": "p586_tai_san_ngoai_te_nhan",
+    "sha256": "5af913ea760d4b4bf918f364860458f0e6debf47c28d8c8826bc6f7c21ad404f"
   },
   "tai_san/pages/list/main_section.html": {
-    "last_resync_patch": "p584_tai_san_ngoai_te",
-    "sha256": "2a83463032c60ddbbfa364dcf7312a9f4da090e596add86693ec10aca70b62c0"
+    "last_resync_patch": "p586_tai_san_ngoai_te_nhan",
+    "sha256": "08763f9c27a3f44465bc383a4728463109601224820b15173e2808ca03462d90"
   },
   "tai_san/pages/moves/main_section.html": {
-    "last_resync_patch": "p584_tai_san_ngoai_te",
-    "sha256": "10f5d11d49029213a818e7ca7030e185cbe9806294595b3990c6c4884d709659"
+    "last_resync_patch": "p586_tai_san_ngoai_te_nhan",
+    "sha256": "effea1a3b770e7a52d60585a3162139deaed7c85ab6cb32727d62ad03619bae6"
   },
   "tai_san/pages/repairs/main_section.html": {
-    "last_resync_patch": "p584_tai_san_ngoai_te",
-    "sha256": "9df47f97ec476af66d5f19c0d4367508caac6301913adbffa6b63969992c919a"
+    "last_resync_patch": "p586_tai_san_ngoai_te_nhan",
+    "sha256": "dd58a7014558c357849e67a729349a5496482542cb610281df1dd24bb8ae003f"
   },
   "tai_san/pages/count/main_section.html": {
-    "last_resync_patch": "p584_tai_san_ngoai_te",
-    "sha256": "e2fe9246c8608be2ecd09c07ce850220bce275be0a841f4c5b89f57914a5e4d7"
+    "last_resync_patch": "p586_tai_san_ngoai_te_nhan",
+    "sha256": "0d94d8fb324e95c754641d976e98e9c157cbb9619ad1ea501caf9652fc444f41"
   },
   "tai_san/pages/mine/main_section.html": {
-    "last_resync_patch": "p584_tai_san_ngoai_te",
-    "sha256": "7e72a35e6bf259c947eb2fe1f03c8666e8d02ee09f96daaba05638fcc515425e"
+    "last_resync_patch": "p586_tai_san_ngoai_te_nhan",
+    "sha256": "f004114e4f476f55915a8e6ff5d7607e849bcc0fa9941980aa4aa934401565dc"
   },
   "tai_san/pages/licenses/main_section.html": {
-    "last_resync_patch": "p584_tai_san_ngoai_te",
-    "sha256": "4f13b61812c788639f3aefd346087af79136343b2505b68271426387efd87554"
+    "last_resync_patch": "p586_tai_san_ngoai_te_nhan",
+    "sha256": "a05c6f54445f9fcc7bbd8b72861e7261cef8832995a5c60ab85cff2550e7946d"
   }
 }
