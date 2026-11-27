@@ -15,6 +15,7 @@ from ecentric_workspace.approval_center.features.contract_review.application imp
 from ecentric_workspace.approval_center.features.contract_review.domain import kol
 from ecentric_workspace.approval_center.features.contract_review.domain import (
     esign_flow, kol_calc, kol_texts, kol_values)
+from ecentric_workspace.approval_center.shared.creators import domain as creators_domain
 from ecentric_workspace.approval_center.shared.creators.repository import CreatorRepository
 
 APPROVED = "Approved"
@@ -32,6 +33,7 @@ def prepare_draft(doc):
     esign_flow.clean_partner_sign_type(doc)
     from ecentric_workspace.approval_center.features.contract_review.application import kol_access
     if not kol.is_kol(doc):
+        doc.set("kol_channels", [])
         # Da tao hop dong / BBNT KOL (in CCCD, STK creator) thi khong doi sang loai khac: loai khac khong
         # che tep va lai len SharePoint chung (QC vong 4 17/11).
         if kol_access.has_kol_files(doc):
@@ -47,6 +49,7 @@ def prepare_draft(doc):
     creator = creator_row(doc.get("creator"))
     doc.creator_name = creator.get("supplier_name") if creator else None
     doc.creator_type = creator.get("ec_cr_type") if creator else None
+    snapshot_kols(doc, creator)
     _reset_partner_on_creator_change(doc)
     so = None
     if doc.get("sales_order"):
@@ -85,6 +88,32 @@ def prepare_draft(doc):
     apply_amounts(doc, strict=False)
     if not (doc.get("request_details") or "").strip():
         doc.request_details = summary_text(doc)
+
+
+def snapshot_kols(doc, creator):
+    """KOL / kenh phieu chon (PO 27/11, creator cong ty / ho KD co nhieu KOL). Client chi gui `kol_ref`;
+    server CHUP LAI tu danh sach hien tai cua creator - client sua ten / ID trong DOM khong vao hop dong.
+    Dong da ngung dung / cua creator khac (doi creator) bi bo."""
+    refs = []
+    for row in doc.get("kol_channels") or []:
+        ref = str((row.get("kol_ref") if hasattr(row, "get") else "") or "").strip()
+        if ref and ref not in refs:
+            refs.append(ref)
+    by_ref = {r.get("name"): r for r in (creator or {}).get("kols") or [] if not r.get("disabled")}
+    doc.set("kol_channels", [])
+    for ref in refs:
+        r = by_ref.get(ref)
+        if r:
+            doc.append("kol_channels", dict({f: r.get(f) for f in creators_domain.KOL_FIELDS}, kol_ref=ref))
+
+
+def kol_channel_error(doc, creator):
+    """Creator co danh sach KOL dang dung ma phieu chua chon dong nao -> loi (tieng Viet), khong thi None."""
+    active = [r for r in (creator or {}).get("kols") or [] if not r.get("disabled")]
+    if active and not doc.get("kol_channels"):
+        return "Creator %s có %d KOL / kênh: chọn ít nhất một KOL cho hợp đồng này." % (
+            (creator or {}).get("supplier_name") or "", len(active))
+    return None
 
 
 def apply_amounts(doc, strict):
@@ -397,6 +426,9 @@ def validate_submit(doc):
     if errors:
         frappe.throw(_(" ".join(errors)))
     prepare_draft(doc)
+    kol_err = kol_channel_error(doc, creator)
+    if kol_err:
+        frappe.throw(_(kol_err))
     apply_amounts(doc, strict=True)
     fill_partner_signer(doc, creator)
     # PO 17/11 (D): chot van tay STK nhan tien theo creator luc gui - hop dong sinh ra in STK nay.

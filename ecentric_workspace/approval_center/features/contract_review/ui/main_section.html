@@ -22,6 +22,10 @@
   .ec-file-x:hover{ color:#dc2626; border-color:#fecaca; }
   /* Hop dong KOL/KOC: o tim SO / creator */
   #ec-ctr-root .kol-anchor{ position:relative; }
+  #ec-ctr-root .kc-kol{ display:grid; grid-template-columns:1.2fr 1fr 1.4fr 1fr auto auto; gap:6px; align-items:center; margin-bottom:6px; }
+  #ec-ctr-root .kc-kol input[type=text]{ min-width:0; }
+  @media (max-width:720px){ #ec-ctr-root .kc-kol{ grid-template-columns:1fr 1fr; } }
+  #ec-ctr-root .kol-ck{ display:flex; gap:8px; align-items:baseline; padding:4px 0; }
   #ec-ctr-root .kol-pop{ position:absolute; top:100%; left:0; right:0; z-index:30; background:#fff; border:1px solid #e5e7eb; border-radius:10px; box-shadow:0 8px 24px rgba(17,24,39,.08); max-height:260px; overflow:auto; min-width:min(320px,100%); margin-top:2px; }
   #ec-ctr-root .kol-pop[hidden]{ display:none; }
   #ec-ctr-root .kol-pop-row{ padding:8px 12px; border-bottom:1px solid #f3f4f6; cursor:pointer; }
@@ -1022,7 +1026,7 @@
         : {state:"upcoming",meta:"Theo BBNT đã hoàn tất"};
       return [{name:"Ký hợp đồng",state:sign.state,meta:sign.meta},{name:"Nghiệm thu (BBNT)",state:acc.state,meta:acc.meta},{name:"Thanh toán (ĐNTT)",state:pay.state,meta:pay.meta}]; },
     needsGenerate:function(d){ d=d||{}; return KOL.isKol(d)&&(d.request_type||KOL_TPL_EC)===KOL_TPL_EC&&!d.contract_file&&!d.has_contract_file; },
-    KEYS:["sales_order","so_label","so_revenue","creator","creator_name","creator_type","service_type","platform","quantity","duration","air_dates","commission_rate","amount_type","amount_input","pit_rate","vat_rate","payment_schedule","advance_percent","payment_term_days","contract_template","contract_date"],
+    KEYS:["sales_order","so_label","so_revenue","creator","creator_name","creator_type","service_type","platform","quantity","duration","air_dates","commission_rate","amount_type","amount_input","pit_rate","vat_rate","payment_schedule","advance_percent","payment_term_days","contract_template","contract_date","kol_channels"],
     clearKol:function(d){ KOL.KEYS.forEach(function(k){ delete d[k]; }); state.kolCreator=null; },
     defaultDaysText:function(ct,pf){ var n=(pf==="Shopee"&&ct==="Công ty")?15:(ct==="Cá nhân"?35:(ct?30:null)); return n?("Mặc định "+n+" ngày"):"Mặc định theo loại creator"; },
     // Loc mau giong luat server (kol_lookup.template_mismatch) - server van kiem lai luc tao.
@@ -1190,7 +1194,7 @@
       if(noAdv&&d.payment_schedule==="Cọc trước"){ d.payment_schedule="Thanh toán sau nghiệm thu"; d.advance_percent=""; adv=false; KOL._advDropped=true; state.dirty=true; }
       else if(d.payment_schedule!=="Thanh toán sau nghiệm thu") KOL._advDropped=false;
       return '<div class="card" id="kol-card-cr"><h3>Creator</h3><div class="grid2">'
-        + fld("creator","Creator",'<div class="kol-anchor"><div style="display:flex;gap:8px"><input id="kol-cr-q" placeholder="Tên, TikTok ID, mã MISA" autocomplete="off" style="flex:1" aria-label="Tìm creator" role="combobox" aria-expanded="false" aria-controls="kol-cr-list"><button type="button" class="btn" id="kol-cr-new">+ Creator mới</button></div><div id="kol-cr-list" class="kol-pop" role="listbox" hidden></div></div><div class="hint" id="kol-cr-cur">'+(crCur?('Đã chọn: <b>'+esc(crCur)+'</b>'+(ct?(' · '+esc(ct)):'')+' · <a href="#" id="kol-cr-edit">Sửa thông tin creator</a>'):'Chưa chọn.')+'</div><div id="kol-cr-gaps">'+KOL.cached("cg",KOL.cgKey(d))+'</div>',true)
+        + fld("creator","Creator",'<div class="kol-anchor"><div style="display:flex;gap:8px"><input id="kol-cr-q" placeholder="Tên, TikTok ID, mã MISA" autocomplete="off" style="flex:1" aria-label="Tìm creator" role="combobox" aria-expanded="false" aria-controls="kol-cr-list"><button type="button" class="btn" id="kol-cr-new">+ Creator mới</button></div><div id="kol-cr-list" class="kol-pop" role="listbox" hidden></div></div><div class="hint" id="kol-cr-cur">'+(crCur?('Đã chọn: <b>'+esc(crCur)+'</b>'+(ct?(' · '+esc(ct)):'')+' · <a href="#" id="kol-cr-edit">Sửa thông tin creator</a>'):'Chưa chọn.')+'</div><div id="kol-cr-gaps">'+KOL.cached("cg",KOL.cgKey(d))+'</div><div id="kol-kols">'+KOL.kolPickHTML(d)+'</div>',true)
         + '</div></div>'
         + '<div class="card"><h3>Dịch vụ</h3><div class="grid2">'
         + fld("service_type","Dịch vụ",'<select data-model="service_type"><option value="">—</option>'+opt(fo.kol_service_types||[],d.service_type)+'</select>',true)
@@ -1294,13 +1298,45 @@
       KOL.searchBox("kol-cr-q","kol-cr-list","kol_search_creators",
         function(r){ return '<b>'+esc(r.supplier_name)+'</b> <span class="hint">'+esc(r.ec_cr_type||"")+'</span><div class="hint">'+esc([r.ec_cr_tiktok_id,r.ec_cr_shopee_id].filter(Boolean).join(" · ")||"—")+' · mã KH '+esc(r.misa_label)+'</div>'; },
         KOL.pickCreator);
-      KOL.previewDates(); KOL.creatorGaps();
+      KOL.previewDates(); KOL.creatorGaps(); KOL.loadKols();
       var nb=$("kol-cr-new"); if(nb) nb.onclick=function(){ KOL.creatorModal(); };
       var eb=$("kol-cr-edit"); if(eb) eb.onclick=function(e){ e.preventDefault(); KOL.editCreator((state.draft||{}).creator); };
       KOL.seedDefaults(state.draft); KOL.preview(); },
-    pickCreator:function(r){ state.kolCreator=r; setModel("creator",r.name); state.draft.creator_name=r.supplier_name; state.draft.creator_type=r.ec_cr_type;
+    pickCreator:function(r){ if((state.draft||{}).creator!==r.name) state.draft.kol_channels=[]; if(r&&r.kols) KOL._full[r.name]=r;
+      state.kolCreator=r; setModel("creator",r.name); state.draft.creator_name=r.supplier_name; state.draft.creator_type=r.ec_cr_type;
       var allowed=KOL_AMOUNT_TYPES[r.ec_cr_type]||[]; if(allowed.indexOf(state.draft.amount_type)<0) state.draft.amount_type=allowed.length===1?allowed[0]:"";
       clearFieldError("creator"); renderCreate($("ctr-body")); },
+    // ---------- nhieu KOL / kenh (PO 27/11): creator cong ty / ho KD co danh sach KOL, hop dong chon dong ----------
+    _full:{},
+    activeKols:function(c){ return ((c&&c.kols)||[]).filter(function(k){ return !k.disabled; }); },
+    kolLabel:function(k){ return [k.tiktok_id?("TikTok "+k.tiktok_id):"",k.shopee_id?("Shopee "+k.shopee_id):"",(!k.tiktok_id&&!k.shopee_id)?(k.channel_url||k.shopee_url||""):""].filter(Boolean).join(" · "); },
+    // Server chup lai tu creator khi luu (kol_service.snapshot_kols): client chi gui kol_ref.
+    pickedRefs:function(d){ return ((d&&d.kol_channels)||[]).map(function(x){ return x&&x.kol_ref; }).filter(Boolean); },
+    kolPickHTML:function(d){ d=d||{}; var c=d.creator?KOL._full[d.creator]:null, act=KOL.activeKols(c), refs=KOL.pickedRefs(d);
+      if(!c){ var sel=(d.kol_channels||[]).filter(function(x){ return x&&x.kol_name; });
+        return sel.length?'<div class="hint" style="margin-top:6px">KOL trong hợp đồng: <b>'+esc(sel.map(function(x){ return x.kol_name; }).join(", "))+'</b></div>':''; }
+      if(!act.length) return '';
+      return '<div style="margin-top:8px"><div><b>KOL / kênh trong hợp đồng</b> <span class="req">*</span></div>'
+        +act.map(function(k){ return '<label class="kol-ck"><input type="checkbox" data-kolref="'+esc(k.name)+'"'+(refs.indexOf(k.name)>=0?' checked':'')+'><span><b>'+esc(k.kol_name)+'</b> <span class="hint">'+esc(KOL.kolLabel(k))+'</span></span></label>'; }).join("")
+        +'<div class="hint">Chọn một hay nhiều KOL cho hợp đồng này - một tổng tiền chung. Thêm / sửa KOL ở <b>Sửa thông tin creator</b>.</div></div>'; },
+    bindKols:function(){ var host=$("kol-kols"); if(!host) return;
+      host.querySelectorAll("[data-kolref]").forEach(function(el){ el.addEventListener("change",function(){
+        var refs=[].map.call(host.querySelectorAll("[data-kolref]:checked"),function(x){ return x.getAttribute("data-kolref"); });
+        setModel("kol_channels",refs.map(function(r){ return {kol_ref:r}; })); KOL.preview(); }); }); },
+    loadKols:function(){ var d=state.draft||{}, name=d.creator; if(!name){ KOL.bindKols(); return; }
+      if(KOL._full[name]){ KOL.bindKols(); return; }
+      call("kol_get_creator",{name:name}).then(function(r){ if(!r||!r.name) return; KOL._full[r.name]=r;
+        if((state.draft||{}).creator!==r.name) return; var host=$("kol-kols"); if(!host) return; host.innerHTML=KOL.kolPickHTML(state.draft); KOL.bindKols(); })
+        .catch(function(){ KOL.bindKols(); }); },
+    kolRowHTML:function(k){ k=k||{}; function i(f,ph){ return '<input type="text" data-k="'+f+'" placeholder="'+esc(ph)+'" aria-label="'+esc(ph)+'" value="'+esc(k[f]||"")+'">'; }
+      return '<div class="kc-kol" data-name="'+esc(k.name||"")+'" data-shopee-url="'+esc(k.shopee_url||"")+'">'+i("kol_name","Tên KOL *")+i("tiktok_id","TikTok ID")+i("channel_url","Link kênh TikTok")+i("shopee_id","Shopee ID")
+        +'<label class="hint" style="display:flex;gap:4px;align-items:center;white-space:nowrap"><input type="checkbox" data-k="disabled"'+(k.disabled?' checked':'')+'> Ngừng dùng</label><button type="button" class="btn" data-kol-del title="Xóa dòng">×</button></div>'; },
+    kolsData:function(ov){ return [].map.call(ov.querySelectorAll("#kc-kols .kc-kol"),function(row){ var o={};
+        row.querySelectorAll("[data-k]").forEach(function(el){ var f=el.getAttribute("data-k"); o[f]=el.type==="checkbox"?(el.checked?1:0):String(el.value||"").trim(); });
+        o.shopee_url=row.getAttribute("data-shopee-url")||""; var nm=row.getAttribute("data-name"); if(nm) o.name=nm; return o; })
+      .filter(function(o){ return o.kol_name||o.tiktok_id||o.channel_url||o.shopee_id; }); },
+    kolsText:function(b){ return ((b&&b.kol_channels)||[]).map(function(k){ var l=KOL.kolLabel(k); return k.kol_name+(l?(" ("+l+")"):""); }).join("; "); },
+    kolSig:function(rows){ return JSON.stringify((rows||[]).map(function(k){ return [k.name||"",k.kol_name||"",k.tiktok_id||"",k.channel_url||"",k.shopee_id||"",k.shopee_url||"",k.disabled?1:0]; })); },
     // PO 17/11: Ke toan sua duoc ten + loai creator (server ghi chu tren creator); nguoi khac thi khoa.
     lockIdentity:function(editing){ return !!editing&&!state.kolFinance; },
     creatorFormHTML:function(cur,editing){ cur=cur||{}; var lock=KOL.lockIdentity(editing);
@@ -1310,6 +1346,7 @@
         +'<div class="fld"><label for="kc-ec_cr_type">Loại creator <span class="req">*</span></label><select id="kc-ec_cr_type"'+(lock?' disabled':'')+'>'+["Cá nhân","Công ty","Hộ kinh doanh"].map(function(x){ return '<option'+(x===t?' selected':'')+'>'+x+'</option>'; }).join("")+'</select></div>'
         +f("supplier_name","Họ tên / tên pháp nhân",{req:1,ro:lock})+f("ec_cr_party_code","Mã viết tắt trong số HĐ",{ph:"Để trống: tự viết tắt từ tên"})
         +f("ec_cr_tiktok_id","TikTok ID")+f("ec_cr_channel_url","Link kênh TikTok")+f("ec_cr_shopee_id","Shopee ID")
+        +'<div class="fld" data-kc-grp="org" id="kc-kols-wrap" style="grid-column:1/-1"><label>KOL / kênh của creator</label><div id="kc-kols">'+(cur.kols||[]).map(KOL.kolRowHTML).join("")+'</div><div><button type="button" class="btn" id="kc-kol-add">+ Thêm KOL</button></div><div class="hint">Công ty / hộ kinh doanh quản lý nhiều KOL: mỗi dòng một KOL (tên + TikTok ID hoặc Shopee ID / link kênh). Lập hợp đồng thì chọn một hay nhiều KOL, một tổng tiền chung. KOL thôi hợp tác: tích Ngừng dùng (hợp đồng cũ giữ nguyên).</div></div>'
         +f("ec_phone","Số điện thoại")+f("ec_cr_email","Email",{type:"email"})
         +f("ec_cr_cccd","Số CCCD",{grp:"ind",req:1})+f("ec_cr_cccd_issue_date","Ngày cấp CCCD",{grp:"ind",type:"date"})+f("ec_cr_cccd_issue_place","Nơi cấp",{grp:"ind"})+f("ec_cr_dob","Ngày sinh",{grp:"ind",type:"date"})
         +f("tax_id","MST",{grp:"org",req:1})+f("ec_cr_representative_name","Người đại diện",{grp:"org"})+f("ec_cr_representative_title","Chức vụ",{grp:"org"})
@@ -1326,11 +1363,14 @@
         if(editing){ if((id==="supplier_name"||id==="ec_cr_type")&&KOL.lockIdentity(editing)) return; if((el.value||"")!==String(cur[id]==null?"":cur[id])) data[id]=el.value||""; }
         else if(el.value) data[id]=el.value; });
       var dis=ov.querySelector("#kc-disabled"); if(editing&&dis&&(dis.checked?1:0)!==(cur.disabled?1:0)) data.disabled=dis.checked?1:0;
+      var kw=ov.querySelector("#kc-kols-wrap"), kols=(kw&&kw.style.display==="none")?[]:KOL.kolsData(ov);
+      if(editing?KOL.kolSig(kols)!==KOL.kolSig(cur.kols):kols.length) data.ec_cr_kols=kols;
       return data; },
     creatorCheck:function(d,editing){ var lock=KOL.lockIdentity(editing), t=lock?null:d.ec_cr_type, miss=[];
       if(!lock&&!String(d.supplier_name||"").trim()) miss.push("tên");
       if(t==="Cá nhân"&&!d.ec_cr_cccd) miss.push("CCCD"); if((t==="Công ty"||t==="Hộ kinh doanh")&&!d.tax_id) miss.push("MST");
       if(!d.ec_bank_account_no) miss.push("số tài khoản"); if(!d.ec_bank_name) miss.push("ngân hàng");
+      (d.ec_cr_kols||[]).forEach(function(k,i){ if(!k.kol_name) miss.push("tên KOL dòng "+(i+1)); else if(!(k.tiktok_id||k.channel_url||k.shopee_id||k.shopee_url)) miss.push("TikTok ID / Shopee ID của KOL "+k.kol_name); });
       return miss.length?("Còn thiếu: "+miss.join(", ")+"."):""; },
     creatorModal:function(cur,onDone){ var editing=!!(cur&&cur.name); var confirmed=0;
       var m=modal(editing?"Sửa thông tin creator":"Tạo creator mới",KOL.creatorFormHTML(cur,editing),{okLabel:editing?"Lưu thông tin":"Tạo creator",noBackdrop:true,onConfirm:function(ov){
@@ -1341,10 +1381,13 @@
           if(!editing&&res&&res.needs_confirm){ confirmed=1; ov.querySelector("[data-ok]").textContent="Vẫn tạo creator mới";
             KOL.creatorMsg(ov,"warn",esc(res.message)+' Nếu đúng là người khác, bấm <b>Vẫn tạo creator mới</b>; nếu không, đóng lại và chọn creator có sẵn.'); return Promise.reject(); }
           if(editing&&!Object.keys(data).length){ toast("Không có gì thay đổi."); return; }
-          toast(editing?"Đã lưu thông tin creator.":"Đã tạo creator."); if(KOL._cache){ delete KOL._cache.cg; delete KOL._cache.pd; } KOL._cgKey=KOL._pdKey=""; return call("kol_get_creator",{name:editing?cur.name:res.name}).then(function(r){ (onDone||KOL.pickCreator)(r); }); })
+          toast(editing?"Đã lưu thông tin creator.":"Đã tạo creator."); delete KOL._full[editing?cur.name:res.name]; if(KOL._cache){ delete KOL._cache.cg; delete KOL._cache.pd; } KOL._cgKey=KOL._pdKey=""; return call("kol_get_creator",{name:editing?cur.name:res.name}).then(function(r){ (onDone||KOL.pickCreator)(r); }); })
         .catch(function(e){ if(e) KOL.creatorMsg(ov,"err",esc(mapErr(e))); return Promise.reject(e); }); }});
       var ov=m.ov; KOL.creatorGroups(ov);
       var typ=ov.querySelector("#kc-ec_cr_type"); if(typ) typ.addEventListener("change",function(){ KOL.creatorGroups(ov); });
+      var ka=ov.querySelector("#kc-kol-add"), kl=ov.querySelector("#kc-kols");
+      if(ka&&kl) ka.addEventListener("click",function(){ kl.insertAdjacentHTML("beforeend",KOL.kolRowHTML({})); var last=kl.lastElementChild&&kl.lastElementChild.querySelector("input"); if(last) last.focus(); });
+      if(kl) kl.addEventListener("click",function(e){ var b=e.target.closest&&e.target.closest("[data-kol-del]"); if(b){ var row=b.closest(".kc-kol"); if(row) row.remove(); } });
       ov.querySelector(".ec-ctr-modal-b").addEventListener("input",function(){ if(confirmed){ confirmed=0; ov.querySelector("[data-ok]").textContent="Tạo creator"; KOL.creatorMsg(ov,"",""); } });
       return m; },
     editCreator:function(name,onDone){ if(!name) return;
@@ -1354,7 +1397,7 @@
     detailHTML:function(det){ var b=det.business||{}, x=(det.extra||{}).kol; if(!KOL.isKol(b)||!x) return "";
       var qc={}; try{ qc=JSON.parse(b.ai_qc_result||"{}"); }catch(e){}
       var apSt=(det.approval||{}).approval_status||"Draft";
-      var rows=(b.sales_order?[["SO (phiếu cũ)",b.so_label||b.sales_order]]:[]).concat([["Creator",b.creator_name?(b.creator_name+(b.creator_type?(" ("+b.creator_type+")"):"")):""],["Dịch vụ",[b.service_type,b.platform].filter(Boolean).join(" · ")],
+      var rows=(b.sales_order?[["SO (phiếu cũ)",b.so_label||b.sales_order]]:[]).concat([["Creator",b.creator_name?(b.creator_name+(b.creator_type?(" ("+b.creator_type+")"):"")):""],["KOL / kênh",KOL.kolsText(b)],["Dịch vụ",[b.service_type,b.platform].filter(Boolean).join(" · ")],
         ["Số lượng / thời lượng",[b.quantity,b.duration].filter(Boolean).join(" · ")],["Ngày thực hiện",b.air_dates],["Kiểu nhập",b.amount_type?(b.amount_type+": "+KOL.money(b.amount_input)):""],
         ["Tổng trước thuế (gross)",KOL.money(b.gross_amount)],["TNCN",KOL.money(b.pit_amount)],["VAT",KOL.money(b.vat_amount)],["Trả creator",KOL.money(b.payable_amount)],
         ["Thanh toán",[b.payment_schedule||"",b.advance_amount?("cọc "+Number(b.advance_percent||0)+"% = "+KOL.money(b.advance_amount)):"",b.payment_term_days==null?"":(b.payment_term_days+" ngày sau BBNT")].filter(Boolean).join(" · ")],
@@ -1377,7 +1420,7 @@
         +(draftMine&&b.request_type===KOL_TPL_EC?'<div class="hint" style="margin-bottom:8px">Gửi phiếu xong bạn tải được bản hợp đồng .docx để gửi creator ký. Trước khi gửi, dùng <b>Xem trước</b> (thông tin cá nhân creator được che).</div>'
           :(!x.can_download_full&&!draftMine&&(b.has_contract_file||(x.acceptances||[]).length||x.signed)?'<div class="hint" style="margin-bottom:8px">Hợp đồng / BBNT có CCCD, số tài khoản creator: chỉ người lập phiếu (sau khi gửi), người tạo creator và Kế toán tải được'+(pvOk?'. Bạn xem bản che bằng nút <b>Xem hợp đồng</b>.':'.')+'</div>':''))
         +(isMine(det)?KOL.stepsHTML(b,apSt):'')
-        +'<div class="grid2">'+rows.map(function(r){ return KOL.roText(r[0],r[1]); }).join("")+'</div>'
+        +'<div class="grid2">'+rows.filter(function(r){ return r[0]!=="KOL / kênh"||r[1]; }).map(function(r){ return KOL.roText(r[0],r[1]); }).join("")+'</div>'
         +(rcH||'')
         +'<div class="actions" style="margin-top:12px">'
         +(rcH?'':dlH)

@@ -107,6 +107,30 @@ def _num_words(prefix, value, out, blank_zero=False):
     out[prefix + "_WORDS"] = amount_in_words(value)
 
 
+def _channel(name, tiktok_raw, tiktok_url, shopee_raw, shopee_url):
+    tiktok, shopee = display_handle(tiktok_raw), display_handle(shopee_raw)
+    return {"name": str(name or "").strip(), "tiktok": tiktok, "shopee": shopee,
+            "url_tiktok": (tiktok_url or "").strip() or ("https://www.tiktok.com/@" + tiktok if tiktok else ""),
+            "url_shopee": (shopee_url or "").strip() or ("https://shopee.vn/" + shopee if shopee else "")}
+
+
+def channel_rows(doc, creator):
+    """Kenh in vao hop dong. Phieu chon KOL cua creator cong ty / ho KD (kol_channels, PO 27/11) thi
+    dung cac dong do - mot tong tien chung; khong chon thi dung kenh tren chinh creator nhu truoc."""
+    picked = [c for c in (doc.get("kol_channels") or []) if c.get("kol_name") or c.get("tiktok_id")
+              or c.get("shopee_id") or c.get("channel_url") or c.get("shopee_url")]
+    if picked:
+        return [_channel(c.get("kol_name"), c.get("tiktok_id"), c.get("channel_url"), c.get("shopee_id"),
+                         c.get("shopee_url")) for c in picked]
+    return [_channel("", creator.get("ec_cr_tiktok_id"), creator.get("ec_cr_channel_url"),
+                     creator.get("ec_cr_shopee_id"), creator.get("ec_cr_shopee_url"))]
+
+
+def channel_line(c, shopee):
+    handle, url = (c["shopee"], c["url_shopee"]) if shopee else (c["tiktok"], c["url_tiktok"])
+    return " – ".join(x for x in (c["name"], ("@" + handle) if handle and not shopee else handle, url) if x)
+
+
 def contract_values(doc, creator, brand_code, sign_date, service_dates, bbnt_date=None,
                     payment_days=30, shopee_hddv_days=30):
     """doc = phieu (dict, tien da tinh), creator = Supplier day du. Tra {TEN: chuoi}."""
@@ -115,11 +139,11 @@ def contract_values(doc, creator, brand_code, sign_date, service_dates, bbnt_dat
     kind = T.service_kind(doc.get("service_type"))
     brand = doc.get("brand") or ""
     name = creator.get("supplier_name") or ""
-    tiktok = display_handle(creator.get("ec_cr_tiktok_id"))
-    shopee_id = display_handle(creator.get("ec_cr_shopee_id"))
-    channel_url = (creator.get("ec_cr_shopee_url") if shopee else creator.get("ec_cr_channel_url")) or (
-        ("https://shopee.vn/" + shopee_id if shopee_id else "") if shopee
-        else ("https://www.tiktok.com/@" + tiktok if tiktok else ""))
+    chans = channel_rows(doc, creator)
+    tiktok = ", ".join(c["tiktok"] for c in chans if c["tiktok"])
+    shopee_id = ", ".join(c["shopee"] for c in chans if c["shopee"])
+    channel_url = ", ".join(c["url_shopee" if shopee else "url_tiktok"] for c in chans
+                            if c["url_shopee" if shopee else "url_tiktok"])
     dates = list(service_dates or [])
     first, last = (dates[0], dates[-1]) if dates else (None, None)
     if not dates:
@@ -157,6 +181,9 @@ def contract_values(doc, creator, brand_code, sign_date, service_dates, bbnt_dat
         "QUANTITY_DISPLAY": T.quantity_text(quantity, kind),
         "TIKTOK_ID_DISPLAY": tiktok, "SHOPEE_ID_DISPLAY": shopee_id,
         "CHANNEL_ID_DISPLAY": shopee_id if shopee else tiktok, "CHANNEL_URL": channel_url,
+        # 27/11: creator cong ty / ho KD co nhieu KOL - ten KOL va danh sach tung dong (mau moi dung).
+        "KOL_NAMES_DISPLAY": ", ".join(c["name"] for c in chans if c["name"]),
+        "KOL_LIST_DISPLAY": "\n".join(channel_line(c, shopee) for c in chans),
         "PERSON_FULL_NAME": name if is_person else "",
         "PERSON_ID_NO": (creator.get("ec_cr_cccd") or "") if is_person else "",
         "PERSON_DOB": _fmt(_date(creator.get("ec_cr_dob")), "slash") if is_person else "",
