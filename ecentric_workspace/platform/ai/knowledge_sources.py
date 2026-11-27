@@ -208,7 +208,11 @@ def approvals(user):
             str(r.submitted_at or "")[:16]))
     try:
         from ecentric_workspace.approval_center.shared.requests import quick_approve
-        for p in (quick_approve.list_my_pending(user) or [])[:10]:
+        # list_my_pending tra {"rows": [...], "count": n} (cung ham trang "Cho toi duyet" dung) -
+        # 27/11 tren site: doc nhu danh sach -> KeyError, nguon "cho ban duyet" luon trong.
+        pend = quick_approve.list_my_pending(user) or {}
+        rows = pend.get("rows") if isinstance(pend, dict) else pend
+        for p in (rows or [])[:10]:
             lines.append("CHO BAN DUYET: %s - %s (nguoi gui %s, cap %s) - %s" % (
                 p.get("type_label") or p.get("approval_type"), p.get("title") or p.get("reference_name"),
                 p.get("requester_name") or p.get("requested_by") or "", p.get("level_name") or "",
