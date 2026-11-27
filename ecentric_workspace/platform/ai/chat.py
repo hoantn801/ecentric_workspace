@@ -33,6 +33,14 @@ FIELDS = ("name, full_name, department, overall_status, mood, ai_tools_used, wha
 #: tao san cho moi nguoi phai nop moi tuan - rong, KHONG phai mot bao cao.
 SUBMITTED_STATES = ("Submitted", "Reviewed")
 CHANNEL = "chat"
+#: eC Mate (fmt="links") dung duoc link Markdown noi bo; trang /weekly-update thi chua.
+LINK_RULES = (
+    "TRINH BAY (khung chat nho): tra loi NGAN - 1 cau mo dau + toi da 4 gach dau dong, moi dong "
+    "mot y, khong nhac lai cau hoi, khong 'Luu y them' dai dong.",
+    "DUONG DAN: LUON viet dang link Markdown [Ten trang ngan](/duong-dan) - vd [Tao de nghi mua "
+    "hang](/approvals/purchase-request), [Huong dan DNMH -> DNTT](/huong-dan/dnmh-dntt). KHONG de "
+    "duong dan tran, KHONG boc trong dau `, KHONG link ra ngoai ERP.",
+)
 #: Luat cua tro ly (Hoan 10/11 + 27/11/2026). Test (test_chat.PhamVi) khoa tung y.
 RULES = (
     "Ban la AI tro ly cua eCentric tren ERP noi bo. Tra loi tieng Viet, ngan gon, dung Markdown "
@@ -129,7 +137,7 @@ def _visible(recs, user):
 
 
 def build_context(view, user, cur_week, recs, company_summary="", partial=False, erp="",
-                  weekly=True):
+                  weekly=True, links=False):
     """PURE. Ngu canh gui kem cau hoi.
 
     erp = khoi du lieu ERP khac (knowledge.context) - da loc theo quyen nguoi hoi.
@@ -142,7 +150,8 @@ def build_context(view, user, cur_week, recs, company_summary="", partial=False,
              "self": "Bao cao cua ban"}[view["scope"]]
     if partial:
         label = "Nhung bao cao ban duoc xem (KHONG phai ca phong)"
-    lines = list(RULES) + ["Tuan hien tai: " + cur_week, "Nguoi dang hoi: " + user]
+    lines = list(RULES) + (list(LINK_RULES) if links else []) + [
+        "Tuan hien tai: " + cur_week, "Nguoi dang hoi: " + user]
     if weekly:
         lines += ["", "=== %s (%d bao cao da nop, %d chua nop, 2 tuan gan nhat) ===" % (
                  label, sum(1 for r in recs if r.get("status") in SUBMITTED_STATES),
@@ -206,7 +215,8 @@ def gemini_chat(message=None, history=None, **kwargs):
     res = gateway.generate(message[:MAX_MESSAGE],
                            system=build_context(view, user, cur_week, recs, summary,
                                                 partial=len(recs) < len(raw), erp=erp,
-                                                weekly=weekly),
+                                                weekly=weekly,
+                                                links=str(kwargs.get("fmt") or "") == "links"),
                            history=knowledge.safe_history(turns),
                            purpose="chat", budget=BUDGET,
                            fast=True, attempt_timeout=ATTEMPT_TIMEOUT, opts={"effort": "none"})
