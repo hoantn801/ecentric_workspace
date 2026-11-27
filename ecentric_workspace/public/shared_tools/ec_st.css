@@ -135,6 +135,13 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 #ec-st .st-parts summary { cursor:pointer; color:var(--navy); list-style:revert; }
 #ec-st .st-parts-list { display:flex; flex-wrap:wrap; gap:6px 12px; margin-top:6px; }
 #ec-st .st-parts-list a { white-space:nowrap; }
+#ec-st .st-pager { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:12px; }
+#ec-st .st-pg { min-width:34px; height:34px; padding:0 8px; border:1px solid var(--g200); background:#fff; border-radius:8px; color:var(--g700); font-size:13px; font-weight:600; cursor:pointer; }
+#ec-st .st-pg:hover { background:var(--g100); }
+#ec-st .st-pg.on { background:var(--navy); border-color:var(--navy); color:#fff; }
+#ec-st .st-pg[disabled] { opacity:.4; cursor:default; }
+#ec-st .st-pg-gap { color:var(--g500); padding:0 2px; }
+#ec-st .st-pg-info { margin-left:auto; font-size:12.5px; color:var(--g500); }
 #ec-st .st-files-note { margin-top:12px; font-size:12.5px; color:var(--g500); }
 
 /* ---------------------------------------------------------------- tai / loi / toast */

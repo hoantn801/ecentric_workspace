@@ -129,7 +129,7 @@ def stats(ctx, key, days=30):
     return ST.compute(entries, exports, meta, now, days)
 
 
-MAX_FILE_ITEMS = 25
+MAX_FILE_ITEMS = 120  # trang chia 5 dong / trang (ec_st_kalodata.js FILES_PER_PAGE)
 
 
 def _exports(key, user, now):

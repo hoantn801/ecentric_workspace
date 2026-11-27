@@ -177,9 +177,31 @@
       '<a class="st-btn st-btn--sm st-btn--primary" href="' + href + '" data-act="dl" download aria-label="Tải Excel gộp ' + esc(f.page) + '">Tải Excel</a></li>';
   }
 
+  // Danh sach file chia trang (5 dong / trang); trang dang xem giu qua cac lan tu ve lai.
+  var FILES_PER_PAGE = 5, filePage = 1;
+  function pager(total) {
+    var n = Math.ceil(total / FILES_PER_PAGE);
+    if (n <= 1) return "";
+    var btn = function (p, label, cur, dis, aria) {
+      return '<button type="button" class="st-pg' + (cur ? " on" : "") + '" data-act="fpage" data-page="' + p + '"' +
+        (dis ? " disabled" : "") + (cur ? ' aria-current="page"' : "") + ' aria-label="' + aria + '">' + label + '</button>';
+    };
+    var out = [btn(filePage - 1, "‹", false, filePage === 1, "Trang trước")];
+    for (var p = 1; p <= n; p++) {
+      if (n > 7 && p > 2 && p < n - 1 && Math.abs(p - filePage) > 1) { if (out[out.length - 1] !== "…") out.push("…"); continue; }
+      out.push(btn(p, p, p === filePage, false, "Trang " + p));
+    }
+    out.push(btn(filePage + 1, "›", false, filePage === n, "Trang sau"));
+    return '<nav class="st-pager" aria-label="Trang danh sách file">' + out.map(function (x) { return x === "…" ? '<span class="st-pg-gap">…</span>' : x; }).join("") +
+      '<span class="st-pg-info">' + total + ' file</span></nav>';
+  }
+
   function filesCard() {
     // Moi file mot dong gon: ten trang (cat bot neu dai) + dong phu "nguon · so dong · luc", nut Tai luon thay.
-    var rows = (S.exports || []).map(function (f) {
+    var all = S.exports || [];
+    var pages = Math.max(1, Math.ceil(all.length / FILES_PER_PAGE));
+    if (filePage > pages) filePage = pages;
+    var rows = all.slice((filePage - 1) * FILES_PER_PAGE, filePage * FILES_PER_PAGE).map(function (f) {
       if (f.kind === "run") return runItem(f);
       var href = "/api/method/" + PREFIX + "download?name=" + encodeURIComponent(f.name);
       var meta = [f.source, f.rows == null ? "" : f.rows + " dòng", f.at].filter(Boolean).join(" · ");
@@ -189,7 +211,7 @@
         '<a class="st-btn st-btn--sm" href="' + href + '" data-act="dl" download aria-label="Tải file ' + esc(f.page || f.file_name) + '">Tải file</a></li>';
     }).join("");
     return '<section class="st-card st-o4" aria-labelledby="st-h-files"><div class="st-card-head"><h2 class="st-h2" id="st-h-files">File đã xuất của tôi</h2><span class="st-muted">giữ 7 ngày</span></div>' +
-      (rows ? '<ul class="st-files">' + rows + '</ul>' : '<p class="st-empty">Chưa có file nào.</p>') +
+      (rows ? '<ul class="st-files">' + rows + '</ul>' + pager(all.length) : '<p class="st-empty">Chưa có file nào.</p>') +
       '<p class="st-files-note">File xuất trong ' + esc(S.tool.title) + ' (nút Xuất bảng hoặc nút Export của ' + esc(S.tool.title) + ') hiện ở đây sau vài giây.</p></section>';
   }
 
@@ -268,6 +290,7 @@
   async function act(btn) {
     var a = btn.getAttribute("data-act");
     if (a === "open") return openTool(btn);
+    if (a === "fpage") { filePage = Math.max(1, +btn.getAttribute("data-page") || 1); render(); return; }
     if (a === "stats") { if (window.ECStStats) window.ECStStats.load(+btn.getAttribute("data-days") || 30); return; }
     if (!armed(btn)) return;
     var map = { join: ["join", "Đã vào hàng đợi."], leave: ["leave", "Đã cập nhật lượt của bạn."],
