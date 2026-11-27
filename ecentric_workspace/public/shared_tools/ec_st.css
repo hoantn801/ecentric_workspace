@@ -34,7 +34,7 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 #ec-st [hidden] { display:none !important; }
 
 /* ---------------------------------------------------------------- khung */
-#ec-st .st-wrap { max-width:1120px; margin:0 auto; padding:24px 32px 80px; display:flex; flex-direction:column; gap:20px; }
+#ec-st .st-wrap { max-width:1440px; margin:0 auto; padding:24px 32px 80px; display:flex; flex-direction:column; gap:20px; }
 @media (max-width:640px) { #ec-st .st-wrap { padding:16px 16px 96px; gap:16px; } }
 #ec-st .st-title-row { display:flex; flex-wrap:wrap; align-items:center; gap:12px; }
 #ec-st h1.st-title { font-size:26px; font-weight:800; letter-spacing:-.01em; color:var(--g900); line-height:1.25; }
@@ -135,6 +135,13 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 #ec-st .st-parts summary { cursor:pointer; color:var(--navy); list-style:revert; }
 #ec-st .st-parts-list { display:flex; flex-wrap:wrap; gap:6px 12px; margin-top:6px; }
 #ec-st .st-parts-list a { white-space:nowrap; }
+#ec-st .st-pager { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:12px; }
+#ec-st .st-pg { min-width:34px; height:34px; padding:0 8px; border:1px solid var(--g200); background:#fff; border-radius:8px; color:var(--g700); font-size:13px; font-weight:600; cursor:pointer; }
+#ec-st .st-pg:hover { background:var(--g100); }
+#ec-st .st-pg.on { background:var(--navy); border-color:var(--navy); color:#fff; }
+#ec-st .st-pg[disabled] { opacity:.4; cursor:default; }
+#ec-st .st-pg-gap { color:var(--g500); padding:0 2px; }
+#ec-st .st-pg-info { margin-left:auto; font-size:12.5px; color:var(--g500); }
 #ec-st .st-files-note { margin-top:12px; font-size:12.5px; color:var(--g500); }
 
 /* ---------------------------------------------------------------- tai / loi / toast */
@@ -176,3 +183,6 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 @media (max-width:1024px) { #ec-st .st-kpis { grid-template-columns:repeat(3, minmax(0,1fr)); } #ec-st .st-charts { grid-template-columns:minmax(0,1fr); } }
 @media (max-width:640px) { #ec-st .st-kpis { grid-template-columns:repeat(2, minmax(0,1fr)); } #ec-st .st-stats .st-card-head { flex-wrap:wrap; } }
 #ec-st #st-root a.st-btn--primary, #ec-st #st-root a.st-btn--primary:hover { color:#fff; }
+/* Ghi chu cuoi khung file: tach khoi thanh chia trang, canh thang hang voi noi dung. */
+#ec-st .st-files + .st-files-note, #ec-st .st-pager + .st-files-note { margin-top:14px; padding-top:12px; border-top:1px solid var(--g100); }
+#ec-st .st-pager { padding-top:4px; }
