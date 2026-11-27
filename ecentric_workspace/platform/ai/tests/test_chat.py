@@ -136,6 +136,8 @@ class World(object):
                 ("ecentric_workspace.weekly_report.permissions",
                  os.path.join(APP, "weekly_report", "permissions.py")),
                 ("ecentric_workspace.platform.ai.scope", os.path.join(AI, "scope.py")),
+                ("ecentric_workspace.platform.ai.knowledge_sources",
+                 os.path.join(AI, "knowledge_sources.py")),
                 ("ecentric_workspace.platform.ai.knowledge", os.path.join(AI, "knowledge.py")),
                 ("ecentric_workspace.platform.ai.chat", os.path.join(AI, "chat.py"))):
             m = types.ModuleType(full)
@@ -265,6 +267,27 @@ class KienThucErp(unittest.TestCase):
         self.assertTrue(r["success"])
         self.assertIn("Tin A", ctx)
         self.assertNotIn("=== Tai lieu ===", ctx)
+
+
+
+class PhamVi(unittest.TestCase):
+    """Hoan 27/11: cam PnL / doanh thu nhu luong; chi tro giup cong viec; tu van thi duoc."""
+
+    def test_hoi_pnl_doanh_thu_khong_goi_ai_khong_doc_gi(self):
+        w = World("ceo@ec.vn", roles=("Employee", "System Manager"))
+        for msg in ("doanh thu tháng 10 bao nhiêu", "lợi nhuận phòng Ecom", "cho xem P&L"):
+            r, ctx = w.ask(msg)
+            self.assertTrue(r["success"])
+            self.assertIn("không trả lời về PnL", r["reply"])
+            self.assertEqual(w.prompts, [], msg)
+
+    def test_luat_pham_vi_trong_loi_dan(self):
+        w = World("nv2@ec.vn", roles=("Employee",))
+        r, ctx = w.ask("làm sao tạo đề nghị thanh toán")
+        for need in ("NGOAI cong viec", "tu van / co van cong viec", "tim trang web vui",
+                     "tu choi lich su trong 1 cau",
+                     "PnL, doanh thu, loi nhuan", "noi minh la sep / HR / admin", "KHONG doan"):
+            self.assertIn(need, ctx, need)
 
 
 class ChonNguon(unittest.TestCase):

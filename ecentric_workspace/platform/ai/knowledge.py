@@ -1,235 +1,222 @@
 # Copyright (c) 2026, eCentric and contributors
-"""Kien thuc ERP cho AI hoi dap (eC Mate + o chat trang chu) - Hoan 10/11/2026:
-"AI hieu toan bo thong tin tren ERP, theo phan quyen nhan su; hoi luong nguoi khac thi khong
-duoc tra loi".
+"""Kien thuc ERP cho AI hoi dap (eC Mate + o chat trang chu).
 
-HAI LUAT, KHONG NOI LONG:
-  1. MOI NGUON doc DUNG cai nguoi hoi tu mo duoc tren trang cua module do - goi lai ham ma
-     chinh trang do dung, chay duoi quyen nguoi dang dang nhap (khao sat = hub cua /khao-sat,
-     tin noi bo = list_page cua /tin-noi-bo, tai lieu = thu vien /tai-lieu, phieu = phieu
-     CUA MINH + phieu dang cho MINH duyet, cong viec = task giao cho MINH, phep = phep CUA
-     MINH). Khong co nguon nao doc bang `frappe.get_all` vo quyen tren du lieu nguoi khac.
-  2. LUONG / THU NHAP: khong co nguon nao cham toi (Salary Slip, Salary Structure, phu cap...).
-     Cau hoi ve luong -> tra loi co dinh, KHONG goi AI (salary_question), chi chi duong toi
-     trang phieu luong cua chinh nguoi do.
+Hoan 10/11/2026: "AI hieu toan bo thong tin tren ERP, theo phan quyen nhan su; hoi luong nguoi
+khac thi khong duoc tra loi".
+Hoan 27/11/2026: "AI chua bao quat duoc ERP ... mo cho no tra loi duoc toan bo - tuyet doi theo
+phan quyen; khong tra loi luong; han che cau hoi ngoai ERP (tu van cong viec thi duoc); strictly
+nghiem cam dong toi PnL / luong / phan khong thuoc quyen nguoi do".
 
-Chon nguon theo tu khoa trong cau (pick_sources, PURE) - chi lay cai can, it token, it lo.
-Moi nguon hong -> bo nguon do (ghi Error Log), cac nguon khac van chay.
+BA LUAT, KHONG NOI LONG:
+  1. MOI NGUON (knowledge_sources.py) doc DUNG cai nguoi hoi tu mo duoc tren trang cua module
+     do, chay duoi quyen nguoi dang dang nhap.
+  2. LUONG / THU NHAP / THUONG va PnL / DOANH THU / LOI NHUAN: tra loi CO DINH, KHONG goi AI,
+     KHONG doc gi (guard). Khong nguon nao cham cac du lieu do.
+  3. Cau ngoai cong viec: loi dan (chat.RULES) bat AI tu choi lich su - xem chat.py.
+
+Chon nguon theo tu khoa (pick_sources, PURE). LUON kem 4 nguon gon (ban do ERP, huong dan,
+loai phieu tao duoc, viec cua toi) de AI tra loi duoc "lam X o dau / the nao". Moi nguon hong
+-> bo nguon do (ghi Error Log), cac nguon khac van chay.
 """
 import re
-import unicodedata
 
-SURVEY, NEWS, DOCS, TASKS, APPROVALS, LEAVE, DATA, WEEKLY = (
-    "survey", "news", "docs", "tasks", "approvals", "leave", "data", "weekly")
-#: Khong khop tu khoa nao -> nhin tong quan nhe (viec cua toi + phieu + khao sat dang mo).
-DEFAULT_SOURCES = (WEEKLY, TASKS, APPROVALS, SURVEY)
+from ecentric_workspace.platform.ai import knowledge_sources as S
+
+fold = S.fold
+
+(SURVEY, NEWS, DOCS, TASKS, APPROVALS, LEAVE, DATA, WEEKLY, MAP, GUIDES, GUIDE_TEXT, CATALOG,
+ MYWORK, ASSETS, SLA, TRAINING, SOCIAL, FEEDBACK, TODAY, ATTENDANCE, DIRECTORY, REPORTS) = (
+    "survey", "news", "docs", "tasks", "approvals", "leave", "data", "weekly", "map", "guides",
+    "guide_text", "catalog", "mywork", "assets", "sla", "training", "social", "feedback", "today",
+    "attendance", "directory", "reports")
+#: Luon co (gon, re): tra loi duoc "o dau / lam the nao / phieu gi / toi con viec gi".
+ALWAYS = (MYWORK, CATALOG, GUIDES, MAP)
+#: Khong khop tu khoa nao -> them tong quan nhe.
+DEFAULT_SOURCES = (WEEKLY, TASKS, APPROVALS, SURVEY, TODAY)
 MAX_ITEMS = 15
+WIDTH = 300
+#: Nguon dai hon mac dinh: (so dong toi da, do dai dong).
+CAPS = {MAP: (80, 220), CATALOG: (60, 260), GUIDES: (40, 260), GUIDE_TEXT: (2, S.GUIDE_TEXT_CHARS),
+        DOCS: (60, 260), DIRECTORY: (320, 160), MYWORK: (21, 260), TRAINING: (20, 200),
+        ATTENDANCE: (35, 160)}
 SALARY_ROUTE = "/ec-hr/salary"
 
 #: Tu khoa da BO DAU, chu thuong (xem fold()).
 KEYWORDS = {
-    SURVEY: ("khao sat", "survey", "vong quay", "quay so", "phieu khao"),
-    NEWS: ("tin noi bo", "tin tuc", "thong bao", "bai viet", "ban tin", "tin moi"),
-    DOCS: ("tai lieu", "quy trinh", "quy dinh", "iso", "chinh sach", "bieu mau", "huong dan",
-           "noi quy", "so tay"),
+    SURVEY: ("khao sat", "survey", "vong quay", "phieu khao"),
+    NEWS: ("tin noi bo", "tin tuc", "bai viet", "ban tin", "tin moi", "thong bao"),
+    DOCS: ("tai lieu", "quy trinh", "quy dinh", "iso", "chinh sach", "bieu mau", "noi quy",
+           "so tay", "quy che"),
     TASKS: ("cong viec", "task", "viec cua", "deadline", "han chot", "du an", "viec can lam",
             "viec dang lam"),
     APPROVALS: ("phieu", "phe duyet", "cho duyet", "duyet", "de nghi", "trang thai yeu cau",
                 "yeu cau cua"),
     LEAVE: ("ngay phep", "phep con", "con bao nhieu ngay", "so ngay nghi", "quy phep",
-            "phep nam", "nghi phep con"),
+            "phep nam", "nghi phep", "don nghi"),
     DATA: ("yeu cau du lieu", "trung tam du lieu", "crawl", "data hub"),
-    WEEKLY: ("bao cao tuan", "weekly", "bao cao", "tien do", "mood", "tam trang", "blocker",
+    WEEKLY: ("bao cao tuan", "weekly", "tien do", "mood", "tam trang", "blocker",
              "phong minh", "team", "diem ai", "ai score"),
+    ASSETS: ("tai san", "thiet bi", "laptop", "may tinh", "man hinh", "ban quyen", "license",
+             "cap phat", "thu hoi", "kiem ke", "sua chua", "ban giao"),
+    SLA: ("sla", "dung han", "tre han", "qua han", "dung hen"),
+    TRAINING: ("dao tao", "bai hoc", "khoa hoc", "quiz", "training", "ve quay", "quay so"),
+    SOCIAL: ("bang tin", "bai dang", "cau lac bo", "clb", "newsfeed", "su kien"),
+    FEEDBACK: ("gop y", "phan anh", "feedback"),
+    TODAY: ("sinh nhat", "nhan vien moi", "ban moi", "ky niem", "ngay le", "nghi le", "nghi tet",
+            "lich nghi", "thong bao", "hom nay co gi", "su kien"),
+    ATTENDANCE: ("cham cong", "di muon", "ve som", "check in", "checkin", "ngay cong",
+                 "cong thang", "quen cham", "khuon mat", "vang mat"),
+    DIRECTORY: ("ai la", "la ai", "truong phong", "truong bo phan", "quan ly cua", "sep",
+                "lien he", "email cua", "phu trach", "danh ba", "phong ban", "thuoc phong",
+                "chuc danh", "leader", "line manager", "bao cao cho", "nguoi nao", "ai lo"),
+    REPORTS: ("bao cao nao", "dashboard", "report", "trung tam bao cao", "so lieu"),
 }
 #: Nguon chac chan la TRA CUU (khong phai tao phieu) - router cua eC Mate dung de khong hoi
-#: nham "AI Topup hay System Request?" khi nguoi dung chi hoi ve khao sat / tai lieu.
-LOOKUP_ONLY = (SURVEY, NEWS, DOCS, LEAVE, TASKS)
+#: nham "AI Topup hay System Request?" khi nguoi dung chi hoi. KHONG dua ASSETS / DIRECTORY /
+#: ATTENDANCE vao: "cap phat laptop", "booking ... nguoi phu trach Y" la tao phieu that.
+LOOKUP_ONLY = (SURVEY, NEWS, DOCS, LEAVE, TASKS, SLA, TRAINING)
 
+# --------------------------------------------------------------------- guard --
+#: Luong / thu nhap / thuong (cua BAT KY AI). Viet CO DAU cho cac tu de nham khi bo dau
+#: ("lương" != "luồng", "thưởng" != "thường"); dang khong dau chi khop cum ro nghia.
 _SALARY = re.compile(
-    r"(lương|thu nhập|salary|payroll|payslip|"
+    r"(lương|thu nhập|salary|payroll|payslip|\bctc\b|tiền thưởng|thưởng tết|thưởng cuối năm|"
+    r"thưởng kpi|\bbonus\b|"
     r"\b(bang|phieu|muc|tien|quy|he so)\s+luong\b|\bluong\s+(cua|thang|co ban|net|gross)\b|"
-    r"\bthu nhap\b)", re.I)
+    r"\bthu nhap\b|\btien thuong\b|\bthuong tet\b)", re.I)
+#: PnL / doanh thu / loi nhuan / chi phi cong ty - tren van ban DA BO DAU.
+_PNL = re.compile(
+    r"(\bpnl\b|\bp\s*&\s*l\b|\bp/l\b|doanh thu|loi nhuan|lai lo|\blo lai\b|bien loi|ebitda|"
+    r"gross profit|net profit|\brevenue\b|\bprofit\b|\bmargin\b|chi phi luong|chi phi nhan su|"
+    r"quy luong|chi phi (van hanh|toan|cua) cong ty|ket qua kinh doanh)", re.I)
+#: Cau tao phieu co the nhac "doanh thu" (xuat hoa don doanh thu...) - eC Mate khong chan.
+_CREATE = ("tao phieu", "de nghi", "thanh toan", "dntt", "dnmh", "xuat hoa don", "tam ung",
+           "hoan ung", "mua hang", "dien giup", "dien ho")
 
-
-def fold(text):
-    """PURE. Chu thuong, bo dau tieng Viet (d/D -> d) - de khop tu khoa du go co dau hay khong."""
-    t = unicodedata.normalize("NFD", str(text or "").lower())
-    t = "".join(ch for ch in t if unicodedata.category(ch) != "Mn")
-    return t.replace("đ", "d")
+SALARY_REPLY = ("Mình không tra cứu hay trả lời về lương, thu nhập, thưởng của bất kỳ ai. "
+                "Phiếu lương của bạn xem ở trang Nhân sự › Phiếu lương (%s); quy trình xét "
+                "tăng lương / thăng chức xem ở Hướng dẫn sử dụng (/huong-dan)." % SALARY_ROUTE)
+PNL_REPLY = ("Mình không trả lời về PnL, doanh thu, lợi nhuận hay chi phí của công ty. Nếu bạn "
+             "được cấp quyền, số liệu nằm ở trang Doanh thu (PnL); cần quyền thì bạn liên hệ "
+             "quản lý trực tiếp nhé.")
 
 
 def salary_question(message):
-    """PURE. Cau nay hoi ve luong / thu nhap? (cua ai cung vay - AI khong tra loi)."""
+    """PURE. Cau nay hoi ve luong / thu nhap / thuong? (cua ai cung vay - AI khong tra loi)."""
     return bool(_SALARY.search(str(message or "")))
 
 
-SALARY_REPLY = ("Mình không tra cứu hay trả lời về lương, thu nhập của bất kỳ ai. "
-                "Phiếu lương của bạn xem ở trang Nhân sự › Phiếu lương (%s)." % SALARY_ROUTE)
+def pnl_question(message):
+    """PURE. Cau nay dong toi PnL / doanh thu / loi nhuan / chi phi cong ty?"""
+    return bool(_PNL.search(fold(message)))
+
+
+def guard(message, creating_ok=False):
+    """PURE. -> cau tra loi co dinh neu cau hoi vao vung CAM, nguoc lai None.
+
+    creating_ok=True (eC Mate): cau tao phieu co chu "doanh thu" (xuat hoa don doanh thu...) van
+    di tiep de tao NHAP - nhap van theo quyen form, khong lo so lieu nao. Luong thi luon chan."""
+    if salary_question(message):
+        return SALARY_REPLY
+    if pnl_question(message):
+        if creating_ok and any(w in fold(message) for w in _CREATE):
+            return None
+        return PNL_REPLY
+    return None
+
+
+# ----------------------------------------------------------------- chon nguon --
+def _hits(text, words):
+    return any(re.search(r"(?<![a-z0-9])%s(?![a-z0-9])" % re.escape(w), text) for w in words)
 
 
 def pick_sources(message):
-    """PURE. -> danh sach nguon theo thu tu KEYWORDS; khong khop gi -> DEFAULT_SOURCES."""
+    """PURE. -> nguon theo thu tu KEYWORDS (KHONG gom ALWAYS); khong khop gi -> DEFAULT_SOURCES."""
     t = " %s " % fold(message)
-    hit = [src for src, words in KEYWORDS.items()
-           if any(re.search(r"(?<![a-z0-9])%s(?![a-z0-9])" % re.escape(w), t) for w in words)]
+    hit = [src for src, words in KEYWORDS.items() if _hits(t, words)]
     return hit or list(DEFAULT_SOURCES)
 
 
 def is_lookup(message):
-    """PURE. Cau nhac toi khao sat / tin / tai lieu / phep con lai / viec cua minh -> tra cuu."""
+    """PURE. Cau nhac toi khao sat / tin / tai lieu / phep / viec / SLA / dao tao -> tra cuu."""
     t = " %s " % fold(message)
-    return any(re.search(r"(?<![a-z0-9])%s(?![a-z0-9])" % re.escape(w), t)
-               for src in LOOKUP_ONLY for w in KEYWORDS[src])
+    return any(_hits(t, KEYWORDS[src]) for src in LOOKUP_ONLY)
 
 
-def _short(text, cap=160):
-    t = " ".join(str(text or "").split())
-    return t if len(t) <= cap else t[:cap - 1] + "…"
+#: Dau hieu cau hoi ve cach lam / ERP (ngoai KEYWORDS).
+_WORK = ("erp", "lam sao", "the nao", "o dau", "trang nao", "huong dan", "cach", "phieu gi",
+         "form nao", "mau nao", "thu tuc", "ai duyet")
+
+
+def about_work(message):
+    """PURE. Cau co nhac toi ERP / cong viec (bat ky tu khoa nguon nao, hay hoi cach lam)?"""
+    t = " %s " % fold(message)
+    return _hits(t, _WORK) or any(_hits(t, words) for words in KEYWORDS.values())
 
 
 def render(sections):
-    """PURE. [(tieu de, [dong])] -> khoi van ban cho loi dan. Bo khoi rong."""
+    """PURE. [(tieu de, [dong], (max, width)?)] -> khoi van ban cho loi dan. Bo khoi rong."""
     out = []
-    for title, lines in sections:
+    for sec in sections:
+        title, lines = sec[0], sec[1]
+        cap, width = sec[2] if len(sec) > 2 else (MAX_ITEMS, WIDTH)
         if not lines:
             continue
-        out += ["", "=== %s ===" % title] + ["- " + _short(l, 300) for l in lines[:MAX_ITEMS]]
+        out += ["", "=== %s ===" % title] + ["- " + S.short(l, width) if "\n" not in l else l
+                                             for l in lines[:cap]]
     return "\n".join(out)
 
 
-# ------------------------------------------------------------------ nguon (impure) --
-# Moi ham: (user) -> [dong]. Chay duoi frappe.session.user = nguoi hoi.
-
-def _survey(user):
-    from ecentric_workspace.surveys.controllers import api
-    data = (api.hub() or {}).get("data") or {}
-    lines = []
-    for c in data.get("open") or []:
-        lines.append("CHO BAN LAM: %s%s - %s cau hoi%s - mo tai /khao-sat" % (
-            c.get("title"), (" (han %s)" % c["close_at"]) if c.get("close_at") else "",
-            c.get("questions") or "?", (" - " + _short(c["description"], 120)) if c.get("description") else ""))
-    for c in data.get("done") or []:
-        lines.append("BAN DA NOP: %s - luc %s%s" % (
-            c.get("title"), c.get("submitted_at") or "?",
-            (" - qua: " + c["prize_label"]) if c.get("prize_label") else ""))
-    return lines
-
-
-def _news(user):
-    from ecentric_workspace.internal_posts import service
-    ctx = service.list_page(user) or {}
-    cards = []
-    for sec in ctx.get("sections") or []:
-        cards += sec.get("cards") or []
-    if ctx.get("pin"):
-        cards.insert(0, ctx["pin"])
-    seen, lines = set(), []
-    for c in cards:
-        if c.get("name") in seen or c.get("draft"):
-            continue
-        seen.add(c.get("name"))
-        lines.append("%s [%s, %s]%s - %s" % (
-            c.get("title"), (c.get("category") or {}).get("name") or "", c.get("date_label") or "",
-            (": " + _short(c["summary"], 140)) if c.get("summary") else "", c.get("url") or "/tin-noi-bo"))
-    return lines
-
-
-def _docs(user):
-    from ecentric_workspace.iso_docs import library
-    ctx = library.library_page(user) or {}
-    lines = []
-    for sec in ctx.get("sections") or []:
-        for c in sec.get("cards") or []:
-            lines.append("%s %s (%s, %s%s)%s - /tai-lieu/%s" % (
-                c.get("code"), c.get("name"), c.get("type") or "tai lieu", c.get("dept") or "",
-                (", ban " + c["version"]) if c.get("version") else "",
-                (": dung khi " + _short(c["use"], 100)) if c.get("use") else "", c.get("code")))
-    return lines[:60]
-
-
-def _tasks(user):
-    import frappe
-    rows = frappe.get_all("Task", filters={"_assign": ["like", '%%"%s"%%' % user],
-                                           "status": ["not in", ["Completed", "Cancelled", "Template"]]},
-                          fields=["name", "subject", "status", "exp_end_date", "project", "priority"],
-                          order_by="exp_end_date asc", limit_page_length=20)
-    return ["%s [%s%s%s] - /pm" % (r.subject, r.status or "", (", han %s" % r.exp_end_date) if r.exp_end_date else "",
-                                   (", du an " + r.project) if r.project else "") for r in rows]
-
-
-def _approvals(user):
-    import frappe
-    lines = []
-    mine = frappe.get_all("EC Approval Request", filters={"requested_by": user},
-                          fields=["approval_type", "reference_name", "approval_status", "submitted_at",
-                                  "current_level"], order_by="modified desc", limit_page_length=10)
-    for r in mine:
-        lines.append("PHIEU CUA BAN: %s %s - %s (cap %s, gui %s)" % (
-            r.approval_type, r.reference_name, r.approval_status or "?", r.current_level or "-",
-            str(r.submitted_at or "")[:16]))
-    try:
-        from ecentric_workspace.approval_center.shared.requests import quick_approve
-        for p in (quick_approve.list_my_pending(user) or [])[:10]:
-            lines.append("CHO BAN DUYET: %s - %s (nguoi gui %s, cap %s) - %s" % (
-                p.get("type_label") or p.get("approval_type"), p.get("title") or p.get("reference_name"),
-                p.get("requester_name") or p.get("requested_by") or "", p.get("level_name") or "",
-                p.get("detail_url") or "/approvals"))
-    except Exception:
-        frappe.log_error(title="ai_knowledge approvals pending")
-    return lines
-
-
-def _leave(user):
-    import frappe
-    emp = frappe.db.get_value("Employee", {"user_id": user, "status": "Active"}, "name")
-    if not emp:
-        return []
-    from hrms.hr.doctype.leave_application.leave_application import get_leave_details
-    det = get_leave_details(emp, frappe.utils.nowdate()) or {}
-    lines = []
-    for lt, a in (det.get("leave_allocation") or {}).items():
-        lines.append("PHEP CUA BAN - %s: con %s / tong %s ngay (da nghi %s, cho duyet %s) - /ec-hr/leave" % (
-            lt, a.get("remaining_leaves"), a.get("total_leaves"), a.get("leaves_taken"),
-            a.get("leaves_pending_approval")))
-    return lines
-
-
-def _data(user):
-    from ecentric_workspace.data_hub import service
-    rows = service.list_rows(user) or []
-    mine = [r for r in rows if r.get("mine")]
-    return ["%s %s [%s%s, nguoi gui %s, phu trach %s] - /du-lieu" % (
-        r.get("code"), r.get("title"), r.get("status_label") or r.get("status") or "",
-        (", han %s" % r["due"]) if r.get("due") else "", r.get("requester_name") or "",
-        r.get("assignee_name") or "-") for r in mine[:10]]
+def _guide_text(message):
+    slugs = S.match_guides(message, S.guide_index())
+    return ["[Bai %s - /huong-dan/%s]\n%s" % (s, s, S.guide_text(s)) for s in slugs if S.guide_text(s)]
 
 
 SOURCES = {
-    SURVEY: ("Khao sat (/khao-sat)", _survey),
-    NEWS: ("Tin noi bo moi nhat (/tin-noi-bo)", _news),
-    DOCS: ("Thu vien tai lieu ISO dang hieu luc (/tai-lieu)", _docs),
-    TASKS: ("Cong viec dang giao cho ban (/pm)", _tasks),
-    APPROVALS: ("Phieu phe duyet cua ban va phieu cho ban duyet", _approvals),
-    LEAVE: ("Phep cua ban", _leave),
-    DATA: ("Yeu cau du lieu (/du-lieu)", _data),
+    MYWORK: ("Viec dang cho ban (/viec-cua-toi)", S.mywork),
+    SURVEY: ("Khao sat (/khao-sat)", S.survey),
+    NEWS: ("Tin noi bo moi nhat (/tin-noi-bo)", S.news),
+    DOCS: ("Thu vien tai lieu ISO dang hieu luc (/tai-lieu)", S.docs),
+    TASKS: ("Cong viec dang giao cho ban (/pm)", S.tasks),
+    APPROVALS: ("Phieu phe duyet cua ban va phieu cho ban duyet", S.approvals),
+    LEAVE: ("Phep cua ban", S.leave),
+    DATA: ("Yeu cau du lieu (/du-lieu)", S.data),
+    ASSETS: ("Tai san / ban quyen dang giao cho ban", S.assets),
+    SLA: ("Diem SLA cua ban", S.sla),
+    TRAINING: ("Dao tao (/dao-tao)", S.training),
+    SOCIAL: ("Bang tin (/bang-tin)", S.social),
+    FEEDBACK: ("Gop y ban da gui (/gop-y)", S.feedback),
+    TODAY: ("Hom nay o eCentric", S.today),
+    ATTENDANCE: ("Cham cong cua ban", S.attendance),
+    DIRECTORY: ("Danh ba noi bo (ten - chuc danh - phong - email)", S.directory),
+    REPORTS: ("Bao cao ban mo duoc (/reports)", S.reports),
+    CATALOG: ("Loai phieu ban tao duoc (Phe duyet)", S.catalog),
+    GUIDES: ("Bai huong dan su dung (/huong-dan)", S.guides),
+    MAP: ("Ban do ERP - trang nao lam gi (trang co the doi quyen rieng)", S.erp_map),
 }
 
 
 def context(user, message):
-    """-> (khoi van ban, [nguon da dung]). WEEKLY khong o day - chat.py lo (luat WTU rieng)."""
+    """-> (khoi van ban, [nguon da chon]). WEEKLY khong o day - chat.py lo (luat WTU rieng)."""
     import frappe
     picked = pick_sources(message)
-    sections, used = [], []
-    for src in picked:
-        if src not in SOURCES:
+    order = [MYWORK] + [s for s in picked if s != MYWORK] + [s for s in ALWAYS if s != MYWORK]
+    sections, seen = [], set()
+    for src in order:
+        if src in seen or src not in SOURCES:
             continue
+        seen.add(src)
         title, fn = SOURCES[src]
         try:
             lines = fn(user)
         except Exception:
             frappe.log_error(title="ai_knowledge %s" % src)
             continue
-        sections.append((title, lines or ["(khong co gi)"]))
-        used.append(src)
+        sections.append((title, lines or ["(khong co gi)"], CAPS.get(src, (MAX_ITEMS, WIDTH))))
+    try:
+        text = _guide_text(message)
+        if text:
+            sections.append(("Noi dung bai huong dan sat cau hoi", text, CAPS[GUIDE_TEXT]))
+    except Exception:
+        frappe.log_error(title="ai_knowledge guide_text")
     return render(sections), picked

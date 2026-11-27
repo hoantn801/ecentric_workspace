@@ -139,9 +139,11 @@ def intent(message=None, history=None, page=None, files=None):
     if not message and not names:
         return {"action": brain.CLARIFY, "reply": "Bạn cần mình giúp gì?", "options": []}
 
-    if knowledge.salary_question(message):
-        # Luong / thu nhap cua bat ky ai: khong goi AI, khong tra cuu (Hoan 10/11).
-        return {"action": brain.ANSWER, "reply": knowledge.SALARY_REPLY, "options": [],
+    blocked = knowledge.guard(message, creating_ok=True)
+    if blocked:
+        # Luong / thuong / PnL / doanh thu cua bat ky ai: khong goi AI, khong tra cuu (Hoan 10/11
+        # + 27/11). Cau TAO phieu co chu "doanh thu" van di tiep (creating_ok) - chi ra nhap.
+        return {"action": brain.ANSWER, "reply": blocked, "options": [],
                 "needs_data": False, "model": ""}
 
     quick = brain.quick_reply(message, ASSISTANT_NAME, has_files=bool(names))
@@ -170,7 +172,13 @@ def intent(message=None, history=None, page=None, files=None):
 def lookup_override(out, message, has_files=False):
     """PURE. Cau hoi ve khao sat / tin noi bo / tai lieu / phep con / viec cua minh ma model lai
     doi tao phieu hoac hoi "AI Topup hay System Request?" (10/11, anh cua Hoan) -> di tra cuu.
-    Khong dung khi co tep (tha tep la de tao phieu) hay khi cau la XIN nghi."""
+    Khong dung khi co tep (tha tep la de tao phieu) hay khi cau la XIN nghi.
+
+    27/11: model tra loi THANG (needs_data=false) mot cau ve ERP / cong viec -> van di tra cuu,
+    vi buoc route khong co du lieu: cau tra loi do la doan (Hoan: "nhieu cau no chua tra loi")."""
+    if (out.get("action") == brain.ANSWER and not out.get("needs_data")
+            and knowledge.about_work(message)):
+        return {"action": brain.ANSWER, "reply": "", "options": [], "needs_data": True}
     if has_files or out.get("action") not in (brain.APPROVAL, brain.CLARIFY):
         return out
     folded = knowledge.fold(message)
