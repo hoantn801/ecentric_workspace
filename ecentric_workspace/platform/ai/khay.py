@@ -14,9 +14,11 @@ van chi nam o mot cho:
 Mo dan bang Role `EC Khay Pilot` (khong phai `if user == ...`). Tat khan: site_config
 `ec_khay_disabled: 1`, hoac `ec_ai_disabled: 1` tat moi AI.
 """
+import re
+
 import frappe
 
-from ecentric_workspace.platform.ai import config, gateway, khay_intent as brain
+from ecentric_workspace.platform.ai import config, gateway, guard_log, khay_intent as brain, knowledge
 
 ROLE = "EC Khay Pilot"
 DISABLED_FLAG = "ec_khay_disabled"
@@ -139,6 +141,23 @@ def intent(message=None, history=None, page=None, files=None):
     if not message and not names:
         return {"action": brain.CLARIFY, "reply": "Bạn cần mình giúp gì?", "options": []}
 
+    # QC 27/11: ten tep va `page` do client gui cung di vao loi dan -> xet nhu cau hoi.
+    bad = [n for n in names if knowledge.guard(n)]
+    if bad or (page and not _PAGE.match(str(page))):
+        guard_log.note("param", CHANNEL, "trang=%s | tep=%s | cau=%s" % (str(page)[:120], bad, message))
+    names = [n if n not in bad else "tep-dinh-kem" for n in names]
+    page = page if _PAGE.match(str(page or "")) else ""
+    kind, blocked = knowledge.guard_kind(message, creating_ok=True)
+    if blocked:
+        # Luong / thuong / PnL / doanh thu cua bat ky ai: khong goi AI, khong tra cuu (Hoan 10/11
+        # + 27/11). Cau TAO phieu co chu "doanh thu" van di tiep (creating_ok) - chi ra nhap.
+        guard_log.note(kind, CHANNEL, message)
+        return {"action": brain.ANSWER, "reply": blocked, "options": [],
+                "needs_data": False, "model": ""}
+    turns = brain.parse_history(history)
+    if guard_log.forged(turns, knowledge.fold):
+        guard_log.note("history", CHANNEL, " | ".join(h["text"] for h in guard_log.forged(turns, knowledge.fold)))
+
     quick = brain.quick_reply(message, ASSISTANT_NAME, has_files=bool(names))
     if quick:
         quick["model"] = ""           # khong co AI nao tra loi -> khong hien "Tra loi boi"
@@ -151,14 +170,60 @@ def intent(message=None, history=None, page=None, files=None):
         brain.build_prompt(message or "(khong go gi, chi tha tep)", today, leave_types,
                            page=page or "", file_names=names, forms=forms),
         system=brain.system(ASSISTANT_NAME), schema=brain.SCHEMA,
-        history=brain.parse_history(history), purpose="khay", budget=BUDGET,
+        history=knowledge.safe_history(turns), purpose="khay", budget=BUDGET,
         attempt_timeout=ATTEMPT_TIMEOUT, fast=True, opts={"temperature": 0, "effort": "none"})
     if not res["ok"]:
         return {"action": "error", "reply": BUSY, "options": []}
     out = brain.normalize(res["data"], leave_types, today, has_files=bool(names), forms=forms)
+    out = lookup_override(out, message, has_files=bool(names))
+    out = pnl_create_only(out, message, forms)
     out = _enrich(out, user, forms)
+    if out.get("reply") and not knowledge.advisory(message):
+        safe = knowledge.safe_reply(out["reply"])
+        if safe != out["reply"]:
+            guard_log.note("output", CHANNEL, message)
+        out["reply"] = safe
+    out["options"] = [o for o in out.get("options") or [] if not knowledge.leaks(o)]
     out["model"] = res["model"]      # dong "Tra loi boi ..." duoi cau tra loi (Hoan 28/09)
     return out
+
+
+CHANNEL = "khay"
+_PAGE = re.compile(r"^/[A-Za-z0-9_\-/.]{0,119}$")
+
+
+def pnl_create_only(out, message, forms=()):
+    """PURE. Cau co chu doanh thu / chi phi duoc di tiep CHI de tao phieu (creating_ok). Router
+    tra hanh dong khac -> khong dua cau tu do cua model ra: answer -> cau co dinh PnL; clarify
+    -> cau hoi co dinh + lua chon la TEN FORM (khong phai chu cua model)."""
+    if (not knowledge.pnl_question(message) or knowledge.advisory(message)
+            or out.get("action") == brain.APPROVAL):
+        return out
+    if out.get("action") == brain.CLARIFY and forms:
+        return {"action": brain.CLARIFY, "reply": "Bạn muốn tạo loại phiếu nào?",
+                "options": [f.get("title") or f["code"] for f in forms][:brain.MAX_OPTIONS]}
+    return {"action": brain.ANSWER, "reply": knowledge.PNL_REPLY, "options": [],
+            "needs_data": False}
+
+
+def lookup_override(out, message, has_files=False):
+    """PURE. Cau hoi ve khao sat / tin noi bo / tai lieu / phep con / viec cua minh ma model lai
+    doi tao phieu hoac hoi "AI Topup hay System Request?" (10/11, anh cua Hoan) -> di tra cuu.
+    Khong dung khi co tep (tha tep la de tao phieu) hay khi cau la XIN nghi.
+
+    27/11: model tra loi THANG (needs_data=false) mot cau ve ERP / cong viec -> van di tra cuu,
+    vi buoc route khong co du lieu: cau tra loi do la doan (Hoan: "nhieu cau no chua tra loi")."""
+    if (out.get("action") == brain.ANSWER and not out.get("needs_data")
+            and knowledge.about_work(message)):
+        return {"action": brain.ANSWER, "reply": "", "options": [], "needs_data": True}
+    if has_files or out.get("action") not in (brain.APPROVAL, brain.CLARIFY):
+        return out
+    folded = knowledge.fold(message)
+    if "xin" in folded and ("nghi" in folded or "phep" in folded):
+        return out
+    if not knowledge.is_lookup(message):
+        return out
+    return {"action": brain.ANSWER, "reply": "", "options": [], "needs_data": True}
 
 
 def _enrich(out, user, forms=()):
