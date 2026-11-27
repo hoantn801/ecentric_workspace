@@ -84,7 +84,12 @@
       '<div class="ts-mb">' + body + "</div>" + (foot ? '<div class="ts-mf">' + foot + "</div>" : "") + "</div>";
     rootEl().appendChild(bg);
     function close() { if (bg.parentNode) bg.parentNode.removeChild(bg); document.removeEventListener("keydown", onKey); }
-    function onKey(e) { if (e.key === "Escape") close(); }
+    // Esc chi dong modal tren cung (modal con mo tu form - vd Them phan mem moi - khong dong luon form cha).
+    function onKey(e) {
+      if (e.key !== "Escape") return;
+      var all = document.querySelectorAll(".ts-modal-bg");
+      if (all[all.length - 1] === bg) close();
+    }
     document.addEventListener("keydown", onKey);
     bg.addEventListener("click", function (e) { if (e.target === bg || (e.target.closest && e.target.closest("[data-close]"))) close(); });
     if (onMount) onMount(bg.firstChild, close);
@@ -104,7 +109,7 @@
   }
 
   var ICONS = {
-    x: '<path d="M18 6 6 18M6 6l12 12"/>', plus: '<path d="M12 5v14M5 12h14"/>', search: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+    x: '<path d="M18 6 6 18M6 6l12 12"/>', chevron: '<path d="m6 9 6 6 6-6"/>', plus: '<path d="M12 5v14M5 12h14"/>', search: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
     laptop: '<rect x="4" y="5" width="16" height="11" rx="1.5"/><path d="M2 19h20"/>', pc: '<rect x="3" y="4" width="13" height="10" rx="1.5"/><path d="M7 18h5M9.5 14v4"/><rect x="18" y="4" width="3.5" height="14" rx="1"/>',
     monitor: '<rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/>', printer: '<path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="1.5"/><path d="M7 14h10v7H7z"/>',
     chip: '<rect x="6" y="6" width="12" height="12" rx="1.5"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>',
@@ -191,10 +196,83 @@
     draw();
     return { value: function () { return state.sel; } };
   }
+  // O chon tu danh muc (phan mem ban quyen, mau thiet bi): bam -> danh sach tim duoc + nut "Them moi".
+  // opt: rows, selected, placeholder, label(r), sub(r), addLabel, onAdd() -> Promise(row|null), onPick(k, r).
+  // Them moi xong -> dong moi duoc chon ngay. Tra ve { value(), row() }.
+  function catalogPick(host, opt) {
+    var rows = opt.rows || [], sel = opt.selected || null;
+    host.innerHTML = '<button type="button" class="ts-in ts-pickfield" data-cp-btn aria-haspopup="listbox"><span data-cp-label></span>' + icon("chevron") + "</button>" +
+      '<div class="ts-cp-panel" data-cp-panel hidden><div data-cp-list></div>' +
+      (opt.onAdd ? '<button type="button" class="ts-btn ts-sm ts-cp-add" data-cp-add>' + icon("plus") + esc(opt.addLabel || "Thêm mới") + "</button>" : "") + "</div>";
+    var btn = host.querySelector("[data-cp-btn]"), panel = host.querySelector("[data-cp-panel]");
+    function rowOf(k) { return rows.filter(function (r) { return r.name === k; })[0] || null; }
+    function paint() {
+      var r = rowOf(sel), lab = host.querySelector("[data-cp-label]");
+      lab.className = r ? "" : "ts-ph";
+      lab.innerHTML = r ? esc(opt.label(r)) + (opt.sub && opt.sub(r) ? ' <span class="ts-note">· ' + esc(opt.sub(r)) + "</span>" : "") : esc(opt.placeholder || "Chọn…");
+    }
+    function list() {
+      picker(host.querySelector("[data-cp-list]"), rows, { placeholder: "Tìm…", label: opt.label, sub: opt.sub, selected: sel,
+        onPick: function (k, r) { choose(k, r); } });
+    }
+    function choose(k, r) {
+      sel = k; paint(); panel.hidden = true;
+      if (opt.onPick) opt.onPick(k, r || rowOf(k));
+    }
+    btn.addEventListener("click", function () {
+      panel.hidden = !panel.hidden;
+      if (!panel.hidden) { list(); var i = panel.querySelector("input"); if (i) i.focus(); }
+    });
+    var add = host.querySelector("[data-cp-add]");
+    if (add) add.addEventListener("click", function () {
+      var q = (panel.querySelector("input") || {}).value || "";
+      opt.onAdd(q.trim()).then(function (r) {
+        if (!r) return;
+        if (!rowOf(r.name)) rows.push(r);
+        choose(r.name, r);
+      });
+    });
+    paint();
+    return { value: function () { return sel; }, row: function () { return rowOf(sel); } };
+  }
+  // Tao dong danh muc qua `method` (create_product / create_model) co chan trung:
+  // da co -> chon luon dong co san; giong ten -> hoi "dung cai co san?" hoac "van tao moi". -> Promise(row|null)
+  function catalogCreate(method, data, what) {
+    function send(force) { return post(method, { data: JSON.stringify(data), force: force ? 1 : 0 }); }
+    return send(false).then(function (r) {
+      if (r.exact) { toast("Đã có " + r.exact.label + " - chọn sẵn cho bạn."); return r.exact; }
+      if (!r.similar) return r.row;
+      return new Promise(function (resolve) {
+        modal("Có thể đã có " + (what || "trong danh mục"),
+          "<p>Danh mục đã có tên gần giống <b>" + esc(data.product_name || data.item_name || "") + "</b>. Dùng cái có sẵn để sau này gộp số liệu đúng:</p>" +
+          '<div class="ts-pick">' + r.similar.map(function (x) {
+            return '<button type="button" class="ts-opt" data-use="' + esc(x.name) + '"><span class="ts-opt-main"><b class="ts-strong">' + esc(x.label) + "</b>" +
+              '<span class="ts-note" style="display:block">' + esc([x.vendor, x.category].filter(Boolean).join(" · ")) + "</span></span>" +
+              '<span class="ts-note">Dùng cái này</span></button>';
+          }).join("") + "</div>",
+          '<button type="button" class="ts-btn" data-close>Huỷ</button><button type="button" class="ts-btn" data-force>Vẫn tạo mới</button>',
+          function (el, close) {
+            el.querySelector(".ts-pick").addEventListener("click", function (e) {
+              var b = e.target.closest("[data-use]"); if (!b) return;
+              var k = b.getAttribute("data-use");
+              close(); resolve(r.similar.filter(function (x) { return x.name === k; })[0]);
+            });
+            el.querySelector("[data-close]").addEventListener("click", function () { resolve(null); });
+            el.querySelector("[data-force]").addEventListener("click", function (ev) {
+              busy(ev.currentTarget, true);
+              send(true).then(function (r2) { close(); resolve(r2.row || r2.exact || null); },
+                function (e) { busy(ev.currentTarget, false); toast(msg(e), true); });
+            });
+          });
+      });
+    });
+  }
+
   var cache = {};
-  function pickList(kind, category) {
+  // fresh: bo cache (vd vua them mau thiet bi moi).
+  function pickList(kind, category, fresh) {
     var k = kind + "|" + (category || "");
-    if (!cache[k] || kind === "available" || kind === "components") cache[k] = get("pickers", { kind: kind, category: category || "" });
+    if (fresh || !cache[k] || kind === "available" || kind === "components") cache[k] = get("pickers", { kind: kind, category: category || "" });
     return cache[k];
   }
   // Mo modal chon nhan vien -> Promise(employee name | null)
@@ -248,6 +326,7 @@
     STATUS_ORDER: STATUS_ORDER, COND: COND, OWN: OWN,
     fmtNum: fmtNum, fmtMoney: fmtMoney, fmtMillion: fmtMillion, fmtDate: fmtDate, fmtDT: fmtDT, fmtMonth: fmtMonth,
     skel: skel, errBox: errBox, picker: picker, pickList: pickList, pickEmployee: pickEmployee,
+    catalogPick: catalogPick, catalogCreate: catalogCreate,
     checklistHtml: checklistHtml, checklistValue: checklistValue, assetLine: assetLine, licPill: licPill, licDays: licDays
   };
 })();

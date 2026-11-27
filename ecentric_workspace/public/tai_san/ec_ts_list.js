@@ -5,7 +5,7 @@
   "use strict";
   var T = window.ECTs, O = window.ECTsOps, esc = T.esc;
   var TABS = [["info", "Tổng quan"], ["parts", "Linh kiện"], ["dep", "Khấu hao"], ["hist", "Lịch sử"], ["rep", "Sửa chữa"]];
-  var st = { status: T.param("status"), q: T.param("q"), category: T.param("category"), department: T.param("department"),
+  var st = { status: T.param("status"), q: T.param("q"), category: T.param("category"), model: T.param("model"), department: T.param("department"),
     issues_only: T.param("issues") === "1", include_components: false, page: 1 };
   var cur = { asset: T.param("asset"), tab: "info", detail: null, partSel: null };
   var root, listBox, drawer, split, last = null, qTimer = null;
@@ -17,7 +17,7 @@
       '<div class="ts-filters"><a class="ts-btn" href="/tai-san">' + T.icon("back") + "Tổng quan</a></div></div>" +
       '<div class="ts-chips" data-chips role="group" aria-label="Lọc trạng thái"></div>' +
       '<div class="ts-filters"><input class="ts-in" type="search" data-q placeholder="Tag, tên máy, serial, người giữ…" aria-label="Tìm thiết bị" value="' + esc(st.q) + '" style="min-width:260px">' +
-      '<select class="ts-sel" data-f="category" aria-label="Loại"></select><select class="ts-sel" data-f="department" aria-label="Phòng ban"></select>' +
+      '<select class="ts-sel" data-f="category" aria-label="Loại"></select><select class="ts-sel" data-f="model" aria-label="Mẫu"></select><select class="ts-sel" data-f="department" aria-label="Phòng ban"></select>' +
       '<label class="ts-ck"><input type="checkbox" data-issues' + (st.issues_only ? " checked" : "") + "> Chỉ máy có vấn đề</label>" +
       '<label class="ts-ck"><input type="checkbox" data-comp> Gồm linh kiện rời</label></div>' +
       '<div class="ts-split"><div class="ts-left"><div class="ts-card" style="padding:0" data-list></div></div><aside class="ts-drawer" data-drawer hidden aria-label="Chi tiết thiết bị"></aside></div></div>';
@@ -67,11 +67,15 @@
 
   function loadList() {
     listBox.innerHTML = '<div style="padding:16px">' + T.skel(6) + "</div>";
-    var f = { q: st.q, status: st.status, category: st.category, department: st.department,
+    var f = { q: st.q, status: st.status, category: st.category, model: st.model, department: st.department,
       issues_only: st.issues_only ? 1 : 0, include_components: st.include_components ? 1 : 0, page: st.page };
     T.get("list_assets", { filters: JSON.stringify(f) }).then(function (d) {
       last = d;
       fillSelect(root.querySelector('[data-f="category"]'), d.categories, st.category, "Tất cả loại");
+      var ms = root.querySelector('[data-f="model"]');
+      ms.innerHTML = '<option value="">Tất cả mẫu</option>' + (d.models || []).map(function (m) {
+        return '<option value="' + esc(m.name) + '"' + (m.name === st.model ? " selected" : "") + ">" + esc(m.label) + " (" + m.count + ")</option>";
+      }).join("");
       if (!root.querySelector('[data-f="department"]').options.length || st.department === "") {
         fillSelect(root.querySelector('[data-f="department"]'), d.departments, st.department, "Tất cả phòng ban");
       }
@@ -173,7 +177,9 @@
     var issues = (last && last.rows || []).filter(function (r) { return r.name === a.name; })[0];
     body.innerHTML = (issues && issues.issues && issues.issues.length ? '<div class="ts-issue">' + esc(issues.issues.join(" · ")) + "</div>" : "") +
       '<div class="ts-info">' +
-      kv("Tag", esc(a.tag || "")) + kv("Mã tài sản", esc(a.name)) + kv("Loại", esc(a.category || "")) + kv("Serial", esc(a.serial || "")) +
+      kv("Tag", esc(a.tag || "")) + kv("Mã tài sản", esc(a.name)) +
+      kv("Mẫu", esc(a.model_name || "") + (can.manage ? ' <button type="button" class="ts-link" data-model>Đổi mẫu</button>' : "")) +
+      kv("Loại", esc(a.category || "")) + kv("Serial", esc(a.serial || "")) +
       kv("Người giữ", a.holder ? esc(a.holder_name || a.holder) + (a.holder_left ? ' <span class="ts-bad-text">(đã nghỉ)</span>' : "") : "") +
       kv("Phòng ban", esc(a.department || "")) + kv("Ngày mua", T.fmtDate(a.purchase_date)) + kv("Bảo hành đến", T.fmtDate(a.warranty_until)) +
       kv("Sở hữu", esc((T.OWN[a.ownership] || a.ownership || ""))) + kv("Tình trạng", esc(T.COND[a.condition] || a.condition || "")) +
@@ -191,6 +197,7 @@
   function onInfoClick(e) {
     var op = e.target.closest("[data-open]");
     if (op) { openDrawer(op.getAttribute("data-open")); return; }
+    if (e.target.closest("[data-model]")) { O.changeModel(cur.detail.asset).then(function (r) { if (r) refreshAll(); }); return; }
     var b = e.target.closest("[data-act]");
     if (!b || cur.tab !== "info") return;
     var act = b.getAttribute("data-act");

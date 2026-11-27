@@ -93,7 +93,7 @@ def save_specs(ctx, asset_name, rows):
     return {"rows": len(clean)}
 
 
-REQUIRED_INTAKE = ("item_code", "asset_name", "purchase_date", "net_purchase_amount")
+REQUIRED_INTAKE = ("item_code", "purchase_date", "net_purchase_amount")
 
 
 def create_asset(ctx, data):
@@ -116,7 +116,8 @@ def create_asset(ctx, data):
     ownership = data.get("ownership") or C.OWN_COMPANY
     if ownership not in C.OWNERSHIPS:
         raise L.TransitionError("Hình thức sở hữu không hợp lệ.")
-    values = {"item_code": item.name, "asset_name": data["asset_name"].strip()[:140],
+    # Ten thiet bi trong = ten mau (chon tu danh muc - khong go tay lech).
+    values = {"item_code": item.name, "asset_name": (data.get("asset_name") or "").strip()[:140] or item.item_name,
               "asset_category": data.get("asset_category") or item.asset_category,
               "company": R.default_company(), "location": data.get("location") or R.default_location(),
               "is_existing_asset": 1, "purchase_date": data["purchase_date"],

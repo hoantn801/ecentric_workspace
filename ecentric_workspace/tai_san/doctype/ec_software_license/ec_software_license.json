@@ -16,6 +16,7 @@
  "search_fields": "vendor,account",
  "field_order": [
   "naming_series",
+  "product",
   "license_name",
   "vendor",
   "category",
@@ -52,12 +53,22 @@
    "hidden": 1
   },
   {
+   "fieldname": "product",
+   "fieldtype": "Link",
+   "label": "Phần mềm",
+   "options": "EC Software Product",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1
+  },
+  {
    "fieldname": "license_name",
    "fieldtype": "Data",
    "label": "Tên bản quyền",
    "reqd": 1,
-   "in_list_view": 1,
-   "bold": 1
+   "bold": 1,
+   "read_only": 1,
+   "description": "Lấy theo Phần mềm."
   },
   {
    "fieldname": "vendor",

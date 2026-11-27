@@ -34,6 +34,7 @@ def _row(ctx, a, cats, emps, comp_count=None):
     holder = emps.get(a.get("custodian")) if a.get("custodian") else None
     status = a.get(C.OPS_STATUS_FIELD)
     out = {"name": a["name"], "tag": a.get(C.TAG_FIELD), "asset_name": a.get("asset_name"),
+           "model": a.get("item_code"), "model_name": a.get("item_name") or a.get("item_code"),
            "category": a.get("asset_category"), "status": status,
            "status_label": C.STATUS_LABELS.get(status, status or ""),
            "condition": a.get("ec_condition") or C.COND_GOOD, "serial": a.get(C.SERIAL_FIELD),
@@ -207,11 +208,23 @@ def list_assets(ctx, filters=None):
     for r in rows:
         r["issues"] = [C.ISSUE_LABELS[i] for i in issues.get(r["name"], [])
                        if ctx.can_see_cost or i not in COST_ISSUES]
+    models = _models([r for r in rows if not r["installed_on"] or filters.get("include_components")])
     rows = _filter_rows(rows, filters)
     page = max(int(filters.get("page") or 1), 1)
     return {"rows": rows[(page - 1) * PAGE_SIZE: page * PAGE_SIZE], "total": len(rows), "page": page,
             "page_size": PAGE_SIZE, "can": ctx.flags(), "status_labels": C.STATUS_LABELS,
-            "categories": sorted(cats), "departments": sorted({r["department"] for r in rows if r["department"]})}
+            "categories": sorted(cats), "departments": sorted({r["department"] for r in rows if r["department"]}),
+            "models": models}
+
+
+def _models(rows):
+    """Mau dang co trong danh sach da loc (cho bo loc Mau) - kem so may."""
+    out = {}
+    for r in rows:
+        if r.get("model"):
+            m = out.setdefault(r["model"], {"name": r["model"], "label": r["model_name"], "count": 0})
+            m["count"] += 1
+    return sorted(out.values(), key=lambda m: (m["label"] or "").lower())
 
 
 def _filter_rows(rows, f):
@@ -222,6 +235,8 @@ def _filter_rows(rows, f):
             continue
         if f.get("category") and r["category"] != f["category"]:
             continue
+        if f.get("model") and r["model"] != f["model"]:
+            continue
         if f.get("department") and RP.dept_bucket(r["department"], r["holder"]) != f["department"]:
             continue
         if f.get("holder") and r["holder"] != f["holder"]:
@@ -231,7 +246,7 @@ def _filter_rows(rows, f):
         if not f.get("include_components") and r["installed_on"]:
             continue
         if q and q not in " ".join(str(r.get(k) or "") for k in
-                                   ("tag", "asset_name", "serial", "holder_name", "name")).lower():
+                                   ("tag", "asset_name", "model_name", "serial", "holder_name", "name")).lower():
             continue
         out.append(r)
     return out
@@ -400,6 +415,9 @@ def pickers(ctx, kind, category=None):
     if kind == "items":
         return [{"name": i.name, "label": i.item_name, "category": i.asset_category}
                 for i in R.fixed_asset_items()]
+    if kind == "categories":
+        return [{"name": k, "label": k, "component": bool(v.get("ec_is_component"))}
+                for k, v in sorted(R.categories().items())]
     assets, cats, emps, comp = _base(ctx)
     if kind == "available":
         rows = [a for a in assets if a.get(C.OPS_STATUS_FIELD) in (C.ST_AVAILABLE, C.ST_RESERVED)

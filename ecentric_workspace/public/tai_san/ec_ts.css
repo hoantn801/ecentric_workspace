@@ -167,7 +167,7 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 #ec-ts .ts-split > .ts-left { flex:1 1 auto; min-width:0; }
 #ec-ts .ts-drawer { flex:0 0 600px; width:600px; background:#fff; border:1px solid var(--line); border-radius:var(--r); position:sticky; top:12px;
   max-height:calc(100vh - 24px); overflow:auto; }
-@media (max-width:1100px) { #ec-ts .ts-split { display:block; } #ec-ts .ts-drawer { position:fixed; inset:0 0 0 auto; width:min(600px,100vw); max-height:none; border-radius:0; z-index:60; box-shadow:0 12px 32px rgba(17,24,39,.16); } }
+@media (max-width:1100px) { #ec-ts .ts-split { display:block; } #ec-ts .ts-drawer { position:fixed; inset:0 0 0 auto; width:min(600px,100vw); max-height:none; border-radius:0; z-index:1400; box-shadow:0 12px 32px rgba(17,24,39,.16); } }
 #ec-ts .ts-dhead { padding:16px 18px 12px; border-bottom:1px solid var(--line); display:flex; flex-direction:column; gap:8px; }
 #ec-ts .ts-dname { font-size:17px; font-weight:800; color:var(--ink); }
 #ec-ts .ts-tabs { display:flex; gap:2px; padding:0 18px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
@@ -207,21 +207,34 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 #ec-ts .ts-strip { background:#fff; border:1px solid var(--line); border-radius:var(--r); padding:14px 18px; }
 
 /* ---------------------------------------------------------------- modal, sheet, toast */
-#ec-ts .ts-modal-bg { position:fixed; inset:0; background:rgba(17,24,39,.45); z-index:80; display:flex; align-items:flex-start; justify-content:center; padding:5vh 12px; overflow:auto; }
-#ec-ts .ts-modal { background:#fff; border-radius:14px; box-shadow:0 20px 50px rgba(0,0,0,.25); width:min(640px,100%); display:flex; flex-direction:column; }
+/* z-index tren thanh tieu de shell (.ec-shell-topbar 880) va duoi lop phu toan trang cua shell (1990+).
+   Khung form cao toi da man hinh: tieu de + chan co dinh, chi than form cuon (truoc 27/11: nen o
+   z 80 nam DUOI thanh tieu de, form bi cat, chan form troi khoi man hinh). */
+#ec-ts .ts-modal-bg { position:fixed; inset:0; background:rgba(17,24,39,.45); z-index:1500; display:flex; align-items:center; justify-content:center; padding:24px 16px; overflow:hidden; }
+#ec-ts .ts-modal { background:#fff; border-radius:14px; box-shadow:0 20px 50px rgba(0,0,0,.25); width:min(640px,100%); display:flex; flex-direction:column; max-height:calc(100vh - 48px); overflow:hidden; }
+#ec-ts .ts-mh, #ec-ts .ts-mf { flex:0 0 auto; }
 #ec-ts .ts-modal.ts-wide { width:min(820px,100%); }
 #ec-ts .ts-mh { padding:16px 20px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:10px; }
 #ec-ts .ts-mt { font-size:15px; font-weight:700; color:var(--ink); }
-#ec-ts .ts-mb { padding:16px 20px; display:flex; flex-direction:column; gap:14px; }
+#ec-ts .ts-mb { padding:16px 20px; display:flex; flex-direction:column; gap:14px; overflow:auto; min-height:0; flex:1 1 auto; }
+#ec-ts .ts-pickfield { display:flex; align-items:center; justify-content:space-between; gap:8px; text-align:left; cursor:pointer; background:#fff; }
+#ec-ts .ts-pickfield svg { width:16px; height:16px; color:var(--ink3); flex:0 0 auto; }
+#ec-ts .ts-pickfield > span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#ec-ts .ts-cp-panel { margin-top:6px; padding:8px; border:1px solid var(--line); border-radius:10px; background:#fff; display:flex; flex-direction:column; gap:8px; }
+#ec-ts .ts-cp-add { align-self:flex-start; }
+#ec-ts .ts-seg { display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+#ec-ts .ts-seg button { border:0; background:#fff; padding:6px 12px; font:inherit; font-size:13px; cursor:pointer; color:var(--ink2); }
+#ec-ts .ts-seg button.on { background:var(--ink); color:#fff; }
+#ec-ts .ts-ph { color:var(--ink3); }
 #ec-ts .ts-mf { padding:12px 20px; border-top:1px solid var(--line); display:flex; gap:8px; justify-content:flex-end; align-items:center; flex-wrap:wrap; }
-@media (max-width:640px) { #ec-ts .ts-modal-bg { align-items:flex-end; padding:0; } #ec-ts .ts-modal { border-radius:16px 16px 0 0; max-height:92vh; overflow:auto; } }
+@media (max-width:640px) { #ec-ts .ts-modal-bg { align-items:flex-end; padding:0; } #ec-ts .ts-modal { border-radius:16px 16px 0 0; max-height:92vh; } }
 #ec-ts .ts-pick { max-height:280px; overflow:auto; display:flex; flex-direction:column; gap:6px; }
 #ec-ts .ts-opt { display:flex; gap:10px; align-items:center; text-align:left; width:100%; border:1px solid var(--line); background:#fff; border-radius:10px; padding:9px 12px; cursor:pointer; min-height:44px; }
 #ec-ts .ts-opt.on { border-color:var(--navy); background:var(--wash); }
 #ec-ts .ts-opt-main { flex:1; min-width:0; }
 #ec-ts .ts-warn { background:var(--warn-bg); color:#92400e; border-radius:10px; padding:10px 12px; font-size:13px; }
 #ec-ts .ts-infobox { background:#f9fafb; border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-size:13px; }
-#ec-ts-toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:#111827; color:#fff; padding:10px 16px; border-radius:10px; font:600 13px 'Inter',sans-serif; z-index:99; max-width:90vw; box-shadow:0 12px 32px rgba(17,24,39,.16); }
+#ec-ts-toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:#111827; color:#fff; padding:10px 16px; border-radius:10px; font:600 13px 'Inter',sans-serif; z-index:1600; max-width:90vw; box-shadow:0 12px 32px rgba(17,24,39,.16); }
 #ec-ts-toast.bad { background:#b91c1c; }
 
 /* ---------------------------------------------------------------- skeleton */

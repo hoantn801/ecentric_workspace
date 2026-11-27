@@ -321,3 +321,9 @@ STAGE_OK = "OK"
 STAGE_DUE = "Due"
 STAGE_EXPIRED = "Expired"
 STAGE_LABELS = {STAGE_OK: "Còn hạn", STAGE_DUE: "Sắp hết hạn", STAGE_EXPIRED: "Đã quá hạn"}
+
+# --- danh muc phan mem (27/11/2026, Hoan): ten ban quyen chon tu danh muc, khong go tu do ---
+# Moi phan mem MOT dong ("Windows 11 Pro"); nhieu lan mua cung tro ve mot dong -> gop duoc.
+PRODUCT_DT = "EC Software Product"
+PRODUCT_SIMILAR_RATIO = 0.82     # ten moi giong ten co san tu muc nay -> hoi "dung cai co san?"
+MODEL_CODE_PREFIX = "EC"         # ma Item mau moi theo mau dang co tren site: EC-DELL-LATITUDE-3440
