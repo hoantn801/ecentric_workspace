@@ -206,7 +206,7 @@ GUIDES = {
         "summary": "Sơ đồ quy trình theo vai trò: lập phiếu, duyệt, ký (cả ký số qua ERP), nghiệm thu "
                    "từng đợt và đề nghị thanh toán. Chọn vai trò để tô sáng các bước của mình.",
         "approval_types": ["CONTRACT_REVIEW"],
-        "updated": "2026-11-24",
+        "updated": "2026-11-27",
         "audience": "Người lập hợp đồng · Cấp duyệt · Kế toán",
     },
 }
