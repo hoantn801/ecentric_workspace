@@ -123,8 +123,33 @@
     var head = ver ? brand + (brand === "GPT" ? "-" : " ") + ver : brand;
     return [head].concat(words).join(" ");
   }
+  /* Đường dẫn TRONG ERP mới được thành link (Hoàn 27/11: "để AI dẫn đường dẫn bấm được luôn").
+   * Chỉ "/..." cùng site — không "//", không http(s), không javascript:, không /api /private
+   * (GET tới API có thể gây thao tác). Câu trả lời của AI có thể bị dữ liệu người khác viết
+   * dắt (chèn lệnh) — nên chỉ cho đi trong ERP, và không dựng ảnh. */
+  function safePath(p) {
+    p = String(p || "");
+    if (!/^\/(?!\/)[A-Za-z0-9\-._~\/?=&%#+]*$/.test(p)) return "";
+    if (/^\/(api|private|method|files)(\/|\?|#|$)/i.test(p)) return "";
+    return p;
+  }
+  function unesc(s) {
+    return String(s).replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+      .replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  }
+  function link(label, path) {
+    var p = safePath(unesc(path));
+    return p ? '<a class="lk" href="' + esc(p) + '">' + label + "</a>" : label;
+  }
   function mdLite(text) {
-    return esc(text).replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>").replace(/\n/g, "<br>");
+    return esc(text)
+      // [Tên trang](/duong-dan) -> link mang tên trang
+      .replace(/\[([^\]\n]{1,80})\]\((\/[^)\s]*)\)/g, function (m, label, path) { return link(label, path); })
+      // `/duong-dan` (model quên định dạng) -> vẫn bấm được
+      .replace(/`(\/[^`\s]*)`/g, function (m, path) { return link(path, path); })
+      .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+      .replace(/(^|\n)\s*[*-]\s+/g, "$1• ")
+      .replace(/\n/g, "<br>");
   }
   function shouldRun(doc, path) {
     if (/^\/(app|login|api)(\/|$)/.test(path || "")) return false;
@@ -174,7 +199,7 @@
 
   var PURE = { viDate: viDate, leaveLabel: leaveLabel, leaveRange: leaveRange,
                fileRefuse: fileRefuse, fmtValue: fmtValue, serverError: serverError,
-               historyOf: historyOf, mdLite: mdLite, shouldRun: shouldRun, esc: esc,
+               historyOf: historyOf, mdLite: mdLite, safePath: safePath, shouldRun: shouldRun, esc: esc,
                httpError: httpError, errText: errText,
                modelLabel: modelLabel, suggestions: suggestions, greetText: greetText,
                keepMsg: function (m) { return keepMsg(m); },
@@ -397,6 +422,7 @@
     ".bw .ava{width:26px;height:26px;flex:none;border-radius:50%;background:var(--sun-50);display:grid;place-items:center}",
     ".bw .ava svg{width:22px;height:22px}",
     ".b{background:var(--g100);color:var(--g900);border-bottom-left-radius:4px;max-width:100%}",
+    ".b a.lk{color:var(--navy);font-weight:600;text-decoration:underline;text-underline-offset:2px}",
     ".b.err{background:var(--red-50);color:var(--red)}",
     ".chips{display:flex;flex-wrap:wrap;gap:6px;padding-left:33px}",
     ".by{font-size:11px;line-height:1.3;color:var(--g500);padding-left:33px;margin-top:-6px}",
@@ -812,7 +838,7 @@
 
   function onAnswer(text, hist) {
     S.busy = true; typing();
-    return post(API.chat, { message: text, history: JSON.stringify(hist) })
+    return post(API.chat, { message: text, history: JSON.stringify(hist), fmt: "links" })
       .then(function (r) {
         dropTyping();
         if (r && r.success) push({ role: "bot", text: r.reply, by: r.model });

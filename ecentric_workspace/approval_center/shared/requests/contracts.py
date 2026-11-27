@@ -158,6 +158,14 @@ class ApprovalDefinition:
     #: Trang ve bang EcApprovalUI.withJourney (public/js/ec_approval_ui.bundle.js). Ten buoc trung
     #: ten buoc trang da tu ve (vd "Finance xu ly UNC") thi giu buoc cua trang (co trang thai that).
     journey_after: Tuple[Tuple[str, str, str], ...] = ()
+    #: VIEC NGUOI DUYET PHAI LAM TRUOC KHI DUYET (27/11/2026, Promotion "huong 2"), do module so huu:
+    #: (business_doc, approval_request_doc, actor) -> "" | cau tieng Viet. Khac "" = CHUA duoc duyet:
+    #:   * engine.approve chan bang dung cau do (moi duong duyet: trang form, hub, duyet nhanh, ky so
+    #:     deu di qua engine.approve) - fail-closed: callback nem loi thi duyet cung gay;
+    #:   * quick_approve coi la needs_input (the duyet nhanh chi mo trang chi tiet).
+    #: Vd Promotion: Lead lap phieu khong xem duoc luong -> nguoi duyet dau tien co quyen xem luong
+    #: phai dien luong (service.fill_salary) roi moi duyet. Mac dinh None = khong co dieu kien gi.
+    approval_input_check: Optional[Callable] = None
 
     @property
     def status_label_map(self) -> Mapping[str, str]:
@@ -189,6 +197,8 @@ def validate_definition(definition: ApprovalDefinition) -> None:
         raise ValueError("definition callback is not callable: detail_extender")
     if definition.attachment_redactor is not None and not callable(definition.attachment_redactor):
         raise ValueError("definition callback is not callable: attachment_redactor")
+    if definition.approval_input_check is not None and not callable(definition.approval_input_check):
+        raise ValueError("definition callback is not callable: approval_input_check")
     if definition.batch_flagger is not None and not callable(definition.batch_flagger):
         raise ValueError("definition callback is not callable: batch_flagger")
     _validate_all_tab(definition)

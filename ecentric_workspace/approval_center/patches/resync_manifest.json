@@ -117,8 +117,8 @@
   },
   "approval_center/features/promotion/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p562_resync_gan_phieu_nguoi_lap",
-    "sha256": "db66c9814953842097c7ff56b49ee0758358ee8bf90a0af17a53117db0ae314a"
+    "last_resync_patch": "p594_promotion_lead_de_xuat",
+    "sha256": "d9ea30c08c5f50be3cc208fe4b718092243e39d84bc73c4338748bbee2f283c9"
   },
   "approval_center/features/purchase_request/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -414,8 +414,8 @@
     "sha256": "e140669d82b03af94e52d9e7c66ba3db9a7802dfd6a3b81bc44d8c14357180d9"
   },
   "guides/pages/thang_chuc_dieu_chinh_luong/main_section.html": {
-    "last_resync_patch": "p550_huong_dan_nhan_su_day_du",
-    "sha256": "d1c498cb71cf2c1ba2917eba3d69464d92f8a307a5909ab7642af61511ba2d84"
+    "last_resync_patch": "p594_promotion_lead_de_xuat",
+    "sha256": "3cb20a6781656cb75f9828137d79816cc73de7fe382b357d5e4ee5ffa0cc4bac"
   },
   "guides/pages/dieu_chuyen_noi_bo/main_section.html": {
     "last_resync_patch": "p550_huong_dan_nhan_su_day_du",

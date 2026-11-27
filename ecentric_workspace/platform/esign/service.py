@@ -457,6 +457,7 @@ def _completed_legs_of_same_signer(dsr):
 
 
 def _expected_for(dsr, allow_predating=False):
+    floor = None if allow_predating else _predating_floor(dsr)
     pkg = frappe.db.get_value("EC Digital Signature Package", dsr.package,
                               ["scts_document_id"], as_dict=True)
     # Chi dem tep DA SANG nha cung cap (phu luc Excel giu tren ERP khong tinh) - xem
@@ -510,7 +511,36 @@ def _expected_for(dsr, allow_predating=False):
             "signed_after": signed_after,
             "prior_signatures": _completed_legs_of_same_signer(dsr),
             # Chi doi soat THU CONG moi bat - xem _check_by_ordinal trong providers/base.py.
-            "allow_predating": bool(allow_predating)}
+            # Ngoai le tu dong (27/11/2026): chu ky co truoc lenh NHUNG sau luc cap nay MO tren
+            # ERP - xem _predating_floor.
+            "allow_predating": bool(allow_predating) or bool(floor),
+            "predating_floor": floor}
+
+
+def _predating_floor(dsr):
+    """San thoi gian cho chu ky KY TRUC TIEP TREN CONG truoc khi ERP gui lenh, hoac None.
+
+    27/11/2026 (EC-PAYR-2026-00604 / 00726): anh Lam ky hang loat tren cong CMC luc 23/11
+    18:03 - SAU khi cap 4 da mo tren ERP - roi 25/11 moi bam "Duyet & Ky" tren ERP. Chu ky that,
+    dung nguoi, dung o; nhung co truoc lenh nen nam Manual Review, phai doi soat tay tung chan.
+
+    Cho qua TU DONG khi chu ky co sau luc cap nay MO (`activated_at` cua dong cap) - cap chua mo
+    thi nguoi do chua the ky cho cap nay. Moi phep kiem khac giu nguyen (dung nguoi, dung mau chu
+    ky, phep DEM thu tu chu ky cua nguoi do - cai chan loi 28/08 "dong cap bang chu ky trinh ky
+    cua chinh nguoi do"). Chan nguoi de nghi khong co cap -> None (giu duong cu)."""
+    if dsr.get("actor_type") == "Requester" or not dsr.get("request_level"):
+        return None
+    if _completed_legs_of_same_signer(dsr) is None:
+        return None                     # khong dem duoc -> moc thoi gian la lop duy nhat
+    opened = frappe.db.get_value("EC Approval Request Level", dsr.get("request_level"),
+                                 "activated_at")
+    if not opened:
+        return None
+    from ecentric_workspace.platform.esign.providers.base import SignatureProviderAdapter
+    parsed = SignatureProviderAdapter._parse_provider_time(opened)
+    if not parsed:
+        return None
+    return parsed - timedelta(seconds=SignatureProviderAdapter.SIGN_TIME_TOLERANCE_SECONDS)
 
 
 def _emails_cua_cung_danh_tinh(dsr):

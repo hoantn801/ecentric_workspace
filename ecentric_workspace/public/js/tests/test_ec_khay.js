@@ -40,6 +40,15 @@ const shell='<aside data-ec-shell="1"></aside><main>trang</main>';
   ok("ten model: grok", P.modelLabel("grok-4-7")==="Grok 4.7");
   ok("ten model: rong", P.modelLabel("")==="");
   ok("mdLite thoat HTML", P.mdLite("<i>x</i> **dam**")==="&lt;i&gt;x&lt;/i&gt; <b>dam</b>");
+  // Hoan 27/11: duong dan AI dua ra phai bam duoc - nhung CHI trong ERP.
+  ok("link markdown noi bo", P.mdLite("Xem [Huong dan DNMH](/huong-dan/dnmh-dntt) nhe")==='Xem <a class="lk" href="/huong-dan/dnmh-dntt">Huong dan DNMH</a> nhe');
+  ok("duong dan trong dau ` van bam duoc", P.mdLite("Mo `/approvals/all-requests?box=sent`").indexOf('<a class="lk" href="/approvals/all-requests?box=sent">')>=0);
+  ok("gach dau dong thanh cham", P.mdLite("* a\n- b")==="• a<br>• b");
+  ok("khong link ra ngoai", P.mdLite("[x](//evil.com/a)").indexOf("<a")<0 && P.mdLite("[x](https://evil.com)").indexOf("<a")<0);
+  ok("khong link javascript", P.mdLite("[x](/javascript:alert(1))").indexOf("<a")<0);
+  ok("khong link /api", P.mdLite("[dang xuat](/api/method/logout)").indexOf("<a")<0 && P.safePath("/private/files/a.pdf")==="");
+  ok("nhan link van thoat HTML", P.mdLite('[<img src=x onerror=alert(1)>](/pm)').indexOf("<img")<0);
+  ok("khong chen thuoc tinh qua duong dan", P.mdLite('[x](/pm"onmouseover="alert(1))').indexOf("onmouseover=\"")<0);
   ok("khong chay o /app", !P.shouldRun(new JSDOM(shell).window.document,"/app/todo"));
   ok("khong chay khi trang tu tu choi", !P.shouldRun(new JSDOM(shell+'<div data-ec-no-khay></div>').window.document,"/x"));
   ok("chay khi co vo shell", P.shouldRun(new JSDOM(shell).window.document,"/viec-cua-toi"));

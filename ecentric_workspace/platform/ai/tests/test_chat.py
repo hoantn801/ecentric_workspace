@@ -291,6 +291,22 @@ class PhamVi(unittest.TestCase):
             self.assertIn(need, ctx, need)
 
 
+class LinkBamDuoc(unittest.TestCase):
+    """Hoan 27/11: eC Mate dua link bam duoc + ngan gon; trang /weekly-update chua dung link."""
+
+    def test_eC_Mate_xin_link_markdown_va_ngan(self):
+        w = TC_World = World("nv2@ec.vn", roles=("Employee",))
+        w.chat.gemini_chat(message="làm sao đề nghị mua hàng", fmt="links")
+        ctx = w.prompts[-1]["system"]
+        self.assertIn("[Ten trang ngan](/duong-dan)", ctx)
+        self.assertIn("toi da 4 gach dau dong", ctx)
+
+    def test_trang_bao_cao_tuan_khong_doi(self):
+        w = World("nv2@ec.vn", roles=("Employee",))
+        w.chat.gemini_chat(message="làm sao đề nghị mua hàng")
+        self.assertNotIn("link Markdown", w.prompts[-1]["system"])
+
+
 class ChonNguon(unittest.TestCase):
     def setUp(self):
         self.k = World("nv2@ec.vn", roles=("Employee",)).mod["knowledge"]
