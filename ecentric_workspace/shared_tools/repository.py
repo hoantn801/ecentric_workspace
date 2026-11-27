@@ -9,8 +9,8 @@ from ecentric_workspace.shared_tools import constants as C
 
 QUEUE_FIELDS = ["name", "user", "full_name", "status", "joined_at", "ready_at", "started_at",
                 "ends_at", "ended_at", "extended", "opens", "end_reason"]
-EXPORT_FIELDS = ["name", "export_id", "source", "file_name", "file_url", "rows", "columns", "pages",
-                 "page_title", "exported_at", "downloaded_at", "user"]
+EXPORT_FIELDS = ["name", "export_id", "run_id", "part", "source", "file_name", "file_url", "rows", "columns",
+                 "pages", "page_title", "exported_at", "downloaded_at", "user"]
 
 
 # ------------------------------------------------------------------ cong cu --
@@ -76,13 +76,29 @@ def log(key, event, user=None, entry=None, detail=None, actor=None):
 
 
 # -------------------------------------------------------------------- export --
-def exports_of(key, user, since, limit=20):
+def exports_of(key, user, since, limit=600):
     return frappe.get_all(C.EXPORT_DT, filters={"tool": key, "user": user, "exported_at": [">=", since]},
                           fields=EXPORT_FIELDS, order_by="exported_at desc", limit_page_length=limit)
 
 
+def entries_since(key, since):
+    return frappe.get_all(C.QUEUE_DT, filters={"tool": key, "joined_at": [">=", since]},
+                          fields=QUEUE_FIELDS, order_by="joined_at asc", limit_page_length=0)
+
+
+def exports_since(key, since):
+    return frappe.get_all(C.EXPORT_DT, filters={"tool": key, "exported_at": [">=", since]},
+                          fields=["name", "user", "rows", "pages", "run_id", "part", "exported_at"],
+                          limit_page_length=0)
+
+
 def export_by_name(name):
     return frappe.db.get_value(C.EXPORT_DT, name, EXPORT_FIELDS + ["tool"], as_dict=True)
+
+
+def exports_of_run(run_id):
+    return frappe.get_all(C.EXPORT_DT, filters={"run_id": run_id}, fields=EXPORT_FIELDS + ["tool"],
+                          order_by="part asc", limit_page_length=0)
 
 
 def export_exists(export_id):

@@ -130,6 +130,11 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 #ec-st .st-file .st-new { margin-left:0; flex:0 0 auto; }
 #ec-st .st-file-meta { font-size:12.5px; color:var(--g500); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 #ec-st .st-file .st-btn { flex:0 0 auto; }
+#ec-st .st-file--run { align-items:flex-start; }
+#ec-st .st-parts { margin-top:4px; font-size:12.5px; }
+#ec-st .st-parts summary { cursor:pointer; color:var(--navy); list-style:revert; }
+#ec-st .st-parts-list { display:flex; flex-wrap:wrap; gap:6px 12px; margin-top:6px; }
+#ec-st .st-parts-list a { white-space:nowrap; }
 #ec-st .st-files-note { margin-top:12px; font-size:12.5px; color:var(--g500); }
 
 /* ---------------------------------------------------------------- tai / loi / toast */
@@ -142,3 +147,32 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
   padding:12px 18px; border-radius:10px; font-size:14px; box-shadow:0 10px 30px rgba(0,0,0,.2); max-width:min(560px,calc(100vw - 32px)); }
 #ec-st #ec-st-toast.bad { background:var(--danger); }
 #ec-st #ec-st-toast.warn { background:#b45309; }
+
+/* ---------------------------------------------------------------- thong ke (chi quan ly) */
+#ec-st .st-stats { --bar:#4F5FC8; }
+#ec-st .st-segs { display:inline-flex; border:1px solid var(--g200); border-radius:10px; overflow:hidden; }
+#ec-st .st-seg { border:0; background:#fff; color:var(--g600); font-size:13px; font-weight:600; padding:7px 12px; cursor:pointer; }
+#ec-st .st-seg + .st-seg { border-left:1px solid var(--g200); }
+#ec-st .st-seg.on { background:var(--navy-50); color:var(--navy); }
+#ec-st .st-kpis { display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:12px; }
+#ec-st .st-kpi { border:1px solid var(--g200); border-radius:10px; padding:12px 14px; min-width:0; }
+#ec-st .st-kpi-v { font-size:24px; font-weight:800; color:var(--g900); font-variant-numeric:tabular-nums; line-height:1.2; }
+#ec-st .st-kpi-l { font-size:13px; color:var(--g700); margin-top:2px; }
+#ec-st .st-kpi-s { font-size:12px; color:var(--g500); }
+#ec-st .st-charts { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:20px; margin-top:20px; }
+#ec-st .st-chart { margin:0; min-width:0; }
+#ec-st .st-chart figcaption { display:flex; flex-wrap:wrap; justify-content:space-between; gap:4px 12px; font-size:13px; margin-bottom:10px; }
+#ec-st .st-chart figcaption span { color:var(--g500); }
+#ec-st .st-bars { display:flex; align-items:stretch; gap:2px; height:140px; border-bottom:1px solid var(--g200); padding-bottom:18px; position:relative; }
+#ec-st .st-bar-col { flex:1; display:flex; flex-direction:column; justify-content:flex-end; position:relative; min-width:0; outline:none; }
+#ec-st .st-bar-fill { background:var(--bar); border-radius:4px 4px 0 0; min-height:0; transition:opacity .15s; }
+#ec-st .st-bar-col:hover .st-bar-fill, #ec-st .st-bar-col:focus .st-bar-fill { opacity:.75; }
+#ec-st .st-bar-x { position:absolute; bottom:-18px; left:50%; transform:translateX(-50%); font-size:11px; color:var(--g500); white-space:nowrap; }
+#ec-st .st-bar-col:hover::after, #ec-st .st-bar-col:focus::after { content:attr(data-tip); position:absolute; bottom:calc(100% + 6px); left:50%; transform:translateX(-50%);
+  background:var(--g900); color:#fff; font-size:12px; padding:5px 8px; border-radius:6px; white-space:nowrap; z-index:5; pointer-events:none; }
+#ec-st .st-top { margin-top:20px; }
+#ec-st .st-top caption { text-align:left; font-weight:700; font-size:14px; color:var(--g900); padding-bottom:8px; }
+#ec-st .st-table .num { text-align:right; font-variant-numeric:tabular-nums; }
+@media (max-width:1024px) { #ec-st .st-kpis { grid-template-columns:repeat(3, minmax(0,1fr)); } #ec-st .st-charts { grid-template-columns:minmax(0,1fr); } }
+@media (max-width:640px) { #ec-st .st-kpis { grid-template-columns:repeat(2, minmax(0,1fr)); } #ec-st .st-stats .st-card-head { flex-wrap:wrap; } }
+#ec-st #st-root a.st-btn--primary, #ec-st #st-root a.st-btn--primary:hover { color:#fff; }
