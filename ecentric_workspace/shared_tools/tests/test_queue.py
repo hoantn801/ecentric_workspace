@@ -81,6 +81,11 @@ class TickTest(unittest.TestCase):
         host = dict(HOST_BUSY, x_idle_ms=10 * 60 * 1000)
         self.assertEqual(Q.tick([active(started=-15)], NOW, CFG, host)[0]["set"]["status"], C.ST_EXPIRED)
 
+    def test_busy_export_not_idle(self):
+        host = dict(HOST_BUSY, vnc_clients=0, busy=True)
+        self.assertEqual(Q.tick([active(started=-20)], NOW, CFG, host), [])
+        self.assertEqual(Q.tick([active(started=-31, ends=-1)], NOW, CFG, host)[0]["set"]["status"], C.ST_COMPLETED)
+
     def test_just_started_not_idle(self):
         host = dict(HOST_BUSY, vnc_clients=0)
         self.assertEqual(Q.tick([active(started=-2)], NOW, CFG, host), [])
