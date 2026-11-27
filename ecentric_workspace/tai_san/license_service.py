@@ -233,7 +233,7 @@ def cancel(ctx, name, note=None):
     return {"license": name, "revoked": len(seats)}
 
 
-def assign(ctx, name, employee, note=None):
+def assign(ctx, name, employee, note=None, notify=True):
     A.require(ctx.can_manage, "Chỉ người quản lý tài sản cấp bản quyền.")
     lic = LR.lock_license(name)
     if lic.status != C.LS_ACTIVE or LIC.stage(lic, _today()) == C.STAGE_EXPIRED:
@@ -246,7 +246,7 @@ def assign(ctx, name, employee, note=None):
         raise L.TransitionError("Đã dùng hết %d chỗ - tăng số chỗ hoặc thu lại của người khác." % lic.seats)
     seat = LR.insert_seat({"license": name, "employee": employee, "status": C.SEAT_ACTIVE,
                            "assigned_on": nowdate(), "assigned_by": ctx.user, "note": (note or "")[:500] or None})
-    user = R.employee_user(employee)
+    user = R.employee_user(employee) if notify else None
     if user:
         R.notify([user], "Bạn được cấp bản quyền %s - xem trong Tài sản của tôi." % lic.license_name,
                  "/" + C.ROUTE_MINE)

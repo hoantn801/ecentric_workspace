@@ -1,0 +1,63 @@
+{
+ "rows": [
+  {
+   "old_tag": "EC202400002",
+   "email": "huan.duong@ecentric.vn"
+  },
+  {
+   "old_tag": "EC202400045",
+   "email": "vu.dang@ecentric.vn"
+  },
+  {
+   "old_tag": "EC202400012",
+   "email": "thu.nguyen2@ecentric.vn"
+  },
+  {
+   "old_tag": "EC202400057",
+   "email": "thu.nguyen@ecentric.vn"
+  },
+  {
+   "old_tag": "EC202400005",
+   "email": "khoa.nguyen@ecentric.vn"
+  },
+  {
+   "old_tag": "EC202400007",
+   "email": "ha.vu@ecentric.vn"
+  },
+  {
+   "old_tag": "EC202400009",
+   "email": "sang.bui@ecentric.vn"
+  },
+  {
+   "old_tag": "EC202400015",
+   "email": "phuong.nguyen2@ecentric.vn"
+  },
+  {
+   "old_tag": "EC202400039",
+   "email": "duyen.le@ecentric.vn"
+  },
+  {
+   "old_tag": "EC202400024",
+   "email": "truc.nguyen1@ecentric.vn"
+  },
+  {
+   "old_tag": "EC202400013",
+   "email": null
+  },
+  {
+   "old_tag": "EC202400051",
+   "email": null
+  },
+  {
+   "old_tag": "EC202400054",
+   "email": null
+  }
+ ],
+ "fixes": [
+  {
+   "old_tag": "EC202400025",
+   "item_contains": "S27I-30"
+  }
+ ],
+ "note": "Đồng bộ theo file kiểm kê IT 27/11/2026"
+}
