@@ -59,6 +59,13 @@
   /* Nut "Xoa loc" khong co nhan phia tren, nen phai tu chua khoang trong bang dung chieu cao
      cua nhan (14px + 2px margin) thi day nut moi thang hang voi cac o nhap ben canh. */
   #ec-apl-root .fend .btn{ padding:4px 12px; font-size:12px; height:28px; border-radius:7px; margin-top:16px; }
+  /* O cuoi hang loc: "Xoa loc" ben trai, Excel / CSV don sang phai (27/11 - tai danh sach dang
+     loc). Chiem 2 cot luoi de ba nut khong bi ep vao 140px. Moi nut van tu chua margin-top 16px. */
+  #ec-apl-root .fend{ grid-column:span 2; }
+  #ec-apl-root .fend .fbtns{ display:flex; gap:6px; align-items:flex-start; }
+  #ec-apl-root .fend #apl-xlsx{ margin-left:auto; }
+  #ec-apl-root .fend .btn.dl{ display:inline-flex; align-items:center; gap:5px; padding:4px 10px; }
+  #ec-apl-root .fend .btn.dl .ec-btn-ic{ width:14px; height:14px; flex:none; }
   #ec-apl-root .btn{ padding:8px 16px; border-radius:8px; border:1px solid var(--gray-200); background:#fff; font-size:13px; font-weight:600; cursor:pointer; color:var(--gray-700); }
   #ec-apl-root .btn.primary{ background:var(--navy); border-color:var(--navy); color:#fff; }
   #ec-apl-root .btn:disabled{ opacity:.5; cursor:not-allowed; }
@@ -326,7 +333,7 @@
           <div><label>Loại yêu cầu</label><select id="f-type"><option value="">Tất cả</option></select></div>
           <div><label>Phòng ban</label><select id="f-department"><option value="">Tất cả</option></select></div>
           <div><label>Trạng thái</label><select id="f-status"><option value="">Tất cả</option></select></div>
-          <div class="fend"><button type="button" class="btn" id="apl-reset" hidden>Xoá lọc</button></div>
+          <div class="fend"><div class="fbtns"><button type="button" class="btn" id="apl-reset" hidden>Xoá lọc</button><button type="button" class="btn dl" id="apl-xlsx" data-fmt="xlsx" title="Tải Excel toàn bộ kết quả theo tab và bộ lọc đang chọn (tối đa 5.000 dòng)"><svg class="ec-btn-ic" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>Excel</button><button type="button" class="btn dl" id="apl-csv" data-fmt="csv" title="Tải CSV toàn bộ kết quả theo tab và bộ lọc đang chọn (tối đa 5.000 dòng)"><svg class="ec-btn-ic" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>CSV</button></div></div>
         </div>
       </div>
       <div class="card" id="apl-body"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
@@ -798,13 +805,13 @@
     if(rj.message&&rj.message.message) return _strip(rj.message.message);
     var exc=rj.exception||e.exception||""; if(exc){ var p=String(exc).split(": "); return _strip(p.length>1?p.slice(1).join(": "):exc); }
     return ""; }
-  function toast(msg, kind){
+  function toast(msg, kind, ms){
     var t=document.getElementById("ec-apl-toast");
     if(!t){ t=document.createElement("div"); t.id="ec-apl-toast";
       t.setAttribute("role","status"); t.setAttribute("aria-live","polite");
       document.body.appendChild(t); }
     t.className=kind||"ok"; t.textContent=msg; t.hidden=false;
-    clearTimeout(t._h); t._h=setTimeout(function(){ t.hidden=true; }, 2600);
+    clearTimeout(t._h); t._h=setTimeout(function(){ t.hidden=true; }, ms||2600);
   }
   // Tien trinh trong popup phai KHOP voi trang day du: "Da gui" -> cac cap duyet -> buoc xu ly
   // (neu form co) -> "Hoan tat".
@@ -1081,6 +1088,25 @@
   }
 
   function apply(){ state.start=0; load(); }
+  // Tai Excel / CSV (27/11/2026, Ke toan): TOAN BO ket qua cua tab + bo loc dang chon, khong chi
+  // trang dang xem. Gui DUNG bo tham so cua list_requests (box, filters, search) - server tu tinh
+  // lai pham vi bang chinh ham liet ke cua hub (reporting.api.export_requests -> hub_filters),
+  // KHONG gui danh sach ma phieu. Cach tai (POST + CSRF + ten tep + loi tieng Viet + chong bam
+  // chong) la asset dung chung EcAllTab.xuatTep - cung duong voi nut Excel/CSV cua tab "Tat ca".
+  function exportArgs(fmt){
+    return { box:state.box, filters:JSON.stringify(filters()), search:$("f-search").value||"", fmt:fmt };
+  }
+  function exportFile(btn){
+    var fmt=btn.getAttribute("data-fmt")==="csv"?"csv":"xlsx";
+    var other=$(fmt==="csv"?"apl-xlsx":"apl-csv");
+    var at=window.EcAllTab;
+    if(!at||typeof at.xuatTep!=="function"){
+      toast("Chưa tải xong công cụ xuất tệp. Vui lòng tải lại trang (Ctrl+Shift+R) rồi thử lại.","err",6000);
+      return Promise.resolve(false);
+    }
+    return at.xuatTep({ method:API+".export_requests", args:exportArgs(fmt), nut:btn, khoa:[other],
+      tenTep:"tat-ca-yeu-cau."+fmt, loi:function(m){ toast(m,"err",8000); } });
+  }
   function setBox(b){ state.box=b; state.start=0; syncUrl(); Array.prototype.forEach.call(document.querySelectorAll("#apl-tabs .tab"),function(t){ t.classList.toggle("active",t.getAttribute("data-box")===b); }); load(); }
   // Bộ lọc tự áp dụng: chọn xong còn phải bấm "Áp dụng" là một thao tác thừa, và người dùng
   // hay quên bấm rồi tưởng bộ lọc hỏng. Ô gõ tay thì chờ 400ms cho hết nhịp gõ.
@@ -1097,6 +1123,7 @@
     Array.prototype.forEach.call(document.querySelectorAll("#apl-tabs .tab"),function(t){ t.onclick=function(){ setBox(t.getAttribute("data-box")); }; });
     Array.prototype.forEach.call(document.querySelectorAll("#apl-tabs .tab"),function(t){ t.classList.toggle("active", t.getAttribute("data-box")===state.box); });
     $("apl-reset").onclick=function(){ FILTER_IDS.forEach(function(id){ $(id).value=""; }); autoApply(); };
+    ["apl-xlsx","apl-csv"].forEach(function(id){ var b=$(id); if(b) b.onclick=function(){ exportFile(b); }; });
     $("f-search").addEventListener("keydown",function(e){ if(e.key==="Enter"){ clearTimeout($("f-search")._t); autoApply(); } });
     var ham=$("apl-ham"); if(ham) ham.onclick=function(){ document.getElementById("ec-apl-root").classList.toggle("sb-open"); };
     dongOLocKhac();
@@ -1131,7 +1158,7 @@
       });
     }, true);
   }
-  window.ApprovalAll={ state:state, openDetail:openDetail, toast:toast, closeDetail:closeDetail, drawDetail:drawDetail, withFrom:withFrom, syncUrl:syncUrl, quickActions:quickActions, runAction:runAction, boot:boot, load:load, autoApply:autoApply, anyFilter:anyFilter, render:render, filters:filters, setBox:setBox, avatar:avatar, initials:initials, _call:call };
+  window.ApprovalAll={ state:state, openDetail:openDetail, toast:toast, closeDetail:closeDetail, drawDetail:drawDetail, withFrom:withFrom, syncUrl:syncUrl, quickActions:quickActions, runAction:runAction, boot:boot, load:load, exportFile:exportFile, exportArgs:exportArgs, autoApply:autoApply, anyFilter:anyFilter, render:render, filters:filters, setBox:setBox, avatar:avatar, initials:initials, _call:call };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",boot); else boot();
 })();
 </script>

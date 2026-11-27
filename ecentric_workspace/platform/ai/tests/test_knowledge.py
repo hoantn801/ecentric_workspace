@@ -181,6 +181,20 @@ class NguonGia(unittest.TestCase):
         self.assertIn("QUA HAN 1", out[0])
         self.assertIn("[QUA HAN] Phê duyệt: DNTT-001 - Chờ bạn duyệt cấp 2 (han 2026-11-26 17:00)", out[1])
 
+    def test_phieu_cho_toi_duyet_doc_dung_hinh_dang_rows(self):
+        """Site 27/11: list_my_pending tra {"rows", "count"}; doc nhu list -> KeyError."""
+        w = World()
+        fk = sys.modules["frappe"]
+        fk.get_all = lambda *a, **k: []
+        w.fake("ecentric_workspace.approval_center.shared.requests.quick_approve",
+               list_my_pending=lambda user: {"count": 1, "rows": [{
+                   "type_label": "Đề nghị thanh toán", "title": "Thanh toán KOC", "requester_name": "Nguyễn A",
+                   "level_name": "Trưởng phòng", "detail_url": "/approvals/payment-request?id=X", "amount": 15000000}]})
+        out = w.S.approvals("nv@ec.vn")
+        self.assertEqual(w.logs, [])
+        self.assertIn("CHO BAN DUYET: Đề nghị thanh toán - Thanh toán KOC (nguoi gui Nguyễn A, cap Trưởng phòng)", out[0])
+        self.assertNotIn("15000000", out[0], "khong lay so tien")
+
     def test_sla_ty_le_da_la_phan_tram(self):
         w = World()
         w.fake("ecentric_workspace.sla.controllers.api", my_board=lambda period=None: {"data": {

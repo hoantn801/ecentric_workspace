@@ -629,43 +629,89 @@
 
   function taiTep(st, fmt, nut) {
     var f = boLoc(st);
-    var cu = nut.textContent;
-    nut.disabled = true; nut.textContent = "Đang xuất…";
-    // POST, khong phai mo mot URL GET: export_all GHI mot dong vet, ma Frappe hoan tac moi
-    // thao tac ghi trong request GET (do duoc 15/09) - tep van tai ve nhung vet bien mat.
+    return xuatTep({
+      method: st.ns + "export_all", nut: nut,
+      args: { filters: JSON.stringify(f), search: st.f.search || null, fmt: fmt },
+      loi: function (msg) {
+        var box = st.el.querySelector(".ec-at-dem");
+        if (box) box.textContent = msg;
+      }
+    });
+  }
+
+  // TAI TEP QUA POST - dung chung cho tab "Tat ca" cua tung form VA trang hub
+  // /approvals/all-requests (27/11/2026). Mot ban duy nhat: sua cach tai / cach bao loi mot
+  // lan la ca hai noi cung doi.
+  //   o.method : duong dan dotted cua endpoint (whitelist methods=["POST"])
+  //   o.args   : object gui len (chuoi hoa JSON)
+  //   o.nut    : nut vua bam - khoa + "Dang xuat…" trong luc cho, tra lai nguyen HTML (ca icon)
+  //   o.khoa   : [nut khac] khoa cung luc (Excel + CSV: khong cho bam chong)
+  //   o.tenTep : ten du phong khi server khong gui Content-Disposition
+  //   o.loi    : function(cau tieng Viet) - noi hien loi cua trang goi
+  // Tra ve Promise<boolean>: true = da tai, false = loi (da bao qua o.loi) hoac dang tai do.
+  // POST, khong phai mo mot URL GET: endpoint GHI mot dong vet, ma Frappe hoan tac moi thao tac
+  // ghi trong request GET (do duoc 15/09) - tep van tai ve nhung vet bien mat.
+  function tenTuHeader(h) {
+    h = String(h || "");
+    var m = /filename\*\s*=\s*UTF-8''([^;]+)/i.exec(h);
+    if (m) { try { return decodeURIComponent(m[1].trim()); } catch (e) { } }
+    m = /filename\s*=\s*"([^"]+)"/i.exec(h) || /filename\s*=\s*([^;]+)/i.exec(h);
+    return m ? m[1].trim() : "";
+  }
+  function xuatTep(o) {
+    o = o || {};
+    var nut = o.nut, cac = [nut].concat(o.khoa || []).filter(Boolean);
+    if (nut && (nut.disabled || nut.getAttribute("aria-busy") === "true")) return Promise.resolve(false);
+    var cu = cac.map(function (b) { return { b: b, html: b.innerHTML, dis: b.disabled }; });
+    cac.forEach(function (b) { b.disabled = true; });
+    if (nut) { nut.setAttribute("aria-busy", "true"); nut.textContent = "Đang xuất…"; }
     var fr = window.frappe || {};
-    fetch("/api/method/" + st.ns + "export_all", {
+    return fetch("/api/method/" + o.method, {
       method: "POST", credentials: "same-origin",
       headers: {
         "Content-Type": "application/json",
         "Accept": "application/json",
         "X-Frappe-CSRF-Token": fr.csrf_token || ""
       },
-      body: JSON.stringify({ filters: JSON.stringify(f), search: st.f.search || null, fmt: fmt })
+      body: JSON.stringify(o.args || {})
     }).then(function (res) {
       if (!res.ok) {
         return res.text().then(function (t) {
-          var m = "";
-          try { m = (JSON.parse(t)._server_messages ? JSON.parse(JSON.parse(t)._server_messages)[0] : ""); } catch (e) { }
-          try { m = m ? (JSON.parse(m).message || m) : m; } catch (e) { }
-          throw new Error(m || ("Xuất tệp thất bại (HTTP " + res.status + ")"));
+          var j = {};
+          try { j = JSON.parse(t) || {}; } catch (e) { }
+          var err = new Error("");
+          err.status = res.status;
+          err._server_messages = j._server_messages;
+          err.exc_type = j.exc_type;
+          // Loi 5xx: KHONG chuyen traceback / cau SQL len man hinh - de EcApprovalUI doi
+          // thanh cau huong dan. 4xx (frappe.throw) thi giu nguyen cau nghiep vu.
+          if (res.status < 500) err.exception = j.exception;
+          if (res.status < 500 && !j._server_messages && !j.exception) err.message = "Xuất tệp thất bại (HTTP " + res.status + ")";
+          throw err;
         });
       }
-      return res.blob();
-    }).then(function (blob) {
-      var url = URL.createObjectURL(blob);
+      var ten = tenTuHeader(res.headers && res.headers.get && res.headers.get("Content-Disposition"));
+      return res.blob().then(function (blob) { return { blob: blob, ten: ten }; });
+    }).then(function (kq) {
+      var url = URL.createObjectURL(kq.blob);
       var a = document.createElement("a");
-      a.href = url; a.download = "";
+      // Blob URL khong mang ten tep cua server: phai dat lai, khong thi trinh duyet dat mot
+      // chuoi ngau nhien.
+      a.href = url; a.download = kq.ten || o.tenTep || "";
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+      return true;
     }).catch(function (e) {
       // Bao NGUYEN VAN cau server noi. Tran dong la mot loi CO THE SUA duoc - nguoi dung
       // chi sua duoc khi doc dung "vuot 5000, thu hep bo loc", khong phai "co loi xay ra".
-      var box = st.el.querySelector(".ec-at-dem");
-      if (box) box.textContent = window.EcApprovalUI ? window.EcApprovalUI.errorText(e, "Xuất tệp thất bại.")
+      var msg = window.EcApprovalUI ? window.EcApprovalUI.errorText(e, "Xuất tệp thất bại.")
         : ((e && e.message) || "Xuất tệp thất bại.");
-    }).then(function () {
-      nut.disabled = false; nut.textContent = cu;
+      if (typeof o.loi === "function") o.loi(msg);
+      return false;
+    }).then(function (ok) {
+      cu.forEach(function (x) { x.b.innerHTML = x.html; x.b.disabled = x.dis; });
+      if (nut) nut.removeAttribute("aria-busy");
+      return ok;
     });
   }
 
@@ -801,7 +847,7 @@
   }
 
   window.EcAllTab = {
-    render: render, _dongHTML: dongHTML, _tien: tien, _maNgan: maNgan,
+    render: render, xuatTep: xuatTep, _tenTuHeader: tenTuHeader, _dongHTML: dongHTML, _tien: tien, _maNgan: maNgan,
     _boLoc: boLoc, _docTien: docTien, _dsCot: dsCot, _dsChip: dsChip
   };
 })();
