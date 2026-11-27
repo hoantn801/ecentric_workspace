@@ -92,7 +92,9 @@ def summary(ctx, rows):
     live = [r for r in rows if r["status"] != C.LS_CANCELLED]
     out = {"total": len(live), "due": sum(1 for r in live if r["stage"] == C.STAGE_DUE),
            "expired": sum(1 for r in live if r["stage"] == C.STAGE_EXPIRED),
-           "seats": sum(r["seats"] for r in live), "used": sum(r["used"] for r in live)}
+           "seats": sum(r["seats"] for r in live), "used": sum(r["used"] for r in live),
+           "perpetual": sum(1 for r in live if r["license_type"] == C.LT_PERPETUAL),
+           "cancelled": len(rows) - len(live)}
     if ctx.can_see_cost:
         out["monthly_cost"] = sum(r.get("monthly_cost") or 0 for r in live)
     return out

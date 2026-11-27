@@ -209,12 +209,18 @@ def list_assets(ctx, filters=None):
         r["issues"] = [C.ISSUE_LABELS[i] for i in issues.get(r["name"], [])
                        if ctx.can_see_cost or i not in COST_ISSUES]
     models = _models([r for r in rows if not r["installed_on"] or filters.get("include_components")])
-    rows = _filter_rows(rows, filters)
+    # Dem theo trang thai voi moi bo loc TRU trang thai -> so tren chip trang thai (giong chip Approval Center).
+    rows = _filter_rows(rows, dict(filters, status=""))
+    status_counts = {}
+    for r in rows:
+        status_counts[r["status"]] = status_counts.get(r["status"], 0) + 1
+    all_count = len(rows)
+    rows = _filter_rows(rows, {"status": filters.get("status"), "include_components": 1})
     page = max(int(filters.get("page") or 1), 1)
     return {"rows": rows[(page - 1) * PAGE_SIZE: page * PAGE_SIZE], "total": len(rows), "page": page,
             "page_size": PAGE_SIZE, "can": ctx.flags(), "status_labels": C.STATUS_LABELS,
             "categories": sorted(cats), "departments": sorted({r["department"] for r in rows if r["department"]}),
-            "models": models}
+            "models": models, "status_counts": status_counts, "all_count": all_count}
 
 
 def _models(rows):

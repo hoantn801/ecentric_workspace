@@ -33,7 +33,8 @@
       '<div class="ts-filters" data-actions></div></div>' +
       '<div data-kpi></div>' +
       '<div class="ts-chips" data-chips role="group" aria-label="Lọc theo hạn">' + CHIPS.map(function (c) {
-        return '<button type="button" class="ts-chip' + (c[0] === st.stage ? " on" : "") + '" data-s="' + esc(c[0]) + '">' + esc(c[1]) + "</button>";
+        return '<button type="button" class="ts-chip' + (c[0] === st.stage ? " on" : "") + '" data-s="' + esc(c[0]) + '">' + esc(c[1]) +
+          '<span class="ts-cnt" data-cnt="' + esc(c[0] || "total") + '"></span></button>';
       }).join("") + "</div>" +
       '<div class="ts-filters"><input class="ts-in" type="search" data-q placeholder="Tên, hãng, tài khoản, người phụ trách…" aria-label="Tìm bản quyền" value="' + esc(st.q) + '" style="min-width:340px">' +
       '<select class="ts-sel" data-cat aria-label="Nhóm"><option value="">Tất cả nhóm</option></select>' +
@@ -124,6 +125,8 @@
       last = d;
       drawActions(d);
       drawKpi(d);
+      var sm = d.summary || {};
+      T.qsa(root, "[data-cnt]").forEach(function (x) { var n = sm[x.getAttribute("data-cnt")]; x.textContent = n == null ? "" : T.fmtNum(n); });
       var sel = root.querySelector("[data-cat]");
       sel.innerHTML = '<option value="">Tất cả nhóm</option>' + (d.categories || []).map(function (c) {
         return '<option value="' + esc(c) + '"' + (c === st.category ? " selected" : "") + ">" + esc(c) + "</option>";
@@ -148,17 +151,18 @@
 
   function drawKpi(d) {
     var s = d.summary || {}, cost = s.monthly_cost != null;
-    function k(label, value, sub, stage) {
-      return '<button type="button" class="ts-kpi"' + (stage != null ? ' data-kstage="' + esc(stage) + '"' : "") + '><div class="ts-kpi-l">' + esc(label) + "</div>" +
-        '<div class="ts-kpi-v">' + value + "</div>" + (sub ? '<div class="ts-kpi-s">' + esc(sub) + "</div>" : "") + "</button>";
+    // tip: giai thich dai -> tooltip (dong phu chi de so ngan, khong bi cat "...").
+    function k(label, value, sub, stage, ic, col, raw, tip) {
+      return T.kpiCard({ button: 1, attrs: stage != null ? ' data-kstage="' + esc(stage) + '"' : "", icon: ic, color: col,
+        label: label, value: value, raw: raw, sub: sub ? esc(sub) : "", title: tip });
     }
     kpiBox.innerHTML = '<div class="ts-grid ' + (cost ? "ts-g5" : "ts-g4") + '">' +
-      k("Đang dùng", T.fmtNum(s.total), "Không tính bản quyền đã huỷ", "") +
-      k("Sắp hết hạn", '<span' + (s.due ? ' style="color:#92400e"' : "") + ">" + T.fmtNum(s.due) + "</span>", "", "due") +
-      k("Đã quá hạn", '<span' + (s.expired ? ' class="ts-bad-text"' : "") + ">" + T.fmtNum(s.expired) + "</span>", "", "expired") +
+      k("Đang dùng", T.fmtNum(s.total), "", "", "key", null, s.total, "Không tính bản quyền đã huỷ") +
+      k("Sắp hết hạn", '<span' + (s.due ? ' style="color:#92400e"' : "") + ">" + T.fmtNum(s.due) + "</span>", "", "due", "clock", "#d97706", s.due) +
+      k("Đã quá hạn", '<span' + (s.expired ? ' class="ts-bad-text"' : "") + ">" + T.fmtNum(s.expired) + "</span>", "", "expired", "alert", "#dc2626", s.expired) +
       k("Chỗ đã cấp", T.fmtNum(s.used) + '<span class="ts-muted" style="font-size:18px"> / ' + T.fmtNum(s.seats) + "</span>",
-        s.seats ? "Còn trống " + T.fmtNum(Math.max(0, (s.seats || 0) - (s.used || 0))) + " chỗ" : "", null) +
-      (cost ? k("Chi phí tháng", T.fmtMillion(s.monthly_cost), "Quy đổi theo kỳ thanh toán", null) : "") + "</div>";
+        s.seats ? "Còn trống " + T.fmtNum(Math.max(0, (s.seats || 0) - (s.used || 0))) + " chỗ" : "", null, "users", null, s.used) +
+      (cost ? k("Chi phí tháng", T.fmtMillion(s.monthly_cost), "", null, "coins", null, s.monthly_cost, "Quy đổi theo kỳ thanh toán") : "") + "</div>";
   }
 
   function groupOf(product) {
@@ -168,7 +172,11 @@
   // Gop theo phan mem: moi phan mem mot dong. Bam dong -> loc danh sach theo phan mem do.
   function drawGroups(d) {
     var gs = d.groups || [], cost = !!(d.can && d.can.see_cost), mng = !!(d.can && d.can.manage);
-    if (!gs.length) { listBox.innerHTML = '<div class="ts-empty" style="padding:32px">Không có phần mềm nào khớp bộ lọc.</div>'; return; }
+    if (!gs.length) {
+      listBox.innerHTML = '<div class="ts-empty" style="padding:32px">' + (st.stage || st.category || st.product || st.q ? "Không có phần mềm nào khớp bộ lọc." :
+        "Chưa có bản quyền nào." + (mng ? " Bấm Thêm bản quyền để nhập." : "")) + "</div>";
+      return;
+    }
     var head = "<tr><th>Phần mềm</th><th>Nhóm</th><th class=\"ts-num\">Số bản quyền</th><th class=\"ts-num\">Chỗ</th><th>Hết hạn gần nhất</th>" +
       (cost ? '<th class="ts-num">Chi phí / tháng</th>' : "") + (mng ? "<th></th>" : "") + "</tr>";
     var body = gs.map(function (g) {

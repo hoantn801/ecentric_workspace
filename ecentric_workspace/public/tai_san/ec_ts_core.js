@@ -114,9 +114,30 @@
     monitor: '<rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/>', printer: '<path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="1.5"/><path d="M7 14h10v7H7z"/>',
     chip: '<rect x="6" y="6" width="12" height="12" rx="1.5"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>',
     check: '<path d="M20 6 9 17l-5-5"/>', alert: '<path d="M12 3 2 21h20z"/><path d="M12 10v5M12 18v.5"/>', back: '<path d="M15 18l-6-6 6-6"/>',
+    user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>', box: '<path d="M3 7l9-4 9 4-9 4z"/><path d="M3 7v10l9 4 9-4V7M12 11v10"/>',
+    bookmark: '<path d="M6 3h12v18l-6-4-6 4z"/>', clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    coins: '<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/>',
+    trend: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>', key: '<circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M17 6l3 3M14 9l2 2"/>',
+    users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/>',
     wrench: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.4 2.4-2.6-.6-.6-2.6z"/>', link: '<path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/>'
   };
   function icon(n) { return '<svg class="ts-ico" viewBox="0 0 24 24" aria-hidden="true">' + (ICONS[n] || "") + "</svg>"; }
+  // O icon mau cua the so lieu (cung kieu o icon the Approval Center): nen nhat cung mau, bo goc 9px.
+  function kpiIcon(n, color) {
+    return '<span class="ts-kpi-ic" style="--c:' + esc(color || "#2C3DA6") + '">' + icon(n) + "</span>";
+  }
+  // The so lieu NGANG (Hoan 27/11: the doc "hoi xau"): o icon trai, nhan nho + so lon ben phai, so 0 mo.
+  // value: chuoi HTML da escape (so da dinh dang); sub: HTML; extra: HTML them cuoi (vd thanh %).
+  function kpiCard(o) {
+    var tag = o.href ? "a" : o.button ? "button" : "div";
+    var attrs = (o.href ? ' href="' + esc(o.href) + '"' : "") + (o.button ? ' type="button"' : "") + (o.attrs || "") +
+      (o.title ? ' title="' + esc(o.title) + '"' : "");
+    var zero = String(o.raw == null ? "" : o.raw) === "0";
+    return "<" + tag + ' class="ts-kpi ts-kr"' + attrs + ">" + kpiIcon(o.icon, o.color) + '<div class="ts-kb">' +
+      '<div class="ts-kpi-l">' + esc(o.label) + '</div><div class="ts-kpi-v' + (zero ? " ts-zero" : "") + '">' + o.value + "</div>" +
+      // Dong phu LUON co (trong = &nbsp;): nhan / so cac the cung hang nam cung mot do cao.
+      '<div class="ts-kpi-s">' + (o.sub || "&nbsp;") + "</div>" + (o.extra || "") + "</div></" + tag + ">";
+  }
   function deviceIcon(cat) {
     var c = String(cat || "").toUpperCase();
     var n = c.indexOf("PC") === 0 || c.indexOf("DESKTOP") >= 0 ? "pc" : c.indexOf("MONITOR") >= 0 ? "monitor" :
@@ -179,7 +200,7 @@
     function draw() {
       var q = state.q.toLowerCase();
       var hit = rows.filter(function (r) { return !q || (opt.text ? opt.text(r) : opt.label(r)).toLowerCase().indexOf(q) >= 0; });
-      if (!hit.length) { list.innerHTML = '<div class="ts-empty">Không có kết quả.</div>'; return; }
+      if (!hit.length) { list.innerHTML = '<div class="ts-empty">' + esc(!rows.length && opt.emptyText ? opt.emptyText : "Không có kết quả.") + "</div>"; return; }
       list.innerHTML = hit.slice(0, 120).map(function (r) {
         var k = opt.key ? opt.key(r) : r.name;
         return '<button type="button" class="ts-opt' + (k === state.sel ? " on" : "") + '" data-k="' + esc(k) + '" role="option" aria-selected="' + (k === state.sel) + '">' +
@@ -213,6 +234,7 @@
     }
     function list() {
       picker(host.querySelector("[data-cp-list]"), rows, { placeholder: "Tìm…", label: opt.label, sub: opt.sub, selected: sel,
+        emptyText: opt.onAdd ? "Danh mục chưa có gì - bấm " + (opt.addLabel || "Thêm mới") + "." : "",
         onPick: function (k, r) { choose(k, r); } });
     }
     function choose(k, r) {
@@ -321,7 +343,7 @@
 
   window.ECTs = {
     esc: esc, byId: byId, qsa: qsa, param: param, setParam: setParam, get: get, post: post, msg: msg, toMineIfDenied: toMineIfDenied,
-    toast: toast, busy: busy, modal: modal, confirmBox: confirmBox, icon: icon, deviceIcon: deviceIcon,
+    toast: toast, busy: busy, modal: modal, confirmBox: confirmBox, icon: icon, kpiIcon: kpiIcon, kpiCard: kpiCard, deviceIcon: deviceIcon,
     pill: pill, dot: dot, condPill: condPill, statusLabel: statusLabel, statusColor: statusColor,
     STATUS_ORDER: STATUS_ORDER, COND: COND, OWN: OWN,
     fmtNum: fmtNum, fmtMoney: fmtMoney, fmtMillion: fmtMillion, fmtDate: fmtDate, fmtDT: fmtDT, fmtMonth: fmtMonth,

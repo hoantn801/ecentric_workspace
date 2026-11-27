@@ -222,9 +222,10 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 #ec-ts .ts-pickfield > span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 #ec-ts .ts-cp-panel { margin-top:6px; padding:8px; border:1px solid var(--line); border-radius:10px; background:#fff; display:flex; flex-direction:column; gap:8px; }
 #ec-ts .ts-cp-add { align-self:flex-start; }
-#ec-ts .ts-seg { display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+#ec-ts .ts-seg { display:inline-flex; border:1px solid var(--line); border-radius:9px; overflow:hidden; background:#fff; }
+#ec-ts .ts-seg button + button { border-left:1px solid var(--line); }
 #ec-ts .ts-seg button { border:0; background:#fff; padding:6px 12px; font:inherit; font-size:13px; cursor:pointer; color:var(--ink2); }
-#ec-ts .ts-seg button.on { background:var(--ink); color:#fff; }
+#ec-ts .ts-seg button.on { background:var(--wash); color:var(--navy); font-weight:600; }
 #ec-ts .ts-ph { color:var(--ink3); }
 #ec-ts .ts-mf { padding:12px 20px; border-top:1px solid var(--line); display:flex; gap:8px; justify-content:flex-end; align-items:center; flex-wrap:wrap; }
 @media (max-width:640px) { #ec-ts .ts-modal-bg { align-items:flex-end; padding:0; } #ec-ts .ts-modal { border-radius:16px 16px 0 0; max-height:92vh; } }
@@ -265,3 +266,61 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 #ec-ts .ts-prog > span { display:block; height:100%; background:var(--navy); }
 #ec-ts .ts-wrap.ts-mine { max-width:560px; }
 #ec-ts .ts-pill.ts-amber { background:var(--warn-bg); color:#92400e; }
+
+/* ================================================================ hoa phong cach Approval Center
+   (Hoan 27/11: "trang approval trinh bay hai hoa"). Cung bo tu vung: the trang vien xam bo 14px,
+   o icon mau nen nhat, nhan chu thuong (khong IN HOA nho li ti), chip vien tron co so dem,
+   hover = vien navy nhat + bong mem. Chi doi cach ve, khong doi bo cuc. */
+#ec-ts { --r:14px; --hover-line:#c7cef0; --hover-shadow:0 6px 16px rgba(16,24,40,.06); }
+#ec-ts .ts-card, #ec-ts .ts-kpi { border-radius:var(--r); }
+#ec-ts .ts-kpi, #ec-ts a.ts-kpi { transition:border-color .14s, box-shadow .14s; padding:14px 16px 13px; }
+#ec-ts .ts-kpi:hover { border-color:var(--hover-line); box-shadow:var(--hover-shadow); }
+#ec-ts .ts-kpi-l { gap:9px; font-size:13px; font-weight:600; letter-spacing:0; text-transform:none; color:var(--ink2); }
+#ec-ts .ts-kpi-v { font-size:26px; margin-top:10px; letter-spacing:-.4px; }
+#ec-ts .ts-fin-v { font-size:22px; margin-top:10px; letter-spacing:-.3px; }
+#ec-ts .ts-kpi-s { color:var(--ink3); }
+/* o icon: --c la mau nhan (trang thai / canh bao); nen la chinh mau do pha nhat. */
+#ec-ts .ts-kpi-ic { --c:#2C3DA6; width:30px; height:30px; border-radius:9px; flex:none; display:inline-flex; align-items:center; justify-content:center;
+  color:var(--c); background:color-mix(in srgb, var(--c) 12%, #fff); }
+#ec-ts .ts-kpi-ic svg.ts-ico { width:16px; height:16px; }
+/* tieu de khoi: 15px dam, chu thuong (nhu "Da ghim" / "Ban hay dung") */
+#ec-ts .ts-card-t { font-size:15px; font-weight:700; color:var(--ink); letter-spacing:-.1px; }
+#ec-ts .ts-card-t small, #ec-ts .ts-card-h small { font-size:12px; font-weight:500; color:var(--ink3); }
+/* nhan nhom (nhu "TAI CHINH & NGAN SACH · 5"): giu IN HOA nhung 12px, xam, gian chu */
+#ec-ts .ts-eb { font-size:12px; letter-spacing:.5px; color:var(--ink3); }
+/* chip: tron, 13px, so dem nhat; dang chon = navy wash (giong chip Approval + menu trai) */
+#ec-ts .ts-chip { padding:6px 13px; font-size:13px; gap:7px; color:var(--ink2); transition:border-color .12s, color .12s; }
+#ec-ts .ts-chip:hover { border-color:#d1d5db; color:var(--ink); }
+#ec-ts .ts-chip.on { border-color:#c9d0f2; }
+#ec-ts .ts-cnt { font-size:12px; font-weight:600; color:var(--ink4); font-variant-numeric:tabular-nums; }
+#ec-ts .ts-cnt:empty { display:none; }
+#ec-ts .ts-chip.on .ts-cnt { color:var(--navy); }
+#ec-ts .ts-chip.ts-chip-zero { color:var(--ink4); }
+/* o tim co kinh lup ben trai (nhu o tim Approval) - ve bang CSS, khong doi markup */
+#ec-ts input[type="search"].ts-in { padding-left:34px; border-radius:9px;
+  background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E") no-repeat 11px 50% / 16px 16px; }
+#ec-ts .ts-sel, #ec-ts .ts-in { border-radius:9px; }
+/* bang: dau cot nhe hon, dong cao hon mot chut, hover navy rat nhat */
+#ec-ts .ts-table th { font-size:11.5px; letter-spacing:.5px; color:var(--ink4); background:#fafbfc; padding:10px 12px; }
+#ec-ts .ts-table td { padding:11px 12px; }
+#ec-ts .ts-table tr.ts-click:hover td { background:#f7f8fe; }
+#ec-ts .ts-card[style*="padding:0"] { overflow:hidden; }
+/* luoi hai cot: khoi canh tren, khong keo gian bang khoi cao nhat (khoi ngan khong con khoang trong) */
+#ec-ts .ts-grid.ts-top { align-items:start; }
+/* phong ban trai ngang ca trang, chia 2 cot (mobile 1 cot); dong cuoi moi cot khong ke vach */
+#ec-ts .ts-dgrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); column-gap:40px; }
+@media (min-width:901px) { #ec-ts .ts-dgrid .ts-drow:nth-last-child(2):nth-child(odd) { border-bottom:0; } }
+@media (max-width:900px) { #ec-ts .ts-dgrid { grid-template-columns:minmax(0,1fr); } }
+/* bo loc: o chon khong bi ten dai (mau / phong ban) keo gian, o tim rong hon */
+#ec-ts .ts-filters .ts-sel { max-width:240px; text-overflow:ellipsis; }
+#ec-ts .ts-filters input[type="search"].ts-in { min-width:300px; }
+/* the so lieu NGANG (T.kpiCard): o icon 42px ben trai, nhan nho xam + so ben phai; so 0 mo di */
+#ec-ts .ts-kpi.ts-kr, #ec-ts button.ts-kpi.ts-kr, #ec-ts a.ts-kpi.ts-kr { display:flex; flex-direction:row; align-items:center; gap:14px; padding:16px 18px; }
+#ec-ts .ts-kr .ts-kpi-ic { width:42px; height:42px; border-radius:12px; }
+#ec-ts .ts-kr .ts-kpi-ic svg.ts-ico { width:20px; height:20px; }
+#ec-ts .ts-kr .ts-kb { flex:1; min-width:0; }
+#ec-ts .ts-kr .ts-kpi-l { font-size:12.5px; font-weight:500; color:var(--ink3); gap:0; }
+#ec-ts .ts-kr .ts-kpi-v { font-size:24px; margin-top:1px; line-height:1.15; }
+#ec-ts .ts-kr .ts-kpi-v.ts-zero { color:#c4c8d0; }
+#ec-ts .ts-kr .ts-kpi-s { font-size:12px; margin-top:1px; line-height:1.4; }
+#ec-ts .ts-kr .ts-bar { margin-top:6px; }
