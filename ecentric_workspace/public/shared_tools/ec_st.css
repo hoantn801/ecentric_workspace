@@ -192,3 +192,93 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 #ec-st .st-admin-actions { margin-top:12px; gap:8px; }
 #ec-st .st-admin .st-hint { margin-top:10px; font-size:12.5px; color:var(--g500); }
 @media (max-width:640px) { #ec-st .st-admin-actions .st-btn { flex:1 1 100%; } }
+
+/* ================================================================ bo cuc A (27/11/2026, theo Approval Center)
+ * bang trang thai -> 2 khung -> danh sach file -> quy dinh | quan ly -> thong ke. Cac luat duoi day de len luat cu. */
+#ec-st { --pin:#fffbef; --pin-line:#f2de9f; --icon:#e9eefb; --line2:#eef0f4; }
+#ec-st .st-wrap { gap:18px; }
+#ec-st .st-num { font-variant-numeric:tabular-nums; }
+#ec-st .st-card, #ec-st .st-panel { background:#fff; border:1px solid var(--g200); border-radius:14px; padding:18px 20px; min-width:0; }
+#ec-st .st-ph { display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 10px; margin-bottom:14px; }
+#ec-st .st-ph .st-pill { margin-left:auto; align-self:center; }
+#ec-st h2.st-h2 { font-size:17px; }
+#ec-st .st-card-head { margin-bottom:14px; }
+
+/* bang trang thai */
+#ec-st .st-banner { display:flex; flex-wrap:wrap; align-items:center; gap:14px 18px; border:1px solid var(--g200); border-radius:14px; padding:16px 20px; }
+#ec-st .st-bn-dot { width:54px; height:54px; border-radius:50%; display:grid; place-items:center; flex:0 0 auto; color:#fff; font-weight:800; font-size:16px; }
+#ec-st .st-bn-dot svg { width:24px; height:24px; fill:none; stroke:currentColor; stroke-width:2.6; stroke-linecap:round; stroke-linejoin:round; }
+#ec-st .st-bn-txt { flex:1 1 280px; min-width:0; }
+#ec-st h2.st-bn-t { font-size:18px; font-weight:700; color:var(--g900); line-height:1.35; }
+#ec-st .st-bn-s { margin-top:2px; font-size:13.5px; font-weight:500; }
+#ec-st .st-banner .st-bar { margin-top:10px; max-width:460px; height:6px; background:rgba(17,24,39,.08); }
+#ec-st .st-bn-acts { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+#ec-st .st-banner--ok { background:#ecf8f0; border-color:#bfe6cc; }
+#ec-st .st-banner--ok .st-bn-dot, #ec-st .st-banner--ok .st-bar span { background:#15803d; }
+#ec-st .st-banner--ok .st-bn-s { color:#15803d; }
+#ec-st .st-banner--pri { background:#f0f3fd; border-color:#c9d2f5; }
+#ec-st .st-banner--pri .st-bn-dot, #ec-st .st-banner--pri .st-bar span { background:var(--navy); }
+#ec-st .st-banner--pri .st-bn-s { color:var(--navy); }
+#ec-st .st-banner--warn { background:#fff7e8; border-color:#f6dda8; }
+#ec-st .st-banner--warn .st-bn-dot, #ec-st .st-banner--warn .st-bar span { background:#b45309; }
+#ec-st .st-banner--warn .st-bn-s { color:#92400e; }
+#ec-st .st-banner--bad { background:#fdf1f1; border-color:#f5c2c2; }
+#ec-st .st-banner--bad .st-bn-dot { background:#c81e1e; }
+#ec-st .st-banner--bad .st-bn-s { color:#b91c1c; }
+@media (max-width:640px) { #ec-st .st-bn-acts { flex:1 1 100%; } #ec-st .st-bn-acts .st-btn { flex:1 1 auto; } }
+
+/* 2 khung */
+#ec-st .st-duo { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(0,1fr); gap:18px; align-items:stretch; }
+#ec-st .st-duo--end { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+@media (max-width:1024px) { #ec-st .st-duo, #ec-st .st-duo--end { grid-template-columns:minmax(0,1fr); } }
+#ec-st .st-empty--box { border:1px dashed var(--g200); border-radius:12px; padding:22px 14px; text-align:center; }
+#ec-st .st-people { list-style:none; padding:0; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+@media (max-width:640px) { #ec-st .st-people { grid-template-columns:minmax(0,1fr); } }
+#ec-st .st-person { border:1px solid var(--g200); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:4px; min-width:0; position:relative; }
+#ec-st .st-person--me { background:var(--pin); border-color:var(--pin-line); }
+#ec-st .st-person .st-avatar { width:40px; height:40px; border-radius:10px; background:var(--icon); font-size:13px; margin-bottom:6px; }
+#ec-st .st-person-n { font-size:14.5px; font-weight:700; color:var(--g900); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#ec-st .st-person-d { font-size:12.5px; color:var(--g500); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#ec-st .st-person .st-q-x { position:absolute; top:10px; right:8px; }
+#ec-st .st-tag { align-self:flex-start; margin-top:6px; font-size:12px; font-weight:600; border-radius:999px; padding:2px 9px; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#ec-st .st-tag--pri { background:var(--navy-50); color:var(--navy); }
+#ec-st .st-tag--warn { background:var(--warn-bg); color:var(--warn); }
+#ec-st .st-tag--ok { background:var(--ok-bg); color:var(--ok); }
+#ec-st .st-ic { width:34px; height:34px; border-radius:9px; background:var(--icon); color:var(--navy); display:grid; place-items:center; flex:0 0 auto; }
+#ec-st .st-ic svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+#ec-st .st-often { list-style:none; padding:0; display:flex; flex-direction:column; gap:14px; }
+#ec-st .st-often li { display:grid; grid-template-columns:34px minmax(0,1fr) 72px auto; gap:12px; align-items:center; }
+#ec-st .st-often-n { font-weight:600; color:var(--g900); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#ec-st .st-often-bar { height:6px; border-radius:999px; background:var(--line2); overflow:hidden; }
+#ec-st .st-often-bar i { display:block; height:100%; background:var(--navy); border-radius:inherit; }
+#ec-st .st-often-c { font-size:12.5px; color:var(--g500); white-space:nowrap; }
+@media (max-width:640px) { #ec-st .st-often li { grid-template-columns:34px minmax(0,1fr) auto; } #ec-st .st-often-bar { display:none; } }
+
+/* danh sach file */
+#ec-st .st-panel--list { padding:18px 0 0; }
+#ec-st .st-panel--list > .st-ph { padding:0 20px; }
+#ec-st .st-ftools { display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:0 20px 14px; }
+#ec-st .st-search { display:flex; align-items:center; gap:8px; border:1px solid var(--g200); border-radius:12px; padding:0 12px; height:38px; flex:0 1 300px; min-width:200px; background:#fff; }
+#ec-st .st-search svg { width:16px; height:16px; fill:none; stroke:var(--g500); stroke-width:2; flex:0 0 auto; }
+#ec-st .st-search input { border:0; outline:0; background:transparent; width:100%; color:var(--g900); font-size:13.5px; }
+#ec-st .st-search:focus-within { border-color:var(--navy); }
+#ec-st .st-chips { display:flex; gap:8px; flex-wrap:wrap; }
+#ec-st .st-chip { border:1px solid var(--g200); background:#fff; border-radius:999px; height:34px; padding:0 14px; font-size:13px; font-weight:500; color:var(--g700); cursor:pointer; white-space:nowrap; }
+#ec-st .st-chip i { font-style:normal; font-size:12px; color:var(--g500); margin-left:4px; }
+#ec-st .st-chip:hover { border-color:var(--navy); }
+#ec-st .st-chip[aria-pressed="true"] { border:1.5px solid var(--navy); background:var(--navy-50); color:var(--navy); font-weight:600; }
+#ec-st .st-chip[aria-pressed="true"] i { color:var(--navy); }
+#ec-st .st-glabel { font-size:11.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--g500); background:var(--g50);
+  padding:7px 20px; border-top:1px solid var(--line2); border-bottom:1px solid var(--line2); }
+#ec-st .st-panel--list .st-files { display:block; }
+#ec-st .st-panel--list .st-file { display:grid; grid-template-columns:34px minmax(0,1fr) auto auto; gap:14px; align-items:center; padding:11px 20px; border-top:1px solid var(--line2); }
+#ec-st .st-panel--list .st-file:first-child { border-top:0; padding-top:11px; }
+#ec-st .st-panel--list .st-file:hover { background:var(--g50); }
+#ec-st .st-panel--list .st-file--new { background:var(--pin); }
+#ec-st .st-file-time { font-size:12.5px; color:var(--g500); min-width:44px; text-align:right; }
+#ec-st .st-panel--list .st-parts { margin-top:4px; }
+#ec-st .st-empty--pad { padding:14px 20px; }
+#ec-st .st-lfoot { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px 16px; padding:10px 20px; border-top:1px solid var(--line2); }
+#ec-st .st-lfoot .st-pager { margin:0; padding:0; }
+#ec-st .st-lfoot .st-muted { font-size:12.5px; }
+@media (max-width:640px) { #ec-st .st-panel--list .st-file { grid-template-columns:34px minmax(0,1fr) auto; } #ec-st .st-file-time { display:none; } #ec-st .st-search { flex:1 1 100%; } }

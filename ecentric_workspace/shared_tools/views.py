@@ -148,7 +148,8 @@ def group_exports(rows, now):
             if g is None:
                 g = runs[r["run_id"]] = {"kind": "run", "run": r["run_id"], "source": src, "rows": 0, "pages": 0,
                                          "page": (r.get("page_title") or "").split(" (phần")[0], "parts": [],
-                                         "at": _when(r.get("exported_at"), now), "new": False}
+                                         "at": _when(r.get("exported_at"), now), "new": False,
+                                         **_day(r.get("exported_at"), now)}
                 out.append(g)
             g["rows"] += int(r.get("rows") or 0)
             g["pages"] += int(r.get("pages") or 0)
@@ -157,10 +158,19 @@ def group_exports(rows, now):
             continue
         out.append({"kind": "file", "name": r["name"], "file_name": r.get("file_name"), "rows": r.get("rows"),
                     "pages": r.get("pages"), "page": r.get("page_title") or "", "source": src,
-                    "at": _when(r.get("exported_at"), now), "new": not r.get("downloaded_at")})
+                    "at": _when(r.get("exported_at"), now), "new": not r.get("downloaded_at"),
+                    **_day(r.get("exported_at"), now)})
     for g in runs.values():
         g["parts"].sort(key=lambda x: x["part"])
     return out[:MAX_FILE_ITEMS]
+
+
+def _day(d, now):
+    """Nhom theo ngay cho danh sach file: {"day": "Hôm nay" | "Hôm qua" | "dd/mm", "time": "HH:MM"}."""
+    if not d:
+        return {"day": "", "time": ""}
+    gap = (now.date() - d.date()).days
+    return {"day": "Hôm nay" if gap == 0 else "Hôm qua" if gap == 1 else d.strftime("%d/%m"), "time": _hhmm(d)}
 
 
 def _when(d, now):
