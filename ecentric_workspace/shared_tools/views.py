@@ -134,7 +134,9 @@ MAX_FILE_ITEMS = 120  # trang chia 5 dong / trang (ec_st_kalodata.js FILES_PER_P
 
 
 def _exports(key, user, now):
-    return group_exports(R.exports_of(key, user, add_days(now, -C.EXPORT_KEEP_DAYS)), now)
+    # File "chan doan cau truc bang" la file ky thuat (go loi nut Xuat bang), khong hien cho nguoi dung.
+    rows = [r for r in R.exports_of(key, user, add_days(now, -C.EXPORT_KEEP_DAYS)) if r.get("source") != "diagnostic"]
+    return group_exports(rows, now)
 
 
 def group_exports(rows, now):

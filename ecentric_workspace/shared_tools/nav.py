@@ -7,7 +7,7 @@ shared_tools/controllers/api.py tu kiem quyen (service.load_tool).
 from ecentric_workspace.shared_tools import constants as C
 
 ITEMS = [
-    {"key": "shared_tools.kalodata", "label": "Kalodata dùng chung", "route": "/" + C.ROUTE, "icon": "chart",
+    {"key": "shared_tools.kalodata", "label": "Kalodata", "route": "/" + C.ROUTE, "icon": "chart",
      "group": "", "order": 10, "active_patterns": ["/" + C.ROUTE],
      "visible_when": "internal", "owner": "shared_tools",
      "keywords": ["kalodata", "tiktok shop", "san pham", "creator", "kol", "nghien cuu thi truong",

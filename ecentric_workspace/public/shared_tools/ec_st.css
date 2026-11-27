@@ -282,3 +282,4 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 #ec-st .st-lfoot .st-pager { margin:0; padding:0; }
 #ec-st .st-lfoot .st-muted { font-size:12.5px; }
 @media (max-width:640px) { #ec-st .st-panel--list .st-file { grid-template-columns:34px minmax(0,1fr) auto; } #ec-st .st-file-time { display:none; } #ec-st .st-search { flex:1 1 100%; } }
+#ec-st .st-top caption { caption-side:top; }
