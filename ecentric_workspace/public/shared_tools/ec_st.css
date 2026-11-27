@@ -34,7 +34,7 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 #ec-st [hidden] { display:none !important; }
 
 /* ---------------------------------------------------------------- khung */
-#ec-st .st-wrap { max-width:1120px; margin:0 auto; padding:24px 32px 80px; display:flex; flex-direction:column; gap:20px; }
+#ec-st .st-wrap { max-width:1440px; margin:0 auto; padding:24px 32px 80px; display:flex; flex-direction:column; gap:20px; }
 @media (max-width:640px) { #ec-st .st-wrap { padding:16px 16px 96px; gap:16px; } }
 #ec-st .st-title-row { display:flex; flex-wrap:wrap; align-items:center; gap:12px; }
 #ec-st h1.st-title { font-size:26px; font-weight:800; letter-spacing:-.01em; color:var(--g900); line-height:1.25; }
