@@ -29,6 +29,7 @@ def prepare_draft(doc):
     viec voi phieu KOL, nuot loi tinh tien (nhap do)."""
     esign_flow.apply_default(doc)
     esign_flow.clean_labor(doc)
+    esign_flow.clean_partner_sign_type(doc)
     from ecentric_workspace.approval_center.features.contract_review.application import kol_access
     if not kol.is_kol(doc):
         # Da tao hop dong / BBNT KOL (in CCCD, STK creator) thi khong doi sang loai khac: loai khac khong

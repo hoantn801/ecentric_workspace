@@ -54,7 +54,7 @@ def state(ctx, key):
                  "lease": cfg["lease"],
                  "ready": cfg["ready"], "extend": cfg["extend"], "idle": cfg["idle"]},
         "host": host_view(host),
-        "me": _me(entries, me, now, cfg),
+        "me": _me(entries, me, now, cfg, connected=_connected(host, ctx.user)),
         "queue": [_row(e, i, entries, ctx, meta, now, cfg) for i, e in enumerate(entries)],
         "holder": _holder(entries, meta, now),
         "exports": _exports(key, ctx.user, now),
@@ -63,7 +63,13 @@ def state(ctx, key):
     }
 
 
-def _me(entries, me, now, cfg):
+def _connected(host, user):
+    """Nguoi xem dang co tab Kalodata mo (may 24/7 bao co viewer va dang cap cho chinh ho). Trang hoi lai
+    truoc khi "Mo lai": mo tab moi se ngat tab dang mo (doi mat khau). So lieu cache ~10 s."""
+    return bool(host.get("ok") and int(host.get("vnc_clients") or 0) > 0 and host.get("current_user") == user)
+
+
+def _me(entries, me, now, cfg, connected=False):
     if not me:
         return {"status": None}
     out = {"status": me["status"], "entry": me["name"], "waiting_after": Q.waiting_after(entries, me)}
@@ -80,6 +86,7 @@ def _me(entries, me, now, cfg):
         out["started"] = _hhmm(me["started_at"])
         out["ends"] = _hhmm(me["ends_at"])
         out["extend_reason"] = Q.extend_check(entries, me, now)
+        out["connected"] = connected
     return out
 
 

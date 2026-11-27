@@ -45,8 +45,8 @@
     "sha256": "8765f06452efed75b234a945713f5c5ae23c7215a1df55bcb45041e3e5ccbd24"
   },
   "approval_center/features/contract_review/ui/main_section.html": {
-    "last_resync_patch": "p570_resync_contract_review_mo_online_kol",
-    "sha256": "743254caaf423cb515adcb573431df2511cb16ebfa2120520de85166ca52885f"
+    "last_resync_patch": "p582_resync_hop_dong_kieu_ky_doi_tac",
+    "sha256": "a8462a8826305a32c449f83b38d461bd44f2fcf67001e74858d92adf7f89cc3f"
   },
   "approval_center/features/daily_target/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -144,7 +144,7 @@
     "sha256": "8c1732aa8dd67ee70e740c6b9964647a488aea449f3b1b802acc5731e05d09f2"
   },
   "approval_center/ui/all_requests/main_section.html": {
-    "last_resync_patch": "p582_resync_hub_tai_excel",
+    "last_resync_patch": "p586_resync_hub_tai_excel",
     "sha256": "4557fbb0a72982257e1535cf5ff57e6c9c80b2a1e5438dcb1148d32e501d1850"
   },
   "approval_center/ui/dashboard/main_section.html": {
@@ -313,8 +313,8 @@
     "sha256": "2a68fc1c6968cd99554157b6b76b2cbd5c880c9a9671ff67e76dc5498b198fd2"
   },
   "pm/frontend/pm_app.html": {
-    "last_resync_patch": "p581_resync_pm_hotfix23",
-    "sha256": "b6fa7f68e165b04ae56f7835ef9ede474154483690bff74149436b27decf8611"
+    "last_resync_patch": "p583_resync_pm_hotfix24",
+    "sha256": "74c97188abdc4054798216f31af9c896d1794ddccee37b8bdfabc90e4f544e00"
   },
   "ai_tools/pages/ai_live/main_section.html": {
     "last_resync_patch": "p417_ai_live_tao_phien_tren_trang",

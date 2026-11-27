@@ -527,7 +527,13 @@
       + fld("partner_signer_phone","Điện thoại người ký",'<input data-model="partner_signer_phone" value="'+esc(d.partner_signer_phone||"")+'">')
       // 24/11: cong ky CMC bat buoc CCCD / MST doi tac (kol_service.partner_identity).
       + fld("partner_signer_identity","CCCD / MST người ký",'<input data-model="partner_signer_identity" maxlength="20" inputmode="numeric" value="'+esc(d.partner_signer_identity||"")+'" placeholder="'+(KOL.isKol(d)?'Để trống: lấy CCCD / MST của creator':'CCCD (cá nhân) hoặc MST (công ty)')+'">'
-          +'<div class="hint">'+(KOL.isKol(d)?'Bắt buộc khi người ký không phải chính creator (người đại diện): nhập CCCD của người ký.':'Cổng ký số bắt buộc: CCCD với cá nhân, MST với công ty / hộ kinh doanh.')+'</div>'); }
+          +'<div class="hint">'+(KOL.isKol(d)?'Bắt buộc khi người ký không phải chính creator (người đại diện): nhập CCCD của người ký.':'Cổng ký số bắt buộc: CCCD với cá nhân, MST với công ty / hộ kinh doanh.')+'</div>')
+      // 27/11 (PO): kieu ky cua doi tac tren cong - KOL hay chi ky anh. Trong = mac dinh cua cong.
+      + fld("partner_sign_type","Kiểu ký của đối tác",'<select data-model="partner_sign_type"><option value="">Mặc định của cổng ký</option>'
+          +signTypeOpts().map(function(o){ return '<option value="'+esc(o.value)+'"'+(d.partner_sign_type===o.value?' selected':'')+'>'+esc(o.label)+'</option>'; }).join("")+'</select>'
+          +'<div class="hint">Cách người ký phía đối tác ký trên cổng (Ký ảnh, USB Token, eSign, VNeID...). Để mặc định nếu chưa thống nhất với đối tác.</div>'); }
+  function signTypeOpts(){ return (((state.boot||{}).form_options||{}).esign_partner_sign_types||[]).map(function(x){ return Array.isArray(x)?{value:x[0],label:x[1]}:x; }); }
+  function signTypeLabel(code){ var l=signTypeOpts(); for(var i=0;i<l.length;i++){ if(l[i].value===code) return l[i].label; } return code||""; }
   function validateSubmit(){ var d=state.draft||{}; var errs={};
     if(!((d.request_title||"").toString().trim())) errs.request_title="Vui lòng nhập tiêu đề yêu cầu.";
     if(d.request_kind==="Existing" && !d.previous_request) errs.previous_request="Vui lòng chọn hợp đồng gốc cần điều chỉnh.";
@@ -748,7 +754,7 @@
             +kvh("contract_type","Loại hợp đồng",biz.contract_type)
             +kvh("request_type","Loại mẫu",biz.request_type)
             +kvh("esign_flow","Quy trình ký",biz.esign_flow?esignLabel(biz.esign_flow):"Chưa chọn")
-            +(biz.partner_signer_name||biz.partner_signer_email?kv("Người ký phía đối tác",[biz.partner_signer_name,biz.partner_signer_email,biz.partner_signer_phone,biz.partner_signer_identity?("CCCD/MST "+biz.partner_signer_identity):""].filter(Boolean).join(" · ")):"")
+            +(biz.partner_signer_name||biz.partner_signer_email?kv("Người ký phía đối tác",[biz.partner_signer_name,biz.partner_signer_email,biz.partner_signer_phone,biz.partner_signer_identity?("CCCD/MST "+biz.partner_signer_identity):"",biz.partner_sign_type?("Kiểu ký: "+signTypeLabel(biz.partner_sign_type)):""].filter(Boolean).join(" · ")):"")
             +kvh("brand","Legal entity / Brand",biz.brand)
             +kvh("justification","Mục đích",biz.justification)
             +kvh("contract_value","Giá trị hợp đồng",vnd)

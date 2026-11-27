@@ -18,4 +18,4 @@ def execute():
         frappe.logger("approval_center").info("p582: %s, dau moc %s" % (
             res.get("action"), "CO" if MOC in html else "THIEU"))
     except Exception:
-        frappe.log_error(frappe.get_traceback(), "p582_resync_hub_tai_excel")
+        frappe.log_error(frappe.get_traceback(), "p586_resync_hub_tai_excel")
