@@ -379,10 +379,19 @@ class SignatureProviderAdapter(object):
         # xuat hien o `again` va van bi tu choi. (Da thu dot bien: them cau hoi do vao khong
         # lam doi ket qua o bat ky ca nao - mot nhanh khong kiem duoc la mot nhanh khong nen co.)
         relaxed = dict(expected)
-        relaxed.pop("signed_after", None)
+        floor = expected.get("predating_floor")
+        if floor:
+            # Tu dong (27/11/2026, service._predating_floor): chi ha moc tu "luc ERP gui lenh"
+            # xuong "luc cap nay mo tren ERP" - KHONG bo han.
+            relaxed["signed_after"] = floor
+        else:
+            relaxed.pop("signed_after", None)
         again = SignatureProviderAdapter._check_one_signer(target, relaxed)
         if not again.ok:
             return again
+        if floor:
+            return VerificationResult(True, "verified_predating_auto:%s"
+                                      % target.get("signed_at"), signer=target)
         # KY TRUOC KHI ERP HOI - chi chap nhan qua DOI SOAT THU CONG (09/09/2026).
         #
         # Kich ban that: nguoi trinh ky gui luc 23:25, nha cung cap gui mail, nguoi duyet vao

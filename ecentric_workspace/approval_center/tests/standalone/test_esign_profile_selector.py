@@ -40,12 +40,15 @@ class _D(dict):
     __getattr__ = dict.get
 
 
-def _guard(profiles, doc_values, gates_open=lambda p, e: True, columns=None, packages=()):
+def _guard(profiles, doc_values, gates_open=lambda p, e: True, columns=None, packages=(),
+           requests=()):
     tree = ast.parse(_GUARD)
     code = ""
     for n in tree.body:
         if isinstance(n, ast.FunctionDef) and n.name in ("_profile_rows", "get_active_profile",
-                                                         "get_enabled_profile", "_frozen_profile"):
+                                                         "get_enabled_profile", "_frozen_profile",
+                                                         "_submitted_without_package",
+                                                         "_drop_trust_if_submitted_without_package"):
             code += ast.get_source_segment(_GUARD, n) + "\n\n"
         if (isinstance(n, ast.Assign) and isinstance(n.targets[0], ast.Name)
                 and n.targets[0].id == "_FROZEN_PACKAGE_STATES"):
@@ -69,9 +72,23 @@ def _guard(profiles, doc_values, gates_open=lambda p, e: True, columns=None, pac
         calls["get_value"] += 1
         return doc_values.get((dt, name, field))
     cols = columns if columns is not None else {"esign_flow"}
+    def exists(dt, f):
+        calls["exists"] = calls.get("exists", 0) + 1
+        if dt == "EC Digital Signature Package":
+            return any(p["business_doctype"] == f["business_doctype"]
+                       and p["business_name"] == f["business_name"] for p in packages)
+        if dt == "EC Approval Request":
+            ok = f.get("approval_status", ["in", ("Pending",)])[1]
+            for r in requests:
+                st = r[2] if len(r) > 2 else "Pending"
+                if (r[0], r[1]) == (f["reference_doctype"], f["reference_name"]) and st in ok:
+                    return True
+            return False
+        raise AssertionError("exists(%s) khong mong doi" % dt)
     fk = types.SimpleNamespace(
         get_all=get_all,
-        db=types.SimpleNamespace(get_value=get_value, has_column=lambda dt, c: c in cols),
+        db=types.SimpleNamespace(get_value=get_value, has_column=lambda dt, c: c in cols,
+                                 exists=exists),
         throw=lambda m, *a, **k: (_ for _ in ()).throw(_Throw(m)))
     g = {"frappe": fk, "_": lambda s: s, "PROFILE": "EC Digital Signature Profile",
          "_gates_open": gates_open}
@@ -493,6 +510,52 @@ class TestGoiTheoPhieuHienTai(unittest.TestCase):
         g, writes, evts = self._env(pkg)
         with self.assertRaises(_Throw):
             g["get_or_create_draft"](CR, "CR-1", "CR-HDLD-WF03")
+
+class TestPhieuGuiTruocKhiBatHoSo(unittest.TestCase):
+    """27/11/2026 (EC-CTR-2026-00120/00125/00130): phieu gui duyet truoc khi bat ho so "lay
+    buoc tu cong", khong co goi nao -> ho so do KHONG ap vao phieu (luong ERP cu)."""
+    TRUST = dict(KOL, trust_portal_transitions=1)
+    VAL = {(CR, "EC-CTR-130", "esign_flow"): "kol_wf09"}
+
+    def test_da_gui_khong_goi_bo_ho_so_lay_buoc_tu_cong(self):
+        g = _guard([self.TRUST], self.VAL, requests=[(CR, "EC-CTR-130")])
+        self.assertIsNone(g["get_active_profile"](CR, "CONTRACT_REVIEW", "EC-CTR-130"))
+        self.assertIsNone(g["get_enabled_profile"](CR, "CONTRACT_REVIEW", "EC-CTR-130"))
+
+    def test_chua_gui_van_ap_ho_so(self):
+        g = _guard([self.TRUST], self.VAL)
+        self.assertEqual(g["get_enabled_profile"](CR, "CONTRACT_REVIEW", "EC-CTR-130"),
+                         self.TRUST["name"])
+
+    def test_da_gui_co_goi_draft_van_ap_ho_so(self):
+        pk = [{"business_doctype": CR, "business_name": "EC-CTR-130", "status": "Draft",
+               "creation": "1", "profile": self.TRUST["name"]}]
+        g = _guard([self.TRUST], self.VAL, packages=pk, requests=[(CR, "EC-CTR-130")])
+        self.assertEqual(g["get_active_profile"](CR, "CONTRACT_REVIEW", "EC-CTR-130"),
+                         self.TRUST["name"])
+
+    def test_ho_so_khong_lay_buoc_tu_cong_khong_doi(self):
+        g = _guard([KOL], self.VAL, requests=[(CR, "EC-CTR-130")])
+        self.assertEqual(g["get_active_profile"](CR, "CONTRACT_REVIEW", "EC-CTR-130"),
+                         KOL["name"])
+        self.assertEqual(g["_calls"].get("exists", 0), 0, "khong trust: khong them truy van")
+
+    def test_vong_cu_da_dong_khong_tinh_la_da_gui(self):
+        """QC 27/11: vong cu Rejected (vd BBNT gui lai) khong lam vong moi mat ky so."""
+        g = _guard([self.TRUST], self.VAL, requests=[(CR, "EC-CTR-130", "Rejected")])
+        self.assertEqual(g["get_active_profile"](CR, "CONTRACT_REVIEW", "EC-CTR-130"),
+                         self.TRUST["name"])
+
+    def test_ho_so_lay_buoc_tu_cong_KHONG_selector_cung_ap_luat(self):
+        """QC 27/11: nhanh khong selector cung phai bo ho so cho phieu gui truoc."""
+        t = dict(self.TRUST, selector_field=None, selector_value=None)
+        g = _guard([t], {}, requests=[(CR, "EC-CTR-130")])
+        self.assertIsNone(g["get_active_profile"](CR, "CONTRACT_REVIEW", "EC-CTR-130"))
+
+    def test_dntt_khong_them_truy_van(self):
+        g = _guard([dict(PR, trust_portal_transitions=0)], {})
+        g["get_active_profile"]("EC Payment Request", "PAYMENT_REQUEST", "EC-PAYR-1")
+        self.assertEqual(g["_calls"].get("exists", 0), 0)
 
 
 if __name__ == "__main__":
