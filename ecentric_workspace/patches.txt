@@ -543,7 +543,4 @@ ecentric_workspace.shared_tools.patches.p001_setup
 ecentric_workspace.shared_tools.patches.p002_resync_page
 ecentric_workspace.shared_tools.patches.p003_resync_page
 ecentric_workspace.approval_center.patches.p578_tai_san_qc_giao_dien
-<<<<<<< HEAD
 ecentric_workspace.shared_tools.patches.p004_resync_page
-=======
->>>>>>> github/main
