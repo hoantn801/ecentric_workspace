@@ -19,6 +19,69 @@
   }
 
   function money(v) { return v == null || v === "" ? "" : T.fmtMoney(v); }
+
+  // ------------------------------------------------ chi phi nhieu tien te (27/11) --
+  // Ngoai te x ty gia = VND; o VND sua tay duoc (so thuc tru tren sao ke the). Ty gia goi y lay tu ERP.
+  // "383,95" / "383.95" -> 383.95; "26.010" / "26,010" (3 chu so sau dau) -> 26010.
+  function parseNum(v) {
+    var str = String(v == null ? "" : v).replace(/\s/g, "");
+    if (!str) return "";
+    var m = str.match(/[.,](\d+)$/);
+    if (m && m[1].length !== 3) str = str.slice(0, str.length - m[0].length).replace(/[.,]/g, "") + "." + m[1];
+    else str = str.replace(/[.,]/g, "");
+    return isNaN(Number(str)) ? "" : str;
+  }
+  function fmtFc(n) {
+    var x = Number(n || 0), r = Math.round(x * 100) / 100, i = Math.floor(r), d = Math.round((r - i) * 100);
+    return T.fmtNum(i) + (d ? "," + (d < 10 ? "0" : "") + d : "");
+  }
+  // Mot dong chi phi de hien: "383,95 USD · 9.986.540 ₫" (VND thi chi so ₫).
+  function costText(cur, fc, vnd) {
+    if (cur && cur !== "VND" && fc) return fmtFc(fc) + " " + esc(cur) + (vnd ? ' <span class="ts-muted">· ' + T.fmtMoney(vnd) + "</span>" : "");
+    return money(vnd);
+  }
+  function costHtml(L, opts) {
+    opts = opts || {};
+    var curs = (last && last.currencies) || ["VND", "USD"], cur = L.currency || "VND";
+    var ph = opts.keep ? ' placeholder="Trống = giữ như cũ"' : "";
+    function val(x) { return x == null || x === "" ? "" : esc(String(x).replace(".", ",")); }
+    return '<div class="ts-full ts-cost" data-cost><div class="ts-cost-row">' +
+      '<label class="ts-lbl">Tiền tệ<select class="ts-sel" name="currency">' + curs.map(function (c) {
+        return '<option value="' + esc(c) + '"' + (c === cur ? " selected" : "") + ">" + esc(c) + "</option>"; }).join("") + "</select></label>" +
+      '<label class="ts-lbl" data-fc>' + (opts.label || "Chi phí mỗi kỳ") + ' (<span data-cur>' + esc(cur) + '</span>)<input class="ts-in" name="cost_fc" inputmode="decimal" value="' + (opts.keep ? "" : val(L.cost_fc)) + '"' + ph + "></label>" +
+      '<label class="ts-lbl" data-fc>Tỷ giá (₫ / <span data-cur>' + esc(cur) + '</span>)<input class="ts-in" name="exchange_rate" inputmode="decimal" value="' + (L.exchange_rate ? T.fmtNum(L.exchange_rate) : "") + '"></label>' +
+      '<label class="ts-lbl">' + (opts.label || "Chi phí mỗi kỳ") + ' (₫)<input class="ts-in" name="cost_vnd" inputmode="numeric" value="' + (!opts.keep && L.cost_per_cycle ? T.fmtNum(L.cost_per_cycle) : "") + '"' + ph + "></label>" +
+      '</div><div class="ts-note" data-cost-hint></div></div>';
+  }
+  // Gan su kien; tra ve ham doc {currency, cost_fc, exchange_rate, cost_per_cycle} (chuoi so da chuan hoa).
+  function costBind(el) {
+    var box = el.querySelector("[data-cost]");
+    if (!box) return null;
+    var rates = (last && last.rates) || {}, f = function (n) { return box.querySelector('[name="' + n + '"]'); };
+    var vndTouched = !!f("cost_vnd").value && !!f("cost_fc").value;   // so ₫ da luu khac tich -> giu
+    function sync(fromCur) {
+      var cur = f("currency").value, fx = cur !== "VND";
+      T.qsa(box, "[data-fc]").forEach(function (x) { x.hidden = !fx; });
+      T.qsa(box, "[data-cur]").forEach(function (x) { x.textContent = cur; });
+      if (fx && fromCur && !f("exchange_rate").value && rates[cur]) f("exchange_rate").value = T.fmtNum(rates[cur].rate);
+      var fc = Number(parseNum(f("cost_fc").value) || 0), rate = Number(parseNum(f("exchange_rate").value) || 0);
+      if (fx && fc && rate && !vndTouched) f("cost_vnd").value = T.fmtNum(Math.round(fc * rate));
+      var hint = box.querySelector("[data-cost-hint]");
+      hint.textContent = !fx ? "" : (fc && rate ? fmtFc(fc) + " " + cur + " × " + T.fmtNum(rate) + " = " + T.fmtMoney(Math.round(fc * rate)) + ". " : "") +
+        (rates[cur] ? "Tỷ giá ERP " + T.fmtNum(rates[cur].rate) + " (" + T.fmtDate(rates[cur].date) + "). " : "") +
+        "Sửa ô ₫ nếu sao kê thẻ trừ số khác. Tổng chi phí tháng luôn tính bằng ₫.";
+    }
+    f("currency").addEventListener("change", function () { vndTouched = false; sync(true); });
+    f("cost_fc").addEventListener("input", function () { vndTouched = false; sync(); });
+    f("exchange_rate").addEventListener("input", function () { vndTouched = false; sync(); });
+    f("cost_vnd").addEventListener("input", function () { vndTouched = true; sync(); });
+    sync(true);
+    return function () {
+      var cur = f("currency").value, fx = cur !== "VND";
+      return { currency: cur, cost_fc: fx ? parseNum(f("cost_fc").value) : "", exchange_rate: fx ? parseNum(f("exchange_rate").value) : "",
+        cost_per_cycle: parseNum(f("cost_vnd").value) };
+    };
+  }
   function fdate(s) { return esc(T.fmtDate(s)); }
   function leadNote() {
     var ld = (last && last.lead_days) || {};
@@ -272,7 +335,9 @@
       kv("Bắt đầu", fdate(L.start_date)) + kv("Hết hạn", fdate(L.expiry_date)) +
       kv("Người phụ trách", esc(L.owner_name || L.owner_employee || "")) + kv("Phòng ban", esc(L.department || "")) +
       kv("Tài khoản", esc(L.account || "")) + kv("Nơi lưu key", esc(L.key_location || "")) +
-      (hasCost ? kv("Chi phí mỗi kỳ", money(L.cost_per_cycle)) + kv("Quy ra tháng", money(L.monthly_cost)) + kv("Hoá đơn NCC", esc(L.supplier_invoice || "")) : "") +
+      (hasCost ? kv("Chi phí mỗi kỳ", costText(L.currency, L.cost_fc, L.cost_per_cycle)) + kv("Quy ra tháng", money(L.monthly_cost)) +
+        (L.currency && L.currency !== "VND" && L.exchange_rate ? kv("Tỷ giá", T.fmtNum(L.exchange_rate) + " ₫ / " + esc(L.currency)) : "") +
+        kv("Hoá đơn NCC", esc(L.supplier_invoice || "")) : "") +
       "</div>" +
       (L.note ? '<div class="ts-infobox" style="white-space:pre-line">' + esc(L.note) + "</div>" : "") +
       (sub && live ? '<div class="ts-note">' + esc(leadNote()) + (L.lead_days ? " Bản quyền này nhắc trước " + L.lead_days + " ngày." : "") + "</div>" : "") +
@@ -288,8 +353,12 @@
       // gia han
       (sub || ren.length ? "<section><div class=\"ts-eb\">Lịch sử gia hạn</div>" + (ren.length ? '<ul class="ts-tl">' + ren.map(function (r) {
         return "<li><div><b class=\"ts-strong\">" + fdate(r.renewed_on) + "</b> · " + (r.old_expiry ? fdate(r.old_expiry) + " → " : "đến ") + fdate(r.new_expiry) + "</div>" +
-          '<div class="ts-note">' + esc([r.cost != null ? T.fmtMoney(r.cost) : "", r.renewed_by_name || r.renewed_by, r.note].filter(Boolean).join(" · ")) + "</div></li>";
+          '<div class="ts-note">' + [r.cost != null ? costText(r.currency, r.cost_fc, r.cost) : "", esc(r.renewed_by_name || r.renewed_by || ""), esc(r.note || "")].filter(Boolean).join(" · ") + "</div></li>";
       }).join("") + "</ul>" : '<div class="ts-empty">Chưa gia hạn lần nào.</div>') + "</section>" : "") +
+      // nhat ky sua (Hoan 27/11: sua chi phi phai luu log)
+      ((d.logs || []).length ? "<section><div class=\"ts-eb\">Nhật ký sửa · " + d.logs.length + '</div><ul class="ts-tl">' + d.logs.slice(0, 20).map(function (x) {
+        return "<li><div>" + esc(x.text) + '</div><div class="ts-note">' + esc([x.by, x.at ? T.fmtDate(x.at.slice(0, 10)) + " " + x.at.slice(11, 16) : ""].filter(Boolean).join(" · ")) + "</div></li>";
+      }).join("") + "</ul></section>" : "") +
       // da thu
       (hist.length ? "<section><div class=\"ts-eb\">Đã thu lại · " + hist.length + "</div>" + hist.map(function (s) {
         return '<div class="ts-li"><div class="ts-li-main">' + esc(s.employee_name || s.employee) +
@@ -362,18 +431,20 @@
       T.modal("Gia hạn · " + (L.license_name || L.name),
         '<p class="ts-muted">Hạn hiện tại: ' + (L.expiry_date ? fdate(L.expiry_date) + " · " + esc(T.licDays(L.days_left)) : "—") + (L.cycle_label ? " · " + esc(L.cycle_label) : "") + "</p>" +
         '<div class="ts-form"><label class="ts-lbl">Hạn mới<input class="ts-in" type="date" name="new_expiry" value="' + esc(d.suggested_expiry || "") + '" required></label>' +
-        '<label class="ts-lbl">Chi phí kỳ mới (₫)<input class="ts-in" name="cost" inputmode="numeric" placeholder="Trống = giữ như cũ"></label>' +
+        costHtml({ currency: L.currency, exchange_rate: L.exchange_rate }, { keep: 1, label: "Chi phí kỳ mới" }) +
         '<label class="ts-lbl ts-full">Ghi chú<textarea class="ts-ta" name="note" maxlength="500" placeholder="Số hoá đơn, đổi gói…"></textarea></label></div>' +
         '<div class="ts-note">' + (d.suggested_expiry ? "Hạn mới gợi ý theo kỳ thanh toán. " : "") + "Gia hạn xong, mốc nhắc tính lại theo hạn mới.</div>",
         '<button type="button" class="ts-btn" data-close>Huỷ</button><button type="button" class="ts-btn ts-primary" data-ok>Gia hạn</button>',
         function (el, close) {
+          var readCost = costBind(el);
           el.querySelector("[data-close]").addEventListener("click", function () { resolve(null); });
           el.querySelector("[data-ok]").addEventListener("click", function (ev) {
             var btn = ev.currentTarget, exp = el.querySelector('[name="new_expiry"]').value;
             if (!exp) { T.toast("Chọn hạn mới.", true); return; }
-            var cost = String(el.querySelector('[name="cost"]').value || "").replace(/[^\d]/g, "");
+            var c = readCost(), args = { name: L.name, new_expiry: exp, note: el.querySelector('[name="note"]').value };
+            if (c.cost_per_cycle || c.cost_fc) { args.currency = c.currency; args.cost = c.cost_per_cycle; args.cost_fc = c.cost_fc; args.exchange_rate = c.exchange_rate; }
             T.busy(btn, true);
-            T.post("renew_license", { name: L.name, new_expiry: exp, cost: cost, note: el.querySelector('[name="note"]').value })
+            T.post("renew_license", args)
               .then(function (r) { close(); T.toast("Đã gia hạn đến " + T.fmtDate(r && r.expiry_date || exp) + "."); resolve(r || true); },
                 function (er) { T.busy(btn, false); T.toast(T.msg(er), true); });
           });
@@ -392,7 +463,7 @@
     var L = d ? d.license : {}, can = d ? (d.can || {}) : ((last && last.can) || {});
     var creating = !d, infoOk = creating || !!can.manage;
     var hasInvoice = creating || Object.prototype.hasOwnProperty.call(L, "supplier_invoice");
-    var costOk = creating || !!can.finance;
+    var costOk = creating || !!can.manage || !!can.finance;
     var types = (last && last.types) || { Subscription: "Thuê bao (có hạn)", Perpetual: "Vĩnh viễn" };
     var cycles = (last && last.cycles) || { Monthly: "Theo tháng", Quarterly: "Theo quý", Yearly: "Theo năm", Other: "Kỳ khác" };
     var ltype = L.license_type || "Subscription";
@@ -425,18 +496,18 @@
         '<div class="ts-full" data-owner-host hidden></div>' +
         inp("account", "Tài khoản đăng nhập", L.account) + inp("key_location", "Nơi lưu key / mật khẩu", L.key_location) +
         (hasInvoice ? inp("supplier_invoice", "Hoá đơn NCC", L.supplier_invoice) : "") +
-        (costOk ? inp("cost_per_cycle", "Chi phí mỗi kỳ (₫)", L.cost_per_cycle ? Math.round(L.cost_per_cycle) : "", { num: 1 }) : "") +
+        (costOk ? costHtml(L) : "") +
         '<label class="ts-ck ts-full" data-sub><input type="checkbox" name="auto_renew"' + (L.auto_renew ? " checked" : "") + "> Hãng tự gia hạn (vẫn nhắc để kiểm tra thẻ / hoá đơn)</label>" +
         '<label class="ts-lbl ts-full">Ghi chú<textarea class="ts-ta" name="note" maxlength="1000">' + esc(L.note || "") + "</textarea></label></div>" +
-        (creating ? "" : '<div class="ts-note">Gia hạn kỳ mới dùng nút Gia hạn (có lưu lịch sử); ô Hết hạn ở đây chỉ để sửa khi nhập nhầm. Chi phí chỉ Finance / HOF sửa sau khi nhập.</div>');
+        (creating ? "" : '<div class="ts-note">Gia hạn kỳ mới dùng nút Gia hạn (có lưu lịch sử); ô Hết hạn ở đây chỉ để sửa khi nhập nhầm. Mỗi lần sửa chi phí đều ghi vào Nhật ký sửa.</div>');
     } else {
-      body += '<p class="ts-muted">' + esc(L.license_name || L.name) + '</p><div class="ts-form">' + inp("cost_per_cycle", "Chi phí mỗi kỳ (₫)", L.cost_per_cycle ? Math.round(L.cost_per_cycle) : "", { num: 1 }) + "</div>";
+      body += '<p class="ts-muted">' + esc(L.license_name || L.name) + '</p><div class="ts-form">' + costHtml(L) + "</div>";
     }
     return new Promise(function (resolve) {
       T.modal(creating ? "Thêm bản quyền" : "Sửa · " + (L.license_name || L.name), body,
         '<button type="button" class="ts-btn" data-close>Huỷ</button><button type="button" class="ts-btn ts-primary" data-ok>' + (creating ? "Thêm" : "Lưu") + "</button>",
         function (el, close) {
-          var owner = L.owner_employee || "", prodPick = null;
+          var owner = L.owner_employee || "", prodPick = null, readCost = costBind(el);
           function v(n) { var f = el.querySelector('[name="' + n + '"]'); return f ? f.value : ""; }
           function syncType() {
             var perp = ltype === "Perpetual";
@@ -527,10 +598,15 @@
                 }
               }
             }
-            if (costOk && el.querySelector('[name="cost_per_cycle"]')) {
-              var c = String(v("cost_per_cycle")).replace(/[^\d]/g, "");
-              var old = L.cost_per_cycle ? String(Math.round(L.cost_per_cycle)) : "";
-              if (creating || c !== old) data.cost_per_cycle = c;
+            if (costOk && readCost) {
+              // Chi gui khi doi (hoac tao moi) - so sanh voi gia tri dang luu.
+              var c = readCost(), n = function (x) { return x == null || x === "" ? "" : String(Number(x)); };
+              var dirty = creating || c.currency !== (L.currency || "VND") || n(c.cost_fc) !== n(L.cost_fc) ||
+                n(c.exchange_rate) !== n(L.exchange_rate) || n(c.cost_per_cycle) !== n(L.cost_per_cycle ? Math.round(L.cost_per_cycle) : "");
+              if (dirty) {
+                if (c.currency !== "VND" && c.cost_fc && !c.exchange_rate) { T.toast("Nhập tỷ giá " + c.currency + " → ₫.", true); return; }
+                data.currency = c.currency; data.cost_fc = c.cost_fc; data.exchange_rate = c.exchange_rate; data.cost_per_cycle = c.cost_per_cycle;
+              }
             }
             T.busy(btn, true);
             var call = creating ? T.post("create_license", { data: JSON.stringify(data) }) :

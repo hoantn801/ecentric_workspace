@@ -9,7 +9,8 @@ from ecentric_workspace.tai_san import repository as R
 
 LICENSE_FIELDS = ["name", "product", "license_name", "vendor", "category", "license_type", "billing_cycle", "status",
                   "seats", "start_date", "current_term_start", "expiry_date", "auto_renew", "owner_employee",
-                  "department", "account", "key_location", "cost_per_cycle", "supplier_invoice",
+                  "department", "account", "key_location", "cost_per_cycle", "currency", "cost_fc", "exchange_rate",
+                  "supplier_invoice",
                   "alert_stage", "alert_for_expiry", "note", "modified"]
 PRODUCT_FIELDS = ["name", "product_name", "name_key", "vendor", "category", "license_type", "billing_cycle",
                   "disabled", "note"]
@@ -83,8 +84,22 @@ def add_renewal(name, row):
 
 def renewals(name):
     return frappe.get_all(C.LICENSE_RENEWAL_DT, filters={"parent": name, "parenttype": C.LICENSE_DT},
-                          fields=["renewed_on", "old_expiry", "new_expiry", "cost", "renewed_by", "note"],
+                          fields=["renewed_on", "old_expiry", "new_expiry", "cost", "currency", "cost_fc", "exchange_rate",
+                                  "renewed_by", "note"],
                           order_by="creation desc")
+
+
+def latest_rates(currencies, to):
+    """Ty gia goi y = dong Currency Exchange moi nhat (tu -> VND) cho moi ngoai te. Thieu thi bo qua."""
+    out = {}
+    for cur in currencies:
+        if cur == to:
+            continue
+        rows = frappe.get_all("Currency Exchange", filters={"from_currency": cur, "to_currency": to},
+                              fields=["exchange_rate", "date"], order_by="date desc", limit_page_length=1)
+        if rows and rows[0].exchange_rate:
+            out[cur] = {"rate": float(rows[0].exchange_rate), "date": str(rows[0].date)}
+    return out
 
 
 # ---------------------------------------------------------- danh muc phan mem ----
@@ -202,3 +217,11 @@ def user_names(users):
 
 def now():
     return now_datetime()
+
+
+def license_logs(name, limit=50):
+    """Nhat ky sua cua ban quyen (Comment Info do add_log ghi), moi nhat truoc."""
+    return frappe.get_all("Comment", filters={"reference_doctype": C.LICENSE_DT, "reference_name": name,
+                                              "comment_type": "Info"},
+                          fields=["content", "comment_email", "creation"], order_by="creation desc",
+                          limit_page_length=limit)

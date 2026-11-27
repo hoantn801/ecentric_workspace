@@ -434,31 +434,31 @@
     "sha256": "e38488cb25ea4e7876bfbbad36382fc65a7c1e829e546f87ba03c9bce5d24a53"
   },
   "tai_san/pages/home/main_section.html": {
-    "last_resync_patch": "p580_tai_san_giao_dien",
-    "sha256": "975c10c5ddeebc4cb3c884ea9f404a100251f814d478720862bf7dd26a1b743e"
+    "last_resync_patch": "p583_tai_san_ngoai_te",
+    "sha256": "63af2b5177816ba92b45aa16de5aab2c8cca614ea8e9e1ac16cb0beed0399b8f"
   },
   "tai_san/pages/list/main_section.html": {
-    "last_resync_patch": "p580_tai_san_giao_dien",
-    "sha256": "32f4c727dcf31631ab72f4b7aa57640c9393cfe42ada891a2c30f5cd8a2b18b5"
+    "last_resync_patch": "p583_tai_san_ngoai_te",
+    "sha256": "2a83463032c60ddbbfa364dcf7312a9f4da090e596add86693ec10aca70b62c0"
   },
   "tai_san/pages/moves/main_section.html": {
-    "last_resync_patch": "p580_tai_san_giao_dien",
-    "sha256": "a45cce47855f9e46618bd6d4ac733a45ab09c9d25d09b28319aef0c78f9ecba3"
+    "last_resync_patch": "p583_tai_san_ngoai_te",
+    "sha256": "10f5d11d49029213a818e7ca7030e185cbe9806294595b3990c6c4884d709659"
   },
   "tai_san/pages/repairs/main_section.html": {
-    "last_resync_patch": "p580_tai_san_giao_dien",
-    "sha256": "4cdd2bfb2e1d25882eee0e4cbafd1d05d7effdf054b5644b079cdc63ef4ffc9d"
+    "last_resync_patch": "p583_tai_san_ngoai_te",
+    "sha256": "9df47f97ec476af66d5f19c0d4367508caac6301913adbffa6b63969992c919a"
   },
   "tai_san/pages/count/main_section.html": {
-    "last_resync_patch": "p580_tai_san_giao_dien",
-    "sha256": "42b5d9d500d44faf895947dc5886e914ff9d26b45f8f26978a500faea425a24f"
+    "last_resync_patch": "p583_tai_san_ngoai_te",
+    "sha256": "e2fe9246c8608be2ecd09c07ce850220bce275be0a841f4c5b89f57914a5e4d7"
   },
   "tai_san/pages/mine/main_section.html": {
-    "last_resync_patch": "p580_tai_san_giao_dien",
-    "sha256": "c371b381c5d1729271284b04b3d88c2011c08ec861330ba3ce309cd105cb5bdc"
+    "last_resync_patch": "p583_tai_san_ngoai_te",
+    "sha256": "7e72a35e6bf259c947eb2fe1f03c8666e8d02ee09f96daaba05638fcc515425e"
   },
   "tai_san/pages/licenses/main_section.html": {
-    "last_resync_patch": "p580_tai_san_giao_dien",
-    "sha256": "d31e048062be176b386c4b4afc7ceffd4ddd2409e216a43a78cf80e92edc3ef6"
+    "last_resync_patch": "p583_tai_san_ngoai_te",
+    "sha256": "4f13b61812c788639f3aefd346087af79136343b2505b68271426387efd87554"
   }
 }

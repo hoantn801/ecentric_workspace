@@ -1,8 +1,9 @@
 # Copyright (c) 2026, eCentric and contributors
 """Ban quyen phan mem: nhap, sua, gia han, huy, cap / thu cho cho nhan vien.
 
-Quyen: nguoi quan ly tai san (can_manage) lam moi thao tac; chi phi moi ky nhap luc tao / gia han
-(nhu nguyen gia luc nhap thiet bi), sua chi phi sau do chi Finance / HOF. Moi lan cap / thu la mot
+Quyen: nguoi quan ly tai san (can_manage) lam moi thao tac. Chi phi: nguoi quan ly tai san va
+Finance / HOF sua duoc bat cu luc nao, moi lan sua ghi log (Hoan 27/11/2026). Ngoai te: luu so tien
+theo tien te + ty gia; `cost_per_cycle` luon la VND (de cong chi phi thang). Moi lan cap / thu la mot
 dong EC Software License Seat (khong xoa) - do la dau vet cua ban quyen.
 """
 import datetime as _dt
@@ -20,7 +21,8 @@ from ecentric_workspace.tai_san import service as S
 #: Ten / hang / nhom KHONG sua rieng tren ban quyen - lay theo phan mem (product_service, 27/11/2026).
 INFO_FIELDS = ("billing_cycle", "seats", "start_date", "auto_renew",
                "owner_employee", "department", "account", "key_location", "supplier_invoice", "note")
-FINANCE_FIELDS = ("cost_per_cycle",)
+#: Truong chi phi (ai sua: nguoi quan ly tai san + Finance / HOF; co log).
+COST_FIELDS = ("cost_per_cycle", "currency", "cost_fc", "exchange_rate")
 MAX_SEATS = 10000
 
 
@@ -31,7 +33,31 @@ def _num(v, label, cast=float):
         raise L.TransitionError("%s phải là số." % label)
 
 
-def _clean(data, ctx, creating):
+def money(currency, cost_fc=None, rate=None, vnd=None):
+    """Chi phi mot ky -> {currency, cost_fc, exchange_rate, cost_per_cycle (VND)}.
+    VND: chi can `vnd`. Ngoai te: can so ngoai te + ty gia; `vnd` (so thuc tru tren sao ke) neu co
+    thi giu, trong thi = ngoai te x ty gia (lam tron dong)."""
+    cur = (currency or C.BASE_CURRENCY).strip().upper()
+    if cur not in C.LICENSE_CURRENCIES:
+        raise L.TransitionError("Tiền tệ chưa hỗ trợ: %s." % cur)
+    blank = lambda x: x is None or str(x).strip() == ""
+    v_vnd = None if blank(vnd) else _num(vnd, "Chi phí (₫)")
+    if cur == C.BASE_CURRENCY:
+        if v_vnd is not None and v_vnd < 0:
+            raise L.TransitionError("Chi phí không được âm.")
+        return {"currency": cur, "cost_fc": None, "exchange_rate": None, "cost_per_cycle": v_vnd or None}
+    fc = None if blank(cost_fc) else _num(cost_fc, "Chi phí (%s)" % cur)
+    r = None if blank(rate) else _num(rate, "Tỷ giá")
+    if (fc is not None and fc < 0) or (r is not None and r < 0) or (v_vnd is not None and v_vnd < 0):
+        raise L.TransitionError("Chi phí / tỷ giá không được âm.")
+    if fc and not r:
+        raise L.TransitionError("Nhập tỷ giá %s → ₫." % cur)
+    if v_vnd is None and fc and r:
+        v_vnd = round(fc * r)
+    return {"currency": cur, "cost_fc": fc or None, "exchange_rate": r or None, "cost_per_cycle": v_vnd or None}
+
+
+def _clean(data, ctx, creating, lic=None):
     v = {}
     for f in INFO_FIELDS:
         if f in data:
@@ -39,12 +65,10 @@ def _clean(data, ctx, creating):
             v[f] = val.strip()[:140] if isinstance(val, str) and f not in ("note",) else val
             if v[f] == "":
                 v[f] = None
-    if "cost_per_cycle" in data:
-        A.require(creating or ctx.can_finance, "Chỉ Finance / HOF sửa chi phí bản quyền.")
-        cost = _num(data.get("cost_per_cycle"), "Chi phí")
-        if cost < 0:
-            raise L.TransitionError("Chi phí không được âm.")
-        v["cost_per_cycle"] = cost or None
+    if any(f in data for f in COST_FIELDS):
+        A.require(ctx.can_manage or ctx.can_finance, "Chỉ người quản lý tài sản / Finance sửa chi phí bản quyền.")
+        cur = data.get("currency") or (lic.get("currency") if lic else None)
+        v.update(money(cur, data.get("cost_fc"), data.get("exchange_rate"), data.get("cost_per_cycle")))
     if "seats" in v:
         seats = _num(v["seats"], "Số chỗ", int)
         if seats < 1 or seats > MAX_SEATS:
@@ -104,10 +128,10 @@ def update(ctx, name, data):
         A.require(ctx.can_manage, "Chỉ người quản lý tài sản sửa thông tin bản quyền.")
     if "product" in data:
         A.require(ctx.can_manage, "Chỉ người quản lý tài sản đổi phần mềm của bản quyền.")
-    v = _clean(data, ctx, creating=False)
+    lic = LR.lock_license(name)
+    v = _clean(data, ctx, creating=False, lic=lic)
     if "product" in data:
         v.update(_product_values(data["product"])[1])
-    lic = LR.lock_license(name)
     if v.get("start_date") and not LR.renewals(name):
         # Chua gia han lan nao: ngay bat dau chinh la dau ky (moc nhac goi ngan han tinh tu day).
         if lic.expiry_date and getdate(v["start_date"]) >= getdate(lic.expiry_date):
@@ -136,13 +160,36 @@ def update(ctx, name, data):
     if not changed:
         return {"changed": []}
     LR.set_license(name, v)
-    LR.add_log(name, "Sửa: " + "; ".join("%s: %s → %s" % (k, lic.get(k), v[k]) for k in changed
-                                        if k not in ("alert_stage", "alert_for_expiry")), ctx.user)
+    LR.add_log(name, "Sửa: " + "; ".join("%s: %s → %s" % (LOG_LABELS.get(k, k), _show(lic.get(k), k), _show(v[k], k))
+                                        for k in changed if k not in ("alert_stage", "alert_for_expiry")), ctx.user)
     return {"changed": changed}
 
 
-def renew(ctx, name, new_expiry=None, cost=None, note=None):
-    """Gia han: han moi phai sau han cu; ghi lich su; mo lai moc nhac cho han moi."""
+LOG_LABELS = {"cost_per_cycle": "Chi phí (₫)", "cost_fc": "Chi phí (ngoại tệ)", "exchange_rate": "Tỷ giá",
+              "currency": "Tiền tệ", "seats": "Số chỗ", "expiry_date": "Hết hạn", "start_date": "Bắt đầu",
+              "billing_cycle": "Kỳ", "owner_employee": "Phụ trách", "department": "Phòng ban", "product": "Phần mềm"}
+
+
+MONEY_KEYS = ("cost_per_cycle", "cost_fc", "exchange_rate")
+
+
+def _show(x, key=None):
+    """Gia tri doc duoc trong log: so tien co dau cham hang nghin (9.986.540), so le giu 2 chu so."""
+    if x in (None, ""):
+        return "—"
+    if key in MONEY_KEYS:
+        try:
+            f = float(x)
+        except (TypeError, ValueError):
+            return x
+        whole = "{:,.0f}".format(f) if f.is_integer() else "{:,.2f}".format(f)
+        return whole.replace(",", "X").replace(".", ",").replace("X", ".")
+    return x
+
+
+def renew(ctx, name, new_expiry=None, cost=None, note=None, currency=None, cost_fc=None, exchange_rate=None):
+    """Gia han: han moi phai sau han cu; ghi lich su; mo lai moc nhac cho han moi.
+    Chi phi ky moi: nhu luc nhap (VND, hoac ngoai te + ty gia); de trong = giu chi phi cu."""
     A.require(ctx.can_manage, "Chỉ người quản lý tài sản gia hạn bản quyền.")
     lic = LR.lock_license(name)
     if lic.license_type != C.LT_SUBSCRIPTION:
@@ -155,16 +202,18 @@ def renew(ctx, name, new_expiry=None, cost=None, note=None):
     old_exp = getdate(lic.expiry_date) if lic.expiry_date else None
     if (old_exp and new_exp <= old_exp) or new_exp <= getdate(nowdate()):
         raise L.TransitionError("Hạn mới phải sau hạn cũ và sau hôm nay.")
-    cost = _num(cost, "Chi phí") if cost not in (None, "") else None
-    if cost is not None and cost < 0:
-        raise L.TransitionError("Chi phí không được âm.")
+    m = None
+    if any(x not in (None, "") for x in (cost, cost_fc)):
+        m = money(currency or lic.get("currency"), cost_fc, exchange_rate, cost)
     values = {"expiry_date": str(new_exp), "status": C.LS_ACTIVE, "alert_stage": None, "alert_for_expiry": None,
               "current_term_start": str(old_exp if old_exp and old_exp >= getdate(nowdate()) else getdate(nowdate()))}
-    if cost is not None:
-        values["cost_per_cycle"] = cost or None
+    if m:
+        values.update(m)
     LR.set_license(name, values)
     LR.add_renewal(name, {"renewed_on": nowdate(), "old_expiry": str(old_exp) if old_exp else None,
-                          "new_expiry": str(new_exp), "cost": cost, "renewed_by": ctx.user,
+                          "new_expiry": str(new_exp), "cost": m["cost_per_cycle"] if m else None,
+                          "currency": m["currency"] if m else None, "cost_fc": m["cost_fc"] if m else None,
+                          "exchange_rate": m["exchange_rate"] if m else None, "renewed_by": ctx.user,
                           "note": (note or "")[:500] or None})
     return {"license": name, "expiry_date": str(new_exp)}
 
