@@ -44,12 +44,13 @@
     opts = opts || {};
     var curs = (last && last.currencies) || ["VND", "USD"], cur = L.currency || "VND";
     var ph = opts.keep ? ' placeholder="Trống = giữ như cũ"' : "";
-    function val(x) { return x == null || x === "" ? "" : esc(String(x).replace(".", ",")); }
+    // DB tra 0 cho o tien de trong -> hien trong, khong hien "0".
+    function val(x) { return x == null || x === "" || Number(x) === 0 ? "" : esc(String(x).replace(".", ",")); }
     return '<div class="ts-full ts-cost" data-cost><div class="ts-cost-row">' +
       '<label class="ts-lbl">Tiền tệ<select class="ts-sel" name="currency">' + curs.map(function (c) {
         return '<option value="' + esc(c) + '"' + (c === cur ? " selected" : "") + ">" + esc(c) + "</option>"; }).join("") + "</select></label>" +
-      '<label class="ts-lbl" data-fc>' + (opts.label || "Chi phí mỗi kỳ") + ' (<span data-cur>' + esc(cur) + '</span>)<input class="ts-in" name="cost_fc" inputmode="decimal" value="' + (opts.keep ? "" : val(L.cost_fc)) + '"' + ph + "></label>" +
-      '<label class="ts-lbl" data-fc>Tỷ giá (₫ / <span data-cur>' + esc(cur) + '</span>)<input class="ts-in" name="exchange_rate" inputmode="decimal" value="' + (L.exchange_rate ? T.fmtNum(L.exchange_rate) : "") + '"></label>' +
+      '<label class="ts-lbl" data-fc><span>' + (opts.label || "Chi phí mỗi kỳ") + ' (<b data-cur>' + esc(cur) + '</b>)</span><input class="ts-in" name="cost_fc" inputmode="decimal" value="' + (opts.keep ? "" : val(L.cost_fc)) + '"' + ph + "></label>" +
+      '<label class="ts-lbl" data-fc><span>Tỷ giá (₫ / <b data-cur>' + esc(cur) + '</b>)</span><input class="ts-in" name="exchange_rate" inputmode="decimal" value="' + (Number(L.exchange_rate) ? T.fmtNum(L.exchange_rate) : "") + '"></label>' +
       '<label class="ts-lbl">' + (opts.label || "Chi phí mỗi kỳ") + ' (₫)<input class="ts-in" name="cost_vnd" inputmode="numeric" value="' + (!opts.keep && L.cost_per_cycle ? T.fmtNum(L.cost_per_cycle) : "") + '"' + ph + "></label>" +
       '</div><div class="ts-note" data-cost-hint></div></div>';
   }
@@ -600,7 +601,7 @@
             }
             if (costOk && readCost) {
               // Chi gui khi doi (hoac tao moi) - so sanh voi gia tri dang luu.
-              var c = readCost(), n = function (x) { return x == null || x === "" ? "" : String(Number(x)); };
+              var c = readCost(), n = function (x) { return x == null || x === "" || Number(x) === 0 ? "" : String(Number(x)); };
               var dirty = creating || c.currency !== (L.currency || "VND") || n(c.cost_fc) !== n(L.cost_fc) ||
                 n(c.exchange_rate) !== n(L.exchange_rate) || n(c.cost_per_cycle) !== n(L.cost_per_cycle ? Math.round(L.cost_per_cycle) : "");
               if (dirty) {
