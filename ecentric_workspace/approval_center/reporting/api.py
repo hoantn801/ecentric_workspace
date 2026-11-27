@@ -110,15 +110,27 @@ def get_request_timeline(name):
     return {"header": header, "actions": actions}
 
 
+#: Tab cua trang hub. "all" (va moi gia tri la) = khong them dieu kien tab nao.
+HUB_BOXES = ("received", "sent", "fulfil", "watching")
+
+
+def hub_filters(filters, box):
+    """Bo loc da chuan hoa cua trang hub cho MOT tab - dung chung cho bang (list_requests) va
+    tep tai ve (export_requests), de "tai dung cai dang thay" la mot su that cua code, khong
+    phai mot loi hua. `_me` lay tu SESSION, khong bao gio tu client."""
+    f = _parse_filters(filters, force_date=False)
+    if box in HUB_BOXES:
+        f["box"] = box
+        f["_me"] = frappe.session.user
+    return f
+
+
 @frappe.whitelist()
 def list_requests(filters=None, start=0, page_length=50, search=None, box=None):
     """Paginated cross-form request list (all statuses) for the 'All requests' page. Scope-resolved
     server-side; no date default (show all in scope unless a range is passed)."""
     scope = _scope.resolve_scope(frappe.session.user)
-    f = _parse_filters(filters, force_date=False)
-    if box in ("received", "sent", "fulfil", "watching"):
-        f["box"] = box
-        f["_me"] = frappe.session.user
+    f = hub_filters(filters, box)
     try:
         start = max(0, int(start))
         page_length = min(200, max(1, int(page_length)))
@@ -132,3 +144,14 @@ def list_requests(filters=None, start=0, page_length=50, search=None, box=None):
     if box == "fulfil" and start == 0:
         out["drafts"] = _service.my_drafts()
     return out
+
+
+# POST, khong phai GET: giong export_all cua tab "Tat ca" tung form - ham nay GHI mot dong vet,
+# ma Frappe hoan tac moi thao tac ghi trong request GET (tep van ve, vet thi mat).
+@frappe.whitelist(methods=["POST"])
+def export_requests(filters=None, search=None, box=None, fmt="xlsx"):
+    """Tai Excel/CSV TOAN BO ket qua cua tab + bo loc dang xem tren /approvals/all-requests.
+    Pham vi do server tinh lai (resolve_scope + scope_predicate), khong nhan danh sach ma tu
+    client. Xem reporting/hub_export.py."""
+    from ecentric_workspace.approval_center.reporting import hub_export as _hx
+    return _hx.export(filters=filters, search=search, box=box, fmt=fmt)
