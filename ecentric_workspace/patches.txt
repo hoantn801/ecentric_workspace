@@ -553,3 +553,4 @@ ecentric_workspace.tai_san.patches.p004_danh_muc
 ecentric_workspace.approval_center.patches.p579_tai_san_danh_muc
 ecentric_workspace.approval_center.patches.p580_tai_san_giao_dien
 ecentric_workspace.approval_center.patches.p581_resync_pm_hotfix23
+ecentric_workspace.approval_center.patches.p582_resync_hop_dong_kieu_ky_doi_tac

@@ -135,6 +135,7 @@ def _check_submittable(doc):
     het - xoa trang ly do / quy trinh ky / brand, hay doi KOL -> Mua vao van qua)."""
     esign_flow.apply_default(doc)
     esign_flow.clean_labor(doc)
+    esign_flow.clean_partner_sign_type(doc)
     if not doc.get("esign_flow"):
         # Nen tang ky so chon ho so theo truong nay (chot 12/11): loai khong co mac dinh phai chon
         # luc gui duyet - sau khi duyet xong phieu khoa, khong con cho chon (QC7).
