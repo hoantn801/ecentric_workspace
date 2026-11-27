@@ -22,8 +22,9 @@
 
   function renderClosed() {
     var y = new Date();
-    root.innerHTML = '<div class="ts-wrap ts-narrow">' + head("Đối chiếu sổ với thực tế: ai đang giữ máy nào, máy còn hay mất, tình trạng ra sao.") +
-      '<div class="ts-card"><div class="ts-card-t">Chưa có đợt kiểm kê nào đang mở</div>' +
+    // Trang quan ly: cung be rong voi cac trang khac (khong thu ve giua); chi the mo dot gioi han be ngang.
+    root.innerHTML = '<div class="ts-wrap">' + head("Đối chiếu sổ với thực tế: ai đang giữ máy nào, máy còn hay mất, tình trạng ra sao.") +
+      '<div class="ts-card" style="max-width:640px"><div class="ts-card-t">Chưa có đợt kiểm kê nào đang mở</div>' +
       '<p class="ts-muted">Mở đợt sẽ chụp danh sách thiết bị hiện tại. Nhân viên tự xác nhận trong Tài sản của tôi; quản lý tài sản đánh dấu phần còn lại.</p>' +
       (data && data.can && data.can.manage ?
         '<label class="ts-lbl">Tên đợt<input class="ts-in" data-title value="Kiểm kê ' + (y.getMonth() + 1) + "/" + y.getFullYear() + '" maxlength="140"></label>' +

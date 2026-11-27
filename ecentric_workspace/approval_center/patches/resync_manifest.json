@@ -434,31 +434,31 @@
     "sha256": "e38488cb25ea4e7876bfbbad36382fc65a7c1e829e546f87ba03c9bce5d24a53"
   },
   "tai_san/pages/home/main_section.html": {
-    "last_resync_patch": "p575_tai_san_ban_quyen",
-    "sha256": "26ea48072f517d9dbce00489b8ab2019ac3818984d24e556a5109f52d6295485"
+    "last_resync_patch": "p578_tai_san_qc_giao_dien",
+    "sha256": "2ff16b4d33ecccdf0cfef8e76987dcdcb8f9f7e8028b2bbd1221427bf0a103ce"
   },
   "tai_san/pages/list/main_section.html": {
-    "last_resync_patch": "p575_tai_san_ban_quyen",
-    "sha256": "6153609e6c02f245682ab649c7e068fa58d4358485001eee51b421ab73238bc9"
+    "last_resync_patch": "p578_tai_san_qc_giao_dien",
+    "sha256": "9e573f476ea55ce209c25a449811324cca85d14ebb011318366f5bf80a527ffc"
   },
   "tai_san/pages/moves/main_section.html": {
-    "last_resync_patch": "p575_tai_san_ban_quyen",
-    "sha256": "8b22f1c44172bc0c224f1b09ce3e0e24d3ba8211e4e066ddc84cd83ad1398819"
+    "last_resync_patch": "p578_tai_san_qc_giao_dien",
+    "sha256": "3052394bbc7347a96b3263fa71381146c9691565ba565dca35a61c9bf7515b53"
   },
   "tai_san/pages/repairs/main_section.html": {
-    "last_resync_patch": "p575_tai_san_ban_quyen",
-    "sha256": "eff2e710313b41a3d6145be70dea3b8c522fb4cac7e7dafeb60b292555d021cb"
+    "last_resync_patch": "p578_tai_san_qc_giao_dien",
+    "sha256": "1afc231c451ec57897344cadf0c76bfe283db5bf579c7eac09ca0864d377c22e"
   },
   "tai_san/pages/count/main_section.html": {
-    "last_resync_patch": "p575_tai_san_ban_quyen",
-    "sha256": "5e5c5c3d88322cf6925075ce5aa6981f7288977e01c4de5b7196096256aa8275"
+    "last_resync_patch": "p578_tai_san_qc_giao_dien",
+    "sha256": "b491c482c56136c6792e288e7d1b60a677e79cd54188887bbedb387ffa24d776"
   },
   "tai_san/pages/mine/main_section.html": {
-    "last_resync_patch": "p575_tai_san_ban_quyen",
-    "sha256": "5c5f6c34046cd92ce2c530d09e6a0b18c1b2b1e9867e3b40b0ba1f16f8c8905e"
+    "last_resync_patch": "p578_tai_san_qc_giao_dien",
+    "sha256": "28382ddc3c682a0d45964f316d17ee72d78bc2827fd55ccb67b6c0a2752d9aee"
   },
   "tai_san/pages/licenses/main_section.html": {
-    "last_resync_patch": "p575_tai_san_ban_quyen",
-    "sha256": "5217c689d2b0f65454ed95f04dc919c581035f2780457ba584ac59776b9c5f79"
+    "last_resync_patch": "p578_tai_san_qc_giao_dien",
+    "sha256": "aaff30131a6820153459ae8142d031fc192f706fd59c550b10a75f0368a29e3e"
   }
 }

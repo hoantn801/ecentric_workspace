@@ -27,7 +27,7 @@
       '<div class="ts-chips" data-chips role="group" aria-label="Lọc theo hạn">' + CHIPS.map(function (c) {
         return '<button type="button" class="ts-chip' + (c[0] === st.stage ? " on" : "") + '" data-s="' + esc(c[0]) + '">' + esc(c[1]) + "</button>";
       }).join("") + "</div>" +
-      '<div class="ts-filters"><input class="ts-in" type="search" data-q placeholder="Tên, hãng, tài khoản, người phụ trách…" aria-label="Tìm bản quyền" value="' + esc(st.q) + '" style="min-width:260px">' +
+      '<div class="ts-filters"><input class="ts-in" type="search" data-q placeholder="Tên, hãng, tài khoản, người phụ trách…" aria-label="Tìm bản quyền" value="' + esc(st.q) + '" style="min-width:340px">' +
       '<select class="ts-sel" data-cat aria-label="Nhóm"><option value="">Tất cả nhóm</option></select></div>' +
       '<div class="ts-split"><div class="ts-left"><div class="ts-card" style="padding:0" data-list></div>' +
       '<div class="ts-note" style="margin-top:10px">' + esc(leadNote()) + " Người phụ trách và quản lý tài sản nhận thông báo.</div></div>" +

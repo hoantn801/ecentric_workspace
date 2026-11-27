@@ -3,8 +3,12 @@
 // goi EcAddFile.buttonHTML o panel nguoi duyet -> phieu nhap / form tao moi khong co nut.
 //   (1) chi tiet phieu NHAP cua nguoi gui: khoi "Phieu duyet dinh kem" + nut (theo capability server);
 //       khong quyen + khong chip -> khong ve gi.
-//   (2) form TAO MOI: nut trong the Tom tat A1; bam -> save_draft (duong luu nhap cua trang) -> get_detail
-//       -> mo hop chon; form KHONG chuyen trang, du lieu giu nguyen; luu loi -> trang bao loi, khong mo hop.
+//   (2) form TAO MOI (sua 26/11 toi): nut trong the Tom tat A1; bam -> mo hop chon NGAY (khong save_draft,
+//       search_linkable khong host); chon -> chip tam "Se gan khi luu" (khong goi link_approval); lan luu nhap
+//       dau thanh cong -> link_approval dung phieu, dung host; Gui = luu -> gan -> submit_request; gan loi ->
+//       bao phieu nao, luu van xong; luu loi -> giu phieu tam; bo chon -> khong gan.
+//   (2e) EcApprovalUI.errorText: "Value missing for ..." -> "Can nhap: <nhan tren form>"; 503 / Read Only Mode
+//       -> "dang cap nhat" (khong con "phan hoi cham").
 //   (3) sua de gui lai (Can bo sung): khoi chip + nut tren form sua.
 //   (4) thong diep chan gui khi phieu gan bi tu choi / huy KHONG bi bo loc loi cua trang nuot mat.
 //     node ecentric_workspace/approval_center/tests/js/test_gan_phieu_nguoi_lap.mjs
@@ -41,11 +45,15 @@ function mockFetch(w) {
   w.__fetch = [];
   w.fetch = (url, opts) => {
     w.__fetch.push([url, opts]);
+    (w.__seq = w.__seq || []).push("fetch:" + url.split("?")[0].split(".").pop());
     const res = (status, body) => Promise.resolve({ status, ok: status < 400, json: () => Promise.resolve(body) });
     if (url.indexOf("search_linkable") >= 0) return res(200, { message: { rows: [
       { request: "APR-9", code: "EC-ADHOC-2026-00009", title: "Tăng ngân sách", private: false, can_attach: true,
         status: "Approved", status_label: "Đã duyệt", already_linked: false, used_elsewhere: 0 }] } });
-    if (url.indexOf("link_approval") >= 0) return res(200, { message: { duplicate: false, chips: [CHIP] } });
+    if (url.indexOf("link_approval") >= 0) {
+      if (w.__linkFail) return res(417, { exc_type: "PermissionError", _server_messages: JSON.stringify([JSON.stringify({ message: w.__linkFail })]) });
+      return res(200, { message: { duplicate: false, chips: [CHIP] } });
+    }
     return res(404, {});
   };
 }
@@ -65,6 +73,7 @@ function boot(html, url, opts) {
   const w = dom.window; w.__calls = [];
   w.HTMLElement.prototype.scrollIntoView = function () {};
   w.frappe = { csrf_token: "tok", session: { user: "req@x" }, call: (o) => { const m = o.method.split(".").pop(); w.__calls.push([m, o.args]);
+    (w.__seq = w.__seq || []).push("call:" + m);
     const h = opts.handlers && opts.handlers[m];
     if (h) return h(o.args);
     if (m === "get_bootstrap") return Promise.resolve({ message: { tabs: { create: true, my_requests: true, my_approvals: true, all: true },
@@ -88,7 +97,8 @@ const toasts = (w) => Array.from(w.document.querySelectorAll('[id$="-toast"],[cl
   const w = dom.window; mockFetch(w); w.eval(UI); w.eval(LINKS); w.eval(SUMMARY);
   const L = w.EcApprovalLinks, call = () => Promise.resolve({});
   const a = L.formHTML({ name: null, call, save: () => Promise.resolve() });
-  ok(/data-ec-aplk-create/.test(a) && /Gắn phiếu duyệt/.test(a), "form moi -> nut gan (tu luu nhap)");
+  ok(/data-ec-aplk-create/.test(a) && /Gắn phiếu duyệt/.test(a) && /gắn khi bạn lưu nháp hoặc gửi/.test(a), "form moi -> nut gan (gan khi luu)");
+  ok(/data-ec-aplk-create/.test(L.formHTML({ name: null, call })), "form moi khong can save -> van co nut");
   ok(L.formHTML({ name: null }) === "", "khong co call/save -> khong ve");
   ok(L.formHTML({ name: "R-2", call, cap: { approval_links: [], can_link_approval: false, approval_link_host: HOST } }) === "",
     "co ma + server noi khong quyen + khong chip -> khong ve gi");
@@ -97,9 +107,47 @@ const toasts = (w) => Array.from(w.document.querySelectorAll('[id$="-toast"],[cl
   ok(c.indexOf("<b>ngân sách</b>") < 0, "tieu de chip escape");
   const d = L.formHTML({ name: "R-4", call, cap: { approval_links: [], can_link_approval: true, approval_link_host: { doctype: "X", name: "R-4" } } });
   ok(/data-ec-aplk-open/.test(d) && /data-ec-aplk-dt="X"/.test(d), "co quyen -> blockHTML(cap) cua server");
+  // phieu tam khong theo sang phieu da co ma
+  w.document.body.innerHTML = L.formHTML({ name: null, call });
+  w.frappe = { call: (o) => Promise.resolve({ message: { name: "R-9" } }) };
+  w.document.querySelector("[data-ec-aplk-create]").click();
+  await flush();
+  const ov0 = w.document.querySelector(".ec-aplk-overlay");
+  ov0.querySelector("tr[data-i='0']").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  ov0.querySelector("[data-ok]").click();
+  await flush();
+  ok(L.pendingCount() === 1, "asset: chon tren form moi -> 1 phieu tam");
+  L.formHTML({ name: "R-OTHER", call, cap: { approval_links: [], can_link_approval: true, approval_link_host: HOST } });
+  ok(L.pendingCount() === 0, "asset: trang ve phieu da co ma -> bo phieu tam (khong gan nham)");
+  await w.frappe.call({ method: "x.save_draft", args: { name: "R-OTHER" } }); await flush();
+  ok(!w.__fetch.some((x) => x[0].indexOf("link_approval") >= 0), "asset: luu phieu khac khong gan phieu tam");
   const card = w.EcSummary.cardHTML("s", '<div class="actions"></div>', a);
   ok(/class="ec-sum-x"/.test(card) && card.indexOf("ec-sum-x") < card.indexOf("ec-sum-f"), "the Tom tat: khoi phu nam giua tom tat va thanh nut");
   ok(!/ec-sum-x/.test(w.EcSummary.cardHTML("s", "")), "khong khoi phu -> markup cu");
+}
+
+// ---- 2e. loi tieng Viet dung chung (EcApprovalUI.errorText) -------------------------------------
+{
+  const dom = new JSDOM('<!DOCTYPE html><html><body><div class="fld" data-fld="reason"><label>Lý do thanh toán <span class="req">*</span></label></div>'
+    + '<div class="fld"><label>Số tiền</label><input data-model="payment_amount"></div></body></html>', { runScripts: "outside-only" });
+  const w = dom.window; w.eval(UI);
+  const U = w.EcApprovalUI;
+  const mand = { status: 417, exc_type: "MandatoryError", _server_messages: JSON.stringify(["Reason", "Payment amount", "Payee full name"].map((l) =>
+    JSON.stringify({ message: "Error: Value missing for EC Payment Request: " + l }))),
+    exception: "frappe.exceptions.MandatoryError: [EC Payment Request, new-ec-payment-request-1]: reason, payment_amount, payee_full_name" };
+  const t1 = U.errorText(mand);
+  ok(t1 === "Cần nhập: Lý do thanh toán, Số tiền, Payee full name.", "Value missing -> Can nhap + nhan tieng Viet tren form (" + t1 + ")");
+  ok(U.isTechnical(mand), "Value missing -> isTechnical (bo loc loi cua trang chuyen sang errorText)");
+  ok(!/Value missing|EC Payment Request/.test(t1), "khong con chu tieng Anh tho");
+  const t2 = U.errorText({ _server_messages: JSON.stringify([JSON.stringify({ message: "Error: Value missing for EC Leave Request: Leave type" })]) });
+  ok(t2 === "Cần nhập: Leave type.", "khong co nhan tren form -> giu label (" + t2 + ")");
+  const ro = { status: 503, exc_type: "InReadOnlyMode", _server_messages: JSON.stringify([JSON.stringify({ message: "Site is running in read only mode for maintenance or site update, this action can not be performed right now. Please try again later." })]) };
+  ok(/Hệ thống đang cập nhật.*dữ liệu bạn nhập vẫn được giữ/.test(U.errorText(ro)) && !/phản hồi chậm/.test(U.errorText(ro)), "Read Only Mode -> dang cap nhat");
+  ok(/đang cập nhật/.test(U.errorText({ status: 503, responseJSON: {} })), "503 tran -> dang cap nhat");
+  ok(/đang cập nhật/.test(U.errorText({ status: 417, message: "Site is running in read only mode for maintenance" })), "thong diep read only mode (khong status) -> dang cap nhat");
+  ok(/phản hồi chậm/.test(U.errorText({ status: 504, responseJSON: {} })), "504 van la phan hoi cham");
+  ok(U.errorText(srvErr(LINK_ERR)) === LINK_ERR, "cau nghiep vu tieng Viet giu nguyen");
+  ok(!U.isTechnical(srvErr("Vui lòng nhập lý do.")), "cau nghiep vu khong bi coi la ky thuat");
 }
 
 // ---- 1-3. moi form ---------------------------------------------------------------------------
@@ -125,7 +173,7 @@ for (const f of feats) {
     ok(!w.document.querySelector(".ec-aplk"), f + ": nhap nhung server noi khong quyen -> khong khoi");
   }
 
-  // (2) form tao moi
+  // (2) form tao moi: mo hop ngay, giu tam, gan sau lan luu dau
   {
     const w = boot(html, route + (CREATE_QS[f] || ""), { handlers: PREFILL });
     await flush();
@@ -137,51 +185,102 @@ for (const f of feats) {
     if (firstInput) { firstInput.value = "Giữ nguyên"; firstInput.dispatchEvent(new w.Event("input", { bubbles: true })); }
     btn.click();
     await flush(24);
-    const sd = w.__calls.filter((x) => x[0] === "save_draft");
-    ok(sd.length === 1 && !sd[0][1].name, f + ": bam -> save_draft (khong name) qua duong luu nhap cua trang");
-    ok(w.__calls.some((x) => x[0] === "get_detail" && x[1].name === "R-NEW"), f + ": lay capability tu get_detail cua phieu vua luu");
-    ok(!w.__calls.some((x) => x[0] === "submit_request"), f + ": khong gui phieu");
-    ok(!!w.document.querySelector(".ec-aplk-overlay"), f + ": mo hop chon phieu");
+    ok(!w.__calls.some((x) => x[0] === "save_draft"), f + ": bam -> KHONG luu nhap (khong vap truong bat buoc)");
+    ok(!w.__calls.some((x) => x[0] === "get_detail"), f + ": bam -> khong can ma phieu");
+    ok(!!w.document.querySelector(".ec-aplk-overlay"), f + ": mo hop chon phieu ngay");
     const sl = w.__fetch.find((x) => x[0].indexOf("search_linkable") >= 0);
-    ok(sl && /host_name=R-1/.test(sl[0]), f + ": hop chon dung host server tra ve");
-    ok(!/[?&]id=/.test(w.location.search) && !!w.document.querySelector("#ec-sum"), f + ": van o form (khong chuyen sang chi tiet)");
+    ok(sl && !/host_name=|host_doctype=/.test(sl[0]), f + ": tim phieu khong kem host");
     if (firstInput && firstInput.isConnected) ok(firstInput.value === "Giữ nguyên", f + ": du lieu dang nhap giu nguyen");
-    // chon + gan -> chip hien trong form
     const ov = w.document.querySelector(".ec-aplk-overlay");
-    if (ov) {
-      ov.querySelector("tr[data-i='0']").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
-      ov.querySelector("[data-ok]").click();
+    if (!ov) continue;
+    ov.querySelector("tr[data-i='0']").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+    ov.querySelector("[data-ok]").click();
+    await flush();
+    ok(!w.document.querySelector(".ec-aplk-overlay"), f + ": chon xong -> dong hop");
+    ok(!w.__fetch.some((x) => x[0].indexOf("link_approval") >= 0), f + ": chon -> CHUA goi link_approval (chua co ma)");
+    const pend = w.document.querySelectorAll("#ec-sum .ec-aplk-chip--pending");
+    ok(pend.length === 1 && /EC-ADHOC-2026-00009/.test(pend[0].textContent) && /Sẽ gắn khi lưu/.test(pend[0].textContent), f + ": chip tam 'Se gan khi luu'");
+    ok(!!w.document.querySelector("#ec-sum [data-ec-aplk-unpend='APR-9']"), f + ": chip tam go duoc");
+    // Lan luu nhap dau (nut Luu nhap cua trang neu co; khong thi dung dung cuoc goi saveDraft cua trang)
+    const save = Array.from(w.document.querySelectorAll("button")).find((b) => /^Lưu nháp$/.test(b.textContent.trim()) && !b.closest(".ec-aplk"));
+    w.__seq = [];
+    if (save) { save.click(); } else { await w.frappe.call({ method: "x." + f + ".save_draft", args: { name: null, payload: "{}" } }); }
+    await flush(30);
+    const lk = w.__fetch.filter((x) => x[0].indexOf("link_approval") >= 0);
+    let body = {}; try { body = JSON.parse((lk[0] || [0, {}])[1].body || "{}"); } catch (e) { /* */ }
+    ok(lk.length === 1 && body.target_request === "APR-9" && body.host_name === "R-1" && body.host_doctype === HOST.doctype && body.share === "0",
+      f + ": luu nhap dau -> link_approval dung phieu + host server tra (" + (save ? "nut Luu nhap" : "call") + ")");
+    ok(w.__calls.some((x) => x[0] === "get_detail" && x[1].name === "R-NEW"), f + ": host lay tu get_detail cua phieu vua luu");
+    ok(w.EcApprovalLinks.pendingCount() === 0, f + ": gan xong -> het phieu tam");
+    ok(/Đã gắn 1 phiếu duyệt vào R-NEW/.test(toasts(w)), f + ": bao da gan (" + toasts(w).slice(0, 80) + ")");
+    // luu lan sau KHONG gan lai
+    await w.frappe.call({ method: "x." + f + ".save_draft", args: { name: "R-NEW", payload: "{}" } }); await flush();
+    ok(w.__fetch.filter((x) => x[0].indexOf("link_approval") >= 0).length === 1, f + ": luu lan sau khong gan lai");
+  }
+  // (2s) Gui = luu nhap -> gan -> submit_request (trang chi goi submit_request trong .then cua save_draft)
+  {
+    const fnSrc = (() => { const i = html.indexOf("function saveDraft("); let k = html.indexOf("{", i), d = 0;
+      for (let j = k; j < html.length; j++) { if (html[j] === "{") d++; else if (html[j] === "}") { d--; if (!d) return html.slice(i, j + 1); } } return ""; })();
+    if (!NO_CREATE.has(f)) {
+      const a = fnSrc.indexOf('call("save_draft"'), b = fnSrc.indexOf('call("submit_request"');
+      ok(a > 0 && b > a, f + ": saveDraft(true) goi submit_request SAU save_draft (cho chen gan phieu)");
+      ok(/fr\.call\(|frappe\.call\(/.test(html.slice(html.indexOf("function call("), html.indexOf("function call(") + 300)), f + ": call() cua trang di qua frappe.call (hook bat duoc)");
+      const w = boot(html, route + (CREATE_QS[f] || ""), { handlers: PREFILL });
       await flush();
-      ok(w.document.querySelectorAll("#ec-sum .ec-aplk-chip").length === 1, f + ": gan xong -> chip hien trong form");
-      // Luu nhap lan sau dung lai ma phieu (khong tao phieu thu 2)
-      const save = Array.from(w.document.querySelectorAll("button")).find((b) => /^Lưu nháp$/.test(b.textContent.trim()));
-      if (save) { save.click(); await flush(); const sd2 = w.__calls.filter((x) => x[0] === "save_draft");
-        ok(sd2.length === 2 && sd2[1][1].name === "R-NEW", f + ": Luu nhap sau do ghi vao cung phieu R-NEW"); }
+      const btn = w.document.querySelector("#ec-sum [data-ec-aplk-create]");
+      if (btn) {
+        btn.click(); await flush(24);
+        const ov = w.document.querySelector(".ec-aplk-overlay");
+        ov.querySelector("tr[data-i='0']").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+        ov.querySelector("[data-ok]").click(); await flush();
+        w.__seq = [];
+        // dung chuoi cua saveDraft(true): save_draft -> .then -> submit_request
+        await w.frappe.call({ method: "x." + f + ".save_draft", args: { name: null, payload: "{}" } })
+          .then((r) => w.frappe.call({ method: "x." + f + ".submit_request", args: { name: r.message.name } }));
+        await flush();
+        const iL = w.__seq.indexOf("fetch:link_approval"), iS = w.__seq.indexOf("call:submit_request");
+        ok(iL >= 0 && iS > iL, f + ": gui -> gan phieu TRUOC submit_request (" + w.__seq.join(",") + ")");
+      }
     }
   }
-  // (2b) luu nhap loi -> trang bao loi, khong mo hop, nut mo lai
+  // (2b) gan loi -> bao ro phieu nao, luu van xong
   {
-    const w = boot(html, route + (CREATE_QS[f] || ""), { handlers: Object.assign({ save_draft: () => Promise.reject(srvErr("Vui lòng nhập Tiêu đề hợp lệ.")) }, PREFILL) });
+    const w = boot(html, route + (CREATE_QS[f] || ""), { handlers: PREFILL });
+    await flush();
+    const btn = w.document.querySelector("#ec-sum [data-ec-aplk-create]");
+    if (btn) {
+      w.__linkFail = "Phiếu riêng tư chỉ người gửi phiếu đó mới gắn được.";
+      btn.click(); await flush(24);
+      const ov = w.document.querySelector(".ec-aplk-overlay");
+      ov.querySelector("tr[data-i='0']").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+      ov.querySelector("[data-ok]").click(); await flush();
+      let res = null, err = null;
+      await w.frappe.call({ method: "x." + f + ".save_draft", args: { name: null, payload: "{}" } }).then((r) => { res = r; }, (e) => { err = e; });
+      await flush();
+      ok(res && res.message && res.message.name === "R-NEW" && !err, f + ": gan loi -> ket qua luu van tra ve trang");
+      ok(/Chưa gắn được: EC-ADHOC-2026-00009 \(Phiếu riêng tư chỉ người gửi/.test(toasts(w)), f + ": gan loi -> bao ro phieu + ly do (" + toasts(w).slice(0, 90) + ")");
+    }
+  }
+  // (2c) luu loi -> khong gan, giu phieu tam; (2d) bo chon -> khong gan
+  {
+    let fail = true;
+    const w = boot(html, route + (CREATE_QS[f] || ""), { handlers: Object.assign({ save_draft: () => fail ? Promise.reject(srvErr("Vui lòng nhập Tiêu đề hợp lệ.")) : Promise.resolve({ message: { name: "R-NEW" } }) }, PREFILL) });
     await flush();
     const btn = w.document.querySelector("#ec-sum [data-ec-aplk-create]");
     if (btn) {
       btn.click(); await flush(24);
-      ok(!w.document.querySelector(".ec-aplk-overlay") && !w.__calls.some((x) => x[0] === "get_detail"), f + ": luu loi -> khong mo hop");
-      // ai_topup doi loi tieu de thanh cau rieng cua no (cung duong nut Luu nhap) -> chi can co bao loi.
-      ok(f === "ai_topup" ? /Vui lòng/.test(toasts(w)) : /Tiêu đề hợp lệ/.test(toasts(w)), f + ": luu loi -> bao loi nhu nut Luu nhap (" + toasts(w).slice(0, 80) + ")");
-      ok(!/Đã lưu nháp/.test(toasts(w)), f + ": luu loi -> khong bao da luu");
-      ok(btn.isConnected && !btn.disabled && /Gắn phiếu duyệt/.test(btn.textContent), f + ": nut tro lai binh thuong");
-    }
-  }
-  // (2c) server noi khong gan duoc -> khong mo hop, bao ro
-  {
-    const w = boot(html, route + (CREATE_QS[f] || ""), { det: DET(DRAFT_CAP({ can_link_approval: false })), handlers: PREFILL });
-    await flush();
-    const btn = w.document.querySelector("#ec-sum [data-ec-aplk-create]");
-    if (btn) {
-      btn.click(); await flush(24);
-      ok(!w.document.querySelector(".ec-aplk-overlay"), f + ": server khong cho -> khong mo hop");
-      ok(/không gắn được phiếu duyệt/.test(toasts(w)), f + ": server khong cho -> bao ro");
+      const ov = w.document.querySelector(".ec-aplk-overlay");
+      ov.querySelector("tr[data-i='0']").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+      ov.querySelector("[data-ok]").click(); await flush();
+      await w.frappe.call({ method: "x." + f + ".save_draft", args: { name: null } }).catch(() => {}); await flush();
+      ok(!w.__fetch.some((x) => x[0].indexOf("link_approval") >= 0) && w.EcApprovalLinks.pendingCount() === 1, f + ": luu loi -> khong gan, giu phieu tam");
+      const x = w.document.querySelector("#ec-sum [data-ec-aplk-unpend='APR-9']");
+      if (x) x.click();
+      await flush();
+      ok(w.EcApprovalLinks.pendingCount() === 0 && !w.document.querySelector("#ec-sum .ec-aplk-chip--pending"), f + ": bo chon -> chip tam bien mat");
+      fail = false;
+      await w.frappe.call({ method: "x." + f + ".save_draft", args: { name: null } }); await flush();
+      ok(!w.__fetch.some((x2) => x2[0].indexOf("link_approval") >= 0), f + ": bo chon roi luu -> khong gan");
     }
   }
 }
