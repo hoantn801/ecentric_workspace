@@ -28,6 +28,9 @@
   "current_salary",
   "proposed_salary",
   "incentives",
+  "salary_pending",
+  "salary_filled_by",
+  "salary_filled_at",
   "effective_date_of_promotion",
   "sb_just",
   "justification",
@@ -151,19 +154,43 @@
    "fieldtype": "Currency",
    "label": "Current salary (gross)",
    "options": "VND",
-   "description": "Server điền từ hồ sơ nhân sự đã chọn (29/09/2026)"
+   "description": "Server điền từ hồ sơ nhân sự đã chọn (29/09/2026)",
+   "permlevel": 1
   },
   {
    "fieldname": "proposed_salary",
    "fieldtype": "Currency",
    "label": "Proposed salary (gross)",
    "options": "VND",
-   "reqd": 1
+   "reqd": 1,
+   "permlevel": 1
   },
   {
    "fieldname": "incentives",
    "fieldtype": "Small Text",
-   "label": "Incentives"
+   "label": "Incentives",
+   "permlevel": 1
+  },
+  {
+   "fieldname": "salary_pending",
+   "fieldtype": "Check",
+   "label": "Salary Pending (approver fills)",
+   "default": "0",
+   "read_only": 1,
+   "description": "1 = nguoi lap khong xem duoc luong nhan su; nguoi duyet co quyen dien luong khi duyet (27/11/2026)."
+  },
+  {
+   "fieldname": "salary_filled_by",
+   "fieldtype": "Link",
+   "label": "Salary Filled By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "salary_filled_at",
+   "fieldtype": "Datetime",
+   "label": "Salary Filled At",
+   "read_only": 1
   },
   {
    "fieldname": "effective_date_of_promotion",
@@ -203,7 +230,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-01 17:00:00.000000",
+ "modified": "2026-11-27 12:00:00.000000",
  "module": "Approval Center",
  "name": "EC Promotion Request",
  "naming_rule": "Expression",
@@ -220,6 +247,12 @@
    "print": 1,
    "report": 1,
    "share": 1
+  },
+  {
+   "role": "System Manager",
+   "permlevel": 1,
+   "read": 1,
+   "write": 1
   }
  ],
  "sort_field": "modified",

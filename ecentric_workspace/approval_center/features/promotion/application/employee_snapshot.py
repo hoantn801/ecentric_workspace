@@ -23,7 +23,19 @@ Sau khi duyet xong (nen, sau commit - apply_promotion):
     hieu luc. (Ban 29/09 tao SSA Draft voi base = luong de xuat: da bo.)
   * Luong hien tai (gross) do nguoi de xuat TU NHAP; base cua SSA moi nhat chi hien de tham
     khao (`base_salary`), khong dien vao phieu.
-Khong ghi so tien vao ket qua / nhat ky duyet (ai co dong duyet cung doc duoc nhat ky)."""
+Khong ghi so tien vao ket qua / nhat ky duyet (ai co dong duyet cung doc duoc nhat ky).
+
+27/11/2026 (Hoan chot "huong 2"): LEAD DE XUAT CHO NGUOI MINH QUAN LY.
+  * Pham vi de xuat cua U = (a) nhan su U xem duoc luong (luat cu) HOP (b) cap duoi cua U theo
+    chuoi reports_to - CA TRUC TIEP LAN GIAN TIEP (Hoan chon "truc tiep + gian tiep"). Duyet cay
+    tren MOI nhan su (ke ca nguoi da nghi o giua chuoi - reports_to cua cap duoi van tro qua ho),
+    chi TRA nhan su Active, tru chinh U. Moi dong mang co `salary_visible` (= can_view_salary).
+  * U khong xem duoc luong nhan su do (nhanh b): U KHONG thay, KHONG nhap luong o bat ky buoc nao;
+    service bo moi gia tri luong client gui va dat `salary_pending=1`. Nguoi duyet dau tien co
+    quyen xem luong dien luong khi duyet (service.fill_salary) - chua dien thi khong duyet duoc
+    (service.approval_input_message, engine goi qua ApprovalDefinition.approval_input_check).
+  * Quyen xem luong VAN la mot luat duy nhat (can_view_salary) - pham vi (b) chi mo quyen LAP
+    PHIEU, khong mo quyen xem so."""
 import frappe
 from frappe import _
 from frappe.utils import getdate, nowdate
@@ -96,10 +108,52 @@ def can_view_salary(employee, user=None):
         return False
 
 
+def employee_of(user):
+    return frappe.db.get_value(EMPLOYEE, {"user_id": user}, "name") if user else None
+
+
+def subordinates(manager):
+    """Tap ma nhan su la cap duoi TRUC TIEP + GIAN TIEP cua `manager` theo reports_to (27/11/2026,
+    Hoan chon truc tiep + gian tiep). Mot truy van, duyet cay trong bo nho; chong vong lap (reports_to
+    tro vong) va gioi han do sau _MAX_CHAIN. Gom ca nhan su da nghi o giua chuoi de khong lam dut
+    nhanh; loc Active la viec cua nguoi goi. Khong gom chinh `manager`."""
+    if not manager:
+        return set()
+    rows = frappe.get_all(EMPLOYEE, filters={"reports_to": ["is", "set"]}, fields=["name", "reports_to"],
+                          limit_page_length=0)
+    children = {}
+    for r in rows:
+        children.setdefault(r.get("reports_to"), []).append(r.get("name"))
+    out, frontier, depth = set(), [manager], 0
+    while frontier and depth < _MAX_CHAIN:
+        nxt = []
+        for m in frontier:
+            for c in children.get(m, ()):
+                if c and c != manager and c not in out:
+                    out.add(c)
+                    nxt.append(c)
+        frontier, depth = nxt, depth + 1
+    return out
+
+
+def can_propose(employee, user=None):
+    """user (mac dinh nguoi dang nhap) duoc LAP PHIEU cho employee khong: nhan su Active, khong phai
+    chinh minh, va (xem duoc luong HOAC la cap duoi truc tiep/gian tiep). Kiem o server moi lan chon /
+    luu / gui - khong tin danh sach client dang giu."""
+    if not employee:
+        return False
+    user = user or frappe.session.user
+    me = employee_of(user)
+    if employee == me or frappe.db.get_value(EMPLOYEE, employee, "status") != "Active":
+        return False
+    return employee in subordinates(me) or can_view_salary(employee, user=user)
+
+
 def candidates():
-    """Nhan su nguoi dang nhap duoc de xuat thang chuc = nguoi ho xem duoc luong (tru chinh minh).
-    Gom ca nhan su Active CHUA CO SSA (18/11) - loc qua cung can_view_salary."""
-    me = frappe.db.get_value(EMPLOYEE, {"user_id": frappe.session.user}, "name")
+    """Nhan su nguoi dang nhap duoc de xuat thang chuc = (a) nguoi ho xem duoc luong HOP (b) cap duoi
+    truc tiep + gian tiep cua ho (27/11), tru chinh minh, chi Active. Gom ca nhan su Active CHUA CO SSA
+    (18/11) - (a) loc qua cung can_view_salary. Moi dong co `salary_visible`."""
+    me = employee_of(frappe.session.user)
     ids = sorted(set(frappe.get_all(EMPLOYEE, filters={"status": "Active"}, pluck="name",
                                     limit_page_length=0)) - {me, None})
     if not ids:
@@ -107,7 +161,14 @@ def candidates():
     rows = frappe.get_all(EMPLOYEE, filters={"name": ["in", ids], "status": "Active"},
                           fields=["name", "employee_name", "department", "designation"],
                           order_by="employee_name asc", limit_page_length=0)
-    return [r for r in rows if can_view_salary(r.name)]
+    subs = subordinates(me)
+    out = []
+    for r in rows:
+        visible = can_view_salary(r.name)
+        if visible or r.name in subs:
+            r["salary_visible"] = 1 if visible else 0
+            out.append(r)
+    return out
 
 
 def salary_reviewer(employee, requester):
@@ -147,22 +208,27 @@ def redact(business, request=None):
     return business
 
 
-def snapshot(employee):
-    """Thong tin hien tai cua mot nhan su de dien san form. Nem PermissionError neu nguoi dang
-    nhap khong xem duoc luong nguoi do."""
-    if not employee or not can_view_salary(employee):
-        frappe.throw(_("Bạn không có quyền xem thông tin lương của nhân sự này."), frappe.PermissionError)
+def snapshot(employee, user=None):
+    """Thong tin hien tai cua mot nhan su de dien san form. Nem PermissionError neu user (mac dinh
+    nguoi dang nhap) khong duoc de xuat cho nguoi do (can_propose). Luong tham khao (base cua SSA) chi
+    tra cho nguoi XEM DUOC luong; Lead de xuat cho cap duoi thi khong co so nao (`salary_visible=0`)."""
+    user = user or frappe.session.user
+    if not employee or not can_propose(employee, user=user):
+        frappe.throw(_("Bạn không được đề xuất cho nhân sự này (chỉ người bạn quản lý hoặc được xem lương)."),
+                     frappe.PermissionError)
     emp = frappe.db.get_value(EMPLOYEE, employee,
                               ["name", "employee_name", "department", "designation", "grade",
                                "employment_type", "date_of_joining", "company", "user_id"], as_dict=True)
     if not emp:
         frappe.throw(_("Không tìm thấy nhân sự."))
-    name = latest_ssa(employee)
+    visible = can_view_salary(employee, user=user)
+    name = latest_ssa(employee) if visible else None
     ssa = name and frappe.db.get_value(SSA, name, ["base", "from_date", "salary_structure"], as_dict=True)
     return {"employee": emp.name, "full_name": emp.employee_name, "department": emp.department,
             "current_position": emp.designation or "", "grade": emp.grade or "",
             "employment_type": emp.employment_type or "", "date_of_joining": emp.date_of_joining,
             "company": emp.company,
+            "salary_visible": 1 if visible else 0,
             # THAM KHAO: base (chua gom thuong hieu suat) - phieu dung GROSS do nguoi de xuat nhap.
             "base_salary": ssa.base if ssa else None,
             "salary_from": ssa.from_date if ssa else None,
@@ -188,7 +254,11 @@ def apply_promotion(doc):
             ok = False
             notes.append(_("Chức danh \"{0}\" chưa có trong danh mục - C&B cập nhật tay").format(new_pos))
     cur, new = doc.current_salary, doc.proposed_salary
-    if new is not None and float(new) != float(cur or 0):
+    if doc.get("salary_pending"):
+        # 27/11: chi xay ra khi duyet thay (System Manager) bo qua buoc dien luong - khong doan so.
+        ok = False
+        notes.append(_("Phiếu chưa có lương do người duyệt có quyền điền - C&B bổ sung theo phiếu"))
+    elif new is not None and float(new) != float(cur or 0):
         ok = False                                    # luon can C&B: luong la gross, khong ghi SSA
         notes.append(_("Lương gross thay đổi từ {0} - C&B cập nhật bảng lương (tách base / thưởng) theo phiếu").format(
             doc.effective_date_of_promotion))

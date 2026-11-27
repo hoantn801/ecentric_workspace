@@ -236,26 +236,37 @@
       + fld("department","Department",'<input class="ro" readonly data-ro="department" value="'+esc(d.department||"")+'">')
       + fld("current_position","Vị trí hiện tại",'<input class="ro" readonly data-ro="current_position" value="'+esc(d.current_position||"")+'">')
       + fld("proposed_position","Vị trí đề xuất",'<input data-model="proposed_position" list="prom-designations" value="'+esc(d.proposed_position||"")+'"><datalist id="prom-designations">'+(fo.designations||[]).map(function(x){ return '<option value="'+esc(x)+'">'; }).join("")+'</datalist><div class="hint">Chọn chức danh có sẵn để hệ thống tự cập nhật hồ sơ sau khi duyệt.</div>',true)
-      + fld("current_salary","Lương hiện tại - gross (VND)",'<input type="text" inputmode="numeric" autocomplete="off" data-money data-model="current_salary" value="'+esc(window.EcMoney?EcMoney.fmt((d.current_salary!=null?d.current_salary:"")):(d.current_salary!=null?d.current_salary:""))+'"><div class="hint">Tổng thu nhập hiện tại, gồm thưởng hiệu suất và các khoản cố định.'+(d._base_salary!=null?esc(" Tham khảo: lương cơ bản theo bảng lương từ "+(d._salary_from||"—")+" là "+(window.EcMoney?EcMoney.fmt(d._base_salary):d._base_salary)+" (chưa gồm thưởng)."):"")+'</div>',true)
-      + fld("proposed_salary","Lương đề xuất - gross (VND)",'<input type="text" inputmode="numeric" autocomplete="off" data-money data-model="proposed_salary" value="'+esc(window.EcMoney?EcMoney.fmt((d.proposed_salary!=null?d.proposed_salary:"")):(d.proposed_salary!=null?d.proposed_salary:""))+'">',true)
+      + (salaryVisible(d)?(fld("current_salary","Lương hiện tại - gross (VND)",'<input type="text" inputmode="numeric" autocomplete="off" data-money data-model="current_salary" value="'+esc(window.EcMoney?EcMoney.fmt((d.current_salary!=null?d.current_salary:"")):(d.current_salary!=null?d.current_salary:""))+'"><div class="hint">Tổng thu nhập hiện tại, gồm thưởng hiệu suất và các khoản cố định.'+(d._base_salary!=null?esc(" Tham khảo: lương cơ bản theo bảng lương từ "+(d._salary_from||"—")+" là "+(window.EcMoney?EcMoney.fmt(d._base_salary):d._base_salary)+" (chưa gồm thưởng)."):"")+'</div>',true)
+      + fld("proposed_salary","Lương đề xuất - gross (VND)",'<input type="text" inputmode="numeric" autocomplete="off" data-money data-model="proposed_salary" value="'+esc(window.EcMoney?EcMoney.fmt((d.proposed_salary!=null?d.proposed_salary:"")):(d.proposed_salary!=null?d.proposed_salary:""))+'">',true)):SALARY_NOTE_HTML)
       + fld("effective_date_of_promotion","Ngày hiệu lực",'<input type="date" data-model="effective_date_of_promotion" value="'+esc(d.effective_date_of_promotion||"")+'">',true)
       + '<div></div>'
       + fld("justification","Lý do đề xuất",'<textarea data-model="justification" rows="3" placeholder="What are the employee\u2019s most significant achievements... / What specific skills... / Why is this promotion necessary at this time?">'+esc(d.justification||"")+'</textarea>',true).replace('class="fld','class="fld full')
-      + fld("incentives","Đãi ngộ / phúc lợi khác",'<textarea data-model="incentives" rows="2" placeholder="Thưởng, phụ cấp, quyền lợi khác (nếu có).">'+esc(d.incentives||"")+'</textarea>').replace('class="fld','class="fld full')
+      + (salaryVisible(d)?fld("incentives","Đãi ngộ / phúc lợi khác",'<textarea data-model="incentives" rows="2" placeholder="Thưởng, phụ cấp, quyền lợi khác (nếu có).">'+esc(d.incentives||"")+'</textarea>').replace('class="fld','class="fld full'):"")
       + '</div></div>';
   }
   // 29/09: chon nhan su tu danh sach (chi nguoi minh xem duoc luong); thong tin hien tai do
   // server dien (promotion_employee) - o chi doc, server ghi de lai luc gui.
+  // 27/11/2026 (huong 2): danh sach = nguoi minh xem duoc luong HOP cap duoi truc tiep + gian tiep. Dong
+  // nao salary_visible=0 (Lead de xuat cho cap duoi): KHONG hien / KHONG nhap luong - nguoi duyet co quyen
+  // xem luong / C&B dien khi duyet; server cung bo moi gia tri luong gui len.
+  var SALARY_NOTE_HTML='<div class="fld full" data-fld="_salary_note"><div class="banner info" style="margin:0">Lương do quản lý có quyền / C&amp;B điền khi duyệt. Bạn không xem và không nhập lương của nhân sự này.</div></div>';
+  function salaryVisible(d){ d=d||{}; if(!d.promoted_employee) return true;
+    var row=(state.candidates||[]).filter(function(r){ return r.name===d.promoted_employee; })[0];
+    if(row&&row.salary_visible!=null) return !!Number(row.salary_visible);
+    if(d._salary_visible!=null) return !!Number(d._salary_visible);
+    return !d.salary_hidden; }
+  function payloadOf(d){ var p=Object.assign({}, d||{}); if(!salaryVisible(p)){ ["current_salary","proposed_salary","incentives"].forEach(function(k){ delete p[k]; }); } return JSON.stringify(p); }
   function empPickerHTML(d){ var rows=state.candidates;
     if(rows===undefined) return '<div class="hint">Đang tải danh sách nhân sự…</div>';
-    if(!rows.length) return '<div class="banner warn" style="margin:0">Bạn chưa có quyền xem lương nhân sự nào. Promotion Request dành cho quản lý có quyền xem lương nhân sự đó.</div>';
+    if(!rows.length) return '<div class="banner warn" style="margin:0">Bạn chưa có nhân sự nào để đề xuất. Promotion Request dành cho quản lý: người bạn quản lý (trực tiếp hoặc gián tiếp) hoặc người bạn được xem lương.</div>';
     return '<select data-model="promoted_employee"><option value="">— Chọn nhân sự —</option>'+rows.map(function(r){ return '<option value="'+esc(r.name)+'"'+(d.promoted_employee===r.name?" selected":"")+'>'+esc((r.employee_name||r.name)+(r.department?(" · "+r.department):""))+'</option>'; }).join("")+'</select>'; }
   function loadCandidates(){ call("promotion_candidates").then(function(r){ state.candidates=(r&&r.rows)||[]; if(state.tab==="create") renderCreate($("prom-body")); }).catch(function(){ state.candidates=[]; if(state.tab==="create") renderCreate($("prom-body")); }); }
   function pickEmployee(emp){ var d=state.draft=state.draft||{};
-    ["full_name","department","current_position","_base_salary","_salary_from"].forEach(function(k){ d[k]=null; });
+    ["full_name","department","current_position","_base_salary","_salary_from","_salary_visible"].forEach(function(k){ d[k]=null; });
     if(!emp){ renderCreate($("prom-body")); return; }
     call("promotion_employee",{employee:emp}).then(function(x){ if((state.draft||{}).promoted_employee!==emp) return;
-      d.full_name=x.full_name; d.department=x.department; d.current_position=x.current_position||""; d._base_salary=x.base_salary; d._salary_from=x.salary_from;
+      d.full_name=x.full_name; d.department=x.department; d.current_position=x.current_position||""; d._base_salary=x.base_salary; d._salary_from=x.salary_from; d._salary_visible=(x.salary_visible==null?null:x.salary_visible);
+      if(!salaryVisible(d)){ ["current_salary","proposed_salary","incentives"].forEach(function(k){ d[k]=null; }); }
       renderCreate($("prom-body")); }).catch(function(e){ toast(mapErr(e),true); }); }
   var MATERIAL=["promoted_employee","full_name","department","current_position","proposed_position","current_salary","proposed_salary","effective_date_of_promotion","justification","incentives"];
   function materialSnap(d){ return MATERIAL.map(function(k){return String((d||{})[k]||"");}).join("|"); }
@@ -289,10 +300,11 @@
     maybeAutoTitle(); renderSummary(); wireCreate();
   }
   function renderSummary(){ var h=$("prom-summary"); if(!h||!window.EcSummary)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
+    var sv=salaryVisible(d);   // 27/11: luong do nguoi duyet dien -> khong liet ke, khong tinh la thieu
     EcSummary.render(h,{draft:d, by:c.employee_name||c.user, resubmit:state.mode==="edit",
-      hero:[["Họ tên",d.full_name,"promoted_employee"],["Vị trí đề xuất",d.proposed_position,"proposed_position"],["Lương đề xuất (gross)",d.proposed_salary,"proposed_salary","money"]],
-      groups:[{title:"Hiện tại",fields:[["Tiêu đề",d.request_title,"request_title"],["Phòng ban",d.department,"department"],["Vị trí hiện tại",d.current_position,"current_position"],
-        ["Lương hiện tại (gross)",d.current_salary,"current_salary","money"],["Ngày hiệu lực",d.effective_date_of_promotion,"effective_date_of_promotion","date"]]}],
+      hero:[["Họ tên",d.full_name,"promoted_employee"],["Vị trí đề xuất",d.proposed_position,"proposed_position"]].concat(sv?[["Lương đề xuất (gross)",d.proposed_salary,"proposed_salary","money"]]:[]),
+      groups:[{title:"Hiện tại",fields:[["Tiêu đề",d.request_title,"request_title"],["Phòng ban",d.department,"department"],["Vị trí hiện tại",d.current_position,"current_position"]]
+        .concat(sv?[["Lương hiện tại (gross)",d.current_salary,"current_salary","money"]]:[]).concat([["Ngày hiệu lực",d.effective_date_of_promotion,"effective_date_of_promotion","date"]])}],
       flow:"Direct Manager → CnB → HOF → CEO"}); }
   function suggestTitle(d){ d=d||{}; var parts=[d.full_name, d.proposed_position].filter(function(x){return x&&String(x).trim();});
     return parts.length?("Promotion - "+parts.join(" → ")).slice(0,140):""; }
@@ -311,10 +323,11 @@
     if(!d.promoted_employee) errs.promoted_employee="Vui lòng chọn nhân sự.";
     if(!((d.proposed_position||"").toString().trim())) errs.proposed_position="Vui lòng nhập vị trí đề xuất.";
     if(!((d.justification||"").toString().trim())) errs.justification="Vui lòng nhập lý do đề xuất.";
+    if(salaryVisible(d)){
     if(!(Number(d.current_salary)>0)) errs.current_salary="Vui lòng nhập lương gross hiện tại.";
     if(d.proposed_salary==null||d.proposed_salary==="") errs.proposed_salary="Vui lòng nhập lương đề xuất.";
     else if(isNaN(Number(d.proposed_salary))) errs.proposed_salary="Lương đề xuất phải là số.";
-    else if(Number(d.proposed_salary)<0) errs.proposed_salary="Lương đề xuất không thể âm.";
+    else if(Number(d.proposed_salary)<0) errs.proposed_salary="Lương đề xuất không thể âm."; }
     if(!(d.effective_date_of_promotion)) errs.effective_date_of_promotion="Vui lòng chọn ngày hiệu lực.";
     return Object.keys(errs).length?errs:null; }
   function extractServerMsg(e){ if(!e) return "";
@@ -357,7 +370,7 @@
     if(editing){
       $("prom-edit-cancel").onclick=function(){ state._editDet=null; state.mode="create"; renderDetail($("prom-body")); };
       $("prom-resubmit").onclick=function(){ var v=validateSubmit(); if(v){ showFieldErrors(v); toast("Vui lòng kiểm tra các trường bắt buộc.",true); return; } setBusyIds(["prom-resubmit","prom-edit-cancel"],true);
-        call("resubmit",{name:state.id,payload:JSON.stringify(state.draft)}).then(function(res){ toast(res&&res.restarted?"Đã gửi lại — duyệt lại từ đầu.":"Đã gửi lại — tiếp tục ở cấp yêu cầu."); state._editDet=null; state.mode="create"; renderDetail($("prom-body")); }).catch(function(e){ if(window.console&&console.error) console.error("Promotion resubmit error:",e); toast(resubmitErr(e),true); setBusyIds(["prom-resubmit","prom-edit-cancel"],false); }); };
+        call("resubmit",{name:state.id,payload:payloadOf(state.draft)}).then(function(res){ toast(res&&res.restarted?"Đã gửi lại — duyệt lại từ đầu.":"Đã gửi lại — tiếp tục ở cấp yêu cầu."); state._editDet=null; state.mode="create"; renderDetail($("prom-body")); }).catch(function(e){ if(window.console&&console.error) console.error("Promotion resubmit error:",e); toast(resubmitErr(e),true); setBusyIds(["prom-resubmit","prom-edit-cancel"],false); }); };
       return;
     }
     $("prom-save").onclick=function(){ saveDraft(false); };
@@ -369,7 +382,7 @@
   function saveDraft(thenSubmit,stay){ if(state.busy)return;
     if(thenSubmit){ var v=validateSubmit(); if(v){ showFieldErrors(v); toast("Vui lòng kiểm tra các trường bắt buộc.",true); return; } } else { showFieldErrors(null); }
     state.busy=true; setBusy(true);
-    return call("save_draft",{name:state.id||null,payload:JSON.stringify(state.draft||{})}).then(function(res){ state.id=res.name; state.dirty=false;
+    return call("save_draft",{name:state.id||null,payload:payloadOf(state.draft)}).then(function(res){ state.id=res.name; state.dirty=false;
       if(thenSubmit){ return call("submit_request",{name:state.id}).then(function(){ toast("Gửi yêu cầu thành công. Yêu cầu đã được chuyển đến Quản lý trực tiếp phê duyệt."); go({id:state.id}); }); }
       if(typeof stay==="function"){ stay(state.id); return; }   // 26/11: gan phieu tu form moi - o lai form
       toast("Đã lưu nháp. Bạn có thể gửi yêu cầu sau."); go({id:state.id});
@@ -427,7 +440,32 @@
     .catch(function(e){ var perm=/quyền|access|permission/i.test(((e&&e.message)||"")+" "+(window.EcApprovalUI?EcApprovalUI.serverMessage(e)+" "+((e&&(e.exc_type||(e.responseJSON&&e.responseJSON.exc_type)))||""):"")); b.innerHTML='<div class="card"><div class="state"><h4>'+(perm?"Bạn không có quyền xem yêu cầu này":"Không tải được yêu cầu")+'</h4>'+(perm||!window.EcApprovalUI?'':'<div class="hint">'+esc(EcApprovalUI.errorText(e,"Vui lòng thử lại sau ít phút."))+'</div>')+'<button type="button" class="btn" id="d-back">Quay lại</button></div></div>'; var bk=$("d-back"); if(bk)bk.onclick=function(){ window.location.href=hubHref(); }; }); }
   // Review Phan quyen P1 (29/09): server da xoa so voi nguoi khong xem duoc luong nhan su do.
   var HIDDEN_SALARY="Ẩn - bạn không có quyền xem lương nhân sự này";
-  function salaryVal(biz,k){ return biz.salary_hidden?HIDDEN_SALARY:(window.EcMoney&&biz[k]!=null&&biz[k]!==""?EcMoney.fmt(biz[k]):biz[k]); }
+  var PENDING_SALARY="Chờ người duyệt có quyền xem lương điền";
+  function salaryVal(biz,k){ if(biz.salary_hidden) return HIDDEN_SALARY; if(biz.salary_pending&&(biz[k]==null||biz[k]==="")) return PENDING_SALARY;
+    return (window.EcMoney&&biz[k]!=null&&biz[k]!==""?EcMoney.fmt(biz[k]):biz[k]); }
+  // 27/11/2026: nguoi duyet Pending cua cap hien tai + xem duoc luong -> o dien luong ngay trong khoi Hanh dong
+  // (server: fill_salary). salary_input do server tinh (detail.extra), KHONG kem so tien.
+  function salaryInput(det){ return ((det&&det.extra)||{}).salary_input||{}; }
+  function moneyInputHTML(id,v){ return '<input type="text" inputmode="numeric" autocomplete="off" data-money id="'+id+'" value="'+esc(v!=null&&v!==""?(window.EcMoney?EcMoney.fmt(v):v):"")+'">'; }
+  function salaryFillFieldsHTML(biz,pfx){ biz=biz||{};
+    return '<div class="grid2">'+'<div class="fld"><label>Lương hiện tại – gross (VND) <span class="req">*</span></label>'+moneyInputHTML(pfx+"cur",biz.current_salary)+'</div>'
+      +'<div class="fld"><label>Lương đề xuất – gross (VND) <span class="req">*</span></label>'+moneyInputHTML(pfx+"new",biz.proposed_salary)+'</div>'
+      +'<div class="fld full"><label>Đãi ngộ / phúc lợi khác</label><textarea id="'+pfx+'inc" rows="2">'+esc(biz.incentives||"")+'</textarea></div></div>'; }
+  function salaryFillBlockHTML(det){ var si=salaryInput(det), biz=det.business||{};
+    if(si.can_fill) return '<div class="prom-salfill" id="prom-salfill"><div class="banner '+(si.required?"warn":"info")+'" style="margin:0 0 10px">'
+      +(si.required?"Người lập phiếu không có quyền xem lương nhân sự này. Bạn điền <b>Lương hiện tại</b> và <b>Lương đề xuất</b> (gross) trước khi Duyệt.":"Lương đã được điền. Bạn có thể sửa trước khi Duyệt.")
+      +'</div>'+salaryFillFieldsHTML(biz,"prom-fill-")+'<div class="actions"><button type="button" class="btn" data-act="fillsalary">Lưu lương</button></div></div>';
+    if(si.pending) return '<div class="hint" style="margin-bottom:8px">Lương sẽ do người duyệt có quyền xem lương / C&amp;B điền khi duyệt.</div>';
+    return ""; }
+  function readSalary(root,pfx){ function g(id){ return root.querySelector("#"+pfx+id); }
+    var c=g("cur"), n=g("new"), i=g("inc");
+    var cv=c?(window.EcMoney?EcMoney.val(c):Number(c.value)):null, nv=n?(window.EcMoney?EcMoney.val(n):Number(n.value)):null;
+    if(!(Number(cv)>0)) return {err:"Vui lòng nhập Lương hiện tại – gross (số dương)."};
+    if(nv==null||nv===""||isNaN(Number(nv))||Number(nv)<0) return {err:"Vui lòng nhập Lương đề xuất – gross (số không âm)."};
+    return {current_salary:cv, proposed_salary:nv, incentives:i?i.value:null}; }
+  function doFillSalary(name){ var box=$("prom-salfill"); if(!box) return; var v=readSalary(box,"prom-fill-"); if(v.err){ toast(v.err,true); return; }
+    var bt=box.querySelector('[data-act="fillsalary"]'); if(bt) bt.disabled=true;
+    return call("fill_salary",Object.assign({name:name},v)).then(function(){ toast("Đã lưu lương. Bạn có thể Duyệt."); refreshDetail(); }).catch(function(e){ toast(mapErr(e),true); if(bt) bt.disabled=false; }); }
   function applyBannerHTML(det){ var x=(det&&det.extra)||{}, ap=(det&&det.approval)||{};
     if(ap.approval_status!=="Approved"||!x.auto_apply) return "";
     var cls=x.applied_at?(/LỖI|tay/.test(x.apply_result||"")?"warn":"info"):(x.apply_result?"err":"warn");
@@ -491,12 +529,14 @@
     if(window.EcRemind) btns.push(EcRemind.buttonHTML(cap));   // 01/10: nhac nguoi xu ly (asset dung chung)
     if(cap.can_admin_approve_current_level) btns.push('<button type="button" class="btn warn" data-act="adminapprove">Duyệt thay bước hiện tại</button>');
     if(cap.can_cancel) btns.push('<button type="button" class="btn" data-act="cancel">Hủy yêu cầu</button>');
-    return btns.length? '<div class="actions">'+btns.join("")+'</div>' : '<div class="hint">Không có hành động khả dụng cho bạn ở trạng thái hiện tại.</div>'; }
+    var sal=salaryFillBlockHTML(det);
+    return sal+(btns.length? '<div class="actions">'+btns.join("")+'</div>' : '<div class="hint">Không có hành động khả dụng cho bạn ở trạng thái hiện tại.</div>'); }
   function handleActionClick(e){ var el=e.target&&e.target.closest?e.target.closest("[data-act]"):null; if(!el) return;
     var a=el.getAttribute("data-act"); if(!a||el.disabled) return; if(document.querySelector(".ec-prom-overlay")) return; e.preventDefault();
     var det=state.detail||{}; var name=(det.business||{}).name||state.id;
     if(a==="editdraft") return startEditDraft(det); if(a==="submitdraft") return doSubmitDraft(name);
     if(a==="edit") return startEditResubmit(det); if(a==="approve") return doApprove(name,det); if(a==="remind") return window.EcRemind&&EcRemind.run(call,name,{toast:toast,mapErr:(typeof mapErr==="function"?mapErr:null),done:function(){ if(typeof refreshDetail==="function") refreshDetail(); else if(typeof renderDetail==="function") renderDetail(document.querySelector('[id$="-body"]')); }});
+    if(a==="fillsalary") return doFillSalary(name);
     if(a==="reject") return doReject(name); if(a==="reqinfo") return doRequestInfo(name);
     if(a==="adminapprove") return doAdminApprove(name); if(a==="cancel") return doCancel(name); }
   function ensureActionHandlers(){ if(document.__promActBound) return; document.__promActBound=true; document.addEventListener("click", handleActionClick, true); }
@@ -516,8 +556,14 @@
   function refreshApprovals(){ if(state.tab==="my-approvals") renderMyApprovals($("prom-body")); }
   function nextLevelName(det){ if(!det) return ""; var ap=det.approval||{}; if(ap.approval_status!=="Pending"||!ap.current_level) return ""; var l=(det.levels||[]).filter(function(x){return Number(x.level_no)===Number(ap.current_level);})[0]; return l?(l.level_name||("Cấp "+ap.current_level)):""; }
   function summaryRows(det){ var b=det.business||{}; return '<div class="summary-row"><span>Người yêu cầu</span><b>'+esc(b.requested_by||"—")+'</b></div><div class="summary-row"><span>Họ tên</span><b>'+esc(b.full_name||"—")+'</b></div><div class="summary-row"><span>Vị trí đề xuất</span><b>'+esc(b.proposed_position||"—")+'</b></div>'; }
-  function doApprove(name,det){ modal("Duyệt yêu cầu", summaryRows(det)+'<div class="fld"><label>Lý do / nhận xét <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>', {okLabel:"Duyệt", onConfirm:function(ov){ var cmt=(ov.querySelector("#m-cmt").value||"").trim(); if(!cmt){ toast("Bắt buộc nhập nhận xét khi duyệt.",true); return Promise.reject(); }
-    return call("approve",{name:name,comment:cmt}).then(function(res){ var nx=nextLevelName(res&&res.detail); toast(nx?("Đã duyệt yêu cầu. Yêu cầu đã chuyển sang "+nx+"."):"Đã duyệt yêu cầu."); refreshDetail(); refreshApprovals(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
+  function doApprove(name,det){ var need=!!salaryInput(det).required;
+    // 27/11: phieu Lead lap chua co luong + nguoi duyet xem duoc luong -> dien luong ngay trong hop duyet
+    // (lay so dang go o khoi Hanh dong neu co). Server van chan neu bo qua buoc nay.
+    var typed=need&&$("prom-salfill")?readSalary($("prom-salfill"),"prom-fill-"):null;
+    var pre=Object.assign({}, det.business||{}, (typed&&!typed.err)?typed:{});
+    modal("Duyệt yêu cầu", summaryRows(det)+(need?('<div class="banner warn">Điền lương (gross) trước khi duyệt — người lập phiếu không có quyền xem lương nhân sự này.</div>'+salaryFillFieldsHTML(pre,"m-sal-")):"")+'<div class="fld"><label>Lý do / nhận xét <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>', {okLabel:"Duyệt", onConfirm:function(ov){ var cmt=(ov.querySelector("#m-cmt").value||"").trim(); if(!cmt){ toast("Bắt buộc nhập nhận xét khi duyệt.",true); return Promise.reject(); }
+    var sv=need?readSalary(ov,"m-sal-"):null; if(sv&&sv.err){ toast(sv.err,true); return Promise.reject(); }
+    return (sv?call("fill_salary",Object.assign({name:name},sv)):Promise.resolve()).then(function(){ return call("approve",{name:name,comment:cmt}); }).then(function(res){ var nx=nextLevelName(res&&res.detail); toast(nx?("Đã duyệt yêu cầu. Yêu cầu đã chuyển sang "+nx+"."):"Đã duyệt yêu cầu."); refreshDetail(); refreshApprovals(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
   function doReject(name){ modal("Từ chối yêu cầu", '<div class="banner err">Sau khi từ chối, yêu cầu sẽ kết thúc.</div><div class="fld"><label>Lý do <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>', {okLabel:"Từ chối", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập lý do.",true); return Promise.reject(); }
     return call("reject",{name:name,comment:c}).then(function(){ toast("Đã từ chối."); refreshDetail(); refreshApprovals(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
   function doRequestInfo(name){ modal("Yêu cầu bổ sung thông tin", '<div class="banner info">Yêu cầu sẽ được trả lại người gửi để bổ sung.</div><div class="fld"><label>Nội dung cần bổ sung <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>', {okLabel:"Gửi yêu cầu", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập nội dung.",true); return Promise.reject(); }
@@ -539,7 +585,7 @@
     call("get_bootstrap").then(function(bd){ state.boot=bd||{tabs:{},context:{},form_options:{}}; route(); loadCandidates(); })
     .catch(function(){ var bd=$("prom-body"); if(bd) bd.innerHTML='<div class="card"><div class="state"><h4>Không tải được trang</h4><button type="button" class="btn" id="b-retry">Thử lại</button></div></div>'; var r=$("b-retry"); if(r)r.onclick=boot; }); }
 
-  window.Promotion={ state:state, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, apply3Day:apply3Day };
+  window.Promotion={ state:state, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doFillSalary:doFillSalary, salaryVisible:salaryVisible, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, apply3Day:apply3Day };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
 </script>
