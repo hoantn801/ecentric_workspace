@@ -68,6 +68,14 @@ class GroupTest(unittest.TestCase):
         self.assertEqual([p["part"] for p in g["parts"]], [1, 2])
         self.assertTrue(g["new"])
         self.assertEqual(out[1]["kind"], "file")
+        self.assertEqual((g["day"], g["time"]), ("Hôm nay", "15:00"))
+
+    def test_day_label(self):
+        from ecentric_workspace.shared_tools import views as V
+        now = dt.datetime(2026, 11, 27, 9, 0)
+        self.assertEqual(V._day(dt.datetime(2026, 11, 26, 19, 5), now), {"day": "Hôm qua", "time": "19:05"})
+        self.assertEqual(V._day(dt.datetime(2026, 11, 24, 8, 1), now)["day"], "24/11")
+        self.assertEqual(V._day(None, now), {"day": "", "time": ""})
 
 
 if __name__ == "__main__":

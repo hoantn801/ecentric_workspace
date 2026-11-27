@@ -9,7 +9,7 @@
   var PREFIX = "ecentric_workspace.shared_tools.controllers.api.";
   var TOOL = "kalodata";
   var MSG_FAIL = "Không thực hiện được. Thử lại sau ít phút, nếu vẫn lỗi thì báo IT.";
-  var root, S = null, base = 0, pollT = null, tickT = null, loading = false, lastAt = 0, baseTitle = document.title;
+  var fqT, root, S = null, base = 0, pollT = null, tickT = null, loading = false, lastAt = 0, baseTitle = document.title;
 
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
@@ -67,91 +67,135 @@
   var ICON_OPEN = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>';
 
   // ------------------------------------------------------------------ ve
+  // Bo cuc A (PO duyet 27/11/2026, theo Approval Center): bang trang thai -> 2 khung (dang dung & hang doi |
+  // ban hay xuat) -> danh sach file (tim + loc + nhom theo ngay + chia trang) -> quy dinh | quan ly -> thong ke.
+  var IC = {
+    file: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>',
+    xls: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>',
+    chart: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>',
+    check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>',
+    search: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>'
+  };
+
   function render() {
     var me = S.me || {}, t = S.tool;
+    // Giu o tim kiem khi trang tu ve lai moi 10 s (dang go thi khong mat chu / mat con tro).
+    var fq = byId("st-fq"), focused = fq && document.activeElement === fq, caret = focused ? fq.selectionStart : 0;
     var html = '<div class="st-wrap"><header>' +
       '<div class="st-title-row"><h1 class="st-title">' + esc(t.title) + ' dùng chung</h1>' +
       '<span class="st-pill ' + (S.host.ok ? "st-pill--ok" : "st-pill--off") + '"><span class="st-dot" aria-hidden="true"></span>' + esc(S.host.label) + '</span></div>' +
       '<p class="st-sub">Một người dùng một lúc · mỗi lượt ' + t.lease + ' phút · đến lượt có ' + t.ready + ' phút để mở</p></header>' +
       (t.notice ? '<p class="st-notice">' + esc(t.notice) + '</p>' : "") +
-      '<div class="st-grid"><div class="st-col">' + hero(me) + filesCard() + '</div>' +
-      '<div class="st-col">' + (S.is_manager ? adminCard() : "") + queueCard(me) + (me.status === "Waiting" || !me.status ? holderCard() : "") + rulesCard() + '</div></div>' +
+      (S.is_manager && t.enabled === false ? '<p class="st-notice">' + esc(t.title) + ' đang tạm đóng với mọi người, chỉ quản lý vào được. Làm xong các bước trong khung Quản lý thì bấm Mở lại cho mọi người.</p>' : "") +
+      banner(me) +
+      '<div class="st-duo">' + peopleCard() + oftenCard() + '</div>' +
+      filesCard() +
+      '<div class="st-duo st-duo--end">' + rulesCard() + (S.is_manager ? adminCard() : "") + '</div>' +
       (S.is_manager && window.ECStStats ? window.ECStStats.card() : "") + '</div>';
-    // Thu tu tren dien thoai (cot don): luot cua toi -> hang doi -> nguoi dang dung -> file -> quy dinh.
     byId("st-root").innerHTML = html;
+    if (focused && (fq = byId("st-fq"))) { fq.focus(); try { fq.setSelectionRange(caret, caret); } catch (e) { /* bo qua */ } }
     paintTimers();
     showArmed();
     document.title = (me.status === "Ready" ? "(Đến lượt) " : "") + baseTitle;
   }
 
-  function hero(me) {
-    var t = S.tool;
-    if (me.status === "Active") {
-      var total = me.total_sec || t.lease * 60;
-      return '<section class="st-card st-card--hero st-o1" aria-labelledby="st-h-hero">' +
-        '<p class="st-eyebrow" id="st-h-hero">Bạn đang dùng ' + esc(t.title) + '</p>' +
-        '<div class="st-big-row"><span class="st-big" data-left="remaining_sec">' + mmss(left(me.remaining_sec)) + '</span><span class="st-big-label">còn lại trong lượt</span></div>' +
-        '<div class="st-bar" role="img" aria-label="Thời gian còn lại"><span data-bar="' + total + '"></span></div>' +
-        '<div class="st-bar-legend"><span>Bắt đầu ' + esc(me.started) + '</span><span>Kết thúc ' + esc(me.ends) + '</span></div>' +
-        '<div class="st-actions">' +
-        '<button class="st-btn st-btn--primary" type="button" data-act="open">' + ICON_OPEN + 'Mở lại ' + esc(t.title) + '</button>' +
-        '<button class="st-btn" type="button" data-act="extend"' + (me.extend_reason ? ' disabled aria-describedby="st-why"' : "") + '>Gia hạn ' + t.extend + ' phút</button>' +
-        '<button class="st-btn st-btn--danger" type="button" data-act="leave" data-confirm="Bấm lần nữa để kết thúc">Kết thúc sớm</button></div>' +
-        (me.extend_reason ? '<p class="st-why" id="st-why">' + esc(me.extend_reason) + '</p>' : "") +
-        '<p class="st-hint">Lỡ đóng tab ' + esc(t.title) + '? Bấm "Mở lại" để vào tiếp, lượt vẫn tính. Để yên ' + t.idle + ' phút, lượt tự kết thúc.</p></section>';
-    }
-    if (me.status === "Ready") {
-      return '<section class="st-card st-card--hero st-card--ready st-o1" aria-labelledby="st-h-hero">' +
-        '<p class="st-eyebrow" id="st-h-hero">Đến lượt bạn</p>' +
-        '<div class="st-big-row"><span class="st-big-label">Mở ' + esc(t.title) + ' trong</span><span class="st-big" data-left="ready_left_sec">' + mmss(left(me.ready_left_sec)) + '</span></div>' +
-        '<div class="st-bar" role="img" aria-label="Thời gian còn lại để mở"><span data-bar="' + (t.ready * 60) + '" data-src="ready_left_sec"></span></div>' +
-        '<div class="st-actions">' +
-        '<button class="st-btn st-btn--primary st-btn--big" type="button" data-act="open">' + ICON_OPEN + 'Mở ' + esc(t.title) + '</button>' +
-        '<button class="st-btn" type="button" data-act="leave" data-confirm="Bấm lần nữa để bỏ lượt">Bỏ lượt</button></div>' +
-        '<p class="st-hint">' + esc(t.title) + ' mở ở tab mới. Không mở kịp thì lượt chuyển cho người tiếp theo.</p></section>';
-    }
-    if (me.status === "Waiting") {
-      return '<section class="st-card st-card--hero st-o1" aria-labelledby="st-h-hero">' +
-        '<p class="st-eyebrow" id="st-h-hero">Bạn đang xếp hàng</p>' +
-        '<div class="st-big-row"><span class="st-big">Thứ ' + me.position + '</span><span class="st-big-label">trong hàng đợi</span></div>' +
-        '<p class="st-lead">Dự kiến đến lượt sau khoảng <b>' + me.eta_min + ' phút</b>.</p>' +
-        '<div class="st-actions"><button class="st-btn" type="button" data-act="leave" data-confirm="Bấm lần nữa để rời hàng">Rời hàng đợi</button></div>' +
-        '<p class="st-hint">Đến lượt, ERP báo trên chuông thông báo và trang này. Giữ tab này mở để không lỡ lượt.</p></section>';
-    }
-    var free = !S.holder;
-    return '<section class="st-card st-card--hero st-o1" aria-labelledby="st-h-hero">' +
-      '<p class="st-eyebrow" id="st-h-hero">' + (free ? esc(t.title) + " đang trống" : "Có người đang dùng") + '</p>' +
-      '<p class="st-lead">' + (free ? "Vào hàng là đến lượt bạn ngay." :
-        "Vào hàng đợi, đến lượt ERP sẽ báo. " + (S.queue.length > 1 ? "Đang có " + (S.queue.length - 1) + " người chờ." : "Chưa ai chờ.")) + '</p>' +
-      '<div class="st-actions"><button class="st-btn st-btn--primary st-btn--big" type="button" data-act="join">Vào hàng đợi</button></div></section>';
+  function btn(act, label, cls, confirm, extra) {
+    return '<button class="st-btn' + (cls ? " " + cls : "") + '" type="button" data-act="' + act + '"' +
+      (confirm ? ' data-confirm="' + esc(confirm) + '"' : "") + (extra || "") + '>' + label + '</button>';
   }
 
-  function queueCard(me) {
-    var rows = S.queue.map(function (q) {
-      var pos = q.status === "Waiting" ? String(q.pos)
-        : '<span class="st-pill ' + (q.status === "Ready" ? "st-pill--warn" : "st-pill--navy") + '">' + esc(q.status_label) + '</span>';
+  // Bang trang thai: mau + so tron + 1 dong chinh + 1 dong phu + nut, doi theo luot cua nguoi xem.
+  function banner(me) {
+    var t = S.tool, h = S.holder, waiting = S.queue.filter(function (q) { return q.status === "Waiting"; }).length;
+    var tone, dot, title, sub, bar = "", acts = "";
+    if (me.status === "Active") {
+      var total = me.total_sec || t.lease * 60, late = me.remaining_sec < 600;
+      tone = late ? "warn" : "pri";
+      dot = '<span data-left-min="remaining_sec"></span>';
+      title = 'Bạn đang dùng · còn <span class="st-num" data-left="remaining_sec"></span>';
+      sub = esc(me.started) + ' → ' + esc(me.ends) + ' · ' +
+        (late && !me.extend_reason ? "Không ai chờ, gia hạn thêm " + t.extend + " phút được." :
+         "Lỡ đóng tab thì bấm Mở lại, lượt vẫn tính. Để yên " + t.idle + " phút, lượt tự kết thúc.");
+      bar = '<div class="st-bar"><span data-bar="' + total + '"></span></div>';
+      acts = btn("leave", "Kết thúc lượt", "st-btn--danger", "Bấm lần nữa để kết thúc") +
+        (me.extend_reason ? "" : btn("extend", "Gia hạn " + t.extend + " phút")) +
+        btn("open", ICON_OPEN + "Mở lại " + esc(t.title), "st-btn--primary");
+    } else if (me.status === "Ready") {
+      tone = "ok";
+      dot = '<span data-left="ready_left_sec"></span>';
+      title = 'Đến lượt bạn · bấm Mở trong <span class="st-num" data-left="ready_left_sec"></span>';
+      sub = "Hết " + t.ready + " phút không mở, lượt chuyển cho người sau. " + esc(t.title) + " mở ở tab mới.";
+      bar = '<div class="st-bar"><span data-bar="' + (t.ready * 60) + '" data-src="ready_left_sec"></span></div>';
+      acts = btn("leave", "Bỏ lượt", "", "Bấm lần nữa để bỏ lượt") + btn("open", ICON_OPEN + "Mở " + esc(t.title), "st-btn--primary st-btn--big");
+    } else if (me.status === "Waiting") {
+      tone = "warn";
+      dot = "#" + me.position;
+      title = "Bạn đứng thứ " + me.position + " trong hàng";
+      sub = "Dự kiến đến lượt sau khoảng " + me.eta_min + " phút. Đến lượt, ERP báo trên chuông thông báo và trang này.";
+      acts = btn("leave", "Rời hàng", "", "Bấm lần nữa để rời hàng");
+    } else if (h) {
+      tone = "pri";
+      dot = h.status === "Active" ? h.remaining_min + "′" : "…";
+      title = esc(h.name) + (h.status === "Active" ? " đang dùng · còn " + h.remaining_min + " phút" : " vừa đến lượt, đang mở");
+      sub = "Vào hàng đợi, đến lượt ERP sẽ báo. " + (waiting ? "Đang có " + waiting + " người chờ." : "Chưa ai chờ.");
+      acts = btn("join", "Vào hàng đợi", "st-btn--primary st-btn--big");
+    } else {
+      tone = "ok";
+      dot = IC.check;
+      title = esc(t.title) + " đang trống";
+      sub = "Vào hàng là đến lượt bạn ngay, có " + t.ready + " phút để bấm Mở.";
+      acts = btn("join", "Vào hàng đợi", "st-btn--primary st-btn--big");
+    }
+    if (!S.host.ok) {
+      tone = "bad";
+      dot = "!";
+      title = "Máy " + esc(t.title) + " đang offline";
+      sub = "Tạm thời chưa mở được " + esc(t.title) + ". Chỗ của bạn trong hàng vẫn giữ. Kéo dài quá 15 phút thì báo IT.";
+      bar = "";
+      acts = me.status ? btn("leave", me.status === "Waiting" ? "Rời hàng" : "Kết thúc lượt", "", "Bấm lần nữa để xác nhận") : "";
+    }
+    return '<section class="st-banner st-banner--' + tone + '" aria-labelledby="st-h-banner">' +
+      '<span class="st-bn-dot st-num" aria-hidden="true">' + dot + '</span>' +
+      '<div class="st-bn-txt"><h2 class="st-bn-t" id="st-h-banner">' + title + '</h2><p class="st-bn-s">' + sub + '</p>' + bar + '</div>' +
+      (acts ? '<div class="st-bn-acts">' + acts + '</div>' : "") + '</section>';
+  }
+
+  function peopleCard() {
+    var waiting = S.queue.filter(function (q) { return q.status === "Waiting"; }).length;
+    var cards = S.queue.map(function (q) {
+      var tag = q.status === "Waiting" ? '<span class="st-tag st-tag--warn">Chờ #' + q.pos + ' · ' + esc(q.meta) + '</span>'
+        : '<span class="st-tag ' + (q.status === "Ready" ? "st-tag--ok" : "st-tag--pri") + '">' + esc(q.status_label) + ' · ' + esc(q.meta) + '</span>';
       var x = S.is_manager && !q.is_me
         ? '<button class="st-q-x" type="button" data-act="force" data-entry="' + esc(q.entry) + '" data-confirm="Chắc chưa?" aria-label="Kết thúc lượt của ' + esc(q.name) + '">Kết thúc</button>' : "";
-      return '<li class="st-q' + (q.is_me ? " st-q--me" : "") + '"><span class="st-q-pos">' + pos + '</span>' +
-        '<span class="st-avatar" aria-hidden="true">' + esc(q.initials) + '</span>' +
-        '<span class="st-q-who"><b>' + esc(q.name) + (q.is_me ? " (bạn)" : "") + '</b><span>' + esc(q.department || " ") + '</span></span>' +
-        '<span class="st-q-meta">' + esc(q.meta) + '</span>' + x + '</li>';
+      return '<li class="st-person' + (q.is_me ? " st-person--me" : "") + '"><span class="st-avatar" aria-hidden="true">' + esc(q.initials) + '</span>' +
+        '<b class="st-person-n" title="' + esc(q.name) + '">' + esc(q.name) + (q.is_me ? " (bạn)" : "") + '</b>' +
+        '<span class="st-person-d">' + esc(q.department || " ") + '</span>' + tag + x + '</li>';
     }).join("");
-    var waiting = S.queue.filter(function (q) { return q.status === "Waiting"; }).length;
-    var head = me.status && me.status !== "Waiting" ? (me.waiting_after ? me.waiting_after + " người chờ sau bạn" : "chưa ai chờ")
-      : waiting + " người đang chờ";
-    return '<section class="st-card st-o2" aria-labelledby="st-h-queue"><div class="st-card-head"><h2 class="st-h2" id="st-h-queue">Hàng đợi</h2><span class="st-muted">' + esc(head) + '</span></div>' +
-      (rows ? '<ol class="st-queue">' + rows + '</ol>' : '<p class="st-empty">Chưa có ai trong hàng.</p>') + '</section>';
+    return '<section class="st-panel" aria-labelledby="st-h-queue"><div class="st-ph"><h2 class="st-h2" id="st-h-queue">Đang dùng &amp; hàng đợi</h2>' +
+      '<span class="st-muted">' + waiting + ' người chờ</span></div>' +
+      (cards ? '<ol class="st-people">' + cards + '</ol>' : '<p class="st-empty st-empty--box">Chưa ai dùng, chưa ai chờ.</p>') + '</section>';
   }
 
-  function holderCard() {
-    var h = S.holder, t = S.tool;
-    var body = !h ? '<p class="st-empty">Không ai đang dùng.</p>'
-      : '<dl class="st-kv"><dt>Người dùng</dt><dd>' + esc(h.name) + (h.department ? " · " + esc(h.department) : "") + '</dd>' +
-        (h.status === "Active" ? '<dt>Từ</dt><dd>' + esc(h.since) + '</dd><dt>Còn lại</dt><dd>' + h.remaining_min + ' phút</dd>'
-          : '<dt>Trạng thái</dt><dd>Vừa đến lượt, đang mở</dd>') + '</dl>';
-    return '<section class="st-card st-o3" aria-labelledby="st-h-holder"><h2 class="st-h2" id="st-h-holder" style="margin-bottom:12px">Đang dùng ' + esc(t.title) + '</h2>' + body + '</section>';
+  // "Ban hay xuat": gom file 7 ngay cua chinh nguoi xem theo trang Kalodata, 3 trang nhieu dong nhat.
+  function oftenCard() {
+    var by = {};
+    (S.exports || []).forEach(function (f) {
+      var k = f.page || "Kalodata";
+      by[k] = by[k] || { name: k, rows: 0, n: 0 };
+      by[k].rows += +f.rows || 0;
+      by[k].n += 1;
+    });
+    var top = Object.keys(by).map(function (k) { return by[k]; }).sort(function (a, b) { return b.rows - a.rows || b.n - a.n; }).slice(0, 3);
+    var max = top.length ? Math.max(top[0].rows, 1) : 1;
+    var rows = top.map(function (x) {
+      return '<li><span class="st-ic">' + IC.chart + '</span><span class="st-often-n" title="' + esc(x.name) + '">' + esc(x.name) + '</span>' +
+        '<span class="st-often-bar" aria-hidden="true"><i style="width:' + Math.max(4, Math.round(x.rows / max * 100)) + '%"></i></span>' +
+        '<span class="st-often-c st-num">' + fmtN(x.rows) + ' dòng · ' + x.n + ' lần</span></li>';
+    }).join("");
+    return '<section class="st-panel" aria-labelledby="st-h-often"><div class="st-ph"><h2 class="st-h2" id="st-h-often">Bạn hay xuất</h2><span class="st-muted">7 ngày qua</span></div>' +
+      (rows ? '<ul class="st-often">' + rows + '</ul>' : '<p class="st-empty st-empty--box">Chưa xuất file nào. Trong ' + esc(S.tool.title) + ', bấm nút Xuất bảng ở góc phải bảng.</p>') + '</section>';
   }
+  function fmtN(n) { return Number(n || 0).toLocaleString("vi-VN"); }
 
   // Chi quan ly (System Manager / EC Shared Tool Manager) thay. Server tu kiem quyen moi lenh.
   function adminCard() {
@@ -159,77 +203,108 @@
     var steps = on ? "" : '<ol class="st-rules st-admin-steps">' +
       '<li>Bấm <b>Vào hàng đợi</b> → <b>Mở ' + esc(t.title) + '</b> (chỉ quản lý vào được lúc này).</li>' +
       '<li>Trong ' + esc(t.title) + ', đăng nhập tài khoản mới bằng <b>số điện thoại hoặc email + mật khẩu</b>. Không dùng Google / TikTok (bị chặn trên máy dùng chung).</li>' +
-      '<li>Bấm <b>Kết thúc sớm</b>, rồi <b>Mở lại cho mọi người</b>.</li></ol>';
-    return '<section class="st-card st-o1 st-admin" aria-labelledby="st-h-admin"><div class="st-card-head"><h2 class="st-h2" id="st-h-admin">Quản lý</h2>' +
+      '<li>Bấm <b>Kết thúc lượt</b>, rồi <b>Mở lại cho mọi người</b>.</li></ol>';
+    return '<section class="st-panel st-admin" aria-labelledby="st-h-admin"><div class="st-ph"><h2 class="st-h2" id="st-h-admin">Quản lý</h2>' +
       '<span class="st-pill ' + (on ? "st-pill--ok" : "st-pill--warn") + '">' + (on ? "Đang mở cho mọi người" : "Đang tạm đóng") + '</span></div>' +
       steps + '<div class="st-actions st-admin-actions">' +
-      (on ? '<button class="st-btn st-btn--sm" type="button" data-act="admin-reset" data-confirm="Bấm lần nữa để đổi tài khoản">Đổi tài khoản ' + esc(t.title) + '</button>' +
-            '<button class="st-btn st-btn--sm" type="button" data-act="admin-close" data-confirm="Bấm lần nữa để tạm đóng">Tạm đóng</button>'
-          : '<button class="st-btn st-btn--sm st-btn--primary" type="button" data-act="admin-open">Mở lại cho mọi người</button>' +
-            '<button class="st-btn st-btn--sm" type="button" data-act="admin-reset" data-confirm="Bấm lần nữa để xoá lại">Xoá đăng nhập lại</button>') +
+      (on ? btn("admin-reset", "Đổi tài khoản " + esc(t.title), "st-btn--sm", "Bấm lần nữa để đổi tài khoản") +
+            btn("admin-close", "Tạm đóng", "st-btn--sm", "Bấm lần nữa để tạm đóng")
+          : btn("admin-open", "Mở lại cho mọi người", "st-btn--sm st-btn--primary") +
+            btn("admin-reset", "Xoá đăng nhập lại", "st-btn--sm", "Bấm lần nữa để xoá lại")) +
       '</div><p class="st-hint">Mật khẩu ' + esc(t.title) + ' chỉ gõ trong trang ' + esc(t.title) + '. ERP không lưu và không thấy mật khẩu.</p></section>';
   }
 
   function rulesCard() {
     var t = S.tool;
-    return '<section class="st-card st-o5" aria-labelledby="st-h-rules"><h2 class="st-h2" id="st-h-rules" style="margin-bottom:12px">Quy định</h2><ul class="st-rules">' +
+    return '<section class="st-panel" aria-labelledby="st-h-rules"><div class="st-ph"><h2 class="st-h2" id="st-h-rules">Quy định</h2></div><ul class="st-rules">' +
       '<li>Mỗi lượt ' + t.lease + ' phút. Không ai chờ thì gia hạn thêm ' + t.extend + ' phút.</li>' +
       '<li>Để yên ' + t.idle + ' phút, lượt tự kết thúc.</li>' +
       '<li>Xuất bảng tối đa 2500 trang mỗi lần (trên 50 trang, file về theo từng phần 50 trang), 30 lần mỗi giờ.</li>' +
       '<li>Không đăng xuất, không đổi mật khẩu tài khoản ' + esc(t.title) + '.</li></ul></section>';
   }
 
-  // Mot lan xuat nhieu trang (nhieu phan): nut Tai Excel gop + danh sach tung phan CSV (an trong <details>).
-  function runItem(f) {
-    var href = "/api/method/" + PREFIX + "download_run?run=" + encodeURIComponent(f.run);
-    var meta = [f.source, f.rows + " dòng", f.parts.length + " phần", f.at].filter(Boolean).join(" · ");
-    var parts = f.parts.map(function (p) {
-      return '<a href="/api/method/' + PREFIX + 'download?name=' + encodeURIComponent(p.name) + '" data-act="dl" download>Phần ' +
-        p.part + (p.rows == null ? "" : " (" + p.rows + " dòng)") + '</a>';
-    }).join("");
-    return '<li class="st-file st-file--run"><div class="st-file-main"><div class="st-file-name">' +
-      '<span class="st-file-title" title="' + esc(f.page) + '">' + esc(f.page || "Kalodata") + '</span>' +
-      (f["new"] ? '<span class="st-new">Mới</span>' : "") + '</div><div class="st-file-meta">' + esc(meta) + '</div>' +
-      '<details class="st-parts"><summary>Tải từng phần (CSV)</summary><div class="st-parts-list">' + parts + '</div></details></div>' +
-      '<a class="st-btn st-btn--sm st-btn--primary" href="' + href + '" data-act="dl" download aria-label="Tải Excel gộp ' + esc(f.page) + '">Tải Excel</a></li>';
+  // ---------------------------------------------------------------- danh sach file
+  // Tim + loc (Tat ca / Chua tai / Hom nay / theo nguon) chay o trinh duyet tren S.exports (toi da 120 dong).
+  // Moi trang 5 file, nhom theo ngay; trang / bo loc / chu dang tim giu qua cac lan tu ve lai.
+  var FILES_PER_PAGE = 5, filePage = 1, fileFilter = "all", fileQuery = "";
+  function filterFiles(all) {
+    var q = fileQuery.trim().toLowerCase();
+    return all.filter(function (f) {
+      if (fileFilter === "new" && !f["new"]) return false;
+      if (fileFilter === "today" && f.day !== "Hôm nay") return false;
+      if (fileFilter.indexOf("src:") === 0 && f.source !== fileFilter.slice(4)) return false;
+      return !q || String(f.page || f.file_name || "").toLowerCase().indexOf(q) >= 0;
+    });
   }
-
-  // Danh sach file chia trang (5 dong / trang); trang dang xem giu qua cac lan tu ve lai.
-  var FILES_PER_PAGE = 5, filePage = 1;
+  function chips(all) {
+    var list = [["all", "Tất cả", all.length],
+      ["new", "Chưa tải", all.filter(function (f) { return f["new"]; }).length],
+      ["today", "Hôm nay", all.filter(function (f) { return f.day === "Hôm nay"; }).length]];
+    var srcs = {};
+    all.forEach(function (f) { if (f.source) srcs[f.source] = (srcs[f.source] || 0) + 1; });
+    if (Object.keys(srcs).length > 1) Object.keys(srcs).forEach(function (s) { list.push(["src:" + s, s, srcs[s]]); });
+    return list.map(function (c) {
+      return '<button type="button" class="st-chip" data-act="ffilter" data-f="' + esc(c[0]) + '" aria-pressed="' + (fileFilter === c[0]) + '">' +
+        esc(c[1]) + ' <i class="st-num">' + c[2] + '</i></button>';
+    }).join("");
+  }
   function pager(total) {
     var n = Math.ceil(total / FILES_PER_PAGE);
     if (n <= 1) return "";
-    var btn = function (p, label, cur, dis, aria) {
+    var b = function (p, label, cur, dis, aria) {
       return '<button type="button" class="st-pg' + (cur ? " on" : "") + '" data-act="fpage" data-page="' + p + '"' +
         (dis ? " disabled" : "") + (cur ? ' aria-current="page"' : "") + ' aria-label="' + aria + '">' + label + '</button>';
     };
-    var out = [btn(filePage - 1, "‹", false, filePage === 1, "Trang trước")];
+    var out = [b(filePage - 1, "‹", false, filePage === 1, "Trang trước")];
     for (var p = 1; p <= n; p++) {
       if (n > 7 && p > 2 && p < n - 1 && Math.abs(p - filePage) > 1) { if (out[out.length - 1] !== "…") out.push("…"); continue; }
-      out.push(btn(p, p, p === filePage, false, "Trang " + p));
+      out.push(b(p, p, p === filePage, false, "Trang " + p));
     }
-    out.push(btn(filePage + 1, "›", false, filePage === n, "Trang sau"));
-    return '<nav class="st-pager" aria-label="Trang danh sách file">' + out.map(function (x) { return x === "…" ? '<span class="st-pg-gap">…</span>' : x; }).join("") +
-      '<span class="st-pg-info">' + total + ' file</span></nav>';
+    out.push(b(filePage + 1, "›", false, filePage === n, "Trang sau"));
+    return '<nav class="st-pager" aria-label="Trang danh sách file">' + out.map(function (x) { return x === "…" ? '<span class="st-pg-gap">…</span>' : x; }).join("") + '</nav>';
   }
-
+  function fileRow(f) {
+    var name = f.page || f.file_name || esc(S.tool.title);
+    var run = f.kind === "run";
+    var href = "/api/method/" + PREFIX + (run ? "download_run?run=" + encodeURIComponent(f.run) : "download?name=" + encodeURIComponent(f.name));
+    var meta = [f.source, f.rows == null ? "" : fmtN(f.rows) + " dòng", f.pages ? f.pages + " trang" : "", run ? f.parts.length + " phần" : ""].filter(Boolean).join(" · ");
+    var parts = run ? '<details class="st-parts"><summary>Tải từng phần (CSV)</summary><div class="st-parts-list">' + f.parts.map(function (p) {
+      return '<a href="/api/method/' + PREFIX + 'download?name=' + encodeURIComponent(p.name) + '" data-act="dl" download>Phần ' +
+        p.part + (p.rows == null ? "" : " (" + p.rows + " dòng)") + '</a>';
+    }).join("") + '</div></details>' : "";
+    return '<li class="st-file' + (f["new"] ? " st-file--new" : "") + '"><span class="st-ic">' + (run ? IC.xls : IC.file) + '</span>' +
+      '<div class="st-file-main"><div class="st-file-name"><span class="st-file-title" title="' + esc(name) + '">' + esc(name) + '</span>' +
+      (f["new"] ? '<span class="st-new">Mới</span>' : "") + '</div><div class="st-file-meta">' + esc(meta) + '</div>' + parts + '</div>' +
+      '<span class="st-file-time st-num">' + esc(f.time || f.at) + '</span>' +
+      '<a class="st-btn st-btn--sm' + (run ? " st-btn--primary" : "") + '" href="' + href + '" data-act="dl" download aria-label="Tải ' + esc(name) + '">' +
+      (run ? "Tải Excel" : "Tải file") + '</a></li>';
+  }
   function filesCard() {
-    // Moi file mot dong gon: ten trang (cat bot neu dai) + dong phu "nguon · so dong · luc", nut Tai luon thay.
-    var all = S.exports || [];
-    var pages = Math.max(1, Math.ceil(all.length / FILES_PER_PAGE));
+    var all = S.exports || [], list = filterFiles(all);
+    var pages = Math.max(1, Math.ceil(list.length / FILES_PER_PAGE));
     if (filePage > pages) filePage = pages;
-    var rows = all.slice((filePage - 1) * FILES_PER_PAGE, filePage * FILES_PER_PAGE).map(function (f) {
-      if (f.kind === "run") return runItem(f);
-      var href = "/api/method/" + PREFIX + "download?name=" + encodeURIComponent(f.name);
-      var meta = [f.source, f.rows == null ? "" : f.rows + " dòng", f.at].filter(Boolean).join(" · ");
-      return '<li class="st-file"><div class="st-file-main"><div class="st-file-name">' +
-        '<span class="st-file-title" title="' + esc(f.page || f.file_name) + '">' + esc(f.page || f.file_name) + '</span>' +
-        (f["new"] ? '<span class="st-new">Mới</span>' : "") + '</div><div class="st-file-meta">' + esc(meta) + '</div></div>' +
-        '<a class="st-btn st-btn--sm" href="' + href + '" data-act="dl" download aria-label="Tải file ' + esc(f.page || f.file_name) + '">Tải file</a></li>';
-    }).join("");
-    return '<section class="st-card st-o4" aria-labelledby="st-h-files"><div class="st-card-head"><h2 class="st-h2" id="st-h-files">File đã xuất của tôi</h2><span class="st-muted">giữ 7 ngày</span></div>' +
-      (rows ? '<ul class="st-files">' + rows + '</ul>' + pager(all.length) : '<p class="st-empty">Chưa có file nào.</p>') +
-      '<p class="st-files-note">File xuất trong ' + esc(S.tool.title) + ' (nút Xuất bảng hoặc nút Export của ' + esc(S.tool.title) + ') hiện ở đây sau vài giây.</p></section>';
+    var counts = {};
+    list.forEach(function (f) { counts[f.day] = (counts[f.day] || 0) + 1; });
+    var day = null, body = "";
+    list.slice((filePage - 1) * FILES_PER_PAGE, filePage * FILES_PER_PAGE).forEach(function (f) {
+      if (f.day !== day) {
+        if (day !== null) body += '</ul>';
+        day = f.day;
+        body += '<div class="st-glabel">' + esc(day || "Cũ hơn") + ' · ' + (counts[day] || 0) + '</div><ul class="st-files">';
+      }
+      body += fileRow(f);
+    });
+    if (day !== null) body += '</ul>';
+    var tools = all.length ? '<div class="st-ftools"><label class="st-search" for="st-fq">' + IC.search +
+      '<input id="st-fq" type="search" placeholder="Tìm file theo tên trang…" value="' + esc(fileQuery) + '" autocomplete="off" aria-label="Tìm file"></label>' +
+      '<div class="st-chips" role="group" aria-label="Lọc file">' + chips(all) + '</div></div>' : "";
+    var empty = !all.length ? '<p class="st-empty st-empty--pad">Chưa có file nào.</p>'
+      : !list.length ? '<p class="st-empty st-empty--pad">Không có file khớp bộ lọc.</p>' : "";
+    var from = list.length ? (filePage - 1) * FILES_PER_PAGE + 1 : 0, to = Math.min(filePage * FILES_PER_PAGE, list.length);
+    return '<section class="st-panel st-panel--list" aria-labelledby="st-h-files"><div class="st-ph"><h2 class="st-h2" id="st-h-files">File đã xuất của tôi</h2>' +
+      '<span class="st-muted">' + all.length + ' file · giữ 7 ngày</span></div>' + tools + body + empty +
+      '<div class="st-lfoot"><span class="st-muted">' + (list.length ? from + "–" + to + " / " + list.length + " · " : "") +
+      'Bấm Xuất bảng hoặc Export trong ' + esc(S.tool.title) + ', file hiện ở đây sau vài giây.</span>' + pager(list.length) + '</div></section>';
   }
 
   // ------------------------------------------------------------------ dem nguoc
@@ -241,6 +316,9 @@
       var v = left(me[el.getAttribute("data-left")] || 0);
       el.textContent = mmss(v);
       if (v === 0) hit0 = true;
+    });
+    Array.prototype.forEach.call(root.querySelectorAll("[data-left-min]"), function (el) {
+      el.textContent = Math.ceil(left(me[el.getAttribute("data-left-min")] || 0) / 60) + "′";
     });
     Array.prototype.forEach.call(root.querySelectorAll("[data-bar]"), function (el) {
       var total = +el.getAttribute("data-bar") || 1;
@@ -308,6 +386,7 @@
     var a = btn.getAttribute("data-act");
     if (a === "open") return openTool(btn);
     if (a === "fpage") { filePage = Math.max(1, +btn.getAttribute("data-page") || 1); render(); return; }
+    if (a === "ffilter") { fileFilter = btn.getAttribute("data-f") || "all"; filePage = 1; render(); return; }
     if (a === "stats") { if (window.ECStStats) window.ECStStats.load(+btn.getAttribute("data-days") || 30); return; }
     if (!armed(btn)) return;
     var map = { join: ["join", "Đã vào hàng đợi."], leave: ["leave", "Đã cập nhật lượt của bạn."],
@@ -361,6 +440,13 @@
       if (btn.getAttribute("data-act") === "dl") { setTimeout(refresh, 1500); return; }
       ev.preventDefault();
       act(btn);
+    });
+    root.addEventListener("input", function (ev) {
+      if (ev.target.id !== "st-fq") return;
+      fileQuery = ev.target.value;
+      filePage = 1;
+      clearTimeout(fqT);
+      fqT = setTimeout(render, 200);
     });
     document.addEventListener("visibilitychange", function () { if (!document.hidden && S) refresh(); });
     tickT = setInterval(paintTimers, 1000);
