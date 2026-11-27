@@ -26,7 +26,8 @@
     split = root.querySelector(".ts-split");
     var chips = [["", "Tất cả"]].concat(T.STATUS_ORDER.map(function (s) { return [s, T.statusLabel(s)]; }));
     root.querySelector("[data-chips]").innerHTML = chips.map(function (c) {
-      return '<button type="button" class="ts-chip' + (c[0] === st.status ? " on" : "") + '" data-s="' + esc(c[0]) + '">' + (c[0] ? T.dot(c[0]) : "") + esc(c[1]) + "</button>";
+      return '<button type="button" class="ts-chip' + (c[0] === st.status ? " on" : "") + '" data-s="' + esc(c[0]) + '">' + (c[0] ? T.dot(c[0]) : "") + esc(c[1]) +
+        '<span class="ts-cnt" data-cnt="' + esc(c[0]) + '"></span></button>';
     }).join("");
     root.querySelector("[data-chips]").addEventListener("click", function (e) {
       var b = e.target.closest(".ts-chip"); if (!b) return;
@@ -80,6 +81,12 @@
         fillSelect(root.querySelector('[data-f="department"]'), d.departments, st.department, "Tất cả phòng ban");
       }
       root.querySelector("[data-total]").textContent = T.fmtNum(d.total) + " thiết bị khớp bộ lọc";
+      var sc = d.status_counts || {};
+      T.qsa(root, "[data-cnt]").forEach(function (x) {
+        var k = x.getAttribute("data-cnt"), n = k ? (sc[k] || 0) : d.all_count;
+        x.textContent = n == null ? "" : T.fmtNum(n);
+        x.parentNode.classList.toggle("ts-chip-zero", !!k && !n && k !== st.status);
+      });
       drawList(d);
     }, function (e) {
       if (T.toMineIfDenied(e)) return;

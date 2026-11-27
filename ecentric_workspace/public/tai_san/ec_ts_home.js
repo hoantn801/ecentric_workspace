@@ -24,27 +24,27 @@
     }).join("");
   }
 
+  var KPI_ICON = { "In Use": "user", "Available": "box", "Reserved": "bookmark", "Pending Check": "clock", "Broken": "wrench" };
   function kpi(label, value, sub, status) {
-    return '<a class="ts-kpi" href="' + LIST + (status ? "?status=" + encodeURIComponent(status) : "") + '">' +
-      '<div class="ts-kpi-l">' + (status ? T.dot(status) : "") + esc(label) + '</div><div class="ts-kpi-v">' + T.fmtNum(value) + "</div>" +
-      (sub ? '<div class="ts-kpi-s">' + esc(sub) + "</div>" : "") + "</a>";
+    return T.kpiCard({ href: LIST + (status ? "?status=" + encodeURIComponent(status) : ""), icon: KPI_ICON[status] || "laptop",
+      color: T.statusColor(status), label: label, value: T.fmtNum(value), raw: value || 0, sub: sub ? esc(sub) : "" });
   }
 
   function finance(d) {
     var f = d.finance;
     if (!f) return "";
     var mc = f.month_cost || {};
-    function card(l, v, sub, pct) {
-      return '<div class="ts-card"><div class="ts-kpi-l">' + esc(l) + '</div><div class="ts-fin-v">' + T.fmtMillion(v) + "</div>" +
-        (sub ? '<div class="ts-kpi-s">' + sub + "</div>" : "") + (pct != null ? '<div class="ts-bar"><span style="width:' + Math.max(0, Math.min(100, pct)) + '%"></span></div>' : "") + "</div>";
+    function card(l, v, sub, pct, ic) {
+      return T.kpiCard({ icon: ic || "coins", label: l, value: T.fmtMillion(v), sub: sub,
+        extra: pct != null ? '<div class="ts-bar"><span style="width:' + Math.max(0, Math.min(100, pct)) + '%"></span></div>' : "" });
     }
     var g = Number(f.gross || 0);
     return '<div class="ts-grid ts-g4">' +
-      card("Nguyên giá", f.gross, "Toàn bộ thiết bị đang quản lý") +
-      card("Khấu hao luỹ kế", f.accumulated, g ? Math.round(Number(f.accumulated || 0) * 100 / g) + "% nguyên giá" : "", g ? Number(f.accumulated || 0) * 100 / g : null) +
-      card("Giá trị còn lại", f.nbv, "Đến " + esc(T.fmtMonth(f.month || d.month))) +
+      card("Nguyên giá", f.gross, "Toàn bộ thiết bị đang quản lý", null, "coins") +
+      card("Khấu hao luỹ kế", f.accumulated, g ? Math.round(Number(f.accumulated || 0) * 100 / g) + "% nguyên giá" : "", g ? Number(f.accumulated || 0) * 100 / g : null, "trend") +
+      card("Giá trị còn lại", f.nbv, "Đến " + esc(T.fmtMonth(f.month || d.month)), null, "box") +
       card("Chi phí " + T.fmtMonth(f.month || d.month), mc.total,
-        "Khấu hao " + T.fmtMillion(mc.depreciation) + " · Sửa " + T.fmtMillion(mc.repair) + " · Thuê " + T.fmtMillion(mc.rent)) +
+        "Khấu hao " + T.fmtMillion(mc.depreciation) + " · Sửa " + T.fmtMillion(mc.repair) + " · Thuê " + T.fmtMillion(mc.rent), null, "clock") +
       "</div>";
   }
 
@@ -93,7 +93,7 @@
     var max = 0;
     rows.forEach(function (r) { max = Math.max(max, Number(r.count || 0)); });
     return '<div class="ts-card"><div class="ts-card-h"><div class="ts-card-t">Thiết bị theo phòng ban</div></div>' +
-      (rows.length ? rows.map(function (r) {
+      (rows.length ? '<div class="ts-dgrid">' + rows.map(function (r) {
         // Ten phong ban DAY DU (khong cat "E-commerce ..."): dong ten + so, thanh do, ghi chu gop mot dong.
         var notes = [];
         if (r.in_use != null && r.in_use !== r.count) notes.push(T.fmtNum(r.in_use) + " đang dùng");
@@ -101,7 +101,7 @@
         return '<div class="ts-drow"><div class="ts-drow-h"><span class="ts-strong">' + esc(r.department || "—") + '</span><span class="ts-num ts-strong">' + T.fmtNum(r.count) + "</span></div>" +
           '<div class="ts-bar" style="margin:4px 0 0"><span style="width:' + (max ? r.count * 100 / max : 0) + '%"></span></div>' +
           (notes.length ? '<div class="ts-note">' + esc(notes.join(" · ")) + "</div>" : "") + "</div>";
-      }).join("") : '<div class="ts-empty">Chưa có thiết bị.</div>') + "</div>";
+      }).join("") + "</div>" : '<div class="ts-empty">Chưa có thiết bị.</div>') + "</div>";
   }
 
   function age(d) {
@@ -189,7 +189,8 @@
       kpi("Chờ kiểm tra", k.pending_check, "", "Pending Check") + kpi("Hỏng / đang sửa", k.broken_or_repair, (k.lost ? "Mất " + k.lost : ""), "Broken") + "</div>" +
       (can.see_cost ? finance(d) + '<div class="ts-note">Khấu hao quản trị — chưa ghi sổ kế toán.</div>' + cost12(d) : "") +
       todo(d) + licenses(d) +
-      '<div class="ts-grid ts-g2">' + byCategory(d) + '<div class="ts-grid">' + byDepartment(d) + age(d) + "</div></div>" +
+      // Loai + tuoi canh nhau (hai khoi ngan), phong ban (dai) trai ngang ben duoi chia 2 cot - khong khoi nao keo dai trong.
+      '<div class="ts-grid ts-g2">' + byCategory(d) + age(d) + "</div>" + byDepartment(d) +
       "</div>";
     T.qsa(root, "[data-f]").forEach(function (el) {
       el.addEventListener("change", function () {

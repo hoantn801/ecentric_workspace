@@ -103,6 +103,7 @@ class TestProducts(LicenseCase):
         self.assertEqual(len(v["rows"]), 2)
         g = v["groups"]
         self.assertEqual((len(g), g[0]["licenses"], g[0]["label"]), (1, 2, "Adobe CC"))
+        self.assertEqual((v["summary"]["perpetual"], v["summary"]["cancelled"]), (0, 0))   # so tren chip
         p = self.LV.products_view(MGR)
         self.assertEqual({r["name"]: r["licenses"] for r in p["rows"]}, {"PM1": 0, "PM2": 2})
 
