@@ -183,3 +183,6 @@ body .main-section, body main.container, body main.fluid, body .page_content, bo
 @media (max-width:1024px) { #ec-st .st-kpis { grid-template-columns:repeat(3, minmax(0,1fr)); } #ec-st .st-charts { grid-template-columns:minmax(0,1fr); } }
 @media (max-width:640px) { #ec-st .st-kpis { grid-template-columns:repeat(2, minmax(0,1fr)); } #ec-st .st-stats .st-card-head { flex-wrap:wrap; } }
 #ec-st #st-root a.st-btn--primary, #ec-st #st-root a.st-btn--primary:hover { color:#fff; }
+/* Ghi chu cuoi khung file: tach khoi thanh chia trang, canh thang hang voi noi dung. */
+#ec-st .st-files + .st-files-note, #ec-st .st-pager + .st-files-note { margin-top:14px; padding-top:12px; border-top:1px solid var(--g100); }
+#ec-st .st-pager { padding-top:4px; }
